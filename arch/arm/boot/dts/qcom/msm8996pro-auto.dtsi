@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -216,6 +216,10 @@
 };
 
 &clock_cpu {
+	compatible = "qcom,cpu-clock-8996-auto";
+	qcom,pwrcl-early-boot-freq = < 1286400000 >;
+	qcom,perfcl-early-boot-freq = < 1363200000 >;
+
 	qcom,pwrcl-speedbin0-v0 =
 		<          0  0 >,
 		<  768000000  7 >,
