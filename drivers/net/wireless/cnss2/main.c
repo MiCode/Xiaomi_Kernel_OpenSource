@@ -488,7 +488,7 @@ static int cnss_driver_call_probe(struct cnss_plat_data *plat_priv)
 				    ret);
 			goto out;
 		}
-		clear_bit(CNSS_DRIVER_LOAD_UNLOAD, &plat_priv->driver_state);
+		clear_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state);
 		set_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state);
 	}
 
@@ -514,7 +514,7 @@ static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 	if (!pci_priv)
 		return -ENODEV;
 
-	if (test_bit(CNSS_DRIVER_LOAD_UNLOAD, &plat_priv->driver_state) ||
+	if (test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
 	    test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state))
 		ret = cnss_driver_call_probe(plat_priv);
 	else if (enable_waltest)
@@ -920,7 +920,7 @@ static int cnss_qca6174_shutdown(struct cnss_plat_data *plat_priv)
 	if (!plat_priv->driver_ops)
 		return -EINVAL;
 
-	if (test_bit(CNSS_DRIVER_LOAD_UNLOAD, &plat_priv->driver_state)) {
+	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
 		cnss_request_bus_bandwidth(CNSS_BUS_WIDTH_NONE);
 		plat_priv->driver_ops->remove(pci_priv->pci_dev);
 		cnss_pci_set_monitor_wake_intr(pci_priv, false);
@@ -935,8 +935,8 @@ static int cnss_qca6174_shutdown(struct cnss_plat_data *plat_priv)
 
 	cnss_power_off_device(plat_priv);
 
-	if (test_bit(CNSS_DRIVER_LOAD_UNLOAD, &plat_priv->driver_state)) {
-		clear_bit(CNSS_DRIVER_LOAD_UNLOAD, &plat_priv->driver_state);
+	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
+		clear_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state);
 		clear_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state);
 	}
 
@@ -1024,7 +1024,7 @@ static int cnss_qca6290_shutdown(struct cnss_plat_data *plat_priv)
 	if (!plat_priv->driver_ops)
 		return -EINVAL;
 
-	if (test_bit(CNSS_DRIVER_LOAD_UNLOAD, &plat_priv->driver_state)) {
+	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
 		cnss_request_bus_bandwidth(CNSS_BUS_WIDTH_NONE);
 		plat_priv->driver_ops->remove(pci_priv->pci_dev);
 		cnss_pci_set_monitor_wake_intr(pci_priv, false);
@@ -1041,8 +1041,8 @@ static int cnss_qca6290_shutdown(struct cnss_plat_data *plat_priv)
 
 	cnss_power_off_device(plat_priv);
 
-	if (test_bit(CNSS_DRIVER_LOAD_UNLOAD, &plat_priv->driver_state)) {
-		clear_bit(CNSS_DRIVER_LOAD_UNLOAD, &plat_priv->driver_state);
+	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
+		clear_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state);
 		clear_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state);
 	}
 
@@ -1058,7 +1058,8 @@ static void cnss_qca6290_crash_shutdown(struct cnss_plat_data *plat_priv)
 		    plat_priv->driver_state);
 
 	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state) ||
-	    test_bit(CNSS_DRIVER_LOAD_UNLOAD, &plat_priv->driver_state))
+	    test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
+	    test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state))
 		return;
 
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RDDM_KERNEL_PANIC);
@@ -1332,7 +1333,8 @@ static int cnss_driver_recovery_hdlr(struct cnss_plat_data *plat_priv,
 		goto out;
 	}
 
-	if (test_bit(CNSS_DRIVER_LOAD_UNLOAD, &plat_priv->driver_state)) {
+	if (test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
+	    test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
 		cnss_pr_err("Driver load or unload is in progress!\n");
 		ret = -EINVAL;
 		goto out;
@@ -1394,13 +1396,13 @@ static int cnss_register_driver_hdlr(struct cnss_plat_data *plat_priv,
 	int ret = 0;
 	struct cnss_subsys_info *subsys_info;
 
-	set_bit(CNSS_DRIVER_LOAD_UNLOAD, &plat_priv->driver_state);
+	set_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state);
 	plat_priv->driver_ops = data;
 	subsys_info = &plat_priv->subsys_info;
 
 	ret = cnss_powerup(&subsys_info->subsys_desc);
 	if (ret) {
-		clear_bit(CNSS_DRIVER_LOAD_UNLOAD, &plat_priv->driver_state);
+		clear_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state);
 		plat_priv->driver_ops = NULL;
 	}
 
@@ -1411,7 +1413,7 @@ static int cnss_unregister_driver_hdlr(struct cnss_plat_data *plat_priv)
 {
 	struct cnss_subsys_info *subsys_info;
 
-	set_bit(CNSS_DRIVER_LOAD_UNLOAD, &plat_priv->driver_state);
+	set_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state);
 	subsys_info = &plat_priv->subsys_info;
 	cnss_shutdown(&subsys_info->subsys_desc, false);
 	subsys_info->subsys_handle = NULL;

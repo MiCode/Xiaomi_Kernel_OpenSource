@@ -80,8 +80,11 @@ static int cnss_stats_show_state(struct seq_file *s,
 		case CNSS_COLD_BOOT_CAL_DONE:
 			seq_puts(s, "COLD_BOOT_CAL_DONE");
 			continue;
-		case CNSS_DRIVER_LOAD_UNLOAD:
-			seq_puts(s, "DRIVER_LOAD_UNLOAD");
+		case CNSS_DRIVER_LOADING:
+			seq_puts(s, "DRIVER_LOADING");
+			continue;
+		case CNSS_DRIVER_UNLOADING:
+			seq_puts(s, "DRIVER_UNLOADING");
 			continue;
 		case CNSS_DRIVER_PROBED:
 			seq_puts(s, "DRIVER_PROBED");
