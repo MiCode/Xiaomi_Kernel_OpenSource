@@ -16,6 +16,7 @@
 #include "hw.h"
 #include "ce.h"
 #include "pci.h"
+#include "qmi.h"
 #include <soc/qcom/service-locator.h>
 #define ATH10K_SNOC_RX_POST_RETRY_MS 50
 #define CE_POLL_PIPE 4
@@ -143,78 +144,12 @@ struct ath10k_snoc {
 	int total_domains;
 	struct notifier_block get_service_nb;
 	atomic_t fw_crashed;
-};
-
-/* struct ath10k_ce_tgt_pipe_cfg: target pipe configuration
- * @pipe_num: pipe number
- * @pipe_dir: pipe direction
- * @nentries: entries in pipe
- * @nbytes_max: pipe max size
- * @flags: pipe flags
- * @reserved: reserved
- */
-struct ath10k_ce_tgt_pipe_cfg {
-	u32 pipe_num;
-	u32 pipe_dir;
-	u32 nentries;
-	u32 nbytes_max;
-	u32 flags;
-	u32 reserved;
-};
-
-/* struct ath10k_ce_svc_pipe_cfg: service pipe configuration
- * @service_id: target version
- * @pipe_dir: pipe direction
- * @pipe_num: pipe number
- */
-struct ath10k_ce_svc_pipe_cfg {
-	u32 service_id;
-	u32 pipe_dir;
-	u32 pipe_num;
-};
-
-/* struct ath10k_shadow_reg_cfg: shadow register configuration
- * @ce_id: copy engine id
- * @reg_offset: offset to copy engine
- */
-struct ath10k_shadow_reg_cfg {
-	u16 ce_id;
-	u16 reg_offset;
-};
-
-/* struct ath10k_wlan_enable_cfg: wlan enable configuration
- * @num_ce_tgt_cfg: no of ce target configuration
- * @ce_tgt_cfg: target ce configuration
- * @num_ce_svc_pipe_cfg: no of ce service configuration
- * @ce_svc_cfg: ce service configuration
- * @num_shadow_reg_cfg: no of shadow registers
- * @shadow_reg_cfg: shadow register configuration
- */
-struct ath10k_wlan_enable_cfg {
-	u32 num_ce_tgt_cfg;
-	struct ath10k_ce_tgt_pipe_cfg *ce_tgt_cfg;
-	u32 num_ce_svc_pipe_cfg;
-	struct ath10k_ce_svc_pipe_cfg *ce_svc_cfg;
-	u32 num_shadow_reg_cfg;
-	struct ath10k_shadow_reg_cfg *shadow_reg_cfg;
+	struct ath10k_snoc_qmi_config qmi_cfg;
 };
 
 struct ath10k_event_pd_down_data {
 	bool crashed;
 	bool fw_rejuvenate;
-};
-
-/* enum ath10k_driver_mode: ath10k driver mode
- * @ATH10K_MISSION: mission mode
- * @ATH10K_FTM: ftm mode
- * @ATH10K_EPPING: epping mode
- * @ATH10K_OFF: off mode
- */
-enum ath10k_driver_mode {
-	ATH10K_MISSION,
-	ATH10K_FTM,
-	ATH10K_EPPING,
-	ATH10K_OFF
 };
 
 static inline struct ath10k_snoc *ath10k_snoc_priv(struct ath10k *ar)

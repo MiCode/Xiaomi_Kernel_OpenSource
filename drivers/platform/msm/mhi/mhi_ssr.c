@@ -13,12 +13,8 @@
 #include <linux/pm_runtime.h>
 #include <mhi_sys.h>
 #include <mhi.h>
-#include <mhi_bhi.h>
-#include <mhi_hwio.h>
-
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
-
 #include <linux/esoc_client.h>
 
 static int mhi_ssr_notify_cb(struct notifier_block *nb,
@@ -26,35 +22,45 @@ static int mhi_ssr_notify_cb(struct notifier_block *nb,
 {
 	struct mhi_device_ctxt *mhi_dev_ctxt =
 		container_of(nb, struct mhi_device_ctxt, mhi_ssr_nb);
+	enum MHI_PM_STATE cur_state;
+	struct notif_data *notif_data = (struct notif_data *)data;
+	bool crashed = notif_data->crashed;
+
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Received ESOC notifcation:%lu crashed:%d\n", action, crashed);
 	switch (action) {
-	case SUBSYS_BEFORE_POWERUP:
-		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-			"Received Subsystem event BEFORE_POWERUP\n");
-		break;
-	case SUBSYS_AFTER_POWERUP:
-		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-			"Received Subsystem event AFTER_POWERUP\n");
-		break;
-	case SUBSYS_POWERUP_FAILURE:
-		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-			"Received Subsystem event POWERUP_FAILURE\n");
-		break;
 	case SUBSYS_BEFORE_SHUTDOWN:
-		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-			"Received Subsystem event BEFORE_SHUTDOWN\n");
+		/*
+		 * update internal states only, we'll clean up MHI context
+		 * after device shutdown completely.
+		 */
+		write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+		cur_state = mhi_tryset_pm_state(mhi_dev_ctxt,
+						MHI_PM_LD_ERR_FATAL_DETECT);
+		write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+		if (unlikely(cur_state != MHI_PM_LD_ERR_FATAL_DETECT))
+			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+				"Failed to transition to state 0x%x from 0x%x\n",
+				MHI_PM_LD_ERR_FATAL_DETECT, cur_state);
 		break;
 	case SUBSYS_AFTER_SHUTDOWN:
-		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-			"Received Subsystem event AFTER_SHUTDOWN\n");
-		break;
-	case SUBSYS_RAMDUMP_NOTIFICATION:
-		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-			"Received Subsystem event RAMDUMP\n");
+		if (mhi_dev_ctxt->mhi_pm_state != MHI_PM_DISABLE)
+			process_disable_transition(MHI_PM_SHUTDOWN_PROCESS,
+						   mhi_dev_ctxt);
+		mutex_lock(&mhi_dev_ctxt->pm_lock);
+		write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+		cur_state = mhi_tryset_pm_state(mhi_dev_ctxt,
+						MHI_PM_SSR_PENDING);
+		write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+		mutex_unlock(&mhi_dev_ctxt->pm_lock);
+		if (unlikely(cur_state != MHI_PM_SSR_PENDING))
+			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+				"Failed to transition to state 0x%x from 0x%x\n",
+				MHI_PM_SSR_PENDING, cur_state);
 		break;
 	default:
 		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-			"Received ESOC notifcation %d, NOT handling\n",
-			(int)action);
+			"Not handling esoc notification:%lu\n", action);
 		break;
 	}
 	return NOTIFY_OK;
@@ -91,128 +97,242 @@ int mhi_esoc_register(struct mhi_device_ctxt *mhi_dev_ctxt)
 	return ret_val;
 }
 
-void mhi_notify_client(struct mhi_client_handle *client_handle,
-		       enum MHI_CB_REASON reason)
+/* handles sys_err, and shutdown transition */
+void process_disable_transition(enum MHI_PM_STATE transition_state,
+				struct mhi_device_ctxt *mhi_dev_ctxt)
 {
-	struct mhi_cb_info cb_info = {0};
-	struct mhi_result result = {0};
-	struct mhi_client_config *client_config;
-
-	cb_info.result = NULL;
-	cb_info.cb_reason = reason;
-
-	if (client_handle == NULL)
-		return;
-
-	client_config = client_handle->client_config;
-
-	if (client_config->client_info.mhi_client_cb) {
-		result.user_data = client_config->user_data;
-		cb_info.chan = client_config->chan_info.chan_nr;
-		cb_info.result = &result;
-		mhi_log(client_config->mhi_dev_ctxt, MHI_MSG_INFO,
-			"Calling back for chan %d, reason %d\n",
-			cb_info.chan,
-			reason);
-		client_config->client_info.mhi_client_cb(&cb_info);
-	}
-}
-
-void mhi_notify_clients(struct mhi_device_ctxt *mhi_dev_ctxt,
-					enum MHI_CB_REASON reason)
-{
+	enum MHI_PM_STATE cur_state, prev_state;
+	struct mhi_client_handle *client_handle;
+	struct mhi_ring *ch_ring, *bb_ring, *cmd_ring;
+	struct mhi_cmd_ctxt *cmd_ctxt;
+	struct mhi_chan_cfg *chan_cfg;
+	rwlock_t *pm_xfer_lock = &mhi_dev_ctxt->pm_xfer_lock;
+	enum MHI_CB_REASON reason;
+	u32 timeout = mhi_dev_ctxt->poll_reset_timeout_ms;
 	int i;
-	struct mhi_client_handle *client_handle = NULL;
+	int ret;
 
-	for (i = 0; i < MHI_MAX_CHANNELS; ++i) {
-		if (VALID_CHAN_NR(i)) {
-			client_handle = mhi_dev_ctxt->client_handle_list[i];
-			mhi_notify_client(client_handle, reason);
-		}
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Enter with pm_state:0x%x MHI_STATE:%s transition_state:0x%x\n",
+		mhi_dev_ctxt->mhi_pm_state,
+		TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state),
+		transition_state);
+
+	mutex_lock(&mhi_dev_ctxt->pm_lock);
+	write_lock_irq(pm_xfer_lock);
+	prev_state = mhi_dev_ctxt->mhi_pm_state;
+	cur_state = mhi_tryset_pm_state(mhi_dev_ctxt, transition_state);
+	if (cur_state == transition_state) {
+		mhi_dev_ctxt->dev_exec_env = MHI_EXEC_ENV_DISABLE_TRANSITION;
+		mhi_dev_ctxt->flags.mhi_initialized = false;
 	}
-}
+	write_unlock_irq(pm_xfer_lock);
 
-int set_mhi_base_state(struct mhi_device_ctxt *mhi_dev_ctxt)
-{
-	u32 pcie_word_val = 0;
-	int r = 0;
-
-	mhi_dev_ctxt->bhi_ctxt.bhi_base = mhi_dev_ctxt->core.bar0_base;
-	pcie_word_val = mhi_reg_read(mhi_dev_ctxt->bhi_ctxt.bhi_base, BHIOFF);
-
-	/* confirm it's a valid reading */
-	if (unlikely(pcie_word_val == U32_MAX)) {
-		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
-			"Invalid BHI Offset:0x%x\n", pcie_word_val);
-		return -EIO;
+	/* Not handling sys_err, could be middle of shut down */
+	if (unlikely(cur_state != transition_state)) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+			"Failed to transition to state 0x%x from 0x%x\n",
+			transition_state, cur_state);
+		mutex_unlock(&mhi_dev_ctxt->pm_lock);
+		return;
 	}
-	mhi_dev_ctxt->bhi_ctxt.bhi_base += pcie_word_val;
-	pcie_word_val = mhi_reg_read(mhi_dev_ctxt->bhi_ctxt.bhi_base,
-				     BHI_EXECENV);
-	mhi_dev_ctxt->dev_exec_env = pcie_word_val;
-	if (pcie_word_val == MHI_EXEC_ENV_AMSS) {
-		mhi_dev_ctxt->base_state = STATE_TRANSITION_RESET;
-	} else if (pcie_word_val == MHI_EXEC_ENV_PBL) {
-		mhi_dev_ctxt->base_state = STATE_TRANSITION_BHI;
-	} else {
-		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
-			"Invalid EXEC_ENV: 0x%x\n",
-			pcie_word_val);
-		r = -EIO;
+
+	/*
+	 * If we're shutting down trigger device into MHI reset
+	 * so we can gurantee device will not access host DDR
+	 * during reset
+	 */
+	if (cur_state == MHI_PM_SHUTDOWN_PROCESS &&
+	    MHI_REG_ACCESS_VALID(prev_state)) {
+		read_lock_bh(pm_xfer_lock);
+		mhi_set_m_state(mhi_dev_ctxt, MHI_STATE_RESET);
+		read_unlock_bh(pm_xfer_lock);
+		mhi_test_for_device_reset(mhi_dev_ctxt);
+	}
+
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Waiting for all pending event ring processing to complete\n");
+	for (i = 0; i < mhi_dev_ctxt->mmio_info.nr_event_rings; i++) {
+		tasklet_kill(&mhi_dev_ctxt->mhi_local_event_ctxt[i].ev_task);
+		flush_work(&mhi_dev_ctxt->mhi_local_event_ctxt[i].ev_worker);
 	}
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-		"EXEC_ENV: %d Base state %d\n",
-		pcie_word_val, mhi_dev_ctxt->base_state);
-	return r;
-}
+		"Notifying all clients and resetting channels\n");
 
-void mhi_link_state_cb(struct msm_pcie_notify *notify)
-{
-	struct mhi_device_ctxt *mhi_dev_ctxt = NULL;
+	if (cur_state == MHI_PM_SHUTDOWN_PROCESS)
+		reason = MHI_CB_MHI_SHUTDOWN;
+	else
+		reason = MHI_CB_SYS_ERROR;
+	ch_ring = mhi_dev_ctxt->mhi_local_chan_ctxt;
+	chan_cfg = mhi_dev_ctxt->mhi_chan_cfg;
+	bb_ring = mhi_dev_ctxt->chan_bb_list;
+	for (i = 0; i < MHI_MAX_CHANNELS;
+	     i++, ch_ring++, chan_cfg++, bb_ring++) {
+		enum MHI_CHAN_STATE ch_state;
 
-	if (!notify || !notify->data) {
-		pr_err("%s: incomplete handle received\n", __func__);
+		client_handle = mhi_dev_ctxt->client_handle_list[i];
+		if (client_handle)
+			mhi_notify_client(client_handle, reason);
+
+		mutex_lock(&chan_cfg->chan_lock);
+		spin_lock_irq(&ch_ring->ring_lock);
+		ch_state = ch_ring->ch_state;
+		ch_ring->ch_state = MHI_CHAN_STATE_DISABLED;
+		spin_unlock_irq(&ch_ring->ring_lock);
+
+		/* Reset channel and free ring */
+		if (ch_state == MHI_CHAN_STATE_ENABLED) {
+			mhi_reset_chan(mhi_dev_ctxt, i);
+			free_tre_ring(mhi_dev_ctxt, i);
+			bb_ring->rp = bb_ring->base;
+			bb_ring->wp = bb_ring->base;
+			bb_ring->ack_rp = bb_ring->base;
+		}
+		mutex_unlock(&chan_cfg->chan_lock);
+	}
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Finished notifying clients\n");
+
+	/* Release lock and wait for all pending threads to complete */
+	mutex_unlock(&mhi_dev_ctxt->pm_lock);
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Waiting for all pending threads to complete\n");
+	complete(&mhi_dev_ctxt->cmd_complete);
+	flush_work(&mhi_dev_ctxt->process_m1_worker);
+	flush_work(&mhi_dev_ctxt->st_thread_worker);
+	if (mhi_dev_ctxt->bhi_ctxt.manage_boot)
+		flush_work(&mhi_dev_ctxt->bhi_ctxt.fw_load_work);
+	if (cur_state == MHI_PM_SHUTDOWN_PROCESS)
+		flush_work(&mhi_dev_ctxt->process_sys_err_worker);
+
+	mutex_lock(&mhi_dev_ctxt->pm_lock);
+
+	/*
+	 * Shutdown has higher priority than sys_err and can be called
+	 * middle of sys error, check current state to confirm state
+	 * was not changed.
+	 */
+	if (mhi_dev_ctxt->mhi_pm_state != cur_state) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+			"PM State transitioned to 0x%x while processing 0x%x\n",
+			mhi_dev_ctxt->mhi_pm_state, transition_state);
+		mutex_unlock(&mhi_dev_ctxt->pm_lock);
 		return;
 	}
 
-	mhi_dev_ctxt = notify->data;
-	switch (notify->event) {
-	case MSM_PCIE_EVENT_LINKDOWN:
-		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-			"Received MSM_PCIE_EVENT_LINKDOWN\n");
-		break;
-	case MSM_PCIE_EVENT_LINKUP:
-		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-			"Received MSM_PCIE_EVENT_LINKUP\n");
-		mhi_dev_ctxt->counters.link_up_cntr++;
-		break;
-	case MSM_PCIE_EVENT_WAKEUP:
-		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-			"Received MSM_PCIE_EVENT_WAKE\n");
-		__pm_stay_awake(&mhi_dev_ctxt->w_lock);
-		__pm_relax(&mhi_dev_ctxt->w_lock);
+	/* Check all counts to make sure 0 */
+	WARN_ON(atomic_read(&mhi_dev_ctxt->counters.device_wake));
+	WARN_ON(atomic_read(&mhi_dev_ctxt->counters.outbound_acks));
+	if (mhi_dev_ctxt->core.pci_master)
+		WARN_ON(atomic_read(&mhi_dev_ctxt->pcie_device->dev.
+				   power.usage_count));
 
-		if (mhi_dev_ctxt->flags.mhi_initialized) {
-			mhi_dev_ctxt->runtime_get(mhi_dev_ctxt);
-			mhi_dev_ctxt->runtime_put(mhi_dev_ctxt);
-		}
-		break;
-	default:
+	/* Reset Event rings and CMD rings  */
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Resetting ev ctxt and cmd ctxt\n");
+
+	cmd_ring = mhi_dev_ctxt->mhi_local_cmd_ctxt;
+	cmd_ctxt = mhi_dev_ctxt->dev_space.ring_ctxt.cmd_ctxt;
+	for (i = 0; i < NR_OF_CMD_RINGS; i++, cmd_ring++) {
+		cmd_ring->rp = cmd_ring->base;
+		cmd_ring->wp = cmd_ring->base;
+		cmd_ctxt->mhi_cmd_ring_read_ptr =
+			cmd_ctxt->mhi_cmd_ring_base_addr;
+		cmd_ctxt->mhi_cmd_ring_write_ptr =
+			cmd_ctxt->mhi_cmd_ring_base_addr;
+	}
+	for (i = 0; i < mhi_dev_ctxt->mmio_info.nr_event_rings; i++)
+		mhi_reset_ev_ctxt(mhi_dev_ctxt, i);
+
+	/*
+	 * If we're the bus master disable runtime suspend
+	 * we will enable it back again during AMSS transition
+	 */
+	if (mhi_dev_ctxt->core.pci_master)
+		pm_runtime_forbid(&mhi_dev_ctxt->pcie_device->dev);
+
+	if (cur_state == MHI_PM_SYS_ERR_PROCESS) {
+		bool trigger_reset = false;
+
 		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-			"Received bad link event\n");
-		return;
+			"Triggering device reset\n");
+		reinit_completion(&mhi_dev_ctxt->cmd_complete);
+		write_lock_irq(pm_xfer_lock);
+		/* Link can go down while processing SYS_ERR */
+		if (MHI_REG_ACCESS_VALID(mhi_dev_ctxt->mhi_pm_state)) {
+			mhi_set_m_state(mhi_dev_ctxt, MHI_STATE_RESET);
+			mhi_init_state_transition(mhi_dev_ctxt,
+						  STATE_TRANSITION_RESET);
+			trigger_reset = true;
 		}
+		write_unlock_irq(pm_xfer_lock);
+
+		if (trigger_reset) {
+			/*
+			 * Keep the MHI state in Active (M0) state until host
+			 * enter AMSS/RDDM state.  Otherwise modem would error
+			 * fatal if host try to enter M1 before reaching
+			 * AMSS\RDDM state.
+			 */
+			read_lock_bh(pm_xfer_lock);
+			mhi_assert_device_wake(mhi_dev_ctxt, false);
+			read_unlock_bh(pm_xfer_lock);
+
+			/* Wait till we enter AMSS/RDDM Exec env.*/
+			ret = wait_for_completion_timeout
+				(&mhi_dev_ctxt->cmd_complete,
+				 msecs_to_jiffies(timeout));
+			if (!ret || (mhi_dev_ctxt->dev_exec_env !=
+				     MHI_EXEC_ENV_AMSS &&
+				     mhi_dev_ctxt->dev_exec_env !=
+				     MHI_EXEC_ENV_RDDM)) {
+
+				/*
+				 * device did not reset properly, notify bus
+				 * master
+				 */
+				if (!mhi_dev_ctxt->core.pci_master) {
+					mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+						"Notifying bus master Sys Error Status\n");
+					mhi_dev_ctxt->status_cb(
+						MHI_CB_SYS_ERROR,
+						mhi_dev_ctxt->priv_data);
+				}
+				mhi_dev_ctxt->deassert_wake(mhi_dev_ctxt);
+			}
+		}
+	} else {
+		write_lock_irq(pm_xfer_lock);
+		cur_state = mhi_tryset_pm_state(mhi_dev_ctxt, MHI_PM_DISABLE);
+		write_unlock_irq(pm_xfer_lock);
+		if (unlikely(cur_state != MHI_PM_DISABLE))
+			mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+				"Error transition from state:0x%x to 0x%x\n",
+				cur_state, MHI_PM_DISABLE);
+
+		if (mhi_dev_ctxt->core.pci_master &&
+		    cur_state == MHI_PM_DISABLE)
+			mhi_turn_off_pcie_link(mhi_dev_ctxt,
+					MHI_REG_ACCESS_VALID(prev_state));
+	}
+
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Exit with pm_state:0x%x exec_env:0x%x mhi_state:%s\n",
+		mhi_dev_ctxt->mhi_pm_state, mhi_dev_ctxt->dev_exec_env,
+		TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state));
+
+	mutex_unlock(&mhi_dev_ctxt->pm_lock);
 }
 
-int init_mhi_base_state(struct mhi_device_ctxt *mhi_dev_ctxt)
+void mhi_sys_err_worker(struct work_struct *work)
 {
-	int r = 0;
+	struct mhi_device_ctxt *mhi_dev_ctxt =
+		container_of(work, struct mhi_device_ctxt,
+			     process_sys_err_worker);
 
-	r = mhi_init_state_transition(mhi_dev_ctxt, mhi_dev_ctxt->base_state);
-	if (r) {
-		mhi_log(mhi_dev_ctxt, MHI_MSG_CRITICAL,
-			"Failed to start state change event, to %d\n",
-			mhi_dev_ctxt->base_state);
-	}
-	return r;
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Enter with pm_state:0x%x MHI_STATE:%s\n",
+		mhi_dev_ctxt->mhi_pm_state,
+		TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state));
+
+	process_disable_transition(MHI_PM_SYS_ERR_PROCESS, mhi_dev_ctxt);
 }

@@ -79,8 +79,12 @@ Optional Properties:
     PCIe port PHY.
     Should be specified in groups (offset, value, delay).
   - qcom,use-19p2mhz-aux-clk: The frequency of PCIe AUX clock is 19.2MHz.
-  - qcom,ep-wakeirq: The endpoint will issue wake signal when it is up, and the
-    root complex has the capability to enumerate the endpoint for this case.
+  - qcom,boot-option: Bits that alter PCIe bus driver boot sequence.
+    Below details what happens when each bit is set
+	BIT(0): PCIe bus driver will not start enumeration during its probe.
+		Clients will control when PCIe bus driver should do enumeration.
+	BIT(1): PCIe bus driver will not start enumeration if it receives a WAKE
+		interrupt.
   - qcom,msi-gicm-addr: MSI address for GICv2m.
   - qcom,msi-gicm-base: MSI IRQ base for GICv2m.
   - qcom,ext-ref-clk: The reference clock is external.
@@ -263,7 +267,7 @@ Example:
 		qcom,aux-clk-sync;
 		qcom,n-fts = <0x50>;
 		qcom,pcie-phy-ver = <1>;
-		qcom,ep-wakeirq;
+		qcom,boot-option = <0x1>;
 		qcom,msi-gicm-addr = <0xf9040040>;
 		qcom,msi-gicm-base = <0x160>;
 		qcom,ext-ref-clk;

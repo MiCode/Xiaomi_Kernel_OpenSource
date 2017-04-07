@@ -1575,6 +1575,8 @@
 		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
 						100000000 200000000 4294967295>;
 
+		qcom,sdr104-wa;
+
 		status = "disabled";
 	};
 
@@ -2676,7 +2678,7 @@
 
 		qcom,ep-latency = <10>;
 
-		qcom,ep-wakeirq;
+		qcom,boot-option = <0x1>;
 
 		linux,pci-domain = <0>;
 

@@ -417,6 +417,7 @@ enum { /* for wil6210_priv.status */
 	wil_status_irqen, /* FIXME: interrupts enabled - for debug */
 	wil_status_napi_en, /* NAPI enabled protected by wil->mutex */
 	wil_status_resetting, /* reset in progress */
+	wil_status_suspended, /* suspend completed, device is suspended */
 	wil_status_last /* keep last */
 };
 
@@ -777,6 +778,12 @@ static inline void wil_c(struct wil6210_priv *wil, u32 reg, u32 val)
 			 print_hex_dump_debug("DBG[ WMI]" prefix_str,\
 					prefix_type, rowsize,	\
 					groupsize, buf, len, ascii)
+
+#define wil_hex_dump_misc(prefix_str, prefix_type, rowsize,	\
+			  groupsize, buf, len, ascii)		\
+			  print_hex_dump_debug("DBG[MISC]" prefix_str,\
+					prefix_type, rowsize,	\
+					groupsize, buf, len, ascii)
 #else /* defined(CONFIG_DYNAMIC_DEBUG) */
 static inline
 void wil_hex_dump_txrx(const char *prefix_str, int prefix_type, int rowsize,
@@ -789,18 +796,18 @@ void wil_hex_dump_wmi(const char *prefix_str, int prefix_type, int rowsize,
 		      int groupsize, const void *buf, size_t len, bool ascii)
 {
 }
+
+static inline
+void wil_hex_dump_misc(const char *prefix_str, int prefix_type, int rowsize,
+		       int groupsize, const void *buf, size_t len, bool ascii)
+{
+}
 #endif /* defined(CONFIG_DYNAMIC_DEBUG) */
 
 void wil_memcpy_fromio_32(void *dst, const volatile void __iomem *src,
 			  size_t count);
 void wil_memcpy_toio_32(volatile void __iomem *dst, const void *src,
 			size_t count);
-void wil_memcpy_fromio_halp_vote(struct wil6210_priv *wil, void *dst,
-				 const volatile void __iomem *src,
-				 size_t count);
-void wil_memcpy_toio_halp_vote(struct wil6210_priv *wil,
-			       volatile void __iomem *dst,
-			       const void *src, size_t count);
 
 void *wil_if_alloc(struct device *dev);
 void wil_if_free(struct wil6210_priv *wil);

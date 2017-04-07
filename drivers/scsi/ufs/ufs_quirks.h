@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -138,6 +138,14 @@ struct ufs_card_fix {
  * PA_SaveConfigTime to >32us as per vendor recommendation.
  */
 #define UFS_DEVICE_QUIRK_HOST_PA_SAVECONFIGTIME	(1 << 7)
+
+/*
+ * Some UFS devices may stop responding after switching from HS-G1 to HS-G3.
+ * Also, it is found that these devices work fine if we do 2 steps switch:
+ * HS-G1 to HS-G2 followed by HS-G2 to HS-G3. Enabling this quirk for such
+ * device would apply this 2 steps gear switch workaround.
+ */
+#define UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH (1 << 8)
 
 struct ufs_hba;
 void ufs_advertise_fixup_device(struct ufs_hba *hba);

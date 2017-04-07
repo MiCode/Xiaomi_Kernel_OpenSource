@@ -95,9 +95,12 @@ struct bhi_ctxt_t {
 	u32 poll_timeout;
 	/* BHI/E vector table */
 	bool manage_boot; /* fw download done by MHI host */
+	bool support_rddm;
 	struct work_struct fw_load_work;
 	struct firmware_info firmware_info;
 	struct bhie_vec_table fw_table;
+	struct bhie_vec_table rddm_table;
+	size_t rddm_size;
 };
 
 enum MHI_CHAN_DIR {
@@ -140,12 +143,6 @@ enum MHI_CHAIN {
 	MHI_TRE_CHAIN_reserved = 0x80000000
 };
 
-enum MHI_EVENT_RING_STATE {
-	MHI_EVENT_RING_UINIT = 0x0,
-	MHI_EVENT_RING_INIT = 0x1,
-	MHI_EVENT_RING_reserved = 0x80000000
-};
-
 enum MHI_STATE {
 	MHI_STATE_RESET = 0x0,
 	MHI_STATE_READY = 0x1,
@@ -154,9 +151,8 @@ enum MHI_STATE {
 	MHI_STATE_M2 = 0x4,
 	MHI_STATE_M3 = 0x5,
 	MHI_STATE_BHI  = 0x7,
-	MHI_STATE_SYS_ERR  = 0x8,
-	MHI_STATE_LIMIT = 0x9,
-	MHI_STATE_reserved = 0x80000000
+	MHI_STATE_SYS_ERR  = 0xFF,
+	MHI_STATE_LIMIT,
 };
 
 enum MHI_BRSTMODE {
@@ -168,22 +164,36 @@ enum MHI_BRSTMODE {
 };
 
 enum MHI_PM_STATE {
-	MHI_PM_DISABLE = 0x0, /* MHI is not enabled */
-	MHI_PM_POR = 0x1, /* Power On Reset State */
-	MHI_PM_M0 = 0x2,
-	MHI_PM_M1 = 0x4,
-	MHI_PM_M1_M2_TRANSITION = 0x8, /* Register access not allowed */
-	MHI_PM_M2 = 0x10,
-	MHI_PM_M3_ENTER = 0x20,
-	MHI_PM_M3 = 0x40,
-	MHI_PM_M3_EXIT = 0x80,
+	MHI_PM_DISABLE = BIT(0), /* MHI is not enabled */
+	MHI_PM_POR = BIT(1), /* Power On Reset State */
+	MHI_PM_M0 = BIT(2),
+	MHI_PM_M1 = BIT(3),
+	MHI_PM_M1_M2_TRANSITION = BIT(4), /* Register access not allowed */
+	MHI_PM_M2 = BIT(5),
+	MHI_PM_M3_ENTER = BIT(6),
+	MHI_PM_M3 = BIT(7),
+	MHI_PM_M3_EXIT = BIT(8),
+	MHI_PM_SYS_ERR_DETECT = BIT(9),
+	MHI_PM_SYS_ERR_PROCESS = BIT(10),
+	MHI_PM_SHUTDOWN_PROCESS = BIT(11),
+	MHI_PM_LD_ERR_FATAL_DETECT = BIT(12), /* Link not accessible */
+	MHI_PM_SSR_PENDING = BIT(13)
+};
+
+struct mhi_pm_transitions {
+	enum MHI_PM_STATE from_state;
+	u32 to_states;
 };
 
 #define MHI_DB_ACCESS_VALID(pm_state) (pm_state & (MHI_PM_M0 | MHI_PM_M1))
 #define MHI_WAKE_DB_ACCESS_VALID(pm_state) (pm_state & (MHI_PM_M0 | \
 							MHI_PM_M1 | MHI_PM_M2))
-#define MHI_REG_ACCESS_VALID(pm_state) ((pm_state > MHI_PM_DISABLE) && \
-					(pm_state < MHI_PM_M3_EXIT))
+#define MHI_REG_ACCESS_VALID(pm_state) ((pm_state & (MHI_PM_POR | MHI_PM_M0 | \
+		MHI_PM_M1 | MHI_PM_M2 | MHI_PM_M3_ENTER | MHI_PM_M3_EXIT | \
+		MHI_PM_SYS_ERR_DETECT | MHI_PM_SYS_ERR_PROCESS | \
+		MHI_PM_SHUTDOWN_PROCESS)))
+#define MHI_EVENT_ACCESS_INVALID(pm_state) (pm_state == MHI_PM_DISABLE || \
+					    pm_state >= MHI_PM_SYS_ERR_DETECT)
 struct __packed mhi_event_ctxt {
 	u32 mhi_intmodt;
 	u32 mhi_event_er_type;
@@ -239,7 +249,6 @@ enum MHI_PKT_TYPE {
 	MHI_PKT_TYPE_TX_EVENT = 0x22,
 	MHI_PKT_TYPE_EE_EVENT = 0x40,
 	MHI_PKT_TYPE_STALE_EVENT, /* Internal event */
-	MHI_PKT_TYPE_SYS_ERR_EVENT = 0xFF,
 };
 
 struct __packed mhi_tx_pkt {
@@ -393,7 +402,8 @@ enum STATE_TRANSITION {
 	STATE_TRANSITION_LINK_DOWN,
 	STATE_TRANSITION_WAKE,
 	STATE_TRANSITION_BHIE,
-	STATE_TRANSITION_SYS_ERR,
+	STATE_TRANSITION_RDDM,
+	STATE_TRANSITION_SYS_ERR = MHI_STATE_SYS_ERR,
 	STATE_TRANSITION_MAX
 };
 
@@ -402,7 +412,8 @@ enum MHI_EXEC_ENV {
 	MHI_EXEC_ENV_SBL = 0x1,
 	MHI_EXEC_ENV_AMSS = 0x2,
 	MHI_EXEC_ENV_BHIE = 0x3,
-	MHI_EXEC_ENV_reserved = 0x80000000
+	MHI_EXEC_ENV_RDDM = 0x4,
+	MHI_EXEC_ENV_DISABLE_TRANSITION, /* local EE, not related to mhi spec */
 };
 
 struct mhi_chan_info {
@@ -480,7 +491,7 @@ struct mhi_counters {
 };
 
 struct mhi_flags {
-	u32 mhi_initialized;
+	bool mhi_initialized;
 	u32 link_up;
 	bool bb_required;
 };
@@ -546,6 +557,7 @@ struct mhi_device_ctxt {
 	struct mhi_event_ring_cfg *ev_ring_props;
 	struct work_struct st_thread_worker;
 	struct work_struct process_m1_worker;
+	struct work_struct process_sys_err_worker;
 	struct mhi_wait_queues mhi_ev_wq;
 	struct dev_mmio_info mmio_info;
 
@@ -587,7 +599,8 @@ struct mhi_device_ctxt {
 	void (*assert_wake)(struct mhi_device_ctxt *mhi_dev_ctxt,
 			    bool force_set);
 	void (*deassert_wake)(struct mhi_device_ctxt *mhi_dev_ctxt);
-
+	void (*status_cb)(enum MHI_CB_REASON, void *priv);
+	void *priv_data; /* private data for bus master */
 	struct completion cmd_complete;
 };
 
@@ -612,7 +625,6 @@ struct mhi_event_ring_cfg {
 	 */
 	u32 priority;
 	enum MHI_RING_CLASS class;
-	enum MHI_EVENT_RING_STATE state;
 	irqreturn_t (*mhi_handler_ptr)(int , void *);
 };
 #define MHI_EV_PRIORITY_TASKLET (1)
@@ -673,13 +685,12 @@ enum MHI_EVENT_CCS get_cmd_pkt(struct mhi_device_ctxt *mhi_dev_ctxt,
 				union mhi_cmd_pkt **cmd_pkt, u32 event_index);
 int parse_cmd_event(struct mhi_device_ctxt *ctxt,
 				union mhi_event_pkt *event, u32 event_index);
-int mhi_test_for_device_ready(
-					struct mhi_device_ctxt *mhi_dev_ctxt);
-int mhi_test_for_device_reset(
-					struct mhi_device_ctxt *mhi_dev_ctxt);
+int mhi_test_for_device_ready(struct mhi_device_ctxt *mhi_dev_ctxt);
+int mhi_test_for_device_reset(struct mhi_device_ctxt *mhi_dev_ctxt);
 int validate_ring_el_addr(struct mhi_ring *ring, uintptr_t addr);
 int validate_ev_el_addr(struct mhi_ring *ring, uintptr_t addr);
 void mhi_state_change_worker(struct work_struct *work);
+void mhi_sys_err_worker(struct work_struct *work);
 int mhi_init_state_transition(struct mhi_device_ctxt *mhi_dev_ctxt,
 					enum STATE_TRANSITION new_state);
 int mhi_wait_for_mdm(struct mhi_device_ctxt *mhi_dev_ctxt);
@@ -709,7 +720,7 @@ int mhi_reg_notifiers(struct mhi_device_ctxt *mhi_dev_ctxt);
 int mhi_cpu_notifier_cb(struct notifier_block *nfb, unsigned long action,
 			void *hcpu);
 int init_mhi_base_state(struct mhi_device_ctxt *mhi_dev_ctxt);
-int mhi_turn_off_pcie_link(struct mhi_device_ctxt *mhi_dev_ctxt);
+int mhi_turn_off_pcie_link(struct mhi_device_ctxt *mhi_dev_ctxt, bool graceful);
 int mhi_turn_on_pcie_link(struct mhi_device_ctxt *mhi_dev_ctxt);
 int mhi_initiate_m0(struct mhi_device_ctxt *mhi_dev_ctxt);
 int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt);
@@ -757,5 +768,13 @@ void mhi_ev_task(unsigned long data);
 void process_event_ring(struct work_struct *work);
 int process_m0_transition(struct mhi_device_ctxt *mhi_dev_ctxt);
 int process_m3_transition(struct mhi_device_ctxt *mhi_dev_ctxt);
+enum MHI_PM_STATE __must_check mhi_tryset_pm_state(struct mhi_device_ctxt *,
+						   enum MHI_PM_STATE);
+void mhi_reset_chan(struct mhi_device_ctxt *mhi_dev_ctxt, int chan);
+void free_tre_ring(struct mhi_device_ctxt *mhi_dev_ctxt, int chan);
+void process_disable_transition(enum MHI_PM_STATE transition_state,
+				struct mhi_device_ctxt *mhi_dev_ctxt);
+bool mhi_in_sys_err(struct mhi_device_ctxt *mhi_dev_ctxt);
+void bhi_exit(struct mhi_device_ctxt *mhi_dev_ctxt);
 
 #endif

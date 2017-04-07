@@ -14,7 +14,7 @@ qcom,itech_3000mah {
 	/* #Itech_B00826LF_3000mAh_ver1660_averaged_MasterSlave_Jan10th2017*/
 	qcom,max-voltage-uv = <4350000>;
 	qcom,fg-cc-cv-threshold-mv = <4340>;
-	qcom,fastchg-current-ma = <3000>;
+	qcom,fastchg-current-ma = <2000>;
 	qcom,batt-id-kohm = <100>;
 	qcom,battery-beta = <3435>;
 	qcom,battery-type = "itech_b00826lf_3000mah_ver1660_jan10th2017";

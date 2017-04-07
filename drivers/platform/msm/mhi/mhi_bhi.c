@@ -137,17 +137,36 @@ static int bhi_alloc_pbl_xfer(struct mhi_device_ctxt *mhi_dev_ctxt,
 	return 0;
 }
 
-/* Load firmware via bhie protocol */
-static int bhi_load_bhie_firmware(struct mhi_device_ctxt *mhi_dev_ctxt)
+/* transfer firmware or ramdump via bhie protocol */
+static int bhi_bhie_transfer(struct mhi_device_ctxt *mhi_dev_ctxt,
+			     struct bhie_vec_table *vec_table,
+			     bool tx_vec_table)
 {
 	struct bhi_ctxt_t *bhi_ctxt = &mhi_dev_ctxt->bhi_ctxt;
-	struct bhie_vec_table *fw_table = &bhi_ctxt->fw_table;
+	/* last element is the vector table */
 	const struct bhie_mem_info *bhie_mem_info =
-		&fw_table->bhie_mem_info[fw_table->segment_count - 1];
+		&vec_table->bhie_mem_info[vec_table->segment_count - 1];
 	u32 val;
-	const u32 tx_sequence = fw_table->sequence++;
+	const u32 tx_sequence = vec_table->sequence++;
 	unsigned long timeout;
 	rwlock_t *pm_xfer_lock = &mhi_dev_ctxt->pm_xfer_lock;
+	unsigned bhie_vecaddr_high_offs, bhie_vecaddr_low_offs,
+		bhie_vecsize_offs, bhie_vecdb_offs,
+		bhie_vecstatus_offs;
+
+	if (tx_vec_table) {
+		bhie_vecaddr_high_offs = BHIE_TXVECADDR_HIGH_OFFS;
+		bhie_vecaddr_low_offs = BHIE_TXVECADDR_LOW_OFFS;
+		bhie_vecsize_offs = BHIE_TXVECSIZE_OFFS;
+		bhie_vecdb_offs = BHIE_TXVECDB_OFFS;
+		bhie_vecstatus_offs = BHIE_TXVECSTATUS_OFFS;
+	} else {
+		bhie_vecaddr_high_offs = BHIE_RXVECADDR_HIGH_OFFS;
+		bhie_vecaddr_low_offs = BHIE_RXVECADDR_LOW_OFFS;
+		bhie_vecsize_offs = BHIE_RXVECSIZE_OFFS;
+		bhie_vecdb_offs = BHIE_RXVECDB_OFFS;
+		bhie_vecstatus_offs = BHIE_RXVECSTATUS_OFFS;
+	}
 
 	/* Program TX/RX Vector table */
 	read_lock_bh(pm_xfer_lock);
@@ -157,27 +176,17 @@ static int bhi_load_bhie_firmware(struct mhi_device_ctxt *mhi_dev_ctxt)
 	}
 
 	val = HIGH_WORD(bhie_mem_info->phys_addr);
-	mhi_reg_write(mhi_dev_ctxt,
-		      bhi_ctxt->bhi_base,
-		      BHIE_TXVECADDR_HIGH_OFFS,
-		      val);
+	mhi_reg_write(mhi_dev_ctxt, bhi_ctxt->bhi_base,
+		      bhie_vecaddr_high_offs, val);
 	val = LOW_WORD(bhie_mem_info->phys_addr);
-	mhi_reg_write(mhi_dev_ctxt,
-		      bhi_ctxt->bhi_base,
-		      BHIE_TXVECADDR_LOW_OFFS,
-		      val);
+	mhi_reg_write(mhi_dev_ctxt, bhi_ctxt->bhi_base,
+		      bhie_vecaddr_low_offs, val);
 	val = (u32)bhie_mem_info->size;
-	mhi_reg_write(mhi_dev_ctxt,
-		      bhi_ctxt->bhi_base,
-		      BHIE_TXVECSIZE_OFFS,
-		      val);
+	mhi_reg_write(mhi_dev_ctxt, bhi_ctxt->bhi_base, bhie_vecsize_offs, val);
 
 	/* Ring DB to begin Xfer */
-	mhi_reg_write_field(mhi_dev_ctxt,
-			    bhi_ctxt->bhi_base,
-			    BHIE_TXVECDB_OFFS,
-			    BHIE_TXVECDB_SEQNUM_BMSK,
-			    BHIE_TXVECDB_SEQNUM_SHFT,
+	mhi_reg_write_field(mhi_dev_ctxt, bhi_ctxt->bhi_base, bhie_vecdb_offs,
+			    BHIE_TXVECDB_SEQNUM_BMSK, BHIE_TXVECDB_SEQNUM_SHFT,
 			    tx_sequence);
 	read_unlock_bh(pm_xfer_lock);
 
@@ -190,10 +199,10 @@ static int bhi_load_bhie_firmware(struct mhi_device_ctxt *mhi_dev_ctxt)
 			read_unlock_bh(pm_xfer_lock);
 			return -EIO;
 		}
-		val = mhi_reg_read(bhi_ctxt->bhi_base, BHIE_TXVECSTATUS_OFFS);
+		val = mhi_reg_read(bhi_ctxt->bhi_base, bhie_vecstatus_offs);
 		read_unlock_bh(pm_xfer_lock);
 		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-			"TXVEC_STATUS:0x%x\n", val);
+			"%sVEC_STATUS:0x%x\n", tx_vec_table ? "TX" : "RX", val);
 		current_seq = (val & BHIE_TXVECSTATUS_SEQNUM_BMSK) >>
 			BHIE_TXVECSTATUS_SEQNUM_SHFT;
 		status = (val & BHIE_TXVECSTATUS_STATUS_BMSK) >>
@@ -201,15 +210,58 @@ static int bhi_load_bhie_firmware(struct mhi_device_ctxt *mhi_dev_ctxt)
 		if ((status == BHIE_TXVECSTATUS_STATUS_XFER_COMPL) &&
 		    (current_seq == tx_sequence)) {
 			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-				"Image transfer complete\n");
+				"%s transfer complete\n",
+				tx_vec_table ? "image" : "rddm");
 			return 0;
 		}
 		msleep(BHI_POLL_SLEEP_TIME_MS);
 	}
 
 	mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
-		 "Error xfering image via BHIE\n");
+		"Error xfer %s via BHIE\n", tx_vec_table ? "image" : "rddm");
 	return -EIO;
+}
+
+static int bhi_rddm_graceful(struct mhi_device_ctxt *mhi_dev_ctxt)
+{
+	int ret;
+	struct bhi_ctxt_t *bhi_ctxt = &mhi_dev_ctxt->bhi_ctxt;
+	struct bhie_vec_table *rddm_table = &bhi_ctxt->rddm_table;
+	enum MHI_EXEC_ENV exec_env = mhi_dev_ctxt->dev_exec_env;
+
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Entered with pm_state:0x%x exec_env:0x%x mhi_state:%s\n",
+		mhi_dev_ctxt->mhi_pm_state, exec_env,
+		TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state));
+
+	if (exec_env != MHI_EXEC_ENV_RDDM) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"Not in RDDM exec env, exec_env:0x%x\n", exec_env);
+		return -EIO;
+	}
+
+	ret = bhi_bhie_transfer(mhi_dev_ctxt, rddm_table, false);
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "rddm transfer status:%d\n", ret);
+	return ret;
+}
+
+/* collect ramdump from device using bhie protocol */
+int bhi_rddm(struct mhi_device_ctxt *mhi_dev_ctxt, bool in_panic)
+{
+	struct bhi_ctxt_t *bhi_ctxt = &mhi_dev_ctxt->bhi_ctxt;
+	struct bhie_vec_table *rddm_table = &bhi_ctxt->rddm_table;
+
+	if (!rddm_table->bhie_mem_info) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "RDDM table == NULL\n");
+		return -ENOMEM;
+	}
+
+	if (!in_panic)
+		return bhi_rddm_graceful(mhi_dev_ctxt);
+
+	mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+		"RDDM collection in panic not yet supported\n");
+	return -EINVAL;
 }
 
 static int bhi_load_firmware(struct mhi_device_ctxt *mhi_dev_ctxt)
@@ -425,7 +477,8 @@ void bhi_firmware_download(struct work_struct *work)
 		return;
 	}
 
-	ret = bhi_load_bhie_firmware(mhi_dev_ctxt);
+	ret = bhi_bhie_transfer(mhi_dev_ctxt, &mhi_dev_ctxt->bhi_ctxt.fw_table,
+				true);
 	if (ret) {
 		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
 			"Failed to Load amss firmware\n");
@@ -437,6 +490,7 @@ int bhi_probe(struct mhi_device_ctxt *mhi_dev_ctxt)
 	struct bhi_ctxt_t *bhi_ctxt = &mhi_dev_ctxt->bhi_ctxt;
 	struct firmware_info *fw_info = &bhi_ctxt->firmware_info;
 	struct bhie_vec_table *fw_table = &bhi_ctxt->fw_table;
+	struct bhie_vec_table *rddm_table = &bhi_ctxt->rddm_table;
 	const struct firmware *firmware;
 	struct scatterlist *itr;
 	int ret, i;
@@ -503,7 +557,75 @@ int bhi_probe(struct mhi_device_ctxt *mhi_dev_ctxt)
 	fw_table->sequence++;
 	release_firmware(firmware);
 
+	/* allocate memory and setup rddm table */
+	if (bhi_ctxt->support_rddm) {
+		ret = bhi_alloc_bhie_xfer(mhi_dev_ctxt, bhi_ctxt->rddm_size,
+					  rddm_table);
+		if (!ret) {
+			for (i = 0, itr = &rddm_table->sg_list[1];
+			     i < rddm_table->segment_count - 1; i++, itr++) {
+				size_t size = rddm_table->bhie_mem_info[i].size;
+
+				rddm_table->bhi_vec_entry[i].phys_addr =
+					rddm_table->bhie_mem_info[i].phys_addr;
+				rddm_table->bhi_vec_entry[i].size = size;
+				sg_set_buf(itr, rddm_table->
+					   bhie_mem_info[i].aligned, size);
+				sg_dma_address(itr) =
+					rddm_table->bhie_mem_info[i].phys_addr;
+				sg_dma_len(itr) = size;
+			}
+			rddm_table->sequence++;
+		} else {
+			/* out of memory for rddm, not fatal error */
+			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+				"Could not successfully allocate mem for rddm\n");
+		}
+	}
+
 	/* Schedule a worker thread and wait for BHI Event */
 	schedule_work(&bhi_ctxt->fw_load_work);
 	return 0;
+}
+
+void bhi_exit(struct mhi_device_ctxt *mhi_dev_ctxt)
+{
+	struct bhi_ctxt_t *bhi_ctxt = &mhi_dev_ctxt->bhi_ctxt;
+	struct bhie_vec_table *fw_table = &bhi_ctxt->fw_table;
+	struct bhie_vec_table *rddm_table = &bhi_ctxt->rddm_table;
+	struct device *dev = &mhi_dev_ctxt->plat_dev->dev;
+	struct bhie_mem_info *bhie_mem_info;
+	int i;
+
+	if (bhi_ctxt->manage_boot == false)
+		return;
+
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"freeing firmware and rddm memory\n");
+
+	/* free memory allocated for firmware */
+	kfree(fw_table->sg_list);
+	fw_table->sg_list = NULL;
+	bhie_mem_info = fw_table->bhie_mem_info;
+	for (i = 0; i < fw_table->segment_count; i++, bhie_mem_info++)
+		dma_free_coherent(dev, bhie_mem_info->alloc_size,
+				  bhie_mem_info->pre_aligned,
+				  bhie_mem_info->dma_handle);
+	fw_table->bhie_mem_info = NULL;
+	/* vector table is the last entry in bhie_mem_info */
+	fw_table->bhi_vec_entry = NULL;
+
+	if (!rddm_table->bhie_mem_info)
+		return;
+
+	/* free memory allocated for rddm */
+	kfree(rddm_table->sg_list);
+	rddm_table->sg_list = NULL;
+	bhie_mem_info = rddm_table->bhie_mem_info;
+	for (i = 0; i < rddm_table->segment_count; i++, bhie_mem_info++)
+		dma_free_coherent(dev, bhie_mem_info->alloc_size,
+				  bhie_mem_info->pre_aligned,
+				  bhie_mem_info->dma_handle);
+	rddm_table->bhie_mem_info = NULL;
+	rddm_table->bhi_vec_entry = NULL;
 }
