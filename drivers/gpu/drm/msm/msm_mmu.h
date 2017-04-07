@@ -33,6 +33,7 @@ enum msm_mmu_domain_type {
 enum msm_iommu_domain_type {
 	MSM_IOMMU_DOMAIN_DEFAULT,
 	MSM_IOMMU_DOMAIN_USER,
+	MSM_IOMMU_DOMAIN_SECURE,
 };
 
 struct msm_mmu_funcs {

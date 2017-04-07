@@ -17,6 +17,7 @@
 
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
+#include <soc/qcom/secure_buffer.h>
 #include "msm_drv.h"
 #include "msm_iommu.h"
 
@@ -142,6 +143,20 @@ static int msm_iommu_attach_dynamic(struct msm_mmu *mmu, const char **names,
 	return 0;
 }
 
+static int msm_iommu_attach_secure(struct msm_mmu *mmu, const char **names,
+		int cnt)
+{
+	struct msm_iommu *iommu = to_msm_iommu(mmu);
+	int ret, vmid = VMID_CP_PIXEL;
+
+	ret = iommu_domain_set_attr(iommu->domain, DOMAIN_ATTR_SECURE_VMID,
+		&vmid);
+	if (ret)
+		return ret;
+
+	return iommu_attach_device(iommu->domain, mmu->dev);
+}
+
 static void msm_iommu_detach(struct msm_mmu *mmu)
 {
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
@@ -250,6 +265,14 @@ static const struct msm_mmu_funcs user_funcs = {
 		.disable = msm_iommu_clocks_disable,
 };
 
+static const struct msm_mmu_funcs secure_funcs = {
+		.attach = msm_iommu_attach_secure,
+		.detach = msm_iommu_detach,
+		.map = msm_iommu_map,
+		.unmap = msm_iommu_unmap,
+		.destroy = msm_iommu_destroy,
+};
+
 static const struct msm_mmu_funcs dynamic_funcs = {
 		.attach = msm_iommu_attach_dynamic,
 		.detach = msm_iommu_detach_dynamic,
@@ -269,6 +292,10 @@ static const struct {
 	[MSM_IOMMU_DOMAIN_USER] = {
 		.cbname = "gfx3d_user",
 		.funcs = &user_funcs,
+	},
+	[MSM_IOMMU_DOMAIN_SECURE] = {
+		.cbname = "gfx3d_secure",
+		.funcs = &secure_funcs
 	},
 };
 
