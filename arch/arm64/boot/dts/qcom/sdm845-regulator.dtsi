@@ -85,7 +85,7 @@
 		qcom,cpr-saw-use-unit-mV;
 
 		qcom,saw-avs-ctrl = <0x101C031>;
-		qcom,saw-avs-limit = <0x3A00000>;
+		qcom,saw-avs-limit = <0x3A003A0>;
 
 		qcom,cpr-enable;
 		qcom,cpr-hw-closed-loop;
@@ -96,6 +96,9 @@
 			"APSS_SILVER_CPRH_STATUS_0",
 			"APSS_SILVER_CPRH_STATUS_1",
 			"SILVER_SAW4_PMIC_STS";
+
+		qcom,cpr-aging-ref-voltage = <928000>;
+		vdd-supply = <&pm8998_s13>;
 
 		thread@1 {
 			qcom,cpr-thread-id = <1>;
@@ -163,6 +166,14 @@
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+				qcom,cpr-aging-max-voltage-adjustment = <15000>;
+				qcom,cpr-aging-ref-corner = <17>;
+				qcom,cpr-aging-ro-scaling-factor = <1620>;
+				qcom,allow-aging-voltage-adjustment =
+					<0>;
+				qcom,allow-aging-open-loop-voltage-adjustment =
+					<1>;
 			};
 		};
 
@@ -223,6 +234,14 @@
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+				qcom,cpr-aging-max-voltage-adjustment = <15000>;
+				qcom,cpr-aging-ref-corner = <9>;
+				qcom,cpr-aging-ro-scaling-factor = <1620>;
+				qcom,allow-aging-voltage-adjustment =
+					<0>;
+				qcom,allow-aging-open-loop-voltage-adjustment =
+					<1>;
 			};
 		};
 	};
@@ -261,7 +280,7 @@
 		qcom,cpr-saw-use-unit-mV;
 
 		qcom,saw-avs-ctrl = <0x101C031>;
-		qcom,saw-avs-limit = <0x4200000>;
+		qcom,saw-avs-limit = <0x4200420>;
 
 		qcom,cpr-enable;
 		qcom,cpr-hw-closed-loop;
@@ -270,6 +289,9 @@
 			<0x17db3a84 0x17830c18>;
 		qcom,cpr-panic-reg-name-list =
 			"APSS_GOLD_CPRH_STATUS_0", "GOLD_SAW4_PMIC_STS";
+
+		qcom,cpr-aging-ref-voltage = <1056000>;
+		vdd-supply = <&pm8998_s12>;
 
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
@@ -343,6 +365,14 @@
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+				qcom,cpr-aging-max-voltage-adjustment = <15000>;
+				qcom,cpr-aging-ref-corner = <22>;
+				qcom,cpr-aging-ro-scaling-factor = <1700>;
+				qcom,allow-aging-voltage-adjustment =
+					<0>;
+				qcom,allow-aging-open-loop-voltage-adjustment =
+					<1>;
 			};
 		};
 	};
