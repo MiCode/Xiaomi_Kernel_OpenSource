@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,6 +54,7 @@
  * @SDE_IRQ_TYPE_SFI_CMD_2_IN:		DSI CMD2 static frame INTR into static
  * @SDE_IRQ_TYPE_SFI_CMD_2_OUT:		DSI CMD2 static frame INTR out-of static
  * @SDE_IRQ_TYPE_PROG_LINE:		Programmable Line interrupt
+ * @SDE_IRQ_TYPE_AD4_BL_DONE:		AD4 backlight
  * @SDE_IRQ_TYPE_RESERVED:		Reserved for expansion
  */
 enum sde_intr_type {
@@ -82,6 +83,7 @@ enum sde_intr_type {
 	SDE_IRQ_TYPE_SFI_CMD_2_IN,
 	SDE_IRQ_TYPE_SFI_CMD_2_OUT,
 	SDE_IRQ_TYPE_PROG_LINE,
+	SDE_IRQ_TYPE_AD4_BL_DONE,
 	SDE_IRQ_TYPE_RESERVED,
 };
 

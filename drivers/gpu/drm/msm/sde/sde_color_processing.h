@@ -15,6 +15,8 @@
 #define _SDE_COLOR_PROCESSING_H
 #include <drm/drm_crtc.h>
 
+struct sde_irq_callback;
+
 /*
  * PA MEMORY COLOR types
  * @MEMCOLOR_SKIN          Skin memory color type
@@ -92,4 +94,13 @@ void sde_cp_crtc_suspend(struct drm_crtc *crtc);
  * @crtc: Pointer to crtc.
  */
 void sde_cp_crtc_resume(struct drm_crtc *crtc);
+
+/**
+ * sde_cp_ad_interrupt: Api to enable/disable ad interrupt
+ * @crtc: Pointer to crtc.
+ * @en: Variable to enable/disable interrupt.
+ * @irq: Pointer to irq callback
+ */
+int sde_cp_ad_interrupt(struct drm_crtc *crtc, bool en,
+		struct sde_irq_callback *irq);
 #endif /*_SDE_COLOR_PROCESSING_H */
