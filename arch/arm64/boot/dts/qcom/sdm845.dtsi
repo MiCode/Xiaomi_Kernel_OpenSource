@@ -1985,6 +1985,17 @@
 			0x1ffc	/* apps_v6_rt_nhash_ofst; */
 			0x0	/* apps_v6_rt_nhash_size; */
 		>;
+
+		/* smp2p gpio information */
+		qcom,smp2pgpio_map_ipa_1_out {
+			compatible = "qcom,smp2pgpio-map-ipa-1-out";
+			gpios = <&smp2pgpio_ipa_1_out 0 0>;
+		};
+
+		qcom,smp2pgpio_map_ipa_1_in {
+			compatible = "qcom,smp2pgpio-map-ipa-1-in";
+			gpios = <&smp2pgpio_ipa_1_in 0 0>;
+		};
 	};
 
 	qcom,ipa_fws {
