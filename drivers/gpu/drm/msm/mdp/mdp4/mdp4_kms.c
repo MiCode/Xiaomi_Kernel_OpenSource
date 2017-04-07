@@ -184,8 +184,7 @@ static void mdp4_preclose(struct msm_kms *kms, struct drm_file *file)
 		mdp4_crtc_cancel_pending_flip(priv->crtcs[i], file);
 
 	if (aspace) {
-		aspace->mmu->funcs->detach(aspace->mmu,
-				iommu_ports, ARRAY_SIZE(iommu_ports));
+		aspace->mmu->funcs->detach(aspace->mmu);
 		msm_gem_address_space_destroy(aspace);
 	}
 }
@@ -202,8 +201,7 @@ static void mdp4_destroy(struct msm_kms *kms)
 		drm_gem_object_unreference_unlocked(mdp4_kms->blank_cursor_bo);
 
 	if (aspace) {
-		aspace->mmu->funcs->detach(aspace->mmu,
-				iommu_ports, ARRAY_SIZE(iommu_ports));
+		aspace->mmu->funcs->detach(aspace->mmu);
 		msm_gem_address_space_put(aspace);
 	}
 
@@ -416,10 +414,6 @@ fail:
 	return ret;
 }
 
-static const char *iommu_ports[] = {
-		"mdp_port0_cb0", "mdp_port1_cb0",
-};
-
 struct msm_kms *mdp4_kms_init(struct drm_device *dev)
 {
 	struct platform_device *pdev = dev->platformdev;
@@ -527,8 +521,7 @@ struct msm_kms *mdp4_kms_init(struct drm_device *dev)
 
 		mdp4_kms->aspace = aspace;
 
-		ret = aspace->mmu->funcs->attach(aspace->mmu, iommu_ports,
-				ARRAY_SIZE(iommu_ports));
+		ret = aspace->mmu->funcs->attach(aspace->mmu, NULL, 0);
 		if (ret)
 			goto fail;
 	} else {

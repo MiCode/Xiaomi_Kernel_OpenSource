@@ -404,10 +404,6 @@ void adreno_wait_ring(struct msm_ringbuffer *ring, uint32_t ndwords)
 			ring->gpu->name, ring->id);
 }
 
-static const char *iommu_ports[] = {
-		"gfx3d_user",
-};
-
 /* Read the set of powerlevels */
 static int _adreno_get_pwrlevels(struct msm_gpu *gpu, struct device_node *node)
 {
@@ -579,8 +575,7 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 
 	mmu = gpu->aspace->mmu;
 	if (mmu) {
-		ret = mmu->funcs->attach(mmu, iommu_ports,
-				ARRAY_SIZE(iommu_ports));
+		ret = mmu->funcs->attach(mmu, NULL, 0);
 		if (ret)
 			return ret;
 	}
