@@ -1,0 +1,7 @@
+config MSM_TZ_LOG
+        tristate "MSM Trust Zone (TZ) Log Driver"
+        depends on DEBUG_FS
+        help
+          This option enables a driver with a debugfs interface for messages
+          produced by the Secure code (Trust zone). These messages provide
+          diagnostic information about TZ operation.
