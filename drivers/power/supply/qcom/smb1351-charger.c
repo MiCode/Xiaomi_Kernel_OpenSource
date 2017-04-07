@@ -1655,7 +1655,7 @@ static int smb1351_parallel_get_property(struct power_supply *psy,
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
-		val->intval = !chip->usb_suspended_status;
+		val->intval = !chip->parallel_charger_suspended;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		if (!chip->parallel_charger_suspended)
