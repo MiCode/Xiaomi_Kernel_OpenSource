@@ -196,7 +196,7 @@ static void msm_iommu_detach_dynamic(struct msm_mmu *mmu)
 }
 
 static int msm_iommu_map(struct msm_mmu *mmu, uint64_t iova,
-		struct sg_table *sgt, u32 flags)
+		struct sg_table *sgt, u32 flags, void *priv)
 {
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
 	struct iommu_domain *domain = iommu->domain;
@@ -224,7 +224,7 @@ static int msm_iommu_map(struct msm_mmu *mmu, uint64_t iova,
 }
 
 static void msm_iommu_unmap(struct msm_mmu *mmu, uint64_t iova,
-		struct sg_table *sgt)
+		struct sg_table *sgt, void *priv)
 {
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
 	struct iommu_domain *domain = iommu->domain;

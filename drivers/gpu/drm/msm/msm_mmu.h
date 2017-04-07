@@ -34,12 +34,9 @@ struct msm_mmu_funcs {
 	int (*attach)(struct msm_mmu *mmu, const char **names, int cnt);
 	void (*detach)(struct msm_mmu *mmu);
 	int (*map)(struct msm_mmu *mmu, uint64_t iova, struct sg_table *sgt,
-			u32 flags);
-	void (*unmap)(struct msm_mmu *mmu, uint64_t iova, struct sg_table *sgt);
-	int (*map_dma_buf)(struct msm_mmu *mmu, struct sg_table *sgt,
-			struct dma_buf *dma_buf, int dir);
-	void (*unmap_dma_buf)(struct msm_mmu *mmu, struct sg_table *sgt,
-			struct dma_buf *dma_buf, int dir);
+			u32 flags, void *priv);
+	void (*unmap)(struct msm_mmu *mmu, uint64_t iova, struct sg_table *sgt,
+			void *priv);
 	void (*destroy)(struct msm_mmu *mmu);
 };
 

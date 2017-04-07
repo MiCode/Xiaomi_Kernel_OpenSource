@@ -42,13 +42,8 @@ static void smmu_aspace_unmap_vma(struct msm_gem_address_space *aspace,
 		struct msm_gem_vma *vma, struct sg_table *sgt,
 		void *priv)
 {
-	struct dma_buf *buf = priv;
 
-	if (buf)
-		aspace->mmu->funcs->unmap_dma_buf(aspace->mmu,
-			sgt, buf, DMA_BIDIRECTIONAL);
-	else
-		aspace->mmu->funcs->unmap(aspace->mmu, 0, sgt);
+	aspace->mmu->funcs->unmap(aspace->mmu, 0, sgt, priv);
 
 	vma->iova = 0;
 
@@ -60,20 +55,15 @@ static int smmu_aspace_map_vma(struct msm_gem_address_space *aspace,
 		struct msm_gem_vma *vma, struct sg_table *sgt,
 		void *priv, unsigned int flags)
 {
-	struct dma_buf *buf = priv;
 	int ret;
 
-	if (buf)
-		ret = aspace->mmu->funcs->map_dma_buf(aspace->mmu, sgt, buf,
-			DMA_BIDIRECTIONAL);
-	else
-		ret = aspace->mmu->funcs->map(aspace->mmu, 0, sgt, flags);
-
-	if (!ret)
+	ret = aspace->mmu->funcs->map(aspace->mmu, 0, sgt, flags, priv);
+	if (!ret) {
 		vma->iova = sg_dma_address(sgt->sgl);
 
-	/* Get a reference to the aspace to keep it around */
-	kref_get(&aspace->kref);
+		/* Get a reference to the aspace to keep it around */
+		kref_get(&aspace->kref);
+	}
 
 	return ret;
 }
@@ -122,7 +112,7 @@ static void iommu_aspace_unmap_vma(struct msm_gem_address_space *aspace,
 		return;
 
 	if (aspace->mmu)
-		aspace->mmu->funcs->unmap(aspace->mmu, vma->iova, sgt);
+		aspace->mmu->funcs->unmap(aspace->mmu, vma->iova, sgt, NULL);
 
 	drm_mm_remove_node(&vma->node);
 
@@ -155,7 +145,7 @@ static int iommu_aspace_map_vma(struct msm_gem_address_space *aspace,
 
 	if (aspace->mmu)
 		ret = aspace->mmu->funcs->map(aspace->mmu, vma->iova, sgt,
-			flags);
+			flags, NULL);
 
 	/* Get a reference to the aspace to keep it around */
 	kref_get(&aspace->kref);
