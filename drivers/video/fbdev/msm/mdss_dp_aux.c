@@ -750,6 +750,8 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 		return ret;
 	}
 
+	memset(dp->edid_buf, 0, dp->edid_buf_size);
+
 	/**
 	 * Parse the test request vector to see whether there is a
 	 * TEST_EDID_READ test request.
@@ -834,6 +836,10 @@ int mdss_dp_dpcd_cap_read(struct mdss_dp_drv_pdata *ep)
 	struct dpcd_cap *cap;
 	struct edp_buf *rp;
 	int rlen;
+	int i;
+
+	cap = &ep->dpcd;
+	memset(cap, 0, sizeof(*cap));
 
 	rlen = dp_aux_read_buf(ep, 0, len, 0);
 	if (rlen <= 0) {
@@ -848,10 +854,7 @@ int mdss_dp_dpcd_cap_read(struct mdss_dp_drv_pdata *ep)
 	}
 
 	rp = &ep->rxp;
-	cap = &ep->dpcd;
 	bp = rp->data;
-
-	memset(cap, 0, sizeof(*cap));
 
 	data = *bp++; /* byte 0 */
 	cap->major = (data >> 4) & 0x0f;
@@ -909,6 +912,11 @@ int mdss_dp_dpcd_cap_read(struct mdss_dp_drv_pdata *ep)
 
 	data = *bp++; /* Byte 7: DOWN_STREAM_PORT_COUNT */
 	cap->downstream_port.dfp_count = data & 0x7;
+	if (cap->downstream_port.dfp_count > DP_MAX_DS_PORT_COUNT) {
+		pr_debug("DS port count %d greater that max (%d) supported\n",
+			cap->downstream_port.dfp_count, DP_MAX_DS_PORT_COUNT);
+		cap->downstream_port.dfp_count = DP_MAX_DS_PORT_COUNT;
+	}
 	cap->downstream_port.msa_timing_par_ignored = data & BIT(6);
 	cap->downstream_port.oui_support = data & BIT(7);
 	pr_debug("dfp_count = %d, msa_timing_par_ignored = %d\n",
@@ -916,17 +924,23 @@ int mdss_dp_dpcd_cap_read(struct mdss_dp_drv_pdata *ep)
 			cap->downstream_port.msa_timing_par_ignored);
 	pr_debug("oui_support = %d\n", cap->downstream_port.oui_support);
 
-	data = *bp++; /* byte 8 */
-	if (data & BIT(1)) {
-		cap->flags |= DPCD_PORT_0_EDID_PRESENTED;
-		pr_debug("edid presented\n");
+	for (i = 0; i < DP_MAX_DS_PORT_COUNT; i++) {
+		data = *bp++; /* byte 8 + i*2 */
+		pr_debug("parsing capabilities for DS port %d\n", i);
+		if (data & BIT(1)) {
+			if (i == 0)
+				cap->flags |= DPCD_PORT_0_EDID_PRESENTED;
+			else
+				cap->flags |= DPCD_PORT_1_EDID_PRESENTED;
+			pr_debug("local edid present\n");
+		} else {
+			pr_debug("local edid absent\n");
+		}
+
+		data = *bp++; /* byte 9 + i*2 */
+		cap->rx_port_buf_size[i] = (data + 1) * 32;
+		pr_debug("lane_buf_size=%d\n", cap->rx_port_buf_size[i]);
 	}
-
-	data = *bp++; /* byte 9 */
-	cap->rx_port0_buf_size = (data + 1) * 32;
-	pr_debug("lane_buf_size=%d\n", cap->rx_port0_buf_size);
-
-	bp += 2; /* skip 10, 11 port1 capability */
 
 	data = *bp++;	/* byte 12 */
 	cap->i2c_speed_ctrl = data;
@@ -1257,6 +1271,8 @@ static void dp_sink_parse_sink_count(struct mdss_dp_drv_pdata *ep)
 	int rlen;
 	int const param_len = 0x1;
 	int const sink_count_addr = 0x200;
+
+	ep->prev_sink_count = ep->sink_count;
 
 	rlen = dp_aux_read_buf(ep, sink_count_addr, param_len, 0);
 	if (rlen < param_len) {
@@ -2363,8 +2379,8 @@ clear:
 void mdss_dp_aux_parse_sink_status_field(struct mdss_dp_drv_pdata *ep)
 {
 	dp_sink_parse_sink_count(ep);
-	dp_sink_parse_test_request(ep);
 	mdss_dp_aux_link_status_read(ep, 6);
+	dp_sink_parse_test_request(ep);
 }
 
 int mdss_dp_dpcd_status_read(struct mdss_dp_drv_pdata *ep)

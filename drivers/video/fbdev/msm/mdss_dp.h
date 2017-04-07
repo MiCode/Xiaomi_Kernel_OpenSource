@@ -186,6 +186,7 @@ struct dp_alt_mode {
 #define DPCD_MAX_DOWNSPREAD_0_5	BIT(2)
 #define DPCD_NO_AUX_HANDSHAKE	BIT(3)
 #define DPCD_PORT_0_EDID_PRESENTED	BIT(4)
+#define DPCD_PORT_1_EDID_PRESENTED	BIT(5)
 
 /* event */
 #define EV_EDP_AUX_SETUP		BIT(0)
@@ -239,6 +240,8 @@ struct downstream_port_config {
 	bool oui_support;
 };
 
+#define DP_MAX_DS_PORT_COUNT 2
+
 struct dpcd_cap {
 	char major;
 	char minor;
@@ -249,7 +252,7 @@ struct dpcd_cap {
 	char enhanced_frame;
 	u32 max_link_rate;  /* 162, 270 and 540 Mb, divided by 10 */
 	u32 flags;
-	u32 rx_port0_buf_size;
+	u32 rx_port_buf_size[DP_MAX_DS_PORT_COUNT];
 	u32 training_read_interval;/* us */
 	struct downstream_port_config downstream_port;
 };
@@ -449,7 +452,6 @@ struct mdss_dp_drv_pdata {
 	bool core_clks_on;
 	bool link_clks_on;
 	bool power_on;
-	bool sink_info_read;
 	u32 suspend_vic;
 	bool hpd;
 	bool psm_enabled;
@@ -563,6 +565,7 @@ struct mdss_dp_drv_pdata {
 
 	struct dpcd_test_request test_data;
 	struct dpcd_sink_count sink_count;
+	struct dpcd_sink_count prev_sink_count;
 
 	struct list_head attention_head;
 };
