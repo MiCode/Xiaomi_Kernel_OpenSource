@@ -141,16 +141,6 @@ static int iommu_aspace_map_vma(struct msm_gem_address_space *aspace,
 	size_t size = 0;
 	struct scatterlist *sg;
 	int ret, i;
-	int iommu_flags = IOMMU_READ;
-
-	if (!(flags & MSM_BO_GPU_READONLY))
-		iommu_flags |= IOMMU_WRITE;
-
-	if (flags & MSM_BO_PRIVILEGED)
-		iommu_flags |= IOMMU_PRIV;
-
-	if ((flags & MSM_BO_CACHED) && msm_iommu_coherent(aspace->mmu))
-		iommu_flags |= IOMMU_CACHE;
 
 	if (WARN_ON(drm_mm_node_allocated(&vma->node)))
 		return 0;
@@ -167,7 +157,7 @@ static int iommu_aspace_map_vma(struct msm_gem_address_space *aspace,
 
 	if (aspace->mmu)
 		ret = aspace->mmu->funcs->map(aspace->mmu, vma->iova, sgt,
-			iommu_flags);
+			flags);
 
 	/* Get a reference to the aspace to keep it around */
 	kref_get(&aspace->kref);

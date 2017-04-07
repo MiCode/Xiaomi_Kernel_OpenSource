@@ -105,7 +105,7 @@ static void msm_smmu_detach(struct msm_mmu *mmu)
 }
 
 static int msm_smmu_map(struct msm_mmu *mmu, uint64_t iova,
-		struct sg_table *sgt, int prot)
+		struct sg_table *sgt, u32 flags)
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
@@ -128,7 +128,8 @@ static int msm_smmu_map(struct msm_mmu *mmu, uint64_t iova,
 
 		VERB("map[%d]: %16llx %08x(%zx)", i, iova, pa, bytes);
 
-		ret = iommu_map(domain, da, pa, bytes, prot);
+		ret = iommu_map(domain, da, pa, bytes,
+			IOMMU_READ | IOMMU_WRITE);
 		if (ret)
 			goto fail;
 

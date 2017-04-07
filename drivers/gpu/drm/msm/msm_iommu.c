@@ -196,7 +196,7 @@ static void msm_iommu_detach_dynamic(struct msm_mmu *mmu)
 }
 
 static int msm_iommu_map(struct msm_mmu *mmu, uint64_t iova,
-		struct sg_table *sgt, int prot)
+		struct sg_table *sgt, u32 flags)
 {
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
 	struct iommu_domain *domain = iommu->domain;
@@ -204,9 +204,19 @@ static int msm_iommu_map(struct msm_mmu *mmu, uint64_t iova,
 	uint64_t da = iova;
 	unsigned int i, j;
 	int ret;
+	u32 prot = IOMMU_READ;
 
 	if (!domain || !sgt)
 		return -EINVAL;
+
+	if (!(flags & MSM_BO_GPU_READONLY))
+		prot |= IOMMU_WRITE;
+
+	if (flags & MSM_BO_PRIVILEGED)
+		prot |= IOMMU_PRIV;
+
+	if ((flags & MSM_BO_CACHED) && msm_iommu_coherent(mmu))
+		prot |= IOMMU_CACHE;
 
 	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
 		phys_addr_t pa = sg_phys(sg) - sg->offset;
