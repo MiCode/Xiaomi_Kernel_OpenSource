@@ -2150,3 +2150,4 @@
 #include "sdm845-pm.dtsi"
 #include "sdm845-pinctrl.dtsi"
 #include "sdm845-audio.dtsi"
+#include "sdm845-gpu.dtsi"
