@@ -69,6 +69,11 @@ static int mdss_dp_process_phy_test_pattern_request(
 static int mdss_dp_send_audio_notification(
 	struct mdss_dp_drv_pdata *dp, int val);
 
+static inline void mdss_dp_reset_sink_count(struct mdss_dp_drv_pdata *dp)
+{
+	memset(&dp->sink_count, 0, sizeof(dp->sink_count));
+}
+
 static inline void mdss_dp_reset_test_data(struct mdss_dp_drv_pdata *dp)
 {
 	dp->test_data = (const struct dpcd_test_request){ 0 };
@@ -958,6 +963,12 @@ void mdss_dp_config_ctrl(struct mdss_dp_drv_pdata *dp)
 	mdss_dp_configuration_ctrl(&dp->ctrl_io, data);
 }
 
+static inline void mdss_dp_ack_state(struct mdss_dp_drv_pdata *dp, int val)
+{
+	if (dp && dp->ext_audio_data.intf_ops.notify)
+		dp->ext_audio_data.intf_ops.notify(dp->ext_pdev, val);
+}
+
 static int mdss_dp_wait4video_ready(struct mdss_dp_drv_pdata *dp_drv)
 {
 	int ret = 0;
@@ -1615,7 +1626,19 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 	dp_drv = container_of(pdata, struct mdss_dp_drv_pdata,
 			panel_data);
 
-	if (dp_drv->power_on) {
+	/*
+	 * If the link already active, then nothing needs to be done here.
+	 * However, it is possible that the the power_on flag could be
+	 * set to true but we would still need to initialize the DP host.
+	 * An example of this use-case is when a multiport dongle is connected
+	 * and subsequently the downstream sink is disconnected. This would
+	 * only go through the IRQ HPD path where we tear down the link but
+	 * the power_on flag remains set to true. When the downstream sink
+	 * is subsequently connected again, we need to re-initialize DP
+	 * host
+	 */
+	if (dp_drv->power_on &&
+		(dp_drv->new_vic && (dp_drv->new_vic == dp_drv->vic))) {
 		pr_debug("Link already setup, return\n");
 		return 0;
 	}
@@ -1631,6 +1654,23 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 		mdss_dp_host_init(pdata);
 
 	return mdss_dp_on_hpd(dp_drv);
+}
+
+static bool mdss_dp_is_ds_bridge(struct mdss_dp_drv_pdata *dp)
+{
+	return dp->dpcd.downstream_port.dfp_present;
+}
+
+static bool mdss_dp_is_ds_bridge_sink_count_zero(struct mdss_dp_drv_pdata *dp)
+{
+	return (mdss_dp_is_ds_bridge(dp) &&
+		(dp->sink_count.count == 0));
+}
+
+static bool mdss_dp_is_ds_bridge_no_local_edid(struct mdss_dp_drv_pdata *dp)
+{
+	return (mdss_dp_is_ds_bridge_sink_count_zero(dp) &&
+		!(dp->dpcd.flags & DPCD_PORT_0_EDID_PRESENTED));
 }
 
 static int mdss_dp_off_irq(struct mdss_dp_drv_pdata *dp_drv)
@@ -1649,6 +1689,14 @@ static int mdss_dp_off_irq(struct mdss_dp_drv_pdata *dp_drv)
 	mdss_dp_audio_enable(&dp_drv->ctrl_io, false);
 	/* Make sure DP mainlink and audio engines are disabled */
 	wmb();
+
+	/*
+	 * If downstream device is a brige which no longer has any
+	 * downstream devices connected to it, then we should reset
+	 * the current panel info
+	 */
+	if (mdss_dp_is_ds_bridge_sink_count_zero(dp_drv))
+		dp_init_panel_info(dp_drv, HDMI_VFRMT_UNKNOWN);
 
 	mutex_unlock(&dp_drv->train_mutex);
 
@@ -1678,10 +1726,11 @@ static int mdss_dp_off_hpd(struct mdss_dp_drv_pdata *dp_drv)
 	mdss_dp_host_deinit(dp_drv);
 
 	dp_drv->power_on = false;
-	dp_drv->sink_info_read = false;
 	dp_init_panel_info(dp_drv, HDMI_VFRMT_UNKNOWN);
 
 	mdss_dp_reset_test_data(dp_drv);
+	mdss_dp_reset_sink_count(dp_drv);
+	dp_drv->prev_sink_count = dp_drv->sink_count;
 	mutex_unlock(&dp_drv->train_mutex);
 	pr_debug("DP off done\n");
 
@@ -1720,8 +1769,9 @@ static int mdss_dp_send_audio_notification(
 	if (mdss_dp_sink_audio_supp(dp) || dp->audio_test_req) {
 		dp->audio_test_req = false;
 
-		pr_debug("sending audio notification\n");
 		flags |= MSM_EXT_DISP_HPD_AUDIO;
+		pr_debug("sending audio notification = %d, flags = %d\n", val,
+				flags);
 
 		if (dp->ext_audio_data.intf_ops.hpd)
 			ret = dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,
@@ -1747,6 +1797,7 @@ static int mdss_dp_send_video_notification(
 	}
 
 	flags |= MSM_EXT_DISP_HPD_ASYNC_VIDEO;
+	pr_debug("sending video notification = %d, flags = %d\n", val, flags);
 
 	if (dp->ext_audio_data.intf_ops.hpd)
 		ret = dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,
@@ -1936,6 +1987,7 @@ static int mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp,
 	bool connect;
 
 	mutex_lock(&dp->pd_msg_mutex);
+	pr_debug("beginning notification\n");
 	if (status == dp->hpd_notification_status) {
 		pr_debug("No change in status %s --> %s\n",
 			mdss_dp_notification_status_to_string(status),
@@ -1952,9 +2004,7 @@ static int mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp,
 		connect = true;
 		break;
 	case NOTIFY_CONNECT:
-		if ((dp->hpd_notification_status == NOTIFY_CONNECT_IRQ_HPD) ||
-			(dp->hpd_notification_status ==
-			 NOTIFY_DISCONNECT_IRQ_HPD))
+		if (dp->hpd_notification_status == NOTIFY_CONNECT_IRQ_HPD)
 			goto invalid_request;
 		notify = true;
 		connect = true;
@@ -2037,9 +2087,6 @@ static int mdss_dp_process_hpd_high(struct mdss_dp_drv_pdata *dp)
 	int ret;
 	u32 max_pclk_khz;
 
-	if (dp->sink_info_read)
-		return 0;
-
 	pr_debug("start\n");
 
 	ret = mdss_dp_dpcd_cap_read(dp);
@@ -2052,8 +2099,25 @@ static int mdss_dp_process_hpd_high(struct mdss_dp_drv_pdata *dp)
 		 */
 		pr_err("dpcd read failed, set failsafe parameters\n");
 		mdss_dp_set_default_link_parameters(dp);
+		goto read_edid;
 	}
 
+	/*
+	 * When connected to a multiport adaptor which does not have a
+	 * local EDID present, do not attempt to read the EDID.
+	 * When connected to a multiport adaptor with no downstream device
+	 * connected to it, do not attempt to read the EDID. It is possible
+	 * that the adaptor may advertise the presence of local EDID, but it
+	 * is not guaranteed to work.
+	 */
+	if (mdss_dp_is_ds_bridge_sink_count_zero(dp)) {
+		if (mdss_dp_is_ds_bridge_no_local_edid(dp))
+			pr_debug("No local EDID present on DS branch device\n");
+		pr_info("no downstream devices, skip client notification\n");
+		goto end;
+	}
+
+read_edid:
 	ret = mdss_dp_edid_read(dp);
 	if (ret) {
 		pr_err("edid read error, setting default resolution\n");
@@ -2069,8 +2133,6 @@ static int mdss_dp_process_hpd_high(struct mdss_dp_drv_pdata *dp)
 		pr_err("edid parse failed, setting default resolution\n");
 		goto notify;
 	}
-
-	dp->sink_info_read = true;
 
 notify:
 	if (ret) {
@@ -2098,7 +2160,6 @@ notify:
 end:
 	pr_debug("end\n");
 	return ret;
-
 }
 
 static int mdss_dp_check_params(struct mdss_dp_drv_pdata *dp, void *arg)
@@ -3094,6 +3155,7 @@ static int mdss_retrieve_dp_ctrl_resources(struct platform_device *pdev,
 static void mdss_dp_video_ready(struct mdss_dp_drv_pdata *dp)
 {
 	pr_debug("dp_video_ready\n");
+	mdss_dp_ack_state(dp, true);
 	complete(&dp->video_comp);
 }
 
@@ -3644,10 +3706,46 @@ static int mdss_dp_process_audio_pattern_request(struct mdss_dp_drv_pdata *dp)
 static int mdss_dp_process_downstream_port_status_change(
 		struct mdss_dp_drv_pdata *dp)
 {
-	if (!mdss_dp_is_downstream_port_status_changed(dp))
+	bool ds_status_changed = false;
+
+	if (mdss_dp_is_downstream_port_status_changed(dp)) {
+		pr_debug("downstream port status changed\n");
+		ds_status_changed = true;
+	}
+
+	/*
+	 * Ideally sink should update the downstream port status changed
+	 * whenever it updates the downstream sink count. However, it is
+	 * possible that only the sink count is updated without setting
+	 * the downstream port status changed bit.
+	 */
+	if (dp->sink_count.count != dp->prev_sink_count.count) {
+		pr_debug("downstream sink count changed from %d --> %d\n",
+			dp->prev_sink_count.count, dp->sink_count.count);
+		ds_status_changed = true;
+	}
+
+	if (!ds_status_changed)
 		return -EINVAL;
 
-	return mdss_dp_edid_read(dp);
+	mdss_dp_notify_clients(dp, NOTIFY_DISCONNECT_IRQ_HPD);
+	if (atomic_read(&dp->notification_pending)) {
+		int ret;
+
+		pr_debug("waiting for the disconnect to finish\n");
+		ret = wait_for_completion_timeout(&dp->notification_comp, HZ);
+		if (ret <= 0) {
+			pr_warn("NOTIFY_DISCONNECT_IRQ_HPD timed out\n");
+			return -ETIMEDOUT;
+		}
+	}
+
+	if (mdss_dp_is_ds_bridge_sink_count_zero(dp)) {
+		pr_debug("sink count is zero, nothing to do\n");
+		return 0;
+	}
+
+	return mdss_dp_process_hpd_high(dp);
 }
 
 static bool mdss_dp_video_pattern_test_lt_needed(struct mdss_dp_drv_pdata *dp)
@@ -3745,6 +3843,10 @@ static int mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
 
 	mdss_dp_aux_parse_sink_status_field(dp);
 
+	ret = mdss_dp_process_downstream_port_status_change(dp);
+	if (!ret)
+		goto exit;
+
 	ret = mdss_dp_process_link_training_request(dp);
 	if (!ret)
 		goto exit;
@@ -3757,10 +3859,6 @@ static int mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
 	if (!ret)
 		goto exit;
 
-	ret = mdss_dp_process_downstream_port_status_change(dp);
-	if (!ret)
-		goto exit;
-
 	ret = mdss_dp_process_video_pattern_request(dp);
 	if (!ret)
 		goto exit;
@@ -3770,7 +3868,6 @@ static int mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
 		goto exit;
 
 	pr_debug("done\n");
-
 exit:
 	dp->hpd_irq_on = false;
 	return ret;
@@ -3864,11 +3961,21 @@ static void mdss_dp_process_attention(struct mdss_dp_drv_pdata *dp_drv)
 	if (!dp_drv->alt_mode.dp_status.hpd_high) {
 		pr_debug("Attention: HPD low\n");
 
+		if (!dp_drv->power_on) {
+			pr_debug("HPD already low\n");
+			return;
+		}
+
 		if (dp_is_hdcp_enabled(dp_drv) && dp_drv->hdcp.ops->off) {
 			cancel_delayed_work(&dp_drv->hdcp_cb_work);
 			dp_drv->hdcp.ops->off(dp_drv->hdcp.data);
 		}
 
+		/*
+		 * Reset the sink count before nofifying clients since HPD Low
+		 * indicates that the downstream device has been disconnected.
+		 */
+		mdss_dp_reset_sink_count(dp_drv);
 		mdss_dp_notify_clients(dp_drv, NOTIFY_DISCONNECT);
 		pr_debug("Attention: Notified clients\n");
 
@@ -3895,6 +4002,11 @@ static void mdss_dp_process_attention(struct mdss_dp_drv_pdata *dp_drv)
 	}
 
 	pr_debug("Attention: HPD high\n");
+
+	if (dp_drv->power_on) {
+		pr_debug("HPD high processed already\n");
+		return;
+	}
 
 	dp_drv->alt_mode.current_state |= DP_STATUS_DONE;
 
