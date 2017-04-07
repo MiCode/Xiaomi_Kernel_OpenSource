@@ -200,9 +200,6 @@ static int msm_iommu_map(struct msm_mmu *mmu, uint64_t iova,
 {
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
 	struct iommu_domain *domain = iommu->domain;
-	struct scatterlist *sg;
-	uint64_t da = iova;
-	unsigned int i, j;
 	int ret;
 	u32 prot = IOMMU_READ;
 
@@ -218,57 +215,31 @@ static int msm_iommu_map(struct msm_mmu *mmu, uint64_t iova,
 	if ((flags & MSM_BO_CACHED) && msm_iommu_coherent(mmu))
 		prot |= IOMMU_CACHE;
 
-	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
-		phys_addr_t pa = sg_phys(sg) - sg->offset;
-		size_t bytes = sg->length + sg->offset;
+	/* iommu_map_sg returns the number of bytes mapped */
+	ret =  iommu_map_sg(domain, iova, sgt->sgl, sgt->nents, prot);
+	if (ret)
+		sgt->sgl->dma_address = iova;
 
-		VERB("map[%d]: %016llx %pa(%zx)", i, iova, &pa, bytes);
-
-		ret = iommu_map(domain, da, pa, bytes, prot);
-		if (ret)
-			goto fail;
-
-		da += bytes;
-	}
-
-	return 0;
-
-fail:
-	da = iova;
-
-	for_each_sg(sgt->sgl, sg, i, j) {
-		size_t bytes = sg->length + sg->offset;
-		iommu_unmap(domain, da, bytes);
-		da += bytes;
-	}
-	return ret;
+	return ret ? 0 : -ENOMEM;
 }
 
-static int msm_iommu_unmap(struct msm_mmu *mmu, uint64_t iova,
+static void msm_iommu_unmap(struct msm_mmu *mmu, uint64_t iova,
 		struct sg_table *sgt)
 {
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
 	struct iommu_domain *domain = iommu->domain;
 	struct scatterlist *sg;
-	uint64_t da = iova;
-	int i;
+	size_t len = 0;
+	int ret, i;
 
-	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
-		size_t bytes = sg->length + sg->offset;
-		size_t unmapped;
+	for_each_sg(sgt->sgl, sg, sgt->nents, i)
+		len += sg->length;
 
-		unmapped = iommu_unmap(domain, da, bytes);
-		if (unmapped < bytes)
-			return unmapped;
+	ret = iommu_unmap(domain, iova, len);
+	if (ret != len)
+		dev_warn(mmu->dev, "could not unmap iova %llx\n", iova);
 
-		VERB("unmap[%d]: %016llx(%zx)", i, iova, bytes);
-
-		BUG_ON(!PAGE_ALIGNED(bytes));
-
-		da += bytes;
-	}
-
-	return 0;
+	sgt->sgl->dma_address = 0;
 }
 
 static void msm_iommu_destroy(struct msm_mmu *mmu)

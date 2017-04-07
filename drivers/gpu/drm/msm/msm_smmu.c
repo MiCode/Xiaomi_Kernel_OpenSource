@@ -109,103 +109,21 @@ static int msm_smmu_map(struct msm_mmu *mmu, uint64_t iova,
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
-	struct iommu_domain *domain;
-	struct scatterlist *sg;
-	uint64_t da = iova;
-	unsigned int i, j;
 	int ret;
 
-	if (!client)
-		return -ENODEV;
+	ret = dma_map_sg(client->dev, sgt->sgl, sgt->nents,
+			DMA_BIDIRECTIONAL);
 
-	domain = client->mmu_mapping->domain;
-	if (!domain || !sgt)
-		return -EINVAL;
-
-	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
-		u32 pa = sg_phys(sg) - sg->offset;
-		size_t bytes = sg->length + sg->offset;
-
-		VERB("map[%d]: %16llx %08x(%zx)", i, iova, pa, bytes);
-
-		ret = iommu_map(domain, da, pa, bytes,
-			IOMMU_READ | IOMMU_WRITE);
-		if (ret)
-			goto fail;
-
-		da += bytes;
-	}
-
-	return 0;
-
-fail:
-	da = iova;
-
-	for_each_sg(sgt->sgl, sg, i, j) {
-		size_t bytes = sg->length + sg->offset;
-
-		iommu_unmap(domain, da, bytes);
-		da += bytes;
-	}
-	return ret;
+	return (ret != sgt->nents) ? -ENOMEM : 0;
 }
 
-static int msm_smmu_map_sg(struct msm_mmu *mmu, struct sg_table *sgt,
-		enum dma_data_direction dir)
-{
-	struct msm_smmu *smmu = to_msm_smmu(mmu);
-	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
-	int ret;
-
-	ret = dma_map_sg(client->dev, sgt->sgl, sgt->nents, dir);
-	if (ret != sgt->nents)
-		return -ENOMEM;
-
-	return 0;
-}
-
-static void msm_smmu_unmap_sg(struct msm_mmu *mmu, struct sg_table *sgt,
-		enum dma_data_direction dir)
-{
-	struct msm_smmu *smmu = to_msm_smmu(mmu);
-	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
-
-	dma_unmap_sg(client->dev, sgt->sgl, sgt->nents, dir);
-}
-
-static int msm_smmu_unmap(struct msm_mmu *mmu, uint64_t iova,
+static void msm_smmu_unmap(struct msm_mmu *mmu, uint64_t iova,
 		struct sg_table *sgt)
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
-	struct iommu_domain *domain;
-	struct scatterlist *sg;
-	uint64_t da = iova;
-	int i;
 
-	if (!client)
-		return -ENODEV;
-
-	domain = client->mmu_mapping->domain;
-	if (!domain || !sgt)
-		return -EINVAL;
-
-	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
-		size_t bytes = sg->length + sg->offset;
-		size_t unmapped;
-
-		unmapped = iommu_unmap(domain, da, bytes);
-		if (unmapped < bytes)
-			return unmapped;
-
-		VERB("unmap[%d]: %16llx(%zx)", i, iova, bytes);
-
-		WARN_ON(!PAGE_ALIGNED(bytes));
-
-		da += bytes;
-	}
-
-	return 0;
+	dma_unmap_sg(client->dev, sgt->sgl, sgt->nents, DMA_BIDIRECTIONAL);
 }
 
 static void msm_smmu_destroy(struct msm_mmu *mmu)
@@ -249,8 +167,6 @@ static const struct msm_mmu_funcs funcs = {
 	.attach = msm_smmu_attach,
 	.detach = msm_smmu_detach,
 	.map = msm_smmu_map,
-	.map_sg = msm_smmu_map_sg,
-	.unmap_sg = msm_smmu_unmap_sg,
 	.unmap = msm_smmu_unmap,
 	.map_dma_buf = msm_smmu_map_dma_buf,
 	.unmap_dma_buf = msm_smmu_unmap_dma_buf,

@@ -48,8 +48,7 @@ static void smmu_aspace_unmap_vma(struct msm_gem_address_space *aspace,
 		aspace->mmu->funcs->unmap_dma_buf(aspace->mmu,
 			sgt, buf, DMA_BIDIRECTIONAL);
 	else
-		aspace->mmu->funcs->unmap_sg(aspace->mmu, sgt,
-			DMA_BIDIRECTIONAL);
+		aspace->mmu->funcs->unmap(aspace->mmu, 0, sgt);
 
 	vma->iova = 0;
 
@@ -68,8 +67,7 @@ static int smmu_aspace_map_vma(struct msm_gem_address_space *aspace,
 		ret = aspace->mmu->funcs->map_dma_buf(aspace->mmu, sgt, buf,
 			DMA_BIDIRECTIONAL);
 	else
-		ret = aspace->mmu->funcs->map_sg(aspace->mmu, sgt,
-			DMA_BIDIRECTIONAL);
+		ret = aspace->mmu->funcs->map(aspace->mmu, 0, sgt, flags);
 
 	if (!ret)
 		vma->iova = sg_dma_address(sgt->sgl);

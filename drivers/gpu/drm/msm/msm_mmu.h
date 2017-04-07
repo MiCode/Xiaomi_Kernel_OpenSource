@@ -35,11 +35,7 @@ struct msm_mmu_funcs {
 	void (*detach)(struct msm_mmu *mmu);
 	int (*map)(struct msm_mmu *mmu, uint64_t iova, struct sg_table *sgt,
 			u32 flags);
-	int (*unmap)(struct msm_mmu *mmu, uint64_t iova, struct sg_table *sgt);
-	int (*map_sg)(struct msm_mmu *mmu, struct sg_table *sgt,
-			enum dma_data_direction dir);
-	void (*unmap_sg)(struct msm_mmu *mmu, struct sg_table *sgt,
-		enum dma_data_direction dir);
+	void (*unmap)(struct msm_mmu *mmu, uint64_t iova, struct sg_table *sgt);
 	int (*map_dma_buf)(struct msm_mmu *mmu, struct sg_table *sgt,
 			struct dma_buf *dma_buf, int dir);
 	void (*unmap_dma_buf)(struct msm_mmu *mmu, struct sg_table *sgt,
