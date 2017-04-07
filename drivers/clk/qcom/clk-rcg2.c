@@ -164,6 +164,47 @@ static void clk_rcg2_clear_force_enable(struct clk_hw *hw)
 					CMD_ROOT_EN, 0);
 }
 
+static int prepare_enable_rcg_srcs(struct clk *curr, struct clk *new)
+{
+	int rc = 0;
+
+	rc = clk_prepare(curr);
+	if (rc)
+		return rc;
+
+	rc = clk_prepare(new);
+	if (rc)
+		goto err_new_src_prepare;
+
+	rc = clk_enable(curr);
+	if (rc)
+		goto err_curr_src_enable;
+
+	rc = clk_enable(new);
+	if (rc)
+		goto err_new_src_enable;
+
+	return rc;
+
+err_new_src_enable:
+	clk_disable(curr);
+err_curr_src_enable:
+	clk_unprepare(new);
+err_new_src_prepare:
+	clk_unprepare(curr);
+
+	return rc;
+}
+
+static void disable_unprepare_rcg_srcs(struct clk *curr, struct clk *new)
+{
+	clk_disable(new);
+	clk_disable(curr);
+
+	clk_unprepare(new);
+	clk_unprepare(curr);
+}
+
 /*
  * Calculate m/n:d rate
  *
@@ -378,7 +419,8 @@ static int __clk_rcg2_set_rate(struct clk_hw *hw, unsigned long rate)
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
 	const struct freq_tbl *f;
-	int ret;
+	int ret, curr_src_index, new_src_index;
+	struct clk_hw *curr_src = NULL, *new_src = NULL;
 
 	f = qcom_find_freq(rcg->freq_tbl, rate);
 	if (!f)
@@ -393,9 +435,37 @@ static int __clk_rcg2_set_rate(struct clk_hw *hw, unsigned long rate)
 		return 0;
 	}
 
+	if (rcg->flags & FORCE_ENABLE_RCG) {
+		if (!rcg->current_freq)
+			rcg->current_freq = cxo_f.freq;
+
+		if (rcg->current_freq == cxo_f.freq)
+			curr_src_index = 0;
+		else {
+			f = qcom_find_freq(rcg->freq_tbl, rcg->current_freq);
+			curr_src_index = qcom_find_src_index(hw,
+						rcg->parent_map, f->src);
+		}
+
+		new_src_index = qcom_find_src_index(hw, rcg->parent_map,
+							f->src);
+
+		curr_src = clk_hw_get_parent_by_index(hw, curr_src_index);
+		new_src = clk_hw_get_parent_by_index(hw, new_src_index);
+
+		/* The RCG could currently be disabled. Enable its parents. */
+		ret = prepare_enable_rcg_srcs(curr_src->clk, new_src->clk);
+		clk_rcg2_set_force_enable(hw);
+	}
+
 	ret = clk_rcg2_configure(rcg, f);
 	if (ret)
 		return ret;
+
+	if (rcg->flags & FORCE_ENABLE_RCG) {
+		clk_rcg2_clear_force_enable(hw);
+		disable_unprepare_rcg_srcs(curr_src->clk, new_src->clk);
+	}
 
 	/* Update current frequency with the requested frequency. */
 	rcg->current_freq = rate;
@@ -419,6 +489,11 @@ static int clk_rcg2_enable(struct clk_hw *hw)
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
 	unsigned long rate;
 	const struct freq_tbl *f;
+
+	if (rcg->flags & FORCE_ENABLE_RCG) {
+		clk_rcg2_set_force_enable(hw);
+		return 0;
+	}
 
 	if (!rcg->enable_safe_config)
 		return 0;
@@ -455,6 +530,11 @@ static int clk_rcg2_enable(struct clk_hw *hw)
 static void clk_rcg2_disable(struct clk_hw *hw)
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+
+	if (rcg->flags & FORCE_ENABLE_RCG) {
+		clk_rcg2_clear_force_enable(hw);
+		return;
+	}
 
 	if (!rcg->enable_safe_config)
 		return;
