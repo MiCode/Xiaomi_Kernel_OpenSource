@@ -92,7 +92,7 @@ struct sde_crtc_event {
 	struct kthread_work kt_work;
 	void *sde_crtc;
 
-	void (*cb_func)(void *usr);
+	void (*cb_func)(struct drm_crtc *crtc, void *usr);
 	void *usr;
 };
 
@@ -368,6 +368,6 @@ static inline bool sde_crtc_is_enabled(struct drm_crtc *crtc)
  * Returns: Zero on success
  */
 int sde_crtc_event_queue(struct drm_crtc *crtc,
-		void (*func)(void *usr), void *usr);
+		void (*func)(struct drm_crtc *crtc, void *usr), void *usr);
 
 #endif /* _SDE_CRTC_H_ */
