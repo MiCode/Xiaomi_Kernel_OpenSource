@@ -32,6 +32,7 @@
 #include "wcd934x.h"
 #include "wcd934x-mbhc.h"
 #include "../wcdcal-hwdep.h"
+#include "../wcd-mbhc-v2-api.h"
 
 #define TAVIL_ZDET_SUPPORTED          true
 /* Z value defined in milliohm */
@@ -113,7 +114,7 @@ static struct wcd_mbhc_register
 	WCD_MBHC_REGISTER("WCD_MBHC_PULLDOWN_CTRL",
 			  0, 0, 0, 0),
 	WCD_MBHC_REGISTER("WCD_MBHC_ANC_DET_EN",
-			  WCD934X_ANA_MBHC_ZDET, 0x01, 0, 0),
+			  WCD934X_MBHC_CTL_BCS, 0x02, 1, 0),
 	WCD_MBHC_REGISTER("WCD_MBHC_FSM_STATUS",
 			  WCD934X_MBHC_STATUS_SPARE_1, 0x01, 0, 0),
 	WCD_MBHC_REGISTER("WCD_MBHC_MUX_CTL",
@@ -126,6 +127,21 @@ static struct wcd_mbhc_register
 			  WCD934X_INTR_PIN1_STATUS0, 0x04, 2, 0),
 	WCD_MBHC_REGISTER("WCD_MBHC_HPHR_OCP_STATUS",
 			  WCD934X_INTR_PIN1_STATUS0, 0x08, 3, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_ADC_EN",
+			  WCD934X_MBHC_NEW_CTL_1, 0x08, 3, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_ADC_COMPLETE", WCD934X_MBHC_NEW_FSM_STATUS,
+			  0x40, 6, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_ADC_TIMEOUT", WCD934X_MBHC_NEW_FSM_STATUS,
+			  0x80, 7, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_ADC_RESULT", WCD934X_MBHC_NEW_ADC_RESULT,
+			  0xFF, 0, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_MICB2_VOUT", WCD934X_ANA_MICB2, 0x3F, 0, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_ADC_MODE",
+			  WCD934X_MBHC_NEW_CTL_1, 0x10, 4, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_DETECTION_DONE",
+			  WCD934X_MBHC_NEW_CTL_1, 0x04, 2, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_ELECT_ISRC_EN",
+			  WCD934X_ANA_MBHC_ZDET, 0x02, 1, 0),
 };
 
 static const struct wcd_mbhc_intr intr_ids = {
@@ -993,8 +1009,10 @@ int tavil_mbhc_post_ssr_init(struct wcd934x_mbhc *mbhc,
 			__func__);
 		goto done;
 	}
-	snd_soc_update_bits(codec, WCD934X_MBHC_NEW_CTL_1, 0x04, 0x04);
-	snd_soc_update_bits(codec, WCD934X_MBHC_CTL_BCS, 0x01, 0x01);
+	if (!WCD_MBHC_DETECTION) {
+		snd_soc_update_bits(codec, WCD934X_MBHC_NEW_CTL_1, 0x04, 0x04);
+		snd_soc_update_bits(codec, WCD934X_MBHC_CTL_BCS, 0x01, 0x01);
+	}
 
 done:
 	return ret;
@@ -1025,8 +1043,9 @@ int tavil_mbhc_init(struct wcd934x_mbhc **mbhc, struct snd_soc_codec *codec,
 	wcd934x_mbhc->fw_data = fw_data;
 	BLOCKING_INIT_NOTIFIER_HEAD(&wcd934x_mbhc->notifier);
 
-	ret = wcd_mbhc_init(&wcd934x_mbhc->wcd_mbhc, codec, &mbhc_cb, &intr_ids,
-			    wcd_mbhc_registers, TAVIL_ZDET_SUPPORTED);
+	ret = wcd_mbhc_init(&wcd934x_mbhc->wcd_mbhc, codec, &mbhc_cb,
+				&intr_ids, wcd_mbhc_registers,
+				TAVIL_ZDET_SUPPORTED);
 	if (ret) {
 		dev_err(codec->dev, "%s: mbhc initialization failed\n",
 			__func__);
@@ -1050,8 +1069,10 @@ int tavil_mbhc_init(struct wcd934x_mbhc **mbhc, struct snd_soc_codec *codec,
 	snd_soc_add_codec_controls(codec, hph_type_detect_controls,
 				   ARRAY_SIZE(hph_type_detect_controls));
 
-	snd_soc_update_bits(codec, WCD934X_MBHC_NEW_CTL_1, 0x04, 0x04);
-	snd_soc_update_bits(codec, WCD934X_MBHC_CTL_BCS, 0x01, 0x01);
+	if (!WCD_MBHC_DETECTION) {
+		snd_soc_update_bits(codec, WCD934X_MBHC_NEW_CTL_1, 0x04, 0x04);
+		snd_soc_update_bits(codec, WCD934X_MBHC_CTL_BCS, 0x01, 0x01);
+	}
 
 	return 0;
 err:

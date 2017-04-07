@@ -46,6 +46,7 @@
 #include "wcd9xxx-resmgr-v2.h"
 #include "wcd_cpe_core.h"
 #include "wcdcal-hwdep.h"
+#include "wcd-mbhc-v2-api.h"
 
 #define TASHA_RX_PORT_START_NUMBER  16
 

@@ -32,7 +32,7 @@
 #include "sdm660-cdc-registers.h"
 #include "msm-cdc-common.h"
 #include "../../msm/sdm660-common.h"
-#include "../wcd-mbhc-v2.h"
+#include "../wcd-mbhc-v2-api.h"
 
 #define DRV_NAME "pmic_analog_codec"
 #define SDM660_CDC_RATES (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |\
