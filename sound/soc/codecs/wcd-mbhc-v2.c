@@ -520,6 +520,7 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 {
 	struct snd_soc_codec *codec = mbhc->codec;
 	bool is_pa_on = false;
+	u8 fsm_en = 0;
 
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
 
@@ -646,8 +647,16 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			mbhc->mbhc_cb->compute_impedance &&
 			(mbhc->mbhc_cfg->linein_th != 0) &&
 			(!is_pa_on)) {
+			/* Set MUX_CTL to AUTO for Z-det */
+			WCD_MBHC_REG_READ(WCD_MBHC_FSM_EN, fsm_en);
+			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 0);
+			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_MUX_CTL,
+						 MUX_CTL_AUTO);
+			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 1);
 			mbhc->mbhc_cb->compute_impedance(mbhc,
 					&mbhc->zl, &mbhc->zr);
+			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN,
+						 fsm_en);
 			if ((mbhc->zl > mbhc->mbhc_cfg->linein_th &&
 				mbhc->zl < MAX_IMPED) &&
 				(mbhc->zr > mbhc->mbhc_cfg->linein_th &&
@@ -906,6 +915,7 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 		wcd_mbhc_hs_elec_irq(mbhc, WCD_MBHC_ELEC_HS_INS, false);
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_DETECTION_TYPE, 1);
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_SCHMT_ISRC, 0);
+		mbhc->extn_cable_hph_rem = false;
 		wcd_mbhc_report_plug(mbhc, 0, jack_type);
 
 	} else if (!detection_type) {
@@ -915,6 +925,7 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 		/* Disable HW FSM */
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 0);
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_BTN_ISRC_CTL, 0);
+		mbhc->extn_cable_hph_rem = false;
 	}
 
 	mbhc->in_swch_irq_handler = false;
@@ -1094,8 +1105,11 @@ static irqreturn_t wcd_mbhc_release_handler(int irq, void *data)
 	 * If current plug is headphone then there is no chance to
 	 * get btn release interrupt, so connected cable should be
 	 * headset not headphone.
+	 * For ADC MBHC, ADC_COMPLETE interrupt will be generated
+	 * in this case. So skip the check here.
 	 */
-	if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADPHONE) {
+	if (!WCD_MBHC_DETECTION &&
+		mbhc->current_plug == MBHC_PLUG_TYPE_HEADPHONE) {
 		wcd_mbhc_find_plug_and_report(mbhc, MBHC_PLUG_TYPE_HEADSET);
 		goto exit;
 
@@ -1856,6 +1870,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 	mbhc->btn_press_intr = false;
 	mbhc->is_hs_recording = false;
 	mbhc->is_extn_cable = false;
+	mbhc->extn_cable_hph_rem = false;
 	mbhc->hph_type = WCD_MBHC_HPH_NONE;
 	mbhc->wcd_mbhc_regs = wcd_mbhc_regs;
 
