@@ -20,3 +20,13 @@ config MSM_BCL_PERIPHERAL_CTL
 	  voltage sensors with the thermal core framework and can take
 	  threshold input and notify the thermal core when the threshold is
 	  reached.
+
+config QTI_THERMAL_LIMITS_DCVS
+	bool "QTI LMH DCVS Driver"
+	depends on THERMAL_OF
+	help
+	  This enables the driver for Limits Management Hardware - DCVS block
+	  for the application processors. The h/w block that is available for
+	  each cluster can be used to perform quick thermal mitigations by
+	  tracking temperatures of the CPUs and taking thermal action in the
+	  hardware without s/w intervention.
