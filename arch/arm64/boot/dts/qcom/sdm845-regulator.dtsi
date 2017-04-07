@@ -171,7 +171,7 @@
 				qcom,cpr-aging-ref-corner = <17>;
 				qcom,cpr-aging-ro-scaling-factor = <1620>;
 				qcom,allow-aging-voltage-adjustment =
-					<0>;
+					<0 1 1 1 1 1 1 1>;
 				qcom,allow-aging-open-loop-voltage-adjustment =
 					<1>;
 			};
@@ -239,7 +239,7 @@
 				qcom,cpr-aging-ref-corner = <9>;
 				qcom,cpr-aging-ro-scaling-factor = <1620>;
 				qcom,allow-aging-voltage-adjustment =
-					<0>;
+					<0 1 1 1 1 1 1 1>;
 				qcom,allow-aging-open-loop-voltage-adjustment =
 					<1>;
 			};
@@ -370,7 +370,7 @@
 				qcom,cpr-aging-ref-corner = <22>;
 				qcom,cpr-aging-ro-scaling-factor = <1700>;
 				qcom,allow-aging-voltage-adjustment =
-					<0>;
+					<0 1 1 1 1 1 1 1>;
 				qcom,allow-aging-open-loop-voltage-adjustment =
 					<1>;
 			};
