@@ -367,6 +367,14 @@ config MSM_SPM
 	  driver allows configuring SPM to allow different low power modes for
 	  both core and L2.
 
+config MSM_L2_SPM
+	bool "SPM support for L2 cache"
+	help
+	  Enable SPM driver support for L2 cache. Some MSM chipsets allow
+	  control of L2 cache low power mode with a Subsystem Power manager.
+	  Enabling this driver allows configuring L2 SPM for low power modes
+	  on supported chipsets
+
 config QCOM_SCM
        bool "Secure Channel Manager (SCM) support"
        default n
