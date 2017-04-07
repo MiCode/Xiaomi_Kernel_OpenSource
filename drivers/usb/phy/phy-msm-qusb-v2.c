@@ -50,6 +50,15 @@
 #define QUSB2PHY_PORT_TUNE1		0x23c
 #define QUSB2PHY_TEST1			0x24C
 
+#define QUSB2PHY_PLL_CORE_INPUT_OVERRIDE 0x0a8
+#define CORE_PLL_RATE			BIT(0)
+#define CORE_PLL_RATE_MUX		BIT(1)
+#define CORE_PLL_EN			BIT(2)
+#define CORE_PLL_EN_MUX			BIT(3)
+#define CORE_PLL_EN_FROM_RESET		BIT(4)
+#define CORE_RESET			BIT(5)
+#define CORE_RESET_MUX			BIT(6)
+
 #define QUSB2PHY_1P8_VOL_MIN           1800000 /* uV */
 #define QUSB2PHY_1P8_VOL_MAX           1800000 /* uV */
 #define QUSB2PHY_1P8_HPM_LOAD          30000   /* uA */
@@ -330,22 +339,30 @@ static void qusb_phy_write_seq(void __iomem *base, u32 *seq, int cnt,
 	}
 }
 
+static void qusb_phy_reset(struct qusb_phy *qphy)
+{
+	int ret;
+
+	ret = reset_control_assert(qphy->phy_reset);
+	if (ret)
+		dev_err(qphy->phy.dev, "%s: phy_reset assert failed\n",
+								__func__);
+	usleep_range(100, 150);
+
+	ret = reset_control_deassert(qphy->phy_reset);
+	if (ret)
+		dev_err(qphy->phy.dev, "%s: phy_reset deassert failed\n",
+							__func__);
+}
+
 static void qusb_phy_host_init(struct usb_phy *phy)
 {
 	u8 reg;
-	int ret;
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
 
 	dev_dbg(phy->dev, "%s\n", __func__);
 
-	/* Perform phy reset */
-	ret = reset_control_assert(qphy->phy_reset);
-	if (ret)
-		dev_err(phy->dev, "%s: phy_reset assert failed\n", __func__);
-	usleep_range(100, 150);
-	ret = reset_control_deassert(qphy->phy_reset);
-		dev_err(phy->dev, "%s: phy_reset deassert failed\n", __func__);
-
+	qusb_phy_reset(qphy);
 	qusb_phy_write_seq(qphy->base, qphy->qusb_phy_host_init_seq,
 			qphy->host_init_seq_len, 0);
 
@@ -377,15 +394,7 @@ static int qusb_phy_init(struct usb_phy *phy)
 
 	qusb_phy_enable_clocks(qphy, true);
 
-	/* Perform phy reset */
-	ret = reset_control_assert(qphy->phy_reset);
-	if (ret)
-		dev_err(phy->dev, "%s: phy_reset assert failed\n", __func__);
-	usleep_range(100, 150);
-	ret = reset_control_deassert(qphy->phy_reset);
-	if (ret)
-		dev_err(phy->dev, "%s: phy_reset deassert failed\n", __func__);
-
+	qusb_phy_reset(qphy);
 	if (qphy->emulation) {
 		if (qphy->emu_init_seq)
 			qusb_phy_write_seq(qphy->emu_phy_base + 0x8000,
@@ -537,6 +546,11 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			writel_relaxed(intr_mask,
 				qphy->base + QUSB2PHY_INTR_CTRL);
 
+			/* hold core PLL into reset */
+			writel_relaxed(CORE_PLL_EN_FROM_RESET |
+				CORE_RESET | CORE_RESET_MUX,
+				qphy->base + QUSB2PHY_PLL_CORE_INPUT_OVERRIDE);
+
 			/* enable phy auto-resume */
 			writel_relaxed(0x91,
 					qphy->base + QUSB2PHY_TEST1);
@@ -555,14 +569,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			/* Disable all interrupts */
 			writel_relaxed(0x00,
 				qphy->base + QUSB2PHY_INTR_CTRL);
-
-			/* Put PHY into non-driving mode */
-			writel_relaxed(0x23,
-				qphy->base + QUSB2PHY_PWR_CTRL1);
-
-			/* Makes sure that above write goes through */
-			wmb();
-
+			qusb_phy_reset(qphy);
 			qusb_phy_enable_clocks(qphy, false);
 			qusb_phy_enable_power(qphy, false, true);
 		}
@@ -575,6 +582,10 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			/* Clear all interrupts on resume */
 			writel_relaxed(0x00,
 				qphy->base + QUSB2PHY_INTR_CTRL);
+
+			/* bring core PLL out of reset */
+			writel_relaxed(CORE_PLL_EN_FROM_RESET,
+				qphy->base + QUSB2PHY_PLL_CORE_INPUT_OVERRIDE);
 
 			/* Makes sure that above write goes through */
 			wmb();
