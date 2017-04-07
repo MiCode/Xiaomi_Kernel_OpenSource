@@ -2283,7 +2283,6 @@ static int _sde_crtc_init_debugfs(struct drm_crtc *crtc)
 
 static void _sde_crtc_destroy_debugfs(struct drm_crtc *crtc)
 {
-	return 0;
 }
 #endif /* CONFIG_DEBUG_FS */
 

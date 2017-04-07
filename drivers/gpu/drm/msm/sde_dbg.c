@@ -2916,7 +2916,7 @@ int sde_dbg_debugfs_register(struct dentry *debugfs_root)
 	return 0;
 }
 
-#if defined(CONFIG_DEBUG_FS)
+#ifdef CONFIG_DEBUG_FS
 static void _sde_dbg_debugfs_destroy(void)
 {
 	debugfs_remove_recursive(sde_dbg_base.root);
