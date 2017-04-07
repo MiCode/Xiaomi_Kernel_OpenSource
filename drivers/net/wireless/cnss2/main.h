@@ -60,6 +60,29 @@ struct cnss_ramdump_info {
 	struct msm_dump_data dump_data;
 };
 
+struct cnss_dump_seg {
+	unsigned long address;
+	void *v_address;
+	unsigned long size;
+	uint32_t type;
+};
+
+struct cnss_dump_data {
+	uint32_t version;
+	uint32_t magic;
+	char name[32];
+	phys_addr_t paddr;
+	void *vaddr;
+	int nentries;
+};
+
+struct cnss_ramdump_info_v2 {
+	struct ramdump_device *ramdump_dev;
+	unsigned long ramdump_size;
+	bool dump_data_valid;
+	struct cnss_dump_data dump_data;
+};
+
 struct cnss_esoc_info {
 	struct esoc_desc *esoc_desc;
 	bool notify_modem_status;
@@ -143,6 +166,7 @@ struct cnss_plat_data {
 	struct cnss_pinctrl_info pinctrl_info;
 	struct cnss_subsys_info subsys_info;
 	struct cnss_ramdump_info ramdump_info;
+	struct cnss_ramdump_info_v2 ramdump_info_v2;
 	struct cnss_esoc_info esoc_info;
 	struct cnss_bus_bw_info bus_bw_info;
 	struct notifier_block modem_nb;

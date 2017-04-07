@@ -27,8 +27,10 @@
 #include "pci.h"
 
 #define CNSS_DUMP_FORMAT_VER		0x11
+#define CNSS_DUMP_FORMAT_VER_V2		0x22
 #define CNSS_DUMP_MAGIC_VER_V2		0x42445953
 #define CNSS_DUMP_NAME			"CNSS_WLAN"
+#define CNSS_DUMP_DESC_SIZE		0x1000
 #define WLAN_RECOVERY_DELAY		1000
 #define FILE_SYSTEM_READY		1
 #define FW_READY_TIMEOUT		20000
@@ -48,6 +50,16 @@ static bool enable_waltest;
 #ifdef CONFIG_CNSS2_DEBUG
 module_param(enable_waltest, bool, S_IRUSR | S_IWUSR);
 MODULE_PARM_DESC(enable_waltest, "Enable to handle firmware waltest");
+#endif
+
+enum cnss_debug_quirks {
+	LINK_DOWN_SELF_RECOVERY,
+};
+
+unsigned long quirks;
+#ifdef CONFIG_CNSS2_DEBUG
+module_param(quirks, ulong, S_IRUSR | S_IWUSR);
+MODULE_PARM_DESC(quirks, "Debug quirks for the driver");
 #endif
 
 static struct cnss_fw_files FW_FILES_QCA6174_FW_3_0 = {
@@ -502,7 +514,8 @@ static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 	if (!pci_priv)
 		return -ENODEV;
 
-	if (test_bit(CNSS_DRIVER_LOAD_UNLOAD, &plat_priv->driver_state))
+	if (test_bit(CNSS_DRIVER_LOAD_UNLOAD, &plat_priv->driver_state) ||
+	    test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state))
 		ret = cnss_driver_call_probe(plat_priv);
 	else if (enable_waltest)
 		ret = cnss_wlfw_wlan_mode_send_sync(plat_priv,
@@ -1036,6 +1049,27 @@ static int cnss_qca6290_shutdown(struct cnss_plat_data *plat_priv)
 	return ret;
 }
 
+static void cnss_qca6290_crash_shutdown(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
+	int ret = 0;
+
+	cnss_pr_dbg("Crash shutdown with driver_state 0x%lx\n",
+		    plat_priv->driver_state);
+
+	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state) ||
+	    test_bit(CNSS_DRIVER_LOAD_UNLOAD, &plat_priv->driver_state))
+		return;
+
+	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RDDM_KERNEL_PANIC);
+	if (ret) {
+		cnss_pr_err("Fail to complete RDDM, err = %d\n", ret);
+		return;
+	}
+
+	cnss_pci_collect_dump_info(pci_priv);
+}
+
 static int cnss_powerup(const struct subsys_desc *subsys_desc)
 {
 	int ret = 0;
@@ -1183,6 +1217,7 @@ static void cnss_crash_shutdown(const struct subsys_desc *subsys_desc)
 		cnss_qca6174_crash_shutdown(plat_priv);
 		break;
 	case QCA6290_DEVICE_ID:
+		cnss_qca6290_crash_shutdown(plat_priv);
 		break;
 	default:
 		cnss_pr_err("Unknown device_id found: 0x%lx\n",
@@ -1193,23 +1228,53 @@ static void cnss_crash_shutdown(const struct subsys_desc *subsys_desc)
 static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 			    enum cnss_recovery_reason reason)
 {
+	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
 	struct cnss_subsys_info *subsys_info =
 		&plat_priv->subsys_info;
+	int ret = 0;
 
 	plat_priv->recovery_count++;
 
-	if (plat_priv->device_id == QCA6174_DEVICE_ID) {
-		cnss_shutdown(&subsys_info->subsys_desc, false);
-		udelay(WLAN_RECOVERY_DELAY);
-		cnss_powerup(&subsys_info->subsys_desc);
+	if (!plat_priv->driver_ops) {
+		cnss_pr_err("Host driver has not registered yet, ignore recovery!\n");
 		return 0;
 	}
 
+	if (plat_priv->device_id == QCA6174_DEVICE_ID)
+		goto self_recovery;
+
+	plat_priv->driver_ops->update_status(pci_priv->pci_dev,
+					     CNSS_RECOVERY);
+	if (reason == CNSS_REASON_LINK_DOWN) {
+		cnss_pci_set_mhi_state(plat_priv->bus_priv,
+				       CNSS_MHI_NOTIFY_LINK_ERROR);
+		if (test_bit(LINK_DOWN_SELF_RECOVERY, &quirks))
+			goto self_recovery;
+	}
+
+	if (reason != CNSS_REASON_RDDM)
+		goto subsys_restart;
+
+	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RDDM);
+	if (ret) {
+		cnss_pr_err("Fail to complete RDDM, err = %d\n", ret);
+		goto subsys_restart;
+	}
+
+	cnss_pci_collect_dump_info(pci_priv);
+
+subsys_restart:
 	if (!subsys_info->subsys_device)
 		return 0;
 
 	subsys_set_crash_status(subsys_info->subsys_device, true);
 	subsystem_restart_dev(subsys_info->subsys_device);
+
+	return 0;
+
+self_recovery:
+	cnss_shutdown(&subsys_info->subsys_desc, false);
+	cnss_powerup(&subsys_info->subsys_desc);
 
 	return 0;
 }
@@ -1551,6 +1616,77 @@ static void cnss_qca6174_unregister_ramdump(struct cnss_plat_data *plat_priv)
 				  ramdump_info->ramdump_pa);
 }
 
+static int cnss_qca6290_register_ramdump(struct cnss_plat_data *plat_priv)
+{
+	int ret = 0;
+	struct cnss_subsys_info *subsys_info;
+	struct cnss_ramdump_info_v2 *info_v2;
+	struct cnss_dump_data *dump_data;
+	struct msm_dump_entry dump_entry;
+	struct device *dev = &plat_priv->plat_dev->dev;
+	u32 ramdump_size = 0;
+
+	subsys_info = &plat_priv->subsys_info;
+	info_v2 = &plat_priv->ramdump_info_v2;
+	dump_data = &info_v2->dump_data;
+
+	if (of_property_read_u32(dev->of_node, "qcom,wlan-ramdump-dynamic",
+				 &ramdump_size) == 0)
+		info_v2->ramdump_size = ramdump_size;
+
+	cnss_pr_dbg("Ramdump size 0x%lx\n", info_v2->ramdump_size);
+
+	dump_data->vaddr = kzalloc(CNSS_DUMP_DESC_SIZE, GFP_KERNEL);
+	if (!dump_data->vaddr)
+		return -ENOMEM;
+
+	dump_data->paddr = virt_to_phys(dump_data->vaddr);
+	dump_data->version = CNSS_DUMP_FORMAT_VER_V2;
+	dump_data->magic = CNSS_DUMP_MAGIC_VER_V2;
+	strlcpy(dump_data->name, CNSS_DUMP_NAME,
+		sizeof(dump_data->name));
+	dump_entry.id = MSM_DUMP_DATA_CNSS_WLAN;
+	dump_entry.addr = virt_to_phys(dump_data);
+
+	ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+	if (ret) {
+		cnss_pr_err("Failed to setup dump table, err = %d\n", ret);
+		goto free_ramdump;
+	}
+
+	info_v2->ramdump_dev =
+		create_ramdump_device(subsys_info->subsys_desc.name,
+				      subsys_info->subsys_desc.dev);
+	if (!info_v2->ramdump_dev) {
+		cnss_pr_err("Failed to create ramdump device!\n");
+		ret = -ENOMEM;
+		goto free_ramdump;
+	}
+
+	return 0;
+
+free_ramdump:
+	kfree(dump_data->vaddr);
+	dump_data->vaddr = NULL;
+	return ret;
+}
+
+static void cnss_qca6290_unregister_ramdump(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_ramdump_info_v2 *info_v2;
+	struct cnss_dump_data *dump_data;
+
+	info_v2 = &plat_priv->ramdump_info_v2;
+	dump_data = &info_v2->dump_data;
+
+	if (info_v2->ramdump_dev)
+		destroy_ramdump_device(info_v2->ramdump_dev);
+
+	kfree(dump_data->vaddr);
+	dump_data->vaddr = NULL;
+	info_v2->dump_data_valid = false;
+}
+
 int cnss_register_ramdump(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
@@ -1560,6 +1696,7 @@ int cnss_register_ramdump(struct cnss_plat_data *plat_priv)
 		ret = cnss_qca6174_register_ramdump(plat_priv);
 		break;
 	case QCA6290_DEVICE_ID:
+		ret = cnss_qca6290_register_ramdump(plat_priv);
 		break;
 	default:
 		cnss_pr_err("Unknown device ID: 0x%lx\n", plat_priv->device_id);
@@ -1576,6 +1713,7 @@ void cnss_unregister_ramdump(struct cnss_plat_data *plat_priv)
 		cnss_qca6174_unregister_ramdump(plat_priv);
 		break;
 	case QCA6290_DEVICE_ID:
+		cnss_qca6290_unregister_ramdump(plat_priv);
 		break;
 	default:
 		cnss_pr_err("Unknown device ID: 0x%lx\n", plat_priv->device_id);

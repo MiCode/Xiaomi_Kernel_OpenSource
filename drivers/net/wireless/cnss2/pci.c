@@ -189,12 +189,6 @@ int cnss_pci_link_down(struct device *dev)
 	unsigned long flags;
 	struct pci_dev *pci_dev = to_pci_dev(dev);
 	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
-
-	if (!plat_priv) {
-		cnss_pr_err("plat_priv is NULL!\n");
-		return -EINVAL;
-	}
 
 	if (!pci_priv) {
 		cnss_pr_err("pci_priv is NULL!\n");
@@ -1044,6 +1038,89 @@ static char *mhi_dev_state_to_str(enum mhi_dev_ctrl state)
 	}
 };
 
+static void *cnss_pci_collect_dump_seg(struct cnss_pci_data *pci_priv,
+				       enum mhi_rddm_segment type,
+				       void *start_addr)
+{
+	int count;
+	struct scatterlist *sg_list, *s;
+	unsigned int i;
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	struct cnss_dump_data *dump_data =
+		&plat_priv->ramdump_info_v2.dump_data;
+	struct cnss_dump_seg *dump_seg = start_addr;
+
+	count = mhi_xfer_rddm(&pci_priv->mhi_dev, type, &sg_list);
+	if (count <= 0 || !sg_list) {
+		cnss_pr_err("Invalid dump_seg for type %u, count %u, sg_list %pK\n",
+			    type, count, sg_list);
+		return start_addr;
+	}
+
+	cnss_pr_dbg("Collect dump seg: type %u, nentries %d\n", type, count);
+
+	for_each_sg(sg_list, s, count, i) {
+		dump_seg->address = sg_dma_address(s);
+		dump_seg->v_address = sg_virt(s);
+		dump_seg->size = s->length;
+		dump_seg->type = type;
+		cnss_pr_dbg("seg-%d: address 0x%lx, v_address %pK, size 0x%lx\n",
+			    i, dump_seg->address,
+			    dump_seg->v_address, dump_seg->size);
+		dump_seg++;
+	}
+
+	dump_data->nentries += count;
+
+	return dump_seg;
+}
+
+void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+	struct cnss_dump_data *dump_data =
+		&plat_priv->ramdump_info_v2.dump_data;
+	void *start_addr, *end_addr;
+
+	dump_data->nentries = 0;
+
+	start_addr = dump_data->vaddr;
+	end_addr = cnss_pci_collect_dump_seg(pci_priv,
+					     MHI_RDDM_FW_SEGMENT, start_addr);
+
+	start_addr = end_addr;
+	end_addr = cnss_pci_collect_dump_seg(pci_priv,
+					     MHI_RDDM_RD_SEGMENT, start_addr);
+
+	if (dump_data->nentries > 0)
+		plat_priv->ramdump_info_v2.dump_data_valid = true;
+}
+
+void cnss_pci_clear_dump_info(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
+
+	plat_priv->ramdump_info_v2.dump_data.nentries = 0;
+	plat_priv->ramdump_info_v2.dump_data_valid = false;
+}
+
+static void cnss_mhi_notify_status(enum MHI_CB_REASON reason, void *priv)
+{
+	struct cnss_pci_data *pci_priv = priv;
+	enum cnss_recovery_reason cnss_reason = CNSS_REASON_RDDM;
+
+	if (!pci_priv)
+		return;
+
+	cnss_pr_dbg("MHI status cb is called with reason %d\n", reason);
+
+	if (reason == MHI_CB_SYS_ERROR)
+		cnss_reason = CNSS_REASON_TIMEOUT;
+
+	cnss_schedule_recovery(&pci_priv->pci_dev->dev,
+			       cnss_reason);
+}
+
 static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
@@ -1072,10 +1149,13 @@ static int cnss_pci_register_mhi(struct cnss_pci_data *pci_priv)
 		    &mhi_dev->resources[1].start, &mhi_dev->resources[1].end);
 
 	mhi_dev->pm_runtime_get = cnss_mhi_pm_runtime_get;
-	mhi_dev->pm_runtime_noidle = cnss_mhi_pm_runtime_put_noidle;
+	mhi_dev->pm_runtime_put_noidle = cnss_mhi_pm_runtime_put_noidle;
 
-	ret = mhi_register_device(mhi_dev, MHI_NODE_NAME,
-				  (unsigned long)pci_priv);
+	mhi_dev->support_rddm = true;
+	mhi_dev->rddm_size = pci_priv->plat_priv->ramdump_info_v2.ramdump_size;
+	mhi_dev->status_cb = cnss_mhi_notify_status;
+
+	ret = mhi_register_device(mhi_dev, MHI_NODE_NAME, pci_priv);
 	if (ret) {
 		cnss_pr_err("Failed to register as MHI device, err = %d\n",
 			    ret);
