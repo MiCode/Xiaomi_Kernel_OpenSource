@@ -1531,21 +1531,22 @@ static int msm_bus_device_probe(struct platform_device *pdev)
 				goto exit_device_probe;
 			}
 		}
-		if (pdata->info[i].node_info->is_bcm_dev)
+		if (pdata->info[i].node_info->is_bcm_dev) {
 			ret = msm_bus_bcm_init(node_dev, &pdata->info[i]);
 			if (ret) {
 				MSM_BUS_ERR("%s: Error intializing bcm %d",
 					__func__, pdata->info[i].node_info->id);
 				goto exit_device_probe;
 			}
-		if (pdata->info[i].node_info->is_rsc_dev)
+		}
+		if (pdata->info[i].node_info->is_rsc_dev) {
 			ret = msm_bus_rsc_init(pdev, node_dev, &pdata->info[i]);
 			if (ret) {
 				MSM_BUS_ERR("%s: Error intializing rsc %d",
 					__func__, pdata->info[i].node_info->id);
 				goto exit_device_probe;
 			}
-
+		}
 	}
 
 	ret = bus_for_each_dev(&msm_bus_type, NULL, NULL,
