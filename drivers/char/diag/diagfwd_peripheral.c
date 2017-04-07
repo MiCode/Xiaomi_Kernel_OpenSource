@@ -351,7 +351,8 @@ static void diagfwd_data_read_untag_done(struct diagfwd_info *fwd_info,
 	}
 
 	if (driver->feature[fwd_info->peripheral].encode_hdlc &&
-		driver->feature[fwd_info->peripheral].untag_header) {
+		driver->feature[fwd_info->peripheral].untag_header &&
+		driver->peripheral_untag[fwd_info->peripheral]) {
 		mutex_lock(&driver->diagfwd_untag_mutex);
 		temp_buf_cpd = buf;
 		temp_buf_main = buf;
@@ -1300,6 +1301,7 @@ static void diagfwd_queue_read(struct diagfwd_info *fwd_info)
 void diagfwd_buffers_init(struct diagfwd_info *fwd_info)
 {
 	unsigned char *temp_buf;
+	uint8_t peripheral;
 
 	if (!fwd_info)
 		return;
@@ -1311,6 +1313,9 @@ void diagfwd_buffers_init(struct diagfwd_info *fwd_info)
 	}
 
 	mutex_lock(&fwd_info->buf_mutex);
+
+	peripheral = fwd_info->peripheral;
+
 	if (!fwd_info->buf_1) {
 		fwd_info->buf_1 = kzalloc(sizeof(struct diagfwd_buf_t),
 					  GFP_KERNEL);
@@ -1352,7 +1357,8 @@ void diagfwd_buffers_init(struct diagfwd_info *fwd_info)
 							fwd_info->type, 2);
 		}
 
-		if (driver->feature[fwd_info->peripheral].untag_header)	{
+		if (driver->feature[peripheral].untag_header &&
+			driver->peripheral_untag[peripheral]) {
 			if (!fwd_info->buf_upd_1_a) {
 				fwd_info->buf_upd_1_a =
 					kzalloc(sizeof(struct diagfwd_buf_t),
@@ -1426,7 +1432,8 @@ void diagfwd_buffers_init(struct diagfwd_info *fwd_info)
 			}
 
 			if (driver->feature[fwd_info->peripheral].
-					untag_header) {
+					untag_header &&
+				driver->peripheral_untag[peripheral]) {
 				if (!fwd_info->buf_upd_1_a->data_raw) {
 					fwd_info->buf_upd_1_a->data_raw =
 						kzalloc(PERIPHERAL_BUF_SZ +
