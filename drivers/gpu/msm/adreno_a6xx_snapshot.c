@@ -1166,6 +1166,28 @@ static void a6xx_snapshot_gmu(struct kgsl_device *device,
 			snapshot, a6xx_snapshot_dump_gmu_registers, &gmu_regs);
 }
 
+/* a6xx_snapshot_sqe() - Dump SQE data in snapshot */
+static size_t a6xx_snapshot_sqe(struct kgsl_device *device, u8 *buf,
+		size_t remain, void *priv)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
+
+	if (remain < DEBUG_SECTION_SZ(1)) {
+		SNAPSHOT_ERR_NOMEM(device, "SQE VERSION DEBUG");
+		return 0;
+	}
+
+	/* Dump the SQE firmware version */
+	header->type = SNAPSHOT_DEBUG_SQE_VERSION;
+	header->size = 1;
+	*data = fw->version;
+
+	return DEBUG_SECTION_SZ(1);
+}
+
 static void _a6xx_do_crashdump(struct kgsl_device *device)
 {
 	unsigned long wait_time;
@@ -1254,6 +1276,10 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,
 		snapshot, adreno_snapshot_cp_roq,
 		&snap_data->sect_sizes->roq);
+
+	/* SQE Firmware */
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,
+		snapshot, a6xx_snapshot_sqe, NULL);
 
 	/* Mempool debug data */
 	a6xx_snapshot_mempool(device, snapshot);
