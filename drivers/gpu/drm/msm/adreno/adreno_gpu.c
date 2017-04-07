@@ -519,10 +519,10 @@ static int adreno_of_parse(struct platform_device *pdev, struct msm_gpu *gpu)
 
 int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		struct adreno_gpu *adreno_gpu,
-		const struct adreno_gpu_funcs *funcs, int nr_rings)
+		const struct adreno_gpu_funcs *funcs,
+		struct msm_gpu_config *gpu_config)
 {
 	struct adreno_platform_config *config = pdev->dev.platform_data;
-	struct msm_gpu_config adreno_gpu_config  = { 0 };
 	struct msm_gpu *gpu = &adreno_gpu->base;
 	struct msm_mmu *mmu;
 	int ret;
@@ -536,26 +536,8 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	/* Get the rest of the target configuration from the device tree */
 	adreno_of_parse(pdev, gpu);
 
-	adreno_gpu_config.ioname = "kgsl_3d0_reg_memory";
-	adreno_gpu_config.irqname = "kgsl_3d0_irq";
-	adreno_gpu_config.nr_rings = nr_rings;
-
-	adreno_gpu_config.va_start = SZ_16M;
-	adreno_gpu_config.va_end = 0xffffffff;
-
-	if (adreno_gpu->revn >= 500) {
-		/* 5XX targets use a 64 bit region */
-		adreno_gpu_config.va_start = 0x800000000;
-		adreno_gpu_config.va_end = 0x8ffffffff;
-	} else {
-		adreno_gpu_config.va_start = 0x300000;
-		adreno_gpu_config.va_end = 0xffffffff;
-	}
-
-	adreno_gpu_config.nr_rings = nr_rings;
-
 	ret = msm_gpu_init(drm, pdev, &adreno_gpu->base, &funcs->base,
-			adreno_gpu->info->name, &adreno_gpu_config);
+			adreno_gpu->info->name, gpu_config);
 	if (ret)
 		return ret;
 
