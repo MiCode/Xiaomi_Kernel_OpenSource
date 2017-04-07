@@ -1125,6 +1125,43 @@ static int cnss_shutdown(const struct subsys_desc *subsys_desc, bool force_stop)
 	return ret;
 }
 
+static int cnss_qca6290_ramdump(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_ramdump_info_v2 *info_v2 = &plat_priv->ramdump_info_v2;
+	struct cnss_dump_data *dump_data = &info_v2->dump_data;
+	struct cnss_dump_seg *dump_seg = dump_data->vaddr;
+	struct ramdump_segment *ramdump_segs, *s;
+	int i, ret = 0;
+
+	if (!info_v2->dump_data_valid ||
+	    dump_data->nentries == 0)
+		return 0;
+
+	ramdump_segs = kcalloc(dump_data->nentries,
+			       sizeof(*ramdump_segs),
+			       GFP_KERNEL);
+	if (!ramdump_segs)
+		return -ENOMEM;
+
+	s = ramdump_segs;
+	for (i = 0; i < dump_data->nentries; i++) {
+		s->address = dump_seg->address;
+		s->v_address = dump_seg->v_address;
+		s->size = dump_seg->size;
+		s++;
+		dump_seg++;
+	}
+
+	ret = do_elf_ramdump(info_v2->ramdump_dev, ramdump_segs,
+			     dump_data->nentries);
+	kfree(ramdump_segs);
+
+	cnss_pci_set_mhi_state(plat_priv->bus_priv, CNSS_MHI_DEINIT);
+	cnss_pci_clear_dump_info(plat_priv->bus_priv);
+
+	return ret;
+}
+
 static int cnss_qca6174_ramdump(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
@@ -1161,6 +1198,7 @@ static int cnss_ramdump(int enable, const struct subsys_desc *subsys_desc)
 		ret = cnss_qca6174_ramdump(plat_priv);
 		break;
 	case QCA6290_DEVICE_ID:
+		ret = cnss_qca6290_ramdump(plat_priv);
 		break;
 	default:
 		cnss_pr_err("Unknown device_id found: 0x%lx\n",
