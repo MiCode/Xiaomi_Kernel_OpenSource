@@ -89,7 +89,16 @@
 #define QNOVO_STRM_CTRL		0xA8
 #define QNOVO_IADC_OFFSET_OVR_VAL	0xA9
 #define QNOVO_IADC_OFFSET_OVR		0xAA
+
 #define QNOVO_DISABLE_CHARGING		0xAB
+#define ERR_SWITCHER_DISABLED		BIT(7)
+#define ERR_JEITA_SOFT_CONDITION	BIT(6)
+#define ERR_BAT_OV			BIT(5)
+#define ERR_CV_MODE			BIT(4)
+#define ERR_BATTERY_MISSING		BIT(3)
+#define ERR_SAFETY_TIMER_EXPIRED	BIT(2)
+#define ERR_CHARGING_DISABLED		BIT(1)
+#define ERR_JEITA_HARD_CONDITION	BIT(0)
 
 #define QNOVO_TR_IADC_OFFSET_0	0xF1
 #define QNOVO_TR_IADC_OFFSET_1	0xF2
@@ -1107,24 +1116,28 @@ static int qnovo_update_status(struct qnovo *chip)
 {
 	u8 val = 0;
 	int rc;
-	bool charging;
+	bool ok_to_qnovo;
 	bool changed = false;
 
 	rc = qnovo_read(chip, QNOVO_ERROR_STS2, &val, 1);
 	if (rc < 0) {
 		pr_err("Couldn't read error sts rc = %d\n", rc);
-		charging = false;
+		ok_to_qnovo = false;
 	} else {
-		charging = !(val & QNOVO_ERROR_CHARGING_DISABLED);
+		/*
+		 * For CV mode keep qnovo enabled, userspace is expected to
+		 * disable it after few runs
+		 */
+		ok_to_qnovo = (val == ERR_CV_MODE || val == 0) ? true : false;
 	}
 
-	if (chip->ok_to_qnovo ^ charging) {
+	if (chip->ok_to_qnovo ^ ok_to_qnovo) {
 
-		vote(chip->disable_votable, OK_TO_QNOVO_VOTER, !charging, 0);
-		if (!charging)
+		vote(chip->disable_votable, OK_TO_QNOVO_VOTER, !ok_to_qnovo, 0);
+		if (!ok_to_qnovo)
 			vote(chip->disable_votable, USER_VOTER, true, 0);
 
-		chip->ok_to_qnovo = charging;
+		chip->ok_to_qnovo = ok_to_qnovo;
 		changed = true;
 	}
 
@@ -1246,6 +1259,16 @@ static int qnovo_hw_init(struct qnovo *chip)
 		= div_s64(chip->internal_i_gain_mega, 1000);
 	chip->v_gain_mega = 1000000000 + (s64)(s8)vadc_gain * GAIN_LSB_FACTOR;
 	chip->v_gain_mega = div_s64(chip->v_gain_mega, 1000);
+
+	/* allow charger error conditions to disable qnovo, CV mode excluded */
+	val = ERR_SWITCHER_DISABLED | ERR_JEITA_SOFT_CONDITION | ERR_BAT_OV |
+		ERR_BATTERY_MISSING | ERR_SAFETY_TIMER_EXPIRED |
+		ERR_CHARGING_DISABLED | ERR_JEITA_HARD_CONDITION;
+	rc = qnovo_write(chip, QNOVO_DISABLE_CHARGING, &val, 1);
+	if (rc < 0) {
+		pr_err("Couldn't write QNOVO_DISABLE_CHARGING rc = %d\n", rc);
+		return rc;
+	}
 
 	return 0;
 }
