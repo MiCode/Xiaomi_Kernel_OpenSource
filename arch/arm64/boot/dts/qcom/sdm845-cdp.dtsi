@@ -134,3 +134,28 @@
 &pmi8998_charger {
 	qcom,batteryless-platform;
 };
+
+/ {
+aliases {
+		serial0 = &qupv3_se9_2uart;
+		spi0 = &qupv3_se8_spi;
+		i2c0 = &qupv3_se10_i2c;
+		i2c1 = &qupv3_se3_i2c;
+	};
+};
+
+&qupv3_se9_2uart {
+	status = "ok";
+};
+
+&qupv3_se8_spi {
+	status = "ok";
+};
+
+&qupv3_se3_i2c {
+	status = "ok";
+};
+
+&qupv3_se10_i2c {
+	status = "ok";
+};
