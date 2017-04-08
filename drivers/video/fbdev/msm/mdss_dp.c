@@ -1055,26 +1055,28 @@ static int mdss_dp_wait4video_ready(struct mdss_dp_drv_pdata *dp_drv)
 static void mdss_dp_update_cable_status(struct mdss_dp_drv_pdata *dp,
 		bool connected)
 {
-	mutex_lock(&dp->pd_msg_mutex);
+	mutex_lock(&dp->attention_lock);
 	pr_debug("cable_connected to %d\n", connected);
 	if (dp->cable_connected != connected)
 		dp->cable_connected = connected;
 	else
 		pr_debug("no change in cable status\n");
-	mutex_unlock(&dp->pd_msg_mutex);
+	mutex_unlock(&dp->attention_lock);
 }
 
 static int dp_get_cable_status(struct platform_device *pdev, u32 vote)
 {
-	struct mdss_dp_drv_pdata *dp_ctrl = platform_get_drvdata(pdev);
+	struct mdss_dp_drv_pdata *dp = platform_get_drvdata(pdev);
 	u32 hpd;
 
-	if (!dp_ctrl) {
+	if (!dp) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return -ENODEV;
 	}
 
-	hpd = dp_ctrl->cable_connected;
+	mutex_lock(&dp->attention_lock);
+	hpd = dp->cable_connected;
+	mutex_unlock(&dp->attention_lock);
 
 	return hpd;
 }
@@ -2043,7 +2045,6 @@ static int mdss_dp_notify_clients(struct mdss_dp_drv_pdata *dp,
 	bool notify = false;
 	bool connect;
 
-	mutex_lock(&dp->pd_msg_mutex);
 	pr_debug("beginning notification\n");
 	if (status == dp->hpd_notification_status) {
 		pr_debug("No change in status %s --> %s\n",
@@ -2135,7 +2136,6 @@ notify:
 
 end:
 	dp->hpd_notification_status = status;
-	mutex_unlock(&dp->pd_msg_mutex);
 	return ret;
 }
 
@@ -2423,12 +2423,16 @@ static ssize_t mdss_dp_rda_connected(struct device *dev,
 {
 	ssize_t ret;
 	struct mdss_dp_drv_pdata *dp = mdss_dp_get_drvdata(dev);
+	bool cable_connected;
 
 	if (!dp)
 		return -EINVAL;
 
-	ret = snprintf(buf, PAGE_SIZE, "%d\n", dp->cable_connected);
-	pr_debug("%d\n", dp->cable_connected);
+	mutex_lock(&dp->attention_lock);
+	cable_connected = dp->cable_connected;
+	mutex_unlock(&dp->attention_lock);
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", cable_connected);
+	pr_debug("%d\n", cable_connected);
 
 	return ret;
 }
@@ -2597,6 +2601,7 @@ static ssize_t mdss_dp_wta_hpd(struct device *dev,
 	int hpd, rc;
 	ssize_t ret = strnlen(buf, PAGE_SIZE);
 	struct mdss_dp_drv_pdata *dp = mdss_dp_get_drvdata(dev);
+	bool cable_connected;
 
 	if (!dp) {
 		pr_err("invalid data\n");
@@ -2612,9 +2617,13 @@ static ssize_t mdss_dp_wta_hpd(struct device *dev,
 	}
 
 	dp->hpd = !!hpd;
-	pr_debug("hpd=%d\n", dp->hpd);
+	mutex_lock(&dp->attention_lock);
+	cable_connected = dp->cable_connected;
+	mutex_unlock(&dp->attention_lock);
+	pr_debug("hpd=%d cable_connected=%s\n", dp->hpd,
+		cable_connected ? "true" : "false");
 
-	if (dp->hpd && dp->cable_connected) {
+	if (dp->hpd && cable_connected) {
 		if (dp->alt_mode.current_state & DP_CONFIGURE_DONE) {
 			mdss_dp_host_init(&dp->panel_data);
 			mdss_dp_process_hpd_high(dp);
@@ -3248,10 +3257,21 @@ static int mdss_dp_event_thread(void *data)
 
 	ev_data = (struct mdss_dp_event_data *)data;
 
+	pr_debug("starting\n");
 	while (!kthread_should_stop()) {
 		wait_event(ev_data->event_q,
 			(ev_data->pndx != ev_data->gndx) ||
-			kthread_should_stop());
+			kthread_should_stop() ||
+			kthread_should_park());
+		if (kthread_should_stop())
+			return 0;
+
+		if (kthread_should_park()) {
+			pr_debug("parking event thread\n");
+			kthread_parkme();
+			continue;
+		}
+
 		spin_lock_irqsave(&ev_data->event_lock, flag);
 		ev = &(ev_data->event_list[ev_data->gndx++]);
 		todo = ev->id;
@@ -3427,6 +3447,27 @@ static int mdss_dp_event_setup(struct mdss_dp_drv_pdata *dp)
 	return 0;
 }
 
+static void mdss_dp_reset_event_list(struct mdss_dp_drv_pdata *dp)
+{
+	struct mdss_dp_event_data *ev_data = &dp->dp_event;
+
+	spin_lock(&ev_data->event_lock);
+	ev_data->pndx = ev_data->gndx = 0;
+	spin_unlock(&ev_data->event_lock);
+
+	mutex_lock(&dp->attention_lock);
+	INIT_LIST_HEAD(&dp->attention_head);
+	mutex_unlock(&dp->attention_lock);
+}
+
+static void mdss_dp_reset_sw_state(struct mdss_dp_drv_pdata *dp)
+{
+	pr_debug("enter\n");
+	mdss_dp_reset_event_list(dp);
+	atomic_set(&dp->notification_pending, 0);
+	complete_all(&dp->notification_comp);
+}
+
 static void usbpd_connect_callback(struct usbpd_svid_handler *hdlr)
 {
 	struct mdss_dp_drv_pdata *dp_drv;
@@ -3438,6 +3479,8 @@ static void usbpd_connect_callback(struct usbpd_svid_handler *hdlr)
 	}
 
 	mdss_dp_update_cable_status(dp_drv, true);
+	if (dp_drv->ev_thread)
+		kthread_unpark(dp_drv->ev_thread);
 
 	if (dp_drv->hpd)
 		dp_send_events(dp_drv, EV_USBPD_DISCOVER_MODES);
@@ -3456,6 +3499,9 @@ static void usbpd_disconnect_callback(struct usbpd_svid_handler *hdlr)
 	pr_debug("cable disconnected\n");
 	mdss_dp_update_cable_status(dp_drv, false);
 	dp_drv->alt_mode.current_state = UNKNOWN_STATE;
+
+	mdss_dp_reset_sw_state(dp_drv);
+	kthread_park(dp_drv->ev_thread);
 
 	/**
 	 * Manually turn off the DP controller if we are in PHY
@@ -3975,7 +4021,8 @@ static void usbpd_response_callback(struct usbpd_svid_handler *hdlr, u8 cmd,
 		node->vdo = *vdos;
 
 		mutex_lock(&dp_drv->attention_lock);
-		list_add_tail(&node->list, &dp_drv->attention_head);
+		if (dp_drv->cable_connected)
+			list_add_tail(&node->list, &dp_drv->attention_head);
 		mutex_unlock(&dp_drv->attention_lock);
 
 		dp_send_events(dp_drv, EV_USBPD_ATTENTION);
@@ -4093,6 +4140,11 @@ static void mdss_dp_handle_attention(struct mdss_dp_drv_pdata *dp)
 
 		reinit_completion(&dp->notification_comp);
 		mutex_lock(&dp->attention_lock);
+		if (!dp->cable_connected) {
+			pr_debug("cable disconnected, returning\n");
+			mutex_unlock(&dp->attention_lock);
+			goto exit;
+		}
 		node = list_first_entry(&dp->attention_head,
 				struct mdss_dp_attention_node, list);
 
@@ -4124,6 +4176,7 @@ static void mdss_dp_handle_attention(struct mdss_dp_drv_pdata *dp)
 		pr_debug("done processing item %d in the list\n", i);
 	};
 
+exit:
 	pr_debug("exit\n");
 }
 
@@ -4199,7 +4252,6 @@ static int mdss_dp_probe(struct platform_device *pdev)
 	dp_drv->mask1 = EDP_INTR_MASK1;
 	dp_drv->mask2 = EDP_INTR_MASK2;
 	mutex_init(&dp_drv->emutex);
-	mutex_init(&dp_drv->pd_msg_mutex);
 	mutex_init(&dp_drv->attention_lock);
 	mutex_init(&dp_drv->hdcp_mutex);
 	spin_lock_init(&dp_drv->lock);
