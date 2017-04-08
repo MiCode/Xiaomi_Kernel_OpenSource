@@ -150,6 +150,7 @@ int msm_vidc_query_ctrl(void *instance, struct v4l2_queryctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_HIER_P_NUM_LAYERS:
 		msm_vidc_ctrl_get_range(ctrl, &inst->capability.hier_p);
 		break;
+	case V4L2_CID_MPEG_VIDC_VENC_PARAM_LAYER_BITRATE:
 	case  V4L2_CID_MPEG_VIDEO_BITRATE:
 		msm_vidc_ctrl_get_range(ctrl, &inst->capability.bitrate);
 		break;
