@@ -228,6 +228,7 @@ struct tadc_chip {
 	struct votable		*tadc_disable_votable;
 	struct work_struct	status_change_work;
 	struct notifier_block	nb;
+	u8			hwtrig_conv;
 };
 
 struct tadc_pt {
@@ -350,6 +351,26 @@ static int tadc_bulk_write(struct tadc_chip *chip, u16 reg, u8 *data,
 			goto unlock;
 		}
 	}
+
+unlock:
+	mutex_unlock(&chip->write_lock);
+	return rc;
+}
+
+static int tadc_masked_write(struct tadc_chip *chip, u16 reg, u8 mask, u8 data)
+{
+	int rc = 0;
+
+	mutex_lock(&chip->write_lock);
+	if (tadc_is_reg_locked(chip, reg)) {
+		rc = regmap_write(chip->regmap, (reg & 0xFF00) | 0xD0, 0xA5);
+		if (rc < 0) {
+			pr_err("Couldn't unlock secure register rc=%d\n", rc);
+			goto unlock;
+		}
+	}
+
+	rc = regmap_update_bits(chip->regmap, reg, mask, data);
 
 unlock:
 	mutex_unlock(&chip->write_lock);
@@ -880,6 +901,12 @@ static int tadc_disable_vote_callback(struct votable *votable,
 		if (timeleft == 0)
 			pr_err("Timed out waiting for eoc, disabling hw conversions regardless\n");
 
+		rc = tadc_read(chip, TADC_HWTRIG_CONV_CH_EN_REG(chip),
+							&chip->hwtrig_conv, 1);
+		if (rc < 0) {
+			pr_err("Couldn't save hw conversions rc=%d\n", rc);
+			return rc;
+		}
 		rc = tadc_write(chip, TADC_HWTRIG_CONV_CH_EN_REG(chip), 0x00);
 		if (rc < 0) {
 			pr_err("Couldn't disable hw conversions rc=%d\n", rc);
@@ -896,9 +923,10 @@ static int tadc_disable_vote_callback(struct votable *votable,
 			pr_err("Couldn't disable direct test mode rc=%d\n", rc);
 			return rc;
 		}
-		rc = tadc_write(chip, TADC_HWTRIG_CONV_CH_EN_REG(chip), 0x07);
+		rc = tadc_write(chip, TADC_HWTRIG_CONV_CH_EN_REG(chip),
+							chip->hwtrig_conv);
 		if (rc < 0) {
-			pr_err("Couldn't enable hw conversions rc=%d\n", rc);
+			pr_err("Couldn't restore hw conversions rc=%d\n", rc);
 			return rc;
 		}
 	}
@@ -1126,13 +1154,20 @@ static int tadc_init_hw(struct tadc_chip *chip)
 		return rc;
 	}
 
-	/* enable all temperature hardware triggers */
-	rc = tadc_write(chip, TADC_HWTRIG_CONV_CH_EN_REG(chip),
-							BIT(TADC_THERM1) |
-							BIT(TADC_THERM2) |
-							BIT(TADC_DIE_TEMP));
+	/* enable connector and die temp hardware triggers */
+	rc = tadc_masked_write(chip, TADC_HWTRIG_CONV_CH_EN_REG(chip),
+					BIT(TADC_THERM2) | BIT(TADC_DIE_TEMP),
+					BIT(TADC_THERM2) | BIT(TADC_DIE_TEMP));
 	if (rc < 0) {
 		pr_err("Couldn't enable hardware triggers rc=%d\n", rc);
+		return rc;
+	}
+
+	/* save hw triggered conversion configuration */
+	rc = tadc_read(chip, TADC_HWTRIG_CONV_CH_EN_REG(chip),
+							&chip->hwtrig_conv, 1);
+	if (rc < 0) {
+		pr_err("Couldn't save hw conversions rc=%d\n", rc);
 		return rc;
 	}
 

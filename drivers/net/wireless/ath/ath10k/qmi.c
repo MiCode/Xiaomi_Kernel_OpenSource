@@ -29,21 +29,34 @@ ath10k_snoc_service_notifier_notify(struct notifier_block *nb,
 					       service_notifier_nb);
 	enum pd_subsys_state *state = data;
 	struct ath10k *ar = ar_snoc->ar;
+	struct ath10k_snoc_qmi_config *qmi_cfg = &ar_snoc->qmi_cfg;
+	int ret;
 
 	switch (notification) {
 	case SERVREG_NOTIF_SERVICE_STATE_DOWN_V01:
 		ath10k_dbg(ar, ATH10K_DBG_SNOC, "Service down, data: 0x%pK\n",
 			   data);
 
-		if (!state || *state != ROOT_PD_SHUTDOWN)
+		if (!state || *state != ROOT_PD_SHUTDOWN) {
 			atomic_set(&ar_snoc->fw_crashed, 1);
+			atomic_set(&qmi_cfg->fw_ready, 0);
+		}
 
 		ath10k_dbg(ar, ATH10K_DBG_SNOC, "PD went down %d\n",
 			   atomic_read(&ar_snoc->fw_crashed));
 		break;
 	case SERVREG_NOTIF_SERVICE_STATE_UP_V01:
 		ath10k_dbg(ar, ATH10K_DBG_SNOC, "Service up\n");
-		queue_work(ar->workqueue, &ar->restart_work);
+		ret = wait_event_timeout(ath10k_fw_ready_wait_event,
+					 (atomic_read(&qmi_cfg->fw_ready) &&
+				   atomic_read(&qmi_cfg->server_connected)),
+			msecs_to_jiffies(ATH10K_SNOC_WLAN_FW_READY_TIMEOUT));
+		if (ret) {
+			queue_work(ar->workqueue, &ar->restart_work);
+		} else {
+			ath10k_err(ar, "restart failed, fw_ready timed out\n");
+			return NOTIFY_OK;
+		}
 		break;
 	default:
 		ath10k_dbg(ar, ATH10K_DBG_SNOC,
@@ -188,17 +201,18 @@ static int ath10k_snoc_modem_notifier_nb(struct notifier_block *nb,
 	struct ath10k_snoc *ar_snoc = container_of(nb, struct ath10k_snoc,
 						   modem_ssr_nb);
 	struct ath10k *ar = ar_snoc->ar;
+	struct ath10k_snoc_qmi_config *qmi_cfg = &ar_snoc->qmi_cfg;
 
 	if (code != SUBSYS_BEFORE_SHUTDOWN)
 		return NOTIFY_OK;
 
-	if (notif->crashed)
+	if (notif->crashed) {
 		atomic_set(&ar_snoc->fw_crashed, 1);
+		atomic_set(&qmi_cfg->fw_ready, 0);
+	}
 
 	ath10k_dbg(ar, ATH10K_DBG_SNOC, "Modem went down %d\n",
 		   atomic_read(&ar_snoc->fw_crashed));
-	if (notif->crashed)
-		queue_work(ar->workqueue, &ar->restart_work);
 
 	return NOTIFY_OK;
 }
@@ -255,6 +269,7 @@ ath10k_snoc_driver_event_post(enum ath10k_snoc_driver_event_type type,
 {
 	int ret = 0;
 	int i = 0;
+	unsigned long irq_flags;
 	struct ath10k *ar = (struct ath10k *)data;
 	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
 	struct ath10k_snoc_qmi_config *qmi_cfg = &ar_snoc->qmi_cfg;
@@ -267,7 +282,7 @@ ath10k_snoc_driver_event_post(enum ath10k_snoc_driver_event_type type,
 		return -EINVAL;
 	}
 
-	spin_lock_bh(&qmi_cfg->event_lock);
+	spin_lock_irqsave(&qmi_cfg->event_lock, irq_flags);
 
 	for (i = 0; i < ATH10K_SNOC_DRIVER_EVENT_MAX; i++) {
 		if (atomic_read(&qmi_cfg->qmi_ev_list[i].event_handled)) {
@@ -288,7 +303,7 @@ ath10k_snoc_driver_event_post(enum ath10k_snoc_driver_event_type type,
 	if (i >= ATH10K_SNOC_DRIVER_EVENT_MAX)
 		i = ATH10K_SNOC_DRIVER_EVENT_SERVER_ARRIVE;
 
-	spin_unlock_bh(&qmi_cfg->event_lock);
+	spin_unlock_irqrestore(&qmi_cfg->event_lock, irq_flags);
 
 	queue_work(qmi_cfg->event_wq, &qmi_cfg->event_work);
 
@@ -304,16 +319,16 @@ ath10k_snoc_driver_event_post(enum ath10k_snoc_driver_event_type type,
 	ath10k_dbg(ar, ATH10K_DBG_SNOC, "Completed event: %s(%d)\n",
 		   ath10k_snoc_driver_event_to_str(type), type);
 
-	spin_lock_bh(&qmi_cfg->event_lock);
+	spin_lock_irqsave(&qmi_cfg->event_lock, irq_flags);
 	if (ret == -ERESTARTSYS &&
 	    qmi_cfg->qmi_ev_list[i].ret == ATH10K_SNOC_EVENT_PENDING) {
 		qmi_cfg->qmi_ev_list[i].sync = false;
 		atomic_set(&qmi_cfg->qmi_ev_list[i].event_handled, 1);
-		spin_unlock_bh(&qmi_cfg->event_lock);
+		spin_unlock_irqrestore(&qmi_cfg->event_lock, irq_flags);
 		ret = -EINTR;
 		goto out;
 	}
-	spin_unlock_bh(&qmi_cfg->event_lock);
+	spin_unlock_irqrestore(&qmi_cfg->event_lock, irq_flags);
 
 out:
 	return ret;
@@ -714,22 +729,23 @@ static int ath10k_snoc_driver_event_fw_ready_ind(struct ath10k *ar)
 
 static void ath10k_snoc_driver_event_work(struct work_struct *work)
 {
-	struct ath10k_snoc_qmi_driver_event *event;
 	int ret;
+	unsigned long irq_flags;
+	struct ath10k_snoc_qmi_driver_event *event;
 	struct ath10k_snoc_qmi_config *qmi_cfg =
 		container_of(work, struct ath10k_snoc_qmi_config, event_work);
 	struct ath10k_snoc *ar_snoc =
 		container_of(qmi_cfg, struct ath10k_snoc, qmi_cfg);
 	struct ath10k *ar = ar_snoc->ar;
 
-	spin_lock_bh(&qmi_cfg->event_lock);
+	spin_lock_irqsave(&qmi_cfg->event_lock, irq_flags);
 
 	while (!list_empty(&qmi_cfg->event_list)) {
 		event = list_first_entry(&qmi_cfg->event_list,
 					 struct ath10k_snoc_qmi_driver_event,
 					 list);
 		list_del(&event->list);
-		spin_unlock_bh(&qmi_cfg->event_lock);
+		spin_unlock_irqrestore(&qmi_cfg->event_lock, irq_flags);
 
 		ath10k_dbg(ar, ATH10K_DBG_SNOC, "Processing event: %s%s(%d)\n",
 			   ath10k_snoc_driver_event_to_str(event->type),
@@ -756,17 +772,17 @@ static void ath10k_snoc_driver_event_work(struct work_struct *work)
 			   "Event Processed: %s%s(%d), ret: %d\n",
 			   ath10k_snoc_driver_event_to_str(event->type),
 			   event->sync ? "-sync" : "", event->type, ret);
-		spin_lock_bh(&qmi_cfg->event_lock);
+		spin_lock_irqsave(&qmi_cfg->event_lock, irq_flags);
 		if (event->sync) {
 			event->ret = ret;
 			complete(&event->complete);
 			continue;
 		}
-		spin_unlock_bh(&qmi_cfg->event_lock);
-		spin_lock_bh(&qmi_cfg->event_lock);
+		spin_unlock_irqrestore(&qmi_cfg->event_lock, irq_flags);
+		spin_lock_irqsave(&qmi_cfg->event_lock, irq_flags);
 	}
 
-	spin_unlock_bh(&qmi_cfg->event_lock);
+	spin_unlock_irqrestore(&qmi_cfg->event_lock, irq_flags);
 }
 
 static int
