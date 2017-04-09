@@ -84,6 +84,7 @@ Optional properties
 - qcom,mdss-rot-mode:		This is integer value indicates operation mode
 				of the rotator device
 - qcom,mdss-sbuf-headroom:	This integer value indicates stream buffer headroom in lines.
+- qcom,mdss-rot-linewidth:	This integer value indicates rotator line width supported in pixels.
 - cache-slice-names:		A set of names that identify the usecase names of a client that uses
 				cache slice. These strings are used to look up the cache slice
 				entries by name.

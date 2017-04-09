@@ -1315,6 +1315,35 @@ int sde_rotator_inline_get_downscale_caps(struct platform_device *pdev,
 EXPORT_SYMBOL(sde_rotator_inline_get_downscale_caps);
 
 /*
+ * sde_rotator_inline_get_maxlinewidth - get maximum line width of rotator
+ * @pdev: Pointer to platform device
+ * return: maximum line width
+ */
+int sde_rotator_inline_get_maxlinewidth(struct platform_device *pdev)
+{
+	struct sde_rotator_device *rot_dev;
+	int maxlinewidth;
+
+	if (!pdev) {
+		SDEROT_ERR("invalid platform device\n");
+		return -EINVAL;
+	}
+
+	rot_dev = (struct sde_rotator_device *)platform_get_drvdata(pdev);
+	if (!rot_dev || !rot_dev->mgr) {
+		SDEROT_ERR("invalid rotator device\n");
+		return -EINVAL;
+	}
+
+	sde_rot_mgr_lock(rot_dev->mgr);
+	maxlinewidth = sde_rotator_get_maxlinewidth(rot_dev->mgr);
+	sde_rot_mgr_unlock(rot_dev->mgr);
+
+	return maxlinewidth;
+}
+EXPORT_SYMBOL(sde_rotator_inline_get_maxlinewidth);
+
+/*
  * sde_rotator_inline_get_pixfmt_caps - get pixel format capability
  * @pdev: Pointer to platform device
  * @pixfmt: array of pixel format buffer

@@ -55,6 +55,8 @@
 #define DEFAULT_UBWC_MALSIZE	1
 #define DEFAULT_UBWC_SWIZZLE	1
 
+#define DEFAULT_MAXLINEWIDTH	4096
+
 /* Macro for constructing the REGDMA command */
 #define SDE_REGDMA_WRITE(p, off, data) \
 	do { \
@@ -2457,10 +2459,23 @@ static int sde_hw_rotator_validate_entry(struct sde_rot_mgr *mgr,
 		struct sde_rot_entry *entry)
 {
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+	struct sde_hw_rotator *hw_data;
 	int ret = 0;
 	u16 src_w, src_h, dst_w, dst_h;
 	struct sde_rotation_item *item = &entry->item;
 	struct sde_mdp_format_params *fmt;
+
+	if (!mgr || !entry || !mgr->hw_data) {
+		SDEROT_ERR("invalid parameters\n");
+		return -EINVAL;
+	}
+
+	hw_data = mgr->hw_data;
+
+	if (hw_data->maxlinewidth < item->src_rect.w) {
+		SDEROT_ERR("invalid src width %u\n", item->src_rect.w);
+		return -EINVAL;
+	}
 
 	src_w = item->src_rect.w;
 	src_h = item->src_rect.h;
@@ -2756,6 +2771,25 @@ static int sde_hw_rotator_get_downscale_caps(struct sde_rot_mgr *mgr,
 }
 
 /*
+ * sde_hw_rotator_get_maxlinewidth - get maximum line width supported
+ * @mgr: Pointer to rotator manager
+ * return: maximum line width supported by hardware
+ */
+static int sde_hw_rotator_get_maxlinewidth(struct sde_rot_mgr *mgr)
+{
+	struct sde_hw_rotator *rot;
+
+	if (!mgr || !mgr->hw_data) {
+		SDEROT_ERR("null parameters\n");
+		return -EINVAL;
+	}
+
+	rot = mgr->hw_data;
+
+	return rot->maxlinewidth;
+}
+
+/*
  * sde_hw_rotator_parse_dt - parse r3 specific device tree settings
  * @hw_data: Pointer to rotator hw
  * @dev: Pointer to platform device
@@ -2824,6 +2858,16 @@ static int sde_hw_rotator_parse_dt(struct sde_hw_rotator *hw_data,
 		hw_data->sbuf_headroom = data;
 	}
 
+	ret = of_property_read_u32(dev->dev.of_node,
+			"qcom,mdss-rot-linewidth", &data);
+	if (ret) {
+		ret = 0;
+		hw_data->maxlinewidth = DEFAULT_MAXLINEWIDTH;
+	} else {
+		SDEROT_DBG("set mdss-rot-linewidth to %d\n", data);
+		hw_data->maxlinewidth = data;
+	}
+
 	return ret;
 }
 
@@ -2871,6 +2915,7 @@ int sde_rotator_r3_init(struct sde_rot_mgr *mgr)
 	mgr->ops_hw_pre_pmevent = sde_hw_rotator_pre_pmevent;
 	mgr->ops_hw_post_pmevent = sde_hw_rotator_post_pmevent;
 	mgr->ops_hw_get_downscale_caps = sde_hw_rotator_get_downscale_caps;
+	mgr->ops_hw_get_maxlinewidth = sde_hw_rotator_get_maxlinewidth;
 
 	ret = sde_hw_rotator_parse_dt(mgr->hw_data, mgr->pdev);
 	if (ret)

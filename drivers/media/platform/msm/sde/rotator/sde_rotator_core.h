@@ -459,6 +459,7 @@ struct sde_rot_mgr {
 			bool input);
 	int (*ops_hw_get_downscale_caps)(struct sde_rot_mgr *mgr, char *caps,
 			int len);
+	int (*ops_hw_get_maxlinewidth)(struct sde_rot_mgr *mgr);
 
 	void *hw_data;
 };
@@ -488,6 +489,14 @@ static inline int sde_rotator_get_downscale_caps(struct sde_rot_mgr *mgr,
 		return mgr->ops_hw_get_downscale_caps(mgr, caps, len);
 
 	return 0;
+}
+
+static inline int sde_rotator_get_maxlinewidth(struct sde_rot_mgr *mgr)
+{
+	if (mgr && mgr->ops_hw_get_maxlinewidth)
+		return mgr->ops_hw_get_maxlinewidth(mgr);
+
+	return 2048;
 }
 
 static inline int __compare_session_item_rect(
