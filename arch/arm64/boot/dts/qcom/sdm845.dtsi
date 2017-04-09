@@ -2127,6 +2127,9 @@
 };
 
 &gpu_gx_gdsc {
+	clock-names = "core_root_clk";
+	clocks = <&clock_gfx GPU_CC_GX_GFX3D_CLK_SRC>;
+	qcom,force-enable-root-clk;
 	parent-supply = <&pm8005_s1_level>;
 	status = "ok";
 };
