@@ -503,7 +503,7 @@ static int dsi_display_core_clk_enable(struct dsi_core_clks *clks,
 			goto error_disable_master;
 		}
 	}
-
+	return rc;
 error_disable_master:
 	(void)dsi_core_clk_stop(m_clks);
 
