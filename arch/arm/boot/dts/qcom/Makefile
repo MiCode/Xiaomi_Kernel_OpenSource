@@ -166,6 +166,7 @@ dtb-$(CONFIG_ARCH_SDM660) += sdm660-sim.dtb \
 	sdm660-pm660a-headset-jacktype-no-cdp.dtb \
 	sdm660-pm660a-headset-jacktype-no-rcm.dtb \
 	sdm660-usbc-audio-mtp.dtb \
+	sdm660-usbc-audio-rcm.dtb \
 	sdm658-mtp.dtb \
 	sdm658-cdp.dtb \
 	sdm658-rcm.dtb \
@@ -191,6 +192,7 @@ dtb-$(CONFIG_ARCH_SDM630) += sdm630-rumi.dtb \
 	sdm630-pm660a-rumi.dtb \
 	sdm630-mtp.dtb \
 	sdm630-usbc-audio-mtp.dtb \
+	sdm630-usbc-audio-rcm.dtb \
 	sdm630-cdp.dtb \
 	sdm630-rcm.dtb \
 	sdm630-internal-codec-mtp.dtb \

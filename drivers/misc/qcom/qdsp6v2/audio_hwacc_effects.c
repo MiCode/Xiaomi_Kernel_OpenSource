@@ -17,7 +17,6 @@
 #include "q6audio_common.h"
 #include "audio_utils_aio.h"
 #include <sound/msm-audio-effects-q6-v2.h>
-#include <sound/msm-dts-eagle.h>
 
 #define MAX_CHANNELS_SUPPORTED		8
 #define WAIT_TIMEDOUT_DURATION_SECS	1
@@ -53,31 +52,11 @@ static void audio_effects_init_pp(struct audio_client *ac)
 		pr_err("%s: audio client null to init pp\n", __func__);
 		return;
 	}
-	switch (ac->topology) {
-	case ASM_STREAM_POSTPROC_TOPO_ID_HPX_MASTER:
-
-		ret = q6asm_set_softvolume_v2(ac, &softvol,
-					      SOFT_VOLUME_INSTANCE_1);
-		if (ret < 0)
-			pr_err("%s: Send SoftVolume1 Param failed ret=%d\n",
-				__func__, ret);
-		ret = q6asm_set_softvolume_v2(ac, &softvol,
-					      SOFT_VOLUME_INSTANCE_2);
-		if (ret < 0)
-			pr_err("%s: Send SoftVolume2 Param failed ret=%d\n",
-				 __func__, ret);
-
-		msm_dts_eagle_init_master_module(ac);
-
-		break;
-	default:
-		ret = q6asm_set_softvolume_v2(ac, &softvol,
-					      SOFT_VOLUME_INSTANCE_1);
-		if (ret < 0)
-			pr_err("%s: Send SoftVolume Param failed ret=%d\n",
-				__func__, ret);
-		break;
-	}
+	ret = q6asm_set_softvolume_v2(ac, &softvol,
+				      SOFT_VOLUME_INSTANCE_1);
+	if (ret < 0)
+		pr_err("%s: Send SoftVolume Param failed ret=%d\n",
+			__func__, ret);
 }
 
 static void audio_effects_deinit_pp(struct audio_client *ac)
@@ -85,13 +64,6 @@ static void audio_effects_deinit_pp(struct audio_client *ac)
 	if (!ac) {
 		pr_err("%s: audio client null to deinit pp\n", __func__);
 		return;
-	}
-	switch (ac->topology) {
-	case ASM_STREAM_POSTPROC_TOPO_ID_HPX_MASTER:
-		msm_dts_eagle_deinit_master_module(ac);
-		break;
-	default:
-		break;
 	}
 }
 
@@ -148,6 +120,8 @@ static int audio_effects_shared_ioctl(struct file *file, unsigned cmd,
 	case AUDIO_START: {
 		pr_debug("%s: AUDIO_START\n", __func__);
 
+		mutex_lock(&effects->lock);
+
 		rc = q6asm_open_read_write_v2(effects->ac,
 					FORMAT_LINEAR_PCM,
 					FORMAT_MULTI_CHANNEL_LINEAR_PCM,
@@ -159,6 +133,7 @@ static int audio_effects_shared_ioctl(struct file *file, unsigned cmd,
 			pr_err("%s: Open failed for hw accelerated effects:rc=%d\n",
 				__func__, rc);
 			rc = -EINVAL;
+			mutex_unlock(&effects->lock);
 			goto ioctl_fail;
 		}
 		effects->opened = 1;
@@ -175,6 +150,7 @@ static int audio_effects_shared_ioctl(struct file *file, unsigned cmd,
 			pr_err("%s: Write buffer Allocation failed rc = %d\n",
 				__func__, rc);
 			rc = -ENOMEM;
+			mutex_unlock(&effects->lock);
 			goto ioctl_fail;
 		}
 		atomic_set(&effects->in_count, effects->config.input.num_buf);
@@ -185,6 +161,7 @@ static int audio_effects_shared_ioctl(struct file *file, unsigned cmd,
 			pr_err("%s: Read buffer Allocation failed rc = %d\n",
 				__func__, rc);
 			rc = -ENOMEM;
+			mutex_unlock(&effects->lock);
 			goto readbuf_fail;
 		}
 		atomic_set(&effects->out_count, effects->config.output.num_buf);
@@ -199,6 +176,7 @@ static int audio_effects_shared_ioctl(struct file *file, unsigned cmd,
 		if (rc < 0) {
 			pr_err("%s: pcm read block config failed\n", __func__);
 			rc = -EINVAL;
+			mutex_unlock(&effects->lock);
 			goto cfg_fail;
 		}
 		pr_debug("%s: dec: sample_rate: %d, num_channels: %d, bit_width: %d\n",
@@ -213,6 +191,7 @@ static int audio_effects_shared_ioctl(struct file *file, unsigned cmd,
 			pr_err("%s: pcm write format block config failed\n",
 				__func__);
 			rc = -EINVAL;
+			mutex_unlock(&effects->lock);
 			goto cfg_fail;
 		}
 
@@ -225,6 +204,7 @@ static int audio_effects_shared_ioctl(struct file *file, unsigned cmd,
 			effects->started = 0;
 			pr_err("%s: ASM run state failed\n", __func__);
 		}
+		mutex_unlock(&effects->lock);
 		break;
 	}
 	case AUDIO_EFFECTS_WRITE: {
@@ -286,8 +266,11 @@ static int audio_effects_shared_ioctl(struct file *file, unsigned cmd,
 		uint32_t idx = 0;
 		uint32_t size = 0;
 
+		mutex_lock(&effects->lock);
+
 		if (!effects->started) {
 			rc = -EFAULT;
+			mutex_unlock(&effects->lock);
 			goto ioctl_fail;
 		}
 
@@ -304,11 +287,13 @@ static int audio_effects_shared_ioctl(struct file *file, unsigned cmd,
 		if (!rc) {
 			pr_err("%s: read wait_event_timeout\n", __func__);
 			rc = -EFAULT;
+			mutex_unlock(&effects->lock);
 			goto ioctl_fail;
 		}
 		if (!atomic_read(&effects->in_count)) {
 			pr_err("%s: pcm stopped in_count 0\n", __func__);
 			rc = -EFAULT;
+			mutex_unlock(&effects->lock);
 			goto ioctl_fail;
 		}
 
@@ -316,15 +301,18 @@ static int audio_effects_shared_ioctl(struct file *file, unsigned cmd,
 		if (bufptr) {
 			if (!((void *)arg)) {
 				rc = -EFAULT;
+				mutex_unlock(&effects->lock);
 				goto ioctl_fail;
 			}
 			if ((effects->config.buf_cfg.input_len > size) ||
 				copy_to_user((void *)arg, bufptr,
 					  effects->config.buf_cfg.input_len)) {
 				rc = -EFAULT;
+				mutex_unlock(&effects->lock);
 				goto ioctl_fail;
 			}
 		}
+		mutex_unlock(&effects->lock);
 		break;
 	}
 	default:
@@ -412,33 +400,6 @@ static long audio_effects_set_pp_param(struct q6audio_effects *effects,
 			      &(effects->audio_effects.topo_switch_vol),
 			      (long *)&values[1], SOFT_VOLUME_INSTANCE_2);
 		break;
-	case DTS_EAGLE_MODULE_ENABLE:
-		pr_debug("%s: DTS_EAGLE_MODULE_ENABLE\n", __func__);
-		if (msm_audio_effects_is_effmodule_supp_in_top(
-			effects_module, effects->ac->topology)) {
-			/*
-			 * HPX->OFF: first disable HPX and then
-			 * enable SA+
-			 * HPX->ON: first disable SA+ and then
-			 * enable HPX
-			 */
-			bool hpx_state = (bool)values[1];
-			if (hpx_state)
-				msm_audio_effects_enable_extn(effects->ac,
-					&(effects->audio_effects),
-					false);
-			msm_dts_eagle_enable_asm(effects->ac,
-				hpx_state,
-				AUDPROC_MODULE_ID_DTS_HPX_PREMIX);
-			msm_dts_eagle_enable_asm(effects->ac,
-				hpx_state,
-				AUDPROC_MODULE_ID_DTS_HPX_POSTMIX);
-			if (!hpx_state)
-				msm_audio_effects_enable_extn(effects->ac,
-					&(effects->audio_effects),
-					true);
-		}
-		break;
 	default:
 		pr_err("%s: Invalid effects config module\n", __func__);
 		rc = -EINVAL;
@@ -456,6 +417,7 @@ static long audio_effects_ioctl(struct file *file, unsigned int cmd,
 	switch (cmd) {
 	case AUDIO_SET_EFFECTS_CONFIG: {
 		pr_debug("%s: AUDIO_SET_EFFECTS_CONFIG\n", __func__);
+		mutex_lock(&effects->lock);
 		memset(&effects->config, 0, sizeof(effects->config));
 		if (copy_from_user(&effects->config, (void *)arg,
 				   sizeof(effects->config))) {
@@ -473,6 +435,7 @@ static long audio_effects_ioctl(struct file *file, unsigned int cmd,
 			 effects->config.input.num_buf,
 			 effects->config.input.sample_rate,
 			 effects->config.input.num_channels);
+		mutex_unlock(&effects->lock);
 		break;
 	}
 	case AUDIO_EFFECTS_SET_BUF_LEN: {
@@ -494,6 +457,7 @@ static long audio_effects_ioctl(struct file *file, unsigned int cmd,
 
 		buf_avail.input_num_avail = atomic_read(&effects->in_count);
 		buf_avail.output_num_avail = atomic_read(&effects->out_count);
+		mutex_lock(&effects->lock);
 		pr_debug("%s: write buf avail: %d, read buf avail: %d\n",
 			 __func__, buf_avail.output_num_avail,
 			 buf_avail.input_num_avail);
@@ -503,16 +467,20 @@ static long audio_effects_ioctl(struct file *file, unsigned int cmd,
 				__func__);
 			rc = -EFAULT;
 		}
+		mutex_unlock(&effects->lock);
 		break;
 	}
 	case AUDIO_EFFECTS_SET_PP_PARAMS: {
+		mutex_lock(&effects->lock);
 		if (copy_from_user(argvalues, (void *)arg,
 				   MAX_PP_PARAMS_SZ*sizeof(long))) {
 			pr_err("%s: copy from user for pp params failed\n",
 				__func__);
+			mutex_unlock(&effects->lock);
 			return -EFAULT;
 		}
 		rc = audio_effects_set_pp_param(effects, argvalues);
+		mutex_unlock(&effects->lock);
 		break;
 	}
 	default:
@@ -578,12 +546,14 @@ static long audio_effects_compat_ioctl(struct file *file, unsigned int cmd,
 	case AUDIO_SET_EFFECTS_CONFIG32: {
 		struct msm_hwacc_effects_config32 config32;
 		struct msm_hwacc_effects_config *config = &effects->config;
+		mutex_lock(&effects->lock);
 		memset(&effects->config, 0, sizeof(effects->config));
 		if (copy_from_user(&config32, (void *)arg,
 				   sizeof(config32))) {
 			pr_err("%s: copy to user for AUDIO_SET_EFFECTS_CONFIG failed\n",
 				__func__);
 			rc = -EFAULT;
+			mutex_unlock(&effects->lock);
 			break;
 		}
 		config->input.buf_size = config32.input.buf_size;
@@ -620,16 +590,19 @@ static long audio_effects_compat_ioctl(struct file *file, unsigned int cmd,
 			 effects->config.input.num_buf,
 			 effects->config.input.sample_rate,
 			 effects->config.input.num_channels);
+		mutex_unlock(&effects->lock);
 		break;
 	}
 	case AUDIO_EFFECTS_SET_BUF_LEN32: {
 		struct msm_hwacc_buf_cfg32 buf_cfg32;
 		struct msm_hwacc_effects_config *config = &effects->config;
+		mutex_lock(&effects->lock);
 		if (copy_from_user(&buf_cfg32, (void *)arg,
 				   sizeof(buf_cfg32))) {
 			pr_err("%s: copy from user for AUDIO_EFFECTS_SET_BUF_LEN failed\n",
 				__func__);
 			rc = -EFAULT;
+			mutex_unlock(&effects->lock);
 			break;
 		}
 		config->buf_cfg.input_len = buf_cfg32.input_len;
@@ -637,6 +610,7 @@ static long audio_effects_compat_ioctl(struct file *file, unsigned int cmd,
 		pr_debug("%s: write buf len: %d, read buf len: %d\n",
 			 __func__, effects->config.buf_cfg.output_len,
 			 effects->config.buf_cfg.input_len);
+		mutex_unlock(&effects->lock);
 		break;
 	}
 	case AUDIO_EFFECTS_GET_BUF_AVAIL32: {
@@ -644,6 +618,7 @@ static long audio_effects_compat_ioctl(struct file *file, unsigned int cmd,
 
 		memset(&buf_avail, 0, sizeof(buf_avail));
 
+		mutex_lock(&effects->lock);
 		buf_avail.input_num_avail = atomic_read(&effects->in_count);
 		buf_avail.output_num_avail = atomic_read(&effects->out_count);
 		pr_debug("%s: write buf avail: %d, read buf avail: %d\n",
@@ -655,22 +630,26 @@ static long audio_effects_compat_ioctl(struct file *file, unsigned int cmd,
 				__func__);
 			rc = -EFAULT;
 		}
+		mutex_unlock(&effects->lock);
 		break;
 	}
 	case AUDIO_EFFECTS_SET_PP_PARAMS32: {
 		long argvalues[MAX_PP_PARAMS_SZ] = {0};
 		int argvalues32[MAX_PP_PARAMS_SZ] = {0};
 
+		mutex_lock(&effects->lock);
 		if (copy_from_user(argvalues32, (void *)arg,
 				   MAX_PP_PARAMS_SZ*sizeof(int))) {
 			pr_err("%s: copy from user failed for pp params\n",
 				__func__);
+			mutex_unlock(&effects->lock);
 			return -EFAULT;
 		}
 		for (i = 0; i < MAX_PP_PARAMS_SZ; i++)
 			argvalues[i] = argvalues32[i];
 
 		rc = audio_effects_set_pp_param(effects, argvalues);
+		mutex_unlock(&effects->lock);
 		break;
 	}
 	case AUDIO_START32: {

@@ -2272,6 +2272,8 @@ int mdss_dsi_pre_clkoff_cb(void *priv,
 	pdata = &ctrl->panel_data;
 
 	if ((clk & MDSS_DSI_LINK_CLK) && (new_state == MDSS_DSI_CLK_OFF)) {
+		if (pdata->panel_info.mipi.force_clk_lane_hs)
+			mdss_dsi_cfg_lane_ctrl(ctrl, BIT(28), 0);
 		/*
 		 * If ULPS feature is enabled, enter ULPS first.
 		 * However, when blanking the panel, we should enter ULPS
@@ -2387,6 +2389,8 @@ int mdss_dsi_post_clkon_cb(void *priv,
 				goto error;
 			}
 		}
+		if (pdata->panel_info.mipi.force_clk_lane_hs)
+			mdss_dsi_cfg_lane_ctrl(ctrl, BIT(28), 1);
 	}
 error:
 	return rc;

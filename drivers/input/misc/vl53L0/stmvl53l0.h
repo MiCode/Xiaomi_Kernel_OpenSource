@@ -131,6 +131,7 @@ struct stmvl53l0_data {
 	struct miscdevice miscdev;
 
 	int irq;
+	int irq_gpio;
 	unsigned int reset;
 
 	/* control flag from HAL */

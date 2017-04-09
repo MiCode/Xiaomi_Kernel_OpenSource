@@ -990,11 +990,6 @@ static void __diag_fwd_open(struct diagfwd_info *fwd_info)
 	if (!fwd_info->inited)
 		return;
 
-	if (fwd_info->buf_1)
-		atomic_set(&fwd_info->buf_1->in_busy, 0);
-	if (fwd_info->buf_2)
-		atomic_set(&fwd_info->buf_2->in_busy, 0);
-
 	if (fwd_info->p_ops && fwd_info->p_ops->open)
 		fwd_info->p_ops->open(fwd_info->ctxt);
 
