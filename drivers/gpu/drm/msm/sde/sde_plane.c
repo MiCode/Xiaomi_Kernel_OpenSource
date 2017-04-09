@@ -1920,7 +1920,8 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 
 	rstate->in_rotation = drm_rotation_simplify(
 			sde_plane_get_property(pstate, PLANE_PROP_ROTATION),
-			DRM_ROTATE_90 | DRM_REFLECT_X | DRM_REFLECT_Y);
+			DRM_ROTATE_0 | DRM_ROTATE_90 |
+			DRM_REFLECT_X | DRM_REFLECT_Y);
 	rstate->rot90 = rstate->in_rotation & DRM_ROTATE_90 ? true : false;
 	rstate->hflip = rstate->in_rotation & DRM_REFLECT_X ? true : false;
 	rstate->vflip = rstate->in_rotation & DRM_REFLECT_Y ? true : false;
@@ -2164,7 +2165,8 @@ static void sde_plane_rot_install_properties(struct drm_plane *plane,
 	struct sde_mdss_cfg *catalog)
 {
 	struct sde_plane *psde = to_sde_plane(plane);
-	unsigned long supported_rotations = DRM_REFLECT_X | DRM_REFLECT_Y;
+	unsigned long supported_rotations = DRM_ROTATE_0 | DRM_REFLECT_X |
+			DRM_REFLECT_Y;
 
 	if (!plane || !psde) {
 		SDE_ERROR("invalid plane\n");
