@@ -793,64 +793,6 @@ static void _setup_rot_ops(struct sde_hw_rot_ops *ops, unsigned long features)
 }
 
 /**
- * sde_hw_rot_init - create/initialize given rotator instance
- * @idx: index of given rotator
- * @addr: i/o address mapping
- * @m: Pointer to mdss catalog
- * return: Pointer to hardware rotator driver of the given instance
- */
-struct sde_hw_rot *sde_hw_rot_init(enum sde_rot idx,
-		void __iomem *addr,
-		struct sde_mdss_cfg *m)
-{
-	struct sde_hw_rot *c;
-	struct sde_rot_cfg *cfg;
-	int rc;
-
-	c = kzalloc(sizeof(*c), GFP_KERNEL);
-	if (!c)
-		return ERR_PTR(-ENOMEM);
-
-	cfg = _rot_offset(idx, m, addr, &c->hw);
-	if (IS_ERR(cfg)) {
-		WARN(1, "Unable to find rot idx=%d\n", idx);
-		kfree(c);
-		return ERR_PTR(-EINVAL);
-	}
-
-	/* Assign ops */
-	c->idx = idx;
-	c->caps = cfg;
-	_setup_rot_ops(&c->ops, c->caps->features);
-
-	rc = sde_hw_blk_init(&c->base, SDE_HW_BLK_ROT, idx);
-	if (rc) {
-		SDE_ERROR("failed to init hw blk %d\n", rc);
-		goto blk_init_error;
-	}
-
-	return c;
-
-blk_init_error:
-	kzfree(c);
-
-	return ERR_PTR(rc);
-}
-
-/**
- * sde_hw_rot_destroy - destroy given hardware rotator driver
- * @hw_rot: Pointer to hardware rotator driver
- * return: none
- */
-void sde_hw_rot_destroy(struct sde_hw_rot *hw_rot)
-{
-	sde_hw_blk_destroy(&hw_rot->base);
-	kfree(hw_rot->downscale_caps);
-	kfree(hw_rot->format_caps);
-	kfree(hw_rot);
-}
-
-/**
  * sde_hw_rot_blk_stop - stop rotator block
  * @hw_blk: Pointer to base hardware block
  * return: none
@@ -881,26 +823,81 @@ static int sde_hw_rot_blk_start(struct sde_hw_blk *hw_blk)
 	return rc;
 }
 
+static struct sde_hw_blk_ops sde_hw_rot_ops = {
+	.start = sde_hw_rot_blk_start,
+	.stop = sde_hw_rot_blk_stop,
+};
+
+/**
+ * sde_hw_rot_init - create/initialize given rotator instance
+ * @idx: index of given rotator
+ * @addr: i/o address mapping
+ * @m: Pointer to mdss catalog
+ * return: Pointer to hardware rotator driver of the given instance
+ */
+struct sde_hw_rot *sde_hw_rot_init(enum sde_rot idx,
+		void __iomem *addr,
+		struct sde_mdss_cfg *m)
+{
+	struct sde_hw_rot *c;
+	struct sde_rot_cfg *cfg;
+	int rc;
+
+	c = kzalloc(sizeof(*c), GFP_KERNEL);
+	if (!c)
+		return ERR_PTR(-ENOMEM);
+
+	cfg = _rot_offset(idx, m, addr, &c->hw);
+	if (IS_ERR(cfg)) {
+		WARN(1, "Unable to find rot idx=%d\n", idx);
+		kfree(c);
+		return ERR_PTR(-EINVAL);
+	}
+
+	/* Assign ops */
+	c->idx = idx;
+	c->caps = cfg;
+	_setup_rot_ops(&c->ops, c->caps->features);
+
+	rc = sde_hw_blk_init(&c->base, SDE_HW_BLK_ROT, idx,
+			&sde_hw_rot_ops);
+	if (rc) {
+		SDE_ERROR("failed to init hw blk %d\n", rc);
+		goto blk_init_error;
+	}
+
+	return c;
+
+blk_init_error:
+	kzfree(c);
+
+	return ERR_PTR(rc);
+}
+
+/**
+ * sde_hw_rot_destroy - destroy given hardware rotator driver
+ * @hw_rot: Pointer to hardware rotator driver
+ * return: none
+ */
+void sde_hw_rot_destroy(struct sde_hw_rot *hw_rot)
+{
+	sde_hw_blk_destroy(&hw_rot->base);
+	kfree(hw_rot->downscale_caps);
+	kfree(hw_rot->format_caps);
+	kfree(hw_rot);
+}
+
 struct sde_hw_rot *sde_hw_rot_get(struct sde_hw_rot *hw_rot)
 {
 	struct sde_hw_blk *hw_blk = sde_hw_blk_get(hw_rot ? &hw_rot->base :
 			NULL, SDE_HW_BLK_ROT, -1);
-	int rc = 0;
 
-	if (!hw_rot && hw_blk)
-		rc = sde_hw_rot_blk_start(hw_blk);
-
-	if (rc) {
-		sde_hw_blk_put(hw_blk, NULL);
-		return NULL;
-	}
-
-	return hw_blk ? to_sde_hw_rot(hw_blk) : NULL;
+	return IS_ERR_OR_NULL(hw_blk) ? NULL : to_sde_hw_rot(hw_blk);
 }
 
 void sde_hw_rot_put(struct sde_hw_rot *hw_rot)
 {
 	struct sde_hw_blk *hw_blk = hw_rot ? &hw_rot->base : NULL;
 
-	sde_hw_blk_put(hw_blk, sde_hw_rot_blk_stop);
+	sde_hw_blk_put(hw_blk);
 }
