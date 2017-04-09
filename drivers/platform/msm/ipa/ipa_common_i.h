@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -371,6 +371,9 @@ int ipa_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 	struct ipa_ntn_conn_out_params *outp);
 
 int ipa_tear_down_uc_offload_pipes(int ipa_ep_idx_ul, int ipa_ep_idx_dl);
+int ipa_ntn_uc_reg_rdyCB(void (*ipauc_ready_cb)(void *user_data),
+			      void *user_data);
+void ipa_ntn_uc_dereg_rdyCB(void);
 const char *ipa_get_version_string(enum ipa_hw_type ver);
 
 #endif /* _IPA_COMMON_I_H_ */

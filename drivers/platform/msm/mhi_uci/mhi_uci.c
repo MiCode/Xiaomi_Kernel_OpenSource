@@ -1185,9 +1185,43 @@ static void uci_xfer_cb(struct mhi_cb_info *cb_info)
 		mutex_unlock(&chan_attr->chan_lock);
 		wake_up(&chan_attr->wq);
 		break;
+	case MHI_CB_SYS_ERROR:
+	case MHI_CB_MHI_SHUTDOWN:
 	case MHI_CB_MHI_DISABLED:
 		uci_log(uci_handle->uci_ipc_log, UCI_DBG_INFO,
-			"MHI disabled CB received\n");
+			"MHI disabled CB received 0x%x for chan:%d\n",
+			cb_info->cb_reason, cb_info->chan);
+
+		chan_attr = (cb_info->chan % 2) ? &uci_handle->in_attr :
+			&uci_handle->out_attr;
+		mutex_lock(&chan_attr->chan_lock);
+		chan_attr->enabled = false;
+		/* we disable entire handler by grabbing only one lock */
+		uci_handle->enabled = false;
+		mutex_unlock(&chan_attr->chan_lock);
+		wake_up(&chan_attr->wq);
+
+		/*
+		 * if it's ctrl channel clear the resource now
+		 * otherwise during file close we will release the
+		 * resources
+		 */
+		if (uci_handle == uci_handle->uci_ctxt->ctrl_client &&
+		    chan_attr == &uci_handle->out_attr) {
+			struct uci_buf *itr, *tmp;
+
+			mutex_lock(&chan_attr->chan_lock);
+			atomic_set(&uci_handle->out_attr.avail_pkts, 0);
+			atomic_set(&uci_handle->out_pkt_pend_ack, 0);
+			list_for_each_entry_safe(itr, tmp, &chan_attr->buf_head,
+						 node) {
+				list_del(&itr->node);
+				kfree(itr->data);
+			}
+			atomic_set(&uci_handle->completion_ack, 0);
+			INIT_LIST_HEAD(&uci_handle->out_attr.buf_head);
+			mutex_unlock(&chan_attr->chan_lock);
+		}
 		break;
 	case MHI_CB_XFER:
 		if (!cb_info->result) {

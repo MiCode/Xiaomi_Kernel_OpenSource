@@ -1676,6 +1676,8 @@ int ipa3_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 		ipa_notify_cb notify, void *priv, u8 hdr_len,
 		struct ipa_ntn_conn_out_params *outp);
 int ipa3_tear_down_uc_offload_pipes(int ipa_ep_idx_ul, int ipa_ep_idx_dl);
+int ipa3_ntn_uc_reg_rdyCB(void (*ipauc_ready_cb)(void *), void *priv);
+void ipa3_ntn_uc_dereg_rdyCB(void);
 
 /*
  * To retrieve doorbell physical address of

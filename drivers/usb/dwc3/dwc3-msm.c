@@ -54,6 +54,7 @@
 
 #define DWC3_IDEV_CHG_MAX 1500
 #define DWC3_HVDCP_CHG_MAX 1800
+#define DWC3_WAKEUP_SRC_TIMEOUT 5000
 
 /* AHB2PHY register offsets */
 #define PERIPH_SS_AHB2PHY_TOP_CFG 0x10
@@ -216,7 +217,8 @@ struct dwc3_msm {
 	struct delayed_work	resume_work;
 	struct work_struct	restart_usb_work;
 	bool			in_restart;
-	struct workqueue_struct *dwc3_wq;
+	struct workqueue_struct *dwc3_resume_wq;
+	struct workqueue_struct *sm_usb_wq;
 	struct delayed_work	sm_work;
 	unsigned long		inputs;
 	enum dwc3_chg_type	chg_type;
@@ -252,6 +254,9 @@ struct dwc3_msm {
 	struct notifier_block	dwc3_cpu_notifier;
 	struct notifier_block	usbdev_nb;
 	bool			hc_died;
+	bool			stop_host;
+	bool			no_wakeup_src_in_hostmode;
+	bool			host_only_mode;
 
 	int  pwr_event_irq;
 	atomic_t                in_p3;
@@ -1602,7 +1607,7 @@ static int msm_dwc3_usbdev_notify(struct notifier_block *self,
 	}
 
 	mdwc->hc_died = true;
-	schedule_delayed_work(&mdwc->sm_work, 0);
+	queue_delayed_work(mdwc->sm_usb_wq, &mdwc->sm_work, 0);
 	return 0;
 }
 
@@ -1821,7 +1826,7 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event,
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_NOTIFY_OTG_EVENT received\n");
 		if (dwc->enable_bus_suspend) {
 			mdwc->suspend = dwc->b_suspend;
-			queue_delayed_work(mdwc->dwc3_wq,
+			queue_delayed_work(mdwc->dwc3_resume_wq,
 					&mdwc->resume_work, 0);
 		}
 		break;
@@ -1950,7 +1955,7 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 		/* Mark fatal error for host mode or USB bus suspend case */
 		if (mdwc->in_host_mode || (mdwc->vbus_active
 			&& mdwc->otg_state == OTG_STATE_B_SUSPEND)) {
-			queue_delayed_work(mdwc->dwc3_wq,
+			queue_delayed_work(mdwc->dwc3_resume_wq,
 					&mdwc->resume_work, 0);
 			return -EBUSY;
 		}
@@ -2134,9 +2139,10 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	 * with DCP or during cable disconnect, we dont require wakeup
 	 * using HS_PHY_IRQ or SS_PHY_IRQ. Hence enable wakeup only in
 	 * case of host bus suspend and device bus suspend.
+	 * In host mode if wakeup_sources are not used then don't enable.
 	 */
 	if ((mdwc->vbus_active && mdwc->otg_state == OTG_STATE_B_SUSPEND)
-				|| mdwc->in_host_mode) {
+		  || (mdwc->in_host_mode && !mdwc->no_wakeup_src_in_hostmode)) {
 		enable_irq_wake(mdwc->hs_phy_irq);
 		enable_irq(mdwc->hs_phy_irq);
 		if (mdwc->ss_phy_irq) {
@@ -2312,11 +2318,12 @@ static void dwc3_ext_event_notify(struct dwc3_msm *mdwc)
 		pm_runtime_set_autosuspend_delay(mdwc->dev, 1000);
 		pm_runtime_use_autosuspend(mdwc->dev);
 		if (!work_busy(&mdwc->sm_work.work))
-			schedule_delayed_work(&mdwc->sm_work, 0);
+			queue_delayed_work(mdwc->sm_usb_wq, &mdwc->sm_work, 0);
 		return;
 	}
 
-	schedule_delayed_work(&mdwc->sm_work, 0);
+	pm_stay_awake(mdwc->dev);
+	queue_delayed_work(mdwc->sm_usb_wq, &mdwc->sm_work, 0);
 }
 
 static void dwc3_resume_work(struct work_struct *w)
@@ -2437,7 +2444,9 @@ static irqreturn_t msm_dwc3_pwr_irq(int irq, void *data)
 	 * all other power events.
 	 */
 	if (atomic_read(&dwc->in_lpm)) {
-		pm_stay_awake(mdwc->dev);
+		if (!mdwc->no_wakeup_src_in_hostmode || !mdwc->in_host_mode)
+			pm_stay_awake(mdwc->dev);
+
 		/* set this to call dwc3_msm_resume() */
 		mdwc->resume_pending = true;
 		return IRQ_WAKE_THREAD;
@@ -2512,7 +2521,7 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 		if (dwc->is_drd) {
 			dbg_event(0xFF, "stayID", 0);
 			pm_stay_awake(mdwc->dev);
-			queue_delayed_work(mdwc->dwc3_wq,
+			queue_delayed_work(mdwc->dwc3_resume_wq,
 					&mdwc->resume_work, 0);
 		}
 		break;
@@ -2537,7 +2546,7 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 		 */
 		if (mdwc->otg_state == OTG_STATE_UNDEFINED) {
 			mdwc->vbus_active = val->intval;
-			queue_delayed_work(mdwc->dwc3_wq,
+			queue_delayed_work(mdwc->dwc3_resume_wq,
 					&mdwc->resume_work, 0);
 			break;
 		}
@@ -2549,9 +2558,12 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 		if (dwc->is_drd && !mdwc->in_restart) {
 			dbg_event(0xFF, "Q RW (vbus)", val->intval);
 			dbg_event(0xFF, "stayVbus", 0);
-			pm_stay_awake(mdwc->dev);
-			queue_delayed_work(mdwc->dwc3_wq,
+			/* Ignore !vbus on stop_host */
+			if (mdwc->vbus_active || test_bit(ID, &mdwc->inputs)) {
+				pm_stay_awake(mdwc->dev);
+				queue_delayed_work(mdwc->dwc3_resume_wq,
 					&mdwc->resume_work, 0);
+			}
 		}
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
@@ -2663,7 +2675,7 @@ static irqreturn_t dwc3_pmic_id_irq(int irq, void *data)
 		mdwc->id_state = id;
 		dbg_event(0xFF, "stayIDIRQ", 0);
 		pm_stay_awake(mdwc->dev);
-		queue_delayed_work(mdwc->dwc3_wq, &mdwc->resume_work, 0);
+		queue_delayed_work(mdwc->dwc3_resume_wq, &mdwc->resume_work, 0);
 	}
 
 	return IRQ_HANDLED;
@@ -2823,9 +2835,15 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&mdwc->sm_work, dwc3_msm_otg_sm_work);
 	INIT_DELAYED_WORK(&mdwc->perf_vote_work, dwc3_msm_otg_perf_vote_work);
 
-	mdwc->dwc3_wq = alloc_ordered_workqueue("dwc3_wq", 0);
-	if (!mdwc->dwc3_wq) {
-		pr_err("%s: Unable to create workqueue dwc3_wq\n", __func__);
+	mdwc->sm_usb_wq = create_freezable_workqueue("k_sm_usb");
+	 if (!mdwc->sm_usb_wq) {
+		pr_err("Failed to create workqueue for sm_usb");
+		return -ENOMEM;
+	}
+
+	mdwc->dwc3_resume_wq = alloc_ordered_workqueue("dwc3_resume_wq", 0);
+	if (!mdwc->dwc3_resume_wq) {
+		pr_err("%s: Unable to create dwc3_resume_wq\n", __func__);
 		return -ENOMEM;
 	}
 
@@ -3049,6 +3067,11 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	mdwc->disable_host_mode_pm = of_property_read_bool(node,
 				"qcom,disable-host-mode-pm");
 
+	mdwc->no_wakeup_src_in_hostmode = of_property_read_bool(node,
+				"qcom,no-wakeup-src-in-hostmode");
+	if (mdwc->no_wakeup_src_in_hostmode)
+		dev_dbg(&pdev->dev, "dwc3 host not using wakeup source\n");
+
 	mdwc->detect_dpdm_floating = of_property_read_bool(node,
 				"qcom,detect-dpdm-floating");
 
@@ -3160,6 +3183,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	if (!dwc->is_drd && host_mode) {
 		dev_dbg(&pdev->dev, "DWC3 in host only mode\n");
+		mdwc->host_only_mode = true;
 		mdwc->id_state = DWC3_ID_GROUND;
 		dwc3_ext_event_notify(mdwc);
 	}
@@ -3497,9 +3521,12 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		mdwc->in_host_mode = false;
 
 		/* re-init core and OTG registers as block reset clears these */
-		dwc3_post_host_reset_core_init(dwc);
+		if (!mdwc->host_only_mode)
+			dwc3_post_host_reset_core_init(dwc);
+
 		pm_runtime_mark_last_busy(mdwc->dev);
 		pm_runtime_put_sync_autosuspend(mdwc->dev);
+
 		dbg_event(0xFF, "StopHost psync",
 			atomic_read(&mdwc->dev->power.usage_count));
 	}
@@ -3756,8 +3783,16 @@ static void dwc3_msm_otg_sm_work(struct work_struct *w)
 			mdwc->otg_state = OTG_STATE_A_HOST;
 			ret = dwc3_otg_start_host(mdwc, 1);
 			pm_runtime_put_noidle(mdwc->dev);
-			if (ret != -EPROBE_DEFER)
+			/*
+			 * call pm_relax to match with pm_stay_wake
+			 * in probe for host mode.
+			 */
+			if (ret != -EPROBE_DEFER) {
+				if (mdwc->no_wakeup_src_in_hostmode
+						&& mdwc->in_host_mode)
+					pm_relax(mdwc->dev);
 				return;
+			}
 			/*
 			 * regulator_get for VBUS may fail with -EPROBE_DEFER.
 			 * Set the state as A_IDLE which will re-schedule
@@ -3958,22 +3993,33 @@ static void dwc3_msm_otg_sm_work(struct work_struct *w)
 				mdwc->otg_state = OTG_STATE_A_IDLE;
 				goto ret;
 			}
+			if (mdwc->no_wakeup_src_in_hostmode &&
+						mdwc->in_host_mode)
+				pm_wakeup_event(mdwc->dev,
+						DWC3_WAKEUP_SRC_TIMEOUT);
 		}
 		break;
 
 	case OTG_STATE_A_HOST:
-		if (test_bit(ID, &mdwc->inputs) || mdwc->hc_died) {
-			dbg_event(0xFF, "id || hc_died", 0);
+		if (test_bit(ID, &mdwc->inputs) || mdwc->hc_died
+				|| mdwc->stop_host) {
+			dbg_event(0xFF, "id || hc_died || stop_host", 0);
+			dev_dbg(mdwc->dev, "%s state id || hc_died\n", state);
 			dwc3_otg_start_host(mdwc, 0);
 			mdwc->otg_state = OTG_STATE_B_IDLE;
 			mdwc->vbus_retry_count = 0;
 			mdwc->hc_died = false;
-			work = 1;
+			if (!mdwc->stop_host)
+				work = 1;
+			mdwc->stop_host = false;
 		} else {
 			dev_dbg(mdwc->dev, "still in a_host state. Resuming root hub.\n");
 			dbg_event(0xFF, "XHCIResume", 0);
 			if (dwc)
 				pm_runtime_resume(&dwc->xhci->dev);
+			if (mdwc->no_wakeup_src_in_hostmode)
+				pm_wakeup_event(mdwc->dev,
+						DWC3_WAKEUP_SRC_TIMEOUT);
 		}
 		break;
 
@@ -3983,10 +4029,56 @@ static void dwc3_msm_otg_sm_work(struct work_struct *w)
 	}
 
 	if (work)
-		schedule_delayed_work(&mdwc->sm_work, delay);
+		queue_delayed_work(mdwc->sm_usb_wq, &mdwc->sm_work, delay);
 
 ret:
 	return;
+}
+
+static int dwc3_msm_pm_prepare(struct device *dev)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	struct usb_hcd	*hcd;
+	struct xhci_hcd	*xhci;
+	bool stop_ss_host = false;
+
+	dev_dbg(dev, "dwc3-msm PM prepare,lpm:%u\n", atomic_read(&dwc->in_lpm));
+
+	if (!mdwc->in_host_mode || !mdwc->no_wakeup_src_in_hostmode)
+		return 0;
+
+	hcd = dev_get_drvdata(&dwc->xhci->dev);
+	xhci = hcd_to_xhci(hcd);
+	/*
+	 * If SS PHY is not suspended then we need to stop host before
+	 * suspending ssphy
+	 */
+	flush_workqueue(mdwc->sm_usb_wq);
+	if (atomic_read(&dwc->in_lpm)) {
+		if (!(mdwc->lpm_flags & MDWC3_SS_PHY_SUSPEND))
+			stop_ss_host = true;
+	} else {
+		stop_ss_host = dwc3_msm_is_superspeed(mdwc);
+	}
+	if (stop_ss_host) {
+		dbg_event(0xFF, "pm_prep stop_host", mdwc->lpm_flags);
+		mdwc->stop_host = true;
+		queue_delayed_work(mdwc->dwc3_resume_wq, &mdwc->resume_work, 0);
+		/* pm_relax will happen at the end of stop_host */
+		pm_stay_awake(mdwc->dev);
+		return -EBUSY;
+	}
+	/* If in lpm then prevent usb core to runtime_resume from pm_suspend */
+	if (atomic_read(&dwc->in_lpm)) {
+		hcd_to_bus(hcd)->skip_resume = true;
+		hcd_to_bus(xhci->shared_hcd)->skip_resume = true;
+	} else {
+		hcd_to_bus(hcd)->skip_resume = false;
+		hcd_to_bus(xhci->shared_hcd)->skip_resume = false;
+	}
+
+	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP
@@ -3999,8 +4091,8 @@ static int dwc3_msm_pm_suspend(struct device *dev)
 	dev_dbg(dev, "dwc3-msm PM suspend\n");
 	dbg_event(0xFF, "PM Sus", 0);
 
-	flush_workqueue(mdwc->dwc3_wq);
-	if (!atomic_read(&dwc->in_lpm)) {
+	flush_workqueue(mdwc->dwc3_resume_wq);
+	if (!atomic_read(&dwc->in_lpm) && !mdwc->no_wakeup_src_in_hostmode) {
 		dev_err(mdwc->dev, "Abort PM suspend!! (USB is outside LPM)\n");
 		return -EBUSY;
 	}
@@ -4024,11 +4116,15 @@ static int dwc3_msm_pm_resume(struct device *dev)
 	dbg_event(0xFF, "PM Res", 0);
 
 	/* flush to avoid race in read/write of pm_suspended */
-	flush_workqueue(mdwc->dwc3_wq);
+	flush_workqueue(mdwc->dwc3_resume_wq);
 	atomic_set(&mdwc->pm_suspended, 0);
 
+	/* Resume h/w in host mode as it may not be runtime suspended */
+	if (mdwc->no_wakeup_src_in_hostmode && !test_bit(ID, &mdwc->inputs))
+		dwc3_msm_resume(mdwc);
+
 	/* kick in otg state machine */
-	queue_delayed_work(mdwc->dwc3_wq, &mdwc->resume_work, 0);
+	queue_delayed_work(mdwc->dwc3_resume_wq, &mdwc->resume_work, 0);
 
 	dbg_event(0xFF, "PMResComplete", 0);
 	return 0;
@@ -4071,6 +4167,7 @@ static int dwc3_msm_runtime_resume(struct device *dev)
 #endif
 
 static const struct dev_pm_ops dwc3_msm_dev_pm_ops = {
+	.prepare =	dwc3_msm_pm_prepare,
 	SET_SYSTEM_SLEEP_PM_OPS(dwc3_msm_pm_suspend, dwc3_msm_pm_resume)
 	SET_RUNTIME_PM_OPS(dwc3_msm_runtime_suspend, dwc3_msm_runtime_resume,
 				dwc3_msm_runtime_idle)

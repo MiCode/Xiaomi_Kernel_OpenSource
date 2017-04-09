@@ -221,6 +221,15 @@ config PGTABLE_LEVELS
 	default 3 if ARM64_4K_PAGES && ARM64_VA_BITS_39
 	default 4 if ARM64_4K_PAGES && ARM64_VA_BITS_48
 
+config MSM_GVM_QUIN
+	bool "Enable virtualization Support for MSM kernel required for QUIN platform"
+	help
+		This enables support for MSM Kernel based virtual
+		machine for QUIN platform.
+		This helps to enable virtual driver support.
+		This should work on 64bit machine.
+		If you don't know what to do here, say N.
+
 source "init/Kconfig"
 
 source "kernel/Kconfig.freezer"
