@@ -10,9 +10,13 @@ Optional:
 - qcom,ipa-loaduC: indicate that ipa uC should be loaded
 - qcom,ipa-advertise-sg-support: determine how to respond to a query
 regarding scatter-gather capability
+- qcom,ipa-napi-enable: Boolean context flag to indicate whether
+                        to enable napi framework or not
+- qcom,wan-rx-desc-size: size of WAN rx desc fifo ring, default is 256
 
 Example:
 	qcom,rmnet-ipa3 {
 		compatible = "qcom,rmnet-ipa3";
+		qcom,wan-rx-desc-size = <256>;
 	}
 

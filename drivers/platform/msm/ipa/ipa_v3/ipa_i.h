@@ -54,8 +54,11 @@
 #define IPA_UC_FINISH_MAX 6
 #define IPA_UC_WAIT_MIN_SLEEP 1000
 #define IPA_UC_WAII_MAX_SLEEP 1200
-#define IPA_WAN_NAPI_CONS_RX_POOL_SZ (IPA_GENERIC_RX_POOL_SZ*3)
-#define IPA_WAN_CONS_DESC_FIFO_SZ (IPA_SYS_DESC_FIFO_SZ*3)
+/*
+ * The transport descriptor size was changed to GSI_CHAN_RE_SIZE_16B, but
+ * IPA users still use sps_iovec size as FIFO element size.
+ */
+#define IPA_FIFO_ELEMENT_SIZE 8
 
 #define IPA_MAX_STATUS_STAT_NUM 30
 

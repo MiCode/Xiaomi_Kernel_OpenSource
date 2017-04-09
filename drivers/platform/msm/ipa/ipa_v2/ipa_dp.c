@@ -18,6 +18,7 @@
 #include "ipa_i.h"
 #include "ipa_trace.h"
 
+#define IPA_WAN_AGGR_PKT_CNT 5
 #define IPA_LAST_DESC_CNT 0xFFFF
 #define POLLING_INACTIVITY_RX 40
 #define POLLING_INACTIVITY_TX 40
@@ -1099,15 +1100,17 @@ int ipa2_rx_poll(u32 clnt_hdl, int weight)
 			break;
 
 		ipa_wq_rx_common(ep->sys, iov.size);
-		cnt += 5;
+		cnt += IPA_WAN_AGGR_PKT_CNT;
 	};
 
-	if (cnt == 0) {
+	if (cnt == 0 || cnt < weight) {
 		ep->inactive_cycles++;
 		ep->client_notify(ep->priv, IPA_CLIENT_COMP_NAPI, 0);
 
 		if (ep->inactive_cycles > 3 || ep->sys->len == 0) {
 			ep->switch_to_intr = true;
+			delay = 0;
+		} else if (cnt < weight) {
 			delay = 0;
 		}
 		queue_delayed_work(ep->sys->wq,
@@ -3176,14 +3179,9 @@ static int ipa_assign_policy_v2(struct ipa_sys_connect_params *in,
 				sys->repl_hdlr =
 				   ipa_replenish_rx_cache;
 			}
-			if (in->napi_enabled) {
-				sys->rx_pool_sz =
-					   IPA_WAN_NAPI_CONS_RX_POOL_SZ;
-				if (in->recycle_enabled) {
-					sys->repl_hdlr =
-					   ipa_replenish_rx_cache_recycle;
-				}
-			}
+			if (in->napi_enabled && in->recycle_enabled)
+				sys->repl_hdlr =
+					ipa_replenish_rx_cache_recycle;
 			sys->ep->wakelock_client =
 			   IPA_WAKELOCK_REF_CLIENT_WAN_RX;
 			in->ipa_ep_cfg.aggr.aggr_sw_eof_active
