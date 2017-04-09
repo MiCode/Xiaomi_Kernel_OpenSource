@@ -257,6 +257,7 @@ struct dwc3_msm {
 	bool			stop_host;
 	bool			no_wakeup_src_in_hostmode;
 	bool			host_only_mode;
+	bool			psy_not_used;
 
 	int  pwr_event_irq;
 	atomic_t                in_p3;
@@ -2798,6 +2799,43 @@ static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
 	return 0;
 }
 
+static ssize_t mode_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+
+	if (mdwc->vbus_active)
+		return snprintf(buf, PAGE_SIZE, "peripheral\n");
+	if (mdwc->id_state == DWC3_ID_GROUND)
+		return snprintf(buf, PAGE_SIZE, "host\n");
+
+	return snprintf(buf, PAGE_SIZE, "none\n");
+}
+
+static ssize_t mode_store(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+
+	if (sysfs_streq(buf, "peripheral")) {
+		mdwc->vbus_active = true;
+		mdwc->id_state = DWC3_ID_FLOAT;
+		mdwc->chg_type = DWC3_SDP_CHARGER;
+	} else if (sysfs_streq(buf, "host")) {
+		mdwc->vbus_active = false;
+		mdwc->id_state = DWC3_ID_GROUND;
+	} else {
+		mdwc->vbus_active = false;
+		mdwc->id_state = DWC3_ID_FLOAT;
+	}
+
+	dwc3_ext_event_notify(mdwc);
+
+	return count;
+}
+
+static DEVICE_ATTR_RW(mode);
+
 static int dwc3_msm_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node, *dwc3_node;
@@ -3072,6 +3110,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (mdwc->no_wakeup_src_in_hostmode)
 		dev_dbg(&pdev->dev, "dwc3 host not using wakeup source\n");
 
+	mdwc->psy_not_used = of_property_read_bool(node, "qcom,psy-not-used");
+
 	mdwc->detect_dpdm_floating = of_property_read_bool(node,
 				"qcom,detect-dpdm-floating");
 
@@ -3087,7 +3127,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	host_mode = of_usb_get_dr_mode(dwc3_node) == USB_DR_MODE_HOST;
 	/* usb_psy required only for vbus_notifications */
-	if (!host_mode) {
+	if (!host_mode && !mdwc->psy_not_used) {
 		mdwc->usb_psy.name = "usb";
 		mdwc->usb_psy.type = POWER_SUPPLY_TYPE_USB;
 		mdwc->usb_psy.supplied_to = dwc3_msm_pm_power_supplied_to;
@@ -3181,6 +3221,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		enable_irq_wake(mdwc->pmic_id_irq);
 	}
 
+	if (dwc->is_drd)
+		device_create_file(&pdev->dev, &dev_attr_mode);
+
 	if (!dwc->is_drd && host_mode) {
 		dev_dbg(&pdev->dev, "DWC3 in host only mode\n");
 		mdwc->host_only_mode = true;
@@ -3212,6 +3255,9 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	struct dwc3_msm	*mdwc = platform_get_drvdata(pdev);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	int ret_pm;
+
+	if (dwc->is_drd)
+		device_remove_file(&pdev->dev, &dev_attr_mode);
 
 	if (cpu_to_affin)
 		unregister_cpu_notifier(&mdwc->dwc3_cpu_notifier);
