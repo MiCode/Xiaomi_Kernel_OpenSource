@@ -118,6 +118,7 @@ struct sde_hw_rot_ops {
 			struct sde_hw_rot *hw);
 	const char *(*get_downscale_caps)(struct sde_hw_rot *hw);
 	size_t (*get_cache_size)(struct sde_hw_rot *hw);
+	int (*get_maxlinewidth)(struct sde_hw_rot *hw);
 };
 
 /**
