@@ -392,6 +392,11 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
 			QMB_MASTER_SELECT_PCIE,
 			{ 13, 10, 8, 16, IPA_EE_AP } },
+	[IPA_3_0][IPA_CLIENT_ETHERNET_PROD]          = {
+			2, IPA_v3_0_GROUP_UL, true,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
+			QMB_MASTER_SELECT_DDR,
+			{2, 0, 8, 16, IPA_EE_UC} },
 	/* Only for test purpose */
 	[IPA_3_0][IPA_CLIENT_TEST_PROD]           = {
 			1, IPA_v3_0_GROUP_UL, true,
@@ -517,6 +522,11 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			QMB_MASTER_SELECT_PCIE,
 			{ 29, 14, 8, 8, IPA_EE_AP } },
 	[IPA_3_0][IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS]     = IPA_CLIENT_NOT_USED,
+	[IPA_3_0][IPA_CLIENT_ETHERNET_CONS]          = {
+			24, IPA_v3_0_GROUP_DL, false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{24, 3, 8, 8, IPA_EE_UC} },
 	/* Only for test purpose */
 	[IPA_3_0][IPA_CLIENT_TEST_CONS]           = {
 			26, IPA_v3_0_GROUP_DL, false,
@@ -604,6 +614,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 	[IPA_3_5][IPA_CLIENT_Q6_DECOMP2_PROD]     = IPA_CLIENT_NOT_USED,
 	[IPA_3_5][IPA_CLIENT_MEMCPY_DMA_SYNC_PROD] = IPA_CLIENT_NOT_USED,
 	[IPA_3_5][IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD] = IPA_CLIENT_NOT_USED,
+	[IPA_3_5][IPA_CLIENT_ETHERNET_PROD]         = IPA_CLIENT_NOT_USED,
 	/* Only for test purpose */
 	[IPA_3_5][IPA_CLIENT_TEST_PROD]           = {
 			0, IPA_v3_5_GROUP_UL_DL, true,
@@ -701,6 +712,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 	[IPA_3_5][IPA_CLIENT_MEMCPY_DMA_SYNC_CONS] = IPA_CLIENT_NOT_USED,
 	[IPA_3_5][IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS] = IPA_CLIENT_NOT_USED,
 	[IPA_3_5][IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS]     = IPA_CLIENT_NOT_USED,
+	[IPA_3_5][IPA_CLIENT_ETHERNET_CONS]	  = IPA_CLIENT_NOT_USED,
 	/* Only for test purpose */
 	/* MBIM aggregation test pipes should have the same QMB as USB_CONS */
 	[IPA_3_5][IPA_CLIENT_TEST_CONS]           = {
@@ -792,6 +804,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
 			QMB_MASTER_SELECT_DDR,
 			{ 8, 9, 8, 16, IPA_EE_AP } },
+	[IPA_3_5_MHI][IPA_CLIENT_ETHERNET_PROD]       = IPA_CLIENT_NOT_USED,
 	/* Only for test purpose */
 	[IPA_3_5_MHI][IPA_CLIENT_TEST_PROD]           = {
 			0, IPA_v3_5_MHI_GROUP_DDR, true,
@@ -889,6 +902,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			QMB_MASTER_SELECT_PCIE,
 			{ 19, 13, 8, 8, IPA_EE_AP } },
 	[IPA_3_5_MHI][IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS]	= IPA_CLIENT_NOT_USED,
+	[IPA_3_5_MHI][IPA_CLIENT_ETHERNET_CONS]       = IPA_CLIENT_NOT_USED,
 	/* Only for test purpose */
 	[IPA_3_5_MHI][IPA_CLIENT_TEST_CONS]           = {
 			15, IPA_v3_5_MHI_GROUP_PCIE, false,
@@ -975,6 +989,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 	[IPA_3_5_1][IPA_CLIENT_Q6_DECOMP2_PROD]     = IPA_CLIENT_NOT_USED,
 	[IPA_3_5_1][IPA_CLIENT_MEMCPY_DMA_SYNC_PROD] = IPA_CLIENT_NOT_USED,
 	[IPA_3_5_1][IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD] = IPA_CLIENT_NOT_USED,
+	[IPA_3_5_1][IPA_CLIENT_ETHERNET_PROD]       = IPA_CLIENT_NOT_USED,
 	/* Only for test purpose */
 	[IPA_3_5_1][IPA_CLIENT_TEST_PROD]           = {
 			0, IPA_v3_5_GROUP_UL_DL, true,
@@ -1068,6 +1083,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 	[IPA_3_5_1][IPA_CLIENT_MEMCPY_DMA_SYNC_CONS]  = IPA_CLIENT_NOT_USED,
 	[IPA_3_5_1][IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS] = IPA_CLIENT_NOT_USED,
 	[IPA_3_5_1][IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS] = IPA_CLIENT_NOT_USED,
+	[IPA_3_5_1][IPA_CLIENT_ETHERNET_CONS]       = IPA_CLIENT_NOT_USED,
 	/* Only for test purpose */
 	[IPA_3_5_1][IPA_CLIENT_TEST_CONS]           = {
 			17, IPA_v3_5_GROUP_UL_DL,
@@ -1231,6 +1247,9 @@ int ipa3_get_clients_from_rm_resource(
 		clients->names[i++] = IPA_CLIENT_ODU_EMB_CONS;
 		clients->names[i++] = IPA_CLIENT_ODU_TETH_CONS;
 		break;
+	case IPA_RM_RESOURCE_ETHERNET_CONS:
+		clients->names[i++] = IPA_CLIENT_ETHERNET_CONS;
+		break;
 	case IPA_RM_RESOURCE_USB_PROD:
 		clients->names[i++] = IPA_CLIENT_USB_PROD;
 		break;
@@ -1242,6 +1261,10 @@ int ipa3_get_clients_from_rm_resource(
 		break;
 	case IPA_RM_RESOURCE_ODU_ADAPT_PROD:
 		clients->names[i++] = IPA_CLIENT_ODU_PROD;
+		break;
+	case IPA_RM_RESOURCE_ETHERNET_PROD:
+		clients->names[i++] = IPA_CLIENT_ETHERNET_PROD;
+		break;
 	default:
 		break;
 	}
@@ -1282,7 +1305,8 @@ bool ipa3_should_pipe_be_suspended(enum ipa_client_type client)
 	    client == IPA_CLIENT_WLAN3_CONS   ||
 	    client == IPA_CLIENT_WLAN4_CONS   ||
 	    client == IPA_CLIENT_ODU_EMB_CONS ||
-	    client == IPA_CLIENT_ODU_TETH_CONS)
+	    client == IPA_CLIENT_ODU_TETH_CONS ||
+	    client == IPA_CLIENT_ETHERNET_CONS)
 		return true;
 
 	return false;
@@ -2742,7 +2766,8 @@ int ipa3_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
 	meta.qmap_id = param_in->qmap_id;
 	if (param_in->client == IPA_CLIENT_USB_PROD ||
 	    param_in->client == IPA_CLIENT_HSIC1_PROD ||
-	    param_in->client == IPA_CLIENT_ODU_PROD) {
+	    param_in->client == IPA_CLIENT_ODU_PROD ||
+	    param_in->client == IPA_CLIENT_ETHERNET_PROD) {
 		result = ipa3_cfg_ep_metadata(ipa_ep_idx, &meta);
 	} else if (param_in->client == IPA_CLIENT_WLAN1_PROD) {
 		ipa3_ctx->ep[ipa_ep_idx].cfg.meta = meta;

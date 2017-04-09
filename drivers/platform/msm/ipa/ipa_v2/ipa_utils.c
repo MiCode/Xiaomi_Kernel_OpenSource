@@ -94,6 +94,7 @@ static const int ep_mapping[3][IPA_CLIENT_MAX] = {
 	[IPA_1_1][IPA_CLIENT_Q6_LAN_PROD]        =  5,
 	[IPA_1_1][IPA_CLIENT_Q6_WAN_PROD]        = -1,
 	[IPA_1_1][IPA_CLIENT_Q6_CMD_PROD]        = -1,
+	[IPA_1_1][IPA_CLIENT_ETHERNET_PROD]      = -1,
 
 	[IPA_1_1][IPA_CLIENT_HSIC1_CONS]         = 14,
 	[IPA_1_1][IPA_CLIENT_WLAN1_CONS]         = -1,
@@ -119,6 +120,7 @@ static const int ep_mapping[3][IPA_CLIENT_MAX] = {
 	[IPA_1_1][IPA_CLIENT_MHI_CONS]           = -1,
 	[IPA_1_1][IPA_CLIENT_Q6_LAN_CONS]        =  4,
 	[IPA_1_1][IPA_CLIENT_Q6_WAN_CONS]        = -1,
+	[IPA_1_1][IPA_CLIENT_ETHERNET_CONS]      = -1,
 
 
 	[IPA_2_0][IPA_CLIENT_HSIC1_PROD]         = 12,
@@ -148,6 +150,7 @@ static const int ep_mapping[3][IPA_CLIENT_MAX] = {
 						 =  12,
 	[IPA_2_0][IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD]
 						 =  19,
+	[IPA_2_0][IPA_CLIENT_ETHERNET_PROD]      = 12,
 	/* Only for test purpose */
 	[IPA_2_0][IPA_CLIENT_TEST_PROD]          = 19,
 	[IPA_2_0][IPA_CLIENT_TEST1_PROD]         = 19,
@@ -188,6 +191,7 @@ static const int ep_mapping[3][IPA_CLIENT_MAX] = {
 						 =  16,
 	[IPA_2_0][IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS]
 						 =  10,
+	[IPA_2_0][IPA_CLIENT_ETHERNET_CONS]      = 1,
 	/* Only for test purpose */
 	[IPA_2_0][IPA_CLIENT_TEST_CONS]          = 1,
 	[IPA_2_0][IPA_CLIENT_TEST1_CONS]         = 1,
@@ -223,6 +227,7 @@ static const int ep_mapping[3][IPA_CLIENT_MAX] = {
 						 =  -1,
 	[IPA_2_6L][IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD]
 						 =  -1,
+	[IPA_2_6L][IPA_CLIENT_ETHERNET_PROD]      = -1,
 	/* Only for test purpose */
 	[IPA_2_6L][IPA_CLIENT_TEST_PROD]          = 11,
 	[IPA_2_6L][IPA_CLIENT_TEST1_PROD]         = 11,
@@ -263,6 +268,7 @@ static const int ep_mapping[3][IPA_CLIENT_MAX] = {
 						 =  -1,
 	[IPA_2_6L][IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS]
 						 =  -1,
+	[IPA_2_6L][IPA_CLIENT_ETHERNET_CONS]      = -1,
 	/* Only for test purpose */
 	[IPA_2_6L][IPA_CLIENT_TEST_CONS]          = 15,
 	[IPA_2_6L][IPA_CLIENT_TEST1_CONS]         = 15,
@@ -457,6 +463,9 @@ int ipa_get_clients_from_rm_resource(
 		clients->names[i++] = IPA_CLIENT_ODU_EMB_CONS;
 		clients->names[i++] = IPA_CLIENT_ODU_TETH_CONS;
 		break;
+	case IPA_RM_RESOURCE_ETHERNET_CONS:
+		clients->names[i++] = IPA_CLIENT_ETHERNET_CONS;
+		break;
 	case IPA_RM_RESOURCE_USB_PROD:
 		clients->names[i++] = IPA_CLIENT_USB_PROD;
 		break;
@@ -468,6 +477,10 @@ int ipa_get_clients_from_rm_resource(
 		break;
 	case IPA_RM_RESOURCE_ODU_ADAPT_PROD:
 		clients->names[i++] = IPA_CLIENT_ODU_PROD;
+		break;
+	case IPA_RM_RESOURCE_ETHERNET_PROD:
+		clients->names[i++] = IPA_CLIENT_ETHERNET_PROD;
+		break;
 	default:
 		break;
 	}
@@ -507,7 +520,8 @@ bool ipa_should_pipe_be_suspended(enum ipa_client_type client)
 	    client == IPA_CLIENT_WLAN3_CONS   ||
 	    client == IPA_CLIENT_WLAN4_CONS   ||
 	    client == IPA_CLIENT_ODU_EMB_CONS ||
-	    client == IPA_CLIENT_ODU_TETH_CONS)
+	    client == IPA_CLIENT_ODU_TETH_CONS ||
+	    client == IPA_CLIENT_ETHERNET_CONS)
 		return true;
 
 	return false;
@@ -3630,7 +3644,8 @@ int ipa2_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
 	meta.qmap_id = param_in->qmap_id;
 	if (param_in->client == IPA_CLIENT_USB_PROD ||
 	    param_in->client == IPA_CLIENT_HSIC1_PROD ||
-	    param_in->client == IPA_CLIENT_ODU_PROD) {
+	    param_in->client == IPA_CLIENT_ODU_PROD ||
+	    param_in->client == IPA_CLIENT_ETHERNET_PROD) {
 		result = ipa2_cfg_ep_metadata(ipa_ep_idx, &meta);
 	} else if (param_in->client == IPA_CLIENT_WLAN1_PROD) {
 		ipa_ctx->ep[ipa_ep_idx].cfg.meta = meta;
