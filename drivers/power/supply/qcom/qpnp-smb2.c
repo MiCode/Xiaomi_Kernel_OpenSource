@@ -2233,7 +2233,7 @@ static int smb2_probe(struct platform_device *pdev)
 	rc = smblib_get_prop_batt_health(chg, &val);
 	if (rc < 0) {
 		pr_err("Couldn't get batt health rc=%d\n", rc);
-		goto cleanup;
+		val.intval = POWER_SUPPLY_HEALTH_UNKNOWN;
 	}
 	batt_health = val.intval;
 
