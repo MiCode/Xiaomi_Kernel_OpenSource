@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -738,6 +738,8 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->be_id,
 						SNDRV_PCM_STREAM_PLAYBACK);
 	kfree(prtd);
+	runtime->private_data = NULL;
+
 	return 0;
 }
 
@@ -841,6 +843,7 @@ static int msm_pcm_capture_close(struct snd_pcm_substream *substream)
 	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->be_id,
 		SNDRV_PCM_STREAM_CAPTURE);
 	kfree(prtd);
+	runtime->private_data = NULL;
 
 	return 0;
 }
