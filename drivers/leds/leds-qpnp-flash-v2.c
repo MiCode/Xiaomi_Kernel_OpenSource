@@ -509,7 +509,7 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 
 	if (led->pdata->led1n2_iclamp_low_ma) {
 		val = CURRENT_MA_TO_REG_VAL(led->pdata->led1n2_iclamp_low_ma,
-						led->fnode[0].ires_ua);
+						led->fnode[LED1].ires_ua);
 		rc = qpnp_flash_led_masked_write(led,
 				FLASH_LED_REG_LED1N2_ICLAMP_LOW(led->base),
 				FLASH_LED_CURRENT_MASK, val);
@@ -519,7 +519,7 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 
 	if (led->pdata->led1n2_iclamp_mid_ma) {
 		val = CURRENT_MA_TO_REG_VAL(led->pdata->led1n2_iclamp_mid_ma,
-						led->fnode[0].ires_ua);
+						led->fnode[LED1].ires_ua);
 		rc = qpnp_flash_led_masked_write(led,
 				FLASH_LED_REG_LED1N2_ICLAMP_MID(led->base),
 				FLASH_LED_CURRENT_MASK, val);
@@ -529,7 +529,7 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 
 	if (led->pdata->led3_iclamp_low_ma) {
 		val = CURRENT_MA_TO_REG_VAL(led->pdata->led3_iclamp_low_ma,
-						led->fnode[3].ires_ua);
+						led->fnode[LED3].ires_ua);
 		rc = qpnp_flash_led_masked_write(led,
 				FLASH_LED_REG_LED3_ICLAMP_LOW(led->base),
 				FLASH_LED_CURRENT_MASK, val);
@@ -539,7 +539,7 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 
 	if (led->pdata->led3_iclamp_mid_ma) {
 		val = CURRENT_MA_TO_REG_VAL(led->pdata->led3_iclamp_mid_ma,
-						led->fnode[3].ires_ua);
+						led->fnode[LED3].ires_ua);
 		rc = qpnp_flash_led_masked_write(led,
 				FLASH_LED_REG_LED3_ICLAMP_MID(led->base),
 				FLASH_LED_CURRENT_MASK, val);
@@ -2095,22 +2095,24 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 		if (!strcmp("flash", temp_string) ||
 				!strcmp("torch", temp_string)) {
 			rc = qpnp_flash_led_parse_each_led_dt(led,
-					&led->fnode[i++], temp);
+					&led->fnode[i], temp);
 			if (rc < 0) {
 				pr_err("Unable to parse flash node %d rc=%d\n",
 					i, rc);
 				goto error_led_register;
 			}
+			i++;
 		}
 
 		if (!strcmp("switch", temp_string)) {
 			rc = qpnp_flash_led_parse_and_register_switch(led,
-					&led->snode[j++], temp);
+					&led->snode[j], temp);
 			if (rc < 0) {
 				pr_err("Unable to parse and register switch node, rc=%d\n",
 					rc);
 				goto error_switch_register;
 			}
+			j++;
 		}
 	}
 
