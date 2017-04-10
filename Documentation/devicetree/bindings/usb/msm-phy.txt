@@ -4,12 +4,12 @@ SSUSB-QMP PHY
 
 Required properties:
  - compatible: Should be "qcom,usb-ssphy-qmp", "qcom,usb-ssphy-qmp-v1" or
-   "qcom,usb-ssphy-qmp-v2"
+   "qcom,usb-ssphy-qmp-v2" or "qcom,usb-ssphy-qmp-dp-combo"
  - reg: Address and length of the register set for the device
    Required regs are:
    "qmp_phy_base" : QMP PHY Base register set.
  - "vls_clamp_reg" : top-level CSR register to be written to enable phy vls
-   clamp which allows phy to detect autonomous mode.
+   clamp which allows phy to detect autonomous mode. (optional for USB DP PHY)
  - <supply-name>-supply: phandle to the regulator device tree node
    Required "supply-name" examples are:
 	"vdd" : vdd supply for SSPHY digital circuit operation
@@ -24,13 +24,28 @@ Required properties:
  - qcom,qmp-phy-init-seq: QMP PHY initialization sequence with reg offset, its
    value, delay after register write. It is not must property to have for emulation.
  - qcom,qmp-phy-reg-offset: Provides important phy register offsets in an order
-   defined in the phy driver. Provide below mentioned register offsets in order:
+   defined in the phy driver.
+   Provide below mentioned register offsets in order for non USB DP combo PHY:
    USB3_PHY_PCS_STATUS,
    USB3_PHY_AUTONOMOUS_MODE_CTRL,
    USB3_PHY_LFPS_RXTERM_IRQ_CLEAR,
    USB3_PHY_POWER_DOWN_CONTROL,
    USB3_PHY_SW_RESET,
    USB3_PHY_START
+
+   In addion to above following set of registers offset needed for USB DP combo PHY in mentioned order:
+   USB3_DP_DP_PHY_PD_CTL,
+   USB3_DP_COM_POWER_DOWN_CTRL,
+   USB3_DP_COM_SW_RESET,
+   USB3_DP_COM_RESET_OVRD_CTRL,
+   USB3_DP_COM_PHY_MODE_CTRL,
+   USB3_DP_COM_TYPEC_CTRL,
+   USB3_DP_COM_SWI_CTRL,
+   USB3_PCS_MISC_CLAMP_ENABLE
+
+   Optional register for configuring USB Type-C port select if available:
+   USB3_PHY_PCS_MISC_TYPEC_CTRL
+
 - resets: reset specifier pair consists of phandle for the reset controller
   and reset lines used by this controller.
 - reset-names: reset signal name strings sorted in the same order as the resets

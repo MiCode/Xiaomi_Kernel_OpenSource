@@ -46,12 +46,38 @@ enum core_ldo_levels {
 #define ALFPS_DTCT_EN		BIT(1)
 #define ARCVR_DTCT_EVENT_SEL	BIT(4)
 
-/* PCIE_USB3_PHY_PCS_MISC_TYPEC_CTRL bits */
+/*
+ * register bits
+ * PCIE_USB3_PHY_PCS_MISC_TYPEC_CTRL - for QMP USB PHY
+ * USB3_DP_COM_PHY_MODE_CTRL - for QMP USB DP Combo PHY
+ */
 
 /* 0 - selects Lane A. 1 - selects Lane B */
 #define SW_PORTSELECT		BIT(0)
 /* port select mux: 1 - sw control. 0 - HW control*/
 #define SW_PORTSELECT_MX	BIT(1)
+
+/* USB3_DP_PHY_USB3_DP_COM_SWI_CTRL bits */
+
+/* LANE related register read/write with USB3 */
+#define USB3_SWI_ACT_ACCESS_EN	BIT(0)
+/* LANE related register read/write with DP */
+#define DP_SWI_ACT_ACCESS_EN	BIT(1)
+
+/* USB3_DP_COM_RESET_OVRD_CTRL bits */
+
+/* DP PHY soft reset */
+#define SW_DPPHY_RESET		BIT(0)
+/* mux to select DP PHY reset control, 0:HW control, 1: software reset */
+#define SW_DPPHY_RESET_MUX	BIT(1)
+/* USB3 PHY soft reset */
+#define SW_USB3PHY_RESET	BIT(2)
+/* mux to select USB3 PHY reset control, 0:HW control, 1: software reset */
+#define SW_USB3PHY_RESET_MUX	BIT(3)
+
+/* USB3_DP_COM_PHY_MODE_CTRL bits */
+#define USB3_MODE		BIT(0) /* enables USB3 mode */
+#define DP_MODE			BIT(1) /* enables DP mode */
 
 enum qmp_phy_rev_reg {
 	USB3_PHY_PCS_STATUS,
@@ -60,6 +86,17 @@ enum qmp_phy_rev_reg {
 	USB3_PHY_POWER_DOWN_CONTROL,
 	USB3_PHY_SW_RESET,
 	USB3_PHY_START,
+
+	/* USB DP Combo PHY related */
+	USB3_DP_DP_PHY_PD_CTL,
+	USB3_DP_COM_POWER_DOWN_CTRL,
+	USB3_DP_COM_SW_RESET,
+	USB3_DP_COM_RESET_OVRD_CTRL,
+	USB3_DP_COM_PHY_MODE_CTRL,
+	USB3_DP_COM_TYPEC_CTRL,
+	USB3_DP_COM_SWI_CTRL,
+	USB3_PCS_MISC_CLAMP_ENABLE,
+	/* TypeC port select configuration (optional) */
 	USB3_PHY_PCS_MISC_TYPEC_CTRL,
 	USB3_PHY_REG_MAX,
 };
@@ -99,6 +136,8 @@ struct msm_ssphy_qmp {
 	int			init_seq_len;
 	unsigned int		*qmp_phy_reg_offset;
 	int			reg_offset_cnt;
+
+	int			port_select;
 };
 
 static const struct of_device_id msm_usb_id_table[] = {
@@ -110,6 +149,9 @@ static const struct of_device_id msm_usb_id_table[] = {
 	},
 	{
 		.compatible = "qcom,usb-ssphy-qmp-v2",
+	},
+	{
+		.compatible = "qcom,usb-ssphy-qmp-dp-combo",
 	},
 	{ },
 };
@@ -132,6 +174,21 @@ static void msm_ssusb_qmp_clr_lfps_rxterm_int(struct msm_ssphy_qmp *phy)
 			phy->phy_reg[USB3_PHY_LFPS_RXTERM_IRQ_CLEAR]);
 }
 
+static void msm_ssusb_qmp_clamp_enable(struct msm_ssphy_qmp *phy, bool val)
+{
+	switch (phy->phy.type) {
+	case USB_PHY_TYPE_USB3_DP:
+		writel_relaxed(!val, phy->base +
+			phy->phy_reg[USB3_PCS_MISC_CLAMP_ENABLE]);
+		break;
+	case USB_PHY_TYPE_USB3:
+		writel_relaxed(!!val, phy->vls_clamp_reg);
+		break;
+	default:
+		break;
+	}
+}
+
 static void msm_ssusb_qmp_enable_autonomous(struct msm_ssphy_qmp *phy,
 		int enable)
 {
@@ -152,11 +209,9 @@ static void msm_ssusb_qmp_enable_autonomous(struct msm_ssphy_qmp *phy,
 			val &= ~ARCVR_DTCT_EVENT_SEL;
 			writeb_relaxed(val, phy->base + autonomous_mode_offset);
 		}
-
-		/* clamp phy level shifter to perform autonomous detection */
-		writel_relaxed(0x1, phy->vls_clamp_reg);
+		msm_ssusb_qmp_clamp_enable(phy, true);
 	} else {
-		writel_relaxed(0x0, phy->vls_clamp_reg);
+		msm_ssusb_qmp_clamp_enable(phy, false);
 		writeb_relaxed(0, phy->base + autonomous_mode_offset);
 		msm_ssusb_qmp_clr_lfps_rxterm_int(phy);
 	}
@@ -273,12 +328,100 @@ static int configure_phy_regs(struct usb_phy *uphy,
 	return 0;
 }
 
+static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
+{
+	int val;
+
+	/* perform lane selection */
+	val = -EINVAL;
+	if (phy->phy.flags & PHY_LANE_A) {
+		val = SW_PORTSELECT_MX;
+		phy->port_select = PHY_LANE_A;
+	}
+
+	if (phy->phy.flags & PHY_LANE_B) {
+		val = SW_PORTSELECT | SW_PORTSELECT_MX;
+		phy->port_select = PHY_LANE_B;
+	}
+
+	switch (phy->phy.type) {
+	case USB_PHY_TYPE_USB3_DP:
+		/* override hardware control for reset of qmp phy */
+		writel_relaxed(SW_DPPHY_RESET_MUX | SW_DPPHY_RESET |
+			SW_USB3PHY_RESET_MUX | SW_USB3PHY_RESET,
+			phy->base + phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
+
+		/* update port select */
+		if (val > 0) {
+			dev_err(phy->phy.dev,
+				"USB DP QMP PHY: Update TYPEC CTRL(%d)\n", val);
+			writel_relaxed(val, phy->base +
+				phy->phy_reg[USB3_DP_COM_TYPEC_CTRL]);
+		}
+
+		writel_relaxed(USB3_MODE | DP_MODE,
+			phy->base + phy->phy_reg[USB3_DP_COM_PHY_MODE_CTRL]);
+
+		/* activate register access of LANE for both USB3 and DP */
+		writel_relaxed(USB3_SWI_ACT_ACCESS_EN | DP_SWI_ACT_ACCESS_EN,
+			phy->base + phy->phy_reg[USB3_DP_COM_SWI_CTRL]);
+
+		/* bring both QMP USB and QMP DP PHYs PCS block out of reset */
+		writel_relaxed(0x00,
+			phy->base + phy->phy_reg[USB3_DP_COM_RESET_OVRD_CTRL]);
+		break;
+	case  USB_PHY_TYPE_USB3:
+		if (val > 0) {
+			dev_err(phy->phy.dev,
+				"USB QMP PHY: Update TYPEC CTRL(%d)\n", val);
+			writel_relaxed(val, phy->base +
+				phy->phy_reg[USB3_PHY_PCS_MISC_TYPEC_CTRL]);
+		}
+		break;
+	default:
+		dev_err(phy->phy.dev, "portselect: Unknown USB QMP PHY type\n");
+		break;
+	}
+
+	/* Make sure above selection and reset sequence is gone through */
+	mb();
+}
+
+static void usb_qmp_powerup_phy(struct msm_ssphy_qmp *phy)
+{
+	switch (phy->phy.type) {
+	case USB_PHY_TYPE_USB3_DP:
+		/* power up USB3 and DP common logic block */
+		writel_relaxed(0x01,
+			phy->base + phy->phy_reg[USB3_DP_COM_POWER_DOWN_CTRL]);
+
+		/*
+		 * Don't write 0x0 to DP_COM_SW_RESET as next operation is to
+		 * update phymode and port select which needs DP_COM_SW_RESET
+		 * as 0x1.
+		 */
+
+		/* intentional fall-through */
+	case USB_PHY_TYPE_USB3:
+		/* power up USB3 PHY */
+		writel_relaxed(0x01,
+			phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
+		break;
+	default:
+		dev_err(phy->phy.dev, "phy_powerup: Unknown USB QMP PHY type\n");
+		break;
+	}
+
+	/* Make sure that above write completed to power up PHY */
+	mb();
+}
+
 /* SSPHY Initialization */
 static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 {
 	struct msm_ssphy_qmp *phy = container_of(uphy, struct msm_ssphy_qmp,
 					phy);
-	int ret, val;
+	int ret;
 	unsigned int init_timeout_usec = INIT_MAX_TIME_USEC;
 	const struct qmp_reg_val *reg = NULL;
 
@@ -297,11 +440,11 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 
 	msm_ssphy_qmp_enable_clks(phy, true);
 
-	writel_relaxed(0x01,
-		phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
+	/* power up PHY */
+	usb_qmp_powerup_phy(phy);
 
-	/* Make sure that above write completed to get PHY into POWER DOWN */
-	mb();
+	/* select appropriate port select and PHY mode if applicable */
+	usb_qmp_update_portselect_phymode(phy);
 
 	reg = (struct qmp_reg_val *)phy->qmp_phy_init_seq;
 
@@ -312,20 +455,15 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 		return ret;
 	}
 
-	/* perform lane selection */
-	val = -EINVAL;
-	if (phy->phy.flags & PHY_LANE_A)
-		val = SW_PORTSELECT_MX;
+	/* perform software reset of PHY common logic */
+	if (phy->phy.type == USB_PHY_TYPE_USB3_DP)
+		writel_relaxed(0x00,
+			phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
 
-	if (phy->phy.flags & PHY_LANE_B)
-		val = SW_PORTSELECT | SW_PORTSELECT_MX;
-
-	if (val > 0)
-		writel_relaxed(val,
-			phy->base + phy->phy_reg[USB3_PHY_PCS_MISC_TYPEC_CTRL]);
-
-	writel_relaxed(0x03, phy->base + phy->phy_reg[USB3_PHY_START]);
+	/* perform software reset of PCS/Serdes */
 	writel_relaxed(0x00, phy->base + phy->phy_reg[USB3_PHY_SW_RESET]);
+	/* start PCS/Serdes to operation mode */
+	writel_relaxed(0x03, phy->base + phy->phy_reg[USB3_PHY_START]);
 
 	/* Make sure above write completed to bring PHY out of reset */
 	mb();
@@ -348,6 +486,38 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 	};
 
 	return 0;
+}
+
+static int msm_ssphy_qmp_dp_combo_reset(struct usb_phy *uphy)
+{
+	struct msm_ssphy_qmp *phy = container_of(uphy, struct msm_ssphy_qmp,
+					phy);
+	int ret = 0;
+
+	/*
+	 * Avoid global reset if there is no change in port select which
+	 * shall be useful while changing PHY mode i.e. transition from
+	 * 4 LANE/2 LANE.
+	 */
+	if ((((phy->phy.flags & PHY_LANE_A) == phy->port_select)) ||
+			((phy->phy.flags & PHY_LANE_B) == phy->port_select))
+		goto exit;
+
+	dev_dbg(uphy->dev, "Global reset of QMP DP combo phy\n");
+	/* Assert QMP USB DP combo PHY reset */
+	ret = reset_control_assert(phy->phy_reset);
+	if (ret) {
+		dev_err(uphy->dev, "phy_reset assert failed\n");
+		goto exit;
+	}
+
+	/* De-Assert QMP USB DP combo PHY reset */
+	ret = reset_control_deassert(phy->phy_reset);
+	if (ret)
+		dev_err(uphy->dev, "phy_reset deassert failed\n");
+
+exit:
+	return ret;
 }
 
 static int msm_ssphy_qmp_reset(struct usb_phy *uphy)
@@ -623,6 +793,11 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	if (!phy)
 		return -ENOMEM;
 
+	phy->phy.type = USB_PHY_TYPE_USB3;
+	if (of_device_is_compatible(dev->of_node,
+			"qcom,usb-ssphy-qmp-dp-combo"))
+		phy->phy.type = USB_PHY_TYPE_USB3_DP;
+
 	ret = msm_ssphy_qmp_get_clks(phy, dev);
 	if (ret)
 		goto err;
@@ -634,11 +809,14 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	phy->phy_phy_reset = devm_reset_control_get(dev, "phy_phy_reset");
-	if (IS_ERR(phy->phy_phy_reset)) {
-		ret = PTR_ERR(phy->phy_phy_reset);
-		dev_dbg(dev, "failed to get phy_phy_reset\n");
-		goto err;
+	if (phy->phy.type == USB_PHY_TYPE_USB3) {
+		phy->phy_phy_reset = devm_reset_control_get(dev,
+						"phy_phy_reset");
+		if (IS_ERR(phy->phy_phy_reset)) {
+			ret = PTR_ERR(phy->phy_phy_reset);
+			dev_dbg(dev, "failed to get phy_phy_reset\n");
+			goto err;
+		}
 	}
 
 	of_get_property(dev->of_node, "qcom,qmp-phy-reg-offset", &size);
@@ -673,22 +851,25 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		dev_err(dev, "failed getting qmp_phy_base\n");
 		return -ENODEV;
 	}
-	phy->base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(phy->base)) {
+
+	/*
+	 * For USB QMP DP combo PHY, common set of registers shall be accessed
+	 * by DP driver as well.
+	 */
+	phy->base = devm_ioremap_nocache(dev, res->start, resource_size(res));
+	if (IS_ERR_OR_NULL(phy->base)) {
 		ret = PTR_ERR(phy->base);
 		goto err;
 	}
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-			"vls_clamp_reg");
-	if (!res) {
-		dev_err(dev, "failed getting vls_clamp_reg\n");
-		return -ENODEV;
-	}
-	phy->vls_clamp_reg = devm_ioremap_resource(dev, res);
-	if (IS_ERR(phy->vls_clamp_reg)) {
-		dev_err(dev, "couldn't find vls_clamp_reg address.\n");
-		return PTR_ERR(phy->vls_clamp_reg);
+	if (phy->phy.type == USB_PHY_TYPE_USB3) {
+		res = platform_get_resource_byname(pdev,
+				IORESOURCE_MEM, "vls_clamp_reg");
+		phy->vls_clamp_reg = devm_ioremap_resource(dev, res);
+		if (IS_ERR(phy->vls_clamp_reg)) {
+			dev_err(dev, "couldn't find vls_clamp_reg address.\n");
+			return PTR_ERR(phy->vls_clamp_reg);
+		}
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -787,8 +968,11 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	phy->phy.set_suspend		= msm_ssphy_qmp_set_suspend;
 	phy->phy.notify_connect		= msm_ssphy_qmp_notify_connect;
 	phy->phy.notify_disconnect	= msm_ssphy_qmp_notify_disconnect;
-	phy->phy.reset			= msm_ssphy_qmp_reset;
-	phy->phy.type			= USB_PHY_TYPE_USB3;
+
+	if (phy->phy.type == USB_PHY_TYPE_USB3_DP)
+		phy->phy.reset		= msm_ssphy_qmp_dp_combo_reset;
+	else
+		phy->phy.reset		= msm_ssphy_qmp_reset;
 
 	ret = usb_add_phy_dev(&phy->phy);
 
