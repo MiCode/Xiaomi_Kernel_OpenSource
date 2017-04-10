@@ -1093,7 +1093,7 @@ static int msm_venc_toggle_hier_p(struct msm_vidc_inst *inst, int layers)
 	if (inst->fmts[CAPTURE_PORT].fourcc != V4L2_PIX_FMT_VP8)
 		return 0;
 
-	num_enh_layers = layers ? : 0;
+	num_enh_layers = layers ? layers : 0;
 	dprintk(VIDC_DBG, "%s Hier-P in firmware\n",
 			num_enh_layers ? "Enable" : "Disable");
 
@@ -1297,7 +1297,10 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_BITRATE_MODE:
 	{
 		int final_mode = 0;
-		struct v4l2_ctrl update_ctrl = {.id = 0};
+		struct v4l2_ctrl update_ctrl;
+
+		update_ctrl.id = 0;
+		update_ctrl.val = 0;
 
 		/* V4L2_CID_MPEG_VIDEO_BITRATE_MODE and _RATE_CONTROL
 		 * manipulate the same thing.  If one control's state
