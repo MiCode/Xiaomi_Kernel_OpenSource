@@ -284,9 +284,9 @@
 		status = "disabled";
 	};
 
-	dbm_1p5: dbm@a8f8000 {
+	dbm_1p5: dbm@a6f8000 {
 		compatible = "qcom,usb-dbm-1p5";
-		reg = <0xa8f8000 0x400>;
+		reg = <0xa6f8000 0x400>;
 		qcom,reset-ep-after-lpm-resume;
 	};
 
