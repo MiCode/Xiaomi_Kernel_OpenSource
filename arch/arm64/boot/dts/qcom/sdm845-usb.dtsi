@@ -19,8 +19,6 @@
 		reg = <0x0a600000 0xf8c00>,
 		      <0x088ee000 0x400>;
 		reg-names = "core_base", "ahb2phy_base";
-		iommus = <&apps_smmu 0x740>;
-		qcom,smmu-s1-bypass;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -300,8 +298,6 @@
 		reg = <0x0a800000 0xf8c00>,
 		      <0x088ee000 0x400>;
 		reg-names = "core_base", "ahb2phy_base";
-		iommus = <&apps_smmu 0x760>;
-		qcom,smmu-s1-bypass;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
