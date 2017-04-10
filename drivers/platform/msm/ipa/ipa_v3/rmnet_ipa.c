@@ -1276,7 +1276,6 @@ static int handle3_ingress_format(struct net_device *dev,
 {
 	int ret = 0;
 	struct ipa_sys_connect_params *ipa_wan_ep_cfg;
-	struct rmnet_phys_ep_conf_s *ep_cfg;
 
 	IPAWANDBG("Get RMNET_IOCTL_SET_INGRESS_DATA_FORMAT\n");
 	ipa_wan_ep_cfg = &rmnet_ipa3_ctx->ipa_to_apps_ep_cfg;
@@ -1298,14 +1297,6 @@ static int handle3_ingress_format(struct net_device *dev,
 			   in->u.ingress_format.agg_size;
 			ipa_wan_ep_cfg->ipa_ep_cfg.aggr.aggr_pkt_limit =
 			   in->u.ingress_format.agg_count;
-
-			if (ipa3_rmnet_res.ipa_napi_enable) {
-				ipa_wan_ep_cfg->recycle_enabled = true;
-				ep_cfg = (struct rmnet_phys_ep_conf_s *)
-				   rcu_dereference(dev->rx_handler_data);
-				ep_cfg->recycle = ipa_recycle_wan_skb;
-				pr_info("Wan Recycle Enabled\n");
-			}
 		}
 	}
 

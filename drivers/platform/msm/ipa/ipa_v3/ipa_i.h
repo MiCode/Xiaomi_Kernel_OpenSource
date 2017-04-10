@@ -531,8 +531,6 @@ struct ipa3_ep_context {
 	bool disconnect_in_progress;
 	u32 qmi_request_sent;
 	bool napi_enabled;
-	bool switch_to_intr;
-	int inactive_cycles;
 	u32 eot_in_poll_err;
 
 	/* sys MUST be the last element of this struct */
