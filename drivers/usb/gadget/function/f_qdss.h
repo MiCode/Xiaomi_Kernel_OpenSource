@@ -72,6 +72,5 @@ struct usb_qdss_opts {
 };
 
 int uninit_data(struct usb_ep *ep);
-int set_qdss_data_connection(struct usb_gadget *gadget,
-	struct usb_ep *data_ep, u8 data_addr, int enable);
+int set_qdss_data_connection(struct f_qdss *qdss, int enable);
 #endif
