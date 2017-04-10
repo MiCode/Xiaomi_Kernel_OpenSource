@@ -2513,6 +2513,48 @@ int msm_pcie_debug_info(struct pci_dev *dev, u32 option, u32 base,
 }
 EXPORT_SYMBOL(msm_pcie_debug_info);
 
+#ifdef CONFIG_SYSFS
+static ssize_t msm_pcie_enumerate_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *)
+						dev_get_drvdata(dev);
+
+	if (pcie_dev)
+		msm_pcie_enumerate(pcie_dev->rc_idx);
+
+	return count;
+}
+
+static DEVICE_ATTR(enumerate, 0200, NULL, msm_pcie_enumerate_store);
+
+static void msm_pcie_sysfs_init(struct msm_pcie_dev_t *dev)
+{
+	int ret;
+
+	ret = device_create_file(&dev->pdev->dev, &dev_attr_enumerate);
+	if (ret)
+		PCIE_DBG_FS(dev,
+			"RC%d: failed to create sysfs enumerate node\n",
+			dev->rc_idx);
+}
+
+static void msm_pcie_sysfs_exit(struct msm_pcie_dev_t *dev)
+{
+	if (dev->pdev)
+		device_remove_file(&dev->pdev->dev, &dev_attr_enumerate);
+}
+#else
+static void msm_pcie_sysfs_init(struct msm_pcie_dev_t *dev)
+{
+}
+
+static void msm_pcie_sysfs_exit(struct msm_pcie_dev_t *dev)
+{
+}
+#endif
+
 #ifdef CONFIG_DEBUG_FS
 static struct dentry *dent_msm_pcie;
 static struct dentry *dfile_rc_sel;
@@ -6286,6 +6328,9 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		msm_pcie_dev[rc_idx].pcidev_table[i].registered = true;
 	}
 
+	dev_set_drvdata(&msm_pcie_dev[rc_idx].pdev->dev, &msm_pcie_dev[rc_idx]);
+	msm_pcie_sysfs_init(&msm_pcie_dev[rc_idx]);
+
 	ret = msm_pcie_get_resources(&msm_pcie_dev[rc_idx],
 				msm_pcie_dev[rc_idx].pdev);
 
@@ -6499,11 +6544,16 @@ int __init pcie_init(void)
 
 static void __exit pcie_exit(void)
 {
+	int i;
+
 	PCIE_GEN_DBG("pcie:%s.\n", __func__);
 
 	platform_driver_unregister(&msm_pcie_driver);
 
 	msm_pcie_debugfs_exit();
+
+	for (i = 0; i < MAX_RC_NUM; i++)
+		msm_pcie_sysfs_exit(&msm_pcie_dev[i]);
 }
 
 subsys_initcall_sync(pcie_init);
