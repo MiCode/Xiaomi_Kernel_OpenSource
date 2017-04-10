@@ -2545,6 +2545,8 @@ _nap(struct kgsl_device *device)
 			return -EBUSY;
 		}
 
+		device->ftbl->stop_fault_timer(device);
+
 		/*
 		 * Read HW busy counters before going to NAP state.
 		 * The data might be used by power scale governors
