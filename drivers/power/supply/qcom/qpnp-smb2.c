@@ -244,6 +244,8 @@ struct smb_dt_props {
 	int	boost_threshold_ua;
 	int	fv_uv;
 	int	wipower_max_uw;
+	int	min_freq_khz;
+	int	max_freq_khz;
 	u32	step_soc_threshold[STEP_CHARGING_MAX_STEPS - 1];
 	s32	step_cc_delta[STEP_CHARGING_MAX_STEPS];
 	struct	device_node *revid_dev_node;
@@ -337,6 +339,18 @@ static int smb2_parse_dt(struct smb2 *chip)
 				&chip->dt.boost_threshold_ua);
 	if (rc < 0)
 		chip->dt.boost_threshold_ua = MICRO_P1A;
+
+	rc = of_property_read_u32(node,
+				"qcom,min-freq-khz",
+				&chip->dt.min_freq_khz);
+	if (rc < 0)
+		chip->dt.min_freq_khz = -EINVAL;
+
+	rc = of_property_read_u32(node,
+				"qcom,max-freq-khz",
+				&chip->dt.max_freq_khz);
+	if (rc < 0)
+		chip->dt.max_freq_khz = -EINVAL;
 
 	rc = of_property_read_u32(node, "qcom,wipower-max-uw",
 				&chip->dt.wipower_max_uw);
@@ -1437,6 +1451,16 @@ static int smb2_init_hw(struct smb2 *chip)
 	if (chip->dt.dc_icl_ua < 0)
 		smblib_get_charge_param(chg, &chg->param.dc_icl,
 					&chip->dt.dc_icl_ua);
+
+	if (chip->dt.min_freq_khz > 0) {
+		chg->param.freq_buck.min_u = chip->dt.min_freq_khz;
+		chg->param.freq_boost.min_u = chip->dt.min_freq_khz;
+	}
+
+	if (chip->dt.max_freq_khz > 0) {
+		chg->param.freq_buck.max_u = chip->dt.max_freq_khz;
+		chg->param.freq_boost.max_u = chip->dt.max_freq_khz;
+	}
 
 	/* set a slower soft start setting for OTG */
 	rc = smblib_masked_write(chg, DC_ENG_SSUPPLY_CFG2_REG,
