@@ -74,6 +74,11 @@ struct wiphy;
 #define CFG80211_CONNECT_TIMEOUT 1
 #define CFG80211_CONNECT_TIMEOUT_REASON_CODE 1
 
+/* Indicate backport support for the new connect done api */
+#define CFG80211_CONNECT_DONE 1
+/* Indicate backport support for FILS SK offload in cfg80211 */
+#define CFG80211_FILS_SK_OFFLOAD_SUPPORT 1
+
 /*
  * wireless hardware capability structures
  */
