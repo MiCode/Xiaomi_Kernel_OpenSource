@@ -766,6 +766,7 @@ static int wil_cfg80211_connect(struct wiphy *wiphy,
 	if (rc == 0) {
 		netif_carrier_on(ndev);
 		wil6210_bus_request(wil, WIL_MAX_BUS_REQUEST_KBPS);
+		wil->bss = bss;
 		/* Connect can take lots of time */
 		mod_timer(&wil->connect_timer,
 			  jiffies + msecs_to_jiffies(2000));
@@ -794,6 +795,7 @@ static int wil_cfg80211_disconnect(struct wiphy *wiphy,
 		return 0;
 	}
 
+	wil->locally_generated_disc = true;
 	rc = wmi_call(wil, WMI_DISCONNECT_CMDID, NULL, 0,
 		      WMI_DISCONNECT_EVENTID, NULL, 0,
 		      WIL6210_DISCONNECT_TO_MS);
