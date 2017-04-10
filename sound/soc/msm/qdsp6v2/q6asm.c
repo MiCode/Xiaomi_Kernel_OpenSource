@@ -1028,12 +1028,14 @@ void q6asm_audio_client_free(struct audio_client *ac)
 	}
 
 	rtac_set_asm_handle(ac->session, NULL);
-	apr_deregister(ac->apr2);
-	apr_deregister(ac->apr);
-	q6asm_mmap_apr_dereg();
-	ac->apr2 = NULL;
-	ac->apr = NULL;
-	ac->mmap_apr = NULL;
+	if (!atomic_read(&ac->reset)) {
+		apr_deregister(ac->apr2);
+		apr_deregister(ac->apr);
+		q6asm_mmap_apr_dereg();
+		ac->apr2 = NULL;
+		ac->apr = NULL;
+		ac->mmap_apr = NULL;
+	}
 	q6asm_session_free(ac);
 
 	pr_debug("%s: APR De-Register\n", __func__);
@@ -1501,7 +1503,6 @@ static int32_t q6asm_srvc_callback(struct apr_client_data *data, void *priv)
 			}
 			pr_debug("%s: Clearing custom topology\n", __func__);
 		}
-		this_mmap.apr = NULL;
 
 		cal_utils_clear_cal_block_q6maps(ASM_MAX_CAL_TYPES, cal_data);
 		common_client.mmap_apr = NULL;
@@ -1701,8 +1702,10 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 	if (data->opcode == RESET_EVENTS) {
 		mutex_lock(&ac->cmd_lock);
 		atomic_set(&ac->reset, 1);
-		if (ac->apr == NULL)
+		if (ac->apr == NULL) {
 			ac->apr = ac->apr2;
+			ac->apr2 = NULL;
+		}
 		pr_debug("%s: Reset event is received: %d %d apr[%pK]\n",
 			__func__,
 			data->reset_event, data->reset_proc, ac->apr);
