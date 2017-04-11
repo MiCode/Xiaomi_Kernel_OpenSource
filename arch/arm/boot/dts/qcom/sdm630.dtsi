@@ -376,6 +376,10 @@
 			linux,cma-default;
 		};
 
+		cont_splash_mem: splash_region@9d400000 {
+			reg = <0x0 0x9d400000 0x0 0x02400000>;
+			label = "cont_splash_mem";
+		};
 	};
 
 	bluetooth: bt_wcn3990 {

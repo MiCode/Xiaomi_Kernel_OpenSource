@@ -38,8 +38,8 @@
 		qcom,mdss-ib-factor = <1 1>;		/* 1 time  */
 		qcom,mdss-clk-factor = <105 100>;	/* 1.05 times */
 
-		qcom,max-mixer-width = <2560>;
-		qcom,max-pipe-width = <2560>;
+		qcom,max-mixer-width = <2048>;
+		qcom,max-pipe-width = <2048>;
 
 		qcom,max-dest-scaler-input-width = <2048>;
 		qcom,max-dest-scaler-output-width = <2560>;
@@ -244,6 +244,9 @@
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
+			qcom,cont-splash-memory {
+				linux,contiguous-region = <&cont_splash_mem>;
+			};
 		};
 
 		mdss_fb1: qcom,mdss_fb_wfd {
