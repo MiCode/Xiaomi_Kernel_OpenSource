@@ -11,9 +11,8 @@
  */
 
 #include <dt-bindings/interrupt-controller/irq.h>
-#include "msm8998-pinctrl.dtsi"
 #include "msm8998-camera-sensor-mtp.dtsi"
-/ {
+&vendor {
 	bluetooth: bt_wcn3990 {
 		compatible = "qca,wcn3990";
 		qca,bt-vdd-io-supply = <&pm8998_s3>;
