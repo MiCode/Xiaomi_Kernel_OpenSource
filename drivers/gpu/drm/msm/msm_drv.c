@@ -1696,6 +1696,13 @@ static const struct of_device_id msm_gpu_match[] = {
 	{ },
 };
 
+#ifdef CONFIG_QCOM_KGSL
+static int add_gpu_components(struct device *dev,
+			      struct component_match **matchptr)
+{
+	return 0;
+}
+#else
 static int add_gpu_components(struct device *dev,
 			      struct component_match **matchptr)
 {
@@ -1711,6 +1718,7 @@ static int add_gpu_components(struct device *dev,
 
 	return 0;
 }
+#endif
 
 static int msm_drm_bind(struct device *dev)
 {
