@@ -471,6 +471,12 @@ static int cnss_driver_call_probe(struct cnss_plat_data *plat_priv)
 	int ret;
 	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
 
+	if (!plat_priv->driver_ops) {
+		cnss_pr_err("driver_ops is NULL!");
+		ret = -EINVAL;
+		goto out;
+	}
+
 	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
 		ret = plat_priv->driver_ops->reinit(pci_priv->pci_dev,
 						    pci_priv->pci_device_id);
@@ -964,11 +970,6 @@ static int cnss_qca6290_powerup(struct cnss_plat_data *plat_priv)
 		return -ENODEV;
 	}
 
-	if (!plat_priv->driver_ops) {
-		cnss_pr_err("driver_ops is NULL!\n");
-		return -EINVAL;
-	}
-
 	ret = cnss_power_on_device(plat_priv);
 	if (ret) {
 		cnss_pr_err("Failed to power on device, err = %d\n", ret);
@@ -1274,16 +1275,13 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 
 	plat_priv->recovery_count++;
 
-	if (!plat_priv->driver_ops) {
-		cnss_pr_err("Host driver has not registered yet, ignore recovery!\n");
-		return 0;
-	}
-
 	if (plat_priv->device_id == QCA6174_DEVICE_ID)
 		goto self_recovery;
 
-	plat_priv->driver_ops->update_status(pci_priv->pci_dev,
-					     CNSS_RECOVERY);
+	if (plat_priv->driver_ops)
+		plat_priv->driver_ops->update_status(pci_priv->pci_dev,
+						     CNSS_RECOVERY);
+
 	if (reason == CNSS_REASON_LINK_DOWN) {
 		cnss_pci_set_mhi_state(plat_priv->bus_priv,
 				       CNSS_MHI_NOTIFY_LINK_ERROR);
