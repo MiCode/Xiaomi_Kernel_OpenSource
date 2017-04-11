@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,6 @@ bool pfk_ecryptfs_allow_merge_bio(const struct bio *bio1,
 
 int __init pfk_ecryptfs_init(void);
 
-void __exit pfk_ecryptfs_deinit(void);
+void pfk_ecryptfs_deinit(void);
 
 #endif /* _PFK_ECRYPTFS_H_ */

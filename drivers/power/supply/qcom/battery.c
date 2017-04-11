@@ -511,13 +511,14 @@ static int pl_fv_vote_callback(struct votable *votable, void *data,
 	return 0;
 }
 
-#define ICL_STEP_UV	25000
+#define ICL_STEP_UA	25000
 static int usb_icl_vote_callback(struct votable *votable, void *data,
 			int icl_ua, const char *client)
 {
 	int rc;
 	struct pl_data *chip = data;
 	union power_supply_propval pval = {0, };
+	bool rerun_aicl = false;
 
 	if (!chip->main_psy)
 		return 0;
@@ -543,22 +544,28 @@ static int usb_icl_vote_callback(struct votable *votable, void *data,
 	}
 
 	/* rerun AICL if new ICL is above settled ICL */
-	if (icl_ua > pval.intval) {
-		/* set a lower ICL */
-		pval.intval = max(pval.intval - ICL_STEP_UV, ICL_STEP_UV);
-		power_supply_set_property(chip->main_psy,
-				POWER_SUPPLY_PROP_CURRENT_MAX,
-				&pval);
-		/* wait for ICL change */
-		msleep(100);
+	if (icl_ua > pval.intval)
+		rerun_aicl = true;
 
-		pval.intval = icl_ua;
+	if (rerun_aicl) {
+		/* set a lower ICL */
+		pval.intval = max(pval.intval - ICL_STEP_UA, ICL_STEP_UA);
 		power_supply_set_property(chip->main_psy,
 				POWER_SUPPLY_PROP_CURRENT_MAX,
 				&pval);
 		/* wait for ICL change */
 		msleep(100);
 	}
+
+	/* set the effective ICL */
+	pval.intval = icl_ua;
+	power_supply_set_property(chip->main_psy,
+			POWER_SUPPLY_PROP_CURRENT_MAX,
+			&pval);
+	if (rerun_aicl)
+		/* wait for ICL change */
+		msleep(100);
+
 	vote(chip->pl_disable_votable, ICL_CHANGE_VOTER, false, 0);
 
 	return 0;
