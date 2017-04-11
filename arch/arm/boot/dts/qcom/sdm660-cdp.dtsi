@@ -180,6 +180,10 @@
 	qcom,panel-roi-alignment = <2 2 4 2 1080 2>;
 };
 
+&dsi_rm67195_amoled_fhd_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+};
+
 &mdss_dp_ctrl {
 	pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
 	pinctrl-0 = <&mdss_dp_aux_active &mdss_dp_usbplug_cc_active>;
