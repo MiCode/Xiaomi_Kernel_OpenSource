@@ -1184,8 +1184,13 @@ static irqreturn_t bq24190_irq_handler_thread(int irq, void *data)
 		}
 	} while (f_reg && ++i < 2);
 
+	/* ignore over/under voltage fault after disconnect */
+	if (f_reg == (1 << BQ24190_REG_F_CHRG_FAULT_SHIFT) &&
+	    !(ss_reg & BQ24190_REG_SS_PG_STAT_MASK))
+		f_reg = 0;
+
 	if (f_reg != bdi->f_reg) {
-		dev_info(bdi->dev,
+		dev_warn(bdi->dev,
 			"Fault: boost %d, charge %d, battery %d, ntc %d\n",
 			!!(f_reg & BQ24190_REG_F_BOOST_FAULT_MASK),
 			!!(f_reg & BQ24190_REG_F_CHRG_FAULT_MASK),
