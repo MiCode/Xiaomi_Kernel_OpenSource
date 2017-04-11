@@ -414,6 +414,7 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 		}
 
 		pr_debug("app %s load before\n", app.name);
+		app.name[MAX_NAME_SIZE - 1] = '\0';
 
 		/* start the TZ app */
 		rc = qseecom_start_app(
@@ -427,7 +428,8 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 				pr_err("App %s failed to set bw\n", app.name);
 			}
 		} else {
-			pr_err("app %s failed to load\n", app.name);
+			dev_err(drvdata->dev, "%s: Fingerprint Trusted App failed to load\n",
+				__func__);
 			goto end;
 		}
 
