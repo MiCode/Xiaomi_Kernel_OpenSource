@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -803,14 +803,16 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			}
 		}
 
+		app.name[MAX_NAME_SIZE - 1] = '\0';
+
 		/* start the TZ app */
 		rc = qseecom_start_app(&drvdata->app_handle,
 				app.name, app.size);
 		if (rc == 0) {
 			g_app_buf_size = app.size;
 		} else {
-			dev_err(drvdata->dev, "%s: App %s failed to load\n",
-				__func__, app.name);
+			dev_err(drvdata->dev, "%s: Fingerprint Trusted App failed to load\n",
+				__func__);
 			goto end;
 		}
 
