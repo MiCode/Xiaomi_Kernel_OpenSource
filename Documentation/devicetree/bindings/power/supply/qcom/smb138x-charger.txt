@@ -31,6 +31,12 @@ Charger specific properties:
 	revid module. This is used to identify
 	the SMB subtype.
 
+- qcom,parallel-mode
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies parallel charging mode. If not specified, MID-MID
+	      option is selected by default.
+
 - qcom,suspend-input
   Usage:      optional
   Value type: <empty>

@@ -26,7 +26,7 @@
 #include "smb-reg.h"
 #include "smb-lib.h"
 #include "storm-watch.h"
-#include "pmic-voter.h"
+#include <linux/pmic-voter.h>
 
 #define SMB2_DEFAULT_WPWR_UW	8000000
 
@@ -838,7 +838,9 @@ static enum power_supply_property smb2_batt_props[] = {
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_VOLTAGE_QNOVO,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
+	POWER_SUPPLY_PROP_CURRENT_QNOVO,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_TECHNOLOGY,
@@ -909,6 +911,9 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		val->intval = get_client_vote(chg->fv_votable, DEFAULT_VOTER);
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_QNOVO_ENABLE:
+		rc = smblib_get_prop_charge_qnovo_enable(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_QNOVO:
 		val->intval = chg->qnovo_fv_uv;
@@ -984,6 +989,9 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		vote(chg->fv_votable, DEFAULT_VOTER, true, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_QNOVO_ENABLE:
+		rc = smblib_set_prop_charge_qnovo_enable(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_QNOVO:
 		chg->qnovo_fv_uv = val->intval;
@@ -1465,10 +1473,10 @@ static int smb2_init_hw(struct smb2 *chip)
 		DEFAULT_VOTER, true, chip->dt.fv_uv);
 	vote(chg->dc_icl_votable,
 		DEFAULT_VOTER, true, chip->dt.dc_icl_ua);
-	vote(chg->hvdcp_disable_votable_indirect, DEFAULT_VOTER,
-		chip->dt.hvdcp_disable, 0);
 	vote(chg->hvdcp_disable_votable_indirect, PD_INACTIVE_VOTER,
 			true, 0);
+	vote(chg->hvdcp_disable_votable_indirect, DEFAULT_VOTER,
+		chip->dt.hvdcp_disable, 0);
 	vote(chg->pd_disallowed_votable_indirect, CC_DETACHED_VOTER,
 			true, 0);
 	vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER,
@@ -1531,13 +1539,6 @@ static int smb2_init_hw(struct smb2 *chip)
 	if (rc < 0) {
 		dev_err(chg->dev,
 			"Couldn't configure VBUS for SW control rc=%d\n", rc);
-		return rc;
-	}
-
-	rc = smblib_masked_write(chg, QNOVO_PT_ENABLE_CMD_REG,
-			QNOVO_PT_ENABLE_CMD_BIT, QNOVO_PT_ENABLE_CMD_BIT);
-	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't enable qnovo rc=%d\n", rc);
 		return rc;
 	}
 
@@ -1651,6 +1652,15 @@ static int smb2_init_hw(struct smb2 *chip)
 	}
 
 	return rc;
+}
+
+static int smb2_post_init(struct smb2 *chip)
+{
+	struct smb_charger *chg = &chip->chg;
+
+	rerun_election(chg->usb_irq_enable_votable);
+
+	return 0;
 }
 
 static int smb2_chg_config_init(struct smb2 *chip)
@@ -2181,6 +2191,8 @@ static int smb2_probe(struct platform_device *pdev)
 		pr_err("Couldn't request interrupts rc=%d\n", rc);
 		goto cleanup;
 	}
+
+	smb2_post_init(chip);
 
 	smb2_create_debugfs(chip);
 
