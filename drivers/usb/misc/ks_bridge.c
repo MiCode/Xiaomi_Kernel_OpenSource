@@ -47,6 +47,8 @@ static enum bus_id str_to_busid(const char *name)
 		return BUS_HSIC;
 	if (!strncasecmp("msm_ehci_host.0", name, BUSNAME_LEN))
 		return BUS_USB;
+	if (!strncasecmp("xhci-hcd.0.auto", name, BUSNAME_LEN))
+		return BUS_USB;
 
 	return BUS_UNDEF;
 }
@@ -457,6 +459,10 @@ static struct ksb_dev_info ksb_efs_usb_dev = {
 static const struct usb_device_id ksb_usb_ids[] = {
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9008, 0),
 	.driver_info = (unsigned long)&ksb_fboot_dev, },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9025, 0),
+	.driver_info = (unsigned long)&ksb_fboot_dev, },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x901D, 0),
+	.driver_info = (unsigned long)&ksb_fboot_dev, },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9048, 2),
 	.driver_info = (unsigned long)&ksb_efs_hsic_dev, },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x904C, 2),
@@ -659,7 +665,7 @@ static void ksb_start_rx_work(struct work_struct *w)
 static int
 ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 {
-	__u8				ifc_num;
+	__u8				ifc_num, ifc_count;
 	struct usb_host_interface	*ifc_desc;
 	struct usb_endpoint_descriptor	*ep_desc;
 	int				i;
@@ -674,6 +680,7 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	ifc_num = ifc->cur_altsetting->desc.bInterfaceNumber;
 
 	udev = interface_to_usbdev(ifc);
+	ifc_count = udev->actconfig->desc.bNumInterfaces;
 	fbdev = mdev = (struct ksb_dev_info *)id->driver_info;
 
 	bus_id = str_to_busid(udev->bus->bus_name);
@@ -684,6 +691,12 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	}
 
 	switch (id->idProduct) {
+	case 0x9025:
+	case 0x901D:
+		dev_dbg(&udev->dev, "ifc_count: %u\n", ifc_count);
+		if (ifc_count > 1)
+			return -ENODEV;
+		/* fall-through */
 	case 0x9008:
 		ksb = __ksb[bus_id];
 		mdev = &fbdev[bus_id];
