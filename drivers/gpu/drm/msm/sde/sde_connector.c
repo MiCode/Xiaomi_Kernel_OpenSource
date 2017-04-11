@@ -540,14 +540,6 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 		goto error_unregister_conn;
 	}
 
-	if (c_conn->ops.set_backlight) {
-		rc = sde_backlight_setup(&c_conn->base);
-		if (rc) {
-			pr_err("failed to setup backlight, rc=%d\n", rc);
-			goto error_unregister_conn;
-		}
-	}
-
 	/* create properties */
 	msm_property_init(&c_conn->property_info, &c_conn->base.base, dev,
 			priv->conn_property, c_conn->property_data,
