@@ -746,7 +746,7 @@ int sde_hdmi_connector_post_init(struct drm_connector *connector,
 
 	if (info)
 		sde_kms_info_add_keystr(info,
-				"DISPLAY_TYPE",
+				"display type",
 				sde_hdmi->display_type);
 
 	hdmi->connector = connector;
