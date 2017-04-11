@@ -459,10 +459,10 @@ static struct ksb_dev_info ksb_efs_usb_dev = {
 static const struct usb_device_id ksb_usb_ids[] = {
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9008, 0),
 	.driver_info = (unsigned long)&ksb_fboot_dev, },
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9025, 0),
-	.driver_info = (unsigned long)&ksb_fboot_dev, },
-	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x901D, 0),
-	.driver_info = (unsigned long)&ksb_fboot_dev, },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9025, 0), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9091, 0), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x901D, 0), },
+	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x900E, 0), },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x9048, 2),
 	.driver_info = (unsigned long)&ksb_efs_hsic_dev, },
 	{ USB_DEVICE_INTERFACE_NUMBER(0x5c6, 0x904C, 2),
@@ -665,7 +665,7 @@ static void ksb_start_rx_work(struct work_struct *w)
 static int
 ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 {
-	__u8				ifc_num, ifc_count;
+	__u8				ifc_num, ifc_count, ksb_port_num;
 	struct usb_host_interface	*ifc_desc;
 	struct usb_endpoint_descriptor	*ep_desc;
 	int				i;
@@ -675,7 +675,8 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	struct ksb_dev_info		*mdev, *fbdev;
 	struct usb_device		*udev;
 	unsigned int			bus_id;
-	int ret;
+	int				ret;
+	bool				free_mdev = false;
 
 	ifc_num = ifc->cur_altsetting->desc.bInterfaceNumber;
 
@@ -691,12 +692,32 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 	}
 
 	switch (id->idProduct) {
+	case 0x900E:
 	case 0x9025:
+	case 0x9091:
 	case 0x901D:
-		dev_dbg(&udev->dev, "ifc_count: %u\n", ifc_count);
+		/* 1-1 mapping between ksb and udev port which starts with 1 */
+		ksb_port_num = udev->portnum - 1;
+		dev_dbg(&udev->dev, "ifc_count: %u, port_num:%u\n", ifc_count,
+				ksb_port_num);
 		if (ifc_count > 1)
 			return -ENODEV;
-		/* fall-through */
+		if (ksb_port_num >= NO_BRIDGE_INSTANCES) {
+			dev_err(&udev->dev, "port-num:%u invalid. Try first\n",
+					ksb_port_num);
+			ksb_port_num = 0;
+		}
+		ksb = __ksb[ksb_port_num];
+		if (ksb->ifc) {
+			dev_err(&udev->dev, "port already in use\n");
+			return -ENODEV;
+		}
+		mdev = kzalloc(sizeof(struct ksb_dev_info), GFP_KERNEL);
+		if (!mdev)
+			return -ENOMEM;
+		free_mdev = true;
+		mdev->name = ksb->name;
+		break;
 	case 0x9008:
 		ksb = __ksb[bus_id];
 		mdev = &fbdev[bus_id];
@@ -755,6 +776,8 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 			"could not find bulk in and bulk out endpoints");
 		usb_put_dev(ksb->udev);
 		ksb->ifc = NULL;
+		if (free_mdev)
+			kfree(mdev);
 		return -ENODEV;
 	}
 
@@ -808,7 +831,7 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 		goto fail_class_create;
 	}
 
-	ksb->device = device_create(ksb->class, NULL, ksb->cdev_start_no,
+	ksb->device = device_create(ksb->class, &udev->dev, ksb->cdev_start_no,
 				NULL, mdev->name);
 	if (IS_ERR(ksb->device)) {
 		dbg_log_event(ksb, "devcrfailed", PTR_ERR(ksb->device), 0);
@@ -820,6 +843,8 @@ ksb_usb_probe(struct usb_interface *ifc, const struct usb_device_id *id)
 		usb_enable_autosuspend(ksb->udev);
 	}
 
+	if (free_mdev)
+		kfree(mdev);
 	dev_dbg(&udev->dev, "usb dev connected");
 
 	return 0;
@@ -831,6 +856,9 @@ fail_class_create:
 fail_chrdev_region:
 	usb_set_intfdata(ifc, NULL);
 	clear_bit(USB_DEV_CONNECTED, &ksb->flags);
+
+	if (free_mdev)
+		kfree(mdev);
 
 	return -ENODEV;
 
@@ -991,7 +1019,7 @@ static int __init ksb_init(void)
 		}
 		__ksb[i] = ksb;
 
-		ksb->name = kasprintf(GFP_KERNEL, "ks_bridge:%i", i + 1);
+		ksb->name = kasprintf(GFP_KERNEL, "ks_usb_bridge.%i", i);
 		if (!ksb->name) {
 			pr_info("unable to allocate name");
 			kfree(ksb);
