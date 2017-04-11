@@ -666,26 +666,28 @@ err_path:
 }
 EXPORT_SYMBOL_GPL(coresight_enable);
 
-void coresight_disable(struct coresight_device *csdev)
+static void __coresight_disable(struct coresight_device *csdev)
 {
 	int  ret;
 
-	mutex_lock(&coresight_mutex);
-
 	ret = coresight_validate_source(csdev, __func__);
 	if (ret)
-		goto out;
+		return;
 
 	if (!csdev->enable || !coresight_disable_source(csdev))
-		goto out;
+		return;
 
 	if (csdev->node == NULL)
-		goto out;
+		return;
 
 	coresight_disable_path(csdev->node->path);
 	coresight_release_path(csdev, csdev->node->path);
+}
 
-out:
+void coresight_disable(struct coresight_device *csdev)
+{
+	mutex_lock(&coresight_mutex);
+	__coresight_disable(csdev);
 	mutex_unlock(&coresight_mutex);
 }
 EXPORT_SYMBOL_GPL(coresight_disable);
@@ -991,7 +993,7 @@ static ssize_t reset_source_sink_store(struct bus_type *bus,
 		csdev = coresight_get_source(cspath->path);
 		if (!csdev)
 			continue;
-		coresight_disable(csdev);
+		__coresight_disable(csdev);
 	}
 
 	mutex_unlock(&coresight_mutex);
