@@ -1297,18 +1297,6 @@ int create_pkt_cmd_session_set_property(
 			sizeof(struct hfi_quantization_range);
 		break;
 	}
-	case HAL_PARAM_VENC_MAX_NUM_B_FRAMES:
-	{
-		struct hfi_max_num_b_frames *hfi;
-
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_PARAM_VENC_MAX_NUM_B_FRAMES;
-		hfi = (struct hfi_max_num_b_frames *) &pkt->rg_property_data[1];
-		memcpy(hfi, (struct hfi_max_num_b_frames *) pdata,
-				sizeof(struct hfi_max_num_b_frames));
-		pkt->size += sizeof(u32) + sizeof(struct hfi_max_num_b_frames);
-		break;
-	}
 	case HAL_CONFIG_VENC_INTRA_PERIOD:
 	{
 		struct hfi_intra_period *hfi;

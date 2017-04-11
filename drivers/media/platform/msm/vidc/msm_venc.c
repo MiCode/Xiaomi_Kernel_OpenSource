@@ -1244,7 +1244,6 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES:
 	{
 		int num_p, num_b;
-		u32 max_num_b_frames;
 
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES);
 		num_b = temp_ctrl->val;
@@ -1257,34 +1256,10 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		else if (ctrl->id == V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES)
 			num_b = ctrl->val;
 
-		max_num_b_frames = num_b ? MAX_NUM_B_FRAMES : 0;
-		property_id = HAL_PARAM_VENC_MAX_NUM_B_FRAMES;
-		pdata = &max_num_b_frames;
-		rc = call_hfi_op(hdev, session_set_property,
-			(void *)inst->session, property_id, pdata);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"Failed : Setprop MAX_NUM_B_FRAMES %d\n",
-				rc);
-			break;
-		}
-
 		property_id = HAL_CONFIG_VENC_INTRA_PERIOD;
 		intra_period.pframes = num_p;
 		intra_period.bframes = num_b;
 
-		/*
-		 *Incase firmware does not have B-Frame support,
-		 *offload the b-frame count to p-frame to make up
-		 *for the requested Intraperiod
-		 */
-		if (!inst->capability.bframe.max) {
-			intra_period.pframes = num_p + num_b;
-			intra_period.bframes = 0;
-			dprintk(VIDC_DBG,
-				"No bframe support, changing pframe from %d to %d\n",
-				num_p, intra_period.pframes);
-		}
 		pdata = &intra_period;
 		break;
 	}
