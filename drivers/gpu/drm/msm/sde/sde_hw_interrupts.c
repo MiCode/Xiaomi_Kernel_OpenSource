@@ -844,11 +844,21 @@ static int sde_hw_intr_disable_irq(struct sde_hw_intr *intr, int irq_idx)
 
 static int sde_hw_intr_clear_irqs(struct sde_hw_intr *intr)
 {
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(sde_intr_set); i++)
+		SDE_REG_WRITE(&intr->hw, sde_intr_set[i].clr_off, 0xffffffff);
+
 	return 0;
 }
 
 static int sde_hw_intr_disable_irqs(struct sde_hw_intr *intr)
 {
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(sde_intr_set); i++)
+		SDE_REG_WRITE(&intr->hw, sde_intr_set[i].en_off, 0x00000000);
+
 	return 0;
 }
 
