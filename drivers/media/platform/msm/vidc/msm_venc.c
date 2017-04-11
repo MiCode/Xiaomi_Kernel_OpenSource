@@ -352,20 +352,6 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.qmenu = mpeg_video_rate_control,
 	},
 	{
-		.id = V4L2_CID_MPEG_VIDEO_BITRATE_MODE,
-		.name = "Bitrate Control",
-		.type = V4L2_CTRL_TYPE_MENU,
-		.minimum = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR,
-		.maximum = V4L2_MPEG_VIDEO_BITRATE_MODE_CBR,
-		.default_value = V4L2_MPEG_VIDEO_BITRATE_MODE_VBR,
-		.step = 0,
-		.menu_skip_mask = ~(
-		(1 << V4L2_MPEG_VIDEO_BITRATE_MODE_VBR) |
-		(1 << V4L2_MPEG_VIDEO_BITRATE_MODE_CBR)
-		),
-		.qmenu = NULL,
-	},
-	{
 		.id = V4L2_CID_MPEG_VIDEO_BITRATE,
 		.name = "Bit Rate",
 		.type = V4L2_CTRL_TYPE_INTEGER,
@@ -1269,62 +1255,10 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &request_iframe;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL:
-	case V4L2_CID_MPEG_VIDEO_BITRATE_MODE:
 	{
-		int final_mode = 0;
-		struct v4l2_ctrl update_ctrl;
-
-		update_ctrl.id = 0;
-		update_ctrl.val = 0;
-
-		/* V4L2_CID_MPEG_VIDEO_BITRATE_MODE and _RATE_CONTROL
-		 * manipulate the same thing.  If one control's state
-		 * changes, try to mirror the state in the other control's
-		 * value
-		 */
-		if (ctrl->id == V4L2_CID_MPEG_VIDEO_BITRATE_MODE) {
-			if (ctrl->val == V4L2_MPEG_VIDEO_BITRATE_MODE_VBR) {
-				final_mode = HAL_RATE_CONTROL_VBR_CFR;
-				update_ctrl.val =
-				V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_CFR;
-			} else {/* ...if (ctrl->val == _BITRATE_MODE_CBR) */
-				final_mode = HAL_RATE_CONTROL_CBR_CFR;
-				update_ctrl.val =
-				V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_CBR_CFR;
-			}
-
-			update_ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL;
-
-		} else if (ctrl->id == V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL) {
-			switch (ctrl->val) {
-			case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_OFF:
-			case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_VFR:
-			case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_CFR:
-				update_ctrl.val =
-					V4L2_MPEG_VIDEO_BITRATE_MODE_VBR;
-				break;
-			case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_CBR_VFR:
-			case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_CBR_CFR:
-			case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_MBR_CFR:
-			case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_MBR_VFR:
-				update_ctrl.val =
-					V4L2_MPEG_VIDEO_BITRATE_MODE_CBR;
-				break;
-			}
-
-			final_mode = ctrl->val;
-			update_ctrl.id = V4L2_CID_MPEG_VIDEO_BITRATE_MODE;
-		}
-
-		if (update_ctrl.id) {
-			temp_ctrl = TRY_GET_CTRL(update_ctrl.id);
-			temp_ctrl->val = update_ctrl.val;
-		}
-
 		property_id = HAL_PARAM_VENC_RATE_CONTROL;
-		property_val = final_mode;
+		property_val = ctrl->val;
 		pdata = &property_val;
-
 		break;
 	}
 	case V4L2_CID_MPEG_VIDEO_BITRATE:
