@@ -499,7 +499,7 @@ static int msm_vidc_load_cycles_per_mb_table(
 				"qcom,vpp-cycles-per-mb", NULL)) {
 			rc = of_property_read_u32(child_node,
 					"qcom,vpp-cycles-per-mb",
-					&entry->vsp_cycles);
+					&entry->vpp_cycles);
 			if (rc) {
 				dprintk(VIDC_ERR,
 					"qcom,vpp-cycles-per-mb not found\n");

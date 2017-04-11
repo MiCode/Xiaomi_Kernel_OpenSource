@@ -422,19 +422,29 @@ int msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst)
 
 int msm_dcvs_try_enable(struct msm_vidc_inst *inst)
 {
+	bool force_disable = false;
+
 	if (!inst) {
 		dprintk(VIDC_ERR, "%s: Invalid args: %p\n", __func__, inst);
 		return -EINVAL;
 	}
-	if (inst->flags & VIDC_THUMBNAIL) {
+
+	force_disable = inst->session_type == MSM_VIDC_ENCODER ?
+		!msm_vidc_enc_dcvs_mode :
+		!msm_vidc_dec_dcvs_mode;
+
+	if (force_disable || inst->flags & VIDC_THUMBNAIL) {
 		dprintk(VIDC_PROF, "Thumbnail sessions don't need DCVS : %pK\n",
 			inst);
+		inst->dcvs.extra_capture_buffer_count = 0;
+		inst->dcvs.extra_output_buffer_count = 0;
 		return false;
 	}
 	inst->dcvs_mode = true;
 
 	// TODO : Update with proper number based on on-target tuning.
-	inst->dcvs.extra_buffer_count = DCVS_DEC_EXTRA_OUTPUT_BUFFERS;
+	inst->dcvs.extra_capture_buffer_count = DCVS_DEC_EXTRA_OUTPUT_BUFFERS;
+	inst->dcvs.extra_output_buffer_count = DCVS_DEC_EXTRA_OUTPUT_BUFFERS;
 	return true;
 }
 
@@ -566,14 +576,17 @@ void msm_dcvs_init(struct msm_vidc_inst *inst)
 	msm_dcvs_print_dcvs_stats(dcvs);
 }
 
-int msm_dcvs_get_extra_buff_count(struct msm_vidc_inst *inst)
+int msm_vidc_get_extra_buff_count(struct msm_vidc_inst *inst,
+	enum hal_buffer buffer_type)
 {
 	if (!inst) {
 		dprintk(VIDC_ERR, "%s Invalid args\n", __func__);
 		return 0;
 	}
 
-	return inst->dcvs.extra_buffer_count;
+	return buffer_type == HAL_BUFFER_INPUT ?
+		inst->dcvs.extra_output_buffer_count :
+		inst->dcvs.extra_capture_buffer_count;
 }
 
 

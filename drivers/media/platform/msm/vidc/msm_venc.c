@@ -2229,6 +2229,7 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	struct hfi_device *hdev;
 	int extra_idx = 0, i = 0;
 	struct hal_buffer_requirements *buff_req_buffer;
+	struct hal_frame_size frame_sz;
 
 	if (!inst || !f) {
 		dprintk(VIDC_ERR,
@@ -2266,6 +2267,19 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 
 		inst->prop.width[CAPTURE_PORT] = f->fmt.pix_mp.width;
 		inst->prop.height[CAPTURE_PORT] = f->fmt.pix_mp.height;
+
+		frame_sz.buffer_type = HAL_BUFFER_OUTPUT;
+		frame_sz.width = inst->prop.width[CAPTURE_PORT];
+		frame_sz.height = inst->prop.height[CAPTURE_PORT];
+		dprintk(VIDC_DBG, "CAPTURE port width = %d, height = %d\n",
+			frame_sz.width, frame_sz.height);
+		rc = call_hfi_op(hdev, session_set_property, (void *)
+			inst->session, HAL_PARAM_FRAME_SIZE, &frame_sz);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed to set framesize for CAPTURE port\n");
+			goto exit;
+		}
 
 		rc = msm_comm_try_get_bufreqs(inst);
 		if (rc) {
@@ -2315,7 +2329,7 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		frame_sz.buffer_type = HAL_BUFFER_INPUT;
 		frame_sz.width = inst->prop.width[OUTPUT_PORT];
 		frame_sz.height = inst->prop.height[OUTPUT_PORT];
-		dprintk(VIDC_DBG, "width = %d, height = %d\n",
+		dprintk(VIDC_DBG, "OUTPUT port width = %d, height = %d\n",
 				frame_sz.width, frame_sz.height);
 		rc = call_hfi_op(hdev, session_set_property, (void *)
 			inst->session, HAL_PARAM_FRAME_SIZE, &frame_sz);
