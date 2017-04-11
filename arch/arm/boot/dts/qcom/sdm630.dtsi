@@ -1983,7 +1983,6 @@
 		interrupt-controller;
 		#interrupt-cells = <4>;
 		cell-index = <0>;
-		qcom,not-wakeup; /* Needed until Full-boot-chain enabled */
 		status = "ok";
 	};
 
