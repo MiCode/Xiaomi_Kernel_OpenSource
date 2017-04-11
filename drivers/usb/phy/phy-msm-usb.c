@@ -4696,6 +4696,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 	mb();
 
 	motg->id_state = USB_ID_FLOAT;
+	set_bit(ID, &motg->inputs);
 	wake_lock_init(&motg->wlock, WAKE_LOCK_SUSPEND, "msm_otg");
 	INIT_WORK(&motg->sm_work, msm_otg_sm_work);
 	INIT_DELAYED_WORK(&motg->chg_work, msm_chg_detect_work);

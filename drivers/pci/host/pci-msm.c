@@ -3268,7 +3268,7 @@ static inline int msm_pcie_oper_conf(struct pci_bus *bus, u32 devfn, int oper,
 
 	word_offset = where & ~0x3;
 	byte_offset = where & 0x3;
-	mask = (~0 >> (8 * (4 - size))) << (8 * byte_offset);
+	mask = ((u32)~0 >> (8 * (4 - size))) << (8 * byte_offset);
 
 	if (rc || !dev->enumerated) {
 		config_base = rc ? dev->dm_core : dev->conf;
@@ -3303,12 +3303,17 @@ static inline int msm_pcie_oper_conf(struct pci_bus *bus, u32 devfn, int oper,
 		writel_relaxed(wr_val, config_base + word_offset);
 		wmb(); /* ensure config data is written to hardware register */
 
-		if (rd_val == PCIE_LINK_DOWN)
-			PCIE_ERR(dev,
-				"Read of RC%d %d:0x%02x + 0x%04x[%d] is all FFs\n",
-				rc_idx, bus->number, devfn, where, size);
-		else if (dev->shadow_en)
-			msm_pcie_save_shadow(dev, word_offset, wr_val, bdf, rc);
+		if (dev->shadow_en) {
+			if (rd_val == PCIE_LINK_DOWN &&
+				(readl_relaxed(config_base) == PCIE_LINK_DOWN))
+				PCIE_ERR(dev,
+					"Read of RC%d %d:0x%02x + 0x%04x[%d] is all FFs\n",
+					rc_idx, bus->number, devfn,
+					where, size);
+			else
+				msm_pcie_save_shadow(dev, word_offset, wr_val,
+					bdf, rc);
+		}
 
 		PCIE_DBG3(dev,
 			"RC%d %d:0x%02x + 0x%04x[%d] <- 0x%08x; rd 0x%08x val 0x%08x\n",
