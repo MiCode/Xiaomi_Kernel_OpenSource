@@ -30,8 +30,8 @@
 		GMU_INT_HOST_AHB_BUS_ERR |	\
 		GMU_INT_FENCE_ERR)
 
-#define MAX_GMUFW_SIZE	0x2000	/* in dwords */
-#define FENCE_RANGE_MASK	((0x1 << 31) | (0x0A << 18) | (0x8A0))
+#define MAX_GMUFW_SIZE	0x2000	/* in bytes */
+#define FENCE_RANGE_MASK	((0x1 << 31) | ((0xA << 2) << 18) | (0x8A0))
 
 /* Bitmask for GPU low power mode enabling and hysterisis*/
 #define SPTP_ENABLE_MASK (BIT(2) | BIT(0))
