@@ -53,7 +53,6 @@ struct sde_core_perf_tune {
  * struct sde_core_perf - definition of core performance context
  * @dev: Pointer to drm device
  * @debugfs_root: top level debug folder
- * @perf_lock: serialization lock for this context
  * @catalog: Pointer to catalog configuration
  * @phandle: Pointer to power handler
  * @pclient: Pointer to power client
@@ -66,11 +65,13 @@ struct sde_core_perf_tune {
  * @fix_core_clk_rate: fixed core clock request in Hz used in mode 2
  * @fix_core_ib_vote: fixed core ib vote in bps used in mode 2
  * @fix_core_ab_vote: fixed core ab vote in bps used in mode 2
+ * @bw_vote_mode: apps rsc vs display rsc bandwidth vote mode
+ * @sde_rsc_available: is display rsc available
+ * @bw_vote_mode_updated: bandwidth vote mode update
  */
 struct sde_core_perf {
 	struct drm_device *dev;
 	struct dentry *debugfs_root;
-	struct mutex perf_lock;
 	struct sde_mdss_cfg *catalog;
 	struct sde_power_handle *phandle;
 	struct sde_power_client *pclient;
@@ -83,6 +84,9 @@ struct sde_core_perf {
 	u64 fix_core_clk_rate;
 	u64 fix_core_ib_vote;
 	u64 fix_core_ab_vote;
+	u32 bw_vote_mode;
+	bool sde_rsc_available;
+	bool bw_vote_mode_updated;
 };
 
 /**

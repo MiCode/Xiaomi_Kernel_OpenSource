@@ -42,6 +42,23 @@ enum sde_perf_mode {
 	SDE_PERF_MODE_MAX
 };
 
+/**
+ * enum sde_perf_vote_mode: perf vote mode.
+ * @APPS_RSC_MODE:	It combines the vote for all displays and votes it
+ *                      through APPS rsc. This is default mode when display
+ *                      rsc is not available.
+ * @DISP_RSC_MODE:	It combines the vote for all displays and votes it
+ *                      through display rsc. This is default configuration
+ *                      when display rsc is available.
+ * @DISP_RSC_PRIMARY_MODE:	The primary display votes through display rsc
+ *                      while all other displays votes through apps rsc.
+ */
+enum sde_perf_vote_mode {
+	APPS_RSC_MODE,
+	DISP_RSC_MODE,
+	DISP_RSC_PRIMARY_MODE,
+};
+
 static struct sde_kms *_sde_crtc_get_kms(struct drm_crtc *crtc)
 {
 	struct msm_drm_private *priv;
@@ -182,12 +199,38 @@ int sde_core_perf_crtc_check(struct drm_crtc *crtc,
 	return 0;
 }
 
+static inline bool _is_crtc_client_type_matches(struct drm_crtc *tmp_crtc,
+	enum sde_crtc_client_type curr_client_type,
+	struct sde_core_perf *perf)
+{
+	if (!tmp_crtc)
+		return false;
+	else if (perf->bw_vote_mode == DISP_RSC_PRIMARY_MODE &&
+							perf->sde_rsc_available)
+		return curr_client_type == sde_crtc_get_client_type(tmp_crtc);
+	else
+		return true;
+}
+
+static inline enum sde_crtc_client_type _get_sde_client_type(
+	enum sde_crtc_client_type curr_client_type,
+	struct sde_core_perf *perf)
+{
+	if (perf->bw_vote_mode == DISP_RSC_PRIMARY_MODE &&
+						perf->sde_rsc_available)
+		return curr_client_type;
+	else if (perf->bw_vote_mode != APPS_RSC_MODE && perf->sde_rsc_available)
+		return RT_RSC_CLIENT;
+	else
+		return RT_CLIENT;
+}
+
 static void _sde_core_perf_crtc_update_bus(struct sde_kms *kms,
 		struct drm_crtc *crtc)
 {
 	u64 bw_sum_of_intfs = 0, bus_ab_quota, bus_ib_quota;
 	struct sde_core_perf_params perf = {0};
-	enum sde_crtc_client_type curr_client_type
+	enum sde_crtc_client_type client_vote, curr_client_type
 					= sde_crtc_get_client_type(crtc);
 	struct drm_crtc *tmp_crtc;
 	struct sde_crtc_state *sde_cstate;
@@ -195,7 +238,8 @@ static void _sde_core_perf_crtc_update_bus(struct sde_kms *kms,
 
 	drm_for_each_crtc(tmp_crtc, crtc->dev) {
 		if (_sde_core_perf_crtc_is_power_on(tmp_crtc) &&
-		    (curr_client_type == sde_crtc_get_client_type(tmp_crtc))) {
+		    _is_crtc_client_type_matches(tmp_crtc, curr_client_type,
+								&kms->perf)) {
 			sde_cstate = to_sde_crtc_state(tmp_crtc->state);
 
 			perf.max_per_pipe_ib = max(perf.max_per_pipe_ib,
@@ -217,7 +261,8 @@ static void _sde_core_perf_crtc_update_bus(struct sde_kms *kms,
 		bus_ib_quota = kms->perf.fix_core_ib_vote;
 	}
 
-	switch (curr_client_type) {
+	client_vote = _get_sde_client_type(curr_client_type, &kms->perf);
+	switch (client_vote) {
 	case NRT_CLIENT:
 		sde_power_data_bus_set_quota(&priv->phandle, kms->core_client,
 				SDE_POWER_HANDLE_DATA_BUS_CLIENT_NRT,
@@ -245,6 +290,32 @@ static void _sde_core_perf_crtc_update_bus(struct sde_kms *kms,
 	default:
 		SDE_ERROR("invalid client type:%d\n", curr_client_type);
 		break;
+	}
+
+	if (kms->perf.bw_vote_mode_updated) {
+		switch (kms->perf.bw_vote_mode) {
+		case DISP_RSC_MODE:
+			sde_power_data_bus_set_quota(&priv->phandle,
+				kms->core_client,
+				SDE_POWER_HANDLE_DATA_BUS_CLIENT_NRT, 0, 0);
+			sde_power_data_bus_set_quota(&priv->phandle,
+				kms->core_client,
+				SDE_POWER_HANDLE_DATA_BUS_CLIENT_RT, 0, 0);
+			kms->perf.bw_vote_mode_updated = false;
+			break;
+
+		case APPS_RSC_MODE:
+			sde_cstate = to_sde_crtc_state(crtc->state);
+			if (sde_cstate->rsc_client) {
+				sde_rsc_client_vote(sde_cstate->rsc_client,
+									0, 0);
+				kms->perf.bw_vote_mode_updated = false;
+			}
+			break;
+
+		default:
+			break;
+		}
 	}
 }
 
@@ -535,6 +606,10 @@ int sde_core_perf_debugfs_init(struct sde_core_perf *perf,
 			(u32 *)&catalog->perf.max_bw_high);
 	debugfs_create_file("perf_mode", 0644, perf->debugfs_root,
 			(u32 *)perf, &sde_core_perf_mode_fops);
+	debugfs_create_u32("bw_vote_mode", 0600, perf->debugfs_root,
+			&perf->bw_vote_mode);
+	debugfs_create_bool("bw_vote_mode_updated", 0600, perf->debugfs_root,
+			&perf->bw_vote_mode_updated);
 	debugfs_create_u64("fix_core_clk_rate", 0644, perf->debugfs_root,
 			&perf->fix_core_clk_rate);
 	debugfs_create_u64("fix_core_ib_vote", 0644, perf->debugfs_root,
@@ -566,7 +641,6 @@ void sde_core_perf_destroy(struct sde_core_perf *perf)
 	sde_core_perf_debugfs_destroy(perf);
 	perf->max_core_clk_rate = 0;
 	perf->core_clk = NULL;
-	mutex_destroy(&perf->perf_lock);
 	perf->clk_name = NULL;
 	perf->phandle = NULL;
 	perf->catalog = NULL;
@@ -590,7 +664,12 @@ int sde_core_perf_init(struct sde_core_perf *perf,
 	perf->phandle = phandle;
 	perf->pclient = pclient;
 	perf->clk_name = clk_name;
-	mutex_init(&perf->perf_lock);
+	perf->sde_rsc_available = is_sde_rsc_available(SDE_RSC_INDEX);
+	/* set default mode */
+	if (perf->sde_rsc_available)
+		perf->bw_vote_mode = DISP_RSC_MODE;
+	else
+		perf->bw_vote_mode = APPS_RSC_MODE;
 
 	perf->core_clk = sde_power_clk_get_clk(phandle, clk_name);
 	if (!perf->core_clk) {

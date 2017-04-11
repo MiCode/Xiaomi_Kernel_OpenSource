@@ -215,6 +215,39 @@ end:
 }
 EXPORT_SYMBOL(sde_rsc_unregister_event);
 
+bool is_sde_rsc_available(int rsc_index)
+{
+	if (rsc_index >= MAX_RSC_COUNT) {
+		pr_err("invalid rsc index:%d\n", rsc_index);
+		return false;
+	} else if (!rsc_prv_list[rsc_index]) {
+		pr_err("rsc idx:%d not probed yet or not available\n",
+								rsc_index);
+		return false;
+	}
+
+	return true;
+}
+EXPORT_SYMBOL(is_sde_rsc_available);
+
+enum sde_rsc_state get_sde_rsc_current_state(int rsc_index)
+{
+	struct sde_rsc_priv *rsc;
+
+	if (rsc_index >= MAX_RSC_COUNT) {
+		pr_err("invalid rsc index:%d\n", rsc_index);
+		return SDE_RSC_IDLE_STATE;
+	} else if (!rsc_prv_list[rsc_index]) {
+		pr_err("rsc idx:%d not probed yet or not available\n",
+								rsc_index);
+		return SDE_RSC_IDLE_STATE;
+	}
+
+	rsc = rsc_prv_list[rsc_index];
+	return rsc->current_state;
+}
+EXPORT_SYMBOL(get_sde_rsc_current_state);
+
 static int sde_rsc_clk_enable(struct sde_power_handle *phandle,
 	struct sde_power_client *pclient, bool enable)
 {
