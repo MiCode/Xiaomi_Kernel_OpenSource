@@ -61,10 +61,6 @@ enum rsc_vsync_req {
  *				TCS command.
  * @hw_vsync:			Enables the vsync on RSC block.
  * @tcs_use_ok:			set TCS set to high to allow RSC to use it.
- * @mode2_entry:		Request to entry mode2 when all clients are
- *                              requesting power collapse.
- * @mode2_exit:			Request to exit mode2 when one of the client
- *                              is requesting against the power collapse
  * @is_amc_mode:		Check current amc mode status
  * @state_update:		Enable/override the solver based on rsc state
  *                              status (command/video)
@@ -78,8 +74,6 @@ struct sde_rsc_hw_ops {
 	int (*hw_vsync)(struct sde_rsc_priv *rsc, enum rsc_vsync_req request,
 		char *buffer, int buffer_size, u32 mode);
 	int (*tcs_use_ok)(struct sde_rsc_priv *rsc);
-	int (*mode2_entry)(struct sde_rsc_priv *rsc);
-	int (*mode2_exit)(struct sde_rsc_priv *rsc);
 	bool (*is_amc_mode)(struct sde_rsc_priv *rsc);
 	int (*state_update)(struct sde_rsc_priv *rsc, enum sde_rsc_state state);
 	int (*debug_show)(struct seq_file *s, struct sde_rsc_priv *rsc);
