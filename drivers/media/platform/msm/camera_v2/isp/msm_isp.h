@@ -162,6 +162,8 @@ struct msm_vfe_irq_ops {
 	void (*config_irq)(struct vfe_device *vfe_dev,
 		uint32_t irq_status0, uint32_t irq_status1,
 		enum msm_isp_irq_operation);
+	void (*preprocess_camif_irq)(struct vfe_device *vfe_dev,
+		uint32_t irq_status0);
 };
 
 struct msm_vfe_axi_ops {
@@ -282,7 +284,7 @@ struct msm_vfe_stats_ops {
 
 	void (*update_ping_pong_addr)(struct vfe_device *vfe_dev,
 		struct msm_vfe_stats_stream *stream_info,
-		uint32_t pingpong_status, dma_addr_t paddr);
+		uint32_t pingpong_status, dma_addr_t paddr, uint32_t buf_size);
 
 	uint32_t (*get_frame_id)(struct vfe_device *vfe_dev);
 	uint32_t (*get_wm_mask)(uint32_t irq_status0, uint32_t irq_status1);
@@ -494,6 +496,7 @@ struct msm_vfe_src_info {
 	struct timeval time_stamp;
 	enum msm_vfe_dual_hw_type dual_hw_type;
 	struct msm_vfe_dual_hw_ms_info dual_hw_ms_info;
+	bool accept_frame;
 };
 
 struct msm_vfe_fetch_engine_info {

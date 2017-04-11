@@ -29,7 +29,7 @@
 #include <linux/string_helpers.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
-#include "pmic-voter.h"
+#include <linux/pmic-voter.h>
 
 #define fg_dbg(chip, reason, fmt, ...)			\
 	do {							\
@@ -372,6 +372,7 @@ struct fg_chip {
 	bool			esr_flt_cold_temp_en;
 	bool			bsoc_delta_irq_en;
 	bool			slope_limit_en;
+	bool			use_ima_single_mode;
 	struct completion	soc_update;
 	struct completion	soc_ready;
 	struct delayed_work	profile_load_work;

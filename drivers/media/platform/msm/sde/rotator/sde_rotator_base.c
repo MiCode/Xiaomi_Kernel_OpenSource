@@ -477,6 +477,7 @@ static int sde_mdp_parse_dt_misc(struct platform_device *pdev,
 {
 	int rc;
 	u32 data;
+	struct device_node *node;
 
 	rc = of_property_read_u32(pdev->dev.of_node, "qcom,mdss-rot-block-size",
 		&data);
@@ -504,6 +505,19 @@ static int sde_mdp_parse_dt_misc(struct platform_device *pdev,
 	}
 
 	mdata->mdp_base = mdata->sde_io.base + SDE_MDP_OFFSET;
+
+	node = of_get_child_by_name(pdev->dev.of_node,
+				"qcom,sde-reg-bus");
+	if (node) {
+		mdata->reg_bus_pdata = msm_bus_pdata_from_node(pdev, node);
+		if (IS_ERR_OR_NULL(mdata->reg_bus_pdata)) {
+			SDEROT_DBG("bus_pdata reg_bus failed\n");
+			mdata->reg_bus_pdata = NULL;
+		}
+	} else {
+		SDEROT_DBG("sde-reg-bus not found\n");
+		mdata->reg_bus_pdata = NULL;
+	}
 
 	return 0;
 }
@@ -553,9 +567,10 @@ static int sde_mdp_bus_scale_register(struct sde_rot_data_type *mdata)
 		if (!mdata->reg_bus_hdl) {
 			/* Continue without reg_bus scaling */
 			SDEROT_WARN("reg_bus_client register failed\n");
-		} else
+		} else {
 			SDEROT_DBG("register reg_bus_hdl=%x\n",
 					mdata->reg_bus_hdl);
+		}
 	}
 
 	return 0;

@@ -130,17 +130,15 @@ void wil_memcpy_fromio_32(void *dst, const volatile void __iomem *src,
 	u32 *d = dst;
 	const volatile u32 __iomem *s = src;
 
-	/* size_t is unsigned, if (count%4 != 0) it will wrap */
-	for (count += 4; count > 4; count -= 4)
+	for (; count >= 4; count -= 4)
 		*d++ = __raw_readl(s++);
-}
 
-void wil_memcpy_fromio_halp_vote(struct wil6210_priv *wil, void *dst,
-				 const volatile void __iomem *src, size_t count)
-{
-	wil_halp_vote(wil);
-	wil_memcpy_fromio_32(dst, src, count);
-	wil_halp_unvote(wil);
+	if (unlikely(count)) {
+		/* count can be 1..3 */
+		u32 tmp = __raw_readl(s);
+
+		memcpy(d, &tmp, count);
+	}
 }
 
 void wil_memcpy_toio_32(volatile void __iomem *dst, const void *src,
@@ -149,17 +147,16 @@ void wil_memcpy_toio_32(volatile void __iomem *dst, const void *src,
 	volatile u32 __iomem *d = dst;
 	const u32 *s = src;
 
-	for (count += 4; count > 4; count -= 4)
+	for (; count >= 4; count -= 4)
 		__raw_writel(*s++, d++);
-}
 
-void wil_memcpy_toio_halp_vote(struct wil6210_priv *wil,
-			       volatile void __iomem *dst,
-			       const void *src, size_t count)
-{
-	wil_halp_vote(wil);
-	wil_memcpy_toio_32(dst, src, count);
-	wil_halp_unvote(wil);
+	if (unlikely(count)) {
+		/* count can be 1..3 */
+		u32 tmp = 0;
+
+		memcpy(&tmp, s, count);
+		__raw_writel(tmp, d);
+	}
 }
 
 static void wil_disconnect_cid(struct wil6210_priv *wil, int cid,
@@ -996,6 +993,9 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 			wil_err(wil, "wmi_echo failed, rc %d\n", rc);
 			return rc;
 		}
+
+		if (wil->tt_data_set)
+			wmi_set_tt_cfg(wil, &wil->tt_data);
 
 		wil_collect_fw_info(wil);
 

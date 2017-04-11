@@ -53,6 +53,8 @@ Optional properties
 				bandwidth compression (ubwc)
 - qcom,mdss-has-downscale	Boolean property to indicate
 				if the hw supports downscale
+- qcom,sde-reg-bus:		Subnode to provide Bus scaling for register access for
+				rotator
 
 Example:
 	mdss_rotator: qcom,mdss_rotator {
@@ -75,4 +77,16 @@ Example:
 		vdd-supply = <&gdsc_mdss>;
 		gdsc-mmagic-mdss-supply = <&gdsc_mmagic_mdss>;
 		qcom,supply-names = "vdd", "gdsc-mmagic-mdss";
+		qcom,sde-reg-bus {
+		    /* Reg Bus Scale Settings */
+		    qcom,msm-bus,name = "mdss_rot_reg";
+		    qcom,msm-bus,num-cases = <4>;
+		    qcom,msm-bus,num-paths = <1>;
+		    qcom,msm-bus,active-only;
+		    qcom,msm-bus,vectors-KBps =
+			    <1 590 0 0>,
+			    <1 590 0 76800>,
+			    <1 590 0 160000>,
+			    <1 590 0 320000>;
+		};
 	};

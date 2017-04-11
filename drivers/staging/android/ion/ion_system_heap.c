@@ -2,7 +2,7 @@
  * drivers/staging/android/ion/ion_system_heap.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -123,9 +123,11 @@ static struct page *alloc_buffer_page(struct ion_system_heap *heap,
 		gfp_t gfp_mask = low_order_gfp_flags;
 		if (order)
 			gfp_mask = high_order_gfp_flags;
+
 		page = alloc_pages(gfp_mask, order);
-		ion_pages_sync_for_device(dev, page, PAGE_SIZE << order,
-					  DMA_BIDIRECTIONAL);
+		if (page)
+			ion_pages_sync_for_device(dev, page, PAGE_SIZE << order,
+						  DMA_BIDIRECTIONAL);
 	}
 	if (!page)
 		return 0;

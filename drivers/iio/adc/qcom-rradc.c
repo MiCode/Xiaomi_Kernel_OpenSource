@@ -38,6 +38,7 @@
 #define FG_ADC_RR_FAKE_BATT_HIGH_MSB		0x5B
 
 #define FG_ADC_RR_BATT_ID_CTRL			0x60
+#define FG_ADC_RR_BATT_ID_CTRL_CHANNEL_CONV	BIT(0)
 #define FG_ADC_RR_BATT_ID_TRIGGER		0x61
 #define FG_ADC_RR_BATT_ID_TRIGGER_CTL		BIT(0)
 #define FG_ADC_RR_BATT_ID_STS			0x62
@@ -163,11 +164,6 @@
 #define FG_ADC_RR_DIE_TEMP_SLOPE		2
 #define FG_ADC_RR_DIE_TEMP_OFFSET_MILLI_DEGC	25000
 
-#define FAB_ID_GF				0x30
-#define FAB_ID_SMIC				0x11
-#define FAB_ID_660_GF				0x0
-#define FAB_ID_660_TSMC				0x2
-#define FAB_ID_660_MX				0x3
 #define FG_ADC_RR_CHG_TEMP_GF_OFFSET_UV		1303168
 #define FG_ADC_RR_CHG_TEMP_GF_SLOPE_UV_PER_C	3784
 #define FG_ADC_RR_CHG_TEMP_SMIC_OFFSET_UV	1338433
@@ -401,11 +397,11 @@ static int rradc_get_660_fab_coeff(struct rradc_chip *chip,
 		int64_t *offset, int64_t *slope)
 {
 	switch (chip->pmic_fab_id->fab_id) {
-	case FAB_ID_660_GF:
+	case PM660_FAB_ID_GF:
 		*offset = FG_ADC_RR_CHG_TEMP_660_GF_OFFSET_UV;
 		*slope = FG_RR_CHG_TEMP_660_GF_SLOPE_UV_PER_C;
 		break;
-	case FAB_ID_660_TSMC:
+	case PM660_FAB_ID_TSMC:
 		*offset = FG_ADC_RR_CHG_TEMP_660_SMIC_OFFSET_UV;
 		*slope = FG_RR_CHG_TEMP_660_SMIC_SLOPE_UV_PER_C;
 		break;
@@ -421,11 +417,11 @@ static int rradc_get_8998_fab_coeff(struct rradc_chip *chip,
 		int64_t *offset, int64_t *slope)
 {
 	switch (chip->pmic_fab_id->fab_id) {
-	case FAB_ID_GF:
+	case PMI8998_FAB_ID_GF:
 		*offset = FG_ADC_RR_CHG_TEMP_GF_OFFSET_UV;
 		*slope = FG_ADC_RR_CHG_TEMP_GF_SLOPE_UV_PER_C;
 		break;
-	case FAB_ID_SMIC:
+	case PMI8998_FAB_ID_SMIC:
 		*offset = FG_ADC_RR_CHG_TEMP_SMIC_OFFSET_UV;
 		*slope = FG_ADC_RR_CHG_TEMP_SMIC_SLOPE_UV_PER_C;
 		break;
@@ -753,6 +749,75 @@ static int rradc_read_channel_with_continuous_mode(struct rradc_chip *chip,
 	return rc;
 }
 
+static int rradc_enable_batt_id_channel(struct rradc_chip *chip, bool enable)
+{
+	int rc = 0;
+
+	if (enable) {
+		rc = rradc_masked_write(chip, FG_ADC_RR_BATT_ID_CTRL,
+				FG_ADC_RR_BATT_ID_CTRL_CHANNEL_CONV,
+				FG_ADC_RR_BATT_ID_CTRL_CHANNEL_CONV);
+		if (rc < 0) {
+			pr_err("Enabling BATT ID channel failed:%d\n", rc);
+			return rc;
+		}
+	} else {
+		rc = rradc_masked_write(chip, FG_ADC_RR_BATT_ID_CTRL,
+				FG_ADC_RR_BATT_ID_CTRL_CHANNEL_CONV, 0);
+		if (rc < 0) {
+			pr_err("Disabling BATT ID channel failed:%d\n", rc);
+			return rc;
+		}
+	}
+
+	return rc;
+}
+
+static int rradc_do_batt_id_conversion(struct rradc_chip *chip,
+		struct rradc_chan_prop *prop, u16 *data, u8 *buf)
+{
+	int rc = 0, ret = 0;
+
+	rc = rradc_enable_batt_id_channel(chip, true);
+	if (rc < 0) {
+		pr_err("Enabling BATT ID channel failed:%d\n", rc);
+		return rc;
+	}
+
+	rc = rradc_masked_write(chip, FG_ADC_RR_BATT_ID_TRIGGER,
+				FG_ADC_RR_BATT_ID_TRIGGER_CTL,
+				FG_ADC_RR_BATT_ID_TRIGGER_CTL);
+	if (rc < 0) {
+		pr_err("BATT_ID trigger set failed:%d\n", rc);
+		ret = rc;
+		rc = rradc_enable_batt_id_channel(chip, false);
+		if (rc < 0)
+			pr_err("Disabling BATT ID channel failed:%d\n", rc);
+		return ret;
+	}
+
+	rc = rradc_read_channel_with_continuous_mode(chip, prop, buf);
+	if (rc < 0) {
+		pr_err("Error reading in continuous mode:%d\n", rc);
+		ret = rc;
+	}
+
+	rc = rradc_masked_write(chip, FG_ADC_RR_BATT_ID_TRIGGER,
+			FG_ADC_RR_BATT_ID_TRIGGER_CTL, 0);
+	if (rc < 0) {
+		pr_err("BATT_ID trigger re-set failed:%d\n", rc);
+		ret = rc;
+	}
+
+	rc = rradc_enable_batt_id_channel(chip, false);
+	if (rc < 0) {
+		pr_err("Disabling BATT ID channel failed:%d\n", rc);
+		ret = rc;
+	}
+
+	return ret;
+}
+
 static int rradc_do_conversion(struct rradc_chip *chip,
 			struct rradc_chan_prop *prop, u16 *data)
 {
@@ -765,24 +830,9 @@ static int rradc_do_conversion(struct rradc_chip *chip,
 
 	switch (prop->channel) {
 	case RR_ADC_BATT_ID:
-		rc = rradc_masked_write(chip, FG_ADC_RR_BATT_ID_TRIGGER,
-				FG_ADC_RR_BATT_ID_TRIGGER_CTL,
-				FG_ADC_RR_BATT_ID_TRIGGER_CTL);
+		rc = rradc_do_batt_id_conversion(chip, prop, data, buf);
 		if (rc < 0) {
-			pr_err("BATT_ID trigger set failed:%d\n", rc);
-			goto fail;
-		}
-
-		rc = rradc_read_channel_with_continuous_mode(chip, prop, buf);
-		if (rc < 0) {
-			pr_err("Error reading in continuous mode:%d\n", rc);
-			goto fail;
-		}
-
-		rc = rradc_masked_write(chip, FG_ADC_RR_BATT_ID_TRIGGER,
-				FG_ADC_RR_BATT_ID_TRIGGER_CTL, 0);
-		if (rc < 0) {
-			pr_err("BATT_ID trigger re-set failed:%d\n", rc);
+			pr_err("Battery ID conversion failed:%d\n", rc);
 			goto fail;
 		}
 		break;

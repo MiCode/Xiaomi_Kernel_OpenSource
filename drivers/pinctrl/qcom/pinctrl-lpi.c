@@ -408,13 +408,19 @@ static void lpi_gpio_set(struct gpio_chip *chip, unsigned pin, int value)
 static int lpi_notifier_service_cb(struct notifier_block *this,
 				   unsigned long opcode, void *ptr)
 {
+	static bool initial_boot = true;
+
 	pr_debug("%s: Service opcode 0x%lx\n", __func__, opcode);
 
 	switch (opcode) {
 	case AUDIO_NOTIFIER_SERVICE_DOWN:
+		if (initial_boot)
+			break;
 		lpi_dev_up = false;
 		break;
 	case AUDIO_NOTIFIER_SERVICE_UP:
+		if (initial_boot)
+			initial_boot = false;
 		lpi_dev_up = true;
 		break;
 	default:

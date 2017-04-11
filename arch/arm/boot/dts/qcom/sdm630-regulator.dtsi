@@ -376,6 +376,7 @@
 		pm660l_l7: regulator-l7 {
 			regulator-min-microvolt = <2700000>;
 			regulator-max-microvolt = <3125000>;
+			parent-supply = <&pm660_l10>;
 			status = "okay";
 		};
 	};

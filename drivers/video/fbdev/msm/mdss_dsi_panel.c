@@ -365,13 +365,17 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 
 			if (gpio_is_valid(ctrl_pdata->bklt_en_gpio)) {
 
-				if (ctrl_pdata->bklt_en_gpio_invert)
+				if (ctrl_pdata->bklt_en_gpio_invert) {
 					rc = gpio_direction_output(
 						ctrl_pdata->bklt_en_gpio, 0);
-				else
+					gpio_set_value(
+						(ctrl_pdata->bklt_en_gpio), 0);
+				} else {
 					rc = gpio_direction_output(
 						ctrl_pdata->bklt_en_gpio, 1);
-
+					gpio_set_value(
+						(ctrl_pdata->bklt_en_gpio), 1);
+				}
 				if (rc) {
 					pr_err("%s: unable to set dir for bklt gpio\n",
 						__func__);

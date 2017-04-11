@@ -525,16 +525,16 @@ static int __mdss_mdp_validate_pxl_extn(struct mdss_mdp_pipe *pipe)
 
 	return 0;
 }
+
 static int __mdss_mdp_validate_qseed3_cfg(struct mdss_mdp_pipe *pipe)
 {
 	int plane;
 
 	for (plane = 0; plane < MAX_PLANES; plane++) {
 		u32 hor_req_pixels, hor_fetch_pixels;
-		u32 hor_ov_fetch, vert_ov_fetch;
 		u32 vert_req_pixels, vert_fetch_pixels;
-		u32 src_w = DECIMATED_DIMENSION(pipe->src.w, pipe->horz_deci);
-		u32 src_h = DECIMATED_DIMENSION(pipe->src.h, pipe->vert_deci);
+		u32 src_w = pipe->src.w;
+		u32 src_h = pipe->src.h;
 
 		/*
 		 * plane 1 and 2 are for chroma and are same. While configuring
@@ -551,9 +551,8 @@ static int __mdss_mdp_validate_qseed3_cfg(struct mdss_mdp_pipe *pipe)
 		 */
 		if (plane == 1 && !pipe->horz_deci &&
 		    ((pipe->src_fmt->chroma_sample == MDSS_MDP_CHROMA_420) ||
-		     (pipe->src_fmt->chroma_sample == MDSS_MDP_CHROMA_H2V1))) {
+		     (pipe->src_fmt->chroma_sample == MDSS_MDP_CHROMA_H2V1)))
 			src_w >>= 1;
-		}
 
 		if (plane == 1 && !pipe->vert_deci &&
 		    ((pipe->src_fmt->chroma_sample == MDSS_MDP_CHROMA_420) ||
@@ -562,39 +561,37 @@ static int __mdss_mdp_validate_qseed3_cfg(struct mdss_mdp_pipe *pipe)
 
 		hor_req_pixels = pipe->scaler.num_ext_pxls_left[plane];
 
-		hor_fetch_pixels = src_w +
-			(pipe->scaler.left_ftch[plane] >> pipe->horz_deci) +
-			pipe->scaler.left_rpt[plane] +
-			(pipe->scaler.right_ftch[plane] >> pipe->horz_deci) +
-			pipe->scaler.right_rpt[plane];
-
-		hor_ov_fetch = src_w +
-			(pipe->scaler.left_ftch[plane] >> pipe->horz_deci) +
-			(pipe->scaler.right_ftch[plane] >> pipe->horz_deci);
+		/**
+		 * libscaler provides the fetch values before decimation
+		 * and the rpt values are always 0, since qseed3 block
+		 * internally does the repeat.
+		 */
+		hor_fetch_pixels = DECIMATED_DIMENSION(src_w +
+				(int8_t)(pipe->scaler.left_ftch[plane]
+					& 0xFF) +
+				(int8_t)(pipe->scaler.right_ftch[plane]
+					& 0xFF),
+				pipe->horz_deci);
 
 		vert_req_pixels = pipe->scaler.num_ext_pxls_top[plane];
 
-		vert_fetch_pixels = src_h +
-			(pipe->scaler.top_ftch[plane] >> pipe->vert_deci) +
-			pipe->scaler.top_rpt[plane] +
-			(pipe->scaler.btm_ftch[plane] >> pipe->vert_deci) +
-			pipe->scaler.btm_rpt[plane];
-
-		vert_ov_fetch = src_h +
-			(pipe->scaler.top_ftch[plane] >> pipe->vert_deci) +
-			(pipe->scaler.btm_ftch[plane] >> pipe->vert_deci);
+		vert_fetch_pixels = DECIMATED_DIMENSION(src_h +
+				(int8_t)(pipe->scaler.top_ftch[plane]
+					& 0xFF) +
+				(int8_t)(pipe->scaler.btm_ftch[plane]
+				& 0xFF),
+			pipe->vert_deci);
 
 		if ((hor_req_pixels != hor_fetch_pixels) ||
-			(hor_ov_fetch > pipe->img_width) ||
+			(hor_fetch_pixels > pipe->img_width) ||
 			(vert_req_pixels != vert_fetch_pixels) ||
-			(vert_ov_fetch > pipe->img_height)) {
-			pr_err("err: plane=%d h_req:%d h_fetch:%d v_req:%d v_fetch:%d src_img[%d %d] ov_fetch[%d %d]\n",
+			(vert_fetch_pixels > pipe->img_height)) {
+			pr_err("err: plane=%d h_req:%d h_fetch:%d v_req:%d v_fetch:%d src_img[%d %d]\n",
 
 					plane,
 					hor_req_pixels, hor_fetch_pixels,
 					vert_req_pixels, vert_fetch_pixels,
-					pipe->img_width, pipe->img_height,
-					hor_ov_fetch, vert_ov_fetch);
+					pipe->img_width, pipe->img_height);
 			pipe->scaler.enable = 0;
 			return -EINVAL;
 		}

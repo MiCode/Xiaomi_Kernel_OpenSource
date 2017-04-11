@@ -196,8 +196,10 @@
 	};
 };
 
-&usb3 {
+&ssphy {
 	fpc-redrive-supply = <&pm660_l11>;
+	qcom,redrive-voltage-level = <0 1800000 1950000>;
+	qcom,redrive-load = <105000>;
 };
 
 &soc {

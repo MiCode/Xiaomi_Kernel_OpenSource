@@ -24,7 +24,7 @@
 #include <linux/printk.h>
 #include <linux/pm_wakeup.h>
 #include <linux/slab.h>
-#include "pmic-voter.h"
+#include <linux/pmic-voter.h>
 
 #define DRV_MAJOR_VERSION	1
 #define DRV_MINOR_VERSION	0
@@ -713,9 +713,11 @@ static void handle_settled_icl_change(struct pl_data *chip)
 	union power_supply_propval pval = {0, };
 	int rc;
 
-	if (!get_effective_result(chip->pl_disable_votable)
-		&& (chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN
-			|| chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT)) {
+	if (get_effective_result(chip->pl_disable_votable))
+		return;
+
+	if (chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN
+			|| chip->pl_mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT) {
 		/*
 		 * call aicl split only when USBIN_USBIN and enabled
 		 * and if aicl changed

@@ -58,10 +58,16 @@ struct hdmi_edid_override_data {
 	int vic;
 };
 
+enum edid_sink_mode {
+	SINK_MODE_DVI,
+	SINK_MODE_HDMI
+};
+
 int hdmi_edid_parser(void *edid_ctrl);
 u32 hdmi_edid_get_raw_data(void *edid_ctrl, u8 *buf, u32 size);
 u8 hdmi_edid_get_sink_scaninfo(void *edid_ctrl, u32 resolution);
 bool hdmi_edid_is_dvi_mode(void *input);
+u32 hdmi_edid_get_sink_mode(void *edid_ctrl, u32 mode);
 bool hdmi_edid_sink_scramble_override(void *input);
 bool hdmi_edid_get_sink_scrambler_support(void *input);
 bool hdmi_edid_get_scdc_support(void *input);
@@ -79,5 +85,7 @@ void hdmi_edid_get_hdr_data(void *edid_ctrl,
 		struct hdmi_edid_hdr_data **hdr_data);
 void hdmi_edid_config_override(void *input, bool enable,
 		struct hdmi_edid_override_data *data);
+void hdmi_edid_set_max_pclk_rate(void *input, u32 max_pclk_khz);
+bool hdmi_edid_is_audio_supported(void *input);
 
 #endif /* __HDMI_EDID_H__ */

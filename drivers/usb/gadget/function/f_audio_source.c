@@ -989,6 +989,7 @@ static ssize_t audio_source_pcm_show(struct device *dev,
 
 struct device *create_function_device(char *name);
 
+#define AUDIO_SOURCE_DEV_NAME_LENGTH 20
 static struct usb_function_instance *audio_source_alloc_inst(void)
 {
 	struct audio_source_instance *fi_audio;
@@ -997,6 +998,8 @@ static struct usb_function_instance *audio_source_alloc_inst(void)
 	struct device *dev;
 	void *err_ptr;
 	int err = 0;
+	char device_name[AUDIO_SOURCE_DEV_NAME_LENGTH];
+	static u8 count;
 
 	fi_audio = kzalloc(sizeof(*fi_audio), GFP_KERNEL);
 	if (!fi_audio)
@@ -1014,7 +1017,11 @@ static struct usb_function_instance *audio_source_alloc_inst(void)
 
 	config_group_init_type_name(&fi_audio->func_inst.group, "",
 						&audio_source_func_type);
-	dev = create_function_device("f_audio_source");
+
+	snprintf(device_name, AUDIO_SOURCE_DEV_NAME_LENGTH,
+					"f_audio_source%d", count++);
+
+	dev = create_function_device(device_name);
 
 	if (IS_ERR(dev)) {
 		err_ptr = dev;

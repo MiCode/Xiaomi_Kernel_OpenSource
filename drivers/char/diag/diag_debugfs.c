@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,6 +72,7 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		"Uses Device Tree: %d\n"
 		"Apps Supports Separate CMDRSP: %d\n"
 		"Apps Supports HDLC Encoding: %d\n"
+		"Apps Supports Header Untagging: %d\n"
 		"Apps Supports Sockets: %d\n"
 		"Logging Mode: %d\n"
 		"RSP Buffer is Busy: %d\n"
@@ -86,6 +87,7 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		driver->use_device_tree,
 		driver->supports_separate_cmdrsp,
 		driver->supports_apps_hdlc_encoding,
+		driver->supports_apps_header_untagging,
 		driver->supports_sockets,
 		driver->logging_mode,
 		driver->rsp_buf_busy,
@@ -97,18 +99,19 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 
 	for (i = 0; i < NUM_PERIPHERALS; i++) {
 		ret += scnprintf(buf+ret, buf_size-ret,
-			"p: %s Feature: %02x %02x |%c%c%c%c%c%c%c%c|\n",
+			"p: %s Feature: %02x %02x |%c%c%c%c%c%c%c%c%c|\n",
 			PERIPHERAL_STRING(i),
 			driver->feature[i].feature_mask[0],
 			driver->feature[i].feature_mask[1],
 			driver->feature[i].rcvd_feature_mask ? 'F':'f',
+			driver->feature[i].peripheral_buffering ? 'B':'b',
 			driver->feature[i].separate_cmd_rsp ? 'C':'c',
 			driver->feature[i].encode_hdlc ? 'H':'h',
-			driver->feature[i].peripheral_buffering ? 'B':'b',
 			driver->feature[i].mask_centralization ? 'M':'m',
 			driver->feature[i].stm_support ? 'Q':'q',
 			driver->feature[i].sockets_enabled ? 'S':'s',
-			driver->feature[i].sent_feature_mask ? 'T':'t');
+			driver->feature[i].sent_feature_mask ? 'T':'t',
+			driver->feature[i].untag_header ? 'U':'u');
 	}
 
 #ifdef CONFIG_DIAG_OVER_USB

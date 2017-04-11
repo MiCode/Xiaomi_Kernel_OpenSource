@@ -1222,6 +1222,15 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 		goto end;
 	}
 
+	/* scaling is not allowed for solid_fill layers */
+	if ((pipe->flags & MDP_SOLID_FILL) &&
+		((pipe->src.w != pipe->dst.w) ||
+			(pipe->src.h != pipe->dst.h))) {
+		pr_err("solid fill pipe:%d cannot have scaling\n", pipe->num);
+		ret = -EINVAL;
+		goto end;
+	}
+
 	/*
 	 * unstage the pipe if it's current z_order does not match with new
 	 * z_order because client may only call the validate.
@@ -2595,9 +2604,10 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 	}
 
 	ds_data = commit->dest_scaler;
-	if (test_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map) &&
-			ds_data && (ds_data->flags & MDP_DESTSCALER_ENABLE) &&
-			commit->dest_scaler_cnt) {
+
+	if (test_bit(MDSS_CAPS_DEST_SCALER, mdata->mdss_caps_map)
+		&& ds_data && commit->dest_scaler_cnt
+		&& (ds_data->flags & MDP_DESTSCALER_ENABLE)) {
 
 		/*
 		 * Find out which DS block to use based on DS commit info

@@ -95,6 +95,7 @@
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_tof_active>;
 		pinctrl-1 = <&cam_tof_suspend>;
+		stm,irq-gpio = <&tlmm 26 0x2008>;
 		gpios = <&tlmm 126 0>;
 		qcom,gpio-req-tbl-num = <0>;
 		qcom,gpio-req-tbl-flags = <0>;

@@ -1587,6 +1587,7 @@ int diagfwd_init(void)
 		driver->real_time_mode[i] = 1;
 	driver->supports_separate_cmdrsp = 1;
 	driver->supports_apps_hdlc_encoding = 1;
+	driver->supports_apps_header_untagging = 1;
 	mutex_init(&driver->diag_hdlc_mutex);
 	mutex_init(&driver->diag_cntl_mutex);
 	mutex_init(&driver->mode_lock);
@@ -1616,6 +1617,8 @@ int diagfwd_init(void)
 		driver->feature[i].rcvd_feature_mask = 0;
 		driver->feature[i].peripheral_buffering = 0;
 		driver->feature[i].encode_hdlc = 0;
+		driver->feature[i].untag_header =
+			DISABLE_PKT_HEADER_UNTAGGING;
 		driver->feature[i].mask_centralization = 0;
 		driver->feature[i].log_on_demand = 0;
 		driver->feature[i].sent_feature_mask = 0;

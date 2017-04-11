@@ -1609,6 +1609,9 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		snd_soc_dapm_ignore_suspend(dapm, "ANC HPHR");
 		snd_soc_dapm_ignore_suspend(dapm, "ANC LINEOUT1");
 		snd_soc_dapm_ignore_suspend(dapm, "ANC LINEOUT2");
+	} else {
+		snd_soc_dapm_ignore_suspend(dapm, "MAD_CPE_OUT1");
+		snd_soc_dapm_ignore_suspend(dapm, "MAD_CPE_OUT2");
 	}
 
 	snd_soc_dapm_sync(dapm);

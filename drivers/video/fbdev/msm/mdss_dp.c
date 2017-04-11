@@ -1013,9 +1013,10 @@ static int dp_get_cable_status(struct platform_device *pdev, u32 vote)
 	return hpd;
 }
 
-static bool mdss_dp_is_dvi_mode(struct mdss_dp_drv_pdata *dp)
+static bool mdss_dp_sink_audio_supp(struct mdss_dp_drv_pdata *dp)
 {
-	return hdmi_edid_is_dvi_mode(dp->panel_data.panel_info.edid_data);
+	return hdmi_edid_is_audio_supported(
+		dp->panel_data.panel_info.edid_data);
 }
 
 static int dp_audio_info_setup(struct platform_device *pdev,
@@ -1290,6 +1291,23 @@ exit:
 	return ret;
 }
 
+static u32 mdss_dp_calc_max_pclk_rate(struct mdss_dp_drv_pdata *dp)
+{
+	u32 bpp = mdss_dp_get_bpp(dp);
+	u32 max_link_rate_khz = dp->dpcd.max_link_rate *
+		(DP_LINK_RATE_MULTIPLIER / 100);
+	u32 max_data_rate_khz = dp->dpcd.max_lane_count *
+				max_link_rate_khz * 8 / 10;
+	u32 max_pclk_rate_khz = max_data_rate_khz / bpp;
+
+	pr_debug("bpp=%d, max_lane_cnt=%d, max_link_rate=%dKHz\n", bpp,
+		dp->dpcd.max_lane_count, max_link_rate_khz);
+	pr_debug("max_data_rate=%dKHz, max_pclk_rate=%dKHz\n",
+		max_data_rate_khz, max_pclk_rate_khz);
+
+	return max_pclk_rate_khz;
+}
+
 static void mdss_dp_set_clock_rate(struct mdss_dp_drv_pdata *dp,
 		char *name, u32 rate)
 {
@@ -1559,8 +1577,14 @@ int mdss_dp_on_hpd(struct mdss_dp_drv_pdata *dp_drv)
 link_training:
 	dp_drv->power_on = true;
 
-	while (-EAGAIN == mdss_dp_setup_main_link(dp_drv, true))
+	while (-EAGAIN == mdss_dp_setup_main_link(dp_drv, true)) {
 		pr_debug("MAIN LINK TRAINING RETRY\n");
+		mdss_dp_mainlink_ctrl(&dp_drv->ctrl_io, false);
+		/* Disable DP mainlink clocks */
+		mdss_dp_disable_mainlink_clocks(dp_drv);
+		/* Enable DP mainlink clocks with reduced link rate */
+		mdss_dp_enable_mainlink_clocks(dp_drv);
+	}
 
 	dp_drv->cont_splash = 0;
 
@@ -1689,14 +1713,17 @@ static int mdss_dp_send_audio_notification(
 		goto end;
 	}
 
-	if (!mdss_dp_is_dvi_mode(dp) || dp->audio_test_req) {
+	if (mdss_dp_sink_audio_supp(dp) || dp->audio_test_req) {
 		dp->audio_test_req = false;
 
+		pr_debug("sending audio notification\n");
 		flags |= MSM_EXT_DISP_HPD_AUDIO;
 
 		if (dp->ext_audio_data.intf_ops.hpd)
 			ret = dp->ext_audio_data.intf_ops.hpd(dp->ext_pdev,
 					dp->ext_audio_data.type, val, flags);
+	} else {
+		pr_debug("sink does not support audio\n");
 	}
 
 end:
@@ -1771,8 +1798,6 @@ static int mdss_dp_edid_init(struct mdss_panel_data *pdata)
 	/* initialize EDID buffer pointers */
 	dp_drv->edid_buf = edid_init_data.buf;
 	dp_drv->edid_buf_size = edid_init_data.buf_size;
-
-	mdss_dp_set_default_resolution(dp_drv);
 
 	return 0;
 }
@@ -1981,35 +2006,51 @@ end:
 static int mdss_dp_process_hpd_high(struct mdss_dp_drv_pdata *dp)
 {
 	int ret;
+	u32 max_pclk_khz;
 
 	if (dp->sink_info_read)
 		return 0;
 
 	pr_debug("start\n");
 
-	mdss_dp_dpcd_cap_read(dp);
+	ret = mdss_dp_dpcd_cap_read(dp);
+	if (ret || !mdss_dp_aux_is_link_rate_valid(dp->dpcd.max_link_rate) ||
+		!mdss_dp_aux_is_lane_count_valid(dp->dpcd.max_lane_count)) {
+		/*
+		 * If there is an error in parsing DPCD or if DPCD reports
+		 * unsupported link parameters then set the default link
+		 * parameters and continue to read EDID.
+		 */
+		pr_err("dpcd read failed, set failsafe parameters\n");
+		mdss_dp_set_default_link_parameters(dp);
+	}
 
 	ret = mdss_dp_edid_read(dp);
 	if (ret) {
-		pr_debug("edid read error, setting default resolution\n");
-
-		mdss_dp_set_default_resolution(dp);
-		mdss_dp_set_default_link_parameters(dp);
+		pr_err("edid read error, setting default resolution\n");
 		goto notify;
 	}
+
+	max_pclk_khz = mdss_dp_calc_max_pclk_rate(dp);
+	hdmi_edid_set_max_pclk_rate(dp->panel_data.panel_info.edid_data,
+		min(dp->max_pclk_khz, max_pclk_khz));
 
 	ret = hdmi_edid_parser(dp->panel_data.panel_info.edid_data);
 	if (ret) {
 		pr_err("edid parse failed, setting default resolution\n");
-
-		mdss_dp_set_default_resolution(dp);
-		mdss_dp_set_default_link_parameters(dp);
 		goto notify;
 	}
 
 	dp->sink_info_read = true;
 
 notify:
+	if (ret) {
+		/* set failsafe parameters */
+		pr_info("falling back to failsafe mode\n");
+		mdss_dp_set_default_resolution(dp);
+		mdss_dp_set_default_link_parameters(dp);
+	}
+
 	/* Check if there is a PHY_TEST_PATTERN request when we get HPD high.
 	 * Update the DP driver with the test parameters including link rate,
 	 * lane count, voltage level, and pre-emphasis level. Do not notify

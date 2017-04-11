@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,6 +66,7 @@
 #define DIAG_IOCTL_PERIPHERAL_BUF_DRAIN		36
 #define DIAG_IOCTL_REGISTER_CALLBACK	37
 #define DIAG_IOCTL_HDLC_TOGGLE	38
+#define DIAG_IOCTL_QUERY_PD_LOGGING	39
 
 /* PC Tools IDs */
 #define APQ8060_TOOLS_ID	4062

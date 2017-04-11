@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1465,34 +1465,41 @@ void ipa_install_dflt_flt_rules(u32 ipa_ep_idx)
 
 	mutex_lock(&ipa_ctx->lock);
 	tbl = &ipa_ctx->flt_tbl[ipa_ep_idx][IPA_IP_v4];
-	tbl->sticky_rear = true;
 	rule.action = IPA_PASS_TO_EXCEPTION;
-	__ipa_add_flt_rule(tbl, IPA_IP_v4, &rule, false,
+	__ipa_add_flt_rule(tbl, IPA_IP_v4, &rule, true,
 			&ep->dflt_flt4_rule_hdl);
 	ipa_ctx->ctrl->ipa_commit_flt(IPA_IP_v4);
+	tbl->sticky_rear = true;
 
 	tbl = &ipa_ctx->flt_tbl[ipa_ep_idx][IPA_IP_v6];
-	tbl->sticky_rear = true;
 	rule.action = IPA_PASS_TO_EXCEPTION;
-	__ipa_add_flt_rule(tbl, IPA_IP_v6, &rule, false,
+	__ipa_add_flt_rule(tbl, IPA_IP_v6, &rule, true,
 			&ep->dflt_flt6_rule_hdl);
 	ipa_ctx->ctrl->ipa_commit_flt(IPA_IP_v6);
+	tbl->sticky_rear = true;
 	mutex_unlock(&ipa_ctx->lock);
 }
 
 void ipa_delete_dflt_flt_rules(u32 ipa_ep_idx)
 {
+	struct ipa_flt_tbl *tbl;
 	struct ipa_ep_context *ep = &ipa_ctx->ep[ipa_ep_idx];
 
 	mutex_lock(&ipa_ctx->lock);
 	if (ep->dflt_flt4_rule_hdl) {
+		tbl = &ipa_ctx->flt_tbl[ipa_ep_idx][IPA_IP_v4];
 		__ipa_del_flt_rule(ep->dflt_flt4_rule_hdl);
 		ipa_ctx->ctrl->ipa_commit_flt(IPA_IP_v4);
+		/* Reset the sticky flag. */
+		tbl->sticky_rear = false;
 		ep->dflt_flt4_rule_hdl = 0;
 	}
 	if (ep->dflt_flt6_rule_hdl) {
+		tbl = &ipa_ctx->flt_tbl[ipa_ep_idx][IPA_IP_v6];
 		__ipa_del_flt_rule(ep->dflt_flt6_rule_hdl);
 		ipa_ctx->ctrl->ipa_commit_flt(IPA_IP_v6);
+		/* Reset the sticky flag. */
+		tbl->sticky_rear = false;
 		ep->dflt_flt6_rule_hdl = 0;
 	}
 	mutex_unlock(&ipa_ctx->lock);

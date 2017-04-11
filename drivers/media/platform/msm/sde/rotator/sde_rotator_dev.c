@@ -1924,7 +1924,12 @@ static long sde_rotator_private_ioctl(struct file *file, void *fh,
 static long sde_rotator_compat_ioctl32(struct file *file,
 	unsigned int cmd, unsigned long arg)
 {
+	struct video_device *vdev = video_devdata(file);
+	struct sde_rotator_ctx *ctx =
+			sde_rotator_ctx_from_fh(file->private_data);
 	long ret;
+
+	mutex_lock(vdev->lock);
 
 	switch (cmd) {
 	case VIDIOC_S_SDE_ROTATOR_FENCE:
@@ -1934,14 +1939,14 @@ static long sde_rotator_compat_ioctl32(struct file *file,
 
 		if (copy_from_user(&fence, (void __user *)arg,
 				sizeof(struct msm_sde_rotator_fence)))
-			return -EFAULT;
+			goto ioctl32_error;
 
 		ret = sde_rotator_private_ioctl(file, file->private_data,
 			0, cmd, (void *)&fence);
 
 		if (copy_to_user((void __user *)arg, &fence,
 				sizeof(struct msm_sde_rotator_fence)))
-			return -EFAULT;
+			goto ioctl32_error;
 
 		break;
 	}
@@ -1952,24 +1957,31 @@ static long sde_rotator_compat_ioctl32(struct file *file,
 
 		if (copy_from_user(&comp_ratio, (void __user *)arg,
 				sizeof(struct msm_sde_rotator_comp_ratio)))
-			return -EFAULT;
+			goto ioctl32_error;
 
 		ret = sde_rotator_private_ioctl(file, file->private_data,
 			0, cmd, (void *)&comp_ratio);
 
 		if (copy_to_user((void __user *)arg, &comp_ratio,
 				sizeof(struct msm_sde_rotator_comp_ratio)))
-			return -EFAULT;
+			goto ioctl32_error;
 
 		break;
 	}
 	default:
+		SDEDEV_ERR(ctx->rot_dev->dev, "invalid ioctl32 type:%x\n", cmd);
 		ret = -ENOIOCTLCMD;
 		break;
 
 	}
 
+	mutex_unlock(vdev->lock);
 	return ret;
+
+ioctl32_error:
+	mutex_unlock(vdev->lock);
+	SDEDEV_ERR(ctx->rot_dev->dev, "error handling ioctl32 cmd:%x\n", cmd);
+	return -EFAULT;
 }
 #endif
 
