@@ -25,13 +25,19 @@
 	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>;
 };
 
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
 &mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_rm67195_amoled_fhd_cmd>;
 	oledb-supply = <&pm660a_oledb>;
 	lab-supply = <&lab_regulator>;
 	ibb-supply = <&ibb_regulator>;
 };
 
 &mdss_dsi1 {
+	status = "disabled";
 	oledb-supply = <&pm660a_oledb>;
 	lab-supply = <&lab_regulator>;
 	ibb-supply = <&ibb_regulator>;
