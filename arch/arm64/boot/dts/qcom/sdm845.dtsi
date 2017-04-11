@@ -21,6 +21,7 @@
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/soc/qcom,tcs-mbox.h>
+#include <dt-bindings/spmi/spmi.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM845";
@@ -523,6 +524,57 @@
 		interrupt-controller;
 		#interrupt-cells = <4>;
 		cell-index = <0>;
+	};
+
+	spmi_debug_bus: qcom,spmi-debug@6b22000 {
+		compatible = "qcom,spmi-pmic-arb-debug";
+		reg = <0x6b22000 0x60>, <0x7820A8 4>;
+		reg-names = "core", "fuse";
+		qcom,fuse-disable-bit = <12>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		qcom,pm8998-debug@0 {
+			compatible = "qcom,spmi-pmic";
+			reg = <0x0 SPMI_USID>;
+			#address-cells = <2>;
+			#size-cells = <0>;
+		};
+
+		qcom,pm8998-debug@1 {
+			compatible = "qcom,spmi-pmic";
+			reg = <0x1 SPMI_USID>;
+			#address-cells = <2>;
+			#size-cells = <0>;
+		};
+
+		qcom,pmi8998-debug@2 {
+			compatible = "qcom,spmi-pmic";
+			reg = <0x2 SPMI_USID>;
+			#address-cells = <2>;
+			#size-cells = <0>;
+		};
+
+		qcom,pmi8998-debug@3 {
+			compatible = "qcom,spmi-pmic";
+			reg = <0x3 SPMI_USID>;
+			#address-cells = <2>;
+			#size-cells = <0>;
+		};
+
+		qcom,pm8005-debug@4 {
+			compatible = "qcom,spmi-pmic";
+			reg = <0x4 SPMI_USID>;
+			#address-cells = <2>;
+			#size-cells = <0>;
+		};
+
+		qcom,pm8005-debug@5 {
+			compatible = "qcom,spmi-pmic";
+			reg = <0x5 SPMI_USID>;
+			#address-cells = <2>;
+			#size-cells = <0>;
+		};
 	};
 
 	msm_cpufreq: qcom,msm-cpufreq {
