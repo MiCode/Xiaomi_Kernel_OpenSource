@@ -515,7 +515,8 @@ struct mdp_input_layer32 {
 	struct mdp_layer_buffer	buffer;
 	compat_caddr_t		pp_info;
 	int			error_code;
-	uint32_t		reserved[6];
+	uint32_t		rect_num;
+	uint32_t		reserved[5];
 };
 
 struct mdp_output_layer32 {
