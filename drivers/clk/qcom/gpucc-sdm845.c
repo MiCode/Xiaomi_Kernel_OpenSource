@@ -80,8 +80,8 @@ static const char * const gpu_cc_parent_names_0[] = {
 	"bi_tcxo",
 	"gpu_cc_pll0",
 	"gpu_cc_pll1",
-	"gpll0",
-	"gpll0_out_even",
+	"gcc_gpu_gpll0_clk_src",
+	"gcc_gpu_gpll0_div_clk_src",
 	"core_bi_pll_test_se",
 };
 
@@ -101,7 +101,7 @@ static const char * const gpu_cc_parent_names_1[] = {
 	"gpu_cc_pll0_out_odd",
 	"gpu_cc_pll1_out_even",
 	"gpu_cc_pll1_out_odd",
-	"gpll0",
+	"gcc_gpu_gpll0_clk_src",
 	"core_bi_pll_test_se",
 };
 
@@ -114,8 +114,8 @@ static const struct parent_map gpu_cc_parent_map_2[] = {
 
 static const char * const gpu_cc_parent_names_2[] = {
 	"bi_tcxo",
-	"gpll0",
-	"gpll0",
+	"gcc_gpu_gpll0_clk_src",
+	"gcc_gpu_gpll0_div_clk_src",
 	"core_bi_pll_test_se",
 };
 
