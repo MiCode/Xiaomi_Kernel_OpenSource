@@ -16,5 +16,6 @@
 		compatible = "qcom,cnss_sdio";
 		qcom,wlan-ramdump-dynamic = <0x200000>;
 		subsys-name = "AR6320";
+		qcom,cap-tsf-gpio = <&tlmm 126 1>;
 	};
 };
