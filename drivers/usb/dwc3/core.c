@@ -1064,56 +1064,17 @@ EXPORT_SYMBOL(dwc3_notify_event);
 
 int dwc3_core_pre_init(struct dwc3 *dwc)
 {
-	int ret;
+	int ret = 0;
 
 	dwc3_cache_hwparams(dwc);
-
-	ret = dwc3_phy_setup(dwc);
-	if (ret)
-		goto err0;
-
 	if (!dwc->ev_buf) {
 		ret = dwc3_alloc_event_buffers(dwc, DWC3_EVENT_BUFFERS_SIZE);
 		if (ret) {
 			dev_err(dwc->dev, "failed to allocate event buffers\n");
 			ret = -ENOMEM;
-			goto err1;
 		}
 	}
 
-	ret = dwc3_core_init(dwc);
-	if (ret) {
-		dev_err(dwc->dev, "failed to initialize core\n");
-		goto err2;
-	}
-
-	ret = phy_power_on(dwc->usb2_generic_phy);
-	if (ret < 0)
-		goto err3;
-
-	ret = phy_power_on(dwc->usb3_generic_phy);
-	if (ret < 0)
-		goto err4;
-
-	ret = dwc3_event_buffers_setup(dwc);
-	if (ret) {
-		dev_err(dwc->dev, "failed to setup event buffers\n");
-		goto err5;
-	}
-
-	return ret;
-
-err5:
-	phy_power_off(dwc->usb3_generic_phy);
-err4:
-	phy_power_off(dwc->usb2_generic_phy);
-err3:
-	dwc3_core_exit(dwc);
-err2:
-	dwc3_free_event_buffers(dwc);
-err1:
-	dwc3_ulpi_exit(dwc);
-err0:
 	return ret;
 }
 
