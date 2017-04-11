@@ -575,6 +575,12 @@ int cnss_wlfw_wlan_mode_send_sync(struct cnss_plat_data *plat_priv,
 	cnss_pr_dbg("Sending mode message, state: 0x%lx, mode: %d\n",
 		    plat_priv->driver_state, mode);
 
+	if (mode == QMI_WLFW_OFF_V01 &&
+	    test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Recovery is in progress, ignore mode off request.\n");
+		return 0;
+	}
+
 	memset(&req, 0, sizeof(req));
 	memset(&resp, 0, sizeof(resp));
 
