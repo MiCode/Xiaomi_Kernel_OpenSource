@@ -171,6 +171,7 @@ struct kgsl_functable {
 	void (*regulator_disable_poll)(struct kgsl_device *device);
 	void (*gpu_model)(struct kgsl_device *device, char *str,
 		size_t bufsz);
+	void (*stop_fault_timer)(struct kgsl_device *device);
 };
 
 struct kgsl_ioctl {

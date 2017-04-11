@@ -141,6 +141,8 @@ struct bam_ch_info {
 
 	struct usb_request	*rx_req;
 	struct usb_request	*tx_req;
+	bool			tx_req_dequeued;
+	bool			rx_req_dequeued;
 
 	u32			src_pipe_idx;
 	u32			dst_pipe_idx;
@@ -935,6 +937,7 @@ static void gbam_stop_endless_rx(struct gbam_port *port)
 	}
 
 	ep = port->port_usb->out;
+	d->rx_req_dequeued = true;
 	spin_unlock_irqrestore(&port->port_lock_ul, flags);
 	pr_debug("%s: dequeue\n", __func__);
 	status = usb_ep_dequeue(ep, d->rx_req);
@@ -957,6 +960,7 @@ static void gbam_stop_endless_tx(struct gbam_port *port)
 	}
 
 	ep = port->port_usb->in;
+	d->tx_req_dequeued = true;
 	spin_unlock_irqrestore(&port->port_lock_dl, flags);
 	pr_debug("%s: dequeue\n", __func__);
 	status = usb_ep_dequeue(ep, d->tx_req);
@@ -1667,17 +1671,37 @@ static void gbam2bam_resume_work(struct work_struct *w)
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 		if (gadget_is_dwc3(gadget) &&
-			msm_dwc3_reset_ep_after_lpm(gadget)) {
-				configure_data_fifo(d->usb_bam_type,
-					d->src_connection_idx,
-					port->port_usb->out, d->src_pipe_type);
+		    msm_dwc3_reset_ep_after_lpm(gadget)) {
+			if (d->tx_req_dequeued) {
+				msm_ep_unconfig(port->port_usb->in);
 				configure_data_fifo(d->usb_bam_type,
 					d->dst_connection_idx,
 					port->port_usb->in, d->dst_pipe_type);
-				spin_unlock_irqrestore(&port->port_lock, flags);
+			}
+			if (d->rx_req_dequeued) {
+				msm_ep_unconfig(port->port_usb->out);
+				configure_data_fifo(d->usb_bam_type,
+					d->src_connection_idx,
+					port->port_usb->out, d->src_pipe_type);
+			}
+
+			spin_unlock_irqrestore(&port->port_lock, flags);
+			if (d->tx_req_dequeued)
 				msm_dwc3_reset_dbm_ep(port->port_usb->in);
-				spin_lock_irqsave(&port->port_lock, flags);
+			if (d->rx_req_dequeued)
+				msm_dwc3_reset_dbm_ep(port->port_usb->out);
+			spin_lock_irqsave(&port->port_lock, flags);
+			if (port->port_usb) {
+				if (d->tx_req_dequeued)
+					msm_ep_config(port->port_usb->in,
+							d->tx_req);
+				if (d->rx_req_dequeued)
+					msm_ep_config(port->port_usb->out,
+							d->rx_req);
+			}
 		}
+		d->tx_req_dequeued = false;
+		d->rx_req_dequeued = false;
 		usb_bam_resume(d->usb_bam_type, &d->ipa_params);
 	}
 
