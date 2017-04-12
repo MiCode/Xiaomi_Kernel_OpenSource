@@ -256,6 +256,9 @@
 				"axi_clk", "memnoc_clk";
 
 		qcom,gmu-pwrlevels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
 			compatible = "qcom,gmu-pwrlevels";
 
 			qcom,gmu-pwrlevel@0 {
