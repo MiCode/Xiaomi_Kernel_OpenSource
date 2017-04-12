@@ -1702,6 +1702,7 @@ static void update_history(struct rq *rq, struct task_struct *p,
 						      pred_demand);
 
 	p->ravg.demand = demand;
+	p->ravg.coloc_demand = div64_u64(sum, sched_ravg_hist_size);
 	p->ravg.pred_demand = pred_demand;
 
 	if (__task_in_cum_window_demand(rq, p))
@@ -1980,6 +1981,7 @@ void init_new_task_load(struct task_struct *p, bool idle_task)
 			  (u64)sched_ravg_window, 100);
 
 	p->ravg.demand = init_load_windows;
+	p->ravg.coloc_demand = init_load_windows;
 	p->ravg.pred_demand = 0;
 	for (i = 0; i < RAVG_HIST_SIZE_MAX; ++i)
 		p->ravg.sum_history[i] = init_load_windows;
@@ -2503,7 +2505,7 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 		    (sched_ravg_window * sched_ravg_hist_size))
 			continue;
 
-		combined_demand += p->ravg.demand;
+		combined_demand += p->ravg.coloc_demand;
 
 	}
 
