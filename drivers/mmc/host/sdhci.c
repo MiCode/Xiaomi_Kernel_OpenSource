@@ -30,6 +30,7 @@
 #include <linux/mmc/card.h>
 #include <linux/mmc/sdio.h>
 #include <linux/mmc/slot-gpio.h>
+#include <linux/mmc/sdio.h>
 
 #include "sdhci.h"
 
@@ -1650,6 +1651,34 @@ static bool sdhci_check_state(struct sdhci_host *host)
 		return false;
 }
 
+static bool sdhci_check_auto_tuning(struct sdhci_host *host,
+				  struct mmc_command *cmd)
+{
+	if (((cmd->opcode != MMC_READ_SINGLE_BLOCK) &&
+	     (cmd->opcode != MMC_READ_MULTIPLE_BLOCK) &&
+	     (cmd->opcode != SD_IO_RW_EXTENDED)) || (host->clock < 100000000))
+		return false;
+	else if (host->mmc->ios.timing == MMC_TIMING_MMC_HS200 ||
+		 host->mmc->ios.timing == MMC_TIMING_UHS_SDR104)
+		return true;
+	else
+		return false;
+}
+
+static int sdhci_get_tuning_cmd(struct sdhci_host *host)
+{
+	if (!host->mmc || !host->mmc->card)
+		return 0;
+	/*
+	 * If we are here, all conditions have already been true
+	 * and the card can either be an eMMC or SD/SDIO
+	 */
+	if (mmc_card_mmc(host->mmc->card))
+		return MMC_SEND_TUNING_BLOCK_HS200;
+	else
+		return MMC_SEND_TUNING_BLOCK;
+}
+
 static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	struct sdhci_host *host;
@@ -1704,6 +1733,15 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		mrq->cmd->error = -ENOMEDIUM;
 		sdhci_finish_mrq(host, mrq);
 	} else {
+		if (host->ops->config_auto_tuning_cmd) {
+			if (sdhci_check_auto_tuning(host, mrq->cmd))
+				host->ops->config_auto_tuning_cmd(host, true,
+					sdhci_get_tuning_cmd(host));
+			else
+				host->ops->config_auto_tuning_cmd(host, false,
+					sdhci_get_tuning_cmd(host));
+		}
+
 		if (mrq->sbc && !(host->flags & SDHCI_AUTO_CMD23))
 			sdhci_send_command(host, mrq->sbc);
 		else
