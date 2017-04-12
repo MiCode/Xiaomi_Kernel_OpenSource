@@ -4120,6 +4120,9 @@ static void smblib_vconn_oc_work(struct work_struct *work)
 	int rc, i;
 	u8 stat;
 
+	if (chg->micro_usb_mode)
+		return;
+
 	smblib_err(chg, "over-current detected on VCONN\n");
 	if (!chg->vconn_vreg || !chg->vconn_vreg->rdev)
 		return;
