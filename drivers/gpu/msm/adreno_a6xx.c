@@ -673,6 +673,10 @@ static void a6xx_gmu_power_config(struct kgsl_device *device)
 		break;
 	}
 
+	/* ACD feature enablement */
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+		_gmu_regrmw(device, A6XX_GMU_BOOT_KMD_LM_HANDSHAKE, BIT(10));
+
 	/* Enable RPMh GPU client */
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_RPMH))
 		_gmu_regrmw(device, A6XX_GMU_RPMH_CTRL, RPMH_ENABLE_MASK);
