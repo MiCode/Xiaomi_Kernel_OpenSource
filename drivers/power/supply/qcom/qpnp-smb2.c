@@ -857,6 +857,7 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 {
 	struct smb_charger *chg = power_supply_get_drvdata(psy);
 	int rc = 0;
+	union power_supply_propval pval = {0, };
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
@@ -881,7 +882,14 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_system_temp_level(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_CHARGER_TEMP:
-		rc = smblib_get_prop_charger_temp(chg, val);
+		/* do not query RRADC if charger is not present */
+		rc = smblib_get_prop_usb_present(chg, &pval);
+		if (rc < 0)
+			pr_err("Couldn't get usb present rc=%d\n", rc);
+
+		rc = -ENODATA;
+		if (pval.intval)
+			rc = smblib_get_prop_charger_temp(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_CHARGER_TEMP_MAX:
 		rc = smblib_get_prop_charger_temp_max(chg, val);
