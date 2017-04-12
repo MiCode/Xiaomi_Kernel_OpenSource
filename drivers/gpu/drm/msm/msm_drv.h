@@ -111,6 +111,7 @@ enum msm_mdp_plane_property {
 	PLANE_PROP_ROTATION,
 	PLANE_PROP_BLEND_OP,
 	PLANE_PROP_SRC_CONFIG,
+	PLANE_PROP_FB_TRANSLATION_MODE,
 
 	/* total # of properties */
 	PLANE_PROP_COUNT
@@ -129,6 +130,7 @@ enum msm_mdp_crtc_property {
 	CRTC_PROP_CORE_CLK,
 	CRTC_PROP_CORE_AB,
 	CRTC_PROP_CORE_IB,
+	CRTC_PROP_SECURITY_LEVEL,
 
 	/* total # of properties */
 	CRTC_PROP_COUNT
