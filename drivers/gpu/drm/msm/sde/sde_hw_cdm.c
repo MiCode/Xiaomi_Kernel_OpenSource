@@ -56,6 +56,19 @@ static u32 cosite_v_coeff[] = {0x00080004};
  */
 static u32 offsite_v_coeff[] = {0x00060002};
 
+/* Limited Range rgb2yuv coeff with clamp and bias values for CSC 10 module */
+static struct sde_csc_cfg rgb2yuv_cfg = {
+	{
+		0x0083, 0x0102, 0x0032,
+		0x1fb5, 0x1f6c, 0x00e1,
+		0x00e1, 0x1f45, 0x1fdc
+	},
+	{ 0x00, 0x00, 0x00 },
+	{ 0x0040, 0x0200, 0x0200 },
+	{ 0x000, 0x3ff, 0x000, 0x3ff, 0x000, 0x3ff },
+	{ 0x040, 0x3ac, 0x040, 0x3c0, 0x040, 0x3c0 },
+};
+
 static struct sde_cdm_cfg *_cdm_offset(enum sde_cdm cdm,
 		struct sde_mdss_cfg *m,
 		void __iomem *addr,
@@ -279,6 +292,11 @@ struct sde_hw_cdm *sde_hw_cdm_init(enum sde_cdm idx,
 
 	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,
 			c->hw.blk_off + c->hw.length, c->hw.xin_id);
+	/*
+	 * Perform any default initialization for the chroma down module
+	 * @setup default csc coefficients
+	 */
+	sde_hw_cdm_setup_csc_10bit(c, &rgb2yuv_cfg);
 
 	return c;
 }
