@@ -1363,11 +1363,17 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	cnss_pr_dbg("PCI is probing, vendor ID: 0x%x, device ID: 0x%x\n",
 		    id->vendor, pci_dev->device);
 
-	if (pci_dev->device == QCA6290_DEVICE_ID &&
-	    !mhi_is_device_ready(&plat_priv->plat_dev->dev, MHI_NODE_NAME)) {
-		cnss_pr_err("MHI driver is not ready, defer PCI probe!\n");
-		ret = -EPROBE_DEFER;
-		goto out;
+	switch (pci_dev->device) {
+	case QCA6290_DEVICE_ID:
+		if (!mhi_is_device_ready(&plat_priv->plat_dev->dev,
+					 MHI_NODE_NAME)) {
+			cnss_pr_err("MHI driver is not ready, defer PCI probe!\n");
+			ret = -EPROBE_DEFER;
+			goto out;
+		}
+		break;
+	default:
+		break;
 	}
 
 	pci_priv = devm_kzalloc(&pci_dev->dev, sizeof(*pci_priv),
@@ -1475,10 +1481,15 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 	cnss_pci_free_m3_mem(pci_priv);
 	cnss_pci_free_fw_mem(pci_priv);
 
-	if (pci_dev->device == QCA6290_DEVICE_ID) {
+	switch (pci_dev->device) {
+	case QCA6290_DEVICE_ID:
 		cnss_pci_unregister_mhi(pci_priv);
 		cnss_pci_disable_msi(pci_priv);
+		break;
+	default:
+		break;
 	}
+
 	cnss_pci_disable_bus(pci_priv);
 	cnss_dereg_pci_event(pci_priv);
 	if (pci_priv->smmu_mapping)
