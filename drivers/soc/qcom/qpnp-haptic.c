@@ -138,7 +138,7 @@
 #define QPNP_HAP_WAV_SAMP_MAX		0x7E
 #define QPNP_HAP_BRAKE_PAT_LEN		4
 #define QPNP_HAP_PLAY_EN		0x80
-#define QPNP_HAP_EN			0x80
+#define QPNP_HAP_EN_BIT			BIT(7)
 #define QPNP_HAP_BRAKE_MASK		BIT(0)
 #define QPNP_HAP_AUTO_RES_MASK		BIT(7)
 #define AUTO_RES_ENABLE			BIT(7)
@@ -305,7 +305,6 @@ struct qpnp_pwm_info {
  *  @ wave_samp - array of wave samples
  *  @ shadow_wave_samp - shadow array of wave samples
  *  @ brake_pat - pattern for active breaking
- *  @ reg_en_ctl - enable control register
  *  @ reg_play - play register
  *  @ lra_res_cal_period - period for resonance calibration
  *  @ sc_duration - counter to determine the duration of short circuit condition
@@ -368,7 +367,6 @@ struct qpnp_hap {
 	u8				wave_samp[QPNP_HAP_WAV_SAMP_LEN];
 	u8				shadow_wave_samp[QPNP_HAP_WAV_SAMP_LEN];
 	u8				brake_pat[QPNP_HAP_BRAKE_PAT_LEN];
-	u8				reg_en_ctl;
 	u8				reg_play;
 	u8				sc_duration;
 	u8				ext_pwm_dtest_line;
@@ -480,15 +478,12 @@ static void qpnp_handle_sc_irq(struct work_struct *work)
 	}
 }
 
-static int qpnp_hap_mod_enable(struct qpnp_hap *hap, int on)
+static int qpnp_hap_mod_enable(struct qpnp_hap *hap, bool on)
 {
 	u8 val;
 	int rc, i;
 
-	val = hap->reg_en_ctl;
-	if (on) {
-		val |= QPNP_HAP_EN;
-	} else {
+	if (!on) {
 		for (i = 0; i < QPNP_HAP_MAX_RETRIES; i++) {
 			/* wait for 4 cycles of play rate */
 			unsigned long sleep_time =
@@ -511,15 +506,12 @@ static int qpnp_hap_mod_enable(struct qpnp_hap *hap, int on)
 
 		if (i >= QPNP_HAP_MAX_RETRIES)
 			pr_debug("Haptics Busy. Force disable\n");
-
-		val &= ~QPNP_HAP_EN;
 	}
 
+	val = on ? QPNP_HAP_EN_BIT : 0;
 	rc = qpnp_hap_write_reg(hap, QPNP_HAP_EN_CTL_REG(hap->base), val);
 	if (rc < 0)
 		return rc;
-
-	hap->reg_en_ctl = val;
 
 	return 0;
 }
@@ -2018,12 +2010,6 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 		if (rc)
 			return rc;
 	}
-
-	/* Cache enable control register */
-	rc = qpnp_hap_read_reg(hap, QPNP_HAP_EN_CTL_REG(hap->base), &val);
-	if (rc < 0)
-		return rc;
-	hap->reg_en_ctl = val;
 
 	/* Cache play register */
 	rc = qpnp_hap_read_reg(hap, QPNP_HAP_PLAY_REG(hap->base), &val);
