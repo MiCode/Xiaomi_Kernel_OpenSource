@@ -24,6 +24,9 @@ enum votable_type {
 	NUM_VOTABLE_TYPES,
 };
 
+bool is_client_vote_enabled(struct votable *votable, const char *client_str);
+bool is_client_vote_enabled_locked(struct votable *votable,
+							const char *client_str);
 int get_client_vote(struct votable *votable, const char *client_str);
 int get_client_vote_locked(struct votable *votable, const char *client_str);
 int get_effective_result(struct votable *votable);
