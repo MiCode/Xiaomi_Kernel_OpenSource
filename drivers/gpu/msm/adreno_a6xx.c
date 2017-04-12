@@ -648,38 +648,36 @@ static void a6xx_gmu_power_config(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = &device->gmu;
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC)) {
-		kgsl_gmu_regwrite(device, A6XX_GMU_PWR_COL_SPTPRAC_HYST,
-			0x000A0080);
-		_gmu_regrmw(device, A6XX_GMU_PWR_COL_INTER_FRAME_CTRL,
-			SPTP_ENABLE_MASK);
-		gmu->idle_level = GPU_HW_SPTP_PC;
-	}
-
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_IFPC)) {
-		kgsl_gmu_regwrite(device, A6XX_GMU_PWR_COL_INTER_FRAME_HYST,
-			0x000A0080);
-		_gmu_regrmw(device, A6XX_GMU_PWR_COL_INTER_FRAME_CTRL,
-			IFPC_ENABLE_MASK);
-		gmu->idle_level = GPU_HW_IFPC;
-	}
-
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_HW_NAP)) {
-		_gmu_regrmw(device, A6XX_GMU_GPU_NAP_CTRL,
-			HW_NAP_ENABLE_MASK);
-		gmu->idle_level = GPU_HW_NAP;
-	}
-
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_MIN_VOLT)) {
+	/* Configure registers for idle setting. The setting is cumulative */
+	switch (gmu->idle_level) {
+	case GPU_HW_MIN_VOLT:
 		_gmu_regrmw(device, A6XX_GMU_RPMH_CTRL, MIN_BW_ENABLE_MASK);
 		_gmu_regrmw(device, A6XX_GMU_RPMH_HYST_CTRL, MIN_BW_HYST);
-		gmu->idle_level = GPU_HW_MIN_VOLT;
+		/* fall through */
+	case GPU_HW_NAP:
+		_gmu_regrmw(device, A6XX_GMU_GPU_NAP_CTRL, HW_NAP_ENABLE_MASK);
+		/* fall through */
+	case GPU_HW_IFPC:
+		kgsl_gmu_regwrite(device, A6XX_GMU_PWR_COL_INTER_FRAME_HYST,
+				0x000A0080);
+		_gmu_regrmw(device, A6XX_GMU_PWR_COL_INTER_FRAME_CTRL,
+				IFPC_ENABLE_MASK);
+		/* fall through */
+	case GPU_HW_SPTP_PC:
+		kgsl_gmu_regwrite(device, A6XX_GMU_PWR_COL_SPTPRAC_HYST,
+				0x000A0080);
+		_gmu_regrmw(device, A6XX_GMU_PWR_COL_INTER_FRAME_CTRL,
+				SPTP_ENABLE_MASK);
+		/* fall through */
+	default:
+		break;
 	}
 
 	/* Enable RPMh GPU client */
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_RPMH))
 		_gmu_regrmw(device, A6XX_GMU_RPMH_CTRL, RPMH_ENABLE_MASK);
 
+	/* Disable reference bandgap voltage */
 	kgsl_gmu_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 1);
 }
 
@@ -1129,8 +1127,6 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	struct gmu_memdesc *mem_addr = gmu->hfi_mem;
 	int ret, i;
 
-	a6xx_gmu_power_config(device);
-
 	if (boot_state == GMU_COLD_BOOT || boot_state == GMU_RESET) {
 		/* Turn on the HM and SPTP head switches */
 		ret = a6xx_hm_sptprac_control(device, true);
@@ -1175,6 +1171,8 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	kgsl_gmu_regwrite(device, A6XX_GMU_AHB_FENCE_RANGE_0,
 			FENCE_RANGE_MASK);
 
+	/* Configure power control and bring the GMU out of reset */
+	a6xx_gmu_power_config(device);
 	ret = a6xx_gmu_start(device);
 	if (ret)
 		return ret;
