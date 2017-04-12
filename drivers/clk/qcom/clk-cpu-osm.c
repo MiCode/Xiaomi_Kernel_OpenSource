@@ -449,6 +449,17 @@ static int l3_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	return 0;
 }
 
+static long cpu_clk_round_rate(struct clk_hw *hw, unsigned long rate,
+					unsigned long *parent_rate)
+{
+	struct clk_hw *parent_hw = clk_hw_get_parent(hw);
+
+	if (!parent_hw)
+		return -EINVAL;
+
+	return clk_hw_round_rate(parent_hw, rate);
+}
+
 static unsigned long cpu_clk_recalc_rate(struct clk_hw *hw,
 					unsigned long parent_rate)
 {
@@ -2516,6 +2527,7 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 
 	clk_ops_core = clk_dummy_ops;
 	clk_ops_core.set_rate = cpu_clk_set_rate;
+	clk_ops_core.round_rate = cpu_clk_round_rate;
 	clk_ops_core.recalc_rate = cpu_clk_recalc_rate;
 
 	spin_lock_init(&l3_clk.lock);
