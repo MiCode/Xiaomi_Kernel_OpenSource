@@ -455,8 +455,7 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 		if (!val->intval)
 			break;
 
-		rc = smblib_get_prop_typec_mode(chg, val);
-		if ((val->intval == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT ||
+		if ((chg->typec_mode == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT ||
 			chg->micro_usb_mode) &&
 			chg->real_charger_type == POWER_SUPPLY_TYPE_USB)
 			val->intval = 0;
@@ -493,7 +492,7 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 		else if (chip->bad_part)
 			val->intval = POWER_SUPPLY_TYPEC_SOURCE_DEFAULT;
 		else
-			rc = smblib_get_prop_typec_mode(chg, val);
+			val->intval = chg->typec_mode;
 		break;
 	case POWER_SUPPLY_PROP_TYPEC_POWER_ROLE:
 		if (chg->micro_usb_mode)
@@ -678,8 +677,7 @@ static int smb2_usb_port_get_prop(struct power_supply *psy,
 		if (!val->intval)
 			break;
 
-		rc = smblib_get_prop_typec_mode(chg, val);
-		if ((val->intval == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT ||
+		if ((chg->typec_mode == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT ||
 			chg->micro_usb_mode) &&
 			chg->real_charger_type == POWER_SUPPLY_TYPE_USB)
 			val->intval = 1;
