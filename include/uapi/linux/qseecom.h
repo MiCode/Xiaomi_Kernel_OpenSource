@@ -277,10 +277,6 @@ struct qseecom_ce_info_req {
 
 struct file;
 
-/* temporiraly comment out for msm-4.9 headfile upgrade */
-/* extern long qseecom_ioctl(struct file *file,
- *             unsigned int cmd, unsigned long arg);
- */
 
 #define QSEECOM_IOC_MAGIC    0x97
 
