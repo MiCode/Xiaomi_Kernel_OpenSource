@@ -54,13 +54,12 @@
 			reg = <0x0a600000 0xcd00>;
 			interrupt-parent = <&intc>;
 			interrupts = <0 133 0>;
-			usb-phy = <&qusb_phy0>, <&usb_nop_phy>;
+			usb-phy = <&qusb_phy0>, <&usb_qmp_dp_phy>;
 			tx-fifo-resize;
 			linux,sysdev_is_parent;
 			snps,disable-clk-gating;
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x10>;
-			maximum-speed = "high-speed";
 		};
 
 		qcom,usbbam@a704000 {
@@ -151,7 +150,7 @@
 			<0x1048 0x07 0x00 /* COM_PLL_IVCO */
 			 0x1080 0x14 0x00 /* COM_SYSCLK_EN_SEL */
 			 0x1034 0x08 0x00 /* COM_BIAS_EN_CLKBUFLR_EN */
-			 0x1137 0x30 0x00 /* COM_CLK_SELECT */
+			 0x1138 0x30 0x00 /* COM_CLK_SELECT */
 			 0x103c 0x02 0x00 /* COM_SYS_CLK_CTRL */
 			 0x108c 0x08 0x00 /* COM_RESETSM_CNTRL2 */
 			 0x115c 0x16 0x00 /* COM_CMN_CONFIG */
@@ -171,7 +170,7 @@
 			 0x1148 0x0a 0x00 /* COM_CORECLK_DIV_MODE0 */
 			 0x10a0 0x00 0x00 /* COM_LOCK_CMP3_MODE0 */
 			 0x109c 0x34 0x00 /* COM_LOCK_CMP2_MODE0 */
-			 0x1018 0x15 0x00 /* COM_LOCK_CMP1_MODE0 */
+			 0x1098 0x15 0x00 /* COM_LOCK_CMP1_MODE0 */
 			 0x1090 0x04 0x00 /* COM_LOCK_CMP_EN */
 			 0x1154 0x00 0x00 /* COM_CORE_CLK_EN */
 			 0x1094 0x00 0x00 /* COM_LOCK_CMP_CFG */
@@ -203,8 +202,8 @@
 			 0x1260 0x10 0x00 /* TXA_HIGHZ_DRVR_EN */
 			 0x12a4 0x12 0x00 /* TXA_RCV_DETECT_LVL_2 */
 			 0x128c 0x16 0x00 /* TXA_LANE_MODE_1 */
-			 0x1648 0x09 0x00 /* TXB_RES_CODE_LANE_OFFSET_RX */
-			 0x1644 0x0d 0x00 /* TXB_RES_CODE_LANE_OFFSET_TX */
+			 0x1248 0x09 0x00 /* TXA_RES_CODE_LANE_OFFSET_RX */
+			 0x1244 0x0d 0x00 /* TXA_RES_CODE_LANE_OFFSET_TX */
 			 0x1660 0x10 0x00 /* TXB_HIGHZ_DRVR_EN */
 			 0x16a4 0x12 0x00 /* TXB_RCV_DETECT_LVL_2 */
 			 0x168c 0x16 0x00 /* TXB_LANE_MODE_1 */
@@ -277,9 +276,9 @@
 		clock-names = "aux_clk", "pipe_clk", "ref_clk_src",
 				"ref_clk", "com_aux_clk";
 
-		resets = <&clock_gcc GCC_USB3_DP_PHY_PRIM_BCR>;
-		reset-names = "phy_reset";
-		status = "disabled";
+		resets = <&clock_gcc GCC_USB3_DP_PHY_PRIM_BCR>,
+			<&clock_gcc GCC_USB3_PHY_PRIM_BCR>;
+		reset-names = "global_phy_reset", "phy_reset";
 	};
 
 	dbm_1p5: dbm@a6f8000 {
