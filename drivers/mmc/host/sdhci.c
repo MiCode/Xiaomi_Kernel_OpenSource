@@ -3299,6 +3299,8 @@ struct sdhci_host *sdhci_alloc_host(struct device *dev,
 
 	host->flags = SDHCI_SIGNALING_330;
 
+	spin_lock_init(&host->lock);
+
 	return host;
 }
 
@@ -3788,8 +3790,6 @@ int sdhci_setup_host(struct sdhci_host *host)
 
 	if (mmc->caps2 & MMC_CAP2_HSX00_1_2V)
 		host->flags |= SDHCI_SIGNALING_120;
-
-	spin_lock_init(&host->lock);
 
 	/*
 	 * Maximum number of segments. Depends on if the hardware
