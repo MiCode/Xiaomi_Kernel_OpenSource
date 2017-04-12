@@ -1185,6 +1185,9 @@ static void msm_vidc_comm_update_ctrl_limits(struct msm_vidc_inst *inst)
 			&inst->capability.hier_p);
 	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE,
 			&inst->capability.bitrate);
+	msm_vidc_comm_update_ctrl(inst,
+			V4L2_CID_MPEG_VIDC_VENC_PARAM_LAYER_BITRATE,
+			&inst->capability.bitrate);
 	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE_PEAK,
 			&inst->capability.peakbitrate);
 	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP,

@@ -1353,7 +1353,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	{
 		property_id = HAL_CONFIG_VENC_TARGET_BITRATE;
 		bitrate.bit_rate = ctrl->val;
-		bitrate.layer_id = 0;
+		bitrate.layer_id = MSM_VIDC_ALL_LAYER_ID;
 		pdata = &bitrate;
 		inst->bitrate = ctrl->val;
 		break;
@@ -1976,7 +1976,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 int msm_venc_s_ext_ctrl(struct msm_vidc_inst *inst,
 	struct v4l2_ext_controls *ctrl)
 {
-	int rc = 0, i, j = 0;
+	int rc = 0, i;
 	struct v4l2_ext_control *control;
 	struct hfi_device *hdev;
 	struct hal_ltr_mode ltr_mode;
@@ -2044,32 +2044,6 @@ int msm_venc_s_ext_ctrl(struct msm_vidc_inst *inst,
 			property_id = HAL_PROPERTY_PARAM_VENC_ASPECT_RATIO;
 			pdata = &sar;
 			break;
-		case V4L2_CID_MPEG_VIDC_VENC_PARAM_LAYER_BITRATE:
-		{
-			if (control[i].value) {
-				bitrate.layer_id = i;
-				bitrate.bit_rate = control[i].value;
-				property_id = HAL_CONFIG_VENC_TARGET_BITRATE;
-				pdata = &bitrate;
-				dprintk(VIDC_DBG, "bitrate for layer(%d)=%d\n",
-					i, bitrate.bit_rate);
-				rc = call_hfi_op(hdev, session_set_property,
-					(void *)inst->session, property_id,
-					 pdata);
-				if (rc) {
-					dprintk(VIDC_DBG, "prop %x failed\n",
-						property_id);
-					return rc;
-				}
-				if (i == MAX_HYBRID_HIER_P_LAYERS - 1) {
-					dprintk(VIDC_DBG, "HAL property=%x\n",
-						property_id);
-					property_id = 0;
-					rc = 0;
-				}
-			}
-			break;
-		}
 		case V4L2_CID_MPEG_VIDC_VIDEO_BLUR_WIDTH:
 			property_id = HAL_CONFIG_VENC_BLUR_RESOLUTION;
 			blur_res.width = control[i].value;
@@ -2084,92 +2058,83 @@ int msm_venc_s_ext_ctrl(struct msm_vidc_inst *inst,
 			pdata = &blur_res;
 			break;
 		case V4L2_CID_MPEG_VIDC_VIDEO_LAYER_ID:
-			j = i;
-			layer_id = control[j].value;
-			do {
-				switch (control[j].id) {
-				case V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP:
-					qp.qpi = control[j].value;
-					qp.layer_id = layer_id;
-					property_id =
-						HAL_CONFIG_VENC_FRAME_QP;
-					pdata = &qp;
-					break;
-				case V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP:
-					qp.qpp = control[j].value;
-					qp.layer_id = layer_id;
-					property_id =
-						HAL_CONFIG_VENC_FRAME_QP;
-					pdata = &qp;
-					break;
-				case V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP:
-					qp.qpb = control[j].value;
-					qp.layer_id = layer_id;
-					property_id =
-						HAL_CONFIG_VENC_FRAME_QP;
-					pdata = &qp;
-					break;
-				case V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP_MIN:
-					qp_range.qpi_min = control[j].value;
-					qp_range.layer_id = layer_id;
-					property_id =
-						HAL_PARAM_VENC_SESSION_QP_RANGE;
-					pdata = &qp_range;
-					break;
-				case V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP_MIN:
-					qp_range.qpp_min = control[j].value;
-					qp_range.layer_id = layer_id;
-					property_id =
-						HAL_PARAM_VENC_SESSION_QP_RANGE;
-					pdata = &qp_range;
-					break;
-				case V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP_MIN:
-					qp_range.qpb_min = control[j].value;
-					qp_range.layer_id = layer_id;
-					property_id =
-						HAL_PARAM_VENC_SESSION_QP_RANGE;
-					pdata = &qp_range;
-					break;
-				case V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP_MAX:
-					qp_range.qpi_max = control[j].value;
-					qp_range.layer_id = layer_id;
-					property_id =
-						HAL_PARAM_VENC_SESSION_QP_RANGE;
-					pdata = &qp_range;
-					break;
-				case V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP_MAX:
-					qp_range.qpp_max = control[j].value;
-					qp_range.layer_id = layer_id;
-					property_id =
-						HAL_PARAM_VENC_SESSION_QP_RANGE;
-					pdata = &qp_range;
-					break;
-				case V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP_MAX:
-					qp_range.qpb_max = control[j].value;
-					qp_range.layer_id = layer_id;
-					property_id =
-						HAL_PARAM_VENC_SESSION_QP_RANGE;
-					pdata = &qp_range;
-					break;
-				}
-				j++;
-			} while ((j < ctrl->count) &&
-				control[j].id !=
-					V4L2_CID_MPEG_VIDC_VIDEO_LAYER_ID);
-			if (!rc && property_id) {
-				dprintk(VIDC_DBG, "Control: HAL property=%x\n",
-					 property_id);
-				rc = call_hfi_op(hdev, session_set_property,
-						(void *)inst->session,
-						property_id, pdata);
-				if (rc) {
-					dprintk(VIDC_ERR, "prop %x failed\n",
-						property_id);
-					return rc;
-				}
-				property_id = 0;
+			layer_id = control[i].value;
+			i++;
+			while (i < ctrl->count) {
+			switch (control[i].id) {
+			case V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP:
+				qp.qpi = control[i].value;
+				qp.layer_id = layer_id;
+				property_id =
+					HAL_CONFIG_VENC_FRAME_QP;
+				pdata = &qp;
+				break;
+			case V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP:
+				qp.qpp = control[i].value;
+				qp.layer_id = layer_id;
+				property_id =
+					HAL_CONFIG_VENC_FRAME_QP;
+				pdata = &qp;
+				break;
+			case V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP:
+				qp.qpb = control[i].value;
+				qp.layer_id = layer_id;
+				property_id =
+					HAL_CONFIG_VENC_FRAME_QP;
+				pdata = &qp;
+				break;
+			case V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP_MIN:
+				qp_range.qpi_min = control[i].value;
+				qp_range.layer_id = layer_id;
+				property_id =
+					HAL_PARAM_VENC_SESSION_QP_RANGE;
+				pdata = &qp_range;
+				break;
+			case V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP_MIN:
+				qp_range.qpp_min = control[i].value;
+				qp_range.layer_id = layer_id;
+				property_id =
+				HAL_PARAM_VENC_SESSION_QP_RANGE;
+				pdata = &qp_range;
+				break;
+			case V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP_MIN:
+				qp_range.qpb_min = control[i].value;
+				qp_range.layer_id = layer_id;
+				property_id =
+					HAL_PARAM_VENC_SESSION_QP_RANGE;
+				pdata = &qp_range;
+				break;
+			case V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP_MAX:
+				qp_range.qpi_max = control[i].value;
+				qp_range.layer_id = layer_id;
+				property_id =
+					HAL_PARAM_VENC_SESSION_QP_RANGE;
+				pdata = &qp_range;
+				break;
+			case V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP_MAX:
+				qp_range.qpp_max = control[i].value;
+				qp_range.layer_id = layer_id;
+				property_id =
+					HAL_PARAM_VENC_SESSION_QP_RANGE;
+				pdata = &qp_range;
+				break;
+			case V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP_MAX:
+				qp_range.qpb_max = control[i].value;
+				qp_range.layer_id = layer_id;
+				property_id =
+					HAL_PARAM_VENC_SESSION_QP_RANGE;
+				pdata = &qp_range;
+				break;
+			case V4L2_CID_MPEG_VIDC_VENC_PARAM_LAYER_BITRATE:
+				bitrate.bit_rate = control[i].value;
+				bitrate.layer_id = layer_id;
+				property_id =
+					HAL_CONFIG_VENC_TARGET_BITRATE;
+				pdata = &bitrate;
+				break;
 			}
-			i = j - 1;
+			i++;
+			}
 			break;
 		default:
 			dprintk(VIDC_ERR, "Invalid id set: %d\n",
