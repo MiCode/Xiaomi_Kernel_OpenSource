@@ -69,6 +69,13 @@ struct dm_io {
 	struct dm_stats_aux stats_aux;
 };
 
+union map_info *dm_get_rq_mapinfo(struct request *rq)
+{
+	if (rq && rq->end_io_data)
+		return &((struct dm_rq_target_io *)rq->end_io_data)->info;
+	return NULL;
+}
+
 #define MINOR_ALLOCED ((void *)-1)
 
 /*

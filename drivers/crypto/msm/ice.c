@@ -21,11 +21,30 @@
 #include <linux/cdev.h>
 #include <linux/regulator/consumer.h>
 #include <linux/msm-bus.h>
-#include <linux/pfk.h>
 #include <crypto/ice.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/qseecomi.h>
 #include "iceregs.h"
+
+#ifdef CONFIG_PFK
+#include <linux/pfk.h>
+#else
+#include <linux/bio.h>
+static inline int pfk_load_key_start(const struct bio *bio,
+	struct ice_crypto_setting *ice_setting, bool *is_pfe, bool async)
+{
+	return 0;
+}
+
+static inline int pfk_load_key_end(const struct bio *bio, bool *is_pfe)
+{
+	return 0;
+}
+
+static inline void pfk_clear_on_reset(void)
+{
+}
+#endif
 
 #define TZ_SYSCALL_CREATE_SMC_ID(o, s, f) \
 	((uint32_t)((((o & 0x3f) << 24) | (s & 0xff) << 8) | (f & 0xff)))
