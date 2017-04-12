@@ -3039,7 +3039,7 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 		mdss_dp_update_hdcp_info(dp);
 
 		if (dp_is_hdcp_enabled(dp)) {
-			cancel_delayed_work(&dp->hdcp_cb_work);
+			cancel_delayed_work_sync(&dp->hdcp_cb_work);
 
 			dp->hdcp_status = HDCP_STATE_AUTHENTICATING;
 			queue_delayed_work(dp->workq,
@@ -3059,7 +3059,7 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 		if (dp_is_hdcp_enabled(dp)) {
 			dp->hdcp_status = HDCP_STATE_INACTIVE;
 
-			cancel_delayed_work(&dp->hdcp_cb_work);
+			cancel_delayed_work_sync(&dp->hdcp_cb_work);
 			if (dp->hdcp.ops->off)
 				dp->hdcp.ops->off(dp->hdcp.data);
 		}
@@ -3722,7 +3722,7 @@ static int mdss_dp_process_audio_pattern_request(struct mdss_dp_drv_pdata *dp)
 		return -EINVAL;
 
 	if (dp_is_hdcp_enabled(dp) && dp->hdcp.ops->off) {
-		cancel_delayed_work(&dp->hdcp_cb_work);
+		cancel_delayed_work_sync(&dp->hdcp_cb_work);
 		dp->hdcp.ops->off(dp->hdcp.data);
 	}
 
@@ -4029,7 +4029,7 @@ static void mdss_dp_process_attention(struct mdss_dp_drv_pdata *dp_drv)
 		}
 
 		if (dp_is_hdcp_enabled(dp_drv) && dp_drv->hdcp.ops->off) {
-			cancel_delayed_work(&dp_drv->hdcp_cb_work);
+			cancel_delayed_work_sync(&dp_drv->hdcp_cb_work);
 			dp_drv->hdcp.ops->off(dp_drv->hdcp.data);
 		}
 
