@@ -653,10 +653,13 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 {
 	int rc;
 
+	cancel_delayed_work_sync(&chg->pl_enable_work);
+	vote(chg->pl_disable_votable, PL_DELAY_VOTER, true, 0);
+	vote(chg->awake_votable, PL_DELAY_VOTER, false, 0);
+
 	/* reset both usbin current and voltage votes */
 	vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER, false, 0);
 	vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, false, 0);
-	vote(chg->pl_disable_votable, PL_DELAY_HVDCP_VOTER, true, 0);
 
 	cancel_delayed_work_sync(&chg->hvdcp_detect_work);
 
@@ -2617,16 +2620,6 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 			smblib_err(chg, "Couldn't unvote USB_PSY rc=%d\n", rc);
 			return rc;
 		}
-
-		/* pd active set, parallel charger can be enabled now */
-		rc = vote(chg->pl_disable_votable, PL_DELAY_HVDCP_VOTER,
-				false, 0);
-		if (rc < 0) {
-			smblib_err(chg,
-				"Couldn't unvote PL_DELAY_HVDCP_VOTER rc=%d\n",
-				rc);
-			return rc;
-		}
 	}
 
 	/* CC pin selection s/w override in PD session; h/w otherwise. */
@@ -3158,6 +3151,7 @@ irqreturn_t smblib_handle_usbin_uv(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+#define PL_DELAY_MS			30000
 irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
@@ -3196,6 +3190,11 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 				smblib_err(chg, "Couldn't enable dpdm regulator rc=%d\n",
 					rc);
 		}
+
+		/* Schedule work to enable parallel charger */
+		vote(chg->awake_votable, PL_DELAY_VOTER, true, 0);
+		schedule_delayed_work(&chg->pl_enable_work,
+					msecs_to_jiffies(PL_DELAY_MS));
 	} else {
 		if (chg->wa_flags & BOOST_BACK_WA)
 			vote(chg->usb_icl_votable, BOOST_BACK_VOTER, false, 0);
@@ -3373,9 +3372,6 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 		}
 	}
 
-	/* QC authentication done, parallel charger can be enabled now */
-	vote(chg->pl_disable_votable, PL_DELAY_HVDCP_VOTER, false, 0);
-
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: hvdcp-3p0-auth-done rising; %s detected\n",
 		   apsd_result->name);
 }
@@ -3405,15 +3401,6 @@ static void smblib_handle_hvdcp_check_timeout(struct smb_charger *chg,
 			/* enforce DCP ICL if specified */
 			vote(chg->usb_icl_votable, DCP_VOTER,
 				chg->dcp_icl_ua != -EINVAL, chg->dcp_icl_ua);
-		/*
-		 * If adapter is not QC2.0/QC3.0 remove vote for parallel
-		 * disable.
-		 * Otherwise if adapter is QC2.0/QC3.0 wait for authentication
-		 * to complete.
-		 */
-		if (!qc_charger)
-			vote(chg->pl_disable_votable, PL_DELAY_HVDCP_VOTER,
-					false, 0);
 	}
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: smblib_handle_hvdcp_check_timeout %s\n",
@@ -3489,13 +3476,9 @@ static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 		break;
 	case OCP_CHARGER_BIT:
 	case FLOAT_CHARGER_BIT:
-		/*
-		 * if not DCP then no hvdcp timeout happens. Enable
-		 * pd/parallel here.
-		 */
+		/* if not DCP then no hvdcp timeout happens, Enable pd here. */
 		vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER,
 				false, 0);
-		vote(chg->pl_disable_votable, PL_DELAY_HVDCP_VOTER, false, 0);
 		break;
 	case DCP_CHARGER_BIT:
 		if (chg->wa_flags & QC_CHARGER_DETECTION_WA_BIT)
@@ -3648,9 +3631,12 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 {
 	int rc;
 
+	cancel_delayed_work_sync(&chg->pl_enable_work);
+	vote(chg->pl_disable_votable, PL_DELAY_VOTER, true, 0);
+	vote(chg->awake_votable, PL_DELAY_VOTER, false, 0);
+
 	vote(chg->pd_disallowed_votable_indirect, CC_DETACHED_VOTER, true, 0);
 	vote(chg->pd_disallowed_votable_indirect, HVDCP_TIMEOUT_VOTER, true, 0);
-	vote(chg->pl_disable_votable, PL_DELAY_HVDCP_VOTER, true, 0);
 	vote(chg->usb_irq_enable_votable, PD_VOTER, false, 0);
 	vote(chg->usb_irq_enable_votable, QC_VOTER, false, 0);
 
@@ -3706,8 +3692,6 @@ static void smblib_handle_typec_insertion(struct smb_charger *chg,
 	if (rp == POWER_SUPPLY_TYPEC_SOURCE_HIGH
 			|| rp == POWER_SUPPLY_TYPEC_NON_COMPLIANT) {
 		smblib_dbg(chg, PR_MISC, "VBUS & CC could be shorted; keeping HVDCP disabled\n");
-		/* HVDCP is not going to be enabled; enable parallel */
-		vote(chg->pl_disable_votable, PL_DELAY_HVDCP_VOTER, false, 0);
 		vote(chg->hvdcp_disable_votable_indirect, VBUS_CC_SHORT_VOTER,
 								true, 0);
 	} else {
@@ -4213,6 +4197,16 @@ static void smblib_icl_change_work(struct work_struct *work)
 	smblib_dbg(chg, PR_INTERRUPT, "icl_settled=%d\n", settled_ua);
 }
 
+static void smblib_pl_enable_work(struct work_struct *work)
+{
+	struct smb_charger *chg = container_of(work, struct smb_charger,
+							pl_enable_work.work);
+
+	smblib_dbg(chg, PR_PARALLEL, "timer expired, enabling parallel\n");
+	vote(chg->pl_disable_votable, PL_DELAY_VOTER, false, 0);
+	vote(chg->awake_votable, PL_DELAY_VOTER, false, 0);
+}
+
 static int smblib_create_votables(struct smb_charger *chg)
 {
 	int rc = 0;
@@ -4235,7 +4229,7 @@ static int smblib_create_votables(struct smb_charger *chg)
 		return rc;
 	}
 	vote(chg->pl_disable_votable, PL_INDIRECT_VOTER, true, 0);
-	vote(chg->pl_disable_votable, PL_DELAY_HVDCP_VOTER, true, 0);
+	vote(chg->pl_disable_votable, PL_DELAY_VOTER, true, 0);
 
 	chg->dc_suspend_votable = create_votable("DC_SUSPEND", VOTE_SET_ANY,
 					smblib_dc_suspend_vote_callback,
@@ -4403,6 +4397,7 @@ int smblib_init(struct smb_charger *chg)
 	INIT_WORK(&chg->vconn_oc_work, smblib_vconn_oc_work);
 	INIT_DELAYED_WORK(&chg->otg_ss_done_work, smblib_otg_ss_done_work);
 	INIT_DELAYED_WORK(&chg->icl_change_work, smblib_icl_change_work);
+	INIT_DELAYED_WORK(&chg->pl_enable_work, smblib_pl_enable_work);
 	chg->fake_capacity = -EINVAL;
 
 	switch (chg->mode) {
