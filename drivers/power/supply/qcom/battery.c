@@ -233,6 +233,10 @@ static ssize_t restrict_chg_store(struct class *c, struct class_attribute *attr,
 
 	chip->restricted_charging_enabled = !!val;
 
+	/* disable parallel charger in case of restricted charging */
+	vote(chip->pl_disable_votable, RESTRICT_CHG_VOTER,
+				chip->restricted_charging_enabled, 0);
+
 	vote(chip->fcc_votable, RESTRICT_CHG_VOTER,
 				chip->restricted_charging_enabled,
 				chip->restricted_current);
