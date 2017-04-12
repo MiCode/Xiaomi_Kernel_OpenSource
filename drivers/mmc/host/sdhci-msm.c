@@ -1027,16 +1027,18 @@ static int sdhci_msm_bus_get_vote_for_bw(struct sdhci_msm_host *host,
  */
 static inline int sdhci_msm_bus_set_vote(struct sdhci_msm_host *msm_host,
 					     int vote,
-					     unsigned long flags)
+					     unsigned long *flags)
 {
 	struct sdhci_host *host =  platform_get_drvdata(msm_host->pdev);
 	int rc = 0;
 
+	BUG_ON(!flags);
+
 	if (vote != msm_host->msm_bus_vote.curr_vote) {
-		spin_unlock_irqrestore(&host->lock, flags);
+		spin_unlock_irqrestore(&host->lock, *flags);
 		rc = msm_bus_scale_client_update_request(
 				msm_host->msm_bus_vote.client_handle, vote);
-		spin_lock_irqsave(&host->lock, flags);
+		spin_lock_irqsave(&host->lock, *flags);
 		if (rc) {
 			pr_err("%s: msm_bus_scale_client_update_request() failed: bus_client_handle=0x%x, vote=%d, err=%d\n",
 				mmc_hostname(host->mmc),
@@ -1069,7 +1071,7 @@ static void sdhci_msm_bus_work(struct work_struct *work)
 	/* don't vote for 0 bandwidth if any request is in progress */
 	if (!host->mrq) {
 		sdhci_msm_bus_set_vote(msm_host,
-			msm_host->msm_bus_vote.min_bw_vote, flags);
+			msm_host->msm_bus_vote.min_bw_vote, &flags);
 	} else
 		pr_warning("%s: %s: Transfer in progress. skipping bus voting to 0 bandwidth\n",
 			   mmc_hostname(host->mmc), __func__);
@@ -1091,7 +1093,7 @@ static void sdhci_msm_bus_cancel_work_and_set_vote(struct sdhci_host *host,
 	cancel_delayed_work_sync(&msm_host->msm_bus_vote.vote_work);
 	spin_lock_irqsave(&host->lock, flags);
 	vote = sdhci_msm_bus_get_vote_for_bw(msm_host, bw);
-	sdhci_msm_bus_set_vote(msm_host, vote, flags);
+	sdhci_msm_bus_set_vote(msm_host, vote, &flags);
 	spin_unlock_irqrestore(&host->lock, flags);
 }
 
