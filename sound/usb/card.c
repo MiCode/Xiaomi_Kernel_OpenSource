@@ -45,6 +45,7 @@
 #include <linux/usb/audio.h>
 #include <linux/usb/audio-v2.h>
 #include <linux/module.h>
+#include <linux/usb/audio-v3.h>
 
 #include <sound/control.h>
 #include <sound/core.h>
@@ -281,7 +282,6 @@ static int snd_usb_create_streams(struct snd_usb_audio *chip, int ctrlif)
 	struct usb_host_interface *host_iface;
 	struct usb_interface_descriptor *altsd;
 	struct usb_interface *usb_iface;
-	void *control_header;
 	int i, protocol;
 
 	usb_iface = usb_ifnum_to_if(dev, ctrlif);
@@ -298,16 +298,13 @@ static int snd_usb_create_streams(struct snd_usb_audio *chip, int ctrlif)
 		return -EINVAL;
 	}
 
-	control_header = snd_usb_find_csint_desc(host_iface->extra,
-						 host_iface->extralen,
-						 NULL, UAC_HEADER);
 	altsd = get_iface_desc(host_iface);
 	protocol = altsd->bInterfaceProtocol;
 
-	if (!control_header) {
-		dev_err(&dev->dev, "cannot find UAC_HEADER\n");
-		return -EINVAL;
-	}
+	/*
+	 * UAC 1.0 devices use AC HEADER Desc for linking AS interfaces;
+	 * UAC 2.0 and 3.0 devices use IAD for linking AS interfaces
+	 */
 
 	switch (protocol) {
 	default:
@@ -317,8 +314,17 @@ static int snd_usb_create_streams(struct snd_usb_audio *chip, int ctrlif)
 		/* fall through */
 
 	case UAC_VERSION_1: {
-		struct uac1_ac_header_descriptor *h1 = control_header;
+		void *control_header;
+		struct uac1_ac_header_descriptor *h1;
 
+		control_header = snd_usb_find_csint_desc(host_iface->extra,
+					host_iface->extralen, NULL, UAC_HEADER);
+		if (!control_header) {
+			dev_err(&dev->dev, "cannot find UAC_HEADER\n");
+			return -EINVAL;
+		}
+
+		h1 = control_header;
 		if (!h1->bInCollection) {
 			dev_info(&dev->dev, "skipping empty audio interface (v1)\n");
 			return -EINVAL;
@@ -335,7 +341,8 @@ static int snd_usb_create_streams(struct snd_usb_audio *chip, int ctrlif)
 		break;
 	}
 
-	case UAC_VERSION_2: {
+	case UAC_VERSION_2:
+	case UAC_VERSION_3: {
 		struct usb_interface_assoc_descriptor *assoc =
 						usb_iface->intf_assoc;
 		if (!assoc) {
@@ -354,7 +361,8 @@ static int snd_usb_create_streams(struct snd_usb_audio *chip, int ctrlif)
 		}
 
 		if (!assoc) {
-			dev_err(&dev->dev, "Audio class v2 interfaces need an interface association\n");
+			dev_err(&dev->dev, "Audio class V%d interfaces need an interface association\n",
+					protocol);
 			return -EINVAL;
 		}
 
@@ -554,6 +562,15 @@ static int usb_audio_probe(struct usb_interface *intf,
 	struct usb_host_interface *alts;
 	int ifnum;
 	u32 id;
+	struct usb_interface_assoc_descriptor *assoc;
+
+	assoc = intf->intf_assoc;
+	if (assoc && assoc->bFunctionClass == USB_CLASS_AUDIO &&
+	    assoc->bFunctionProtocol == UAC_VERSION_3 &&
+	    assoc->bFunctionSubClass == FULL_ADC_PROFILE) {
+		dev_info(&dev->dev, "No support for full-fledged ADC 3.0 yet!!\n");
+		return -EINVAL;
+	}
 
 	alts = &intf->altsetting[0];
 	ifnum = get_iface_desc(alts)->bInterfaceNumber;
