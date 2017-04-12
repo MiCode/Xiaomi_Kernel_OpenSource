@@ -33,6 +33,7 @@
 #include <linux/slab.h>
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/slot-gpio.h>
+#include <linux/dma-mapping.h>
 #include <linux/msm-bus.h>
 
 #include "sdhci-pltfm.h"
@@ -1791,6 +1792,13 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 					__func__, ret);
 			goto bus_unregister;
 		}
+	}
+
+	if (dma_supported(mmc_dev(host->mmc), DMA_BIT_MASK(32))) {
+		host->dma_mask = DMA_BIT_MASK(32);
+		mmc_dev(host->mmc)->dma_mask = &host->dma_mask;
+	} else {
+		dev_err(&pdev->dev, "%s: Failed to set dma mask\n", __func__);
 	}
 
 	ret = sdhci_add_host(host);
