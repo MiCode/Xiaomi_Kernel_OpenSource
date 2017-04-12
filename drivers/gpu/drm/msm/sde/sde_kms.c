@@ -57,7 +57,7 @@ static const char * const iommu_ports[] = {
  * # echo 0x2 > /sys/module/drm/parameters/debug
  *
  * To enable DRM driver h/w logging
- * # echo <mask> > /sys/kernel/debug/dri/0/hw_log_mask
+ * # echo <mask> > /sys/kernel/debug/dri/0/debug/hw_log_mask
  *
  * See sde_hw_mdss.h for h/w logging mask definitions (search for SDE_DBG_MASK_)
  */
@@ -275,7 +275,13 @@ void *sde_debugfs_create_regset32(const char *name, umode_t mode,
 
 void *sde_debugfs_get_root(struct sde_kms *sde_kms)
 {
-	return sde_kms ? sde_kms->dev->primary->debugfs_root : 0;
+	struct msm_drm_private *priv;
+
+	if (!sde_kms || !sde_kms->dev || !sde_kms->dev->dev_private)
+		return NULL;
+
+	priv = sde_kms->dev->dev_private;
+	return priv->debug_root;
 }
 
 static int _sde_debugfs_init(struct sde_kms *sde_kms)
@@ -405,11 +411,11 @@ static void sde_kms_wait_for_commit_done(struct msm_kms *kms,
 		if (encoder->crtc != crtc)
 			continue;
 		/*
-		 * Wait post-flush if necessary to delay before plane_cleanup
-		 * For example, wait for vsync in case of video mode panels
-		 * This should be a no-op for command mode panels
+		 * Wait for post-flush if necessary to delay before
+		 * plane_cleanup. For example, wait for vsync in case of video
+		 * mode panels. This may be a no-op for command mode panels.
 		 */
-		SDE_EVT32(DRMID(crtc));
+		SDE_EVT32_VERBOSE(DRMID(crtc));
 		ret = sde_encoder_wait_for_commit_done(encoder);
 		if (ret && ret != -EWOULDBLOCK) {
 			SDE_ERROR("wait for commit done returned %d\n", ret);

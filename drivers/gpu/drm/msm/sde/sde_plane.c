@@ -253,9 +253,10 @@ static inline int _sde_plane_calc_fill_level(struct drm_plane *plane,
 			((src_width + 32) * fmt->bpp);
 	}
 
-	SDE_DEBUG("plane%u: pnum:%d fmt:%x w:%u fl:%u\n",
+	SDE_DEBUG("plane%u: pnum:%d fmt: %4.4s w:%u fl:%u\n",
 			plane->base.id, psde->pipe - SSPP_VIG0,
-			fmt->base.pixel_format, src_width, total_fl);
+			(char *)&fmt->base.pixel_format,
+			src_width, total_fl);
 
 	return total_fl;
 }
@@ -365,10 +366,10 @@ static void _sde_plane_set_qos_lut(struct drm_plane *plane,
 			psde->is_rt_pipe, total_fl, qos_lut,
 			(fmt) ? SDE_FORMAT_IS_LINEAR(fmt) : 0);
 
-	SDE_DEBUG("plane%u: pnum:%d fmt:%x rt:%d fl:%u lut:0x%x\n",
+	SDE_DEBUG("plane%u: pnum:%d fmt: %4.4s rt:%d fl:%u lut:0x%x\n",
 			plane->base.id,
 			psde->pipe - SSPP_VIG0,
-			(fmt) ? fmt->base.pixel_format : 0,
+			fmt ? (char *)&fmt->base.pixel_format : NULL,
 			psde->is_rt_pipe, total_fl, qos_lut);
 
 	psde->pipe_hw->ops.setup_creq_lut(psde->pipe_hw, &psde->pipe_qos_cfg);
@@ -427,10 +428,10 @@ static void _sde_plane_set_danger_lut(struct drm_plane *plane,
 			psde->pipe_qos_cfg.danger_lut,
 			psde->pipe_qos_cfg.safe_lut);
 
-	SDE_DEBUG("plane%u: pnum:%d fmt:%x mode:%d luts[0x%x, 0x%x]\n",
+	SDE_DEBUG("plane%u: pnum:%d fmt: %4.4s mode:%d luts[0x%x, 0x%x]\n",
 		plane->base.id,
 		psde->pipe - SSPP_VIG0,
-		fmt ? fmt->base.pixel_format : 0,
+		fmt ? (char *)&fmt->base.pixel_format : NULL,
 		fmt ? fmt->fetch_mode : -1,
 		psde->pipe_qos_cfg.danger_lut,
 		psde->pipe_qos_cfg.safe_lut);
@@ -620,8 +621,6 @@ int sde_plane_wait_input_fence(struct drm_plane *plane, uint32_t wait_ms)
 			prefix = sde_sync_get_name_prefix(input_fence);
 			rc = sde_sync_wait(input_fence, wait_ms);
 
-			SDE_EVT32(DRMID(plane), -ret, prefix);
-
 			switch (rc) {
 			case 0:
 				SDE_ERROR_PLANE(psde, "%ums timeout on %08X\n",
@@ -648,6 +647,8 @@ int sde_plane_wait_input_fence(struct drm_plane *plane, uint32_t wait_ms)
 				ret = 0;
 				break;
 			}
+
+			SDE_EVT32_VERBOSE(DRMID(plane), -ret, prefix);
 		} else {
 			ret = 0;
 		}
@@ -1623,31 +1624,25 @@ static int sde_plane_rot_submit_command(struct drm_plane *plane,
 		rstate->out_rotation &= ~DRM_REFLECT_Y;
 
 	SDE_DEBUG(
-		"plane%d.%d rot:%d/%c%c%c%c/%dx%d/%c%c%c%c/%llx/%dx%d+%d+%d\n",
+		"plane%d.%d rot:%d/%c%c%c%c/%dx%d/%4.4s/%llx/%dx%d+%d+%d\n",
 			plane->base.id, rstate->sequence_id, hw_cmd,
 			rot_cmd->rot90 ? 'r' : '_',
 			rot_cmd->hflip ? 'h' : '_',
 			rot_cmd->vflip ? 'v' : '_',
 			rot_cmd->video_mode ? 'V' : 'C',
 			state->fb->width, state->fb->height,
-			state->fb->pixel_format >> 0,
-			state->fb->pixel_format >> 8,
-			state->fb->pixel_format >> 16,
-			state->fb->pixel_format >> 24,
+			(char *) &state->fb->pixel_format,
 			state->fb->modifier[0],
 			drm_rect_width(&rstate->in_rot_rect) >> 16,
 			drm_rect_height(&rstate->in_rot_rect) >> 16,
 			rstate->in_rot_rect.x1 >> 16,
 			rstate->in_rot_rect.y1 >> 16);
 
-	SDE_DEBUG("plane%d.%d sspp:%d/%x/%dx%d/%c%c%c%c/%llx/%dx%d+%d+%d\n",
+	SDE_DEBUG("plane%d.%d sspp:%d/%x/%dx%d/%4.4s/%llx/%dx%d+%d+%d\n",
 			plane->base.id, rstate->sequence_id, hw_cmd,
 			rstate->out_rotation,
 			rstate->out_fb_width, rstate->out_fb_height,
-			rstate->out_fb_pixel_format >> 0,
-			rstate->out_fb_pixel_format >> 8,
-			rstate->out_fb_pixel_format >> 16,
-			rstate->out_fb_pixel_format >> 24,
+			(char *) &rstate->out_fb_pixel_format,
 			rstate->out_fb_modifier[0],
 			rstate->out_src_w >> 16, rstate->out_src_h >> 16,
 			rstate->out_src_x >> 16, rstate->out_src_y >> 16);
@@ -2235,13 +2230,10 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 	nplanes = fmt->num_planes;
 
 	SDE_DEBUG(
-		"plane%d.%d sspp:%dx%d/%c%c%c%c/%llx/%dx%d+%d+%d/%x crtc:%dx%d+%d+%d\n",
+		"plane%d.%d sspp:%dx%d/%4.4s/%llx/%dx%d+%d+%d/%x crtc:%dx%d+%d+%d\n",
 			plane->base.id, rstate->sequence_id,
 			rstate->out_fb_width, rstate->out_fb_height,
-			rstate->out_fb_pixel_format >> 0,
-			rstate->out_fb_pixel_format >> 8,
-			rstate->out_fb_pixel_format >> 16,
-			rstate->out_fb_pixel_format >> 24,
+			(char *) &rstate->out_fb_pixel_format,
 			rstate->out_fb_modifier[0],
 			rstate->out_src_w >> 16, rstate->out_src_h >> 16,
 			rstate->out_src_x >> 16, rstate->out_src_y >> 16,
@@ -2312,13 +2304,10 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 			state->crtc_w, state->crtc_h, !q16_data);
 
 		SDE_DEBUG_PLANE(psde,
-			"FB[%u] %u,%u,%ux%u->crtc%u %d,%d,%ux%u, %c%c%c%c ubwc %d\n",
+			"FB[%u] %u,%u,%ux%u->crtc%u %d,%d,%ux%u, %4.4s ubwc %d\n",
 				fb->base.id, src.x, src.y, src.w, src.h,
 				crtc->base.id, dst.x, dst.y, dst.w, dst.h,
-				fmt->base.pixel_format >> 0,
-				fmt->base.pixel_format >> 8,
-				fmt->base.pixel_format >> 16,
-				fmt->base.pixel_format >> 24,
+				(char *)&fmt->base.pixel_format,
 				SDE_FORMAT_IS_UBWC(fmt));
 
 		if (sde_plane_get_property(pstate, PLANE_PROP_SRC_CONFIG) &
@@ -2771,14 +2760,11 @@ static int sde_plane_sspp_atomic_check(struct drm_plane *plane,
 		goto modeset_update;
 
 	SDE_DEBUG(
-		"plane%d.%u sspp:%x/%dx%d/%c%c%c%c/%llx/%dx%d+%d+%d crtc:%dx%d+%d+%d\n",
+		"plane%d.%u sspp:%x/%dx%d/%4.4s/%llx/%dx%d+%d+%d crtc:%dx%d+%d+%d\n",
 			plane->base.id, rstate->sequence_id,
 			rstate->out_rotation,
 			rstate->out_fb_width, rstate->out_fb_height,
-			rstate->out_fb_pixel_format >> 0,
-			rstate->out_fb_pixel_format >> 8,
-			rstate->out_fb_pixel_format >> 16,
-			rstate->out_fb_pixel_format >> 24,
+			(char *) &rstate->out_fb_pixel_format,
 			rstate->out_fb_modifier[0],
 			rstate->out_src_w >> 16, rstate->out_src_h >> 16,
 			rstate->out_src_x >> 16, rstate->out_src_y >> 16,
@@ -2870,11 +2856,11 @@ static int sde_plane_sspp_atomic_check(struct drm_plane *plane,
 		sde_kms_rect_intersect(&intersect, &src, &pstate->excl_rect);
 		if (!intersect.w || !intersect.h || SDE_FORMAT_IS_YUV(fmt)) {
 			SDE_ERROR_PLANE(psde,
-				"invalid excl_rect:{%d,%d,%d,%d} src:{%d,%d,%d,%d}, fmt:%s\n",
+				"invalid excl_rect:{%d,%d,%d,%d} src:{%d,%d,%d,%d}, fmt: %4.4s\n",
 				pstate->excl_rect.x, pstate->excl_rect.y,
 				pstate->excl_rect.w, pstate->excl_rect.h,
 				src.x, src.y, src.w, src.h,
-				drm_get_format_name(fmt->base.pixel_format));
+				(char *)&fmt->base.pixel_format);
 			ret = -EINVAL;
 		}
 	}

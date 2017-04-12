@@ -636,8 +636,8 @@ static int _sde_format_get_plane_sizes_ubwc(
 
 	color = _sde_format_get_media_color_ubwc(fmt);
 	if (color < 0) {
-		DRM_ERROR("UBWC format not supported for fmt:0x%X\n",
-			fmt->base.pixel_format);
+		DRM_ERROR("UBWC format not supported for fmt: %4.4s\n",
+			(char *)&fmt->base.pixel_format);
 		return -EINVAL;
 	}
 
@@ -1123,21 +1123,23 @@ const struct sde_format *sde_get_sde_format_ext(
 	case DRM_FORMAT_MOD_QCOM_COMPRESSED | DRM_FORMAT_MOD_QCOM_TILE:
 		map = sde_format_map_ubwc;
 		map_size = ARRAY_SIZE(sde_format_map_ubwc);
-		SDE_DEBUG("found fmt 0x%X DRM_FORMAT_MOD_QCOM_COMPRESSED\n",
-				format);
+		SDE_DEBUG("found fmt: %4.4s  DRM_FORMAT_MOD_QCOM_COMPRESSED\n",
+				(char *)&format);
 		break;
 	case DRM_FORMAT_MOD_QCOM_DX:
 		map = sde_format_map_p010;
 		map_size = ARRAY_SIZE(sde_format_map_p010);
-		SDE_DEBUG("found fmt 0x%X DRM_FORMAT_MOD_QCOM_DX\n", format);
+		SDE_DEBUG("found fmt: %4.4s DRM_FORMAT_MOD_QCOM_DX\n",
+				(char *)&format);
 		break;
 	case (DRM_FORMAT_MOD_QCOM_DX | DRM_FORMAT_MOD_QCOM_COMPRESSED):
 	case (DRM_FORMAT_MOD_QCOM_DX | DRM_FORMAT_MOD_QCOM_COMPRESSED |
 			DRM_FORMAT_MOD_QCOM_TILE):
 		map = sde_format_map_p010_ubwc;
 		map_size = ARRAY_SIZE(sde_format_map_p010_ubwc);
-		SDE_DEBUG("found fmt 0x%X DRM_FORMAT_MOD_QCOM_COMPRESSED/DX\n",
-				format);
+		SDE_DEBUG(
+			"found fmt: %4.4s DRM_FORMAT_MOD_QCOM_COMPRESSED/DX\n",
+				(char *)&format);
 		break;
 	case (DRM_FORMAT_MOD_QCOM_DX | DRM_FORMAT_MOD_QCOM_COMPRESSED |
 		DRM_FORMAT_MOD_QCOM_TIGHT):
@@ -1146,26 +1148,28 @@ const struct sde_format *sde_get_sde_format_ext(
 		map = sde_format_map_tp10_ubwc;
 		map_size = ARRAY_SIZE(sde_format_map_tp10_ubwc);
 		SDE_DEBUG(
-			"found fmt 0x%X DRM_FORMAT_MOD_QCOM_COMPRESSED/DX/TIGHT\n",
-			format);
+			"found fmt: %4.4s DRM_FORMAT_MOD_QCOM_COMPRESSED/DX/TIGHT\n",
+				(char *)&format);
 		break;
 	case DRM_FORMAT_MOD_QCOM_TILE:
 		map = sde_format_map_tile;
 		map_size = ARRAY_SIZE(sde_format_map_tile);
-		SDE_DEBUG("found fmt 0x%X DRM_FORMAT_MOD_QCOM_TILE\n", format);
+		SDE_DEBUG("found fmt: %4.4s DRM_FORMAT_MOD_QCOM_TILE\n",
+				(char *)&format);
 		break;
 	case (DRM_FORMAT_MOD_QCOM_TILE | DRM_FORMAT_MOD_QCOM_DX):
 		map = sde_format_map_p010_tile;
 		map_size = ARRAY_SIZE(sde_format_map_p010_tile);
-		SDE_DEBUG("found fmt 0x%X DRM_FORMAT_MOD_QCOM_TILE/DX\n",
-				format);
+		SDE_DEBUG("found fmt: %4.4s DRM_FORMAT_MOD_QCOM_TILE/DX\n",
+				(char *)&format);
 		break;
 	case (DRM_FORMAT_MOD_QCOM_TILE | DRM_FORMAT_MOD_QCOM_DX |
 			DRM_FORMAT_MOD_QCOM_TIGHT):
 		map = sde_format_map_tp10_tile;
 		map_size = ARRAY_SIZE(sde_format_map_tp10_tile);
-		SDE_DEBUG("found fmt 0x%X DRM_FORMAT_MOD_QCOM_TILE/DX/TIGHT\n",
-				format);
+		SDE_DEBUG(
+			"found fmt: %4.4s DRM_FORMAT_MOD_QCOM_TILE/DX/TIGHT\n",
+				(char *)&format);
 		break;
 	default:
 		SDE_ERROR("unsupported format modifier %llX\n", mod0);
@@ -1180,11 +1184,11 @@ const struct sde_format *sde_get_sde_format_ext(
 	}
 
 	if (fmt == NULL)
-		SDE_ERROR("unsupported fmt 0x%X modifier 0x%llX\n",
-				format, mod0);
+		SDE_ERROR("unsupported fmt: %4.4s modifier 0x%llX\n",
+				(char *)&format, mod0);
 	else
-		SDE_DEBUG("fmt %s mod 0x%llX ubwc %d yuv %d\n",
-				drm_get_format_name(format), mod0,
+		SDE_DEBUG("fmt %4.4s mod 0x%llX ubwc %d yuv %d\n",
+				(char *)&format, mod0,
 				SDE_FORMAT_IS_UBWC(fmt),
 				SDE_FORMAT_IS_YUV(fmt));
 

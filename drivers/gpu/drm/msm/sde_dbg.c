@@ -151,7 +151,6 @@ struct sde_dbg_vbif_debug_bus {
  * struct sde_dbg_base - global sde debug base structure
  * @evtlog: event log instance
  * @reg_base_list: list of register dumping regions
- * @root: base debugfs root
  * @dev: device pointer
  * @power_ctrl: callback structure for enabling power for reading hw registers
  * @req_dump_blks: list of blocks requested for dumping
@@ -165,7 +164,6 @@ struct sde_dbg_vbif_debug_bus {
 static struct sde_dbg_base {
 	struct sde_dbg_evtlog *evtlog;
 	struct list_head reg_base_list;
-	struct dentry *root;
 	struct device *dev;
 	struct sde_dbg_power_ctrl power_ctrl;
 
@@ -2903,24 +2901,19 @@ int sde_dbg_debugfs_register(struct dentry *debugfs_root)
 	struct sde_dbg_reg_base *blk_base;
 	char debug_name[80] = "";
 
-	sde_dbg_base.root = debugfs_create_dir("evt_dbg", debugfs_root);
-	if (IS_ERR_OR_NULL(sde_dbg_base.root)) {
-		pr_err("debugfs_create_dir fail, error %ld\n",
-		       PTR_ERR(sde_dbg_base.root));
-		sde_dbg_base.root = NULL;
-		return -ENODEV;
-	}
+	if (!debugfs_root)
+		return -EINVAL;
 
-	debugfs_create_file("dump", 0644, sde_dbg_base.root, NULL,
+	debugfs_create_file("dump", 0644, debugfs_root, NULL,
 			&sde_evtlog_fops);
-	debugfs_create_u32("enable", 0644, sde_dbg_base.root,
+	debugfs_create_u32("enable", 0644, debugfs_root,
 			&(sde_dbg_base.evtlog->enable));
-	debugfs_create_file("filter", 0644, sde_dbg_base.root,
+	debugfs_create_file("filter", 0644, debugfs_root,
 			sde_dbg_base.evtlog,
 			&sde_evtlog_filter_fops);
-	debugfs_create_u32("panic", 0644, sde_dbg_base.root,
+	debugfs_create_u32("panic", 0644, debugfs_root,
 			&sde_dbg_base.panic_on_err);
-	debugfs_create_u32("reg_dump", 0644, sde_dbg_base.root,
+	debugfs_create_u32("reg_dump", 0644, debugfs_root,
 			&sde_dbg_base.enable_reg_dump);
 
 	if (dbg->dbgbus_sde.entries) {
@@ -2928,7 +2921,7 @@ int sde_dbg_debugfs_register(struct dentry *debugfs_root)
 		snprintf(debug_name, sizeof(debug_name), "%s_dbgbus",
 				dbg->dbgbus_sde.cmn.name);
 		dbg->dbgbus_sde.cmn.enable_mask = DEFAULT_DBGBUS_SDE;
-		debugfs_create_u32(debug_name, 0644, dbg->root,
+		debugfs_create_u32(debug_name, 0644, debugfs_root,
 				&dbg->dbgbus_sde.cmn.enable_mask);
 	}
 
@@ -2937,36 +2930,28 @@ int sde_dbg_debugfs_register(struct dentry *debugfs_root)
 		snprintf(debug_name, sizeof(debug_name), "%s_dbgbus",
 				dbg->dbgbus_vbif_rt.cmn.name);
 		dbg->dbgbus_vbif_rt.cmn.enable_mask = DEFAULT_DBGBUS_VBIFRT;
-		debugfs_create_u32(debug_name, 0644, dbg->root,
+		debugfs_create_u32(debug_name, 0644, debugfs_root,
 				&dbg->dbgbus_vbif_rt.cmn.enable_mask);
 	}
 
 	list_for_each_entry(blk_base, &dbg->reg_base_list, reg_base_head) {
 		snprintf(debug_name, sizeof(debug_name), "%s_off",
 				blk_base->name);
-		debugfs_create_file(debug_name, 0644, dbg->root, blk_base,
+		debugfs_create_file(debug_name, 0644, debugfs_root, blk_base,
 				&sde_off_fops);
 
 		snprintf(debug_name, sizeof(debug_name), "%s_reg",
 				blk_base->name);
-		debugfs_create_file(debug_name, 0644, dbg->root, blk_base,
+		debugfs_create_file(debug_name, 0644, debugfs_root, blk_base,
 				&sde_reg_fops);
 	}
 
 	return 0;
 }
 
-#ifdef CONFIG_DEBUG_FS
-static void _sde_dbg_debugfs_destroy(void)
-{
-	debugfs_remove_recursive(sde_dbg_base.root);
-	sde_dbg_base.root = 0;
-}
-#else
 static void _sde_dbg_debugfs_destroy(void)
 {
 }
-#endif
 
 void sde_dbg_init_dbg_buses(u32 hwversion)
 {

@@ -167,6 +167,10 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 		do_log = true;
 	}
 
+	SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx - PINGPONG_0,
+			cmd_enc->pp_timeout_report_cnt,
+			atomic_read(&phys_enc->pending_kickoff_cnt));
+
 	/* to avoid flooding, only log first time, and "dead" time */
 	if (do_log) {
 		SDE_ERROR_CMDENC(cmd_enc,
@@ -176,10 +180,7 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 				cmd_enc->pp_timeout_report_cnt,
 				atomic_read(&phys_enc->pending_kickoff_cnt));
 
-		SDE_EVT32(DRMID(phys_enc->parent),
-				phys_enc->hw_pp->idx - PINGPONG_0,
-				0xbad, cmd_enc->pp_timeout_report_cnt,
-				atomic_read(&phys_enc->pending_kickoff_cnt));
+		SDE_EVT32(DRMID(phys_enc->parent), SDE_EVTLOG_FATAL);
 
 		SDE_DBG_DUMP("sde", "dsi0_ctrl", "dsi0_phy", "dsi1_ctrl",
 				"dsi1_phy", "vbif", "dbg_bus",
