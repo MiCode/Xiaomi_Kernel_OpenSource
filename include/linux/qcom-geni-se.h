@@ -248,6 +248,17 @@ struct se_geni_rsc {
 #define RX_DMA_IRQ_DELAY_MSK	(GENMASK(8, 6))
 #define RX_DMA_IRQ_DELAY_SHFT	(6)
 
+static inline unsigned int geni_read_reg_nolog(void __iomem *base, int offset)
+{
+	return readl_relaxed_no_log(base + offset);
+}
+
+static inline void geni_write_reg_nolog(unsigned int value, void __iomem *base,
+				int offset)
+{
+	return writel_relaxed_no_log(value, (base + offset));
+}
+
 static inline unsigned int geni_read_reg(void __iomem *base, int offset)
 {
 	return readl_relaxed(base + offset);
