@@ -2541,6 +2541,9 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 			return rc;
 		}
 
+		/* since PD was found the cable must be non-legacy */
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, false, 0);
+
 		/* clear USB ICL vote for DCP_VOTER */
 		rc = vote(chg->usb_icl_votable, DCP_VOTER, false, 0);
 		if (rc < 0)
@@ -3373,6 +3376,37 @@ static void smblib_handle_hvdcp_detect_done(struct smb_charger *chg,
 		   rising ? "rising" : "falling");
 }
 
+static void smblib_force_legacy_icl(struct smb_charger *chg, int pst)
+{
+	switch (pst) {
+	case POWER_SUPPLY_TYPE_USB:
+		/*
+		 * USB_PSY will vote to increase the current to 500/900mA once
+		 * enumeration is done. Ensure that USB_PSY has at least voted
+		 * for 100mA before releasing the LEGACY_UNKNOWN vote
+		 */
+		if (!is_client_vote_enabled(chg->usb_icl_votable,
+								USB_PSY_VOTER))
+			vote(chg->usb_icl_votable, USB_PSY_VOTER, true, 100000);
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, false, 0);
+		break;
+	case POWER_SUPPLY_TYPE_USB_CDP:
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 1500000);
+		break;
+	case POWER_SUPPLY_TYPE_USB_DCP:
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 1500000);
+		break;
+	case POWER_SUPPLY_TYPE_USB_HVDCP:
+	case POWER_SUPPLY_TYPE_USB_HVDCP_3:
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 3000000);
+		break;
+	default:
+		smblib_err(chg, "Unknown APSD %d; forcing 500mA\n", pst);
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 500000);
+		break;
+	}
+}
+
 #define HVDCP_DET_MS 2500
 static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 {
@@ -3382,6 +3416,10 @@ static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 		return;
 
 	apsd_result = smblib_update_usb_type(chg);
+
+	if (!chg->pd_active)
+		smblib_force_legacy_icl(chg, apsd_result->pst);
+
 	switch (apsd_result->bit) {
 	case SDP_CHARGER_BIT:
 	case CDP_CHARGER_BIT:
@@ -3466,6 +3504,9 @@ static void typec_source_removal(struct smb_charger *chg)
 {
 	int rc;
 
+	/* reset legacy unknown vote */
+	vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, false, 0);
+
 	/* reset both usbin current and voltage votes */
 	vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER, false, 0);
 	vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, false, 0);
@@ -3519,6 +3560,15 @@ static void typec_source_removal(struct smb_charger *chg)
 
 static void typec_source_insertion(struct smb_charger *chg)
 {
+	/*
+	 * at any time we want LEGACY_UNKNOWN, PD, or USB_PSY to be voting for
+	 * ICL, so vote LEGACY_UNKNOWN here if none of the above three have
+	 * casted their votes
+	 */
+	if (!is_client_vote_enabled(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER)
+		&& !is_client_vote_enabled(chg->usb_icl_votable, PD_VOTER)
+		&& !is_client_vote_enabled(chg->usb_icl_votable, USB_PSY_VOTER))
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 100000);
 }
 
 static void typec_sink_insertion(struct smb_charger *chg)
