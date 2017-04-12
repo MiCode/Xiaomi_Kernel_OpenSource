@@ -455,6 +455,8 @@ int smblib_get_prop_charger_temp_max(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_die_health(struct smb_charger *chg,
 			       union power_supply_propval *val);
+int smblib_get_prop_charge_qnovo_enable(struct smb_charger *chg,
+			       union power_supply_propval *val);
 int smblib_set_prop_pd_current_max(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_usb_current_max(struct smb_charger *chg,
@@ -474,6 +476,8 @@ int smblib_set_prop_pd_in_hard_reset(struct smb_charger *chg,
 int smblib_get_prop_slave_current_now(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_set_prop_ship_mode(struct smb_charger *chg,
+				const union power_supply_propval *val);
+int smblib_set_prop_charge_qnovo_enable(struct smb_charger *chg,
 				const union power_supply_propval *val);
 void smblib_suspend_on_debug_battery(struct smb_charger *chg);
 int smblib_rerun_apsd_if_required(struct smb_charger *chg);

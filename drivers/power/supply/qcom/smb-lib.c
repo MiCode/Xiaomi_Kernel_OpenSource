@@ -1701,6 +1701,23 @@ int smblib_get_prop_batt_charge_done(struct smb_charger *chg,
 	return 0;
 }
 
+int smblib_get_prop_charge_qnovo_enable(struct smb_charger *chg,
+				  union power_supply_propval *val)
+{
+	int rc;
+	u8 stat;
+
+	rc = smblib_read(chg, QNOVO_PT_ENABLE_CMD_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read QNOVO_PT_ENABLE_CMD rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	val->intval = (bool)(stat & QNOVO_PT_ENABLE_CMD_BIT);
+	return 0;
+}
+
 /***********************
  * BATTERY PSY SETTERS *
  ***********************/
@@ -1763,6 +1780,22 @@ int smblib_set_prop_system_temp_level(struct smb_charger *chg,
 	vote(chg->fcc_votable, THERMAL_DAEMON_VOTER, true,
 			chg->thermal_mitigation[chg->system_temp_level]);
 	return 0;
+}
+
+int smblib_set_prop_charge_qnovo_enable(struct smb_charger *chg,
+				  const union power_supply_propval *val)
+{
+	int rc = 0;
+
+	rc = smblib_masked_write(chg, QNOVO_PT_ENABLE_CMD_REG,
+			QNOVO_PT_ENABLE_CMD_BIT,
+			val->intval ? QNOVO_PT_ENABLE_CMD_BIT : 0);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't enable qnovo rc=%d\n", rc);
+		return rc;
+	}
+
+	return rc;
 }
 
 int smblib_rerun_aicl(struct smb_charger *chg)
