@@ -224,6 +224,7 @@ struct clk_osm {
 	u32 osm_clk_rate;
 	u32 xo_clk_rate;
 	bool secure_init;
+	bool per_core_dcvs;
 	bool red_fsm_en;
 	bool boost_fsm_en;
 	bool safe_fsm_en;
@@ -1547,8 +1548,16 @@ static u64 clk_osm_get_cpu_cycle_counter(int cpu)
 	parent = to_clk_osm(clk_hw_get_parent(&c->hw));
 
 	spin_lock_irqsave(&parent->lock, flags);
-	val = clk_osm_read_reg_no_log(parent,
+	/*
+	 * Use core 0's copy as proxy for the whole cluster when per
+	 * core DCVS is disabled.
+	 */
+	if (parent->per_core_dcvs)
+		val = clk_osm_read_reg_no_log(parent,
 			OSM_CYCLE_COUNTER_STATUS_REG(c->core_num));
+	else
+		val = clk_osm_read_reg_no_log(parent,
+			OSM_CYCLE_COUNTER_STATUS_REG(0));
 
 	if (val < c->prev_cycle_counter) {
 		/* Handle counter overflow */
@@ -2514,8 +2523,10 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 	clk_osm_misc_programming(&pwrcl_clk);
 	clk_osm_misc_programming(&perfcl_clk);
 
-	if (of_property_read_bool(pdev->dev.of_node,
-				"qcom,enable-per-core-dcvs")) {
+	pwrcl_clk.per_core_dcvs = perfcl_clk.per_core_dcvs =
+			of_property_read_bool(pdev->dev.of_node,
+				"qcom,enable-per-core-dcvs");
+	if (pwrcl_clk.per_core_dcvs) {
 		val = clk_osm_read_reg(&pwrcl_clk, CORE_DCVS_CTRL);
 		val |= BIT(0);
 		clk_osm_write_reg(&pwrcl_clk, val, CORE_DCVS_CTRL);
