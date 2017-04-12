@@ -201,7 +201,9 @@ struct sdhci_msm_host {
 	struct sdhci_msm_pltfm_data *pdata;
 	struct mmc_host  *mmc;
 	struct sdhci_pltfm_data sdhci_msm_pdata;
-	wait_queue_head_t pwr_irq_wait;
+	u32 curr_pwr_state;
+	u32 curr_io_level;
+	struct completion pwr_irq_completion;
 	struct sdhci_msm_bus_vote msm_bus_vote;
 	u32 clk_rate; /* Keeps track of current clock rate that is set */
 };
@@ -1424,6 +1426,8 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 	u8 irq_status = 0;
 	u8 irq_ack = 0;
 	int ret = 0;
+	int pwr_state = 0, io_level = 0;
+	unsigned long flags;
 
 	irq_status = readb_relaxed(msm_host->core_mem + CORE_PWRCTL_STATUS);
 	pr_debug("%s: Received IRQ(%d), status=0x%x\n",
@@ -1442,21 +1446,33 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 	/* Handle BUS ON/OFF*/
 	if (irq_status & CORE_PWRCTL_BUS_ON) {
 		ret = sdhci_msm_setup_vreg(msm_host->pdata, true, false);
-		if (!ret)
+		if (!ret) {
 			ret = sdhci_msm_setup_pins(msm_host->pdata, true);
+			ret |= sdhci_msm_set_vdd_io_vol(msm_host->pdata,
+					VDD_IO_HIGH, 0);
+		}
 		if (ret)
 			irq_ack |= CORE_PWRCTL_BUS_FAIL;
 		else
 			irq_ack |= CORE_PWRCTL_BUS_SUCCESS;
+
+		pwr_state = REQ_BUS_ON;
+		io_level = REQ_IO_HIGH;
 	}
 	if (irq_status & CORE_PWRCTL_BUS_OFF) {
 		ret = sdhci_msm_setup_vreg(msm_host->pdata, false, false);
-		if (!ret)
+		if (!ret) {
 			ret = sdhci_msm_setup_pins(msm_host->pdata, false);
+			ret |= sdhci_msm_set_vdd_io_vol(msm_host->pdata,
+					VDD_IO_LOW, 0);
+		}
 		if (ret)
 			irq_ack |= CORE_PWRCTL_BUS_FAIL;
 		else
 			irq_ack |= CORE_PWRCTL_BUS_SUCCESS;
+
+		pwr_state = REQ_BUS_OFF;
+		io_level = REQ_IO_LOW;
 	}
 	/* Handle IO LOW/HIGH */
 	if (irq_status & CORE_PWRCTL_IO_LOW) {
@@ -1466,6 +1482,8 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 			irq_ack |= CORE_PWRCTL_IO_FAIL;
 		else
 			irq_ack |= CORE_PWRCTL_IO_SUCCESS;
+
+		io_level = REQ_IO_LOW;
 	}
 	if (irq_status & CORE_PWRCTL_IO_HIGH) {
 		/* Switch voltage High */
@@ -1474,6 +1492,8 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 			irq_ack |= CORE_PWRCTL_IO_FAIL;
 		else
 			irq_ack |= CORE_PWRCTL_IO_SUCCESS;
+
+		io_level = REQ_IO_HIGH;
 	}
 
 	/* ACK status to the core */
@@ -1486,11 +1506,11 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 	 */
 	mb();
 
-	if (irq_status & CORE_PWRCTL_IO_HIGH)
+	if (io_level & REQ_IO_HIGH)
 		writel_relaxed((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC) &
 				~CORE_IO_PAD_PWR_SWITCH),
 				host->ioaddr + CORE_VENDOR_SPEC);
-	if (irq_status & CORE_PWRCTL_IO_LOW)
+	else if (io_level & REQ_IO_LOW)
 		writel_relaxed((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC) |
 				CORE_IO_PAD_PWR_SWITCH),
 				host->ioaddr + CORE_VENDOR_SPEC);
@@ -1498,7 +1518,14 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 
 	pr_debug("%s: Handled IRQ(%d), ret=%d, ack=0x%x\n",
 		mmc_hostname(msm_host->mmc), irq, ret, irq_ack);
-	wake_up_interruptible(&msm_host->pwr_irq_wait);
+	spin_lock_irqsave(&host->lock, flags);
+	if (pwr_state)
+		msm_host->curr_pwr_state = pwr_state;
+	if (io_level)
+		msm_host->curr_io_level = io_level;
+	complete(&msm_host->pwr_irq_completion);
+	spin_unlock_irqrestore(&host->lock, flags);
+
 	return IRQ_HANDLED;
 }
 
@@ -1532,25 +1559,36 @@ store_sdhci_max_bus_bw(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
-static void sdhci_msm_check_power_status(struct sdhci_host *host)
+static void sdhci_msm_check_power_status(struct sdhci_host *host, u32 req_type)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
-	int ret = 0;
+	unsigned long flags;
+	bool done = false;
 
-	pr_debug("%s: %s: power status before waiting 0x%x\n",
-		mmc_hostname(host->mmc), __func__,
-		readb_relaxed(msm_host->core_mem + CORE_PWRCTL_CTL));
+	spin_lock_irqsave(&host->lock, flags);
+	pr_debug("%s: %s: request %d curr_pwr_state %x curr_io_level %x\n",
+			mmc_hostname(host->mmc), __func__, req_type,
+			msm_host->curr_pwr_state, msm_host->curr_io_level);
+	if ((req_type & msm_host->curr_pwr_state) ||
+			(req_type & msm_host->curr_io_level))
+		done = true;
+	spin_unlock_irqrestore(&host->lock, flags);
 
-	ret = wait_event_interruptible(msm_host->pwr_irq_wait,
-				       (readb_relaxed(msm_host->core_mem +
-						      CORE_PWRCTL_CTL)) != 0x0);
-	if (ret)
-		pr_warning("%s: %s: returned due to error %d\n",
-				mmc_hostname(host->mmc), __func__, ret);
-	pr_debug("%s: %s: ret %d power status after handling power IRQ 0x%x\n",
-		mmc_hostname(host->mmc), __func__, ret,
-		readb_relaxed(msm_host->core_mem + CORE_PWRCTL_CTL));
+	/*
+	 * This is needed here to hanlde a case where IRQ gets
+	 * triggered even before this function is called so that
+	 * x->done counter of completion gets reset. Otherwise,
+	 * next call to wait_for_completion returns immediately
+	 * without actually waiting for the IRQ to be handled.
+	 */
+	if (done)
+		init_completion(&msm_host->pwr_irq_completion);
+	else
+		wait_for_completion(&msm_host->pwr_irq_completion);
+
+	pr_debug("%s: %s: request %d done\n", mmc_hostname(host->mmc),
+			__func__, req_type);
 }
 
 static void sdhci_msm_toggle_cdr(struct sdhci_host *host, bool enable)
@@ -1779,7 +1817,6 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto out;
 	}
-	init_waitqueue_head(&msm_host->pwr_irq_wait);
 
 	msm_host->sdhci_msm_pdata.ops = &sdhci_msm_ops;
 	host = sdhci_pltfm_init(pdev, &msm_host->sdhci_msm_pdata, 0);
@@ -1957,6 +1994,8 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	if (msm_host->msm_bus_vote.client_handle)
 		INIT_DELAYED_WORK(&msm_host->msm_bus_vote.vote_work,
 				  sdhci_msm_bus_work);
+
+	init_completion(&msm_host->pwr_irq_completion);
 
 	if (gpio_is_valid(msm_host->pdata->status_gpio)) {
 		ret = mmc_gpio_request_cd(msm_host->mmc,
