@@ -11,6 +11,7 @@
  */
 
 #include <linux/debugfs.h>
+#include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -1332,6 +1333,7 @@ static int smb2_disable_typec(struct smb_charger *chg)
 {
 	int rc;
 
+	/* Move to typeC mode */
 	/* configure FSM in idle state */
 	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
 			TYPEC_DISABLE_CMD_BIT, TYPEC_DISABLE_CMD_BIT);
@@ -1340,6 +1342,39 @@ static int smb2_disable_typec(struct smb_charger *chg)
 		return rc;
 	}
 
+	/* wait for FSM to enter idle state */
+	msleep(200);
+	/* configure TypeC mode */
+	rc = smblib_masked_write(chg, TYPE_C_CFG_REG,
+			TYPE_C_OR_U_USB_BIT, 0);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't enable micro USB mode rc=%d\n", rc);
+		return rc;
+	}
+
+	/* wait for mode change before enabling FSM */
+	usleep_range(10000, 11000);
+	/* release FSM from idle state */
+	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
+			TYPEC_DISABLE_CMD_BIT, 0);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't release FSM rc=%d\n", rc);
+		return rc;
+	}
+
+	/* wait for FSM to start */
+	msleep(100);
+	/* move to uUSB mode */
+	/* configure FSM in idle state */
+	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
+			TYPEC_DISABLE_CMD_BIT, TYPEC_DISABLE_CMD_BIT);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't put FSM in idle rc=%d\n", rc);
+		return rc;
+	}
+
+	/* wait for FSM to enter idle state */
+	msleep(200);
 	/* configure micro USB mode */
 	rc = smblib_masked_write(chg, TYPE_C_CFG_REG,
 			TYPE_C_OR_U_USB_BIT, TYPE_C_OR_U_USB_BIT);
@@ -1348,6 +1383,8 @@ static int smb2_disable_typec(struct smb_charger *chg)
 		return rc;
 	}
 
+	/* wait for mode change before enabling FSM */
+	usleep_range(10000, 11000);
 	/* release FSM from idle state */
 	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
 			TYPEC_DISABLE_CMD_BIT, 0);
