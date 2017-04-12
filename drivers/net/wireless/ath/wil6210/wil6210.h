@@ -141,6 +141,7 @@ struct RGF_ICR {
 #define RGF_USER_USAGE_1		(0x880004)
 #define RGF_USER_USAGE_6		(0x880018)
 	#define BIT_USER_OOB_MODE		BIT(31)
+	#define BIT_USER_OOB_R2_MODE		BIT(30)
 #define RGF_USER_USAGE_8		(0x880020)
 	#define BIT_USER_PREVENT_DEEP_SLEEP	BIT(0)
 	#define BIT_USER_SUPPORT_T_POWER_ON_0	BIT(1)
@@ -621,6 +622,8 @@ struct wil6210_priv {
 	u16 channel; /* relevant in AP mode */
 	int sinfo_gen;
 	u32 ap_isolate; /* no intra-BSS communication */
+	struct cfg80211_bss *bss; /* connected bss, relevant in STA mode */
+	int locally_generated_disc; /* relevant in STA mode */
 	/* interrupt moderation */
 	u32 tx_max_burst_duration;
 	u32 tx_interframe_timeout;
@@ -778,6 +781,12 @@ static inline void wil_c(struct wil6210_priv *wil, u32 reg, u32 val)
 			 print_hex_dump_debug("DBG[ WMI]" prefix_str,\
 					prefix_type, rowsize,	\
 					groupsize, buf, len, ascii)
+
+#define wil_hex_dump_misc(prefix_str, prefix_type, rowsize,	\
+			  groupsize, buf, len, ascii)		\
+			  print_hex_dump_debug("DBG[MISC]" prefix_str,\
+					prefix_type, rowsize,	\
+					groupsize, buf, len, ascii)
 #else /* defined(CONFIG_DYNAMIC_DEBUG) */
 static inline
 void wil_hex_dump_txrx(const char *prefix_str, int prefix_type, int rowsize,
@@ -788,6 +797,12 @@ void wil_hex_dump_txrx(const char *prefix_str, int prefix_type, int rowsize,
 static inline
 void wil_hex_dump_wmi(const char *prefix_str, int prefix_type, int rowsize,
 		      int groupsize, const void *buf, size_t len, bool ascii)
+{
+}
+
+static inline
+void wil_hex_dump_misc(const char *prefix_str, int prefix_type, int rowsize,
+		       int groupsize, const void *buf, size_t len, bool ascii)
 {
 }
 #endif /* defined(CONFIG_DYNAMIC_DEBUG) */
