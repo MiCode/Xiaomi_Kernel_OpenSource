@@ -34,6 +34,7 @@
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/slot-gpio.h>
 #include <linux/dma-mapping.h>
+#include <linux/iopoll.h>
 #include <linux/msm-bus.h>
 
 #include "sdhci-pltfm.h"
@@ -1812,6 +1813,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	struct resource *core_memres = NULL;
 	int ret = 0, pwr_irq = 0, dead = 0;
 	u16 host_version;
+	u32 pwr;
 
 	pr_debug("%s: Enter %s\n", dev_name(&pdev->dev), __func__);
 	msm_host = devm_kzalloc(&pdev->dev, sizeof(struct sdhci_msm_host),
@@ -1920,7 +1922,21 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	}
 
 	/* Set SW_RST bit in POWER register (Offset 0x0) */
-	writel_relaxed(CORE_SW_RST, msm_host->core_mem + CORE_POWER);
+	writel_relaxed(readl_relaxed(msm_host->core_mem + CORE_POWER) |
+			CORE_SW_RST, msm_host->core_mem + CORE_POWER);
+	/*
+	 * SW reset can take upto 10HCLK + 15MCLK cycles.
+	 * Calculating based on min clk rates (hclk = 27MHz,
+	 * mclk = 400KHz) it comes to ~40us. Let's poll for
+	 * max. 1ms for reset completion.
+	 */
+	ret = readl_poll_timeout(msm_host->core_mem + CORE_POWER,
+			pwr, !(pwr & CORE_SW_RST), 100, 10);
+
+	if (ret) {
+		dev_err(&pdev->dev, "reset failed (%d)\n", ret);
+		goto vreg_deinit;
+	}
 	/* Set HC_MODE_EN bit in HC_MODE register */
 	writel_relaxed(HC_MODE_EN, (msm_host->core_mem + CORE_HC_MODE));
 
