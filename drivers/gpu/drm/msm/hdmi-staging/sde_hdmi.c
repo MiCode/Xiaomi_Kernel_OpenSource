@@ -85,16 +85,328 @@ static ssize_t _sde_hdmi_debugfs_dump_info_read(struct file *file,
 	return len;
 }
 
+static ssize_t _sde_hdmi_debugfs_edid_modes_read(struct file *file,
+						char __user *buff,
+						size_t count,
+						loff_t *ppos)
+{
+	struct sde_hdmi *display = file->private_data;
+	char *buf;
+	u32 len = 0;
+	struct drm_connector *connector;
+	u32 mode_count = 0;
+	struct drm_display_mode *mode;
+
+	if (!display)
+		return -ENODEV;
+
+	if (!display->ctrl.ctrl ||
+		!display->ctrl.ctrl->connector) {
+		SDE_ERROR("sde_hdmi=%p or hdmi or connector is NULL\n",
+				  display);
+		return -ENOMEM;
+	}
+
+	if (*ppos)
+		return 0;
+
+	connector = display->ctrl.ctrl->connector;
+
+	list_for_each_entry(mode, &connector->modes, head) {
+		mode_count++;
+	}
+
+	/* Adding one more to store title */
+	mode_count++;
+
+	buf = kzalloc((mode_count * sizeof(*mode)), GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	len += snprintf(buf + len, PAGE_SIZE - len,
+					"name refresh (Hz) hdisp hss hse htot vdisp");
+
+	len += snprintf(buf + len, PAGE_SIZE - len,
+					" vss vse vtot flags\n");
+
+	list_for_each_entry(mode, &connector->modes, head) {
+		len += snprintf(buf + len, SZ_4K - len,
+		"%s %d %d %d %d %d %d %d %d %d 0x%x\n",
+		mode->name, mode->vrefresh, mode->hdisplay,
+		mode->hsync_start, mode->hsync_end, mode->htotal,
+		mode->vdisplay, mode->vsync_start, mode->vsync_end,
+		mode->vtotal, mode->flags);
+	}
+
+	if (copy_to_user(buff, buf, len)) {
+		kfree(buf);
+		return -EFAULT;
+	}
+
+	*ppos += len;
+
+	kfree(buf);
+	return len;
+}
+
+static ssize_t _sde_hdmi_debugfs_edid_vsdb_info_read(struct file *file,
+						char __user *buff,
+						size_t count,
+						loff_t *ppos)
+{
+	struct sde_hdmi *display = file->private_data;
+	char buf[200];
+	u32 len = 0;
+	struct drm_connector *connector;
+
+	if (!display)
+		return -ENODEV;
+
+	if (!display->ctrl.ctrl ||
+		!display->ctrl.ctrl->connector) {
+		SDE_ERROR("sde_hdmi=%p or hdmi or connector is NULL\n",
+				  display);
+		return -ENOMEM;
+	}
+
+	SDE_HDMI_DEBUG("%s +", __func__);
+	if (*ppos)
+		return 0;
+
+	connector = display->ctrl.ctrl->connector;
+	len += snprintf(buf + len, sizeof(buf) - len,
+					"max_tmds_clock = %d\n",
+					connector->max_tmds_clock);
+	len += snprintf(buf + len, sizeof(buf) - len,
+					"latency_present %d %d\n",
+					connector->latency_present[0],
+					connector->latency_present[1]);
+	len += snprintf(buf + len, sizeof(buf) - len,
+					"video_latency %d %d\n",
+					connector->video_latency[0],
+					connector->video_latency[1]);
+	len += snprintf(buf + len, sizeof(buf) - len,
+					"audio_latency %d %d\n",
+					connector->audio_latency[0],
+					connector->audio_latency[1]);
+	len += snprintf(buf + len, sizeof(buf) - len,
+					"dvi_dual %d\n",
+					(int)connector->dvi_dual);
+
+	if (copy_to_user(buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;
+	SDE_HDMI_DEBUG("%s - ", __func__);
+	return len;
+}
+
+static ssize_t _sde_hdmi_debugfs_edid_hdr_info_read(struct file *file,
+						char __user *buff,
+						size_t count,
+						loff_t *ppos)
+{
+	struct sde_hdmi *display = file->private_data;
+	char buf[200];
+	u32 len = 0;
+	struct drm_connector *connector;
+
+	if (!display)
+		return -ENODEV;
+
+	if (!display->ctrl.ctrl ||
+		!display->ctrl.ctrl->connector) {
+		SDE_ERROR("sde_hdmi=%p or hdmi or connector is NULL\n",
+				  display);
+		return -ENOMEM;
+	}
+
+	SDE_HDMI_DEBUG("%s +", __func__);
+	if (*ppos)
+		return 0;
+
+	connector = display->ctrl.ctrl->connector;
+	len += snprintf(buf, sizeof(buf), "hdr_eotf = %d\n"
+					"hdr_metadata_type_one %d\n"
+					"hdr_max_luminance %d\n"
+					"hdr_avg_luminance %d\n"
+					"hdr_min_luminance %d\n"
+					"hdr_supported %d\n",
+					connector->hdr_eotf,
+					connector->hdr_metadata_type_one,
+					connector->hdr_max_luminance,
+					connector->hdr_avg_luminance,
+					connector->hdr_min_luminance,
+					(int)connector->hdr_supported);
+
+	if (copy_to_user(buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;
+	SDE_HDMI_DEBUG("%s - ", __func__);
+	return len;
+}
+
+static ssize_t _sde_hdmi_debugfs_edid_hfvsdb_info_read(struct file *file,
+						char __user *buff,
+						size_t count,
+						loff_t *ppos)
+{
+	struct sde_hdmi *display = file->private_data;
+	char buf[200];
+	u32 len = 0;
+	struct drm_connector *connector;
+
+	if (!display)
+		return -ENODEV;
+
+	if (!display->ctrl.ctrl ||
+		!display->ctrl.ctrl->connector) {
+		SDE_ERROR("sde_hdmi=%p or hdmi or connector is NULL\n",
+				  display);
+		return -ENOMEM;
+	}
+
+	SDE_HDMI_DEBUG("%s +", __func__);
+	if (*ppos)
+		return 0;
+
+	connector = display->ctrl.ctrl->connector;
+	len += snprintf(buf, PAGE_SIZE - len, "max_tmds_char = %d\n"
+					"scdc_present %d\n"
+					"rr_capable %d\n"
+					"supports_scramble %d\n"
+					"flags_3d %d\n",
+					connector->max_tmds_char,
+					(int)connector->scdc_present,
+					(int)connector->rr_capable,
+					(int)connector->supports_scramble,
+					connector->flags_3d);
+
+	if (copy_to_user(buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;
+	return len;
+}
+
+static ssize_t _sde_hdmi_debugfs_edid_vcdb_info_read(struct file *file,
+						char __user *buff,
+						size_t count,
+						loff_t *ppos)
+{
+	struct sde_hdmi *display = file->private_data;
+	char buf[100];
+	u32 len = 0;
+	struct drm_connector *connector;
+
+	if (!display)
+		return -ENODEV;
+
+	if (!display->ctrl.ctrl ||
+		!display->ctrl.ctrl->connector) {
+		SDE_ERROR("sde_hdmi=%p or hdmi or connector is NULL\n",
+				  display);
+		return -ENOMEM;
+	}
+
+	SDE_HDMI_DEBUG("%s +", __func__);
+	if (*ppos)
+		return 0;
+
+	connector = display->ctrl.ctrl->connector;
+	len += snprintf(buf, PAGE_SIZE - len, "pt_scan_info = %d\n"
+					"it_scan_info = %d\n"
+					"ce_scan_info = %d\n",
+					(int)connector->pt_scan_info,
+					(int)connector->it_scan_info,
+					(int)connector->ce_scan_info);
+
+	if (copy_to_user(buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;
+	SDE_HDMI_DEBUG("%s - ", __func__);
+	return len;
+}
+
+static ssize_t _sde_hdmi_edid_vendor_name_read(struct file *file,
+						char __user *buff,
+						size_t count,
+						loff_t *ppos)
+{
+	struct sde_hdmi *display = file->private_data;
+	char buf[100];
+	u32 len = 0;
+	struct drm_connector *connector;
+
+	if (!display)
+		return -ENODEV;
+
+	if (!display->ctrl.ctrl ||
+		!display->ctrl.ctrl->connector) {
+		SDE_ERROR("sde_hdmi=%p or hdmi or connector is NULL\n",
+				  display);
+		return -ENOMEM;
+	}
+
+	SDE_HDMI_DEBUG("%s +", __func__);
+	if (*ppos)
+		return 0;
+
+	connector = display->ctrl.ctrl->connector;
+	len += snprintf(buf, PAGE_SIZE - len, "Vendor ID is %s\n",
+					display->edid_ctrl->vendor_id);
+
+	if (copy_to_user(buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;
+	SDE_HDMI_DEBUG("%s - ", __func__);
+	return len;
+}
 
 static const struct file_operations dump_info_fops = {
 	.open = simple_open,
 	.read = _sde_hdmi_debugfs_dump_info_read,
 };
 
+static const struct file_operations edid_modes_fops = {
+	.open = simple_open,
+	.read = _sde_hdmi_debugfs_edid_modes_read,
+};
+
+static const struct file_operations edid_vsdb_info_fops = {
+	.open = simple_open,
+	.read = _sde_hdmi_debugfs_edid_vsdb_info_read,
+};
+
+static const struct file_operations edid_hdr_info_fops = {
+	.open = simple_open,
+	.read = _sde_hdmi_debugfs_edid_hdr_info_read,
+};
+
+static const struct file_operations edid_hfvsdb_info_fops = {
+	.open = simple_open,
+	.read = _sde_hdmi_debugfs_edid_hfvsdb_info_read,
+};
+
+static const struct file_operations edid_vcdb_info_fops = {
+	.open = simple_open,
+	.read = _sde_hdmi_debugfs_edid_vcdb_info_read,
+};
+
+static const struct file_operations edid_vendor_name_fops = {
+	.open = simple_open,
+	.read = _sde_hdmi_edid_vendor_name_read,
+};
+
 static int _sde_hdmi_debugfs_init(struct sde_hdmi *display)
 {
 	int rc = 0;
-	struct dentry *dir, *dump_file;
+	struct dentry *dir, *dump_file, *edid_modes;
+	struct dentry *edid_vsdb_info, *edid_hdr_info, *edid_hfvsdb_info;
+	struct dentry *edid_vcdb_info, *edid_vendor_name;
 
 	dir = debugfs_create_dir(display->name, NULL);
 	if (!dir) {
@@ -111,6 +423,83 @@ static int _sde_hdmi_debugfs_init(struct sde_hdmi *display)
 					&dump_info_fops);
 	if (IS_ERR_OR_NULL(dump_file)) {
 		rc = PTR_ERR(dump_file);
+		SDE_ERROR("[%s]debugfs create file failed, rc=%d\n",
+		       display->name, rc);
+		goto error_remove_dir;
+	}
+
+	edid_modes = debugfs_create_file("edid_modes",
+					0444,
+					dir,
+					display,
+					&edid_modes_fops);
+
+	if (IS_ERR_OR_NULL(edid_modes)) {
+		rc = PTR_ERR(edid_modes);
+		SDE_ERROR("[%s]debugfs create file failed, rc=%d\n",
+		       display->name, rc);
+		goto error_remove_dir;
+	}
+
+	edid_vsdb_info = debugfs_create_file("edid_vsdb_info",
+						0444,
+						dir,
+						display,
+						&edid_vsdb_info_fops);
+
+	if (IS_ERR_OR_NULL(edid_vsdb_info)) {
+		rc = PTR_ERR(edid_vsdb_info);
+		SDE_ERROR("[%s]debugfs create file failed, rc=%d\n",
+		       display->name, rc);
+		goto error_remove_dir;
+	}
+
+	edid_hdr_info = debugfs_create_file("edid_hdr_info",
+						0444,
+						dir,
+						display,
+						&edid_hdr_info_fops);
+	if (IS_ERR_OR_NULL(edid_hdr_info)) {
+		rc = PTR_ERR(edid_hdr_info);
+		SDE_ERROR("[%s]debugfs create file failed, rc=%d\n",
+		       display->name, rc);
+		goto error_remove_dir;
+	}
+
+	edid_hfvsdb_info = debugfs_create_file("edid_hfvsdb_info",
+						0444,
+						dir,
+						display,
+						&edid_hfvsdb_info_fops);
+
+	if (IS_ERR_OR_NULL(edid_hfvsdb_info)) {
+		rc = PTR_ERR(edid_hfvsdb_info);
+		SDE_ERROR("[%s]debugfs create file failed, rc=%d\n",
+		       display->name, rc);
+		goto error_remove_dir;
+	}
+
+	edid_vcdb_info = debugfs_create_file("edid_vcdb_info",
+						0444,
+						dir,
+						display,
+						&edid_vcdb_info_fops);
+
+	if (IS_ERR_OR_NULL(edid_vcdb_info)) {
+		rc = PTR_ERR(edid_vcdb_info);
+		SDE_ERROR("[%s]debugfs create file failed, rc=%d\n",
+		       display->name, rc);
+		goto error_remove_dir;
+	}
+
+	edid_vendor_name = debugfs_create_file("edid_vendor_name",
+						0444,
+						dir,
+						display,
+						&edid_vendor_name_fops);
+
+	if (IS_ERR_OR_NULL(edid_vendor_name)) {
+		rc = PTR_ERR(edid_vendor_name);
 		SDE_ERROR("[%s]debugfs create file failed, rc=%d\n",
 		       display->name, rc);
 		goto error_remove_dir;
@@ -1193,6 +1582,8 @@ static int sde_hdmi_bind(struct device *dev, struct device *master, void *data)
 	display_ctrl->ctrl = priv->hdmi;
 	display->drm_dev = drm;
 
+	mutex_unlock(&display->display_lock);
+	return rc;
 error:
 	(void)_sde_hdmi_debugfs_deinit(display);
 debug_error:
