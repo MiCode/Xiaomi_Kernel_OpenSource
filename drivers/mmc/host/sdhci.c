@@ -3880,6 +3880,12 @@ int __sdhci_add_host(struct sdhci_host *host)
 	if (ret)
 		goto unled;
 
+	if (host->quirks2 & SDHCI_QUIRK2_IGN_DATA_END_BIT_ERROR) {
+		host->ier = (host->ier & ~SDHCI_INT_DATA_END_BIT);
+		sdhci_writel(host, host->ier, SDHCI_INT_ENABLE);
+		sdhci_writel(host, host->ier, SDHCI_SIGNAL_ENABLE);
+	}
+
 	pr_info("%s: SDHCI controller on %s [%s] using %s\n",
 		mmc_hostname(mmc), host->hw_name, dev_name(mmc_dev(mmc)),
 		(host->flags & SDHCI_USE_ADMA) ?

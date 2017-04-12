@@ -2161,6 +2161,8 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		host->quirks2 |= SDHCI_QUIRK2_RDWR_TX_ACTIVE_EOT;
 	}
 
+	host->quirks2 |= SDHCI_QUIRK2_IGN_DATA_END_BIT_ERROR;
+
 	/* Setup PWRCTL irq */
 	pwr_irq = platform_get_irq_byname(pdev, "pwr_irq");
 	if (pwr_irq < 0) {
