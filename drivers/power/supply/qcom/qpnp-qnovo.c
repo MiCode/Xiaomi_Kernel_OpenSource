@@ -431,7 +431,7 @@ static struct param_info params[] = {
 		.reg_to_unit_multiplier	= 5,
 		.reg_to_unit_divider	= 1,
 		.min_val		= 5,
-		.max_val		= 1275,
+		.max_val		= 255,
 		.units_str		= "mS",
 	},
 	[PPULS1] = {
@@ -440,8 +440,8 @@ static struct param_info params[] = {
 		.num_regs		= 2,
 		.reg_to_unit_multiplier	= 1600, /* converts to uC */
 		.reg_to_unit_divider	= 1,
-		.min_val		= 0,
-		.max_val		= 104856000,
+		.min_val		= 30000,
+		.max_val		= 65535000,
 		.units_str		= "uC",
 	},
 	[NREST1] = {
@@ -451,7 +451,7 @@ static struct param_info params[] = {
 		.reg_to_unit_multiplier	= 5,
 		.reg_to_unit_divider	= 1,
 		.min_val		= 5,
-		.max_val		= 1275,
+		.max_val		= 255,
 		.units_str		= "mS",
 	},
 	[NPULS1] = {
@@ -460,8 +460,8 @@ static struct param_info params[] = {
 		.num_regs		= 1,
 		.reg_to_unit_multiplier	= 5,
 		.reg_to_unit_divider	= 1,
-		.min_val		= 5,
-		.max_val		= 1275,
+		.min_val		= 0,
+		.max_val		= 255,
 		.units_str		= "mS",
 	},
 	[PPCNT] = {
@@ -470,7 +470,7 @@ static struct param_info params[] = {
 		.num_regs		= 1,
 		.reg_to_unit_multiplier	= 1,
 		.reg_to_unit_divider	= 1,
-		.min_val		= 0,
+		.min_val		= 1,
 		.max_val		= 255,
 		.units_str		= "pulses",
 	},
@@ -480,8 +480,8 @@ static struct param_info params[] = {
 		.num_regs		= 2,
 		.reg_to_unit_multiplier	= 610350, /* converts to nV */
 		.reg_to_unit_divider	= 1,
-		.min_val		= 0,
-		.max_val		= 5000000,
+		.min_val		= 2200000,
+		.max_val		= 4500000,
 		.units_str		= "uV",
 	},
 	[PVOLT1] = {
@@ -506,8 +506,6 @@ static struct param_info params[] = {
 		.num_regs		= 1,
 		.reg_to_unit_multiplier	= 2,
 		.reg_to_unit_divider	= 1,
-		.min_val		= 5,
-		.max_val		= 1275,
 		.units_str		= "S",
 	},
 	[PREST2] = {
@@ -517,7 +515,7 @@ static struct param_info params[] = {
 		.reg_to_unit_multiplier	= 5,
 		.reg_to_unit_divider	= 1,
 		.min_val		= 5,
-		.max_val		= 327675,
+		.max_val		= 65535,
 		.units_str		= "mS",
 	},
 	[PPULS2] = {
@@ -526,8 +524,8 @@ static struct param_info params[] = {
 		.num_regs		= 2,
 		.reg_to_unit_multiplier	= 1600, /* converts to uC */
 		.reg_to_unit_divider	= 1,
-		.min_val		= 0,
-		.max_val		= 104856000,
+		.min_val		= 30000,
+		.max_val		= 65535000,
 		.units_str		= "uC",
 	},
 	[NREST2] = {
@@ -538,7 +536,7 @@ static struct param_info params[] = {
 		.reg_to_unit_divider	= 1,
 		.reg_to_unit_offset	= -5,
 		.min_val		= 5,
-		.max_val		= 1280,
+		.max_val		= 255,
 		.units_str		= "mS",
 	},
 	[NPULS2] = {
@@ -547,18 +545,18 @@ static struct param_info params[] = {
 		.num_regs		= 1,
 		.reg_to_unit_multiplier	= 5,
 		.reg_to_unit_divider	= 1,
-		.min_val		= 5,
-		.max_val		= 1275,
+		.min_val		= 0,
+		.max_val		= 255,
 		.units_str		= "mS",
 	},
 	[VLIM2] = {
-		.name			= "VLIM1",
+		.name			= "VLIM2",
 		.start_addr		= QNOVO_VLIM2_LSB_CTRL,
 		.num_regs		= 2,
 		.reg_to_unit_multiplier	= 610350, /* converts to nV */
 		.reg_to_unit_divider	= 1,
-		.min_val		= 0,
-		.max_val		= 5000000,
+		.min_val		= 2200000,
+		.max_val		= 4500000,
 		.units_str		= "uV",
 	},
 	[PVOLT2] = {
@@ -591,6 +589,8 @@ static struct param_info params[] = {
 		.num_regs		= 1,
 		.reg_to_unit_multiplier	= 1,
 		.reg_to_unit_divider	= 1,
+		.min_val		= 0,
+		.max_val		= 255,
 		.units_str		= "pulses",
 	},
 	[VMAX] = {
@@ -666,7 +666,7 @@ static ssize_t enable_store(struct class *c, struct class_attribute *attr,
 	unsigned long val;
 	bool disable;
 
-	if (kstrtoul(ubuf, 10, &val))
+	if (kstrtoul(ubuf, 0, &val))
 		return -EINVAL;
 
 	disable = !val;
@@ -688,7 +688,7 @@ static ssize_t val_show(struct class *c, struct class_attribute *attr,
 	if (i == FCC_REQUEST)
 		val = chip->fcc_uA_request;
 
-	return snprintf(ubuf, PAGE_SIZE, "%d%s\n", val, params[i].units_str);
+	return snprintf(ubuf, PAGE_SIZE, "%d\n", val);
 }
 
 static ssize_t val_store(struct class *c, struct class_attribute *attr,
@@ -698,7 +698,7 @@ static ssize_t val_store(struct class *c, struct class_attribute *attr,
 	int i = attr - qnovo_attributes;
 	unsigned long val;
 
-	if (kstrtoul(ubuf, 10, &val))
+	if (kstrtoul(ubuf, 0, &val))
 		return -EINVAL;
 
 	if (i == FV_REQUEST)
@@ -726,8 +726,7 @@ static ssize_t reg_show(struct class *c, struct class_attribute *attr,
 	}
 	regval = buf[1] << 8 | buf[0];
 
-	return snprintf(ubuf, PAGE_SIZE, "0x%04x%s\n",
-			regval, params[i].units_str);
+	return snprintf(ubuf, PAGE_SIZE, "0x%04x\n", regval);
 }
 
 static ssize_t reg_store(struct class *c, struct class_attribute *attr,
@@ -739,7 +738,7 @@ static ssize_t reg_store(struct class *c, struct class_attribute *attr,
 	unsigned long val;
 	int rc;
 
-	if (kstrtoul(ubuf, 16, &val))
+	if (kstrtoul(ubuf, 0, &val))
 		return -EINVAL;
 
 	buf[0] = val & 0xFF;
@@ -774,7 +773,7 @@ static ssize_t time_show(struct class *c, struct class_attribute *attr,
 			/ params[i].reg_to_unit_divider)
 		- params[i].reg_to_unit_offset;
 
-	return snprintf(ubuf, PAGE_SIZE, "%d%s\n", val, params[i].units_str);
+	return snprintf(ubuf, PAGE_SIZE, "%d\n", val);
 }
 
 static ssize_t time_store(struct class *c, struct class_attribute *attr,
@@ -787,7 +786,7 @@ static ssize_t time_store(struct class *c, struct class_attribute *attr,
 	unsigned long val;
 	int rc;
 
-	if (kstrtoul(ubuf, 10, &val))
+	if (kstrtoul(ubuf, 0, &val))
 		return -EINVAL;
 
 	if (val < params[i].min_val || val > params[i].max_val) {
@@ -844,8 +843,7 @@ static ssize_t current_show(struct class *c, struct class_attribute *attr,
 	comp_val_nA = div_s64(regval_nA * gain, 1000000) - offset_nA;
 	comp_val_uA = div_s64(comp_val_nA, 1000);
 
-	return snprintf(ubuf, PAGE_SIZE, "%d%s\n",
-			comp_val_uA, params[i].units_str);
+	return snprintf(ubuf, PAGE_SIZE, "%d\n", comp_val_uA);
 }
 
 static ssize_t voltage_show(struct class *c, struct class_attribute *attr,
@@ -875,8 +873,7 @@ static ssize_t voltage_show(struct class *c, struct class_attribute *attr,
 	comp_val_nV = div_s64(regval_nV * gain, 1000000) + offset_nV;
 	comp_val_uV = div_s64(comp_val_nV, 1000);
 
-	return snprintf(ubuf, PAGE_SIZE, "%d%s\n",
-				comp_val_uV, params[i].units_str);
+	return snprintf(ubuf, PAGE_SIZE, "%d\n", comp_val_uV);
 }
 
 static ssize_t voltage_store(struct class *c, struct class_attribute *attr,
@@ -890,7 +887,7 @@ static ssize_t voltage_store(struct class *c, struct class_attribute *attr,
 	s64 regval_nV;
 	s64 gain, offset_nV;
 
-	if (kstrtoul(ubuf, 10, &val_uV))
+	if (kstrtoul(ubuf, 0, &val_uV))
 		return -EINVAL;
 
 	if (val_uV < params[i].min_val || val_uV > params[i].max_val) {
@@ -947,8 +944,7 @@ static ssize_t coulomb_show(struct class *c, struct class_attribute *attr,
 		gain = chip->internal_i_gain_mega;
 
 	comp_val_uC = div_s64(regval_uC * gain, 1000000);
-	return snprintf(ubuf, PAGE_SIZE, "%d%s\n",
-			comp_val_uC, params[i].units_str);
+	return snprintf(ubuf, PAGE_SIZE, "%d\n", comp_val_uC);
 }
 
 static ssize_t coulomb_store(struct class *c, struct class_attribute *attr,
@@ -962,7 +958,7 @@ static ssize_t coulomb_store(struct class *c, struct class_attribute *attr,
 	s64 regval;
 	s64 gain;
 
-	if (kstrtoul(ubuf, 10, &val_uC))
+	if (kstrtoul(ubuf, 0, &val_uC))
 		return -EINVAL;
 
 	if (val_uC < params[i].min_val || val_uC > params[i].max_val) {
@@ -1014,8 +1010,7 @@ static ssize_t batt_prop_show(struct class *c, struct class_attribute *attr,
 		return -EINVAL;
 	}
 
-	return snprintf(ubuf, PAGE_SIZE, "%d%s\n",
-			pval.intval, params[i].units_str);
+	return snprintf(ubuf, PAGE_SIZE, "%d\n", pval.intval);
 }
 
 static struct class_attribute qnovo_attributes[] = {
@@ -1031,10 +1026,10 @@ static struct class_attribute qnovo_attributes[] = {
 					reg_show, reg_store),
 	[PE_CTRL2_REG]		= __ATTR(PE_CTRL2_REG, 0644,
 					reg_show, reg_store),
-	[PTRAIN_STS_REG]	= __ATTR(PTRAIN_STS_REG, 0644,
-					reg_show, reg_store),
-	[INT_RT_STS_REG]	= __ATTR(INT_RT_STS_REG, 0644,
-					reg_show, reg_store),
+	[PTRAIN_STS_REG]	= __ATTR(PTRAIN_STS_REG, 0444,
+					reg_show, NULL),
+	[INT_RT_STS_REG]	= __ATTR(INT_RT_STS_REG, 0444,
+					reg_show, NULL),
 	[PREST1]		= __ATTR(PREST1_mS, 0644,
 					time_show, time_store),
 	[PPULS1]		= __ATTR(PPULS1_uC, 0644,
@@ -1073,8 +1068,8 @@ static struct class_attribute qnovo_attributes[] = {
 					time_show, time_store),
 	[VMAX]			= __ATTR(VMAX_uV, 0444,
 					voltage_show, NULL),
-	[SNUM]			= __ATTR(SNUM, 0644,
-					time_show, time_store),
+	[SNUM]			= __ATTR(SNUM, 0444,
+					time_show, NULL),
 	[VBATT]			= __ATTR(VBATT_uV, 0444,
 					batt_prop_show, NULL),
 	[IBATT]			= __ATTR(IBATT_uA, 0444,
