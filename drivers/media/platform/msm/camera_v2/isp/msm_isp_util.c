@@ -365,6 +365,20 @@ static int msm_isp_update_fe_frame_id(struct vfe_device *vfe_dev,
 	return rc;
 }
 
+static int msm_isp_restart_fe(struct vfe_device *vfe_dev,
+	void *arg)
+{
+	struct msm_vfe_restart_fe_cmd *rst_fe = arg;
+	int rc = 0;
+	/*
+	* In case of overflow recovery
+	* restart fetch engine
+	*/
+	if (rst_fe->restart_fe)
+		vfe_dev->fetch_engine_info.is_busy = 1;
+	return rc;
+}
+
 static int msm_isp_start_fetch_engine(struct vfe_device *vfe_dev,
 	void *arg)
 {
@@ -942,6 +956,12 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_ISP_MAP_BUF_START_MULTI_PASS_FE:
 		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_start_fetch_engine_multi_pass(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
+		break;
+
+	case VIDIOC_MSM_ISP_RESTART_FE:
+		mutex_lock(&vfe_dev->core_mutex);
+		rc = msm_isp_restart_fe(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 

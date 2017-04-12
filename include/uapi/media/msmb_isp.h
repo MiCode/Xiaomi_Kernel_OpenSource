@@ -410,6 +410,10 @@ struct msm_vfe_axi_restart_cmd {
 	uint32_t enable_camif;
 };
 
+struct msm_vfe_restart_fe_cmd {
+	uint32_t restart_fe;
+};
+
 struct msm_vfe_axi_stream_update_cmd {
 	uint32_t num_streams;
 	enum msm_vfe_axi_stream_update_type update_type;
@@ -896,6 +900,7 @@ enum msm_isp_ioctl_cmd_code {
 	MSM_ISP_CFG_HW_STATE,
 	MSM_ISP_AHB_CLK_CFG,
 	MSM_ISP_UPDATE_FE_FRAME_ID,
+	MSM_ISP_RESTART_FE,
 };
 
 #define VIDIOC_MSM_VFE_REG_CFG \
@@ -977,6 +982,10 @@ enum msm_isp_ioctl_cmd_code {
 #define VIDIOC_MSM_ISP_AXI_RESTART \
 	_IOWR('V', MSM_ISP_AXI_RESTART, \
 		struct msm_vfe_axi_restart_cmd)
+
+#define VIDIOC_MSM_ISP_RESTART_FE \
+	_IOWR('V', MSM_ISP_RESTART_FE,\
+		struct msm_vfe_restart_fe_cmd)
 
 #define VIDIOC_MSM_ISP_FETCH_ENG_START \
 	_IOWR('V', MSM_ISP_FETCH_ENG_START, \
