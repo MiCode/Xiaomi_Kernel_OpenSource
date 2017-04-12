@@ -276,6 +276,7 @@ struct sdhci_msm_host {
 	u8 saved_tuning_phase;
 	bool en_auto_cmd21;
 	struct device_attribute auto_cmd21_attr;
+	atomic_t controller_clock;
 };
 
 enum vdd_io_level {
@@ -2064,6 +2065,50 @@ static unsigned int sdhci_msm_get_sup_clk_rate(struct sdhci_host *host,
 	return sel_clk;
 }
 
+static int sdhci_msm_enable_controller_clock(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	int rc = 0;
+
+	if (atomic_read(&msm_host->controller_clock))
+		return 0;
+
+	sdhci_msm_bus_voting(host, 1);
+
+	if (!IS_ERR(msm_host->pclk)) {
+		rc = clk_prepare_enable(msm_host->pclk);
+		if (rc) {
+			pr_err("%s: %s: failed to enable the pclk with error %d\n",
+			       mmc_hostname(host->mmc), __func__, rc);
+			goto remove_vote;
+		}
+	}
+
+	rc = clk_prepare_enable(msm_host->clk);
+	if (rc) {
+		pr_err("%s: %s: failed to enable the host-clk with error %d\n",
+		       mmc_hostname(host->mmc), __func__, rc);
+		goto disable_pclk;
+	}
+
+	atomic_set(&msm_host->controller_clock, 1);
+	pr_debug("%s: %s: enabled controller clock\n",
+			mmc_hostname(host->mmc), __func__);
+	goto out;
+
+disable_pclk:
+	if (!IS_ERR(msm_host->pclk))
+		clk_disable_unprepare(msm_host->pclk);
+remove_vote:
+	if (msm_host->msm_bus_vote.client_handle)
+		sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
+out:
+	return rc;
+}
+
+
+
 static int sdhci_msm_prepare_clocks(struct sdhci_host *host, bool enable)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -2074,36 +2119,32 @@ static int sdhci_msm_prepare_clocks(struct sdhci_host *host, bool enable)
 		pr_debug("%s: request to enable clocks\n",
 				mmc_hostname(host->mmc));
 
-		sdhci_msm_bus_voting(host, 1);
+		/*
+		 * The bus-width or the clock rate might have changed
+		 * after controller clocks are enbaled, update bus vote
+		 * in such case.
+		 */
+		if (atomic_read(&msm_host->controller_clock))
+			sdhci_msm_bus_voting(host, 1);
+
+		rc = sdhci_msm_enable_controller_clock(host);
+		if (rc)
+			goto remove_vote;
 
 		if (!IS_ERR_OR_NULL(msm_host->bus_clk)) {
 			rc = clk_prepare_enable(msm_host->bus_clk);
 			if (rc) {
 				pr_err("%s: %s: failed to enable the bus-clock with error %d\n",
 					mmc_hostname(host->mmc), __func__, rc);
-				goto remove_vote;
+				goto disable_controller_clk;
 			}
-		}
-		if (!IS_ERR(msm_host->pclk)) {
-			rc = clk_prepare_enable(msm_host->pclk);
-			if (rc) {
-				pr_err("%s: %s: failed to enable the pclk with error %d\n",
-					mmc_hostname(host->mmc), __func__, rc);
-				goto disable_bus_clk;
-			}
-		}
-		rc = clk_prepare_enable(msm_host->clk);
-		if (rc) {
-			pr_err("%s: %s: failed to enable the host-clk with error %d\n",
-				mmc_hostname(host->mmc), __func__, rc);
-			goto disable_pclk;
 		}
 		if (!IS_ERR(msm_host->ff_clk)) {
 			rc = clk_prepare_enable(msm_host->ff_clk);
 			if (rc) {
 				pr_err("%s: %s: failed to enable the ff_clk with error %d\n",
 					mmc_hostname(host->mmc), __func__, rc);
-				goto disable_clk;
+				goto disable_bus_clk;
 			}
 		}
 		if (!IS_ERR(msm_host->sleep_clk)) {
@@ -2139,6 +2180,7 @@ static int sdhci_msm_prepare_clocks(struct sdhci_host *host, bool enable)
 		if (!IS_ERR_OR_NULL(msm_host->bus_clk))
 			clk_disable_unprepare(msm_host->bus_clk);
 
+		atomic_set(&msm_host->controller_clock, 0);
 		sdhci_msm_bus_voting(host, 0);
 	}
 	atomic_set(&msm_host->clks_on, enable);
@@ -2146,15 +2188,15 @@ static int sdhci_msm_prepare_clocks(struct sdhci_host *host, bool enable)
 disable_ff_clk:
 	if (!IS_ERR_OR_NULL(msm_host->ff_clk))
 		clk_disable_unprepare(msm_host->ff_clk);
-disable_clk:
-	if (!IS_ERR_OR_NULL(msm_host->clk))
-		clk_disable_unprepare(msm_host->clk);
-disable_pclk:
-	if (!IS_ERR_OR_NULL(msm_host->pclk))
-		clk_disable_unprepare(msm_host->pclk);
 disable_bus_clk:
 	if (!IS_ERR_OR_NULL(msm_host->bus_clk))
 		clk_disable_unprepare(msm_host->bus_clk);
+disable_controller_clk:
+	if (!IS_ERR_OR_NULL(msm_host->clk))
+		clk_disable_unprepare(msm_host->clk);
+	if (!IS_ERR_OR_NULL(msm_host->pclk))
+		clk_disable_unprepare(msm_host->pclk);
+	atomic_set(&msm_host->controller_clock, 0);
 remove_vote:
 	if (msm_host->msm_bus_vote.client_handle)
 		sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
@@ -2423,6 +2465,7 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.get_max_clock = sdhci_msm_get_max_clock,
 	.dump_vendor_regs = sdhci_msm_dump_vendor_regs,
 	.config_auto_tuning_cmd = sdhci_msm_config_auto_tuning_cmd,
+	.enable_controller_clock = sdhci_msm_enable_controller_clock,
 };
 
 static int sdhci_msm_probe(struct platform_device *pdev)
@@ -2501,6 +2544,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		if (ret)
 			goto bus_clk_disable;
 	}
+	atomic_set(&msm_host->controller_clock, 1);
 
 	/* Setup SDC MMC clock */
 	msm_host->clk = devm_clk_get(&pdev->dev, "core_clk");
