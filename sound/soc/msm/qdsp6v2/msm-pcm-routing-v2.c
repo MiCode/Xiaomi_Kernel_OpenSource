@@ -136,7 +136,8 @@ struct msm_pcm_route_bdai_name {
 };
 static struct msm_pcm_route_bdai_name be_dai_name_table[MSM_BACKEND_DAI_MAX];
 
-static int msm_routing_send_device_pp_params(int port_id,  int copp_idx);
+static int msm_routing_send_device_pp_params(int port_id,  int copp_idx,
+					     int fe_id);
 
 static int msm_routing_get_bit_width(unsigned int format)
 {
@@ -283,253 +284,256 @@ static void msm_pcm_routng_cfg_matrix_map_pp(struct route_payload payload,
 
 #define SLIMBUS_EXTPROC_RX AFE_PORT_INVALID
 struct msm_pcm_routing_bdai_data msm_bedais[MSM_BACKEND_DAI_MAX] = {
-	{ PRIMARY_I2S_RX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_PRI_I2S_RX},
-	{ PRIMARY_I2S_TX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_PRI_I2S_TX},
-	{ SLIMBUS_0_RX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_SLIMBUS_0_RX},
-	{ SLIMBUS_0_TX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_SLIMBUS_0_TX},
-	{ HDMI_RX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_HDMI},
-	{ INT_BT_SCO_RX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_INT_BT_SCO_RX},
-	{ INT_BT_SCO_TX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_INT_BT_SCO_TX},
-	{ INT_FM_RX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_INT_FM_RX},
-	{ INT_FM_TX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_INT_FM_TX},
-	{ RT_PROXY_PORT_001_RX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ PRIMARY_I2S_RX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_PRI_I2S_RX},
+	{ PRIMARY_I2S_TX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_PRI_I2S_TX},
+	{ SLIMBUS_0_RX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_SLIMBUS_0_RX},
+	{ SLIMBUS_0_TX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_SLIMBUS_0_TX},
+	{ HDMI_RX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_HDMI},
+	{ INT_BT_SCO_RX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_INT_BT_SCO_RX},
+	{ INT_BT_SCO_TX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_INT_BT_SCO_TX},
+	{ INT_FM_RX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_INT_FM_RX},
+	{ INT_FM_TX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_INT_FM_TX},
+	{ RT_PROXY_PORT_001_RX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_AFE_PCM_RX},
-	{ RT_PROXY_PORT_001_TX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ RT_PROXY_PORT_001_TX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_AFE_PCM_TX},
-	{ AFE_PORT_ID_PRIMARY_PCM_RX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_PRIMARY_PCM_RX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_AUXPCM_RX},
-	{ AFE_PORT_ID_PRIMARY_PCM_TX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_PRIMARY_PCM_TX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_AUXPCM_TX},
-	{ VOICE_PLAYBACK_TX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ VOICE_PLAYBACK_TX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_VOICE_PLAYBACK_TX},
-	{ VOICE2_PLAYBACK_TX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ VOICE2_PLAYBACK_TX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_VOICE2_PLAYBACK_TX},
-	{ VOICE_RECORD_RX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ VOICE_RECORD_RX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_INCALL_RECORD_RX},
-	{ VOICE_RECORD_TX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ VOICE_RECORD_TX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_INCALL_RECORD_TX},
-	{ MI2S_RX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_MI2S_RX},
-	{ MI2S_TX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_MI2S_TX},
-	{ SECONDARY_I2S_RX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_SEC_I2S_RX},
-	{ SLIMBUS_1_RX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_SLIMBUS_1_RX},
-	{ SLIMBUS_1_TX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_SLIMBUS_1_TX},
-	{ SLIMBUS_2_RX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_SLIMBUS_2_RX},
-	{ SLIMBUS_2_TX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_SLIMBUS_2_TX},
-	{ SLIMBUS_3_RX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_SLIMBUS_3_RX},
-	{ SLIMBUS_3_TX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_SLIMBUS_3_TX},
-	{ SLIMBUS_4_RX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_SLIMBUS_4_RX},
-	{ SLIMBUS_4_TX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_SLIMBUS_4_TX},
-	{ SLIMBUS_5_RX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_SLIMBUS_5_RX},
-	{ SLIMBUS_5_TX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_SLIMBUS_5_TX},
-	{ SLIMBUS_6_RX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_SLIMBUS_6_RX},
-	{ SLIMBUS_6_TX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_SLIMBUS_6_TX},
-	{ SLIMBUS_7_RX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_SLIMBUS_7_RX},
-	{ SLIMBUS_7_TX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_SLIMBUS_7_TX},
-	{ SLIMBUS_8_RX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_SLIMBUS_8_RX},
-	{ SLIMBUS_8_TX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_SLIMBUS_8_TX},
-	{ SLIMBUS_EXTPROC_RX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_STUB_RX},
-	{ SLIMBUS_EXTPROC_RX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_STUB_TX},
-	{ SLIMBUS_EXTPROC_RX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_STUB_1_TX},
-	{ AFE_PORT_ID_QUATERNARY_MI2S_RX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ MI2S_RX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_MI2S_RX},
+	{ MI2S_TX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_MI2S_TX},
+	{ SECONDARY_I2S_RX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_SEC_I2S_RX},
+	{ SLIMBUS_1_RX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_SLIMBUS_1_RX},
+	{ SLIMBUS_1_TX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_SLIMBUS_1_TX},
+	{ SLIMBUS_2_RX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_SLIMBUS_2_RX},
+	{ SLIMBUS_2_TX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_SLIMBUS_2_TX},
+	{ SLIMBUS_3_RX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_SLIMBUS_3_RX},
+	{ SLIMBUS_3_TX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_SLIMBUS_3_TX},
+	{ SLIMBUS_4_RX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_SLIMBUS_4_RX},
+	{ SLIMBUS_4_TX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_SLIMBUS_4_TX},
+	{ SLIMBUS_5_RX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_SLIMBUS_5_RX},
+	{ SLIMBUS_5_TX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_SLIMBUS_5_TX},
+	{ SLIMBUS_6_RX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_SLIMBUS_6_RX},
+	{ SLIMBUS_6_TX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_SLIMBUS_6_TX},
+	{ SLIMBUS_7_RX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_SLIMBUS_7_RX},
+	{ SLIMBUS_7_TX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_SLIMBUS_7_TX},
+	{ SLIMBUS_8_RX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_SLIMBUS_8_RX},
+	{ SLIMBUS_8_TX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_SLIMBUS_8_TX},
+	{ SLIMBUS_EXTPROC_RX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_STUB_RX},
+	{ SLIMBUS_EXTPROC_RX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_STUB_TX},
+	{ SLIMBUS_EXTPROC_RX, 0, {0}, {0}, 0, 0, 0, 0, {0}, LPASS_BE_STUB_1_TX},
+	{ AFE_PORT_ID_QUATERNARY_MI2S_RX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_QUAT_MI2S_RX},
-	{ AFE_PORT_ID_QUATERNARY_MI2S_TX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_QUATERNARY_MI2S_TX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_QUAT_MI2S_TX},
-	{ AFE_PORT_ID_SECONDARY_MI2S_RX,  0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_SECONDARY_MI2S_RX,  0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_SEC_MI2S_RX},
-	{ AFE_PORT_ID_SECONDARY_MI2S_TX,  0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_SECONDARY_MI2S_TX,  0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_SEC_MI2S_TX},
-	{ AFE_PORT_ID_PRIMARY_MI2S_RX,    0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_PRIMARY_MI2S_RX,    0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_PRI_MI2S_RX},
-	{ AFE_PORT_ID_PRIMARY_MI2S_TX,    0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_PRIMARY_MI2S_TX,    0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_PRI_MI2S_TX},
-	{ AFE_PORT_ID_TERTIARY_MI2S_RX,   0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_TERTIARY_MI2S_RX,   0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_TERT_MI2S_RX},
-	{ AFE_PORT_ID_TERTIARY_MI2S_TX,   0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_TERTIARY_MI2S_TX,   0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_TERT_MI2S_TX},
-	{ AUDIO_PORT_ID_I2S_RX,           0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AUDIO_PORT_ID_I2S_RX,           0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_AUDIO_I2S_RX},
-	{ AFE_PORT_ID_SECONDARY_PCM_RX,	  0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_SECONDARY_PCM_RX,	  0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_SEC_AUXPCM_RX},
-	{ AFE_PORT_ID_SECONDARY_PCM_TX,   0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_SECONDARY_PCM_TX,   0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_SEC_AUXPCM_TX},
-	{ AFE_PORT_ID_SPDIF_RX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_SPDIF_RX},
-	{ AFE_PORT_ID_SECONDARY_MI2S_RX_SD1, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_SPDIF_RX, 0, {0}, {0}, 0, 0, 0, 0, {0},
+	  LPASS_BE_SPDIF_RX},
+	{ AFE_PORT_ID_SECONDARY_MI2S_RX_SD1, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_SEC_MI2S_RX_SD1},
-	{ AFE_PORT_ID_QUINARY_MI2S_RX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_QUINARY_MI2S_RX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_QUIN_MI2S_RX},
-	{ AFE_PORT_ID_QUINARY_MI2S_TX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_QUINARY_MI2S_TX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_QUIN_MI2S_TX},
-	{ AFE_PORT_ID_SENARY_MI2S_TX,   0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_SENARY_MI2S_TX,   0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_SENARY_MI2S_TX},
-	{ AFE_PORT_ID_PRIMARY_TDM_RX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_PRIMARY_TDM_RX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_PRI_TDM_RX_0},
-	{ AFE_PORT_ID_PRIMARY_TDM_TX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_PRIMARY_TDM_TX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_PRI_TDM_TX_0},
-	{ AFE_PORT_ID_PRIMARY_TDM_RX_1, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_PRIMARY_TDM_RX_1, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_PRI_TDM_RX_1},
-	{ AFE_PORT_ID_PRIMARY_TDM_TX_1, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_PRIMARY_TDM_TX_1, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_PRI_TDM_TX_1},
-	{ AFE_PORT_ID_PRIMARY_TDM_RX_2, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_PRIMARY_TDM_RX_2, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_PRI_TDM_RX_2},
-	{ AFE_PORT_ID_PRIMARY_TDM_TX_2, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_PRIMARY_TDM_TX_2, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_PRI_TDM_TX_2},
-	{ AFE_PORT_ID_PRIMARY_TDM_RX_3, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_PRIMARY_TDM_RX_3, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_PRI_TDM_RX_3},
-	{ AFE_PORT_ID_PRIMARY_TDM_TX_3, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_PRIMARY_TDM_TX_3, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_PRI_TDM_TX_3},
-	{ AFE_PORT_ID_PRIMARY_TDM_RX_4, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_PRIMARY_TDM_RX_4, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_PRI_TDM_RX_4},
-	{ AFE_PORT_ID_PRIMARY_TDM_TX_4, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_PRIMARY_TDM_TX_4, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_PRI_TDM_TX_4},
-	{ AFE_PORT_ID_PRIMARY_TDM_RX_5, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_PRIMARY_TDM_RX_5, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_PRI_TDM_RX_5},
-	{ AFE_PORT_ID_PRIMARY_TDM_TX_5, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_PRIMARY_TDM_TX_5, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_PRI_TDM_TX_5},
-	{ AFE_PORT_ID_PRIMARY_TDM_RX_6, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_PRIMARY_TDM_RX_6, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_PRI_TDM_RX_6},
-	{ AFE_PORT_ID_PRIMARY_TDM_TX_6, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_PRIMARY_TDM_TX_6, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_PRI_TDM_TX_6},
-	{ AFE_PORT_ID_PRIMARY_TDM_RX_7, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_PRIMARY_TDM_RX_7, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_PRI_TDM_RX_7},
-	{ AFE_PORT_ID_PRIMARY_TDM_TX_7, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_PRIMARY_TDM_TX_7, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_PRI_TDM_TX_7},
-	{ AFE_PORT_ID_SECONDARY_TDM_RX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_SECONDARY_TDM_RX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_SEC_TDM_RX_0},
-	{ AFE_PORT_ID_SECONDARY_TDM_TX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_SECONDARY_TDM_TX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_SEC_TDM_TX_0},
-	{ AFE_PORT_ID_SECONDARY_TDM_RX_1, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_SECONDARY_TDM_RX_1, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_SEC_TDM_RX_1},
-	{ AFE_PORT_ID_SECONDARY_TDM_TX_1, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_SECONDARY_TDM_TX_1, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_SEC_TDM_TX_1},
-	{ AFE_PORT_ID_SECONDARY_TDM_RX_2, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_SECONDARY_TDM_RX_2, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_SEC_TDM_RX_2},
-	{ AFE_PORT_ID_SECONDARY_TDM_TX_2, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_SECONDARY_TDM_TX_2, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_SEC_TDM_TX_2},
-	{ AFE_PORT_ID_SECONDARY_TDM_RX_3, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_SECONDARY_TDM_RX_3, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_SEC_TDM_RX_3},
-	{ AFE_PORT_ID_SECONDARY_TDM_TX_3, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_SECONDARY_TDM_TX_3, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_SEC_TDM_TX_3},
-	{ AFE_PORT_ID_SECONDARY_TDM_RX_4, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_SECONDARY_TDM_RX_4, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_SEC_TDM_RX_4},
-	{ AFE_PORT_ID_SECONDARY_TDM_TX_4, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_SECONDARY_TDM_TX_4, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_SEC_TDM_TX_4},
-	{ AFE_PORT_ID_SECONDARY_TDM_RX_5, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_SECONDARY_TDM_RX_5, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_SEC_TDM_RX_5},
-	{ AFE_PORT_ID_SECONDARY_TDM_TX_5, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_SECONDARY_TDM_TX_5, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_SEC_TDM_TX_5},
-	{ AFE_PORT_ID_SECONDARY_TDM_RX_6, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_SECONDARY_TDM_RX_6, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_SEC_TDM_RX_6},
-	{ AFE_PORT_ID_SECONDARY_TDM_TX_6, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_SECONDARY_TDM_TX_6, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_SEC_TDM_TX_6},
-	{ AFE_PORT_ID_SECONDARY_TDM_RX_7, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_SECONDARY_TDM_RX_7, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_SEC_TDM_RX_7},
-	{ AFE_PORT_ID_SECONDARY_TDM_TX_7, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_SECONDARY_TDM_TX_7, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_SEC_TDM_TX_7},
-	{ AFE_PORT_ID_TERTIARY_TDM_RX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_TERTIARY_TDM_RX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_TERT_TDM_RX_0},
-	{ AFE_PORT_ID_TERTIARY_TDM_TX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_TERTIARY_TDM_TX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_TERT_TDM_TX_0},
-	{ AFE_PORT_ID_TERTIARY_TDM_RX_1, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_TERTIARY_TDM_RX_1, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_TERT_TDM_RX_1},
-	{ AFE_PORT_ID_TERTIARY_TDM_TX_1, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_TERTIARY_TDM_TX_1, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_TERT_TDM_TX_1},
-	{ AFE_PORT_ID_TERTIARY_TDM_RX_2, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_TERTIARY_TDM_RX_2, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_TERT_TDM_RX_2},
-	{ AFE_PORT_ID_TERTIARY_TDM_TX_2, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_TERTIARY_TDM_TX_2, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_TERT_TDM_TX_2},
-	{ AFE_PORT_ID_TERTIARY_TDM_RX_3, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_TERTIARY_TDM_RX_3, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_TERT_TDM_RX_3},
-	{ AFE_PORT_ID_TERTIARY_TDM_TX_3, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_TERTIARY_TDM_TX_3, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_TERT_TDM_TX_3},
-	{ AFE_PORT_ID_TERTIARY_TDM_RX_4, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_TERTIARY_TDM_RX_4, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_TERT_TDM_RX_4},
-	{ AFE_PORT_ID_TERTIARY_TDM_TX_4, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_TERTIARY_TDM_TX_4, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_TERT_TDM_TX_4},
-	{ AFE_PORT_ID_TERTIARY_TDM_RX_5, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_TERTIARY_TDM_RX_5, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_TERT_TDM_RX_5},
-	{ AFE_PORT_ID_TERTIARY_TDM_TX_5, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_TERTIARY_TDM_TX_5, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_TERT_TDM_TX_5},
-	{ AFE_PORT_ID_TERTIARY_TDM_RX_6, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_TERTIARY_TDM_RX_6, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_TERT_TDM_RX_6},
-	{ AFE_PORT_ID_TERTIARY_TDM_TX_6, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_TERTIARY_TDM_TX_6, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_TERT_TDM_TX_6},
-	{ AFE_PORT_ID_TERTIARY_TDM_RX_7, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_TERTIARY_TDM_RX_7, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_TERT_TDM_RX_7},
-	{ AFE_PORT_ID_TERTIARY_TDM_TX_7, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_TERTIARY_TDM_TX_7, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_TERT_TDM_TX_7},
-	{ AFE_PORT_ID_QUATERNARY_TDM_RX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_QUATERNARY_TDM_RX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_QUAT_TDM_RX_0},
-	{ AFE_PORT_ID_QUATERNARY_TDM_TX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_QUATERNARY_TDM_TX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_QUAT_TDM_TX_0},
-	{ AFE_PORT_ID_QUATERNARY_TDM_RX_1, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_QUATERNARY_TDM_RX_1, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_QUAT_TDM_RX_1},
-	{ AFE_PORT_ID_QUATERNARY_TDM_TX_1, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_QUATERNARY_TDM_TX_1, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_QUAT_TDM_TX_1},
-	{ AFE_PORT_ID_QUATERNARY_TDM_RX_2, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_QUATERNARY_TDM_RX_2, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_QUAT_TDM_RX_2},
-	{ AFE_PORT_ID_QUATERNARY_TDM_TX_2, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_QUATERNARY_TDM_TX_2, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_QUAT_TDM_TX_2},
-	{ AFE_PORT_ID_QUATERNARY_TDM_RX_3, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_QUATERNARY_TDM_RX_3, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_QUAT_TDM_RX_3},
-	{ AFE_PORT_ID_QUATERNARY_TDM_TX_3, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_QUATERNARY_TDM_TX_3, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_QUAT_TDM_TX_3},
-	{ AFE_PORT_ID_QUATERNARY_TDM_RX_4, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_QUATERNARY_TDM_RX_4, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_QUAT_TDM_RX_4},
-	{ AFE_PORT_ID_QUATERNARY_TDM_TX_4, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_QUATERNARY_TDM_TX_4, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_QUAT_TDM_TX_4},
-	{ AFE_PORT_ID_QUATERNARY_TDM_RX_5, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_QUATERNARY_TDM_RX_5, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_QUAT_TDM_RX_5},
-	{ AFE_PORT_ID_QUATERNARY_TDM_TX_5, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_QUATERNARY_TDM_TX_5, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_QUAT_TDM_TX_5},
-	{ AFE_PORT_ID_QUATERNARY_TDM_RX_6, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_QUATERNARY_TDM_RX_6, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_QUAT_TDM_RX_6},
-	{ AFE_PORT_ID_QUATERNARY_TDM_TX_6, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_QUATERNARY_TDM_TX_6, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_QUAT_TDM_TX_6},
-	{ AFE_PORT_ID_QUATERNARY_TDM_RX_7, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_QUATERNARY_TDM_RX_7, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_QUAT_TDM_RX_7},
-	{ AFE_PORT_ID_QUATERNARY_TDM_TX_7, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_QUATERNARY_TDM_TX_7, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_QUAT_TDM_TX_7},
-	{ INT_BT_A2DP_RX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_INT_BT_A2DP_RX},
-	{ AFE_PORT_ID_USB_RX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ INT_BT_A2DP_RX, 0, {0}, {0}, 0, 0, 0, 0, {0},
+	  LPASS_BE_INT_BT_A2DP_RX},
+	{ AFE_PORT_ID_USB_RX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_USB_AUDIO_RX},
-	{ AFE_PORT_ID_USB_TX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_USB_TX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_USB_AUDIO_TX},
-	{ DISPLAY_PORT_RX, 0, {0}, {0}, 0, 0, 0, 0, 0, LPASS_BE_DISPLAY_PORT},
-	{ AFE_PORT_ID_TERTIARY_PCM_RX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ DISPLAY_PORT_RX, 0, {0}, {0}, 0, 0, 0, 0, {0},
+	  LPASS_BE_DISPLAY_PORT},
+	{ AFE_PORT_ID_TERTIARY_PCM_RX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_TERT_AUXPCM_RX},
-	{ AFE_PORT_ID_TERTIARY_PCM_TX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_TERTIARY_PCM_TX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_TERT_AUXPCM_TX},
-	{ AFE_PORT_ID_QUATERNARY_PCM_RX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_QUATERNARY_PCM_RX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_QUAT_AUXPCM_RX},
-	{ AFE_PORT_ID_QUATERNARY_PCM_TX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_QUATERNARY_PCM_TX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_QUAT_AUXPCM_TX},
-	{ AFE_PORT_ID_INT0_MI2S_RX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_INT0_MI2S_RX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_INT0_MI2S_RX},
-	{ AFE_PORT_ID_INT0_MI2S_TX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_INT0_MI2S_TX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_INT0_MI2S_TX},
-	{ AFE_PORT_ID_INT1_MI2S_RX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_INT1_MI2S_RX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_INT1_MI2S_RX},
-	{ AFE_PORT_ID_INT1_MI2S_TX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_INT1_MI2S_TX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_INT1_MI2S_TX},
-	{ AFE_PORT_ID_INT2_MI2S_RX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_INT2_MI2S_RX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_INT2_MI2S_RX},
-	{ AFE_PORT_ID_INT2_MI2S_TX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_INT2_MI2S_TX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_INT2_MI2S_TX},
-	{ AFE_PORT_ID_INT3_MI2S_RX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_INT3_MI2S_RX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_INT3_MI2S_RX},
-	{ AFE_PORT_ID_INT3_MI2S_TX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_INT3_MI2S_TX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_INT3_MI2S_TX},
-	{ AFE_PORT_ID_INT4_MI2S_RX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_INT4_MI2S_RX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_INT4_MI2S_RX},
-	{ AFE_PORT_ID_INT4_MI2S_TX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_INT4_MI2S_TX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_INT4_MI2S_TX},
-	{ AFE_PORT_ID_INT5_MI2S_RX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_INT5_MI2S_RX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_INT5_MI2S_RX},
-	{ AFE_PORT_ID_INT5_MI2S_TX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_INT5_MI2S_TX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_INT5_MI2S_TX},
-	{ AFE_PORT_ID_INT6_MI2S_RX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_INT6_MI2S_RX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_INT6_MI2S_RX},
-	{ AFE_PORT_ID_INT6_MI2S_TX, 0, {0}, {0}, 0, 0, 0, 0, 0,
+	{ AFE_PORT_ID_INT6_MI2S_TX, 0, {0}, {0}, 0, 0, 0, 0, {0},
 	  LPASS_BE_INT6_MI2S_TX},
 };
 
@@ -1092,7 +1096,7 @@ int msm_pcm_routing_reg_phy_compr_stream(int fe_id, int perf_mode,
 	msm_qti_pp_send_eq_values(fe_id);
 	for (i = 0; i < MSM_BACKEND_DAI_MAX; i++) {
 		if (test_bit(fe_id, &msm_bedais[i].fe_sessions[0]))
-			msm_bedais[i].passthr_mode = passthr_mode;
+			msm_bedais[i].passthr_mode[fe_id] = passthr_mode;
 
 		if (!is_be_dai_extproc(i) &&
 			(afe_get_port_type(msm_bedais[i].port_id) ==
@@ -1196,7 +1200,7 @@ int msm_pcm_routing_reg_phy_compr_stream(int fe_id, int perf_mode,
 			    COMPRESSED_PASSTHROUGH_GEN) {
 				msm_routing_send_device_pp_params(
 				msm_bedais[i].port_id,
-				copp_idx);
+				copp_idx, fe_id);
 			}
 		}
 	}
@@ -1294,7 +1298,7 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 				channels = msm_bedais[i].channel;
 			else
 				channels = msm_bedais[i].adm_override_ch;
-			msm_bedais[i].passthr_mode =
+			msm_bedais[i].passthr_mode[fedai_id] =
 				LEGACY_PCM;
 
 			bits_per_sample = msm_routing_get_bit_width(
@@ -1365,7 +1369,7 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 				}
 			}
 			if ((perf_mode == LEGACY_PCM_MODE) &&
-				(msm_bedais[i].passthr_mode ==
+				(msm_bedais[i].passthr_mode[fedai_id] ==
 				LEGACY_PCM))
 				msm_pcm_routing_cfg_pp(msm_bedais[i].port_id,
 						       copp_idx, topology,
@@ -1450,7 +1454,7 @@ void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type)
 			if ((topology == DOLBY_ADM_COPP_TOPOLOGY_ID ||
 				topology == DS2_ADM_COPP_TOPOLOGY_ID) &&
 			    (fdai->perf_mode == LEGACY_PCM_MODE) &&
-			    (msm_bedais[i].passthr_mode ==
+			    (msm_bedais[i].passthr_mode[fedai_id] ==
 					LEGACY_PCM))
 				msm_pcm_routing_deinit_pp(msm_bedais[i].port_id,
 							  topology);
@@ -1485,7 +1489,7 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 	u32 channels, sample_rate;
 	uint16_t bits_per_sample = 16;
 	struct msm_pcm_routing_fdai_data *fdai;
-	uint32_t passthr_mode = msm_bedais[reg].passthr_mode;
+	uint32_t passthr_mode;
 	bool is_lsm;
 
 	pr_debug("%s: reg %x val %x set %x\n", __func__, reg, val, set);
@@ -1502,6 +1506,7 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 		return;
 	}
 
+	passthr_mode = msm_bedais[reg].passthr_mode[val];
 	if (afe_get_port_type(msm_bedais[reg].port_id) ==
 		MSM_AFE_PORT_TYPE_RX) {
 		session_type = SESSION_TYPE_RX;
@@ -14132,7 +14137,7 @@ static int msm_pcm_routing_close(struct snd_pcm_substream *substream)
 			clear_bit(idx,
 				  &session_copp_map[i][session_type][be_id]);
 			if ((fdai->perf_mode == LEGACY_PCM_MODE) &&
-				(bedai->passthr_mode == LEGACY_PCM))
+				(bedai->passthr_mode[i] == LEGACY_PCM))
 				msm_pcm_routing_deinit_pp(bedai->port_id,
 							  topology);
 		}
@@ -14141,7 +14146,10 @@ static int msm_pcm_routing_close(struct snd_pcm_substream *substream)
 	bedai->active = 0;
 	bedai->sample_rate = 0;
 	bedai->channel = 0;
-	bedai->passthr_mode = LEGACY_PCM;
+	for (i = 0; i < MSM_FRONTEND_DAI_MAX; i++) {
+		if (bedai->passthr_mode[i] != LISTEN)
+			bedai->passthr_mode[i] = LEGACY_PCM;
+	}
 	mutex_unlock(&routing_lock);
 
 	return 0;
@@ -14151,7 +14159,8 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	unsigned int be_id = rtd->dai_link->id;
-	int i, path_type, session_type, topology;
+	int i, path_type, topology;
+	int session_type = INVALID_SESSION;
 	struct msm_pcm_routing_bdai_data *bedai;
 	u32 channels, sample_rate;
 	uint16_t bits_per_sample = 16, voc_path_type;
@@ -14170,17 +14179,6 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 
 	bedai = &msm_bedais[be_id];
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		if (bedai->passthr_mode != LEGACY_PCM)
-			path_type = ADM_PATH_COMPRESSED_RX;
-		else
-			path_type = ADM_PATH_PLAYBACK;
-		session_type = SESSION_TYPE_RX;
-	} else {
-		path_type = ADM_PATH_LIVE_REC;
-		session_type = SESSION_TYPE_TX;
-	}
-
 	mutex_lock(&routing_lock);
 	if (bedai->active == 1)
 		goto done; /* Ignore prepare if back-end already active */
@@ -14196,6 +14194,17 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 		if (!(is_mm_lsm_fe_id(i) &&
 				route_check_fe_id_adm_support(i)))
 			continue;
+
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			if (bedai->passthr_mode[i] != LEGACY_PCM)
+				path_type = ADM_PATH_COMPRESSED_RX;
+			else
+				path_type = ADM_PATH_PLAYBACK;
+			session_type = SESSION_TYPE_RX;
+		} else {
+			path_type = ADM_PATH_LIVE_REC;
+			session_type = SESSION_TYPE_TX;
+		}
 
 		is_lsm = (i >= MSM_FRONTEND_DAI_LSM1) &&
 				 (i <= MSM_FRONTEND_DAI_LSM8);
@@ -14275,9 +14284,9 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 
 			msm_pcm_routing_build_matrix(i, session_type, path_type,
 						     fdai->perf_mode,
-						     bedai->passthr_mode);
+						     bedai->passthr_mode[i]);
 			if ((fdai->perf_mode == LEGACY_PCM_MODE) &&
-				(bedai->passthr_mode == LEGACY_PCM))
+				(bedai->passthr_mode[i] == LEGACY_PCM))
 				msm_pcm_routing_cfg_pp(bedai->port_id, copp_idx,
 						       topology, channels);
 		}
@@ -14342,7 +14351,8 @@ done:
 	return 0;
 }
 
-static int msm_routing_send_device_pp_params(int port_id, int copp_idx)
+static int msm_routing_send_device_pp_params(int port_id, int copp_idx,
+					     int fe_id)
 {
 	int index, topo_id, be_idx;
 	unsigned long pp_config = 0;
@@ -14385,8 +14395,8 @@ static int msm_routing_send_device_pp_params(int port_id, int copp_idx)
 		return -EINVAL;
 	}
 
-	if ((msm_bedais[be_idx].passthr_mode == LEGACY_PCM) ||
-		(msm_bedais[be_idx].passthr_mode == LISTEN))
+	if ((msm_bedais[be_idx].passthr_mode[fe_id] == LEGACY_PCM) ||
+		(msm_bedais[be_idx].passthr_mode[fe_id] == LISTEN))
 		compr_passthr_mode = false;
 
 	pp_config = msm_bedais_pp_params[index].pp_params_config;
@@ -14445,12 +14455,12 @@ static int msm_routing_put_device_pp_params_mixer(struct snd_kcontrol *kcontrol,
 		return -EINVAL;
 	}
 
-	if ((msm_bedais[be_idx].passthr_mode == LEGACY_PCM) ||
-		(msm_bedais[be_idx].passthr_mode == LISTEN))
-		compr_passthr_mode = false;
-
 	for_each_set_bit(i, &msm_bedais[be_idx].fe_sessions[0],
 				MSM_FRONTEND_DAI_MM_SIZE) {
+		if ((msm_bedais[be_idx].passthr_mode[i] == LEGACY_PCM) ||
+			(msm_bedais[be_idx].passthr_mode[i] == LISTEN))
+			compr_passthr_mode = false;
+
 		for (idx = 0; idx < MAX_COPPS_PER_PORT; idx++) {
 			unsigned long copp =
 				session_copp_map[i]
@@ -14463,7 +14473,7 @@ static int msm_routing_put_device_pp_params_mixer(struct snd_kcontrol *kcontrol,
 				continue;
 		pr_debug("%s: port: 0x%x, copp %ld, be active: %d, passt: %d\n",
 			 __func__, port_id, copp, msm_bedais[be_idx].active,
-			 msm_bedais[be_idx].passthr_mode);
+			 msm_bedais[be_idx].passthr_mode[i]);
 		switch (pp_id) {
 		case ADM_PP_PARAM_MUTE_ID:
 			pr_debug("%s: ADM_PP_PARAM_MUTE\n", __func__);
