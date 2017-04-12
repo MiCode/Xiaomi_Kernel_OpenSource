@@ -2206,3 +2206,4 @@
 #include "sdm845-pinctrl.dtsi"
 #include "sdm845-audio.dtsi"
 #include "sdm845-gpu.dtsi"
+#include "sdm845-usb.dtsi"
