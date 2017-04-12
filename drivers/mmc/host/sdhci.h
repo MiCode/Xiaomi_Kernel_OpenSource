@@ -448,6 +448,13 @@ struct sdhci_host {
  */
 #define SDHCI_QUIRK2_IGNORE_DATATOUT_FOR_R1BCMD		(1<<21)
 
+/*
+ * The preset value registers are not properly initialized by
+ * some hardware and hence preset value must not be enabled for
+ * such controllers.
+ */
+#define SDHCI_QUIRK2_BROKEN_PRESET_VALUE		(1<<22)
+
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
 
