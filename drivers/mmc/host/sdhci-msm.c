@@ -1811,7 +1811,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	struct sdhci_msm_host *msm_host;
 	struct resource *core_memres = NULL;
 	int ret = 0, pwr_irq = 0, dead = 0;
-	u32 host_version;
+	u16 host_version;
 
 	pr_debug("%s: Enter %s\n", dev_name(&pdev->dev), __func__);
 	msm_host = devm_kzalloc(&pdev->dev, sizeof(struct sdhci_msm_host),
@@ -1937,7 +1937,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	host->quirks2 |= SDHCI_QUIRK2_BROKEN_PRESET_VALUE;
 	host->quirks2 |= SDHCI_QUIRK2_USE_RESERVED_MAX_TIMEOUT;
 
-	host_version = readl_relaxed((host->ioaddr + SDHCI_HOST_VERSION));
+	host_version = readw_relaxed((host->ioaddr + SDHCI_HOST_VERSION));
 	dev_dbg(&pdev->dev, "Host Version: 0x%x Vendor Version 0x%x\n",
 		host_version, ((host_version & SDHCI_VENDOR_VER_MASK) >>
 		  SDHCI_VENDOR_VER_SHIFT));
