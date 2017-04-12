@@ -206,6 +206,7 @@ struct sdhci_msm_host {
 	u32 curr_io_level;
 	struct completion pwr_irq_completion;
 	struct sdhci_msm_bus_vote msm_bus_vote;
+	struct device_attribute	polling;
 	u32 clk_rate; /* Keeps track of current clock rate that is set */
 };
 
@@ -1563,6 +1564,41 @@ static irqreturn_t sdhci_msm_pwr_irq(int irq, void *data)
 }
 
 static ssize_t
+show_polling(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	int poll;
+	unsigned long flags;
+
+	spin_lock_irqsave(&host->lock, flags);
+	poll = !!(host->mmc->caps & MMC_CAP_NEEDS_POLL);
+	spin_unlock_irqrestore(&host->lock, flags);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", poll);
+}
+
+static ssize_t
+store_polling(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	int value;
+	unsigned long flags;
+
+	if (!kstrtou32(buf, 0, &value)) {
+		spin_lock_irqsave(&host->lock, flags);
+		if (value) {
+			host->mmc->caps |= MMC_CAP_NEEDS_POLL;
+			mmc_detect_change(host->mmc, 0);
+		} else {
+			host->mmc->caps &= ~MMC_CAP_NEEDS_POLL;
+		}
+		spin_unlock_irqrestore(&host->lock, flags);
+	}
+	return count;
+}
+
+static ssize_t
 show_sdhci_max_bus_bw(struct device *dev, struct device_attribute *attr,
 			char *buf)
 {
@@ -2118,9 +2154,21 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	if (ret)
 		goto remove_host;
 
+	if (!gpio_is_valid(msm_host->pdata->status_gpio)) {
+		msm_host->polling.show = show_polling;
+		msm_host->polling.store = store_polling;
+		sysfs_attr_init(&msm_host->polling.attr);
+		msm_host->polling.attr.name = "polling";
+		msm_host->polling.attr.mode = S_IRUGO | S_IWUSR;
+		ret = device_create_file(&pdev->dev, &msm_host->polling);
+		if (ret)
+			goto remove_max_bus_bw_file;
+	}
 	/* Successful initialization */
 	goto out;
 
+remove_max_bus_bw_file:
+	device_remove_file(&pdev->dev, &msm_host->msm_bus_vote.max_bus_bw);
 remove_host:
 	dead = (readl_relaxed(host->ioaddr + SDHCI_INT_STATUS) == 0xffffffff);
 	sdhci_remove_host(host, dead);
@@ -2156,6 +2204,8 @@ static int sdhci_msm_remove(struct platform_device *pdev)
 			0xffffffff);
 
 	pr_debug("%s: %s\n", dev_name(&pdev->dev), __func__);
+	if (!gpio_is_valid(msm_host->pdata->status_gpio))
+		device_remove_file(&pdev->dev, &msm_host->polling);
 	device_remove_file(&pdev->dev, &msm_host->msm_bus_vote.max_bus_bw);
 	sdhci_remove_host(host, dead);
 	sdhci_pltfm_free(pdev);
