@@ -1039,8 +1039,10 @@ static irqreturn_t a5xx_irq(struct msm_gpu *gpu)
 	if (status & A5XX_RBBM_INT_0_MASK_GPMU_VOLTAGE_DROOP)
 		a5xx_gpmu_err_irq(gpu);
 
-	if (status & A5XX_RBBM_INT_0_MASK_CP_CACHE_FLUSH_TS)
+	if (status & A5XX_RBBM_INT_0_MASK_CP_CACHE_FLUSH_TS) {
+		a5xx_preempt_trigger(gpu);
 		msm_gpu_retire(gpu);
+	}
 
 	if (status & A5XX_RBBM_INT_0_MASK_CP_SW)
 		a5xx_preempt_irq(gpu);
