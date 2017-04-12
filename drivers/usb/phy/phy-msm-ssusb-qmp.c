@@ -126,6 +126,7 @@ struct msm_ssphy_qmp {
 	struct clk		*pipe_clk;
 	struct reset_control	*phy_reset;
 	struct reset_control	*phy_phy_reset;
+	struct reset_control	*global_phy_reset;
 	bool			power_enabled;
 	bool			clk_enabled;
 	bool			cable_connected;
@@ -136,8 +137,6 @@ struct msm_ssphy_qmp {
 	int			init_seq_len;
 	unsigned int		*qmp_phy_reg_offset;
 	int			reg_offset_cnt;
-
-	int			port_select;
 };
 
 static const struct of_device_id msm_usb_id_table[] = {
@@ -157,6 +156,7 @@ static const struct of_device_id msm_usb_id_table[] = {
 };
 MODULE_DEVICE_TABLE(of, msm_usb_id_table);
 
+static void usb_qmp_powerup_phy(struct msm_ssphy_qmp *phy);
 static void msm_ssphy_qmp_enable_clks(struct msm_ssphy_qmp *phy, bool on);
 
 static inline char *get_cable_status_str(struct msm_ssphy_qmp *phy)
@@ -334,15 +334,13 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 
 	/* perform lane selection */
 	val = -EINVAL;
-	if (phy->phy.flags & PHY_LANE_A) {
+	if (phy->phy.flags & PHY_LANE_A)
 		val = SW_PORTSELECT_MX;
-		phy->port_select = PHY_LANE_A;
-	}
-
-	if (phy->phy.flags & PHY_LANE_B) {
+	else if (phy->phy.flags & PHY_LANE_B)
 		val = SW_PORTSELECT | SW_PORTSELECT_MX;
-		phy->port_select = PHY_LANE_B;
-	}
+
+	/* PHY must be powered up before updating portselect and phymode. */
+	usb_qmp_powerup_phy(phy);
 
 	switch (phy->phy.type) {
 	case USB_PHY_TYPE_USB3_DP:
@@ -361,10 +359,6 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 
 		writel_relaxed(USB3_MODE | DP_MODE,
 			phy->base + phy->phy_reg[USB3_DP_COM_PHY_MODE_CTRL]);
-
-		/* activate register access of LANE for both USB3 and DP */
-		writel_relaxed(USB3_SWI_ACT_ACCESS_EN | DP_SWI_ACT_ACCESS_EN,
-			phy->base + phy->phy_reg[USB3_DP_COM_SWI_CTRL]);
 
 		/* bring both QMP USB and QMP DP PHYs PCS block out of reset */
 		writel_relaxed(0x00,
@@ -396,9 +390,10 @@ static void usb_qmp_powerup_phy(struct msm_ssphy_qmp *phy)
 			phy->base + phy->phy_reg[USB3_DP_COM_POWER_DOWN_CTRL]);
 
 		/*
-		 * Don't write 0x0 to DP_COM_SW_RESET as next operation is to
-		 * update phymode and port select which needs DP_COM_SW_RESET
-		 * as 0x1.
+		 * Don't write 0x0 to DP_COM_SW_RESET here as portselect and
+		 * phymode operation needs DP_COM_SW_RESET as 0x1.
+		 * msm_ssphy_qmp_init() writes 0x0 to DP_COM_SW_RESET before
+		 * initializing PHY.
 		 */
 
 		/* intentional fall-through */
@@ -440,11 +435,11 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 
 	msm_ssphy_qmp_enable_clks(phy, true);
 
-	/* power up PHY */
-	usb_qmp_powerup_phy(phy);
-
 	/* select appropriate port select and PHY mode if applicable */
 	usb_qmp_update_portselect_phymode(phy);
+
+	/* power up PHY */
+	usb_qmp_powerup_phy(phy);
 
 	reg = (struct qmp_reg_val *)phy->qmp_phy_init_seq;
 
@@ -494,27 +489,30 @@ static int msm_ssphy_qmp_dp_combo_reset(struct usb_phy *uphy)
 					phy);
 	int ret = 0;
 
-	/*
-	 * Avoid global reset if there is no change in port select which
-	 * shall be useful while changing PHY mode i.e. transition from
-	 * 4 LANE/2 LANE.
-	 */
-	if ((((phy->phy.flags & PHY_LANE_A) == phy->port_select)) ||
-			((phy->phy.flags & PHY_LANE_B) == phy->port_select))
-		goto exit;
-
 	dev_dbg(uphy->dev, "Global reset of QMP DP combo phy\n");
-	/* Assert QMP USB DP combo PHY reset */
+	/* Assert global PHY reset */
+	ret = reset_control_assert(phy->global_phy_reset);
+	if (ret) {
+		dev_err(uphy->dev, "global_phy_reset assert failed\n");
+		goto exit;
+	}
+
+	/* Assert QMP USB PHY reset */
 	ret = reset_control_assert(phy->phy_reset);
 	if (ret) {
 		dev_err(uphy->dev, "phy_reset assert failed\n");
 		goto exit;
 	}
 
-	/* De-Assert QMP USB DP combo PHY reset */
+	/* De-Assert QMP USB PHY reset */
 	ret = reset_control_deassert(phy->phy_reset);
 	if (ret)
 		dev_err(uphy->dev, "phy_reset deassert failed\n");
+
+	/* De-Assert global PHY reset */
+	ret = reset_control_deassert(phy->global_phy_reset);
+	if (ret)
+		dev_err(uphy->dev, "global_phy_reset deassert failed\n");
 
 exit:
 	return ret;
@@ -809,7 +807,15 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	if (phy->phy.type == USB_PHY_TYPE_USB3) {
+	if (phy->phy.type == USB_PHY_TYPE_USB3_DP) {
+		phy->global_phy_reset = devm_reset_control_get(dev,
+						"global_phy_reset");
+		if (IS_ERR(phy->global_phy_reset)) {
+			ret = PTR_ERR(phy->global_phy_reset);
+			dev_dbg(dev, "failed to get global_phy_reset\n");
+			goto err;
+		}
+	} else {
 		phy->phy_phy_reset = devm_reset_control_get(dev,
 						"phy_phy_reset");
 		if (IS_ERR(phy->phy_phy_reset)) {
