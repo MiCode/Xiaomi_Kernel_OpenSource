@@ -44,6 +44,9 @@ In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltag
 	- gpios - specifies gpios assigned for sdhc slot.
 	- qcom,gpio-names -  a list of strings that map in order to the list of gpios
 
+	Tlmm pins are specified as <clk cmd data> and starting with eMMC5.0 as
+	<clk cmd data rclk>
+
 Example:
 
 	aliases {
