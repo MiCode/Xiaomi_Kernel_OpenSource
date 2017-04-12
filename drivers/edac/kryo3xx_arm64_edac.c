@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,6 +58,13 @@ static inline void set_errxctlr_el1(void)
 	u64 val = 0x10f;
 
 	asm volatile("msr s3_0_c5_c4_1, %0" : : "r" (val));
+}
+
+static inline void set_errxmisc_overflow(void)
+{
+	u64 val = 0x7F7F00000000;
+
+	asm volatile("msr s3_0_c5_c5_0, %0" : : "r" (val));
 }
 
 static inline void write_errselr_el1(u64 val)
@@ -319,9 +326,7 @@ void kryo3xx_poll_cache_errors(struct edac_device_ctl_info *edev_ctl)
 
 static irqreturn_t kryo3xx_l1_l2_handler(int irq, void *drvdata)
 {
-	struct erp_drvdata *drv = *(struct erp_drvdata **)(drvdata);
-
-	kryo3xx_check_l1_l2_ecc(drv->edev_ctl);
+	kryo3xx_check_l1_l2_ecc(panic_handler_drvdata->edev_ctl);
 	return IRQ_HANDLED;
 }
 
@@ -334,14 +339,24 @@ static irqreturn_t kryo3xx_l3_scu_handler(int irq, void *drvdata)
 	return IRQ_HANDLED;
 }
 
+static void initialize_registers(void *info)
+{
+	set_errxctlr_el1();
+	set_errxmisc_overflow();
+}
+
 static int kryo3xx_cpu_erp_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct erp_drvdata *drv;
 	int rc = 0;
 	int fail = 0;
+	int cpu;
 
-	set_errxctlr_el1();
+	for_each_possible_cpu(cpu)
+		smp_call_function_single(cpu, initialize_registers, NULL, 1);
+
+
 	drv = devm_kzalloc(dev, sizeof(*drv), GFP_KERNEL);
 
 	if (!drv)
