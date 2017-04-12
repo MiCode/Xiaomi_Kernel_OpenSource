@@ -151,6 +151,38 @@ static const char * const gcc_parent_names_6[] = {
 	"core_bi_pll_test_se",
 };
 
+static struct clk_dummy measure_only_snoc_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_snoc_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_cnoc_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_cnoc_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_bimc_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_bimc_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_ipa_2x_clk = {
+	.rrate = 1000,
+	.hw.init = &(struct clk_init_data){
+		.name = "measure_only_ipa_2x_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
 static struct pll_vco fabia_vco[] = {
 	{ 250000000, 2000000000, 0 },
 	{ 125000000, 1000000000, 1 },
@@ -3147,6 +3179,13 @@ static struct clk_branch gcc_video_xo_clk = {
 	},
 };
 
+struct clk_hw *gcc_sdm845_hws[] = {
+	[MEASURE_ONLY_SNOC_CLK] = &measure_only_snoc_clk.hw,
+	[MEASURE_ONLY_CNOC_CLK] = &measure_only_cnoc_clk.hw,
+	[MEASURE_ONLY_BIMC_CLK] = &measure_only_bimc_clk.hw,
+	[MEASURE_ONLY_IPA_2X_CLK] = &measure_only_ipa_2x_clk.hw,
+};
+
 static struct clk_regmap *gcc_sdm845_clocks[] = {
 	[GCC_AGGRE_NOC_PCIE_TBU_CLK] = &gcc_aggre_noc_pcie_tbu_clk.clkr,
 	[GCC_AGGRE_UFS_CARD_AXI_CLK] = &gcc_aggre_ufs_card_axi_clk.clkr,
@@ -3385,8 +3424,9 @@ MODULE_DEVICE_TABLE(of, gcc_sdm845_match_table);
 
 static int gcc_sdm845_probe(struct platform_device *pdev)
 {
+	struct clk *clk;
 	struct regmap *regmap;
-	int ret = 0;
+	int i, ret = 0;
 
 	regmap = qcom_cc_map(pdev, &gcc_sdm845_desc);
 	if (IS_ERR(regmap))
@@ -3414,6 +3454,13 @@ static int gcc_sdm845_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 				"Unable to get vdd_cx_ao regulator\n");
 		return PTR_ERR(vdd_cx_ao.regulator[0]);
+	}
+
+	/* Register the dummy measurement clocks */
+	for (i = 0; i < ARRAY_SIZE(gcc_sdm845_hws); i++) {
+		clk = devm_clk_register(&pdev->dev, gcc_sdm845_hws[i]);
+		if (IS_ERR(clk))
+			return PTR_ERR(clk);
 	}
 
 	ret = qcom_cc_really_probe(pdev, &gcc_sdm845_desc, regmap);
