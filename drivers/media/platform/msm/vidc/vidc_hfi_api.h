@@ -191,7 +191,6 @@ enum hal_property {
 	HAL_CONFIG_VENC_MAX_BITRATE,
 	HAL_PARAM_VENC_H264_VUI_TIMING_INFO,
 	HAL_PARAM_VENC_GENERATE_AUDNAL,
-	HAL_PARAM_VENC_MAX_NUM_B_FRAMES,
 	HAL_PARAM_BUFFER_ALLOC_MODE,
 	HAL_PARAM_VDEC_FRAME_ASSEMBLY,
 	HAL_PARAM_VENC_PRESERVE_TEXT_QUALITY,
@@ -818,10 +817,6 @@ struct hal_h264_vui_timing_info {
 	u32 time_scale;
 };
 
-struct hal_h264_vui_bitstream_restrc {
-	u32 enable;
-};
-
 struct hal_preserve_text_quality {
 	u32 enable;
 };
@@ -1018,7 +1013,6 @@ union hal_get_property {
 	struct hal_multi_view_select multi_view_select;
 	struct hal_timestamp_scale timestamp_scale;
 	struct hal_h264_vui_timing_info h264_vui_timing_info;
-	struct hal_h264_vui_bitstream_restrc h264_vui_bitstream_restrc;
 	struct hal_preserve_text_quality preserve_text_quality;
 	struct hal_buffer_info buffer_info;
 	struct hal_buffer_alloc_mode buffer_alloc_mode;

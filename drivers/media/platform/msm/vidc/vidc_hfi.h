@@ -588,6 +588,7 @@ struct hfi_ubwc_cr_stats_info_type {
 struct hfi_frame_cr_stats_type {
 	u32 frame_index;
 	struct hfi_ubwc_cr_stats_info_type ubwc_stats_info;
+	u32 complexity_number;
 };
 
 struct hfi_msg_session_empty_buffer_done_packet {

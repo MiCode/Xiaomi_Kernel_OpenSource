@@ -276,8 +276,6 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01D)
 #define HFI_PROPERTY_PARAM_VENC_H264_VUI_TIMING_INFO	\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01E)
-#define  HFI_PROPERTY_PARAM_VENC_MAX_NUM_B_FRAMES \
-	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x020)
 #define HFI_PROPERTY_PARAM_VENC_LOW_LATENCY_MODE	\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x022)
 #define HFI_PROPERTY_PARAM_VENC_PRESERVE_TEXT_QUALITY \
@@ -463,10 +461,6 @@ struct hfi_idr_period {
 struct hfi_operations_type {
 	u32 rotation;
 	u32 flip;
-};
-
-struct hfi_max_num_b_frames {
-	u32 max_num_b_frames;
 };
 
 struct hfi_conceal_color {
