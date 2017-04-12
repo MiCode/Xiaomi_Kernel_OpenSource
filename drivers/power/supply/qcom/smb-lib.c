@@ -1345,6 +1345,14 @@ int smblib_vbus_regulator_enable(struct regulator_dev *rdev)
 	if (chg->otg_en)
 		goto unlock;
 
+	if (!chg->usb_icl_votable) {
+		chg->usb_icl_votable = find_votable("USB_ICL");
+
+		if (!chg->usb_icl_votable)
+			return -EINVAL;
+	}
+	vote(chg->usb_icl_votable, USBIN_USBIN_BOOST_VOTER, true, 0);
+
 	rc = _smblib_vbus_regulator_enable(rdev);
 	if (rc >= 0)
 		chg->otg_en = true;
@@ -1408,6 +1416,8 @@ int smblib_vbus_regulator_disable(struct regulator_dev *rdev)
 	if (rc >= 0)
 		chg->otg_en = false;
 
+	if (chg->usb_icl_votable)
+		vote(chg->usb_icl_votable, USBIN_USBIN_BOOST_VOTER, false, 0);
 unlock:
 	mutex_unlock(&chg->otg_oc_lock);
 	return rc;
