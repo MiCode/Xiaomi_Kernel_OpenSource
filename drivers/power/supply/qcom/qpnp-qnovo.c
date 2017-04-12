@@ -841,7 +841,7 @@ static ssize_t current_show(struct class *c, struct class_attribute *attr,
 		gain = chip->internal_i_gain_mega;
 	}
 
-	comp_val_nA = div_s64(regval_nA * gain, 1000000) + offset_nA;
+	comp_val_nA = div_s64(regval_nA * gain, 1000000) - offset_nA;
 	comp_val_uA = div_s64(comp_val_nA, 1000);
 
 	return snprintf(ubuf, PAGE_SIZE, "%d%s\n",
@@ -1213,15 +1213,38 @@ static int qnovo_hw_init(struct qnovo *chip)
 
 	vote(chip->disable_votable, USER_VOTER, 1, 0);
 
+	val = 0;
+	rc = qnovo_write(chip, QNOVO_STRM_CTRL, &val, 1);
+	if (rc < 0) {
+		pr_err("Couldn't write iadc bitstream control rc = %d\n", rc);
+		return rc;
+	}
+
 	rc = qnovo_read(chip, QNOVO_IADC_OFFSET_0, &iadc_offset_external, 1);
 	if (rc < 0) {
 		pr_err("Couldn't read iadc exernal offset rc = %d\n", rc);
 		return rc;
 	}
 
+	/* stored as an 8 bit 2's complement signed integer */
+	val = -1 * iadc_offset_external;
+	rc = qnovo_write(chip, QNOVO_TR_IADC_OFFSET_0, &val, 1);
+	if (rc < 0) {
+		pr_err("Couldn't write iadc offset rc = %d\n", rc);
+		return rc;
+	}
+
 	rc = qnovo_read(chip, QNOVO_IADC_OFFSET_1, &iadc_offset_internal, 1);
 	if (rc < 0) {
 		pr_err("Couldn't read iadc internal offset rc = %d\n", rc);
+		return rc;
+	}
+
+	/* stored as an 8 bit 2's complement signed integer */
+	val = -1 * iadc_offset_internal;
+	rc = qnovo_write(chip, QNOVO_TR_IADC_OFFSET_1, &val, 1);
+	if (rc < 0) {
+		pr_err("Couldn't write iadc offset rc = %d\n", rc);
 		return rc;
 	}
 
@@ -1249,52 +1272,19 @@ static int qnovo_hw_init(struct qnovo *chip)
 		return rc;
 	}
 
-	chip->external_offset_nA = (s64)iadc_offset_external * IADC_LSB_NA;
-	chip->internal_offset_nA = (s64)iadc_offset_internal * IADC_LSB_NA;
-	chip->offset_nV = (s64)vadc_offset * VADC_LSB_NA;
+	chip->external_offset_nA = (s64)(s8)iadc_offset_external * IADC_LSB_NA;
+	chip->internal_offset_nA = (s64)(s8)iadc_offset_internal * IADC_LSB_NA;
+	chip->offset_nV = (s64)(s8)vadc_offset * VADC_LSB_NA;
 	chip->external_i_gain_mega
-		= 1000000000 + (s64)iadc_gain_external * GAIN_LSB_FACTOR;
+		= 1000000000 + (s64)(s8)iadc_gain_external * GAIN_LSB_FACTOR;
 	chip->external_i_gain_mega
 		= div_s64(chip->external_i_gain_mega, 1000);
 	chip->internal_i_gain_mega
-		= 1000000000 + (s64)iadc_gain_internal * GAIN_LSB_FACTOR;
+		= 1000000000 + (s64)(s8)iadc_gain_internal * GAIN_LSB_FACTOR;
 	chip->internal_i_gain_mega
 		= div_s64(chip->internal_i_gain_mega, 1000);
-	chip->v_gain_mega = 1000000000 + (s64)vadc_gain * GAIN_LSB_FACTOR;
+	chip->v_gain_mega = 1000000000 + (s64)(s8)vadc_gain * GAIN_LSB_FACTOR;
 	chip->v_gain_mega = div_s64(chip->v_gain_mega, 1000);
-
-	val = 0;
-	rc = qnovo_write(chip, QNOVO_STRM_CTRL, &val, 1);
-	if (rc < 0) {
-		pr_err("Couldn't write iadc bitsteam control rc = %d\n", rc);
-		return rc;
-	}
-
-	rc = qnovo_read(chip, QNOVO_TR_IADC_OFFSET_0, &val, 1);
-	if (rc < 0) {
-		pr_err("Couldn't read iadc offset rc = %d\n", rc);
-		return rc;
-	}
-
-	val *= -1;
-	rc = qnovo_write(chip, QNOVO_TR_IADC_OFFSET_0, &val, 1);
-	if (rc < 0) {
-		pr_err("Couldn't write iadc offset rc = %d\n", rc);
-		return rc;
-	}
-
-	rc = qnovo_read(chip, QNOVO_TR_IADC_OFFSET_1, &val, 1);
-	if (rc < 0) {
-		pr_err("Couldn't read iadc offset rc = %d\n", rc);
-		return rc;
-	}
-
-	val *= -1;
-	rc = qnovo_write(chip, QNOVO_TR_IADC_OFFSET_1, &val, 1);
-	if (rc < 0) {
-		pr_err("Couldn't write iadc offset rc = %d\n", rc);
-		return rc;
-	}
 
 	return 0;
 }
