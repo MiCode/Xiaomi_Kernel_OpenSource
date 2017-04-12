@@ -357,6 +357,7 @@ struct qpnp_hap {
 	u32				sc_irq;
 	u32				status_flags;
 	u16				base;
+	u16				last_rate_cfg;
 	u16				drive_period_code_max_limit;
 	u16				drive_period_code_min_limit;
 	u16				lra_res_cal_period;
@@ -389,6 +390,18 @@ struct qpnp_hap {
 static struct qpnp_hap *ghap;
 
 /* helper to read a pmic register */
+static int qpnp_hap_read_mult_reg(struct qpnp_hap *hap, u16 addr, u8 *val,
+				int len)
+{
+	int rc;
+
+	rc = regmap_bulk_read(hap->regmap, addr, val, len);
+	if (rc < 0)
+		pr_err("Error reading address: %X - ret %X\n", addr, rc);
+
+	return rc;
+}
+
 static int qpnp_hap_read_reg(struct qpnp_hap *hap, u16 addr, u8 *val)
 {
 	int rc;
@@ -397,11 +410,28 @@ static int qpnp_hap_read_reg(struct qpnp_hap *hap, u16 addr, u8 *val)
 	rc = regmap_read(hap->regmap, addr, &tmp);
 	if (rc < 0)
 		pr_err("Error reading address: %X - ret %X\n", addr, rc);
-	*val = (u8)tmp;
+	else
+		*val = (u8)tmp;
+
 	return rc;
 }
 
 /* helper to write a pmic register */
+static int qpnp_hap_write_mult_reg(struct qpnp_hap *hap, u16 addr, u8 *val,
+				int len)
+{
+	unsigned long flags;
+	int rc;
+
+	spin_lock_irqsave(&hap->bus_lock, flags);
+	rc = regmap_bulk_write(hap->regmap, addr, val, len);
+	if (rc < 0)
+		pr_err("Error writing address: %X - ret %X\n", addr, rc);
+
+	spin_unlock_irqrestore(&hap->bus_lock, flags);
+	return rc;
+}
+
 static int qpnp_hap_write_reg(struct qpnp_hap *hap, u16 addr, u8 val)
 {
 	unsigned long flags;
@@ -1509,20 +1539,23 @@ static int qpnp_hap_auto_res_enable(struct qpnp_hap *hap, int enable)
 
 static void update_lra_frequency(struct qpnp_hap *hap)
 {
-	u8 lra_auto_res_lo = 0, lra_auto_res_hi = 0, val;
+	u8 lra_auto_res[2], val;
 	u32 play_rate_code;
+	u16 rate_cfg;
 	int rc;
 
-	qpnp_hap_read_reg(hap, QPNP_HAP_LRA_AUTO_RES_LO(hap->base),
-		&lra_auto_res_lo);
-	qpnp_hap_read_reg(hap, QPNP_HAP_LRA_AUTO_RES_HI(hap->base),
-		&lra_auto_res_hi);
+	rc = qpnp_hap_read_mult_reg(hap, QPNP_HAP_LRA_AUTO_RES_LO(hap->base),
+				lra_auto_res, 2);
+	if (rc < 0) {
+		pr_err("Error in reading LRA_AUTO_RES_LO/HI, rc=%d\n", rc);
+		return;
+	}
 
 	play_rate_code =
-		 (lra_auto_res_hi & 0xF0) << 4 | (lra_auto_res_lo & 0xFF);
+		 (lra_auto_res[1] & 0xF0) << 4 | (lra_auto_res[0] & 0xFF);
 
 	pr_debug("lra_auto_res_lo = 0x%x lra_auto_res_hi = 0x%x play_rate_code = 0x%x\n",
-		lra_auto_res_lo, lra_auto_res_hi, play_rate_code);
+		lra_auto_res[0], lra_auto_res[1], play_rate_code);
 
 	rc = qpnp_hap_read_reg(hap, QPNP_HAP_STATUS(hap->base), &val);
 	if (rc < 0)
@@ -1551,12 +1584,21 @@ static void update_lra_frequency(struct qpnp_hap *hap)
 		return;
 	}
 
-	qpnp_hap_write_reg(hap, QPNP_HAP_RATE_CFG1_REG(hap->base),
-		lra_auto_res_lo);
+	lra_auto_res[1] >>= 4;
+	rate_cfg = lra_auto_res[1] << 8 | lra_auto_res[0];
+	if (hap->last_rate_cfg == rate_cfg) {
+		pr_debug("Same rate_cfg, skip updating\n");
+		return;
+	}
 
-	lra_auto_res_hi = lra_auto_res_hi >> 4;
-	qpnp_hap_write_reg(hap, QPNP_HAP_RATE_CFG2_REG(hap->base),
-		lra_auto_res_hi);
+	rc = qpnp_hap_write_mult_reg(hap, QPNP_HAP_RATE_CFG1_REG(hap->base),
+				lra_auto_res, 2);
+	if (rc < 0) {
+		pr_err("Error in writing to RATE_CFG1/2, rc=%d\n", rc);
+	} else {
+		pr_debug("Update RATE_CFG with [0x%x]\n", rate_cfg);
+		hap->last_rate_cfg = rate_cfg;
+	}
 }
 
 static enum hrtimer_restart detect_auto_res_error(struct hrtimer *timer)
@@ -1974,6 +2016,8 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 	rc = qpnp_hap_write_reg(hap, QPNP_HAP_RATE_CFG2_REG(hap->base), val);
 	if (rc)
 		return rc;
+
+	hap->last_rate_cfg = hap->init_drive_period_code;
 
 	if (hap->act_type == QPNP_HAP_LRA &&
 				hap->perform_lra_auto_resonance_search)
