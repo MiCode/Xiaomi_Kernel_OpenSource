@@ -953,7 +953,7 @@
 		clock-names = "ref_clk_src",
 			"ref_clk",
 			"ref_aux_clk";
-		clocks = <&clock_rpmh RPMH_LN_BB_CLK1>,
+		clocks = <&clock_rpmh RPMH_CXO_CLK>,
 			<&clock_gcc GCC_UFS_MEM_CLKREF_CLK>,
 			<&clock_gcc GCC_UFS_PHY_PHY_AUX_CLK>;
 
@@ -987,7 +987,7 @@
 			<&clock_gcc GCC_UFS_PHY_AHB_CLK>,
 			<&clock_gcc GCC_UFS_PHY_UNIPRO_CORE_CLK>,
 			<&clock_gcc GCC_UFS_PHY_ICE_CORE_CLK>,
-			<&clock_rpmh RPMH_LN_BB_CLK1>,
+			<&clock_rpmh RPMH_CXO_CLK>,
 			<&clock_gcc GCC_UFS_PHY_TX_SYMBOL_0_CLK>,
 			<&clock_gcc GCC_UFS_PHY_RX_SYMBOL_0_CLK>,
 			<&clock_gcc GCC_UFS_PHY_RX_SYMBOL_1_CLK>;
@@ -1073,7 +1073,7 @@
 		clock-names = "ref_clk_src",
 			"ref_clk",
 			"ref_aux_clk";
-		clocks = <&clock_rpmh RPMH_LN_BB_CLK1>,
+		clocks = <&clock_rpmh RPMH_CXO_CLK>,
 			<&clock_gcc GCC_UFS_CARD_CLKREF_CLK>,
 			<&clock_gcc GCC_UFS_CARD_PHY_AUX_CLK>;
 
@@ -1106,7 +1106,7 @@
 			<&clock_gcc GCC_UFS_CARD_AHB_CLK>,
 			<&clock_gcc GCC_UFS_CARD_UNIPRO_CORE_CLK>,
 			<&clock_gcc GCC_UFS_CARD_ICE_CORE_CLK>,
-			<&clock_rpmh RPMH_LN_BB_CLK1>,
+			<&clock_rpmh RPMH_CXO_CLK>,
 			<&clock_gcc GCC_UFS_CARD_TX_SYMBOL_0_CLK>,
 			<&clock_gcc GCC_UFS_CARD_RX_SYMBOL_0_CLK>;
 		freq-table-hz =
