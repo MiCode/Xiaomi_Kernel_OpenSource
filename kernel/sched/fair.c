@@ -5343,6 +5343,15 @@ static inline bool energy_aware(void)
 	return sched_feat(ENERGY_AWARE);
 }
 
+/*
+ * Externally visible function. Let's keep the one above
+ * so that the check is inlined/optimized in the sched paths.
+ */
+bool sched_is_energy_aware(void)
+{
+	return energy_aware();
+}
+
 struct energy_env {
 	struct sched_group	*sg_top;
 	struct sched_group	*sg_cap;
