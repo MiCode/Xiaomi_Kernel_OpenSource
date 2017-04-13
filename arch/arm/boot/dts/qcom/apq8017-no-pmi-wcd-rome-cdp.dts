@@ -150,3 +150,11 @@
 &qcom_seecom {
 	reg = <0x84f00000 0x1400000>;
 };
+
+&secure_mem {
+	status = "disabled";
+};
+
+&venus_mem {
+	status = "disabled";
+};
