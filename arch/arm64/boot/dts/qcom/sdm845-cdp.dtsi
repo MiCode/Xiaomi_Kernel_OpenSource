@@ -130,6 +130,29 @@
 };
 
 / {
+	extcon_usb1: extcon_usb1 {
+		compatible = "linux,extcon-usb-gpio";
+		id-gpio = <&pmi8998_gpios 9 GPIO_ACTIVE_HIGH>;
+		vbus-gpio = <&pmi8998_gpios 8 GPIO_ACTIVE_HIGH>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb2_vbus_det_default
+			     &usb2_id_det_default>;
+	};
+
+	usb1_vbus_vreg: usb1_vbus_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "usb_vbus_vreg";
+		gpio = <&pmi8998_gpios 2 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+
+		/* Typical EN-to-VBUS turn on time for NX5P1100 */
+		regulator-enable-ramp-delay = <630>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb2_vbus_boost_default>;
+	};
+
 aliases {
 		serial0 = &qupv3_se9_2uart;
 		spi0 = &qupv3_se8_spi;
@@ -152,4 +175,18 @@ aliases {
 
 &qupv3_se10_i2c {
 	status = "ok";
+};
+
+&usb1 {
+	status = "okay";
+	extcon = <&extcon_usb1>;
+	vbus_dwc3-supply = <&usb1_vbus_vreg>;
+};
+
+&qusb_phy1 {
+	status = "okay";
+};
+
+&usb_qmp_phy {
+	status = "okay";
 };

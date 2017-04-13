@@ -117,6 +117,14 @@
 		#include "fg-gen3-batterydata-ascent-3450mah.dtsi"
 		#include "fg-gen3-batterydata-demo-6000mah.dtsi"
 	};
+
+	extcon_usb1: extcon_usb1 {
+		compatible = "linux,extcon-usb-gpio";
+		vbus-gpio = <&pmi8998_gpios 8 GPIO_ACTIVE_HIGH>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb2_vbus_det_default>;
+	};
 };
 
 &pmi8998_fg {
@@ -146,4 +154,17 @@ aliases {
 
 &qupv3_se10_i2c {
 	status = "ok";
+};
+
+&usb1 {
+	status = "okay";
+	extcon = <&extcon_usb1>;
+};
+
+&qusb_phy1 {
+	status = "okay";
+};
+
+&usb_qmp_phy {
+	status = "okay";
 };
