@@ -1708,7 +1708,7 @@
 		reg-names = "msgram", "irq-reg-base";
 		qcom,irq-mask = <0x1>;
 		interrupts = <0 389 1>;
-		mbox_desc_offset = <0x0>;
+		mbox-desc-offset = <0x0>;
 		#mbox-cells = <1>;
 	};
 
