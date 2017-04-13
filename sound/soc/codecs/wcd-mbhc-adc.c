@@ -382,14 +382,15 @@ static bool wcd_mbhc_adc_check_for_spl_headset(struct wcd_mbhc *mbhc,
 	}
 
 	/* MB2 back to 1.8v if the type is not special headset */
-	if (!spl_hs) {
+	if (*spl_hs_cnt != WCD_MBHC_SPL_HS_CNT) {
 		mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic(mbhc->codec,
 				mbhc->mbhc_cfg->mbhc_micbias, false);
 		/* Add 10ms delay for micbias to settle */
 		usleep_range(10000, 10100);
-	} else {
-		pr_debug("%s: Detected special HS (%d)\n", __func__, spl_hs);
 	}
+
+	if (spl_hs)
+		pr_debug("%s: Detected special HS (%d)\n", __func__, spl_hs);
 
 exit:
 	pr_debug("%s: leave\n", __func__);
@@ -401,28 +402,63 @@ static bool wcd_is_special_headset(struct wcd_mbhc *mbhc)
 	int delay = 0;
 	bool ret = false;
 	bool is_spl_hs = false;
-	int spl_hs_count = 0;
+	int output_mv = 0;
+	int adc_threshold = 0;
+
+	/*
+	 * Increase micbias to 2.7V to detect headsets with
+	 * threshold on microphone
+	 */
+	if (mbhc->mbhc_cb->mbhc_micbias_control &&
+	    !mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic) {
+		pr_debug("%s: callback fn micb_ctrl_thr_mic not defined\n",
+			 __func__);
+		return false;
+	} else if (mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic) {
+		ret = mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic(mbhc->codec,
+							MIC_BIAS_2, true);
+		if (ret) {
+			pr_err("%s: mbhc_micb_ctrl_thr_mic failed, ret: %d\n",
+				__func__, ret);
+			return false;
+		}
+	}
+
+	adc_threshold = ((WCD_MBHC_ADC_HS_THRESHOLD_MV *
+			  wcd_mbhc_get_micbias(mbhc)) /
+			  WCD_MBHC_ADC_MICBIAS_MV);
 
 	while (!is_spl_hs) {
-		delay += 50;
 		if (mbhc->hs_detect_work_stop) {
 			pr_debug("%s: stop requested: %d\n", __func__,
 					mbhc->hs_detect_work_stop);
 			break;
 		}
+		delay += 50;
 		/* Wait for 50ms for FSM to update result */
 		msleep(50);
-		is_spl_hs = wcd_mbhc_adc_check_for_spl_headset(mbhc,
-							       &spl_hs_count);
-		if (is_spl_hs)
-			pr_debug("%s: Spl headset detected in %d msecs\n",
+		output_mv = wcd_measure_adc_once(mbhc, MUX_CTL_IN2P);
+		if (output_mv <= adc_threshold) {
+			pr_debug("%s: Special headset detected in %d msecs\n",
 					__func__, delay);
+			is_spl_hs = true;
+		}
+
 		if (delay == SPECIAL_HS_DETECT_TIME_MS) {
 			pr_debug("%s: Spl headset not found in 2 sec\n",
 				 __func__);
 			break;
 		}
 	}
+	if (is_spl_hs) {
+		pr_debug("%s: Headset with threshold found\n",  __func__);
+		mbhc->micbias_enable = true;
+		ret = true;
+	}
+	if (mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic &&
+	    !mbhc->micbias_enable)
+		mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic(mbhc->codec, MIC_BIAS_2,
+						      false);
 	pr_debug("%s: leave, micb_enable: %d\n", __func__,
 		  mbhc->micbias_enable);
 
@@ -533,19 +569,6 @@ static int wcd_mbhc_get_plug_from_adc(int adc_result)
 	return plug_type;
 }
 
-static int wcd_mbhc_get_plug_type(struct wcd_mbhc *mbhc)
-{
-	int result_mv = 0;
-
-	/*
-	 * Use ADC single mode to minimize the chance of missing out
-	 * btn press/release for HEADSET type during correct work.
-	 */
-	result_mv = wcd_measure_adc_once(mbhc, MUX_CTL_IN2P);
-
-	return wcd_mbhc_get_plug_from_adc(result_mv);
-}
-
 static void wcd_correct_swch_plug(struct work_struct *work)
 {
 	struct wcd_mbhc *mbhc;
@@ -553,7 +576,8 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	enum wcd_mbhc_plug_type plug_type = MBHC_PLUG_TYPE_INVALID;
 	unsigned long timeout;
 	bool wrk_complete = false;
-	int gnd_mic_swap_cnt = 0;
+	int pt_gnd_mic_swap_cnt = 0;
+	int no_gnd_mic_swap_cnt = 0;
 	bool is_pa_on = false, spl_hs = false;
 	int ret = 0;
 	int spl_hs_count = 0;
@@ -647,8 +671,11 @@ correct_plug_type:
 			spl_hs = wcd_mbhc_adc_check_for_spl_headset(mbhc,
 								&spl_hs_count);
 
-			if (spl_hs_count == WCD_MBHC_SPL_HS_CNT)
+			if (spl_hs_count == WCD_MBHC_SPL_HS_CNT) {
+				output_mv = WCD_MBHC_ADC_HS_THRESHOLD_MV;
+				spl_hs = true;
 				mbhc->micbias_enable = true;
+			}
 		}
 
 		if (mbhc->mbhc_cb->hph_pa_on_status)
@@ -660,9 +687,14 @@ correct_plug_type:
 			ret = wcd_check_cross_conn(mbhc);
 			if (ret < 0)
 				continue;
-			if (ret > 0) {
-				/* Found cross connection, swap mic/gnd */
-				if (gnd_mic_swap_cnt > GND_MIC_SWAP_THRESHOLD) {
+			else if (ret > 0) {
+				pt_gnd_mic_swap_cnt++;
+				no_gnd_mic_swap_cnt = 0;
+				if (pt_gnd_mic_swap_cnt <
+						GND_MIC_SWAP_THRESHOLD) {
+					continue;
+				} else if (pt_gnd_mic_swap_cnt >
+					   GND_MIC_SWAP_THRESHOLD) {
 					/*
 					 * This is due to GND/MIC switch didn't
 					 * work,  Report unsupported plug.
@@ -671,37 +703,47 @@ correct_plug_type:
 						 __func__);
 					plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
 					goto report;
+				} else {
+					plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
 				}
-				gnd_mic_swap_cnt++;
+			} else {
+				no_gnd_mic_swap_cnt++;
+				pt_gnd_mic_swap_cnt = 0;
+				plug_type = wcd_mbhc_get_plug_from_adc(
+						output_mv);
+				if ((no_gnd_mic_swap_cnt <
+				    GND_MIC_SWAP_THRESHOLD) &&
+				    (spl_hs_count != WCD_MBHC_SPL_HS_CNT)) {
+					continue;
+				} else {
+					no_gnd_mic_swap_cnt = 0;
+				}
+			}
+			if ((pt_gnd_mic_swap_cnt == GND_MIC_SWAP_THRESHOLD) &&
+				(plug_type == MBHC_PLUG_TYPE_GND_MIC_SWAP)) {
+				/*
+				 * if switch is toggled, check again,
+				 * otherwise report unsupported plug
+				 */
 				if (mbhc->mbhc_cfg->swap_gnd_mic &&
 					mbhc->mbhc_cfg->swap_gnd_mic(codec)) {
 					pr_debug("%s: US_EU gpio present,flip switch\n"
 						, __func__);
 					continue;
 				}
-			} else {
-				gnd_mic_swap_cnt++;
-				plug_type = wcd_mbhc_get_plug_type(mbhc);
-				if ((gnd_mic_swap_cnt <=
-				    GND_MIC_SWAP_THRESHOLD) &&
-				    (spl_hs_count != WCD_MBHC_SPL_HS_CNT)) {
-					continue;
-				} else {
-					gnd_mic_swap_cnt = 0;
-				}
 			}
 		}
 
-		if (!spl_hs && (plug_type == MBHC_PLUG_TYPE_HIGH_HPH)) {
+		if (output_mv > WCD_MBHC_ADC_HS_THRESHOLD_MV) {
 			pr_debug("%s: cable is extension cable\n", __func__);
+			plug_type = MBHC_PLUG_TYPE_HIGH_HPH;
 			wrk_complete = true;
 		} else {
+			pr_debug("%s: cable might be headset: %d\n", __func__,
+				 plug_type);
 			if (plug_type != MBHC_PLUG_TYPE_GND_MIC_SWAP) {
-				if (!spl_hs)
-					plug_type =
-						wcd_mbhc_get_plug_type(mbhc);
-				else
-					plug_type = MBHC_PLUG_TYPE_HEADSET;
+				plug_type = wcd_mbhc_get_plug_from_adc(
+						output_mv);
 				/*
 				 * Report headset only if not already reported
 				 * and if there is not button press without
@@ -710,12 +752,13 @@ correct_plug_type:
 				if ((mbhc->current_plug !=
 				      MBHC_PLUG_TYPE_HEADSET) &&
 				     (mbhc->current_plug !=
-				     MBHC_PLUG_TYPE_ANC_HEADPHONE)) {
-					if (plug_type == MBHC_PLUG_TYPE_HEADSET)
-						pr_debug("%s: cable is %s headset\n",
-							__func__,
-							((spl_hs) ?
-							 "special ":""));
+				     MBHC_PLUG_TYPE_ANC_HEADPHONE) &&
+				    !wcd_swch_level_remove(mbhc)) {
+					pr_debug("%s: cable is %s headset\n",
+						 __func__,
+						((spl_hs_count ==
+							WCD_MBHC_SPL_HS_CNT) ?
+							"special ":""));
 					goto report;
 				}
 			}
