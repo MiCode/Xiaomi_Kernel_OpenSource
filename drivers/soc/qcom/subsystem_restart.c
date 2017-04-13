@@ -158,6 +158,7 @@ struct subsys_device {
 	struct work_struct work;
 	struct wakeup_source ssr_wlock;
 	char wlname[64];
+	char error_buf[64];
 	struct work_struct device_restart_work;
 	struct subsys_tracking track;
 
@@ -323,6 +324,12 @@ static void subsys_set_state(struct subsys_device *subsys,
 	spin_unlock_irqrestore(&subsys->track.s_lock, flags);
 }
 
+static ssize_t error_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%s\n", to_subsys(dev)->error_buf);
+}
+
 /**
  * subsytem_default_online() - Mark a subsystem as online by default
  * @dev: subsystem to mark as online
@@ -341,6 +348,7 @@ static struct device_attribute subsys_attrs[] = {
 	__ATTR_RO(name),
 	__ATTR_RO(state),
 	__ATTR_RO(crash_count),
+	__ATTR_RO(error),
 	__ATTR(restart_level, 0644, restart_level_show, restart_level_store),
 	__ATTR(firmware_name, 0644, firmware_name_show, firmware_name_store),
 	__ATTR(system_debug, 0644, system_debug_show, system_debug_store),
@@ -1172,6 +1180,12 @@ void subsys_set_crash_status(struct subsys_device *dev,
 enum crash_status subsys_get_crash_status(struct subsys_device *dev)
 {
 	return dev->crashed;
+}
+
+void subsys_set_error(struct subsys_device *dev, const char *error_msg)
+{
+	snprintf(dev->error_buf, sizeof(dev->error_buf), "%s", error_msg);
+	sysfs_notify(&dev->dev.kobj, NULL, "error");
 }
 
 static struct subsys_device *desc_to_subsys(struct device *d)
