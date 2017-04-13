@@ -240,6 +240,10 @@ void sdhci_reset(struct sdhci_host *host, u8 mask)
 	    (mask & SDHCI_RESET_ALL))
 		host->ops->check_power_status(host, REQ_BUS_OFF);
 
+	/* clear pending normal/error interrupt status */
+	sdhci_writel(host, sdhci_readl(host, SDHCI_INT_STATUS),
+			SDHCI_INT_STATUS);
+
 	/* hw clears the bit when it's done */
 	while (sdhci_readb(host, SDHCI_SOFTWARE_RESET) & mask) {
 		if (timeout == 0) {
