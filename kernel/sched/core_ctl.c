@@ -264,6 +264,7 @@ static ssize_t show_global_state(const struct cluster_data *state, char *buf)
 	ssize_t count = 0;
 	unsigned int cpu;
 
+	spin_lock_irq(&state_lock);
 	for_each_possible_cpu(cpu) {
 		c = &per_cpu(cpu_state, cpu);
 		cluster = c->cluster;
@@ -299,6 +300,7 @@ static ssize_t show_global_state(const struct cluster_data *state, char *buf)
 		count += snprintf(buf + count, PAGE_SIZE - count,
 				"\tBoost: %u\n", (unsigned int) cluster->boost);
 	}
+	spin_unlock_irq(&state_lock);
 
 	return count;
 }
