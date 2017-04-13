@@ -2329,6 +2329,21 @@ int clk_set_flags(struct clk *clk, unsigned long flags)
 }
 EXPORT_SYMBOL_GPL(clk_set_flags);
 
+unsigned long clk_list_frequency(struct clk *clk, unsigned int index)
+{
+	int ret = 0;
+
+	if (!clk || !clk->core->ops->list_rate)
+		return -EINVAL;
+
+	clk_prepare_lock();
+	ret = clk->core->ops->list_rate(clk->core->hw, index, ULONG_MAX);
+	clk_prepare_unlock();
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(clk_list_frequency);
+
 /***        debugfs support        ***/
 
 #ifdef CONFIG_DEBUG_FS
