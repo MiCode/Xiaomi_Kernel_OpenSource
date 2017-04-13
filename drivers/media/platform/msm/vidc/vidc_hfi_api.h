@@ -224,6 +224,7 @@ enum hal_property {
 	HAL_PARAM_VIDEO_CORES_USAGE,
 	HAL_PARAM_VIDEO_WORK_MODE,
 	HAL_PARAM_SECURE,
+	HAL_PARAM_USE_SYS_CACHE,
 };
 
 enum hal_domain {
@@ -870,15 +871,13 @@ enum hal_iframesize_type {
 
 enum vidc_resource_id {
 	VIDC_RESOURCE_NONE,
-	VIDC_RESOURCE_OCMEM,
-	VIDC_RESOURCE_VMEM,
+	VIDC_RESOURCE_SYSCACHE,
 	VIDC_UNUSED_RESOURCE = 0x10000000,
 };
 
 struct vidc_resource_hdr {
 	enum vidc_resource_id resource_id;
 	void *resource_handle;
-	u32 size;
 };
 
 struct vidc_buffer_addr_info {
@@ -1293,7 +1292,6 @@ static inline enum vidc_vote_data_session VIDC_VOTE_DATA_SESSION_VAL(
 struct msm_vidc_gov_data {
 	struct vidc_bus_vote_data *data;
 	u32 data_count;
-	int imem_size;
 };
 
 enum msm_vidc_power_mode {
@@ -1309,9 +1307,6 @@ struct vidc_bus_vote_data {
 	int num_formats; /* 1 = DPB-OPB unified; 2 = split */
 	int height, width, fps;
 	enum msm_vidc_power_mode power_mode;
-	struct imem_ab_table *imem_ab_tbl;
-	u32 imem_ab_tbl_size;
-	unsigned long core_freq;
 };
 
 struct vidc_clk_scale_data {

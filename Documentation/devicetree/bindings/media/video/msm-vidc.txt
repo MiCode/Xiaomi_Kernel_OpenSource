@@ -104,6 +104,9 @@ value is typically max(latencies of every cluster at all power levels) + 1
   memory, performance etc.
 - qcom,debug-timeout = A bool indicating that FW errors such as SYS_ERROR,
   SESSION_ERROR and timeouts will be treated as Fatal.
+- cache-slice-names = An array of supported cache slice names by llcc
+- cache-slices = An array of supported cache slice ids corresponding
+  to cache-slice-names by llcc
 
 [Second level nodes]
 Context Banks
@@ -149,7 +152,7 @@ Required properties:
 Optional properties:
 - qcom,bus-governor : governor to use when scaling bus, generally any commonly
   found devfreq governor might be used.  In addition to those governors, the
-  custom Venus governors, "msm-vidc-ddr" or "msm-vidc-vmem" are also
+  custom Venus governors, "msm-vidc-ddr" or "msm-vidc-llcc" are also
   acceptable values.
   In the absence of this property the "performance" governor is used.
 - qcom,bus-rage-kbps : an array of two items (<min max>) that indicate the

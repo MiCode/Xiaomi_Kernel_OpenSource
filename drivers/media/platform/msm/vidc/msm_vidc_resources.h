@@ -17,6 +17,8 @@
 #include <linux/devfreq.h>
 #include <linux/platform_device.h>
 #include <media/msm_vidc.h>
+#include <linux/soc/qcom/llcc-qcom.h>
+
 #define MAX_BUFFER_TYPES 32
 
 struct platform_version_table {
@@ -34,11 +36,6 @@ struct dcvs_table {
 struct dcvs_limit {
 	u32 min_mbpf;
 	u32 fps;
-};
-
-struct imem_ab_table {
-	u32 core_freq;
-	u32 imem_ab;
 };
 
 struct reg_value_pair {
@@ -122,13 +119,6 @@ struct bus_set {
 	u32 count;
 };
 
-enum imem_type {
-	IMEM_NONE,
-	IMEM_OCMEM,
-	IMEM_VMEM,
-	IMEM_MAX,
-};
-
 struct allowed_clock_rates_table {
 	u32 clock_rate;
 };
@@ -145,6 +135,18 @@ struct clock_freq_table {
 	u32 count;
 };
 
+struct subcache_info {
+	const char *name;
+	bool isactive;
+	bool isset;
+	struct llcc_slice_desc *subcache;
+};
+
+struct subcache_set {
+	struct subcache_info *subcache_tbl;
+	u32 count;
+};
+
 struct msm_vidc_platform_resources {
 	phys_addr_t firmware_base;
 	phys_addr_t register_base;
@@ -157,13 +159,11 @@ struct msm_vidc_platform_resources {
 	struct dcvs_table *dcvs_tbl;
 	uint32_t dcvs_tbl_size;
 	struct dcvs_limit *dcvs_limit;
-	struct imem_ab_table *imem_ab_tbl;
-	u32 imem_ab_tbl_size;
+	bool sys_cache_enabled;
+	struct subcache_set subcache_set;
 	struct reg_set reg_set;
 	struct addr_set qdss_addr_set;
 	struct buffer_usage_set buffer_usage_set;
-	uint32_t imem_size;
-	enum imem_type imem_type;
 	uint32_t max_load;
 	uint32_t max_hq_mbs_per_frame;
 	uint32_t max_hq_fps;

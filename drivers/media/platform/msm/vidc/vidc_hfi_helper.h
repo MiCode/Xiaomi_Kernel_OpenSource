@@ -220,6 +220,8 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_COMMON_START + 0x010)
 #define  HFI_PROPERTY_PARAM_SECURE_SESSION		\
 	(HFI_PROPERTY_PARAM_COMMON_START + 0x011)
+#define  HFI_PROPERTY_PARAM_USE_SYS_CACHE				\
+	(HFI_PROPERTY_PARAM_COMMON_START + 0x012)
 #define  HFI_PROPERTY_PARAM_WORK_MODE                       \
 	(HFI_PROPERTY_PARAM_COMMON_START + 0x015)
 
@@ -718,23 +720,16 @@ struct hfi_operations {
 	u32 flip;
 };
 
-#define HFI_RESOURCE_OCMEM 0x00000001
+#define HFI_RESOURCE_SYSCACHE 0x00000002
 
-struct hfi_resource_ocmem {
+struct hfi_resource_subcache_type {
 	u32 size;
-	u32 mem;
+	u32 sc_id;
 };
 
-struct hfi_resource_ocmem_requirement {
-	u32 session_domain;
-	u32 width;
-	u32 height;
-	u32 size;
-};
-
-struct hfi_resource_ocmem_requirement_info {
+struct hfi_resource_syscache_info_type {
 	u32 num_entries;
-	struct hfi_resource_ocmem_requirement rg_requirements[1];
+	struct hfi_resource_subcache_type rg_subcache_entries[1];
 };
 
 struct hfi_property_sys_image_version_info_type {
