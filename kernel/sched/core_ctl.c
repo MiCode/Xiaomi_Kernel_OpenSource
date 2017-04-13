@@ -35,6 +35,7 @@ struct cluster_data {
 	unsigned int busy_down_thres[MAX_CPUS_PER_CLUSTER];
 	unsigned int active_cpus;
 	unsigned int num_cpus;
+	unsigned int nr_isolated_cpus;
 	cpumask_t cpu_mask;
 	unsigned int need_cpus;
 	unsigned int task_thres;
@@ -298,6 +299,9 @@ static ssize_t show_global_state(const struct cluster_data *state, char *buf)
 		count += snprintf(buf + count, PAGE_SIZE - count,
 				"\tNeed CPUs: %u\n", cluster->need_cpus);
 		count += snprintf(buf + count, PAGE_SIZE - count,
+				"\tNr isolated CPUs: %u\n",
+						cluster->nr_isolated_cpus);
+		count += snprintf(buf + count, PAGE_SIZE - count,
 				"\tBoost: %u\n", (unsigned int) cluster->boost);
 	}
 	spin_unlock_irq(&state_lock);
@@ -533,7 +537,7 @@ static bool adjustment_possible(const struct cluster_data *cluster,
 							unsigned int need)
 {
 	return (need < cluster->active_cpus || (need > cluster->active_cpus &&
-	    sched_isolate_count(&cluster->cpu_mask, false)));
+						cluster->nr_isolated_cpus));
 }
 
 static bool eval_need(struct cluster_data *cluster)
@@ -724,6 +728,7 @@ static void try_to_isolate(struct cluster_data *cluster, unsigned int need)
 	struct cpu_data *c, *tmp;
 	unsigned long flags;
 	unsigned int num_cpus = cluster->num_cpus;
+	unsigned int nr_isolated = 0;
 
 	/*
 	 * Protect against entry being removed (and added at tail) by other
@@ -748,12 +753,14 @@ static void try_to_isolate(struct cluster_data *cluster, unsigned int need)
 		if (!sched_isolate_cpu(c->cpu)) {
 			c->isolated_by_us = true;
 			move_cpu_lru(c);
+			nr_isolated++;
 		} else {
 			pr_debug("Unable to isolate CPU%u\n", c->cpu);
 		}
 		cluster->active_cpus = get_active_cpu_count(cluster);
 		spin_lock_irqsave(&state_lock, flags);
 	}
+	cluster->nr_isolated_cpus += nr_isolated;
 	spin_unlock_irqrestore(&state_lock, flags);
 
 	/*
@@ -763,6 +770,7 @@ static void try_to_isolate(struct cluster_data *cluster, unsigned int need)
 	if (cluster->active_cpus <= cluster->max_cpus)
 		return;
 
+	nr_isolated = 0;
 	num_cpus = cluster->num_cpus;
 	spin_lock_irqsave(&state_lock, flags);
 	list_for_each_entry_safe(c, tmp, &cluster->lru, sib) {
@@ -780,12 +788,14 @@ static void try_to_isolate(struct cluster_data *cluster, unsigned int need)
 		if (!sched_isolate_cpu(c->cpu)) {
 			c->isolated_by_us = true;
 			move_cpu_lru(c);
+			nr_isolated++;
 		} else {
 			pr_debug("Unable to isolate CPU%u\n", c->cpu);
 		}
 		cluster->active_cpus = get_active_cpu_count(cluster);
 		spin_lock_irqsave(&state_lock, flags);
 	}
+	cluster->nr_isolated_cpus += nr_isolated;
 	spin_unlock_irqrestore(&state_lock, flags);
 
 }
@@ -796,6 +806,7 @@ static void __try_to_unisolate(struct cluster_data *cluster,
 	struct cpu_data *c, *tmp;
 	unsigned long flags;
 	unsigned int num_cpus = cluster->num_cpus;
+	unsigned int nr_unisolated = 0;
 
 	/*
 	 * Protect against entry being removed (and added at tail) by other
@@ -820,12 +831,14 @@ static void __try_to_unisolate(struct cluster_data *cluster,
 		if (!sched_unisolate_cpu(c->cpu)) {
 			c->isolated_by_us = false;
 			move_cpu_lru(c);
+			nr_unisolated++;
 		} else {
 			pr_debug("Unable to unisolate CPU%u\n", c->cpu);
 		}
 		cluster->active_cpus = get_active_cpu_count(cluster);
 		spin_lock_irqsave(&state_lock, flags);
 	}
+	cluster->nr_isolated_cpus -= nr_unisolated;
 	spin_unlock_irqrestore(&state_lock, flags);
 }
 
@@ -891,6 +904,8 @@ static int __ref cpu_callback(struct notifier_block *nfb,
 	struct cpu_data *state = &per_cpu(cpu_state, cpu);
 	struct cluster_data *cluster = state->cluster;
 	unsigned int need;
+	bool do_wakeup, unisolated = false;
+	unsigned long flags;
 
 	if (unlikely(!cluster || !cluster->inited))
 		return NOTIFY_DONE;
@@ -916,6 +931,7 @@ static int __ref cpu_callback(struct notifier_block *nfb,
 		if (state->isolated_by_us) {
 			sched_unisolate_cpu_unlocked(cpu);
 			state->isolated_by_us = false;
+			unisolated = true;
 		}
 
 		/* Move a CPU to the end of the LRU when it goes offline. */
@@ -929,7 +945,12 @@ static int __ref cpu_callback(struct notifier_block *nfb,
 	}
 
 	need = apply_limits(cluster, cluster->need_cpus);
-	if (adjustment_possible(cluster, need))
+	spin_lock_irqsave(&state_lock, flags);
+	if (unisolated)
+		cluster->nr_isolated_cpus--;
+	do_wakeup = adjustment_possible(cluster, need);
+	spin_unlock_irqrestore(&state_lock, flags);
+	if (do_wakeup)
 		wake_up_core_ctl_thread(cluster);
 
 	return NOTIFY_OK;
