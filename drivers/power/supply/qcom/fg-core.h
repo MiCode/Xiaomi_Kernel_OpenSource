@@ -161,12 +161,14 @@ enum fg_sram_param_id {
 	FG_SRAM_ESR_PULSE_THRESH,
 	FG_SRAM_SYS_TERM_CURR,
 	FG_SRAM_CHG_TERM_CURR,
+	FG_SRAM_CHG_TERM_BASE_CURR,
 	FG_SRAM_DELTA_MSOC_THR,
 	FG_SRAM_DELTA_BSOC_THR,
 	FG_SRAM_RECHARGE_SOC_THR,
 	FG_SRAM_RECHARGE_VBATT_THR,
 	FG_SRAM_KI_COEFF_MED_DISCHG,
 	FG_SRAM_KI_COEFF_HI_DISCHG,
+	FG_SRAM_KI_COEFF_FULL_SOC,
 	FG_SRAM_ESR_TIGHT_FILTER,
 	FG_SRAM_ESR_BROAD_FILTER,
 	FG_SRAM_SLOPE_LIMIT,
@@ -226,6 +228,7 @@ struct fg_dt_props {
 	int	empty_volt_mv;
 	int	vbatt_low_thr_mv;
 	int	chg_term_curr_ma;
+	int	chg_term_base_curr_ma;
 	int	sys_term_curr_ma;
 	int	delta_soc_thr;
 	int	recharge_soc_thr;
@@ -371,6 +374,7 @@ struct fg_chip {
 	u32			rradc_base;
 	u32			wa_flags;
 	int			batt_id_ohms;
+	int			ki_coeff_full_soc;
 	int			charge_status;
 	int			prev_charge_status;
 	int			charge_done;
