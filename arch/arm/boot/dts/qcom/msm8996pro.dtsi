@@ -22,7 +22,7 @@
 	qcom,msm-id = <305 0x10000>;
 
 	chosen {
-		bootargs = "app_setting.use_32bit_app_setting_pro=1";
+		bootargs = "fpsimd.fpsimd_settings=1 app_setting.use_app_setting=0 app_setting.use_32bit_app_setting_pro=1";
 	};
 };
 
