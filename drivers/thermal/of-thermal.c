@@ -140,16 +140,11 @@ static int of_thermal_set_trips(struct thermal_zone_device *tz,
 	mutex_lock(&data->senps->lock);
 	of_thermal_aggregate_trip_types(tz, GENMASK(THERMAL_TRIP_CRITICAL, 0),
 					&low, &high);
-	if (low == data->senps->trip_low
-		&& high == data->senps->trip_high)
-		goto set_trips_exit;
-
 	data->senps->trip_low = low;
 	data->senps->trip_high = high;
 	ret = data->senps->ops->set_trips(data->senps->sensor_data,
 					  low, high);
 
-set_trips_exit:
 	mutex_unlock(&data->senps->lock);
 	return ret;
 }
