@@ -2,6 +2,7 @@
 #define _SCSI_GENERIC_H
 
 #include <linux/compiler.h>
+#include <linux/param.h>
 
 /*
  * History:
@@ -209,7 +210,6 @@ typedef struct sg_req_info { /* used by SG_GET_REQUEST_TABLE ioctl() */
 
 /* Alternate style type names, "..._t" variants preferred */
 typedef struct sg_io_hdr Sg_io_hdr;
-typedef struct sg_io_vec Sg_io_vec;
 typedef struct sg_scsi_id Sg_scsi_id;
 typedef struct sg_req_info Sg_req_info;
 
