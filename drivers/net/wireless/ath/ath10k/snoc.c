@@ -650,6 +650,9 @@ static int ath10k_snoc_hif_tx_sg(struct ath10k *ar, u8 pipe_id,
 	if (!ar_snoc)
 		return  -EINVAL;
 
+	if (atomic_read(&ar_snoc->fw_crashed))
+		return -ESHUTDOWN;
+
 	snoc_pipe = &ar_snoc->pipe_info[pipe_id];
 	ce_pipe = snoc_pipe->ce_hdl;
 	src_ring = ce_pipe->src_ring;
