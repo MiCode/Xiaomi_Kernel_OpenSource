@@ -367,6 +367,12 @@
 	qcom,qdsp6v62-1-4;
 };
 
+&mhi_device {
+	interrupts = <0 119 0>;
+	interrupt-names = "mhi-device-inta";
+	qcom,mhi-ifc-id = <0x030317cb>;
+};
+
 #include "sdx20-usb.dtsi"
 #include "sdx20-pm.dtsi"
 
