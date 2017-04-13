@@ -958,6 +958,8 @@
 
 	qcom,msm-audio-ion {
 		compatible = "qcom,msm-audio-ion";
+		qcom,scm-mp-enabled;
+		memory-region = <&audio_mem>;
 	};
 
 	pcm0: qcom,msm-pcm {

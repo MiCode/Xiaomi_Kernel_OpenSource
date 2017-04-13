@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,7 @@
 #include <linux/mutex.h>
 #include <linux/list.h>
 #include <linux/dma-mapping.h>
+#include <linux/dma-contiguous.h>
 #include <linux/dma-buf.h>
 #include <linux/iommu.h>
 #include <linux/platform_device.h>
@@ -28,7 +29,9 @@
 #include <linux/msm_audio_ion.h>
 #include <linux/export.h>
 #include <linux/qcom_iommu.h>
+#include <linux/cma.h>
 #include <asm/dma-iommu.h>
+#include <soc/qcom/scm.h>
 
 #define MSM_AUDIO_ION_PROBED (1 << 0)
 
@@ -39,6 +42,8 @@
 #define MSM_AUDIO_ION_VA_LEN 0x0FFFFFFF
 
 #define MSM_AUDIO_SMMU_SID_OFFSET 32
+
+#define TZBSP_MEM_PROTECT_AUDIO_CMD_ID 0x00000005
 
 struct addr_range {
 	dma_addr_t start;
@@ -52,6 +57,7 @@ struct context_bank_info {
 
 struct msm_audio_ion_private {
 	bool smmu_enabled;
+	bool scm_mp_enabled;
 	bool audioheap_enabled;
 	struct device *cb_dev;
 	struct dma_iommu_mapping *mapping;
@@ -70,6 +76,15 @@ struct msm_audio_alloc_data {
 	struct dma_buf_attachment *attach;
 	struct sg_table *table;
 	struct list_head list;
+};
+
+struct tz_mem_protect_cmd_buf {
+	phys_addr_t phys_addr;
+	unsigned long size;
+};
+
+struct tz_resp {
+	int32_t ret;
 };
 
 static struct msm_audio_ion_private msm_audio_ion_data = {0,};
@@ -796,12 +811,37 @@ u32 msm_audio_populate_upper_32_bits(ion_phys_addr_t pa)
 		return upper_32_bits(pa);
 }
 
+static void msm_audio_protect_memory_region(struct device *dev)
+{
+	int ret = 0;
+	unsigned long size = 0;
+	phys_addr_t phys_addr = 0;
+	struct tz_mem_protect_cmd_buf desc = {0};
+	struct tz_resp resp = {0};
+
+	phys_addr = cma_get_base(dev_get_cma_area(dev));
+	size = cma_get_size(dev_get_cma_area(dev));
+
+	pr_debug("%s: cma_audio_mem_addr %pK with size %lu\n",
+		 __func__, &phys_addr, size);
+
+	desc.phys_addr = phys_addr;
+	desc.size = size;
+	ret = scm_call(SCM_SVC_MP, TZBSP_MEM_PROTECT_AUDIO_CMD_ID,
+		(void *)&desc , sizeof(desc), (void *)&resp, sizeof(resp));
+	if (ret < 0)
+		pr_err("%s: SCM call failed, scm_call_ret %d tz_resp %d\n",
+		       __func__, ret, resp.ret);
+}
+
 static int msm_audio_ion_probe(struct platform_device *pdev)
 {
 	int rc = 0;
 	const char *msm_audio_ion_dt = "qcom,smmu-enabled";
 	const char *msm_audio_ion_smmu = "qcom,smmu-version";
+	const char *mdm_audio_ion_scm = "qcom,scm-mp-enabled";
 	bool smmu_enabled;
+	bool scm_mp_enabled;
 	enum apr_subsys_state q6_state;
 	struct device *dev = &pdev->dev;
 
@@ -812,6 +852,13 @@ static int msm_audio_ion_probe(struct platform_device *pdev)
 		msm_audio_ion_data.smmu_enabled = 0;
 		return 0;
 	}
+
+	scm_mp_enabled = of_property_read_bool(dev->of_node,
+					mdm_audio_ion_scm);
+	msm_audio_ion_data.scm_mp_enabled = scm_mp_enabled;
+
+	if (scm_mp_enabled)
+		msm_audio_protect_memory_region(dev);
 
 	smmu_enabled = of_property_read_bool(dev->of_node,
 					     msm_audio_ion_dt);
