@@ -2284,16 +2284,15 @@ reset:
 			fsg->bulk_out_enabled = 0;
 		}
 
+		/* allow usb LPM after eps are disabled */
+		usb_gadget_autopm_put_async(common->gadget);
 		common->fsg = NULL;
 		wake_up(&common->fsg_wait);
 	}
 
 	common->running = 0;
-	if (!new_fsg || rc) {
-		/* allow usb LPM after eps are disabled */
-		usb_gadget_autopm_put_async(common->gadget);
+	if (!new_fsg || rc)
 		return rc;
-	}
 
 	common->fsg = new_fsg;
 	fsg = common->fsg;
