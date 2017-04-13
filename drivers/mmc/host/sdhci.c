@@ -32,6 +32,8 @@
 #include <linux/mmc/slot-gpio.h>
 #include <linux/mmc/sdio.h>
 
+#include <trace/events/mmc.h>
+
 #include "sdhci.h"
 
 #define DRIVER_NAME "sdhci"
@@ -700,6 +702,9 @@ static void sdhci_adma_table_post(struct sdhci_host *host,
 	void *align;
 	char *buffer;
 	unsigned long flags;
+	u32 command = SDHCI_GET_CMD(sdhci_readw(host, SDHCI_COMMAND));
+
+	trace_mmc_adma_table_post(command, data->sg_len);
 
 	if (data->flags & MMC_DATA_READ) {
 		bool has_unaligned = false;
@@ -930,6 +935,7 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 			WARN_ON(1);
 			host->flags &= ~SDHCI_REQ_USE_DMA;
 		} else if (host->flags & SDHCI_USE_ADMA) {
+			trace_mmc_adma_table_pre(cmd->opcode, data->sg_len);
 			sdhci_adma_table_pre(host, data, sg_cnt);
 
 			sdhci_writel(host, host->adma_addr, SDHCI_ADMA_ADDRESS);
@@ -1257,6 +1263,7 @@ void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 
 	if (cmd->data)
 		host->data_start_time = ktime_get();
+	trace_mmc_cmd_rw_start(cmd->opcode, cmd->arg, cmd->flags);
 	sdhci_writew(host, SDHCI_MAKE_CMD(cmd->opcode, flags), SDHCI_COMMAND);
 }
 EXPORT_SYMBOL_GPL(sdhci_send_command);
@@ -2769,6 +2776,9 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 		return;
 	}
 
+	trace_mmc_cmd_rw_end(host->cmd->opcode, intmask,
+				sdhci_readl(host, SDHCI_RESPONSE));
+
 	if (intmask & (SDHCI_INT_TIMEOUT | SDHCI_INT_CRC |
 		       SDHCI_INT_END_BIT | SDHCI_INT_INDEX |
 		       SDHCI_INT_AUTO_CMD_ERR)) {
@@ -2854,9 +2864,11 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 	u32 command;
 	bool pr_msg = false;
 
+	command = SDHCI_GET_CMD(sdhci_readw(host, SDHCI_COMMAND));
+	trace_mmc_data_rw_end(command, intmask);
+
 	/* CMD19 generates _only_ Buffer Read Ready interrupt */
 	if (intmask & SDHCI_INT_DATA_AVAIL) {
-		command = SDHCI_GET_CMD(sdhci_readw(host, SDHCI_COMMAND));
 		if (command == MMC_SEND_TUNING_BLOCK ||
 		    command == MMC_SEND_TUNING_BLOCK_HS200) {
 			host->tuning_done = 1;
@@ -2918,8 +2930,7 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 	else if (intmask & SDHCI_INT_DATA_END_BIT)
 		host->data->error = -EILSEQ;
 	else if ((intmask & SDHCI_INT_DATA_CRC) &&
-		SDHCI_GET_CMD(sdhci_readw(host, SDHCI_COMMAND))
-			!= MMC_BUS_TEST_R)
+		(command != MMC_BUS_TEST_R))
 		host->data->error = -EILSEQ;
 	else if (intmask & SDHCI_INT_ADMA_ERROR) {
 		pr_err("%s: ADMA error\n", mmc_hostname(host->mmc));
