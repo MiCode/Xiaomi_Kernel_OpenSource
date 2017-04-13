@@ -200,6 +200,7 @@ struct sdhci_msm_reg_data {
 	bool set_voltage_sup;
 };
 
+#define MSM_MMC_DEFAULT_CPU_DMA_LATENCY 200 /* usecs */
 /*
  * This structure keeps information for all the
  * regulators required for a SDCC slot.
@@ -1297,7 +1298,8 @@ static struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev)
 	if (!of_property_read_u32(np, "qcom,cpu-dma-latency-us",
 				&cpu_dma_latency))
 		pdata->cpu_dma_latency_us = cpu_dma_latency;
-
+	else
+		pdata->cpu_dma_latency_us = MSM_MMC_DEFAULT_CPU_DMA_LATENCY;
 	if (sdhci_msm_dt_get_array(dev, "qcom,clk-rates",
 			&clk_table, &clk_table_len, 0)) {
 		dev_err(dev, "failed parsing supported clock rates\n");
