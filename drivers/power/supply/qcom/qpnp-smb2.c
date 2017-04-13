@@ -2022,6 +2022,16 @@ static int smb2_request_interrupts(struct smb2 *chip)
 	return rc;
 }
 
+static void smb2_disable_interrupts(struct smb_charger *chg)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(smb2_irqs); i++) {
+		if (smb2_irqs[i].irq > 0)
+			disable_irq(smb2_irqs[i].irq);
+	}
+}
+
 #if defined(CONFIG_DEBUG_FS)
 
 static int force_batt_psy_update_write(void *data, u64 val)
@@ -2283,6 +2293,9 @@ static void smb2_shutdown(struct platform_device *pdev)
 {
 	struct smb2 *chip = platform_get_drvdata(pdev);
 	struct smb_charger *chg = &chip->chg;
+
+	/* disable all interrupts */
+	smb2_disable_interrupts(chg);
 
 	/* configure power role for UFP */
 	smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
