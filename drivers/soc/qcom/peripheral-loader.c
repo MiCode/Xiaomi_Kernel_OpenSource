@@ -66,6 +66,7 @@ static int proxy_timeout_ms = -1;
 module_param(proxy_timeout_ms, int, S_IRUGO | S_IWUSR);
 
 static bool disable_timeouts;
+static const char firmware_error_msg[] = "firmware_error\n";
 /**
  * struct pil_mdt - Representation of <name>.mdt file in memory
  * @hdr: ELF32 header
@@ -669,12 +670,14 @@ static int pil_load_seg(struct pil_desc *desc, struct pil_seg *seg)
 		if (ret < 0) {
 			pil_err(desc, "Failed to locate blob %s or blob is too big.\n",
 				fw_name);
+			subsys_set_error(desc->subsys_dev, firmware_error_msg);
 			return ret;
 		}
 
 		if (ret != seg->filesz) {
 			pil_err(desc, "Blob size %u doesn't match %lu\n",
 					ret, seg->filesz);
+			subsys_set_error(desc->subsys_dev, firmware_error_msg);
 			return -EPERM;
 		}
 		ret = 0;
@@ -703,8 +706,10 @@ static int pil_load_seg(struct pil_desc *desc, struct pil_seg *seg)
 
 	if (desc->ops->verify_blob) {
 		ret = desc->ops->verify_blob(desc, seg->paddr, seg->sz);
-		if (ret)
+		if (ret) {
 			pil_err(desc, "Blob%u failed verification\n", num);
+			subsys_set_error(desc->subsys_dev, firmware_error_msg);
+		}
 	}
 
 	return ret;
@@ -785,6 +790,7 @@ int pil_boot(struct pil_desc *desc)
 
 	if (fw->size < sizeof(*ehdr)) {
 		pil_err(desc, "Not big enough to be an elf header\n");
+		subsys_set_error(desc->subsys_dev, firmware_error_msg);
 		ret = -EIO;
 		goto release_fw;
 	}
@@ -794,18 +800,21 @@ int pil_boot(struct pil_desc *desc)
 
 	if (memcmp(ehdr->e_ident, ELFMAG, SELFMAG)) {
 		pil_err(desc, "Not an elf header\n");
+		subsys_set_error(desc->subsys_dev, firmware_error_msg);
 		ret = -EIO;
 		goto release_fw;
 	}
 
 	if (ehdr->e_phnum == 0) {
 		pil_err(desc, "No loadable segments\n");
+		subsys_set_error(desc->subsys_dev, firmware_error_msg);
 		ret = -EIO;
 		goto release_fw;
 	}
 	if (sizeof(struct elf32_phdr) * ehdr->e_phnum +
 	    sizeof(struct elf32_hdr) > fw->size) {
 		pil_err(desc, "Program headers not within mdt\n");
+		subsys_set_error(desc->subsys_dev, firmware_error_msg);
 		ret = -EIO;
 		goto release_fw;
 	}
@@ -825,6 +834,7 @@ int pil_boot(struct pil_desc *desc)
 		ret = desc->ops->init_image(desc, fw->data, fw->size);
 	if (ret) {
 		pil_err(desc, "Invalid firmware metadata\n");
+		subsys_set_error(desc->subsys_dev, firmware_error_msg);
 		goto err_boot;
 	}
 
@@ -880,6 +890,7 @@ int pil_boot(struct pil_desc *desc)
 	ret = desc->ops->auth_and_reset(desc);
 	if (ret) {
 		pil_err(desc, "Failed to bring out of reset\n");
+		subsys_set_error(desc->subsys_dev, firmware_error_msg);
 		goto err_auth_and_reset;
 	}
 	pil_info(desc, "Brought out of reset\n");
