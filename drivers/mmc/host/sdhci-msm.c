@@ -156,8 +156,8 @@
 #define CORE_TESTBUS_SEL2_BIT	4
 #define CORE_TESTBUS_SEL2	(1 << CORE_TESTBUS_SEL2_BIT)
 
-/* 8KB descriptors */
-#define SDHCI_MSM_MAX_SEGMENTS  (1 << 13)
+/* 512 descriptors */
+#define SDHCI_MSM_MAX_SEGMENTS  (1 << 9)
 #define SDHCI_MSM_MMC_CLK_GATE_DELAY	200 /* msecs */
 
 #define CORE_FREQ_100MHZ	(100 * 1000 * 1000)
