@@ -628,8 +628,8 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "qdsp6_base");
 	drv->reg_base = devm_ioremap_resource(&pdev->dev, res);
-	if (!drv->reg_base)
-		return ERR_PTR(-ENOMEM);
+	if (IS_ERR(drv->reg_base))
+		return drv->reg_base;
 
 	desc = &drv->desc;
 	ret = of_property_read_string(pdev->dev.of_node, "qcom,firmware-name",

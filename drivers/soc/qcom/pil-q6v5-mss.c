@@ -266,8 +266,8 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						    "rmb_base");
 		q6->rmb_base = devm_ioremap_resource(&pdev->dev, res);
-		if (!q6->rmb_base)
-			return -ENOMEM;
+		if (IS_ERR(q6->rmb_base))
+			return PTR_ERR(q6->rmb_base);
 		drv->rmb_base = q6->rmb_base;
 		q6_desc->ops = &pil_msa_mss_ops_selfauth;
 	}
