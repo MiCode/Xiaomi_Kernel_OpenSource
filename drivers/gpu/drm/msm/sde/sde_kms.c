@@ -302,8 +302,9 @@ static int _sde_debugfs_init(struct sde_kms *sde_kms)
 	/* allow debugfs_root to be NULL */
 	debugfs_create_x32(SDE_DEBUGFS_HWMASKNAME, 0644, debugfs_root, p);
 
-	sde_debugfs_danger_init(sde_kms, debugfs_root);
-	sde_debugfs_vbif_init(sde_kms, debugfs_root);
+	(void) sde_debugfs_danger_init(sde_kms, debugfs_root);
+	(void) sde_debugfs_vbif_init(sde_kms, debugfs_root);
+	(void) sde_debugfs_core_irq_init(sde_kms, debugfs_root);
 
 	rc = sde_core_perf_debugfs_init(&sde_kms->perf, debugfs_root);
 	if (rc) {
@@ -320,6 +321,7 @@ static void _sde_debugfs_destroy(struct sde_kms *sde_kms)
 	if (sde_kms) {
 		sde_debugfs_vbif_destroy(sde_kms);
 		sde_debugfs_danger_destroy(sde_kms);
+		sde_debugfs_core_irq_destroy(sde_kms);
 	}
 }
 #else

@@ -3734,7 +3734,7 @@ static int _sde_plane_init_debugfs(struct drm_plane *plane)
 	/* create overall sub-directory for the pipe */
 	psde->debugfs_root =
 		debugfs_create_dir(psde->pipe_name,
-				sde_debugfs_get_root(kms));
+				plane->dev->primary->debugfs_root);
 
 	if (!psde->debugfs_root)
 		return -ENOMEM;
