@@ -578,6 +578,34 @@
 	};
 };
 
+&dsi_adv_7533_2 {
+	qcom,dsi-display-active;
+	qcom,dsi-panel = <&dsi_adv7533_1080p>;
+
+	qcom,panel-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vdd";
+			qcom,supply-min-voltage = <3300000>;
+			qcom,supply-max-voltage = <3300000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+	};
+};
+
 &mdss_dsi {
 	hw-config = "dual_dsi";
 };

@@ -251,7 +251,7 @@
 	dsi_adv_7533_1: qcom,dsi-display@7 {
 		compatible = "qcom,dsi-display";
 		label = "dsi_adv_7533_1";
-		qcom,display-type = "primary";
+		qcom,display-type = "secondary";
 
 		qcom,dsi-ctrl = <&mdss_dsi0>;
 		qcom,dsi-phy = <&mdss_dsi_phy0>;
@@ -259,13 +259,25 @@
 			<&clock_mmss clk_ext_pclk0_clk_src>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
 
-		pinctrl-names = "panel_active", "panel_suspend";
-		pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
-		pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
-
 		qcom,dsi-panel = <&dsi_adv7533_720p>;
 		vddio-supply = <&pm8994_l14>;
 		qcom,bridge-index = <0>;
+	};
+
+	dsi_adv_7533_2: qcom,dsi-display@8 {
+		compatible = "qcom,dsi-display";
+		label = "dsi_adv_7533_2";
+		qcom,display-type = "tertiary";
+
+		qcom,dsi-ctrl = <&mdss_dsi1>;
+		qcom,dsi-phy = <&mdss_dsi_phy1>;
+		clocks = <&clock_mmss clk_ext_byte1_clk_src>,
+			<&clock_mmss clk_ext_pclk1_clk_src>;
+		clock-names = "src_byte_clk", "src_pixel_clk";
+
+		qcom,dsi-panel = <&dsi_adv7533_720p>;
+		vddio-supply = <&pm8994_l14>;
+		qcom,bridge-index = <1>;
 	};
 
 	msm_ext_disp: qcom,msm_ext_disp {
@@ -280,13 +292,13 @@
 	sde_hdmi: qcom,hdmi-display {
 		compatible = "qcom,hdmi-display";
 		label = "sde_hdmi";
-		qcom,display-type = "secondary";
+		qcom,display-type = "primary";
 		qcom,msm_ext_disp = <&msm_ext_disp>;
 	};
 };
 
 &mdss_mdp {
-	connectors = <&dsi_adv_7533_1 &mdss_hdmi &sde_hdmi>;
+	connectors = <&mdss_hdmi &sde_hdmi &dsi_adv_7533_1 &dsi_adv_7533_2>;
 };
 
 &dsi_dual_sharp_video {
