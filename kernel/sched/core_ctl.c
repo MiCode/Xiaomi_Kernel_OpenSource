@@ -887,10 +887,9 @@ static int __ref cpu_callback(struct notifier_block *nfb,
 	struct cpu_data *state = &per_cpu(cpu_state, cpu);
 	struct cluster_data *cluster = state->cluster;
 	unsigned int need;
-	int ret = NOTIFY_OK;
 
 	if (unlikely(!cluster || !cluster->inited))
-		return NOTIFY_OK;
+		return NOTIFY_DONE;
 
 	switch (action & ~CPU_TASKS_FROZEN) {
 	case CPU_ONLINE:
@@ -921,13 +920,15 @@ static int __ref cpu_callback(struct notifier_block *nfb,
 		state->busy = 0;
 		cluster->active_cpus = get_active_cpu_count(cluster);
 		break;
+	default:
+		return NOTIFY_DONE;
 	}
 
 	need = apply_limits(cluster, cluster->need_cpus);
 	if (adjustment_possible(cluster, need))
 		wake_up_core_ctl_thread(cluster);
 
-	return ret;
+	return NOTIFY_OK;
 }
 
 static struct notifier_block __refdata cpu_notifier = {
