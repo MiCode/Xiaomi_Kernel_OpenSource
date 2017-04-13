@@ -21,3 +21,11 @@
 &pmi8998_fg {
 	qcom,battery-data = <&qrd_batterydata>;
 };
+
+&soc {
+	sound-tavil {
+		qcom,wsa-max-devs = <1>;
+		qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0213>;
+		qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrRight";
+	};
+};
