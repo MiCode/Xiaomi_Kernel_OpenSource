@@ -319,9 +319,6 @@ void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
 	if (unmap_after_complete)
 		usb_gadget_unmap_request(&dwc->gadget,
 				&req->request, req->direction);
-
-	if (dep->number > 1)
-		pm_runtime_put(dwc->dev);
 }
 
 int dwc3_send_gadget_generic_command(struct dwc3 *dwc, unsigned cmd, u32 param)
@@ -1241,7 +1238,6 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 		return ret;
 	}
 
-	pm_runtime_get(dwc->dev);
 	req->request.actual	= 0;
 	req->request.status	= -EINPROGRESS;
 	req->direction		= dep->direction;
