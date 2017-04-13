@@ -14,6 +14,7 @@
 #define __QCOM_CLK_COMMON_H__
 
 #include <linux/reset-controller.h>
+#include "clk-rcg.h"
 
 struct platform_device;
 struct regmap_config;
@@ -47,6 +48,16 @@ struct clk_dummy {
 	unsigned long rrate;
 };
 
+struct clk_dfs {
+	struct clk_rcg2 *rcg;
+	u8 rcg_flags;
+};
+
+struct qcom_cc_dfs_desc {
+	struct clk_dfs *clks;
+	size_t num_clks;
+};
+
 extern const struct freq_tbl *qcom_find_freq(const struct freq_tbl *f,
 					     unsigned long rate);
 extern const struct freq_tbl *qcom_find_freq_floor(const struct freq_tbl *f,
@@ -68,4 +79,6 @@ extern int qcom_cc_really_probe(struct platform_device *pdev,
 extern int qcom_cc_probe(struct platform_device *pdev,
 			 const struct qcom_cc_desc *desc);
 extern const struct clk_ops clk_dummy_ops;
+extern int qcom_cc_register_rcg_dfs(struct platform_device *pdev,
+			 const struct qcom_cc_dfs_desc *desc);
 #endif
