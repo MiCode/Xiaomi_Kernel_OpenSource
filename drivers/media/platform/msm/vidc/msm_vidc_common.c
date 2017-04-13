@@ -3992,32 +3992,89 @@ err_no_mem:
 	return rc;
 }
 
+static int msm_vidc_update_host_buff_counts(struct msm_vidc_inst *inst)
+{
+	int extra_buffers, buffer_type;
+	struct hal_buffer_requirements *bufreq;
+
+	bufreq = get_buff_req_buffer(inst,
+		HAL_BUFFER_INPUT);
+	if (!bufreq) {
+		dprintk(VIDC_ERR,
+			"Failed : No buffer requirements : %x\n",
+			HAL_BUFFER_INPUT);
+		return -EINVAL;
+	}
+	extra_buffers = msm_vidc_get_extra_buff_count(inst, HAL_BUFFER_INPUT);
+
+	bufreq->buffer_count_min_host = bufreq->buffer_count_min +
+		extra_buffers;
+
+	buffer_type = msm_comm_get_hal_output_buffer(inst);
+	bufreq = get_buff_req_buffer(inst,
+		buffer_type);
+	if (!bufreq) {
+		dprintk(VIDC_ERR,
+			"Failed : No buffer requirements : %x\n",
+			buffer_type);
+		return -EINVAL;
+	}
+
+	extra_buffers = msm_vidc_get_extra_buff_count(inst, buffer_type);
+
+	bufreq->buffer_count_min_host = bufreq->buffer_count_min +
+		extra_buffers;
+
+	return 0;
+}
+
 int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 {
 	int rc = 0, i = 0;
 	union hal_get_property hprop;
 
+	memset(&hprop, 0x0, sizeof(hprop));
+
 	rc = msm_comm_try_get_prop(inst, HAL_PARAM_GET_BUFFER_REQUIREMENTS,
-					&hprop);
+		&hprop);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed getting buffer requirements: %d", rc);
 		return rc;
 	}
 
-	dprintk(VIDC_DBG, "Buffer requirements:\n");
-	dprintk(VIDC_DBG, "%15s %8s %8s\n", "buffer type", "count", "size");
+	dprintk(VIDC_DBG, "Buffer requirements from HW:\n");
+	dprintk(VIDC_DBG, "%15s %8s %8s %8s %8s\n",
+		"buffer type", "count", "mincount_host", "mincount_fw", "size");
 	for (i = 0; i < HAL_BUFFER_MAX; i++) {
 		struct hal_buffer_requirements req = hprop.buf_req.buffer[i];
 
 		inst->buff_req.buffer[i] = req;
-		dprintk(VIDC_DBG, "%15s %8d %8d\n",
+		if (req.buffer_type != HAL_BUFFER_NONE) {
+			dprintk(VIDC_DBG, "%15s %8d %8d %8d %8d\n",
 				get_buffer_name(req.buffer_type),
-				req.buffer_count_actual, req.buffer_size);
+				req.buffer_count_actual,
+				req.buffer_count_min_host,
+				req.buffer_count_min, req.buffer_size);
+		}
 	}
 
-	dprintk(VIDC_PROF, "Input buffers: %d, Output buffers: %d\n",
-			inst->buff_req.buffer[0].buffer_count_actual,
-			inst->buff_req.buffer[1].buffer_count_actual);
+	rc = msm_vidc_update_host_buff_counts(inst);
+
+	dprintk(VIDC_DBG, "Buffer requirements host adjusted:\n");
+	dprintk(VIDC_DBG, "%15s %8s %8s %8s %8s\n",
+		"buffer type", "count", "mincount_host", "mincount_fw", "size");
+	for (i = 0; i < HAL_BUFFER_MAX; i++) {
+		struct hal_buffer_requirements req = hprop.buf_req.buffer[i];
+
+		inst->buff_req.buffer[i] = req;
+		if (req.buffer_type != HAL_BUFFER_NONE) {
+			dprintk(VIDC_DBG, "%15s %8d %8d %8d %8d\n",
+				get_buffer_name(req.buffer_type),
+				req.buffer_count_actual,
+				req.buffer_count_min_host,
+				req.buffer_count_min, req.buffer_size);
+		}
+	}
 	return rc;
 }
 

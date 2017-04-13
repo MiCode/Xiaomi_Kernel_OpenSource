@@ -522,7 +522,7 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			inst->prop.width[CAPTURE_PORT] == f->fmt.pix_mp.width &&
 			inst->prop.height[CAPTURE_PORT] ==
 				f->fmt.pix_mp.height) {
-			dprintk(VIDC_DBG, "Thank you : Nothing changed\n");
+			dprintk(VIDC_DBG, "No change in CAPTURE port params\n");
 			return 0;
 		}
 		memcpy(&inst->fmts[fmt->type], fmt,
@@ -590,7 +590,7 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			inst->prop.width[OUTPUT_PORT] == f->fmt.pix_mp.width &&
 			inst->prop.height[OUTPUT_PORT] ==
 				f->fmt.pix_mp.height) {
-			dprintk(VIDC_DBG, "Thank you : Nothing changed\n");
+			dprintk(VIDC_DBG, "No change in OUTPUT port params\n");
 			return 0;
 		}
 		inst->prop.width[OUTPUT_PORT] = f->fmt.pix_mp.width;

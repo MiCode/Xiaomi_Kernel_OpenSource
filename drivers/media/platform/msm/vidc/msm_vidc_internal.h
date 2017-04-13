@@ -212,7 +212,8 @@ struct dcvs_stats {
 	int load_high;
 	int min_threshold;
 	int max_threshold;
-	unsigned int extra_buffer_count;
+	unsigned int extra_capture_buffer_count;
+	unsigned int extra_output_buffer_count;
 	enum hal_buffer buffer_type;
 };
 
