@@ -524,6 +524,14 @@ int cnss_athdiag_write(struct device *dev, uint32_t offset, uint32_t mem_type,
 EXPORT_SYMBOL(cnss_athdiag_write);
 #endif
 
+int cnss_set_fw_log_mode(struct device *dev, uint8_t fw_log_mode)
+{
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+
+	return cnss_wlfw_ini_send_sync(plat_priv, fw_log_mode);
+}
+EXPORT_SYMBOL(cnss_set_fw_log_mode);
+
 static int cnss_fw_mem_ready_hdlr(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;

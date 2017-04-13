@@ -186,5 +186,6 @@ extern int cnss_athdiag_read(struct device *dev, uint32_t offset,
 extern int cnss_athdiag_write(struct device *dev, uint32_t offset,
 			      uint32_t mem_type, uint32_t data_len,
 			      uint8_t *input);
+extern int cnss_set_fw_log_mode(struct device *dev, uint8_t fw_log_mode);
 
 #endif /* _NET_CNSS2_H */
