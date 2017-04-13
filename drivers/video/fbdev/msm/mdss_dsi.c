@@ -2713,10 +2713,7 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		rc = mdss_dsi_reconfig(pdata, mode);
 		break;
 	case MDSS_EVENT_DSI_PANEL_STATUS:
-		if (ctrl_pdata->check_status)
-			rc = ctrl_pdata->check_status(ctrl_pdata);
-		else
-			rc = true;
+		rc = mdss_dsi_check_panel_status(ctrl_pdata, arg);
 		break;
 	case MDSS_EVENT_PANEL_TIMING_SWITCH:
 		rc = mdss_dsi_panel_timing_switch(ctrl_pdata, arg);
