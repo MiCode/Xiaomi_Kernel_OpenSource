@@ -45,6 +45,7 @@ static int msm_bus_dev_init_qos(struct device *dev, void *data);
 
 static struct list_head bcm_query_list_inorder[VCD_MAX_CNT];
 static struct msm_bus_node_device_type *cur_rsc;
+static bool init_time = true;
 
 struct bcm_db {
 	uint32_t unit_size;
@@ -484,7 +485,8 @@ static int bcm_clist_clean(struct msm_bus_node_device_type *cur_dev)
 	if (cur_bcm->node_vec[DUAL_CTX].vec_a == 0 &&
 			cur_bcm->node_vec[ACTIVE_CTX].vec_a == 0 &&
 			cur_bcm->node_vec[DUAL_CTX].vec_b == 0 &&
-			cur_bcm->node_vec[ACTIVE_CTX].vec_b == 0) {
+			cur_bcm->node_vec[ACTIVE_CTX].vec_b == 0 &&
+			init_time == false) {
 		cur_bcm->dirty = false;
 		list_del_init(&cur_bcm->link);
 	}
@@ -553,8 +555,14 @@ int msm_bus_commit_data(struct list_head *clist)
 				cnt_sleep++;
 				cnt_wake++;
 			}
-			if (!cur_bcm->updated)
-				cnt_active++;
+			if (cur_bcm->updated ||
+				(cur_bcm->node_vec[DUAL_CTX].vec_a == 0 &&
+				cur_bcm->node_vec[ACTIVE_CTX].vec_a == 0 &&
+				cur_bcm->node_vec[DUAL_CTX].vec_b == 0 &&
+				cur_bcm->node_vec[ACTIVE_CTX].vec_b == 0 &&
+				init_time == true))
+				continue;
+			cnt_active++;
 		}
 		cnt_vcd++;
 	}
@@ -563,7 +571,8 @@ int msm_bus_commit_data(struct list_head *clist)
 	n_wake = kcalloc(cnt_vcd+1, sizeof(int), GFP_KERNEL);
 	n_sleep = kcalloc(cnt_vcd+1, sizeof(int), GFP_KERNEL);
 
-	cmdlist_active = kcalloc(cnt_active, sizeof(struct tcs_cmd),
+	if (cnt_active)
+		cmdlist_active = kcalloc(cnt_active, sizeof(struct tcs_cmd),
 								GFP_KERNEL);
 	if (cnt_sleep && cnt_wake) {
 		cmdlist_wake = kcalloc(cnt_wake, sizeof(struct tcs_cmd),
@@ -1285,6 +1294,7 @@ static struct device *msm_bus_device_init(
 
 	bus_node->node_info = node_info;
 	bus_node->ap_owned = pdata->ap_owned;
+	bus_node->dirty = false;
 	bus_dev->of_node = pdata->of_node;
 
 	if (msm_bus_copy_node_info(pdata, bus_dev) < 0) {
@@ -1649,9 +1659,11 @@ int __init msm_bus_device_late_init(void)
 	int rc;
 
 	MSM_BUS_ERR("msm_bus_late_init: Remove handoff bw requests\n");
+	init_time = false;
 	rc = bus_for_each_dev(&msm_bus_type, NULL, NULL,
 						bcm_remove_handoff_req);
 
+	commit_late_init_data();
 	return rc;
 }
 subsys_initcall(msm_bus_device_init_driver);
