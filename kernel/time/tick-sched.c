@@ -1165,7 +1165,7 @@ void tick_irq_enter(void)
 static void update_rq_stats(void)
 {
 	unsigned long jiffy_gap = 0;
-	unsigned int rq_avg = 0;
+	unsigned long long rq_avg = 0;
 	unsigned long flags = 0;
 
 	jiffy_gap = jiffies - rq_info.rq_poll_last_jiffy;
