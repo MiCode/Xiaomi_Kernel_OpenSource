@@ -811,8 +811,7 @@ trip_point_hyst_store(struct device *dev, struct device_attribute *attr,
 	 */
 	ret = tz->ops->set_trip_hyst(tz, trip, temperature);
 
-	if (!ret)
-		thermal_zone_set_trips(tz);
+	thermal_zone_set_trips(tz);
 
 	return ret ? ret : count;
 }
