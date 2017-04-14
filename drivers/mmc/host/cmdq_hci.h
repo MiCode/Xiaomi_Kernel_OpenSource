@@ -212,7 +212,7 @@ struct cmdq_host_ops {
 
 static inline void cmdq_writel(struct cmdq_host *host, u32 val, int reg)
 {
-	if (unlikely(host->ops->write_l))
+	if (unlikely(host->ops && host->ops->write_l))
 		host->ops->write_l(host, val, reg);
 	else
 		writel_relaxed(val, host->mmio + reg);
@@ -220,7 +220,7 @@ static inline void cmdq_writel(struct cmdq_host *host, u32 val, int reg)
 
 static inline u32 cmdq_readl(struct cmdq_host *host, int reg)
 {
-	if (unlikely(host->ops->read_l))
+	if (unlikely(host->ops && host->ops->read_l))
 		return host->ops->read_l(host, reg);
 	else
 		return readl_relaxed(host->mmio + reg);
