@@ -1672,7 +1672,6 @@ static int mmc_select_hs_ddr52(struct mmc_host *host)
 	int err;
 
 	mmc_select_hs(host->card);
-	mmc_set_clock(host, MMC_HIGH_52_MAX_DTR);
 	err = mmc_select_bus_width(host->card);
 	if (err < 0) {
 		pr_err("%s: %s: select_bus_width failed(%d)\n",
@@ -1681,6 +1680,7 @@ static int mmc_select_hs_ddr52(struct mmc_host *host)
 	}
 
 	err = mmc_select_hs_ddr(host->card);
+	mmc_set_clock(host, MMC_HIGH_52_MAX_DTR);
 
 	return err;
 }
@@ -1731,6 +1731,11 @@ static int mmc_scale_low(struct mmc_host *host, unsigned long freq)
 static int mmc_scale_high(struct mmc_host *host)
 {
 	int err = 0;
+
+	if (mmc_card_ddr52(host->card)) {
+		mmc_set_timing(host, MMC_TIMING_LEGACY);
+		mmc_set_clock(host, MMC_HIGH_26_MAX_DTR);
+	}
 
 	if (!host->card->ext_csd.strobe_support) {
 		if (!(host->card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS200)) {
