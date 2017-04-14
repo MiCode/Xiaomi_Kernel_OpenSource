@@ -78,7 +78,7 @@
  * Value n means CQE would send CMD13 during the transfer of data block
  * BLOCK_CNT-n
  */
-#define SEND_QSR_INTERVAL 0x70000
+#define SEND_QSR_INTERVAL 0x70001
 
 /* send status config 2 */
 #define CQSSC2		0x44
