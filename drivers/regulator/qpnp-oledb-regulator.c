@@ -368,12 +368,19 @@ static int qpnp_oledb_regulator_disable(struct regulator_dev *rdev)
 		}
 
 		if (val & OLEDB_FORCE_PD_CTL_SPARE_BIT) {
-			rc = qpnp_pbs_trigger_event(oledb->pbs_dev_node,
-							trigger_bitmap);
+			rc = qpnp_oledb_sec_masked_write(oledb, oledb->base +
+					OLEDB_SPARE_CTL,
+					OLEDB_FORCE_PD_CTL_SPARE_BIT, 0);
 			if (rc < 0) {
-				pr_err("Failed to trigger the PBS sequence\n");
+				pr_err("Failed to write SPARE_CTL rc=%d\n", rc);
 				return rc;
 			}
+
+			rc = qpnp_pbs_trigger_event(oledb->pbs_dev_node,
+							trigger_bitmap);
+			if (rc < 0)
+				pr_err("Failed to trigger the PBS sequence\n");
+
 			pr_debug("PBS event triggered\n");
 		} else {
 			pr_debug("OLEDB_SPARE_CTL register bit not set\n");
@@ -1100,8 +1107,14 @@ static int qpnp_oledb_parse_dt(struct qpnp_oledb *oledb)
 	oledb->pbs_control =
 			of_property_read_bool(of_node, "qcom,pbs-control");
 
-	oledb->force_pd_control =
-			of_property_read_bool(of_node, "qcom,force-pd-control");
+	/* Use the force_pd_control only for PM660A versions <= v2.0 */
+	if (oledb->pmic_rev_id->pmic_subtype == PM660L_SUBTYPE &&
+				oledb->pmic_rev_id->rev4 <= PM660L_V2P0_REV4) {
+		if (!(oledb->pmic_rev_id->rev4 == PM660L_V2P0_REV4 &&
+			oledb->pmic_rev_id->rev2 > PM660L_V2P0_REV2)) {
+			oledb->force_pd_control = true;
+		}
+	}
 
 	if (oledb->force_pd_control) {
 		oledb->pbs_dev_node = of_parse_phandle(of_node,
@@ -1198,13 +1211,6 @@ static int qpnp_oledb_force_pulldown_config(struct qpnp_oledb *oledb)
 {
 	int rc = 0;
 	u8 val;
-
-	rc = qpnp_oledb_sec_masked_write(oledb, oledb->base +
-		    OLEDB_SPARE_CTL, OLEDB_FORCE_PD_CTL_SPARE_BIT, 0);
-	if (rc < 0) {
-		pr_err("Failed to write SPARE_CTL rc=%d\n", rc);
-		return rc;
-	}
 
 	val = 1;
 	rc = qpnp_oledb_write(oledb, oledb->base + OLEDB_PD_CTL,

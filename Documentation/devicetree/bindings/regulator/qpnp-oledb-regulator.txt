@@ -57,13 +57,6 @@ Required Node Structure
 		     rail.  This property is applicable only if qcom,ext-pin-ctl
 		     property is specified and it is specific to PM660A.
 
-- qcom,force-pd-control
-	Usage:      optional
-	Value type: <bool>
-	Definition:  Used to enable the pull down control forcibly via SPMI by
-		     disabling the pull down configuration done by hardware
-		     automatically through SWIRE pulses.
-
 - qcom,pbs-client
 	Usage:      optional
 	Value type: <phandle>
