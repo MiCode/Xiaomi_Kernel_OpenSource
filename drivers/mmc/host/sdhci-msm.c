@@ -2751,14 +2751,15 @@ static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
 		msm_host->use_updated_dll_reset = true;
 
 	/*
-	 * SDCC 5 controller with major version 1 and minor version 0x42
-	 * currently uses 14lpp tech DLL whose internal gating cannot
-	 * guarantee MCLK timing requirement i.e.
+	 * SDCC 5 controller with major version 1 and minor version 0x42,
+	 * 0x46 and 0x49 currently uses 14lpp tech DLL whose internal
+	 * gating cannot guarantee MCLK timing requirement i.e.
 	 * when MCLK is gated OFF, it is not gated for less than 0.5us
 	 * and MCLK must be switched on for at-least 1us before DATA
 	 * starts coming.
 	 */
-	if ((major == 1) && (minor == 0x42))
+	if ((major == 1) && ((minor == 0x42) || (minor == 0x46) ||
+				(minor == 0x49)))
 		msm_host->use_14lpp_dll = true;
 	/*
 	 * Mask 64-bit support for controller with 32-bit address bus so that
