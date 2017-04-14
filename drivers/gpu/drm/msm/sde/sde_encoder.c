@@ -1539,6 +1539,7 @@ static int _sde_encoder_init_debugfs(struct drm_encoder *drm_enc)
 	struct sde_encoder_virt *sde_enc;
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
+	int i;
 
 	static const struct file_operations debugfs_status_fops = {
 		.open =		_sde_encoder_debugfs_status_open,
@@ -1578,6 +1579,13 @@ static int _sde_encoder_init_debugfs(struct drm_encoder *drm_enc)
 
 	debugfs_create_file("misr_data", 0644,
 		sde_enc->debugfs_root, sde_enc, &debugfs_misr_fops);
+
+	for (i = 0; i < sde_enc->num_phys_encs; i++)
+		if (sde_enc->phys_encs[i] &&
+				sde_enc->phys_encs[i]->ops.late_register)
+			sde_enc->phys_encs[i]->ops.late_register(
+					sde_enc->phys_encs[i],
+					sde_enc->debugfs_root);
 
 	return 0;
 }
