@@ -2972,10 +2972,13 @@ static void sdhci_msm_set_uhs_signaling(struct sdhci_host *host,
 
 #define MAX_TEST_BUS 60
 #define DRV_NAME "cmdq-host"
-static void sdhci_msm_cmdq_dump_debug_ram(struct sdhci_msm_host *msm_host)
+static void sdhci_msm_cmdq_dump_debug_ram(struct sdhci_host *host)
 {
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	int i = 0;
-	struct cmdq_host *cq_host = mmc_cmdq_private(msm_host->mmc);
+	struct cmdq_host *cq_host = host->cq_host;
+
 	u32 version = readl_relaxed(msm_host->core_mem + CORE_MCI_VERSION);
 	u16 minor = version & CORE_VERSION_TARGET_MASK;
 	/* registers offset changed starting from 4.2.0 */
@@ -3005,7 +3008,7 @@ void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 
 	pr_info("----------- VENDOR REGISTER DUMP -----------\n");
 	if (host->cq_host)
-		sdhci_msm_cmdq_dump_debug_ram(msm_host);
+		sdhci_msm_cmdq_dump_debug_ram(host);
 
 	pr_info("Data cnt: 0x%08x | Fifo cnt: 0x%08x | Int sts: 0x%08x\n",
 		readl_relaxed(msm_host->core_mem + CORE_MCI_DATA_CNT),
