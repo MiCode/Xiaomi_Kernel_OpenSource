@@ -41,6 +41,7 @@
 #include <trace/events/mmc.h>
 
 #include "sdhci-msm.h"
+#include "cmdq_hci.h"
 
 #define CORE_POWER		0x0
 #define CORE_SW_RST		(1 << 7)
@@ -2788,6 +2789,28 @@ static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
 	msm_host->caps_0 = caps;
 }
 
+#ifdef CONFIG_MMC_CQ_HCI
+static void sdhci_msm_cmdq_init(struct sdhci_host *host,
+				struct platform_device *pdev)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
+	host->cq_host = cmdq_pltfm_init(pdev);
+	if (IS_ERR(host->cq_host))
+		dev_dbg(&pdev->dev, "cmdq-pltfm init: failed: %ld\n",
+			PTR_ERR(host->cq_host));
+	else
+		msm_host->mmc->caps2 |= MMC_CAP2_CMD_QUEUE;
+}
+#else
+static void sdhci_msm_cmdq_init(struct sdhci_host *host,
+				struct platform_device *pdev)
+{
+
+}
+#endif
+
 static int sdhci_msm_probe(struct platform_device *pdev)
 {
 	struct sdhci_host *host;
@@ -3104,6 +3127,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "%s: Failed to set dma mask\n", __func__);
 	}
 
+	sdhci_msm_cmdq_init(host, pdev);
 	ret = sdhci_add_host(host);
 	if (ret) {
 		dev_err(&pdev->dev, "Add host failed (%d)\n", ret);
