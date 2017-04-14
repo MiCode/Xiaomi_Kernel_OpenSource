@@ -3026,6 +3026,26 @@ reset:
 	clear_bit(CMDQ_STATE_HALT, &host->cmdq_ctx.curr_state);
 }
 
+static enum blk_eh_timer_return mmc_blk_cmdq_req_timed_out(struct request *req)
+{
+	struct mmc_queue *mq = req->q->queuedata;
+	struct mmc_host *host = mq->card->host;
+	struct mmc_queue_req *mq_rq = req->special;
+	struct mmc_request *mrq = &mq_rq->cmdq_req.mrq;
+	struct mmc_cmdq_req *cmdq_req = &mq_rq->cmdq_req;
+
+	host->cmdq_ops->dumpstate(host);
+	if (cmdq_req->cmdq_req_flags & DCMD)
+		mrq->cmd->error = -ETIMEDOUT;
+	else
+		mrq->data->error = -ETIMEDOUT;
+
+	host->err_mrq = mrq;
+	mrq->done(mrq);
+
+	return BLK_EH_NOT_HANDLED;
+}
+
 static void mmc_blk_cmdq_err(struct mmc_queue *mq)
 {
 	int err;
@@ -3619,6 +3639,7 @@ again:
 		md->queue.cmdq_complete_fn = mmc_blk_cmdq_complete_rq;
 		md->queue.cmdq_issue_fn = mmc_blk_cmdq_issue_rq;
 		md->queue.cmdq_error_fn = mmc_blk_cmdq_err;
+		md->queue.cmdq_req_timed_out = mmc_blk_cmdq_req_timed_out;
 	}
 
 	if (mmc_card_mmc(card) && !card->cmdq_init &&

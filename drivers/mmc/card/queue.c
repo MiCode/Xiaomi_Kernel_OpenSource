@@ -581,6 +581,16 @@ static void mmc_cmdq_error_work(struct work_struct *work)
 	mq->cmdq_error_fn(mq);
 }
 
+enum blk_eh_timer_return mmc_cmdq_rq_timed_out(struct request *req)
+{
+	struct mmc_queue *mq = req->q->queuedata;
+
+	pr_err("%s: request with tag: %d flags: 0x%llx timed out\n",
+	       mmc_hostname(mq->card->host), req->tag, req->cmd_flags);
+
+	return mq->cmdq_req_timed_out(req);
+}
+
 int mmc_cmdq_init(struct mmc_queue *mq, struct mmc_card *card)
 {
 	int i, ret = 0;
@@ -623,6 +633,8 @@ int mmc_cmdq_init(struct mmc_queue *mq, struct mmc_card *card)
 	blk_queue_softirq_done(mq->queue, mmc_cmdq_softirq_done);
 	INIT_WORK(&mq->cmdq_err_work, mmc_cmdq_error_work);
 
+	blk_queue_rq_timed_out(mq->queue, mmc_cmdq_rq_timed_out);
+	blk_queue_rq_timeout(mq->queue, 120 * HZ);
 	card->cmdq_init = true;
 
 	goto out;
