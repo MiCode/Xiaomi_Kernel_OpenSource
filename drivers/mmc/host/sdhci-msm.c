@@ -1435,6 +1435,15 @@ out:
 	return ret;
 }
 
+#ifdef CONFIG_SMP
+static inline void parse_affine_irq(struct sdhci_msm_pltfm_data *pdata)
+{
+	pdata->pm_qos_data.irq_req_type = PM_QOS_REQ_AFFINE_IRQ;
+}
+#else
+static inline void parse_affine_irq(struct sdhci_msm_pltfm_data *pdata) { }
+#endif
+
 static int sdhci_msm_pm_qos_parse_irq(struct device *dev,
 		struct sdhci_msm_pltfm_data *pdata)
 {
@@ -1448,7 +1457,7 @@ static int sdhci_msm_pm_qos_parse_irq(struct device *dev,
 	pdata->pm_qos_data.irq_req_type = PM_QOS_REQ_AFFINE_CORES;
 	if (!of_property_read_string(np, "qcom,pm-qos-irq-type", &str) &&
 		!strcmp(str, "affine_irq")) {
-		pdata->pm_qos_data.irq_req_type = PM_QOS_REQ_AFFINE_IRQ;
+		parse_affine_irq(pdata);
 	}
 
 	/* must specify cpu for "affine_cores" type */
@@ -3222,6 +3231,17 @@ out:
 	return count;
 }
 
+#ifdef CONFIG_SMP
+static inline void set_affine_irq(struct sdhci_msm_host *msm_host,
+				struct sdhci_host *host)
+{
+	msm_host->pm_qos_irq.req.irq = host->irq;
+}
+#else
+static inline void set_affine_irq(struct sdhci_msm_host *msm_host,
+				struct sdhci_host *host) { }
+#endif
+
 void sdhci_msm_pm_qos_irq_init(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -3239,8 +3259,9 @@ void sdhci_msm_pm_qos_irq_init(struct sdhci_host *host)
 	atomic_set(&msm_host->pm_qos_irq.counter, 0);
 	msm_host->pm_qos_irq.req.type =
 			msm_host->pdata->pm_qos_data.irq_req_type;
-	if (msm_host->pm_qos_irq.req.type == PM_QOS_REQ_AFFINE_IRQ)
-		msm_host->pm_qos_irq.req.irq = host->irq;
+	if ((msm_host->pm_qos_irq.req.type != PM_QOS_REQ_AFFINE_CORES) &&
+		(msm_host->pm_qos_irq.req.type != PM_QOS_REQ_ALL_CORES))
+		set_affine_irq(msm_host, host);
 	else
 		cpumask_copy(&msm_host->pm_qos_irq.req.cpus_affine,
 			cpumask_of(msm_host->pdata->pm_qos_data.irq_cpu));
