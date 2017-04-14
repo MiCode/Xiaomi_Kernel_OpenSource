@@ -606,6 +606,8 @@ static inline int mmc_card_broken_hpi(const struct mmc_card *c)
 #define mmc_card_id(c)		(dev_name(&(c)->dev))
 
 #define mmc_dev_to_card(d)	container_of(d, struct mmc_card, dev)
+#define mmc_get_drvdata(c)	dev_get_drvdata(&(c)->dev)
+#define mmc_set_drvdata(c,d)	dev_set_drvdata(&(c)->dev, d)
 
 /*
  * MMC device driver (e.g., Flash card, I/O card...)
