@@ -42,6 +42,26 @@ Optional Properties:
 				    the driver will construct one based on the card
 				    supported max and min frequencies.
 				    The frequencies must be ordered from lowest to highest.
+	- qcom,pm-qos-irq-type - the PM QoS request type to be used for IRQ voting.
+	  Can be either "affine_cores" or "affine_irq". If not specified, will default
+	  to "affine_cores". Use "affine_irq" setting in case an IRQ balancer is active,
+	  and IRQ affinity changes during runtime.
+	- qcom,pm-qos-irq-cpu - specifies the CPU for which IRQ voting shall be done.
+	  If "affine_cores" was specified for property 'qcom,pm-qos-irq-type'
+	  then this property must be defined, and is not relevant otherwise.
+	- qcom,pm-qos-irq-latency - a tuple defining two latency values with which
+	  PM QoS IRQ voting shall be done. The first value is the latecy to be used
+	  when load is high (performance mode) and the second is for low loads
+	  (power saving mode).
+	- qcom,pm-qos-cpu-groups - defines cpu groups mapping.
+	  Each cell represnets a group, which is a cpu bitmask defining which cpus belong
+	  to that group.
+	- qcom,pm-qos-<mode>-latency-us - where <mode> is either "cmdq" or "legacy".
+	  An array of latency value tuples, each tuple corresponding to a cpu group in the order
+	  defined in property 'qcom,pm-qos-cpu-groups'. The first value is the latecy to be used
+	  when load is high (performance mode) and the second is for low loads
+	  (power saving mode). These values will be used for cpu group voting for
+	  command-queueing mode or legacy respectively.
 
 In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltage).
 	- qcom,<supply>-always-on - specifies whether supply should be kept "on" always.
@@ -111,4 +131,16 @@ Example:
 			<&msmgpio 36 0>, /* DATA2 */
 			<&msmgpio 35 0>; /* DATA3 */
 		qcom,gpio-names = "CLK", "CMD", "DAT0", "DAT1", "DAT2", "DAT3";
+
+		qcom,pm-qos-irq-type = "affine_cores";
+		qcom,pm-qos-irq-cpu = <0>;
+		qcom,pm-qos-irq-latency = <500 100>;
+		qcom,pm-qos-cpu-groups = <0x03 0x0c>;
+		qcom,pm-qos-cmdq-latency-us = <50 100>, <50 100>;
+		qcom,pm-qos-legacy-latency-us = <50 100>, <50 100>;
+	};
+
+	sdhc_2: qcom,sdhc@f98a4900 {
+		qcom,pm-qos-irq-type = "affine_irq";
+		qcom,pm-qos-irq-latency = <120 200>;
 	};
