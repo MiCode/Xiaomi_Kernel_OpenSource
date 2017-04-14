@@ -465,6 +465,8 @@ struct mmc_host {
 #define MMC_CAP2_CMD_QUEUE	(1 << 28)	/* support eMMC command queue */
 #define MMC_CAP2_SANITIZE       (1 << 29)               /* Support Sanitize */
 #define MMC_CAP2_SLEEP_AWAKE	(1 << 30)	/* Use Sleep/Awake (CMD5) */
+/* use max discard ignoring max_busy_timeout parameter */
+#define MMC_CAP2_MAX_DISCARD_SIZE	(1 << 31)
 
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
