@@ -2178,9 +2178,7 @@ static int mmc_runtime_resume(struct mmc_host *host)
 		pr_err("%s: error %d doing runtime resume\n",
 			mmc_hostname(host), err);
 
-	/* Initialize clock scaling only for high frequency modes */
-	if (mmc_card_hs200(host->card))
-		mmc_init_clk_scaling(host);
+	mmc_init_clk_scaling(host);
 
 	return 0;
 }

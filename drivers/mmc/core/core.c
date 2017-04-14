@@ -2995,6 +2995,40 @@ out:
 	return ret;
 }
 
+static int mmc_clk_update_freq(struct mmc_host *host,
+		unsigned long freq, enum mmc_load state)
+{
+	int err = 0;
+
+	if (host->ops->notify_load) {
+		err = host->ops->notify_load(host, state);
+		if (err)
+			goto out;
+	}
+
+	if (freq != host->clk_scaling.curr_freq) {
+		if (!mmc_is_vaild_state_for_clk_scaling(host)) {
+			err = -EAGAIN;
+			goto error;
+		}
+
+		err = host->bus_ops->change_bus_speed(host, &freq);
+		if (!err)
+			host->clk_scaling.curr_freq = freq;
+		else
+			pr_err("%s: %s: failed (%d) at freq=%lu\n",
+				mmc_hostname(host), __func__, err, freq);
+	}
+error:
+	if (err) {
+		/* restore previous state */
+		if (host->ops->notify_load)
+			host->ops->notify_load(host, host->clk_scaling.state);
+	}
+out:
+	return err;
+}
+
 /**
  * mmc_clk_scaling() - clock scaling decision algorithm
  * @host:	pointer to mmc host structure
@@ -3020,6 +3054,7 @@ static void mmc_clk_scaling(struct mmc_host *host, bool from_wq)
 	unsigned int up_threshold = host->clk_scaling.up_threshold;
 	unsigned int down_threshold = host->clk_scaling.down_threshold;
 	bool queue_scale_down_work = false;
+	enum mmc_load state;
 
 	if (!card || !host->bus_ops || !host->bus_ops->change_bus_speed) {
 		pr_err("%s: %s: invalid entry\n", mmc_hostname(host), __func__);
@@ -3047,6 +3082,7 @@ static void mmc_clk_scaling(struct mmc_host *host, bool from_wq)
 	busy_time_ms = host->clk_scaling.busy_time_us / USEC_PER_MSEC;
 
 	freq = host->clk_scaling.curr_freq;
+	state = host->clk_scaling.state;
 
 	/*
 	 * Note that the max. and min. frequency should be based
@@ -3055,28 +3091,24 @@ static void mmc_clk_scaling(struct mmc_host *host, bool from_wq)
 	 */
 	if ((busy_time_ms * 100 > total_time_ms * up_threshold)) {
 		freq = mmc_get_max_frequency(host);
+		state = MMC_LOAD_HIGH;
 	} else if ((busy_time_ms * 100 < total_time_ms * down_threshold)) {
 		if (!from_wq)
 			queue_scale_down_work = true;
 		freq = mmc_get_min_frequency(host);
+		state = MMC_LOAD_LOW;
 	}
 
-	if (freq != host->clk_scaling.curr_freq) {
+	if (state != host->clk_scaling.state) {
 		if (!queue_scale_down_work) {
 			if (!from_wq)
 				cancel_delayed_work_sync(
 						&host->clk_scaling.work);
-
-			if (!mmc_is_vaild_state_for_clk_scaling(host))
-				goto bypass_scaling;
-
-			err = host->bus_ops->change_bus_speed(host, &freq);
+			err = mmc_clk_update_freq(host, freq, state);
 			if (!err)
-				host->clk_scaling.curr_freq = freq;
-			else
-				pr_err("%s: %s: failed (%d) at freq=%lu\n",
-					mmc_hostname(host), __func__, err,
-					freq);
+				host->clk_scaling.state = state;
+			else if (err == -EAGAIN)
+				goto no_reset_stats;
 		} else {
 			/*
 			 * We hold claim host while queueing the scale down
@@ -3085,13 +3117,12 @@ static void mmc_clk_scaling(struct mmc_host *host, bool from_wq)
 			 */
 			queue_delayed_work(system_wq,
 					&host->clk_scaling.work, 1);
-			host->clk_scaling.in_progress = false;
-			goto out;
+			goto no_reset_stats;
 		}
 	}
 
 	mmc_reset_clk_scale_stats(host);
-bypass_scaling:
+no_reset_stats:
 	host->clk_scaling.in_progress = false;
 out:
 	return;
@@ -3138,6 +3169,9 @@ void mmc_init_clk_scaling(struct mmc_host *host)
 
 	INIT_DELAYED_WORK(&host->clk_scaling.work, mmc_clk_scale_work);
 	host->clk_scaling.curr_freq = mmc_get_max_frequency(host);
+	if (host->ops->notify_load)
+		host->ops->notify_load(host, MMC_LOAD_HIGH);
+	host->clk_scaling.state = MMC_LOAD_HIGH;
 	mmc_reset_clk_scale_stats(host);
 	host->clk_scaling.enable = true;
 	host->clk_scaling.initialized = true;

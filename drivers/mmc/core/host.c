@@ -679,11 +679,8 @@ static ssize_t store_enable(struct device *dev,
 		goto err;
 
 	if (value && !mmc_can_scale_clk(host)) {
-		if (mmc_card_hs200(host->card) ||
-				mmc_card_uhs(host->card)) {
-			host->caps2 |= MMC_CAP2_CLK_SCALE;
-			mmc_init_clk_scaling(host);
-		}
+		host->caps2 |= MMC_CAP2_CLK_SCALE;
+		mmc_init_clk_scaling(host);
 
 		if (!mmc_can_scale_clk(host)) {
 			host->caps2 &= ~MMC_CAP2_CLK_SCALE;
@@ -699,6 +696,10 @@ static ssize_t store_enable(struct device *dev,
 			if (host->bus_ops->change_bus_speed(host, &freq))
 				goto err;
 		}
+		if (host->ops->notify_load &&
+				host->ops->notify_load(host, MMC_LOAD_HIGH))
+			goto err;
+		host->clk_scaling.state = MMC_LOAD_HIGH;
 		host->clk_scaling.initialized = false;
 	}
 	retval = count;
