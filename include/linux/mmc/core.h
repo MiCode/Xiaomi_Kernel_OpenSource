@@ -134,6 +134,11 @@ extern void mmc_cmdq_post_req(struct mmc_host *host, struct mmc_request *mrq,
 extern int mmc_cmdq_start_req(struct mmc_host *host,
 			      struct mmc_cmdq_req *cmdq_req);
 extern int mmc_cmdq_prepare_flush(struct mmc_command *cmd);
+extern int mmc_cmdq_wait_for_dcmd(struct mmc_host *host,
+			struct mmc_cmdq_req *cmdq_req);
+extern int mmc_cmdq_erase(struct mmc_cmdq_req *cmdq_req,
+	      struct mmc_card *card, unsigned int from, unsigned int nr,
+	      unsigned int arg);
 
 extern int mmc_stop_bkops(struct mmc_card *);
 extern int mmc_read_bkops_status(struct mmc_card *);
