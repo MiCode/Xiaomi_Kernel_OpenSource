@@ -451,6 +451,11 @@ struct sdhci_host {
 */
 #define SDHCI_QUIRK2_SLOW_INT_CLR			(1<<18)
 
+/*
+ * If the base clock can be scalable, then there should be no further
+ * clock dividing as the input clock itself will be scaled down to
+ * required frequency.
+ */
 #define SDHCI_QUIRK2_ALWAYS_USE_BASE_CLOCK		(1<<19)
 
 /*
