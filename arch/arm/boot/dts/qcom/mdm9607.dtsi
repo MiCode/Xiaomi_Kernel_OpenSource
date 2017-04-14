@@ -39,16 +39,10 @@
 			reg = <0x82a00000 0x5000000>;
 		};
 
-		cnss_debug_mem: cnss_debug_region@0 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0x87a00000 0x200000>;
-		};
-
 		external_image_mem: external_image_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x87c00000 0x400000>;
+			reg = <0x87a00000 0x600000>;
 		};
 
 		audio_mem: audio_region@0 {
@@ -56,6 +50,13 @@
 			reusable;
 			alignment = <0x400000>;
 			size = <0x400000>;
+		};
+
+		qseecom_mem: qseecom_region@0 {
+			compatible = "shared-dma-pool";
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x0400000>;
 		};
 	};
 
@@ -1568,6 +1569,30 @@
 			 <&clock_gcc clk_gcc_crypto_clk>,
 			 <&clock_gcc clk_gcc_crypto_ahb_clk>,
 			 <&clock_gcc clk_gcc_crypto_axi_clk>;
+		clock-names = "core_clk_src", "core_clk",
+				"iface_clk", "bus_clk";
+		qcom,ce-opp-freq = <100000000>;
+	};
+
+	qcom_seecom: qseecom@87a80000 {
+		compatible = "qcom,qseecom";
+		reg = <0x87a80000 0x100000>;
+		reg-names = "secapp-region";
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,msm-bus,name = "qseecom-noc";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,no-clock-support;
+		qcom,msm-bus,vectors-KBps =
+				<55 512 0 0>,
+				<55 512 0 0>,
+				<55 512 120000 1200000>,
+				<55 512 393600 3936000>;
+		clocks = <&clock_gcc clk_crypto_clk_src>,
+			<&clock_gcc clk_gcc_crypto_clk>,
+			<&clock_gcc clk_gcc_crypto_ahb_clk>,
+			<&clock_gcc clk_gcc_crypto_axi_clk>;
 		clock-names = "core_clk_src", "core_clk",
 				"iface_clk", "bus_clk";
 		qcom,ce-opp-freq = <100000000>;
