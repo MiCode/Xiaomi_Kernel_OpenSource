@@ -479,6 +479,7 @@ struct mmc_host {
 		ktime_t wtime_drv;	   /* Wr time  MMC Host  */
 		ktime_t start;
 	} perf;
+	bool perf_enable;
 #endif
 
 	unsigned long		private[0] ____cacheline_aligned;
