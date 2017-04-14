@@ -4124,9 +4124,9 @@ static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(
 	list_for_each_entry(tbu, &data->tbus, list) {
 		if (tbu->sid_start <= sid &&
 		    sid < tbu->sid_start + tbu->num_sids)
-			break;
+			return tbu;
 	}
-	return tbu;
+	return NULL;
 }
 
 static void qsmmuv500_device_reset(struct arm_smmu_device *smmu)
