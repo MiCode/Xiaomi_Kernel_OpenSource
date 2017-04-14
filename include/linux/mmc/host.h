@@ -278,6 +278,7 @@ struct mmc_cmdq_context_info {
 #define	CMDQ_STATE_HALT 2
 	wait_queue_head_t	queue_empty_wq;
 	wait_queue_head_t	wait;
+	int active_small_sector_read_reqs;
 };
 
 /**
