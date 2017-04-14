@@ -119,6 +119,7 @@ struct mmc_ext_csd {
 	u8			raw_pwr_cl_200_360;	/* 237 */
 	u8			raw_pwr_cl_ddr_52_195;	/* 238 */
 	u8			raw_pwr_cl_ddr_52_360;	/* 239 */
+	u8			cache_flush_policy;	/* 240 */
 	u8			raw_pwr_cl_ddr_200_360;	/* 253 */
 	u8			raw_bkops_status;	/* 246 */
 	u8			raw_sectors[4];		/* 212 - 4 bytes */
@@ -127,6 +128,8 @@ struct mmc_ext_csd {
 	u8			device_life_time_est_typ_b;	/* 269 */
 	u8			cmdq_depth;		/* 307 */
 	u8			cmdq_support;		/* 308 */
+	u8			barrier_support;	/* 486 */
+	u8			barrier_en;
 
 	unsigned int            feature_support;
 #define MMC_DISCARD_FEATURE	BIT(0)                  /* CMD38 feature */

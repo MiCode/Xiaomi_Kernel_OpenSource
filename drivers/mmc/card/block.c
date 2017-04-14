@@ -2063,7 +2063,30 @@ static int mmc_blk_issue_flush(struct mmc_queue *mq, struct request *req)
 	struct mmc_card *card = md->queue.card;
 	int ret = 0;
 
-	ret = mmc_flush_cache(card);
+	if (!req)
+		return 0;
+
+	if (req->cmd_flags & REQ_BARRIER) {
+		/*
+		 * If eMMC cache flush policy is set to 1, then the device
+		 * shall flush the requests in First-In-First-Out (FIFO) order.
+		 * In this case, as per spec, the host must not send any cache
+		 * barrier requests as they are redundant and add unnecessary
+		 * overhead to both device and host.
+		 */
+		if (card->ext_csd.cache_flush_policy & 1)
+			goto end_req;
+
+		/*
+		 * In case barrier is not supported or enabled in the device,
+		 * use flush as a fallback option.
+		 */
+		ret = mmc_cache_barrier(card);
+		if (ret)
+			ret = mmc_flush_cache(card);
+	} else if (req_op(req) == REQ_OP_FLUSH) {
+		ret = mmc_flush_cache(card);
+	}
 	if (ret == -ENODEV) {
 		pr_err("%s: %s: restart mmc card",
 				req->rq_disk->disk_name, __func__);
@@ -2097,6 +2120,7 @@ static int mmc_blk_issue_flush(struct mmc_queue *mq, struct request *req)
 		}
 	}
 #endif
+end_req:
 	blk_end_request_all(req, ret);
 
 	return ret ? 0 : 1;
@@ -3671,6 +3695,7 @@ int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 	struct mmc_card *card = md->queue.card;
 	struct mmc_host *host = card->host;
 	unsigned long flags;
+	unsigned int cmd_flags = req ? req->cmd_flags : 0;
 	bool req_is_special = mmc_req_is_special(req);
 
 	if (req && !mq->mqrq_prev->req)
@@ -3702,7 +3727,8 @@ int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 			ret = mmc_blk_issue_secdiscard_rq(mq, req);
 		else
 			ret = mmc_blk_issue_discard_rq(mq, req);
-	} else if (req && req_op(req) == REQ_OP_FLUSH) {
+	} else if ((req && req_op(req) == REQ_OP_FLUSH) ||
+			(cmd_flags & REQ_BARRIER)) {
 		/* complete ongoing async transfer before issuing flush */
 		if (card->host->areq)
 			mmc_blk_issue_rw_rq(mq, NULL);

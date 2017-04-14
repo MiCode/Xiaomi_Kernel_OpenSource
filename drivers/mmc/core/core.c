@@ -3974,6 +3974,40 @@ int mmc_power_restore_host(struct mmc_host *host)
 EXPORT_SYMBOL(mmc_power_restore_host);
 
 /*
+ * Add barrier request to the requests in cache
+ */
+int mmc_cache_barrier(struct mmc_card *card)
+{
+	struct mmc_host *host = card->host;
+	int err = 0;
+
+	if (!card->ext_csd.cache_ctrl ||
+	     (card->quirks & MMC_QUIRK_CACHE_DISABLE))
+		goto out;
+
+	if (!mmc_card_mmc(card))
+		goto out;
+
+	if (!card->ext_csd.barrier_en)
+		return -ENOTSUPP;
+
+	/*
+	 * If a device receives maximum supported barrier
+	 * requests, a barrier command is treated as a
+	 * flush command. Hence, it is betetr to use
+	 * flush timeout instead a generic CMD6 timeout
+	 */
+	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+			EXT_CSD_FLUSH_CACHE, 0x2, 0);
+	if (err)
+		pr_err("%s: cache barrier error %d\n",
+				mmc_hostname(host), err);
+out:
+	return err;
+}
+EXPORT_SYMBOL(mmc_cache_barrier);
+
+/*
  * Flush the cache to the non-volatile storage.
  */
 int mmc_flush_cache(struct mmc_card *card)
