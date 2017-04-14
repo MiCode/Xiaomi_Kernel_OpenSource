@@ -684,6 +684,7 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 	chg->voltage_max_uv = MICRO_5V;
 	chg->usb_icl_delta_ua = 0;
 	chg->pulse_cnt = 0;
+	chg->uusb_apsd_rerun_done = false;
 
 	/* clear USB ICL vote for USB_PSY_VOTER */
 	rc = vote(chg->usb_icl_votable, USB_PSY_VOTER, false, 0);
@@ -751,6 +752,7 @@ int smblib_rerun_apsd_if_required(struct smb_charger *chg)
 				rc);
 	}
 
+	chg->uusb_apsd_rerun_done = true;
 	smblib_rerun_apsd(chg);
 
 	return 0;
@@ -3484,6 +3486,17 @@ irqreturn_t smblib_handle_usb_source_change(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 	smblib_dbg(chg, PR_REGISTER, "APSD_STATUS = 0x%02x\n", stat);
+
+	if (chg->micro_usb_mode && (stat & APSD_DTC_STATUS_DONE_BIT)
+			&& !chg->uusb_apsd_rerun_done) {
+		/*
+		 * Force re-run APSD to handle slow insertion related
+		 * charger-mis-detection.
+		 */
+		chg->uusb_apsd_rerun_done = true;
+		smblib_rerun_apsd(chg);
+		return IRQ_HANDLED;
+	}
 
 	smblib_handle_apsd_done(chg,
 		(bool)(stat & APSD_DTC_STATUS_DONE_BIT));
