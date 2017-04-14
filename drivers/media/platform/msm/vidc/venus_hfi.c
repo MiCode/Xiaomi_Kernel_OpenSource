@@ -1195,44 +1195,6 @@ static enum hal_default_properties venus_hfi_get_default_properties(void *dev)
 	return prop;
 }
 
-static int __halt_axi(struct venus_hfi_device *device)
-{
-	u32 reg;
-	int rc = 0;
-
-	if (!device) {
-		dprintk(VIDC_ERR, "Invalid input: %pK\n", device);
-		return -EINVAL;
-	}
-
-	/*
-	 * Driver needs to make sure that clocks are enabled to read Venus AXI
-	 * registers. If not skip AXI HALT.
-	 */
-	if (!device->power_enabled) {
-		dprintk(VIDC_WARN,
-			"Clocks are OFF, skipping AXI HALT\n");
-		WARN_ON(1);
-		return -EINVAL;
-	}
-
-	/* Halt AXI and AXI IMEM VBIF Access */
-	reg = __read_register(device, VENUS_VBIF_AXI_HALT_CTRL0);
-	reg |= VENUS_VBIF_AXI_HALT_CTRL0_HALT_REQ;
-	__write_register(device, VENUS_VBIF_AXI_HALT_CTRL0, reg);
-
-	/* Request for AXI bus port halt */
-	rc = readl_poll_timeout(device->hal_data->register_base
-			+ VENUS_VBIF_AXI_HALT_CTRL1,
-			reg, reg & VENUS_VBIF_AXI_HALT_CTRL1_HALT_ACK,
-			POLL_INTERVAL_US,
-			VENUS_VBIF_AXI_HALT_ACK_TIMEOUT_US);
-	if (rc)
-		dprintk(VIDC_WARN, "AXI bus port halt timeout\n");
-
-	return rc;
-}
-
 static int __set_clocks(struct venus_hfi_device *device, u32 freq)
 {
 	struct clock_info *cl;
@@ -2981,15 +2943,6 @@ static void __process_sys_error(struct venus_hfi_device *device)
 
 	__set_state(device, VENUS_STATE_DEINIT);
 
-	/*
-	 * Once SYS_ERROR received from HW, it is safe to halt the AXI.
-	 * With SYS_ERROR, Venus FW may have crashed and HW might be
-	 * active and causing unnecessary transactions. Hence it is
-	 * safe to stop all AXI transactions from venus sub-system.
-	 */
-	if (__halt_axi(device))
-		dprintk(VIDC_WARN, "Failed to halt AXI after SYS_ERROR\n");
-
 	vsfr = (struct hfi_sfr_struct *)device->sfr.align_virtual_addr;
 	if (vsfr) {
 		void *p = memchr(vsfr->rg_data, '\0', vsfr->bufSize);
@@ -3897,7 +3850,7 @@ fail_vote_buses:
 	return rc;
 }
 
-static void __venus_power_off(struct venus_hfi_device *device, bool halt_axi)
+static void __venus_power_off(struct venus_hfi_device *device)
 {
 	if (!device->power_enabled)
 		return;
@@ -3905,12 +3858,6 @@ static void __venus_power_off(struct venus_hfi_device *device, bool halt_axi)
 	if (!(device->intr_status & VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK))
 		disable_irq_nosync(device->hal_data->irq);
 	device->intr_status = 0;
-
-	/* Halt the AXI to make sure there are no pending transactions.
-	 * Clocks should be unprepared after making sure axi is halted.
-	 */
-	if (halt_axi && __halt_axi(device))
-		dprintk(VIDC_WARN, "Failed to halt AXI\n");
 
 	__disable_unprepare_clks(device);
 	if (__disable_regulators(device))
@@ -3947,7 +3894,7 @@ static inline int __suspend(struct venus_hfi_device *device)
 		goto err_tzbsp_suspend;
 	}
 
-	__venus_power_off(device, true);
+	__venus_power_off(device);
 	dprintk(VIDC_PROF, "Venus power collapsed\n");
 	return rc;
 
@@ -4013,7 +3960,7 @@ exit:
 err_reset_core:
 	__tzbsp_set_video_state(TZBSP_VIDEO_STATE_SUSPEND);
 err_set_video_state:
-	__venus_power_off(device, true);
+	__venus_power_off(device);
 err_venus_power_on:
 	dprintk(VIDC_ERR, "Failed to resume from power collapse\n");
 	return rc;
@@ -4072,7 +4019,7 @@ fail_protect_mem:
 		subsystem_put(device->resources.fw.cookie);
 	device->resources.fw.cookie = NULL;
 fail_load_fw:
-	__venus_power_off(device, true);
+	__venus_power_off(device);
 fail_venus_power_on:
 fail_init_pkt:
 	__deinit_resources(device);
@@ -4093,7 +4040,7 @@ static void __unload_fw(struct venus_hfi_device *device)
 	__vote_buses(device, NULL, 0);
 	subsystem_put(device->resources.fw.cookie);
 	__interface_queues_release(device);
-	__venus_power_off(device, false);
+	__venus_power_off(device);
 	device->resources.fw.cookie = NULL;
 	__deinit_resources(device);
 }
