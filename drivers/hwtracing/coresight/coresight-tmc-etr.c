@@ -63,6 +63,10 @@ static void tmc_etr_enable_hw(struct tmc_drvdata *drvdata)
 		writel_relaxed(sts, drvdata->base + TMC_STS);
 	}
 
+	writel_relaxed(drvdata->paddr, drvdata->base + TMC_DBALO);
+	writel_relaxed(((u64)drvdata->paddr >> 32) & 0xFF,
+		       drvdata->base + TMC_DBAHI);
+
 	writel_relaxed(TMC_FFCR_EN_FMT | TMC_FFCR_EN_TI |
 		       TMC_FFCR_FON_FLIN | TMC_FFCR_FON_TRIG_EVT |
 		       TMC_FFCR_TRIGON_TRIGIN,
