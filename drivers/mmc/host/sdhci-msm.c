@@ -327,6 +327,7 @@ struct sdhci_msm_host {
 	atomic_t controller_clock;
 	bool use_cdclp533;
 	bool use_updated_dll_reset;
+	bool use_14lpp_dll;
 	u32 caps_0;
 };
 
@@ -885,6 +886,8 @@ out:
 
 static int sdhci_msm_cm_dll_sdc4_calibration(struct sdhci_host *host)
 {
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	u32 dll_status;
 	int ret = 0;
 
@@ -914,10 +917,18 @@ static int sdhci_msm_cm_dll_sdc4_calibration(struct sdhci_host *host)
 		goto out;
 	}
 
-	/* set CORE_PWRSAVE_DLL bit in CORE_VENDOR_SPEC3 */
-	writel_relaxed((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC3)
-			| CORE_PWRSAVE_DLL),
-			host->ioaddr + CORE_VENDOR_SPEC3);
+	/*
+	 * set CORE_PWRSAVE_DLL bit in CORE_VENDOR_SPEC3.
+	 * when MCLK is gated OFF, it is not gated for less than 0.5us
+	 * and MCLK must be switched on for at-least 1us before DATA
+	 * starts coming. Controllers with 14lpp tech DLL cannot
+	 * guarantee above requirement. So PWRSAVE_DLL should not be
+	 * turned on for host controllers using this DLL.
+	 */
+	if (!msm_host->use_14lpp_dll)
+		writel_relaxed((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC3)
+				| CORE_PWRSAVE_DLL),
+				host->ioaddr + CORE_VENDOR_SPEC3);
 	mb();
 out:
 	pr_debug("%s: Exit %s, ret:%d\n", mmc_hostname(host->mmc),
@@ -2868,6 +2879,16 @@ static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
 	if ((major == 1) && (minor >= 0x42))
 		msm_host->use_updated_dll_reset = true;
 
+	/*
+	 * SDCC 5 controller with major version 1 and minor version 0x42
+	 * currently uses 14lpp tech DLL whose internal gating cannot
+	 * guarantee MCLK timing requirement i.e.
+	 * when MCLK is gated OFF, it is not gated for less than 0.5us
+	 * and MCLK must be switched on for at-least 1us before DATA
+	 * starts coming.
+	 */
+	if ((major == 1) && (minor == 0x42))
+		msm_host->use_14lpp_dll = true;
 	/*
 	 * Mask 64-bit support for controller with 32-bit address bus so that
 	 * smaller descriptor size will be used and improve memory consumption.
