@@ -3022,9 +3022,37 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 }
 
 #ifdef CONFIG_MMC_CQ_HCI
+static int sdhci_get_cmd_err(u32 intmask)
+{
+	if (intmask & SDHCI_INT_TIMEOUT)
+		return -ETIMEDOUT;
+	else if (intmask & (SDHCI_INT_CRC | SDHCI_INT_END_BIT |
+			    SDHCI_INT_INDEX))
+		return -EILSEQ;
+	return 0;
+}
+
+static int sdhci_get_data_err(u32 intmask)
+{
+	if (intmask & SDHCI_INT_DATA_TIMEOUT)
+		return -ETIMEDOUT;
+	else if (intmask & (SDHCI_INT_DATA_END_BIT | SDHCI_INT_DATA_CRC))
+		return -EILSEQ;
+	else if (intmask & SDHCI_INT_ADMA_ERROR)
+		return -EIO;
+	return 0;
+}
+
 static irqreturn_t sdhci_cmdq_irq(struct mmc_host *mmc, u32 intmask)
 {
-	return cmdq_irq(mmc, intmask);
+	int err = 0;
+
+	if (intmask & SDHCI_INT_CMD_MASK)
+		err = sdhci_get_cmd_err(intmask);
+	else if (intmask & SDHCI_INT_DATA_MASK)
+		err = sdhci_get_data_err(intmask);
+
+	return cmdq_irq(mmc, err);
 }
 
 #else
@@ -3062,7 +3090,8 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 					mmc_hostname(host->mmc),
 					intmask);
 			result = sdhci_cmdq_irq(host->mmc, intmask);
-			goto out;
+			if (result == IRQ_HANDLED)
+				goto out;
 		}
 
 		if (intmask & SDHCI_INT_AUTO_CMD_ERR)
