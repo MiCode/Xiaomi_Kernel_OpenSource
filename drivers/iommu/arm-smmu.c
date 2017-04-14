@@ -3977,6 +3977,8 @@ struct qsmmuv500_archdata {
 	void __iomem			*tcu_base;
 	u32				version;
 };
+#define get_qsmmuv500_archdata(smmu)				\
+	((struct qsmmuv500_archdata *)(smmu->archdata))
 
 struct qsmmuv500_tbu_device {
 	struct list_head		list;
@@ -3997,7 +3999,7 @@ struct qsmmuv500_tbu_device {
 static int qsmmuv500_tbu_power_on_all(struct arm_smmu_device *smmu)
 {
 	struct qsmmuv500_tbu_device *tbu;
-	struct qsmmuv500_archdata *data = smmu->archdata;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
 	int ret = 0;
 
 	list_for_each_entry(tbu, &data->tbus, list) {
@@ -4017,7 +4019,7 @@ static int qsmmuv500_tbu_power_on_all(struct arm_smmu_device *smmu)
 static void qsmmuv500_tbu_power_off_all(struct arm_smmu_device *smmu)
 {
 	struct qsmmuv500_tbu_device *tbu;
-	struct qsmmuv500_archdata *data = smmu->archdata;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
 
 	list_for_each_entry_reverse(tbu, &data->tbus, list) {
 		arm_smmu_power_off(tbu->pwr);
@@ -4085,7 +4087,7 @@ static void qsmmuv500_tbu_resume(struct qsmmuv500_tbu_device *tbu)
 static int qsmmuv500_halt_all(struct arm_smmu_device *smmu)
 {
 	struct qsmmuv500_tbu_device *tbu;
-	struct qsmmuv500_archdata *data = smmu->archdata;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
 	int ret = 0;
 
 	list_for_each_entry(tbu, &data->tbus, list) {
@@ -4106,7 +4108,7 @@ static int qsmmuv500_halt_all(struct arm_smmu_device *smmu)
 static void qsmmuv500_resume_all(struct arm_smmu_device *smmu)
 {
 	struct qsmmuv500_tbu_device *tbu;
-	struct qsmmuv500_archdata *data = smmu->archdata;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
 
 	list_for_each_entry(tbu, &data->tbus, list) {
 		qsmmuv500_tbu_resume(tbu);
@@ -4117,7 +4119,7 @@ static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(
 	struct arm_smmu_device *smmu, u32 sid)
 {
 	struct qsmmuv500_tbu_device *tbu = NULL;
-	struct qsmmuv500_archdata *data = smmu->archdata;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
 
 	list_for_each_entry(tbu, &data->tbus, list) {
 		if (tbu->sid_start <= sid &&
@@ -4150,7 +4152,7 @@ static int qsmmuv500_ecats_lock(struct arm_smmu_domain *smmu_domain,
 				unsigned long *flags)
 {
 	struct arm_smmu_device *smmu = tbu->smmu;
-	struct qsmmuv500_archdata *data = smmu->archdata;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
 	u32 val;
 
 	spin_lock_irqsave(&smmu->atos_lock, *flags);
@@ -4174,7 +4176,7 @@ static void qsmmuv500_ecats_unlock(struct arm_smmu_domain *smmu_domain,
 					unsigned long *flags)
 {
 	struct arm_smmu_device *smmu = tbu->smmu;
-	struct qsmmuv500_archdata *data = smmu->archdata;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
 
 	/* The status register is not accessible on version 1.0 */
 	if (data->version != 0x01000000)
@@ -4326,11 +4328,11 @@ static phys_addr_t qsmmuv500_iova_to_phys_hard(
 	return qsmmuv500_iova_to_phys(domain, iova, sid);
 }
 
-static int qsmmuv500_tbu_register(struct device *dev, void *data)
+static int qsmmuv500_tbu_register(struct device *dev, void *cookie)
 {
-	struct arm_smmu_device *smmu = data;
+	struct arm_smmu_device *smmu = cookie;
 	struct qsmmuv500_tbu_device *tbu;
-	struct list_head *list = smmu->archdata;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
 
 	if (!dev->driver) {
 		dev_err(dev, "TBU failed probe, QSMMUV500 cannot continue!\n");
@@ -4341,7 +4343,7 @@ static int qsmmuv500_tbu_register(struct device *dev, void *data)
 
 	INIT_LIST_HEAD(&tbu->list);
 	tbu->smmu = smmu;
-	list_add(&tbu->list, list);
+	list_add(&tbu->list, &data->tbus);
 	return 0;
 }
 
