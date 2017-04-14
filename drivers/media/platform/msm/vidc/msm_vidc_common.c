@@ -1165,53 +1165,70 @@ static int msm_vidc_comm_update_ctrl(struct msm_vidc_inst *inst,
 
 static void msm_vidc_comm_update_ctrl_limits(struct msm_vidc_inst *inst)
 {
-	msm_vidc_comm_update_ctrl(inst,
-			V4L2_CID_MPEG_VIDC_VIDEO_HYBRID_HIERP_MODE,
-			&inst->capability.hier_p_hybrid);
-	msm_vidc_comm_update_ctrl(inst,
-			V4L2_CID_MPEG_VIDC_VIDEO_HIER_B_NUM_LAYERS,
-			&inst->capability.hier_b);
-	msm_vidc_comm_update_ctrl(inst,
-			V4L2_CID_MPEG_VIDC_VIDEO_HIER_P_NUM_LAYERS,
-			&inst->capability.hier_p);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE,
-			&inst->capability.bitrate);
-	msm_vidc_comm_update_ctrl(inst,
-			V4L2_CID_MPEG_VIDC_VENC_PARAM_LAYER_BITRATE,
-			&inst->capability.bitrate);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE_PEAK,
-			&inst->capability.peakbitrate);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP,
-			&inst->capability.i_qp);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP,
-			&inst->capability.p_qp);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP,
-			&inst->capability.b_qp);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP_MIN,
-			&inst->capability.i_qp);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP_MIN,
-			&inst->capability.p_qp);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP_MIN,
-			&inst->capability.b_qp);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP_MAX,
-			&inst->capability.i_qp);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP_MAX,
-			&inst->capability.p_qp);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP_MAX,
-			&inst->capability.b_qp);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_BLUR_WIDTH,
-			&inst->capability.blur_width);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_BLUR_HEIGHT,
-			&inst->capability.blur_height);
-	msm_vidc_comm_update_ctrl(inst,
-			V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES,
-			&inst->capability.slice_bytes);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB,
-			&inst->capability.slice_mbs);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT,
-			&inst->capability.ltr_count);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES,
-			&inst->capability.bframe);
+	if (inst->session_type == MSM_VIDC_ENCODER) {
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_HYBRID_HIERP_MODE,
+				&inst->capability.hier_p_hybrid);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_HIER_B_NUM_LAYERS,
+				&inst->capability.hier_b);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_HIER_P_NUM_LAYERS,
+				&inst->capability.hier_p);
+		msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE,
+				&inst->capability.bitrate);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VENC_PARAM_LAYER_BITRATE,
+				&inst->capability.bitrate);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDEO_BITRATE_PEAK,
+				&inst->capability.peakbitrate);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP,
+				&inst->capability.i_qp);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP,
+				&inst->capability.p_qp);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP,
+				&inst->capability.b_qp);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP_MIN,
+				&inst->capability.i_qp);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP_MIN,
+				&inst->capability.p_qp);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP_MIN,
+				&inst->capability.b_qp);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP_MAX,
+				&inst->capability.i_qp);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP_MAX,
+				&inst->capability.p_qp);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP_MAX,
+				&inst->capability.b_qp);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_BLUR_WIDTH,
+				&inst->capability.blur_width);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_BLUR_HEIGHT,
+				&inst->capability.blur_height);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES,
+				&inst->capability.slice_bytes);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB,
+				&inst->capability.slice_mbs);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT,
+				&inst->capability.ltr_count);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES,
+				&inst->capability.bframe);
+	}
 }
 
 static void handle_session_init_done(enum hal_command_response cmd, void *data)
