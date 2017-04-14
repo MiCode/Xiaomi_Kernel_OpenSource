@@ -59,11 +59,14 @@ static int mmc_prep_request(struct request_queue *q, struct request *req)
 }
 
 static inline bool mmc_cmdq_should_pull_reqs(struct mmc_host *host,
-					struct mmc_cmdq_context_info *ctx)
+					struct mmc_cmdq_context_info *ctx,
+					struct request *req)
+
 {
-	if (test_bit(CMDQ_STATE_DCMD_ACTIVE, &ctx->curr_state) ||
-		mmc_host_halt(host) ||
-		test_bit(CMDQ_STATE_ERR, &ctx->curr_state)) {
+	if (((req_op(req) == REQ_OP_FLUSH || req_op(req) == REQ_OP_DISCARD) &&
+			test_bit(CMDQ_STATE_DCMD_ACTIVE, &ctx->curr_state)) ||
+			mmc_host_halt(host) ||
+			test_bit(CMDQ_STATE_ERR, &ctx->curr_state)) {
 		pr_debug("%s: %s: skip pulling reqs: state: %lu\n",
 			 mmc_hostname(host), __func__, ctx->curr_state);
 		return false;
@@ -90,11 +93,6 @@ static int mmc_cmdq_thread(void *d)
 	while (1) {
 		int ret = 0;
 
-		if (!mmc_cmdq_should_pull_reqs(host, ctx)) {
-			test_and_set_bit(0, &ctx->req_starved);
-			schedule();
-		}
-
 		spin_lock_irqsave(q->queue_lock, flags);
 		req = blk_peek_request(q);
 		if (req) {
@@ -104,6 +102,16 @@ static int mmc_cmdq_thread(void *d)
 				test_and_set_bit(0, &ctx->req_starved);
 				schedule();
 			} else {
+				if (!mmc_cmdq_should_pull_reqs(host, ctx,
+							       req)) {
+					spin_lock_irqsave(q->queue_lock, flags);
+					blk_requeue_request(q, req);
+					spin_unlock_irqrestore(q->queue_lock,
+							       flags);
+					test_and_set_bit(0, &ctx->req_starved);
+					schedule();
+					continue;
+				}
 				ret = mq->cmdq_issue_fn(mq, req);
 				if (ret) {
 					pr_err("%s: failed (%d) to issue req, requeue\n",
