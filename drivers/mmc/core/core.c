@@ -1307,7 +1307,6 @@ void mmc_cmdq_post_req(struct mmc_host *host, struct mmc_request *mrq, int err)
 {
 	if (likely(host->cmdq_ops->post_req))
 		host->cmdq_ops->post_req(host, mrq, err);
-	mmc_host_clk_release(host);
 }
 EXPORT_SYMBOL(mmc_cmdq_post_req);
 
@@ -1329,7 +1328,7 @@ int mmc_cmdq_halt(struct mmc_host *host, bool halt)
 	if ((halt && mmc_host_halt(host)) ||
 	    (!halt && !mmc_host_halt(host)))
 		return -EINVAL;
-
+	mmc_host_clk_hold(host);
 	if (host->cmdq_ops->halt) {
 		err = host->cmdq_ops->halt(host, halt);
 		if (!err && halt)
@@ -1339,7 +1338,7 @@ int mmc_cmdq_halt(struct mmc_host *host, bool halt)
 	} else {
 		err = -ENOSYS;
 	}
-
+	mmc_host_clk_release(host);
 	return err;
 }
 EXPORT_SYMBOL(mmc_cmdq_halt);
@@ -1360,6 +1359,7 @@ EXPORT_SYMBOL(mmc_cmdq_start_req);
 
 static void mmc_cmdq_dcmd_req_done(struct mmc_request *mrq)
 {
+	mmc_host_clk_release(mrq->host);
 	complete(&mrq->completion);
 }
 
