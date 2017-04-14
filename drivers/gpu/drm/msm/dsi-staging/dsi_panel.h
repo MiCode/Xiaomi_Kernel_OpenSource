@@ -109,6 +109,7 @@ struct dsi_panel_cmd_set {
 	enum dsi_cmd_set_type type;
 	enum dsi_cmd_set_state state;
 	u32 count;
+	int ctrl_idx;
 	struct dsi_cmd_desc *cmds;
 };
 

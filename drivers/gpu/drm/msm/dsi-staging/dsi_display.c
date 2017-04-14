@@ -1105,7 +1105,7 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 		goto error_disable_clks;
 	}
 
-	if (display->ctrl_count > 1) {
+	if (display->ctrl_count > 1 && !(msg->flags & MIPI_DSI_MSG_UNICAST)) {
 		rc = dsi_display_broadcast_cmd(display, msg);
 		if (rc) {
 			pr_err("[%s] cmd broadcast failed, rc=%d\n",
@@ -1113,7 +1113,10 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 			goto error_disable_cmd_engine;
 		}
 	} else {
-		rc = dsi_ctrl_cmd_transfer(display->ctrl[0].ctrl, msg,
+		int ctrl_idx = (msg->flags & MIPI_DSI_MSG_UNICAST) ?
+				msg->ctrl : 0;
+
+		rc = dsi_ctrl_cmd_transfer(display->ctrl[ctrl_idx].ctrl, msg,
 					  DSI_CTRL_CMD_FIFO_STORE);
 		if (rc) {
 			pr_err("[%s] cmd transfer failed, rc=%d\n",
