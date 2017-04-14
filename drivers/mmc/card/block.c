@@ -41,6 +41,7 @@
 
 #include <linux/mmc/ioctl.h>
 #include <linux/mmc/card.h>
+#include <linux/mmc/core.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/sd.h>
@@ -3702,9 +3703,16 @@ int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 	unsigned int cmd_flags = req ? req->cmd_flags : 0;
 	bool req_is_special = mmc_req_is_special(req);
 
-	if (req && !mq->mqrq_prev->req)
+	if (req && !mq->mqrq_prev->req) {
 		/* claim host only for the first request */
 		mmc_get_card(card);
+
+		if (mmc_card_doing_bkops(host->card)) {
+			ret = mmc_stop_bkops(host->card);
+			if (ret)
+				goto out;
+		}
+	}
 
 	ret = mmc_blk_part_switch(card, md);
 	if (ret) {
@@ -4254,8 +4262,16 @@ static int mmc_blk_probe(struct mmc_card *card)
 			goto out;
 	}
 
-	pm_runtime_set_autosuspend_delay(&card->dev, 3000);
 	pm_runtime_use_autosuspend(&card->dev);
+	pm_runtime_set_autosuspend_delay(&card->dev, MMC_AUTOSUSPEND_DELAY_MS);
+	/*
+	 * If there is a runtime_idle function, it should take care of
+	 * suspending the card
+	 */
+	if (card->host->bus_ops->runtime_idle)
+		pm_runtime_dont_use_autosuspend(&card->dev);
+	else
+		pm_runtime_use_autosuspend(&card->dev);
 
 	/*
 	 * Don't enable runtime PM for SD-combo cards here. Leave that
