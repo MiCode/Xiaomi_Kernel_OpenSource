@@ -86,27 +86,27 @@
  * Table 5.1-1 Smart Card Device Class descriptors
  */
 struct usb_ccid_class_descriptor {
-	unsigned char  bLength;
-	unsigned char  bDescriptorType;
-	unsigned short bcdCCID;
-	unsigned char  bMaxSlotIndex;
-	unsigned char  bVoltageSupport;
-	unsigned long  dwProtocols;
-	unsigned long  dwDefaultClock;
-	unsigned long  dwMaximumClock;
-	unsigned char  bNumClockSupported;
-	unsigned long  dwDataRate;
-	unsigned long  dwMaxDataRate;
-	unsigned char  bNumDataRatesSupported;
-	unsigned long  dwMaxIFSD;
-	unsigned long  dwSynchProtocols;
-	unsigned long  dwMechanical;
-	unsigned long  dwFeatures;
-	unsigned long  dwMaxCCIDMessageLength;
-	unsigned char  bClassGetResponse;
-	unsigned char  bClassEnvelope;
-	unsigned short wLcdLayout;
-	unsigned char  bPINSupport;
-	unsigned char  bMaxCCIDBusySlots;
+	__u8  bLength;
+	__u8  bDescriptorType;
+	__u16 bcdCCID;
+	__u8  bMaxSlotIndex;
+	__u8  bVoltageSupport;
+	__u32  dwProtocols;
+	__u32  dwDefaultClock;
+	__u32  dwMaximumClock;
+	__u8  bNumClockSupported;
+	__u32  dwDataRate;
+	__u32  dwMaxDataRate;
+	__u8  bNumDataRatesSupported;
+	__u32  dwMaxIFSD;
+	__u32  dwSynchProtocols;
+	__u32  dwMechanical;
+	__u32  dwFeatures;
+	__u32  dwMaxCCIDMessageLength;
+	__u8  bClassGetResponse;
+	__u8  bClassEnvelope;
+	__u16 wLcdLayout;
+	__u8  bPINSupport;
+	__u8  bMaxCCIDBusySlots;
 } __packed;
 #endif
