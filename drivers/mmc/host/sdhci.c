@@ -3556,6 +3556,14 @@ static void sdhci_cmdq_set_block_size(struct mmc_host *mmc)
 	sdhci_set_blk_size_reg(host, 512, 0);
 }
 
+static void sdhci_enhanced_strobe_mask(struct mmc_host *mmc, bool set)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	if (host->ops->enhanced_strobe_mask)
+		host->ops->enhanced_strobe_mask(host, set);
+}
+
 static void sdhci_cmdq_clear_set_dumpregs(struct mmc_host *mmc, bool set)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
@@ -3599,6 +3607,11 @@ static void sdhci_cmdq_set_block_size(struct mmc_host *mmc)
 
 }
 
+static void sdhci_enhanced_strobe_mask(struct mmc_host *mmc, bool set)
+{
+
+}
+
 static void sdhci_cmdq_clear_set_dumpregs(struct mmc_host *mmc, bool set)
 {
 
@@ -3615,6 +3628,7 @@ static const struct cmdq_host_ops sdhci_cmdq_ops = {
 	.dump_vendor_regs = sdhci_cmdq_dump_vendor_regs,
 	.set_block_size = sdhci_cmdq_set_block_size,
 	.clear_set_dumpregs = sdhci_cmdq_clear_set_dumpregs,
+	.enhanced_strobe_mask = sdhci_enhanced_strobe_mask,
 	.post_cqe_halt = sdhci_cmdq_post_cqe_halt,
 };
 
