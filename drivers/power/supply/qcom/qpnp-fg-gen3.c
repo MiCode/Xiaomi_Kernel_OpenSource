@@ -130,6 +130,7 @@
 #define RECHARGE_SOC_THR_v2_WORD	14
 #define RECHARGE_SOC_THR_v2_OFFSET	1
 #define CHG_TERM_CURR_v2_WORD		15
+#define CHG_TERM_BASE_CURR_v2_OFFSET	0
 #define CHG_TERM_CURR_v2_OFFSET		1
 #define EMPTY_VOLT_v2_WORD		15
 #define EMPTY_VOLT_v2_OFFSET		3
@@ -275,6 +276,9 @@ static struct fg_sram_param pmi8998_v2_sram_params[] = {
 		1000000, 122070, 0, fg_encode_current, NULL),
 	PARAM(CHG_TERM_CURR, CHG_TERM_CURR_v2_WORD, CHG_TERM_CURR_v2_OFFSET, 1,
 		100000, 390625, 0, fg_encode_current, NULL),
+	PARAM(CHG_TERM_BASE_CURR, CHG_TERM_CURR_v2_WORD,
+		CHG_TERM_BASE_CURR_v2_OFFSET, 1, 1024, 1000, 0,
+		fg_encode_current, NULL),
 	PARAM(DELTA_MSOC_THR, DELTA_MSOC_THR_v2_WORD, DELTA_MSOC_THR_v2_OFFSET,
 		1, 2048, 100, 0, fg_encode_default, NULL),
 	PARAM(DELTA_BSOC_THR, DELTA_BSOC_THR_v2_WORD, DELTA_BSOC_THR_v2_OFFSET,
@@ -3145,6 +3149,21 @@ static int fg_hw_init(struct fg_chip *chip)
 		return rc;
 	}
 
+	if (!(chip->wa_flags & PMI8998_V1_REV_WA)) {
+		fg_encode(chip->sp, FG_SRAM_CHG_TERM_BASE_CURR,
+			chip->dt.chg_term_base_curr_ma, buf);
+		rc = fg_sram_write(chip,
+				chip->sp[FG_SRAM_CHG_TERM_BASE_CURR].addr_word,
+				chip->sp[FG_SRAM_CHG_TERM_BASE_CURR].addr_byte,
+				buf, chip->sp[FG_SRAM_CHG_TERM_BASE_CURR].len,
+				FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing chg_term_base_curr, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
 	if (chip->dt.vbatt_low_thr_mv > 0) {
 		fg_encode(chip->sp, FG_SRAM_VBATT_LOW,
 			chip->dt.vbatt_low_thr_mv, buf);
@@ -3803,6 +3822,7 @@ static int fg_parse_ki_coefficients(struct fg_chip *chip)
 #define DEFAULT_EMPTY_VOLT_MV		2800
 #define DEFAULT_RECHARGE_VOLT_MV	4250
 #define DEFAULT_CHG_TERM_CURR_MA	100
+#define DEFAULT_CHG_TERM_BASE_CURR_MA	75
 #define DEFAULT_SYS_TERM_CURR_MA	-125
 #define DEFAULT_DELTA_SOC_THR		1
 #define DEFAULT_RECHARGE_SOC_THR	95
@@ -3956,6 +3976,12 @@ static int fg_parse_dt(struct fg_chip *chip)
 		chip->dt.sys_term_curr_ma = DEFAULT_SYS_TERM_CURR_MA;
 	else
 		chip->dt.sys_term_curr_ma = temp;
+
+	rc = of_property_read_u32(node, "qcom,fg-chg-term-base-current", &temp);
+	if (rc < 0)
+		chip->dt.chg_term_base_curr_ma = DEFAULT_CHG_TERM_BASE_CURR_MA;
+	else
+		chip->dt.chg_term_base_curr_ma = temp;
 
 	rc = of_property_read_u32(node, "qcom,fg-delta-soc-thr", &temp);
 	if (rc < 0)
