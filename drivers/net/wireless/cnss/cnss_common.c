@@ -410,3 +410,27 @@ const char *cnss_wlan_get_evicted_data_file(void)
 {
 	return FW_FILES_QCA6174_FW_3_0.evicted_data;
 }
+
+int cnss_common_register_tsf_captured_handler(struct device *dev,
+					      irq_handler_t handler, void *ctx)
+{
+	struct cnss_dev_platform_ops *pf_ops = cnss_get_platform_ops(dev);
+
+	if (pf_ops && pf_ops->register_tsf_captured_handler)
+		return pf_ops->register_tsf_captured_handler(handler, ctx);
+	else
+		return -EINVAL;
+}
+EXPORT_SYMBOL(cnss_common_register_tsf_captured_handler);
+
+int cnss_common_unregister_tsf_captured_handler(struct device *dev,
+						void *ctx)
+{
+	struct cnss_dev_platform_ops *pf_ops = cnss_get_platform_ops(dev);
+
+	if (pf_ops && pf_ops->unregister_tsf_captured_handler)
+		return pf_ops->unregister_tsf_captured_handler(ctx);
+	else
+		return -EINVAL;
+}
+EXPORT_SYMBOL(cnss_common_unregister_tsf_captured_handler);
