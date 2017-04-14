@@ -3366,7 +3366,6 @@ static int arm_smmu_init_bus_scaling(struct arm_smmu_power_resources *pwr)
 	pwr->bus_client = msm_bus_scale_register_client(pwr->bus_dt_data);
 	if (!pwr->bus_client) {
 		dev_err(dev, "Bus client registration failed\n");
-		msm_bus_cl_clear_pdata(pwr->bus_dt_data);
 		return -EINVAL;
 	}
 
@@ -3407,12 +3406,11 @@ static struct arm_smmu_power_resources *arm_smmu_init_power_resources(
 }
 
 /*
- * Bus APIs are not devm-safe.
+ * Bus APIs are devm-safe.
  */
 static void arm_smmu_exit_power_resources(struct arm_smmu_power_resources *pwr)
 {
 	msm_bus_scale_unregister_client(pwr->bus_client);
-	msm_bus_cl_clear_pdata(pwr->bus_dt_data);
 }
 
 static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
