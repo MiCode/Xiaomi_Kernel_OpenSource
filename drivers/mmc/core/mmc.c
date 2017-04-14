@@ -1588,8 +1588,7 @@ static int mmc_hs200_tuning(struct mmc_card *card)
 	 */
 	if (card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400 &&
 	    host->ios.bus_width == MMC_BUS_WIDTH_8)
-		if (host->ops->prepare_hs400_tuning)
-			host->ops->prepare_hs400_tuning(host, &host->ios);
+		mmc_set_timing(host, MMC_TIMING_MMC_HS400);
 
 	return mmc_execute_tuning(card);
 }
