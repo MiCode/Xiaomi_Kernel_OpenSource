@@ -1366,8 +1366,12 @@ int mmc_cmdq_halt(struct mmc_host *host, bool halt)
 	int err = 0;
 
 	if ((halt && mmc_host_halt(host)) ||
-	    (!halt && !mmc_host_halt(host)))
-		return -EINVAL;
+			(!halt && !mmc_host_halt(host))) {
+		pr_debug("%s: %s: CQE is already %s\n", mmc_hostname(host),
+				__func__, halt ? "halted" : "un-halted");
+		return 0;
+	}
+
 	mmc_host_clk_hold(host);
 	if (host->cmdq_ops->halt) {
 		err = host->cmdq_ops->halt(host, halt);
