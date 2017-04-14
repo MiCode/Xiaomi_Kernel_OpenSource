@@ -685,7 +685,6 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 			mrq->data->error = err;
 		}
 
-		tag = 0;
 		/*
 		 * CQE detected a response error from device
 		 * In most cases, this would require a reset.
