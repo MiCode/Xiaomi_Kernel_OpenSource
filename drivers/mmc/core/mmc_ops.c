@@ -513,6 +513,8 @@ int __mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 
 	if (index == EXT_CSD_SANITIZE_START)
 		cmd.sanitize_busy = true;
+	else if (index == EXT_CSD_BKOPS_START)
+		cmd.bkops_busy = true;
 
 	err = mmc_wait_for_cmd(host, &cmd, MMC_CMD_RETRIES);
 	if (err)
