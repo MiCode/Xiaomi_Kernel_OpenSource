@@ -514,6 +514,12 @@ struct sdhci_host {
  * phase.
  */
 #define SDHCI_QUIRK2_NON_STANDARD_TUNING (1 << 28)
+/*
+ * Some controllers may use PIO mode to workaround HW issues in ADMA for
+ * eMMC tuning commands.
+ */
+#define SDHCI_QUIRK2_USE_PIO_FOR_EMMC_TUNING (1 << 23)
+
 
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
