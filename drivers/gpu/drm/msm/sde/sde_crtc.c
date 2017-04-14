@@ -2652,7 +2652,7 @@ static int _sde_crtc_init_debugfs(struct drm_crtc *crtc)
 		return -EINVAL;
 
 	sde_crtc->debugfs_root = debugfs_create_dir(sde_crtc->name,
-			sde_debugfs_get_root(sde_kms));
+			crtc->dev->primary->debugfs_root);
 	if (!sde_crtc->debugfs_root)
 		return -ENOMEM;
 

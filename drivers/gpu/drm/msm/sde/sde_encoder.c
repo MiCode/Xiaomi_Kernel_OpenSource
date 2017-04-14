@@ -1569,7 +1569,7 @@ static int _sde_encoder_init_debugfs(struct drm_encoder *drm_enc)
 
 	/* create overall sub-directory for the encoder */
 	sde_enc->debugfs_root = debugfs_create_dir(name,
-					sde_debugfs_get_root(sde_kms));
+			drm_enc->dev->primary->debugfs_root);
 	if (!sde_enc->debugfs_root)
 		return -ENOMEM;
 
