@@ -3491,7 +3491,7 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 		BUG_ON(!test_and_clear_bit(cmdq_req->tag,
 			 &ctx_info->data_active_reqs));
 
-	mmc_cmdq_post_req(host, mrq, err);
+	mmc_cmdq_post_req(host, cmdq_req->tag, err);
 	if (err) {
 		pr_err("%s: %s: txfr error: %d\n", mmc_hostname(mrq->host),
 		       __func__, err);
