@@ -2397,6 +2397,19 @@ static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 	if (mmc_card_suspended(host->card))
 		goto out;
 
+	if (mmc_card_cmdq(host->card)) {
+		BUG_ON(host->cmdq_ctx.active_reqs);
+
+		err = mmc_cmdq_halt(host, true);
+		if (err) {
+			pr_err("%s: halt: failed: %d\n", __func__, err);
+			goto out;
+		}
+		mmc_host_clk_hold(host);
+		host->cmdq_ops->disable(host, true);
+		mmc_host_clk_release(host);
+	}
+
 	if (mmc_card_doing_bkops(host->card)) {
 		err = mmc_stop_bkops(host->card);
 		if (err)
@@ -2474,6 +2487,11 @@ static int _mmc_resume(struct mmc_host *host)
 			continue;
 		}
 		break;
+	}
+	if (!err && mmc_card_cmdq(host->card)) {
+		err = mmc_cmdq_halt(host, false);
+		if (err)
+			pr_err("%s: un-halt: failed: %d\n", __func__, err);
 	}
 	mmc_card_clr_suspended(host->card);
 
@@ -2560,7 +2578,7 @@ static int mmc_runtime_resume(struct mmc_host *host)
 	trace_mmc_runtime_resume(mmc_hostname(host), err,
 			ktime_to_us(ktime_sub(ktime_get(), start)));
 
-	return 0;
+	return err;
 }
 
 int mmc_can_reset(struct mmc_card *card)
