@@ -138,6 +138,15 @@ static void mmc_set_erase_size(struct mmc_card *card)
 	mmc_init_erase(card);
 }
 
+static const struct mmc_fixup mmc_fixups[] = {
+
+	/* avoid HPI for specific cards */
+	MMC_FIXUP_EXT_CSD_REV("MMC16G", CID_MANFID_KINGSTON, CID_OEMID_ANY,
+		add_quirk, MMC_QUIRK_BROKEN_HPI, MMC_V4_41),
+
+	END_FIXUP
+};
+
 /*
  * Given a 128-bit response, decode to our card CSD structure.
  */
