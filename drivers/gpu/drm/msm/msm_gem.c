@@ -191,17 +191,8 @@ static struct page **get_pages(struct drm_gem_object *obj)
 static void put_pages(struct drm_gem_object *obj)
 {
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
-	int id;
 
 	if (msm_obj->pages) {
-		for (id = 0; id < ARRAY_SIZE(msm_obj->domain); id++) {
-			if (msm_obj->domain[id].sgt) {
-				sg_free_table(msm_obj->domain[id].sgt);
-				kfree(msm_obj->domain[id].sgt);
-				msm_obj->domain[id].sgt = NULL;
-			}
-		}
-
 		if (use_pages(obj))
 			msm_drm_free_buf(obj);
 		else {
@@ -668,10 +659,15 @@ void msm_gem_free_object(struct drm_gem_object *obj)
 			}
 			msm_obj->domain[id].iova = 0;
 		}
+
+		if (msm_obj->domain[id].sgt) {
+			sg_free_table(msm_obj->domain[id].sgt);
+			kfree(msm_obj->domain[id].sgt);
+			msm_obj->domain[id].sgt = NULL;
+		}
 	}
 
 	if (obj->import_attach) {
-		drm_prime_gem_destroy(obj, NULL);
 		if (msm_obj->vaddr)
 			dma_buf_vunmap(obj->import_attach->dmabuf,
 					msm_obj->vaddr);
@@ -683,6 +679,8 @@ void msm_gem_free_object(struct drm_gem_object *obj)
 			drm_free_large(msm_obj->pages);
 			msm_obj->pages = NULL;
 		}
+
+		drm_prime_gem_destroy(obj, msm_obj->import_sgt);
 	} else {
 		if (msm_obj->vaddr)
 			vunmap(msm_obj->vaddr);
@@ -848,6 +846,7 @@ struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 	npages = size / PAGE_SIZE;
 
 	msm_obj = to_msm_bo(obj);
+	msm_obj->import_sgt = sgt;
 	msm_obj->pages = drm_malloc_ab(npages, sizeof(struct page *));
 	if (!msm_obj->pages) {
 		ret = -ENOMEM;
