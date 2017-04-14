@@ -986,6 +986,8 @@ static int cmdq_halt(struct mmc_host *mmc, bool halt)
 		}
 		ret = retries ? 0 : -ETIMEDOUT;
 	} else {
+		if (cq_host->ops->set_block_size)
+			cq_host->ops->set_block_size(mmc);
 		if (cq_host->ops->set_data_timeout)
 			cq_host->ops->set_data_timeout(mmc, 0xf);
 		if (cq_host->ops->clear_set_irqs)
