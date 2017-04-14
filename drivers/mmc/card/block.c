@@ -3010,10 +3010,12 @@ static int mmc_add_disk(struct mmc_blk_data *md)
 	ret = device_create_file(disk_to_dev(md->disk),
 				 &md->num_wr_reqs_to_start_packing);
 	if (ret)
-		goto power_ro_lock_fail;
+		goto num_wr_reqs_to_start_packing_fail;
 
 	return ret;
 
+num_wr_reqs_to_start_packing_fail:
+	device_remove_file(disk_to_dev(md->disk), &md->power_ro_lock);
 power_ro_lock_fail:
 #ifdef CONFIG_MMC_SIMULATE_MAX_SPEED
 	device_remove_file(disk_to_dev(md->disk), &dev_attr_cache_size);
