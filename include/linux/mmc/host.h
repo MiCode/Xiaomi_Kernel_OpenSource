@@ -199,7 +199,6 @@ struct mmc_host_ops {
 
 	int	(*notify_load)(struct mmc_host *, enum mmc_load);
 	void	(*notify_halt)(struct mmc_host *mmc, bool halt);
-	void	(*detect)(struct mmc_host *host, bool detected);
 	void	(*force_err_irq)(struct mmc_host *host, u64 errmask);
 };
 
@@ -309,7 +308,6 @@ enum dev_state {
 	DEV_SUSPENDING = 1,
 	DEV_SUSPENDED,
 	DEV_RESUMED,
-	DEV_UNKNOWN,	/* Device is in an unknown state */
 };
 
 /**

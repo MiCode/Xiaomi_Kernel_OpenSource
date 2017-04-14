@@ -3092,19 +3092,6 @@ static void sdhci_msm_clear_set_dumpregs(struct sdhci_host *host, bool set)
 	}
 }
 
-static void sdhci_msm_detect(struct sdhci_host *host, bool detected)
-{
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_msm_host *msm_host = pltfm_host->priv;
-	struct mmc_host *mmc = msm_host->mmc;
-	struct mmc_card *card = mmc->card;
-
-	if (detected && mmc_card_sdio(card))
-		mmc->pm_caps |= MMC_PM_KEEP_POWER;
-	else
-		mmc->pm_caps &= ~MMC_PM_KEEP_POWER;
-}
-
 void sdhci_msm_reset_workaround(struct sdhci_host *host, u32 enable)
 {
 	u32 vendor_func2;
@@ -3628,7 +3615,6 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.reset = sdhci_reset,
 	.clear_set_dumpregs = sdhci_msm_clear_set_dumpregs,
 	.enhanced_strobe_mask = sdhci_msm_enhanced_strobe_mask,
-	.detect = sdhci_msm_detect,
 	.reset_workaround = sdhci_msm_reset_workaround,
 	.init = sdhci_msm_init,
 	.pre_req = sdhci_msm_pre_req,
