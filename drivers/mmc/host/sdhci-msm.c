@@ -116,6 +116,7 @@
 #define CORE_HC_SELECT_IN_EN	(1 << 18)
 #define CORE_HC_SELECT_IN_HS400	(6 << 19)
 #define CORE_HC_SELECT_IN_MASK	(7 << 19)
+#define CORE_VENDOR_SPEC_POR_VAL	0xA1C
 
 #define CORE_VENDOR_SPEC_ADMA_ERR_ADDR0	0x114
 #define CORE_VENDOR_SPEC_ADMA_ERR_ADDR1	0x118
@@ -2834,7 +2835,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	struct resource *core_memres = NULL;
 	int ret = 0, dead = 0;
 	u16 host_version;
-	u32 pwr, irq_status, irq_ctl;
+	u32 irq_status, irq_ctl;
 
 	pr_debug("%s: Enter %s\n", dev_name(&pdev->dev), __func__);
 	msm_host = devm_kzalloc(&pdev->dev, sizeof(struct sdhci_msm_host),
@@ -2975,25 +2976,12 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		goto vreg_deinit;
 	}
 
-	/* Unset HC_MODE_EN bit in HC_MODE register */
-	writel_relaxed(0, (msm_host->core_mem + CORE_HC_MODE));
-
-	/* Set SW_RST bit in POWER register (Offset 0x0) */
-	writel_relaxed(readl_relaxed(msm_host->core_mem + CORE_POWER) |
-			CORE_SW_RST, msm_host->core_mem + CORE_POWER);
 	/*
-	 * SW reset can take upto 10HCLK + 15MCLK cycles.
-	 * Calculating based on min clk rates (hclk = 27MHz,
-	 * mclk = 400KHz) it comes to ~40us. Let's poll for
-	 * max. 1ms for reset completion.
+	 * Reset the vendor spec register to power on reset state.
 	 */
-	ret = readl_poll_timeout(msm_host->core_mem + CORE_POWER,
-			pwr, !(pwr & CORE_SW_RST), 10, 1000);
+	writel_relaxed(CORE_VENDOR_SPEC_POR_VAL,
+			host->ioaddr + CORE_VENDOR_SPEC);
 
-	if (ret) {
-		dev_err(&pdev->dev, "reset failed (%d)\n", ret);
-		goto vreg_deinit;
-	}
 	/* Set HC_MODE_EN bit in HC_MODE register */
 	writel_relaxed(HC_MODE_EN, (msm_host->core_mem + CORE_HC_MODE));
 
