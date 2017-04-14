@@ -3187,6 +3187,7 @@ static int mmc_blk_cmdq_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 	struct mmc_queue_req *active_mqrq;
 	struct mmc_card *card = mq->card;
 	struct mmc_host *host = card->host;
+	struct mmc_cmdq_context_info *ctx = &host->cmdq_ctx;
 	struct mmc_cmdq_req *mc_rq;
 	int ret = 0;
 
@@ -3211,6 +3212,20 @@ static int mmc_blk_cmdq_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 		    && (rq_data_dir(req) == READ))
 			host->cmdq_ctx.active_small_sector_read_reqs++;
 	}
+	/*
+	 * When in SVS2 on low load scenario and there are lots of requests
+	 * queued for CMDQ we need to wait till the queue is empty to scale
+	 * back up to Nominal even if there is a sudden increase in load.
+	 * This impacts performance where lots of IO get executed in SVS2
+	 * frequency since the queue is full. As SVS2 is a low load use case
+	 * we can serialize the requests and not queue them in parallel
+	 * without impacting other use cases. This makes sure the queue gets
+	 * empty faster and we will be able to scale up to Nominal frequency
+	 * when needed.
+	 */
+	if (!ret && (host->clk_scaling.state == MMC_LOAD_LOW))
+		wait_event_interruptible(ctx->queue_empty_wq,
+					(!ctx->active_reqs));
 
 	return ret;
 }
