@@ -3200,8 +3200,10 @@ out:
  */
 void mmc_disable_clk_scaling(struct mmc_host *host)
 {
-	cancel_delayed_work_sync(&host->clk_scaling.work);
-	host->clk_scaling.enable = false;
+	if (host->clk_scaling.initialized) {
+		cancel_delayed_work_sync(&host->clk_scaling.work);
+		host->clk_scaling.enable = false;
+	}
 }
 EXPORT_SYMBOL_GPL(mmc_disable_clk_scaling);
 
