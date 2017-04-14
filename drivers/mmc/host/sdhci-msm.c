@@ -3215,7 +3215,7 @@ static void sdhci_msm_pm_qos_cpu_unvote_work(struct work_struct *work)
 	pm_qos_update_request(&group->req, group->latency);
 }
 
-void sdhci_msm_pm_qos_cpu_unvote(struct sdhci_host *host, int cpu, bool async)
+bool sdhci_msm_pm_qos_cpu_unvote(struct sdhci_host *host, int cpu, bool async)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
@@ -3223,16 +3223,17 @@ void sdhci_msm_pm_qos_cpu_unvote(struct sdhci_host *host, int cpu, bool async)
 
 	if (!msm_host->pm_qos_group_enable || group < 0 ||
 		atomic_dec_return(&msm_host->pm_qos[group].counter))
-		return;
+		return false;
 
 	if (async) {
 		schedule_work(&msm_host->pm_qos[group].unvote_work);
-		return;
+		return true;
 	}
 
 	msm_host->pm_qos[group].latency = PM_QOS_DEFAULT_VALUE;
 	pm_qos_update_request(&msm_host->pm_qos[group].req,
 				msm_host->pm_qos[group].latency);
+	return true;
 }
 
 void sdhci_msm_pm_qos_cpu_init(struct sdhci_host *host,
@@ -3270,7 +3271,63 @@ void sdhci_msm_pm_qos_cpu_init(struct sdhci_host *host,
 			group->latency,
 			&latency[i].latency[SDHCI_PERFORMANCE_MODE]);
 	}
+	msm_host->pm_qos_prev_cpu = -1;
 	msm_host->pm_qos_group_enable = true;
+}
+
+static void sdhci_msm_pre_req(struct sdhci_host *host,
+		struct mmc_request *mmc_req)
+{
+	int cpu;
+	int group;
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	int prev_group = sdhci_msm_get_cpu_group(msm_host,
+			msm_host->pm_qos_prev_cpu);
+
+	sdhci_msm_pm_qos_irq_vote(host);
+
+	cpu = get_cpu();
+	put_cpu();
+	group = sdhci_msm_get_cpu_group(msm_host, cpu);
+	if (group < 0)
+		return;
+
+	if (group != prev_group && prev_group >= 0) {
+		sdhci_msm_pm_qos_cpu_unvote(host,
+				msm_host->pm_qos_prev_cpu, false);
+		prev_group = -1; /* make sure to vote for new group */
+	}
+
+	if (prev_group < 0) {
+		sdhci_msm_pm_qos_cpu_vote(host,
+				msm_host->pdata->pm_qos_data.latency, cpu);
+		msm_host->pm_qos_prev_cpu = cpu;
+	}
+}
+
+static void sdhci_msm_post_req(struct sdhci_host *host,
+				struct mmc_request *mmc_req)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
+	sdhci_msm_pm_qos_irq_unvote(host, false);
+
+	if (sdhci_msm_pm_qos_cpu_unvote(host, msm_host->pm_qos_prev_cpu, false))
+			msm_host->pm_qos_prev_cpu = -1;
+}
+
+static void sdhci_msm_init(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
+	sdhci_msm_pm_qos_irq_init(host);
+
+	if (msm_host->pdata->pm_qos_data.legacy_valid)
+		sdhci_msm_pm_qos_cpu_init(host,
+				msm_host->pdata->pm_qos_data.latency);
 }
 
 static struct sdhci_ops sdhci_msm_ops = {
@@ -3292,6 +3349,9 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.enhanced_strobe_mask = sdhci_msm_enhanced_strobe_mask,
 	.detect = sdhci_msm_detect,
 	.reset_workaround = sdhci_msm_reset_workaround,
+	.init = sdhci_msm_init,
+	.pre_req = sdhci_msm_pre_req,
+	.post_req = sdhci_msm_post_req,
 };
 
 static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
