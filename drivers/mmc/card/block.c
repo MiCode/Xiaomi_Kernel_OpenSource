@@ -2028,64 +2028,6 @@ void mmc_blk_init_packed_statistics(struct mmc_card *card)
 }
 EXPORT_SYMBOL(mmc_blk_init_packed_statistics);
 
-void print_mmc_packing_stats(struct mmc_card *card)
-{
-	int i;
-	int max_num_of_packed_reqs = 0;
-
-	if ((!card) || (!card->wr_pack_stats.packing_events))
-		return;
-
-	max_num_of_packed_reqs = card->ext_csd.max_packed_writes;
-
-	spin_lock(&card->wr_pack_stats.lock);
-
-	pr_info("%s: write packing statistics:\n",
-		mmc_hostname(card->host));
-
-	for (i = 1 ; i <= max_num_of_packed_reqs ; ++i) {
-		if (card->wr_pack_stats.packing_events[i] != 0)
-			pr_info("%s: Packed %d reqs - %d times\n",
-				mmc_hostname(card->host), i,
-				card->wr_pack_stats.packing_events[i]);
-	}
-
-	pr_info("%s: stopped packing due to the following reasons:\n",
-		mmc_hostname(card->host));
-
-	if (card->wr_pack_stats.pack_stop_reason[EXCEEDS_SEGMENTS])
-		pr_info("%s: %d times: exceedmax num of segments\n",
-			mmc_hostname(card->host),
-			card->wr_pack_stats.pack_stop_reason[EXCEEDS_SEGMENTS]);
-	if (card->wr_pack_stats.pack_stop_reason[EXCEEDS_SECTORS])
-		pr_info("%s: %d times: exceeding the max num of sectors\n",
-			mmc_hostname(card->host),
-			card->wr_pack_stats.pack_stop_reason[EXCEEDS_SECTORS]);
-	if (card->wr_pack_stats.pack_stop_reason[WRONG_DATA_DIR])
-		pr_info("%s: %d times: wrong data direction\n",
-			mmc_hostname(card->host),
-			card->wr_pack_stats.pack_stop_reason[WRONG_DATA_DIR]);
-	if (card->wr_pack_stats.pack_stop_reason[FLUSH_OR_DISCARD])
-		pr_info("%s: %d times: flush or discard\n",
-			mmc_hostname(card->host),
-			card->wr_pack_stats.pack_stop_reason[FLUSH_OR_DISCARD]);
-	if (card->wr_pack_stats.pack_stop_reason[EMPTY_QUEUE])
-		pr_info("%s: %d times: empty queue\n",
-			mmc_hostname(card->host),
-			card->wr_pack_stats.pack_stop_reason[EMPTY_QUEUE]);
-	if (card->wr_pack_stats.pack_stop_reason[REL_WRITE])
-		pr_info("%s: %d times: rel write\n",
-			mmc_hostname(card->host),
-			card->wr_pack_stats.pack_stop_reason[REL_WRITE]);
-	if (card->wr_pack_stats.pack_stop_reason[THRESHOLD])
-		pr_info("%s: %d times: Threshold\n",
-			mmc_hostname(card->host),
-			card->wr_pack_stats.pack_stop_reason[THRESHOLD]);
-
-	spin_unlock(&card->wr_pack_stats.lock);
-}
-EXPORT_SYMBOL(print_mmc_packing_stats);
-
 static u8 mmc_blk_prep_packed_list(struct mmc_queue *mq, struct request *req)
 {
 	struct request_queue *q = mq->queue;
