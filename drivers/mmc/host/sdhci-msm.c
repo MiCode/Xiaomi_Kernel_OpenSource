@@ -1717,6 +1717,9 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 
 	sdhci_msm_pm_qos_parse(dev, pdata);
 
+	if (of_get_property(np, "qcom,core_3_0v_support", NULL))
+		pdata->core_3_0v_support = true;
+
 	return pdata;
 out:
 	return NULL;
@@ -3642,6 +3645,14 @@ static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
 	if ((major == 1) && ((minor == 0x42) || (minor == 0x46) ||
 				(minor == 0x49)))
 		msm_host->use_14lpp_dll = true;
+
+	/* Fake 3.0V support for SDIO devices which requires such voltage */
+	if (msm_host->pdata->core_3_0v_support) {
+		caps |= CORE_3_0V_SUPPORT;
+			writel_relaxed(
+			(readl_relaxed(host->ioaddr + SDHCI_CAPABILITIES) |
+			caps), host->ioaddr + CORE_VENDOR_SPEC_CAPABILITIES0);
+	}
 
 	if ((major == 1) && (minor >= 0x49))
 		msm_host->rclk_delay_fix = true;
