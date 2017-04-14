@@ -41,6 +41,8 @@ const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata none",
 	"Extradata MB Quantization",
 	"Extradata Interlace Video",
+	"Reserved",
+	"Reserved",
 	"Extradata timestamp",
 	"Extradata S3D Frame Packing",
 	"Extradata Frame Rate",
