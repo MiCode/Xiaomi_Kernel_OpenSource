@@ -3614,6 +3614,19 @@ static void sdhci_msm_init(struct sdhci_host *host)
 				msm_host->pdata->pm_qos_data.latency);
 }
 
+static unsigned int sdhci_msm_get_current_limit(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	struct sdhci_msm_slot_reg_data *curr_slot = msm_host->pdata->vreg_data;
+	u32 max_curr = 0;
+
+	if (curr_slot && curr_slot->vdd_data)
+		max_curr = curr_slot->vdd_data->hpm_uA;
+
+	return max_curr;
+}
+
 static struct sdhci_ops sdhci_msm_ops = {
 	.set_uhs_signaling = sdhci_msm_set_uhs_signaling,
 	.check_power_status = sdhci_msm_check_power_status,
@@ -3635,6 +3648,7 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.init = sdhci_msm_init,
 	.pre_req = sdhci_msm_pre_req,
 	.post_req = sdhci_msm_post_req,
+	.get_current_limit = sdhci_msm_get_current_limit,
 };
 
 static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
