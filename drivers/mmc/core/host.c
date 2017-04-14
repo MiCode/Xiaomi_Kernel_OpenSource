@@ -815,9 +815,9 @@ show_perf(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct mmc_host *host = cls_dev_to_mmc_host(dev);
 	int64_t rtime_drv, wtime_drv;
-	unsigned long rbytes_drv, wbytes_drv;
+	unsigned long rbytes_drv, wbytes_drv, flags;
 
-	spin_lock(&host->lock);
+	spin_lock_irqsave(&host->lock, flags);
 
 	rbytes_drv = host->perf.rbytes_drv;
 	wbytes_drv = host->perf.wbytes_drv;
@@ -825,7 +825,7 @@ show_perf(struct device *dev, struct device_attribute *attr, char *buf)
 	rtime_drv = ktime_to_us(host->perf.rtime_drv);
 	wtime_drv = ktime_to_us(host->perf.wtime_drv);
 
-	spin_unlock(&host->lock);
+	spin_unlock_irqrestore(&host->lock, flags);
 
 	return snprintf(buf, PAGE_SIZE, "Write performance at driver Level:"
 					"%lu bytes in %lld microseconds\n"
@@ -841,16 +841,17 @@ set_perf(struct device *dev, struct device_attribute *attr,
 {
 	struct mmc_host *host = cls_dev_to_mmc_host(dev);
 	int64_t value;
+	unsigned long flags;
 
 	sscanf(buf, "%lld", &value);
-	spin_lock(&host->lock);
+	spin_lock_irqsave(&host->lock, flags);
 	if (!value) {
 		memset(&host->perf, 0, sizeof(host->perf));
 		host->perf_enable = false;
 	} else {
 		host->perf_enable = true;
 	}
-	spin_unlock(&host->lock);
+	spin_unlock_irqrestore(&host->lock, flags);
 
 	return count;
 }
