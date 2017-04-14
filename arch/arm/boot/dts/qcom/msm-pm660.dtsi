@@ -26,6 +26,11 @@
 			qcom,fab-id-valid;
 		};
 
+		pm660_misc: qcom,misc@900 {
+			compatible = "qcom,qpnp-misc";
+			reg = <0x900 0x100>;
+		};
+
 		qcom,power-on@800 {
 			compatible = "qcom,qpnp-power-on";
 			reg = <0x800 0x100>;
@@ -522,8 +527,10 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			qcom,pmic-revid = <&pm660_revid>;
-			io-channels = <&pm660_rradc 0>;
-			io-channel-names = "rradc_batt_id";
+			io-channels = <&pm660_rradc 0>,
+				      <&pm660_rradc 7>;
+			io-channel-names = "rradc_batt_id",
+					   "rradc_die_temp";
 			qcom,rradc-base = <0x4500>;
 			qcom,fg-esr-timer-awake = <96>;
 			qcom,fg-esr-timer-asleep = <256>;
@@ -605,10 +612,12 @@
 		pm660_haptics: qcom,haptic@c000 {
 			compatible = "qcom,qpnp-haptic";
 			reg = <0xc000 0x100>;
-			interrupts = <0x1 0xc0 0x0 IRQ_TYPE_NONE>,
-				     <0x1 0xc0 0x1 IRQ_TYPE_NONE>;
+			interrupts = <0x1 0xc0 0x0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x1 0xc0 0x1 IRQ_TYPE_EDGE_BOTH>;
 			interrupt-names = "sc-irq", "play-irq";
 			qcom,pmic-revid = <&pm660_revid>;
+			qcom,pmic-misc = <&pm660_misc>;
+			qcom,misc-clk-trim-error-reg = <0xf3>;
 			qcom,actuator-type = "lra";
 			qcom,play-mode = "direct";
 			qcom,vmax-mv = <3200>;
@@ -619,13 +628,10 @@
 			qcom,sc-deb-cycles = <8>;
 			qcom,en-brake;
 			qcom,brake-pattern = [03 03 00 00];
-			qcom,use-play-irq;
-			qcom,use-sc-irq;
 			qcom,lra-high-z = "opt0";
 			qcom,lra-auto-res-mode = "qwd";
 			qcom,lra-calibrate-at-eop = <0>;
 			qcom,correct-lra-drive-freq;
-			qcom,misc-trim-error-rc19p2-clk-reg-present;
 		};
 	};
 };

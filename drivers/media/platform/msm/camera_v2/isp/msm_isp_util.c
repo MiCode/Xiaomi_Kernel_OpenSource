@@ -2070,6 +2070,7 @@ static void msm_isp_enqueue_tasklet_cmd(struct vfe_device *vfe_dev,
 	if (queue_cmd->cmd_used) {
 		pr_err("%s: Tasklet queue overflow: %d\n",
 			__func__, vfe_dev->pdev->id);
+		spin_unlock_irqrestore(&tasklet->tasklet_lock, flags);
 		return;
 	} else {
 		atomic_add(1, &vfe_dev->irq_cnt);
