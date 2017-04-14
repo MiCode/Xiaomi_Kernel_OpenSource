@@ -573,6 +573,14 @@ static void mmc_cmdq_softirq_done(struct request *rq)
 	mq->cmdq_complete_fn(rq);
 }
 
+static void mmc_cmdq_error_work(struct work_struct *work)
+{
+	struct mmc_queue *mq = container_of(work, struct mmc_queue,
+					    cmdq_err_work);
+
+	mq->cmdq_error_fn(mq);
+}
+
 int mmc_cmdq_init(struct mmc_queue *mq, struct mmc_card *card)
 {
 	int i, ret = 0;
@@ -613,7 +621,10 @@ int mmc_cmdq_init(struct mmc_queue *mq, struct mmc_card *card)
 	}
 
 	blk_queue_softirq_done(mq->queue, mmc_cmdq_softirq_done);
+	INIT_WORK(&mq->cmdq_err_work, mmc_cmdq_error_work);
+
 	card->cmdq_init = true;
+
 	goto out;
 
 free_mqrq_sg:

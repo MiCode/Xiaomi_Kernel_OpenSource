@@ -1285,6 +1285,19 @@ static void mmc_post_req(struct mmc_host *host, struct mmc_request *mrq,
 }
 
 /**
+ *	mmc_cmdq_discard_card_queue - discard the task[s] in the device
+ *	@host: host instance
+ *	@tasks: mask of tasks to be knocked off
+ *		0: remove all queued tasks
+ */
+int mmc_cmdq_discard_queue(struct mmc_host *host, u32 tasks)
+{
+	return mmc_discard_queue(host, tasks);
+}
+EXPORT_SYMBOL(mmc_cmdq_discard_queue);
+
+
+/**
  *	mmc_cmdq_post_req - post process of a completed request
  *	@host: host instance
  *	@mrq: the request to be processed

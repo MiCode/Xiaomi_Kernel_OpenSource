@@ -99,6 +99,7 @@ struct mmc_cmdq_host_ops {
 	void (*post_req)(struct mmc_host *host, struct mmc_request *mrq,
 			 int err);
 	int (*halt)(struct mmc_host *host, bool halt);
+	void (*reset)(struct mmc_host *host, bool soft);
 };
 
 struct mmc_host_ops {
@@ -211,6 +212,11 @@ struct mmc_cmdq_req {
 #define DAT_TAG	(1 << 5)
 #define FORCED_PRG	(1 << 6)
 	unsigned int		cmdq_req_flags;
+
+	unsigned int		resp_idx;
+	unsigned int		resp_arg;
+	unsigned int		dev_pend_tasks;
+	bool			resp_err;
 	int			tag; /* used for command queuing */
 	u8			ctx_id;
 };
@@ -581,6 +587,7 @@ struct mmc_host {
 	 * controller.
 	 */
 	void *cmdq_private;
+	struct mmc_request	*err_mrq;
 	unsigned long		private[0] ____cacheline_aligned;
 };
 

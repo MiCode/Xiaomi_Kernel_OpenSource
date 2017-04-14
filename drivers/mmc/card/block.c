@@ -65,6 +65,7 @@ MODULE_ALIAS("mmc:block");
 #define MMC_BLK_TIMEOUT_MS  (30 * 1000)        /* 30 sec timeout */
 #define MMC_SANITIZE_REQ_TIMEOUT 240000
 #define MMC_EXTRACT_INDEX_FROM_ARG(x) ((x & 0x00FF0000) >> 16)
+#define MMC_CMDQ_STOP_TIMEOUT_MS 100
 
 #define mmc_req_rel_wr(req)	((req->cmd_flags & REQ_FUA) && \
 				  (rq_data_dir(req) == WRITE))
@@ -79,6 +80,7 @@ MODULE_ALIAS("mmc:block");
 			stats->pack_stop_reason[reason]++;		\
 	} while (0)
 
+#define MAX_RETRIES 5
 #define PCKD_TRGR_INIT_MEAN_POTEN	17
 #define PCKD_TRGR_POTEN_LOWER_BOUND	5
 #define PCKD_TRGR_URGENT_PENALTY	2
@@ -3004,6 +3006,103 @@ int mmc_blk_cmdq_issue_flush_rq(struct mmc_queue *mq, struct request *req)
 }
 EXPORT_SYMBOL(mmc_blk_cmdq_issue_flush_rq);
 
+static void mmc_blk_cmdq_reset(struct mmc_host *host, bool clear_all)
+{
+	if (!host->cmdq_ops->reset)
+		return;
+
+	if (!test_bit(CMDQ_STATE_HALT, &host->cmdq_ctx.curr_state)) {
+		if (mmc_cmdq_halt(host, true)) {
+			pr_err("%s: halt failed\n", mmc_hostname(host));
+			goto reset;
+		}
+	}
+
+	if (clear_all)
+		mmc_cmdq_discard_queue(host, 0);
+reset:
+	mmc_hw_reset(host);
+	host->cmdq_ops->reset(host, true);
+	clear_bit(CMDQ_STATE_HALT, &host->cmdq_ctx.curr_state);
+}
+
+static void mmc_blk_cmdq_err(struct mmc_queue *mq)
+{
+	int err;
+	int retry = 0;
+	int gen_err;
+	u32 status;
+
+	struct mmc_host *host = mq->card->host;
+	struct mmc_request *mrq = host->err_mrq;
+	struct mmc_card *card = mq->card;
+	struct mmc_cmdq_context_info *ctx_info = &host->cmdq_ctx;
+
+	err = mmc_cmdq_halt(host, true);
+	if (err) {
+		pr_err("halt: failed: %d\n", err);
+		goto reset;
+	}
+
+	/* RED error - Fatal: requires reset */
+	if (mrq->cmdq_req->resp_err) {
+		pr_crit("%s: Response error detected: Device in bad state\n",
+			mmc_hostname(host));
+		blk_end_request_all(mrq->req, -EIO);
+		goto reset;
+	}
+
+	if (mrq->data->error) {
+		blk_end_request_all(mrq->req, mrq->data->error);
+		for (; retry < MAX_RETRIES; retry++) {
+			err = get_card_status(card, &status, 0);
+			if (!err)
+				break;
+		}
+
+		if (err) {
+			pr_err("%s: No response from card !!!\n",
+			       mmc_hostname(host));
+			goto reset;
+		}
+
+		if (R1_CURRENT_STATE(status) == R1_STATE_DATA ||
+		    R1_CURRENT_STATE(status) == R1_STATE_RCV) {
+			err =  send_stop(card, MMC_CMDQ_STOP_TIMEOUT_MS,
+					 mrq->req, &gen_err, &status);
+			if (err) {
+				pr_err("%s: error %d sending stop (%d) command\n",
+					mrq->req->rq_disk->disk_name,
+					err, status);
+				goto reset;
+			}
+		}
+
+		if (mmc_cmdq_discard_queue(host, mrq->req->tag))
+			goto reset;
+		else
+			goto unhalt;
+	}
+
+	/* DCMD commands */
+	if (mrq->cmd->error)
+		blk_end_request_all(mrq->req, mrq->cmd->error);
+
+reset:
+	spin_lock_irq(mq->queue->queue_lock);
+	blk_queue_invalidate_tags(mrq->req->q);
+	spin_unlock_irq(mq->queue->queue_lock);
+	mmc_blk_cmdq_reset(host, true);
+	goto out;
+
+unhalt:
+	mmc_cmdq_halt(host, false);
+
+out:
+	if (test_and_clear_bit(0, &ctx_info->req_starved))
+		blk_run_queue(mrq->req->q);
+}
+
 /* invoked by block layer in softirq context */
 void mmc_blk_cmdq_complete_rq(struct request *rq)
 {
@@ -3020,26 +3119,36 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 	else if (mrq->data && mrq->data->error)
 		err = mrq->data->error;
 
+	/* clear pending request */
+	BUG_ON(!test_and_clear_bit(cmdq_req->tag,
+				   &ctx_info->active_reqs));
+
 	mmc_cmdq_post_req(host, mrq, err);
 	if (err) {
 		pr_err("%s: %s: txfr error: %d\n", mmc_hostname(mrq->host),
 		       __func__, err);
-		set_bit(CMDQ_STATE_ERR, &ctx_info->curr_state);
-		WARN_ON(1);
+		if (test_bit(CMDQ_STATE_ERR, &ctx_info->curr_state)) {
+			pr_err("%s: CQ in error state, ending current req: %d\n",
+				__func__, err);
+			blk_end_request_all(rq, err);
+		} else {
+			set_bit(CMDQ_STATE_ERR, &ctx_info->curr_state);
+			schedule_work(&mq->cmdq_err_work);
+		}
+		goto out;
 	}
 
-	BUG_ON(!test_and_clear_bit(cmdq_req->tag,
-				   &ctx_info->active_reqs));
 	if (cmdq_req->cmdq_req_flags & DCMD) {
 		clear_bit(CMDQ_STATE_DCMD_ACTIVE, &ctx_info->curr_state);
-		blk_end_request_all(rq, 0);
+		blk_end_request_all(rq, err);
 		goto out;
 	}
 
 	blk_end_request(rq, err, cmdq_req->data.bytes_xfered);
 
 out:
-	if (test_and_clear_bit(0, &ctx_info->req_starved))
+	if (!test_bit(CMDQ_STATE_ERR, &ctx_info->curr_state) &&
+			test_and_clear_bit(0, &ctx_info->req_starved))
 		blk_run_queue(mq->queue);
 	mmc_release_host(host);
 	return;
@@ -3509,6 +3618,7 @@ again:
 		md->flags |= MMC_BLK_CMD_QUEUE;
 		md->queue.cmdq_complete_fn = mmc_blk_cmdq_complete_rq;
 		md->queue.cmdq_issue_fn = mmc_blk_cmdq_issue_rq;
+		md->queue.cmdq_error_fn = mmc_blk_cmdq_err;
 	}
 
 	if (mmc_card_mmc(card) && !card->cmdq_init &&
