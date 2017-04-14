@@ -1137,10 +1137,20 @@ static void __diag_fwd_open(struct diagfwd_info *fwd_info)
 	if (!fwd_info->inited)
 		return;
 
-	if (fwd_info->buf_1)
-		atomic_set(&fwd_info->buf_1->in_busy, 0);
-	if (fwd_info->buf_2)
-		atomic_set(&fwd_info->buf_2->in_busy, 0);
+	/*
+	 * Logging mode here is reflecting previous mode
+	 * status and will be updated to new mode later.
+	 *
+	 * Keeping the buffers busy for Memory Device Mode.
+	 */
+
+	if ((driver->logging_mode != DIAG_USB_MODE) ||
+		driver->usb_connected) {
+		if (fwd_info->buf_1)
+			atomic_set(&fwd_info->buf_1->in_busy, 0);
+		if (fwd_info->buf_2)
+			atomic_set(&fwd_info->buf_2->in_busy, 0);
+	}
 
 	if (fwd_info->p_ops && fwd_info->p_ops->open)
 		fwd_info->p_ops->open(fwd_info->ctxt);
