@@ -361,6 +361,8 @@ static int cmdq_enable(struct mmc_host *mmc)
 	if (cq_host->ops->clear_set_dumpregs)
 		cq_host->ops->clear_set_dumpregs(mmc, 1);
 
+	if (cq_host->ops->enhanced_strobe_mask)
+		cq_host->ops->enhanced_strobe_mask(mmc, true);
 out:
 	cmdq_runtime_pm_put(cq_host);
 	return err;
@@ -376,6 +378,9 @@ static void cmdq_disable(struct mmc_host *mmc, bool soft)
 				    cq_host, CQCFG) & ~(CQ_ENABLE),
 			    CQCFG);
 	}
+	if (cq_host->ops->enhanced_strobe_mask)
+		cq_host->ops->enhanced_strobe_mask(mmc, false);
+
 	cmdq_runtime_pm_put(cq_host);
 	cq_host->enabled = false;
 }
