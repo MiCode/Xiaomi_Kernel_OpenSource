@@ -48,7 +48,7 @@ SoCs:
   compatible = "qcom,apqtitanium"
 
 - APQ8998
-  compatible = "qcom,apq8998"
+  compatible = "qcom,apq8098"
 
 - MDM9630
   compatible = "qcom,mdm9630"
@@ -195,9 +195,9 @@ compatible = "qcom,apq8037-cdp"
 compatible = "qcom,apq8037-mtp"
 compatible = "qcom,apqtitanium-cdp"
 compatible = "qcom,apqtitanium-mtp"
-compatible = "qcom,apq8998-cdp"
-compatible = "qcom,apq8998-mtp"
-compatible = "qcom,apq8998-qrd"
+compatible = "qcom,apq8098-cdp"
+compatible = "qcom,apq8098-mtp"
+compatible = "qcom,apq8098-qrd"
 compatible = "qcom,mdm9630-cdp"
 compatible = "qcom,mdm9630-mtp"
 compatible = "qcom,mdm9630-sim"

@@ -89,6 +89,7 @@ struct sde_crtc_frame_event {
  * @frame_pending : Whether or not an update is pending
  * @frame_events  : static allocation of in-flight frame events
  * @frame_event_list : available frame event list
+ * @pending       : Whether any page-flip events are pending signal
  * @spin_lock     : spin lock for frame event, transaction status, etc...
  */
 struct sde_crtc {
@@ -109,7 +110,7 @@ struct sde_crtc {
 
 	/* output fence support */
 	struct sde_fence output_fence;
-
+	atomic_t pending;
 	struct sde_hw_stage_cfg stage_cfg;
 	struct dentry *debugfs_root;
 

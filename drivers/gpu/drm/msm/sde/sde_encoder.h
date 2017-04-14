@@ -72,6 +72,17 @@ void sde_encoder_register_frame_event_callback(struct drm_encoder *encoder,
 		void (*cb)(void *, u32), void *data);
 
 /**
+ * sde_encoder_register_request_flip_callback - provide callback to encoder that
+ * will be called after HW flush is complete to request
+ * a page flip event from CRTC.
+ * @encoder:	encoder pointer
+ * @cb:		callback pointer, provide NULL to deregister
+ * @data:	user data provided to callback
+ */
+void sde_encoder_register_request_flip_callback(struct drm_encoder *encoder,
+		void (*cb)(void *), void *data);
+
+/**
  * sde_encoder_prepare_for_kickoff - schedule double buffer flip of the ctl
  *	path (i.e. ctl flush and start) at next appropriate time.
  *	Immediately: if no previous commit is outstanding.
