@@ -1592,8 +1592,10 @@ static int mmc_select_cmdq(struct mmc_card *card)
 		goto out;
 
 	mmc_card_set_cmdq(card);
+	mmc_host_clk_hold(card->host);
 	ret = host->cmdq_ops->enable(card->host);
 	if (ret) {
+		mmc_host_clk_release(card->host);
 		pr_err("%s: failed (%d) enabling CMDQ on host\n",
 			mmc_hostname(host), ret);
 		mmc_card_clr_cmdq(card);
@@ -1603,6 +1605,7 @@ static int mmc_select_cmdq(struct mmc_card *card)
 			goto out;
 	}
 
+	mmc_host_clk_release(card->host);
 	pr_info("%s: CMDQ enabled on card\n", mmc_hostname(host));
 out:
 	return ret;
