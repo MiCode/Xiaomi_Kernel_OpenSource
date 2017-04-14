@@ -75,9 +75,11 @@ struct mmc_queue {
 	int			num_wr_reqs_to_start_packing;
 	bool			no_pack_for_random;
 	struct work_struct	cmdq_err_work;
+	struct completion	cmdq_shutdown_complete;
 
 	int (*err_check_fn)(struct mmc_card *, struct mmc_async_req *);
 	void (*packed_test_fn)(struct request_queue *, struct mmc_queue_req *);
+	void (*cmdq_shutdown)(struct mmc_queue *);
 #ifdef CONFIG_MMC_SIMULATE_MAX_SPEED
 	atomic_t max_write_speed;
 	atomic_t max_read_speed;

@@ -632,6 +632,7 @@ int mmc_cmdq_init(struct mmc_queue *mq, struct mmc_card *card)
 
 	blk_queue_softirq_done(mq->queue, mmc_cmdq_softirq_done);
 	INIT_WORK(&mq->cmdq_err_work, mmc_cmdq_error_work);
+	init_completion(&mq->cmdq_shutdown_complete);
 
 	blk_queue_rq_timed_out(mq->queue, mmc_cmdq_rq_timed_out);
 	blk_queue_rq_timeout(mq->queue, 120 * HZ);
@@ -663,6 +664,12 @@ void mmc_cmdq_clean(struct mmc_queue *mq, struct mmc_card *card)
 	mq->mqrq_cmdq = NULL;
 }
 
+static void mmc_wait_for_pending_reqs(struct mmc_queue *mq)
+{
+	wait_for_completion(&mq->cmdq_shutdown_complete);
+	mq->cmdq_shutdown(mq);
+}
+
 /**
  * mmc_queue_suspend - suspend a MMC request queue
  * @mq: MMC queue to suspend
@@ -677,6 +684,27 @@ int mmc_queue_suspend(struct mmc_queue *mq, int wait)
 	struct request_queue *q = mq->queue;
 	unsigned long flags;
 	int rc = 0;
+	struct mmc_card *card = mq->card;
+
+	if (card->cmdq_init) {
+		struct mmc_host *host = card->host;
+		unsigned long flags;
+
+		spin_lock_irqsave(q->queue_lock, flags);
+		blk_stop_queue(q);
+		spin_unlock_irqrestore(q->queue_lock, flags);
+
+		if (host->cmdq_ctx.active_reqs) {
+			if (!wait)
+				rc = -EBUSY;
+			else
+				mmc_wait_for_pending_reqs(mq);
+		} else {
+			mq->cmdq_shutdown(mq);
+		}
+
+		goto out;
+	}
 
 	if (!(test_and_set_bit(MMC_QUEUE_SUSPENDED, &mq->flags))) {
 		spin_lock_irqsave(q->queue_lock, flags);
@@ -699,6 +727,7 @@ int mmc_queue_suspend(struct mmc_queue *mq, int wait)
 			rc = 0;
 		}
 	}
+out:
 	return rc;
 }
 
