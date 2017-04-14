@@ -34,6 +34,14 @@ Optional Properties:
 				"HS200_1p2v" - indicates that host can support HS200 at 1.2v.
 				"DDR_1p8v" - indicates that host can support DDR mode at 1.8v.
 				"DDR_1p2v" - indicates that host can support DDR mode at 1.2v.
+	- qcom,devfreq,freq-table - specifies supported frequencies for clock scaling.
+				    Clock scaling logic shall toggle between these frequencies based
+				    on card load. In case the defined frequencies are over or below
+				    the supported card frequencies, they will be overridden
+				    during card init. In case this entry is not supplied,
+				    the driver will construct one based on the card
+				    supported max and min frequencies.
+				    The frequencies must be ordered from lowest to highest.
 
 In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltage).
 	- qcom,<supply>-always-on - specifies whether supply should be kept "on" always.
@@ -95,6 +103,8 @@ Example:
 		qcom,vdd-io-lpm-sup;
 		qcom,vdd-io-voltage-level = <1800000 2950000>;
 		qcom,vdd-io-current-level = <6 22000>;
+
+		qcom,devfreq,freq-table = <52000000 200000000>;
 
 		pinctrl-names = "active", "sleep";
 		pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on>;

@@ -32,6 +32,10 @@
 #include "slot-gpio.h"
 #include "pwrseq.h"
 
+#define MMC_DEVFRQ_DEFAULT_UP_THRESHOLD 35
+#define MMC_DEVFRQ_DEFAULT_DOWN_THRESHOLD 5
+#define MMC_DEVFRQ_DEFAULT_POLLING_MSEC 100
+
 static DEFINE_IDA(mmc_host_ida);
 static DEFINE_SPINLOCK(mmc_host_lock);
 
@@ -676,45 +680,27 @@ static ssize_t store_enable(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct mmc_host *host = cls_dev_to_mmc_host(dev);
-	unsigned long value, freq;
-	int retval = -EINVAL;
+	unsigned long value;
 
-	if (!host)
-		goto out;
+	if (!host || kstrtoul(buf, 0, &value))
+		return -EINVAL;
 
 	mmc_claim_host(host);
-	if (!host->card || kstrtoul(buf, 0, &value))
-		goto err;
-
-	if (value && !mmc_can_scale_clk(host)) {
-		host->caps2 |= MMC_CAP2_CLK_SCALE;
-		mmc_init_clk_scaling(host);
-
-		if (!mmc_can_scale_clk(host)) {
-			host->caps2 &= ~MMC_CAP2_CLK_SCALE;
-			goto err;
-		}
-	} else if (!value && mmc_can_scale_clk(host)) {
+	if (!value && host->clk_scaling.enable) {
+		/*turnning off clock scaling*/
+		mmc_exit_clk_scaling(host);
 		host->caps2 &= ~MMC_CAP2_CLK_SCALE;
-		mmc_disable_clk_scaling(host);
-
-		/* Set to max. frequency, since we are disabling */
-		if (host->bus_ops && host->bus_ops->change_bus_speed) {
-			freq = mmc_get_max_frequency(host);
-			if (host->bus_ops->change_bus_speed(host, &freq))
-				goto err;
-		}
-		if (host->ops->notify_load &&
-				host->ops->notify_load(host, MMC_LOAD_HIGH))
-			goto err;
-		host->clk_scaling.state = MMC_LOAD_HIGH;
-		host->clk_scaling.initialized = false;
+	} else if (value) {
+		/* starting clock scaling, will restart in case started */
+		host->caps2 |= MMC_CAP2_CLK_SCALE;
+		if (host->clk_scaling.enable)
+			mmc_exit_clk_scaling(host);
+		mmc_init_clk_scaling(host);
 	}
-	retval = count;
-err:
+
 	mmc_release_host(host);
-out:
-	return retval;
+
+	return count;
 }
 
 static ssize_t show_up_threshold(struct device *dev,
@@ -725,7 +711,7 @@ static ssize_t show_up_threshold(struct device *dev,
 	if (!host)
 		return -EINVAL;
 
-	return snprintf(buf, PAGE_SIZE, "%d\n", host->clk_scaling.up_threshold);
+	return snprintf(buf, PAGE_SIZE, "%d\n", host->clk_scaling.upthreshold);
 }
 
 #define MAX_PERCENTAGE	100
@@ -738,7 +724,7 @@ static ssize_t store_up_threshold(struct device *dev,
 	if (!host || kstrtoul(buf, 0, &value) || (value > MAX_PERCENTAGE))
 		return -EINVAL;
 
-	host->clk_scaling.up_threshold = value;
+	host->clk_scaling.upthreshold = value;
 
 	pr_debug("%s: clkscale_up_thresh set to %lu\n",
 			mmc_hostname(host), value);
@@ -754,7 +740,7 @@ static ssize_t show_down_threshold(struct device *dev,
 		return -EINVAL;
 
 	return snprintf(buf, PAGE_SIZE, "%d\n",
-			host->clk_scaling.down_threshold);
+			host->clk_scaling.downthreshold);
 }
 
 static ssize_t store_down_threshold(struct device *dev,
@@ -766,7 +752,7 @@ static ssize_t store_down_threshold(struct device *dev,
 	if (!host || kstrtoul(buf, 0, &value) || (value > MAX_PERCENTAGE))
 		return -EINVAL;
 
-	host->clk_scaling.down_threshold = value;
+	host->clk_scaling.downthreshold = value;
 
 	pr_debug("%s: clkscale_down_thresh set to %lu\n",
 			mmc_hostname(host), value);
@@ -905,14 +891,15 @@ int mmc_add_host(struct mmc_host *host)
 
 	led_trigger_register_simple(dev_name(&host->class_dev), &host->led);
 
+	host->clk_scaling.upthreshold = MMC_DEVFRQ_DEFAULT_UP_THRESHOLD;
+	host->clk_scaling.downthreshold = MMC_DEVFRQ_DEFAULT_DOWN_THRESHOLD;
+	host->clk_scaling.polling_delay_ms = MMC_DEVFRQ_DEFAULT_POLLING_MSEC;
+	host->clk_scaling.skip_clk_scale_freq_update = false;
+
 #ifdef CONFIG_DEBUG_FS
 	mmc_add_host_debugfs(host);
 #endif
 	mmc_host_clk_sysfs_init(host);
-
-	host->clk_scaling.up_threshold = 35;
-	host->clk_scaling.down_threshold = 5;
-	host->clk_scaling.polling_delay_ms = 100;
 
 	err = sysfs_create_group(&host->class_dev.kobj, &clk_scaling_attr_grp);
 	if (err)

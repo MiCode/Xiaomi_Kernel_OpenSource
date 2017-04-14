@@ -1401,6 +1401,16 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 		pdata->cpu_dma_latency_us = cpu_dma_latency;
 	else
 		pdata->cpu_dma_latency_us = MSM_MMC_DEFAULT_CPU_DMA_LATENCY;
+
+	if (sdhci_msm_dt_get_array(dev, "qcom,devfreq,freq-table",
+			&msm_host->mmc->clk_scaling.freq_table,
+			&msm_host->mmc->clk_scaling.freq_table_sz, 0))
+		pr_debug("%s: no clock scaling frequencies were supplied\n",
+			dev_name(dev));
+	else if (!msm_host->mmc->clk_scaling.freq_table ||
+			!msm_host->mmc->clk_scaling.freq_table_sz)
+			dev_err(dev, "bad dts clock scaling frequencies\n");
+
 	if (sdhci_msm_dt_get_array(dev, "qcom,clk-rates",
 			&clk_table, &clk_table_len, 0)) {
 		dev_err(dev, "failed parsing supported clock rates\n");

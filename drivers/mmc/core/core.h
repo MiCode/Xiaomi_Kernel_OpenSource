@@ -41,6 +41,8 @@ void mmc_init_erase(struct mmc_card *card);
 
 void mmc_set_chip_select(struct mmc_host *host, int mode);
 void mmc_set_clock(struct mmc_host *host, unsigned int hz);
+int mmc_clk_update_freq(struct mmc_host *host,
+		unsigned long freq, enum mmc_load state);
 void mmc_gate_clock(struct mmc_host *host);
 void mmc_ungate_clock(struct mmc_host *host);
 void mmc_set_ungated(struct mmc_host *host);
@@ -94,8 +96,8 @@ void mmc_init_context_info(struct mmc_host *host);
 
 extern void mmc_disable_clk_scaling(struct mmc_host *host);
 extern bool mmc_can_scale_clk(struct mmc_host *host);
-extern void mmc_init_clk_scaling(struct mmc_host *host);
-extern void mmc_exit_clk_scaling(struct mmc_host *host);
+extern int mmc_init_clk_scaling(struct mmc_host *host);
+extern int mmc_exit_clk_scaling(struct mmc_host *host);
 extern void mmc_reset_clk_scale_stats(struct mmc_host *host);
 extern unsigned long mmc_get_max_frequency(struct mmc_host *host);
 
