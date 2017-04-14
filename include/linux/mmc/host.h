@@ -275,6 +275,7 @@ struct mmc_cmdq_context_info {
 	/* no free tag available */
 	unsigned long	req_starved;
 	wait_queue_head_t	queue_empty_wq;
+	struct request_queue *q;
 };
 
 /**

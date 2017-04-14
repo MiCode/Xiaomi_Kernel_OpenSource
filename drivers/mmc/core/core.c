@@ -32,6 +32,7 @@
 #include <linux/of.h>
 #include <linux/pm.h>
 #include <linux/jiffies.h>
+#include <linux/blkdev.h>
 
 #include <linux/mmc/card.h>
 #include <linux/mmc/host.h>
@@ -1597,8 +1598,11 @@ int mmc_cmdq_halt(struct mmc_host *host, bool halt)
 			host->ops->notify_halt(host, halt);
 		if (!err && halt)
 			mmc_host_set_halt(host);
-		else if (!err && !halt)
+		else if (!err && !halt) {
 			mmc_host_clr_halt(host);
+			if (host->cmdq_ctx.q)
+				blk_run_queue(host->cmdq_ctx.q);
+		}
 	} else {
 		err = -ENOSYS;
 	}
