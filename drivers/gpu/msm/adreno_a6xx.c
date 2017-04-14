@@ -810,7 +810,7 @@ static int a6xx_sptprac_enable(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = &device->gmu;
 
-	if (!kgsl_gmu_isenabled(device))
+	if (!gmu->pdev)
 		return -EINVAL;
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
@@ -837,7 +837,7 @@ static void a6xx_sptprac_disable(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = &device->gmu;
 
-	if (!kgsl_gmu_isenabled(device))
+	if (!gmu->pdev)
 		return;
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
