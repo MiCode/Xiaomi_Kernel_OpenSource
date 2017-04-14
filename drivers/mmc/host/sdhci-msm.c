@@ -2519,6 +2519,7 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 
 	sup_clock = sdhci_msm_get_sup_clk_rate(host, clock);
 	if ((curr_ios.timing == MMC_TIMING_UHS_DDR50) ||
+		(curr_ios.timing == MMC_TIMING_MMC_DDR52) ||
 		(curr_ios.timing == MMC_TIMING_MMC_HS400)) {
 		/*
 		 * The SDHC requires internal clock frequency to be double the
@@ -2643,9 +2644,9 @@ static void sdhci_msm_set_uhs_signaling(struct sdhci_host *host,
 	ctrl_2 = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 	/* Select Bus Speed Mode for host */
 	ctrl_2 &= ~SDHCI_CTRL_UHS_MASK;
-	if (uhs == MMC_TIMING_MMC_HS400)
-		ctrl_2 |= SDHCI_CTRL_UHS_SDR104;
-	else if (uhs == MMC_TIMING_MMC_HS200)
+	if ((uhs == MMC_TIMING_MMC_HS400) ||
+		(uhs == MMC_TIMING_MMC_HS200) ||
+		(uhs == MMC_TIMING_UHS_SDR104))
 		ctrl_2 |= SDHCI_CTRL_UHS_SDR104;
 	else if (uhs == MMC_TIMING_UHS_SDR12)
 		ctrl_2 |= SDHCI_CTRL_UHS_SDR12;
@@ -2653,9 +2654,8 @@ static void sdhci_msm_set_uhs_signaling(struct sdhci_host *host,
 		ctrl_2 |= SDHCI_CTRL_UHS_SDR25;
 	else if (uhs == MMC_TIMING_UHS_SDR50)
 		ctrl_2 |= SDHCI_CTRL_UHS_SDR50;
-	else if (uhs == MMC_TIMING_UHS_SDR104)
-		ctrl_2 |= SDHCI_CTRL_UHS_SDR104;
-	else if (uhs == MMC_TIMING_UHS_DDR50)
+	else if ((uhs == MMC_TIMING_UHS_DDR50) ||
+		 (uhs == MMC_TIMING_MMC_DDR52))
 		ctrl_2 |= SDHCI_CTRL_UHS_DDR50;
 	/*
 	 * When clock frquency is less than 100MHz, the feedback clock must be
