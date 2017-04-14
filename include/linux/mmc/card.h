@@ -352,6 +352,7 @@ struct mmc_card {
 	struct mmc_wr_pack_stats wr_pack_stats; /* packed commands stats*/
 	struct notifier_block        reboot_notify;
 	bool issue_long_pon;
+	u8 cached_ext_csd;
 };
 
 /*
