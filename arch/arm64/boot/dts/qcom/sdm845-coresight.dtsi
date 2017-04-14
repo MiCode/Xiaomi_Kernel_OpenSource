@@ -380,6 +380,22 @@
 
 	};
 
+	hwevent: hwevent@0x014066f0 {
+		compatible = "qcom,coresight-hwevent";
+		reg = <0x14066f0 0x4>,
+		      <0x14166f0 0x4>,
+		      <0x1406038 0x4>,
+		      <0x1416038 0x4>;
+		reg-names = "ddr-ch0-cfg", "ddr-ch23-cfg", "ddr-ch0-ctrl",
+			    "ddr-ch23-ctrl";
+
+		coresight-name = "coresight-hwevent";
+
+		clocks = <&clock_gcc RPMH_QDSS_CLK>,
+			 <&clock_gcc RPMH_QDSS_A_CLK>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
 	csr: csr@6001000 {
 		compatible = "qcom,coresight-csr";
 		reg = <0x6001000 0x1000>;
