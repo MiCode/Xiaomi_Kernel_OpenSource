@@ -2,7 +2,7 @@
  * drivers/mmc/host/sdhci-msm.c - Qualcomm Technologies, Inc. MSM SDHCI Platform
  * driver source file
  *
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4132,6 +4132,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		} else {
 			spin_lock_irqsave(&host->lock, flags);
 			sdhci_msm_cfg_sdiowakeup_gpio_irq(host, false);
+			msm_host->sdio_pending_processing = false;
 			spin_unlock_irqrestore(&host->lock, flags);
 		}
 	}
@@ -4257,6 +4258,7 @@ static int sdhci_msm_cfg_sdio_wakeup(struct sdhci_host *host, bool enable)
 	if (!(host->mmc->card && mmc_card_sdio(host->mmc->card) &&
 	      sdhci_is_valid_gpio_wakeup_int(msm_host) &&
 	      mmc_card_wake_sdio_irq(host->mmc))) {
+		msm_host->sdio_pending_processing = false;
 		return 1;
 	}
 
