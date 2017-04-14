@@ -440,7 +440,6 @@ static void tcs_notify_timeout(struct work_struct *work)
 	struct tcs_mbox_msg *msg = resp->msg;
 	struct tcs_drv *drv = resp->drv;
 	int m = resp->m;
-	int err = -EIO;
 
 	/*
 	 * In case the RPMH resource fails to respond to the completion
@@ -471,7 +470,7 @@ static void tcs_notify_timeout(struct work_struct *work)
 	}
 
 	free_response_to_pool(resp);
-	mbox_notify_tx_done(chan, msg, -1, err);
+	mbox_notify_tx_done(chan, msg, -1, -ETIMEDOUT);
 }
 
 static void __tcs_buffer_write(struct tcs_drv *drv, int d, int m, int n,
