@@ -967,7 +967,6 @@
 		qcom,safe-fsm-en;
 		qcom,ps-fsm-en;
 		qcom,droop-fsm-en;
-		qcom,osm-pll-setup;
 
 		clock-names = "xo_ao";
 		clocks = <&clock_rpmh RPMH_CXO_CLK_A>;
