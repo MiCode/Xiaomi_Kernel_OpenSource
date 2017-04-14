@@ -508,6 +508,7 @@ struct sdhci_host {
 	struct mmc_host *mmc;	/* MMC structure */
 	struct mmc_host_ops mmc_host_ops;	/* MMC host ops */
 	u64 dma_mask;		/* custom DMA mask */
+	u64 coherent_dma_mask;
 
 #if IS_ENABLED(CONFIG_LEDS_CLASS)
 	struct led_classdev led;	/* LED control */

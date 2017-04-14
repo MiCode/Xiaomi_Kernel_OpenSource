@@ -3280,9 +3280,11 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		(dma_supported(mmc_dev(host->mmc), DMA_BIT_MASK(64)))) {
 		host->dma_mask = DMA_BIT_MASK(64);
 		mmc_dev(host->mmc)->dma_mask = &host->dma_mask;
+		mmc_dev(host->mmc)->coherent_dma_mask  = host->dma_mask;
 	} else if (dma_supported(mmc_dev(host->mmc), DMA_BIT_MASK(32))) {
 		host->dma_mask = DMA_BIT_MASK(32);
 		mmc_dev(host->mmc)->dma_mask = &host->dma_mask;
+		mmc_dev(host->mmc)->coherent_dma_mask  = host->dma_mask;
 	} else {
 		dev_err(&pdev->dev, "%s: Failed to set dma mask\n", __func__);
 	}
