@@ -194,7 +194,7 @@
 #define INVALID_TUNING_PHASE	-1
 
 #define NUM_TUNING_PHASES		16
-#define MAX_DRV_TYPES_SUPPORTED_HS200	3
+#define MAX_DRV_TYPES_SUPPORTED_HS200	4
 #define MSM_AUTOSUSPEND_DELAY_MS 100
 
 static const u32 tuning_block_64[] = {
@@ -1092,6 +1092,8 @@ retry:
 
 		/* set drive type to other value . default setting is 0x0 */
 		while (++drv_type <= MAX_DRV_TYPES_SUPPORTED_HS200) {
+			pr_debug("%s: trying different drive strength (%d)\n",
+				mmc_hostname(mmc), drv_type);
 			if (card->ext_csd.raw_driver_strength &
 					(1 << drv_type)) {
 				sdhci_msm_set_mmc_drv_type(host, opcode,
