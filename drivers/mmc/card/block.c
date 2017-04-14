@@ -912,6 +912,15 @@ static int __mmc_blk_ioctl_cmd(struct mmc_card *card, struct mmc_blk_data *md,
 
 	mrq.cmd = &cmd;
 
+	if (mmc_card_doing_bkops(card)) {
+		err = mmc_stop_bkops(card);
+		if (err) {
+			dev_err(mmc_dev(card->host),
+				"%s: stop_bkops failed %d\n", __func__, err);
+			return err;
+		}
+	}
+
 	err = mmc_blk_part_switch(card, md);
 	if (err)
 		return err;
@@ -1031,6 +1040,25 @@ static int mmc_blk_ioctl_rpmb_cmd(struct block_device *bdev,
 	}
 
 	mmc_get_card(card);
+
+	if (mmc_card_doing_bkops(card)) {
+		if (mmc_card_cmdq(card)) {
+			err = mmc_cmdq_halt(card->host, true);
+			if (err)
+				goto cmd_rel_host;
+		}
+		err = mmc_stop_bkops(card);
+		if (err) {
+			dev_err(mmc_dev(card->host),
+				"%s: stop_bkops failed %d\n", __func__, err);
+			goto cmd_rel_host;
+		}
+		if (mmc_card_cmdq(card)) {
+			err = mmc_cmdq_halt(card->host, false);
+			if (err)
+				goto cmd_rel_host;
+		}
+	}
 
 	err = mmc_blk_part_switch(card, md);
 	if (err)
