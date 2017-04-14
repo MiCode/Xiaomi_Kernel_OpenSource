@@ -72,6 +72,8 @@ enum debug_event {
 	CLUSTER_ENTER,
 	CLUSTER_EXIT,
 	PRE_PC_CB,
+	CPU_HP_STARTING,
+	CPU_HP_DYING,
 };
 
 struct lpm_debug {
@@ -341,10 +343,16 @@ static int lpm_cpu_callback(struct notifier_block *cpu_nb,
 
 	switch (action & ~CPU_TASKS_FROZEN) {
 	case CPU_DYING:
+		update_debug_pc_event(CPU_HP_DYING, cpu,
+				cluster->num_children_in_sync.bits[0],
+				cluster->child_cpus.bits[0], false);
 		cluster_prepare(cluster, get_cpu_mask((unsigned int) cpu),
 					NR_LPM_LEVELS, false, 0);
 		break;
 	case CPU_STARTING:
+		update_debug_pc_event(CPU_HP_STARTING, cpu,
+				cluster->num_children_in_sync.bits[0],
+				cluster->child_cpus.bits[0], false);
 		cluster_unprepare(cluster, get_cpu_mask((unsigned int) cpu),
 					NR_LPM_LEVELS, false, 0);
 		break;
