@@ -110,6 +110,7 @@ static void mmc_should_fail_request(struct mmc_host *host,
 
 	data->error = data_errors[prandom_u32() % ARRAY_SIZE(data_errors)];
 	data->bytes_xfered = (prandom_u32() % (data->bytes_xfered >> 9)) << 9;
+	data->fault_injected = true;
 }
 
 #else /* CONFIG_FAIL_MMC_REQUEST */

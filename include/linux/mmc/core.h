@@ -96,6 +96,7 @@ struct mmc_data {
 	int			sg_count;	/* mapped sg entries */
 	struct scatterlist	*sg;		/* I/O scatter list */
 	s32			host_cookie;	/* host private data */
+	bool			fault_injected; /* fault injected */
 };
 
 struct mmc_host;
