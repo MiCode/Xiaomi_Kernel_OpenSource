@@ -717,7 +717,10 @@ mmc_send_bus_test(struct mmc_card *card, struct mmc_host *host, u8 opcode,
 
 	data.sg = &sg;
 	data.sg_len = 1;
+	data.timeout_ns = 1000000;
+	data.timeout_clks = 0;
 	mmc_set_data_timeout(&data, card);
+
 	sg_init_one(&sg, data_buf, len);
 	mmc_wait_for_req(host, &mrq);
 	err = 0;
