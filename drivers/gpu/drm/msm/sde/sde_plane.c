@@ -2853,7 +2853,7 @@ static int sde_plane_sspp_atomic_check(struct drm_plane *plane,
 		 * Cropping is not required as hardware will consider only the
 		 * intersecting region with the src rect.
 		 */
-		sde_kms_rect_intersect(&intersect, &src, &pstate->excl_rect);
+		sde_kms_rect_intersect(&src, &pstate->excl_rect, &intersect);
 		if (!intersect.w || !intersect.h || SDE_FORMAT_IS_YUV(fmt)) {
 			SDE_ERROR_PLANE(psde,
 				"invalid excl_rect:{%d,%d,%d,%d} src:{%d,%d,%d,%d}, fmt: %4.4s\n",

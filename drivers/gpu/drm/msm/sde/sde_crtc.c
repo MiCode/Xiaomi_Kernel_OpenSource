@@ -628,8 +628,8 @@ static void _sde_crtc_setup_dim_layer_cfg(struct drm_crtc *crtc,
 		split_dim_layer.flags = dim_layer->flags;
 		mixer_rect.x = i * mixer_width;
 
-		sde_kms_rect_intersect(&split_dim_layer.rect, &mixer_rect,
-					&dim_layer->rect);
+		sde_kms_rect_intersect(&mixer_rect, &dim_layer->rect,
+					&split_dim_layer.rect);
 		if (!split_dim_layer.rect.w && !split_dim_layer.rect.h) {
 			/*
 			 * no extra programming required for non-intersecting
