@@ -4359,6 +4359,10 @@ static int _mmc_blk_suspend(struct mmc_card *card)
 static void mmc_blk_shutdown(struct mmc_card *card)
 {
 	_mmc_blk_suspend(card);
+
+	/* send power off notification */
+	if (mmc_card_mmc(card))
+		mmc_send_pon(card);
 }
 
 #ifdef CONFIG_PM_SLEEP
