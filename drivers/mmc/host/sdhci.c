@@ -1628,9 +1628,12 @@ static int sdhci_enable(struct mmc_host *mmc)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
 
-	if (host->cpu_dma_latency_us)
+	if (mmc->card && !mmc_card_cmdq(mmc->card) &&
+	    (host->cpu_dma_latency_us)) {
 		pm_qos_update_request(&host->pm_qos_req_dma,
 					host->cpu_dma_latency_us);
+	}
+
 	if (host->ops->platform_bus_voting)
 		host->ops->platform_bus_voting(host, 1);
 
@@ -1641,7 +1644,8 @@ static int sdhci_disable(struct mmc_host *mmc)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
 
-	if (host->cpu_dma_latency_us) {
+	if (mmc->card && !mmc_card_cmdq(mmc->card) &&
+	    (host->cpu_dma_latency_us)) {
 		/*
 		 * In performance mode, release QoS vote after a timeout to
 		 * make sure back-to-back requests don't suffer from latencies
