@@ -2759,6 +2759,7 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 	int rc;
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	struct mmc_card *card = host->mmc->card;
 	struct mmc_ios	curr_ios = host->mmc->ios;
 	u32 sup_clock, ddr_clock, dll_lock;
 	bool curr_pwrsave;
@@ -2782,7 +2783,7 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 	curr_pwrsave = !!(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC) &
 			  CORE_CLK_PWRSAVE);
 	if ((clock > 400000) &&
-	    !curr_pwrsave && mmc_host_may_gate_card(host->mmc->card))
+	    !curr_pwrsave && card && mmc_host_may_gate_card(card))
 		writel_relaxed(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
 				| CORE_CLK_PWRSAVE,
 				host->ioaddr + CORE_VENDOR_SPEC);
@@ -2790,7 +2791,7 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 	 * Disable pwrsave for a newly added card if doesn't allow clock
 	 * gating.
 	 */
-	else if (curr_pwrsave && !mmc_host_may_gate_card(host->mmc->card))
+	else if (curr_pwrsave && card && !mmc_host_may_gate_card(card))
 		writel_relaxed(readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
 				& ~CORE_CLK_PWRSAVE,
 				host->ioaddr + CORE_VENDOR_SPEC);
@@ -2838,7 +2839,7 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 		 * register
 		 */
 		if ((msm_host->tuning_done ||
-				(mmc_card_strobe(msm_host->mmc->card) &&
+				(card && mmc_card_strobe(card) &&
 				 msm_host->enhanced_strobe)) &&
 				!msm_host->calibration_done) {
 			/*
