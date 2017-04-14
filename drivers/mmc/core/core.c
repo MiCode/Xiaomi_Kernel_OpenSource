@@ -2903,7 +2903,6 @@ void mmc_rescan(struct work_struct *work)
 {
 	struct mmc_host *host =
 		container_of(work, struct mmc_host, detect.work);
-	int i;
 
 	if (host->rescan_disable)
 		return;
@@ -2957,13 +2956,7 @@ void mmc_rescan(struct work_struct *work)
 		mmc_release_host(host);
 		goto out;
 	}
-
-	for (i = 0; i < ARRAY_SIZE(freqs); i++) {
-		if (!mmc_rescan_try_freq(host, max(freqs[i], host->f_min)))
-			break;
-		if (freqs[i] <= host->f_min)
-			break;
-	}
++	mmc_rescan_try_freq(host, host->f_min);
 	mmc_release_host(host);
 
  out:
