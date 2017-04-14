@@ -3167,6 +3167,7 @@ static inline void mmc_bus_put(struct mmc_host *host)
 int mmc_resume_bus(struct mmc_host *host)
 {
 	unsigned long flags;
+	int err = 0;
 
 	if (!mmc_bus_needs_resume(host))
 		return -EINVAL;
@@ -3182,6 +3183,14 @@ int mmc_resume_bus(struct mmc_host *host)
 		mmc_power_up(host, host->card->ocr);
 		BUG_ON(!host->bus_ops->resume);
 		host->bus_ops->resume(host);
+		if (mmc_card_cmdq(host->card)) {
+			err = mmc_cmdq_halt(host, false);
+			if (err)
+				pr_err("%s: %s: unhalt failed: %d\n",
+				       mmc_hostname(host), __func__, err);
+			else
+				mmc_card_clr_suspended(host->card);
+		}
 	}
 
 	if (host->bus_ops->detect && !host->bus_dead)
