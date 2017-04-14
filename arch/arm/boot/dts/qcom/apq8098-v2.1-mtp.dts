@@ -13,6 +13,7 @@
 /dts-v1/;
 
 #include "apq8098-v2.1.dtsi"
+#include "msm8998-mdss-panels.dtsi"
 #include "msm8998-mtp.dtsi"
 
 / {
