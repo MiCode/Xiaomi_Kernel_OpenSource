@@ -253,6 +253,7 @@ struct mmc_cmdq_context_info {
 	unsigned long	active_reqs; /* in-flight requests */
 	unsigned long	curr_state;
 #define	CMDQ_STATE_ERR 0
+#define	CMDQ_STATE_DCMD_ACTIVE 1
 	/* no free tag available */
 	unsigned long	req_starved;
 };
