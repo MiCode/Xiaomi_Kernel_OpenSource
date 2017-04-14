@@ -1298,6 +1298,39 @@ void mmc_cmdq_post_req(struct mmc_host *host, struct mmc_request *mrq, int err)
 }
 EXPORT_SYMBOL(mmc_cmdq_post_req);
 
+/**
+ *	mmc_cmdq_halt - halt/un-halt the command queue engine
+ *	@host: host instance
+ *	@halt: true - halt, un-halt otherwise
+ *
+ *	Host halts the command queue engine. It should complete
+ *	the ongoing transfer and release the bus.
+ *	All legacy commands can be sent upon successful
+ *	completion of this function.
+ *	Returns 0 on success, negative otherwise
+ */
+int mmc_cmdq_halt(struct mmc_host *host, bool halt)
+{
+	int err = 0;
+
+	if ((halt && mmc_host_halt(host)) ||
+	    (!halt && !mmc_host_halt(host)))
+		return -EINVAL;
+
+	if (host->cmdq_ops->halt) {
+		err = host->cmdq_ops->halt(host, halt);
+		if (!err && halt)
+			mmc_host_set_halt(host);
+		else if (!err && !halt)
+			mmc_host_clr_halt(host);
+	} else {
+		err = -ENOSYS;
+	}
+
+	return err;
+}
+EXPORT_SYMBOL(mmc_cmdq_halt);
+
 int mmc_cmdq_start_req(struct mmc_host *host, struct mmc_cmdq_req *cmdq_req)
 {
 	struct mmc_request *mrq = &cmdq_req->mrq;
