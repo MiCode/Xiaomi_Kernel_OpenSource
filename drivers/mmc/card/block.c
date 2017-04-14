@@ -1986,6 +1986,10 @@ static void mmc_blk_write_packing_control(struct mmc_queue *mq,
 	if (!(host->caps2 & MMC_CAP2_PACKED_WR))
 		return;
 
+	/* Support for the write packing on eMMC 4.5 or later */
+	if (mq->card->ext_csd.rev <= 5)
+		return;
+
 	/*
 	 * In case the packing control is not supported by the host, it should
 	 * not have an effect on the write packing. Therefore we have to enable
