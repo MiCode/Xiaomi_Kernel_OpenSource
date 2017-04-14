@@ -760,7 +760,7 @@ void mmc_add_card_debugfs(struct mmc_card *card)
 			goto err;
 
 	if (mmc_card_mmc(card) && (card->ext_csd.rev >= 5) &&
-	    (mmc_card_support_auto_bkops(card) ||
+	    (mmc_card_configured_auto_bkops(card) ||
 	     mmc_card_configured_manual_bkops(card)))
 		if (!debugfs_create_file("bkops_stats", S_IRUSR, root, card,
 					 &mmc_dbg_bkops_stats_fops))
