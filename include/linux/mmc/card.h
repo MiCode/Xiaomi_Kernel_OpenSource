@@ -278,12 +278,48 @@ struct mmc_part {
 #define MMC_BLK_DATA_AREA_RPMB	(1<<3)
 };
 
+enum {
+	MMC_BKOPS_NO_OP,
+	MMC_BKOPS_NOT_CRITICAL,
+	MMC_BKOPS_PERF_IMPACT,
+	MMC_BKOPS_CRITICAL,
+	MMC_BKOPS_NUM_SEVERITY_LEVELS,
+};
+
+/**
+ * struct mmc_bkops_stats - BKOPS statistics
+ * @lock: spinlock used for synchronizing the debugfs and the runtime accesses
+ *	to this structure. No need to call with spin_lock_irq api
+ * @manual_start: number of times START_BKOPS was sent to the device
+ * @hpi: number of times HPI was sent to the device
+ * @auto_start: number of times AUTO_EN was set to 1
+ * @auto_stop: number of times AUTO_EN was set to 0
+ * @level: number of times the device reported the need for each level of
+ *	bkops handling
+ * @enabled: control over whether statistics should be gathered
+ *
+ * This structure is used to collect statistics regarding the bkops
+ * configuration and use-patterns. It is collected during runtime and can be
+ * shown to the user via a debugfs entry.
+ */
+struct mmc_bkops_stats {
+	spinlock_t	lock;
+	unsigned int	manual_start;
+	unsigned int	hpi;
+	unsigned int	auto_start;
+	unsigned int	auto_stop;
+	unsigned int	level[MMC_BKOPS_NUM_SEVERITY_LEVELS];
+	bool		enabled;
+};
+
 /**
  * struct mmc_bkops_info - BKOPS data
+ * @stats: statistic information regarding bkops
  * @need_manual: indication whether have to send START_BKOPS
  *	to the device
  */
 struct mmc_bkops_info {
+	struct mmc_bkops_stats stats;
 	bool needs_manual;
 };
 

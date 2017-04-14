@@ -638,6 +638,89 @@ static const struct file_operations mmc_dbg_wr_pack_stats_fops = {
 	.write		= mmc_wr_pack_stats_write,
 };
 
+static int mmc_bkops_stats_read(struct seq_file *file, void *data)
+{
+	struct mmc_card *card = file->private;
+	struct mmc_bkops_stats *stats;
+	int i;
+
+	if (!card)
+		return -EINVAL;
+
+	stats = &card->bkops.stats;
+
+	if (!stats->enabled) {
+		pr_info("%s: bkops statistics are disabled\n",
+			 mmc_hostname(card->host));
+		goto exit;
+	}
+
+	spin_lock(&stats->lock);
+
+	seq_printf(file, "%s: bkops statistics:\n",
+			mmc_hostname(card->host));
+	seq_printf(file, "%s: BKOPS: sent START_BKOPS to device: %u\n",
+			mmc_hostname(card->host), stats->manual_start);
+	seq_printf(file, "%s: BKOPS: stopped due to HPI: %u\n",
+			mmc_hostname(card->host), stats->hpi);
+	seq_printf(file, "%s: BKOPS: sent AUTO_EN set to 1: %u\n",
+			mmc_hostname(card->host), stats->auto_start);
+	seq_printf(file, "%s: BKOPS: sent AUTO_EN set to 0: %u\n",
+			mmc_hostname(card->host), stats->auto_stop);
+
+	for (i = 0 ; i < MMC_BKOPS_NUM_SEVERITY_LEVELS ; ++i)
+		seq_printf(file, "%s: BKOPS: due to level %d: %u\n",
+			 mmc_hostname(card->host), i, stats->level[i]);
+
+	spin_unlock(&stats->lock);
+
+exit:
+
+	return 0;
+}
+
+static ssize_t mmc_bkops_stats_write(struct file *filp,
+				      const char __user *ubuf, size_t cnt,
+				      loff_t *ppos)
+{
+	struct mmc_card *card = filp->f_mapping->host->i_private;
+	int value;
+	struct mmc_bkops_stats *stats;
+	int err;
+
+	if (!card)
+		return cnt;
+
+	stats = &card->bkops.stats;
+
+	err = kstrtoint_from_user(ubuf, cnt, 0, &value);
+	if (err) {
+		pr_err("%s: %s: error parsing input from user (%d)\n",
+				mmc_hostname(card->host), __func__, err);
+		return err;
+	}
+	if (value) {
+		mmc_blk_init_bkops_statistics(card);
+	} else {
+		spin_lock(&stats->lock);
+		stats->enabled = false;
+		spin_unlock(&stats->lock);
+	}
+
+	return cnt;
+}
+
+static int mmc_bkops_stats_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mmc_bkops_stats_read, inode->i_private);
+}
+
+static const struct file_operations mmc_dbg_bkops_stats_fops = {
+	.open		= mmc_bkops_stats_open,
+	.read		= seq_read,
+	.write		= mmc_bkops_stats_write,
+};
+
 void mmc_add_card_debugfs(struct mmc_card *card)
 {
 	struct mmc_host	*host = card->host;
@@ -674,6 +757,13 @@ void mmc_add_card_debugfs(struct mmc_card *card)
 	    (card->host->caps2 & MMC_CAP2_PACKED_WR))
 		if (!debugfs_create_file("wr_pack_stats", S_IRUSR, root, card,
 					 &mmc_dbg_wr_pack_stats_fops))
+			goto err;
+
+	if (mmc_card_mmc(card) && (card->ext_csd.rev >= 5) &&
+	    (mmc_card_support_auto_bkops(card) ||
+	     mmc_card_configured_manual_bkops(card)))
+		if (!debugfs_create_file("bkops_stats", S_IRUSR, root, card,
+					 &mmc_dbg_bkops_stats_fops))
 			goto err;
 
 	return;

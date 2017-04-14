@@ -222,6 +222,8 @@ extern int mmc_cache_barrier(struct mmc_card *);
 
 extern int mmc_detect_card_removed(struct mmc_host *host);
 
+extern void mmc_blk_init_bkops_statistics(struct mmc_card *card);
+
 /**
  *	mmc_claim_host - exclusively claim a host
  *	@host: mmc host to claim
