@@ -1149,18 +1149,18 @@ static struct msm_bus_vectors ipa_nominal_perf_vectors_v3_0[]  = {
 
 static struct msm_bus_paths ipa_usecases_v3_0[]  = {
 	{
-		ARRAY_SIZE(ipa_init_vectors_v3_0),
-		ipa_init_vectors_v3_0,
+		.num_paths = ARRAY_SIZE(ipa_init_vectors_v3_0),
+		.vectors = ipa_init_vectors_v3_0,
 	},
 	{
-		ARRAY_SIZE(ipa_nominal_perf_vectors_v3_0),
-		ipa_nominal_perf_vectors_v3_0,
+		.num_paths = ARRAY_SIZE(ipa_nominal_perf_vectors_v3_0),
+		.vectors = ipa_nominal_perf_vectors_v3_0,
 	},
 };
 
 static struct msm_bus_scale_pdata ipa_bus_client_pdata_v3_0 = {
-	ipa_usecases_v3_0,
-	ARRAY_SIZE(ipa_usecases_v3_0),
+	.usecase = ipa_usecases_v3_0,
+	.num_usecases = ARRAY_SIZE(ipa_usecases_v3_0),
 	.name = "ipa",
 };
 
