@@ -3189,6 +3189,7 @@ static int mmc_blk_cmdq_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 	struct mmc_host *host = card->host;
 	struct mmc_cmdq_context_info *ctx = &host->cmdq_ctx;
 	struct mmc_cmdq_req *mc_rq;
+	u8 active_small_sector_read = 0;
 	int ret = 0;
 
 	mmc_deferred_scaling(host);
@@ -3203,15 +3204,16 @@ static int mmc_blk_cmdq_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 
 	mc_rq = mmc_blk_cmdq_rw_prep(active_mqrq, mq);
 
-	ret = mmc_blk_cmdq_start_req(card->host, mc_rq);
-
-	if (!ret && (card->quirks & MMC_QUIRK_CMDQ_EMPTY_BEFORE_DCMD)) {
+	if (card->quirks & MMC_QUIRK_CMDQ_EMPTY_BEFORE_DCMD) {
 		unsigned int sectors = blk_rq_sectors(req);
 
 		if (((sectors > 0) && (sectors < 8))
 		    && (rq_data_dir(req) == READ))
-			host->cmdq_ctx.active_small_sector_read_reqs++;
+			active_small_sector_read = 1;
 	}
+	ret = mmc_blk_cmdq_start_req(card->host, mc_rq);
+	if (!ret && active_small_sector_read)
+		host->cmdq_ctx.active_small_sector_read_reqs++;
 	/*
 	 * When in SVS2 on low load scenario and there are lots of requests
 	 * queued for CMDQ we need to wait till the queue is empty to scale
