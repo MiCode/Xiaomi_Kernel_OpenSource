@@ -2250,18 +2250,6 @@ reinit:
 		}
 	}
 
-	if (card->ext_csd.cmdq_support && (card->host->caps2 &
-					   MMC_CAP2_CMD_QUEUE)) {
-		err = mmc_select_cmdq(card);
-		if (err) {
-			pr_err("%s: selecting CMDQ mode: failed: %d\n",
-					   mmc_hostname(card->host), err);
-			card->ext_csd.cmdq_support = 0;
-			oldcard = card;
-			goto reinit;
-		}
-	}
-
 	/*
 	 * Start auto bkops, if supported.
 	 *
@@ -2277,6 +2265,18 @@ reinit:
 		 * If it failed, will run in backward compatible mode.
 		 */
 		(void)mmc_set_auto_bkops(card, true);
+	}
+
+	if (card->ext_csd.cmdq_support && (card->host->caps2 &
+					   MMC_CAP2_CMD_QUEUE)) {
+		err = mmc_select_cmdq(card);
+		if (err) {
+			pr_err("%s: selecting CMDQ mode: failed: %d\n",
+					   mmc_hostname(card->host), err);
+			card->ext_csd.cmdq_support = 0;
+			oldcard = card;
+			goto reinit;
+		}
 	}
 
 	return 0;
