@@ -3372,7 +3372,6 @@ EXPORT_SYMBOL_GPL(sdhci_alloc_host);
 #ifdef CONFIG_SMP
 static void sdhci_set_pmqos_req_type(struct sdhci_host *host)
 {
-
 	/*
 	 * The default request type PM_QOS_REQ_ALL_CORES is
 	 * applicable to all CPU cores that are online and
@@ -3380,9 +3379,14 @@ static void sdhci_set_pmqos_req_type(struct sdhci_host *host)
 	 * number of CPUs. This new PM_QOS_REQ_AFFINE_IRQ request
 	 * type shall update/apply the vote only to that CPU to
 	 * which this IRQ's affinity is set to.
+	 * PM_QOS_REQ_AFFINE_CORES request type is used for targets that have
+	 * little cluster and will update/apply the vote to all the cores in
+	 * the little cluster.
 	 */
-	host->pm_qos_req_dma.type = PM_QOS_REQ_AFFINE_IRQ;
-	host->pm_qos_req_dma.irq = host->irq;
+	if (host->pm_qos_req_dma.type == PM_QOS_REQ_AFFINE_CORES)
+		host->pm_qos_req_dma.cpus_affine.bits[0] = 0x0F;
+	else if (host->pm_qos_req_dma.type == PM_QOS_REQ_AFFINE_IRQ)
+		host->pm_qos_req_dma.irq = host->irq;
 }
 #else
 static void sdhci_set_pmqos_req_type(struct sdhci_host *host)
