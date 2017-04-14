@@ -111,7 +111,7 @@ struct sdhci_msm_pm_qos_data {
  */
 struct sdhci_msm_pm_qos_group {
 	struct pm_qos_request req;
-	struct work_struct unvote_work;
+	struct delayed_work unvote_work;
 	atomic_t counter;
 	s32 latency;
 };
@@ -119,7 +119,7 @@ struct sdhci_msm_pm_qos_group {
 /* PM QoS HW IRQ voting */
 struct sdhci_msm_pm_qos_irq {
 	struct pm_qos_request req;
-	struct work_struct unvote_work;
+	struct delayed_work unvote_work;
 	struct device_attribute enable_attr;
 	struct device_attribute status_attr;
 	atomic_t counter;
