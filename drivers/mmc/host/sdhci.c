@@ -3607,6 +3607,8 @@ static void sdhci_cmdq_set_transfer_params(struct mmc_host *mmc)
 			ctrl |= SDHCI_CTRL_ADMA32;
 		sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 	}
+	if (host->ops->toggle_cdr)
+		host->ops->toggle_cdr(host, false);
 }
 
 static void sdhci_cmdq_clear_set_irqs(struct mmc_host *mmc, bool clear)
