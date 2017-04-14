@@ -3353,7 +3353,7 @@ unhalt:
 
 out:
 	pm_runtime_mark_last_busy(&card->dev);
-	pm_runtime_put_autosuspend(&card->dev);
+	__mmc_put_card(card);
 
 	if (test_and_clear_bit(0, &ctx_info->req_starved))
 		blk_run_queue(mrq->req->q);

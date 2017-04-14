@@ -316,11 +316,14 @@ struct mmc_bkops_stats {
 /**
  * struct mmc_bkops_info - BKOPS data
  * @stats: statistic information regarding bkops
- * @need_manual: indication whether have to send START_BKOPS
+ * @needs_check: indication whether need to check with the device
+ *	whether it requires handling of BKOPS (CMD8)
+ * @needs_manual: indication whether have to send START_BKOPS
  *	to the device
  */
 struct mmc_bkops_info {
 	struct mmc_bkops_stats stats;
+	bool needs_check;
 	bool needs_manual;
 };
 
@@ -666,6 +669,13 @@ static inline bool mmc_card_configured_manual_bkops(const struct mmc_card *c)
 {
 	return c->ext_csd.man_bkops_en & EXT_CSD_BKOPS_MANUAL_EN;
 }
+
+/*
+ * By software design, auto_bkops will be enabled on the device if it supports
+ * it. Therefore, testing if a card is configured to run bkops is synonymous
+ * to checking if it supports bkops
+ */
+#define mmc_card_configured_auto_bkops(c)	mmc_card_support_auto_bkops(c)
 
 #define mmc_card_name(c)	((c)->cid.prod_name)
 #define mmc_card_id(c)		(dev_name(&(c)->dev))
