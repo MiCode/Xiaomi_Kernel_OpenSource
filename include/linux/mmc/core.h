@@ -224,6 +224,12 @@ extern int mmc_detect_card_removed(struct mmc_host *host);
 
 extern void mmc_blk_init_bkops_statistics(struct mmc_card *card);
 
+extern void mmc_deferred_scaling(struct mmc_host *host);
+extern void mmc_cmdq_clk_scaling_start_busy(struct mmc_host *host,
+	bool lock_needed);
+extern void mmc_cmdq_clk_scaling_stop_busy(struct mmc_host *host,
+	bool lock_needed, bool is_cmdq_dcmd);
+
 /**
  *	mmc_claim_host - exclusively claim a host
  *	@host: mmc host to claim

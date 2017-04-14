@@ -618,6 +618,7 @@ int mmc_cmdq_init(struct mmc_queue *mq, struct mmc_card *card)
 		goto out;
 	}
 
+	init_waitqueue_head(&card->host->cmdq_ctx.queue_empty_wq);
 	mq->mqrq_cmdq = kzalloc(
 			sizeof(struct mmc_queue_req) * q_depth, GFP_KERNEL);
 	if (!mq->mqrq_cmdq) {

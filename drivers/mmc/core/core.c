@@ -182,6 +182,81 @@ out:
 }
 
 /**
+ * mmc_cmdq_clk_scaling_start_busy() - start busy timer for data requests
+ * @host: pointer to mmc host structure
+ * @lock_needed: flag indication if locking is needed
+ *
+ * This function starts the busy timer in case it was not already started.
+ */
+void mmc_cmdq_clk_scaling_start_busy(struct mmc_host *host,
+	bool lock_needed)
+{
+	if (!host->clk_scaling.enable)
+		return;
+
+	if (lock_needed)
+		spin_lock_bh(&host->clk_scaling.lock);
+
+	if (!host->clk_scaling.is_busy_started &&
+		!test_bit(CMDQ_STATE_DCMD_ACTIVE,
+			&host->cmdq_ctx.curr_state)) {
+		host->clk_scaling.start_busy = ktime_get();
+		host->clk_scaling.is_busy_started = true;
+	}
+
+	if (lock_needed)
+		spin_unlock_bh(&host->clk_scaling.lock);
+}
+EXPORT_SYMBOL(mmc_cmdq_clk_scaling_start_busy);
+
+/**
+ * mmc_cmdq_clk_scaling_stop_busy() - stop busy timer for last data requests
+ * @host: pointer to mmc host structure
+ * @lock_needed: flag indication if locking is needed
+ *
+ * This function stops the busy timer in case it is the last data request.
+ * In case the current request is not the last one, the busy time till
+ * now will be accumulated and the counter will be restarted.
+ */
+void mmc_cmdq_clk_scaling_stop_busy(struct mmc_host *host,
+	bool lock_needed, bool is_cmdq_dcmd)
+{
+	if (!host->clk_scaling.enable)
+		return;
+
+	if (lock_needed)
+		spin_lock_bh(&host->clk_scaling.lock);
+
+	/*
+	 *  For CQ mode: In completion of DCMD request, start busy time in
+	 *  case of pending data requests
+	 */
+	if (is_cmdq_dcmd) {
+		if (host->cmdq_ctx.data_active_reqs) {
+			host->clk_scaling.is_busy_started = true;
+			host->clk_scaling.start_busy = ktime_get();
+		}
+		goto out;
+	}
+
+	host->clk_scaling.total_busy_time_us +=
+		ktime_to_us(ktime_sub(ktime_get(),
+			host->clk_scaling.start_busy));
+
+	if (host->cmdq_ctx.data_active_reqs) {
+		host->clk_scaling.is_busy_started = true;
+		host->clk_scaling.start_busy = ktime_get();
+	} else {
+		host->clk_scaling.is_busy_started = false;
+	}
+out:
+	if (lock_needed)
+		spin_unlock_bh(&host->clk_scaling.lock);
+
+}
+EXPORT_SYMBOL(mmc_cmdq_clk_scaling_stop_busy);
+
+/**
  * mmc_disable_devfreq_clk_scaling() - Disable clock scaling
  * @host: pointer to mmc host structure
  *
@@ -238,8 +313,14 @@ static int mmc_devfreq_get_dev_status(struct device *dev,
 	/* accumulate the busy time of ongoing work */
 	memset(status, 0, sizeof(*status));
 	if (clk_scaling->is_busy_started) {
-		mmc_clk_scaling_stop_busy(host, false);
-		mmc_clk_scaling_start_busy(host, false);
+		if (mmc_card_cmdq(host->card)) {
+			/* the "busy-timer" will be restarted in case there
+			 * are pending data requests */
+			mmc_cmdq_clk_scaling_stop_busy(host, false, false);
+		} else {
+			mmc_clk_scaling_stop_busy(host, false);
+			mmc_clk_scaling_start_busy(host, false);
+		}
 	}
 
 	status->busy_time = clk_scaling->total_busy_time_us;
@@ -282,16 +363,44 @@ static bool mmc_is_vaild_state_for_clk_scaling(struct mmc_host *host)
 	return R1_CURRENT_STATE(status) == R1_STATE_TRAN;
 }
 
+static int mmc_cmdq_halt_on_empty_queue(struct mmc_host *host)
+{
+	int err = 0;
+
+	err = wait_event_interruptible(host->cmdq_ctx.queue_empty_wq,
+				(!host->cmdq_ctx.active_reqs));
+	if (host->cmdq_ctx.active_reqs) {
+		pr_err("%s: %s: unexpected active requests (%lu)\n",
+			mmc_hostname(host), __func__,
+			host->cmdq_ctx.active_reqs);
+		return -EPERM;
+	}
+
+	err = mmc_cmdq_halt(host, true);
+	if (err) {
+		pr_err("%s: %s: mmc_cmdq_halt failed (%d)\n",
+		       mmc_hostname(host), __func__, err);
+		goto out;
+	}
+
+out:
+	return err;
+}
+
 int mmc_clk_update_freq(struct mmc_host *host,
 		unsigned long freq, enum mmc_load state)
 {
 	int err = 0;
+	bool cmdq_mode;
 
 	if (!host) {
 		pr_err("bad host parameter\n");
 		WARN_ON(1);
 		return -EINVAL;
 	}
+
+	mmc_host_clk_hold(host);
+	cmdq_mode = mmc_card_cmdq(host->card);
 
 	/* make sure the card supports the frequency we want */
 	if (unlikely(freq > host->card->clk_scaling_highest)) {
@@ -318,6 +427,15 @@ int mmc_clk_update_freq(struct mmc_host *host,
 	}
 
 	if (freq != host->clk_scaling.curr_freq) {
+		if (cmdq_mode) {
+			err = mmc_cmdq_halt_on_empty_queue(host);
+			if (err) {
+				pr_err("%s: %s: failed halting queue (%d)\n",
+					mmc_hostname(host), __func__, err);
+				goto error;
+			}
+		}
+
 		if (!mmc_is_vaild_state_for_clk_scaling(host)) {
 			pr_debug("%s: invalid state for clock scaling - skipping",
 				mmc_hostname(host));
@@ -331,6 +449,12 @@ int mmc_clk_update_freq(struct mmc_host *host,
 		else
 			pr_err("%s: %s: failed (%d) at freq=%lu\n",
 				mmc_hostname(host), __func__, err, freq);
+
+		if (cmdq_mode) {
+			if (mmc_cmdq_halt(host, false))
+				pr_err("%s: %s: cmdq unhalt failed\n",
+				mmc_hostname(host), __func__);
+		}
 	}
 error:
 	if (err) {
@@ -342,6 +466,7 @@ error:
 					mmc_hostname(host), __func__);
 	}
 out:
+	mmc_host_clk_release(host);
 	return err;
 }
 EXPORT_SYMBOL(mmc_clk_update_freq);
@@ -413,7 +538,14 @@ out:
 	return err;
 }
 
-static void mmc_deferred_scaling(struct mmc_host *host)
+/**
+ * mmc_deferred_scaling() - scale clocks from data path (mmc thread context)
+ * @host: pointer to mmc host structure
+ *
+ * This function does clock scaling in case "need_freq_change" flag was set
+ * by the clock scaling logic.
+ */
+void mmc_deferred_scaling(struct mmc_host *host)
 {
 	unsigned long target_freq;
 	int err;
@@ -451,6 +583,7 @@ static void mmc_deferred_scaling(struct mmc_host *host)
 	host->clk_scaling.clk_scaling_in_progress = false;
 	atomic_dec(&host->clk_scaling.devfreq_abort);
 }
+EXPORT_SYMBOL(mmc_deferred_scaling);
 
 static int mmc_devfreq_create_freq_table(struct mmc_host *host)
 {
