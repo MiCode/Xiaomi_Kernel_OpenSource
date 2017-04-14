@@ -363,6 +363,29 @@ struct msm_display_info {
 	struct msm_compression_info comp_info;
 };
 
+#define MSM_MAX_ROI	4
+
+/**
+ * struct msm_roi_mapping - Regions of interest structure for mapping CRTC to
+ *	Connector output
+ * @num_rects: number of valid rectangles in src and dst arrays
+ * @src: source roi rectangle
+ * @dst: destination roi rectangle
+ */
+struct msm_roi_mapping {
+	uint32_t num_rects;
+	struct drm_clip_rect src[MSM_MAX_ROI];
+	struct drm_clip_rect dst[MSM_MAX_ROI];
+};
+
+/**
+ * struct - msm_display_kickoff_params - info for display features at kickoff
+ * @rois: Regions of interest structure for mapping CRTC to Connector output
+ */
+struct msm_display_kickoff_params {
+	struct msm_roi_mapping *rois;
+};
+
 /**
  * struct msm_drm_event - defines custom event notification struct
  * @base: base object required for event notification by DRM framework.

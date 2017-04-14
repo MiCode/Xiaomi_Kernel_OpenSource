@@ -215,6 +215,38 @@ int sde_connector_get_info(struct drm_connector *connector,
 	return c_conn->ops.get_info(info, c_conn->display);
 }
 
+int sde_connector_pre_kickoff(struct drm_connector *connector)
+{
+	struct sde_connector *c_conn;
+	struct sde_connector_state *c_state;
+	struct msm_display_kickoff_params params;
+	int rc;
+
+	if (!connector) {
+		SDE_ERROR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	c_conn = to_sde_connector(connector);
+	c_state = to_sde_connector_state(connector->state);
+
+	if (!c_conn->display) {
+		SDE_ERROR("invalid argument\n");
+		return -EINVAL;
+	}
+
+	if (!c_conn->ops.pre_kickoff)
+		return 0;
+
+	params.rois = &c_state->rois;
+
+	SDE_EVT32_VERBOSE(connector->base.id);
+
+	rc = c_conn->ops.pre_kickoff(connector, c_conn->display, &params);
+
+	return rc;
+}
+
 static void sde_connector_destroy(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn;
