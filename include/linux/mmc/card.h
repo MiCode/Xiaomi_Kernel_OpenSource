@@ -386,6 +386,9 @@ struct mmc_card {
 						/* byte mode */
 #define MMC_QUIRK_INAND_DATA_TIMEOUT  (1<<14)   /* For incorrect data timeout */
 #define MMC_QUIRK_CACHE_DISABLE (1 << 15)	/* prevent cache enable */
+#define MMC_QUIRK_QCA6574_SETTINGS (1 << 16)	/* QCA6574 card settings*/
+#define MMC_QUIRK_QCA9377_SETTINGS (1 << 17)	/* QCA9377 card settings*/
+
 
 
 
@@ -686,6 +689,16 @@ static inline bool mmc_card_configured_manual_bkops(const struct mmc_card *c)
 static inline bool mmc_card_configured_auto_bkops(const struct mmc_card *c)
 {
 	return c->ext_csd.man_bkops_en & EXT_CSD_BKOPS_AUTO_EN;
+}
+
+static inline bool mmc_enable_qca6574_settings(const struct mmc_card *c)
+{
+	return c->quirks & MMC_QUIRK_QCA6574_SETTINGS;
+}
+
+static inline bool mmc_enable_qca9377_settings(const struct mmc_card *c)
+{
+	return c->quirks & MMC_QUIRK_QCA9377_SETTINGS;
 }
 
 #define mmc_card_name(c)	((c)->cid.prod_name)
