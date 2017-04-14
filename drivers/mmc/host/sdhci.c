@@ -3145,22 +3145,30 @@ static int sdhci_get_data_err(u32 intmask)
 	return 0;
 }
 
-static irqreturn_t sdhci_cmdq_irq(struct mmc_host *mmc, u32 intmask)
+static irqreturn_t sdhci_cmdq_irq(struct sdhci_host *host, u32 intmask)
 {
 	int err = 0;
+	u32 mask = 0;
 
 	if (intmask & SDHCI_INT_CMD_MASK)
 		err = sdhci_get_cmd_err(intmask);
 	else if (intmask & SDHCI_INT_DATA_MASK)
 		err = sdhci_get_data_err(intmask);
 
-	return cmdq_irq(mmc, err);
+	if (err) {
+		/* Clear the error interrupts */
+		mask = intmask & SDHCI_INT_ERROR_MASK;
+		sdhci_writel(host, mask, SDHCI_INT_STATUS);
+	}
+
+	return cmdq_irq(host->mmc, err);
 }
 
 #else
-static irqreturn_t sdhci_cmdq_irq(struct mmc_host *mmc, u32 intmask)
+static irqreturn_t sdhci_cmdq_irq(struct sdhci_host *host, u32 intmask)
 {
-	pr_err("%s: rxd cmdq-irq when disabled !!!!\n", mmc_hostname(mmc));
+	pr_err("%s: Received cmdq-irq when disabled !!!!\n",
+		mmc_hostname(host->mmc));
 	return IRQ_NONE;
 }
 #endif
@@ -3191,7 +3199,7 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 			pr_debug("*** %s: cmdq intr: 0x%08x\n",
 					mmc_hostname(host->mmc),
 					intmask);
-			result = sdhci_cmdq_irq(host->mmc, intmask);
+			result = sdhci_cmdq_irq(host, intmask);
 			if (result == IRQ_HANDLED)
 				goto out;
 		}
