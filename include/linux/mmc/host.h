@@ -95,6 +95,7 @@ enum mmc_load {
 };
 
 struct mmc_cmdq_host_ops {
+	int (*init)(struct mmc_host *host);
 	int (*enable)(struct mmc_host *host);
 	void (*disable)(struct mmc_host *host, bool soft);
 	int (*request)(struct mmc_host *host, struct mmc_request *mrq);

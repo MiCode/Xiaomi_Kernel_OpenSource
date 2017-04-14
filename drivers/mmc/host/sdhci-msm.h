@@ -105,6 +105,26 @@ struct sdhci_msm_pm_qos_data {
 	bool legacy_valid;
 };
 
+/*
+ * PM QoS for group voting management - each cpu group defined is associated
+ * with 1 instance of this structure.
+ */
+struct sdhci_msm_pm_qos_group {
+	struct pm_qos_request req;
+	struct work_struct unvote_work;
+	atomic_t counter;
+	s32 latency;
+};
+
+/* PM QoS HW IRQ voting */
+struct sdhci_msm_pm_qos_irq {
+	struct pm_qos_request req;
+	struct work_struct unvote_work;
+	atomic_t counter;
+	s32 latency;
+	bool enabled;
+};
+
 struct sdhci_msm_pltfm_data {
 	/* Supported UHS-I Modes */
 	u32 caps;
@@ -180,8 +200,23 @@ struct sdhci_msm_host {
 	u32 caps_0;
 	struct sdhci_msm_ice_data ice;
 	u32 ice_clk_rate;
+	struct sdhci_msm_pm_qos_group *pm_qos;
+	int pm_qos_prev_group;
+	bool pm_qos_group_enable;
+	struct sdhci_msm_pm_qos_irq pm_qos_irq;
 };
 
 extern char *saved_command_line;
+
+void sdhci_msm_pm_qos_irq_init(struct sdhci_host *host);
+void sdhci_msm_pm_qos_irq_vote(struct sdhci_host *host);
+void sdhci_msm_pm_qos_irq_unvote(struct sdhci_host *host, bool async);
+
+void sdhci_msm_pm_qos_cpu_init(struct sdhci_host *host,
+		struct sdhci_msm_pm_qos_latency *latency);
+void sdhci_msm_pm_qos_cpu_vote(struct sdhci_host *host,
+		struct sdhci_msm_pm_qos_latency *latency, int cpu);
+void sdhci_msm_pm_qos_cpu_unvote(struct sdhci_host *host, int cpu, bool async);
+
 
 #endif /* __SDHCI_MSM_H__ */

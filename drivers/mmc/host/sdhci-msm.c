@@ -3065,6 +3065,214 @@ void sdhci_msm_reset_workaround(struct sdhci_host *host, u32 enable)
 	}
 }
 
+static void sdhci_msm_pm_qos_irq_unvote_work(struct work_struct *work)
+{
+	struct sdhci_msm_pm_qos_irq *pm_qos_irq =
+		container_of(work, struct sdhci_msm_pm_qos_irq, unvote_work);
+
+	if (atomic_read(&pm_qos_irq->counter))
+		return;
+
+	pm_qos_irq->latency = PM_QOS_DEFAULT_VALUE;
+	pm_qos_update_request(&pm_qos_irq->req, pm_qos_irq->latency);
+}
+
+void sdhci_msm_pm_qos_irq_vote(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	struct sdhci_msm_pm_qos_latency *latency =
+		&msm_host->pdata->pm_qos_data.irq_latency;
+	int counter;
+
+	if (!msm_host->pm_qos_irq.enabled)
+		return;
+
+	counter = atomic_inc_return(&msm_host->pm_qos_irq.counter);
+	/* Make sure to update the voting in case power policy has changed */
+	if (msm_host->pm_qos_irq.latency == latency->latency[host->power_policy]
+		&& counter > 1)
+		return;
+
+	cancel_work_sync(&msm_host->pm_qos_irq.unvote_work);
+	msm_host->pm_qos_irq.latency = latency->latency[host->power_policy];
+	pm_qos_update_request(&msm_host->pm_qos_irq.req,
+				msm_host->pm_qos_irq.latency);
+}
+
+void sdhci_msm_pm_qos_irq_unvote(struct sdhci_host *host, bool async)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	int counter;
+
+	if (!msm_host->pm_qos_irq.enabled)
+		return;
+
+	counter = atomic_dec_return(&msm_host->pm_qos_irq.counter);
+	if (counter < 0) {
+		pr_err("%s: counter=%d\n", __func__, counter);
+		BUG();
+	}
+	if (counter)
+		return;
+
+	if (async) {
+		schedule_work(&msm_host->pm_qos_irq.unvote_work);
+		return;
+	}
+
+	msm_host->pm_qos_irq.latency = PM_QOS_DEFAULT_VALUE;
+	pm_qos_update_request(&msm_host->pm_qos_irq.req,
+			msm_host->pm_qos_irq.latency);
+}
+
+void sdhci_msm_pm_qos_irq_init(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	struct sdhci_msm_pm_qos_latency *irq_latency;
+
+	if (!msm_host->pdata->pm_qos_data.irq_valid)
+		return;
+
+	/* Initialize only once as this gets called per partition */
+	if (msm_host->pm_qos_irq.enabled)
+		return;
+
+	atomic_set(&msm_host->pm_qos_irq.counter, 0);
+	msm_host->pm_qos_irq.req.type =
+			msm_host->pdata->pm_qos_data.irq_req_type;
+	if (msm_host->pm_qos_irq.req.type == PM_QOS_REQ_AFFINE_IRQ)
+		msm_host->pm_qos_irq.req.irq = host->irq;
+	else
+		cpumask_copy(&msm_host->pm_qos_irq.req.cpus_affine,
+			cpumask_of(msm_host->pdata->pm_qos_data.irq_cpu));
+
+	INIT_WORK(&msm_host->pm_qos_irq.unvote_work,
+		sdhci_msm_pm_qos_irq_unvote_work);
+	/* For initialization phase, set the performance latency */
+	irq_latency = &msm_host->pdata->pm_qos_data.irq_latency;
+	msm_host->pm_qos_irq.latency =
+		irq_latency->latency[SDHCI_PERFORMANCE_MODE];
+	pm_qos_add_request(&msm_host->pm_qos_irq.req, PM_QOS_CPU_DMA_LATENCY,
+			msm_host->pm_qos_irq.latency);
+	msm_host->pm_qos_irq.enabled = true;
+}
+
+static int sdhci_msm_get_cpu_group(struct sdhci_msm_host *msm_host, int cpu)
+{
+	int i;
+	struct sdhci_msm_cpu_group_map *map =
+			&msm_host->pdata->pm_qos_data.cpu_group_map;
+
+	if (cpu < 0)
+		goto not_found;
+
+	for (i = 0; i < map->nr_groups; i++)
+		if (cpumask_test_cpu(cpu, &map->mask[i]))
+			return i;
+
+not_found:
+	return -EINVAL;
+}
+
+void sdhci_msm_pm_qos_cpu_vote(struct sdhci_host *host,
+		struct sdhci_msm_pm_qos_latency *latency, int cpu)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	int group = sdhci_msm_get_cpu_group(msm_host, cpu);
+	struct sdhci_msm_pm_qos_group *pm_qos_group;
+	int counter;
+
+	if (!msm_host->pm_qos_group_enable || group < 0)
+		return;
+
+	pm_qos_group = &msm_host->pm_qos[group];
+	counter = atomic_inc_return(&pm_qos_group->counter);
+
+	/* Make sure to update the voting in case power policy has changed */
+	if (pm_qos_group->latency == latency->latency[host->power_policy]
+		&& counter > 1)
+		return;
+
+	cancel_work_sync(&pm_qos_group->unvote_work);
+
+	pm_qos_group->latency = latency->latency[host->power_policy];
+	pm_qos_update_request(&pm_qos_group->req, pm_qos_group->latency);
+}
+
+static void sdhci_msm_pm_qos_cpu_unvote_work(struct work_struct *work)
+{
+	struct sdhci_msm_pm_qos_group *group =
+		container_of(work, struct sdhci_msm_pm_qos_group, unvote_work);
+
+	if (atomic_read(&group->counter))
+		return;
+
+	group->latency = PM_QOS_DEFAULT_VALUE;
+	pm_qos_update_request(&group->req, group->latency);
+}
+
+void sdhci_msm_pm_qos_cpu_unvote(struct sdhci_host *host, int cpu, bool async)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	int group = sdhci_msm_get_cpu_group(msm_host, cpu);
+
+	if (!msm_host->pm_qos_group_enable || group < 0 ||
+		atomic_dec_return(&msm_host->pm_qos[group].counter))
+		return;
+
+	if (async) {
+		schedule_work(&msm_host->pm_qos[group].unvote_work);
+		return;
+	}
+
+	msm_host->pm_qos[group].latency = PM_QOS_DEFAULT_VALUE;
+	pm_qos_update_request(&msm_host->pm_qos[group].req,
+				msm_host->pm_qos[group].latency);
+}
+
+void sdhci_msm_pm_qos_cpu_init(struct sdhci_host *host,
+		struct sdhci_msm_pm_qos_latency *latency)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	int nr_groups = msm_host->pdata->pm_qos_data.cpu_group_map.nr_groups;
+	struct sdhci_msm_pm_qos_group *group;
+	int i;
+
+	if (msm_host->pm_qos_group_enable)
+		return;
+
+	msm_host->pm_qos = kcalloc(nr_groups, sizeof(*msm_host->pm_qos),
+			GFP_KERNEL);
+	if (!msm_host->pm_qos)
+		return;
+
+	for (i = 0; i < nr_groups; i++) {
+		group = &msm_host->pm_qos[i];
+		INIT_WORK(&group->unvote_work,
+			sdhci_msm_pm_qos_cpu_unvote_work);
+		atomic_set(&group->counter, 0);
+		group->req.type = PM_QOS_REQ_AFFINE_CORES;
+		cpumask_copy(&group->req.cpus_affine,
+			&msm_host->pdata->pm_qos_data.cpu_group_map.mask[i]);
+		/* For initialization phase, set the performance mode latency */
+		group->latency = latency[i].latency[SDHCI_PERFORMANCE_MODE];
+		pm_qos_add_request(&group->req, PM_QOS_CPU_DMA_LATENCY,
+			group->latency);
+		pr_info("%s (): voted for group #%d (mask=0x%lx) latency=%d (0x%p)\n",
+			__func__, i,
+			group->req.cpus_affine.bits[0],
+			group->latency,
+			&latency[i].latency[SDHCI_PERFORMANCE_MODE]);
+	}
+	msm_host->pm_qos_group_enable = true;
+}
+
 static struct sdhci_ops sdhci_msm_ops = {
 	.set_uhs_signaling = sdhci_msm_set_uhs_signaling,
 	.check_power_status = sdhci_msm_check_power_status,
