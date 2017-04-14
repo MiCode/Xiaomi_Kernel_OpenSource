@@ -67,6 +67,8 @@ In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltag
 	  all the cores in the little cluster.
 	  The default CPU affinity mode is PM_QOS_REQ_AFFINE_IRQ to maintain
 	  backward compatibility.
+	- qcom,large-address-bus - specifies whether the soc is capable of
+				 supporting larger than 32 bit address bus width.
 
 Example:
 
@@ -98,6 +100,7 @@ Example:
 
                 qcom,bus-width = <4>;
 		qcom,nonremovable;
+		qcom,large-address-bus;
 		qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
 
 		gpios = <&msmgpio 40 0>, /* CLK */
