@@ -312,6 +312,7 @@ struct smb_charger {
 	int			vconn_attempts;
 	int			default_icl_ua;
 	int			otg_cl_ua;
+	bool			uusb_apsd_rerun_done;
 
 	/* workaround flag */
 	u32			wa_flags;
