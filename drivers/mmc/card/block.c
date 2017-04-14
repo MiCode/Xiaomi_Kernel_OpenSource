@@ -1008,7 +1008,7 @@ static int mmc_blk_ioctl_rpmb_cmd(struct block_device *bdev,
 {
 	struct mmc_blk_ioc_rpmb_data *idata;
 	struct mmc_blk_data *md;
-	struct mmc_card *card;
+	struct mmc_card *card = NULL;
 	struct mmc_command cmd = {0};
 	struct mmc_data data = {0};
 	struct mmc_request mrq = {NULL};
@@ -1164,6 +1164,8 @@ idata_free:
 
 cmd_done:
 	mmc_blk_put(md);
+	if (card && card->cmdq_init)
+		wake_up(&card->host->cmdq_ctx.wait);
 	return err;
 }
 
