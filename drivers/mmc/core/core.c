@@ -296,6 +296,21 @@ int mmc_clk_update_freq(struct mmc_host *host,
 		return -EINVAL;
 	}
 
+	/* make sure the card supports the frequency we want */
+	if (unlikely(freq > host->card->clk_scaling_highest)) {
+		freq = host->card->clk_scaling_highest;
+		pr_warn("%s: %s: frequency was overridden to %lu\n",
+				mmc_hostname(host), __func__,
+				host->card->clk_scaling_highest);
+	}
+
+	if (unlikely(freq < host->card->clk_scaling_lowest)) {
+		freq = host->card->clk_scaling_lowest;
+		pr_warn("%s: %s: frequency was overridden to %lu\n",
+			mmc_hostname(host), __func__,
+			host->card->clk_scaling_lowest);
+	}
+
 	if (host->ops->notify_load) {
 		err = host->ops->notify_load(host, state);
 		if (err) {
