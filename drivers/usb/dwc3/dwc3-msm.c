@@ -195,8 +195,6 @@ struct dwc3_msm {
 	unsigned int		max_power;
 	bool			charging_disabled;
 	enum usb_otg_state	otg_state;
-	struct work_struct	bus_vote_w;
-	unsigned int		bus_vote;
 	u32			bus_perf_client;
 	struct msm_bus_scale_pdata	*bus_scale_table;
 	struct power_supply	*usb_psy;
@@ -1964,17 +1962,6 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 	return 0;
 }
 
-static void dwc3_msm_bus_vote_w(struct work_struct *w)
-{
-	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm, bus_vote_w);
-	int ret;
-
-	ret = msm_bus_scale_client_update_request(mdwc->bus_perf_client,
-			mdwc->bus_vote);
-	if (ret)
-		dev_err(mdwc->dev, "Failed to reset bus bw vote %d\n", ret);
-}
-
 static void dwc3_set_phy_speed_flags(struct dwc3_msm *mdwc)
 {
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
@@ -2135,8 +2122,12 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 
 	/* Remove bus voting */
 	if (mdwc->bus_perf_client) {
-		mdwc->bus_vote = 0;
-		schedule_work(&mdwc->bus_vote_w);
+		dbg_event(0xFF, "bus_devote_start", 0);
+		ret = msm_bus_scale_client_update_request(
+					mdwc->bus_perf_client, 0);
+		dbg_event(0xFF, "bus_devote_finish", 0);
+		if (ret)
+			dev_err(mdwc->dev, "bus bw unvoting failed %d\n", ret);
 	}
 
 	/*
@@ -2190,8 +2181,12 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	/* Enable bus voting */
 	if (mdwc->bus_perf_client) {
-		mdwc->bus_vote = 1;
-		schedule_work(&mdwc->bus_vote_w);
+		dbg_event(0xFF, "bus_vote_start", 1);
+		ret = msm_bus_scale_client_update_request(
+					mdwc->bus_perf_client, 1);
+		dbg_event(0xFF, "bus_vote_finish", 1);
+		if (ret)
+			dev_err(mdwc->dev, "bus bw voting failed %d\n", ret);
 	}
 
 	/* Vote for TCXO while waking up USB HSPHY */
@@ -2951,7 +2946,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&mdwc->req_complete_list);
 	INIT_WORK(&mdwc->resume_work, dwc3_resume_work);
 	INIT_WORK(&mdwc->restart_usb_work, dwc3_restart_usb_work);
-	INIT_WORK(&mdwc->bus_vote_w, dwc3_msm_bus_vote_w);
 	INIT_WORK(&mdwc->vbus_draw_work, dwc3_msm_vbus_draw_work);
 	INIT_DELAYED_WORK(&mdwc->sm_work, dwc3_otg_sm_work);
 	INIT_DELAYED_WORK(&mdwc->perf_vote_work, msm_dwc3_perf_vote_work);
