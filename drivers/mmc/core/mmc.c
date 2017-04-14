@@ -2471,6 +2471,9 @@ static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 	if (mmc_card_suspended(host->card))
 		goto out;
 
+	if (is_suspend)
+		host->dev_status = DEV_SUSPENDING;
+
 	if (mmc_card_cmdq(host->card)) {
 		BUG_ON(host->cmdq_ctx.active_reqs);
 
@@ -2510,6 +2513,10 @@ static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 		mmc_card_set_suspended(host->card);
 	}
 out:
+	if (err)
+		host->dev_status = DEV_UNKNOWN;
+	else if (is_suspend)
+		host->dev_status = DEV_SUSPENDED;
 	mmc_release_host(host);
 	return err;
 }
@@ -2585,6 +2592,8 @@ static int _mmc_resume(struct mmc_host *host)
 		mmc_init_clk_scaling(host);
 
 out:
+	if (!err)
+		host->dev_status = DEV_RESUMED;
 	return err;
 }
 
