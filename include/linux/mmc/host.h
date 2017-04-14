@@ -175,6 +175,10 @@ struct mmc_host_ops {
 	 */
 	int	(*multi_io_quirk)(struct mmc_card *card,
 				  unsigned int direction, int blk_size);
+
+	unsigned long (*get_max_frequency)(struct mmc_host *host);
+	unsigned long (*get_min_frequency)(struct mmc_host *host);
+
 	int	(*notify_load)(struct mmc_host *, enum mmc_load);
 };
 
@@ -438,23 +442,6 @@ struct mmc_host {
 	} embedded_sdio_data;
 #endif
 
-	struct {
-		unsigned long	busy_time_us;
-		unsigned long	window_time;
-		unsigned long	curr_freq;
-		unsigned long	polling_delay_ms;
-		unsigned int	up_threshold;
-		unsigned int	down_threshold;
-		ktime_t		start_busy;
-		bool		enable;
-		bool		initialized;
-		bool		in_progress;
-		/* freq. transitions are not allowed in invalid state */
-		bool		invalid_state;
-		struct delayed_work work;
-		enum mmc_load	state;
-	} clk_scaling;
-
 #ifdef CONFIG_BLOCK
 	int			latency_hist_enabled;
 	struct io_latency_state io_lat_s;
@@ -477,7 +464,19 @@ struct mmc_host {
 	} perf;
 	bool perf_enable;
 #endif
-
+	struct {
+		unsigned long	busy_time_us;
+		unsigned long	window_time;
+		unsigned long	curr_freq;
+		unsigned long	polling_delay_ms;
+		unsigned int	up_threshold;
+		unsigned int	down_threshold;
+		ktime_t		start_busy;
+		bool		enable;
+		bool		initialized;
+		bool		in_progress;
+		struct delayed_work work;
+	} clk_scaling;
 	unsigned long		private[0] ____cacheline_aligned;
 };
 
