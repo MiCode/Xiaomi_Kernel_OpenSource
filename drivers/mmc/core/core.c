@@ -139,32 +139,30 @@ static bool mmc_is_data_request(struct mmc_request *mmc_request)
 
 static void mmc_clk_scaling_start_busy(struct mmc_host *host, bool lock_needed)
 {
-	unsigned long flags;
 	struct mmc_devfeq_clk_scaling *clk_scaling = &host->clk_scaling;
 
 	if (!clk_scaling->enable)
 		return;
 
 	if (lock_needed)
-		spin_lock_irqsave(&clk_scaling->lock, flags);
+		spin_lock_bh(&clk_scaling->lock);
 
 	clk_scaling->start_busy = ktime_get();
 	clk_scaling->is_busy_started = true;
 
 	if (lock_needed)
-		spin_unlock_irqrestore(&clk_scaling->lock, flags);
+		spin_unlock_bh(&clk_scaling->lock);
 }
 
 static void mmc_clk_scaling_stop_busy(struct mmc_host *host, bool lock_needed)
 {
-	unsigned long flags;
 	struct mmc_devfeq_clk_scaling *clk_scaling = &host->clk_scaling;
 
 	if (!clk_scaling->enable)
 		return;
 
 	if (lock_needed)
-		spin_lock_irqsave(&clk_scaling->lock, flags);
+		spin_lock_bh(&clk_scaling->lock);
 
 	if (!clk_scaling->is_busy_started) {
 		WARN_ON(1);
@@ -180,7 +178,7 @@ static void mmc_clk_scaling_stop_busy(struct mmc_host *host, bool lock_needed)
 
 out:
 	if (lock_needed)
-		spin_unlock_irqrestore(&clk_scaling->lock, flags);
+		spin_unlock_bh(&clk_scaling->lock);
 }
 
 /**
@@ -221,7 +219,6 @@ EXPORT_SYMBOL(mmc_can_scale_clk);
 static int mmc_devfreq_get_dev_status(struct device *dev,
 		struct devfreq_dev_status *status)
 {
-	unsigned long flags;
 	struct mmc_host *host = container_of(dev, struct mmc_host, class_dev);
 	struct mmc_devfeq_clk_scaling *clk_scaling;
 
@@ -236,7 +233,7 @@ static int mmc_devfreq_get_dev_status(struct device *dev,
 	if (!clk_scaling->enable)
 		return 0;
 
-	spin_lock_irqsave(&clk_scaling->lock, flags);
+	spin_lock_bh(&clk_scaling->lock);
 
 	/* accumulate the busy time of ongoing work */
 	memset(status, 0, sizeof(*status));
@@ -258,7 +255,7 @@ static int mmc_devfreq_get_dev_status(struct device *dev,
 		status->total_time, status->busy_time,
 		status->current_frequency);
 
-	spin_unlock_irqrestore(&clk_scaling->lock, flags);
+	spin_unlock_bh(&clk_scaling->lock);
 
 	return 0;
 }
@@ -356,7 +353,6 @@ static int mmc_devfreq_set_target(struct device *dev,
 	struct mmc_devfeq_clk_scaling *clk_scaling;
 	int err = 0;
 	int abort;
-	unsigned long flags;
 
 	if (!(host && freq)) {
 		pr_err("%s: unexpected host/freq parameter\n", __func__);
@@ -379,18 +375,18 @@ static int mmc_devfreq_set_target(struct device *dev,
 	if (!host->ios.clock)
 		goto out;
 
-	spin_lock_irqsave(&clk_scaling->lock, flags);
+	spin_lock_bh(&clk_scaling->lock);
 	if (clk_scaling->clk_scaling_in_progress) {
 		pr_debug("%s: clocks scaling is already in-progress by mmc thread\n",
 			mmc_hostname(host));
-		spin_unlock_irqrestore(&clk_scaling->lock, flags);
+		spin_unlock_bh(&clk_scaling->lock);
 		goto out;
 	}
 	clk_scaling->need_freq_change = true;
 	clk_scaling->target_freq = *freq;
 	clk_scaling->state = *freq < clk_scaling->curr_freq ?
 		MMC_LOAD_LOW : MMC_LOAD_HIGH;
-	spin_unlock_irqrestore(&clk_scaling->lock, flags);
+	spin_unlock_bh(&clk_scaling->lock);
 
 	abort = __mmc_claim_host(host, &clk_scaling->devfreq_abort);
 	if (abort)
@@ -419,18 +415,17 @@ out:
 
 static void mmc_deferred_scaling(struct mmc_host *host)
 {
-	unsigned long flags;
 	unsigned long target_freq;
 	int err;
 
 	if (!host->clk_scaling.enable)
 		return;
 
-	spin_lock_irqsave(&host->clk_scaling.lock, flags);
+	spin_lock_bh(&host->clk_scaling.lock);
 
 	if (host->clk_scaling.clk_scaling_in_progress ||
 		!(host->clk_scaling.need_freq_change)) {
-		spin_unlock_irqrestore(&host->clk_scaling.lock, flags);
+		spin_unlock_bh(&host->clk_scaling.lock);
 		return;
 	}
 
@@ -439,7 +434,7 @@ static void mmc_deferred_scaling(struct mmc_host *host)
 	target_freq = host->clk_scaling.target_freq;
 	host->clk_scaling.clk_scaling_in_progress = true;
 	host->clk_scaling.need_freq_change = false;
-	spin_unlock_irqrestore(&host->clk_scaling.lock, flags);
+	spin_unlock_bh(&host->clk_scaling.lock);
 	pr_debug("%s: doing deferred frequency change (%lu) (%s)\n",
 				mmc_hostname(host),
 				target_freq, current->comm);
@@ -656,8 +651,6 @@ EXPORT_SYMBOL(mmc_exit_clk_scaling);
  */
 void mmc_reset_clk_scale_stats(struct mmc_host *host)
 {
-	unsigned long flags;
-
 	if (!host) {
 		pr_err("bad host parameter\n");
 		WARN_ON(1);
@@ -665,9 +658,9 @@ void mmc_reset_clk_scale_stats(struct mmc_host *host)
 	}
 	if (!host->clk_scaling.enable)
 		return;
-	spin_lock_irqsave(&host->clk_scaling.lock, flags);
+	spin_lock_bh(&host->clk_scaling.lock);
 	host->clk_scaling.total_busy_time_us = 0;
-	spin_unlock_irqrestore(&host->clk_scaling.lock, flags);
+	spin_unlock_bh(&host->clk_scaling.lock);
 
 }
 EXPORT_SYMBOL(mmc_reset_clk_scale_stats);
