@@ -112,6 +112,7 @@ struct mmc_request {
 	struct completion	cmd_completion;
 	void			(*done)(struct mmc_request *);/* completion function */
 	struct mmc_host		*host;
+	struct mmc_cmdq_req	*cmdq_req;
 	struct request *req;
 
 	/* Allow other commands during this ongoing data transfer or busy wait */
@@ -124,6 +125,12 @@ struct mmc_request {
 
 struct mmc_card;
 struct mmc_async_req;
+struct mmc_cmdq_req;
+
+extern void mmc_cmdq_post_req(struct mmc_host *host, struct mmc_request *mrq,
+			      int err);
+extern int mmc_cmdq_start_req(struct mmc_host *host,
+			      struct mmc_cmdq_req *cmdq_req);
 
 extern int mmc_stop_bkops(struct mmc_card *);
 extern int mmc_read_bkops_status(struct mmc_card *);
