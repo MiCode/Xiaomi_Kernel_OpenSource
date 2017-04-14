@@ -2266,8 +2266,6 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 	struct clk_osm *c;
 	struct device *dev = &pdev->dev;
 	struct clk_onecell_data *clk_data;
-	struct resource *res;
-	void *vbase;
 	char l3speedbinstr[] = "qcom,l3-speedbin0-v0";
 	char perfclspeedbinstr[] = "qcom,perfcl-speedbin0-v0";
 	char pwrclspeedbinstr[] = "qcom,pwrcl-speedbin0-v0";
@@ -2474,30 +2472,6 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 		scm_io_write(perfcl_clk.pbases[SEQ_BASE] + DATA_MEM(111),
 				(0x39 | (perfcl_clk.apm_threshold_vc << 6)));
 	}
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-							"apps_itm_ctl");
-	if (!res) {
-		dev_err(&pdev->dev,
-			"Unable to get platform resource for apps_itm_ctl\n");
-		return -ENOMEM;
-	}
-
-	vbase = devm_ioremap(&pdev->dev, res->start,
-						resource_size(res));
-	if (!vbase) {
-		dev_err(&pdev->dev,
-				"Unable to map in apps_itm_ctl base\n");
-		return -ENOMEM;
-	}
-
-	val = readl_relaxed(vbase + 0x0);
-	val &= ~BIT(0);
-	writel_relaxed(val, vbase + 0x0);
-
-	val = readl_relaxed(vbase + 0x4);
-	val &= ~BIT(0);
-	writel_relaxed(val, vbase + 0x4);
 
 	/*
 	 * Perform typical secure-world HW initialization

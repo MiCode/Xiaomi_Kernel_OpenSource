@@ -25,9 +25,8 @@ Properties:
 	Value type: <stringlist>
 	Definition: Address names. Must be "osm_l3_base", "osm_pwrcl_base",
 		    "osm_perfcl_base", "l3_pll", "pwrcl_pll", "perfcl_pll",
-		    "l3_sequencer", "pwrcl_sequencer", "perfcl_sequencer" or
-		    "apps_itm_ctl". Optionally, "l3_efuse", "pwrcl_efuse"
-		    "perfcl_efuse".
+		    "l3_sequencer", "pwrcl_sequencer", "perfcl_sequencer".
+		    Optionally, "l3_efuse", "pwrcl_efuse", "perfcl_efuse".
 		    Must be specified in the same order as the corresponding
 		    addresses are specified in the reg property.
 
@@ -350,12 +349,11 @@ Example:
 			<0x178b0000 0x1000>,
 			<0x17d42400 0x0c00>,
 			<0x17d44400 0x0c00>,
-			<0x17d46c00 0x0c00>,
-			<0x17810090 0x8>;
+			<0x17d46c00 0x0c00>;
 		reg-names = "osm_l3_base", "osm_pwrcl_base", "osm_perfcl_base",
 			"l3_pll", "pwrcl_pll", "perfcl_pll",
 			"l3_sequencer", "pwrcl_sequencer",
-			"perfcl_sequencer", "apps_itm_ctl";
+			"perfcl_sequencer";
 
 		vdd-l3-supply = <&apc0_l3_vreg>;
 		vdd-pwrcl-supply = <&apc0_pwrcl_vreg>;
