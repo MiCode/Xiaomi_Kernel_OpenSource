@@ -277,9 +277,6 @@ DEFINE_RSC_TYPE(disp_rsc, "display", true);
 DEFINE_CLK_RPMH_ARC(sdm845, bi_tcxo, bi_tcxo_ao, "xo.lvl", 0x3, 0x0,
 		    &apps_rsc, 19200000, CLK_RPMH_APPS_RSC_STATE_MASK,
 		    CLK_RPMH_APPS_RSC_AO_STATE_MASK);
-DEFINE_CLK_RPMH_VRM(sdm845, ln_bb_clk1, ln_bb_clk1_ao, "lnbclka1", &apps_rsc,
-		    19200000, CLK_RPMH_APPS_RSC_STATE_MASK,
-		    CLK_RPMH_APPS_RSC_AO_STATE_MASK);
 DEFINE_CLK_RPMH_VRM(sdm845, ln_bb_clk2, ln_bb_clk2_ao, "lnbclka2", &apps_rsc,
 		    19200000, CLK_RPMH_APPS_RSC_STATE_MASK,
 		    CLK_RPMH_APPS_RSC_AO_STATE_MASK);
@@ -299,8 +296,6 @@ DEFINE_CLK_RPMH_VRM(sdm845, rf_clk3, rf_clk3_ao, "rfclka3", &apps_rsc,
 static struct clk_hw *sdm845_rpmh_clocks[] = {
 	[RPMH_CXO_CLK]		= &sdm845_bi_tcxo.hw,
 	[RPMH_CXO_CLK_A]	= &sdm845_bi_tcxo_ao.hw,
-	[RPMH_LN_BB_CLK1]	= &sdm845_ln_bb_clk1.hw,
-	[RPMH_LN_BB_CLK1_A]	= &sdm845_ln_bb_clk1_ao.hw,
 	[RPMH_LN_BB_CLK2]	= &sdm845_ln_bb_clk2.hw,
 	[RPMH_LN_BB_CLK2_A]	= &sdm845_ln_bb_clk2_ao.hw,
 	[RPMH_LN_BB_CLK3]	= &sdm845_ln_bb_clk3.hw,
