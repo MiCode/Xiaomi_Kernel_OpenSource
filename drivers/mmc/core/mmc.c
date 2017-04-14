@@ -1833,7 +1833,7 @@ static int mmc_change_bus_speed(struct mmc_host *host, unsigned long *freq)
 	 * for other timings we can simply do clock frequency change
 	 */
 	if (mmc_card_hs400(card) ||
-		(*freq == MMC_HS200_MAX_DTR)) {
+		(!mmc_card_hs200(host->card) && *freq == MMC_HS200_MAX_DTR)) {
 		err = mmc_set_clock_bus_speed(card, *freq);
 		if (err) {
 			pr_err("%s: %s: failed (%d)to set bus and clock speed (freq=%lu)\n",
