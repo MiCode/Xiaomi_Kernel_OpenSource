@@ -24,8 +24,6 @@ Optional Properties:
 		2-bit amplitude control 0x00: 0, 0x01: vmax/4, 0x02: vmax/2,
 		0x03: vmax. Default values are 0x00.
  - qcom,sc-deb-cycles : short circuit debounce in internal pwm switching clock cycles
- - qcom,use-play-irq : boolean, use this if the device uses irq for play
- - qcom,use-sc-irq : boolean, use this if the device uses irq for play
  - interrupts:	Specifies the interrupt associated with Haptics. The available
 		interrupts are play and short circuit. The values for play and
 		short circuit are <0x3 0xc0 0x0> and <0x3 0xc0 0x1>.
@@ -132,8 +130,6 @@ Example:
 			qcom,int-pwm-freq-khz = <505>;
 			qcom,en-brake;
 			qcom,brake-pattern = [03 03 00 00];
-			qcom,use-play-irq;
-			qcom,use-sc-irq;
 			qcom,wave-samples = [3e 3e 3e 3e 3e 3e 3e 3e];
 			qcom,wave-rep-cnt = <1>;
 			qcom,wave-samp-rep-cnt = <1>;
