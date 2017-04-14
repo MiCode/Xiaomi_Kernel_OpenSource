@@ -1303,7 +1303,12 @@ static int mmc_select_hs400(struct mmc_card *card)
 	mmc_set_timing(host, MMC_TIMING_MMC_HS400);
 	mmc_set_bus_speed(card);
 
-	if ((host->caps2 & MMC_CAP2_HS400_POST_TUNING) && host->ops->execute_tuning) {
+	if (host->ops->enhanced_strobe) {
+		mmc_host_clk_hold(host);
+		err = host->ops->enhanced_strobe(host);
+		mmc_host_clk_release(host);
+	} else if ((host->caps2 & MMC_CAP2_HS400_POST_TUNING) &&
+			host->ops->execute_tuning) {
 		mmc_host_clk_hold(host);
 		err = host->ops->execute_tuning(host,
 				MMC_SEND_TUNING_BLOCK_HS200);
@@ -1734,7 +1739,7 @@ static int mmc_scale_high(struct mmc_host *host)
 		return err;
 	}
 
-	return 0;
+	return err;
 }
 
 static int mmc_set_clock_bus_speed(struct mmc_card *card, unsigned long freq)
