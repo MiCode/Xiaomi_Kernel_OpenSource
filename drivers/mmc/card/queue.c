@@ -65,7 +65,7 @@ static inline bool mmc_cmdq_should_pull_reqs(struct mmc_host *host,
 {
 	if (((req_op(req) == REQ_OP_FLUSH || req_op(req) == REQ_OP_DISCARD) &&
 			test_bit(CMDQ_STATE_DCMD_ACTIVE, &ctx->curr_state)) ||
-			mmc_host_halt(host) ||
+			(!host->card->part_curr && mmc_host_halt(host)) ||
 			test_bit(CMDQ_STATE_ERR, &ctx->curr_state)) {
 		pr_debug("%s: %s: skip pulling reqs: state: %lu\n",
 			 mmc_hostname(host), __func__, ctx->curr_state);

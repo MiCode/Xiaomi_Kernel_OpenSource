@@ -1307,6 +1307,8 @@ static int mmc_blk_cmdq_switch(struct mmc_card *card,
 {
 	int ret = 0;
 	bool cmdq_mode = !!mmc_card_cmdq(card);
+	struct mmc_host *host = card->host;
+	struct mmc_cmdq_context_info *ctx = &host->cmdq_ctx;
 
 	if (!(card->host->caps2 & MMC_CAP2_CMD_QUEUE) ||
 	    !card->ext_csd.cmdq_support ||
@@ -1320,6 +1322,16 @@ static int mmc_blk_cmdq_switch(struct mmc_card *card,
 			pr_err("%s: failed (%d) to set block-size to %d\n",
 			       __func__, ret, MMC_CARD_CMDQ_BLK_SIZE);
 			goto out;
+		}
+
+	} else {
+		if (!test_bit(CMDQ_STATE_HALT, &ctx->curr_state)) {
+			ret = mmc_cmdq_halt(host, true);
+			if (ret) {
+				pr_err("%s: halt: failed: %d\n",
+					mmc_hostname(host), ret);
+				goto out;
+			}
 		}
 	}
 
