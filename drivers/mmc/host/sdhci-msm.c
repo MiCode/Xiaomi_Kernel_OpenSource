@@ -176,6 +176,8 @@
 #define DDR_CONFIG_POR_VAL		0x80040853
 #define DDR_CONFIG_PRG_RCLK_DLY_MASK	0x1FF
 #define DDR_CONFIG_PRG_RCLK_DLY		115
+#define CORE_DDR_CONFIG_2		0x1BC
+#define DDR_CONFIG_2_POR_VAL		0x80040873
 
 #define MSM_MMC_DEFAULT_CPU_DMA_LATENCY 200 /* usecs */
 
@@ -780,9 +782,15 @@ static int sdhci_msm_cm_dll_sdc4_calibration(struct sdhci_host *host)
 	 * Reprogramming the value in case it might have been modified by
 	 * bootloaders.
 	 */
-	ddr_config = DDR_CONFIG_POR_VAL & ~DDR_CONFIG_PRG_RCLK_DLY_MASK;
-	ddr_config |= DDR_CONFIG_PRG_RCLK_DLY;
-	writel_relaxed(ddr_config, host->ioaddr + CORE_DDR_CONFIG);
+	if (msm_host->rclk_delay_fix) {
+		writel_relaxed(DDR_CONFIG_2_POR_VAL,
+				host->ioaddr + CORE_DDR_CONFIG_2);
+	} else {
+		ddr_config = DDR_CONFIG_POR_VAL &
+				~DDR_CONFIG_PRG_RCLK_DLY_MASK;
+		ddr_config |= DDR_CONFIG_PRG_RCLK_DLY;
+		writel_relaxed(ddr_config, host->ioaddr + CORE_DDR_CONFIG);
+	}
 
 	if (msm_host->enhanced_strobe)
 		writel_relaxed((readl_relaxed(host->ioaddr + CORE_DDR_200_CFG)
@@ -3018,6 +3026,9 @@ static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
 	if ((major == 1) && ((minor == 0x42) || (minor == 0x46) ||
 				(minor == 0x49)))
 		msm_host->use_14lpp_dll = true;
+
+	if ((major == 1) && (minor >= 0x49))
+		msm_host->rclk_delay_fix = true;
 	/*
 	 * Mask 64-bit support for controller with 32-bit address bus so that
 	 * smaller descriptor size will be used and improve memory consumption.
