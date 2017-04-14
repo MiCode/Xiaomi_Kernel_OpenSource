@@ -92,6 +92,11 @@ enum mmc_load {
 	MMC_LOAD_LOW,
 };
 
+struct mmc_cmdq_host_ops {
+	int (*enable)(struct mmc_host *host);
+	void (*disable)(struct mmc_host *host, bool soft);
+};
+
 struct mmc_host_ops {
 	/*
 	 * 'enable' is called when the host is claimed and 'disable' is called
@@ -313,6 +318,7 @@ struct mmc_host {
 	struct mmc_devfeq_clk_scaling	clk_scaling;
 	int			index;
 	const struct mmc_host_ops *ops;
+	const struct mmc_cmdq_host_ops *cmdq_ops;
 	struct mmc_pwrseq	*pwrseq;
 	unsigned int		f_min;
 	unsigned int		f_max;
