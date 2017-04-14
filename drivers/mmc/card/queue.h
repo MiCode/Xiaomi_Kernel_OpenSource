@@ -75,7 +75,6 @@ struct mmc_queue {
 	int			num_wr_reqs_to_start_packing;
 	bool			no_pack_for_random;
 	struct work_struct	cmdq_err_work;
-	struct completion	cmdq_shutdown_complete;
 
 	struct completion	cmdq_pending_req_done;
 	struct request		*cmdq_req_peeked;
