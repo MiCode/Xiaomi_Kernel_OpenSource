@@ -30,7 +30,7 @@ SD and MMC Device Attributes
 
 All attributes are read-only.
 
-	cid			Card Identifaction Register
+	cid			Card Identification Register
 	csd			Card Specific Data Register
 	scr			SD Card Configuration Register (SD only)
 	date			Manufacturing Date (from CID Register)
@@ -101,3 +101,41 @@ This attribute appears only if CONFIG_MMC_CLKGATE is enabled.
 	clkgate_delay	Tune the clock gating delay with desired value in milliseconds.
 
 echo <desired delay> > /sys/class/mmc_host/mmcX/clkgate_delay
+
+SD/MMC/SDIO Clock Scaling Attributes
+====================================
+
+Read and write accesses are provided to following attributes.
+
+	polling_interval	Measured in milliseconds, this attribute
+				defines how often we need to check the card
+				usage and make decisions on frequency scaling.
+
+	up_threshold		This attribute defines what should be the
+				average card usage between the polling
+				interval for the mmc core to make a decision
+				on whether it should increase the frequency.
+				For example when it is set to '35' it means
+				that between the checking intervals the card
+				needs to be on average more than 35% in use to
+				scale up the frequency. The value should be
+				between 0 - 100 so that it can be compared
+				against load percentage.
+
+	down_threshold		Similar to up_threshold, but on lowering the
+				frequency. For example, when it is set to '2'
+				it means that between the checking intervals
+				the card needs to be on average less than 2%
+				in use to scale down the clocks to minimum
+				frequency. The value should be between 0 - 100
+				so that it can be compared against load
+				percentage.
+
+	enable			Enable clock scaling for hosts (and cards)
+				that support ultrahigh speed modes
+				(SDR104, DDR50, HS200).
+
+echo <desired value> > /sys/class/mmc_host/mmcX/clk_scaling/polling_interval
+echo <desired value> > /sys/class/mmc_host/mmcX/clk_scaling/up_threshold
+echo <desired value> > /sys/class/mmc_host/mmcX/clk_scaling/down_threshold
+echo <desired value> > /sys/class/mmc_host/mmcX/clk_scaling/enable
