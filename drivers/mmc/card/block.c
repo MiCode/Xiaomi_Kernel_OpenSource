@@ -3263,7 +3263,6 @@ static enum blk_eh_timer_return mmc_blk_cmdq_req_timed_out(struct request *req)
 	struct mmc_request *mrq = &mq_rq->cmdq_req.mrq;
 	struct mmc_cmdq_req *cmdq_req = &mq_rq->cmdq_req;
 
-	host->cmdq_ops->dumpstate(host);
 	if (cmdq_req->cmdq_req_flags & DCMD)
 		mrq->cmd->error = -ETIMEDOUT;
 	else
@@ -3288,6 +3287,10 @@ static void mmc_blk_cmdq_err(struct mmc_queue *mq)
 	struct mmc_cmdq_context_info *ctx_info = &host->cmdq_ctx;
 
 	pm_runtime_get_sync(&card->dev);
+	mmc_host_clk_hold(host);
+	host->cmdq_ops->dumpstate(host);
+	mmc_host_clk_release(host);
+
 	err = mmc_cmdq_halt(host, true);
 	if (err) {
 		pr_err("halt: failed: %d\n", err);
