@@ -1440,8 +1440,8 @@ int mmc_attach_sd(struct mmc_host *host)
 			retries--;
 			mmc_power_off(host);
 			usleep_range(5000, 5500);
-			mmc_power_up(host, host->card->ocr);
-			mmc_select_voltage(host, host->card->ocr);
+			mmc_power_up(host, rocr);
+			mmc_select_voltage(host, rocr);
 			continue;
 		}
 		break;
