@@ -37,6 +37,7 @@
 #define HALT_TIMEOUT_MS 1000
 
 static int cmdq_halt_poll(struct mmc_host *mmc);
+static int cmdq_halt(struct mmc_host *mmc, bool halt);
 
 #ifdef CONFIG_PM_RUNTIME
 static int cmdq_runtime_pm_get(struct cmdq_host *host)
@@ -170,6 +171,27 @@ static void cmdq_dump_task_history(struct cmdq_host *cq_host)
 			upper_32_bits(cq_host->thist[i].task));
 	}
 	pr_err("-------------------------\n");
+}
+
+static void cmdq_dump_adma_mem(struct cmdq_host *cq_host)
+{
+	struct mmc_host *mmc = cq_host->mmc;
+	dma_addr_t desc_dma;
+	int tag = 0;
+	unsigned long data_active_reqs =
+		mmc->cmdq_ctx.data_active_reqs;
+	unsigned long desc_size =
+		(cq_host->mmc->max_segs * cq_host->trans_desc_len);
+
+	for_each_set_bit(tag, &data_active_reqs, cq_host->num_slots) {
+		desc_dma = get_trans_desc_dma(cq_host, tag);
+		pr_err("%s: %s: tag = %d, trans_dma(phys) = %pad, trans_desc(virt) = 0x%p\n",
+				mmc_hostname(mmc), __func__, tag,
+				&desc_dma, get_trans_desc(cq_host, tag));
+		print_hex_dump(KERN_ERR, "cmdq-adma:", DUMP_PREFIX_ADDRESS,
+				32, 8, get_trans_desc(cq_host, tag),
+				(desc_size), false);
+	}
 }
 
 static void cmdq_dumpregs(struct cmdq_host *cq_host)
@@ -737,6 +759,7 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 	unsigned long err_info = 0;
 	struct mmc_request *mrq;
 	int ret;
+	u32 dbr_set = 0;
 
 	status = cmdq_readl(cq_host, CQIS);
 	cmdq_writel(cq_host, status, CQIS);
@@ -762,6 +785,43 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 					mmc_hostname(mmc), __func__, ret);
 		cmdq_dumpregs(cq_host);
 
+		if (!err_info) {
+			/*
+			 * It may so happen sometimes for few errors(like ADMA)
+			 * that HW cannot give CQTERRI info.
+			 * Thus below is a HW WA for recovering from such
+			 * scenario.
+			 * - To halt/disable CQE and do reset_all.
+			 *   Since there is no way to know which tag would
+			 *   have caused such error, so check for any first
+			 *   bit set in doorbell and proceed with an error.
+			 */
+			dbr_set = cmdq_readl(cq_host, CQTDBR);
+			if (!dbr_set) {
+				pr_err("%s: spurious/force error interrupt\n",
+						mmc_hostname(mmc));
+				cmdq_halt(mmc, false);
+				mmc_host_clr_halt(mmc);
+				return IRQ_HANDLED;
+			}
+
+			tag = ffs(dbr_set) - 1;
+			pr_err("%s: error tag selected: tag = %lu\n",
+					mmc_hostname(mmc), tag);
+			mrq = get_req_by_tag(cq_host, tag);
+			if (mrq->data)
+				mrq->data->error = err;
+			else
+				mrq->cmd->error = err;
+			/*
+			 * Get ADMA descriptor memory in case of ADMA
+			 * error for debug.
+			 */
+			if (err == -EIO)
+				cmdq_dump_adma_mem(cq_host);
+			goto skip_cqterri;
+		}
+
 		if (err_info & CQ_RMEFV) {
 			tag = GET_CMD_ERR_TAG(err_info);
 			pr_err("%s: CMD err tag: %lu\n", __func__, tag);
@@ -778,6 +838,14 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 			mrq = get_req_by_tag(cq_host, tag);
 			mrq->data->error = err;
 		}
+
+skip_cqterri:
+		/*
+		 * If CQE halt fails then, disable CQE
+		 * from processing any further requests
+		 */
+		if (ret)
+			cmdq_disable(mmc, true);
 
 		/*
 		 * CQE detected a response error from device
