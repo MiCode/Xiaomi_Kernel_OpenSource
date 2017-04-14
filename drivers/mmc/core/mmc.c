@@ -1253,8 +1253,12 @@ static int mmc_select_hs400(struct mmc_card *card)
 		goto out_err;
 
 	val = EXT_CSD_DDR_BUS_WIDTH_8;
-	if (card->ext_csd.strobe_support)
+	if (card->ext_csd.strobe_support) {
+		err = mmc_select_bus_width(card);
+		if (IS_ERR_VALUE((unsigned long)err))
+			return err;
 		val |= EXT_CSD_BUS_WIDTH_STROBE;
+	}
 
 	/* Switch card to DDR */
 	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
@@ -1265,25 +1269,6 @@ static int mmc_select_hs400(struct mmc_card *card)
 		pr_err("%s: switch to bus width for hs400 failed, err:%d\n",
 			mmc_hostname(host), err);
 		return err;
-	}
-
-	if (card->ext_csd.strobe_support) {
-		mmc_set_bus_width(host, MMC_BUS_WIDTH_8);
-		/*
-		 * If controller can't handle bus width test,
-		 * compare ext_csd previously read in 1 bit mode
-		 * against ext_csd at new bus width
-		 */
-		if (!(host->caps & MMC_CAP_BUS_WIDTH_TEST))
-			err = mmc_compare_ext_csds(card, MMC_BUS_WIDTH_8);
-		else
-			err = mmc_bus_test(card, MMC_BUS_WIDTH_8);
-
-		if (err) {
-			pr_warn("%s: switch to bus width %d failed\n",
-				mmc_hostname(host), MMC_BUS_WIDTH_8);
-			return err;
-		}
 	}
 
 	/* Switch card to HS400 */
