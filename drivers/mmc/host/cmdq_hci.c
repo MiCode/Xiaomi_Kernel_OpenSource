@@ -467,10 +467,9 @@ static int cmdq_dma_map(struct mmc_host *host, struct mmc_request *mrq)
 	return sg_count;
 }
 
-static void cmdq_set_tran_desc(u8 *desc,
-				 dma_addr_t addr, int len, bool end)
+static void cmdq_set_tran_desc(u8 *desc, dma_addr_t addr, int len,
+				bool end, bool is_dma64)
 {
-	__le64 *dataddr = (__le64 __force *)(desc + 4);
 	__le32 *attr = (__le32 __force *)desc;
 
 	*attr = (VALID(1) |
@@ -479,7 +478,15 @@ static void cmdq_set_tran_desc(u8 *desc,
 		 ACT(0x4) |
 		 DAT_LENGTH(len));
 
-	dataddr[0] = cpu_to_le64(addr);
+	if (is_dma64) {
+		__le64 *dataddr = (__le64 __force *)(desc + 4);
+
+		dataddr[0] = cpu_to_le64(addr);
+	} else {
+		__le32 *dataddr = (__le32 __force *)(desc + 4);
+
+		dataddr[0] = cpu_to_le32(addr);
+	}
 }
 
 static int cmdq_prep_tran_desc(struct mmc_request *mrq,
@@ -508,7 +515,7 @@ static int cmdq_prep_tran_desc(struct mmc_request *mrq,
 
 		if ((i+1) == sg_count)
 			end = true;
-		cmdq_set_tran_desc(desc, addr, len, end);
+		cmdq_set_tran_desc(desc, addr, len, end, cq_host->dma64);
 		desc += cq_host->trans_desc_len;
 	}
 
