@@ -429,7 +429,7 @@ static inline void geni_abort_m_cmd(void __iomem *base)
 	geni_write_reg(M_GENI_CMD_ABORT, base, SE_GENI_M_CMD_CTRL_REG);
 }
 
-static inline void qcom_geni_abort_s_cmd(void __iomem *base)
+static inline void geni_abort_s_cmd(void __iomem *base)
 {
 	geni_write_reg(S_GENI_CMD_ABORT, base, SE_GENI_S_CMD_CTRL_REG);
 }
