@@ -1040,6 +1040,8 @@ static int tcs_drv_probe(struct platform_device *pdev)
 		tcs->ncpt = (tcs->type == CONTROL_TCS) ? TCS_HIDDEN_MAX_SLOTS
 							: ncpt;
 		spin_lock_init(&tcs->tcs_lock);
+		for (j = 0; j < ARRAY_SIZE(tcs->tcs_m_lock); j++)
+			spin_lock_init(&tcs->tcs_m_lock[j]);
 
 		if (tcs->num_tcs <= 0 || tcs->type == CONTROL_TCS)
 			continue;
@@ -1059,8 +1061,6 @@ static int tcs_drv_probe(struct platform_device *pdev)
 		if (!tcs->cmd_addr)
 			return -ENOMEM;
 
-		for (j = 0; j < tcs->num_tcs; j++)
-			spin_lock_init(&tcs->tcs_m_lock[j]);
 	}
 
 	/* Allocate only that many channels specified in DT for our MBOX */
