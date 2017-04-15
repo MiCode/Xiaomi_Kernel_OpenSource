@@ -7179,6 +7179,8 @@ static int fg_init_irqs(struct fg_chip *chip)
 					chip->soc_irq[FULL_SOC].irq, rc);
 				return rc;
 			}
+			enable_irq_wake(chip->soc_irq[FULL_SOC].irq);
+			chip->full_soc_irq_enabled = true;
 
 			if (!chip->use_vbat_low_empty_soc) {
 				rc = devm_request_irq(chip->dev,
