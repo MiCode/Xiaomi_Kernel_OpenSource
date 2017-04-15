@@ -138,6 +138,7 @@ struct ufs_card_fix {
  */
 #define UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH (1 << 8)
 
+
 struct ufs_hba;
 void ufs_advertise_fixup_device(struct ufs_hba *hba);
 

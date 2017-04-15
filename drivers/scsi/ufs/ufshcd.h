@@ -303,6 +303,7 @@ struct ufs_pwr_mode_info {
  * @pwr_change_notify: called before and after a power mode change
  *			is carried out to allow vendor spesific capabilities
  *			to be set.
+ * @apply_dev_quirks: called to apply device specific quirks
  * @suspend: called during host controller PM callback
  * @resume: called during host controller PM callback
  * @full_reset:  called during link recovery for handling variant specific
@@ -336,6 +337,7 @@ struct ufs_hba_variant_ops {
 	int	(*resume)(struct ufs_hba *, enum ufs_pm_op);
 	int	(*full_reset)(struct ufs_hba *);
 	void	(*dbg_register_dump)(struct ufs_hba *hba, bool no_sleep);
+	int	(*phy_initialization)(struct ufs_hba *);
 	int	(*update_sec_cfg)(struct ufs_hba *hba, bool restore_sec_cfg);
 	u32	(*get_scale_down_gear)(struct ufs_hba *);
 	int	(*set_bus_vote)(struct ufs_hba *, bool);
@@ -385,6 +387,9 @@ struct ufs_hba_variant {
 	struct ufs_hba_variant_ops		*vops;
 	struct ufs_hba_crypto_variant_ops	*crypto_vops;
 	struct ufs_hba_pm_qos_variant_ops	*pm_qos_vops;
+	int     (*suspend)(struct ufs_hba *, enum ufs_pm_op);
+	int     (*resume)(struct ufs_hba *, enum ufs_pm_op);
+	void	(*dbg_register_dump)(struct ufs_hba *hba);
 };
 
 /* clock gating state  */
@@ -778,6 +783,11 @@ struct ufs_hba {
 
 	/* Auto hibern8 support is broken */
 	#define UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8		UFS_BIT(6)
+	/*
+	 * This quirk needs to be enabled if the host contoller regards
+	 * resolution of the values of PRDTO and PRDTL in UTRD as byte.
+	 */
+	#define UFSHCD_QUIRK_PRDT_BYTE_GRAN			UFS_BIT(7)
 
 	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
 
@@ -1237,8 +1247,8 @@ static inline int ufshcd_vops_apply_dev_quirks(struct ufs_hba *hba)
 
 static inline int ufshcd_vops_suspend(struct ufs_hba *hba, enum ufs_pm_op op)
 {
-	if (hba->var && hba->var->vops && hba->var->vops->suspend)
-		return hba->var->vops->suspend(hba, op);
+	if (hba->var && hba->var->vops && hba->var->vops->apply_dev_quirks)
+		return hba->var->vops->apply_dev_quirks(hba);
 	return 0;
 }
 
