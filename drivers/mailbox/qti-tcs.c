@@ -604,7 +604,7 @@ static int find_free_tcs(struct tcs_mbox *tcs)
 			slot = m * tcs->ncpt;
 			break;
 		}
-		if (++m > tcs->num_tcs)
+		if (++m >= tcs->num_tcs)
 			m = 0;
 		cpu_relax();
 	} while (1);
