@@ -78,10 +78,12 @@
 #define DRP_TRP_INT_CLEAR	0x3
 #define DRP_TRP_CNT_CLEAR	0x3
 
+#ifdef CONFIG_EDAC_LLCC_POLL
 static int poll_msec = 5000;
 module_param(poll_msec, int, 0444);
+#endif
 
-static int interrupt_mode;
+static int interrupt_mode = 1;
 module_param(interrupt_mode, int, 0444);
 MODULE_PARM_DESC(interrupt_mode,
 		 "Controls whether to use interrupt or poll mode");
@@ -331,10 +333,12 @@ static void qcom_llcc_check_cache_errors
 	}
 }
 
+#ifdef CONFIG_EDAC_LLCC_POLL
 static void qcom_llcc_poll_cache_errors(struct edac_device_ctl_info *edev_ctl)
 {
 	qcom_llcc_check_cache_errors(edev_ctl);
 }
+#endif
 
 static irqreturn_t llcc_ecc_irq_handler
 			(int irq, void *edev_ctl)
@@ -360,9 +364,11 @@ static int qcom_llcc_erp_probe(struct platform_device *pdev)
 	edev_ctl->mod_name = dev_name(dev);
 	edev_ctl->dev_name = dev_name(dev);
 	edev_ctl->ctl_name = "llcc";
+#ifdef CONFIG_EDAC_LLCC_POLL
 	edev_ctl->poll_msec = poll_msec;
 	edev_ctl->edac_check = qcom_llcc_poll_cache_errors;
 	edev_ctl->defer_work = 1;
+#endif
 	edev_ctl->panic_on_ce = LLCC_ERP_PANIC_ON_CE;
 	edev_ctl->panic_on_ue = LLCC_ERP_PANIC_ON_UE;
 
