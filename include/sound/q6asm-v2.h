@@ -654,6 +654,10 @@ int q6asm_send_mtmx_strtr_render_mode(struct audio_client *ac,
 int q6asm_send_mtmx_strtr_clk_rec_mode(struct audio_client *ac,
 		uint32_t clk_rec_mode);
 
+/* Enable adjust session clock in DSP */
+int q6asm_send_mtmx_strtr_enable_adjust_session_clock(struct audio_client *ac,
+		bool enable);
+
 /* Retrieve the current DSP path delay */
 int q6asm_get_path_delay(struct audio_client *ac);
 
@@ -661,4 +665,8 @@ int q6asm_get_path_delay(struct audio_client *ac);
 uint8_t q6asm_get_buf_index_from_token(uint32_t token);
 uint8_t q6asm_get_stream_id_from_token(uint32_t token);
 
+/* Adjust session clock in DSP */
+int q6asm_adjust_session_clock(struct audio_client *ac,
+		uint32_t adjust_time_lsw,
+		uint32_t adjust_time_msw);
 #endif /* __Q6_ASM_H__ */

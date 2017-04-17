@@ -10331,10 +10331,33 @@ struct asm_session_mtmx_strtr_param_clk_rec_t {
 	u32                  flags;
 } __packed;
 
+
+/* Parameter used by #ASM_SESSION_MTMX_STRTR_MODULE_ID_AVSYNC to
+ * realize smoother adjustment of audio session clock for a specified session.
+ * The desired audio session clock adjustment(in micro seconds) is specified
+ * using the command #ASM_SESSION_CMD_ADJUST_SESSION_CLOCK_V2.
+ * Delaying/Advancing the session clock would be implemented by inserting
+ * interpolated/dropping audio samples in the playback path respectively.
+ * Also, this parameter has to be configured before the Audio Session is put
+ * to RUN state to avoid cold start latency/glitches in the playback.
+ */
+
+#define ASM_SESSION_MTMX_PARAM_ADJUST_SESSION_TIME_CTL         0x00013217
+
+struct asm_session_mtmx_param_adjust_session_time_ctl_t {
+	/* Specifies whether the module is enabled or not
+	 * @values
+	 * 0 -- disabled
+	 * 1 -- enabled
+	 */
+	u32                 enable;
+};
+
 union asm_session_mtmx_strtr_param_config {
 	struct asm_session_mtmx_strtr_param_window_v2_t window_param;
 	struct asm_session_mtmx_strtr_param_render_mode_t render_param;
 	struct asm_session_mtmx_strtr_param_clk_rec_t clk_rec_param;
+	struct asm_session_mtmx_param_adjust_session_time_ctl_t adj_time_param;
 } __packed;
 
 struct asm_mtmx_strtr_params {
