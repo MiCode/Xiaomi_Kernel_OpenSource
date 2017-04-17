@@ -1243,14 +1243,12 @@ static int q6lsm_send_cal(struct lsm_client *client,
 	mutex_lock(&lsm_common.cal_data[LSM_CAL_IDX]->lock);
 	cal_block = cal_utils_get_only_cal_block(
 		lsm_common.cal_data[LSM_CAL_IDX]);
-	if (cal_block == NULL)
-		goto unlock;
 
-	if (cal_block->cal_data.size <= 0) {
+	if (!cal_block || cal_block->cal_data.size <= 0) {
 		pr_debug("%s: No cal to send!\n", __func__);
-		rc = -EINVAL;
 		goto unlock;
 	}
+
 	if (cal_block->cal_data.size != client->lsm_cal_size) {
 		pr_err("%s: Cal size %zd doesn't match lsm cal size %d\n",
 			__func__, cal_block->cal_data.size,
