@@ -744,9 +744,15 @@ int mmc_queue_suspend(struct mmc_queue *mq, int wait)
 	}
 
 	if (!(test_and_set_bit(MMC_QUEUE_SUSPENDED, &mq->flags))) {
-		spin_lock_irqsave(q->queue_lock, flags);
-		blk_stop_queue(q);
-		spin_unlock_irqrestore(q->queue_lock, flags);
+		if (!wait) {
+			/* suspend/stop the queue in case of suspend */
+			spin_lock_irqsave(q->queue_lock, flags);
+			blk_stop_queue(q);
+			spin_unlock_irqrestore(q->queue_lock, flags);
+		} else {
+			/* shutdown the queue in case of shutdown/reboot */
+			blk_cleanup_queue(q);
+		}
 
 		rc = down_trylock(&mq->thread_sem);
 		if (rc && !wait) {
