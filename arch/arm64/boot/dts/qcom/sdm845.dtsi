@@ -1221,11 +1221,13 @@
 			 <&clock_gcc GCC_BOOT_ROM_AHB_CLK>,
 			 <&clock_gcc GCC_MSS_GPLL0_DIV_CLK_SRC>,
 			 <&clock_gcc GCC_MSS_SNOC_AXI_CLK>,
-			 <&clock_gcc GCC_MSS_MFAB_AXIS_CLK>;
+			 <&clock_gcc GCC_MSS_AXIS2_CLK>,
+			 <&clock_gcc GCC_MSS_MFAB_AXIS_CLK>,
+			 <&clock_gcc GCC_PRNG_AHB_CLK>;
 		clock-names = "xo", "iface_clk", "bus_clk",
 			      "mem_clk", "gpll0_mss_clk", "snoc_axi_clk",
-			      "mnoc_axi_clk";
-		qcom,proxy-clock-names = "xo";
+			      "axis2_clk","mnoc_axi_clk", "prng_clk";
+		qcom,proxy-clock-names = "xo", "axis2_clk", "prng_clk";
 		qcom,active-clock-names = "iface_clk", "bus_clk", "mem_clk",
 					  "gpll0_mss_clk", "snoc_axi_clk",
 					  "mnoc_axi_clk";
