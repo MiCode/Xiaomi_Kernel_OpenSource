@@ -78,6 +78,12 @@ enum lmh_hw_trips {
 	LIMITS_TRIP_MAX,
 };
 
+struct __limits_cdev_data {
+	struct thermal_cooling_device *cdev;
+	u32 max_freq;
+	u32 min_freq;
+};
+
 struct limits_dcvs_hw {
 	char sensor_name[THERMAL_NAME_LENGTH];
 	uint32_t affinity;
@@ -93,6 +99,8 @@ struct limits_dcvs_hw {
 	unsigned long hw_freq_limit;
 	struct list_head list;
 	atomic_t is_irq_enabled;
+	struct mutex access_lock;
+	struct __limits_cdev_data *cdev_data;
 };
 
 LIST_HEAD(lmh_dcvs_hw_list);
@@ -318,25 +326,49 @@ static int enable_lmh(void)
 static int lmh_set_max_limit(int cpu, u32 freq)
 {
 	struct limits_dcvs_hw *hw = get_dcvsh_hw_from_cpu(cpu);
+	int ret = 0, cpu_idx, idx = 0;
+	u32 max_freq = U32_MAX;
 
 	if (!hw)
 		return -EINVAL;
 
-	return limits_dcvs_write(hw->affinity, LIMITS_SUB_FN_GENERAL,
-				  LIMITS_DOMAIN_MAX, freq);
+	mutex_lock(&hw->access_lock);
+	for_each_cpu(cpu_idx, &hw->core_map) {
+		if (cpu_idx == cpu)
+			hw->cdev_data[idx].max_freq = freq;
+		if (max_freq > hw->cdev_data[idx].max_freq)
+			max_freq = hw->cdev_data[idx].max_freq;
+		idx++;
+	}
+	ret = limits_dcvs_write(hw->affinity, LIMITS_SUB_FN_GENERAL,
+				  LIMITS_DOMAIN_MAX, max_freq);
+	mutex_unlock(&hw->access_lock);
+
+	return ret;
 }
 
 static int lmh_set_min_limit(int cpu, u32 freq)
 {
 	struct limits_dcvs_hw *hw = get_dcvsh_hw_from_cpu(cpu);
+	int cpu_idx, idx = 0;
+	u32 min_freq = 0;
 
 	if (!hw)
 		return -EINVAL;
 
-	if (freq != hw->min_freq)
+	mutex_lock(&hw->access_lock);
+	for_each_cpu(cpu_idx, &hw->core_map) {
+		if (cpu_idx == cpu)
+			hw->cdev_data[idx].min_freq = freq;
+		if (min_freq < hw->cdev_data[idx].min_freq)
+			min_freq = hw->cdev_data[idx].min_freq;
+		idx++;
+	}
+	if (min_freq != hw->min_freq)
 		writel_relaxed(0x01, hw->min_freq_reg);
 	else
 		writel_relaxed(0x00, hw->min_freq_reg);
+	mutex_unlock(&hw->access_lock);
 
 	return 0;
 }
@@ -351,12 +383,11 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 	int affinity = -1;
 	struct limits_dcvs_hw *hw;
 	struct thermal_zone_device *tzdev;
-	struct thermal_cooling_device *cdev;
 	struct device_node *dn = pdev->dev.of_node;
 	struct device_node *cpu_node, *lmh_node;
 	uint32_t request_reg, clear_reg, min_reg;
 	unsigned long max_freq, min_freq;
-	int cpu;
+	int cpu, idx;
 	cpumask_t mask = { CPU_BITS_NONE };
 
 	for_each_possible_cpu(cpu) {
@@ -387,6 +418,11 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 		return ret;
 	hw = devm_kzalloc(&pdev->dev, sizeof(*hw), GFP_KERNEL);
 	if (!hw)
+		return -ENOMEM;
+	hw->cdev_data = devm_kcalloc(&pdev->dev, cpumask_weight(&mask),
+				   sizeof(*hw->cdev_data),
+				   GFP_KERNEL);
+	if (!hw->cdev_data)
 		return -ENOMEM;
 
 	cpumask_copy(&hw->core_map, &mask);
@@ -444,9 +480,20 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 		return PTR_ERR(tzdev);
 
 	/* Setup cooling devices to request mitigation states */
-	cdev = cpufreq_platform_cooling_register(&hw->core_map, &cd_ops);
-	if (IS_ERR_OR_NULL(cdev))
-		return PTR_ERR(cdev);
+	mutex_init(&hw->access_lock);
+	idx = 0;
+	for_each_cpu(cpu, &hw->core_map) {
+		cpumask_t cpu_mask  = { CPU_BITS_NONE };
+
+		cpumask_set_cpu(cpu, &cpu_mask);
+		hw->cdev_data[idx].cdev = cpufreq_platform_cooling_register(
+						&cpu_mask, &cd_ops);
+		if (IS_ERR_OR_NULL(hw->cdev_data[idx].cdev))
+			return PTR_ERR(hw->cdev_data[idx].cdev);
+		hw->cdev_data[idx].max_freq = U32_MAX;
+		hw->cdev_data[idx].min_freq = 0;
+		idx++;
+	}
 
 	switch (affinity) {
 	case 0:
