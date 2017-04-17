@@ -13,6 +13,7 @@
 
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
 
+#include <linux/atomic.h>
 #include <linux/bitmap.h>
 #include <linux/interrupt.h>
 #include <linux/jiffies.h>
@@ -132,6 +133,7 @@ struct tcs_drv {
 	int num_tcs;
 	struct workqueue_struct *wq;
 	struct tcs_response_pool *resp_pool;
+	atomic_t tcs_in_use[TCS_TYPE_NR * MAX_TCS_PER_TYPE];
 };
 
 static void tcs_notify_tx_done(unsigned long data);
@@ -228,9 +230,12 @@ static inline void write_tcs_reg_sync(void __iomem *base, int reg, int m, int n,
 	} while (1);
 }
 
-static inline bool tcs_is_free(void __iomem *base, int m)
+static inline bool tcs_is_free(struct tcs_drv *drv, int m)
 {
-	return read_tcs_reg(base, TCS_DRV_STATUS, m, 0);
+	void __iomem *base = drv->reg_base;
+
+	return read_tcs_reg(base, TCS_DRV_STATUS, m, 0) &&
+			!atomic_read(&drv->tcs_in_use[m]);
 }
 
 static inline struct tcs_mbox *get_tcs_from_index(struct tcs_drv *drv, int m)
@@ -400,6 +405,13 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 	/* Clear the TCS IRQ status */
 	write_tcs_reg(base, TCS_DRV_IRQ_CLEAR, 0, 0, irq_clear);
 
+	/* Mark the TCS as free */
+	for (m = 0; irq_status >= BIT(m); m++) {
+		if (!(irq_status & BIT(m)))
+			continue;
+		atomic_set(&drv->tcs_in_use[m], 0);
+	}
+
 	return IRQ_HANDLED;
 }
 
@@ -446,7 +458,7 @@ static void tcs_notify_timeout(struct work_struct *work)
 	 * request, the TCS would be blocked forever waiting on the response.
 	 * There is no way to recover from this case.
 	 */
-	if (!tcs_is_free(drv->reg_base, m)) {
+	if (!tcs_is_free(drv, m)) {
 		bool pending = false;
 		struct tcs_cmd *cmd;
 		int i;
@@ -513,8 +525,8 @@ static void __tcs_buffer_write(struct tcs_drv *drv, int d, int m, int n,
 	write_tcs_reg(base, TCS_DRV_CMD_ENABLE, m, 0, cmd_enable);
 
 	if (trigger) {
-		/* Clear pending interrupt bits for this TCS, OK to not lock */
-		write_tcs_reg(base, TCS_DRV_IRQ_CLEAR, 0, 0, BIT(m));
+		/* Mark the TCS as busy */
+		atomic_set(&drv->tcs_in_use[m], 1);
 		/* HW req: Clear the DRV_CONTROL and enable TCS again */
 		write_tcs_reg_sync(base, TCS_DRV_CONTROL, m, 0, 0);
 		write_tcs_reg_sync(base, TCS_DRV_CONTROL, m, 0, enable);
@@ -542,7 +554,7 @@ static bool tcs_drv_is_idle(struct mbox_controller *mbox)
 		tcs = get_tcs_of_type(drv, WAKE_TCS);
 
 	for (m = tcs->tcs_offset; m < tcs->tcs_offset + tcs->num_tcs; m++)
-		if (!tcs_is_free(drv->reg_base, m))
+		if (!tcs_is_free(drv, m))
 			return false;
 
 	return true;
@@ -560,7 +572,7 @@ static void wait_for_req_inflight(struct tcs_drv *drv, struct tcs_mbox *tcs,
 		for (i = 1; i > tcs->tcs_mask; i = i << 1) {
 			if (!(tcs->tcs_mask & i))
 				continue;
-			if (tcs_is_free(drv->reg_base, i))
+			if (tcs_is_free(drv, i))
 				continue;
 			curr_enabled = read_tcs_reg(drv->reg_base,
 						TCS_DRV_CMD_ENABLE, i, 0);
@@ -588,7 +600,7 @@ static int find_free_tcs(struct tcs_mbox *tcs)
 
 	/* Loop until we find a free AMC */
 	do {
-		if (tcs_is_free(tcs->drv->reg_base, tcs->tcs_offset + m)) {
+		if (tcs_is_free(tcs->drv, tcs->tcs_offset + m)) {
 			slot = m * tcs->ncpt;
 			break;
 		}
@@ -720,7 +732,7 @@ static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 		/* Block, if we have an address from the msg in flight */
 		wait_for_req_inflight(drv, tcs, msg);
 		/* If the TCS is busy there is nothing to do but spin wait */
-		while (!tcs_is_free(drv->reg_base, m))
+		while (!tcs_is_free(drv, m))
 			cpu_relax();
 	}
 
@@ -758,7 +770,7 @@ static int tcs_mbox_invalidate(struct mbox_chan *chan)
 		for (i = 0; i < tcs->num_tcs; i++) {
 			m = i + tcs->tcs_offset;
 			spin_lock(&tcs->tcs_m_lock[i]);
-			while (!tcs_is_free(drv->reg_base, m))
+			while (!tcs_is_free(drv, m))
 				cpu_relax();
 			__tcs_buffer_invalidate(drv->reg_base, m);
 			spin_unlock(&tcs->tcs_m_lock[i]);
@@ -1118,6 +1130,9 @@ static int tcs_drv_probe(struct platform_device *pdev)
 				drv->tcs[ACTIVE_TCS].tcs_mask :
 				drv->tcs[WAKE_TCS].tcs_mask;
 	write_tcs_reg(drv->reg_base, TCS_DRV_IRQ_ENABLE, 0, 0, irq_mask);
+
+	for (i = 0; i < ARRAY_SIZE(drv->tcs_in_use); i++)
+		atomic_set(&drv->tcs_in_use[i], 0);
 
 	ret = mbox_controller_register(&drv->mbox);
 	if (ret)
