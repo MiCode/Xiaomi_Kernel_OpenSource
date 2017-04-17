@@ -1627,7 +1627,8 @@ long kgsl_ioctl_submit_commands(struct kgsl_device_private *dev_priv,
 
 		/* If no profiling buffer was specified, clear the flag */
 		if (cmdobj->profiling_buf_entry == NULL)
-			DRAWOBJ(cmdobj)->flags &= ~KGSL_DRAWOBJ_PROFILING;
+			DRAWOBJ(cmdobj)->flags &=
+				~(unsigned long)KGSL_DRAWOBJ_PROFILING;
 	}
 
 	result = device->ftbl->queue_cmds(dev_priv, context, drawobj,
@@ -1716,7 +1717,8 @@ long kgsl_ioctl_gpu_command(struct kgsl_device_private *dev_priv,
 
 		/* If no profiling buffer was specified, clear the flag */
 		if (cmdobj->profiling_buf_entry == NULL)
-			DRAWOBJ(cmdobj)->flags &= ~KGSL_DRAWOBJ_PROFILING;
+			DRAWOBJ(cmdobj)->flags &=
+				~(unsigned long)KGSL_DRAWOBJ_PROFILING;
 	}
 
 	result = device->ftbl->queue_cmds(dev_priv, context, drawobj,
@@ -2041,7 +2043,7 @@ static int check_vma_flags(struct vm_area_struct *vma,
 	unsigned long flags_requested = (VM_READ | VM_WRITE);
 
 	if (flags & KGSL_MEMFLAGS_GPUREADONLY)
-		flags_requested &= ~VM_WRITE;
+		flags_requested &= ~(unsigned long)VM_WRITE;
 
 	if ((vma->vm_flags & flags_requested) == flags_requested)
 		return 0;
@@ -2135,7 +2137,7 @@ static int kgsl_setup_anon_useraddr(struct kgsl_pagetable *pagetable,
 	entry->memdesc.pagetable = pagetable;
 	entry->memdesc.size = (uint64_t) size;
 	entry->memdesc.useraddr = hostptr;
-	entry->memdesc.flags |= KGSL_MEMFLAGS_USERMEM_ADDR;
+	entry->memdesc.flags |= (uint64_t)KGSL_MEMFLAGS_USERMEM_ADDR;
 
 	if (kgsl_memdesc_use_cpu_map(&entry->memdesc)) {
 		int ret;
@@ -2166,7 +2168,7 @@ static int match_file(const void *p, struct file *file, unsigned int fd)
 static void _setup_cache_mode(struct kgsl_mem_entry *entry,
 		struct vm_area_struct *vma)
 {
-	unsigned int mode;
+	uint64_t mode;
 	pgprot_t pgprot = vma->vm_page_prot;
 
 	if (pgprot_val(pgprot) == pgprot_val(pgprot_noncached(pgprot)))
@@ -2525,7 +2527,7 @@ static int kgsl_setup_dma_buf(struct kgsl_device *device,
 	entry->memdesc.size = 0;
 	/* USE_CPU_MAP is not impemented for ION. */
 	entry->memdesc.flags &= ~((uint64_t) KGSL_MEMFLAGS_USE_CPU_MAP);
-	entry->memdesc.flags |= KGSL_MEMFLAGS_USERMEM_ION;
+	entry->memdesc.flags |= (uint64_t)KGSL_MEMFLAGS_USERMEM_ION;
 
 	sg_table = dma_buf_map_attachment(attach, DMA_TO_DEVICE);
 
@@ -3028,8 +3030,9 @@ static uint64_t kgsl_filter_cachemode(uint64_t flags)
 	if ((flags & KGSL_CACHEMODE_MASK) >> KGSL_CACHEMODE_SHIFT ==
 					KGSL_CACHEMODE_WRITETHROUGH) {
 		flags &= ~((uint64_t) KGSL_CACHEMODE_MASK);
-		flags |= (KGSL_CACHEMODE_WRITEBACK << KGSL_CACHEMODE_SHIFT) &
-							KGSL_CACHEMODE_MASK;
+		flags |= (uint64_t)((KGSL_CACHEMODE_WRITEBACK <<
+						KGSL_CACHEMODE_SHIFT) &
+					KGSL_CACHEMODE_MASK);
 	}
 	return flags;
 }
@@ -3083,8 +3086,9 @@ static struct kgsl_mem_entry *gpumem_alloc_entry(
 			KGSL_MAX_ALIGN >> 10);
 
 		flags &= ~((uint64_t) KGSL_MEMALIGN_MASK);
-		flags |= (ilog2(KGSL_MAX_ALIGN) << KGSL_MEMALIGN_SHIFT) &
-			KGSL_MEMALIGN_MASK;
+		flags |= (uint64_t)((ilog2(KGSL_MAX_ALIGN) <<
+						KGSL_MEMALIGN_SHIFT) &
+					KGSL_MEMALIGN_MASK);
 	}
 
 	/* For now only allow allocations up to 4G */
@@ -3975,7 +3979,8 @@ long kgsl_ioctl_gpuobj_set_info(struct kgsl_device_private *dev_priv,
 
 	if (param->flags & KGSL_GPUOBJ_SET_INFO_TYPE) {
 		entry->memdesc.flags &= ~((uint64_t) KGSL_MEMTYPE_MASK);
-		entry->memdesc.flags |= param->type << KGSL_MEMTYPE_SHIFT;
+		entry->memdesc.flags |= (uint64_t)(param->type <<
+						KGSL_MEMTYPE_SHIFT);
 	}
 
 	kgsl_mem_entry_put(entry);

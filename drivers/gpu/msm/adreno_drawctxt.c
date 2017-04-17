@@ -337,7 +337,7 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 	struct kgsl_device *device = dev_priv->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int ret;
-	unsigned long local;
+	unsigned int local;
 
 	local = *flags & (KGSL_CONTEXT_PREAMBLE |
 		KGSL_CONTEXT_NO_GMEM_ALLOC |
