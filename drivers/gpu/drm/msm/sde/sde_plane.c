@@ -3953,7 +3953,7 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 	if (master_plane_id)
 		format_list = plane_formats;
 
-	psde->nformats = sde_populate_formats(plane_formats,
+	psde->nformats = sde_populate_formats(format_list,
 				psde->formats,
 				0,
 				ARRAY_SIZE(psde->formats));
