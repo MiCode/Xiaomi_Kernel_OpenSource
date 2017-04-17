@@ -111,6 +111,8 @@ void diag_notify_md_client(uint8_t peripheral, int data)
 {
 	int stat = 0;
 	struct siginfo info;
+	struct pid *pid_struct;
+	struct task_struct *result;
 
 	if (peripheral > NUM_PERIPHERALS)
 		return;
@@ -123,18 +125,38 @@ void diag_notify_md_client(uint8_t peripheral, int data)
 	info.si_code = SI_QUEUE;
 	info.si_int = (PERIPHERAL_MASK(peripheral) | data);
 	info.si_signo = SIGCONT;
-	if (driver->md_session_map[peripheral] &&
-		driver->md_session_map[peripheral]->task) {
-		if (driver->md_session_map[peripheral]->pid ==
-			driver->md_session_map[peripheral]->task->tgid) {
+
+	if (!driver->md_session_map[peripheral] ||
+		driver->md_session_map[peripheral]->pid <= 0) {
+		pr_err("diag: md_session_map[%d] is invalid\n", peripheral);
+		mutex_unlock(&driver->md_session_lock);
+		return;
+	}
+
+	pid_struct = find_get_pid(
+			driver->md_session_map[peripheral]->pid);
+	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"md_session_map[%d] pid = %d task = %pK\n",
+		peripheral,
+		driver->md_session_map[peripheral]->pid,
+		driver->md_session_map[peripheral]->task);
+
+	if (pid_struct) {
+		result = get_pid_task(pid_struct, PIDTYPE_PID);
+
+		if (!result) {
 			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
-				"md_session %d pid = %d, md_session %d task tgid = %d\n",
+				"diag: md_session_map[%d] with pid = %d Exited..\n",
 				peripheral,
-				driver->md_session_map[peripheral]->pid,
-				peripheral,
-				driver->md_session_map[peripheral]->task->tgid);
-			stat = send_sig_info(info.si_signo, &info,
-				driver->md_session_map[peripheral]->task);
+				driver->md_session_map[peripheral]->pid);
+			mutex_unlock(&driver->md_session_lock);
+			return;
+		}
+
+		if (driver->md_session_map[peripheral] &&
+			driver->md_session_map[peripheral]->task == result) {
+			stat = send_sig_info(info.si_signo,
+					&info, result);
 			if (stat)
 				pr_err("diag: Err sending signal to memory device client, signal data: 0x%x, stat: %d\n",
 					info.si_int, stat);
