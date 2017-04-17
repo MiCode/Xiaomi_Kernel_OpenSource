@@ -40,6 +40,8 @@
 #define PLL_CALIBRATION_SETTINGS		0x030
 #define PLL_BAND_SEL_CAL_SETTINGS_THREE		0x054
 #define PLL_FREQ_DETECT_SETTINGS_ONE		0x064
+#define PLL_PFILT				0x07c
+#define PLL_IFILT				0x080
 #define PLL_OUTDIV				0x094
 #define PLL_CORE_OVERRIDE			0x0a4
 #define PLL_CORE_INPUT_OVERRIDE			0x0a8
@@ -63,6 +65,7 @@
 #define PLL_PLL_FL_INT_GAIN_PFILT_BAND_1	0x164
 #define PLL_PLL_LOCK_OVERRIDE			0x180
 #define PLL_PLL_LOCK_DELAY			0x184
+#define PLL_CLOCK_INVERTERS			0x18c
 #define PLL_COMMON_STATUS_ONE			0x1a0
 
 /* Register Offsets from PHY base address */
@@ -338,7 +341,6 @@ static void dsi_pll_config_hzindep_reg(struct dsi_pll_10nm *pll,
 	MDSS_PLL_REG_W(pll_base, PLL_ANALOG_CONTROLS_THREE, 0x00);
 	MDSS_PLL_REG_W(pll_base, PLL_DSM_DIVIDER, 0x00);
 	MDSS_PLL_REG_W(pll_base, PLL_FEEDBACK_DIVIDER, 0x4e);
-	MDSS_PLL_REG_W(pll_base, PLL_CMODE, 0x00);
 	MDSS_PLL_REG_W(pll_base, PLL_CALIBRATION_SETTINGS, 0x40);
 	MDSS_PLL_REG_W(pll_base, PLL_BAND_SEL_CAL_SETTINGS_THREE, 0xba);
 	MDSS_PLL_REG_W(pll_base, PLL_FREQ_DETECT_SETTINGS_ONE, 0x0c);
@@ -347,9 +349,11 @@ static void dsi_pll_config_hzindep_reg(struct dsi_pll_10nm *pll,
 	MDSS_PLL_REG_W(pll_base, PLL_PLL_DIGITAL_TIMERS_TWO, 0x08);
 	MDSS_PLL_REG_W(pll_base, PLL_PLL_PROP_GAIN_RATE_1, 0x08);
 	MDSS_PLL_REG_W(pll_base, PLL_PLL_BAND_SET_RATE_1, 0xc0);
-	MDSS_PLL_REG_W(pll_base, PLL_PLL_INT_GAIN_IFILT_BAND_1, 0x82);
+	MDSS_PLL_REG_W(pll_base, PLL_PLL_INT_GAIN_IFILT_BAND_1, 0xfa);
 	MDSS_PLL_REG_W(pll_base, PLL_PLL_FL_INT_GAIN_PFILT_BAND_1, 0x4c);
 	MDSS_PLL_REG_W(pll_base, PLL_PLL_LOCK_OVERRIDE, 0x80);
+	MDSS_PLL_REG_W(pll_base, PLL_PFILT, 0x29);
+	MDSS_PLL_REG_W(pll_base, PLL_IFILT, 0x3f);
 }
 
 static void dsi_pll_commit(struct dsi_pll_10nm *pll,
@@ -367,9 +371,11 @@ static void dsi_pll_commit(struct dsi_pll_10nm *pll,
 		       reg->frac_div_start_mid);
 	MDSS_PLL_REG_W(pll_base, PLL_FRAC_DIV_START_HIGH_1,
 		       reg->frac_div_start_high);
-	MDSS_PLL_REG_W(pll_base, PLL_PLL_LOCKDET_RATE_1, 0xc8);
+	MDSS_PLL_REG_W(pll_base, PLL_PLL_LOCKDET_RATE_1, 0x40);
 	MDSS_PLL_REG_W(pll_base, PLL_PLL_OUTDIV_RATE, reg->pll_outdiv_rate);
-	MDSS_PLL_REG_W(pll_base, PLL_PLL_LOCK_DELAY, 0x0a);
+	MDSS_PLL_REG_W(pll_base, PLL_PLL_LOCK_DELAY, 0x06);
+	MDSS_PLL_REG_W(pll_base, PLL_CMODE, 0x10);
+	MDSS_PLL_REG_W(pll_base, PLL_CLOCK_INVERTERS, 0x0);
 
 }
 
@@ -450,8 +456,8 @@ static void dsi_pll_disable_pll_bias(struct mdss_pll_resources *rsc)
 {
 	u32 data = MDSS_PLL_REG_R(rsc->phy_base, PHY_CMN_CTRL_0);
 
-	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_CTRL_0, data & ~BIT(5));
 	MDSS_PLL_REG_W(rsc->pll_base, PLL_SYSTEM_MUXES, 0);
+	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_CTRL_0, data & ~BIT(5));
 	ndelay(250);
 }
 
@@ -462,6 +468,22 @@ static void dsi_pll_enable_pll_bias(struct mdss_pll_resources *rsc)
 	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_CTRL_0, data | BIT(5));
 	MDSS_PLL_REG_W(rsc->pll_base, PLL_SYSTEM_MUXES, 0xc0);
 	ndelay(250);
+}
+
+static void dsi_pll_disable_global_clk(struct mdss_pll_resources *rsc)
+{
+	u32 data;
+
+	data = MDSS_PLL_REG_R(rsc->phy_base, PHY_CMN_CLK_CFG1);
+	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_CLK_CFG1, (data & ~BIT(5)));
+}
+
+static void dsi_pll_enable_global_clk(struct mdss_pll_resources *rsc)
+{
+	u32 data;
+
+	data = MDSS_PLL_REG_R(rsc->phy_base, PHY_CMN_CLK_CFG1);
+	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_CLK_CFG1, (data | BIT(5)));
 }
 
 static int dsi_pll_enable(struct dsi_pll_vco_clk *vco)
@@ -490,6 +512,11 @@ static int dsi_pll_enable(struct dsi_pll_vco_clk *vco)
 	}
 
 	rsc->pll_on = true;
+
+	dsi_pll_enable_global_clk(rsc);
+	if (rsc->slave)
+		dsi_pll_enable_global_clk(rsc->slave);
+
 	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_RBUF_CTRL, 0x01);
 	if (rsc->slave)
 		MDSS_PLL_REG_W(rsc->slave->phy_base, PHY_CMN_RBUF_CTRL, 0x01);
@@ -500,8 +527,9 @@ error:
 
 static void dsi_pll_disable_sub(struct mdss_pll_resources *rsc)
 {
-	dsi_pll_disable_pll_bias(rsc);
+	dsi_pll_disable_global_clk(rsc);
 	MDSS_PLL_REG_W(rsc->phy_base, PHY_CMN_RBUF_CTRL, 0);
+	dsi_pll_disable_pll_bias(rsc);
 }
 
 static void dsi_pll_disable(struct dsi_pll_vco_clk *vco)
@@ -613,6 +641,9 @@ static unsigned long vco_10nm_recalc_rate(struct clk_hw *hw,
 	u32 outdiv;
 	u64 pll_freq, tmp64;
 
+	if (!vco->priv)
+		pr_err("vco priv is null\n");
+
 	rc = mdss_pll_resource_enable(pll, true);
 	if (rc) {
 		pr_err("failed to enable pll(%d) resource, rc=%d\n",
@@ -671,9 +702,11 @@ static int pixel_clk_get_div(void *context, unsigned int reg, unsigned int *div)
 	reg_val = MDSS_PLL_REG_R(pll->phy_base, PHY_CMN_CLK_CFG0);
 	*div = (reg_val & 0xF0) >> 4;
 
-	if (*div == 0)
-		*div = 1;
-	else
+	/**
+	 * Common clock framework the divider value is interpreted as one less
+	 * hence we return one less for all dividers except when zero
+	 */
+	if (*div != 0)
 		*div -= 1;
 
 	(void)mdss_pll_resource_enable(pll, false);
@@ -701,13 +734,15 @@ static int pixel_clk_set_div(void *context, unsigned int reg, unsigned int div)
 		pr_err("Failed to enable dsi pll resources, rc=%d\n", rc);
 		return rc;
 	}
-	/* In common clock framework the divider value provided is one less */
+	/**
+	 * In common clock framework the divider value provided is one less and
+	 * and hence adjusting the divider value by one prior to writing it to
+	 * hardware
+	 */
 	div++;
-
 	pixel_clk_set_div_sub(pll, div);
 	if (pll->slave)
 		pixel_clk_set_div_sub(pll->slave, div);
-
 	(void)mdss_pll_resource_enable(pll, false);
 
 	return 0;
@@ -728,12 +763,12 @@ static int bit_clk_get_div(void *context, unsigned int reg, unsigned int *div)
 	reg_val = MDSS_PLL_REG_R(pll->phy_base, PHY_CMN_CLK_CFG0);
 	*div = (reg_val & 0x0F);
 
-	/* Common clock framework will add one to divider value sent */
-	if (*div == 0)
-		*div = 1;
-	else
+	/**
+	 *Common clock framework the divider value is interpreted as one less
+	 * hence we return one less for all dividers except when zero
+	 */
+	if (*div != 0)
 		*div -= 1;
-
 	(void)mdss_pll_resource_enable(pll, false);
 
 	return rc;
@@ -771,6 +806,12 @@ static int bit_clk_set_div(void *context, unsigned int reg, unsigned int div)
 		pr_err("Failed to enable dsi pll resources, rc=%d\n", rc);
 		return rc;
 	}
+
+	/**
+	 * In common clock framework the divider value provided is one less and
+	 * and hence adjusting the divider value by one prior to writing it to
+	 * hardware
+	 */
 	div++;
 
 	bit_clk_set_div_sub(rsc, div);
@@ -806,9 +847,11 @@ static int post_vco_clk_get_div(void *context, unsigned int reg,
 	else
 		*div = 1;
 
-	if (*div == 0)
-		*div = 1;
-	else
+	/**
+	 *Common clock framework the divider value is interpreted as one less
+	 * hence we return one less for all dividers except when zero
+	 */
+	if (*div != 0)
 		*div -= 1;
 
 	(void)mdss_pll_resource_enable(pll, false);
@@ -851,8 +894,12 @@ static int post_vco_clk_set_div(void *context, unsigned int reg,
 		return rc;
 	}
 
+	/**
+	 * In common clock framework the divider value provided is one less and
+	 * and hence adjusting the divider value by one prior to writing it to
+	 * hardware
+	 */
 	div++;
-
 	rc = post_vco_clk_set_div_sub(pll, div);
 	if (!rc && pll->slave)
 		rc = post_vco_clk_set_div_sub(pll->slave, div);
@@ -885,9 +932,11 @@ static int post_bit_clk_get_div(void *context, unsigned int reg,
 	else
 		*div = 1;
 
-	if (*div == 0)
-		*div = 1;
-	else
+	/**
+	 *Common clock framework the divider value is interpreted as one less
+	 * hence we return one less for all dividers except when zero
+	 */
+	if (*div != 0)
 		*div -= 1;
 
 	(void)mdss_pll_resource_enable(pll, false);
@@ -930,8 +979,12 @@ static int post_bit_clk_set_div(void *context, unsigned int reg,
 		return rc;
 	}
 
+	/**
+	 * In common clock framework the divider value provided is one less and
+	 * and hence adjusting the divider value by one prior to writing it to
+	 * hardware
+	 */
 	div++;
-
 	rc = post_bit_clk_set_div_sub(pll, div);
 	if (!rc && pll->slave)
 		rc = post_bit_clk_set_div_sub(pll->slave, div);
@@ -1057,7 +1110,6 @@ static struct dsi_pll_vco_clk dsi1pll_vco_clk = {
 };
 
 static struct clk_regmap_div dsi0pll_bitclk_src = {
-	.reg = 0x48,
 	.shift = 0,
 	.width = 4,
 	.clkr = {
@@ -1072,7 +1124,6 @@ static struct clk_regmap_div dsi0pll_bitclk_src = {
 };
 
 static struct clk_regmap_div dsi1pll_bitclk_src = {
-	.reg = 0x48,
 	.shift = 0,
 	.width = 4,
 	.clkr = {
@@ -1087,9 +1138,8 @@ static struct clk_regmap_div dsi1pll_bitclk_src = {
 };
 
 static struct clk_regmap_div dsi0pll_post_vco_div = {
-	.reg = 0x48,
 	.shift = 0,
-	.width = 4,
+	.width = 2,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "dsi0pll_post_vco_div",
@@ -1102,9 +1152,8 @@ static struct clk_regmap_div dsi0pll_post_vco_div = {
 };
 
 static struct clk_regmap_div dsi1pll_post_vco_div = {
-	.reg = 0x48,
 	.shift = 0,
-	.width = 4,
+	.width = 2,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "dsi1pll_post_vco_div",
@@ -1141,9 +1190,8 @@ static struct clk_fixed_factor dsi1pll_byteclk_src = {
 };
 
 static struct clk_regmap_div dsi0pll_post_bit_div = {
-	.reg = 0x48,
 	.shift = 0,
-	.width = 4,
+	.width = 1,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "dsi0pll_post_bit_div",
@@ -1156,9 +1204,8 @@ static struct clk_regmap_div dsi0pll_post_bit_div = {
 };
 
 static struct clk_regmap_div dsi1pll_post_bit_div = {
-	.reg = 0x48,
 	.shift = 0,
-	.width = 4,
+	.width = 1,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "dsi1pll_post_bit_div",
@@ -1171,12 +1218,11 @@ static struct clk_regmap_div dsi1pll_post_bit_div = {
 };
 
 static struct clk_regmap_mux dsi0pll_byteclk_mux = {
-	.reg = 0x48,
 	.shift = 0,
-	.width = 4,
+	.width = 0,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
-			.name = "dsi0pll_byteclk_mux",
+			.name = "dsi0_phy_pll_out_byteclk",
 			.parent_names = (const char *[]){"dsi0pll_byteclk_src"},
 			.num_parents = 1,
 			.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT),
@@ -1186,12 +1232,11 @@ static struct clk_regmap_mux dsi0pll_byteclk_mux = {
 };
 
 static struct clk_regmap_mux dsi1pll_byteclk_mux = {
-	.reg = 0x48,
 	.shift = 0,
-	.width = 4,
+	.width = 0,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
-			.name = "dsi1pll_byteclk_mux",
+			.name = "dsi1_phy_pll_out_byteclk",
 			.parent_names = (const char *[]){"dsi1pll_byteclk_src"},
 			.num_parents = 1,
 			.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT),
@@ -1201,15 +1246,14 @@ static struct clk_regmap_mux dsi1pll_byteclk_mux = {
 };
 
 static struct clk_regmap_mux dsi0pll_pclk_src_mux = {
-	.reg = 0x48,
 	.shift = 0,
-	.width = 4,
+	.width = 0,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "dsi0pll_pclk_src_mux",
 			.parent_names = (const char *[]){"dsi0pll_post_bit_div",
-						"dsi0pll_post_bit_div"},
-			.num_parents = 1,
+						"dsi0pll_post_vco_div"},
+			.num_parents = 2,
 			.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT),
 			.ops = &clk_regmap_mux_closest_ops,
 		},
@@ -1217,15 +1261,14 @@ static struct clk_regmap_mux dsi0pll_pclk_src_mux = {
 };
 
 static struct clk_regmap_mux dsi1pll_pclk_src_mux = {
-	.reg = 0x48,
 	.shift = 0,
-	.width = 4,
+	.width = 0,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "dsi1pll_pclk_src_mux",
 			.parent_names = (const char *[]){"dsi1pll_post_bit_div",
-						"dsi1pll_post_bit_div"},
-			.num_parents = 1,
+						"dsi1pll_post_vco_div"},
+			.num_parents = 2,
 			.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT),
 			.ops = &clk_regmap_mux_closest_ops,
 		},
@@ -1233,7 +1276,6 @@ static struct clk_regmap_mux dsi1pll_pclk_src_mux = {
 };
 
 static struct clk_regmap_div dsi0pll_pclk_src = {
-	.reg = 0x48,
 	.shift = 0,
 	.width = 4,
 	.clkr = {
@@ -1249,7 +1291,6 @@ static struct clk_regmap_div dsi0pll_pclk_src = {
 };
 
 static struct clk_regmap_div dsi1pll_pclk_src = {
-	.reg = 0x48,
 	.shift = 0,
 	.width = 4,
 	.clkr = {
@@ -1265,12 +1306,11 @@ static struct clk_regmap_div dsi1pll_pclk_src = {
 };
 
 static struct clk_regmap_mux dsi0pll_pclk_mux = {
-	.reg = 0x48,
 	.shift = 0,
-	.width = 4,
+	.width = 0,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
-			.name = "dsi0pll_pclk_mux",
+			.name = "dsi0_phy_pll_out_dsiclk",
 			.parent_names = (const char *[]){"dsi0pll_pclk_src"},
 			.num_parents = 1,
 			.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT),
@@ -1280,12 +1320,11 @@ static struct clk_regmap_mux dsi0pll_pclk_mux = {
 };
 
 static struct clk_regmap_mux dsi1pll_pclk_mux = {
-	.reg = 0x48,
 	.shift = 0,
-	.width = 4,
+	.width = 0,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
-			.name = "dsi1pll_pclk_mux",
+			.name = "dsi1_phy_pll_out_dsiclk",
 			.parent_names = (const char *[]){"dsi1pll_pclk_src"},
 			.num_parents = 1,
 			.flags = (CLK_GET_RATE_NOCACHE | CLK_SET_RATE_PARENT),
@@ -1339,8 +1378,8 @@ int dsi_pll_clock_register_10nm(struct platform_device *pdev,
 	}
 
 	pll_rsc_db[ndx] = pll_res;
-	pll_res->priv = &plls[ndx];
 	plls[ndx].rsc = pll_res;
+	pll_res->priv = &plls[ndx];
 	pll_res->vco_delay = VCO_DELAY_USEC;
 
 	clk_data = devm_kzalloc(&pdev->dev, sizeof(struct clk_onecell_data),
@@ -1386,6 +1425,7 @@ int dsi_pll_clock_register_10nm(struct platform_device *pdev,
 				pll_res, &dsi_pll_10nm_config);
 		dsi0pll_byteclk_mux.clkr.regmap = rmap;
 
+		dsi0pll_vco_clk.priv = pll_res;
 		for (i = VCO_CLK_0; i <= PCLK_MUX_0_CLK; i++) {
 			clk = devm_clk_register(&pdev->dev,
 						mdss_dsi_pllcc_10nm[i]);
@@ -1431,6 +1471,7 @@ int dsi_pll_clock_register_10nm(struct platform_device *pdev,
 		rmap = devm_regmap_init(&pdev->dev, &mdss_mux_regmap_bus,
 				pll_res, &dsi_pll_10nm_config);
 		dsi1pll_byteclk_mux.clkr.regmap = rmap;
+		dsi1pll_vco_clk.priv = pll_res;
 
 		for (i = VCO_CLK_1; i <= PCLK_MUX_1_CLK; i++) {
 			clk = devm_clk_register(&pdev->dev,

@@ -150,6 +150,7 @@ static int mdss_pll_clock_register(struct platform_device *pdev,
 	switch (pll_res->pll_interface_type) {
 	case MDSS_DSI_PLL_10NM:
 		rc = dsi_pll_clock_register_10nm(pdev, pll_res);
+		break;
 	case MDSS_UNKNOWN_PLL:
 	default:
 		rc = -EINVAL;
@@ -370,7 +371,7 @@ static int __init mdss_pll_driver_init(void)
 
 	return rc;
 }
-subsys_initcall(mdss_pll_driver_init);
+fs_initcall(mdss_pll_driver_init);
 
 static void __exit mdss_pll_driver_deinit(void)
 {
