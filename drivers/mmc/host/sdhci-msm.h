@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -213,6 +213,8 @@ struct sdhci_msm_host {
 	bool pm_qos_group_enable;
 	struct sdhci_msm_pm_qos_irq pm_qos_irq;
 	bool tuning_in_progress;
+	bool mci_removed;
+	const struct sdhci_msm_offset *offset;
 };
 
 extern char *saved_command_line;
