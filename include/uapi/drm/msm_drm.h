@@ -316,6 +316,7 @@ struct drm_msm_event_resp {
 #define DRM_SDE_WB_CONFIG              0x40
 #define DRM_MSM_REGISTER_EVENT         0x41
 #define DRM_MSM_DEREGISTER_EVENT       0x42
+#define DRM_MSM_RMFB2                  0x43
 
 /* sde custom events */
 #define DRM_EVENT_HISTOGRAM 0x80000000
@@ -335,6 +336,8 @@ struct drm_msm_event_resp {
 			DRM_MSM_REGISTER_EVENT), struct drm_msm_event_req)
 #define DRM_IOCTL_MSM_DEREGISTER_EVENT DRM_IOW((DRM_COMMAND_BASE + \
 			DRM_MSM_DEREGISTER_EVENT), struct drm_msm_event_req)
+#define DRM_IOCTL_MSM_RMFB2 DRM_IOW((DRM_COMMAND_BASE + \
+			DRM_MSM_RMFB2), unsigned int)
 
 #if defined(__cplusplus)
 }
