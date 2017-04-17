@@ -1377,7 +1377,7 @@
 		compatible = "qcom,msm-watchdog";
 		reg = <0x17980000 0x1000>;
 		reg-names = "wdt-base";
-		interrupts = <0 3 0>, <0 4 0>;
+		interrupts = <0 0 0>, <0 1 0>;
 		qcom,bark-time = <11000>;
 		qcom,pet-time = <10000>;
 		qcom,ipi-ping;
