@@ -152,7 +152,6 @@
 #define	FLASH_LED_MOD_ENABLE			BIT(7)
 #define	FLASH_LED_DISABLE			0x00
 #define	FLASH_LED_SAFETY_TMR_DISABLED		0x13
-#define	FLASH_LED_MIN_CURRENT_MA		25
 #define	FLASH_LED_MAX_TOTAL_CURRENT_MA		3750
 
 /* notifier call chain for flash-led irqs */
@@ -879,11 +878,12 @@ static int qpnp_flash_led_get_max_avail_current(struct qpnp_flash_led *led)
 static void qpnp_flash_led_node_set(struct flash_node_data *fnode, int value)
 {
 	int prgm_current_ma = value;
+	int min_ma = fnode->ires_ua / 1000;
 
 	if (value <= 0)
 		prgm_current_ma = 0;
-	else if (value < FLASH_LED_MIN_CURRENT_MA)
-		prgm_current_ma = FLASH_LED_MIN_CURRENT_MA;
+	else if (value < min_ma)
+		prgm_current_ma = min_ma;
 
 	prgm_current_ma = min(prgm_current_ma, fnode->max_current);
 	fnode->current_ma = prgm_current_ma;
@@ -1335,7 +1335,7 @@ static int qpnp_flash_led_parse_each_led_dt(struct qpnp_flash_led *led,
 			struct flash_node_data *fnode, struct device_node *node)
 {
 	const char *temp_string;
-	int rc;
+	int rc, min_ma;
 	u32 val;
 	bool strobe_sel = 0, edge_trigger = 0, active_high = 0;
 
@@ -1391,10 +1391,11 @@ static int qpnp_flash_led_parse_each_led_dt(struct qpnp_flash_led *led,
 		return rc;
 	}
 
+	min_ma = fnode->ires_ua / 1000;
 	rc = of_property_read_u32(node, "qcom,max-current", &val);
 	if (!rc) {
-		if (val < FLASH_LED_MIN_CURRENT_MA)
-			val = FLASH_LED_MIN_CURRENT_MA;
+		if (val < min_ma)
+			val = min_ma;
 		fnode->max_current = val;
 		fnode->cdev.max_brightness = val;
 	} else {
@@ -1404,11 +1405,10 @@ static int qpnp_flash_led_parse_each_led_dt(struct qpnp_flash_led *led,
 
 	rc = of_property_read_u32(node, "qcom,current-ma", &val);
 	if (!rc) {
-		if (val < FLASH_LED_MIN_CURRENT_MA ||
-				val > fnode->max_current)
+		if (val < min_ma || val > fnode->max_current)
 			pr_warn("Invalid operational current specified, capping it\n");
-		if (val < FLASH_LED_MIN_CURRENT_MA)
-			val = FLASH_LED_MIN_CURRENT_MA;
+		if (val < min_ma)
+			val = min_ma;
 		if (val > fnode->max_current)
 			val = fnode->max_current;
 		fnode->current_ma = val;
