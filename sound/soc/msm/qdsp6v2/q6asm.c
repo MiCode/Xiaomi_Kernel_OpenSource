@@ -8048,25 +8048,6 @@ fail_cmd:
 	return -EINVAL;
 }
 
-
-int q6asm_send_audio_effects_params(struct audio_client *ac, char *params,
-				    uint32_t params_length)
-{
-	int rc;
-
-	pr_debug("%s:\n", __func__);
-
-	/*
-	 * Leave function as wrapper for use by effects. Params must be properly
-	 * packed. Use q6common_pack_pp_param to pack params correctly.
-	 */
-	rc = q6asm_set_pp_params(ac, NULL, params, params_length);
-	if (rc)
-		pr_err("%s: audio effects set-params send failed\n", __func__);
-
-	return rc;
-}
-
 int q6asm_send_mtmx_strtr_window(struct audio_client *ac,
 		struct asm_session_mtmx_strtr_param_window_v2_t *window_param,
 		uint32_t param_id)
