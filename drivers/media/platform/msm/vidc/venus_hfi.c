@@ -2883,9 +2883,17 @@ static void venus_hfi_pm_handler(struct work_struct *work)
 				VIDC_WRAPPER_CPU_STATUS);
 		idle_status = __read_register(device,
 				VIDC_CPU_CS_SCIACMDARG0);
-		if (!(wfi_status & BIT(0)) ||
-				!(idle_status & BIT(30))) {
-			dprintk(VIDC_WARN, "Skipping PC\n");
+		if (!(wfi_status & BIT(0))) {
+			dprintk(VIDC_WARN,
+				"Skipping PC as wfi_status (%#x) bit not set\n",
+				wfi_status);
+			goto skip_power_off;
+		}
+		if (device->res->sys_idle_indicator &&
+			!(idle_status & BIT(30))) {
+			dprintk(VIDC_WARN,
+				"Skipping PC as idle_status (%#x) bit not set\n",
+				idle_status);
 			goto skip_power_off;
 		}
 
