@@ -540,6 +540,12 @@ static int smb2_usb_set_prop(struct power_supply *psy,
 	struct smb_charger *chg = &chip->chg;
 	int rc = 0;
 
+	mutex_lock(&chg->lock);
+	if (!chg->typec_present) {
+		rc = -EINVAL;
+		goto unlock;
+	}
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN:
 		rc = smblib_set_prop_usb_voltage_min(chg, val);
@@ -578,6 +584,8 @@ static int smb2_usb_set_prop(struct power_supply *psy,
 		break;
 	}
 
+unlock:
+	mutex_unlock(&chg->lock);
 	return rc;
 }
 
