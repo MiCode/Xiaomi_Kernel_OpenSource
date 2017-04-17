@@ -23,6 +23,17 @@ config PWRSEQ_SIMPLE
 	  This driver can also be built as a module. If so, the module
 	  will be called pwrseq_simple.
 
+config MMC_RING_BUFFER
+	bool "MMC_RING_BUFFER"
+	depends on MMC
+	default n
+	help
+	  This enables the ring buffer tracing of significant
+	  events for mmc driver to provide command history for
+	  debugging purpose.
+
+	  If unsure, say N.
+
 config MMC_EMBEDDED_SDIO
 	boolean "MMC embedded SDIO device support (EXPERIMENTAL)"
 	help
