@@ -78,7 +78,8 @@ static const struct backlight_ops sde_backlight_device_ops = {
 	.get_brightness = sde_backlight_device_get_brightness,
 };
 
-static int sde_backlight_setup(struct sde_connector *c_conn)
+static int sde_backlight_setup(struct sde_connector *c_conn,
+					struct drm_device *dev)
 {
 	struct backlight_device *bl_device;
 	struct backlight_properties props;
@@ -87,7 +88,7 @@ static int sde_backlight_setup(struct sde_connector *c_conn)
 	static int display_count;
 	char bl_node_name[BL_NODE_NAME_SIZE];
 
-	if (!c_conn) {
+	if (!c_conn || !dev || !dev->dev) {
 		SDE_ERROR("invalid param\n");
 		return -EINVAL;
 	} else if (c_conn->connector_type != DRM_MODE_CONNECTOR_DSI) {
@@ -104,7 +105,7 @@ static int sde_backlight_setup(struct sde_connector *c_conn)
 	props.brightness = bl_config->brightness_max_level;
 	snprintf(bl_node_name, BL_NODE_NAME_SIZE, "panel%u-backlight",
 							display_count);
-	bl_device = backlight_device_register(bl_node_name, c_conn->base.kdev,
+	bl_device = backlight_device_register(bl_node_name, dev->dev,
 			c_conn, &sde_backlight_device_ops, &props);
 	if (IS_ERR_OR_NULL(bl_device)) {
 		SDE_ERROR("Failed to register backlight: %ld\n",
@@ -779,7 +780,7 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 		goto error_cleanup_fence;
 	}
 
-	rc = sde_backlight_setup(c_conn);
+	rc = sde_backlight_setup(c_conn, dev);
 	if (rc) {
 		SDE_ERROR("failed to setup backlight, rc=%d\n", rc);
 		goto error_cleanup_fence;
