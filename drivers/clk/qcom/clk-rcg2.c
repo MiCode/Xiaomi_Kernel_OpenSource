@@ -418,7 +418,7 @@ static long clk_rcg2_list_rate(struct clk_hw *hw, unsigned int n,
 static int __clk_rcg2_set_rate(struct clk_hw *hw, unsigned long rate)
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
-	const struct freq_tbl *f;
+	const struct freq_tbl *f, *f_curr;
 	int ret, curr_src_index, new_src_index;
 	struct clk_hw *curr_src = NULL, *new_src = NULL;
 
@@ -436,15 +436,17 @@ static int __clk_rcg2_set_rate(struct clk_hw *hw, unsigned long rate)
 	}
 
 	if (rcg->flags & FORCE_ENABLE_RCG) {
-		if (!rcg->current_freq)
-			rcg->current_freq = cxo_f.freq;
-
+		rcg->current_freq = clk_get_rate(hw->clk);
 		if (rcg->current_freq == cxo_f.freq)
 			curr_src_index = 0;
 		else {
-			f = qcom_find_freq(rcg->freq_tbl, rcg->current_freq);
+			f_curr = qcom_find_freq(rcg->freq_tbl,
+							rcg->current_freq);
+			if (!f_curr)
+				return -EINVAL;
+
 			curr_src_index = qcom_find_src_index(hw,
-						rcg->parent_map, f->src);
+						rcg->parent_map, f_curr->src);
 		}
 
 		new_src_index = qcom_find_src_index(hw, rcg->parent_map,
