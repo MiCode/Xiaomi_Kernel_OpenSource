@@ -183,6 +183,7 @@ int adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 		case MSM_SUBMIT_CMD_IB_TARGET_BUF:
 			/* ignore IB-targets */
 			break;
+		case MSM_SUBMIT_CMD_PROFILE_BUF:
 		case MSM_SUBMIT_CMD_CTX_RESTORE_BUF:
 				break;
 		case MSM_SUBMIT_CMD_BUF:

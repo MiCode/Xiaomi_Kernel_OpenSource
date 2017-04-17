@@ -48,6 +48,9 @@ static struct msm_gem_submit *submit_create(struct drm_device *dev,
 		submit->nr_bos = 0;
 		submit->nr_cmds = 0;
 
+		submit->profile_buf_vaddr = NULL;
+		submit->profile_buf_iova = 0;
+
 		INIT_LIST_HEAD(&submit->bo_list);
 		ww_acquire_init(&submit->ticket, &reservation_ww_class);
 	}
@@ -393,6 +396,7 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 		case MSM_SUBMIT_CMD_BUF:
 		case MSM_SUBMIT_CMD_IB_TARGET_BUF:
 		case MSM_SUBMIT_CMD_CTX_RESTORE_BUF:
+		case MSM_SUBMIT_CMD_PROFILE_BUF:
 			break;
 		default:
 			DRM_ERROR("invalid type: %08x\n", submit_cmd.type);
@@ -424,6 +428,12 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 		submit->cmd[i].size = submit_cmd.size / 4;
 		submit->cmd[i].iova = iova + submit_cmd.submit_offset;
 		submit->cmd[i].idx  = submit_cmd.submit_idx;
+
+		if (submit_cmd.type == MSM_SUBMIT_CMD_PROFILE_BUF) {
+			submit->profile_buf_iova = submit->cmd[i].iova;
+			submit->profile_buf_vaddr =
+				msm_gem_vaddr_locked(&msm_obj->base);
+		}
 
 		if (submit->valid)
 			continue;
