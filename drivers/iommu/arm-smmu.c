@@ -870,7 +870,7 @@ static void arm_smmu_power_off_slow(struct arm_smmu_power_resources *pwr)
 	arm_smmu_unprepare_clocks(pwr);
 	arm_smmu_unrequest_bus(pwr);
 	regulator_bulk_disable(pwr->num_gdscs, pwr->gdscs);
-
+	pwr->power_count = 0;
 	mutex_unlock(&pwr->power_lock);
 }
 
