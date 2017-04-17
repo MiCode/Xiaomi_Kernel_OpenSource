@@ -3425,6 +3425,7 @@ err_clk_get:
 static inline void __disable_unprepare_clks(struct venus_hfi_device *device)
 {
 	struct clock_info *cl;
+	int rc = 0;
 
 	if (!device) {
 		dprintk(VIDC_ERR, "Invalid params: %pK\n", device);
@@ -3434,6 +3435,18 @@ static inline void __disable_unprepare_clks(struct venus_hfi_device *device)
 	venus_hfi_for_each_clock_reverse(device, cl) {
 		dprintk(VIDC_DBG, "Clock: %s disable and unprepare\n",
 				cl->name);
+		rc = clk_set_flags(cl->clk, CLKFLAG_NORETAIN_PERIPH);
+		if (rc) {
+			dprintk(VIDC_WARN,
+				"Failed set flag NORETAIN_PERIPH %s\n",
+					cl->name);
+		}
+		rc = clk_set_flags(cl->clk, CLKFLAG_NORETAIN_MEM);
+		if (rc) {
+			dprintk(VIDC_WARN,
+				"Failed set flag NORETAIN_MEM %s\n",
+					cl->name);
+		}
 		clk_disable_unprepare(cl->clk);
 	}
 }
@@ -3457,22 +3470,18 @@ static inline int __prepare_enable_clks(struct venus_hfi_device *device)
 		if (cl->has_scaling)
 			clk_set_rate(cl->clk, clk_round_rate(cl->clk, 0));
 
-		if (cl->has_mem_retention) {
-			rc = clk_set_flags(cl->clk, CLKFLAG_NORETAIN_PERIPH);
-			if (rc) {
-				dprintk(VIDC_WARN,
-					"Failed set flag NORETAIN_PERIPH %s\n",
+		rc = clk_set_flags(cl->clk, CLKFLAG_RETAIN_PERIPH);
+		if (rc) {
+			dprintk(VIDC_WARN,
+				"Failed set flag RETAIN_PERIPH %s\n",
 					cl->name);
-			}
-
-			rc = clk_set_flags(cl->clk, CLKFLAG_NORETAIN_MEM);
-			if (rc) {
-				dprintk(VIDC_WARN,
-					"Failed set flag NORETAIN_MEM %s\n",
-					cl->name);
-			}
 		}
-
+		rc = clk_set_flags(cl->clk, CLKFLAG_RETAIN_MEM);
+		if (rc) {
+			dprintk(VIDC_WARN,
+				"Failed set flag RETAIN_MEM %s\n",
+					cl->name);
+		}
 		rc = clk_prepare_enable(cl->clk);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to enable clocks\n");
