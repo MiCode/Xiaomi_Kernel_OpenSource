@@ -955,6 +955,9 @@ skip_cqterri:
 	if (status & CQIS_HAC) {
 		if (cq_host->ops->post_cqe_halt)
 			cq_host->ops->post_cqe_halt(mmc);
+		/* halt done: re-enable legacy interrupts */
+		if (cq_host->ops->clear_set_irqs)
+			cq_host->ops->clear_set_irqs(mmc, false);
 		/* halt is completed, wakeup waiting thread */
 		complete(&cq_host->halt_comp);
 	}
@@ -1047,10 +1050,6 @@ static int cmdq_halt(struct mmc_host *mmc, bool halt)
 			} else {
 				MMC_TRACE(mmc, "%s: halt done , retries: %d\n",
 					__func__, retries);
-				/* halt done: re-enable legacy interrupts */
-				if (cq_host->ops->clear_set_irqs)
-					cq_host->ops->clear_set_irqs(mmc,
-								false);
 				break;
 			}
 		}
