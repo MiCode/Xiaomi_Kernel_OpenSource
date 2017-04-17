@@ -302,6 +302,39 @@ exit:
 	return ret;
 }
 
+static int msm_compr_enable_adjust_session_clock(struct audio_client *ac,
+		bool enable)
+{
+	int ret;
+
+	pr_debug("%s, enable adjust_session %d\n", __func__, enable);
+
+	ret = q6asm_send_mtmx_strtr_enable_adjust_session_clock(ac, enable);
+	if (ret)
+		pr_err("%s, adjust session clock can't be set error %d\n",
+			__func__, ret);
+
+	return ret;
+}
+
+static int msm_compr_adjust_session_clock(struct audio_client *ac,
+		uint32_t adjust_session_lsw, uint32_t adjust_session_msw)
+{
+	int ret;
+
+	pr_debug("%s, adjust_session_time_msw 0x%x adjust_session_time_lsw 0x%x\n",
+		 __func__, adjust_session_msw, adjust_session_lsw);
+
+	ret = q6asm_adjust_session_clock(ac,
+			adjust_session_lsw,
+			adjust_session_msw);
+	if (ret)
+		pr_err("%s, adjust session clock can't be set error %d\n",
+			__func__, ret);
+
+	return ret;
+}
+
 static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 				uint32_t volume_l, uint32_t volume_r)
 {
@@ -2885,6 +2918,14 @@ static int msm_compr_set_metadata(struct snd_compr_stream *cstream,
 	} else if (metadata->key == SNDRV_COMPRESS_START_DELAY) {
 		prtd->start_delay_lsw = metadata->value[0];
 		prtd->start_delay_msw = metadata->value[1];
+	} else if (metadata->key ==
+				SNDRV_COMPRESS_ENABLE_ADJUST_SESSION_CLOCK) {
+		return msm_compr_enable_adjust_session_clock(ac,
+				metadata->value[0]);
+	} else if (metadata->key == SNDRV_COMPRESS_ADJUST_SESSION_CLOCK) {
+		return msm_compr_adjust_session_clock(ac,
+				metadata->value[0],
+				metadata->value[1]);
 	}
 
 	return 0;
