@@ -2374,6 +2374,7 @@ struct ath10k *ath10k_core_create(size_t priv_size, struct device *dev,
 		ar->fw_flags = &wcn3990_fw_flags;
 		ar->shadow_reg_value = &wcn3990_shadow_reg_value;
 		ar->shadow_reg_address = &wcn3990_shadow_reg_address;
+		ar->rri_on_ddr = true;
 		break;
 	default:
 		ath10k_err(ar, "unsupported core hardware revision %d\n",
