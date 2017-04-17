@@ -1290,6 +1290,30 @@ static DEVICE_ATTR(min_state, 0644,
 		   thermal_cooling_device_min_state_store);
 
 static ssize_t
+thermal_cooling_device_lower_limit_show(struct device *dev,
+				       struct device_attribute *attr, char *buf)
+{
+	struct thermal_instance *instance;
+
+	instance =
+	    container_of(attr, struct thermal_instance, lower_attr);
+
+	return snprintf(buf, PAGE_SIZE, "%lu\n", instance->lower);
+}
+
+static ssize_t
+thermal_cooling_device_upper_limit_show(struct device *dev,
+				       struct device_attribute *attr, char *buf)
+{
+	struct thermal_instance *instance;
+
+	instance =
+	    container_of(attr, struct thermal_instance, upper_attr);
+
+	return snprintf(buf, PAGE_SIZE, "%lu\n", instance->upper);
+}
+
+static ssize_t
 thermal_cooling_device_trip_point_show(struct device *dev,
 				       struct device_attribute *attr, char *buf)
 {
@@ -1443,6 +1467,26 @@ int thermal_zone_bind_cooling_device(struct thermal_zone_device *tz,
 	if (result)
 		goto remove_symbol_link;
 
+	snprintf(dev->upper_attr_name, THERMAL_NAME_LENGTH,
+			"cdev%d_upper_limit", dev->id);
+	sysfs_attr_init(&dev->upper_attr.attr);
+	dev->upper_attr.attr.name = dev->upper_attr_name;
+	dev->upper_attr.attr.mode = 0444;
+	dev->upper_attr.show = thermal_cooling_device_upper_limit_show;
+	result = device_create_file(&tz->device, &dev->upper_attr);
+	if (result)
+		goto remove_trip_file;
+
+	snprintf(dev->lower_attr_name, THERMAL_NAME_LENGTH,
+			"cdev%d_lower_limit", dev->id);
+	sysfs_attr_init(&dev->lower_attr.attr);
+	dev->lower_attr.attr.name = dev->lower_attr_name;
+	dev->lower_attr.attr.mode = 0444;
+	dev->lower_attr.show = thermal_cooling_device_lower_limit_show;
+	result = device_create_file(&tz->device, &dev->lower_attr);
+	if (result)
+		goto remove_upper_file;
+
 	sprintf(dev->weight_attr_name, "cdev%d_weight", dev->id);
 	sysfs_attr_init(&dev->weight_attr.attr);
 	dev->weight_attr.attr.name = dev->weight_attr_name;
@@ -1451,7 +1495,7 @@ int thermal_zone_bind_cooling_device(struct thermal_zone_device *tz,
 	dev->weight_attr.store = thermal_cooling_device_weight_store;
 	result = device_create_file(&tz->device, &dev->weight_attr);
 	if (result)
-		goto remove_trip_file;
+		goto remove_lower_file;
 
 	mutex_lock(&tz->lock);
 	mutex_lock(&cdev->lock);
@@ -1472,6 +1516,10 @@ int thermal_zone_bind_cooling_device(struct thermal_zone_device *tz,
 		return 0;
 
 	device_remove_file(&tz->device, &dev->weight_attr);
+remove_lower_file:
+	device_remove_file(&tz->device, &dev->lower_attr);
+remove_upper_file:
+	device_remove_file(&tz->device, &dev->upper_attr);
 remove_trip_file:
 	device_remove_file(&tz->device, &dev->attr);
 remove_symbol_link:
@@ -1521,6 +1569,8 @@ int thermal_zone_unbind_cooling_device(struct thermal_zone_device *tz,
 	return -ENODEV;
 
 unbind:
+	device_remove_file(&tz->device, &pos->lower_attr);
+	device_remove_file(&tz->device, &pos->upper_attr);
 	device_remove_file(&tz->device, &pos->weight_attr);
 	device_remove_file(&tz->device, &pos->attr);
 	sysfs_remove_link(&tz->device.kobj, pos->name);
