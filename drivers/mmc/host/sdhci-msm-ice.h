@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,18 @@
 #define CORE_VENDOR_SPEC_ICE_CTRL_INFO_1_n	0x304
 #define CORE_VENDOR_SPEC_ICE_CTRL_INFO_2_n	0x308
 #define CORE_VENDOR_SPEC_ICE_CTRL_INFO_3_n	0x30C
+
+/* ICE3.0 register which got added cmdq reg space */
+#define ICE_CQ_CAPABILITIES	0x04
+#define ICE_HCI_SUPPORT		(1 << 28)
+#define ICE_CQ_CONFIG		0x08
+#define CRYPTO_GENERAL_ENABLE	(1 << 1)
+
+/* ICE3.0 register which got added hc reg space */
+#define HC_VENDOR_SPECIFIC_FUNC4	0x260
+#define DISABLE_CRYPTO			(1 << 15)
+#define HC_VENDOR_SPECIFIC_ICE_CTRL	0x800
+#define ICE_SW_RST_EN			(1 << 0)
 
 /* SDHCI MSM ICE CTRL Info register offset */
 enum {
@@ -76,6 +88,11 @@ enum {
 	SDHCI_MSM_ICE_STATE_ACTIVE     = 1,
 	SDHCI_MSM_ICE_STATE_SUSPENDED  = 2,
 };
+
+/* crypto context fields in cmdq data command task descriptor */
+#define DATA_UNIT_NUM(x)	(((u64)(x) & 0xFFFFFFFF) << 0)
+#define CRYPTO_CONFIG_INDEX(x)	(((u64)(x) & 0xFF) << 32)
+#define CRYPTO_ENABLE(x)	(((u64)(x) & 0x1) << 47)
 
 #ifdef CONFIG_MMC_SDHCI_MSM_ICE
 int sdhci_msm_ice_get_dev(struct sdhci_host *host);
