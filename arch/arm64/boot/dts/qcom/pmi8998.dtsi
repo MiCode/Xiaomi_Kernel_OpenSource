@@ -232,6 +232,25 @@
 						 <12000 2250>; /* 12V @ 2.25A */
 		};
 
+		bcl_sensor: bcl@4200 {
+			compatible = "qcom,msm-bcl-lmh";
+			reg = <0x4200 0xff>,
+				<0x4300 0xff>;
+			reg-names = "fg_user_adc",
+					"fg_lmh";
+			interrupts = <0x2 0x42 0x0 IRQ_TYPE_NONE>,
+					<0x2 0x42 0x1 IRQ_TYPE_NONE>,
+					<0x2 0x42 0x2 IRQ_TYPE_NONE>,
+					<0x2 0x42 0x3 IRQ_TYPE_NONE>,
+					<0x2 0x42 0x4 IRQ_TYPE_NONE>;
+			interrupt-names = "bcl-high-ibat",
+						"bcl-very-high-ibat",
+						"bcl-low-vbat",
+						"bcl-very-low-vbat",
+						"bcl-crit-low-vbat";
+			#thermal-sensor-cells = <1>;
+		};
+
 		pmi8998_rradc: rradc@4500 {
 			compatible = "qcom,rradc";
 			reg = <0x4500 0x100>;
@@ -647,6 +666,133 @@
 				qcom,led-name = "led:switch_1";
 				qcom,led-mask = <4>;
 				qcom,default-led-trigger = "switch1_trigger";
+			};
+		};
+	};
+};
+
+&thermal_zones {
+	ibat-high {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&bcl_sensor 0>;
+
+		trips {
+			ibat_high: low-ibat {
+				temperature = <4200>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+	ibat-vhigh {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&bcl_sensor 1>;
+
+		trips {
+			ibat_vhigh: ibat_vhigh {
+				temperature = <4300>;
+				hysteresis = <100>;
+				type = "passive";
+			};
+		};
+	};
+	vbat {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&bcl_sensor 2>;
+		tracks-low;
+
+		trips {
+			low_vbat: low-vbat {
+				temperature = <3300>;
+				hysteresis = <100>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			vbat_cpu4 {
+				trip = <&low_vbat>;
+				cooling-device = <&CPU4 22 22>;
+			};
+			vbat_cpu5 {
+				trip = <&low_vbat>;
+				cooling-device = <&CPU5 22 22>;
+			};
+			vbat_map6 {
+				trip = <&low_vbat>;
+				cooling-device = <&CPU6 22 22>;
+			};
+			vbat_map7 {
+				trip = <&low_vbat>;
+				cooling-device = <&CPU7 22 22>;
+			};
+		};
+	};
+	vbat_low {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&bcl_sensor 3>;
+		tracks-low;
+
+		trips {
+			low-vbat {
+				temperature = <3100>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+	};
+	vbat_too_low {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&bcl_sensor 4>;
+		tracks-low;
+
+		trips {
+			low-vbat {
+				temperature = <2900>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+	};
+	soc {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&bcl_sensor 5>;
+		tracks-low;
+
+		trips {
+			low_soc: low-soc {
+				temperature = <10>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			soc_cpu4 {
+				trip = <&low_soc>;
+				cooling-device = <&CPU4 22 22>;
+			};
+			soc_cpu5 {
+				trip = <&low_soc>;
+				cooling-device = <&CPU5 22 22>;
+			};
+			soc_map6 {
+				trip = <&low_soc>;
+				cooling-device = <&CPU6 22 22>;
+			};
+			soc_map7 {
+				trip = <&low_soc>;
+				cooling-device = <&CPU7 22 22>;
 			};
 		};
 	};
