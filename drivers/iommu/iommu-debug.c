@@ -124,29 +124,6 @@ static const struct file_operations iommu_debug_attachment_info_fops = {
 	.release = single_release,
 };
 
-static ssize_t iommu_debug_attachment_trigger_fault_write(
-	struct file *file, const char __user *ubuf, size_t count,
-	loff_t *offset)
-{
-	struct iommu_debug_attachment *attach = file->private_data;
-	unsigned long flags;
-
-	if (kstrtoul_from_user(ubuf, count, 0, &flags)) {
-		pr_err("Invalid flags format\n");
-		return -EFAULT;
-	}
-
-	iommu_trigger_fault(attach->domain, flags);
-
-	return count;
-}
-
-static const struct file_operations
-iommu_debug_attachment_trigger_fault_fops = {
-	.open	= simple_open,
-	.write	= iommu_debug_attachment_trigger_fault_write,
-};
-
 static ssize_t iommu_debug_attachment_reg_offset_write(
 	struct file *file, const char __user *ubuf, size_t count,
 	loff_t *offset)
@@ -266,14 +243,6 @@ static int iommu_debug_attach_add_debugfs(
 		    "info", S_IRUSR, attach->dentry, attach,
 		    &iommu_debug_attachment_info_fops)) {
 		pr_err("Couldn't create iommu/attachments/%s/info debugfs file for domain 0x%p\n",
-		       dev_name(dev), domain);
-		goto err_rmdir;
-	}
-
-	if (!debugfs_create_file(
-		    "trigger_fault", S_IRUSR, attach->dentry, attach,
-		    &iommu_debug_attachment_trigger_fault_fops)) {
-		pr_err("Couldn't create iommu/attachments/%s/trigger_fault debugfs file for domain 0x%p\n",
 		       dev_name(dev), domain);
 		goto err_rmdir;
 	}
@@ -1859,6 +1828,33 @@ static const struct file_operations iommu_debug_config_clocks_fops = {
 	.write	= iommu_debug_config_clocks_write,
 };
 
+static ssize_t iommu_debug_trigger_fault_write(
+		struct file *file, const char __user *ubuf, size_t count,
+		loff_t *offset)
+{
+	struct iommu_debug_device *ddev = file->private_data;
+	unsigned long flags;
+
+	if (!ddev->domain) {
+		pr_err("No domain. Did you already attach?\n");
+		return -EINVAL;
+	}
+
+	if (kstrtoul_from_user(ubuf, count, 0, &flags)) {
+		pr_err("Invalid flags format\n");
+		return -EFAULT;
+	}
+
+	iommu_trigger_fault(ddev->domain, flags);
+
+	return count;
+}
+
+static const struct file_operations iommu_debug_trigger_fault_fops = {
+	.open	= simple_open,
+	.write	= iommu_debug_trigger_fault_write,
+};
+
 /*
  * The following will only work for drivers that implement the generic
  * device tree bindings described in
@@ -1970,6 +1966,13 @@ static int snarf_iommu_devices(struct device *dev, void *ignored)
 	if (!debugfs_create_file("config_clocks", S_IWUSR, dir, ddev,
 				 &iommu_debug_config_clocks_fops)) {
 		pr_err("Couldn't create iommu/devices/%s/config_clocks debugfs file\n",
+		       dev_name(dev));
+		goto err_rmdir;
+	}
+
+	if (!debugfs_create_file("trigger-fault", 0200, dir, ddev,
+				 &iommu_debug_trigger_fault_fops)) {
+		pr_err("Couldn't create iommu/devices/%s/trigger-fault debugfs file\n",
 		       dev_name(dev));
 		goto err_rmdir;
 	}
