@@ -2352,16 +2352,7 @@ int smblib_get_prop_input_voltage_settled(struct smb_charger *chg,
 int smblib_get_prop_pd_in_hard_reset(struct smb_charger *chg,
 			       union power_supply_propval *val)
 {
-	int rc;
-	u8 ctrl;
-
-	rc = smblib_read(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG, &ctrl);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG rc=%d\n",
-			rc);
-		return rc;
-	}
-	val->intval = ctrl & EXIT_SNK_BASED_ON_CC_BIT;
+	val->intval = chg->pd_hard_reset;
 	return 0;
 }
 
@@ -2743,88 +2734,70 @@ static struct reg_info cc2_detach_settings[] = {
 
 static int smblib_cc2_sink_removal_enter(struct smb_charger *chg)
 {
-	int rc = 0;
-	union power_supply_propval cc2_val = {0, };
+	int rc, ccout, ufp_mode;
+	u8 stat;
 
 	if ((chg->wa_flags & TYPEC_CC2_REMOVAL_WA_BIT) == 0)
-		return rc;
+		return 0;
 
-	if (chg->cc2_sink_detach_flag != CC2_SINK_NONE)
-		return rc;
+	if (chg->cc2_detach_wa_active)
+		return 0;
 
-	rc = smblib_get_prop_typec_cc_orientation(chg, &cc2_val);
+	rc = smblib_read(chg, TYPE_C_STATUS_4_REG, &stat);
 	if (rc < 0) {
-		smblib_err(chg, "Couldn't get cc orientation rc=%d\n", rc);
+		smblib_err(chg, "Couldn't read TYPE_C_STATUS_4 rc=%d\n", rc);
 		return rc;
 	}
-	if (cc2_val.intval == 1)
-		return rc;
+	ccout = (stat & CC_ATTACHED_BIT) ?
+					(!!(stat & CC_ORIENTATION_BIT) + 1) : 0;
+	ufp_mode = (stat & TYPEC_DEBOUNCE_DONE_STATUS_BIT) ?
+					!(stat & UFP_DFP_MODE_STATUS_BIT) : 0;
 
-	rc = smblib_get_prop_typec_mode(chg, &cc2_val);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't get prop typec mode rc=%d\n", rc);
-		return rc;
-	}
+	if (ccout != 2)
+		return 0;
 
-	switch (cc2_val.intval) {
-	case POWER_SUPPLY_TYPEC_SOURCE_DEFAULT:
-		smblib_reg_block_update(chg, cc2_detach_settings);
-		chg->cc2_sink_detach_flag = CC2_SINK_STD;
-		schedule_work(&chg->rdstd_cc2_detach_work);
-		break;
-	case POWER_SUPPLY_TYPEC_SOURCE_MEDIUM:
-	case POWER_SUPPLY_TYPEC_SOURCE_HIGH:
-		chg->cc2_sink_detach_flag = CC2_SINK_MEDIUM_HIGH;
-		break;
-	default:
-		break;
-	}
+	if (!ufp_mode)
+		return 0;
 
+	chg->cc2_detach_wa_active = true;
+	/* The CC2 removal WA will cause a type-c-change IRQ storm */
+	smblib_reg_block_update(chg, cc2_detach_settings);
+	schedule_work(&chg->rdstd_cc2_detach_work);
 	return rc;
 }
 
 static int smblib_cc2_sink_removal_exit(struct smb_charger *chg)
 {
-	int rc = 0;
-
 	if ((chg->wa_flags & TYPEC_CC2_REMOVAL_WA_BIT) == 0)
-		return rc;
+		return 0;
 
-	if (chg->cc2_sink_detach_flag == CC2_SINK_STD) {
-		cancel_work_sync(&chg->rdstd_cc2_detach_work);
-		smblib_reg_block_restore(chg, cc2_detach_settings);
-	}
+	if (!chg->cc2_detach_wa_active)
+		return 0;
 
-	chg->cc2_sink_detach_flag = CC2_SINK_NONE;
-
-	return rc;
+	chg->cc2_detach_wa_active = false;
+	cancel_work_sync(&chg->rdstd_cc2_detach_work);
+	smblib_reg_block_restore(chg, cc2_detach_settings);
+	return 0;
 }
 
 int smblib_set_prop_pd_in_hard_reset(struct smb_charger *chg,
 				const union power_supply_propval *val)
 {
-	int rc;
+	int rc = 0;
 
+	if (chg->pd_hard_reset == val->intval)
+		return rc;
+
+	chg->pd_hard_reset = val->intval;
 	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
-				 EXIT_SNK_BASED_ON_CC_BIT,
-				 (val->intval) ? EXIT_SNK_BASED_ON_CC_BIT : 0);
-	if (rc < 0) {
-		smblib_err(chg, "Could not set EXIT_SNK_BASED_ON_CC rc=%d\n",
+			EXIT_SNK_BASED_ON_CC_BIT,
+			(chg->pd_hard_reset) ? EXIT_SNK_BASED_ON_CC_BIT : 0);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't set EXIT_SNK_BASED_ON_CC rc=%d\n",
 				rc);
-		return rc;
-	}
 
-	vote(chg->apsd_disable_votable, PD_HARD_RESET_VOTER, val->intval, 0);
-
-	if (val->intval)
-		rc = smblib_cc2_sink_removal_enter(chg);
-	else
-		rc = smblib_cc2_sink_removal_exit(chg);
-
-	if (rc < 0) {
-		smblib_err(chg, "Could not detect cc2 removal rc=%d\n", rc);
-		return rc;
-	}
+	vote(chg->apsd_disable_votable, PD_HARD_RESET_VOTER,
+							chg->pd_hard_reset, 0);
 
 	return rc;
 }
@@ -3131,6 +3104,23 @@ irqreturn_t smblib_handle_usbin_uv(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static void smblib_micro_usb_plugin(struct smb_charger *chg, bool vbus_rising)
+{
+	if (!vbus_rising) {
+		smblib_update_usb_type(chg);
+		extcon_set_cable_state_(chg->extcon, EXTCON_USB, false);
+		smblib_uusb_removal(chg);
+	}
+}
+
+static void smblib_typec_usb_plugin(struct smb_charger *chg, bool vbus_rising)
+{
+	if (vbus_rising)
+		smblib_cc2_sink_removal_exit(chg);
+	else
+		smblib_cc2_sink_removal_enter(chg);
+}
+
 #define PL_DELAY_MS			30000
 irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 {
@@ -3147,9 +3137,8 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 	}
 
 	vbus_rising = (bool)(stat & USBIN_PLUGIN_RT_STS_BIT);
-	smblib_set_opt_freq_buck(chg,
-		vbus_rising ? chg->chg_freq.freq_5V :
-			chg->chg_freq.freq_removal);
+	smblib_set_opt_freq_buck(chg, vbus_rising ? chg->chg_freq.freq_5V :
+						chg->chg_freq.freq_removal);
 
 	/* fetch the DPDM regulator */
 	if (!chg->dpdm_reg && of_get_property(chg->dev->of_node,
@@ -3186,13 +3175,12 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 				smblib_err(chg, "Couldn't disable dpdm regulator rc=%d\n",
 					rc);
 		}
-
-		if (chg->micro_usb_mode) {
-			smblib_update_usb_type(chg);
-			extcon_set_cable_state_(chg->extcon, EXTCON_USB, false);
-			smblib_uusb_removal(chg);
-		}
 	}
+
+	if (chg->micro_usb_mode)
+		smblib_micro_usb_plugin(chg, vbus_rising);
+	else
+		smblib_typec_usb_plugin(chg, vbus_rising);
 
 	power_supply_changed(chg->usb_psy);
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s %s\n",
@@ -3618,6 +3606,8 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 {
 	int rc;
 
+	chg->cc2_detach_wa_active = false;
+
 	cancel_delayed_work_sync(&chg->pl_enable_work);
 	vote(chg->pl_disable_votable, PL_DELAY_VOTER, true, 0);
 	vote(chg->awake_votable, PL_DELAY_VOTER, false, 0);
@@ -3702,24 +3692,6 @@ static void smblib_handle_typec_debounce_done(struct smb_charger *chg,
 	if (rc < 0)
 		smblib_err(chg, "Couldn't get prop typec mode rc=%d\n", rc);
 
-	/*
-	 * HW BUG - after cable is removed, medium or high rd reading
-	 * falls to std. Use it for signal of typec cc detachment in
-	 * software WA.
-	 */
-	if (chg->cc2_sink_detach_flag == CC2_SINK_MEDIUM_HIGH
-		&& pval.intval == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT) {
-
-		chg->cc2_sink_detach_flag = CC2_SINK_WA_DONE;
-
-		rc = smblib_masked_write(chg,
-				TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
-				EXIT_SNK_BASED_ON_CC_BIT, 0);
-		if (rc < 0)
-			smblib_err(chg, "Couldn't get prop typec mode rc=%d\n",
-				rc);
-	}
-
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: debounce-done %s; Type-C %s detected\n",
 		   rising ? "rising" : "falling",
 		   smblib_typec_mode_name[pval.intval]);
@@ -3756,10 +3728,6 @@ irqreturn_t smblib_handle_usb_typec_change(int irq, void *data)
 	if (chg->micro_usb_mode)
 		return smblib_handle_usb_typec_change_for_uusb(chg);
 
-	/* WA - not when PD hard_reset WIP on cc2 in sink mode */
-	if (chg->cc2_sink_detach_flag == CC2_SINK_STD)
-		return IRQ_HANDLED;
-
 	rc = smblib_read(chg, TYPE_C_STATUS_4_REG, &stat4);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read TYPE_C_STATUS_4 rc=%d\n", rc);
@@ -3775,6 +3743,13 @@ irqreturn_t smblib_handle_usb_typec_change(int irq, void *data)
 	debounce_done = (bool)(stat4 & TYPEC_DEBOUNCE_DONE_STATUS_BIT);
 	sink_attached = (bool)(stat4 & UFP_DFP_MODE_STATUS_BIT);
 	legacy_cable = (bool)(stat5 & TYPEC_LEGACY_CABLE_STATUS_BIT);
+
+	if (chg->cc2_detach_wa_active) {
+		smblib_dbg(chg, PR_INTERRUPT, "Ignoring cc2_wrkarnd=%d dd=%d\n",
+				chg->cc2_detach_wa_active,
+				debounce_done);
+		return IRQ_HANDLED;
+	}
 
 	smblib_handle_typec_debounce_done(chg,
 			debounce_done, sink_attached, legacy_cable);
@@ -3913,10 +3888,13 @@ static void clear_hdc_work(struct work_struct *work)
 static void rdstd_cc2_detach_work(struct work_struct *work)
 {
 	int rc;
-	u8 stat;
+	u8 stat4, stat5;
 	struct smb_irq_data irq_data = {NULL, "cc2-removal-workaround"};
 	struct smb_charger *chg = container_of(work, struct smb_charger,
 						rdstd_cc2_detach_work);
+
+	if (!chg->cc2_detach_wa_active)
+		return;
 
 	/*
 	 * WA steps -
@@ -3925,7 +3903,7 @@ static void rdstd_cc2_detach_work(struct work_struct *work)
 	 * 3. Removal detected if both TYPEC_DEBOUNCE_DONE_STATUS
 	 *    and TIMER_STAGE bits are gone, otherwise repeat all by
 	 *    work rescheduling.
-	 * Note, work will be cancelled when pd_hard_reset is 0.
+	 * Note, work will be cancelled when USB_PLUGIN rises.
 	 */
 
 	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
@@ -3948,30 +3926,34 @@ static void rdstd_cc2_detach_work(struct work_struct *work)
 
 	usleep_range(30000, 31000);
 
-	rc = smblib_read(chg, TYPE_C_STATUS_4_REG, &stat);
+	rc = smblib_read(chg, TYPE_C_STATUS_4_REG, &stat4);
 	if (rc < 0) {
-		smblib_err(chg, "Couldn't read TYPE_C_STATUS_4 rc=%d\n",
-			rc);
+		smblib_err(chg, "Couldn't read TYPE_C_STATUS_4 rc=%d\n", rc);
 		return;
 	}
-	if (stat & TYPEC_DEBOUNCE_DONE_STATUS_BIT)
-		goto rerun;
 
-	rc = smblib_read(chg, TYPE_C_STATUS_5_REG, &stat);
+	rc = smblib_read(chg, TYPE_C_STATUS_5_REG, &stat5);
 	if (rc < 0) {
 		smblib_err(chg,
 			"Couldn't read TYPE_C_STATUS_5_REG rc=%d\n", rc);
 		return;
 	}
-	if (stat & TIMER_STAGE_2_BIT)
-		goto rerun;
 
-	/* Bingo, cc2 removal detected */
+	if ((stat4 & TYPEC_DEBOUNCE_DONE_STATUS_BIT)
+			|| (stat5 & TIMER_STAGE_2_BIT)) {
+		smblib_dbg(chg, PR_MISC, "rerunning DD=%d TS2BIT=%d\n",
+				(int)(stat4 & TYPEC_DEBOUNCE_DONE_STATUS_BIT),
+				(int)(stat5 & TIMER_STAGE_2_BIT));
+		goto rerun;
+	}
+
+	smblib_dbg(chg, PR_MISC, "Bingo CC2 Removal detected\n");
+	chg->cc2_detach_wa_active = false;
+	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
+						EXIT_SNK_BASED_ON_CC_BIT, 0);
 	smblib_reg_block_restore(chg, cc2_detach_settings);
-	chg->cc2_sink_detach_flag = CC2_SINK_WA_DONE;
 	irq_data.parent_data = chg;
 	smblib_handle_usb_typec_change(0, &irq_data);
-
 	return;
 
 rerun:
