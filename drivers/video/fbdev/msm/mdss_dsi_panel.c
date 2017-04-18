@@ -1350,6 +1350,44 @@ static int mdss_dsi_parse_hdr_settings(struct device_node *np,
 	return 0;
 }
 
+static int mdss_dsi_parse_split_link_settings(struct device_node *np,
+		struct mdss_panel_info *pinfo)
+{
+	u32 tmp;
+	int rc = 0;
+
+	if (!np) {
+		pr_err("%s: device node pointer is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!pinfo) {
+		pr_err("%s: panel info is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	pinfo->split_link_enabled = of_property_read_bool(np,
+		"qcom,split-link-enabled");
+
+	if (pinfo->split_link_enabled) {
+		rc = of_property_read_u32(np,
+			"qcom,sublinks-count", &tmp);
+		/* default num of sublink is 1*/
+		pinfo->mipi.num_of_sublinks = (!rc ? tmp : 1);
+
+		rc = of_property_read_u32(np,
+			"qcom,lanes-per-sublink", &tmp);
+		/* default num of lanes per sublink is 1 */
+		pinfo->mipi.lanes_per_sublink = (!rc ? tmp : 1);
+	}
+
+	pr_info("%s: enable %d sublinks-count %d lanes per sublink %d\n",
+		__func__, pinfo->split_link_enabled,
+		pinfo->mipi.num_of_sublinks,
+		pinfo->mipi.lanes_per_sublink);
+	return 0;
+}
+
 static int mdss_dsi_parse_dsc_version(struct device_node *np,
 		struct mdss_panel_timing *timing)
 {
@@ -2734,9 +2772,15 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	pinfo->mipi.data_lane3 = of_property_read_bool(np,
 		"qcom,mdss-dsi-lane-3-state");
 
+	/* parse split link properties */
+	rc = mdss_dsi_parse_split_link_settings(np, pinfo);
+	if (rc)
+		return rc;
+
 	rc = mdss_panel_parse_display_timings(np, &ctrl_pdata->panel_data);
 	if (rc)
 		return rc;
+
 	rc = mdss_dsi_parse_hdr_settings(np, pinfo);
 	if (rc)
 		return rc;
