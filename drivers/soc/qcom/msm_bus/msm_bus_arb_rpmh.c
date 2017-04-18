@@ -24,6 +24,8 @@
 #define NUM_LNODES	3
 #define MAX_STR_CL	50
 
+#define MSM_BUS_MAS_ALC	144
+
 struct bus_search_type {
 	struct list_head link;
 	struct list_head node_list;
@@ -123,6 +125,9 @@ static void bcm_add_bus_req(struct device *dev)
 		goto exit_bcm_add_bus_req;
 	}
 
+	if (cur_dev->node_info->bcm_req_idx != -1)
+		goto exit_bcm_add_bus_req;
+
 	if (!cur_dev->node_info->num_bcm_devs)
 		goto exit_bcm_add_bus_req;
 
@@ -179,8 +184,6 @@ static void bcm_add_bus_req(struct device *dev)
 		cur_dev->node_info->bcm_req_idx = lnode_idx;
 		memset(lnode->lnode_ib, 0, sizeof(uint64_t) * NUM_CTX);
 		memset(lnode->lnode_ab, 0, sizeof(uint64_t) * NUM_CTX);
-		MSM_BUS_ERR("%s: Added %d entry to bcm %d @ %d\n", __func__,
-			lnode->bus_dev_id, bcm_dev->node_info->id, lnode_idx);
 	}
 
 exit_bcm_add_bus_req:
@@ -316,7 +319,6 @@ static int prune_path(struct list_head *route_list, int dest, int src,
 		MSM_BUS_ERR("%s: Can't find dest dev %d", __func__, dest);
 		goto exit_prune_path;
 	}
-	MSM_BUS_ERR("%s: dest dev %d", __func__, dest);
 
 	lnode_hop = gen_lnode(dest_dev, search_dev_id, lnode_hop, cl_name);
 	bcm_add_bus_req(dest_dev);
@@ -520,7 +522,6 @@ static void bcm_update_bus_req(struct device *dev, int ctx)
 				max_ib = max(max_ib,
 				max(bcm_dev->lnode_list[i].lnode_ib[ACTIVE_CTX],
 				bcm_dev->lnode_list[i].lnode_ib[DUAL_CTX]));
-
 				max_ab = max(max_ab,
 				bcm_dev->lnode_list[i].lnode_ab[ACTIVE_CTX] +
 				bcm_dev->lnode_list[i].lnode_ab[DUAL_CTX]);
@@ -531,9 +532,14 @@ static void bcm_update_bus_req(struct device *dev, int ctx)
 					bcm_dev->lnode_list[i].lnode_ab[ctx]);
 			}
 		}
-
 		bcm_dev->node_bw[ctx].max_ab = max_ab;
 		bcm_dev->node_bw[ctx].max_ib = max_ib;
+
+		max_ab = msm_bus_div64(max_ab, bcm_dev->bcmdev->unit_size);
+		max_ib = msm_bus_div64(max_ib, bcm_dev->bcmdev->unit_size);
+
+		bcm_dev->node_vec[ctx].vec_a = max_ab;
+		bcm_dev->node_vec[ctx].vec_b = max_ib;
 	}
 exit_bcm_update_bus_req:
 	return;
@@ -598,15 +604,51 @@ static void bcm_query_bus_req(struct device *dev, int ctx)
 			}
 		}
 
+		max_query_ab = msm_bus_div64(max_query_ab,
+						bcm_dev->bcmdev->unit_size);
+		max_query_ib = msm_bus_div64(max_query_ib,
+						bcm_dev->bcmdev->unit_size);
+
 		bcm_dev->node_bw[ctx].max_query_ab = max_query_ab;
 		bcm_dev->node_bw[ctx].max_query_ib = max_query_ib;
-
 	}
 exit_bcm_query_bus_req:
 	return;
 }
 
+static void bcm_update_alc_req(struct msm_bus_node_device_type *dev, int ctx)
+{
+	struct msm_bus_node_device_type *bcm_dev = NULL;
+	int i;
+	uint64_t max_alc = 0;
 
+	if (!dev || !to_msm_bus_node(dev->node_info->bus_device)) {
+		MSM_BUS_ERR("Bus node pointer is Invalid");
+		goto exit_bcm_update_alc_req;
+	}
+
+	for (i = 0; i < dev->num_lnodes; i++)
+		max_alc = max(max_alc, dev->lnode_list[i].alc_idx[ctx]);
+
+	dev->node_bw[ctx].max_alc = max_alc;
+
+	bcm_dev = to_msm_bus_node(dev->node_info->bcm_devs[0]);
+
+	if (ctx == ACTIVE_CTX) {
+		max_alc = max(max_alc,
+				max(dev->node_bw[ACTIVE_CTX].max_alc,
+				dev->node_bw[DUAL_CTX].max_alc));
+	} else {
+		max_alc = dev->node_bw[ctx].max_alc;
+	}
+
+	bcm_dev->node_bw[ctx].max_alc = max_alc;
+	bcm_dev->node_vec[ctx].vec_a = max_alc;
+	bcm_dev->node_vec[ctx].vec_b = 0;
+
+exit_bcm_update_alc_req:
+	return;
+}
 
 int bcm_remove_handoff_req(struct device *dev, void *data)
 {
@@ -684,7 +726,6 @@ static void aggregate_bus_query_req(struct msm_bus_node_device_type *bus_dev,
 		sum_ab += bus_dev->lnode_list[i].lnode_query_ab[ctx];
 	}
 
-	MSM_BUS_ERR("aggregate: query_ab:%llu\n", sum_ab);
 	bus_dev->node_bw[ctx].sum_query_ab = sum_ab;
 	bus_dev->node_bw[ctx].max_query_ib = max_ib;
 
@@ -869,6 +910,63 @@ static int update_path(struct device *src_dev, int dest, uint64_t act_req_ib,
 exit_update_path:
 	return ret;
 }
+
+static int update_alc_vote(struct device *alc_dev, uint64_t act_req_fa_lat,
+			uint64_t act_req_idle_time, uint64_t slp_req_fa_lat,
+			uint64_t slp_req_idle_time, uint64_t cur_fa_lat,
+			uint64_t cur_idle_time, int idx, int ctx)
+{
+	struct link_node *lnode = NULL;
+	struct msm_bus_node_device_type *dev_info = NULL;
+	int curr_idx, i;
+	int ret = 0;
+
+	if (IS_ERR_OR_NULL(alc_dev)) {
+		MSM_BUS_ERR("%s: No source device", __func__);
+		ret = -ENODEV;
+		goto exit_update_alc_vote;
+	}
+
+	if (idx < 0) {
+		MSM_BUS_ERR("%s: Invalid lnode idx %d", __func__, idx);
+		ret = -ENXIO;
+		goto exit_update_alc_vote;
+	}
+
+	dev_info = to_msm_bus_node(alc_dev);
+	curr_idx = idx;
+
+	if (curr_idx >= dev_info->num_lnodes) {
+		MSM_BUS_ERR("%s: Invalid lnode Idx %d num lnodes %d",
+				 __func__, curr_idx, dev_info->num_lnodes);
+		ret = -ENXIO;
+		goto exit_update_alc_vote;
+	}
+
+	lnode = &dev_info->lnode_list[curr_idx];
+	if (!lnode) {
+		MSM_BUS_ERR("%s: Invalid lnode ptr lnode %d",
+			 __func__, curr_idx);
+		ret = -ENXIO;
+		goto exit_update_alc_vote;
+	}
+
+	/*
+	 * Add aggregation and mapping logic once LUT is avail.
+	 * Use default values for time being.
+	 */
+	lnode->alc_idx[ACTIVE_CTX] = 12;
+	lnode->alc_idx[DUAL_CTX] = 0;
+
+	for (i = 0; i < NUM_CTX; i++)
+		bcm_update_alc_req(dev_info, i);
+
+	add_node_to_clist(dev_info);
+
+exit_update_alc_vote:
+	return ret;
+}
+
 
 static int query_path(struct device *src_dev, int dest, uint64_t act_req_ib,
 			uint64_t act_req_bw, uint64_t slp_req_ib,
@@ -1160,6 +1258,40 @@ static uint32_t register_client_adhoc(struct msm_bus_scale_pdata *pdata)
 	}
 	client->pdata = pdata;
 
+	if (pdata->alc) {
+		client->curr = -1;
+		lnode = kzalloc(sizeof(int), GFP_KERNEL);
+
+		if (ZERO_OR_NULL_PTR(lnode)) {
+			MSM_BUS_ERR("%s: Error allocating lnode!", __func__);
+			goto exit_lnode_malloc_fail;
+		}
+		client->src_pnode = lnode;
+
+		client->src_devs = kzalloc(sizeof(struct device *),
+							GFP_KERNEL);
+		if (IS_ERR_OR_NULL(client->src_devs)) {
+			MSM_BUS_ERR("%s: Error allocating src_dev!", __func__);
+			goto exit_src_dev_malloc_fail;
+		}
+		src = MSM_BUS_MAS_ALC;
+		dev = bus_find_device(&msm_bus_type, NULL,
+				(void *) &src,
+				msm_bus_device_match_adhoc);
+		if (IS_ERR_OR_NULL(dev)) {
+			MSM_BUS_ERR("%s:Failed to find alc device",
+				__func__);
+			goto exit_invalid_data;
+		}
+		gen_lnode(dev, MSM_BUS_MAS_ALC, 0, pdata->name);
+		bcm_add_bus_req(dev);
+
+		client->src_devs[0] = dev;
+
+		handle = gen_handle(client);
+		goto exit_register_client;
+	}
+
 	lnode = kcalloc(pdata->usecase->num_paths, sizeof(int), GFP_KERNEL);
 	if (ZERO_OR_NULL_PTR(lnode)) {
 		MSM_BUS_ERR("%s: Error allocating pathnode ptr!", __func__);
@@ -1290,6 +1422,58 @@ static int update_client_paths(struct msm_bus_client *client, bool log_trns,
 	}
 	commit_data();
 exit_update_client_paths:
+	return ret;
+}
+
+static int update_client_alc(struct msm_bus_client *client, bool log_trns,
+							unsigned int idx)
+{
+	int lnode, cur_idx;
+	uint64_t req_idle_time, req_fal, dual_idle_time, dual_fal,
+	cur_idle_time, cur_fal;
+	int ret = 0;
+	struct msm_bus_scale_pdata *pdata;
+	struct device *src_dev;
+
+	if (!client) {
+		MSM_BUS_ERR("Client handle  Null");
+		ret = -ENXIO;
+		goto exit_update_client_alc;
+	}
+
+	pdata = client->pdata;
+	if (!pdata) {
+		MSM_BUS_ERR("Client pdata Null");
+		ret = -ENXIO;
+		goto exit_update_client_alc;
+	}
+
+	cur_idx = client->curr;
+	client->curr = idx;
+	req_fal = pdata->usecase_lat[idx].fal_ns;
+	req_idle_time = pdata->usecase_lat[idx].idle_t_ns;
+	lnode = client->src_pnode[0];
+	src_dev = client->src_devs[0];
+
+	if (pdata->active_only) {
+		dual_fal = 0;
+		dual_idle_time = 0;
+	} else {
+		dual_fal = req_fal;
+		dual_idle_time = req_idle_time;
+	}
+
+	ret = update_alc_vote(src_dev, req_fal, req_idle_time, dual_fal,
+		dual_idle_time, cur_fal, cur_idle_time, lnode,
+		pdata->active_only);
+
+	if (ret) {
+		MSM_BUS_ERR("%s: Update path failed! %d ctx %d\n",
+				__func__, ret, pdata->active_only);
+		goto exit_update_client_alc;
+	}
+	commit_data();
+exit_update_client_alc:
 	return ret;
 }
 
@@ -1483,8 +1667,13 @@ static int update_request_adhoc(uint32_t cl, unsigned int index)
 
 	MSM_BUS_DBG("%s: cl: %u index: %d curr: %d num_paths: %d\n", __func__,
 		cl, index, client->curr, client->pdata->usecase->num_paths);
-	msm_bus_dbg_client_data(client->pdata, index, cl);
-	ret = update_client_paths(client, log_transaction, index);
+
+	if (pdata->alc)
+		ret = update_client_alc(client, log_transaction, index);
+	else {
+		msm_bus_dbg_client_data(client->pdata, index, cl);
+		ret = update_client_paths(client, log_transaction, index);
+	}
 	if (ret) {
 		pr_err("%s: Err updating path\n", __func__);
 		goto exit_update_request;

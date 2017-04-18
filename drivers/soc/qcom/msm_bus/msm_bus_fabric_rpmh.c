@@ -265,27 +265,23 @@ static int setrate_nodeclk(struct nodeclk *nclk, long rate)
 }
 
 static int tcs_cmd_gen(struct msm_bus_node_device_type *cur_bcm,
-				struct tcs_cmd *cmd, uint64_t ib,
-					uint64_t ab, bool commit)
+				struct tcs_cmd *cmd, uint64_t vec_a,
+					uint64_t vec_b, bool commit)
 {
 	int ret = 0;
 	bool valid = true;
 
-	if (ib == 0 && ab == 0) {
+	if (vec_a == 0 && vec_b == 0)
 		valid = false;
-	} else {
-		do_div(ib, cur_bcm->bcmdev->unit_size);
-		do_div(ab, cur_bcm->bcmdev->unit_size);
-	}
 
-	if (ib > BCM_TCS_CMD_VOTE_MASK)
-		ib = BCM_TCS_CMD_VOTE_MASK;
+	if (vec_a > BCM_TCS_CMD_VOTE_MASK)
+		vec_a = BCM_TCS_CMD_VOTE_MASK;
 
-	if (ab > BCM_TCS_CMD_VOTE_MASK)
-		ab = BCM_TCS_CMD_VOTE_MASK;
+	if (vec_b > BCM_TCS_CMD_VOTE_MASK)
+		vec_b = BCM_TCS_CMD_VOTE_MASK;
 
 	cmd->addr = cur_bcm->bcmdev->addr;
-	cmd->data = BCM_TCS_CMD(commit, valid, ab, ib);
+	cmd->data = BCM_TCS_CMD(commit, valid, vec_a, vec_b);
 	cmd->complete = commit;
 
 	return ret;
@@ -333,8 +329,8 @@ static int tcs_cmd_list_gen(int *n_active,
 				idx++;
 			}
 			tcs_cmd_gen(cur_bcm, &cmdlist_active[k],
-				cur_bcm->node_bw[ACTIVE_CTX].max_ib,
-				cur_bcm->node_bw[ACTIVE_CTX].max_ab, commit);
+				cur_bcm->node_vec[ACTIVE_CTX].vec_a,
+				cur_bcm->node_vec[ACTIVE_CTX].vec_b, commit);
 			k++;
 			last_tcs = k;
 			cur_bcm->updated = true;
@@ -352,10 +348,10 @@ static int tcs_cmd_list_gen(int *n_active,
 			continue;
 		list_for_each_entry(cur_bcm, &cur_bcm_clist[i], link) {
 			commit = false;
-			if ((cur_bcm->node_bw[DUAL_CTX].max_ab ==
-				cur_bcm->node_bw[ACTIVE_CTX].max_ab) &&
-				(cur_bcm->node_bw[DUAL_CTX].max_ib ==
-				cur_bcm->node_bw[ACTIVE_CTX].max_ib)) {
+			if ((cur_bcm->node_vec[DUAL_CTX].vec_a ==
+				cur_bcm->node_vec[ACTIVE_CTX].vec_a) &&
+				(cur_bcm->node_vec[DUAL_CTX].vec_b ==
+				cur_bcm->node_vec[ACTIVE_CTX].vec_b)) {
 				if (last_tcs != -1 &&
 					list_is_last(&cur_bcm->link,
 					&cur_bcm_clist[i])) {
@@ -378,11 +374,11 @@ static int tcs_cmd_list_gen(int *n_active,
 			}
 
 			tcs_cmd_gen(cur_bcm, &cmdlist_wake[k],
-				cur_bcm->node_bw[ACTIVE_CTX].max_ib,
-				cur_bcm->node_bw[ACTIVE_CTX].max_ab, commit);
+				cur_bcm->node_vec[ACTIVE_CTX].vec_a,
+				cur_bcm->node_vec[ACTIVE_CTX].vec_b, commit);
 			tcs_cmd_gen(cur_bcm, &cmdlist_sleep[k],
-				cur_bcm->node_bw[DUAL_CTX].max_ib,
-				cur_bcm->node_bw[DUAL_CTX].max_ab, commit);
+				cur_bcm->node_vec[DUAL_CTX].vec_a,
+				cur_bcm->node_vec[DUAL_CTX].vec_b, commit);
 			k++;
 		}
 	}
@@ -485,10 +481,10 @@ static int bcm_clist_clean(struct msm_bus_node_device_type *cur_dev)
 
 	cur_bcm = to_msm_bus_node(cur_dev->node_info->bcm_devs[0]);
 
-	if (cur_bcm->node_bw[DUAL_CTX].max_ab == 0 &&
-			cur_bcm->node_bw[ACTIVE_CTX].max_ab == 0 &&
-			cur_bcm->node_bw[DUAL_CTX].max_ib == 0 &&
-			cur_bcm->node_bw[ACTIVE_CTX].max_ib == 0) {
+	if (cur_bcm->node_vec[DUAL_CTX].vec_a == 0 &&
+			cur_bcm->node_vec[ACTIVE_CTX].vec_a == 0 &&
+			cur_bcm->node_vec[DUAL_CTX].vec_b == 0 &&
+			cur_bcm->node_vec[ACTIVE_CTX].vec_b == 0) {
 		cur_bcm->dirty = false;
 		list_del_init(&cur_bcm->link);
 	}
@@ -550,10 +546,10 @@ int msm_bus_commit_data(struct list_head *clist)
 		if (list_empty(&cur_bcm_clist[i]))
 			continue;
 		list_for_each_entry(cur_bcm, &cur_bcm_clist[i], link) {
-			if ((cur_bcm->node_bw[DUAL_CTX].max_ab !=
-				cur_bcm->node_bw[ACTIVE_CTX].max_ab) ||
-				(cur_bcm->node_bw[DUAL_CTX].max_ib !=
-				cur_bcm->node_bw[ACTIVE_CTX].max_ib)) {
+			if ((cur_bcm->node_vec[DUAL_CTX].vec_a !=
+				cur_bcm->node_vec[ACTIVE_CTX].vec_a) ||
+				(cur_bcm->node_vec[DUAL_CTX].vec_b !=
+				cur_bcm->node_vec[ACTIVE_CTX].vec_b)) {
 				cnt_sleep++;
 				cnt_wake++;
 			}
@@ -563,7 +559,6 @@ int msm_bus_commit_data(struct list_head *clist)
 		cnt_vcd++;
 	}
 
-	MSM_BUS_ERR("%s: cmd_gen\n", __func__);
 	n_active = kcalloc(cnt_vcd+1, sizeof(int), GFP_KERNEL);
 	n_wake = kcalloc(cnt_vcd+1, sizeof(int), GFP_KERNEL);
 	n_sleep = kcalloc(cnt_vcd+1, sizeof(int), GFP_KERNEL);
@@ -1086,6 +1081,7 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 
 	node_info->name = pdata_node_info->name;
 	node_info->id =  pdata_node_info->id;
+	node_info->bcm_req_idx = -1;
 	node_info->bus_device_id = pdata_node_info->bus_device_id;
 	node_info->mas_rpm_id = pdata_node_info->mas_rpm_id;
 	node_info->slv_rpm_id = pdata_node_info->slv_rpm_id;

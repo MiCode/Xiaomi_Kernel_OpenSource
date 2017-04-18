@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,8 +55,14 @@ struct msm_bus_paths {
 	struct msm_bus_vectors *vectors;
 };
 
+struct msm_bus_lat_vectors {
+	uint64_t fal_ns; /* First Access Latency */
+	uint64_t idle_t_ns; /* Idle Time */
+};
+
 struct msm_bus_scale_pdata {
 	struct msm_bus_paths *usecase;
+	struct msm_bus_lat_vectors *usecase_lat;
 	int num_usecases;
 	const char *name;
 	/*
@@ -66,6 +72,11 @@ struct msm_bus_scale_pdata {
 	 * of the CPU state.
 	 */
 	unsigned int active_only;
+	/*
+	 * If the ALC(Active Latency Client) flag is set to 1,
+	 * use lat_usecases for latency voting.
+	 */
+	unsigned int alc;
 };
 
 struct msm_bus_client_handle {
