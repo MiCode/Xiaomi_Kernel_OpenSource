@@ -31,9 +31,9 @@
 #define MDP_INTF_4_OFF			0x6D000
 #define MDP_AD4_0_OFF			0x7D000
 #define MDP_AD4_1_OFF			0x7E000
-#define MDP_AD4_INTR_EN_OFF 0x41c
-#define MDP_AD4_INTR_CLEAR_OFF 0x424
-#define MDP_AD4_INTR_STATUS_OFF 0x420
+#define MDP_AD4_INTR_EN_OFF		0x41c
+#define MDP_AD4_INTR_CLEAR_OFF		0x424
+#define MDP_AD4_INTR_STATUS_OFF		0x420
 
 /**
  * WB interrupt status bit definitions
@@ -87,7 +87,7 @@
  * Pingpong Secondary interrupt status bit definitions
  */
 #define SDE_INTR_PING_PONG_S0_AUTOREFRESH_DONE BIT(0)
-#define	SDE_INTR_PING_PONG_S0_WR_PTR BIT(4)
+#define SDE_INTR_PING_PONG_S0_WR_PTR BIT(4)
 #define SDE_INTR_PING_PONG_S0_RD_PTR BIT(8)
 #define SDE_INTR_PING_PONG_S0_TEAR_DETECTED BIT(22)
 #define SDE_INTR_PING_PONG_S0_TE_DETECTED BIT(28)
