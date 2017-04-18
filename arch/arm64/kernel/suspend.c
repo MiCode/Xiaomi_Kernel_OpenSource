@@ -12,11 +12,30 @@
 #include <asm/suspend.h>
 #include <asm/tlbflush.h>
 
+
 /*
- * This is allocated by cpu_suspend_init(), and used to store a pointer to
- * the 'struct sleep_stack_data' the contains a particular CPUs state.
+ * This is called by __cpu_suspend_enter() to save the state, and do whatever
+ * flushing is required to ensure that when the CPU goes to sleep we have
+ * the necessary data available when the caches are not searched.
+ *
+ * ptr: sleep_stack_data containing cpu state virtual address.
+ * save_ptr: address of the location where the context physical address
+ *           must be saved
  */
-unsigned long *sleep_save_stash;
+void notrace __cpu_suspend_save(struct sleep_stack_data *ptr,
+				phys_addr_t *save_ptr)
+{
+	*save_ptr = virt_to_phys(ptr);
+
+	cpu_do_suspend(&ptr->system_regs);
+	/*
+	 * Only flush the context that must be retrieved with the MMU
+	 * off. VA primitives ensure the flush is applied to all
+	 * cache levels so context is pushed to DRAM.
+	 */
+	__flush_dcache_area(ptr, sizeof(*ptr));
+	__flush_dcache_area(save_ptr, sizeof(*save_ptr));
+}
 
 /*
  * This hook is provided so that cpu_suspend code can restore HW
@@ -119,14 +138,21 @@ int cpu_suspend(unsigned long arg, int (*fn)(unsigned long))
 	return ret;
 }
 
+struct sleep_save_sp sleep_save_sp;
+
 static int __init cpu_suspend_init(void)
 {
-	/* ctx_ptr is an array of physical addresses */
-	sleep_save_stash = kcalloc(mpidr_hash_size(), sizeof(*sleep_save_stash),
-				   GFP_KERNEL);
+	void *ctx_ptr;
 
-	if (WARN_ON(!sleep_save_stash))
+	/* ctx_ptr is an array of physical addresses */
+	ctx_ptr = kcalloc(mpidr_hash_size(), sizeof(phys_addr_t), GFP_KERNEL);
+
+	if (WARN_ON(!ctx_ptr))
 		return -ENOMEM;
+
+	sleep_save_sp.save_ptr_stash = ctx_ptr;
+	sleep_save_sp.save_ptr_stash_phys = virt_to_phys(ctx_ptr);
+	__flush_dcache_area(&sleep_save_sp, sizeof(struct sleep_save_sp));
 
 	return 0;
 }
