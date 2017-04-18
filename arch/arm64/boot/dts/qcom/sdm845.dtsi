@@ -1574,66 +1574,54 @@
 		qcom,msm_fastrpc_compute_cb1 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x1401 0x0>,
-				 <&apps_smmu 0x1421 0x0>;
+			iommus = <&apps_smmu 0x1401 0x30>;
 		};
 		qcom,msm_fastrpc_compute_cb2 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x1402 0x0>,
-				 <&apps_smmu 0x1422 0x0>;
+			iommus = <&apps_smmu 0x1402 0x30>;
 		};
 		qcom,msm_fastrpc_compute_cb3 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x1403 0x0>,
-				 <&apps_smmu 0x1423 0x0>;
+			iommus = <&apps_smmu 0x1403 0x30>;
 		};
 		qcom,msm_fastrpc_compute_cb4 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x1404 0x0>,
-				 <&apps_smmu 0x1424 0x0>;
+			iommus = <&apps_smmu 0x1404 0x30>;
 		};
 		qcom,msm_fastrpc_compute_cb5 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x1405 0x0>,
-				 <&apps_smmu 0x1425 0x0>;
+			iommus = <&apps_smmu 0x1405 0x30>;
 		};
 		qcom,msm_fastrpc_compute_cb6 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x1406 0x0>,
-				 <&apps_smmu 0x1426 0x0>;
+			iommus = <&apps_smmu 0x1406 0x30>;
 		};
 		qcom,msm_fastrpc_compute_cb7 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x1407 0x0>,
-				 <&apps_smmu 0x1427 0x0>;
+			iommus = <&apps_smmu 0x1407 0x30>;
 		};
 		qcom,msm_fastrpc_compute_cb8 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x1408 0x0>,
-				 <&apps_smmu 0x1428 0x0>;
+			iommus = <&apps_smmu 0x1408 0x30>;
 		};
 		qcom,msm_fastrpc_compute_cb9 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
 			qcom,secure-context-bank;
-			iommus = <&apps_smmu 0x1409 0x0>,
-				 <&apps_smmu 0x1419 0x0>,
-				 <&apps_smmu 0x1429 0x0>;
+			iommus = <&apps_smmu 0x1409 0x30>;
 		};
 		qcom,msm_fastrpc_compute_cb10 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
 			qcom,secure-context-bank;
-			iommus = <&apps_smmu 0x140A 0x0>,
-				 <&apps_smmu 0x141A 0x0>,
-				 <&apps_smmu 0x142A 0x0>;
+			iommus = <&apps_smmu 0x140A 0x30>;
 		};
 		qcom,msm_fastrpc_compute_cb11 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
