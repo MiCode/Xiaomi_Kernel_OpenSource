@@ -731,6 +731,7 @@ static struct clk_rcg2 gp3_clk_src = {
 };
 
 static const struct freq_tbl ftbl_hmss_gpll0_clk_src[] = {
+	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
 	F(600000000, P_GPLL0_OUT_MAIN, 1, 0, 0),
 	{ }
 };
@@ -2753,6 +2754,9 @@ static int gcc_660_probe(struct platform_device *pdev)
 
 	/* Keep bimc gfx clock port on all the time */
 	clk_prepare_enable(gcc_bimc_gfx_clk.clkr.hw.clk);
+
+	/* Set the HMSS_GPLL0_SRC for 300MHz to CPU subsystem */
+	clk_set_rate(hmss_gpll0_clk_src.clkr.hw.clk, 300000000);
 
 	dev_info(&pdev->dev, "Registered GCC clocks\n");
 
