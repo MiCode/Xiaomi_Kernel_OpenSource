@@ -822,7 +822,6 @@ static void msm_11ad_ssr_deinit(struct msm11ad_ctx *ctx)
 		ctx->ramdump_dev = NULL;
 	}
 
-	kfree(ctx->ramdump_addr);
 	ctx->ramdump_addr = NULL;
 
 	if (ctx->subsys_handle) {
@@ -855,6 +854,14 @@ static int msm_11ad_ssr_init(struct msm11ad_ctx *ctx)
 		goto out_rc;
 	}
 
+	ctx->ramdump_dev = create_ramdump_device(ctx->subsysdesc.name,
+						 ctx->subsysdesc.dev);
+	if (!ctx->ramdump_dev) {
+		dev_err(ctx->dev, "Create ramdump device failed\n");
+		rc = -ENOMEM;
+		goto out_rc;
+	}
+
 	/* register ramdump area */
 	ctx->ramdump_addr = kmalloc(WIGIG_RAMDUMP_SIZE, GFP_KERNEL);
 	if (!ctx->ramdump_addr) {
@@ -870,19 +877,11 @@ static int msm_11ad_ssr_init(struct msm11ad_ctx *ctx)
 	rc = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
 	if (rc) {
 		dev_err(ctx->dev, "Dump table setup failed: %d\n", rc);
-		goto out_rc;
-	}
-
-	ctx->ramdump_dev = create_ramdump_device(ctx->subsysdesc.name,
-						 ctx->subsysdesc.dev);
-	if (!ctx->ramdump_dev) {
-		dev_err(ctx->dev, "Create ramdump device failed: %d\n", rc);
-		rc = -ENOMEM;
+		kfree(ctx->ramdump_addr);
 		goto out_rc;
 	}
 
 	return 0;
-
 out_rc:
 	msm_11ad_ssr_deinit(ctx);
 	return rc;
