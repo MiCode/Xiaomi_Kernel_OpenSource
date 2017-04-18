@@ -396,8 +396,6 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 			continue;
 		lmh_node = of_parse_phandle(cpu_node, "qcom,lmh-dcvs", 0);
 		if (lmh_node == dn) {
-			affinity = MPIDR_AFFINITY_LEVEL(
-					cpu_logical_map(cpu), 1);
 			/*set the cpumask*/
 			cpumask_set_cpu(cpu, &(mask));
 		}
@@ -409,7 +407,7 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 	 * We return error if none of the CPUs have
 	 * reference to our LMH node
 	 */
-	if (affinity == -1)
+	if (cpumask_empty(&mask))
 		return -EINVAL;
 
 	ret = limits_dcvs_get_freq_limits(cpumask_first(&mask), &max_freq,
@@ -426,6 +424,9 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	cpumask_copy(&hw->core_map, &mask);
+	ret = of_property_read_u32(dn, "qcom,affinity", &affinity);
+	if (ret)
+		return -ENODEV;
 	switch (affinity) {
 	case 0:
 		hw->affinity = LIMITS_CLUSTER_0;
