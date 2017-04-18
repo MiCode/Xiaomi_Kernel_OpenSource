@@ -2529,9 +2529,14 @@ int msm_isp_axi_reset(struct vfe_device *vfe_dev,
 					ISP_EVENT_BUF_FATAL_ERROR);
 				return rc;
 			}
-
-			axi_data->src_info[SRC_TO_INTF(stream_info->
+			/* Donot update frame_id for FE */
+			if (!(SRC_TO_INTF(stream_info->stream_src)
+				== VFE_PIX_0 &&
+				axi_data->src_info[VFE_PIX_0].input_mux
+				== EXTERNAL_READ))
+				axi_data->src_info[SRC_TO_INTF(stream_info->
 				stream_src)].frame_id = reset_cmd->frame_id;
+
 			msm_isp_reset_burst_count_and_frame_drop(vfe_dev,
 				stream_info);
 		}
