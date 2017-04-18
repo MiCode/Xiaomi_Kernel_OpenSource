@@ -690,7 +690,7 @@ static int cpu_power_select(struct cpuidle_device *dev,
 	if (!cpu)
 		return -EINVAL;
 
-	if (sleep_disabled)
+	if (sleep_disabled && !cpu_isolated(dev->cpu))
 		return 0;
 
 	idx_restrict = cpu->nlevels + 1;
