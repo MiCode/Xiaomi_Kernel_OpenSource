@@ -120,6 +120,18 @@ int pil_q6v5_make_proxy_votes(struct pil_desc *pil)
 		goto err_qdss_vote;
 	}
 
+	ret = clk_prepare_enable(drv->prng_clk);
+	if (ret) {
+		dev_err(pil->dev, "Failed to vote for prng(rc:%d)\n", ret);
+		goto err_prng_vote;
+	}
+
+	ret = clk_prepare_enable(drv->axis2_clk);
+	if (ret) {
+		dev_err(pil->dev, "Failed to vote for axis2(rc:%d)\n", ret);
+		goto err_axis2_vote;
+	}
+
 	ret = regulator_set_voltage(drv->vreg_cx, uv, INT_MAX);
 	if (ret) {
 		dev_err(pil->dev, "Failed to request vdd_cx voltage(rc:%d)\n",
@@ -157,6 +169,10 @@ err_cx_enable:
 err_cx_mode:
 	regulator_set_voltage(drv->vreg_cx, 0, uv);
 err_cx_voltage:
+	clk_disable_unprepare(drv->axis2_clk);
+err_axis2_vote:
+	clk_disable_unprepare(drv->prng_clk);
+err_prng_vote:
 	clk_disable_unprepare(drv->qdss_clk);
 err_qdss_vote:
 	clk_disable_unprepare(drv->pnoc_clk);
@@ -189,6 +205,8 @@ void pil_q6v5_remove_proxy_votes(struct pil_desc *pil)
 	clk_disable_unprepare(drv->xo);
 	clk_disable_unprepare(drv->pnoc_clk);
 	clk_disable_unprepare(drv->qdss_clk);
+	clk_disable_unprepare(drv->prng_clk);
+	clk_disable_unprepare(drv->axis2_clk);
 }
 EXPORT_SYMBOL(pil_q6v5_remove_proxy_votes);
 
@@ -761,6 +779,24 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 			return ERR_CAST(drv->qdss_clk);
 	} else {
 		drv->qdss_clk = NULL;
+	}
+
+	if (of_property_match_string(pdev->dev.of_node,
+			"qcom,proxy-clock-names", "prng_clk") >= 0) {
+		drv->prng_clk = devm_clk_get(&pdev->dev, "prng_clk");
+		if (IS_ERR(drv->prng_clk))
+			return ERR_CAST(drv->prng_clk);
+	} else {
+		drv->prng_clk = NULL;
+	}
+
+	if (of_property_match_string(pdev->dev.of_node,
+			"qcom,proxy-clock-names", "axis2_clk") >= 0) {
+		drv->axis2_clk = devm_clk_get(&pdev->dev, "axis2_clk");
+		if (IS_ERR(drv->axis2_clk))
+			return ERR_CAST(drv->axis2_clk);
+	} else {
+		drv->axis2_clk = NULL;
 	}
 
 	drv->vreg_cx = devm_regulator_get(&pdev->dev, "vdd_cx");
