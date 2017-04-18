@@ -39,12 +39,14 @@
 static void sde_hw_setup_split_pipe(struct sde_hw_mdp *mdp,
 		struct split_pipe_cfg *cfg)
 {
-	struct sde_hw_blk_reg_map *c = &mdp->hw;
+	struct sde_hw_blk_reg_map *c;
 	u32 upper_pipe = 0;
 	u32 lower_pipe = 0;
 
 	if (!mdp || !cfg)
 		return;
+
+	c = &mdp->hw;
 
 	if (cfg->en) {
 		if (cfg->mode == INTF_MODE_CMD) {
@@ -107,8 +109,13 @@ static void sde_hw_setup_pp_split(struct sde_hw_mdp *mdp,
 static void sde_hw_setup_cdm_output(struct sde_hw_mdp *mdp,
 		struct cdm_output_cfg *cfg)
 {
-	struct sde_hw_blk_reg_map *c = &mdp->hw;
+	struct sde_hw_blk_reg_map *c;
 	u32 out_ctl = 0;
+
+	if (!mdp || !cfg)
+		return;
+
+	c = &mdp->hw;
 
 	if (cfg->wb_en)
 		out_ctl |= BIT(24);
@@ -121,10 +128,15 @@ static void sde_hw_setup_cdm_output(struct sde_hw_mdp *mdp,
 static bool sde_hw_setup_clk_force_ctrl(struct sde_hw_mdp *mdp,
 		enum sde_clk_ctrl_type clk_ctrl, bool enable)
 {
-	struct sde_hw_blk_reg_map *c = &mdp->hw;
+	struct sde_hw_blk_reg_map *c;
 	u32 reg_off, bit_off;
 	u32 reg_val, new_val;
 	bool clk_forced_on;
+
+	if (!mdp)
+		return false;
+
+	c = &mdp->hw;
 
 	if (clk_ctrl <= SDE_CLK_CTRL_NONE || clk_ctrl >= SDE_CLK_CTRL_MAX)
 		return false;
@@ -150,8 +162,13 @@ static bool sde_hw_setup_clk_force_ctrl(struct sde_hw_mdp *mdp,
 static void sde_hw_get_danger_status(struct sde_hw_mdp *mdp,
 		struct sde_danger_safe_status *status)
 {
-	struct sde_hw_blk_reg_map *c = &mdp->hw;
+	struct sde_hw_blk_reg_map *c;
 	u32 value;
+
+	if (!mdp || !status)
+		return;
+
+	c = &mdp->hw;
 
 	value = SDE_REG_READ(c, DANGER_STATUS);
 	status->mdp = (value >> 0) & 0x3;
@@ -178,8 +195,13 @@ static void sde_hw_get_danger_status(struct sde_hw_mdp *mdp,
 static void sde_hw_get_safe_status(struct sde_hw_mdp *mdp,
 		struct sde_danger_safe_status *status)
 {
-	struct sde_hw_blk_reg_map *c = &mdp->hw;
+	struct sde_hw_blk_reg_map *c;
 	u32 value;
+
+	if (!mdp || !status)
+		return;
+
+	c = &mdp->hw;
 
 	value = SDE_REG_READ(c, SAFE_STATUS);
 	status->mdp = (value >> 0) & 0x1;
@@ -205,7 +227,12 @@ static void sde_hw_get_safe_status(struct sde_hw_mdp *mdp,
 
 static void sde_hw_setup_dce(struct sde_hw_mdp *mdp, u32 dce_sel)
 {
-	struct sde_hw_blk_reg_map *c = &mdp->hw;
+	struct sde_hw_blk_reg_map *c;
+
+	if (!mdp)
+		return;
+
+	c = &mdp->hw;
 
 	SDE_REG_WRITE(c, DCE_SEL, dce_sel);
 }
@@ -228,6 +255,9 @@ static const struct sde_mdp_cfg *_top_offset(enum sde_mdp mdp,
 		struct sde_hw_blk_reg_map *b)
 {
 	int i;
+
+	if (!m || !addr || !b)
+		return ERR_PTR(-EINVAL);
 
 	for (i = 0; i < m->mdp_count; i++) {
 		if (mdp == m->mdp[i].id) {
