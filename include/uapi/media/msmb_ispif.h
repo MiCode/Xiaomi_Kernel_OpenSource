@@ -112,6 +112,7 @@ struct msm_ispif_param_data_ext {
 	struct msm_ispif_pack_cfg pack_cfg[CID_MAX];
 	struct msm_ispif_right_param_entry right_entries[MAX_PARAM_ENTRIES];
 	uint32_t stereo_enable;
+	uint16_t line_width[VFE_MAX];
 };
 
 struct msm_ispif_param_data {
@@ -143,6 +144,7 @@ enum ispif_cfg_type_t {
 	ISPIF_ENABLE_REG_DUMP,
 	ISPIF_SET_VFE_INFO,
 	ISPIF_CFG2,
+	ISPIF_CFG_STEREO,
 };
 
 struct ispif_cfg_data {
@@ -164,6 +166,8 @@ struct ispif_cfg_data_ext {
 #define ISPIF_RDI_PACK_MODE_SUPPORT 1
 
 #define ISPIF_3D_SUPPORT 1
+
+#define ISPIF_LINE_WIDTH_SUPPORT 1
 
 #define VIDIOC_MSM_ISPIF_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE, struct ispif_cfg_data)
