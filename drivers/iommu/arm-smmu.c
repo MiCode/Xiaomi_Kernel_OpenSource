@@ -3341,7 +3341,7 @@ static int arm_smmu_init_regulators(struct arm_smmu_power_resources *pwr)
 	i = 0;
 	of_property_for_each_string(dev->of_node, "qcom,regulator-names",
 				prop, cname)
-		pwr->gdscs[i].supply = cname;
+		pwr->gdscs[i++].supply = cname;
 
 	ret = devm_regulator_bulk_get(dev, pwr->num_gdscs, pwr->gdscs);
 	return ret;
