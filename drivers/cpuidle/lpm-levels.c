@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  * Copyright (C) 2006-2007 Adam Belay <abelay@novell.com>
  * Copyright (C) 2009 Intel Corporation
  */
@@ -578,7 +578,7 @@ static inline bool is_cpu_biased(int cpu)
 
 static inline bool lpm_disallowed(s64 sleep_us, int cpu)
 {
-	if (sleep_disabled || is_cpu_biased(cpu))
+	if ((sleep_disabled && !cpu_isolated(cpu)) || is_cpu_biased(cpu))
 		return true;
 
 	if (sleep_us < 0)
