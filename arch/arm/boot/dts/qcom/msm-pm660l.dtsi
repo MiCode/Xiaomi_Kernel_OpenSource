@@ -415,6 +415,7 @@
 		       compatible = "qcom,qpnp-oledb-regulator";
 		       #address-cells = <1>;
 		       #size-cells = <1>;
+		       qcom,pmic-revid = <&pm660l_revid>;
 		       reg = <0xe000 0x100>;
 
 		       label = "oledb";
