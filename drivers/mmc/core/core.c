@@ -474,6 +474,11 @@ static int mmc_devfreq_set_target(struct device *dev,
 	if (!clk_scaling->enable)
 		goto out;
 
+	if (*freq == UINT_MAX)
+		*freq = clk_scaling->freq_table[1];
+	else
+		*freq = clk_scaling->freq_table[0];
+
 	pr_debug("%s: target freq = %lu (%s)\n", mmc_hostname(host),
 		*freq, current->comm);
 
