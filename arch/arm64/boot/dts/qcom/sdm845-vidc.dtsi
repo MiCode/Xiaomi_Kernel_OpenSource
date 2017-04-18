@@ -22,6 +22,8 @@
 		interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,hfi = "venus";
 		qcom,firmware-name = "venus";
+		qcom,never-unload-fw;
+		qcom,sw-power-collapse;
 		qcom,max-secure-instances = <5>;
 		qcom,max-hw-load = <2563200>; /* Full 4k @ 60 + 1080p @ 60 */
 
