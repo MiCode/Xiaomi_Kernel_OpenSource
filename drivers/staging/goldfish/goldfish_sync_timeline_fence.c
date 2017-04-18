@@ -2,7 +2,7 @@
 #include <linux/fs.h>
 #include <linux/syscalls.h>
 #include <linux/sync_file.h>
-#include <linux/fence.h>
+#include <linux/dma-fence.h>
 
 #include "goldfish_sync_timeline_fence.h"
 
@@ -46,15 +46,15 @@ struct goldfish_sync_timeline {
 	struct list_head	active_list_head;
 };
 
-static inline struct goldfish_sync_timeline *fence_parent(struct fence *fence)
+static inline struct goldfish_sync_timeline *goldfish_dma_fence_parent(struct dma_fence *fence)
 {
 	return container_of(fence->lock, struct goldfish_sync_timeline,
 				child_list_lock);
 }
 
-static const struct fence_ops goldfish_sync_timeline_fence_ops;
+static const struct dma_fence_ops goldfish_sync_timeline_fence_ops;
 
-static inline struct sync_pt *goldfish_sync_fence_to_sync_pt(struct fence *fence)
+static inline struct sync_pt *goldfish_sync_fence_to_sync_pt(struct dma_fence *fence)
 {
 	if (fence->ops != &goldfish_sync_timeline_fence_ops)
 		return NULL;
@@ -78,7 +78,7 @@ struct goldfish_sync_timeline
 		return NULL;
 
 	kref_init(&obj->kref);
-	obj->context = fence_context_alloc(1);
+	obj->context = dma_fence_context_alloc(1);
 	strlcpy(obj->name, name, sizeof(obj->name));
 
 	INIT_LIST_HEAD(&obj->child_list_head);
@@ -128,7 +128,7 @@ void goldfish_sync_timeline_signal_internal(struct goldfish_sync_timeline *obj,
 
 	list_for_each_entry_safe(pt, next, &obj->active_list_head,
 				 active_list) {
-		if (fence_is_signaled_locked(&pt->base))
+		if (dma_fence_is_signaled_locked(&pt->base))
 			list_del_init(&pt->active_list);
 	}
 
@@ -162,7 +162,7 @@ struct sync_pt *goldfish_sync_pt_create_internal(
 
 	spin_lock_irqsave(&obj->child_list_lock, flags);
 	goldfish_sync_timeline_get_internal(obj);
-	fence_init(&pt->base, &goldfish_sync_timeline_fence_ops, &obj->child_list_lock,
+	dma_fence_init(&pt->base, &goldfish_sync_timeline_fence_ops, &obj->child_list_lock,
 		   obj->context, value);
 	list_add_tail(&pt->child_list, &obj->child_list_head);
 	INIT_LIST_HEAD(&pt->active_list);
@@ -171,23 +171,23 @@ struct sync_pt *goldfish_sync_pt_create_internal(
 }
 
 static const char *goldfish_sync_timeline_fence_get_driver_name(
-						struct fence *fence)
+						struct dma_fence *fence)
 {
 	return "sw_sync";
 }
 
 static const char *goldfish_sync_timeline_fence_get_timeline_name(
-						struct fence *fence)
+						struct dma_fence *fence)
 {
-	struct goldfish_sync_timeline *parent = fence_parent(fence);
+	struct goldfish_sync_timeline *parent = goldfish_dma_fence_parent(fence);
 
 	return parent->name;
 }
 
-static void goldfish_sync_timeline_fence_release(struct fence *fence)
+static void goldfish_sync_timeline_fence_release(struct dma_fence *fence)
 {
 	struct sync_pt *pt = goldfish_sync_fence_to_sync_pt(fence);
-	struct goldfish_sync_timeline *parent = fence_parent(fence);
+	struct goldfish_sync_timeline *parent = goldfish_dma_fence_parent(fence);
 	unsigned long flags;
 
 	spin_lock_irqsave(fence->lock, flags);
@@ -197,20 +197,20 @@ static void goldfish_sync_timeline_fence_release(struct fence *fence)
 	spin_unlock_irqrestore(fence->lock, flags);
 
 	goldfish_sync_timeline_put_internal(parent);
-	fence_free(fence);
+	dma_fence_free(fence);
 }
 
-static bool goldfish_sync_timeline_fence_signaled(struct fence *fence)
+static bool goldfish_sync_timeline_fence_signaled(struct dma_fence *fence)
 {
-	struct goldfish_sync_timeline *parent = fence_parent(fence);
+	struct goldfish_sync_timeline *parent = goldfish_dma_fence_parent(fence);
 
 	return (fence->seqno > parent->value) ? false : true;
 }
 
-static bool goldfish_sync_timeline_fence_enable_signaling(struct fence *fence)
+static bool goldfish_sync_timeline_fence_enable_signaling(struct dma_fence *fence)
 {
 	struct sync_pt *pt = goldfish_sync_fence_to_sync_pt(fence);
-	struct goldfish_sync_timeline *parent = fence_parent(fence);
+	struct goldfish_sync_timeline *parent = goldfish_dma_fence_parent(fence);
 
 	if (goldfish_sync_timeline_fence_signaled(fence))
 		return false;
@@ -219,35 +219,35 @@ static bool goldfish_sync_timeline_fence_enable_signaling(struct fence *fence)
 	return true;
 }
 
-static void goldfish_sync_timeline_fence_disable_signaling(struct fence *fence)
+static void goldfish_sync_timeline_fence_disable_signaling(struct dma_fence *fence)
 {
 	struct sync_pt *pt = container_of(fence, struct sync_pt, base);
 
 	list_del_init(&pt->active_list);
 }
 
-static void goldfish_sync_timeline_fence_value_str(struct fence *fence,
+static void goldfish_sync_timeline_fence_value_str(struct dma_fence *fence,
 					char *str, int size)
 {
 	snprintf(str, size, "%d", fence->seqno);
 }
 
 static void goldfish_sync_timeline_fence_timeline_value_str(
-				struct fence *fence,
+				struct dma_fence *fence,
 				char *str, int size)
 {
-	struct goldfish_sync_timeline *parent = fence_parent(fence);
+	struct goldfish_sync_timeline *parent = goldfish_dma_fence_parent(fence);
 
 	snprintf(str, size, "%d", parent->value);
 }
 
-static const struct fence_ops goldfish_sync_timeline_fence_ops = {
+static const struct dma_fence_ops goldfish_sync_timeline_fence_ops = {
 	.get_driver_name = goldfish_sync_timeline_fence_get_driver_name,
 	.get_timeline_name = goldfish_sync_timeline_fence_get_timeline_name,
 	.enable_signaling = goldfish_sync_timeline_fence_enable_signaling,
 	.disable_signaling = goldfish_sync_timeline_fence_disable_signaling,
 	.signaled = goldfish_sync_timeline_fence_signaled,
-	.wait = fence_default_wait,
+	.wait = dma_fence_default_wait,
 	.release = goldfish_sync_timeline_fence_release,
 	.fence_value_str = goldfish_sync_timeline_fence_value_str,
 	.timeline_value_str = goldfish_sync_timeline_fence_timeline_value_str,
