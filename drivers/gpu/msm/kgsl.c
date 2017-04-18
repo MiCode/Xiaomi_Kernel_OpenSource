@@ -43,6 +43,7 @@
 #include "kgsl_sync.h"
 #include "kgsl_compat.h"
 #include "kgsl_pool.h"
+#include "adreno.h"
 
 #undef MODULE_PARAM_PREFIX
 #define MODULE_PARAM_PREFIX "kgsl."
@@ -1045,7 +1046,10 @@ static int kgsl_close_device(struct kgsl_device *device)
 	int result = 0;
 
 	mutex_lock(&device->mutex);
-	device->open_count--;
+
+	if (!adreno_is_a6xx(ADRENO_DEVICE(device)))
+		device->open_count--;
+
 	if (device->open_count == 0) {
 
 		/* Wait for the active count to go to 0 */
