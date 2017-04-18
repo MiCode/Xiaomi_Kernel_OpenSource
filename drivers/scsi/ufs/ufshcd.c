@@ -9415,10 +9415,11 @@ static int ufshcd_scale_gear(struct ufs_hba *hba, bool scale_up)
 			/* scale up to G3 now */
 			new_pwr_info.gear_tx = UFS_HS_G3;
 			new_pwr_info.gear_rx = UFS_HS_G3;
-			ret = ufshcd_change_power_mode(hba, &new_pwr_info);
-			if (ret)
-				goto out;
+			/* now, fall through to set the HS-G3 */
 		}
+		ret = ufshcd_change_power_mode(hba, &new_pwr_info);
+		if (ret)
+			goto out;
 	} else {
 		memcpy(&new_pwr_info, &hba->pwr_info,
 		       sizeof(struct ufs_pa_layer_attr));
