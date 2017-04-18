@@ -37,14 +37,13 @@
 		.msg = { 0 },			\
 		.msg.state = s,			\
 		.msg.is_complete = true,	\
-		.msg.payload = &name.cmd,	\
-		.msg.num_payload = 1,		\
-		.cmd = { 0 },			\
+		.msg.payload = name.cmd,	\
+		.msg.num_payload = 0,		\
+		.cmd = { { 0 } },		\
 		.waitq = q,			\
 		.wait_count = c,		\
 		.rc = rc,			\
 		.bit = -1,			\
-		.free_cmd = NULL,		\
 	}
 
 struct rpmh_req {
@@ -56,13 +55,11 @@ struct rpmh_req {
 
 struct rpmh_msg {
 	struct tcs_mbox_msg msg;
-	/* A single command for our use here */
-	struct tcs_cmd cmd;
+	struct tcs_cmd cmd[MAX_RPMH_PAYLOAD];
 	wait_queue_head_t *waitq;
 	atomic_t *wait_count;
 	struct rpmh_client *rc;
 	int bit;
-	void *free_cmd;
 	int err; /* relay error from mbox for sync calls */
 };
 
@@ -120,7 +117,6 @@ static void rpmh_tx_done(struct mbox_client *cl, void *msg, int r)
 	struct rpmh_mbox *rpm = rpm_msg->rc->rpmh;
 	atomic_t *wc = rpm_msg->wait_count;
 	wait_queue_head_t *waitq = rpm_msg->waitq;
-	void *free = rpm_msg->free_cmd;
 
 	rpm_msg->err = r;
 
@@ -139,7 +135,7 @@ static void rpmh_tx_done(struct mbox_client *cl, void *msg, int r)
 	/*
 	 * Copy the child object pointers before freeing up the parent,
 	 * This way even if the parent (rpm_msg) object gets reused, we
-	 * can free up the child objects (free_cmd and wq/wc) parallely.
+	 * can free up the child objects (wq/wc) parallely.
 	 * If you free up the children before the parent, then we run
 	 * into an issue that the stack allocated parent object may be
 	 * invalid before we can check the ->bit value.
@@ -151,9 +147,6 @@ static void rpmh_tx_done(struct mbox_client *cl, void *msg, int r)
 		bitmap_clear(rpm->fast_req, rpm_msg->bit, 1);
 		spin_unlock(&rpm->lock);
 	}
-
-	/* Nobody should be needing the request anymore */
-	kfree(free);
 
 	/* Signal the blocking thread we are done */
 	if (waitq) {
@@ -288,10 +281,10 @@ int rpmh_write_single_async(struct rpmh_client *rc, enum rpmh_state state,
 	if (!rpm_msg)
 		return -ENOMEM;
 
-	rpm_msg->cmd.addr = addr;
-	rpm_msg->cmd.data = data;
+	rpm_msg->cmd[0].addr = addr;
+	rpm_msg->cmd[0].data = data;
 
-	rpm_msg->msg.payload = &rpm_msg->cmd;
+	rpm_msg->msg.payload = rpm_msg->cmd;
 	rpm_msg->msg.num_payload = 1;
 
 	return __rpmh_write(rc, state, rpm_msg);
@@ -328,8 +321,9 @@ int rpmh_write_single(struct rpmh_client *rc, enum rpmh_state state,
 	if (rpmh_standalone)
 		return 0;
 
-	rpm_msg.cmd.addr = addr;
-	rpm_msg.cmd.data = data;
+	rpm_msg.cmd[0].addr = addr;
+	rpm_msg.cmd[0].data = data;
+	rpm_msg.msg.num_payload = 1;
 
 	ret = __rpmh_write(rc, state, &rpm_msg);
 	if (ret < 0)
@@ -344,29 +338,22 @@ int rpmh_write_single(struct rpmh_client *rc, enum rpmh_state state,
 EXPORT_SYMBOL(rpmh_write_single);
 
 struct rpmh_msg *__get_rpmh_msg_async(struct rpmh_client *rc,
-	enum rpmh_state state, struct tcs_cmd *cmd, int n, bool fast)
+		enum rpmh_state state, struct tcs_cmd *cmd, int n)
 {
 	struct rpmh_msg *rpm_msg;
-	struct tcs_cmd *tcs_cmd;
 
 	if (IS_ERR_OR_NULL(rc) || !cmd || n <= 0 || n > MAX_RPMH_PAYLOAD)
 		return ERR_PTR(-EINVAL);
 
-	tcs_cmd = kcalloc(n, sizeof(*cmd), fast ? GFP_ATOMIC : GFP_KERNEL);
-	if (!tcs_cmd)
-		return ERR_PTR(-ENOMEM);
-	memcpy(tcs_cmd, cmd, n * sizeof(*tcs_cmd));
-
 	rpm_msg = get_msg_from_pool(rc);
-	if (!rpm_msg) {
-		kfree(tcs_cmd);
+	if (!rpm_msg)
 		return ERR_PTR(-ENOMEM);
-	}
+
+	memcpy(rpm_msg->cmd, cmd, n * sizeof(*cmd));
 
 	rpm_msg->msg.state = state;
-	rpm_msg->msg.payload = tcs_cmd;
+	rpm_msg->msg.payload = rpm_msg->cmd;
 	rpm_msg->msg.num_payload = n;
-	rpm_msg->free_cmd = tcs_cmd;
 
 	return rpm_msg;
 }
@@ -392,8 +379,7 @@ int rpmh_write_async(struct rpmh_client *rc, enum rpmh_state state,
 	if (rpmh_standalone)
 		return 0;
 
-	rpm_msg = __get_rpmh_msg_async(rc, state, cmd, n, true);
-
+	rpm_msg = __get_rpmh_msg_async(rc, state, cmd, n);
 	if (IS_ERR(rpm_msg))
 		return PTR_ERR(rpm_msg);
 
@@ -433,7 +419,7 @@ int rpmh_write(struct rpmh_client *rc, enum rpmh_state state,
 	if (rpmh_standalone)
 		return 0;
 
-	rpm_msg.msg.payload = cmd;
+	memcpy(rpm_msg.cmd, cmd, n * sizeof(*cmd));
 	rpm_msg.msg.num_payload = n;
 
 	ret = __rpmh_write(rc, state, &rpm_msg);
@@ -505,7 +491,7 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 
 	/* Create async request batches */
 	for (i = 0; i < count; i++) {
-		rpm_msg[i] = __get_rpmh_msg_async(rc, state, cmd, n[i], false);
+		rpm_msg[i] = __get_rpmh_msg_async(rc, state, cmd, n[i]);
 		if (IS_ERR_OR_NULL(rpm_msg[i]))
 			return PTR_ERR(rpm_msg[i]);
 		rpm_msg[i]->waitq = &waitq;
@@ -554,15 +540,16 @@ int rpmh_write_control(struct rpmh_client *rc, struct tcs_cmd *cmd, int n)
 {
 	DEFINE_RPMH_MSG_ONSTACK(rc, 0, NULL, NULL, rpm_msg);
 
-	if (IS_ERR_OR_NULL(rc))
+	if (IS_ERR_OR_NULL(rc) ||  n > MAX_RPMH_PAYLOAD)
 		return -EINVAL;
 
 	if (rpmh_standalone)
 		return 0;
 
-	rpm_msg.msg.payload = cmd;
+	memcpy(rpm_msg.cmd, cmd, n * sizeof(*cmd));
 	rpm_msg.msg.num_payload = n;
 	rpm_msg.msg.is_control = true;
+	rpm_msg.msg.is_complete = false;
 
 	return mbox_send_controller_data(rc->chan, &rpm_msg.msg);
 }
@@ -590,6 +577,7 @@ int rpmh_invalidate(struct rpmh_client *rc)
 
 	rpm = rc->rpmh;
 	rpm_msg.msg.invalidate = true;
+	rpm_msg.msg.is_complete = false;
 
 	spin_lock(&rpm->lock);
 	rpm->dirty = true;
@@ -624,8 +612,9 @@ int rpmh_read(struct rpmh_client *rc, u32 addr, u32 *resp)
 	if (rpmh_standalone)
 		return 0;
 
-	rpm_msg.cmd.addr = addr;
-	rpm_msg.cmd.data = 0;
+	rpm_msg.cmd[0].addr = addr;
+	rpm_msg.cmd[0].data = 0;
+	rpm_msg.msg.num_payload = 1;
 
 	rpm_msg.msg.is_read = true;
 
@@ -639,7 +628,7 @@ int rpmh_read(struct rpmh_client *rc, u32 addr, u32 *resp)
 		return ret;
 
 	/* Read the data back from the tcs_mbox_msg structrure */
-	*resp = rpm_msg.cmd.data;
+	*resp = rpm_msg.cmd[0].data;
 
 	return rpm_msg.err;
 }
@@ -658,8 +647,10 @@ int send_single(struct rpmh_client *rc, enum rpmh_state state, u32 addr,
 
 	/* Wake sets are always complete and sleep sets are not */
 	rpm_msg.msg.is_complete = (state == RPMH_WAKE_ONLY_STATE);
-	rpm_msg.cmd.addr = addr;
-	rpm_msg.cmd.data = data;
+	rpm_msg.cmd[0].addr = addr;
+	rpm_msg.cmd[0].data = data;
+	rpm_msg.msg.num_payload = 1;
+	rpm_msg.msg.is_complete = false;
 
 	return mbox_send_controller_data(rc->chan, &rpm_msg.msg);
 }
