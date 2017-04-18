@@ -310,6 +310,9 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (device_property_read_bool(sysdev, "usb3-lpm-capable"))
 		xhci->quirks |= XHCI_LPM_SUPPORT;
 
+	if (device_property_read_bool(&pdev->dev, "quirk-broken-port-ped"))
+		xhci->quirks |= XHCI_BROKEN_PORT_PED;
+
 	if (device_property_read_u32(sysdev, "snps,xhci-imod-value", &imod))
 		imod = 0;
 
