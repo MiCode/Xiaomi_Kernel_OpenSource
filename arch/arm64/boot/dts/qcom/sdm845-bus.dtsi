@@ -191,6 +191,7 @@
 			cell-id = <MSM_BUS_BCM_QUP0>;
 			label = "QUP0";
 			qcom,bcm-name = "QUP0";
+			qcom,rscs = <&rsc_apps>;
 			qcom,bcm-dev;
 		};
 
