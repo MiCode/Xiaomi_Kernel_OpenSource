@@ -34,7 +34,7 @@
 #include <linux/fs.h>
 #include <linux/syscalls.h>
 #include <linux/sync_file.h>
-#include <linux/fence.h>
+#include <linux/dma-fence.h>
 
 #include "goldfish_sync_timeline_fence.h"
 
@@ -325,7 +325,7 @@ goldfish_sync_fence_create(struct goldfish_sync_timeline_obj *obj,
 err_cleanup_fd_pt:
 	put_unused_fd(fd);
 err_cleanup_pt:
-	fence_put(&syncpt->base);
+	dma_fence_put(&syncpt->base);
 	return -1;
 }
 
