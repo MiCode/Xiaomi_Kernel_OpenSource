@@ -1293,7 +1293,7 @@
 	qcom,ssc@5c00000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x5c00000 0x4000>;
-		interrupts = <0 494 1>;
+		interrupts = <0 377 1>;
 
 		vdd_cx-supply = <&pm8998_l27_level>;
 		vdd_px-supply = <&pm8998_lvs2>;
