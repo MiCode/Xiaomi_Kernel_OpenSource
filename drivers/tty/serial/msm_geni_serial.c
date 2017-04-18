@@ -256,6 +256,26 @@ static void msm_geni_serial_poll_cancel_tx(struct uart_port *uport)
 	geni_write_reg_nolog(irq_clear, uport->membase, SE_GENI_M_IRQ_CLEAR);
 }
 
+static void msm_geni_serial_poll_cancel_rx(struct uart_port *uport)
+{
+	int done = 0;
+	unsigned int irq_clear = S_CMD_DONE_EN;
+
+	done = msm_geni_serial_poll_bit(uport, SE_GENI_S_IRQ_STATUS,
+							S_CMD_DONE_EN);
+	if (!done) {
+		geni_cancel_s_cmd(uport->membase);
+		irq_clear |= S_CMD_CANCEL_EN;
+		if (!msm_geni_serial_poll_bit(uport, SE_GENI_S_IRQ_STATUS,
+							S_CMD_CANCEL_EN)) {
+			geni_abort_s_cmd(uport->membase);
+			irq_clear |= S_CMD_ABORT_EN;
+			msm_geni_serial_poll_bit(uport, SE_GENI_S_IRQ_STATUS,
+								S_CMD_ABORT_EN);
+		}
+	}
+	geni_write_reg_nolog(irq_clear, uport->membase, SE_GENI_S_IRQ_CLEAR);
+}
 #ifdef CONFIG_CONSOLE_POLL
 static int msm_geni_serial_get_char(struct uart_port *uport)
 {
@@ -351,10 +371,15 @@ __msm_geni_serial_console_write(struct uart_port *uport, const char *s,
 	while (i < count) {
 		u32 chars_to_write = 0;
 		u32 avail_fifo_bytes = (port->tx_fifo_depth - port->tx_wm);
-
+		/*
+		 * If the WM bit never set, then the Tx state machine is not
+		 * in a valid state, so break, cancel/abort any existing
+		 * command. Unfortunately the current data being written is
+		 * lost.
+		 */
 		while (!msm_geni_serial_poll_bit(uport, SE_GENI_M_IRQ_STATUS,
 						M_TX_FIFO_WATERMARK_EN))
-			cpu_relax();
+			break;
 		chars_to_write = min((unsigned int)(count - i),
 							avail_fifo_bytes);
 		if ((chars_to_write << 1) > avail_fifo_bytes)
@@ -485,7 +510,11 @@ static void msm_geni_serial_start_rx(struct uart_port *uport)
 {
 	unsigned int geni_s_irq_en;
 	unsigned int geni_m_irq_en;
+	unsigned int geni_status;
 
+	geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
+	if (geni_status & S_GENI_CMD_ACTIVE)
+		msm_geni_serial_poll_cancel_rx(uport);
 	geni_s_irq_en = geni_read_reg_nolog(uport->membase,
 						SE_GENI_S_IRQ_EN);
 	geni_m_irq_en = geni_read_reg_nolog(uport->membase,
@@ -1012,6 +1041,11 @@ static int __init msm_geni_console_setup(struct console *co, char *options)
 	if (!dev_port->port_setup)
 		msm_geni_serial_port_setup(uport);
 
+	/*
+	 * Make an unconditional cancel on the main sequencer to reset
+	 * it else we could end up in data loss scenarios.
+	 */
+	msm_geni_serial_poll_cancel_tx(uport);
 	if (options)
 		uart_parse_options(options, &baud, &parity, &bits, &flow);
 
@@ -1088,6 +1122,11 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 	s_clk_cfg |= SER_CLK_EN;
 	s_clk_cfg |= (clk_div << CLK_DIV_SHFT);
 
+	/*
+	 * Make an unconditional cancel on the main sequencer to reset
+	 * it else we could end up in data loss scenarios.
+	 */
+	msm_geni_serial_poll_cancel_tx(uport);
 	geni_serial_write_term_regs(uport, 0, tx_trans_cfg,
 		tx_parity_cfg, rx_trans_cfg, rx_parity_cfg, bits_per_char,
 		stop_bit, rx_stale, s_clk_cfg);
