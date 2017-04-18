@@ -25,6 +25,7 @@
 #define MAX_STR_CL	50
 
 #define MSM_BUS_MAS_ALC	144
+#define MSM_BUS_RSC_APPS 8000
 
 struct bus_search_type {
 	struct list_head link;
@@ -40,6 +41,7 @@ static struct handle_type handle_list;
 static LIST_HEAD(input_list);
 static LIST_HEAD(apply_list);
 static LIST_HEAD(commit_list);
+static LIST_HEAD(late_init_clist);
 static LIST_HEAD(query_list);
 
 DEFINE_RT_MUTEX(msm_bus_adhoc_lock);
@@ -652,32 +654,33 @@ exit_bcm_update_alc_req:
 
 int bcm_remove_handoff_req(struct device *dev, void *data)
 {
-	struct msm_bus_node_device_type *bcm_dev = NULL;
-	int i;
-	uint64_t max_ib = 0;
-	uint64_t max_ab = 0;
+	struct msm_bus_node_device_type *bus_dev = NULL;
+	struct msm_bus_node_device_type *cur_bcm = NULL;
+	struct msm_bus_node_device_type *cur_rsc = NULL;
 	int ret = 0;
 
 	rt_mutex_lock(&msm_bus_adhoc_lock);
 
-	bcm_dev = to_msm_bus_node(dev);
-	if (!bcm_dev) {
-		MSM_BUS_ERR("%s: Null device ptr", __func__);
-		goto exit_bcm_remove_handoff_req;
-	}
-
-	if (!bcm_dev->node_info->is_bcm_dev)
+	bus_dev = to_msm_bus_node(dev);
+	if (bus_dev->node_info->is_bcm_dev ||
+		bus_dev->node_info->is_fab_dev ||
+		bus_dev->node_info->is_rsc_dev)
 		goto exit_bcm_remove_handoff_req;
 
-	for (i = 0; i < bcm_dev->num_lnodes; i++) {
-		max_ib = max(max_ib,
-				bcm_dev->lnode_list[i].lnode_ib[0]);
-		max_ab = max(max_ab,
-				bcm_dev->lnode_list[i].lnode_ab[0]);
+	if (bus_dev->node_info->num_bcm_devs) {
+		cur_bcm = to_msm_bus_node(bus_dev->node_info->bcm_devs[0]);
+		if (cur_bcm->node_info->num_rsc_devs) {
+			cur_rsc =
+			to_msm_bus_node(cur_bcm->node_info->rsc_devs[0]);
+			if (cur_rsc->node_info->id != MSM_BUS_RSC_APPS)
+				goto exit_bcm_remove_handoff_req;
+		}
 	}
 
-	bcm_dev->node_bw[0].max_ab = max_ab;
-	bcm_dev->node_bw[0].max_ib = max_ib;
+	if (!bus_dev->dirty) {
+		list_add_tail(&bus_dev->link, &late_init_clist);
+		bus_dev->dirty = true;
+	}
 
 exit_bcm_remove_handoff_req:
 	rt_mutex_unlock(&msm_bus_adhoc_lock);
@@ -806,6 +809,18 @@ static void commit_data(void)
 	INIT_LIST_HEAD(&apply_list);
 	INIT_LIST_HEAD(&commit_list);
 }
+
+void commit_late_init_data(void)
+{
+	rt_mutex_lock(&msm_bus_adhoc_lock);
+
+	msm_bus_commit_data(&late_init_clist);
+	INIT_LIST_HEAD(&late_init_clist);
+
+	rt_mutex_unlock(&msm_bus_adhoc_lock);
+}
+
+
 
 static void add_node_to_clist(struct msm_bus_node_device_type *node)
 {
