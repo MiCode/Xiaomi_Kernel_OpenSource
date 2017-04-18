@@ -696,6 +696,9 @@ static int sde_hw_intr_irqidx_lookup(enum sde_intr_type intr_type,
 static void sde_hw_intr_set_mask(struct sde_hw_intr *intr, uint32_t reg_off,
 		uint32_t mask)
 {
+	if (!intr)
+		return;
+
 	SDE_REG_WRITE(&intr->hw, reg_off, mask);
 }
 
@@ -709,6 +712,9 @@ static void sde_hw_intr_dispatch_irq(struct sde_hw_intr *intr,
 	int end_idx;
 	u32 irq_status;
 	unsigned long irq_flags;
+
+	if (!intr)
+		return;
 
 	/*
 	 * The dispatcher will save the IRQ status before calling here.
@@ -725,6 +731,10 @@ static void sde_hw_intr_dispatch_irq(struct sde_hw_intr *intr,
 		 */
 		start_idx = reg_idx * 32;
 		end_idx = start_idx + 32;
+
+		if (start_idx >= ARRAY_SIZE(sde_irq_map) ||
+				end_idx > ARRAY_SIZE(sde_irq_map))
+			continue;
 
 		/*
 		 * Search through matching intr status from irq map.
@@ -769,6 +779,9 @@ static int sde_hw_intr_enable_irq(struct sde_hw_intr *intr, int irq_idx)
 	const char *dbgstr = NULL;
 	uint32_t cache_irq_mask;
 
+	if (!intr)
+		return -EINVAL;
+
 	if (irq_idx < 0 || irq_idx >= ARRAY_SIZE(sde_irq_map)) {
 		pr_err("invalid IRQ index: [%d]\n", irq_idx);
 		return -EINVAL;
@@ -810,6 +823,9 @@ static int sde_hw_intr_disable_irq(struct sde_hw_intr *intr, int irq_idx)
 	const char *dbgstr = NULL;
 	uint32_t cache_irq_mask;
 
+	if (!intr)
+		return -EINVAL;
+
 	if (irq_idx < 0 || irq_idx >= ARRAY_SIZE(sde_irq_map)) {
 		pr_err("invalid IRQ index: [%d]\n", irq_idx);
 		return -EINVAL;
@@ -846,6 +862,9 @@ static int sde_hw_intr_clear_irqs(struct sde_hw_intr *intr)
 {
 	int i;
 
+	if (!intr)
+		return -EINVAL;
+
 	for (i = 0; i < ARRAY_SIZE(sde_intr_set); i++)
 		SDE_REG_WRITE(&intr->hw, sde_intr_set[i].clr_off, 0xffffffff);
 
@@ -856,6 +875,9 @@ static int sde_hw_intr_disable_irqs(struct sde_hw_intr *intr)
 {
 	int i;
 
+	if (!intr)
+		return -EINVAL;
+
 	for (i = 0; i < ARRAY_SIZE(sde_intr_set); i++)
 		SDE_REG_WRITE(&intr->hw, sde_intr_set[i].en_off, 0x00000000);
 
@@ -865,15 +887,23 @@ static int sde_hw_intr_disable_irqs(struct sde_hw_intr *intr)
 static int sde_hw_intr_get_valid_interrupts(struct sde_hw_intr *intr,
 		uint32_t *mask)
 {
+	if (!intr || !mask)
+		return -EINVAL;
+
 	*mask = IRQ_SOURCE_MDP | IRQ_SOURCE_DSI0 | IRQ_SOURCE_DSI1
 		| IRQ_SOURCE_HDMI | IRQ_SOURCE_EDP;
+
 	return 0;
 }
 
 static int sde_hw_intr_get_interrupt_sources(struct sde_hw_intr *intr,
 		uint32_t *sources)
 {
+	if (!intr || !sources)
+		return -EINVAL;
+
 	*sources = SDE_REG_READ(&intr->hw, HW_INTR_STATUS);
+
 	return 0;
 }
 
@@ -882,6 +912,9 @@ static void sde_hw_intr_get_interrupt_statuses(struct sde_hw_intr *intr)
 	int i;
 	u32 enable_mask;
 	unsigned long irq_flags;
+
+	if (!intr)
+		return;
 
 	spin_lock_irqsave(&intr->status_lock, irq_flags);
 	for (i = 0; i < ARRAY_SIZE(sde_intr_set); i++) {
@@ -909,6 +942,9 @@ static void sde_hw_intr_clear_interrupt_status(struct sde_hw_intr *intr,
 	int reg_idx;
 	unsigned long irq_flags;
 
+	if (!intr)
+		return;
+
 	spin_lock_irqsave(&intr->mask_lock, irq_flags);
 
 	reg_idx = sde_irq_map[irq_idx].reg_idx;
@@ -924,6 +960,9 @@ static u32 sde_hw_intr_get_interrupt_status(struct sde_hw_intr *intr,
 	int reg_idx;
 	unsigned long irq_flags;
 	u32 intr_status;
+
+	if (!intr)
+		return 0;
 
 	spin_lock_irqsave(&intr->mask_lock, irq_flags);
 
@@ -959,7 +998,7 @@ static void __setup_intr_ops(struct sde_hw_intr_ops *ops)
 static struct sde_mdss_base_cfg *__intr_offset(struct sde_mdss_cfg *m,
 		void __iomem *addr, struct sde_hw_blk_reg_map *hw)
 {
-	if (m->mdp_count == 0)
+	if (!m || !addr || !hw || m->mdp_count == 0)
 		return NULL;
 
 	hw->base_off = addr;
@@ -971,9 +1010,13 @@ static struct sde_mdss_base_cfg *__intr_offset(struct sde_mdss_cfg *m,
 struct sde_hw_intr *sde_hw_intr_init(void __iomem *addr,
 		struct sde_mdss_cfg *m)
 {
-	struct sde_hw_intr *intr = kzalloc(sizeof(*intr), GFP_KERNEL);
+	struct sde_hw_intr *intr;
 	struct sde_mdss_base_cfg *cfg;
 
+	if (!addr || !m)
+		return ERR_PTR(-EINVAL);
+
+	intr = kzalloc(sizeof(*intr), GFP_KERNEL);
 	if (!intr)
 		return ERR_PTR(-ENOMEM);
 
