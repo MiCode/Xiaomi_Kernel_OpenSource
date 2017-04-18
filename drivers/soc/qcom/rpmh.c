@@ -254,6 +254,9 @@ int __rpmh_write(struct rpmh_client *rc, enum rpmh_state state,
 		ret = mbox_send_message(rc->chan, &rpm_msg->msg);
 		if (ret > 0)
 			ret = 0;
+	} else {
+		/* Clean up our call by spoofing tx_done */
+		rpmh_tx_done(&rc->client, &rpm_msg->msg, ret);
 	}
 
 	return ret;
