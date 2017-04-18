@@ -404,7 +404,7 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 	int other_free;
 	int other_file;
 
-	if (!mutex_trylock(&scan_mutex))
+	if (mutex_lock_interruptible(&scan_mutex) < 0)
 		return 0;
 
 	other_free = global_page_state(NR_FREE_PAGES);
