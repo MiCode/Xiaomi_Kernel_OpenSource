@@ -1280,7 +1280,9 @@
 &usb2s {
 	status = "ok";
 	qcom,no-wakeup-src-in-hostmode;
-	qcom,psy-not-used;
+	dwc3@7600000 {
+		dr_mode = "host";
+	};
 };
 
 &usb3 {
