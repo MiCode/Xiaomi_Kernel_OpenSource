@@ -80,6 +80,11 @@
 		};
 	};
 
+	compress: qcom,msm-compress-dsp {
+		compatible = "qcom,msm-compress-dsp";
+		qcom,adsp-version = "MDSP 2.8";
+	};
+
 	ipa_hw: qcom,ipa@07B00000 {
 		qcom,ipa-hw-ver = <12>; /* IPA core version = IPAv3.5 */
 		/delete-property/qcom,use-rg10-limitation-mitigation;
