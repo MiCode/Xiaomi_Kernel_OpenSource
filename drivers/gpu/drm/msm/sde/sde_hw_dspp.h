@@ -192,6 +192,7 @@ struct sde_hw_dspp {
  * should be called once before accessing every dspp.
  * @idx:  DSPP index for which driver object is required
  * @addr: Mapped register io address of MDP
+ * @Return: pointer to structure or ERR_PTR
  */
 struct sde_hw_dspp *sde_hw_dspp_init(enum sde_dspp idx,
 			void __iomem *addr,

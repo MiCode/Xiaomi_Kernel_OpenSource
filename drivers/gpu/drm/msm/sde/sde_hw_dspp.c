@@ -25,6 +25,9 @@ static struct sde_dspp_cfg *_dspp_offset(enum sde_dspp dspp,
 {
 	int i;
 
+	if (!m || !addr || !b)
+		return ERR_PTR(-EINVAL);
+
 	for (i = 0; i < m->dspp_count; i++) {
 		if (dspp == m->dspp[i].id) {
 			b->base_off = addr;
@@ -42,6 +45,9 @@ static struct sde_dspp_cfg *_dspp_offset(enum sde_dspp dspp,
 static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 {
 	int i = 0, ret;
+
+	if (!c || !c->cap || !c->cap->sblk)
+		return;
 
 	for (i = 0; i < SDE_DSPP_MAX; i++) {
 		if (!test_bit(i, &features))
@@ -118,6 +124,9 @@ struct sde_hw_dspp *sde_hw_dspp_init(enum sde_dspp idx,
 {
 	struct sde_hw_dspp *c;
 	struct sde_dspp_cfg *cfg;
+
+	if (!addr || !m)
+		return ERR_PTR(-EINVAL);
 
 	c = kzalloc(sizeof(*c), GFP_KERNEL);
 	if (!c)
