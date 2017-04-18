@@ -2475,8 +2475,7 @@
 		      <0xa0000000 0x10000000>,
 		      <0xb0000000 0x10000>;
 		reg-names = "membase", "smmu_iova_base", "smmu_iova_ipa";
-		iommus = <&apps_smmu 0x0040 0x0>,
-			 <&apps_smmu 0x0041 0x0>;
+		iommus = <&apps_smmu 0x0040 0x1>;
 		interrupts = <0 414 0 /* CE0 */ >,
 			     <0 415 0 /* CE1 */ >,
 			     <0 416 0 /* CE2 */ >,
