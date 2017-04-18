@@ -1961,21 +1961,29 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 		ret = sde_plane_rot_submit_command(plane, state,
 				SDE_HW_ROT_CMD_VALIDATE);
 
-	} else if (sde_plane_enabled(state)) {
+	} else {
 
 		SDE_DEBUG("plane%d.%d bypass rotator\n", plane->base.id,
 				rstate->sequence_id);
 
 		/* bypass rotator - initialize output setting as input */
+		for (i = 0; i < ARRAY_SIZE(rstate->out_fb_modifier); i++)
+			rstate->out_fb_modifier[i] = state->fb ?
+				state->fb->modifier[i] : 0x0;
+
+		if (state->fb) {
+			rstate->out_fb_pixel_format = state->fb->pixel_format;
+			rstate->out_fb_flags = state->fb->flags;
+			rstate->out_fb_width = state->fb->width;
+			rstate->out_fb_height = state->fb->height;
+		} else {
+			rstate->out_fb_pixel_format = 0x0;
+			rstate->out_fb_flags = 0x0;
+			rstate->out_fb_width = 0;
+			rstate->out_fb_height = 0;
+		}
+
 		rstate->out_rotation = rstate->in_rotation;
-		rstate->out_fb_pixel_format = state->fb->pixel_format;
-
-		for (i = 0.; i < ARRAY_SIZE(rstate->out_fb_modifier); i++)
-			rstate->out_fb_modifier[i] = state->fb->modifier[i];
-
-		rstate->out_fb_flags = state->fb->flags;
-		rstate->out_fb_width = state->fb->width;
-		rstate->out_fb_height = state->fb->height;
 		rstate->out_src_x = state->src_x;
 		rstate->out_src_y = state->src_y;
 		rstate->out_src_w = state->src_w;
