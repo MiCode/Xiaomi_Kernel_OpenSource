@@ -31,6 +31,8 @@
 #define FG_MEM_INFO_PMI8998		0x0D
 
 /* SRAM address and offset in ascending order */
+#define ESR_PULSE_THRESH_WORD		2
+#define ESR_PULSE_THRESH_OFFSET		3
 #define SLOPE_LIMIT_WORD		3
 #define SLOPE_LIMIT_OFFSET		0
 #define CUTOFF_VOLT_WORD		5
@@ -51,6 +53,8 @@
 #define KI_COEFF_HI_DISCHG_OFFSET	0
 #define KI_COEFF_LOW_DISCHG_WORD	10
 #define KI_COEFF_LOW_DISCHG_OFFSET	2
+#define KI_COEFF_FULL_SOC_WORD		12
+#define KI_COEFF_FULL_SOC_OFFSET	2
 #define DELTA_MSOC_THR_WORD		12
 #define DELTA_MSOC_THR_OFFSET		3
 #define DELTA_BSOC_THR_WORD		13
@@ -217,11 +221,16 @@ static struct fg_sram_param pmi8998_v1_sram_params[] = {
 		ESR_TIMER_CHG_MAX_OFFSET, 2, 1, 1, 0, fg_encode_default, NULL),
 	PARAM(ESR_TIMER_CHG_INIT, ESR_TIMER_CHG_INIT_WORD,
 		ESR_TIMER_CHG_INIT_OFFSET, 2, 1, 1, 0, fg_encode_default, NULL),
+	PARAM(ESR_PULSE_THRESH, ESR_PULSE_THRESH_WORD, ESR_PULSE_THRESH_OFFSET,
+		1, 100000, 390625, 0, fg_encode_default, NULL),
 	PARAM(KI_COEFF_MED_DISCHG, KI_COEFF_MED_DISCHG_WORD,
 		KI_COEFF_MED_DISCHG_OFFSET, 1, 1000, 244141, 0,
 		fg_encode_default, NULL),
 	PARAM(KI_COEFF_HI_DISCHG, KI_COEFF_HI_DISCHG_WORD,
 		KI_COEFF_HI_DISCHG_OFFSET, 1, 1000, 244141, 0,
+		fg_encode_default, NULL),
+	PARAM(KI_COEFF_FULL_SOC, KI_COEFF_FULL_SOC_WORD,
+		KI_COEFF_FULL_SOC_OFFSET, 1, 1000, 244141, 0,
 		fg_encode_default, NULL),
 	PARAM(ESR_TIGHT_FILTER, ESR_FILTER_WORD, ESR_UPD_TIGHT_OFFSET,
 		1, 512, 1000000, 0, fg_encode_default, NULL),
@@ -289,11 +298,16 @@ static struct fg_sram_param pmi8998_v2_sram_params[] = {
 		ESR_TIMER_CHG_MAX_OFFSET, 2, 1, 1, 0, fg_encode_default, NULL),
 	PARAM(ESR_TIMER_CHG_INIT, ESR_TIMER_CHG_INIT_WORD,
 		ESR_TIMER_CHG_INIT_OFFSET, 2, 1, 1, 0, fg_encode_default, NULL),
+	PARAM(ESR_PULSE_THRESH, ESR_PULSE_THRESH_WORD, ESR_PULSE_THRESH_OFFSET,
+		1, 100000, 390625, 0, fg_encode_default, NULL),
 	PARAM(KI_COEFF_MED_DISCHG, KI_COEFF_MED_DISCHG_v2_WORD,
 		KI_COEFF_MED_DISCHG_v2_OFFSET, 1, 1000, 244141, 0,
 		fg_encode_default, NULL),
 	PARAM(KI_COEFF_HI_DISCHG, KI_COEFF_HI_DISCHG_v2_WORD,
 		KI_COEFF_HI_DISCHG_v2_OFFSET, 1, 1000, 244141, 0,
+		fg_encode_default, NULL),
+	PARAM(KI_COEFF_FULL_SOC, KI_COEFF_FULL_SOC_WORD,
+		KI_COEFF_FULL_SOC_OFFSET, 1, 1000, 244141, 0,
 		fg_encode_default, NULL),
 	PARAM(ESR_TIGHT_FILTER, ESR_FILTER_WORD, ESR_UPD_TIGHT_OFFSET,
 		1, 512, 1000000, 0, fg_encode_default, NULL),
@@ -984,6 +998,29 @@ static inline void get_batt_temp_delta(int delta, u8 *val)
 	};
 }
 
+static inline void get_esr_meas_current(int curr_ma, u8 *val)
+{
+	switch (curr_ma) {
+	case 60:
+		*val = ESR_MEAS_CUR_60MA;
+		break;
+	case 120:
+		*val = ESR_MEAS_CUR_120MA;
+		break;
+	case 180:
+		*val = ESR_MEAS_CUR_180MA;
+		break;
+	case 240:
+		*val = ESR_MEAS_CUR_240MA;
+		break;
+	default:
+		*val = ESR_MEAS_CUR_120MA;
+		break;
+	};
+
+	*val <<= ESR_PULL_DOWN_IVAL_SHIFT;
+}
+
 static int fg_set_esr_timer(struct fg_chip *chip, int cycles, bool charging,
 				int flags)
 {
@@ -1434,6 +1471,37 @@ static int fg_adjust_ki_coeff_dischg(struct fg_chip *chip)
 
 	fg_dbg(chip, FG_STATUS, "Wrote ki_coeff_med %d ki_coeff_hi %d\n",
 		ki_coeff_med, ki_coeff_hi);
+	return 0;
+}
+
+#define KI_COEFF_FULL_SOC_DEFAULT	733
+static int fg_adjust_ki_coeff_full_soc(struct fg_chip *chip, int batt_temp)
+{
+	int rc, ki_coeff_full_soc;
+	u8 val;
+
+	if (batt_temp < 0)
+		ki_coeff_full_soc = 0;
+	else
+		ki_coeff_full_soc = KI_COEFF_FULL_SOC_DEFAULT;
+
+	if (chip->ki_coeff_full_soc == ki_coeff_full_soc)
+		return 0;
+
+	fg_encode(chip->sp, FG_SRAM_KI_COEFF_FULL_SOC, ki_coeff_full_soc, &val);
+	rc = fg_sram_write(chip,
+			chip->sp[FG_SRAM_KI_COEFF_FULL_SOC].addr_word,
+			chip->sp[FG_SRAM_KI_COEFF_FULL_SOC].addr_byte, &val,
+			chip->sp[FG_SRAM_KI_COEFF_FULL_SOC].len,
+			FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing ki_coeff_full_soc, rc=%d\n", rc);
+		return rc;
+	}
+
+	chip->ki_coeff_full_soc = ki_coeff_full_soc;
+	fg_dbg(chip, FG_STATUS, "Wrote ki_coeff_full_soc %d\n",
+		ki_coeff_full_soc);
 	return 0;
 }
 
@@ -2028,6 +2096,11 @@ static void status_change_work(struct work_struct *work)
 		rc = fg_slope_limit_config(chip, batt_temp);
 		if (rc < 0)
 			pr_err("Error in configuring slope limiter rc:%d\n",
+				rc);
+
+		rc = fg_adjust_ki_coeff_full_soc(chip, batt_temp);
+		if (rc < 0)
+			pr_err("Error in configuring ki_coeff_full_soc rc:%d\n",
 				rc);
 	}
 
@@ -3215,6 +3288,24 @@ static int fg_hw_init(struct fg_chip *chip)
 		return rc;
 	}
 
+	fg_encode(chip->sp, FG_SRAM_ESR_PULSE_THRESH,
+		chip->dt.esr_pulse_thresh_ma, buf);
+	rc = fg_sram_write(chip, chip->sp[FG_SRAM_ESR_PULSE_THRESH].addr_word,
+			chip->sp[FG_SRAM_ESR_PULSE_THRESH].addr_byte, buf,
+			chip->sp[FG_SRAM_ESR_PULSE_THRESH].len, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing esr_pulse_thresh_ma, rc=%d\n", rc);
+		return rc;
+	}
+
+	get_esr_meas_current(chip->dt.esr_meas_curr_ma, &val);
+	rc = fg_masked_write(chip, BATT_INFO_ESR_PULL_DN_CFG(chip),
+			ESR_PULL_DOWN_IVAL_MASK, val);
+	if (rc < 0) {
+		pr_err("Error in writing esr_meas_curr_ma, rc=%d\n", rc);
+		return rc;
+	}
+
 	return 0;
 }
 
@@ -3363,6 +3454,10 @@ static irqreturn_t fg_delta_batt_temp_irq_handler(int irq, void *data)
 	rc = fg_slope_limit_config(chip, batt_temp);
 	if (rc < 0)
 		pr_err("Error in configuring slope limiter rc:%d\n", rc);
+
+	rc = fg_adjust_ki_coeff_full_soc(chip, batt_temp);
+	if (rc < 0)
+		pr_err("Error in configuring ki_coeff_full_soc rc:%d\n", rc);
 
 	if (!batt_psy_initialized(chip)) {
 		chip->last_batt_temp = batt_temp;
@@ -3740,6 +3835,8 @@ static int fg_parse_ki_coefficients(struct fg_chip *chip)
 #define DEFAULT_ESR_TIGHT_LT_FLT_UPCT	48829
 #define DEFAULT_ESR_BROAD_LT_FLT_UPCT	148438
 #define DEFAULT_ESR_CLAMP_MOHMS		20
+#define DEFAULT_ESR_PULSE_THRESH_MA	110
+#define DEFAULT_ESR_MEAS_CURR_MA	120
 static int fg_parse_dt(struct fg_chip *chip)
 {
 	struct device_node *child, *revid_node, *node = chip->dev->of_node;
@@ -4060,6 +4157,22 @@ static int fg_parse_dt(struct fg_chip *chip)
 	else
 		chip->dt.esr_clamp_mohms = temp;
 
+	chip->dt.esr_pulse_thresh_ma = DEFAULT_ESR_PULSE_THRESH_MA;
+	rc = of_property_read_u32(node, "qcom,fg-esr-pulse-thresh-ma", &temp);
+	if (!rc) {
+		/* ESR pulse qualification threshold range is 1-997 mA */
+		if (temp > 0 && temp < 997)
+			chip->dt.esr_pulse_thresh_ma = temp;
+	}
+
+	chip->dt.esr_meas_curr_ma = DEFAULT_ESR_MEAS_CURR_MA;
+	rc = of_property_read_u32(node, "qcom,fg-esr-meas-curr-ma", &temp);
+	if (!rc) {
+		/* ESR measurement current range is 60-240 mA */
+		if (temp >= 60 || temp <= 240)
+			chip->dt.esr_meas_curr_ma = temp;
+	}
+
 	return 0;
 }
 
@@ -4091,6 +4204,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	chip->irqs = fg_irqs;
 	chip->charge_status = -EINVAL;
 	chip->prev_charge_status = -EINVAL;
+	chip->ki_coeff_full_soc = -EINVAL;
 	chip->regmap = dev_get_regmap(chip->dev->parent, NULL);
 	if (!chip->regmap) {
 		dev_err(chip->dev, "Parent regmap is unavailable\n");

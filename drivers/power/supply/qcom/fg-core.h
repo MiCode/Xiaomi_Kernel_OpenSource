@@ -155,6 +155,7 @@ enum fg_sram_param_id {
 	FG_SRAM_ESR_TIMER_DISCHG_INIT,
 	FG_SRAM_ESR_TIMER_CHG_MAX,
 	FG_SRAM_ESR_TIMER_CHG_INIT,
+	FG_SRAM_ESR_PULSE_THRESH,
 	FG_SRAM_SYS_TERM_CURR,
 	FG_SRAM_CHG_TERM_CURR,
 	FG_SRAM_DELTA_MSOC_THR,
@@ -163,6 +164,7 @@ enum fg_sram_param_id {
 	FG_SRAM_RECHARGE_VBATT_THR,
 	FG_SRAM_KI_COEFF_MED_DISCHG,
 	FG_SRAM_KI_COEFF_HI_DISCHG,
+	FG_SRAM_KI_COEFF_FULL_SOC,
 	FG_SRAM_ESR_TIGHT_FILTER,
 	FG_SRAM_ESR_BROAD_FILTER,
 	FG_SRAM_SLOPE_LIMIT,
@@ -247,6 +249,8 @@ struct fg_dt_props {
 	int	esr_tight_lt_flt_upct;
 	int	esr_broad_lt_flt_upct;
 	int	slope_limit_temp;
+	int	esr_pulse_thresh_ma;
+	int	esr_meas_curr_ma;
 	int	jeita_thresholds[NUM_JEITA_LEVELS];
 	int	ki_coeff_soc[KI_COEFF_SOC_LEVELS];
 	int	ki_coeff_med_dischg[KI_COEFF_SOC_LEVELS];
@@ -364,6 +368,7 @@ struct fg_chip {
 	u32			rradc_base;
 	u32			wa_flags;
 	int			batt_id_ohms;
+	int			ki_coeff_full_soc;
 	int			charge_status;
 	int			prev_charge_status;
 	int			charge_done;
