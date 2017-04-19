@@ -6,7 +6,7 @@
 #include <media/cam_defs.h>
 
 #define CAM_SENSOR_PROBE_CMD   (CAM_COMMON_OPCODE_MAX + 1)
-#define CAM_SENSOR_MAX_LED_TRIGGERS 3
+#define CAM_FLASH_MAX_LED_TRIGGERS 3
 /**
  * struct cam_sensor_query_cap - capabilities info for sensor
  *
@@ -360,7 +360,7 @@ struct cam_flash_set_rer {
 	uint16_t    reserved;
 	uint32_t    led_on_delay_ms;
 	uint32_t    led_off_delay_ms;
-	uint32_t    led_current_ma[CAM_SENSOR_MAX_LED_TRIGGERS];
+	uint32_t    led_current_ma[CAM_FLASH_MAX_LED_TRIGGERS];
 } __attribute__((packed));
 
 /**
@@ -379,7 +379,7 @@ struct cam_flash_set_on_off {
 	uint16_t    count;
 	uint8_t     opcode;
 	uint8_t     cmd_type;
-	uint32_t    led_current_ma[CAM_SENSOR_MAX_LED_TRIGGERS];
+	uint32_t    led_current_ma[CAM_FLASH_MAX_LED_TRIGGERS];
 } __attribute__((packed));
 
 /**
@@ -409,9 +409,9 @@ struct cam_flash_query_curr {
  */
 struct cam_flash_query_cap_info {
 	uint32_t    slot_info;
-	uint32_t    max_current_flash[CAM_SENSOR_MAX_LED_TRIGGERS];
-	uint32_t    max_duration_flash[CAM_SENSOR_MAX_LED_TRIGGERS];
-	uint32_t    max_current_torch[CAM_SENSOR_MAX_LED_TRIGGERS];
+	uint32_t    max_current_flash[CAM_FLASH_MAX_LED_TRIGGERS];
+	uint32_t    max_duration_flash[CAM_FLASH_MAX_LED_TRIGGERS];
+	uint32_t    max_current_torch[CAM_FLASH_MAX_LED_TRIGGERS];
 } __attribute__ ((packed));
 
 #endif
