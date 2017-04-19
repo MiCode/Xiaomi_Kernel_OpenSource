@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/msm/msm-bus-ids.h>
+
 &soc {
 	/* QUPv3 South instances */
 
@@ -30,6 +32,7 @@
 		pinctrl-1 = <&qupv3_se6_4uart_sleep>;
 		interrupts = <GIC_SPI 607 0>;
 		status = "disabled";
+		qcom,bus-mas = <MSM_BUS_MASTER_BLSP_1>;
 	};
 
 	qupv3_se7_4uart: qcom,qup_uart@0x89c000 {
@@ -45,6 +48,7 @@
 		pinctrl-1 = <&qupv3_se7_4uart_sleep>;
 		interrupts = <GIC_SPI 608 0>;
 		status = "disabled";
+		qcom,bus-mas = <MSM_BUS_MASTER_BLSP_1>;
 	};
 
 	/* I2C */
@@ -336,6 +340,7 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se9_2uart_active>;
 		pinctrl-1 = <&qupv3_se9_2uart_sleep>;
+		qcom,bus-mas = <MSM_BUS_MASTER_BLSP_2>;
 		interrupts = <GIC_SPI 354 0>;
 		status = "disabled";
 	};
@@ -353,6 +358,7 @@
 		pinctrl-0 = <&qupv3_se10_2uart_active>;
 		pinctrl-1 = <&qupv3_se10_2uart_sleep>;
 		interrupts = <GIC_SPI 355 0>;
+		qcom,bus-mas = <MSM_BUS_MASTER_BLSP_2>;
 		status = "disabled";
 	};
 
