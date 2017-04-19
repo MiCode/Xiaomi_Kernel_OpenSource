@@ -175,3 +175,46 @@ void sde_kms_rect_intersect(const struct sde_rect *r1,
 		result->h = b - t;
 	}
 }
+
+void sde_kms_rect_merge_rectangles(const struct msm_roi_list *rois,
+		struct sde_rect *result)
+{
+	struct drm_clip_rect clip;
+	const struct drm_clip_rect *roi_rect;
+	int i;
+
+	if (!rois || !result)
+		return;
+
+	memset(result, 0, sizeof(*result));
+
+	/* init to invalid range maxes */
+	clip.x1 = ~0;
+	clip.y1 = ~0;
+	clip.x2 = 0;
+	clip.y2 = 0;
+
+	/* aggregate all clipping rectangles together for overall roi */
+	for (i = 0; i < rois->num_rects; i++) {
+		roi_rect = &rois->roi[i];
+
+		clip.x1 = min(clip.x1, roi_rect->x1);
+		clip.y1 = min(clip.y1, roi_rect->y1);
+		clip.x2 = max(clip.x2, roi_rect->x2);
+		clip.y2 = max(clip.y2, roi_rect->y2);
+
+		SDE_DEBUG("roi%d (%d,%d),(%d,%d) -> crtc (%d,%d),(%d,%d)\n", i,
+				roi_rect->x1, roi_rect->y1,
+				roi_rect->x2, roi_rect->y2,
+				clip.x1, clip.y1,
+				clip.x2, clip.y2);
+	}
+
+	if (clip.x2  && clip.y2) {
+		result->x = clip.x1;
+		result->y = clip.y1;
+		result->w = clip.x2 - clip.x1;
+		result->h = clip.y2 - clip.y1;
+	}
+}
+

@@ -731,7 +731,6 @@ static int _sde_crtc_set_crtc_roi(struct drm_crtc *crtc,
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *crtc_state;
 	struct sde_rect *crtc_roi;
-	struct drm_clip_rect crtc_clip, *user_rect;
 	int i, num_attached_conns = 0;
 
 	if (!crtc || !state)
@@ -740,12 +739,6 @@ static int _sde_crtc_set_crtc_roi(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 	crtc_state = to_sde_crtc_state(state);
 	crtc_roi = &crtc_state->crtc_roi;
-
-	/* init to invalid range maxes */
-	crtc_clip.x1 = ~0;
-	crtc_clip.y1 = ~0;
-	crtc_clip.x2 = 0;
-	crtc_clip.y2 = 0;
 
 	for_each_connector_in_state(state->state, conn, conn_state, i) {
 		struct sde_connector_state *sde_conn_state;
@@ -771,36 +764,7 @@ static int _sde_crtc_set_crtc_roi(struct drm_crtc *crtc,
 		}
 	}
 
-	/* aggregate all clipping rectangles together for overall crtc roi */
-	for (i = 0; i < crtc_state->user_roi_list.num_rects; i++) {
-		user_rect = &crtc_state->user_roi_list.roi[i];
-
-		crtc_clip.x1 = min(crtc_clip.x1, user_rect->x1);
-		crtc_clip.y1 = min(crtc_clip.y1, user_rect->y1);
-		crtc_clip.x2 = max(crtc_clip.x2, user_rect->x2);
-		crtc_clip.y2 = max(crtc_clip.y2, user_rect->y2);
-
-		SDE_DEBUG(
-			"%s: conn%d roi%d (%d,%d),(%d,%d) -> crtc (%d,%d),(%d,%d)\n",
-				sde_crtc->name, DRMID(crtc), i,
-				user_rect->x1, user_rect->y1,
-				user_rect->x2, user_rect->y2,
-				crtc_clip.x1, crtc_clip.y1,
-				crtc_clip.x2, crtc_clip.y2);
-
-	}
-
-	if (crtc_clip.x2  && crtc_clip.y2) {
-		crtc_roi->x = crtc_clip.x1;
-		crtc_roi->y = crtc_clip.y1;
-		crtc_roi->w = crtc_clip.x2 - crtc_clip.x1;
-		crtc_roi->h = crtc_clip.y2 - crtc_clip.y1;
-	} else {
-		crtc_roi->x = 0;
-		crtc_roi->y = 0;
-		crtc_roi->w = 0;
-		crtc_roi->h = 0;
-	}
+	sde_kms_rect_merge_rectangles(&crtc_state->user_roi_list, crtc_roi);
 
 	SDE_DEBUG("%s: crtc roi (%d,%d,%d,%d)\n", sde_crtc->name,
 			crtc_roi->x, crtc_roi->y, crtc_roi->w, crtc_roi->h);
