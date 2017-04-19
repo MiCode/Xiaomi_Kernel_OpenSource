@@ -374,7 +374,8 @@ static int mdss_fb_get_panel_xres(struct mdss_panel_info *pinfo)
 	xres = pinfo->xres;
 	if (pdata->next && pdata->next->active)
 		xres += mdss_fb_get_panel_xres(&pdata->next->panel_info);
-
+	if (pinfo->split_link_enabled)
+		xres = xres * pinfo->mipi.num_of_sublinks;
 	return xres;
 }
 
