@@ -443,6 +443,11 @@
 #define clk_dsi0pll_pclk_src			0x5efd85d4
 #define clk_dsi0pll_pclk_src_mux		0x84b14663
 #define clk_dsi0pll_post_bit_div		0xf46dcf27
+#define clk_dsi0pll_pll_out_div1		0xeda5b7fe
+#define clk_dsi0pll_pll_out_div2		0x97fa476d
+#define clk_dsi0pll_pll_out_div4		0x90a98ce0
+#define clk_dsi0pll_pll_out_div8		0x9d9d85cf
+#define clk_dsi0pll_pll_out_mux			0x179c27ca
 #define clk_dsi0pll_post_vco_mux		0xfaf9bd1f
 #define clk_dsi0pll_post_vco_div1		0xabb50b2a
 #define clk_dsi0pll_post_vco_div4		0xbe51c091
@@ -455,6 +460,11 @@
 #define clk_dsi1pll_pclk_src			0xeddcd80e
 #define clk_dsi1pll_pclk_src_mux		0x3651feb3
 #define clk_dsi1pll_post_bit_div		0x712f0260
+#define clk_dsi1pll_pll_out_div8		0x87628ddb
+#define clk_dsi1pll_pll_out_div4		0x0d9a384b
+#define clk_dsi1pll_pll_out_div2		0x0c9b5748
+#define clk_dsi1pll_pll_out_div1		0x3193164e
+#define clk_dsi1pll_pll_out_mux			0x171bf8fd
 #define clk_dsi1pll_post_vco_mux		0xc6a90d20
 #define clk_dsi1pll_post_vco_div1		0x6f47ca7d
 #define clk_dsi1pll_post_vco_div4		0x90628974

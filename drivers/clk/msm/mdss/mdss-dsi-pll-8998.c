@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -117,8 +117,6 @@ struct dsi_pll_regs {
 
 struct dsi_pll_config {
 	u32 ref_freq;
-	bool div_override;
-	u32 output_div;
 	bool ignore_frac;
 	bool disable_prescaler;
 	bool enable_ssc;
@@ -177,7 +175,6 @@ static void dsi_pll_setup_config(struct dsi_pll_8998 *pll,
 	struct dsi_pll_config *config = &pll->pll_configuration;
 
 	config->ref_freq = 19200000;
-	config->output_div = 1;
 	config->dec_bits = 8;
 	config->frac_bits = 18;
 	config->lock_timer = 64;
@@ -187,7 +184,6 @@ static void dsi_pll_setup_config(struct dsi_pll_8998 *pll,
 	config->thresh_cycles = 32;
 	config->refclk_cycles = 256;
 
-	config->div_override = false;
 	config->ignore_frac = false;
 	config->disable_prescaler = false;
 	config->enable_ssc = rsc->ssc_en;
@@ -208,54 +204,14 @@ static void dsi_pll_calc_dec_frac(struct dsi_pll_8998 *pll,
 {
 	struct dsi_pll_config *config = &pll->pll_configuration;
 	struct dsi_pll_regs *regs = &pll->reg_setup;
-	u64 target_freq;
 	u64 fref = rsc->vco_ref_clk_rate;
-	u32 computed_output_div, div_log = 0;
 	u64 pll_freq;
 	u64 divider;
 	u64 dec, dec_multiple;
 	u32 frac;
 	u64 multiplier;
-	u32 i;
 
-	target_freq = rsc->vco_current_rate;
-	pr_debug("target_freq = %llu\n", target_freq);
-
-	if (config->div_override) {
-		computed_output_div = config->output_div;
-
-		/*
-		 * Computed_output_div = 2 ^ div_log
-		 * To get div_log from output div just get the index of the
-		 * 1 bit in the value.
-		 * div_log ranges from 0-3. so check the 4 lsbs
-		 */
-
-		for (i = 0; i < 4; i++) {
-			if (computed_output_div & (1 << i)) {
-				div_log = i;
-				break;
-			}
-		}
-
-	} else {
-		if (target_freq < MHZ_250) {
-			computed_output_div = 8;
-			div_log = 3;
-		} else if (target_freq < MHZ_500) {
-			computed_output_div = 4;
-			div_log = 2;
-		} else if (target_freq < MHZ_1000) {
-			computed_output_div = 2;
-			div_log = 1;
-		} else {
-			computed_output_div = 1;
-			div_log = 0;
-		}
-	}
-	pr_debug("computed_output_div = %d\n", computed_output_div);
-
-	pll_freq = target_freq * computed_output_div;
+	pll_freq = rsc->vco_current_rate;
 
 	if (config->disable_prescaler)
 		divider = fref;
@@ -280,7 +236,6 @@ static void dsi_pll_calc_dec_frac(struct dsi_pll_8998 *pll,
 	else
 		regs->pll_clock_inverters = 0;
 
-	regs->pll_outdiv_rate = div_log;
 	regs->pll_lockdet_rate = config->lock_timer;
 	regs->decimal_div_start = dec;
 	regs->frac_div_start_low = (frac & 0xff);
@@ -400,7 +355,6 @@ static void dsi_pll_commit(struct dsi_pll_8998 *pll,
 	MDSS_PLL_REG_W(pll_base, PLL_FRAC_DIV_START_HIGH_1,
 		       reg->frac_div_start_high);
 	MDSS_PLL_REG_W(pll_base, PLL_PLL_LOCKDET_RATE_1, 0x40);
-	MDSS_PLL_REG_W(pll_base, PLL_PLL_OUTDIV_RATE, reg->pll_outdiv_rate);
 	MDSS_PLL_REG_W(pll_base, PLL_PLL_LOCK_DELAY, 0x06);
 	MDSS_PLL_REG_W(pll_base, PLL_CMODE, 0x10);
 	MDSS_PLL_REG_W(pll_base, PLL_CLOCK_INVERTERS, reg->pll_clock_inverters);
@@ -842,6 +796,72 @@ static int bit_clk_set_div(struct div_clk *clk, int div)
 	return rc;
 }
 
+static int pll_out_clk_set_div(struct div_clk *clk, int div)
+{
+	int rc;
+	u32 reg_val = 0;
+	int i;
+
+	struct mdss_pll_resources *rsc = clk->priv;
+	struct dsi_pll_8998 *pll = rsc->priv;
+	struct dsi_pll_regs *regs = &pll->reg_setup;
+
+	rc = mdss_pll_resource_enable(rsc, true);
+	if (rc) {
+		pr_err("Failed to enable dsi pll resources, rc=%d\n", rc);
+		return rc;
+	}
+
+	/*
+	 * out_div = 2 ^ div_log
+	 * To get div_log from output div just get the index of the
+	 * 1 bit in the value.
+	 * div_log ranges from 0-3. so check the 4 lsbs
+	 */
+
+	for (i = 0; i < 4; i++) {
+		if (div & (1 << i)) {
+			reg_val = i;
+			break;
+		}
+	}
+
+	regs->pll_outdiv_rate = reg_val;
+
+	MDSS_PLL_REG_W(rsc->pll_base, PLL_PLL_OUTDIV_RATE, reg_val);
+
+	pr_debug("Setting PLL outdiv rate on pll(%d) to 0x%x\n",
+		rsc->index, reg_val);
+
+	(void)mdss_pll_resource_enable(rsc, false);
+
+	return 0;
+}
+
+
+static int pll_out_clk_get_div(struct div_clk *clk)
+{
+	int rc;
+	u32 reg_val;
+	int div;
+
+	struct mdss_pll_resources *pll = clk->priv;
+
+	rc = mdss_pll_resource_enable(pll, true);
+	if (rc) {
+		pr_err("Failed to enable dsi pll resources, rc=%d\n", rc);
+		return rc;
+	}
+
+	reg_val = MDSS_PLL_REG_R(pll->pll_base, PLL_PLL_OUTDIV_RATE);
+	div = 1 << (reg_val & 3);
+
+	(void)mdss_pll_resource_enable(pll, false);
+
+	return div;
+}
+
+
 static int post_vco_clk_get_div(struct div_clk *clk)
 {
 	int rc;
@@ -1003,6 +1023,7 @@ static struct clk_ops clk_ops_bitclk_src_c;
 static struct clk_ops clk_ops_post_vco_div_c;
 static struct clk_ops clk_ops_post_bit_div_c;
 static struct clk_ops clk_ops_pclk_src_c;
+static struct clk_ops clk_ops_pll_out_div_c;
 
 static struct clk_div_ops clk_post_vco_div_ops = {
 	.set_div = post_vco_clk_set_div,
@@ -1024,6 +1045,11 @@ static struct clk_div_ops clk_bitclk_src_ops = {
 	.get_div = bit_clk_get_div,
 };
 
+static struct clk_div_ops clk_pll_out_div_ops = {
+	.set_div = pll_out_clk_set_div,
+	.get_div = pll_out_clk_get_div,
+};
+
 static struct clk_ops clk_ops_vco_8998 = {
 	.set_rate = vco_8998_set_rate,
 	.round_rate = vco_8998_round_rate,
@@ -1040,49 +1066,67 @@ static struct clk_mux_ops mdss_mux_ops = {
 /*
  * Clock tree for generating DSI byte and pixel clocks.
  *
- *
- *                  +---------------+
- *                  |    vco_clk    |
- *                  +-------+-------+
- *                          |
- *                          +----------------------+------------------+
- *                          |                      |                  |
- *                  +-------v-------+      +-------v-------+  +-------v-------+
- *                  |  bitclk_src   |      | post_vco_div1 |  | post_vco_div4 |
- *                  |  DIV(1..15)   |      +-------+-------+  +-------+-------+
- *                  +-------+-------+              |                  |
- *                          |                      +------------+     |
- *                          +--------------------+              |     |
- *   Shadow Path            |                    |              |     |
- *       +          +-------v-------+     +------v------+   +---v-----v------+
- *       |          |  byteclk_src  |     |post_bit_div |    \ post_vco_mux /
- *       |          |  DIV(8)       |     |DIV(1,2)     |     \            /
- *       |          +-------+-------+     +------+------+      +---+------+
- *       |                  |                    |                 |
- *       |                  |                    +------+     +----+
- *       |         +--------+                           |     |
- *       |         |                               +----v-----v------+
- *     +-v---------v----+                           \  pclk_src_mux /
- *     \  byteclk_mux /                              \             /
- *      \            /                                +-----+-----+
- *       +----+-----+                                       |        Shadow Path
- *            |                                             |             +
- *            v                                       +-----v------+      |
- *       dsi_byte_clk                                 |  pclk_src  |      |
- *                                                    | DIV(1..15) |      |
- *                                                    +-----+------+      |
- *                                                          |             |
- *                                                          |             |
- *                                                          +--------+    |
- *                                                                   |    |
- *                                                               +---v----v----+
- *                                                                \  pclk_mux /
- *                                                                 \         /
- *                                                                  +---+---+
- *                                                                      |
- *                                                                      |
- *                                                                      v
- *                                                                   dsi_pclk
+ *        +---------------+
+ *        |    vco_clk    |
+ *        |               |
+ *        +-------+-------+
+ *                |
+ *                |
+ *        +-------+--------+------------------+-----------------+
+ *        |                |                  |                 |
+ * +------v-------+ +------v-------+  +-------v------+   +------v-------+
+ * | pll_out_div1 | | pll_out_div2 |  | pll_out_div4 |   | pll_out_div8 |
+ * |    DIV(1)    | |    DIV(2)    |  |    DIV(4)    |   |    DIV(8)    |
+ * +------+-------+ +------+-------+  +-------+------+   +------+-------+
+ *        |                |                  |                 |
+ *        +------------+   |   +--------------+                 |
+ *                     |   |   |    +---------------------------+
+ *                     |   |   |    |
+ *                  +--v---v---v----v--+
+ *                   \   pll_out_mux  /
+ *                    \              /
+ *                     +------+-----+
+ *                            |
+ *            +---------------+-----------------+
+ *            |               |                 |
+ *     +------v-----+ +-------v-------+ +-------v-------+
+ *     | bitclk_src | | post_vco_div1 | | post_vco_div4 |
+ *     | DIV(1..15) | +     DIV(1)    | |     DIV(4)    |
+ *     +------+-----+ +-------+-------+ +-------+-------+
+ *            |               |                 |
+ * Shadow     |               |                 +---------------------+
+ *  Path      |               +-----------------------------+         |
+ *   +        |                                             |         |
+ *   |        +---------------------------------+           |         |
+ *   |        |                                 |           |         |
+ *   | +------v------=+                  +------v-------+ +-v---------v----+
+ *   | | byteclk_src  |                  | post_bit_div |  \ post_vco_mux /
+ *   | |    DIV(8)    |                  |   DIV(1,2)   |   \            /
+ *   | +------+-------+                  +------+-------+    +---+------+
+ *   |        |                                 |                |
+ *   |        |                                 |     +----------+
+ *   |        |                                 |     |
+ *   |        |                            +----v-----v------+
+ * +-v--------v---------+                   \  pclk_src_mux /
+ *  \   byteclk_mux    /                     \             /
+ *   \                /                       +-----+-----+
+ *    +------+-------+                              |         Shadow
+ *           |                                      |          Path
+ *           v                                +-----v------+    +
+ *       dsi_byte_clk                         |  pclk_src  |    |
+ *                                            | DIV(1..15) |    |
+ *                                            +-----+------+    |
+ *                                                  |           |
+ *                                                  +------+    |
+ *                                                         |    |
+ *                                                     +---v----v----+
+ *                                                      \  pclk_mux /
+ *                                                       \         /
+ *                                                        +---+---+
+ *                                                            |
+ *                                                            |
+ *                                                            v
+ *                                                         dsi_pclk
  *
  */
 
@@ -1098,6 +1142,87 @@ static struct dsi_pll_vco_clk dsi0pll_vco_clk = {
 	},
 };
 
+static struct div_clk dsi0pll_pll_out_div1 = {
+	.data = {
+		.div = 1,
+		.min_div = 1,
+		.max_div = 1,
+	},
+	.ops = &clk_pll_out_div_ops,
+	.c = {
+		.parent = &dsi0pll_vco_clk.c,
+		.dbg_name = "dsi0pll_pll_out_div1",
+		.ops = &clk_ops_pll_out_div_c,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(dsi0pll_pll_out_div1.c),
+	}
+};
+
+static struct div_clk dsi0pll_pll_out_div2 = {
+	.data = {
+		.div = 2,
+		.min_div = 2,
+		.max_div = 2,
+	},
+	.ops = &clk_pll_out_div_ops,
+	.c = {
+		.parent = &dsi0pll_vco_clk.c,
+		.dbg_name = "dsi0pll_pll_out_div2",
+		.ops = &clk_ops_pll_out_div_c,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(dsi0pll_pll_out_div2.c),
+	}
+};
+
+static struct div_clk dsi0pll_pll_out_div4 = {
+	.data = {
+		.div = 4,
+		.min_div = 4,
+		.max_div = 4,
+	},
+	.ops = &clk_pll_out_div_ops,
+	.c = {
+		.parent = &dsi0pll_vco_clk.c,
+		.dbg_name = "dsi0pll_pll_out_div4",
+		.ops = &clk_ops_pll_out_div_c,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(dsi0pll_pll_out_div4.c),
+	}
+};
+
+static struct div_clk dsi0pll_pll_out_div8 = {
+	.data = {
+		.div = 8,
+		.min_div = 8,
+		.max_div = 8,
+	},
+	.ops = &clk_pll_out_div_ops,
+	.c = {
+		.parent = &dsi0pll_vco_clk.c,
+		.dbg_name = "dsi0pll_pll_out_div8",
+		.ops = &clk_ops_pll_out_div_c,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(dsi0pll_pll_out_div8.c),
+	}
+};
+
+static struct mux_clk dsi0pll_pll_out_mux = {
+	.num_parents = 4,
+	.parents = (struct clk_src[]) {
+		{&dsi0pll_pll_out_div1.c, 0},
+		{&dsi0pll_pll_out_div2.c, 1},
+		{&dsi0pll_pll_out_div4.c, 2},
+		{&dsi0pll_pll_out_div8.c, 3},
+	},
+	.ops = &mdss_mux_ops,
+	.c = {
+		.parent = &dsi0pll_pll_out_div1.c,
+		.dbg_name = "dsi0pll_pll_out_mux",
+		.ops = &clk_ops_gen_mux,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(dsi0pll_pll_out_mux.c),
+	}
+};
 static struct div_clk dsi0pll_bitclk_src = {
 	.data = {
 		.div = 1,
@@ -1106,7 +1231,7 @@ static struct div_clk dsi0pll_bitclk_src = {
 	},
 	.ops = &clk_bitclk_src_ops,
 	.c = {
-		.parent = &dsi0pll_vco_clk.c,
+		.parent = &dsi0pll_pll_out_mux.c,
 		.dbg_name = "dsi0pll_bitclk_src",
 		.ops = &clk_ops_bitclk_src_c,
 		.flags = CLKFLAG_NO_RATE_CACHE,
@@ -1122,7 +1247,7 @@ static struct div_clk dsi0pll_post_vco_div1 = {
 	},
 	.ops = &clk_post_vco_div_ops,
 	.c = {
-		.parent = &dsi0pll_vco_clk.c,
+		.parent = &dsi0pll_pll_out_mux.c,
 		.dbg_name = "dsi0pll_post_vco_div1",
 		.ops = &clk_ops_post_vco_div_c,
 		.flags = CLKFLAG_NO_RATE_CACHE,
@@ -1138,7 +1263,7 @@ static struct div_clk dsi0pll_post_vco_div4 = {
 	},
 	.ops = &clk_post_vco_div_ops,
 	.c = {
-		.parent = &dsi0pll_vco_clk.c,
+		.parent = &dsi0pll_pll_out_mux.c,
 		.dbg_name = "dsi0pll_post_vco_div4",
 		.ops = &clk_ops_post_vco_div_c,
 		.flags = CLKFLAG_NO_RATE_CACHE,
@@ -1267,6 +1392,88 @@ static struct dsi_pll_vco_clk dsi1pll_vco_clk = {
 	},
 };
 
+static struct div_clk dsi1pll_pll_out_div1 = {
+	.data = {
+		.div = 1,
+		.min_div = 1,
+		.max_div = 1,
+	},
+	.ops = &clk_pll_out_div_ops,
+	.c = {
+		.parent = &dsi1pll_vco_clk.c,
+		.dbg_name = "dsi1pll_pll_out_div1",
+		.ops = &clk_ops_pll_out_div_c,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(dsi1pll_pll_out_div1.c),
+	}
+};
+
+static struct div_clk dsi1pll_pll_out_div2 = {
+	.data = {
+		.div = 2,
+		.min_div = 2,
+		.max_div = 2,
+	},
+	.ops = &clk_pll_out_div_ops,
+	.c = {
+		.parent = &dsi1pll_vco_clk.c,
+		.dbg_name = "dsi1pll_pll_out_div2",
+		.ops = &clk_ops_pll_out_div_c,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(dsi1pll_pll_out_div2.c),
+	}
+};
+
+static struct div_clk dsi1pll_pll_out_div4 = {
+	.data = {
+		.div = 4,
+		.min_div = 4,
+		.max_div = 4,
+	},
+	.ops = &clk_pll_out_div_ops,
+	.c = {
+		.parent = &dsi1pll_vco_clk.c,
+		.dbg_name = "dsi1pll_pll_out_div4",
+		.ops = &clk_ops_pll_out_div_c,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(dsi1pll_pll_out_div4.c),
+	}
+};
+
+static struct div_clk dsi1pll_pll_out_div8 = {
+	.data = {
+		.div = 8,
+		.min_div = 8,
+		.max_div = 8,
+	},
+	.ops = &clk_pll_out_div_ops,
+	.c = {
+		.parent = &dsi1pll_vco_clk.c,
+		.dbg_name = "dsi1pll_pll_out_div8",
+		.ops = &clk_ops_pll_out_div_c,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(dsi1pll_pll_out_div8.c),
+	}
+};
+
+static struct mux_clk dsi1pll_pll_out_mux = {
+	.num_parents = 4,
+	.parents = (struct clk_src[]) {
+		{&dsi1pll_pll_out_div1.c, 0},
+		{&dsi1pll_pll_out_div2.c, 1},
+		{&dsi1pll_pll_out_div4.c, 2},
+		{&dsi1pll_pll_out_div8.c, 3},
+	},
+	.ops = &mdss_mux_ops,
+	.c = {
+		.parent = &dsi1pll_pll_out_div1.c,
+		.dbg_name = "dsi1pll_pll_out_mux",
+		.ops = &clk_ops_gen_mux,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(dsi1pll_pll_out_mux.c),
+	}
+};
+
 static struct div_clk dsi1pll_bitclk_src = {
 	.data = {
 		.div = 1,
@@ -1275,7 +1482,7 @@ static struct div_clk dsi1pll_bitclk_src = {
 	},
 	.ops = &clk_bitclk_src_ops,
 	.c = {
-		.parent = &dsi1pll_vco_clk.c,
+		.parent = &dsi1pll_pll_out_mux.c,
 		.dbg_name = "dsi1pll_bitclk_src",
 		.ops = &clk_ops_bitclk_src_c,
 		.flags = CLKFLAG_NO_RATE_CACHE,
@@ -1291,7 +1498,7 @@ static struct div_clk dsi1pll_post_vco_div1 = {
 	},
 	.ops = &clk_post_vco_div_ops,
 	.c = {
-		.parent = &dsi1pll_vco_clk.c,
+		.parent = &dsi1pll_pll_out_mux.c,
 		.dbg_name = "dsi1pll_post_vco_div1",
 		.ops = &clk_ops_post_vco_div_c,
 		.flags = CLKFLAG_NO_RATE_CACHE,
@@ -1307,7 +1514,7 @@ static struct div_clk dsi1pll_post_vco_div4 = {
 	},
 	.ops = &clk_post_vco_div_ops,
 	.c = {
-		.parent = &dsi1pll_vco_clk.c,
+		.parent = &dsi1pll_pll_out_mux.c,
 		.dbg_name = "dsi1pll_post_vco_div4",
 		.ops = &clk_ops_post_vco_div_c,
 		.flags = CLKFLAG_NO_RATE_CACHE,
@@ -1435,6 +1642,11 @@ static struct clk_lookup mdss_dsi_pll0cc_8998[] = {
 	CLK_LIST(dsi0pll_post_vco_div1),
 	CLK_LIST(dsi0pll_post_vco_div4),
 	CLK_LIST(dsi0pll_bitclk_src),
+	CLK_LIST(dsi0pll_pll_out_mux),
+	CLK_LIST(dsi0pll_pll_out_div8),
+	CLK_LIST(dsi0pll_pll_out_div4),
+	CLK_LIST(dsi0pll_pll_out_div2),
+	CLK_LIST(dsi0pll_pll_out_div1),
 	CLK_LIST(dsi0pll_vco_clk),
 };
 static struct clk_lookup mdss_dsi_pll1cc_8998[] = {
@@ -1448,6 +1660,11 @@ static struct clk_lookup mdss_dsi_pll1cc_8998[] = {
 	CLK_LIST(dsi1pll_post_vco_div1),
 	CLK_LIST(dsi1pll_post_vco_div4),
 	CLK_LIST(dsi1pll_bitclk_src),
+	CLK_LIST(dsi1pll_pll_out_mux),
+	CLK_LIST(dsi1pll_pll_out_div8),
+	CLK_LIST(dsi1pll_pll_out_div4),
+	CLK_LIST(dsi1pll_pll_out_div2),
+	CLK_LIST(dsi1pll_pll_out_div1),
 	CLK_LIST(dsi1pll_vco_clk),
 };
 
@@ -1481,6 +1698,9 @@ int dsi_pll_clock_register_8998(struct platform_device *pdev,
 	clk_ops_bitclk_src_c = clk_ops_div;
 	clk_ops_bitclk_src_c.prepare = mdss_pll_div_prepare;
 
+	clk_ops_pll_out_div_c = clk_ops_div;
+	clk_ops_pll_out_div_c.prepare = mdss_pll_div_prepare;
+
 	/*
 	 * Set the ops for the two dividers in the pixel clock tree to the
 	 * slave_div to ensure that a set rate on this divider clock will not
@@ -1508,6 +1728,11 @@ int dsi_pll_clock_register_8998(struct platform_device *pdev,
 		dsi0pll_post_vco_div1.priv = pll_res;
 		dsi0pll_post_vco_div4.priv = pll_res;
 		dsi0pll_bitclk_src.priv = pll_res;
+		dsi0pll_pll_out_div1.priv = pll_res;
+		dsi0pll_pll_out_div2.priv = pll_res;
+		dsi0pll_pll_out_div4.priv = pll_res;
+		dsi0pll_pll_out_div8.priv = pll_res;
+		dsi0pll_pll_out_mux.priv = pll_res;
 		dsi0pll_vco_clk.priv = pll_res;
 
 		rc = of_msm_clock_register(pdev->dev.of_node,
@@ -1524,6 +1749,11 @@ int dsi_pll_clock_register_8998(struct platform_device *pdev,
 		dsi1pll_post_vco_div1.priv = pll_res;
 		dsi1pll_post_vco_div4.priv = pll_res;
 		dsi1pll_bitclk_src.priv = pll_res;
+		dsi1pll_pll_out_div1.priv = pll_res;
+		dsi1pll_pll_out_div2.priv = pll_res;
+		dsi1pll_pll_out_div4.priv = pll_res;
+		dsi1pll_pll_out_div8.priv = pll_res;
+		dsi1pll_pll_out_mux.priv = pll_res;
 		dsi1pll_vco_clk.priv = pll_res;
 
 		rc = of_msm_clock_register(pdev->dev.of_node,
