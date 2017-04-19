@@ -1558,7 +1558,6 @@ exit:
 
 int dsi_ctrl_setup(struct dsi_ctrl *dsi_ctrl)
 {
-	struct dsi_mode_info video_timing;
 	int rc = 0;
 
 	if (!dsi_ctrl) {
@@ -1567,12 +1566,6 @@ int dsi_ctrl_setup(struct dsi_ctrl *dsi_ctrl)
 	}
 
 	mutex_lock(&dsi_ctrl->ctrl_lock);
-
-	/* replace video mode width with actual roi width */
-	memcpy(&video_timing, &dsi_ctrl->host_config.video_timing,
-			sizeof(video_timing));
-	video_timing.h_active = dsi_ctrl->roi.w;
-	video_timing.v_active = dsi_ctrl->roi.h;
 
 	dsi_ctrl->hw.ops.setup_lane_map(&dsi_ctrl->hw,
 					&dsi_ctrl->host_config.lane_map);
@@ -1586,9 +1579,10 @@ int dsi_ctrl_setup(struct dsi_ctrl *dsi_ctrl)
 					&dsi_ctrl->host_config.u.cmd_engine);
 
 		dsi_ctrl->hw.ops.setup_cmd_stream(&dsi_ctrl->hw,
-				&video_timing,
-				video_timing.h_active * 3,
-				0x0);
+				&dsi_ctrl->host_config.video_timing,
+				dsi_ctrl->host_config.video_timing.h_active * 3,
+				0x0,
+				&dsi_ctrl->roi);
 		dsi_ctrl->hw.ops.cmd_engine_en(&dsi_ctrl->hw, true);
 	} else {
 		dsi_ctrl->hw.ops.video_engine_setup(&dsi_ctrl->hw,
@@ -1690,7 +1684,8 @@ int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl)
 		dsi_ctrl->hw.ops.setup_cmd_stream(&dsi_ctrl->hw,
 				&dsi_ctrl->host_config.video_timing,
 				dsi_ctrl->host_config.video_timing.h_active * 3,
-				0x0);
+				0x0,
+				NULL);
 	} else {
 		dsi_ctrl->hw.ops.video_engine_setup(&dsi_ctrl->hw,
 					&dsi_ctrl->host_config.common_config,

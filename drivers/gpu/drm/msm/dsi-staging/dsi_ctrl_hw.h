@@ -319,7 +319,8 @@ struct dsi_ctrl_hw_ops {
 	void (*setup_cmd_stream)(struct dsi_ctrl_hw *ctrl,
 				 struct dsi_mode_info *mode,
 				 u32 h_stride,
-				 u32 vc_id);
+				 u32 vc_id,
+				 struct dsi_rect *roi);
 
 	/**
 	 * ctrl_en() - enable DSI controller engine
