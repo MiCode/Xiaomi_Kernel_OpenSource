@@ -1765,7 +1765,9 @@ static int binder_translate_fd(int fd,
 		ret = -EBADF;
 		goto err_fget;
 	}
+	preempt_enable_no_resched();
 	ret = security_binder_transfer_file(proc->tsk, target_proc->tsk, file);
+	preempt_disable();
 	if (ret < 0) {
 		ret = -EPERM;
 		goto err_security;
