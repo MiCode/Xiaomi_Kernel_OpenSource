@@ -63,6 +63,14 @@
 #define PCIE_N_POWER_DOWN_CONTROL(n)		(PCS_PORT(n) + 0x04)
 #define PCIE_N_PCS_STATUS(n)			(PCS_PORT(n) + 0x174)
 
+#define PCIE_GEN3_COM_INTEGLOOP_GAIN1_MODE0	0x0154
+#define PCIE_GEN3_L0_DRVR_CTRL0			0x080c
+#define PCIE_GEN3_L0_RESET_GEN			0x0890
+#define PCIE_GEN3_L0_BIST_ERR_CNT1_STATUS	0x08a8
+#define PCIE_GEN3_L0_BIST_ERR_CNT2_STATUS	0x08ac
+#define PCIE_GEN3_L0_DEBUG_BUS_STATUS4		0x08bc
+#define PCIE_GEN3_PCIE_PHY_PCS_STATUS		0x1aac
+
 #define PCIE20_PARF_SYS_CTRL	     0x00
 #define PCIE20_PARF_PM_CTRL		0x20
 #define PCIE20_PARF_PM_STTS		0x24
@@ -848,7 +856,11 @@ static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 
 static bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev)
 {
-	if (readl_relaxed(dev->phy + PCIE_N_PCS_STATUS(dev->rc_idx)) & BIT(6))
+	u32 pos = (dev->max_link_speed == GEN2_SPEED) ?
+		PCIE_N_PCS_STATUS(dev->rc_idx) :
+		PCIE_GEN3_PCIE_PHY_PCS_STATUS;
+
+	if (readl_relaxed(dev->phy + pos) & BIT(6))
 		return false;
 	else
 		return true;
@@ -3574,6 +3586,36 @@ static void msm_pcie_release_resources(struct msm_pcie_dev_t *dev)
 	dev->dev_io_res = NULL;
 }
 
+static void msm_pcie_setup_gen3(struct msm_pcie_dev_t *dev)
+{
+	PCIE_DBG(dev, "PCIe: RC%d: Setting up Gen3\n", dev->rc_idx);
+
+	msm_pcie_write_reg_field(dev->dm_core,
+		PCIE_GEN3_L0_DRVR_CTRL0, 0x1ff00, BIT(0));
+
+	msm_pcie_write_reg(dev->dm_core,
+		PCIE_GEN3_L0_BIST_ERR_CNT2_STATUS,
+		(0x05 << 14) | (0x05 << 10) | (0x0d <<  5));
+
+	msm_pcie_write_mask(dev->dm_core +
+		PCIE_GEN3_L0_BIST_ERR_CNT1_STATUS, BIT(4), 0);
+
+	msm_pcie_write_mask(dev->dm_core +
+		PCIE_GEN3_L0_RESET_GEN, BIT(0), 0);
+
+	/* configure PCIe preset */
+	msm_pcie_write_reg(dev->dm_core,
+		PCIE_GEN3_L0_DEBUG_BUS_STATUS4, 1);
+	msm_pcie_write_reg(dev->dm_core,
+		PCIE_GEN3_COM_INTEGLOOP_GAIN1_MODE0, 0x77777777);
+	msm_pcie_write_reg(dev->dm_core,
+		PCIE_GEN3_L0_DEBUG_BUS_STATUS4, 1);
+
+	msm_pcie_write_reg_field(dev->dm_core,
+		PCIE20_CAP + PCI_EXP_LNKCTL2,
+		PCI_EXP_LNKCAP_SLS, GEN3_SPEED);
+}
+
 static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 {
 	int ret = 0;
@@ -3696,6 +3738,12 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 			goto link_fail;
 	}
 
+	/* check capability for max link speed */
+	if (!dev->max_link_speed) {
+		val = readl_relaxed(dev->dm_core + PCIE20_CAP + PCI_EXP_LNKCAP);
+		dev->max_link_speed = val & PCI_EXP_LNKCAP_SLS;
+	}
+
 	PCIE_DBG(dev, "RC%d: waiting for phy ready...\n", dev->rc_idx);
 
 	do {
@@ -3733,6 +3781,10 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
 				1 - dev->gpio[MSM_PCIE_GPIO_PERST].on);
 	usleep_range(dev->perst_delay_us_min, dev->perst_delay_us_max);
+
+	/* setup Gen3 specific configurations */
+	if (dev->max_link_speed == GEN3_SPEED)
+		msm_pcie_setup_gen3(dev);
 
 	/* set max tlp read size */
 	msm_pcie_write_reg_field(dev->dm_core, PCIE20_DEVICE_CONTROL_STATUS,
@@ -3790,10 +3842,13 @@ link_fail:
 	if (dev->gpio[MSM_PCIE_GPIO_EP].num)
 		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_EP].num,
 				1 - dev->gpio[MSM_PCIE_GPIO_EP].on);
-	msm_pcie_write_reg(dev->phy,
-		PCIE_N_SW_RESET(dev->rc_idx), 0x1);
-	msm_pcie_write_reg(dev->phy,
-		PCIE_N_POWER_DOWN_CONTROL(dev->rc_idx), 0);
+
+	if (dev->max_link_speed != GEN3_SPEED) {
+		msm_pcie_write_reg(dev->phy,
+			PCIE_N_SW_RESET(dev->rc_idx), 0x1);
+		msm_pcie_write_reg(dev->phy,
+			PCIE_N_POWER_DOWN_CONTROL(dev->rc_idx), 0);
+	}
 
 	msm_pcie_pipe_clk_deinit(dev);
 	msm_pcie_clk_deinit(dev);
@@ -3831,10 +3886,12 @@ static void msm_pcie_disable(struct msm_pcie_dev_t *dev, u32 options)
 	gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
 				dev->gpio[MSM_PCIE_GPIO_PERST].on);
 
-	msm_pcie_write_reg(dev->phy,
-		PCIE_N_SW_RESET(dev->rc_idx), 0x1);
-	msm_pcie_write_reg(dev->phy,
-		PCIE_N_POWER_DOWN_CONTROL(dev->rc_idx), 0);
+	if (dev->max_link_speed != GEN3_SPEED) {
+		msm_pcie_write_reg(dev->phy,
+			PCIE_N_SW_RESET(dev->rc_idx), 0x1);
+		msm_pcie_write_reg(dev->phy,
+			PCIE_N_POWER_DOWN_CONTROL(dev->rc_idx), 0);
+	}
 
 	if (options & PM_CLK) {
 		msm_pcie_write_mask(dev->parf + PCIE20_PARF_PHY_CTRL, 0,
