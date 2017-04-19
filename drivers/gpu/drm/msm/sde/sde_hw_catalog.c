@@ -285,6 +285,8 @@ enum {
 	VBIF_DEFAULT_OT_WR_LIMIT,
 	VBIF_DYNAMIC_OT_RD_LIMIT,
 	VBIF_DYNAMIC_OT_WR_LIMIT,
+	VBIF_QOS_RT_REMAP,
+	VBIF_QOS_NRT_REMAP,
 	VBIF_PROP_MAX,
 };
 
@@ -511,6 +513,10 @@ static struct sde_prop_type vbif_prop[] = {
 	{VBIF_DYNAMIC_OT_RD_LIMIT, "qcom,sde-vbif-dynamic-ot-rd-limit", false,
 		PROP_TYPE_U32_ARRAY},
 	{VBIF_DYNAMIC_OT_WR_LIMIT, "qcom,sde-vbif-dynamic-ot-wr-limit", false,
+		PROP_TYPE_U32_ARRAY},
+	{VBIF_QOS_RT_REMAP, "qcom,sde-vbif-qos-rt-remap", false,
+		PROP_TYPE_U32_ARRAY},
+	{VBIF_QOS_NRT_REMAP, "qcom,sde-vbif-qos-nrt-remap", false,
 		PROP_TYPE_U32_ARRAY},
 };
 
@@ -1926,7 +1932,7 @@ static int sde_vbif_parse_dt(struct device_node *np,
 	int rc, prop_count[VBIF_PROP_MAX], i, j, k;
 	struct sde_prop_value *prop_value = NULL;
 	bool prop_exists[VBIF_PROP_MAX];
-	u32 off_count, vbif_len, rd_len = 0, wr_len = 0;
+	u32 off_count, vbif_len;
 	struct sde_vbif_cfg *vbif;
 
 	if (!sde_cfg) {
@@ -1948,12 +1954,22 @@ static int sde_vbif_parse_dt(struct device_node *np,
 		goto end;
 
 	rc = _validate_dt_entry(np, &vbif_prop[VBIF_DYNAMIC_OT_RD_LIMIT], 1,
-			&prop_count[VBIF_DYNAMIC_OT_RD_LIMIT], &rd_len);
+			&prop_count[VBIF_DYNAMIC_OT_RD_LIMIT], NULL);
 	if (rc)
 		goto end;
 
 	rc = _validate_dt_entry(np, &vbif_prop[VBIF_DYNAMIC_OT_WR_LIMIT], 1,
-			&prop_count[VBIF_DYNAMIC_OT_WR_LIMIT], &wr_len);
+			&prop_count[VBIF_DYNAMIC_OT_WR_LIMIT], NULL);
+	if (rc)
+		goto end;
+
+	rc = _validate_dt_entry(np, &vbif_prop[VBIF_QOS_RT_REMAP], 1,
+			&prop_count[VBIF_QOS_RT_REMAP], NULL);
+	if (rc)
+		goto end;
+
+	rc = _validate_dt_entry(np, &vbif_prop[VBIF_QOS_NRT_REMAP], 1,
+			&prop_count[VBIF_QOS_NRT_REMAP], NULL);
 	if (rc)
 		goto end;
 
@@ -2048,6 +2064,63 @@ static int sde_vbif_parse_dt(struct device_node *np,
 				vbif->dynamic_ot_rd_tbl.count ||
 				vbif->dynamic_ot_wr_tbl.count)
 			set_bit(SDE_VBIF_QOS_OTLIM, &vbif->features);
+
+		vbif->qos_rt_tbl.npriority_lvl =
+				prop_count[VBIF_QOS_RT_REMAP];
+		SDE_DEBUG("qos_rt_tbl.npriority_lvl=%u\n",
+				vbif->qos_rt_tbl.npriority_lvl);
+		if (vbif->qos_rt_tbl.npriority_lvl == sde_cfg->vbif_qos_nlvl) {
+			vbif->qos_rt_tbl.priority_lvl = kcalloc(
+				vbif->qos_rt_tbl.npriority_lvl, sizeof(u32),
+				GFP_KERNEL);
+			if (!vbif->qos_rt_tbl.priority_lvl) {
+				rc = -ENOMEM;
+				goto end;
+			}
+		} else if (vbif->qos_rt_tbl.npriority_lvl) {
+			vbif->qos_rt_tbl.npriority_lvl = 0;
+			vbif->qos_rt_tbl.priority_lvl = NULL;
+			SDE_ERROR("invalid qos rt table\n");
+		}
+
+		for (j = 0; j < vbif->qos_rt_tbl.npriority_lvl; j++) {
+			vbif->qos_rt_tbl.priority_lvl[j] =
+				PROP_VALUE_ACCESS(prop_value,
+						VBIF_QOS_RT_REMAP, j);
+			SDE_DEBUG("lvl[%d]=%u\n", j,
+					vbif->qos_rt_tbl.priority_lvl[j]);
+		}
+
+		vbif->qos_nrt_tbl.npriority_lvl =
+				prop_count[VBIF_QOS_NRT_REMAP];
+		SDE_DEBUG("qos_nrt_tbl.npriority_lvl=%u\n",
+				vbif->qos_nrt_tbl.npriority_lvl);
+
+		if (vbif->qos_nrt_tbl.npriority_lvl == sde_cfg->vbif_qos_nlvl) {
+			vbif->qos_nrt_tbl.priority_lvl = kcalloc(
+				vbif->qos_nrt_tbl.npriority_lvl, sizeof(u32),
+				GFP_KERNEL);
+			if (!vbif->qos_nrt_tbl.priority_lvl) {
+				rc = -ENOMEM;
+				goto end;
+			}
+		} else if (vbif->qos_nrt_tbl.npriority_lvl) {
+			vbif->qos_nrt_tbl.npriority_lvl = 0;
+			vbif->qos_nrt_tbl.priority_lvl = NULL;
+			SDE_ERROR("invalid qos nrt table\n");
+		}
+
+		for (j = 0; j < vbif->qos_nrt_tbl.npriority_lvl; j++) {
+			vbif->qos_nrt_tbl.priority_lvl[j] =
+				PROP_VALUE_ACCESS(prop_value,
+						VBIF_QOS_NRT_REMAP, j);
+			SDE_DEBUG("lvl[%d]=%u\n", j,
+					vbif->qos_nrt_tbl.priority_lvl[j]);
+		}
+
+		if (vbif->qos_rt_tbl.npriority_lvl ||
+				vbif->qos_nrt_tbl.npriority_lvl)
+			set_bit(SDE_VBIF_QOS_REMAP, &vbif->features);
 	}
 
 end:
@@ -2510,11 +2583,13 @@ static int _sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		/* update msm8998 target here */
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 25;
+		sde_cfg->vbif_qos_nlvl = 4;
 		break;
 	case SDE_HW_VER_400:
-		/* update msm8998 and sdm845 target here */
+		/* update sdm845 target here */
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 24;
+		sde_cfg->vbif_qos_nlvl = 8;
 		break;
 	default:
 		sde_cfg->perf.min_prefill_lines = 0xffff;
@@ -2549,6 +2624,8 @@ void sde_hw_catalog_deinit(struct sde_mdss_cfg *sde_cfg)
 	for (i = 0; i < sde_cfg->vbif_count; i++) {
 		kfree(sde_cfg->vbif[i].dynamic_ot_rd_tbl.cfg);
 		kfree(sde_cfg->vbif[i].dynamic_ot_wr_tbl.cfg);
+		kfree(sde_cfg->vbif[i].qos_rt_tbl.priority_lvl);
+		kfree(sde_cfg->vbif[i].qos_nrt_tbl.priority_lvl);
 	}
 
 	kfree(sde_cfg->dma_formats);

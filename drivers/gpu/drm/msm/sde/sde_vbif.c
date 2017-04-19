@@ -210,6 +210,61 @@ exit:
 	return;
 }
 
+void sde_vbif_set_qos_remap(struct sde_kms *sde_kms,
+		struct sde_vbif_set_qos_params *params)
+{
+	struct sde_hw_vbif *vbif = NULL;
+	struct sde_hw_mdp *mdp;
+	bool forced_on = false;
+	const struct sde_vbif_qos_tbl *qos_tbl;
+	int i;
+
+	if (!sde_kms || !params || !sde_kms->hw_mdp) {
+		SDE_ERROR("invalid arguments\n");
+		return;
+	}
+	mdp = sde_kms->hw_mdp;
+
+	for (i = 0; i < ARRAY_SIZE(sde_kms->hw_vbif); i++) {
+		if (sde_kms->hw_vbif[i] &&
+				sde_kms->hw_vbif[i]->idx == params->vbif_idx) {
+			vbif = sde_kms->hw_vbif[i];
+			break;
+		}
+	}
+
+	if (!vbif || !vbif->cap) {
+		SDE_ERROR("invalid vbif %d\n", params->vbif_idx);
+		return;
+	}
+
+	if (!vbif->ops.set_qos_remap || !mdp->ops.setup_clk_force_ctrl) {
+		SDE_DEBUG("qos remap not supported\n");
+		return;
+	}
+
+	qos_tbl = params->is_rt ? &vbif->cap->qos_rt_tbl :
+			&vbif->cap->qos_nrt_tbl;
+
+	if (!qos_tbl->npriority_lvl || !qos_tbl->priority_lvl) {
+		SDE_DEBUG("qos tbl not defined\n");
+		return;
+	}
+
+	forced_on = mdp->ops.setup_clk_force_ctrl(mdp, params->clk_ctrl, true);
+
+	for (i = 0; i < qos_tbl->npriority_lvl; i++) {
+		SDE_DEBUG("vbif:%d xin:%d lvl:%d/%d\n",
+				params->vbif_idx, params->xin_id, i,
+				qos_tbl->priority_lvl[i]);
+		vbif->ops.set_qos_remap(vbif, params->xin_id, i,
+				qos_tbl->priority_lvl[i]);
+	}
+
+	if (forced_on)
+		mdp->ops.setup_clk_force_ctrl(mdp, params->clk_ctrl, false);
+}
+
 #ifdef CONFIG_DEBUG_FS
 void sde_debugfs_vbif_destroy(struct sde_kms *sde_kms)
 {

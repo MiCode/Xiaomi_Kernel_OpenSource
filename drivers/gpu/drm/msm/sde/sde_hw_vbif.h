@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,6 +61,16 @@ struct sde_hw_vbif_ops {
 	 */
 	bool (*get_halt_ctrl)(struct sde_hw_vbif *vbif,
 			u32 xin_id);
+
+	/**
+	 * set_qos_remap - set QoS priority remap
+	 * @vbif: vbif context driver
+	 * @xin_id: client interface identifier
+	 * @level: priority level
+	 * @remap_level: remapped level
+	 */
+	void (*set_qos_remap)(struct sde_hw_vbif *vbif,
+			u32 xin_id, u32 level, u32 remap_level);
 };
 
 struct sde_hw_vbif {
