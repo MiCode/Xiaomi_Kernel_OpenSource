@@ -138,7 +138,7 @@
 #define QPNP_HAP_WAV_SAMP_MAX		0x7E
 #define QPNP_HAP_BRAKE_PAT_LEN		4
 #define QPNP_HAP_PLAY_EN		0x80
-#define QPNP_HAP_EN			0x80
+#define QPNP_HAP_EN_BIT			BIT(7)
 #define QPNP_HAP_BRAKE_MASK		BIT(0)
 #define QPNP_HAP_AUTO_RES_MASK		BIT(7)
 #define AUTO_RES_ENABLE			BIT(7)
@@ -305,7 +305,6 @@ struct qpnp_pwm_info {
  *  @ wave_samp - array of wave samples
  *  @ shadow_wave_samp - shadow array of wave samples
  *  @ brake_pat - pattern for active breaking
- *  @ reg_en_ctl - enable control register
  *  @ reg_play - play register
  *  @ lra_res_cal_period - period for resonance calibration
  *  @ sc_duration - counter to determine the duration of short circuit condition
@@ -358,6 +357,7 @@ struct qpnp_hap {
 	u32				sc_irq;
 	u32				status_flags;
 	u16				base;
+	u16				last_rate_cfg;
 	u16				drive_period_code_max_limit;
 	u16				drive_period_code_min_limit;
 	u16				lra_res_cal_period;
@@ -368,7 +368,6 @@ struct qpnp_hap {
 	u8				wave_samp[QPNP_HAP_WAV_SAMP_LEN];
 	u8				shadow_wave_samp[QPNP_HAP_WAV_SAMP_LEN];
 	u8				brake_pat[QPNP_HAP_BRAKE_PAT_LEN];
-	u8				reg_en_ctl;
 	u8				reg_play;
 	u8				sc_duration;
 	u8				ext_pwm_dtest_line;
@@ -391,6 +390,18 @@ struct qpnp_hap {
 static struct qpnp_hap *ghap;
 
 /* helper to read a pmic register */
+static int qpnp_hap_read_mult_reg(struct qpnp_hap *hap, u16 addr, u8 *val,
+				int len)
+{
+	int rc;
+
+	rc = regmap_bulk_read(hap->regmap, addr, val, len);
+	if (rc < 0)
+		pr_err("Error reading address: %X - ret %X\n", addr, rc);
+
+	return rc;
+}
+
 static int qpnp_hap_read_reg(struct qpnp_hap *hap, u16 addr, u8 *val)
 {
 	int rc;
@@ -399,11 +410,28 @@ static int qpnp_hap_read_reg(struct qpnp_hap *hap, u16 addr, u8 *val)
 	rc = regmap_read(hap->regmap, addr, &tmp);
 	if (rc < 0)
 		pr_err("Error reading address: %X - ret %X\n", addr, rc);
-	*val = (u8)tmp;
+	else
+		*val = (u8)tmp;
+
 	return rc;
 }
 
 /* helper to write a pmic register */
+static int qpnp_hap_write_mult_reg(struct qpnp_hap *hap, u16 addr, u8 *val,
+				int len)
+{
+	unsigned long flags;
+	int rc;
+
+	spin_lock_irqsave(&hap->bus_lock, flags);
+	rc = regmap_bulk_write(hap->regmap, addr, val, len);
+	if (rc < 0)
+		pr_err("Error writing address: %X - ret %X\n", addr, rc);
+
+	spin_unlock_irqrestore(&hap->bus_lock, flags);
+	return rc;
+}
+
 static int qpnp_hap_write_reg(struct qpnp_hap *hap, u16 addr, u8 val)
 {
 	unsigned long flags;
@@ -480,15 +508,12 @@ static void qpnp_handle_sc_irq(struct work_struct *work)
 	}
 }
 
-static int qpnp_hap_mod_enable(struct qpnp_hap *hap, int on)
+static int qpnp_hap_mod_enable(struct qpnp_hap *hap, bool on)
 {
 	u8 val;
 	int rc, i;
 
-	val = hap->reg_en_ctl;
-	if (on) {
-		val |= QPNP_HAP_EN;
-	} else {
+	if (!on) {
 		for (i = 0; i < QPNP_HAP_MAX_RETRIES; i++) {
 			/* wait for 4 cycles of play rate */
 			unsigned long sleep_time =
@@ -511,15 +536,12 @@ static int qpnp_hap_mod_enable(struct qpnp_hap *hap, int on)
 
 		if (i >= QPNP_HAP_MAX_RETRIES)
 			pr_debug("Haptics Busy. Force disable\n");
-
-		val &= ~QPNP_HAP_EN;
 	}
 
+	val = on ? QPNP_HAP_EN_BIT : 0;
 	rc = qpnp_hap_write_reg(hap, QPNP_HAP_EN_CTL_REG(hap->base), val);
 	if (rc < 0)
 		return rc;
-
-	hap->reg_en_ctl = val;
 
 	return 0;
 }
@@ -1517,20 +1539,23 @@ static int qpnp_hap_auto_res_enable(struct qpnp_hap *hap, int enable)
 
 static void update_lra_frequency(struct qpnp_hap *hap)
 {
-	u8 lra_auto_res_lo = 0, lra_auto_res_hi = 0, val;
+	u8 lra_auto_res[2], val;
 	u32 play_rate_code;
+	u16 rate_cfg;
 	int rc;
 
-	qpnp_hap_read_reg(hap, QPNP_HAP_LRA_AUTO_RES_LO(hap->base),
-		&lra_auto_res_lo);
-	qpnp_hap_read_reg(hap, QPNP_HAP_LRA_AUTO_RES_HI(hap->base),
-		&lra_auto_res_hi);
+	rc = qpnp_hap_read_mult_reg(hap, QPNP_HAP_LRA_AUTO_RES_LO(hap->base),
+				lra_auto_res, 2);
+	if (rc < 0) {
+		pr_err("Error in reading LRA_AUTO_RES_LO/HI, rc=%d\n", rc);
+		return;
+	}
 
 	play_rate_code =
-		 (lra_auto_res_hi & 0xF0) << 4 | (lra_auto_res_lo & 0xFF);
+		 (lra_auto_res[1] & 0xF0) << 4 | (lra_auto_res[0] & 0xFF);
 
 	pr_debug("lra_auto_res_lo = 0x%x lra_auto_res_hi = 0x%x play_rate_code = 0x%x\n",
-		lra_auto_res_lo, lra_auto_res_hi, play_rate_code);
+		lra_auto_res[0], lra_auto_res[1], play_rate_code);
 
 	rc = qpnp_hap_read_reg(hap, QPNP_HAP_STATUS(hap->base), &val);
 	if (rc < 0)
@@ -1559,12 +1584,21 @@ static void update_lra_frequency(struct qpnp_hap *hap)
 		return;
 	}
 
-	qpnp_hap_write_reg(hap, QPNP_HAP_RATE_CFG1_REG(hap->base),
-		lra_auto_res_lo);
+	lra_auto_res[1] >>= 4;
+	rate_cfg = lra_auto_res[1] << 8 | lra_auto_res[0];
+	if (hap->last_rate_cfg == rate_cfg) {
+		pr_debug("Same rate_cfg, skip updating\n");
+		return;
+	}
 
-	lra_auto_res_hi = lra_auto_res_hi >> 4;
-	qpnp_hap_write_reg(hap, QPNP_HAP_RATE_CFG2_REG(hap->base),
-		lra_auto_res_hi);
+	rc = qpnp_hap_write_mult_reg(hap, QPNP_HAP_RATE_CFG1_REG(hap->base),
+				lra_auto_res, 2);
+	if (rc < 0) {
+		pr_err("Error in writing to RATE_CFG1/2, rc=%d\n", rc);
+	} else {
+		pr_debug("Update RATE_CFG with [0x%x]\n", rate_cfg);
+		hap->last_rate_cfg = rate_cfg;
+	}
 }
 
 static enum hrtimer_restart detect_auto_res_error(struct hrtimer *timer)
@@ -1983,6 +2017,8 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 	if (rc)
 		return rc;
 
+	hap->last_rate_cfg = hap->init_drive_period_code;
+
 	if (hap->act_type == QPNP_HAP_LRA &&
 				hap->perform_lra_auto_resonance_search)
 		calculate_lra_code(hap);
@@ -2018,12 +2054,6 @@ static int qpnp_hap_config(struct qpnp_hap *hap)
 		if (rc)
 			return rc;
 	}
-
-	/* Cache enable control register */
-	rc = qpnp_hap_read_reg(hap, QPNP_HAP_EN_CTL_REG(hap->base), &val);
-	if (rc < 0)
-		return rc;
-	hap->reg_en_ctl = val;
 
 	/* Cache play register */
 	rc = qpnp_hap_read_reg(hap, QPNP_HAP_PLAY_REG(hap->base), &val);
