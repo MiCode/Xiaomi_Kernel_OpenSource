@@ -35,6 +35,7 @@
 #include <linux/uaccess.h>
 #include <linux/uio_driver.h>
 #include <asm/smp_plat.h>
+#include <asm/cputype.h>
 #include <stdbool.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/trace_msm_core.h>
@@ -46,7 +47,6 @@
 #define DEFAULT_TEMP 40
 #define DEFAULT_LOW_HYST_TEMP 10
 #define DEFAULT_HIGH_HYST_TEMP 5
-#define CLUSTER_OFFSET_FOR_MPIDR 8
 #define MAX_CORES_PER_CLUSTER 4
 #define MAX_NUM_OF_CLUSTERS 2
 #define NUM_OF_CORNERS 10
@@ -291,12 +291,11 @@ static int update_userspace_power(struct sched_params __user *argp)
 	int cpu = -1;
 	struct cpu_activity_info *node;
 	struct cpu_static_info *sp, *clear_sp;
-	int cpumask, cluster, mpidr;
+	int cpumask, cluster;
 	bool pdata_valid[NR_CPUS] = {0};
 
 	get_user(cpumask, &argp->cpumask);
 	get_user(cluster, &argp->cluster);
-	mpidr = cluster << 8;
 
 	pr_debug("%s: cpumask %d, cluster: %d\n", __func__, cpumask,
 					cluster);
@@ -304,10 +303,12 @@ static int update_userspace_power(struct sched_params __user *argp)
 		if (!(cpumask & 0x01))
 			continue;
 
-		mpidr |= i;
 		for_each_possible_cpu(cpu) {
-			if (cpu_logical_map(cpu) == mpidr)
-				break;
+			if ((cpu_topology[cpu].core_id != i) &&
+				(cpu_topology[cpu].cluster_id != cluster))
+				continue;
+
+			break;
 		}
 	}
 
@@ -348,10 +349,9 @@ static int update_userspace_power(struct sched_params __user *argp)
 	for (i = 0; i < MAX_CORES_PER_CLUSTER; i++, cpumask >>= 1) {
 		if (!(cpumask & 0x01))
 			continue;
-		mpidr = (cluster << CLUSTER_OFFSET_FOR_MPIDR);
-		mpidr |= i;
 		for_each_possible_cpu(cpu) {
-			if (!(cpu_logical_map(cpu) == mpidr))
+			if (((cpu_topology[cpu].core_id != i) ||
+				(cpu_topology[cpu].cluster_id != cluster)))
 				continue;
 
 			node = &activity[cpu];
@@ -395,14 +395,12 @@ static long msm_core_ioctl(struct file *file, unsigned int cmd,
 	struct cpu_activity_info *node = NULL;
 	struct sched_params __user *argp = (struct sched_params __user *)arg;
 	int i, cpu = num_possible_cpus();
-	int mpidr, cluster, cpumask;
+	int cluster, cpumask;
 
 	if (!argp)
 		return -EINVAL;
 
 	get_user(cluster, &argp->cluster);
-	mpidr = (cluster << (MAX_CORES_PER_CLUSTER *
-			MAX_NUM_OF_CLUSTERS));
 	get_user(cpumask, &argp->cpumask);
 
 	switch (cmd) {
@@ -414,8 +412,11 @@ static long msm_core_ioctl(struct file *file, unsigned int cmd,
 	case EA_VOLT:
 		for (i = 0; cpumask > 0; i++, cpumask >>= 1) {
 			for_each_possible_cpu(cpu) {
-				if (cpu_logical_map(cpu) == (mpidr | i))
-					break;
+				if (((cpu_topology[cpu].core_id != i) ||
+				(cpu_topology[cpu].cluster_id != cluster)))
+					continue;
+
+				break;
 			}
 		}
 		if (cpu >= num_possible_cpus())
