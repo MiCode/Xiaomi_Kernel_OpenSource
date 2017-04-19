@@ -222,11 +222,6 @@ static int msm_ssusb_qmp_ldo_enable(struct msm_ssphy_qmp *phy, int on)
 				"enable phy->fpc_redrive_ldo failed\n");
 			return rc;
 		}
-
-		dev_dbg(phy->phy.dev,
-			"fpc redrive ldo: min_vol:%duV max_vol:%duV\n",
-			phy->redrive_voltage_levels[VOLTAGE_LEVEL_MIN],
-			phy->redrive_voltage_levels[VOLTAGE_LEVEL_MAX]);
 	}
 
 	rc = msm_ldo_enable(phy, phy->vdd, phy->vdd_levels,
@@ -236,22 +231,12 @@ static int msm_ssusb_qmp_ldo_enable(struct msm_ssphy_qmp *phy, int on)
 		goto disable_fpc_redrive;
 	}
 
-	dev_dbg(phy->phy.dev,
-		"vdd ldo: min_vol:%duV max_vol:%duV\n",
-		phy->vdd_levels[VOLTAGE_LEVEL_MIN],
-		phy->vdd_levels[VOLTAGE_LEVEL_MAX]);
-
 	rc = msm_ldo_enable(phy, phy->core_ldo, phy->core_voltage_levels,
 			USB_SSPHY_HPM_LOAD);
 	if (rc < 0) {
 		dev_err(phy->phy.dev, "enable phy->core_ldo failed\n");
 		goto disable_vdd;
 	}
-
-	dev_dbg(phy->phy.dev,
-		"core ldo: min_vol:%duV max_vol:%duV\n",
-		phy->core_voltage_levels[VOLTAGE_LEVEL_MIN],
-		phy->core_voltage_levels[VOLTAGE_LEVEL_MAX]);
 
 	return 0;
 
