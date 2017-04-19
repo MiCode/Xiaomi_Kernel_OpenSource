@@ -23,7 +23,6 @@
 #define DEFAULT_BIT_RATE 64000
 #define BIT_RATE_STEP 100
 #define DEFAULT_FRAME_RATE 15
-#define MAX_OPERATING_FRAME_RATE (300 << 16)
 #define OPERATING_FRAME_RATE_STEP (1 << 16)
 #define MAX_SLICE_BYTE_SIZE ((MAX_BIT_RATE)>>3)
 #define MIN_SLICE_BYTE_SIZE 512
@@ -878,7 +877,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "Set Encoder Operating rate",
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = 0,
-		.maximum = MAX_OPERATING_FRAME_RATE,
+		.maximum = INT_MAX,
 		.default_value = 0,
 		.step = OPERATING_FRAME_RATE_STEP,
 	},
@@ -1235,7 +1234,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		bitrate.bit_rate = ctrl->val;
 		bitrate.layer_id = 0;
 		pdata = &bitrate;
-		inst->bitrate = ctrl->val;
+		inst->clk_data.bitrate = ctrl->val;
 		break;
 	}
 	case V4L2_CID_MPEG_VIDEO_BITRATE_PEAK:
@@ -1747,8 +1746,12 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE:
 		dprintk(VIDC_DBG,
 			"inst(%pK) operating rate changed from %d to %d\n",
-			inst, inst->operating_rate >> 16, ctrl->val >> 16);
-		inst->operating_rate = ctrl->val;
+			inst, inst->clk_data.operating_rate >> 16,
+				ctrl->val >> 16);
+		inst->clk_data.operating_rate = ctrl->val;
+
+		msm_vidc_update_operating_rate(inst);
+
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_VENC_BITRATE_TYPE:
 	{
@@ -1831,6 +1834,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		else
 			enable.enable = 0;
 		pdata = &enable;
+		inst->clk_data.low_latency_mode = (bool) enable.enable;
 		break;
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_H264_TRANSFORM_8x8:
@@ -2083,7 +2087,7 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	/* To start with, both ports are 1 plane each */
 	inst->bufq[OUTPUT_PORT].num_planes = 1;
 	inst->bufq[CAPTURE_PORT].num_planes = 1;
-	inst->operating_rate = 0;
+	inst->clk_data.operating_rate = 0;
 
 	memcpy(&inst->fmts[CAPTURE_PORT], &venc_formats[4],
 			sizeof(struct msm_vidc_format));

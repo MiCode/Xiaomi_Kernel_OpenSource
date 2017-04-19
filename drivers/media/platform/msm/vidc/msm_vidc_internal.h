@@ -52,7 +52,7 @@
 
 
 /* Maintains the number of FTB's between each FBD over a window */
-#define DCVS_FTB_WINDOW 32
+#define DCVS_FTB_WINDOW 16
 
 #define V4L2_EVENT_VIDC_BASE  10
 
@@ -205,7 +205,7 @@ struct buf_count {
 	int ebd;
 };
 
-struct dcvs_stats {
+struct clock_data {
 	int buffer_counter;
 	int load;
 	int load_low;
@@ -215,6 +215,15 @@ struct dcvs_stats {
 	unsigned int extra_capture_buffer_count;
 	unsigned int extra_output_buffer_count;
 	enum hal_buffer buffer_type;
+	bool dcvs_mode;
+	unsigned long bitrate;
+	unsigned long min_freq;
+	unsigned long curr_freq;
+	u32 operating_rate;
+	struct clock_profile_entry *entry;
+	u32 core_id;
+	enum hal_work_mode work_mode;
+	bool low_latency_mode;
 };
 
 struct profile_data {
@@ -259,7 +268,8 @@ struct msm_vidc_core {
 	struct msm_vidc_capability *capabilities;
 	struct delayed_work fw_unload_work;
 	bool smmu_fault_handled;
-	unsigned long freq;
+	unsigned long min_freq;
+	unsigned long curr_freq;
 };
 
 struct msm_vidc_inst {
@@ -293,28 +303,21 @@ struct msm_vidc_inst {
 	void *priv;
 	struct msm_vidc_debug debug;
 	struct buf_count count;
-	struct dcvs_stats dcvs;
+	struct clock_data clk_data;
 	enum msm_vidc_modes flags;
 	struct msm_vidc_capability capability;
 	u32 buffer_size_limit;
 	enum buffer_mode_type buffer_mode_set[MAX_PORT_NUM];
 	struct v4l2_ctrl **ctrls;
-	bool dcvs_mode;
 	enum msm_vidc_pixel_depth bit_depth;
 	struct kref kref;
-	unsigned long bitrate;
-	unsigned long freq;
 	u32 buffers_held_in_driver;
 	atomic_t in_flush;
 	u32 pic_struct;
 	u32 colour_space;
-	u32 operating_rate;
 	u32 profile;
 	u32 level;
 	u32 entropy_mode;
-	struct clock_profile_entry *entry;
-	u32 core_id;
-	enum hal_work_mode work_mode;
 };
 
 extern struct msm_vidc_drv *vidc_driver;

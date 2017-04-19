@@ -584,9 +584,9 @@ static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
 	capture_port_mbs = NUM_MBS_PER_FRAME(inst->prop.width[CAPTURE_PORT],
 		inst->prop.height[CAPTURE_PORT]);
 
-	if (inst->operating_rate) {
-		fps = (inst->operating_rate >> 16) ?
-			inst->operating_rate >> 16 : 1;
+	if (inst->clk_data.operating_rate) {
+		fps = (inst->clk_data.operating_rate >> 16) ?
+			inst->clk_data.operating_rate >> 16 : 1;
 		/*
 		 * Check if operating rate is less than fps.
 		 * If Yes, then use fps to scale clocks
@@ -2510,7 +2510,7 @@ static bool is_thermal_permissible(struct msm_vidc_core *core)
 	}
 
 	tl = msm_comm_vidc_thermal_level(vidc_driver->thermal_level);
-	freq = core->freq;
+	freq = core->curr_freq;
 
 	is_turbo = is_core_turbo(core, freq);
 	dprintk(VIDC_DBG,
@@ -4738,9 +4738,9 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 		return 0;
 	}
 
-	// Finish FLUSH As Soon As Possible.
-	inst->dcvs.buffer_counter = 0;
-	msm_comm_scale_clocks_and_bus(inst);
+	/* Finish FLUSH As Soon As Possible. */
+
+	msm_clock_data_reset(inst);
 
 	msm_comm_flush_dynamic_buffers(inst);
 
@@ -5474,7 +5474,7 @@ static void msm_comm_print_debug_info(struct msm_vidc_inst *inst)
 	}
 	core = inst->core;
 
-	dprintk(VIDC_ERR, "Venus core frequency = %lu", core->freq);
+	dprintk(VIDC_ERR, "Venus core frequency = %lu", core->curr_freq);
 	mutex_lock(&core->lock);
 	dprintk(VIDC_ERR, "Printing instance info that caused Error\n");
 	msm_comm_print_inst_info(inst);

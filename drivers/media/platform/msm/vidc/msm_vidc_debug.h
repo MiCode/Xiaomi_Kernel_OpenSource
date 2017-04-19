@@ -59,12 +59,10 @@ extern int msm_vidc_fw_debug_mode;
 extern int msm_vidc_fw_low_power_mode;
 extern int msm_vidc_hw_rsp_timeout;
 extern bool msm_vidc_fw_coverage;
-extern bool msm_vidc_dec_dcvs_mode;
-extern bool msm_vidc_enc_dcvs_mode;
 extern bool msm_vidc_sys_idle_indicator;
 extern int msm_vidc_firmware_unload_delay;
 extern bool msm_vidc_thermal_mitigation_disabled;
-extern bool msm_vidc_bitrate_clock_scaling;
+extern bool msm_vidc_clock_scaling;
 extern bool msm_vidc_debug_timeout;
 
 #define VIDC_MSG_PRIO2STRING(__level) ({ \

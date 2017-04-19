@@ -1433,7 +1433,9 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 			"Failed to move inst: %pK to start done state\n", inst);
 		goto fail_start;
 	}
-	msm_dcvs_init(inst);
+
+	msm_clock_data_reset(inst);
+
 	if (msm_comm_get_stream_output_mode(inst) ==
 			HAL_VIDEO_DECODER_SECONDARY) {
 		rc = msm_comm_queue_output_buffers(inst);
@@ -1519,6 +1521,9 @@ static inline int stop_streaming(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR,
 			"Failed to move inst: %pK to state %d\n",
 				inst, MSM_VIDC_RELEASE_RESOURCES_DONE);
+
+	msm_clock_data_reset(inst);
+
 	return rc;
 }
 
@@ -1971,10 +1976,11 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->session_type = session_type;
 	inst->state = MSM_VIDC_CORE_UNINIT_DONE;
 	inst->core = core;
-	inst->freq = 0;
-	inst->core_id = VIDC_CORE_ID_DEFAULT;
+	inst->clk_data.min_freq = 0;
+	inst->clk_data.curr_freq = 0;
+	inst->clk_data.bitrate = 0;
+	inst->clk_data.core_id = VIDC_CORE_ID_DEFAULT;
 	inst->bit_depth = MSM_VIDC_BIT_DEPTH_8;
-	inst->bitrate = 0;
 	inst->pic_struct = MSM_VIDC_PIC_STRUCT_PROGRESSIVE;
 	inst->colour_space = MSM_VIDC_BT601_6_525;
 	inst->profile = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE;
@@ -2036,6 +2042,8 @@ void *msm_vidc_open(int core_id, int session_type)
 			"Instance count reached Max limit, rejecting session");
 		goto fail_init;
 	}
+
+	msm_comm_scale_clocks_and_bus(inst);
 
 	inst->debugfs_root =
 		msm_vidc_debugfs_init_inst(inst, core->debugfs_root);

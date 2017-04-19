@@ -23,7 +23,6 @@
 #define MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS MIN_NUM_CAPTURE_BUFFERS
 #define DEFAULT_VIDEO_CONCEAL_COLOR_BLACK 0x8010
 #define MB_SIZE_IN_PIXEL (16 * 16)
-#define MAX_OPERATING_FRAME_RATE (300 << 16)
 #define OPERATING_FRAME_RATE_STEP (1 << 16)
 
 static const char *const mpeg_video_stream_format[] = {
@@ -360,7 +359,7 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.name = "Set Decoder Operating rate",
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = 0,
-		.maximum = MAX_OPERATING_FRAME_RATE,
+		.maximum = INT_MAX,
 		.default_value = 0,
 		.step = OPERATING_FRAME_RATE_STEP,
 	},
@@ -681,7 +680,7 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	inst->bufq[OUTPUT_PORT].num_planes = 1;
 	inst->bufq[CAPTURE_PORT].num_planes = 1;
 	inst->prop.fps = DEFAULT_FPS;
-	inst->operating_rate = 0;
+	inst->clk_data.operating_rate = 0;
 	memcpy(&inst->fmts[OUTPUT_PORT], &vdec_formats[2],
 			sizeof(struct msm_vidc_format));
 	memcpy(&inst->fmts[CAPTURE_PORT], &vdec_formats[0],
@@ -968,8 +967,12 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE:
 		dprintk(VIDC_DBG,
 			"inst(%pK) operating rate changed from %d to %d\n",
-			inst, inst->operating_rate >> 16, ctrl->val >> 16);
-		inst->operating_rate = ctrl->val;
+			inst, inst->clk_data.operating_rate >> 16,
+				ctrl->val >> 16);
+		inst->clk_data.operating_rate = ctrl->val;
+
+		msm_vidc_update_operating_rate(inst);
+
 		break;
 	default:
 		break;
