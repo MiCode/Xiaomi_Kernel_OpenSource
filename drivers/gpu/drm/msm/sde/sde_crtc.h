@@ -108,7 +108,7 @@ struct sde_crtc_event {
  * @name          : ASCII description of this crtc
  * @num_ctls      : Number of ctl paths in use
  * @num_mixers    : Number of mixers in use
- * @mixer         : List of active mixers
+ * @mixers        : List of active mixers
  * @event         : Pointer to last received drm vblank event. If there is a
  *                  pending vblank event, this will be non-null.
  * @vsync_count   : Running count of received vsync events
@@ -248,6 +248,8 @@ struct sde_crtc_respool {
  * @num_connectors: Number of associated drm connectors
  * @intf_mode     : Interface mode of the primary connector
  * @rsc_client    : sde rsc client when mode is valid
+ * @lm_bounds     : LM boundaries based on current mode full resolution, no ROI.
+ *                  Origin top left of CRTC.
  * @property_values: Current crtc property values
  * @input_fence_timeout_ns : Cached input fence timeout, in ns
  * @property_blobs: Reference pointers for blob properties
@@ -266,6 +268,8 @@ struct sde_crtc_state {
 	enum sde_intf_mode intf_mode;
 	struct sde_rsc_client *rsc_client;
 	bool rsc_update;
+
+	struct sde_rect lm_bounds[CRTC_DUAL_MIXERS];
 
 	uint64_t property_values[CRTC_PROP_COUNT];
 	uint64_t input_fence_timeout_ns;
@@ -301,30 +305,6 @@ static inline int sde_crtc_mixer_width(struct sde_crtc *sde_crtc,
 
 	return  sde_crtc->num_mixers == CRTC_DUAL_MIXERS ?
 		mode->hdisplay / CRTC_DUAL_MIXERS : mode->hdisplay;
-}
-
-static inline uint32_t get_crtc_split_width(struct drm_crtc *crtc)
-{
-	struct drm_display_mode *mode;
-	struct sde_crtc *sde_crtc;
-
-	if (!crtc || !crtc->state)
-		return 0;
-
-	sde_crtc = to_sde_crtc(crtc);
-	mode = &crtc->state->adjusted_mode;
-	return sde_crtc_mixer_width(sde_crtc, mode);
-}
-
-static inline uint32_t get_crtc_mixer_height(struct drm_crtc *crtc)
-{
-	struct drm_display_mode *mode;
-
-	if (!crtc || !crtc->state)
-		return 0;
-
-	mode = &crtc->state->adjusted_mode;
-	return mode->vdisplay;
 }
 
 /**
