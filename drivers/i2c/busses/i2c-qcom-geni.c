@@ -23,6 +23,7 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/dma-mapping.h>
 #include <linux/qcom-geni-se.h>
 
 #define SE_I2C_TX_TRANS_LEN		(0x26C)
@@ -87,17 +88,31 @@ static irqreturn_t geni_i2c_irq(int irq, void *dev)
 	u32 m_stat = readl_relaxed(gi2c->base + SE_GENI_M_IRQ_STATUS);
 	u32 tx_stat = readl_relaxed(gi2c->base + SE_GENI_TX_FIFO_STATUS);
 	u32 rx_stat = readl_relaxed(gi2c->base + SE_GENI_RX_FIFO_STATUS);
+	u32 dm_tx_st = readl_relaxed(gi2c->base + SE_DMA_TX_IRQ_STAT);
+	u32 dm_rx_st = readl_relaxed(gi2c->base + SE_DMA_RX_IRQ_STAT);
+	u32 dma = readl_relaxed(gi2c->base + SE_GENI_DMA_MODE_EN);
 	struct i2c_msg *cur = gi2c->cur;
 
 	dev_dbg(gi2c->dev,
 		"got i2c irq:%d, stat:0x%x, tx stat:0x%x, rx stat:0x%x\n",
 		irq, m_stat, tx_stat, rx_stat);
-	if (!cur || m_stat & SE_I2C_ERR) {
-		dev_err(gi2c->dev, "i2c txn err");
-		writel_relaxed(0, (gi2c->base + SE_GENI_TX_WATERMARK_REG));
+	if (!cur || (m_stat & SE_I2C_ERR) || (dm_tx_st & TX_SBE) ||
+		    (dm_rx_st & RX_SBE)) {
+		dev_err(gi2c->dev, "i2c err:st:0x%x, dm_t: 0x%x, dm_r: 0x%x\n",
+				   m_stat, dm_tx_st, dm_tx_st);
+		if (!dma)
+			writel_relaxed(0, (gi2c->base +
+					   SE_GENI_TX_WATERMARK_REG));
 		gi2c->err = -EIO;
 		goto irqret;
 	}
+
+	if (dma) {
+		dev_dbg(gi2c->dev, "i2c dma tx:0x%x, dma rx:0x%x\n", dm_tx_st,
+			dm_rx_st);
+		goto irqret;
+	}
+
 	if (((m_stat & M_RX_FIFO_WATERMARK_EN) ||
 		(m_stat & M_RX_FIFO_LAST_EN)) && (cur->flags & I2C_M_RD)) {
 		u32 rxcnt = rx_stat & RX_FIFO_WC_MSK;
@@ -112,10 +127,11 @@ static irqreturn_t geni_i2c_irq(int irq, void *dev)
 				cur->buf[i] = (u8) ((temp >> (p * 8)) & 0xff);
 			gi2c->cur_rd = i;
 			if (gi2c->cur_rd == cur->len) {
-				dev_dbg(gi2c->dev, "i:%d,read 0x%x\n", i, temp);
+				dev_dbg(gi2c->dev, "FIFO i:%d,read 0x%x\n",
+					i, temp);
 				break;
 			}
-			dev_dbg(gi2c->dev, "i: %d, read 0x%x\n", i, temp);
+			dev_dbg(gi2c->dev, "FIFO i: %d, read 0x%x\n", i, temp);
 		}
 	} else if ((m_stat & M_TX_FIFO_WATERMARK_EN) &&
 					!(cur->flags & I2C_M_RD)) {
@@ -128,9 +144,9 @@ static irqreturn_t geni_i2c_irq(int irq, void *dev)
 				temp |= (((u32)(cur->buf[i]) << (p * 8)));
 			writel_relaxed(temp, gi2c->base + SE_GENI_TX_FIFOn);
 			gi2c->cur_wr = i;
-			dev_dbg(gi2c->dev, "i:%d,wrote 0x%x\n", i, temp);
+			dev_dbg(gi2c->dev, "FIFO i:%d,wrote 0x%x\n", i, temp);
 			if (gi2c->cur_wr == cur->len) {
-				dev_dbg(gi2c->dev, "i2c bytes done writing\n");
+				dev_dbg(gi2c->dev, "FIFO i2c bytes done writing\n");
 				writel_relaxed(0,
 				(gi2c->base + SE_GENI_TX_WATERMARK_REG));
 				break;
@@ -138,15 +154,25 @@ static irqreturn_t geni_i2c_irq(int irq, void *dev)
 		}
 	}
 irqret:
-	writel_relaxed(m_stat, gi2c->base + SE_GENI_M_IRQ_CLEAR);
-	/* Ensure all writes are done before returning from ISR. */
-	wmb();
-	/* if this is err with done-bit not set, handle that thr' timeout. */
-	if (m_stat & M_CMD_DONE_EN) {
-		dev_dbg(gi2c->dev, "i2c irq: err:%d, stat:0x%x\n",
-							gi2c->err, m_stat);
-		complete(&gi2c->xfer);
+	if (m_stat)
+		writel_relaxed(m_stat, gi2c->base + SE_GENI_M_IRQ_CLEAR);
+
+	if (dma) {
+		if (dm_tx_st)
+			writel_relaxed(dm_tx_st, gi2c->base +
+				       SE_DMA_TX_IRQ_CLR);
+		if (dm_rx_st)
+			writel_relaxed(dm_rx_st, gi2c->base +
+				       SE_DMA_RX_IRQ_CLR);
+		/* Ensure all writes are done before returning from ISR. */
+		wmb();
 	}
+	/* if this is err with done-bit not set, handle that thr' timeout. */
+	if (m_stat & M_CMD_DONE_EN)
+		complete(&gi2c->xfer);
+	else if ((dm_tx_st & TX_DMA_DONE) || (dm_rx_st & RX_DMA_DONE))
+		complete(&gi2c->xfer);
+
 	return IRQ_HANDLED;
 }
 
@@ -175,11 +201,21 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 		int stretch = (i < (num - 1));
 		u32 m_param = 0;
 		u32 m_cmd = 0;
+		dma_addr_t tx_dma = 0;
+		dma_addr_t rx_dma = 0;
+		enum se_xfer_mode mode = FIFO_MODE;
 
 		m_param |= (stretch ? STOP_STRETCH : 0);
 		m_param |= ((msgs[i].addr & 0x7F) << SLV_ADDR_SHFT);
 
 		gi2c->cur = &msgs[i];
+		mode = msgs[i].len > 32 ? SE_DMA : FIFO_MODE;
+		ret = geni_se_select_mode(gi2c->base, mode);
+		if (ret) {
+			dev_err(gi2c->dev, "%s: Error mode init %d:%d:%d\n",
+				__func__, mode, i, msgs[i].len);
+			break;
+		}
 		if (msgs[i].flags & I2C_M_RD) {
 			dev_dbg(gi2c->dev,
 				"READ,n:%d,i:%d len:%d, stretch:%d\n",
@@ -188,22 +224,41 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 				       gi2c->base, SE_I2C_RX_TRANS_LEN);
 			m_cmd = I2C_READ;
 			geni_setup_m_cmd(gi2c->base, m_cmd, m_param);
+			if (mode == SE_DMA) {
+				ret = geni_se_rx_dma_prep(gi2c->wrapper_dev,
+							gi2c->base, msgs[i].buf,
+							msgs[i].len, &rx_dma);
+				if (ret)
+					mode = FIFO_MODE;
+			}
+			if (mode == FIFO_MODE)
+				geni_se_select_mode(gi2c->base, mode);
 		} else {
 			dev_dbg(gi2c->dev,
-				"WRITE:n:%d,i%d len:%d, stretch:%d\n",
-					num, i, msgs[i].len, stretch);
+				"WRITE:n:%d,i:%d len:%d, stretch:%d, m_param:0x%x\n",
+					num, i, msgs[i].len, stretch, m_param);
 			geni_write_reg(msgs[i].len, gi2c->base,
 						SE_I2C_TX_TRANS_LEN);
 			m_cmd = I2C_WRITE;
 			geni_setup_m_cmd(gi2c->base, m_cmd, m_param);
-			/* Get FIFO IRQ */
-			geni_write_reg(1, gi2c->base, SE_GENI_TX_WATERMARK_REG);
+			if (mode == SE_DMA) {
+				ret = geni_se_tx_dma_prep(gi2c->wrapper_dev,
+							gi2c->base, msgs[i].buf,
+							msgs[i].len, &tx_dma);
+				if (ret)
+					mode = FIFO_MODE;
+			}
+			if (mode == FIFO_MODE) {
+				geni_se_select_mode(gi2c->base, mode);
+				/* Get FIFO IRQ */
+				geni_write_reg(1, gi2c->base,
+						SE_GENI_TX_WATERMARK_REG);
+			}
 		}
 		/* Ensure FIFO write go through before waiting for Done evet */
 		mb();
 		timeout = wait_for_completion_timeout(&gi2c->xfer, HZ);
 		if (!timeout) {
-			dev_err(gi2c->dev, "Timed out\n");
 			gi2c->err = -ETIMEDOUT;
 			gi2c->cur = NULL;
 			geni_abort_m_cmd(gi2c->base);
@@ -211,9 +266,24 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 		}
 		gi2c->cur_wr = 0;
 		gi2c->cur_rd = 0;
+		if (mode == SE_DMA) {
+			if (gi2c->err) {
+				if (msgs[i].flags != I2C_M_RD)
+					writel_relaxed(1, gi2c->base +
+							SE_DMA_TX_FSM_RST);
+				else
+					writel_relaxed(1, gi2c->base +
+							SE_DMA_RX_FSM_RST);
+				wait_for_completion_timeout(&gi2c->xfer, HZ);
+			}
+			geni_se_rx_dma_unprep(gi2c->wrapper_dev, rx_dma,
+					      msgs[i].len);
+			geni_se_tx_dma_unprep(gi2c->wrapper_dev, tx_dma,
+					      msgs[i].len);
+		}
+		ret = gi2c->err;
 		if (gi2c->err) {
 			dev_err(gi2c->dev, "i2c error :%d\n", gi2c->err);
-			ret = gi2c->err;
 			break;
 		}
 	}
@@ -352,6 +422,7 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	pm_runtime_enable(gi2c->dev);
 	i2c_add_adapter(&gi2c->adap);
 
+	dev_dbg(gi2c->dev, "I2C probed\n");
 	return 0;
 }
 
@@ -393,7 +464,6 @@ static int geni_i2c_runtime_resume(struct device *dev)
 
 		gi2c->tx_wm = gi2c_tx_depth - 1;
 		geni_se_init(gi2c->base, gi2c->tx_wm, gi2c_tx_depth);
-		geni_se_select_mode(gi2c->base, FIFO_MODE);
 		se_config_packing(gi2c->base, 8, 4, true);
 	}
 	enable_irq(gi2c->irq);
