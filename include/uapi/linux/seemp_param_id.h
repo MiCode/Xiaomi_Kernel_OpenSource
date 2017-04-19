@@ -1,6 +1,9 @@
 #ifndef _PARAM_ID_H_
 #define _PARAM_ID_H_
 
+#include <linux/string.h>
+#include <linux/types.h>
+
 #define PARAM_ID_LEN 0
 #define PARAM_ID_OOM_ADJ 1
 #define PARAM_ID_APP_UID 2

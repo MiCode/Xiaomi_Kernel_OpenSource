@@ -66,90 +66,10 @@ static inline void seemp_logk_sendto(int fd, void __user *buff, size_t len,
 
 	seemp_logk_kernel_end(blck);
 }
-
-/*
- * NOTE: only recvfrom is going to be instrumented
- * since recv sys call internally calls recvfrom
- * with 2 extra parameters
- */
-static inline void seemp_logk_recvfrom(int fd, void __user *ubuf,
-		size_t size, unsigned int flags, struct sockaddr __user *addr,
-		int __user *addr_len)
-{
-	char *buf = NULL;
-	void *blck = NULL;
-
-	/*sets up buf and blck correctly*/
-	blck = seemp_setup_buf(&buf);
-	if (!blck)
-		return;
-
-	/*fill the buf*/
-	SEEMP_LOGK_RECORD(SEEMP_API_kernel__recvfrom, "size=%u,fd=%d",
-			(unsigned int)size, fd);
-
-	seemp_logk_kernel_end(blck);
-}
-
-static inline void seemp_logk_oom_adjust_write(pid_t pid,
-					kuid_t uid, int oom_adj)
-{
-	char *buf = NULL;
-	void *blck = NULL;
-
-	/*sets up buf and blck correctly*/
-	blck = seemp_setup_buf(&buf);
-	if (!blck)
-		return;
-
-	/*fill the buf*/
-	SEEMP_LOGK_RECORD(SEEMP_API_kernel__oom_adjust_write,
-			 "app_uid=%d,app_pid=%d,oom_adj=%d",
-			uid.val, pid, oom_adj);
-
-	seemp_logk_kernel_end(blck);
-}
-
-static inline void seemp_logk_oom_score_adj_write(pid_t pid, kuid_t uid,
-					int oom_adj_score)
-{
-	char *buf = NULL;
-	void *blck = NULL;
-
-	/*sets up buf and blck correctly*/
-	blck = seemp_setup_buf(&buf);
-	if (!blck)
-		return;
-
-	/*fill the buf*/
-	snprintf(buf, MAX_BUF_SIZE,
-		"-1|kernel|oom_score_adj_write|app_uid=%d,app_pid=%d,oom_adj=%d|--end",
-		uid.val, pid, oom_adj_score);
-
-	seemp_logk_kernel_end(blck);
-}
-
 #else
 static inline void seemp_logk_sendto(int fd, void __user *buff,
 		size_t len, unsigned int flags, struct sockaddr __user *addr,
 		int addr_len)
-{
-}
-
-static inline void seemp_logk_recvfrom
-		(int fd, void __user *ubuf, size_t size,
-		unsigned int flags, struct sockaddr __user *addr,
-		int __user *addr_len)
-{
-}
-
-static inline void seemp_logk_oom_adjust_write
-		(pid_t pid, kuid_t uid, int oom_adj)
-{
-}
-
-static inline void seemp_logk_oom_score_adj_write
-		(pid_t pid, kuid_t uid, int oom_adj_score)
 {
 }
 #endif
