@@ -15,3 +15,10 @@
 / {
 	qcom,msm-id = <322 0x10000>;
 };
+
+&apc_vreg_corner {
+	qcom,cpr-quotient-adjustment =
+			<42	42	42>;
+	qcom,cpr-init-voltage-adjustment =
+			<25000	25000	25000>;
+};
