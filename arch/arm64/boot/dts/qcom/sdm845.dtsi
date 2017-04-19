@@ -2071,6 +2071,14 @@
 		clock-names = "iface_clk";
 	};
 
+	qcom_tzlog: tz-log@146bf720 {
+		compatible = "qcom,tz-log";
+		reg = <0x146bf720 0x3000>;
+		qcom,hyplog-enabled;
+		hyplog-address-offset = <0x410>;
+		hyplog-size-offset = <0x414>;
+	};
+
 	qcom,msm_gsi {
 		compatible = "qcom,msm_gsi";
 	};
