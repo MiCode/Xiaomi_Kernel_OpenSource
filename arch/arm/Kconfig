@@ -550,7 +550,7 @@ config ARCH_PXA
 
 config ARCH_QCOM
        bool "Qualcomm MSM (non-multiplatform)"
-       select ARCH_REQUIRE_GPIOLIB
+       select GPIOLIB
        select CPU_V7
        select AUTO_ZRELADDR
        select HAVE_SMP

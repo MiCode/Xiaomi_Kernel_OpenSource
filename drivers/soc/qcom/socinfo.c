@@ -550,6 +550,9 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* Bat ID */
 	[328] = {MSM_CPU_SDM830, "SDM830"},
 
+	/* sdxpoorwills ID */
+	[334] = {SDX_CPU_SDXPOORWILLS, "SDXPOORWILLS"},
+
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	 * considered as unknown CPU.
@@ -1255,6 +1258,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_sdm830()) {
 		dummy_socinfo.id = 328;
 		strlcpy(dummy_socinfo.build_id, "sdm830 - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_sdxpoorwills()) {
+		dummy_socinfo.id = 334;
+		strlcpy(dummy_socinfo.build_id, "sdxpoorwills - ",
 			sizeof(dummy_socinfo.build_id));
 	}
 

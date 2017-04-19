@@ -38,5 +38,16 @@ config ARCH_MDM9615
 	select CLKSRC_OF
 	select COMMON_CLK
 
+config ARCH_SDXPOORWILLS
+	bool "Enable support for SDXPOORWILLS"
+	select CPU_V7
+	select HAVE_ARM_ARCH_TIMER
+	select MSM_CORTEX_A7
+	select COMMON_CLK_MSM
+	select PINCTRL
+	select QCOM_SCM if SMP
+	select MSM_JTAG_MM if CORESIGHT_ETM
+	select PM_DEVFREQ
+	select COMMON_CLK
 endmenu
 endif
