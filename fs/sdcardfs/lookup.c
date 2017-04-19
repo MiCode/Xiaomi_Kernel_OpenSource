@@ -368,17 +368,15 @@ put_name:
 	dname.len = name->len;
 	dname.hash = full_name_hash(dname.name, dname.len);
 	lower_dentry = d_lookup(lower_dir_dentry, &dname);
-	if (lower_dentry)
-		goto setup_lower;
-
-	lower_dentry = d_alloc(lower_dir_dentry, &dname);
 	if (!lower_dentry) {
-		err = -ENOMEM;
+		/* We called vfs_path_lookup earlier, and did not get a negative
+		 * dentry then. Don't confuse the lower filesystem by forcing one
+		 * on it now...
+		 */
+		err = -ENOENT;
 		goto out;
 	}
-	d_add(lower_dentry, NULL); /* instantiate and hash */
 
-setup_lower:
 	lower_path.dentry = lower_dentry;
 	lower_path.mnt = mntget(lower_dir_mnt);
 	sdcardfs_set_lower_path(dentry, &lower_path);
