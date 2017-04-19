@@ -80,6 +80,11 @@
 		};
 	};
 
+	compress: qcom,msm-compress-dsp {
+		compatible = "qcom,msm-compress-dsp";
+		qcom,adsp-version = "MDSP 2.8";
+	};
+
 	ipa_hw: qcom,ipa@07B00000 {
 		qcom,ipa-hw-ver = <12>; /* IPA core version = IPAv3.5 */
 		/delete-property/qcom,use-rg10-limitation-mitigation;
@@ -365,6 +370,12 @@
 &mss {
 	/delete-property/qcom,qdsp6v61-1-1;
 	qcom,qdsp6v62-1-4;
+};
+
+&mhi_device {
+	interrupts = <0 119 0>;
+	interrupt-names = "mhi-device-inta";
+	qcom,mhi-ifc-id = <0x030317cb>;
 };
 
 #include "sdx20-usb.dtsi"

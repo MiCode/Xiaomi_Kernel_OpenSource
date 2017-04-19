@@ -16,6 +16,12 @@
 /* max 20mhz channel count */
 #define CNSS_MAX_CH_NUM		45
 
+struct cnss_cap_tsf_info {
+	int irq_num;
+	void *context;
+	irq_handler_t irq_handler;
+};
+
 struct cnss_dev_platform_ops {
 	int (*request_bus_bandwidth)(int bandwidth);
 	void* (*get_virt_ramdump_mem)(unsigned long *size);
@@ -26,6 +32,9 @@ struct cnss_dev_platform_ops {
 	int (*set_wlan_mac_address)(const u8 *in, uint32_t len);
 	int (*power_up)(struct device *dev);
 	int (*power_down)(struct device *dev);
+	int (*register_tsf_captured_handler)(irq_handler_t handler,
+					     void *adapter);
+	int (*unregister_tsf_captured_handler)(void *adapter);
 };
 
 int cnss_pci_request_bus_bandwidth(int bandwidth);

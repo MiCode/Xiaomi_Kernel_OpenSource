@@ -971,8 +971,8 @@ static void ep_pcie_release_resources(struct ep_pcie_dev_t *dev)
 	dev->msi = NULL;
 
 	if (dev->bus_client) {
-		dev->bus_client = 0;
 		msm_bus_scale_unregister_client(dev->bus_client);
+		dev->bus_client = 0;
 	}
 }
 

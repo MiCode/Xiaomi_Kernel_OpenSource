@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -263,6 +263,12 @@ int emac_phy_config_external(struct platform_device *pdev,
 		emac_err(adpt, "could not find external phy\n");
 		mdiobus_unregister(mii_bus);
 		return -ENODEV;
+	}
+
+	if (!adpt->phydev->phy_id) {
+		emac_err(adpt, "External phy is not up\n");
+		mdiobus_unregister(mii_bus);
+		return -EPROBE_DEFER;
 	}
 
 	if (adpt->phydev->drv) {
