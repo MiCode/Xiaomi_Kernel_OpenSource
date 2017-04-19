@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ */
+
+/dts-v1/;
+
+#include "kona.dtsi"
+#include "kona-cdp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. kona CDP";
+	compatible = "qcom,kona-cdp", "qcom,kona", "qcom,cdp";
+	qcom,board-id = <1 0>;
+};
