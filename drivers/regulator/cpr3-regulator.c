@@ -1382,6 +1382,11 @@ static int cpr3_regulator_init_cprh(struct cpr3_controller *ctrl)
 			(ctrl->use_dynamic_step_quot
 			? CPR4_MARGIN_ADJ_CTL_PER_RO_KV_MARGIN_EN : 0));
 
+	if (ctrl->thread_count > 1)
+		cpr3_masked_write(ctrl, CPR4_REG_CPR_TIMER_CLAMP,
+				  CPR4_CPR_TIMER_CLAMP_THREAD_AGGREGATION_EN,
+				  CPR4_CPR_TIMER_CLAMP_THREAD_AGGREGATION_EN);
+
 	if (ctrl->voltage_settling_time) {
 		/*
 		 * Configure the settling timer used to account for
