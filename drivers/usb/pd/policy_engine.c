@@ -735,6 +735,15 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		break;
 
 	/* Source states */
+	case PE_SRC_DISABLED:
+		/* are we still connected? */
+		if (pd->typec_mode == POWER_SUPPLY_TYPEC_NONE) {
+			pd->current_pr = PR_NONE;
+			kick_sm(pd, 0);
+		}
+
+		break;
+
 	case PE_SRC_STARTUP:
 		if (pd->current_dr == DR_NONE) {
 			pd->current_dr = DR_DFP;
@@ -868,6 +877,10 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 	case PE_SRC_HARD_RESET:
 	case PE_SNK_HARD_RESET:
+		/* are we still connected? */
+		if (pd->typec_mode == POWER_SUPPLY_TYPEC_NONE)
+			pd->current_pr = PR_NONE;
+
 		/* hard reset may sleep; handle it in the workqueue */
 		kick_sm(pd, 0);
 		break;
