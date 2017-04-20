@@ -653,7 +653,7 @@ static ssize_t mdss_fb_get_panel_status(struct device *dev,
 		ret = scnprintf(buf, PAGE_SIZE, "panel_status=%s\n", "suspend");
 	} else {
 		panel_status = mdss_fb_send_panel_event(mfd,
-				MDSS_EVENT_DSI_PANEL_STATUS, NULL);
+				MDSS_EVENT_DSI_PANEL_STATUS, mfd);
 		ret = scnprintf(buf, PAGE_SIZE, "panel_status=%s\n",
 			panel_status > 0 ? "alive" : "dead");
 	}
