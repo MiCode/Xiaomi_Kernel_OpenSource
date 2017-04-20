@@ -1115,8 +1115,7 @@ static int tcs_drv_probe(struct platform_device *pdev)
 	if (irq < 0)
 		return irq;
 
-	ret = devm_request_threaded_irq(&pdev->dev, irq, NULL,
-			tcs_irq_handler,
+	ret = devm_request_irq(&pdev->dev, irq, tcs_irq_handler,
 			IRQF_ONESHOT | IRQF_TRIGGER_HIGH | IRQF_NO_SUSPEND,
 			"tcs_irq", drv);
 	if (ret)
