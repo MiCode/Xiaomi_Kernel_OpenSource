@@ -208,7 +208,10 @@ int cnss_pci_link_down(struct device *dev)
 	spin_unlock_irqrestore(&pci_link_down_lock, flags);
 
 	cnss_pr_err("PCI link down is detected by host driver, schedule recovery!\n");
+
+	cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_NOTIFY_LINK_ERROR);
 	cnss_schedule_recovery(dev, CNSS_REASON_LINK_DOWN);
+
 	return 0;
 }
 EXPORT_SYMBOL(cnss_pci_link_down);
@@ -305,6 +308,7 @@ static void cnss_pci_event_cb(struct msm_pcie_notify *notify)
 		spin_unlock_irqrestore(&pci_link_down_lock, flags);
 
 		cnss_pr_err("PCI link down, schedule recovery!\n");
+		cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_NOTIFY_LINK_ERROR);
 		if (pci_dev->device == QCA6174_DEVICE_ID)
 			disable_irq(pci_dev->irq);
 		cnss_schedule_recovery(&pci_dev->dev, CNSS_REASON_LINK_DOWN);

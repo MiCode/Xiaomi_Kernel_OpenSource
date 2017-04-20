@@ -1282,12 +1282,9 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 		plat_priv->driver_ops->update_status(pci_priv->pci_dev,
 						     CNSS_RECOVERY);
 
-	if (reason == CNSS_REASON_LINK_DOWN) {
-		cnss_pci_set_mhi_state(plat_priv->bus_priv,
-				       CNSS_MHI_NOTIFY_LINK_ERROR);
-		if (test_bit(LINK_DOWN_SELF_RECOVERY, &quirks))
-			goto self_recovery;
-	}
+	if (reason == CNSS_REASON_LINK_DOWN &&
+	    test_bit(LINK_DOWN_SELF_RECOVERY, &quirks))
+		goto self_recovery;
 
 	if (reason != CNSS_REASON_RDDM)
 		goto subsys_restart;
