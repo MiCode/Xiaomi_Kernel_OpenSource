@@ -2056,7 +2056,7 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 			 */
 			mmc_blk_reset_success(md, type);
 
-			mmc_blk_simulate_delay(mq, rqc, waitfor);
+			mmc_blk_simulate_delay(mq, new_req, waitfor);
 
 			req_pending = blk_end_request(old_req, BLK_STS_OK,
 						      brq->data.bytes_xfered);
