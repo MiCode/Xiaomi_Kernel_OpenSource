@@ -736,6 +736,11 @@ static void _sde_hdmi_bridge_mode_set(struct drm_bridge *bridge,
 	_sde_hdmi_bridge_setup_scrambler(hdmi, mode);
 }
 
+void sde_hdmi_bridge_power_on(struct drm_bridge *bridge)
+{
+	_sde_hdmi_bridge_power_on(bridge);
+}
+
 static const struct drm_bridge_funcs _sde_hdmi_bridge_funcs = {
 		.pre_enable = _sde_hdmi_bridge_pre_enable,
 		.enable = _sde_hdmi_bridge_enable,

@@ -598,6 +598,7 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 	struct sde_kms *sde_kms;
 	struct sde_kms_info *info;
 	struct sde_connector *c_conn = NULL;
+	struct sde_splash_info *sinfo;
 	int rc;
 
 	if (!dev || !dev->dev_private || !encoder) {
@@ -750,6 +751,10 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 
 	SDE_DEBUG("connector %d attach encoder %d\n",
 			c_conn->base.base.id, encoder->base.id);
+
+	sinfo = &sde_kms->splash_info;
+	if (sinfo && sinfo->handoff)
+		sde_splash_setup_connector_count(sinfo, connector_type);
 
 	priv->connectors[priv->num_connectors++] = &c_conn->base;
 
