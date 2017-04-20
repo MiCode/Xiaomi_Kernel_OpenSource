@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3674,6 +3674,10 @@ int glink_xprt_name_to_id(const char *name, uint16_t *id)
 {
 	if (!strcmp(name, "smem")) {
 		*id = SMEM_XPRT_ID;
+		return 0;
+	}
+	if (!strcmp(name, "bgcom")) {
+		*id = SPIV2_XPRT_ID;
 		return 0;
 	}
 	if (!strcmp(name, "mailbox")) {
