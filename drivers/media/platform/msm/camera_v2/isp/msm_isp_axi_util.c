@@ -3432,22 +3432,21 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	/*
 	 * If frame_id = 1 then no eof check is needed
 	 */
-	if (vfe_dev->axi_data.src_info[VFE_PIX_0].active &&
-		vfe_dev->axi_data.src_info[VFE_PIX_0].accept_frame == false) {
+	if (vfe_dev->axi_data.src_info[frame_src].active &&
+		frame_src == VFE_PIX_0 &&
+		vfe_dev->axi_data.src_info[frame_src].accept_frame == false) {
 		pr_debug("%s:%d invalid time to request frame %d\n",
 			__func__, __LINE__, frame_id);
 		goto error;
 	}
-	if ((vfe_dev->axi_data.src_info[VFE_PIX_0].active && (frame_id !=
-		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id + vfe_dev->
-		axi_data.src_info[VFE_PIX_0].sof_counter_step)) ||
-		((!vfe_dev->axi_data.src_info[VFE_PIX_0].active) && (frame_id !=
+	if ((vfe_dev->axi_data.src_info[frame_src].active && (frame_id !=
 		vfe_dev->axi_data.src_info[frame_src].frame_id + vfe_dev->
-		axi_data.src_info[frame_src].sof_counter_step))) {
+		axi_data.src_info[VFE_PIX_0].sof_counter_step)) ||
+		((!vfe_dev->axi_data.src_info[frame_src].active))) {
 		pr_debug("%s:%d invalid frame id %d cur frame id %d pix %d\n",
 			__func__, __LINE__, frame_id,
-			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id,
-			vfe_dev->axi_data.src_info[VFE_PIX_0].active);
+			vfe_dev->axi_data.src_info[frame_src].frame_id,
+			vfe_dev->axi_data.src_info[frame_src].active);
 		goto error;
 	}
 	if (stream_info->undelivered_request_cnt >= MAX_BUFFERS_IN_HW) {
