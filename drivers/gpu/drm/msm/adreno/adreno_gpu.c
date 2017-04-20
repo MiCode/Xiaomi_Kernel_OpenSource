@@ -721,7 +721,7 @@ static struct adreno_counter_group *get_counter_group(struct msm_gpu *gpu,
 		return ERR_PTR(-ENODEV);
 
 	if (groupid >= adreno_gpu->nr_counter_groups)
-		return ERR_PTR(-EINVAL);
+		return ERR_PTR(-ENODEV);
 
 	return (struct adreno_counter_group *)
 		adreno_gpu->counter_groups[groupid];
@@ -744,7 +744,7 @@ u64 adreno_read_counter(struct msm_gpu *gpu, u32 groupid, int counterid)
 	struct adreno_counter_group *group =
 		get_counter_group(gpu, groupid);
 
-	if (!IS_ERR(group) && group->funcs.read)
+	if (!IS_ERR_OR_NULL(group) && group->funcs.read)
 		return group->funcs.read(gpu, group, counterid);
 
 	return 0;
@@ -755,6 +755,6 @@ void adreno_put_counter(struct msm_gpu *gpu, u32 groupid, int counterid)
 	struct adreno_counter_group *group =
 		get_counter_group(gpu, groupid);
 
-	if (!IS_ERR(group) && group->funcs.put)
+	if (!IS_ERR_OR_NULL(group) && group->funcs.put)
 		group->funcs.put(gpu, group, counterid);
 }
