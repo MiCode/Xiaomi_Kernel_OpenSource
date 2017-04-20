@@ -6457,7 +6457,6 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	}
 
 	dev_set_drvdata(&msm_pcie_dev[rc_idx].pdev->dev, &msm_pcie_dev[rc_idx]);
-	msm_pcie_sysfs_init(&msm_pcie_dev[rc_idx]);
 
 	ret = msm_pcie_get_resources(&msm_pcie_dev[rc_idx],
 				msm_pcie_dev[rc_idx].pdev);
@@ -6507,6 +6506,8 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		msm_pcie_gpio_deinit(&msm_pcie_dev[rc_idx]);
 		goto decrease_rc_num;
 	}
+
+	msm_pcie_sysfs_init(&msm_pcie_dev[rc_idx]);
 
 	msm_pcie_dev[rc_idx].drv_ready = true;
 
