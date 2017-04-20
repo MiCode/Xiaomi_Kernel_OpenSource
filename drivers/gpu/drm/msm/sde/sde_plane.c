@@ -629,6 +629,55 @@ static void _sde_plane_set_qos_remap(struct drm_plane *plane)
 	sde_vbif_set_qos_remap(sde_kms, &qos_params);
 }
 
+/**
+ * _sde_plane_set_ts_prefill - set prefill with traffic shaper
+ * @plane:	Pointer to drm plane
+ * @pstate:	Pointer to sde plane state
+ */
+static void _sde_plane_set_ts_prefill(struct drm_plane *plane,
+		struct sde_plane_state *pstate)
+{
+	struct sde_plane *psde;
+	struct sde_hw_pipe_ts_cfg cfg;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+
+	if (!plane || !plane->dev) {
+		SDE_ERROR("invalid arguments");
+		return;
+	}
+
+	priv = plane->dev->dev_private;
+	if (!priv || !priv->kms) {
+		SDE_ERROR("invalid KMS reference\n");
+		return;
+	}
+
+	sde_kms = to_sde_kms(priv->kms);
+	psde = to_sde_plane(plane);
+	if (!psde->pipe_hw) {
+		SDE_ERROR("invalid pipe reference\n");
+		return;
+	}
+
+	if (!psde->pipe_hw || !psde->pipe_hw->ops.setup_ts_prefill)
+		return;
+
+	_sde_plane_set_qos_ctrl(plane, false, SDE_PLANE_QOS_VBLANK_AMORTIZE);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.size = sde_plane_get_property(pstate,
+			PLANE_PROP_PREFILL_SIZE);
+	cfg.time = sde_plane_get_property(pstate,
+			PLANE_PROP_PREFILL_TIME);
+
+	SDE_DEBUG("plane%d size:%llu time:%llu\n",
+			plane->base.id, cfg.size, cfg.time);
+	SDE_EVT32(DRMID(plane), cfg.size, cfg.time);
+	psde->pipe_hw->ops.setup_ts_prefill(psde->pipe_hw, &cfg,
+			pstate->multirect_index);
+}
+
 /* helper to update a state's input fence pointer from the property */
 static void _sde_plane_set_input_fence(struct sde_plane *psde,
 		struct sde_plane_state *pstate, uint64_t fd)
@@ -2899,6 +2948,10 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 		case PLANE_PROP_BLEND_OP:
 			/* no special action required */
 			break;
+		case PLANE_PROP_PREFILL_SIZE:
+		case PLANE_PROP_PREFILL_TIME:
+			pstate->dirty |= SDE_PLANE_DIRTY_PERF;
+			break;
 		case PLANE_PROP_ROT_DST_X:
 		case PLANE_PROP_ROT_DST_Y:
 		case PLANE_PROP_ROT_DST_W:
@@ -3090,6 +3143,8 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 	if (plane->type != DRM_PLANE_TYPE_CURSOR) {
 		_sde_plane_set_qos_ctrl(plane, true, SDE_PLANE_QOS_PANIC_CTRL);
 		_sde_plane_set_ot_limit(plane, crtc);
+		if (pstate->dirty & SDE_PLANE_DIRTY_PERF)
+			_sde_plane_set_ts_prefill(plane, pstate);
 	}
 
 	_sde_plane_set_qos_remap(plane);
@@ -3277,6 +3332,13 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	if (psde->pipe_hw->ops.setup_solidfill)
 		msm_property_install_range(&psde->property_info, "color_fill",
 				0, 0, 0xFFFFFFFF, 0, PLANE_PROP_COLOR_FILL);
+
+	msm_property_install_range(&psde->property_info,
+			"prefill_size", 0x0, 0, ~0, 0,
+			PLANE_PROP_PREFILL_SIZE);
+	msm_property_install_range(&psde->property_info,
+			"prefill_time", 0x0, 0, ~0, 0,
+			PLANE_PROP_PREFILL_TIME);
 
 	info = kzalloc(sizeof(struct sde_kms_info), GFP_KERNEL);
 	if (!info) {
