@@ -509,34 +509,22 @@ const struct clk_ops clk_ops_l3_osm = {
 	.set_rate = l3_clk_set_rate,
 };
 
-enum {
-	P_XO,
-};
-
-static const struct parent_map gcc_parent_map_1[] = {
-	{ P_XO, 0 },
-};
-
-static const char * const gcc_parent_names_1[] = {
-	"xo",
-};
-
 static struct clk_init_data osm_clks_init[] = {
 	[0] = {
 		.name = "l3_clk",
-		.parent_names = (const char *[]){ "bi_tcxo" },
+		.parent_names = (const char *[]){ "bi_tcxo_ao" },
 		.num_parents = 1,
 		.ops = &clk_ops_l3_osm,
 	},
 	[1] = {
 		.name = "pwrcl_clk",
-		.parent_names = (const char *[]){ "bi_tcxo" },
+		.parent_names = (const char *[]){ "bi_tcxo_ao" },
 		.num_parents = 1,
 		.ops = &clk_ops_cpu_osm,
 	},
 	[2] = {
 		.name = "perfcl_clk",
-		.parent_names = (const char *[]){ "bi_tcxo" },
+		.parent_names = (const char *[]){ "bi_tcxo_ao" },
 		.num_parents = 1,
 		.ops = &clk_ops_cpu_osm,
 	},
