@@ -3953,6 +3953,12 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 			&update_cmd->req_frm_ver2;
 		stream_info = msm_isp_get_stream_common_data(vfe_dev,
 				HANDLE_TO_IDX(req_frm->stream_handle));
+		if (stream_info == NULL) {
+			pr_err_ratelimited("%s: stream_info is NULL\n",
+				__func__);
+			rc = -EINVAL;
+			break;
+		}
 		rc = msm_isp_request_frame(vfe_dev, stream_info,
 			req_frm->user_stream_id,
 			req_frm->frame_id,
