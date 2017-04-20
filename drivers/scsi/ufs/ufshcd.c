@@ -2344,10 +2344,13 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 
 	/* IO svc time latency histogram */
 	if (hba != NULL && cmd->request != NULL) {
-		if (hba->latency_hist_enabled &&
-		    (cmd->request->cmd_type == REQ_TYPE_FS)) {
-			cmd->request->lat_hist_io_start = ktime_get();
-			cmd->request->lat_hist_enabled = 1;
+		if (hba->latency_hist_enabled) {
+			switch (req_op(cmd->request)) {
+			case REQ_OP_READ:
+			case REQ_OP_WRITE:
+				cmd->request->lat_hist_io_start = ktime_get();
+				cmd->request->lat_hist_enabled = 1;
+			}
 		} else
 			cmd->request->lat_hist_enabled = 0;
 	}
