@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/io.h>
@@ -69,6 +70,7 @@ enum pmic_arb_cmd_op_code {
 struct spmi_pmic_arb_debug {
 	void __iomem		*addr;
 	raw_spinlock_t		lock;
+	struct clk		*clock;
 };
 
 static inline void pmic_arb_debug_write(struct spmi_pmic_arb_debug *pa,
@@ -181,6 +183,12 @@ static int pmic_arb_debug_read_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 	else
 		return -EINVAL;
 
+	rc = clk_prepare_enable(pa->clock);
+	if (rc) {
+		pr_err("%s: failed to enable core clock, rc=%d\n",
+			__func__, rc);
+		return rc;
+	}
 	raw_spin_lock_irqsave(&pa->lock, flags);
 
 	rc = pmic_arb_debug_issue_command(ctrl, opc, sid, addr, len);
@@ -192,6 +200,7 @@ static int pmic_arb_debug_read_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 		buf[i] = pmic_arb_debug_read(pa, PMIC_ARB_DEBUG_RDATA(i));
 done:
 	raw_spin_unlock_irqrestore(&pa->lock, flags);
+	clk_disable_unprepare(pa->clock);
 
 	return rc;
 }
@@ -221,6 +230,12 @@ static int pmic_arb_debug_write_cmd(struct spmi_controller *ctrl, u8 opc,
 	else
 		return -EINVAL;
 
+	rc = clk_prepare_enable(pa->clock);
+	if (rc) {
+		pr_err("%s: failed to enable core clock, rc=%d\n",
+			__func__, rc);
+		return rc;
+	}
 	raw_spin_lock_irqsave(&pa->lock, flags);
 
 	/* Write data to FIFO */
@@ -230,6 +245,7 @@ static int pmic_arb_debug_write_cmd(struct spmi_controller *ctrl, u8 opc,
 	rc = pmic_arb_debug_issue_command(ctrl, opc, sid, addr, len);
 
 	raw_spin_unlock_irqrestore(&pa->lock, flags);
+	clk_disable_unprepare(pa->clock);
 
 	return rc;
 }
@@ -291,6 +307,17 @@ static int spmi_pmic_arb_debug_probe(struct platform_device *pdev)
 	if (IS_ERR(pa->addr)) {
 		rc = PTR_ERR(pa->addr);
 		goto err_put_ctrl;
+	}
+
+	if (of_find_property(pdev->dev.of_node, "clock-names", NULL)) {
+		pa->clock = devm_clk_get(&pdev->dev, "core_clk");
+		if (IS_ERR(pa->clock)) {
+			rc = PTR_ERR(pa->clock);
+			if (rc != -EPROBE_DEFER)
+				dev_err(&pdev->dev, "unable to request core clock, rc=%d\n",
+					rc);
+			goto err_put_ctrl;
+		}
 	}
 
 	platform_set_drvdata(pdev, ctrl);
