@@ -389,7 +389,7 @@ static int qcom_llcc_erp_probe(struct platform_device *pdev)
 		}
 
 		rc = devm_request_irq(dev, drv->ecc_irq, llcc_ecc_irq_handler,
-				IRQF_TRIGGER_RISING, "llcc_ecc", edev_ctl);
+				IRQF_TRIGGER_HIGH, "llcc_ecc", edev_ctl);
 		if (rc) {
 			dev_err(dev, "failed to request ecc irq\n");
 			goto out;
