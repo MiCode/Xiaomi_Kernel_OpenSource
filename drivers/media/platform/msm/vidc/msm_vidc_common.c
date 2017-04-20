@@ -5351,21 +5351,18 @@ int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 		goto exit;
 	}
 
-	if (inst->prop.fps != fps) {
-		dprintk(VIDC_PROF, "reported fps changed for %pK: %d->%d\n",
-				inst, inst->prop.fps, fps);
-		inst->prop.fps = fps;
+	dprintk(VIDC_PROF, "reported fps changed for %pK: %d->%d\n",
+			inst, inst->prop.fps, fps);
+	inst->prop.fps = fps;
+	if (inst->session_type == MSM_VIDC_ENCODER) {
 		frame_rate.frame_rate = inst->prop.fps * BIT(16);
 		frame_rate.buffer_type = HAL_BUFFER_OUTPUT;
 		pdata = &frame_rate;
-		if (inst->session_type == MSM_VIDC_ENCODER) {
-			rc = call_hfi_op(hdev, session_set_property,
-				inst->session, property_id, pdata);
-
-			if (rc)
-				dprintk(VIDC_WARN,
-					"Failed to set frame rate %d\n", rc);
-		}
+		rc = call_hfi_op(hdev, session_set_property,
+			inst->session, property_id, pdata);
+		if (rc)
+			dprintk(VIDC_WARN,
+				"Failed to set frame rate %d\n", rc);
 	}
 exit:
 	return rc;

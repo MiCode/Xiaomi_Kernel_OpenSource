@@ -1394,12 +1394,6 @@ static int __iface_dbgq_read(struct venus_hfi_device *device, void *pkt)
 
 	__strict_check(device);
 
-	if (!__core_in_valid_state(device)) {
-		dprintk(VIDC_DBG, "%s - fw not in init state\n", __func__);
-		rc = -EINVAL;
-		goto dbg_error_null;
-	}
-
 	if (device->iface_queues[VIDC_IFACEQ_DBGQ_IDX].
 		q_array.align_virtual_addr == 0) {
 		dprintk(VIDC_ERR, "cannot read from shared DBG Q's\n");

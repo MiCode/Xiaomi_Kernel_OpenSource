@@ -300,8 +300,8 @@ static int hfi_process_session_error(u32 device_id,
 	cmd_done.device_id = device_id;
 	cmd_done.session_id = (void *)(uintptr_t)pkt->session_id;
 	cmd_done.status = hfi_map_err_status(pkt->event_data1);
-	dprintk(VIDC_INFO, "Received: SESSION_ERROR with event id : %d\n",
-		pkt->event_data1);
+	dprintk(VIDC_INFO, "Received: SESSION_ERROR with event id : %#x %#x\n",
+		pkt->event_data1, pkt->event_data2);
 	switch (pkt->event_data1) {
 	case HFI_ERR_SESSION_INVALID_SCALE_FACTOR:
 	case HFI_ERR_SESSION_UNSUPPORT_BUFFERTYPE:
@@ -313,7 +313,9 @@ static int hfi_process_session_error(u32 device_id,
 		info->response.cmd = cmd_done;
 		return 0;
 	default:
-		dprintk(VIDC_ERR, "HFI_EVENT_SESSION_ERROR\n");
+		dprintk(VIDC_ERR,
+			"HFI_EVENT_SESSION_ERROR: data1 %#x, data2 %#x\n",
+			pkt->event_data1, pkt->event_data2);
 		info->response_type = HAL_SESSION_ERROR;
 		info->response.cmd = cmd_done;
 		return 0;
