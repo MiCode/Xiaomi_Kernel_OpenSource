@@ -1265,7 +1265,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	{
 		property_id = HAL_CONFIG_VENC_TARGET_BITRATE;
 		bitrate.bit_rate = ctrl->val;
-		bitrate.layer_id = MSM_VIDC_ALL_LAYER_ID;
+		bitrate.layer_id = 0;
 		pdata = &bitrate;
 		inst->bitrate = ctrl->val;
 		break;
