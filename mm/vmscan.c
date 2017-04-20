@@ -391,6 +391,35 @@ static unsigned long do_shrink_slab(struct shrink_control *shrinkctl,
 	return freed;
 }
 
+static void shrink_slab_lmk(gfp_t gfp_mask, int nid,
+				 struct mem_cgroup *memcg,
+				 unsigned long nr_scanned,
+				 unsigned long nr_eligible)
+{
+	struct shrinker *shrinker;
+
+	if (nr_scanned == 0)
+		nr_scanned = SWAP_CLUSTER_MAX;
+
+	if (!down_read_trylock(&shrinker_rwsem))
+		goto out;
+
+	list_for_each_entry(shrinker, &shrinker_list, list) {
+		struct shrink_control sc = {
+			.gfp_mask = gfp_mask,
+		};
+
+		if (!(shrinker->flags & SHRINKER_LMK))
+			continue;
+
+		do_shrink_slab(&sc, shrinker, nr_scanned, nr_eligible);
+	}
+
+	up_read(&shrinker_rwsem);
+out:
+	cond_resched();
+}
+
 /**
  * shrink_slab - shrink slab caches
  * @gfp_mask: allocation context
@@ -451,6 +480,9 @@ static unsigned long shrink_slab(gfp_t gfp_mask, int nid,
 			.nid = nid,
 			.memcg = memcg,
 		};
+
+		if (shrinker->flags & SHRINKER_LMK)
+			continue;
 
 		if (memcg && !(shrinker->flags & SHRINKER_MEMCG_AWARE))
 			continue;
@@ -2637,6 +2669,7 @@ static bool shrink_zones(struct zonelist *zonelist, struct scan_control *sc)
 	gfp_t orig_mask;
 	enum zone_type requested_highidx = gfp_zone(sc->gfp_mask);
 	bool reclaimable = false;
+	unsigned long lru_pages = 0;
 
 	/*
 	 * If the number of buffer_heads in the machine exceeds the maximum
@@ -2664,6 +2697,7 @@ static bool shrink_zones(struct zonelist *zonelist, struct scan_control *sc)
 		 * to global LRU.
 		 */
 		if (global_reclaim(sc)) {
+			lru_pages += zone_reclaimable_pages(zone);
 			if (!cpuset_zone_allowed(zone,
 						 GFP_KERNEL | __GFP_HARDWALL))
 				continue;
@@ -2714,6 +2748,9 @@ static bool shrink_zones(struct zonelist *zonelist, struct scan_control *sc)
 			reclaimable = true;
 	}
 
+	if (global_reclaim(sc))
+		shrink_slab_lmk(sc->gfp_mask, 0, NULL,
+				sc->nr_scanned, lru_pages);
 	/*
 	 * Restore to original mask to avoid the impact on the caller if we
 	 * promoted it to __GFP_HIGHMEM.
@@ -3190,7 +3227,8 @@ static bool prepare_kswapd_sleep(pg_data_t *pgdat, int order, long remaining,
  */
 static bool kswapd_shrink_zone(struct zone *zone,
 			       int classzone_idx,
-			       struct scan_control *sc)
+			       struct scan_control *sc,
+				unsigned long lru_pages)
 {
 	unsigned long balance_gap;
 	bool lowmem_pressure;
@@ -3217,6 +3255,8 @@ static bool kswapd_shrink_zone(struct zone *zone,
 		return true;
 
 	shrink_zone(zone, sc, zone_idx(zone) == classzone_idx);
+	shrink_slab_lmk(sc->gfp_mask, zone_to_nid(zone), NULL,
+			sc->nr_scanned, lru_pages);
 
 	clear_bit(ZONE_WRITEBACK, &zone->flags);
 
@@ -3274,6 +3314,7 @@ static int balance_pgdat(pg_data_t *pgdat, int order, int classzone_idx)
 
 	do {
 		bool raise_priority = true;
+		unsigned long lru_pages = 0;
 
 		sc.nr_reclaimed = 0;
 
@@ -3331,6 +3372,15 @@ static int balance_pgdat(pg_data_t *pgdat, int order, int classzone_idx)
 		if (sc.priority < DEF_PRIORITY - 2)
 			sc.may_writepage = 1;
 
+		for (i = 0; i <= end_zone; i++) {
+			struct zone *zone = pgdat->node_zones + i;
+
+			if (!populated_zone(zone))
+				continue;
+
+			lru_pages += zone_reclaimable_pages(zone);
+		}
+
 		/*
 		 * Now scan the zone in the dma->highmem direction, stopping
 		 * at the last zone which needs scanning.
@@ -3367,7 +3417,7 @@ static int balance_pgdat(pg_data_t *pgdat, int order, int classzone_idx)
 			 * that that high watermark would be met at 100%
 			 * efficiency.
 			 */
-			if (kswapd_shrink_zone(zone, end_zone, &sc))
+			if (kswapd_shrink_zone(zone, end_zone, &sc, lru_pages))
 				raise_priority = false;
 		}
 
