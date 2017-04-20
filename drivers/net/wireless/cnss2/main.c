@@ -506,19 +506,18 @@ out:
 
 static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 {
-	struct cnss_pci_data *pci_priv;
 	int ret = 0;
 
 	if (!plat_priv)
 		return -ENODEV;
 
-	del_timer(&plat_priv->fw_ready_timer);
-
+	del_timer(&plat_priv->fw_boot_timer);
 	set_bit(CNSS_FW_READY, &plat_priv->driver_state);
 
-	pci_priv = plat_priv->bus_priv;
-	if (!pci_priv)
-		return -ENODEV;
+	if (test_bit(CNSS_FW_BOOT_RECOVERY, &plat_priv->driver_state)) {
+		clear_bit(CNSS_FW_BOOT_RECOVERY, &plat_priv->driver_state);
+		clear_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state);
+	}
 
 	if (enable_waltest) {
 		ret = cnss_wlfw_wlan_mode_send_sync(plat_priv,
@@ -536,8 +535,8 @@ static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 	return 0;
 
 shutdown:
-	cnss_pci_stop_mhi(pci_priv);
-	cnss_suspend_pci_link(pci_priv);
+	cnss_pci_stop_mhi(plat_priv->bus_priv);
+	cnss_suspend_pci_link(plat_priv->bus_priv);
 	cnss_power_off_device(plat_priv);
 
 	return ret;
@@ -963,10 +962,16 @@ static int cnss_qca6290_powerup(struct cnss_plat_data *plat_priv)
 		goto power_off;
 	}
 
+	timeout = cnss_get_qmi_timeout();
+
 	ret = cnss_pci_start_mhi(pci_priv);
 	if (ret) {
 		cnss_pr_err("Failed to start MHI, err = %d\n", ret);
-		goto suspend_link;
+		if (!test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state) &&
+		    !pci_priv->pci_link_down_ind && timeout)
+			mod_timer(&plat_priv->fw_boot_timer,
+				  jiffies + msecs_to_jiffies(timeout >> 1));
+		return 0;
 	}
 
 	cnss_set_pin_connect_status(plat_priv);
@@ -975,19 +980,15 @@ static int cnss_qca6290_powerup(struct cnss_plat_data *plat_priv)
 		ret = cnss_driver_call_probe(plat_priv);
 		if (ret)
 			goto stop_mhi;
-	} else {
-		timeout = cnss_get_qmi_timeout();
-		cnss_pr_dbg("QMI timeout is %u ms\n", timeout);
-		if (timeout)
-			mod_timer(&plat_priv->fw_ready_timer,
-				  jiffies + msecs_to_jiffies(timeout << 1));
+	} else if (timeout) {
+		mod_timer(&plat_priv->fw_boot_timer,
+			  jiffies + msecs_to_jiffies(timeout << 1));
 	}
 
 	return 0;
 
 stop_mhi:
 	cnss_pci_stop_mhi(pci_priv);
-suspend_link:
 	cnss_suspend_pci_link(pci_priv);
 power_off:
 	cnss_power_off_device(plat_priv);
@@ -1003,7 +1004,8 @@ static int cnss_qca6290_shutdown(struct cnss_plat_data *plat_priv)
 	if (!pci_priv)
 		return -ENODEV;
 
-	if (test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state))
+	if (test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state) ||
+	    test_bit(CNSS_FW_BOOT_RECOVERY, &plat_priv->driver_state))
 		goto skip_driver_remove;
 
 	if (!plat_priv->driver_ops)
@@ -1274,22 +1276,28 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 		plat_priv->driver_ops->update_status(pci_priv->pci_dev,
 						     CNSS_RECOVERY);
 
-	if (reason == CNSS_REASON_LINK_DOWN &&
-	    test_bit(LINK_DOWN_SELF_RECOVERY, &quirks))
-		goto self_recovery;
-
-	if (reason != CNSS_REASON_RDDM)
-		goto subsys_restart;
-
-	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RDDM);
-	if (ret) {
-		cnss_pr_err("Fail to complete RDDM, err = %d\n", ret);
-		goto subsys_restart;
+	switch (reason) {
+	case CNSS_REASON_LINK_DOWN:
+		if (test_bit(LINK_DOWN_SELF_RECOVERY, &quirks))
+			goto self_recovery;
+		break;
+	case CNSS_REASON_RDDM:
+		clear_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state);
+		ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_RDDM);
+		if (ret) {
+			cnss_pr_err("Failed to complete RDDM, err = %d\n", ret);
+			break;
+		}
+		cnss_pci_collect_dump_info(pci_priv);
+		break;
+	case CNSS_REASON_DEFAULT:
+	case CNSS_REASON_TIMEOUT:
+		break;
+	default:
+		cnss_pr_err("Unsupported recovery reason (%d)\n", reason);
+		break;
 	}
 
-	cnss_pci_collect_dump_info(pci_priv);
-
-subsys_restart:
 	if (!subsys_info->subsys_device)
 		return 0;
 
@@ -1320,15 +1328,34 @@ static int cnss_driver_recovery_hdlr(struct cnss_plat_data *plat_priv,
 		goto out;
 	}
 
-	if (test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
-	    test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
-		cnss_pr_err("Driver load or unload is in progress!\n");
+	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
+		cnss_pr_err("Driver unload is in progress, ignore recovery\n");
 		ret = -EINVAL;
 		goto out;
 	}
 
-	set_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state);
+	switch (plat_priv->device_id) {
+	case QCA6174_DEVICE_ID:
+		if (test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state)) {
+			cnss_pr_err("Driver load is in progress, ignore recovery\n");
+			ret = -EINVAL;
+			goto out;
+		}
+		break;
+	default:
+		if (!test_bit(CNSS_FW_READY, &plat_priv->driver_state)) {
+			set_bit(CNSS_FW_BOOT_RECOVERY,
+				&plat_priv->driver_state);
+		} else if (test_bit(CNSS_DRIVER_LOADING,
+			   &plat_priv->driver_state)) {
+			cnss_pr_err("Driver probe is in progress, ignore recovery\n");
+			ret = -EINVAL;
+			goto out;
+		}
+		break;
+	}
 
+	set_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state);
 	ret = cnss_do_recovery(plat_priv, recovery_data->reason);
 
 out:
@@ -1365,16 +1392,15 @@ void cnss_schedule_recovery(struct device *dev,
 }
 EXPORT_SYMBOL(cnss_schedule_recovery);
 
-void fw_ready_timeout(unsigned long data)
+void fw_boot_timeout(unsigned long data)
 {
 	struct cnss_plat_data *plat_priv = (struct cnss_plat_data *)data;
 	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
 
 	cnss_pr_err("Timeout waiting for FW ready indication!\n");
 
-	cnss_pci_stop_mhi(pci_priv);
-	cnss_suspend_pci_link(pci_priv);
-	cnss_power_off_device(plat_priv);
+	cnss_schedule_recovery(&pci_priv->pci_dev->dev,
+			       CNSS_REASON_TIMEOUT);
 }
 
 static int cnss_register_driver_hdlr(struct cnss_plat_data *plat_priv,
@@ -1983,8 +2009,8 @@ static int cnss_probe(struct platform_device *plat_dev)
 	if (ret)
 		goto deinit_qmi;
 
-	setup_timer(&plat_priv->fw_ready_timer,
-		    fw_ready_timeout, (unsigned long)plat_priv);
+	setup_timer(&plat_priv->fw_boot_timer,
+		    fw_boot_timeout, (unsigned long)plat_priv);
 
 	register_pm_notifier(&cnss_pm_notifier);
 
@@ -2020,6 +2046,7 @@ static int cnss_remove(struct platform_device *plat_dev)
 	struct cnss_plat_data *plat_priv = platform_get_drvdata(plat_dev);
 
 	unregister_pm_notifier(&cnss_pm_notifier);
+	del_timer(&plat_priv->fw_boot_timer);
 	cnss_debugfs_destroy(plat_priv);
 	cnss_qmi_deinit(plat_priv);
 	cnss_event_work_deinit(plat_priv);
