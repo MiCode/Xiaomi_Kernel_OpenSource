@@ -741,6 +741,76 @@ static void sde_hw_rotator_unmap_vaddr(struct sde_dbg_buf *dbgbuf)
 }
 
 /*
+ * sde_hw_rotator_vbif_setting - helper function to set vbif QoS remapper
+ * levels, enable write gather enable and avoid clk gating setting for
+ * debug purpose.
+ *
+ * @rot: Pointer to rotator hw
+ */
+static void sde_hw_rotator_vbif_setting(struct sde_hw_rotator *rot)
+{
+	u32 i, mask, vbif_qos, reg_val = 0;
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+
+	/* VBIF_ROT QoS remapper setting */
+	switch (mdata->npriority_lvl) {
+
+	case SDE_MDP_VBIF_4_LEVEL_REMAPPER:
+		for (i = 0; i < mdata->npriority_lvl; i++) {
+			reg_val = SDE_VBIF_READ(mdata,
+					MMSS_VBIF_NRT_VBIF_QOS_REMAP_00 + i*4);
+			mask = 0x3 << (XIN_SSPP * 2);
+			vbif_qos = mdata->vbif_nrt_qos[i];
+			reg_val |= vbif_qos << (XIN_SSPP * 2);
+			/* ensure write is issued after the read operation */
+			mb();
+			SDE_VBIF_WRITE(mdata,
+					MMSS_VBIF_NRT_VBIF_QOS_REMAP_00 + i*4,
+					reg_val);
+		}
+		break;
+
+	case SDE_MDP_VBIF_8_LEVEL_REMAPPER:
+		mask = mdata->npriority_lvl - 1;
+		for (i = 0; i < mdata->npriority_lvl; i++) {
+			/* RD and WR client */
+			reg_val |= (mdata->vbif_nrt_qos[i] & mask)
+							<< (XIN_SSPP * 4);
+			reg_val |= (mdata->vbif_nrt_qos[i] & mask)
+							<< (XIN_WRITEBACK * 4);
+
+			SDE_VBIF_WRITE(mdata,
+				MMSS_VBIF_NRT_VBIF_QOS_RP_REMAP_000 + i*8,
+				reg_val);
+			SDE_VBIF_WRITE(mdata,
+				MMSS_VBIF_NRT_VBIF_QOS_LVL_REMAP_000 + i*8,
+				reg_val);
+		}
+		break;
+
+	default:
+		SDEROT_DBG("invalid vbif remapper levels\n");
+	}
+
+	/* Enable write gather for writeback to remove write gaps, which
+	 * may hang AXI/BIMC/SDE.
+	 */
+	SDE_VBIF_WRITE(mdata, MMSS_VBIF_NRT_VBIF_WRITE_GATHTER_EN,
+			BIT(XIN_WRITEBACK));
+
+	/*
+	 * For debug purpose, disable clock gating, i.e. Clocks always on
+	 */
+	if (mdata->clk_always_on) {
+		SDE_VBIF_WRITE(mdata, MMSS_VBIF_CLKON, 0x3);
+		SDE_VBIF_WRITE(mdata, MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL0, 0x3);
+		SDE_VBIF_WRITE(mdata, MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL1,
+				0xFFFF);
+		SDE_ROTREG_WRITE(rot->mdss_base, ROTTOP_CLK_CTRL, 1);
+	}
+}
+
+/*
  * sde_hw_rotator_setup_timestamp_packet - setup timestamp writeback command
  * @ctx: Pointer to rotator context
  * @mask: Bit mask location of the timestamp
@@ -2195,40 +2265,8 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 		SDE_ROTREG_WRITE(rot->mdss_base, ROT_WB_CDP_CNTL, 0x0);
 	}
 
-	if (mdata->npriority_lvl > 0) {
-		u32 mask, reg_val, i, vbif_qos;
-
-		for (i = 0; i < mdata->npriority_lvl; i++) {
-			reg_val = SDE_VBIF_READ(mdata,
-					MMSS_VBIF_NRT_VBIF_QOS_REMAP_00 + i*4);
-			mask = 0x3 << (XIN_SSPP * 2);
-			reg_val &= ~(mask);
-			vbif_qos = mdata->vbif_nrt_qos[i];
-			reg_val |= vbif_qos << (XIN_SSPP * 2);
-			/* ensure write is issued after the read operation */
-			mb();
-			SDE_VBIF_WRITE(mdata,
-					MMSS_VBIF_NRT_VBIF_QOS_REMAP_00 + i*4,
-					reg_val);
-		}
-	}
-
-	/* Enable write gather for writeback to remove write gaps, which
-	 * may hang AXI/BIMC/SDE.
-	 */
-	SDE_VBIF_WRITE(mdata, MMSS_VBIF_NRT_VBIF_WRITE_GATHTER_EN,
-			BIT(XIN_WRITEBACK));
-
-	/*
-	 * For debug purpose, disable clock gating, i.e. Clocks always on
-	 */
-	if (mdata->clk_always_on) {
-		SDE_VBIF_WRITE(mdata, MMSS_VBIF_CLKON, 0x3);
-		SDE_VBIF_WRITE(mdata, MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL0, 0x3);
-		SDE_VBIF_WRITE(mdata, MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL1,
-				0xFFFF);
-		SDE_ROTREG_WRITE(rot->mdss_base, ROTTOP_CLK_CTRL, 1);
-	}
+	/* VBIF QoS and other settings */
+	sde_hw_rotator_vbif_setting(rot);
 
 	return 0;
 
