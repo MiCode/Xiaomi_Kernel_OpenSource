@@ -5819,9 +5819,10 @@ static int msm_pcie_map_qgic_addr(struct msm_pcie_dev_t *dev,
 					struct msi_msg *msg)
 {
 	struct iommu_domain *domain = iommu_get_domain_for_dev(&pdev->dev);
-	int ret, bypass_en = 0;
+	struct iommu_domain_geometry geometry;
+	int ret, fastmap_en = 0, bypass_en = 0;
 	dma_addr_t iova;
-	phys_addr_t pcie_base_addr, gicm_db_offset;
+	phys_addr_t gicm_db_offset;
 
 	msg->address_hi = 0;
 	msg->address_lo = dev->msi_gicm_addr;
@@ -5843,16 +5844,25 @@ static int msm_pcie_map_qgic_addr(struct msm_pcie_dev_t *dev,
 	if (bypass_en)
 		return 0;
 
-	gicm_db_offset = dev->msi_gicm_addr -
-		rounddown(dev->msi_gicm_addr, PAGE_SIZE);
-	/*
-	 * Use PCIe DBI address as the IOVA since client cannot
-	 * use this address for their IOMMU mapping. This will
-	 * prevent any conflicts between PCIe host and
-	 * client's mapping.
-	 */
-	pcie_base_addr = dev->res[MSM_PCIE_RES_DM_CORE].resource->start;
-	iova = rounddown(pcie_base_addr, PAGE_SIZE);
+	iommu_domain_get_attr(domain, DOMAIN_ATTR_FAST, &fastmap_en);
+	if (fastmap_en) {
+		iommu_domain_get_attr(domain, DOMAIN_ATTR_GEOMETRY, &geometry);
+		iova = geometry.aperture_start;
+		PCIE_DBG(dev,
+			"PCIe: RC%d: Use client's IOVA 0x%llx to map QGIC MSI address\n",
+			dev->rc_idx, iova);
+	} else {
+		phys_addr_t pcie_base_addr;
+
+		/*
+		 * Use PCIe DBI address as the IOVA since client cannot
+		 * use this address for their IOMMU mapping. This will
+		 * prevent any conflicts between PCIe host and
+		 * client's mapping.
+		 */
+		pcie_base_addr = dev->res[MSM_PCIE_RES_DM_CORE].resource->start;
+		iova = rounddown(pcie_base_addr, PAGE_SIZE);
+	}
 
 	ret = iommu_map(domain, iova, rounddown(dev->msi_gicm_addr, PAGE_SIZE),
 			PAGE_SIZE, IOMMU_READ | IOMMU_WRITE);
@@ -5863,6 +5873,8 @@ static int msm_pcie_map_qgic_addr(struct msm_pcie_dev_t *dev,
 		return -ENOMEM;
 	}
 
+	gicm_db_offset = dev->msi_gicm_addr -
+		rounddown(dev->msi_gicm_addr, PAGE_SIZE);
 	msg->address_lo = iova + gicm_db_offset;
 
 	return 0;
