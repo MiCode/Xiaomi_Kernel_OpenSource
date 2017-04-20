@@ -1512,8 +1512,14 @@ exit_loop:
 
 	pr_debug("end\n");
 
-	/* Send a connect notification */
-	if (!mdss_dp_is_phy_test_pattern_requested(dp_drv))
+	/*
+	 * Send a connect notification to clients except when processing link
+	 * training and electrical compliance tests. There is no need to send
+	 * a notification in these testing use cases as there is no
+	 * expectation of receiving a video signal as part of the test.
+	 */
+	if (!mdss_dp_is_phy_test_pattern_requested(dp_drv) &&
+		!mdss_dp_is_link_training_requested(dp_drv))
 		mdss_dp_notify_clients(dp_drv, NOTIFY_CONNECT_IRQ_HPD);
 
 	return ret;
@@ -1609,6 +1615,14 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 			panel_data);
 
 	if (dp_drv->power_on) {
+		/*
+		 * Acknowledge the connection event if link training has already
+		 * been done. This will unblock the external display thread and
+		 * allow the driver to progress. For example, in the case of
+		 * video test pattern requests, to send the test response and
+		 * start transmitting the test pattern.
+		 */
+		mdss_dp_ack_state(dp_drv, true);
 		pr_debug("Link already setup, return\n");
 		return 0;
 	}
