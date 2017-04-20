@@ -447,7 +447,7 @@ struct kgsl_sync_fence_cb *kgsl_sync_fence_async_wait(int fd,
 
 	if (status) {
 		kfree(kcb);
-		if (fence_is_signaled(fence))
+		if (!fence_is_signaled(fence))
 			kcb = ERR_PTR(status);
 		else
 			kcb = NULL;
