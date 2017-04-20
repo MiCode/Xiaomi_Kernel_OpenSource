@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -760,5 +760,6 @@ int emac_clk_set_rate(struct emac_adapter *adpt, enum emac_clk_id id,
 		      enum emac_clk_rate rate);
 void emac_task_schedule(struct emac_adapter *adpt);
 void emac_check_lsc(struct emac_adapter *adpt);
+void emac_wol_gpio_irq(struct emac_adapter *adpt, bool enable);
 
 #endif /* _QCOM_EMAC_H_ */
