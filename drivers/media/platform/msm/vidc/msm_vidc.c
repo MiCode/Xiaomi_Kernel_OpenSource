@@ -1428,18 +1428,9 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	 * - v4l2 client issues CONTINUE to firmware to resume decoding of
 	 *   submitted ETBs.
 	 */
-	if (inst->in_reconfig) {
-		dprintk(VIDC_DBG, "send session_continue after reconfig\n");
-		rc = call_hfi_op(hdev, session_continue,
-				(void *) inst->session);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"%s - failed to send session_continue\n",
-				__func__);
-			goto fail_start;
-		}
-	}
-	inst->in_reconfig = false;
+	rc = msm_comm_session_continue(inst);
+	if (rc)
+		goto fail_start;
 
 	msm_comm_scale_clocks_and_bus(inst);
 

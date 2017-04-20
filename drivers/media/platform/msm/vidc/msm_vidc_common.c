@@ -1361,7 +1361,7 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 
 	switch (event_notify->hal_event_type) {
 	case HAL_EVENT_SEQ_CHANGED_SUFFICIENT_RESOURCES:
-		event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
+		event = V4L2_EVENT_SEQ_CHANGED_SUFFICIENT;
 		break;
 	case HAL_EVENT_SEQ_CHANGED_INSUFFICIENT_RESOURCES:
 		event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
@@ -1434,18 +1434,17 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	}
 
 	/* Bit depth and pic struct changed event are combined into a single
-	 * event (insufficient event) for the userspace. Currently bitdepth
-	 * changes is only for HEVC and interlaced support is for all
-	 * codecs except HEVC
-	 * event data is now as follows:
-	 * u32 *ptr = seq_changed_event.u.data;
-	 * ptr[0] = height
-	 * ptr[1] = width
-	 * ptr[2] = flag to indicate bit depth or/and pic struct changed
-	 * ptr[3] = bit depth
-	 * ptr[4] = pic struct (progressive or interlaced)
-	 * ptr[5] = colour space
-	 */
+	* event (insufficient event) for the userspace. Currently bitdepth
+	* changes is only for HEVC and interlaced support is for all
+	* codecs except HEVC
+	* event data is now as follows:
+	* u32 *ptr = seq_changed_event.u.data;
+	* ptr[0] = height
+	* ptr[1] = width
+	* ptr[2] = bit depth
+	* ptr[3] = pic struct (progressive or interlaced)
+	* ptr[4] = colour space
+	*/
 
 	inst->entropy_mode = msm_comm_hal_to_v4l2(
 		V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE,
@@ -1458,55 +1457,35 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 			event_notify->level);
 
 	ptr = (u32 *)seq_changed_event.u.data;
+	ptr[0] = event_notify->height;
+	ptr[1] = event_notify->width;
+	ptr[2] = event_notify->bit_depth;
+	ptr[3] = event_notify->pic_struct;
+	ptr[4] = event_notify->colour_space;
 
-	if (ptr != NULL) {
-		ptr[2] = 0x0;
-		ptr[3] = inst->bit_depth;
-		ptr[4] = inst->pic_struct;
-		ptr[5] = inst->colour_space;
+	dprintk(VIDC_DBG,
+		"Event payload: height = %d width = %d\n",
+		event_notify->height, event_notify->width);
 
-		if (inst->bit_depth != event_notify->bit_depth) {
-			inst->bit_depth = event_notify->bit_depth;
-			ptr[2] |= V4L2_EVENT_BITDEPTH_FLAG;
-			ptr[3] = inst->bit_depth;
-			event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
-			dprintk(VIDC_DBG,
-				"V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT due to bit-depth change\n");
-		}
+	dprintk(VIDC_DBG,
+		"Event payload: bit_depth = %d pic_struct = %d colour_space = %d\n",
+		event_notify->bit_depth, event_notify->pic_struct,
+			event_notify->colour_space);
 
-		if (inst->pic_struct != event_notify->pic_struct) {
-			inst->pic_struct = event_notify->pic_struct;
-			event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
-			ptr[2] |= V4L2_EVENT_PICSTRUCT_FLAG;
-			ptr[4] = inst->pic_struct;
-			dprintk(VIDC_DBG,
-				"V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT due to pic-struct change\n");
-		}
-
-		if (inst->bit_depth == MSM_VIDC_BIT_DEPTH_10
-				&& inst->colour_space !=
-					event_notify->colour_space) {
-			inst->colour_space = event_notify->colour_space;
-			event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
-			ptr[2] |= V4L2_EVENT_COLOUR_SPACE_FLAG;
-			ptr[5] = inst->colour_space;
-			dprintk(VIDC_DBG,
-				"V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT due to colour space change\n");
-		}
-
-	}
+	mutex_lock(&inst->lock);
+	inst->in_reconfig = true;
+	inst->reconfig_height = event_notify->height;
+	inst->reconfig_width = event_notify->width;
+	mutex_unlock(&inst->lock);
 
 	if (event == V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT) {
 		dprintk(VIDC_DBG, "V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT\n");
-		inst->reconfig_height = event_notify->height;
-		inst->reconfig_width = event_notify->width;
-		inst->in_reconfig = true;
 	} else {
 		dprintk(VIDC_DBG, "V4L2_EVENT_SEQ_CHANGED_SUFFICIENT\n");
 		dprintk(VIDC_DBG,
-			"event_notify->height = %d event_notify->width = %d\n",
-			event_notify->height,
-			event_notify->width);
+				"event_notify->height = %d event_notify->width = %d\n",
+				event_notify->height,
+				event_notify->width);
 		inst->prop.height[OUTPUT_PORT] = event_notify->height;
 		inst->prop.width[OUTPUT_PORT] = event_notify->width;
 	}
@@ -1514,13 +1493,6 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	rc = msm_vidc_check_session_supported(inst);
 	if (!rc) {
 		seq_changed_event.type = event;
-		if (event == V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT) {
-			u32 *ptr = NULL;
-
-			ptr = (u32 *)seq_changed_event.u.data;
-			ptr[0] = event_notify->height;
-			ptr[1] = event_notify->width;
-		}
 		v4l2_event_queue_fh(&inst->event_handler, &seq_changed_event);
 	} else if (rc == -ENOTSUPP) {
 		msm_vidc_queue_v4l2_event(inst,
@@ -3651,6 +3623,11 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 		}
 		break;
 	}
+	case V4L2_QCOM_CMD_SESSION_CONTINUE:
+	{
+		rc = msm_comm_session_continue(inst);
+		break;
+	}
 	default:
 		dprintk(VIDC_ERR, "Unknown Command %d\n", which_cmd);
 		rc = -ENOTSUPP;
@@ -5461,4 +5438,37 @@ static void msm_comm_print_debug_info(struct msm_vidc_inst *inst)
 		msm_comm_print_inst_info(temp);
 	}
 	mutex_unlock(&core->lock);
+}
+
+int msm_comm_session_continue(void *instance)
+{
+	struct msm_vidc_inst *inst = instance;
+	int rc = 0;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device)
+		return -EINVAL;
+	hdev = inst->core->device;
+	mutex_lock(&inst->lock);
+	if (inst->session_type == MSM_VIDC_DECODER && inst->in_reconfig) {
+		dprintk(VIDC_DBG, "send session_continue\n");
+		rc = call_hfi_op(hdev, session_continue,
+						 (void *)inst->session);
+		if (rc) {
+			dprintk(VIDC_ERR,
+					"failed to send session_continue\n");
+			rc = -EINVAL;
+			goto sess_continue_fail;
+		}
+		inst->in_reconfig = false;
+	} else if (inst->session_type == MSM_VIDC_ENCODER) {
+		dprintk(VIDC_DBG,
+				"session_continue not supported for encoder");
+	} else {
+		dprintk(VIDC_ERR,
+				"session_continue called in wrong state for decoder");
+	}
+sess_continue_fail:
+	mutex_unlock(&inst->lock);
+	return rc;
 }

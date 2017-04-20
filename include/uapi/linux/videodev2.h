@@ -1890,7 +1890,7 @@ struct v4l2_encoder_cmd {
 #define V4L2_DEC_CMD_RESUME      (3)
 #define V4L2_QCOM_CMD_FLUSH      (4)
 #define V4L2_DEC_QCOM_CMD_RECONFIG_HINT  (5)
-
+#define V4L2_QCOM_CMD_SESSION_CONTINUE (6)
 /* Flags for V4L2_DEC_CMD_START */
 #define V4L2_DEC_CMD_START_MUTE_AUDIO	(1 << 0)
 
