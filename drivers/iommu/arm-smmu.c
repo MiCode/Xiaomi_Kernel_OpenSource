@@ -234,6 +234,7 @@
 
 #define SCTLR_S1_ASIDPNE		(1 << 12)
 #define SCTLR_CFCFG			(1 << 7)
+#define SCTLR_HUPCF			(1 << 8)
 #define SCTLR_CFIE			(1 << 6)
 #define SCTLR_CFRE			(1 << 5)
 #define SCTLR_E				(1 << 4)
@@ -1627,6 +1628,11 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 
 	/* SCTLR */
 	reg = SCTLR_CFCFG | SCTLR_CFIE | SCTLR_CFRE | SCTLR_EAE_SBOP;
+
+	if (smmu_domain->attributes & (1 << DOMAIN_ATTR_CB_STALL_DISABLE)) {
+		reg &= ~SCTLR_CFCFG;
+		reg |= SCTLR_HUPCF;
+	}
 
 	if ((!(smmu_domain->attributes & (1 << DOMAIN_ATTR_S1_BYPASS)) &&
 	     !(smmu_domain->attributes & (1 << DOMAIN_ATTR_EARLY_MAP))) ||
@@ -3138,7 +3144,11 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 					& (1 << DOMAIN_ATTR_ENABLE_TTBR1));
 		ret = 0;
 		break;
-
+	case DOMAIN_ATTR_CB_STALL_DISABLE:
+		*((int *)data) = !!(smmu_domain->attributes
+			& (1 << DOMAIN_ATTR_CB_STALL_DISABLE));
+		ret = 0;
+		break;
 	default:
 		ret = -ENODEV;
 		break;
@@ -3325,6 +3335,12 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		ret = 0;
 		break;
 	}
+	case DOMAIN_ATTR_CB_STALL_DISABLE:
+		if (*((int *)data))
+			smmu_domain->attributes |=
+				1 << DOMAIN_ATTR_CB_STALL_DISABLE;
+		ret = 0;
+		break;
 	default:
 		ret = -ENODEV;
 		break;
