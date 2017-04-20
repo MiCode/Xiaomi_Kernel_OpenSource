@@ -1478,7 +1478,7 @@ static struct clk_branch gcc_cxo_tx1_clkref_clk = {
 
 static struct clk_branch gcc_ddrss_gpu_axi_clk = {
 	.halt_reg = 0x44038,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_VOTED,
 	.clkr = {
 		.enable_reg = 0x44038,
 		.enable_mask = BIT(0),
@@ -1665,7 +1665,7 @@ static struct clk_gate2 gcc_gpu_gpll0_div_clk_src = {
 
 static struct clk_branch gcc_gpu_memnoc_gfx_clk = {
 	.halt_reg = 0x7100c,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_VOTED,
 	.clkr = {
 		.enable_reg = 0x7100c,
 		.enable_mask = BIT(0),
