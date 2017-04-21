@@ -3556,3 +3556,44 @@
 #include "sdm845-audio.dtsi"
 #include "sdm845-gpu.dtsi"
 #include "sdm845-usb.dtsi"
+
+&pm8998_temp_alarm {
+	cooling-maps {
+		trip0_cpu0 {
+			trip = <&pm8998_trip0>;
+			cooling-device = <&CPU0 21 21>;
+		};
+		trip0_cpu4 {
+			trip = <&pm8998_trip0>;
+			cooling-device = <&CPU4 21 21>;
+		};
+		trip1_cpu1 {
+			trip = <&pm8998_trip1>;
+			cooling-device = <&CPU1 22 22>;
+		};
+		trip1_cpu2 {
+			trip = <&pm8998_trip1>;
+			cooling-device = <&CPU2 22 22>;
+		};
+		trip1_cpu3 {
+			trip = <&pm8998_trip1>;
+			cooling-device = <&CPU3 22 22>;
+		};
+		trip1_cpu4 {
+			trip = <&pm8998_trip1>;
+			cooling-device = <&CPU4 22 22>;
+		};
+		trip1_cpu5 {
+			trip = <&pm8998_trip1>;
+			cooling-device = <&CPU5 22 22>;
+		};
+		trip1_cpu6 {
+			trip = <&pm8998_trip1>;
+			cooling-device = <&CPU6 22 22>;
+		};
+		trip1_cpu7 {
+			trip = <&pm8998_trip1>;
+			cooling-device = <&CPU7 22 22>;
+		};
+	};
+};
