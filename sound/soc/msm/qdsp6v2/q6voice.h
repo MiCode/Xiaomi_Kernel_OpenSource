@@ -172,6 +172,7 @@ struct mem_map_table {
 
 /* Common */
 #define VSS_ICOMMON_CMD_SET_UI_PROPERTY 0x00011103
+#define VSS_ICOMMON_CMD_SET_UI_PROPERTY_V2 0x00013248
 /* Set a UI property */
 #define VSS_ICOMMON_CMD_MAP_MEMORY   0x00011025
 #define VSS_ICOMMON_CMD_UNMAP_MEMORY 0x00011026
@@ -213,7 +214,7 @@ struct vss_unmap_memory_cmd {
 	struct vss_icommon_cmd_unmap_memory_t vss_unmap_mem;
 } __packed;
 
-struct vss_param_endpoint_media_format_info_t {
+struct vss_param_endpoint_media_format_info {
 	/* AFE port ID to which this media format corresponds to. */
 	uint32_t port_id;
 	/*
@@ -240,29 +241,7 @@ struct vss_param_endpoint_media_format_info_t {
 	uint8_t channel_mapping[VSS_NUM_CHANNELS_MAX];
 } __packed;
 
-struct vss_icommon_param_data_t {
-	/* Valid ID of the module. */
-	uint32_t module_id;
-	/* Valid ID of the parameter. */
-	uint32_t param_id;
-	/*
-	 * Data size of the structure relating to the param_id/module_id
-	 * combination in uint8_t bytes.
-	 */
-	uint16_t param_size;
-	/* This field must be set to zero. */
-	uint16_t reserved;
-	/*
-	 * Parameter data payload when inband. Should have size param_size.
-	 * Bit size of payload must be a multiple of 4.
-	 */
-	union {
-		struct vss_param_endpoint_media_format_info_t media_format_info;
-	};
-} __packed;
-
-/* Payload structure for the VSS_ICOMMON_CMD_SET_PARAM_V2 command. */
-struct vss_icommon_cmd_set_param_v2_t {
+struct vss_icommon_mem_mapping_hdr {
 	/*
 	 * Pointer to the unique identifier for an address (physical/virtual).
 	 *
@@ -275,6 +254,7 @@ struct vss_icommon_cmd_set_param_v2_t {
 	 * data.
 	 */
 	uint32_t mem_handle;
+
 	/*
 	 * Location of the parameter data payload.
 	 *
@@ -282,12 +262,25 @@ struct vss_icommon_cmd_set_param_v2_t {
 	 * mem_handle is 0, this field is ignored.
 	 */
 	uint64_t mem_address;
-	/* Size of the parameter data payload in bytes. */
-	uint32_t mem_size;
-	/* Parameter data payload when the data is inband. */
-	struct vss_icommon_param_data_t param_data;
+
 } __packed;
 
+struct vss_icommon_cmd_set_param {
+	/* APR Header */
+	struct apr_hdr apr_hdr;
+
+	/* The memory mapping header to be used when sending outband */
+	struct vss_icommon_mem_mapping_hdr mem_hdr;
+
+	/* Size of the parameter data payload in bytes. */
+	uint32_t payload_size;
+
+	/*
+	 * Parameter data payload when inband. Should have size param_size.
+	 * Bit size of payload must be a multiple of 4.
+	 */
+	uint8_t param_data[0];
+} __packed;
 /* TO MVM commands */
 #define VSS_IMVM_CMD_CREATE_PASSIVE_CONTROL_SESSION	0x000110FF
 /**< No payload. Wait for APRV2_IBASIC_RSP_RESULT response. */
@@ -638,7 +631,6 @@ struct vss_imemory_cmd_unmap_t {
 
 #define MODULE_ID_VOICE_MODULE_ST			0x00010EE3
 #define VOICE_PARAM_MOD_ENABLE				0x00010E00
-#define MOD_ENABLE_PARAM_LEN				4
 
 #define VSS_IPLAYBACK_CMD_START				0x000112BD
 /* Start in-call music delivery on the Tx voice path. */
@@ -907,19 +899,19 @@ struct vss_istream_cmd_register_calibration_data_v2_t {
 	 */
 } __packed;
 
-struct vss_icommon_cmd_set_ui_property_enable_t {
-	uint32_t module_id;
-	/* Unique ID of the module. */
-	uint32_t param_id;
-	/* Unique ID of the parameter. */
-	uint16_t param_size;
-	/* Size of the parameter in bytes: MOD_ENABLE_PARAM_LEN */
-	uint16_t reserved;
-	/* Reserved; set to 0. */
+struct enable_param {
 	uint16_t enable;
 	uint16_t reserved_field;
 	/* Reserved, set to 0. */
 };
+
+struct vss_icommon_cmd_set_ui_property {
+	/* APR Header */
+	struct apr_hdr apr_hdr;
+
+	/* The parameter data to be filled when sent inband */
+	u8 param_data[0];
+} __packed;
 
 /*
  * Event sent by the stream to the client that enables Rx DTMF
@@ -1029,10 +1021,6 @@ struct cvs_deregister_cal_data_cmd {
 	struct apr_hdr hdr;
 } __packed;
 
-struct cvs_set_pp_enable_cmd {
-	struct apr_hdr hdr;
-	struct vss_icommon_cmd_set_ui_property_enable_t vss_set_pp;
-} __packed;
 struct cvs_start_record_cmd {
 	struct apr_hdr hdr;
 	struct vss_irecord_cmd_start_t rec_mode;
@@ -1105,6 +1093,8 @@ struct vss_istream_cmd_set_packet_exchange_mode_t {
 */
 #define VSS_IVOCPROC_CMD_DEREGISTER_DEVICE_CONFIG	0x00011372
 
+#define CVD_CAL_DATA_FORMAT_MINOR_VERSION_V0 0x00000000
+#define CVD_CAL_DATA_FORMAT_MINOR_VERSION_V1 0x00000001
 #define VSS_IVOCPROC_CMD_REGISTER_CALIBRATION_DATA_V2	0x00011373
 #define VSS_IVOCPROC_CMD_DEREGISTER_CALIBRATION_DATA	0x00011276
 
@@ -1484,11 +1474,6 @@ struct cvp_set_dev_channels_cmd {
 	struct vss_ivocproc_cmd_topology_set_dev_channels_t cvp_set_channels;
 } __packed;
 
-struct cvp_set_media_format_cmd {
-	struct apr_hdr hdr;
-	struct vss_icommon_cmd_set_param_v2_t cvp_set_param_v2;
-} __packed;
-
 struct cvp_set_vp3_data_cmd {
 	struct apr_hdr hdr;
 } __packed;
@@ -1836,9 +1821,11 @@ enum {
 #define VSID_MAX                     ALL_SESSION_VSID
 
 /* called  by alsa driver */
-int voc_set_pp_enable(uint32_t session_id, uint32_t module_id,
+int voc_set_pp_enable(uint32_t session_id,
+		      struct module_instance_info mod_inst_info,
 		      uint32_t enable);
-int voc_get_pp_enable(uint32_t session_id, uint32_t module_id);
+int voc_get_pp_enable(uint32_t session_id,
+		      struct module_instance_info mod_inst_info);
 int voc_set_hd_enable(uint32_t session_id, uint32_t enable);
 uint8_t voc_get_tty_mode(uint32_t session_id);
 int voc_set_tty_mode(uint32_t session_id, uint8_t tty_mode);

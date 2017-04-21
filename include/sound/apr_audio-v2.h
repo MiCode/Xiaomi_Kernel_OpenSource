@@ -8791,6 +8791,9 @@ struct asm_eq_params {
 #define VSS_ICOMMON_CMD_SET_PARAM_V2	0x0001133D
 #define VSS_ICOMMON_CMD_GET_PARAM_V2	0x0001133E
 #define VSS_ICOMMON_RSP_GET_PARAM	0x00011008
+#define VSS_ICOMMON_CMD_SET_PARAM_V3 0x00013245
+#define VSS_ICOMMON_CMD_GET_PARAM_V3 0x00013246
+#define VSS_ICOMMON_RSP_GET_PARAM_V3 0x00013247
 
 /** ID of the Bass Boost module.
     This module supports the following parameter IDs:
