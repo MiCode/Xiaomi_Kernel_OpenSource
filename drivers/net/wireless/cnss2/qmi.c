@@ -421,7 +421,7 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv)
 		snprintf(filename, sizeof(filename), DEFAULT_BDF_FILE_NAME);
 	else
 		snprintf(filename, sizeof(filename),
-			 BDF_FILE_NAME_PREFIX "%02d",
+			 BDF_FILE_NAME_PREFIX "%02x",
 			 plat_priv->board_info.board_id);
 
 	ret = request_firmware(&fw_entry, filename, &plat_priv->plat_dev->dev);
