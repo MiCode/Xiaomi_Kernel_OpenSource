@@ -389,6 +389,8 @@ struct msm_mode_info {
  * @max_height:         Max height of display. In case of hot pluggable display
  *                      this is max height supported by controller
  * @is_primary:         Set to true if display is primary display
+ * @is_te_using_watchdog_timer:  Boolean to indicate watchdog TE is
+ *				 used instead of panel TE in cmd mode panels
  * @frame_rate:		Display frame rate
  * @prefill_lines:	prefill lines based on porches.
  * @vtotal:		display vertical total
@@ -412,6 +414,7 @@ struct msm_display_info {
 	uint32_t max_height;
 
 	bool is_primary;
+	bool is_te_using_watchdog_timer;
 	uint32_t frame_rate;
 	uint32_t prefill_lines;
 	uint32_t vtotal;

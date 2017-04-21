@@ -184,6 +184,7 @@ struct dsi_panel {
 	u32 panel_jitter;
 	u32 panel_prefill_lines;
 	bool panel_initialized;
+	bool te_using_watchdog_timer;
 
 	bool dsc_enabled;
 	char dsc_pps_cmd[DSI_CMD_PPS_SIZE];
