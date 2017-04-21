@@ -77,6 +77,12 @@ struct pmu_hw_events {
 	struct arm_pmu		*percpu_pmu;
 };
 
+enum armpmu_pmu_states {
+	ARM_PMU_STATE_OFF,
+	ARM_PMU_STATE_RUNNING,
+	ARM_PMU_STATE_GOING_DOWN,
+};
+
 struct arm_pmu {
 	struct pmu	pmu;
 	cpumask_t	active_irqs;
@@ -101,6 +107,8 @@ struct arm_pmu {
 	void		(*free_irq)(struct arm_pmu *);
 	int		(*map_event)(struct perf_event *event);
 	int		num_events;
+	int		pmu_state;
+	int		percpu_irq;
 	atomic_t	active_events;
 	struct mutex	reserve_mutex;
 	u64		max_period;
