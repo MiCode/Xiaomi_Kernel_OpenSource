@@ -1227,7 +1227,6 @@ static enum cam_smmu_buf_state cam_smmu_check_fd_in_list(int idx,
 	list_for_each_entry(mapping,
 		&iommu_cb_set.cb_info[idx].smmu_buf_list, list) {
 		if (mapping->ion_fd == ion_fd) {
-			mapping->ref_count++;
 			*paddr_ptr = mapping->paddr;
 			*len_ptr = mapping->len;
 			return CAM_SMMU_BUFF_EXIST;
@@ -1670,7 +1669,7 @@ int cam_smmu_map_iova(int handle, int ion_fd,
 	if (buf_state == CAM_SMMU_BUFF_EXIST) {
 		CDBG("ion_fd:%d already in the list, give same addr back",
 				 ion_fd);
-		rc = 0;
+		rc = -EALREADY;
 		goto get_addr_end;
 	}
 	rc = cam_smmu_map_buffer_and_add_to_list(idx, ion_fd, dma_dir,
@@ -1777,14 +1776,6 @@ int cam_smmu_unmap_iova(int handle,
 		goto unmap_end;
 	}
 
-	mapping_info->ref_count--;
-	if (mapping_info->ref_count > 0) {
-		CDBG("There are still %u buffer(s) with same fd %d",
-			mapping_info->ref_count, mapping_info->ion_fd);
-		rc = 0;
-		goto unmap_end;
-	}
-
 	/* Unmapping one buffer from device */
 	CDBG("SMMU: removing buffer idx = %d\n", idx);
 	rc = cam_smmu_unmap_buf_and_remove_from_list(mapping_info, idx);
@@ -1832,8 +1823,6 @@ int cam_smmu_put_iova(int handle, int ion_fd)
 		rc = -EINVAL;
 		goto put_addr_end;
 	}
-
-	mapping_info->ref_count--;
 
 put_addr_end:
 	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
