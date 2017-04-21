@@ -27,7 +27,7 @@
 #include <linux/irq.h>
 #include <linux/delay.h>
 #include <linux/reboot.h>
-#include <linux/sched.h>
+#include <linux/sched/signal.h>
 #include <linux/slab.h>
 #include <linux/smp.h>
 #include <linux/timer.h>
