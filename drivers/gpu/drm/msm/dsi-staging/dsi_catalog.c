@@ -83,6 +83,19 @@ static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
 		ctrl->ops.clamp_enable = NULL;
 		ctrl->ops.clamp_disable = NULL;
 		break;
+	case DSI_CTRL_VERSION_2_2:
+		ctrl->ops.phy_reset_config = dsi_ctrl_hw_22_phy_reset_config;
+		ctrl->ops.setup_lane_map = dsi_ctrl_hw_20_setup_lane_map;
+		ctrl->ops.wait_for_lane_idle =
+			dsi_ctrl_hw_20_wait_for_lane_idle;
+		ctrl->ops.reg_dump_to_buffer =
+			dsi_ctrl_hw_20_reg_dump_to_buffer;
+		ctrl->ops.ulps_ops.ulps_request = NULL;
+		ctrl->ops.ulps_ops.ulps_exit = NULL;
+		ctrl->ops.ulps_ops.get_lanes_in_ulps = NULL;
+		ctrl->ops.clamp_enable = NULL;
+		ctrl->ops.clamp_disable = NULL;
+		break;
 	default:
 		break;
 	}
@@ -121,6 +134,7 @@ int dsi_catalog_ctrl_setup(struct dsi_ctrl_hw *ctrl,
 	switch (version) {
 	case DSI_CTRL_VERSION_1_4:
 	case DSI_CTRL_VERSION_2_0:
+	case DSI_CTRL_VERSION_2_2:
 		dsi_catalog_cmn_init(ctrl, version);
 		break;
 	default:

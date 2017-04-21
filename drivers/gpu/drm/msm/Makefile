@@ -109,6 +109,7 @@ msm_drm-$(CONFIG_DRM_MSM_DSI_STAGING) += dsi-staging/dsi_phy.o \
 				dsi-staging/dsi_ctrl_hw_cmn.o \
 				dsi-staging/dsi_ctrl_hw_1_4.o \
 				dsi-staging/dsi_ctrl_hw_2_0.o \
+				dsi-staging/dsi_ctrl_hw_2_2.o \
 				dsi-staging/dsi_ctrl.o \
 				dsi-staging/dsi_catalog.o \
 				dsi-staging/dsi_drm.o \

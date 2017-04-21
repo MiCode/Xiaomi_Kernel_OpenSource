@@ -276,12 +276,13 @@
 	};
 
 	mdss_dsi0: qcom,mdss_dsi_ctrl0@ae94000 {
-		compatible = "qcom,dsi-ctrl-hw-v2.0";
+		compatible = "qcom,dsi-ctrl-hw-v2.2";
 		label = "dsi-ctrl-0";
 		status = "disabled";
 		cell-index = <0>;
-		reg =   <0xae94000 0x400>;
-		reg-names = "dsi_ctrl";
+		reg =   <0xae94000 0x400>,
+			<0xaf08000 0x4>;
+		reg-names = "dsi_ctrl", "disp_cc_base";
 		interrupt-parent = <&mdss_mdp>;
 		interrupts = <4 0>;
 		vdda-1p2-supply = <&pm8998_l26>;
@@ -318,12 +319,13 @@
 	};
 
 	mdss_dsi1: qcom,mdss_dsi_ctrl1@ae96000 {
-		compatible = "qcom,dsi-ctrl-hw-v2.0";
+		compatible = "qcom,dsi-ctrl-hw-v2.2";
 		label = "dsi-ctrl-1";
 		status = "disabled";
 		cell-index = <1>;
-		reg =   <0xae96000 0x400>;
-		reg-names = "dsi_ctrl";
+		reg =   <0xae96000 0x400>,
+			<0xaf08000 0x4>;
+		reg-names = "dsi_ctrl", "disp_cc_base";
 		interrupt-parent = <&mdss_mdp>;
 		interrupts = <5 0>;
 		vdda-1p2-supply = <&pm8998_l26>;
