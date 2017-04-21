@@ -14,7 +14,7 @@
 &soc {
 	led_flash_rear: qcom,camera-flash@0 {
 		cell-index = <0>;
-		reg = <0x0>;
+		reg = <0x00 0x00>;
 		compatible = "qcom,camera-flash";
 		qcom,flash-source = <&pmi8998_flash0 &pmi8998_flash1>;
 		qcom,torch-source = <&pmi8998_torch0 &pmi8998_torch1>;
@@ -24,7 +24,7 @@
 
 	led_flash_front: qcom,camera-flash@1 {
 		cell-index = <1>;
-		reg = <0x1>;
+		reg = <0x01 0x00>;
 		compatible = "qcom,camera-flash";
 		qcom,flash-source = <&pmi8998_flash2>;
 		qcom,torch-source = <&pmi8998_torch2>;
@@ -34,7 +34,7 @@
 
 	actuator_regulator: gpio-regulator@0 {
 		compatible = "regulator-fixed";
-		reg = <0x0>;
+		reg = <0x00 0x00>;
 		regulator-name = "actuator_regulator";
 		regulator-min-microvolt = <2800000>;
 		regulator-max-microvolt = <2800000>;
@@ -46,7 +46,7 @@
 
 	camera_rear_ldo: gpio-regulator@1 {
 		compatible = "regulator-fixed";
-		reg = <0x1>;
+		reg = <0x01 0x00>;
 		regulator-name = "camera_rear_ldo";
 		regulator-min-microvolt = <1050000>;
 		regulator-max-microvolt = <1050000>;
@@ -60,7 +60,7 @@
 
 	camera_ldo: gpio-regulator@2 {
 		compatible = "regulator-fixed";
-		reg = <0x2>;
+		reg = <0x02 0x00>;
 		regulator-name = "camera_ldo";
 		regulator-min-microvolt = <1050000>;
 		regulator-max-microvolt = <1050000>;
