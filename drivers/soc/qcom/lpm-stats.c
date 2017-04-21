@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -425,7 +425,10 @@ static inline void update_exit_stats(struct lpm_stats *stats, uint32_t index,
 	uint64_t exit_time = 0;
 
 	/* Update time stats only when exit is preceded by enter */
-	exit_time = stats->sleep_time;
+	if (stats->sleep_time < 0)
+		success = false;
+	else
+		exit_time = stats->sleep_time;
 	update_level_stats(&stats->time_stats[index], exit_time,
 					success);
 }
