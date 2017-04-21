@@ -121,6 +121,7 @@ struct dcc_drvdata {
 	struct mutex		mutex;
 	void __iomem		*ram_base;
 	uint32_t		ram_size;
+	uint32_t		ram_offset;
 	enum dcc_data_sink	data_sink;
 	enum dcc_func_type	func_type[DCC_MAX_LINK_LIST];
 	uint32_t		ram_cfg;
@@ -517,9 +518,10 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 
 		/* 3. If in capture mode program DCC_RAM_CFG reg */
 		if (drvdata->func_type[list] == DCC_FUNC_TYPE_CAPTURE) {
-			dcc_writel(drvdata, ram_cfg_base, DCC_LL_BASE(list));
-			dcc_writel(drvdata, drvdata->ram_start,
-				   DCC_FD_BASE(list));
+			dcc_writel(drvdata, ram_cfg_base +
+				   drvdata->ram_offset/4, DCC_LL_BASE(list));
+			dcc_writel(drvdata, drvdata->ram_start +
+				   drvdata->ram_offset/4, DCC_FD_BASE(list));
 			dcc_writel(drvdata, 0, DCC_LL_TIMEOUT(list));
 		}
 
@@ -1341,6 +1343,11 @@ static int dcc_probe(struct platform_device *pdev)
 	drvdata->ram_base = devm_ioremap(dev, res->start, resource_size(res));
 	if (!drvdata->ram_base)
 		return -ENOMEM;
+
+	ret = of_property_read_u32(pdev->dev.of_node, "dcc-ram-offset",
+				   &drvdata->ram_offset);
+	if (ret)
+		return -EINVAL;
 
 	drvdata->save_reg = of_property_read_bool(pdev->dev.of_node,
 						  "qcom,save-reg");

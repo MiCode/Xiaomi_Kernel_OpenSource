@@ -14,6 +14,11 @@ Required properties:
 	of the component.
 
 - reg-names : names corresponding to each reg property value.
+	      dcc-base: Base address for DCC configuration reg
+	      dcc-ram-base: Start of HLOS address space in SRAM
+	      dcc-xpu-base: Base address for XPU configuration reg
+
+- dcc-ram-offset: Address offset from the start of the SRAM address space.
 
 Optional properties:
 
