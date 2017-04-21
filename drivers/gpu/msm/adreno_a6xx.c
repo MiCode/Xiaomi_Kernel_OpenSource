@@ -125,7 +125,7 @@ static void a6xx_protect_init(struct adreno_device *adreno_dev)
 	unsigned int mmu_base = 0, mmu_range = 0, cur_range;
 
 	/* enable access protection to privileged registers */
-	kgsl_regwrite(device, A6XX_CP_PROTECT_CNTL, 0x00000007);
+	kgsl_regwrite(device, A6XX_CP_PROTECT_CNTL, 0x00000003);
 
 	if (mmu_prot) {
 		mmu_base = mmu_prot->base;
