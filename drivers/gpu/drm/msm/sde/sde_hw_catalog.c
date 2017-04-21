@@ -490,8 +490,8 @@ static uint32_t _sde_copy_formats(
 		return 0;
 
 	for (i = 0, cur_pos = dst_list_pos;
-		(cur_pos < (dst_list_size - 1)) && src_list[i].fourcc_format
-		&& (i < src_list_size); ++i, ++cur_pos)
+		(cur_pos < (dst_list_size - 1)) && (i < src_list_size)
+		&& src_list[i].fourcc_format; ++i, ++cur_pos)
 		dst_list[cur_pos] = src_list[i];
 
 	dst_list[cur_pos].fourcc_format = 0;
@@ -565,7 +565,7 @@ static int _validate_dt_entry(struct device_node *np,
 				rc = -EINVAL;
 			}
 			*off_count = 0;
-			memset(prop_count, 0, sizeof(int *) * prop_size);
+			memset(prop_count, 0, sizeof(int) * prop_size);
 			return rc;
 		}
 	}
