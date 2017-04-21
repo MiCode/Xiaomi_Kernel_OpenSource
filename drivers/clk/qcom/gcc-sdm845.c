@@ -3332,6 +3332,8 @@ static const struct qcom_reset_map gcc_sdm845_resets[] = {
 	[GCC_USB3PHY_PHY_SEC_BCR] = { 0x50010 },
 	[GCC_USB3_DP_PHY_SEC_BCR] = { 0x50014 },
 	[GCC_USB_PHY_CFG_AHB2PHY_BCR] = { 0x6a000 },
+	[GCC_PCIE_0_PHY_BCR] = { 0x6c01c },
+	[GCC_PCIE_1_PHY_BCR] = { 0x8e01c },
 };
 
 static const struct regmap_config gcc_sdm845_regmap_config = {
