@@ -691,7 +691,7 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, struct mdp_csc_cfg *data)
 		lv_shift = CSC_8BIT_LV_SHIFT;
 		/*
 		 * CSC is used on VIG pipes and currently VIG pipes do not
-		 * support multirect so always use RECT0.
+		 * support multirect so always use RECT0
 		 */
 		pipe = mdss_mdp_pipe_search(mdata, BIT(blk_idx),
 				MDSS_MDP_PIPE_RECT0);
@@ -2567,6 +2567,8 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer,
 				ad_hw->base + MDSS_MDP_REG_AD_TFILT_CTRL);
 			writel_relaxed(ad->cfg.mode | MDSS_AD_AUTO_TRIGGER,
 				ad_hw->base + MDSS_MDP_REG_AD_MODE_SEL);
+			ad->last_str = 0xFF & readl_relaxed(ad_hw->base +
+				MDSS_MDP_REG_AD_STR_OUT);
 		}
 
 		pp_ad_bypass_config(ad, ctl, ad_hw->num, &ad_bypass);
