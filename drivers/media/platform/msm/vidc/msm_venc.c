@@ -1868,7 +1868,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 			"Failed to get Buffer Requirements : %d\n", rc);
 		goto fail_start;
 	}
-	rc = msm_comm_set_scratch_buffers(inst);
+	rc = msm_comm_set_scratch_buffers(inst, false);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to set scratch buffers: %d\n", rc);
 		goto fail_start;
