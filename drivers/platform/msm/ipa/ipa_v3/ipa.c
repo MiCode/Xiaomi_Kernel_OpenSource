@@ -4064,6 +4064,7 @@ fail_register_device:
 	cdev_del(&ipa3_ctx->cdev);
 	device_destroy(ipa3_ctx->class, ipa3_ctx->dev_num);
 	unregister_chrdev_region(ipa3_ctx->dev_num, 1);
+	ipa3_free_dma_task_for_gsi();
 	ipa3_destroy_flt_tbl_idrs();
 	idr_destroy(&ipa3_ctx->ipa_idr);
 	kmem_cache_destroy(ipa3_ctx->rx_pkt_wrapper_cache);
@@ -4604,6 +4605,13 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_rx_pkt_wrapper_cache;
 	}
 
+	/* allocate memory for DMA_TASK workaround */
+	result = ipa3_allocate_dma_task_for_gsi();
+	if (result) {
+		IPAERR("failed to allocate dma task\n");
+		goto fail_dma_task;
+	}
+
 	/* init the various list heads */
 	INIT_LIST_HEAD(&ipa3_ctx->hdr_tbl.head_hdr_entry_list);
 	for (i = 0; i < IPA_HDR_BIN_MAX; i++) {
@@ -4744,6 +4752,8 @@ fail_cdev_add:
 fail_device_create:
 	unregister_chrdev_region(ipa3_ctx->dev_num, 1);
 fail_alloc_chrdev_region:
+	ipa3_free_dma_task_for_gsi();
+fail_dma_task:
 	idr_destroy(&ipa3_ctx->ipa_idr);
 	kmem_cache_destroy(ipa3_ctx->rx_pkt_wrapper_cache);
 fail_rx_pkt_wrapper_cache:

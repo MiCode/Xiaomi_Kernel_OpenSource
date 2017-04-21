@@ -997,6 +997,11 @@ struct ipa_tz_unlock_reg_info {
 	u32 size;
 };
 
+struct ipa_dma_task_info {
+	struct ipa_mem_buffer mem;
+	struct ipahal_imm_cmd_pyld *cmd_pyld;
+};
+
 /**
  * struct ipa3_context - IPA context
  * @class: pointer to the struct class
@@ -1206,6 +1211,7 @@ struct ipa3_context {
 	struct ipa3_smp2p_info smp2p_info;
 	u32 ipa_tz_unlock_reg_num;
 	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
+	struct ipa_dma_task_info dma_task_info;
 };
 
 struct ipa3_plat_drv_res {
@@ -1982,4 +1988,6 @@ struct device *ipa3_get_pdev(void);
 void ipa3_enable_dcd(void);
 void ipa3_disable_prefetch(enum ipa_client_type client);
 int ipa3_alloc_common_event_ring(void);
+int ipa3_allocate_dma_task_for_gsi(void);
+void ipa3_free_dma_task_for_gsi(void);
 #endif /* _IPA3_I_H_ */
