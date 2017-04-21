@@ -540,14 +540,41 @@ static int dsi_panel_led_bl_register(struct dsi_panel *panel,
 }
 #endif
 
+static int dsi_panel_update_backlight(struct dsi_panel *panel,
+	u32 bl_lvl)
+{
+	int rc = 0;
+	struct mipi_dsi_device *dsi;
+
+	if (!panel || (bl_lvl > 0xffff)) {
+		pr_err("invalid params\n");
+		return -EINVAL;
+	}
+
+	dsi = &panel->mipi_device;
+
+	mutex_lock(&panel->panel_lock);
+
+	rc = mipi_dsi_dcs_set_display_brightness(dsi, bl_lvl);
+	if (rc < 0)
+		pr_err("failed to update dcs backlight:%d\n", bl_lvl);
+
+	mutex_unlock(&panel->panel_lock);
+	return rc;
+}
+
 int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 {
 	int rc = 0;
 	struct dsi_backlight_config *bl = &panel->bl_config;
 
+	pr_debug("backlight type:%d lvl:%d\n", bl->type, bl_lvl);
 	switch (bl->type) {
 	case DSI_BACKLIGHT_WLED:
 		led_trigger_event(bl->wled, bl_lvl);
+		break;
+	case DSI_BACKLIGHT_DCS:
+		dsi_panel_update_backlight(panel, bl_lvl);
 		break;
 	default:
 		pr_err("Backlight type(%d) not supported\n", bl->type);
@@ -565,6 +592,8 @@ static int dsi_panel_bl_register(struct dsi_panel *panel)
 	switch (bl->type) {
 	case DSI_BACKLIGHT_WLED:
 		rc = dsi_panel_led_bl_register(panel, bl);
+		break;
+	case DSI_BACKLIGHT_DCS:
 		break;
 	default:
 		pr_err("Backlight type(%d) not supported\n", bl->type);
@@ -584,6 +613,8 @@ static int dsi_panel_bl_unregister(struct dsi_panel *panel)
 	switch (bl->type) {
 	case DSI_BACKLIGHT_WLED:
 		led_trigger_unregister_simple(bl->wled);
+		break;
+	case DSI_BACKLIGHT_DCS:
 		break;
 	default:
 		pr_err("Backlight type(%d) not supported\n", bl->type);
