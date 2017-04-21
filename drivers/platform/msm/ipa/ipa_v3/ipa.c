@@ -5488,13 +5488,6 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 		return result;
 	}
 
-	result = of_platform_populate(pdev_p->dev.of_node,
-		pdrv_match, NULL, &pdev_p->dev);
-	if (result) {
-		IPAERR("failed to populate platform\n");
-		return result;
-	}
-
 	if (of_property_read_bool(pdev_p->dev.of_node, "qcom,arm-smmu")) {
 		if (of_property_read_bool(pdev_p->dev.of_node,
 		    "qcom,smmu-s1-bypass"))
@@ -5538,6 +5531,13 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 			IPAERR("ipa3_init failed\n");
 			return result;
 		}
+	}
+
+	result = of_platform_populate(pdev_p->dev.of_node,
+		pdrv_match, NULL, &pdev_p->dev);
+	if (result) {
+		IPAERR("failed to populate platform\n");
+		return result;
 	}
 
 	return result;
