@@ -257,7 +257,15 @@ static int tsens2xxx_set_trip_temp(struct tsens_sensor *tm_sensor,
 				THERMAL_TRIP_CONFIGURABLE_HI,
 				THERMAL_TRIP_ACTIVATION_ENABLED);
 		if (rc) {
-			pr_err("Error during trip high activation :%d\n", rc);
+			pr_err("trip high enable error :%d\n", rc);
+			goto fail;
+		}
+	} else {
+		rc = tsens_tm_activate_trip_type(tm_sensor,
+				THERMAL_TRIP_CONFIGURABLE_HI,
+				THERMAL_TRIP_ACTIVATION_DISABLED);
+		if (rc) {
+			pr_err("trip high disable error :%d\n", rc);
 			goto fail;
 		}
 	}
@@ -267,7 +275,15 @@ static int tsens2xxx_set_trip_temp(struct tsens_sensor *tm_sensor,
 				THERMAL_TRIP_CONFIGURABLE_LOW,
 				THERMAL_TRIP_ACTIVATION_ENABLED);
 		if (rc) {
-			pr_err("Error during trip low activation :%d\n", rc);
+			pr_err("trip low enable activation error :%d\n", rc);
+			goto fail;
+		}
+	} else {
+		rc = tsens_tm_activate_trip_type(tm_sensor,
+				THERMAL_TRIP_CONFIGURABLE_LOW,
+				THERMAL_TRIP_ACTIVATION_DISABLED);
+		if (rc) {
+			pr_err("trip low disable error :%d\n", rc);
 			goto fail;
 		}
 	}
