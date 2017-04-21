@@ -41,6 +41,11 @@
 #define CLK_OPS_PARENT_ENABLE	BIT(12)
 /* duty cycle call may be forwarded to the parent clock */
 #define CLK_DUTY_CYCLE_PARENT	BIT(13)
+#define CLK_ENABLE_HAND_OFF	BIT(14) /* enable clock when registered. */
+					/*
+					 * hand-off enable_count & prepare_count
+					 * to first consumer that enables clk
+					 */
 
 struct clk;
 struct clk_hw;
