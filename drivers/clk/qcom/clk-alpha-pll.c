@@ -307,6 +307,15 @@ alpha_pll_round_rate(const struct clk_alpha_pll *pll, unsigned long rate,
 	u64 quotient;
 	int alpha_bw = ALPHA_BITWIDTH;
 
+	/*
+	 * The PLLs parent rate is zero probably since the parent hasn't
+	 * registered yet. Return early with the requested rate.
+	 */
+	if (!prate) {
+		pr_debug("PLLs parent rate hasn't been initialized.\n");
+		return rate;
+	}
+
 	quotient = rate;
 	remainder = do_div(quotient, prate);
 	*l = quotient;
