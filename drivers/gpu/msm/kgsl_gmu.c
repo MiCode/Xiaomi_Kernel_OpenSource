@@ -1153,7 +1153,6 @@ static int gmu_disable_clks(struct gmu_device *gmu)
 
 	while ((j < MAX_GMU_CLKS) && gmu->clks[j]) {
 		clk_disable_unprepare(gmu->clks[j]);
-		gmu->clks[j] = NULL;
 		j++;
 	}
 
@@ -1351,7 +1350,7 @@ void gmu_remove(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = &device->gmu;
 	struct kgsl_hfi *hfi = &gmu->hfi;
-	int i;
+	int i = 0;
 
 	if (!device->gmu.pdev)
 		return;
@@ -1359,6 +1358,11 @@ void gmu_remove(struct kgsl_device *device)
 	tasklet_kill(&hfi->tasklet);
 
 	gmu_stop(device);
+
+	while ((i < MAX_GMU_CLKS) && gmu->clks[i]) {
+		gmu->clks[i] = NULL;
+		i++;
+	}
 
 	if (gmu->gmu_interrupt_num) {
 		disable_irq(gmu->gmu_interrupt_num);
