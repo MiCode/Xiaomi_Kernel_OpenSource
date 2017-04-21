@@ -1,0 +1,6 @@
+header-y += msm_ais.h
+header-y += msm_ais_buf_mgr.h
+header-y += msm_ais_isp.h
+header-y += msm_ais_ispif.h
+header-y += msm_ais_sensor.h
+header-y += msm_ais_sensor_sdk.h
