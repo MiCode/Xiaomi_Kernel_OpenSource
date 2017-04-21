@@ -181,6 +181,7 @@
 				"cfg_ahb_clk", "xo";
 
 		qcom,core-clk-rate = <133330000>;
+		qcom,core-clk-rate-hs = <66666667>;
 
 		resets = <&clock_gcc GCC_USB_30_BCR>;
 		reset-names = "core_reset";
@@ -192,6 +193,7 @@
 			interrupts = <0 131 0>;
 			usb-phy = <&qusb_phy0>, <&ssphy>;
 			tx-fifo-resize;
+			snps,usb3-u1u2-disable;
 			snps,nominal-elastic-buffer;
 			snps,disable-clk-gating;
 			snps,has-lpm-erratum;
@@ -450,6 +452,40 @@
 		compatible = "qcom,usb-dbm-1p5";
 		reg = <0xa8f8000 0x300>;
 		qcom,reset-ep-after-lpm-resume;
+	};
+
+	qusb_phy1: qusb@c014000 {
+		compatible = "qcom,qusb2phy";
+		reg = <0x0c014000 0x180>,
+			<0x00188014 0x4>;
+		reg-names = "qusb_phy_base",
+			"ref_clk_addr";
+		vdd-supply = <&pm660l_l1>;
+		vdda18-supply = <&pm660_l10>;
+		vdda33-supply = <&pm660l_l7>;
+		qcom,vdd-voltage-level = <1 5 7>;
+		qcom,qusb-phy-init-seq = <0xF8 0x80
+					0xB3 0x84
+					0x83 0x88
+					0xC0 0x8C
+					0x30 0x08
+					0x79 0x0C
+					0x21 0x10
+					0x14 0x9C
+					0x9F 0x1C
+					0x00 0x18>;
+		phy_type = "utmi";
+		qcom,phy-clk-scheme = "cml";
+		qcom,major-rev = <1>;
+		qcom,hold-reset;
+
+		clocks = <&clock_gcc GCC_USB_PHY_CFG_AHB2PHY_CLK>,
+			<&clock_gcc GCC_RX1_USB2_CLKREF_CLK>,
+			<&clock_rpmcc RPM_LN_BB_CLK1>;
+		clock-names = "cfg_ahb_clk", "ref_clk", "ref_clk_src";
+
+		resets = <&clock_gcc GCC_QUSB2PHY_SEC_BCR>;
+		reset-names = "phy_reset";
 	};
 
 	sdhc_1: sdhci@c0c4000 {

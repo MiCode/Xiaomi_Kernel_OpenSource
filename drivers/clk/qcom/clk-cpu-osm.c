@@ -770,7 +770,7 @@ static const char * const gcc_parent_names_1[] = {
 };
 
 static struct freq_tbl ftbl_osm_clk_src[] = {
-	F(200000000, LMH_LITE_CLK_SRC, 3, 0, 0),
+	F(200000000, LMH_LITE_CLK_SRC, 1.5, 0, 0),
 	{ }
 };
 

@@ -658,8 +658,8 @@ void del_gendisk(struct gendisk *disk)
 	sysfs_remove_link(&disk_to_dev(disk)->kobj, "bdi");
 	if (disk->queue) {
 		/*
-		 * Unregister bdi before releasing device numbers (as they can get
-		 * reused and we'd get clashes in sysfs).
+		 * Unregister bdi before releasing device numbers (as they can
+		 * get reused and we'd get clashes in sysfs).
 		 */
 		bdi_unregister(&disk->queue->backing_dev_info);
 		blk_unregister_queue(disk);

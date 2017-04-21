@@ -38,22 +38,47 @@
 #define MDSS_DSI_DSIPHY_GLBL_TEST_CTRL		0x1d4
 #define MDSS_DSI_DSIPHY_CTRL_0			0x170
 #define MDSS_DSI_DSIPHY_CTRL_1			0x174
+#define MDSS_DSI_DSIPHY_CMN_CLK_CFG0		0x0010
+#define MDSS_DSI_DSIPHY_CMN_CLK_CFG1		0x0014
+
+#define MDSS_DSI_NUM_DATA_LANES		0x04
+#define MDSS_DSI_NUM_CLK_LANES		0x01
 
 #define SW_RESET BIT(2)
 #define SW_RESET_PLL BIT(0)
 #define PWRDN_B BIT(7)
 
 /* 8996 */
-#define DATALANE_OFFSET_FROM_BASE_8996	0x100
-#define DSIPHY_CMN_PLL_CNTRL		0x0048
+#define DATALANE_OFFSET_FROM_BASE_8996		0x100
+#define CLKLANE_OFFSET_FROM_BASE_8996		0x300
 #define DATALANE_SIZE_8996			0x80
+#define CLKLANE_SIZE_8996			0x80
 
+#define DSIPHY_CMN_PLL_CNTRL			0x0048
 #define DSIPHY_CMN_GLBL_TEST_CTRL		0x0018
 #define DSIPHY_CMN_CTRL_0			0x001c
 #define DSIPHY_CMN_CTRL_1			0x0020
 #define DSIPHY_CMN_LDO_CNTRL			0x004c
 #define DSIPHY_PLL_CLKBUFLR_EN			0x041c
 #define DSIPHY_PLL_PLL_BANDGAP			0x0508
+
+#define DSIPHY_LANE_STRENGTH_CTRL_NUM		0x0002
+#define DSIPHY_LANE_STRENGTH_CTRL_OFFSET	0x0004
+#define DSIPHY_LANE_STRENGTH_CTRL_BASE		0x0038
+
+#define DSIPHY_LANE_CFG_NUM			0x0004
+#define DSIPHY_LANE_CFG_OFFSET			0x0004
+#define DSIPHY_LANE_CFG_BASE			0x0000
+
+#define DSIPHY_LANE_VREG_NUM			0x0001
+#define DSIPHY_LANE_VREG_OFFSET			0x0004
+#define DSIPHY_LANE_VREG_BASE			0x0064
+
+#define DSIPHY_LANE_TIMING_CTRL_NUM		0x0008
+#define DSIPHY_LANE_TIMING_CTRL_OFFSET		0x0004
+#define DSIPHY_LANE_TIMING_CTRL_BASE		0x0018
+
+#define DSIPHY_LANE_TEST_STR			0x0014
 
 #define DSIPHY_LANE_STRENGTH_CTRL_1		0x003c
 #define DSIPHY_LANE_VREG_CNTRL			0x0064
@@ -130,6 +155,8 @@
 #define DSIPHY_CKLN_TIMING_CTRL_8	0x0328
 
 #define DSIPHY_PLL_RESETSM_CNTRL5	0x043c
+
+#define DSIPHY_CMN_CLK_CFG1_SPLIT_LINK	0x1
 
 #define PLL_CALC_DATA(addr0, addr1, data0, data1)      \
 	(((data1) << 24) | ((((addr1)/4) & 0xFF) << 16) | \
@@ -911,35 +938,59 @@ static void mdss_dsi_8996_phy_regulator_enable(
 	int j, off, ln, cnt, ln_off;
 	char *ip;
 	void __iomem *base;
+	struct mdss_panel_info *panel_info;
 
+	if (!ctrl) {
+		pr_warn("%s: null ctrl pdata\n", __func__);
+		return;
+	}
+
+	panel_info = &((ctrl->panel_data).panel_info);
 	pd = &(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
 
-	if (pd->regulator_len != 5) {
+	if (pd->regulator_len != (MDSS_DSI_NUM_DATA_LANES +
+					MDSS_DSI_NUM_CLK_LANES)) {
 		pr_warn("%s: invalid regulator settings\n", __func__);
 		return;
 	}
 
-	/* 4 lanes + clk lane configuration */
-	for (ln = 0; ln < 5; ln++) {
-		/*
-		 * data lane offset frome base: 0x100
-		 * data lane size: 0x80
-		 */
-		base = ctrl->phy_io.base +
-				DATALANE_OFFSET_FROM_BASE_8996;
-		base += (ln * DATALANE_SIZE_8996); /* lane base */
-
-		/* vreg ctrl, 1 * 5 */
-		cnt = 1;
+	/*
+	 * data lane offset from base: 0x100
+	 * data lane size: 0x80
+	 */
+	base = ctrl->phy_io.base + DATALANE_OFFSET_FROM_BASE_8996;
+	/* data lanes configuration */
+	for (ln = 0; ln < MDSS_DSI_NUM_DATA_LANES; ln++) {
+		/* vreg ctrl, 1 * MDSS_DSI_NUM_DATA_LANES */
+		cnt = DSIPHY_LANE_VREG_NUM;
+		off = DSIPHY_LANE_VREG_BASE;
 		ln_off = cnt * ln;
 		ip = &pd->regulator[ln_off];
-		off = 0x64;
-		for (j = 0; j < cnt; j++, off += 4)
+		for (j = 0; j < cnt; j++) {
 			MIPI_OUTP(base + off, *ip++);
+			off += DSIPHY_LANE_VREG_OFFSET;
+		}
+		base += DATALANE_SIZE_8996; /* next lane */
 	}
 
-	wmb(); /* make sure registers committed */
+	/*
+	 * clk lane offset from base: 0x300
+	 * clk lane size: 0x80
+	 */
+	base = ctrl->phy_io.base + CLKLANE_OFFSET_FROM_BASE_8996;
+	/*
+	 * clk lane configuration for vreg ctrl
+	 * for split link there are two clock lanes, one
+	 * clock lane per sublink needs to be configured
+	 */
+	off = DSIPHY_LANE_VREG_BASE;
+	ln_off = MDSS_DSI_NUM_DATA_LANES;
+	ip = &pd->regulator[ln_off];
+	MIPI_OUTP(base + off, *ip);
+	if (panel_info->split_link_enabled)
+		MIPI_OUTP(base + CLKLANE_SIZE_8996 + off, *ip);
 
+	wmb(); /* make sure registers committed */
 }
 
 static void mdss_dsi_8996_phy_power_off(
@@ -948,30 +999,50 @@ static void mdss_dsi_8996_phy_power_off(
 	int ln;
 	void __iomem *base;
 	u32 data;
+	struct mdss_panel_info *panel_info;
+
+	if (ctrl) {
+		panel_info = &((ctrl->panel_data).panel_info);
+	} else {
+		pr_warn("%s: null ctrl pdata\n", __func__);
+		return;
+	}
 
 	/* Turn off PLL power */
 	data = MIPI_INP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0);
 	MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0, data & ~BIT(7));
 
-	/* 4 lanes + clk lane configuration */
-	for (ln = 0; ln < 5; ln++) {
-		base = ctrl->phy_io.base +
-				DATALANE_OFFSET_FROM_BASE_8996;
-		base += (ln * DATALANE_SIZE_8996); /* lane base */
-
+	/* data lanes configuration */
+	base = ctrl->phy_io.base + DATALANE_OFFSET_FROM_BASE_8996;
+	for (ln = 0; ln < MDSS_DSI_NUM_DATA_LANES; ln++) {
 		/* turn off phy ldo */
-		MIPI_OUTP(base + DSIPHY_LANE_VREG_CNTRL, 0x1c);
+		MIPI_OUTP(base + DSIPHY_LANE_VREG_BASE, 0x1c);
+		base += DATALANE_SIZE_8996; /* next lane */
 	}
+
+	/* clk lane configuration */
+	base = ctrl->phy_io.base + CLKLANE_OFFSET_FROM_BASE_8996;
+	/* turn off phy ldo */
+	MIPI_OUTP(base + DSIPHY_LANE_VREG_BASE, 0x1c);
+	if (panel_info->split_link_enabled)
+		MIPI_OUTP(base + CLKLANE_SIZE_8996 +
+				DSIPHY_LANE_VREG_BASE, 0x1c);
+
 	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_CMN_LDO_CNTRL, 0x1c);
 
-	/* 4 lanes + clk lane configuration */
-	for (ln = 0; ln < 5; ln++) {
-		base = ctrl->phy_io.base +
-				DATALANE_OFFSET_FROM_BASE_8996;
-		base += (ln * DATALANE_SIZE_8996); /* lane base */
-
+	/* data lanes configuration */
+	base = ctrl->phy_io.base + DATALANE_OFFSET_FROM_BASE_8996;
+	for (ln = 0; ln < MDSS_DSI_NUM_DATA_LANES; ln++) {
 		MIPI_OUTP(base + DSIPHY_LANE_STRENGTH_CTRL_1, 0x0);
+		base += DATALANE_SIZE_8996; /* next lane */
 	}
+
+	/* clk lane configuration */
+	base = ctrl->phy_io.base + CLKLANE_OFFSET_FROM_BASE_8996;
+	MIPI_OUTP(base + DSIPHY_LANE_STRENGTH_CTRL_1, 0x0);
+	if (panel_info->split_link_enabled)
+		MIPI_OUTP(base + CLKLANE_SIZE_8996 +
+				DSIPHY_LANE_STRENGTH_CTRL_1, 0x0);
 
 	wmb(); /* make sure registers committed */
 }
@@ -1008,22 +1079,46 @@ static void mdss_dsi_8996_phy_power_on(
 	struct mdss_dsi_phy_ctrl *pd;
 	char *ip;
 	u32 data;
+	struct mdss_panel_info *panel_info;
+
+	if (ctrl) {
+		panel_info = &((ctrl->panel_data).panel_info);
+	} else {
+		pr_warn("%s: null ctrl pdata\n", __func__);
+		return;
+	}
 
 	pd = &(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
 
-	/* 4 lanes + clk lane configuration */
-	for (ln = 0; ln < 5; ln++) {
-		base = ctrl->phy_io.base +
-				DATALANE_OFFSET_FROM_BASE_8996;
-		base += (ln * DATALANE_SIZE_8996); /* lane base */
-
-		/* strength, 2 * 5 */
-		cnt = 2;
+	/* data lanes configuration */
+	base = ctrl->phy_io.base + DATALANE_OFFSET_FROM_BASE_8996;
+	for (ln = 0; ln < MDSS_DSI_NUM_DATA_LANES; ln++) {
+		/* strength, 2 * MDSS_DSI_NUM_DATA_LANES */
+		cnt = DSIPHY_LANE_STRENGTH_CTRL_NUM;
 		ln_off = cnt * ln;
 		ip = &pd->strength[ln_off];
-		off = 0x38;
-		for (j = 0; j < cnt; j++, off += 4)
+		off = DSIPHY_LANE_STRENGTH_CTRL_BASE;
+		for (j = 0; j < cnt; j++,
+			off += DSIPHY_LANE_STRENGTH_CTRL_OFFSET)
 			MIPI_OUTP(base + off, *ip++);
+		base += DATALANE_SIZE_8996; /* next lane */
+	}
+
+	/*
+	 * clk lane configuration for strength ctrl
+	 * for split link there are two clock lanes, one
+	 * clock lane per sublink needs to be configured
+	 */
+	base = ctrl->phy_io.base + CLKLANE_OFFSET_FROM_BASE_8996;
+	cnt = DSIPHY_LANE_STRENGTH_CTRL_NUM;
+	ln_off = MDSS_DSI_NUM_DATA_LANES;
+	ip = &pd->strength[ln_off];
+	off = DSIPHY_LANE_STRENGTH_CTRL_BASE;
+	for (j = 0; j < cnt; j++,
+		off += DSIPHY_LANE_STRENGTH_CTRL_OFFSET) {
+		MIPI_OUTP(base + off, *ip);
+		if (panel_info->split_link_enabled)
+			MIPI_OUTP(base + CLKLANE_SIZE_8996 + off, *ip);
 	}
 
 	mdss_dsi_8996_phy_regulator_enable(ctrl);
@@ -1051,67 +1146,129 @@ static void mdss_dsi_8996_phy_config(struct mdss_dsi_ctrl_pdata *ctrl)
 	int j, off, ln, cnt, ln_off;
 	char *ip;
 	void __iomem *base;
+	struct mdss_panel_info *panel_info;
+	int num_of_lanes = 0;
+
+	if (ctrl) {
+		panel_info = &((ctrl->panel_data).panel_info);
+	} else {
+		pr_warn("%s: null ctrl pdata\n", __func__);
+		return;
+	}
 
 	pd = &(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
+	num_of_lanes = MDSS_DSI_NUM_DATA_LANES + MDSS_DSI_NUM_CLK_LANES;
 
 	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_CMN_LDO_CNTRL, 0x1c);
 
 	/* clk_en */
 	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_CMN_GLBL_TEST_CTRL, 0x1);
 
-	if (pd->lanecfg_len != 20) {
+	if (pd->lanecfg_len != (num_of_lanes * DSIPHY_LANE_CFG_NUM)) {
 		pr_err("%s: wrong lane cfg\n", __func__);
 		return;
 	}
 
-	if (pd->strength_len != 10) {
+	if (pd->strength_len != (num_of_lanes *
+				DSIPHY_LANE_STRENGTH_CTRL_NUM)) {
 		pr_err("%s: wrong strength ctrl\n", __func__);
 		return;
 	}
 
-	if (pd->regulator_len != 5) {
+	if (pd->regulator_len != (num_of_lanes * DSIPHY_LANE_VREG_NUM)) {
 		pr_err("%s: wrong regulator setting\n", __func__);
 		return;
 	}
 
-	/* 4 lanes + clk lane configuration */
-	for (ln = 0; ln < 5; ln++) {
-		/*
-		 * data lane offset frome base: 0x100
-		 * data lane size: 0x80
-		 */
-		base = ctrl->phy_io.base +
-				DATALANE_OFFSET_FROM_BASE_8996;
-		base += (ln * DATALANE_SIZE_8996); /* lane base */
-
-		/* lane cfg, 4 * 5 */
-		cnt = 4;
+	/* data lanes configuration */
+	base = ctrl->phy_io.base + DATALANE_OFFSET_FROM_BASE_8996;
+	for (ln = 0; ln < MDSS_DSI_NUM_DATA_LANES; ln++) {
+		/* lane cfg, 4 * MDSS_DSI_NUM_DATA_LANES */
+		cnt = DSIPHY_LANE_CFG_NUM;
+		off = DSIPHY_LANE_CFG_BASE;
 		ln_off = cnt * ln;
 		ip = &pd->lanecfg[ln_off];
-		off = 0x0;
 		for (j = 0; j < cnt; j++) {
 			MIPI_OUTP(base + off, *ip++);
-			off += 4;
+			off += DSIPHY_LANE_CFG_OFFSET;
 		}
 
 		/* test str */
-		MIPI_OUTP(base + 0x14, 0x0088);	/* fixed */
+		MIPI_OUTP(base + DSIPHY_LANE_TEST_STR, 0x88);	/* fixed */
 
-		/* phy timing, 8 * 5 */
-		cnt = 8;
+		/* phy timing, 8 * MDSS_DSI_NUM_DATA_LANES */
+		cnt = DSIPHY_LANE_TIMING_CTRL_NUM;
+		off = DSIPHY_LANE_TIMING_CTRL_BASE;
 		ln_off = cnt * ln;
 		ip = &pd->timing_8996[ln_off];
-		off = 0x18;
-		for (j = 0; j < cnt; j++, off += 4)
+		for (j = 0; j < cnt; j++) {
 			MIPI_OUTP(base + off, *ip++);
+			off += DSIPHY_LANE_TIMING_CTRL_OFFSET;
+		}
 
-		/* strength, 2 * 5 */
-		cnt = 2;
+		/* strength, 2 * MDSS_DSI_NUM_DATA_LANES */
+		cnt = DSIPHY_LANE_STRENGTH_CTRL_NUM;
+		off = DSIPHY_LANE_STRENGTH_CTRL_BASE;
 		ln_off = cnt * ln;
 		ip = &pd->strength[ln_off];
-		off = 0x38;
-		for (j = 0; j < cnt; j++, off += 4)
+		for (j = 0; j < cnt; j++) {
 			MIPI_OUTP(base + off, *ip++);
+			off += DSIPHY_LANE_STRENGTH_CTRL_OFFSET;
+		}
+
+		base += DATALANE_SIZE_8996; /* next lane */
+	}
+
+	/*
+	 * clk lane configuration
+	 * for split link there are two clock lanes, one
+	 * clock lane per sublink needs to be configured
+	 */
+	base = ctrl->phy_io.base + CLKLANE_OFFSET_FROM_BASE_8996;
+	cnt = DSIPHY_LANE_CFG_NUM;
+	off = DSIPHY_LANE_CFG_BASE;
+	ln_off = cnt * MDSS_DSI_NUM_DATA_LANES;
+	ip = &pd->lanecfg[ln_off];
+	for (j = 0; j < cnt; j++) {
+		MIPI_OUTP(base + off, *ip);
+		if (panel_info->split_link_enabled)
+			MIPI_OUTP(base + CLKLANE_SIZE_8996 + off, *ip);
+		ip++;
+		off += DSIPHY_LANE_CFG_OFFSET;
+	}
+
+	/* test str */
+	MIPI_OUTP(base + DSIPHY_LANE_TEST_STR, 0x88);	/* fixed */
+	if (panel_info->split_link_enabled)
+		MIPI_OUTP(base + CLKLANE_SIZE_8996 + off, 0x88);
+
+	cnt = DSIPHY_LANE_TIMING_CTRL_NUM;
+	off = DSIPHY_LANE_TIMING_CTRL_BASE;
+	ln_off = cnt * MDSS_DSI_NUM_DATA_LANES;
+	ip = &pd->timing_8996[ln_off];
+	for (j = 0; j < cnt; j++) {
+		MIPI_OUTP(base + off, *ip);
+		if (panel_info->split_link_enabled)
+			MIPI_OUTP(base + CLKLANE_SIZE_8996 + off, *ip);
+		ip++;
+		off += DSIPHY_LANE_TIMING_CTRL_OFFSET;
+	}
+
+	/*
+	 * clk lane configuration for timing
+	 * for split link there are two clock lanes, one
+	 * clock lane per sublink needs to be configured
+	 */
+	cnt = DSIPHY_LANE_STRENGTH_CTRL_NUM;
+	off = DSIPHY_LANE_STRENGTH_CTRL_BASE;
+	ln_off = cnt * MDSS_DSI_NUM_DATA_LANES;
+	ip = &pd->strength[ln_off];
+	for (j = 0; j < cnt; j++) {
+		MIPI_OUTP(base + off, *ip);
+		if (panel_info->split_link_enabled)
+			MIPI_OUTP(base + CLKLANE_SIZE_8996 + off, *ip);
+		ip++;
+		off += DSIPHY_LANE_STRENGTH_CTRL_OFFSET;
 	}
 
 	wmb(); /* make sure registers committed */
@@ -1665,6 +1822,9 @@ int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 	u32 dsi_pclk_rate;
 	u8 lanes = 0, bpp;
 
+	if (!panel_info)
+		return -EINVAL;
+
 	if (panel_info->mipi.data_lane3)
 		lanes += 1;
 	if (panel_info->mipi.data_lane2)
@@ -1690,6 +1850,8 @@ int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 	}
 
 	h_period = mdss_panel_get_htotal(panel_info, true);
+	if (panel_info->split_link_enabled)
+		h_period *= panel_info->mipi.num_of_sublinks;
 	v_period = mdss_panel_get_vtotal(panel_info);
 
 	if (ctrl_pdata->refresh_clk_rate || is_diff_frame_rate(panel_info,
@@ -1710,7 +1872,12 @@ int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 
 	clk_rate = panel_info->clk_rate;
 	do_div(clk_rate, 8 * bpp);
-	dsi_pclk_rate = (u32) clk_rate * lanes;
+
+	if (panel_info->split_link_enabled)
+		dsi_pclk_rate = (u32) clk_rate *
+			panel_info->mipi.lanes_per_sublink;
+	else
+		dsi_pclk_rate = (u32) clk_rate * lanes;
 
 	if ((dsi_pclk_rate < 3300000) || (dsi_pclk_rate > 250000000))
 		dsi_pclk_rate = 35000000;
@@ -1863,8 +2030,10 @@ static int mdss_dsi_ulps_config_default(struct mdss_dsi_ctrl_pdata *ctrl,
 		 * to be in stop state.
 		 */
 		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, active_lanes << 16);
+		wmb(); /* ensure lanes are put to stop state */
 
 		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, 0x0);
+		wmb(); /* ensure lanes are in proper state */
 
 		lane_status = MIPI_INP(ctrl->ctrl_base + 0xA8);
 	}
@@ -2272,6 +2441,8 @@ int mdss_dsi_pre_clkoff_cb(void *priv,
 	pdata = &ctrl->panel_data;
 
 	if ((clk & MDSS_DSI_LINK_CLK) && (new_state == MDSS_DSI_CLK_OFF)) {
+		if (pdata->panel_info.mipi.force_clk_lane_hs)
+			mdss_dsi_cfg_lane_ctrl(ctrl, BIT(28), 0);
 		/*
 		 * If ULPS feature is enabled, enter ULPS first.
 		 * However, when blanking the panel, we should enter ULPS
@@ -2314,6 +2485,32 @@ int mdss_dsi_pre_clkoff_cb(void *priv,
 	}
 
 	return rc;
+}
+
+static void mdss_dsi_split_link_clk_cfg(struct mdss_dsi_ctrl_pdata *ctrl,
+						int enable)
+{
+	struct mdss_panel_data *pdata = NULL;
+	void __iomem *base;
+	u32 data = 0;
+
+	if (ctrl)
+		pdata = &ctrl->panel_data;
+	else {
+		pr_err("%s: ctrl pdata is NULL\n", __func__);
+		return;
+	}
+
+	/*
+	 * for split link there are two clock lanes, and
+	 * both clock lanes needs to be enabled
+	 */
+	if (pdata->panel_info.split_link_enabled) {
+		base = ctrl->phy_io.base;
+		data = MIPI_INP(base + MDSS_DSI_DSIPHY_CMN_CLK_CFG1);
+		data |= (enable << DSIPHY_CMN_CLK_CFG1_SPLIT_LINK);
+		MIPI_OUTP(base + MDSS_DSI_DSIPHY_CMN_CLK_CFG1, data);
+	}
 }
 
 int mdss_dsi_post_clkon_cb(void *priv,
@@ -2387,6 +2584,11 @@ int mdss_dsi_post_clkon_cb(void *priv,
 				goto error;
 			}
 		}
+		if (pdata->panel_info.mipi.force_clk_lane_hs)
+			mdss_dsi_cfg_lane_ctrl(ctrl, BIT(28), 1);
+
+		/* enable split link for cmn clk cfg1 */
+		mdss_dsi_split_link_clk_cfg(ctrl, 1);
 	}
 error:
 	return rc;

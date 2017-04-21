@@ -42,6 +42,9 @@ Required properties:
     cell 4: interrupt flags indicating level-sense information, as defined in
             dt-bindings/interrupt-controller/irq.h
 
+Optional properties:
+- qcom,reserved-chan : Reserved channel for debug purpose
+
 Example V1 PMIC-Arbiter:
 
 	spmi {
@@ -56,6 +59,7 @@ Example V1 PMIC-Arbiter:
 
 		qcom,ee = <0>;
 		qcom,channel = <0>;
+		qcom,reserved-chan = <511>;
 
 		#address-cells = <2>;
 		#size-cells = <0>;

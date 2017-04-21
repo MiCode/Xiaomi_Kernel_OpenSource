@@ -24,8 +24,6 @@ Optional Properties:
 		2-bit amplitude control 0x00: 0, 0x01: vmax/4, 0x02: vmax/2,
 		0x03: vmax. Default values are 0x00.
  - qcom,sc-deb-cycles : short circuit debounce in internal pwm switching clock cycles
- - qcom,use-play-irq : boolean, use this if the device uses irq for play
- - qcom,use-sc-irq : boolean, use this if the device uses irq for play
  - interrupts:	Specifies the interrupt associated with Haptics. The available
 		interrupts are play and short circuit. The values for play and
 		short circuit are <0x3 0xc0 0x0> and <0x3 0xc0 0x1>.
@@ -54,9 +52,11 @@ Optional properties for pwm play mode:
 Optional properties when qcom,actuator-type is "lra"
  - qcom,correct-lra-drive-freq : boolean, use this to ensure LRA is driven at correct resonant
 				 frequency, which may change due to operating conditions.
- - qcom,misc-trim-error-rc19p2-clk-reg-present : boolean, use this if TRIM_ERROR_RC19P2_CLK
-				register is present in MISC module. This register holds
-				the frequency error in 19.2Mhz RC clock.
+ - qcom,pmic-misc		: phandle of misc device using which the clock
+				  trim error can be read from.
+ - qcom,misc-clk-trim-error-reg	: Address offset of MISC_TRIM_ERROR_RC19P2_CLK
+				  register if present in MISC module. This
+				  holds the frequency error in 19.2 MHz clock.
  - qcom,lra-auto-res-mode : auto resonance technique, four different modes
 			"none" : no auto resonance
 			"zxd" : zero crossing based discontinuous method
@@ -66,6 +66,9 @@ Optional properties when qcom,actuator-type is "lra"
  - qcom,lra-high-z : High Z configuration for auto resonance. Possible string values are
 			"none", "opt1", "opt2" and "opt3" (default). For PM660,
 			"opt0" is valid value for 1 LRA period.
+ - qcom,lra-hw-auto-resonance : boolean, enable Hardware auto-resonance for PM660.
+			Use this property to enable Hardware auto-resonance.
+			If not defined then Software auto-resonance is enabled(default).
  - qcom,lra-qwd-drive-duration : Drive duration of LRA in QWD mode for PM660.
 			Possible values are: 0: 1/4 LRA PERIOD and 1: 3/8 LRA PERIOD
  - qcom,lra-calibrate-at-eop : To calibrate at End of Pattern for PM660.
@@ -118,6 +121,8 @@ Example:
 			interrupt-names = "sc-irq", "play-irq";
 			qcom,pmic-revid = <&pm660_revid>;
 			vcc_pon-supply = <&pon_perph_reg>;
+			qcom,pmic-misc = <&pmi8998_misc>;
+			qcom,misc-clk-trim-error-reg = <0xf3>;
 			qcom,play-mode = "direct";
 			qcom,wave-play-rate-us = <5263>;
 			qcom,actuator-type = "lra";
@@ -128,8 +133,6 @@ Example:
 			qcom,int-pwm-freq-khz = <505>;
 			qcom,en-brake;
 			qcom,brake-pattern = [03 03 00 00];
-			qcom,use-play-irq;
-			qcom,use-sc-irq;
 			qcom,wave-samples = [3e 3e 3e 3e 3e 3e 3e 3e];
 			qcom,wave-rep-cnt = <1>;
 			qcom,wave-samp-rep-cnt = <1>;

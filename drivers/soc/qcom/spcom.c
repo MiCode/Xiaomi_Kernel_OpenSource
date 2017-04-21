@@ -897,12 +897,12 @@ static int spcom_rx(struct spcom_channel *ch,
 		goto exit_err;
 	}
 
+copy_buf:
 	if (!ch->glink_rx_buf) {
 		pr_err("invalid glink_rx_buf.\n");
 		goto exit_err;
 	}
 
-copy_buf:
 	/* Copy from glink buffer to spcom buffer */
 	size = min_t(int, ch->actual_rx_size, size);
 	memcpy(buf, ch->glink_rx_buf, size);
