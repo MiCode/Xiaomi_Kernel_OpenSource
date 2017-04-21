@@ -605,9 +605,10 @@ static void __tpdm_enable_mcmb(struct tpdm_drvdata *drvdata)
 	else
 		val = val | BIT(1);
 
-	val = val | (BMVAL(mcmb->mcmb_trig_lane, 0, 3) << 18);
-
-	val = val | (mcmb->mcmb_lane_select << 10);
+	val = val & ~BM(18, 20);
+	val = val | (BMVAL(mcmb->mcmb_trig_lane, 0, 2) << 18);
+	val = val & ~BM(10, 17);
+	val = val | (BMVAL(mcmb->mcmb_lane_select, 0, 7) << 10);
 
 	tpdm_writel(drvdata, val, TPDM_CMB_CR);
 	/* Set the enable bit */
@@ -710,7 +711,8 @@ static void __tpdm_disable(struct tpdm_drvdata *drvdata)
 	if (test_bit(TPDM_DS_DSB, drvdata->enable_ds))
 		__tpdm_disable_dsb(drvdata);
 
-	if (test_bit(TPDM_DS_CMB, drvdata->enable_ds))
+	if (test_bit(TPDM_DS_CMB, drvdata->enable_ds) ||
+		test_bit(TPDM_DS_MCMB, drvdata->enable_ds))
 		__tpdm_disable_cmb(drvdata);
 
 	if (drvdata->clk_enable)
