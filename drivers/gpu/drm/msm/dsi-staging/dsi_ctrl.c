@@ -556,7 +556,7 @@ static int dsi_ctrl_clocks_init(struct platform_device *pdev,
 		goto fail;
 	}
 
-	link->esc_clk = devm_clk_get(&pdev->dev, "core_clk");
+	link->esc_clk = devm_clk_get(&pdev->dev, "esc_clk");
 	if (IS_ERR(link->esc_clk)) {
 		rc = PTR_ERR(link->esc_clk);
 		pr_err("failed to get esc_clk, rc=%d\n", rc);

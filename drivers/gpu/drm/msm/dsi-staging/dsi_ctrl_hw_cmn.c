@@ -320,8 +320,8 @@ void dsi_ctrl_hw_cmn_video_engine_setup(struct dsi_ctrl_hw *ctrl,
 	reg |= (common_cfg->bit_swap_green ? BIT(4) : 0);
 	reg |= (common_cfg->bit_swap_blue ? BIT(8) : 0);
 	DSI_W32(ctrl, DSI_VIDEO_MODE_DATA_CTRL, reg);
-	/* Enable Timing double buffering */
-	DSI_W32(ctrl, DSI_DSI_TIMING_DB_MODE, 0x1);
+	/* Disable Timing double buffering */
+	DSI_W32(ctrl, DSI_DSI_TIMING_DB_MODE, 0x0);
 
 
 	pr_debug("[DSI_%d] Video engine setup done\n", ctrl->index);
