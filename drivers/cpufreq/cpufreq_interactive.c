@@ -24,8 +24,9 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/rwsem.h>
-#include <linux/sched.h>
+#include <linux/sched/cpufreq.h>
 #include <linux/sched/rt.h>
+#include <linux/sched/task.h>
 #include <linux/tick.h>
 #include <linux/time.h>
 #include <linux/timer.h>
