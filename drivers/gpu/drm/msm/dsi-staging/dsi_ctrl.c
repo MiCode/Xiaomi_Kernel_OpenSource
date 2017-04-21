@@ -259,15 +259,11 @@ static int dsi_ctrl_check_state(struct dsi_ctrl *dsi_ctrl,
 			       dsi_ctrl->cell_index, op_state);
 			rc = -EINVAL;
 		} else if (state->power_state == DSI_CTRL_POWER_VREG_ON) {
-			if ((state->cmd_engine_state == DSI_CTRL_ENGINE_ON) ||
-			    (state->vid_engine_state == DSI_CTRL_ENGINE_ON) ||
-			    (state->controller_state == DSI_CTRL_ENGINE_ON)) {
-				pr_debug("[%d]State error: op=%d: %d, %d, %d\n",
+			if (state->vid_engine_state == DSI_CTRL_ENGINE_ON) {
+				pr_debug("[%d]State error: op=%d: %d\n",
 				       dsi_ctrl->cell_index,
 				       op_state,
-				       state->cmd_engine_state,
-				       state->vid_engine_state,
-				       state->controller_state);
+				       state->vid_engine_state);
 				rc = -EINVAL;
 			}
 		}
