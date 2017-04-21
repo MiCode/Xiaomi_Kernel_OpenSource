@@ -97,6 +97,7 @@ void dsi_phy_hw_v3_0_ulps_request(struct dsi_phy_hw *phy,
 void dsi_phy_hw_v3_0_ulps_exit(struct dsi_phy_hw *phy,
 			struct dsi_phy_cfg *cfg, u32 lanes);
 u32 dsi_phy_hw_v3_0_get_lanes_in_ulps(struct dsi_phy_hw *phy);
+bool dsi_phy_hw_v3_0_is_lanes_in_ulps(u32 lanes, u32 ulps_lanes);
 int dsi_phy_hw_timing_val_v3_0(struct dsi_phy_per_lane_cfgs *timing_cfg,
 		u32 *timing_val, u32 size);
 

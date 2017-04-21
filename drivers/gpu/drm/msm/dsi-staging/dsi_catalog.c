@@ -167,6 +167,8 @@ static void dsi_catalog_phy_3_0_init(struct dsi_phy_hw *phy)
 		dsi_phy_hw_v3_0_ulps_exit;
 	phy->ops.ulps_ops.get_lanes_in_ulps =
 		dsi_phy_hw_v3_0_get_lanes_in_ulps;
+	phy->ops.ulps_ops.is_lanes_in_ulps =
+		dsi_phy_hw_v3_0_is_lanes_in_ulps;
 	phy->ops.phy_timing_val = dsi_phy_hw_timing_val_v3_0;
 }
 

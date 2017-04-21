@@ -669,7 +669,7 @@ error:
 }
 
 static int dsi_phy_enable_ulps(struct msm_dsi_phy *phy,
-		struct dsi_host_config *config)
+		struct dsi_host_config *config, bool clamp_enabled)
 {
 	int rc = 0;
 	u32 lanes = 0;
@@ -679,17 +679,25 @@ static int dsi_phy_enable_ulps(struct msm_dsi_phy *phy,
 		lanes = config->common_config.data_lanes;
 	lanes |= DSI_CLOCK_LANE;
 
-	rc = phy->hw.ops.ulps_ops.wait_for_lane_idle(&phy->hw, lanes);
-	if (rc) {
-		pr_err("lanes not entering idle, skip ULPS\n");
-		return rc;
+	/*
+	 * If DSI clamps are enabled, it means that the DSI lanes are
+	 * already in idle state. Checking for lanes to be in idle state
+	 * should be skipped during ULPS entry programming while coming
+	 * out of idle screen.
+	 */
+	if (!clamp_enabled) {
+		rc = phy->hw.ops.ulps_ops.wait_for_lane_idle(&phy->hw, lanes);
+		if (rc) {
+			pr_err("lanes not entering idle, skip ULPS\n");
+			return rc;
+		}
 	}
 
 	phy->hw.ops.ulps_ops.ulps_request(&phy->hw, &phy->cfg, lanes);
 
 	ulps_lanes = phy->hw.ops.ulps_ops.get_lanes_in_ulps(&phy->hw);
 
-	if ((lanes & ulps_lanes) != lanes) {
+	if (!phy->hw.ops.ulps_ops.is_lanes_in_ulps(lanes, ulps_lanes)) {
 		pr_err("Failed to enter ULPS, request=0x%x, actual=0x%x\n",
 		       lanes, ulps_lanes);
 		rc = -EIO;
@@ -701,7 +709,6 @@ static int dsi_phy_enable_ulps(struct msm_dsi_phy *phy,
 static int dsi_phy_disable_ulps(struct msm_dsi_phy *phy,
 		 struct dsi_host_config *config)
 {
-	int rc = 0;
 	u32 ulps_lanes, lanes = 0;
 
 	if (config->panel_mode == DSI_OP_CMD_MODE)
@@ -710,25 +717,27 @@ static int dsi_phy_disable_ulps(struct msm_dsi_phy *phy,
 
 	ulps_lanes = phy->hw.ops.ulps_ops.get_lanes_in_ulps(&phy->hw);
 
-	if ((lanes & ulps_lanes) != lanes)
-		pr_err("Mismatch between lanes in ULPS\n");
-
-	lanes &= ulps_lanes;
+	if (!phy->hw.ops.ulps_ops.is_lanes_in_ulps(lanes, ulps_lanes)) {
+		pr_err("Mismatch in ULPS: lanes:%d, ulps_lanes:%d\n",
+				lanes, ulps_lanes);
+		return -EIO;
+	}
 
 	phy->hw.ops.ulps_ops.ulps_exit(&phy->hw, &phy->cfg, lanes);
 
 	ulps_lanes = phy->hw.ops.ulps_ops.get_lanes_in_ulps(&phy->hw);
-	if (ulps_lanes & lanes) {
+
+	if (phy->hw.ops.ulps_ops.is_lanes_in_ulps(lanes, ulps_lanes)) {
 		pr_err("Lanes (0x%x) stuck in ULPS\n", ulps_lanes);
-		rc = -EIO;
+		return -EIO;
 	}
 
-	return rc;
+	return 0;
 }
 
 
 int dsi_phy_set_ulps(struct msm_dsi_phy *phy, struct dsi_host_config *config,
-		bool enable)
+		bool enable, bool clamp_enabled)
 {
 	int rc = 0;
 
@@ -738,7 +747,10 @@ int dsi_phy_set_ulps(struct msm_dsi_phy *phy, struct dsi_host_config *config,
 	}
 
 	if (!phy->hw.ops.ulps_ops.ulps_request ||
-			!phy->hw.ops.ulps_ops.ulps_exit) {
+			!phy->hw.ops.ulps_ops.ulps_exit ||
+			!phy->hw.ops.ulps_ops.get_lanes_in_ulps ||
+			!phy->hw.ops.ulps_ops.is_lanes_in_ulps ||
+			!phy->hw.ops.ulps_ops.wait_for_lane_idle) {
 		pr_debug("DSI PHY ULPS ops not present\n");
 		return 0;
 	}
@@ -746,7 +758,7 @@ int dsi_phy_set_ulps(struct msm_dsi_phy *phy, struct dsi_host_config *config,
 	mutex_lock(&phy->phy_lock);
 
 	if (enable)
-		rc = dsi_phy_enable_ulps(phy, config);
+		rc = dsi_phy_enable_ulps(phy, config, clamp_enabled);
 	else
 		rc = dsi_phy_disable_ulps(phy, config);
 

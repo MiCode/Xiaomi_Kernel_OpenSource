@@ -260,7 +260,8 @@ static int dsi_display_set_ulps(struct dsi_display *display, bool enable)
 		return rc;
 	}
 
-	rc = dsi_phy_set_ulps(m_ctrl->phy, &display->config, enable);
+	rc = dsi_phy_set_ulps(m_ctrl->phy, &display->config, enable,
+				display->clamp_enabled);
 	if (rc) {
 		pr_err("Ulps PHY state change(%d) failed\n", enable);
 		return rc;
@@ -278,7 +279,8 @@ static int dsi_display_set_ulps(struct dsi_display *display, bool enable)
 			return rc;
 		}
 
-		rc = dsi_phy_set_ulps(ctrl->phy, &display->config, enable);
+		rc = dsi_phy_set_ulps(ctrl->phy, &display->config, enable,
+					display->clamp_enabled);
 		if (rc) {
 			pr_err("Ulps PHY state change(%d) failed\n", enable);
 			return rc;
@@ -1365,8 +1367,7 @@ int dsi_pre_clkoff_cb(void *priv,
 		/*
 		 * Enable DSI clamps only if entering idle power collapse.
 		 */
-		if (dsi_panel_initialized(display->panel) &&
-			dsi_panel_ulps_feature_enabled(display->panel)) {
+		if (dsi_panel_initialized(display->panel)) {
 			dsi_display_phy_idle_off(display);
 			rc = dsi_display_set_clamp(display, true);
 			if (rc)
