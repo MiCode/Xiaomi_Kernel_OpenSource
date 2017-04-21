@@ -66,7 +66,9 @@
 			tx-fifo-resize;
 			snps,nominal-elastic-buffer;
 			snps,is-utmi-l1-suspend;
-			snps,hird-threshold = /bits/ 8 <0x0>;
+			snps,has-lpm-erratum;
+			snps,lpm-nyet-threshold = /bits/ 8 <0xf>;
+			snps,hird-threshold = /bits/ 8 <0x10>;
 			snps,bus-suspend-enable;
 			snps,usb3-u1u2-disable;
 			snps,disable-clk-gating;
