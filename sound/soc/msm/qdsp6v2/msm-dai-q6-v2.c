@@ -2314,6 +2314,44 @@ static const struct snd_kcontrol_new afe_enc_config_controls[] = {
 		     msm_dai_q6_afe_input_bit_format_put),
 };
 
+static int msm_dai_q6_slim_rx_drift_info(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_BYTES;
+	uinfo->count = sizeof(struct afe_param_id_dev_timing_stats);
+
+	return 0;
+}
+
+static int msm_dai_q6_slim_rx_drift_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = -EINVAL;
+	struct afe_param_id_dev_timing_stats timing_stats;
+	struct snd_soc_dai *dai = kcontrol->private_data;
+	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
+
+	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
+		pr_err("%s: afe port not started. dai_data->status_mask = %ld\n",
+			__func__, *dai_data->status_mask);
+		goto done;
+	}
+
+	memset(&timing_stats, 0, sizeof(struct afe_param_id_dev_timing_stats));
+	ret = afe_get_av_dev_drift(&timing_stats, dai->id);
+	if (ret) {
+		pr_err("%s: Error getting AFE Drift for port %d, err=%d\n",
+			__func__, dai->id, ret);
+
+		goto done;
+	}
+
+	memcpy(ucontrol->value.bytes.data, (void *)&timing_stats,
+			sizeof(struct afe_param_id_dev_timing_stats));
+done:
+	return ret;
+}
+
 static const char * const afe_cal_mode_text[] = {
 	"CAL_MODE_DEFAULT", "CAL_MODE_NONE"
 };
@@ -2366,6 +2404,29 @@ static const struct snd_kcontrol_new usb_audio_cfg_controls[] = {
 			msm_dai_q6_usb_audio_endian_cfg_put),
 };
 
+static const struct snd_kcontrol_new avd_drift_config_controls[] = {
+	{
+		.access = SNDRV_CTL_ELEM_ACCESS_READ,
+		.iface	= SNDRV_CTL_ELEM_IFACE_PCM,
+		.name	= "SLIMBUS_0_RX DRIFT",
+		.info	= msm_dai_q6_slim_rx_drift_info,
+		.get	= msm_dai_q6_slim_rx_drift_get,
+	},
+	{
+		.access = SNDRV_CTL_ELEM_ACCESS_READ,
+		.iface	= SNDRV_CTL_ELEM_IFACE_PCM,
+		.name	= "SLIMBUS_6_RX DRIFT",
+		.info	= msm_dai_q6_slim_rx_drift_info,
+		.get	= msm_dai_q6_slim_rx_drift_get,
+	},
+	{
+		.access = SNDRV_CTL_ELEM_ACCESS_READ,
+		.iface	= SNDRV_CTL_ELEM_IFACE_PCM,
+		.name	= "SLIMBUS_7_RX DRIFT",
+		.info	= msm_dai_q6_slim_rx_drift_info,
+		.get	= msm_dai_q6_slim_rx_drift_get,
+	},
+};
 static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
 {
 	struct msm_dai_q6_dai_data *dai_data;
@@ -2413,6 +2474,9 @@ static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
 		rc = snd_ctl_add(dai->component->card->snd_card,
 				 snd_ctl_new1(&afe_enc_config_controls[2],
 				 dai_data));
+		rc = snd_ctl_add(dai->component->card->snd_card,
+				snd_ctl_new1(&avd_drift_config_controls[2],
+					dai));
 		break;
 	case RT_PROXY_DAI_001_RX:
 		rc = snd_ctl_add(dai->component->card->snd_card,
@@ -2439,6 +2503,16 @@ static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
 		rc = snd_ctl_add(dai->component->card->snd_card,
 				 snd_ctl_new1(&usb_audio_cfg_controls[3],
 				 dai_data));
+		break;
+	case SLIMBUS_0_RX:
+		rc = snd_ctl_add(dai->component->card->snd_card,
+				snd_ctl_new1(&avd_drift_config_controls[0],
+					dai));
+		break;
+	case SLIMBUS_6_RX:
+		rc = snd_ctl_add(dai->component->card->snd_card,
+				snd_ctl_new1(&avd_drift_config_controls[1],
+					dai));
 		break;
 	}
 	if (rc < 0)
