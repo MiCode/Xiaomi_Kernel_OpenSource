@@ -311,7 +311,12 @@ static int tcs_cmd_list_gen(int *n_active,
 		if (list_empty(&cur_bcm_clist[i]))
 			continue;
 		list_for_each_entry(cur_bcm, &cur_bcm_clist[i], link) {
-			if (cur_bcm->updated) {
+			if (cur_bcm->updated ||
+				(cur_bcm->node_vec[DUAL_CTX].vec_a == 0 &&
+				cur_bcm->node_vec[ACTIVE_CTX].vec_a == 0 &&
+				cur_bcm->node_vec[DUAL_CTX].vec_b == 0 &&
+				cur_bcm->node_vec[ACTIVE_CTX].vec_b == 0 &&
+				init_time == true)) {
 				if (last_tcs != -1 &&
 					list_is_last(&cur_bcm->link,
 						&cur_bcm_clist[i])) {
@@ -356,18 +361,19 @@ static int tcs_cmd_list_gen(int *n_active,
 				if (last_tcs != -1 &&
 					list_is_last(&cur_bcm->link,
 					&cur_bcm_clist[i])) {
-					cmdlist_wake[k].data |=
+					cmdlist_wake[last_tcs].data |=
 						BCM_TCS_CMD_COMMIT_MASK;
-					cmdlist_sleep[k].data |=
+					cmdlist_sleep[last_tcs].data |=
 						BCM_TCS_CMD_COMMIT_MASK;
-					cmdlist_wake[k].complete = true;
-					cmdlist_sleep[k].complete = true;
+					cmdlist_wake[last_tcs].complete = true;
+					cmdlist_sleep[last_tcs].complete = true;
 					idx++;
 				}
 				continue;
 			}
 			last_tcs = k;
 			n_sleep[idx]++;
+			n_wake[idx]++;
 			if (list_is_last(&cur_bcm->link,
 						&cur_bcm_clist[i])) {
 				commit = true;
