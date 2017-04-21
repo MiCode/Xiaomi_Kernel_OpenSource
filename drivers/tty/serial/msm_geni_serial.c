@@ -379,7 +379,6 @@ static int msm_geni_serial_power_on(struct uart_port *uport)
 
 	ret = pm_runtime_get_sync(uport->dev);
 	if (ret < 0) {
-		dev_err(uport->dev, "%s: Failed (%d)", __func__, ret);
 		pm_runtime_put_noidle(uport->dev);
 		pm_runtime_set_suspended(uport->dev);
 		return ret;
@@ -489,10 +488,8 @@ static int msm_geni_serial_get_char(struct uart_port *uport)
 	unsigned int s_irq_status;
 
 	if (!(msm_geni_serial_poll_bit(uport, SE_GENI_M_IRQ_STATUS,
-			M_SEC_IRQ_EN, true))) {
-		dev_err(uport->dev, "%s: Failed waiting for SE\n", __func__);
+			M_SEC_IRQ_EN, true)))
 		return -ENXIO;
-	}
 
 	m_irq_status = geni_read_reg_nolog(uport->membase,
 						SE_GENI_M_IRQ_STATUS);
@@ -504,10 +501,8 @@ static int msm_geni_serial_get_char(struct uart_port *uport)
 						SE_GENI_S_IRQ_CLEAR);
 
 	if (!(msm_geni_serial_poll_bit(uport, SE_GENI_RX_FIFO_STATUS,
-			RX_FIFO_WC_MSK, true))) {
-		dev_err(uport->dev, "%s: Failed waiting for Rx\n", __func__);
+			RX_FIFO_WC_MSK, true)))
 		return -ENXIO;
-	}
 
 	/*
 	 * Read the Rx FIFO only after clearing the interrupt registers and
@@ -610,10 +605,8 @@ static void msm_geni_serial_console_write(struct console *co, const char *s,
 	WARN_ON(co->index < 0 || co->index >= GENI_UART_NR_PORTS);
 
 	port = get_port_from_line(co->index, true);
-	if (IS_ERR_OR_NULL(port)) {
-		pr_err("%s:Invalid line %d\n", __func__, co->index);
+	if (IS_ERR_OR_NULL(port))
 		return;
-	}
 
 	uport = &port->uport;
 	spin_lock(&uport->lock);
@@ -982,7 +975,7 @@ static int get_tx_fifo_size(struct msm_geni_serial_port *port)
 	port->tx_fifo_width = get_tx_fifo_width(uport->membase);
 	if (!port->tx_fifo_width) {
 		dev_err(uport->dev, "%s:Invalid TX FIFO width read\n",
-								 __func__);
+								__func__);
 		return -ENXIO;
 	}
 
