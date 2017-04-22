@@ -83,13 +83,11 @@ void sde_encoder_register_frame_event_callback(struct drm_encoder *encoder,
 		void (*cb)(void *, u32), void *data);
 
 /**
- * sde_encoder_update_rsc_client - updates the rsc client state for primary
+ * sde_encoder_get_rsc_client - gets the rsc client state for primary
  *      for primary display.
  * @encoder:	encoder pointer
- * @enable:	enable/disable the client
  */
-struct sde_rsc_client *sde_encoder_update_rsc_client(
-		struct drm_encoder *encoder, bool enable);
+struct sde_rsc_client *sde_encoder_get_rsc_client(struct drm_encoder *encoder);
 
 /**
  * sde_encoder_prepare_for_kickoff - schedule double buffer flip of the ctl

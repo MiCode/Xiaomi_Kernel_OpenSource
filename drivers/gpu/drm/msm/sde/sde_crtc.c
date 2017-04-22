@@ -1459,7 +1459,7 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 				continue;
 
 			cstate->rsc_client =
-				sde_encoder_update_rsc_client(encoder, true);
+				sde_encoder_get_rsc_client(encoder);
 		}
 		cstate->rsc_update = true;
 	}
@@ -1796,7 +1796,6 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 		if (encoder->crtc != crtc)
 			continue;
 		sde_encoder_register_frame_event_callback(encoder, NULL, NULL);
-		sde_encoder_update_rsc_client(encoder, false);
 		cstate->rsc_client = NULL;
 		cstate->rsc_update = false;
 	}

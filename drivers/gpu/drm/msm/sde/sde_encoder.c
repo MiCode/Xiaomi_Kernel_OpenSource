@@ -656,6 +656,71 @@ static int _sde_encoder_dsc_setup(struct sde_encoder_virt *sde_enc)
 	return ret;
 }
 
+static int sde_encoder_update_rsc_client(
+		struct drm_encoder *drm_enc, bool enable)
+{
+	struct sde_encoder_virt *sde_enc;
+	enum sde_rsc_state rsc_state;
+	struct sde_rsc_cmd_config rsc_config;
+	int ret;
+	struct msm_display_info *disp_info;
+
+	if (!drm_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return -EINVAL;
+	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	disp_info = &sde_enc->disp_info;
+
+	/**
+	 * only primary command mode panel can request CMD state.
+	 * all other panels/displays can request for VID state including
+	 * secondary command mode panel.
+	 */
+	rsc_state = enable ?
+		(((disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE) &&
+		  disp_info->is_primary) ? SDE_RSC_CMD_STATE :
+		SDE_RSC_VID_STATE) : SDE_RSC_IDLE_STATE;
+
+	if (rsc_state != SDE_RSC_IDLE_STATE && !sde_enc->rsc_state_update
+					&& disp_info->is_primary) {
+		rsc_config.fps = disp_info->frame_rate;
+		rsc_config.vtotal = disp_info->vtotal;
+		rsc_config.prefill_lines = disp_info->prefill_lines;
+		rsc_config.jitter = disp_info->jitter;
+		/* update it only once */
+		sde_enc->rsc_state_update = true;
+
+		ret = sde_rsc_client_state_update(sde_enc->rsc_client,
+			rsc_state, &rsc_config,
+			drm_enc->crtc ? drm_enc->crtc->index : -1);
+	} else {
+		ret = sde_rsc_client_state_update(sde_enc->rsc_client,
+			rsc_state, NULL,
+			drm_enc->crtc ? drm_enc->crtc->index : -1);
+	}
+
+	if (ret)
+		SDE_ERROR("sde rsc client update failed ret:%d\n", ret);
+
+	return ret;
+}
+
+struct sde_rsc_client *sde_encoder_get_rsc_client(struct drm_encoder *drm_enc)
+{
+	struct sde_encoder_virt *sde_enc;
+	struct msm_display_info *disp_info;
+
+	if (!drm_enc)
+		return NULL;
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	disp_info = &sde_enc->disp_info;
+
+	return disp_info->is_primary ? sde_enc->rsc_client : NULL;
+}
+
 static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 				      struct drm_display_mode *mode,
 				      struct drm_display_mode *adj_mode)
@@ -778,6 +843,8 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 		}
 	}
 
+	sde_encoder_update_rsc_client(drm_enc, true);
+
 	if (!sde_enc->cur_master)
 		SDE_ERROR("virt encoder has no master! num_phys %d\n", i);
 	else if (sde_enc->cur_master->ops.enable)
@@ -832,6 +899,8 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 		SDE_ERROR("enc%d timeout pending\n", drm_enc->base.id);
 		del_timer_sync(&sde_enc->frame_done_timer);
 	}
+
+	sde_encoder_update_rsc_client(drm_enc, false);
 
 	if (sde_enc->cur_master && sde_enc->cur_master->ops.disable)
 		sde_enc->cur_master->ops.disable(sde_enc->cur_master);
@@ -925,57 +994,6 @@ void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
 		if (phys && phys->ops.control_vblank_irq)
 			phys->ops.control_vblank_irq(phys, enable);
 	}
-}
-
-struct sde_rsc_client *sde_encoder_update_rsc_client(
-		struct drm_encoder *drm_enc, bool enable)
-{
-	struct sde_encoder_virt *sde_enc;
-	enum sde_rsc_state rsc_state;
-	struct sde_rsc_cmd_config rsc_config;
-	int ret;
-	struct msm_display_info *disp_info;
-
-	if (!drm_enc) {
-		SDE_ERROR("invalid encoder\n");
-		return NULL;
-	}
-
-	sde_enc = to_sde_encoder_virt(drm_enc);
-	disp_info = &sde_enc->disp_info;
-
-	/**
-	 * only primary command mode panel can request CMD state.
-	 * all other panels/displays can request for VID state including
-	 * secondary command mode panel.
-	 */
-	rsc_state = enable ?
-		(((disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE) &&
-		  disp_info->is_primary) ? SDE_RSC_CMD_STATE :
-		SDE_RSC_VID_STATE) : SDE_RSC_IDLE_STATE;
-
-	if (rsc_state != SDE_RSC_IDLE_STATE && !sde_enc->rsc_state_update
-					&& disp_info->is_primary) {
-		rsc_config.fps = disp_info->frame_rate;
-		rsc_config.vtotal = disp_info->vtotal;
-		rsc_config.prefill_lines = disp_info->prefill_lines;
-		rsc_config.jitter = disp_info->jitter;
-		/* update it only once */
-		sde_enc->rsc_state_update = true;
-
-		ret = sde_rsc_client_state_update(sde_enc->rsc_client,
-			rsc_state, &rsc_config,
-			drm_enc->crtc ? drm_enc->crtc->index : -1);
-	} else {
-		ret = sde_rsc_client_state_update(sde_enc->rsc_client,
-			rsc_state, NULL,
-			drm_enc->crtc ? drm_enc->crtc->index : -1);
-	}
-
-	if (ret)
-		SDE_ERROR("sde rsc client update failed ret:%d\n", ret);
-
-	return sde_enc->disp_info.is_primary ? sde_enc->rsc_client : NULL;
 }
 
 void sde_encoder_register_frame_event_callback(struct drm_encoder *drm_enc,
