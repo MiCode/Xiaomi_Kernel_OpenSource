@@ -68,7 +68,6 @@
 			snps,is-utmi-l1-suspend;
 			snps,hird-threshold = /bits/ 8 <0x0>;
 			snps,bus-suspend-enable;
-			snps,usb3-u1u2-disable;
 			snps,disable-clk-gating;
 			snps,num-gsi-evt-buffs = <0x3>;
 			xhci-imod-value = <4000>;
