@@ -858,6 +858,48 @@ void mdss_dp_setup_tr_unit(struct dss_io_data *ctrl_io, u8 link_rate,
 	pr_debug("dp_tu=0x%x\n", dp_tu);
 }
 
+void mdss_dp_aux_set_limits(struct dss_io_data *ctrl_io)
+{
+	u32 const max_aux_timeout_count = 0xFFFFF;
+	u32 const max_aux_limits = 0xFFFFFFFF;
+
+	pr_debug("timeout=0x%x, limits=0x%x\n",
+			max_aux_timeout_count, max_aux_limits);
+
+	writel_relaxed(max_aux_timeout_count,
+			ctrl_io->base + DP_AUX_TIMEOUT_COUNT);
+	writel_relaxed(max_aux_limits, ctrl_io->base + DP_AUX_LIMITS);
+}
+
+void mdss_dp_phy_aux_update_config(struct mdss_dp_drv_pdata *dp,
+		enum dp_phy_aux_config_type config_type)
+{
+	u32 new_index;
+	struct dss_io_data *phy_io = &dp->phy_io;
+	struct mdss_dp_phy_cfg *cfg = mdss_dp_phy_aux_get_config(dp,
+			config_type);
+
+	if (!cfg) {
+		pr_err("invalid config type %s",
+			mdss_dp_phy_aux_config_type_to_string(config_type));
+		return;
+	}
+
+	new_index = (cfg->current_index + 1) % cfg->cfg_cnt;
+
+	pr_debug("Updating %s from 0x%08x to 0x%08x\n",
+		mdss_dp_phy_aux_config_type_to_string(config_type),
+		cfg->lut[cfg->current_index], cfg->lut[new_index]);
+	writel_relaxed(cfg->lut[new_index], phy_io->base + cfg->offset);
+	cfg->current_index = new_index;
+
+	/* Make sure the new HW configuration takes effect */
+	wmb();
+
+	/* Reset the AUX controller before any subsequent transactions */
+	mdss_dp_aux_reset(&dp->ctrl_io);
+}
+
 void mdss_dp_ctrl_lane_mapping(struct dss_io_data *ctrl_io, char *l_map)
 {
 	u8 bits_per_lane = 2;
@@ -870,26 +912,24 @@ void mdss_dp_ctrl_lane_mapping(struct dss_io_data *ctrl_io, char *l_map)
 		ctrl_io->base + DP_LOGICAL2PHYSCIAL_LANE_MAPPING);
 }
 
-void mdss_dp_phy_aux_setup(struct dss_io_data *phy_io, u32 *aux_cfg,
-		u32 phy_reg_offset)
+void mdss_dp_phy_aux_setup(struct mdss_dp_drv_pdata *dp)
 {
-	void __iomem *adjusted_phy_io_base = phy_io->base + phy_reg_offset;
+	int i;
+	void __iomem *adjusted_phy_io_base = dp->phy_io.base +
+		dp->phy_reg_offset;
 
 	writel_relaxed(0x3d, adjusted_phy_io_base + DP_PHY_PD_CTL);
 
-	/* DP AUX CFG register programming */
-	writel_relaxed(aux_cfg[0], adjusted_phy_io_base + DP_PHY_AUX_CFG0);
-	writel_relaxed(aux_cfg[1], adjusted_phy_io_base + DP_PHY_AUX_CFG1);
-	writel_relaxed(aux_cfg[2], adjusted_phy_io_base + DP_PHY_AUX_CFG2);
-	writel_relaxed(aux_cfg[3], adjusted_phy_io_base + DP_PHY_AUX_CFG3);
-	writel_relaxed(aux_cfg[4], adjusted_phy_io_base + DP_PHY_AUX_CFG4);
-	writel_relaxed(aux_cfg[5], adjusted_phy_io_base + DP_PHY_AUX_CFG5);
-	writel_relaxed(aux_cfg[6], adjusted_phy_io_base + DP_PHY_AUX_CFG6);
-	writel_relaxed(aux_cfg[7], adjusted_phy_io_base + DP_PHY_AUX_CFG7);
-	writel_relaxed(aux_cfg[8], adjusted_phy_io_base + DP_PHY_AUX_CFG8);
-	writel_relaxed(aux_cfg[9], adjusted_phy_io_base + DP_PHY_AUX_CFG9);
+	for (i = 0; i < PHY_AUX_CFG_MAX; i++) {
+		struct mdss_dp_phy_cfg *cfg = mdss_dp_phy_aux_get_config(dp, i);
 
-	writel_relaxed(0x1f, adjusted_phy_io_base + DP_PHY_AUX_INTERRUPT_MASK);
+		pr_debug("%s: offset=0x%08x, value=0x%08x\n",
+			mdss_dp_phy_aux_config_type_to_string(i), cfg->offset,
+			cfg->lut[cfg->current_index]);
+		writel_relaxed(cfg->lut[cfg->current_index],
+				dp->phy_io.base + cfg->offset);
+	};
+	writel_relaxed(0x1e, adjusted_phy_io_base + DP_PHY_AUX_INTERRUPT_MASK);
 }
 
 int mdss_dp_irq_setup(struct mdss_dp_drv_pdata *dp_drv)
