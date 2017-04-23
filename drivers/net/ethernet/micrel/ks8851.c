@@ -110,6 +110,7 @@ union ks8851_tx_hdr {
  * modifies.
  */
 struct ks8851_net {
+	struct pm_qos_request qos_request;
 	struct net_device	*netdev;
 	struct spi_device	*spidev;
 	struct mutex		lock;
@@ -635,6 +636,7 @@ static void ks8851_rx_pkts3(struct ks8851_net *ks)
 			ks8851_dbg_dumpkkt(ks, rxpkt);
 
 		skb->protocol = eth_type_trans(skb, ks->netdev);
+		skb->tstamp = ktime_get();
 		netif_rx_ni(skb);
 
 		/* record packet stats */
@@ -769,7 +771,7 @@ static void ks8851_wrpkts3(struct ks8851_net *ks)
 	int ret;
 
 	struct net_device *dev = ks->netdev;
-	struct sk_buff *txb;
+	struct sk_buff *txb, *clone = NULL;
 	u8 *buf = NULL;
 	u16 len = 0;
 	u8 count = 0;
@@ -779,6 +781,7 @@ static void ks8851_wrpkts3(struct ks8851_net *ks)
 	u16 len32;
 	u32 *buf32;
 	bool last;
+	struct skb_shared_hwtstamps hwtstamps;
 
 	last = skb_queue_empty(&ks->txq);
 	opc[0] = KS_SPIOP_TXFIFO;
@@ -821,6 +824,14 @@ static void ks8851_wrpkts3(struct ks8851_net *ks)
 			len += 4+ALIGN(txb->len, 4);
 			dev->stats.tx_bytes += txb->len;
 			dev->stats.tx_packets++;
+			txb->tstamp = ktime_get();
+			/* create clone for us to return on the Tx path */
+			clone = skb_clone_sk(txb);
+			if (clone) {
+				memset(&hwtstamps, 0,
+				       sizeof(struct skb_shared_hwtstamps));
+				skb_complete_tx_timestamp(clone, &hwtstamps);
+			}
 			dev_kfree_skb(txb);
 		}
 	}
@@ -884,7 +895,7 @@ static int ks8851_net_open(struct net_device *dev)
 	/* lock the card, even if we may not actually be doing anything
 	 * else at the moment */
 	mutex_lock(&ks->lock);
-
+	pm_qos_add_request(&ks->qos_request, PM_QOS_CPU_DMA_LATENCY, 1);
 	netif_dbg(ks, ifup, ks->netdev, "opening\n");
 
 	/* bring chip out of any power saving mode it was in */
@@ -968,6 +979,7 @@ static int ks8851_net_stop(struct net_device *dev)
 	netif_stop_queue(dev);
 
 	mutex_lock(&ks->lock);
+	pm_qos_remove_request(&ks->qos_request);
 	/* turn off the IRQs and ack any outstanding */
 	ks8851_wrreg16(ks, KS_IER, 0x0000);
 	ks8851_wrreg16(ks, KS_ISR, 0xffff);
