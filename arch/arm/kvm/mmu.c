@@ -1407,6 +1407,7 @@ int kvm_arch_prepare_memory_region(struct kvm *kvm,
 	    (KVM_PHYS_SIZE >> PAGE_SHIFT))
 		return -EFAULT;
 
+	down_read(&current->mm->mmap_sem);
 	/*
 	 * A memory region could potentially cover multiple VMAs, and any holes
 	 * between them, so iterate over all of them to find out if we can map
@@ -1464,6 +1465,8 @@ int kvm_arch_prepare_memory_region(struct kvm *kvm,
 	else
 		stage2_flush_memslot(kvm, memslot);
 	spin_unlock(&kvm->mmu_lock);
+
+	up_read(&current->mm->mmap_sem);
 	return ret;
 }
 
