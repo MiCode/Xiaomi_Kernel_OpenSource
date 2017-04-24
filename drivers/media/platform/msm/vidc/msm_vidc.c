@@ -28,6 +28,8 @@
 
 static int try_get_ctrl(struct msm_vidc_inst *inst,
 	struct v4l2_ctrl *ctrl);
+static int msm_vidc_get_count(struct msm_vidc_inst *inst,
+	struct v4l2_ctrl *ctrl);
 
 static int get_poll_flags(void *instance)
 {
@@ -273,6 +275,40 @@ int msm_vidc_g_ctrl(void *instance, struct v4l2_control *control)
 	return rc;
 }
 EXPORT_SYMBOL(msm_vidc_g_ctrl);
+
+int msm_vidc_g_ext_ctrl(void *instance, struct v4l2_ext_controls *control)
+{
+	struct msm_vidc_inst *inst = instance;
+	struct v4l2_ext_control *ext_control;
+	struct v4l2_ctrl ctrl;
+	int i = 0, rc = 0;
+
+	if (!inst || !control)
+		return -EINVAL;
+
+	ext_control = control->controls;
+
+	for (i = 0; i < control->count; i++) {
+		switch (ext_control[i].id) {
+		case V4L2_CID_MIN_BUFFERS_FOR_CAPTURE:
+		case V4L2_CID_MIN_BUFFERS_FOR_OUTPUT:
+			ctrl.id = ext_control[i].id;
+			ctrl.val = ext_control[i].value;
+
+			msm_vidc_get_count(inst, &ctrl);
+			ext_control->value = ctrl.val;
+			break;
+		default:
+			dprintk(VIDC_ERR,
+				"This control %x is not supported yet\n",
+					ext_control[i].id);
+			rc = -EINVAL;
+			break;
+		}
+	}
+	return rc;
+}
+EXPORT_SYMBOL(msm_vidc_g_ext_ctrl);
 
 int msm_vidc_s_ext_ctrl(void *instance, struct v4l2_ext_controls *control)
 {
@@ -1187,6 +1223,8 @@ static int set_buffer_count(struct msm_vidc_inst *inst,
 	buf_count.buffer_type = type;
 	buf_count.buffer_count_actual = act_count;
 	buf_count.buffer_count_min_host = host_count;
+	dprintk(VIDC_DBG, "%s : Act count = %d Host count = %d\n",
+		__func__, act_count, host_count);
 	rc = call_hfi_op(hdev, session_set_property,
 		inst->session, HAL_PARAM_BUFFER_COUNT_ACTUAL, &buf_count);
 	if (rc)
@@ -1839,33 +1877,52 @@ static int msm_vidc_get_count(struct msm_vidc_inst *inst,
 static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 {
 	int rc = 0;
-
-	/*
-	 * HACK: unlock the control prior to querying the hardware.  Otherwise
-	 * lower level code that attempts to do g_ctrl() will end up deadlocking
-	 * us.
-	 */
+	struct hal_buffer_requirements *bufreq = NULL;
+	enum hal_buffer buffer_type;
 
 	switch (ctrl->id) {
 
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
 	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
 	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE:
+	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_PROFILE:
 		ctrl->val = inst->profile;
-	break;
+		break;
 
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
 	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_TIER_LEVEL:
 		ctrl->val = inst->level;
-	break;
+		break;
 
 	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
 		ctrl->val = inst->entropy_mode;
-	break;
+		break;
 
 	case V4L2_CID_MIN_BUFFERS_FOR_CAPTURE:
+		if (inst->in_reconfig)
+			msm_comm_try_get_bufreqs(inst);
+
+		buffer_type = msm_comm_get_hal_output_buffer(inst);
+		bufreq = get_buff_req_buffer(inst,
+			buffer_type);
+		if (!bufreq) {
+			dprintk(VIDC_ERR,
+				"Failed to find bufreqs for buffer type = %d\n",
+					buffer_type);
+			return -EINVAL;
+		}
+		ctrl->val = bufreq->buffer_count_min_host;
+		break;
 	case V4L2_CID_MIN_BUFFERS_FOR_OUTPUT:
-		rc = msm_vidc_get_count(inst, ctrl);
+		bufreq = get_buff_req_buffer(inst, HAL_BUFFER_INPUT);
+		if (!bufreq) {
+			dprintk(VIDC_ERR,
+				"Failed to find bufreqs for buffer type = %d\n",
+					HAL_BUFFER_INPUT);
+			return -EINVAL;
+		}
+		ctrl->val = bufreq->buffer_count_min_host;
 		break;
 	default:
 		/*
@@ -1873,7 +1930,7 @@ static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		 * modify ctrl->value
 		 */
 		break;
-}
+	}
 
 	return rc;
 }
@@ -2031,6 +2088,7 @@ void *msm_vidc_open(int core_id, int session_type)
 		goto fail_init;
 	}
 
+	msm_dcvs_try_enable(inst);
 	if (msm_vidc_check_for_inst_overload(core)) {
 		dprintk(VIDC_ERR,
 			"Instance count reached Max limit, rejecting session");

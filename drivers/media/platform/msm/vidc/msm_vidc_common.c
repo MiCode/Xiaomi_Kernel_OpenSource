@@ -4094,9 +4094,8 @@ int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 	dprintk(VIDC_DBG, "%15s %8s %8s %8s %8s\n",
 		"buffer type", "count", "mincount_host", "mincount_fw", "size");
 	for (i = 0; i < HAL_BUFFER_MAX; i++) {
-		struct hal_buffer_requirements req = hprop.buf_req.buffer[i];
+		struct hal_buffer_requirements req = inst->buff_req.buffer[i];
 
-		inst->buff_req.buffer[i] = req;
 		if (req.buffer_type != HAL_BUFFER_NONE) {
 			dprintk(VIDC_DBG, "%15s %8d %8d %8d %8d\n",
 				get_buffer_name(req.buffer_type),
