@@ -61,6 +61,9 @@
 		qcom,saw-avs-ctrl = <0x101C031>;
 		qcom,saw-avs-limit = <0x3A00000>;
 
+		qcom,cpr-enable;
+		qcom,cpr-hw-closed-loop;
+
 		qcom,cpr-panic-reg-addr-list =
 			<0x17dc3a84 0x17dc3a88 0x17840c18>;
 		qcom,cpr-panic-reg-name-list =
