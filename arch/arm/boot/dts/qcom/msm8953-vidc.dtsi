@@ -50,13 +50,13 @@
 			/* Dec UHD@30 H.264, HEVC, VP8, VP9 - NOM to NOM+*/
 			<816000 816000 979200 0x3f00000c>,
 
-			/* Enc UHD@30 H.264/HEVC Turbo to Nom+ */
-			<897600 821100 979200 0x4000004>,
+			/* Enc 3840x1920@30 H.264/HEVC Turbo to Nom+ */
+			<855000 821100 979200 0x4000004>,
 
 			/* Enc True4K@24 H.264/HEVC Nom to Nom+ */
 			<816000 720000 835584 0x4000004>;
 		qcom,dcvs-limit =
-			<32400 24>, /* Encoder UHD */
+			<28800 24>, /* Encoder 3840x1920 */
 			<32400 24>; /* Decoder UHD */
 		qcom,allowed-clock-rates = <465000000 400000000
 			360000000 310000000 228570000 114290000>;

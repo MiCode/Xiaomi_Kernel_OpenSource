@@ -31,6 +31,12 @@ enum cnss_bus_width_type {
 	CNSS_BUS_WIDTH_HIGH
 };
 
+enum cnss_cc_src {
+	SOURCE_CORE,
+	SOURCE_11D,
+	SOURCE_USER
+};
+
 /* FW image files */
 struct cnss_fw_files {
 	char image_file[CNSS_MAX_FILE_NAME];
@@ -176,6 +182,8 @@ extern int cnss_is_auto_suspend_allowed(const char *caller_func);
 
 extern int cnss_pm_runtime_request(struct device *dev, enum
 		cnss_runtime_request request);
+extern void cnss_set_cc_source(enum cnss_cc_src cc_source);
+extern enum cnss_cc_src cnss_get_cc_source(void);
 #endif
 
 extern void cnss_pm_wake_lock_init(struct wakeup_source *ws, const char *name);
