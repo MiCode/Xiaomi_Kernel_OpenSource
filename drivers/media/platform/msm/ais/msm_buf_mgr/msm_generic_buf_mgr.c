@@ -291,8 +291,8 @@ static void msm_buf_mngr_sd_shutdown(struct msm_buf_mngr_device *dev,
 	unsigned long flags;
 	struct msm_get_bufs *bufs, *save;
 
-	BUG_ON(!dev);
-	BUG_ON(!session);
+	if (WARN_ON(!dev) || WARN_ON(!session))
+		return;
 
 	spin_lock_irqsave(&dev->buf_q_spinlock, flags);
 	if (!list_empty(&dev->buf_qhead)) {
@@ -828,10 +828,9 @@ static int32_t __init msm_buf_mngr_init(void)
 
 	msm_buf_mngr_dev = kzalloc(sizeof(*msm_buf_mngr_dev),
 		GFP_KERNEL);
-	if (WARN_ON(!msm_buf_mngr_dev)) {
-		pr_err("%s: not enough memory", __func__);
+	if (!msm_buf_mngr_dev)
 		return -ENOMEM;
-	}
+
 	/* Sub-dev */
 	v4l2_subdev_init(&msm_buf_mngr_dev->subdev.sd,
 		&msm_buf_mngr_subdev_ops);

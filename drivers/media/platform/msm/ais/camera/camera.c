@@ -621,7 +621,9 @@ static int camera_v4l2_open(struct file *filep)
 	struct msm_video_device *pvdev = video_drvdata(filep);
 	unsigned int opn_idx, idx;
 
-	BUG_ON(!pvdev);
+	if (WARN_ON(!pvdev))
+		return -EIO;
+
 	rc = camera_v4l2_fh_open(filep);
 	if (rc < 0) {
 		pr_err("%s : camera_v4l2_fh_open failed Line %d rc %d\n",
@@ -733,7 +735,9 @@ static int camera_v4l2_close(struct file *filep)
 	unsigned int opn_idx, mask;
 	struct msm_session *session;
 
-	BUG_ON(!pvdev);
+	if (WARN_ON(!pvdev))
+		return -EIO;
+
 	session = msm_session_find(pvdev->vdev->num);
 	if (WARN_ON(!session))
 		return -EIO;
@@ -861,19 +865,19 @@ int camera_init_v4l2(struct device *dev, unsigned int *session)
 
 	pvdev = kzalloc(sizeof(struct msm_video_device),
 		GFP_KERNEL);
-	if (WARN_ON(!pvdev)) {
+	if (!pvdev) {
 		rc = -ENOMEM;
 		goto init_end;
 	}
 
 	pvdev->vdev = video_device_alloc();
-	if (WARN_ON(!pvdev->vdev)) {
+	if (!pvdev->vdev) {
 		rc = -ENOMEM;
 		goto video_fail;
 	}
 
 	v4l2_dev = kzalloc(sizeof(struct v4l2_device), GFP_KERNEL);
-	if (WARN_ON(!v4l2_dev)) {
+	if (!v4l2_dev) {
 		rc = -ENOMEM;
 		goto v4l2_fail;
 	}

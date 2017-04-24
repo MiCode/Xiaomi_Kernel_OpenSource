@@ -399,7 +399,6 @@ int msm_isp_flush_queue(struct msm_isp_buf_mgr *buf_mgr,
 	uint32_t rc = 0;
 	int i = 0;
 	struct msm_isp_bufq *bufq = NULL;
-	struct msm_isp_buffer *temp_buf_info = NULL;
 
 	bufq = msm_isp_get_bufq(buf_mgr, bufq_handle);
 	if (!bufq) {
@@ -407,16 +406,24 @@ int msm_isp_flush_queue(struct msm_isp_buf_mgr *buf_mgr,
 		return rc;
 	}
 
-	for (i = 0; i < bufq->num_bufs; i++) {
-		temp_buf_info = &bufq->bufs[i];
-		temp_buf_info->state = MSM_ISP_BUFFER_STATE_INITIALIZED;
-		temp_buf_info->buf_debug.put_state_last = 0;
-		temp_buf_info->buf_idx = i;
-		INIT_LIST_HEAD(&temp_buf_info->list);
-	}
-
-	INIT_LIST_HEAD(&bufq->head);
 	rc = msm_isp_buf_unprepare_all(buf_mgr, bufq_handle);
+
+	for (i = 0; i < ISP_NUM_BUF_MASK; i++)
+		bufq->put_buf_mask[i] = 0;
+	INIT_LIST_HEAD(&bufq->head);
+
+	memset(bufq->bufs, 0x0, bufq->num_bufs*sizeof(bufq->bufs[0]));
+	for (i = 0; i < bufq->num_bufs; i++) {
+		bufq->bufs[i].state = MSM_ISP_BUFFER_STATE_INITIALIZED;
+		bufq->bufs[i].buf_debug.put_state[0] =
+				MSM_ISP_BUFFER_STATE_PUT_PREPARED;
+		bufq->bufs[i].buf_debug.put_state[1] =
+				MSM_ISP_BUFFER_STATE_PUT_PREPARED;
+		bufq->bufs[i].buf_debug.put_state_last = 0;
+		bufq->bufs[i].bufq_handle = bufq->bufq_handle;
+		bufq->bufs[i].buf_idx = i;
+		INIT_LIST_HEAD(&bufq->bufs[i].list);
+	}
 
 	return rc;
 

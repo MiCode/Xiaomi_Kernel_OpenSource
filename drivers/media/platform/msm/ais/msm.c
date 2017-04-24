@@ -164,7 +164,8 @@ typedef int (*msm_queue_find_func)(void *d1, void *d2);
 
 static void msm_init_queue(struct msm_queue_head *qhead)
 {
-	BUG_ON(!qhead);
+	if (WARN_ON(!qhead))
+		return;
 
 	INIT_LIST_HEAD(&qhead->list);
 	spin_lock_init(&qhead->lock);
@@ -812,7 +813,8 @@ static unsigned int msm_poll(struct file *f,
 	int rc = 0;
 	struct v4l2_fh *eventq = f->private_data;
 
-	BUG_ON(!eventq);
+	if (WARN_ON(!eventq))
+		return 0;
 
 	poll_wait(f, &eventq->wait, pll_table);
 
@@ -998,7 +1000,8 @@ static int msm_open(struct file *filep)
 	unsigned long flags;
 	struct msm_video_device *pvdev = video_drvdata(filep);
 
-	BUG_ON(!pvdev);
+	if (WARN_ON(!pvdev))
+		return -EIO;
 
 	/* !!! only ONE open is allowed !!! */
 	if (atomic_read(&pvdev->opened))
@@ -1136,8 +1139,8 @@ static void msm_sd_notify(struct v4l2_subdev *sd,
 	int rc = 0;
 	struct v4l2_subdev *subdev = NULL;
 
-	BUG_ON(!sd);
-	BUG_ON(!arg);
+	if (WARN_ON(!sd) || WARN_ON(!arg))
+		return;
 
 	/* Check if subdev exists before processing*/
 	if (!msm_sd_find(sd->name))
@@ -1203,20 +1206,20 @@ static int msm_probe(struct platform_device *pdev)
 
 	msm_v4l2_dev = kzalloc(sizeof(*msm_v4l2_dev),
 		GFP_KERNEL);
-	if (WARN_ON(!msm_v4l2_dev)) {
+	if (!msm_v4l2_dev) {
 		rc = -ENOMEM;
 		goto probe_end;
 	}
 
 	pvdev = kzalloc(sizeof(struct msm_video_device),
 		GFP_KERNEL);
-	if (WARN_ON(!pvdev)) {
+	if (!pvdev) {
 		rc = -ENOMEM;
 		goto pvdev_fail;
 	}
 
 	pvdev->vdev = video_device_alloc();
-	if (WARN_ON(!pvdev->vdev)) {
+	if (!pvdev->vdev) {
 		rc = -ENOMEM;
 		goto video_fail;
 	}
@@ -1272,7 +1275,7 @@ static int msm_probe(struct platform_device *pdev)
 	video_set_drvdata(pvdev->vdev, pvdev);
 
 	msm_session_q = kzalloc(sizeof(*msm_session_q), GFP_KERNEL);
-	if (WARN_ON(!msm_session_q))
+	if (!msm_session_q)
 		goto v4l2_fail;
 
 	msm_init_queue(msm_session_q);

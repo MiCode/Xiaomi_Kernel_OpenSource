@@ -771,12 +771,18 @@ static int cam_smmu_map_buffer_and_add_to_list(int idx, int ion_fd,
 		goto err_out;
 	}
 
+	mapping_info = kzalloc(sizeof(struct cam_dma_buff_info), GFP_KERNEL);
+	if (!mapping_info) {
+		rc = -ENOSPC;
+		goto err_out;
+	}
+
 	/* allocate memory for each buffer information */
 	buf = dma_buf_get(ion_fd);
 	if (IS_ERR_OR_NULL(buf)) {
 		rc = PTR_ERR(buf);
 		pr_err("Error: dma get buf failed. fd = %d\n", ion_fd);
-		goto err_out;
+		goto err_alloc;
 	}
 
 	attach = dma_buf_attach(buf, iommu_cb_set.cb_info[idx].dev);
@@ -816,11 +822,6 @@ static int cam_smmu_map_buffer_and_add_to_list(int idx, int ion_fd,
 	}
 
 	/* fill up mapping_info */
-	mapping_info = kzalloc(sizeof(struct cam_dma_buff_info), GFP_KERNEL);
-	if (!mapping_info) {
-		rc = -ENOSPC;
-		goto err_unmap_sg;
-	}
 	mapping_info->ion_fd = ion_fd;
 	mapping_info->buf = buf;
 	mapping_info->attach = attach;
@@ -849,11 +850,12 @@ static int cam_smmu_map_buffer_and_add_to_list(int idx, int ion_fd,
 
 err_unmap_sg:
 	dma_buf_unmap_attachment(attach, table, dma_dir);
-	kfree(mapping_info);
 err_detach:
 	dma_buf_detach(buf, attach);
 err_put:
 	dma_buf_put(buf);
+err_alloc:
+	kfree(mapping_info);
 err_out:
 	return rc;
 }
