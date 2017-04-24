@@ -362,7 +362,7 @@
 		compatible = "qcom,msm-audio-ion";
 		qcom,smmu-version = <2>;
 		qcom,smmu-enabled;
-		iommus = <&apps_smmu 0x1821>;
+		iommus = <&apps_smmu 0x1821 0x0>;
 	};
 
 	qcom,msm-adsp-loader {

@@ -17,7 +17,7 @@
 #include <dt-bindings/clock/qcom,audio-ext-clk.h>
 
 &msm_audio_ion {
-	iommus = <&apps_smmu 0x1821>;
+	iommus = <&apps_smmu 0x1821 0x0>;
 	qcom,smmu-sid-mask = /bits/ 64 <0xf>;
 };
 
