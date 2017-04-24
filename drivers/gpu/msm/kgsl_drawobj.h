@@ -105,6 +105,8 @@ struct kgsl_drawobj_sync {
 	unsigned long timeout_jiffies;
 };
 
+#define KGSL_FENCE_NAME_LEN 74
+
 /**
  * struct kgsl_drawobj_sync_event
  * @id: identifer (positiion within the pending bitmap)
@@ -114,6 +116,7 @@ struct kgsl_drawobj_sync {
  *           register this event
  * @timestamp: Pending timestamp for the event
  * @handle: Pointer to a sync fence handle
+ * @fence_name: A fence name string to describe the fence
  * @device: Pointer to the KGSL device
  */
 struct kgsl_drawobj_sync_event {
@@ -123,6 +126,7 @@ struct kgsl_drawobj_sync_event {
 	struct kgsl_context *context;
 	unsigned int timestamp;
 	struct kgsl_sync_fence_cb *handle;
+	char fence_name[KGSL_FENCE_NAME_LEN];
 	struct kgsl_device *device;
 };
 
@@ -206,6 +210,8 @@ void kgsl_dump_syncpoints(struct kgsl_device *device,
 
 void kgsl_drawobj_destroy(struct kgsl_drawobj *drawobj);
 
+void kgsl_drawobj_destroy_object(struct kref *kref);
+
 static inline bool kgsl_drawobj_events_pending(
 		struct kgsl_drawobj_sync *syncobj)
 {
@@ -220,4 +226,11 @@ static inline bool kgsl_drawobj_event_pending(
 
 	return test_bit(bit, &syncobj->pending);
 }
+
+static inline void kgsl_drawobj_put(struct kgsl_drawobj *drawobj)
+{
+	if (drawobj)
+		kref_put(&drawobj->refcount, kgsl_drawobj_destroy_object);
+}
+
 #endif /* __KGSL_DRAWOBJ_H */
