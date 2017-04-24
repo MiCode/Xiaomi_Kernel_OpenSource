@@ -108,6 +108,8 @@ struct sde_crtc_event {
  * @name          : ASCII description of this crtc
  * @num_ctls      : Number of ctl paths in use
  * @num_mixers    : Number of mixers in use
+ * @mixers_swapped: Whether the mixers have been swapped for left/right update
+ *                  especially in the case of DSC Merge.
  * @mixers        : List of active mixers
  * @event         : Pointer to last received drm vblank event. If there is a
  *                  pending vblank event, this will be non-null.
@@ -147,6 +149,7 @@ struct sde_crtc {
 	/* HW Resources reserved for the crtc */
 	u32 num_ctls;
 	u32 num_mixers;
+	bool mixers_swapped;
 	struct sde_crtc_mixer mixers[CRTC_DUAL_MIXERS];
 
 	struct drm_pending_vblank_event *event;

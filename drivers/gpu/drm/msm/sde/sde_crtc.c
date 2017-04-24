@@ -1177,6 +1177,69 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	_sde_crtc_program_lm_output_roi(crtc);
 }
 
+static void _sde_crtc_swap_mixers_for_right_partial_update(
+		struct drm_crtc *crtc)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *cstate;
+	struct drm_encoder *drm_enc;
+	bool is_right_only;
+	bool encoder_in_dsc_merge = false;
+
+	if (!crtc || !crtc->state)
+		return;
+
+	sde_crtc = to_sde_crtc(crtc);
+	cstate = to_sde_crtc_state(crtc->state);
+
+	if (sde_crtc->num_mixers != CRTC_DUAL_MIXERS)
+		return;
+
+	drm_for_each_encoder(drm_enc, crtc->dev) {
+		if (drm_enc->crtc == crtc &&
+				sde_encoder_is_dsc_merge(drm_enc)) {
+			encoder_in_dsc_merge = true;
+			break;
+		}
+	}
+
+	/**
+	 * For right-only partial update with DSC merge, we swap LM0 & LM1.
+	 * This is due to two reasons:
+	 * - On 8996, there is a DSC HW requirement that in DSC Merge Mode,
+	 *   the left DSC must be used, right DSC cannot be used alone.
+	 *   For right-only partial update, this means swap layer mixers to map
+	 *   Left LM to Right INTF. On later HW this was relaxed.
+	 * - In DSC Merge mode, the physical encoder has already registered
+	 *   PP0 as the master, to switch to right-only we would have to
+	 *   reprogram to be driven by PP1 instead.
+	 * To support both cases, we prefer to support the mixer swap solution.
+	 */
+	if (!encoder_in_dsc_merge)
+		return;
+
+	is_right_only = sde_kms_rect_is_null(&cstate->lm_roi[0]) &&
+			!sde_kms_rect_is_null(&cstate->lm_roi[1]);
+
+	if (is_right_only && !sde_crtc->mixers_swapped) {
+		/* right-only update swap mixers */
+		swap(sde_crtc->mixers[0], sde_crtc->mixers[1]);
+		sde_crtc->mixers_swapped = true;
+	} else if (!is_right_only && sde_crtc->mixers_swapped) {
+		/* left-only or full update, swap back */
+		swap(sde_crtc->mixers[0], sde_crtc->mixers[1]);
+		sde_crtc->mixers_swapped = false;
+	}
+
+	SDE_DEBUG("%s: right_only %d swapped %d, mix0->lm%d, mix1->lm%d\n",
+			sde_crtc->name, is_right_only, sde_crtc->mixers_swapped,
+			sde_crtc->mixers[0].hw_lm->idx - LM_0,
+			sde_crtc->mixers[1].hw_lm->idx - LM_0);
+	SDE_EVT32(DRMID(crtc), is_right_only, sde_crtc->mixers_swapped,
+			sde_crtc->mixers[0].hw_lm->idx - LM_0,
+			sde_crtc->mixers[1].hw_lm->idx - LM_0);
+}
+
 /**
  * _sde_crtc_blend_setup - configure crtc mixers
  * @crtc: Pointer to drm crtc structure
@@ -1221,6 +1284,8 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 		if (lm->ops.clear_dim_layer)
 			lm->ops.clear_dim_layer(lm);
 	}
+
+	_sde_crtc_swap_mixers_for_right_partial_update(crtc);
 
 	/* initialize stage cfg */
 	memset(&sde_crtc->stage_cfg, 0, sizeof(struct sde_hw_stage_cfg));
