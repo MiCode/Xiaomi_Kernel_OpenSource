@@ -493,6 +493,7 @@ int smblib_icl_override(struct smb_charger *chg, bool override);
 int smblib_dp_dm(struct smb_charger *chg, int val);
 int smblib_rerun_aicl(struct smb_charger *chg);
 int smblib_set_icl_current(struct smb_charger *chg, int icl_ua);
+int smblib_get_icl_current(struct smb_charger *chg, int *icl_ua);
 int smblib_get_charge_current(struct smb_charger *chg, int *total_current_ua);
 
 int smblib_init(struct smb_charger *chg);
