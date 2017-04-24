@@ -152,6 +152,17 @@ static int _add_fence_event(struct kgsl_device *device,
 	return ret;
 }
 
+/* Only to be used if creating a related event failed */
+static void kgsl_sync_cancel(struct kgsl_sync_fence *kfence)
+{
+	spin_lock(&kfence->parent->lock);
+	if (!list_empty(&kfence->child_list)) {
+		list_del_init(&kfence->child_list);
+		fence_put(&kfence->fence);
+	}
+	spin_unlock(&kfence->parent->lock);
+}
+
 /**
  * kgsl_add_fence_event - Create a new fence event
  * @device - KGSL device to create the event on
@@ -235,6 +246,7 @@ out:
 			put_unused_fd(priv.fence_fd);
 
 		if (kfence) {
+			kgsl_sync_cancel(kfence);
 			/*
 			 * Put the refcount of sync file. This will release
 			 * kfence->fence as well.
@@ -366,7 +378,7 @@ static void kgsl_sync_timeline_signal(struct kgsl_sync_timeline *ktimeline,
 	list_for_each_entry_safe(kfence, next, &ktimeline->child_list_head,
 				child_list) {
 		if (fence_is_signaled_locked(&kfence->fence)) {
-			list_del(&kfence->child_list);
+			list_del_init(&kfence->child_list);
 			fence_put(&kfence->fence);
 		}
 	}
@@ -447,7 +459,7 @@ struct kgsl_sync_fence_cb *kgsl_sync_fence_async_wait(int fd,
 
 	if (status) {
 		kfree(kcb);
-		if (fence_is_signaled(fence))
+		if (!fence_is_signaled(fence))
 			kcb = ERR_PTR(status);
 		else
 			kcb = NULL;
