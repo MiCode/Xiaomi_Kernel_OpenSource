@@ -60,7 +60,7 @@ struct hbtp_data {
 	u32 ts_pinctrl_seq_delay;
 	u32 ddic_pinctrl_seq_delay[HBTP_PINCTRL_DDIC_SEQ_NUM];
 	u32 fb_resume_seq_delay;
-	bool lcd_on;
+	int lcd_state;
 	bool power_suspended;
 	bool power_sync_enabled;
 	bool power_sig_enabled;
@@ -104,6 +104,7 @@ static int fb_notifier_callback(struct notifier_block *self,
 				 unsigned long event, void *data)
 {
 	int blank;
+	int lcd_state;
 	struct fb_event *evdata = data;
 	struct fb_info *fbi = NULL;
 	struct hbtp_data *hbtp_data =
@@ -129,27 +130,32 @@ static int fb_notifier_callback(struct notifier_block *self,
 		(event == FB_EARLY_EVENT_BLANK ||
 		event == FB_R_EARLY_EVENT_BLANK)) {
 		blank = *(int *)(evdata->data);
+		lcd_state = hbtp->lcd_state;
 		if (event == FB_EARLY_EVENT_BLANK) {
-			if (blank == FB_BLANK_UNBLANK) {
+			if (blank <= FB_BLANK_NORMAL &&
+				lcd_state == FB_BLANK_POWERDOWN) {
 				pr_debug("%s: receives EARLY_BLANK:UNBLANK\n",
 					__func__);
-				hbtp_data->lcd_on = true;
 				hbtp_fb_early_resume(hbtp_data);
-			} else if (blank == FB_BLANK_POWERDOWN) {
+			} else if (blank == FB_BLANK_POWERDOWN &&
+					lcd_state <= FB_BLANK_NORMAL) {
 				pr_debug("%s: receives EARLY_BLANK:POWERDOWN\n",
 					__func__);
-				hbtp_data->lcd_on = false;
+			} else {
+				pr_debug("%s: receives EARLY_BLANK:%d in %d state\n",
+					__func__, blank, lcd_state);
 			}
 		} else if (event == FB_R_EARLY_EVENT_BLANK) {
-			if (blank == FB_BLANK_UNBLANK) {
+			if (blank <= FB_BLANK_NORMAL) {
 				pr_debug("%s: receives R_EARLY_BALNK:UNBLANK\n",
 					__func__);
-				hbtp_data->lcd_on = false;
 				hbtp_fb_suspend(hbtp_data);
 			} else if (blank == FB_BLANK_POWERDOWN) {
 				pr_debug("%s: receives R_EARLY_BALNK:POWERDOWN\n",
 					__func__);
-				hbtp_data->lcd_on = true;
+			} else {
+				pr_debug("%s: receives R_EARLY_BALNK:%d in %d state\n",
+					__func__, blank, lcd_state);
 			}
 		}
 	}
@@ -157,13 +163,20 @@ static int fb_notifier_callback(struct notifier_block *self,
 	if (evdata->data && hbtp_data &&
 		event == FB_EVENT_BLANK) {
 		blank = *(int *)(evdata->data);
-		if (blank == FB_BLANK_POWERDOWN) {
+		lcd_state = hbtp->lcd_state;
+		if (blank == FB_BLANK_POWERDOWN &&
+			lcd_state <= FB_BLANK_NORMAL) {
 			pr_debug("%s: receives BLANK:POWERDOWN\n", __func__);
 			hbtp_fb_suspend(hbtp_data);
-		} else if (blank == FB_BLANK_UNBLANK) {
+		} else if (blank <= FB_BLANK_NORMAL &&
+				lcd_state == FB_BLANK_POWERDOWN) {
 			pr_debug("%s: receives BLANK:UNBLANK\n", __func__);
 			hbtp_fb_resume(hbtp_data);
+		} else {
+			pr_debug("%s: receives BLANK:%d in %d state\n",
+				__func__, blank, lcd_state);
 		}
+		hbtp_data->lcd_state = blank;
 	}
 	return 0;
 }
@@ -909,6 +922,9 @@ static int hbtp_parse_dt(struct device *dev)
 
 	hbtp->afe_force_power_on =
 		of_property_read_bool(np, "qcom,afe-force-power-on");
+
+	if (hbtp->afe_force_power_on)
+		hbtp->lcd_state = FB_BLANK_POWERDOWN;
 
 	prop = of_find_property(np, "qcom,display-resolution", NULL);
 	if (prop != NULL) {
