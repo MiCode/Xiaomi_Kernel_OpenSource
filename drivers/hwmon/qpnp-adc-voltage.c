@@ -2562,10 +2562,9 @@ hwmon_err_sens:
 	return rc;
 }
 
-static int qpnp_vadc_get_temp(struct thermal_zone_device *thermal,
-			     int *temp)
+static int qpnp_vadc_get_temp(void *data, int *temp)
 {
-	struct qpnp_vadc_thermal_data *vadc_therm = thermal->devdata;
+	struct qpnp_vadc_thermal_data *vadc_therm = data;
 	struct qpnp_vadc_chip *vadc = vadc_therm->vadc_dev;
 	struct qpnp_vadc_result result;
 	int rc = 0;
@@ -2583,7 +2582,7 @@ static int qpnp_vadc_get_temp(struct thermal_zone_device *thermal,
 	return rc;
 }
 
-static struct thermal_zone_device_ops qpnp_vadc_thermal_ops = {
+static struct thermal_zone_of_device_ops qpnp_vadc_thermal_ops = {
 	.get_temp = qpnp_vadc_get_temp,
 };
 
@@ -2612,9 +2611,11 @@ static int32_t qpnp_vadc_init_thermal(struct qpnp_vadc_chip *vadc,
 				vadc->adc->adc_channels[i].name);
 			vadc->vadc_therm_chan[i].vadc_dev = vadc;
 			vadc->vadc_therm_chan[i].tz_dev =
-				thermal_zone_device_register(name,
-				0, 0, &vadc->vadc_therm_chan[i],
-				&qpnp_vadc_thermal_ops, NULL, 0, 0);
+				devm_thermal_zone_of_sensor_register(
+				vadc->dev,
+				vadc->vadc_therm_chan[i].vadc_channel,
+				&vadc->vadc_therm_chan[i],
+				&qpnp_vadc_thermal_ops);
 			if (IS_ERR(vadc->vadc_therm_chan[i].tz_dev)) {
 				pr_err("thermal device register failed.\n");
 				goto thermal_err_sens;
