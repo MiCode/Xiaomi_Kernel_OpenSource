@@ -2892,6 +2892,7 @@ EXPORT_SYMBOL(mmc_can_reset);
 static int mmc_reset(struct mmc_host *host)
 {
 	struct mmc_card *card = host->card;
+	int ret;
 
 	if ((host->caps & MMC_CAP_HW_RESET) && host->ops->hw_reset &&
 	     mmc_can_reset(card)) {
@@ -2904,7 +2905,29 @@ static int mmc_reset(struct mmc_host *host)
 		/* Do a brute force power cycle */
 		mmc_power_cycle(host, card->ocr);
 	}
-	return mmc_init_card(host, card->ocr, card);
+
+	/* Suspend clk scaling to avoid switching frequencies intermittently */
+
+	ret = mmc_suspend_clk_scaling(host);
+	if (ret) {
+		pr_err("%s: %s: fail to suspend clock scaling (%d)\n",
+			mmc_hostname(host), __func__, ret);
+		return ret;
+	}
+
+	ret = mmc_init_card(host, host->card->ocr, host->card);
+	if (ret) {
+		pr_err("%s: %s: mmc_init_card failed (%d)\n",
+			mmc_hostname(host), __func__, ret);
+		return ret;
+	}
+
+	ret = mmc_resume_clk_scaling(host);
+	if (ret)
+		pr_err("%s: %s: fail to resume clock scaling (%d)\n",
+			mmc_hostname(host), __func__, ret);
+
+	return ret;
 }
 
 static const struct mmc_bus_ops mmc_ops = {
