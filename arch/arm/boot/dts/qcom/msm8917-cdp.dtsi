@@ -66,6 +66,34 @@
 		qcom,dig-vtg-min = <1800000>;
 		qcom,dig-vtg-max = <1800000>;
 	};
+
+	usb_detect {
+		compatible = "qcom,gpio-usbdetect";
+		interrupt-names = "vbus_det_irq";
+		interrupt-parent = <&tlmm>;
+		interrupts = <130 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb_mode_select>;
+		qcom,gpio-mode-sel = <&tlmm 130 0>;
+		qcom,notify-host-mode;
+		status = "disabled";
+	};
+
+	usbhub_vbus_vreg: usbhub_vbus_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "usbhub_vbus_vreg";
+		gpio = <&ioexp_gpios 3 0>;
+		enable-active-high;
+		vin-supply = <&pm8917_l6>;
+	};
+
+	usbeth_vbus_vreg: usbeth_vbus_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "usbeth_vbus_vreg";
+		gpio = <&ioexp_gpios 7 0>;
+		enable-active-high;
+		vin-supply = <&usbhub_vbus_vreg>;
+	};
 };
 
 &spi_3 { /* BLSP1 QUP3 */
@@ -276,6 +304,17 @@
 		sx150x,float_ena = <0x00>;
 		sx150x,polarity = <0x0>;
 		sx150x,gpio_base = <200>;
+	};
+	/* usb2533 flex hub */
+	usb2533@2c {
+		status = "disabled";
+		compatible = "qcom,usb2533-flex-hub";
+		reg = <0x2d>;
+		vbus-supply = <&usbeth_vbus_vreg>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb2533_hub_reset>;
+		qcom,hub-reset-gpio = <&tlmm 100 0>;
+		qcom,usbeth-reset-gpio = <&ioexp_gpios 5 0>;
 	};
 };
 

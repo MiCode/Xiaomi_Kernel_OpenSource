@@ -1610,7 +1610,7 @@
 			};
 		};
 
-		vbus_low_as_host: vbus_low_as_host {
+		usb_mode_select: usb_mode_select {
 			mux {
 				pins = "gpio130";
 				function = "gpio";
@@ -1621,6 +1621,19 @@
 				drive-strength = <2>;
 				bias-disable;
 				input-enable;
+			};
+		};
+
+		usb2533_hub_reset: usb2533_hub_reset {
+			mux {
+				pins = "gpio100";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio100";
+				drive-strength = <2>;
+				output-low;
 			};
 		};
 	};
