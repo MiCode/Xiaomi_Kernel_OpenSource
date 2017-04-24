@@ -677,7 +677,7 @@ static int smb2_usb_main_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_fcc_delta(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		val->intval = get_effective_result(chg->usb_icl_votable);
+		rc = smblib_get_icl_current(chg, &val->intval);
 		break;
 	default:
 		pr_debug("get prop %d is not supported in usb-main\n", psp);
