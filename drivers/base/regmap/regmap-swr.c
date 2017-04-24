@@ -11,6 +11,9 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/device.h>
+#include <linux/slab.h>
+#include <linux/mutex.h>
 #include <linux/regmap.h>
 #include <linux/soundwire/soundwire.h>
 #include <linux/module.h>
@@ -60,17 +63,78 @@ static int regmap_swr_gather_write(void *context,
 	return ret;
 }
 
+static int regmap_swr_raw_multi_reg_write(void *context, const void *data,
+					  size_t count)
+{
+	struct device *dev = context;
+	struct swr_device *swr = to_swr_device(dev);
+	struct regmap *map = dev_get_regmap(dev, NULL);
+	size_t addr_bytes = map->format.reg_bytes;
+	size_t val_bytes = map->format.val_bytes;
+	size_t pad_bytes = map->format.pad_bytes;
+	size_t num_regs = (count / (addr_bytes + val_bytes + pad_bytes));
+	int i = 0;
+	int ret = 0;
+	u16 *reg;
+	u8 *val;
+	u8 *buf;
+
+	if (swr == NULL) {
+		dev_err(dev, "%s: swr device is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	reg = kcalloc(num_regs, sizeof(u16), GFP_KERNEL);
+	if (!reg)
+		return -ENOMEM;
+
+	val = kcalloc(num_regs, sizeof(u8), GFP_KERNEL);
+	if (!val) {
+		ret = -ENOMEM;
+		goto mem_fail;
+	}
+
+	buf = (u8 *)data;
+	for (i = 0; i < num_regs; i++) {
+		reg[i] = *(u16 *)buf;
+		buf += (map->format.reg_bytes + map->format.pad_bytes);
+		val[i] = *buf;
+		buf += map->format.val_bytes;
+	}
+	ret = swr_bulk_write(swr, swr->dev_num, reg, val, num_regs);
+	if (ret)
+		dev_err(dev, "%s: multi reg write failed\n", __func__);
+
+	kfree(val);
+mem_fail:
+	kfree(reg);
+	return ret;
+}
+
 static int regmap_swr_write(void *context, const void *data, size_t count)
 {
 	struct device *dev = context;
 	struct regmap *map = dev_get_regmap(dev, NULL);
-	size_t addr_bytes = map->format.reg_bytes;
+	size_t addr_bytes;
+	size_t val_bytes;
+	size_t pad_bytes;
+
+	if (map == NULL) {
+		dev_err(dev, "%s: regmap is NULL\n", __func__);
+		return -EINVAL;
+	}
+	addr_bytes = map->format.reg_bytes;
+	val_bytes = map->format.val_bytes;
+	pad_bytes = map->format.pad_bytes;
 
 	WARN_ON(count < addr_bytes);
 
-	return regmap_swr_gather_write(context, data, addr_bytes,
-					(data + addr_bytes),
-					(count - addr_bytes));
+	if (count > (addr_bytes + val_bytes + pad_bytes))
+		return regmap_swr_raw_multi_reg_write(context, data, count);
+	else
+		return regmap_swr_gather_write(context, data, addr_bytes,
+					       (data + addr_bytes),
+					       (count - addr_bytes));
 }
 
 static int regmap_swr_read(void *context,
