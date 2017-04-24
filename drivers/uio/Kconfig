@@ -155,4 +155,11 @@ config UIO_MF624
 
 	  If you compile this as a module, it will be called uio_mf624.
 
+config UIO_MSM_SHAREDMEM
+	bool "MSM shared memory driver"
+	default n
+	help
+	  Provides the clients with their respective alloted shared memory
+	  addresses which are used as transport buffer.
+
 endif
