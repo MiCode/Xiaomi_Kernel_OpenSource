@@ -1,0 +1,30 @@
+USB2533 flex Hub
+
+usb2533 HUB supports flex mode which allows swapping of upstream port with
+one of the downstream port using I2C commands. This driver enables/disables
+flex mode based on the USB mode (host/device).
+
+Required properties :
+- compatible : Must be "qcom,usb2533-flex-hub"
+- reg: 7bit I2C slave address
+- <supply-name>-supply: handle to the regulator device tree node.
+        "supply-name" is "vbus" regulator to drive peripheral Vbus
+	line in host mode.
+
+Optional properties:
+- qcom,hub-reset-gpio : This corresponds to GPIO that is used to drive USB HUB
+  reset pin.
+- qcom,usbeth-reset-gpio : This corresponds to GPIO that is used to drive
+  reset of any other downstream device connected to HUB.
+  GPIO flag represents whether ENB pin is active-high(0) or active-low(1).
+
+Example :
+	usb2533@2d {
+		compatible = "qcom,usb2533-flex-hub";
+		reg = <0x2d>;
+		vbus-supply = <&usbeth_vbus_vreg>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb2533_hub_reset>;
+		qcom,hub-reset-gpio = <&tlmm 100 0>;
+		qcom,usbeth-reset-gpio = <&ioexp_gpios 5 0>;
+	};
