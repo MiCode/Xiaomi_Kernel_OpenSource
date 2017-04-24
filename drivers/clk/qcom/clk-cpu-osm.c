@@ -40,6 +40,7 @@
 #include "clk-regmap.h"
 #include "clk-rcg.h"
 #include "clk-voter.h"
+#include "clk-debug.h"
 
 #define OSM_TABLE_SIZE			40
 #define SINGLE_CORE			1
@@ -372,6 +373,7 @@ const struct clk_ops clk_ops_cpu_osm = {
 	.enable = clk_osm_enable,
 	.round_rate = clk_osm_round_rate,
 	.list_rate = clk_osm_list_rate,
+	.debug_init = clk_debug_measure_add,
 };
 
 static struct clk_ops clk_ops_core;
@@ -507,6 +509,7 @@ const struct clk_ops clk_ops_l3_osm = {
 	.list_rate = clk_osm_list_rate,
 	.recalc_rate = l3_clk_recalc_rate,
 	.set_rate = l3_clk_set_rate,
+	.debug_init = clk_debug_measure_add,
 };
 
 static struct clk_init_data osm_clks_init[] = {
