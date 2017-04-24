@@ -275,11 +275,12 @@ enum a6xx_debugbus_id {
 	A6XX_DBGBUS_LRZ          = 0x10,
 	A6XX_DBGBUS_A2D          = 0x11,
 	A6XX_DBGBUS_CCUFCHE      = 0x12,
-	A6XX_DBGBUS_GMU          = 0x13,
+	A6XX_DBGBUS_GMU_CX       = 0x13,
 	A6XX_DBGBUS_RBP          = 0x14,
 	A6XX_DBGBUS_DCS          = 0x15,
 	A6XX_DBGBUS_RBBM_CFG     = 0x16,
 	A6XX_DBGBUS_CX           = 0x17,
+	A6XX_DBGBUS_GMU_GX       = 0x18,
 	A6XX_DBGBUS_TPFCHE       = 0x19,
 	A6XX_DBGBUS_GPC          = 0x1d,
 	A6XX_DBGBUS_LARC         = 0x1e,
@@ -321,6 +322,7 @@ static const struct adreno_debugbus_block a6xx_dbgc_debugbus_blocks[] = {
 	{ A6XX_DBGBUS_RBP, 0x100, },
 	{ A6XX_DBGBUS_DCS, 0x100, },
 	{ A6XX_DBGBUS_RBBM_CFG, 0x100, },
+	{ A6XX_DBGBUS_GMU_GX, 0x100, },
 	{ A6XX_DBGBUS_TPFCHE, 0x100, },
 	{ A6XX_DBGBUS_GPC, 0x100, },
 	{ A6XX_DBGBUS_LARC, 0x100, },
@@ -345,7 +347,7 @@ static const struct adreno_debugbus_block a6xx_dbgc_debugbus_blocks[] = {
 static void __iomem *a6xx_cx_dbgc;
 static const struct adreno_debugbus_block a6xx_cx_dbgc_debugbus_blocks[] = {
 	{ A6XX_DBGBUS_VBIF, 0x100, },
-	{ A6XX_DBGBUS_GMU, 0x100, },
+	{ A6XX_DBGBUS_GMU_CX, 0x100, },
 	{ A6XX_DBGBUS_CX, 0x100, },
 };
 
@@ -883,12 +885,14 @@ static void a6xx_dbgc_debug_bus_read(struct kgsl_device *device,
 static size_t a6xx_snapshot_dbgc_debugbus_block(struct kgsl_device *device,
 	u8 *buf, size_t remain, void *priv)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_snapshot_debugbus *header =
 		(struct kgsl_snapshot_debugbus *)buf;
 	struct adreno_debugbus_block *block = priv;
 	int i;
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	unsigned int dwords;
+	unsigned int block_id;
 	size_t size;
 
 	dwords = block->dwords;
@@ -904,9 +908,14 @@ static size_t a6xx_snapshot_dbgc_debugbus_block(struct kgsl_device *device,
 	header->id = block->block_id;
 	header->count = dwords * 2;
 
+	block_id = block->block_id;
+	/* GMU_GX data is read using the GMU_CX block id on A630 */
+	if (adreno_is_a630(adreno_dev) &&
+		(block_id == A6XX_DBGBUS_GMU_GX))
+		block_id = A6XX_DBGBUS_GMU_CX;
+
 	for (i = 0; i < dwords; i++)
-		a6xx_dbgc_debug_bus_read(device, block->block_id, i,
-					&data[i*2]);
+		a6xx_dbgc_debug_bus_read(device, block_id, i, &data[i*2]);
 
 	return size;
 }
