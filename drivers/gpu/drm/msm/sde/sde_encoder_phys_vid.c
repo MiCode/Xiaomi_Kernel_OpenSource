@@ -227,16 +227,18 @@ static void programmable_rot_fetch_config(struct sde_encoder_phys *phys_enc,
 	struct sde_encoder_phys_vid *vid_enc =
 		to_sde_encoder_phys_vid(phys_enc);
 	struct intf_prog_fetch f = { 0 };
-	struct intf_timing_params *timing = &vid_enc->timing_params;
+	struct intf_timing_params *timing;
 	u32 vfp_fetch_lines = 0;
 	u32 horiz_total = 0;
 	u32 vert_total = 0;
 	u32 rot_fetch_start_vsync_counter = 0;
 	unsigned long lock_flags;
 
-	if (WARN_ON_ONCE(!vid_enc->hw_intf->ops.setup_rot_start))
+	if (!phys_enc || !vid_enc->hw_intf ||
+			!vid_enc->hw_intf->ops.setup_rot_start)
 		return;
 
+	timing = &vid_enc->timing_params;
 	vfp_fetch_lines = programmable_fetch_get_num_lines(vid_enc, timing);
 	if (vfp_fetch_lines && rot_fetch_lines) {
 		vert_total = get_vertical_total(timing);
