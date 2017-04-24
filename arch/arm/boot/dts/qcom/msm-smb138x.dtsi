@@ -128,3 +128,10 @@
 		};
 	};
 };
+
+&smb138x_parallel_slave {
+	smb138x_vbus: qcom,smb138x-vbus {
+		status = "disabled";
+		regulator-name = "smb138x-vbus";
+	};
+};

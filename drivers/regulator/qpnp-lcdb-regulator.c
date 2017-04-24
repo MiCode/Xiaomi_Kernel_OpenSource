@@ -24,6 +24,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/machine.h>
+#include <linux/qpnp/qpnp-revid.h>
 
 #define QPNP_LCDB_REGULATOR_DRIVER_NAME		"qcom,qpnp-lcdb-regulator"
 
@@ -192,15 +193,13 @@ struct qpnp_lcdb {
 	struct device			*dev;
 	struct platform_device		*pdev;
 	struct regmap			*regmap;
+	struct pmic_revid_data		*pmic_rev_id;
 	u32				base;
 	int				sc_irq;
 
 	/* TTW params */
 	bool				ttw_enable;
 	bool				ttw_mode_sw;
-
-	/* top level DT params */
-	bool				force_module_reenable;
 
 	/* status parameters */
 	bool				lcdb_enabled;
@@ -579,6 +578,65 @@ static int qpnp_lcdb_ttw_exit(struct qpnp_lcdb *lcdb)
 	return 0;
 }
 
+static int qpnp_lcdb_enable_wa(struct qpnp_lcdb *lcdb)
+{
+	int rc;
+	u8 val = 0;
+
+	/* required only for PM660L */
+	if (lcdb->pmic_rev_id->pmic_subtype != PM660L_SUBTYPE)
+		return 0;
+
+	val = MODULE_EN_BIT;
+	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_ENABLE_CTL1_REG,
+						&val, 1);
+	if (rc < 0) {
+		pr_err("Failed to enable lcdb rc= %d\n", rc);
+		return rc;
+	}
+
+	val = 0;
+	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_ENABLE_CTL1_REG,
+							&val, 1);
+	if (rc < 0) {
+		pr_err("Failed to disable lcdb rc= %d\n", rc);
+		return rc;
+	}
+
+	/* execute the below for rev1.1 */
+	if (lcdb->pmic_rev_id->rev3 == PM660L_V1P1_REV3 &&
+		lcdb->pmic_rev_id->rev4 == PM660L_V1P1_REV4) {
+		/*
+		 * delay to make sure that the MID pin – ie the
+		 * output of the LCDB boost – returns to 0V
+		 * after the module is disabled
+		 */
+		usleep_range(10000, 10100);
+
+		rc = qpnp_lcdb_masked_write(lcdb,
+				lcdb->base + LCDB_MISC_CTL_REG,
+				DIS_SCP_BIT, DIS_SCP_BIT);
+		if (rc < 0) {
+			pr_err("Failed to disable SC rc=%d\n", rc);
+			return rc;
+		}
+		/* delay for SC-disable to take effect */
+		usleep_range(1000, 1100);
+
+		rc = qpnp_lcdb_masked_write(lcdb,
+				lcdb->base + LCDB_MISC_CTL_REG,
+				DIS_SCP_BIT, 0);
+		if (rc < 0) {
+			pr_err("Failed to enable SC rc=%d\n", rc);
+			return rc;
+		}
+		/* delay for SC-enable to take effect */
+		usleep_range(1000, 1100);
+	}
+
+	return 0;
+}
+
 static int qpnp_lcdb_enable(struct qpnp_lcdb *lcdb)
 {
 	int rc = 0, timeout, delay;
@@ -598,29 +656,18 @@ static int qpnp_lcdb_enable(struct qpnp_lcdb *lcdb)
 		}
 	}
 
+	rc = qpnp_lcdb_enable_wa(lcdb);
+	if (rc < 0) {
+		pr_err("Failed to execute enable_wa rc=%d\n", rc);
+		return rc;
+	}
+
 	val = MODULE_EN_BIT;
 	rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_ENABLE_CTL1_REG,
 							&val, 1);
 	if (rc < 0) {
-		pr_err("Failed to enable lcdb rc= %d\n", rc);
+		pr_err("Failed to disable lcdb rc= %d\n", rc);
 		goto fail_enable;
-	}
-
-	if (lcdb->force_module_reenable) {
-		val = 0;
-		rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_ENABLE_CTL1_REG,
-								&val, 1);
-		if (rc < 0) {
-			pr_err("Failed to enable lcdb rc= %d\n", rc);
-			goto fail_enable;
-		}
-		val = MODULE_EN_BIT;
-		rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_ENABLE_CTL1_REG,
-								&val, 1);
-		if (rc < 0) {
-			pr_err("Failed to disable lcdb rc= %d\n", rc);
-			goto fail_enable;
-		}
 	}
 
 	/* poll for vreg_ok */
@@ -1674,7 +1721,8 @@ static int qpnp_lcdb_hw_init(struct qpnp_lcdb *lcdb)
 		return rc;
 	}
 
-	if (lcdb->sc_irq >= 0) {
+	if (lcdb->sc_irq >= 0 &&
+		lcdb->pmic_rev_id->pmic_subtype != PM660L_SUBTYPE) {
 		lcdb->sc_count = 0;
 		rc = devm_request_threaded_irq(lcdb->dev, lcdb->sc_irq,
 				NULL, qpnp_lcdb_sc_irq_handler, IRQF_ONESHOT,
@@ -1714,7 +1762,23 @@ static int qpnp_lcdb_parse_dt(struct qpnp_lcdb *lcdb)
 {
 	int rc = 0;
 	const char *label;
-	struct device_node *temp, *node = lcdb->dev->of_node;
+	struct device_node *revid_dev_node, *temp, *node = lcdb->dev->of_node;
+
+	revid_dev_node = of_parse_phandle(node, "qcom,pmic-revid", 0);
+	if (!revid_dev_node) {
+		pr_err("Missing qcom,pmic-revid property - fail driver\n");
+		return -EINVAL;
+	}
+
+	lcdb->pmic_rev_id = get_revid_data(revid_dev_node);
+	if (IS_ERR(lcdb->pmic_rev_id)) {
+		pr_debug("Unable to get revid data\n");
+		/*
+		 * revid should to be defined, return -EPROBE_DEFER
+		 * until the revid module registers.
+		 */
+		return -EPROBE_DEFER;
+	}
 
 	for_each_available_child_of_node(node, temp) {
 		rc = of_property_read_string(temp, "label", &label);
@@ -1741,9 +1805,6 @@ static int qpnp_lcdb_parse_dt(struct qpnp_lcdb *lcdb)
 			return rc;
 		}
 	}
-
-	lcdb->force_module_reenable = of_property_read_bool(node,
-					"qcom,force-module-reenable");
 
 	if (of_property_read_bool(node, "qcom,ttw-enable")) {
 		rc = qpnp_lcdb_parse_ttw(lcdb);

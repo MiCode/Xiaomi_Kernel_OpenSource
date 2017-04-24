@@ -31,6 +31,8 @@
 #define FG_MEM_INFO_PMI8998		0x0D
 
 /* SRAM address and offset in ascending order */
+#define ESR_PULSE_THRESH_WORD		2
+#define ESR_PULSE_THRESH_OFFSET		3
 #define SLOPE_LIMIT_WORD		3
 #define SLOPE_LIMIT_OFFSET		0
 #define CUTOFF_VOLT_WORD		5
@@ -45,11 +47,14 @@
 #define ESR_UPD_TIGHT_LOW_TEMP_OFFSET	2
 #define ESR_UPD_BROAD_LOW_TEMP_OFFSET	3
 #define KI_COEFF_MED_DISCHG_WORD	9
+#define TIMEBASE_OFFSET			1
 #define KI_COEFF_MED_DISCHG_OFFSET	3
 #define KI_COEFF_HI_DISCHG_WORD		10
 #define KI_COEFF_HI_DISCHG_OFFSET	0
 #define KI_COEFF_LOW_DISCHG_WORD	10
 #define KI_COEFF_LOW_DISCHG_OFFSET	2
+#define KI_COEFF_FULL_SOC_WORD		12
+#define KI_COEFF_FULL_SOC_OFFSET	2
 #define DELTA_MSOC_THR_WORD		12
 #define DELTA_MSOC_THR_OFFSET		3
 #define DELTA_BSOC_THR_WORD		13
@@ -126,6 +131,7 @@
 #define RECHARGE_SOC_THR_v2_WORD	14
 #define RECHARGE_SOC_THR_v2_OFFSET	1
 #define CHG_TERM_CURR_v2_WORD		15
+#define CHG_TERM_BASE_CURR_v2_OFFSET	0
 #define CHG_TERM_CURR_v2_OFFSET		1
 #define EMPTY_VOLT_v2_WORD		15
 #define EMPTY_VOLT_v2_OFFSET		3
@@ -216,11 +222,16 @@ static struct fg_sram_param pmi8998_v1_sram_params[] = {
 		ESR_TIMER_CHG_MAX_OFFSET, 2, 1, 1, 0, fg_encode_default, NULL),
 	PARAM(ESR_TIMER_CHG_INIT, ESR_TIMER_CHG_INIT_WORD,
 		ESR_TIMER_CHG_INIT_OFFSET, 2, 1, 1, 0, fg_encode_default, NULL),
+	PARAM(ESR_PULSE_THRESH, ESR_PULSE_THRESH_WORD, ESR_PULSE_THRESH_OFFSET,
+		1, 100000, 390625, 0, fg_encode_default, NULL),
 	PARAM(KI_COEFF_MED_DISCHG, KI_COEFF_MED_DISCHG_WORD,
 		KI_COEFF_MED_DISCHG_OFFSET, 1, 1000, 244141, 0,
 		fg_encode_default, NULL),
 	PARAM(KI_COEFF_HI_DISCHG, KI_COEFF_HI_DISCHG_WORD,
 		KI_COEFF_HI_DISCHG_OFFSET, 1, 1000, 244141, 0,
+		fg_encode_default, NULL),
+	PARAM(KI_COEFF_FULL_SOC, KI_COEFF_FULL_SOC_WORD,
+		KI_COEFF_FULL_SOC_OFFSET, 1, 1000, 244141, 0,
 		fg_encode_default, NULL),
 	PARAM(ESR_TIGHT_FILTER, ESR_FILTER_WORD, ESR_UPD_TIGHT_OFFSET,
 		1, 512, 1000000, 0, fg_encode_default, NULL),
@@ -251,6 +262,8 @@ static struct fg_sram_param pmi8998_v2_sram_params[] = {
 		fg_decode_cc_soc),
 	PARAM(ACT_BATT_CAP, ACT_BATT_CAP_BKUP_WORD, ACT_BATT_CAP_BKUP_OFFSET, 2,
 		1, 1, 0, NULL, fg_decode_default),
+	PARAM(TIMEBASE, KI_COEFF_MED_DISCHG_WORD, TIMEBASE_OFFSET, 2, 1000,
+		61000, 0, fg_encode_default, NULL),
 	/* Entries below here are configurable during initialization */
 	PARAM(CUTOFF_VOLT, CUTOFF_VOLT_WORD, CUTOFF_VOLT_OFFSET, 2, 1000000,
 		244141, 0, fg_encode_voltage, NULL),
@@ -266,6 +279,9 @@ static struct fg_sram_param pmi8998_v2_sram_params[] = {
 		1000000, 122070, 0, fg_encode_current, NULL),
 	PARAM(CHG_TERM_CURR, CHG_TERM_CURR_v2_WORD, CHG_TERM_CURR_v2_OFFSET, 1,
 		100000, 390625, 0, fg_encode_current, NULL),
+	PARAM(CHG_TERM_BASE_CURR, CHG_TERM_CURR_v2_WORD,
+		CHG_TERM_BASE_CURR_v2_OFFSET, 1, 1024, 1000, 0,
+		fg_encode_current, NULL),
 	PARAM(DELTA_MSOC_THR, DELTA_MSOC_THR_v2_WORD, DELTA_MSOC_THR_v2_OFFSET,
 		1, 2048, 100, 0, fg_encode_default, NULL),
 	PARAM(DELTA_BSOC_THR, DELTA_BSOC_THR_v2_WORD, DELTA_BSOC_THR_v2_OFFSET,
@@ -286,11 +302,16 @@ static struct fg_sram_param pmi8998_v2_sram_params[] = {
 		ESR_TIMER_CHG_MAX_OFFSET, 2, 1, 1, 0, fg_encode_default, NULL),
 	PARAM(ESR_TIMER_CHG_INIT, ESR_TIMER_CHG_INIT_WORD,
 		ESR_TIMER_CHG_INIT_OFFSET, 2, 1, 1, 0, fg_encode_default, NULL),
+	PARAM(ESR_PULSE_THRESH, ESR_PULSE_THRESH_WORD, ESR_PULSE_THRESH_OFFSET,
+		1, 100000, 390625, 0, fg_encode_default, NULL),
 	PARAM(KI_COEFF_MED_DISCHG, KI_COEFF_MED_DISCHG_v2_WORD,
 		KI_COEFF_MED_DISCHG_v2_OFFSET, 1, 1000, 244141, 0,
 		fg_encode_default, NULL),
 	PARAM(KI_COEFF_HI_DISCHG, KI_COEFF_HI_DISCHG_v2_WORD,
 		KI_COEFF_HI_DISCHG_v2_OFFSET, 1, 1000, 244141, 0,
+		fg_encode_default, NULL),
+	PARAM(KI_COEFF_FULL_SOC, KI_COEFF_FULL_SOC_WORD,
+		KI_COEFF_FULL_SOC_OFFSET, 1, 1000, 244141, 0,
 		fg_encode_default, NULL),
 	PARAM(ESR_TIGHT_FILTER, ESR_FILTER_WORD, ESR_UPD_TIGHT_OFFSET,
 		1, 512, 1000000, 0, fg_encode_default, NULL),
@@ -981,6 +1002,29 @@ static inline void get_batt_temp_delta(int delta, u8 *val)
 	};
 }
 
+static inline void get_esr_meas_current(int curr_ma, u8 *val)
+{
+	switch (curr_ma) {
+	case 60:
+		*val = ESR_MEAS_CUR_60MA;
+		break;
+	case 120:
+		*val = ESR_MEAS_CUR_120MA;
+		break;
+	case 180:
+		*val = ESR_MEAS_CUR_180MA;
+		break;
+	case 240:
+		*val = ESR_MEAS_CUR_240MA;
+		break;
+	default:
+		*val = ESR_MEAS_CUR_120MA;
+		break;
+	};
+
+	*val <<= ESR_PULL_DOWN_IVAL_SHIFT;
+}
+
 static int fg_set_esr_timer(struct fg_chip *chip, int cycles, bool charging,
 				int flags)
 {
@@ -1431,6 +1475,37 @@ static int fg_adjust_ki_coeff_dischg(struct fg_chip *chip)
 
 	fg_dbg(chip, FG_STATUS, "Wrote ki_coeff_med %d ki_coeff_hi %d\n",
 		ki_coeff_med, ki_coeff_hi);
+	return 0;
+}
+
+#define KI_COEFF_FULL_SOC_DEFAULT	733
+static int fg_adjust_ki_coeff_full_soc(struct fg_chip *chip, int batt_temp)
+{
+	int rc, ki_coeff_full_soc;
+	u8 val;
+
+	if (batt_temp < 0)
+		ki_coeff_full_soc = 0;
+	else
+		ki_coeff_full_soc = KI_COEFF_FULL_SOC_DEFAULT;
+
+	if (chip->ki_coeff_full_soc == ki_coeff_full_soc)
+		return 0;
+
+	fg_encode(chip->sp, FG_SRAM_KI_COEFF_FULL_SOC, ki_coeff_full_soc, &val);
+	rc = fg_sram_write(chip,
+			chip->sp[FG_SRAM_KI_COEFF_FULL_SOC].addr_word,
+			chip->sp[FG_SRAM_KI_COEFF_FULL_SOC].addr_byte, &val,
+			chip->sp[FG_SRAM_KI_COEFF_FULL_SOC].len,
+			FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing ki_coeff_full_soc, rc=%d\n", rc);
+		return rc;
+	}
+
+	chip->ki_coeff_full_soc = ki_coeff_full_soc;
+	fg_dbg(chip, FG_STATUS, "Wrote ki_coeff_full_soc %d\n",
+		ki_coeff_full_soc);
 	return 0;
 }
 
@@ -2025,6 +2100,11 @@ static void status_change_work(struct work_struct *work)
 		rc = fg_slope_limit_config(chip, batt_temp);
 		if (rc < 0)
 			pr_err("Error in configuring slope limiter rc:%d\n",
+				rc);
+
+		rc = fg_adjust_ki_coeff_full_soc(chip, batt_temp);
+		if (rc < 0)
+			pr_err("Error in configuring ki_coeff_full_soc rc:%d\n",
 				rc);
 	}
 
@@ -3037,6 +3117,21 @@ static int fg_hw_init(struct fg_chip *chip)
 		return rc;
 	}
 
+	if (!(chip->wa_flags & PMI8998_V1_REV_WA)) {
+		fg_encode(chip->sp, FG_SRAM_CHG_TERM_BASE_CURR,
+			chip->dt.chg_term_base_curr_ma, buf);
+		rc = fg_sram_write(chip,
+				chip->sp[FG_SRAM_CHG_TERM_BASE_CURR].addr_word,
+				chip->sp[FG_SRAM_CHG_TERM_BASE_CURR].addr_byte,
+				buf, chip->sp[FG_SRAM_CHG_TERM_BASE_CURR].len,
+				FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing chg_term_base_curr, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
 	if (chip->dt.vbatt_low_thr_mv > 0) {
 		fg_encode(chip->sp, FG_SRAM_VBATT_LOW,
 			chip->dt.vbatt_low_thr_mv, buf);
@@ -3212,12 +3307,64 @@ static int fg_hw_init(struct fg_chip *chip)
 		return rc;
 	}
 
+	fg_encode(chip->sp, FG_SRAM_ESR_PULSE_THRESH,
+		chip->dt.esr_pulse_thresh_ma, buf);
+	rc = fg_sram_write(chip, chip->sp[FG_SRAM_ESR_PULSE_THRESH].addr_word,
+			chip->sp[FG_SRAM_ESR_PULSE_THRESH].addr_byte, buf,
+			chip->sp[FG_SRAM_ESR_PULSE_THRESH].len, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in writing esr_pulse_thresh_ma, rc=%d\n", rc);
+		return rc;
+	}
+
+	get_esr_meas_current(chip->dt.esr_meas_curr_ma, &val);
+	rc = fg_masked_write(chip, BATT_INFO_ESR_PULL_DN_CFG(chip),
+			ESR_PULL_DOWN_IVAL_MASK, val);
+	if (rc < 0) {
+		pr_err("Error in writing esr_meas_curr_ma, rc=%d\n", rc);
+		return rc;
+	}
+
 	return 0;
 }
 
 static int fg_memif_init(struct fg_chip *chip)
 {
 	return fg_ima_init(chip);
+}
+
+static int fg_adjust_timebase(struct fg_chip *chip)
+{
+	int rc = 0, die_temp;
+	s32 time_base = 0;
+	u8 buf[2] = {0};
+
+	if ((chip->wa_flags & PM660_TSMC_OSC_WA) && chip->die_temp_chan) {
+		rc = iio_read_channel_processed(chip->die_temp_chan, &die_temp);
+		if (rc < 0) {
+			pr_err("Error in reading die_temp, rc:%d\n", rc);
+			return rc;
+		}
+
+		rc = fg_lerp(fg_tsmc_osc_table, ARRAY_SIZE(fg_tsmc_osc_table),
+					die_temp / 1000, &time_base);
+		if (rc < 0) {
+			pr_err("Error to lookup fg_tsmc_osc_table rc=%d\n", rc);
+			return rc;
+		}
+
+		fg_encode(chip->sp, FG_SRAM_TIMEBASE, time_base, buf);
+		rc = fg_sram_write(chip,
+			chip->sp[FG_SRAM_TIMEBASE].addr_word,
+			chip->sp[FG_SRAM_TIMEBASE].addr_byte, buf,
+			chip->sp[FG_SRAM_TIMEBASE].len, FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing timebase, rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	return 0;
 }
 
 /* INTERRUPT HANDLERS STAY HERE */
@@ -3327,6 +3474,10 @@ static irqreturn_t fg_delta_batt_temp_irq_handler(int irq, void *data)
 	if (rc < 0)
 		pr_err("Error in configuring slope limiter rc:%d\n", rc);
 
+	rc = fg_adjust_ki_coeff_full_soc(chip, batt_temp);
+	if (rc < 0)
+		pr_err("Error in configuring ki_coeff_full_soc rc:%d\n", rc);
+
 	if (!batt_psy_initialized(chip)) {
 		chip->last_batt_temp = batt_temp;
 		return IRQ_HANDLED;
@@ -3337,6 +3488,10 @@ static irqreturn_t fg_delta_batt_temp_irq_handler(int irq, void *data)
 	chip->health = prop.intval;
 
 	if (chip->last_batt_temp != batt_temp) {
+		rc = fg_adjust_timebase(chip);
+		if (rc < 0)
+			pr_err("Error in adjusting timebase, rc=%d\n", rc);
+
 		chip->last_batt_temp = batt_temp;
 		power_supply_changed(chip->batt_psy);
 	}
@@ -3405,6 +3560,10 @@ static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 	rc = fg_esr_validate(chip);
 	if (rc < 0)
 		pr_err("Error in validating ESR, rc=%d\n", rc);
+
+	rc = fg_adjust_timebase(chip);
+	if (rc < 0)
+		pr_err("Error in adjusting timebase, rc=%d\n", rc);
 
 	if (batt_psy_initialized(chip))
 		power_supply_changed(chip->batt_psy);
@@ -3673,6 +3832,7 @@ static int fg_parse_ki_coefficients(struct fg_chip *chip)
 #define DEFAULT_EMPTY_VOLT_MV		2800
 #define DEFAULT_RECHARGE_VOLT_MV	4250
 #define DEFAULT_CHG_TERM_CURR_MA	100
+#define DEFAULT_CHG_TERM_BASE_CURR_MA	75
 #define DEFAULT_SYS_TERM_CURR_MA	-125
 #define DEFAULT_DELTA_SOC_THR		1
 #define DEFAULT_RECHARGE_SOC_THR	95
@@ -3695,6 +3855,8 @@ static int fg_parse_ki_coefficients(struct fg_chip *chip)
 #define DEFAULT_ESR_TIGHT_LT_FLT_UPCT	48829
 #define DEFAULT_ESR_BROAD_LT_FLT_UPCT	148438
 #define DEFAULT_ESR_CLAMP_MOHMS		20
+#define DEFAULT_ESR_PULSE_THRESH_MA	110
+#define DEFAULT_ESR_MEAS_CURR_MA	120
 static int fg_parse_dt(struct fg_chip *chip)
 {
 	struct device_node *child, *revid_node, *node = chip->dev->of_node;
@@ -3745,6 +3907,8 @@ static int fg_parse_dt(struct fg_chip *chip)
 		chip->sp = pmi8998_v2_sram_params;
 		chip->alg_flags = pmi8998_v2_alg_flags;
 		chip->use_ima_single_mode = true;
+		if (chip->pmic_rev_id->fab_id == PM660_FAB_ID_TSMC)
+			chip->wa_flags |= PM660_TSMC_OSC_WA;
 		break;
 	default:
 		return -EINVAL;
@@ -3824,6 +3988,12 @@ static int fg_parse_dt(struct fg_chip *chip)
 		chip->dt.sys_term_curr_ma = DEFAULT_SYS_TERM_CURR_MA;
 	else
 		chip->dt.sys_term_curr_ma = temp;
+
+	rc = of_property_read_u32(node, "qcom,fg-chg-term-base-current", &temp);
+	if (rc < 0)
+		chip->dt.chg_term_base_curr_ma = DEFAULT_CHG_TERM_BASE_CURR_MA;
+	else
+		chip->dt.chg_term_base_curr_ma = temp;
 
 	rc = of_property_read_u32(node, "qcom,fg-delta-soc-thr", &temp);
 	if (rc < 0)
@@ -4013,6 +4183,22 @@ static int fg_parse_dt(struct fg_chip *chip)
 	else
 		chip->dt.esr_clamp_mohms = temp;
 
+	chip->dt.esr_pulse_thresh_ma = DEFAULT_ESR_PULSE_THRESH_MA;
+	rc = of_property_read_u32(node, "qcom,fg-esr-pulse-thresh-ma", &temp);
+	if (!rc) {
+		/* ESR pulse qualification threshold range is 1-997 mA */
+		if (temp > 0 && temp < 997)
+			chip->dt.esr_pulse_thresh_ma = temp;
+	}
+
+	chip->dt.esr_meas_curr_ma = DEFAULT_ESR_MEAS_CURR_MA;
+	rc = of_property_read_u32(node, "qcom,fg-esr-meas-curr-ma", &temp);
+	if (!rc) {
+		/* ESR measurement current range is 60-240 mA */
+		if (temp >= 60 || temp <= 240)
+			chip->dt.esr_meas_curr_ma = temp;
+	}
+
 	return 0;
 }
 
@@ -4044,6 +4230,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	chip->irqs = fg_irqs;
 	chip->charge_status = -EINVAL;
 	chip->prev_charge_status = -EINVAL;
+	chip->ki_coeff_full_soc = -EINVAL;
 	chip->regmap = dev_get_regmap(chip->dev->parent, NULL);
 	if (!chip->regmap) {
 		dev_err(chip->dev, "Parent regmap is unavailable\n");
@@ -4058,6 +4245,21 @@ static int fg_gen3_probe(struct platform_device *pdev)
 		rc = PTR_ERR(chip->batt_id_chan);
 		chip->batt_id_chan = NULL;
 		return rc;
+	}
+
+	rc = of_property_match_string(chip->dev->of_node,
+				"io-channel-names", "rradc_die_temp");
+	if (rc >= 0) {
+		chip->die_temp_chan = iio_channel_get(chip->dev,
+						"rradc_die_temp");
+		if (IS_ERR(chip->die_temp_chan)) {
+			if (PTR_ERR(chip->die_temp_chan) != -EPROBE_DEFER)
+				pr_err("rradc_die_temp unavailable %ld\n",
+					PTR_ERR(chip->die_temp_chan));
+			rc = PTR_ERR(chip->die_temp_chan);
+			chip->die_temp_chan = NULL;
+			return rc;
+		}
 	}
 
 	chip->awake_votable = create_votable("FG_WS", VOTE_SET_ANY, fg_awake_cb,

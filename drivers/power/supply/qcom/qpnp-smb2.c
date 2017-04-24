@@ -244,6 +244,8 @@ struct smb_dt_props {
 	int	boost_threshold_ua;
 	int	fv_uv;
 	int	wipower_max_uw;
+	int	min_freq_khz;
+	int	max_freq_khz;
 	u32	step_soc_threshold[STEP_CHARGING_MAX_STEPS - 1];
 	s32	step_cc_delta[STEP_CHARGING_MAX_STEPS];
 	struct	device_node *revid_dev_node;
@@ -338,6 +340,18 @@ static int smb2_parse_dt(struct smb2 *chip)
 	if (rc < 0)
 		chip->dt.boost_threshold_ua = MICRO_P1A;
 
+	rc = of_property_read_u32(node,
+				"qcom,min-freq-khz",
+				&chip->dt.min_freq_khz);
+	if (rc < 0)
+		chip->dt.min_freq_khz = -EINVAL;
+
+	rc = of_property_read_u32(node,
+				"qcom,max-freq-khz",
+				&chip->dt.max_freq_khz);
+	if (rc < 0)
+		chip->dt.max_freq_khz = -EINVAL;
+
 	rc = of_property_read_u32(node, "qcom,wipower-max-uw",
 				&chip->dt.wipower_max_uw);
 	if (rc < 0)
@@ -414,6 +428,7 @@ static enum power_supply_property smb2_usb_props[] = {
 	POWER_SUPPLY_PROP_BOOST_CURRENT,
 	POWER_SUPPLY_PROP_PE_START,
 	POWER_SUPPLY_PROP_CTM_CURRENT_MAX,
+	POWER_SUPPLY_PROP_HW_CURRENT_MAX,
 };
 
 static int smb2_usb_get_prop(struct power_supply *psy,
@@ -501,6 +516,9 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CTM_CURRENT_MAX:
 		val->intval = get_client_vote(chg->usb_icl_votable, CTM_VOTER);
+		break;
+	case POWER_SUPPLY_PROP_HW_CURRENT_MAX:
+		rc = smblib_get_charge_current(chg, &val->intval);
 		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
@@ -610,12 +628,12 @@ static int smb2_init_usb_psy(struct smb2 *chip)
 
 static enum power_supply_property smb2_usb_main_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
-	POWER_SUPPLY_PROP_ICL_REDUCTION,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_SETTLED,
 	POWER_SUPPLY_PROP_FCC_DELTA,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
 	/*
 	 * TODO move the TEMP and TEMP_MAX properties here,
 	 * and update the thermal balancer to look here
@@ -634,9 +652,6 @@ static int smb2_usb_main_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		rc = smblib_get_charge_param(chg, &chg->param.fv, &val->intval);
 		break;
-	case POWER_SUPPLY_PROP_ICL_REDUCTION:
-		val->intval = chg->icl_reduction_ua;
-		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		rc = smblib_get_charge_param(chg, &chg->param.fcc,
 							&val->intval);
@@ -652,6 +667,9 @@ static int smb2_usb_main_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_FCC_DELTA:
 		rc = smblib_get_prop_fcc_delta(chg, val);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		val->intval = get_effective_result(chg->usb_icl_votable);
 		break;
 	default:
 		pr_debug("get prop %d is not supported in usb-main\n", psp);
@@ -677,11 +695,11 @@ static int smb2_usb_main_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		rc = smblib_set_charge_param(chg, &chg->param.fv, val->intval);
 		break;
-	case POWER_SUPPLY_PROP_ICL_REDUCTION:
-		rc = smblib_set_icl_reduction(chg, val->intval);
-		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		rc = smblib_set_charge_param(chg, &chg->param.fcc, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		rc = smblib_set_icl_current(chg, val->intval);
 		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
@@ -1131,6 +1149,9 @@ static int smb2_init_vconn_regulator(struct smb2 *chip)
 	struct regulator_config cfg = {};
 	int rc = 0;
 
+	if (chg->micro_usb_mode)
+		return 0;
+
 	chg->vconn_vreg = devm_kzalloc(chg->dev, sizeof(*chg->vconn_vreg),
 				      GFP_KERNEL);
 	if (!chg->vconn_vreg)
@@ -1342,9 +1363,10 @@ static int smb2_disable_typec(struct smb_charger *chg)
 	int rc;
 
 	/* Move to typeC mode */
-	/* configure FSM in idle state */
+	/* configure FSM in idle state and disable UFP_ENABLE bit */
 	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
-			TYPEC_DISABLE_CMD_BIT, TYPEC_DISABLE_CMD_BIT);
+			TYPEC_DISABLE_CMD_BIT | UFP_EN_CMD_BIT,
+			TYPEC_DISABLE_CMD_BIT);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't put FSM in idle rc=%d\n", rc);
 		return rc;
@@ -1427,6 +1449,16 @@ static int smb2_init_hw(struct smb2 *chip)
 	if (chip->dt.dc_icl_ua < 0)
 		smblib_get_charge_param(chg, &chg->param.dc_icl,
 					&chip->dt.dc_icl_ua);
+
+	if (chip->dt.min_freq_khz > 0) {
+		chg->param.freq_buck.min_u = chip->dt.min_freq_khz;
+		chg->param.freq_boost.min_u = chip->dt.min_freq_khz;
+	}
+
+	if (chip->dt.max_freq_khz > 0) {
+		chg->param.freq_buck.max_u = chip->dt.max_freq_khz;
+		chg->param.freq_boost.max_u = chip->dt.max_freq_khz;
+	}
 
 	/* set a slower soft start setting for OTG */
 	rc = smblib_masked_write(chg, DC_ENG_SSUPPLY_CFG2_REG,
@@ -1562,6 +1594,16 @@ static int smb2_init_hw(struct smb2 *chip)
 				 STAT_SW_OVERRIDE_CFG_BIT, 0);
 	if (rc < 0) {
 		dev_err(chg->dev, "Couldn't disable SW STAT override rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	/* disable h/w autonomous parallel charging control */
+	rc = smblib_masked_write(chg, MISC_CFG_REG,
+				 STAT_PARALLEL_1400MA_EN_CFG_BIT, 0);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't disable h/w autonomous parallel control rc=%d\n",
 			rc);
 		return rc;
 	}
@@ -2002,6 +2044,16 @@ static int smb2_request_interrupts(struct smb2 *chip)
 	return rc;
 }
 
+static void smb2_disable_interrupts(struct smb_charger *chg)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(smb2_irqs); i++) {
+		if (smb2_irqs[i].irq > 0)
+			disable_irq(smb2_irqs[i].irq);
+	}
+}
+
 #if defined(CONFIG_DEBUG_FS)
 
 static int force_batt_psy_update_write(void *data, u64 val)
@@ -2129,7 +2181,7 @@ static int smb2_probe(struct platform_device *pdev)
 	rc = smb2_init_vconn_regulator(chip);
 	if (rc < 0) {
 		pr_err("Couldn't initialize vconn regulator rc=%d\n",
-			rc);
+				rc);
 		goto cleanup;
 	}
 
@@ -2213,7 +2265,7 @@ static int smb2_probe(struct platform_device *pdev)
 	rc = smblib_get_prop_batt_health(chg, &val);
 	if (rc < 0) {
 		pr_err("Couldn't get batt health rc=%d\n", rc);
-		goto cleanup;
+		val.intval = POWER_SUPPLY_HEALTH_UNKNOWN;
 	}
 	batt_health = val.intval;
 
@@ -2223,6 +2275,8 @@ static int smb2_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 	batt_charge_type = val.intval;
+
+	device_init_wakeup(chg->dev, true);
 
 	pr_info("QPNP SMB2 probed successfully usb:present=%d type=%d batt:present = %d health = %d charge = %d\n",
 		usb_present, chg->usb_psy_desc.type,
@@ -2261,6 +2315,9 @@ static void smb2_shutdown(struct platform_device *pdev)
 {
 	struct smb2 *chip = platform_get_drvdata(pdev);
 	struct smb_charger *chg = &chip->chg;
+
+	/* disable all interrupts */
+	smb2_disable_interrupts(chg);
 
 	/* configure power role for UFP */
 	smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,

@@ -1640,17 +1640,26 @@ static void a5xx_pwrlevel_change_settings(struct adreno_device *adreno_dev,
 }
 
 static void a5xx_clk_set_options(struct adreno_device *adreno_dev,
-	const char *name, struct clk *clk)
+	const char *name, struct clk *clk, bool on)
 {
+
+	if (!adreno_is_a540(adreno_dev) && !adreno_is_a512(adreno_dev) &&
+		!adreno_is_a508(adreno_dev))
+		return;
+
 	/* Handle clock settings for GFX PSCBCs */
-	if (adreno_is_a540(adreno_dev) || adreno_is_a512(adreno_dev) ||
-		adreno_is_a508(adreno_dev)) {
+	if (on) {
 		if (!strcmp(name, "mem_iface_clk")) {
 			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
 			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
 		} else if (!strcmp(name, "core_clk")) {
 			clk_set_flags(clk, CLKFLAG_RETAIN_PERIPH);
 			clk_set_flags(clk, CLKFLAG_RETAIN_MEM);
+		}
+	} else {
+		if (!strcmp(name, "core_clk")) {
+			clk_set_flags(clk, CLKFLAG_NORETAIN_PERIPH);
+			clk_set_flags(clk, CLKFLAG_NORETAIN_MEM);
 		}
 	}
 }

@@ -518,15 +518,15 @@ static void wmi_evt_connect(struct wil6210_priv *wil, int id, void *d, int len)
 		assoc_resp_ielen = 0;
 	}
 
-	mutex_lock(&wil->mutex);
 	if (test_bit(wil_status_resetting, wil->status) ||
 	    !test_bit(wil_status_fwready, wil->status)) {
 		wil_err(wil, "status_resetting, cancel connect event, CID %d\n",
 			evt->cid);
-		mutex_unlock(&wil->mutex);
 		/* no need for cleanup, wil_reset will do that */
 		return;
 	}
+
+	mutex_lock(&wil->mutex);
 
 	if ((wdev->iftype == NL80211_IFTYPE_STATION) ||
 	    (wdev->iftype == NL80211_IFTYPE_P2P_CLIENT)) {
@@ -573,12 +573,16 @@ static void wmi_evt_connect(struct wil6210_priv *wil, int id, void *d, int len)
 						GFP_KERNEL);
 			goto out;
 		} else {
-			cfg80211_connect_result(ndev, evt->bssid,
-						assoc_req_ie, assoc_req_ielen,
-						assoc_resp_ie, assoc_resp_ielen,
-						WLAN_STATUS_SUCCESS,
-						GFP_KERNEL);
+			struct wiphy *wiphy = wil_to_wiphy(wil);
+
+			cfg80211_ref_bss(wiphy, wil->bss);
+			cfg80211_connect_bss(ndev, evt->bssid, wil->bss,
+					     assoc_req_ie, assoc_req_ielen,
+					     assoc_resp_ie, assoc_resp_ielen,
+					     WLAN_STATUS_SUCCESS, GFP_KERNEL,
+					     NL80211_TIMEOUT_UNSPECIFIED);
 		}
+		wil->bss = NULL;
 	} else if ((wdev->iftype == NL80211_IFTYPE_AP) ||
 		   (wdev->iftype == NL80211_IFTYPE_P2P_GO)) {
 		if (rc) {
@@ -626,6 +630,13 @@ static void wmi_evt_disconnect(struct wil6210_priv *wil, int id,
 		 evt->bssid, reason_code, evt->disconnect_reason);
 
 	wil->sinfo_gen++;
+
+	if (test_bit(wil_status_resetting, wil->status) ||
+	    !test_bit(wil_status_fwready, wil->status)) {
+		wil_err(wil, "status_resetting, cancel disconnect event\n");
+		/* no need for cleanup, wil_reset will do that */
+		return;
+	}
 
 	mutex_lock(&wil->mutex);
 	wil6210_disconnect(wil, evt->bssid, reason_code, true);
@@ -1524,6 +1535,7 @@ int wmi_disconnect_sta(struct wil6210_priv *wil, const u8 *mac,
 
 	wil_dbg_wmi(wil, "disconnect_sta: (%pM, reason %d)\n", mac, reason);
 
+	wil->locally_generated_disc = true;
 	if (del_sta) {
 		ether_addr_copy(del_sta_cmd.dst_mac, mac);
 		rc = wmi_call(wil, WMI_DEL_STA_CMDID, &del_sta_cmd,
@@ -1839,6 +1851,61 @@ void wmi_event_flush(struct wil6210_priv *wil)
 	}
 
 	spin_unlock_irqrestore(&wil->wmi_ev_lock, flags);
+}
+
+int wmi_link_maintain_cfg_write(struct wil6210_priv *wil,
+				const u8 *addr,
+				bool fst_link_loss)
+{
+	int rc;
+	int cid = wil_find_cid(wil, addr);
+	u32 cfg_type;
+	struct wmi_link_maintain_cfg_write_cmd cmd;
+	struct {
+		struct wmi_cmd_hdr wmi;
+		struct wmi_link_maintain_cfg_write_done_event evt;
+	} __packed reply;
+
+	if (cid < 0)
+		return cid;
+
+	switch (wil->wdev->iftype) {
+	case NL80211_IFTYPE_STATION:
+		cfg_type = fst_link_loss ?
+			   WMI_LINK_MAINTAIN_CFG_TYPE_DEFAULT_FST_STA :
+			   WMI_LINK_MAINTAIN_CFG_TYPE_DEFAULT_NORMAL_STA;
+		break;
+	case NL80211_IFTYPE_AP:
+		cfg_type = fst_link_loss ?
+			   WMI_LINK_MAINTAIN_CFG_TYPE_DEFAULT_FST_AP :
+			   WMI_LINK_MAINTAIN_CFG_TYPE_DEFAULT_NORMAL_AP;
+		break;
+	default:
+		wil_err(wil, "Unsupported for iftype %d", wil->wdev->iftype);
+		return -EINVAL;
+	}
+
+	wil_dbg_misc(wil, "Setting cid:%d with cfg_type:%d\n", cid, cfg_type);
+
+	cmd.cfg_type = cpu_to_le32(cfg_type);
+	cmd.cid = cpu_to_le32(cid);
+
+	reply.evt.status = cpu_to_le32(WMI_FW_STATUS_FAILURE);
+
+	rc = wmi_call(wil, WMI_LINK_MAINTAIN_CFG_WRITE_CMDID, &cmd, sizeof(cmd),
+		      WMI_LINK_MAINTAIN_CFG_WRITE_DONE_EVENTID, &reply,
+		      sizeof(reply), 250);
+	if (rc) {
+		wil_err(wil, "Failed to %s FST link loss",
+			fst_link_loss ? "enable" : "disable");
+	} else if (reply.evt.status == WMI_FW_STATUS_SUCCESS) {
+		wil->sta[cid].fst_link_loss = fst_link_loss;
+	} else {
+		wil_err(wil, "WMI_LINK_MAINTAIN_CFG_WRITE_CMDID returned status %d",
+			reply.evt.status);
+		rc = -EINVAL;
+	}
+	return rc;
 }
 
 static bool wmi_evt_call_handler(struct wil6210_priv *wil, int id,

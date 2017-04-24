@@ -466,6 +466,7 @@
 		interrupts = <GIC_SPI 326 IRQ_TYPE_NONE>;
 		qcom,ee = <0>;
 		qcom,channel = <0>;
+		qcom,reserved-chan = <511>;
 		#address-cells = <2>;
 		#size-cells = <0>;
 		interrupt-controller;
@@ -1879,6 +1880,8 @@
 		reg-names = "membase", "smmu_iova_base", "smmu_iova_ipa";
 		iommus = <&anoc2_smmu 0x1a00>,
 			 <&anoc2_smmu 0x1a01>;
+		clocks = <&clock_rpmcc RPM_RF_CLK1_PIN>;
+		clock-names = "cxo_ref_clk_pin";
 		interrupts = <0 413 0>,   /* CE0 */
 			     <0 414 0>,   /* CE1 */
 			     <0 415 0>,   /* CE2 */
@@ -1891,6 +1894,14 @@
 			     <0 423 0>,   /* CE9 */
 			     <0 424 0>,   /* CE10 */
 			     <0 425 0>;   /* CE11 */
+		vdd-0.8-cx-mx-supply = <&pm660_l5>;
+		vdd-1.8-xo-supply = <&pm660_l9_pin_ctrl>;
+		vdd-1.3-rfa-supply = <&pm660_l6_pin_ctrl>;
+		vdd-3.3-ch0-supply = <&pm660_l19_pin_ctrl>;
+		qcom,vdd-0.8-cx-mx-config = <525000 950000>;
+		qcom,vdd-1.8-xo-config = <1750000 1900000>;
+		qcom,vdd-1.3-rfa-config = <1200000 1370000>;
+		qcom,vdd-3.3-ch0-config = <3200000 3400000>;
 		qcom,wlan-msa-memory = <0x100000>;
 		qcom,smmu-s1-bypass;
 	};

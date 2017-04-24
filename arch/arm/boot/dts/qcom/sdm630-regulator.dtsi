@@ -28,7 +28,7 @@
 	rpm-regulator-smpa5 {
 		status = "okay";
 		pm660_s5: regulator-s5 {
-			regulator-min-microvolt = <1350000>;
+			regulator-min-microvolt = <1224000>;
 			regulator-max-microvolt = <1350000>;
 			status = "okay";
 		};
@@ -657,6 +657,7 @@
 		qcom,cpr-up-error-step-limit = <1>;
 		qcom,cpr-corner-switch-delay-time = <1042>;
 		qcom,cpr-voltage-settling-time = <1760>;
+		qcom,cpr-reset-step-quot-loop-en;
 
 		qcom,apm-threshold-voltage = <872000>;
 		qcom,apm-crossover-voltage = <872000>;
@@ -664,6 +665,9 @@
 		qcom,voltage-step = <4000>;
 		qcom,voltage-base = <400000>;
 		qcom,cpr-saw-use-unit-mV;
+
+		qcom,cpr-enable;
+		qcom,cpr-hw-closed-loop;
 
 		qcom,cpr-panic-reg-addr-list =
 			<0x179cbaa4 0x17912c18>;
@@ -705,6 +709,24 @@
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+				qcom,cpr-ro-scaling-factor =
+					<3600 3600 3830 2430 2520 2700 1790
+					 1760 1970 1880 2110 2010 2510 4900
+					 4370 4780>,
+					<3600 3600 3830 2430 2520 2700 1790
+					 1760 1970 1880 2110 2010 2510 4900
+					 4370 4780>,
+					<3600 3600 3830 2430 2520 2700 1790
+					 1760 1970 1880 2110 2010 2510 4900
+					 4370 4780>;
+
+				qcom,cpr-closed-loop-voltage-fuse-adjustment =
+					<(-30000) (-30000) (-30000)>;
+
+				qcom,cpr-floor-to-ceiling-max-range =
+					<32000  32000  32000  40000  44000
+					 40000  40000  40000>;
 			};
 		};
 	};
@@ -731,6 +753,7 @@
 		qcom,cpr-up-error-step-limit = <1>;
 		qcom,cpr-corner-switch-delay-time = <1042>;
 		qcom,cpr-voltage-settling-time = <1760>;
+		qcom,cpr-reset-step-quot-loop-en;
 
 		qcom,apm-threshold-voltage = <872000>;
 		qcom,apm-crossover-voltage = <872000>;
@@ -738,6 +761,9 @@
 		qcom,voltage-step = <4000>;
 		qcom,voltage-base = <400000>;
 		qcom,cpr-saw-use-unit-mV;
+
+		qcom,cpr-enable;
+		qcom,cpr-hw-closed-loop;
 
 		qcom,cpr-panic-reg-addr-list =
 			<0x179c7aa4 0x17812c18>;
@@ -834,6 +860,46 @@
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+				qcom,cpr-ro-scaling-factor =
+					<4040 4230 0000 2210 2560 2450 2230
+					 2220 2410 2300 2560 2470 1600 3120
+					 2620 2280>,
+					<4040 4230 0000 2210 2560 2450 2230
+					 2220 2410 2300 2560 2470 1600 3120
+					 2620 2280>,
+					<4040 4230 0000 2210 2560 2450 2230
+					 2220 2410 2300 2560 2470 1600 3120
+					 2620 2280>,
+					<4040 4230 0000 2210 2560 2450 2230
+					 2220 2410 2300 2560 2470 1600 3120
+					 2620 2280>,
+					<4040 4230 0000 2210 2560 2450 2230
+					 2220 2410 2300 2560 2470 1600 3120
+					 2620 2280>;
+
+				qcom,cpr-open-loop-voltage-fuse-adjustment =
+					<15000 5000 5000 0 0>;
+
+				qcom,cpr-closed-loop-voltage-fuse-adjustment =
+					<(-30000) (-30000) (-30000)
+					 (-30000) (-30000)>;
+
+				qcom,cpr-floor-to-ceiling-max-range =
+					/* Speed bin 0 */
+					<40000  40000  40000  40000
+					 40000  40000  40000  66000
+					 66000  40000>,
+
+					/* Speed bin 1 */
+					<40000  40000  40000  40000
+					 40000  40000  40000  66000
+					 66000  40000>,
+
+					/* Speed bin 2 */
+					<40000  40000  40000  40000
+					 40000  40000  40000  66000
+					 66000  40000  40000>;
 			};
 		};
 	};

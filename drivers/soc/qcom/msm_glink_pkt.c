@@ -625,14 +625,17 @@ ssize_t glink_pkt_read(struct file *file,
 		return -ENETRESET;
 	}
 
+	mutex_lock(&devp->ch_lock);
 	if (!glink_rx_intent_exists(devp->handle, count)) {
 		ret  = glink_queue_rx_intent(devp->handle, devp, count);
 		if (ret) {
 			GLINK_PKT_ERR("%s: failed to queue_rx_intent ret[%d]\n",
 					__func__, ret);
+			mutex_unlock(&devp->ch_lock);
 			return ret;
 		}
 	}
+	mutex_unlock(&devp->ch_lock);
 
 	GLINK_PKT_INFO("Begin %s on glink_pkt_dev id:%d buffer_size %zu\n",
 		__func__, devp->i, count);
