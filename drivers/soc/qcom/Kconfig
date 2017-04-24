@@ -701,3 +701,5 @@ config QCOM_FORCE_WDOG_BITE_ON_PANIC
 	  This forces a watchdog bite when the device restarts due to a
 	  kernel panic. On certain MSM SoCs, this provides us
 	  additional debugging information.
+
+source "drivers/soc/qcom/memshare/Kconfig"
