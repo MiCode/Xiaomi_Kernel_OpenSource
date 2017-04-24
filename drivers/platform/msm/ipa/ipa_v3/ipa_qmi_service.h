@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -204,6 +204,10 @@ int ipa3_qmi_stop_data_qouta(void);
 
 void ipa3_q6_handshake_complete(bool ssr_bootup);
 
+void ipa3_qmi_init(void);
+
+void ipa3_qmi_cleanup(void);
+
 #else /* CONFIG_RMNET_IPA3 */
 
 static inline int ipa3_qmi_service_init(uint32_t wan_platform_type)
@@ -315,6 +319,14 @@ static inline int ipa3_qmi_stop_data_qouta(void)
 }
 
 static inline void ipa3_q6_handshake_complete(bool ssr_bootup) { }
+
+static inline void ipa3_qmi_init(void)
+{
+}
+
+static inline void ipa3_qmi_cleanup(void)
+{
+}
 
 #endif /* CONFIG_RMNET_IPA3 */
 
