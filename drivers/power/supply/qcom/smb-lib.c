@@ -3158,12 +3158,28 @@ static void smblib_micro_usb_plugin(struct smb_charger *chg, bool vbus_rising)
 	}
 }
 
-static void smblib_typec_usb_plugin(struct smb_charger *chg, bool vbus_rising)
+void smblib_usb_plugin_hard_reset_locked(struct smb_charger *chg)
 {
+	int rc;
+	u8 stat;
+	bool vbus_rising;
+
+	rc = smblib_read(chg, USBIN_BASE + INT_RT_STS_OFFSET, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read USB_INT_RT_STS rc=%d\n", rc);
+		return;
+	}
+
+	vbus_rising = (bool)(stat & USBIN_PLUGIN_RT_STS_BIT);
+
 	if (vbus_rising)
 		smblib_cc2_sink_removal_exit(chg);
 	else
 		smblib_cc2_sink_removal_enter(chg);
+
+	power_supply_changed(chg->usb_psy);
+	smblib_dbg(chg, PR_INTERRUPT, "IRQ: usbin-plugin %s\n",
+					vbus_rising ? "attached" : "detached");
 }
 
 #define PL_DELAY_MS			30000
@@ -3222,8 +3238,6 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 
 	if (chg->micro_usb_mode)
 		smblib_micro_usb_plugin(chg, vbus_rising);
-	else
-		smblib_typec_usb_plugin(chg, vbus_rising);
 
 	power_supply_changed(chg->usb_psy);
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: usbin-plugin %s\n",
@@ -3236,7 +3250,10 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 	struct smb_charger *chg = irq_data->parent_data;
 
 	mutex_lock(&chg->lock);
-	smblib_usb_plugin_locked(chg);
+	if (chg->pd_hard_reset)
+		smblib_usb_plugin_hard_reset_locked(chg);
+	else
+		smblib_usb_plugin_locked(chg);
 	mutex_unlock(&chg->lock);
 	return IRQ_HANDLED;
 }
