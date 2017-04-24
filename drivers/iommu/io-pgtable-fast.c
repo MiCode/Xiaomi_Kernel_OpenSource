@@ -133,6 +133,9 @@ struct av8l_fast_io_pgtable {
 #define AV8L_FAST_TCR_EPD1_SHIFT	23
 #define AV8L_FAST_TCR_EPD1_FAULT	1
 
+#define AV8L_FAST_TCR_SEP_SHIFT		(15 + 32)
+#define AV8L_FAST_TCR_SEP_UPSTREAM	7ULL
+
 #define AV8L_FAST_MAIR_ATTR_SHIFT(n)	((n) << 3)
 #define AV8L_FAST_MAIR_ATTR_MASK	0xff
 #define AV8L_FAST_MAIR_ATTR_DEVICE	0x04
@@ -256,16 +259,17 @@ void av8l_fast_unmap_public(av8l_fast_iopte *ptep, size_t size)
 	__av8l_fast_unmap(ptep, size, true);
 }
 
-/* upper layer must take care of TLB invalidation */
 static size_t av8l_fast_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 			      size_t size)
 {
 	struct av8l_fast_io_pgtable *data = iof_pgtable_ops_to_data(ops);
+	struct io_pgtable *iop = &data->iop;
 	av8l_fast_iopte *ptep = iopte_pmd_offset(data->pmds, data->base, iova);
 	unsigned long nptes = size >> AV8L_FAST_PAGE_SHIFT;
 
 	__av8l_fast_unmap(ptep, size, false);
 	dmac_clean_range(ptep, ptep + nptes);
+	iop->cfg.tlb->tlb_flush_all(iop->cookie);
 
 	return size;
 }
@@ -522,6 +526,7 @@ av8l_fast_alloc_pgtable(struct io_pgtable_cfg *cfg, void *cookie)
 #if defined(CONFIG_ARM)
 	reg |= ARM_32_LPAE_TCR_EAE;
 #endif
+	reg |= AV8L_FAST_TCR_SEP_UPSTREAM << AV8L_FAST_TCR_SEP_SHIFT;
 	cfg->av8l_fast_cfg.tcr = reg;
 
 	/* MAIRs */
