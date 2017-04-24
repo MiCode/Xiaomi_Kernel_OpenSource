@@ -2410,12 +2410,7 @@ static inline void ipa3_sram_set_canary(u32 *sram_mmio, int offset)
 	sram_mmio[(offset - 4) / 4] = IPA_MEM_CANARY_VAL;
 }
 
-/**
- * _ipa_init_sram_v3_0() - Initialize IPA local SRAM.
- *
- * Return codes: 0 for success, negative value for failure
- */
-int _ipa_init_sram_v3_0(void)
+static int _ipa_init_sram_v3(int last_canary_offset)
 {
 	u32 *ipa_sram_mmio;
 	unsigned long phys_addr;
@@ -2458,11 +2453,31 @@ int _ipa_init_sram_v3_0(void)
 		IPA_MEM_PART(modem_hdr_proc_ctx_ofst));
 	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(modem_ofst) - 4);
 	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(modem_ofst));
-	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(end_ofst));
+	ipa3_sram_set_canary(ipa_sram_mmio, last_canary_offset);
 
 	iounmap(ipa_sram_mmio);
 
 	return 0;
+}
+
+/**
+ * _ipa_init_sram_v3_0() - Initialize IPA 3.0 local SRAM.
+ *
+ * Return codes: 0 for success, negative value for failure
+ */
+int _ipa_init_sram_v3_0(void)
+{
+	return _ipa_init_sram_v3(IPA_MEM_PART(end_ofst));
+}
+
+/**
+* _ipa_init_sram_v3_5() - Initialize IPA 3.5 local SRAM.
+*
+* Return codes: 0 for success, negative value for failure
+*/
+int _ipa_init_sram_v3_5(void)
+{
+	return _ipa_init_sram_v3(IPA_MEM_PART(uc_event_ring_ofst));
 }
 
 /**
