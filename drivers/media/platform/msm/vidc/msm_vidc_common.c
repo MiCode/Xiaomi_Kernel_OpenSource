@@ -3990,7 +3990,7 @@ err_no_mem:
 
 static int msm_vidc_update_host_buff_counts(struct msm_vidc_inst *inst)
 {
-	int extra_buffers, buffer_type;
+	int extra_buffers;
 	struct hal_buffer_requirements *bufreq;
 
 	bufreq = get_buff_req_buffer(inst,
@@ -3998,7 +3998,7 @@ static int msm_vidc_update_host_buff_counts(struct msm_vidc_inst *inst)
 	if (!bufreq) {
 		dprintk(VIDC_ERR,
 			"Failed : No buffer requirements : %x\n",
-			HAL_BUFFER_INPUT);
+				HAL_BUFFER_INPUT);
 		return -EINVAL;
 	}
 	extra_buffers = msm_vidc_get_extra_buff_count(inst, HAL_BUFFER_INPUT);
@@ -4006,20 +4006,54 @@ static int msm_vidc_update_host_buff_counts(struct msm_vidc_inst *inst)
 	bufreq->buffer_count_min_host = bufreq->buffer_count_min +
 		extra_buffers;
 
-	buffer_type = msm_comm_get_hal_output_buffer(inst);
-	bufreq = get_buff_req_buffer(inst,
-		buffer_type);
-	if (!bufreq) {
-		dprintk(VIDC_ERR,
-			"Failed : No buffer requirements : %x\n",
-			buffer_type);
-		return -EINVAL;
+	if (msm_comm_get_stream_output_mode(inst) ==
+			HAL_VIDEO_DECODER_SECONDARY) {
+
+		bufreq = get_buff_req_buffer(inst,
+				HAL_BUFFER_OUTPUT);
+		if (!bufreq) {
+			dprintk(VIDC_ERR,
+				"Failed : No buffer requirements : %x\n",
+					HAL_BUFFER_OUTPUT);
+			return -EINVAL;
+		}
+
+		/* For DPB buffers, no need to add Extra buffers */
+
+		bufreq->buffer_count_actual = bufreq->buffer_count_min_host =
+			bufreq->buffer_count_min;
+
+		bufreq = get_buff_req_buffer(inst,
+				HAL_BUFFER_OUTPUT2);
+		if (!bufreq) {
+			dprintk(VIDC_ERR,
+				"Failed : No buffer requirements : %x\n",
+					HAL_BUFFER_OUTPUT2);
+			return -EINVAL;
+		}
+
+		extra_buffers = msm_vidc_get_extra_buff_count(inst,
+			HAL_BUFFER_OUTPUT);
+
+		bufreq->buffer_count_min_host =
+			bufreq->buffer_count_min + extra_buffers;
+	} else {
+
+		bufreq = get_buff_req_buffer(inst,
+				HAL_BUFFER_OUTPUT);
+		if (!bufreq) {
+			dprintk(VIDC_ERR,
+				"Failed : No buffer requirements : %x\n",
+					HAL_BUFFER_OUTPUT);
+			return -EINVAL;
+		}
+
+		extra_buffers = msm_vidc_get_extra_buff_count(inst,
+			HAL_BUFFER_OUTPUT);
+
+		bufreq->buffer_count_actual = bufreq->buffer_count_min_host =
+			bufreq->buffer_count_min + extra_buffers;
 	}
-
-	extra_buffers = msm_vidc_get_extra_buff_count(inst, buffer_type);
-
-	bufreq->buffer_count_min_host = bufreq->buffer_count_min +
-		extra_buffers;
 
 	return 0;
 }

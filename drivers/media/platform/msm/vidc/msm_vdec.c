@@ -564,6 +564,8 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			inst->bufq[CAPTURE_PORT].plane_sizes[i] =
 				f->fmt.pix_mp.plane_fmt[i].sizeimage;
 		}
+
+		rc = msm_comm_try_get_bufreqs(inst);
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 
 		fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
@@ -890,6 +892,7 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 					"Failed setting OUTPUT2 size : %d\n",
 					rc);
 
+			rc = msm_comm_try_get_bufreqs(inst);
 			break;
 		default:
 			dprintk(VIDC_ERR,
