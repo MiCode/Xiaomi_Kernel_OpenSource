@@ -1485,6 +1485,7 @@ static void cnss_driver_event_work(struct work_struct *work)
 			cnss_pr_err("Invalid driver event type: %d",
 				    event->type);
 			kfree(event);
+			spin_lock_irqsave(&plat_priv->event_lock, flags);
 			continue;
 		}
 
