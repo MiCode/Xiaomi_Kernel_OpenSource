@@ -520,15 +520,15 @@ static int cnss_fw_ready_hdlr(struct cnss_plat_data *plat_priv)
 	if (!pci_priv)
 		return -ENODEV;
 
-	if (test_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state) ||
-	    test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state))
-		ret = cnss_driver_call_probe(plat_priv);
-	else if (enable_waltest)
+	if (enable_waltest) {
 		ret = cnss_wlfw_wlan_mode_send_sync(plat_priv,
 						    QMI_WLFW_WALTEST_V01);
-	else
+	} else if (test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state)) {
 		ret = cnss_wlfw_wlan_mode_send_sync(plat_priv,
 						    QMI_WLFW_CALIBRATION_V01);
+	} else {
+		ret = cnss_driver_call_probe(plat_priv);
+	}
 
 	if (ret)
 		goto shutdown;
@@ -541,27 +541,6 @@ shutdown:
 	cnss_power_off_device(plat_priv);
 
 	return ret;
-}
-
-static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv)
-{
-	struct cnss_pci_data *pci_priv;
-
-	if (!plat_priv)
-		return -ENODEV;
-
-	set_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state);
-
-	pci_priv = plat_priv->bus_priv;
-	if (!pci_priv)
-		return -ENODEV;
-
-	cnss_wlfw_wlan_mode_send_sync(plat_priv, QMI_WLFW_OFF_V01);
-	cnss_pci_stop_mhi(pci_priv);
-	cnss_suspend_pci_link(pci_priv);
-	cnss_power_off_device(plat_priv);
-
-	return 0;
 }
 
 static char *cnss_driver_event_to_str(enum cnss_driver_event_type type)
@@ -577,6 +556,8 @@ static char *cnss_driver_event_to_str(enum cnss_driver_event_type type)
 		return "FW_MEM_READY";
 	case CNSS_DRIVER_EVENT_FW_READY:
 		return "FW_READY";
+	case CNSS_DRIVER_EVENT_COLD_BOOT_CAL_START:
+		return "COLD_BOOT_CAL_START";
 	case CNSS_DRIVER_EVENT_COLD_BOOT_CAL_DONE:
 		return "COLD_BOOT_CAL_DONE";
 	case CNSS_DRIVER_EVENT_REGISTER_DRIVER:
@@ -1022,6 +1003,9 @@ static int cnss_qca6290_shutdown(struct cnss_plat_data *plat_priv)
 	if (!pci_priv)
 		return -ENODEV;
 
+	if (test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state))
+		goto skip_driver_remove;
+
 	if (!plat_priv->driver_ops)
 		return -EINVAL;
 
@@ -1034,6 +1018,7 @@ static int cnss_qca6290_shutdown(struct cnss_plat_data *plat_priv)
 		plat_priv->driver_ops->shutdown(pci_priv->pci_dev);
 	}
 
+skip_driver_remove:
 	cnss_pci_stop_mhi(pci_priv);
 
 	ret = cnss_suspend_pci_link(pci_priv);
@@ -1082,8 +1067,10 @@ static int cnss_powerup(const struct subsys_desc *subsys_desc)
 		return -ENODEV;
 	}
 
-	if (!plat_priv->driver_ops)
+	if (!plat_priv->driver_state) {
+		cnss_pr_dbg("Powerup is ignored.\n");
 		return 0;
+	}
 
 	switch (plat_priv->device_id) {
 	case QCA6174_DEVICE_ID:
@@ -1278,16 +1265,14 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 	if (plat_priv->device_id == QCA6174_DEVICE_ID)
 		goto self_recovery;
 
-	if (plat_priv->driver_ops)
+	if (plat_priv->driver_ops &&
+	    test_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state))
 		plat_priv->driver_ops->update_status(pci_priv->pci_dev,
 						     CNSS_RECOVERY);
 
-	if (reason == CNSS_REASON_LINK_DOWN) {
-		cnss_pci_set_mhi_state(plat_priv->bus_priv,
-				       CNSS_MHI_NOTIFY_LINK_ERROR);
-		if (test_bit(LINK_DOWN_SELF_RECOVERY, &quirks))
-			goto self_recovery;
-	}
+	if (reason == CNSS_REASON_LINK_DOWN &&
+	    test_bit(LINK_DOWN_SELF_RECOVERY, &quirks))
+		goto self_recovery;
 
 	if (reason != CNSS_REASON_RDDM)
 		goto subsys_restart;
@@ -1392,11 +1377,10 @@ static int cnss_register_driver_hdlr(struct cnss_plat_data *plat_priv,
 				     void *data)
 {
 	int ret = 0;
-	struct cnss_subsys_info *subsys_info;
+	struct cnss_subsys_info *subsys_info = &plat_priv->subsys_info;
 
 	set_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state);
 	plat_priv->driver_ops = data;
-	subsys_info = &plat_priv->subsys_info;
 
 	ret = cnss_powerup(&subsys_info->subsys_desc);
 	if (ret) {
@@ -1409,13 +1393,35 @@ static int cnss_register_driver_hdlr(struct cnss_plat_data *plat_priv,
 
 static int cnss_unregister_driver_hdlr(struct cnss_plat_data *plat_priv)
 {
-	struct cnss_subsys_info *subsys_info;
+	struct cnss_subsys_info *subsys_info = &plat_priv->subsys_info;
 
 	set_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state);
-	subsys_info = &plat_priv->subsys_info;
 	cnss_shutdown(&subsys_info->subsys_desc, false);
-	subsys_info->subsys_handle = NULL;
 	plat_priv->driver_ops = NULL;
+
+	return 0;
+}
+
+static int cnss_cold_boot_cal_start_hdlr(struct cnss_plat_data *plat_priv)
+{
+	int ret = 0;
+	struct cnss_subsys_info *subsys_info = &plat_priv->subsys_info;
+
+	set_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state);
+	ret = cnss_powerup(&subsys_info->subsys_desc);
+	if (ret)
+		clear_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state);
+
+	return ret;
+}
+
+static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_subsys_info *subsys_info = &plat_priv->subsys_info;
+
+	cnss_wlfw_wlan_mode_send_sync(plat_priv, QMI_WLFW_OFF_V01);
+	cnss_shutdown(&subsys_info->subsys_desc, false);
+	clear_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state);
 
 	return 0;
 }
@@ -1466,6 +1472,9 @@ static void cnss_driver_event_work(struct work_struct *work)
 			break;
 		case CNSS_DRIVER_EVENT_FW_READY:
 			ret = cnss_fw_ready_hdlr(plat_priv);
+			break;
+		case CNSS_DRIVER_EVENT_COLD_BOOT_CAL_START:
+			ret = cnss_cold_boot_cal_start_hdlr(plat_priv);
 			break;
 		case CNSS_DRIVER_EVENT_COLD_BOOT_CAL_DONE:
 			ret = cnss_cold_boot_cal_done_hdlr(plat_priv);
@@ -1828,8 +1837,11 @@ static ssize_t cnss_fs_ready_store(struct device *dev,
 		return count;
 	}
 
-	if (fs_ready == FILE_SYSTEM_READY)
-		cnss_pci_start_mhi(plat_priv->bus_priv);
+	if (fs_ready == FILE_SYSTEM_READY) {
+		cnss_driver_event_post(plat_priv,
+				       CNSS_DRIVER_EVENT_COLD_BOOT_CAL_START,
+				       true, NULL);
+	}
 
 	return count;
 }
