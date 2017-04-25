@@ -259,7 +259,7 @@ static int bcl_set_vbat(void *data, int low, int high)
 		 */
 		for (vbat_idx = 2; vbat_idx < BCL_STD_VBAT_NR;
 			vbat_idx++) {
-			if (vbat_uv > vbat_low[vbat_idx])
+			if (vbat_uv >= vbat_low[vbat_idx])
 				continue;
 			break;
 		}
@@ -274,7 +274,7 @@ static int bcl_set_vbat(void *data, int low, int high)
 		 */
 		for (vbat_idx = 1; vbat_idx < (BCL_STD_VBAT_NR - 1);
 			vbat_idx++) {
-			if (vbat_uv > vbat_low[vbat_idx])
+			if (vbat_uv >= vbat_low[vbat_idx])
 				continue;
 			break;
 		}
