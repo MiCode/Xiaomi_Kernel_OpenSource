@@ -2397,11 +2397,11 @@ static inline void ipa3_sram_set_canary(u32 *sram_mmio, int offset)
 }
 
 /**
- * _ipa_init_sram_v3_0() - Initialize IPA local SRAM.
+ * _ipa_init_sram_v3() - Initialize IPA local SRAM.
  *
  * Return codes: 0 for success, negative value for failure
  */
-int _ipa_init_sram_v3_0(void)
+int _ipa_init_sram_v3(void)
 {
 	u32 *ipa_sram_mmio;
 	unsigned long phys_addr;
@@ -2444,7 +2444,10 @@ int _ipa_init_sram_v3_0(void)
 		IPA_MEM_PART(modem_hdr_proc_ctx_ofst));
 	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(modem_ofst) - 4);
 	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(modem_ofst));
-	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(end_ofst));
+	ipa3_sram_set_canary(ipa_sram_mmio,
+		(ipa_get_hw_type() >= IPA_HW_v3_5) ?
+			IPA_MEM_PART(uc_event_ring_ofst) :
+			IPA_MEM_PART(end_ofst));
 
 	iounmap(ipa_sram_mmio);
 
