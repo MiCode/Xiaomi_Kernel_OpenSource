@@ -26,7 +26,6 @@
 #define GMU_INT_HOST_AHB_BUS_ERR	BIT(5)
 #define GMU_AO_INT_MASK		\
 		(GMU_INT_WDOG_BITE |	\
-		GMU_INT_DBD_WAKEUP |	\
 		GMU_INT_HOST_AHB_BUS_ERR)
 
 #define MAX_GMUFW_SIZE	0x2000	/* in dwords */
