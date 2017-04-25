@@ -1599,15 +1599,8 @@ struct afe_sidetone_iir_filter_config_params {
 #define AFE_MODULE_LOOPBACK	0x00010205
 #define AFE_PARAM_ID_LOOPBACK_GAIN_PER_PATH	0x00010206
 
-/* Payload of the #AFE_PARAM_ID_LOOPBACK_GAIN_PER_PATH parameter,
- * which gets/sets loopback gain of a port to an Rx port.
- * The Tx port ID of the loopback is part of the set_param command.
- */
-
-/*  Payload of the #AFE_PORT_CMD_SET_PARAM_V2 command's
- * configuration/calibration settings for the AFE port.
- */
-struct afe_port_cmd_set_param_v2 {
+/* Used by RTAC */
+struct afe_rtac_set_param_v2 {
 	u16 port_id;
 /* Port interface and direction (Rx or Tx) to start.
  */
@@ -1651,35 +1644,60 @@ u32 mem_map_handle;
 } __packed;
 
 #define AFE_PORT_CMD_SET_PARAM_V2	0x000100EF
+struct afe_port_cmd_set_param_v2 {
+	/* APR Header */
+	struct apr_hdr apr_hdr;
 
-struct afe_port_param_data_v2 {
-	u32 module_id;
-/* ID of the module to be configured.
- * Supported values: Valid module ID
- */
+	/* Port interface and direction (Rx or Tx) to start. */
+	u16 port_id;
 
-u32 param_id;
-/* ID of the parameter corresponding to the supported parameters
- * for the module ID.
- * Supported values: Valid parameter ID
- */
+	/*
+	 * Actual size of the payload in bytes.
+	 * This is used for parsing the parameter payload.
+	 * Supported values: > 0
+	 */
+	u16 payload_size;
 
-u16 param_size;
-/* Actual size of the data for the
- * module_id/param_id pair. The size is a
- * multiple of four bytes.
- * Supported values: > 0
- */
+	/* The header detailing the memory mapping for out of band. */
+	struct mem_mapping_hdr mem_hdr;
 
-u16 reserved;
-/* This field must be set to zero.
- */
+	/* The parameter data to be filled when sent inband */
+	u8 param_data[0];
 } __packed;
 
+#define AFE_PORT_CMD_SET_PARAM_V3 0x000100FA
+struct afe_port_cmd_set_param_v3 {
+	/* APR Header */
+	struct apr_hdr apr_hdr;
+
+	/* Port ID of the AFE port to configure. Port interface and direction
+	 * (Rx or Tx) to configure. An even number represents the Rx direction,
+	 * and an odd number represents the Tx  direction.
+	 */
+	u16 port_id;
+
+	/* Reserved. This field must be set to zero. */
+	u16 reserved;
+
+	/* The memory mapping header to be used when sending outband */
+	struct mem_mapping_hdr mem_hdr;
+
+	/* The total size of the payload, including param_hdr_v3 */
+	u32 payload_size;
+
+	/*
+	 * The parameter data to be filled when sent inband.
+	 * Must include param_hdr packed correctly.
+	 */
+	u8 param_data[0];
+} __packed;
+
+/* Payload of the #AFE_PARAM_ID_LOOPBACK_GAIN_PER_PATH parameter,
+ * which gets/sets loopback gain of a port to an Rx port.
+ * The Tx port ID of the loopback is part of the set_param command.
+ */
+
 struct afe_loopback_gain_per_path_param {
-	struct apr_hdr	hdr;
-	struct afe_port_cmd_set_param_v2 param;
-	struct afe_port_param_data_v2    pdata;
 	u16                  rx_port_id;
 /* Rx port of the loopback. */
 
@@ -1715,9 +1733,6 @@ enum afe_loopback_routing_mode {
  * which enables/disables one AFE loopback.
  */
 struct afe_loopback_cfg_v1 {
-	struct apr_hdr	hdr;
-	struct afe_port_cmd_set_param_v2 param;
-	struct afe_port_param_data_v2    pdata;
 	u32		loopback_cfg_minor_version;
 /* Minor version used for tracking the version of the RMC module
  * configuration interface.
@@ -1779,19 +1794,19 @@ struct loopback_cfg_data {
 
 struct afe_st_loopback_cfg_v1 {
 	struct apr_hdr                    hdr;
-	struct afe_port_cmd_set_param_v2  param;
-	struct afe_port_param_data_v2     gain_pdata;
+	struct mem_mapping_hdr mem_hdr;
+	struct param_hdr_v1 gain_pdata;
 	struct afe_loopback_sidetone_gain gain_data;
-	struct afe_port_param_data_v2     cfg_pdata;
+	struct param_hdr_v1 cfg_pdata;
 	struct loopback_cfg_data          cfg_data;
 } __packed;
 
 struct afe_loopback_iir_cfg_v2 {
-	struct apr_hdr                          hdr;
-	struct afe_port_cmd_set_param_v2        param;
-	struct afe_port_param_data_v2           st_iir_enable_pdata;
-	struct afe_mod_enable_param             st_iir_mode_enable_data;
-	struct afe_port_param_data_v2           st_iir_filter_config_pdata;
+	struct apr_hdr hdr;
+	struct mem_mapping_hdr param;
+	struct param_hdr_v1 st_iir_enable_pdata;
+	struct afe_mod_enable_param st_iir_mode_enable_data;
+	struct param_hdr_v1 st_iir_filter_config_pdata;
 	struct afe_sidetone_iir_filter_config_params st_iir_filter_config_data;
 } __packed;
 #define AFE_MODULE_SPEAKER_PROTECTION	0x00010209
@@ -2241,20 +2256,6 @@ struct afe_param_id_spdif_clk_cfg {
  * - #AFE_PORT_CLK_ROOT_LPAPLL
  * - #AFE_PORT_CLK_ROOT_LPAQ6PLL
  */
-} __packed;
-
-struct afe_spdif_clk_config_command {
-	struct apr_hdr                    hdr;
-	struct afe_port_cmd_set_param_v2  param;
-	struct afe_port_param_data_v2     pdata;
-	struct afe_param_id_spdif_clk_cfg clk_cfg;
-} __packed;
-
-struct afe_spdif_chstatus_config_command {
-	struct apr_hdr                    hdr;
-	struct afe_port_cmd_set_param_v2  param;
-	struct afe_port_param_data_v2     pdata;
-	struct afe_param_id_spdif_ch_status_cfg ch_status;
 } __packed;
 
 struct afe_spdif_port_config {
@@ -2782,16 +2783,6 @@ struct afe_param_id_usb_audio_cfg {
 	u32                   endian;
 } __packed;
 
-struct afe_usb_audio_dev_param_command {
-	struct apr_hdr hdr;
-	struct afe_port_cmd_set_param_v2 param;
-	struct afe_port_param_data_v2    pdata;
-	union {
-		struct afe_param_id_usb_audio_dev_params usb_dev;
-		struct afe_param_id_usb_audio_dev_lpcm_fmt lpcm_fmt;
-	};
-} __packed;
-
 /*
 * This param id is used to configure Real Time Proxy interface.
 */
@@ -3186,20 +3177,6 @@ struct afe_param_id_custom_tdm_header_cfg {
 	uint16_t header7; Reserved Info[3] - Bitrate[kbps] - Low  Byte -> 0x0 */
 } __packed;
 
-struct afe_slot_mapping_config_command {
-	struct apr_hdr	hdr;
-	struct afe_port_cmd_set_param_v2	param;
-	struct afe_port_param_data_v2	pdata;
-	struct afe_param_id_slot_mapping_cfg	slot_mapping;
-} __packed;
-
-struct afe_custom_tdm_header_config_command {
-	struct apr_hdr	hdr;
-	struct afe_port_cmd_set_param_v2	param;
-	struct afe_port_param_data_v2	pdata;
-	struct afe_param_id_custom_tdm_header_cfg	custom_tdm_header;
-} __packed;
-
 struct afe_tdm_port_config {
 	struct afe_param_id_tdm_cfg				tdm;
 	struct afe_param_id_slot_mapping_cfg		slot_mapping;
@@ -3576,18 +3553,6 @@ union afe_port_config {
 	struct avs_enc_packetizer_id_param_t      enc_pkt_id_param;
 } __packed;
 
-struct afe_audioif_config_command_no_payload {
-	struct apr_hdr			hdr;
-	struct afe_port_cmd_set_param_v2 param;
-} __packed;
-
-struct afe_audioif_config_command {
-	struct apr_hdr			hdr;
-	struct afe_port_cmd_set_param_v2 param;
-	struct afe_port_param_data_v2    pdata;
-	union afe_port_config            port;
-} __packed;
-
 #define AFE_PORT_CMD_DEVICE_START 0x000100E5
 
 /*  Payload of the #AFE_PORT_CMD_DEVICE_START.*/
@@ -3750,13 +3715,8 @@ u32                  mem_map_handle;
  */
 } __packed;
 
-#define  AFE_PORT_CMD_GET_PARAM_V2 0x000100F0
-
-/*  Payload of the #AFE_PORT_CMD_GET_PARAM_V2 command,
- * which queries for one post/preprocessing parameter of a
- * stream.
- */
-struct afe_port_cmd_get_param_v2 {
+/* Used by RTAC */
+struct afe_rtac_get_param_v2 {
 	u16 port_id;
 /* Port interface and direction (Rx or Tx) to start. */
 
@@ -3802,6 +3762,37 @@ struct afe_port_cmd_get_param_v2 {
  */
 } __packed;
 
+#define AFE_PORT_CMD_GET_PARAM_V2 0x000100F0
+
+/* Payload of the #AFE_PORT_CMD_GET_PARAM_V2 command,
+ * which queries for one post/preprocessing parameter of a
+ * stream.
+ */
+struct afe_port_cmd_get_param_v2 {
+	struct apr_hdr apr_hdr;
+
+	/* Port interface and direction (Rx or Tx) to start. */
+	u16 port_id;
+
+	/* Maximum data size of the parameter ID/module ID combination.
+	 * This is a multiple of four bytes
+	 * Supported values: > 0
+	 */
+	u16 payload_size;
+
+	/* The memory mapping header to be used when requesting outband */
+	struct mem_mapping_hdr mem_hdr;
+
+	/* The module ID of the parameter data requested */
+	u32 module_id;
+
+	/* The parameter ID of the parameter data requested */
+	u32 param_id;
+
+	/* The header information for the parameter data */
+	struct param_hdr_v1 param_hdr;
+} __packed;
+
 #define AFE_PORT_CMDRSP_GET_PARAM_V2 0x00010106
 
 /* Payload of the #AFE_PORT_CMDRSP_GET_PARAM_V2 message, which
@@ -3817,6 +3808,41 @@ struct afe_port_cmd_get_param_v2 {
 
 struct afe_port_cmdrsp_get_param_v2 {
 	u32                  status;
+	struct param_hdr_v1 param_hdr;
+	u8 param_data[0];
+} __packed;
+
+#define AFE_PORT_CMD_GET_PARAM_V3 0x000100FB
+struct afe_port_cmd_get_param_v3 {
+	/* APR Header */
+	struct apr_hdr apr_hdr;
+
+	/* Port ID of the AFE port to configure. Port interface and direction
+	 * (Rx or Tx) to configure. An even number represents the Rx direction,
+	 * and an odd number represents the Tx  direction.
+	 */
+	u16 port_id;
+
+	/* Reserved. This field must be set to zero. */
+	u16 reserved;
+
+	/* The memory mapping header to be used when requesting outband */
+	struct mem_mapping_hdr mem_hdr;
+
+	/* The header information for the parameter data */
+	struct param_hdr_v3 param_hdr;
+} __packed;
+
+#define AFE_PORT_CMDRSP_GET_PARAM_V3 0x00010108
+struct afe_port_cmdrsp_get_param_v3 {
+	/* The status of the command */
+	uint32_t status;
+
+	/* The header information for the parameter data */
+	struct param_hdr_v3 param_hdr;
+
+	/* The parameter data to be filled when sent inband */
+	u8 param_data[0];
 } __packed;
 
 #define AFE_PARAM_ID_LPASS_CORE_SHARED_CLOCK_CONFIG	0x0001028C
@@ -3836,13 +3862,6 @@ struct afe_param_id_lpass_core_shared_clk_cfg {
  * Specifies whether the lpass core shared clock is
  * enabled (1) or disabled (0).
  */
-} __packed;
-
-struct afe_lpass_core_shared_clk_config_command {
-	struct apr_hdr		   hdr;
-	struct afe_port_cmd_set_param_v2 param;
-	struct afe_port_param_data_v2    pdata;
-	struct afe_param_id_lpass_core_shared_clk_cfg clk_cfg;
 } __packed;
 
 /* adsp_afe_service_commands.h */
@@ -9177,15 +9196,13 @@ struct afe_sp_th_vi_ftm_params {
 } __packed;
 
 struct afe_sp_th_vi_get_param {
-	struct apr_hdr hdr;
-	struct afe_port_cmd_get_param_v2 get_param;
-	struct afe_port_param_data_v2 pdata;
+	struct param_hdr_v3 pdata;
 	struct afe_sp_th_vi_ftm_params param;
 } __packed;
 
 struct afe_sp_th_vi_get_param_resp {
 	uint32_t status;
-	struct afe_port_param_data_v2 pdata;
+	struct param_hdr_v3 pdata;
 	struct afe_sp_th_vi_ftm_params param;
 } __packed;
 
@@ -9251,15 +9268,13 @@ struct afe_sp_ex_vi_ftm_params {
 } __packed;
 
 struct afe_sp_ex_vi_get_param {
-	struct apr_hdr hdr;
-	struct afe_port_cmd_get_param_v2 get_param;
-	struct afe_port_param_data_v2 pdata;
+	struct param_hdr_v3 pdata;
 	struct afe_sp_ex_vi_ftm_params param;
 } __packed;
 
 struct afe_sp_ex_vi_get_param_resp {
 	uint32_t status;
-	struct afe_port_param_data_v2 pdata;
+	struct param_hdr_v3 pdata;
 	struct afe_sp_ex_vi_ftm_params param;
 } __packed;
 
@@ -9274,23 +9289,16 @@ union afe_spkr_prot_config {
 	struct afe_sp_ex_vi_ftm_cfg ex_vi_ftm_cfg;
 } __packed;
 
-struct afe_spkr_prot_config_command {
-	struct apr_hdr hdr;
-	struct afe_port_cmd_set_param_v2 param;
-	struct afe_port_param_data_v2 pdata;
-	union afe_spkr_prot_config prot_config;
-} __packed;
-
 struct afe_spkr_prot_get_vi_calib {
 	struct apr_hdr hdr;
-	struct afe_port_cmd_get_param_v2 get_param;
-	struct afe_port_param_data_v2 pdata;
+	struct mem_mapping_hdr mem_hdr;
+	struct param_hdr_v3 pdata;
 	struct asm_calib_res_cfg res_cfg;
 } __packed;
 
 struct afe_spkr_prot_calib_get_resp {
 	uint32_t status;
-	struct afe_port_param_data_v2 pdata;
+	struct param_hdr_v3 pdata;
 	struct asm_calib_res_cfg res_cfg;
 } __packed;
 
@@ -9582,6 +9590,7 @@ struct avcs_fwk_ver_info {
 
 /* Commands/Params to pass the codec/slimbus data to DSP */
 #define AFE_SVC_CMD_SET_PARAM				(0x000100f3)
+#define AFE_SVC_CMD_SET_PARAM_V2 (0x000100fc)
 #define AFE_MODULE_CDC_DEV_CFG				(0x00010234)
 #define AFE_PARAM_ID_CDC_SLIMBUS_SLAVE_CFG		(0x00010235)
 #define AFE_PARAM_ID_CDC_REG_CFG			(0x00010236)
@@ -9966,13 +9975,6 @@ struct afe_clk_cfg {
 #define AFE_MODULE_CLOCK_SET		0x0001028F
 #define AFE_PARAM_ID_CLOCK_SET		0x00010290
 
-struct afe_lpass_clk_config_command {
-	struct apr_hdr			 hdr;
-	struct afe_port_cmd_set_param_v2 param;
-	struct afe_port_param_data_v2    pdata;
-	struct afe_clk_cfg clk_cfg;
-} __packed;
-
 enum afe_lpass_digital_clk_src {
 	Q6AFE_LPASS_DIGITAL_ROOT_INVALID,
 	Q6AFE_LPASS_DIGITAL_ROOT_PRI_MI2S_OSR,
@@ -10006,14 +10008,6 @@ struct afe_digital_clk_cfg {
 
 /* This field must be set to zero. */
 	u16                  reserved;
-} __packed;
-
-
-struct afe_lpass_digital_clk_config_command {
-	struct apr_hdr			 hdr;
-	struct afe_port_cmd_set_param_v2 param;
-	struct afe_port_param_data_v2    pdata;
-	struct afe_digital_clk_cfg clk_cfg;
 } __packed;
 
 /*
@@ -10124,18 +10118,32 @@ struct afe_param_cdc_reg_cfg_data {
 	struct afe_param_cdc_reg_cfg *reg_data;
 } __packed;
 
-struct afe_svc_cmd_set_param {
+struct afe_svc_cmd_set_param_v1 {
+	/* APR Header */
+	struct apr_hdr apr_hdr;
+
+	/* The total size of the payload, including param_hdr_v3 */
 	uint32_t payload_size;
-	uint32_t payload_address_lsw;
-	uint32_t payload_address_msw;
-	uint32_t mem_map_handle;
+
+	/* The memory mapping header to be used when sending outband */
+	struct mem_mapping_hdr mem_hdr;
+
+	/* The parameter data to be filled when sent inband */
+	u32 param_data[0];
 } __packed;
 
-struct afe_svc_param_data {
-	uint32_t module_id;
-	uint32_t param_id;
-	uint16_t param_size;
-	uint16_t reserved;
+struct afe_svc_cmd_set_param_v2 {
+	/* APR Header */
+	struct apr_hdr apr_hdr;
+
+	/* The memory mapping header to be used when sending outband */
+	struct mem_mapping_hdr mem_hdr;
+
+	/* The total size of the payload, including param_hdr_v3 */
+	u32 payload_size;
+
+	/* The parameter data to be filled when sent inband */
+	u32 param_data[0];
 } __packed;
 
 struct afe_param_hw_mad_ctrl {
@@ -10144,87 +10152,9 @@ struct afe_param_hw_mad_ctrl {
 	uint16_t mad_enable;
 } __packed;
 
-struct afe_cmd_hw_mad_ctrl {
-	struct apr_hdr hdr;
-	struct afe_port_cmd_set_param_v2 param;
-	struct afe_port_param_data_v2 pdata;
-	struct afe_param_hw_mad_ctrl payload;
-} __packed;
-
-struct afe_cmd_hw_mad_slimbus_slave_port_cfg {
-	struct apr_hdr hdr;
-	struct afe_port_cmd_set_param_v2 param;
-	struct afe_port_param_data_v2 pdata;
-	struct afe_param_slimbus_slave_port_cfg sb_port_cfg;
-} __packed;
-
-struct afe_cmd_sw_mad_enable {
-	struct apr_hdr hdr;
-	struct afe_port_cmd_set_param_v2 param;
-	struct afe_port_param_data_v2 pdata;
-} __packed;
-
-struct afe_param_cdc_reg_cfg_payload {
-	struct afe_svc_param_data     common;
-	struct afe_param_cdc_reg_cfg  reg_cfg;
-} __packed;
-
-struct afe_lpass_clk_config_command_v2 {
-	struct apr_hdr			hdr;
-	struct afe_svc_cmd_set_param	param;
-	struct afe_svc_param_data	pdata;
-	struct afe_clk_set		clk_cfg;
-} __packed;
-
-/*
- * reg_data's size can be up to AFE_MAX_CDC_REGISTERS_TO_CONFIG
- */
-struct afe_svc_cmd_cdc_reg_cfg {
-	struct apr_hdr hdr;
-	struct afe_svc_cmd_set_param param;
-	struct afe_param_cdc_reg_cfg_payload reg_data[0];
-} __packed;
-
-struct afe_svc_cmd_init_cdc_reg_cfg {
-	struct apr_hdr hdr;
-	struct afe_svc_cmd_set_param param;
-	struct afe_port_param_data_v2 init;
-} __packed;
-
-struct afe_svc_cmd_sb_slave_cfg {
-	struct apr_hdr hdr;
-	struct afe_svc_cmd_set_param param;
-	struct afe_port_param_data_v2 pdata;
-	struct afe_param_cdc_slimbus_slave_cfg sb_slave_cfg;
-} __packed;
-
-struct afe_svc_cmd_cdc_reg_page_cfg {
-	struct apr_hdr hdr;
-	struct afe_svc_cmd_set_param param;
-	struct afe_port_param_data_v2 pdata;
-	struct afe_param_cdc_reg_page_cfg cdc_reg_page_cfg;
-} __packed;
-
-struct afe_svc_cmd_cdc_aanc_version {
-	struct apr_hdr hdr;
-	struct afe_svc_cmd_set_param param;
-	struct afe_port_param_data_v2 pdata;
-	struct afe_param_id_cdc_aanc_version version;
-} __packed;
-
-struct afe_port_cmd_set_aanc_param {
-	struct apr_hdr hdr;
-	struct afe_port_cmd_set_param_v2 param;
-	struct afe_port_param_data_v2 pdata;
-	union {
-		struct afe_param_aanc_port_cfg aanc_port_cfg;
-		struct afe_mod_enable_param    mod_enable;
-	} __packed data;
-} __packed;
-
 struct afe_port_cmd_set_aanc_acdb_table {
 	struct apr_hdr hdr;
-	struct afe_port_cmd_set_param_v2 param;
+	struct mem_mapping_hdr mem_hdr;
 } __packed;
 
 /* Dolby DAP topology */
@@ -10246,13 +10176,6 @@ struct afe_port_cmd_set_aanc_acdb_table {
 #define CUSTOM_STEREO_INDEX_PARAM	0x0002
 #define Q14_GAIN_ZERO_POINT_FIVE	0x2000
 #define Q14_GAIN_UNITY			0x4000
-
-struct afe_svc_cmd_set_clip_bank_selection {
-	struct apr_hdr hdr;
-	struct afe_svc_cmd_set_param param;
-	struct afe_port_param_data_v2 pdata;
-	struct afe_param_id_clip_bank_sel bank_sel;
-} __packed;
 
 /* Ultrasound supported formats */
 #define US_POINT_EPOS_FORMAT_V2 0x0001272D
@@ -10467,13 +10390,6 @@ union afe_port_group_config {
 	struct afe_param_id_group_device_tdm_cfg tdm_cfg;
 } __packed;
 
-struct afe_port_group_create {
-	struct apr_hdr hdr;
-	struct afe_svc_cmd_set_param param;
-	struct afe_port_param_data_v2 pdata;
-	union afe_port_group_config data;
-} __packed;
-
 /* ID of the parameter used by #AFE_MODULE_AUDIO_DEV_INTERFACE to specify
  * the timing statistics of the corresponding device interface.
  * Client can periodically query for the device time statistics to help adjust
@@ -10563,16 +10479,9 @@ struct afe_param_id_dev_timing_stats {
 	u32        ref_timer_abs_ts_msw;
 } __packed;
 
-struct afe_av_dev_drift_get_param {
-	struct apr_hdr hdr;
-	struct afe_port_cmd_get_param_v2 get_param;
-	struct afe_port_param_data_v2 pdata;
-	struct afe_param_id_dev_timing_stats timing_stats;
-} __packed;
-
 struct afe_av_dev_drift_get_param_resp {
 	uint32_t status;
-	struct afe_port_param_data_v2 pdata;
+	struct param_hdr_v3 pdata;
 	struct afe_param_id_dev_timing_stats timing_stats;
 } __packed;
 
