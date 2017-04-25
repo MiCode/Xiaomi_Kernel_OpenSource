@@ -230,6 +230,7 @@
 &pm660_fg {
 	qcom,battery-data = <&qrd_batterydata>;
 	qcom,fg-jeita-thresholds = <0 5 55 55>;
+	qcom,battery-thermal-coefficients = [9d 50 ff];
 };
 
 &i2c_2 {
