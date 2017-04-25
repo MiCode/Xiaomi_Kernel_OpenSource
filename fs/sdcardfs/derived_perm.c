@@ -222,7 +222,7 @@ void fixup_lower_ownership(struct dentry *dentry, const char *name)
 		break;
 	case PERM_ANDROID_PACKAGE_CACHE:
 		if (info->d_uid != 0)
-			gid = multiuser_get_cache_gid(info->d_uid);
+			gid = multiuser_get_ext_cache_gid(info->d_uid);
 		else
 			gid = multiuser_get_uid(info->userid, uid);
 		break;
@@ -252,7 +252,7 @@ retry_deleg:
 				goto retry_deleg;
 		}
 		if (error)
-			pr_err("sdcardfs: Failed to touch up lower fs gid/uid.\n");
+			pr_debug("sdcardfs: Failed to touch up lower fs gid/uid for %s\n", name);
 	}
 	sdcardfs_put_lower_path(dentry, &path);
 }
