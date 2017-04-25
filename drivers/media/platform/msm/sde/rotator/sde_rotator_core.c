@@ -293,7 +293,7 @@ static int sde_rotator_update_clk(struct sde_rot_mgr *mgr)
 
 	SDEROT_DBG("core_clk %lu\n", total_clk_rate);
 	ATRACE_INT("core_clk", total_clk_rate);
-	sde_rotator_set_clk_rate(mgr, total_clk_rate, SDE_ROTATOR_CLK_ROT_CORE);
+	sde_rotator_set_clk_rate(mgr, total_clk_rate, SDE_ROTATOR_CLK_MDSS_ROT);
 
 	return 0;
 }
@@ -406,13 +406,13 @@ int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable)
 			if (ret)
 				goto error_mdss_axi;
 			ret = sde_rotator_enable_clk(mgr,
-						SDE_ROTATOR_CLK_ROT_CORE);
-			if (ret)
-				goto error_rot_core;
-			ret = sde_rotator_enable_clk(mgr,
 						SDE_ROTATOR_CLK_MDSS_ROT);
 			if (ret)
 				goto error_mdss_rot;
+			ret = sde_rotator_enable_clk(mgr,
+						SDE_ROTATOR_CLK_MDSS_ROT_SUB);
+			if (ret)
+				goto error_rot_sub;
 
 			/* Active+Sleep */
 			msm_bus_scale_client_update_context(
@@ -420,8 +420,9 @@ int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable)
 				mgr->data_bus.curr_bw_uc_idx);
 			trace_rot_bw_ao_as_context(0);
 		} else {
+			sde_rotator_disable_clk(mgr,
+					SDE_ROTATOR_CLK_MDSS_ROT_SUB);
 			sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MDSS_ROT);
-			sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_ROT_CORE);
 			sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MDSS_AXI);
 			sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MDSS_AHB);
 			sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_GCC_AXI);
@@ -437,9 +438,9 @@ int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable)
 	}
 
 	return ret;
+error_rot_sub:
+	sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MDSS_ROT);
 error_mdss_rot:
-	sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_ROT_CORE);
-error_rot_core:
 	sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MDSS_AXI);
 error_mdss_axi:
 	sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MDSS_AHB);
@@ -2730,11 +2731,19 @@ static int sde_rotator_parse_dt_clk(struct platform_device *pdev,
 			sde_rotator_search_dt_clk(pdev, mgr, "axi_clk",
 				SDE_ROTATOR_CLK_MDSS_AXI, true) ||
 			sde_rotator_search_dt_clk(pdev, mgr, "rot_core_clk",
-				SDE_ROTATOR_CLK_ROT_CORE, true) ||
-			sde_rotator_search_dt_clk(pdev, mgr, "rot_clk",
-				SDE_ROTATOR_CLK_MDSS_ROT, true))
+				SDE_ROTATOR_CLK_MDSS_ROT, false))
 		rc = -EINVAL;
 
+	/*
+	 * If 'MDSS_ROT' is already present, place 'rot_clk' under
+	 * MDSS_ROT_SUB. Otherwise, place it directly into MDSS_ROT.
+	 */
+	if (sde_rotator_get_clk(mgr, SDE_ROTATOR_CLK_MDSS_ROT))
+		rc = sde_rotator_search_dt_clk(pdev, mgr, "rot_clk",
+				SDE_ROTATOR_CLK_MDSS_ROT_SUB, true);
+	else
+		rc = sde_rotator_search_dt_clk(pdev, mgr, "rot_clk",
+				SDE_ROTATOR_CLK_MDSS_ROT, true);
 clk_err:
 	return rc;
 }
