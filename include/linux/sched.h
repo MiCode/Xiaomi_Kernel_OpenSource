@@ -1167,6 +1167,8 @@ struct sched_group_energy {
 	struct capacity_state *cap_states; /* ptr to capacity state array */
 };
 
+extern bool sched_is_energy_aware(void);
+
 unsigned long capacity_curr_of(int cpu);
 
 struct sched_group;

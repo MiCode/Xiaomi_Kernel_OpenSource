@@ -56,6 +56,9 @@ void init_sched_energy_costs(void)
 	int sd_level, i, nstates, cpu;
 	const __be32 *val;
 
+	if (!sched_is_energy_aware())
+		return;
+
 	for_each_possible_cpu(cpu) {
 		cn = of_get_cpu_node(cpu, NULL);
 		if (!cn) {
