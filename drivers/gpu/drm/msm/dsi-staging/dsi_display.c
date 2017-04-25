@@ -1952,7 +1952,7 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 	display->pdev = pdev;
 	platform_set_drvdata(pdev, display);
 	mutex_lock(&dsi_display_list_lock);
-	list_add(&display->list, &dsi_display_list);
+	list_add_tail(&display->list, &dsi_display_list);
 	mutex_unlock(&dsi_display_list_lock);
 
 	if (display->is_active) {
