@@ -751,8 +751,7 @@ static void compr_event_handler(uint32_t opcode,
 			return;
 		}
 
-		ret = msm_adsp_inform_mixer_ctl(rtd, DSP_STREAM_CALLBACK,
-					payload);
+		ret = msm_adsp_inform_mixer_ctl(rtd, payload);
 		if (ret) {
 			pr_err("%s: failed to inform mixer ctrl. err = %d\n",
 				__func__, ret);
@@ -1588,6 +1587,7 @@ static int msm_compr_playback_open(struct snd_compr_stream *cstream)
 	pr_debug("%s: session ID %d\n", __func__, prtd->audio_client->session);
 	prtd->audio_client->perf_mode = false;
 	prtd->session_id = prtd->audio_client->session;
+	msm_adsp_init_mixer_ctl_pp_event_queue(rtd);
 
 	return 0;
 }
@@ -1743,7 +1743,7 @@ static int msm_compr_playback_free(struct snd_compr_stream *cstream)
 	q6asm_audio_client_buf_free_contiguous(dir, ac);
 
 	q6asm_audio_client_free(ac);
-
+	msm_adsp_clean_mixer_ctl_pp_event_queue(soc_prtd);
 	kfree(pdata->audio_effects[soc_prtd->dai_link->id]);
 	pdata->audio_effects[soc_prtd->dai_link->id] = NULL;
 	kfree(pdata->dec_params[soc_prtd->dai_link->id]);
@@ -3987,7 +3987,6 @@ static int msm_compr_add_audio_adsp_stream_callback_control(
 		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
 		.info = msm_adsp_stream_callback_info,
 		.get = msm_adsp_stream_callback_get,
-		.put = msm_adsp_stream_callback_put,
 		.private_value = 0,
 		}
 	};
@@ -4028,6 +4027,7 @@ static int msm_compr_add_audio_adsp_stream_callback_control(
 	}
 
 	kctl->private_data = NULL;
+
 free_mixer_str:
 	kfree(mixer_str);
 done:

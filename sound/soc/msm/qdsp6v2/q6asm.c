@@ -1668,7 +1668,7 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 	int32_t  ret = 0;
 	union asm_token_struct asm_token;
 	uint8_t buf_index;
-	char *pp_event_package = NULL;
+	struct msm_adsp_event_data *pp_event_package = NULL;
 	uint32_t payload_size = 0;
 
 	if (ac == NULL) {
@@ -2040,17 +2040,18 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		pr_debug("%s: ASM_STREAM_PP_EVENT payload[0][0x%x] payload[1][0x%x]",
 				 __func__, payload[0], payload[1]);
 		/* repack payload for asm_stream_pp_event
-		 * package is composed of size + actual payload
+		 * package is composed of event type + size + actual payload
 		 */
 		payload_size = data->payload_size;
-		pp_event_package =
-			kzalloc(payload_size + sizeof(payload_size),
+		pp_event_package = kzalloc(payload_size
+				+ sizeof(struct msm_adsp_event_data),
 				GFP_ATOMIC);
 		if (!pp_event_package)
 			return -ENOMEM;
-		memcpy((void *)pp_event_package,
-			&payload_size, sizeof(payload_size));
-		memcpy((void *)pp_event_package + sizeof(payload_size),
+
+		pp_event_package->event_type = ASM_STREAM_PP_EVENT;
+		pp_event_package->payload_len = payload_size;
+		memcpy((void *)pp_event_package->payload,
 				data->payload, payload_size);
 		ac->cb(data->opcode, data->token,
 			(void *)pp_event_package, ac->priv);
