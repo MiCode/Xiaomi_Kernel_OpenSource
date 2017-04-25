@@ -662,7 +662,7 @@ int diag_add_diag_id_to_list(uint8_t diag_id, char *process_name)
 	if (!new_item)
 		return -ENOMEM;
 	kmemleak_not_leak(new_item);
-	new_item->process_name = kzalloc(strlen(process_name), GFP_KERNEL);
+	new_item->process_name = kzalloc(strlen(process_name) + 1, GFP_KERNEL);
 	if (!new_item->process_name) {
 		kfree(new_item);
 		new_item = NULL;
