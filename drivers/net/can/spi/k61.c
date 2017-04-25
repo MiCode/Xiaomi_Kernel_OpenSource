@@ -50,9 +50,9 @@ struct k61_can {
 	char *tx_buf, *rx_buf;
 	int xfer_length;
 	atomic_t msg_seq;
-	struct completion response_completion;
 
 	atomic_t netif_queue_stop;
+	struct completion response_completion;
 	int reset;
 	int wait_cmd;
 	int cmd_result;
@@ -84,14 +84,20 @@ struct spi_miso { /* TLV for MISO line */
 	u8 data[];
 } __packed;
 
-#define CMD_GET_FW_VERSION	0x81
-#define CMD_CAN_SEND_FRAME	0x82
-#define CMD_CAN_ADD_FILTER	0x83
-#define CMD_CAN_REMOVE_FILTER	0x84
-#define CMD_CAN_RECEIVE_FRAME	0x85
+#define CMD_GET_FW_VERSION		0x81
+#define CMD_CAN_SEND_FRAME		0x82
+#define CMD_CAN_ADD_FILTER		0x83
+#define CMD_CAN_REMOVE_FILTER		0x84
+#define CMD_CAN_RECEIVE_FRAME		0x85
+#define CMD_CAN_DATA_BUFF_ADD		0x87
+#define CMD_CAN_DATA_BUFF_REMOVE	0x88
+#define CMD_CAN_DATA_BUFF_REMOVE_ALL	0x8A
 
+#define IOCTL_ENABLE_BUFFERING		(SIOCDEVPRIVATE + 1)
 #define IOCTL_ADD_FRAME_FILTER		(SIOCDEVPRIVATE + 2)
 #define IOCTL_REMOVE_FRAME_FILTER	(SIOCDEVPRIVATE + 3)
+#define IOCTL_DISABLE_BUFFERING		(SIOCDEVPRIVATE + 5)
+#define IOCTL_DISABLE_ALL_BUFFERING	(SIOCDEVPRIVATE + 6)
 
 struct can_fw_resp {
 	u8 maj;
@@ -135,6 +141,18 @@ static struct can_bittiming_const k61_bittiming_const = {
 	.brp_max = 1023,
 	.brp_inc = 1,
 };
+
+struct k61_add_can_buffer {
+	u8 can_if;
+	u32 mid;
+	u32 mask;
+} __packed;
+
+struct k61_delete_can_buffer {
+	u8 can_if;
+	u32 mid;
+	u32 mask;
+} __packed;
 
 static int k61_rx_message(struct k61_can *priv_data);
 
@@ -436,13 +454,16 @@ static int k61_frame_filter(struct net_device *netdev,
 	char *tx_buf, *rx_buf;
 	int ret;
 	struct spi_mosi *req;
+	struct can_add_filter_req *add_filter;
 	struct can_add_filter_req *filter_request;
 	struct k61_can *priv_data;
 	struct k61_netdev_privdata *netdev_priv_data;
-	uint32_t *filter_req;
+	struct spi_device *spi;
 
 	netdev_priv_data = netdev_priv(netdev);
 	priv_data = netdev_priv_data->k61_can;
+	spi = priv_data->spidev;
+
 	mutex_lock(&priv_data->spi_lock);
 	tx_buf = priv_data->tx_buf;
 	rx_buf = priv_data->rx_buf;
@@ -453,13 +474,15 @@ static int k61_frame_filter(struct net_device *netdev,
 	if (ifr == NULL)
 		return -EINVAL;
 
-	filter_request = kzalloc(sizeof(filter_request), GFP_KERNEL);
+	filter_request =
+		devm_kzalloc(&spi->dev, sizeof(struct can_add_filter_req),
+			     GFP_KERNEL);
 	if (!filter_request)
 		return -ENOMEM;
 
 	if (copy_from_user(filter_request, ifr->ifr_data,
-			   sizeof(filter_request))) {
-		kfree(filter_request);
+			   sizeof(struct can_add_filter_req))) {
+		devm_kfree(&spi->dev, filter_request);
 		return -EFAULT;
 	}
 
@@ -469,13 +492,16 @@ static int k61_frame_filter(struct net_device *netdev,
 	else
 		req->cmd = CMD_CAN_REMOVE_FILTER;
 
-	req->len = sizeof(uint32_t);
+	req->len = sizeof(struct can_add_filter_req);
 	req->seq = atomic_inc_return(&priv_data->msg_seq);
 
-	filter_req = (uint32_t *)req->data;
-	*filter_req = filter_request->mid;
+	add_filter = (struct can_add_filter_req *)req->data;
+	add_filter->can_if = filter_request->can_if;
+	add_filter->mid = filter_request->mid;
+	add_filter->mask = filter_request->mask;
 
 	ret = k61_do_spi_transaction(priv_data);
+	devm_kfree(&spi->dev, filter_request);
 	mutex_unlock(&priv_data->spi_lock);
 	return ret;
 }
@@ -503,6 +529,134 @@ static netdev_tx_t k61_netdev_start_xmit(
 	return NETDEV_TX_OK;
 }
 
+static int k61_remove_all_buffering(struct net_device *netdev)
+{
+	char *tx_buf, *rx_buf;
+	int ret;
+	struct spi_mosi *req;
+	struct k61_can *priv_data;
+	struct k61_netdev_privdata *netdev_priv_data;
+
+	netdev_priv_data = netdev_priv(netdev);
+	priv_data = netdev_priv_data->k61_can;
+
+	mutex_lock(&priv_data->spi_lock);
+	tx_buf = priv_data->tx_buf;
+	rx_buf = priv_data->rx_buf;
+	memset(tx_buf, 0, XFER_BUFFER_SIZE);
+	memset(rx_buf, 0, XFER_BUFFER_SIZE);
+	priv_data->xfer_length = XFER_BUFFER_SIZE;
+
+	req = (struct spi_mosi *)tx_buf;
+	req->cmd = CMD_CAN_DATA_BUFF_REMOVE_ALL;
+	req->len = 0;
+	req->seq = atomic_inc_return(&priv_data->msg_seq);
+
+	priv_data->wait_cmd = req->cmd;
+	priv_data->cmd_result = -1;
+	reinit_completion(&priv_data->response_completion);
+
+	ret = k61_do_spi_transaction(priv_data);
+	mutex_unlock(&priv_data->spi_lock);
+
+	if (ret == 0) {
+		LOGDI("k61_do_blocking_ioctl ready to wait for response\n");
+		/* Flash write may take some time. Hence give 2s as
+		 * wait duration in the worst case. This wait time should
+		 * increase if more number of frame IDs are stored in flash.
+		 */
+		ret = wait_for_completion_interruptible_timeout(
+				&priv_data->response_completion, 2 * HZ);
+		ret = priv_data->cmd_result;
+	}
+
+	return ret;
+}
+
+static int k61_convert_ioctl_cmd_to_spi_cmd(int ioctl_cmd)
+{
+	switch (ioctl_cmd) {
+	case IOCTL_ENABLE_BUFFERING:
+		return CMD_CAN_DATA_BUFF_ADD;
+	case IOCTL_DISABLE_BUFFERING:
+		return CMD_CAN_DATA_BUFF_REMOVE;
+	}
+	return -EINVAL;
+}
+
+static int k61_data_buffering(struct net_device *netdev,
+			      struct ifreq *ifr, int cmd)
+{
+	int spi_cmd, ret;
+	char *tx_buf, *rx_buf;
+	struct k61_can *priv_data;
+	struct spi_mosi *req;
+	struct k61_netdev_privdata *netdev_priv_data;
+	struct k61_add_can_buffer *enable_buffering;
+	struct k61_add_can_buffer *add_request;
+	struct spi_device *spi;
+
+	netdev_priv_data = netdev_priv(netdev);
+	priv_data = netdev_priv_data->k61_can;
+	spi = priv_data->spidev;
+
+	mutex_lock(&priv_data->spi_lock);
+	spi_cmd = k61_convert_ioctl_cmd_to_spi_cmd(cmd);
+	if (spi_cmd < 0) {
+		LOGDE("k61_do_blocking_ioctl wrong command %d\n", cmd);
+		return spi_cmd;
+	}
+
+	if (ifr == NULL)
+		return -EINVAL;
+
+	add_request = devm_kzalloc(&spi->dev, sizeof(struct k61_add_can_buffer),
+				   GFP_KERNEL);
+	if (!add_request)
+		return -ENOMEM;
+
+	if (copy_from_user(add_request, ifr->ifr_data,
+			   sizeof(struct k61_add_can_buffer))) {
+		devm_kfree(&spi->dev, add_request);
+		return -EFAULT;
+	}
+
+	tx_buf = priv_data->tx_buf;
+	rx_buf = priv_data->rx_buf;
+	memset(tx_buf, 0, XFER_BUFFER_SIZE);
+	memset(rx_buf, 0, XFER_BUFFER_SIZE);
+	priv_data->xfer_length = XFER_BUFFER_SIZE;
+
+	req = (struct spi_mosi *)tx_buf;
+	req->cmd = spi_cmd;
+	req->len = sizeof(struct k61_add_can_buffer);
+	req->seq = atomic_inc_return(&priv_data->msg_seq);
+
+	enable_buffering = (struct k61_add_can_buffer *)req->data;
+	enable_buffering->can_if = add_request->can_if;
+	enable_buffering->mid = add_request->mid;
+	enable_buffering->mask = add_request->mask;
+
+	priv_data->wait_cmd = spi_cmd;
+	priv_data->cmd_result = -1;
+	reinit_completion(&priv_data->response_completion);
+
+	ret = k61_do_spi_transaction(priv_data);
+	devm_kfree(&spi->dev, add_request);
+	mutex_unlock(&priv_data->spi_lock);
+
+	if (ret == 0) {
+		LOGDI("k61_do_blocking_ioctl ready to wait for response\n");
+		/* Flash write may take some time. Hence give 400ms as
+		 * wait duration in the worst case.
+		 */
+		ret = wait_for_completion_interruptible_timeout(
+				&priv_data->response_completion, 0.4 * HZ);
+		ret = priv_data->cmd_result;
+	}
+	return ret;
+}
+
 static int k61_netdev_do_ioctl(struct net_device *netdev,
 			       struct ifreq *ifr, int cmd)
 {
@@ -518,6 +672,13 @@ static int k61_netdev_do_ioctl(struct net_device *netdev,
 	case IOCTL_ADD_FRAME_FILTER:
 	case IOCTL_REMOVE_FRAME_FILTER:
 		ret = k61_frame_filter(netdev, ifr, cmd);
+		break;
+	case IOCTL_ENABLE_BUFFERING:
+	case IOCTL_DISABLE_BUFFERING:
+		ret = k61_data_buffering(netdev, ifr, cmd);
+		break;
+	case IOCTL_DISABLE_ALL_BUFFERING:
+		ret = k61_remove_all_buffering(netdev);
 		break;
 	}
 	return ret;
