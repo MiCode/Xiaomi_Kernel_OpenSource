@@ -48,6 +48,7 @@
 			efficiency = <1024>;
 			cache-size = <0x8000>;
 			cpu-release-addr = <0x0 0x90000000>;
+			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			#cooling-cells = <2>;
 			next-level-cache = <&L2_0>;
 			L2_0: l2-cache {
@@ -80,6 +81,7 @@
 			efficiency = <1024>;
 			cache-size = <0x8000>;
 			cpu-release-addr = <0x0 0x90000000>;
+			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			#cooling-cells = <2>;
 			next-level-cache = <&L2_100>;
 			L2_100: l2-cache {
@@ -106,6 +108,7 @@
 			efficiency = <1024>;
 			cache-size = <0x8000>;
 			cpu-release-addr = <0x0 0x90000000>;
+			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			#cooling-cells = <2>;
 			next-level-cache = <&L2_200>;
 			L2_200: l2-cache {
@@ -132,6 +135,7 @@
 			efficiency = <1024>;
 			cache-size = <0x8000>;
 			cpu-release-addr = <0x0 0x90000000>;
+			qcom,lmh-dcvs = <&lmh_dcvs0>;
 			#cooling-cells = <2>;
 			next-level-cache = <&L2_300>;
 			L2_300: l2-cache {
@@ -158,6 +162,7 @@
 			efficiency = <1740>;
 			cache-size = <0x20000>;
 			cpu-release-addr = <0x0 0x90000000>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 			next-level-cache = <&L2_400>;
 			L2_400: l2-cache {
@@ -184,6 +189,7 @@
 			efficiency = <1740>;
 			cache-size = <0x20000>;
 			cpu-release-addr = <0x0 0x90000000>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 			next-level-cache = <&L2_500>;
 			L2_500: l2-cache {
@@ -210,6 +216,7 @@
 			efficiency = <1740>;
 			cache-size = <0x20000>;
 			cpu-release-addr = <0x0 0x90000000>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 			next-level-cache = <&L2_600>;
 			L2_600: l2-cache {
@@ -236,6 +243,7 @@
 			efficiency = <1740>;
 			cache-size = <0x20000>;
 			cpu-release-addr = <0x0 0x90000000>;
+			qcom,lmh-dcvs = <&lmh_dcvs1>;
 			#cooling-cells = <2>;
 			next-level-cache = <&L2_700>;
 			L2_700: l2-cache {
@@ -3240,6 +3248,36 @@
 			};
 		};
 
+		lmh-dcvs-01 {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-governor = "user_space";
+			thermal-sensors = <&lmh_dcvs1>;
+
+			trips {
+				active-config {
+					temperature = <95000>;
+					hysteresis = <30000>;
+					type = "passive";
+				};
+			};
+		};
+
+		lmh-dcvs-00 {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-governor = "user_space";
+			thermal-sensors = <&lmh_dcvs0>;
+
+			trips {
+				active-config {
+					temperature = <95000>;
+					hysteresis = <30000>;
+					type = "passive";
+				};
+			};
+		};
+
 	};
 
 	tsens0: tsens@c222000 {
@@ -3262,6 +3300,22 @@
 		interrupts = <0 507 0>, <0 509 0>;
 		interrupt-names = "tsens-upper-lower", "tsens-critical";
 		#thermal-sensor-cells = <1>;
+	};
+};
+
+&clock_cpucc {
+	lmh_dcvs0: qcom,limits-dcvs@0 {
+		compatible = "qcom,msm-hw-limits";
+		interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,affinity = <0>;
+		#thermal-sensor-cells = <0>;
+	};
+
+	lmh_dcvs1: qcom,limits-dcvs@1 {
+		compatible = "qcom,msm-hw-limits";
+		interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,affinity = <1>;
+		#thermal-sensor-cells = <0>;
 	};
 };
 
