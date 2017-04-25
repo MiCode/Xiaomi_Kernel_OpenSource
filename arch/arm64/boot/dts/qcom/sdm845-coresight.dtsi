@@ -265,6 +265,7 @@
 		reg-names = "tmc-base", "bam-base";
 
 		arm,buffer-size = <0x400000>;
+		arm,sg-enable;
 
 		coresight-name = "coresight-tmc-etr";
 		coresight-ctis = <&cti0 &cti8>;
