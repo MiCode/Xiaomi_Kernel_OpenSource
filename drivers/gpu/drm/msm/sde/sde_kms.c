@@ -1515,7 +1515,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	}
 
 	rc = sde_core_perf_init(&sde_kms->perf, dev, sde_kms->catalog,
-			&priv->phandle, priv->pclient, "core_clk_src");
+			&priv->phandle, priv->pclient, "core_clk");
 	if (rc) {
 		SDE_ERROR("failed to init perf %d\n", rc);
 		goto perf_err;
