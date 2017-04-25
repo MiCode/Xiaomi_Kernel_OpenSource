@@ -857,13 +857,14 @@ static int a6xx_hm_enable(struct adreno_device *adreno_dev)
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct gmu_device *gmu = &device->gmu;
 
-	if (!IS_ERR_OR_NULL(gmu->gx_gdsc)) {
-		ret = regulator_enable(gmu->gx_gdsc);
-		if (ret) {
-			dev_err(&gmu->pdev->dev,
-					"Failed to turn on GPU HM HS\n");
-			return ret;
-		}
+	if (regulator_is_enabled(gmu->gx_gdsc))
+		return 0;
+
+	ret = regulator_enable(gmu->gx_gdsc);
+	if (ret) {
+		dev_err(&gmu->pdev->dev,
+				"Failed to turn on GPU HM HS\n");
+		return ret;
 	}
 
 	ret = clk_set_rate(pwr->grp_clks[0],
@@ -885,14 +886,14 @@ static int a6xx_hm_disable(struct adreno_device *adreno_dev)
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct gmu_device *gmu = &device->gmu;
 
+	if (!regulator_is_enabled(gmu->gx_gdsc))
+		return 0;
+
 	clk_disable_unprepare(pwr->grp_clks[0]);
 
 	clk_set_rate(pwr->grp_clks[0],
 			pwr->pwrlevels[pwr->num_pwrlevels - 1].
 			gpu_freq);
-
-	if (IS_ERR_OR_NULL(gmu->gx_gdsc))
-		return 0;
 
 	return regulator_disable(gmu->gx_gdsc);
 }
