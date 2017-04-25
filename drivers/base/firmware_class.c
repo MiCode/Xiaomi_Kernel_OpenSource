@@ -229,20 +229,22 @@ static struct firmware_buf *__fw_lookup_buf(const char *fw_name)
 static int fw_lookup_and_allocate_buf(const char *fw_name,
 				      struct firmware_cache *fwc,
 				      struct firmware_buf **buf, void *dbuf,
-				      size_t size)
+				      size_t size, unsigned int opt_flags)
 {
 	struct firmware_buf *tmp;
 
 	spin_lock(&fwc->lock);
-	tmp = __fw_lookup_buf(fw_name);
-	if (tmp) {
-		kref_get(&tmp->ref);
-		spin_unlock(&fwc->lock);
-		*buf = tmp;
-		return 1;
+	if (!(opt_flags & FW_OPT_NOCACHE)) {
+		tmp = __fw_lookup_buf(fw_name);
+		if (tmp) {
+			kref_get(&tmp->ref);
+			spin_unlock(&fwc->lock);
+			*buf = tmp;
+			return 1;
+		}
 	}
 	tmp = __allocate_fw_buf(fw_name, fwc, dbuf, size);
-	if (tmp)
+	if (tmp && !(opt_flags & FW_OPT_NOCACHE))
 		list_add(&tmp->list, &fwc->head);
 	spin_unlock(&fwc->lock);
 
@@ -1051,7 +1053,8 @@ static int sync_cached_firmware_buf(struct firmware_buf *buf)
  */
 static int
 _request_firmware_prepare(struct firmware **firmware_p, const char *name,
-			  struct device *device, void *dbuf, size_t size)
+			  struct device *device, void *dbuf, size_t size,
+			  unsigned int opt_flags)
 {
 	struct firmware *firmware;
 	struct firmware_buf *buf;
@@ -1069,7 +1072,8 @@ _request_firmware_prepare(struct firmware **firmware_p, const char *name,
 		return 0; /* assigned */
 	}
 
-	ret = fw_lookup_and_allocate_buf(name, &fw_cache, &buf, dbuf, size);
+	ret = fw_lookup_and_allocate_buf(name, &fw_cache, &buf, dbuf, size,
+					opt_flags);
 
 	/*
 	 * bind with 'buf' now to avoid warning in failure path
@@ -1147,7 +1151,8 @@ _request_firmware(const struct firmware **firmware_p, const char *name,
 		goto out;
 	}
 
-	ret = _request_firmware_prepare(&fw, name, device, buf, size);
+	ret = _request_firmware_prepare(&fw, name, device, buf, size,
+					opt_flags);
 	if (ret <= 0) /* error or already assigned */
 		goto out;
 
