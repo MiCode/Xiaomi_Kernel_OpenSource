@@ -2149,26 +2149,28 @@
 			0x0	/* modem_comp_decomp_ofst; diff */
 			0x0	/* modem_comp_decomp_size; diff */
 			0xbd8	/* modem_ofst; */
-			0x1424	/* modem_size; */
-			0x1ffc	/* apps_v4_flt_hash_ofst; */
+			0x1024	/* modem_size; */
+			0x2000	/* apps_v4_flt_hash_ofst; */
 			0x0	/* apps_v4_flt_hash_size; */
-			0x1ffc	/* apps_v4_flt_nhash_ofst; */
+			0x2000	/* apps_v4_flt_nhash_ofst; */
 			0x0	/* apps_v4_flt_nhash_size; */
-			0x1ffc	/* apps_v6_flt_hash_ofst; */
+			0x2000	/* apps_v6_flt_hash_ofst; */
 			0x0	/* apps_v6_flt_hash_size; */
-			0x1ffc	/* apps_v6_flt_nhash_ofst; */
+			0x2000	/* apps_v6_flt_nhash_ofst; */
 			0x0	/* apps_v6_flt_nhash_size; */
 			0x80	/* uc_info_ofst; */
 			0x200	/* uc_info_size; */
 			0x2000	/* end_ofst; */
-			0x1ffc	/* apps_v4_rt_hash_ofst; */
+			0x2000	/* apps_v4_rt_hash_ofst; */
 			0x0	/* apps_v4_rt_hash_size; */
-			0x1ffc	/* apps_v4_rt_nhash_ofst; */
+			0x2000	/* apps_v4_rt_nhash_ofst; */
 			0x0	/* apps_v4_rt_nhash_size; */
-			0x1ffc	/* apps_v6_rt_hash_ofst; */
+			0x2000	/* apps_v6_rt_hash_ofst; */
 			0x0	/* apps_v6_rt_hash_size; */
-			0x1ffc	/* apps_v6_rt_nhash_ofst; */
+			0x2000	/* apps_v6_rt_nhash_ofst; */
 			0x0	/* apps_v6_rt_nhash_size; */
+			0x1c00	/* uc_event_ring_ofst; */
+			0x400	/* uc_event_ring_size; */
 		>;
 
 		/* smp2p gpio information */
