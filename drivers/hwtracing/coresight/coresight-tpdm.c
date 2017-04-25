@@ -159,11 +159,6 @@ enum tpdm_support_type {
 	TPDM_SUPPORT_TYPE_NO,
 };
 
-enum tpdm_cmb_mode {
-	TPDM_CMB_MODE_CONTINUOUS,
-	TPDM_CMB_MODE_TRACE_ON_CHANGE,
-};
-
 enum tpdm_cmb_patt_bits {
 	TPDM_CMB_LSB,
 	TPDM_CMB_MSB,
@@ -234,7 +229,8 @@ struct mcmb_dataset {
 };
 
 struct cmb_dataset {
-	enum tpdm_cmb_mode	mode;
+	bool			trace_mode;
+	uint32_t		cycle_acc;
 	uint32_t		patt_val[TPDM_CMB_PATT_CMP];
 	uint32_t		patt_mask[TPDM_CMB_PATT_CMP];
 	bool			patt_ts;
@@ -557,10 +553,13 @@ static void __tpdm_enable_cmb(struct tpdm_drvdata *drvdata)
 	val = tpdm_readl(drvdata, TPDM_CMB_CR);
 	/* Set the flow control bit */
 	val = val & ~BIT(2);
-	if (drvdata->cmb->mode == TPDM_CMB_MODE_CONTINUOUS)
-		val = val & ~BIT(1);
-	else
+	if (drvdata->cmb->trace_mode)
 		val = val | BIT(1);
+	else
+		val = val & ~BIT(1);
+
+	val = val & ~BM(8, 9);
+	val = val | BMVAL(drvdata->cmb->cycle_acc, 0, 1) << 8;
 	tpdm_writel(drvdata, val, TPDM_CMB_CR);
 	/* Set the enable bit */
 	val = val | BIT(0);
@@ -600,11 +599,13 @@ static void __tpdm_enable_mcmb(struct tpdm_drvdata *drvdata)
 	val = tpdm_readl(drvdata, TPDM_CMB_CR);
 	/* Set the flow control bit */
 	val = val & ~BIT(2);
-	if (drvdata->cmb->mode == TPDM_CMB_MODE_CONTINUOUS)
-		val = val & ~BIT(1);
-	else
+	if (drvdata->cmb->trace_mode)
 		val = val | BIT(1);
+	else
+		val = val & ~BIT(1);
 
+	val = val & ~BM(8, 9);
+	val = val | BMVAL(drvdata->cmb->cycle_acc, 0, 1) << 8;
 	val = val & ~BM(18, 20);
 	val = val | (BMVAL(mcmb->mcmb_trig_lane, 0, 2) << 18);
 	val = val & ~BM(10, 17);
@@ -3182,9 +3183,10 @@ static ssize_t tpdm_show_cmb_mode(struct device *dev,
 	      test_bit(TPDM_DS_MCMB, drvdata->datasets)))
 		return -EPERM;
 
-	return scnprintf(buf, PAGE_SIZE, "%s\n",
-			 drvdata->cmb->mode == TPDM_CMB_MODE_CONTINUOUS ?
-			 "continuous" : "trace_on_change");
+	return scnprintf(buf, PAGE_SIZE, "trace_mode: %s cycle_acc: %d\n",
+			 drvdata->cmb->trace_mode ?
+			 "trace_on_change" : "continuous",
+			 drvdata->cmb->cycle_acc);
 }
 
 static ssize_t tpdm_store_cmb_mode(struct device *dev,
@@ -3193,25 +3195,20 @@ static ssize_t tpdm_store_cmb_mode(struct device *dev,
 				   size_t size)
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	char str[20] = "";
+	unsigned int trace_mode, cycle_acc;
+	int nval;
 
-	if (strlen(buf) >= 20)
+	nval = sscanf(buf, "%u %u", &trace_mode, &cycle_acc);
+	if (nval != 2)
 		return -EINVAL;
-	if (sscanf(buf, "%s", str) != 1)
-		return -EINVAL;
+
 	if (!(test_bit(TPDM_DS_CMB, drvdata->datasets) ||
 	      test_bit(TPDM_DS_MCMB, drvdata->datasets)))
 		return -EPERM;
 
 	mutex_lock(&drvdata->lock);
-	if (!strcmp(str, "continuous")) {
-		drvdata->cmb->mode = TPDM_CMB_MODE_CONTINUOUS;
-	} else if (!strcmp(str, "trace_on_change")) {
-		drvdata->cmb->mode = TPDM_CMB_MODE_TRACE_ON_CHANGE;
-	} else {
-		mutex_unlock(&drvdata->lock);
-		return -EINVAL;
-	}
+	drvdata->cmb->trace_mode = trace_mode;
+	drvdata->cmb->cycle_acc = cycle_acc;
 	mutex_unlock(&drvdata->lock);
 	return size;
 }
