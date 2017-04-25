@@ -613,10 +613,8 @@ static int dsi_ctrl_supplies_init(struct platform_device *pdev,
 	rc = dsi_pwr_get_dt_vreg_data(&pdev->dev,
 					  &ctrl->pwr_info.digital,
 					  "qcom,core-supply-entries");
-	if (rc) {
-		pr_err("failed to get digital supply, rc = %d\n", rc);
-		goto error;
-	}
+	if (rc)
+		pr_debug("failed to get digital supply, rc = %d\n", rc);
 
 	rc = dsi_pwr_get_dt_vreg_data(&pdev->dev,
 					  &ctrl->pwr_info.host_pwr,
@@ -663,10 +661,10 @@ error_host_pwr:
 	ctrl->pwr_info.host_pwr.vregs = NULL;
 	ctrl->pwr_info.host_pwr.count = 0;
 error_digital:
-	devm_kfree(&pdev->dev, ctrl->pwr_info.digital.vregs);
+	if (ctrl->pwr_info.digital.vregs)
+		devm_kfree(&pdev->dev, ctrl->pwr_info.digital.vregs);
 	ctrl->pwr_info.digital.vregs = NULL;
 	ctrl->pwr_info.digital.count = 0;
-error:
 	return rc;
 }
 
