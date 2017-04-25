@@ -548,11 +548,29 @@ static int cpufreq_set_min_state(struct thermal_cooling_device *cdev,
 	if (cpufreq_device->cpufreq_floor_state == state)
 		return 0;
 
-	floor_freq = cpufreq_device->freq_table[state];
 	cpufreq_device->cpufreq_floor_state = state;
-	cpufreq_device->floor_freq = floor_freq;
 
-	cpufreq_update_policy(cpu);
+	/*
+	 * Check if the device has a platform mitigation function that
+	 * can handle the CPU freq mitigation, if not, notify cpufreq
+	 * framework.
+	 */
+	if (cpufreq_device->plat_ops &&
+		cpufreq_device->plat_ops->floor_limit) {
+		/*
+		 * Last level is core isolation so use the frequency
+		 * of previous state.
+		 */
+		if (state == cpufreq_device->max_level)
+			state--;
+		floor_freq = cpufreq_device->freq_table[state];
+		cpufreq_device->floor_freq = floor_freq;
+		cpufreq_device->plat_ops->floor_limit(cpu, floor_freq);
+	} else {
+		floor_freq = cpufreq_device->freq_table[state];
+		cpufreq_device->floor_freq = floor_freq;
+		cpufreq_update_policy(cpu);
+	}
 
 	return 0;
 }
