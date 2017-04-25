@@ -135,7 +135,9 @@ struct tcs_drv {
 	int num_tcs;
 	struct workqueue_struct *wq;
 	struct tcs_response_pool *resp_pool;
-	atomic_t tcs_in_use[TCS_TYPE_NR * MAX_TCS_PER_TYPE];
+	atomic_t tcs_in_use[MAX_POOL_SIZE];
+	atomic_t tcs_send_count[MAX_POOL_SIZE];
+	atomic_t tcs_irq_count[MAX_POOL_SIZE];
 };
 
 static void tcs_notify_tx_done(unsigned long data);
@@ -361,6 +363,8 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 		if (!(irq_status & BIT(m)))
 			continue;
 
+		atomic_inc(&drv->tcs_irq_count[m]);
+
 		resp = get_response(drv, m);
 		if (!resp) {
 			pr_err("No resp request for TCS-%d\n", m);
@@ -457,16 +461,20 @@ static void tcs_notify_timeout(struct work_struct *work)
 	struct tcs_mbox_msg *msg = resp->msg;
 	struct tcs_drv *drv = resp->drv;
 	int m = resp->m;
+	u32 irq_status;
+	struct tcs_mbox *tcs = get_tcs_from_index(drv, m);
+	bool pending = false;
+	int sent_count, irq_count;
+	int i;
 
-	/*
-	 * In case the RPMH resource fails to respond to the completion
-	 * request, the TCS would be blocked forever waiting on the response.
-	 * There is no way to recover from this case.
-	 */
+	/* Read while holding a lock, to get a consistent state snapshot */
+	spin_lock(&tcs->tcs_lock);
+	irq_status = read_tcs_reg(drv->reg_base, TCS_DRV_IRQ_STATUS, 0, 0);
+	sent_count = atomic_read(&drv->tcs_send_count[m]);
+	irq_count = atomic_read(&drv->tcs_irq_count[m]);
+
 	if (!tcs_is_free(drv, m)) {
-		bool pending = false;
 		struct tcs_cmd *cmd;
-		int i;
 		u32 addr;
 
 		for (i = 0; i < msg->num_payload; i++) {
@@ -475,15 +483,39 @@ static void tcs_notify_timeout(struct work_struct *work)
 						m, i);
 			pending |= (cmd->addr == addr);
 		}
-		if (pending) {
-			pr_err("TCS-%d blocked waiting for RPMH to respond.\n",
-				m);
-			for (i = 0; i < msg->num_payload; i++)
-				pr_err("Addr: 0x%x Data: 0x%x\n",
-						msg->payload[i].addr,
-						msg->payload[i].data);
-			BUG();
-		}
+	}
+	spin_unlock(&tcs->tcs_lock);
+
+	if (pending) {
+		pr_err("TCS-%d waiting for response. (sent=%d recvd=%d ctrlr-sts=0x%x)\n",
+			m, sent_count, irq_count, irq_status & (u32)BIT(m));
+		for (i = 0; i < msg->num_payload; i++)
+			pr_err("Addr: 0x%x Data: 0x%x\n",
+					msg->payload[i].addr,
+					msg->payload[i].data);
+		/*
+		 * In case the RPMH resource fails to respond to the
+		 * completion request, the TCS would be blocked forever
+		 * waiting on the response. There is no way to recover
+		 * from such a case. But WARN() to investigate any false
+		 * positives.
+		 */
+		WARN_ON(irq_status & BIT(m));
+
+		/* Clear the TCS status register so we could try again */
+		write_tcs_reg(drv->reg_base, TCS_DRV_IRQ_CLEAR, 0, 0, BIT(m));
+
+		/* Increment the response count, so it doesn't keep adding up */
+		atomic_inc(&drv->tcs_irq_count[m]);
+
+		/*
+		 * If the request was fire-n-forget then the controller,
+		 * then our controller is OK, but the accelerator may be
+		 * in a bad state.
+		 * Let the upper layers figure out what needs to be done
+		 * in such a case. Return error code and carry on.
+		 */
+		atomic_set(&drv->tcs_in_use[m], 0);
 	}
 
 	mbox_notify_tx_done(chan, msg, -1, -ETIMEDOUT);
@@ -717,6 +749,7 @@ static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 		resp->m = m;
 		/* Mark the TCS as busy */
 		atomic_set(&drv->tcs_in_use[m], 1);
+		atomic_inc(&drv->tcs_send_count[m]);
 		wait_for_req_inflight(drv, tcs, msg);
 	}
 
