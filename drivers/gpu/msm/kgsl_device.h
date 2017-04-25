@@ -569,6 +569,17 @@ static inline void kgsl_regrmw(struct kgsl_device *device,
 	device->ftbl->regwrite(device, offsetwords, val | bits);
 }
 
+static inline void kgsl_gmu_regrmw(struct kgsl_device *device,
+		unsigned int offsetwords,
+		unsigned int mask, unsigned int bits)
+{
+	unsigned int val = 0;
+
+	kgsl_gmu_regread(device, offsetwords, &val);
+	val &= ~mask;
+	kgsl_gmu_regwrite(device, offsetwords, val | bits);
+}
+
 static inline int kgsl_idle(struct kgsl_device *device)
 {
 	return device->ftbl->idle(device);

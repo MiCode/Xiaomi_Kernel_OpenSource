@@ -504,15 +504,6 @@ static void _regwrite(void __iomem *regbase,
 	__raw_writel(value, reg);
 }
 
-static void _gmu_regrmw(struct kgsl_device *device,
-		unsigned int offsetwords, unsigned int mask)
-{
-	unsigned int value;
-
-	kgsl_gmu_regread(device, offsetwords, &value);
-	kgsl_gmu_regwrite(device, offsetwords, value | mask);
-}
-
 /*
  * _load_gmu_rpmh_ucode() - Load the ucode into the GPU PDC/RSC blocks
  * PDC and RSC execute GPU power on/off RPMh sequence
@@ -651,22 +642,25 @@ static void a6xx_gmu_power_config(struct kgsl_device *device)
 	/* Configure registers for idle setting. The setting is cumulative */
 	switch (gmu->idle_level) {
 	case GPU_HW_MIN_VOLT:
-		_gmu_regrmw(device, A6XX_GMU_RPMH_CTRL, MIN_BW_ENABLE_MASK);
-		_gmu_regrmw(device, A6XX_GMU_RPMH_HYST_CTRL, MIN_BW_HYST);
+		kgsl_gmu_regrmw(device, A6XX_GMU_RPMH_CTRL, 0,
+				MIN_BW_ENABLE_MASK);
+		kgsl_gmu_regrmw(device, A6XX_GMU_RPMH_HYST_CTRL, 0,
+				MIN_BW_HYST);
 		/* fall through */
 	case GPU_HW_NAP:
-		_gmu_regrmw(device, A6XX_GMU_GPU_NAP_CTRL, HW_NAP_ENABLE_MASK);
+		kgsl_gmu_regrmw(device, A6XX_GMU_GPU_NAP_CTRL, 0,
+				HW_NAP_ENABLE_MASK);
 		/* fall through */
 	case GPU_HW_IFPC:
 		kgsl_gmu_regwrite(device, A6XX_GMU_PWR_COL_INTER_FRAME_HYST,
 				0x000A0080);
-		_gmu_regrmw(device, A6XX_GMU_PWR_COL_INTER_FRAME_CTRL,
+		kgsl_gmu_regrmw(device, A6XX_GMU_PWR_COL_INTER_FRAME_CTRL, 0,
 				IFPC_ENABLE_MASK);
 		/* fall through */
 	case GPU_HW_SPTP_PC:
 		kgsl_gmu_regwrite(device, A6XX_GMU_PWR_COL_SPTPRAC_HYST,
 				0x000A0080);
-		_gmu_regrmw(device, A6XX_GMU_PWR_COL_INTER_FRAME_CTRL,
+		kgsl_gmu_regrmw(device, A6XX_GMU_PWR_COL_INTER_FRAME_CTRL, 0,
 				SPTP_ENABLE_MASK);
 		/* fall through */
 	default:
@@ -675,11 +669,13 @@ static void a6xx_gmu_power_config(struct kgsl_device *device)
 
 	/* ACD feature enablement */
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM))
-		_gmu_regrmw(device, A6XX_GMU_BOOT_KMD_LM_HANDSHAKE, BIT(10));
+		kgsl_gmu_regrmw(device, A6XX_GMU_BOOT_KMD_LM_HANDSHAKE, 0,
+				BIT(10));
 
 	/* Enable RPMh GPU client */
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_RPMH))
-		_gmu_regrmw(device, A6XX_GMU_RPMH_CTRL, RPMH_ENABLE_MASK);
+		kgsl_gmu_regrmw(device, A6XX_GMU_RPMH_CTRL, 0,
+				RPMH_ENABLE_MASK);
 
 	/* Disable reference bandgap voltage */
 	kgsl_gmu_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 1);
