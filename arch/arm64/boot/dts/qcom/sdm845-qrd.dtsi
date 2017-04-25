@@ -22,6 +22,10 @@
 	qcom,battery-data = <&qrd_batterydata>;
 };
 
+&mdss_mdp {
+	#cooling-cells = <2>;
+};
+
 &soc {
 	sound-tavil {
 		qcom,wsa-max-devs = <1>;
