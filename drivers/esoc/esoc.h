@@ -46,6 +46,7 @@ struct esoc_eng {
  * struct esoc_clink: Representation of external esoc device
  * @name: Name of the external esoc.
  * @link_name: name of the physical link.
+ * @link_info: additional info about the physical link.
  * @parent: parent device.
  * @dev: device for userspace interface.
  * @pdev: platform device to interface with SSR driver.
@@ -69,6 +70,7 @@ struct esoc_eng {
 struct esoc_clink {
 	const char *name;
 	const char *link_name;
+	const char *link_info;
 	struct device *parent;
 	struct device dev;
 	struct platform_device *pdev;
