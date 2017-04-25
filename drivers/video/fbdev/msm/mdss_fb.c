@@ -374,7 +374,8 @@ static int mdss_fb_get_panel_xres(struct mdss_panel_info *pinfo)
 	xres = pinfo->xres;
 	if (pdata->next && pdata->next->active)
 		xres += mdss_fb_get_panel_xres(&pdata->next->panel_info);
-
+	if (pinfo->split_link_enabled)
+		xres = xres * pinfo->mipi.num_of_sublinks;
 	return xres;
 }
 
@@ -652,7 +653,7 @@ static ssize_t mdss_fb_get_panel_status(struct device *dev,
 		ret = scnprintf(buf, PAGE_SIZE, "panel_status=%s\n", "suspend");
 	} else {
 		panel_status = mdss_fb_send_panel_event(mfd,
-				MDSS_EVENT_DSI_PANEL_STATUS, NULL);
+				MDSS_EVENT_DSI_PANEL_STATUS, mfd);
 		ret = scnprintf(buf, PAGE_SIZE, "panel_status=%s\n",
 			panel_status > 0 ? "alive" : "dead");
 	}
@@ -1595,13 +1596,30 @@ static int mdss_fb_resume(struct platform_device *pdev)
 static int mdss_fb_pm_suspend(struct device *dev)
 {
 	struct msm_fb_data_type *mfd = dev_get_drvdata(dev);
+	int rc = 0;
 
 	if (!mfd)
 		return -ENODEV;
 
 	dev_dbg(dev, "display pm suspend\n");
 
-	return mdss_fb_suspend_sub(mfd);
+	rc = mdss_fb_suspend_sub(mfd);
+
+	/*
+	 * Call MDSS footswitch control to ensure GDSC is
+	 * off after pm suspend call. There are cases when
+	 * mdss runtime call doesn't trigger even when clock
+	 * ref count is zero after fb pm suspend.
+	 */
+	if (!rc) {
+		if (mfd->mdp.footswitch_ctrl)
+			mfd->mdp.footswitch_ctrl(false);
+	} else {
+		pr_err("fb pm suspend failed, rc: %d\n", rc);
+	}
+
+	return rc;
+
 }
 
 static int mdss_fb_pm_resume(struct device *dev)
@@ -1620,6 +1638,9 @@ static int mdss_fb_pm_resume(struct device *dev)
 	pm_runtime_disable(dev);
 	pm_runtime_set_suspended(dev);
 	pm_runtime_enable(dev);
+
+	if (mfd->mdp.footswitch_ctrl)
+		mfd->mdp.footswitch_ctrl(true);
 
 	return mdss_fb_resume_sub(mfd);
 }

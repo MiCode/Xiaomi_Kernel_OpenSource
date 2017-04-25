@@ -109,7 +109,10 @@ dtbo-$(CONFIG_ARCH_MSM8998) += \
 	msm8998-v2-cdp-overlay.dtbo \
 	msm8998-v2-mtp-overlay.dtbo \
 	msm8998-v2.1-cdp-overlay.dtbo \
-	msm8998-v2.1-mtp-overlay.dtbo
+	msm8998-v2.1-mtp-overlay.dtbo \
+	msm8998-qrd-overlay.dtbo \
+	msm8998-qrd-vr1-overlay.dtbo \
+	msm8998-qrd-skuk-overlay.dtbo
 
 msm8998-cdp-overlay.dtbo-base :=  msm8998.dtb
 msm8998-mtp-overlay.dtbo-base :=  msm8998.dtb
@@ -117,6 +120,9 @@ msm8998-v2-cdp-overlay.dtbo-base :=  msm8998-v2.dtb
 msm8998-v2-mtp-overlay.dtbo-base :=  msm8998-v2.dtb
 msm8998-v2.1-cdp-overlay.dtbo-base :=  msm8998-v2.1.dtb
 msm8998-v2.1-mtp-overlay.dtbo-base :=  msm8998-v2.1.dtb
+msm8998-qrd-overlay.dtbo-base :=  msm8998-qrd.dtb
+msm8998-qrd-vr1-overlay.dtbo-base :=  msm8998-qrd-vr1.dtb
+msm8998-qrd-skuk-overlay.dtbo-base :=  msm8998-qrd-skuk.dtb
 else
 dtb-$(CONFIG_ARCH_MSM8998) += msm8998-sim.dtb \
 	msm8998-rumi.dtb \
@@ -141,6 +147,7 @@ dtb-$(CONFIG_ARCH_MSM8998) += msm8998-sim.dtb \
 	apq8098-v2-qrd.dtb \
 	apq8098-v2-qrd-skuk-hdk.dtb \
 	msm8998-v2.1-mtp.dtb \
+	msm8998-v2.1-mtp-4k-display.dtb \
 	msm8998-v2.1-cdp.dtb \
 	msm8998-v2.1-qrd.dtb \
 	apq8098-v2.1-mtp.dtb \

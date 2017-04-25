@@ -244,6 +244,8 @@ struct smb_dt_props {
 	int	boost_threshold_ua;
 	int	fv_uv;
 	int	wipower_max_uw;
+	int	min_freq_khz;
+	int	max_freq_khz;
 	u32	step_soc_threshold[STEP_CHARGING_MAX_STEPS - 1];
 	s32	step_cc_delta[STEP_CHARGING_MAX_STEPS];
 	struct	device_node *revid_dev_node;
@@ -337,6 +339,18 @@ static int smb2_parse_dt(struct smb2 *chip)
 				&chip->dt.boost_threshold_ua);
 	if (rc < 0)
 		chip->dt.boost_threshold_ua = MICRO_P1A;
+
+	rc = of_property_read_u32(node,
+				"qcom,min-freq-khz",
+				&chip->dt.min_freq_khz);
+	if (rc < 0)
+		chip->dt.min_freq_khz = -EINVAL;
+
+	rc = of_property_read_u32(node,
+				"qcom,max-freq-khz",
+				&chip->dt.max_freq_khz);
+	if (rc < 0)
+		chip->dt.max_freq_khz = -EINVAL;
 
 	rc = of_property_read_u32(node, "qcom,wipower-max-uw",
 				&chip->dt.wipower_max_uw);
@@ -526,6 +540,12 @@ static int smb2_usb_set_prop(struct power_supply *psy,
 	struct smb_charger *chg = &chip->chg;
 	int rc = 0;
 
+	mutex_lock(&chg->lock);
+	if (!chg->typec_present) {
+		rc = -EINVAL;
+		goto unlock;
+	}
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN:
 		rc = smblib_set_prop_usb_voltage_min(chg, val);
@@ -564,6 +584,8 @@ static int smb2_usb_set_prop(struct power_supply *psy,
 		break;
 	}
 
+unlock:
+	mutex_unlock(&chg->lock);
 	return rc;
 }
 
@@ -1336,10 +1358,12 @@ static int smb2_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
-	/* disable try.SINK mode */
-	rc = smblib_masked_write(chg, TYPE_C_CFG_3_REG, EN_TRYSINK_MODE_BIT, 0);
+	/* disable try.SINK mode and legacy cable IRQs */
+	rc = smblib_masked_write(chg, TYPE_C_CFG_3_REG, EN_TRYSINK_MODE_BIT |
+				TYPEC_NONCOMPLIANT_LEGACY_CABLE_INT_EN_BIT |
+				TYPEC_LEGACY_CABLE_INT_EN_BIT, 0);
 	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't set TRYSINK_MODE rc=%d\n", rc);
+		dev_err(chg->dev, "Couldn't set Type-C config rc=%d\n", rc);
 		return rc;
 	}
 
@@ -1438,6 +1462,16 @@ static int smb2_init_hw(struct smb2 *chip)
 		smblib_get_charge_param(chg, &chg->param.dc_icl,
 					&chip->dt.dc_icl_ua);
 
+	if (chip->dt.min_freq_khz > 0) {
+		chg->param.freq_buck.min_u = chip->dt.min_freq_khz;
+		chg->param.freq_boost.min_u = chip->dt.min_freq_khz;
+	}
+
+	if (chip->dt.max_freq_khz > 0) {
+		chg->param.freq_buck.max_u = chip->dt.max_freq_khz;
+		chg->param.freq_boost.max_u = chip->dt.max_freq_khz;
+	}
+
 	/* set a slower soft start setting for OTG */
 	rc = smblib_masked_write(chg, DC_ENG_SSUPPLY_CFG2_REG,
 				ENG_SSUPPLY_IVREF_OTG_SS_MASK, OTG_SS_SLOW);
@@ -1484,6 +1518,8 @@ static int smb2_init_hw(struct smb2 *chip)
 	vote(chg->dc_icl_votable,
 		DEFAULT_VOTER, true, chip->dt.dc_icl_ua);
 	vote(chg->hvdcp_disable_votable_indirect, PD_INACTIVE_VOTER,
+			true, 0);
+	vote(chg->hvdcp_disable_votable_indirect, VBUS_CC_SHORT_VOTER,
 			true, 0);
 	vote(chg->hvdcp_disable_votable_indirect, DEFAULT_VOTER,
 		chip->dt.hvdcp_disable, 0);
@@ -2022,6 +2058,16 @@ static int smb2_request_interrupts(struct smb2 *chip)
 	return rc;
 }
 
+static void smb2_disable_interrupts(struct smb_charger *chg)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(smb2_irqs); i++) {
+		if (smb2_irqs[i].irq > 0)
+			disable_irq(smb2_irqs[i].irq);
+	}
+}
+
 #if defined(CONFIG_DEBUG_FS)
 
 static int force_batt_psy_update_write(void *data, u64 val)
@@ -2283,6 +2329,9 @@ static void smb2_shutdown(struct platform_device *pdev)
 {
 	struct smb2 *chip = platform_get_drvdata(pdev);
 	struct smb_charger *chg = &chip->chg;
+
+	/* disable all interrupts */
+	smb2_disable_interrupts(chg);
 
 	/* configure power role for UFP */
 	smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,

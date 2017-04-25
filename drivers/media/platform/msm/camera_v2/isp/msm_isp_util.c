@@ -2070,6 +2070,7 @@ static void msm_isp_enqueue_tasklet_cmd(struct vfe_device *vfe_dev,
 	if (queue_cmd->cmd_used) {
 		pr_err("%s: Tasklet queue overflow: %d\n",
 			__func__, vfe_dev->pdev->id);
+		spin_unlock_irqrestore(&tasklet->tasklet_lock, flags);
 		return;
 	} else {
 		atomic_add(1, &vfe_dev->irq_cnt);
@@ -2314,6 +2315,9 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	vfe_dev->reg_update_requested = 0;
 	/* Register page fault handler */
 	vfe_dev->buf_mgr->pagefault_debug_disable = 0;
+	/* initialize pd_buf_idx with an invalid index 0xF */
+	vfe_dev->pd_buf_idx = 0xF;
+
 	cam_smmu_reg_client_page_fault_handler(
 			vfe_dev->buf_mgr->iommu_hdl,
 			msm_vfe_iommu_fault_handler, vfe_dev);

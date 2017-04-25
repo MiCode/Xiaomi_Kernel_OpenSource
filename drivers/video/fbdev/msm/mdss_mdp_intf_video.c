@@ -1071,6 +1071,13 @@ static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 {
 	int intfs_num, ret = 0;
 
+	if (ctl->cdm) {
+		if (!mdss_mdp_cdm_destroy(ctl->cdm))
+			mdss_mdp_ctl_write(ctl,
+				MDSS_MDP_REG_CTL_FLUSH, BIT(26));
+		ctl->cdm = NULL;
+	}
+
 	intfs_num = ctl->intf_num - MDSS_MDP_INTF0;
 	ret = mdss_mdp_video_intfs_stop(ctl, ctl->panel_data, intfs_num);
 	if (IS_ERR_VALUE(ret)) {
@@ -1083,10 +1090,6 @@ static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 	mdss_mdp_ctl_reset(ctl, false);
 	ctl->intf_ctx[MASTER_CTX] = NULL;
 
-	if (ctl->cdm) {
-		mdss_mdp_cdm_destroy(ctl->cdm);
-		ctl->cdm = NULL;
-	}
 	return 0;
 }
 
@@ -1384,7 +1387,7 @@ static int mdss_mdp_video_dfps_wait4vsync(struct mdss_mdp_ctl *ctl)
 			pr_err("error polling for vsync\n");
 			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
 				"dsi1_ctrl", "dsi1_phy", "vbif", "dbg_bus",
-				"vbif_dbg_bus", "panic");
+				"vbif_dbg_bus", "dsi_dbg_bus", "panic");
 		}
 	} else {
 		rc = 0;
@@ -1682,6 +1685,16 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 
 		mdss_bus_bandwidth_ctrl(true);
 
+		/* configure the split link to both sublinks */
+		if (is_panel_split_link(ctl->mfd)) {
+			mdp_video_write(ctx, MDSS_MDP_REG_SPLIT_LINK, 0x3);
+			/*
+			 * ensure split link register is written before
+			 * enabling timegen
+			 */
+			wmb();
+		}
+
 		mdp_video_write(ctx, MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 1);
 		wmb();
 
@@ -1796,7 +1809,9 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
 		mdss_mdp_video_timegen_flush(ctl, sctx);
 
 		/* wait for 1 VSYNC for the pipe to be unstaged */
-		msleep(20);
+		mdss_mdp_video_wait4comp(ctl, NULL);
+		if (sctl)
+			mdss_mdp_video_wait4comp(sctl, NULL);
 
 		ret = mdss_mdp_ctl_intf_event(ctl,
 			MDSS_EVENT_CONT_SPLASH_FINISH, NULL,

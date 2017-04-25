@@ -181,6 +181,7 @@
 				"cfg_ahb_clk", "xo";
 
 		qcom,core-clk-rate = <133330000>;
+		qcom,core-clk-rate-hs = <66666667>;
 
 		resets = <&clock_gcc GCC_USB_30_BCR>;
 		reset-names = "core_reset";
@@ -192,6 +193,7 @@
 			interrupts = <0 131 0>;
 			usb-phy = <&qusb_phy0>, <&ssphy>;
 			tx-fifo-resize;
+			snps,usb3-u1u2-disable;
 			snps,nominal-elastic-buffer;
 			snps,disable-clk-gating;
 			snps,has-lpm-erratum;
@@ -375,6 +377,8 @@
 				 0x8f8 0x77 0x00
 				 0x4fc 0x80 0x00
 				 0x8fc 0x80 0x00
+				 0x564 0x00 0x00
+				 0x964 0x00 0x00
 				 0x4c0 0x0a 0x00
 				 0x8c0 0x0a 0x00
 				 0x504 0x03 0x00

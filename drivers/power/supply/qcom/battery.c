@@ -434,23 +434,28 @@ static int pl_fcc_vote_callback(struct votable *votable, void *data,
 		return rc;
 	}
 
-	split_fcc(chip, total_fcc_ua, &master_fcc_ua, &slave_fcc_ua);
-	pval.intval = slave_fcc_ua;
-	rc = power_supply_set_property(chip->pl_psy,
-			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
-	if (rc < 0) {
-		pr_err("Couldn't set parallel fcc, rc=%d\n", rc);
-		return rc;
-	}
+	if (chip->pl_mode != POWER_SUPPLY_PL_NONE) {
+		split_fcc(chip, total_fcc_ua, &master_fcc_ua, &slave_fcc_ua);
 
-	chip->slave_fcc_ua = slave_fcc_ua;
+		pval.intval = slave_fcc_ua;
+		rc = power_supply_set_property(chip->pl_psy,
+				POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+				&pval);
+		if (rc < 0) {
+			pr_err("Couldn't set parallel fcc, rc=%d\n", rc);
+			return rc;
+		}
 
-	pval.intval = master_fcc_ua;
-	rc = power_supply_set_property(chip->main_psy,
-			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
-	if (rc < 0) {
-		pr_err("Could not set main fcc, rc=%d\n", rc);
-		return rc;
+		chip->slave_fcc_ua = slave_fcc_ua;
+
+		pval.intval = master_fcc_ua;
+		rc = power_supply_set_property(chip->main_psy,
+				POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+				&pval);
+		if (rc < 0) {
+			pr_err("Could not set main fcc, rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	pl_dbg(chip, PR_PARALLEL, "master_fcc=%d slave_fcc=%d distribution=(%d/%d)\n",
@@ -685,9 +690,6 @@ static bool is_main_available(struct pl_data *chip)
 
 	chip->main_psy = power_supply_get_by_name("main");
 
-	if (chip->main_psy)
-		rerun_election(chip->usb_icl_votable);
-
 	return !!chip->main_psy;
 }
 
@@ -866,7 +868,18 @@ static void status_change_work(struct work_struct *work)
 	struct pl_data *chip = container_of(work,
 			struct pl_data, status_change_work);
 
-	if (!is_main_available(chip))
+	if (!chip->main_psy && is_main_available(chip)) {
+		/*
+		 * re-run election for FCC/FV/ICL once main_psy
+		 * is available to ensure all votes are reflected
+		 * on hardware
+		 */
+		rerun_election(chip->usb_icl_votable);
+		rerun_election(chip->fcc_votable);
+		rerun_election(chip->fv_votable);
+	}
+
+	if (!chip->main_psy)
 		return;
 
 	if (!is_batt_available(chip))

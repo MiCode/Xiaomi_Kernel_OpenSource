@@ -854,7 +854,6 @@ int ath10k_snoc_start_qmi_service(struct ath10k *ar)
 		goto out_destroy_wq;
 	}
 
-	atomic_set(&qmi_cfg->fw_ready, 1);
 	ath10k_dbg(ar, ATH10K_DBG_SNOC, "QMI service started successfully\n");
 	return 0;
 

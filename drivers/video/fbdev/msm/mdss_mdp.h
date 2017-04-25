@@ -142,6 +142,25 @@
 
 #define BITS_TO_BYTES(x) DIV_ROUND_UP(x, BITS_PER_BYTE)
 
+#define PP_PROGRAM_PA		0x1
+#define PP_PROGRAM_PCC		0x2
+#define PP_PROGRAM_IGC		0x4
+#define PP_PROGRAM_ARGC	0x8
+#define PP_PROGRAM_HIST	0x10
+#define PP_PROGRAM_DITHER	0x20
+#define PP_PROGRAM_GAMUT	0x40
+#define PP_PROGRAM_PGC		0x100
+#define PP_PROGRAM_PA_DITHER	0x400
+#define PP_PROGRAM_AD		0x800
+
+#define PP_NORMAL_PROGRAM_MASK	(PP_PROGRAM_AD | PP_PROGRAM_PCC | \
+				PP_PROGRAM_HIST)
+#define PP_DEFER_PROGRAM_MASK	(PP_PROGRAM_IGC | PP_PROGRAM_PGC | \
+				PP_PROGRAM_ARGC | PP_PROGRAM_GAMUT | \
+				PP_PROGRAM_PA | PP_PROGRAM_DITHER | \
+						PP_PROGRAM_PA_DITHER)
+#define PP_PROGRAM_ALL	(PP_NORMAL_PROGRAM_MASK | PP_DEFER_PROGRAM_MASK)
+
 enum mdss_mdp_perf_state_type {
 	PERF_SW_COMMIT_STATE = 0,
 	PERF_HW_MDP_STATE,
@@ -773,6 +792,12 @@ struct mdss_pipe_pp_res {
 	void *hist_lut_cfg_payload;
 };
 
+struct mdss_mdp_pp_program_info {
+	u32 pp_program_mask;
+	u32 pp_opmode_left;
+	u32 pp_opmode_right;
+};
+
 struct mdss_mdp_pipe_smp_map {
 	DECLARE_BITMAP(reserved, MAX_DRV_SUP_MMB_BLKS);
 	DECLARE_BITMAP(allocated, MAX_DRV_SUP_MMB_BLKS);
@@ -1267,6 +1292,8 @@ static inline u32 get_panel_width(struct mdss_mdp_ctl *ctl)
 	width = get_panel_xres(&ctl->panel_data->panel_info);
 	if (ctl->panel_data->next && is_pingpong_split(ctl->mfd))
 		width += get_panel_xres(&ctl->panel_data->next->panel_info);
+	else if (is_panel_split_link(ctl->mfd))
+		width *= (ctl->panel_data->panel_info.mipi.num_of_sublinks);
 
 	return width;
 }
@@ -1638,6 +1665,7 @@ int mdss_mdp_set_intr_callback_nosync(u32 intr_type, u32 intf_num,
 			       void (*fnc_ptr)(void *), void *arg);
 u32 mdss_mdp_get_irq_mask(u32 intr_type, u32 intf_num);
 
+void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on);
 void mdss_mdp_footswitch_ctrl_splash(int on);
 void mdss_mdp_batfet_ctrl(struct mdss_data_type *mdata, int enable);
 void mdss_mdp_set_clk_rate(unsigned long min_clk_rate, bool locked);
@@ -1800,7 +1828,8 @@ int mdss_mdp_pp_resume(struct msm_fb_data_type *mfd);
 void mdss_mdp_pp_dest_scaler_resume(struct mdss_mdp_ctl *ctl);
 
 int mdss_mdp_pp_setup(struct mdss_mdp_ctl *ctl);
-int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl);
+int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl,
+				struct mdss_mdp_pp_program_info *info);
 int mdss_mdp_pipe_pp_setup(struct mdss_mdp_pipe *pipe, u32 *op);
 void mdss_mdp_pipe_pp_clear(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op);

@@ -6,6 +6,8 @@
 #define HBTP_MAX_FINGER		20
 #define HBTP_ABS_MT_FIRST	ABS_MT_TOUCH_MAJOR
 #define HBTP_ABS_MT_LAST	ABS_MT_TOOL_Y
+#define MAX_ROI_SIZE		144
+#define MAX_ACCEL_SIZE		128
 
 #define HBTP_EVENT_TYPE_DISPLAY	"EVENT_TYPE=HBTP_DISPLAY"
 
@@ -18,6 +20,11 @@ struct hbtp_input_touch {
 	__s32 major;
 	__s32 minor;
 	__s32 orientation;
+};
+
+struct hbtp_sensor_data {
+	__s16 accelBuffer[MAX_ACCEL_SIZE];
+	__s16 ROI[MAX_ROI_SIZE];
 };
 
 struct hbtp_input_mt {
@@ -68,6 +75,8 @@ enum hbtp_afe_power_ctrl {
 					enum hbtp_afe_signal)
 #define HBTP_SET_POWER_CTRL	_IOW(HBTP_INPUT_IOCTL_BASE, 206, \
 					enum hbtp_afe_power_ctrl)
+#define HBTP_SET_SENSORDATA	_IOW(HBTP_INPUT_IOCTL_BASE, 207, \
+					struct hbtp_sensor_data)
 
 #endif	/* _UAPI_HBTP_INPUT_H */
 

@@ -61,6 +61,7 @@ enum print_reason {
 #define SW_QC3_VOTER			"SW_QC3_VOTER"
 #define AICL_RERUN_VOTER		"AICL_RERUN_VOTER"
 #define LEGACY_UNKNOWN_VOTER		"LEGACY_UNKNOWN_VOTER"
+#define CC2_WA_VOTER			"CC2_WA_VOTER"
 
 #define VCONN_MAX_ATTEMPTS	3
 #define OTG_MAX_ATTEMPTS	3
@@ -69,13 +70,6 @@ enum smb_mode {
 	PARALLEL_MASTER = 0,
 	PARALLEL_SLAVE,
 	NUM_MODES,
-};
-
-enum cc2_sink_type {
-	CC2_SINK_NONE = 0,
-	CC2_SINK_STD,
-	CC2_SINK_MEDIUM_HIGH,
-	CC2_SINK_WA_DONE,
 };
 
 enum {
@@ -236,6 +230,7 @@ struct smb_charger {
 	int			smb_version;
 
 	/* locks */
+	struct mutex		lock;
 	struct mutex		write_lock;
 	struct mutex		ps_change_lock;
 	struct mutex		otg_oc_lock;
@@ -276,6 +271,7 @@ struct smb_charger {
 	struct votable		*apsd_disable_votable;
 	struct votable		*hvdcp_hw_inov_dis_votable;
 	struct votable		*usb_irq_enable_votable;
+	struct votable		*typec_irq_disable_votable;
 
 	/* work */
 	struct work_struct	bms_update_work;
@@ -289,6 +285,7 @@ struct smb_charger {
 	struct delayed_work	otg_ss_done_work;
 	struct delayed_work	icl_change_work;
 	struct delayed_work	pl_enable_work;
+	struct work_struct	legacy_detection_work;
 
 	/* cached status */
 	int			voltage_min_uv;
@@ -312,10 +309,16 @@ struct smb_charger {
 	int			vconn_attempts;
 	int			default_icl_ua;
 	int			otg_cl_ua;
+	bool			uusb_apsd_rerun_done;
+	bool			pd_hard_reset;
+	bool			typec_present;
+	u8			typec_status[5];
+	bool			typec_legacy_valid;
 
 	/* workaround flag */
 	u32			wa_flags;
-	enum cc2_sink_type	cc2_sink_detach_flag;
+	bool			cc2_detach_wa_active;
+	bool			typec_en_dis_active;
 	int			boost_current_ua;
 	int			temp_speed_reading_count;
 
