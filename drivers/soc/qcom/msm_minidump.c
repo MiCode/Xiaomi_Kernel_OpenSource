@@ -139,7 +139,7 @@ static int md_update_smem_table(const struct md_region *entry)
 	struct md_smem_region *mdr;
 
 	if (!minidump_enabled) {
-		pr_info("Table in smem is not setup\n");
+		pr_err("Table in smem is not setup\n");
 		return -ENODEV;
 	}
 
@@ -196,19 +196,19 @@ int msm_minidump_add_region(const struct md_region *entry)
 
 	if (((strlen(entry->name) > MAX_NAME_LENGTH) ||
 		 md_check_name(entry->name)) && !entry->virt_addr) {
-		pr_info("Invalid entry details\n");
+		pr_err("Invalid entry details\n");
 		return -EINVAL;
 	}
 
 	if (!IS_ALIGNED(entry->size, 4)) {
-		pr_info("size should be 4 byte aligned\n");
+		pr_err("size should be 4 byte aligned\n");
 		return -EINVAL;
 	}
 
 	spin_lock(&mdt_lock);
 	entries = minidump_table.num_regions;
 	if (entries >= MAX_NUM_ENTRIES) {
-		pr_info("Maximum entries reached.\n");
+		pr_err("Maximum entries reached.\n");
 		spin_unlock(&mdt_lock);
 		return -ENOMEM;
 	}
@@ -325,13 +325,13 @@ static int __init msm_minidump_init(void)
 	smem_table = smem_get_entry(SMEM_MINIDUMP_TABLE_ID, &size, 0,
 					SMEM_ANY_HOST_FLAG);
 	if (IS_ERR_OR_NULL(smem_table)) {
-		pr_info("SMEM is not initialized.\n");
+		pr_err("SMEM is not initialized.\n");
 		return -ENODEV;
 	}
 
 	if ((smem_table->next_avail_offset + MAX_MEM_LENGTH) >
 		 smem_table->smem_length) {
-		pr_info("SMEM memory not available.\n");
+		pr_err("SMEM memory not available.\n");
 		return -ENOMEM;
 	}
 
@@ -353,10 +353,10 @@ static int __init msm_minidump_init(void)
 	for (i = 0; i < pendings; i++) {
 		mdr = &minidump_table.entry[i];
 		if (md_update_smem_table(mdr)) {
-			pr_info("Unable to add entry %s to smem table\n",
+			pr_err("Unable to add entry %s to smem table\n",
 				mdr->name);
 			spin_unlock(&mdt_lock);
-			return -ENODEV;
+			return -ENOENT;
 		}
 	}
 
