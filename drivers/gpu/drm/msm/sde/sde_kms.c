@@ -348,9 +348,16 @@ static void sde_kms_disable_vblank(struct msm_kms *kms, struct drm_crtc *crtc)
 static void sde_kms_prepare_commit(struct msm_kms *kms,
 		struct drm_atomic_state *state)
 {
-	struct sde_kms *sde_kms = to_sde_kms(kms);
-	struct drm_device *dev = sde_kms->dev;
-	struct msm_drm_private *priv = dev->dev_private;
+	struct sde_kms *sde_kms;
+	struct msm_drm_private *priv;
+
+	if (!kms)
+		return;
+	sde_kms = to_sde_kms(kms);
+
+	if (!sde_kms->dev || !sde_kms->dev->dev_private)
+		return;
+	priv = sde_kms->dev->dev_private;
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
 }
@@ -373,12 +380,19 @@ static void sde_kms_commit(struct msm_kms *kms,
 static void sde_kms_complete_commit(struct msm_kms *kms,
 		struct drm_atomic_state *old_state)
 {
-	struct sde_kms *sde_kms = to_sde_kms(kms);
-	struct drm_device *dev = sde_kms->dev;
-	struct msm_drm_private *priv = dev->dev_private;
+	struct sde_kms *sde_kms;
+	struct msm_drm_private *priv;
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *old_crtc_state;
 	int i;
+
+	if (!kms || !old_state)
+		return;
+	sde_kms = to_sde_kms(kms);
+
+	if (!sde_kms->dev || !sde_kms->dev->dev_private)
+		return;
+	priv = sde_kms->dev->dev_private;
 
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i)
 		sde_crtc_complete_commit(crtc, old_crtc_state);
