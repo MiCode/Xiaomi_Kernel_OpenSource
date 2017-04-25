@@ -1368,6 +1368,7 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 		    id->vendor, pci_dev->device);
 
 	switch (pci_dev->device) {
+	case QCA6290_EMULATION_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
 		if (!mhi_is_device_ready(&plat_priv->plat_dev->dev,
 					 MHI_NODE_NAME)) {
@@ -1440,6 +1441,7 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 				    ret);
 		cnss_power_off_device(plat_priv);
 		break;
+	case QCA6290_EMULATION_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
 		ret = cnss_pci_enable_msi(pci_priv);
 		if (ret)
@@ -1486,6 +1488,7 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 	cnss_pci_free_fw_mem(pci_priv);
 
 	switch (pci_dev->device) {
+	case QCA6290_EMULATION_DEVICE_ID:
 	case QCA6290_DEVICE_ID:
 		cnss_pci_unregister_mhi(pci_priv);
 		cnss_pci_disable_msi(pci_priv);
@@ -1505,6 +1508,8 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 
 static const struct pci_device_id cnss_pci_id_table[] = {
 	{ QCA6174_VENDOR_ID, QCA6174_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
+	{ QCA6290_EMULATION_VENDOR_ID, QCA6290_EMULATION_DEVICE_ID,
+	  PCI_ANY_ID, PCI_ANY_ID },
 	{ QCA6290_VENDOR_ID, QCA6290_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
 	{ 0 }
 };
