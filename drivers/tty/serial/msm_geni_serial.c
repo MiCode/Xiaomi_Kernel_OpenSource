@@ -27,6 +27,8 @@
 #include <linux/serial_core.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
+#include <linux/msm-bus.h>
+#include <linux/msm-bus-board.h>
 
 /* UART specific GENI registers */
 #define SE_UART_LOOPBACK_CFG		(0x22C)
@@ -95,6 +97,10 @@
 #define GENI_UART_NR_PORTS	(15)
 #define DEF_FIFO_DEPTH_WORDS	(16)
 #define DEF_FIFO_WIDTH_BITS	(32)
+#define UART_CORE2X_VOTE	(10000)
+#define DEFAULT_SE_CLK		(19200000)
+#define DEFAULT_BUS_WIDTH	(4)
+
 
 struct msm_geni_serial_port {
 	struct uart_port uport;
@@ -1257,6 +1263,25 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	}
 
 	uport->dev = &pdev->dev;
+
+	if (!(of_property_read_u32(pdev->dev.of_node, "qcom,bus-mas",
+					&dev_port->serial_rsc.bus_mas))) {
+		dev_port->serial_rsc.bus_bw =
+				msm_bus_scale_register(
+					dev_port->serial_rsc.bus_mas,
+					MSM_BUS_SLAVE_EBI_CH0,
+					(char *)dev_name(&pdev->dev),
+					false);
+		if (IS_ERR_OR_NULL(dev_port->serial_rsc.bus_bw)) {
+			ret = PTR_ERR(dev_port->serial_rsc.bus_bw);
+			goto exit_geni_serial_probe;
+		}
+		dev_port->serial_rsc.ab = UART_CORE2X_VOTE;
+		dev_port->serial_rsc.ib = DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH;
+	} else {
+		dev_info(&pdev->dev, "No bus master specified");
+	}
+
 	dev_port->serial_rsc.se_clk = devm_clk_get(&pdev->dev, "se-clk");
 	if (IS_ERR(dev_port->serial_rsc.se_clk)) {
 		ret = PTR_ERR(dev_port->serial_rsc.se_clk);
@@ -1364,6 +1389,7 @@ static int msm_geni_serial_remove(struct platform_device *pdev)
 			(struct uart_driver *)port->uport.private_data;
 
 	uart_remove_one_port(drv, &port->uport);
+	msm_bus_scale_unregister(port->serial_rsc.bus_bw);
 	return 0;
 }
 

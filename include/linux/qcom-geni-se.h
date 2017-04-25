@@ -39,6 +39,7 @@ struct se_geni_rsc {
 	struct clk *m_ahb_clk;
 	struct clk *s_ahb_clk;
 	struct msm_bus_client_handle *bus_bw;
+	unsigned int bus_mas;
 	unsigned long ab;
 	unsigned long ib;
 	struct pinctrl *geni_pinctrl;
