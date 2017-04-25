@@ -1092,7 +1092,7 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 	ret = a6xx_hm_sptprac_control(device, false);
 
 	/* RSC sleep sequence */
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TIMESTAMP_UNIT1_EN_DRV0, 1);
+	kgsl_gmu_regwrite(device, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0, 1);
 	kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 1);
 	wmb();
 
