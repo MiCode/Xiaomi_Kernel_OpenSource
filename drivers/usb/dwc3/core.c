@@ -1177,6 +1177,9 @@ static void dwc3_get_properties(struct dwc3 *dwc)
 	device_property_read_u8(dev, "snps,tx-max-burst-prd",
 				&tx_max_burst_prd);
 
+	dwc->needs_fifo_resize = device_property_read_bool(dev,
+				"tx-fifo-resize");
+
 	dwc->disable_scramble_quirk = device_property_read_bool(dev,
 				"snps,disable_scramble_quirk");
 	dwc->u2exit_lfps_quirk = device_property_read_bool(dev,

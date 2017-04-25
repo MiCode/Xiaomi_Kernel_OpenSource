@@ -175,6 +175,88 @@ void dwc3_ep_inc_deq(struct dwc3_ep *dep)
 	dwc3_ep_inc_trb(&dep->trb_dequeue);
 }
 
+/*
+ * dwc3_gadget_resize_tx_fifos - reallocate fifo spaces for current use-case
+ * @dwc: pointer to our context structure
+ *
+ * This function will a best effort FIFO allocation in order
+ * to improve FIFO usage and throughput, while still allowing
+ * us to enable as many endpoints as possible.
+ *
+ * Keep in mind that this operation will be highly dependent
+ * on the configured size for RAM1 - which contains TxFifo -,
+ * the amount of endpoints enabled on coreConsultant tool, and
+ * the width of the Master Bus.
+ *
+ * In the ideal world, we would always be able to satisfy the
+ * following equation:
+ *
+ * ((512 + 2 * MDWIDTH-Bytes) + (Number of IN Endpoints - 1) * \
+ * (3 * (1024 + MDWIDTH-Bytes) + MDWIDTH-Bytes)) / MDWIDTH-Bytes
+ *
+ * Unfortunately, due to many variables that's not always the case.
+ */
+int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc, struct dwc3_ep *dep)
+{
+	int		fifo_size, mdwidth, max_packet = 1024;
+	int		tmp, mult = 1;
+
+	if (!dwc->needs_fifo_resize || !dwc->tx_fifo_size)
+		return 0;
+
+	/* resize IN endpoints excepts ep0 */
+	if (!usb_endpoint_dir_in(dep->endpoint.desc) ||
+			dep->endpoint.ep_num == 0)
+		return 0;
+
+	/* Don't resize already resized IN endpoint */
+	if (dep->fifo_depth) {
+		dev_dbg(dwc->dev, "%s fifo_depth:%d is already set\n",
+				dep->endpoint.name, dep->fifo_depth);
+		return 0;
+	}
+
+	mdwidth = DWC3_MDWIDTH(dwc->hwparams.hwparams0);
+	/* MDWIDTH is represented in bits, we need it in bytes */
+	mdwidth >>= 3;
+
+	if (dep->endpoint.ep_type == EP_TYPE_GSI || dep->endpoint.endless)
+		mult = 3;
+
+	if (((dep->endpoint.maxburst > 1) &&
+			usb_endpoint_xfer_bulk(dep->endpoint.desc))
+			|| usb_endpoint_xfer_isoc(dep->endpoint.desc))
+		mult = 3;
+
+	tmp = ((max_packet + mdwidth) * mult) + mdwidth;
+	fifo_size = DIV_ROUND_UP(tmp, mdwidth);
+	dep->fifo_depth = fifo_size;
+	fifo_size |= (dwc3_readl(dwc->regs, DWC3_GTXFIFOSIZ(0)) & 0xffff0000)
+						+ (dwc->last_fifo_depth << 16);
+	dwc->last_fifo_depth += (fifo_size & 0xffff);
+
+	dev_dbg(dwc->dev, "%s ep_num:%d last_fifo_depth:%04x fifo_depth:%d\n",
+		dep->endpoint.name, dep->endpoint.ep_num, dwc->last_fifo_depth,
+		dep->fifo_depth);
+
+	dbg_event(0xFF, "resize_fifo", dep->number);
+	dbg_event(0xFF, "fifo_depth", dep->fifo_depth);
+	/* Check fifo size allocation doesn't exceed available RAM size. */
+	if ((dwc->last_fifo_depth * mdwidth) >= dwc->tx_fifo_size) {
+		dev_err(dwc->dev, "Fifosize(%d) > RAM size(%d) %s depth:%d\n",
+			(dwc->last_fifo_depth * mdwidth), dwc->tx_fifo_size,
+			dep->endpoint.name, fifo_size);
+		dwc->last_fifo_depth -= (fifo_size & 0xffff);
+		dep->fifo_depth = 0;
+		WARN_ON(1);
+		return -ENOMEM;
+	}
+
+	dwc3_writel(dwc->regs, DWC3_GTXFIFOSIZ(dep->endpoint.ep_num),
+							fifo_size);
+	return 0;
+}
+
 static void dwc3_gadget_del_and_unmap_request(struct dwc3_ep *dep,
 		struct dwc3_request *req, int status)
 {
@@ -641,6 +723,10 @@ static int __dwc3_gadget_ep_enable(struct dwc3_ep *dep, unsigned int action)
 	int			ret;
 
 	if (!(dep->flags & DWC3_EP_ENABLED)) {
+		ret = dwc3_gadget_resize_tx_fifos(dwc, dep);
+		if (ret)
+			return ret;
+
 		ret = dwc3_gadget_start_config(dep);
 		if (ret) {
 			dev_err(dwc->dev, "start_config() failed for %s\n",

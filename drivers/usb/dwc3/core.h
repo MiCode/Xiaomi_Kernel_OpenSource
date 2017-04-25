@@ -697,6 +697,7 @@ struct dwc3_ep_events {
  * @dbg_ep_events: different events counter for endpoint
  * @dbg_ep_events_diff: differential events counter for endpoint
  * @dbg_ep_events_ts: timestamp for previous event counters
+ * @fifo_depth: allocated TXFIFO depth
  */
 struct dwc3_ep {
 	struct usb_ep		endpoint;
@@ -751,6 +752,7 @@ struct dwc3_ep {
 	struct dwc3_ep_events	dbg_ep_events;
 	struct dwc3_ep_events	dbg_ep_events_diff;
 	struct timespec		dbg_ep_events_ts;
+	int			fifo_depth;
 };
 
 enum dwc3_phy {
@@ -1033,6 +1035,7 @@ struct dwc3_scratchpad_array {
  * 	1	- utmi_l1_suspend_n
  * @is_fpga: true when we are using the FPGA board
  * @pending_events: true when we have pending IRQs to be handled
+ * @needs_fifo_resize: not all users might want fifo resizing, flag it
  * @pullups_connected: true when Run/Stop bit is set
  * @setup_packet_pending: true when there's a Setup Packet in FIFO. Workaround
  * @three_stage_setup: set if we perform a three phase setup
@@ -1079,6 +1082,8 @@ struct dwc3_scratchpad_array {
  * @core_id: usb core id to differentiate different controller
  * @index: dwc3's instance number
  * @dwc_ipc_log_ctxt: dwc3 ipc log context
+ * @tx_fifo_size: Available RAM size for TX fifo allocation
+ * @last_fifo_depth: total TXFIFO depth of all enabled USB IN/INT endpoints
  * @irq_cnt: total irq count
  * @bh_completion_time: time taken for taklet completion
  * @bh_handled_evt_cnt: no. of events handled by tasklet per interrupt
@@ -1229,6 +1234,7 @@ struct dwc3 {
 	unsigned		is_utmi_l1_suspend:1;
 	unsigned		is_fpga:1;
 	unsigned		pending_events:1;
+	unsigned		needs_fifo_resize:1;
 	unsigned		pullups_connected:1;
 	unsigned		setup_packet_pending:1;
 	unsigned		three_stage_setup:1;
@@ -1275,6 +1281,8 @@ struct dwc3 {
 	unsigned int		index;
 	void			*dwc_ipc_log_ctxt;
 	struct dwc3_gadget_events	dbg_gadget_events;
+	int			tx_fifo_size;
+	int			last_fifo_depth;
 
 	/* IRQ timing statistics */
 	int			irq;
@@ -1488,6 +1496,7 @@ int dwc3_gadget_set_link_state(struct dwc3 *dwc, enum dwc3_link_state state);
 int dwc3_send_gadget_ep_cmd(struct dwc3_ep *dep, unsigned cmd,
 		struct dwc3_gadget_ep_cmd_params *params);
 int dwc3_send_gadget_generic_command(struct dwc3 *dwc, unsigned cmd, u32 param);
+int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc, struct dwc3_ep *dep);
 void dwc3_gadget_disable_irq(struct dwc3 *dwc);
 int dwc3_core_init(struct dwc3 *dwc);
 int dwc3_event_buffers_setup(struct dwc3 *dwc);
@@ -1511,6 +1520,9 @@ static inline int dwc3_send_gadget_ep_cmd(struct dwc3_ep *dep, unsigned cmd,
 { return 0; }
 static inline int dwc3_send_gadget_generic_command(struct dwc3 *dwc,
 		int cmd, u32 param)
+{ return 0; }
+static inline int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc,
+		struct dwc3_ep *dep)
 { return 0; }
 static inline void dwc3_gadget_disable_irq(struct dwc3 *dwc)
 { }

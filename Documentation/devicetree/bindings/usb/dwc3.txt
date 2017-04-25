@@ -36,6 +36,7 @@ Optional properties:
  - phy-names: from the *Generic PHY* bindings; supported names are "usb2-phy"
 	or "usb3-phy".
  - resets: a single pair of phandle and reset specifier
+ - tx-fifo-resize: determines if the FIFO *has* to be reallocated.
  - snps,usb3_lpm_capable: determines if platform is USB3 LPM capable
  - snps,disable_scramble_quirk: true when SW should disable data scrambling.
 	Only really useful for FPGA builds.
@@ -100,8 +101,6 @@ Optional properties:
  - snps,bus-suspend-enable: If present then controller supports low power mode
 	during bus suspend.
 
- - <DEPRECATED> tx-fifo-resize: determines if the FIFO *has* to be reallocated.
-
  - in addition all properties from usb-xhci.txt from the current directory are
    supported as well
 
@@ -113,5 +112,6 @@ dwc3@4a030000 {
 	reg = <0x4a030000 0xcfff>;
 	interrupts = <0 92 4>
 	usb-phy = <&usb2_phy>, <&usb3,phy>;
+	tx-fifo-resize;
 	snps,xhci-imod-value = <4000>;
 };

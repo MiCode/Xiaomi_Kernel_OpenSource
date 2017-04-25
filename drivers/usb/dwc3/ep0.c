@@ -619,8 +619,9 @@ static int dwc3_ep0_set_config(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
 {
 	enum usb_device_state state = dwc->gadget.state;
 	u32 cfg;
-	int ret;
+	int ret, num;
 	u32 reg;
+	struct dwc3_ep	*dep;
 
 	cfg = le16_to_cpu(ctrl->wValue);
 
@@ -629,6 +630,31 @@ static int dwc3_ep0_set_config(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
 		return -EINVAL;
 
 	case USB_STATE_ADDRESS:
+		/*
+		 * If tx-fifo-resize flag is not set for the controller, then
+		 * do not clear existing allocated TXFIFO since we do not
+		 * allocate it again in dwc3_gadget_resize_tx_fifos
+		 */
+		if (dwc->needs_fifo_resize && dwc->tx_fifo_size) {
+			/* Read ep0IN related TXFIFO size */
+			dep = dwc->eps[1];
+			dwc->last_fifo_depth = dep->fifo_depth =
+					(dwc3_readl(dwc->regs,
+					    DWC3_GTXFIFOSIZ(0)) & 0xFFFF);
+			/* Clear existing TXFIFO for all IN eps except ep0 */
+			for (num = 3; num < min_t(int, dwc->num_eps,
+						DWC3_ENDPOINTS_NUM); num += 2) {
+				dep = dwc->eps[num];
+				dwc3_writel(dwc->regs,
+						DWC3_GTXFIFOSIZ(num >> 1), 0);
+				dep->fifo_depth = 0;
+
+				dev_dbg(dwc->dev, "%s(): %s fifo_depth:%x\n",
+					__func__, dep->name, dep->fifo_depth);
+				dbg_event(0xFF, "fifo_reset", dep->number);
+			}
+		}
+
 		ret = dwc3_ep0_delegate_req(dwc, ctrl);
 		/* if the cfg matches and the cfg is non zero */
 		if (cfg && (!ret || (ret == USB_GADGET_DELAYED_STATUS))) {
