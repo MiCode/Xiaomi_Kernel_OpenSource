@@ -36,7 +36,11 @@
 #define CLK_IS_CRITICAL		BIT(11) /* do not gate, ever */
 /* parents need enable during gate/ungate, set rate and re-parent */
 #define CLK_OPS_PARENT_ENABLE	BIT(12)
-				/* unused */
+#define CLK_ENABLE_HAND_OFF	BIT(13) /* enable clock when registered. */
+					/*
+					 * hand-off enable_count & prepare_count
+					 * to first consumer that enables clk
+					 */
 #define CLK_IS_MEASURE          BIT(14) /* measure clock */
 
 struct clk;
