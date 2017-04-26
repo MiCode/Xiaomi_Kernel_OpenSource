@@ -1271,22 +1271,20 @@ static int msm_ioctl_deregister_event(struct drm_device *dev, void *data,
 	return ret;
 }
 
-void msm_send_crtc_notification(struct drm_crtc *crtc,
-				struct drm_event *event, u8 *payload)
+void msm_mode_object_event_nofity(struct drm_mode_object *obj,
+		struct drm_device *dev, struct drm_event *event, u8 *payload)
 {
-	struct drm_device *dev = NULL;
 	struct msm_drm_private *priv = NULL;
 	unsigned long flags;
 	struct msm_drm_event *notify, *node;
 	int len = 0, ret;
 
-	if (!crtc || !event || !event->length || !payload) {
-		DRM_ERROR("err param crtc %pK event %pK len %d payload %pK\n",
-			crtc, event, ((event) ? (event->length) : -1),
+	if (!obj || !event || !event->length || !payload) {
+		DRM_ERROR("err param obj %pK event %pK len %d payload %pK\n",
+			obj, event, ((event) ? (event->length) : -1),
 			payload);
 		return;
 	}
-	dev = crtc->dev;
 	priv = (dev) ? dev->dev_private : NULL;
 	if (!dev || !priv) {
 		DRM_ERROR("invalid dev %pK priv %pK\n", dev, priv);
@@ -1296,7 +1294,7 @@ void msm_send_crtc_notification(struct drm_crtc *crtc,
 	spin_lock_irqsave(&dev->event_lock, flags);
 	list_for_each_entry(node, &priv->client_event_list, base.link) {
 		if (node->event.type != event->type ||
-			crtc->base.id != node->info.object_id)
+			obj->id != node->info.object_id)
 			continue;
 		len = event->length + sizeof(struct drm_msm_event_resp);
 		if (node->base.file_priv->event_space < len) {
