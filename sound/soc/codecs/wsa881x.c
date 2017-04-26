@@ -1337,6 +1337,7 @@ static int wsa881x_swr_reset(struct swr_device *pdev)
 		/* Retry after 1 msec delay */
 		usleep_range(1000, 1100);
 	}
+	pdev->dev_num = devnum;
 	regcache_mark_dirty(wsa881x->regmap);
 	regcache_sync(wsa881x->regmap);
 	return 0;
