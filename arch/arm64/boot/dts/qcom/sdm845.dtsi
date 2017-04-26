@@ -551,6 +551,7 @@
 		qcom,fuse-disable-bit = <12>;
 		#address-cells = <2>;
 		#size-cells = <0>;
+		status = "disabled";
 
 		qcom,pm8998-debug@0 {
 			compatible = "qcom,spmi-pmic";
