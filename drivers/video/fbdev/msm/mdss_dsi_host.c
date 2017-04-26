@@ -1562,11 +1562,13 @@ wait:
 		MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl",
 			"dsi0_phy", "dsi1_ctrl", "dsi1_phy",
 			"vbif", "vbif_nrt", "dbg_bus",
-			"vbif_dbg_bus", "panic");
+			"vbif_dbg_bus", "dsi_dbg_bus", "panic");
 
 	/* mask out overflow errors */
 	if (ignore_underflow)
 		mdss_dsi_set_reg(ctrl_pdata, 0x10c, 0x0f0000, 0x0f0000);
+
+	MDSS_XLOG(ctrl_pdata->ndx, ctrl_pdata->mdp_busy);
 	MIPI_OUTP(ctrl_pdata->ctrl_base + 0x098, 0x01); /* trigger  */
 	wmb();
 
@@ -2185,6 +2187,7 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 
 	MIPI_OUTP((ctrl->ctrl_base) + 0x090, 0x01);
 	wmb();
+	MDSS_XLOG(ctrl->dma_addr, len);
 
 	if (ctrl->do_unicast) {
 		/* let cmd_trigger to kickoff later */
@@ -2561,7 +2564,7 @@ void mdss_dsi_cmd_mdp_busy(struct mdss_dsi_ctrl_pdata *ctrl)
 				MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl",
 					"dsi0_phy", "dsi1_ctrl", "dsi1_phy",
 					"vbif", "vbif_nrt", "dbg_bus",
-					"vbif_dbg_bus", "panic");
+					"vbif_dbg_bus", "dsi_dbg_bus", "panic");
 			}
 		}
 	}
@@ -3187,7 +3190,7 @@ static void __dsi_error_counter(struct dsi_err_container *err_container)
 		pr_err("%s: panic in WQ as dsi error intrs within:%dms\n",
 				__func__, err_container->err_time_delta);
 		MDSS_XLOG_TOUT_HANDLER_WQ("mdp", "dsi0_ctrl", "dsi0_phy",
-			"dsi1_ctrl", "dsi1_phy", "panic");
+			"dsi1_ctrl", "dsi1_phy", "dsi_dbg_bus", "panic");
 	}
 }
 
@@ -3277,6 +3280,7 @@ irqreturn_t mdss_dsi_isr(int irq, void *ptr)
 	}
 
 	if (isr & DSI_INTR_VIDEO_DONE) {
+		MDSS_XLOG(ctrl->ndx, isr, 0x111);
 		spin_lock(&ctrl->mdp_lock);
 		mdss_dsi_disable_irq_nosync(ctrl, DSI_VIDEO_TERM);
 		complete(&ctrl->video_comp);
