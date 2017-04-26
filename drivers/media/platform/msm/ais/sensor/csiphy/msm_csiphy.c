@@ -1537,7 +1537,7 @@ static int msm_csiphy_exit(struct platform_device *pdev)
 		&csiphy_dev->csiphy_all_clk,
 		csiphy_dev->num_all_clk);
 
-	msm_camera_put_reg_base(pdev, csiphy_dev->base, "csid", true);
+	msm_camera_put_reg_base(pdev, csiphy_dev->base, "csiphy", true);
 	if (csiphy_dev->hw_dts_version >= CSIPHY_VERSION_V30) {
 		msm_camera_put_reg_base(pdev, csiphy_dev->clk_mux_base,
 			"csiphy_clk_mux", true);

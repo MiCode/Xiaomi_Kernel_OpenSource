@@ -913,7 +913,7 @@ static int msm_ispif_config(struct ispif_device *ispif,
 		intftype = params->entries[i].intftype;
 		vfe_intf = params->entries[i].vfe_intf;
 
-		pr_err("%s %d - intftype %x, vfe_intf %d, csid %d\n", __func__,
+		CDBG("%s %d - intftype %x, vfe_intf %d, csid %d\n", __func__,
 			i, intftype, vfe_intf, params->entries[i].csid);
 
 		if ((intftype >= INTF_MAX) ||

@@ -99,7 +99,7 @@ static int msm_csid_cid_lut(struct csid_device *csid_dev)
 			csid_lut_params->vc_cfg_a[i].decode_format);
 		if (csid_lut_params->vc_cfg_a[i].dt < 0x12 ||
 			csid_lut_params->vc_cfg_a[i].dt > 0x37) {
-			pr_err("%s: unsupported data type 0x%x\n",
+			CDBG("%s: unsupported data type 0x%x\n",
 				 __func__, csid_lut_params->vc_cfg_a[i].dt);
 			continue;
 		}
