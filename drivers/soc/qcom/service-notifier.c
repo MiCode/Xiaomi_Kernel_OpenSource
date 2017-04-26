@@ -187,7 +187,7 @@ static void root_service_clnt_notify(struct qmi_handle *handle,
 
 	switch (event) {
 	case QMI_RECV_MSG:
-		queue_work(data->svc_event_wq, &data->svc_rcv_msg);
+		schedule_work(&data->svc_rcv_msg);
 		break;
 	default:
 		break;
@@ -376,13 +376,6 @@ static void root_service_service_arrive(struct work_struct *work)
 	mutex_unlock(&qmi_client_release_lock);
 	pr_info("Connection established between QMI handle and %d service\n",
 							data->instance_id);
-	/* Register for indication messages about service */
-	rc = qmi_register_ind_cb(data->clnt_handle, root_service_service_ind_cb,
-							(void *)data);
-	if (rc < 0)
-		pr_err("Indication callback register failed(instance-id: %d) rc:%d\n",
-							data->instance_id, rc);
-
 	mutex_lock(&notif_add_lock);
 	mutex_lock(&service_list_lock);
 	list_for_each_entry(service_notif, &service_list, list) {
@@ -405,6 +398,12 @@ static void root_service_service_arrive(struct work_struct *work)
 	}
 	mutex_unlock(&service_list_lock);
 	mutex_unlock(&notif_add_lock);
+	/* Register for indication messages about service */
+	rc = qmi_register_ind_cb(data->clnt_handle,
+		root_service_service_ind_cb, (void *)data);
+	if (rc < 0)
+		pr_err("Indication callback register failed(instance-id: %d) rc:%d\n",
+							data->instance_id, rc);
 }
 
 static void root_service_service_exit(struct qmi_client_info *data,
