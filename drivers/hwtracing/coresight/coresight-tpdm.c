@@ -528,24 +528,18 @@ static void __tpdm_enable_dsb(struct tpdm_drvdata *drvdata)
 static void __tpdm_enable_cmb(struct tpdm_drvdata *drvdata)
 {
 	uint32_t val;
+	int i;
 
-	tpdm_writel(drvdata, drvdata->cmb->patt_val[TPDM_CMB_LSB],
-		    TPDM_CMB_TPR(TPDM_CMB_LSB));
-	tpdm_writel(drvdata, drvdata->cmb->patt_mask[TPDM_CMB_LSB],
-		    TPDM_CMB_TPMR(TPDM_CMB_LSB));
-	tpdm_writel(drvdata, drvdata->cmb->patt_val[TPDM_CMB_MSB],
-		    TPDM_CMB_TPR(TPDM_CMB_MSB));
-	tpdm_writel(drvdata, drvdata->cmb->patt_mask[TPDM_CMB_MSB],
-		    TPDM_CMB_TPMR(TPDM_CMB_MSB));
-
-	tpdm_writel(drvdata, drvdata->cmb->trig_patt_val[TPDM_CMB_LSB],
-		    TPDM_CMB_XPR(TPDM_CMB_LSB));
-	tpdm_writel(drvdata, drvdata->cmb->trig_patt_mask[TPDM_CMB_LSB],
-		    TPDM_CMB_XPMR(TPDM_CMB_LSB));
-	tpdm_writel(drvdata, drvdata->cmb->trig_patt_val[TPDM_CMB_MSB],
-		    TPDM_CMB_XPR(TPDM_CMB_MSB));
-	tpdm_writel(drvdata, drvdata->cmb->trig_patt_mask[TPDM_CMB_MSB],
-		    TPDM_CMB_XPMR(TPDM_CMB_MSB));
+	for (i = 0; i < TPDM_CMB_PATT_CMP; i++) {
+		tpdm_writel(drvdata, drvdata->cmb->patt_val[i],
+			    TPDM_CMB_TPR(i));
+		tpdm_writel(drvdata, drvdata->cmb->patt_mask[i],
+			    TPDM_CMB_TPMR(i));
+		tpdm_writel(drvdata, drvdata->cmb->trig_patt_val[i],
+			    TPDM_CMB_XPR(i));
+		tpdm_writel(drvdata, drvdata->cmb->trig_patt_mask[i],
+			    TPDM_CMB_XPMR(i));
+	}
 
 	val = tpdm_readl(drvdata, TPDM_CMB_TIER);
 	if (drvdata->cmb->patt_ts == true)
@@ -577,24 +571,18 @@ static void __tpdm_enable_mcmb(struct tpdm_drvdata *drvdata)
 {
 	uint32_t val;
 	struct mcmb_dataset *mcmb = drvdata->cmb->mcmb;
+	int i;
 
-	tpdm_writel(drvdata, drvdata->cmb->patt_val[TPDM_CMB_LSB],
-		    TPDM_CMB_TPR(TPDM_CMB_LSB));
-	tpdm_writel(drvdata, drvdata->cmb->patt_mask[TPDM_CMB_LSB],
-		    TPDM_CMB_TPMR(TPDM_CMB_LSB));
-	tpdm_writel(drvdata, drvdata->cmb->patt_val[TPDM_CMB_MSB],
-		    TPDM_CMB_TPR(TPDM_CMB_MSB));
-	tpdm_writel(drvdata, drvdata->cmb->patt_mask[TPDM_CMB_MSB],
-		    TPDM_CMB_TPMR(TPDM_CMB_MSB));
-
-	tpdm_writel(drvdata, drvdata->cmb->trig_patt_val[TPDM_CMB_LSB],
-		    TPDM_CMB_XPR(TPDM_CMB_LSB));
-	tpdm_writel(drvdata, drvdata->cmb->trig_patt_mask[TPDM_CMB_LSB],
-		    TPDM_CMB_XPMR(TPDM_CMB_LSB));
-	tpdm_writel(drvdata, drvdata->cmb->trig_patt_val[TPDM_CMB_MSB],
-		    TPDM_CMB_XPR(TPDM_CMB_MSB));
-	tpdm_writel(drvdata, drvdata->cmb->trig_patt_mask[TPDM_CMB_MSB],
-		    TPDM_CMB_XPMR(TPDM_CMB_MSB));
+	for (i = 0; i < TPDM_CMB_PATT_CMP; i++) {
+		tpdm_writel(drvdata, drvdata->cmb->patt_val[i],
+			    TPDM_CMB_TPR(i));
+		tpdm_writel(drvdata, drvdata->cmb->patt_mask[i],
+			    TPDM_CMB_TPMR(i));
+		tpdm_writel(drvdata, drvdata->cmb->trig_patt_val[i],
+			    TPDM_CMB_XPR(i));
+		tpdm_writel(drvdata, drvdata->cmb->trig_patt_mask[i],
+			    TPDM_CMB_XPMR(i));
+	}
 
 	val = tpdm_readl(drvdata, TPDM_CMB_TIER);
 	if (drvdata->cmb->patt_ts == true)
@@ -3228,155 +3216,98 @@ static ssize_t tpdm_store_cmb_mode(struct device *dev,
 static DEVICE_ATTR(cmb_mode, 0644,
 		   tpdm_show_cmb_mode, tpdm_store_cmb_mode);
 
-static ssize_t tpdm_show_cmb_patt_val_lsb(struct device *dev,
+static ssize_t tpdm_show_cmb_patt_val(struct device *dev,
 					  struct device_attribute *attr,
 					  char *buf)
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val;
+	ssize_t size = 0;
+	int i;
 
 	if (!(test_bit(TPDM_DS_CMB, drvdata->datasets) ||
 	      test_bit(TPDM_DS_MCMB, drvdata->datasets)))
 		return -EPERM;
 
-	val = drvdata->cmb->patt_val[TPDM_CMB_LSB];
-
-	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
+	mutex_lock(&drvdata->lock);
+	for (i = 0; i < TPDM_CMB_PATT_CMP; i++) {
+		size += scnprintf(buf + size, PAGE_SIZE - size,
+				  "Index: 0x%x Value: 0x%x\n", i,
+				  drvdata->cmb->patt_val[i]);
+	}
+	mutex_unlock(&drvdata->lock);
+	return size;
 }
 
-static ssize_t tpdm_store_cmb_patt_val_lsb(struct device *dev,
+static ssize_t tpdm_store_cmb_patt_val(struct device *dev,
 					   struct device_attribute *attr,
 					   const char *buf, size_t size)
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val;
+	unsigned long index, val;
 
-	if (kstrtoul(buf, 16, &val))
+	if (sscanf(buf, "%lx %lx", &index, &val) != 2)
+		return -EINVAL;
+	if (index >= TPDM_CMB_PATT_CMP)
 		return -EINVAL;
 	if (!(test_bit(TPDM_DS_CMB, drvdata->datasets) ||
 	      test_bit(TPDM_DS_MCMB, drvdata->datasets)))
 		return -EPERM;
 
 	mutex_lock(&drvdata->lock);
-	drvdata->cmb->patt_val[TPDM_CMB_LSB] = val;
+	drvdata->cmb->patt_val[index] = val;
 	mutex_unlock(&drvdata->lock);
+
 	return size;
 }
-static DEVICE_ATTR(cmb_patt_val_lsb, 0644,
-		   tpdm_show_cmb_patt_val_lsb,
-		   tpdm_store_cmb_patt_val_lsb);
+static DEVICE_ATTR(cmb_patt_val, 0644,
+		   tpdm_show_cmb_patt_val,
+		   tpdm_store_cmb_patt_val);
 
-static ssize_t tpdm_show_cmb_patt_mask_lsb(struct device *dev,
+static ssize_t tpdm_show_cmb_patt_mask(struct device *dev,
 					   struct device_attribute *attr,
 					   char *buf)
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val;
+	ssize_t size = 0;
+	int i;
 
 	if (!(test_bit(TPDM_DS_CMB, drvdata->datasets) ||
 	      test_bit(TPDM_DS_MCMB, drvdata->datasets)))
 		return -EPERM;
 
-	val = drvdata->cmb->patt_mask[TPDM_CMB_LSB];
+	mutex_lock(&drvdata->lock);
+	for (i = 0; i < TPDM_CMB_PATT_CMP; i++) {
+		size += scnprintf(buf + size, PAGE_SIZE - size,
+				  "Index: 0x%x Value: 0x%x\n", i,
+				  drvdata->cmb->patt_mask[i]);
+	}
+	mutex_unlock(&drvdata->lock);
+	return size;
 
-	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
 
-static ssize_t tpdm_store_cmb_patt_mask_lsb(struct device *dev,
+static ssize_t tpdm_store_cmb_patt_mask(struct device *dev,
 					    struct device_attribute *attr,
 					    const char *buf, size_t size)
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val;
+	unsigned long index, val;
 
-	if (kstrtoul(buf, 16, &val))
+	if (sscanf(buf, "%lx %lx", &index, &val) != 2)
+		return -EINVAL;
+	if (index >= TPDM_CMB_PATT_CMP)
 		return -EINVAL;
 	if (!(test_bit(TPDM_DS_CMB, drvdata->datasets) ||
 	      test_bit(TPDM_DS_MCMB, drvdata->datasets)))
 		return -EPERM;
 
 	mutex_lock(&drvdata->lock);
-	drvdata->cmb->patt_mask[TPDM_CMB_LSB] = val;
+	drvdata->cmb->patt_mask[index] = val;
 	mutex_unlock(&drvdata->lock);
 	return size;
 }
-static DEVICE_ATTR(cmb_patt_mask_lsb, 0644,
-		   tpdm_show_cmb_patt_mask_lsb, tpdm_store_cmb_patt_mask_lsb);
-
-static ssize_t tpdm_show_cmb_patt_val_msb(struct device *dev,
-					  struct device_attribute *attr,
-					  char *buf)
-{
-	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val;
-
-	if (!(test_bit(TPDM_DS_CMB, drvdata->datasets) ||
-	      test_bit(TPDM_DS_MCMB, drvdata->datasets)))
-		return -EPERM;
-
-	val = drvdata->cmb->patt_val[TPDM_CMB_MSB];
-
-	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
-}
-
-static ssize_t tpdm_store_cmb_patt_val_msb(struct device *dev,
-					   struct device_attribute *attr,
-					   const char *buf, size_t size)
-{
-	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val;
-
-	if (kstrtoul(buf, 16, &val))
-		return -EINVAL;
-	if (!(test_bit(TPDM_DS_CMB, drvdata->datasets) ||
-	      test_bit(TPDM_DS_MCMB, drvdata->datasets)))
-		return -EPERM;
-
-	mutex_lock(&drvdata->lock);
-	drvdata->cmb->patt_val[TPDM_CMB_MSB] = val;
-	mutex_unlock(&drvdata->lock);
-	return size;
-}
-static DEVICE_ATTR(cmb_patt_val_msb, 0644,
-		   tpdm_show_cmb_patt_val_msb,
-		   tpdm_store_cmb_patt_val_msb);
-
-static ssize_t tpdm_show_cmb_patt_mask_msb(struct device *dev,
-					   struct device_attribute *attr,
-					   char *buf)
-{
-	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val;
-
-	if (!(test_bit(TPDM_DS_CMB, drvdata->datasets) ||
-	      test_bit(TPDM_DS_MCMB, drvdata->datasets)))
-		return -EPERM;
-
-	val = drvdata->cmb->patt_mask[TPDM_CMB_MSB];
-
-	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
-}
-
-static ssize_t tpdm_store_cmb_patt_mask_msb(struct device *dev,
-					    struct device_attribute *attr,
-					    const char *buf, size_t size)
-{
-	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val;
-
-	if (kstrtoul(buf, 16, &val))
-		return -EINVAL;
-	if (!(test_bit(TPDM_DS_CMB, drvdata->datasets) ||
-	      test_bit(TPDM_DS_MCMB, drvdata->datasets)))
-		return -EPERM;
-
-	mutex_lock(&drvdata->lock);
-	drvdata->cmb->patt_mask[TPDM_CMB_MSB] = val;
-	mutex_unlock(&drvdata->lock);
-	return size;
-}
-static DEVICE_ATTR(cmb_patt_mask_msb, 0644,
-		   tpdm_show_cmb_patt_mask_msb, tpdm_store_cmb_patt_mask_msb);
+static DEVICE_ATTR(cmb_patt_mask, 0644,
+		   tpdm_show_cmb_patt_mask, tpdm_store_cmb_patt_mask);
 
 static ssize_t tpdm_show_cmb_patt_ts(struct device *dev,
 				     struct device_attribute *attr,
@@ -3896,10 +3827,8 @@ static struct attribute *tpdm_dsb_attrs[] = {
 static struct attribute *tpdm_cmb_attrs[] = {
 	&dev_attr_cmb_available_modes.attr,
 	&dev_attr_cmb_mode.attr,
-	&dev_attr_cmb_patt_val_lsb.attr,
-	&dev_attr_cmb_patt_mask_lsb.attr,
-	&dev_attr_cmb_patt_val_msb.attr,
-	&dev_attr_cmb_patt_mask_msb.attr,
+	&dev_attr_cmb_patt_val.attr,
+	&dev_attr_cmb_patt_mask.attr,
 	&dev_attr_cmb_patt_ts.attr,
 	&dev_attr_cmb_trig_patt_val_lsb.attr,
 	&dev_attr_cmb_trig_patt_mask_lsb.attr,
