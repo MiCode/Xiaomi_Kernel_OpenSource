@@ -583,14 +583,31 @@ static void a6xx_snapshot_mempool(struct kgsl_device *device,
 				struct kgsl_snapshot *snapshot)
 {
 	unsigned int pool_size;
+	u8 *buf = snapshot->ptr;
 
-	/* Save the mempool size to 0 to stabilize it while dumping */
+	/* Set the mempool size to 0 to stabilize it while dumping */
 	kgsl_regread(device, A6XX_CP_MEM_POOL_SIZE, &pool_size);
 	kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, 0);
 
 	kgsl_snapshot_indexed_registers(device, snapshot,
 		A6XX_CP_MEM_POOL_DBG_ADDR, A6XX_CP_MEM_POOL_DBG_DATA,
 		0, 0x2060);
+
+	/*
+	 * Data at offset 0x2000 in the mempool section is the mempool size.
+	 * Since we set it to 0, patch in the original size so that the data
+	 * is consistent.
+	 */
+	if (buf < snapshot->ptr) {
+		unsigned int *data;
+
+		/* Skip over the headers */
+		buf += sizeof(struct kgsl_snapshot_section_header) +
+				sizeof(struct kgsl_snapshot_indexed_regs);
+
+		data = (unsigned int *)buf + 0x2000;
+		*data = pool_size;
+	}
 
 	/* Restore the saved mempool size */
 	kgsl_regwrite(device, A6XX_CP_MEM_POOL_SIZE, pool_size);
