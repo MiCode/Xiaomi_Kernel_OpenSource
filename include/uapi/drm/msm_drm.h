@@ -152,10 +152,13 @@ struct drm_msm_gem_submit_reloc {
  *      this buffer in the first-level ringbuffer
  *   CTX_RESTORE_BUF - only executed if there has been a GPU context
  *      switch since the last SUBMIT ioctl
+ *   PROFILE_BUF - A profiling buffer written to by both GPU and CPU.
  */
 #define MSM_SUBMIT_CMD_BUF             0x0001
 #define MSM_SUBMIT_CMD_IB_TARGET_BUF   0x0002
 #define MSM_SUBMIT_CMD_CTX_RESTORE_BUF 0x0003
+#define MSM_SUBMIT_CMD_PROFILE_BUF     0x0004
+
 struct drm_msm_gem_submit_cmd {
 	__u32 type;           /* in, one of MSM_SUBMIT_CMD_x */
 	__u32 submit_idx;     /* in, index of submit_bo cmdstream buffer */
@@ -205,6 +208,14 @@ struct drm_msm_gem_submit {
 	__u32 nr_cmds;        /* in, number of submit_cmd's */
 	__u64 __user bos;     /* in, ptr to array of submit_bo's */
 	__u64 __user cmds;    /* in, ptr to array of submit_cmd's */
+};
+
+struct drm_msm_gem_submit_profile_buffer {
+	__s64 queue_time;      /* out, Ringbuffer queue time (seconds) */
+	__s64 submit_time;     /* out, Ringbuffer submission time (seconds) */
+	__u64 ticks_queued;    /* out, GPU ticks at ringbuffer submission */
+	__u64 ticks_submitted; /* out, GPU ticks before cmdstream execution*/
+	__u64 ticks_retired;   /* out, GPU ticks after cmdstream execution */
 };
 
 /* The normal way to synchronize with the GPU is just to CPU_PREP on

@@ -125,6 +125,8 @@ struct msm_gem_submit {
 	uint32_t fence;
 	int ring;
 	bool valid;
+	uint64_t profile_buf_iova;
+	void *profile_buf_vaddr;
 	unsigned int nr_cmds;
 	unsigned int nr_bos;
 	struct {

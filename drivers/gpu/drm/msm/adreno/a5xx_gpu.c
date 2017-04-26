@@ -133,10 +133,30 @@ static int a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 	OUT_PKT7(ring, CP_YIELD_ENABLE, 1);
 	OUT_RING(ring, 0x02);
 
+	/* Record the always on counter before command execution */
+	if (submit->profile_buf_iova) {
+		uint64_t gpuaddr = submit->profile_buf_iova +
+			offsetof(struct drm_msm_gem_submit_profile_buffer,
+					ticks_submitted);
+
+		/*
+		 * Set bit[30] to make this command a 64 bit write operation.
+		 * bits[18-29] is to specify number of consecutive registers
+		 * to copy, so set this space with 2, since we want to copy
+		 * data from REG_A5XX_RBBM_ALWAYSON_COUNTER_LO and [HI].
+		 */
+		OUT_PKT7(ring, CP_REG_TO_MEM, 3);
+		OUT_RING(ring, REG_A5XX_RBBM_ALWAYSON_COUNTER_LO |
+				(1 << 30) | (2 << 18));
+		OUT_RING(ring, lower_32_bits(gpuaddr));
+		OUT_RING(ring, upper_32_bits(gpuaddr));
+	}
+
 	/* Submit the commands */
 	for (i = 0; i < submit->nr_cmds; i++) {
 		switch (submit->cmd[i].type) {
 		case MSM_SUBMIT_CMD_IB_TARGET_BUF:
+		case MSM_SUBMIT_CMD_PROFILE_BUF:
 			break;
 		case MSM_SUBMIT_CMD_BUF:
 			OUT_PKT7(ring, CP_INDIRECT_BUFFER_PFE, 3);
@@ -163,6 +183,19 @@ static int a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 	/* Turn off IB level preemptions */
 	OUT_PKT7(ring, CP_YIELD_ENABLE, 1);
 	OUT_RING(ring, 0x01);
+
+	/* Record the always on counter after command execution */
+	if (submit->profile_buf_iova) {
+		uint64_t gpuaddr = submit->profile_buf_iova +
+			offsetof(struct drm_msm_gem_submit_profile_buffer,
+					ticks_retired);
+
+		OUT_PKT7(ring, CP_REG_TO_MEM, 3);
+		OUT_RING(ring, REG_A5XX_RBBM_ALWAYSON_COUNTER_LO |
+				(1 << 30) | (2 << 18));
+		OUT_RING(ring, lower_32_bits(gpuaddr));
+		OUT_RING(ring, upper_32_bits(gpuaddr));
+	}
 
 	/* Write the fence to the scratch register */
 	OUT_PKT4(ring, REG_A5XX_CP_SCRATCH_REG(2), 1);
@@ -192,6 +225,35 @@ static int a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 	OUT_RING(ring, 0x01);
 	/* Set bit 0 to trigger an interrupt on preempt complete */
 	OUT_RING(ring, 0x01);
+
+	if (submit->profile_buf_iova) {
+		unsigned long flags;
+		uint64_t ktime;
+		struct drm_msm_gem_submit_profile_buffer *profile_buf =
+			submit->profile_buf_vaddr;
+
+		/*
+		 * With this profiling, we are trying to create closest
+		 * possible mapping between the CPU time domain(monotonic clock)
+		 * and the GPU time domain(ticks). In order to make this
+		 * happen, we need to briefly turn off interrupts to make sure
+		 * interrupts do not run between collecting these two samples.
+		 */
+		local_irq_save(flags);
+
+		profile_buf->ticks_queued = gpu_read64(gpu,
+			REG_A5XX_RBBM_ALWAYSON_COUNTER_LO,
+			REG_A5XX_RBBM_ALWAYSON_COUNTER_HI);
+
+		ktime = ktime_get_raw_ns();
+
+		local_irq_restore(flags);
+
+		do_div(ktime, NSEC_PER_SEC);
+
+		profile_buf->queue_time = ktime;
+		profile_buf->submit_time = ktime;
+	}
 
 	a5xx_flush(gpu, ring);
 
