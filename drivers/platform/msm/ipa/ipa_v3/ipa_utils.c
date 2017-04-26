@@ -2909,16 +2909,53 @@ int ipa3_straddle_boundary(u32 start, u32 end, u32 boundary)
  */
 int ipa3_init_mem_partition(struct device_node *node)
 {
+	const size_t ram_mmap_v3_0_size = 70;
+	const size_t ram_mmap_v3_5_size = 72;
+	const size_t ram_mmap_current_version_size =
+		sizeof(ipa3_ctx->ctrl->mem_partition) / sizeof(u32);
+	const size_t version = ipa_get_hw_type();
 	int result;
 
 	IPADBG("Reading from DTS as u32 array\n");
-	result = of_property_read_u32_array(node,
-		"qcom,ipa-ram-mmap", (u32 *)&ipa3_ctx->ctrl->mem_partition,
-		sizeof(ipa3_ctx->ctrl->mem_partition) / sizeof(u32));
 
-	if (result) {
+	/*
+	 * The size of ipa-ram-mmap array depends on the IPA version. The
+	 * actual size can't be assumed because of possible DTS versions
+	 * mismatch. The size of the array monotonically increasing because the
+	 * obsolete entries are set to zero rather than deleted, so the
+	 * possible sizes are in range
+	 *	[ram_mmap_v3_0_size, ram_mmap_current_version_size]
+	 */
+	result = of_property_read_variable_u32_array(node, "qcom,ipa-ram-mmap",
+		(u32 *)&ipa3_ctx->ctrl->mem_partition,
+		ram_mmap_v3_0_size, ram_mmap_current_version_size);
+
+	if (result <= 0) {
 		IPAERR("Read operation failed\n");
 		return -ENODEV;
+	}
+	if (version < IPA_HW_v3_0)
+		ipa_assert();
+	if (version < IPA_HW_v3_5) {
+		if (result != ram_mmap_v3_0_size) {
+			IPAERR("Mismatch at IPA RAM MMAP DTS entry\n");
+			return -ENODEV;
+		}
+	} else {
+		if (result != ram_mmap_v3_5_size) {
+			IPAERR("Mismatch at IPA RAM MMAP DTS entry\n");
+			return -ENODEV;
+		}
+
+		if (IPA_MEM_PART(uc_event_ring_ofst) & 1023) {
+			IPAERR("UC EVENT RING OFST 0x%x is unaligned\n",
+				IPA_MEM_PART(uc_event_ring_ofst));
+			return -ENODEV;
+		}
+
+		IPADBG("UC EVENT RING OFST 0x%x SIZE 0x%x\n",
+			IPA_MEM_PART(uc_event_ring_ofst),
+			IPA_MEM_PART(uc_event_ring_size));
 	}
 
 	IPADBG("NAT OFST 0x%x SIZE 0x%x\n", IPA_MEM_PART(nat_ofst),
@@ -3167,7 +3204,7 @@ int ipa3_controller_static_bind(struct ipa3_controller *ctrl,
 	ctrl->clock_scaling_bw_threshold_turbo =
 		IPA_V3_0_BW_THRESHOLD_TURBO_MBPS;
 	ctrl->ipa_reg_base_ofst = ipahal_get_reg_base();
-	ctrl->ipa_init_sram = _ipa_init_sram_v3_0;
+	ctrl->ipa_init_sram = _ipa_init_sram_v3;
 	ctrl->ipa_sram_read_settings = _ipa_sram_settings_read_v3_0;
 
 	ctrl->ipa_init_hdr = _ipa_init_hdr_v3_0;
