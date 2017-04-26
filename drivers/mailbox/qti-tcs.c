@@ -1126,7 +1126,7 @@ static int tcs_drv_probe(struct platform_device *pdev)
 		return irq;
 
 	ret = devm_request_irq(&pdev->dev, irq, tcs_irq_handler,
-			IRQF_ONESHOT | IRQF_TRIGGER_HIGH | IRQF_NO_SUSPEND,
+			IRQF_TRIGGER_HIGH | IRQF_NO_SUSPEND,
 			"tcs_irq", drv);
 	if (ret)
 		return ret;
