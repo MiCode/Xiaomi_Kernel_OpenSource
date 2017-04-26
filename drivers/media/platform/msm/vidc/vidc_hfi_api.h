@@ -221,6 +221,8 @@ enum hal_property {
 	HAL_PARAM_VENC_H264_TRANSFORM_8x8,
 	HAL_PARAM_VENC_VIDEO_SIGNAL_INFO,
 	HAL_PARAM_VENC_IFRAMESIZE_TYPE,
+	HAL_PARAM_VIDEO_CORES_USAGE,
+	HAL_PARAM_VIDEO_WORK_MODE,
 };
 
 enum hal_domain {
@@ -817,6 +819,28 @@ struct hal_h264_vui_timing_info {
 
 struct hal_preserve_text_quality {
 	u32 enable;
+};
+
+enum hal_core_id {
+	VIDC_CORE_ID_DEFAULT = 0,
+	VIDC_CORE_ID_1 = 1, /* 0b01 */
+	VIDC_CORE_ID_2 = 2, /* 0b10 */
+	VIDC_CORE_ID_3 = 3, /* 0b11 */
+	VIDC_CORE_ID_UNUSED = 0x10000000,
+};
+
+struct hal_videocores_usage_info {
+	u32 video_core_enable_mask;
+};
+
+enum hal_work_mode {
+	VIDC_WORK_MODE_1,
+	VIDC_WORK_MODE_2,
+	VIDC_WORK_MODE_UNUSED = 0x10000000,
+};
+
+struct hal_video_work_mode {
+	u32 video_work_mode;
 };
 
 struct hal_vpe_color_space_conversion {

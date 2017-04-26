@@ -1290,14 +1290,6 @@ static int msm_vidc_queue_setup(struct vb2_queue *q,
 	return rc;
 }
 
-static inline int msm_vidc_decide_core_and_power_mode(
-	struct msm_vidc_inst *inst)
-{
-	dprintk(VIDC_DBG,
-		"Core selection is not yet implemented for inst = %pK\n",
-			inst);
-	return 0;
-}
 static inline int msm_vidc_verify_buffer_counts(struct msm_vidc_inst *inst)
 {
 	int rc = 0, i = 0;
@@ -1358,14 +1350,21 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		goto fail_start;
 	}
 
+	/* Decide work mode for current session */
+	rc = msm_vidc_decide_work_mode(inst);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Failed to decide work mode for session %pK\n", inst);
+		goto fail_start;
+	}
+
 	/* Assign Core and LP mode for current session */
 	rc = msm_vidc_decide_core_and_power_mode(inst);
 	if (rc) {
 		dprintk(VIDC_ERR,
-			"This session can't be submitted to HW%pK\n", inst);
+			"This session can't be submitted to HW %pK\n", inst);
 		goto fail_start;
 	}
-
 
 	if (msm_comm_get_stream_output_mode(inst) ==
 			HAL_VIDEO_DECODER_SECONDARY) {
@@ -1381,7 +1380,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 
 	rc = msm_comm_try_get_bufreqs(inst);
 
-	/* Check if current session is under HW capability */
+	/* Verify if buffer counts are correct */
 	rc = msm_vidc_verify_buffer_counts(inst);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -1459,7 +1458,6 @@ fail_start:
 	}
 	return rc;
 }
-
 
 static int msm_vidc_start_streaming(struct vb2_queue *q, unsigned int count)
 {
@@ -1974,6 +1972,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->state = MSM_VIDC_CORE_UNINIT_DONE;
 	inst->core = core;
 	inst->freq = 0;
+	inst->core_id = VIDC_CORE_ID_DEFAULT;
 	inst->bit_depth = MSM_VIDC_BIT_DEPTH_8;
 	inst->bitrate = 0;
 	inst->pic_struct = MSM_VIDC_PIC_STRUCT_PROGRESSIVE;

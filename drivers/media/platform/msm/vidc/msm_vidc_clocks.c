@@ -589,4 +589,288 @@ int msm_vidc_get_extra_buff_count(struct msm_vidc_inst *inst,
 		inst->dcvs.extra_capture_buffer_count;
 }
 
+int msm_vidc_decide_work_mode(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+	bool low_latency_mode;
+	struct hfi_device *hdev;
+	struct hal_video_work_mode pdata;
+	struct hal_enable latency;
+
+	hdev = inst->core->device;
+
+	low_latency_mode = msm_comm_g_ctrl_for_id(inst,
+			V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_MODE);
+	if (low_latency_mode) {
+		pdata.video_work_mode = VIDC_WORK_MODE_1;
+		goto decision_done;
+	}
+
+	if (inst->session_type == MSM_VIDC_DECODER) {
+		pdata.video_work_mode = VIDC_WORK_MODE_2;
+		switch (inst->fmts[OUTPUT_PORT].fourcc) {
+		case V4L2_PIX_FMT_MPEG2:
+			pdata.video_work_mode = VIDC_WORK_MODE_1;
+			break;
+		case V4L2_PIX_FMT_H264:
+		case V4L2_PIX_FMT_HEVC:
+			if (inst->prop.height[OUTPUT_PORT] *
+				inst->prop.width[OUTPUT_PORT] <=
+					1280 * 720)
+				pdata.video_work_mode = VIDC_WORK_MODE_1;
+			break;
+		}
+	} else if (inst->session_type == MSM_VIDC_ENCODER) {
+		u32 rc_mode = 0;
+
+		pdata.video_work_mode = VIDC_WORK_MODE_1;
+		rc_mode =  msm_comm_g_ctrl_for_id(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL);
+		if (rc_mode == V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_VFR ||
+			rc_mode ==
+				V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_CFR)
+			pdata.video_work_mode = VIDC_WORK_MODE_2;
+	} else {
+		return -EINVAL;
+	}
+
+decision_done:
+
+	inst->work_mode = pdata.video_work_mode;
+	rc = call_hfi_op(hdev, session_set_property,
+			(void *)inst->session, HAL_PARAM_VIDEO_WORK_MODE,
+			(void *)&pdata);
+	if (rc)
+		dprintk(VIDC_WARN,
+				" Failed to configure Work Mode %pK\n", inst);
+
+	/* For WORK_MODE_1, set Low Latency mode by default to HW. */
+
+	if (inst->work_mode == VIDC_WORK_MODE_1) {
+		latency.enable = 1;
+		rc = call_hfi_op(hdev, session_set_property,
+			(void *)inst->session, HAL_PARAM_VENC_LOW_LATENCY,
+			(void *)&latency);
+	}
+
+	rc = msm_comm_scale_clocks_and_bus(inst);
+
+	return rc;
+}
+
+static inline int msm_vidc_power_save_mode_enable(struct msm_vidc_inst *inst,
+	bool enable)
+{
+	u32 rc = 0, mbs_per_frame;
+	u32 prop_id = 0;
+	void *pdata = NULL;
+	struct hfi_device *hdev = NULL;
+	enum hal_perf_mode venc_mode;
+
+	hdev = inst->core->device;
+	if (inst->session_type != MSM_VIDC_ENCODER) {
+		dprintk(VIDC_DBG,
+			"%s : Not an encoder session. Nothing to do\n",
+				__func__);
+		return 0;
+	}
+	mbs_per_frame = msm_dcvs_get_mbs_per_frame(inst);
+	if (inst->core->resources.max_hq_mbs_per_frame > mbs_per_frame ||
+		inst->core->resources.max_hq_fps > inst->prop.fps) {
+		enable = true;
+	}
+
+	prop_id = HAL_CONFIG_VENC_PERF_MODE;
+	venc_mode = enable ? HAL_PERF_MODE_POWER_SAVE :
+		HAL_PERF_MODE_POWER_MAX_QUALITY;
+	pdata = &venc_mode;
+	rc = call_hfi_op(hdev, session_set_property,
+			(void *)inst->session, prop_id, pdata);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"%s: Failed to set power save mode for inst: %pK\n",
+			__func__, inst);
+		goto fail_power_mode_set;
+	}
+	inst->flags |= VIDC_LOW_POWER;
+	dprintk(VIDC_PROF, "Power Save Mode set for inst: %pK\n", inst);
+
+fail_power_mode_set:
+	return rc;
+}
+
+static int msm_vidc_move_core_to_power_save_mode(struct msm_vidc_core *core,
+	u32 core_id)
+{
+	struct msm_vidc_inst *inst = NULL;
+
+	if (!core) {
+		dprintk(VIDC_ERR, "Invalid args: %pK\n", core);
+		return -EINVAL;
+	}
+
+	dprintk(VIDC_PROF, "Core %d : Moving all inst to LP mode\n", core_id);
+	mutex_lock(&core->lock);
+	list_for_each_entry(inst, &core->instances, list) {
+		if (inst->core_id == core_id &&
+			inst->session_type == MSM_VIDC_ENCODER)
+			msm_vidc_power_save_mode_enable(inst, true);
+	}
+	mutex_unlock(&core->lock);
+
+	return 0;
+}
+
+static u32 get_core_load(struct msm_vidc_core *core,
+	u32 core_id, bool lp_mode)
+{
+	struct msm_vidc_inst *inst = NULL;
+	u32 current_inst_mbs_per_sec = 0, load = 0;
+
+	mutex_lock(&core->lock);
+	list_for_each_entry(inst, &core->instances, list) {
+		u32 cycles, lp_cycles;
+
+		if (!inst->core_id && core_id)
+			continue;
+		if (inst->session_type == MSM_VIDC_DECODER) {
+			cycles = lp_cycles = inst->entry->vpp_cycles;
+		} else if (inst->session_type == MSM_VIDC_ENCODER) {
+			lp_mode |= inst->flags & VIDC_LOW_POWER;
+			cycles = lp_mode ?
+				inst->entry->low_power_cycles :
+				inst->entry->vpp_cycles;
+		} else {
+			continue;
+		}
+		if (inst->core_id == 3)
+			cycles = cycles / 2;
+
+		current_inst_mbs_per_sec = msm_comm_get_inst_load(inst,
+				LOAD_CALC_NO_QUIRKS);
+		load += current_inst_mbs_per_sec * cycles;
+	}
+	mutex_unlock(&core->lock);
+
+	return load;
+}
+
+int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst)
+{
+	int rc = 0, hier_mode = 0;
+	struct hfi_device *hdev;
+	struct msm_vidc_core *core;
+	unsigned long max_freq, lp_cycles = 0;
+	struct hal_videocores_usage_info core_info;
+	u32 core0_load = 0, core1_load = 0, core0_lp_load = 0,
+		core1_lp_load = 0;
+	u32 current_inst_load = 0, current_inst_lp_load = 0,
+		min_load = 0, min_lp_load = 0;
+	u32 min_core_id, min_lp_core_id;
+
+	core = inst->core;
+	hdev = core->device;
+	max_freq = msm_vidc_max_freq(inst);
+	inst->core_id = 0;
+
+	core0_load = get_core_load(core, VIDC_CORE_ID_1, false);
+	core1_load = get_core_load(core, VIDC_CORE_ID_2, false);
+	core0_lp_load = get_core_load(core, VIDC_CORE_ID_1, true);
+	core1_lp_load = get_core_load(core, VIDC_CORE_ID_2, true);
+
+	min_load = min(core0_load, core1_load);
+	min_core_id = core0_load < core1_load ?
+		VIDC_CORE_ID_1 : VIDC_CORE_ID_2;
+	min_lp_load = min(core0_lp_load, core1_lp_load);
+	min_lp_core_id = core0_lp_load < core1_lp_load ?
+		VIDC_CORE_ID_1 : VIDC_CORE_ID_2;
+
+	lp_cycles = inst->session_type == MSM_VIDC_ENCODER ?
+			inst->entry->low_power_cycles :
+			inst->entry->vpp_cycles;
+
+	current_inst_load = msm_comm_get_inst_load(inst, LOAD_CALC_NO_QUIRKS) *
+		inst->entry->vpp_cycles;
+
+	current_inst_lp_load = msm_comm_get_inst_load(inst,
+		LOAD_CALC_NO_QUIRKS) * lp_cycles;
+
+	dprintk(VIDC_DBG, "Core 0 Load = %d Core 1 Load = %d\n",
+		 core0_load, core1_load);
+	dprintk(VIDC_DBG, "Core 0 LP Load = %d Core 1 LP Load = %d\n",
+		core0_lp_load, core1_lp_load);
+	dprintk(VIDC_DBG, "Max Load = %lu\n", max_freq);
+	dprintk(VIDC_DBG, "Current Load = %d Current LP Load = %d\n",
+		current_inst_load, current_inst_lp_load);
+
+	/* Hier mode can be normal HP or Hybrid HP. */
+
+	hier_mode = msm_comm_g_ctrl_for_id(inst,
+		V4L2_CID_MPEG_VIDC_VIDEO_HIER_P_NUM_LAYERS);
+	hier_mode |= msm_comm_g_ctrl_for_id(inst,
+		V4L2_CID_MPEG_VIDC_VIDEO_HYBRID_HIERP_MODE);
+
+	/* Try for preferred core based on settings. */
+	if (inst->session_type == MSM_VIDC_ENCODER && hier_mode) {
+		if (current_inst_load / 2 + core0_load <= max_freq &&
+			current_inst_load / 2 + core1_load <= max_freq) {
+			inst->core_id = VIDC_CORE_ID_3;
+			msm_vidc_power_save_mode_enable(inst, false);
+			goto decision_done;
+		}
+	}
+
+	if (inst->session_type == MSM_VIDC_ENCODER && hier_mode) {
+		if (current_inst_lp_load / 2 +
+				core0_lp_load <= max_freq &&
+			current_inst_lp_load / 2 +
+				core1_lp_load <= max_freq) {
+			inst->core_id = VIDC_CORE_ID_3;
+			msm_vidc_power_save_mode_enable(inst, true);
+			goto decision_done;
+		}
+	}
+
+	if (current_inst_load + min_load < max_freq) {
+		inst->core_id = min_core_id;
+		dprintk(VIDC_DBG,
+			"Selected normally : Core ID = %d\n",
+				inst->core_id);
+		msm_vidc_power_save_mode_enable(inst, false);
+	} else if (current_inst_lp_load + min_load < max_freq) {
+		/* Move current instance to LP and return */
+		inst->core_id = min_core_id;
+		dprintk(VIDC_DBG,
+			"Selected by moving current to LP : Core ID = %d\n",
+				inst->core_id);
+		msm_vidc_power_save_mode_enable(inst, true);
+
+	} else if (current_inst_lp_load + min_lp_load < max_freq) {
+		/* Move all instances to LP mode and return */
+		inst->core_id = min_lp_core_id;
+		dprintk(VIDC_DBG,
+			"Moved all inst's to LP: Core ID = %d\n",
+				inst->core_id);
+		msm_vidc_move_core_to_power_save_mode(core, min_lp_core_id);
+	} else {
+		rc = -EINVAL;
+		dprintk(VIDC_ERR,
+			"Sorry ... Core Can't support this load\n");
+		return rc;
+	}
+
+decision_done:
+	core_info.video_core_enable_mask = inst->core_id;
+
+	rc = call_hfi_op(hdev, session_set_property,
+			(void *)inst->session,
+			HAL_PARAM_VIDEO_CORES_USAGE, &core_info);
+	if (rc)
+		dprintk(VIDC_WARN,
+				" Failed to configure CORE ID %pK\n", inst);
+
+	rc = msm_comm_scale_clocks_and_bus(inst);
+
+	return rc;
+}
 

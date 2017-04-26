@@ -313,6 +313,8 @@ struct msm_vidc_inst {
 	u32 level;
 	u32 entropy_mode;
 	struct clock_profile_entry *entry;
+	u32 core_id;
+	enum hal_work_mode work_mode;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
