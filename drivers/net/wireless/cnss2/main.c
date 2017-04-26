@@ -436,6 +436,94 @@ int cnss_wlan_disable(struct device *dev, enum cnss_driver_mode mode)
 }
 EXPORT_SYMBOL(cnss_wlan_disable);
 
+#ifdef CONFIG_CNSS2_DEBUG
+int cnss_athdiag_read(struct device *dev, uint32_t offset, uint32_t mem_type,
+		      uint32_t data_len, uint8_t *output)
+{
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+	int ret = 0;
+
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv is NULL!\n");
+		return -EINVAL;
+	}
+
+	if (plat_priv->device_id == QCA6174_DEVICE_ID)
+		return 0;
+
+	if (!output || data_len == 0 || data_len > QMI_WLFW_MAX_DATA_SIZE_V01) {
+		cnss_pr_err("Invalid parameters for athdiag read: output %p, data_len %u\n",
+			    output, data_len);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (!test_bit(CNSS_FW_READY, &plat_priv->driver_state)) {
+		cnss_pr_err("Invalid state for athdiag read: 0x%lx\n",
+			    plat_priv->driver_state);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ret = cnss_wlfw_athdiag_read_send_sync(plat_priv, offset, mem_type,
+					       data_len, output);
+
+out:
+	return ret;
+}
+EXPORT_SYMBOL(cnss_athdiag_read);
+
+int cnss_athdiag_write(struct device *dev, uint32_t offset, uint32_t mem_type,
+		       uint32_t data_len, uint8_t *input)
+{
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+	int ret = 0;
+
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv is NULL!\n");
+		return -EINVAL;
+	}
+
+	if (plat_priv->device_id == QCA6174_DEVICE_ID)
+		return 0;
+
+	if (!input || data_len == 0 || data_len > QMI_WLFW_MAX_DATA_SIZE_V01) {
+		cnss_pr_err("Invalid parameters for athdiag write: input %p, data_len %u\n",
+			    input, data_len);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (!test_bit(CNSS_FW_READY, &plat_priv->driver_state)) {
+		cnss_pr_err("Invalid state for athdiag write: 0x%lx\n",
+			    plat_priv->driver_state);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ret = cnss_wlfw_athdiag_write_send_sync(plat_priv, offset, mem_type,
+						data_len, input);
+
+out:
+	return ret;
+}
+EXPORT_SYMBOL(cnss_athdiag_write);
+#else
+int cnss_athdiag_read(struct device *dev, uint32_t offset, uint32_t mem_type,
+		      uint32_t data_len, uint8_t *output)
+{
+	return -EPERM;
+}
+EXPORT_SYMBOL(cnss_athdiag_read);
+
+int cnss_athdiag_write(struct device *dev, uint32_t offset, uint32_t mem_type,
+		       uint32_t data_len, uint8_t *input)
+{
+	return -EPERM;
+}
+EXPORT_SYMBOL(cnss_athdiag_write);
+#endif
+
 static int cnss_fw_mem_ready_hdlr(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
