@@ -20,6 +20,7 @@
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/qcom-geni-se.h>
@@ -50,9 +51,12 @@
 #define SLV_ADDR_MSK		(GENMASK(15, 9))
 #define SLV_ADDR_SHFT		(9)
 
+#define I2C_CORE2X_VOTE		(10000)
+
 struct geni_i2c_dev {
 	struct device *dev;
 	void __iomem *base;
+	unsigned int tx_wm;
 	int irq;
 	int err;
 	struct i2c_adapter adap;
@@ -61,6 +65,7 @@ struct geni_i2c_dev {
 	struct se_geni_rsc i2c_rsc;
 	int cur_wr;
 	int cur_rd;
+	struct device *wrapper_dev;
 };
 
 static inline void qcom_geni_i2c_conf(void __iomem *base, int dfs, int div)
@@ -114,7 +119,7 @@ static irqreturn_t geni_i2c_irq(int irq, void *dev)
 		}
 	} else if ((m_stat & M_TX_FIFO_WATERMARK_EN) &&
 					!(cur->flags & I2C_M_RD)) {
-		for (j = 0; j < 0x1f; j++) {
+		for (j = 0; j < gi2c->tx_wm; j++) {
 			u32 temp = 0;
 			int p;
 
@@ -163,9 +168,7 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 		pm_runtime_set_suspended(gi2c->dev);
 		return ret;
 	}
-	geni_se_init(gi2c->base, FIFO_MODE, 0xF, 0x10);
 	qcom_geni_i2c_conf(gi2c->base, 0, 2);
-	se_config_packing(gi2c->base, 8, 4, true);
 	dev_dbg(gi2c->dev, "i2c xfer:num:%d, msgs:len:%d,flg:%d\n",
 				num, msgs[0].len, msgs[0].flags);
 	for (i = 0; i < num; i++) {
@@ -237,6 +240,8 @@ static int geni_i2c_probe(struct platform_device *pdev)
 {
 	struct geni_i2c_dev *gi2c;
 	struct resource *res;
+	struct platform_device *wrapper_pdev;
+	struct device_node *wrapper_ph_node;
 	int ret;
 
 	gi2c = devm_kzalloc(&pdev->dev, sizeof(*gi2c), GFP_KERNEL);
@@ -248,6 +253,29 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -EINVAL;
+
+	wrapper_ph_node = of_parse_phandle(pdev->dev.of_node,
+				"qcom,wrapper-core", 0);
+	if (IS_ERR_OR_NULL(wrapper_ph_node)) {
+		ret = PTR_ERR(wrapper_ph_node);
+		dev_err(&pdev->dev, "No wrapper core defined\n");
+		return ret;
+	}
+	wrapper_pdev = of_find_device_by_node(wrapper_ph_node);
+	of_node_put(wrapper_ph_node);
+	if (IS_ERR_OR_NULL(wrapper_pdev)) {
+		ret = PTR_ERR(wrapper_pdev);
+		dev_err(&pdev->dev, "Cannot retrieve wrapper device\n");
+		return ret;
+	}
+	gi2c->wrapper_dev = &wrapper_pdev->dev;
+	gi2c->i2c_rsc.wrapper_dev = &wrapper_pdev->dev;
+	ret = geni_se_resources_init(&gi2c->i2c_rsc, I2C_CORE2X_VOTE,
+				     (DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
+	if (ret) {
+		dev_err(gi2c->dev, "geni_se_resources_init\n");
+		return ret;
+	}
 
 	gi2c->i2c_rsc.se_clk = devm_clk_get(&pdev->dev, "se-clk");
 	if (IS_ERR(gi2c->i2c_rsc.se_clk)) {
@@ -360,6 +388,14 @@ static int geni_i2c_runtime_resume(struct device *dev)
 	if (ret)
 		return ret;
 
+	if (unlikely(!gi2c->tx_wm)) {
+		int gi2c_tx_depth = get_tx_fifo_depth(gi2c->base);
+
+		gi2c->tx_wm = gi2c_tx_depth - 1;
+		geni_se_init(gi2c->base, gi2c->tx_wm, gi2c_tx_depth);
+		geni_se_select_mode(gi2c->base, FIFO_MODE);
+		se_config_packing(gi2c->base, 8, 4, true);
+	}
 	enable_irq(gi2c->irq);
 	return 0;
 }

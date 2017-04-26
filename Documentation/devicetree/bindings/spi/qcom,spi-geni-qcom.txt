@@ -23,6 +23,7 @@ Required properties:
 - spi-max-frequency: Specifies maximum SPI clock frequency,
 		     Units - Hz. Definition as per
 		     Documentation/devicetree/bindings/spi/spi-bus.txt
+- qcom,wrapper-core: Wrapper QUPv3 core containing this SPI controller.
 
 SPI slave nodes must be children of the SPI master node and can contain
 properties described in Documentation/devicetree/bindings/spi/spi-bus.txt
@@ -44,6 +45,7 @@ Example:
 		pinctrl-1 = <&qup_1_spi_2_sleep>;
 		interrupts = <GIC_SPI 354 0>;
 		spi-max-frequency = <19200000>;
+		qcom,wrapper-core = <&qupv3_0>;
 
 		dev@0 {
 			compatible = "dummy,slave";

@@ -28,8 +28,6 @@
 #include <linux/serial_core.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
-#include <linux/msm-bus.h>
-#include <linux/msm-bus-board.h>
 
 /* UART specific GENI registers */
 #define SE_UART_LOOPBACK_CFG		(0x22C)
@@ -107,8 +105,6 @@
 #define DEF_TX_WM		(2)
 #define DEF_FIFO_WIDTH_BITS	(32)
 #define UART_CORE2X_VOTE	(10000)
-#define DEFAULT_SE_CLK		(19200000)
-#define DEFAULT_BUS_WIDTH	(4)
 
 #define WAKEBYTE_TIMEOUT_MSEC	(2000)
 #define IPC_LOG_PWR_PAGES	(2)
@@ -138,6 +134,7 @@ struct msm_geni_serial_port {
 			unsigned int rx_fifo_wc,
 			unsigned int rx_last_byte_valid,
 			unsigned int rx_last);
+	struct device *wrapper_dev;
 	struct se_geni_rsc serial_rsc;
 	int loopback;
 	int wakeup_irq;
@@ -1035,18 +1032,24 @@ static int msm_geni_serial_port_setup(struct uart_port *uport)
 	if (!uart_console(uport)) {
 		/* For now only assume FIFO mode. */
 		msm_port->xfer_mode = FIFO_MODE;
-		ret = geni_se_init(uport->membase, msm_port->xfer_mode,
+		ret = geni_se_init(uport->membase,
 					msm_port->rx_wm, msm_port->rx_rfr);
 		if (ret) {
 			dev_err(uport->dev, "%s: Fail\n", __func__);
 			goto exit_portsetup;
 		}
+
+		ret = geni_se_select_mode(uport->membase, msm_port->xfer_mode);
+		if (ret)
+			goto exit_portsetup;
+
 		se_get_packing_config(8, 4, false, &cfg0, &cfg1);
 		geni_write_reg_nolog(cfg0, uport->membase,
 						SE_GENI_TX_PACKING_CFG0);
 		geni_write_reg_nolog(cfg1, uport->membase,
 						SE_GENI_TX_PACKING_CFG1);
 	}
+
 	msm_port->port_setup = true;
 	/*
 	 * Ensure Port setup related IO completes before returning to
@@ -1436,8 +1439,9 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 		goto exit_geni_serial_earlyconsetup;
 	}
 
-	geni_se_init(uport->membase, FIFO_MODE, (DEF_FIFO_DEPTH_WORDS >> 1),
-						(DEF_FIFO_DEPTH_WORDS - 2));
+	geni_se_init(uport->membase, (DEF_FIFO_DEPTH_WORDS >> 1),
+					(DEF_FIFO_DEPTH_WORDS - 2));
+	geni_se_select_mode(uport->membase, FIFO_MODE);
 	/*
 	 * Ignore Flow control.
 	 * Disable Tx Parity.
@@ -1600,6 +1604,8 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	struct uart_driver *drv;
 	const struct of_device_id *id;
 	bool is_console = false;
+	struct platform_device *wrapper_pdev;
+	struct device_node *wrapper_ph_node;
 
 	id = of_match_device(msm_geni_device_tbl, &pdev->dev);
 	if (id) {
@@ -1643,23 +1649,24 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 
 	uport->dev = &pdev->dev;
 
-	if (!(of_property_read_u32(pdev->dev.of_node, "qcom,bus-mas",
-					&dev_port->serial_rsc.bus_mas))) {
-		dev_port->serial_rsc.bus_bw =
-				msm_bus_scale_register(
-					dev_port->serial_rsc.bus_mas,
-					MSM_BUS_SLAVE_EBI_CH0,
-					(char *)dev_name(&pdev->dev),
-					false);
-		if (IS_ERR_OR_NULL(dev_port->serial_rsc.bus_bw)) {
-			ret = PTR_ERR(dev_port->serial_rsc.bus_bw);
-			goto exit_geni_serial_probe;
-		}
-		dev_port->serial_rsc.ab = UART_CORE2X_VOTE;
-		dev_port->serial_rsc.ib = DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH;
-	} else {
-		dev_info(&pdev->dev, "No bus master specified\n");
+	wrapper_ph_node = of_parse_phandle(pdev->dev.of_node,
+					"qcom,wrapper-core", 0);
+	if (IS_ERR_OR_NULL(wrapper_ph_node)) {
+		ret = PTR_ERR(wrapper_ph_node);
+		goto exit_geni_serial_probe;
 	}
+	wrapper_pdev = of_find_device_by_node(wrapper_ph_node);
+	of_node_put(wrapper_ph_node);
+	if (IS_ERR_OR_NULL(wrapper_pdev)) {
+		ret = PTR_ERR(wrapper_pdev);
+		goto exit_geni_serial_probe;
+	}
+	dev_port->wrapper_dev = &wrapper_pdev->dev;
+	dev_port->serial_rsc.wrapper_dev = &wrapper_pdev->dev;
+	ret = geni_se_resources_init(&dev_port->serial_rsc, UART_CORE2X_VOTE,
+					(DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
+	if (ret)
+		goto exit_geni_serial_probe;
 
 	if (of_property_read_u8(pdev->dev.of_node, "qcom,wakeup-byte",
 					&dev_port->wakeup_byte))
@@ -1777,7 +1784,6 @@ static int msm_geni_serial_remove(struct platform_device *pdev)
 
 	wakeup_source_trash(&port->geni_wake);
 	uart_remove_one_port(drv, &port->uport);
-	msm_bus_scale_unregister(port->serial_rsc.bus_bw);
 	return 0;
 }
 
@@ -1830,6 +1836,7 @@ static int msm_geni_serial_sys_suspend_noirq(struct device *dev)
 	if (uart_console(uport)) {
 		uart_suspend_port((struct uart_driver *)uport->private_data,
 					uport);
+		se_geni_resources_off(&port->serial_rsc);
 	} else {
 		if (!pm_runtime_status_suspended(dev)) {
 			dev_info(dev, "%s: Is still active\n", __func__);
