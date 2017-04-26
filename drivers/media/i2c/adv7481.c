@@ -1836,13 +1836,15 @@ static int adv7481_g_frame_interval(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static int adv7481_g_mbus_fmt(struct v4l2_subdev *sd,
-				struct v4l2_mbus_framefmt *fmt)
+static int adv7481_get_fmt(struct v4l2_subdev *sd,
+		struct v4l2_subdev_pad_config *cfg,
+		struct v4l2_subdev_format *format)
 {
 	int ret;
 	struct adv7481_vid_params vid_params;
 	struct adv7481_hdmi_params hdmi_params;
 	struct adv7481_state *state = to_state(sd);
+	struct v4l2_mbus_framefmt *fmt = &format->format;
 
 	if (!fmt)
 		return -EINVAL;
@@ -1871,7 +1873,7 @@ static int adv7481_g_mbus_fmt(struct v4l2_subdev *sd,
 		}
 		break;
 	case ADV7481_IP_CVBS_1:
-		fmt->code = V4L2_MBUS_FMT_UYVY8_2X8;
+		fmt->code = MEDIA_BUS_FMT_UYVY8_2X8;
 		fmt->colorspace = V4L2_COLORSPACE_SMPTE170M;
 		fmt->width = 720;
 		fmt->height = 576;
@@ -1880,7 +1882,7 @@ static int adv7481_g_mbus_fmt(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 	mutex_unlock(&state->mutex);
-	fmt->code = V4L2_MBUS_FMT_UYVY8_2X8;
+	fmt->code = MEDIA_BUS_FMT_UYVY8_2X8;
 	fmt->colorspace = V4L2_COLORSPACE_SMPTE170M;
 	return ret;
 }
@@ -2145,7 +2147,6 @@ static int adv7481_s_stream(struct v4l2_subdev *sd, int on)
 static const struct v4l2_subdev_video_ops adv7481_video_ops = {
 	.s_routing = adv7481_s_routing,
 	.g_frame_interval = adv7481_g_frame_interval,
-	.g_mbus_fmt = adv7481_g_mbus_fmt,
 	.querystd = adv7481_query_sd_std,
 	.g_dv_timings = adv7481_query_dv_timings,
 	.g_input_status = adv7481_g_input_status,
@@ -2157,6 +2158,10 @@ static const struct v4l2_subdev_core_ops adv7481_core_ops = {
 	.ioctl = adv7481_ioctl,
 };
 
+static const struct v4l2_subdev_pad_ops adv7481_pad_ops = {
+	.get_fmt = adv7481_get_fmt,
+};
+
 static const struct v4l2_ctrl_ops adv7481_ctrl_ops = {
 	.s_ctrl = adv7481_s_ctrl,
 };
@@ -2164,6 +2169,7 @@ static const struct v4l2_ctrl_ops adv7481_ctrl_ops = {
 static const struct v4l2_subdev_ops adv7481_ops = {
 	.core = &adv7481_core_ops,
 	.video = &adv7481_video_ops,
+	.pad = &adv7481_pad_ops,
 };
 
 static int adv7481_init_v4l2_controls(struct adv7481_state *state)
