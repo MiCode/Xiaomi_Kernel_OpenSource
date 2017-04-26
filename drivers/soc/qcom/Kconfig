@@ -645,3 +645,13 @@ config QCOM_DCC_V2
 	  This option enables driver for Data Capture and Compare engine. DCC
 	  driver provides interface to configure DCC block and read back
 	  captured data from DCC's internal SRAM.
+
+config QTI_RPM_STATS_LOG
+	bool "Qualcomm Technologies RPM Stats Driver"
+	depends on DEBUG_FS
+	default n
+	help
+	  This option enables a driver which reads RPM messages from a shared
+	  memory location. These messages provide statistical information about
+	  the low power modes that RPM enters. The drivers outputs the message
+	  via a debugfs node.
