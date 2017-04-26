@@ -2822,7 +2822,7 @@ int smblib_get_prop_fcc_delta(struct smb_charger *chg,
 int smblib_get_charge_current(struct smb_charger *chg,
 				int *total_current_ua)
 {
-	const struct apsd_result *apsd_result = smblib_update_usb_type(chg);
+	const struct apsd_result *apsd_result = smblib_get_apsd_result(chg);
 	union power_supply_propval val = {0, };
 	int rc = 0, typec_source_rd, current_ua;
 	bool non_compliant;
@@ -3336,7 +3336,7 @@ static void smblib_handle_hvdcp_3p0_auth_done(struct smb_charger *chg,
 static void smblib_handle_hvdcp_check_timeout(struct smb_charger *chg,
 					      bool rising, bool qc_charger)
 {
-	const struct apsd_result *apsd_result = smblib_update_usb_type(chg);
+	const struct apsd_result *apsd_result = smblib_get_apsd_result(chg);
 
 	/* Hold off PD only until hvdcp 2.0 detection timeout */
 	if (rising) {
