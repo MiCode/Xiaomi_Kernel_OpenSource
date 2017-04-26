@@ -52,6 +52,7 @@ Optional properties :
   runtimePM state of host.
 - qcom,psy-not-used: If present then driver won't be registering usb power_supply.
   Without usb_psy, user should be able to change modes using sysfs.
+- qcom,usb-core-id: Differentiates between primary and secondary controller.
 
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
