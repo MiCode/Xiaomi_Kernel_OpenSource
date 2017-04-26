@@ -4055,6 +4055,7 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 	if (!gsi_channel_props.ring_base_vaddr) {
 		IPAERR("fail to dma alloc %u bytes\n",
 			gsi_channel_props.ring_len);
+		result = -ENOMEM;
 		goto fail_alloc_channel_ring;
 	}
 	gsi_channel_props.ring_base_addr = dma_addr;

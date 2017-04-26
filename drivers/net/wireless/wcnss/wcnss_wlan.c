@@ -2044,21 +2044,23 @@ void extract_cal_data(int len)
 		return;
 	}
 
+	mutex_lock(&penv->dev_lock);
 	rc = smd_read(penv->smd_ch, (unsigned char *)&calhdr,
 			sizeof(struct cal_data_params));
 	if (rc < sizeof(struct cal_data_params)) {
 		pr_err("wcnss: incomplete cal header read from smd\n");
+		mutex_unlock(&penv->dev_lock);
 		return;
 	}
 
 	if (penv->fw_cal_exp_frag != calhdr.frag_number) {
 		pr_err("wcnss: Invalid frgament");
-		goto exit;
+		goto unlock_exit;
 	}
 
 	if (calhdr.frag_size > WCNSS_MAX_FRAME_SIZE) {
 		pr_err("wcnss: Invalid fragment size");
-		goto exit;
+		goto unlock_exit;
 	}
 
 	if (penv->fw_cal_available) {
@@ -2067,8 +2069,9 @@ void extract_cal_data(int len)
 		penv->fw_cal_exp_frag++;
 		if (calhdr.msg_flags & LAST_FRAGMENT) {
 			penv->fw_cal_exp_frag = 0;
-			goto exit;
+			goto unlock_exit;
 		}
+		mutex_unlock(&penv->dev_lock);
 		return;
 	}
 
@@ -2076,7 +2079,7 @@ void extract_cal_data(int len)
 		if (calhdr.total_size > MAX_CALIBRATED_DATA_SIZE) {
 			pr_err("wcnss: Invalid cal data size %d",
 				calhdr.total_size);
-			goto exit;
+			goto unlock_exit;
 		}
 		kfree(penv->fw_cal_data);
 		penv->fw_cal_rcvd = 0;
@@ -2084,11 +2087,10 @@ void extract_cal_data(int len)
 				GFP_KERNEL);
 		if (penv->fw_cal_data == NULL) {
 			smd_read(penv->smd_ch, NULL, calhdr.frag_size);
-			goto exit;
+			goto unlock_exit;
 		}
 	}
 
-	mutex_lock(&penv->dev_lock);
 	if (penv->fw_cal_rcvd + calhdr.frag_size >
 			MAX_CALIBRATED_DATA_SIZE) {
 		pr_err("calibrated data size is more than expected %d",
@@ -2123,12 +2125,9 @@ void extract_cal_data(int len)
 
 unlock_exit:
 	mutex_unlock(&penv->dev_lock);
-
-exit:
 	wcnss_send_cal_rsp(fw_status);
 	return;
 }
-
 
 static void wcnssctrl_rx_handler(struct work_struct *worker)
 {

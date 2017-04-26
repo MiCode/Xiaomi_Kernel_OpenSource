@@ -55,6 +55,7 @@
 #define FORMAT_DSD          0x001d
 #define FORMAT_APTX         0x001e
 #define FORMAT_GEN_COMPR    0x001f
+#define FORMAT_TRUEHD       0x0020
 
 #define ENCDEC_SBCBITRATE   0x0001
 #define ENCDEC_IMMEDIATE_DECODE 0x0002
