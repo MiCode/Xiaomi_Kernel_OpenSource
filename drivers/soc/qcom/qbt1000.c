@@ -1,4 +1,5 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -772,6 +773,7 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 	case QBT1000_LOAD_APP:
 	{
 		struct qbt1000_app app;
+		struct qseecom_handle *app_handle;
 
 		if (copy_from_user(&app, priv_arg,
 			sizeof(app)) != 0) {
@@ -782,8 +784,15 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			goto end;
 		}
 
+		if (!app.app_handle) {
+			dev_err(drvdata->dev, "%s: LOAD app_handle is null\n",
+				__func__);
+			rc = -EINVAL;
+			goto end;
+		}
+
 		/* start the TZ app */
-		rc = qseecom_start_app(app.app_handle, app.name, app.size);
+		rc = qseecom_start_app(&app_handle, app.name, app.size);
 		if (rc == 0) {
 			g_app_buf_size = app.size;
 		} else {
@@ -792,33 +801,76 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			goto end;
 		}
 
+		/* copy the app handle to user */
+		rc = copy_to_user((void __user *)app.app_handle, &app_handle,
+			sizeof(*app.app_handle));
+
+		if (rc != 0) {
+			dev_err(drvdata->dev,
+				"%s: Failed copy 2us LOAD rc:%d\n",
+				 __func__, rc);
+			rc = -ENOMEM;
+			goto end;
+		}
+
 		break;
 	}
 	case QBT1000_UNLOAD_APP:
 	{
 		struct qbt1000_app app;
+		struct qseecom_handle *app_handle;
 
 		if (copy_from_user(&app, priv_arg,
 			sizeof(app)) != 0) {
 			rc = -ENOMEM;
 			dev_err(drvdata->dev,
-				"%s: Failed copy from user space-LOAD\n",
+				"%s: Failed copy from user space-UNLOAD\n",
 				 __func__);
 			goto end;
 		}
 
-		/* if the app hasn't been loaded already, return err */
 		if (!app.app_handle) {
+			dev_err(drvdata->dev, "%s: UNLOAD app_handle is null\n",
+				__func__);
+			rc = -EINVAL;
+			goto end;
+		}
+
+		rc = copy_from_user(&app_handle, app.app_handle,
+			sizeof(app_handle));
+
+		if (rc != 0) {
+			dev_err(drvdata->dev,
+				"%s: Failed copy from user space-UNLOAD handle rc:%d\n",
+				 __func__, rc);
+			rc = -ENOMEM;
+			goto end;
+		}
+
+		/* if the app hasn't been loaded already, return err */
+		if (!app_handle) {
 			dev_err(drvdata->dev, "%s: App not loaded\n",
 				__func__);
 			rc = -EINVAL;
 			goto end;
 		}
 
-		rc = qseecom_shutdown_app(app.app_handle);
+		rc = qseecom_shutdown_app(&app_handle);
 		if (rc != 0) {
 			dev_err(drvdata->dev, "%s: App failed to shutdown\n",
 				__func__);
+			goto end;
+		}
+
+		/* copy the app handle (should be null) to user */
+		rc = copy_to_user((void __user *)app.app_handle, &app_handle,
+			sizeof(*app.app_handle));
+
+		if (rc != 0) {
+			dev_err(drvdata->dev,
+				"%s: Failed copy 2us UNLOAD rc:%d\n",
+				 __func__, rc);
+			rc = -ENOMEM;
 			goto end;
 		}
 
@@ -1012,10 +1064,8 @@ int qbt1000_create_input_device(struct qbt1000_drvdata *drvdata)
 
 	drvdata->in_dev->evbit[0] = BIT_MASK(EV_KEY) |  BIT_MASK(EV_ABS);
 	drvdata->in_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
-
-	/* enable all 256 key events except to key 00 which is "KEY_RESERVED" */
-	memset(drvdata->in_dev->keybit, 0xFE,
-		   BIT_WORD(0x100)*sizeof(unsigned long));
+	drvdata->in_dev->keybit[BIT_WORD(KEY_HOMEPAGE)] =
+		BIT_MASK(KEY_HOMEPAGE);
 
 	input_set_abs_params(drvdata->in_dev, ABS_X,
 			     0,

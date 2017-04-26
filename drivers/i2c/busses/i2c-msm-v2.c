@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2187,6 +2188,7 @@ static int i2c_msm_pm_xfer_start(struct i2c_msm_ctrl *ctrl)
 	int ret;
 	struct i2c_msm_xfer *xfer = &ctrl->xfer;
 	mutex_lock(&ctrl->xfer.mtx);
+	atomic_set(&ctrl->xfer.runtime_sync, 0);
 
 	/* if system is suspended just bail out */
 	if (ctrl->pwr_state == I2C_MSM_PM_SYS_SUSPENDED) {
@@ -2198,13 +2200,18 @@ static int i2c_msm_pm_xfer_start(struct i2c_msm_ctrl *ctrl)
 		return -EIO;
 	}
 
-	pm_runtime_get_sync(ctrl->dev);
-	/*
-	 * if runtime PM callback was not invoked (when both runtime-pm
-	 * and systme-pm are in transition concurrently)
-	 */
-	if (ctrl->pwr_state != I2C_MSM_PM_RT_ACTIVE) {
-		dev_info(ctrl->dev, "Runtime PM-callback was not invoked.\n");
+	if (pm_runtime_enabled(ctrl->dev)) {
+		pm_runtime_get_sync(ctrl->dev);
+		/*
+		 * if runtime PM callback was not invoked (when both runtime-pm
+		 * and systme-pm are in transition concurrently)
+		 */
+		if (ctrl->pwr_state != I2C_MSM_PM_RT_ACTIVE) {
+			dev_info(ctrl->dev, "Runtime PM-callback was not invoked.\n");
+			i2c_msm_pm_resume(ctrl->dev);
+		}
+		atomic_set(&ctrl->xfer.runtime_sync, 1);
+	} else {
 		i2c_msm_pm_resume(ctrl->dev);
 	}
 
@@ -2236,7 +2243,7 @@ static void i2c_msm_pm_xfer_end(struct i2c_msm_ctrl *ctrl)
 		i2c_msm_dma_free_channels(ctrl);
 
 	i2c_msm_pm_clk_disable_unprepare(ctrl);
-	if (pm_runtime_enabled(ctrl->dev)) {
+	if (atomic_read(&ctrl->xfer.runtime_sync) && pm_runtime_enabled(ctrl->dev)) {
 		pm_runtime_mark_last_busy(ctrl->dev);
 		pm_runtime_put_autosuspend(ctrl->dev);
 	} else {
@@ -2521,7 +2528,7 @@ static int i2c_msm_rsrcs_irq_init(struct platform_device *pdev,
 	ret = request_irq(irq, i2c_msm_qup_isr, IRQF_TRIGGER_HIGH,
 						"i2c-msm-v2-irq", ctrl);
 	if (ret) {
-		dev_err(ctrl->dev, "error request_irq(irq_num:%d ) ret:%d\n",
+		dev_err(ctrl->dev, "error request_irq(irq_num:%d) ret:%d\n",
 								irq, ret);
 		return ret;
 	}

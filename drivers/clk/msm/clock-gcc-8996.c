@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1237,6 +1238,10 @@ static struct rcg_clk blsp2_uart6_apps_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_gp1_clk_src[] = {
+	F(     48000,         cxo_clk_src,   20,    1,    20),
+	F(   3072000,         cxo_clk_src,    1,    4,    25),
+	F(   6144000,         cxo_clk_src,    1,    8,    25),
+	F(  12288000,         cxo_clk_src,    1,   16,    25),
 	F(  19200000,         cxo_clk_src,    1,    0,     0),
 	F( 100000000, gpll0_out_main,    6,    0,     0),
 	F( 200000000, gpll0_out_main,    3,    0,     0),

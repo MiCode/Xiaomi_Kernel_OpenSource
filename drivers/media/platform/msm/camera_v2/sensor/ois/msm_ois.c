@@ -1,4 +1,5 @@
 /* Copyright (c) 2014 - 2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,13 +19,14 @@
 #include "msm_cci.h"
 
 DEFINE_MSM_MUTEX(msm_ois_mutex);
-/*#define MSM_OIS_DEBUG*/
 #undef CDBG
 #ifdef MSM_OIS_DEBUG
 #define CDBG(fmt, args...) pr_err(fmt, ##args)
 #else
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 #endif
+
+#define MAX_POLL_COUNT 100
 
 static struct v4l2_file_operations msm_ois_v4l2_subdev_fops;
 static int32_t msm_ois_power_up(struct msm_ois_ctrl_t *o_ctrl);
@@ -40,6 +42,7 @@ static int32_t msm_ois_write_settings(struct msm_ois_ctrl_t *o_ctrl,
 	struct msm_camera_i2c_seq_reg_array *reg_setting;
 	CDBG("Enter\n");
 
+	CDBG("%s: size = %d\n", __func__, size);
 	for (i = 0; i < size; i++) {
 		switch (settings[i].i2c_operation) {
 		case MSM_OIS_WRITE: {
@@ -79,6 +82,17 @@ static int32_t msm_ois_write_settings(struct msm_ois_ctrl_t *o_ctrl,
 					reg_setting->reg_data_size);
 				kfree(reg_setting);
 				reg_setting = NULL;
+				if (rc < 0)
+					return rc;
+				break;
+			case MSM_CAMERA_I2C_NO_DATA:
+				o_ctrl->i2c_client.addr_type = MSM_CAMERA_I2C_BYTE_ADDR;
+				rc = o_ctrl->i2c_client.i2c_func_tbl->i2c_write(
+					&o_ctrl->i2c_client,
+					(settings[i].reg_addr & 0x0000FF00) >> 8,
+					settings[i].reg_addr & 0x000000FF,
+					MSM_CAMERA_I2C_BYTE_DATA);
+				o_ctrl->i2c_client.addr_type = MSM_CAMERA_I2C_WORD_ADDR;
 				if (rc < 0)
 					return rc;
 				break;
@@ -185,7 +199,7 @@ static int msm_ois_init(struct msm_ois_ctrl_t *o_ctrl)
 		if (rc < 0)
 			pr_err("cci_init failed\n");
 	}
-	o_ctrl->ois_state = OIS_OPS_ACTIVE;
+
 	CDBG("Exit\n");
 	return rc;
 }
@@ -327,6 +341,8 @@ static int32_t msm_ois_config(struct msm_ois_ctrl_t *o_ctrl,
 		kfree(reg_setting);
 		break;
 	}
+	case CFG_OIS_CALIBRATION:
+		break;
 	default:
 		break;
 	}

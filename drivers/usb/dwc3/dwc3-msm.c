@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -258,6 +259,11 @@ struct dwc3_msm {
 
 #define DSTS_CONNECTSPD_SS		0x4
 
+/* USB PHY DCD based floated charger and DCP detection */
+#define DCD_DONE		0
+#define DCD_TIMEOUT		0x1
+#define DCD_DCP_DET		0x5
+#define DCD_RETRY_MAX_TIMES		10
 
 static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc);
 static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned mA);
@@ -1825,7 +1831,9 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 	unsigned long timeout;
 	u32 reg = 0;
 
-	if ((mdwc->in_host_mode || mdwc->vbus_active)
+	dev_err(mdwc->dev, "in p3 %d\n", atomic_read(&mdwc->in_p3));
+	if ((mdwc->in_host_mode || (mdwc->vbus_active
+			&& mdwc->otg_state == OTG_STATE_B_PERIPHERAL))
 			&& dwc3_msm_is_superspeed(mdwc) && !mdwc->in_restart) {
 		if (!atomic_read(&mdwc->in_p3)) {
 			dev_err(mdwc->dev, "Not in P3,aborting LPM sequence\n");
@@ -2009,7 +2017,8 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	 * using HS_PHY_IRQ or SS_PHY_IRQ. Hence enable wakeup only in
 	 * case of host bus suspend and device bus suspend.
 	 */
-	if (mdwc->vbus_active || mdwc->in_host_mode) {
+	if ((mdwc->vbus_active && mdwc->otg_state == OTG_STATE_B_PERIPHERAL)
+				|| mdwc->in_host_mode) {
 		enable_irq_wake(mdwc->hs_phy_irq);
 		enable_irq(mdwc->hs_phy_irq);
 		if (mdwc->ss_phy_irq) {
@@ -2351,8 +2360,8 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 	struct dwc3_msm *mdwc = container_of(psy, struct dwc3_msm,
 								usb_psy);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-	int ret;
 	enum dwc3_id_state id;
+	int ret;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_USB_OTG:
@@ -2974,8 +2983,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (of_property_read_bool(node, "qcom,disable-dev-mode-pm"))
 		pm_runtime_get_noresume(mdwc->dev);
 
-	schedule_delayed_work(&mdwc->sm_work, 0);
-
 	/* Update initial ID state */
 	if (mdwc->pmic_id_irq) {
 		enable_irq(mdwc->pmic_id_irq);
@@ -3271,7 +3278,8 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned mA)
 	if (mdwc->charging_disabled)
 		return 0;
 
-	if (mdwc->chg_type != DWC3_INVALID_CHARGER) {
+	if ((mdwc->chg_type != DWC3_INVALID_CHARGER) &&
+			(mdwc->chg_type != DWC3_PROPRIETARY_CHARGER)) {
 		dev_dbg(mdwc->dev,
 			"SKIP setting power supply type again,chg_type = %d\n",
 			mdwc->chg_type);
@@ -3398,6 +3406,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm, sm_work.work);
 	struct dwc3 *dwc = NULL;
 	bool work = 0;
+	u8 dcd = 0;
 	int ret = 0;
 	unsigned long delay = 0;
 	const char *state;
@@ -3458,6 +3467,27 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				pm_runtime_enable(mdwc->dev);
 				pm_runtime_get_noresume(mdwc->dev);
 				dwc3_initialize(mdwc);
+				dwc3_msm_gadget_vbus_draw(mdwc, 0);
+				do {
+					dcd = qusb_phy_run_dcd(mdwc->hs_phy);
+					if (dcd == DCD_DONE || dcd == DCD_DCP_DET)
+						break;
+					mdwc->dcd_retries++;
+					msleep(200);
+				} while (mdwc->dcd_retries < DCD_RETRY_MAX_TIMES);
+				usb_phy_init(mdwc->hs_phy);
+				if ((dcd == DCD_TIMEOUT)
+						|| (dcd == DCD_DCP_DET)) {
+					mdwc->chg_type =
+							DWC3_PROPRIETARY_CHARGER;
+					pm_runtime_put_sync(mdwc->dev);
+					dbg_event(0xFF, "BDCD-F psync",
+					atomic_read(
+							&mdwc->dev->power.usage_count));
+					mdwc->otg_state = OTG_STATE_B_IDLE;
+					work = 1;
+					break;
+				}
 				dwc3_otg_start_peripheral(mdwc, 1);
 				mdwc->otg_state = OTG_STATE_B_PERIPHERAL;
 				dbg_event(0xFF, "Undef SDP",
@@ -3498,6 +3528,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				dev_dbg(mdwc->dev, "lpm, DCP charger\n");
 				dwc3_msm_gadget_vbus_draw(mdwc,
 						dcp_max_current);
+				pm_relax(mdwc->dev);
 				break;
 			case DWC3_CDP_CHARGER:
 				dwc3_msm_gadget_vbus_draw(mdwc,
@@ -3514,6 +3545,27 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				dbg_event(0xFF, "CHG gsync",
 					atomic_read(
 						&mdwc->dev->power.usage_count));
+				dwc3_msm_gadget_vbus_draw(mdwc, 0);
+				do {
+					dcd = qusb_phy_run_dcd(mdwc->hs_phy);
+					if (dcd == DCD_DONE || dcd == DCD_DCP_DET)
+						break;
+					mdwc->dcd_retries++;
+					msleep(200);
+				} while (mdwc->dcd_retries < DCD_RETRY_MAX_TIMES);
+				usb_phy_init(mdwc->hs_phy);
+				if ((dcd == DCD_TIMEOUT)
+						|| (dcd == DCD_DCP_DET)) {
+					mdwc->chg_type =
+							DWC3_PROPRIETARY_CHARGER;
+					pm_runtime_put_sync(mdwc->dev);
+					dbg_event(0xFF, "BDCD-F psync",
+					atomic_read(
+							&mdwc->dev->power.usage_count));
+					mdwc->otg_state = OTG_STATE_B_IDLE;
+					work = 1;
+					break;
+				}
 				dwc3_otg_start_peripheral(mdwc, 1);
 				mdwc->otg_state = OTG_STATE_B_PERIPHERAL;
 				work = 1;
@@ -3524,6 +3576,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			}
 		} else {
 			dwc3_msm_gadget_vbus_draw(mdwc, 0);
+			mdwc->dcd_retries = 0;
 			dev_dbg(mdwc->dev, "No device, allowing suspend\n");
 		}
 		break;

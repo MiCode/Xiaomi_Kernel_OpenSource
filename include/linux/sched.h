@@ -1339,6 +1339,10 @@ struct task_struct {
 	unsigned int policy;
 	int nr_cpus_allowed;
 	cpumask_t cpus_allowed;
+#ifdef CONFIG_CPUSET_EXCLUSIVE_IND
+	int exclusive_flag;
+	cpumask_t cpus_allowed_bak;
+#endif
 
 #ifdef CONFIG_PREEMPT_RCU
 	int rcu_read_lock_nesting;

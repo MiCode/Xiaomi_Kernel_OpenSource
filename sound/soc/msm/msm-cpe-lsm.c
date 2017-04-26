@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013-2016, Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -127,6 +128,7 @@ struct cpe_lsm_lab {
 	wait_queue_head_t period_wait;
 	struct completion comp;
 	struct completion thread_complete;
+	bool is_buf_allocated;
 };
 
 struct cpe_priv {
@@ -1102,25 +1104,29 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		}
 
 		if (session->lab_enable) {
-			rc = msm_cpe_lab_buf_alloc(substream,
-						   session, dma_data);
-			if (IS_ERR_VALUE(rc)) {
-				dev_err(rtd->dev,
-					"%s: lab buffer alloc failed, err = %d\n",
-					__func__, rc);
-				return rc;
+			if (!lab_d->is_buf_allocated) {
+				rc = msm_cpe_lab_buf_alloc(substream,
+							   session, dma_data);
+				if (IS_ERR_VALUE(rc)) {
+					dev_err(rtd->dev,
+						"%s: lab buffer alloc failed, err = %d\n",
+						__func__, rc);
+					return rc;
+				}
+
+				lab_d->is_buf_allocated = true;
+				dma_buf->dev.type = SNDRV_DMA_TYPE_DEV;
+				dma_buf->dev.dev = substream->pcm->card->dev;
+				dma_buf->private_data = NULL;
+				dma_buf->area = lab_d->pcm_buf[0].mem;
+				dma_buf->addr =  lab_d->pcm_buf[0].phys;
+				dma_buf->bytes = (lsm_d->hw_params.buf_sz *
+						lsm_d->hw_params.period_count);
+				init_completion(&lab_d->thread_complete);
+				snd_pcm_set_runtime_buffer(substream,
+						&substream->dma_buffer);
 			}
 
-			dma_buf->dev.type = SNDRV_DMA_TYPE_DEV;
-			dma_buf->dev.dev = substream->pcm->card->dev;
-			dma_buf->private_data = NULL;
-			dma_buf->area = lab_d->pcm_buf[0].mem;
-			dma_buf->addr =  lab_d->pcm_buf[0].phys;
-			dma_buf->bytes = (lsm_d->hw_params.buf_sz *
-					lsm_d->hw_params.period_count);
-			init_completion(&lab_d->thread_complete);
-			snd_pcm_set_runtime_buffer(substream,
-						   &substream->dma_buffer);
 			rc = lsm_ops->lsm_lab_control(cpe->core_handle,
 					session, true);
 			if (IS_ERR_VALUE(rc)) {
@@ -1161,6 +1167,8 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 					__func__, rc);
 				return rc;
 			}
+
+			lab_d->is_buf_allocated = false;
 		}
 	break;
 	case SNDRV_LSM_REG_SND_MODEL_V2:

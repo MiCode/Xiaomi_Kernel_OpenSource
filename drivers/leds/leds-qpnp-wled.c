@@ -1,4 +1,5 @@
 /* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -90,7 +91,9 @@
 #define QPNP_WLED_BOOST_DUTY_MIN_NS	26
 #define QPNP_WLED_BOOST_DUTY_MAX_NS	156
 #define QPNP_WLED_DEF_BOOST_DUTY_NS	104
-#define QPNP_WLED_SWITCH_FREQ_MASK	0x70
+#define QPNP_WLED_SWITCH_FREQ_MASK	0xF0
+#define QPNP_WLED_SWITCH_FREQ_OVERWRITE	0x80
+#define QPNP_WLED_SWITCH_FREQ_600_KHZ	600
 #define QPNP_WLED_SWITCH_FREQ_800_KHZ	800
 #define QPNP_WLED_SWITCH_FREQ_1600_KHZ	1600
 #define QPNP_WLED_SWITCH_FREQ_OVERWRITE 0x80
@@ -162,6 +165,7 @@
 #define QPNP_WLED_SINK_TEST5_HYB	0x14
 #define QPNP_WLED_SINK_TEST5_DIG	0x1E
 
+#define QPNP_WLED_SWITCH_FREQ_600_KHZ_CODE	0x0F
 #define QPNP_WLED_SWITCH_FREQ_800_KHZ_CODE	0x0B
 #define QPNP_WLED_SWITCH_FREQ_1600_KHZ_CODE	0x05
 
@@ -415,13 +419,6 @@ static int qpnp_wled_module_en(struct qpnp_wled *wled,
 	u8 reg;
 
 	/* disable OVP fault interrupt */
-	if (state) {
-		reg = QPNP_WLED_INT_EN_SET_OVP_DIS;
-		rc = qpnp_wled_write_reg(wled, &reg,
-				QPNP_WLED_INT_EN_SET(base_addr));
-		if (rc)
-			return rc;
-	}
 
 	rc = qpnp_wled_read_reg(wled, &reg,
 			QPNP_WLED_MODULE_EN_REG(base_addr));
@@ -435,14 +432,6 @@ static int qpnp_wled_module_en(struct qpnp_wled *wled,
 		return rc;
 
 	/* enable OVP fault interrupt */
-	if (state) {
-		udelay(QPNP_WLED_OVP_FLT_SLEEP_US);
-		reg = QPNP_WLED_INT_EN_SET_OVP_EN;
-		rc = qpnp_wled_write_reg(wled, &reg,
-				QPNP_WLED_INT_EN_SET(base_addr));
-		if (rc)
-			return rc;
-	}
 
 	return 0;
 }
@@ -952,7 +941,6 @@ static irqreturn_t qpnp_wled_ovp_irq(int irq, void *_wled)
 	struct qpnp_wled *wled = _wled;
 
 	dev_dbg(&wled->spmi->dev, "ovp detected\n");
-
 	return IRQ_HANDLED;
 }
 
@@ -1053,6 +1041,8 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	/* Configure the SWITCHING FREQ register */
 	if (wled->switch_freq_khz == QPNP_WLED_SWITCH_FREQ_1600_KHZ)
 		temp = QPNP_WLED_SWITCH_FREQ_1600_KHZ_CODE;
+	else if (wled->switch_freq_khz == QPNP_WLED_SWITCH_FREQ_600_KHZ)
+		temp = QPNP_WLED_SWITCH_FREQ_600_KHZ_CODE;
 	else
 		temp = QPNP_WLED_SWITCH_FREQ_800_KHZ_CODE;
 

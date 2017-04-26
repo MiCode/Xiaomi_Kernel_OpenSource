@@ -1,0 +1,59 @@
+config TOUCHSCREEN_FT5X46
+	tristate "FocalTech touchscreens"
+	depends on I2C
+	help
+	 Say Y here if you have a FT5X46 touchscreen.
+	 Ft5x06 controllers are multi touch controllers which can
+	 report 5 touches at a time.
+
+	 If unsure, say N.
+
+	 To compile this driver as a module, choose M here: the
+	 module will be called ft5x46_ts.
+
+config TOUCHSCREEN_FT5X46_CALIBRATE
+	bool "calibrate after flash firmware"
+	depends on TOUCHSCREEN_FT5X46
+	default y
+	help
+	 must turn off after all pre-production device get upgrade.
+
+config TOUCHSCREEN_FT5X46_TYPEB
+	bool "use type B for touch report"
+	depends on TOUCHSCREEN_FT5X46
+	default y
+	help
+	 enable typeB for multi-touch report.
+
+config TOUCHSCREEN_FT5X46_I2C
+	tristate "Focaltech FT5X0X I2C touchscreens"
+	depends on I2C
+	select TOUCHSCREEN_FT5X46
+	help
+	 Say Y here if you have a Focaltech FT5X46 I2C touchscreen connected
+	 to your system.
+
+	 If unsure, say N.
+
+	 To compile this driver as a set of modules, choose M here: the
+	 modules will be called ft5x46_ts_i2c.
+
+config TOUCHSCREEN_FT5X46_SPI
+	tristate "Focaltech FT5X0X SPI touchscreens"
+	depends on SPI
+	select TOUCHSCREEN_FT5X46
+	help
+	 Say Y here if you have a Focaltech FT5X46 SPI touchscreen connected
+	 to your system.
+
+	 If unsure, say N.
+
+	 To compile this driver as a set of modules, choose M here: the
+	 modules will be called ft5x46_ts_spi.
+
+config TOUCHSCREEN_FT5X46P_PROXIMITY
+	bool "focaltech touch proximity enable"
+	depends on TOUCHSCREEN_FT5X46
+	default n
+	help
+	 focaltech touch proximity enable.

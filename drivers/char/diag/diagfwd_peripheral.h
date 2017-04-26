@@ -67,7 +67,7 @@ struct diagfwd_info {
 	atomic_t opened;
 	unsigned long read_bytes;
 	unsigned long write_bytes;
-	spinlock_t buf_lock;
+	struct mutex buf_mutex;
 	struct mutex data_mutex;
 	void *ctxt;
 	struct diagfwd_buf_t *buf_1;

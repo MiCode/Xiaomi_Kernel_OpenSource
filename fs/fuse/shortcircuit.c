@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +17,7 @@
 
 #include <linux/aio.h>
 #include <linux/fs_stack.h>
+#include <linux/statfs.h>
 
 void fuse_setup_shortcircuit(struct fuse_conn *fc, struct fuse_req *req)
 {
@@ -50,6 +52,25 @@ void fuse_setup_shortcircuit(struct fuse_conn *fc, struct fuse_req *req)
 	req->private_lower_rw_file = rw_lower_file;
 }
 
+static int get_size_avail(struct fuse_conn *fc, struct path *path, size_t *size_avail)
+{
+	struct kstatfs buf;
+	int err;
+
+	err = vfs_statfs(path, &buf);
+	if (err)
+		return err;
+
+	if ((fc->reserved < 0) ||
+	    (fc->reserved > buf.f_blocks * buf.f_bsize)) {
+		return -EINVAL;
+	}
+
+	*size_avail = buf.f_bfree * buf.f_bsize - fc->reserved;
+
+	return 0;
+}
+
 static ssize_t fuse_shortcircuit_read_write_iter(struct kiocb *iocb,
 						 struct iov_iter *iter,
 						 int do_write)
@@ -58,6 +79,9 @@ static ssize_t fuse_shortcircuit_read_write_iter(struct kiocb *iocb,
 	struct fuse_file *ff;
 	struct file *fuse_file, *lower_file;
 	struct inode *fuse_inode, *lower_inode;
+	struct fuse_conn *fc;
+	size_t size_avail = 0;
+	int err;
 
 	ff = iocb->ki_filp->private_data;
 	fuse_file = iocb->ki_filp;
@@ -67,9 +91,13 @@ static ssize_t fuse_shortcircuit_read_write_iter(struct kiocb *iocb,
 	get_file(lower_file);
 	iocb->ki_filp = lower_file;
 	fuse_inode = fuse_file->f_path.dentry->d_inode;
+	fc = get_fuse_conn_super(fuse_inode->i_sb);
 	lower_inode = file_inode(lower_file);
 
 	if (do_write) {
+		err = get_size_avail(fc, &(fuse_file->f_path), &size_avail);
+		if ((err == 0) && (size_avail < iter->count))
+			return -ENOSPC;
 		if (!lower_file->f_op->write_iter)
 			return -EIO;
 		ret_val = lower_file->f_op->write_iter(iocb, iter);

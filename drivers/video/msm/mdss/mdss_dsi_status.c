@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +25,8 @@
 #include <linux/kobject.h>
 #include <linux/string.h>
 #include <linux/sysfs.h>
+#include <linux/interrupt.h>
+
 
 #include "mdss_fb.h"
 #include "mdss_dsi.h"
@@ -160,7 +163,7 @@ static int fb_event_callback(struct notifier_block *self,
 		case FB_BLANK_HSYNC_SUSPEND:
 		case FB_BLANK_VSYNC_SUSPEND:
 		case FB_BLANK_NORMAL:
-			cancel_delayed_work(&pdata->check_status);
+			cancel_delayed_work_sync(&pdata->check_status);
 			break;
 		default:
 			pr_err("Unknown case in FB_EVENT_BLANK event\n");

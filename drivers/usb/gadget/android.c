@@ -4,6 +4,7 @@
  * Copyright (C) 2008 Google, Inc.
  * Author: Mike Lockwood <lockwood@android.com>
  *         Benoit Goby <benoit@android.com>
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -894,6 +895,23 @@ static void rmnet_function_cleanup(struct android_usb_function *f)
 	frmnet_cleanup();
 }
 
+static void frmnet_deinit_port(void)
+{
+	int i;
+
+	for (i = 0; i < nr_rmnet_ports; i++)
+		kfree(rmnet_ports[i].port);
+
+	nr_rmnet_ports = 0;
+	no_ctrl_smd_ports = 0;
+	no_ctrl_qti_ports = 0;
+	no_data_bam_ports = 0;
+	no_data_bam2bam_ports = 0;
+	no_ctrl_hsic_ports = 0;
+	no_data_hsic_ports = 0;
+	no_ctrl_hsuart_ports = 0;
+	no_data_hsuart_ports = 0;
+}
 static int rmnet_function_bind_config(struct android_usb_function *f,
 					 struct usb_configuration *c)
 {
@@ -907,7 +925,6 @@ static int rmnet_function_bind_config(struct android_usb_function *f,
 	static int rmnet_initialized, ports;
 
 	if (!rmnet_initialized) {
-		rmnet_initialized = 1;
 		strlcpy(buf, rmnet_transports, sizeof(buf));
 		b = strim(buf);
 
@@ -936,8 +953,11 @@ static int rmnet_function_bind_config(struct android_usb_function *f,
 		err = rmnet_gport_setup();
 		if (err) {
 			pr_err("rmnet: Cannot setup transports");
+			frmnet_deinit_port();
+			ports = 0;
 			goto out;
 		}
+		rmnet_initialized = 1;
 	}
 
 	for (i = 0; i < ports; i++) {
@@ -1867,6 +1887,20 @@ static int serial_function_bind_config(struct android_usb_function *f,
 		}
 	}
 
+	/*
+	 * Make sure we always have two serials ports initialized to allow
+	 * switching composition from 1 serial function to 2 serial functions.
+	 * Mark 2nd port to use tty if user didn't specify transport.
+	 */
+	if ((config->instances_on == 1) && !serial_initialized) {
+		err = gserial_init_port(ports, "tty", "serial_tty");
+		if (err) {
+			pr_err("serial: Cannot open port '%s'", "tty");
+			goto out;
+		}
+		config->instances_on++;
+	}
+
 	/* limit the serial ports init only for boot ports */
 	if (ports > config->instances_on)
 		ports = config->instances_on;
@@ -1880,8 +1914,7 @@ static int serial_function_bind_config(struct android_usb_function *f,
 		goto out;
 	}
 
-	config->instances_on = ports;
-	for (i = 0; i < ports; i++) {
+	for (i = 0; i < config->instances_on; i++) {
 		config->f_serial_inst[i] = usb_get_function_instance("gser");
 		if (IS_ERR(config->f_serial_inst[i])) {
 			err = PTR_ERR(config->f_serial_inst[i]);

@@ -135,6 +135,18 @@ fw-shipped-$(CONFIG_USB_SERIAL_XIRCOM) += keyspan_pda/xircom_pgs.fw
 fw-shipped-$(CONFIG_USB_VICAM) += vicam/firmware.fw
 fw-shipped-$(CONFIG_VIDEO_CPIA2) += cpia2/stv0672_vp4.bin
 fw-shipped-$(CONFIG_YAM) += yam/1200.bin yam/9600.bin
+fw-shipped-$(CONFIG_TOUCHSCREEN_ATMEL_MXT) += mXT641T30AC.fw mXT640U13AA.fw \
+	mxt_641t_sharp_config.fw mxt_640u_lgd_config.fw
+fw-shipped-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX) += synaptics_jdi_incell.fw \
+	synaptics_lgd_incell.fw synaptics_lgd_incell_backup.fw
+
+fw-shipped-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX_FORCE) += synaptics_jdi_3330_capricorn.fw synaptics_jdi_3331_capricorn.fw synaptics_lgd_4322_capricorn.fw  synaptics_lgd_4722_capricorn.fw \
+	synaptics_jdi_3330_natrium.fw synaptics_jdi_3331_natrium.fw synaptics_sharp_4322_natrium.fw synaptics_sharp_4722_natrium.fw synaptics_lgd_backup_CAPRICORN.fw synaptics_sharp_backup_natrium.fw
+fw-shipped-$(CONFIG_TOUCHSCREEN_FT5X46) += fte8716_auo_incell_lens_lithium.fw fte8716_auo_incell_biel_lithium.fw \
+	fte8716_sharp_incell_lens_lithium.fw fte8716_sharp_incell_biel_lithium.fw
+
+fw-shipped-$(CONFIG_TOUCHSCREEN_ST_FTS) += st_fts.fw
+fw-shipped-$(CONFIG_TOUCHSCREEN_CYTTSP_BUTTON) += cyttsp_button_no_shielding.fw
 
 fw-shipped-all := $(fw-shipped-y) $(fw-shipped-m) $(fw-shipped-)
 

@@ -1,0 +1,47 @@
+qcom,a8_atl {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <4400>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "a8_atl";
+	qcom,chg-rslow-comp-c1 = <2672141>;
+	qcom,chg-rslow-comp-c2 = <3251568>;
+	qcom,chg-rs-to-rslow = <1034061>;
+	qcom,chg-rslow-comp-thr = <0x99>;
+	qcom,checksum = <0xFA73>;
+	qcom,gui-version = "PMI8996GUI - 1.1.0.0";
+	qcom,fg-profile-data = [
+		 EC 83 4F 7D
+		 7F 81 0D 7C
+		 51 83 24 59
+		 2B 80 1D 87
+		 1C 82 73 9A
+		 B9 BD F8 CA
+		 5C 0E 1A 88
+		 68 7F EF 82
+		 53 7D 4D 83
+		 F2 70 5E 53
+		 FF 7C 51 82
+		 83 99 C2 BC
+		 97 C9 60 0D
+		 3D 11 4A 59
+		 14 70 9F FC
+		 B2 36 59 45
+		 AF 41 00 00
+		 0B 4C 2F 3B
+		 A6 3B 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 47 71 BC 6B
+		 7D 74 98 88
+		 4C 77 FA 70
+		 4C 5A C3 80
+		 23 74 DF 68
+		 5A 66 CD A2
+		 26 86 62 17
+		 65 A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

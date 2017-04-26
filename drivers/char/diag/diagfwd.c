@@ -1218,8 +1218,6 @@ static int diagfwd_mux_open(int id, int mode)
 
 static int diagfwd_mux_close(int id, int mode)
 {
-	uint8_t i;
-
 	switch (mode) {
 	case DIAG_USB_MODE:
 		driver->usb_connected = 0;
@@ -1234,16 +1232,7 @@ static int diagfwd_mux_close(int id, int mode)
 	     driver->logging_mode == DIAG_MEMORY_DEVICE_MODE) ||
 	    (mode == DIAG_MEMORY_DEVICE_MODE &&
 	     driver->logging_mode == DIAG_USB_MODE)) {
-		/*
-		 * In this case the channel must not be closed. This case
-		 * indicates that the USB is removed but there is a client
-		 * running in background with Memory Device mode
-		 */
 	} else {
-		for (i = 0; i < NUM_PERIPHERALS; i++) {
-			diagfwd_close(i, TYPE_DATA);
-			diagfwd_close(i, TYPE_CMD);
-		}
 		/* Re enable HDLC encoding */
 		pr_debug("diag: In %s, re-enabling HDLC encoding\n",
 		       __func__);

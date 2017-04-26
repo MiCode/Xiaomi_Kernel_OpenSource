@@ -28,6 +28,9 @@
 		bcl@4200 {
 			qcom,inhibit-derating-ua = <0>;
 		};
+		pmi8994_charger: qcom,qpnp-smbcharger {
+			qcom,fastchg-current-comp = <1500>;
+		};
 	};
 };
 

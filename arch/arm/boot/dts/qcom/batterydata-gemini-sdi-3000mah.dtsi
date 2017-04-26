@@ -1,0 +1,47 @@
+qcom,a1_sdi_3000mah {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3000>;
+	qcom,batt-id-kohm = <30>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "a1_sdi";
+	qcom,chg-rslow-comp-c1 = <2867219>;
+	qcom,chg-rslow-comp-c2 = <3697420>;
+	qcom,chg-rs-to-rslow = <1176226>;
+	qcom,chg-rslow-comp-thr = <0x9C>;
+	qcom,checksum = <0x3BD6>;
+	qcom,gui-version = "PMI8994GUI - 2.1.6.9";
+	qcom,fg-profile-data = [
+		 E3 83 E3 7C
+		 1B 81 50 77
+		 5A 83 A8 65
+		 2F 83 2F 8E
+		 1A 82 3D 9A
+		 49 BD 25 CA
+		 58 0E FD 83
+		 6E 7D 73 81
+		 E5 77 4B 83
+		 A1 71 BA 6C
+		 60 7C 7C 82
+		 13 98 D8 B5
+		 5B C1 58 0D
+		 C4 0B AE 5A
+		 14 70 B2 FD
+		 1E 2D D2 3F
+		 00 00 00 00
+		 5A 46 0A 31
+		 1E 2A 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 26 71 14 70
+		 F6 76 E3 81
+		 66 76 F6 6A
+		 E9 6C 78 73
+		 48 74 E0 63
+		 0E 60 0A A3
+		 21 5D 62 CA
+		 64 A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

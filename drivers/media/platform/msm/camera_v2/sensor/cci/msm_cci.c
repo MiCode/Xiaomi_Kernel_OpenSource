@@ -1367,11 +1367,6 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 	cci_dev->payload_size =
 			MSM_CCI_WRITE_DATA_PAYLOAD_SIZE_10;
 	cci_dev->support_seq_write = 0;
-	if (cci_dev->hw_version >= 0x10020000) {
-		cci_dev->payload_size =
-			MSM_CCI_WRITE_DATA_PAYLOAD_SIZE_11;
-		cci_dev->support_seq_write = 1;
-	}
 	cci_dev->cci_master_info[MASTER_0].reset_pending = TRUE;
 	msm_camera_io_w_mb(CCI_RESET_CMD_RMSK, cci_dev->base +
 			CCI_RESET_CMD_ADDR);

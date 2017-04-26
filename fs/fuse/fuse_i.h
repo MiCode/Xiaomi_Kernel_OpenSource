@@ -608,6 +608,9 @@ struct fuse_conn {
 
 	/** Read/write semaphore to hold when accessing sb. */
 	struct rw_semaphore killsb;
+
+	/** Reserved size */
+	unsigned reserved;
 };
 
 static inline struct fuse_conn *get_fuse_conn_super(struct super_block *sb)

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2241,6 +2242,8 @@ inval_ch_mod:
 	return rc;
 }
 
+#define ADM_COPP_SPEAKER_MONO_PROTECT_TOPO 0x1000ffe8
+
 int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 	     int perf_mode, uint16_t bit_width, int app_type, int acdb_id)
 {
@@ -2259,6 +2262,11 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 		bit_width = 24;
 		pr_debug("%s: Force open adm in 24-bit for DTS HPX topology 0x%x\n",
 			__func__, topology);
+	}
+	if (topology == ADM_COPP_SPEAKER_MONO_PROTECT_TOPO) {
+		bit_width = 24;
+		rate = 48000;
+		pr_debug("%s: SP topology 0x%x is used. \n",  __func__, topology);
 	}
 	port_id = q6audio_convert_virtual_to_portid(port_id);
 	port_idx = adm_validate_and_get_port_index(port_id);

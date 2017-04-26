@@ -1,0 +1,47 @@
+qcom,natrium_atl_3840mah {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3800>;
+	qcom,batt-id-kohm = <68>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "b7_atl";
+	qcom,chg-rslow-comp-c1 = <3335618>;
+	qcom,chg-rslow-comp-c2 = <4971651>;
+	qcom,chg-rs-to-rslow = <1218506>;
+	qcom,chg-rslow-comp-thr = <0xA9>;
+	qcom,checksum = <0x03C6>;
+	qcom,gui-version = "PMI8996GUI - 1.1.0.0";
+	qcom,fg-profile-data = [
+		 EE 83 67 7D
+		 95 81 23 7C
+		 58 83 2E 64
+		 17 82 E3 8C
+		 19 82 96 9A
+		 EB BD 4C CB
+		 5B 0E 09 88
+		 23 7E 04 82
+		 7A 7C 56 83
+		 11 68 BD 7B
+		 2E 8C 4C 82
+		 C9 99 23 BD
+		 2E CA 5A 0D
+		 E2 0E EA 59
+		 14 70 0E FD
+		 89 3C 2D 46
+		 72 42 00 00
+		 31 4C 75 18
+		 0B 48 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 3F 71 4A 70
+		 44 66 85 88
+		 48 76 93 6B
+		 A4 5E E7 7B
+		 2E 74 4E 68
+		 57 4F 9C A2
+		 23 88 62 E3
+		 64 A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

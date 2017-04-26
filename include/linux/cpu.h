@@ -297,4 +297,6 @@ void idle_notifier_register(struct notifier_block *n);
 void idle_notifier_unregister(struct notifier_block *n);
 void idle_notifier_call_chain(unsigned long val);
 
+int get_cpu_maxfreq(void);
+
 #endif /* _LINUX_CPU_H_ */

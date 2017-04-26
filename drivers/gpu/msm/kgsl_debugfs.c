@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2008-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2008-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -144,12 +144,12 @@ static int print_mem_entry(int id, void *ptr, void *data)
 
 	kgsl_get_memory_usage(usage, sizeof(usage), m->flags);
 
-	seq_printf(s, "%pK %pK %16llu %5d %8s %10s %16s %5d",
+	seq_printf(s, "%pK %pK %16llu %5d %8s %10s %16s %5d %16llu",
 			(uint64_t *)(uintptr_t) m->gpuaddr,
 			(unsigned long *) m->useraddr,
 			m->size, entry->id, flags,
 			memtype_str(kgsl_memdesc_usermem_type(m)),
-			usage, m->sgt->nents);
+			usage, m->sgt->nents, m->mapsize);
 
 	if (entry->metadata[0] != 0)
 		seq_printf(s, " %s", entry->metadata);
@@ -163,9 +163,9 @@ static int process_mem_print(struct seq_file *s, void *unused)
 {
 	struct kgsl_process_private *private = s->private;
 
-	seq_printf(s, "%8s %8s %8s %5s %8s %10s %16s %5s\n",
+	seq_printf(s, "%16s %16s %16s %5s %8s %10s %16s %5s %16s\n",
 		   "gpuaddr", "useraddr", "size", "id", "flags", "type",
-		   "usage", "sglen");
+		   "usage", "sglen", "mapsize");
 
 	spin_lock(&private->mem_lock);
 	idr_for_each(&private->mem_idr, print_mem_entry, s);
@@ -252,6 +252,24 @@ void kgsl_process_init_debugfs(struct kgsl_process_private *private)
 			"Unable to create 'mem' file for %s\n", name);
 }
 
+extern int kgsl_pool_info(char *buf);
+
+static ssize_t kgsl_pool_read(struct file *fp, char __user *user_buf,
+					size_t count, loff_t *ppos)
+{
+	char buf[1000];
+	unsigned int len;
+
+	memset(buf, 0, 1000);
+	len = kgsl_pool_info(buf);
+	return simple_read_from_buffer(user_buf, count, ppos, buf, len);
+}
+
+static const struct file_operations kgsl_pool_fops = {
+	.read = kgsl_pool_read,
+};
+
+
 void kgsl_core_debugfs_init(void)
 {
 	struct dentry *debug_dir;
@@ -259,6 +277,8 @@ void kgsl_core_debugfs_init(void)
 	kgsl_debugfs_dir = debugfs_create_dir("kgsl", NULL);
 
 	debug_dir = debugfs_create_dir("debug", kgsl_debugfs_dir);
+
+	debugfs_create_file("mem_pool", 0644, kgsl_debugfs_dir, NULL, &kgsl_pool_fops);
 
 	debugfs_create_file("strict_memory", 0644, debug_dir, NULL,
 		&_strict_fops);

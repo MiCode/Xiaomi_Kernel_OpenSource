@@ -1,6 +1,7 @@
 /*
   FUSE: Filesystem in Userspace
   Copyright (C) 2001-2008  Miklos Szeredi <miklos@szeredi.hu>
+  Copyright (C) 2016 XiaoMi, Inc.
 
   This program can be distributed under the terms of the GNU GPL.
   See the file COPYING.
@@ -50,6 +51,7 @@ MODULE_PARM_DESC(max_user_congthresh,
 #define FUSE_SUPER_MAGIC 0x65735546
 
 #define FUSE_DEFAULT_BLKSIZE 512
+#define FUSE_DEFAULT_RESERVED (128 * 1024 * 1024)
 
 /** Maximum number of outstanding background requests */
 #define FUSE_DEFAULT_MAX_BACKGROUND 12
@@ -69,6 +71,7 @@ struct fuse_mount_data {
 	unsigned flags;
 	unsigned max_read;
 	unsigned blksize;
+	unsigned reserved;
 };
 
 struct fuse_forget_link *fuse_alloc_forget(void)
@@ -463,6 +466,7 @@ enum {
 	OPT_ALLOW_OTHER,
 	OPT_MAX_READ,
 	OPT_BLKSIZE,
+	OPT_RESERVED,
 	OPT_ERR
 };
 
@@ -475,6 +479,7 @@ static const match_table_t tokens = {
 	{OPT_ALLOW_OTHER,		"allow_other"},
 	{OPT_MAX_READ,			"max_read=%u"},
 	{OPT_BLKSIZE,			"blksize=%u"},
+	{OPT_RESERVED,			"reserved=%u"},
 	{OPT_ERR,			NULL}
 };
 
@@ -495,6 +500,7 @@ static int parse_fuse_opt(char *opt, struct fuse_mount_data *d, int is_bdev)
 	memset(d, 0, sizeof(struct fuse_mount_data));
 	d->max_read = ~0;
 	d->blksize = FUSE_DEFAULT_BLKSIZE;
+	d->reserved = FUSE_DEFAULT_RESERVED;
 
 	while ((p = strsep(&opt, ",")) != NULL) {
 		int token;
@@ -560,6 +566,12 @@ static int parse_fuse_opt(char *opt, struct fuse_mount_data *d, int is_bdev)
 			d->blksize = value;
 			break;
 
+		case OPT_RESERVED:
+			if (fuse_match_uint(&args[0], &uv))
+				return 0;
+			d->reserved = uv;
+			break;
+
 		default:
 			return 0;
 		}
@@ -587,6 +599,8 @@ static int fuse_show_options(struct seq_file *m, struct dentry *root)
 		seq_printf(m, ",max_read=%u", fc->max_read);
 	if (sb->s_bdev && sb->s_blocksize != FUSE_DEFAULT_BLKSIZE)
 		seq_printf(m, ",blksize=%lu", sb->s_blocksize);
+	if (fc->reserved != FUSE_DEFAULT_RESERVED)
+		seq_printf(m, ",reserved=%u", fc->reserved);
 	return 0;
 }
 
@@ -1074,6 +1088,7 @@ static int fuse_fill_super(struct super_block *sb, void *data, int silent)
 	fc->user_id = d.user_id;
 	fc->group_id = d.group_id;
 	fc->max_read = max_t(unsigned, 4096, d.max_read);
+	fc->reserved = d.reserved;
 
 	/* Used by get_root_inode() */
 	sb->s_fs_info = fc;

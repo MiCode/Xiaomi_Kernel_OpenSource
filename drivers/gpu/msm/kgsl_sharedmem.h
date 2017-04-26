@@ -290,6 +290,10 @@ static inline void kgsl_free_global(struct kgsl_device *device,
 	kgsl_sharedmem_free(memdesc);
 }
 
+int kgsl_heap_init(void);
+struct page *kgsl_heap_alloc(unsigned long size);
+void kgsl_heap_free(struct page *page);
+
 void kgsl_sharedmem_set_noretry(bool val);
 bool kgsl_sharedmem_get_noretry(void);
 

@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1259,7 +1260,7 @@ int diag_create_msg_mask_table_entry(struct diag_msg_mask_t *msg_mask,
 	msg_mask->ssid_last = range->ssid_last;
 	msg_mask->ssid_last_tools = range->ssid_last;
 	msg_mask->range = msg_mask->ssid_last - msg_mask->ssid_first + 1;
-	if (msg_mask->range < MAX_SSID_PER_RANGE)
+	if (msg_mask->range > MAX_SSID_PER_RANGE)
 		msg_mask->range = MAX_SSID_PER_RANGE;
 	msg_mask->range_tools = msg_mask->range;
 	mutex_init(&msg_mask->lock);
@@ -1778,6 +1779,15 @@ int diag_copy_to_user_msg_mask(char __user *buf, size_t count,
 	mask_info = (!info) ? &msg_mask : info->msg_mask;
 	if (!mask_info)
 		return -EIO;
+
+	mutex_lock(&driver->diag_maskclear_mutex);
+	if (driver->mask_clear) {
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"diag:%s: count = %zu\n", __func__, count);
+		mutex_unlock(&driver->diag_maskclear_mutex);
+		return -EIO;
+	}
+	mutex_unlock(&driver->diag_maskclear_mutex);
 
 	mutex_lock(&mask_info->lock);
 	mask = (struct diag_msg_mask_t *)(mask_info->ptr);

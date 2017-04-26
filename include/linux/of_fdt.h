@@ -3,6 +3,7 @@
  *
  * Copyright 2009 Benjamin Herrenschmidt, IBM Corp
  * benh@kernel.crashing.org
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -45,6 +46,9 @@ extern void *initial_boot_params;
 
 extern char __dtb_start[];
 extern char __dtb_end[];
+
+extern void early_init_dt_setup_pureason_arch(unsigned long pu_reason);
+extern void early_init_dt_setup_hwversion_arch(unsigned long hw_version);
 
 /* For scanning the flat device-tree at boot time */
 extern int of_scan_flat_dt(int (*it)(unsigned long node, const char *uname,

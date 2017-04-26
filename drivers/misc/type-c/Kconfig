@@ -1,0 +1,25 @@
+menu "Typec driver ic support"
+
+config TYPEC_DRIVER
+	tristate "typec driver support"
+	default n
+
+config TYPEC_PERICOM_30216A
+	tristate "typec pericom 30216a driver support"
+	depends on I2C
+	select TYPEC_DRIVER
+	default n
+
+config TYPEC_PERICOM_30216C
+	tristate "typec pericom 30216c driver support"
+	depends on I2C
+	select TYPEC_DRIVER
+	default n
+
+config TYPEC_TI_TUSB320
+	tristate "typec ti tusb320 driver support"
+	depends on I2C
+	select TYPEC_DRIVER
+	default n
+
+endmenu

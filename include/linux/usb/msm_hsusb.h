@@ -663,6 +663,7 @@ int msm_data_fifo_config(struct usb_ep *ep, phys_addr_t addr, u32 size,
 	u8 dst_pipe_idx);
 bool msm_dwc3_reset_ep_after_lpm(struct usb_gadget *gadget);
 int msm_dwc3_reset_dbm_ep(struct usb_ep *ep);
+int qusb_phy_run_dcd(struct usb_phy *phy);
 
 #else
 static inline int msm_data_fifo_config(struct usb_ep *ep, phys_addr_t addr,

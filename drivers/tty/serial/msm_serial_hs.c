@@ -5,6 +5,7 @@
  * Copyright (c) 2008 Google Inc.
  * Copyright (c) 2007-2016, The Linux Foundation. All rights reserved.
  * Modified: Nick Pelly <npelly@google.com>
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * All source code in this file is licensed under the following license
  * except where indicated.
@@ -2201,12 +2202,12 @@ void enable_wakeup_interrupt(struct msm_hs_port *msm_uport)
 		return;
 
 	if (!(msm_uport->wakeup.enabled)) {
-		enable_irq(msm_uport->wakeup.irq);
-		disable_irq(uport->irq);
 		spin_lock_irqsave(&uport->lock, flags);
 		msm_uport->wakeup.ignore = 1;
 		msm_uport->wakeup.enabled = true;
 		spin_unlock_irqrestore(&uport->lock, flags);
+		disable_irq(uport->irq);
+		enable_irq(msm_uport->wakeup.irq);
 	} else {
 		MSM_HS_WARN("%s:Wake up IRQ already enabled", __func__);
 	}
@@ -3708,7 +3709,7 @@ static void msm_hs_shutdown(struct uart_port *uport)
 			"%s: Client_Count 0\n", __func__);
 	}
 	msm_hs_unconfig_uart_gpios(uport);
-	MSM_HS_INFO("%s:UART port closed successfully\n", __func__);
+	MSM_HS_INFO("%s:UART port closed successfully (client_count set to 0)\n", __func__);
 }
 
 static void __exit msm_serial_hs_exit(void)

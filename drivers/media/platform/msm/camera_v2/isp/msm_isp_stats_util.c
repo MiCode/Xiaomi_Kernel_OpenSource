@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,7 +69,8 @@ static int msm_isp_stats_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 	pingpong_bit = (~(pingpong_status >> stats_pingpong_offset) & 0x1);
 
 	rc = vfe_dev->buf_mgr->ops->get_buf(vfe_dev->buf_mgr,
-			vfe_dev->pdev->id, bufq_handle, &buf);
+			vfe_dev->pdev->id, bufq_handle,
+			MSM_ISP_INVALID_BUF_INDEX, &buf);
 	if (rc == -EFAULT) {
 		msm_isp_halt_send_error(vfe_dev, ISP_EVENT_BUF_FATAL_ERROR);
 		return rc;
@@ -202,7 +204,7 @@ static int32_t msm_isp_stats_buf_divert(struct vfe_device *vfe_dev,
 	if (rc < 0) {
 		if (rc == -EFAULT)
 			msm_isp_halt_send_error(vfe_dev,
-					ISP_EVENT_BUF_FATAL_ERROR);
+					ISP_EVENT_PING_PONG_MISMATCH);
 		pr_err("stats_buf_divert: update put buf cnt fail\n");
 		return rc;
 	}
@@ -871,7 +873,8 @@ int msm_isp_update_stats_stream(struct vfe_device *vfe_dev, void *arg)
 
 	/*validate request*/
 	for (i = 0; i < update_cmd->num_streams; i++) {
-		update_info = &update_cmd->update_info[i];
+		update_info = (struct msm_vfe_axi_stream_cfg_update_info *)
+				&update_cmd->update_info[i];
 		/*check array reference bounds*/
 		if (STATS_IDX(update_info->stream_handle)
 			> vfe_dev->hw_info->stats_hw_info->num_stats_type) {
@@ -882,7 +885,8 @@ int msm_isp_update_stats_stream(struct vfe_device *vfe_dev, void *arg)
 	}
 
 	for (i = 0; i < update_cmd->num_streams; i++) {
-		update_info = &update_cmd->update_info[i];
+		update_info = (struct msm_vfe_axi_stream_cfg_update_info *)
+				&update_cmd->update_info[i];
 		stream_info = &stats_data->stream_info[
 				STATS_IDX(update_info->stream_handle)];
 		if (stream_info->stream_handle !=

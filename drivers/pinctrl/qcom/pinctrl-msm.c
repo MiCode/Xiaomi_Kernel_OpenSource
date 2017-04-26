@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2013, Sony Mobile Communications AB.
  * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +34,8 @@
 #include "../pinconf.h"
 #include "pinctrl-msm.h"
 #include "../pinctrl-utils.h"
+#include <linux/wakeup_reason.h>
+#include <linux/syscore_ops.h>
 
 #define MAX_NR_GPIO 300
 #define PS_HOLD_OFFSET 0x820
@@ -794,6 +797,64 @@ static struct irq_chip msm_gpio_irq_chip = {
 	.irq_set_wake   = msm_gpio_irq_set_wake,
 };
 
+static struct irq_desc *gpio_irq_desc;
+static unsigned int gpio_irq;
+extern int msm_show_resume_irq_mask;
+#ifdef CONFIG_PM
+static int msm_pinctrl_suspend(void)
+{
+	return 0;
+}
+
+static void show_resume_gpio_irq(unsigned int irq, struct irq_desc *desc)
+{
+	struct gpio_chip *gc = irq_desc_get_handler_data(desc);
+	const struct msm_pingroup *g;
+	struct msm_pinctrl *pctrl = to_msm_pinctrl(gc);
+	struct irq_chip *chip = irq_get_chip(irq);
+	int irq_pin;
+	u32 val;
+	int i;
+
+	if (!msm_show_resume_irq_mask)
+		return;
+
+	chained_irq_enter(chip, desc);
+
+	/*
+	 * Each pin has it's own IRQ status register, so use
+	 * enabled_irq bitmap to limit the number of reads.
+	 */
+	for_each_set_bit(i, pctrl->enabled_irqs, pctrl->chip.ngpio) {
+		g = &pctrl->soc->groups[i];
+		val = readl(pctrl->regs + g->intr_status_reg);
+		if (val & BIT(g->intr_status_bit)) {
+			irq_pin = irq_find_mapping(gc->irqdomain, i);
+			log_wakeup_reason(irq_pin);
+		}
+	}
+
+	chained_irq_exit(chip, desc);
+}
+
+static void msm_pinctrl_resume(void)
+{
+	show_resume_gpio_irq(gpio_irq, gpio_irq_desc);
+}
+
+static struct syscore_ops msm_pinctrl_syscore_ops = {
+	.suspend = msm_pinctrl_suspend,
+	.resume = msm_pinctrl_resume,
+};
+
+static int __init msm_pinctrl_init_sys(void)
+{
+	register_syscore_ops(&msm_pinctrl_syscore_ops);
+	return 0;
+}
+arch_initcall(msm_pinctrl_init_sys);
+#endif
+
 static void msm_gpio_irq_handler(unsigned int irq, struct irq_desc *desc)
 {
 	struct gpio_chip *gc = irq_desc_get_handler_data(desc);
@@ -805,6 +866,10 @@ static void msm_gpio_irq_handler(unsigned int irq, struct irq_desc *desc)
 	u32 val;
 	int i;
 
+	if (msm_show_resume_irq_mask) {
+		gpio_irq_desc = desc;
+		gpio_irq = irq;
+	}
 	chained_irq_enter(chip, desc);
 
 	/*

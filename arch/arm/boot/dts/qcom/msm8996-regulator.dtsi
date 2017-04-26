@@ -134,8 +134,8 @@
 		status = "okay";
 		pm8994_l3: regulator-l3 {
 			regulator-min-microvolt = <850000>;
-			regulator-max-microvolt = <850000>;
-			qcom,init-voltage = <850000>;
+			regulator-max-microvolt = <1300000>;
+			qcom,init-voltage = <1300000>;
 			status = "okay";
 		};
 	};
@@ -153,9 +153,9 @@
 	rpm-regulator-ldoa6 {
 		status = "okay";
 		pm8994_l6: regulator-l6 {
-			regulator-min-microvolt = <1200000>;
-			regulator-max-microvolt = <1200000>;
-			qcom,init-voltage = <1200000>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
 			status = "okay";
 		};
 	};
@@ -323,9 +323,9 @@
 	rpm-regulator-ldoa22 {
 		status = "okay";
 		pm8994_l22: regulator-l22 {
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			qcom,init-voltage = <3300000>;
+			regulator-min-microvolt = <2950000>;
+			regulator-max-microvolt = <3500000>;
+			qcom,init-voltage = <3000000>;
 			status = "okay";
 		};
 	};
@@ -389,9 +389,9 @@
 	rpm-regulator-ldoa27 {
 		status = "okay";
 		pm8994_l27: regulator-l27 {
-			regulator-min-microvolt = <1000000>;
-			regulator-max-microvolt = <1000000>;
-			qcom,init-voltage = <1000000>;
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			qcom,init-voltage = <1200000>;
 			status = "okay";
 		};
 	};
@@ -1612,6 +1612,23 @@
 		startup-delay-us = <4000>;
 		enable-active-high;
 		gpio = <&pm8994_gpios 9 0>;
+	};
+
+	disp_vddts_vreg: disp_vddts_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "disp_vddts_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&tlmm 73 0>;
+	};
+
+	disp_vddr_vreg: disp_vddr_vreg1_6 {
+		compatible = "regulator-fixed";
+		regulator-name = "disp_vddr_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		regulator-boot-on;
+		gpio = <&tlmm 40 0>;
 	};
 };
 

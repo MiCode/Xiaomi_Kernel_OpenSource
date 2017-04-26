@@ -1,0 +1,10 @@
+config NFC_PN548
+	tristate "NXP PN548 NFC driver"
+	default n
+	---help---
+	  NXP PN548 core driver.
+
+	  To compile this driver as a module, choose m here. The module will
+	  be called pn548.
+	  Say N if unsure.
+

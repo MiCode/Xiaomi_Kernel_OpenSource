@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1760,8 +1761,7 @@ static const struct msm_pingroup msm8996_groups[] = {
 		 NA, NA),
 	PINGROUP(49, uim3, blsp_spi9, blsp_uart9, blsp_uim9, blsp10_spi,
 		 dac_calib8, NA, NA, NA),
-	PINGROUP(50, uim3, blsp_spi9, blsp_uart9, blsp_uim9, blsp10_spi,
-		 dac_calib9, NA, NA, NA),
+	PINGROUP(50, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(51, uim3, blsp_spi9, blsp_uart9, blsp_i2c9, blsp10_spi,
 		 dac_calib10, NA, NA, NA),
 	PINGROUP(52, uim3, blsp_spi9, blsp_uart9, blsp_i2c9,
@@ -1815,13 +1815,10 @@ static const struct msm_pingroup msm8996_groups[] = {
 	PINGROUP(78, ter_mi2s, gcc_gp1_clk_b, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(79, sec_mi2s, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(80, sec_mi2s, NA, NA, NA, NA, NA, NA, NA, NA),
-	PINGROUP(81, sec_mi2s, blsp_spi5, blsp_uart5, blsp_uim5, gcc_gp2_clk_b,
-		 NA, NA, NA, NA),
-	PINGROUP(82, sec_mi2s, blsp_spi5, blsp_uart5, blsp_uim5, gcc_gp3_clk_b,
-		 NA, NA, NA, NA),
-	PINGROUP(83, sec_mi2s, blsp_spi5, blsp_uart5, blsp_i2c5, NA, NA, NA,
-		 NA, NA),
-	PINGROUP(84, blsp_spi5, blsp_uart5, blsp_i2c5, NA, NA, NA, NA, NA, NA),
+	PINGROUP(81, sec_mi2s, NA, NA, NA, NA, NA, NA, NA, NA),
+	PINGROUP(82, sec_mi2s, NA, NA, NA, NA, NA, NA, NA, NA),
+	PINGROUP(83, sec_mi2s, NA, NA, NA, NA, NA, NA, NA, NA),
+	PINGROUP(84, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(85, blsp_spi12, blsp_uart12, blsp_uim12, NA, qdss_stm25,
 		 qdss_tracedata_a, NA, NA, NA),
 	PINGROUP(86, blsp_spi12, blsp_uart12, blsp_uim12, NA, NA, qdss_stm31,

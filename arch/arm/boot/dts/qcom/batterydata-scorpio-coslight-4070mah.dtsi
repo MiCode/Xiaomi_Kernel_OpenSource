@@ -1,0 +1,47 @@
+qcom,scorpio_coslight {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <4070>;
+	qcom,batt-id-kohm = <100>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "a4_coslight";
+	qcom,chg-rslow-comp-c1 = <4083487>;
+	qcom,chg-rslow-comp-c2 = <7999330>;
+	qcom,chg-rs-to-rslow = <945560>;
+	qcom,chg-rslow-comp-thr = <0xBE>;
+	qcom,checksum = <0xB14D>;
+	qcom,gui-version = "PMI8996GUI - 1.1.0.4";
+	qcom,fg-profile-data = [
+		 F3 83 8B 7D
+		 A4 81 26 7C
+		 59 83 BF 5E
+		 EE 81 E9 8C
+		 17 82 C7 9A
+		 20 BE 88 CB
+		 5A 0E 04 88
+		 D2 7D B9 81
+		 22 7C 50 83
+		 77 70 13 6A
+		 0A 84 54 82
+		 31 99 38 BC
+		 9B C8 58 0F
+		 20 10 1D 59
+		 14 70 EE FC
+		 DB 3F 99 45
+		 3A 42 00 00
+		 89 47 37 40
+		 3E 2D 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 36 70 F1 6A
+		 0D 60 8A 89
+		 78 76 6B 70
+		 E1 6D 90 78
+		 05 74 29 69
+		 DA 5B 68 A2
+		 29 91 61 6B
+		 5F A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

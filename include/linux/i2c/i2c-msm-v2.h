@@ -563,6 +563,7 @@ struct i2c_msm_xfer {
 	struct i2c_msm_prof_event  event[I2C_MSM_PROF_MAX_EVNTS];
 	atomic_t                   event_cnt;
 	atomic_t                   is_active;
+	atomic_t                   runtime_sync;
 	struct mutex               mtx;
 	struct i2c_msm_xfer_mode_fifo	fifo;
 	struct i2c_msm_xfer_mode_blk	blk;
