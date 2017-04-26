@@ -187,7 +187,7 @@ static void root_service_clnt_notify(struct qmi_handle *handle,
 
 	switch (event) {
 	case QMI_RECV_MSG:
-		queue_work(data->svc_event_wq, &data->svc_rcv_msg);
+		schedule_work(&data->svc_rcv_msg);
 		break;
 	default:
 		break;
