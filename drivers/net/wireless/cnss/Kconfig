@@ -29,6 +29,15 @@ config CNSS_PCI
 	 restart framework, power on WLAN chip and registered the WLAN module
 	 as a PCIe client device.
 
+config CNSS_ASYNC
+	bool "Enable/disable cnss pci platform driver asynchronous probe"
+	depends on CNSS_PCI
+	---help---
+	 If enabled, CNSS PCI platform driver would do asynchronous probe.
+	 Using asynchronous probe will allow CNSS PCI platform driver to
+	 probe in parallel with other device drivers and will help to
+	 reduce kernel boot time.
+
 config CNSS_MAC_BUG
 	bool "Enable/disable 0-4K memory initialization for QCA6174"
 	depends on CNSS
