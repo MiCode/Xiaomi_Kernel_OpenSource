@@ -803,11 +803,23 @@ static const char *kgsl_syncsource_driver_name(struct fence *fence)
 	return "kgsl-syncsource-timeline";
 }
 
+static void kgsl_syncsource_fence_value_str(struct fence *fence,
+						char *str, int size)
+{
+	/*
+	 * Each fence is independent of the others on the same timeline.
+	 * We use a different context for each of them.
+	 */
+	snprintf(str, size, "%llu", fence->context);
+}
+
 static const struct fence_ops kgsl_syncsource_fence_ops = {
 	.get_driver_name = kgsl_syncsource_driver_name,
 	.get_timeline_name = kgsl_syncsource_get_timeline_name,
 	.enable_signaling = kgsl_syncsource_enable_signaling,
 	.wait = fence_default_wait,
 	.release = kgsl_syncsource_fence_release,
+
+	.fence_value_str = kgsl_syncsource_fence_value_str,
 };
 
