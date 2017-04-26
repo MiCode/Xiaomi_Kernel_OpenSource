@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,19 +10,13 @@
  * GNU General Public License for more details.
  */
 
-#include "msm8998.dtsi"
+/dts-v1/;
+
+#include "apq8098.dtsi"
+#include "msm8998-cdp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. APQ 8998";
-	qcom,msm-id = <319 0x10000>;
-};
-
-&soc {
-	qcom,rmnet-ipa {
-		status = "disabled";
-	};
-};
-
-&ipa_hw {
-	status = "disabled";
+	model = "Qualcomm Technologies, Inc. APQ 8098 CDP";
+	compatible = "qcom,apq8098-cdp", "qcom,apq8098", "qcom,cdp";
+	qcom,board-id = <1 0>;
 };

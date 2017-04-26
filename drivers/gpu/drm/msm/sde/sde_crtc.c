@@ -51,6 +51,9 @@
 #define LEFT_MIXER 0
 #define RIGHT_MIXER 1
 
+/* indicates pending page flip events */
+#define PENDING_FLIP   0x2
+
 static inline struct sde_kms *_sde_crtc_get_kms(struct drm_crtc *crtc)
 {
 	struct msm_drm_private *priv = crtc->dev->dev_private;
@@ -399,13 +402,18 @@ static void sde_crtc_vblank_cb(void *data)
 {
 	struct drm_crtc *crtc = (struct drm_crtc *)data;
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
+	unsigned pending;
 
+	pending = atomic_xchg(&sde_crtc->pending, 0);
 	/* keep statistics on vblank callback - with auto reset via debugfs */
 	if (ktime_equal(sde_crtc->vblank_cb_time, ktime_set(0, 0)))
 		sde_crtc->vblank_cb_time = ktime_get();
 	else
 		sde_crtc->vblank_cb_count++;
-	_sde_crtc_complete_flip(crtc, NULL);
+
+	if (pending & PENDING_FLIP)
+		_sde_crtc_complete_flip(crtc, NULL);
+
 	drm_crtc_handle_vblank(crtc);
 	DRM_DEBUG_VBL("crtc%d\n", crtc->base.id);
 	SDE_EVT32_IRQ(DRMID(crtc));
@@ -517,6 +525,28 @@ static void sde_crtc_frame_event_cb(void *data, u32 event)
 	fevent->crtc = crtc;
 	fevent->ts = ktime_get();
 	queue_kthread_work(&priv->disp_thread[pipe_id].worker, &fevent->work);
+}
+
+/**
+ *  sde_crtc_request_flip_cb - callback to request page_flip events
+ * Once the HW flush is complete , userspace must be notified of
+ * PAGE_FLIP completed event in the next vblank event.
+ * Using this callback, a hint is set to signal any callers waiting
+ * for a PAGE_FLIP complete event.
+ * This is called within the enc_spinlock.
+ * @data: Pointer to cb private data
+ */
+static void sde_crtc_request_flip_cb(void *data)
+{
+	struct drm_crtc *crtc = (struct drm_crtc *)data;
+	struct sde_crtc *sde_crtc;
+
+	if (!crtc) {
+		SDE_ERROR("invalid parameters\n");
+		return;
+	}
+	sde_crtc = to_sde_crtc(crtc);
+	atomic_or(PENDING_FLIP, &sde_crtc->pending);
 }
 
 void sde_crtc_complete_commit(struct drm_crtc *crtc,
@@ -679,7 +709,6 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 {
 	struct sde_crtc *sde_crtc;
 	struct drm_device *dev;
-	unsigned long flags;
 	u32 i;
 
 	if (!crtc) {
@@ -700,14 +729,6 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 
 	if (!sde_crtc->num_mixers)
 		_sde_crtc_setup_mixers(crtc);
-
-	if (sde_crtc->event) {
-		WARN_ON(sde_crtc->event);
-	} else {
-		spin_lock_irqsave(&dev->event_lock, flags);
-		sde_crtc->event = crtc->state->event;
-		spin_unlock_irqrestore(&dev->event_lock, flags);
-	}
 
 	/* Reset flush mask from previous commit */
 	for (i = 0; i < ARRAY_SIZE(sde_crtc->mixers); i++) {
@@ -763,7 +784,8 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	dev = crtc->dev;
 
 	if (sde_crtc->event) {
-		SDE_DEBUG("already received sde_crtc->event\n");
+		SDE_ERROR("%s already received sde_crtc->event\n",
+				  sde_crtc->name);
 	} else {
 		spin_lock_irqsave(&dev->event_lock, flags);
 		sde_crtc->event = crtc->state->event;
@@ -999,6 +1021,7 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 		if (encoder->crtc != crtc)
 			continue;
 		sde_encoder_register_frame_event_callback(encoder, NULL, NULL);
+		sde_encoder_register_request_flip_callback(encoder, NULL, NULL);
 	}
 
 	memset(sde_crtc->mixers, 0, sizeof(sde_crtc->mixers));
@@ -1039,6 +1062,8 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 			continue;
 		sde_encoder_register_frame_event_callback(encoder,
 				sde_crtc_frame_event_cb, (void *)crtc);
+		sde_encoder_register_request_flip_callback(encoder,
+				sde_crtc_request_flip_cb, (void *)crtc);
 	}
 
 	for (i = 0; i < sde_crtc->num_mixers; i++) {

@@ -25,9 +25,13 @@
 #include <drm/drm_crtc.h>
 #include "hdmi.h"
 
-#define MAX_NUMBER_ADB 5
-#define MAX_AUDIO_DATA_BLOCK_SIZE 30
-#define MAX_SPKR_ALLOC_DATA_BLOCK_SIZE 3
+#include "sde_edid_parser.h"
+
+#ifdef HDMI_DEBUG_ENABLE
+#define SDE_HDMI_DEBUG(fmt, args...)   SDE_ERROR(fmt, ##args)
+#else
+#define SDE_HDMI_DEBUG(fmt, args...)   SDE_DEBUG(fmt, ##args)
+#endif
 
 /**
  * struct sde_hdmi_info - defines hdmi display properties
@@ -64,14 +68,6 @@ struct sde_hdmi_ctrl {
 	u32 hdmi_ctrl_idx;
 };
 
-struct hdmi_edid_ctrl {
-	struct edid *edid;
-	u8 audio_data_block[MAX_NUMBER_ADB * MAX_AUDIO_DATA_BLOCK_SIZE];
-	int adb_size;
-	u8 spkr_alloc_data_block[MAX_SPKR_ALLOC_DATA_BLOCK_SIZE];
-	int sadb_size;
-};
-
 /**
  * struct sde_hdmi - hdmi display information
  * @pdev:             Pointer to platform device.
@@ -102,7 +98,7 @@ struct sde_hdmi {
 
 	struct platform_device *ext_pdev;
 	struct msm_ext_disp_init_data ext_audio_data;
-	struct hdmi_edid_ctrl edid;
+	struct sde_edid_ctrl *edid_ctrl;
 
 	bool non_pluggable;
 	u32 num_of_modes;
@@ -115,6 +111,38 @@ struct sde_hdmi {
 	/* DEBUG FS */
 	struct dentry *root;
 };
+
+/**
+ * hdmi_tx_scdc_access_type() - hdmi 2.0 DDC functionalities.
+ */
+enum hdmi_tx_scdc_access_type {
+	HDMI_TX_SCDC_SCRAMBLING_STATUS,
+	HDMI_TX_SCDC_SCRAMBLING_ENABLE,
+	HDMI_TX_SCDC_TMDS_BIT_CLOCK_RATIO_UPDATE,
+	HDMI_TX_SCDC_CLOCK_DET_STATUS,
+	HDMI_TX_SCDC_CH0_LOCK_STATUS,
+	HDMI_TX_SCDC_CH1_LOCK_STATUS,
+	HDMI_TX_SCDC_CH2_LOCK_STATUS,
+	HDMI_TX_SCDC_CH0_ERROR_COUNT,
+	HDMI_TX_SCDC_CH1_ERROR_COUNT,
+	HDMI_TX_SCDC_CH2_ERROR_COUNT,
+	HDMI_TX_SCDC_READ_ENABLE,
+	HDMI_TX_SCDC_MAX,
+};
+
+#define HDMI_KHZ_TO_HZ 1000
+#define HDMI_MHZ_TO_HZ 1000000
+/**
+ * hdmi_tx_ddc_timer_type() - hdmi DDC timer functionalities.
+ */
+enum hdmi_tx_ddc_timer_type {
+	HDMI_TX_DDC_TIMER_HDCP2P2_RD_MSG,
+	HDMI_TX_DDC_TIMER_SCRAMBLER_STATUS,
+	HDMI_TX_DDC_TIMER_UPDATE_FLAGS,
+	HDMI_TX_DDC_TIMER_STATUS_FLAGS,
+	HDMI_TX_DDC_TIMER_CED,
+	HDMI_TX_DDC_TIMER_MAX,
+	};
 
 #ifdef CONFIG_DRM_SDE_HDMI
 /**
@@ -259,6 +287,52 @@ struct drm_bridge *sde_hdmi_bridge_init(struct hdmi *hdmi);
 void sde_hdmi_set_mode(struct hdmi *hdmi, bool power_on);
 
 /**
+ * sde_hdmi_ddc_read() - common hdmi ddc read API.
+ * @hdmi:          Handle to the hdmi.
+ * @addr:          Command address.
+ * @offset:        Command offset.
+ * @data:          Data buffer for read back.
+ * @data_len:      Data buffer length.
+ *
+ * Return: error code.
+ */
+int sde_hdmi_ddc_read(struct hdmi *hdmi, u16 addr, u8 offset,
+					  u8 *data, u16 data_len);
+
+/**
+ * sde_hdmi_ddc_write() - common hdmi ddc write API.
+ * @hdmi:          Handle to the hdmi.
+ * @addr:          Command address.
+ * @offset:        Command offset.
+ * @data:          Data buffer for write.
+ * @data_len:      Data buffer length.
+ *
+ * Return: error code.
+ */
+int sde_hdmi_ddc_write(struct hdmi *hdmi, u16 addr, u8 offset,
+					   u8 *data, u16 data_len);
+
+/**
+ * sde_hdmi_scdc_read() - hdmi 2.0 ddc read API.
+ * @hdmi:          Handle to the hdmi.
+ * @data_type:     DDC data type, refer to enum hdmi_tx_scdc_access_type.
+ * @val:           Read back value.
+ *
+ * Return: error code.
+ */
+int sde_hdmi_scdc_read(struct hdmi *hdmi, u32 data_type, u32 *val);
+
+/**
+ * sde_hdmi_scdc_write() - hdmi 2.0 ddc write API.
+ * @hdmi:          Handle to the hdmi.
+ * @data_type:     DDC data type, refer to enum hdmi_tx_scdc_access_type.
+ * @val:           Value write through DDC.
+ *
+ * Return: error code.
+ */
+int sde_hdmi_scdc_write(struct hdmi *hdmi, u32 data_type, u32 val);
+
+/**
  * sde_hdmi_audio_on() - enable hdmi audio.
  * @hdmi:          Handle to the hdmi.
  * @params:        audio setup parameters from codec.
@@ -304,40 +378,6 @@ void sde_hdmi_notify_clients(struct drm_connector *connector,
  */
 void sde_hdmi_ack_state(struct drm_connector *connector,
 	enum drm_connector_status status);
-
-/**
- * sde_hdmi_edid_init() - init edid structure.
- * @display:     Handle to the sde_hdmi.
- *
- * Return: error code.
- */
-int sde_hdmi_edid_init(struct sde_hdmi *display);
-
-/**
- * sde_hdmi_edid_deinit() - deinit edid structure.
- * @display:     Handle to the sde_hdmi.
- *
- * Return: error code.
- */
-int sde_hdmi_edid_deinit(struct sde_hdmi *display);
-
-/**
- * sde_hdmi_get_edid() - get edid info.
- * @connector:   Handle to the drm_connector.
- * @display:     Handle to the sde_hdmi.
- *
- * Return: void.
- */
-void sde_hdmi_get_edid(struct drm_connector *connector,
-	struct sde_hdmi *display);
-
-/**
- * sde_hdmi_free_edid() - free edid structure.
- * @display:     Handle to the sde_hdmi.
- *
- * Return: error code.
- */
-int sde_hdmi_free_edid(struct sde_hdmi *display);
 
 #else /*#ifdef CONFIG_DRM_SDE_HDMI*/
 
