@@ -2459,7 +2459,7 @@ static int fastrpc_cb_probe(struct device *dev)
 		start = 0x60000000;
 	VERIFY(err, !IS_ERR_OR_NULL(sess->smmu.mapping =
 				arm_iommu_create_mapping(&platform_bus_type,
-						start, 0x7fffffff)));
+						start, 0x78000000)));
 	if (err)
 		goto bail;
 
