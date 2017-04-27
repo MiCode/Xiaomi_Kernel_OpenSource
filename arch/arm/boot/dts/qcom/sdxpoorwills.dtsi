@@ -10,9 +10,8 @@
  * GNU General Public License for more details.
  */
 
-
+#include <dt-bindings/soc/qcom,tcs-mbox.h>
 #include "skeleton.dtsi"
-
 #include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/clock/qcom,gcc-sdxpoorwills.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -414,6 +413,29 @@
 
 		/* GPIO output to mss */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
+	};
+
+	apps_rsc: mailbox@17840000 {
+		compatible = "qcom,tcs-drv";
+		label = "apps_rsc";
+		reg = <0x17840000 0x100>, <0x17840d00 0x3000>;
+		interrupts = <0 17 0>;
+		#mbox-cells = <1>;
+		qcom,drv-id = <1>;
+		qcom,tcs-config = <ACTIVE_TCS  2>,
+				<SLEEP_TCS     2>,
+				<WAKE_TCS      2>,
+				<CONTROL_TCS   1>;
+	};
+
+	cmd_db: qcom,cmd-db@ca0000c {
+		compatible = "qcom,cmd-db";
+		reg = <0xca0000c 8>;
+	};
+
+	system_pm {
+		compatible = "qcom,system-pm";
+		mboxes = <&apps_rsc 0>;
 	};
 };
 
