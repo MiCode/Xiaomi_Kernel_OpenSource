@@ -176,4 +176,16 @@
 		 */
 		iommus = <&mmss_smmu 42>;
 	};
+
+	iommu_coherent_test_device {
+		compatible = "iommu-debug-test";
+		/*
+		 * 43 shouldn't be used by anyone on the mmss_smmu.  We just
+		 * need _something_ here to get this node recognized by the
+		 * SMMU driver. Our test uses ATOS, which doesn't use SIDs
+		 * anyways, so using a dummy value is ok.
+		 */
+		iommus = <&mmss_smmu 43>;
+		dma-coherent;
+	};
 };
