@@ -151,19 +151,6 @@ static struct clk_branch video_cc_at_clk = {
 	},
 };
 
-static struct clk_branch video_cc_debug_clk = {
-	.halt_reg = 0xa58,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0xa58,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "video_cc_debug_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch video_cc_qdss_trig_clk = {
 	.halt_reg = 0x970,
 	.halt_check = BRANCH_HALT,
@@ -299,7 +286,6 @@ static struct clk_branch video_cc_venus_ctl_core_clk = {
 static struct clk_regmap *video_cc_sdm845_clocks[] = {
 	[VIDEO_CC_APB_CLK] = &video_cc_apb_clk.clkr,
 	[VIDEO_CC_AT_CLK] = &video_cc_at_clk.clkr,
-	[VIDEO_CC_DEBUG_CLK] = &video_cc_debug_clk.clkr,
 	[VIDEO_CC_QDSS_TRIG_CLK] = &video_cc_qdss_trig_clk.clkr,
 	[VIDEO_CC_QDSS_TSCTR_DIV8_CLK] = &video_cc_qdss_tsctr_div8_clk.clkr,
 	[VIDEO_CC_VCODEC0_AXI_CLK] = &video_cc_vcodec0_axi_clk.clkr,

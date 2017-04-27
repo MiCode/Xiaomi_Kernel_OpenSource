@@ -1115,19 +1115,6 @@ static struct clk_branch cam_cc_csiphy2_clk = {
 	},
 };
 
-static struct clk_branch cam_cc_debug_clk = {
-	.halt_reg = 0xc008,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0xc008,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "cam_cc_debug_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch cam_cc_fd_core_clk = {
 	.halt_reg = 0xb0c8,
 	.halt_check = BRANCH_HALT,
@@ -1764,7 +1751,6 @@ static struct clk_regmap *cam_cc_sdm845_clocks[] = {
 	[CAM_CC_CSIPHY0_CLK] = &cam_cc_csiphy0_clk.clkr,
 	[CAM_CC_CSIPHY1_CLK] = &cam_cc_csiphy1_clk.clkr,
 	[CAM_CC_CSIPHY2_CLK] = &cam_cc_csiphy2_clk.clkr,
-	[CAM_CC_DEBUG_CLK] = &cam_cc_debug_clk.clkr,
 	[CAM_CC_FAST_AHB_CLK_SRC] = &cam_cc_fast_ahb_clk_src.clkr,
 	[CAM_CC_FD_CORE_CLK] = &cam_cc_fd_core_clk.clkr,
 	[CAM_CC_FD_CORE_CLK_SRC] = &cam_cc_fd_core_clk_src.clkr,
