@@ -619,7 +619,7 @@ static int smb2_init_usb_psy(struct smb2 *chip)
 
 	usb_cfg.drv_data = chip;
 	usb_cfg.of_node = chg->dev->of_node;
-	chg->usb_psy = devm_power_supply_register(chg->dev,
+	chg->usb_psy = power_supply_register(chg->dev,
 						  &chg->usb_psy_desc,
 						  &usb_cfg);
 	if (IS_ERR(chg->usb_psy)) {
@@ -734,7 +734,7 @@ static int smb2_init_usb_main_psy(struct smb2 *chip)
 
 	usb_main_cfg.drv_data = chip;
 	usb_main_cfg.of_node = chg->dev->of_node;
-	chg->usb_main_psy = devm_power_supply_register(chg->dev,
+	chg->usb_main_psy = power_supply_register(chg->dev,
 						  &usb_main_psy_desc,
 						  &usb_main_cfg);
 	if (IS_ERR(chg->usb_main_psy)) {
@@ -836,7 +836,7 @@ static int smb2_init_dc_psy(struct smb2 *chip)
 
 	dc_cfg.drv_data = chip;
 	dc_cfg.of_node = chg->dev->of_node;
-	chg->dc_psy = devm_power_supply_register(chg->dev,
+	chg->dc_psy = power_supply_register(chg->dev,
 						  &dc_psy_desc,
 						  &dc_cfg);
 	if (IS_ERR(chg->dc_psy)) {
@@ -1090,7 +1090,7 @@ static int smb2_init_batt_psy(struct smb2 *chip)
 
 	batt_cfg.drv_data = chg;
 	batt_cfg.of_node = chg->dev->of_node;
-	chg->batt_psy = devm_power_supply_register(chg->dev,
+	chg->batt_psy = power_supply_register(chg->dev,
 						   &batt_psy_desc,
 						   &batt_cfg);
 	if (IS_ERR(chg->batt_psy)) {
@@ -2058,6 +2058,21 @@ static int smb2_request_interrupts(struct smb2 *chip)
 	return rc;
 }
 
+static void smb2_free_interrupts(struct smb_charger *chg)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(smb2_irqs); i++) {
+		if (smb2_irqs[i].irq > 0) {
+			if (smb2_irqs[i].wake)
+				disable_irq_wake(smb2_irqs[i].irq);
+
+			devm_free_irq(chg->dev, smb2_irqs[i].irq,
+					smb2_irqs[i].irq_data);
+		}
+	}
+}
+
 static void smb2_disable_interrupts(struct smb_charger *chg)
 {
 	int i;
@@ -2298,15 +2313,22 @@ static int smb2_probe(struct platform_device *pdev)
 	return rc;
 
 cleanup:
-	smblib_deinit(chg);
-	if (chg->usb_psy)
-		power_supply_unregister(chg->usb_psy);
+	smb2_free_interrupts(chg);
 	if (chg->batt_psy)
 		power_supply_unregister(chg->batt_psy);
+	if (chg->usb_main_psy)
+		power_supply_unregister(chg->usb_main_psy);
+	if (chg->usb_psy)
+		power_supply_unregister(chg->usb_psy);
+	if (chg->dc_psy)
+		power_supply_unregister(chg->dc_psy);
 	if (chg->vconn_vreg && chg->vconn_vreg->rdev)
-		regulator_unregister(chg->vconn_vreg->rdev);
+		devm_regulator_unregister(chg->dev, chg->vconn_vreg->rdev);
 	if (chg->vbus_vreg && chg->vbus_vreg->rdev)
-		regulator_unregister(chg->vbus_vreg->rdev);
+		devm_regulator_unregister(chg->dev, chg->vbus_vreg->rdev);
+
+	smblib_deinit(chg);
+
 	platform_set_drvdata(pdev, NULL);
 	return rc;
 }
