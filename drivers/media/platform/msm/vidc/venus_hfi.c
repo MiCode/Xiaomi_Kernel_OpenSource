@@ -1965,6 +1965,8 @@ static int venus_hfi_core_release(void *dev)
 	if (device->res->pm_qos_latency_us &&
 		pm_qos_request_active(&device->qos))
 		pm_qos_remove_request(&device->qos);
+
+	__resume(device);
 	__set_state(device, VENUS_STATE_DEINIT);
 	__unload_fw(device);
 
@@ -4054,6 +4056,8 @@ static void __unload_fw(struct venus_hfi_device *device)
 	__venus_power_off(device);
 	device->resources.fw.cookie = NULL;
 	__deinit_resources(device);
+
+	dprintk(VIDC_PROF, "Firmware unloaded successfully\n");
 }
 
 static int venus_hfi_get_fw_info(void *dev, struct hal_fw_info *fw_info)
