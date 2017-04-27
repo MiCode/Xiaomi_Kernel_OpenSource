@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,6 +47,8 @@ struct esoc_desc *devm_register_esoc_client(struct device *dev,
 
 	for (index = 0;; index++) {
 		esoc_prop = kasprintf(GFP_KERNEL, "esoc-%d", index);
+		if (IS_ERR_OR_NULL(esoc_prop))
+			return ERR_PTR(-ENOMEM);
 		parp = of_get_property(np, esoc_prop, NULL);
 		if (parp == NULL) {
 			dev_err(dev, "esoc device not present\n");
