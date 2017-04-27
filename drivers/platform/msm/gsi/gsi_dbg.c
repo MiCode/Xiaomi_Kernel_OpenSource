@@ -29,6 +29,7 @@
 
 static struct dentry *dent;
 static char dbg_buff[4096];
+static void *gsi_ipc_logbuf_low;
 
 static void gsi_wq_print_dp_stats(struct work_struct *work);
 static DECLARE_DELAYED_WORK(gsi_print_dp_stats_work, gsi_wq_print_dp_stats);
@@ -764,22 +765,20 @@ static ssize_t gsi_enable_ipc_low(struct file *file,
 	if (kstrtos8(dbg_buff, 0, &option))
 		return -EFAULT;
 
+	mutex_lock(&gsi_ctx->mlock);
 	if (option) {
-		if (!gsi_ctx->ipc_logbuf_low) {
-			gsi_ctx->ipc_logbuf_low =
+		if (!gsi_ipc_logbuf_low) {
+			gsi_ipc_logbuf_low =
 				ipc_log_context_create(GSI_IPC_LOG_PAGES,
 					"gsi_low", 0);
+			if (gsi_ipc_logbuf_low == NULL)
+				TERR("failed to get ipc_logbuf_low\n");
 		}
-
-		if (gsi_ctx->ipc_logbuf_low == NULL) {
-			TERR("failed to get ipc_logbuf_low\n");
-			return -EFAULT;
-		}
+		gsi_ctx->ipc_logbuf_low = gsi_ipc_logbuf_low;
 	} else {
-		if (gsi_ctx->ipc_logbuf_low)
-			ipc_log_context_destroy(gsi_ctx->ipc_logbuf_low);
 		gsi_ctx->ipc_logbuf_low = NULL;
 	}
+	mutex_unlock(&gsi_ctx->mlock);
 
 	return count;
 }
