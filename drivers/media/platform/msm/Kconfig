@@ -4,42 +4,42 @@ source "drivers/media/platform/msm/vidc/Kconfig"
 # MSM camera configuration
 #
 
-comment "Qualcomm MSM Camera And Video"
+comment "QTI MSM Camera And Video & AIS"
 
 menuconfig MSM_CAMERA
-	bool "Qualcomm MSM camera and video capture support"
+	bool "QTI MSM camera and video capture support"
 	depends on ARCH_MSM && VIDEO_V4L2 && I2C
 	---help---
 	  Say Y here to enable selecting the video adapters for
-	  Qualcomm msm camera and video capture drivers. enabling this
+	  QTI msm camera and video capture drivers. enabling this
 	  adds support for the camera driver stack including sensor, isp
 	  and postprocessing drivers for legacy chipsets.
 
 config MSM_CAMERA_DEBUG
-	bool "Qualcomm MSM camera debugging with printk"
+	bool "QTI MSM camera debugging with printk"
 	depends on MSM_CAMERA
 	default n
 	---help---
 	  Enable printk() debug for msm camera
 
 config MSM_CAMERA_AUTOMOTIVE
-	bool "Qualcomm MSM camera for automotive support"
+	bool "QTI MSM camera for automotive support"
 	depends on MSM_CAMERA
 	default n
 	---help---
 	  Enables support for automotive targets
 
 menuconfig MSMB_CAMERA
-	bool "Qualcomm MSM camera and video capture 2.0 support"
+	bool "QTI MSM camera and video capture 2.0 support"
 	depends on ARCH_MSM && VIDEO_V4L2 && I2C
 	---help---
 	  Say Y here to enable selecting the video adapters for
-	  Qualcomm msm camera and video capture 2.0, enabling this
+	  QTI msm camera and video capture 2.0, enabling this
 	  adds support for the camera driver stack including sensor, isp
 	  and postprocessing drivers.
 
 config MSMB_CAMERA_DEBUG
-	bool "Qualcomm MSM camera 2.0 debugging with printk"
+	bool "QTI MSM camera 2.0 debugging with printk"
 	depends on MSMB_CAMERA
 	---help---
 	  Enable printk() debug for msm camera 2.0
@@ -47,6 +47,8 @@ config MSMB_CAMERA_DEBUG
 if MSMB_CAMERA
 source "drivers/media/platform/msm/camera_v2/Kconfig"
 endif # MSMB_CAMERA
+
+source "drivers/media/platform/msm/ais/Kconfig"
 source "drivers/media/platform/msm/dvb/Kconfig"
 source "drivers/media/platform/msm/broadcast/Kconfig"
 source "drivers/media/platform/msm/sde/Kconfig"
