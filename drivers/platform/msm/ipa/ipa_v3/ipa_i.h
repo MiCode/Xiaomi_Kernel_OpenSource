@@ -1246,7 +1246,9 @@ struct ipa3_plat_drv_res {
  * Order and type of members should not be changed without a suitable change
  * to DTS file or the code that reads it.
  *
- * IPA v3.0 SRAM memory layout:
+ * IPA SRAM memory layout:
+ * +-------------------------+
+ * |    UC MEM               |
  * +-------------------------+
  * |    UC INFO              |
  * +-------------------------+
@@ -1314,9 +1316,13 @@ struct ipa3_plat_drv_res {
  * +-------------------------+
  * |    CANARY               |
  * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
  * |  MODEM MEM              |
  * +-------------------------+
  * |    CANARY               |
+ * +-------------------------+
+ * |  UC EVENT RING          | From IPA 3.5
  * +-------------------------+
  */
 struct ipa3_mem_partition {
