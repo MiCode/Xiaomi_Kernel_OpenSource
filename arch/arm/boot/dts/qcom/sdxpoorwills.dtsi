@@ -12,6 +12,7 @@
 
 
 #include "skeleton.dtsi"
+#include <dt-bindings/clock/qcom,gcc-sdxpoorwills.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SDX POORWILLS";
@@ -133,6 +134,18 @@
 			reg = <0x17829000 0x1000>;
 			status = "disabled";
 		};
+	};
+
+	clock_gcc: qcom,gcc@100000 {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gcc_clocks";
+		#clock-cells = <1>;
+	};
+
+	clock_cpu: qcom,clock-a7@17810008 {
+		compatible = "qcom,dummycc";
+		clock-output-names = "cpu_clocks";
+		#clock-cells = <1>;
 	};
 
 	blsp1_uart2: serial@831000 {
