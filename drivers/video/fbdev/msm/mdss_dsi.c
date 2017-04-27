@@ -4364,6 +4364,9 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 		return rc;
 	}
 
+	/* default state of gpio is false */
+	ctrl_pdata->bklt_en_gpio_state = false;
+
 	pinfo->panel_max_fps = mdss_panel_get_framerate(pinfo);
 	pinfo->panel_max_vtotal = mdss_panel_get_vtotal(pinfo);
 
