@@ -30,6 +30,7 @@
 #define SDE_EVTLOG_DEFAULT_PANIC 1
 #define SDE_EVTLOG_DEFAULT_REGDUMP SDE_ROT_DBG_DUMP_IN_MEM
 #define SDE_EVTLOG_DEFAULT_VBIF_DBGBUSDUMP SDE_ROT_DBG_DUMP_IN_MEM
+#define SDE_EVTLOG_DEFAULT_ROT_DBGBUSDUMP SDE_ROT_DBG_DUMP_IN_MEM
 
 /*
  * evtlog will print this number of entries when it is called through
@@ -52,6 +53,8 @@
 #define SDE_ROT_DEFAULT_BASE_REG_CNT 0x100
 #define GROUP_BYTES 4
 #define ROW_BYTES 16
+
+#define SDE_ROT_TEST_MASK(id, tp)	((id << 4) | (tp << 1) | BIT(0))
 
 static DEFINE_SPINLOCK(sde_rot_xlock);
 
@@ -86,11 +89,14 @@ struct tlog {
  * @panic_on_err - boolean indicates issue panic after EVTLOG dump
  * @enable_reg_dump - control in-log/memory dump for rotator registers
  * @enable_vbif_dbgbus_dump - control in-log/memory dump for VBIF debug bus
+ * @enable_rot_dbgbus_dump - control in-log/memroy dump for rotator debug bus
  * @evtlog_dump_work - schedule work strucutre for timeout handler
  * @work_dump_reg - storage for register dump control in schedule work
  * @work_panic - storage for panic control in schedule work
  * @work_vbif_dbgbus - storage for VBIF debug bus control in schedule work
+ * @work_rot_dbgbus - storage for rotator debug bus control in schedule work
  * @nrt_vbif_dbgbus_dump - memory buffer for VBIF debug bus dumping
+ * @rot_dbgbus_dump - memory buffer for rotator debug bus dumping
  * @reg_dump_array - memory buffer for rotator registers dumping
  */
 struct sde_rot_dbg_evtlog {
@@ -103,13 +109,87 @@ struct sde_rot_dbg_evtlog {
 	u32 panic_on_err;
 	u32 enable_reg_dump;
 	u32 enable_vbif_dbgbus_dump;
+	u32 enable_rot_dbgbus_dump;
 	struct work_struct evtlog_dump_work;
 	bool work_dump_reg;
 	bool work_panic;
 	bool work_vbif_dbgbus;
+	bool work_rot_dbgbus;
 	u32 *nrt_vbif_dbgbus_dump; /* address for the nrt vbif debug bus dump */
+	u32 *rot_dbgbus_dump;
 	u32 *reg_dump_array[SDE_ROT_DEBUG_BASE_MAX];
 } sde_rot_dbg_evtlog;
+
+static void sde_rot_dump_debug_bus(u32 bus_dump_flag, u32 **dump_mem)
+{
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+	bool in_log, in_mem;
+	u32 *dump_addr = NULL;
+	u32 status = 0;
+	struct sde_rot_debug_bus *head;
+	phys_addr_t phys = 0;
+	int i;
+	u32 offset;
+	void __iomem *base;
+
+	in_log = (bus_dump_flag & SDE_ROT_DBG_DUMP_IN_LOG);
+	in_mem = (bus_dump_flag & SDE_ROT_DBG_DUMP_IN_MEM);
+	base = mdata->sde_io.base;
+
+	if (!base || !mdata->rot_dbg_bus || !mdata->rot_dbg_bus_size)
+		return;
+
+	pr_info("======== SDE Rotator Debug bus DUMP =========\n");
+
+	if (in_mem) {
+		if (!(*dump_mem))
+			*dump_mem = dma_alloc_coherent(&mdata->pdev->dev,
+				mdata->rot_dbg_bus_size * 4 * sizeof(u32),
+				&phys, GFP_KERNEL);
+
+		if (*dump_mem) {
+			dump_addr = *dump_mem;
+			pr_info("%s: start_addr:0x%pK end_addr:0x%pK\n",
+				__func__, dump_addr,
+				dump_addr + (u32)mdata->rot_dbg_bus_size * 16);
+		} else {
+			in_mem = false;
+			pr_err("dump_mem: allocation fails\n");
+		}
+	}
+
+	sde_smmu_ctrl(1);
+
+	for (i = 0; i < mdata->rot_dbg_bus_size; i++) {
+		head = mdata->rot_dbg_bus + i;
+		writel_relaxed(SDE_ROT_TEST_MASK(head->block_id, head->test_id),
+				base + head->wr_addr);
+		wmb(); /* make sure test bits were written */
+
+		offset = head->wr_addr + 0x4;
+
+		status = readl_relaxed(base + offset);
+
+		if (in_log)
+			pr_err("waddr=0x%x blk=%d tst=%d val=0x%x\n",
+				head->wr_addr, head->block_id, head->test_id,
+				status);
+
+		if (dump_addr && in_mem) {
+			dump_addr[i*4]     = head->wr_addr;
+			dump_addr[i*4 + 1] = head->block_id;
+			dump_addr[i*4 + 2] = head->test_id;
+			dump_addr[i*4 + 3] = status;
+		}
+
+		/* Disable debug bus once we are done */
+		writel_relaxed(0, base + head->wr_addr);
+	}
+
+	sde_smmu_ctrl(0);
+
+	pr_info("========End Debug bus=========\n");
+}
 
 /*
  * sde_rot_evtlog_is_enabled - helper function for checking EVTLOG
@@ -518,17 +598,25 @@ static ssize_t sde_rot_evtlog_dump_write(struct file *file,
  * @dump_vbif_debug_bus: boolean indicates VBIF debug bus dump
  */
 static void sde_rot_evtlog_dump_helper(bool dead, const char *panic_name,
-	bool dump_rot, bool dump_vbif_debug_bus)
+	bool dump_rot, bool dump_vbif_debug_bus, bool dump_rot_debug_bus)
 {
 	sde_rot_evtlog_dump_all();
 
-	if (dump_rot)
-		sde_rot_dump_reg_all();
+	if (dump_rot_debug_bus)
+		sde_rot_dump_debug_bus(
+				sde_rot_dbg_evtlog.enable_rot_dbgbus_dump,
+				&sde_rot_dbg_evtlog.rot_dbgbus_dump);
 
 	if (dump_vbif_debug_bus)
 		sde_rot_dump_vbif_debug_bus(
 				sde_rot_dbg_evtlog.enable_vbif_dbgbus_dump,
 				&sde_rot_dbg_evtlog.nrt_vbif_dbgbus_dump);
+
+	/*
+	 * Rotator registers always dump last
+	 */
+	if (dump_rot)
+		sde_rot_dump_reg_all();
 
 	if (dead)
 		panic(panic_name);
@@ -544,7 +632,8 @@ static void sde_rot_evtlog_debug_work(struct work_struct *work)
 		sde_rot_dbg_evtlog.work_panic,
 		"evtlog_workitem",
 		sde_rot_dbg_evtlog.work_dump_reg,
-		sde_rot_dbg_evtlog.work_vbif_dbgbus);
+		sde_rot_dbg_evtlog.work_vbif_dbgbus,
+		sde_rot_dbg_evtlog.work_rot_dbgbus);
 }
 
 /*
@@ -569,6 +658,7 @@ void sde_rot_evtlog_tout_handler(bool queue, const char *name, ...)
 	bool dead = false;
 	bool dump_rot = false;
 	bool dump_vbif_dbgbus = false;
+	bool dump_rot_dbgbus = false;
 	char *blk_name = NULL;
 	va_list args;
 
@@ -590,6 +680,9 @@ void sde_rot_evtlog_tout_handler(bool queue, const char *name, ...)
 		if (!strcmp(blk_name, "vbif_dbg_bus"))
 			dump_vbif_dbgbus = true;
 
+		if (!strcmp(blk_name, "rot_dbg_bus"))
+			dump_rot_dbgbus = true;
+
 		if (!strcmp(blk_name, "panic"))
 			dead = true;
 	}
@@ -600,10 +693,11 @@ void sde_rot_evtlog_tout_handler(bool queue, const char *name, ...)
 		sde_rot_dbg_evtlog.work_panic = dead;
 		sde_rot_dbg_evtlog.work_dump_reg = dump_rot;
 		sde_rot_dbg_evtlog.work_vbif_dbgbus = dump_vbif_dbgbus;
+		sde_rot_dbg_evtlog.work_rot_dbgbus = dump_rot_dbgbus;
 		schedule_work(&sde_rot_dbg_evtlog.evtlog_dump_work);
 	} else {
 		sde_rot_evtlog_dump_helper(dead, name, dump_rot,
-			dump_vbif_dbgbus);
+			dump_vbif_dbgbus, dump_rot_dbgbus);
 	}
 }
 
@@ -836,6 +930,13 @@ static int sde_rotator_base_create_debugfs(
 		return -EINVAL;
 	}
 
+	mdata->clk_always_on = false;
+	if (!debugfs_create_bool("clk_always_on", 0644,
+			debugfs_root, &mdata->clk_always_on)) {
+		SDEROT_WARN("failed to create debugfs clk_always_on\n");
+		return -EINVAL;
+	}
+
 	return 0;
 }
 
@@ -919,12 +1020,16 @@ static int sde_rotator_evtlog_create_debugfs(
 			    &sde_rot_dbg_evtlog.enable_reg_dump);
 	debugfs_create_u32("vbif_dbgbus_dump", 0644, sde_rot_dbg_evtlog.evtlog,
 			    &sde_rot_dbg_evtlog.enable_vbif_dbgbus_dump);
+	debugfs_create_u32("rot_dbgbus_dump", 0644, sde_rot_dbg_evtlog.evtlog,
+			    &sde_rot_dbg_evtlog.enable_rot_dbgbus_dump);
 
 	sde_rot_dbg_evtlog.evtlog_enable = SDE_EVTLOG_DEFAULT_ENABLE;
 	sde_rot_dbg_evtlog.panic_on_err = SDE_EVTLOG_DEFAULT_PANIC;
 	sde_rot_dbg_evtlog.enable_reg_dump = SDE_EVTLOG_DEFAULT_REGDUMP;
 	sde_rot_dbg_evtlog.enable_vbif_dbgbus_dump =
 		SDE_EVTLOG_DEFAULT_VBIF_DBGBUSDUMP;
+	sde_rot_dbg_evtlog.enable_rot_dbgbus_dump =
+		SDE_EVTLOG_DEFAULT_ROT_DBGBUSDUMP;
 
 	pr_info("evtlog_status: enable:%d, panic:%d, dump:%d\n",
 			sde_rot_dbg_evtlog.evtlog_enable,

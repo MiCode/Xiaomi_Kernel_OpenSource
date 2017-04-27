@@ -385,9 +385,93 @@ static u32 sde_hw_rotator_v4_outpixfmts[] = {
 };
 
 static struct sde_rot_vbif_debug_bus nrt_vbif_dbg_bus_r3[] = {
-	{0x214, 0x21c, 16, 1, 0x10}, /* arb clients */
+	{0x214, 0x21c, 16, 1, 0x200}, /* arb clients main */
 	{0x214, 0x21c, 0, 12, 0x13}, /* xin blocks - axi side */
 	{0x21c, 0x214, 0, 12, 0xc}, /* xin blocks - clock side */
+};
+
+static struct sde_rot_debug_bus rot_dbgbus_r3[] = {
+	/*
+	 * rottop - 0xA8850
+	 */
+	/* REGDMA */
+	{ 0XA8850, 0, 0 },
+	{ 0XA8850, 0, 1 },
+	{ 0XA8850, 0, 2 },
+	{ 0XA8850, 0, 3 },
+	{ 0XA8850, 0, 4 },
+
+	/* ROT_WB */
+	{ 0XA8850, 1, 0 },
+	{ 0XA8850, 1, 1 },
+	{ 0XA8850, 1, 2 },
+	{ 0XA8850, 1, 3 },
+	{ 0XA8850, 1, 4 },
+	{ 0XA8850, 1, 5 },
+	{ 0XA8850, 1, 6 },
+	{ 0XA8850, 1, 7 },
+
+	/* UBWC_DEC */
+	{ 0XA8850, 2, 0 },
+
+	/* UBWC_ENC */
+	{ 0XA8850, 3, 0 },
+
+	/* ROT_FETCH_0 */
+	{ 0XA8850, 4, 0 },
+	{ 0XA8850, 4, 1 },
+	{ 0XA8850, 4, 2 },
+	{ 0XA8850, 4, 3 },
+	{ 0XA8850, 4, 4 },
+	{ 0XA8850, 4, 5 },
+	{ 0XA8850, 4, 6 },
+	{ 0XA8850, 4, 7 },
+
+	/* ROT_FETCH_1 */
+	{ 0XA8850, 5, 0 },
+	{ 0XA8850, 5, 1 },
+	{ 0XA8850, 5, 2 },
+	{ 0XA8850, 5, 3 },
+	{ 0XA8850, 5, 4 },
+	{ 0XA8850, 5, 5 },
+	{ 0XA8850, 5, 6 },
+	{ 0XA8850, 5, 7 },
+
+	/* ROT_FETCH_2 */
+	{ 0XA8850, 6, 0 },
+	{ 0XA8850, 6, 1 },
+	{ 0XA8850, 6, 2 },
+	{ 0XA8850, 6, 3 },
+	{ 0XA8850, 6, 4 },
+	{ 0XA8850, 6, 5 },
+	{ 0XA8850, 6, 6 },
+	{ 0XA8850, 6, 7 },
+
+	/* ROT_FETCH_3 */
+	{ 0XA8850, 7, 0 },
+	{ 0XA8850, 7, 1 },
+	{ 0XA8850, 7, 2 },
+	{ 0XA8850, 7, 3 },
+	{ 0XA8850, 7, 4 },
+	{ 0XA8850, 7, 5 },
+	{ 0XA8850, 7, 6 },
+	{ 0XA8850, 7, 7 },
+
+	/* ROT_FETCH_4 */
+	{ 0XA8850, 8, 0 },
+	{ 0XA8850, 8, 1 },
+	{ 0XA8850, 8, 2 },
+	{ 0XA8850, 8, 3 },
+	{ 0XA8850, 8, 4 },
+	{ 0XA8850, 8, 5 },
+	{ 0XA8850, 8, 6 },
+	{ 0XA8850, 8, 7 },
+
+	/* ROT_UNPACK_0*/
+	{ 0XA8850, 9, 0 },
+	{ 0XA8850, 9, 1 },
+	{ 0XA8850, 9, 2 },
+	{ 0XA8850, 9, 3 },
 };
 
 static struct sde_rot_regdump sde_rot_r3_regdump[] = {
@@ -1430,7 +1514,8 @@ static u32 sde_hw_rotator_wait_done_regdma(
 	sts = (status & ROT_ERROR_BIT) ? -ENODEV : 0;
 
 	if (status & ROT_ERROR_BIT)
-		SDEROT_EVTLOG_TOUT_HANDLER("rot", "vbif_dbg_bus", "panic");
+		SDEROT_EVTLOG_TOUT_HANDLER("rot", "rot_dbg_bus",
+				"vbif_dbg_bus", "panic");
 
 	return sts;
 }
@@ -1614,8 +1699,8 @@ void sde_hw_rotator_pre_pmevent(struct sde_rot_mgr *mgr, bool pmon)
 			SDEROT_ERR(
 				"Mismatch SWTS with HWTS: swts:0x%x, hwts:0x%x, regdma-sts:0x%x, rottop-sts:0x%x\n",
 				swts, hwts, regdmasts, rotsts);
-			SDEROT_EVTLOG_TOUT_HANDLER("rot", "vbif_dbg_bus",
-					"panic");
+			SDEROT_EVTLOG_TOUT_HANDLER("rot", "rot_dbg_bus",
+					"vbif_dbg_bus", "panic");
 		}
 
 		/* Turn off rotator clock after checking rotator registers */
@@ -2134,6 +2219,17 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 	SDE_VBIF_WRITE(mdata, MMSS_VBIF_NRT_VBIF_WRITE_GATHTER_EN,
 			BIT(XIN_WRITEBACK));
 
+	/*
+	 * For debug purpose, disable clock gating, i.e. Clocks always on
+	 */
+	if (mdata->clk_always_on) {
+		SDE_VBIF_WRITE(mdata, MMSS_VBIF_CLKON, 0x3);
+		SDE_VBIF_WRITE(mdata, MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL0, 0x3);
+		SDE_VBIF_WRITE(mdata, MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL1,
+				0xFFFF);
+		SDE_ROTREG_WRITE(rot->mdss_base, ROTTOP_CLK_CTRL, 1);
+	}
+
 	return 0;
 
 error:
@@ -2259,6 +2355,9 @@ static int sde_rotator_hw_rev_init(struct sde_hw_rotator *rot)
 	mdata->nrt_vbif_dbg_bus = nrt_vbif_dbg_bus_r3;
 	mdata->nrt_vbif_dbg_bus_size =
 			ARRAY_SIZE(nrt_vbif_dbg_bus_r3);
+
+	mdata->rot_dbg_bus = rot_dbgbus_r3;
+	mdata->rot_dbg_bus_size = ARRAY_SIZE(rot_dbgbus_r3);
 
 	mdata->regdump = sde_rot_r3_regdump;
 	mdata->regdump_size = ARRAY_SIZE(sde_rot_r3_regdump);
