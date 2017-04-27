@@ -159,7 +159,7 @@ static void dsi_phy_hw_v3_0_lane_settings(struct dsi_phy_hw *phy,
 			    struct dsi_phy_cfg *cfg)
 {
 	int i;
-	u8 tx_dctrl[] = {0x00, 0x00, 0x00, 0x02, 0x01};
+	u8 tx_dctrl[] = {0x00, 0x00, 0x00, 0x04, 0x01};
 
 	/* Strength ctrl settings */
 	for (i = DSI_LOGICAL_LANE_0; i < DSI_LANE_MAX; i++) {
@@ -186,6 +186,10 @@ static void dsi_phy_hw_v3_0_lane_settings(struct dsi_phy_hw *phy,
 		DSI_W32(phy, DSIPHY_LNX_OFFSET_BOT_CTRL(i), 0x0);
 		DSI_W32(phy, DSIPHY_LNX_TX_DCTRL(i), tx_dctrl[i]);
 	}
+
+	/* Toggle BIT 0 to release freeze I/0 */
+	DSI_W32(phy, DSIPHY_LNX_TX_DCTRL(3), 0x05);
+	DSI_W32(phy, DSIPHY_LNX_TX_DCTRL(3), 0x04);
 }
 
 /**
