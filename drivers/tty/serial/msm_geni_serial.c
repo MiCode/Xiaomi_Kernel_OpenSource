@@ -94,8 +94,10 @@
 
 #define UART_OVERSAMPLING	(32)
 #define STALE_TIMEOUT		(16)
+#define DEFAULT_BITS_PER_CHAR	(10)
 #define GENI_UART_NR_PORTS	(15)
 #define DEF_FIFO_DEPTH_WORDS	(16)
+#define DEF_TX_WM		(2)
 #define DEF_FIFO_WIDTH_BITS	(32)
 #define UART_CORE2X_VOTE	(10000)
 #define DEFAULT_SE_CLK		(19200000)
@@ -134,6 +136,7 @@ static int handle_rx_hs(struct uart_port *uport,
 			unsigned int rx_fifo_wc,
 			unsigned int rx_last_byte_valid,
 			unsigned int rx_last);
+static unsigned int msm_geni_serial_tx_empty(struct uart_port *port);
 
 static atomic_t uart_line_id = ATOMIC_INIT(0);
 
@@ -232,7 +235,7 @@ static int msm_geni_serial_poll_bit(struct uart_port *uport,
 }
 
 static void msm_geni_serial_setup_tx(struct uart_port *uport,
-					unsigned int xmit_size)
+				unsigned int xmit_size)
 {
 	u32 m_cmd = 0;
 
@@ -324,7 +327,6 @@ static void msm_geni_serial_poll_put_char(struct uart_port *uport,
 	int b = (int) c;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 
-	se_config_packing(uport->membase, 8, 1, false);
 	geni_write_reg_nolog(port->tx_wm, uport->membase,
 					SE_GENI_TX_WATERMARK_REG);
 	msm_geni_serial_setup_tx(uport, 1);
@@ -358,10 +360,11 @@ static void
 __msm_geni_serial_console_write(struct uart_port *uport, const char *s,
 				unsigned int count)
 {
-	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 	int new_line = 0;
 	int i;
 	int bytes_to_send = count;
+	int fifo_depth = DEF_FIFO_DEPTH_WORDS;
+	int tx_wm = DEF_TX_WM;
 
 	for (i = 0; i < count; i++) {
 		if (s[i] == '\n')
@@ -369,14 +372,13 @@ __msm_geni_serial_console_write(struct uart_port *uport, const char *s,
 	}
 
 	bytes_to_send += new_line;
-	se_config_packing(uport->membase, 8, 1, false);
-	geni_write_reg_nolog(port->tx_wm, uport->membase,
+	geni_write_reg_nolog(tx_wm, uport->membase,
 					SE_GENI_TX_WATERMARK_REG);
 	msm_geni_serial_setup_tx(uport, bytes_to_send);
 	i = 0;
 	while (i < count) {
 		u32 chars_to_write = 0;
-		u32 avail_fifo_bytes = (port->tx_fifo_depth - port->tx_wm);
+		u32 avail_fifo_bytes = (fifo_depth - tx_wm);
 		/*
 		 * If the WM bit never set, then the Tx state machine is not
 		 * in a valid state, so break, cancel/abort any existing
@@ -473,10 +475,12 @@ static void msm_geni_serial_start_tx(struct uart_port *uport)
 	unsigned int geni_m_irq_en;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 
+	if (!msm_geni_serial_tx_empty(uport))
+		return;
+
 	geni_m_irq_en = geni_read_reg_nolog(uport->membase, SE_GENI_M_IRQ_EN);
 	geni_m_irq_en |= M_TX_FIFO_WATERMARK_EN;
 
-	se_config_packing(uport->membase, 8, 4, false);
 	geni_write_reg_nolog(port->tx_wm, uport->membase,
 						SE_GENI_TX_WATERMARK_REG);
 	geni_write_reg_nolog(geni_m_irq_en, uport->membase, SE_GENI_M_IRQ_EN);
@@ -516,6 +520,8 @@ static void msm_geni_serial_start_rx(struct uart_port *uport)
 {
 	unsigned int geni_s_irq_en;
 	unsigned int geni_m_irq_en;
+	unsigned long cfg0, cfg1;
+	unsigned int rxstale = DEFAULT_BITS_PER_CHAR * STALE_TIMEOUT;
 
 	msm_geni_serial_abort_rx(uport);
 	geni_s_irq_en = geni_read_reg_nolog(uport->membase,
@@ -524,7 +530,10 @@ static void msm_geni_serial_start_rx(struct uart_port *uport)
 						SE_GENI_M_IRQ_EN);
 	geni_s_irq_en |= S_RX_FIFO_WATERMARK_EN | S_RX_FIFO_LAST_EN;
 	geni_m_irq_en |= M_RX_FIFO_WATERMARK_EN | M_RX_FIFO_LAST_EN;
-
+	se_get_packing_config(8, 4, false, &cfg0, &cfg1);
+	geni_write_reg_nolog(cfg0, uport->membase, SE_GENI_RX_PACKING_CFG0);
+	geni_write_reg_nolog(cfg1, uport->membase, SE_GENI_RX_PACKING_CFG1);
+	geni_write_reg_nolog(rxstale, uport->membase, SE_UART_RX_STALE_CNT);
 	geni_setup_s_cmd(uport->membase, UART_START_READ, 0);
 	geni_write_reg_nolog(geni_s_irq_en, uport->membase, SE_GENI_S_IRQ_EN);
 	geni_write_reg_nolog(geni_m_irq_en, uport->membase, SE_GENI_M_IRQ_EN);
@@ -622,7 +631,8 @@ static int msm_geni_serial_handle_tx(struct uart_port *uport)
 	int i = 0;
 	unsigned int tx_fifo_status;
 	unsigned int xmit_size;
-	unsigned int fifo_width_bytes = msm_port->tx_fifo_width >> 3;
+	unsigned int fifo_width_bytes =
+		(uart_console(uport) ? 1 : (msm_port->tx_fifo_width >> 3));
 
 	tx_fifo_status = geni_read_reg_nolog(uport->membase,
 					SE_GENI_TX_FIFO_STATUS);
@@ -664,6 +674,8 @@ static int msm_geni_serial_handle_tx(struct uart_port *uport)
 		wmb();
 	}
 	msm_geni_serial_poll_cancel_tx(uport);
+	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
+		uart_write_wakeup(uport);
 exit_handle_tx:
 	return ret;
 }
@@ -765,17 +777,32 @@ static int msm_geni_serial_port_setup(struct uart_port *uport)
 {
 	int ret = 0;
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
+	unsigned long cfg0, cfg1;
 
-	/* For now only assume FIFO mode. */
-	msm_port->xfer_mode = FIFO_MODE;
-	set_rfr_wm(msm_port);
-	ret = geni_se_init(uport->membase, msm_port->xfer_mode,
+
+	if (!uart_console(uport)) {
+		/* For now only assume FIFO mode. */
+		msm_port->xfer_mode = FIFO_MODE;
+		set_rfr_wm(msm_port);
+		ret = geni_se_init(uport->membase, msm_port->xfer_mode,
 					msm_port->rx_wm, msm_port->rx_rfr);
-	if (ret) {
-		dev_err(uport->dev, "%s: Fail\n", __func__);
-		goto exit_portsetup;
+		if (ret) {
+			dev_err(uport->dev, "%s: Fail\n", __func__);
+			goto exit_portsetup;
+		}
+		se_get_packing_config(8, 4, false, &cfg0, &cfg1);
+		geni_write_reg_nolog(cfg0, uport->membase,
+						SE_GENI_TX_PACKING_CFG0);
+		geni_write_reg_nolog(cfg1, uport->membase,
+						SE_GENI_TX_PACKING_CFG1);
+	} else {
+		set_rfr_wm(msm_port);
+		se_get_packing_config(8, 1, false, &cfg0, &cfg1);
+		geni_write_reg_nolog(cfg0, uport->membase,
+						SE_GENI_TX_PACKING_CFG0);
+		geni_write_reg_nolog(cfg1, uport->membase,
+						SE_GENI_TX_PACKING_CFG1);
 	}
-
 	msm_port->port_setup = true;
 	/*
 	 * Ensure Port setup related IO completes before returning to
@@ -848,7 +875,7 @@ static int get_dfs_index(unsigned long clk_freq, unsigned long *ser_clk)
 static void geni_serial_write_term_regs(struct uart_port *uport, u32 loopback,
 		u32 tx_trans_cfg, u32 tx_parity_cfg, u32 rx_trans_cfg,
 		u32 rx_parity_cfg, u32 bits_per_char, u32 stop_bit_len,
-		u32 rxstale, u32 s_clk_cfg)
+		u32 s_clk_cfg)
 {
 	geni_write_reg_nolog(loopback, uport->membase, SE_UART_LOOPBACK_CFG);
 	geni_write_reg_nolog(tx_trans_cfg, uport->membase,
@@ -865,7 +892,6 @@ static void geni_serial_write_term_regs(struct uart_port *uport, u32 loopback,
 							SE_UART_RX_WORD_LEN);
 	geni_write_reg_nolog(stop_bit_len, uport->membase,
 						SE_UART_TX_STOP_BIT_LEN);
-	geni_write_reg_nolog(rxstale, uport->membase, SE_UART_RX_STALE_CNT);
 	geni_write_reg_nolog(s_clk_cfg, uport->membase, GENI_SER_M_CLK_CFG);
 	geni_write_reg_nolog(s_clk_cfg, uport->membase, GENI_SER_S_CLK_CFG);
 }
@@ -901,7 +927,6 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	unsigned int rx_trans_cfg;
 	unsigned int rx_parity_cfg;
 	unsigned int stop_bit_len;
-	unsigned int rxstale;
 	unsigned int clk_div;
 	unsigned long ser_clk_cfg = 0;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
@@ -966,8 +991,6 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 		break;
 	}
 
-	/* stale timer, set this to 16 characters. */
-	rxstale = bits_per_char * STALE_TIMEOUT;
 
 	/* stop bits */
 	if (termios->c_cflag & CSTOPB)
@@ -984,7 +1007,7 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 
 	geni_serial_write_term_regs(uport, port->loopback, tx_trans_cfg,
 		tx_parity_cfg, rx_trans_cfg, rx_parity_cfg, bits_per_char,
-		stop_bit_len, rxstale, ser_clk_cfg);
+		stop_bit_len, ser_clk_cfg);
 exit_set_termios:
 	return;
 
@@ -1066,7 +1089,6 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 {
 	struct uart_port *uport = &dev->port;
 	int ret = 0;
-	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
 	u32 tx_trans_cfg = 0;
 	u32 tx_parity_cfg = 0;
 	u32 rx_trans_cfg = 0;
@@ -1078,6 +1100,7 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 	u32 baud = 115200;
 	u32 clk_div;
 	unsigned long clk_rate;
+	unsigned long cfg0, cfg1;
 
 	if (!uport->membase) {
 		ret = -ENOMEM;
@@ -1089,13 +1112,8 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 		goto exit_geni_serial_earlyconsetup;
 	}
 
-	msm_port->xfer_mode = FIFO_MODE;
-	set_rfr_wm(msm_port);
-	msm_port->tx_fifo_depth = DEF_FIFO_DEPTH_WORDS;
-	msm_port->rx_fifo_depth = DEF_FIFO_DEPTH_WORDS;
-	msm_port->tx_fifo_width = DEF_FIFO_WIDTH_BITS;
-	geni_se_init(uport->membase, msm_port->xfer_mode, msm_port->rx_wm,
-							msm_port->rx_rfr);
+	geni_se_init(uport->membase, FIFO_MODE, (DEF_FIFO_DEPTH_WORDS >> 1),
+						(DEF_FIFO_DEPTH_WORDS - 2));
 	/*
 	 * Ignore Flow control.
 	 * Disable Tx Parity.
@@ -1120,6 +1138,9 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 
 	s_clk_cfg |= SER_CLK_EN;
 	s_clk_cfg |= (clk_div << CLK_DIV_SHFT);
+	se_get_packing_config(8, 1, false, &cfg0, &cfg1);
+	geni_write_reg_nolog(cfg0, uport->membase, SE_GENI_TX_PACKING_CFG0);
+	geni_write_reg_nolog(cfg1, uport->membase, SE_GENI_TX_PACKING_CFG1);
 
 	/*
 	 * Make an unconditional cancel on the main sequencer to reset
@@ -1128,7 +1149,7 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 	msm_geni_serial_poll_cancel_tx(uport);
 	geni_serial_write_term_regs(uport, 0, tx_trans_cfg,
 		tx_parity_cfg, rx_trans_cfg, rx_parity_cfg, bits_per_char,
-		stop_bit, rx_stale, s_clk_cfg);
+		stop_bit, s_clk_cfg);
 
 	dev->con->write = msm_geni_serial_early_console_write;
 	dev->con->setup = NULL;
@@ -1435,9 +1456,11 @@ static int msm_geni_serial_sys_resume_noirq(struct device *dev)
 	struct msm_geni_serial_port *port = platform_get_drvdata(pdev);
 	struct uart_port *uport = &port->uport;
 
-	if (uart_console(uport))
+	if (uart_console(uport)) {
+		se_geni_resources_on(&port->serial_rsc);
 		uart_resume_port((struct uart_driver *)uport->private_data,
 									uport);
+	}
 	return 0;
 }
 #else
