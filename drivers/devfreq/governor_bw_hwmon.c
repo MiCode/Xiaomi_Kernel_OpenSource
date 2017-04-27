@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -143,25 +143,27 @@ static ssize_t store_list_##name(struct device *dev,			\
 {									\
 	struct devfreq *df = to_devfreq(dev);				\
 	struct hwmon_node *hw = df->data;				\
-	int ret;							\
+	int ret, numvals;						\
 	unsigned int i = 0, val;					\
+	char **strlist;							\
 									\
-	do {								\
-		ret = kstrtoint(buf, 10, &val);				\
+	strlist = argv_split(GFP_KERNEL, buf, &numvals);		\
+	if (!strlist)							\
+		return -ENOMEM;						\
+	numvals = min(numvals, n - 1);					\
+	for (i = 0; i < numvals; i++) {					\
+		ret = kstrtouint(strlist[i], 10, &val);			\
 		if (ret)						\
-			break;						\
-		buf = strnchr(buf, PAGE_SIZE, ' ');			\
-		if (buf)						\
-			buf++;						\
+			goto out;					\
 		val = max(val, _min);					\
 		val = min(val, _max);					\
 		hw->name[i] = val;					\
-		i++;							\
-	} while (buf && i < n - 1);					\
-	if (i < 1)							\
-		return -EINVAL;						\
+	}								\
+	ret = count;							\
+out:									\
+	argv_free(strlist);						\
 	hw->name[i] = 0;						\
-	return count;							\
+	return ret;							\
 }
 
 #define gov_list_attr(__attr, n, min, max)	\
