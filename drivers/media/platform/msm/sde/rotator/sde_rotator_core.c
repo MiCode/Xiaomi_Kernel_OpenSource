@@ -25,6 +25,7 @@
 #include <linux/msm-bus-board.h>
 #include <linux/regulator/consumer.h>
 #include <linux/dma-direction.h>
+#include <linux/sde_rsc.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
 #include <asm/cacheflush.h>
@@ -318,8 +319,13 @@ static void sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 	if (mgr->ops_hw_pre_pmevent)
 		mgr->ops_hw_pre_pmevent(mgr, on);
 
-	ret = sde_rot_enable_vreg(mgr->module_power.vreg_config,
-		mgr->module_power.num_vreg, on);
+	if (mgr->rsc_client)
+		ret = sde_rsc_client_state_update(mgr->rsc_client,
+				on ? SDE_RSC_CLK_STATE : SDE_RSC_IDLE_STATE,
+				NULL, -1);
+	else
+		ret = sde_rot_enable_vreg(mgr->module_power.vreg_config,
+			mgr->module_power.num_vreg, on);
 	if (ret) {
 		SDEROT_WARN("Rotator regulator failed to %s\n",
 			on ? "enable" : "disable");
@@ -2780,9 +2786,21 @@ static int sde_rotator_res_init(struct platform_device *pdev,
 {
 	int ret;
 
-	ret = sde_rotator_get_dt_vreg_data(&pdev->dev, &mgr->module_power);
-	if (ret)
+	mgr->rsc_client = sde_rsc_client_create(
+			SDE_RSC_INDEX, "sde_rotator_core", false);
+	if (IS_ERR(mgr->rsc_client)) {
+		ret = PTR_ERR(mgr->rsc_client);
+		pr_err("rsc client create returned %d\n", ret);
+		mgr->rsc_client = NULL;
 		return ret;
+	}
+
+	if (!mgr->rsc_client) {
+		ret = sde_rotator_get_dt_vreg_data(
+				&pdev->dev, &mgr->module_power);
+		if (ret)
+			return ret;
+	}
 
 	ret = sde_rotator_register_clk(pdev, mgr);
 	if (ret)
@@ -2802,9 +2820,15 @@ static void sde_rotator_res_destroy(struct sde_rot_mgr *mgr)
 {
 	struct platform_device *pdev = mgr->pdev;
 
-	sde_rotator_put_dt_vreg_data(&pdev->dev, &mgr->module_power);
 	sde_rotator_unregister_clk(mgr);
 	sde_rotator_bus_scale_unregister(mgr);
+
+	if (mgr->rsc_client) {
+		sde_rsc_client_destroy(mgr->rsc_client);
+		mgr->rsc_client = NULL;
+	} else {
+		sde_rotator_put_dt_vreg_data(&pdev->dev, &mgr->module_power);
+	}
 }
 
 int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
