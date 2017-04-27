@@ -14125,6 +14125,7 @@ static int msm_pcm_routing_close(struct snd_pcm_substream *substream)
 	bedai->active = 0;
 	bedai->sample_rate = 0;
 	bedai->channel = 0;
+	bedai->passthr_mode = LEGACY_PCM;
 	mutex_unlock(&routing_lock);
 
 	return 0;
