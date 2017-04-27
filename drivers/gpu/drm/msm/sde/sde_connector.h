@@ -440,5 +440,22 @@ int sde_connector_register_custom_event(struct sde_kms *kms,
  */
 int sde_connector_pre_kickoff(struct drm_connector *connector);
 
+/**
+ * sde_connector_needs_offset - adjust the output fence offset based on
+ *                              display type
+ * @connector: Pointer to drm connector object
+ * Returns: true if offset is required, false for all other cases.
+ */
+static inline bool sde_connector_needs_offset(struct drm_connector *connector)
+{
+	struct sde_connector *c_conn;
+
+	if (!connector)
+		return false;
+
+	c_conn = to_sde_connector(connector);
+	return (c_conn->connector_type != DRM_MODE_CONNECTOR_VIRTUAL);
+}
+
 #endif /* _SDE_CONNECTOR_H_ */
 

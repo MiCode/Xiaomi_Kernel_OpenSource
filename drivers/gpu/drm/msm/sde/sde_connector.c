@@ -658,13 +658,7 @@ static int sde_connector_atomic_get_property(struct drm_connector *connector,
 
 	idx = msm_property_index(&c_conn->property_info, property);
 	if (idx == CONNECTOR_PROP_RETIRE_FENCE)
-		/*
-		 * Set a fence offset if not a virtual connector, so that the
-		 * fence signals after one additional commit rather than at the
-		 * end of the current one.
-		 */
-		rc = sde_fence_create(&c_conn->retire_fence, val,
-			c_conn->connector_type != DRM_MODE_CONNECTOR_VIRTUAL);
+		rc = sde_fence_create(&c_conn->retire_fence, val, 0);
 	else
 		/* get cached property value */
 		rc = msm_property_atomic_get(&c_conn->property_info,
