@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,7 +28,26 @@ struct msm_isp_event_data32 {
 		struct msm_isp_sof_info sof_info;
 	} u;
 };
-#endif
+
+struct msm_isp32_event_data32 {
+	struct compat_timeval timestamp;
+	struct compat_timeval mono_timestamp;
+	enum msm_vfe_input_src input_intf;
+	uint32_t frame_id;
+	union {
+		struct msm_isp_stats_event stats;
+		struct msm_isp_buf_event buf_done;
+		struct msm_isp32_error_info error_info;
+	} u;
+};
+
+#define VIDIOC_MSM_ISP_BUF_DONE \
+	_IOWR('V', BASE_VIDIOC_PRIVATE+21, struct msm_isp32_event_data32)
+
+#else
+
+#define VIDIOC_MSM_ISP_BUF_DONE \
+	_IOWR('V', BASE_VIDIOC_PRIVATE+21, struct msm_isp32_event_data)
 
 #endif
-
+#endif /* __MSMB_ISP__ */
