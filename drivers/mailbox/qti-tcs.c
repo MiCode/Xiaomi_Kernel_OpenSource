@@ -87,6 +87,7 @@
 #define TCS_TYPE_NR			4
 #define TCS_MBOX_TOUT_MS		2000
 #define MAX_POOL_SIZE			(MAX_TCS_PER_TYPE * TCS_TYPE_NR)
+#define TCS_M_INIT			0xFFFF
 
 struct tcs_drv;
 
@@ -98,10 +99,12 @@ struct tcs_response {
 	struct tasklet_struct tasklet;
 	struct delayed_work dwork;
 	int err;
+	int idx;
+	bool in_use;
 };
 
 struct tcs_response_pool {
-	struct tcs_response *resp;
+	struct tcs_response resp[MAX_POOL_SIZE];
 	spinlock_t lock;
 	DECLARE_BITMAP(avail, MAX_POOL_SIZE);
 };
@@ -117,8 +120,6 @@ struct tcs_mbox {
 	int ncpt; /* num cmds per tcs */
 	DECLARE_BITMAP(slots, MAX_TCS_SLOTS);
 	spinlock_t tcs_lock; /* TCS type lock */
-	spinlock_t tcs_m_lock[MAX_TCS_PER_TYPE];
-	struct tcs_response *resp[MAX_TCS_PER_TYPE];
 };
 
 /* One per MBOX controller */
@@ -149,16 +150,13 @@ static int tcs_response_pool_init(struct tcs_drv *drv)
 	if (!pool)
 		return -ENOMEM;
 
-	pool->resp = devm_kzalloc(&drv->pdev->dev, sizeof(*pool->resp) *
-				MAX_POOL_SIZE, GFP_KERNEL);
-	if (!pool->resp)
-		return -ENOMEM;
-
 	for (i = 0; i < MAX_POOL_SIZE; i++) {
 		tasklet_init(&pool->resp[i].tasklet, tcs_notify_tx_done,
 						(unsigned long) &pool->resp[i]);
-		INIT_DELAYED_WORK(&pool->resp[i].dwork,
-						tcs_notify_timeout);
+		INIT_DELAYED_WORK(&pool->resp[i].dwork, tcs_notify_timeout);
+		pool->resp[i].drv = drv;
+		pool->resp[i].idx = i;
+		pool->resp[i].m = TCS_M_INIT;
 	}
 
 	spin_lock_init(&pool->lock);
@@ -167,39 +165,59 @@ static int tcs_response_pool_init(struct tcs_drv *drv)
 	return 0;
 }
 
-static struct tcs_response *get_response_from_pool(struct tcs_drv *drv)
+static struct tcs_response *setup_response(struct tcs_drv *drv,
+		struct tcs_mbox_msg *msg, struct mbox_chan *chan,
+		u32 m, int err)
 {
 	struct tcs_response_pool *pool = drv->resp_pool;
 	struct tcs_response *resp = ERR_PTR(-ENOMEM);
-	unsigned long flags;
 	int pos;
 
-	spin_lock_irqsave(&pool->lock, flags);
+	spin_lock(&pool->lock);
 	pos = find_first_zero_bit(pool->avail, MAX_POOL_SIZE);
 	if (pos != MAX_POOL_SIZE) {
 		bitmap_set(pool->avail, pos, 1);
 		resp = &pool->resp[pos];
-		memset(resp, 0, sizeof(*resp));
-		tasklet_init(&resp->tasklet, tcs_notify_tx_done,
-						(unsigned long) resp);
-		INIT_DELAYED_WORK(&resp->dwork, tcs_notify_timeout);
-		resp->drv = drv;
+		resp->chan = chan;
+		resp->msg = msg;
+		resp->m = m;
+		resp->err = err;
+		resp->in_use = false;
 	}
-	spin_unlock_irqrestore(&pool->lock, flags);
+	spin_unlock(&pool->lock);
 
 	return resp;
 }
 
-static void free_response_to_pool(struct tcs_response *resp)
+static void free_response(struct tcs_response *resp)
 {
 	struct tcs_response_pool *pool = resp->drv->resp_pool;
-	unsigned long flags;
-	int i;
 
-	spin_lock_irqsave(&pool->lock, flags);
-	i = resp - pool->resp;
-	bitmap_clear(pool->avail, i, 1);
-	spin_unlock_irqrestore(&pool->lock, flags);
+	spin_lock(&pool->lock);
+	resp->err = -EINVAL;
+	bitmap_clear(pool->avail, resp->idx, 1);
+	spin_unlock(&pool->lock);
+}
+
+static inline struct tcs_response *get_response(struct tcs_drv *drv, u32 m)
+{
+	struct tcs_response_pool *pool = drv->resp_pool;
+	struct tcs_response *resp = NULL;
+	int pos = 0;
+
+	do {
+		pos = find_next_bit(pool->avail, MAX_POOL_SIZE, pos);
+		if (pos == MAX_POOL_SIZE)
+			break;
+		resp = &pool->resp[pos];
+		if (resp->m == m && !resp->in_use) {
+			resp->in_use = true;
+			break;
+		}
+		pos++;
+	} while (1);
+
+	return resp;
 }
 
 static inline u32 read_drv_config(void __iomem *base)
@@ -312,13 +330,6 @@ static inline struct tcs_mbox *get_tcs_for_msg(struct tcs_drv *drv,
 	return get_tcs_of_type(drv, type);
 }
 
-static inline struct tcs_response *get_tcs_response(struct tcs_drv *drv, int m)
-{
-	struct tcs_mbox *tcs = get_tcs_from_index(drv, m);
-
-	return tcs ? tcs->resp[m - tcs->tcs_offset] : NULL;
-}
-
 static inline void send_tcs_response(struct tcs_response *resp)
 {
 	tasklet_schedule(&resp->tasklet);
@@ -341,7 +352,6 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 	struct tcs_mbox *tcs;
 	struct tcs_response *resp;
 	struct tcs_cmd *cmd;
-	u32 irq_clear = 0;
 	u32 data;
 
 	/* Know which TCSes were triggered */
@@ -351,8 +361,7 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 		if (!(irq_status & BIT(m)))
 			continue;
 
-		/* Find the TCS that triggered */
-		resp = get_tcs_response(drv, m);
+		resp = get_response(drv, m);
 		if (!resp) {
 			pr_err("No resp request for TCS-%d\n", m);
 			continue;
@@ -398,18 +407,13 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 			write_tcs_reg(base, TCS_DRV_CMD_ENABLE, m, 0, 0);
 		}
 
-		/* Notify the client that this request is completed. */
+		/* Clear the TCS IRQ status */
+		write_tcs_reg(base, TCS_DRV_IRQ_CLEAR, 0, 0, BIT(m));
+
+		/* Clean up response object and notify mbox in tasklet */
 		send_tcs_response(resp);
-		irq_clear |= BIT(m);
-	}
 
-	/* Clear the TCS IRQ status */
-	write_tcs_reg(base, TCS_DRV_IRQ_CLEAR, 0, 0, irq_clear);
-
-	/* Mark the TCS as free */
-	for (m = 0; irq_status >= BIT(m); m++) {
-		if (!(irq_status & BIT(m)))
-			continue;
+		/* Notify the client that this request is completed. */
 		atomic_set(&drv->tcs_in_use[m], 0);
 	}
 
@@ -436,8 +440,8 @@ static void tcs_notify_tx_done(unsigned long data)
 	int err = resp->err;
 	int m = resp->m;
 
-	free_response_to_pool(resp);
 	mbox_notify_tx_done(chan, msg, m, err);
+	free_response(resp);
 }
 
 /**
@@ -469,7 +473,7 @@ static void tcs_notify_timeout(struct work_struct *work)
 			cmd = &msg->payload[i];
 			addr = read_tcs_reg(drv->reg_base, TCS_DRV_CMD_ADDR,
 						m, i);
-			pending = (cmd->addr == addr);
+			pending |= (cmd->addr == addr);
 		}
 		if (pending) {
 			pr_err("TCS-%d blocked waiting for RPMH to respond.\n",
@@ -482,8 +486,8 @@ static void tcs_notify_timeout(struct work_struct *work)
 		}
 	}
 
-	free_response_to_pool(resp);
 	mbox_notify_tx_done(chan, msg, -1, -ETIMEDOUT);
+	free_response(resp);
 }
 
 static void __tcs_buffer_write(struct tcs_drv *drv, int d, int m, int n,
@@ -526,8 +530,6 @@ static void __tcs_buffer_write(struct tcs_drv *drv, int d, int m, int n,
 	write_tcs_reg(base, TCS_DRV_CMD_ENABLE, m, 0, cmd_enable);
 
 	if (trigger) {
-		/* Mark the TCS as busy */
-		atomic_set(&drv->tcs_in_use[m], 1);
 		/* HW req: Clear the DRV_CONTROL and enable TCS again */
 		write_tcs_reg_sync(base, TCS_DRV_CONTROL, m, 0, 0);
 		write_tcs_reg_sync(base, TCS_DRV_CONTROL, m, 0, enable);
@@ -598,6 +600,7 @@ retry:
 static int find_free_tcs(struct tcs_mbox *tcs)
 {
 	int slot, m = 0;
+	u32 irq_status;
 
 	/* Loop until we find a free AMC */
 	do {
@@ -605,9 +608,14 @@ static int find_free_tcs(struct tcs_mbox *tcs)
 			slot = m * tcs->ncpt;
 			break;
 		}
-		if (++m >= tcs->num_tcs)
+		if (++m >= tcs->num_tcs) {
 			m = 0;
-		udelay(1);
+			irq_status = read_tcs_reg(tcs->drv->reg_base,
+						TCS_DRV_IRQ_STATUS, 0, 0);
+			WARN((irq_status & tcs->tcs_mask && in_irq()),
+				"TCS busy. Request should not be made from hard IRQ context.");
+			udelay(10);
+		}
 	} while (1);
 
 	return slot;
@@ -664,26 +672,6 @@ static int find_slots(struct tcs_mbox *tcs, struct tcs_mbox_msg *msg)
 	return (slot != MAX_TCS_SLOTS) ? slot : -ENOMEM;
 }
 
-static struct tcs_response *setup_response(struct tcs_mbox *tcs,
-		struct mbox_chan *chan, struct tcs_mbox_msg *msg, int m)
-{
-	struct tcs_response *resp = get_response_from_pool(tcs->drv);
-
-	if (IS_ERR(resp))
-		return resp;
-
-	if (m < tcs->tcs_offset)
-		return ERR_PTR(-EINVAL);
-
-	tcs->resp[m - tcs->tcs_offset] = resp;
-	resp->msg = msg;
-	resp->chan = chan;
-	resp->m = m;
-	resp->err = 0;
-
-	return resp;
-}
-
 static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 				bool trigger)
 {
@@ -698,14 +686,20 @@ static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 	if (IS_ERR(tcs))
 		return PTR_ERR(tcs);
 
+	if (trigger)
+		resp = setup_response(drv, msg, chan, TCS_M_INIT, 0);
+
 	/* Identify the sequential slots that we can write to */
 	spin_lock(&tcs->tcs_lock);
 	slot = find_slots(tcs, msg);
 	if (slot < 0) {
 		dev_err(dev, "No TCS slot found.\n");
 		spin_unlock(&tcs->tcs_lock);
+		if (resp)
+			free_response(resp);
 		return slot;
 	}
+
 	/* Mark the slots as in-use, before we unlock */
 	if (tcs->type == SLEEP_TCS || tcs->type == WAKE_TCS)
 		bitmap_set(tcs->slots, slot, msg->num_payload);
@@ -714,27 +708,16 @@ static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 	for (i = 0; tcs->cmd_addr && i < msg->num_payload; i++)
 		tcs->cmd_addr[slot + i] = msg->payload[i].addr;
 
-	if (trigger)
-		resp = setup_response(tcs, chan, msg,
-				slot / tcs->ncpt + tcs->tcs_offset);
-
-	spin_unlock(&tcs->tcs_lock);
-
-	/*
-	 * Find the TCS corresponding to the slot and start writing.
-	 * Break down 'slot' into a 'n' position in the 'm'th TCS.
-	 */
 	offset = slot / tcs->ncpt;
 	m = offset + tcs->tcs_offset;
 	n = slot % tcs->ncpt;
 
-	spin_lock(&tcs->tcs_m_lock[offset]);
+	/* Block, if we have an address from the msg in flight */
 	if (trigger) {
-		/* Block, if we have an address from the msg in flight */
+		resp->m = m;
+		/* Mark the TCS as busy */
+		atomic_set(&drv->tcs_in_use[m], 1);
 		wait_for_req_inflight(drv, tcs, msg);
-		/* If the TCS is busy there is nothing to do but spin wait */
-		while (!tcs_is_free(drv, m))
-			udelay(1);
 	}
 
 	/* Write to the TCS or AMC */
@@ -744,7 +727,7 @@ static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 	if (trigger)
 		schedule_tcs_err_response(resp);
 
-	spin_unlock(&tcs->tcs_m_lock[offset]);
+	spin_unlock(&tcs->tcs_lock);
 
 	return 0;
 }
@@ -770,11 +753,9 @@ static int tcs_mbox_invalidate(struct mbox_chan *chan)
 		spin_lock(&tcs->tcs_lock);
 		for (i = 0; i < tcs->num_tcs; i++) {
 			m = i + tcs->tcs_offset;
-			spin_lock(&tcs->tcs_m_lock[i]);
 			while (!tcs_is_free(drv, m))
 				udelay(1);
 			__tcs_buffer_invalidate(drv->reg_base, m);
-			spin_unlock(&tcs->tcs_m_lock[i]);
 		}
 		/* Mark the TCS as free */
 		bitmap_zero(tcs->slots, MAX_TCS_SLOTS);
@@ -841,12 +822,9 @@ static int chan_tcs_write(struct mbox_chan *chan, void *data)
 tx_fail:
 	if (ret) {
 		struct tcs_drv *drv = container_of(chan->mbox,
-							struct tcs_drv, mbox);
-		struct tcs_response *resp = get_response_from_pool(drv);
-
-		resp->chan = chan;
-		resp->msg = msg;
-		resp->err = ret;
+					struct tcs_drv, mbox);
+		struct tcs_response *resp = setup_response(
+				drv, msg, chan, TCS_M_INIT, ret);
 
 		dev_err(dev, "Error sending RPMH message %d\n", ret);
 		send_tcs_response(resp);
@@ -1041,8 +1019,6 @@ static int tcs_drv_probe(struct platform_device *pdev)
 		tcs->ncpt = (tcs->type == CONTROL_TCS) ? TCS_HIDDEN_MAX_SLOTS
 							: ncpt;
 		spin_lock_init(&tcs->tcs_lock);
-		for (j = 0; j < ARRAY_SIZE(tcs->tcs_m_lock); j++)
-			spin_lock_init(&tcs->tcs_m_lock[j]);
 
 		if (tcs->num_tcs <= 0 || tcs->type == CONTROL_TCS)
 			continue;
