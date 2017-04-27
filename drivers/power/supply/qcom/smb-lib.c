@@ -1145,7 +1145,7 @@ static int smblib_usb_irq_enable_vote_callback(struct votable *votable,
 static int _smblib_vconn_regulator_enable(struct regulator_dev *rdev)
 {
 	struct smb_charger *chg = rdev_get_drvdata(rdev);
-	u8 otg_stat, stat4;
+	u8 otg_stat, val;
 	int rc = 0, i;
 
 	if (!chg->external_vconn) {
@@ -1176,17 +1176,12 @@ static int _smblib_vconn_regulator_enable(struct regulator_dev *rdev)
 	 * VCONN_EN_ORIENTATION is overloaded with overriding the CC pin used
 	 * for Vconn, and it should be set with reverse polarity of CC_OUT.
 	 */
-	rc = smblib_read(chg, TYPE_C_STATUS_4_REG, &stat4);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read TYPE_C_STATUS_4 rc=%d\n", rc);
-		return rc;
-	}
-
 	smblib_dbg(chg, PR_OTG, "enabling VCONN\n");
-	stat4 = stat4 & CC_ORIENTATION_BIT ? 0 : VCONN_EN_ORIENTATION_BIT;
+	val = chg->typec_status[3] &
+			CC_ORIENTATION_BIT ? 0 : VCONN_EN_ORIENTATION_BIT;
 	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
 				 VCONN_EN_VALUE_BIT | VCONN_EN_ORIENTATION_BIT,
-				 VCONN_EN_VALUE_BIT | stat4);
+				 VCONN_EN_VALUE_BIT | val);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't enable vconn setting rc=%d\n", rc);
 		return rc;
@@ -2147,23 +2142,13 @@ int smblib_get_prop_charger_temp_max(struct smb_charger *chg,
 int smblib_get_prop_typec_cc_orientation(struct smb_charger *chg,
 					 union power_supply_propval *val)
 {
-	int rc = 0;
-	u8 stat;
-
-	rc = smblib_read(chg, TYPE_C_STATUS_4_REG, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read TYPE_C_STATUS_4 rc=%d\n", rc);
-		return rc;
-	}
-	smblib_dbg(chg, PR_REGISTER, "TYPE_C_STATUS_4 = 0x%02x\n",
-		   stat);
-
-	if (stat & CC_ATTACHED_BIT)
-		val->intval = (bool)(stat & CC_ORIENTATION_BIT) + 1;
+	if (chg->typec_status[3] & CC_ATTACHED_BIT)
+		val->intval =
+			(bool)(chg->typec_status[3] & CC_ORIENTATION_BIT) + 1;
 	else
 		val->intval = 0;
 
-	return rc;
+	return 0;
 }
 
 static const char * const smblib_typec_mode_name[] = {
@@ -2181,17 +2166,7 @@ static const char * const smblib_typec_mode_name[] = {
 
 static int smblib_get_prop_ufp_mode(struct smb_charger *chg)
 {
-	int rc;
-	u8 stat;
-
-	rc = smblib_read(chg, TYPE_C_STATUS_1_REG, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read TYPE_C_STATUS_1 rc=%d\n", rc);
-		return POWER_SUPPLY_TYPEC_NONE;
-	}
-	smblib_dbg(chg, PR_REGISTER, "TYPE_C_STATUS_1 = 0x%02x\n", stat);
-
-	switch (stat) {
+	switch (chg->typec_status[0]) {
 	case 0:
 		return POWER_SUPPLY_TYPEC_NONE;
 	case UFP_TYPEC_RDSTD_BIT:
@@ -2209,17 +2184,7 @@ static int smblib_get_prop_ufp_mode(struct smb_charger *chg)
 
 static int smblib_get_prop_dfp_mode(struct smb_charger *chg)
 {
-	int rc;
-	u8 stat;
-
-	rc = smblib_read(chg, TYPE_C_STATUS_2_REG, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read TYPE_C_STATUS_2 rc=%d\n", rc);
-		return POWER_SUPPLY_TYPEC_NONE;
-	}
-	smblib_dbg(chg, PR_REGISTER, "TYPE_C_STATUS_2 = 0x%02x\n", stat);
-
-	switch (stat & DFP_TYPEC_MASK) {
+	switch (chg->typec_status[1] & DFP_TYPEC_MASK) {
 	case DFP_RA_RA_BIT:
 		return POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER;
 	case DFP_RD_RD_BIT:
@@ -2240,28 +2205,17 @@ static int smblib_get_prop_dfp_mode(struct smb_charger *chg)
 int smblib_get_prop_typec_mode(struct smb_charger *chg,
 			       union power_supply_propval *val)
 {
-	int rc;
-	u8 stat;
-
-	rc = smblib_read(chg, TYPE_C_STATUS_4_REG, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read TYPE_C_STATUS_4 rc=%d\n", rc);
+	if (!(chg->typec_status[3] & TYPEC_DEBOUNCE_DONE_STATUS_BIT)) {
 		val->intval = POWER_SUPPLY_TYPEC_NONE;
-		return rc;
-	}
-	smblib_dbg(chg, PR_REGISTER, "TYPE_C_STATUS_4 = 0x%02x\n", stat);
-
-	if (!(stat & TYPEC_DEBOUNCE_DONE_STATUS_BIT)) {
-		val->intval = POWER_SUPPLY_TYPEC_NONE;
-		return rc;
+		return 0;
 	}
 
-	if (stat & UFP_DFP_MODE_STATUS_BIT)
+	if (chg->typec_status[3] & UFP_DFP_MODE_STATUS_BIT)
 		val->intval = smblib_get_prop_dfp_mode(chg);
 	else
 		val->intval = smblib_get_prop_ufp_mode(chg);
 
-	return rc;
+	return 0;
 }
 
 int smblib_get_prop_typec_power_role(struct smb_charger *chg,
@@ -2549,17 +2503,10 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 			      const union power_supply_propval *val)
 {
 	int rc;
-	u8 stat = 0;
 	bool orientation;
 
 	if (!get_effective_result(chg->pd_allowed_votable))
 		return -EINVAL;
-
-	rc = smblib_read(chg, TYPE_C_STATUS_4_REG, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read TYPE_C_STATUS_4 rc=%d\n", rc);
-		return rc;
-	}
 
 	chg->pd_active = val->intval;
 	if (chg->pd_active) {
@@ -2572,7 +2519,7 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 		 * line when TYPEC_SPARE_CFG_BIT (CC pin selection s/w override)
 		 * is set or when VCONN_EN_VALUE_BIT is set.
 		 */
-		orientation = stat & CC_ORIENTATION_BIT;
+		orientation = chg->typec_status[3] & CC_ORIENTATION_BIT;
 		rc = smblib_masked_write(chg,
 				TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
 				VCONN_EN_ORIENTATION_BIT,
@@ -2623,8 +2570,9 @@ int smblib_set_prop_pd_active(struct smb_charger *chg,
 			smblib_err(chg, "Couldn't enable HW cc_out rc=%d\n",
 									rc);
 
-		if ((stat & (TYPEC_DEBOUNCE_DONE_STATUS_BIT | UFP_DFP_MODE_BIT))
-					== TYPEC_DEBOUNCE_DONE_STATUS_BIT)
+		if ((chg->typec_status[3] &
+			(TYPEC_DEBOUNCE_DONE_STATUS_BIT | UFP_DFP_MODE_BIT))
+			== TYPEC_DEBOUNCE_DONE_STATUS_BIT)
 			try_rerun_apsd_for_hvdcp(chg);
 	}
 
@@ -3104,7 +3052,11 @@ irqreturn_t smblib_handle_usbin_uv(int irq, void *data)
 
 static void smblib_micro_usb_plugin(struct smb_charger *chg, bool vbus_rising)
 {
-	if (!vbus_rising) {
+	if (vbus_rising) {
+		/* use the typec flag even though its not typec */
+		chg->typec_present = 1;
+	} else {
+		chg->typec_present = 0;
 		smblib_update_usb_type(chg);
 		extcon_set_cable_state_(chg->extcon, EXTCON_USB, false);
 		smblib_uusb_removal(chg);
@@ -3120,18 +3072,16 @@ static void smblib_typec_usb_plugin(struct smb_charger *chg, bool vbus_rising)
 }
 
 #define PL_DELAY_MS			30000
-irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
+void smblib_usb_plugin_locked(struct smb_charger *chg)
 {
-	struct smb_irq_data *irq_data = data;
-	struct smb_charger *chg = irq_data->parent_data;
 	int rc;
 	u8 stat;
 	bool vbus_rising;
 
 	rc = smblib_read(chg, USBIN_BASE + INT_RT_STS_OFFSET, &stat);
 	if (rc < 0) {
-		dev_err(chg->dev, "Couldn't read USB_INT_RT_STS rc=%d\n", rc);
-		return IRQ_HANDLED;
+		smblib_err(chg, "Couldn't read USB_INT_RT_STS rc=%d\n", rc);
+		return;
 	}
 
 	vbus_rising = (bool)(stat & USBIN_PLUGIN_RT_STS_BIT);
@@ -3181,8 +3131,18 @@ irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
 		smblib_typec_usb_plugin(chg, vbus_rising);
 
 	power_supply_changed(chg->usb_psy);
-	smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s %s\n",
-		irq_data->name, vbus_rising ? "attached" : "detached");
+	smblib_dbg(chg, PR_INTERRUPT, "IRQ: usbin-plugin %s\n",
+					vbus_rising ? "attached" : "detached");
+}
+
+irqreturn_t smblib_handle_usb_plugin(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb_charger *chg = irq_data->parent_data;
+
+	mutex_lock(&chg->lock);
+	smblib_usb_plugin_locked(chg);
+	mutex_unlock(&chg->lock);
 	return IRQ_HANDLED;
 }
 
@@ -3717,53 +3677,55 @@ irqreturn_t smblib_handle_usb_typec_change_for_uusb(struct smb_charger *chg)
 	return IRQ_HANDLED;
 }
 
-irqreturn_t smblib_handle_usb_typec_change(int irq, void *data)
+static void smblib_usb_typec_change(struct smb_charger *chg)
 {
-	struct smb_irq_data *irq_data = data;
-	struct smb_charger *chg = irq_data->parent_data;
 	int rc;
-	u8 stat4, stat5;
 	bool debounce_done, sink_attached, legacy_cable;
 
-	if (chg->micro_usb_mode)
-		return smblib_handle_usb_typec_change_for_uusb(chg);
-
-	rc = smblib_read(chg, TYPE_C_STATUS_4_REG, &stat4);
+	rc = smblib_multibyte_read(chg, TYPE_C_STATUS_1_REG,
+							chg->typec_status, 5);
 	if (rc < 0) {
-		smblib_err(chg, "Couldn't read TYPE_C_STATUS_4 rc=%d\n", rc);
-		return IRQ_HANDLED;
+		smblib_err(chg, "Couldn't cache USB Type-C status rc=%d\n", rc);
+		return;
 	}
 
-	rc = smblib_read(chg, TYPE_C_STATUS_5_REG, &stat5);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read TYPE_C_STATUS_5 rc=%d\n", rc);
-		return IRQ_HANDLED;
-	}
-
-	debounce_done = (bool)(stat4 & TYPEC_DEBOUNCE_DONE_STATUS_BIT);
-	sink_attached = (bool)(stat4 & UFP_DFP_MODE_STATUS_BIT);
-	legacy_cable = (bool)(stat5 & TYPEC_LEGACY_CABLE_STATUS_BIT);
-
-	if (chg->cc2_detach_wa_active) {
-		smblib_dbg(chg, PR_INTERRUPT, "Ignoring cc2_wrkarnd=%d dd=%d\n",
-				chg->cc2_detach_wa_active,
-				debounce_done);
-		return IRQ_HANDLED;
-	}
+	debounce_done =
+		(bool)(chg->typec_status[3] & TYPEC_DEBOUNCE_DONE_STATUS_BIT);
+	sink_attached =
+		(bool)(chg->typec_status[3] & UFP_DFP_MODE_STATUS_BIT);
+	legacy_cable =
+		(bool)(chg->typec_status[4] & TYPEC_LEGACY_CABLE_STATUS_BIT);
 
 	smblib_handle_typec_debounce_done(chg,
 			debounce_done, sink_attached, legacy_cable);
 
-	if (stat4 & TYPEC_VBUS_ERROR_STATUS_BIT)
-		smblib_dbg(chg, PR_INTERRUPT, "IRQ: %s vbus-error\n",
-			irq_data->name);
+	if (chg->typec_status[3] & TYPEC_VBUS_ERROR_STATUS_BIT)
+		smblib_dbg(chg, PR_INTERRUPT, "IRQ: vbus-error\n");
 
-	if (stat4 & TYPEC_VCONN_OVERCURR_STATUS_BIT)
+	if (chg->typec_status[3] & TYPEC_VCONN_OVERCURR_STATUS_BIT)
 		schedule_work(&chg->vconn_oc_work);
 
 	power_supply_changed(chg->usb_psy);
-	smblib_dbg(chg, PR_REGISTER, "TYPE_C_STATUS_4 = 0x%02x\n", stat4);
-	smblib_dbg(chg, PR_REGISTER, "TYPE_C_STATUS_5 = 0x%02x\n", stat5);
+}
+
+irqreturn_t smblib_handle_usb_typec_change(int irq, void *data)
+{
+	struct smb_irq_data *irq_data = data;
+	struct smb_charger *chg = irq_data->parent_data;
+
+	if (chg->micro_usb_mode) {
+		smblib_handle_usb_typec_change_for_uusb(chg);
+		return IRQ_HANDLED;
+	}
+
+	if (chg->cc2_detach_wa_active) {
+		smblib_dbg(chg, PR_INTERRUPT, "Ignoring cc2_wa_active\n");
+		return IRQ_HANDLED;
+	}
+
+	mutex_lock(&chg->lock);
+	smblib_usb_typec_change(chg);
+	mutex_unlock(&chg->lock);
 	return IRQ_HANDLED;
 }
 
@@ -3889,7 +3851,6 @@ static void rdstd_cc2_detach_work(struct work_struct *work)
 {
 	int rc;
 	u8 stat4, stat5;
-	struct smb_irq_data irq_data = {NULL, "cc2-removal-workaround"};
 	struct smb_charger *chg = container_of(work, struct smb_charger,
 						rdstd_cc2_detach_work);
 
@@ -3952,8 +3913,9 @@ static void rdstd_cc2_detach_work(struct work_struct *work)
 	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
 						EXIT_SNK_BASED_ON_CC_BIT, 0);
 	smblib_reg_block_restore(chg, cc2_detach_settings);
-	irq_data.parent_data = chg;
-	smblib_handle_usb_typec_change(0, &irq_data);
+	mutex_lock(&chg->lock);
+	smblib_usb_typec_change(chg);
+	mutex_unlock(&chg->lock);
 	return;
 
 rerun:
@@ -4353,6 +4315,7 @@ int smblib_init(struct smb_charger *chg)
 {
 	int rc = 0;
 
+	mutex_init(&chg->lock);
 	mutex_init(&chg->write_lock);
 	mutex_init(&chg->otg_oc_lock);
 	INIT_WORK(&chg->bms_update_work, bms_update_work);

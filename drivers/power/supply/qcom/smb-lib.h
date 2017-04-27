@@ -229,6 +229,7 @@ struct smb_charger {
 	int			smb_version;
 
 	/* locks */
+	struct mutex		lock;
 	struct mutex		write_lock;
 	struct mutex		ps_change_lock;
 	struct mutex		otg_oc_lock;
@@ -308,6 +309,7 @@ struct smb_charger {
 	bool			uusb_apsd_rerun_done;
 	bool			pd_hard_reset;
 	bool			typec_present;
+	u8			typec_status[5];
 
 	/* workaround flag */
 	u32			wa_flags;
