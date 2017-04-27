@@ -2204,6 +2204,7 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 	struct drm_crtc *crtc;
 	struct drm_framebuffer *fb;
 	struct sde_rect src, dst;
+	const struct sde_rect *crtc_roi;
 	bool q16_data = true;
 	int idx;
 
@@ -2283,6 +2284,11 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 		}
 	}
 
+	/* re-program the output rects always in the case of partial update */
+	sde_crtc_get_crtc_roi(crtc->state, &crtc_roi);
+	if (!sde_kms_rect_is_null(crtc_roi))
+		pstate->dirty |= SDE_PLANE_DIRTY_RECTS;
+
 	if (pstate->dirty & SDE_PLANE_DIRTY_RECTS)
 		memset(&(psde->pipe_cfg), 0, sizeof(struct sde_hw_pipe_cfg));
 
@@ -2319,6 +2325,13 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 			src.y  = DIV_ROUND_UP(src.y, 2);
 			src.y &= ~0x1;
 		}
+
+		/*
+		 * adjust layer mixer position of the sspp in the presence
+		 * of a partial update to the active lm origin
+		 */
+		dst.x -= crtc_roi->x;
+		dst.y -= crtc_roi->y;
 
 		psde->pipe_cfg.src_rect = src;
 		psde->pipe_cfg.dst_rect = dst;

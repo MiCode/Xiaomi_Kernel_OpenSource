@@ -138,6 +138,7 @@ enum msm_mdp_crtc_property {
 	CRTC_PROP_MEM_IB,
 	CRTC_PROP_ROT_PREFILL_BW,
 	CRTC_PROP_ROT_CLK,
+	CRTC_PROP_ROI_V1,
 
 	/* total # of properties */
 	CRTC_PROP_COUNT
@@ -158,6 +159,7 @@ enum msm_mdp_conn_property {
 	CONNECTOR_PROP_DST_Y,
 	CONNECTOR_PROP_DST_W,
 	CONNECTOR_PROP_DST_H,
+	CONNECTOR_PROP_ROI_V1,
 
 	/* enum/bitmask properties */
 	CONNECTOR_PROP_TOPOLOGY_NAME,
@@ -197,6 +199,38 @@ enum msm_display_caps {
 	MSM_DISPLAY_CAP_CMD_MODE	= BIT(1),
 	MSM_DISPLAY_CAP_HOT_PLUG	= BIT(2),
 	MSM_DISPLAY_CAP_EDID		= BIT(3),
+};
+
+/**
+ * struct msm_roi_alignment - region of interest alignment restrictions
+ * @xstart_pix_align: left x offset alignment restriction
+ * @width_pix_align: width alignment restriction
+ * @ystart_pix_align: top y offset alignment restriction
+ * @height_pix_align: height alignment restriction
+ * @min_width: minimum width restriction
+ * @min_height: minimum height restriction
+ */
+struct msm_roi_alignment {
+	uint32_t xstart_pix_align;
+	uint32_t width_pix_align;
+	uint32_t ystart_pix_align;
+	uint32_t height_pix_align;
+	uint32_t min_width;
+	uint32_t min_height;
+};
+
+/**
+ * struct msm_roi_caps - display's region of interest capabilities
+ * @enabled: true if some region of interest is supported
+ * @merge_rois: merge rois before sending to display
+ * @num_roi: maximum number of rois supported
+ * @align: roi alignment restrictions
+ */
+struct msm_roi_caps {
+	bool enabled;
+	bool merge_rois;
+	uint32_t num_roi;
+	struct msm_roi_alignment align;
 };
 
 /**
@@ -338,6 +372,7 @@ struct msm_compression_info {
  * @vtotal:		display vertical total
  * @jitter:		display jitter configuration
  * @comp_info:          Compression supported by the display
+ * @roi_caps:           Region of interest capability info
  */
 struct msm_display_info {
 	int intf_type;
@@ -361,21 +396,19 @@ struct msm_display_info {
 	uint32_t jitter;
 
 	struct msm_compression_info comp_info;
+	struct msm_roi_caps roi_caps;
 };
 
 #define MSM_MAX_ROI	4
 
 /**
- * struct msm_roi_mapping - Regions of interest structure for mapping CRTC to
- *	Connector output
- * @num_rects: number of valid rectangles in src and dst arrays
- * @src: source roi rectangle
- * @dst: destination roi rectangle
+ * struct msm_roi_list - list of regions of interest for a drm object
+ * @num_rects: number of valid rectangles in the roi array
+ * @roi: list of roi rectangles
  */
-struct msm_roi_mapping {
+struct msm_roi_list {
 	uint32_t num_rects;
-	struct drm_clip_rect src[MSM_MAX_ROI];
-	struct drm_clip_rect dst[MSM_MAX_ROI];
+	struct drm_clip_rect roi[MSM_MAX_ROI];
 };
 
 /**
@@ -383,7 +416,7 @@ struct msm_roi_mapping {
  * @rois: Regions of interest structure for mapping CRTC to Connector output
  */
 struct msm_display_kickoff_params {
-	struct msm_roi_mapping *rois;
+	struct msm_roi_list *rois;
 };
 
 /**

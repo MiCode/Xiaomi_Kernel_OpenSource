@@ -250,6 +250,11 @@ struct sde_crtc_respool {
  * @rsc_client    : sde rsc client when mode is valid
  * @lm_bounds     : LM boundaries based on current mode full resolution, no ROI.
  *                  Origin top left of CRTC.
+ * @crtc_roi      : Current CRTC ROI. Possibly sub-rectangle of mode.
+ *                  Origin top left of CRTC.
+ * @lm_roi        : Current LM ROI, possibly sub-rectangle of mode.
+ *                  Origin top left of CRTC.
+ * @user_roi_list : List of user's requested ROIs as from set property
  * @property_values: Current crtc property values
  * @input_fence_timeout_ns : Cached input fence timeout, in ns
  * @property_blobs: Reference pointers for blob properties
@@ -270,6 +275,9 @@ struct sde_crtc_state {
 	bool rsc_update;
 
 	struct sde_rect lm_bounds[CRTC_DUAL_MIXERS];
+	struct sde_rect crtc_roi;
+	struct sde_rect lm_roi[CRTC_DUAL_MIXERS];
+	struct msm_roi_list user_roi_list;
 
 	uint64_t property_values[CRTC_PROP_COUNT];
 	uint64_t input_fence_timeout_ns;
@@ -432,5 +440,15 @@ void *sde_crtc_res_get(struct drm_crtc_state *state, u32 type, u64 tag);
  * return: None
  */
 void sde_crtc_res_put(struct drm_crtc_state *state, u32 type, u64 tag);
+
+/**
+ * sde_crtc_get_crtc_roi - retrieve the crtc_roi from the given state object
+ *	used to allow the planes to adjust their final lm out_xy value in the
+ *	case of partial update
+ * @crtc_state: Pointer to crtc state
+ * @crtc_roi: Output pointer to crtc roi in the given state
+ */
+void sde_crtc_get_crtc_roi(struct drm_crtc_state *state,
+		const struct sde_rect **crtc_roi);
 
 #endif /* _SDE_CRTC_H_ */

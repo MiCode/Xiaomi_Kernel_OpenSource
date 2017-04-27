@@ -656,20 +656,343 @@ static void _sde_crtc_setup_dim_layer_cfg(struct drm_crtc *crtc,
 	}
 }
 
+void sde_crtc_get_crtc_roi(struct drm_crtc_state *state,
+		const struct sde_rect **crtc_roi)
+{
+	struct sde_crtc_state *crtc_state;
+
+	if (!state || !crtc_roi)
+		return;
+
+	crtc_state = to_sde_crtc_state(state);
+	*crtc_roi = &crtc_state->crtc_roi;
+}
+
+static int _sde_crtc_set_roi_v1(struct drm_crtc_state *state,
+		void *usr_ptr)
+{
+	struct drm_crtc *crtc;
+	struct sde_crtc_state *cstate;
+	struct sde_drm_roi_v1 roi_v1;
+	int i;
+
+	if (!state) {
+		SDE_ERROR("invalid args\n");
+		return -EINVAL;
+	}
+
+	cstate = to_sde_crtc_state(state);
+	crtc = cstate->base.crtc;
+
+	memset(&cstate->user_roi_list, 0, sizeof(cstate->user_roi_list));
+
+	if (!usr_ptr) {
+		SDE_DEBUG("crtc%d: rois cleared\n", DRMID(crtc));
+		return 0;
+	}
+
+	if (copy_from_user(&roi_v1, usr_ptr, sizeof(roi_v1))) {
+		SDE_ERROR("crtc%d: failed to copy roi_v1 data\n", DRMID(crtc));
+		return -EINVAL;
+	}
+
+	SDE_DEBUG("crtc%d: num_rects %d\n", DRMID(crtc), roi_v1.num_rects);
+
+	if (roi_v1.num_rects == 0) {
+		SDE_DEBUG("crtc%d: rois cleared\n", DRMID(crtc));
+		return 0;
+	}
+
+	if (roi_v1.num_rects > SDE_MAX_ROI_V1) {
+		SDE_ERROR("crtc%d: too many rects specified: %d\n", DRMID(crtc),
+				roi_v1.num_rects);
+		return -EINVAL;
+	}
+
+	cstate->user_roi_list.num_rects = roi_v1.num_rects;
+	for (i = 0; i < roi_v1.num_rects; ++i) {
+		cstate->user_roi_list.roi[i] = roi_v1.roi[i];
+		SDE_DEBUG("crtc%d: roi%d: roi (%d,%d) (%d,%d)\n",
+				DRMID(crtc), i,
+				cstate->user_roi_list.roi[i].x1,
+				cstate->user_roi_list.roi[i].y1,
+				cstate->user_roi_list.roi[i].x2,
+				cstate->user_roi_list.roi[i].y2);
+	}
+
+	return 0;
+}
+
+static int _sde_crtc_set_crtc_roi(struct drm_crtc *crtc,
+		struct drm_crtc_state *state)
+{
+	struct drm_connector *conn;
+	struct drm_connector_state *conn_state;
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *crtc_state;
+	struct sde_rect *crtc_roi;
+	struct drm_clip_rect crtc_clip, *user_rect;
+	int i, num_attached_conns = 0;
+
+	if (!crtc || !state)
+		return -EINVAL;
+
+	sde_crtc = to_sde_crtc(crtc);
+	crtc_state = to_sde_crtc_state(state);
+	crtc_roi = &crtc_state->crtc_roi;
+
+	/* init to invalid range maxes */
+	crtc_clip.x1 = ~0;
+	crtc_clip.y1 = ~0;
+	crtc_clip.x2 = 0;
+	crtc_clip.y2 = 0;
+
+	for_each_connector_in_state(state->state, conn, conn_state, i) {
+		struct sde_connector_state *sde_conn_state;
+
+		if (!conn_state || conn_state->crtc != crtc)
+			continue;
+
+		if (num_attached_conns) {
+			SDE_ERROR(
+				"crtc%d: unsupported: roi on crtc w/ >1 connectors\n",
+					DRMID(crtc));
+			return -EINVAL;
+		}
+		++num_attached_conns;
+
+		sde_conn_state = to_sde_connector_state(conn_state);
+
+		if (memcmp(&sde_conn_state->rois, &crtc_state->user_roi_list,
+				sizeof(crtc_state->user_roi_list))) {
+			SDE_ERROR("%s: crtc -> conn roi scaling unsupported\n",
+					sde_crtc->name);
+			return -EINVAL;
+		}
+	}
+
+	/* aggregate all clipping rectangles together for overall crtc roi */
+	for (i = 0; i < crtc_state->user_roi_list.num_rects; i++) {
+		user_rect = &crtc_state->user_roi_list.roi[i];
+
+		crtc_clip.x1 = min(crtc_clip.x1, user_rect->x1);
+		crtc_clip.y1 = min(crtc_clip.y1, user_rect->y1);
+		crtc_clip.x2 = max(crtc_clip.x2, user_rect->x2);
+		crtc_clip.y2 = max(crtc_clip.y2, user_rect->y2);
+
+		SDE_DEBUG(
+			"%s: conn%d roi%d (%d,%d),(%d,%d) -> crtc (%d,%d),(%d,%d)\n",
+				sde_crtc->name, DRMID(crtc), i,
+				user_rect->x1, user_rect->y1,
+				user_rect->x2, user_rect->y2,
+				crtc_clip.x1, crtc_clip.y1,
+				crtc_clip.x2, crtc_clip.y2);
+
+	}
+
+	if (crtc_clip.x2  && crtc_clip.y2) {
+		crtc_roi->x = crtc_clip.x1;
+		crtc_roi->y = crtc_clip.y1;
+		crtc_roi->w = crtc_clip.x2 - crtc_clip.x1;
+		crtc_roi->h = crtc_clip.y2 - crtc_clip.y1;
+	} else {
+		crtc_roi->x = 0;
+		crtc_roi->y = 0;
+		crtc_roi->w = 0;
+		crtc_roi->h = 0;
+	}
+
+	SDE_DEBUG("%s: crtc roi (%d,%d,%d,%d)\n", sde_crtc->name,
+			crtc_roi->x, crtc_roi->y, crtc_roi->w, crtc_roi->h);
+
+	return 0;
+}
+
+static int _sde_crtc_set_lm_roi(struct drm_crtc *crtc,
+		struct drm_crtc_state *state, int lm_idx)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *crtc_state;
+	const struct sde_rect *crtc_roi;
+	const struct sde_rect *lm_bounds;
+	struct sde_rect *lm_roi;
+
+	if (!crtc || !state || lm_idx >= ARRAY_SIZE(crtc_state->lm_bounds))
+		return -EINVAL;
+
+	sde_crtc = to_sde_crtc(crtc);
+	crtc_state = to_sde_crtc_state(state);
+	crtc_roi = &crtc_state->crtc_roi;
+	lm_bounds = &crtc_state->lm_bounds[lm_idx];
+	lm_roi = &crtc_state->lm_roi[lm_idx];
+
+	if (!sde_kms_rect_is_null(crtc_roi)) {
+		sde_kms_rect_intersect(crtc_roi, lm_bounds, lm_roi);
+		if (sde_kms_rect_is_null(lm_roi)) {
+			SDE_ERROR("unsupported R/L only partial update\n");
+			return -EINVAL;
+		}
+	} else {
+		memcpy(lm_roi, lm_bounds, sizeof(*lm_roi));
+	}
+
+	SDE_DEBUG("%s: lm%d roi (%d,%d,%d,%d)\n", sde_crtc->name, lm_idx,
+			lm_roi->x, lm_roi->y, lm_roi->w, lm_roi->h);
+
+	return 0;
+}
+
+static int _sde_crtc_check_rois_centered_and_symmetric(struct drm_crtc *crtc,
+		struct drm_crtc_state *state)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *crtc_state;
+	const struct sde_rect *roi_prv, *roi_cur;
+	int lm_idx;
+
+	if (!crtc || !state)
+		return -EINVAL;
+
+	/*
+	 * On certain HW, ROIs must be centered on the split between LMs,
+	 * and be of equal width.
+	 */
+
+	sde_crtc = to_sde_crtc(crtc);
+	crtc_state = to_sde_crtc_state(state);
+
+	roi_prv = &crtc_state->lm_roi[0];
+	for (lm_idx = 1; lm_idx < sde_crtc->num_mixers; lm_idx++) {
+		roi_cur = &crtc_state->lm_roi[lm_idx];
+
+		/* check lm rois are equal width & first roi ends at 2nd roi */
+		if (((roi_prv->x + roi_prv->w) != roi_cur->x) ||
+				(roi_prv->w != roi_cur->w)) {
+			SDE_ERROR("%s: roi lm%d x %d w %d lm%d x %d w %d\n",
+					sde_crtc->name,
+					lm_idx-1, roi_prv->x, roi_prv->w,
+					lm_idx, roi_cur->x, roi_cur->w);
+			return -EINVAL;
+		}
+		roi_prv = roi_cur;
+	}
+
+	return 0;
+}
+
+static int _sde_crtc_check_planes_within_crtc_roi(struct drm_crtc *crtc,
+		struct drm_crtc_state *state)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *crtc_state;
+	const struct sde_rect *crtc_roi;
+	struct drm_plane_state *pstate;
+	struct drm_plane *plane;
+
+	if (!crtc || !state)
+		return -EINVAL;
+
+	/*
+	 * Reject commit if a Plane CRTC destination coordinates fall outside
+	 * the partial CRTC ROI. LM output is determined via connector ROIs,
+	 * if they are specified, not Plane CRTC ROIs.
+	 */
+
+	sde_crtc = to_sde_crtc(crtc);
+	crtc_state = to_sde_crtc_state(state);
+	crtc_roi = &crtc_state->crtc_roi;
+
+	if (sde_kms_rect_is_null(crtc_roi))
+		return 0;
+
+	drm_atomic_crtc_state_for_each_plane(plane, state) {
+		struct sde_rect plane_roi, intersection;
+
+		pstate = drm_atomic_get_plane_state(state->state, plane);
+		if (IS_ERR_OR_NULL(pstate)) {
+			int rc = PTR_ERR(pstate);
+
+			SDE_ERROR("%s: failed to get plane%d state, %d\n",
+					sde_crtc->name, plane->base.id, rc);
+			return rc;
+		}
+
+		plane_roi.x = pstate->crtc_x;
+		plane_roi.y = pstate->crtc_y;
+		plane_roi.w = pstate->crtc_w;
+		plane_roi.h = pstate->crtc_h;
+		sde_kms_rect_intersect(crtc_roi, &plane_roi, &intersection);
+		if (!sde_kms_rect_is_equal(&plane_roi, &intersection)) {
+			SDE_ERROR(
+				"%s: plane%d crtc roi (%d,%d,%d,%d) outside crtc roi (%d,%d,%d,%d)\n",
+					sde_crtc->name, plane->base.id,
+					plane_roi.x, plane_roi.y,
+					plane_roi.w, plane_roi.h,
+					crtc_roi->x, crtc_roi->y,
+					crtc_roi->w, crtc_roi->h);
+			return -E2BIG;
+		}
+	}
+
+	return 0;
+}
+
+static int _sde_crtc_check_rois(struct drm_crtc *crtc,
+		struct drm_crtc_state *state)
+{
+	struct sde_crtc *sde_crtc;
+	int lm_idx;
+	int rc;
+
+	if (!crtc || !state)
+		return -EINVAL;
+
+	sde_crtc = to_sde_crtc(crtc);
+
+	rc = _sde_crtc_set_crtc_roi(crtc, state);
+	if (rc)
+		return rc;
+
+	for (lm_idx = 0; lm_idx < sde_crtc->num_mixers; lm_idx++) {
+		rc = _sde_crtc_set_lm_roi(crtc, state, lm_idx);
+		if (rc)
+			return rc;
+	}
+
+	rc = _sde_crtc_check_rois_centered_and_symmetric(crtc, state);
+	if (rc)
+		return rc;
+
+	rc = _sde_crtc_check_planes_within_crtc_roi(crtc, state);
+	if (rc)
+		return rc;
+
+	return 0;
+}
+
 static void _sde_crtc_program_lm_output_roi(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *crtc_state;
+	const struct sde_rect *lm_roi;
+	struct sde_hw_mixer *hw_lm;
 	int lm_idx, lm_horiz_position;
+
+	if (!crtc)
+		return;
 
 	sde_crtc = to_sde_crtc(crtc);
 	crtc_state = to_sde_crtc_state(crtc->state);
 
 	lm_horiz_position = 0;
 	for (lm_idx = 0; lm_idx < sde_crtc->num_mixers; lm_idx++) {
-		const struct sde_rect *lm_roi = &crtc_state->lm_bounds[lm_idx];
-		struct sde_hw_mixer *hw_lm = sde_crtc->mixers[lm_idx].hw_lm;
 		struct sde_hw_mixer_cfg cfg;
+
+		lm_roi = &crtc_state->lm_roi[lm_idx];
+		hw_lm = sde_crtc->mixers[lm_idx].hw_lm;
+
+		SDE_EVT32(DRMID(crtc_state->base.crtc), lm_idx,
+			lm_roi->x, lm_roi->y, lm_roi->w, lm_roi->h);
 
 		if (sde_kms_rect_is_null(lm_roi))
 			continue;
@@ -742,9 +1065,12 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 
 		format = to_sde_format(msm_framebuffer_format(pstate->base.fb));
 
-		SDE_EVT32(DRMID(plane), state->src_x, state->src_y,
-			state->src_w >> 16, state->src_h >> 16, state->crtc_x,
-			state->crtc_y, state->crtc_w, state->crtc_h);
+		SDE_EVT32(DRMID(crtc), DRMID(plane),
+				state->fb ? state->fb->base.id : -1,
+				state->src_x >> 16, state->src_y >> 16,
+				state->src_w >> 16, state->src_h >> 16,
+				state->crtc_x, state->crtc_y,
+				state->crtc_w, state->crtc_h);
 
 		for (lm_idx = 0; lm_idx < sde_crtc->num_mixers; lm_idx++) {
 			struct sde_rect intersect;
@@ -877,6 +1203,8 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 		ctl->ops.setup_blendstage(ctl, mixer[i].hw_lm->idx,
 			&sde_crtc->stage_cfg, i);
 	}
+
+	_sde_crtc_program_lm_output_roi(crtc);
 }
 
 void sde_crtc_prepare_commit(struct drm_crtc *crtc,
@@ -1329,14 +1657,18 @@ static void _sde_crtc_setup_lm_bounds(struct drm_crtc *crtc,
 	crtc_split_width = sde_crtc_mixer_width(sde_crtc, adj_mode);
 
 	for (i = 0; i < sde_crtc->num_mixers; i++) {
-		struct sde_rect *lm_bound = &cstate->lm_bounds[i];
-
-		lm_bound->x = crtc_split_width * i;
-		lm_bound->y = 0;
-		lm_bound->w = crtc_split_width;
-		lm_bound->h = adj_mode->vdisplay;
-		SDE_EVT32(DRMID(crtc), i, lm_bound->x, lm_bound->y,
-				lm_bound->w, lm_bound->h);
+		cstate->lm_bounds[i].x = crtc_split_width * i;
+		cstate->lm_bounds[i].y = 0;
+		cstate->lm_bounds[i].w = crtc_split_width;
+		cstate->lm_bounds[i].h = adj_mode->vdisplay;
+		memcpy(&cstate->lm_roi[i], &cstate->lm_bounds[i],
+				sizeof(cstate->lm_roi[i]));
+		SDE_EVT32(DRMID(crtc), i,
+				cstate->lm_bounds[i].x, cstate->lm_bounds[i].y,
+				cstate->lm_bounds[i].w, cstate->lm_bounds[i].h);
+		SDE_DEBUG("%s: lm%d bnd&roi (%d,%d,%d,%d)\n", sde_crtc->name, i,
+				cstate->lm_roi[i].x, cstate->lm_roi[i].y,
+				cstate->lm_roi[i].w, cstate->lm_roi[i].h);
 	}
 
 	drm_mode_debug_printmodeline(adj_mode);
@@ -1366,10 +1698,10 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 	dev = crtc->dev;
 
-	if (!sde_crtc->num_mixers)
+	if (!sde_crtc->num_mixers) {
 		_sde_crtc_setup_mixers(crtc);
-
-	_sde_crtc_setup_lm_bounds(crtc, crtc->state);
+		_sde_crtc_setup_lm_bounds(crtc, crtc->state);
+	}
 
 	if (sde_crtc->event) {
 		WARN_ON(sde_crtc->event);
@@ -2117,6 +2449,11 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		}
 	}
 
+	rc = _sde_crtc_check_rois(crtc, state);
+	if (rc) {
+		SDE_ERROR("crtc%d failed roi check %d\n", crtc->base.id, rc);
+		goto end;
+	}
 
 end:
 	_sde_crtc_rp_free_unused(&cstate->rp);
@@ -2243,6 +2580,9 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 			"dim_layer_v1", 0x0, 0, ~0, 0, CRTC_PROP_DIM_LAYER_V1);
 	}
 
+	msm_property_install_volatile_range(&sde_crtc->property_info,
+		"sde_drm_roi_v1", 0x0, 0, ~0, 0, CRTC_PROP_ROI_V1);
+
 	sde_kms_info_reset(info);
 
 	sde_kms_info_add_keyint(info, "hw_version", catalog->hwversion);
@@ -2314,6 +2654,9 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 				break;
 			case CRTC_PROP_DIM_LAYER_V1:
 				_sde_crtc_set_dim_layer_v1(cstate, (void *)val);
+				break;
+			case CRTC_PROP_ROI_V1:
+				ret = _sde_crtc_set_roi_v1(state, (void *)val);
 				break;
 			default:
 				/* nothing to do */
