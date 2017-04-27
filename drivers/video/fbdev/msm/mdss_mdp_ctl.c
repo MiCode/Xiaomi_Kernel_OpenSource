@@ -6085,8 +6085,9 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 
 	/* update backlight in commit */
 	if (mdss_mdp_handle_backlight_extn(ctl)) {
-		if (!IS_CALIB_MODE_BL(ctl->mfd) && (!ctl->mfd->ext_bl_ctrl ||
-						!ctl->mfd->bl_level)) {
+		if (ctl->mfd && !IS_CALIB_MODE_BL(ctl->mfd) &&
+			(!ctl->mfd->ext_bl_ctrl ||
+			 !ctl->mfd->bl_level)) {
 			mutex_lock(&ctl->mfd->bl_lock);
 			mdss_fb_set_backlight(ctl->mfd,
 					      ctl->mfd->bl_extn_level);
