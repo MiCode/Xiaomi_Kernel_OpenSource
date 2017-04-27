@@ -229,8 +229,12 @@ static int32_t msm_isp_stats_buf_divert(struct vfe_device *vfe_dev,
 
 	stats_event->pd_stats_idx = 0xF;
 	if (stream_info->stats_type == MSM_ISP_STATS_BF) {
-		stats_event->pd_stats_idx = vfe_dev->pd_buf_idx;
-		vfe_dev->pd_buf_idx = 0xF;
+		spin_lock_irqsave(&vfe_dev->common_data->
+			common_dev_data_lock, flags);
+		stats_event->pd_stats_idx = vfe_dev->common_data->pd_buf_idx;
+		vfe_dev->common_data->pd_buf_idx = 0xF;
+		spin_unlock_irqrestore(&vfe_dev->common_data->
+			common_dev_data_lock, flags);
 	}
 	if (comp_stats_type_mask == NULL) {
 		stats_event->stats_mask =
