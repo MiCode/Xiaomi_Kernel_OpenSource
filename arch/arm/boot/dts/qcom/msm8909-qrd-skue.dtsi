@@ -109,8 +109,15 @@
 	};
 
 	sound {
-		compatible = "qcom,msm8x16-audio-codec";
+		compatible = "qcom,msm8952-audio-codec";
 		qcom,model = "msm8909-skue-snd-card";
+		reg =   <0x7702000 0x4>,
+			<0x7702004 0x4>,
+			<0x7702008 0x4>;
+		reg-names =
+			"csr_gp_io_mux_mic_ctl",
+			"csr_gp_io_mux_spkr_ctl",
+			"csr_gp_io_lpaif_pri_pcm_pri_mode_muxsel";
 		qcom,msm-snd-card-id = <0>;
 		qcom,msm-codec-type = "internal";
 		qcom,msm-ext-pa = "primary";
@@ -128,30 +135,54 @@
 			"MIC BIAS Internal2", "Headset Mic",
 			"AMIC1", "MIC BIAS Internal1",
 			"AMIC2", "MIC BIAS Internal2";
-		pinctrl-names = "cdc_lines_act",
-				"cdc_lines_sus";
-		pinctrl-0 = <&cdc_pdm_lines_act>;
-		pinctrl-1 = <&cdc_pdm_lines_sus>;
-		asoc-platform = <&pcm0>, <&pcm1>, <&voip>, <&voice>,
+		qcom,msm-gpios =
+			"pri_i2s",
+			"us_eu_gpio";
+		qcom,pinctrl-names =
+			"all_off",
+			"pri_i2s_act",
+			"us_eu_gpio_act",
+			"pri_i2s_us_eu_gpio_act";
+		pinctrl-names =
+			"all_off",
+			"pri_i2s_act",
+			"us_eu_gpio_act",
+			"pri_i2s_us_eu_gpio_act";
+		pinctrl-0 = <&cdc_pdm_lines_sus &cross_conn_det_sus
+							&vdd_spkdrv_sus>;
+		pinctrl-1 = <&cdc_pdm_lines_act &cross_conn_det_sus
+							&vdd_spkdrv_act>;
+		pinctrl-2 = <&cdc_pdm_lines_sus &cross_conn_det_act
+							&vdd_spkdrv_sus>;
+		pinctrl-3 = <&cdc_pdm_lines_act &cross_conn_det_act
+							&vdd_spkdrv_act>;
+		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&lpa>,
 				<&voice_svc>;
 		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
-				"msm-voip-dsp", "msm-pcm-voice", "msm-pcm-loopback",
-				"msm-compress-dsp", "msm-pcm-hostless", "msm-pcm-afe",
-				"msm-lsm-client", "msm-pcm-routing", "msm-pcm-lpa",
+				"msm-pcm-dsp.2", "msm-voip-dsp",
+				"msm-pcm-voice", "msm-pcm-loopback",
+				"msm-compress-dsp", "msm-pcm-hostless",
+				"msm-pcm-afe", "msm-lsm-client",
+				"msm-pcm-routing", "msm-pcm-lpa",
 				"msm-voice-svc";
 		asoc-cpu = <&dai_pri_auxpcm>, <&dai_hdmi>,
-				<&dai_mi2s0>, <&dai_mi2s1>, <&dai_mi2s2>, <&dai_mi2s3>,
+				<&dai_mi2s0>, <&dai_mi2s1>,
+				<&dai_mi2s2>, <&dai_mi2s3>,
+				<&dai_mi2s5>, <&dai_mi2s6>,
 				<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
 				<&sb_3_rx>, <&sb_3_tx>, <&sb_4_rx>, <&sb_4_tx>,
-				<&bt_sco_rx>, <&bt_sco_tx>, <&int_fm_rx>, <&int_fm_tx>,
-				<&afe_pcm_rx>, <&afe_pcm_tx>, <&afe_proxy_rx>, <&afe_proxy_tx>,
-				<&incall_record_rx>, <&incall_record_tx>, <&incall_music_rx>,
-				<&incall_music_2_rx>;
+				<&bt_sco_rx>, <&bt_sco_tx>,
+				<&int_fm_rx>, <&int_fm_tx>,
+				<&afe_pcm_rx>, <&afe_pcm_tx>,
+				<&afe_proxy_rx>, <&afe_proxy_tx>,
+				<&incall_record_rx>, <&incall_record_tx>,
+				<&incall_music_rx>, <&incall_music_2_rx>;
 		asoc-cpu-names = "msm-dai-q6-auxpcm.1", "msm-dai-q6-hdmi.8",
 				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
 				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
+				"msm-dai-q6-mi2s.5", "msm-dai-q6-mi2s.6",
 				"msm-dai-q6-dev.16384",	"msm-dai-q6-dev.16385",
 				"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
 				"msm-dai-q6-dev.16390", "msm-dai-q6-dev.16391",
@@ -163,7 +194,7 @@
 				"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
 				"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770";
 		asoc-codec = <&stub_codec>, <&pm8909_conga_dig>;
-		asoc-codec-names = "msm-stub-codec.1", "tombak_codec";
+		asoc-codec-names = "msm-stub-codec.1", "cajon_codec";
 	};
 };
 
