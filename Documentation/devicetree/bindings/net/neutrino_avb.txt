@@ -29,6 +29,10 @@ Optional properties:
 			   or approx 16.8 ms. For example, a value of 4 would
 			   mean a timestamp valid window of approximately 67
 			   ms.
+  - qcom,ntn-rmii-mode: Use to force RMII mode for RMII PHYs. The interface
+			   selection pin is not brought out so it has to be
+			   forced. If this option is omitted then RGMII mode
+			   will be used.
 
 Example:
 	qcom,ntn_avb {
@@ -44,7 +48,7 @@ Example:
 		qcom,ntn-bus-num = <1>;
 	};
 
-	qcom,ntn_avb {
+	ethernet {
 		compatible = "qcom,ntn_avb";
 		ntn-supply-enable-gpio = <&pmd9635_gpios 3 0>;
 		qcom,ntn-rst-delay-msec = <100>;
