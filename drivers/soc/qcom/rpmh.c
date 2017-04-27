@@ -108,7 +108,7 @@ static void rpmh_rx_cb(struct mbox_client *cl, void *msg)
 	struct rpmh_msg *rpm_msg = container_of(msg, struct rpmh_msg, msg);
 
 	atomic_dec(rpm_msg->wait_count);
-	wake_up_interruptible(rpm_msg->waitq);
+	wake_up(rpm_msg->waitq);
 }
 
 static void rpmh_tx_done(struct mbox_client *cl, void *msg, int r)
@@ -151,7 +151,7 @@ static void rpmh_tx_done(struct mbox_client *cl, void *msg, int r)
 	/* Signal the blocking thread we are done */
 	if (waitq) {
 		atomic_dec(wc);
-		wake_up_interruptible(waitq);
+		wake_up(waitq);
 	}
 }
 
@@ -329,9 +329,7 @@ int rpmh_write_single(struct rpmh_client *rc, enum rpmh_state state,
 	if (ret < 0)
 		return ret;
 
-	ret = wait_event_interruptible(waitq, atomic_read(&wait_count) == 0);
-	if (ret)
-		return ret;
+	wait_event(waitq, atomic_read(&wait_count) == 0);
 
 	return rpm_msg.err;
 }
@@ -423,12 +421,10 @@ int rpmh_write(struct rpmh_client *rc, enum rpmh_state state,
 	rpm_msg.msg.num_payload = n;
 
 	ret = __rpmh_write(rc, state, &rpm_msg);
-	if (ret < 0)
-		return ret;
-
-	ret = wait_event_interruptible(waitq, atomic_read(&wait_count) == 0);
 	if (ret)
 		return ret;
+
+	wait_event(waitq, atomic_read(&wait_count) == 0);
 
 	return rpm_msg.err;
 }
@@ -509,8 +505,7 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 			if (ret < 0)
 				return ret;
 		}
-		return wait_event_interruptible(waitq,
-					atomic_read(&wait_count) == 0);
+		wait_event(waitq, atomic_read(&wait_count) == 0);
 	} else {
 		/* Send Sleep requests to the controller, expect no response */
 		for (i = 0; i < count; i++) {
@@ -522,6 +517,8 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 		}
 		return 0;
 	}
+
+	return 0;
 }
 EXPORT_SYMBOL(rpmh_write_passthru);
 
@@ -624,9 +621,7 @@ int rpmh_read(struct rpmh_client *rc, u32 addr, u32 *resp)
 		return ret;
 
 	/* Wait until the response is received from RPMH */
-	ret = wait_event_interruptible(waitq, atomic_read(&wait_count) == 0);
-	if (ret)
-		return ret;
+	wait_event(waitq, atomic_read(&wait_count) == 0);
 
 	/* Read the data back from the tcs_mbox_msg structrure */
 	*resp = rpm_msg.cmd[0].data;
