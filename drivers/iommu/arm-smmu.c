@@ -2190,8 +2190,8 @@ static int arm_smmu_attach_dynamic(struct iommu_domain *domain,
 				smmu->num_context_banks + 2,
 				MAX_ASID + 1, GFP_KERNEL);
 	if (ret < 0) {
-		dev_err(smmu->dev, "dynamic ASID allocation failed: %d\n",
-			ret);
+		dev_err_ratelimited(smmu->dev,
+			"dynamic ASID allocation failed: %d\n", ret);
 		goto out;
 	}
 

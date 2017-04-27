@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,15 +37,15 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 	connector = bl_get_data(bd);
 	c_conn = to_sde_connector(connector);
 	display = (struct dsi_display *) c_conn->display;
-	if (brightness > display->panel->bl_config.bl_max_level)
-		brightness = display->panel->bl_config.bl_max_level;
+	if (brightness > display->panel[0]->bl_config.bl_max_level)
+		brightness = display->panel[0]->bl_config.bl_max_level;
 
 	/* This maps UI brightness into driver backlight level with
 	 *        rounding
 	 */
 	SDE_BRIGHT_TO_BL(bl_lvl, brightness,
-			display->panel->bl_config.bl_max_level,
-			display->panel->bl_config.brightness_max_level);
+			display->panel[0]->bl_config.bl_max_level,
+			display->panel[0]->bl_config.brightness_max_level);
 
 	if (!bl_lvl && brightness)
 		bl_lvl = 1;
@@ -85,7 +85,7 @@ int sde_backlight_setup(struct drm_connector *connector)
 	switch (c_conn->connector_type) {
 	case DRM_MODE_CONNECTOR_DSI:
 		display = (struct dsi_display *) c_conn->display;
-		bl_config = &display->panel->bl_config;
+		bl_config = &display->panel[0]->bl_config;
 		props.max_brightness = bl_config->brightness_max_level;
 		props.brightness = bl_config->brightness_max_level;
 		bd = backlight_device_register("sde-backlight",

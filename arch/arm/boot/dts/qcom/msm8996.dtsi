@@ -21,6 +21,10 @@
 	qcom,pmic-id = <0x20009 0x2000A 0x0 0x0>;
 	interrupt-parent = <&intc>;
 
+	chosen {
+		bootargs = "fpsimd.fpsimd_settings=1 app_setting.use_app_setting=1 app_setting.use_32bit_app_setting=1";
+	};
+
 	aliases {
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
@@ -298,13 +302,23 @@
 
 	intc: interrupt-controller@09bc0000 {
 		compatible = "arm,gic-v3";
+		reg = <0x9bc0000 0x10000>,       /* GICD */
+		      <0x9c00000 0x100000>;      /* GICR * 4 */
 		#interrupt-cells = <3>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
 		interrupt-controller;
 		#redistributor-regions = <1>;
 		redistributor-stride = <0x0 0x40000>;
-		reg = <0x09bc0000 0x10000>,       /* GICD */
-		      <0x09c00000 0x100000>;      /* GICR * 4 */
+
 		interrupts = <1 9 4>;
+
+		gic-its@09BE0000 {
+			compatible = "arm,gic-v3-its";
+			msi-contoller;
+			reg = <0x9be0000 0x20000>;
+		};
 	};
 
 	timer {

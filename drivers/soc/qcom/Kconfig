@@ -367,6 +367,14 @@ config MSM_SPM
 	  driver allows configuring SPM to allow different low power modes for
 	  both core and L2.
 
+config MSM_L2_SPM
+	bool "SPM support for L2 cache"
+	help
+	  Enable SPM driver support for L2 cache. Some MSM chipsets allow
+	  control of L2 cache low power mode with a Subsystem Power manager.
+	  Enabling this driver allows configuring L2 SPM for low power modes
+	  on supported chipsets
+
 config QCOM_SCM
        bool "Secure Channel Manager (SCM) support"
        default n
@@ -572,6 +580,16 @@ config MSM_BOOT_STATS
 	 display init, total boot time.
 	 This figures are reported in mpm sleep clock cycles and have a
 	 resolution of 31 bits as 1 bit is used as an overflow check.
+
+config MSM_BOOT_TIME_MARKER
+	bool "Use MSM boot time marker reporting"
+	depends on MSM_BOOT_STATS
+	help
+	 Use this to mark msm boot kpi for measurement.
+	 An instrumentation for boot time measurement.
+	 To create an entry, call "place_marker" function.
+	 At userspace, write marker name to "/sys/kernel/debug/bootkpi/kpi_values"
+	 If unsure, say N
 
 config QCOM_CPUSS_DUMP
     bool "CPU Subsystem Dumping support"
@@ -899,5 +917,29 @@ config QCOM_CX_IPEAK
 	  bit in tcsr register if it is going to cross its own threshold. If all
 	  clients are going to cross their thresholds then Cx ipeak hw module will raise
 	  an interrupt to cDSP block to throttle cDSP fmax.
+
+config MSM_CACHE_M4M_ERP64
+       bool "Cache and M4M error report"
+       depends on ARCH_MSM8996
+       help
+         Say 'Y' here to enable reporting of cache and M4M errors to the kernel
+         log. The kernel log contains collected error syndrome and address
+         registers. These register dumps can be used as useful information
+         to find out possible hardware problems.
+
+config MSM_CACHE_M4M_ERP64_PANIC_ON_CE
+       bool "Panic on correctable cache/M4M errors"
+       help
+         Say 'Y' here to cause kernel panic when correctable cache/M4M errors
+         are detected.  Enabling this is useful when you want to dump memory
+         and system state close to the time when the error occured.
+
+          If unsure, say N.
+
+config MSM_CACHE_M4M_ERP64_PANIC_ON_UE
+       bool "Panic on uncorrectable cache/M4M errors"
+       help
+         Say 'Y' here to cause kernel panic when uncorrectable cache/M4M errors
+         are detected.
 
 source "drivers/soc/qcom/memshare/Kconfig"

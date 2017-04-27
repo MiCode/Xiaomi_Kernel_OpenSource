@@ -185,21 +185,6 @@
 			iommus = <&mdp_smmu 0>;
 		};
 
-		smmu_rot_unsec: qcom,smmu_rot_unsec_cb {
-			compatible = "qcom,smmu_rot_unsec";
-			iommus = <&rot_smmu 0>;
-		};
-
-		smmu_mdp_sec: qcom,smmu_mdp_sec_cb {
-			compatible = "qcom,smmu_mdp_sec";
-			iommus = <&mdp_smmu 1>;
-		};
-
-		smmu_rot_sec: qcom,smmu_rot_sec_cb {
-			compatible = "qcom,smmu_rot_sec";
-			iommus = <&rot_smmu 1>;
-		};
-
 		/* data and reg bus scale settings */
 		qcom,sde-data-bus {
 			qcom,msm-bus,name = "mdss_sde";

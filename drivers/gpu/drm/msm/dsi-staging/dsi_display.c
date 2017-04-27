@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,13 +18,16 @@
 #include <linux/of.h>
 
 #include "msm_drv.h"
+#include "sde_kms.h"
 #include "dsi_display.h"
 #include "dsi_panel.h"
 #include "dsi_ctrl.h"
 #include "dsi_ctrl_hw.h"
 #include "dsi_drm.h"
+#include "dba_bridge.h"
 
 #define to_dsi_display(x) container_of(x, struct dsi_display, host)
+#define DSI_DBA_CLIENT_NAME "dsi"
 
 static DEFINE_MUTEX(dsi_display_list_lock);
 static LIST_HEAD(dsi_display_list);
@@ -45,7 +48,7 @@ int dsi_display_set_backlight(void *display, u32 bl_lvl)
 	if (dsi_display == NULL)
 		return -EINVAL;
 
-	panel = dsi_display->panel;
+	panel = dsi_display->panel[0];
 
 	rc = dsi_panel_set_backlight(panel, bl_lvl);
 	if (rc)
@@ -87,8 +90,9 @@ static ssize_t debugfs_dump_info_read(struct file *file,
 				display->ctrl[i].phy->name);
 	}
 
-	len += snprintf(buf + len, (SZ_4K - len),
-			"\tPanel = %s\n", display->panel->name);
+	for (i = 0; i < display->panel_count; i++)
+		len += snprintf(buf + len, (SZ_4K - len),
+			"\tPanel_%d = %s\n", i, display->panel[i]->name);
 
 	len += snprintf(buf + len, (SZ_4K - len),
 			"\tClock master = %s\n",
@@ -1108,7 +1112,7 @@ static int dsi_display_parse_lane_map(struct dsi_display *display)
 static int dsi_display_parse_dt(struct dsi_display *display)
 {
 	int rc = 0;
-	int i;
+	int i, size;
 	u32 phy_count = 0;
 	struct device_node *of_node;
 
@@ -1151,14 +1155,69 @@ static int dsi_display_parse_dt(struct dsi_display *display)
 		goto error;
 	}
 
-	of_node = of_parse_phandle(display->pdev->dev.of_node,
-				   "qcom,dsi-panel", 0);
-	if (!of_node) {
-		pr_err("No Panel device present\n");
+	if (of_get_property(display->pdev->dev.of_node, "qcom,dsi-panel",
+			&size)) {
+		display->panel_count = size / sizeof(int);
+		display->panel_of = devm_kzalloc(&display->pdev->dev,
+			sizeof(struct device_node *) * display->panel_count,
+			GFP_KERNEL);
+		if (!display->panel_of) {
+			SDE_ERROR("out of memory for panel_of\n");
+			rc = -ENOMEM;
+			goto error;
+		}
+		display->panel = devm_kzalloc(&display->pdev->dev,
+			sizeof(struct dsi_panel *) * display->panel_count,
+			GFP_KERNEL);
+		if (!display->panel) {
+			SDE_ERROR("out of memory for panel\n");
+			rc = -ENOMEM;
+			goto error;
+		}
+		for (i = 0; i < display->panel_count; i++) {
+			display->panel_of[i] =
+				of_parse_phandle(display->pdev->dev.of_node,
+				"qcom,dsi-panel", i);
+			if (!display->panel_of[i]) {
+				SDE_ERROR("of_parse dsi-panel failed\n");
+				rc = -ENODEV;
+				goto error;
+			}
+		}
+	} else {
+		SDE_ERROR("No qcom,dsi-panel of node\n");
 		rc = -ENODEV;
 		goto error;
-	} else {
-		display->panel_of = of_node;
+	}
+
+	if (of_get_property(display->pdev->dev.of_node, "qcom,bridge-index",
+			&size)) {
+		if (size / sizeof(int) != display->panel_count) {
+			SDE_ERROR("size=%lu is different than count=%u\n",
+				size / sizeof(int), display->panel_count);
+			rc = -EINVAL;
+			goto error;
+		}
+		display->bridge_idx = devm_kzalloc(&display->pdev->dev,
+			sizeof(u32) * display->panel_count, GFP_KERNEL);
+		if (!display->bridge_idx) {
+			SDE_ERROR("out of memory for bridge_idx\n");
+			rc = -ENOMEM;
+			goto error;
+		}
+		for (i = 0; i < display->panel_count; i++) {
+			rc = of_property_read_u32_index(
+				display->pdev->dev.of_node,
+				"qcom,bridge-index", i,
+				&(display->bridge_idx[i]));
+			if (rc) {
+				SDE_ERROR(
+					"read bridge-index error,i=%d rc=%d\n",
+					i, rc);
+				rc = -ENODEV;
+				goto error;
+			}
+		}
 	}
 
 	rc = dsi_display_parse_lane_map(display);
@@ -1167,6 +1226,16 @@ static int dsi_display_parse_dt(struct dsi_display *display)
 		goto error;
 	}
 error:
+	if (rc) {
+		if (display->panel_of)
+			for (i = 0; i < display->panel_count; i++)
+				if (display->panel_of[i])
+					of_node_put(display->panel_of[i]);
+		devm_kfree(&display->pdev->dev, display->panel_of);
+		devm_kfree(&display->pdev->dev, display->panel);
+		devm_kfree(&display->pdev->dev, display->bridge_idx);
+		display->panel_count = 0;
+	}
 	return rc;
 }
 
@@ -1196,12 +1265,15 @@ static int dsi_display_res_init(struct dsi_display *display)
 		}
 	}
 
-	display->panel = dsi_panel_get(&display->pdev->dev, display->panel_of);
-	if (IS_ERR_OR_NULL(display->panel)) {
-		rc = PTR_ERR(display->panel);
-		pr_err("failed to get panel, rc=%d\n", rc);
-		display->panel = NULL;
-		goto error_ctrl_put;
+	for (i = 0; i < display->panel_count; i++) {
+		display->panel[i] = dsi_panel_get(&display->pdev->dev,
+					display->panel_of[i]);
+		if (IS_ERR_OR_NULL(display->panel)) {
+			rc = PTR_ERR(display->panel);
+			pr_err("failed to get panel, rc=%d\n", rc);
+			display->panel[i] = NULL;
+			goto error_ctrl_put;
+		}
 	}
 
 	rc = dsi_display_clocks_init(display);
@@ -1229,6 +1301,9 @@ static int dsi_display_res_deinit(struct dsi_display *display)
 	rc = dsi_display_clocks_deinit(display);
 	if (rc)
 		pr_err("clocks deinit failed, rc=%d\n", rc);
+
+	for (i = 0; i < display->panel_count; i++)
+		dsi_panel_put(display->panel[i]);
 
 	for (i = 0; i < display->ctrl_count; i++) {
 		ctrl = &display->ctrl[i];
@@ -1279,7 +1354,7 @@ static bool dsi_display_is_seamless_dfps_possible(
 		return false;
 	}
 
-	cur = &display->panel->mode;
+	cur = &display->panel[0]->mode;
 
 	if (cur->timing.h_active != tgt->timing.h_active) {
 		pr_debug("timing.h_active differs %d %d\n",
@@ -1388,7 +1463,7 @@ static int dsi_display_dfps_update(struct dsi_display *display,
 	}
 	timing = &dsi_mode->timing;
 
-	dsi_panel_get_dfps_caps(display->panel, &dfps_caps);
+	dsi_panel_get_dfps_caps(display->panel[0], &dfps_caps);
 	if (!dfps_caps.dfps_support) {
 		pr_err("dfps not supported\n");
 		return -ENOTSUPP;
@@ -1425,7 +1500,7 @@ static int dsi_display_dfps_update(struct dsi_display *display,
 		}
 	}
 
-	panel_mode = &display->panel->mode;
+	panel_mode = &display->panel[0]->mode;
 	memcpy(panel_mode, dsi_mode, sizeof(*panel_mode));
 
 error:
@@ -1493,7 +1568,8 @@ static int dsi_display_get_dfps_timing(struct dsi_display *display,
 	}
 	m_ctrl = display->ctrl[display->clk_master_idx].ctrl;
 
-	dsi_panel_get_dfps_caps(display->panel, &dfps_caps);
+	/* Only check the first panel */
+	dsi_panel_get_dfps_caps(display->panel[0], &dfps_caps);
 	if (!dfps_caps.dfps_support) {
 		pr_err("dfps not supported by panel\n");
 		return -EINVAL;
@@ -1574,7 +1650,7 @@ static int dsi_display_set_mode_sub(struct dsi_display *display,
 	int i;
 	struct dsi_display_ctrl *ctrl;
 
-	rc = dsi_panel_get_host_cfg_for_mode(display->panel,
+	rc = dsi_panel_get_host_cfg_for_mode(display->panel[0],
 					     mode,
 					     &display->config);
 	if (rc) {
@@ -1687,7 +1763,7 @@ static int dsi_display_bind(struct device *dev,
 	struct drm_device *drm;
 	struct dsi_display *display;
 	struct platform_device *pdev = to_platform_device(dev);
-	int i, rc = 0;
+	int i, j, rc = 0;
 
 	if (!dev || !pdev || !master) {
 		pr_err("invalid param(s), dev %pK, pdev %pK, master %pK\n",
@@ -1737,15 +1813,19 @@ static int dsi_display_bind(struct device *dev,
 		goto error_ctrl_deinit;
 	}
 
-	rc = dsi_panel_drv_init(display->panel, &display->host);
-	if (rc) {
-		if (rc != -EPROBE_DEFER)
-			pr_err("[%s] failed to initialize panel driver, rc=%d\n",
-			       display->name, rc);
-		goto error_host_deinit;
+	for (j = 0; j < display->panel_count; j++) {
+		rc = dsi_panel_drv_init(display->panel[j], &display->host);
+		if (rc) {
+			if (rc != -EPROBE_DEFER)
+				SDE_ERROR(
+				"[%s]Failed to init panel driver, rc=%d\n",
+				display->name, rc);
+			goto error_panel_deinit;
+		}
 	}
 
-	rc = dsi_panel_get_mode_count(display->panel, &display->num_of_modes);
+	rc = dsi_panel_get_mode_count(display->panel[0],
+					&display->num_of_modes);
 	if (rc) {
 		pr_err("[%s] failed to get mode count, rc=%d\n",
 		       display->name, rc);
@@ -1756,8 +1836,8 @@ static int dsi_display_bind(struct device *dev,
 	goto error;
 
 error_panel_deinit:
-	(void)dsi_panel_drv_deinit(display->panel);
-error_host_deinit:
+	for (j--; j >= 0; j--)
+		(void)dsi_panel_drv_deinit(display->panel[j]);
 	(void)dsi_display_mipi_host_deinit(display);
 error_ctrl_deinit:
 	for (i = i - 1; i >= 0; i--) {
@@ -1798,10 +1878,12 @@ static void dsi_display_unbind(struct device *dev,
 
 	mutex_lock(&display->display_lock);
 
-	rc = dsi_panel_drv_deinit(display->panel);
-	if (rc)
-		pr_err("[%s] failed to deinit panel driver, rc=%d\n",
-		       display->name, rc);
+	for (i = 0; i < display->panel_count; i++) {
+		rc = dsi_panel_drv_deinit(display->panel[i]);
+		if (rc)
+			SDE_ERROR("[%s] failed to deinit panel driver, rc=%d\n",
+					display->name, rc);
+	}
 
 	rc = dsi_display_mipi_host_deinit(display);
 	if (rc)
@@ -1870,7 +1952,7 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 	display->pdev = pdev;
 	platform_set_drvdata(pdev, display);
 	mutex_lock(&dsi_display_list_lock);
-	list_add(&display->list, &dsi_display_list);
+	list_add_tail(&display->list, &dsi_display_list);
 	mutex_unlock(&dsi_display_list_lock);
 
 	if (display->is_active) {
@@ -1890,7 +1972,7 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 
 int dsi_display_dev_remove(struct platform_device *pdev)
 {
-	int rc = 0;
+	int rc = 0, i;
 	struct dsi_display *display;
 	struct dsi_display *pos, *tmp;
 
@@ -1913,6 +1995,13 @@ int dsi_display_dev_remove(struct platform_device *pdev)
 	mutex_unlock(&dsi_display_list_lock);
 
 	platform_set_drvdata(pdev, NULL);
+	if (display->panel_of)
+		for (i = 0; i < display->panel_count; i++)
+			if (display->panel_of[i])
+				of_node_put(display->panel_of[i]);
+	devm_kfree(&pdev->dev, display->panel_of);
+	devm_kfree(&pdev->dev, display->panel);
+	devm_kfree(&pdev->dev, display->bridge_idx);
 	devm_kfree(&pdev->dev, display);
 	return rc;
 }
@@ -1984,9 +2073,15 @@ void dsi_display_set_active_state(struct dsi_display *display, bool is_active)
 int dsi_display_drm_bridge_init(struct dsi_display *display,
 		struct drm_encoder *enc)
 {
-	int rc = 0;
+	int rc = 0, i;
 	struct dsi_bridge *bridge;
+	struct drm_bridge *dba_bridge;
+	struct dba_bridge_init init_data;
+	struct drm_bridge *precede_bridge;
 	struct msm_drm_private *priv = NULL;
+	struct dsi_panel *panel;
+	u32 *bridge_idx;
+	u32 num_of_lanes = 0;
 
 	if (!display || !display->drm_dev || !enc) {
 		pr_err("invalid param(s)\n");
@@ -1997,44 +2092,112 @@ int dsi_display_drm_bridge_init(struct dsi_display *display,
 	priv = display->drm_dev->dev_private;
 
 	if (!priv) {
-		pr_err("Private data is not present\n");
+		SDE_ERROR("Private data is not present\n");
 		rc = -EINVAL;
-		goto error;
+		goto out;
 	}
 
 	if (display->bridge) {
-		pr_err("display is already initialize\n");
-		goto error;
+		SDE_ERROR("display is already initialize\n");
+		goto out;
 	}
 
 	bridge = dsi_drm_bridge_init(display, display->drm_dev, enc);
 	if (IS_ERR_OR_NULL(bridge)) {
 		rc = PTR_ERR(bridge);
-		pr_err("[%s] brige init failed, %d\n", display->name, rc);
-		goto error;
+		SDE_ERROR("[%s] brige init failed, %d\n", display->name, rc);
+		goto out;
 	}
 
 	display->bridge = bridge;
 	priv->bridges[priv->num_bridges++] = &bridge->base;
+	precede_bridge = &bridge->base;
 
-error:
+	if (display->panel_count >= MAX_BRIDGES - 1) {
+		SDE_ERROR("too many bridge chips=%d\n", display->panel_count);
+		goto error_bridge;
+	}
+
+	for (i = 0; i < display->panel_count; i++) {
+		panel = display->panel[i];
+		if (panel && display->bridge_idx &&
+			panel->dba_config.dba_panel) {
+			bridge_idx = display->bridge_idx + i;
+			num_of_lanes = 0;
+			memset(&init_data, 0x00, sizeof(init_data));
+			if (panel->host_config.data_lanes & DSI_DATA_LANE_0)
+				num_of_lanes++;
+			if (panel->host_config.data_lanes & DSI_DATA_LANE_1)
+				num_of_lanes++;
+			if (panel->host_config.data_lanes & DSI_DATA_LANE_2)
+				num_of_lanes++;
+			if (panel->host_config.data_lanes & DSI_DATA_LANE_3)
+				num_of_lanes++;
+			init_data.client_name = DSI_DBA_CLIENT_NAME;
+			init_data.chip_name = panel->dba_config.bridge_name;
+			init_data.id = *bridge_idx;
+			init_data.display = display;
+			init_data.hdmi_mode = panel->dba_config.hdmi_mode;
+			init_data.num_of_input_lanes = num_of_lanes;
+			init_data.precede_bridge = precede_bridge;
+			init_data.panel_count = display->panel_count;
+			dba_bridge = dba_bridge_init(display->drm_dev, enc,
+							&init_data);
+			if (IS_ERR_OR_NULL(dba_bridge)) {
+				rc = PTR_ERR(dba_bridge);
+				SDE_ERROR("[%s:%d] dba brige init failed, %d\n",
+					init_data.chip_name, init_data.id, rc);
+				goto error_dba_bridge;
+			}
+			priv->bridges[priv->num_bridges++] = dba_bridge;
+			precede_bridge = dba_bridge;
+		}
+	}
+
+	goto out;
+
+error_dba_bridge:
+	for (i = 1; i < MAX_BRIDGES; i++) {
+		dba_bridge_cleanup(priv->bridges[i]);
+		priv->bridges[i] = NULL;
+	}
+error_bridge:
+	dsi_drm_bridge_cleanup(display->bridge);
+	display->bridge = NULL;
+	priv->bridges[0] = NULL;
+	priv->num_bridges = 0;
+out:
 	mutex_unlock(&display->display_lock);
 	return rc;
 }
 
 int dsi_display_drm_bridge_deinit(struct dsi_display *display)
 {
-	int rc = 0;
+	int rc = 0, i;
+	struct msm_drm_private *priv = NULL;
 
 	if (!display) {
-		pr_err("Invalid params\n");
+		SDE_ERROR("Invalid params\n");
+		return -EINVAL;
+	}
+	priv = display->drm_dev->dev_private;
+
+	if (!priv) {
+		SDE_ERROR("Private data is not present\n");
 		return -EINVAL;
 	}
 
 	mutex_lock(&display->display_lock);
 
+	for (i = 1; i < MAX_BRIDGES; i++) {
+		dba_bridge_cleanup(priv->bridges[i]);
+		priv->bridges[i] = NULL;
+	}
+
 	dsi_drm_bridge_cleanup(display->bridge);
 	display->bridge = NULL;
+	priv->bridges[0] = NULL;
+	priv->num_bridges = 0;
 
 	mutex_unlock(&display->display_lock);
 	return rc;
@@ -2053,7 +2216,7 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 	display = disp;
 
 	mutex_lock(&display->display_lock);
-	rc = dsi_panel_get_phy_props(display->panel, &phy_props);
+	rc = dsi_panel_get_phy_props(display->panel[0], &phy_props);
 	if (rc) {
 		pr_err("[%s] failed to get panel phy props, rc=%d\n",
 		       display->name, rc);
@@ -2073,7 +2236,7 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 	info->max_height = 1080;
 	info->compression = MSM_DISPLAY_COMPRESS_NONE;
 
-	switch (display->panel->mode.panel_mode) {
+	switch (display->panel[0]->mode.panel_mode) {
 	case DSI_OP_VIDEO_MODE:
 		info->capabilities |= MSM_DISPLAY_CAP_VID_MODE;
 		break;
@@ -2082,7 +2245,7 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 		break;
 	default:
 		pr_err("unknwown dsi panel mode %d\n",
-				display->panel->mode.panel_mode);
+				display->panel[0]->mode.panel_mode);
 		break;
 	}
 error:
@@ -2106,7 +2269,7 @@ int dsi_display_get_modes(struct dsi_display *display,
 
 	mutex_lock(&display->display_lock);
 
-	rc = dsi_panel_get_dfps_caps(display->panel, &dfps_caps);
+	rc = dsi_panel_get_dfps_caps(display->panel[0], &dfps_caps);
 	if (rc) {
 		pr_err("[%s] failed to get dfps caps from panel\n",
 				display->name);
@@ -2127,7 +2290,8 @@ int dsi_display_get_modes(struct dsi_display *display,
 		/* Insert the dfps "sub-modes" between main panel modes */
 		int panel_mode_idx = i / num_dfps_rates;
 
-		rc = dsi_panel_get_mode(display->panel, panel_mode_idx, modes);
+		rc = dsi_panel_get_mode(display->panel[0], panel_mode_idx,
+					modes);
 		if (rc) {
 			pr_err("[%s] failed to get mode from panel\n",
 			       display->name);
@@ -2178,7 +2342,7 @@ int dsi_display_validate_mode(struct dsi_display *display,
 	adj_mode = *mode;
 	adjust_timing_by_ctrl_count(display, &adj_mode);
 
-	rc = dsi_panel_validate_mode(display->panel, &adj_mode);
+	rc = dsi_panel_validate_mode(display->panel[0], &adj_mode);
 	if (rc) {
 		pr_err("[%s] panel mode validation failed, rc=%d\n",
 		       display->name, rc);
@@ -2278,7 +2442,7 @@ error:
 
 int dsi_display_prepare(struct dsi_display *display)
 {
-	int rc = 0;
+	int rc = 0, i, j;
 
 	if (!display) {
 		pr_err("Invalid params\n");
@@ -2287,11 +2451,13 @@ int dsi_display_prepare(struct dsi_display *display)
 
 	mutex_lock(&display->display_lock);
 
-	rc = dsi_panel_pre_prepare(display->panel);
-	if (rc) {
-		pr_err("[%s] panel pre-prepare failed, rc=%d\n",
-		       display->name, rc);
-		goto error;
+	for (i = 0; i < display->panel_count; i++) {
+		rc = dsi_panel_pre_prepare(display->panel[i]);
+		if (rc) {
+			SDE_ERROR("[%s] panel pre-prepare failed, rc=%d\n",
+					display->name, rc);
+			goto error_panel_post_unprep;
+		}
 	}
 
 	rc = dsi_display_ctrl_power_on(display);
@@ -2349,15 +2515,20 @@ int dsi_display_prepare(struct dsi_display *display)
 		goto error_ctrl_link_off;
 	}
 
-	rc = dsi_panel_prepare(display->panel);
-	if (rc) {
-		pr_err("[%s] panel prepare failed, rc=%d\n", display->name, rc);
-		goto error_host_engine_off;
+	for (j = 0; j < display->panel_count; j++) {
+		rc = dsi_panel_prepare(display->panel[j]);
+		if (rc) {
+			SDE_ERROR("[%s] panel prepare failed, rc=%d\n",
+					display->name, rc);
+			goto error_panel_unprep;
+		}
 	}
 
 	goto error;
 
-error_host_engine_off:
+error_panel_unprep:
+	for (j--; j >= 0; j--)
+		(void)dsi_panel_unprepare(display->panel[j]);
 	(void)dsi_display_ctrl_host_disable(display);
 error_ctrl_link_off:
 	(void)dsi_display_ctrl_link_clk_off(display);
@@ -2372,7 +2543,8 @@ error_phy_pwr_off:
 error_ctrl_pwr_off:
 	(void)dsi_display_ctrl_power_off(display);
 error_panel_post_unprep:
-	(void)dsi_panel_post_unprepare(display->panel);
+	for (i--; i >= 0; i--)
+		(void)dsi_panel_post_unprepare(display->panel[i]);
 error:
 	mutex_unlock(&display->display_lock);
 	return rc;
@@ -2380,7 +2552,7 @@ error:
 
 int dsi_display_enable(struct dsi_display *display)
 {
-	int rc = 0;
+	int rc = 0, i;
 
 	if (!display) {
 		pr_err("Invalid params\n");
@@ -2389,11 +2561,13 @@ int dsi_display_enable(struct dsi_display *display)
 
 	mutex_lock(&display->display_lock);
 
-	rc = dsi_panel_enable(display->panel);
-	if (rc) {
-		pr_err("[%s] failed to enable DSI panel, rc=%d\n",
-		       display->name, rc);
-		goto error;
+	for (i = 0; i < display->panel_count; i++) {
+		rc = dsi_panel_enable(display->panel[i]);
+		if (rc) {
+			SDE_ERROR("[%s] failed to enable DSI panel, rc=%d\n",
+					display->name, rc);
+			goto error_disable_panel;
+		}
 	}
 
 	if (display->config.panel_mode == DSI_OP_VIDEO_MODE) {
@@ -2419,7 +2593,8 @@ int dsi_display_enable(struct dsi_display *display)
 	goto error;
 
 error_disable_panel:
-	(void)dsi_panel_disable(display->panel);
+	for (i--; i >= 0; i--)
+		(void)dsi_panel_disable(display->panel[i]);
 error:
 	mutex_unlock(&display->display_lock);
 	return rc;
@@ -2427,7 +2602,7 @@ error:
 
 int dsi_display_post_enable(struct dsi_display *display)
 {
-	int rc = 0;
+	int rc = 0, i;
 
 	if (!display) {
 		pr_err("Invalid params\n");
@@ -2436,10 +2611,12 @@ int dsi_display_post_enable(struct dsi_display *display)
 
 	mutex_lock(&display->display_lock);
 
-	rc = dsi_panel_post_enable(display->panel);
-	if (rc)
-		pr_err("[%s] panel post-enable failed, rc=%d\n",
-		       display->name, rc);
+	for (i = 0; i < display->panel_count; i++) {
+		rc = dsi_panel_post_enable(display->panel[i]);
+		if (rc)
+			SDE_ERROR("[%s] panel post-enable failed, rc=%d\n",
+					display->name, rc);
+	}
 
 	mutex_unlock(&display->display_lock);
 	return rc;
@@ -2447,7 +2624,7 @@ int dsi_display_post_enable(struct dsi_display *display)
 
 int dsi_display_pre_disable(struct dsi_display *display)
 {
-	int rc = 0;
+	int rc = 0, i;
 
 	if (!display) {
 		pr_err("Invalid params\n");
@@ -2456,10 +2633,12 @@ int dsi_display_pre_disable(struct dsi_display *display)
 
 	mutex_lock(&display->display_lock);
 
-	rc = dsi_panel_pre_disable(display->panel);
-	if (rc)
-		pr_err("[%s] panel pre-disable failed, rc=%d\n",
-		       display->name, rc);
+	for (i = 0; i < display->panel_count; i++) {
+		rc = dsi_panel_pre_disable(display->panel[i]);
+		if (rc)
+			SDE_ERROR("[%s] panel pre-disable failed, rc=%d\n",
+					display->name, rc);
+	}
 
 	mutex_unlock(&display->display_lock);
 	return rc;
@@ -2467,7 +2646,7 @@ int dsi_display_pre_disable(struct dsi_display *display)
 
 int dsi_display_disable(struct dsi_display *display)
 {
-	int rc = 0;
+	int rc = 0, i;
 
 	if (!display) {
 		pr_err("Invalid params\n");
@@ -2481,10 +2660,12 @@ int dsi_display_disable(struct dsi_display *display)
 		pr_err("[%s] display wake up failed, rc=%d\n",
 		       display->name, rc);
 
-	rc = dsi_panel_disable(display->panel);
-	if (rc)
-		pr_err("[%s] failed to disable DSI panel, rc=%d\n",
-		       display->name, rc);
+	for (i = 0; i < display->panel_count; i++) {
+		rc = dsi_panel_disable(display->panel[i]);
+		if (rc)
+			SDE_ERROR("[%s] failed to disable DSI panel, rc=%d\n",
+					display->name, rc);
+	}
 
 	if (display->config.panel_mode == DSI_OP_VIDEO_MODE) {
 		rc = dsi_display_vid_engine_disable(display);
@@ -2507,7 +2688,7 @@ int dsi_display_disable(struct dsi_display *display)
 
 int dsi_display_unprepare(struct dsi_display *display)
 {
-	int rc = 0;
+	int rc = 0, i;
 
 	if (!display) {
 		pr_err("Invalid params\n");
@@ -2521,10 +2702,12 @@ int dsi_display_unprepare(struct dsi_display *display)
 		pr_err("[%s] display wake up failed, rc=%d\n",
 		       display->name, rc);
 
-	rc = dsi_panel_unprepare(display->panel);
-	if (rc)
-		pr_err("[%s] panel unprepare failed, rc=%d\n",
-		       display->name, rc);
+	for (i = 0; i < display->panel_count; i++) {
+		rc = dsi_panel_unprepare(display->panel[i]);
+		if (rc)
+			SDE_ERROR("[%s] panel unprepare failed, rc=%d\n",
+					display->name, rc);
+	}
 
 	rc = dsi_display_ctrl_host_disable(display);
 	if (rc)
@@ -2561,10 +2744,12 @@ int dsi_display_unprepare(struct dsi_display *display)
 		pr_err("[%s] failed to power DSI vregs, rc=%d\n",
 		       display->name, rc);
 
-	rc = dsi_panel_post_unprepare(display->panel);
-	if (rc)
-		pr_err("[%s] panel post-unprepare failed, rc=%d\n",
-		       display->name, rc);
+	for (i = 0; i < display->panel_count; i++) {
+		rc = dsi_panel_post_unprepare(display->panel[i]);
+		if (rc)
+			pr_err("[%s] panel post-unprepare failed, rc=%d\n",
+				display->name, rc);
+	}
 
 	mutex_unlock(&display->display_lock);
 	return rc;
