@@ -150,6 +150,14 @@ struct sde_connector_ops {
 	int (*pre_kickoff)(struct drm_connector *connector,
 			void *display,
 			struct msm_display_kickoff_params *params);
+
+	/**
+	 * clk_ctrl - perform clk enable/disable on the connector
+	 * @handle: Pointer to clk handle
+	 * @type: Type of clks
+	 * @enable: State of clks
+	 */
+	int (*clk_ctrl)(void *handle, u32 type, u32 state);
 };
 
 /**
@@ -364,6 +372,13 @@ void sde_connector_complete_commit(struct drm_connector *connector);
  */
 int sde_connector_get_info(struct drm_connector *connector,
 		struct msm_display_info *info);
+
+/**
+ * sde_connector_clk_ctrl - enables/disables the connector clks
+ * @connector: Pointer to drm connector object
+ * @enable: true/false to enable/disable
+ */
+void sde_connector_clk_ctrl(struct drm_connector *connector, bool enable);
 
 /**
  * sde_connector_trigger_event - indicate that an event has occurred

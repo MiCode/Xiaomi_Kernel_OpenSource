@@ -248,6 +248,25 @@ int sde_connector_pre_kickoff(struct drm_connector *connector)
 	return rc;
 }
 
+void sde_connector_clk_ctrl(struct drm_connector *connector, bool enable)
+{
+	struct sde_connector *c_conn;
+	struct dsi_display *display;
+	u32 state = enable ? DSI_CLK_ON : DSI_CLK_OFF;
+
+	if (!connector) {
+		SDE_ERROR("invalid connector\n");
+		return;
+	}
+
+	c_conn = to_sde_connector(connector);
+	display = (struct dsi_display *) c_conn->display;
+
+	if (display && c_conn->ops.clk_ctrl)
+		c_conn->ops.clk_ctrl(display->mdp_clk_handle,
+				DSI_ALL_CLKS, state);
+}
+
 static void sde_connector_destroy(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn;
