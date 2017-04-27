@@ -37,6 +37,7 @@
 	sde_hdmi_cec: qcom,hdmi-cec@c9a0000 {
 		compatible = "qcom,hdmi-cec";
 		label = "sde_hdmi_cec";
+		qcom,hdmi-dev = <&sde_hdmi>;
 		interrupt-parent = <&sde_hdmi_tx>;
 		interrupts = <1 0>;
 
