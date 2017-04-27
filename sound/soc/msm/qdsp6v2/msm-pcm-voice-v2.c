@@ -153,27 +153,27 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_voice *voice;
 
-	if (!strcmp("VoLTE", substream->pcm->id)) {
+	if (!strncmp("VoLTE", substream->pcm->id, 5)) {
 		voice = &voice_info[VOLTE_SESSION_INDEX];
 		pr_debug("%s: Open VoLTE Substream Id=%s\n",
 			 __func__, substream->pcm->id);
-	} else if (!strcmp("Voice2", substream->pcm->id)) {
+	} else if (!strncmp("Voice2", substream->pcm->id, 6)) {
 		voice = &voice_info[VOICE2_SESSION_INDEX];
 		pr_debug("%s: Open Voice2 Substream Id=%s\n",
 			 __func__, substream->pcm->id);
-	} else if (!strcmp("QCHAT", substream->pcm->id)) {
+	} else if (!strncmp("QCHAT", substream->pcm->id, 5)) {
 		voice = &voice_info[QCHAT_SESSION_INDEX];
 		pr_debug("%s: Open QCHAT Substream Id=%s\n",
 			 __func__, substream->pcm->id);
-	} else if (!strcmp("VoWLAN", substream->pcm->id)) {
+	} else if (!strncmp("VoWLAN", substream->pcm->id, 6)) {
 		voice = &voice_info[VOWLAN_SESSION_INDEX];
 		pr_debug("%s: Open VoWLAN Substream Id=%s\n",
 			 __func__, substream->pcm->id);
-	} else if (!strcmp("VoiceMMode1", substream->pcm->id)) {
+	} else if (!strncmp("VoiceMMode1", substream->pcm->id, 11)) {
 		voice = &voice_info[VOICEMMODE1_INDEX];
 		pr_debug("%s: Open VoiceMMode1 Substream Id=%s\n",
 			 __func__, substream->pcm->id);
-	} else if (!strcmp("VoiceMMode2", substream->pcm->id)) {
+	} else if (!strncmp("VoiceMMode2", substream->pcm->id, 11)) {
 		voice = &voice_info[VOICEMMODE2_INDEX];
 		pr_debug("%s: Open VoiceMMode2 Substream Id=%s\n",
 			 __func__, substream->pcm->id);
