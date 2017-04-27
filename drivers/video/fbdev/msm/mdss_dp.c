@@ -3045,6 +3045,10 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 		rc = mdss_dp_on(pdata);
 		break;
 	case MDSS_EVENT_PANEL_ON:
+		if (!dp->power_on) {
+			pr_err("DP Controller not powered on\n");
+			break;
+		}
 		mdss_dp_update_hdcp_info(dp);
 
 		if (dp_is_hdcp_enabled(dp)) {
@@ -3065,6 +3069,10 @@ static int mdss_dp_event_handler(struct mdss_panel_data *pdata,
 		complete_all(&dp->notification_comp);
 		break;
 	case MDSS_EVENT_BLANK:
+		if (!dp->power_on) {
+			pr_err("DP Controller not powered on\n");
+			break;
+		}
 		if (dp_is_hdcp_enabled(dp)) {
 			dp->hdcp_status = HDCP_STATE_INACTIVE;
 
