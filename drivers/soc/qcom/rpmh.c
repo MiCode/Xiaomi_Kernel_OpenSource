@@ -494,8 +494,6 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 		rpm_msg[i] = __get_rpmh_msg_async(rc, state, cmd, n[i]);
 		if (IS_ERR_OR_NULL(rpm_msg[i]))
 			return PTR_ERR(rpm_msg[i]);
-		rpm_msg[i]->waitq = &waitq;
-		rpm_msg[i]->wait_count = &wait_count;
 		cmd += n[i];
 	}
 
@@ -504,6 +502,8 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 		might_sleep();
 		atomic_set(&wait_count, count);
 		for (i = 0; i < count; i++) {
+			rpm_msg[i]->waitq = &waitq;
+			rpm_msg[i]->wait_count = &wait_count;
 			/* Bypass caching and write to mailbox directly */
 			ret = mbox_send_message(rc->chan, &rpm_msg[i]->msg);
 			if (ret < 0)
@@ -514,6 +514,7 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 	} else {
 		/* Send Sleep requests to the controller, expect no response */
 		for (i = 0; i < count; i++) {
+			rpm_msg[i]->waitq = NULL;
 			ret = mbox_send_controller_data(rc->chan,
 						&rpm_msg[i]->msg);
 			/* Clean up our call by spoofing tx_done */
