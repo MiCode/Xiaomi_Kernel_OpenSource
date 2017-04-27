@@ -766,7 +766,7 @@ void msm_isp_process_stats_reg_upd_epoch_irq(struct vfe_device *vfe_dev,
 			spin_unlock_irqrestore(&stream_info->lock, flags);
 			if (-EFAULT == rc) {
 				msm_isp_halt_send_error(vfe_dev,
-						ISP_EVENT_BUF_FATAL_ERROR);
+						ISP_EVENT_PING_PONG_MISMATCH);
 				return;
 			}
 			continue;
