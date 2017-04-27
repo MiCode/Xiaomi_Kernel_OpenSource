@@ -49,5 +49,7 @@ config ARCH_SDXPOORWILLS
 	select MSM_JTAG_MM if CORESIGHT_ETM
 	select PM_DEVFREQ
 	select COMMON_CLK
+	select COMMON_CLK_QCOM
+	select QCOM_GDSC
 endmenu
 endif
