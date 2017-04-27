@@ -15,6 +15,7 @@
 
 #include <linux/atomic.h>
 #include <linux/bitmap.h>
+#include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/jiffies.h>
 #include <linux/kernel.h>
@@ -226,7 +227,7 @@ static inline void write_tcs_reg_sync(void __iomem *base, int reg, int m, int n,
 		write_tcs_reg(base, reg, m, n, data);
 		if (data == read_tcs_reg(base, reg, m, n))
 			break;
-		cpu_relax();
+		udelay(1);
 	} while (1);
 }
 
@@ -590,7 +591,7 @@ static void wait_for_req_inflight(struct tcs_drv *drv, struct tcs_mbox *tcs,
 		}
 retry:
 		if (!is_free)
-			cpu_relax();
+			udelay(1);
 	} while (!is_free);
 }
 
@@ -606,7 +607,7 @@ static int find_free_tcs(struct tcs_mbox *tcs)
 		}
 		if (++m >= tcs->num_tcs)
 			m = 0;
-		cpu_relax();
+		udelay(1);
 	} while (1);
 
 	return slot;
@@ -733,7 +734,7 @@ static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 		wait_for_req_inflight(drv, tcs, msg);
 		/* If the TCS is busy there is nothing to do but spin wait */
 		while (!tcs_is_free(drv, m))
-			cpu_relax();
+			udelay(1);
 	}
 
 	/* Write to the TCS or AMC */
@@ -771,7 +772,7 @@ static int tcs_mbox_invalidate(struct mbox_chan *chan)
 			m = i + tcs->tcs_offset;
 			spin_lock(&tcs->tcs_m_lock[i]);
 			while (!tcs_is_free(drv, m))
-				cpu_relax();
+				udelay(1);
 			__tcs_buffer_invalidate(drv->reg_base, m);
 			spin_unlock(&tcs->tcs_m_lock[i]);
 		}
