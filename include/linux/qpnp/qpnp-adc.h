@@ -2216,25 +2216,6 @@ static inline int qpnp_iadc_resume_calibration(struct qpnp_iadc_chip *iadc)
 #if defined(CONFIG_THERMAL_QPNP_ADC_TM)				\
 			|| defined(CONFIG_THERMAL_QPNP_ADC_TM_MODULE)
 /**
- * qpnp_adc_tm_usbid_configure() - Configures Channel 0 of VADC_BTM to
- *		monitor USB_ID channel using 100k internal pull-up.
- *		USB driver passes the high/low voltage threshold along
- *		with the notification callback once the set thresholds
- *		are crossed.
- * @param:	Structure pointer of qpnp_adc_tm_usbid_param type.
- *		Clients pass the low/high voltage along with the threshold
- *		notification callback.
- */
-int32_t qpnp_adc_tm_usbid_configure(struct qpnp_adc_tm_chip *chip,
-					struct qpnp_adc_tm_btm_param *param);
-/**
- * qpnp_adc_tm_usbid_end() - Disables the monitoring of channel 0 thats
- *		assigned for monitoring USB_ID. Disables the low/high
- *		threshold activation for channel 0 as well.
- * @param:	none.
- */
-int32_t qpnp_adc_tm_usbid_end(struct qpnp_adc_tm_chip *chip);
-/**
  * qpnp_adc_tm_channel_measure() - Configures kernel clients a channel to
  *		monitor the corresponding ADC channel for threshold detection.
  *		Driver passes the high/low voltage threshold along
