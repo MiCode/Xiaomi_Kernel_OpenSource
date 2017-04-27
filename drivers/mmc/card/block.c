@@ -636,14 +636,6 @@ static int mmc_blk_ioctl_cmd(struct block_device *bdev,
 	cmd.arg = idata->ic.arg;
 	cmd.flags = idata->ic.flags;
 
-	if (idata->ic.postsleep_max_us < idata->ic.postsleep_min_us) {
-		pr_err("%s: min value: %u must not be greater than max value: %u\n",
-			__func__, idata->ic.postsleep_min_us,
-			idata->ic.postsleep_max_us);
-		WARN_ON(1);
-		return -EPERM;
-	}
-
 	if (idata->buf_bytes) {
 		data.sg = &sg;
 		data.sg_len = 1;
