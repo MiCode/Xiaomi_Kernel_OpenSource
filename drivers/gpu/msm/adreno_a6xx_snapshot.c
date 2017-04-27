@@ -121,6 +121,8 @@ static struct a6xx_cluster_dbgahb_registers {
 	unsigned int statetype;
 	const unsigned int *regs;
 	unsigned int num_sets;
+	unsigned int offset0;
+	unsigned int offset1;
 } a6xx_dbgahb_ctx_clusters[] = {
 	{ CP_CLUSTER_SP_VS, 0x0002E000, 0x41, a6xx_sp_vs_hlsq_cluster,
 		ARRAY_SIZE(a6xx_sp_vs_hlsq_cluster) / 2 },
@@ -624,8 +626,8 @@ static inline unsigned int a6xx_read_dbgahb(struct kgsl_device *device,
 	return val;
 }
 
-static size_t a6xx_snapshot_cluster_dbgahb(struct kgsl_device *device, u8 *buf,
-				size_t remain, void *priv)
+static size_t a6xx_legacy_snapshot_cluster_dbgahb(struct kgsl_device *device,
+				u8 *buf, size_t remain, void *priv)
 {
 	struct kgsl_snapshot_mvc_regs *header =
 				(struct kgsl_snapshot_mvc_regs *)buf;
@@ -677,6 +679,63 @@ static size_t a6xx_snapshot_cluster_dbgahb(struct kgsl_device *device, u8 *buf,
 out:
 	return data_size + sizeof(*header);
 }
+
+static size_t a6xx_snapshot_cluster_dbgahb(struct kgsl_device *device, u8 *buf,
+				size_t remain, void *priv)
+{
+	struct kgsl_snapshot_mvc_regs *header =
+				(struct kgsl_snapshot_mvc_regs *)buf;
+	struct a6xx_cluster_dbgahb_regs_info *info =
+				(struct a6xx_cluster_dbgahb_regs_info *)priv;
+	struct a6xx_cluster_dbgahb_registers *cluster = info->cluster;
+	unsigned int data_size = 0;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	int i, j;
+	unsigned int *src;
+
+
+	if (crash_dump_valid == false)
+		return a6xx_legacy_snapshot_cluster_dbgahb(device, buf, remain,
+				info);
+
+	if (remain < sizeof(*header)) {
+		SNAPSHOT_ERR_NOMEM(device, "REGISTERS");
+		return 0;
+	}
+
+	remain -= sizeof(*header);
+
+	header->ctxt_id = info->ctxt_id;
+	header->cluster_id = cluster->id;
+
+	src = (unsigned int *)(a6xx_crashdump_registers.hostptr +
+		(header->ctxt_id ? cluster->offset1 : cluster->offset0));
+
+	for (i = 0; i < cluster->num_sets; i++) {
+		unsigned int start;
+		unsigned int end;
+
+		start = cluster->regs[2 * i];
+		end = cluster->regs[2 * i + 1];
+
+		if (remain < (end - start + 3) * 4) {
+			SNAPSHOT_ERR_NOMEM(device, "MVC REGISTERS");
+			goto out;
+		}
+
+		remain -= (end - start + 3) * 4;
+		data_size += (end - start + 3) * 4;
+
+		*data++ = start | (1 << 31);
+		*data++ = end;
+		for (j = start; j <= end; j++)
+			*data++ = *src++;
+	}
+out:
+	return data_size + sizeof(*header);
+}
+
+
 
 static size_t a6xx_snapshot_non_ctx_dbgahb(struct kgsl_device *device, u8 *buf,
 				size_t remain, void *priv)
@@ -1391,6 +1450,47 @@ static int _a6xx_crashdump_init_shader(struct a6xx_shader_block *block,
 	return qwords;
 }
 
+static int _a6xx_crashdump_init_ctx_dbgahb(uint64_t *ptr, uint64_t *offset)
+{
+	int qwords = 0;
+	unsigned int i, j, k;
+	unsigned int count;
+
+	for (i = 0; i < ARRAY_SIZE(a6xx_dbgahb_ctx_clusters); i++) {
+		struct a6xx_cluster_dbgahb_registers *cluster =
+				&a6xx_dbgahb_ctx_clusters[i];
+
+		cluster->offset0 = *offset;
+
+		for (j = 0; j < A6XX_NUM_CTXTS; j++) {
+			if (j == 1)
+				cluster->offset1 = *offset;
+
+			/* Program the aperture */
+			ptr[qwords++] =
+				((cluster->statetype + j * 2) & 0xff) << 8;
+			ptr[qwords++] =
+				(((uint64_t)A6XX_HLSQ_DBG_READ_SEL << 44)) |
+					(1 << 21) | 1;
+
+			for (k = 0; k < cluster->num_sets; k++) {
+				unsigned int start = cluster->regs[2 * k];
+
+				count = REG_PAIR_COUNT(cluster->regs, k);
+				ptr[qwords++] =
+				a6xx_crashdump_registers.gpuaddr + *offset;
+				ptr[qwords++] =
+				(((uint64_t)(A6XX_HLSQ_DBG_AHB_READ_APERTURE +
+					start - cluster->regbase / 4) << 44)) |
+							count;
+
+				*offset += count * sizeof(unsigned int);
+			}
+		}
+	}
+	return qwords;
+}
+
 void a6xx_crashdump_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -1458,6 +1558,26 @@ void a6xx_crashdump_init(struct adreno_device *adreno_dev)
 		}
 	}
 
+	/* Calculate the script and data size for debug AHB registers */
+	for (i = 0; i < ARRAY_SIZE(a6xx_dbgahb_ctx_clusters); i++) {
+		struct a6xx_cluster_dbgahb_registers *cluster =
+				&a6xx_dbgahb_ctx_clusters[i];
+
+		for (j = 0; j < A6XX_NUM_CTXTS; j++) {
+
+			/* 16 bytes for programming the aperture */
+			script_size += 16;
+
+			/* Reading each pair of registers takes 16 bytes */
+			script_size += 16 * cluster->num_sets;
+
+			/* A dword per register read from the cluster list */
+			for (k = 0; k < cluster->num_sets; k++)
+				data_size += REG_PAIR_COUNT(cluster->regs, k) *
+						sizeof(unsigned int);
+		}
+	}
+
 	/* Now allocate the script and data buffers */
 
 	/* The script buffers needs 2 extra qwords on the end */
@@ -1496,6 +1616,8 @@ void a6xx_crashdump_init(struct adreno_device *adreno_dev)
 
 	/* Program the capturescript for the MVC regsiters */
 	ptr += _a6xx_crashdump_init_mvc(ptr, &offset);
+
+	ptr += _a6xx_crashdump_init_ctx_dbgahb(ptr, &offset);
 
 	*ptr++ = 0;
 	*ptr++ = 0;
