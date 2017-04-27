@@ -4285,7 +4285,7 @@ void mmc_rescan(struct work_struct *work)
 		mmc_release_host(host);
 		goto out;
 	}
-+	mmc_rescan_try_freq(host, host->f_min);
+	mmc_rescan_try_freq(host, host->f_min);
 	mmc_release_host(host);
 
  out:
