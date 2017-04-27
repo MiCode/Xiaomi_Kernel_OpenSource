@@ -286,6 +286,17 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.qmenu = NULL,
 	},
 	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_QP_MASK,
+		.name = "QP mask for diff frame types",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 1,
+		.maximum = 7,
+		.default_value = 7,
+		.step = 1,
+		.menu_skip_mask = 0,
+		.qmenu = NULL,
+	},
+	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES,
 		.name = "Intra Period for B frames",
 		.type = V4L2_CTRL_TYPE_INTEGER,
@@ -1641,43 +1652,65 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &baselayerid;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP: {
-		struct v4l2_ctrl *qpp, *qpb;
+		struct v4l2_ctrl *qpp, *qpb, *mask;
 
 		property_id = HAL_CONFIG_VENC_FRAME_QP;
 		qpp = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP);
 		qpb = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP);
+		mask = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_QP_MASK);
 
 		quant.qpi = ctrl->val;
 		quant.qpp = qpp->val;
 		quant.qpb = qpb->val;
+		quant.enable = mask->val;
 		quant.layer_id = MSM_VIDC_ALL_LAYER_ID;
 		pdata = &quant;
 		break;
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP: {
-		struct v4l2_ctrl *qpi, *qpb;
+		struct v4l2_ctrl *qpi, *qpb, *mask;
 
 		property_id = HAL_CONFIG_VENC_FRAME_QP;
 		qpi = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP);
 		qpb = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP);
+		mask = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_QP_MASK);
 
 		quant.qpp = ctrl->val;
 		quant.qpi = qpi->val;
 		quant.qpb = qpb->val;
+		quant.enable = mask->val;
 		quant.layer_id = MSM_VIDC_ALL_LAYER_ID;
 		pdata = &quant;
 		break;
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP: {
-		struct v4l2_ctrl *qpp, *qpi;
+		struct v4l2_ctrl *qpp, *qpi, *mask;
 
 		property_id = HAL_CONFIG_VENC_FRAME_QP;
 		qpp = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP);
 		qpi = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP);
+		mask = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_QP_MASK);
 
 		quant.qpb = ctrl->val;
 		quant.qpp = qpp->val;
 		quant.qpi = qpi->val;
+		quant.enable = mask->val;
+		quant.layer_id = MSM_VIDC_ALL_LAYER_ID;
+		pdata = &quant;
+		break;
+	}
+	case V4L2_CID_MPEG_VIDC_VIDEO_QP_MASK: {
+		struct v4l2_ctrl *qpi, *qpp, *qpb;
+
+		property_id = HAL_CONFIG_VENC_FRAME_QP;
+		qpi = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP);
+		qpp = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP);
+		qpb = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP);
+
+		quant.qpi = qpi->val;
+		quant.qpp = qpp->val;
+		quant.qpb = qpb->val;
+		quant.enable = ctrl->val;
 		quant.layer_id = MSM_VIDC_ALL_LAYER_ID;
 		pdata = &quant;
 		break;
@@ -1849,7 +1882,7 @@ int msm_venc_s_ext_ctrl(struct msm_vidc_inst *inst,
 	struct v4l2_ext_control *control;
 	struct hfi_device *hdev;
 	struct hal_ltr_mode ltr_mode;
-	u32 property_id = 0, layer_id = MSM_VIDC_ALL_LAYER_ID;
+	u32 property_id = 0;
 	void *pdata = NULL;
 	struct msm_vidc_capability *cap = NULL;
 	struct hal_aspect_ratio sar;
@@ -1927,76 +1960,75 @@ int msm_venc_s_ext_ctrl(struct msm_vidc_inst *inst,
 			pdata = &blur_res;
 			break;
 		case V4L2_CID_MPEG_VIDC_VIDEO_LAYER_ID:
-			layer_id = control[i].value;
+			qp.layer_id = control[i].value;
+			/* Enable QP for all frame types by default */
+			qp.enable = 7;
+			qp_range.layer_id = control[i].value;
 			i++;
 			while (i < ctrl->count) {
 			switch (control[i].id) {
 			case V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP:
 				qp.qpi = control[i].value;
-				qp.layer_id = layer_id;
 				property_id =
 					HAL_CONFIG_VENC_FRAME_QP;
 				pdata = &qp;
 				break;
 			case V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP:
 				qp.qpp = control[i].value;
-				qp.layer_id = layer_id;
 				property_id =
 					HAL_CONFIG_VENC_FRAME_QP;
 				pdata = &qp;
 				break;
 			case V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP:
 				qp.qpb = control[i].value;
-				qp.layer_id = layer_id;
+				property_id =
+					HAL_CONFIG_VENC_FRAME_QP;
+				pdata = &qp;
+				break;
+			case V4L2_CID_MPEG_VIDC_VIDEO_QP_MASK:
+				qp.enable = control[i].value;
 				property_id =
 					HAL_CONFIG_VENC_FRAME_QP;
 				pdata = &qp;
 				break;
 			case V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP_MIN:
 				qp_range.qpi_min = control[i].value;
-				qp_range.layer_id = layer_id;
 				property_id =
 					HAL_PARAM_VENC_SESSION_QP_RANGE;
 				pdata = &qp_range;
 				break;
 			case V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP_MIN:
 				qp_range.qpp_min = control[i].value;
-				qp_range.layer_id = layer_id;
 				property_id =
-				HAL_PARAM_VENC_SESSION_QP_RANGE;
+					HAL_PARAM_VENC_SESSION_QP_RANGE;
 				pdata = &qp_range;
 				break;
 			case V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP_MIN:
 				qp_range.qpb_min = control[i].value;
-				qp_range.layer_id = layer_id;
 				property_id =
 					HAL_PARAM_VENC_SESSION_QP_RANGE;
 				pdata = &qp_range;
 				break;
 			case V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP_MAX:
 				qp_range.qpi_max = control[i].value;
-				qp_range.layer_id = layer_id;
 				property_id =
 					HAL_PARAM_VENC_SESSION_QP_RANGE;
 				pdata = &qp_range;
 				break;
 			case V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP_MAX:
 				qp_range.qpp_max = control[i].value;
-				qp_range.layer_id = layer_id;
 				property_id =
 					HAL_PARAM_VENC_SESSION_QP_RANGE;
 				pdata = &qp_range;
 				break;
 			case V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP_MAX:
 				qp_range.qpb_max = control[i].value;
-				qp_range.layer_id = layer_id;
 				property_id =
 					HAL_PARAM_VENC_SESSION_QP_RANGE;
 				pdata = &qp_range;
 				break;
 			case V4L2_CID_MPEG_VIDC_VENC_PARAM_LAYER_BITRATE:
 				bitrate.bit_rate = control[i].value;
-				bitrate.layer_id = layer_id;
 				property_id =
 					HAL_CONFIG_VENC_TARGET_BITRATE;
 				pdata = &bitrate;

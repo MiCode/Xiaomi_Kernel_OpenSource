@@ -1265,6 +1265,7 @@ int create_pkt_cmd_session_set_property(
 		hfi->qp_packed = hal_quant->qpi | hal_quant->qpp << 8 |
 			hal_quant->qpb << 16;
 		hfi->layer_id = hal_quant->layer_id;
+		hfi->enable = hal_quant->enable;
 		pkt->size += sizeof(u32) + sizeof(struct hfi_quantization);
 		break;
 	}

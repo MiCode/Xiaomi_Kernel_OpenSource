@@ -534,7 +534,8 @@ struct hfi_quality_vs_speed {
 struct hfi_quantization {
 	u32 qp_packed;
 	u32 layer_id;
-	u32 reserved[4];
+	u32 enable;
+	u32 reserved[3];
 };
 
 struct hfi_quantization_range {
