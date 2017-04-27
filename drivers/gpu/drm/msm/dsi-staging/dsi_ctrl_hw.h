@@ -41,6 +41,7 @@ enum dsi_ctrl_version {
 	DSI_CTRL_VERSION_UNKNOWN,
 	DSI_CTRL_VERSION_1_4,
 	DSI_CTRL_VERSION_2_0,
+	DSI_CTRL_VERSION_2_2,
 	DSI_CTRL_VERSION_MAX
 };
 
@@ -575,18 +576,26 @@ struct dsi_ctrl_hw_ops {
 
 /*
  * struct dsi_ctrl_hw - DSI controller hardware object specific to an instance
- * @base:           VA for the DSI controller base address.
- * @length:         Length of the DSI controller register map.
- * @index:          Instance ID of the controller.
- * @feature_map:    Features supported by the DSI controller.
- * @ops:            Function pointers to the operations supported by the
- *                  controller.
+ * @base:                   VA for the DSI controller base address.
+ * @length:                 Length of the DSI controller register map.
+ * @mmss_misc_base:         Base address of mmss_misc register map.
+ * @mmss_misc_length:       Length of mmss_misc register map.
+ * @disp_cc_base:           Base address of disp_cc register map.
+ * @disp_cc_length:         Length of disp_cc register map.
+ * @index:                  Instance ID of the controller.
+ * @feature_map:            Features supported by the DSI controller.
+ * @ops:                    Function pointers to the operations supported by the
+ *                          controller.
+ * @supported_interrupts:   Number of supported interrupts.
+ * @supported_errors:       Number of supported errors.
  */
 struct dsi_ctrl_hw {
 	void __iomem *base;
 	u32 length;
 	void __iomem *mmss_misc_base;
 	u32 mmss_misc_length;
+	void __iomem *disp_cc_base;
+	u32 disp_cc_length;
 	u32 index;
 
 	/* features */

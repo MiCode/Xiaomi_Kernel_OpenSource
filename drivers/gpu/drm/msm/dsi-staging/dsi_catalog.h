@@ -157,6 +157,8 @@ void dsi_ctrl_hw_cmn_trigger_command_dma(struct dsi_ctrl_hw *ctrl);
 void dsi_ctrl_hw_dln0_phy_err(struct dsi_ctrl_hw *ctrl);
 void dsi_ctrl_hw_cmn_phy_reset_config(struct dsi_ctrl_hw *ctrl,
 			bool enable);
+void dsi_ctrl_hw_22_phy_reset_config(struct dsi_ctrl_hw *ctrl,
+			bool enable);
 
 /* Definitions specific to 1.4 DSI controller hardware */
 int dsi_ctrl_hw_14_wait_for_lane_idle(struct dsi_ctrl_hw *ctrl, u32 lanes);

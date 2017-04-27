@@ -62,6 +62,7 @@ static DEFINE_MUTEX(dsi_ctrl_list_lock);
 
 static const enum dsi_ctrl_version dsi_ctrl_v1_4 = DSI_CTRL_VERSION_1_4;
 static const enum dsi_ctrl_version dsi_ctrl_v2_0 = DSI_CTRL_VERSION_2_0;
+static const enum dsi_ctrl_version dsi_ctrl_v2_2 = DSI_CTRL_VERSION_2_2;
 
 static const struct of_device_id msm_dsi_of_match[] = {
 	{
@@ -71,6 +72,10 @@ static const struct of_device_id msm_dsi_of_match[] = {
 	{
 		.compatible = "qcom,dsi-ctrl-hw-v2.0",
 		.data = &dsi_ctrl_v2_0,
+	},
+	{
+		.compatible = "qcom,dsi-ctrl-hw-v2.2",
+		.data = &dsi_ctrl_v2_2,
 	},
 	{}
 };
@@ -428,15 +433,34 @@ static int dsi_ctrl_init_regmap(struct platform_device *pdev,
 	pr_debug("[%s] map dsi_ctrl registers to %p\n", ctrl->name,
 		 ctrl->hw.base);
 
-	ptr = msm_ioremap(pdev, "mmss_misc", ctrl->name);
-	if (IS_ERR(ptr)) {
-		rc = PTR_ERR(ptr);
-		return rc;
+	switch (ctrl->version) {
+	case DSI_CTRL_VERSION_1_4:
+	case DSI_CTRL_VERSION_2_0:
+		ptr = msm_ioremap(pdev, "mmss_misc", ctrl->name);
+		if (IS_ERR(ptr)) {
+			pr_err("mmss_misc base address not found for [%s]\n",
+					ctrl->name);
+			rc = PTR_ERR(ptr);
+			return rc;
+		}
+		ctrl->hw.mmss_misc_base = ptr;
+		ctrl->hw.disp_cc_base = NULL;
+		break;
+	case DSI_CTRL_VERSION_2_2:
+		ptr = msm_ioremap(pdev, "disp_cc_base", ctrl->name);
+		if (IS_ERR(ptr)) {
+			pr_err("disp_cc base address not found for [%s]\n",
+					ctrl->name);
+			rc = PTR_ERR(ptr);
+			return rc;
+		}
+		ctrl->hw.disp_cc_base = ptr;
+		ctrl->hw.mmss_misc_base = NULL;
+		break;
+	default:
+		break;
 	}
 
-	ctrl->hw.mmss_misc_base = ptr;
-	pr_debug("[%s] map mmss_misc registers to %p\n", ctrl->name,
-		 ctrl->hw.mmss_misc_base);
 	return rc;
 }
 
@@ -1202,6 +1226,7 @@ static int dsi_ctrl_dev_probe(struct platform_device *pdev)
 	}
 
 	dsi_ctrl->cell_index = index;
+	dsi_ctrl->version = version;
 
 	dsi_ctrl->name = of_get_property(pdev->dev.of_node, "label", NULL);
 	if (!dsi_ctrl->name)
@@ -1225,7 +1250,6 @@ static int dsi_ctrl_dev_probe(struct platform_device *pdev)
 		goto fail_clks;
 	}
 
-	dsi_ctrl->version = version;
 	rc = dsi_catalog_ctrl_setup(&dsi_ctrl->hw, dsi_ctrl->version,
 				    dsi_ctrl->cell_index);
 	if (rc) {

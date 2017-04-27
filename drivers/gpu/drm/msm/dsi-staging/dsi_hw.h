@@ -33,6 +33,15 @@
 		writel_relaxed((val), (dsi_hw)->mmss_misc_base + (off)); \
 	} while (0)
 
+#define DSI_DISP_CC_R32(dsi_hw, off) \
+	readl_relaxed((dsi_hw)->disp_cc_base + (off))
+#define DSI_DISP_CC_W32(dsi_hw, off, val) \
+	do {\
+		pr_err("[DSI_%d][%s] - [0x%08x]\n", \
+			(dsi_hw)->index, #off, val); \
+		writel_relaxed((val), (dsi_hw)->disp_cc_base + (off)); \
+	} while (0)
+
 #define DSI_R64(dsi_hw, off) readq_relaxed((dsi_hw)->base + (off))
 #define DSI_W64(dsi_hw, off, val) writeq_relaxed((val), (dsi_hw)->base + (off))
 
