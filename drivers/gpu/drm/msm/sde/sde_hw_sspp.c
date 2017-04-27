@@ -70,6 +70,8 @@
 #define SSPP_QOS_CTRL                      0x6C
 #define SSPP_DECIMATION_CONFIG             0xB4
 #define SSPP_SRC_ADDR_SW_STATUS            0x70
+#define SSPP_CREQ_LUT_0                    0x74
+#define SSPP_CREQ_LUT_1                    0x78
 #define SSPP_SW_PIX_EXT_C0_LR              0x100
 #define SSPP_SW_PIX_EXT_C0_TB              0x104
 #define SSPP_SW_PIX_EXT_C0_REQ_PIXELS      0x108
@@ -982,7 +984,13 @@ static void sde_hw_sspp_setup_creq_lut(struct sde_hw_pipe *ctx,
 	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx))
 		return;
 
-	SDE_REG_WRITE(&ctx->hw, SSPP_CREQ_LUT + idx, cfg->creq_lut);
+	if (ctx->cap && test_bit(SDE_SSPP_QOS_8LVL, &ctx->cap->features)) {
+		SDE_REG_WRITE(&ctx->hw, SSPP_CREQ_LUT_0 + idx, cfg->creq_lut);
+		SDE_REG_WRITE(&ctx->hw, SSPP_CREQ_LUT_1 + idx,
+				cfg->creq_lut >> 32);
+	} else {
+		SDE_REG_WRITE(&ctx->hw, SSPP_CREQ_LUT + idx, cfg->creq_lut);
+	}
 }
 
 static void sde_hw_sspp_setup_qos_ctrl(struct sde_hw_pipe *ctx,

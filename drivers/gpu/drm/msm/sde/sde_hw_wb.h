@@ -29,6 +29,20 @@ struct sde_hw_wb_cfg {
 };
 
 /**
+ * struct sde_hw_wb_qos_cfg : Writeback pipe QoS configuration
+ * @danger_lut: LUT for generate danger level based on fill level
+ * @safe_lut: LUT for generate safe level based on fill level
+ * @creq_lut: LUT for generate creq level based on fill level
+ * @danger_safe_en: enable danger safe generation
+ */
+struct sde_hw_wb_qos_cfg {
+	u32 danger_lut;
+	u32 safe_lut;
+	u64 creq_lut;
+	bool danger_safe_en;
+};
+
+/**
  *
  * struct sde_hw_wb_ops : Interface to the wb Hw driver functions
  *  Assumption is these functions will be called after clocks are enabled
@@ -57,6 +71,30 @@ struct sde_hw_wb_ops {
 
 	void (*setup_roi)(struct sde_hw_wb *ctx,
 		struct sde_hw_wb_cfg *wb);
+
+	/**
+	 * setup_danger_safe_lut - setup danger safe LUTs
+	 * @ctx: Pointer to pipe context
+	 * @cfg: Pointer to pipe QoS configuration
+	 */
+	void (*setup_danger_safe_lut)(struct sde_hw_wb *ctx,
+			struct sde_hw_wb_qos_cfg *cfg);
+
+	/**
+	 * setup_creq_lut - setup CREQ LUT
+	 * @ctx: Pointer to pipe context
+	 * @cfg: Pointer to pipe QoS configuration
+	 */
+	void (*setup_creq_lut)(struct sde_hw_wb *ctx,
+			struct sde_hw_wb_qos_cfg *cfg);
+
+	/**
+	 * setup_qos_ctrl - setup QoS control
+	 * @ctx: Pointer to pipe context
+	 * @cfg: Pointer to pipe QoS configuration
+	 */
+	void (*setup_qos_ctrl)(struct sde_hw_wb *ctx,
+			struct sde_hw_wb_qos_cfg *cfg);
 };
 
 /**

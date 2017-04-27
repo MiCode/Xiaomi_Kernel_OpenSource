@@ -107,6 +107,7 @@ enum {
  * @SDE_SSPP_PCC,            Color correction support
  * @SDE_SSPP_CURSOR,         SSPP can be used as a cursor layer
  * @SDE_SSPP_QOS,            SSPP support QoS control, danger/safe/creq
+ * @SDE_SSPP_QOS_8LVL,       SSPP support 8-level QoS control
  * @SDE_SSPP_EXCL_RECT,      SSPP supports exclusion rect
  * @SDE_SSPP_SMART_DMA_V1,   SmartDMA 1.0 support
  * @SDE_SSPP_SMART_DMA_V2,   SmartDMA 2.0 support
@@ -128,6 +129,7 @@ enum {
 	SDE_SSPP_PCC,
 	SDE_SSPP_CURSOR,
 	SDE_SSPP_QOS,
+	SDE_SSPP_QOS_8LVL,
 	SDE_SSPP_EXCL_RECT,
 	SDE_SSPP_SMART_DMA_V1,
 	SDE_SSPP_SMART_DMA_V2,
@@ -241,6 +243,8 @@ enum {
  * @SDE_WB_PIPE_ALPHA       Writeback supports pipe alpha
  * @SDE_WB_XY_ROI_OFFSET    Writeback supports x/y-offset of out ROI in
  *                          the destination image
+ * @SDE_WB_QOS,             Writeback supports QoS control, danger/safe/creq
+ * @SDE_WB_QOS_8LVL,        Writeback supports 8-level QoS control
  * @SDE_WB_MAX              maximum value
  */
 enum {
@@ -256,6 +260,8 @@ enum {
 	SDE_WB_YUV_CONFIG,
 	SDE_WB_PIPE_ALPHA,
 	SDE_WB_XY_ROI_OFFSET,
+	SDE_WB_QOS,
+	SDE_WB_QOS_8LVL,
 	SDE_WB_MAX
 };
 
@@ -344,17 +350,41 @@ struct sde_format_extended {
 };
 
 /**
+ * enum sde_qos_lut_usage - define QoS LUT use cases
+ */
+enum sde_qos_lut_usage {
+	SDE_QOS_LUT_USAGE_LINEAR,
+	SDE_QOS_LUT_USAGE_MACROTILE,
+	SDE_QOS_LUT_USAGE_NRT,
+	SDE_QOS_LUT_USAGE_CWB,
+	SDE_QOS_LUT_USAGE_MAX,
+};
+
+/**
+ * struct sde_qos_lut_entry - define QoS LUT table entry
+ * @fl: fill level, or zero on last entry to indicate default lut
+ * @lut: lut to use if equal to or less than fill level
+ */
+struct sde_qos_lut_entry {
+	u32 fl;
+	u64 lut;
+};
+
+/**
+ * struct sde_qos_lut_tbl - define QoS LUT table
+ * @nentry: number of entry in this table
+ * @entries: Pointer to table entries
+ */
+struct sde_qos_lut_tbl {
+	u32 nentry;
+	struct sde_qos_lut_entry *entries;
+};
+
+/**
  * struct sde_sspp_sub_blks : SSPP sub-blocks
  * @maxdwnscale: max downscale ratio supported(without DECIMATION)
  * @maxupscale:  maxupscale ratio supported
  * @maxwidth:    max pixelwidth supported by this pipe
- * @danger_lut_linear: LUT to generate danger signals for linear format
- * @safe_lut_linear: LUT to generate safe signals for linear format
- * @danger_lut_tile: LUT to generate danger signals for tile format
- * @safe_lut_tile: LUT to generate safe signals for tile format
- * @danger_lut_nrt: LUT to generate danger signals for non-realtime use case
- * @safe_lut_nrt: LUT to generate safe signals for non-realtime use case
- * @creq_lut_nrt: LUT to generate creq signals for non-realtime use case
  * @creq_vblank: creq priority during vertical blanking
  * @danger_vblank: danger priority during vertical blanking
  * @pixel_ram_size: size of latency hiding and de-tiling buffer in bytes
@@ -371,13 +401,6 @@ struct sde_format_extended {
  */
 struct sde_sspp_sub_blks {
 	u32 maxlinewidth;
-	u32 danger_lut_linear;
-	u32 safe_lut_linear;
-	u32 danger_lut_tile;
-	u32 safe_lut_tile;
-	u32 danger_lut_nrt;
-	u32 safe_lut_nrt;
-	u32 creq_lut_nrt;
 	u32 creq_vblank;
 	u32 danger_vblank;
 	u32 pixel_ram_size;
@@ -722,6 +745,9 @@ struct sde_reg_dma_cfg {
  * @downscaling_prefill_lines  downscaling latency in lines
  * @amortizable_theshold minimum y position for traffic shaping prefill
  * @min_prefill_lines  minimum pipeline latency in lines
+ * @safe_lut_tbl: LUT tables for safe signals
+ * @danger_lut_tbl: LUT tables for danger signals
+ * @qos_lut_tbl: LUT tables for QoS signals
  */
 struct sde_perf_cfg {
 	u32 max_bw_low;
@@ -739,6 +765,9 @@ struct sde_perf_cfg {
 	u32 downscaling_prefill_lines;
 	u32 amortizable_threshold;
 	u32 min_prefill_lines;
+	u32 safe_lut_tbl[SDE_QOS_LUT_USAGE_MAX];
+	u32 danger_lut_tbl[SDE_QOS_LUT_USAGE_MAX];
+	struct sde_qos_lut_tbl qos_lut_tbl[SDE_QOS_LUT_USAGE_MAX];
 };
 
 /**

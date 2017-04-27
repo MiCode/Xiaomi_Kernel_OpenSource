@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,15 +24,15 @@
 
 TRACE_EVENT(sde_perf_set_qos_luts,
 	TP_PROTO(u32 pnum, u32 fmt, bool rt, u32 fl,
-		u32 lut, bool linear),
-	TP_ARGS(pnum, fmt, rt, fl, lut, linear),
+		u32 lut, u32 lut_usage),
+	TP_ARGS(pnum, fmt, rt, fl, lut, lut_usage),
 	TP_STRUCT__entry(
 			__field(u32, pnum)
 			__field(u32, fmt)
 			__field(bool, rt)
 			__field(u32, fl)
-			__field(u32, lut)
-			__field(bool, linear)
+			__field(u64, lut)
+			__field(u32, lut_usage)
 	),
 	TP_fast_assign(
 			__entry->pnum = pnum;
@@ -40,12 +40,12 @@ TRACE_EVENT(sde_perf_set_qos_luts,
 			__entry->rt = rt;
 			__entry->fl = fl;
 			__entry->lut = lut;
-			__entry->linear = linear;
+			__entry->lut_usage = lut_usage;
 	),
-	TP_printk("pnum=%d fmt=%x rt=%d fl=%d lut=0x%x lin=%d",
+	TP_printk("pnum=%d fmt=%x rt=%d fl=%d lut=0x%llx lut_usage=%d",
 			__entry->pnum, __entry->fmt,
 			__entry->rt, __entry->fl,
-			__entry->lut, __entry->linear)
+			__entry->lut, __entry->lut_usage)
 );
 
 TRACE_EVENT(sde_perf_set_danger_luts,

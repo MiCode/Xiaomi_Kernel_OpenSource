@@ -41,12 +41,20 @@
 #define WB_N16_INIT_PHASE_Y_C12		0x06C
 #define WB_OUT_SIZE			0x074
 #define WB_ALPHA_X_VALUE		0x078
+#define WB_DANGER_LUT			0x084
+#define WB_SAFE_LUT			0x088
+#define WB_QOS_CTRL			0x090
+#define WB_CREQ_LUT_0			0x098
+#define WB_CREQ_LUT_1			0x09C
 #define WB_UBWC_STATIC_CTRL		0x144
 #define WB_CSC_BASE			0x260
 #define WB_DST_ADDR_SW_STATUS		0x2B0
 #define WB_CDP_CTRL			0x2B4
 #define WB_OUT_IMAGE_SIZE		0x2C0
 #define WB_OUT_XY			0x2C4
+
+/* WB_QOS_CTRL */
+#define WB_QOS_CTRL_DANGER_SAFE_EN	BIT(0)
 
 static struct sde_wb_cfg *_wb_offset(enum sde_wb wb,
 		struct sde_mdss_cfg *m,
@@ -185,6 +193,47 @@ static void sde_hw_wb_roi(struct sde_hw_wb *ctx, struct sde_hw_wb_cfg *wb)
 	SDE_REG_WRITE(c, WB_OUT_SIZE, out_size);
 }
 
+static void sde_hw_wb_setup_danger_safe_lut(struct sde_hw_wb *ctx,
+		struct sde_hw_wb_qos_cfg *cfg)
+{
+	struct sde_hw_blk_reg_map *c = &ctx->hw;
+
+	if (!ctx || !cfg)
+		return;
+
+	SDE_REG_WRITE(c, WB_DANGER_LUT, cfg->danger_lut);
+	SDE_REG_WRITE(c, WB_SAFE_LUT, cfg->safe_lut);
+}
+
+static void sde_hw_wb_setup_creq_lut(struct sde_hw_wb *ctx,
+		struct sde_hw_wb_qos_cfg *cfg)
+{
+	struct sde_hw_blk_reg_map *c = &ctx->hw;
+
+	if (!ctx || !cfg)
+		return;
+
+	if (ctx->caps && test_bit(SDE_WB_QOS_8LVL, &ctx->caps->features)) {
+		SDE_REG_WRITE(c, WB_CREQ_LUT_0, cfg->creq_lut);
+		SDE_REG_WRITE(c, WB_CREQ_LUT_1, cfg->creq_lut >> 32);
+	}
+}
+
+static void sde_hw_wb_setup_qos_ctrl(struct sde_hw_wb *ctx,
+		struct sde_hw_wb_qos_cfg *cfg)
+{
+	struct sde_hw_blk_reg_map *c = &ctx->hw;
+	u32 qos_ctrl = 0;
+
+	if (!ctx || !cfg)
+		return;
+
+	if (cfg->danger_safe_en)
+		qos_ctrl |= WB_QOS_CTRL_DANGER_SAFE_EN;
+
+	SDE_REG_WRITE(c, WB_QOS_CTRL, qos_ctrl);
+}
+
 static void _setup_wb_ops(struct sde_hw_wb_ops *ops,
 	unsigned long features)
 {
@@ -193,6 +242,13 @@ static void _setup_wb_ops(struct sde_hw_wb_ops *ops,
 
 	if (test_bit(SDE_WB_XY_ROI_OFFSET, &features))
 		ops->setup_roi = sde_hw_wb_roi;
+
+	if (test_bit(SDE_WB_QOS, &features)) {
+		ops->setup_danger_safe_lut =
+			sde_hw_wb_setup_danger_safe_lut;
+		ops->setup_creq_lut = sde_hw_wb_setup_creq_lut;
+		ops->setup_qos_ctrl = sde_hw_wb_setup_qos_ctrl;
+	}
 }
 
 struct sde_hw_wb *sde_hw_wb_init(enum sde_wb idx,

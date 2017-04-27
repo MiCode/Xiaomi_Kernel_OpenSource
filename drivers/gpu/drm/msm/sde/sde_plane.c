@@ -99,6 +99,7 @@ enum sde_plane_qos {
  * @csc_cfg: Decoded user configuration for csc
  * @csc_usr_ptr: Points to csc_cfg if valid user config available
  * @csc_ptr: Points to sde_csc_cfg structure to use for current
+ * @mplane_list: List of multirect planes of the same pipe
  * @catalog: Points to sde catalog structure
  * @sbuf_mode: force stream buffer mode if set
  * @sbuf_writeback: force stream buffer writeback if set
@@ -126,6 +127,7 @@ struct sde_plane {
 	bool is_error;
 	bool is_rt_pipe;
 	bool is_virtual;
+	struct list_head mplane_list;
 	struct sde_mdss_cfg *catalog;
 	u32 sbuf_mode;
 	u32 sbuf_writeback;
@@ -222,93 +224,89 @@ static bool sde_plane_crtc_enabled(struct drm_plane_state *state)
 static inline int _sde_plane_calc_fill_level(struct drm_plane *plane,
 		const struct sde_format *fmt, u32 src_width)
 {
-	struct sde_plane *psde;
+	struct sde_plane *psde, *tmp;
+	struct sde_plane_state *pstate;
+	struct sde_plane_rot_state *rstate;
 	u32 fixed_buff_size;
 	u32 total_fl;
+	u32 hflip_bytes;
 
-	if (!plane || !fmt) {
+	if (!plane || !fmt || !plane->state || !src_width || !fmt->bpp) {
 		SDE_ERROR("invalid arguments\n");
 		return 0;
 	}
 
 	psde = to_sde_plane(plane);
+	pstate = to_sde_plane_state(plane->state);
+	rstate = &pstate->rot;
 	fixed_buff_size = psde->pipe_sblk->pixel_ram_size;
+
+	list_for_each_entry(tmp, &psde->mplane_list, mplane_list) {
+		if (!sde_plane_enabled(tmp->base.state))
+			continue;
+		SDE_DEBUG("plane%d/%d src_width:%d/%d\n",
+				psde->base.base.id, tmp->base.base.id,
+				src_width, tmp->pipe_cfg.src_rect.w);
+		src_width = max_t(u32, src_width, tmp->pipe_cfg.src_rect.w);
+	}
+
+	if ((rstate->out_rotation & DRM_REFLECT_X) &&
+			SDE_FORMAT_IS_LINEAR(fmt))
+		hflip_bytes = (src_width + 32) * fmt->bpp;
+	else
+		hflip_bytes = 0;
 
 	if (fmt->fetch_planes == SDE_PLANE_PSEUDO_PLANAR) {
 		if (fmt->chroma_sample == SDE_CHROMA_420) {
 			/* NV12 */
-			total_fl = (fixed_buff_size / 2) /
+			total_fl = (fixed_buff_size / 2 - hflip_bytes) /
 				((src_width + 32) * fmt->bpp);
 		} else {
 			/* non NV12 */
-			total_fl = (fixed_buff_size) /
-				((src_width + 32) * fmt->bpp);
+			total_fl = (fixed_buff_size / 2 - hflip_bytes) /
+				((src_width + 32) * fmt->bpp * 2);
 		}
 	} else {
-		total_fl = (fixed_buff_size * 2) /
-			((src_width + 32) * fmt->bpp);
+		if (pstate->multirect_mode == SDE_SSPP_MULTIRECT_PARALLEL) {
+			total_fl = (fixed_buff_size / 2 - hflip_bytes) /
+				((src_width + 32) * fmt->bpp * 2);
+		} else {
+			total_fl = (fixed_buff_size - hflip_bytes) /
+				((src_width + 32) * fmt->bpp * 2);
+		}
 	}
 
-	SDE_DEBUG("plane%u: pnum:%d fmt: %4.4s w:%u fl:%u\n",
+	SDE_DEBUG("plane%u: pnum:%d fmt: %4.4s w:%u hf:%d fl:%u\n",
 			plane->base.id, psde->pipe - SSPP_VIG0,
 			(char *)&fmt->base.pixel_format,
-			src_width, total_fl);
+			src_width, hflip_bytes, total_fl);
 
 	return total_fl;
 }
 
 /**
- * _sde_plane_get_qos_lut_linear - get linear LUT mapping
+ * _sde_plane_get_qos_lut - get LUT mapping based on fill level
+ * @tbl:		Pointer to LUT table
  * @total_fl:		fill level
  * Return: LUT setting corresponding to the fill level
  */
-static inline u32 _sde_plane_get_qos_lut_linear(u32 total_fl)
+static u64 _sde_plane_get_qos_lut(const struct sde_qos_lut_tbl *tbl,
+		u32 total_fl)
 {
-	u32 qos_lut;
+	int i;
 
-	if (total_fl <= 4)
-		qos_lut = 0x1B;
-	else if (total_fl <= 5)
-		qos_lut = 0x5B;
-	else if (total_fl <= 6)
-		qos_lut = 0x15B;
-	else if (total_fl <= 7)
-		qos_lut = 0x55B;
-	else if (total_fl <= 8)
-		qos_lut = 0x155B;
-	else if (total_fl <= 9)
-		qos_lut = 0x555B;
-	else if (total_fl <= 10)
-		qos_lut = 0x1555B;
-	else if (total_fl <= 11)
-		qos_lut = 0x5555B;
-	else if (total_fl <= 12)
-		qos_lut = 0x15555B;
-	else
-		qos_lut = 0x55555B;
+	if (!tbl || !tbl->nentry || !tbl->entries)
+		return 0;
 
-	return qos_lut;
-}
+	for (i = 0; i < tbl->nentry; i++)
+		if (total_fl <= tbl->entries[i].fl)
+			return tbl->entries[i].lut;
 
-/**
- * _sde_plane_get_qos_lut_macrotile - get macrotile LUT mapping
- * @total_fl:		fill level
- * Return: LUT setting corresponding to the fill level
- */
-static inline u32 _sde_plane_get_qos_lut_macrotile(u32 total_fl)
-{
-	u32 qos_lut;
+	/* if last fl is zero, use as default */
+	if (!tbl->entries[i-1].fl)
+		return tbl->entries[i-1].lut;
 
-	if (total_fl <= 10)
-		qos_lut = 0x1AAff;
-	else if (total_fl <= 11)
-		qos_lut = 0x5AAFF;
-	else if (total_fl <= 12)
-		qos_lut = 0x15AAFF;
-	else
-		qos_lut = 0x55AAFF;
-
-	return qos_lut;
+	return 0;
 }
 
 /**
@@ -321,8 +319,8 @@ static void _sde_plane_set_qos_lut(struct drm_plane *plane,
 {
 	struct sde_plane *psde;
 	const struct sde_format *fmt = NULL;
-	u32 qos_lut;
-	u32 total_fl = 0;
+	u64 qos_lut;
+	u32 total_fl = 0, lut_usage;
 
 	if (!plane || !fb) {
 		SDE_ERROR("invalid arguments plane %d fb %d\n",
@@ -332,7 +330,7 @@ static void _sde_plane_set_qos_lut(struct drm_plane *plane,
 
 	psde = to_sde_plane(plane);
 
-	if (!psde->pipe_hw || !psde->pipe_sblk) {
+	if (!psde->pipe_hw || !psde->pipe_sblk || !psde->catalog) {
 		SDE_ERROR("invalid arguments\n");
 		return;
 	} else if (!psde->pipe_hw->ops.setup_creq_lut) {
@@ -340,7 +338,7 @@ static void _sde_plane_set_qos_lut(struct drm_plane *plane,
 	}
 
 	if (!psde->is_rt_pipe) {
-		qos_lut = psde->pipe_sblk->creq_lut_nrt;
+		lut_usage = SDE_QOS_LUT_USAGE_NRT;
 	} else {
 		fmt = sde_get_sde_format_ext(
 				fb->pixel_format,
@@ -350,19 +348,21 @@ static void _sde_plane_set_qos_lut(struct drm_plane *plane,
 				psde->pipe_cfg.src_rect.w);
 
 		if (SDE_FORMAT_IS_LINEAR(fmt))
-			qos_lut = _sde_plane_get_qos_lut_linear(total_fl);
+			lut_usage = SDE_QOS_LUT_USAGE_LINEAR;
 		else
-			qos_lut = _sde_plane_get_qos_lut_macrotile(total_fl);
+			lut_usage = SDE_QOS_LUT_USAGE_MACROTILE;
 	}
+
+	qos_lut = _sde_plane_get_qos_lut(
+			&psde->catalog->perf.qos_lut_tbl[lut_usage], total_fl);
 
 	psde->pipe_qos_cfg.creq_lut = qos_lut;
 
 	trace_sde_perf_set_qos_luts(psde->pipe - SSPP_VIG0,
 			(fmt) ? fmt->base.pixel_format : 0,
-			psde->is_rt_pipe, total_fl, qos_lut,
-			(fmt) ? SDE_FORMAT_IS_LINEAR(fmt) : 0);
+			psde->is_rt_pipe, total_fl, qos_lut, lut_usage);
 
-	SDE_DEBUG("plane%u: pnum:%d fmt: %4.4s rt:%d fl:%u lut:0x%x\n",
+	SDE_DEBUG("plane%u: pnum:%d fmt: %4.4s rt:%d fl:%u lut:0x%llx\n",
 			plane->base.id,
 			psde->pipe - SSPP_VIG0,
 			fmt ? (char *)&fmt->base.pixel_format : NULL,
@@ -390,7 +390,7 @@ static void _sde_plane_set_danger_lut(struct drm_plane *plane,
 
 	psde = to_sde_plane(plane);
 
-	if (!psde->pipe_hw || !psde->pipe_sblk) {
+	if (!psde->pipe_hw || !psde->pipe_sblk || !psde->catalog) {
 		SDE_ERROR("invalid arguments\n");
 		return;
 	} else if (!psde->pipe_hw->ops.setup_danger_safe_lut) {
@@ -398,8 +398,10 @@ static void _sde_plane_set_danger_lut(struct drm_plane *plane,
 	}
 
 	if (!psde->is_rt_pipe) {
-		danger_lut = psde->pipe_sblk->danger_lut_nrt;
-		safe_lut = psde->pipe_sblk->safe_lut_nrt;
+		danger_lut = psde->catalog->perf.danger_lut_tbl
+				[SDE_QOS_LUT_USAGE_NRT];
+		safe_lut = psde->catalog->perf.safe_lut_tbl
+				[SDE_QOS_LUT_USAGE_NRT];
 	} else {
 		fmt = sde_get_sde_format_ext(
 				fb->pixel_format,
@@ -407,11 +409,15 @@ static void _sde_plane_set_danger_lut(struct drm_plane *plane,
 				drm_format_num_planes(fb->pixel_format));
 
 		if (SDE_FORMAT_IS_LINEAR(fmt)) {
-			danger_lut = psde->pipe_sblk->danger_lut_linear;
-			safe_lut = psde->pipe_sblk->safe_lut_linear;
+			danger_lut = psde->catalog->perf.danger_lut_tbl
+					[SDE_QOS_LUT_USAGE_LINEAR];
+			safe_lut = psde->catalog->perf.safe_lut_tbl
+					[SDE_QOS_LUT_USAGE_LINEAR];
 		} else {
-			danger_lut = psde->pipe_sblk->danger_lut_tile;
-			safe_lut = psde->pipe_sblk->safe_lut_tile;
+			danger_lut = psde->catalog->perf.danger_lut_tbl
+					[SDE_QOS_LUT_USAGE_MACROTILE];
+			safe_lut = psde->catalog->perf.safe_lut_tbl
+					[SDE_QOS_LUT_USAGE_MACROTILE];
 		}
 	}
 
@@ -4124,7 +4130,7 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 		uint32_t pipe, bool primary_plane,
 		unsigned long possible_crtcs, u32 master_plane_id)
 {
-	struct drm_plane *plane = NULL;
+	struct drm_plane *plane = NULL, *master_plane = NULL;
 	const struct sde_format_extended *format_list;
 	struct sde_format_extended *virt_format_list = NULL;
 	struct sde_plane *psde;
@@ -4168,6 +4174,13 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 	psde->pipe = pipe;
 	psde->mmu_id = kms->mmu_id[MSM_SMMU_DOMAIN_UNSECURE];
 	psde->is_virtual = (master_plane_id != 0);
+	INIT_LIST_HEAD(&psde->mplane_list);
+	master_plane = drm_plane_find(dev, master_plane_id);
+	if (master_plane) {
+		struct sde_plane *mpsde = to_sde_plane(master_plane);
+
+		list_add_tail(&psde->mplane_list, &mpsde->mplane_list);
+	}
 
 	/* initialize underlying h/w driver */
 	psde->pipe_hw = sde_hw_sspp_init(pipe, kms->mmio, kms->catalog);
