@@ -75,4 +75,64 @@ int32_t cam_cci_i2c_poll(struct cam_sensor_cci_client *client,
 	enum camera_sensor_i2c_type addr_type,
 	uint32_t delay_ms);
 
-#endif /* _CAM_SENSOR_I2C_H_ */
+
+/**
+ * cam_qup_i2c_read : QUP based i2c read
+ * @client    : QUP I2C client structure
+ * @data      : I2C data
+ * @addr_type : I2c address type
+ * @data_type : I2C data type
+ *
+ * This API handles QUP I2C read
+ */
+
+int32_t cam_qup_i2c_read(struct i2c_client *client,
+	uint32_t addr, uint32_t *data,
+	enum camera_sensor_i2c_type addr_type,
+	enum camera_sensor_i2c_type data_type);
+
+/**
+ * cam_qup_i2c_read_seq : QUP based I2C sequential read
+ * @client    : QUP I2C client structure
+ * @data      : I2C data
+ * @addr_type : I2c address type
+ * @num_bytes : number of bytes to read
+ * This API handles QUP I2C Sequential read
+ */
+
+int32_t cam_qup_i2c_read_seq(struct i2c_client *client,
+	uint32_t addr, uint8_t *data,
+	enum camera_sensor_i2c_type addr_type,
+	uint32_t num_byte);
+
+/**
+ * cam_qup_i2c_poll : QUP based I2C poll operation
+ * @client    : QUP I2C client structure
+ * @addr      : I2C address
+ * @data      : I2C data
+ * @data_mask : I2C data mask
+ * @data_type : I2C data type
+ * @addr_type : I2C addr type
+ * @delay_ms  : Delay in milli seconds
+ *
+ * This API implements QUP based I2C poll
+ */
+
+int32_t cam_qup_i2c_poll(struct i2c_client *client,
+	uint32_t addr, uint16_t data, uint16_t data_mask,
+	enum camera_sensor_i2c_type addr_type,
+	enum camera_sensor_i2c_type data_type,
+	uint32_t delay_ms);
+
+/**
+ * cam_qup_i2c_write_table : QUP based I2C write random
+ * @client        : QUP I2C client structure
+ * @write_setting : I2C register settings
+ *
+ * This API handles QUP I2C random write
+ */
+
+int32_t cam_qup_i2c_write_table(
+	struct camera_io_master *client,
+	struct cam_sensor_i2c_reg_setting *write_setting);
+#endif /*_CAM_SENSOR_I2C_H*/
