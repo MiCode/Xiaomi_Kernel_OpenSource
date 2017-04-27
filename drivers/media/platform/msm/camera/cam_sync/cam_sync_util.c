@@ -57,6 +57,48 @@ int cam_sync_init_object(struct sync_table_row *table,
 	return 0;
 }
 
+uint32_t cam_sync_util_get_group_object_state(struct sync_table_row *table,
+	uint32_t *sync_objs,
+	uint32_t num_objs)
+{
+	int i;
+	struct sync_table_row *child_row = NULL;
+	int success_count = 0;
+	int active_count = 0;
+
+	if (!table || !sync_objs)
+		return CAM_SYNC_STATE_SIGNALED_ERROR;
+
+	/*
+	 * We need to arrive at the state of the merged object based on
+	 * counts of error, active and success states of all children objects
+	 */
+	for (i = 0; i < num_objs; i++) {
+		child_row = table + sync_objs[i];
+		switch (child_row->state) {
+		case CAM_SYNC_STATE_SIGNALED_ERROR:
+			return CAM_SYNC_STATE_SIGNALED_ERROR;
+		case CAM_SYNC_STATE_SIGNALED_SUCCESS:
+			success_count++;
+			break;
+		case CAM_SYNC_STATE_ACTIVE:
+			active_count++;
+			break;
+		default:
+			pr_err("Invalid state of child object during merge\n");
+			return CAM_SYNC_STATE_SIGNALED_ERROR;
+		}
+	}
+
+	if (active_count)
+		return CAM_SYNC_STATE_ACTIVE;
+
+	if (success_count == num_objs)
+		return CAM_SYNC_STATE_SIGNALED_SUCCESS;
+
+	return CAM_SYNC_STATE_SIGNALED_ERROR;
+}
+
 int cam_sync_init_group_object(struct sync_table_row *table,
 	uint32_t idx,
 	uint32_t *sync_objs,
@@ -113,11 +155,15 @@ int cam_sync_init_group_object(struct sync_table_row *table,
 
 	row->type = CAM_SYNC_TYPE_GROUP;
 	row->sync_id = idx;
-	row->state = CAM_SYNC_STATE_ACTIVE;
+	row->state = cam_sync_util_get_group_object_state(table,
+		sync_objs, num_objs);
 	row->remaining = num_objs;
 	init_completion(&row->signaled);
 	INIT_LIST_HEAD(&row->callback_list);
 	INIT_LIST_HEAD(&row->user_payload_list);
+
+	if (row->state != CAM_SYNC_STATE_ACTIVE)
+		complete_all(&row->signaled);
 
 	spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
 	return 0;
@@ -207,6 +253,11 @@ int cam_sync_util_validate_merge(uint32_t *sync_obj, uint32_t num_objs)
 {
 	int i;
 	struct sync_table_row *row = NULL;
+
+	if (num_objs <= 1) {
+		pr_err("Single object merge is not allowed\n");
+		return -EINVAL;
+	}
 
 	for (i = 0; i < num_objs; i++) {
 		row = sync_dev->sync_table + sync_obj[i];
