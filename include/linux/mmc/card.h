@@ -439,6 +439,8 @@ struct mmc_card {
 	u8 *cached_ext_csd;
 	bool cmdq_init;
 	struct mmc_bkops_info bkops;
+	bool err_in_sdr104;
+	bool sdr104_blocked;
 };
 
 /*
