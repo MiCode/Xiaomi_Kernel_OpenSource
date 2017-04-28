@@ -210,6 +210,22 @@ static void sde_hw_setup_dce(struct sde_hw_mdp *mdp, u32 dce_sel)
 	SDE_REG_WRITE(c, DCE_SEL, dce_sel);
 }
 
+void sde_hw_reset_ubwc(struct sde_hw_mdp *mdp, struct sde_mdss_cfg *m)
+{
+	struct sde_hw_blk_reg_map c;
+
+	if (!mdp || !m)
+		return;
+
+	if (!IS_UBWC_20_SUPPORTED(m->ubwc_version))
+		return;
+
+	/* force blk offset to zero to access beginning of register region */
+	c = mdp->hw;
+	c.blk_off = 0x0;
+	SDE_REG_WRITE(&c, UBWC_STATIC, m->mdp[0].ubwc_static);
+}
+
 static void _setup_mdp_ops(struct sde_hw_mdp_ops *ops,
 		unsigned long cap)
 {
@@ -220,6 +236,7 @@ static void _setup_mdp_ops(struct sde_hw_mdp_ops *ops,
 	ops->get_danger_status = sde_hw_get_danger_status;
 	ops->get_safe_status = sde_hw_get_safe_status;
 	ops->setup_dce = sde_hw_setup_dce;
+	ops->reset_ubwc = sde_hw_reset_ubwc;
 }
 
 static const struct sde_mdp_cfg *_top_offset(enum sde_mdp mdp,
@@ -241,25 +258,6 @@ static const struct sde_mdp_cfg *_top_offset(enum sde_mdp mdp,
 	}
 
 	return ERR_PTR(-EINVAL);
-}
-
-static inline void _sde_hw_mdptop_init_ubwc(void __iomem *addr,
-		const struct sde_mdss_cfg *m)
-{
-	struct sde_hw_blk_reg_map hw;
-
-	if (!addr || !m)
-		return;
-
-	if (!IS_UBWC_20_SUPPORTED(m->ubwc_version))
-		return;
-
-	memset(&hw, 0, sizeof(hw));
-	hw.base_off = addr;
-	hw.blk_off = 0x0;
-	hw.hwversion = m->hwversion;
-	hw.log_mask = SDE_DBG_MASK_TOP;
-	SDE_REG_WRITE(&hw, UBWC_STATIC, m->mdp[0].ubwc_static);
 }
 
 struct sde_hw_mdp *sde_hw_mdptop_init(enum sde_mdp idx,
@@ -293,8 +291,6 @@ struct sde_hw_mdp *sde_hw_mdptop_init(enum sde_mdp idx,
 			mdp->hw.blk_off, mdp->hw.blk_off + mdp->hw.length,
 			mdp->hw.xin_id);
 	sde_dbg_set_sde_top_offset(mdp->hw.blk_off);
-
-	_sde_hw_mdptop_init_ubwc(addr, m);
 
 	return mdp;
 }
