@@ -1329,6 +1329,8 @@ static int ath10k_snoc_remove(struct platform_device *pdev)
 	if (!ar_snoc)
 		return -EINVAL;
 
+	ath10k_dbg(ar, ATH10K_DBG_SNOC, "%s:WCN3990 removed\n", __func__);
+
 	ath10k_core_unregister(ar);
 	ath10k_snoc_pdr_unregister_notifier(ar);
 	ath10k_snoc_modem_ssr_unregister_notifier(ar);
@@ -1337,8 +1339,6 @@ static int ath10k_snoc_remove(struct platform_device *pdev)
 	ath10k_snoc_free_pipes(ar);
 	ath10k_snoc_stop_qmi_service(ar);
 	ath10k_core_destroy(ar);
-
-	ath10k_dbg(ar, ATH10K_DBG_SNOC, "%s:WCN3990 removed\n", __func__);
 
 	return 0;
 }
