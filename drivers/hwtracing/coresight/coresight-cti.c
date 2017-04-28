@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,7 @@
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/mutex.h>
-#include <linux/clk.h>
+#include <linux/amba/bus.h>
 #include <linux/cpu_pm.h>
 #include <linux/topology.h>
 #include <linux/of.h>
@@ -379,7 +379,7 @@ int coresight_cti_map_trigin(struct coresight_cti *cti, int trig, int ch)
 	 * within the mutex lock region in addition to within the spinlock.
 	 */
 	if (drvdata->refcnt == 0) {
-		ret = clk_prepare_enable(drvdata->clk);
+		ret = pm_runtime_get_sync(drvdata->dev);
 		if (ret)
 			goto err1;
 	}
@@ -402,7 +402,7 @@ err2:
 	 * adjusting its value.
 	 */
 	if (drvdata->refcnt == 0)
-		clk_disable_unprepare(drvdata->clk);
+		pm_runtime_put(drvdata->dev);
 err1:
 	cti_trigin_gpio_disable(drvdata);
 err0:
@@ -463,7 +463,7 @@ int coresight_cti_map_trigout(struct coresight_cti *cti, int trig, int ch)
 	 * within the mutex lock region in addition to within the spinlock.
 	 */
 	if (drvdata->refcnt == 0) {
-		ret = clk_prepare_enable(drvdata->clk);
+		ret = pm_runtime_get_sync(drvdata->dev);
 		if (ret)
 			goto err1;
 	}
@@ -485,7 +485,7 @@ err2:
 	 * __cti_map_trigout so it is safe to check it against 0.
 	 */
 	if (drvdata->refcnt == 0)
-		clk_disable_unprepare(drvdata->clk);
+		pm_runtime_put(drvdata->dev);
 err1:
 	cti_trigout_gpio_disable(drvdata);
 err0:
@@ -563,7 +563,7 @@ void coresight_cti_unmap_trigin(struct coresight_cti *cti, int trig, int ch)
 	 * within the mutex lock region in addition to within the spinlock.
 	 */
 	if (drvdata->refcnt == 0)
-		clk_disable_unprepare(drvdata->clk);
+		pm_runtime_put(drvdata->dev);
 
 	if (drvdata->gpio_trigin->trig == trig)
 		cti_trigin_gpio_disable(drvdata);
@@ -632,7 +632,7 @@ void coresight_cti_unmap_trigout(struct coresight_cti *cti, int trig, int ch)
 	 * within the mutex lock region in addition to within the spinlock.
 	 */
 	if (drvdata->refcnt == 0)
-		clk_disable_unprepare(drvdata->clk);
+		pm_runtime_put(drvdata->dev);
 
 	if (drvdata->gpio_trigout->trig == trig)
 		cti_trigout_gpio_disable(drvdata);
@@ -1388,34 +1388,29 @@ static struct notifier_block cti_cpu_pm_notifier = {
 	.notifier_call = cti_cpu_pm_callback,
 };
 
-static int cti_probe(struct platform_device *pdev)
+static int cti_probe(struct amba_device *adev, const struct amba_id *id)
 {
 	int ret;
 	int trig;
-	struct device *dev = &pdev->dev;
+	struct device *dev = &adev->dev;
 	struct coresight_platform_data *pdata;
 	struct cti_drvdata *drvdata;
-	struct resource *res;
 	struct coresight_desc *desc;
 	struct device_node *cpu_node;
 
-	pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);
+	pdata = of_get_coresight_platform_data(dev, adev->dev.of_node);
 	if (IS_ERR(pdata))
 		return PTR_ERR(pdata);
-	pdev->dev.platform_data = pdata;
+	adev->dev.platform_data = pdata;
 
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
 		return -ENOMEM;
 	/* Store the driver data pointer for use in exported functions */
-	drvdata->dev = &pdev->dev;
-	platform_set_drvdata(pdev, drvdata);
+	drvdata->dev = &adev->dev;
+	dev_set_drvdata(dev, drvdata);
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cti-base");
-	if (!res)
-		return -ENODEV;
-
-	drvdata->base = devm_ioremap(dev, res->start, resource_size(res));
+	drvdata->base = devm_ioremap_resource(dev, &adev->res);
 	if (!drvdata->base)
 		return -ENOMEM;
 
@@ -1423,21 +1418,13 @@ static int cti_probe(struct platform_device *pdev)
 
 	mutex_init(&drvdata->mutex);
 
-	drvdata->clk = devm_clk_get(dev, "core_clk");
-	if (IS_ERR(drvdata->clk))
-		return PTR_ERR(drvdata->clk);
-
-	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
-	if (ret)
-		return ret;
-
 	drvdata->gpio_trigin = devm_kzalloc(dev, sizeof(struct cti_pctrl),
 					    GFP_KERNEL);
 	if (!drvdata->gpio_trigin)
 		return -ENOMEM;
 
 	drvdata->gpio_trigin->trig = -1;
-	ret = of_property_read_u32(pdev->dev.of_node,
+	ret = of_property_read_u32(adev->dev.of_node,
 				   "qcom,cti-gpio-trigin", &trig);
 	if (!ret)
 		drvdata->gpio_trigin->trig = trig;
@@ -1450,7 +1437,7 @@ static int cti_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	drvdata->gpio_trigout->trig = -1;
-	ret = of_property_read_u32(pdev->dev.of_node,
+	ret = of_property_read_u32(adev->dev.of_node,
 				   "qcom,cti-gpio-trigout", &trig);
 	if (!ret)
 		drvdata->gpio_trigout->trig = trig;
@@ -1458,7 +1445,7 @@ static int cti_probe(struct platform_device *pdev)
 		return ret;
 
 	drvdata->cpu = -1;
-	cpu_node = of_parse_phandle(pdev->dev.of_node, "cpu", 0);
+	cpu_node = of_parse_phandle(adev->dev.of_node, "cpu", 0);
 	if (cpu_node) {
 		drvdata->cpu = pdata ? pdata->cpu : -1;
 		if (drvdata->cpu == -1) {
@@ -1468,7 +1455,7 @@ static int cti_probe(struct platform_device *pdev)
 	}
 
 	if (!cti_save_disable)
-		drvdata->cti_save = of_property_read_bool(pdev->dev.of_node,
+		drvdata->cti_save = of_property_read_bool(adev->dev.of_node,
 							  "qcom,cti-save");
 	if (drvdata->cti_save) {
 		drvdata->state = devm_kzalloc(dev, sizeof(struct cti_state),
@@ -1476,18 +1463,18 @@ static int cti_probe(struct platform_device *pdev)
 		if (!drvdata->state)
 			return -ENOMEM;
 
-		drvdata->cti_hwclk = of_property_read_bool(pdev->dev.of_node,
+		drvdata->cti_hwclk = of_property_read_bool(adev->dev.of_node,
 							   "qcom,cti-hwclk");
 	}
 	if (drvdata->cti_save && !drvdata->cti_hwclk) {
-		ret = clk_prepare_enable(drvdata->clk);
+		ret = pm_runtime_get_sync(drvdata->dev);
 		if (ret)
 			return ret;
 	}
 
 	mutex_lock(&cti_lock);
 	drvdata->cti.name = ((struct coresight_platform_data *)
-			     (pdev->dev.platform_data))->name;
+			     (adev->dev.platform_data))->name;
 	list_add_tail(&drvdata->cti.link, &cti_list);
 	mutex_unlock(&cti_lock);
 
@@ -1497,8 +1484,8 @@ static int cti_probe(struct platform_device *pdev)
 		goto err;
 	}
 	desc->type = CORESIGHT_DEV_TYPE_NONE;
-	desc->pdata = pdev->dev.platform_data;
-	desc->dev = &pdev->dev;
+	desc->pdata = adev->dev.platform_data;
+	desc->dev = &adev->dev;
 	desc->groups = cti_attr_grps;
 	drvdata->csdev = coresight_register(desc);
 	if (IS_ERR(drvdata->csdev)) {
@@ -1511,56 +1498,35 @@ static int cti_probe(struct platform_device *pdev)
 			cpu_pm_register_notifier(&cti_cpu_pm_notifier);
 		registered++;
 	}
-
+	pm_runtime_put(&adev->dev);
 	dev_dbg(dev, "CTI initialized\n");
 	return 0;
 err:
 	if (drvdata->cti_save && !drvdata->cti_hwclk)
-		clk_disable_unprepare(drvdata->clk);
+		pm_runtime_put(&adev->dev);
 	return ret;
 }
 
-static int cti_remove(struct platform_device *pdev)
-{
-	struct cti_drvdata *drvdata = platform_get_drvdata(pdev);
-
-	if (drvdata->cti_save) {
-		registered--;
-		if (!registered)
-			cpu_pm_unregister_notifier(&cti_cpu_pm_notifier);
-	}
-	coresight_unregister(drvdata->csdev);
-	if (drvdata->cti_save && !drvdata->cti_hwclk)
-		clk_disable_unprepare(drvdata->clk);
-	return 0;
-}
-
-static const struct of_device_id cti_match[] = {
-	{.compatible = "arm,coresight-cti"},
-	{}
+static struct amba_id cti_ids[] = {
+	{
+		.id     = 0x0003b966,
+		.mask   = 0x0003ffff,
+		.data	= "CTI",
+	},
+	{ 0, 0},
 };
 
-static struct platform_driver cti_driver = {
-	.probe          = cti_probe,
-	.remove         = cti_remove,
-	.driver         = {
+static struct amba_driver cti_driver = {
+	.drv = {
 		.name   = "coresight-cti",
 		.owner	= THIS_MODULE,
-		.of_match_table = cti_match,
+		.suppress_bind_attrs = true,
 	},
+	.probe          = cti_probe,
+	.id_table	= cti_ids,
 };
 
-static int __init cti_init(void)
-{
-	return platform_driver_register(&cti_driver);
-}
-module_init(cti_init);
-
-static void __exit cti_exit(void)
-{
-	platform_driver_unregister(&cti_driver);
-}
-module_exit(cti_exit);
+builtin_amba_driver(cti_driver);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("CoreSight CTI driver");
