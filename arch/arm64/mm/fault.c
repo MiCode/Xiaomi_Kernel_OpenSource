@@ -335,7 +335,7 @@ static int __kprobes do_page_fault(unsigned long addr, unsigned int esr,
 
 	if (is_el0_instruction_abort(esr)) {
 		vm_flags = VM_EXEC;
-	} else if ((esr & ESR_ELx_WNR) && !(esr & ESR_ELx_CM)) {
+	} else if (esr & ESR_ELx_WNR) {
 		vm_flags = VM_WRITE;
 		mm_flags |= FAULT_FLAG_WRITE;
 	}
