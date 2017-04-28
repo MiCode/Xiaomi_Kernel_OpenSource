@@ -1955,7 +1955,7 @@ static long gpuobj_free_on_fence(struct kgsl_device_private *dev_priv,
 	}
 
 	handle = kgsl_sync_fence_async_wait(event.fd,
-		gpuobj_free_fence_func, entry);
+		gpuobj_free_fence_func, entry, NULL, 0);
 
 	/* if handle is NULL the fence has already signaled */
 	if (handle == NULL)

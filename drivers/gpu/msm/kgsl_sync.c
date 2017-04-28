@@ -431,8 +431,27 @@ static void kgsl_sync_fence_callback(struct fence *fence, struct fence_cb *cb)
 	kfree(kcb);
 }
 
+static void kgsl_get_fence_name(struct fence *fence,
+	char *fence_name, int name_len)
+{
+	char *ptr = fence_name;
+	char *last = fence_name + name_len;
+
+	ptr +=  snprintf(ptr, last - ptr, "%s %s",
+			fence->ops->get_driver_name(fence),
+			fence->ops->get_timeline_name(fence));
+
+	if ((ptr + 2) >= last)
+		return;
+
+	if (fence->ops->fence_value_str) {
+		ptr += snprintf(ptr, last - ptr, ": ");
+		fence->ops->fence_value_str(fence, ptr, last - ptr);
+	}
+}
+
 struct kgsl_sync_fence_cb *kgsl_sync_fence_async_wait(int fd,
-	void (*func)(void *priv), void *priv)
+	void (*func)(void *priv), void *priv, char *fence_name, int name_len)
 {
 	struct kgsl_sync_fence_cb *kcb;
 	struct fence *fence;
@@ -452,6 +471,9 @@ struct kgsl_sync_fence_cb *kgsl_sync_fence_async_wait(int fd,
 	kcb->fence = fence;
 	kcb->priv = priv;
 	kcb->func = func;
+
+	if (fence_name)
+		kgsl_get_fence_name(fence, fence_name, name_len);
 
 	/* if status then error or signaled */
 	status = fence_add_callback(fence, &kcb->fence_cb,
@@ -788,44 +810,4 @@ static const struct fence_ops kgsl_syncsource_fence_ops = {
 	.wait = fence_default_wait,
 	.release = kgsl_syncsource_fence_release,
 };
-
-void kgsl_dump_fence(struct kgsl_sync_fence_cb *handle,
-				char *fence_str, int len)
-{
-	struct fence *fence;
-	char *ptr = fence_str;
-	char *last = fence_str + len;
-
-	if (!handle || !handle->fence) {
-		snprintf(fence_str, len, "NULL");
-		return;
-	}
-
-	fence = handle->fence;
-
-	ptr += snprintf(ptr, last - ptr, "%s %s",
-			fence->ops->get_timeline_name(fence),
-			fence->ops->get_driver_name(fence));
-	if (ptr >= last)
-		return;
-
-	if (fence->ops->timeline_value_str &&
-		fence->ops->fence_value_str) {
-		char value[64];
-		bool success;
-
-		fence->ops->fence_value_str(fence, value, sizeof(value));
-		success = !!strlen(value);
-
-		if (success) {
-			ptr += snprintf(ptr, last - ptr, ": %s", value);
-			if (ptr >= last)
-				return;
-
-			fence->ops->timeline_value_str(fence, value,
-							sizeof(value));
-			ptr += snprintf(ptr, last - ptr, " / %s", value);
-		}
-	}
-}
 
