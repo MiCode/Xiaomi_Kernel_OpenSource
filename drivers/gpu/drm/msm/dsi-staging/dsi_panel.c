@@ -1512,6 +1512,17 @@ error:
 	return rc;
 }
 
+static int dsi_panel_parse_features(struct dsi_panel *panel,
+				     struct device_node *of_node)
+{
+	panel->ulps_enabled =
+		of_property_read_bool(of_node, "qcom,ulps-enabled");
+
+	pr_debug("ulps_enabled:%d\n", panel->ulps_enabled);
+
+	return 0;
+}
+
 static int dsi_panel_parse_jitter_config(struct dsi_panel *panel,
 				     struct device_node *of_node)
 {
@@ -2116,6 +2127,10 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	rc = dsi_panel_parse_jitter_config(panel, of_node);
 	if (rc)
 		pr_err("failed to parse panel jitter config, rc=%d\n", rc);
+
+	rc = dsi_panel_parse_features(panel, of_node);
+	if (rc)
+		pr_err("failed to parse panel features, rc=%d\n", rc);
 
 	rc = dsi_panel_parse_hdr_config(panel, of_node);
 	if (rc)
