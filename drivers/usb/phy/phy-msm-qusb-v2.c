@@ -79,6 +79,7 @@ enum qusb_phy_reg {
 
 struct qusb_phy {
 	struct usb_phy		phy;
+	struct mutex		lock;
 	void __iomem		*base;
 	void __iomem		*efuse_reg;
 
@@ -103,7 +104,7 @@ struct qusb_phy {
 	int			efuse_bit_pos;
 	int			efuse_num_of_bits;
 
-	bool			power_enabled;
+	int			power_enabled_ref;
 	bool			clocks_enabled;
 	bool			cable_connected;
 	bool			suspended;
@@ -175,16 +176,31 @@ static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on)
 {
 	int ret = 0;
 
-	dev_dbg(qphy->phy.dev, "%s turn %s regulators. power_enabled:%d\n",
-			__func__, on ? "on" : "off", qphy->power_enabled);
+	mutex_lock(&qphy->lock);
 
-	if (qphy->power_enabled == on) {
-		dev_dbg(qphy->phy.dev, "PHYs' regulators are already ON.\n");
-		return 0;
+	dev_dbg(qphy->phy.dev,
+		"%s:req to turn %s regulators. power_enabled_ref:%d\n",
+			__func__, on ? "on" : "off", qphy->power_enabled_ref);
+
+	if (on && ++qphy->power_enabled_ref > 1) {
+		dev_dbg(qphy->phy.dev, "PHYs' regulators are already on\n");
+		goto done;
 	}
 
-	if (!on)
-		goto disable_vdda33;
+	if (!on) {
+		if (on == qphy->power_enabled_ref) {
+			dev_dbg(qphy->phy.dev,
+				"PHYs' regulators are already off\n");
+			goto done;
+		}
+
+		qphy->power_enabled_ref--;
+		if (!qphy->power_enabled_ref)
+			goto disable_vdda33;
+
+		dev_dbg(qphy->phy.dev, "Skip turning off PHYs' regulators\n");
+		goto done;
+	}
 
 	ret = qusb_phy_config_vdd(qphy, true);
 	if (ret) {
@@ -239,9 +255,9 @@ static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on)
 		goto unset_vdd33;
 	}
 
-	qphy->power_enabled = true;
-
 	pr_debug("%s(): QUSB PHY's regulators are turned ON.\n", __func__);
+
+	mutex_unlock(&qphy->lock);
 	return ret;
 
 disable_vdda33:
@@ -288,8 +304,13 @@ unconfig_vdd:
 		dev_err(qphy->phy.dev, "Unable unconfig VDD:%d\n",
 							ret);
 err_vdd:
-	qphy->power_enabled = false;
 	dev_dbg(qphy->phy.dev, "QUSB PHY's regulators are turned OFF.\n");
+
+	/* in case of error in turning on regulators */
+	if (qphy->power_enabled_ref)
+		qphy->power_enabled_ref--;
+done:
+	mutex_unlock(&qphy->lock);
 	return ret;
 }
 
@@ -960,6 +981,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		return PTR_ERR(qphy->vdda18);
 	}
 
+	mutex_init(&qphy->lock);
 	platform_set_drvdata(pdev, qphy);
 
 	qphy->phy.label			= "msm-qusb-phy-v2";
