@@ -236,32 +236,52 @@ int dsi_core_clk_start(struct dsi_core_clks *c_clks)
 	return rc;
 
 error_disable_mmss_clk:
-	clk_disable_unprepare(c_clks->clks.core_mmss_clk);
+	if (c_clks->clks.core_mmss_clk)
+		clk_disable_unprepare(c_clks->clks.core_mmss_clk);
 error_disable_bus_clk:
-	clk_disable_unprepare(c_clks->clks.bus_clk);
+	if (c_clks->clks.bus_clk)
+		clk_disable_unprepare(c_clks->clks.bus_clk);
 error_disable_iface_clk:
-	clk_disable_unprepare(c_clks->clks.iface_clk);
+	if (c_clks->clks.iface_clk)
+		clk_disable_unprepare(c_clks->clks.iface_clk);
 error_disable_mnoc_clk:
 	if (c_clks->clks.mnoc_clk)
 		clk_disable_unprepare(c_clks->clks.mnoc_clk);
 error_disable_core_clk:
-	clk_disable_unprepare(c_clks->clks.mdp_core_clk);
+	if (c_clks->clks.mdp_core_clk)
+		clk_disable_unprepare(c_clks->clks.mdp_core_clk);
 error:
 	return rc;
 }
 
 int dsi_core_clk_stop(struct dsi_core_clks *c_clks)
 {
-	if (msm_bus_scale_client_update_request(c_clks->bus_handle, 0))
-		pr_err("bus scale client disable failed\n");
-	clk_disable_unprepare(c_clks->clks.core_mmss_clk);
-	clk_disable_unprepare(c_clks->clks.bus_clk);
-	clk_disable_unprepare(c_clks->clks.iface_clk);
+	int rc = 0;
+
+	if (c_clks->bus_handle) {
+		rc = msm_bus_scale_client_update_request(c_clks->bus_handle, 0);
+		if (rc) {
+			pr_err("bus scale client disable failed, rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	if (c_clks->clks.core_mmss_clk)
+		clk_disable_unprepare(c_clks->clks.core_mmss_clk);
+
+	if (c_clks->clks.bus_clk)
+		clk_disable_unprepare(c_clks->clks.bus_clk);
+
+	if (c_clks->clks.iface_clk)
+		clk_disable_unprepare(c_clks->clks.iface_clk);
+
 	if (c_clks->clks.mnoc_clk)
 		clk_disable_unprepare(c_clks->clks.mnoc_clk);
-	clk_disable_unprepare(c_clks->clks.mdp_core_clk);
 
-	return 0;
+	if (c_clks->clks.mdp_core_clk)
+		clk_disable_unprepare(c_clks->clks.mdp_core_clk);
+
+	return rc;
 }
 
 static int dsi_link_clk_set_rate(struct dsi_link_clks *l_clks)
