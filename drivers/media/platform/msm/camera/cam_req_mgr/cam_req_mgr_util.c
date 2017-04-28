@@ -28,25 +28,34 @@
 #endif
 
 static struct cam_req_mgr_util_hdl_tbl *hdl_tbl;
-static struct mutex hdl_tbl_mutex = __MUTEX_INITIALIZER(hdl_tbl_mutex);
+static DEFINE_SPINLOCK(hdl_tbl_lock);
 
 int cam_req_mgr_util_init(void)
 {
 	int rc = 0;
 	int bitmap_size;
+	static struct cam_req_mgr_util_hdl_tbl *hdl_tbl_local;
 
-	mutex_lock(&hdl_tbl_mutex);
 	if (hdl_tbl) {
 		rc = -EINVAL;
 		pr_err("Hdl_tbl is already present\n");
 		goto hdl_tbl_check_failed;
 	}
 
-	hdl_tbl = kzalloc(sizeof(*hdl_tbl), GFP_KERNEL);
-	if (!hdl_tbl) {
+	hdl_tbl_local = kzalloc(sizeof(*hdl_tbl), GFP_KERNEL);
+	if (!hdl_tbl_local) {
 		rc = -ENOMEM;
 		goto hdl_tbl_alloc_failed;
 	}
+	spin_lock_bh(&hdl_tbl_lock);
+	if (hdl_tbl) {
+		spin_unlock_bh(&hdl_tbl_lock);
+		rc = -EEXIST;
+		kfree(hdl_tbl_local);
+		goto hdl_tbl_check_failed;
+	}
+	hdl_tbl = hdl_tbl_local;
+	spin_unlock_bh(&hdl_tbl_lock);
 
 	bitmap_size = BITS_TO_LONGS(CAM_REQ_MGR_MAX_HANDLES) * sizeof(long);
 	hdl_tbl->bitmap = kzalloc(sizeof(bitmap_size), GFP_KERNEL);
@@ -55,7 +64,6 @@ int cam_req_mgr_util_init(void)
 		goto bitmap_alloc_fail;
 	}
 	hdl_tbl->bits = bitmap_size * BITS_PER_BYTE;
-	mutex_unlock(&hdl_tbl_mutex);
 
 	return rc;
 
@@ -64,16 +72,15 @@ bitmap_alloc_fail:
 	hdl_tbl = NULL;
 hdl_tbl_alloc_failed:
 hdl_tbl_check_failed:
-	mutex_unlock(&hdl_tbl_mutex);
 	return rc;
 }
 
 int cam_req_mgr_util_deinit(void)
 {
-	mutex_lock(&hdl_tbl_mutex);
+	spin_lock_bh(&hdl_tbl_lock);
 	if (!hdl_tbl) {
 		pr_err("Hdl tbl is NULL\n");
-		mutex_unlock(&hdl_tbl_mutex);
+		spin_unlock_bh(&hdl_tbl_lock);
 		return -EINVAL;
 	}
 
@@ -81,7 +88,7 @@ int cam_req_mgr_util_deinit(void)
 	hdl_tbl->bitmap = NULL;
 	kfree(hdl_tbl);
 	hdl_tbl = NULL;
-	mutex_unlock(&hdl_tbl_mutex);
+	spin_unlock_bh(&hdl_tbl_lock);
 
 	return 0;
 }
@@ -90,10 +97,10 @@ int cam_req_mgr_util_free_hdls(void)
 {
 	int i = 0;
 
-	mutex_lock(&hdl_tbl_mutex);
+	spin_lock_bh(&hdl_tbl_lock);
 	if (!hdl_tbl) {
 		pr_err("Hdl tbl is NULL\n");
-		mutex_unlock(&hdl_tbl_mutex);
+		spin_unlock_bh(&hdl_tbl_lock);
 		return -EINVAL;
 	}
 
@@ -107,7 +114,7 @@ int cam_req_mgr_util_free_hdls(void)
 		}
 	}
 	bitmap_zero(hdl_tbl->bitmap, CAM_REQ_MGR_MAX_HANDLES);
-	mutex_unlock(&hdl_tbl_mutex);
+	spin_unlock_bh(&hdl_tbl_lock);
 
 	return 0;
 }
@@ -132,17 +139,17 @@ int32_t cam_create_session_hdl(void *priv)
 	int rand = 0;
 	int32_t handle = 0;
 
-	mutex_lock(&hdl_tbl_mutex);
+	spin_lock_bh(&hdl_tbl_lock);
 	if (!hdl_tbl) {
 		pr_err("Hdl tbl is NULL\n");
-		mutex_unlock(&hdl_tbl_mutex);
+		spin_unlock_bh(&hdl_tbl_lock);
 		return -EINVAL;
 	}
 
 	idx = cam_get_free_handle_index();
 	if (idx < 0) {
 		pr_err("Unable to create session handle\n");
-		mutex_unlock(&hdl_tbl_mutex);
+		spin_unlock_bh(&hdl_tbl_lock);
 		return idx;
 	}
 
@@ -154,7 +161,7 @@ int32_t cam_create_session_hdl(void *priv)
 	hdl_tbl->hdl[idx].state = HDL_ACTIVE;
 	hdl_tbl->hdl[idx].priv = priv;
 	hdl_tbl->hdl[idx].ops = NULL;
-	mutex_unlock(&hdl_tbl_mutex);
+	spin_unlock_bh(&hdl_tbl_lock);
 
 	return handle;
 }
@@ -165,17 +172,17 @@ int32_t cam_create_device_hdl(struct cam_create_dev_hdl *hdl_data)
 	int rand = 0;
 	int32_t handle;
 
-	mutex_lock(&hdl_tbl_mutex);
+	spin_lock_bh(&hdl_tbl_lock);
 	if (!hdl_tbl) {
 		pr_err("Hdl tbl is NULL\n");
-		mutex_unlock(&hdl_tbl_mutex);
+		spin_unlock_bh(&hdl_tbl_lock);
 		return -EINVAL;
 	}
 
 	idx = cam_get_free_handle_index();
 	if (idx < 0) {
 		pr_err("Unable to create device handle\n");
-		mutex_unlock(&hdl_tbl_mutex);
+		spin_unlock_bh(&hdl_tbl_lock);
 		return idx;
 	}
 
@@ -187,7 +194,7 @@ int32_t cam_create_device_hdl(struct cam_create_dev_hdl *hdl_data)
 	hdl_tbl->hdl[idx].state = HDL_ACTIVE;
 	hdl_tbl->hdl[idx].priv = hdl_data->priv;
 	hdl_tbl->hdl[idx].ops = hdl_data->ops;
-	mutex_unlock(&hdl_tbl_mutex);
+	spin_unlock_bh(&hdl_tbl_lock);
 
 	return handle;
 }
@@ -198,7 +205,7 @@ void *cam_get_device_priv(int32_t dev_hdl)
 	int type;
 	void *priv;
 
-	mutex_lock(&hdl_tbl_mutex);
+	spin_lock_bh(&hdl_tbl_lock);
 	if (!hdl_tbl) {
 		pr_err("Hdl tbl is NULL\n");
 		goto device_priv_fail;
@@ -227,12 +234,12 @@ void *cam_get_device_priv(int32_t dev_hdl)
 	}
 
 	priv = hdl_tbl->hdl[idx].priv;
-	mutex_unlock(&hdl_tbl_mutex);
+	spin_unlock_bh(&hdl_tbl_lock);
 
 	return priv;
 
 device_priv_fail:
-	mutex_unlock(&hdl_tbl_mutex);
+	spin_unlock_bh(&hdl_tbl_lock);
 	return NULL;
 }
 
@@ -242,7 +249,7 @@ void *cam_get_device_ops(int32_t dev_hdl)
 	int type;
 	void *ops;
 
-	mutex_lock(&hdl_tbl_mutex);
+	spin_lock_bh(&hdl_tbl_lock);
 	if (!hdl_tbl) {
 		pr_err("Hdl tbl is NULL\n");
 		goto device_ops_fail;
@@ -271,12 +278,12 @@ void *cam_get_device_ops(int32_t dev_hdl)
 	}
 
 	ops = hdl_tbl->hdl[idx].ops;
-	mutex_unlock(&hdl_tbl_mutex);
+	spin_unlock_bh(&hdl_tbl_lock);
 
 	return ops;
 
 device_ops_fail:
-	mutex_unlock(&hdl_tbl_mutex);
+	spin_unlock_bh(&hdl_tbl_lock);
 	return NULL;
 }
 
@@ -285,7 +292,7 @@ static int cam_destroy_hdl(int32_t dev_hdl, int dev_hdl_type)
 	int idx;
 	int type;
 
-	mutex_lock(&hdl_tbl_mutex);
+	spin_lock_bh(&hdl_tbl_lock);
 	if (!hdl_tbl) {
 		pr_err("Hdl tbl is NULL\n");
 		goto destroy_hdl_fail;
@@ -315,12 +322,12 @@ static int cam_destroy_hdl(int32_t dev_hdl, int dev_hdl_type)
 
 	hdl_tbl->hdl[idx].state = HDL_FREE;
 	clear_bit(idx, hdl_tbl->bitmap);
-	mutex_unlock(&hdl_tbl_mutex);
+	spin_unlock_bh(&hdl_tbl_lock);
 
 	return 0;
 
 destroy_hdl_fail:
-	mutex_unlock(&hdl_tbl_mutex);
+	spin_unlock_bh(&hdl_tbl_lock);
 	return -EINVAL;
 }
 
