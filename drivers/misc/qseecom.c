@@ -5870,7 +5870,8 @@ static int qseecom_create_key(struct qseecom_dev_handle *data,
 		 * It will return false if it is GPCE based crypto instance or
 		 * ICE is setup properly
 		 */
-		if (qseecom_enable_ice_setup(create_key_req.usage))
+		ret = qseecom_enable_ice_setup(create_key_req.usage);
+		if (ret)
 			goto free_buf;
 
 		do {
@@ -5999,7 +6000,8 @@ static int qseecom_wipe_key(struct qseecom_dev_handle *data,
 		 * It will return false if it is GPCE based crypto instance or
 		 * ICE is setup properly
 		 */
-		if (qseecom_enable_ice_setup(wipe_key_req.usage))
+		ret = qseecom_enable_ice_setup(wipe_key_req.usage);
+		if (ret)
 			goto free_buf;
 
 		ret = __qseecom_set_clear_ce_key(data, wipe_key_req.usage,
