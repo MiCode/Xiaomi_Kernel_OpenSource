@@ -61,6 +61,7 @@
 #define TRUE   1
 #define FALSE  0
 
+#define MAX_LANE_COUNT 4
 #define CSID_TIMEOUT msecs_to_jiffies(100)
 
 #undef CDBG
@@ -318,6 +319,12 @@ static int msm_csid_config(struct csid_device *csid_dev)
 		csid_params->lane_assign);
 	CDBG("%s csid_params phy_sel = %d\n", __func__,
 		csid_params->phy_sel);
+	if ((csid_params->lane_cnt == 0) ||
+		(csid_params->lane_cnt > MAX_LANE_COUNT)) {
+		pr_err("%s:%d invalid lane count = %d\n",
+			__func__, __LINE__, csid_params->lane_cnt);
+		return -EINVAL;
+	}
 
 #ifdef RESET_CSID_CFG
 	rc = msm_csid_reset(csid_dev);
