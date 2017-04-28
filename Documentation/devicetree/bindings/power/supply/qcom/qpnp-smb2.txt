@@ -169,6 +169,18 @@ Charger specific properties:
   Definition: Boolean flag which when present enables input suspend for
 		debug battery.
 
+- qcom,min-freq-khz
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the minimum charger buck/boost switching frequency
+		in KHz. It overrides the min frequency defined for the charger.
+
+- qcom,max-freq-khz
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the maximum charger buck/boost switching frequency in
+		 KHz. It overrides the max frequency defined for the charger.
+
 =============================================
 Second Level Nodes - SMB2 Charger Peripherals
 =============================================
