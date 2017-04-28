@@ -88,8 +88,9 @@ static struct rpmh_msg *get_msg_from_pool(struct rpmh_client *rc)
 	struct rpmh_mbox *rpm = rc->rpmh;
 	struct rpmh_msg *msg = NULL;
 	int pos;
+	unsigned long flags;
 
-	spin_lock(&rpm->lock);
+	spin_lock_irqsave(&rpm->lock, flags);
 	pos = find_first_zero_bit(rpm->fast_req, RPMH_MAX_FAST_RES);
 	if (pos != RPMH_MAX_FAST_RES) {
 		bitmap_set(rpm->fast_req, pos, 1);
@@ -98,7 +99,7 @@ static struct rpmh_msg *get_msg_from_pool(struct rpmh_client *rc)
 		msg->bit = pos;
 		msg->rc = rc;
 	}
-	spin_unlock(&rpm->lock);
+	spin_unlock_irqrestore(&rpm->lock, flags);
 
 	return msg;
 }
@@ -117,6 +118,7 @@ static void rpmh_tx_done(struct mbox_client *cl, void *msg, int r)
 	struct rpmh_mbox *rpm = rpm_msg->rc->rpmh;
 	atomic_t *wc = rpm_msg->wait_count;
 	wait_queue_head_t *waitq = rpm_msg->waitq;
+	unsigned long flags;
 
 	rpm_msg->err = r;
 
@@ -143,9 +145,9 @@ static void rpmh_tx_done(struct mbox_client *cl, void *msg, int r)
 
 	/* If we allocated the pool, set it as available */
 	if (rpm_msg->bit >= 0 && rpm_msg->bit != RPMH_MAX_FAST_RES) {
-		spin_lock(&rpm->lock);
+		spin_lock_irqsave(&rpm->lock, flags);
 		bitmap_clear(rpm->fast_req, rpm_msg->bit, 1);
-		spin_unlock(&rpm->lock);
+		spin_unlock_irqrestore(&rpm->lock, flags);
 	}
 
 	/* Signal the blocking thread we are done */
@@ -174,8 +176,9 @@ static struct rpmh_req *cache_rpm_request(struct rpmh_client *rc,
 {
 	struct rpmh_req *req;
 	struct rpmh_mbox *rpm = rc->rpmh;
+	unsigned long flags;
 
-	spin_lock(&rpm->lock);
+	spin_lock_irqsave(&rpm->lock, flags);
 	req = __find_req(rc, cmd->addr);
 	if (req)
 		goto existing;
@@ -210,7 +213,7 @@ existing:
 
 unlock:
 	rpm->dirty = true;
-	spin_unlock(&rpm->lock);
+	spin_unlock_irqrestore(&rpm->lock, flags);
 
 	return req;
 }
@@ -566,6 +569,7 @@ int rpmh_invalidate(struct rpmh_client *rc)
 {
 	DEFINE_RPMH_MSG_ONSTACK(rc, 0, NULL, NULL, rpm_msg);
 	struct rpmh_mbox *rpm;
+	unsigned long flags;
 
 	if (IS_ERR_OR_NULL(rc))
 		return -EINVAL;
@@ -577,9 +581,9 @@ int rpmh_invalidate(struct rpmh_client *rc)
 	rpm_msg.msg.invalidate = true;
 	rpm_msg.msg.is_complete = false;
 
-	spin_lock(&rpm->lock);
+	spin_lock_irqsave(&rpm->lock, flags);
 	rpm->dirty = true;
-	spin_unlock(&rpm->lock);
+	spin_unlock_irqrestore(&rpm->lock, flags);
 
 	return mbox_send_controller_data(rc->chan, &rpm_msg.msg);
 }
@@ -667,6 +671,7 @@ int rpmh_flush(struct rpmh_client *rc)
 	struct rpmh_req *p;
 	struct rpmh_mbox *rpm = rc->rpmh;
 	int ret;
+	unsigned long flags;
 
 	if (IS_ERR_OR_NULL(rc))
 		return -EINVAL;
@@ -677,13 +682,13 @@ int rpmh_flush(struct rpmh_client *rc)
 	if (!mbox_controller_is_idle(rc->chan))
 		return -EBUSY;
 
-	spin_lock(&rpm->lock);
+	spin_lock_irqsave(&rpm->lock, flags);
 	if (!rpm->dirty) {
 		pr_debug("Skipping flush, TCS has latest data.\n");
-		spin_unlock(&rpm->lock);
+		spin_unlock_irqrestore(&rpm->lock, flags);
 		return 0;
 	}
-	spin_unlock(&rpm->lock);
+	spin_unlock_irqrestore(&rpm->lock, flags);
 
 	/*
 	 * Nobody else should be calling this function other than sleep,
@@ -704,9 +709,9 @@ int rpmh_flush(struct rpmh_client *rc)
 			return ret;
 	}
 
-	spin_lock(&rpm->lock);
+	spin_lock_irqsave(&rpm->lock, flags);
 	rpm->dirty = false;
-	spin_unlock(&rpm->lock);
+	spin_unlock_irqrestore(&rpm->lock, flags);
 
 	return 0;
 }
