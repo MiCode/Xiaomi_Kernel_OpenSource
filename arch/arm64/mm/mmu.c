@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 /*
  * Based on arch/arm/mm/mmu.c
  *
@@ -1054,6 +1055,14 @@ int arch_add_memory(int nid, u64 start, u64 size,
 			struct mhp_restrictions *restrictions)
 {
 	int flags = 0;
+	int ret;
+	unsigned long end_pfn = PHYS_PFN(start + size);
+	unsigned long max_sparsemem_pfn = 1UL << (MAX_PHYSMEM_BITS-PAGE_SHIFT);
+
+	if (end_pfn > max_sparsemem_pfn) {
+		pr_err("end_pfn too big\n");
+		return -1;
+	}
 
 	if (rodata_full || debug_pagealloc_enabled())
 		flags = NO_BLOCK_MAPPINGS | NO_CONT_MAPPINGS;
@@ -1061,8 +1070,14 @@ int arch_add_memory(int nid, u64 start, u64 size,
 	__create_pgd_mapping(swapper_pg_dir, start, __phys_to_virt(start),
 			     size, PAGE_KERNEL, __pgd_pgtable_alloc, flags);
 
-	return __add_pages(nid, start >> PAGE_SHIFT, size >> PAGE_SHIFT,
-			   restrictions);
+	ret = __add_pages(nid, start >> PAGE_SHIFT, size >> PAGE_SHIFT,
+			  restrictions);
+
+	if (ret)
+		pr_warn("%s: Problem encountered in __add_pages() ret=%d\n",
+			__func__, ret);
+
+	return ret;
 }
 void arch_remove_memory(int nid, u64 start, u64 size,
 			struct vmem_altmap *altmap)
