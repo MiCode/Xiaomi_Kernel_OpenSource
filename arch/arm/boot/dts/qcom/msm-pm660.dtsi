@@ -10,15 +10,14 @@
  * GNU General Public License for more details.
  */
 
-#include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 
 &spmi_bus {
 	qcom,pm660@0 {
-		compatible ="qcom,spmi-pmic";
-		reg = <0x0 SPMI_USID>;
-		#address-cells = <2>;
-		#size-cells = <0>;
+		spmi-slave-container;
+		reg = <0x0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
 
 		pm660_revid: qcom,revid@100 {
 			compatible = "qcom,qpnp-revid";
@@ -67,6 +66,7 @@
 		};
 
 		pm660_gpios: gpios {
+			spmi-dev-container;
 			compatible = "qcom,qpnp-pin";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -159,6 +159,7 @@
 		};
 
 		pm660_rtc: qcom,pm660_rtc {
+			spmi-dev-container;
 			compatible = "qcom,qpnp-rtc";
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -302,10 +303,10 @@
 	};
 
 	qcom,pm660@1 {
-		compatible ="qcom,spmi-pmic";
-		reg = <0x1 SPMI_USID>;
-		#address-cells = <2>;
-		#size-cells = <0>;
+		spmi-slave-container;
+		reg = <0x1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
 
 		pm660_haptics: qcom,haptic@c000 {
 			compatible = "qcom,qpnp-haptic";

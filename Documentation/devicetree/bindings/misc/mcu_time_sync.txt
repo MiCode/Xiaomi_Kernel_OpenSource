@@ -1,0 +1,13 @@
+MCU time sync driver is used for communicating with customer board, it using GPIO to trigger customer board. At the same time, to record currenct cpu time.
+
+
+Required properties:
+ - compatible        : Should be "qcom,mcu-time-sync".
+ - qcom,mcu-link-gpio : the conenct gpio.
+
+Example:
+	qcom,mcu_time_sync {
+		compatible = "qcom,mcu-time-sync";
+		qcom,mcu-link-gpio = <&msm_gpio 90 1>;
+	};
+

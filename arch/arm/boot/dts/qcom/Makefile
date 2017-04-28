@@ -270,6 +270,8 @@ dtb-$(CONFIG_ARCH_MSM8916) += msm8952-qrd-skum.dtb \
        msm8952-mtp.dtb
 
 dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
+        msm8909-1gb-qrd-skuc.dtb \
+        msm8909-1gb-qrd-skue.dtb \
 	msm8909w-wtp.dtb \
 	apq8009w-wtp.dtb \
 	apq8009w-cdp.dtb \
@@ -292,6 +294,7 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
 	apq8009w-1gb-nowgr-swoctp.dtb \
 	apq8009w-1gb-nowgr-swoctp-circpanel.dtb \
 	msm8909w-bg-wtp-v1.dtb \
+	msm8909w-bg-wtp-v2.dtb \
 	apq8009-mtp-wcd9326.dtb \
 	msm8909-mtp-wcd9326.dtb \
 	msm8909-mtp-wcd9326-refboard.dtb \

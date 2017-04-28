@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -306,6 +306,7 @@ static struct qpnp_adc_tm_reverse_scale_fn adc_tm_rscale_fn[] = {
 	[SCALE_R_ABSOLUTE] = {qpnp_adc_absolute_rthr},
 	[SCALE_QRD_SKUH_RBATT_THERM] = {qpnp_adc_qrd_skuh_btm_scaler},
 	[SCALE_QRD_SKUT1_RBATT_THERM] = {qpnp_adc_qrd_skut1_btm_scaler},
+	[SCALE_QRD_SKUE_RBATT_THERM] = {qpnp_adc_qrd_skue_btm_scaler},
 };
 
 static int32_t qpnp_adc_tm_read_reg(struct qpnp_adc_tm_chip *chip,

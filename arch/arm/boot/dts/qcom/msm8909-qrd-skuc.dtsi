@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,48 +11,10 @@
  */
 
 #include "msm8909-qrd.dtsi"
-#include "msm8909-camera-sensor-skuc.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8909 QRD SKUC";
 	compatible = "qcom,msm8909-qrd", "qcom,msm8909", "qcom,qrd";
-};
-
-&tlmm_pinmux {
-	ap3426_int_pin {
-		qcom,pins = <&gp 94>;
-		qcom,pin-func = <0>;
-		qcom,num-grp-pins = <1>;
-		label = "ap3426-irq";
-		ap3426_default: ap3426_default {
-			drive-strength = <6>;
-			bias-pull-up;
-		};
-		ap3426_sleep: ap3426_sleep {
-			drive-strength = <2>;
-			bias-pull-down;
-		};
-	};
-
-	bma2x2_int1_pin {
-		qcom,pins = <&gp 96>;
-		qcom,num-grp-pins = <1>;
-		label = "bma2x2_int1_pin";
-		bma2x2_int1_default: int1_default {
-			drive-strength = <6>;
-			bias-pull-up;
-		};
-	};
-
-	bma2x2_int2_pin {
-		qcom,pins = <&gp 65>;
-		qcom,num-grp-pins = <1>;
-		label = "bma2x2_int2_pin";
-		bma2x2_int2_default: int2_default {
-			drive-strength = <6>;
-			bias-pull-up;
-		};
-	};
 };
 
 &soc {
@@ -92,47 +54,6 @@
 			focaltech,gesture-support;
 		};
 
-	};
-
-	i2c@78b5000 { /* BLSP1 QUP1 */
-		di@1e {
-			compatible = "di,ap3426";
-			reg = <0x1e>;
-			vdd-supply = <&pm8909_l17>;
-			vio-supply = <&pm8909_l6>;
-			interrupt-parent = <&msm_gpio>;
-			interrupts = <94 0x2002>;
-			pinctrl-names = "default","sleep";
-			pinctrl-0 = <&ap3426_default>;
-			pinctrl-1 = <&ap3426_sleep>;
-			di,irq-gpio = <&msm_gpio 94 0x2002>;
-			di,als-cal = <94>;
-			di,als-gain = <0>;
-			di,als-persist = <1>;
-			di,ps-gain = <1>;
-			di,ps-persist = <2>;
-			di,ps-led-driver = <3>;
-			di,ps-mean-time = <0>;
-			di,ps-integrated-time = <0>;
-			di,ps-distance-table = <887 282 111 78 53 46>;
-			di,als-sensitivity = <50>;
-			di,wakeup-threshold = <4>;
-		};
-
-		bosch@18 { /* Accelerometer sensor */
-			compatible = "bosch,bma2x2";
-			reg = <0x18>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&bma2x2_int1_default &bma2x2_int2_default>;
-			interrupt-parent = <&msm_gpio>;
-			interrupts = <96 0x2002>;
-			vdd-supply = <&pm8909_l17>;
-			vio-supply = <&pm8909_l6>;
-			bosch,init-interval = <200>;
-			bosch,place = <5>;
-			bosch,gpio-int1 = <&msm_gpio 96 0x2002>;
-			bosch,gpio-int2 = <&msm_gpio 65 0x2002>;
-		};
 	};
 
 	gen-vkeys {
@@ -283,18 +204,46 @@
 };
 
 &dsi_ili9806e_fwvga_video {
-	qcom,mdss-dsi-pwm-gpio = <&pm8909_mpps 2 0>;
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,cont-splash-enabled;
 };
 
-&pmx_mdss {
-	qcom,num-grp-pins = <1>;
-	qcom,pins = <&gp 25>;
-};
-
-&pmx_mdss_te {
-	qcom,num-grp-pins = <1>;
-	qcom,pins = <&gp 24>;
+&msm_gpio {
+	pmx_mdss {
+		mdss_dsi_active: mdss_dsi_active {
+			mux {
+				pins = "gpio25";
+			};
+			config {
+				pins = "gpio25";
+			};
+		};
+		mdss_dsi_suspend: mdss_dsi_suspend {
+			mux {
+				pins = "gpio25";
+			};
+			config {
+				pins = "gpio25";
+			};
+		};
+	};
+	pmx_mdss_te {
+		mdss_te_active: mdss_te_active {
+			mux {
+				pins = "gpio24";
+			};
+			config {
+				pins = "gpio24";
+			};
+		};
+		mdss_te_suspend: mdss_te_suspend {
+			mux {
+				pins = "gpio24";
+			};
+			config {
+				pins = "gpio24";
+			};
+		};
+	};
 };
 
 &mdss_dsi0 {

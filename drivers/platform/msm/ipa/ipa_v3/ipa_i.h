@@ -1078,6 +1078,11 @@ struct ipa3_ready_cb_info {
 	void *user_data;
 };
 
+struct ipa_dma_task_info {
+	struct ipa_mem_buffer mem;
+	struct ipahal_imm_cmd_pyld *cmd_pyld;
+};
+
 /**
  * struct ipa3_context - IPA context
  * @class: pointer to the struct class
@@ -1303,6 +1308,7 @@ struct ipa3_context {
 	struct ipa3_smp2p_info smp2p_info;
 	u32 ipa_tz_unlock_reg_num;
 	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
+	struct ipa_dma_task_info dma_task_info;
 };
 
 /**
@@ -1397,6 +1403,8 @@ struct ipa3_mem_partition {
 	u16 modem_comp_decomp_size;
 	u16 modem_ofst;
 	u16 modem_size;
+	u16 uc_event_ring_ofst;
+	u16 uc_event_ring_size;
 	u16 apps_v4_flt_hash_ofst;
 	u16 apps_v4_flt_hash_size;
 	u16 apps_v4_flt_nhash_ofst;
@@ -1894,6 +1902,8 @@ int ipa3_teth_bridge_driver_init(void);
 void ipa3_lan_rx_cb(void *priv, enum ipa_dp_evt_type evt, unsigned long data);
 
 int _ipa_init_sram_v3_0(void);
+int _ipa_init_sram_v3_5(void);
+
 int _ipa_init_hdr_v3_0(void);
 int _ipa_init_rt4_v3(void);
 int _ipa_init_rt6_v3(void);
@@ -2045,4 +2055,6 @@ struct device *ipa3_get_pdev(void);
 void ipa3_enable_dcd(void);
 void ipa3_disable_prefetch(enum ipa_client_type client);
 int ipa3_alloc_common_event_ring(void);
+int ipa3_allocate_dma_task_for_gsi(void);
+void ipa3_free_dma_task_for_gsi(void);
 #endif /* _IPA3_I_H_ */
