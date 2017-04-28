@@ -656,6 +656,9 @@ config ARCH_ENABLE_MEMORY_HOTPLUG
     depends on !NUMA
 	def_bool y
 
+config ARCH_ENABLE_MEMORY_HOTREMOVE
+	def_bool y
+
 # The GPIO number here must be sorted by descending number. In case of
 # a multiplatform kernel, we just want the highest value required by the
 # selected platforms.
