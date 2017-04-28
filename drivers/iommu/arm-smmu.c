@@ -4375,7 +4375,7 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 	/* Attempt to register child devices */
 	ret = device_for_each_child(dev, smmu, qsmmuv500_tbu_register);
 	if (ret)
-		return -EINVAL;
+		return -EPROBE_DEFER;
 
 	return 0;
 }
