@@ -478,19 +478,6 @@ static struct clk_rcg2 disp_cc_mdss_vsync_clk_src = {
 	},
 };
 
-static struct clk_branch disp_cc_debug_clk = {
-	.halt_reg = 0x600c,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x600c,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "disp_cc_debug_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch disp_cc_mdss_ahb_clk = {
 	.halt_reg = 0x4004,
 	.halt_check = BRANCH_HALT,
@@ -949,7 +936,6 @@ static struct clk_branch disp_cc_mdss_vsync_clk = {
 };
 
 static struct clk_regmap *disp_cc_sdm845_clocks[] = {
-	[DISP_CC_DEBUG_CLK] = &disp_cc_debug_clk.clkr,
 	[DISP_CC_MDSS_AHB_CLK] = &disp_cc_mdss_ahb_clk.clkr,
 	[DISP_CC_MDSS_AXI_CLK] = &disp_cc_mdss_axi_clk.clkr,
 	[DISP_CC_MDSS_BYTE0_CLK] = &disp_cc_mdss_byte0_clk.clkr,
