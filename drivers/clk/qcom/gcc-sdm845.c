@@ -1468,19 +1468,6 @@ static struct clk_branch gcc_cpuss_rbcpr_clk = {
 	},
 };
 
-static struct clk_branch gcc_cxo_tx1_clkref_clk = {
-	.halt_reg = 0x8c020,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x8c020,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_cxo_tx1_clkref_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch gcc_ddrss_gpu_axi_clk = {
 	.halt_reg = 0x44038,
 	.halt_check = BRANCH_VOTED,
@@ -2433,32 +2420,6 @@ static struct clk_branch gcc_qupv3_wrap_1_s_ahb_clk = {
 	},
 };
 
-static struct clk_branch gcc_rx1_usb2_clkref_clk = {
-	.halt_reg = 0x8c014,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x8c014,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_rx1_usb2_clkref_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_rx2_qlink_clkref_clk = {
-	.halt_reg = 0x8c018,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x8c018,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_rx2_qlink_clkref_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch gcc_sdcc2_ahb_clk = {
 	.halt_reg = 0x14008,
 	.halt_check = BRANCH_HALT,
@@ -3151,7 +3112,6 @@ static struct clk_regmap *gcc_sdm845_clocks[] = {
 	[GCC_CPUSS_GNOC_CLK] = &gcc_cpuss_gnoc_clk.clkr,
 	[GCC_CPUSS_RBCPR_CLK] = &gcc_cpuss_rbcpr_clk.clkr,
 	[GCC_CPUSS_RBCPR_CLK_SRC] = &gcc_cpuss_rbcpr_clk_src.clkr,
-	[GCC_CXO_TX1_CLKREF_CLK] = &gcc_cxo_tx1_clkref_clk.clkr,
 	[GCC_DDRSS_GPU_AXI_CLK] = &gcc_ddrss_gpu_axi_clk.clkr,
 	[GCC_DISP_AHB_CLK] = &gcc_disp_ahb_clk.clkr,
 	[GCC_DISP_AXI_CLK] = &gcc_disp_axi_clk.clkr,
@@ -3238,8 +3198,6 @@ static struct clk_regmap *gcc_sdm845_clocks[] = {
 	[GCC_QUPV3_WRAP_0_S_AHB_CLK] = &gcc_qupv3_wrap_0_s_ahb_clk.clkr,
 	[GCC_QUPV3_WRAP_1_M_AHB_CLK] = &gcc_qupv3_wrap_1_m_ahb_clk.clkr,
 	[GCC_QUPV3_WRAP_1_S_AHB_CLK] = &gcc_qupv3_wrap_1_s_ahb_clk.clkr,
-	[GCC_RX1_USB2_CLKREF_CLK] = &gcc_rx1_usb2_clkref_clk.clkr,
-	[GCC_RX2_QLINK_CLKREF_CLK] = &gcc_rx2_qlink_clkref_clk.clkr,
 	[GCC_SDCC2_AHB_CLK] = &gcc_sdcc2_ahb_clk.clkr,
 	[GCC_SDCC2_APPS_CLK] = &gcc_sdcc2_apps_clk.clkr,
 	[GCC_SDCC2_APPS_CLK_SRC] = &gcc_sdcc2_apps_clk_src.clkr,
