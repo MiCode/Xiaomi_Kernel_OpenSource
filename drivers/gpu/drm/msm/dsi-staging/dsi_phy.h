@@ -182,11 +182,12 @@ int dsi_phy_disable(struct msm_dsi_phy *phy);
  * @phy:          DSI PHY handle
  * @config:	  DSi host configuration information.
  * @enable:	  Enable/Disable
+ * @clamp_enabled: mmss_clamp enabled/disabled
  *
  * Return: error code.
  */
 int dsi_phy_set_ulps(struct msm_dsi_phy *phy,  struct dsi_host_config *config,
-		bool enable);
+		bool enable, bool clamp_enabled);
 
 /**
  * dsi_phy_clk_cb_register() - Register PHY clock control callback

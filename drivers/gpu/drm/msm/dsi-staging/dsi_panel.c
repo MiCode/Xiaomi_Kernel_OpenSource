@@ -2490,7 +2490,6 @@ int dsi_panel_post_enable(struct dsi_panel *panel)
 		       panel->name, rc);
 		goto error;
 	}
-	panel->panel_initialized = false;
 error:
 	mutex_unlock(&panel->panel_lock);
 	return rc;
@@ -2536,6 +2535,8 @@ int dsi_panel_disable(struct dsi_panel *panel)
 		       panel->name, rc);
 		goto error;
 	}
+	panel->panel_initialized = false;
+
 error:
 	mutex_unlock(&panel->panel_lock);
 	return rc;
