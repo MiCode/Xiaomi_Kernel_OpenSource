@@ -68,7 +68,7 @@ static struct cnss_dfs_nol_info {
 	u16 dfs_nol_info_len;
 } dfs_nol_info;
 
-static enum cnss_cc_src cnss_cc_source = SOURCE_CORE;
+static enum cnss_cc_src cnss_cc_source = CNSS_SOURCE_CORE;
 
 int cnss_set_wlan_unsafe_channel(u16 *unsafe_ch_list, u16 ch_count)
 {
