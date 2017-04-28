@@ -235,6 +235,9 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	/* Set the AHB default slave response to "ERROR" */
 	kgsl_regwrite(device, A6XX_CP_AHB_CNTL, 0x1);
 
+	/* Turn on performance counters */
+	kgsl_regwrite(device, A6XX_RBBM_PERFCTR_CNTL, 0x1);
+
 	if (of_property_read_u32(device->pdev->dev.of_node,
 		"qcom,highest-bank-bit", &bit))
 		bit = MIN_HBB;
