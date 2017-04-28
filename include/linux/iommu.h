@@ -706,7 +706,7 @@ static inline int iommu_fwspec_add_ids(struct device *dev, u32 *ids,
 	return -ENODEV;
 }
 
-int iommu_fwspec_get_id(struct device *dev, u32 *id)
+static inline int iommu_fwspec_get_id(struct device *dev, u32 *id)
 {
 	return -ENODEV;
 }
