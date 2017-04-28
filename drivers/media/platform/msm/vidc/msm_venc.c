@@ -1501,6 +1501,9 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_SECURE:
 		inst->flags |= VIDC_SECURE;
+		property_id = HAL_PARAM_SECURE;
+		property_val = !!(inst->flags & VIDC_SECURE);
+		pdata = &property_val;
 		dprintk(VIDC_INFO, "Setting secure mode to: %d\n",
 				!!(inst->flags & VIDC_SECURE));
 		break;

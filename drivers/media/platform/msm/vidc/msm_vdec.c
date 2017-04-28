@@ -778,7 +778,10 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		msm_dcvs_try_enable(inst);
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_SECURE:
+		property_id = HAL_PARAM_SECURE;
 		inst->flags |= VIDC_SECURE;
+		property_val = !!(inst->flags & VIDC_SECURE);
+		pdata = &property_val;
 		dprintk(VIDC_DBG, "Setting secure mode to: %d\n",
 				!!(inst->flags & VIDC_SECURE));
 		break;

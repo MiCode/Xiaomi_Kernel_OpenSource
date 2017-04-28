@@ -1115,6 +1115,14 @@ int create_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32) * 2;
 		break;
 	}
+	case HAL_PARAM_SECURE:
+	{
+		create_pkt_enable(pkt->rg_property_data,
+			  HFI_PROPERTY_PARAM_SECURE_SESSION,
+			  ((struct hal_enable *)pdata)->enable);
+		pkt->size += sizeof(u32) * 2;
+		break;
+	}
 	case HAL_PARAM_VENC_SYNC_FRAME_SEQUENCE_HEADER:
 	{
 		create_pkt_enable(pkt->rg_property_data,
