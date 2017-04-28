@@ -56,9 +56,13 @@ int system_sleep_enter(uint64_t sleep_val)
 	 * Set up the wake up value offset from the current time.
 	 * Convert us to ns to allow div by 19.2 Mhz tick timer.
 	 */
-	sleep_val *= NSEC_PER_USEC;
-	do_div(sleep_val, NSEC_PER_SEC/ARCH_TIMER_HZ);
-	sleep_val += arch_counter_get_cntvct();
+	if (sleep_val) {
+		sleep_val *= NSEC_PER_USEC;
+		do_div(sleep_val, NSEC_PER_SEC/ARCH_TIMER_HZ);
+		sleep_val += arch_counter_get_cntvct();
+	} else {
+		sleep_val = ~0ULL;
+	}
 
 	return setup_wakeup(sleep_val);
 }
