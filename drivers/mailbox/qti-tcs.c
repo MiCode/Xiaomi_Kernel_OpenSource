@@ -85,7 +85,6 @@
 #define TCS_HIDDEN_CMD_SHIFT		0x08
 
 #define TCS_TYPE_NR			4
-#define TCS_MBOX_TOUT_MS		2000
 #define MAX_POOL_SIZE			(MAX_TCS_PER_TYPE * TCS_TYPE_NR)
 #define TCS_M_INIT			0xFFFF
 
@@ -97,7 +96,6 @@ struct tcs_response {
 	struct tcs_mbox_msg *msg;
 	u32 m; /* m-th TCS */
 	struct tasklet_struct tasklet;
-	struct delayed_work dwork;
 	int err;
 	int idx;
 	bool in_use;
@@ -141,7 +139,6 @@ struct tcs_drv {
 };
 
 static void tcs_notify_tx_done(unsigned long data);
-static void tcs_notify_timeout(struct work_struct *work);
 
 static int tcs_response_pool_init(struct tcs_drv *drv)
 {
@@ -155,7 +152,6 @@ static int tcs_response_pool_init(struct tcs_drv *drv)
 	for (i = 0; i < MAX_POOL_SIZE; i++) {
 		tasklet_init(&pool->resp[i].tasklet, tcs_notify_tx_done,
 						(unsigned long) &pool->resp[i]);
-		INIT_DELAYED_WORK(&pool->resp[i].dwork, tcs_notify_timeout);
 		pool->resp[i].drv = drv;
 		pool->resp[i].idx = i;
 		pool->resp[i].m = TCS_M_INIT;
@@ -337,11 +333,6 @@ static inline void send_tcs_response(struct tcs_response *resp)
 	tasklet_schedule(&resp->tasklet);
 }
 
-static inline void schedule_tcs_err_response(struct tcs_response *resp)
-{
-	schedule_delayed_work(&resp->dwork, msecs_to_jiffies(TCS_MBOX_TOUT_MS));
-}
-
 /**
  * tcs_irq_handler: TX Done / Recv data handler
  */
@@ -370,8 +361,6 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 			pr_err("No resp request for TCS-%d\n", m);
 			continue;
 		}
-
-		cancel_delayed_work(&resp->dwork);
 
 		tcs = get_tcs_from_index(drv, m);
 		if (!tcs) {
@@ -445,81 +434,6 @@ static void tcs_notify_tx_done(unsigned long data)
 	int m = resp->m;
 
 	mbox_notify_tx_done(chan, msg, m, err);
-	free_response(resp);
-}
-
-/**
- * tcs_notify_timeout: TX Done for requests that do trigger TCS, but
- * we do not get a response IRQ back.
- */
-static void tcs_notify_timeout(struct work_struct *work)
-{
-	struct delayed_work *dwork = to_delayed_work(work);
-	struct tcs_response *resp = container_of(dwork,
-					struct tcs_response, dwork);
-	struct mbox_chan *chan = resp->chan;
-	struct tcs_mbox_msg *msg = resp->msg;
-	struct tcs_drv *drv = resp->drv;
-	int m = resp->m;
-	u32 irq_status;
-	struct tcs_mbox *tcs = get_tcs_from_index(drv, m);
-	bool pending = false;
-	int sent_count, irq_count;
-	int i;
-	unsigned long flags;
-
-	/* Read while holding a lock, to get a consistent state snapshot */
-	spin_lock_irqsave(&tcs->tcs_lock, flags);
-	irq_status = read_tcs_reg(drv->reg_base, TCS_DRV_IRQ_STATUS, 0, 0);
-	sent_count = atomic_read(&drv->tcs_send_count[m]);
-	irq_count = atomic_read(&drv->tcs_irq_count[m]);
-
-	if (!tcs_is_free(drv, m)) {
-		struct tcs_cmd *cmd;
-		u32 addr;
-
-		for (i = 0; i < msg->num_payload; i++) {
-			cmd = &msg->payload[i];
-			addr = read_tcs_reg(drv->reg_base, TCS_DRV_CMD_ADDR,
-						m, i);
-			pending |= (cmd->addr == addr);
-		}
-	}
-	spin_unlock_irqrestore(&tcs->tcs_lock, flags);
-
-	if (pending) {
-		pr_err("TCS-%d waiting for response. (sent=%d recvd=%d ctrlr-sts=0x%x)\n",
-			m, sent_count, irq_count, irq_status & (u32)BIT(m));
-		for (i = 0; i < msg->num_payload; i++)
-			pr_err("Addr: 0x%x Data: 0x%x\n",
-					msg->payload[i].addr,
-					msg->payload[i].data);
-		/*
-		 * In case the RPMH resource fails to respond to the
-		 * completion request, the TCS would be blocked forever
-		 * waiting on the response. There is no way to recover
-		 * from such a case. But WARN() to investigate any false
-		 * positives.
-		 */
-		WARN_ON(irq_status & BIT(m));
-
-		/* Clear the TCS status register so we could try again */
-		write_tcs_reg(drv->reg_base, TCS_DRV_IRQ_CLEAR, 0, 0, BIT(m));
-
-		/* Increment the response count, so it doesn't keep adding up */
-		atomic_inc(&drv->tcs_irq_count[m]);
-
-		/*
-		 * If the request was fire-n-forget then the controller,
-		 * then our controller is OK, but the accelerator may be
-		 * in a bad state.
-		 * Let the upper layers figure out what needs to be done
-		 * in such a case. Return error code and carry on.
-		 */
-		atomic_set(&drv->tcs_in_use[m], 0);
-	}
-
-	mbox_notify_tx_done(chan, msg, -1, -ETIMEDOUT);
 	free_response(resp);
 }
 
@@ -749,10 +663,6 @@ static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 
 	/* Write to the TCS or AMC */
 	__tcs_buffer_write(drv, d, m, n, msg, trigger);
-
-	/* Schedule a timeout response, incase there is no actual response */
-	if (trigger)
-		schedule_tcs_err_response(resp);
 
 	spin_unlock_irqrestore(&tcs->tcs_lock, flags);
 
