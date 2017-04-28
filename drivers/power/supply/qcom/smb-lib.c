@@ -4484,9 +4484,6 @@ int smblib_init(struct smb_charger *chg)
 
 	switch (chg->mode) {
 	case PARALLEL_MASTER:
-		chg->qnovo_fcc_ua = -EINVAL;
-		chg->qnovo_fv_uv = -EINVAL;
-
 		rc = qcom_batt_init();
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't init qcom_batt_init rc=%d\n",
