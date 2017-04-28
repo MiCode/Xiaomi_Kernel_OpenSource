@@ -32,9 +32,9 @@ enum cnss_bus_width_type {
 };
 
 enum cnss_cc_src {
-	SOURCE_CORE,
-	SOURCE_11D,
-	SOURCE_USER
+	CNSS_SOURCE_CORE,
+	CNSS_SOURCE_11D,
+	CNSS_SOURCE_USER
 };
 
 /* FW image files */
