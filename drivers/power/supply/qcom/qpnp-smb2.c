@@ -540,6 +540,12 @@ static int smb2_usb_set_prop(struct power_supply *psy,
 	struct smb_charger *chg = &chip->chg;
 	int rc = 0;
 
+	mutex_lock(&chg->lock);
+	if (!chg->typec_present) {
+		rc = -EINVAL;
+		goto unlock;
+	}
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN:
 		rc = smblib_set_prop_usb_voltage_min(chg, val);
@@ -578,6 +584,8 @@ static int smb2_usb_set_prop(struct power_supply *psy,
 		break;
 	}
 
+unlock:
+	mutex_unlock(&chg->lock);
 	return rc;
 }
 
@@ -1017,6 +1025,8 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_QNOVO:
 		chg->qnovo_fcc_ua = val->intval;
+		vote(chg->pl_disable_votable, PL_QNOVO_VOTER,
+			val->intval != -EINVAL && val->intval < 2000000, 0);
 		rc = rerun_election(chg->fcc_votable);
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:

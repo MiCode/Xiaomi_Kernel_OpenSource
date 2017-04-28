@@ -37,6 +37,7 @@ enum print_reason {
 #define USB_PSY_VOTER			"USB_PSY_VOTER"
 #define PL_TAPER_WORK_RUNNING_VOTER	"PL_TAPER_WORK_RUNNING_VOTER"
 #define PL_INDIRECT_VOTER		"PL_INDIRECT_VOTER"
+#define PL_QNOVO_VOTER			"PL_QNOVO_VOTER"
 #define USBIN_I_VOTER			"USBIN_I_VOTER"
 #define USBIN_V_VOTER			"USBIN_V_VOTER"
 #define CHG_STATE_VOTER			"CHG_STATE_VOTER"
@@ -50,6 +51,7 @@ enum print_reason {
 #define VBUS_CC_SHORT_VOTER		"VBUS_CC_SHORT_VOTER"
 #define PD_INACTIVE_VOTER		"PD_INACTIVE_VOTER"
 #define BOOST_BACK_VOTER		"BOOST_BACK_VOTER"
+#define USBIN_USBIN_BOOST_VOTER		"USBIN_USBIN_BOOST_VOTER"
 #define HVDCP_INDIRECT_VOTER		"HVDCP_INDIRECT_VOTER"
 #define MICRO_USB_VOTER			"MICRO_USB_VOTER"
 #define DEBUG_BOARD_VOTER		"DEBUG_BOARD_VOTER"
@@ -67,13 +69,6 @@ enum smb_mode {
 	PARALLEL_MASTER = 0,
 	PARALLEL_SLAVE,
 	NUM_MODES,
-};
-
-enum cc2_sink_type {
-	CC2_SINK_NONE = 0,
-	CC2_SINK_STD,
-	CC2_SINK_MEDIUM_HIGH,
-	CC2_SINK_WA_DONE,
 };
 
 enum {
@@ -234,6 +229,7 @@ struct smb_charger {
 	int			smb_version;
 
 	/* locks */
+	struct mutex		lock;
 	struct mutex		write_lock;
 	struct mutex		ps_change_lock;
 	struct mutex		otg_oc_lock;
@@ -311,10 +307,13 @@ struct smb_charger {
 	int			default_icl_ua;
 	int			otg_cl_ua;
 	bool			uusb_apsd_rerun_done;
+	bool			pd_hard_reset;
+	bool			typec_present;
+	u8			typec_status[5];
 
 	/* workaround flag */
 	u32			wa_flags;
-	enum cc2_sink_type	cc2_sink_detach_flag;
+	bool			cc2_detach_wa_active;
 	int			boost_current_ua;
 	int			temp_speed_reading_count;
 
