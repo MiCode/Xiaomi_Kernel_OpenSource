@@ -1508,6 +1508,11 @@
 		qcom,proc-img-to-load = "cdsp";
 	};
 
+	qcom,msm-adsprpc-mem {
+		compatible = "qcom,msm-adsprpc-mem-region";
+		memory-region = <&adsp_mem>;
+	};
+
 	qcom,msm_fastrpc {
 		compatible = "qcom,msm-fastrpc-compute";
 
@@ -1558,6 +1563,32 @@
 			label = "cdsprpc-smd";
 			iommus = <&apps_smmu 0x1408>,
 				 <&apps_smmu 0x1428>;
+		};
+		qcom,msm_fastrpc_compute_cb9 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			qcom,secure-context-bank;
+			iommus = <&apps_smmu 0x1409>,
+				 <&apps_smmu 0x1419>,
+				 <&apps_smmu 0x1429>;
+		};
+		qcom,msm_fastrpc_compute_cb10 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			qcom,secure-context-bank;
+			iommus = <&apps_smmu 0x140A>,
+				 <&apps_smmu 0x141A>,
+				 <&apps_smmu 0x142A>;
+		};
+		qcom,msm_fastrpc_compute_cb11 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&apps_smmu 0x1823>;
+		};
+		qcom,msm_fastrpc_compute_cb12 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&apps_smmu 0x1824>;
 		};
 	};
 
