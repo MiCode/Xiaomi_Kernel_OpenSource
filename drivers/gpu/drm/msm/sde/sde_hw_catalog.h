@@ -79,7 +79,6 @@ enum {
  * @SDE_MDP_UBWC_1_0,      This chipsets supports Universal Bandwidth
  *                         compression initial revision
  * @SDE_MDP_UBWC_1_5,      Universal Bandwidth compression version 1.5
- * @SDE_MDP_CDP,           Client driven prefetch
  * @SDE_MDP_MAX            Maximum value
 
  */
@@ -89,7 +88,6 @@ enum {
 	SDE_MDP_BWC,
 	SDE_MDP_UBWC_1_0,
 	SDE_MDP_UBWC_1_5,
-	SDE_MDP_CDP,
 	SDE_MDP_MAX
 };
 
@@ -114,6 +112,7 @@ enum {
  * @SDE_SSPP_SBUF,           SSPP support inline stream buffer
  * @SDE_SSPP_TS_PREFILL      Supports prefill with traffic shaper
  * @SDE_SSPP_TS_PREFILL_REC1 Supports prefill with traffic shaper multirec
+ * @SDE_SSPP_CDP             Supports client driven prefetch
  * @SDE_SSPP_MAX             maximum value
  */
 enum {
@@ -136,6 +135,7 @@ enum {
 	SDE_SSPP_SBUF,
 	SDE_SSPP_TS_PREFILL,
 	SDE_SSPP_TS_PREFILL_REC1,
+	SDE_SSPP_CDP,
 	SDE_SSPP_MAX
 };
 
@@ -245,6 +245,7 @@ enum {
  *                          the destination image
  * @SDE_WB_QOS,             Writeback supports QoS control, danger/safe/creq
  * @SDE_WB_QOS_8LVL,        Writeback supports 8-level QoS control
+ * @SDE_WB_CDP              Writeback supports client driven prefetch
  * @SDE_WB_MAX              maximum value
  */
 enum {
@@ -262,6 +263,7 @@ enum {
 	SDE_WB_XY_ROI_OFFSET,
 	SDE_WB_QOS,
 	SDE_WB_QOS_8LVL,
+	SDE_WB_CDP,
 	SDE_WB_MAX
 };
 
@@ -729,6 +731,27 @@ struct sde_reg_dma_cfg {
 };
 
 /**
+ * Define CDP use cases
+ * @SDE_PERF_CDP_UDAGE_RT: real-time use cases
+ * @SDE_PERF_CDP_USAGE_NRT: non real-time use cases such as WFD
+ */
+enum {
+	SDE_PERF_CDP_USAGE_RT,
+	SDE_PERF_CDP_USAGE_NRT,
+	SDE_PERF_CDP_USAGE_MAX
+};
+
+/**
+ * struct sde_perf_cdp_cfg - define CDP use case configuration
+ * @rd_enable: true if read pipe CDP is enabled
+ * @wr_enable: true if write pipe CDP is enabled
+ */
+struct sde_perf_cdp_cfg {
+	bool rd_enable;
+	bool wr_enable;
+};
+
+/**
  * struct sde_perf_cfg - performance control settings
  * @max_bw_low         low threshold of maximum bandwidth (kbps)
  * @max_bw_high        high threshold of maximum bandwidth (kbps)
@@ -748,6 +771,7 @@ struct sde_reg_dma_cfg {
  * @safe_lut_tbl: LUT tables for safe signals
  * @danger_lut_tbl: LUT tables for danger signals
  * @qos_lut_tbl: LUT tables for QoS signals
+ * @cdp_cfg            cdp use case configurations
  */
 struct sde_perf_cfg {
 	u32 max_bw_low;
@@ -768,6 +792,7 @@ struct sde_perf_cfg {
 	u32 safe_lut_tbl[SDE_QOS_LUT_USAGE_MAX];
 	u32 danger_lut_tbl[SDE_QOS_LUT_USAGE_MAX];
 	struct sde_qos_lut_tbl qos_lut_tbl[SDE_QOS_LUT_USAGE_MAX];
+	struct sde_perf_cdp_cfg cdp_cfg[SDE_PERF_CDP_USAGE_MAX];
 };
 
 /**
@@ -785,7 +810,7 @@ struct sde_perf_cfg {
  * @csc_type           csc or csc_10bit support.
  * @smart_dma_rev      Supported version of SmartDMA feature.
  * @has_src_split      source split feature status
- * @has_cdp            Client driver prefetch feature status
+ * @has_cdp            Client driven prefetch feature status
  * @has_wb_ubwc        UBWC feature supported on WB
  * @ubwc_version       UBWC feature version (0x0 for not supported)
  * @has_sbuf           indicate if stream buffer is available

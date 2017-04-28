@@ -3090,6 +3090,23 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 		psde->pipe_hw->ops.setup_format(psde->pipe_hw, fmt, src_flags,
 				pstate->multirect_index);
 
+		if (psde->pipe_hw->ops.setup_cdp) {
+			struct sde_hw_pipe_cdp_cfg *cdp_cfg = &pstate->cdp_cfg;
+
+			memset(cdp_cfg, 0, sizeof(struct sde_hw_pipe_cdp_cfg));
+
+			cdp_cfg->enable = psde->catalog->perf.cdp_cfg
+					[SDE_PERF_CDP_USAGE_RT].rd_enable;
+			cdp_cfg->ubwc_meta_enable =
+					SDE_FORMAT_IS_UBWC(fmt);
+			cdp_cfg->tile_amortize_enable =
+					SDE_FORMAT_IS_UBWC(fmt) ||
+					SDE_FORMAT_IS_TILE(fmt);
+			cdp_cfg->preload_ahead = SDE_WB_CDP_PRELOAD_AHEAD_64;
+
+			psde->pipe_hw->ops.setup_cdp(psde->pipe_hw, cdp_cfg);
+		}
+
 		if (psde->pipe_hw->ops.setup_sys_cache) {
 			if (rstate->out_sbuf) {
 				if (rstate->nplane < 2)

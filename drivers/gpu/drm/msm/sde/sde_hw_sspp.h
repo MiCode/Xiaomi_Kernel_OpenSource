@@ -308,6 +308,30 @@ struct sde_hw_pipe_qos_cfg {
 };
 
 /**
+ * enum CDP preload ahead address size
+ */
+enum {
+	SDE_SSPP_CDP_PRELOAD_AHEAD_32,
+	SDE_SSPP_CDP_PRELOAD_AHEAD_64
+};
+
+/**
+ * struct sde_hw_pipe_cdp_cfg : CDP configuration
+ * @enable: true to enable CDP
+ * @ubwc_meta_enable: true to enable ubwc metadata preload
+ * @tile_amortize_enable: true to enable amortization control for tile format
+ * @preload_ahead: number of request to preload ahead
+ *	SDE_SSPP_CDP_PRELOAD_AHEAD_32,
+ *	SDE_SSPP_CDP_PRELOAD_AHEAD_64
+ */
+struct sde_hw_pipe_cdp_cfg {
+	bool enable;
+	bool ubwc_meta_enable;
+	bool tile_amortize_enable;
+	u32 preload_ahead;
+};
+
+/**
  * enum system cache rotation operation mode
  */
 enum {
@@ -574,6 +598,14 @@ struct sde_hw_sspp_ops {
 	void (*setup_ts_prefill)(struct sde_hw_pipe *ctx,
 			struct sde_hw_pipe_ts_cfg *cfg,
 			enum sde_sspp_multirect_index index);
+
+	/**
+	 * setup_cdp - setup client driven prefetch
+	 * @ctx: Pointer to pipe context
+	 * @cfg: Pointer to cdp configuration
+	 */
+	void (*setup_cdp)(struct sde_hw_pipe *ctx,
+			struct sde_hw_pipe_cdp_cfg *cfg);
 };
 
 /**

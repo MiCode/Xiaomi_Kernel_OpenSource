@@ -294,6 +294,7 @@ struct sde_encoder_phys_cmd {
  * @bypass_irqreg:	Bypass irq register/unregister if non-zero
  * @wbdone_complete:	for wbdone irq synchronization
  * @wb_cfg:		Writeback hardware configuration
+ * @cdp_cfg:		Writeback CDP configuration
  * @intf_cfg:		Interface hardware configuration
  * @wb_roi:		Writeback region-of-interest
  * @wb_fmt:		Writeback pixel format
@@ -315,6 +316,7 @@ struct sde_encoder_phys_wb {
 	u32 bypass_irqreg;
 	struct completion wbdone_complete;
 	struct sde_hw_wb_cfg wb_cfg;
+	struct sde_hw_wb_cdp_cfg cdp_cfg;
 	struct sde_hw_intf_cfg intf_cfg;
 	struct sde_rect wb_roi;
 	const struct sde_format *wb_fmt;
