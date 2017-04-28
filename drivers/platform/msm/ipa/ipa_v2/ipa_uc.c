@@ -590,6 +590,7 @@ int ipa_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 {
 	int index;
 	union IpaHwCpuCmdCompletedResponseData_t uc_rsp;
+	int retries = 0;
 
 	mutex_lock(&ipa_ctx->uc_ctx.uc_lock);
 
@@ -599,6 +600,7 @@ int ipa_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 		return -EBADF;
 	}
 
+send_cmd:
 	init_completion(&ipa_ctx->uc_ctx.uc_completion);
 
 	ipa_ctx->uc_ctx.uc_sram_mmio->cmdParams = cmd;
@@ -658,6 +660,19 @@ int ipa_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 	}
 
 	if (ipa_ctx->uc_ctx.uc_status != expected_status) {
+		if (IPA_HW_2_CPU_WDI_RX_FSM_TRANSITION_ERROR ==
+			ipa_ctx->uc_ctx.uc_status) {
+			retries++;
+			if (retries == IPA_BAM_STOP_MAX_RETRY) {
+				IPAERR("Failed after %d tries\n", retries);
+			} else {
+				/* sleep for short period to flush IPA */
+				usleep_range(IPA_UC_WAIT_MIN_SLEEP,
+					IPA_UC_WAII_MAX_SLEEP);
+				goto send_cmd;
+			}
+		}
+
 		IPAERR("Recevied status %u, Expected status %u\n",
 			ipa_ctx->uc_ctx.uc_status, expected_status);
 		ipa_ctx->uc_ctx.pending_cmd = -1;
