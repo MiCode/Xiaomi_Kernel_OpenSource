@@ -365,6 +365,8 @@ enum {
 	AIF3_PB,
 	AIF3_CAP,
 	AIF4_PB,
+	AIF4_CAP,
+	AIF5_PB,
 	AIF_MIX1_PB,
 	AIF4_MAD_TX,
 	AIF4_VIFEED,
@@ -479,16 +481,24 @@ static const struct wcd9xxx_ch tasha_tx_chs[TASHA_TX_MAX] = {
 static const u32 vport_slim_check_table[NUM_CODEC_DAIS] = {
 	/* Needs to define in the same order of DAI enum definitions */
 	0,
-	BIT(AIF2_CAP) | BIT(AIF3_CAP) | BIT(AIF4_MAD_TX) | BIT(AIF5_CPE_TX),
+	BIT(AIF2_CAP) | BIT(AIF3_CAP) | BIT(AIF4_CAP) |
+	BIT(AIF4_MAD_TX) | BIT(AIF5_CPE_TX),
 	0,
-	BIT(AIF1_CAP) | BIT(AIF3_CAP) | BIT(AIF4_MAD_TX) | BIT(AIF5_CPE_TX),
+	BIT(AIF1_CAP) | BIT(AIF3_CAP) | BIT(AIF4_CAP) |
+	BIT(AIF4_MAD_TX) | BIT(AIF5_CPE_TX),
 	0,
-	BIT(AIF1_CAP) | BIT(AIF2_CAP) | BIT(AIF4_MAD_TX) | BIT(AIF5_CPE_TX),
+	BIT(AIF1_CAP) | BIT(AIF2_CAP) | BIT(AIF4_CAP) |
+	BIT(AIF4_MAD_TX) | BIT(AIF5_CPE_TX),
+	0,
+	BIT(AIF1_CAP) | BIT(AIF2_CAP) | BIT(AIF3_CAP) |
+	BIT(AIF4_MAD_TX) | BIT(AIF5_CPE_TX),
 	0,
 	0,
-	BIT(AIF1_CAP) | BIT(AIF2_CAP) | BIT(AIF3_CAP) | BIT(AIF5_CPE_TX),
+	BIT(AIF1_CAP) | BIT(AIF2_CAP) | BIT(AIF3_CAP) |
+	BIT(AIF4_CAP) | BIT(AIF5_CPE_TX),
 	0,
-	BIT(AIF1_CAP) | BIT(AIF2_CAP) | BIT(AIF3_CAP) | BIT(AIF4_MAD_TX),
+	BIT(AIF1_CAP) | BIT(AIF2_CAP) | BIT(AIF3_CAP) |
+	BIT(AIF4_CAP) | BIT(AIF4_MAD_TX),
 };
 
 static const u32 vport_i2s_check_table[NUM_CODEC_DAIS] = {
@@ -811,6 +821,10 @@ struct tasha_priv {
 	int rx_8_count;
 	bool clk_mode;
 	bool clk_internal;
+
+	/* Bridge I2S RX AND TX Mode */
+	bool mi2srx_bridge_mode;
+	bool mi2stx_bridge_mode;
 
 	/* Lock to protect mclk enablement */
 	struct mutex mclk_lock;
@@ -2329,6 +2343,7 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 	case AIF1_CAP:
 	case AIF2_CAP:
 	case AIF3_CAP:
+	case AIF4_CAP:
 		/* only add to the list if value not set */
 		if (enable && !(tasha_p->tx_port_value & 1 << port_id)) {
 
@@ -2394,7 +2409,8 @@ static int slim_rx_mux_get(struct snd_kcontrol *kcontrol,
 }
 
 static const char *const slim_rx_mux_text[] = {
-	"ZERO", "AIF1_PB", "AIF2_PB", "AIF3_PB", "AIF4_PB", "AIF_MIX1_PB"
+	"ZERO", "AIF1_PB", "AIF2_PB", "AIF3_PB", "AIF4_PB",
+	"AIF5_PB", "AIF_MIX1_PB"
 };
 
 static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
@@ -2479,6 +2495,17 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 	case 5:
 		if (wcd9xxx_rx_vport_validation(port_id +
 			TASHA_RX_PORT_START_NUMBER,
+			&tasha_p->dai[AIF5_PB].wcd9xxx_ch_list)) {
+			dev_dbg(codec->dev, "%s: RX%u is used by current requesting AIF_PB itself\n",
+				__func__, port_id);
+			goto rtn;
+		}
+		list_add_tail(&core->rx_chs[port_id].list,
+			      &tasha_p->dai[AIF5_PB].wcd9xxx_ch_list);
+		break;
+	case 6:
+		if (wcd9xxx_rx_vport_validation(port_id +
+			TASHA_RX_PORT_START_NUMBER,
 			&tasha_p->dai[AIF_MIX1_PB].wcd9xxx_ch_list)) {
 			dev_dbg(codec->dev, "%s: RX%u is used by current requesting AIF_PB itself\n",
 				__func__, port_id);
@@ -2558,6 +2585,10 @@ static const struct snd_kcontrol_new aif1_cap_mixer[] = {
 			slim_tx_mixer_get, slim_tx_mixer_put),
 	SOC_SINGLE_EXT("SLIM TX13", SND_SOC_NOPM, TASHA_TX13, 1, 0,
 			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX14", SND_SOC_NOPM, TASHA_TX14, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX15", SND_SOC_NOPM, TASHA_TX15, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
 };
 
 static const struct snd_kcontrol_new aif2_cap_mixer[] = {
@@ -2587,6 +2618,10 @@ static const struct snd_kcontrol_new aif2_cap_mixer[] = {
 			slim_tx_mixer_get, slim_tx_mixer_put),
 	SOC_SINGLE_EXT("SLIM TX13", SND_SOC_NOPM, TASHA_TX13, 1, 0,
 			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX14", SND_SOC_NOPM, TASHA_TX14, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX15", SND_SOC_NOPM, TASHA_TX15, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
 };
 
 static const struct snd_kcontrol_new aif3_cap_mixer[] = {
@@ -2615,6 +2650,43 @@ static const struct snd_kcontrol_new aif3_cap_mixer[] = {
 	SOC_SINGLE_EXT("SLIM TX11", SND_SOC_NOPM, TASHA_TX11, 1, 0,
 			slim_tx_mixer_get, slim_tx_mixer_put),
 	SOC_SINGLE_EXT("SLIM TX13", SND_SOC_NOPM, TASHA_TX13, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX14", SND_SOC_NOPM, TASHA_TX14, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX15", SND_SOC_NOPM, TASHA_TX15, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+};
+
+static const struct snd_kcontrol_new aif4_cap_mixer[] = {
+	SOC_SINGLE_EXT("SLIM TX0", SND_SOC_NOPM, TASHA_TX0, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX1", SND_SOC_NOPM, TASHA_TX1, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX2", SND_SOC_NOPM, TASHA_TX2, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX3", SND_SOC_NOPM, TASHA_TX3, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX4", SND_SOC_NOPM, TASHA_TX4, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX5", SND_SOC_NOPM, TASHA_TX5, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX6", SND_SOC_NOPM, TASHA_TX6, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX7", SND_SOC_NOPM, TASHA_TX7, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX8", SND_SOC_NOPM, TASHA_TX8, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX9", SND_SOC_NOPM, TASHA_TX9, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX10", SND_SOC_NOPM, TASHA_TX10, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX11", SND_SOC_NOPM, TASHA_TX11, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX13", SND_SOC_NOPM, TASHA_TX13, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX14", SND_SOC_NOPM, TASHA_TX14, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX15", SND_SOC_NOPM, TASHA_TX15, 1, 0,
 			slim_tx_mixer_get, slim_tx_mixer_put),
 };
 
@@ -3896,6 +3968,141 @@ static int tasha_codec_enable_hphr_pa(struct snd_soc_dapm_widget *w,
 	return ret;
 }
 
+static void tasha_codec_bridge_mclk_enable(struct snd_soc_codec *codec,
+					  bool enable)
+{
+
+	dev_dbg(codec->dev, "%s enable: %d\n", __func__, enable);
+
+	if (enable == true) {
+		/*
+		 * Enables I2S COMMON CLK and MCLK
+		 * according to Slimbus to I2S
+		 * Bridge configuration
+		 */
+		snd_soc_update_bits(codec,
+				    WCD9335_DATA_HUB_DATA_HUB_I2S_CLK,
+				    0x02, 0x02);
+		snd_soc_update_bits(codec,
+				    WCD9335_DATA_HUB_DATA_HUB_I2S_CLK,
+				    0x1, 0x0);
+	} else {
+		snd_soc_update_bits(codec,
+				    WCD9335_DATA_HUB_DATA_HUB_I2S_CLK,
+				    0x02, 0x00);
+		snd_soc_update_bits(codec,
+				    WCD9335_DATA_HUB_DATA_HUB_I2S_CLK,
+				    0x1, 0x1);
+	};
+};
+
+static int tasha_codec_bridge_tx_mclk_supply(struct snd_soc_dapm_widget *w,
+					   struct snd_kcontrol *kcontrol,
+					   int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+
+	dev_dbg(codec->dev, "%s %s %d\n", __func__, w->name, event);
+
+	switch (event) {
+	case  SND_SOC_DAPM_PRE_PMU:
+		/* Enable I2S_COMMON_CLK and MCLK */
+		tasha_codec_bridge_mclk_enable(codec, true);
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		/* Disable I2S_COMMON_CLK and MCLK */
+		tasha_codec_bridge_mclk_enable(codec, false);
+		break;
+	default:
+		break;
+	};
+	return 0;
+};
+
+static int tasha_codec_bridge_rx_mclk_enable(struct snd_soc_dapm_widget *w,
+				      struct snd_kcontrol *kcontrol,
+				      int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+
+	dev_dbg(codec->dev, "%s %s %d\n", __func__, w->name, event);
+
+	switch (event) {
+	case  SND_SOC_DAPM_PRE_PMU:
+		/* Disable PGA Mute for RX */
+		switch (w->shift) {
+		case 0:
+			snd_soc_update_bits(codec,
+					    WCD9335_CDC_RX0_RX_PATH_CTL,
+					    0x10, 0x00);
+			break;
+
+		case 1:
+			snd_soc_update_bits(codec,
+					    WCD9335_CDC_RX1_RX_PATH_CTL,
+					    0x10, 0x00);
+			break;
+
+		case 2:
+			snd_soc_update_bits(codec,
+					    WCD9335_CDC_RX2_RX_PATH_CTL,
+					    0x10, 0x00);
+			break;
+
+		case 3:
+			snd_soc_update_bits(codec,
+					    WCD9335_CDC_RX3_RX_PATH_CTL,
+					    0x10, 0x00);
+			break;
+		default:
+			dev_dbg(codec->dev, "%s invalid shift %d\n", __func__,
+				w->shift);
+			return -EINVAL;
+		};
+		tasha_codec_bridge_mclk_enable(codec, true);
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		/*
+		 * Disable I2S_COMMON_CLK AND MCLK
+		 * Also enable PGA Mute for RX
+		 */
+		switch (w->shift) {
+		case 0:
+			snd_soc_update_bits(codec,
+					    WCD9335_CDC_RX0_RX_PATH_CTL,
+					    0x10, 0x10);
+			break;
+
+		case 1:
+			snd_soc_update_bits(codec,
+					    WCD9335_CDC_RX1_RX_PATH_CTL,
+					    0x10, 0x10);
+			break;
+
+		case 2:
+			snd_soc_update_bits(codec,
+					    WCD9335_CDC_RX2_RX_PATH_CTL,
+					    0x10, 0x10);
+			break;
+
+		case 3:
+			snd_soc_update_bits(codec,
+					    WCD9335_CDC_RX3_RX_PATH_CTL,
+					    0x10, 0x10);
+			break;
+		default:
+			dev_dbg(codec->dev, "%s invalid shift %d\n", __func__,
+				w->shift);
+			return -EINVAL;
+		};
+		tasha_codec_bridge_mclk_enable(codec, false);
+		break;
+	default:
+		return -EINVAL;
+	};
+	return 0;
+};
+
 static int tasha_codec_enable_hphl_pa(struct snd_soc_dapm_widget *w,
 				      struct snd_kcontrol *kcontrol,
 				      int event)
@@ -4456,6 +4663,95 @@ static const struct snd_soc_dapm_widget tasha_dapm_i2s_widgets[] = {
 	0, 0, NULL, 0),
 	SND_SOC_DAPM_SUPPLY("TX_I2S_CTL", WCD9335_DATA_HUB_DATA_HUB_TX_I2S_CTL,
 	0, 0, NULL, 0),
+};
+
+static int tasha_codec_bridge_rx_inp_set(struct snd_soc_dapm_widget *w,
+				       struct snd_kcontrol *kcontrol,
+				       int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	unsigned int sd0_r_select = 0;
+	unsigned int sd0_l_select = 0;
+	unsigned int sd0_r_data = 0;
+	unsigned int sd0_l_data = 0;
+	int shift = w->shift;
+
+	dev_dbg(codec->dev, "%s %s %d\n", __func__, w->name, event);
+	/* Read value of RX based on switch selected */
+	if (shift == 0) {
+		sd0_l_select = snd_soc_read(codec,
+					WCD9335_CDC_RX_INP_MUX_RX_INT0_CFG0);
+	} else if (shift == 1) {
+		sd0_r_select = snd_soc_read(codec,
+					WCD9335_CDC_RX_INP_MUX_RX_INT1_CFG0);
+	} else if (shift == 2) {
+		sd0_l_select = snd_soc_read(codec,
+					WCD9335_CDC_RX_INP_MUX_RX_INT2_CFG0);
+	} else if (shift == 3) {
+		sd0_r_select = snd_soc_read(codec,
+					WCD9335_CDC_RX_INP_MUX_RX_INT3_CFG0);
+	}
+
+	/* Based on RX Mux Selected write Inp to I2S TX */
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		if ((shift == 1) || (shift == 3)) {
+			switch (sd0_r_select & 0x0f) {
+			case 0x05:
+				sd0_r_data = 1;
+				break;
+			case 0x06:
+				sd0_r_data = 2;
+				break;
+			case 0x07:
+				sd0_r_data = 3;
+					break;
+			case 0x08:
+				sd0_r_data = 4;
+				break;
+			default:
+				dev_err(codec->dev,
+					"%s Wrong RX Path Selected sd0_r_data=  %d",
+					__func__, sd0_r_data);
+				return -EINVAL;
+			};
+			snd_soc_write(codec,
+				WCD9335_DATA_HUB_DATA_HUB_TX_I2S_SD0_R_CFG,
+				sd0_r_data & 0x0f);
+		} else {
+			switch (sd0_l_select & 0x0f) {
+			case 0x05:
+				sd0_l_data = 1;
+				break;
+			case 0x06:
+				sd0_l_data = 2;
+				break;
+			case 0x07:
+				sd0_l_data = 3;
+				break;
+			case 0x08:
+				sd0_l_data = 4;
+				break;
+			default:
+				dev_err(codec->dev,
+					"%s Wrong RX Path Selected sd0_l_data=  %d",
+					__func__, sd0_l_data);
+				return -EINVAL;
+			};
+			snd_soc_write(codec,
+				WCD9335_DATA_HUB_DATA_HUB_TX_I2S_SD0_L_CFG,
+				sd0_l_data & 0x0f);
+		};
+	break;
+	case SND_SOC_DAPM_PRE_PMD:
+		snd_soc_update_bits(codec,
+			      WCD9335_DATA_HUB_DATA_HUB_TX_I2S_SD0_R_CFG,
+			      0x0f, 0x0);
+		snd_soc_update_bits(codec,
+			      WCD9335_DATA_HUB_DATA_HUB_TX_I2S_SD0_L_CFG,
+			      0x0f, 0x0);
+	};
+	return 0;
 };
 
 static int tasha_codec_ear_dac_event(struct snd_soc_dapm_widget *w,
@@ -5050,6 +5346,48 @@ static int tasha_codec_get_native_fifo_sync_mask(struct snd_soc_codec *codec,
 		dev_err(codec->dev, "native fifo err,int:%d,inp0:%d,inp1:%d,inp2:%d\n",
 			interp_n, inp0, inp1, inp2);
 	return mask;
+}
+
+static int tasha_enable_bridge_supply(struct snd_soc_dapm_widget *w,
+					  struct snd_kcontrol *kcontrol,
+					  int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	unsigned int rx_master_mode_enable;
+	unsigned int tx_master_mode_enable;
+
+	dev_dbg(codec->dev, "%s: event: %d, shift:%d\n", __func__, event,
+		w->shift);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		snd_soc_update_bits(codec,
+				    WCD9335_DATA_HUB_DATA_HUB_I2S_CLK,
+				    0x01, 0x01); /* Enable I2S FLL_CLK */
+		rx_master_mode_enable = (tasha->mi2srx_bridge_mode << 1) | 0x01;
+		tx_master_mode_enable = (tasha->mi2stx_bridge_mode << 1) | 0x01;
+		/* Enable I2S RX AND TX Master or Slave Mode */
+		snd_soc_update_bits(codec,
+				    WCD9335_DATA_HUB_DATA_HUB_RX_I2S_CTL,
+				    0x3, rx_master_mode_enable);
+		snd_soc_update_bits(codec,
+				    WCD9335_DATA_HUB_DATA_HUB_TX_I2S_CTL,
+				    0x3, tx_master_mode_enable);
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		snd_soc_update_bits(codec,
+				    WCD9335_DATA_HUB_DATA_HUB_RX_I2S_CTL,
+				    0x3, 0);
+		snd_soc_update_bits(codec,
+				    WCD9335_DATA_HUB_DATA_HUB_TX_I2S_CTL,
+				    0x3, 0);
+		snd_soc_update_bits(codec,
+				    WCD9335_DATA_HUB_DATA_HUB_I2S_CLK,
+				    0x1, 0x0);
+		break;
+	}
+	return 0;
 }
 
 static int tasha_enable_native_supply(struct snd_soc_dapm_widget *w,
@@ -6170,7 +6508,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"AIF1 CAP", NULL, "AIF1_CAP Mixer"},
 	{"AIF2 CAP", NULL, "AIF2_CAP Mixer"},
 	{"AIF3 CAP", NULL, "AIF3_CAP Mixer"},
-
+	{"AIF4 CAP", NULL, "AIF4_CAP Mixer"},
 	/* VI Feedback */
 	{"AIF4_VI Mixer", "SPKR_VI_1", "VIINPUT"},
 	{"AIF4_VI Mixer", "SPKR_VI_2", "VIINPUT"},
@@ -6190,6 +6528,8 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"AIF1_CAP Mixer", "SLIM TX10", "SLIM TX10 MUX"},
 	{"AIF1_CAP Mixer", "SLIM TX11", "SLIM TX11 MUX"},
 	{"AIF1_CAP Mixer", "SLIM TX13", "TX13 INP MUX"},
+	{"AIF1_CAP Mixer", "SLIM TX14", "SLIM TX14 MUX"},
+	{"AIF1_CAP Mixer", "SLIM TX15", "SLIM TX15 MUX"},
 	/* SLIM_MIXER("AIF2_CAP Mixer"),*/
 	{"AIF2_CAP Mixer", "SLIM TX0", "SLIM TX0 MUX"},
 	{"AIF2_CAP Mixer", "SLIM TX1", "SLIM TX1 MUX"},
@@ -6204,6 +6544,9 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"AIF2_CAP Mixer", "SLIM TX10", "SLIM TX10 MUX"},
 	{"AIF2_CAP Mixer", "SLIM TX11", "SLIM TX11 MUX"},
 	{"AIF2_CAP Mixer", "SLIM TX13", "TX13 INP MUX"},
+	{"AIF2_CAP Mixer", "SLIM TX14", "SLIM TX14 MUX"},
+	{"AIF2_CAP Mixer", "SLIM TX15", "SLIM TX15 MUX"},
+
 	/* SLIM_MIXER("AIF3_CAP Mixer"),*/
 	{"AIF3_CAP Mixer", "SLIM TX0", "SLIM TX0 MUX"},
 	{"AIF3_CAP Mixer", "SLIM TX1", "SLIM TX1 MUX"},
@@ -6218,6 +6561,25 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"AIF3_CAP Mixer", "SLIM TX10", "SLIM TX10 MUX"},
 	{"AIF3_CAP Mixer", "SLIM TX11", "SLIM TX11 MUX"},
 	{"AIF3_CAP Mixer", "SLIM TX13", "TX13 INP MUX"},
+	{"AIF3_CAP Mixer", "SLIM TX14", "SLIM TX14 MUX"},
+	{"AIF3_CAP Mixer", "SLIM TX15", "SLIM TX15 MUX"},
+
+	/* SLIM_MIXER("AIF4_CAP Mixer"),*/
+	{"AIF4_CAP Mixer", "SLIM TX0", "SLIM TX0 MUX"},
+	{"AIF4_CAP Mixer", "SLIM TX1", "SLIM TX1 MUX"},
+	{"AIF4_CAP Mixer", "SLIM TX2", "SLIM TX2 MUX"},
+	{"AIF4_CAP Mixer", "SLIM TX3", "SLIM TX3 MUX"},
+	{"AIF4_CAP Mixer", "SLIM TX4", "SLIM TX4 MUX"},
+	{"AIF4_CAP Mixer", "SLIM TX5", "SLIM TX5 MUX"},
+	{"AIF4_CAP Mixer", "SLIM TX6", "SLIM TX6 MUX"},
+	{"AIF4_CAP Mixer", "SLIM TX7", "SLIM TX7 MUX"},
+	{"AIF4_CAP Mixer", "SLIM TX8", "SLIM TX8 MUX"},
+	{"AIF4_CAP Mixer", "SLIM TX9", "SLIM TX9 MUX"},
+	{"AIF4_CAP Mixer", "SLIM TX10", "SLIM TX10 MUX"},
+	{"AIF4_CAP Mixer", "SLIM TX11", "SLIM TX11 MUX"},
+	{"AIF4_CAP Mixer", "SLIM TX13", "TX13 INP MUX"},
+	{"AIF4_CAP Mixer", "SLIM TX14", "SLIM TX14 MUX"},
+	{"AIF4_CAP Mixer", "SLIM TX15", "SLIM TX15 MUX"},
 
 	{"SLIM TX0 MUX", "DEC0", "ADC MUX0"},
 	{"SLIM TX0 MUX", "RX_MIX_TX0", "RX MIX TX0 MUX"},
@@ -6254,6 +6616,19 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SLIM TX8 MUX", "DEC8", "ADC MUX8"},
 	{"SLIM TX8 MUX", "RX_MIX_TX8", "RX MIX TX8 MUX"},
 	{"SLIM TX8 MUX", "DEC8_192", "ADC US MUX8"},
+
+	/* Slimbus to I2S Bridge TX Chain */
+	{"SLIM TX14 MUX", "RX_SD0_R", "ADC MUX0"},
+	{"SLIM TX15 MUX", "RX_SD0_L", "ADC MUX1"},
+
+	{"ADC MUX0", "AMIC", "BRIDGE TX0 CLK Enable"},
+	{"ADC MUX1", "AMIC", "BRIDGE TX1 CLK Enable"},
+
+	{"BRIDGE TX0 CLK Enable", "Switch", "BRIDGE TX IN"},
+	{"BRIDGE TX1 CLK Enable", "Switch", "BRIDGE TX IN"},
+
+	{"BRIDGE TX IN", NULL, "BRIDGE TX MCLK SUPPLY"},
+	{"BRIDGE TX IN", NULL, "BRIDGE RX_TX SUPPLY"},
 
 	{"SLIM TX9 MUX", "DEC7", "ADC MUX7"},
 	{"SLIM TX9 MUX", "DEC7_192", "ADC US MUX7"},
@@ -6874,7 +7249,15 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SLIM RX5 MUX", "AIF4_PB", "AIF4 PB"},
 	{"SLIM RX6 MUX", "AIF4_PB", "AIF4 PB"},
 	{"SLIM RX7 MUX", "AIF4_PB", "AIF4 PB"},
-
+	/* SLIM_MUX("AIF5_PB", "AIF5 PB"),*/
+	{"SLIM RX0 MUX", "AIF5_PB", "AIF5 PB"},
+	{"SLIM RX1 MUX", "AIF5_PB", "AIF5 PB"},
+	{"SLIM RX2 MUX", "AIF5_PB", "AIF5 PB"},
+	{"SLIM RX3 MUX", "AIF5_PB", "AIF5 PB"},
+	{"SLIM RX4 MUX", "AIF5_PB", "AIF5 PB"},
+	{"SLIM RX5 MUX", "AIF5_PB", "AIF5 PB"},
+	{"SLIM RX6 MUX", "AIF5_PB", "AIF5 PB"},
+	{"SLIM RX7 MUX", "AIF5_PB", "AIF5 PB"},
 	/* SLIM_MUX("AIF_MIX1_PB", "AIF MIX1 PB"),*/
 	{"SLIM RX0 MUX", "AIF_MIX1_PB", "AIF MIX1 PB"},
 	{"SLIM RX1 MUX", "AIF_MIX1_PB", "AIF MIX1 PB"},
@@ -6893,6 +7276,49 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SLIM RX5", NULL, "SLIM RX5 MUX"},
 	{"SLIM RX6", NULL, "SLIM RX6 MUX"},
 	{"SLIM RX7", NULL, "SLIM RX7 MUX"},
+	/* Slimbus to I2S bridge RX chain */
+	{"RX INT0_1 MIX1 INP0", "RX0", "SLIM RX0"},
+	{"RX INT0_1 MIX1 INP0", "RX1", "SLIM RX1"},
+	{"RX INT0_1 MIX1 INP0", "RX2", "SLIM RX2"},
+	{"RX INT0_1 MIX1 INP0", "RX3", "SLIM RX3"},
+
+	{"RX INT1_1 MIX1 INP0", "RX0", "SLIM RX0"},
+	{"RX INT1_1 MIX1 INP0", "RX1", "SLIM RX1"},
+	{"RX INT1_1 MIX1 INP0", "RX2", "SLIM RX2"},
+	{"RX INT1_1 MIX1 INP0", "RX3", "SLIM RX3"},
+
+	{"RX INT2_1 MIX1 INP0", "RX0", "SLIM RX0"},
+	{"RX INT2_1 MIX1 INP0", "RX1", "SLIM RX1"},
+	{"RX INT2_1 MIX1 INP0", "RX2", "SLIM RX2"},
+	{"RX INT2_1 MIX1 INP0", "RX3", "SLIM RX3"},
+
+	{"RX INT3_1 MIX1 INP0", "RX0", "SLIM RX0"},
+	{"RX INT3_1 MIX1 INP0", "RX1", "SLIM RX1"},
+	{"RX INT3_1 MIX1 INP0", "RX2", "SLIM RX2"},
+	{"RX INT3_1 MIX1 INP0", "RX3", "SLIM RX3"},
+
+	{"RX INT0 INTERP", NULL, "RX INT0_1 MIX1 INP0"},
+	{"RX INT1 INTERP", NULL, "RX INT1_1 MIX1 INP0"},
+	{"RX INT2 INTERP", NULL, "RX INT2_1 MIX1 INP0"},
+	{"RX INT3 INTERP", NULL, "RX INT3_1 MIX1 INP0"},
+
+	{"BRIDGE RX Left1 Enable", "Switch", "RX INT0 INTERP"},
+	{"BRIDGE RX Left2 Enable", "Switch", "RX INT2 INTERP"},
+	{"BRIDGE RX Right1 Enable", "Switch", "RX INT1 INTERP"},
+	{"BRIDGE RX Right2 Enable", "Switch", "RX INT3 INTERP"},
+
+	{"BRIDGE RX_0 MCLK ENABLE", NULL, "BRIDGE RX Left1 Enable"},
+	{"BRIDGE RX_1 MCLK ENABLE", NULL, "BRIDGE RX Right1 Enable"},
+	{"BRIDGE RX_2 MCLK ENABLE", NULL, "BRIDGE RX Left2 Enable"},
+	{"BRIDGE RX_3 MCLK ENABLE", NULL, "BRIDGE RX Right2 Enable"},
+
+	{"BRIDGE RX OUT", NULL, "BRIDGE RX_0 MCLK ENABLE"},
+	{"BRIDGE RX OUT", NULL, "BRIDGE RX_1 MCLK ENABLE"},
+	{"BRIDGE RX OUT", NULL, "BRIDGE RX_2 MCLK ENABLE"},
+	{"BRIDGE RX OUT", NULL, "BRIDGE RX_3 MCLK ENABLE"},
+
+	{"BRIDGE RX OUT", NULL, "BRIDGE RX_TX SUPPLY"},
+	{"BRIDGE RX OUT", NULL, "RX_BIAS"},
 
 	{"RX INT0_1 MIX1 INP0", "RX0", "SLIM RX0"},
 	{"RX INT0_1 MIX1 INP0", "RX1", "SLIM RX1"},
@@ -7481,6 +7907,62 @@ static int tasha_amic_pwr_lvl_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int tasha_bridge_mi2srx_mode_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	/* Get I2S RX Mode of Operation */
+	ucontrol->value.integer.value[0] = tasha->mi2srx_bridge_mode;
+	return 0;
+}
+
+static int tasha_bridge_mi2srx_mode_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	u32 mode_val;
+
+	/* Set RX Bride Mode to Master or Slave */
+	mode_val = ucontrol->value.enumerated.item[0];
+	tasha->mi2srx_bridge_mode = mode_val;
+
+	dev_dbg(codec->dev, "%s: mode: %d\n",
+		 __func__, tasha->mi2srx_bridge_mode);
+
+	return 0;
+}
+
+static int tasha_bridge_mi2stx_mode_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	/* Get I2S TX Mode of Operation */
+	ucontrol->value.integer.value[0] = tasha->mi2stx_bridge_mode;
+	return 0;
+}
+
+static int tasha_bridge_mi2stx_mode_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	u32 mode_val;
+
+	/* Set TX Bride Mode to Master or Slave */
+	mode_val = ucontrol->value.enumerated.item[0];
+	tasha->mi2stx_bridge_mode = mode_val;
+
+	dev_dbg(codec->dev, "%s: mode: %d\n",
+		__func__, tasha->mi2stx_bridge_mode);
+
+	return 0;
+}
+
 static int tasha_rx_hph_mode_get(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_value *ucontrol)
 {
@@ -7518,9 +8000,17 @@ static const char *const tasha_conn_mad_text[] = {
 	"DMIC5", "NOTUSED3", "NOTUSED4"
 };
 
+static const char *const tasha_bridge_mi2s_mode_text[] = {
+	"OFF", "ON"
+};
+
 static const struct soc_enum tasha_conn_mad_enum =
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(tasha_conn_mad_text),
 			    tasha_conn_mad_text);
+
+static const struct soc_enum tasha_bridge_mi2s_mode_enum =
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(tasha_bridge_mi2s_mode_text),
+				tasha_bridge_mi2s_mode_text);
 
 static int tasha_enable_ldo_h_get(struct snd_kcontrol *kcontrol,
 				  struct snd_ctl_elem_value *ucontrol)
@@ -8206,6 +8696,12 @@ static const struct snd_kcontrol_new tasha_snd_controls[] = {
 
 	SOC_ENUM_EXT("CLK MODE", tasha_clkmode_enum, tasha_get_clkmode,
 		     tasha_put_clkmode),
+	SOC_ENUM_EXT("BRIDGE MI2S RX Master Mode", tasha_bridge_mi2s_mode_enum,
+		     tasha_bridge_mi2srx_mode_get,
+		     tasha_bridge_mi2srx_mode_put),
+	SOC_ENUM_EXT("BRIDGE MI2S TX Master Mode", tasha_bridge_mi2s_mode_enum,
+		     tasha_bridge_mi2stx_mode_get,
+		     tasha_bridge_mi2stx_mode_put),
 
 	SOC_ENUM("TX0 HPF cut off", cf_dec0_enum),
 	SOC_ENUM("TX1 HPF cut off", cf_dec1_enum),
@@ -8857,6 +9353,14 @@ static const char * const sb_tx8_mux_text[] = {
 	"ZERO", "RX_MIX_TX8", "DEC8", "DEC8_192"
 };
 
+static const char * const sb_tx14_mux_text[] = {
+	"ZERO", "RX_SD0_R"
+};
+
+static const char * const sb_tx15_mux_text[] = {
+	"ZERO", "RX_SD0_L"
+};
+
 static const char * const sb_tx9_mux_text[] = {
 	"ZERO", "DEC7", "DEC7_192"
 };
@@ -9359,6 +9863,14 @@ static const struct soc_enum sb_tx13_mux_enum =
 	SOC_ENUM_SINGLE(WCD9335_CDC_IF_ROUTER_TX_MUX_CFG3, 4, 3,
 			sb_tx13_mux_text);
 
+static const struct soc_enum sb_tx14_mux_enum =
+	SOC_ENUM_SINGLE(WCD9335_DATA_HUB_DATA_HUB_SB_TX14_INP_CFG, 0, 2,
+			sb_tx14_mux_text);
+
+static const struct soc_enum sb_tx15_mux_enum =
+	SOC_ENUM_SINGLE(WCD9335_DATA_HUB_DATA_HUB_SB_TX15_INP_CFG, 0, 2,
+			sb_tx15_mux_text);
+
 static const struct soc_enum tx13_inp_mux_enum =
 	SOC_ENUM_SINGLE(WCD9335_DATA_HUB_DATA_HUB_SB_TX13_INP_CFG, 0, 3,
 			tx13_inp_mux_text);
@@ -9823,6 +10335,12 @@ static const struct snd_kcontrol_new sb_tx11_inp1_mux =
 static const struct snd_kcontrol_new sb_tx13_mux =
 	SOC_DAPM_ENUM("SLIM TX13 MUX Mux", sb_tx13_mux_enum);
 
+static const struct snd_kcontrol_new sb_tx14_mux =
+	SOC_DAPM_ENUM("SLIM TX14 MUX Mux", sb_tx14_mux_enum);
+
+static const struct snd_kcontrol_new sb_tx15_mux =
+	SOC_DAPM_ENUM("SLIM TX15 MUX Mux", sb_tx15_mux_enum);
+
 static const struct snd_kcontrol_new tx13_inp_mux =
 	SOC_DAPM_ENUM("TX13 INP MUX Mux", tx13_inp_mux_enum);
 
@@ -9917,6 +10435,24 @@ static const struct snd_kcontrol_new aif4_switch_mixer_controls =
 	SOC_SINGLE_EXT("Switch", SND_SOC_NOPM,
 			0, 1, 0, tasha_codec_aif4_mixer_switch_get,
 			tasha_codec_aif4_mixer_switch_put);
+
+static const struct snd_kcontrol_new tx0_clk_enable_switch =
+	SOC_DAPM_SINGLE("Switch", SND_SOC_NOPM, 0, 1, 0);
+
+static const struct snd_kcontrol_new tx1_clk_enable_switch =
+	SOC_DAPM_SINGLE("Switch", SND_SOC_NOPM, 0, 1, 0);
+
+static const struct snd_kcontrol_new rx_left1_enable_switch =
+	SOC_DAPM_SINGLE("Switch", SND_SOC_NOPM, 0, 1, 0);
+
+static const struct snd_kcontrol_new rx_right1_enable_switch =
+	SOC_DAPM_SINGLE("Switch", SND_SOC_NOPM, 0, 1, 0);
+
+static const struct snd_kcontrol_new rx_left2_enable_switch =
+	SOC_DAPM_SINGLE("Switch", SND_SOC_NOPM, 0, 1, 0);
+
+static const struct snd_kcontrol_new rx_right2_enable_switch =
+	SOC_DAPM_SINGLE("Switch", SND_SOC_NOPM, 0, 1, 0);
 
 static const struct snd_kcontrol_new anc_hphl_switch =
 	SOC_DAPM_SINGLE("Switch", SND_SOC_NOPM, 0, 1, 0);
@@ -10019,6 +10555,9 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_AIF_IN_E("AIF4 PB", "AIF4 Playback", 0, SND_SOC_NOPM,
 				AIF4_PB, 0, tasha_codec_enable_slimrx,
+				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_AIF_IN_E("AIF5 PB", "AIF5 Playback", 0, SND_SOC_NOPM,
+				AIF5_PB, 0, tasha_codec_enable_slimrx,
 				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_AIF_IN_E("AIF MIX1 PB", "AIF Mix Playback", 0,
 			       SND_SOC_NOPM, AIF_MIX1_PB, 0,
@@ -10277,7 +10816,11 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_MUX("SLIM TX13 MUX", SND_SOC_NOPM, TASHA_TX13, 0,
 		&sb_tx13_mux),
 	SND_SOC_DAPM_MUX("TX13 INP MUX", SND_SOC_NOPM, 0, 0,
-			 &tx13_inp_mux),
+		&tx13_inp_mux),
+	SND_SOC_DAPM_MUX("SLIM TX14 MUX", SND_SOC_NOPM, TASHA_TX14, 0,
+		&sb_tx14_mux),
+	SND_SOC_DAPM_MUX("SLIM TX15 MUX", SND_SOC_NOPM, TASHA_TX15, 0,
+		&sb_tx15_mux),
 
 	SND_SOC_DAPM_MUX_E("ADC MUX0", WCD9335_CDC_TX0_TX_PATH_CTL, 5, 0,
 			   &tx_adc_mux0, tasha_codec_enable_dec,
@@ -10422,7 +10965,12 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY("RX INT4 NATIVE SUPPLY", SND_SOC_NOPM,
 			    INTERP_LO2, 0, tasha_enable_native_supply,
 			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
-
+	SND_SOC_DAPM_SUPPLY("BRIDGE RX_TX SUPPLY", SND_SOC_NOPM,
+			    0, 0, tasha_enable_bridge_supply,
+			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_SUPPLY("BRIDGE TX MCLK SUPPLY", SND_SOC_NOPM,
+			    0, 0, tasha_codec_bridge_tx_mclk_supply,
+			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_INPUT("AMIC1"),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS1", SND_SOC_NOPM, 0, 0,
 			       tasha_codec_enable_micbias,
@@ -10477,7 +11025,9 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_AIF_OUT_E("AIF3 CAP", "AIF3 Capture", 0, SND_SOC_NOPM,
 		AIF3_CAP, 0, tasha_codec_enable_slimtx,
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-
+	SND_SOC_DAPM_AIF_OUT_E("AIF4 CAP", "AIF4 Capture", 0, SND_SOC_NOPM,
+		AIF4_CAP, 0, tasha_codec_enable_slimtx,
+		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_AIF_OUT_E("AIF4 VI", "VIfeed", 0, SND_SOC_NOPM,
 		AIF4_VIFEED, 0, tasha_codec_enable_slimvi_feedback,
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
@@ -10493,11 +11043,14 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("AIF3_CAP Mixer", SND_SOC_NOPM, AIF3_CAP, 0,
 		aif3_cap_mixer, ARRAY_SIZE(aif3_cap_mixer)),
 
+	SND_SOC_DAPM_MIXER("AIF4_CAP Mixer", SND_SOC_NOPM, AIF4_CAP, 0,
+		aif4_cap_mixer, ARRAY_SIZE(aif4_cap_mixer)),
+
 	SND_SOC_DAPM_MIXER("AIF4_MAD Mixer", SND_SOC_NOPM, AIF4_MAD_TX, 0,
 		aif4_mad_mixer, ARRAY_SIZE(aif4_mad_mixer)),
 
 	SND_SOC_DAPM_INPUT("VIINPUT"),
-
+	SND_SOC_DAPM_INPUT("BRIDGE TX IN"),
 	SND_SOC_DAPM_AIF_OUT("AIF5 CPE", "AIF5 CPE TX", 0, SND_SOC_NOPM,
 			     AIF5_CPE_TX, 0),
 
@@ -10651,6 +11204,19 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_DAC_E("RX INT6 DAC", NULL, SND_SOC_NOPM,
 		0, 0, tasha_codec_lineout_dac_event,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_PGA_E("BRIDGE RX_0 MCLK ENABLE", SND_SOC_NOPM,
+			   0, 0, NULL, 0, tasha_codec_bridge_rx_mclk_enable,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_PGA_E("BRIDGE RX_1 MCLK ENABLE", SND_SOC_NOPM,
+			   1, 0, NULL, 0, tasha_codec_bridge_rx_mclk_enable,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_PGA_E("BRIDGE RX_2 MCLK ENABLE", SND_SOC_NOPM,
+			   2, 0, NULL, 0, tasha_codec_bridge_rx_mclk_enable,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_PGA_E("BRIDGE RX_3 MCLK ENABLE", SND_SOC_NOPM,
+			   3, 0, NULL, 0, tasha_codec_bridge_rx_mclk_enable,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_PGA_E("HPHL PA", WCD9335_ANA_HPH, 7, 0, NULL, 0,
 			   tasha_codec_enable_hphl_pa,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
@@ -10706,6 +11272,7 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_OUTPUT("HPHR"),
 	SND_SOC_DAPM_OUTPUT("ANC HPHL"),
 	SND_SOC_DAPM_OUTPUT("ANC HPHR"),
+	SND_SOC_DAPM_OUTPUT("BRIDGE RX OUT"),
 	SND_SOC_DAPM_SUPPLY("RX_BIAS", SND_SOC_NOPM, 0, 0,
 		tasha_codec_enable_rx_bias, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMD),
@@ -10756,6 +11323,28 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 			    &mad_brdcst_switch),
 	SND_SOC_DAPM_SWITCH("AIF4", SND_SOC_NOPM, 0, 0,
 			    &aif4_switch_mixer_controls),
+
+	SND_SOC_DAPM_SWITCH_E("BRIDGE RX Left1 Enable", SND_SOC_NOPM, 0, 0,
+			      &rx_left1_enable_switch,
+			      tasha_codec_bridge_rx_inp_set,
+			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_SWITCH_E("BRIDGE RX Right1 Enable", SND_SOC_NOPM, 1, 0,
+			      &rx_right1_enable_switch,
+			      tasha_codec_bridge_rx_inp_set,
+			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_SWITCH_E("BRIDGE RX Left2 Enable", SND_SOC_NOPM, 2, 0,
+			      &rx_left2_enable_switch,
+			      tasha_codec_bridge_rx_inp_set,
+			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_SWITCH_E("BRIDGE RX Right2 Enable", SND_SOC_NOPM, 3, 0,
+			      &rx_right2_enable_switch,
+			      tasha_codec_bridge_rx_inp_set,
+			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+
+	SND_SOC_DAPM_SWITCH("BRIDGE TX0 CLK Enable", SND_SOC_NOPM, 0, 0,
+			&tx0_clk_enable_switch),
+	SND_SOC_DAPM_SWITCH("BRIDGE TX1 CLK Enable", SND_SOC_NOPM, 0, 0,
+			&tx1_clk_enable_switch),
 	SND_SOC_DAPM_SWITCH("ANC HPHL Enable", SND_SOC_NOPM, 0, 0,
 			&anc_hphl_switch),
 	SND_SOC_DAPM_SWITCH("ANC HPHR Enable", SND_SOC_NOPM, 0, 0,
@@ -10781,6 +11370,7 @@ static int tasha_get_channel_map(struct snd_soc_dai *dai,
 	case AIF2_PB:
 	case AIF3_PB:
 	case AIF4_PB:
+	case AIF5_PB:
 	case AIF_MIX1_PB:
 		if (!rx_slot || !rx_num) {
 			pr_err("%s: Invalid rx_slot %pK or rx_num %pK\n",
@@ -10799,6 +11389,7 @@ static int tasha_get_channel_map(struct snd_soc_dai *dai,
 	case AIF1_CAP:
 	case AIF2_CAP:
 	case AIF3_CAP:
+	case AIF4_CAP:
 	case AIF4_MAD_TX:
 	case AIF4_VIFEED:
 		if (!tx_slot || !tx_num) {
@@ -11195,6 +11786,38 @@ static int tasha_hw_params(struct snd_pcm_substream *substream,
 					WCD9335_DATA_HUB_DATA_HUB_RX_I2S_CTL,
 					0x1c, (rx_fs_rate << 2));
 		}
+		/* Set Bridge RX Sampling Rate */
+		if (dai->id == AIF5_PB) {
+			switch (params_rate(params)) {
+			case 8000:
+				rx_fs_rate = 0;
+				break;
+			case 16000:
+				rx_fs_rate = 1;
+				break;
+			case 32000:
+				rx_fs_rate = 2;
+				break;
+			case 48000:
+				rx_fs_rate = 3;
+				break;
+			case 96000:
+				rx_fs_rate = 4;
+				break;
+			case 192000:
+				rx_fs_rate = 5;
+				break;
+			default:
+				dev_err(tasha->dev,
+				"%s: Invalid RX sample rate: %d\n",
+				__func__, params_rate(params));
+				return -EINVAL;
+			};
+			snd_soc_update_bits(dai->codec,
+				WCD9335_DATA_HUB_DATA_HUB_RX_I2S_CTL,
+				0xC, (rx_fs_rate << 2));
+		};
+
 		break;
 	case SNDRV_PCM_STREAM_CAPTURE:
 		switch (params_rate(params)) {
@@ -11226,7 +11849,8 @@ static int tasha_hw_params(struct snd_pcm_substream *substream,
 
 		};
 		if (dai->id != AIF4_VIFEED &&
-		    dai->id != AIF4_MAD_TX) {
+			dai->id != AIF4_MAD_TX &&
+			dai->id != AIF4_CAP) {
 			ret = tasha_set_decimator_rate(dai, tx_fs_rate,
 					params_rate(params));
 			if (ret < 0) {
@@ -11279,6 +11903,36 @@ static int tasha_hw_params(struct snd_pcm_substream *substream,
 				WCD9335_DATA_HUB_DATA_HUB_TX_I2S_SD1_R_CFG,
 				0x05, 0x05);
 		}
+		/* Set Bridge TX Sampling Rate */
+		if (dai->id == AIF4_CAP) {
+			switch (params_rate(params)) {
+			case 8000:
+				tx_fs_rate = 0;
+				break;
+			case 16000:
+				tx_fs_rate = 1;
+				break;
+			case 32000:
+				tx_fs_rate = 2;
+				break;
+			case 48000:
+				tx_fs_rate = 3;
+				break;
+			case 96000:
+				tx_fs_rate = 4;
+				break;
+			case 192000:
+				tx_fs_rate = 5;
+				break;
+			default:
+				dev_err(tasha->dev, "%s: Invalid TX sample rate: %d\n",
+				__func__, params_rate(params));
+				return -EINVAL;
+			};
+			snd_soc_update_bits(dai->codec,
+					WCD9335_DATA_HUB_DATA_HUB_TX_I2S_CTL,
+					0x1C, (tx_fs_rate << 2));
+		};
 		break;
 	default:
 		pr_err("%s: Invalid stream type %d\n", __func__,
@@ -11442,6 +12096,34 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 			.rate_max = 192000,
 			.channels_min = 1,
 			.channels_max = 8,
+		},
+		.ops = &tasha_dai_ops,
+	},
+	{
+		.name = "tasha_tx4",
+		.id = AIF4_CAP,
+		.capture = {
+			.stream_name = "AIF4 Capture",
+			.rates = WCD9335_RATES_MASK,
+			.formats = TASHA_FORMATS_S16_S24_LE,
+			.rate_max = 192000,
+			.rate_min = 8000,
+			.channels_min = 1,
+			.channels_max = 4,
+		},
+		.ops = &tasha_dai_ops,
+	},
+	{
+		.name = "tasha_rx5",
+		.id = AIF5_PB,
+		.playback = {
+			.stream_name = "AIF5 Playback",
+			.rates = WCD9335_RATES_MASK | WCD9335_FRAC_RATES_MASK,
+			.formats = TASHA_FORMATS_S16_S24_LE,
+			.rate_min = 8000,
+			.rate_max = 192000,
+			.channels_min = 1,
+			.channels_max = 4,
 		},
 		.ops = &tasha_dai_ops,
 	},
