@@ -34,6 +34,7 @@
 #include <linux/of_graph.h>
 #include <linux/of_device.h>
 #include <linux/sde_io_util.h>
+#include <linux/hashtable.h>
 #include <asm/sizes.h>
 #include <linux/kthread.h>
 
@@ -325,6 +326,11 @@ struct msm_drm_private {
 	unsigned int num_connectors;
 	struct drm_connector *connectors[MAX_CONNECTORS];
 
+	/* hash to store mm_struct to msm_mmu_notifier mappings */
+	DECLARE_HASHTABLE(mn_hash, 7);
+	/* protects mn_hash and the msm_mmu_notifier for the process */
+	struct mutex mn_lock;
+
 	/* Properties */
 	struct drm_property *plane_property[PLANE_PROP_COUNT];
 	struct drm_property *crtc_property[CRTC_PROP_COUNT];
@@ -404,7 +410,7 @@ void msm_update_fence(struct drm_device *dev, uint32_t fence);
 
 void msm_gem_unmap_vma(struct msm_gem_address_space *aspace,
 		struct msm_gem_vma *vma, struct sg_table *sgt,
-		void *priv);
+		void *priv, bool invalidated);
 int msm_gem_map_vma(struct msm_gem_address_space *aspace,
 		struct msm_gem_vma *vma, struct sg_table *sgt,
 		void *priv, unsigned int flags);

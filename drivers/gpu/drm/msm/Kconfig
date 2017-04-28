@@ -12,6 +12,8 @@ config DRM_MSM
 	select QCOM_SCM
 	select BACKLIGHT_CLASS_DEVICE
 	select MSM_EXT_DISPLAY
+	select MMU_NOTIFIER
+	select INTERVAL_TREE
 	default y
 	help
 	  DRM/KMS driver for MSM/snapdragon.

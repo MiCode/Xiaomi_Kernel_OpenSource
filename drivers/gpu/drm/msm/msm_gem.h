@@ -20,6 +20,8 @@
 
 #include <linux/kref.h>
 #include <linux/reservation.h>
+#include <linux/mmu_notifier.h>
+#include <linux/interval_tree.h>
 #include "msm_drv.h"
 
 /* Additional internal-use only BO flags: */
@@ -86,9 +88,25 @@ struct msm_gem_object {
 };
 #define to_msm_bo(x) container_of(x, struct msm_gem_object, base)
 
+struct msm_mmu_notifier {
+	struct mmu_notifier mn;
+	struct mm_struct *mm; /* mm_struct owning the mmu notifier mn */
+	struct hlist_node node;
+	struct rb_root svm_tree; /* interval tree holding all svm bos */
+	spinlock_t svm_tree_lock; /* Protects svm_tree*/
+	struct msm_drm_private *msm_dev;
+	struct kref refcount;
+};
+
 struct msm_gem_svm_object {
 	struct msm_gem_object msm_obj_base;
 	uint64_t hostptr;
+	struct mm_struct *mm; /* mm_struct the svm bo belongs to */
+	struct interval_tree_node svm_node;
+	struct msm_mmu_notifier *msm_mn;
+	struct list_head lnode;
+	/* bo has been unmapped on CPU, cannot be part of GPU submits */
+	bool invalid;
 };
 
 #define to_msm_svm_obj(x) \

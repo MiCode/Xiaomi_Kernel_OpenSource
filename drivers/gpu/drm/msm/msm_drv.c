@@ -391,6 +391,8 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 	INIT_LIST_HEAD(&priv->vblank_ctrl.event_list);
 	init_kthread_work(&priv->vblank_ctrl.work, vblank_ctrl_worker);
 	spin_lock_init(&priv->vblank_ctrl.lock);
+	hash_init(priv->mn_hash);
+	mutex_init(&priv->mn_lock);
 
 	drm_mode_config_init(dev);
 

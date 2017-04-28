@@ -166,12 +166,14 @@ int msm_gem_map_vma(struct msm_gem_address_space *aspace,
 }
 
 void msm_gem_unmap_vma(struct msm_gem_address_space *aspace,
-		struct msm_gem_vma *vma, struct sg_table *sgt, void *priv)
+		struct msm_gem_vma *vma, struct sg_table *sgt,
+		void *priv, bool invalidated)
 {
 	if (!aspace || !vma->iova)
 		return;
 
-	aspace->mmu->funcs->unmap(aspace->mmu, vma->iova, sgt, priv);
+	if (!invalidated)
+		aspace->mmu->funcs->unmap(aspace->mmu, vma->iova, sgt, priv);
 
 	msm_gem_release_iova(aspace, vma);
 
