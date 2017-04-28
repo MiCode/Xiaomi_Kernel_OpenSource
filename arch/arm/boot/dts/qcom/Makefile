@@ -169,7 +169,13 @@ dtb-$(CONFIG_ARCH_SDX20) += sdx20-emmc-cdp.dtb \
 	sdx20-nand-cdp.dtb \
 	sdx20-nand-mtp.dtb \
 	sdx20-nand-dualwifi-mtp.dtb \
-	sdx20-nand-dualwifi-cdp.dtb
+	sdx20-nand-dualwifi-cdp.dtb \
+	sdx20-v2-emmc-cdp.dtb \
+	sdx20-v2-emmc-mtp.dtb \
+	sdx20-v2-nand-cdp.dtb \
+	sdx20-v2-nand-mtp.dtb \
+	sdx20-v2-nand-dualwifi-mtp.dtb \
+	sdx20-v2-nand-dualwifi-cdp.dtb
 
 dtb-$(CONFIG_ARCH_MSM8937) += msm8937-rumi.dtb \
 	msm8937-pmi8950-cdp.dtb \
