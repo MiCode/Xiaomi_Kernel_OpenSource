@@ -8,6 +8,9 @@
 #include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
 #include <linux/types.h>
+#include <linux/debugfs.h>
+#include <linux/fs.h>
+#include <linux/seq_file.h>
 
 #include <soc/qcom/cmd-db.h>
 
@@ -283,6 +286,107 @@ int cmd_db_is_standalone(void)
 }
 EXPORT_SYMBOL(cmd_db_is_standalone);
 
+static void *cmd_db_start(struct seq_file *m, loff_t *pos)
+{
+	int slv_idx, ent_idx, cnt;
+	struct entry_header *ent;
+	int total = 0;
+
+	for (slv_idx = 0; slv_idx < MAX_SLV_ID; slv_idx++) {
+		cnt = le16_to_cpu(cmd_db_header->header[slv_idx].cnt);
+		if (!cnt)
+			continue;
+		ent_idx = *pos - total;
+		if (ent_idx < cnt)
+			break;
+		total += cnt;
+	}
+
+	if (slv_idx == MAX_SLV_ID)
+		return NULL;
+
+	ent = (void *)cmd_db_header->data +
+	      le16_to_cpu(cmd_db_header->header[slv_idx].header_offset);
+
+	return &ent[ent_idx];
+}
+
+static void cmd_db_stop(struct seq_file *m, void *v)
+{
+}
+
+static void *cmd_db_next(struct seq_file *m, void *v, loff_t *pos)
+{
+	(*pos)++;
+	return cmd_db_start(m, pos);
+}
+
+static int cmd_db_seq_show(struct seq_file *m, void *v)
+{
+	struct entry_header *eh = v;
+	char buf[9] = {0};
+	int eh_addr, eh_len, eh_offset;
+
+	if (!eh)
+		return 0;
+
+	memcpy(buf, &eh->id, sizeof(eh->id));
+	eh_addr = le32_to_cpu(eh->addr);
+	eh_len = le16_to_cpu(eh->len);
+	eh_offset = le16_to_cpu(eh->offset);
+	seq_printf(m, "Address: 0x%05x, id: %s", eh_addr, buf);
+
+	if (eh_len) {
+		int slv_id = (eh_addr >> SLAVE_ID_SHIFT) & SLAVE_ID_MASK;
+		u8 aux[32] = {0};
+		int len, offset;
+		int k;
+
+		len = min_t(u32, eh_len, sizeof(aux));
+		for (k = 0; k < MAX_SLV_ID; k++) {
+			struct rsc_hdr *hdr  = &cmd_db_header->header[k];
+
+			if (le16_to_cpu(hdr->slv_id) == slv_id)
+				break;
+		}
+
+		if (k == MAX_SLV_ID)
+			return -EINVAL;
+
+		offset = le16_to_cpu(cmd_db_header->header[k].data_offset);
+		memcpy(aux, cmd_db_header->data + offset + eh_offset, len);
+
+		seq_puts(m, ", aux data: ");
+
+		for (k = 0; k < len; k++)
+			seq_printf(m, "%02x ", aux[k]);
+
+	}
+	seq_puts(m, "\n");
+
+	return 0;
+}
+
+static const struct seq_operations cmd_db_seq_ops = {
+	.start = cmd_db_start,
+	.stop = cmd_db_stop,
+	.next = cmd_db_next,
+	.show = cmd_db_seq_show,
+};
+
+static int cmd_db_file_open(struct inode *inode, struct file *file)
+{
+	return seq_open(file, &cmd_db_seq_ops);
+}
+
+static const struct file_operations cmd_db_fops = {
+	.owner = THIS_MODULE,
+	.open = cmd_db_file_open,
+	.read = seq_read,
+	.release = seq_release,
+	.llseek = no_llseek,
+};
+
 static int cmd_db_dev_probe(struct platform_device *pdev)
 {
 	struct reserved_mem *rmem;
@@ -308,6 +412,9 @@ static int cmd_db_dev_probe(struct platform_device *pdev)
 
 	if (cmd_db_is_standalone() == 1)
 		pr_info("Command DB is initialized in standalone mode.\n");
+
+	if (!debugfs_create_file("cmd_db", 0444, NULL, NULL, &cmd_db_fops))
+		pr_err("Couldn't create debugfs\n");
 
 	return 0;
 }
