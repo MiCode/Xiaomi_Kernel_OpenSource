@@ -2355,7 +2355,7 @@
 
 	cmd_db: qcom,cmd-db@861e0000 {
 		compatible = "qcom,cmd-db";
-		reg = <0x861e0000 0x4000>;
+		reg = <0xc3f000c 8>;
 	};
 
 	dcc: dcc_v2@10a2000 {
