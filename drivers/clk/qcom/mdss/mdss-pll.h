@@ -37,6 +37,7 @@
 
 enum {
 	MDSS_DSI_PLL_10NM,
+	MDSS_DP_PLL_10NM,
 	MDSS_UNKNOWN_PLL,
 };
 
@@ -81,6 +82,8 @@ struct mdss_pll_resources {
 	 */
 	void __iomem	*pll_base;
 	void __iomem	*phy_base;
+	void __iomem	*ln_tx0_base;
+	void __iomem	*ln_tx1_base;
 	void __iomem	*gdsc_base;
 	void __iomem	*dyn_pll_base;
 
