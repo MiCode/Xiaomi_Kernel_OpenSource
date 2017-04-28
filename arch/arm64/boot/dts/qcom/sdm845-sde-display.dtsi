@@ -107,8 +107,8 @@
 
 		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
 		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
-		clocks = <&clock_dispcc DISP_CC_MDSS_BYTE0_CLK_SRC>,
-		       <&clock_dispcc DISP_CC_MDSS_PCLK0_CLK_SRC>;
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
 
 		pinctrl-names = "panel_active", "panel_suspend";
@@ -130,8 +130,8 @@
 
 		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
 		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
-		clocks = <&clock_dispcc DISP_CC_MDSS_BYTE0_CLK_SRC>,
-		       <&clock_dispcc DISP_CC_MDSS_PCLK0_CLK_SRC>;
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
 
 		pinctrl-names = "panel_active", "panel_suspend";
@@ -153,8 +153,8 @@
 
 		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
 		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
-		clocks = <&clock_dispcc DISP_CC_MDSS_BYTE0_CLK_SRC>,
-		       <&clock_dispcc DISP_CC_MDSS_PCLK0_CLK_SRC>;
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
 
 		pinctrl-names = "panel_active", "panel_suspend";
@@ -176,8 +176,8 @@
 
 		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
 		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
-		clocks = <&clock_dispcc DISP_CC_MDSS_BYTE0_CLK_SRC>,
-		       <&clock_dispcc DISP_CC_MDSS_PCLK0_CLK_SRC>;
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
 
 		pinctrl-names = "panel_active", "panel_suspend";
@@ -222,8 +222,8 @@
 
 		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
 		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
-		clocks = <&clock_dispcc DISP_CC_MDSS_BYTE0_CLK_SRC>,
-		       <&clock_dispcc DISP_CC_MDSS_PCLK0_CLK_SRC>;
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
 
 		pinctrl-names = "panel_active", "panel_suspend";
@@ -245,8 +245,8 @@
 
 		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
 		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
-		clocks = <&clock_dispcc DISP_CC_MDSS_BYTE0_CLK_SRC>,
-		       <&clock_dispcc DISP_CC_MDSS_PCLK0_CLK_SRC>;
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
 
 		pinctrl-names = "panel_active", "panel_suspend";
@@ -268,8 +268,8 @@
 
 		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
 		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
-		clocks = <&clock_dispcc DISP_CC_MDSS_BYTE0_CLK_SRC>,
-		       <&clock_dispcc DISP_CC_MDSS_PCLK0_CLK_SRC>;
+		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
+			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
 
 		pinctrl-names = "panel_active", "panel_suspend";
