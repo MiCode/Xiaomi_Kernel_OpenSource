@@ -19,6 +19,9 @@
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/kernel.h>
+#include <linux/debugfs.h>
+#include <linux/fs.h>
+#include <linux/seq_file.h>
 #include <soc/qcom/cmd-db.h>
 
 #define RESOURCE_ID_LEN 8
@@ -239,6 +242,108 @@ int cmd_db_get_slave_id(const char *resource_id)
 	return ret < 0 ? 0 : (ent.addr >> SLAVE_ID_SHIFT) & SLAVE_ID_MASK;
 }
 
+static void *cmd_db_start(struct seq_file *m, loff_t *pos)
+{
+	struct cmd_db_header *hdr = m->private;
+	int slv_idx, ent_idx;
+	struct entry_header *ent;
+	int total = 0;
+
+	for (slv_idx = 0; slv_idx < MAX_SLV_ID; slv_idx++) {
+
+		if (!hdr->header[slv_idx].cnt)
+			continue;
+		ent_idx = *pos - total;
+		if (ent_idx < hdr->header[slv_idx].cnt)
+			break;
+
+		total += hdr->header[slv_idx].cnt;
+	}
+
+	if (slv_idx == MAX_SLV_ID)
+		return NULL;
+
+	ent = start_addr + hdr->header[slv_idx].header_offset + sizeof(*hdr);
+	return &ent[ent_idx];
+
+}
+
+static void cmd_db_stop(struct seq_file *m, void *v)
+{
+}
+
+static void *cmd_db_next(struct seq_file *m, void *v, loff_t *pos)
+{
+	(*pos)++;
+	return cmd_db_start(m, pos);
+}
+
+static int cmd_db_seq_show(struct seq_file *m, void *v)
+{
+	struct entry_header *eh = v;
+	struct cmd_db_header *hdr = m->private;
+	char buf[9]  = {0};
+
+	if (!eh)
+		return 0;
+
+	memcpy(buf, &eh->res_id, min(sizeof(eh->res_id), sizeof(buf)));
+
+	seq_printf(m, "Address: 0x%05x, id: %s", eh->addr, buf);
+
+	if (eh->len) {
+		int slv_id = (eh->addr >> SLAVE_ID_SHIFT) & SLAVE_ID_MASK;
+		u8 aux[32] = {0};
+		int len;
+		int k;
+
+		len = min_t(u32, eh->len, sizeof(aux));
+
+		for (k = 0; k < MAX_SLV_ID; k++) {
+			if (hdr->header[k].slv_id == slv_id)
+				break;
+		}
+
+		if (k == MAX_SLV_ID)
+			return -EINVAL;
+
+		memcpy_fromio(aux, start_addr + hdr->header[k].data_offset
+			+ eh->offset + sizeof(*cmd_db_header), len);
+
+		seq_puts(m, ", aux data: ");
+
+		for (k = 0; k < len; k++)
+			seq_printf(m, "%02x ", aux[k]);
+
+	}
+	seq_puts(m, "\n");
+	return 0;
+}
+
+static const struct seq_operations cmd_db_seq_ops = {
+	.start = cmd_db_start,
+	.stop = cmd_db_stop,
+	.next = cmd_db_next,
+	.show = cmd_db_seq_show,
+};
+
+static int cmd_db_file_open(struct inode *inode, struct file *file)
+{
+	int ret = seq_open(file, &cmd_db_seq_ops);
+	struct seq_file *s = (struct seq_file *)(file->private_data);
+
+	s->private = inode->i_private;
+	return ret;
+}
+
+static const struct file_operations cmd_db_fops = {
+	.owner = THIS_MODULE,
+	.open = cmd_db_file_open,
+	.read = seq_read,
+	.release = seq_release,
+	.llseek = no_llseek,
+};
+
 static int cmd_db_dev_probe(struct platform_device *pdev)
 {
 	struct resource res;
@@ -278,6 +383,10 @@ static int cmd_db_dev_probe(struct platform_device *pdev)
 	}
 	cmd_db_status = 0;
 	of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
+
+	if (!debugfs_create_file("cmd_db", 0444, NULL,
+				cmd_db_header, &cmd_db_fops))
+		pr_err("Couldn't create debugfs\n");
 
 	if (cmd_db_is_standalone() == 1)
 		pr_info("Command DB is initialized in standalone mode.\n");
