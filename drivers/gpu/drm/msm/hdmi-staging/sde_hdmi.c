@@ -918,6 +918,16 @@ static void _sde_hdmi_cec_update_phys_addr(struct sde_hdmi *display)
 			CEC_PHYS_ADDR_INVALID);
 }
 
+static void _sde_hdmi_map_regs(struct sde_hdmi *display, struct hdmi *hdmi)
+{
+	display->io[HDMI_TX_CORE_IO].base = hdmi->mmio;
+	display->io[HDMI_TX_CORE_IO].len = hdmi->mmio_len;
+	display->io[HDMI_TX_QFPROM_IO].base = hdmi->qfprom_mmio;
+	display->io[HDMI_TX_QFPROM_IO].len = hdmi->qfprom_mmio_len;
+	display->io[HDMI_TX_HDCP_IO].base = hdmi->hdcp_mmio;
+	display->io[HDMI_TX_HDCP_IO].len = hdmi->hdcp_mmio_len;
+}
+
 static void _sde_hdmi_hotplug_work(struct work_struct *work)
 {
 	struct sde_hdmi *sde_hdmi =
@@ -1766,6 +1776,8 @@ static int sde_hdmi_bind(struct device *dev, struct device *master, void *data)
 	display_ctrl = &display->ctrl;
 	display_ctrl->ctrl = priv->hdmi;
 	display->drm_dev = drm;
+
+	_sde_hdmi_map_regs(display, priv->hdmi);
 
 	mutex_unlock(&display->display_lock);
 	return rc;

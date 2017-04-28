@@ -25,7 +25,9 @@
 #include <drm/drm_crtc.h>
 #include <media/cec-notifier.h>
 #include "hdmi.h"
-
+#include "sde_kms.h"
+#include "sde_connector.h"
+#include "msm_drv.h"
 #include "sde_edid_parser.h"
 
 #ifdef HDMI_DEBUG_ENABLE
@@ -67,6 +69,13 @@ struct sde_hdmi_ctrl {
 	struct hdmi *ctrl;
 	struct device_node *ctrl_of_node;
 	u32 hdmi_ctrl_idx;
+};
+
+enum hdmi_tx_io_type {
+	HDMI_TX_CORE_IO,
+	HDMI_TX_QFPROM_IO,
+	HDMI_TX_HDCP_IO,
+	HDMI_TX_MAX_IO
 };
 
 /**
@@ -120,6 +129,7 @@ struct sde_hdmi {
 	struct irq_domain *irq_domain;
 	struct cec_notifier *notifier;
 
+	struct dss_io_data io[HDMI_TX_MAX_IO];
 	/* DEBUG FS */
 	struct dentry *root;
 };
