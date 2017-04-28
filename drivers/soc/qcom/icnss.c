@@ -202,6 +202,7 @@ enum icnss_driver_state {
 	ICNSS_MSA0_ASSIGNED,
 	ICNSS_WLFW_EXISTS,
 	ICNSS_WDOG_BITE,
+	ICNSS_SHUTDOWN_DONE,
 };
 
 struct ce_irq_list {
@@ -1990,9 +1991,13 @@ static int icnss_call_driver_shutdown(struct icnss_priv *priv)
 	if (!priv->ops || !priv->ops->shutdown)
 		goto out;
 
+	if (test_bit(ICNSS_SHUTDOWN_DONE, &penv->state))
+		goto out;
+
 	icnss_pr_dbg("Calling driver shutdown state: 0x%lx\n", priv->state);
 
 	priv->ops->shutdown(&priv->pdev->dev);
+	set_bit(ICNSS_SHUTDOWN_DONE, &penv->state);
 
 out:
 	return 0;
@@ -2030,6 +2035,7 @@ static int icnss_pd_restart_complete(struct icnss_priv *priv)
 	}
 
 out:
+	clear_bit(ICNSS_SHUTDOWN_DONE, &penv->state);
 	return 0;
 
 call_probe:
@@ -3666,6 +3672,9 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 			continue;
 		case ICNSS_WDOG_BITE:
 			seq_puts(s, "MODEM WDOG BITE");
+			continue;
+		case ICNSS_SHUTDOWN_DONE:
+			seq_puts(s, "SHUTDOWN DONE");
 			continue;
 		}
 
