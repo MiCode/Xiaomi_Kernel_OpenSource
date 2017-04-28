@@ -1503,6 +1503,12 @@
 		qcom,rtb-size = <0x100000>;
 	};
 
+	qcom,mpm2-sleep-counter@0x0c221000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0x0c221000 0x1000>;
+		clock-frequency = <32768>;
+	};
+
 	qcom,msm-cdsp-loader {
 		compatible = "qcom,cdsp-loader";
 		qcom,proc-img-to-load = "cdsp";
@@ -1607,6 +1613,11 @@
 		restart_reason@65c {
 			compatible = "qcom,msm-imem-restart_reason";
 			reg = <0x65c 4>;
+		};
+
+		boot_stats@6b0 {
+			compatible = "qcom,msm-imem-boot_stats";
+			reg = <0x6b0 32>;
 		};
 
 		pil@94c {
