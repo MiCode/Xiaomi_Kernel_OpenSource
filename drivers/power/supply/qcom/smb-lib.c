@@ -3581,6 +3581,8 @@ static void typec_source_insertion(struct smb_charger *chg)
 		&& !is_client_vote_enabled(chg->usb_icl_votable, PD_VOTER)
 		&& !is_client_vote_enabled(chg->usb_icl_votable, USB_PSY_VOTER))
 		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 100000);
+
+	smblib_set_opt_freq_buck(chg, chg->chg_freq.freq_5V);
 }
 
 static void typec_sink_insertion(struct smb_charger *chg)
@@ -3656,8 +3658,8 @@ static void smblib_handle_typec_insertion(struct smb_charger *chg,
 		typec_source_removal(chg);
 		typec_sink_insertion(chg);
 	} else {
-		typec_source_insertion(chg);
 		typec_sink_removal(chg);
+		typec_source_insertion(chg);
 	}
 
 	rp = smblib_get_prop_ufp_mode(chg);
