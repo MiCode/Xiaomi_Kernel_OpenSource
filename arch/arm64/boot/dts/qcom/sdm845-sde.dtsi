@@ -168,6 +168,8 @@
 		qcom,sde-qos-lut-cwb =
 			<0 0x75300000 0x00000000>;
 
+		qcom,sde-cdp-setting = <1 1>, <1 0>;
+
 		qcom,sde-inline-rotator = <&mdss_rotator 0>;
 
 		qcom,sde-reg-dma-off = <0>;
