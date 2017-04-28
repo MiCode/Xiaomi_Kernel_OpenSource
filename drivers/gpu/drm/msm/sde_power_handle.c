@@ -44,6 +44,7 @@ static void sde_power_event_trigger_locked(struct sde_power_handle *phandle,
 static int sde_power_rsc_update(struct sde_power_handle *phandle, bool enable)
 {
 	u32 rsc_state;
+	int ret = 0;
 
 	/* creates the rsc client on the first enable */
 	if (!phandle->rsc_client_init) {
@@ -59,8 +60,11 @@ static int sde_power_rsc_update(struct sde_power_handle *phandle, bool enable)
 
 	rsc_state = enable ? SDE_RSC_CLK_STATE : SDE_RSC_IDLE_STATE;
 
-	return sde_rsc_client_state_update(phandle->rsc_client,
+	if (phandle->rsc_client)
+		ret = sde_rsc_client_state_update(phandle->rsc_client,
 			rsc_state, NULL, -1);
+
+	return ret;
 }
 
 struct sde_power_client *sde_power_client_create(
