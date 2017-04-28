@@ -617,12 +617,25 @@ static int mmc_devfreq_create_freq_table(struct mmc_host *host)
 	}
 
 out:
-	clk_scaling->devfreq_profile.freq_table = (unsigned long *)clk_scaling->freq_table;
+	/**
+	 * devfreq requires unsigned long type freq_table while the
+	 * freq_table in clk_scaling is un32. Here allocates an individual
+	 * memory space for it and release it when exit clock scaling.
+	 */
+	clk_scaling->devfreq_profile.freq_table =  kzalloc(
+			clk_scaling->freq_table_sz *
+			sizeof(*(clk_scaling->devfreq_profile.freq_table)),
+			GFP_KERNEL);
+	if (!clk_scaling->devfreq_profile.freq_table)
+		return -ENOMEM;
 	clk_scaling->devfreq_profile.max_state = clk_scaling->freq_table_sz;
 
-	for (i = 0; i < clk_scaling->freq_table_sz; i++)
+	for (i = 0; i < clk_scaling->freq_table_sz; i++) {
+		clk_scaling->devfreq_profile.freq_table[i] =
+			clk_scaling->freq_table[i];
 		pr_debug("%s: freq[%d] = %u\n",
 			mmc_hostname(host), i, clk_scaling->freq_table[i]);
+	}
 
 	return 0;
 }
@@ -857,6 +870,8 @@ int mmc_exit_clk_scaling(struct mmc_host *host)
 			mmc_hostname(host), err);
 		return err;
 	}
+
+	kfree(host->clk_scaling.devfreq_profile.freq_table);
 
 	host->clk_scaling.devfreq = NULL;
 	atomic_set(&host->clk_scaling.devfreq_abort, 1);
