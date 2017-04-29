@@ -436,6 +436,7 @@ int iommu_fwspec_init(struct device *dev, struct fwnode_handle *iommu_fwnode,
 void iommu_fwspec_free(struct device *dev);
 int iommu_fwspec_add_ids(struct device *dev, u32 *ids, int num_ids);
 int iommu_fwspec_get_id(struct device *dev, u32 *id);
+int iommu_is_available(struct device *dev);
 
 #else /* CONFIG_IOMMU_API */
 
@@ -711,6 +712,10 @@ static inline int iommu_fwspec_get_id(struct device *dev, u32 *id)
 	return -ENODEV;
 }
 
+static inline int iommu_is_available(struct device *dev)
+{
+	return -ENODEV;
+}
 #endif /* CONFIG_IOMMU_API */
 
 #endif /* __LINUX_IOMMU_H */
