@@ -13,6 +13,8 @@
 
 /dts-v1/;
 
+#include "msm8998-v2.1-interposer-sdm660.dtsi"
+#include "msm8998-mdss-panels.dtsi"
 #include "msm8998-v2.1-interposer-sdm660-qrd.dtsi"
 #include "msm8998-interposer-pm660.dtsi"
 #include "msm8998-interposer-sdm660-audio.dtsi"
