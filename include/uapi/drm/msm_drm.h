@@ -323,6 +323,18 @@ struct drm_msm_counter_read {
 	__u32 nr_ops;
 };
 
+#define MSM_GEM_SYNC_TO_DEV 0
+#define MSM_GEM_SYNC_TO_CPU 1
+
+struct drm_msm_gem_syncop {
+	__u32 handle;
+	__u32 op;
+};
+
+struct drm_msm_gem_sync {
+	__u32 nr_ops;
+	__u64 __user ops;
+};
 
 #define DRM_MSM_GET_PARAM              0x00
 /* placeholder:
@@ -341,6 +353,7 @@ struct drm_msm_counter_read {
 #define DRM_MSM_COUNTER_GET            0x43
 #define DRM_MSM_COUNTER_PUT            0x44
 #define DRM_MSM_COUNTER_READ           0x45
+#define DRM_MSM_GEM_SYNC               0x46
 
 /**
  * Currently DRM framework supports only VSYNC event.
@@ -370,5 +383,6 @@ struct drm_msm_counter_read {
 #define DRM_IOCTL_MSM_COUNTER_READ \
 	DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_COUNTER_READ, \
 		struct drm_msm_counter_read)
-
+#define DRM_IOCTL_MSM_GEM_SYNC DRM_IOW(DRM_COMMAND_BASE + DRM_MSM_GEM_SYNC,\
+		struct drm_msm_gem_sync)
 #endif /* __MSM_DRM_H__ */
