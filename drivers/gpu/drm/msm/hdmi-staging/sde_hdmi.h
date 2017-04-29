@@ -36,6 +36,10 @@
 #define SDE_HDMI_DEBUG(fmt, args...)   SDE_DEBUG(fmt, ##args)
 #endif
 
+/* HW Revisions for different SDE targets */
+#define SDE_GET_MAJOR_VER(rev)((rev) >> 28)
+#define SDE_GET_MINOR_VER(rev)(((rev) >> 16) & 0xFFF)
+
 /**
  * struct sde_hdmi_info - defines hdmi display properties
  * @display_type:      Display type as defined by device tree.
@@ -121,7 +125,11 @@ struct sde_hdmi {
 	struct drm_display_mode mode;
 	bool connected;
 	bool is_tpg_enabled;
-
+	u32 hdmi_tx_version;
+	u32 hdmi_tx_major_version;
+	u32 max_pclk_khz;
+	bool hdcp1_use_sw_keys;
+	u32 hdcp14_present;
 	struct work_struct hpd_work;
 	bool codec_ready;
 	bool client_notify_pending;
@@ -154,6 +162,11 @@ enum hdmi_tx_scdc_access_type {
 
 #define HDMI_KHZ_TO_HZ 1000
 #define HDMI_MHZ_TO_HZ 1000000
+
+/* Maximum pixel clock rates for hdmi tx */
+#define HDMI_DEFAULT_MAX_PCLK_RATE	148500
+#define HDMI_TX_3_MAX_PCLK_RATE		297000
+#define HDMI_TX_4_MAX_PCLK_RATE		600000
 /**
  * hdmi_tx_ddc_timer_type() - hdmi DDC timer functionalities.
  */
