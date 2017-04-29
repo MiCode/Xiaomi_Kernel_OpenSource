@@ -1,0 +1,17 @@
+* HSIC Neutrino Ethernet *
+
+This driver implements HSIC based Ethernet driver for Neutrino ethernet controller
+
+Required properties:
+  - compatible: Should be "qcom,ntn-hsic"
+  - vdd-ntn-hsic-supply: Neutrino HSIC power supply
+  - ntn-rst-gpio: Neutrino reset GPIO
+
+Example:
+	qcom,ntn_hsic {
+		compatible = "qcom,ntn-hsic";
+		vdd-ntn-hsic-supply = <&mdm9607_l11>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&ntn_rst_gpio_default>;
+		ntn-rst-gpio = <&tlmm_pinmux 30 1>;
+	};
