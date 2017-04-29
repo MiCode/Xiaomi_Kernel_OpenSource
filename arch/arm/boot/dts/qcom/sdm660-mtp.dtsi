@@ -170,6 +170,10 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
+&dsi_rm67195_amoled_fhd_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+};
+
 &sdhc_1 {
 	/* device core power supply */
 	vdd-supply = <&pm660l_l4>;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -327,6 +327,7 @@ int mdss_dsi_phy_v3_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl, bool enable)
 		 */
 		DSI_PHY_W32(ctrl->phy_io.base, CMN_DSI_LANE_CTRL3,
 			active_lanes);
+		usleep_range(5, 15);
 
 		DSI_PHY_W32(ctrl->phy_io.base, CMN_DSI_LANE_CTRL3, 0);
 
@@ -340,6 +341,20 @@ error:
 	return rc;
 }
 
+void mdss_dsi_phy_v3_idle_pc_exit(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	u32 val = BIT(5);
+	u32 data;
+
+	/* Reset phy pll after idle pc exit */
+	data = DSI_PHY_R32(ctrl->phy_io.base, CMN_CTRL_1);
+	DSI_PHY_W32(ctrl->phy_io.base, CMN_CTRL_1, data | val);
+	usleep_range(10, 15);
+
+	data = DSI_PHY_R32(ctrl->phy_io.base, CMN_CTRL_1);
+	data &= ~(BIT(5));
+	DSI_PHY_W32(ctrl->phy_io.base, CMN_CTRL_1, data);
+}
 
 int mdss_dsi_phy_v3_shutdown(struct mdss_dsi_ctrl_pdata *ctrl)
 {

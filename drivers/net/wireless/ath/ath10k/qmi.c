@@ -13,6 +13,7 @@
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/service-notifier.h>
 #include <soc/qcom/msm_qmi_interface.h>
+#include <soc/qcom/icnss.h>
 #include <soc/qcom/service-locator.h>
 #include "core.h"
 #include "qmi.h"
@@ -448,6 +449,7 @@ int ath10k_snoc_qmi_wlan_enable(struct ath10k *ar,
 	int ret;
 	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
 	struct ath10k_snoc_qmi_config *qmi_cfg = &ar_snoc->qmi_cfg;
+	unsigned long time_left;
 
 	ath10k_dbg(ar, ATH10K_DBG_SNOC,
 		   "Mode: %d, config: %p, host_version: %s\n",
@@ -461,10 +463,15 @@ int ath10k_snoc_qmi_wlan_enable(struct ath10k *ar,
 		return ret;
 	}
 
-	wait_event_timeout(ath10k_fw_ready_wait_event,
+	time_left = wait_event_timeout(
+			   ath10k_fw_ready_wait_event,
 			   (atomic_read(&qmi_cfg->fw_ready) &&
 			    atomic_read(&qmi_cfg->server_connected)),
 			   msecs_to_jiffies(ATH10K_SNOC_WLAN_FW_READY_TIMEOUT));
+	if (time_left == 0) {
+		ath10k_err(ar, "Wait for FW ready and server connect timed out\n");
+		return -ETIMEDOUT;
+	}
 
 	req.host_version_valid = 1;
 	strlcpy(req.host_version, host_version,
@@ -854,9 +861,21 @@ int ath10k_snoc_start_qmi_service(struct ath10k *ar)
 		goto out_destroy_wq;
 	}
 
+	if (!icnss_is_fw_ready()) {
+		ath10k_err(ar, "failed to get fw ready indication\n");
+		ret = -EFAULT;
+		goto err_fw_ready;
+	}
+
+	atomic_set(&qmi_cfg->fw_ready, 1);
 	ath10k_dbg(ar, ATH10K_DBG_SNOC, "QMI service started successfully\n");
 	return 0;
 
+err_fw_ready:
+	qmi_svc_event_notifier_unregister(WLFW_SERVICE_ID_V01,
+					  WLFW_SERVICE_VERS_V01,
+					  WLFW_SERVICE_INS_ID_V01,
+					  &qmi_cfg->wlfw_clnt_nb);
 out_destroy_wq:
 	destroy_workqueue(qmi_cfg->event_wq);
 	return ret;
