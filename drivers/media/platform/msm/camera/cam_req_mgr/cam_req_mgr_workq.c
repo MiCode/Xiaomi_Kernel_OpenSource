@@ -22,12 +22,16 @@ struct crm_workq_task *cam_req_mgr_workq_get_task(
 		return NULL;
 
 	spin_lock(&workq->task.lock);
+	if (list_empty(&workq->task.empty_head))
+		goto end;
+
 	task = list_first_entry(&workq->task.empty_head,
 		struct crm_workq_task, entry);
 	if (task) {
 		atomic_sub(1, &workq->task.free_cnt);
 		list_del_init(&task->entry);
 	}
+end:
 	spin_unlock(&workq->task.lock);
 
 	return task;
