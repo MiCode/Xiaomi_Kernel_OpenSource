@@ -2743,9 +2743,12 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		if (split_display)
 			num_of_display_on--;
 	}
-	if (!num_of_display_on)
+	if (!num_of_display_on) {
 		mdss_mdp_footswitch_ctrl_splash(false);
-	else {
+		msm_bus_scale_client_update_request(
+					mdata->bus_hdl, 0);
+		mdata->ao_bw_uc_idx = 0;
+	} else {
 		mdata->handoff_pending = true;
 		/*
 		 * If multiple displays are enabled in LK, ctrl_splash off will
