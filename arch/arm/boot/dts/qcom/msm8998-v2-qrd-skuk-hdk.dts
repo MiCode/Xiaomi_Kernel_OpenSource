@@ -13,6 +13,7 @@
 /dts-v1/;
 
 #include "msm8998-v2.dtsi"
+#include "msm8998-mdss-panels.dtsi"
 #include "msm8998-qrd-skuk-hdk.dtsi"
 
 / {

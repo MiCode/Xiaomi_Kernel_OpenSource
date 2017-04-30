@@ -18,6 +18,7 @@
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
+#include "msm8998-mdss-panels.dtsi"
 #include "msm8998-cdp.dtsi"
 
 / {
