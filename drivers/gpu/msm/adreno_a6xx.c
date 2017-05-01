@@ -1068,6 +1068,8 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 				0xFFFFFFFF))
 			goto error_rsc;
 
+		kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 0);
+
 		/* Turn on the HM and SPTP head switches */
 		ret = a6xx_hm_sptprac_control(device, true);
 	}
@@ -1106,6 +1108,7 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 			&val);
 	kgsl_gmu_regread(device, A6XX_RSCC_TIMESTAMP_UNIT0_TIMESTAMP_H_DRV0,
 			&val);
+	kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 0);
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 0);
 
