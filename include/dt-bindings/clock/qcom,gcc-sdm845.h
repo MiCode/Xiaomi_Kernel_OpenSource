@@ -214,6 +214,8 @@
 #define GCC_USB3PHY_PHY_SEC_BCR					22
 #define GCC_USB3_DP_PHY_SEC_BCR					23
 #define GCC_USB_PHY_CFG_AHB2PHY_BCR				24
+#define GCC_PCIE_0_PHY_BCR					25
+#define GCC_PCIE_1_PHY_BCR					26
 
 /* Dummy clocks for rate measurement */
 #define MEASURE_ONLY_SNOC_CLK					0
