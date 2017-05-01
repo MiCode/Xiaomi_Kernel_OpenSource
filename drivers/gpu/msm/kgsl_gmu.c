@@ -1369,23 +1369,38 @@ error_clks:
 	return ret;
 }
 
+#define GMU_IDLE_TIMEOUT	10 /* ms */
+
 /* Caller shall ensure GPU is ready for SLUMBER */
 void gmu_stop(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = &device->gmu;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	unsigned long t;
+	bool idle = false;
 
 	if (!test_bit(GMU_CLK_ON, &gmu->flags))
 		return;
 
-	if (gpudev->wait_for_gmu_idle &&
-		!gpudev->wait_for_gmu_idle(adreno_dev)) {
-		dev_err(&gmu->pdev->dev, "Failure to stop gmu");
-		return;
+	if (gpudev->hw_isidle) {
+		t = jiffies + msecs_to_jiffies(GMU_IDLE_TIMEOUT);
+		while (!time_after(jiffies, t)) {
+			if (gpudev->hw_isidle(adreno_dev)) {
+				idle = true;
+				break;
+			}
+			cpu_relax();
+		}
 	}
 
 	gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_NOTIFY_SLUMBER, 0, 0);
+
+	if (!idle || (gpudev->wait_for_gmu_idle &&
+			gpudev->wait_for_gmu_idle(adreno_dev))) {
+		dev_err(&gmu->pdev->dev, "Failure to stop GMU");
+		return;
+	}
 
 	/* Pending message in all queues are abandoned */
 	hfi_stop(gmu);

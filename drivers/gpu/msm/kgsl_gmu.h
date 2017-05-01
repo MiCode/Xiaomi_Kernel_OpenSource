@@ -146,7 +146,7 @@ enum gpu_idle_level {
 	GPU_HW_NAP = 0x4,
 	GPU_HW_MIN_VOLT = 0x5,
 	GPU_HW_MIN_DDR = 0x6,
-	GPU_HW_SLUMBER = 0xF
+	GPU_HW_SLUMBER = 0x7
 };
 
 /**
