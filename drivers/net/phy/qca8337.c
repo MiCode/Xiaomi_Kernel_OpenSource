@@ -182,7 +182,7 @@ static void qca8337_vlan_config(struct qca8337_priv *priv)
 	priv->ops->write(priv, QCA8337_REG_PORT_VLAN0(4), 0x10001);
 
 	priv->ops->write(priv, QCA8337_REG_PORT_LOOKUP(5), 0x0014005f);
-	priv->ops->write(priv, QCA8337_REG_PORT_VLAN0(5), 0x20001);
+	priv->ops->write(priv, QCA8337_REG_PORT_VLAN0(5), 0x10001);
 
 	priv->ops->write(priv, QCA8337_REG_PORT_LOOKUP(6), 0x0014001e);
 	priv->ops->write(priv, QCA8337_REG_PORT_VLAN0(6), 0x10001);
