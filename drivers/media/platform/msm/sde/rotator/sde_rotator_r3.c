@@ -2596,6 +2596,11 @@ static int sde_hw_rotator_validate_entry(struct sde_rot_mgr *mgr,
 	}
 
 	if ((src_w != dst_w) || (src_h != dst_h)) {
+		if (!dst_w || !dst_h) {
+			SDEROT_DBG("zero output width/height not support\n");
+			ret = -EINVAL;
+			goto dnsc_err;
+		}
 		if ((src_w % dst_w) || (src_h % dst_h)) {
 			SDEROT_DBG("non integral scale not support\n");
 			ret = -EINVAL;
