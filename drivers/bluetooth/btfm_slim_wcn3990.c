@@ -83,19 +83,34 @@ int btfm_slim_chrk_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 {
 	int ret = 0;
 	uint8_t reg_val = 0;
+	uint8_t port_bit = 0;
 	uint16_t reg;
 
 	BTFMSLIM_DBG("port(%d) enable(%d)", port_num, enable);
 	if (rxport) {
+		if (enable) {
+			/* For SCO Rx, A2DP Rx */
+			reg_val = 0x1;
+			port_bit = port_num - 0x10;
+			reg = CHRK_SB_PGD_RX_PORTn_MULTI_CHNL_0(port_bit);
+			BTFMSLIM_DBG("writing reg_val (%d) to reg(%x)",
+					reg_val, reg);
+			ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
+			if (ret) {
+				BTFMSLIM_ERR("failed to write (%d) reg 0x%x",
+						ret, reg);
+				goto error;
+			}
+		}
 		/* Port enable */
 		reg = CHRK_SB_PGD_PORT_RX_CFGN(port_num - 0x10);
 		goto enable_disable_rxport;
 	}
-	/* txport */
 	if (!enable)
 		goto enable_disable_txport;
 
-	/* Multiple Channel Setting - only for FM Tx */
+	/* txport */
+	/* Multiple Channel Setting */
 	if (is_fm_port(port_num)) {
 		reg_val = (0x1 << CHRK_SB_PGD_PORT_TX1_FM) |
 				(0x1 << CHRK_SB_PGD_PORT_TX2_FM);
@@ -103,6 +118,18 @@ int btfm_slim_chrk_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 		ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
 		if (ret) {
 			BTFMSLIM_ERR("failed to write (%d) reg 0x%x", ret, reg);
+			goto error;
+		}
+	} else if (port_num == CHRK_SB_PGD_PORT_TX_SCO) {
+		/* SCO Tx */
+		reg_val = 0x1 << CHRK_SB_PGD_PORT_TX_SCO;
+		reg = CHRK_SB_PGD_TX_PORTn_MULTI_CHNL_0(port_num);
+		BTFMSLIM_DBG("writing reg_val (%d) to reg(%x)",
+				reg_val, reg);
+		ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
+		if (ret) {
+			BTFMSLIM_ERR("failed to write (%d) reg 0x%x",
+					ret, reg);
 			goto error;
 		}
 	}
