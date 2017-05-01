@@ -208,7 +208,7 @@ config NAU7802
 
 config QCOM_RRADC
 	tristate "Qualcomm Technologies Inc. PMIC Round robin ADC"
-	depends on SPMI
+	depends on MSM_SPMI
 	help
 	  This is the PMIC Round Robin ADC driver.
 
