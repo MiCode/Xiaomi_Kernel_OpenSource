@@ -749,7 +749,7 @@ int32_t msm_sensor_driver_probe(void *setting,
 	if (strcmp(slave_info->eeprom_name, "ov4688") == 0) {
 		gemini_get_front_sensor_name(gemini_front_sensor_name);
 		if (hw_version_devid == 7)
-			strcat(gemini_front_sensor_name, "_capricorn");
+			strcat(gemini_front_sensor_name, "_a7");
 		pr_info("slave_info sensor_name = %s, front_sensor_name - %s\n",
 				slave_info->sensor_name, gemini_front_sensor_name);
 		if (strcmp(slave_info->sensor_name, gemini_front_sensor_name) != 0) {
