@@ -12,6 +12,7 @@
 
 #include "msm8909.dtsi"
 #include "msm8909-pinctrl.dtsi"
+#include "msm8909-regulator.dtsi"
 
 &soc {
 	/*
@@ -352,6 +353,22 @@
 	status = "ok";
 };
 
+&i2c_1 { /* BLSP1 QUP1 */
+	mpu6050@68 { /* Gyroscope and accelerometer sensor combo */
+		compatible = "invn,mpu6050";
+		reg = <0x68>;
+		pinctrl-names = "mpu_default","mpu_sleep";
+		pinctrl-0 = <&mpu6050_default>;
+		pinctrl-1 = <&mpu6050_sleep>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <96 0x1>;
+		vdd-supply = <&pm8909_l17>;
+		vlogic-supply = <&pm8909_l6>;
+		invn,gpio-int = <&msm_gpio 96 0x1>;
+		invn,place = "Portrait Down Back Side";
+	};
+};
+
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
 };
@@ -433,8 +450,31 @@
 			};
 		};
 	};
+	mpu6050_int_pin {
+		mpu6050_default: mpu6050_default {
+			mux {
+				pins = "gpio96";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio96";
+				drive-dtrength = <6>;
+				bias-pull-down;
+			};
+		};
+		mpu6050_sleep: mpu6050_sleep {
+			mux {
+				pins = "gpio96";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio96";
+				drive-dtrength = <2>;
+				bias-pull-down;
+			};
+		};
+	};
 };
-
 
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_hx8394d_720_vid>;

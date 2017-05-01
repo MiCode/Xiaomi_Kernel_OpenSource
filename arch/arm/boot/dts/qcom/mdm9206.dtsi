@@ -22,3 +22,7 @@
 	qcom,cpr-init-voltage-adjustment =
 			<25000	25000	25000>;
 };
+
+&modem_adsp_mem {
+	reg = <0x82a00000 0x2a00000>;
+};

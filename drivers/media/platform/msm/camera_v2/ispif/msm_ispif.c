@@ -67,6 +67,10 @@ static int pix_overflow_error_count[VFE_MAX] = { 0 };
 #define CDBG(fmt, args...)
 #endif
 
+/* Backward interface compatibility for 3D THRESHOLD calculation */
+#define ISPIF_USE_DEFAULT_THRESHOLD (0)
+#define ISPIF_CALCULATE_THRESHOLD (1)
+
 static int msm_ispif_clk_ahb_enable(struct ispif_device *ispif, int enable);
 static int ispif_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh);
 static long msm_ispif_subdev_ioctl_unlocked(struct v4l2_subdev *sd,
@@ -439,7 +443,7 @@ static int msm_ispif_reset_hw(struct ispif_device *ispif)
 		/* This is set when device is 8974 */
 		ispif->clk_idx = 1;
 	}
-
+	memset(ispif->stereo_configured, 0, sizeof(ispif->stereo_configured));
 	atomic_set(&ispif->reset_trig[VFE0], 1);
 	/* initiate reset of ISPIF */
 	msm_camera_io_w(ISPIF_RST_CMD_MASK,
@@ -995,21 +999,29 @@ static int msm_ispif_config(struct ispif_device *ispif,
 }
 
 static void msm_ispif_config_stereo(struct ispif_device *ispif,
-	struct msm_ispif_param_data_ext *params) {
+	struct msm_ispif_param_data_ext *params, int use_line_width) {
 
 	int i;
 	enum msm_ispif_vfe_intf vfe_intf;
+	uint32_t stereo_3d_threshold = STEREO_DEFAULT_3D_THRESHOLD;
 
 	for (i = 0; i < params->num; i++) {
+		vfe_intf = params->entries[i].vfe_intf;
 		if (params->entries[i].intftype == PIX0 &&
-		    params->stereo_enable &&
-		    params->right_entries[i].csid < CSID_MAX) {
-			vfe_intf = params->entries[i].vfe_intf;
+			params->stereo_enable &&
+			params->right_entries[i].csid < CSID_MAX &&
+			!ispif->stereo_configured[vfe_intf]) {
 			msm_camera_io_w_mb(0x3,
 				ispif->base + ISPIF_VFE_m_OUTPUT_SEL(vfe_intf));
-			msm_camera_io_w_mb(STEREO_DEFAULT_3D_THRESHOLD,
+			if (use_line_width &&
+				(params->line_width[vfe_intf] > 0))
+				stereo_3d_threshold =
+					(params->line_width[vfe_intf] +
+							2 * 6 - 1) / (2 * 6);
+			msm_camera_io_w_mb(stereo_3d_threshold,
 				ispif->base +
 					ISPIF_VFE_m_3D_THRESHOLD(vfe_intf));
+			ispif->stereo_configured[vfe_intf] = 1;
 		}
 	}
 }
@@ -1118,6 +1130,8 @@ static int msm_ispif_stop_immediately(struct ispif_device *ispif,
 		msm_ispif_enable_intf_cids(ispif, params->entries[i].intftype,
 			cid_mask, params->entries[i].vfe_intf, 0);
 		if (params->stereo_enable) {
+			ispif->stereo_configured[
+					params->entries[i].vfe_intf] = 0;
 			cid_mask = msm_ispif_get_right_cids_mask_from_cfg(
 					&params->right_entries[i],
 					params->entries[i].num_cids);
@@ -1148,7 +1162,8 @@ static int msm_ispif_start_frame_boundary(struct ispif_device *ispif,
 		rc = -EINVAL;
 		return rc;
 	}
-	msm_ispif_config_stereo(ispif, params);
+
+	msm_ispif_config_stereo(ispif, params, ISPIF_USE_DEFAULT_THRESHOLD);
 	msm_ispif_intf_cmd(ispif, ISPIF_INTF_CMD_ENABLE_FRAME_BOUNDARY, params);
 
 	return rc;
@@ -1257,6 +1272,8 @@ static int msm_ispif_stop_frame_boundary(struct ispif_device *ispif,
 		if (rc < 0)
 			pr_err("ISPIF stop frame boundary timeout\n");
 		if (cid_right_mask) {
+			ispif->stereo_configured[
+					params->entries[i].vfe_intf] = 0;
 			intf_addr = ISPIF_VFE_m_PIX_INTF_n_STATUS(vfe_intf, 1);
 			rc = readl_poll_timeout(ispif->base + intf_addr,
 						stop_flag,
@@ -1678,6 +1695,10 @@ static long msm_ispif_dispatch_cmd(enum ispif_cfg_type_t cmd,
 	case ISPIF_CFG2:
 		rc = msm_ispif_config2(ispif, params);
 		msm_ispif_io_dump_reg(ispif);
+		break;
+	case ISPIF_CFG_STEREO:
+		msm_ispif_config_stereo(ispif, params,
+						ISPIF_CALCULATE_THRESHOLD);
 		break;
 	default:
 		pr_err("%s: invalid cfg_type\n", __func__);
