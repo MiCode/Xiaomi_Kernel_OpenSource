@@ -368,17 +368,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 
 #define NUM_CTRLS ARRAY_SIZE(msm_vdec_ctrls)
 
-static u32 get_frame_size_nv12(int plane,
-					u32 height, u32 width)
-{
-	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12, width, height);
-}
-
-static u32 get_frame_size_nv12_ubwc(int plane, u32 height, u32 width)
-{
-	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12_UBWC, width, height);
-}
-
 static u32 get_frame_size_compressed_full_yuv(int plane,
 					u32 max_mbs_per_frame, u32 size_per_mb)
 {
@@ -389,11 +378,6 @@ static u32 get_frame_size_compressed(int plane,
 					u32 max_mbs_per_frame, u32 size_per_mb)
 {
 	return (max_mbs_per_frame * size_per_mb * 3/2)/2;
-}
-
-static u32 get_frame_size_nv12_ubwc_10bit(int plane, u32 height, u32 width)
-{
-	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12_BPP10_UBWC, width, height);
 }
 
 static u32 get_frame_size(struct msm_vidc_inst *inst,
@@ -446,7 +430,7 @@ struct msm_vidc_format vdec_formats[] = {
 		.name = "UBWC YCbCr Semiplanar 4:2:0 10bit",
 		.description = "UBWC Y/CbCr 4:2:0 10bit",
 		.fourcc = V4L2_PIX_FMT_NV12_TP10_UBWC,
-		.get_frame_size = get_frame_size_nv12_ubwc_10bit,
+		.get_frame_size = get_frame_size_tp10_ubwc,
 		.type = CAPTURE_PORT,
 	},
 	{
