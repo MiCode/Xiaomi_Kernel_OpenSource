@@ -264,6 +264,22 @@ Bus Scaling Data:
 				* Current values of src & dst are defined at
 				include/linux/msm-bus-board.h
 
+SMMU Subnodes:
+- smmu_sde_****:		Child nodes representing sde smmu virtual
+				devices
+
+Subnode properties:
+- compatible:			Compatible names used for smmu devices.
+				names should be:
+				"qcom,smmu_sde_unsec": smmu context bank device
+				for unsecure sde real time domain.
+				"qcom,smmu_sde_sec": smmu context bank device
+				for secure sde real time domain.
+				"qcom,smmu_sde_nrt_unsec": smmu context bank device
+				for unsecure sde non-real time domain.
+				"qcom,smmu_sde_nrt_sec": smmu context bank device
+				for secure sde non-real time domain.
+
 
 Please refer to ../../interrupt-controller/interrupts.txt for a general
 description of interrupt bindings.
@@ -469,4 +485,14 @@ Example:
               <1 590 0 160000>,
               <1 590 0 320000>;
         };
+
+    smmu_kms_unsec: qcom,smmu_kms_unsec_cb {
+        compatible = "qcom,smmu_sde_unsec";
+        iommus = <&mmss_smmu 0>;
+    };
+
+    smmu_kms_sec: qcom,smmu_kms_sec_cb {
+        compatible = "qcom,smmu_sde_sec";
+        iommus = <&mmss_smmu 1>;
+    };
   };
