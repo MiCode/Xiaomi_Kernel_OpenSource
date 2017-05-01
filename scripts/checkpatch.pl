@@ -2438,15 +2438,6 @@ sub process {
 						     $herecurr);
 					}
 					$shorttext = AFTER_SHORTTEXT;
-				} elsif (length($line) > (SHORTTEXT_LIMIT +
-							  $shorttext_exspc)
-					 && $line !~ /^:([0-7]{6}\s){2}
-						      ([[:xdigit:]]+\.*
-						       \s){2}\w+\s\w+/xms) {
-					WARN("LONG_COMMIT_TEXT",
-					     "commit text line over " .
-					     SHORTTEXT_LIMIT .
-					     " characters\n" . $herecurr);
 				} elsif ($line=~/^\s*change-id:/i ||
 					 $line=~/^\s*signed-off-by:/i ||
 					 $line=~/^\s*crs-fixed:/i ||
