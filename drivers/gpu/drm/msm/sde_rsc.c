@@ -388,7 +388,7 @@ static int sde_rsc_switch_to_idle(struct sde_rsc_priv *rsc)
 
 static int sde_rsc_switch_to_cmd(struct sde_rsc_priv *rsc,
 	struct sde_rsc_cmd_config *config,
-	struct sde_rsc_client *caller_client, bool wait_req)
+	struct sde_rsc_client *caller_client)
 {
 	struct sde_rsc_client *client;
 	int rc = STATE_UPDATE_NOT_ALLOWED;
@@ -416,8 +416,8 @@ static int sde_rsc_switch_to_cmd(struct sde_rsc_priv *rsc,
 	if (rsc->hw_ops.state_update)
 		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_CMD_STATE);
 
-	/* wait for vsync */
-	if (!rc && wait_req)
+	/* wait for vsync for vid to cmd state switch */
+	if (!rc && (rsc->current_state == SDE_RSC_VID_STATE))
 		drm_wait_one_vblank(rsc->master_drm,
 						rsc->primary_client->crtc_id);
 end:
@@ -436,13 +436,19 @@ static bool sde_rsc_switch_to_clk(struct sde_rsc_priv *rsc)
 
 	if (rsc->hw_ops.state_update)
 		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_CLK_STATE);
+
+	/* wait for vsync for cmd to clk state switch */
+	if (!rc && rsc->primary_client &&
+				(rsc->current_state == SDE_RSC_CMD_STATE))
+		drm_wait_one_vblank(rsc->master_drm,
+						rsc->primary_client->crtc_id);
 end:
 	return rc;
 }
 
 static bool sde_rsc_switch_to_vid(struct sde_rsc_priv *rsc,
 	struct sde_rsc_cmd_config *config,
-	struct sde_rsc_client *caller_client, bool wait_req)
+	struct sde_rsc_client *caller_client)
 {
 	int rc = 0;
 
@@ -454,8 +460,9 @@ static bool sde_rsc_switch_to_vid(struct sde_rsc_priv *rsc,
 	if (rsc->hw_ops.state_update)
 		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_VID_STATE);
 
-	/* wait for vsync */
-	if (!rc && rsc->primary_client && wait_req)
+	/* wait for vsync for cmd to vid state switch */
+	if (!rc && rsc->primary_client &&
+			(rsc->current_state == SDE_RSC_CMD_STATE))
 		drm_wait_one_vblank(rsc->master_drm,
 						rsc->primary_client->crtc_id);
 	return rc;
@@ -481,7 +488,6 @@ int sde_rsc_client_state_update(struct sde_rsc_client *caller_client,
 {
 	int rc = 0;
 	struct sde_rsc_priv *rsc;
-	bool wait_requested = false;
 
 	if (!caller_client) {
 		pr_err("invalid client for rsc state update\n");
@@ -512,11 +518,7 @@ int sde_rsc_client_state_update(struct sde_rsc_client *caller_client,
 		__builtin_return_address(0), rsc->current_state,
 		caller_client->name, state);
 
-	/* only switch state needs vsync wait */
-	wait_requested = (rsc->current_state == SDE_RSC_VID_STATE) ||
-			(rsc->current_state == SDE_RSC_CMD_STATE);
-
-	if (rsc->power_collapse)
+	if (rsc->current_state == SDE_RSC_IDLE_STATE)
 		sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
 
 	switch (state) {
@@ -526,7 +528,7 @@ int sde_rsc_client_state_update(struct sde_rsc_client *caller_client,
 		/* video state client might be exiting; try cmd state switch */
 		if (rc == TRY_CMD_MODE_SWITCH) {
 			rc = sde_rsc_switch_to_cmd(rsc, NULL,
-					rsc->primary_client, wait_requested);
+							rsc->primary_client);
 			if (!rc)
 				state = SDE_RSC_CMD_STATE;
 
@@ -539,13 +541,11 @@ int sde_rsc_client_state_update(struct sde_rsc_client *caller_client,
 		break;
 
 	case SDE_RSC_CMD_STATE:
-		rc = sde_rsc_switch_to_cmd(rsc, config, caller_client,
-								wait_requested);
+		rc = sde_rsc_switch_to_cmd(rsc, config, caller_client);
 		break;
 
 	case SDE_RSC_VID_STATE:
-		rc = sde_rsc_switch_to_vid(rsc, config, caller_client,
-								wait_requested);
+		rc = sde_rsc_switch_to_vid(rsc, config, caller_client);
 		break;
 
 	case SDE_RSC_CLK_STATE:
@@ -561,7 +561,7 @@ int sde_rsc_client_state_update(struct sde_rsc_client *caller_client,
 		rc = 0;
 		goto clk_disable;
 	} else if (rc) {
-		pr_err("state update failed rc:%d\n", rc);
+		pr_debug("state:%d update failed rc:%d\n", state, rc);
 		goto clk_disable;
 	}
 
@@ -569,7 +569,7 @@ int sde_rsc_client_state_update(struct sde_rsc_client *caller_client,
 	rsc->current_state = state;
 
 clk_disable:
-	if (rsc->power_collapse)
+	if (rsc->current_state == SDE_RSC_IDLE_STATE)
 		sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
 end:
 	mutex_unlock(&rsc->client_lock);
@@ -615,14 +615,9 @@ int sde_rsc_client_vote(struct sde_rsc_client *caller_client,
 			caller_client->name, ab_vote, ib_vote);
 
 	mutex_lock(&rsc->client_lock);
-	if ((caller_client->current_state == SDE_RSC_IDLE_STATE) ||
-		(rsc->current_state == SDE_RSC_IDLE_STATE)) {
-
-		pr_err("invalid state: client state:%d rsc state:%d\n",
-			caller_client->current_state, rsc->current_state);
-		rc = -EINVAL;
-		goto end;
-	}
+	rc = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
+	if (rc)
+		goto clk_enable_fail;
 
 	if (rsc->hw_ops.is_amc_mode)
 		amc_mode = rsc->hw_ops.is_amc_mode(rsc);
@@ -644,14 +639,19 @@ int sde_rsc_client_vote(struct sde_rsc_client *caller_client,
 		}
 	}
 
+	rpmh_invalidate(rsc->disp_rsc);
 	sde_power_data_bus_set_quota(&rsc->phandle, rsc->pclient,
 		SDE_POWER_HANDLE_DATA_BUS_CLIENT_RT, ab_vote, ib_vote);
+	rpmh_flush(rsc->disp_rsc);
 
 	if (rsc->hw_ops.tcs_use_ok)
 		rsc->hw_ops.tcs_use_ok(rsc);
 
 end:
+	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
+clk_enable_fail:
 	mutex_unlock(&rsc->client_lock);
+
 	return rc;
 }
 EXPORT_SYMBOL(sde_rsc_client_vote);
@@ -668,6 +668,10 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 	rsc = s->private;
 
 	mutex_lock(&rsc->client_lock);
+	ret = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
+	if (ret)
+		goto end;
+
 	seq_printf(s, "rsc current state:%d\n", rsc->current_state);
 	seq_printf(s, "wraper backoff time(ns):%d\n",
 				rsc->timer_config.static_wakeup_time_ns);
@@ -691,17 +695,15 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 		seq_printf(s, "\t client:%s state:%d\n",
 				client->name, client->current_state);
 
-	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
-
 	if (rsc->hw_ops.debug_show) {
 		ret = rsc->hw_ops.debug_show(s, rsc);
 		if (ret)
 			pr_err("sde rsc: hw debug failed ret:%d\n", ret);
 	}
-
 	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
-	mutex_unlock(&rsc->client_lock);
 
+end:
+	mutex_unlock(&rsc->client_lock);
 	return 0;
 }
 
@@ -722,20 +724,23 @@ static ssize_t _sde_debugfs_mode_ctrl_read(struct file *file, char __user *buf,
 {
 	struct sde_rsc_priv *rsc = file->private_data;
 	char buffer[MAX_BUFFER_SIZE];
-	int blen = 0;
+	int blen = 0, rc;
 
 	if (*ppos || !rsc || !rsc->hw_ops.mode_ctrl)
 		return 0;
 
 	mutex_lock(&rsc->client_lock);
-	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
+	rc = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
+	if (rc)
+		goto end;
 
 	blen = rsc->hw_ops.mode_ctrl(rsc, MODE_READ, buffer,
 							MAX_BUFFER_SIZE, 0);
 
 	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
-	mutex_unlock(&rsc->client_lock);
 
+end:
+	mutex_unlock(&rsc->client_lock);
 	if (blen < 0)
 		return 0;
 
@@ -752,6 +757,7 @@ static ssize_t _sde_debugfs_mode_ctrl_write(struct file *file,
 	struct sde_rsc_priv *rsc = file->private_data;
 	char *input, *mode;
 	u32 mode0_state = 0, mode1_state = 0, mode2_state = 0;
+	int rc;
 
 	if (!rsc || !rsc->hw_ops.mode_ctrl)
 		return 0;
@@ -767,7 +773,9 @@ static ssize_t _sde_debugfs_mode_ctrl_write(struct file *file,
 	input[count - 1] = '\0';
 
 	mutex_lock(&rsc->client_lock);
-	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
+	rc = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
+	if (rc)
+		goto clk_enable_fail;
 
 	mode = strnstr(input, "mode0=", strlen("mode0="));
 	if (mode) {
@@ -794,9 +802,10 @@ static ssize_t _sde_debugfs_mode_ctrl_write(struct file *file,
 
 end:
 	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
+clk_enable_fail:
 	mutex_unlock(&rsc->client_lock);
 
-	pr_err("req: mode0:%d mode1:%d mode2:%d\n", mode0_state, mode1_state,
+	pr_info("req: mode0:%d mode1:%d mode2:%d\n", mode0_state, mode1_state,
 								mode2_state);
 	kfree(input);
 	return count;
@@ -814,20 +823,23 @@ static ssize_t _sde_debugfs_vsync_mode_read(struct file *file, char __user *buf,
 {
 	struct sde_rsc_priv *rsc = file->private_data;
 	char buffer[MAX_BUFFER_SIZE];
-	int blen = 0;
+	int blen = 0, rc;
 
 	if (*ppos || !rsc || !rsc->hw_ops.hw_vsync)
 		return 0;
 
 	mutex_lock(&rsc->client_lock);
-	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
+	rc = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
+	if (rc)
+		goto end;
 
 	blen = rsc->hw_ops.hw_vsync(rsc, VSYNC_READ, buffer,
 						MAX_BUFFER_SIZE, 0);
 
 	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
-	mutex_unlock(&rsc->client_lock);
 
+end:
+	mutex_unlock(&rsc->client_lock);
 	if (blen < 0)
 		return 0;
 
@@ -844,6 +856,7 @@ static ssize_t _sde_debugfs_vsync_mode_write(struct file *file,
 	struct sde_rsc_priv *rsc = file->private_data;
 	char *input, *vsync_mode;
 	u32 vsync_state = 0;
+	int rc;
 
 	if (!rsc || !rsc->hw_ops.hw_vsync)
 		return 0;
@@ -865,7 +878,9 @@ static ssize_t _sde_debugfs_vsync_mode_write(struct file *file,
 	}
 
 	mutex_lock(&rsc->client_lock);
-	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
+	rc = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
+	if (rc)
+		goto end;
 
 	if (vsync_state)
 		rsc->hw_ops.hw_vsync(rsc, VSYNC_ENABLE, NULL,
@@ -874,8 +889,9 @@ static ssize_t _sde_debugfs_vsync_mode_write(struct file *file,
 		rsc->hw_ops.hw_vsync(rsc, VSYNC_DISABLE, NULL, 0, 0);
 
 	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
-	mutex_unlock(&rsc->client_lock);
 
+end:
+	mutex_unlock(&rsc->client_lock);
 	kfree(input);
 	return count;
 }
@@ -930,6 +946,8 @@ static void sde_rsc_deinit(struct platform_device *pdev,
 		msm_dss_iounmap(&rsc->wrapper_io);
 	if (rsc->drv_io.base)
 		msm_dss_iounmap(&rsc->drv_io);
+	if (rsc->disp_rsc)
+		rpmh_release(rsc->disp_rsc);
 	if (rsc->pclient)
 		sde_power_client_destroy(&rsc->phandle, rsc->pclient);
 
@@ -1038,6 +1056,17 @@ static int sde_rsc_probe(struct platform_device *pdev)
 		goto sde_rsc_fail;
 	}
 
+	rsc->disp_rsc = rpmh_get_byname(pdev, "disp_rsc");
+	if (IS_ERR_OR_NULL(rsc->disp_rsc)) {
+		ret = PTR_ERR(rsc->disp_rsc);
+		rsc->disp_rsc = NULL;
+		pr_err("sde rsc:get display rsc failed ret:%d\n", ret);
+		goto sde_rsc_fail;
+	}
+	rpmh_invalidate(rsc->disp_rsc);
+	/* call flush to disable the disp rsc interrupt */
+	rpmh_flush(rsc->disp_rsc);
+
 	ret = msm_dss_ioremap_byname(pdev, &rsc->wrapper_io, "wrapper");
 	if (ret) {
 		pr_err("sde rsc: wrapper io data mapping failed ret=%d\n", ret);
@@ -1084,7 +1113,6 @@ static int sde_rsc_probe(struct platform_device *pdev)
 	snprintf(name, MAX_RSC_CLIENT_NAME_LEN, "%s%d", "sde_rsc", counter);
 	_sde_rsc_init_debugfs(rsc, name);
 	counter++;
-	rsc->power_collapse = true;
 
 	ret = component_add(&pdev->dev, &sde_rsc_comp_ops);
 	if (ret)
