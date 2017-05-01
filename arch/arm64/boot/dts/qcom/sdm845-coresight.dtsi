@@ -457,6 +457,16 @@
 			};
 
 			port@1 {
+				reg = <0>;
+				funnel_in2_in_modem_etm0: endpoint {
+					slave-mode;
+					remote-endpoint =
+					  <&modem_etm0_out_funnel_in2>;
+				};
+
+			};
+
+			port@2 {
 				reg = <1>;
 				funnel_in2_in_replicator_swao: endpoint {
 					slave-mode;
@@ -466,7 +476,7 @@
 
 			};
 
-			port@2 {
+			port@3 {
 				reg = <2>;
 				funnel_in2_in_funnel_modem: endpoint {
 					slave-mode;
@@ -476,7 +486,7 @@
 
 			};
 
-			port@3 {
+			port@4 {
 				reg = <5>;
 				funnel_in2_in_funnel_apss_merg: endpoint {
 					slave-mode;
@@ -1602,6 +1612,20 @@
 				slave-mode;
 				remote-endpoint =
 					<&replicator_swao_out_eud>;
+			};
+		};
+	};
+
+	modem_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-name = "coresight-modem-etm0";
+		qcom,inst-id = <2>;
+
+		port {
+			modem_etm0_out_funnel_in2: endpoint {
+				remote-endpoint =
+					<&funnel_in2_in_modem_etm0>;
 			};
 		};
 	};
