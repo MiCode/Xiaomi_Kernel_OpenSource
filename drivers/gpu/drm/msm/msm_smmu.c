@@ -305,13 +305,13 @@ static struct msm_smmu_domain msm_smmu_domains[MSM_SMMU_DOMAIN_MAX] = {
 };
 
 static const struct of_device_id msm_smmu_dt_match[] = {
-	{ .compatible = "qcom,smmu-mdp-unsec",
+	{ .compatible = "qcom,smmu_sde_unsec",
 		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_UNSECURE] },
-	{ .compatible = "qcom,smmu-mdp-sec",
+	{ .compatible = "qcom,smmu_sde_sec",
 		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_SECURE] },
-	{ .compatible = "qcom,smmu-rot-unsec",
+	{ .compatible = "qcom,smmu_sde_nrt_unsec",
 		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_NRT_UNSECURE] },
-	{ .compatible = "qcom,smmu-rot-sec",
+	{ .compatible = "qcom,smmu_sde_nrt_sec",
 		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_NRT_SECURE] },
 	{}
 };
@@ -535,7 +535,7 @@ static struct platform_driver msm_smmu_driver = {
 	},
 };
 
-static int __init msm_smmu_driver_init(void)
+int __init msm_smmu_driver_init(void)
 {
 	int ret;
 
@@ -545,13 +545,11 @@ static int __init msm_smmu_driver_init(void)
 
 	return ret;
 }
-module_init(msm_smmu_driver_init);
 
-static void __exit msm_smmu_driver_cleanup(void)
+void __exit msm_smmu_driver_cleanup(void)
 {
 	platform_driver_unregister(&msm_smmu_driver);
 }
-module_exit(msm_smmu_driver_cleanup);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MSM SMMU driver");
