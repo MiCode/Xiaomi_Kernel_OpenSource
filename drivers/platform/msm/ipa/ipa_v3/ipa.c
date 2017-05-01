@@ -3569,16 +3569,32 @@ int ipa3_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 	ipa3_ctx->curr_ipa_clk_rate = clk_rate;
 	IPADBG_LOW("setting clock rate to %u\n", ipa3_ctx->curr_ipa_clk_rate);
 	if (ipa3_ctx->ipa3_active_clients.cnt > 0) {
+		struct ipa_active_client_logging_info log_info;
+
+		/*
+		 * clk_set_rate should be called with unlocked lock to allow
+		 * clients to get a reference to IPA clock synchronously.
+		 * Hold a reference to IPA clock here to make sure clock
+		 * state does not change during set_rate.
+		 */
+		IPA_ACTIVE_CLIENTS_PREP_SIMPLE(log_info);
+		ipa3_ctx->ipa3_active_clients.cnt++;
+		ipa3_active_clients_log_inc(&log_info, false);
+		ipa3_active_clients_unlock();
+
 		if (ipa3_clk)
 			clk_set_rate(ipa3_clk, ipa3_ctx->curr_ipa_clk_rate);
 		if (msm_bus_scale_client_update_request(ipa3_ctx->ipa_bus_hdl,
 			ipa3_get_bus_vote()))
 			WARN_ON(1);
+		/* remove the vote added here */
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 	} else {
 		IPADBG_LOW("clocks are gated, not setting rate\n");
+		ipa3_active_clients_unlock();
 	}
-	ipa3_active_clients_unlock();
 	IPADBG_LOW("Done\n");
+
 	return 0;
 }
 
