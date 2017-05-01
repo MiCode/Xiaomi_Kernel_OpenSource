@@ -412,6 +412,7 @@ int cam_soc_util_request_platform_resource(struct cam_hw_soc_info *soc_info,
 			goto put_regulator;
 		}
 		disable_irq(soc_info->irq_line->start);
+		soc_info->irq_data = irq_data;
 	}
 
 	/* Get Clock */
@@ -439,7 +440,8 @@ put_clk:
 
 	if (soc_info->irq_line) {
 		disable_irq(soc_info->irq_line->start);
-		free_irq(soc_info->irq_line->start, soc_info);
+		devm_free_irq(&soc_info->pdev->dev,
+			soc_info->irq_line->start, irq_data);
 	}
 
 put_regulator:
@@ -495,7 +497,8 @@ int cam_soc_util_release_platform_resource(struct cam_hw_soc_info *soc_info)
 
 	if (soc_info->irq_line) {
 		disable_irq(soc_info->irq_line->start);
-		free_irq(soc_info->irq_line->start, soc_info);
+		devm_free_irq(&soc_info->pdev->dev,
+			soc_info->irq_line->start, soc_info->irq_data);
 	}
 
 	return 0;
