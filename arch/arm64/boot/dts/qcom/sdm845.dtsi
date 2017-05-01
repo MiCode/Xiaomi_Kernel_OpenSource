@@ -1290,10 +1290,11 @@
 		      <0x1f64000 0x008>,
 		      <0x4180000 0x020>,
 		      <0xc2b0000 0x004>,
-		      <0xb2e0100 0x004>;
+		      <0xb2e0100 0x004>,
+		      <0x4180044 0x004>;
 		reg-names = "qdsp6_base", "halt_q6", "halt_modem",
 			    "halt_nc", "rmb_base", "restart_reg",
-			    "pdc_sync";
+			    "pdc_sync", "alt_reset";
 
 		clocks = <&clock_rpmh RPMH_CXO_CLK>,
 			 <&clock_gcc GCC_MSS_CFG_AHB_CLK>,
