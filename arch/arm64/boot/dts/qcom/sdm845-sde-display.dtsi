@@ -368,10 +368,106 @@
 		cell-index = <0>;
 		label = "wb_display";
 	};
+
+	sde_dp: qcom,dp_display@0{
+		cell-index = <0>;
+		compatible = "qcom,dp-display";
+
+		gdsc-supply = <&mdss_core_gdsc>;
+		vdda-1p2-supply = <&pm8998_l26>;
+		vdda-0p9-supply = <&pm8998_l1>;
+
+		reg =	<0xae90000 0xa84>,
+			<0x88eaa00 0x200>,
+			<0x88ea200 0x200>,
+			<0x88ea600 0x200>,
+			<0xaf02000 0x1a0>,
+			<0x780000 0x621c>,
+			<0x88ea030 0x10>,
+			<0x0aee1000 0x034>;
+		reg-names = "dp_ctrl", "dp_phy", "dp_ln_tx0", "dp_ln_tx1",
+			"dp_mmss_cc", "qfprom_physical", "dp_pll",
+			"hdcp_physical";
+
+		interrupt-parent = <&mdss_mdp>;
+		interrupts = <12 0>;
+
+		clocks =  <&clock_dispcc DISP_CC_MDSS_DP_AUX_CLK>,
+			 <&clock_rpmh RPMH_CXO_CLK>,
+			 <&clock_gcc GCC_USB3_PRIM_CLKREF_CLK>,
+			 <&clock_gcc GCC_USB_PHY_CFG_AHB2PHY_CLK>,
+			 <&clock_gcc GCC_USB3_PRIM_PHY_PIPE_CLK>,
+			 <&clock_dispcc DISP_CC_MDSS_DP_LINK_CLK>,
+			 <&clock_dispcc DISP_CC_MDSS_DP_LINK_INTF_CLK>,
+			 <&clock_dispcc DISP_CC_MDSS_DP_CRYPTO_CLK>,
+			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL_CLK>,
+			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL_CLK_SRC>,
+			 <&mdss_dp_pll DP_VCO_DIVIDED_CLK_SRC_MUX>;
+		clock-names = "core_aux_clk", "core_usb_ref_clk_src",
+			"core_usb_ref_clk", "core_usb_cfg_ahb_clk",
+			"core_usb_pipe_clk", "ctrl_link_clk",
+			"ctrl_link_iface_clk", "ctrl_crypto_clk",
+			"ctrl_pixel_clk", "pixel_clk_rcg", "pixel_parent";
+
+		qcom,dp-usbpd-detection = <&pmi8998_pdphy>;
+
+		qcom,aux-cfg-settings = [00 13 04 00 0a 26 0a 03 bb 03];
+
+		qcom,core-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,core-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
+
+		qcom,ctrl-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,ctrl-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdda-1p2";
+				qcom,supply-min-voltage = <1200000>;
+				qcom,supply-max-voltage = <1200000>;
+				qcom,supply-enable-load = <21800>;
+				qcom,supply-disable-load = <4>;
+			};
+		};
+
+		qcom,phy-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,phy-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdda-0p9";
+				qcom,supply-min-voltage = <880000>;
+				qcom,supply-max-voltage = <880000>;
+				qcom,supply-enable-load = <36000>;
+				qcom,supply-disable-load = <32>;
+			};
+		};
+	};
+};
+
+&sde_dp {
+	pinctrl-names = "mdss_dp_active", "mdss_dp_sleep";
+	pinctrl-0 = <&sde_dp_aux_active &sde_dp_usbplug_cc_active>;
+	pinctrl-1 = <&sde_dp_aux_suspend &sde_dp_usbplug_cc_suspend>;
+	qcom,aux-en-gpio = <&tlmm 43 0>;
+	qcom,aux-sel-gpio = <&tlmm 51 0>;
+	qcom,usbplug-cc-gpio = <&tlmm 38 0>;
 };
 
 &mdss_mdp {
-	connectors = <&sde_rscc &sde_wb>;
+	connectors = <&sde_rscc &sde_wb &sde_dp>;
 };
 
 &dsi_dual_nt35597_truly_video {
