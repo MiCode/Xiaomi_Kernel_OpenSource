@@ -585,6 +585,19 @@
 					bias-pull-down;
 				};
 			};
+
+			pcie0_wake_sleep: pcie0_wake_sleep {
+				mux {
+					pins = "gpio37";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio37";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
 		};
 
 		hph_en0_ctrl {
