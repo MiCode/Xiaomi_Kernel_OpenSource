@@ -1513,7 +1513,13 @@ static int sde_wb_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 		wb->clk_ctrl = SDE_CLK_CTRL_WB0 +
 			PROP_VALUE_ACCESS(prop_value, WB_ID, i);
 		wb->xin_id = PROP_VALUE_ACCESS(prop_value, WB_XIN_ID, i);
-		wb->vbif_idx = VBIF_NRT;
+
+		if (IS_SDE_MAJOR_MINOR_SAME((sde_cfg->hwversion),
+				SDE_HW_VER_170))
+			wb->vbif_idx = VBIF_NRT;
+		else
+			wb->vbif_idx = VBIF_RT;
+
 		wb->len = PROP_VALUE_ACCESS(prop_value, WB_LEN, 0);
 		if (!prop_exists[WB_LEN])
 			wb->len = DEFAULT_SDE_HW_BLOCK_LEN;
