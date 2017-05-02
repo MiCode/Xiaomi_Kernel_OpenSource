@@ -1030,7 +1030,8 @@ static int a6xx_notify_slumber(struct kgsl_device *device)
 		kgsl_gmu_regread(device, A6XX_GMU_RPMH_POWER_STATE, &state);
 		if (state != GPU_HW_SLUMBER) {
 			dev_err(&gmu->pdev->dev,
-					"Failed to prepare for slumber\n");
+					"Failed to prepare for slumber: 0x%x\n",
+					state);
 			ret = -EINVAL;
 		}
 	}
@@ -1302,9 +1303,6 @@ static int a6xx_wait_for_gmu_idle(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = &device->gmu;
-
-	/* TODO: Remove this register write when firmware is updated */
-	kgsl_gmu_regwrite(device, A6XX_GMU_CM3_FW_BUSY, 0);
 
 	if (timed_poll_check(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS,
 			0, GMU_START_TIMEOUT, CXGXCPUBUSYIGNAHB)) {
