@@ -82,12 +82,6 @@ struct bhie_vec_table {
 
 struct bhi_ctxt_t {
 	void __iomem *bhi_base;
-	void *unaligned_image_loc;
-	dma_addr_t dma_handle;
-	size_t alloc_size;
-	void *image_loc;
-	dma_addr_t phy_image_loc;
-	size_t image_size;
 	dev_t bhi_dev;
 	struct cdev cdev;
 	struct device *dev;
