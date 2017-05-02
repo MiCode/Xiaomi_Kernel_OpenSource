@@ -79,6 +79,7 @@
 		qcom,cpr-up-error-step-limit = <1>;
 		qcom,cpr-corner-switch-delay-time = <1042>;
 		qcom,cpr-voltage-settling-time = <1760>;
+		qcom,cpr-reset-step-quot-loop-en;
 
 		qcom,voltage-step = <4000>;
 		qcom,voltage-base = <352000>;
@@ -269,6 +270,7 @@
 		qcom,cpr-up-error-step-limit = <1>;
 		qcom,cpr-corner-switch-delay-time = <1042>;
 		qcom,cpr-voltage-settling-time = <1760>;
+		qcom,cpr-reset-step-quot-loop-en;
 
 		qcom,apm-threshold-voltage = <800000>;
 		qcom,apm-crossover-voltage = <880000>;
