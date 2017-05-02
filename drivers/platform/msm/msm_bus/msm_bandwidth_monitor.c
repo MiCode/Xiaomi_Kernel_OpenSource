@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -237,18 +237,20 @@ static int bm_tz_get_curr_bw(struct thermal_zone_device *bmdev,
 {
 	struct bm_tz_sensor *bm_sensor = bmdev->devdata;
 	int ret = 0;
+	u64 bus_bw = 0;
 
 	if (!bm_sensor || bm_sensor->mode != THERMAL_DEVICE_ENABLED || !bw)
 		return -EINVAL;
 
 	ret = msm_rule_query_bandwidth(
 		&bm_sensor->thresh_bus_rule[BM_HIGH_THRESHOLD],
-		(u64 *)bw,
+		&bus_bw,
 		&bm_sensor->bm_nb);
 	if (ret < 0) {
 		pr_err("Error in reading curr bw, ret:%d\n", ret);
 		return -EINVAL;
 	}
+	*bw = (unsigned long)bus_bw;
 	pr_debug("bm sensor[%s] curr bw:%lu\n", bm_sensor->bm_sensor, *bw);
 
 	return 0;
@@ -360,7 +362,7 @@ static int bm_tz_get_trip_bw(struct thermal_zone_device *bmdev,
 	if (!bm_sensor || trip < 0 || trip >= MAX_BM_THRESHOLD || !bw)
 		return -EINVAL;
 
-	*bw = bm_sensor->thresh_state[trip].trip_bw;
+	*bw = (unsigned long)bm_sensor->thresh_state[trip].trip_bw;
 
 	return 0;
 };
