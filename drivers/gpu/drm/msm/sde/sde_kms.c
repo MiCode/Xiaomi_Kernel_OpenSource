@@ -41,10 +41,6 @@
 #define CREATE_TRACE_POINTS
 #include "sde_trace.h"
 
-static const char * const iommu_ports[] = {
-		"mdp_0",
-};
-
 /**
  * Controls size of event log buffer. Specified as a power of 2.
  */
@@ -1077,8 +1073,7 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 
 		sde_kms->aspace[i] = aspace;
 
-		ret = mmu->funcs->attach(mmu, (const char **)iommu_ports,
-				ARRAY_SIZE(iommu_ports));
+		ret = mmu->funcs->attach(mmu, NULL, 0);
 		if (ret) {
 			SDE_ERROR("failed to attach iommu %d: %d\n", i, ret);
 			msm_gem_address_space_put(aspace);

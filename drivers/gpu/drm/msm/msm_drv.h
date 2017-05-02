@@ -413,7 +413,7 @@ void msm_gem_address_space_put(struct msm_gem_address_space *aspace);
 /* For GPU and legacy display */
 struct msm_gem_address_space *
 msm_gem_address_space_create(struct device *dev, struct iommu_domain *domain,
-		const char *name);
+		int type, const char *name);
 struct msm_gem_address_space *
 msm_gem_address_space_create_instance(struct msm_mmu *parent, const char *name,
 		uint64_t start, uint64_t end);

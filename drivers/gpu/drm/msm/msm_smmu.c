@@ -105,106 +105,34 @@ static void msm_smmu_detach(struct msm_mmu *mmu)
 }
 
 static int msm_smmu_map(struct msm_mmu *mmu, uint64_t iova,
-		struct sg_table *sgt, int prot)
-{
-	struct msm_smmu *smmu = to_msm_smmu(mmu);
-	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
-	struct iommu_domain *domain;
-	struct scatterlist *sg;
-	uint64_t da = iova;
-	unsigned int i, j;
-	int ret;
-
-	if (!client)
-		return -ENODEV;
-
-	domain = client->mmu_mapping->domain;
-	if (!domain || !sgt)
-		return -EINVAL;
-
-	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
-		u32 pa = sg_phys(sg) - sg->offset;
-		size_t bytes = sg->length + sg->offset;
-
-		VERB("map[%d]: %16llx %08x(%zx)", i, iova, pa, bytes);
-
-		ret = iommu_map(domain, da, pa, bytes, prot);
-		if (ret)
-			goto fail;
-
-		da += bytes;
-	}
-
-	return 0;
-
-fail:
-	da = iova;
-
-	for_each_sg(sgt->sgl, sg, i, j) {
-		size_t bytes = sg->length + sg->offset;
-
-		iommu_unmap(domain, da, bytes);
-		da += bytes;
-	}
-	return ret;
-}
-
-static int msm_smmu_map_sg(struct msm_mmu *mmu, struct sg_table *sgt,
-		enum dma_data_direction dir)
+		struct sg_table *sgt, u32 flags, void *priv)
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
 	int ret;
 
-	ret = dma_map_sg(client->dev, sgt->sgl, sgt->nents, dir);
-	if (ret != sgt->nents)
-		return -ENOMEM;
+	if (priv)
+		ret = msm_dma_map_sg_lazy(client->dev, sgt->sgl, sgt->nents,
+			DMA_BIDIRECTIONAL, priv);
+	else
+		ret = dma_map_sg(client->dev, sgt->sgl, sgt->nents,
+			DMA_BIDIRECTIONAL);
 
-	return 0;
+	return (ret != sgt->nents) ? -ENOMEM : 0;
 }
 
-static void msm_smmu_unmap_sg(struct msm_mmu *mmu, struct sg_table *sgt,
-		enum dma_data_direction dir)
+static void msm_smmu_unmap(struct msm_mmu *mmu, uint64_t iova,
+		struct sg_table *sgt, void *priv)
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
 
-	dma_unmap_sg(client->dev, sgt->sgl, sgt->nents, dir);
-}
-
-static int msm_smmu_unmap(struct msm_mmu *mmu, uint64_t iova,
-		struct sg_table *sgt)
-{
-	struct msm_smmu *smmu = to_msm_smmu(mmu);
-	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
-	struct iommu_domain *domain;
-	struct scatterlist *sg;
-	uint64_t da = iova;
-	int i;
-
-	if (!client)
-		return -ENODEV;
-
-	domain = client->mmu_mapping->domain;
-	if (!domain || !sgt)
-		return -EINVAL;
-
-	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
-		size_t bytes = sg->length + sg->offset;
-		size_t unmapped;
-
-		unmapped = iommu_unmap(domain, da, bytes);
-		if (unmapped < bytes)
-			return unmapped;
-
-		VERB("unmap[%d]: %16llx(%zx)", i, iova, bytes);
-
-		WARN_ON(!PAGE_ALIGNED(bytes));
-
-		da += bytes;
-	}
-
-	return 0;
+	if (priv)
+		msm_dma_unmap_sg(client->dev, sgt->sgl, sgt->nents,
+			DMA_BIDIRECTIONAL, priv);
+	else
+		dma_unmap_sg(client->dev, sgt->sgl, sgt->nents,
+			DMA_BIDIRECTIONAL);
 }
 
 static void msm_smmu_destroy(struct msm_mmu *mmu)
@@ -217,42 +145,11 @@ static void msm_smmu_destroy(struct msm_mmu *mmu)
 	kfree(smmu);
 }
 
-static int msm_smmu_map_dma_buf(struct msm_mmu *mmu, struct sg_table *sgt,
-			struct dma_buf *dma_buf, int dir)
-{
-	struct msm_smmu *smmu = to_msm_smmu(mmu);
-	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
-	int ret;
-
-	ret = msm_dma_map_sg_lazy(client->dev, sgt->sgl, sgt->nents, dir,
-			dma_buf);
-	if (ret != sgt->nents) {
-		DRM_ERROR("dma map sg failed\n");
-		return -ENOMEM;
-	}
-
-	return 0;
-}
-
-
-static void msm_smmu_unmap_dma_buf(struct msm_mmu *mmu, struct sg_table *sgt,
-			struct dma_buf *dma_buf, int dir)
-{
-	struct msm_smmu *smmu = to_msm_smmu(mmu);
-	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
-
-	msm_dma_unmap_sg(client->dev, sgt->sgl, sgt->nents, dir, dma_buf);
-}
-
 static const struct msm_mmu_funcs funcs = {
 	.attach = msm_smmu_attach,
 	.detach = msm_smmu_detach,
 	.map = msm_smmu_map,
-	.map_sg = msm_smmu_map_sg,
-	.unmap_sg = msm_smmu_unmap_sg,
 	.unmap = msm_smmu_unmap,
-	.map_dma_buf = msm_smmu_map_dma_buf,
-	.unmap_dma_buf = msm_smmu_unmap_dma_buf,
 	.destroy = msm_smmu_destroy,
 };
 

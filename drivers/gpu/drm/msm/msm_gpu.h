@@ -29,6 +29,9 @@
 struct msm_gem_submit;
 struct msm_gpu_perfcntr;
 
+#define MSM_GPU_DEFAULT_IONAME  "kgsl_3d0_reg_memory"
+#define MSM_GPU_DEFAULT_IRQNAME "kgsl_3d0_irq"
+
 struct msm_gpu_config {
 	const char *ioname;
 	const char *irqname;

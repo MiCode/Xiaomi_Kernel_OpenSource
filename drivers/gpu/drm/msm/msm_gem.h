@@ -25,21 +25,12 @@
 /* Additional internal-use only BO flags: */
 #define MSM_BO_STOLEN        0x10000000    /* try to use stolen/splash memory */
 
-struct msm_gem_aspace_ops {
-	int (*map)(struct msm_gem_address_space *, struct msm_gem_vma *,
-		struct sg_table *sgt, void *priv, unsigned int flags);
-
-	void (*unmap)(struct msm_gem_address_space *, struct msm_gem_vma *,
-		struct sg_table *sgt, void *priv);
-
-	void (*destroy)(struct msm_gem_address_space *);
-};
-
 struct msm_gem_address_space {
 	const char *name;
 	struct msm_mmu *mmu;
-	const struct msm_gem_aspace_ops *ops;
 	struct kref kref;
+	struct drm_mm mm;
+	u64 va_len;
 };
 
 struct msm_gem_vma {
