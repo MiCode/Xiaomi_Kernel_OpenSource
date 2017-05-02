@@ -320,15 +320,15 @@
 };
 
 &dsi_sharp_4k_dsc_video {
-	qcom,mdss-dsi-panel-phy-timings = [00 12 04 04 1e 1e 04 04 02 03 04 00];
-	qcom,mdss-dsi-t-clk-post = <0x0a>;
-	qcom,mdss-dsi-t-clk-pre = <0x1e>;
+	qcom,mdss-dsi-panel-phy-timings = [00 18 06 06 21 20 06 06 04 03 04 00];
+	qcom,mdss-dsi-t-clk-post = <0x0c>;
+	qcom,mdss-dsi-t-clk-pre = <0x27>;
 };
 
 &dsi_sharp_4k_dsc_cmd {
-	qcom,mdss-dsi-panel-phy-timings = [00 12 04 04 1e 1e 04 04 02 03 04 00];
-	qcom,mdss-dsi-t-clk-post = <0x0a>;
-	qcom,mdss-dsi-t-clk-pre = <0x1e>;
+	qcom,mdss-dsi-panel-phy-timings = [00 18 06 06 21 20 06 06 04 03 04 00];
+	qcom,mdss-dsi-t-clk-post = <0x0c>;
+	qcom,mdss-dsi-t-clk-pre = <0x27>;
 };
 
 &dsi_dual_sharp_1080_120hz_cmd {
