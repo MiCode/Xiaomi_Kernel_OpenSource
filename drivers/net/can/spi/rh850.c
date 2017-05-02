@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,7 @@
 #include <linux/spi/spi.h>
 #include <linux/can.h>
 #include <linux/can/dev.h>
+#include <linux/completion.h>
 
 #define DEBUG_RH850	0
 #if DEBUG_RH850 == 1
@@ -33,8 +34,11 @@
 #define MAX_TX_BUFFERS		1
 #define XFER_BUFFER_SIZE	64
 #define RX_ASSEMBLY_BUFFER_SIZE	128
-#define RH850_CLOCK	80000000
+#define RH850_CLOCK	16000000
 #define RH850_MAX_CHANNELS	4
+#define DRIVER_MODE_RAW_FRAMES 0
+#define DRIVER_MODE_PROPERTIES 1
+#define DRIVER_MODE_AMB 2
 
 struct rh850_can {
 	struct net_device	*netdev[RH850_MAX_CHANNELS];
@@ -50,6 +54,10 @@ struct rh850_can {
 	char *assembly_buffer;
 	u8 assembly_buffer_size;
 	atomic_t netif_queue_stop;
+	struct completion response_completion;
+	int wait_cmd;
+	int cmd_result;
+	int driver_mode;
 };
 
 struct rh850_netdev_privdata {
@@ -84,6 +92,36 @@ struct spi_miso { /* TLV for MISO line */
 #define CMD_CAN_ADD_FILTER	0x83
 #define CMD_CAN_REMOVE_FILTER	0x84
 #define CMD_CAN_RECEIVE_FRAME	0x85
+#define CMD_CAN_CONFIG_BIT_TIMING	0x86
+
+#define CMD_CAN_DATA_BUFF_ADD	0x87
+#define CMD_CAN_DATA_BUFF_REMOVE	0X88
+#define CMD_CAN_RELEASE_BUFFER	0x89
+#define CMD_CAN_DATA_BUFF_REMOVE_ALL	0x8A
+#define CMD_PROPERTY_WRITE	0x8B
+#define CMD_PROPERTY_READ	0x8C
+
+#define CMD_GET_FW_BR_VERSION		0x95
+#define CMD_BEGIN_FIRMWARE_UPGRADE	0x96
+#define CMD_FIRMWARE_UPGRADE_DATA	0x97
+#define CMD_END_FIRMWARE_UPGRADE	0x98
+#define CMD_BEGIN_BOOT_ROM_UPGRADE	0x99
+#define CMD_BOOT_ROM_UPGRADE_DATA	0x9A
+#define CMD_END_BOOT_ROM_UPGRADE	0x9B
+
+#define IOCTL_RELEASE_CAN_BUFFER	(SIOCDEVPRIVATE + 0)
+#define IOCTL_ENABLE_BUFFERING		(SIOCDEVPRIVATE + 1)
+#define IOCTL_ADD_FRAME_FILTER		(SIOCDEVPRIVATE + 2)
+#define IOCTL_REMOVE_FRAME_FILTER	(SIOCDEVPRIVATE + 3)
+#define IOCTL_DISABLE_BUFFERING		(SIOCDEVPRIVATE + 5)
+#define IOCTL_DISABLE_ALL_BUFFERING	(SIOCDEVPRIVATE + 6)
+#define IOCTL_GET_FW_BR_VERSION		(SIOCDEVPRIVATE + 7)
+#define IOCTL_BEGIN_FIRMWARE_UPGRADE	(SIOCDEVPRIVATE + 8)
+#define IOCTL_FIRMWARE_UPGRADE_DATA	(SIOCDEVPRIVATE + 9)
+#define IOCTL_END_FIRMWARE_UPGRADE	(SIOCDEVPRIVATE + 10)
+#define IOCTL_BEGIN_BOOT_ROM_UPGRADE	(SIOCDEVPRIVATE + 11)
+#define IOCTL_BOOT_ROM_UPGRADE_DATA	(SIOCDEVPRIVATE + 12)
+#define IOCTL_END_BOOT_ROM_UPGRADE	(SIOCDEVPRIVATE + 13)
 
 struct can_fw_resp {
 	u8 maj;
@@ -126,15 +164,82 @@ struct can_receive_frame {
 	u8 data[];
 } __packed;
 
+struct can_config_bit_timing {
+	u8 can_if;
+	u32 brp;
+	u32 tseg1;
+	u32 tseg2;
+	u32 sjw;
+} __packed;
+
+struct vehicle_property {
+	int id;
+	u64 ts;
+	int zone;
+	int val_type;
+	u32 data_len;
+	union {
+		u8 bval;
+		int val;
+		int val_arr[4];
+		float f_value;
+		float float_arr[4];
+		u8 str[36];
+	};
+} __packed;
+
+/* IOCTL messages */
+struct rh850_release_can_buffer {
+	u8 enable;
+} __packed;
+
+struct rh850_add_can_buffer {
+	u8 can_if;
+	u32 mid;
+	u32 mask;
+} __packed;
+
+struct rh850_delete_can_buffer {
+	u8 can_if;
+	u32 mid;
+	u32 mask;
+} __packed;
+
+struct can_fw_br_resp {
+	u8 maj;
+	u8 min;
+	u8 ver[32];
+	u8 br_maj;
+	u8 br_min;
+	u8 curr_exec_mode;
+} __packed;
+
+struct rh850_ioctl_req {
+	u8 len;
+	u8 data[];
+} __packed;
+
 static struct can_bittiming_const rh850_bittiming_const = {
 	.name = "rh850",
-	.tseg1_min = 4,
+	.tseg1_min = 1,
 	.tseg1_max = 16,
-	.tseg2_min = 2,
-	.tseg2_max = 8,
+	.tseg2_min = 1,
+	.tseg2_max = 16,
 	.sjw_max = 4,
-	.brp_min = 4,
-	.brp_max = 1023,
+	.brp_min = 1,
+	.brp_max = 70,
+	.brp_inc = 1,
+};
+
+static struct can_bittiming_const rh850_data_bittiming_const = {
+	.name = "rh850",
+	.tseg1_min = 1,
+	.tseg1_max = 16,
+	.tseg2_min = 1,
+	.tseg2_max = 16,
+	.sjw_max = 4,
+	.brp_min = 1,
+	.brp_max = 70,
 	.brp_inc = 1,
 };
 
@@ -165,7 +270,7 @@ static void rh850_receive_frame(struct rh850_can *priv_data,
 	}
 	netdev = priv_data->netdev[frame->can_if];
 	skb = alloc_can_skb(netdev, &cf);
-	if (skb == NULL) {
+	if (!skb) {
 		LOGDE("skb alloc failed. frame->can_if %d\n", frame->can_if);
 		return;
 	}
@@ -191,9 +296,51 @@ static void rh850_receive_frame(struct rh850_can *priv_data,
 	netdev->stats.rx_packets++;
 }
 
-static void rh850_process_response(struct rh850_can *priv_data,
-				   struct spi_miso *resp, int length)
+static void rh850_receive_property(struct rh850_can *priv_data,
+				   struct vehicle_property *property)
 {
+	struct canfd_frame *cfd;
+	u8 *p;
+	struct sk_buff *skb;
+	struct skb_shared_hwtstamps *skt;
+	struct timeval tv;
+	static u64 nanosec;
+	struct net_device *netdev;
+	int i;
+
+	/* can0 as the channel with properties */
+	netdev = priv_data->netdev[0];
+	skb = alloc_canfd_skb(netdev, &cfd);
+	if (!skb) {
+		LOGDE("skb alloc failed. frame->can_if %d\n", 0);
+		return;
+	}
+
+	LOGDI("rcv property:0x%x data:%2x %2x %2x %2x",
+	      property->id, property->str[0], property->str[1],
+	      property->str[2], property->str[3]);
+	cfd->can_id = 0x00;
+	cfd->len = sizeof(struct vehicle_property);
+
+	p = (u8 *)property;
+	for (i = 0; i < cfd->len; i++)
+		cfd->data[i] = p[i];
+
+	nanosec = le64_to_cpu(property->ts);
+	tv.tv_sec = (int)(nanosec / 1000000000);
+	tv.tv_usec = (int)(nanosec - (u64)tv.tv_sec * 1000000000) / 1000;
+	skt = skb_hwtstamps(skb);
+	skt->hwtstamp = timeval_to_ktime(tv);
+	LOGDI("  hwtstamp %lld\n", ktime_to_ms(skt->hwtstamp));
+	skb->tstamp = timeval_to_ktime(tv);
+	netif_rx(skb);
+	netdev->stats.rx_packets++;
+}
+
+static int rh850_process_response(struct rh850_can *priv_data,
+				  struct spi_miso *resp, int length)
+{
+	int ret = 0;
 	LOGDI("<%x %2d [%d]\n", resp->cmd, resp->len, resp->seq);
 	if (resp->cmd == CMD_CAN_RECEIVE_FRAME) {
 		struct can_receive_frame *frame =
@@ -208,19 +355,55 @@ static void rh850_process_response(struct rh850_can *priv_data,
 		} else {
 			rh850_receive_frame(priv_data, frame);
 		}
+	} else if (resp->cmd == CMD_PROPERTY_READ) {
+		struct vehicle_property *property =
+				(struct vehicle_property *)&resp->data;
+		if (resp->len > length) {
+			LOGDE("Error. This should never happen\n");
+			LOGDE("process_response: Saving %d bytes\n",
+			      length);
+			memcpy(priv_data->assembly_buffer, (char *)resp,
+			       length);
+			priv_data->assembly_buffer_size = length;
+		} else {
+			rh850_receive_property(priv_data, property);
+		}
 	} else if (resp->cmd  == CMD_GET_FW_VERSION) {
 		struct can_fw_resp *fw_resp = (struct can_fw_resp *)resp->data;
 		dev_info(&priv_data->spidev->dev, "fw %d.%d",
 			 fw_resp->maj, fw_resp->min);
 		dev_info(&priv_data->spidev->dev, "fw string %s",
 			 fw_resp->ver);
+	} else if (resp->cmd  == CMD_GET_FW_BR_VERSION) {
+		struct can_fw_br_resp *fw_resp =
+				(struct can_fw_br_resp *)resp->data;
+
+		dev_info(&priv_data->spidev->dev, "fw_can %d.%d",
+			 fw_resp->maj, fw_resp->min);
+		dev_info(&priv_data->spidev->dev, "fw string %s",
+			 fw_resp->ver);
+		dev_info(&priv_data->spidev->dev, "fw_br %d.%d exec_mode %d",
+			 fw_resp->br_maj, fw_resp->br_min,
+			 fw_resp->curr_exec_mode);
+		ret = fw_resp->curr_exec_mode << 28;
+		ret |= (fw_resp->br_maj & 0xF) << 24;
+		ret |= (fw_resp->br_min & 0xFF) << 16;
+		ret |= (fw_resp->maj & 0xF) << 8;
+		ret |= (fw_resp->min & 0xFF);
 	}
+
+	if (resp->cmd == priv_data->wait_cmd) {
+		priv_data->cmd_result = ret;
+		complete(&priv_data->response_completion);
+	}
+	return ret;
 }
 
-static void rh850_process_rx(struct rh850_can *priv_data, char *rx_buf)
+static int rh850_process_rx(struct rh850_can *priv_data, char *rx_buf)
 {
 	struct spi_miso *resp;
 	int length_processed = 0, actual_length = priv_data->xfer_length;
+	int ret = 0;
 
 	while (length_processed < actual_length) {
 		int length_left = actual_length - length_processed;
@@ -237,7 +420,8 @@ static void rh850_process_rx(struct rh850_can *priv_data, char *rx_buf)
 			       rx_buf, 2);
 			data = priv_data->assembly_buffer;
 			resp = (struct spi_miso *)data;
-			length = resp->len - priv_data->assembly_buffer_size;
+			length = resp->len + sizeof(*resp)
+					- priv_data->assembly_buffer_size;
 			if (length > 0)
 				memcpy(priv_data->assembly_buffer +
 				       priv_data->assembly_buffer_size,
@@ -258,15 +442,11 @@ static void rh850_process_rx(struct rh850_can *priv_data, char *rx_buf)
 		      length_processed, length_left, priv_data->xfer_length);
 		length_processed += length;
 		if (length_left >= sizeof(*resp) &&
-		    resp->len <= length_left) {
+		    resp->len + sizeof(*resp) <= length_left) {
 			struct spi_miso *resp =
 					(struct spi_miso *)data;
-			if (resp->len < sizeof(struct spi_miso)) {
-				LOGDE("Error resp->len is %d). Abort.\n",
-				      resp->len);
-				break;
-			}
-			rh850_process_response(priv_data, resp, length_left);
+			ret = rh850_process_response(priv_data, resp,
+						     length_left);
 		} else if (length_left > 0) {
 			/* Not full message. Store however much we have for */
 			/* later assembly */
@@ -277,6 +457,7 @@ static void rh850_process_rx(struct rh850_can *priv_data, char *rx_buf)
 			break;
 		}
 	}
+	return ret;
 }
 
 static int rh850_do_spi_transaction(struct rh850_can *priv_data)
@@ -291,15 +472,20 @@ static int rh850_do_spi_transaction(struct rh850_can *priv_data)
 	msg = kzalloc(sizeof(*msg), GFP_KERNEL);
 	if (xfer == 0 || msg == 0)
 		return -ENOMEM;
+	LOGDI(">%x %2d [%d]\n", priv_data->tx_buf[0],
+	      priv_data->tx_buf[1], priv_data->tx_buf[2]);
 	spi_message_init(msg);
 	spi_message_add_tail(xfer, msg);
 	xfer->tx_buf = priv_data->tx_buf;
 	xfer->rx_buf = priv_data->rx_buf;
 	xfer->len = priv_data->xfer_length;
 	ret = spi_sync(spi, msg);
-	LOGDI("spi_sync ret %d\n", ret);
+	LOGDI("spi_sync ret %d data %x %x %x %x %x %x %x %x\n", ret,
+	      priv_data->rx_buf[0], priv_data->rx_buf[1], priv_data->rx_buf[2],
+	      priv_data->rx_buf[3], priv_data->rx_buf[4], priv_data->rx_buf[5],
+	      priv_data->rx_buf[6], priv_data->rx_buf[7]);
 	if (ret == 0)
-		rh850_process_rx(priv_data, priv_data->rx_buf);
+		ret = rh850_process_rx(priv_data, priv_data->rx_buf);
 	kfree(msg);
 	kfree(xfer);
 	return ret;
@@ -347,8 +533,54 @@ static int rh850_query_firmware_version(struct rh850_can *priv_data)
 	return ret;
 }
 
+static int rh850_set_bitrate(struct net_device *netdev)
+{
+	char *tx_buf, *rx_buf;
+	int ret;
+	struct spi_mosi *req;
+	struct can_config_bit_timing *req_d;
+	struct rh850_can *priv_data;
+	struct can_priv *priv = netdev_priv(netdev);
+	struct rh850_netdev_privdata *rh850_priv;
+
+	rh850_priv = netdev_priv(netdev);
+	priv_data = rh850_priv->rh850_can;
+
+	netdev_info(netdev, "ch%i,  bitrate setting>%i",
+		    rh850_priv->netdev_index, priv->bittiming.bitrate);
+	LOGNI("sjw>%i brp>%i ph_sg1>%i ph_sg2>%i smpl_pt>%i tq>%i pr_seg>%i",
+	      priv->bittiming.sjw, priv->bittiming.brp,
+	      priv->bittiming.phase_seg1,
+	      priv->bittiming.phase_seg2,
+	      priv->bittiming.sample_point,
+	      priv->bittiming.tq, priv->bittiming.prop_seg);
+
+	mutex_lock(&priv_data->spi_lock);
+	tx_buf = priv_data->tx_buf;
+	rx_buf = priv_data->rx_buf;
+	memset(tx_buf, 0, XFER_BUFFER_SIZE);
+	memset(rx_buf, 0, XFER_BUFFER_SIZE);
+	priv_data->xfer_length = XFER_BUFFER_SIZE;
+
+	req = (struct spi_mosi *)tx_buf;
+	req->cmd = CMD_CAN_CONFIG_BIT_TIMING;
+	req->len = sizeof(struct can_config_bit_timing);
+	req->seq = atomic_inc_return(&priv_data->msg_seq);
+	req_d = (struct can_config_bit_timing *)req->data;
+	req_d->can_if = rh850_priv->netdev_index;
+	req_d->brp = priv->bittiming.brp;
+	req_d->tseg1 = priv->bittiming.phase_seg1 + priv->bittiming.prop_seg;
+	req_d->tseg2 = priv->bittiming.phase_seg2;
+	req_d->sjw = priv->bittiming.sjw;
+
+	ret = rh850_do_spi_transaction(priv_data);
+	mutex_unlock(&priv_data->spi_lock);
+
+	return ret;
+}
+
 static int rh850_can_write(struct rh850_can *priv_data,
-			   int can_channel, struct can_frame *cf)
+			   int can_channel, struct canfd_frame *cf)
 {
 	char *tx_buf, *rx_buf;
 	int ret, i;
@@ -369,16 +601,29 @@ static int rh850_can_write(struct rh850_can *priv_data,
 	priv_data->xfer_length = XFER_BUFFER_SIZE;
 
 	req = (struct spi_mosi *)tx_buf;
-	req->cmd = CMD_CAN_SEND_FRAME;
-	req->len = sizeof(struct can_write_req) + 8;
-	req->seq = atomic_inc_return(&priv_data->msg_seq);
+	if (priv_data->driver_mode == DRIVER_MODE_RAW_FRAMES) {
+		req->cmd = CMD_CAN_SEND_FRAME;
+		req->len = sizeof(struct can_write_req) + 8;
+		req->seq = atomic_inc_return(&priv_data->msg_seq);
 
-	req_d = (struct can_write_req *)req->data;
-	req_d->can_if = can_channel;
-	req_d->mid = cf->can_id;
-	req_d->dlc = cf->can_dlc;
-	for (i = 0; i < cf->can_dlc; i++)
-		req_d->data[i] = cf->data[i];
+		req_d = (struct can_write_req *)req->data;
+		req_d->can_if = can_channel;
+		req_d->mid = cf->can_id;
+		req_d->dlc = cf->len;
+
+		for (i = 0; i < cf->len; i++)
+			req_d->data[i] = cf->data[i];
+	} else if (priv_data->driver_mode == DRIVER_MODE_PROPERTIES ||
+		   priv_data->driver_mode == DRIVER_MODE_AMB) {
+		req->cmd = CMD_PROPERTY_WRITE;
+		req->len = sizeof(struct vehicle_property);
+		req->seq = atomic_inc_return(&priv_data->msg_seq);
+		for (i = 0; i < cf->len; i++)
+			req->data[i] = cf->data[i];
+	} else {
+		LOGDE("rh850_can_write: wrong driver mode %i",
+		      priv_data->driver_mode);
+	}
 
 	ret = rh850_do_spi_transaction(priv_data);
 	netdev = priv_data->netdev[can_channel];
@@ -414,7 +659,7 @@ static int rh850_netdev_close(struct net_device *netdev)
 static void rh850_send_can_frame(struct work_struct *ws)
 {
 	struct rh850_tx_work *tx_work;
-	struct can_frame *cf;
+	struct canfd_frame *cf;
 	struct rh850_can *priv_data;
 	struct net_device *netdev;
 	struct rh850_netdev_privdata *netdev_priv_data;
@@ -428,7 +673,7 @@ static void rh850_send_can_frame(struct work_struct *ws)
 	LOGDI("send_can_frame ws %p\n", ws);
 	LOGDI("send_can_frame tx %p\n", tx_work);
 
-	cf = (struct can_frame *)tx_work->skb->data;
+	cf = (struct canfd_frame *)tx_work->skb->data;
 	rh850_can_write(priv_data, can_channel, cf);
 
 	dev_kfree_skb(tx_work->skb);
@@ -458,10 +703,304 @@ static netdev_tx_t rh850_netdev_start_xmit(
 	return NETDEV_TX_OK;
 }
 
+static int rh850_send_release_can_buffer_cmd(struct net_device *netdev)
+{
+	char *tx_buf, *rx_buf;
+	int ret;
+	struct spi_mosi *req;
+	struct rh850_can *priv_data;
+	struct rh850_netdev_privdata *netdev_priv_data;
+	int *mode;
+
+	netdev_priv_data = netdev_priv(netdev);
+	priv_data = netdev_priv_data->rh850_can;
+	mutex_lock(&priv_data->spi_lock);
+	tx_buf = priv_data->tx_buf;
+	rx_buf = priv_data->rx_buf;
+	memset(tx_buf, 0, XFER_BUFFER_SIZE);
+	memset(rx_buf, 0, XFER_BUFFER_SIZE);
+	priv_data->xfer_length = XFER_BUFFER_SIZE;
+
+	req = (struct spi_mosi *)tx_buf;
+	req->cmd = CMD_CAN_RELEASE_BUFFER;
+	req->len = sizeof(int);
+	req->seq = atomic_inc_return(&priv_data->msg_seq);
+	mode = (int *)req->data;
+	*mode = priv_data->driver_mode;
+
+	ret = rh850_do_spi_transaction(priv_data);
+	mutex_unlock(&priv_data->spi_lock);
+
+	return ret;
+}
+
+static int rh850_data_buffering(struct net_device *netdev,
+				struct ifreq *ifr, int cmd)
+{
+	char *tx_buf, *rx_buf;
+	int ret;
+	struct spi_mosi *req;
+	struct rh850_add_can_buffer *enable_buffering;
+	struct rh850_add_can_buffer *add_request;
+	struct rh850_can *priv_data;
+	struct rh850_netdev_privdata *netdev_priv_data;
+
+	netdev_priv_data = netdev_priv(netdev);
+	priv_data = netdev_priv_data->rh850_can;
+
+	mutex_lock(&priv_data->spi_lock);
+	tx_buf = priv_data->tx_buf;
+	rx_buf = priv_data->rx_buf;
+	memset(tx_buf, 0, XFER_BUFFER_SIZE);
+	memset(rx_buf, 0, XFER_BUFFER_SIZE);
+	priv_data->xfer_length = XFER_BUFFER_SIZE;
+
+	add_request = ifr->ifr_data;
+	req = (struct spi_mosi *)tx_buf;
+
+	if (cmd == IOCTL_ENABLE_BUFFERING)
+		req->cmd = CMD_CAN_DATA_BUFF_ADD;
+	else
+		req->cmd = CMD_CAN_DATA_BUFF_REMOVE;
+
+	req->len = sizeof(struct rh850_add_can_buffer);
+	req->seq = atomic_inc_return(&priv_data->msg_seq);
+
+	enable_buffering = (struct rh850_add_can_buffer *)req->data;
+	enable_buffering->can_if = add_request->can_if;
+	enable_buffering->mid = add_request->mid;
+	enable_buffering->mask = add_request->mask;
+
+	ret = rh850_do_spi_transaction(priv_data);
+	mutex_unlock(&priv_data->spi_lock);
+
+	return ret;
+}
+
+static int rh850_remove_all_buffering(struct net_device *netdev)
+{
+	char *tx_buf, *rx_buf;
+	int ret;
+	struct spi_mosi *req;
+	struct rh850_can *priv_data;
+	struct rh850_netdev_privdata *netdev_priv_data;
+
+	netdev_priv_data = netdev_priv(netdev);
+	priv_data = netdev_priv_data->rh850_can;
+
+	mutex_lock(&priv_data->spi_lock);
+	tx_buf = priv_data->tx_buf;
+	rx_buf = priv_data->rx_buf;
+	memset(tx_buf, 0, XFER_BUFFER_SIZE);
+	memset(rx_buf, 0, XFER_BUFFER_SIZE);
+	priv_data->xfer_length = XFER_BUFFER_SIZE;
+
+	req = (struct spi_mosi *)tx_buf;
+	req->cmd = CMD_CAN_DATA_BUFF_REMOVE_ALL;
+	req->len = 0;
+	req->seq = atomic_inc_return(&priv_data->msg_seq);
+
+	ret = rh850_do_spi_transaction(priv_data);
+	mutex_unlock(&priv_data->spi_lock);
+
+	return ret;
+}
+
+static int rh850_frame_filter(struct net_device *netdev,
+			      struct ifreq *ifr, int cmd)
+{
+	char *tx_buf, *rx_buf;
+	int ret;
+	struct spi_mosi *req;
+	struct can_add_filter_req *add_filter;
+	struct can_add_filter_req *filter_request;
+	struct rh850_can *priv_data;
+	struct rh850_netdev_privdata *netdev_priv_data;
+
+	netdev_priv_data = netdev_priv(netdev);
+	priv_data = netdev_priv_data->rh850_can;
+
+	mutex_lock(&priv_data->spi_lock);
+	tx_buf = priv_data->tx_buf;
+	rx_buf = priv_data->rx_buf;
+	memset(tx_buf, 0, XFER_BUFFER_SIZE);
+	memset(rx_buf, 0, XFER_BUFFER_SIZE);
+	priv_data->xfer_length = XFER_BUFFER_SIZE;
+
+	filter_request = ifr->ifr_data;
+	req = (struct spi_mosi *)tx_buf;
+
+	if (cmd == IOCTL_ADD_FRAME_FILTER)
+		req->cmd = CMD_CAN_ADD_FILTER;
+	else
+		req->cmd = CMD_CAN_REMOVE_FILTER;
+
+	req->len = sizeof(struct can_add_filter_req);
+	req->seq = atomic_inc_return(&priv_data->msg_seq);
+
+	add_filter = (struct can_add_filter_req *)req->data;
+	add_filter->can_if = filter_request->can_if;
+	add_filter->mid = filter_request->mid;
+	add_filter->mask = filter_request->mask;
+
+	ret = rh850_do_spi_transaction(priv_data);
+	mutex_unlock(&priv_data->spi_lock);
+
+	return ret;
+}
+
+static int rh850_send_spi_locked(struct rh850_can *priv_data, int cmd, int len,
+				 u8 *data)
+{
+	char *tx_buf, *rx_buf;
+	struct spi_mosi *req;
+	int ret;
+
+	LOGDI("rh850_send_spi_locked\n");
+
+	tx_buf = priv_data->tx_buf;
+	rx_buf = priv_data->rx_buf;
+	memset(tx_buf, 0, XFER_BUFFER_SIZE);
+	memset(rx_buf, 0, XFER_BUFFER_SIZE);
+	priv_data->xfer_length = XFER_BUFFER_SIZE;
+
+	req = (struct spi_mosi *)tx_buf;
+	req->cmd = cmd;
+	req->len = len;
+	req->seq = atomic_inc_return(&priv_data->msg_seq);
+
+	if (unlikely(len > 64))
+		return -EINVAL;
+	memcpy(req->data, data, len);
+
+	ret = rh850_do_spi_transaction(priv_data);
+	return ret;
+}
+
+static int rh850_convert_ioctl_cmd_to_spi_cmd(int ioctl_cmd)
+{
+	switch (ioctl_cmd) {
+	case IOCTL_GET_FW_BR_VERSION:
+		return CMD_GET_FW_BR_VERSION;
+	case IOCTL_BEGIN_FIRMWARE_UPGRADE:
+		return CMD_BEGIN_FIRMWARE_UPGRADE;
+	case IOCTL_FIRMWARE_UPGRADE_DATA:
+		return CMD_FIRMWARE_UPGRADE_DATA;
+	case IOCTL_END_FIRMWARE_UPGRADE:
+		return CMD_END_FIRMWARE_UPGRADE;
+	case IOCTL_BEGIN_BOOT_ROM_UPGRADE:
+		return CMD_BEGIN_BOOT_ROM_UPGRADE;
+	case IOCTL_BOOT_ROM_UPGRADE_DATA:
+		return CMD_BOOT_ROM_UPGRADE_DATA;
+	case IOCTL_END_BOOT_ROM_UPGRADE:
+		return CMD_END_BOOT_ROM_UPGRADE;
+	}
+	return -EINVAL;
+}
+
+static int rh850_do_blocking_ioctl(struct net_device *netdev,
+				   struct ifreq *ifr, int cmd)
+{
+	int spi_cmd, ret;
+
+	struct rh850_can *priv_data;
+	struct rh850_netdev_privdata *netdev_priv_data;
+	struct rh850_ioctl_req *ioctl_data;
+	int len = 0;
+	u8 *data = NULL;
+
+	netdev_priv_data = netdev_priv(netdev);
+	priv_data = netdev_priv_data->rh850_can;
+
+	spi_cmd = rh850_convert_ioctl_cmd_to_spi_cmd(cmd);
+	LOGDI("rh850_do_blocking_ioctl spi_cmd %x\n", spi_cmd);
+	if (spi_cmd < 0) {
+		LOGDE("rh850_do_blocking_ioctl wrong command %d\n", cmd);
+		return spi_cmd;
+	}
+	if (!ifr)
+		return -EINVAL;
+	ioctl_data = ifr->ifr_data;
+	/* Regular NULL check fails here as ioctl_data is at some offset */
+	if ((void *)ioctl_data > (void *)0x100) {
+		len = ioctl_data->len;
+		data = ioctl_data->data;
+	}
+	LOGDI("rh850_do_blocking_ioctl len %d\n", len);
+	mutex_lock(&priv_data->spi_lock);
+
+	priv_data->wait_cmd = spi_cmd;
+	priv_data->cmd_result = -1;
+	reinit_completion(&priv_data->response_completion);
+
+	ret = rh850_send_spi_locked(priv_data, spi_cmd, len, data);
+	mutex_unlock(&priv_data->spi_lock);
+
+	if (ret == 0) {
+		LOGDI("rh850_do_blocking_ioctl ready to wait for response\n");
+		wait_for_completion_interruptible_timeout(
+				&priv_data->response_completion, 5 * HZ);
+		ret = priv_data->cmd_result;
+	}
+	return ret;
+}
+
+static int rh850_netdev_do_ioctl(struct net_device *netdev,
+				 struct ifreq *ifr, int cmd)
+{
+	struct rh850_can *priv_data;
+	struct rh850_netdev_privdata *netdev_priv_data;
+	int *mode;
+	int ret = -EINVAL;
+
+	netdev_priv_data = netdev_priv(netdev);
+	priv_data = netdev_priv_data->rh850_can;
+	LOGDI("rh850_netdev_do_ioctl %x\n", cmd);
+
+	switch (cmd) {
+	case IOCTL_RELEASE_CAN_BUFFER:
+		if (ifr->ifr_data > (void *)0x100) {
+			mode = ifr->ifr_data;
+			priv_data->driver_mode = *mode;
+		}
+		LOGDE("rh850_driver_mode  %d\n", priv_data->driver_mode);
+		rh850_send_release_can_buffer_cmd(netdev);
+		ret = 0;
+		break;
+	case IOCTL_ENABLE_BUFFERING:
+	case IOCTL_DISABLE_BUFFERING:
+		rh850_data_buffering(netdev, ifr, cmd);
+		ret = 0;
+		break;
+	case IOCTL_DISABLE_ALL_BUFFERING:
+		rh850_remove_all_buffering(netdev);
+		ret = 0;
+		break;
+	case IOCTL_ADD_FRAME_FILTER:
+	case IOCTL_REMOVE_FRAME_FILTER:
+		rh850_frame_filter(netdev, ifr, cmd);
+		ret = 0;
+		break;
+	case IOCTL_GET_FW_BR_VERSION:
+	case IOCTL_BEGIN_FIRMWARE_UPGRADE:
+	case IOCTL_FIRMWARE_UPGRADE_DATA:
+	case IOCTL_END_FIRMWARE_UPGRADE:
+	case IOCTL_BEGIN_BOOT_ROM_UPGRADE:
+	case IOCTL_BOOT_ROM_UPGRADE_DATA:
+	case IOCTL_END_BOOT_ROM_UPGRADE:
+		ret = rh850_do_blocking_ioctl(netdev, ifr, cmd);
+		break;
+	}
+	LOGDI("rh850_netdev_do_ioctl ret %d\n", ret);
+
+	return ret;
+}
+
 static const struct net_device_ops rh850_netdev_ops = {
 		.ndo_open = rh850_netdev_open,
 		.ndo_stop = rh850_netdev_close,
 		.ndo_start_xmit = rh850_netdev_start_xmit,
+		.ndo_do_ioctl = rh850_netdev_do_ioctl,
 };
 
 static int rh850_create_netdev(struct spi_device *spi,
@@ -490,9 +1029,13 @@ static int rh850_create_netdev(struct spi_device *spi,
 	netdev->netdev_ops = &rh850_netdev_ops;
 	SET_NETDEV_DEV(netdev, &spi->dev);
 	netdev_priv_data->can.ctrlmode_supported = CAN_CTRLMODE_3_SAMPLES |
-						   CAN_CTRLMODE_LISTENONLY;
+						   CAN_CTRLMODE_LISTENONLY |
+						   CAN_CTRLMODE_FD;
 	netdev_priv_data->can.bittiming_const = &rh850_bittiming_const;
+	netdev_priv_data->can.data_bittiming_const =
+			&rh850_data_bittiming_const;
 	netdev_priv_data->can.clock.freq = RH850_CLOCK;
+	netdev_priv_data->can.do_set_bittiming = rh850_set_bitrate;
 
 	return 0;
 }
@@ -534,9 +1077,11 @@ static struct rh850_can *rh850_create_priv_data(struct spi_device *spi)
 		goto cleanup_privdata;
 	}
 	priv_data->xfer_length = 0;
+	priv_data->driver_mode = DRIVER_MODE_RAW_FRAMES;
 
 	mutex_init(&priv_data->spi_lock);
 	atomic_set(&priv_data->msg_seq, 0);
+	init_completion(&priv_data->response_completion);
 	return priv_data;
 
 cleanup_privdata:

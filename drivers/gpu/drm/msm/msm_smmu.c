@@ -53,6 +53,17 @@ struct msm_smmu_domain {
 #define to_msm_smmu(x) container_of(x, struct msm_smmu, base)
 #define msm_smmu_to_client(smmu) (smmu->client)
 
+
+static int msm_smmu_fault_handler(struct iommu_domain *iommu,
+	 struct device *dev, unsigned long iova, int flags, void *arg)
+{
+
+	dev_info(dev, "%s: iova=0x%08lx, flags=0x%x, iommu=%pK\n", __func__,
+			iova, flags, iommu);
+	return 0;
+}
+
+
 static int _msm_smmu_create_mapping(struct msm_smmu_client *client,
 	const struct msm_smmu_domain *domain);
 
@@ -259,6 +270,7 @@ struct msm_mmu *msm_smmu_new(struct device *dev,
 {
 	struct msm_smmu *smmu;
 	struct device *client_dev;
+	struct msm_smmu_client *client;
 
 	smmu = kzalloc(sizeof(*smmu), GFP_KERNEL);
 	if (!smmu)
@@ -272,6 +284,11 @@ struct msm_mmu *msm_smmu_new(struct device *dev,
 
 	smmu->client_dev = client_dev;
 	msm_mmu_init(&smmu->base, dev, &funcs);
+
+	client = msm_smmu_to_client(smmu);
+	if (client)
+		iommu_set_fault_handler(client->mmu_mapping->domain,
+					msm_smmu_fault_handler, dev);
 
 	return &smmu->base;
 }

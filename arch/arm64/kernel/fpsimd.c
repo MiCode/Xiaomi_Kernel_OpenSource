@@ -20,6 +20,7 @@
 #include <linux/cpu.h>
 #include <linux/cpu_pm.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/init.h>
 #include <linux/sched.h>
 #include <linux/signal.h>
@@ -27,6 +28,7 @@
 
 #include <asm/fpsimd.h>
 #include <asm/cputype.h>
+#include <asm/app_api.h>
 
 #define FPEXC_IOF	(1 << 0)
 #define FPEXC_DZF	(1 << 1)
@@ -34,6 +36,8 @@
 #define FPEXC_UFF	(1 << 3)
 #define FPEXC_IXF	(1 << 4)
 #define FPEXC_IDF	(1 << 7)
+
+#define FP_SIMD_BIT	31
 
 /*
  * In order to reduce the number of times the FPSIMD state is needlessly saved
@@ -88,14 +92,42 @@
  *   whatever is in the FPSIMD registers is not saved to memory, but discarded.
  */
 static DEFINE_PER_CPU(struct fpsimd_state *, fpsimd_last_state);
+static DEFINE_PER_CPU(int, fpsimd_stg_enable);
+
+static int fpsimd_settings = 0x1; /* default = 0x1 */
+module_param(fpsimd_settings, int, 0644);
+
+void fpsimd_settings_enable(void)
+{
+	set_app_setting_bit(FP_SIMD_BIT);
+}
+
+void fpsimd_settings_disable(void)
+{
+	clear_app_setting_bit(FP_SIMD_BIT);
+}
 
 /*
  * Trapped FP/ASIMD access.
  */
 void do_fpsimd_acc(unsigned int esr, struct pt_regs *regs)
 {
-	/* TODO: implement lazy context saving/restoring */
-	WARN_ON(1);
+	if (!fpsimd_settings)
+		return;
+
+	fpsimd_disable_trap();
+	fpsimd_settings_disable();
+	this_cpu_write(fpsimd_stg_enable, 0);
+}
+
+void do_fpsimd_acc_compat(unsigned int esr, struct pt_regs *regs)
+{
+	if (!fpsimd_settings)
+		return;
+
+	fpsimd_disable_trap();
+	fpsimd_settings_enable();
+	this_cpu_write(fpsimd_stg_enable, 1);
 }
 
 /*
@@ -135,6 +167,11 @@ void fpsimd_thread_switch(struct task_struct *next)
 	if (current->mm && !test_thread_flag(TIF_FOREIGN_FPSTATE))
 		fpsimd_save_state(&current->thread.fpsimd_state);
 
+	if (fpsimd_settings && __this_cpu_read(fpsimd_stg_enable)) {
+		fpsimd_settings_disable();
+		this_cpu_write(fpsimd_stg_enable, 0);
+	}
+
 	if (next->mm) {
 		/*
 		 * If we are switching to a task whose most recent userland
@@ -152,6 +189,14 @@ void fpsimd_thread_switch(struct task_struct *next)
 		else
 			set_ti_thread_flag(task_thread_info(next),
 					   TIF_FOREIGN_FPSTATE);
+
+		if (!fpsimd_settings)
+			return;
+
+		if (test_ti_thread_flag(task_thread_info(next), TIF_32BIT))
+			fpsimd_enable_trap();
+		else
+			fpsimd_disable_trap();
 	}
 }
 
