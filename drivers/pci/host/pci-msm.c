@@ -3645,6 +3645,19 @@ static int msm_pcie_clk_init(struct msm_pcie_dev_t *dev)
 	for (i = 0; i < MSM_PCIE_MAX_RESET; i++) {
 		reset_info = &dev->reset[i];
 		if (reset_info->hdl) {
+			rc = reset_control_assert(reset_info->hdl);
+			if (rc)
+				PCIE_ERR(dev,
+					"PCIe: RC%d failed to assert reset for %s.\n",
+					dev->rc_idx, reset_info->name);
+			else
+				PCIE_DBG2(dev,
+					"PCIe: RC%d successfully asserted reset for %s.\n",
+					dev->rc_idx, reset_info->name);
+
+			/* add a 1ms delay to ensure the reset is asserted */
+			usleep_range(1000, 1005);
+
 			rc = reset_control_deassert(reset_info->hdl);
 			if (rc)
 				PCIE_ERR(dev,
@@ -3749,6 +3762,19 @@ static int msm_pcie_pipe_clk_init(struct msm_pcie_dev_t *dev)
 	for (i = 0; i < MSM_PCIE_MAX_PIPE_RESET; i++) {
 		pipe_reset_info = &dev->pipe_reset[i];
 		if (pipe_reset_info->hdl) {
+			rc = reset_control_assert(pipe_reset_info->hdl);
+			if (rc)
+				PCIE_ERR(dev,
+					"PCIe: RC%d failed to assert pipe reset for %s.\n",
+					dev->rc_idx, pipe_reset_info->name);
+			else
+				PCIE_DBG2(dev,
+					"PCIe: RC%d successfully asserted pipe reset for %s.\n",
+					dev->rc_idx, pipe_reset_info->name);
+
+			/* add a 1ms delay to ensure the reset is asserted */
+			usleep_range(1000, 1005);
+
 			rc = reset_control_deassert(
 					pipe_reset_info->hdl);
 			if (rc)
