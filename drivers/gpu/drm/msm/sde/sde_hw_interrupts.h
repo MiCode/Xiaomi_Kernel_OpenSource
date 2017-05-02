@@ -55,6 +55,7 @@
  * @SDE_IRQ_TYPE_SFI_CMD_2_OUT:		DSI CMD2 static frame INTR out-of static
  * @SDE_IRQ_TYPE_PROG_LINE:		Programmable Line interrupt
  * @SDE_IRQ_TYPE_AD4_BL_DONE:		AD4 backlight
+ * @SDE_IRQ_TYPE_CTL_START:		Control start
  * @SDE_IRQ_TYPE_RESERVED:		Reserved for expansion
  */
 enum sde_intr_type {
@@ -84,6 +85,7 @@ enum sde_intr_type {
 	SDE_IRQ_TYPE_SFI_CMD_2_OUT,
 	SDE_IRQ_TYPE_PROG_LINE,
 	SDE_IRQ_TYPE_AD4_BL_DONE,
+	SDE_IRQ_TYPE_CTL_START,
 	SDE_IRQ_TYPE_RESERVED,
 };
 
