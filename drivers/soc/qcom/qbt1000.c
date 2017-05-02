@@ -342,6 +342,13 @@ static long qbt1000_ioctl(
 			goto end;
 		}
 
+		if (strcmp(app.name, FP_APP_NAME)) {
+			dev_err(drvdata->dev, "%s: Invalid app name\n",
+				__func__);
+			rc = -EINVAL;
+			goto end;
+		}
+
 		if (drvdata->app_handle) {
 			dev_err(drvdata->dev, "%s: LOAD app already loaded, unloading first\n",
 				__func__);
@@ -388,9 +395,7 @@ static long qbt1000_ioctl(
 
 		pr_debug("app %s load after\n", app.name);
 
-		if (!strcmp(app.name, FP_APP_NAME))
-			drvdata->fp_app_handle = drvdata->app_handle;
-
+		drvdata->fp_app_handle = drvdata->app_handle;
 		break;
 	}
 	case QBT1000_UNLOAD_APP:
