@@ -655,3 +655,11 @@ config QTI_RPM_STATS_LOG
 	  memory location. These messages provide statistical information about
 	  the low power modes that RPM enters. The drivers outputs the message
 	  via a debugfs node.
+
+config QCOM_FORCE_WDOG_BITE_ON_PANIC
+	bool "QCOM force watchdog bite"
+	depends on QCOM_WATCHDOG_V2
+	help
+	  This forces a watchdog bite when the device restarts due to a
+	  kernel panic. On certain MSM SoCs, this provides us
+	  additional debugging information.
