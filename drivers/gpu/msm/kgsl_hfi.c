@@ -567,14 +567,50 @@ void hfi_receiver(unsigned long data)
 	};
 }
 
-int hfi_start(struct gmu_device *gmu, uint32_t boot_state)
+#define FW_VER_MAJOR(ver) (((ver) >> 28) & 0xF)
+#define FW_VER_MINOR(ver) (((ver) >> 16) & 0xFFF)
+#define FW_VERSION(major, minor) \
+	((((major) & 0xF) << 28) | (((minor) & 0xFFF) << 16))
+
+static int hfi_verify_fw_version(struct gmu_device *gmu)
 {
-	struct kgsl_device *device =
-			container_of(gmu, struct kgsl_device, gmu);
+	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct device *dev = &gmu->pdev->dev;
 	int result;
 	unsigned int ver = 0, major, minor;
+
+	major = adreno_dev->gpucore->gpmu_major;
+	minor = adreno_dev->gpucore->gpmu_minor;
+
+	result = hfi_get_fw_version(gmu, FW_VERSION(major, minor), &ver);
+	if (result) {
+		dev_err_once(&gmu->pdev->dev,
+				"Failed to get FW version via HFI\n");
+		return result;
+	}
+
+	/* For now, warn once. Could return error later if needed */
+	if (major != FW_VER_MAJOR(ver))
+		dev_err_once(&gmu->pdev->dev,
+				"FW Major Error: Wanted %d, got %d\n",
+				major, FW_VER_MAJOR(ver));
+
+	if (minor > FW_VER_MINOR(ver))
+		dev_err_once(&gmu->pdev->dev,
+				"FW Minor Error: Wanted < %d, got %d\n",
+				FW_VER_MINOR(ver), minor);
+
+	/* Save the gmu version information */
+	gmu->ver = ver;
+
+	return 0;
+}
+
+int hfi_start(struct gmu_device *gmu, uint32_t boot_state)
+{
+	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	int result;
 
 	if (test_bit(GMU_HFI_ON, &gmu->flags))
 		return 0;
@@ -583,23 +619,9 @@ int hfi_start(struct gmu_device *gmu, uint32_t boot_state)
 	if (result)
 		return result;
 
-	major = adreno_dev->gpucore->gpmu_major;
-	minor = adreno_dev->gpucore->gpmu_minor;
-	result = hfi_get_fw_version(gmu,
-			FW_VERSION(major, minor), &ver);
+	result = hfi_verify_fw_version(gmu);
 	if (result)
-		dev_err(dev, "Failed to get FW version via HFI\n");
-
-	gmu->ver = ver;
-	if (major != FW_VER_MAJOR(ver))
-		WARN_ONCE(1, "FW version major %d error (expect %d)\n",
-				FW_VER_MAJOR(ver),
-				adreno_dev->gpucore->gpmu_major);
-
-	if (minor > FW_VER_MINOR(ver))
-		WARN_ONCE(1, "FW version minor %d error (expect %d)\n",
-				FW_VER_MINOR(ver),
-				adreno_dev->gpucore->gpmu_minor);
+		return result;
 
 	result = hfi_send_perftbl(gmu);
 	if (result)
