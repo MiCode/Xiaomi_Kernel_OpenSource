@@ -35,7 +35,7 @@ Required properties:
 - qcom,mdss-dsi-panel-destination:	A string that specifies the destination display for the panel.
 					"display_1" = DISPLAY_1
 					"display_2" = DISPLAY_2
-- qcom,mdss-dsi-panel-timings:		An array of length 12 that specifies the PHY
+- qcom,mdss-dsi-panel-phy-timings:	An array of length 12 that specifies the PHY
 					timing settings for the panel.
 - qcom,mdss-dsi-panel-timings-8996:		An array of length 40 char that specifies the 8996 PHY lane
 					timing settings for the panel.
