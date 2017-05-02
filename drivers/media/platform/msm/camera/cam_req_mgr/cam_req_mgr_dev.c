@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,7 @@
 #include "cam_req_mgr_util.h"
 #include "cam_req_mgr_core.h"
 #include "cam_subdev.h"
+#include "cam_mem_mgr.h"
 
 #define CAM_REQ_MGR_EVENT_MAX 30
 
@@ -115,7 +116,18 @@ static int cam_req_mgr_open(struct file *filep)
 	spin_unlock_bh(&g_dev.cam_eventq_lock);
 
 	g_dev.open_cnt++;
+	rc = cam_mem_mgr_init();
+	if (rc) {
+		g_dev.open_cnt--;
+		pr_err("mem mgr init failed\n");
+		goto mem_mgr_init_fail;
+	}
 
+	mutex_unlock(&g_dev.cam_lock);
+	return rc;
+
+mem_mgr_init_fail:
+	v4l2_fh_release(filep);
 end:
 	mutex_unlock(&g_dev.cam_lock);
 	return rc;
@@ -154,6 +166,7 @@ static int cam_req_mgr_close(struct file *filep)
 	spin_unlock_bh(&g_dev.cam_eventq_lock);
 
 	cam_req_mgr_util_free_hdls();
+	cam_mem_mgr_deinit();
 	mutex_unlock(&g_dev.cam_lock);
 
 	return 0;
@@ -316,6 +329,84 @@ static long cam_private_ioctl(struct file *file, void *fh,
 		rc = cam_req_mgr_sync_mode(&sync_mode);
 		}
 		break;
+	case CAM_REQ_MGR_ALLOC_BUF: {
+		struct cam_mem_mgr_alloc_cmd cmd;
+
+		if (k_ioctl->size != sizeof(cmd))
+			return -EINVAL;
+
+		if (copy_from_user(&cmd,
+			(void *)k_ioctl->handle,
+			k_ioctl->size)) {
+			rc = -EFAULT;
+			break;
+		}
+
+		rc = cam_mem_mgr_alloc_and_map(&cmd);
+		if (!rc)
+			if (copy_to_user((void *)k_ioctl->handle,
+				&cmd, k_ioctl->size)) {
+				rc = -EFAULT;
+				break;
+			}
+		}
+		break;
+	case CAM_REQ_MGR_MAP_BUF: {
+		struct cam_mem_mgr_map_cmd cmd;
+
+		if (k_ioctl->size != sizeof(cmd))
+			return -EINVAL;
+
+		if (copy_from_user(&cmd,
+			(void *)k_ioctl->handle,
+			k_ioctl->size)) {
+			rc = -EFAULT;
+			break;
+		}
+
+		rc = cam_mem_mgr_map(&cmd);
+		if (!rc)
+			if (copy_to_user((void *)k_ioctl->handle,
+				&cmd, k_ioctl->size)) {
+				rc = -EFAULT;
+				break;
+			}
+		}
+		break;
+	case CAM_REQ_MGR_RELEASE_BUF: {
+		struct cam_mem_mgr_release_cmd cmd;
+
+		if (k_ioctl->size != sizeof(cmd))
+			return -EINVAL;
+
+		if (copy_from_user(&cmd,
+			(void *)k_ioctl->handle,
+			k_ioctl->size)) {
+			rc = -EFAULT;
+			break;
+		}
+
+		rc = cam_mem_mgr_release(&cmd);
+		}
+		break;
+	case CAM_REQ_MGR_CACHE_OPS: {
+		struct cam_mem_cache_ops_cmd cmd;
+
+		if (k_ioctl->size != sizeof(cmd))
+			return -EINVAL;
+
+		if (copy_from_user(&cmd,
+			(void *)k_ioctl->handle,
+			k_ioctl->size)) {
+			rc = -EFAULT;
+			break;
+		}
+
+		rc = cam_mem_mgr_cache_ops(&cmd);
+		if (rc)
+			rc = -EINVAL;
+		}
+		break;
 	default:
 		return -ENOIOCTLCMD;
 	}
@@ -444,6 +535,7 @@ EXPORT_SYMBOL(cam_unregister_subdev);
 static int cam_req_mgr_remove(struct platform_device *pdev)
 {
 	cam_req_mgr_core_device_deinit();
+	cam_mem_mgr_deinit();
 	cam_req_mgr_util_deinit();
 	cam_media_device_cleanup();
 	cam_video_device_cleanup();
@@ -482,6 +574,12 @@ static int cam_req_mgr_probe(struct platform_device *pdev)
 		goto req_mgr_util_fail;
 	}
 
+	rc = cam_mem_mgr_init();
+	if (rc) {
+		pr_err("mem mgr init failed\n");
+		goto mem_mgr_init_fail;
+	}
+
 	rc = cam_req_mgr_core_device_init();
 	if (rc) {
 		pr_err("core device setup failed\n");
@@ -493,8 +591,12 @@ static int cam_req_mgr_probe(struct platform_device *pdev)
 	return rc;
 
 req_mgr_core_fail:
+	cam_mem_mgr_deinit();
+mem_mgr_init_fail:
 	cam_req_mgr_util_deinit();
 req_mgr_util_fail:
+	mutex_destroy(&g_dev.dev_lock);
+	mutex_destroy(&g_dev.cam_lock);
 	cam_video_device_cleanup();
 video_setup_fail:
 	cam_media_device_cleanup();
