@@ -3249,6 +3249,16 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dwc3_ext_event_notify(mdwc);
 	}
 
+	/* If the controller is in DRD mode and USB power supply
+	 * is not used make the default mode of contoller as HOST
+	 * mode. User can change it later using sysfs
+	 */
+	if (dwc->is_drd && mdwc->psy_not_used) {
+		dev_dbg(&pdev->dev, "DWC3 in host mode\n");
+		mdwc->id_state = DWC3_ID_GROUND;
+		dwc3_ext_event_notify(mdwc);
+	}
+
 	return 0;
 
 put_dwc3:
