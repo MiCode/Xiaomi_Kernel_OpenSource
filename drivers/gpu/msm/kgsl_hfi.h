@@ -27,10 +27,9 @@ enum hfi_queue_type {
 	HFI_QUEUE_MAX
 };
 
-/* Add 16B guard band between HFI queues */
 #define HFI_QUEUE_OFFSET(i)		\
 		((sizeof(struct hfi_queue_table)) + \
-		((i) * (HFI_QUEUE_SIZE + 16)))
+		((i) * HFI_QUEUE_SIZE))
 
 #define HOST_QUEUE_START_ADDR(hfi_mem, i) \
 	((hfi_mem)->hostptr + HFI_QUEUE_OFFSET(i))
