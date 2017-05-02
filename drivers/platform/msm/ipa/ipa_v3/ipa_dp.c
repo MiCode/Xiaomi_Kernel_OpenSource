@@ -1004,6 +1004,7 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 	struct ipa3_ep_context *ep;
 	int empty;
 	int result;
+	int i;
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0) {
@@ -1038,7 +1039,17 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 	if (IPA_CLIENT_IS_CONS(ep->client))
 		cancel_delayed_work_sync(&ep->sys->replenish_rx_work);
 	flush_workqueue(ep->sys->wq);
-	result = ipa3_stop_gsi_channel(clnt_hdl);
+	/* channel stop might fail on timeout if IPA is busy */
+	for (i = 0; i < IPA_GSI_CHANNEL_STOP_MAX_RETRY; i++) {
+		result = ipa3_stop_gsi_channel(clnt_hdl);
+		if (result == GSI_STATUS_SUCCESS)
+			break;
+
+		if (result != -GSI_STATUS_AGAIN &&
+		    result != -GSI_STATUS_TIMED_OUT)
+			break;
+	}
+
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("GSI stop chan err: %d.\n", result);
 		ipa_assert();
