@@ -595,6 +595,7 @@ struct hal_quantization {
 	u32 qpp;
 	u32 qpb;
 	u32 layer_id;
+	u32 enable;
 };
 
 struct hal_quantization_range {

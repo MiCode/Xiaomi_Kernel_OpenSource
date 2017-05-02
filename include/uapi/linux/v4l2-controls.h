@@ -1061,6 +1061,8 @@ enum v4l2_cid_mpeg_vidc_video_full_range {
 		(V4L2_CID_MPEG_MSM_VIDC_BASE + 106)
 #define V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP_MAX \
 		(V4L2_CID_MPEG_MSM_VIDC_BASE + 107)
+#define V4L2_CID_MPEG_VIDC_VIDEO_QP_MASK \
+		(V4L2_CID_MPEG_MSM_VIDC_BASE + 108)
 
 enum v4l2_mpeg_vidc_video_venc_iframesize_type {
 	V4L2_CID_MPEG_VIDC_VIDEO_IFRAME_SIZE_DEFAULT,
