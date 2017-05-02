@@ -17,7 +17,7 @@
 #include "kgsl_trace.h"
 
 /* Size in below functions are in unit of dwords */
-static int hfi_msgq_read(struct gmu_device *gmu,
+static int hfi_queue_read(struct gmu_device *gmu,
 		enum hfi_queue_type queue_idx, void *msg,
 		unsigned int max_size)
 {
@@ -64,7 +64,7 @@ static int hfi_msgq_read(struct gmu_device *gmu,
 }
 
 /* Size in below functions are in unit of dwords */
-static int hfi_cmdq_write(struct gmu_device *gmu,
+static int hfi_queue_write(struct gmu_device *gmu,
 		enum hfi_queue_type queue_idx,
 		struct hfi_msg_hdr *msg)
 {
@@ -122,7 +122,7 @@ static int hfi_cmdq_write(struct gmu_device *gmu,
 	adreno_write_gmureg(ADRENO_DEVICE(device),
 		ADRENO_REG_GMU_HOST2GMU_INTR_SET, 0x1);
 
-	return msg->size;
+	return 0;
 }
 
 #define QUEUE_HDR_TYPE(id, prio, rtype, stype) \
@@ -220,11 +220,8 @@ static int hfi_send_msg(struct gmu_device *gmu, struct hfi_msg_hdr *msg,
 	struct kgsl_hfi *hfi = &gmu->hfi;
 
 	msg->seqnum = atomic_inc_return(&hfi->seqnum);
-	if (msg->type != HFI_MSG_CMD) {
-		if (hfi_cmdq_write(gmu, HFI_CMD_QUEUE, msg) != size)
-			rc = -EINVAL;
-		return rc;
-	}
+	if (msg->type != HFI_MSG_CMD)
+		return hfi_queue_write(gmu, HFI_CMD_QUEUE, msg);
 
 	/* For messages of type HFI_MSG_CMD we must handle the ack */
 	init_completion(&ret_msg->msg_complete);
@@ -235,10 +232,9 @@ static int hfi_send_msg(struct gmu_device *gmu, struct hfi_msg_hdr *msg,
 	list_add_tail(&ret_msg->node, &hfi->msglist);
 	spin_unlock_bh(&hfi->msglock);
 
-	if (hfi_cmdq_write(gmu, HFI_CMD_QUEUE, msg) != size) {
-		rc = -EINVAL;
+	rc = hfi_queue_write(gmu, HFI_CMD_QUEUE, msg);
+	if (rc)
 		goto done;
-	}
 
 	rc = wait_for_completion_timeout(
 			&ret_msg->msg_complete,
@@ -542,7 +538,7 @@ void hfi_receiver(unsigned long data)
 
 	gmu = (struct gmu_device *)data;
 
-	while (hfi_msgq_read(gmu, HFI_MSG_QUEUE,
+	while (hfi_queue_read(gmu, HFI_MSG_QUEUE,
 			&response, sizeof(response)) > 0) {
 		if (response.hdr.size > (sizeof(response) >> 2)) {
 			dev_err(&gmu->pdev->dev,
