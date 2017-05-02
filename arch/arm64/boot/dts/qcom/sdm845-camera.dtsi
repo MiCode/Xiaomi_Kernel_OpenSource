@@ -329,4 +329,135 @@
 			};
 		};
 	};
+
+	qcom,cam-cpas@ac40000 {
+		cell-index = <0>;
+		compatible = "qcom,cam-cpas";
+		label = "cpas";
+		arch-compat = "cpas_top";
+		status = "ok";
+		reg-names = "cam_cpas_top", "cam_camnoc";
+		reg = <0xac40000 0x1000>,
+			<0xac42000 0x5000>;
+		reg-cam-base = <0x40000 0x42000>;
+		interrupt-names = "cpas_camnoc";
+		interrupts = <0 459 0>;
+		regulator-names = "camss-vdd";
+		camss-vdd-supply = <&titan_top_gdsc>;
+		clock-names = "gcc_ahb_clk",
+			"gcc_axi_clk",
+			"soc_ahb_clk",
+			"cpas_ahb_clk",
+			"slow_ahb_clk_src",
+			"camnoc_axi_clk";
+		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>,
+			<&clock_gcc GCC_CAMERA_AXI_CLK>,
+			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
+			<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
+			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
+			<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>;
+		src-clock-name = "slow_ahb_clk_src";
+		clock-rates = <0 0 0 0 80000000 0>;
+		qcom,msm-bus,name = "cam_ahb";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_AMPSS_M0
+			MSM_BUS_SLAVE_CAMERA_CFG 0 0>,
+			<MSM_BUS_MASTER_AMPSS_M0
+			MSM_BUS_SLAVE_CAMERA_CFG 0 300000>,
+			<MSM_BUS_MASTER_AMPSS_M0
+			MSM_BUS_SLAVE_CAMERA_CFG 0 640000>,
+			<MSM_BUS_MASTER_AMPSS_M0
+			MSM_BUS_SLAVE_CAMERA_CFG 0 640000>;
+		client-id-based;
+		client-names =
+			"csiphy0", "csiphy1", "csiphy2", "cci0",
+			"ife0", "ife1", "ife2", "ipe0",
+			"ipe1", "cam-cdm-intf0", "cpas-cdm0", "bps0",
+			"icp0", "jpeg-dma0", "jpeg0", "fd0";
+		client-axi-port-names =
+			"cam_hf_1", "cam_hf_2", "cam_hf_2", "cam_sf_1",
+			"cam_hf_1", "cam_hf_2", "cam_hf_2", "cam_sf_1",
+			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1",
+			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1";
+		client-bus-camnoc-based;
+		qcom,axi-port-list {
+			qcom,axi-port1 {
+				qcom,axi-port-name = "cam_hf_1";
+				qcom,axi-port-mnoc {
+					qcom,msm-bus,name = "cam_hf_1_mnoc";
+					qcom,msm-bus-vector-dyn-vote;
+					qcom,msm-bus,num-cases = <2>;
+					qcom,msm-bus,num-paths = <1>;
+					qcom,msm-bus,vectors-KBps =
+						<MSM_BUS_MASTER_CAMNOC_HF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>,
+						<MSM_BUS_MASTER_CAMNOC_HF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>;
+				};
+				qcom,axi-port-camnoc {
+					qcom,msm-bus,name = "cam_hf_1_camnoc";
+					qcom,msm-bus-vector-dyn-vote;
+					qcom,msm-bus,num-cases = <2>;
+					qcom,msm-bus,num-paths = <1>;
+					qcom,msm-bus,vectors-KBps =
+						<MSM_BUS_MASTER_CAMNOC_HF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>,
+						<MSM_BUS_MASTER_CAMNOC_HF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>;
+				};
+			};
+			qcom,axi-port2 {
+				qcom,axi-port-name = "cam_hf_2";
+				qcom,axi-port-mnoc {
+					qcom,msm-bus,name = "cam_hf_2_mnoc";
+					qcom,msm-bus-vector-dyn-vote;
+					qcom,msm-bus,num-cases = <2>;
+					qcom,msm-bus,num-paths = <1>;
+					qcom,msm-bus,vectors-KBps =
+						<MSM_BUS_MASTER_CAMNOC_HF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>,
+						<MSM_BUS_MASTER_CAMNOC_HF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>;
+				};
+				qcom,axi-port-camnoc {
+					qcom,msm-bus,name = "cam_hf_1_camnoc";
+					qcom,msm-bus-vector-dyn-vote;
+					qcom,msm-bus,num-cases = <2>;
+					qcom,msm-bus,num-paths = <1>;
+					qcom,msm-bus,vectors-KBps =
+						<MSM_BUS_MASTER_CAMNOC_HF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>,
+						<MSM_BUS_MASTER_CAMNOC_HF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>;
+				};
+			};
+			qcom,axi-port3 {
+				qcom,axi-port-name = "cam_sf_1";
+				qcom,axi-port-mnoc {
+					qcom,msm-bus,name = "cam_sf_1_mnoc";
+					qcom,msm-bus-vector-dyn-vote;
+					qcom,msm-bus,num-cases = <2>;
+					qcom,msm-bus,num-paths = <1>;
+					qcom,msm-bus,vectors-KBps =
+						<MSM_BUS_MASTER_CAMNOC_SF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>,
+						<MSM_BUS_MASTER_CAMNOC_SF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>;
+				};
+				qcom,axi-port-camnoc {
+					qcom,msm-bus,name = "cam_sf_1_camnoc";
+					qcom,msm-bus-vector-dyn-vote;
+					qcom,msm-bus,num-cases = <2>;
+					qcom,msm-bus,num-paths = <1>;
+					qcom,msm-bus,vectors-KBps =
+						<MSM_BUS_MASTER_CAMNOC_SF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>,
+						<MSM_BUS_MASTER_CAMNOC_SF
+						MSM_BUS_SLAVE_EBI_CH0 0 0>;
+				};
+			};
+		};
+	};
 };
