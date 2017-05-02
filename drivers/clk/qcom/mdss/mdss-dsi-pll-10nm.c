@@ -23,9 +23,10 @@
 
 #define VCO_DELAY_USEC 1
 
-#define MHZ_375		375000000UL
-#define MHZ_750		750000000UL
-#define MHZ_1500	1500000000UL
+#define MHZ_250		250000000UL
+#define MHZ_500		500000000UL
+#define MHZ_1000	1000000000UL
+#define MHZ_1100	1100000000UL
 #define MHZ_1900	1900000000UL
 #define MHZ_3000	3000000000UL
 
@@ -99,6 +100,7 @@ struct dsi_pll_regs {
 	u32 frac_div_start_low;
 	u32 frac_div_start_mid;
 	u32 frac_div_start_high;
+	u32 pll_clock_inverters;
 	u32 ssc_stepsize_low;
 	u32 ssc_stepsize_high;
 	u32 ssc_div_per_low;
@@ -209,20 +211,36 @@ static void dsi_pll_calc_dec_frac(struct dsi_pll_10nm *pll,
 	u64 dec, dec_multiple;
 	u32 frac;
 	u64 multiplier;
+	u32 i;
 
 	target_freq = rsc->vco_current_rate;
 	pr_debug("target_freq = %llu\n", target_freq);
 
 	if (config->div_override) {
 		computed_output_div = config->output_div;
+
+		/*
+		 * Computed_output_div = 2 ^ div_log
+		 * To get div_log from output div just get the index of the
+		 * 1 bit in the value.
+		 * div_log ranges from 0-3. so check the 4 lsbs
+		 */
+
+		for (i = 0; i < 4; i++) {
+			if (computed_output_div & (1 << i)) {
+				div_log = i;
+				break;
+			}
+		}
+
 	} else {
-		if (target_freq < MHZ_375) {
+		if (target_freq < MHZ_250) {
 			computed_output_div = 8;
 			div_log = 3;
-		} else if (target_freq < MHZ_750) {
+		} else if (target_freq < MHZ_500) {
 			computed_output_div = 4;
 			div_log = 2;
-		} else if (target_freq < MHZ_1500) {
+		} else if (target_freq < MHZ_1000) {
 			computed_output_div = 2;
 			div_log = 1;
 		} else {
@@ -251,6 +269,10 @@ static void dsi_pll_calc_dec_frac(struct dsi_pll_10nm *pll,
 		regs->pll_prop_gain_rate = 10;
 	else
 		regs->pll_prop_gain_rate = 12;
+	if (pll_freq < MHZ_1100)
+		regs->pll_clock_inverters = 8;
+	else
+		regs->pll_clock_inverters = 0;
 
 	regs->pll_outdiv_rate = div_log;
 	regs->pll_lockdet_rate = config->lock_timer;
@@ -375,7 +397,7 @@ static void dsi_pll_commit(struct dsi_pll_10nm *pll,
 	MDSS_PLL_REG_W(pll_base, PLL_PLL_OUTDIV_RATE, reg->pll_outdiv_rate);
 	MDSS_PLL_REG_W(pll_base, PLL_PLL_LOCK_DELAY, 0x06);
 	MDSS_PLL_REG_W(pll_base, PLL_CMODE, 0x10);
-	MDSS_PLL_REG_W(pll_base, PLL_CLOCK_INVERTERS, 0x0);
+	MDSS_PLL_REG_W(pll_base, PLL_CLOCK_INVERTERS, reg->pll_clock_inverters);
 
 }
 
@@ -1085,7 +1107,7 @@ static struct regmap_bus mdss_mux_regmap_bus = {
 
 static struct dsi_pll_vco_clk dsi0pll_vco_clk = {
 	.ref_clk_rate = 19200000UL,
-	.min_rate = 1500000000UL,
+	.min_rate = 1000000000UL,
 	.max_rate = 3500000000UL,
 	.hw.init = &(struct clk_init_data){
 			.name = "dsi0pll_vco_clk",
@@ -1098,7 +1120,7 @@ static struct dsi_pll_vco_clk dsi0pll_vco_clk = {
 
 static struct dsi_pll_vco_clk dsi1pll_vco_clk = {
 	.ref_clk_rate = 19200000UL,
-	.min_rate = 1500000000UL,
+	.min_rate = 1000000000UL,
 	.max_rate = 3500000000UL,
 	.hw.init = &(struct clk_init_data){
 			.name = "dsi1pll_vco_clk",
