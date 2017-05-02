@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/mutex.h>
 #include <linux/clk.h>
+#include <dt-bindings/clock/qcom,aop-qmp.h>
 #include <linux/coresight.h>
 #include <linux/of_platform.h>
 #include <linux/delay.h>
@@ -940,6 +941,14 @@ struct coresight_device *coresight_register(struct coresight_desc *desc)
 	atomic_t *refcnts = NULL;
 	struct coresight_device *csdev;
 	struct coresight_connection *conns = NULL;
+	struct clk *pclk;
+
+	pclk = clk_get(desc->dev, "apb_pclk");
+	if (!IS_ERR(pclk)) {
+		ret = clk_set_rate(pclk, QDSS_CLK_LEVEL_DYNAMIC);
+		if (ret)
+			dev_err(desc->dev, "clk set rate failed\n");
+	}
 
 	csdev = kzalloc(sizeof(*csdev), GFP_KERNEL);
 	if (!csdev) {
