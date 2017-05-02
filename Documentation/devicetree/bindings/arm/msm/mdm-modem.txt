@@ -110,6 +110,10 @@ Optional driver parameters:
 			   on behalf of the subsystem driver.
 - qcom,mdm-link-info: a string indicating additional info about the physical link.
 			For example: "devID_domain.bus.slot" in case of PCIe.
+- qcom,mdm-auto-boot: Boolean. To indicate this instance of esoc boots independently.
+- qcom,mdm-statusline-not-a-powersource: Boolean. If set, status line to esoc device is not a
+		power source.
+- qcom,mdm-userspace-handle-shutdown: Boolean. If set, userspace handles shutdown requests.
 
 Example:
 	mdm0: qcom,mdm0 {

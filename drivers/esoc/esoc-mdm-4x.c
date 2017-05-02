@@ -211,12 +211,16 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 		if (esoc->primary)
 			break;
 		graceful_shutdown = true;
-		ret = sysmon_send_shutdown(&esoc->subsys);
-		if (ret) {
-			dev_err(mdm->dev, "sysmon shutdown fail, ret = %d\n",
-									ret);
-			graceful_shutdown = false;
-			goto force_poff;
+		if (!esoc->userspace_handle_shutdown) {
+			ret = sysmon_send_shutdown(&esoc->subsys);
+			if (ret) {
+				dev_err(mdm->dev,
+				 "sysmon shutdown fail, ret = %d\n", ret);
+				graceful_shutdown = false;
+				goto force_poff;
+			}
+		} else {
+			esoc_clink_queue_request(ESOC_REQ_SEND_SHUTDOWN, esoc);
 		}
 		dev_dbg(mdm->dev, "Waiting for status gpio go low\n");
 		status_down = false;
@@ -251,9 +255,12 @@ force_poff:
 		/*
 		 * Force a shutdown of the mdm. This is required in order
 		 * to prevent the mdm from immediately powering back on
-		 * after the shutdown
+		 * after the shutdown. Avoid setting status to 0, if line is
+		 * monitored by multiple mdms(might be wrongly interpreted as
+		 * a primary crash).
 		 */
-		gpio_set_value(MDM_GPIO(mdm, AP2MDM_STATUS), 0);
+		if (esoc->statusline_not_a_powersource == false)
+			gpio_set_value(MDM_GPIO(mdm, AP2MDM_STATUS), 0);
 		esoc_clink_queue_request(ESOC_REQ_SHUTDOWN, esoc);
 		mdm_power_down(mdm);
 		mdm_update_gpio_configs(mdm, GPIO_UPDATE_BOOTING_CONFIG);
@@ -446,6 +453,7 @@ static irqreturn_t mdm_errfatal(int irq, void *dev_id)
 	esoc = mdm->esoc;
 	dev_err(dev, "%s: mdm sent errfatal interrupt\n",
 					__func__);
+	subsys_set_crash_status(esoc->subsys_dev, true);
 	/* disable irq ?*/
 	esoc_clink_evt_notify(ESOC_ERR_FATAL, esoc);
 	return IRQ_HANDLED;
@@ -476,6 +484,7 @@ static irqreturn_t mdm_status_change(int irq, void *dev_id)
 	value = gpio_get_value(MDM_GPIO(mdm, MDM2AP_STATUS));
 	if (value == 0 && mdm->ready) {
 		dev_err(dev, "unexpected reset external modem\n");
+		subsys_set_crash_status(esoc->subsys_dev, true);
 		esoc_clink_evt_notify(ESOC_UNEXPECTED_RESET, esoc);
 	} else if (value == 1) {
 		/*
@@ -999,6 +1008,10 @@ static int mdm9x45_setup_hw(struct mdm_ctrl *mdm,
 
 	esoc->auto_boot = of_property_read_bool(esoc->np,
 						"qcom,mdm-auto-boot");
+	esoc->statusline_not_a_powersource = of_property_read_bool(esoc->np,
+				"qcom,mdm-statusline-not-a-powersource");
+	esoc->userspace_handle_shutdown = of_property_read_bool(esoc->np,
+				"qcom,mdm-userspace-handle-shutdown");
 	set_esoc_clink_data(esoc, mdm);
 	ret = esoc_clink_register(esoc);
 	if (ret) {
