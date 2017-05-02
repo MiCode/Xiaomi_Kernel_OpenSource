@@ -7103,6 +7103,9 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 	return select_best_cpu(p, prev_cpu, 0, sync);
 #endif
 
+	if (energy_aware())
+		return energy_aware_wake_cpu(p, prev_cpu, sync);
+
 	if (sd_flag & SD_BALANCE_WAKE) {
 		record_wakee(p);
 		want_affine = (!wake_wide(p) && task_fits_max(p, cpu) &&
