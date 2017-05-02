@@ -15,10 +15,9 @@
 
 #include "msm8909-mtp.dtsi"
 #include "msm8909w-gpu.dtsi"
-#include "msm8909-pm8916.dtsi"
-#include "msm8909-pm8916-mtp.dtsi"
 #include "msm8909w.dtsi"
 #include "msm8909w-memory.dtsi"
+#include "msm8909w-pm660-mtp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8909W-PM660 BLACKGHOST WTP";
@@ -66,6 +65,12 @@
 			ite,fw-name = "it7260_fw_050D0014.bin";
 			ite,cfg-name = "it7260_cfg_62011E01.bin";
 			ite,avdd-lpm-cur = <3000>;
+		};
+
+		it7260@46 {
+			/* Update with PM660 regulator handles */
+			/delete-property/ avdd-supply;
+			/delete-property/ vdd-supply;
 		};
 	};
 
