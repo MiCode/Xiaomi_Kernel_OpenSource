@@ -65,7 +65,7 @@
 
 		qcom,gpu-quirk-hfi-use-reg;
 
-		qcom,idle-timeout = <100000000>; //msecs
+		qcom,idle-timeout = <80>; //msecs
 		qcom,no-nap;
 
 		qcom,highest-bank-bit = <15>;
