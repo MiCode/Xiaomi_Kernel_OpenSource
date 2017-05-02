@@ -26,4 +26,5 @@
 &blsp1_uart2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart2_console_active>;
+	status = "ok";
 };
