@@ -303,6 +303,13 @@
 		qcom,reset-ep-after-lpm-resume;
 	};
 
+	usb_audio_qmi_dev {
+		compatible = "qcom,usb-audio-qmi-dev";
+		iommus = <&apps_smmu 0x182c>;
+		qcom,usb-audio-stream-id = <0xc>;
+		qcom,usb-audio-intr-num = <2>;
+	};
+
 	usb_nop_phy: usb_nop_phy {
 		compatible = "usb-nop-xceiv";
 	};
