@@ -16,3 +16,7 @@
 	model = "Qualcomm Technologies, Inc. SDM845 V2";
 	qcom,msm-id = <321 0x20000>;
 };
+
+&spmi_debug_bus {
+	status = "ok";
+};
