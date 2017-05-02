@@ -1868,9 +1868,9 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 #undef TRY_GET_CTRL
 
 	if (!rc && property_id) {
-		dprintk(VIDC_DBG, "Control: HAL property=%x,ctrl_value=%d\n",
-				property_id,
-				ctrl->val);
+		dprintk(VIDC_DBG,
+			"Control: Name = %s, ID = 0x%x Value = %d\n",
+				ctrl->name, ctrl->id, ctrl->val);
 		rc = call_hfi_op(hdev, session_set_property,
 				(void *)inst->session, property_id, pdata);
 	}
