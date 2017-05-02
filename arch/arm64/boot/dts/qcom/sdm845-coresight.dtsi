@@ -391,9 +391,8 @@
 
 		coresight-name = "coresight-hwevent";
 
-		clocks = <&clock_gcc RPMH_QDSS_CLK>,
-			 <&clock_gcc RPMH_QDSS_A_CLK>;
-		clock-names = "core_clk", "core_a_clk";
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
 	};
 
 	csr: csr@6001000 {
@@ -779,7 +778,7 @@
 		coresight-name = "coresight-tpdm-lpass";
 
 		clocks = <&clock_aop QDSS_CLK>;
-		clock-names = "core_clk";
+		clock-names = "apb_pclk";
 
 		port {
 			tpdm_lpass_out_funnel_lpass: endpoint {
@@ -1104,7 +1103,8 @@
 	};
 
 	tpdm_turing: tpdm@6860000 {
-		compatible = "qcom,coresight-tpdm";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b968>;
 		reg = <0x6860000 0x1000>;
 		reg-names = "tpdm-base";
 
@@ -1389,7 +1389,7 @@
 
 	cti_ddr0: cti@69e1000 {
 		compatible = "arm,primecell";
-		arm,primecell-periphid = <0x0003b969>;
+		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x69e1000 0x1000>;
 		reg-names = "cti-base";
 
@@ -1401,7 +1401,7 @@
 
 	cti_ddr1: cti@69e4000 {
 		compatible = "arm,primecell";
-		arm,primecell-periphid = <0x0003b969>;
+		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x69e4000 0x1000>;
 		reg-names = "cti-base";
 
