@@ -300,7 +300,6 @@ static int sde_rotator_update_clk(struct sde_rot_mgr *mgr)
 
 static void sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 {
-	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	int ret;
 
 	if (WARN_ON(mgr->regulator_enable == on)) {
@@ -311,7 +310,7 @@ static void sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 	SDEROT_EVTLOG(on);
 	SDEROT_DBG("%s: rotator regulators\n", on ? "Enable" : "Disable");
 
-	if (test_bit(SDE_CAPS_MIN_BUS_VOTE, mdata->sde_caps_map) && on) {
+	if (on) {
 		mgr->minimum_bw_vote = mgr->enable_bw_vote;
 		sde_rotator_update_perf(mgr);
 	}
@@ -330,7 +329,7 @@ static void sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 	if (mgr->ops_hw_post_pmevent)
 		mgr->ops_hw_post_pmevent(mgr, on);
 
-	if (test_bit(SDE_CAPS_MIN_BUS_VOTE, mdata->sde_caps_map) && !on) {
+	if (!on) {
 		mgr->minimum_bw_vote = 0;
 		sde_rotator_update_perf(mgr);
 	}
