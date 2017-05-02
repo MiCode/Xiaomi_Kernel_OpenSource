@@ -2036,6 +2036,8 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	return ret;
 }
 
+#define PERF_VOTE(idx, ack) (((idx) & 0xFF) | (((ack) & 0xF) << 28))
+#define BW_VOTE(idx) ((idx) & 0xFF)
 /*
  * a6xx_gmu_dcvs_nohfi() - request GMU to do DCVS without using HFI
  * @device: Pointer to KGSL device
@@ -2047,28 +2049,16 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 static int a6xx_gmu_dcvs_nohfi(struct kgsl_device *device,
 		unsigned int perf_idx, unsigned int bw_idx)
 {
-	struct hfi_dcvs_cmd dcvs_cmd = {
-		.ack_type = ACK_NONBLOCK,
-		.freq = {
-			.perf_idx = perf_idx,
-			.clkset_opt = OPTION_AT_LEAST,
-		},
-		.bw = {
-			.bw_idx = bw_idx,
-		},
-	};
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = &device->gmu;
-	union gpu_perf_vote vote;
 	int ret;
 
-	kgsl_gmu_regwrite(device, A6XX_GMU_DCVS_ACK_OPTION, dcvs_cmd.ack_type);
+	kgsl_gmu_regwrite(device, A6XX_GMU_DCVS_ACK_OPTION, ACK_NONBLOCK);
 
-	vote.fvote = dcvs_cmd.freq;
-	kgsl_gmu_regwrite(device, A6XX_GMU_DCVS_PERF_SETTING, vote.raw);
+	kgsl_gmu_regwrite(device, A6XX_GMU_DCVS_PERF_SETTING,
+			PERF_VOTE(perf_idx, OPTION_AT_LEAST));
 
-	vote.bvote = dcvs_cmd.bw;
-	kgsl_gmu_regwrite(device, A6XX_GMU_DCVS_BW_SETTING, vote.raw);
+	kgsl_gmu_regwrite(device, A6XX_GMU_DCVS_BW_SETTING, BW_VOTE(bw_idx));
 
 	ret = a6xx_oob_set(adreno_dev, OOB_DCVS_SET_MASK, OOB_DCVS_CHECK_MASK,
 		OOB_DCVS_CLEAR_MASK);
