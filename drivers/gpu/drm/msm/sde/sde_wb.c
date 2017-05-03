@@ -273,6 +273,7 @@ int sde_wb_get_info(struct msm_display_info *info, void *display)
 		return -EINVAL;
 	}
 
+	memset(info, 0, sizeof(struct msm_display_info));
 	info->intf_type = DRM_MODE_CONNECTOR_VIRTUAL;
 	info->num_of_h_tiles = 1;
 	info->h_tile_instance[0] = sde_wb_get_index(display);

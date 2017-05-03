@@ -2781,6 +2781,7 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 		goto error;
 	}
 
+	memset(info, 0, sizeof(struct msm_display_info));
 	info->intf_type = DRM_MODE_CONNECTOR_DSI;
 	timing = &display->panel->mode.timing;
 
