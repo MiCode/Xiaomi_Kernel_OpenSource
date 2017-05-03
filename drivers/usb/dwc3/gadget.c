@@ -301,9 +301,6 @@ void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
 	 */
 	if (dwc->ep0_bounced && dep->number <= 1) {
 		dwc->ep0_bounced = false;
-
-		usb_gadget_unmap_request_by_dev(dwc->sysdev,
-				&req->request, req->direction);
 		unmap_after_complete = true;
 	} else {
 		usb_gadget_unmap_request(&dwc->gadget,
