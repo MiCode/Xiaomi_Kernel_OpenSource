@@ -337,8 +337,8 @@ static int tcs_cmd_list_gen(int *n_active,
 			tcs_cmd_gen(cur_bcm, &cmdlist_active[k],
 				cur_bcm->node_vec[ACTIVE_CTX].vec_a,
 				cur_bcm->node_vec[ACTIVE_CTX].vec_b, commit);
-			k++;
 			last_tcs = k;
+			k++;
 			cur_bcm->updated = true;
 		}
 	}
