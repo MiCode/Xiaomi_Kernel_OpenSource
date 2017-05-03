@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -512,10 +512,8 @@ static struct ncp6335d_platform_data *
 
 	pdata = devm_kzalloc(&client->dev,
 			sizeof(struct ncp6335d_platform_data), GFP_KERNEL);
-	if (!pdata) {
-		dev_err(&client->dev, "ncp6335d_platform_data allocation failed.\n");
+	if (!pdata)
 		return pdata;
-	}
 
 	rc = of_property_read_u32(client->dev.of_node,
 			"onnn,vsel", &pdata->default_vsel);
@@ -621,10 +619,8 @@ static int ncp6335d_regulator_probe(struct i2c_client *client,
 	}
 
 	dd = devm_kzalloc(&client->dev, sizeof(*dd), GFP_KERNEL);
-	if (!dd) {
-		dev_err(&client->dev, "Unable to allocate memory\n");
+	if (!dd)
 		return -ENOMEM;
-	}
 
 	if (client->dev.of_node) {
 		rc = ncp6335d_parse_dt(client, dd);
@@ -657,7 +653,7 @@ static int ncp6335d_regulator_probe(struct i2c_client *client,
 
 	rc = ncp6335d_init(client, dd, pdata);
 	if (rc) {
-		dev_err(&client->dev, "Unable to intialize the regulator\n");
+		dev_err(&client->dev, "Unable to initialize the regulator\n");
 		return -EINVAL;
 	}
 
@@ -712,7 +708,7 @@ static int ncp6335d_regulator_remove(struct i2c_client *client)
 	return 0;
 }
 
-static struct of_device_id ncp6335d_match_table[] = {
+static const struct of_device_id ncp6335d_match_table[] = {
 	{ .compatible = "onnn,ncp6335d-regulator", },
 	{},
 };
@@ -746,8 +742,8 @@ int __init ncp6335d_regulator_init(void)
 
 	if (initialized)
 		return 0;
-	else
-		initialized = true;
+
+	initialized = true;
 
 	return i2c_add_driver(&ncp6335d_regulator_driver);
 }
