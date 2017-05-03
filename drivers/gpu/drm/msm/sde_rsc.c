@@ -381,6 +381,8 @@ static int sde_rsc_switch_to_idle(struct sde_rsc_priv *rsc)
 
 	} else if (rsc->hw_ops.state_update) {
 		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_IDLE_STATE);
+		if (!rc)
+			rpmh_mode_solver_set(rsc->disp_rsc, false);
 	}
 
 	return rc;
@@ -413,8 +415,11 @@ static int sde_rsc_switch_to_cmd(struct sde_rsc_priv *rsc,
 		if (client->current_state == SDE_RSC_VID_STATE)
 			goto end;
 
-	if (rsc->hw_ops.state_update)
+	if (rsc->hw_ops.state_update) {
 		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_CMD_STATE);
+		if (!rc)
+			rpmh_mode_solver_set(rsc->disp_rsc, true);
+	}
 
 	/* wait for vsync for vid to cmd state switch */
 	if (!rc && (rsc->current_state == SDE_RSC_VID_STATE))
@@ -434,8 +439,11 @@ static bool sde_rsc_switch_to_clk(struct sde_rsc_priv *rsc)
 		    (client->current_state == SDE_RSC_CMD_STATE))
 			goto end;
 
-	if (rsc->hw_ops.state_update)
+	if (rsc->hw_ops.state_update) {
 		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_CLK_STATE);
+		if (!rc)
+			rpmh_mode_solver_set(rsc->disp_rsc, false);
+	}
 
 	/* wait for vsync for cmd to clk state switch */
 	if (!rc && rsc->primary_client &&
@@ -457,8 +465,11 @@ static bool sde_rsc_switch_to_vid(struct sde_rsc_priv *rsc,
 		sde_rsc_timer_calculate(rsc, config);
 
 	/* video state switch should be done immediately */
-	if (rsc->hw_ops.state_update)
+	if (rsc->hw_ops.state_update) {
 		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_VID_STATE);
+		if (!rc)
+			rpmh_mode_solver_set(rsc->disp_rsc, false);
+	}
 
 	/* wait for vsync for cmd to vid state switch */
 	if (!rc && rsc->primary_client &&
