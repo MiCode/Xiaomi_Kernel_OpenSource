@@ -155,6 +155,21 @@ struct msm_wsa881x_dev_info {
 	u32 index;
 };
 
+enum pinctrl_pin_state {
+	STATE_DISABLE = 0, /* All pins are in sleep state */
+	STATE_MI2S_ACTIVE,  /* IS2 = active, TDM = sleep */
+	STATE_TDM_ACTIVE,  /* IS2 = sleep, TDM = active */
+};
+
+struct msm_pinctrl_info {
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *mi2s_disable;
+	struct pinctrl_state *tdm_disable;
+	struct pinctrl_state *mi2s_active;
+	struct pinctrl_state *tdm_active;
+	enum pinctrl_pin_state curr_state;
+};
+
 struct msm_asoc_mach_data {
 	u32 mclk_freq;
 	int us_euro_gpio; /* used by gpio driver API */
@@ -162,6 +177,7 @@ struct msm_asoc_mach_data {
 	struct device_node *hph_en1_gpio_p; /* used by pinctrl API */
 	struct device_node *hph_en0_gpio_p; /* used by pinctrl API */
 	struct snd_info_entry *codec_root;
+	struct msm_pinctrl_info pinctrl_info;
 };
 
 struct msm_asoc_wcd93xx_codec {
@@ -169,6 +185,9 @@ struct msm_asoc_wcd93xx_codec {
 				   enum afe_config_type config_type);
 	void (*mbhc_hs_detect_exit)(struct snd_soc_codec *codec);
 };
+
+static const char *const pin_states[] = {"sleep", "i2s-active",
+					 "tdm-active"};
 
 enum {
 	TDM_0 = 0,
@@ -3803,6 +3822,275 @@ err:
 	return ret;
 }
 
+static int msm_set_pinctrl(struct msm_pinctrl_info *pinctrl_info,
+				enum pinctrl_pin_state new_state)
+{
+	int ret = 0;
+	int curr_state = 0;
+
+	if (pinctrl_info == NULL) {
+		pr_err("%s: pinctrl_info is NULL\n", __func__);
+		ret = -EINVAL;
+		goto err;
+	}
+	curr_state = pinctrl_info->curr_state;
+	pinctrl_info->curr_state = new_state;
+	pr_debug("%s: curr_state = %s new_state = %s\n", __func__,
+		 pin_states[curr_state], pin_states[pinctrl_info->curr_state]);
+
+	if (curr_state == pinctrl_info->curr_state) {
+		pr_debug("%s: Already in same state\n", __func__);
+		goto err;
+	}
+
+	if (curr_state != STATE_DISABLE &&
+		pinctrl_info->curr_state != STATE_DISABLE) {
+		pr_debug("%s: state already active cannot switch\n", __func__);
+		ret = -EIO;
+		goto err;
+	}
+
+	switch (pinctrl_info->curr_state) {
+	case STATE_MI2S_ACTIVE:
+		ret = pinctrl_select_state(pinctrl_info->pinctrl,
+					pinctrl_info->mi2s_active);
+		if (ret) {
+			pr_err("%s: MI2S state select failed with %d\n",
+				__func__, ret);
+			ret = -EIO;
+			goto err;
+		}
+		break;
+	case STATE_TDM_ACTIVE:
+		ret = pinctrl_select_state(pinctrl_info->pinctrl,
+					pinctrl_info->tdm_active);
+		if (ret) {
+			pr_err("%s: TDM state select failed with %d\n",
+				__func__, ret);
+			ret = -EIO;
+			goto err;
+		}
+		break;
+	case STATE_DISABLE:
+		if (curr_state == STATE_MI2S_ACTIVE) {
+			ret = pinctrl_select_state(pinctrl_info->pinctrl,
+					pinctrl_info->mi2s_disable);
+		} else {
+			ret = pinctrl_select_state(pinctrl_info->pinctrl,
+					pinctrl_info->tdm_disable);
+		}
+		if (ret) {
+			pr_err("%s:  state disable failed with %d\n",
+				__func__, ret);
+			ret = -EIO;
+			goto err;
+		}
+		break;
+	default:
+		pr_err("%s: TLMM pin state is invalid\n", __func__);
+		return -EINVAL;
+	}
+
+err:
+	return ret;
+}
+
+static void msm_release_pinctrl(struct platform_device *pdev)
+{
+	struct snd_soc_card *card = platform_get_drvdata(pdev);
+	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	struct msm_pinctrl_info *pinctrl_info = &pdata->pinctrl_info;
+
+	if (pinctrl_info->pinctrl) {
+		devm_pinctrl_put(pinctrl_info->pinctrl);
+		pinctrl_info->pinctrl = NULL;
+	}
+}
+
+static int msm_get_pinctrl(struct platform_device *pdev)
+{
+	struct snd_soc_card *card = platform_get_drvdata(pdev);
+	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	struct msm_pinctrl_info *pinctrl_info = NULL;
+	struct pinctrl *pinctrl;
+	int ret;
+
+	pinctrl_info = &pdata->pinctrl_info;
+
+	if (pinctrl_info == NULL) {
+		pr_err("%s: pinctrl_info is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR_OR_NULL(pinctrl)) {
+		pr_err("%s: Unable to get pinctrl handle\n", __func__);
+		return -EINVAL;
+	}
+	pinctrl_info->pinctrl = pinctrl;
+
+	/* get all the states handles from Device Tree */
+	pinctrl_info->mi2s_disable = pinctrl_lookup_state(pinctrl,
+						"quat-mi2s-sleep");
+	if (IS_ERR(pinctrl_info->mi2s_disable)) {
+		pr_err("%s: could not get mi2s_disable pinstate\n", __func__);
+		goto err;
+	}
+	pinctrl_info->mi2s_active = pinctrl_lookup_state(pinctrl,
+						"quat-mi2s-active");
+	if (IS_ERR(pinctrl_info->mi2s_active)) {
+		pr_err("%s: could not get mi2s_active pinstate\n", __func__);
+		goto err;
+	}
+	pinctrl_info->tdm_disable = pinctrl_lookup_state(pinctrl,
+						"quat-tdm-sleep");
+	if (IS_ERR(pinctrl_info->tdm_disable)) {
+		pr_err("%s: could not get tdm_disable pinstate\n", __func__);
+		goto err;
+	}
+	pinctrl_info->tdm_active = pinctrl_lookup_state(pinctrl,
+						"quat-tdm-active");
+	if (IS_ERR(pinctrl_info->tdm_active)) {
+		pr_err("%s: could not get tdm_active pinstate\n",
+			__func__);
+		goto err;
+	}
+	/* Reset the TLMM pins to a default state */
+	ret = pinctrl_select_state(pinctrl_info->pinctrl,
+					pinctrl_info->mi2s_disable);
+	if (ret != 0) {
+		pr_err("%s: Disable TLMM pins failed with %d\n",
+			__func__, ret);
+		ret = -EIO;
+		goto err;
+	}
+	pinctrl_info->curr_state = STATE_DISABLE;
+
+	return 0;
+
+err:
+	devm_pinctrl_put(pinctrl);
+	pinctrl_info->pinctrl = NULL;
+	return -EINVAL;
+}
+
+static int msm_tdm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+				      struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_interval *rate = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_RATE);
+	struct snd_interval *channels = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	if (cpu_dai->id == AFE_PORT_ID_QUATERNARY_TDM_RX) {
+		channels->min = channels->max =
+				tdm_rx_cfg[TDM_QUAT][TDM_0].channels;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			       tdm_rx_cfg[TDM_QUAT][TDM_0].bit_format);
+		rate->min = rate->max =
+				tdm_rx_cfg[TDM_QUAT][TDM_0].sample_rate;
+	} else if (cpu_dai->id == AFE_PORT_ID_SECONDARY_TDM_RX) {
+		channels->min = channels->max =
+				tdm_rx_cfg[TDM_SEC][TDM_0].channels;
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			       tdm_rx_cfg[TDM_SEC][TDM_0].bit_format);
+		rate->min = rate->max = tdm_rx_cfg[TDM_SEC][TDM_0].sample_rate;
+	} else {
+		pr_err("%s: dai id 0x%x not supported\n",
+			__func__, cpu_dai->id);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: dai id = 0x%x channels = %d rate = %d format = 0x%x\n",
+		__func__, cpu_dai->id, channels->max, rate->max,
+		params_format(params));
+
+	return 0;
+}
+
+static int sdm845_tdm_snd_hw_params(struct snd_pcm_substream *substream,
+				     struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	int ret = 0;
+	int channels, slot_width, slots;
+	unsigned int slot_mask;
+	unsigned int slot_offset[8] = {0, 4, 8, 12, 16, 20, 24, 28};
+
+	pr_debug("%s: dai id = 0x%x\n", __func__, cpu_dai->id);
+
+	slots = tdm_rx_cfg[TDM_QUAT][TDM_0].channels;
+	/*2 slot config - bits 0 and 1 set for the first two slots */
+	slot_mask = 0x0000FFFF >> (16-slots);
+	slot_width = 32;
+	channels = slots;
+
+	pr_debug("%s: slot_width %d slots %d\n", __func__, slot_width, slots);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		pr_debug("%s: slot_width %d\n", __func__, slot_width);
+		ret = snd_soc_dai_set_tdm_slot(cpu_dai, 0, slot_mask,
+			slots, slot_width);
+		if (ret < 0) {
+			pr_err("%s: failed to set tdm slot, err:%d\n",
+				__func__, ret);
+			goto end;
+		}
+
+		ret = snd_soc_dai_set_channel_map(cpu_dai,
+			0, NULL, channels, slot_offset);
+		if (ret < 0) {
+			pr_err("%s: failed to set channel map, err:%d\n",
+				__func__, ret);
+			goto end;
+		}
+	} else {
+		pr_err("%s: invalid use case, err:%d\n",
+			__func__, ret);
+	}
+
+end:
+	return ret;
+}
+
+static int sdm845_tdm_snd_startup(struct snd_pcm_substream *substream)
+{
+	int ret = 0;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	struct msm_pinctrl_info *pinctrl_info = &pdata->pinctrl_info;
+
+	ret = msm_set_pinctrl(pinctrl_info, STATE_TDM_ACTIVE);
+	if (ret)
+		pr_err("%s: MI2S TLMM pinctrl set failed with %d\n",
+			__func__, ret);
+
+	return ret;
+}
+
+static void sdm845_tdm_snd_shutdown(struct snd_pcm_substream *substream)
+{
+	int ret = 0;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	struct msm_pinctrl_info *pinctrl_info = &pdata->pinctrl_info;
+
+	ret = msm_set_pinctrl(pinctrl_info, STATE_DISABLE);
+	if (ret)
+		pr_err("%s: MI2S TLMM pinctrl set failed with %d\n",
+			__func__, ret);
+
+}
+
+static struct snd_soc_ops sdm845_tdm_be_ops = {
+	.hw_params = sdm845_tdm_snd_hw_params,
+	.startup = sdm845_tdm_snd_startup,
+	.shutdown = sdm845_tdm_snd_shutdown
+};
+
 static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 {
 	int ret = 0;
@@ -3810,6 +4098,9 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	int index = cpu_dai->id;
 	unsigned int fmt = SND_SOC_DAIFMT_CBS_CFS;
+	struct snd_soc_card *card = rtd->card;
+	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	struct msm_pinctrl_info *pinctrl_info = &pdata->pinctrl_info;
 
 	dev_dbg(rtd->card->dev,
 		"%s: substream = %s  stream = %d, dai name %s, dai ID %d\n",
@@ -3822,6 +4113,14 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 			"%s: CPU DAI id (%d) out of range\n",
 			__func__, cpu_dai->id);
 		goto err;
+	}
+	if (index == QUAT_MI2S) {
+		ret = msm_set_pinctrl(pinctrl_info, STATE_MI2S_ACTIVE);
+		if (ret) {
+			pr_err("%s: MI2S TLMM pinctrl set failed with %d\n",
+				__func__, ret);
+			goto err;
+		}
 	}
 	/*
 	 * Muxtex protection in case the same MI2S
@@ -3875,6 +4174,9 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 	int ret;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	int index = rtd->cpu_dai->id;
+	struct snd_soc_card *card = rtd->card;
+	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	struct msm_pinctrl_info *pinctrl_info = &pdata->pinctrl_info;
 
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
@@ -3893,6 +4195,13 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 		}
 	}
 	mutex_unlock(&mi2s_intf_conf[index].lock);
+
+	if (index == QUAT_MI2S) {
+		ret = msm_set_pinctrl(pinctrl_info, STATE_DISABLE);
+		if (ret)
+			pr_err("%s: MI2S TLMM pinctrl set failed with %d\n",
+				__func__, ret);
+	}
 }
 
 static struct snd_soc_ops msm_mi2s_be_ops = {
@@ -4930,8 +5239,8 @@ static struct snd_soc_dai_link msm_common_be_dai_links[] = {
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.id = MSM_BACKEND_DAI_QUAT_TDM_RX_0,
-		.be_hw_params_fixup = msm_be_hw_params_fixup,
-		.ops = &msm_tdm_be_ops,
+		.be_hw_params_fixup = msm_tdm_be_hw_params_fixup,
+		.ops = &sdm845_tdm_be_ops,
 		.ignore_suspend = 1,
 	},
 	{
@@ -6297,6 +6606,17 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "msm_prepare_us_euro failed (%d)\n",
 			ret);
 
+	/* Parse pinctrl info from devicetree */
+	ret = msm_get_pinctrl(pdev);
+	if (!ret) {
+		pr_debug("%s: pinctrl parsing successful\n", __func__);
+	} else {
+		dev_dbg(&pdev->dev,
+			"%s: Parsing pinctrl failed with %d. Cannot use Ports\n",
+			__func__, ret);
+		ret = 0;
+	}
+
 	msm_i2s_auxpcm_init(pdev);
 
 	is_initial_boot = true;
@@ -6308,6 +6628,7 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 
 	return 0;
 err:
+	msm_release_pinctrl(pdev);
 	devm_kfree(&pdev->dev, pdata);
 	return ret;
 }
@@ -6324,6 +6645,7 @@ static int msm_asoc_machine_remove(struct platform_device *pdev)
 	}
 	msm_i2s_auxpcm_deinit();
 
+	msm_release_pinctrl(pdev);
 	snd_soc_unregister_card(card);
 	return 0;
 }
