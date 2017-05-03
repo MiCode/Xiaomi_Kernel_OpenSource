@@ -574,9 +574,16 @@ static int sde_hw_rot_commit(struct sde_hw_rot *hw, struct sde_hw_rot_cmd *data,
 
 	rot_cmd.video_mode = data->video_mode;
 	rot_cmd.fps = data->fps;
+
+	/*
+	 * DRM rotation property is specified in counter clockwise direction
+	 * whereas rotator h/w rotates in clockwise direction.
+	 * Convert rotation property to clockwise 90 by toggling h/v flip
+	 */
 	rot_cmd.rot90 = data->rot90;
-	rot_cmd.hflip = data->hflip;
-	rot_cmd.vflip = data->vflip;
+	rot_cmd.hflip = data->rot90 ? !data->hflip : data->hflip;
+	rot_cmd.vflip = data->rot90 ? !data->vflip : data->vflip;
+
 	rot_cmd.secure = data->secure;
 	rot_cmd.clkrate = data->clkrate;
 	rot_cmd.data_bw = 0;
