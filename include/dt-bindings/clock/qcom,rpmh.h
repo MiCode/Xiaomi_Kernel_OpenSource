@@ -27,7 +27,5 @@
 #define RPMH_RF_CLK2_A						9
 #define RPMH_RF_CLK3						10
 #define RPMH_RF_CLK3_A						11
-#define RPMH_QDSS_CLK						12
-#define RPMH_QDSS_A_CLK						13
 
 #endif
