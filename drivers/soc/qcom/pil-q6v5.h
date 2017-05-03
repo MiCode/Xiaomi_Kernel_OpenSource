@@ -45,6 +45,7 @@ struct q6v5_data {
 	void __iomem *axi_halt_nc;
 	void __iomem *restart_reg;
 	void __iomem *pdc_sync;
+	void __iomem *alt_reset;
 	struct regulator *vreg;
 	struct regulator *vreg_cx;
 	struct regulator *vreg_mx;

@@ -225,6 +225,16 @@ static void pil_mss_pdc_sync(struct q6v5_data *drv, bool pdc_sync)
 	}
 }
 
+static void pil_mss_alt_reset(struct q6v5_data *drv, u32 val)
+{
+	if (drv->alt_reset) {
+		writel_relaxed(val, drv->alt_reset);
+		/* Ensure alt reset is written before restart reg */
+		wmb();
+		udelay(2);
+	}
+}
+
 static int pil_mss_restart_reg(struct q6v5_data *drv, u32 mss_restart)
 {
 	int ret = 0;
@@ -252,6 +262,32 @@ static int pil_mss_restart_reg(struct q6v5_data *drv, u32 mss_restart)
 		if (ret || scm_ret)
 			pr_err("Secure MSS restart failed\n");
 	}
+
+	return ret;
+}
+
+static int pil_mss_assert_resets(struct q6v5_data *drv)
+{
+	int ret = 0;
+
+	pil_mss_pdc_sync(drv, 1);
+	pil_mss_alt_reset(drv, 1);
+	ret = pil_mss_restart_reg(drv, true);
+
+	return ret;
+}
+
+static int pil_mss_deassert_resets(struct q6v5_data *drv)
+{
+	int ret = 0;
+
+	ret = pil_mss_restart_reg(drv, 0);
+	if (ret)
+		return ret;
+	/* Wait 6 32kHz sleep cycles for reset */
+	udelay(200);
+	pil_mss_alt_reset(drv, 0);
+	pil_mss_pdc_sync(drv, false);
 
 	return ret;
 }
@@ -325,8 +361,10 @@ int pil_mss_shutdown(struct pil_desc *pil)
 									ret);
 	}
 
-	pil_mss_pdc_sync(drv, 1);
-	ret = pil_mss_restart_reg(drv, 1);
+	pil_mss_assert_resets(drv);
+	/* Wait 6 32kHz sleep cycles for reset */
+	udelay(200);
+	ret = pil_mss_deassert_resets(drv);
 
 	if (drv->is_booted) {
 		pil_mss_disable_clks(drv);
@@ -485,16 +523,17 @@ static int pil_mss_reset(struct pil_desc *pil)
 	if (ret)
 		goto err_power;
 
-	/* Deassert reset to subsystem and wait for propagation */
-	ret = pil_mss_restart_reg(drv, 0);
-	if (ret)
-		goto err_restart;
-
-	pil_mss_pdc_sync(drv, 0);
-
 	ret = pil_mss_enable_clks(drv);
 	if (ret)
 		goto err_clks;
+
+	/* Assert reset to subsystem */
+	pil_mss_assert_resets(drv);
+	/* Wait 6 32kHz sleep cycles for reset */
+	udelay(200);
+	ret = pil_mss_deassert_resets(drv);
+	if (ret)
+		goto err_restart;
 
 	if (modem_dbg_cfg)
 		writel_relaxed(modem_dbg_cfg, drv->reg_base + QDSP6SS_DBG_CFG);
@@ -543,13 +582,11 @@ static int pil_mss_reset(struct pil_desc *pil)
 
 err_q6v5_reset:
 	modem_log_rmb_regs(drv->rmb_base);
+err_restart:
 	pil_mss_disable_clks(drv);
 	if (drv->ahb_clk_vote)
 		clk_disable_unprepare(drv->ahb_clk);
 err_clks:
-	pil_mss_pdc_sync(drv, 1);
-	pil_mss_restart_reg(drv, 1);
-err_restart:
 	pil_mss_power_down(drv);
 err_power:
 	return ret;
