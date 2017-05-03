@@ -5520,3 +5520,28 @@ sess_continue_fail:
 	mutex_unlock(&inst->lock);
 	return rc;
 }
+
+u32 get_frame_size_nv12(int plane, u32 height, u32 width)
+{
+	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12, width, height);
+}
+
+u32 get_frame_size_nv12_ubwc(int plane, u32 height, u32 width)
+{
+	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12_UBWC, width, height);
+}
+
+u32 get_frame_size_rgba(int plane, u32 height, u32 width)
+{
+	return VENUS_BUFFER_SIZE(COLOR_FMT_RGBA8888, width, height);
+}
+
+u32 get_frame_size_nv21(int plane, u32 height, u32 width)
+{
+	return VENUS_BUFFER_SIZE(COLOR_FMT_NV21, width, height);
+}
+
+u32 get_frame_size_tp10_ubwc(int plane, u32 height, u32 width)
+{
+	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12_BPP10_UBWC, width, height);
+}

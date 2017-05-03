@@ -994,26 +994,6 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
 
-static u32 get_frame_size_nv12(int plane, u32 height, u32 width)
-{
-	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12, width, height);
-}
-
-static u32 get_frame_size_nv12_ubwc(int plane, u32 height, u32 width)
-{
-	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12_UBWC, width, height);
-}
-
-static u32 get_frame_size_rgba(int plane, u32 height, u32 width)
-{
-	return VENUS_BUFFER_SIZE(COLOR_FMT_RGBA8888, width, height);
-}
-
-static u32 get_frame_size_nv21(int plane, u32 height, u32 width)
-{
-	return VENUS_BUFFER_SIZE(COLOR_FMT_NV21, width, height);
-}
-
 static u32 get_frame_size_compressed(int plane, u32 height, u32 width)
 {
 	int sz = ALIGN(height, 32) * ALIGN(width, 32) * 3 / 2;
@@ -1069,6 +1049,13 @@ static struct msm_vidc_format venc_formats[] = {
 		.description = "Y/CrCb 4:2:0",
 		.fourcc = V4L2_PIX_FMT_NV21,
 		.get_frame_size = get_frame_size_nv21,
+		.type = OUTPUT_PORT,
+	},
+	{
+		.name = "TP10 UBWC 4:2:0",
+		.description = "TP10 UBWC 4:2:0",
+		.fourcc = V4L2_PIX_FMT_NV12_TP10_UBWC,
+		.get_frame_size = get_frame_size_tp10_ubwc,
 		.type = OUTPUT_PORT,
 	},
 };

@@ -98,4 +98,9 @@ void msm_comm_print_inst_info(struct msm_vidc_inst *inst);
 int msm_comm_v4l2_to_hal(int id, int value);
 int msm_comm_hal_to_v4l2(int id, int value);
 int msm_comm_session_continue(void *instance);
+u32 get_frame_size_nv12(int plane, u32 height, u32 width);
+u32 get_frame_size_nv12_ubwc(int plane, u32 height, u32 width);
+u32 get_frame_size_rgba(int plane, u32 height, u32 width);
+u32 get_frame_size_nv21(int plane, u32 height, u32 width);
+u32 get_frame_size_tp10_ubwc(int plane, u32 height, u32 width);
 #endif
