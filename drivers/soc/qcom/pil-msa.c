@@ -510,6 +510,7 @@ static int pil_mss_reset(struct pil_desc *pil)
 {
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
 	phys_addr_t start_addr = pil_get_entry_addr(pil);
+	u32 debug_val;
 	int ret;
 
 	if (drv->mba_dp_phys)
@@ -527,6 +528,9 @@ static int pil_mss_reset(struct pil_desc *pil)
 	if (ret)
 		goto err_clks;
 
+	/* Save state of modem debug register before full reset */
+	debug_val = readl_relaxed(drv->reg_base + QDSP6SS_DBG_CFG);
+
 	/* Assert reset to subsystem */
 	pil_mss_assert_resets(drv);
 	/* Wait 6 32kHz sleep cycles for reset */
@@ -535,6 +539,7 @@ static int pil_mss_reset(struct pil_desc *pil)
 	if (ret)
 		goto err_restart;
 
+	writel_relaxed(debug_val, drv->reg_base + QDSP6SS_DBG_CFG);
 	if (modem_dbg_cfg)
 		writel_relaxed(modem_dbg_cfg, drv->reg_base + QDSP6SS_DBG_CFG);
 
