@@ -57,6 +57,7 @@
 #define LIMITS_DOMAIN_MIN           0x444D494E
 
 #define LIMITS_TEMP_DEFAULT         75000
+#define LIMITS_TEMP_HIGH_THRESH_MAX 120000
 #define LIMITS_LOW_THRESHOLD_OFFSET 500
 #define LIMITS_POLLING_DELAY_MS     10
 #define LIMITS_CLUSTER_0_REQ        0x179C1B04
@@ -259,7 +260,7 @@ static int lmh_set_trips(void *data, int low, int high)
 	struct limits_dcvs_hw *hw = (struct limits_dcvs_hw *)data;
 	int ret = 0;
 
-	if (high < LIMITS_LOW_THRESHOLD_OFFSET || low < 0) {
+	if (high >= LIMITS_TEMP_HIGH_THRESH_MAX || low < 0) {
 		pr_err("Value out of range low:%d high:%d\n",
 				low, high);
 		return -EINVAL;
