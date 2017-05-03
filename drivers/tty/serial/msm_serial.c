@@ -303,15 +303,17 @@ static void msm_request_tx_dma(struct msm_port *msm_port, resource_size_t base)
 	struct device *dev = msm_port->uart.dev;
 	struct dma_slave_config conf;
 	struct msm_dma *dma;
+	struct dma_chan *dma_chan;
 	u32 crci = 0;
 	int ret;
 
 	dma = &msm_port->tx_dma;
 
 	/* allocate DMA resources, if available */
-	dma->chan = dma_request_slave_channel_reason(dev, "tx");
-	if (IS_ERR(dma->chan))
+	dma_chan = dma_request_slave_channel_reason(dev, "tx");
+	if (IS_ERR(dma_chan))
 		goto no_tx;
+	dma->chan = dma_chan;
 
 	of_property_read_u32(dev->of_node, "qcom,tx-crci", &crci);
 
@@ -346,15 +348,17 @@ static void msm_request_rx_dma(struct msm_port *msm_port, resource_size_t base)
 	struct device *dev = msm_port->uart.dev;
 	struct dma_slave_config conf;
 	struct msm_dma *dma;
+	struct dma_chan *dma_chan;
 	u32 crci = 0;
 	int ret;
 
 	dma = &msm_port->rx_dma;
 
 	/* allocate DMA resources, if available */
-	dma->chan = dma_request_slave_channel_reason(dev, "rx");
-	if (IS_ERR(dma->chan))
+	dma_chan = dma_request_slave_channel_reason(dev, "rx");
+	if (IS_ERR(dma_chan))
 		goto no_rx;
+	dma->chan = dma_chan;
 
 	of_property_read_u32(dev->of_node, "qcom,rx-crci", &crci);
 
