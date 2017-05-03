@@ -5,7 +5,6 @@ config SND_SOC_MSM_HOSTLESS_PCM
 
 config SND_SOC_MSM_QDSP6V2_INTF
 	bool "SoC Q6 audio driver for APQ8084"
-	depends on MSM_QDSP6_APRV2
 	help
 	 To add support for SoC audio on APQ8084.
 	 This will enable all the platform specific
