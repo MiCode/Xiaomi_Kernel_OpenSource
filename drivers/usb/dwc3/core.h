@@ -68,6 +68,7 @@
 #define DWC3_DEVICE_EVENT_OVERFLOW		11
 
 #define DWC3_GEVNTCOUNT_MASK	0xfffc
+#define DWC3_GEVNTCOUNT_EHB	(1 << 31)
 #define DWC3_GSNPSID_MASK	0xffff0000
 #define DWC3_GSNPSREV_MASK	0xffff
 
@@ -149,6 +150,8 @@
 #define DWC3_DEPCMDPAR1		0x04
 #define DWC3_DEPCMDPAR0		0x08
 #define DWC3_DEPCMD		0x0c
+
+#define DWC3_DEV_IMOD(n)	(0xca00 + (n * 0x4))
 
 /* OTG Registers */
 #define DWC3_OCFG		0xcc00
@@ -484,6 +487,11 @@
 #define DWC3_DEPCMD_TYPE_ISOC		1
 #define DWC3_DEPCMD_TYPE_BULK		2
 #define DWC3_DEPCMD_TYPE_INTR		3
+
+#define DWC3_DEV_IMOD_COUNT_SHIFT	16
+#define DWC3_DEV_IMOD_COUNT_MASK	(0xffff << 16)
+#define DWC3_DEV_IMOD_INTERVAL_SHIFT	0
+#define DWC3_DEV_IMOD_INTERVAL_MASK	(0xffff << 0)
 
 #define DWC_CTRL_COUNT	10
 #define NUM_LOG_PAGES	12
@@ -887,6 +895,7 @@ struct dwc3_scratchpad_array {
  * @ep0_bounced: true when we used bounce buffer
  * @ep0_expect_in: true when we expect a DATA IN transfer
  * @has_hibernation: true when dwc3 was configured with Hibernation
+ * @sysdev_is_parent: true when dwc3 device has a parent driver
  * @has_lpm_erratum: true when core was configured with LPM Erratum. Note that
  *			there's now way for software to detect this in runtime.
  * @is_utmi_l1_suspend: the core asserts output signal
@@ -938,6 +947,8 @@ struct dwc3_scratchpad_array {
  * @vbus_draw: current to be drawn from USB
  * @index: dwc3 instance's number
  * @dwc_ipc_log_ctxt: dwc3 ipc log context
+ * @imod_interval: set the interrupt moderation interval in 250ns
+ *			increments or 0 to disable.
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -956,6 +967,7 @@ struct dwc3 {
 	spinlock_t		lock;
 
 	struct device		*dev;
+	struct device		*sysdev;
 
 	struct platform_device	*xhci;
 	struct resource		xhci_resources[DWC3_XHCI_RESOURCES_NUM];
@@ -1025,6 +1037,7 @@ struct dwc3 {
  */
 #define DWC3_REVISION_IS_DWC31		0x80000000
 #define DWC3_USB31_REVISION_110A	(0x3131302a | DWC3_REVISION_IS_DWC31)
+#define DWC3_USB31_REVISION_120A	(0x3132302a | DWC3_REVISION_IS_DWC31)
 
 	enum dwc3_ep0_next	ep0_next_event;
 	enum dwc3_ep0_state	ep0state;
@@ -1062,6 +1075,7 @@ struct dwc3 {
 	unsigned		ep0_bounced:1;
 	unsigned		ep0_expect_in:1;
 	unsigned		has_hibernation:1;
+	unsigned		sysdev_is_parent:1;
 	unsigned		has_lpm_erratum:1;
 	unsigned		is_utmi_l1_suspend:1;
 	unsigned		is_fpga:1;
@@ -1104,6 +1118,11 @@ struct dwc3 {
 	int			tx_fifo_size;
 	bool			b_suspend;
 	unsigned int		vbus_draw;
+
+	u16			imod_interval;
+
+	struct workqueue_struct	*dwc_wq;
+	struct work_struct	bh_work;
 
 	/* IRQ timing statistics */
 	int			irq;
@@ -1280,11 +1299,19 @@ void dwc3_set_mode(struct dwc3 *dwc, u32 mode);
 u32 dwc3_core_fifo_space(struct dwc3_ep *dep, u8 type);
 int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc);
 
+/* check whether we are on the DWC_usb3 core */
+static inline bool dwc3_is_usb3(struct dwc3 *dwc)
+{
+	return !(dwc->revision & DWC3_REVISION_IS_DWC31);
+}
+
 /* check whether we are on the DWC_usb31 core */
 static inline bool dwc3_is_usb31(struct dwc3 *dwc)
 {
 	return !!(dwc->revision & DWC3_REVISION_IS_DWC31);
 }
+
+bool dwc3_has_imod(struct dwc3 *dwc);
 
 #if IS_ENABLED(CONFIG_USB_DWC3_HOST) || IS_ENABLED(CONFIG_USB_DWC3_DUAL_ROLE)
 int dwc3_host_init(struct dwc3 *dwc);

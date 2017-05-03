@@ -1,0 +1,78 @@
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,demo_6000mah {
+	qcom,max-voltage-uv = <4350000>;
+	qcom,fg-cc-cv-threshold-mv = <4340>;
+	qcom,fastchg-current-ma = <6000>;
+	qcom,batt-id-kohm = <75>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "Demo_battery_6000mah";
+	qcom,fg-profile-data = [
+		 2C 1F 3F FC
+		 E9 03 A1 FD
+		 58 1D FD F5
+		 27 12 2C 14
+		 3F 18 FF 22
+		 9B 45 A3 52
+		 55 00 00 00
+		 0E 00 00 00
+		 00 00 1C AC
+		 F7 CD 71 B5
+		 1A 00 0C 00
+		 3C EB 54 E4
+		 EC 05 7F FA
+		 76 05 F5 02
+		 CA F3 82 3A
+		 2A 09 40 40
+		 07 00 05 00
+		 58 1F 42 06
+		 85 03 35 F4
+		 4D 1D 37 F2
+		 23 0A 79 15
+		 B7 18 32 23
+		 26 45 72 53
+		 55 00 00 00
+		 0D 00 00 00
+		 00 00 13 CC
+		 03 00 98 BD
+		 16 00 00 00
+		 3C EB 54 E4
+		 9F FC A3 F3
+		 0F FC DF FA
+		 FF E5 A9 23
+		 CB 33 08 33
+		 07 10 00 00
+		 81 0D 99 45
+		 16 00 19 00
+		 75 01 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};

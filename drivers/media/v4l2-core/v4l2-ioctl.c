@@ -1322,6 +1322,8 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 					descr = "Y/CbCr 4:2:0 P10"; break;
 	case V4L2_PIX_FMT_NV12_TP10_UBWC:
 					descr = "Y/CbCr 4:2:0 TP10 UBWC"; break;
+	case V4L2_PIX_FMT_NV12_P010_UBWC:
+					descr = "Y/CbCr 4:2:0 P010 UBWC"; break;
 
 	default:
 		/* Compressed formats */
@@ -1361,6 +1363,10 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 		case V4L2_PIX_FMT_JPGL:		descr = "JPEG Lite"; break;
 		case V4L2_PIX_FMT_SE401:	descr = "GSPCA SE401"; break;
 		case V4L2_PIX_FMT_S5C_UYVY_JPG:	descr = "S5C73MX interleaved UYVY/JPEG"; break;
+		case V4L2_PIX_FMT_HEVC:
+			descr = "HEVC"; break;
+		case V4L2_PIX_FMT_VP9:
+			descr = "VP9"; break;
 		default:
 			WARN(1, "Unknown pixelformat 0x%08x\n", fmt->pixelformat);
 			if (fmt->description[0])

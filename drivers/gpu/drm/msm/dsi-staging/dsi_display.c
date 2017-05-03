@@ -260,7 +260,8 @@ static int dsi_display_set_ulps(struct dsi_display *display, bool enable)
 		return rc;
 	}
 
-	rc = dsi_phy_set_ulps(m_ctrl->phy, &display->config, enable);
+	rc = dsi_phy_set_ulps(m_ctrl->phy, &display->config, enable,
+				display->clamp_enabled);
 	if (rc) {
 		pr_err("Ulps PHY state change(%d) failed\n", enable);
 		return rc;
@@ -278,7 +279,8 @@ static int dsi_display_set_ulps(struct dsi_display *display, bool enable)
 			return rc;
 		}
 
-		rc = dsi_phy_set_ulps(ctrl->phy, &display->config, enable);
+		rc = dsi_phy_set_ulps(ctrl->phy, &display->config, enable,
+					display->clamp_enabled);
 		if (rc) {
 			pr_err("Ulps PHY state change(%d) failed\n", enable);
 			return rc;
@@ -1105,7 +1107,7 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 		goto error_disable_clks;
 	}
 
-	if (display->ctrl_count > 1) {
+	if (display->ctrl_count > 1 && !(msg->flags & MIPI_DSI_MSG_UNICAST)) {
 		rc = dsi_display_broadcast_cmd(display, msg);
 		if (rc) {
 			pr_err("[%s] cmd broadcast failed, rc=%d\n",
@@ -1113,7 +1115,10 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 			goto error_disable_cmd_engine;
 		}
 	} else {
-		rc = dsi_ctrl_cmd_transfer(display->ctrl[0].ctrl, msg,
+		int ctrl_idx = (msg->flags & MIPI_DSI_MSG_UNICAST) ?
+				msg->ctrl : 0;
+
+		rc = dsi_ctrl_cmd_transfer(display->ctrl[ctrl_idx].ctrl, msg,
 					  DSI_CTRL_CMD_FIFO_STORE);
 		if (rc) {
 			pr_err("[%s] cmd transfer failed, rc=%d\n",
@@ -1362,8 +1367,7 @@ int dsi_pre_clkoff_cb(void *priv,
 		/*
 		 * Enable DSI clamps only if entering idle power collapse.
 		 */
-		if (dsi_panel_initialized(display->panel) &&
-			dsi_panel_ulps_feature_enabled(display->panel)) {
+		if (dsi_panel_initialized(display->panel)) {
 			dsi_display_phy_idle_off(display);
 			rc = dsi_display_set_clamp(display, true);
 			if (rc)
@@ -2228,10 +2232,12 @@ static int dsi_display_bind(struct device *dev,
 	struct dsi_display *display;
 	struct dsi_clk_info info;
 	struct clk_ctrl_cb clk_cb;
+	struct msm_drm_private *priv;
 	void *handle = NULL;
 	struct platform_device *pdev = to_platform_device(dev);
 	char *client1 = "dsi_clk_client";
 	char *client2 = "mdp_event_client";
+	char dsi_client_name[DSI_CLIENT_NAME_SIZE];
 	int i, rc = 0;
 
 	if (!dev || !pdev || !master) {
@@ -2247,6 +2253,7 @@ static int dsi_display_bind(struct device *dev,
 				drm, display);
 		return -EINVAL;
 	}
+	priv = drm->dev_private;
 
 	mutex_lock(&display->display_lock);
 
@@ -2260,7 +2267,6 @@ static int dsi_display_bind(struct device *dev,
 
 	for (i = 0; i < display->ctrl_count; i++) {
 		display_ctrl = &display->ctrl[i];
-
 		rc = dsi_ctrl_drv_init(display_ctrl->ctrl, display->root);
 		if (rc) {
 			pr_err("[%s] failed to initialize ctrl[%d], rc=%d\n",
@@ -2280,9 +2286,19 @@ static int dsi_display_bind(struct device *dev,
 			sizeof(struct dsi_core_clk_info));
 		memcpy(&info.l_clks[i], &display_ctrl->ctrl->clk_info.link_clks,
 			sizeof(struct dsi_link_clk_info));
+		info.c_clks[i].phandle = &priv->phandle;
 		info.bus_handle[i] =
 			display_ctrl->ctrl->axi_bus_info.bus_handle;
 		info.ctrl_index[i] = display_ctrl->ctrl->cell_index;
+		snprintf(dsi_client_name, DSI_CLIENT_NAME_SIZE,
+						"dsi_core_client%u", i);
+		info.c_clks[i].dsi_core_client = sde_power_client_create(
+				info.c_clks[i].phandle, dsi_client_name);
+		if (IS_ERR_OR_NULL(info.c_clks[i].dsi_core_client)) {
+			pr_err("[%s] client creation failed for ctrl[%d]",
+					dsi_client_name, i);
+			goto error_ctrl_deinit;
+		}
 	}
 
 	info.pre_clkoff_cb = dsi_pre_clkoff_cb;
@@ -3013,6 +3029,12 @@ error_panel_post_unprep:
 error:
 	mutex_unlock(&display->display_lock);
 	return rc;
+}
+
+int dsi_display_pre_kickoff(struct dsi_display *display,
+		struct msm_display_kickoff_params *params)
+{
+	return 0;
 }
 
 int dsi_display_enable(struct dsi_display *display)

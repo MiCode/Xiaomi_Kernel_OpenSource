@@ -777,9 +777,11 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
 /**
  * sde_encoder_phys_wb_prepare_for_kickoff - pre-kickoff processing
  * @phys_enc:	Pointer to physical encoder
+ * @params:	kickoff parameters
  */
 static void sde_encoder_phys_wb_prepare_for_kickoff(
-		struct sde_encoder_phys *phys_enc)
+		struct sde_encoder_phys *phys_enc,
+		struct sde_encoder_kickoff_params *params)
 {
 	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
 	int ret;
@@ -992,7 +994,7 @@ static void sde_encoder_phys_wb_disable(struct sde_encoder_phys *phys_enc)
 		goto exit;
 
 	phys_enc->enable_state = SDE_ENC_DISABLING;
-	sde_encoder_phys_wb_prepare_for_kickoff(phys_enc);
+	sde_encoder_phys_wb_prepare_for_kickoff(phys_enc, NULL);
 	if (phys_enc->hw_ctl->ops.trigger_flush)
 		phys_enc->hw_ctl->ops.trigger_flush(phys_enc->hw_ctl);
 	sde_encoder_helper_trigger_start(phys_enc);

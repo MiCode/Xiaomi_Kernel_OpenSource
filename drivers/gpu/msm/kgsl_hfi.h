@@ -38,16 +38,15 @@ enum hfi_queue_type {
 #define GMU_QUEUE_START_ADDR(hfi_mem, i) \
 	((hfi_mem)->gmuaddr + HFI_QUEUE_OFFSET(i))
 
-#define HFI_IRQ_MSGQ_MASK		0x1
-#define HFI_IRQ_DBGQ_MASK		0x2
-#define HFI_IRQ_BLOCKED_MSG_MASK	0x4
-#define HFI_IRQ_GMU_ERR_MASK		0xFF0000
-#define HFI_IRQ_OOB_MASK		0xFF000000
-#define HFI_IRQ_MASK  (HFI_IRQ_MSGQ_MASK |\
-			HFI_IRQ_DBGQ_MASK |\
-			HFI_IRQ_BLOCKED_MSG_MASK |\
-			HFI_IRQ_GMU_ERR_MASK |\
-			HFI_IRQ_OOB_MASK)
+#define HFI_IRQ_MSGQ_MASK		BIT(0)
+#define HFI_IRQ_DBGQ_MASK		BIT(1)
+#define HFI_IRQ_BLOCKED_MSG_MASK	BIT(2)
+#define HFI_IRQ_CM3_FAULT_MASK		BIT(23)
+#define HFI_IRQ_GMU_ERR_MASK		GENMASK(22, 16)
+#define HFI_IRQ_OOB_MASK		GENMASK(31, 24)
+#define HFI_IRQ_MASK			(HFI_IRQ_MSGQ_MASK |\
+					HFI_IRQ_CM3_FAULT_MASK)
+
 /**
  * struct hfi_queue_table_header - HFI queue table structure
  * @version: HFI protocol version

@@ -32,10 +32,19 @@ esoc_link_show(struct device *dev, struct device_attribute *attr,
 				to_esoc_clink(dev)->link_name);
 }
 
+static ssize_t
+esoc_link_info_show(struct device *dev, struct device_attribute *attr,
+							char *buf)
+{
+	return snprintf(buf, ESOC_LINK_LEN, "%s",
+				to_esoc_clink(dev)->link_info);
+}
+
 static struct device_attribute esoc_clink_attrs[] = {
 
 	__ATTR_RO(esoc_name),
 	__ATTR_RO(esoc_link),
+	__ATTR_RO(esoc_link_info),
 	__ATTR_NULL,
 };
 

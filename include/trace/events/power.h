@@ -179,6 +179,48 @@ DEFINE_EVENT(cpu, cpu_capacity,
 	TP_ARGS(capacity, cpu_id)
 );
 
+TRACE_EVENT(cpu_frequency_switch_start,
+
+	TP_PROTO(unsigned int start_freq, unsigned int end_freq,
+		 unsigned int cpu_id),
+
+	TP_ARGS(start_freq, end_freq, cpu_id),
+
+	TP_STRUCT__entry(
+		__field(	u32,		start_freq	)
+		__field(	u32,		end_freq	)
+		__field(	u32,		cpu_id		)
+	),
+
+	TP_fast_assign(
+		__entry->start_freq = start_freq;
+		__entry->end_freq = end_freq;
+		__entry->cpu_id = cpu_id;
+	),
+
+	TP_printk("start=%lu end=%lu cpu_id=%lu",
+		  (unsigned long)__entry->start_freq,
+		  (unsigned long)__entry->end_freq,
+		  (unsigned long)__entry->cpu_id)
+);
+
+TRACE_EVENT(cpu_frequency_switch_end,
+
+	TP_PROTO(unsigned int cpu_id),
+
+	TP_ARGS(cpu_id),
+
+	TP_STRUCT__entry(
+		__field(	u32,		cpu_id		)
+	),
+
+	TP_fast_assign(
+		__entry->cpu_id = cpu_id;
+	),
+
+	TP_printk("cpu_id=%lu", (unsigned long)__entry->cpu_id)
+);
+
 TRACE_EVENT(device_pm_callback_start,
 
 	TP_PROTO(struct device *dev, const char *pm_ops, int event),
@@ -554,6 +596,177 @@ DEFINE_EVENT(dev_pm_qos_request, dev_pm_qos_remove_request,
 
 	TP_ARGS(name, type, new_value)
 );
+
+TRACE_EVENT(bw_hwmon_meas,
+
+	TP_PROTO(const char *name, unsigned long mbps,
+		 unsigned long us, int wake),
+
+	TP_ARGS(name, mbps, us, wake),
+
+	TP_STRUCT__entry(
+		__string(	name,			name	)
+		__field(	unsigned long,		mbps	)
+		__field(	unsigned long,		us	)
+		__field(	int,			wake	)
+	),
+
+	TP_fast_assign(
+		__assign_str(name, name);
+		__entry->mbps = mbps;
+		__entry->us = us;
+		__entry->wake = wake;
+	),
+
+	TP_printk("dev: %s, mbps = %lu, us = %lu, wake = %d",
+		__get_str(name),
+		__entry->mbps,
+		__entry->us,
+		__entry->wake)
+);
+
+TRACE_EVENT(bw_hwmon_update,
+
+	TP_PROTO(const char *name, unsigned long mbps, unsigned long freq,
+		 unsigned long up_thres, unsigned long down_thres),
+
+	TP_ARGS(name, mbps, freq, up_thres, down_thres),
+
+	TP_STRUCT__entry(
+		__string(	name,			name		)
+		__field(	unsigned long,		mbps		)
+		__field(	unsigned long,		freq		)
+		__field(	unsigned long,		up_thres	)
+		__field(	unsigned long,		down_thres	)
+	),
+
+	TP_fast_assign(
+		__assign_str(name, name);
+		__entry->mbps = mbps;
+		__entry->freq = freq;
+		__entry->up_thres = up_thres;
+		__entry->down_thres = down_thres;
+	),
+
+	TP_printk("dev: %s, mbps = %lu, freq = %lu, up = %lu, down = %lu",
+		__get_str(name),
+		__entry->mbps,
+		__entry->freq,
+		__entry->up_thres,
+		__entry->down_thres)
+);
+
+TRACE_EVENT(cache_hwmon_meas,
+	TP_PROTO(const char *name, unsigned long high_mrps,
+		 unsigned long med_mrps, unsigned long low_mrps,
+		 unsigned int busy_percent, unsigned int us),
+	TP_ARGS(name, high_mrps, med_mrps, low_mrps, busy_percent, us),
+	TP_STRUCT__entry(
+		__string(name, name)
+		__field(unsigned long, high_mrps)
+		__field(unsigned long, med_mrps)
+		__field(unsigned long, low_mrps)
+		__field(unsigned long, total_mrps)
+		__field(unsigned int, busy_percent)
+		__field(unsigned int, us)
+	),
+	TP_fast_assign(
+		__assign_str(name, name);
+		__entry->high_mrps = high_mrps;
+		__entry->med_mrps = med_mrps;
+		__entry->low_mrps = low_mrps;
+		__entry->total_mrps = high_mrps + med_mrps + low_mrps;
+		__entry->busy_percent = busy_percent;
+		__entry->us = us;
+	),
+	TP_printk("dev=%s H=%lu M=%lu L=%lu T=%lu busy_pct=%u period=%u",
+		  __get_str(name), __entry->high_mrps, __entry->med_mrps,
+		  __entry->low_mrps, __entry->total_mrps,
+		  __entry->busy_percent, __entry->us)
+);
+
+TRACE_EVENT(cache_hwmon_update,
+	TP_PROTO(const char *name, unsigned long freq_mhz),
+	TP_ARGS(name, freq_mhz),
+	TP_STRUCT__entry(
+		__string(name, name)
+		__field(unsigned long, freq)
+	),
+	TP_fast_assign(
+		__assign_str(name, name);
+		__entry->freq = freq_mhz;
+	),
+	TP_printk("dev=%s freq=%lu", __get_str(name), __entry->freq)
+);
+
+TRACE_EVENT(memlat_dev_meas,
+
+	TP_PROTO(const char *name, unsigned int dev_id, unsigned long inst,
+		 unsigned long mem, unsigned long freq, unsigned int ratio),
+
+	TP_ARGS(name, dev_id, inst, mem, freq, ratio),
+
+	TP_STRUCT__entry(
+		__string(name, name)
+		__field(unsigned int, dev_id)
+		__field(unsigned long, inst)
+		__field(unsigned long, mem)
+		__field(unsigned long, freq)
+		__field(unsigned int, ratio)
+	),
+
+	TP_fast_assign(
+		__assign_str(name, name);
+		__entry->dev_id = dev_id;
+		__entry->inst = inst;
+		__entry->mem = mem;
+		__entry->freq = freq;
+		__entry->ratio = ratio;
+	),
+
+	TP_printk("dev: %s, id=%u, inst=%lu, mem=%lu, freq=%lu, ratio=%u",
+		__get_str(name),
+		__entry->dev_id,
+		__entry->inst,
+		__entry->mem,
+		__entry->freq,
+		__entry->ratio)
+);
+
+TRACE_EVENT(memlat_dev_update,
+
+	TP_PROTO(const char *name, unsigned int dev_id, unsigned long inst,
+		 unsigned long mem, unsigned long freq, unsigned long vote),
+
+	TP_ARGS(name, dev_id, inst, mem, freq, vote),
+
+	TP_STRUCT__entry(
+		__string(name, name)
+		__field(unsigned int, dev_id)
+		__field(unsigned long, inst)
+		__field(unsigned long, mem)
+		__field(unsigned long, freq)
+		__field(unsigned long, vote)
+	),
+
+	TP_fast_assign(
+		__assign_str(name, name);
+		__entry->dev_id = dev_id;
+		__entry->inst = inst;
+		__entry->mem = mem;
+		__entry->freq = freq;
+		__entry->vote = vote;
+	),
+
+	TP_printk("dev: %s, id=%u, inst=%lu, mem=%lu, freq=%lu, vote=%lu",
+		__get_str(name),
+		__entry->dev_id,
+		__entry->inst,
+		__entry->mem,
+		__entry->freq,
+		__entry->vote)
+);
+
 #endif /* _TRACE_POWER_H */
 
 /* This part must be outside protection */

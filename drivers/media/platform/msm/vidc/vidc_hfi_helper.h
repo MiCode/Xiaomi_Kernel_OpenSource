@@ -81,7 +81,6 @@
 #define HFI_VIDEO_CODEC_VP8				0x00001000
 #define HFI_VIDEO_CODEC_HEVC				0x00002000
 #define HFI_VIDEO_CODEC_VP9				0x00004000
-#define HFI_VIDEO_CODEC_HEVC_HYBRID			0x80000000
 
 #define HFI_PROFILE_UNKNOWN					0x00000000
 #define HFI_H264_PROFILE_BASELINE			0x00000001
@@ -164,6 +163,9 @@
 #define HFI_VENC_PERFMODE_MAX_QUALITY	0x1
 #define HFI_VENC_PERFMODE_POWER_SAVE	0x2
 
+#define  HFI_WORKMODE_1		(HFI_COMMON_BASE + 0x1)
+#define  HFI_WORKMODE_2		(HFI_COMMON_BASE + 0x2)
+
 struct hfi_buffer_info {
 	u32 buffer_addr;
 	u32 extra_data_addr;
@@ -214,15 +216,19 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_COMMON_START + 0x00C)
 #define  HFI_PROPERTY_PARAM_CODEC_MASK_SUPPORTED            \
 	(HFI_PROPERTY_PARAM_COMMON_START + 0x00E)
-#define HFI_PROPERTY_PARAM_MVC_BUFFER_LAYOUT \
-	(HFI_PROPERTY_PARAM_COMMON_START + 0x00F)
 #define  HFI_PROPERTY_PARAM_MAX_SESSIONS_SUPPORTED	    \
 	(HFI_PROPERTY_PARAM_COMMON_START + 0x010)
+#define  HFI_PROPERTY_PARAM_SECURE_SESSION		\
+	(HFI_PROPERTY_PARAM_COMMON_START + 0x011)
+#define  HFI_PROPERTY_PARAM_WORK_MODE                       \
+	(HFI_PROPERTY_PARAM_COMMON_START + 0x015)
 
 #define HFI_PROPERTY_CONFIG_COMMON_START				\
 	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET + 0x2000)
 #define HFI_PROPERTY_CONFIG_FRAME_RATE					\
 	(HFI_PROPERTY_CONFIG_COMMON_START + 0x001)
+#define HFI_PROPERTY_CONFIG_VIDEOCORES_USAGE				\
+	(HFI_PROPERTY_CONFIG_COMMON_START + 0x002)
 
 #define HFI_PROPERTY_PARAM_VDEC_COMMON_START				\
 	(HFI_DOMAIN_BASE_VDEC + HFI_ARCH_COMMON_OFFSET + 0x3000)
@@ -279,10 +285,6 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01D)
 #define HFI_PROPERTY_PARAM_VENC_H264_VUI_TIMING_INFO	\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01E)
-#define  HFI_PROPERTY_PARAM_VENC_MAX_NUM_B_FRAMES \
-	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x020)
-#define HFI_PROPERTY_PARAM_VENC_H264_VUI_BITSTREAM_RESTRC \
-	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x021)
 #define HFI_PROPERTY_PARAM_VENC_LOW_LATENCY_MODE	\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x022)
 #define HFI_PROPERTY_PARAM_VENC_PRESERVE_TEXT_QUALITY \
@@ -454,9 +456,7 @@ struct hfi_frame_rate {
 
 #define HFI_INTRA_REFRESH_NONE				(HFI_COMMON_BASE + 0x1)
 #define HFI_INTRA_REFRESH_CYCLIC			(HFI_COMMON_BASE + 0x2)
-#define HFI_INTRA_REFRESH_ADAPTIVE			(HFI_COMMON_BASE + 0x3)
-#define HFI_INTRA_REFRESH_CYCLIC_ADAPTIVE	(HFI_COMMON_BASE + 0x4)
-#define HFI_INTRA_REFRESH_RANDOM			(HFI_COMMON_BASE + 0x5)
+#define HFI_INTRA_REFRESH_RANDOM			(HFI_COMMON_BASE + 0x3)
 
 struct hfi_intra_refresh {
 	u32 mode;
@@ -470,10 +470,6 @@ struct hfi_idr_period {
 struct hfi_operations_type {
 	u32 rotation;
 	u32 flip;
-};
-
-struct hfi_max_num_b_frames {
-	u32 max_num_b_frames;
 };
 
 struct hfi_conceal_color {
@@ -540,7 +536,8 @@ struct hfi_quality_vs_speed {
 struct hfi_quantization {
 	u32 qp_packed;
 	u32 layer_id;
-	u32 reserved[4];
+	u32 enable;
+	u32 reserved[3];
 };
 
 struct hfi_quantization_range {
@@ -551,7 +548,6 @@ struct hfi_quantization_range {
 
 #define HFI_LTR_MODE_DISABLE	0x0
 #define HFI_LTR_MODE_MANUAL		0x1
-#define HFI_LTR_MODE_PERIODIC	0x2
 
 struct hfi_ltr_mode {
 	u32 ltr_mode;
@@ -573,6 +569,14 @@ struct hfi_frame_size {
 	u32 buffer_type;
 	u32 width;
 	u32 height;
+};
+
+struct hfi_videocores_usage_type {
+	u32 video_core_enable_mask;
+};
+
+struct hfi_video_work_mode {
+	u32 video_work_mode;
 };
 
 struct hfi_video_signal_metadata {
@@ -746,7 +750,6 @@ struct hfi_venc_config_advanced {
 	u32 close_gop;
 	u32 h264_constrain_intra_pred;
 	u32 h264_transform_8x8_flag;
-	u32 mpeg4_qpel_enable;
 	u32 multi_refp_en;
 	u32 qmatrix_en;
 	u8 vpp_info_packet_mode;
@@ -786,15 +789,6 @@ struct hfi_aspect_ratio {
 #define HFI_IFRAME_SIZE_UNLIMITED		(HFI_COMMON_BASE + 0x4)
 struct hfi_iframe_size {
 	u32 type;
-};
-
-#define HFI_MVC_BUFFER_LAYOUT_TOP_BOTTOM  (0)
-#define HFI_MVC_BUFFER_LAYOUT_SIDEBYSIDE  (1)
-#define HFI_MVC_BUFFER_LAYOUT_SEQ         (2)
-struct hfi_mvc_buffer_layout_descp_type {
-	u32    layout_type;
-	u32    bright_view_first;
-	u32    ngap;
 };
 
 

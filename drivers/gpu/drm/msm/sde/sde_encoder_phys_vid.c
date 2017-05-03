@@ -211,6 +211,56 @@ static void programmable_fetch_config(struct sde_encoder_phys *phys_enc,
 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 }
 
+/*
+ * programmable_rot_fetch_config: Programs ROT to prefetch lines by offsetting
+ *	the start of fetch into the vertical front porch for cases where the
+ *	vsync pulse width and vertical back porch time is insufficient
+ *
+ *	Gets # of lines to pre-fetch, then calculate VSYNC counter value.
+ *	HW layer requires VSYNC counter of first pixel of tgt VFP line.
+ * @phys_enc: Pointer to physical encoder
+ * @rot_fetch_lines: number of line to prefill, or 0 to disable
+ */
+static void programmable_rot_fetch_config(struct sde_encoder_phys *phys_enc,
+		u64 rot_fetch_lines)
+{
+	struct sde_encoder_phys_vid *vid_enc =
+		to_sde_encoder_phys_vid(phys_enc);
+	struct intf_prog_fetch f = { 0 };
+	struct intf_timing_params *timing;
+	u32 vfp_fetch_lines = 0;
+	u32 horiz_total = 0;
+	u32 vert_total = 0;
+	u32 rot_fetch_start_vsync_counter = 0;
+	unsigned long lock_flags;
+
+	if (!phys_enc || !vid_enc->hw_intf ||
+			!vid_enc->hw_intf->ops.setup_rot_start)
+		return;
+
+	timing = &vid_enc->timing_params;
+	vfp_fetch_lines = programmable_fetch_get_num_lines(vid_enc, timing);
+	if (vfp_fetch_lines && rot_fetch_lines) {
+		vert_total = get_vertical_total(timing);
+		horiz_total = get_horizontal_total(timing);
+		if (vert_total >= (vfp_fetch_lines + rot_fetch_lines)) {
+			rot_fetch_start_vsync_counter =
+			    (vert_total - vfp_fetch_lines - rot_fetch_lines) *
+			    horiz_total + 1;
+			f.enable = 1;
+			f.fetch_start = rot_fetch_start_vsync_counter;
+		}
+	}
+
+	SDE_DEBUG_VIDENC(vid_enc,
+		"rot_fetch_lines %llu rot_fetch_start_vsync_counter %u\n",
+		rot_fetch_lines, rot_fetch_start_vsync_counter);
+
+	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
+	vid_enc->hw_intf->ops.setup_rot_start(vid_enc->hw_intf, &f);
+	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
+}
+
 static bool sde_encoder_phys_vid_mode_fixup(
 		struct sde_encoder_phys *phys_enc,
 		const struct drm_display_mode *mode,
@@ -281,28 +331,47 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 
 	programmable_fetch_config(phys_enc, &timing_params);
+
+	vid_enc->timing_params = timing_params;
 }
 
 static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 {
 	struct sde_encoder_phys_vid *vid_enc = arg;
 	struct sde_encoder_phys *phys_enc;
+	struct sde_hw_ctl *hw_ctl;
 	unsigned long lock_flags;
-	int new_cnt;
+	u32 flush_register = 0;
+	int new_cnt = -1, old_cnt = -1;
 
 	if (!vid_enc)
 		return;
 
 	phys_enc = &vid_enc->base;
+	hw_ctl = phys_enc->hw_ctl;
+
 	if (phys_enc->parent_ops.handle_vblank_virt)
 		phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent,
 				phys_enc);
 
+	old_cnt  = atomic_read(&phys_enc->pending_kickoff_cnt);
+
+	/*
+	 * only decrement the pending flush count if we've actually flushed
+	 * hardware. due to sw irq latency, vblank may have already happened
+	 * so we need to double-check with hw that it accepted the flush bits
+	 */
 	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
-	new_cnt = atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
-	SDE_EVT32_IRQ(DRMID(phys_enc->parent), vid_enc->hw_intf->idx - INTF_0,
-			new_cnt);
+	if (hw_ctl && hw_ctl->ops.get_flush_register)
+		flush_register = hw_ctl->ops.get_flush_register(hw_ctl);
+
+	if (flush_register == 0)
+		new_cnt = atomic_add_unless(&phys_enc->pending_kickoff_cnt,
+				-1, 0);
 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
+
+	SDE_EVT32_IRQ(DRMID(phys_enc->parent), vid_enc->hw_intf->idx - INTF_0,
+			old_cnt, new_cnt, flush_register);
 
 	/* Signal any waiting atomic commit thread */
 	wake_up_all(&phys_enc->pending_kickoff_wq);
@@ -655,14 +724,15 @@ static int sde_encoder_phys_vid_wait_for_commit_done(
 }
 
 static void sde_encoder_phys_vid_prepare_for_kickoff(
-		struct sde_encoder_phys *phys_enc)
+		struct sde_encoder_phys *phys_enc,
+		struct sde_encoder_kickoff_params *params)
 {
 	struct sde_encoder_phys_vid *vid_enc;
 	struct sde_hw_ctl *ctl;
 	int rc;
 
-	if (!phys_enc) {
-		SDE_ERROR("invalid encoder\n");
+	if (!phys_enc || !params) {
+		SDE_ERROR("invalid encoder/parameters\n");
 		return;
 	}
 	vid_enc = to_sde_encoder_phys_vid(phys_enc);
@@ -681,6 +751,8 @@ static void sde_encoder_phys_vid_prepare_for_kickoff(
 				ctl->idx, rc);
 		SDE_DBG_DUMP("panic");
 	}
+
+	programmable_rot_fetch_config(phys_enc, params->inline_rotate_prefill);
 }
 
 static void sde_encoder_phys_vid_disable(struct sde_encoder_phys *phys_enc)
@@ -777,23 +849,29 @@ static void sde_encoder_phys_vid_handle_post_kickoff(
 }
 
 static void sde_encoder_phys_vid_setup_misr(struct sde_encoder_phys *phys_enc,
-			struct sde_misr_params *misr_map)
+						bool enable, u32 frame_count)
 {
-	struct sde_encoder_phys_vid *vid_enc =
-		to_sde_encoder_phys_vid(phys_enc);
+	struct sde_encoder_phys_vid *vid_enc;
 
-	if (vid_enc && vid_enc->hw_intf && vid_enc->hw_intf->ops.setup_misr)
-		vid_enc->hw_intf->ops.setup_misr(vid_enc->hw_intf, misr_map);
+	if (!phys_enc)
+		return;
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
+
+	if (vid_enc->hw_intf && vid_enc->hw_intf->ops.setup_misr)
+		vid_enc->hw_intf->ops.setup_misr(vid_enc->hw_intf,
+							enable, frame_count);
 }
 
-static void sde_encoder_phys_vid_collect_misr(struct sde_encoder_phys *phys_enc,
-			struct sde_misr_params *misr_map)
+static u32 sde_encoder_phys_vid_collect_misr(struct sde_encoder_phys *phys_enc)
 {
-	struct sde_encoder_phys_vid *vid_enc =
-			to_sde_encoder_phys_vid(phys_enc);
+	struct sde_encoder_phys_vid *vid_enc;
 
-	if (vid_enc && vid_enc->hw_intf && vid_enc->hw_intf->ops.collect_misr)
-		vid_enc->hw_intf->ops.collect_misr(vid_enc->hw_intf, misr_map);
+	if (!phys_enc)
+		return 0;
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
+
+	return vid_enc->hw_intf && vid_enc->hw_intf->ops.collect_misr ?
+		vid_enc->hw_intf->ops.collect_misr(vid_enc->hw_intf) : 0;
 }
 
 static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
@@ -863,13 +941,6 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 	if (!vid_enc->hw_intf) {
 		ret = -EINVAL;
 		SDE_ERROR("failed to get hw_intf\n");
-		goto fail;
-	}
-
-	phys_enc->misr_map = kzalloc(sizeof(struct sde_misr_params),
-						GFP_KERNEL);
-	if (!phys_enc->misr_map) {
-		ret = -ENOMEM;
 		goto fail;
 	}
 

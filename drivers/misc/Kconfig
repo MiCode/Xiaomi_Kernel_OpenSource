@@ -479,6 +479,14 @@ config SRAM
 	  the genalloc API. It is supposed to be used for small on-chip SRAM
 	  areas found on many SoCs.
 
+config QSEECOM
+        tristate "QTI Secure Execution Communicator driver"
+        help
+          Provides a communication interface between userspace and
+          QTI Secure Execution Environment (QSEE) using Secure Channel
+          Manager (SCM) interface. It exposes APIs for both userspace and
+          kernel clients.
+
 config VEXPRESS_SYSCFG
 	bool "Versatile Express System Configuration driver"
 	depends on VEXPRESS_CONFIG
@@ -779,6 +787,15 @@ config MEMORY_STATE_TIME
 	depends on PROFILING
 	help
 	  Memory time statistics exported to /sys/kernel/memory_state_time
+
+config QPNP_MISC
+	tristate "QPNP Misc Peripheral"
+	depends on MFD_SPMI_PMIC
+	help
+	  Say 'y' here to include support for the QTI QPNP MISC
+	  peripheral. The MISC peripheral holds the USB ID interrupt
+	  and the driver provides an API to check if this interrupt
+	  is available on the current PMIC chip.
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"

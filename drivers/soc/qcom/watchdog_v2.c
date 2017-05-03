@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,7 @@
 #include <soc/qcom/scm.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/watchdog.h>
+#include <linux/dma-mapping.h>
 
 #define MODULE_NAME "msm_watchdog"
 #define WDT0_ACCSCSSNBARK_INT 0
@@ -49,6 +50,7 @@
 #define SCM_SET_REGSAVE_CMD	0x2
 #define SCM_SVC_SEC_WDOG_DIS	0x7
 #define MAX_CPU_CTX_SIZE	2048
+#define MAX_CPU_SCANDUMP_SIZE	0x10000
 
 static struct msm_watchdog_data *wdog_data;
 
@@ -557,6 +559,49 @@ out0:
 	return;
 }
 
+static void configure_scandump(struct msm_watchdog_data *wdog_dd)
+{
+	int ret;
+	struct msm_dump_entry dump_entry;
+	struct msm_dump_data *cpu_data;
+	int cpu;
+	static dma_addr_t dump_addr;
+	static void *dump_vaddr;
+
+	for_each_cpu(cpu, cpu_present_mask) {
+		cpu_data = devm_kzalloc(wdog_dd->dev,
+					sizeof(struct msm_dump_data),
+					GFP_KERNEL);
+		if (!cpu_data)
+			continue;
+
+		dump_vaddr = (void *) dma_alloc_coherent(wdog_dd->dev,
+							 MAX_CPU_SCANDUMP_SIZE,
+							 &dump_addr,
+							 GFP_KERNEL);
+		if (!dump_vaddr) {
+			dev_err(wdog_dd->dev, "Couldn't get memory for dump\n");
+			continue;
+		}
+		memset(dump_vaddr, 0x0, MAX_CPU_SCANDUMP_SIZE);
+
+		cpu_data->addr = dump_addr;
+		cpu_data->len = MAX_CPU_SCANDUMP_SIZE;
+		dump_entry.id = MSM_DUMP_DATA_SCANDUMP_PER_CPU + cpu;
+		dump_entry.addr = virt_to_phys(cpu_data);
+		ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS,
+					     &dump_entry);
+		if (ret) {
+			dev_err(wdog_dd->dev, "Dump setup failed, id = %d\n",
+				MSM_DUMP_DATA_SCANDUMP_PER_CPU + cpu);
+			dma_free_coherent(wdog_dd->dev, MAX_CPU_SCANDUMP_SIZE,
+					  dump_vaddr,
+					  dump_addr);
+			devm_kfree(wdog_dd->dev, cpu_data);
+		}
+	}
+}
+
 static int init_watchdog_sysfs(struct msm_watchdog_data *wdog_dd)
 {
 	int error = 0;
@@ -617,6 +662,7 @@ static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 	delay_time = msecs_to_jiffies(wdog_dd->pet_time);
 	wdog_dd->min_slack_ticks = UINT_MAX;
 	wdog_dd->min_slack_ns = ULLONG_MAX;
+	configure_scandump(wdog_dd);
 	configure_bark_dump(wdog_dd);
 	timeout = (wdog_dd->bark_time * WDT_HZ)/1000;
 	__raw_writel(timeout, wdog_dd->base + WDT0_BARK_TIME);

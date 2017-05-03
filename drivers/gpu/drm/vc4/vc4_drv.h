@@ -194,6 +194,7 @@ to_vc4_plane(struct drm_plane *plane)
 }
 
 enum vc4_encoder_type {
+	VC4_ENCODER_TYPE_NONE,
 	VC4_ENCODER_TYPE_HDMI,
 	VC4_ENCODER_TYPE_VEC,
 	VC4_ENCODER_TYPE_DSI0,
@@ -440,6 +441,7 @@ int vc4_bo_stats_debugfs(struct seq_file *m, void *arg);
 extern struct platform_driver vc4_crtc_driver;
 int vc4_enable_vblank(struct drm_device *dev, unsigned int crtc_id);
 void vc4_disable_vblank(struct drm_device *dev, unsigned int crtc_id);
+bool vc4_event_pending(struct drm_crtc *crtc);
 int vc4_crtc_debugfs_regs(struct seq_file *m, void *arg);
 int vc4_crtc_get_scanoutpos(struct drm_device *dev, unsigned int crtc_id,
 			    unsigned int flags, int *vpos, int *hpos,

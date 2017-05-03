@@ -21,12 +21,13 @@
 #define CAM_HANDLE_MEM_HANDLE                   2
 
 /**
- * struct cam_control - struct used by ioctl control for camera
+ * struct cam_control - Structure used by ioctl control for camera
+ *
  * @op_code:            This is the op code for camera control
- * @size:               control command size
- * @handle_type:        user pointer or shared memory handle
- * @reserved:           reserved field for 64 bit alignment
- * @handle:             control command payload
+ * @size:               Control command size
+ * @handle_type:        User pointer or shared memory handle
+ * @reserved:           Reserved field for 64 bit alignment
+ * @handle:             Control command payload
  */
 struct cam_control {
 	uint32_t        op_code;
@@ -46,7 +47,7 @@ struct cam_control {
  * @major    : Hardware version major
  * @minor    : Hardware version minor
  * @incr     : Hardware version increment
- * @reserved : reserved for 64 bit aligngment
+ * @reserved : Reserved for 64 bit aligngment
  */
 struct cam_hw_version {
 	uint32_t major;
@@ -141,6 +142,7 @@ struct cam_iommu_handle {
 /* camera buffer direction */
 #define CAM_BUF_INPUT                           1
 #define CAM_BUF_OUTPUT                          2
+#define CAM_BUF_IN_OUT                          3
 
 /* camera packet device Type */
 #define CAM_PACKET_DEV_BASE                     0
@@ -168,12 +170,20 @@ struct cam_iommu_handle {
 #define CAM_PACKET_MAX_PLANES                   3
 
 /**
- * struct cam_plane_cfg - plane configuration info
+ * struct cam_plane_cfg - Plane configuration info
  *
- * @width:                      plane width in pixels
- * @height:                     plane height in lines
- * @plane_stride:               plane stride in pixel
- * @slice_height:               slice height in line (not used by ISP)
+ * @width:                      Plane width in pixels
+ * @height:                     Plane height in lines
+ * @plane_stride:               Plane stride in pixel
+ * @slice_height:               Slice height in line (not used by ISP)
+ * @meta_stride:                UBWC metadata stride
+ * @meta_size:                  UBWC metadata plane size
+ * @meta_offset:                UBWC metadata offset
+ * @packer_config:              UBWC packer config
+ * @mode_config:                UBWC mode config
+ * @tile_config:                UBWC tile config
+ * @h_init:                     UBWC horizontal initial coordinate in pixels
+ * @v_init:                     UBWC vertical initial coordinate in lines
  *
  */
 struct cam_plane_cfg {
@@ -181,60 +191,26 @@ struct cam_plane_cfg {
 	uint32_t                height;
 	uint32_t                plane_stride;
 	uint32_t                slice_height;
-};
-
-/**
- * struct cam_buf_io_cfg - Buffer io configuration for buffers
- *
- * @mem_handle:                 mem_handle array for the buffers.
- * @offsets:                    offsets for each planes in the buffer
- * @planes:                     per plane information
- * @width:                      main plane width in pixel
- * @height:                     main plane height in lines
- * @format:                     format of the buffer
- * @color_space:                color space for the buffer
- * @color_pattern:              color pattern in the buffer
- * @bpp:                        bit per pixel
- * @rotation:                   rotation information for the buffer
- * @resource_type:              resource type associated with the buffer
- * @fence:                      fence handle
- * @cmd_buf_index:              command buffer index to patch the buffer info
- * @cmd_buf_offset:             offset within the command buffer to patch
- * @flag:                       flags for extra information
- * @direction:                  buffer direction: input or output
- * @padding:                    padding for the structure
- *
- */
-struct cam_buf_io_cfg {
-	int32_t                         mem_handle[CAM_PACKET_MAX_PLANES];
-	uint32_t                        offsets[CAM_PACKET_MAX_PLANES];
-	struct cam_plane_cfg            planes[CAM_PACKET_MAX_PLANES];
-	uint32_t                        width;
-	uint32_t                        height;
-	uint32_t                        format;
-	uint32_t                        color_space;
-	uint32_t                        color_pattern;
-	uint32_t                        bpp;
-	uint32_t                        rotation;
-	uint32_t                        resource_type;
-	int32_t                         fence;
-	uint32_t                        cmd_buf_index;
-	uint32_t                        cmd_buf_offset;
-	uint32_t                        flag;
-	uint32_t                        direction;
-	uint32_t                        padding;
+	uint32_t                meta_stride;
+	uint32_t                meta_size;
+	uint32_t                meta_offset;
+	uint32_t                packer_config;
+	uint32_t                mode_config;
+	uint32_t                tile_config;
+	uint32_t                h_init;
+	uint32_t                v_init;
 };
 
 /**
  * struct cam_cmd_buf_desc - Command buffer descriptor
  *
- * @mem_handle:                 command buffer handle
- * @offset:                     command start offset
- * @size:                       size of the command buffer in bytes
- * @length:                     used memory in command buffer in bytes
- * @type:                       type of the command buffer
- * @meta_data:                  data type for private command buffer
- *                              between UMD and KMD
+ * @mem_handle:                 Command buffer handle
+ * @offset:                     Command start offset
+ * @size:                       Size of the command buffer in bytes
+ * @length:                     Used memory in command buffer in bytes
+ * @type:                       Type of the command buffer
+ * @meta_data:                  Data type for private command buffer
+ *                              Between UMD and KMD
  *
  */
 struct cam_cmd_buf_desc {
@@ -247,13 +223,69 @@ struct cam_cmd_buf_desc {
 };
 
 /**
- * struct cam_packet_header - camera packet header
+ * struct cam_buf_io_cfg - Buffer io configuration for buffers
  *
- * @op_code:                    camera packet opcode
- * @size:                       size of the camera packet in bytes
- * @request_id:                 request id for this camera packet
- * @flags:                      flags for the camera packet
- * @dev_type:                   camera packet device type
+ * @mem_handle:                 Mem_handle array for the buffers.
+ * @offsets:                    Offsets for each planes in the buffer
+ * @planes:                     Per plane information
+ * @width:                      Main plane width in pixel
+ * @height:                     Main plane height in lines
+ * @format:                     Format of the buffer
+ * @color_space:                Color space for the buffer
+ * @color_pattern:              Color pattern in the buffer
+ * @bpp:                        Bit per pixel
+ * @rotation:                   Rotation information for the buffer
+ * @resource_type:              Resource type associated with the buffer
+ * @fence:                      Fence handle
+ * @early_fence:                Fence handle for early signal
+ * @aux_cmd_buf:                An auxiliary command buffer that may be
+ *                              used for programming the IO
+ * @direction:                  Direction of the config
+ * @batch_size:                 Batch size in HFR mode
+ * @subsample_pattern:          Subsample pattern. Used in HFR mode. It
+ *                              should be consistent with batchSize and
+ *                              CAMIF programming.
+ * @subsample_period:           Subsample period. Used in HFR mode. It
+ *                              should be consistent with batchSize and
+ *                              CAMIF programming.
+ * @framedrop_pattern:          Framedrop pattern
+ * @framedrop_period:           Framedrop period
+ * @flag:                       Flags for extra information
+ * @direction:                  Buffer direction: input or output
+ * @padding:                    Padding for the structure
+ *
+ */
+struct cam_buf_io_cfg {
+	int32_t                         mem_handle[CAM_PACKET_MAX_PLANES];
+	uint32_t                        offsets[CAM_PACKET_MAX_PLANES];
+	struct cam_plane_cfg            planes[CAM_PACKET_MAX_PLANES];
+	uint32_t                        format;
+	uint32_t                        color_space;
+	uint32_t                        color_pattern;
+	uint32_t                        bpp;
+	uint32_t                        rotation;
+	uint32_t                        resource_type;
+	int32_t                         fence;
+	int32_t                         early_fence;
+	struct cam_cmd_buf_desc         aux_cmd_buf;
+	uint32_t                        direction;
+	uint32_t                        batch_size;
+	uint32_t                        subsample_pattern;
+	uint32_t                        subsample_period;
+	uint32_t                        framedrop_pattern;
+	uint32_t                        framedrop_period;
+	uint32_t                        flag;
+	uint32_t                        padding;
+};
+
+/**
+ * struct cam_packet_header - Camera packet header
+ *
+ * @op_code:                    Camera packet opcode
+ * @size:                       Size of the camera packet in bytes
+ * @request_id:                 Request id for this camera packet
+ * @flags:                      Flags for the camera packet
+ * @padding:                    Padding
  *
  */
 struct cam_packet_header {
@@ -261,16 +293,16 @@ struct cam_packet_header {
 	uint32_t                size;
 	uint64_t                request_id;
 	uint32_t                flags;
-	uint32_t                dev_type;
+	uint32_t                padding;
 };
 
 /**
  * struct cam_patch_desc - Patch structure
  *
- * @dst_buf_hdl:                memory handle for the dest buffer
- * @dst_offset:                 offset byte in the dest buffer
- * @src_buf_hdl:                memory handle for the source buffer
- * @src_offset:                 offset byte in the source buffer
+ * @dst_buf_hdl:                Memory handle for the dest buffer
+ * @dst_offset:                 Offset byte in the dest buffer
+ * @src_buf_hdl:                Memory handle for the source buffer
+ * @src_offset:                 Offset byte in the source buffer
  *
  */
 struct cam_patch_desc {
@@ -281,20 +313,20 @@ struct cam_patch_desc {
 };
 
 /**
- * struct cam_packet - cam packet structure
+ * struct cam_packet - Camera packet structure
  *
- * @header:                     camera packet header
- * @cmd_buf_offset:             command buffer start offset
- * @num_cmd_buf:                number of the command buffer in the packet
- * @io_config_offset:           buffer io configuration start offset
- * @num_io_configs:             number of the buffer io configurations
- * @patch_offset:               patch offset for the patch structure
- * @num_patches:                number of the patch structure
- * @kmd_cmd_buf_index:          command buffer index which contains extra
- *                                      space for the KMD buffer
- * @kmd_cmd_buf_offset:         offset from the beginning of the command
- *                                      buffer for KMD usage.
- * @payload:                    camera packet payload
+ * @header:                     Camera packet header
+ * @cmd_buf_offset:             Command buffer start offset
+ * @num_cmd_buf:                Number of the command buffer in the packet
+ * @io_config_offset:           Buffer io configuration start offset
+ * @num_io_configs:             Number of the buffer io configurations
+ * @patch_offset:               Patch offset for the patch structure
+ * @num_patches:                Number of the patch structure
+ * @kmd_cmd_buf_index:          Command buffer index which contains extra
+ *                              space for the KMD buffer
+ * @kmd_cmd_buf_offset:         Offset from the beginning of the command
+ *                              buffer for KMD usage.
+ * @payload:                    Camera packet payload
  *
  */
 struct cam_packet {
@@ -313,10 +345,10 @@ struct cam_packet {
 
 /* Release Device */
 /**
- * struct cam_release_dev_cmd - control payload for release devices
+ * struct cam_release_dev_cmd - Control payload for release devices
  *
- * @session_handle:             session handle for the release
- * @dev_handle:                 device handle for the release
+ * @session_handle:             Session handle for the release
+ * @dev_handle:                 Device handle for the release
  */
 struct cam_release_dev_cmd {
 	int32_t                 session_handle;
@@ -325,10 +357,10 @@ struct cam_release_dev_cmd {
 
 /* Start/Stop device */
 /**
- * struct cam_start_stop_dev_cmd - control payload for start/stop device
+ * struct cam_start_stop_dev_cmd - Control payload for start/stop device
  *
- * @session_handle:             session handle for the start/stop command
- * @dev_handle:                 device handle for the start/stop command
+ * @session_handle:             Session handle for the start/stop command
+ * @dev_handle:                 Device handle for the start/stop command
  *
  */
 struct cam_start_stop_dev_cmd {
@@ -338,13 +370,13 @@ struct cam_start_stop_dev_cmd {
 
 /* Configure Device */
 /**
- * struct cam_config_dev_cmd - command payload for configure device
+ * struct cam_config_dev_cmd - Command payload for configure device
  *
- * @session_handle:             session handle for the command
- * @dev_handle:                 device handle for the command
- * @offset:                     offset byte in the packet handle.
- * @packet_handle:              packet memory handle for the actual packet:
- *                                      struct cam_packet.
+ * @session_handle:             Session handle for the command
+ * @dev_handle:                 Device handle for the command
+ * @offset:                     Offset byte in the packet handle.
+ * @packet_handle:              Packet memory handle for the actual packet:
+ *                              struct cam_packet.
  *
  */
 struct cam_config_dev_cmd {
@@ -356,11 +388,11 @@ struct cam_config_dev_cmd {
 
 /* Query Device Caps */
 /**
- * struct cam_query_cap_cmd - payload for query device capability
+ * struct cam_query_cap_cmd - Payload for query device capability
  *
- * @size:               handle size
- * @handle_type:        user pointer or shared memory handle
- * @caps_handle:        device specific query command payload
+ * @size:               Handle size
+ * @handle_type:        User pointer or shared memory handle
+ * @caps_handle:        Device specific query command payload
  *
  */
 struct cam_query_cap_cmd {
@@ -371,16 +403,16 @@ struct cam_query_cap_cmd {
 
 /* Acquire Device */
 /**
- * struct cam_acquire_dev_cmd - control payload for acquire devices
+ * struct cam_acquire_dev_cmd - Control payload for acquire devices
  *
- * @session_handle:     session handle for the acquire command
- * @dev_handle:         device handle to be returned
- * @handle_type:        resource handle type:
- *                             1 = user poniter, 2 = mem handle
- * @num_resources:      number of the resources to be acquired
- * @resources_hdl:      resource handle that refers to the actual
- *                             resource array. Each item in this
- *                             array is device specific resource structure
+ * @session_handle:     Session handle for the acquire command
+ * @dev_handle:         Device handle to be returned
+ * @handle_type:        Resource handle type:
+ *                      1 = user pointer, 2 = mem handle
+ * @num_resources:      Number of the resources to be acquired
+ * @resources_hdl:      Resource handle that refers to the actual
+ *                      resource array. Each item in this
+ *                      array is device specific resource structure
  *
  */
 struct cam_acquire_dev_cmd {

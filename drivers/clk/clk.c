@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2010-2011 Canonical Ltd <jeremy.kerr@canonical.com>
  * Copyright (C) 2011-2012 Linaro Ltd <mturquette@linaro.org>
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -71,6 +71,8 @@ struct clk_core {
 	bool			orphan;
 	unsigned int		enable_count;
 	unsigned int		prepare_count;
+	bool			need_handoff_enable;
+	bool			need_handoff_prepare;
 	unsigned long		min_rate;
 	unsigned long		max_rate;
 	unsigned long		accuracy;
@@ -997,6 +999,19 @@ static void clk_unprepare_unused_subtree(struct clk_core *core)
 	hlist_for_each_entry(child, &core->children, child_node)
 		clk_unprepare_unused_subtree(child);
 
+	/*
+	 * setting CLK_ENABLE_HAND_OFF flag triggers this conditional
+	 *
+	 * need_handoff_prepare implies this clk was already prepared by
+	 * __clk_init. now we have a proper user, so unset the flag in our
+	 * internal bookkeeping. See CLK_ENABLE_HAND_OFF flag in clk-provider.h
+	 * for details.
+	 */
+	if (core->need_handoff_prepare) {
+		core->need_handoff_prepare = false;
+		clk_core_unprepare(core);
+	}
+
 	if (core->prepare_count)
 		return;
 
@@ -1022,6 +1037,21 @@ static void clk_disable_unused_subtree(struct clk_core *core)
 
 	hlist_for_each_entry(child, &core->children, child_node)
 		clk_disable_unused_subtree(child);
+
+	/*
+	 * setting CLK_ENABLE_HAND_OFF flag triggers this conditional
+	 *
+	 * need_handoff_enable implies this clk was already enabled by
+	 * __clk_init. now we have a proper user, so unset the flag in our
+	 * internal bookkeeping. See CLK_ENABLE_HAND_OFF flag in clk-provider.h
+	 * for details.
+	 */
+	if (core->need_handoff_enable) {
+		core->need_handoff_enable = false;
+		flags = clk_enable_lock();
+		clk_core_disable(core);
+		clk_enable_unlock(flags);
+	}
 
 	if (core->flags & CLK_OPS_PARENT_ENABLE)
 		clk_core_prepare_enable(core->parent);
@@ -2101,7 +2131,7 @@ static int clk_core_set_parent(struct clk_core *core, struct clk_core *parent)
 	/* prevent racing with updates to the clock topology */
 	clk_prepare_lock();
 
-	if (core->parent == parent)
+	if (core->parent == parent && !(core->flags & CLK_IS_MEASURE))
 		goto out;
 
 	/* verify ops for for multi-parent clks */
@@ -2313,6 +2343,56 @@ static struct hlist_head *all_lists[] = {
 static struct hlist_head *orphan_list[] = {
 	&clk_orphan_list,
 	NULL,
+};
+
+static void clk_state_subtree(struct clk_core *c)
+{
+	int vdd_level = 0;
+	struct clk_core *child;
+
+	if (!c)
+		return;
+
+	if (c->vdd_class) {
+		vdd_level = clk_find_vdd_level(c, c->rate);
+		if (vdd_level < 0)
+			vdd_level = 0;
+	}
+
+	trace_clk_state(c->name, c->prepare_count, c->enable_count,
+						c->rate, vdd_level);
+
+	hlist_for_each_entry(child, &c->children, child_node)
+		clk_state_subtree(child);
+}
+
+static int clk_state_show(struct seq_file *s, void *data)
+{
+	struct clk_core *c;
+	struct hlist_head **lists = (struct hlist_head **)s->private;
+
+	clk_prepare_lock();
+
+	for (; *lists; lists++)
+		hlist_for_each_entry(c, *lists, child_node)
+			clk_state_subtree(c);
+
+	clk_prepare_unlock();
+
+	return 0;
+}
+
+
+static int clk_state_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, clk_state_show, inode->i_private);
+}
+
+static const struct file_operations clk_state_fops = {
+	.open		= clk_state_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
 };
 
 static void clk_summary_show_one(struct seq_file *s, struct clk_core *c,
@@ -2599,7 +2679,7 @@ static const struct file_operations clk_enabled_list_fops = {
 	.release	= seq_release,
 };
 
-static void clk_debug_print_hw(struct clk_core *clk, struct seq_file *f)
+void clk_debug_print_hw(struct clk_core *clk, struct seq_file *f)
 {
 	if (IS_ERR_OR_NULL(clk))
 		return;
@@ -2950,6 +3030,11 @@ static int __init clk_debug_init(void)
 	if (!d)
 		return -ENOMEM;
 
+	d = debugfs_create_file("trace_clocks", 0444, rootdir, &all_lists,
+				&clk_state_fops);
+	if (!d)
+		return -ENOMEM;
+
 	mutex_lock(&clk_debug_lock);
 	hlist_for_each_entry(core, &clk_debug_list, debug_node)
 		clk_debug_create_one(core, rootdir);
@@ -3138,6 +3223,37 @@ static int __clk_core_init(struct clk_core *core)
 		flags = clk_enable_lock();
 		clk_core_enable(core);
 		clk_enable_unlock(flags);
+	}
+
+	/*
+	 * enable clocks with the CLK_ENABLE_HAND_OFF flag set
+	 *
+	 * This flag causes the framework to enable the clock at registration
+	 * time, which is sometimes necessary for clocks that would cause a
+	 * system crash when gated (e.g. cpu, memory, etc). The prepare_count
+	 * is migrated over to the first clk consumer to call clk_prepare().
+	 * Similarly the clk's enable_count is migrated to the first consumer
+	 * to call clk_enable().
+	 */
+	if (core->flags & CLK_ENABLE_HAND_OFF) {
+		unsigned long flags;
+
+		/*
+		 * Few clocks might have hardware gating which would be
+		 * required to be ON before prepare/enabling the clocks. So
+		 * check if the clock has been turned ON earlier and we should
+		 * prepare/enable those clocks.
+		 */
+		if (clk_core_is_enabled(core)) {
+			core->need_handoff_prepare = true;
+			core->need_handoff_enable = true;
+			ret = clk_core_prepare(core);
+			if (ret)
+				goto out;
+			flags = clk_enable_lock();
+			clk_core_enable(core);
+			clk_enable_unlock(flags);
+		}
 	}
 
 	kref_init(&core->ref);

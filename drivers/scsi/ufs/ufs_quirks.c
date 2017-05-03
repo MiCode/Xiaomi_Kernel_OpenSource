@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,20 @@ static struct ufs_card_fix ufs_fixups[] = {
 	UFS_FIX(UFS_VENDOR_SKHYNIX, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_HOST_PA_SAVECONFIGTIME),
 	UFS_FIX(UFS_VENDOR_SKHYNIX, UFS_ANY_MODEL, UFS_DEVICE_NO_VCCQ),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, "hB8aL1",
+		UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, "hC8aL1",
+		UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, "hD8aL1",
+		UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, "hC8aM1",
+		UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, "h08aM1",
+		UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, "hC8GL1",
+		UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, "hC8HL1",
+		UFS_DEVICE_QUIRK_HS_G1_TO_HS_G3_SWITCH),
 
 	END_FIX
 };

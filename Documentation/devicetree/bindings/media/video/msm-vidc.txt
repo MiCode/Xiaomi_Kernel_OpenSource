@@ -10,6 +10,10 @@ Required properties:
   of macroblocks per second. The load is a reflection of hardware capability
   rather than a performance guarantee. Performance is guaranteed only up to
   advertised capability of the chipset.
+- qcom,max-hq-mbs-per-frame : Max no of mbs per frame beyond which
+    "High Quality" encoding is not supported.
+- qcom,max-hq-frames-per-sec : Max no of frames per second beyond which
+    "High Quality" encoding is not supported.
 
 Optional properties:
 - reg : offset and length of the register set for the device.
@@ -157,7 +161,6 @@ Optional properties:
 
 Example:
 
-
 	qcom,vidc@fdc00000 {
 		compatible = "qcom,msm-vidc";
 		reg = <0xfdc00000 0xff000>;
@@ -182,6 +185,8 @@ Example:
 		qcom,use_dynamic_bw_update;
 		qcom,fw-bias = <0xe000000>;
 		qcom,allowed-clock-rates = <200000000 300000000 400000000>;
+		qcom,max-hq-mbs-per-frame = <8160>;
+		qcom,max-hq-frames-per-sec = <60>;
 		msm_vidc_cb1: msm_vidc_cb1 {
 			compatible = "qcom,msm-vidc,context-bank";
 			label = "venus_ns";

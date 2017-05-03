@@ -212,7 +212,8 @@ struct dcvs_stats {
 	int load_high;
 	int min_threshold;
 	int max_threshold;
-	unsigned int extra_buffer_count;
+	unsigned int extra_capture_buffer_count;
+	unsigned int extra_output_buffer_count;
 	enum hal_buffer buffer_type;
 };
 
@@ -312,6 +313,8 @@ struct msm_vidc_inst {
 	u32 level;
 	u32 entropy_mode;
 	struct clock_profile_entry *entry;
+	u32 core_id;
+	enum hal_work_mode work_mode;
 };
 
 extern struct msm_vidc_drv *vidc_driver;

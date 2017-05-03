@@ -64,6 +64,8 @@ struct usecase uc[] = {
 	{6, 10, 7800},		/* UC15: 2*(Spkr + SB + VI) */
 	{2, 3, 3600},		/* UC16: Spkr + VI */
 	{4, 6, 7200},		/* UC17: 2*(Spkr + VI) */
+	{3, 7, 4200},		/* UC18: Spkr + Comp + VI */
+	{6, 14, 8400},		/* UC19: 2*(Spkr + Comp + VI) */
 };
 #define MAX_USECASE	ARRAY_SIZE(uc)
 
@@ -176,6 +178,21 @@ struct port_params pp[MAX_USECASE][SWR_MSTR_PORT_LEN] = {
 		{7, 1, 0},
 		{15, 7, 0},
 		{7, 6, 0},
+		{15, 10, 0},
+	},
+	/* UC 18 */
+	{
+		{7, 1, 0},
+		{31, 2, 0},
+		{15, 7, 0},
+	},
+	/* UC 19 */
+	{
+		{7, 1, 0},
+		{31, 2, 0},
+		{15, 7, 0},
+		{7, 6, 0},
+		{31, 18, 0},
 		{15, 10, 0},
 	},
 };
@@ -507,7 +524,7 @@ static int swrm_read(struct swr_master *master, u8 dev_num, u16 reg_addr,
 {
 	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(master);
 	int ret = 0;
-	int val = 0;
+	int val;
 	u8 *reg_val = (u8 *)buf;
 
 	if (!swrm) {
@@ -521,7 +538,9 @@ static int swrm_read(struct swr_master *master, u8 dev_num, u16 reg_addr,
 	else
 		val = swrm->read(swrm->handle, reg_addr);
 
-	*reg_val = (u8)val;
+	if (!ret)
+		*reg_val = (u8)val;
+
 	pm_runtime_mark_last_busy(&swrm->pdev->dev);
 
 	return ret;

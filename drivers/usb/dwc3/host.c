@@ -21,11 +21,12 @@
 
 int dwc3_host_init(struct dwc3 *dwc)
 {
-	struct property_entry	props[2];
+	struct property_entry	props[3];
 	struct platform_device	*xhci;
 	int			ret, irq;
 	struct resource		*res;
 	struct platform_device	*dwc3_pdev = to_platform_device(dwc->dev);
+	int			prop_idx = 0;
 
 	irq = platform_get_irq_byname(dwc3_pdev, "host");
 	if (irq == -EPROBE_DEFER)
@@ -72,12 +73,7 @@ int dwc3_host_init(struct dwc3 *dwc)
 		return -ENOMEM;
 	}
 
-	arch_setup_dma_ops(&xhci->dev, 0, 0, NULL, 0);
-	dma_set_coherent_mask(&xhci->dev, dwc->dev->coherent_dma_mask);
-
 	xhci->dev.parent	= dwc->dev;
-	xhci->dev.dma_mask	= dwc->dev->dma_mask;
-	xhci->dev.dma_parms	= dwc->dev->dma_parms;
 
 	dwc->xhci = xhci;
 
@@ -90,8 +86,22 @@ int dwc3_host_init(struct dwc3 *dwc)
 
 	memset(props, 0, sizeof(struct property_entry) * ARRAY_SIZE(props));
 
-	if (dwc->usb3_lpm_capable) {
-		props[0].name = "usb3-lpm-capable";
+	if (dwc->usb3_lpm_capable)
+		props[prop_idx++].name = "usb3-lpm-capable";
+
+	/**
+	 * WORKAROUND: dwc3 revisions <=3.00a have a limitation
+	 * where Port Disable command doesn't work.
+	 *
+	 * The suggested workaround is that we avoid Port Disable
+	 * completely.
+	 *
+	 * This following flag tells XHCI to do just that.
+	 */
+	if (dwc->revision <= DWC3_REVISION_300A)
+		props[prop_idx++].name = "quirk-broken-port-ped";
+
+	if (prop_idx) {
 		ret = platform_device_add_properties(xhci, props);
 		if (ret) {
 			dev_err(dwc->dev, "failed to add properties to xHCI\n");
@@ -100,9 +110,9 @@ int dwc3_host_init(struct dwc3 *dwc)
 	}
 
 	phy_create_lookup(dwc->usb2_generic_phy, "usb2-phy",
-			  dev_name(&xhci->dev));
+			  dev_name(dwc->dev));
 	phy_create_lookup(dwc->usb3_generic_phy, "usb3-phy",
-			  dev_name(&xhci->dev));
+			  dev_name(dwc->dev));
 
 	/* Platform device gets added as part of state machine */
 
@@ -115,9 +125,9 @@ err1:
 void dwc3_host_exit(struct dwc3 *dwc)
 {
 	phy_remove_lookup(dwc->usb2_generic_phy, "usb2-phy",
-			  dev_name(&dwc->xhci->dev));
+			  dev_name(dwc->dev));
 	phy_remove_lookup(dwc->usb3_generic_phy, "usb3-phy",
-			  dev_name(&dwc->xhci->dev));
+			  dev_name(dwc->dev));
 	if (!dwc->is_drd)
 		platform_device_unregister(dwc->xhci);
 }

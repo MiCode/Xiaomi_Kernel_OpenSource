@@ -97,4 +97,5 @@ bool msm_comm_turbo_session(struct msm_vidc_inst *inst);
 void msm_comm_print_inst_info(struct msm_vidc_inst *inst);
 int msm_comm_v4l2_to_hal(int id, int value);
 int msm_comm_hal_to_v4l2(int id, int value);
+int msm_comm_session_continue(void *instance);
 #endif

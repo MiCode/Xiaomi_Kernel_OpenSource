@@ -355,6 +355,32 @@ static const struct dmi_system_id acer_blacklist[] __initconst = {
 	{}
 };
 
+static const struct dmi_system_id amw0_whitelist[] __initconst = {
+	{
+		.ident = "Acer",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Acer"),
+		},
+	},
+	{
+		.ident = "Gateway",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Gateway"),
+		},
+	},
+	{
+		.ident = "Packard Bell",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Packard Bell"),
+		},
+	},
+	{}
+};
+
+/*
+ * This quirk table is only for Acer/Gateway/Packard Bell family
+ * that those machines are supported by acer-wmi driver.
+ */
 static const struct dmi_system_id acer_quirks[] __initconst = {
 	{
 		.callback = dmi_matched,
@@ -464,6 +490,17 @@ static const struct dmi_system_id acer_quirks[] __initconst = {
 		},
 		.driver_data = &quirk_acer_travelmate_2490,
 	},
+	{}
+};
+
+/*
+ * This quirk list is for those non-acer machines that have AMW0_GUID1
+ * but supported by acer-wmi in past days. Keeping this quirk list here
+ * is only for backward compatible. Please do not add new machine to
+ * here anymore. Those non-acer machines should be supported by
+ * appropriate wmi drivers.
+ */
+static const struct dmi_system_id non_acer_quirks[] __initconst = {
 	{
 		.callback = dmi_matched,
 		.ident = "Fujitsu Siemens Amilo Li 1718",
@@ -598,6 +635,7 @@ static void __init find_quirks(void)
 {
 	if (!force_series) {
 		dmi_check_system(acer_quirks);
+		dmi_check_system(non_acer_quirks);
 	} else if (force_series == 2490) {
 		quirks = &quirk_acer_travelmate_2490;
 	}
@@ -1808,11 +1846,24 @@ static int __init acer_wmi_enable_lm(void)
 	return status;
 }
 
+#define ACER_WMID_ACCEL_HID	"BST0001"
+
 static acpi_status __init acer_wmi_get_handle_cb(acpi_handle ah, u32 level,
 						void *ctx, void **retval)
 {
+	struct acpi_device *dev;
+
+	if (!strcmp(ctx, "SENR")) {
+		if (acpi_bus_get_device(ah, &dev))
+			return AE_OK;
+		if (!strcmp(ACER_WMID_ACCEL_HID, acpi_device_hid(dev)))
+			return AE_OK;
+	} else
+		return AE_OK;
+
 	*(acpi_handle *)retval = ah;
-	return AE_OK;
+
+	return AE_CTRL_TERMINATE;
 }
 
 static int __init acer_wmi_get_handle(const char *name, const char *prop,
@@ -1839,7 +1890,7 @@ static int __init acer_wmi_accel_setup(void)
 {
 	int err;
 
-	err = acer_wmi_get_handle("SENR", "BST0001", &gsensor_handle);
+	err = acer_wmi_get_handle("SENR", ACER_WMID_ACCEL_HID, &gsensor_handle);
 	if (err)
 		return err;
 
@@ -2108,6 +2159,24 @@ static int __init acer_wmi_init(void)
 	find_quirks();
 
 	/*
+	 * The AMW0_GUID1 wmi is not only found on Acer family but also other
+	 * machines like Lenovo, Fujitsu and Medion. In the past days,
+	 * acer-wmi driver handled those non-Acer machines by quirks list.
+	 * But actually acer-wmi driver was loaded on any machines that have
+	 * AMW0_GUID1. This behavior is strange because those machines should
+	 * be supported by appropriate wmi drivers. e.g. fujitsu-laptop,
+	 * ideapad-laptop. So, here checks the machine that has AMW0_GUID1
+	 * should be in Acer/Gateway/Packard Bell white list, or it's already
+	 * in the past quirk list.
+	 */
+	if (wmi_has_guid(AMW0_GUID1) &&
+	    !dmi_check_system(amw0_whitelist) &&
+	    quirks == &quirk_unknown) {
+		pr_err("Unsupported machine has AMW0_GUID1, unable to load\n");
+		return -ENODEV;
+	}
+
+	/*
 	 * Detect which ACPI-WMI interface we're using.
 	 */
 	if (wmi_has_guid(AMW0_GUID1) && wmi_has_guid(WMID_GUID1))
@@ -2177,9 +2246,10 @@ static int __init acer_wmi_init(void)
 		err = acer_wmi_input_setup();
 		if (err)
 			return err;
+		err = acer_wmi_accel_setup();
+		if (err)
+			return err;
 	}
-
-	acer_wmi_accel_setup();
 
 	err = platform_driver_register(&acer_platform_driver);
 	if (err) {

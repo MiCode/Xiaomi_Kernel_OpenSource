@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -134,5 +134,20 @@ int sde_core_irq_unregister_callback(
 		struct sde_kms *sde_kms,
 		int irq_idx,
 		struct sde_irq_callback *irq_cb);
+
+/**
+ * sde_debugfs_core_irq_init - register core irq debugfs
+ * @sde_kms: pointer to kms
+ * @parent: debugfs directory root
+ * @Return: 0 on success
+ */
+int sde_debugfs_core_irq_init(struct sde_kms *sde_kms,
+		struct dentry *parent);
+
+/**
+ * sde_debugfs_core_irq_destroy - deregister core irq debugfs
+ * @sde_kms: pointer to kms
+ */
+void sde_debugfs_core_irq_destroy(struct sde_kms *sde_kms);
 
 #endif /* __SDE_CORE_IRQ_H__ */

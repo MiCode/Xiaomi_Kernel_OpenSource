@@ -22,12 +22,16 @@ struct crm_workq_task *cam_req_mgr_workq_get_task(
 		return NULL;
 
 	spin_lock(&workq->task.lock);
+	if (list_empty(&workq->task.empty_head))
+		goto end;
+
 	task = list_first_entry(&workq->task.empty_head,
 		struct crm_workq_task, entry);
 	if (task) {
 		atomic_sub(1, &workq->task.free_cnt);
 		list_del_init(&task->entry);
 	}
+end:
 	spin_unlock(&workq->task.lock);
 
 	return task;
@@ -104,14 +108,14 @@ static void cam_req_mgr_process_workq(struct work_struct *w)
 	workq = (struct cam_req_mgr_core_workq *)
 		container_of(w, struct cam_req_mgr_core_workq, work);
 
-	spin_lock(&workq->task.lock);
 	list_for_each_entry_safe(task, task_save,
 		&workq->task.process_head, entry) {
 		atomic_sub(1, &workq->task.pending_cnt);
+		spin_lock(&workq->task.lock);
 		list_del_init(&task->entry);
+		spin_unlock(&workq->task.lock);
 		cam_req_mgr_process_task(task);
 	}
-	spin_unlock(&workq->task.lock);
 	CRM_DBG("processed task %p free_cnt %d",
 		task, atomic_read(&workq->task.free_cnt));
 }
@@ -138,7 +142,6 @@ int cam_req_mgr_workq_enqueue_task(struct crm_workq_task *task)
 		goto end;
 	}
 
-	spin_lock(&workq->task.lock);
 	if (task->cancel == 1) {
 		cam_req_mgr_workq_put_task(task);
 		CRM_WARN("task aborted and queued back to pool");
@@ -146,12 +149,14 @@ int cam_req_mgr_workq_enqueue_task(struct crm_workq_task *task)
 		spin_unlock(&workq->task.lock);
 		goto end;
 	}
+	spin_lock(&workq->task.lock);
 	list_add_tail(&task->entry,
 		&workq->task.process_head);
+	spin_unlock(&workq->task.lock);
 	atomic_add(1, &workq->task.pending_cnt);
 	CRM_DBG("enq task %p pending_cnt %d",
 		task, atomic_read(&workq->task.pending_cnt));
-	spin_unlock(&workq->task.lock);
+
 
 	queue_work(workq->job, &workq->work);
 

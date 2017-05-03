@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,7 @@ static struct msm_bus_scale_pdata *get_pdata(struct platform_device *pdev,
 {
 	struct msm_bus_scale_pdata *pdata = NULL;
 	struct msm_bus_paths *usecase = NULL;
+	struct msm_bus_lat_vectors *usecase_lat = NULL;
 	int i = 0, j, ret, num_usecases = 0, num_paths, len;
 	const uint32_t *vec_arr = NULL;
 	bool mem_err = false;
@@ -83,6 +84,42 @@ static struct msm_bus_scale_pdata *get_pdata(struct platform_device *pdev,
 	else {
 		pr_debug("active_only flag absent.\n");
 		pr_debug("Using dual context by default\n");
+	}
+
+	pdata->alc = of_property_read_bool(of_node, "qcom,msm-bus,alc-voter");
+
+	if (pdata->alc) {
+		usecase_lat = devm_kzalloc(&pdev->dev,
+				(sizeof(struct msm_bus_lat_vectors) *
+				pdata->num_usecases), GFP_KERNEL);
+		if (!usecase_lat) {
+			mem_err = true;
+			goto err;
+		}
+
+		vec_arr = of_get_property(of_node,
+					"qcom,msm-bus,vectors-alc", &len);
+		if (vec_arr == NULL) {
+			pr_err("Error: Lat vector array not found\n");
+			goto err;
+		}
+
+		if (len != num_usecases * sizeof(uint32_t) * 2) {
+			pr_err("Error: Length-error on getting vectors\n");
+			goto err;
+		}
+
+		for (i = 0; i < num_usecases; i++) {
+			int index = i * 2;
+
+			usecase_lat[i].fal_ns = (uint64_t)
+				KBTOB(be32_to_cpu(vec_arr[index]));
+			usecase_lat[i].idle_t_ns = (uint64_t)
+				KBTOB(be32_to_cpu(vec_arr[index + 1]));
+		}
+
+		pdata->usecase_lat = usecase_lat;
+		return pdata;
 	}
 
 	usecase = devm_kzalloc(&pdev->dev, (sizeof(struct msm_bus_paths) *

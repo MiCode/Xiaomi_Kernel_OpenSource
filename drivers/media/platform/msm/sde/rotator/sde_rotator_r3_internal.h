@@ -248,6 +248,9 @@ struct sde_hw_rotator_resource_info {
  * struct sde_hw_rotator : Rotator description
  * @hw:           mdp register mapped offset
  * @ops:          pointer to operations possible for the rotator HW
+ * @highest_bank: highest bank size of memory
+ * @ubwc_malsize: ubwc minimum allowable length
+ * @ubwc_swizzle: ubwc swizzle enable
  * @sbuf_headroom: stream buffer headroom in lines
  * @solid_fill: true if solid fill is requested
  * @constant_color: solid fill constant color
@@ -259,6 +262,7 @@ struct sde_hw_rotator_resource_info {
  * @outpixfmts: array of supported output pixel formats in fourcc
  * @num_outpixfmt: size of the supported output pixel formats array
  * @downscale_caps: capability string of scaling
+ * @maxlinewidth: maximum line width supported
  */
 struct sde_hw_rotator {
 	/* base */
@@ -296,6 +300,8 @@ struct sde_hw_rotator {
 	void *swts_buffer;
 
 	u32    highest_bank;
+	u32    ubwc_malsize;
+	u32    ubwc_swizzle;
 	u32    sbuf_headroom;
 	u32    solid_fill;
 	u32    constant_color;
@@ -317,6 +323,7 @@ struct sde_hw_rotator {
 	u32 *outpixfmts;
 	u32 num_outpixfmt;
 	const char *downscale_caps;
+	u32 maxlinewidth;
 };
 
 /**

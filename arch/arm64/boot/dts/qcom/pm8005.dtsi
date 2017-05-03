@@ -32,37 +32,15 @@
 			label = "pm8005_tz";
 		};
 
-		pm8005_gpios: gpios {
-			compatible = "qcom,qpnp-pin";
+		pm8005_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0x400>;
+			interrupts = <0x4 0xc0 0 IRQ_TYPE_NONE>,
+					<0x4 0xc1 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pm8005_gpio1", "pm8005_gpio2";
 			gpio-controller;
 			#gpio-cells = <2>;
-			#address-cells = <1>;
-			#size-cells = <1>;
-			label = "pm8005-gpio";
-
-			gpio@c000 {
-				reg = <0xc000 0x100>;
-				qcom,pin-num = <1>;
-				status = "disabled";
-			};
-
-			gpio@c100 {
-				reg = <0xc100 0x100>;
-				qcom,pin-num = <2>;
-				status = "disabled";
-			};
-
-			gpio@c200 {
-				reg = <0xc200 0x100>;
-				qcom,pin-num = <3>;
-				status = "disabled";
-			};
-
-			gpio@c300 {
-				reg = <0xc300 0x100>;
-				qcom,pin-num = <4>;
-				status = "disabled";
-			};
+			qcom,gpios-disallowed = <3 4>;
 		};
 	};
 

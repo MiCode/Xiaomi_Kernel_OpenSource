@@ -28,6 +28,9 @@
 #define   CTL_START                     0x01C
 #define   CTL_SW_RESET                  0x030
 #define   CTL_LAYER_EXTN_OFFSET         0x40
+#define   CTL_ROT_TOP                   0x0C0
+#define   CTL_ROT_FLUSH                 0x0C4
+#define   CTL_ROT_START                 0x0CC
 
 #define CTL_MIXER_BORDER_OUT            BIT(24)
 #define CTL_FLUSH_MASK_CTL              BIT(17)
@@ -75,6 +78,11 @@ static inline void sde_hw_ctl_trigger_start(struct sde_hw_ctl *ctx)
 	SDE_REG_WRITE(&ctx->hw, CTL_START, 0x1);
 }
 
+static inline void sde_hw_ctl_trigger_rot_start(struct sde_hw_ctl *ctx)
+{
+	SDE_REG_WRITE(&ctx->hw, CTL_ROT_START, BIT(0));
+}
+
 static inline void sde_hw_ctl_clear_pending_flush(struct sde_hw_ctl *ctx)
 {
 	ctx->pending_flush_mask = 0x0;
@@ -99,6 +107,12 @@ static inline void sde_hw_ctl_trigger_flush(struct sde_hw_ctl *ctx)
 	SDE_REG_WRITE(&ctx->hw, CTL_FLUSH, ctx->pending_flush_mask);
 }
 
+static inline u32 sde_hw_ctl_get_flush_register(struct sde_hw_ctl *ctx)
+{
+	struct sde_hw_blk_reg_map *c = &ctx->hw;
+
+	return SDE_REG_READ(c, CTL_FLUSH);
+}
 
 static inline uint32_t sde_hw_ctl_get_bitmask_sspp(struct sde_hw_ctl *ctx,
 	enum sde_sspp sspp)
@@ -234,6 +248,19 @@ static inline int sde_hw_ctl_get_bitmask_wb(struct sde_hw_ctl *ctx,
 	case WB_1:
 	case WB_2:
 		*flushbits |= BIT(16);
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static inline int sde_hw_ctl_get_bitmask_rot(struct sde_hw_ctl *ctx,
+		u32 *flushbits, enum sde_rot rot)
+{
+	switch (rot) {
+	case ROT_0:
+		*flushbits |= BIT(27);
 		break;
 	default:
 		return -EINVAL;
@@ -490,6 +517,17 @@ static void sde_hw_ctl_intf_cfg(struct sde_hw_ctl *ctx,
 	SDE_REG_WRITE(c, CTL_TOP, intf_cfg);
 }
 
+static void sde_hw_ctl_setup_sbuf_cfg(struct sde_hw_ctl *ctx,
+	struct sde_ctl_sbuf_cfg *cfg)
+{
+	struct sde_hw_blk_reg_map *c = &ctx->hw;
+	u32 val;
+
+	val = cfg->rot_op_mode & 0x3;
+
+	SDE_REG_WRITE(c, CTL_ROT_TOP, val);
+}
+
 static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 		unsigned long cap)
 {
@@ -497,6 +535,7 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 	ops->update_pending_flush = sde_hw_ctl_update_pending_flush;
 	ops->get_pending_flush = sde_hw_ctl_get_pending_flush;
 	ops->trigger_flush = sde_hw_ctl_trigger_flush;
+	ops->get_flush_register = sde_hw_ctl_get_flush_register;
 	ops->trigger_start = sde_hw_ctl_trigger_start;
 	ops->setup_intf_cfg = sde_hw_ctl_intf_cfg;
 	ops->reset = sde_hw_ctl_reset_control;
@@ -509,6 +548,11 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 	ops->get_bitmask_intf = sde_hw_ctl_get_bitmask_intf;
 	ops->get_bitmask_cdm = sde_hw_ctl_get_bitmask_cdm;
 	ops->get_bitmask_wb = sde_hw_ctl_get_bitmask_wb;
+	if (cap & BIT(SDE_CTL_SBUF)) {
+		ops->get_bitmask_rot = sde_hw_ctl_get_bitmask_rot;
+		ops->setup_sbuf_cfg = sde_hw_ctl_setup_sbuf_cfg;
+		ops->trigger_rot_start = sde_hw_ctl_trigger_rot_start;
+	}
 };
 
 struct sde_hw_ctl *sde_hw_ctl_init(enum sde_ctl idx,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -548,6 +548,8 @@ ssize_t ipa3_read(struct file *filp, char __user *buf, size_t count,
 			if (copy_to_user(buf, &msg->meta,
 					  sizeof(struct ipa_msg_meta))) {
 				ret = -EFAULT;
+				kfree(msg);
+				msg = NULL;
 				break;
 			}
 			buf += sizeof(struct ipa_msg_meta);
@@ -556,6 +558,8 @@ ssize_t ipa3_read(struct file *filp, char __user *buf, size_t count,
 				if (copy_to_user(buf, msg->buff,
 						  msg->meta.msg_len)) {
 					ret = -EFAULT;
+					kfree(msg);
+					msg = NULL;
 					break;
 				}
 				buf += msg->meta.msg_len;

@@ -218,7 +218,16 @@ using the following properties:
 				master-id, slave-id, arbitrated bandwidth
 				in KBps, instantaneous bandwidth in KBps
 
-Example:
+The following are optional properties for client's device nodes:
+
+- qcom,msm-bus,alc-voter:	Boolean alc_voter flag to indicate that client
+				will vote as an Active Latency Client.
+- qcom,msm-bus,vectors-alc:	Arrays of unsigned integers representing:
+				first access latency, idle time in ns, this
+				property is required if qcom,msm-bus,alc-voter
+				is present.
+
+Example for default client:
 
 	qcom,msm-bus,name = "client-name";
 	qcom,msm-bus,num-cases = <3>;
@@ -229,3 +238,12 @@ Example:
 			<22 512 320000 3200000>, <26 512 3200000 3200000>,
 			<22 512 160000 1600000>, <26 512 1600000 1600000>;
 
+Example for ALC client:
+
+	qcom,msm-bus,name = "client-name";
+	qcom,msm-bus,num-cases = <2>;
+	qcom,msm-bus,active-only;
+	qcom,msm-bus,alc-voter;
+	qcom,msm-bus,vectors-alc =
+			<0 0>,
+			<500 1600>;

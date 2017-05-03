@@ -1204,8 +1204,8 @@ static void nvme_set_queue_limits(struct nvme_ctrl *ctrl,
 		blk_queue_max_hw_sectors(q, ctrl->max_hw_sectors);
 		blk_queue_max_segments(q, min_t(u32, max_segments, USHRT_MAX));
 	}
-	if (ctrl->stripe_size)
-		blk_queue_chunk_sectors(q, ctrl->stripe_size >> 9);
+	if (ctrl->quirks & NVME_QUIRK_STRIPE_SIZE)
+		blk_queue_chunk_sectors(q, ctrl->max_hw_sectors);
 	blk_queue_virt_boundary(q, ctrl->page_size - 1);
 	if (ctrl->vwc & NVME_CTRL_VWC_PRESENT)
 		vwc = true;
@@ -1260,19 +1260,6 @@ int nvme_init_identify(struct nvme_ctrl *ctrl)
 		max_hw_sectors = UINT_MAX;
 	ctrl->max_hw_sectors =
 		min_not_zero(ctrl->max_hw_sectors, max_hw_sectors);
-
-	if ((ctrl->quirks & NVME_QUIRK_STRIPE_SIZE) && id->vs[3]) {
-		unsigned int max_hw_sectors;
-
-		ctrl->stripe_size = 1 << (id->vs[3] + page_shift);
-		max_hw_sectors = ctrl->stripe_size >> (page_shift - 9);
-		if (ctrl->max_hw_sectors) {
-			ctrl->max_hw_sectors = min(max_hw_sectors,
-							ctrl->max_hw_sectors);
-		} else {
-			ctrl->max_hw_sectors = max_hw_sectors;
-		}
-	}
 
 	nvme_set_queue_limits(ctrl, ctrl->admin_q);
 	ctrl->sgls = le32_to_cpu(id->sgls);
@@ -2057,9 +2044,9 @@ void nvme_kill_queues(struct nvme_ctrl *ctrl)
 		 * Revalidating a dead namespace sets capacity to 0. This will
 		 * end buffered writers dirtying pages that can't be synced.
 		 */
-		if (ns->disk && !test_and_set_bit(NVME_NS_DEAD, &ns->flags))
-			revalidate_disk(ns->disk);
-
+		if (!ns->disk || test_and_set_bit(NVME_NS_DEAD, &ns->flags))
+			continue;
+		revalidate_disk(ns->disk);
 		blk_set_queue_dying(ns->queue);
 		blk_mq_abort_requeue_list(ns->queue);
 		blk_mq_start_stopped_hw_queues(ns->queue, true);

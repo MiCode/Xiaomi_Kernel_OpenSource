@@ -125,6 +125,9 @@
 #define PA_GRANULARITY_MIN_VAL	1
 #define PA_GRANULARITY_MAX_VAL	6
 
+#define PA_GRANULARITY_MIN_VAL	1
+#define PA_GRANULARITY_MAX_VAL	6
+
 /* PHY Adapter Protocol Constants */
 #define PA_MAXDATALANES	4
 

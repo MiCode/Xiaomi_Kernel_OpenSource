@@ -307,21 +307,8 @@ static void diag_write_complete(struct usb_ep *ep,
 
 	ctxt->dpkts_tolaptop_pending--;
 
-	if (!req->status) {
-		if ((req->length >= ep->maxpacket) &&
-				((req->length % ep->maxpacket) == 0)) {
-			ctxt->dpkts_tolaptop_pending++;
-			req->length = 0;
-			d_req->actual = req->actual;
-			d_req->status = req->status;
-			/* Queue zero length packet */
-			if (!usb_ep_queue(ctxt->in, req, GFP_ATOMIC))
-				return;
-			ctxt->dpkts_tolaptop_pending--;
-		} else {
-			ctxt->dpkts_tolaptop++;
-		}
-	}
+	if (!req->status)
+		ctxt->dpkts_tolaptop++;
 
 	spin_lock_irqsave(&ctxt->lock, flags);
 	list_add_tail(&req->list, &ctxt->write_pool);
@@ -481,6 +468,7 @@ int usb_diag_alloc_req(struct usb_diag_ch *ch, int n_write, int n_read)
 			goto fail;
 		kmemleak_not_leak(req);
 		req->complete = diag_write_complete;
+		req->zero = true;
 		list_add_tail(&req->list, &ctxt->write_pool);
 	}
 

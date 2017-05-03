@@ -322,9 +322,6 @@ struct arm_smmu_arch_ops {
 	void (*device_reset)(struct arm_smmu_device *smmu);
 	phys_addr_t (*iova_to_phys_hard)(struct iommu_domain *domain,
 					 dma_addr_t iova);
-	void (*iova_to_phys_fault)(struct iommu_domain *domain,
-				dma_addr_t iova, phys_addr_t *phys1,
-				phys_addr_t *phys_post_tlbiall);
 };
 
 struct arm_smmu_impl_def_reg {
@@ -499,6 +496,7 @@ struct arm_smmu_pte_info {
 
 struct arm_smmu_domain {
 	struct arm_smmu_device		*smmu;
+	struct device			*dev;
 	struct io_pgtable_ops		*pgtbl_ops;
 	struct io_pgtable_cfg		pgtbl_cfg;
 	spinlock_t			pgtbl_lock;
@@ -830,26 +828,26 @@ static int arm_smmu_power_on_slow(struct arm_smmu_power_resources *pwr)
 		return 0;
 	}
 
-	ret = regulator_bulk_enable(pwr->num_gdscs, pwr->gdscs);
+	ret = arm_smmu_request_bus(pwr);
 	if (ret)
 		goto out_unlock;
 
-	ret = arm_smmu_request_bus(pwr);
+	ret = regulator_bulk_enable(pwr->num_gdscs, pwr->gdscs);
 	if (ret)
-		goto out_disable_regulators;
+		goto out_disable_bus;
 
 	ret = arm_smmu_prepare_clocks(pwr);
 	if (ret)
-		goto out_disable_bus;
+		goto out_disable_regulators;
 
 	pwr->power_count = 1;
 	mutex_unlock(&pwr->power_lock);
 	return 0;
 
-out_disable_bus:
-	arm_smmu_unrequest_bus(pwr);
 out_disable_regulators:
 	regulator_bulk_disable(pwr->num_gdscs, pwr->gdscs);
+out_disable_bus:
+	arm_smmu_unrequest_bus(pwr);
 out_unlock:
 	mutex_unlock(&pwr->power_lock);
 	return ret;
@@ -870,9 +868,9 @@ static void arm_smmu_power_off_slow(struct arm_smmu_power_resources *pwr)
 	}
 
 	arm_smmu_unprepare_clocks(pwr);
-	arm_smmu_unrequest_bus(pwr);
 	regulator_bulk_disable(pwr->num_gdscs, pwr->gdscs);
-
+	arm_smmu_unrequest_bus(pwr);
+	pwr->power_count = 0;
 	mutex_unlock(&pwr->power_lock);
 }
 
@@ -1141,32 +1139,21 @@ static phys_addr_t arm_smmu_verify_fault(struct iommu_domain *domain,
 					 dma_addr_t iova, u32 fsr)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_device *smmu;
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	phys_addr_t phys;
 	phys_addr_t phys_post_tlbiall;
 
-	smmu = smmu_domain->smmu;
-
-	if (smmu->arch_ops && smmu->arch_ops->iova_to_phys_fault) {
-		smmu->arch_ops->iova_to_phys_fault(domain, iova, &phys,
-		&phys_post_tlbiall);
-	} else {
-		phys = arm_smmu_iova_to_phys_hard(domain, iova);
-		arm_smmu_tlb_inv_context(smmu_domain);
-		phys_post_tlbiall = arm_smmu_iova_to_phys_hard(domain, iova);
-	}
+	phys = arm_smmu_iova_to_phys_hard(domain, iova);
+	arm_smmu_tlb_inv_context(smmu_domain);
+	phys_post_tlbiall = arm_smmu_iova_to_phys_hard(domain, iova);
 
 	if (phys != phys_post_tlbiall) {
 		dev_err(smmu->dev,
 			"ATOS results differed across TLBIALL...\n"
 			"Before: %pa After: %pa\n", &phys, &phys_post_tlbiall);
 	}
-	if (!phys_post_tlbiall) {
-		dev_err(smmu->dev,
-			"ATOS still failed. If the page tables look good (check the software table walk) then hardware might be misbehaving.\n");
-	}
 
-	return phys_post_tlbiall;
+	return (phys == 0 ? phys_post_tlbiall : phys);
 }
 
 static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
@@ -1260,8 +1247,11 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 				dev_err(smmu->dev,
 					"SOFTWARE TABLE WALK FAILED! Looks like %s accessed an unmapped address!\n",
 					dev_name(smmu->dev));
-			dev_err(smmu->dev,
-				"hard iova-to-phys (ATOS)=%pa\n", &phys_atos);
+			if (phys_atos)
+				dev_err(smmu->dev, "hard iova-to-phys (ATOS)=%pa\n",
+					&phys_atos);
+			else
+				dev_err(smmu->dev, "hard iova-to-phys (ATOS) failed\n");
 			dev_err(smmu->dev, "SID=0x%x\n", frsynra);
 		}
 		ret = IRQ_NONE;
@@ -1493,7 +1483,8 @@ static void arm_smmu_free_asid(struct iommu_domain *domain)
 }
 
 static int arm_smmu_init_domain_context(struct iommu_domain *domain,
-					struct arm_smmu_device *smmu)
+					struct arm_smmu_device *smmu,
+					struct device *dev)
 {
 	int irq, start, ret = 0;
 	unsigned long ias, oas;
@@ -1642,6 +1633,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	};
 
 	smmu_domain->smmu = smmu;
+	smmu_domain->dev = dev;
 	pgtbl_ops = alloc_io_pgtable_ops(fmt, &smmu_domain->pgtbl_cfg,
 					smmu_domain);
 	if (!pgtbl_ops) {
@@ -2130,7 +2122,7 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		return ret;
 
 	/* Ensure that the domain is finalised */
-	ret = arm_smmu_init_domain_context(domain, smmu);
+	ret = arm_smmu_init_domain_context(domain, smmu, dev);
 	if (ret < 0)
 		goto out_power_off;
 
@@ -2331,9 +2323,11 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 
 	if (smmu_domain->smmu->arch_ops &&
-	    smmu_domain->smmu->arch_ops->iova_to_phys_hard)
-		return smmu_domain->smmu->arch_ops->iova_to_phys_hard(
+	    smmu_domain->smmu->arch_ops->iova_to_phys_hard) {
+		ret = smmu_domain->smmu->arch_ops->iova_to_phys_hard(
 						domain, iova);
+		return ret;
+	}
 
 	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
 	if (smmu_domain->smmu->features & ARM_SMMU_FEAT_TRANS_OPS &&
@@ -3068,64 +3062,27 @@ static void qsmmuv2_device_reset(struct arm_smmu_device *smmu)
 	qsmmuv2_resume(smmu);
 }
 
-static phys_addr_t __qsmmuv2_iova_to_phys_hard(struct iommu_domain *domain,
-					      dma_addr_t iova, bool halt)
+static phys_addr_t qsmmuv2_iova_to_phys_hard(struct iommu_domain *domain,
+				dma_addr_t iova)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	int ret;
 	phys_addr_t phys = 0;
 	unsigned long flags;
+	u32 sctlr, sctlr_orig, fsr;
+	void __iomem *cb_base;
 
 	ret = arm_smmu_power_on(smmu_domain->smmu->pwr);
 	if (ret)
-		return 0;
+		return ret;
 
-	if (halt) {
-		ret = qsmmuv2_halt(smmu);
-		if (ret)
-			goto out_power_off;
-	}
-
-	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
-	spin_lock(&smmu->atos_lock);
-	phys = __arm_smmu_iova_to_phys_hard(domain, iova);
-	spin_unlock(&smmu->atos_lock);
-	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
-
-	if (halt)
-		qsmmuv2_resume(smmu);
-
-out_power_off:
-	arm_smmu_power_off(smmu_domain->smmu->pwr);
-	return phys;
-}
-
-static phys_addr_t qsmmuv2_iova_to_phys_hard(struct iommu_domain *domain,
-					      dma_addr_t iova)
-{
-	return __qsmmuv2_iova_to_phys_hard(domain, iova, true);
-}
-
-static void qsmmuv2_iova_to_phys_fault(
-				struct iommu_domain *domain,
-				dma_addr_t iova, phys_addr_t *phys,
-				phys_addr_t *phys_post_tlbiall)
-{
-	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	struct arm_smmu_device *smmu;
-	void __iomem *cb_base;
-	u64 sctlr, sctlr_orig;
-	u32 fsr;
-
-	smmu = smmu_domain->smmu;
-	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
+	spin_lock_irqsave(&smmu->atos_lock, flags);
+	cb_base = ARM_SMMU_CB_BASE(smmu) +
+			ARM_SMMU_CB(smmu, smmu_domain->cfg.cbndx);
 
 	qsmmuv2_halt_nowait(smmu);
-
 	writel_relaxed(RESUME_TERMINATE, cb_base + ARM_SMMU_CB_RESUME);
-
 	qsmmuv2_wait_for_halt(smmu);
 
 	/* clear FSR to allow ATOS to log any faults */
@@ -3137,20 +3094,21 @@ static void qsmmuv2_iova_to_phys_fault(
 	sctlr = sctlr_orig & ~SCTLR_CFCFG;
 	writel_relaxed(sctlr, cb_base + ARM_SMMU_CB_SCTLR);
 
-	*phys = __qsmmuv2_iova_to_phys_hard(domain, iova, false);
-	arm_smmu_tlb_inv_context(smmu_domain);
-	*phys_post_tlbiall = __qsmmuv2_iova_to_phys_hard(domain, iova, false);
+	phys = __arm_smmu_iova_to_phys_hard(domain, iova);
 
 	/* restore SCTLR */
 	writel_relaxed(sctlr_orig, cb_base + ARM_SMMU_CB_SCTLR);
 
 	qsmmuv2_resume(smmu);
+	spin_unlock_irqrestore(&smmu->atos_lock, flags);
+
+	arm_smmu_power_off(smmu_domain->smmu->pwr);
+	return phys;
 }
 
 struct arm_smmu_arch_ops qsmmuv2_arch_ops = {
 	.device_reset = qsmmuv2_device_reset,
 	.iova_to_phys_hard = qsmmuv2_iova_to_phys_hard,
-	.iova_to_phys_fault = qsmmuv2_iova_to_phys_fault,
 };
 
 static void arm_smmu_context_bank_reset(struct arm_smmu_device *smmu)
@@ -3383,7 +3341,7 @@ static int arm_smmu_init_regulators(struct arm_smmu_power_resources *pwr)
 	i = 0;
 	of_property_for_each_string(dev->of_node, "qcom,regulator-names",
 				prop, cname)
-		pwr->gdscs[i].supply = cname;
+		pwr->gdscs[i++].supply = cname;
 
 	ret = devm_regulator_bulk_get(dev, pwr->num_gdscs, pwr->gdscs);
 	return ret;
@@ -3408,7 +3366,6 @@ static int arm_smmu_init_bus_scaling(struct arm_smmu_power_resources *pwr)
 	pwr->bus_client = msm_bus_scale_register_client(pwr->bus_dt_data);
 	if (!pwr->bus_client) {
 		dev_err(dev, "Bus client registration failed\n");
-		msm_bus_cl_clear_pdata(pwr->bus_dt_data);
 		return -EINVAL;
 	}
 
@@ -3449,12 +3406,11 @@ static struct arm_smmu_power_resources *arm_smmu_init_power_resources(
 }
 
 /*
- * Bus APIs are not devm-safe.
+ * Bus APIs are devm-safe.
  */
 static void arm_smmu_exit_power_resources(struct arm_smmu_power_resources *pwr)
 {
 	msm_bus_scale_unregister_client(pwr->bus_client);
-	msm_bus_cl_clear_pdata(pwr->bus_dt_data);
 }
 
 static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
@@ -3988,13 +3944,39 @@ IOMMU_OF_DECLARE(arm_mmu401, "arm,mmu-401", arm_smmu_of_init);
 IOMMU_OF_DECLARE(arm_mmu500, "arm,mmu-500", arm_smmu_of_init);
 IOMMU_OF_DECLARE(cavium_smmuv2, "cavium,smmu-v2", arm_smmu_of_init);
 
+#define TCU_HW_VERSION_HLOS1		(0x18)
+
 #define DEBUG_SID_HALT_REG		0x0
 #define DEBUG_SID_HALT_VAL		(0x1 << 16)
+#define DEBUG_SID_HALT_SID_MASK		0x3ff
+
+#define DEBUG_VA_ADDR_REG		0x8
+
+#define DEBUG_TXN_TRIGG_REG		0x18
+#define DEBUG_TXN_AXPROT_SHIFT		6
+#define DEBUG_TXN_AXCACHE_SHIFT		2
+#define DEBUG_TRX_WRITE			(0x1 << 1)
+#define DEBUG_TXN_READ			(0x0 << 1)
+#define DEBUG_TXN_TRIGGER		0x1
 
 #define DEBUG_SR_HALT_ACK_REG		0x20
 #define DEBUG_SR_HALT_ACK_VAL		(0x1 << 1)
+#define DEBUG_SR_ECATS_RUNNING_VAL	(0x1 << 0)
+
+#define DEBUG_PAR_REG			0x28
+#define DEBUG_PAR_PA_MASK		((0x1ULL << 36) - 1)
+#define DEBUG_PAR_PA_SHIFT		12
+#define DEBUG_PAR_FAULT_VAL		0x1
 
 #define TBU_DBG_TIMEOUT_US		30000
+
+struct qsmmuv500_archdata {
+	struct list_head		tbus;
+	void __iomem			*tcu_base;
+	u32				version;
+};
+#define get_qsmmuv500_archdata(smmu)				\
+	((struct qsmmuv500_archdata *)(smmu->archdata))
 
 struct qsmmuv500_tbu_device {
 	struct list_head		list;
@@ -4004,6 +3986,8 @@ struct qsmmuv500_tbu_device {
 	void __iomem			*status_reg;
 
 	struct arm_smmu_power_resources *pwr;
+	u32				sid_start;
+	u32				num_sids;
 
 	/* Protects halt count */
 	spinlock_t			halt_lock;
@@ -4013,10 +3997,10 @@ struct qsmmuv500_tbu_device {
 static int qsmmuv500_tbu_power_on_all(struct arm_smmu_device *smmu)
 {
 	struct qsmmuv500_tbu_device *tbu;
-	struct list_head *list = smmu->archdata;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
 	int ret = 0;
 
-	list_for_each_entry(tbu, list, list) {
+	list_for_each_entry(tbu, &data->tbus, list) {
 		ret = arm_smmu_power_on(tbu->pwr);
 		if (ret)
 			break;
@@ -4024,7 +4008,7 @@ static int qsmmuv500_tbu_power_on_all(struct arm_smmu_device *smmu)
 	if (!ret)
 		return 0;
 
-	list_for_each_entry_continue_reverse(tbu, list, list) {
+	list_for_each_entry_continue_reverse(tbu, &data->tbus, list) {
 		arm_smmu_power_off(tbu->pwr);
 	}
 	return ret;
@@ -4033,9 +4017,9 @@ static int qsmmuv500_tbu_power_on_all(struct arm_smmu_device *smmu)
 static void qsmmuv500_tbu_power_off_all(struct arm_smmu_device *smmu)
 {
 	struct qsmmuv500_tbu_device *tbu;
-	struct list_head *list = smmu->archdata;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
 
-	list_for_each_entry_reverse(tbu, list, list) {
+	list_for_each_entry_reverse(tbu, &data->tbus, list) {
 		arm_smmu_power_off(tbu->pwr);
 	}
 }
@@ -4101,10 +4085,10 @@ static void qsmmuv500_tbu_resume(struct qsmmuv500_tbu_device *tbu)
 static int qsmmuv500_halt_all(struct arm_smmu_device *smmu)
 {
 	struct qsmmuv500_tbu_device *tbu;
-	struct list_head *list = smmu->archdata;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
 	int ret = 0;
 
-	list_for_each_entry(tbu, list, list) {
+	list_for_each_entry(tbu, &data->tbus, list) {
 		ret = qsmmuv500_tbu_halt(tbu);
 		if (ret)
 			break;
@@ -4113,7 +4097,7 @@ static int qsmmuv500_halt_all(struct arm_smmu_device *smmu)
 	if (!ret)
 		return 0;
 
-	list_for_each_entry_continue_reverse(tbu, list, list) {
+	list_for_each_entry_continue_reverse(tbu, &data->tbus, list) {
 		qsmmuv500_tbu_resume(tbu);
 	}
 	return ret;
@@ -4122,11 +4106,25 @@ static int qsmmuv500_halt_all(struct arm_smmu_device *smmu)
 static void qsmmuv500_resume_all(struct arm_smmu_device *smmu)
 {
 	struct qsmmuv500_tbu_device *tbu;
-	struct list_head *list = smmu->archdata;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
 
-	list_for_each_entry(tbu, list, list) {
+	list_for_each_entry(tbu, &data->tbus, list) {
 		qsmmuv500_tbu_resume(tbu);
 	}
+}
+
+static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(
+	struct arm_smmu_device *smmu, u32 sid)
+{
+	struct qsmmuv500_tbu_device *tbu = NULL;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
+
+	list_for_each_entry(tbu, &data->tbus, list) {
+		if (tbu->sid_start <= sid &&
+		    sid < tbu->sid_start + tbu->num_sids)
+			return tbu;
+	}
+	return NULL;
 }
 
 static void qsmmuv500_device_reset(struct arm_smmu_device *smmu)
@@ -4147,11 +4145,192 @@ static void qsmmuv500_device_reset(struct arm_smmu_device *smmu)
 	qsmmuv500_tbu_power_off_all(smmu);
 }
 
-static int qsmmuv500_tbu_register(struct device *dev, void *data)
+static int qsmmuv500_ecats_lock(struct arm_smmu_domain *smmu_domain,
+				struct qsmmuv500_tbu_device *tbu,
+				unsigned long *flags)
 {
-	struct arm_smmu_device *smmu = data;
+	struct arm_smmu_device *smmu = tbu->smmu;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
+	u32 val;
+
+	spin_lock_irqsave(&smmu->atos_lock, *flags);
+	/* The status register is not accessible on version 1.0 */
+	if (data->version == 0x01000000)
+		return 0;
+
+	if (readl_poll_timeout_atomic(tbu->status_reg,
+					val, (val == 0x1), 0,
+					TBU_DBG_TIMEOUT_US)) {
+		dev_err(tbu->dev, "ECATS hw busy!\n");
+		spin_unlock_irqrestore(&smmu->atos_lock, *flags);
+		return  -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
+static void qsmmuv500_ecats_unlock(struct arm_smmu_domain *smmu_domain,
+					struct qsmmuv500_tbu_device *tbu,
+					unsigned long *flags)
+{
+	struct arm_smmu_device *smmu = tbu->smmu;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
+
+	/* The status register is not accessible on version 1.0 */
+	if (data->version != 0x01000000)
+		writel_relaxed(0, tbu->status_reg);
+	spin_unlock_irqrestore(&smmu->atos_lock, *flags);
+}
+
+/*
+ * Zero means failure.
+ */
+static phys_addr_t qsmmuv500_iova_to_phys(
+		struct iommu_domain *domain, dma_addr_t iova, u32 sid)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct qsmmuv500_tbu_device *tbu;
-	struct list_head *list = smmu->archdata;
+	int ret;
+	phys_addr_t phys = 0;
+	u64 val, fsr;
+	unsigned long flags;
+	void __iomem *cb_base;
+	u32 sctlr_orig, sctlr;
+	int needs_redo = 0;
+
+	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
+	tbu = qsmmuv500_find_tbu(smmu, sid);
+	if (!tbu)
+		return 0;
+
+	ret = arm_smmu_power_on(tbu->pwr);
+	if (ret)
+		return 0;
+
+	/*
+	 * Disable client transactions & wait for existing operations to
+	 * complete.
+	 */
+	ret = qsmmuv500_tbu_halt(tbu);
+	if (ret)
+		goto out_power_off;
+
+	/* Only one concurrent atos operation */
+	ret = qsmmuv500_ecats_lock(smmu_domain, tbu, &flags);
+	if (ret)
+		goto out_resume;
+
+	/*
+	 * We can be called from an interrupt handler with FSR already set
+	 * so terminate the faulting transaction prior to starting ecats.
+	 * No new racing faults can occur since we in the halted state.
+	 * ECATS can trigger the fault interrupt, so disable it temporarily
+	 * and check for an interrupt manually.
+	 */
+	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+	if (fsr & FSR_FAULT) {
+		writel_relaxed(fsr, cb_base + ARM_SMMU_CB_FSR);
+		writel_relaxed(RESUME_TERMINATE, cb_base + ARM_SMMU_CB_RESUME);
+	}
+	sctlr_orig = readl_relaxed(cb_base + ARM_SMMU_CB_SCTLR);
+	sctlr = sctlr_orig & ~(SCTLR_CFCFG | SCTLR_CFIE);
+	writel_relaxed(sctlr, cb_base + ARM_SMMU_CB_SCTLR);
+
+redo:
+	/* Set address and stream-id */
+	val = readq_relaxed(tbu->base + DEBUG_SID_HALT_REG);
+	val |= sid & DEBUG_SID_HALT_SID_MASK;
+	writeq_relaxed(val, tbu->base + DEBUG_SID_HALT_REG);
+	writeq_relaxed(iova, tbu->base + DEBUG_VA_ADDR_REG);
+
+	/*
+	 * Write-back Read and Write-Allocate
+	 * Priviledged, nonsecure, data transaction
+	 * Read operation.
+	 */
+	val = 0xF << DEBUG_TXN_AXCACHE_SHIFT;
+	val |= 0x3 << DEBUG_TXN_AXPROT_SHIFT;
+	val |= DEBUG_TXN_TRIGGER;
+	writeq_relaxed(val, tbu->base + DEBUG_TXN_TRIGG_REG);
+
+	ret = 0;
+	if (readl_poll_timeout_atomic(tbu->base + DEBUG_SR_HALT_ACK_REG,
+				val, !(val & DEBUG_SR_ECATS_RUNNING_VAL),
+				0, TBU_DBG_TIMEOUT_US)) {
+		dev_err(tbu->dev, "ECATS translation timed out!\n");
+	}
+
+	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
+	if (fsr & FSR_FAULT) {
+		dev_err(tbu->dev, "ECATS generated a fault interrupt! FSR = %llx\n",
+			val);
+		ret = -EINVAL;
+
+		writel_relaxed(val, cb_base + ARM_SMMU_CB_FSR);
+		/*
+		 * Clear pending interrupts
+		 * Barrier required to ensure that the FSR is cleared
+		 * before resuming SMMU operation
+		 */
+		wmb();
+		writel_relaxed(RESUME_TERMINATE, cb_base + ARM_SMMU_CB_RESUME);
+	}
+
+	val = readq_relaxed(tbu->base + DEBUG_PAR_REG);
+	if (val & DEBUG_PAR_FAULT_VAL) {
+		dev_err(tbu->dev, "ECATS translation failed! PAR = %llx\n",
+			val);
+		ret = -EINVAL;
+	}
+
+	phys = (val >> DEBUG_PAR_PA_SHIFT) & DEBUG_PAR_PA_MASK;
+	if (ret < 0)
+		phys = 0;
+
+	/* Reset hardware */
+	writeq_relaxed(0, tbu->base + DEBUG_TXN_TRIGG_REG);
+	writeq_relaxed(0, tbu->base + DEBUG_VA_ADDR_REG);
+
+	/*
+	 * After a failed translation, the next successful translation will
+	 * incorrectly be reported as a failure.
+	 */
+	if (!phys && needs_redo++ < 2)
+		goto redo;
+
+	writel_relaxed(sctlr_orig, cb_base + ARM_SMMU_CB_SCTLR);
+	qsmmuv500_ecats_unlock(smmu_domain, tbu, &flags);
+
+out_resume:
+	qsmmuv500_tbu_resume(tbu);
+
+out_power_off:
+	arm_smmu_power_off(tbu->pwr);
+
+	return phys;
+}
+
+static phys_addr_t qsmmuv500_iova_to_phys_hard(
+		struct iommu_domain *domain, dma_addr_t iova)
+{
+	u16 sid;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct iommu_fwspec *fwspec;
+
+	/* Select a sid */
+	fwspec = smmu_domain->dev->iommu_fwspec;
+	sid = (u16)fwspec->ids[0];
+
+	return qsmmuv500_iova_to_phys(domain, iova, sid);
+}
+
+static int qsmmuv500_tbu_register(struct device *dev, void *cookie)
+{
+	struct arm_smmu_device *smmu = cookie;
+	struct qsmmuv500_tbu_device *tbu;
+	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
 
 	if (!dev->driver) {
 		dev_err(dev, "TBU failed probe, QSMMUV500 cannot continue!\n");
@@ -4162,22 +4341,32 @@ static int qsmmuv500_tbu_register(struct device *dev, void *data)
 
 	INIT_LIST_HEAD(&tbu->list);
 	tbu->smmu = smmu;
-	list_add(&tbu->list, list);
+	list_add(&tbu->list, &data->tbus);
 	return 0;
 }
 
 static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 {
+	struct resource *res;
 	struct device *dev = smmu->dev;
-	struct list_head *list;
+	struct qsmmuv500_archdata *data;
+	struct platform_device *pdev;
 	int ret;
 
-	list = devm_kzalloc(dev, sizeof(*list), GFP_KERNEL);
-	if (!list)
+	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
+	if (!data)
 		return -ENOMEM;
 
-	INIT_LIST_HEAD(list);
-	smmu->archdata = list;
+	INIT_LIST_HEAD(&data->tbus);
+
+	pdev = container_of(dev, struct platform_device, dev);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "tcu-base");
+	data->tcu_base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(data->tcu_base))
+		return PTR_ERR(data->tcu_base);
+
+	data->version = readl_relaxed(data->tcu_base + TCU_HW_VERSION_HLOS1);
+	smmu->archdata = data;
 
 	ret = of_platform_populate(dev->of_node, NULL, NULL, dev);
 	if (ret)
@@ -4186,7 +4375,7 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 	/* Attempt to register child devices */
 	ret = device_for_each_child(dev, smmu, qsmmuv500_tbu_register);
 	if (ret)
-		return -EINVAL;
+		return -EPROBE_DEFER;
 
 	return 0;
 }
@@ -4194,6 +4383,7 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 struct arm_smmu_arch_ops qsmmuv500_arch_ops = {
 	.init = qsmmuv500_arch_init,
 	.device_reset = qsmmuv500_device_reset,
+	.iova_to_phys_hard = qsmmuv500_iova_to_phys_hard,
 };
 
 static const struct of_device_id qsmmuv500_tbu_of_match[] = {
@@ -4206,6 +4396,8 @@ static int qsmmuv500_tbu_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct device *dev = &pdev->dev;
 	struct qsmmuv500_tbu_device *tbu;
+	const __be32 *cell;
+	int len;
 
 	tbu = devm_kzalloc(dev, sizeof(*tbu), GFP_KERNEL);
 	if (!tbu)
@@ -4224,6 +4416,13 @@ static int qsmmuv500_tbu_probe(struct platform_device *pdev)
 	tbu->status_reg = devm_ioremap_resource(dev, res);
 	if (IS_ERR(tbu->status_reg))
 		return PTR_ERR(tbu->status_reg);
+
+	cell = of_get_property(dev->of_node, "qcom,stream-id-range", &len);
+	if (!cell || len < 8)
+		return -EINVAL;
+
+	tbu->sid_start = of_read_number(cell, 1);
+	tbu->num_sids = of_read_number(cell + 1, 1);
 
 	tbu->pwr = arm_smmu_init_power_resources(pdev);
 	if (IS_ERR(tbu->pwr))

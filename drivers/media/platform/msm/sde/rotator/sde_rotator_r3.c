@@ -48,10 +48,14 @@
 #define XIN_WRITEBACK		1
 
 /* wait for at most 2 vsync for lowest refresh rate (24hz) */
-#define KOFF_TIMEOUT		(42 * 32)
+#define KOFF_TIMEOUT		(84)
 
 /* default stream buffer headroom in lines */
 #define DEFAULT_SBUF_HEADROOM	20
+#define DEFAULT_UBWC_MALSIZE	1
+#define DEFAULT_UBWC_SWIZZLE	1
+
+#define DEFAULT_MAXLINEWIDTH	4096
 
 /* Macro for constructing the REGDMA command */
 #define SDE_REGDMA_WRITE(p, off, data) \
@@ -278,6 +282,8 @@ static u32 sde_hw_rotator_v4_inpixfmts[] = {
 	SDE_PIX_FMT_Y_CBCR_H2V2_P010,
 	SDE_PIX_FMT_Y_CBCR_H2V2_TP10,
 	SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC,
+	SDE_PIX_FMT_Y_CBCR_H2V2_P010_UBWC,
+	SDE_PIX_FMT_Y_CBCR_H2V2_P010_TILE,
 	SDE_PIX_FMT_Y_CBCR_H2V2_TILE,
 	SDE_PIX_FMT_Y_CRCB_H2V2_TILE,
 	SDE_PIX_FMT_XRGB_8888_TILE,
@@ -356,6 +362,8 @@ static u32 sde_hw_rotator_v4_outpixfmts[] = {
 	SDE_PIX_FMT_Y_CBCR_H2V2_P010,
 	SDE_PIX_FMT_Y_CBCR_H2V2_TP10,
 	SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC,
+	SDE_PIX_FMT_Y_CBCR_H2V2_P010_UBWC,
+	SDE_PIX_FMT_Y_CBCR_H2V2_P010_TILE,
 	SDE_PIX_FMT_Y_CBCR_H2V2_TILE,
 	SDE_PIX_FMT_Y_CRCB_H2V2_TILE,
 	SDE_PIX_FMT_XRGB_8888_TILE,
@@ -377,9 +385,93 @@ static u32 sde_hw_rotator_v4_outpixfmts[] = {
 };
 
 static struct sde_rot_vbif_debug_bus nrt_vbif_dbg_bus_r3[] = {
-	{0x214, 0x21c, 16, 1, 0x10}, /* arb clients */
+	{0x214, 0x21c, 16, 1, 0x200}, /* arb clients main */
 	{0x214, 0x21c, 0, 12, 0x13}, /* xin blocks - axi side */
 	{0x21c, 0x214, 0, 12, 0xc}, /* xin blocks - clock side */
+};
+
+static struct sde_rot_debug_bus rot_dbgbus_r3[] = {
+	/*
+	 * rottop - 0xA8850
+	 */
+	/* REGDMA */
+	{ 0XA8850, 0, 0 },
+	{ 0XA8850, 0, 1 },
+	{ 0XA8850, 0, 2 },
+	{ 0XA8850, 0, 3 },
+	{ 0XA8850, 0, 4 },
+
+	/* ROT_WB */
+	{ 0XA8850, 1, 0 },
+	{ 0XA8850, 1, 1 },
+	{ 0XA8850, 1, 2 },
+	{ 0XA8850, 1, 3 },
+	{ 0XA8850, 1, 4 },
+	{ 0XA8850, 1, 5 },
+	{ 0XA8850, 1, 6 },
+	{ 0XA8850, 1, 7 },
+
+	/* UBWC_DEC */
+	{ 0XA8850, 2, 0 },
+
+	/* UBWC_ENC */
+	{ 0XA8850, 3, 0 },
+
+	/* ROT_FETCH_0 */
+	{ 0XA8850, 4, 0 },
+	{ 0XA8850, 4, 1 },
+	{ 0XA8850, 4, 2 },
+	{ 0XA8850, 4, 3 },
+	{ 0XA8850, 4, 4 },
+	{ 0XA8850, 4, 5 },
+	{ 0XA8850, 4, 6 },
+	{ 0XA8850, 4, 7 },
+
+	/* ROT_FETCH_1 */
+	{ 0XA8850, 5, 0 },
+	{ 0XA8850, 5, 1 },
+	{ 0XA8850, 5, 2 },
+	{ 0XA8850, 5, 3 },
+	{ 0XA8850, 5, 4 },
+	{ 0XA8850, 5, 5 },
+	{ 0XA8850, 5, 6 },
+	{ 0XA8850, 5, 7 },
+
+	/* ROT_FETCH_2 */
+	{ 0XA8850, 6, 0 },
+	{ 0XA8850, 6, 1 },
+	{ 0XA8850, 6, 2 },
+	{ 0XA8850, 6, 3 },
+	{ 0XA8850, 6, 4 },
+	{ 0XA8850, 6, 5 },
+	{ 0XA8850, 6, 6 },
+	{ 0XA8850, 6, 7 },
+
+	/* ROT_FETCH_3 */
+	{ 0XA8850, 7, 0 },
+	{ 0XA8850, 7, 1 },
+	{ 0XA8850, 7, 2 },
+	{ 0XA8850, 7, 3 },
+	{ 0XA8850, 7, 4 },
+	{ 0XA8850, 7, 5 },
+	{ 0XA8850, 7, 6 },
+	{ 0XA8850, 7, 7 },
+
+	/* ROT_FETCH_4 */
+	{ 0XA8850, 8, 0 },
+	{ 0XA8850, 8, 1 },
+	{ 0XA8850, 8, 2 },
+	{ 0XA8850, 8, 3 },
+	{ 0XA8850, 8, 4 },
+	{ 0XA8850, 8, 5 },
+	{ 0XA8850, 8, 6 },
+	{ 0XA8850, 8, 7 },
+
+	/* ROT_UNPACK_0*/
+	{ 0XA8850, 9, 0 },
+	{ 0XA8850, 9, 1 },
+	{ 0XA8850, 9, 2 },
+	{ 0XA8850, 9, 3 },
 };
 
 static struct sde_rot_regdump sde_rot_r3_regdump[] = {
@@ -877,6 +969,12 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 			SDE_ROT_SSPP_FETCH_CONFIG_RESET_VALUE |
 			((rot->highest_bank & 0x3) << 18));
 
+	if (test_bit(SDE_CAPS_UBWC_2, mdata->sde_caps_map))
+		SDE_REGDMA_WRITE(wrptr, ROT_SSPP_UBWC_STATIC_CTRL, BIT(31) |
+				((ctx->rot->ubwc_malsize & 0x3) << 8) |
+				((ctx->rot->highest_bank & 0x3) << 4) |
+				((ctx->rot->ubwc_swizzle & 0x1) << 0));
+
 	/* setup source buffer plane security status */
 	if (flags & (SDE_ROT_FLAG_SECURE_OVERLAY_SESSION |
 			SDE_ROT_FLAG_SECURE_CAMERA_SESSION)) {
@@ -1008,6 +1106,12 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 	/* write config setup for bank configuration */
 	SDE_REGDMA_WRITE(wrptr, ROT_WB_DST_WRITE_CONFIG,
 			(ctx->rot->highest_bank & 0x3) << 8);
+
+	if (test_bit(SDE_CAPS_UBWC_2, mdata->sde_caps_map))
+		SDE_REGDMA_WRITE(wrptr, ROT_WB_UBWC_STATIC_CTRL,
+				((ctx->rot->ubwc_malsize & 0x3) << 8) |
+				((ctx->rot->highest_bank & 0x3) << 4) |
+				((ctx->rot->ubwc_swizzle & 0x1) << 0));
 
 	if (test_bit(SDE_CAPS_SBUF_1, mdata->sde_caps_map))
 		SDE_REGDMA_WRITE(wrptr, ROT_WB_SYS_CACHE_MODE,
@@ -1410,7 +1514,8 @@ static u32 sde_hw_rotator_wait_done_regdma(
 	sts = (status & ROT_ERROR_BIT) ? -ENODEV : 0;
 
 	if (status & ROT_ERROR_BIT)
-		SDEROT_EVTLOG_TOUT_HANDLER("rot", "vbif_dbg_bus", "panic");
+		SDEROT_EVTLOG_TOUT_HANDLER("rot", "rot_dbg_bus",
+				"vbif_dbg_bus", "panic");
 
 	return sts;
 }
@@ -1594,8 +1699,8 @@ void sde_hw_rotator_pre_pmevent(struct sde_rot_mgr *mgr, bool pmon)
 			SDEROT_ERR(
 				"Mismatch SWTS with HWTS: swts:0x%x, hwts:0x%x, regdma-sts:0x%x, rottop-sts:0x%x\n",
 				swts, hwts, regdmasts, rotsts);
-			SDEROT_EVTLOG_TOUT_HANDLER("rot", "vbif_dbg_bus",
-					"panic");
+			SDEROT_EVTLOG_TOUT_HANDLER("rot", "rot_dbg_bus",
+					"vbif_dbg_bus", "panic");
 		}
 
 		/* Turn off rotator clock after checking rotator registers */
@@ -1842,6 +1947,7 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 	u32 danger_lut = 0;	/* applicable for realtime client only */
 	u32 safe_lut = 0;	/* applicable for realtime client only */
 	u32 flags = 0;
+	u32 rststs = 0;
 	struct sde_rotation_item *item;
 	int ret;
 
@@ -1913,10 +2019,46 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 
 	SDEROT_EVTLOG(ctx->start_ctrl, ctx->sys_cache_mode, ctx->op_mode);
 
+	/*
+	 * if Rotator HW is reset, but missing PM event notification, we
+	 * need to init the SW timestamp automatically.
+	 */
+	rststs = SDE_ROTREG_READ(rot->mdss_base, REGDMA_RESET_STATUS_REG);
+	if (!rot->reset_hw_ts && rststs) {
+		u32 l_ts, h_ts, swts;
+
+		swts = SDE_ROTREG_READ(rot->mdss_base, REGDMA_TIMESTAMP_REG);
+		h_ts = atomic_read(&rot->timestamp[ROT_QUEUE_HIGH_PRIORITY]);
+		l_ts = atomic_read(&rot->timestamp[ROT_QUEUE_LOW_PRIORITY]);
+		SDEROT_EVTLOG(0xbad0, rststs, swts, h_ts, l_ts);
+
+		if (ctx->q_id == ROT_QUEUE_HIGH_PRIORITY)
+			h_ts = (h_ts - 1) & SDE_REGDMA_SWTS_MASK;
+		else
+			l_ts = (l_ts - 1) & SDE_REGDMA_SWTS_MASK;
+
+		/* construct the combined timstamp */
+		swts = (h_ts & SDE_REGDMA_SWTS_MASK) |
+			((l_ts & SDE_REGDMA_SWTS_MASK) <<
+			 SDE_REGDMA_SWTS_SHIFT);
+
+		SDEROT_DBG("swts:0x%x, h_ts:0x%x, l_ts;0x%x\n",
+				swts, h_ts, l_ts);
+		SDEROT_EVTLOG(0x900d, swts, h_ts, l_ts);
+		rot->last_hw_ts = swts;
+
+		SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_TIMESTAMP_REG,
+				rot->last_hw_ts);
+		SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_RESET_STATUS_REG, 0);
+		/* ensure write is issued to the rotator HW */
+		wmb();
+	}
+
 	if (rot->reset_hw_ts) {
 		SDEROT_EVTLOG(rot->last_hw_ts);
 		SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_TIMESTAMP_REG,
 				rot->last_hw_ts);
+		SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_RESET_STATUS_REG, 0);
 		/* ensure write is issued to the rotator HW */
 		wmb();
 		rot->reset_hw_ts = false;
@@ -2077,6 +2219,17 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 	SDE_VBIF_WRITE(mdata, MMSS_VBIF_NRT_VBIF_WRITE_GATHTER_EN,
 			BIT(XIN_WRITEBACK));
 
+	/*
+	 * For debug purpose, disable clock gating, i.e. Clocks always on
+	 */
+	if (mdata->clk_always_on) {
+		SDE_VBIF_WRITE(mdata, MMSS_VBIF_CLKON, 0x3);
+		SDE_VBIF_WRITE(mdata, MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL0, 0x3);
+		SDE_VBIF_WRITE(mdata, MMSS_VBIF_NRT_VBIF_CLK_FORCE_CTRL1,
+				0xFFFF);
+		SDE_ROTREG_WRITE(rot->mdss_base, ROTTOP_CLK_CTRL, 1);
+	}
+
 	return 0;
 
 error:
@@ -2203,6 +2356,9 @@ static int sde_rotator_hw_rev_init(struct sde_hw_rotator *rot)
 	mdata->nrt_vbif_dbg_bus_size =
 			ARRAY_SIZE(nrt_vbif_dbg_bus_r3);
 
+	mdata->rot_dbg_bus = rot_dbgbus_r3;
+	mdata->rot_dbg_bus_size = ARRAY_SIZE(rot_dbgbus_r3);
+
 	mdata->regdump = sde_rot_r3_regdump;
 	mdata->regdump_size = ARRAY_SIZE(sde_rot_r3_regdump);
 	SDE_ROTREG_WRITE(rot->mdss_base, REGDMA_TIMESTAMP_REG, 0);
@@ -2211,6 +2367,7 @@ static int sde_rotator_hw_rev_init(struct sde_hw_rotator *rot)
 	if (IS_SDE_MAJOR_MINOR_SAME(mdata->mdss_version, SDE_MDP_HW_REV_400)) {
 		SDEROT_DBG("Supporting sys cache inline rotation\n");
 		set_bit(SDE_CAPS_SBUF_1,  mdata->sde_caps_map);
+		set_bit(SDE_CAPS_UBWC_2,  mdata->sde_caps_map);
 		rot->inpixfmts = sde_hw_rotator_v4_inpixfmts;
 		rot->num_inpixfmt = ARRAY_SIZE(sde_hw_rotator_v4_inpixfmts);
 		rot->outpixfmts = sde_hw_rotator_v4_outpixfmts;
@@ -2400,10 +2557,23 @@ static int sde_hw_rotator_validate_entry(struct sde_rot_mgr *mgr,
 		struct sde_rot_entry *entry)
 {
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+	struct sde_hw_rotator *hw_data;
 	int ret = 0;
 	u16 src_w, src_h, dst_w, dst_h;
 	struct sde_rotation_item *item = &entry->item;
 	struct sde_mdp_format_params *fmt;
+
+	if (!mgr || !entry || !mgr->hw_data) {
+		SDEROT_ERR("invalid parameters\n");
+		return -EINVAL;
+	}
+
+	hw_data = mgr->hw_data;
+
+	if (hw_data->maxlinewidth < item->src_rect.w) {
+		SDEROT_ERR("invalid src width %u\n", item->src_rect.w);
+		return -EINVAL;
+	}
 
 	src_w = item->src_rect.w;
 	src_h = item->src_rect.h;
@@ -2426,6 +2596,11 @@ static int sde_hw_rotator_validate_entry(struct sde_rot_mgr *mgr,
 	}
 
 	if ((src_w != dst_w) || (src_h != dst_h)) {
+		if (!dst_w || !dst_h) {
+			SDEROT_DBG("zero output width/height not support\n");
+			ret = -EINVAL;
+			goto dnsc_err;
+		}
 		if ((src_w % dst_w) || (src_h % dst_h)) {
 			SDEROT_DBG("non integral scale not support\n");
 			ret = -EINVAL;
@@ -2699,6 +2874,25 @@ static int sde_hw_rotator_get_downscale_caps(struct sde_rot_mgr *mgr,
 }
 
 /*
+ * sde_hw_rotator_get_maxlinewidth - get maximum line width supported
+ * @mgr: Pointer to rotator manager
+ * return: maximum line width supported by hardware
+ */
+static int sde_hw_rotator_get_maxlinewidth(struct sde_rot_mgr *mgr)
+{
+	struct sde_hw_rotator *rot;
+
+	if (!mgr || !mgr->hw_data) {
+		SDEROT_ERR("null parameters\n");
+		return -EINVAL;
+	}
+
+	rot = mgr->hw_data;
+
+	return rot->maxlinewidth;
+}
+
+/*
  * sde_hw_rotator_parse_dt - parse r3 specific device tree settings
  * @hw_data: Pointer to rotator hw
  * @dev: Pointer to platform device
@@ -2738,6 +2932,26 @@ static int sde_hw_rotator_parse_dt(struct sde_hw_rotator *hw_data,
 	}
 
 	ret = of_property_read_u32(dev->dev.of_node,
+			"qcom,sde-ubwc-malsize", &data);
+	if (ret) {
+		ret = 0;
+		hw_data->ubwc_malsize = DEFAULT_UBWC_MALSIZE;
+	} else {
+		SDEROT_DBG("set ubwc malsize to %d\n", data);
+		hw_data->ubwc_malsize = data;
+	}
+
+	ret = of_property_read_u32(dev->dev.of_node,
+			"qcom,sde-ubwc_swizzle", &data);
+	if (ret) {
+		ret = 0;
+		hw_data->ubwc_swizzle = DEFAULT_UBWC_SWIZZLE;
+	} else {
+		SDEROT_DBG("set ubwc swizzle to %d\n", data);
+		hw_data->ubwc_swizzle = data;
+	}
+
+	ret = of_property_read_u32(dev->dev.of_node,
 			"qcom,mdss-sbuf-headroom", &data);
 	if (ret) {
 		ret = 0;
@@ -2745,6 +2959,16 @@ static int sde_hw_rotator_parse_dt(struct sde_hw_rotator *hw_data,
 	} else {
 		SDEROT_DBG("set sbuf headroom to %d\n", data);
 		hw_data->sbuf_headroom = data;
+	}
+
+	ret = of_property_read_u32(dev->dev.of_node,
+			"qcom,mdss-rot-linewidth", &data);
+	if (ret) {
+		ret = 0;
+		hw_data->maxlinewidth = DEFAULT_MAXLINEWIDTH;
+	} else {
+		SDEROT_DBG("set mdss-rot-linewidth to %d\n", data);
+		hw_data->maxlinewidth = data;
 	}
 
 	return ret;
@@ -2794,6 +3018,7 @@ int sde_rotator_r3_init(struct sde_rot_mgr *mgr)
 	mgr->ops_hw_pre_pmevent = sde_hw_rotator_pre_pmevent;
 	mgr->ops_hw_post_pmevent = sde_hw_rotator_post_pmevent;
 	mgr->ops_hw_get_downscale_caps = sde_hw_rotator_get_downscale_caps;
+	mgr->ops_hw_get_maxlinewidth = sde_hw_rotator_get_maxlinewidth;
 
 	ret = sde_hw_rotator_parse_dt(mgr->hw_data, mgr->pdev);
 	if (ret)

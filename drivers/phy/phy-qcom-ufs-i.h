@@ -97,6 +97,10 @@ struct ufs_qcom_phy {
 	struct ufs_qcom_phy_vreg vdda_pll;
 	struct ufs_qcom_phy_vreg vdda_phy;
 	struct ufs_qcom_phy_vreg vddp_ref_clk;
+
+	/* Number of lanes available (1 or 2) for Rx/Tx */
+	u32 lanes_per_direction;
+
 	unsigned int quirks;
 
 	/*
@@ -152,6 +156,7 @@ struct ufs_qcom_phy {
  * and writes to QSERDES_RX_SIGDET_CNTRL attribute
  * @configure_lpm: pointer to a function that configures the phy
  * for low power mode.
+ * @dbg_register_dump: pointer to a function that dumps phy registers for debug.
  */
 struct ufs_qcom_phy_specific_ops {
 	int (*calibrate_phy)(struct ufs_qcom_phy *phy, bool is_rate_B);
@@ -161,6 +166,7 @@ struct ufs_qcom_phy_specific_ops {
 	void (*ctrl_rx_linecfg)(struct ufs_qcom_phy *phy, bool ctrl);
 	void (*power_control)(struct ufs_qcom_phy *phy, bool val);
 	int (*configure_lpm)(struct ufs_qcom_phy *phy, bool enable);
+	void (*dbg_register_dump)(struct ufs_qcom_phy *phy);
 };
 
 struct ufs_qcom_phy *get_ufs_qcom_phy(struct phy *generic_phy);
@@ -184,5 +190,6 @@ int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 void ufs_qcom_phy_write_tbl(struct ufs_qcom_phy *ufs_qcom_phy,
 				struct ufs_qcom_phy_calibration *tbl,
 				int tbl_size);
-
+void ufs_qcom_phy_dump_regs(struct ufs_qcom_phy *phy,
+			    int offset, int len, char *prefix);
 #endif

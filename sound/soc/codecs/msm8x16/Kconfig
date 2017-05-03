@@ -1,3 +1,0 @@
-
-config SND_SOC_MSM8X16_WCD
-	tristate "MSM Internal PMIC based codec"

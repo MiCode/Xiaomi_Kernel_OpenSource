@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,6 +13,12 @@
 #define _MSM_PCM_ROUTING_H
 #include <sound/apr_audio-v2.h>
 
+/*
+ * These names are used by HAL to specify the BE. If any changes are
+ * made to the string names or the max name length corresponding
+ * changes need to be made in the HAL to ensure they still match.
+ */
+#define LPASS_BE_NAME_MAX_LENGTH 24
 #define LPASS_BE_PRI_I2S_RX "PRIMARY_I2S_RX"
 #define LPASS_BE_PRI_I2S_TX "PRIMARY_I2S_TX"
 #define LPASS_BE_SLIMBUS_0_RX "SLIMBUS_0_RX"
@@ -64,6 +70,7 @@
 #define LPASS_BE_SLIMBUS_3_TX "SLIMBUS_3_TX"
 #define LPASS_BE_SLIMBUS_4_RX "SLIMBUS_4_RX"
 #define LPASS_BE_SLIMBUS_4_TX "SLIMBUS_4_TX"
+#define LPASS_BE_SLIMBUS_TX_VI "SLIMBUS_TX_VI"
 #define LPASS_BE_SLIMBUS_5_RX "SLIMBUS_5_RX"
 #define LPASS_BE_SLIMBUS_5_TX "SLIMBUS_5_TX"
 #define LPASS_BE_SLIMBUS_6_RX "SLIMBUS_6_RX"
@@ -390,6 +397,7 @@ enum {
 #define ADM_PP_PARAM_LATENCY_ID			1
 #define ADM_PP_PARAM_LATENCY_BIT		2
 #define BE_DAI_PORT_SESSIONS_IDX_MAX		4
+#define BE_DAI_FE_SESSIONS_IDX_MAX		2
 
 struct msm_pcm_routing_evt {
 	void (*event_func)(enum msm_pcm_routing_event, void *);
@@ -399,7 +407,9 @@ struct msm_pcm_routing_evt {
 struct msm_pcm_routing_bdai_data {
 	u16 port_id; /* AFE port ID */
 	u8 active; /* track if this backend is enabled */
-	unsigned long fe_sessions; /* Front-end sessions */
+
+	/* Front-end sessions */
+	unsigned long fe_sessions[BE_DAI_FE_SESSIONS_IDX_MAX];
 	/*
 	 * Track Tx BE ports -> Rx BE ports.
 	 * port_sessions[0] used to track BE 0 to BE 63.
@@ -413,7 +423,7 @@ struct msm_pcm_routing_bdai_data {
 	unsigned int  channel;
 	unsigned int  format;
 	unsigned int  adm_override_ch;
-	u32 compr_passthr_mode;
+	u32 passthr_mode;
 	char *name;
 };
 
@@ -465,8 +475,10 @@ void msm_pcm_routing_get_fedai_info(int fe_idx, int sess_type,
 void msm_pcm_routing_acquire_lock(void);
 void msm_pcm_routing_release_lock(void);
 
-void msm_pcm_routing_reg_stream_app_type_cfg(int fedai_id, int app_type,
-			int acdb_dev_id, int sample_rate, int session_type);
+int msm_pcm_routing_reg_stream_app_type_cfg(int fedai_id, int session_type,
+					     int be_id, int app_type,
+					     int acdb_dev_id, int sample_rate);
 int msm_pcm_routing_get_stream_app_type_cfg(int fedai_id, int session_type,
-			int *app_type, int *acdb_dev_id, int *sample_rate);
+					    int be_id, int *app_type,
+					    int *acdb_dev_id, int *sample_rate);
 #endif /*_MSM_PCM_H*/

@@ -67,6 +67,8 @@
 #define ROT_OVERHEAD_NUMERATOR		27
 #define ROT_OVERHEAD_DENOMINATOR	10000
 
+/* default minimum bandwidth vote */
+#define ROT_ENABLE_BW_VOTE		64000
 /*
  * Max rotator hw blocks possible. Used for upper array limits instead of
  * alloc and freeing small array
@@ -96,6 +98,9 @@ static struct msm_bus_scale_pdata rot_reg_bus_scale_table = {
 	.active_only = 1,
 };
 
+/* forward prototype */
+static int sde_rotator_update_perf(struct sde_rot_mgr *mgr);
+
 static int sde_rotator_bus_scale_set_quota(struct sde_rot_bus_data_type *bus,
 		u64 quota)
 {
@@ -107,7 +112,10 @@ static int sde_rotator_bus_scale_set_quota(struct sde_rot_bus_data_type *bus,
 		return -EINVAL;
 	}
 
-	if (bus->bus_hdl < 1) {
+	if (!bus->bus_hdl) {
+		SDEROT_DBG("bus scaling not enabled\n");
+		return 0;
+	} else if (bus->bus_hdl < 0) {
 		SDEROT_ERR("invalid bus handle %d\n", bus->bus_hdl);
 		return -EINVAL;
 	}
@@ -302,6 +310,11 @@ static void sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 	SDEROT_EVTLOG(on);
 	SDEROT_DBG("%s: rotator regulators\n", on ? "Enable" : "Disable");
 
+	if (on) {
+		mgr->minimum_bw_vote = mgr->enable_bw_vote;
+		sde_rotator_update_perf(mgr);
+	}
+
 	if (mgr->ops_hw_pre_pmevent)
 		mgr->ops_hw_pre_pmevent(mgr, on);
 
@@ -315,6 +328,11 @@ static void sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 
 	if (mgr->ops_hw_post_pmevent)
 		mgr->ops_hw_post_pmevent(mgr, on);
+
+	if (!on) {
+		mgr->minimum_bw_vote = 0;
+		sde_rotator_update_perf(mgr);
+	}
 
 	mgr->regulator_enable = on;
 }
@@ -1323,6 +1341,7 @@ static int sde_rotator_update_perf(struct sde_rot_mgr *mgr)
 	}
 
 	total_bw += mgr->pending_close_bw_vote;
+	total_bw = max_t(u64, total_bw, mgr->minimum_bw_vote);
 	sde_rotator_enable_reg_bus(mgr, total_bw);
 	ATRACE_INT("bus_quota", total_bw);
 	sde_rotator_bus_scale_set_quota(&mgr->data_bus, total_bw);
@@ -1987,7 +2006,7 @@ static void sde_rotator_cancel_request(struct sde_rot_mgr *mgr,
 	devm_kfree(&mgr->pdev->dev, req);
 }
 
-static void sde_rotator_cancel_all_requests(struct sde_rot_mgr *mgr,
+void sde_rotator_cancel_all_requests(struct sde_rot_mgr *mgr,
 	struct sde_rot_file_private *private)
 {
 	struct sde_rot_entry_container *req, *req_next;
@@ -2484,8 +2503,7 @@ static int sde_rotator_parse_dt_bus(struct sde_rot_mgr *mgr,
 	mgr->data_bus.bus_scale_pdata = msm_bus_cl_get_pdata(dev);
 	if (IS_ERR_OR_NULL(mgr->data_bus.bus_scale_pdata)) {
 		ret = PTR_ERR(mgr->data_bus.bus_scale_pdata);
-		if (!ret) {
-			ret = -EINVAL;
+		if (ret) {
 			SDEROT_ERR("msm_bus_cl_get_pdata failed. ret=%d\n",
 					ret);
 			mgr->data_bus.bus_scale_pdata = NULL;
@@ -2621,8 +2639,8 @@ static void sde_rotator_bus_scale_unregister(struct sde_rot_mgr *mgr)
 static int sde_rotator_bus_scale_register(struct sde_rot_mgr *mgr)
 {
 	if (!mgr->data_bus.bus_scale_pdata) {
-		SDEROT_ERR("Scale table is NULL\n");
-		return -EINVAL;
+		SDEROT_DBG("Bus scaling is not enabled\n");
+		return 0;
 	}
 
 	mgr->data_bus.bus_hdl =
@@ -2794,6 +2812,7 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 	mgr->pdev = pdev;
 	mgr->device = &pdev->dev;
 	mgr->pending_close_bw_vote = 0;
+	mgr->enable_bw_vote = ROT_ENABLE_BW_VOTE;
 	mgr->hwacquire_timeout = ROT_HW_ACQUIRE_TIMEOUT_IN_MS;
 	mgr->queue_count = 1;
 	mgr->pixel_per_clk.numer = ROT_PIXEL_PER_CLK_NUMERATOR;
@@ -3013,6 +3032,7 @@ int sde_rotator_pm_suspend(struct device *dev)
 	sde_rot_mgr_lock(mgr);
 	atomic_inc(&mgr->device_suspended);
 	sde_rotator_suspend_cancel_rot_work(mgr);
+	mgr->minimum_bw_vote = 0;
 	sde_rotator_update_perf(mgr);
 	ATRACE_END("pm_active");
 	SDEROT_DBG("end pm active %d\n", atomic_read(&mgr->device_suspended));

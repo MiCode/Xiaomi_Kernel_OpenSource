@@ -21,6 +21,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/ratelimit.h>
 #include <linux/interrupt.h>
+#include <asm/dma-iommu.h>
+#include <linux/iommu.h>
 #include <linux/ioport.h>
 #include <linux/clk.h>
 #include <linux/io.h>
@@ -155,6 +157,7 @@ struct dwc3_msm {
 	void __iomem *base;
 	void __iomem *ahb2phy_base;
 	struct platform_device	*dwc3;
+	struct dma_iommu_mapping *iommu_map;
 	const struct usb_ep_ops *original_ep_ops[DWC3_ENDPOINTS_NUM];
 	struct list_head req_complete_list;
 	struct clk		*xo_clk;
@@ -192,8 +195,6 @@ struct dwc3_msm {
 	unsigned int		max_power;
 	bool			charging_disabled;
 	enum usb_otg_state	otg_state;
-	struct work_struct	bus_vote_w;
-	unsigned int		bus_vote;
 	u32			bus_perf_client;
 	struct msm_bus_scale_pdata	*bus_scale_table;
 	struct power_supply	*usb_psy;
@@ -212,6 +213,8 @@ struct dwc3_msm {
 
 	unsigned int		irq_to_affin;
 	struct notifier_block	dwc3_cpu_notifier;
+	struct notifier_block	usbdev_nb;
+	bool			hc_died;
 
 	struct extcon_dev	*extcon_vbus;
 	struct extcon_dev	*extcon_id;
@@ -805,7 +808,8 @@ static void gsi_get_channel_info(struct usb_ep *ep,
 
 	/* Provide physical USB addresses for DEPCMD and GEVENTCNT registers */
 	ch_info->depcmd_low_addr = (u32)(dwc->reg_phys +
-						DWC3_DEPCMD);
+				DWC3_DEP_BASE(dep->number) + DWC3_DEPCMD);
+
 	ch_info->depcmd_hi_addr = 0;
 
 	ch_info->xfer_ring_base_addr = dwc3_trb_dma_offset(dep,
@@ -1004,7 +1008,7 @@ static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
 	int num_trbs = (dep->direction) ? (2 * (req->num_bufs) + 2)
 					: (req->num_bufs + 1);
 
-	dep->trb_dma_pool = dma_pool_create(ep->name, dwc->dev,
+	dep->trb_dma_pool = dma_pool_create(ep->name, dwc->sysdev,
 					num_trbs * sizeof(struct dwc3_trb),
 					num_trbs * sizeof(struct dwc3_trb), 0);
 	if (!dep->trb_dma_pool) {
@@ -1503,6 +1507,33 @@ static void dwc3_restart_usb_work(struct work_struct *w)
 	flush_delayed_work(&mdwc->sm_work);
 }
 
+static int msm_dwc3_usbdev_notify(struct notifier_block *self,
+			unsigned long action, void *priv)
+{
+	struct dwc3_msm *mdwc = container_of(self, struct dwc3_msm, usbdev_nb);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	struct usb_bus *bus = priv;
+
+	/* Interested only in recovery when HC dies */
+	if (action != USB_BUS_DIED)
+		return 0;
+
+	dev_dbg(mdwc->dev, "%s initiate recovery from hc_died\n", __func__);
+	/* Recovery already under process */
+	if (mdwc->hc_died)
+		return 0;
+
+	if (bus->controller != &dwc->xhci->dev) {
+		dev_dbg(mdwc->dev, "%s event for diff HCD\n", __func__);
+		return 0;
+	}
+
+	mdwc->hc_died = true;
+	schedule_delayed_work(&mdwc->sm_work, 0);
+	return 0;
+}
+
+
 /*
  * Check whether the DWC3 requires resetting the ep
  * after going to Low Power Mode (lpm)
@@ -1932,17 +1963,6 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 	return 0;
 }
 
-static void dwc3_msm_bus_vote_w(struct work_struct *w)
-{
-	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm, bus_vote_w);
-	int ret;
-
-	ret = msm_bus_scale_client_update_request(mdwc->bus_perf_client,
-			mdwc->bus_vote);
-	if (ret)
-		dev_err(mdwc->dev, "Failed to reset bus bw vote %d\n", ret);
-}
-
 static void dwc3_set_phy_speed_flags(struct dwc3_msm *mdwc)
 {
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
@@ -2042,6 +2062,9 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	if (dwc->irq)
 		disable_irq(dwc->irq);
 
+	if (work_busy(&dwc->bh_work))
+		dbg_event(0xFF, "pend evt", 0);
+
 	/* disable power event irq, hs and ss phy irq is used as wake up src */
 	disable_irq(mdwc->pwr_event_irq);
 
@@ -2091,12 +2114,21 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		dev_dbg(mdwc->dev, "%s: power collapse\n", __func__);
 		dwc3_msm_config_gdsc(mdwc, 0);
 		clk_disable_unprepare(mdwc->sleep_clk);
+
+		if (mdwc->iommu_map) {
+			arm_iommu_detach_device(mdwc->dev);
+			dev_dbg(mdwc->dev, "IOMMU detached\n");
+		}
 	}
 
 	/* Remove bus voting */
 	if (mdwc->bus_perf_client) {
-		mdwc->bus_vote = 0;
-		schedule_work(&mdwc->bus_vote_w);
+		dbg_event(0xFF, "bus_devote_start", 0);
+		ret = msm_bus_scale_client_update_request(
+					mdwc->bus_perf_client, 0);
+		dbg_event(0xFF, "bus_devote_finish", 0);
+		if (ret)
+			dev_err(mdwc->dev, "bus bw unvoting failed %d\n", ret);
 	}
 
 	/*
@@ -2150,8 +2182,12 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	/* Enable bus voting */
 	if (mdwc->bus_perf_client) {
-		mdwc->bus_vote = 1;
-		schedule_work(&mdwc->bus_vote_w);
+		dbg_event(0xFF, "bus_vote_start", 1);
+		ret = msm_bus_scale_client_update_request(
+					mdwc->bus_perf_client, 1);
+		dbg_event(0xFF, "bus_vote_finish", 1);
+		if (ret)
+			dev_err(mdwc->dev, "bus bw voting failed %d\n", ret);
 	}
 
 	/* Vote for TCXO while waking up USB HSPHY */
@@ -2223,6 +2259,16 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	/* Recover from controller power collapse */
 	if (mdwc->lpm_flags & MDWC3_POWER_COLLAPSE) {
 		u32 tmp;
+
+		if (mdwc->iommu_map) {
+			ret = arm_iommu_attach_device(mdwc->dev,
+					mdwc->iommu_map);
+			if (ret)
+				dev_err(mdwc->dev, "IOMMU attach failed (%d)\n",
+						ret);
+			else
+				dev_dbg(mdwc->dev, "attached to IOMMU\n");
+		}
 
 		dev_dbg(mdwc->dev, "%s: exit power collapse\n", __func__);
 
@@ -2321,8 +2367,46 @@ static void dwc3_resume_work(struct work_struct *w)
 {
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm, resume_work);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	union extcon_property_value val;
+	unsigned int extcon_id;
+	struct extcon_dev *edev = NULL;
+	int ret = 0;
 
 	dev_dbg(mdwc->dev, "%s: dwc3 resume work\n", __func__);
+
+	if (mdwc->vbus_active) {
+		edev = mdwc->extcon_vbus;
+		extcon_id = EXTCON_USB;
+	} else if (mdwc->id_state == DWC3_ID_GROUND) {
+		edev = mdwc->extcon_id;
+		extcon_id = EXTCON_USB_HOST;
+	}
+
+	/* Check speed and Type-C polarity values in order to configure PHY */
+	if (edev && extcon_get_state(edev, extcon_id)) {
+		ret = extcon_get_property(edev, extcon_id,
+					EXTCON_PROP_USB_SS, &val);
+
+		/* Use default dwc->maximum_speed if speed isn't reported */
+		if (!ret)
+			dwc->maximum_speed = (val.intval == 0) ?
+					USB_SPEED_HIGH : USB_SPEED_SUPER;
+
+		if (dwc->maximum_speed > dwc->max_hw_supp_speed)
+			dwc->maximum_speed = dwc->max_hw_supp_speed;
+
+		dbg_event(0xFF, "speed", dwc->maximum_speed);
+
+		ret = extcon_get_property(edev, extcon_id,
+				EXTCON_PROP_USB_TYPEC_POLARITY, &val);
+		if (ret)
+			mdwc->typec_orientation = ORIENTATION_NONE;
+		else
+			mdwc->typec_orientation = val.intval ?
+					ORIENTATION_CC2 : ORIENTATION_CC1;
+
+		dbg_event(0xFF, "cc_state", mdwc->typec_orientation);
+	}
 
 	/*
 	 * exit LPM first to meet resume timeline from device side.
@@ -2567,37 +2651,11 @@ static int dwc3_msm_id_notifier(struct notifier_block *nb,
 {
 	struct dwc3_msm *mdwc = container_of(nb, struct dwc3_msm, id_nb);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-	struct extcon_dev *edev = ptr;
 	enum dwc3_id_state id;
-	int cc_state;
-	int speed;
-
-	if (!edev) {
-		dev_err(mdwc->dev, "%s: edev null\n", __func__);
-		goto done;
-	}
 
 	id = event ? DWC3_ID_GROUND : DWC3_ID_FLOAT;
 
 	dev_dbg(mdwc->dev, "host:%ld (id:%d) event received\n", event, id);
-
-	cc_state = extcon_get_cable_state_(edev, EXTCON_USB_CC);
-	if (cc_state < 0)
-		mdwc->typec_orientation = ORIENTATION_NONE;
-	else
-		mdwc->typec_orientation =
-			cc_state ? ORIENTATION_CC2 : ORIENTATION_CC1;
-
-	dbg_event(0xFF, "cc_state", mdwc->typec_orientation);
-
-	speed = extcon_get_cable_state_(edev, EXTCON_USB_SPEED);
-	/* Use default dwc->maximum_speed if extcon doesn't report speed. */
-	if (speed >= 0)
-		dwc->maximum_speed =
-			(speed == 0) ? USB_SPEED_HIGH : USB_SPEED_SUPER;
-
-	if (dwc->maximum_speed > dwc->max_hw_supp_speed)
-		dwc->maximum_speed = dwc->max_hw_supp_speed;
 
 	if (mdwc->id_state != id) {
 		mdwc->id_state = id;
@@ -2605,7 +2663,6 @@ static int dwc3_msm_id_notifier(struct notifier_block *nb,
 		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
 	}
 
-done:
 	return NOTIFY_DONE;
 }
 
@@ -2614,44 +2671,19 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 {
 	struct dwc3_msm *mdwc = container_of(nb, struct dwc3_msm, vbus_nb);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-	struct extcon_dev *edev = ptr;
-	int cc_state;
-	int speed;
-
-	if (!edev) {
-		dev_err(mdwc->dev, "%s: edev null\n", __func__);
-		goto done;
-	}
 
 	dev_dbg(mdwc->dev, "vbus:%ld event received\n", event);
 
 	if (mdwc->vbus_active == event)
 		return NOTIFY_DONE;
 
-	cc_state = extcon_get_cable_state_(edev, EXTCON_USB_CC);
-	if (cc_state < 0)
-		mdwc->typec_orientation = ORIENTATION_NONE;
-	else
-		mdwc->typec_orientation =
-			cc_state ? ORIENTATION_CC2 : ORIENTATION_CC1;
-
-	dbg_event(0xFF, "cc_state", mdwc->typec_orientation);
-
-	speed = extcon_get_cable_state_(edev, EXTCON_USB_SPEED);
-	/* Use default dwc->maximum_speed if extcon doesn't report speed. */
-	if (speed >= 0)
-		dwc->maximum_speed =
-			(speed == 0) ? USB_SPEED_HIGH : USB_SPEED_SUPER;
-
-	if (dwc->maximum_speed > dwc->max_hw_supp_speed)
-		dwc->maximum_speed = dwc->max_hw_supp_speed;
-
 	mdwc->vbus_active = event;
 	if (dwc->is_drd && !mdwc->in_restart)
 		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
-done:
+
 	return NOTIFY_DONE;
 }
+
 /*
  * Handle EUD based soft detach/attach event, and force USB high speed mode
  * functionality on receiving soft attach event.
@@ -2667,12 +2699,6 @@ static int dwc3_msm_eud_notifier(struct notifier_block *nb,
 {
 	struct dwc3_msm *mdwc = container_of(nb, struct dwc3_msm, eud_event_nb);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-	struct extcon_dev *edev = ptr;
-
-	if (!edev) {
-		dev_err(mdwc->dev, "%s: edev null\n", __func__);
-		goto done;
-	}
 
 	dbg_event(0xFF, "EUD_NB", event);
 	dev_dbg(mdwc->dev, "eud:%ld event received\n", event);
@@ -2685,7 +2711,7 @@ static int dwc3_msm_eud_notifier(struct notifier_block *nb,
 	mdwc->vbus_active = event;
 	if (dwc->is_drd && !mdwc->in_restart)
 		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
-done:
+
 	return NOTIFY_DONE;
 }
 
@@ -2763,6 +2789,60 @@ err:
 	if (mdwc->extcon_vbus)
 		extcon_unregister_notifier(mdwc->extcon_vbus, EXTCON_USB,
 				&mdwc->vbus_nb);
+	return ret;
+}
+
+#define SMMU_BASE	0x10000000 /* Device address range base */
+#define SMMU_SIZE	0x40000000 /* Device address range size */
+
+static int dwc3_msm_init_iommu(struct dwc3_msm *mdwc)
+{
+	struct device_node *node = mdwc->dev->of_node;
+	int atomic_ctx = 1, s1_bypass;
+	int ret;
+
+	if (!of_property_read_bool(node, "iommus"))
+		return 0;
+
+	mdwc->iommu_map = arm_iommu_create_mapping(&platform_bus_type,
+			SMMU_BASE, SMMU_SIZE);
+	if (IS_ERR_OR_NULL(mdwc->iommu_map)) {
+		ret = PTR_ERR(mdwc->iommu_map) ?: -ENODEV;
+		dev_err(mdwc->dev, "Failed to create IOMMU mapping (%d)\n",
+				ret);
+		return ret;
+	}
+	dev_dbg(mdwc->dev, "IOMMU mapping created: %pK\n", mdwc->iommu_map);
+
+	ret = iommu_domain_set_attr(mdwc->iommu_map->domain, DOMAIN_ATTR_ATOMIC,
+			&atomic_ctx);
+	if (ret) {
+		dev_err(mdwc->dev, "IOMMU set atomic attribute failed (%d)\n",
+			ret);
+		goto release_mapping;
+	}
+
+	s1_bypass = of_property_read_bool(node, "qcom,smmu-s1-bypass");
+	ret = iommu_domain_set_attr(mdwc->iommu_map->domain,
+			DOMAIN_ATTR_S1_BYPASS, &s1_bypass);
+	if (ret) {
+		dev_err(mdwc->dev, "IOMMU set s1 bypass (%d) failed (%d)\n",
+			s1_bypass, ret);
+		goto release_mapping;
+	}
+
+	ret = arm_iommu_attach_device(mdwc->dev, mdwc->iommu_map);
+	if (ret) {
+		dev_err(mdwc->dev, "IOMMU attach failed (%d)\n", ret);
+		goto release_mapping;
+	}
+	dev_dbg(mdwc->dev, "attached to IOMMU\n");
+
+	return 0;
+
+release_mapping:
+	arm_iommu_release_mapping(mdwc->iommu_map);
+	mdwc->iommu_map = NULL;
 	return ret;
 }
 
@@ -2867,7 +2947,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&mdwc->req_complete_list);
 	INIT_WORK(&mdwc->resume_work, dwc3_resume_work);
 	INIT_WORK(&mdwc->restart_usb_work, dwc3_restart_usb_work);
-	INIT_WORK(&mdwc->bus_vote_w, dwc3_msm_bus_vote_w);
 	INIT_WORK(&mdwc->vbus_draw_work, dwc3_msm_vbus_draw_work);
 	INIT_DELAYED_WORK(&mdwc->sm_work, dwc3_otg_sm_work);
 	INIT_DELAYED_WORK(&mdwc->perf_vote_work, msm_dwc3_perf_vote_work);
@@ -3070,12 +3149,16 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	dwc3_set_notifier(&dwc3_msm_notify_event);
 
+	ret = dwc3_msm_init_iommu(mdwc);
+	if (ret)
+		goto err;
+
 	/* Assumes dwc3 is the first DT child of dwc3-msm */
 	dwc3_node = of_get_next_available_child(node, NULL);
 	if (!dwc3_node) {
 		dev_err(&pdev->dev, "failed to find dwc3 child\n");
 		ret = -ENODEV;
-		goto err;
+		goto uninit_iommu;
 	}
 
 	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
@@ -3083,7 +3166,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev,
 				"failed to add create dwc3 core\n");
 		of_node_put(dwc3_node);
-		goto err;
+		goto uninit_iommu;
 	}
 
 	mdwc->dwc3 = of_find_device_by_node(dwc3_node);
@@ -3129,6 +3212,10 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	ret = of_property_read_u32(node, "qcom,num-gsi-evt-buffs",
 				&mdwc->num_gsi_event_buffers);
 
+	/* IOMMU will be reattached upon each resume/connect */
+	if (mdwc->iommu_map)
+		arm_iommu_detach_device(mdwc->dev);
+
 	/*
 	 * Clocks and regulators will not be turned on until the first time
 	 * runtime PM resume is called. This is to allow for booting up with
@@ -3164,10 +3251,10 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	}
 
 	/* Update initial VBUS/ID state from extcon */
-	if (mdwc->extcon_vbus && extcon_get_cable_state_(mdwc->extcon_vbus,
+	if (mdwc->extcon_vbus && extcon_get_state(mdwc->extcon_vbus,
 							EXTCON_USB))
 		dwc3_msm_vbus_notifier(&mdwc->vbus_nb, true, mdwc->extcon_vbus);
-	else if (mdwc->extcon_id && extcon_get_cable_state_(mdwc->extcon_id,
+	else if (mdwc->extcon_id && extcon_get_state(mdwc->extcon_id,
 							EXTCON_USB_HOST))
 		dwc3_msm_id_notifier(&mdwc->id_nb, true, mdwc->extcon_id);
 	else if (!pval.intval) {
@@ -3194,6 +3281,11 @@ put_dwc3:
 	platform_device_put(mdwc->dwc3);
 	if (mdwc->bus_perf_client)
 		msm_bus_scale_unregister_client(mdwc->bus_perf_client);
+uninit_iommu:
+	if (mdwc->iommu_map) {
+		arm_iommu_detach_device(mdwc->dev);
+		arm_iommu_release_mapping(mdwc->iommu_map);
+	}
 err:
 	return ret;
 }
@@ -3270,6 +3362,12 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	clk_put(mdwc->xo_clk);
 
 	dwc3_msm_config_gdsc(mdwc, 0);
+
+	if (mdwc->iommu_map) {
+		if (!atomic_read(&dwc->in_lpm))
+			arm_iommu_detach_device(mdwc->dev);
+		arm_iommu_release_mapping(mdwc->iommu_map);
+	}
 
 	return 0;
 }
@@ -3445,6 +3543,8 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		mdwc->host_nb.notifier_call = dwc3_msm_host_notifier;
 		usb_register_notify(&mdwc->host_nb);
 
+		mdwc->usbdev_nb.notifier_call = msm_dwc3_usbdev_notify;
+		usb_register_atomic_notify(&mdwc->usbdev_nb);
 		/*
 		 * FIXME If micro A cable is disconnected during system suspend,
 		 * xhci platform device will be removed before runtime pm is
@@ -3498,6 +3598,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 	} else {
 		dev_dbg(mdwc->dev, "%s: turn off host\n", __func__);
 
+		usb_unregister_atomic_notify(&mdwc->usbdev_nb);
 		if (!IS_ERR(mdwc->vbus_reg))
 			ret = regulator_disable(mdwc->vbus_reg);
 		if (ret) {
@@ -3820,11 +3921,12 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		break;
 
 	case OTG_STATE_A_HOST:
-		if (test_bit(ID, &mdwc->inputs)) {
-			dev_dbg(mdwc->dev, "id\n");
+		if (test_bit(ID, &mdwc->inputs) || mdwc->hc_died) {
+			dev_dbg(mdwc->dev, "id || hc_died\n");
 			dwc3_otg_start_host(mdwc, 0);
 			mdwc->otg_state = OTG_STATE_B_IDLE;
 			mdwc->vbus_retry_count = 0;
+			mdwc->hc_died = false;
 			work = 1;
 		} else {
 			dev_dbg(mdwc->dev, "still in a_host state. Resuming root hub.\n");

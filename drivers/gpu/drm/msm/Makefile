@@ -2,6 +2,7 @@ ccflags-y := -Iinclude/drm -Idrivers/gpu/drm/msm -Idrivers/gpu/drm/msm/dsi-stagi
 ccflags-$(CONFIG_DRM_MSM_DSI) += -Idrivers/gpu/drm/msm/dsi
 ccflags-$(CONFIG_DRM_MSM_DSI_PLL) += -Idrivers/gpu/drm/msm/dsi
 ccflags-y += -Idrivers/gpu/drm/msm/sde
+ccflags-y += -Idrivers/media/platform/msm/sde/rotator
 
 msm_drm-y := \
 	hdmi/hdmi.o \
@@ -49,7 +50,9 @@ msm_drm-y := \
 	sde_io_util.o \
 	sde/sde_hw_reg_dma_v1_color_proc.o \
 	sde/sde_hw_color_proc_v4.o \
-	sde_rsc.o \
+	sde/sde_hw_ad4.o \
+
+msm_drm-$(CONFIG_DRM_SDE_RSC) += sde_rsc.o \
 	sde_rsc_hw.o \
 
 # use drm gpu driver only if qcom_kgsl driver not available
@@ -106,6 +109,7 @@ msm_drm-$(CONFIG_DRM_MSM_DSI_STAGING) += dsi-staging/dsi_phy.o \
 				dsi-staging/dsi_ctrl_hw_cmn.o \
 				dsi-staging/dsi_ctrl_hw_1_4.o \
 				dsi-staging/dsi_ctrl_hw_2_0.o \
+				dsi-staging/dsi_ctrl_hw_2_2.o \
 				dsi-staging/dsi_ctrl.o \
 				dsi-staging/dsi_catalog.o \
 				dsi-staging/dsi_drm.o \
@@ -127,10 +131,12 @@ msm_drm-$(CONFIG_DRM_MSM) += \
 	sde/sde_hw_util.o \
 	sde/sde_hw_sspp.o \
 	sde/sde_hw_wb.o \
+	sde/sde_hw_rot.o \
 	sde/sde_hw_pingpong.o \
 	sde/sde_hw_top.o \
 	sde/sde_hw_interrupts.o \
 	sde/sde_hw_vbif.o \
+	sde/sde_hw_blk.o \
 	sde/sde_formats.o \
 	sde_power_handle.o \
 	sde/sde_hw_color_processing_v1_7.o \

@@ -56,6 +56,8 @@ Optional properties:
 	fladj_30mhz_sdbnd signal is invalid or incorrect.
  - snps,disable-clk-gating: If present, disable controller's internal clock
 	gating. Default it is enabled.
+ - snps,xhci-imod-value: Interrupt moderation interval for host mode
+	(in increments of 250nsec).
 
 This is usually a subnode to DWC3 glue to which it is connected.
 
@@ -65,4 +67,5 @@ dwc3@4a030000 {
 	interrupts = <0 92 4>
 	usb-phy = <&usb2_phy>, <&usb3,phy>;
 	tx-fifo-resize;
+	snps,xhci-imod-value = <4000>;
 };

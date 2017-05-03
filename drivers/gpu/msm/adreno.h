@@ -618,9 +618,9 @@ enum adreno_regs {
 	ADRENO_REG_VBIF_XIN_HALT_CTRL1,
 	ADRENO_REG_VBIF_VERSION,
 	ADRENO_REG_GMU_AO_INTERRUPT_EN,
-	ADRENO_REG_GMU_HOST_INTERRUPT_CLR,
-	ADRENO_REG_GMU_HOST_INTERRUPT_STATUS,
-	ADRENO_REG_GMU_HOST_INTERRUPT_MASK,
+	ADRENO_REG_GMU_AO_HOST_INTERRUPT_CLR,
+	ADRENO_REG_GMU_AO_HOST_INTERRUPT_STATUS,
+	ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
 	ADRENO_REG_GMU_PWR_COL_KEEPALIVE,
 	ADRENO_REG_GMU_AHB_FENCE_STATUS,
 	ADRENO_REG_GMU_RPMH_POWER_STATE,
@@ -629,6 +629,7 @@ enum adreno_regs {
 	ADRENO_REG_GMU_HFI_SFR_ADDR,
 	ADRENO_REG_GMU_GMU2HOST_INTR_CLR,
 	ADRENO_REG_GMU_GMU2HOST_INTR_INFO,
+	ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
 	ADRENO_REG_GMU_HOST2GMU_INTR_SET,
 	ADRENO_REG_GMU_HOST2GMU_INTR_CLR,
 	ADRENO_REG_GMU_HOST2GMU_INTR_RAW_INFO,
@@ -852,10 +853,12 @@ struct adreno_gpudev {
 				unsigned int clear_mask);
 	void (*oob_clear)(struct adreno_device *adreno_dev,
 				unsigned int clear_mask);
-	bool (*hw_isidle)(struct adreno_device *);
 	int (*rpmh_gpu_pwrctrl)(struct adreno_device *, unsigned int ops,
 				unsigned int arg1, unsigned int arg2);
-	bool (*gmu_isidle)(struct adreno_device *);
+	bool (*hw_isidle)(struct adreno_device *);
+	int (*wait_for_gmu_idle)(struct adreno_device *);
+	const char *(*iommu_fault_block)(struct adreno_device *adreno_dev,
+				unsigned int fsynr1);
 };
 
 /**

@@ -45,6 +45,7 @@
 #define IPA3_MAX_NUM_PIPES 31
 #define IPA_SYS_DESC_FIFO_SZ 0x800
 #define IPA_SYS_TX_DATA_DESC_FIFO_SZ 0x1000
+#define IPA_COMMON_EVENT_RING_SIZE 0x7C00
 #define IPA_LAN_RX_HEADER_LENGTH (2)
 #define IPA_QMAP_HEADER_LENGTH (4)
 #define IPA_DL_CHECKSUM_LENGTH (8)
@@ -53,8 +54,11 @@
 #define IPA_UC_FINISH_MAX 6
 #define IPA_UC_WAIT_MIN_SLEEP 1000
 #define IPA_UC_WAII_MAX_SLEEP 1200
-#define IPA_WAN_NAPI_CONS_RX_POOL_SZ (IPA_GENERIC_RX_POOL_SZ*3)
-#define IPA_WAN_CONS_DESC_FIFO_SZ (IPA_SYS_DESC_FIFO_SZ*3)
+/*
+ * The transport descriptor size was changed to GSI_CHAN_RE_SIZE_16B, but
+ * IPA users still use sps_iovec size as FIFO element size.
+ */
+#define IPA_FIFO_ELEMENT_SIZE 8
 
 #define IPA_MAX_STATUS_STAT_NUM 30
 
@@ -527,8 +531,6 @@ struct ipa3_ep_context {
 	bool disconnect_in_progress;
 	u32 qmi_request_sent;
 	bool napi_enabled;
-	bool switch_to_intr;
-	int inactive_cycles;
 	u32 eot_in_poll_err;
 
 	/* sys MUST be the last element of this struct */
@@ -591,9 +593,11 @@ struct ipa3_repl_ctx {
  */
 struct ipa3_sys_context {
 	u32 len;
+	u32 len_pending_xfer;
 	atomic_t curr_polling_state;
 	struct delayed_work switch_to_intr_work;
 	enum ipa3_sys_pipe_policy policy;
+	bool use_comm_evt_ring;
 	int (*pyld_hdlr)(struct sk_buff *skb, struct ipa3_sys_context *sys);
 	struct sk_buff * (*get_skb)(unsigned int len, gfp_t flags);
 	void (*free_skb)(struct sk_buff *skb);
@@ -616,6 +620,7 @@ struct ipa3_sys_context {
 	struct list_head head_desc_list;
 	struct list_head rcycl_list;
 	spinlock_t spinlock;
+	struct hrtimer db_timer;
 	struct workqueue_struct *wq;
 	struct workqueue_struct *repl_wq;
 	struct ipa3_status_stats *status_stat;
@@ -702,6 +707,7 @@ struct ipa3_dma_xfer_wrapper {
  * @user1: cookie1 for above callback
  * @user2: cookie2 for above callback
  * @xfer_done: completion object for sync completion
+ * @skip_db_ring: specifies whether GSI doorbell should not be rang
  */
 struct ipa3_desc {
 	enum ipa3_desc_type type;
@@ -715,6 +721,7 @@ struct ipa3_desc {
 	void *user1;
 	int user2;
 	struct completion xfer_done;
+	bool skip_db_ring;
 };
 
 /**
@@ -937,6 +944,10 @@ struct ipa3_uc_wdi_ctx {
 	struct IpaHwStatsWDIInfoData_t *wdi_uc_stats_mmio;
 	void *priv;
 	ipa_uc_ready_cb uc_ready_cb;
+	/* for AP+STA stats update */
+#ifdef IPA_WAN_MSG_IPv6_ADDR_GW_LEN
+	ipa_wdi_meter_notifier_cb stats_notify;
+#endif
 };
 
 /**
@@ -984,6 +995,11 @@ struct ipa3_ready_cb_info {
 struct ipa_tz_unlock_reg_info {
 	u64 reg_addr;
 	u32 size;
+};
+
+struct ipa_dma_task_info {
+	struct ipa_mem_buffer mem;
+	struct ipahal_imm_cmd_pyld *cmd_pyld;
 };
 
 /**
@@ -1129,6 +1145,8 @@ struct ipa3_context {
 	struct workqueue_struct *transport_power_mgmt_wq;
 	bool tag_process_before_gating;
 	struct ipa3_transport_pm transport_pm;
+	unsigned long gsi_evt_comm_hdl;
+	u32 gsi_evt_comm_ring_rem;
 	u32 clnt_hdl_cmd;
 	u32 clnt_hdl_data_in;
 	u32 clnt_hdl_data_out;
@@ -1161,6 +1179,7 @@ struct ipa3_context {
 	u32 curr_ipa_clk_rate;
 	bool q6_proxy_clk_vote_valid;
 	u32 ipa_num_pipes;
+	dma_addr_t pkt_init_imm[IPA3_MAX_NUM_PIPES];
 
 	struct ipa3_wlan_comm_memb wc_memb;
 
@@ -1192,6 +1211,7 @@ struct ipa3_context {
 	struct ipa3_smp2p_info smp2p_info;
 	u32 ipa_tz_unlock_reg_num;
 	struct ipa_tz_unlock_reg_info *ipa_tz_unlock_reg;
+	struct ipa_dma_task_info dma_task_info;
 };
 
 struct ipa3_plat_drv_res {
@@ -1226,7 +1246,9 @@ struct ipa3_plat_drv_res {
  * Order and type of members should not be changed without a suitable change
  * to DTS file or the code that reads it.
  *
- * IPA v3.0 SRAM memory layout:
+ * IPA SRAM memory layout:
+ * +-------------------------+
+ * |    UC MEM               |
  * +-------------------------+
  * |    UC INFO              |
  * +-------------------------+
@@ -1294,9 +1316,13 @@ struct ipa3_plat_drv_res {
  * +-------------------------+
  * |    CANARY               |
  * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
  * |  MODEM MEM              |
  * +-------------------------+
  * |    CANARY               |
+ * +-------------------------+
+ * |  UC EVENT RING          | From IPA 3.5
  * +-------------------------+
  */
 struct ipa3_mem_partition {
@@ -1370,6 +1396,8 @@ struct ipa3_mem_partition {
 	u32 apps_v6_rt_hash_size;
 	u32 apps_v6_rt_nhash_ofst;
 	u32 apps_v6_rt_nhash_size;
+	u32 uc_event_ring_ofst;
+	u32 uc_event_ring_size;
 };
 
 struct ipa3_controller {
@@ -1611,6 +1639,7 @@ int ipa3_resume_wdi_pipe(u32 clnt_hdl);
 int ipa3_suspend_wdi_pipe(u32 clnt_hdl);
 int ipa3_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats);
 u16 ipa3_get_smem_restr_bytes(void);
+int ipa3_broadcast_wdi_quota_reach_ind(uint32_t fid, uint64_t num_bytes);
 int ipa3_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *in,
 		ipa_notify_cb notify, void *priv, u8 hdr_len,
 		struct ipa_ntn_conn_out_params *outp);
@@ -1651,6 +1680,9 @@ enum ipacm_client_enum ipa3_get_client(int pipe_idx);
 
 bool ipa3_get_client_uplink(int pipe_idx);
 
+int ipa3_get_wlan_stats(struct ipa_get_wdi_sap_stats *wdi_sap_stats);
+
+int ipa3_set_wlan_quota(struct ipa_set_wifi_quota *wdi_quota);
 /*
  * IPADMA
  */
@@ -1820,7 +1852,7 @@ void wwan_cleanup(void);
 int ipa3_teth_bridge_driver_init(void);
 void ipa3_lan_rx_cb(void *priv, enum ipa_dp_evt_type evt, unsigned long data);
 
-int _ipa_init_sram_v3_0(void);
+int _ipa_init_sram_v3(void);
 int _ipa_init_hdr_v3_0(void);
 int _ipa_init_rt4_v3(void);
 int _ipa_init_rt6_v3(void);
@@ -1963,4 +1995,7 @@ bool ipa3_is_msm_device(void);
 struct device *ipa3_get_pdev(void);
 void ipa3_enable_dcd(void);
 void ipa3_disable_prefetch(enum ipa_client_type client);
+int ipa3_alloc_common_event_ring(void);
+int ipa3_allocate_dma_task_for_gsi(void);
+void ipa3_free_dma_task_for_gsi(void);
 #endif /* _IPA3_I_H_ */

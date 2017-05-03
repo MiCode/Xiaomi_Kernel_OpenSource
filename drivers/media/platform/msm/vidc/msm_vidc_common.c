@@ -23,20 +23,9 @@
 #include "msm_vidc_debug.h"
 #include "msm_vidc_clocks.h"
 
-#define IS_ALREADY_IN_STATE(__p, __d) ({\
-	int __rc = (__p >= __d);\
-	__rc; \
-})
-
-#define SUM_ARRAY(__arr, __start, __end) ({\
-		int __index;\
-		typeof((__arr)[0]) __sum = 0;\
-		for (__index = (__start); __index <= (__end); __index++) {\
-			if (__index >= 0 && __index < ARRAY_SIZE(__arr))\
-				__sum += __arr[__index];\
-		} \
-		__sum;\
-})
+#define IS_ALREADY_IN_STATE(__p, __d) (\
+	(__p >= __d)\
+)
 
 #define V4L2_EVENT_SEQ_CHANGED_SUFFICIENT \
 		V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_CHANGED_SUFFICIENT
@@ -52,8 +41,8 @@ const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata none",
 	"Extradata MB Quantization",
 	"Extradata Interlace Video",
-	"Extradata VC1 Framedisp",
-	"Extradata VC1 Seqdisp",
+	"Reserved",
+	"Reserved",
 	"Extradata timestamp",
 	"Extradata S3D Frame Packing",
 	"Extradata Frame Rate",
@@ -131,7 +120,7 @@ int msm_comm_g_ctrl_for_id(struct msm_vidc_inst *inst, int id)
 	};
 
 	rc = msm_comm_g_ctrl(inst, &ctrl);
-	return rc ?: ctrl.value;
+	return rc ? rc : ctrl.value;
 }
 
 static struct v4l2_ctrl **get_super_cluster(struct msm_vidc_inst *inst,
@@ -304,6 +293,8 @@ int msm_comm_v4l2_to_hal(int id, int value)
 			return HAL_H264_LEVEL_51;
 		case V4L2_MPEG_VIDEO_H264_LEVEL_5_2:
 			return HAL_H264_LEVEL_52;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_UNKNOWN:
+			return HAL_H264_LEVEL_UNKNOWN;
 		default:
 			goto unknown_value;
 		}
@@ -405,6 +396,8 @@ int msm_comm_v4l2_to_hal(int id, int value)
 			return HAL_HEVC_HIGH_TIER_LEVEL_6;
 		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_6_1:
 			return HAL_HEVC_HIGH_TIER_LEVEL_6_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_UNKNOWN:
+			return HAL_HEVC_TIER_LEVEL_UNKNOWN;
 		default:
 			goto unknown_value;
 		}
@@ -711,21 +704,12 @@ enum hal_video_codec get_hal_codec(int fourcc)
 	case V4L2_PIX_FMT_H264_MVC:
 		codec = HAL_VIDEO_CODEC_MVC;
 		break;
-	case V4L2_PIX_FMT_H263:
-		codec = HAL_VIDEO_CODEC_H263;
-		break;
+
 	case V4L2_PIX_FMT_MPEG1:
 		codec = HAL_VIDEO_CODEC_MPEG1;
 		break;
 	case V4L2_PIX_FMT_MPEG2:
 		codec = HAL_VIDEO_CODEC_MPEG2;
-		break;
-	case V4L2_PIX_FMT_MPEG4:
-		codec = HAL_VIDEO_CODEC_MPEG4;
-		break;
-	case V4L2_PIX_FMT_VC1_ANNEX_G:
-	case V4L2_PIX_FMT_VC1_ANNEX_L:
-		codec = HAL_VIDEO_CODEC_VC1;
 		break;
 	case V4L2_PIX_FMT_VP8:
 		codec = HAL_VIDEO_CODEC_VP8;
@@ -761,9 +745,6 @@ static enum hal_uncompressed_format get_hal_uncompressed(int fourcc)
 		break;
 	case V4L2_PIX_FMT_NV12_TP10_UBWC:
 		format = HAL_COLOR_FORMAT_NV12_TP10_UBWC;
-		break;
-	case V4L2_PIX_FMT_RGB32:
-		format = HAL_COLOR_FORMAT_RGBA8888;
 		break;
 	default:
 		format = HAL_UNUSED_COLOR;
@@ -884,11 +865,13 @@ static void handle_sys_init_done(enum hal_command_response cmd, void *data)
 
 	/* This should come from sys_init_done */
 	core->resources.max_inst_count =
-		sys_init_msg->max_sessions_supported ? :
+		sys_init_msg->max_sessions_supported ?
+		sys_init_msg->max_sessions_supported :
 		MAX_SUPPORTED_INSTANCES;
 
 	core->resources.max_secure_inst_count =
-		core->resources.max_secure_inst_count ? :
+		core->resources.max_secure_inst_count ?
+		core->resources.max_secure_inst_count :
 		core->resources.max_inst_count;
 
 	if (core->id == MSM_VIDC_CORE_VENUS &&
@@ -1184,50 +1167,70 @@ static int msm_vidc_comm_update_ctrl(struct msm_vidc_inst *inst,
 
 static void msm_vidc_comm_update_ctrl_limits(struct msm_vidc_inst *inst)
 {
-	msm_vidc_comm_update_ctrl(inst,
-			V4L2_CID_MPEG_VIDC_VIDEO_HYBRID_HIERP_MODE,
-			&inst->capability.hier_p_hybrid);
-	msm_vidc_comm_update_ctrl(inst,
-			V4L2_CID_MPEG_VIDC_VIDEO_HIER_B_NUM_LAYERS,
-			&inst->capability.hier_b);
-	msm_vidc_comm_update_ctrl(inst,
-			V4L2_CID_MPEG_VIDC_VIDEO_HIER_P_NUM_LAYERS,
-			&inst->capability.hier_p);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE,
-			&inst->capability.bitrate);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE_PEAK,
-			&inst->capability.peakbitrate);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP,
-			&inst->capability.i_qp);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP,
-			&inst->capability.p_qp);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP,
-			&inst->capability.b_qp);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP_MIN,
-			&inst->capability.i_qp);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP_MIN,
-			&inst->capability.p_qp);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP_MIN,
-			&inst->capability.b_qp);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP_MAX,
-			&inst->capability.i_qp);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP_MAX,
-			&inst->capability.p_qp);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP_MAX,
-			&inst->capability.b_qp);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_BLUR_WIDTH,
-			&inst->capability.blur_width);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_BLUR_HEIGHT,
-			&inst->capability.blur_height);
-	msm_vidc_comm_update_ctrl(inst,
-			V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES,
-			&inst->capability.slice_bytes);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB,
-			&inst->capability.slice_mbs);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT,
-			&inst->capability.ltr_count);
-	msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES,
-			&inst->capability.bframe);
+	if (inst->session_type == MSM_VIDC_ENCODER) {
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_HYBRID_HIERP_MODE,
+				&inst->capability.hier_p_hybrid);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_HIER_B_NUM_LAYERS,
+				&inst->capability.hier_b);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_HIER_P_NUM_LAYERS,
+				&inst->capability.hier_p);
+		msm_vidc_comm_update_ctrl(inst, V4L2_CID_MPEG_VIDEO_BITRATE,
+				&inst->capability.bitrate);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VENC_PARAM_LAYER_BITRATE,
+				&inst->capability.bitrate);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDEO_BITRATE_PEAK,
+				&inst->capability.peakbitrate);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP,
+				&inst->capability.i_qp);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP,
+				&inst->capability.p_qp);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP,
+				&inst->capability.b_qp);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP_MIN,
+				&inst->capability.i_qp);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP_MIN,
+				&inst->capability.p_qp);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP_MIN,
+				&inst->capability.b_qp);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP_MAX,
+				&inst->capability.i_qp);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP_MAX,
+				&inst->capability.p_qp);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP_MAX,
+				&inst->capability.b_qp);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_BLUR_WIDTH,
+				&inst->capability.blur_width);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_BLUR_HEIGHT,
+				&inst->capability.blur_height);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES,
+				&inst->capability.slice_bytes);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB,
+				&inst->capability.slice_mbs);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT,
+				&inst->capability.ltr_count);
+		msm_vidc_comm_update_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES,
+				&inst->capability.bframe);
+	}
 }
 
 static void handle_session_init_done(enum hal_command_response cmd, void *data)
@@ -1375,7 +1378,7 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 
 	switch (event_notify->hal_event_type) {
 	case HAL_EVENT_SEQ_CHANGED_SUFFICIENT_RESOURCES:
-		event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
+		event = V4L2_EVENT_SEQ_CHANGED_SUFFICIENT;
 		break;
 	case HAL_EVENT_SEQ_CHANGED_INSUFFICIENT_RESOURCES:
 		event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
@@ -1448,18 +1451,17 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	}
 
 	/* Bit depth and pic struct changed event are combined into a single
-	 * event (insufficient event) for the userspace. Currently bitdepth
-	 * changes is only for HEVC and interlaced support is for all
-	 * codecs except HEVC
-	 * event data is now as follows:
-	 * u32 *ptr = seq_changed_event.u.data;
-	 * ptr[0] = height
-	 * ptr[1] = width
-	 * ptr[2] = flag to indicate bit depth or/and pic struct changed
-	 * ptr[3] = bit depth
-	 * ptr[4] = pic struct (progressive or interlaced)
-	 * ptr[5] = colour space
-	 */
+	* event (insufficient event) for the userspace. Currently bitdepth
+	* changes is only for HEVC and interlaced support is for all
+	* codecs except HEVC
+	* event data is now as follows:
+	* u32 *ptr = seq_changed_event.u.data;
+	* ptr[0] = height
+	* ptr[1] = width
+	* ptr[2] = bit depth
+	* ptr[3] = pic struct (progressive or interlaced)
+	* ptr[4] = colour space
+	*/
 
 	inst->entropy_mode = msm_comm_hal_to_v4l2(
 		V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE,
@@ -1472,55 +1474,35 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 			event_notify->level);
 
 	ptr = (u32 *)seq_changed_event.u.data;
+	ptr[0] = event_notify->height;
+	ptr[1] = event_notify->width;
+	ptr[2] = event_notify->bit_depth;
+	ptr[3] = event_notify->pic_struct;
+	ptr[4] = event_notify->colour_space;
 
-	if (ptr != NULL) {
-		ptr[2] = 0x0;
-		ptr[3] = inst->bit_depth;
-		ptr[4] = inst->pic_struct;
-		ptr[5] = inst->colour_space;
+	dprintk(VIDC_DBG,
+		"Event payload: height = %d width = %d\n",
+		event_notify->height, event_notify->width);
 
-		if (inst->bit_depth != event_notify->bit_depth) {
-			inst->bit_depth = event_notify->bit_depth;
-			ptr[2] |= V4L2_EVENT_BITDEPTH_FLAG;
-			ptr[3] = inst->bit_depth;
-			event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
-			dprintk(VIDC_DBG,
-				"V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT due to bit-depth change\n");
-		}
+	dprintk(VIDC_DBG,
+		"Event payload: bit_depth = %d pic_struct = %d colour_space = %d\n",
+		event_notify->bit_depth, event_notify->pic_struct,
+			event_notify->colour_space);
 
-		if (inst->pic_struct != event_notify->pic_struct) {
-			inst->pic_struct = event_notify->pic_struct;
-			event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
-			ptr[2] |= V4L2_EVENT_PICSTRUCT_FLAG;
-			ptr[4] = inst->pic_struct;
-			dprintk(VIDC_DBG,
-				"V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT due to pic-struct change\n");
-		}
-
-		if (inst->bit_depth == MSM_VIDC_BIT_DEPTH_10
-				&& inst->colour_space !=
-					event_notify->colour_space) {
-			inst->colour_space = event_notify->colour_space;
-			event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
-			ptr[2] |= V4L2_EVENT_COLOUR_SPACE_FLAG;
-			ptr[5] = inst->colour_space;
-			dprintk(VIDC_DBG,
-				"V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT due to colour space change\n");
-		}
-
-	}
+	mutex_lock(&inst->lock);
+	inst->in_reconfig = true;
+	inst->reconfig_height = event_notify->height;
+	inst->reconfig_width = event_notify->width;
+	mutex_unlock(&inst->lock);
 
 	if (event == V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT) {
 		dprintk(VIDC_DBG, "V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT\n");
-		inst->reconfig_height = event_notify->height;
-		inst->reconfig_width = event_notify->width;
-		inst->in_reconfig = true;
 	} else {
 		dprintk(VIDC_DBG, "V4L2_EVENT_SEQ_CHANGED_SUFFICIENT\n");
 		dprintk(VIDC_DBG,
-			"event_notify->height = %d event_notify->width = %d\n",
-			event_notify->height,
-			event_notify->width);
+				"event_notify->height = %d event_notify->width = %d\n",
+				event_notify->height,
+				event_notify->width);
 		inst->prop.height[OUTPUT_PORT] = event_notify->height;
 		inst->prop.width[OUTPUT_PORT] = event_notify->width;
 	}
@@ -1528,13 +1510,6 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	rc = msm_vidc_check_session_supported(inst);
 	if (!rc) {
 		seq_changed_event.type = event;
-		if (event == V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT) {
-			u32 *ptr = NULL;
-
-			ptr = (u32 *)seq_changed_event.u.data;
-			ptr[0] = event_notify->height;
-			ptr[1] = event_notify->width;
-		}
 		v4l2_event_queue_fh(&inst->event_handler, &seq_changed_event);
 	} else if (rc == -ENOTSUPP) {
 		msm_vidc_queue_v4l2_event(inst,
@@ -2430,55 +2405,6 @@ err_handle_fbd:
 	put_inst(inst);
 }
 
-static void handle_seq_hdr_done(enum hal_command_response cmd, void *data)
-{
-	struct msm_vidc_cb_data_done *response = data;
-	struct msm_vidc_inst *inst;
-	struct vb2_buffer *vb;
-	struct vidc_hal_fbd *fill_buf_done;
-	struct vb2_v4l2_buffer *vbuf;
-
-	if (!response) {
-		dprintk(VIDC_ERR, "Invalid response from vidc_hal\n");
-		return;
-	}
-
-	inst = get_inst(get_vidc_core(response->device_id),
-			response->session_id);
-	if (!inst) {
-		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
-		return;
-	}
-
-	fill_buf_done = (struct vidc_hal_fbd *)&response->output_done;
-	vb = get_vb_from_device_addr(&inst->bufq[CAPTURE_PORT],
-				fill_buf_done->packet_buffer1);
-	if (!vb) {
-		dprintk(VIDC_ERR,
-				"Failed to find video buffer for seq_hdr_done: %pa\n",
-				&fill_buf_done->packet_buffer1);
-		goto err_seq_hdr_done;
-	}
-	vbuf = to_vb2_v4l2_buffer(vb);
-	vb->timestamp = 0;
-
-	vb->planes[0].bytesused = fill_buf_done->filled_len1;
-	vb->planes[0].data_offset = fill_buf_done->offset1;
-
-	vbuf->flags = V4L2_QCOM_BUF_FLAG_CODECCONFIG;
-
-	dprintk(VIDC_DBG, "Filled length = %d; offset = %d; flags %x\n",
-				vb->planes[0].bytesused,
-				vb->planes[0].data_offset,
-				vbuf->flags);
-	mutex_lock(&inst->bufq[CAPTURE_PORT].lock);
-	vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
-	mutex_unlock(&inst->bufq[CAPTURE_PORT].lock);
-
-err_seq_hdr_done:
-	put_inst(inst);
-}
-
 void handle_cmd_response(enum hal_command_response cmd, void *data)
 {
 	dprintk(VIDC_DBG, "Command response = %d\n", cmd);
@@ -2522,9 +2448,6 @@ void handle_cmd_response(enum hal_command_response cmd, void *data)
 		break;
 	case HAL_SESSION_FLUSH_DONE:
 		handle_session_flush(cmd, data);
-		break;
-	case HAL_SESSION_GET_SEQ_HDR_DONE:
-		handle_seq_hdr_done(cmd, data);
 		break;
 	case HAL_SYS_WATCHDOG_TIMEOUT:
 	case HAL_SYS_ERROR:
@@ -3717,6 +3640,11 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 		}
 		break;
 	}
+	case V4L2_QCOM_CMD_SESSION_CONTINUE:
+	{
+		rc = msm_comm_session_continue(inst);
+		break;
+	}
 	default:
 		dprintk(VIDC_ERR, "Unknown Command %d\n", which_cmd);
 		rc = -ENOTSUPP;
@@ -3912,17 +3840,17 @@ int msm_comm_qbuf(struct msm_vidc_inst *inst, struct vb2_buffer *vb)
 	 * Don't queue if:
 	 * 1) Hardware isn't ready (that's simple)
 	 */
-	defer = defer ?: inst->state != MSM_VIDC_START_DONE;
+	defer = defer ? defer : (inst->state != MSM_VIDC_START_DONE);
 
 	/*
 	 * 2) The client explicitly tells us not to because it wants this
 	 * buffer to be batched with future frames.  The batch size (on both
 	 * capabilities) is completely determined by the client.
 	 */
-	defer = defer ?: vbuf && vbuf->flags & V4L2_MSM_BUF_FLAG_DEFER;
+	defer = defer ? defer : (vbuf && vbuf->flags & V4L2_MSM_BUF_FLAG_DEFER);
 
 	/* 3) If we're in batch mode, we must have full batches of both types */
-	defer = defer ?: batch_mode && (!output_count || !capture_count);
+	defer = defer ? defer:(batch_mode && (!output_count || !capture_count));
 
 	if (defer) {
 		dprintk(VIDC_DBG, "Deferring queue of %pK\n", vb);
@@ -4060,32 +3988,123 @@ err_no_mem:
 	return rc;
 }
 
+static int msm_vidc_update_host_buff_counts(struct msm_vidc_inst *inst)
+{
+	int extra_buffers;
+	struct hal_buffer_requirements *bufreq;
+
+	bufreq = get_buff_req_buffer(inst,
+		HAL_BUFFER_INPUT);
+	if (!bufreq) {
+		dprintk(VIDC_ERR,
+			"Failed : No buffer requirements : %x\n",
+				HAL_BUFFER_INPUT);
+		return -EINVAL;
+	}
+	extra_buffers = msm_vidc_get_extra_buff_count(inst, HAL_BUFFER_INPUT);
+
+	bufreq->buffer_count_min_host = bufreq->buffer_count_min +
+		extra_buffers;
+
+	if (msm_comm_get_stream_output_mode(inst) ==
+			HAL_VIDEO_DECODER_SECONDARY) {
+
+		bufreq = get_buff_req_buffer(inst,
+				HAL_BUFFER_OUTPUT);
+		if (!bufreq) {
+			dprintk(VIDC_ERR,
+				"Failed : No buffer requirements : %x\n",
+					HAL_BUFFER_OUTPUT);
+			return -EINVAL;
+		}
+
+		/* For DPB buffers, no need to add Extra buffers */
+
+		bufreq->buffer_count_actual = bufreq->buffer_count_min_host =
+			bufreq->buffer_count_min;
+
+		bufreq = get_buff_req_buffer(inst,
+				HAL_BUFFER_OUTPUT2);
+		if (!bufreq) {
+			dprintk(VIDC_ERR,
+				"Failed : No buffer requirements : %x\n",
+					HAL_BUFFER_OUTPUT2);
+			return -EINVAL;
+		}
+
+		extra_buffers = msm_vidc_get_extra_buff_count(inst,
+			HAL_BUFFER_OUTPUT);
+
+		bufreq->buffer_count_min_host =
+			bufreq->buffer_count_min + extra_buffers;
+	} else {
+
+		bufreq = get_buff_req_buffer(inst,
+				HAL_BUFFER_OUTPUT);
+		if (!bufreq) {
+			dprintk(VIDC_ERR,
+				"Failed : No buffer requirements : %x\n",
+					HAL_BUFFER_OUTPUT);
+			return -EINVAL;
+		}
+
+		extra_buffers = msm_vidc_get_extra_buff_count(inst,
+			HAL_BUFFER_OUTPUT);
+
+		bufreq->buffer_count_actual = bufreq->buffer_count_min_host =
+			bufreq->buffer_count_min + extra_buffers;
+	}
+
+	return 0;
+}
+
 int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 {
 	int rc = 0, i = 0;
 	union hal_get_property hprop;
 
+	memset(&hprop, 0x0, sizeof(hprop));
+
 	rc = msm_comm_try_get_prop(inst, HAL_PARAM_GET_BUFFER_REQUIREMENTS,
-					&hprop);
+		&hprop);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed getting buffer requirements: %d", rc);
 		return rc;
 	}
 
-	dprintk(VIDC_DBG, "Buffer requirements:\n");
-	dprintk(VIDC_DBG, "%15s %8s %8s\n", "buffer type", "count", "size");
+	dprintk(VIDC_DBG, "Buffer requirements from HW:\n");
+	dprintk(VIDC_DBG, "%15s %8s %8s %8s %8s\n",
+		"buffer type", "count", "mincount_host", "mincount_fw", "size");
 	for (i = 0; i < HAL_BUFFER_MAX; i++) {
 		struct hal_buffer_requirements req = hprop.buf_req.buffer[i];
 
 		inst->buff_req.buffer[i] = req;
-		dprintk(VIDC_DBG, "%15s %8d %8d\n",
+		if (req.buffer_type != HAL_BUFFER_NONE) {
+			dprintk(VIDC_DBG, "%15s %8d %8d %8d %8d\n",
 				get_buffer_name(req.buffer_type),
-				req.buffer_count_actual, req.buffer_size);
+				req.buffer_count_actual,
+				req.buffer_count_min_host,
+				req.buffer_count_min, req.buffer_size);
+		}
 	}
 
-	dprintk(VIDC_PROF, "Input buffers: %d, Output buffers: %d\n",
-			inst->buff_req.buffer[0].buffer_count_actual,
-			inst->buff_req.buffer[1].buffer_count_actual);
+	rc = msm_vidc_update_host_buff_counts(inst);
+
+	dprintk(VIDC_DBG, "Buffer requirements host adjusted:\n");
+	dprintk(VIDC_DBG, "%15s %8s %8s %8s %8s\n",
+		"buffer type", "count", "mincount_host", "mincount_fw", "size");
+	for (i = 0; i < HAL_BUFFER_MAX; i++) {
+		struct hal_buffer_requirements req = hprop.buf_req.buffer[i];
+
+		inst->buff_req.buffer[i] = req;
+		if (req.buffer_type != HAL_BUFFER_NONE) {
+			dprintk(VIDC_DBG, "%15s %8d %8d %8d %8d\n",
+				get_buffer_name(req.buffer_type),
+				req.buffer_count_actual,
+				req.buffer_count_min_host,
+				req.buffer_count_min, req.buffer_size);
+		}
+	}
 	return rc;
 }
 
@@ -5360,21 +5379,18 @@ int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 		goto exit;
 	}
 
-	if (inst->prop.fps != fps) {
-		dprintk(VIDC_PROF, "reported fps changed for %pK: %d->%d\n",
-				inst, inst->prop.fps, fps);
-		inst->prop.fps = fps;
+	dprintk(VIDC_PROF, "reported fps changed for %pK: %d->%d\n",
+			inst, inst->prop.fps, fps);
+	inst->prop.fps = fps;
+	if (inst->session_type == MSM_VIDC_ENCODER) {
 		frame_rate.frame_rate = inst->prop.fps * BIT(16);
 		frame_rate.buffer_type = HAL_BUFFER_OUTPUT;
 		pdata = &frame_rate;
-		if (inst->session_type == MSM_VIDC_ENCODER) {
-			rc = call_hfi_op(hdev, session_set_property,
-				inst->session, property_id, pdata);
-
-			if (rc)
-				dprintk(VIDC_WARN,
-					"Failed to set frame rate %d\n", rc);
-		}
+		rc = call_hfi_op(hdev, session_set_property,
+			inst->session, property_id, pdata);
+		if (rc)
+			dprintk(VIDC_WARN,
+				"Failed to set frame rate %d\n", rc);
 	}
 exit:
 	return rc;
@@ -5470,4 +5486,37 @@ static void msm_comm_print_debug_info(struct msm_vidc_inst *inst)
 		msm_comm_print_inst_info(temp);
 	}
 	mutex_unlock(&core->lock);
+}
+
+int msm_comm_session_continue(void *instance)
+{
+	struct msm_vidc_inst *inst = instance;
+	int rc = 0;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device)
+		return -EINVAL;
+	hdev = inst->core->device;
+	mutex_lock(&inst->lock);
+	if (inst->session_type == MSM_VIDC_DECODER && inst->in_reconfig) {
+		dprintk(VIDC_DBG, "send session_continue\n");
+		rc = call_hfi_op(hdev, session_continue,
+						 (void *)inst->session);
+		if (rc) {
+			dprintk(VIDC_ERR,
+					"failed to send session_continue\n");
+			rc = -EINVAL;
+			goto sess_continue_fail;
+		}
+		inst->in_reconfig = false;
+	} else if (inst->session_type == MSM_VIDC_ENCODER) {
+		dprintk(VIDC_DBG,
+				"session_continue not supported for encoder");
+	} else {
+		dprintk(VIDC_ERR,
+				"session_continue called in wrong state for decoder");
+	}
+sess_continue_fail:
+	mutex_unlock(&inst->lock);
+	return rc;
 }

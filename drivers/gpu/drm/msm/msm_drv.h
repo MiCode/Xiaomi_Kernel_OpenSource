@@ -89,6 +89,7 @@ enum msm_mdp_plane_property {
 	PLANE_PROP_SKIN_COLOR,
 	PLANE_PROP_SKY_COLOR,
 	PLANE_PROP_FOLIAGE_COLOR,
+	PLANE_PROP_ROT_CAPS_V1,
 
 	/* # of blob properties */
 	PLANE_PROP_BLOBCOUNT,
@@ -105,6 +106,10 @@ enum msm_mdp_plane_property {
 	PLANE_PROP_VALUE_ADJUST,
 	PLANE_PROP_CONTRAST_ADJUST,
 	PLANE_PROP_EXCL_RECT_V1,
+	PLANE_PROP_ROT_DST_X,
+	PLANE_PROP_ROT_DST_Y,
+	PLANE_PROP_ROT_DST_W,
+	PLANE_PROP_ROT_DST_H,
 
 	/* enum/bitmask properties */
 	PLANE_PROP_ROTATION,
@@ -129,6 +134,11 @@ enum msm_mdp_crtc_property {
 	CRTC_PROP_CORE_CLK,
 	CRTC_PROP_CORE_AB,
 	CRTC_PROP_CORE_IB,
+	CRTC_PROP_MEM_AB,
+	CRTC_PROP_MEM_IB,
+	CRTC_PROP_ROT_PREFILL_BW,
+	CRTC_PROP_ROT_CLK,
+	CRTC_PROP_ROI_V1,
 
 	/* total # of properties */
 	CRTC_PROP_COUNT
@@ -149,6 +159,7 @@ enum msm_mdp_conn_property {
 	CONNECTOR_PROP_DST_Y,
 	CONNECTOR_PROP_DST_W,
 	CONNECTOR_PROP_DST_H,
+	CONNECTOR_PROP_ROI_V1,
 
 	/* enum/bitmask properties */
 	CONNECTOR_PROP_TOPOLOGY_NAME,
@@ -188,6 +199,38 @@ enum msm_display_caps {
 	MSM_DISPLAY_CAP_CMD_MODE	= BIT(1),
 	MSM_DISPLAY_CAP_HOT_PLUG	= BIT(2),
 	MSM_DISPLAY_CAP_EDID		= BIT(3),
+};
+
+/**
+ * struct msm_roi_alignment - region of interest alignment restrictions
+ * @xstart_pix_align: left x offset alignment restriction
+ * @width_pix_align: width alignment restriction
+ * @ystart_pix_align: top y offset alignment restriction
+ * @height_pix_align: height alignment restriction
+ * @min_width: minimum width restriction
+ * @min_height: minimum height restriction
+ */
+struct msm_roi_alignment {
+	uint32_t xstart_pix_align;
+	uint32_t width_pix_align;
+	uint32_t ystart_pix_align;
+	uint32_t height_pix_align;
+	uint32_t min_width;
+	uint32_t min_height;
+};
+
+/**
+ * struct msm_roi_caps - display's region of interest capabilities
+ * @enabled: true if some region of interest is supported
+ * @merge_rois: merge rois before sending to display
+ * @num_roi: maximum number of rois supported
+ * @align: roi alignment restrictions
+ */
+struct msm_roi_caps {
+	bool enabled;
+	bool merge_rois;
+	uint32_t num_roi;
+	struct msm_roi_alignment align;
 };
 
 /**
@@ -329,6 +372,7 @@ struct msm_compression_info {
  * @vtotal:		display vertical total
  * @jitter:		display jitter configuration
  * @comp_info:          Compression supported by the display
+ * @roi_caps:           Region of interest capability info
  */
 struct msm_display_info {
 	int intf_type;
@@ -352,6 +396,27 @@ struct msm_display_info {
 	uint32_t jitter;
 
 	struct msm_compression_info comp_info;
+	struct msm_roi_caps roi_caps;
+};
+
+#define MSM_MAX_ROI	4
+
+/**
+ * struct msm_roi_list - list of regions of interest for a drm object
+ * @num_rects: number of valid rectangles in the roi array
+ * @roi: list of roi rectangles
+ */
+struct msm_roi_list {
+	uint32_t num_rects;
+	struct drm_clip_rect roi[MSM_MAX_ROI];
+};
+
+/**
+ * struct - msm_display_kickoff_params - info for display features at kickoff
+ * @rois: Regions of interest structure for mapping CRTC to Connector output
+ */
+struct msm_display_kickoff_params {
+	struct msm_roi_list *rois;
 };
 
 /**
@@ -365,6 +430,7 @@ struct msm_display_info {
 struct msm_drm_event {
 	struct drm_pending_event base;
 	struct drm_event event;
+	struct drm_msm_event_req info;
 	u8 data[];
 };
 
@@ -482,6 +548,9 @@ struct msm_drm_private {
 
 	/* whether registered and drm_dev_unregister should be called */
 	bool registered;
+
+	/* msm drv debug root node */
+	struct dentry *debug_root;
 };
 
 struct msm_format {
@@ -614,6 +683,15 @@ enum msm_dsi_encoder_id {
 	MSM_DSI_CMD_ENCODER_ID = 1,
 	MSM_DSI_ENCODER_NUM = 2
 };
+
+/* *
+ * msm_send_crtc_notification - notify user-space clients of crtc events.
+ * @crtc: crtc that is generating the event.
+ * @event: event that needs to be notified.
+ * @payload: payload for the event.
+ */
+void msm_send_crtc_notification(struct drm_crtc *crtc,
+		struct drm_event *event, u8 *payload);
 #ifdef CONFIG_DRM_MSM_DSI
 void __init msm_dsi_register(void);
 void __exit msm_dsi_unregister(void);

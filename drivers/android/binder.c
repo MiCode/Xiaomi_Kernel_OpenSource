@@ -1765,7 +1765,9 @@ static int binder_translate_fd(int fd,
 		ret = -EBADF;
 		goto err_fget;
 	}
+	preempt_enable_no_resched();
 	ret = security_binder_transfer_file(proc->tsk, target_proc->tsk, file);
+	preempt_disable();
 	if (ret < 0) {
 		ret = -EPERM;
 		goto err_security;
@@ -2830,7 +2832,7 @@ retry:
 		} break;
 		case BINDER_WORK_TRANSACTION_COMPLETE: {
 			cmd = BR_TRANSACTION_COMPLETE;
-				if (put_user_preempt_disabled(cmd, (uint32_t __user *) ptr))
+			if (put_user_preempt_disabled(cmd, (uint32_t __user *) ptr))
 				return -EFAULT;
 			ptr += sizeof(uint32_t);
 
@@ -2872,14 +2874,14 @@ retry:
 				node->has_weak_ref = 0;
 			}
 			if (cmd != BR_NOOP) {
-					if (put_user_preempt_disabled(cmd, (uint32_t __user *) ptr))
+				if (put_user_preempt_disabled(cmd, (uint32_t __user *) ptr))
 					return -EFAULT;
 				ptr += sizeof(uint32_t);
-					if (put_user_preempt_disabled(node->ptr, (binder_uintptr_t __user *)
+				if (put_user_preempt_disabled(node->ptr, (binder_uintptr_t __user *)
 					     (binder_uintptr_t __user *)ptr))
 					return -EFAULT;
 				ptr += sizeof(binder_uintptr_t);
-					if (put_user_preempt_disabled(node->cookie, (binder_uintptr_t __user *)
+				if (put_user_preempt_disabled(node->cookie, (binder_uintptr_t __user *)
 					     (binder_uintptr_t __user *)ptr))
 					return -EFAULT;
 				ptr += sizeof(binder_uintptr_t);
@@ -2923,7 +2925,7 @@ retry:
 				cmd = BR_CLEAR_DEATH_NOTIFICATION_DONE;
 			else
 				cmd = BR_DEAD_BINDER;
-				if (put_user_preempt_disabled(cmd, (uint32_t __user *) ptr))
+			if (put_user_preempt_disabled(cmd, (uint32_t __user *) ptr))
 				return -EFAULT;
 			ptr += sizeof(uint32_t);
 			if (put_user_preempt_disabled(death->cookie, (binder_uintptr_t __user *) ptr))
@@ -3434,7 +3436,7 @@ static int binder_mmap(struct file *filp, struct vm_area_struct *vma)
 	const char *failure_string;
 	struct binder_buffer *buffer;
 
-	if (proc->tsk != current)
+	if (proc->tsk != current->group_leader)
 		return -EINVAL;
 
 	if ((vma->vm_end - vma->vm_start) > SZ_4M)
@@ -3540,9 +3542,9 @@ static int binder_open(struct inode *nodp, struct file *filp)
 	proc = kzalloc(sizeof(*proc), GFP_KERNEL);
 	if (proc == NULL)
 		return -ENOMEM;
-	get_task_struct(current);
-	proc->tsk = current;
-	proc->vma_vm_mm = current->mm;
+	get_task_struct(current->group_leader);
+	proc->tsk = current->group_leader;
+	proc->vma_vm_mm = current->group_leader->mm;
 	INIT_LIST_HEAD(&proc->todo);
 	init_waitqueue_head(&proc->wait);
 	proc->default_priority = task_nice(current);

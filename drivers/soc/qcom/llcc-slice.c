@@ -44,13 +44,12 @@
 
 #define CACHE_LINE_SIZE_SHIFT 6
 #define SIZE_PER_LLCC_SHIFT   2
+
 #define MAX_CAP_TO_BYTES(n) (n * 1024)
 #define LLCC_TRP_ACT_CTRLn(n) (n * 0x1000)
 #define LLCC_TRP_STATUSn(n)   (4 + n * 0x1000)
 #define LLCC_TRP_ATTR0_CFGn(n) (0x21000 + 0x8 * n)
 #define LLCC_TRP_ATTR1_CFGn(n) (0x21004 + 0x8 * n)
-#define LLCC_TRP_PCB_ACT       0x23204
-#define LLCC_TRP_SCID_DIS_CAP_ALLOC 0x23200
 
 /**
  * Driver data for llcc
@@ -65,6 +64,7 @@ struct llcc_drv_data {
 	struct mutex slice_mutex;
 	u32 llcc_config_data_sz;
 	u32 max_slices;
+	u32 b_off;
 	unsigned long *llcc_slice_map;
 };
 
@@ -174,8 +174,8 @@ static int llcc_update_act_ctrl(struct llcc_drv_data *drv, u32 sid,
 	u32 slice_status;
 	unsigned long timeout;
 
-	act_ctrl_reg = LLCC_TRP_ACT_CTRLn(sid);
-	status_reg = LLCC_TRP_STATUSn(sid);
+	act_ctrl_reg = drv->b_off + LLCC_TRP_ACT_CTRLn(sid);
+	status_reg = drv->b_off + LLCC_TRP_STATUSn(sid);
 
 	regmap_write(drv->llcc_map, act_ctrl_reg, act_ctrl_reg_val);
 
@@ -320,20 +320,19 @@ static void qcom_llcc_cfg_program(struct platform_device *pdev)
 	u32 attr0_cfg;
 	u32 attr1_val;
 	u32 attr0_val;
-	u32 pcb = 0;
-	u32 cad = 0;
 	u32 max_cap_cacheline;
 	u32 sz;
 	const struct llcc_slice_config *llcc_table;
 	struct llcc_drv_data *drv = platform_get_drvdata(pdev);
 	struct llcc_slice_desc desc;
+	u32 b_off = drv->b_off;
 
 	sz = drv->llcc_config_data_sz;
 	llcc_table = drv->slice_data;
 
 	for (i = 0; i < sz; i++) {
-		attr1_cfg = LLCC_TRP_ATTR1_CFGn(llcc_table[i].slice_id);
-		attr0_cfg = LLCC_TRP_ATTR0_CFGn(llcc_table[i].slice_id);
+		attr1_cfg = b_off + LLCC_TRP_ATTR1_CFGn(llcc_table[i].slice_id);
+		attr0_cfg = b_off + LLCC_TRP_ATTR0_CFGn(llcc_table[i].slice_id);
 
 		attr1_val = llcc_table[i].cache_mode;
 		attr1_val |= (llcc_table[i].probe_target_ways <<
@@ -357,14 +356,6 @@ static void qcom_llcc_cfg_program(struct platform_device *pdev)
 
 		regmap_write(drv->llcc_map, attr1_cfg, attr1_val);
 		regmap_write(drv->llcc_map, attr0_cfg, attr0_val);
-
-		/* Write the retain on power collapse bit for each scid */
-		pcb |= llcc_table[i].retain_on_pc << llcc_table[i].slice_id;
-		regmap_write(drv->llcc_map, LLCC_TRP_PCB_ACT, pcb);
-
-		/* Disable capacity alloc */
-		cad |= llcc_table[i].dis_cap_alloc << llcc_table[i].slice_id;
-		regmap_write(drv->llcc_map, LLCC_TRP_SCID_DIS_CAP_ALLOC, cad);
 
 		/* Make sure that the SCT is programmed before activating */
 		mb();
@@ -398,7 +389,15 @@ int qcom_llcc_probe(struct platform_device *pdev,
 	rc = of_property_read_u32(pdev->dev.of_node, "max-slices",
 				  &drv_data->max_slices);
 	if (rc) {
-		dev_info(&pdev->dev, "Invalid max-slices dt entry\n");
+		dev_err(&pdev->dev, "Invalid max-slices dt entry\n");
+		devm_kfree(&pdev->dev, drv_data);
+		return rc;
+	}
+
+	rc = of_property_read_u32(pdev->dev.parent->of_node,
+			"qcom,llcc-broadcast-off", &drv_data->b_off);
+	if (rc) {
+		dev_err(&pdev->dev, "Invalid qcom,broadcast-off entry\n");
 		devm_kfree(&pdev->dev, drv_data);
 		return rc;
 	}

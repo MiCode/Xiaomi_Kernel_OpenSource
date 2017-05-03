@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, 2017 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -153,27 +153,27 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_voice *voice;
 
-	if (!strcmp("VoLTE", substream->pcm->id)) {
+	if (!strncmp("VoLTE", substream->pcm->id, 5)) {
 		voice = &voice_info[VOLTE_SESSION_INDEX];
 		pr_debug("%s: Open VoLTE Substream Id=%s\n",
 			 __func__, substream->pcm->id);
-	} else if (!strcmp("Voice2", substream->pcm->id)) {
+	} else if (!strncmp("Voice2", substream->pcm->id, 6)) {
 		voice = &voice_info[VOICE2_SESSION_INDEX];
 		pr_debug("%s: Open Voice2 Substream Id=%s\n",
 			 __func__, substream->pcm->id);
-	} else if (!strcmp("QCHAT", substream->pcm->id)) {
+	} else if (!strncmp("QCHAT", substream->pcm->id, 5)) {
 		voice = &voice_info[QCHAT_SESSION_INDEX];
 		pr_debug("%s: Open QCHAT Substream Id=%s\n",
 			 __func__, substream->pcm->id);
-	} else if (!strcmp("VoWLAN", substream->pcm->id)) {
+	} else if (!strncmp("VoWLAN", substream->pcm->id, 6)) {
 		voice = &voice_info[VOWLAN_SESSION_INDEX];
 		pr_debug("%s: Open VoWLAN Substream Id=%s\n",
 			 __func__, substream->pcm->id);
-	} else if (!strcmp("VoiceMMode1", substream->pcm->id)) {
+	} else if (!strncmp("VoiceMMode1", substream->pcm->id, 11)) {
 		voice = &voice_info[VOICEMMODE1_INDEX];
 		pr_debug("%s: Open VoiceMMode1 Substream Id=%s\n",
 			 __func__, substream->pcm->id);
-	} else if (!strcmp("VoiceMMode2", substream->pcm->id)) {
+	} else if (!strncmp("VoiceMMode2", substream->pcm->id, 11)) {
 		voice = &voice_info[VOICEMMODE2_INDEX];
 		pr_debug("%s: Open VoiceMMode2 Substream Id=%s\n",
 			 __func__, substream->pcm->id);
@@ -388,6 +388,33 @@ static int msm_pcm_ioctl(struct snd_pcm_substream *substream,
 		pr_err("%s: cmd 0x%x failed %d\n", __func__, cmd, ret);
 
 	return ret;
+}
+
+static int msm_voice_sidetone_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int ret;
+	long value = ucontrol->value.integer.value[0];
+	bool sidetone_enable = value;
+	uint32_t session_id = ALL_SESSION_VSID;
+
+	if (value < 0) {
+		pr_err("%s: Invalid arguments sidetone enable %ld\n",
+			 __func__, value);
+		ret = -EINVAL;
+		return ret;
+	}
+	ret = voc_set_afe_sidetone(session_id, sidetone_enable);
+	pr_debug("%s: AFE Sidetone enable=%d session_id=0x%x ret=%d\n",
+		 __func__, sidetone_enable, session_id, ret);
+	return ret;
+}
+
+static int msm_voice_sidetone_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = voc_get_afe_sidetone();
+	return 0;
 }
 
 static int msm_voice_gain_put(struct snd_kcontrol *kcontrol,
@@ -632,6 +659,8 @@ static struct snd_kcontrol_new msm_voice_controls[] = {
 		.info	= msm_voice_cvd_version_info,
 		.get	= msm_voice_cvd_version_get,
 	},
+	SOC_SINGLE_MULTI_EXT("Voice Sidetone Enable", SND_SOC_NOPM, 0, 1, 0, 1,
+			     msm_voice_sidetone_get, msm_voice_sidetone_put),
 };
 
 static const struct snd_pcm_ops msm_pcm_ops = {

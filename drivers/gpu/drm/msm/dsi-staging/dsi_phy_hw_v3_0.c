@@ -159,7 +159,7 @@ static void dsi_phy_hw_v3_0_lane_settings(struct dsi_phy_hw *phy,
 			    struct dsi_phy_cfg *cfg)
 {
 	int i;
-	u8 tx_dctrl[] = {0x00, 0x00, 0x00, 0x02, 0x01};
+	u8 tx_dctrl[] = {0x00, 0x00, 0x00, 0x04, 0x01};
 
 	/* Strength ctrl settings */
 	for (i = DSI_LOGICAL_LANE_0; i < DSI_LANE_MAX; i++) {
@@ -186,6 +186,10 @@ static void dsi_phy_hw_v3_0_lane_settings(struct dsi_phy_hw *phy,
 		DSI_W32(phy, DSIPHY_LNX_OFFSET_BOT_CTRL(i), 0x0);
 		DSI_W32(phy, DSIPHY_LNX_TX_DCTRL(i), tx_dctrl[i]);
 	}
+
+	/* Toggle BIT 0 to release freeze I/0 */
+	DSI_W32(phy, DSIPHY_LNX_TX_DCTRL(3), 0x05);
+	DSI_W32(phy, DSIPHY_LNX_TX_DCTRL(3), 0x04);
 }
 
 /**
@@ -417,6 +421,14 @@ u32 dsi_phy_hw_v3_0_get_lanes_in_ulps(struct dsi_phy_hw *phy)
 	lanes = DSI_R32(phy, DSIPHY_CMN_LANE_STATUS0);
 	pr_debug("[DSI_PHY%d] lanes in ulps = 0x%x\n", phy->index, lanes);
 	return lanes;
+}
+
+bool dsi_phy_hw_v3_0_is_lanes_in_ulps(u32 lanes, u32 ulps_lanes)
+{
+	if (lanes & ulps_lanes)
+		return false;
+
+	return true;
 }
 
 int dsi_phy_hw_timing_val_v3_0(struct dsi_phy_per_lane_cfgs *timing_cfg,

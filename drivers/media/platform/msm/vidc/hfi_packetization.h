@@ -18,9 +18,9 @@
 #include "vidc_hfi.h"
 #include "vidc_hfi_api.h"
 
-#define call_hfi_pkt_op(q, op, args...)			\
+#define call_hfi_pkt_op(q, op, ...)			\
 	(((q) && (q)->pkt_ops && (q)->pkt_ops->op) ?	\
-	((q)->pkt_ops->op(args)) : 0)
+	((q)->pkt_ops->op(__VA_ARGS__)) : 0)
 
 enum hfi_packetization_type {
 	HFI_PACKETIZATION_4XX,

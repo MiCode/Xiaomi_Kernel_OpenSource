@@ -400,6 +400,24 @@ done:
 	return;
 }
 
+void rtac_update_afe_topology(u32 port_id)
+{
+	u32 i = 0;
+
+	mutex_lock(&rtac_adm_mutex);
+	for (i = 0; i < rtac_adm_data.num_of_dev; i++) {
+		if (rtac_adm_data.device[i].afe_port == port_id) {
+			rtac_adm_data.device[i].afe_topology =
+						afe_get_topology(port_id);
+			pr_debug("%s: port_id = 0x%x topology_id = 0x%x copp_id = %d\n",
+				 __func__, port_id,
+				 rtac_adm_data.device[i].afe_topology,
+				 rtac_adm_data.device[i].copp);
+		}
+	}
+	mutex_unlock(&rtac_adm_mutex);
+}
+
 void rtac_add_adm_device(u32 port_id, u32 copp_id, u32 path_id, u32 popp_id,
 			 u32 app_type, u32 acdb_id)
 {
@@ -1496,7 +1514,7 @@ int send_voice_apr(u32 mode, void *buf, u32 opcode)
 		goto err;
 	}
 
-	if (opcode == VOICE_CMD_SET_PARAM) {
+	if (opcode == VSS_ICOMMON_CMD_SET_PARAM_V2) {
 		/* set payload size to in-band payload */
 		/* set data size to actual out of band payload size */
 		data_size = payload_size - 4 * sizeof(u32);
@@ -1549,7 +1567,9 @@ int send_voice_apr(u32 mode, void *buf, u32 opcode)
 	voice_params.dest_svc = 0;
 	voice_params.dest_domain = APR_DOMAIN_MODEM;
 	voice_params.dest_port = (u16)dest_port;
-	voice_params.token = 0;
+	voice_params.token = (opcode == VSS_ICOMMON_CMD_SET_PARAM_V2) ?
+				     VOC_RTAC_SET_PARAM_TOKEN :
+				     0;
 	voice_params.opcode = opcode;
 
 	/* fill for out-of-band */
@@ -1594,7 +1614,7 @@ int send_voice_apr(u32 mode, void *buf, u32 opcode)
 		goto err;
 	}
 
-	if (opcode == VOICE_CMD_GET_PARAM) {
+	if (opcode == VSS_ICOMMON_CMD_GET_PARAM_V2) {
 		bytes_returned = ((u32 *)rtac_cal[VOICE_RTAC_CAL].cal_data.
 			kvaddr)[2] + 3 * sizeof(u32);
 
@@ -1686,20 +1706,20 @@ static long rtac_ioctl_shared(struct file *f,
 			ASM_STREAM_CMD_SET_PP_PARAMS_V2);
 		break;
 	case AUDIO_GET_RTAC_CVS_CAL:
-		result = send_voice_apr(RTAC_CVS, (void *)arg,
-			VOICE_CMD_GET_PARAM);
+		result = send_voice_apr(RTAC_CVS, (void *) arg,
+					VSS_ICOMMON_CMD_GET_PARAM_V2);
 		break;
 	case AUDIO_SET_RTAC_CVS_CAL:
-		result = send_voice_apr(RTAC_CVS, (void *)arg,
-			VOICE_CMD_SET_PARAM);
+		result = send_voice_apr(RTAC_CVS, (void *) arg,
+					VSS_ICOMMON_CMD_SET_PARAM_V2);
 		break;
 	case AUDIO_GET_RTAC_CVP_CAL:
-		result = send_voice_apr(RTAC_CVP, (void *)arg,
-			VOICE_CMD_GET_PARAM);
+		result = send_voice_apr(RTAC_CVP, (void *) arg,
+					VSS_ICOMMON_CMD_GET_PARAM_V2);
 		break;
 	case AUDIO_SET_RTAC_CVP_CAL:
-		result = send_voice_apr(RTAC_CVP, (void *)arg,
-			VOICE_CMD_SET_PARAM);
+		result = send_voice_apr(RTAC_CVP, (void *) arg,
+					VSS_ICOMMON_CMD_SET_PARAM_V2);
 		break;
 	case AUDIO_GET_RTAC_AFE_CAL:
 		result = send_rtac_afe_apr((void *)arg,

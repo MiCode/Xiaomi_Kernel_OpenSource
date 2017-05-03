@@ -16,6 +16,10 @@ Required properties:
   Should be "active" and "sleep" for the pin confuguration when core is active
   or when entering sleep state.
 
+Optional properties:
+- qcom,bus-mas: contains the bus master id needed to put in bus bandwidth votes
+		for inter-connect buses.
+
 Example:
 qupv3_uart11: qcom,qup_uart@0xa88000 {
 	compatible = "qcom,msm-geni-uart";
@@ -29,4 +33,5 @@ qupv3_uart11: qcom,qup_uart@0xa88000 {
 	pinctrl-0 = <&qup_1_uart_3_active>;
 	pinctrl-1 = <&qup_1_uart_3_sleep>;
 	interrupts = <0 355 0>;
+	qcom,bus-mas = <MASTER_BLSP_2>;
 };

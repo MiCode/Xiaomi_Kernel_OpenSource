@@ -165,6 +165,7 @@ struct _mmc_csd {
  * OCR bits are mostly in host.h
  */
 #define MMC_CARD_BUSY	0x80000000	/* Card Power up status bit */
+#define MMC_CARD_SECTOR_ADDR 0x40000000 /* Card supports sectors */
 
 /*
  * Card Command Classes (CCC)
@@ -214,6 +215,8 @@ struct _mmc_csd {
  * EXT_CSD fields
  */
 
+#define EXT_CSD_CMDQ			15	/* R/W */
+#define EXT_CSD_BARRIER_CTRL		31      /* R/W */
 #define EXT_CSD_FLUSH_CACHE		32      /* W */
 #define EXT_CSD_CACHE_CTRL		33      /* R/W */
 #define EXT_CSD_POWER_OFF_NOTIFICATION	34	/* R/W */
@@ -267,12 +270,19 @@ struct _mmc_csd {
 #define EXT_CSD_PWR_CL_200_360		237	/* RO */
 #define EXT_CSD_PWR_CL_DDR_52_195	238	/* RO */
 #define EXT_CSD_PWR_CL_DDR_52_360	239	/* RO */
+#define EXT_CSD_CACHE_FLUSH_POLICY	240	/* RO */
 #define EXT_CSD_BKOPS_STATUS		246	/* RO */
 #define EXT_CSD_POWER_OFF_LONG_TIME	247	/* RO */
 #define EXT_CSD_GENERIC_CMD6_TIME	248	/* RO */
 #define EXT_CSD_CACHE_SIZE		249	/* RO, 4 bytes */
 #define EXT_CSD_PWR_CL_DDR_200_360	253	/* RO */
 #define EXT_CSD_FIRMWARE_VERSION	254	/* RO, 8 bytes */
+#define EXT_CSD_PRE_EOL_INFO		267	/* RO */
+#define EXT_CSD_DEVICE_LIFE_TIME_EST_TYP_A	268	/* RO */
+#define EXT_CSD_DEVICE_LIFE_TIME_EST_TYP_B	269	/* RO */
+#define EXT_CSD_CMDQ_DEPTH		307	/* RO */
+#define EXT_CSD_CMDQ_SUPPORT		308	/* RO */
+#define EXT_CSD_BARRIER_SUPPORT		486	/* RO */
 #define EXT_CSD_SUPPORTED_MODE		493	/* RO */
 #define EXT_CSD_TAG_UNIT_SIZE		498	/* RO */
 #define EXT_CSD_DATA_TAG_SUPPORT	499	/* RO */
@@ -285,7 +295,8 @@ struct _mmc_csd {
  * EXT_CSD field definitions
  */
 
-#define EXT_CSD_WR_REL_PARAM_EN		(1<<2)
+#define EXT_CSD_WR_REL_PARAM_EN			(1<<2)
+#define EXT_CSD_WR_REL_PARAM_EN_RPMB_REL_WR	(1<<4)
 
 #define EXT_CSD_BOOT_WP_B_PWR_WP_DIS	(0x40)
 #define EXT_CSD_BOOT_WP_B_PERM_WP_DIS	(0x10)
@@ -357,6 +368,9 @@ struct _mmc_csd {
 #define EXT_CSD_PWR_CL_4BIT_SHIFT	0
 
 #define EXT_CSD_PACKED_EVENT_EN	BIT(3)
+
+#define EXT_CSD_BKOPS_MANUAL_EN		BIT(0)
+#define EXT_CSD_BKOPS_AUTO_EN		BIT(1)
 
 /*
  * EXCEPTION_EVENT_STATUS field

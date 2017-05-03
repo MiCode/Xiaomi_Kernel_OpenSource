@@ -2245,7 +2245,8 @@ static int ipa3_q6_set_ex_path_to_apps(void)
 			reg_write.pipeline_clear_options =
 				IPAHAL_HPS_CLEAR;
 			reg_write.offset =
-				ipahal_get_reg_ofst(IPA_ENDP_STATUS_n);
+				ipahal_get_reg_n_ofst(IPA_ENDP_STATUS_n,
+					ep_idx);
 			ipahal_get_status_ep_valmask(
 				ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS),
 				&valmask);
@@ -2256,6 +2257,36 @@ static int ipa3_q6_set_ex_path_to_apps(void)
 			if (!cmd_pyld) {
 				IPAERR("fail construct register_write cmd\n");
 				BUG();
+			}
+
+			desc[num_descs].opcode = ipahal_imm_cmd_get_opcode(
+				IPA_IMM_CMD_REGISTER_WRITE);
+			desc[num_descs].type = IPA_IMM_CMD_DESC;
+			desc[num_descs].callback = ipa3_destroy_imm;
+			desc[num_descs].user1 = cmd_pyld;
+			desc[num_descs].pyld = cmd_pyld->data;
+			desc[num_descs].len = cmd_pyld->len;
+			num_descs++;
+		}
+
+		/* disable statuses for modem producers */
+		if (IPA_CLIENT_IS_Q6_PROD(client_idx)) {
+			ipa_assert_on(num_descs >= ipa3_ctx->ipa_num_pipes);
+
+			reg_write.skip_pipeline_clear = false;
+			reg_write.pipeline_clear_options =
+				IPAHAL_HPS_CLEAR;
+			reg_write.offset =
+				ipahal_get_reg_n_ofst(IPA_ENDP_STATUS_n,
+					ep_idx);
+			reg_write.value = 0;
+			reg_write.value_mask = ~0;
+			cmd_pyld = ipahal_construct_imm_cmd(
+				IPA_IMM_CMD_REGISTER_WRITE, &reg_write, false);
+			if (!cmd_pyld) {
+				IPAERR("fail construct register_write cmd\n");
+				ipa_assert();
+				return -EFAULT;
 			}
 
 			desc[num_descs].opcode = ipahal_imm_cmd_get_opcode(
@@ -2366,11 +2397,11 @@ static inline void ipa3_sram_set_canary(u32 *sram_mmio, int offset)
 }
 
 /**
- * _ipa_init_sram_v3_0() - Initialize IPA local SRAM.
+ * _ipa_init_sram_v3() - Initialize IPA local SRAM.
  *
  * Return codes: 0 for success, negative value for failure
  */
-int _ipa_init_sram_v3_0(void)
+int _ipa_init_sram_v3(void)
 {
 	u32 *ipa_sram_mmio;
 	unsigned long phys_addr;
@@ -2413,7 +2444,10 @@ int _ipa_init_sram_v3_0(void)
 		IPA_MEM_PART(modem_hdr_proc_ctx_ofst));
 	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(modem_ofst) - 4);
 	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(modem_ofst));
-	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(end_ofst));
+	ipa3_sram_set_canary(ipa_sram_mmio,
+		(ipa_get_hw_type() >= IPA_HW_v3_5) ?
+			IPA_MEM_PART(uc_event_ring_ofst) :
+			IPA_MEM_PART(end_ofst));
 
 	iounmap(ipa_sram_mmio);
 
@@ -2843,6 +2877,13 @@ static int ipa3_setup_apps_pipes(void)
 			IPAERR("ipa_gsi_ch20_wa failed %d\n", result);
 			goto fail_ch20_wa;
 		}
+	}
+
+	/* allocate the common PROD event ring */
+	if (ipa3_alloc_common_event_ring()) {
+		IPAERR("ipa3_alloc_common_event_ring failed.\n");
+		result = -EPERM;
+		goto fail_ch20_wa;
 	}
 
 	/* CMD OUT (AP->IPA) */
@@ -4056,6 +4097,7 @@ fail_register_device:
 	cdev_del(&ipa3_ctx->cdev);
 	device_destroy(ipa3_ctx->class, ipa3_ctx->dev_num);
 	unregister_chrdev_region(ipa3_ctx->dev_num, 1);
+	ipa3_free_dma_task_for_gsi();
 	ipa3_destroy_flt_tbl_idrs();
 	idr_destroy(&ipa3_ctx->ipa_idr);
 	kmem_cache_destroy(ipa3_ctx->rx_pkt_wrapper_cache);
@@ -4239,6 +4281,52 @@ static int ipa3_tz_unlock_reg(struct ipa3_context *ipa3_ctx)
 	return 0;
 }
 
+static int ipa3_alloc_pkt_init(void)
+{
+	struct ipa_mem_buffer mem;
+	struct ipahal_imm_cmd_pyld *cmd_pyld;
+	struct ipahal_imm_cmd_ip_packet_init cmd = {0};
+	int i;
+
+	cmd_pyld = ipahal_construct_imm_cmd(IPA_IMM_CMD_IP_PACKET_INIT,
+		&cmd, false);
+	if (!cmd_pyld) {
+		IPAERR("failed to construct IMM cmd\n");
+		return -ENOMEM;
+	}
+
+	mem.size = cmd_pyld->len * ipa3_ctx->ipa_num_pipes;
+	mem.base = dma_alloc_coherent(ipa3_ctx->pdev, mem.size,
+		&mem.phys_base, GFP_KERNEL);
+	if (!mem.base) {
+		IPAERR("failed to alloc DMA buff of size %d\n", mem.size);
+		ipahal_destroy_imm_cmd(cmd_pyld);
+		return -ENOMEM;
+	}
+	ipahal_destroy_imm_cmd(cmd_pyld);
+
+	memset(mem.base, 0, mem.size);
+	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
+		cmd.destination_pipe_index = i;
+		cmd_pyld = ipahal_construct_imm_cmd(IPA_IMM_CMD_IP_PACKET_INIT,
+			&cmd, false);
+		if (!cmd_pyld) {
+			IPAERR("failed to construct IMM cmd\n");
+			dma_free_coherent(ipa3_ctx->pdev,
+				mem.size,
+				mem.base,
+				mem.phys_base);
+			return -ENOMEM;
+		}
+		memcpy(mem.base + i * cmd_pyld->len, cmd_pyld->data,
+			cmd_pyld->len);
+		ipa3_ctx->pkt_init_imm[i] = mem.phys_base + i * cmd_pyld->len;
+		ipahal_destroy_imm_cmd(cmd_pyld);
+	}
+
+	return 0;
+}
+
 /**
 * ipa3_pre_init() - Initialize the IPA Driver.
 * This part contains all initialization which doesn't require IPA HW, such
@@ -4289,11 +4377,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	}
 
 	ipa3_ctx->logbuf = ipc_log_context_create(IPA_IPC_LOG_PAGES, "ipa", 0);
-	if (ipa3_ctx->logbuf == NULL) {
-		IPAERR("failed to get logbuf\n");
-		result = -ENOMEM;
-		goto fail_logbuf;
-	}
+	if (ipa3_ctx->logbuf == NULL)
+		IPAERR("failed to create IPC log, continue...\n");
 
 	ipa3_ctx->pdev = ipa_dev;
 	ipa3_ctx->uc_pdev = ipa_dev;
@@ -4553,6 +4638,13 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_rx_pkt_wrapper_cache;
 	}
 
+	/* allocate memory for DMA_TASK workaround */
+	result = ipa3_allocate_dma_task_for_gsi();
+	if (result) {
+		IPAERR("failed to allocate dma task\n");
+		goto fail_dma_task;
+	}
+
 	/* init the various list heads */
 	INIT_LIST_HEAD(&ipa3_ctx->hdr_tbl.head_hdr_entry_list);
 	for (i = 0; i < IPA_HDR_BIN_MAX; i++) {
@@ -4648,6 +4740,13 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_create_apps_resource;
 	}
 
+	result = ipa3_alloc_pkt_init();
+	if (result) {
+		IPAERR("Failed to alloc pkt_init payload\n");
+		result = -ENODEV;
+		goto fail_create_apps_resource;
+	}
+
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5)
 		ipa3_enable_dcd();
 
@@ -4686,6 +4785,8 @@ fail_cdev_add:
 fail_device_create:
 	unregister_chrdev_region(ipa3_ctx->dev_num, 1);
 fail_alloc_chrdev_region:
+	ipa3_free_dma_task_for_gsi();
+fail_dma_task:
 	idr_destroy(&ipa3_ctx->ipa_idr);
 	kmem_cache_destroy(ipa3_ctx->rx_pkt_wrapper_cache);
 fail_rx_pkt_wrapper_cache:
@@ -4732,8 +4833,8 @@ fail_bind:
 fail_mem_ctrl:
 	kfree(ipa3_ctx->ipa_tz_unlock_reg);
 fail_tz_unlock_reg:
-	ipc_log_context_destroy(ipa3_ctx->logbuf);
-fail_logbuf:
+	if (ipa3_ctx->logbuf)
+		ipc_log_context_destroy(ipa3_ctx->logbuf);
 	kfree(ipa3_ctx);
 	ipa3_ctx = NULL;
 fail_mem_ctx:
@@ -5430,13 +5531,6 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 		return result;
 	}
 
-	result = of_platform_populate(pdev_p->dev.of_node,
-		pdrv_match, NULL, &pdev_p->dev);
-	if (result) {
-		IPAERR("failed to populate platform\n");
-		return result;
-	}
-
 	if (of_property_read_bool(pdev_p->dev.of_node, "qcom,arm-smmu")) {
 		if (of_property_read_bool(pdev_p->dev.of_node,
 		    "qcom,smmu-s1-bypass"))
@@ -5480,6 +5574,13 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 			IPAERR("ipa3_init failed\n");
 			return result;
 		}
+	}
+
+	result = of_platform_populate(pdev_p->dev.of_node,
+		pdrv_match, NULL, &pdev_p->dev);
+	if (result) {
+		IPAERR("failed to populate platform\n");
+		return result;
 	}
 
 	return result;

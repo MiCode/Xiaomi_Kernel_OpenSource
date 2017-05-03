@@ -42,6 +42,8 @@ struct param_outband {
 #define ADM_MATRIX_ID_AUDIO_TX              1
 
 #define ADM_MATRIX_ID_COMPRESSED_AUDIO_RX   2
+
+#define ADM_MATRIX_ID_LISTEN_TX             4
 /* Enumeration for an audio Tx matrix ID.*/
 #define ADM_MATRIX_ID_AUDIOX              1
 
@@ -95,6 +97,16 @@ struct adm_cmd_matrix_map_routings_v5 {
  * #ADM_CMDRSP_DEVICE_OPEN_V5 with the resulting status and COPP ID.
  */
 #define ADM_CMD_DEVICE_OPEN_V5                          0x00010326
+
+/* This command allows a client to open a COPP/Voice Proc the
+ *	way as ADM_CMD_DEVICE_OPEN_V5 but supports multiple endpoint2
+ *	channels.
+ *
+ *	@return
+ *	#ADM_CMDRSP_DEVICE_OPEN_V6 with the resulting status and
+ *	COPP ID.
+ */
+#define ADM_CMD_DEVICE_OPEN_V6                      0x00010356
 
 /* Definition for a low latency stream session. */
 #define ADM_LOW_LATENCY_DEVICE_SESSION			0x2000
@@ -251,6 +263,129 @@ struct adm_cmd_device_open_v5 {
  */
 } __packed;
 
+/*  ADM device open command payload of the
+ *  #ADM_CMD_DEVICE_OPEN_V6 command.
+ */
+struct adm_cmd_device_open_v6 {
+	struct apr_hdr		hdr;
+	u16                  flags;
+/* Reserved for future use. Clients must set this field
+ * to zero.
+ */
+
+	u16                  mode_of_operation;
+/* Specifies whether the COPP must be opened on the Tx or Rx
+ * path. Use the ADM_CMD_COPP_OPEN_MODE_OF_OPERATION_* macros for
+ * supported values and interpretation.
+ * Supported values:
+ * - 0x1 -- Rx path COPP
+ * - 0x2 -- Tx path live COPP
+ * - 0x3 -- Tx path nonlive COPP
+ * Live connections cause sample discarding in the Tx device
+ * matrix if the destination output ports do not pull them
+ * fast enough. Nonlive connections queue the samples
+ * indefinitely.
+ */
+
+	u16                  endpoint_id_1;
+/* Logical and physical endpoint ID of the audio path.
+ * If the ID is a voice processor Tx block, it receives near
+ * samples.	Supported values: Any pseudoport, AFE Rx port,
+ * or AFE Tx port For a list of valid IDs, refer to
+ * @xhyperref{Q4,[Q4]}.
+ * Q4 = Hexagon Multimedia: AFE Interface Specification
+ */
+
+	u16                  endpoint_id_2;
+/* Logical and physical endpoint ID 2 for a voice processor
+ * Tx block.
+ * This is not applicable to audio COPP.
+ * Supported values:
+ * - AFE Rx port
+ * - 0xFFFF -- Endpoint 2 is unavailable and the voice
+ * processor Tx
+ * block ignores this endpoint
+ * When the voice processor Tx block is created on the audio
+ * record path,
+ * it can receive far-end samples from an AFE Rx port if the
+ * voice call
+ * is active. The ID of the AFE port is provided in this
+ * field.
+ * For a list of valid IDs, refer @xhyperref{Q4,[Q4]}.
+ */
+
+	u32                  topology_id;
+/* Audio COPP topology ID; 32-bit GUID. */
+
+	u16                  dev_num_channel;
+/* Number of channels the audio COPP sends to/receives from
+ * the endpoint.
+ * Supported values: 1 to 8.
+ * The value is ignored for the voice processor Tx block,
+ * where channel
+ * configuration is derived from the topology ID.
+ */
+
+	u16                  bit_width;
+/* Bit width (in bits) that the audio COPP sends to/receives
+ * from the
+ * endpoint. The value is ignored for the voice processing
+ * Tx block,
+ * where the PCM width is 16 bits.
+ */
+
+	u32                  sample_rate;
+/* Sampling rate at which the audio COPP/voice processor
+ * Tx block
+ * interfaces with the endpoint.
+ * Supported values for voice processor Tx: 8000, 16000,
+ * 48000 Hz
+ * Supported values for audio COPP: >0 and <=192 kHz
+ */
+
+	u8                   dev_channel_mapping[8];
+/* Array of channel mapping of buffers that the audio COPP
+ * sends to the endpoint. Channel[i] mapping describes channel
+ * I inside the buffer, where 0 < i < dev_num_channel.
+ * This value is relevant only for an audio Rx COPP.
+ * For the voice processor block and Tx audio block, this field
+ * is set to zero and is ignored.
+ */
+
+	u16                  dev_num_channel_eid2;
+/* Number of channels the voice processor block sends
+ * to/receives from the endpoint2.
+ * Supported values: 1 to 8.
+ * The value is ignored for audio COPP or if endpoint_id_2 is
+ * set to 0xFFFF.
+ */
+
+	u16                  bit_width_eid2;
+/* Bit width (in bits) that the voice processor sends
+ * to/receives from the endpoint2.
+ * Supported values: 16 and 24.
+ * The value is ignored for audio COPP or if endpoint_id_2 is
+ * set to 0xFFFF.
+ */
+
+	u32                  sample_rate_eid2;
+/* Sampling rate at which the voice processor Tx block
+ * interfaces with the endpoint2.
+ * Supported values for Tx voice processor: >0 and <=384 kHz
+ * The value is ignored for audio COPP or if endpoint_id_2 is
+ * set to 0xFFFF.
+ */
+
+	u8                   dev_channel_mapping_eid2[8];
+/* Array of channel mapping of buffers that the voice processor
+ * sends to the endpoint. Channel[i] mapping describes channel
+ * I inside the buffer, where 0 < i < dev_num_channel.
+ * This value is relevant only for the Tx voice processor.
+ * The values are ignored for audio COPP or if endpoint_id_2 is
+ * set to 0xFFFF.
+ */
+} __packed;
+
 /*
  *	This command allows the client to close a COPP and disconnect
  *	the device session.
@@ -368,6 +503,15 @@ struct adm_cmd_rsp_device_open_v5 {
 	u16                  reserved;
 	/* Reserved. This field must be set to zero.*/
 } __packed;
+
+/* Returns the status and COPP ID to an #ADM_CMD_DEVICE_OPEN_V6 command. */
+#define ADM_CMDRSP_DEVICE_OPEN_V6                      0x00010357
+
+/*  Payload of the #ADM_CMDRSP_DEVICE_OPEN_V6 message,
+ *	which returns the
+ *	status and COPP ID to an #ADM_CMD_DEVICE_OPEN_V6 command
+ *	is the exact same as ADM_CMDRSP_DEVICE_OPEN_V5.
+ */
 
 /* This command allows a query of one COPP parameter. */
 #define ADM_CMD_GET_PP_PARAMS_V5                                0x0001032A
@@ -1204,6 +1348,8 @@ struct afe_mod_enable_param {
  * #AFE_MODULE_SIDETONE_IIR_FILTER module.
  */
 #define AFE_PARAM_ID_SIDETONE_IIR_FILTER_CONFIG	0x00010204
+#define MAX_SIDETONE_IIR_DATA_SIZE 224
+#define MAX_NO_IIR_FILTER_STAGE    10
 
 struct afe_sidetone_iir_filter_config_params {
 	u16                  num_biquad_stages;
@@ -1215,6 +1361,7 @@ struct afe_sidetone_iir_filter_config_params {
 /* Pregain for the compensating filter response.
  * Supported values: Any number in Q13 format
  */
+	uint8_t   iir_config[MAX_SIDETONE_IIR_DATA_SIZE];
 } __packed;
 
 #define AFE_MODULE_LOOPBACK	0x00010205
@@ -1365,6 +1512,55 @@ struct afe_loopback_cfg_v1 {
 
 } __packed;
 
+struct afe_loopback_sidetone_gain {
+	u16                  rx_port_id;
+	u16                  gain;
+} __packed;
+
+struct loopback_cfg_data {
+	u32                  loopback_cfg_minor_version;
+/* Minor version used for tracking the version of the RMC module
+ * configuration interface.
+ * Supported values: #AFE_API_VERSION_LOOPBACK_CONFIG
+ */
+	u16                  dst_port_id;
+	/* Destination Port Id. */
+	u16                  routing_mode;
+/* Specifies data path type from src to dest port.
+ * Supported values:
+ * #LB_MODE_DEFAULT
+ * #LB_MODE_SIDETONE
+ * #LB_MODE_EC_REF_VOICE_AUDIO
+ * #LB_MODE_EC_REF_VOICE_A
+ * #LB_MODE_EC_REF_VOICE
+ */
+
+	u16                  enable;
+/* Specifies whether to enable (1) or
+ * disable (0) an AFE loopback.
+ */
+	u16                  reserved;
+/* Reserved for 32-bit alignment. This field must be set to 0.
+ */
+} __packed;
+
+struct afe_st_loopback_cfg_v1 {
+	struct apr_hdr                    hdr;
+	struct afe_port_cmd_set_param_v2  param;
+	struct afe_port_param_data_v2     gain_pdata;
+	struct afe_loopback_sidetone_gain gain_data;
+	struct afe_port_param_data_v2     cfg_pdata;
+	struct loopback_cfg_data          cfg_data;
+} __packed;
+
+struct afe_loopback_iir_cfg_v2 {
+	struct apr_hdr                          hdr;
+	struct afe_port_cmd_set_param_v2        param;
+	struct afe_port_param_data_v2           st_iir_enable_pdata;
+	struct afe_mod_enable_param             st_iir_mode_enable_data;
+	struct afe_port_param_data_v2           st_iir_filter_config_pdata;
+	struct afe_sidetone_iir_filter_config_params st_iir_filter_config_data;
+} __packed;
 #define AFE_MODULE_SPEAKER_PROTECTION	0x00010209
 #define AFE_PARAM_ID_SPKR_PROT_CONFIG	0x0001020a
 #define AFE_API_VERSION_SPKR_PROT_CONFIG	0x1
@@ -1619,11 +1815,14 @@ struct afe_port_data_cmd_rt_proxy_port_read_v2 {
 #define AFE_PORT_SAMPLE_RATE_16K          16000
 #define AFE_PORT_SAMPLE_RATE_48K          48000
 #define AFE_PORT_SAMPLE_RATE_96K          96000
+#define AFE_PORT_SAMPLE_RATE_176P4K       176400
 #define AFE_PORT_SAMPLE_RATE_192K         192000
+#define AFE_PORT_SAMPLE_RATE_352P8K       352800
 #define AFE_LINEAR_PCM_DATA				0x0
 #define AFE_NON_LINEAR_DATA				0x1
 #define AFE_LINEAR_PCM_DATA_PACKED_60958 0x2
 #define AFE_NON_LINEAR_DATA_PACKED_60958 0x3
+#define AFE_GENERIC_COMPRESSED           0x8
 
 /* This param id is used to configure I2S interface */
 #define AFE_PARAM_ID_I2S_CONFIG	0x0001020D
@@ -2265,6 +2464,13 @@ struct afe_param_id_slimbus_cfg {
  */
 #define AFE_PARAM_ID_USB_AUDIO_DEV_PARAMS    0x000102A5
 
+
+/* ID of the parameter used to set the endianness value for the
+ * USB audio device. It should be used with
+ * AFE_MODULE_AUDIO_DEV_INTERFACE
+ */
+#define AFE_PARAM_ID_USB_AUDIO_DEV_LPCM_FMT 0x000102AA
+
 /* Minor version used for tracking USB audio  configuration */
 #define AFE_API_MINIOR_VERSION_USB_AUDIO_CONFIG 0x1
 
@@ -2278,6 +2484,15 @@ struct afe_param_id_usb_audio_dev_params {
 	u32                  cfg_minor_version;
 /* Token of actual end USB aduio device */
 	u32                  dev_token;
+} __packed;
+
+struct afe_param_id_usb_audio_dev_lpcm_fmt {
+/* Minor version used for tracking USB audio device parameter.
+ * Supported values: AFE_API_MINIOR_VERSION_USB_AUDIO_CONFIG
+ */
+	u32                  cfg_minor_version;
+/* Endianness of actual end USB audio device */
+	u32                  endian;
 } __packed;
 
 /* ID of the parameter used by AFE_PARAM_ID_USB_AUDIO_CONFIG to configure
@@ -2324,13 +2539,18 @@ struct afe_param_id_usb_audio_cfg {
 	u16                  reserved;
 /* device token of actual end USB aduio device */
 	u32                  dev_token;
+/* endianness of this interface */
+	u32                   endian;
 } __packed;
 
 struct afe_usb_audio_dev_param_command {
 	struct apr_hdr hdr;
 	struct afe_port_cmd_set_param_v2 param;
 	struct afe_port_param_data_v2    pdata;
-	struct afe_param_id_usb_audio_dev_params usb_dev;
+	union {
+		struct afe_param_id_usb_audio_dev_params usb_dev;
+		struct afe_param_id_usb_audio_dev_lpcm_fmt lpcm_fmt;
+	};
 } __packed;
 
 /* This param id is used to configure Real Time Proxy interface. */
@@ -2528,7 +2748,9 @@ struct afe_param_id_tdm_cfg {
 	 * - #AFE_PORT_SAMPLE_RATE_16K
 	 * - #AFE_PORT_SAMPLE_RATE_24K
 	 * - #AFE_PORT_SAMPLE_RATE_32K
-	 * - #AFE_PORT_SAMPLE_RATE_48K @tablebulletend
+	 * - #AFE_PORT_SAMPLE_RATE_48K
+	 * - #AFE_PORT_SAMPLE_RATE_176P4K
+	 * - #AFE_PORT_SAMPLE_RATE_352P8K @tablebulletend
 	 */
 
 	u32	bit_width;
@@ -2537,10 +2759,11 @@ struct afe_param_id_tdm_cfg {
 	 */
 
 	u16	data_format;
-	/* < Data format: linear and compressed
+	/* < Data format: linear ,compressed, generic compresssed
 	 * @values
 	 * - #AFE_LINEAR_PCM_DATA
-	 * - #AFE_NON_LINEAR_DATA @tablebulletend
+	 * - #AFE_NON_LINEAR_DATA
+	 * - #AFE_GENERIC_COMPRESSED
 	 */
 
 	u16	sync_mode;
@@ -3419,7 +3642,7 @@ struct afe_lpass_core_shared_clk_config_command {
 #define DEFAULT_COPP_TOPOLOGY				0x00010314
 #define DEFAULT_POPP_TOPOLOGY				0x00010BE4
 #define COMPRESSED_PASSTHROUGH_DEFAULT_TOPOLOGY         0x0001076B
-#define COMPRESS_PASSTHROUGH_NONE_TOPOLOGY      0x00010774
+#define COMPRESSED_PASSTHROUGH_NONE_TOPOLOGY            0x00010774
 #define VPM_TX_SM_ECNS_COPP_TOPOLOGY			0x00010F71
 #define VPM_TX_DM_FLUENCE_COPP_TOPOLOGY			0x00010F72
 #define VPM_TX_QMIC_FLUENCE_COPP_TOPOLOGY		0x00010F75
@@ -3725,6 +3948,8 @@ struct asm_softvolume_params {
 
 #define ASM_MEDIA_FMT_EVRCWB_FS 0x00010BF0
 
+#define ASM_MEDIA_FMT_GENERIC_COMPRESSED  0x00013212
+
 #define ASM_MAX_EQ_BANDS 12
 
 #define ASM_DATA_CMD_MEDIA_FMT_UPDATE_V2 0x00010D98
@@ -3733,6 +3958,40 @@ struct asm_data_cmd_media_fmt_update_v2 {
 u32                    fmt_blk_size;
 	/* Media format block size in bytes.*/
 }  __packed;
+
+struct asm_generic_compressed_fmt_blk_t {
+	struct apr_hdr hdr;
+	struct asm_data_cmd_media_fmt_update_v2 fmt_blk;
+
+	/*
+	 * Channel mapping array of bitstream output.
+	 * Channel[i] mapping describes channel i inside the buffer, where
+	 * i < num_channels. All valid used channels must be
+	 * present at the beginning of the array.
+	 */
+	uint8_t channel_mapping[8];
+
+	/*
+	 * Number of channels of the incoming bitstream.
+	 * Supported values: 1,2,3,4,5,6,7,8
+	 */
+	uint16_t num_channels;
+
+	/*
+	 * Nominal bits per sample value of the incoming bitstream.
+	 * Supported values: 16, 32
+	 */
+	uint16_t bits_per_sample;
+
+	/*
+	 * Nominal sampling rate of the incoming bitstream.
+	 * Supported values: 8000, 11025, 16000, 22050, 24000, 32000,
+	 *                   44100, 48000, 88200, 96000, 176400, 192000,
+	 *                   352800, 384000
+	 */
+	uint32_t sampling_rate;
+
+} __packed;
 
 struct asm_multi_channel_pcm_fmt_blk_v2 {
 	struct apr_hdr hdr;
@@ -4127,6 +4386,9 @@ struct asm_multi_channel_pcm_enc_cfg_v2 {
 
 /* Enumeration for the raw AAC format. */
 #define ASM_MEDIA_FMT_AAC_FORMAT_FLAG_RAW    3
+
+/* Enumeration for the AAC LATM format. */
+#define ASM_MEDIA_FMT_AAC_FORMAT_FLAG_LATM   4
 
 #define ASM_MEDIA_FMT_AAC_AOT_LC             2
 #define ASM_MEDIA_FMT_AAC_AOT_SBR            5
@@ -4783,8 +5045,8 @@ struct asm_amrwbplus_fmt_blk_v2 {
 
 } __packed;
 
-#define ASM_MEDIA_FMT_AC3			0x00010DEE
-#define ASM_MEDIA_FMT_EAC3			0x00010DEF
+#define ASM_MEDIA_FMT_AC3                    0x00010DEE
+#define ASM_MEDIA_FMT_EAC3                   0x00010DEF
 #define ASM_MEDIA_FMT_DTS                    0x00010D88
 #define ASM_MEDIA_FMT_MP2                    0x00010DE9
 #define ASM_MEDIA_FMT_FLAC                   0x00010C16
@@ -4792,7 +5054,6 @@ struct asm_amrwbplus_fmt_blk_v2 {
 #define ASM_MEDIA_FMT_VORBIS                 0x00010C15
 #define ASM_MEDIA_FMT_APE                    0x00012F32
 #define ASM_MEDIA_FMT_DSD                    0x00012F3E
-
 
 /* Media format ID for adaptive transform acoustic coding. This
  * ID is used by the #ASM_STREAM_CMD_OPEN_WRITE_COMPRESSED command
@@ -5816,6 +6077,138 @@ struct asm_stream_cmd_open_loopback_v2 {
 /* Reserved for future use. This field must be set to zero. */
 } __packed;
 
+
+#define ASM_STREAM_CMD_OPEN_TRANSCODE_LOOPBACK    0x00010DBA
+
+/* Bitmask for the stream's Performance mode. */
+#define ASM_BIT_MASK_STREAM_PERF_MODE_FLAG_IN_OPEN_TRANSCODE_LOOPBACK \
+	(0x70000000UL)
+
+/* Bit shift for the stream's Performance mode. */
+#define ASM_SHIFT_STREAM_PERF_MODE_FLAG_IN_OPEN_TRANSCODE_LOOPBACK    28
+
+/* Bitmask for the decoder converter enable flag. */
+#define ASM_BIT_MASK_DECODER_CONVERTER_FLAG    (0x00000078UL)
+
+/* Shift value for the decoder converter enable flag. */
+#define ASM_SHIFT_DECODER_CONVERTER_FLAG                              3
+
+/* Converter mode is None (Default). */
+#define ASM_CONVERTER_MODE_NONE                                       0
+
+/* Converter mode is DDP-to-DD. */
+#define ASM_DDP_DD_CONVERTER_MODE                                     1
+
+/*  Identifies a special converter mode where source and sink formats
+ *  are the same but postprocessing must applied. Therefore, Decode
+ *  @rarrow Re-encode is necessary.
+ */
+#define ASM_POST_PROCESS_CONVERTER_MODE                               2
+
+
+struct asm_stream_cmd_open_transcode_loopback_t {
+	struct apr_hdr         hdr;
+	u32                    mode_flags;
+/* Mode Flags specifies the performance mode in which this stream
+ * is to be opened.
+ * Supported values{for bits 30 to 28}(stream_perf_mode flag)
+ *
+ * #ASM_LEGACY_STREAM_SESSION -- This mode ensures backward
+ *       compatibility to the original behavior
+ *       of ASM_STREAM_CMD_OPEN_TRANSCODE_LOOPBACK
+ *
+ * #ASM_LOW_LATENCY_STREAM_SESSION -- Opens a loopback session by using
+ *  shortened buffers in low latency POPP
+ *  - Recommendation: Do not enable high latency algorithms. They might
+ *    negate the benefits of opening a low latency stream, and they
+ *    might also suffer quality degradation from unexpected jitter.
+ *  - This Low Latency mode is supported only for PCM In and PCM Out
+ *    loopbacks. An error is returned if Low Latency mode is opened for
+ *    other transcode loopback modes.
+ *  - To configure this subfield, use
+ *     ASM_BIT_MASK_STREAM_PERF_MODE_FLAG_IN_OPEN_TRANSCODE_LOOPBACK and
+ *     ASM_SHIFT_STREAM_PERF_MODE_FLAG_IN_OPEN_TRANSCODE_LOOPBACK.
+ *
+ * Supported values{for bits 6 to 3} (decoder-converter compatibility)
+ * #ASM_CONVERTER_MODE_NONE (0x0) -- Default
+ * #ASM_DDP_DD_CONVERTER_MODE (0x1)
+ * #ASM_POST_PROCESS_CONVERTER_MODE (0x2)
+ * 0x3-0xF -- Reserved for future use
+ * - Use #ASM_BIT_MASK_DECODER_CONVERTER_FLAG and
+ *        ASM_SHIFT_DECODER_CONVERTER_FLAG to set this bit
+ * All other bits are reserved; clients must set them to 0.
+ */
+
+	u32                    src_format_id;
+/* Specifies the media format of the input audio stream.
+ *
+ * Supported values
+ * - #ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V2
+ * - #ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V3
+ * - #ASM_MEDIA_FMT_DTS
+ * - #ASM_MEDIA_FMT_EAC3_DEC
+ * - #ASM_MEDIA_FMT_EAC3
+ * - #ASM_MEDIA_FMT_AC3_DEC
+ * - #ASM_MEDIA_FMT_AC3
+ */
+	u32                    sink_format_id;
+/* Specifies the media format of the output stream.
+ *
+ * Supported values
+ * - #ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V2
+ * - #ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V3
+ * - #ASM_MEDIA_FMT_DTS (not supported in Low Latency mode)
+ * - #ASM_MEDIA_FMT_EAC3_DEC (not supported in Low Latency mode)
+ * - #ASM_MEDIA_FMT_EAC3 (not supported in Low Latency mode)
+ * - #ASM_MEDIA_FMT_AC3_DEC (not supported in Low Latency mode)
+ * - #ASM_MEDIA_FMT_AC3 (not supported in Low Latency mode)
+ */
+
+	u32                    audproc_topo_id;
+/* Postprocessing topology ID, which specifies the topology (order of
+ *        processing) of postprocessing algorithms.
+ *
+ * Supported values
+ *    - #ASM_STREAM_POSTPROC_TOPO_ID_DEFAULT
+ *    - #ASM_STREAM_POSTPROC_TOPO_ID_PEAKMETER
+ *    - #ASM_STREAM_POSTPROC_TOPO_ID_MCH_PEAK_VOL
+ *    - #ASM_STREAM_POSTPROC_TOPO_ID_NONE
+ *  Topologies can be added through #ASM_CMD_ADD_TOPOLOGIES.
+ *  This field is ignored for the Converter mode, in which no
+ *  postprocessing is performed.
+ */
+
+	u16                    src_endpoint_type;
+/* Specifies the source endpoint that provides the input samples.
+ *
+ * Supported values
+ *  - 0 -- Tx device matrix or stream router (gateway to the hardware
+ *    ports)
+ *  - All other values are reserved
+ *  Clients must set this field to 0. Otherwise, an error is returned.
+ */
+
+	u16                    sink_endpoint_type;
+/*  Specifies the sink endpoint type.
+ *
+ *  Supported values
+ *  - 0 -- Rx device matrix or stream router (gateway to the hardware
+ *    ports)
+ *  - All other values are reserved
+ *   Clients must set this field to 0. Otherwise, an error is returned.
+ */
+
+	u16                    bits_per_sample;
+/*   Number of bits per sample processed by the ASM modules.
+ *   Supported values 16, 24
+ */
+
+	u16                    reserved;
+/*   This field must be set to 0.
+ */
+} __packed;
+
+
 #define ASM_STREAM_CMD_CLOSE             0x00010BCD
 #define ASM_STREAM_CMD_FLUSH             0x00010BCE
 
@@ -6769,6 +7162,12 @@ struct admx_mic_gain {
 
 	uint16_t                  reserved;
 	/*< Clients must set this field to zero. */
+} __packed;
+
+struct adm_set_mic_gain_params {
+	struct adm_cmd_set_pp_params_v5 params;
+	struct adm_param_data_v5 data;
+	struct admx_mic_gain mic_gain_data;
 } __packed;
 
 /* end_addtogroup audio_pp_param_ids */
@@ -8022,11 +8421,10 @@ struct asm_eq_params {
 /*	Band cut equalizer effect.*/
 #define ASM_PARAM_EQ_BAND_CUT       6
 
-/* Voice get & set params */
-#define VOICE_CMD_SET_PARAM				0x0001133D
-#define VOICE_CMD_GET_PARAM				0x0001133E
-#define VOICE_EVT_GET_PARAM_ACK				0x00011008
-
+/* Get & set params */
+#define VSS_ICOMMON_CMD_SET_PARAM_V2	0x0001133D
+#define VSS_ICOMMON_CMD_GET_PARAM_V2	0x0001133E
+#define VSS_ICOMMON_RSP_GET_PARAM	0x00011008
 
 /* ID of the Bass Boost module.
  * This module supports the following parameter IDs:
@@ -8663,6 +9061,31 @@ struct asm_dts_eagle_param_get {
 	struct asm_stream_cmd_get_pp_params_v2 param;
 } __packed;
 
+/* Opcode to set BT address and license for aptx decoder */
+#define APTX_DECODER_BT_ADDRESS 0x00013201
+#define APTX_CLASSIC_DEC_LICENSE_ID 0x00013202
+
+struct aptx_dec_bt_addr_cfg {
+	uint32_t lap;
+	uint32_t uap;
+	uint32_t nap;
+} __packed;
+
+struct aptx_dec_bt_dev_addr {
+	struct apr_hdr hdr;
+	struct asm_stream_cmd_set_encdec_param encdec;
+	struct aptx_dec_bt_addr_cfg bt_addr_cfg;
+} __packed;
+
+struct asm_aptx_dec_fmt_blk_v2 {
+	struct apr_hdr hdr;
+	struct asm_data_cmd_media_fmt_update_v2 fmtblk;
+	u32     sample_rate;
+/* Number of samples per second.
+ * Supported values: 44100 and 48000 Hz
+ */
+} __packed;
+
 /* LSM Specific */
 #define VW_FEAT_DIM					(39)
 
@@ -8690,6 +9113,7 @@ struct asm_dts_eagle_param_get {
 #define LSM_SESSION_EVENT_DETECTION_STATUS_V2		(0x00012B01)
 #define LSM_DATA_EVENT_READ_DONE			(0x00012B02)
 #define LSM_DATA_EVENT_STATUS				(0x00012B03)
+#define LSM_SESSION_EVENT_DETECTION_STATUS_V3		(0x00012B04)
 
 #define LSM_MODULE_ID_VOICE_WAKEUP			(0x00012C00)
 #define LSM_PARAM_ID_ENDPOINT_DETECT_THRESHOLD		(0x00012C01)
@@ -8702,6 +9126,12 @@ struct asm_dts_eagle_param_get {
 #define LSM_PARAM_ID_LAB_ENABLE				(0x00012C09)
 #define LSM_PARAM_ID_LAB_CONFIG				(0x00012C0A)
 #define LSM_MODULE_ID_FRAMEWORK				(0x00012C0E)
+#define LSM_PARAM_ID_SWMAD_CFG				(0x00012C18)
+#define LSM_PARAM_ID_SWMAD_MODEL			(0x00012C19)
+#define LSM_PARAM_ID_SWMAD_ENABLE			(0x00012C1A)
+#define LSM_PARAM_ID_POLLING_ENABLE			(0x00012C1B)
+#define LSM_PARAM_ID_MEDIA_FMT				(0x00012C1E)
+#define LSM_PARAM_ID_FWK_MODE_CONFIG			(0x00012C27)
 
 /* HW MAD specific */
 #define AFE_MODULE_HW_MAD				(0x00010230)
@@ -9617,6 +10047,108 @@ struct afe_port_group_create {
 	union afe_port_group_config data;
 } __packed;
 
+/* ID of the parameter used by #AFE_MODULE_AUDIO_DEV_INTERFACE to specify
+ * the timing statistics of the corresponding device interface.
+ * Client can periodically query for the device time statistics to help adjust
+ * the PLL based on the drift value. The get param command must be sent to
+ * AFE port ID corresponding to device interface
+
+ * This parameter ID supports following get param commands:
+ * #AFE_PORT_CMD_GET_PARAM_V2 and
+ * #AFE_PORT_CMD_GET_PARAM_V3.
+ */
+#define AFE_PARAM_ID_DEV_TIMING_STATS           0x000102AD
+
+/* Version information used to handle future additions to AFE device
+ * interface timing statistics (for backward compatibility).
+ */
+#define AFE_API_VERSION_DEV_TIMING_STATS        0x1
+
+/* Enumeration for specifying a sink(Rx) device */
+#define AFE_SINK_DEVICE                         0x0
+
+/* Enumeration for specifying a source(Tx) device */
+#define AFE_SOURCE_DEVICE                       0x1
+
+/* Enumeration for specifying the drift reference is of type AV Timer */
+#define AFE_REF_TIMER_TYPE_AVTIMER              0x0
+
+/* Message payload structure for the
+ * AFE_PARAM_ID_DEV_TIMING_STATS parameter.
+ */
+struct afe_param_id_dev_timing_stats {
+	/* Minor version used to track the version of device interface timing
+	 * statistics. Currently, the supported version is 1.
+	 * @values #AFE_API_VERSION_DEV_TIMING_STATS
+	 */
+	u32       minor_version;
+
+	/* Indicates the device interface direction as either
+	 * source (Tx) or sink (Rx).
+	 * @values
+	 * #AFE_SINK_DEVICE
+	 * #AFE_SOURCE_DEVICE
+	 */
+	u16        device_direction;
+
+	/* Reference timer for drift accumulation and time stamp information.
+	 * @values
+	 * #AFE_REF_TIMER_TYPE_AVTIMER @tablebulletend
+	 */
+	u16        reference_timer;
+
+	/*
+	 * Flag to indicate if resync is required on the client side for
+	 * drift correction. Flag is set to TRUE for the first get_param
+	 * response after device interface starts. This flag value can be
+	 * used by client to identify if device interface restart has
+	 * happened and if any re-sync is required at their end for drift
+	 * correction.
+	 * @values
+	 * 0: FALSE (Resync not required)
+	 * 1: TRUE (Resync required) @tablebulletend
+	 */
+	u32        resync_flag;
+
+	/* Accumulated drift value in microseconds. This value is updated
+	 * every 100th ms.
+	 * Positive drift value indicates AV timer is running faster than device
+	 * Negative drift value indicates AV timer is running slower than device
+	 * @values Any valid int32 number
+	 */
+	s32         acc_drift_value;
+
+	/* Lower 32 bits of the 64-bit absolute timestamp of reference
+	 * timer in microseconds.
+
+	 * This timestamp corresponds to the time when the drift values
+	 * are accumlated for every 100th ms.
+	 * @values Any valid uint32 number
+	 */
+	u32        ref_timer_abs_ts_lsw;
+
+	/* Upper 32 bits of the 64-bit absolute timestamp of reference
+	 * timer in microseconds.
+	 * This timestamp corresponds to the time when the drift values
+	 * are accumlated for every 100th ms.
+	 * @values Any valid uint32 number
+	 */
+	u32        ref_timer_abs_ts_msw;
+} __packed;
+
+struct afe_av_dev_drift_get_param {
+	struct apr_hdr hdr;
+	struct afe_port_cmd_get_param_v2 get_param;
+	struct afe_port_param_data_v2 pdata;
+	struct afe_param_id_dev_timing_stats timing_stats;
+} __packed;
+
+struct afe_av_dev_drift_get_param_resp {
+	uint32_t status;
+	struct afe_port_param_data_v2 pdata;
+	struct afe_param_id_dev_timing_stats timing_stats;
+} __packed;
+
 /* Command for Matrix or Stream Router */
 #define ASM_SESSION_CMD_SET_MTMX_STRTR_PARAMS_V2    0x00010DCE
 /* Module for AVSYNC */
@@ -9702,12 +10234,108 @@ struct asm_session_cmd_set_mtmx_strstr_params_v2 {
 	 */
 };
 
+/* Parameter used by #ASM_SESSION_MTMX_STRTR_MODULE_ID_AVSYNC which allows the
+ * audio client choose the rendering decision that the audio DSP should use.
+ */
+#define ASM_SESSION_MTMX_STRTR_PARAM_RENDER_MODE_CMD  0x00012F0D
+
+/* Indicates that rendering decision will be based on default rate
+ * (session clock based rendering, device driven).
+ * 1. The default session clock based rendering is inherently driven
+ *    by the timing of the device.
+ * 2. After the initial decision is made (first buffer after a run
+ *    command), subsequent data rendering decisions are made with
+ *    respect to the rate at which the device is rendering, thus deriving
+ *    its timing from the device.
+ * 3. While this decision making is simple, it has some inherent limitations
+ *    (mentioned in the next section).
+ * 4. If this API is not set, the session clock based rendering will be assumed
+ *    and this will ensure that the DSP is backward compatible.
+ */
+#define ASM_SESSION_MTMX_STRTR_PARAM_RENDER_DEFAULT 0
+
+/* Indicates that rendering decision will be based on local clock rate.
+ * 1. In the DSP loopback/client loopback use cases (frame based
+ *    inputs), the incoming data into audio DSP is time-stamped at the
+ *    local clock rate (STC).
+ * 2. This TS rate may match the incoming data rate or maybe different
+ *    from the incoming data rate.
+ * 3. Regardless, the data will be time-stamped with local STC and
+ *    therefore, the client is recommended to set this mode for these
+ *    use cases. This method is inherently more robust to sequencing
+ *    (AFE Start/Stop) and device switches, among other benefits.
+ * 4. This API will inform the DSP to compare every incoming buffer TS
+ *    against local STC.
+ * 5. DSP will continue to honor render windows APIs, as before.
+ */
+#define ASM_SESSION_MTMX_STRTR_PARAM_RENDER_LOCAL_STC 1
+
+/* Structure for rendering decision parameter */
+struct asm_session_mtmx_strtr_param_render_mode_t {
+	/* Specifies the type of rendering decision the audio DSP should use.
+	 *
+	 * @values
+	 * - #ASM_SESSION_MTMX_STRTR_PARAM_RENDER_DEFAULT
+	 * - #ASM_SESSION_MTMX_STRTR_PARAM_RENDER_LOCAL_STC
+	 */
+	u32                  flags;
+} __packed;
+
+/* Parameter used by #ASM_SESSION_MTMX_STRTR_MODULE_ID_AVSYNC which allows the
+ * audio client to specify the clock recovery mechanism that the audio DSP
+ * should use.
+ */
+
+#define ASM_SESSION_MTMX_STRTR_PARAM_CLK_REC_CMD 0x00012F0E
+
+/* Indicates that default clock recovery will be used (no clock recovery).
+ * If the client wishes that no clock recovery be done, the client can
+ * choose this. This means that no attempt will made by the DSP to try and
+ * match the rates of the input and output audio.
+ */
+#define ASM_SESSION_MTMX_STRTR_PARAM_CLK_REC_NONE 0
+
+/* Indicates that independent clock recovery needs to be used.
+ * 1. In the DSP loopback/client loopback use cases (frame based inputs),
+ *    the client should choose the independent clock recovery option.
+ * 2. This basically de-couples the audio and video from knowing each others
+ *    clock sources and lets the audio DSP independently rate match the input
+ *    and output rates.
+ * 3. After drift detection, the drift correction is achieved by either pulling
+ *    the PLLs (if applicable) or by stream to device rate matching
+ *    (for PCM use cases) by comparing drift with respect to STC.
+ * 4. For passthrough use cases, since the PLL pulling is the only option,
+ *    a best effort will be made.
+ *    If PLL pulling is not possible / available, the rendering will be
+ *    done without rate matching.
+ */
+#define ASM_SESSION_MTMX_STRTR_PARAM_CLK_REC_AUTO 1
+
+/* Payload of the #ASM_SESSION_MTMX_STRTR_PARAM_CLK_REC parameter.
+ */
+struct asm_session_mtmx_strtr_param_clk_rec_t {
+	/* Specifies the type of clock recovery that the audio DSP should
+	 * use for rate matching.
+	 */
+
+	/* @values
+	 * #ASM_SESSION_MTMX_STRTR_PARAM_CLK_REC_DEFAULT
+	 * #ASM_SESSION_MTMX_STRTR_PARAM_CLK_REC_INDEPENDENT
+	 */
+	u32                  flags;
+} __packed;
+
+union asm_session_mtmx_strtr_param_config {
+	struct asm_session_mtmx_strtr_param_window_v2_t window_param;
+	struct asm_session_mtmx_strtr_param_render_mode_t render_param;
+	struct asm_session_mtmx_strtr_param_clk_rec_t clk_rec_param;
+} __packed;
+
 struct asm_mtmx_strtr_params {
 	struct apr_hdr  hdr;
 	struct asm_session_cmd_set_mtmx_strstr_params_v2 param;
 	struct asm_stream_param_data_v2 data;
-	u32 window_lsw;
-	u32 window_msw;
+	union asm_session_mtmx_strtr_param_config config;
 } __packed;
 
 #define ASM_SESSION_CMD_GET_MTMX_STRTR_PARAMS_V2 0x00010DCF
@@ -9827,6 +10455,8 @@ enum {
 	COMPRESSED_PASSTHROUGH,
 	COMPRESSED_PASSTHROUGH_CONVERT,
 	COMPRESSED_PASSTHROUGH_DSD,
+	LISTEN,
+	COMPRESSED_PASSTHROUGH_GEN,
 };
 
 #define AUDPROC_MODULE_ID_COMPRESSED_MUTE                0x00010770
@@ -9898,4 +10528,21 @@ struct adm_param_fluence_sourcetracking_t {
 #define AUDPROC_PARAM_ID_AUDIOSPHERE_DESIGN_MULTICHANNEL_INPUT   0x0001091D
 
 #define AUDPROC_PARAM_ID_AUDIOSPHERE_OPERATING_INPUT_MEDIA_INFO  0x0001091E
+
+#define AUDPROC_MODULE_ID_VOICE_TX_SECNS   0x10027059
+#define AUDPROC_PARAM_IDX_SEC_PRIMARY_MIC_CH 0x10014444
+
+struct admx_sec_primary_mic_ch {
+	uint16_t version;
+	uint16_t reserved;
+	uint16_t sec_primary_mic_ch;
+	uint16_t reserved1;
+} __packed;
+
+
+struct adm_set_sec_primary_ch_params {
+	struct adm_cmd_set_pp_params_v5 params;
+	struct adm_param_data_v5 data;
+	struct admx_sec_primary_mic_ch sec_primary_mic_ch_data;
+} __packed;
 #endif /*_APR_AUDIO_V2_H_ */

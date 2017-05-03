@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -100,6 +100,7 @@ enum {
 #define QUNIPRO_SEL	UFS_BIT(0)
 #define TEST_BUS_EN		BIT(18)
 #define TEST_BUS_SEL		GENMASK(22, 19)
+#define UFS_REG_TEST_BUS_EN	BIT(30)
 
 /* bit definitions for REG_UFS_CFG2 register */
 #define UAWM_HW_CGC_EN		(1 << 0)
@@ -369,8 +370,10 @@ struct ufs_qcom_host {
 	u32 dbg_print_en;
 	struct ufs_qcom_testbus testbus;
 
+	spinlock_t ice_work_lock;
 	struct work_struct ice_cfg_work;
 	struct request *req_pending;
+	struct ufs_vreg *vddp_ref_clk;
 };
 
 static inline u32

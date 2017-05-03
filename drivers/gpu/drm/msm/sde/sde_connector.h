@@ -138,6 +138,26 @@ struct sde_connector_ops {
 	 * Return: Zero on success, -ERROR otherwise
 	 */
 	int (*soft_reset)(void *display);
+
+	/**
+	 * pre_kickoff - trigger display to program kickoff-time features
+	 * @connector: Pointer to drm connector structure
+	 * @display: Pointer to private display structure
+	 * @params: Parameter bundle of connector-stored information for
+	 *	kickoff-time programming into the display
+	 * Returns: Zero on success
+	 */
+	int (*pre_kickoff)(struct drm_connector *connector,
+			void *display,
+			struct msm_display_kickoff_params *params);
+
+	/**
+	 * clk_ctrl - perform clk enable/disable on the connector
+	 * @handle: Pointer to clk handle
+	 * @type: Type of clks
+	 * @enable: State of clks
+	 */
+	int (*clk_ctrl)(void *handle, u32 type, u32 state);
 };
 
 /**
@@ -253,12 +273,15 @@ struct sde_connector {
  * @out_fb: Pointer to output frame buffer, if applicable
  * @mmu_id: MMU ID for accessing frame buffer objects, if applicable
  * @property_values: Local cache of current connector property values
+ * @rois: Regions of interest structure for mapping CRTC to Connector output
  */
 struct sde_connector_state {
 	struct drm_connector_state base;
 	struct drm_framebuffer *out_fb;
 	int mmu_id;
 	uint64_t property_values[CONNECTOR_PROP_COUNT];
+
+	struct msm_roi_list rois;
 };
 
 /**
@@ -351,6 +374,13 @@ int sde_connector_get_info(struct drm_connector *connector,
 		struct msm_display_info *info);
 
 /**
+ * sde_connector_clk_ctrl - enables/disables the connector clks
+ * @connector: Pointer to drm connector object
+ * @enable: true/false to enable/disable
+ */
+void sde_connector_clk_ctrl(struct drm_connector *connector, bool enable);
+
+/**
  * sde_connector_trigger_event - indicate that an event has occurred
  *	Any callbacks that have been registered against this event will
  *	be called from the same thread context.
@@ -391,6 +421,41 @@ int sde_connector_register_event(struct drm_connector *connector,
  */
 void sde_connector_unregister_event(struct drm_connector *connector,
 		uint32_t event_idx);
+
+/**
+ * sde_connector_register_custom_event - register for async events
+ * @kms: Pointer to sde_kms
+ * @conn_drm: Pointer to drm connector object
+ * @event: Event for which request is being sent
+ * @en: Flag to enable/disable the event
+ * Returns: Zero on success
+ */
+int sde_connector_register_custom_event(struct sde_kms *kms,
+		struct drm_connector *conn_drm, u32 event, bool en);
+
+/**
+ * sde_connector_pre_kickoff - trigger kickoff time feature programming
+ * @connector: Pointer to drm connector object
+ * Returns: Zero on success
+ */
+int sde_connector_pre_kickoff(struct drm_connector *connector);
+
+/**
+ * sde_connector_needs_offset - adjust the output fence offset based on
+ *                              display type
+ * @connector: Pointer to drm connector object
+ * Returns: true if offset is required, false for all other cases.
+ */
+static inline bool sde_connector_needs_offset(struct drm_connector *connector)
+{
+	struct sde_connector *c_conn;
+
+	if (!connector)
+		return false;
+
+	c_conn = to_sde_connector(connector);
+	return (c_conn->connector_type != DRM_MODE_CONNECTOR_VIRTUAL);
+}
 
 #endif /* _SDE_CONNECTOR_H_ */
 

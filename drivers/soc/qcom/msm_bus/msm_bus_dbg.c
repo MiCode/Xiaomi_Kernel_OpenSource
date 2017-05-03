@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, 2014-2016, The Linux Foundation. All rights
+/* Copyright (c) 2010-2012, 2014-2017, The Linux Foundation. All rights
  * reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -439,7 +439,6 @@ static void msm_bus_dbg_free_client(uint32_t clid)
 
 	list_for_each_entry(cldata, &cl_list, list) {
 		if (cldata->clid == clid) {
-			debugfs_remove(cldata->file);
 			list_del(&cldata->list);
 			kfree(cldata);
 			break;

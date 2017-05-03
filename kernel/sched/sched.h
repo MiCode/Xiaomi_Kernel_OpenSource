@@ -79,6 +79,7 @@ struct cpu_cycle {
 	u64 time;
 };
 
+extern unsigned int sched_disable_window_stats;
 #endif /* CONFIG_SCHED_HMP */
 
 
@@ -770,6 +771,7 @@ struct rq {
 
 	int cstate, wakeup_latency, wakeup_energy;
 	u64 window_start;
+	u64 load_reported_window;
 	unsigned long hmp_flags;
 
 	u64 cur_irqload;
@@ -2141,6 +2143,18 @@ DECLARE_PER_CPU(struct update_util_data *, cpufreq_update_util_data);
 static inline void cpufreq_update_util(struct rq *rq, unsigned int flags)
 {
 	struct update_util_data *data;
+
+#ifdef CONFIG_SCHED_HMP
+	/*
+	 * Skip if we've already reported, but not if this is an inter-cluster
+	 * migration
+	 */
+	if (!sched_disable_window_stats &&
+		(rq->load_reported_window == rq->window_start) &&
+		!(flags & SCHED_CPUFREQ_INTERCLUSTER_MIG))
+		return;
+	rq->load_reported_window = rq->window_start;
+#endif
 
 	data = rcu_dereference_sched(*this_cpu_ptr(&cpufreq_update_util_data));
 	if (data)

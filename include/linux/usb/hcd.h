@@ -455,6 +455,9 @@ extern dma_addr_t usb_hcd_get_dcba_dma_addr(struct usb_device *udev);
 extern dma_addr_t usb_hcd_get_xfer_ring_dma_addr(struct usb_device *udev,
 	struct usb_host_endpoint *ep);
 
+struct usb_hcd *__usb_create_hcd(const struct hc_driver *driver,
+		struct device *sysdev, struct device *dev, const char *bus_name,
+		struct usb_hcd *primary_hcd);
 extern struct usb_hcd *usb_create_hcd(const struct hc_driver *driver,
 		struct device *dev, const char *bus_name);
 extern struct usb_hcd *usb_create_shared_hcd(const struct hc_driver *driver,
@@ -503,7 +506,7 @@ extern void usb_hc_died(struct usb_hcd *hcd);
 extern void usb_hcd_poll_rh_status(struct usb_hcd *hcd);
 extern void usb_wakeup_notification(struct usb_device *hdev,
 		unsigned int portnum);
-
+extern void usb_flush_hub_wq(void);
 extern void usb_hcd_start_port_resume(struct usb_bus *bus, int portnum);
 extern void usb_hcd_end_port_resume(struct usb_bus *bus, int portnum);
 

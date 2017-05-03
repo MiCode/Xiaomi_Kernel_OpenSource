@@ -168,12 +168,29 @@ Optional property:
 			by means of sensor ID. Additional coefficients are
 			interpreted as constant offset.
 
+- thermal-governor:     Thermal governor to be used for this thermal zone.
+			Expected values are:
+			"step_wise": Use step wise governor.
+			"fair_share": Use fair share governor.
+			"user_space": Use user space governor.
+			"power_allocator": Use power allocator governor.
+			"low_limits_floor": Use low limits floor
+						mitigation governor.
+			"low_limits_cap": Use a low limits cap mitigation
+						governor.
+  Type: string
+
 - sustainable-power:	An estimate of the sustainable power (in mW) that the
   Type: unsigned	thermal zone can dissipate at the desired
   Size: one cell	control temperature.  For reference, the
 			sustainable power of a 4'' phone is typically
 			2000mW, while on a 10'' tablet is around
 			4500mW.
+
+- tracks-low:		Indicates that the temperature sensor tracks the low
+  Type: bool		thresholds, so the governors may mitigate by ensuring
+			timing closures and other low temperature operating
+			issues.
 
 Note: The delay properties are bound to the maximum dT/dt (temperature
 derivative over time) in two situations for a thermal zone:

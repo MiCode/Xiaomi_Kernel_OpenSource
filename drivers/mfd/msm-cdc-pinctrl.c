@@ -180,13 +180,15 @@ static int msm_cdc_pinctrl_probe(struct platform_device *pdev)
 		ret = PTR_ERR(gpio_data->pinctrl_sleep);
 		goto err_lookup_state;
 	}
-
-	/* Set pinctrl state to aud_sleep by default */
-	ret = pinctrl_select_state(gpio_data->pinctrl,
-				   gpio_data->pinctrl_sleep);
-	if (ret)
-		dev_err(&pdev->dev, "%s: set cdc gpio sleep state fail: %d\n",
-			__func__, ret);
+	/* skip setting to sleep state for LPI_TLMM GPIOs */
+	if (!of_property_read_bool(pdev->dev.of_node, "qcom,lpi-gpios")) {
+		/* Set pinctrl state to aud_sleep by default */
+		ret = pinctrl_select_state(gpio_data->pinctrl,
+					   gpio_data->pinctrl_sleep);
+		if (ret)
+			dev_err(&pdev->dev, "%s: set cdc gpio sleep state fail: %d\n",
+				__func__, ret);
+	}
 
 	gpio_data->gpio = of_get_named_gpio(pdev->dev.of_node,
 					    "qcom,cdc-rst-n-gpio", 0);

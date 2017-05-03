@@ -64,6 +64,7 @@ struct avtimer_t {
 	void __iomem *p_avtimer_msw;
 	void __iomem *p_avtimer_lsw;
 	uint32_t clk_div;
+	uint32_t clk_mult;
 	atomic_t adsp_ready;
 	int num_retries;
 };
@@ -292,7 +293,6 @@ static void reset_work(struct work_struct *work)
 int avcs_core_query_timer(uint64_t *avtimer_tick)
 {
 	uint32_t avtimer_msw = 0, avtimer_lsw = 0;
-	uint32_t res = 0;
 	uint64_t avtimer_tick_temp;
 
 	if (!atomic_read(&avtimer.adsp_ready)) {
@@ -302,12 +302,12 @@ int avcs_core_query_timer(uint64_t *avtimer_tick)
 	avtimer_lsw = ioread32(avtimer.p_avtimer_lsw);
 	avtimer_msw = ioread32(avtimer.p_avtimer_msw);
 
-	avtimer_tick_temp =
-		(uint64_t)((uint64_t)avtimer_msw << 32)
-			| avtimer_lsw;
-	res = do_div(avtimer_tick_temp, avtimer.clk_div);
-	*avtimer_tick = avtimer_tick_temp;
-	pr_debug("%s:Avtimer: msw: %u, lsw: %u, tick: %llu\n", __func__,
+	avtimer_tick_temp = (uint64_t)((uint64_t)avtimer_msw << 32)
+			    | avtimer_lsw;
+	*avtimer_tick = mul_u64_u32_div(avtimer_tick_temp, avtimer.clk_mult,
+					avtimer.clk_div);
+	pr_debug_ratelimited("%s:Avtimer: msw: %u, lsw: %u, tick: %llu\n",
+			__func__,
 			avtimer_msw, avtimer_lsw, *avtimer_tick);
 	return 0;
 }
@@ -332,22 +332,19 @@ static long avtimer_ioctl(struct file *file, unsigned int ioctl_num,
 	switch (ioctl_num) {
 	case IOCTL_GET_AVTIMER_TICK:
 	{
-		uint32_t avtimer_msw_1st = 0, avtimer_lsw = 0;
-		uint32_t avtimer_msw_2nd = 0;
-		uint64_t avtimer_tick;
+		uint64_t avtimer_tick = 0;
+		int rc;
 
-		do {
-			avtimer_msw_1st = ioread32(avtimer.p_avtimer_msw);
-			avtimer_lsw = ioread32(avtimer.p_avtimer_lsw);
-			avtimer_msw_2nd = ioread32(avtimer.p_avtimer_msw);
-		} while (avtimer_msw_1st != avtimer_msw_2nd);
+		rc = avcs_core_query_timer(&avtimer_tick);
 
-		avtimer_lsw = avtimer_lsw/avtimer.clk_div;
-		avtimer_tick =
-		((uint64_t) avtimer_msw_1st << 32) | avtimer_lsw;
+		if (rc) {
+			pr_err("%s: Error: Invalid AV Timer tick, rc = %d\n",
+				__func__, rc);
+			return rc;
+		}
 
-		pr_debug("%s: AV Timer tick: msw: %x, lsw: %x time %llx\n",
-			 __func__, avtimer_msw_1st, avtimer_lsw, avtimer_tick);
+		pr_debug_ratelimited("%s: AV Timer tick: time %llx\n",
+		__func__, avtimer_tick);
 		if (copy_to_user((void *) ioctl_param, &avtimer_tick,
 		    sizeof(avtimer_tick))) {
 			pr_err("%s: copy_to_user failed\n", __func__);
@@ -377,6 +374,7 @@ static int dev_avtimer_probe(struct platform_device *pdev)
 	struct device *device_handle;
 	struct resource *reg_lsb = NULL, *reg_msb = NULL;
 	uint32_t clk_div_val;
+	uint32_t clk_mult_val;
 
 	if (!pdev) {
 		pr_err("%s: Invalid params\n", __func__);
@@ -465,7 +463,14 @@ static int dev_avtimer_probe(struct platform_device *pdev)
 	else
 		avtimer.clk_div = clk_div_val;
 
-	pr_debug("avtimer.clk_div = %d\n", avtimer.clk_div);
+	if (of_property_read_u32(pdev->dev.of_node,
+			"qcom,clk-mult", &clk_mult_val))
+		avtimer.clk_mult = 1;
+	else
+		avtimer.clk_mult = clk_mult_val;
+
+	pr_debug("%s: avtimer.clk_div = %d, avtimer.clk_mult = %d\n",
+		 __func__, avtimer.clk_div, avtimer.clk_mult);
 	return 0;
 
 class_destroy:

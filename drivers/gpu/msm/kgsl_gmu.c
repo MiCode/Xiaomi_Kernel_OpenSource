@@ -748,44 +748,49 @@ static irqreturn_t gmu_irq_handler(int irq, void *data)
 {
 	struct gmu_device *gmu = data;
 	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
-	struct kgsl_hfi *hfi = &gmu->hfi;
 	unsigned int status = 0;
 
-	if (irq == gmu->gmu_interrupt_num) {
-		adreno_read_gmureg(ADRENO_DEVICE(device),
-				ADRENO_REG_GMU_HOST_INTERRUPT_STATUS,
-				&status);
+	adreno_read_gmureg(ADRENO_DEVICE(device),
+			ADRENO_REG_GMU_AO_HOST_INTERRUPT_STATUS, &status);
+	adreno_write_gmureg(ADRENO_DEVICE(device),
+			ADRENO_REG_GMU_AO_HOST_INTERRUPT_CLR, status);
 
-		/* Ignore GMU_INT_RSCC_COMP interrupts */
-		if (status & GMU_INT_WDOG_BITE)
-			dev_err_ratelimited(&gmu->pdev->dev,
-					"GMU watchdog expired interrupt\n");
-		if (status & GMU_INT_DBD_WAKEUP)
-			dev_err_ratelimited(&gmu->pdev->dev,
-					"GMU doorbell interrupt received\n");
-		if (status & GMU_INT_HOST_AHB_BUS_ERR)
-			dev_err_ratelimited(&gmu->pdev->dev,
-					"AHB bus error interrupt received\n");
+	/* Ignore GMU_INT_RSCC_COMP and GMU_INT_DBD WAKEUP interrupts */
+	if (status & GMU_INT_WDOG_BITE)
+		dev_err_ratelimited(&gmu->pdev->dev,
+				"GMU watchdog expired interrupt received\n");
+	if (status & GMU_INT_HOST_AHB_BUS_ERR)
+		dev_err_ratelimited(&gmu->pdev->dev,
+				"AHB bus error interrupt received\n");
+	if (status & ~GMU_AO_INT_MASK)
+		dev_err_ratelimited(&gmu->pdev->dev,
+				"Unhandled GMU interrupts 0x%lx\n",
+				status & ~GMU_AO_INT_MASK);
 
-		adreno_write_gmureg(ADRENO_DEVICE(device),
-				ADRENO_REG_GMU_HOST_INTERRUPT_CLR,
-				status);
-	} else {
-		adreno_read_gmureg(ADRENO_DEVICE(device),
-				ADRENO_REG_GMU_GMU2HOST_INTR_INFO,
-				&status);
-		adreno_write_gmureg(ADRENO_DEVICE(device),
-				ADRENO_REG_GMU_GMU2HOST_INTR_CLR,
-				status);
+	return IRQ_HANDLED;
+}
 
-		if (status & HFI_IRQ_MASK) {
-			if (status & HFI_IRQ_MSGQ_MASK)
-				tasklet_hi_schedule(&hfi->tasklet);
-		} else
-			dev_err_ratelimited(&gmu->pdev->dev,
-					"Unhandled GMU interrupts %x\n",
-					status);
-	}
+static irqreturn_t hfi_irq_handler(int irq, void *data)
+{
+	struct kgsl_hfi *hfi = data;
+	struct gmu_device *gmu = container_of(hfi, struct gmu_device, hfi);
+	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
+	unsigned int status = 0;
+
+	adreno_read_gmureg(ADRENO_DEVICE(device),
+			ADRENO_REG_GMU_GMU2HOST_INTR_INFO, &status);
+	adreno_write_gmureg(ADRENO_DEVICE(device),
+			ADRENO_REG_GMU_GMU2HOST_INTR_CLR, status);
+
+	if (status & HFI_IRQ_MSGQ_MASK)
+		tasklet_hi_schedule(&hfi->tasklet);
+	if (status & HFI_IRQ_CM3_FAULT_MASK)
+		dev_err_ratelimited(&gmu->pdev->dev,
+				"GMU CM3 fault interrupt received\n");
+	if (status & ~HFI_IRQ_MASK)
+		dev_err_ratelimited(&gmu->pdev->dev,
+				"Unhandled HFI interrupts 0x%lx\n",
+				status & ~HFI_IRQ_MASK);
 
 	return IRQ_HANDLED;
 }
@@ -978,6 +983,82 @@ static int gmu_regulators_probe(struct gmu_device *gmu,
 	return 0;
 }
 
+static int gmu_irq_probe(struct gmu_device *gmu)
+{
+	int ret;
+	struct kgsl_hfi *hfi = &gmu->hfi;
+
+	hfi->hfi_interrupt_num = platform_get_irq_byname(gmu->pdev,
+			"kgsl_hfi_irq");
+	ret = devm_request_irq(&gmu->pdev->dev,
+			hfi->hfi_interrupt_num,
+			hfi_irq_handler, IRQF_TRIGGER_HIGH,
+			"HFI", hfi);
+	if (ret) {
+		dev_err(&gmu->pdev->dev, "request_irq(%d) failed: %d\n",
+				hfi->hfi_interrupt_num, ret);
+		return ret;
+	}
+
+	gmu->gmu_interrupt_num = platform_get_irq_byname(gmu->pdev,
+			"kgsl_gmu_irq");
+	ret = devm_request_irq(&gmu->pdev->dev,
+			gmu->gmu_interrupt_num,
+			gmu_irq_handler, IRQF_TRIGGER_HIGH,
+			"GMU", gmu);
+	if (ret)
+		dev_err(&gmu->pdev->dev, "request_irq(%d) failed: %d\n",
+				gmu->gmu_interrupt_num, ret);
+
+	return ret;
+}
+
+static void gmu_irq_enable(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct gmu_device *gmu = &device->gmu;
+	struct kgsl_hfi *hfi = &gmu->hfi;
+
+	/* Clear any pending IRQs before unmasking on GMU */
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_CLR,
+			0xFFFFFFFF);
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_AO_HOST_INTERRUPT_CLR,
+			0xFFFFFFFF);
+
+	/* Unmask needed IRQs on GMU */
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
+			(unsigned int) ~HFI_IRQ_MASK);
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
+			(unsigned int) ~GMU_AO_INT_MASK);
+
+	/* Enable all IRQs on host */
+	enable_irq(hfi->hfi_interrupt_num);
+	enable_irq(gmu->gmu_interrupt_num);
+}
+
+static void gmu_irq_disable(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct gmu_device *gmu = &device->gmu;
+	struct kgsl_hfi *hfi = &gmu->hfi;
+
+	/* Disable all IRQs on host */
+	disable_irq(gmu->gmu_interrupt_num);
+	disable_irq(hfi->hfi_interrupt_num);
+
+	/* Mask all IRQs on GMU */
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_AO_HOST_INTERRUPT_MASK,
+			0xFFFFFFFF);
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
+			0xFFFFFFFF);
+
+	/* Clear any pending IRQs before disabling */
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_AO_HOST_INTERRUPT_CLR,
+			0xFFFFFFFF);
+	adreno_write_gmureg(adreno_dev, ADRENO_REG_GMU_GMU2HOST_INTR_CLR,
+			0xFFFFFFFF);
+}
+
 /* Do not access any GMU registers in GMU probe function */
 int gmu_probe(struct kgsl_device *device)
 {
@@ -986,6 +1067,7 @@ int gmu_probe(struct kgsl_device *device)
 	struct gmu_memdesc *mem_addr = NULL;
 	struct kgsl_hfi *hfi = &gmu->hfi;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int i = 0, ret = -ENXIO;
 
 	node = of_find_compatible_node(device->pdev->dev.of_node,
@@ -1023,32 +1105,13 @@ int gmu_probe(struct kgsl_device *device)
 
 	gmu->gmu2gpu_offset = (gmu->reg_phys - device->reg_phys) >> 2;
 
-	/* Initialize HFI GMU interrupts */
-	hfi->hfi_interrupt_num = platform_get_irq_byname(gmu->pdev,
-						"kgsl_hfi_irq");
-	ret = devm_request_irq(&gmu->pdev->dev,
-				  hfi->hfi_interrupt_num,
-				  gmu_irq_handler, IRQF_TRIGGER_HIGH,
-				  "GMU", gmu);
-	if (ret) {
-		dev_err(&gmu->pdev->dev, "request_irq(%d) failed: %d\n",
-			      hfi->hfi_interrupt_num, ret);
+	/* Initialize HFI and GMU interrupts */
+	ret = gmu_irq_probe(gmu);
+	if (ret)
 		goto error;
-	}
-
-	gmu->gmu_interrupt_num = platform_get_irq_byname(gmu->pdev,
-						"kgsl_gmu_irq");
-	ret = devm_request_irq(&gmu->pdev->dev,
-				  gmu->gmu_interrupt_num,
-				  gmu_irq_handler, IRQF_TRIGGER_HIGH,
-				  "GMU", gmu);
-	if (ret) {
-		dev_err(&gmu->pdev->dev, "request_irq(%d) failed: %d\n",
-			      gmu->gmu_interrupt_num, ret);
-		goto error;
-	}
 
 	/* Don't enable GMU interrupts until GMU started */
+	/* We cannot use gmu_irq_disable because it writes registers */
 	disable_irq(gmu->gmu_interrupt_num);
 	disable_irq(hfi->hfi_interrupt_num);
 
@@ -1086,7 +1149,17 @@ int gmu_probe(struct kgsl_device *device)
 
 	hfi_init(&gmu->hfi, mem_addr, HFI_QUEUE_SIZE);
 
-	gmu->idle_level = GPU_HW_CGC;
+	/* Set up GMU idle states */
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_MIN_VOLT))
+		gmu->idle_level = GPU_HW_MIN_VOLT;
+	else if (ADRENO_FEATURE(adreno_dev, ADRENO_HW_NAP))
+		gmu->idle_level = GPU_HW_NAP;
+	else if (ADRENO_FEATURE(adreno_dev, ADRENO_IFPC))
+		gmu->idle_level = GPU_HW_IFPC;
+	else if (ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC))
+		gmu->idle_level = GPU_HW_SPTP_PC;
+	else
+		gmu->idle_level = GPU_HW_ACTIVE;
 
 	return 0;
 
@@ -1142,7 +1215,6 @@ static int gmu_disable_clks(struct gmu_device *gmu)
 
 	while ((j < MAX_GMU_CLKS) && gmu->clks[j]) {
 		clk_disable_unprepare(gmu->clks[j]);
-		gmu->clks[j] = NULL;
 		j++;
 	}
 
@@ -1189,7 +1261,6 @@ int gmu_start(struct kgsl_device *device)
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct gmu_device *gmu = &device->gmu;
-	struct kgsl_hfi *hfi = &gmu->hfi;
 	int bus_level = pwr->pwrlevels[pwr->default_pwrlevel].bus_freq;
 
 	if (!kgsl_gmu_isenabled(device))
@@ -1224,8 +1295,7 @@ int gmu_start(struct kgsl_device *device)
 		if (ret)
 			goto error_bus;
 
-		enable_irq(hfi->hfi_interrupt_num);
-		enable_irq(gmu->gmu_interrupt_num);
+		gmu_irq_enable(device);
 
 		ret = hfi_start(gmu, GMU_COLD_BOOT);
 		if (ret)
@@ -1243,8 +1313,7 @@ int gmu_start(struct kgsl_device *device)
 		if (ret)
 			goto error_clks;
 
-		enable_irq(hfi->hfi_interrupt_num);
-		enable_irq(gmu->gmu_interrupt_num);
+		gmu_irq_enable(device);
 
 		ret = hfi_start(gmu, GMU_WARM_BOOT);
 		if (ret)
@@ -1282,8 +1351,7 @@ int gmu_start(struct kgsl_device *device)
 
 error_gpu:
 	hfi_stop(gmu);
-	disable_irq(gmu->gmu_interrupt_num);
-	disable_irq(hfi->hfi_interrupt_num);
+	gmu_irq_disable(device);
 	if (device->state == KGSL_STATE_INIT ||
 			device->state == KGSL_STATE_SUSPEND) {
 		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
@@ -1301,27 +1369,43 @@ error_clks:
 	return ret;
 }
 
+#define GMU_IDLE_TIMEOUT	10 /* ms */
+
 /* Caller shall ensure GPU is ready for SLUMBER */
 void gmu_stop(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = &device->gmu;
-	struct kgsl_hfi *hfi = &gmu->hfi;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	unsigned long t;
+	bool idle = false;
 
 	if (!test_bit(GMU_CLK_ON, &gmu->flags))
 		return;
 
-	/* TODO: Check for conditions to enter slumber */
+	if (gpudev->hw_isidle) {
+		t = jiffies + msecs_to_jiffies(GMU_IDLE_TIMEOUT);
+		while (!time_after(jiffies, t)) {
+			if (gpudev->hw_isidle(adreno_dev)) {
+				idle = true;
+				break;
+			}
+			cpu_relax();
+		}
+	}
 
 	gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_NOTIFY_SLUMBER, 0, 0);
+
+	if (!idle || (gpudev->wait_for_gmu_idle &&
+			gpudev->wait_for_gmu_idle(adreno_dev))) {
+		dev_err(&gmu->pdev->dev, "Failure to stop GMU");
+		return;
+	}
 
 	/* Pending message in all queues are abandoned */
 	hfi_stop(gmu);
 	clear_bit(GMU_HFI_ON, &gmu->flags);
-
-	disable_irq(gmu->gmu_interrupt_num);
-	disable_irq(hfi->hfi_interrupt_num);
+	gmu_irq_disable(device);
 
 	gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_STOP, 0, 0);
 	gmu_disable_clks(gmu);
@@ -1336,7 +1420,7 @@ void gmu_remove(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = &device->gmu;
 	struct kgsl_hfi *hfi = &gmu->hfi;
-	int i;
+	int i = 0;
 
 	if (!device->gmu.pdev)
 		return;
@@ -1344,13 +1428,24 @@ void gmu_remove(struct kgsl_device *device)
 	tasklet_kill(&hfi->tasklet);
 
 	gmu_stop(device);
+	gmu_irq_disable(device);
 
-	disable_irq(gmu->gmu_interrupt_num);
-	disable_irq(hfi->hfi_interrupt_num);
-	devm_free_irq(&gmu->pdev->dev,
-			gmu->gmu_interrupt_num, gmu);
-	devm_free_irq(&gmu->pdev->dev,
-			hfi->hfi_interrupt_num, gmu);
+	while ((i < MAX_GMU_CLKS) && gmu->clks[i]) {
+		gmu->clks[i] = NULL;
+		i++;
+	}
+
+	if (gmu->gmu_interrupt_num) {
+		devm_free_irq(&gmu->pdev->dev,
+				gmu->gmu_interrupt_num, gmu);
+		gmu->gmu_interrupt_num = 0;
+	}
+
+	if (hfi->hfi_interrupt_num) {
+		devm_free_irq(&gmu->pdev->dev,
+				hfi->hfi_interrupt_num, gmu);
+		hfi->hfi_interrupt_num = 0;
+	}
 
 	if (gmu->ccl) {
 		msm_bus_scale_unregister_client(gmu->ccl);

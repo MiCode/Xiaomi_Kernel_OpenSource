@@ -287,7 +287,7 @@ static u32 wcd9xxx_validate_dmic_sample_rate(struct device *dev,
 	return dmic_sample_rate;
 
 undefined_rate:
-	dev_info(dev, "%s: Invalid %s = %d, for mclk %d\n",
+	dev_dbg(dev, "%s: Invalid %s = %d, for mclk %d\n",
 		 __func__, dmic_rate_type, dmic_sample_rate, mclk_rate);
 	dmic_sample_rate = WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED;
 
@@ -669,7 +669,7 @@ int wcd9xxx_reset(struct device *dev)
 		return -EINVAL;
 	}
 
-	value = msm_cdc_get_gpio_state(wcd9xxx->wcd_rst_np);
+	value = msm_cdc_pinctrl_get_state(wcd9xxx->wcd_rst_np);
 	if (value > 0) {
 		wcd9xxx->avoid_cdc_rstlow = 1;
 		return 0;

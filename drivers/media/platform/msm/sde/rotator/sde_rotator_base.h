@@ -97,6 +97,7 @@ enum sde_rot_type {
  * @SDE_CAPS_R3_WB: MDSS V3.x WB block
  * @SDE_CAPS_R3_1P5_DOWNSCALE: 1.5x downscale rotator support
  * @SDE_CAPS_SBUF_1: stream buffer support for inline rotation
+ * @SDE_CAPS_UBWC_2: universal bandwidth compression version 2
  */
 enum sde_caps_settings {
 	SDE_CAPS_R1_WB,
@@ -104,6 +105,7 @@ enum sde_caps_settings {
 	SDE_CAPS_R3_1P5_DOWNSCALE,
 	SDE_CAPS_SEC_ATTACH_DETACH_SMMU,
 	SDE_CAPS_SBUF_1,
+	SDE_CAPS_UBWC_2,
 	SDE_CAPS_MAX,
 };
 
@@ -134,6 +136,18 @@ struct sde_smmu_client {
 	struct reg_bus_client *reg_bus_clt;
 	bool domain_attached;
 	int domain;
+};
+
+/*
+ * struct sde_rot_debug_bus: rotator debugbus header structure
+ * @wr_addr: write address for debugbus controller
+ * @block_id: rotator debugbus block id
+ * @test_id: rotator debugbus test id
+ */
+struct sde_rot_debug_bus {
+	u32 wr_addr;
+	u32 block_id;
+	u32 test_id;
 };
 
 struct sde_rot_vbif_debug_bus {
@@ -187,6 +201,8 @@ struct sde_rot_data_type {
 
 	struct sde_rot_vbif_debug_bus *nrt_vbif_dbg_bus;
 	u32 nrt_vbif_dbg_bus_size;
+	struct sde_rot_debug_bus *rot_dbg_bus;
+	u32 rot_dbg_bus_size;
 
 	struct sde_rot_regdump *regdump;
 	u32 regdump_size;
@@ -195,6 +211,8 @@ struct sde_rot_data_type {
 	int sec_cam_en;
 
 	struct ion_client *iclient;
+
+	bool clk_always_on;
 };
 
 int sde_rotator_base_init(struct sde_rot_data_type **pmdata,

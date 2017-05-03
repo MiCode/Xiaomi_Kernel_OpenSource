@@ -19,6 +19,8 @@
 #ifndef __SDE_KMS_H__
 #define __SDE_KMS_H__
 
+#include <linux/msm_ion.h>
+
 #include "msm_drv.h"
 #include "msm_kms.h"
 #include "msm_mmu.h"
@@ -115,6 +117,37 @@ struct sde_irq {
 	struct dentry *debugfs_file;
 };
 
+/**
+ * struct sde_kms_fbo - framebuffer memory object
+ * @refcount: reference/usage count of this object
+ * @dev: Pointer to containing drm device
+ * @width: width of the framebuffer
+ * @height: height of the framebuffer
+ * @flags: drm framebuffer flags
+ * @modifier: pixel format modifier of the framebuffer
+ * @fmt: Pointer to sde format descriptor
+ * @layout: sde format layout descriptor
+ * @ihandle: framebuffer object ion handle
+ * @dma_buf: framebuffer object dma buffer
+ * @bo: per plane buffer object
+ * @fb_list: llist of fb created from this buffer object
+ */
+struct sde_kms_fbo {
+	atomic_t refcount;
+	struct drm_device *dev;
+	u32 width, height;
+	u32 pixel_format;
+	u32 flags;
+	u64 modifier[4];
+	int nplane;
+	const struct sde_format *fmt;
+	struct sde_hw_fmt_layout layout;
+	struct ion_handle *ihandle;
+	struct dma_buf *dma_buf;
+	struct drm_gem_object *bo[4];
+	struct list_head fb_list;
+};
+
 struct sde_kms {
 	struct msm_kms base;
 	struct drm_device *dev;
@@ -124,6 +157,8 @@ struct sde_kms {
 	struct msm_mmu *mmu[MSM_SMMU_DOMAIN_MAX];
 	int mmu_id[MSM_SMMU_DOMAIN_MAX];
 	struct sde_power_client *core_client;
+
+	struct ion_client *iclient;
 
 	/* directory entry for debugfs */
 	struct dentry *debugfs_danger;
@@ -362,18 +397,90 @@ void sde_kms_info_append_format(struct sde_kms_info *info,
 void sde_kms_info_stop(struct sde_kms_info *info);
 
 /**
- * sde_kms_rect_intersect() - find the intersecting region between two rects
- * @res: Intersecting region between the two rectangles
- * @rect1: first rectangle coordinates
- * @rect2: second rectangle coordinates
+ * sde_kms_rect_intersect - intersect two rectangles
+ * @r1: first rectangle
+ * @r2: scissor rectangle
+ * @result: result rectangle, all 0's on no intersection found
  */
-void sde_kms_rect_intersect(struct sde_rect *res,
-		const struct sde_rect *rect1, const struct sde_rect *rect2);
+void sde_kms_rect_intersect(const struct sde_rect *r1,
+		const struct sde_rect *r2,
+		struct sde_rect *result);
+
+/**
+ * sde_kms_rect_is_equal - compares two rects
+ * @r1: rect value to compare
+ * @r2: rect value to compare
+ *
+ * Returns 1 if the rects are same, 0 otherwise.
+ */
+static inline bool sde_kms_rect_is_equal(struct sde_rect *r1,
+		struct sde_rect *r2)
+{
+	if ((!r1 && r2) || (r1 && !r2))
+		return false;
+
+	if (!r1 && !r2)
+		return true;
+
+	return r1->x == r2->x && r1->y == r2->y && r1->w == r2->w &&
+			r1->h == r2->h;
+}
+
+/**
+ * sde_kms_rect_is_null - returns true if the width or height of a rect is 0
+ * @rect: rectangle to check for zero size
+ * @Return: True if width or height of rectangle is 0
+ */
+static inline bool sde_kms_rect_is_null(const struct sde_rect *r)
+{
+	if (!r)
+		return true;
+
+	return (!r->w || !r->h);
+}
 
 /**
  * Vblank enable/disable functions
  */
 int sde_enable_vblank(struct msm_kms *kms, struct drm_crtc *crtc);
 void sde_disable_vblank(struct msm_kms *kms, struct drm_crtc *crtc);
+
+/**
+ * sde_kms_fbo_create_fb - create framebuffer from given framebuffer object
+ * @dev: Pointer to drm device
+ * @fbo: Pointer to framebuffer object
+ * return: Pointer to drm framebuffer on success; NULL on error
+ */
+struct drm_framebuffer *sde_kms_fbo_create_fb(struct drm_device *dev,
+		struct sde_kms_fbo *fbo);
+
+/**
+ * sde_kms_fbo_alloc - create framebuffer object with given format parameters
+ * @dev: pointer to drm device
+ * @width: width of framebuffer
+ * @height: height of framebuffer
+ * @pixel_format: pixel format of framebuffer
+ * @modifier: pixel format modifier
+ * @flags: DRM_MODE_FB flags
+ * return: Pointer to framebuffer memory object on success; NULL on error
+ */
+struct sde_kms_fbo *sde_kms_fbo_alloc(struct drm_device *dev,
+		u32 width, u32 height, u32 pixel_format,
+		u64 modifiers[4], u32 flags);
+
+/**
+ * sde_kms_fbo_reference - increment reference count of given framebuffer object
+ * @fbo: Pointer to framebuffer memory object
+ * return: 0 on success; error code otherwise
+ */
+int sde_kms_fbo_reference(struct sde_kms_fbo *fbo);
+
+/**
+ * sde_kms_fbo_unreference - decrement reference count of given framebuffer
+ *	object
+ * @fbo: Pointer to framebuffer memory object
+ * return: 0 on success; error code otherwise
+ */
+void sde_kms_fbo_unreference(struct sde_kms_fbo *fbo);
 
 #endif /* __sde_kms_H__ */

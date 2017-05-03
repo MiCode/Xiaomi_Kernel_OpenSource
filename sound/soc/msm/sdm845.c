@@ -397,7 +397,8 @@ static char const *usb_sample_rate_text[] = {"KHZ_8", "KHZ_11P025",
 					"KHZ_88P2", "KHZ_96", "KHZ_176P4",
 					"KHZ_192", "KHZ_352P8", "KHZ_384"};
 static char const *ext_disp_sample_rate_text[] = {"KHZ_48", "KHZ_96",
-						  "KHZ_192"};
+						"KHZ_192", "KHZ_32", "KHZ_44P1",
+						"KHZ_88P2", "KHZ_176P4"	};
 static char const *tdm_ch_text[] = {"One", "Two", "Three", "Four",
 				    "Five", "Six", "Seven", "Eight"};
 static char const *tdm_bit_format_text[] = {"S16_LE", "S24_LE", "S32_LE"};
@@ -508,6 +509,9 @@ static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.key_code[7] = 0,
 	.linein_th = 5000,
 	.moisture_en = true,
+	.mbhc_micbias = MIC_BIAS_2,
+	.anc_micbias = MIC_BIAS_2,
+	.enable_anc_mic_detect = false,
 };
 
 static struct snd_soc_dapm_route wcd_audio_paths[] = {
@@ -1464,6 +1468,22 @@ static int ext_disp_rx_sample_rate_get(struct snd_kcontrol *kcontrol,
 		return idx;
 
 	switch (ext_disp_rx_cfg[idx].sample_rate) {
+	case SAMPLING_RATE_176P4KHZ:
+		sample_rate_val = 6;
+		break;
+
+	case SAMPLING_RATE_88P2KHZ:
+		sample_rate_val = 5;
+		break;
+
+	case SAMPLING_RATE_44P1KHZ:
+		sample_rate_val = 4;
+		break;
+
+	case SAMPLING_RATE_32KHZ:
+		sample_rate_val = 3;
+		break;
+
 	case SAMPLING_RATE_192KHZ:
 		sample_rate_val = 2;
 		break;
@@ -1494,6 +1514,18 @@ static int ext_disp_rx_sample_rate_put(struct snd_kcontrol *kcontrol,
 		return idx;
 
 	switch (ucontrol->value.integer.value[0]) {
+	case 6:
+		ext_disp_rx_cfg[idx].sample_rate = SAMPLING_RATE_176P4KHZ;
+		break;
+	case 5:
+		ext_disp_rx_cfg[idx].sample_rate = SAMPLING_RATE_88P2KHZ;
+		break;
+	case 4:
+		ext_disp_rx_cfg[idx].sample_rate = SAMPLING_RATE_44P1KHZ;
+		break;
+	case 3:
+		ext_disp_rx_cfg[idx].sample_rate = SAMPLING_RATE_32KHZ;
+		break;
 	case 2:
 		ext_disp_rx_cfg[idx].sample_rate = SAMPLING_RATE_192KHZ;
 		break;
@@ -4655,6 +4687,42 @@ static struct snd_soc_dai_link msm_tavil_fe_dai_links[] = {
 	},
 };
 
+static struct snd_soc_dai_link msm_common_misc_fe_dai_links[] = {
+	{
+		.name = MSM_DAILINK_NAME(ASM Loopback),
+		.stream_name = "MultiMedia6",
+		.cpu_dai_name = "MultiMedia6",
+		.platform_name = "msm-pcm-loopback",
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.dpcm_capture = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.ignore_suspend = 1,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_pmdown_time = 1,
+		.id = MSM_FRONTEND_DAI_MULTIMEDIA6,
+	},
+	{
+		.name = "USB Audio Hostless",
+		.stream_name = "USB Audio Hostless",
+		.cpu_dai_name = "USBAUDIO_HOSTLESS",
+		.platform_name = "msm-pcm-hostless",
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+	},
+};
+
 static struct snd_soc_dai_link msm_common_be_dai_links[] = {
 	/* Backend AFE DAI Links */
 	{
@@ -5373,6 +5441,7 @@ static struct snd_soc_dai_link msm_auxpcm_be_dai_links[] = {
 static struct snd_soc_dai_link msm_tavil_snd_card_dai_links[
 			 ARRAY_SIZE(msm_common_dai_links) +
 			 ARRAY_SIZE(msm_tavil_fe_dai_links) +
+			 ARRAY_SIZE(msm_common_misc_fe_dai_links) +
 			 ARRAY_SIZE(msm_common_be_dai_links) +
 			 ARRAY_SIZE(msm_tavil_be_dai_links) +
 			 ARRAY_SIZE(msm_wcn_be_dai_links) +
@@ -5662,7 +5731,7 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 {
 	struct snd_soc_card *card = NULL;
 	struct snd_soc_dai_link *dailink;
-	int len_1, len_2, len_3;
+	int len_1, len_2, len_3, len_4;
 	int total_links;
 	const struct of_device_id *match;
 
@@ -5677,8 +5746,9 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		card = &snd_soc_card_tavil_msm;
 		len_1 = ARRAY_SIZE(msm_common_dai_links);
 		len_2 = len_1 + ARRAY_SIZE(msm_tavil_fe_dai_links);
-		len_3 = len_2 + ARRAY_SIZE(msm_common_be_dai_links);
-		total_links = len_3 + ARRAY_SIZE(msm_tavil_be_dai_links);
+		len_3 = len_2 + ARRAY_SIZE(msm_common_misc_fe_dai_links);
+		len_4 = len_3 + ARRAY_SIZE(msm_common_be_dai_links);
+		total_links = len_4 + ARRAY_SIZE(msm_tavil_be_dai_links);
 		memcpy(msm_tavil_snd_card_dai_links,
 		       msm_common_dai_links,
 		       sizeof(msm_common_dai_links));
@@ -5686,9 +5756,12 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		       msm_tavil_fe_dai_links,
 		       sizeof(msm_tavil_fe_dai_links));
 		memcpy(msm_tavil_snd_card_dai_links + len_2,
+		       msm_common_misc_fe_dai_links,
+		       sizeof(msm_common_misc_fe_dai_links));
+		memcpy(msm_tavil_snd_card_dai_links + len_3,
 		       msm_common_be_dai_links,
 		       sizeof(msm_common_be_dai_links));
-		memcpy(msm_tavil_snd_card_dai_links + len_3,
+		memcpy(msm_tavil_snd_card_dai_links + len_4,
 		       msm_tavil_be_dai_links,
 		       sizeof(msm_tavil_be_dai_links));
 
@@ -6186,14 +6259,19 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 			pdev->dev.of_node->full_name);
 		dev_dbg(&pdev->dev, "Jack type properties set to default");
 	} else {
-		if (!strcmp(mbhc_audio_jack_type, "4-pole-jack"))
+		if (!strcmp(mbhc_audio_jack_type, "4-pole-jack")) {
+			wcd_mbhc_cfg.enable_anc_mic_detect = false;
 			dev_dbg(&pdev->dev, "This hardware has 4 pole jack");
-		else if (!strcmp(mbhc_audio_jack_type, "5-pole-jack"))
+		} else if (!strcmp(mbhc_audio_jack_type, "5-pole-jack")) {
+			wcd_mbhc_cfg.enable_anc_mic_detect = true;
 			dev_dbg(&pdev->dev, "This hardware has 5 pole jack");
-		else if (!strcmp(mbhc_audio_jack_type, "6-pole-jack"))
+		} else if (!strcmp(mbhc_audio_jack_type, "6-pole-jack")) {
+			wcd_mbhc_cfg.enable_anc_mic_detect = true;
 			dev_dbg(&pdev->dev, "This hardware has 6 pole jack");
-		else
+		} else {
+			wcd_mbhc_cfg.enable_anc_mic_detect = false;
 			dev_dbg(&pdev->dev, "Unknown value, set to default");
+		}
 	}
 	/*
 	 * Parse US-Euro gpio info from DT. Report no error if us-euro

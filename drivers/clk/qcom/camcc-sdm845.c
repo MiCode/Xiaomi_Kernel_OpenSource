@@ -107,9 +107,11 @@ static struct clk_alpha_pll cam_cc_pll0 = {
 			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
 			.ops = &clk_fabia_pll_ops,
-			VDD_CX_FMAX_MAP2(
-				MIN, 19200000,
-				LOWER, 600000000),
+			VDD_CX_FMAX_MAP4(
+				MIN, 615000000,
+				LOW, 1066000000,
+				LOW_L1, 1600000000,
+				NOMINAL, 2000000000),
 		},
 	},
 };
@@ -152,9 +154,11 @@ static struct clk_alpha_pll cam_cc_pll1 = {
 			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
 			.ops = &clk_fabia_pll_ops,
-			VDD_CX_FMAX_MAP2(
-				MIN, 19200000,
-				LOW, 808000000),
+			VDD_CX_FMAX_MAP4(
+				MIN, 615000000,
+				LOW, 1066000000,
+				LOW_L1, 1600000000,
+				NOMINAL, 2000000000),
 		},
 	},
 };
@@ -189,9 +193,11 @@ static struct clk_alpha_pll cam_cc_pll2 = {
 			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
 			.ops = &clk_fabia_pll_ops,
-			VDD_MX_FMAX_MAP2(
-				MIN, 19200000,
-				LOWER, 960000000),
+			VDD_MX_FMAX_MAP4(
+				MIN, 615000000,
+				LOW, 1066000000,
+				LOW_L1, 1600000000,
+				NOMINAL, 2000000000),
 		},
 	},
 };
@@ -248,9 +254,11 @@ static struct clk_alpha_pll cam_cc_pll3 = {
 			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
 			.ops = &clk_fabia_pll_ops,
-			VDD_CX_FMAX_MAP2(
-				MIN, 19200000,
-				LOWER, 384000000),
+			VDD_CX_FMAX_MAP4(
+				MIN, 615000000,
+				LOW, 1066000000,
+				LOW_L1, 1600000000,
+				NOMINAL, 2000000000),
 		},
 	},
 };
@@ -756,6 +764,7 @@ static struct clk_rcg2 cam_cc_lrme_clk_src = {
 };
 
 static const struct freq_tbl ftbl_cam_cc_mclk0_clk_src[] = {
+	F(24000000, P_CAM_CC_PLL3_OUT_EVEN, 16, 0, 0),
 	F(33333333, P_CAM_CC_PLL0_OUT_EVEN, 2, 1, 9),
 	F(34285714, P_CAM_CC_PLL2_OUT_EVEN, 14, 0, 0),
 	{ }
@@ -1101,19 +1110,6 @@ static struct clk_branch cam_cc_csiphy2_clk = {
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch cam_cc_debug_clk = {
-	.halt_reg = 0xc008,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0xc008,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "cam_cc_debug_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -1755,7 +1751,6 @@ static struct clk_regmap *cam_cc_sdm845_clocks[] = {
 	[CAM_CC_CSIPHY0_CLK] = &cam_cc_csiphy0_clk.clkr,
 	[CAM_CC_CSIPHY1_CLK] = &cam_cc_csiphy1_clk.clkr,
 	[CAM_CC_CSIPHY2_CLK] = &cam_cc_csiphy2_clk.clkr,
-	[CAM_CC_DEBUG_CLK] = &cam_cc_debug_clk.clkr,
 	[CAM_CC_FAST_AHB_CLK_SRC] = &cam_cc_fast_ahb_clk_src.clkr,
 	[CAM_CC_FD_CORE_CLK] = &cam_cc_fd_core_clk.clkr,
 	[CAM_CC_FD_CORE_CLK_SRC] = &cam_cc_fd_core_clk_src.clkr,

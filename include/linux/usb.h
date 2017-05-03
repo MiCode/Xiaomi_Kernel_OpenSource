@@ -354,6 +354,7 @@ struct usb_devmap {
  */
 struct usb_bus {
 	struct device *controller;	/* host/master side hardware */
+	struct device *sysdev;		/* as seen from firmware or bus */
 	int busnum;			/* Bus number (in order of reg) */
 	const char *bus_name;		/* stable id (PCI slot_name etc) */
 	u8 uses_dma;			/* Does the host controller use DMA? */
@@ -396,6 +397,15 @@ struct usb_bus {
 	struct mon_bus *mon_bus;	/* non-null when associated */
 	int monitored;			/* non-zero when monitored */
 #endif
+	unsigned skip_resume:1;		/* All USB devices are brought into full
+					 * power state after system resume. It
+					 * is desirable for some buses to keep
+					 * their devices in suspend state even
+					 * after system resume. The devices
+					 * are resumed later when a remote
+					 * wakeup is detected or an interface
+					 * driver starts I/O.
+					 */
 };
 
 struct usb_dev_state;
@@ -1895,8 +1905,11 @@ static inline int usb_translate_errors(int error_code)
 #define USB_DEVICE_REMOVE	0x0002
 #define USB_BUS_ADD		0x0003
 #define USB_BUS_REMOVE		0x0004
+#define USB_BUS_DIED		0x0005
 extern void usb_register_notify(struct notifier_block *nb);
 extern void usb_unregister_notify(struct notifier_block *nb);
+extern void usb_register_atomic_notify(struct notifier_block *nb);
+extern void usb_unregister_atomic_notify(struct notifier_block *nb);
 
 /* debugfs stuff */
 extern struct dentry *usb_debug_root;

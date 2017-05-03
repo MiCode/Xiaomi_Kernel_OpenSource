@@ -23,6 +23,7 @@
 
 #include "clk-branch.h"
 #include "clk-regmap.h"
+#include "clk-debug.h"
 
 static bool clk_branch_in_hwcg_mode(const struct clk_branch *br)
 {
@@ -338,6 +339,7 @@ const struct clk_ops clk_branch2_ops = {
 	.recalc_rate = clk_branch2_recalc_rate,
 	.set_flags = clk_branch_set_flags,
 	.list_registers = clk_branch2_list_registers,
+	.debug_init = clk_debug_measure_add,
 };
 EXPORT_SYMBOL_GPL(clk_branch2_ops);
 
@@ -393,6 +395,7 @@ const struct clk_ops clk_gate2_ops = {
 	.disable = clk_gate2_disable,
 	.is_enabled = clk_is_enabled_regmap,
 	.list_registers = clk_gate2_list_registers,
+	.debug_init = clk_debug_measure_add,
 };
 EXPORT_SYMBOL_GPL(clk_gate2_ops);
 

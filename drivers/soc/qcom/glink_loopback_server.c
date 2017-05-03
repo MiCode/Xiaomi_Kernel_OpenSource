@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -141,6 +141,7 @@ static struct ctl_ch_info ctl_ch_tbl[] = {
 	{"LOOPBACK_CTL_APSS", "lpass", "smem"},
 	{"LOOPBACK_CTL_APSS", "dsps", "smem"},
 	{"LOOPBACK_CTL_APSS", "spss", "mailbox"},
+	{"LOOPBACK_CTL_APSS", "wdsp", "spi"},
 };
 
 static DEFINE_MUTEX(ctl_ch_list_lock);

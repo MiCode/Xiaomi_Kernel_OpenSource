@@ -95,6 +95,9 @@ void adreno_drawctxt_dump(struct kgsl_device *device,
 			goto stats;
 		}
 
+		if (!kref_get_unless_zero(&drawobj->refcount))
+			goto stats;
+
 		if (drawobj->type == SYNCOBJ_TYPE) {
 			struct kgsl_drawobj_sync *syncobj = SYNCOBJ(drawobj);
 
@@ -106,6 +109,8 @@ void adreno_drawctxt_dump(struct kgsl_device *device,
 				kgsl_dump_syncpoints(device, syncobj);
 			}
 		}
+
+		kgsl_drawobj_put(drawobj);
 	}
 
 stats:

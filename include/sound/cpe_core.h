@@ -162,7 +162,7 @@ struct wcd_cpe_lsm_ops {
 	int (*lsm_set_one_param)(void *core_handle,
 			struct cpe_lsm_session *session,
 			struct lsm_params_info *p_info,
-			void *data, enum LSM_PARAM_TYPE param_type);
+			void *data, uint32_t param_type);
 	void (*lsm_get_snd_model_offset)
 		(void *core_handle, struct cpe_lsm_session *,
 		 size_t *offset);

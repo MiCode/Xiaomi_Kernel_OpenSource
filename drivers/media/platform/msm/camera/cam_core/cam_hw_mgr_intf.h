@@ -1,0 +1,209 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#ifndef _CAM_HW_MGR_INTF_H_
+#define _CAM_HW_MGR_INTF_H_
+
+/*
+ * This file declares Constants, Enums, Structures and APIs to be used as
+ * Interface between HW Manager and Context.
+ */
+
+
+/* maximum context numbers */
+#define CAM_CTX_MAX                         8
+
+/* maximum buf done irqs */
+#define CAM_NUM_OUT_PER_COMP_IRQ_MAX        12
+
+/* hardware event callback function type */
+typedef int (*cam_hw_event_cb_func)(void *context, uint32_t evt_id,
+	void *evt_data);
+
+/**
+ * struct cam_hw_update_entry - Entry for hardware config
+ *
+ * @handle:                Memory handle for the configuration
+ * @offset:                Memory offset
+ * @len:                   Size of the configuration
+ * @flags:                 Flags for the config entry(eg. DMI)
+ *
+ */
+struct cam_hw_update_entry {
+	int                handle;
+	uint32_t           offset;
+	uint32_t           len;
+	uint32_t           flags;
+};
+
+/**
+ * struct cam_hw_fence_map_entry - Entry for the resource to sync id map
+ *
+ * @resrouce_handle:       Resource port id for the buffer
+ * @sync_id:               Synce id
+ *
+ */
+struct cam_hw_fence_map_entry {
+	uint32_t           resource_handle;
+	int32_t            sync_id;
+};
+
+/**
+ * struct cam_hw_done_event_data - Payload for hw done event
+ *
+ * @num_handles:           number of handles in the event
+ * @resrouce_handle:       list of the resource handle
+ * @timestamp:             time stamp
+ *
+ */
+struct cam_hw_done_event_data {
+	uint32_t           num_handles;
+	uint32_t           resource_handle[CAM_NUM_OUT_PER_COMP_IRQ_MAX];
+	struct timeval     timestamp;
+};
+
+/**
+ * struct cam_hw_acquire_args - Payload for acquire command
+ *
+ * @context_data:          Context data pointer for the callback function
+ * @event_cb:              Callback function array
+ * @num_acq:               Total number of acquire in the payload
+ * @acquire_info:          Acquired resource array pointer
+ * @ctxt_to_hw_map:        HW context (returned)
+ *
+ */
+struct cam_hw_acquire_args {
+	void                        *context_data;
+	cam_hw_event_cb_func         event_cb;
+	uint32_t                     num_acq;
+	uint64_t                     acquire_info;
+	void                        *ctxt_to_hw_map;
+};
+
+/**
+ * struct cam_hw_release_args - Payload for release command
+ *
+ * @ctxt_to_hw_map:        HW context from the acquire
+ *
+ */
+struct cam_hw_release_args {
+	void              *ctxt_to_hw_map;
+};
+
+/**
+ * struct cam_hw_start_args - Payload for start command
+ *
+ * @ctxt_to_hw_map:        HW context from the acquire
+ * @num_hw_update_entries: Number of Hardware configuration
+ * @hw_update_entries:     Hardware configuration list
+ *
+ */
+struct cam_hw_start_args {
+	void                        *ctxt_to_hw_map;
+	uint32_t                     num_hw_update_entries;
+	struct cam_hw_update_entry  *hw_update_entries;
+};
+
+/**
+ * struct cam_hw_stop_args - Payload for stop command
+ *
+ * @ctxt_to_hw_map:        HW context from the acquire
+ *
+ */
+struct cam_hw_stop_args {
+	void              *ctxt_to_hw_map;
+};
+
+/**
+ * struct cam_hw_prepare_update_args - Payload for prepare command
+ *
+ * @packet:                CSL packet from user mode driver
+ * @ctxt_to_hw_map:        HW context from the acquire
+ * @max_hw_update_entries: Maximum hardware update entries supported
+ * @hw_update_entries:     Actual hardware update configuration (returned)
+ * @num_hw_update_entries: Number of actual hardware update entries (returned)
+ * @max_out_map_entries:   Maximum output fence mapping supported
+ * @out_map_entries:       Actual output fence mapping list (returned)
+ * @num_out_map_entries:   Number of actual output fence mapping (returned)
+ * @max_in_map_entries:    Maximum input fence mapping supported
+ * @in_map_entries:        Actual input fence mapping list (returned)
+ * @num_in_map_entries:    Number of acutal input fence mapping (returned)
+ *
+ */
+struct cam_hw_prepare_update_args {
+	struct cam_packet              *packet;
+	void                           *ctxt_to_hw_map;
+	uint32_t                        max_hw_update_entries;
+	struct cam_hw_update_entry     *hw_update_entries;
+	uint32_t                        num_hw_update_entries;
+	uint32_t                        max_out_map_entries;
+	struct cam_hw_fence_map_entry  *out_map_entries;
+	uint32_t                        num_out_map_entries;
+	uint32_t                        max_in_map_entries;
+	struct cam_hw_fence_map_entry  *in_map_entries;
+	uint32_t                        num_in_map_entries;
+};
+
+/**
+ * struct cam_hw_config_args - Payload for config command
+ *
+ * @ctxt_to_hw_map:        HW context from the acquire
+ * @num_hw_update_entries: Number of hardware update entries
+ * @hw_update_entries:     Hardware update list
+ *
+ */
+struct cam_hw_config_args {
+	void                        *ctxt_to_hw_map;
+	uint32_t                     num_hw_update_entries;
+	struct cam_hw_update_entry  *hw_update_entries;
+};
+
+/**
+ * cam_hw_mgr_intf - HW manager interface
+ *
+ * @hw_mgr_priv:           HW manager object
+ * @hw_get_caps:           Function pointer for get hw caps
+ *                               args = cam_query_cap_cmd
+ * @hw_acquire:            Function poniter for acquire hw resources
+ *                               args = cam_hw_acquire_args
+ * @hw_release:            Function pointer for release hw device resource
+ *                               args = cam_hw_release_args
+ * @hw_start:              Function pointer for start hw devices
+ *                               args = cam_hw_start_args
+ * @hw_stop:               Function pointer for stop hw devices
+ *                               args = cam_hw_stop_args
+ * @hw_prepare_update:     Function pointer for prepare hw update for hw devices
+ *                               args = cam_hw_prepare_update_args
+ * @hw_config:             Function pointer for configure hw devices
+ *                               args = cam_hw_config_args
+ * @hw_read:               Function pointer for read hardware registers
+ * @hw_write:              Function pointer for Write hardware registers
+ * @hw_cmd:                Function pointer for any customized commands for the
+ *                         hardware manager
+ *
+ */
+struct cam_hw_mgr_intf {
+	void *hw_mgr_priv;
+
+	int (*hw_get_caps)(void *hw_priv, void *hw_caps_args);
+	int (*hw_acquire)(void *hw_priv, void *hw_acquire_args);
+	int (*hw_release)(void *hw_priv, void *hw_release_args);
+	int (*hw_start)(void *hw_priv, void *hw_start_args);
+	int (*hw_stop)(void *hw_priv, void *hw_stop_args);
+	int (*hw_prepare_update)(void *hw_priv, void *hw_prepare_update_args);
+	int (*hw_config)(void *hw_priv, void *hw_config_args);
+	int (*hw_read)(void *hw_priv, void *read_args);
+	int (*hw_write)(void *hw_priv, void *write_args);
+	int (*hw_cmd)(void *hw_priv, void *write_args);
+};
+
+#endif /* _CAM_HW_MGR_INTF_H_ */

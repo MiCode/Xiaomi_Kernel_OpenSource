@@ -83,13 +83,11 @@ static struct clk_alpha_pll video_pll0 = {
 			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
 			.ops = &clk_fabia_pll_ops,
-			VDD_CX_FMAX_MAP5(
-				MIN, 200000000,
-				LOW, 640000000,
-				LOW_L1, 760000000,
-				NOMINAL, 1332000000,
-				HIGH, 1599000000),
-
+			VDD_CX_FMAX_MAP4(
+				MIN, 615000000,
+				LOW, 1066000000,
+				LOW_L1, 1600000000,
+				NOMINAL, 2000000000),
 		},
 	},
 };
@@ -148,19 +146,6 @@ static struct clk_branch video_cc_at_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "video_cc_at_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch video_cc_debug_clk = {
-	.halt_reg = 0xa58,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0xa58,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "video_cc_debug_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -301,7 +286,6 @@ static struct clk_branch video_cc_venus_ctl_core_clk = {
 static struct clk_regmap *video_cc_sdm845_clocks[] = {
 	[VIDEO_CC_APB_CLK] = &video_cc_apb_clk.clkr,
 	[VIDEO_CC_AT_CLK] = &video_cc_at_clk.clkr,
-	[VIDEO_CC_DEBUG_CLK] = &video_cc_debug_clk.clkr,
 	[VIDEO_CC_QDSS_TRIG_CLK] = &video_cc_qdss_trig_clk.clkr,
 	[VIDEO_CC_QDSS_TSCTR_DIV8_CLK] = &video_cc_qdss_tsctr_div8_clk.clkr,
 	[VIDEO_CC_VCODEC0_AXI_CLK] = &video_cc_vcodec0_axi_clk.clkr,

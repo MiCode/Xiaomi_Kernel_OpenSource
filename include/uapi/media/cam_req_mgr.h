@@ -9,16 +9,19 @@
 
 #define CAM_REQ_MGR_VNODE_NAME "cam-req-mgr-devnode"
 
-#define CAM_DEVICE_TYPE_BASE    (MEDIA_ENT_F_OLD_BASE)
-#define CAM_VNODE_DEVICE_TYPE   (CAM_DEVICE_TYPE_BASE)
-#define CAM_SENSOR_DEVICE_TYPE  (CAM_DEVICE_TYPE_BASE + 1)
-#define CAM_IFE_DEVICE_TYPE     (CAM_DEVICE_TYPE_BASE + 2)
-#define CAM_ICP_DEVICE_TYPE     (CAM_DEVICE_TYPE_BASE + 3)
-#define CAM_LRME_DEVICE_TYPE    (CAM_DEVICE_TYPE_BASE + 4)
-#define CAM_JPEG_DEVICE_TYPE    (CAM_DEVICE_TYPE_BASE + 5)
-#define CAM_FD_DEVICE_TYPE      (CAM_DEVICE_TYPE_BASE + 6)
-#define CAM_CPAS_DEVICE_TYPE    (CAM_DEVICE_TYPE_BASE + 7)
-#define CAM_CSIPHY_DEVICE_TYPE  (CAM_DEVICE_TYPE_BASE + 8)
+#define CAM_DEVICE_TYPE_BASE      (MEDIA_ENT_F_OLD_BASE)
+#define CAM_VNODE_DEVICE_TYPE     (CAM_DEVICE_TYPE_BASE)
+#define CAM_SENSOR_DEVICE_TYPE    (CAM_DEVICE_TYPE_BASE + 1)
+#define CAM_IFE_DEVICE_TYPE       (CAM_DEVICE_TYPE_BASE + 2)
+#define CAM_ICP_DEVICE_TYPE       (CAM_DEVICE_TYPE_BASE + 3)
+#define CAM_LRME_DEVICE_TYPE      (CAM_DEVICE_TYPE_BASE + 4)
+#define CAM_JPEG_DEVICE_TYPE      (CAM_DEVICE_TYPE_BASE + 5)
+#define CAM_FD_DEVICE_TYPE        (CAM_DEVICE_TYPE_BASE + 6)
+#define CAM_CPAS_DEVICE_TYPE      (CAM_DEVICE_TYPE_BASE + 7)
+#define CAM_CSIPHY_DEVICE_TYPE    (CAM_DEVICE_TYPE_BASE + 8)
+#define CAM_ACTUATOR_DEVICE_TYPE  (CAM_DEVICE_TYPE_BASE + 9)
+#define CAM_CCI_DEVICE_TYPE       (CAM_DEVICE_TYPE_BASE + 10)
+#define CAM_FLASH_DEVICE_TYPE     (CAM_DEVICE_TYPE_BASE + 11)
 
 /* cam_req_mgr hdl info */
 #define CAM_REQ_MGR_HDL_IDX_POS           8
@@ -187,9 +190,6 @@ struct cam_req_mgr_sync_mode {
 #define CAM_REQ_MGR_MAP_BUF                     (CAM_COMMON_OPCODE_MAX + 10)
 #define CAM_REQ_MGR_RELEASE_BUF                 (CAM_COMMON_OPCODE_MAX + 11)
 #define CAM_REQ_MGR_CACHE_OPS                   (CAM_COMMON_OPCODE_MAX + 12)
-#define CAM_REQ_MGR_GET_MMU_HDLS_DEBUG          (CAM_COMMON_OPCODE_MAX + 13)
-#define CAM_REQ_MGR_GET_IO_BUF_DEBUG            (CAM_COMMON_OPCODE_MAX + 14)
-#define CAM_REQ_MGR_GET_KMD_BUF_DEBUG           (CAM_COMMON_OPCODE_MAX + 15)
 /* end of cam_req_mgr opcodes */
 
 #define CAM_MEM_FLAG_HW_READ_WRITE              (1<<0)
@@ -203,6 +203,7 @@ struct cam_req_mgr_sync_mode {
 #define CAM_MEM_FLAG_STATS_BUF_TYPE             (1<<8)
 #define CAM_MEM_FLAG_PACKET_BUF_TYPE            (1<<9)
 #define CAM_MEM_FLAG_CACHE                      (1<<10)
+#define CAM_MEM_FLAG_HW_SHARED_ACCESS           (1<<11)
 
 #define CAM_MEM_MMU_MAX_HANDLE                  16
 

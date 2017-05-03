@@ -137,11 +137,8 @@ static void sync_event_print(struct seq_file *s,
 		break;
 	}
 	case KGSL_CMD_SYNCPOINT_TYPE_FENCE: {
-		char fence_str[128];
-
-		kgsl_dump_fence(sync_event->handle,
-				fence_str, sizeof(fence_str));
-		seq_printf(s, "sync: [%pK] %s", sync_event->handle, fence_str);
+		seq_printf(s, "sync: [%pK] %s", sync_event->handle,
+				sync_event->fence_name);
 		break;
 	}
 	default:
@@ -241,6 +238,9 @@ static void cmdobj_print(struct seq_file *s,
 static void drawobj_print(struct seq_file *s,
 			struct kgsl_drawobj *drawobj)
 {
+	if (!kref_get_unless_zero(&drawobj->refcount))
+		return;
+
 	if (drawobj->type == SYNCOBJ_TYPE)
 		syncobj_print(s, SYNCOBJ(drawobj));
 	else if ((drawobj->type == CMDOBJ_TYPE) ||
@@ -251,6 +251,7 @@ static void drawobj_print(struct seq_file *s,
 	print_flags(s, drawobj_flags, ARRAY_SIZE(drawobj_flags),
 		    drawobj->flags);
 
+	kgsl_drawobj_put(drawobj);
 	seq_puts(s, "\n");
 }
 

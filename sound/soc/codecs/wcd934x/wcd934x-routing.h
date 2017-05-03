@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -761,7 +761,8 @@ const struct snd_soc_dapm_route tavil_audio_map[] = {
 	{"RX INT0_2 MUX", "RX5", "CDC_IF RX5 MUX"},
 	{"RX INT0_2 MUX", "RX6", "CDC_IF RX6 MUX"},
 	{"RX INT0_2 MUX", "RX7", "CDC_IF RX7 MUX"},
-	{"RX INT0 SEC MIX", NULL, "RX INT0_2 MUX"},
+	{"RX INT0_2 INTERP", NULL, "RX INT0_2 MUX"},
+	{"RX INT0 SEC MIX", NULL, "RX INT0_2 INTERP"},
 
 	/* Mixing path INT1 */
 	{"RX INT1_2 MUX", "RX0", "CDC_IF RX0 MUX"},
@@ -871,7 +872,8 @@ const struct snd_soc_dapm_route tavil_audio_map[] = {
 	{"RX INT3 SEC MIX", NULL, "RX INT3_1 INTERP"},
 	{"RX INT3 MIX2", NULL, "RX INT3 SEC MIX"},
 	{"RX INT3 MIX2", NULL, "RX INT3 MIX2 INP"},
-	{"RX INT3 DAC", NULL, "RX INT3 MIX2"},
+	{"RX INT3 MIX3", NULL, "RX INT3 MIX2"},
+	{"RX INT3 DAC", NULL, "RX INT3 MIX3"},
 	{"RX INT3 DAC", NULL, "RX_BIAS"},
 	{"LINEOUT1 PA", NULL, "RX INT3 DAC"},
 	{"LINEOUT1", NULL, "LINEOUT1 PA"},
@@ -881,7 +883,8 @@ const struct snd_soc_dapm_route tavil_audio_map[] = {
 	{"RX INT4 SEC MIX", NULL, "RX INT4_1 MIX1"},
 	{"RX INT4 MIX2", NULL, "RX INT4 SEC MIX"},
 	{"RX INT4 MIX2", NULL, "RX INT4 MIX2 INP"},
-	{"RX INT4 DAC", NULL, "RX INT4 MIX2"},
+	{"RX INT4 MIX3", NULL, "RX INT4 MIX2"},
+	{"RX INT4 DAC", NULL, "RX INT4 MIX3"},
 	{"RX INT4 DAC", NULL, "RX_BIAS"},
 	{"LINEOUT2 PA", NULL, "RX INT4 DAC"},
 	{"LINEOUT2", NULL, "LINEOUT2 PA"},
@@ -913,8 +916,22 @@ const struct snd_soc_dapm_route tavil_audio_map[] = {
 	{"ANC OUT EAR Enable", "Switch", "ADC MUX11"},
 	{"RX INT0 MIX2", NULL, "ANC OUT EAR Enable"},
 
+	{"ANC OUT HPHL Enable", "Switch", "ADC MUX10"},
+	{"ANC OUT HPHL Enable", "Switch", "ADC MUX11"},
+	{"RX INT1 MIX2", NULL, "ANC OUT HPHL Enable"},
+
+	{"ANC OUT HPHR Enable", "Switch", "ADC MUX12"},
+	{"ANC OUT HPHR Enable", "Switch", "ADC MUX13"},
+	{"RX INT2 MIX2", NULL, "ANC OUT HPHR Enable"},
+
 	{"ANC EAR PA", NULL, "RX INT0 DAC"},
 	{"ANC EAR", NULL, "ANC EAR PA"},
+
+	{"ANC HPHL PA", NULL, "RX INT1 DAC"},
+	{"ANC HPHL", NULL, "ANC HPHL PA"},
+
+	{"ANC HPHR PA", NULL, "RX INT2 DAC"},
+	{"ANC HPHR", NULL, "ANC HPHR PA"},
 
 	{"ANC OUT EAR SPKR Enable", "Switch", "ADC MUX10"},
 	{"ANC OUT EAR SPKR Enable", "Switch", "ADC MUX11"},

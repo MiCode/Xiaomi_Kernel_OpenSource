@@ -126,6 +126,7 @@ const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(IPA_CLIENT_Q6_DECOMP_PROD),
 	__stringify(IPA_CLIENT_Q6_DECOMP2_PROD),
 	__stringify(IPA_CLIENT_UC_USB_PROD),
+	__stringify(IPA_CLIENT_ETHERNET_PROD),
 
 	/* Below PROD client type is only for test purpose */
 	__stringify(IPA_CLIENT_TEST_PROD),
@@ -164,6 +165,7 @@ const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(IPA_CLIENT_Q6_DECOMP_CONS),
 	__stringify(IPA_CLIENT_Q6_DECOMP2_CONS),
 	__stringify(IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS),
+	__stringify(IPA_CLIENT_ETHERNET_CONS),
 	/* Below CONS client type is only for test purpose */
 	__stringify(IPA_CLIENT_TEST_CONS),
 	__stringify(IPA_CLIENT_TEST1_CONS),
@@ -1633,6 +1635,25 @@ u16 ipa_get_smem_restr_bytes(void)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_get_smem_restr_bytes);
+
+/**
+ * ipa_broadcast_wdi_quota_reach_ind() - quota reach
+ * @uint32_t fid: [in] input netdev ID
+ * @uint64_t num_bytes: [in] used bytes
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_broadcast_wdi_quota_reach_ind(uint32_t fid,
+		uint64_t num_bytes)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_broadcast_wdi_quota_reach_ind,
+		fid, num_bytes);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_broadcast_wdi_quota_reach_ind);
 
 /**
  * ipa_uc_wdi_get_dbpa() - To retrieve

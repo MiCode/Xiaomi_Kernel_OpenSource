@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,7 +24,6 @@
 #include <linux/device.h>
 #include <linux/delay.h>
 #include <linux/workqueue.h>
-#include <linux/debugfs.h>
 
 #include <soc/qcom/msm_qmi_interface.h>
 #include <soc/qcom/service-locator.h>
@@ -111,6 +110,7 @@ static void service_locator_svc_arrive(struct work_struct *work)
 			qmi_handle_create(service_locator_clnt_notify, NULL);
 	if (!service_locator.clnt_handle) {
 		service_locator.clnt_handle = NULL;
+		complete_all(&service_locator.service_available);
 		mutex_unlock(&service_locator.service_mutex);
 		pr_err("Service locator QMI client handle alloc failed!\n");
 		return;
@@ -123,6 +123,7 @@ static void service_locator_svc_arrive(struct work_struct *work)
 	if (rc) {
 		qmi_handle_destroy(service_locator.clnt_handle);
 		service_locator.clnt_handle = NULL;
+		complete_all(&service_locator.service_available);
 		mutex_unlock(&service_locator.service_mutex);
 		pr_err("Unable to connnect to service rc:%d\n", rc);
 		return;
@@ -138,6 +139,7 @@ static void service_locator_svc_exit(struct work_struct *work)
 	mutex_lock(&service_locator.service_mutex);
 	qmi_handle_destroy(service_locator.clnt_handle);
 	service_locator.clnt_handle = NULL;
+	complete_all(&service_locator.service_available);
 	mutex_unlock(&service_locator.service_mutex);
 	pr_info("Connection with service locator lost\n");
 }
@@ -263,10 +265,12 @@ static int service_locator_send_msg(struct pd_qmi_client_data *pd)
 		if (!domains_read) {
 			db_rev_count = pd->db_rev_count = resp->db_rev_count;
 			pd->total_domains = resp->total_domains;
-			if (!pd->total_domains && resp->domain_list_len) {
-				pr_err("total domains not set\n");
-				pd->total_domains = resp->domain_list_len;
+			if (!resp->total_domains) {
+				pr_err("No matching domains found\n");
+				rc = -EIO;
+				goto out;
 			}
+
 			pd->domain_list = kmalloc(
 					sizeof(struct servreg_loc_entry_v01) *
 					resp->total_domains, GFP_KERNEL);
@@ -282,6 +286,10 @@ static int service_locator_send_msg(struct pd_qmi_client_data *pd)
 			kfree(pd->domain_list);
 			rc = -EAGAIN;
 			goto out;
+		}
+		if (resp->domain_list_len >  resp->total_domains) {
+			/* Always read total_domains from the response msg */
+			resp->domain_list_len = resp->total_domains;
 		}
 		/* Copy the response*/
 		store_get_domain_list_response(pd, resp, domains_read);
@@ -369,6 +377,7 @@ int get_service_location(char *client_name, char *service_name,
 	if (!pqw) {
 		rc = -ENOMEM;
 		pr_err("Allocation failed\n");
+		kfree(pqcd);
 		goto err;
 	}
 	pqw->notifier = locator_nb;
@@ -431,140 +440,3 @@ int find_subsys(const char *pd_path, char *subsys)
 	return 0;
 }
 EXPORT_SYMBOL(find_subsys);
-
-static struct pd_qmi_client_data test_data;
-
-static int servloc_test_pdr_cb(struct notifier_block *this,
-			unsigned long opcode, void *ptr)
-{
-	int i, rc = 0;
-	char subsys[QMI_SERVREG_LOC_NAME_LENGTH_V01];
-	struct pd_qmi_client_data *return_data;
-
-	return_data = (struct pd_qmi_client_data *)ptr;
-
-	if (opcode) {
-		pr_err("%s: Failed to get process domain!, opcode = %lu\n",
-			__func__, opcode);
-		return -EIO;
-	}
-
-		pr_err("Service Name: %s\tTotal Domains: %d\n",
-			return_data->service_name, return_data->total_domains);
-
-		for (i = 0; i < return_data->total_domains; i++) {
-			pr_err("Instance ID: %d\t ",
-				return_data->domain_list[i].instance_id);
-			pr_err("Domain Name: %s\n",
-				return_data->domain_list[i].name);
-			rc = find_subsys(return_data->domain_list[i].name,
-					subsys);
-		if (rc < 0)
-			pr_err("No valid subsys found for %s!\n",
-				return_data->domain_list[i].name);
-		else
-			pr_err("Subsys: %s\n", subsys);
-		}
-	return 0;
-}
-
-static struct notifier_block pdr_service_nb = {
-		.notifier_call  = servloc_test_pdr_cb,
-};
-
-static ssize_t servloc_read(struct file *filp, char __user *ubuf,
-		size_t cnt, loff_t *ppos)
-{
-	int rc = 0;
-	char *node_name = filp->private_data;
-
-	if (!strcmp(node_name, "test_servloc_get"))
-		rc = get_service_location(test_data.client_name,
-				test_data.service_name, &pdr_service_nb);
-
-	return rc;
-}
-
-static ssize_t servloc_write(struct file *fp, const char __user *buf,
-				size_t count, loff_t *unused)
-{
-	char *node_name = fp->private_data;
-
-	if (!buf)
-		return -EIO;
-	if (!strcmp(node_name, "service_name")) {
-		snprintf(test_data.service_name, sizeof(test_data.service_name),
-			"%.*s", (int) min((size_t)count - 1,
-			(sizeof(test_data.service_name) - 1)), buf);
-	} else {
-		snprintf(test_data.client_name, sizeof(test_data.client_name),
-			"%.*s", (int) min((size_t)count - 1,
-			(sizeof(test_data.client_name) - 1)), buf);
-	}
-	return count;
-}
-
-static const struct file_operations servloc_fops = {
-	.open	= simple_open,
-	.read	= servloc_read,
-	.write	= servloc_write,
-};
-
-static struct dentry *servloc_base_dir;
-static struct dentry *test_servloc_file;
-
-static int __init servloc_debugfs_init(void)
-{
-	servloc_base_dir = debugfs_create_dir("test_servloc", NULL);
-	return !servloc_base_dir ? -ENOMEM : 0;
-}
-
-static void servloc_debugfs_exit(void)
-{
-	debugfs_remove_recursive(servloc_base_dir);
-}
-
-static int servloc_debugfs_add(void)
-{
-	int rc;
-
-	if (!servloc_base_dir)
-		return -ENOMEM;
-
-	test_servloc_file = debugfs_create_file("client_name",
-				0644, servloc_base_dir,
-				"client_name", &servloc_fops);
-	rc = !test_servloc_file ? -ENOMEM : 0;
-
-	if (rc == 0) {
-		test_servloc_file = debugfs_create_file("service_name",
-				0644, servloc_base_dir,
-				"service_name", &servloc_fops);
-		rc = !test_servloc_file ? -ENOMEM : 0;
-	}
-
-	if (rc == 0) {
-		test_servloc_file = debugfs_create_file("test_servloc_get",
-				0644, servloc_base_dir,
-				"test_servloc_get", &servloc_fops);
-		rc = !test_servloc_file ? -ENOMEM : 0;
-	}
-	return rc;
-}
-
-static int __init service_locator_init(void)
-{
-	pr_debug("service_locator_status = %d\n", locator_status);
-	if (servloc_debugfs_init())
-		pr_err("Could not create test_servloc base directory!");
-	if (servloc_debugfs_add())
-		pr_err("Could not create test_servloc node entries!");
-	return 0;
-}
-
-static void __exit service_locator_exit(void)
-{
-	servloc_debugfs_exit();
-}
-module_init(service_locator_init);
-module_exit(service_locator_exit);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +16,6 @@
 #include <linux/kernel.h>
 #include <linux/err.h>
 #include <linux/string.h>
-#include <linux/clk/msm-clock-generic.h>
 #include <linux/of_address.h>
 #include <linux/dma-mapping.h>
 #include <linux/vmalloc.h>

@@ -142,6 +142,8 @@ struct thermal_cooling_device_ops {
 	int (*get_max_state) (struct thermal_cooling_device *, unsigned long *);
 	int (*get_cur_state) (struct thermal_cooling_device *, unsigned long *);
 	int (*set_cur_state) (struct thermal_cooling_device *, unsigned long);
+	int (*set_min_state)(struct thermal_cooling_device *, unsigned long);
+	int (*get_min_state)(struct thermal_cooling_device *, unsigned long *);
 	int (*get_requested_power)(struct thermal_cooling_device *,
 				   struct thermal_zone_device *, u32 *);
 	int (*state2power)(struct thermal_cooling_device *,
@@ -161,6 +163,8 @@ struct thermal_cooling_device {
 	struct mutex lock; /* protect thermal_instances list */
 	struct list_head thermal_instances;
 	struct list_head node;
+	unsigned long sysfs_cur_state_req;
+	unsigned long sysfs_min_state_req;
 };
 
 struct thermal_attr {
@@ -260,6 +264,7 @@ struct thermal_governor {
 	void (*unbind_from_tz)(struct thermal_zone_device *tz);
 	int (*throttle)(struct thermal_zone_device *tz, int trip);
 	struct list_head	governor_list;
+	int min_state_throttle;
 };
 
 /* Structure that holds binding parameters for a zone */
@@ -348,6 +353,12 @@ struct thermal_zone_params {
 	 * 		Used by thermal zone drivers (default 0).
 	 */
 	int offset;
+
+	/*
+	 * @tracks_low:	Indicates that the thermal zone params are for
+	 *		temperatures falling below the thresholds.
+	 */
+	bool tracks_low;
 };
 
 struct thermal_genl_event {

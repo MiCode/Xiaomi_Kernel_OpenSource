@@ -62,6 +62,7 @@ static DEFINE_MUTEX(dsi_ctrl_list_lock);
 
 static const enum dsi_ctrl_version dsi_ctrl_v1_4 = DSI_CTRL_VERSION_1_4;
 static const enum dsi_ctrl_version dsi_ctrl_v2_0 = DSI_CTRL_VERSION_2_0;
+static const enum dsi_ctrl_version dsi_ctrl_v2_2 = DSI_CTRL_VERSION_2_2;
 
 static const struct of_device_id msm_dsi_of_match[] = {
 	{
@@ -71,6 +72,10 @@ static const struct of_device_id msm_dsi_of_match[] = {
 	{
 		.compatible = "qcom,dsi-ctrl-hw-v2.0",
 		.data = &dsi_ctrl_v2_0,
+	},
+	{
+		.compatible = "qcom,dsi-ctrl-hw-v2.2",
+		.data = &dsi_ctrl_v2_2,
 	},
 	{}
 };
@@ -428,15 +433,34 @@ static int dsi_ctrl_init_regmap(struct platform_device *pdev,
 	pr_debug("[%s] map dsi_ctrl registers to %p\n", ctrl->name,
 		 ctrl->hw.base);
 
-	ptr = msm_ioremap(pdev, "mmss_misc", ctrl->name);
-	if (IS_ERR(ptr)) {
-		rc = PTR_ERR(ptr);
-		return rc;
+	switch (ctrl->version) {
+	case DSI_CTRL_VERSION_1_4:
+	case DSI_CTRL_VERSION_2_0:
+		ptr = msm_ioremap(pdev, "mmss_misc", ctrl->name);
+		if (IS_ERR(ptr)) {
+			pr_err("mmss_misc base address not found for [%s]\n",
+					ctrl->name);
+			rc = PTR_ERR(ptr);
+			return rc;
+		}
+		ctrl->hw.mmss_misc_base = ptr;
+		ctrl->hw.disp_cc_base = NULL;
+		break;
+	case DSI_CTRL_VERSION_2_2:
+		ptr = msm_ioremap(pdev, "disp_cc_base", ctrl->name);
+		if (IS_ERR(ptr)) {
+			pr_err("disp_cc base address not found for [%s]\n",
+					ctrl->name);
+			rc = PTR_ERR(ptr);
+			return rc;
+		}
+		ctrl->hw.disp_cc_base = ptr;
+		ctrl->hw.mmss_misc_base = NULL;
+		break;
+	default:
+		break;
 	}
 
-	ctrl->hw.mmss_misc_base = ptr;
-	pr_debug("[%s] map mmss_misc registers to %p\n", ctrl->name,
-		 ctrl->hw.mmss_misc_base);
 	return rc;
 }
 
@@ -490,30 +514,26 @@ static int dsi_ctrl_clocks_init(struct platform_device *pdev,
 
 	core->mdp_core_clk = devm_clk_get(&pdev->dev, "mdp_core_clk");
 	if (IS_ERR(core->mdp_core_clk)) {
-		rc = PTR_ERR(core->mdp_core_clk);
-		pr_err("failed to get mdp_core_clk, rc=%d\n", rc);
-		goto fail;
+		core->mdp_core_clk = NULL;
+		pr_debug("failed to get mdp_core_clk, rc=%d\n", rc);
 	}
 
 	core->iface_clk = devm_clk_get(&pdev->dev, "iface_clk");
 	if (IS_ERR(core->iface_clk)) {
-		rc = PTR_ERR(core->iface_clk);
-		pr_err("failed to get iface_clk, rc=%d\n", rc);
-		goto fail;
+		core->iface_clk = NULL;
+		pr_debug("failed to get iface_clk, rc=%d\n", rc);
 	}
 
 	core->core_mmss_clk = devm_clk_get(&pdev->dev, "core_mmss_clk");
 	if (IS_ERR(core->core_mmss_clk)) {
-		rc = PTR_ERR(core->core_mmss_clk);
-		pr_err("failed to get core_mmss_clk, rc=%d\n", rc);
-		goto fail;
+		core->core_mmss_clk = NULL;
+		pr_debug("failed to get core_mmss_clk, rc=%d\n", rc);
 	}
 
 	core->bus_clk = devm_clk_get(&pdev->dev, "bus_clk");
 	if (IS_ERR(core->bus_clk)) {
-		rc = PTR_ERR(core->bus_clk);
-		pr_err("failed to get bus_clk, rc=%d\n", rc);
-		goto fail;
+		core->bus_clk = NULL;
+		pr_debug("failed to get bus_clk, rc=%d\n", rc);
 	}
 
 	core->mnoc_clk = devm_clk_get(&pdev->dev, "mnoc_clk");
@@ -536,7 +556,7 @@ static int dsi_ctrl_clocks_init(struct platform_device *pdev,
 		goto fail;
 	}
 
-	link->esc_clk = devm_clk_get(&pdev->dev, "core_clk");
+	link->esc_clk = devm_clk_get(&pdev->dev, "esc_clk");
 	if (IS_ERR(link->esc_clk)) {
 		rc = PTR_ERR(link->esc_clk);
 		pr_err("failed to get esc_clk, rc=%d\n", rc);
@@ -617,10 +637,8 @@ static int dsi_ctrl_supplies_init(struct platform_device *pdev,
 	rc = dsi_pwr_get_dt_vreg_data(&pdev->dev,
 					  &ctrl->pwr_info.digital,
 					  "qcom,core-supply-entries");
-	if (rc) {
-		pr_err("failed to get digital supply, rc = %d\n", rc);
-		goto error;
-	}
+	if (rc)
+		pr_debug("failed to get digital supply, rc = %d\n", rc);
 
 	rc = dsi_pwr_get_dt_vreg_data(&pdev->dev,
 					  &ctrl->pwr_info.host_pwr,
@@ -667,10 +685,10 @@ error_host_pwr:
 	ctrl->pwr_info.host_pwr.vregs = NULL;
 	ctrl->pwr_info.host_pwr.count = 0;
 error_digital:
-	devm_kfree(&pdev->dev, ctrl->pwr_info.digital.vregs);
+	if (ctrl->pwr_info.digital.vregs)
+		devm_kfree(&pdev->dev, ctrl->pwr_info.digital.vregs);
 	ctrl->pwr_info.digital.vregs = NULL;
 	ctrl->pwr_info.digital.count = 0;
-error:
 	return rc;
 }
 
@@ -1208,6 +1226,7 @@ static int dsi_ctrl_dev_probe(struct platform_device *pdev)
 	}
 
 	dsi_ctrl->cell_index = index;
+	dsi_ctrl->version = version;
 
 	dsi_ctrl->name = of_get_property(pdev->dev.of_node, "label", NULL);
 	if (!dsi_ctrl->name)
@@ -1231,7 +1250,6 @@ static int dsi_ctrl_dev_probe(struct platform_device *pdev)
 		goto fail_clks;
 	}
 
-	dsi_ctrl->version = version;
 	rc = dsi_catalog_ctrl_setup(&dsi_ctrl->hw, dsi_ctrl->version,
 				    dsi_ctrl->cell_index);
 	if (rc) {

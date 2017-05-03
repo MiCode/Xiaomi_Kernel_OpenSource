@@ -976,7 +976,7 @@ static bool do_iommu_attach(struct device *dev, const struct iommu_ops *ops,
 	 * device, and allocated the default domain for that group.
 	 */
 	if (!domain || iommu_dma_init_domain(domain, dma_base, size, dev)) {
-		pr_warn("Failed to set up IOMMU for device %s; retaining platform DMA ops\n",
+		pr_debug("Failed to set up IOMMU for device %s; retaining platform DMA ops\n",
 			dev_name(dev));
 		return false;
 	}
@@ -1743,7 +1743,11 @@ static dma_addr_t arm_coherent_iommu_map_page(struct device *dev,
 {
 	struct dma_iommu_mapping *mapping = dev->archdata.mapping;
 	dma_addr_t dma_addr;
-	int ret, prot, len = PAGE_ALIGN(size + offset);
+	int ret, prot, len, start_offset, map_offset;
+
+	map_offset = offset & ~PAGE_MASK;
+	start_offset = offset & PAGE_MASK;
+	len = PAGE_ALIGN(map_offset + size);
 
 	dma_addr = __alloc_iova(mapping, len);
 	if (dma_addr == DMA_ERROR_CODE)
@@ -1753,12 +1757,12 @@ static dma_addr_t arm_coherent_iommu_map_page(struct device *dev,
 	prot = __get_iommu_pgprot(attrs, prot,
 				  is_dma_coherent(dev, attrs));
 
-	ret = iommu_map(mapping->domain, dma_addr, page_to_phys(page), len,
-			prot);
+	ret = iommu_map(mapping->domain, dma_addr, page_to_phys(page) +
+			start_offset, len, prot);
 	if (ret < 0)
 		goto fail;
 
-	return dma_addr + offset;
+	return dma_addr + map_offset;
 fail:
 	__free_iova(mapping, dma_addr, len);
 	return DMA_ERROR_CODE;
@@ -1897,7 +1901,11 @@ arm_iommu_create_mapping(struct bus_type *bus, dma_addr_t base, size_t size)
 	if (!mapping)
 		goto err;
 
-	mapping->bitmap = kzalloc(bitmap_size, GFP_KERNEL);
+	mapping->bitmap = kzalloc(bitmap_size, GFP_KERNEL | __GFP_NOWARN |
+							__GFP_NORETRY);
+	if (!mapping->bitmap)
+		mapping->bitmap = vzalloc(bitmap_size);
+
 	if (!mapping->bitmap)
 		goto err2;
 
@@ -1912,7 +1920,7 @@ arm_iommu_create_mapping(struct bus_type *bus, dma_addr_t base, size_t size)
 	kref_init(&mapping->kref);
 	return mapping;
 err3:
-	kfree(mapping->bitmap);
+	kvfree(mapping->bitmap);
 err2:
 	kfree(mapping);
 err:
@@ -1926,7 +1934,7 @@ static void release_iommu_mapping(struct kref *kref)
 		container_of(kref, struct dma_iommu_mapping, kref);
 
 	iommu_domain_free(mapping->domain);
-	kfree(mapping->bitmap);
+	kvfree(mapping->bitmap);
 	kfree(mapping);
 }
 

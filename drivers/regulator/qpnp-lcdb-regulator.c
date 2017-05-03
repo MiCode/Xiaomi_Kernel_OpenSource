@@ -16,6 +16,7 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/interrupt.h>
+#include <linux/ktime.h>
 #include <linux/module.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
@@ -31,6 +32,13 @@
 
 #define INT_RT_STATUS_REG		0x10
 #define VREG_OK_RT_STS_BIT		BIT(0)
+#define SC_ERROR_RT_STS_BIT		BIT(1)
+
+#define LCDB_STS3_REG			0x0A
+#define LDO_VREG_OK_BIT			BIT(7)
+
+#define LCDB_STS4_REG			0x0B
+#define NCP_VREG_OK_BIT			BIT(7)
 
 #define LCDB_AUTO_TOUCH_WAKE_CTL_REG	0x40
 #define EN_AUTO_TOUCH_WAKE_BIT		BIT(7)
@@ -185,14 +193,21 @@ struct qpnp_lcdb {
 	struct platform_device		*pdev;
 	struct regmap			*regmap;
 	u32				base;
+	int				sc_irq;
 
 	/* TTW params */
 	bool				ttw_enable;
 	bool				ttw_mode_sw;
 
+	/* top level DT params */
+	bool				force_module_reenable;
+
 	/* status parameters */
 	bool				lcdb_enabled;
 	bool				settings_saved;
+	bool				lcdb_sc_disable;
+	int				sc_count;
+	ktime_t				sc_module_enable_time;
 
 	struct mutex			lcdb_mutex;
 	struct mutex			read_write_mutex;
@@ -569,8 +584,11 @@ static int qpnp_lcdb_enable(struct qpnp_lcdb *lcdb)
 	int rc = 0, timeout, delay;
 	u8 val = 0;
 
-	if (lcdb->lcdb_enabled)
+	if (lcdb->lcdb_enabled || lcdb->lcdb_sc_disable) {
+		pr_debug("lcdb_enabled=%d lcdb_sc_disable=%d\n",
+			lcdb->lcdb_enabled, lcdb->lcdb_sc_disable);
 		return 0;
+	}
 
 	if (lcdb->ttw_enable) {
 		rc = qpnp_lcdb_ttw_exit(lcdb);
@@ -586,6 +604,23 @@ static int qpnp_lcdb_enable(struct qpnp_lcdb *lcdb)
 	if (rc < 0) {
 		pr_err("Failed to enable lcdb rc= %d\n", rc);
 		goto fail_enable;
+	}
+
+	if (lcdb->force_module_reenable) {
+		val = 0;
+		rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_ENABLE_CTL1_REG,
+								&val, 1);
+		if (rc < 0) {
+			pr_err("Failed to enable lcdb rc= %d\n", rc);
+			goto fail_enable;
+		}
+		val = MODULE_EN_BIT;
+		rc = qpnp_lcdb_write(lcdb, lcdb->base + LCDB_ENABLE_CTL1_REG,
+								&val, 1);
+		if (rc < 0) {
+			pr_err("Failed to disable lcdb rc= %d\n", rc);
+			goto fail_enable;
+		}
 	}
 
 	/* poll for vreg_ok */
@@ -654,6 +689,111 @@ static int qpnp_lcdb_disable(struct qpnp_lcdb *lcdb)
 		lcdb->lcdb_enabled = false;
 
 	return rc;
+}
+
+#define LCDB_SC_RESET_CNT_DLY_US	1000000
+#define LCDB_SC_CNT_MAX			10
+static int qpnp_lcdb_handle_sc_event(struct qpnp_lcdb *lcdb)
+{
+	int rc = 0;
+	s64 elapsed_time_us;
+
+	mutex_lock(&lcdb->lcdb_mutex);
+	rc = qpnp_lcdb_disable(lcdb);
+	if (rc < 0) {
+		pr_err("Failed to disable lcdb rc=%d\n", rc);
+		goto unlock_mutex;
+	}
+
+	/* Check if the SC re-occurred immediately */
+	elapsed_time_us = ktime_us_delta(ktime_get(),
+			lcdb->sc_module_enable_time);
+	if (elapsed_time_us > LCDB_SC_RESET_CNT_DLY_US) {
+		lcdb->sc_count = 0;
+	} else if (lcdb->sc_count > LCDB_SC_CNT_MAX) {
+		pr_err("SC trigged %d times, disabling LCDB forever!\n",
+						lcdb->sc_count);
+		lcdb->lcdb_sc_disable = true;
+		goto unlock_mutex;
+	}
+	lcdb->sc_count++;
+	lcdb->sc_module_enable_time = ktime_get();
+
+	/* delay for SC to clear */
+	usleep_range(10000, 10100);
+
+	rc = qpnp_lcdb_enable(lcdb);
+	if (rc < 0)
+		pr_err("Failed to enable lcdb rc=%d\n", rc);
+
+unlock_mutex:
+	mutex_unlock(&lcdb->lcdb_mutex);
+	return rc;
+}
+
+static irqreturn_t qpnp_lcdb_sc_irq_handler(int irq, void *data)
+{
+	struct qpnp_lcdb *lcdb = data;
+	int rc;
+	u8 val, val2[2] = {0};
+
+	rc = qpnp_lcdb_read(lcdb, lcdb->base + INT_RT_STATUS_REG, &val, 1);
+	if (rc < 0)
+		goto irq_handled;
+
+	if (val & SC_ERROR_RT_STS_BIT) {
+		rc = qpnp_lcdb_read(lcdb,
+			lcdb->base + LCDB_MISC_CTL_REG, &val, 1);
+		if (rc < 0)
+			goto irq_handled;
+
+		if (val & EN_TOUCH_WAKE_BIT) {
+			/* blanking time */
+			usleep_range(300, 310);
+			/*
+			 * The status registers need to written with any value
+			 * before reading
+			 */
+			rc = qpnp_lcdb_write(lcdb,
+				lcdb->base + LCDB_STS3_REG, val2, 2);
+			if (rc < 0)
+				goto irq_handled;
+
+			rc = qpnp_lcdb_read(lcdb,
+				lcdb->base + LCDB_STS3_REG, val2, 2);
+			if (rc < 0)
+				goto irq_handled;
+
+			if (!(val2[0] & LDO_VREG_OK_BIT) ||
+					!(val2[1] & NCP_VREG_OK_BIT)) {
+				rc = qpnp_lcdb_handle_sc_event(lcdb);
+				if (rc < 0) {
+					pr_err("Failed to handle SC rc=%d\n",
+								rc);
+					goto irq_handled;
+				}
+			}
+		} else {
+			/* blanking time */
+			usleep_range(2000, 2100);
+			/* Read the SC status again to confirm true SC */
+			rc = qpnp_lcdb_read(lcdb,
+				lcdb->base + INT_RT_STATUS_REG, &val, 1);
+			if (rc < 0)
+				goto irq_handled;
+
+			if (val & SC_ERROR_RT_STS_BIT) {
+				rc = qpnp_lcdb_handle_sc_event(lcdb);
+				if (rc < 0) {
+					pr_err("Failed to handle SC rc=%d\n",
+								rc);
+					goto irq_handled;
+				}
+			}
+		}
+	}
+irq_handled:
+	return IRQ_HANDLED;
 }
 
 #define MIN_BST_VOLTAGE_MV			4700
@@ -1534,6 +1674,18 @@ static int qpnp_lcdb_hw_init(struct qpnp_lcdb *lcdb)
 		return rc;
 	}
 
+	if (lcdb->sc_irq >= 0) {
+		lcdb->sc_count = 0;
+		rc = devm_request_threaded_irq(lcdb->dev, lcdb->sc_irq,
+				NULL, qpnp_lcdb_sc_irq_handler, IRQF_ONESHOT,
+				"qpnp_lcdb_sc_irq", lcdb);
+		if (rc < 0) {
+			pr_err("Unable to request sc(%d) irq rc=%d\n",
+						lcdb->sc_irq, rc);
+			return rc;
+		}
+	}
+
 	if (!is_lcdb_enabled(lcdb)) {
 		rc = qpnp_lcdb_read(lcdb, lcdb->base +
 				LCDB_MODULE_RDY_REG, &val, 1);
@@ -1590,6 +1742,9 @@ static int qpnp_lcdb_parse_dt(struct qpnp_lcdb *lcdb)
 		}
 	}
 
+	lcdb->force_module_reenable = of_property_read_bool(node,
+					"qcom,force-module-reenable");
+
 	if (of_property_read_bool(node, "qcom,ttw-enable")) {
 		rc = qpnp_lcdb_parse_ttw(lcdb);
 		if (rc < 0) {
@@ -1598,6 +1753,10 @@ static int qpnp_lcdb_parse_dt(struct qpnp_lcdb *lcdb)
 		}
 		lcdb->ttw_enable = true;
 	}
+
+	lcdb->sc_irq = platform_get_irq_byname(lcdb->pdev, "sc-irq");
+	if (lcdb->sc_irq < 0)
+		pr_debug("sc irq is not defined\n");
 
 	return rc;
 }

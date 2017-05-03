@@ -344,4 +344,16 @@ struct sde_drm_wb_cfg {
 	uint64_t modes;
 };
 
+#define SDE_MAX_ROI_V1	4
+
+/**
+ * struct sde_drm_roi_v1 - list of regions of interest for a drm object
+ * @num_rects: number of valid rectangles in the roi array
+ * @roi: list of roi rectangles
+ */
+struct sde_drm_roi_v1 {
+	uint32_t num_rects;
+	struct drm_clip_rect roi[SDE_MAX_ROI_V1];
+};
+
 #endif /* _SDE_DRM_H_ */

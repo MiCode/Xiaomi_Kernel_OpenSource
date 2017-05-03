@@ -1167,6 +1167,8 @@ struct sched_group_energy {
 	struct capacity_state *cap_states; /* ptr to capacity state array */
 };
 
+extern bool sched_is_energy_aware(void);
+
 unsigned long capacity_curr_of(int cpu);
 
 struct sched_group;
@@ -1750,6 +1752,10 @@ struct task_struct {
 #endif
 #ifdef CONFIG_COMPAT_BRK
 	unsigned brk_randomized:1;
+#endif
+#ifdef CONFIG_CGROUPS
+	/* disallow userland-initiated cgroup migration */
+	unsigned no_cgroup_migration:1;
 #endif
 
 	unsigned long atomic_flags; /* Flags needing atomic access. */
@@ -3885,6 +3891,7 @@ static inline unsigned long rlimit_max(unsigned int limit)
 #define SCHED_CPUFREQ_RT	(1U << 0)
 #define SCHED_CPUFREQ_DL	(1U << 1)
 #define SCHED_CPUFREQ_IOWAIT	(1U << 2)
+#define SCHED_CPUFREQ_INTERCLUSTER_MIG (1U << 3)
 
 #define SCHED_CPUFREQ_RT_DL	(SCHED_CPUFREQ_RT | SCHED_CPUFREQ_DL)
 

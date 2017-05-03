@@ -505,6 +505,7 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx)
 
 	mutex_init(&wcd9xxx->io_lock);
 	mutex_init(&wcd9xxx->xfer_lock);
+	mutex_init(&wcd9xxx->reset_lock);
 
 	ret = wcd9xxx_bringup(wcd9xxx->dev);
 	if (ret) {
@@ -583,6 +584,7 @@ err:
 err_bring_up:
 	mutex_destroy(&wcd9xxx->io_lock);
 	mutex_destroy(&wcd9xxx->xfer_lock);
+	mutex_destroy(&wcd9xxx->reset_lock);
 	return ret;
 }
 
@@ -595,6 +597,7 @@ static void wcd9xxx_device_exit(struct wcd9xxx *wcd9xxx)
 	wcd9xxx_core_res_deinit(&wcd9xxx->core_res);
 	mutex_destroy(&wcd9xxx->io_lock);
 	mutex_destroy(&wcd9xxx->xfer_lock);
+	mutex_destroy(&wcd9xxx->reset_lock);
 	if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_SLIMBUS)
 		slim_remove_device(wcd9xxx->slim_slave);
 }
@@ -1215,10 +1218,18 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 {
 	struct wcd9xxx *wcd9xxx;
 	struct wcd9xxx_pdata *pdata;
+	const struct slim_device_id *device_id;
 	int ret = 0;
 	int intf_type;
 
 	intf_type = wcd9xxx_get_intf_type();
+
+	wcd9xxx = devm_kzalloc(&slim->dev, sizeof(struct wcd9xxx),
+				GFP_KERNEL);
+	if (!wcd9xxx) {
+		ret = -ENOMEM;
+		goto err;
+	}
 
 	if (!slim) {
 		ret = -EINVAL;
@@ -1228,7 +1239,8 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	if (intf_type == WCD9XXX_INTERFACE_TYPE_I2C) {
 		dev_dbg(&slim->dev, "%s:Codec is detected in I2C mode\n",
 			__func__);
-		return -ENODEV;
+		ret = -ENODEV;
+		goto err;
 	}
 	if (slim->dev.of_node) {
 		dev_info(&slim->dev, "Platform data from device tree\n");
@@ -1262,21 +1274,22 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 		goto err;
 	}
 
-	wcd9xxx = devm_kzalloc(&slim->dev, sizeof(struct wcd9xxx),
-				GFP_KERNEL);
-	if (!wcd9xxx) {
-		ret = -ENOMEM;
-		goto err;
-	}
 	if (!slim->ctrl) {
 		dev_err(&slim->dev, "%s: Error, no SLIMBUS control data\n",
 			__func__);
 		ret = -EINVAL;
 		goto err_codec;
 	}
-	wcd9xxx->type = slim_get_device_id(slim)->driver_data;
+	device_id = slim_get_device_id(slim);
+	if (!device_id) {
+		dev_err(&slim->dev, "%s: Error, no device id\n", __func__);
+		ret = -EINVAL;
+		goto err;
+	}
+
+	wcd9xxx->type = device_id->driver_data;
 	dev_info(&slim->dev, "%s: probing for wcd type: %d, name: %s\n",
-		 __func__, wcd9xxx->type, slim_get_device_id(slim)->name);
+		 __func__, wcd9xxx->type, device_id->name);
 
 	/* wcd9xxx members init */
 	wcd9xxx->multi_reg_write = wcd9xxx_slim_multi_reg_write;
@@ -1417,6 +1430,7 @@ err_supplies:
 err_codec:
 	slim_set_clientdata(slim, NULL);
 err:
+	devm_kfree(&slim->dev, wcd9xxx);
 	return ret;
 }
 static int wcd9xxx_slim_remove(struct slim_device *pdev)
@@ -1470,9 +1484,11 @@ static int wcd9xxx_slim_device_reset(struct slim_device *sldev)
 	if (wcd9xxx->dev_up)
 		return 0;
 
+	mutex_lock(&wcd9xxx->reset_lock);
 	ret = wcd9xxx_reset(wcd9xxx->dev);
 	if (ret)
 		dev_err(wcd9xxx->dev, "%s: Resetting Codec failed\n", __func__);
+	mutex_unlock(&wcd9xxx->reset_lock);
 
 	return ret;
 }
@@ -1480,6 +1496,7 @@ static int wcd9xxx_slim_device_reset(struct slim_device *sldev)
 static int wcd9xxx_slim_device_up(struct slim_device *sldev)
 {
 	struct wcd9xxx *wcd9xxx = slim_get_devicedata(sldev);
+	int ret = 0;
 
 	if (!wcd9xxx) {
 		pr_err("%s: wcd9xxx is NULL\n", __func__);
@@ -1491,7 +1508,12 @@ static int wcd9xxx_slim_device_up(struct slim_device *sldev)
 		return 0;
 
 	wcd9xxx->dev_up = true;
-	return wcd9xxx_device_up(wcd9xxx);
+
+	mutex_lock(&wcd9xxx->reset_lock);
+	ret = wcd9xxx_device_up(wcd9xxx);
+	mutex_unlock(&wcd9xxx->reset_lock);
+
+	return ret;
 }
 
 static int wcd9xxx_slim_device_down(struct slim_device *sldev)
@@ -1509,10 +1531,14 @@ static int wcd9xxx_slim_device_down(struct slim_device *sldev)
 		return 0;
 
 	wcd9xxx->dev_up = false;
-	wcd9xxx_irq_exit(&wcd9xxx->core_res);
+
+	mutex_lock(&wcd9xxx->reset_lock);
 	if (wcd9xxx->dev_down)
 		wcd9xxx->dev_down(wcd9xxx);
+	wcd9xxx_irq_exit(&wcd9xxx->core_res);
 	wcd9xxx_reset_low(wcd9xxx->dev);
+	mutex_unlock(&wcd9xxx->reset_lock);
+
 	return 0;
 }
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012,2014-2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012,2014-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -207,7 +207,10 @@ void wcnss_prealloc_check_memory_leak(void)
 		print_stack_trace(&wcnss_allocs[i].trace, 1);
 	}
 }
+#else
+void wcnss_prealloc_check_memory_leak(void) {}
 #endif
+EXPORT_SYMBOL(wcnss_prealloc_check_memory_leak);
 
 int wcnss_pre_alloc_reset(void)
 {
@@ -223,6 +226,7 @@ int wcnss_pre_alloc_reset(void)
 
 	return n;
 }
+EXPORT_SYMBOL(wcnss_pre_alloc_reset);
 
 static int __init wcnss_pre_alloc_init(void)
 {

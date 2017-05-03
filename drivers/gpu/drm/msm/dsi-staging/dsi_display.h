@@ -29,7 +29,7 @@
 #include "dsi_panel.h"
 
 #define MAX_DSI_CTRLS_PER_DISPLAY             2
-
+#define DSI_CLIENT_NAME_SIZE		20
 /*
  * DSI Validate Mode modifiers
  * @DSI_VALIDATE_FLAG_ALLOW_ADJUST:	Allow mode validation to also do fixup
@@ -417,4 +417,14 @@ int dsi_display_set_backlight(void *display, u32 bl_lvl);
  * Return: error code
  */
 int dsi_display_soft_reset(void *display);
+
+/*
+ * dsi_display_pre_kickoff - program kickoff-time features
+ * @display: Pointer to private display structure
+ * @params: Parameters for kickoff-time programming
+ * Returns: Zero on success
+ */
+int dsi_display_pre_kickoff(struct dsi_display *display,
+		struct msm_display_kickoff_params *params);
+
 #endif /* _DSI_DISPLAY_H_ */

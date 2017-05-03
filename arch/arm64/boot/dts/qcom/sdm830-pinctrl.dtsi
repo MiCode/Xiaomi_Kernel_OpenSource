@@ -11,9 +11,9 @@
  */
 
 &soc {
-	tlmm: pinctrl@03800000 {
+	tlmm: pinctrl@03400000 {
 		compatible = "qcom,sdm830-pinctrl";
-		reg = <0x03800000 0xc00000>;
+		reg = <0x03400000 0xc00000>;
 		interrupts = <0 208 0>;
 		gpio-controller;
 		#gpio-cells = <2>;

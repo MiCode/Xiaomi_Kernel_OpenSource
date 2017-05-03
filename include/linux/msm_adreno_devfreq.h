@@ -21,6 +21,10 @@
 #define ADRENO_DEVFREQ_NOTIFY_RETIRE	2
 #define ADRENO_DEVFREQ_NOTIFY_IDLE	3
 
+#define DEVFREQ_FLAG_WAKEUP_MAXFREQ	0x2
+#define DEVFREQ_FLAG_FAST_HINT		0x4
+#define DEVFREQ_FLAG_SLOW_HINT		0x8
+
 struct device;
 
 int kgsl_devfreq_add_notifier(struct device *device,

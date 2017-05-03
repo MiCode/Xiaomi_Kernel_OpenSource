@@ -367,6 +367,8 @@ struct sde_rot_bus_data_type {
  * @doneq: array of rotator done queue corresponding to hardware queue
  * @file_list: list of all sessions managed by rotator manager
  * @pending_close_bw_vote: bandwidth of closed sessions with pending work
+ * @minimum_bw_vote: minimum bandwidth required for current use case
+ * @enable_bw_vote: minimum bandwidth required for power enable
  * @data_bus: data bus configuration state
  * @reg_bus: register bus configuration state
  * @module_power: power/clock configuration state
@@ -406,6 +408,8 @@ struct sde_rot_mgr {
 	struct list_head file_list;
 
 	u64 pending_close_bw_vote;
+	u64 minimum_bw_vote;
+	u64 enable_bw_vote;
 	struct sde_rot_bus_data_type data_bus;
 	struct sde_rot_bus_data_type reg_bus;
 
@@ -455,6 +459,7 @@ struct sde_rot_mgr {
 			bool input);
 	int (*ops_hw_get_downscale_caps)(struct sde_rot_mgr *mgr, char *caps,
 			int len);
+	int (*ops_hw_get_maxlinewidth)(struct sde_rot_mgr *mgr);
 
 	void *hw_data;
 };
@@ -484,6 +489,14 @@ static inline int sde_rotator_get_downscale_caps(struct sde_rot_mgr *mgr,
 		return mgr->ops_hw_get_downscale_caps(mgr, caps, len);
 
 	return 0;
+}
+
+static inline int sde_rotator_get_maxlinewidth(struct sde_rot_mgr *mgr)
+{
+	if (mgr && mgr->ops_hw_get_maxlinewidth)
+		return mgr->ops_hw_get_maxlinewidth(mgr);
+
+	return 2048;
 }
 
 static inline int __compare_session_item_rect(
@@ -680,6 +693,14 @@ int sde_rotator_validate_request(struct sde_rot_mgr *rot_dev,
  * return: 0 if success; error code otherwise
  */
 int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable);
+
+/*
+ * sde_rotator_cancel_all_requests - cancel all outstanding requests
+ * @mgr: Pointer to rotator manager
+ * @private: Pointer to rotator manager per file context
+ */
+void sde_rotator_cancel_all_requests(struct sde_rot_mgr *mgr,
+	struct sde_rot_file_private *private);
 
 /*
  * sde_rot_mgr_lock - serialization lock prior to rotator manager calls

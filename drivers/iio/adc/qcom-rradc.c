@@ -38,6 +38,7 @@
 #define FG_ADC_RR_FAKE_BATT_HIGH_MSB		0x5B
 
 #define FG_ADC_RR_BATT_ID_CTRL			0x60
+#define FG_ADC_RR_BATT_ID_CTRL_CHANNEL_CONV	BIT(0)
 #define FG_ADC_RR_BATT_ID_TRIGGER		0x61
 #define FG_ADC_RR_BATT_ID_TRIGGER_CTL		BIT(0)
 #define FG_ADC_RR_BATT_ID_STS			0x62
@@ -163,12 +164,16 @@
 #define FG_ADC_RR_DIE_TEMP_SLOPE		2
 #define FG_ADC_RR_DIE_TEMP_OFFSET_MILLI_DEGC	25000
 
-#define FAB_ID_GF				0x30
-#define FAB_ID_SMIC				0x11
 #define FG_ADC_RR_CHG_TEMP_GF_OFFSET_UV		1303168
 #define FG_ADC_RR_CHG_TEMP_GF_SLOPE_UV_PER_C	3784
 #define FG_ADC_RR_CHG_TEMP_SMIC_OFFSET_UV	1338433
 #define FG_ADC_RR_CHG_TEMP_SMIC_SLOPE_UV_PER_C	3655
+#define FG_ADC_RR_CHG_TEMP_660_GF_OFFSET_UV	1309001
+#define FG_RR_CHG_TEMP_660_GF_SLOPE_UV_PER_C	3403
+#define FG_ADC_RR_CHG_TEMP_660_SMIC_OFFSET_UV	1295898
+#define FG_RR_CHG_TEMP_660_SMIC_SLOPE_UV_PER_C	3596
+#define FG_ADC_RR_CHG_TEMP_660_MGNA_OFFSET_UV	1314779
+#define FG_RR_CHG_TEMP_660_MGNA_SLOPE_UV_PER_C	3496
 #define FG_ADC_RR_CHG_TEMP_OFFSET_MILLI_DEGC	25000
 #define FG_ADC_RR_CHG_THRESHOLD_SCALE		4
 
@@ -388,23 +393,70 @@ static int rradc_post_process_die_temp(struct rradc_chip *chip,
 	return 0;
 }
 
+static int rradc_get_660_fab_coeff(struct rradc_chip *chip,
+		int64_t *offset, int64_t *slope)
+{
+	switch (chip->pmic_fab_id->fab_id) {
+	case PM660_FAB_ID_GF:
+		*offset = FG_ADC_RR_CHG_TEMP_660_GF_OFFSET_UV;
+		*slope = FG_RR_CHG_TEMP_660_GF_SLOPE_UV_PER_C;
+		break;
+	case PM660_FAB_ID_TSMC:
+		*offset = FG_ADC_RR_CHG_TEMP_660_SMIC_OFFSET_UV;
+		*slope = FG_RR_CHG_TEMP_660_SMIC_SLOPE_UV_PER_C;
+		break;
+	default:
+		*offset = FG_ADC_RR_CHG_TEMP_660_MGNA_OFFSET_UV;
+		*slope = FG_RR_CHG_TEMP_660_MGNA_SLOPE_UV_PER_C;
+	}
+
+	return 0;
+}
+
+static int rradc_get_8998_fab_coeff(struct rradc_chip *chip,
+		int64_t *offset, int64_t *slope)
+{
+	switch (chip->pmic_fab_id->fab_id) {
+	case PMI8998_FAB_ID_GF:
+		*offset = FG_ADC_RR_CHG_TEMP_GF_OFFSET_UV;
+		*slope = FG_ADC_RR_CHG_TEMP_GF_SLOPE_UV_PER_C;
+		break;
+	case PMI8998_FAB_ID_SMIC:
+		*offset = FG_ADC_RR_CHG_TEMP_SMIC_OFFSET_UV;
+		*slope = FG_ADC_RR_CHG_TEMP_SMIC_SLOPE_UV_PER_C;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int rradc_post_process_chg_temp_hot(struct rradc_chip *chip,
 			struct rradc_chan_prop *prop, u16 adc_code,
 			int *result_millidegc)
 {
 	int64_t uv = 0, offset = 0, slope = 0;
+	int rc = 0;
 
 	if (chip->revid_dev_node) {
-		switch (chip->pmic_fab_id->fab_id) {
-		case FAB_ID_GF:
-			offset = FG_ADC_RR_CHG_TEMP_GF_OFFSET_UV;
-			slope = FG_ADC_RR_CHG_TEMP_GF_SLOPE_UV_PER_C;
+		switch (chip->pmic_fab_id->pmic_subtype) {
+		case PM660_SUBTYPE:
+			rc = rradc_get_660_fab_coeff(chip, &offset, &slope);
+			if (rc < 0) {
+				pr_err("Unable to get fab id coefficients\n");
+				return -EINVAL;
+			}
 			break;
-		case FAB_ID_SMIC:
-			offset = FG_ADC_RR_CHG_TEMP_SMIC_OFFSET_UV;
-			slope = FG_ADC_RR_CHG_TEMP_SMIC_SLOPE_UV_PER_C;
+		case PMI8998_SUBTYPE:
+			rc = rradc_get_8998_fab_coeff(chip, &offset, &slope);
+			if (rc < 0) {
+				pr_err("Unable to get fab id coefficients\n");
+				return -EINVAL;
+			}
 			break;
 		default:
+			pr_err("No PMIC subtype found\n");
 			return -EINVAL;
 		}
 	} else {
@@ -444,18 +496,26 @@ static int rradc_post_process_chg_temp(struct rradc_chip *chip,
 			int *result_millidegc)
 {
 	int64_t uv = 0, offset = 0, slope = 0;
+	int rc = 0;
 
 	if (chip->revid_dev_node) {
-		switch (chip->pmic_fab_id->fab_id) {
-		case FAB_ID_GF:
-			offset = FG_ADC_RR_CHG_TEMP_GF_OFFSET_UV;
-			slope = FG_ADC_RR_CHG_TEMP_GF_SLOPE_UV_PER_C;
+		switch (chip->pmic_fab_id->pmic_subtype) {
+		case PM660_SUBTYPE:
+			rc = rradc_get_660_fab_coeff(chip, &offset, &slope);
+			if (rc < 0) {
+				pr_err("Unable to get fab id coefficients\n");
+				return -EINVAL;
+			}
 			break;
-		case FAB_ID_SMIC:
-			offset = FG_ADC_RR_CHG_TEMP_SMIC_OFFSET_UV;
-			slope = FG_ADC_RR_CHG_TEMP_SMIC_SLOPE_UV_PER_C;
+		case PMI8998_SUBTYPE:
+			rc = rradc_get_8998_fab_coeff(chip, &offset, &slope);
+			if (rc < 0) {
+				pr_err("Unable to get fab id coefficients\n");
+				return -EINVAL;
+			}
 			break;
 		default:
+			pr_err("No PMIC subtype found\n");
 			return -EINVAL;
 		}
 	} else {
@@ -689,6 +749,75 @@ static int rradc_read_channel_with_continuous_mode(struct rradc_chip *chip,
 	return rc;
 }
 
+static int rradc_enable_batt_id_channel(struct rradc_chip *chip, bool enable)
+{
+	int rc = 0;
+
+	if (enable) {
+		rc = rradc_masked_write(chip, FG_ADC_RR_BATT_ID_CTRL,
+				FG_ADC_RR_BATT_ID_CTRL_CHANNEL_CONV,
+				FG_ADC_RR_BATT_ID_CTRL_CHANNEL_CONV);
+		if (rc < 0) {
+			pr_err("Enabling BATT ID channel failed:%d\n", rc);
+			return rc;
+		}
+	} else {
+		rc = rradc_masked_write(chip, FG_ADC_RR_BATT_ID_CTRL,
+				FG_ADC_RR_BATT_ID_CTRL_CHANNEL_CONV, 0);
+		if (rc < 0) {
+			pr_err("Disabling BATT ID channel failed:%d\n", rc);
+			return rc;
+		}
+	}
+
+	return rc;
+}
+
+static int rradc_do_batt_id_conversion(struct rradc_chip *chip,
+		struct rradc_chan_prop *prop, u16 *data, u8 *buf)
+{
+	int rc = 0, ret = 0;
+
+	rc = rradc_enable_batt_id_channel(chip, true);
+	if (rc < 0) {
+		pr_err("Enabling BATT ID channel failed:%d\n", rc);
+		return rc;
+	}
+
+	rc = rradc_masked_write(chip, FG_ADC_RR_BATT_ID_TRIGGER,
+				FG_ADC_RR_BATT_ID_TRIGGER_CTL,
+				FG_ADC_RR_BATT_ID_TRIGGER_CTL);
+	if (rc < 0) {
+		pr_err("BATT_ID trigger set failed:%d\n", rc);
+		ret = rc;
+		rc = rradc_enable_batt_id_channel(chip, false);
+		if (rc < 0)
+			pr_err("Disabling BATT ID channel failed:%d\n", rc);
+		return ret;
+	}
+
+	rc = rradc_read_channel_with_continuous_mode(chip, prop, buf);
+	if (rc < 0) {
+		pr_err("Error reading in continuous mode:%d\n", rc);
+		ret = rc;
+	}
+
+	rc = rradc_masked_write(chip, FG_ADC_RR_BATT_ID_TRIGGER,
+			FG_ADC_RR_BATT_ID_TRIGGER_CTL, 0);
+	if (rc < 0) {
+		pr_err("BATT_ID trigger re-set failed:%d\n", rc);
+		ret = rc;
+	}
+
+	rc = rradc_enable_batt_id_channel(chip, false);
+	if (rc < 0) {
+		pr_err("Disabling BATT ID channel failed:%d\n", rc);
+		ret = rc;
+	}
+
+	return ret;
+}
+
 static int rradc_do_conversion(struct rradc_chip *chip,
 			struct rradc_chan_prop *prop, u16 *data)
 {
@@ -701,24 +830,9 @@ static int rradc_do_conversion(struct rradc_chip *chip,
 
 	switch (prop->channel) {
 	case RR_ADC_BATT_ID:
-		rc = rradc_masked_write(chip, FG_ADC_RR_BATT_ID_TRIGGER,
-				FG_ADC_RR_BATT_ID_TRIGGER_CTL,
-				FG_ADC_RR_BATT_ID_TRIGGER_CTL);
+		rc = rradc_do_batt_id_conversion(chip, prop, data, buf);
 		if (rc < 0) {
-			pr_err("BATT_ID trigger set failed:%d\n", rc);
-			goto fail;
-		}
-
-		rc = rradc_read_channel_with_continuous_mode(chip, prop, buf);
-		if (rc < 0) {
-			pr_err("Error reading in continuous mode:%d\n", rc);
-			goto fail;
-		}
-
-		rc = rradc_masked_write(chip, FG_ADC_RR_BATT_ID_TRIGGER,
-				FG_ADC_RR_BATT_ID_TRIGGER_CTL, 0);
-		if (rc < 0) {
-			pr_err("BATT_ID trigger re-set failed:%d\n", rc);
+			pr_err("Battery ID conversion failed:%d\n", rc);
 			goto fail;
 		}
 		break;

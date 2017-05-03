@@ -120,7 +120,7 @@ config ARCH_QCOM
 	  This enables support for the ARMv8 based Qualcomm chipsets.
 
 config ARCH_SDM845
-	bool "Enable Support for Qualcomm SDM845"
+	bool "Enable Support for Qualcomm Technologies Inc. SDM845"
 	depends on ARCH_QCOM
 	select COMMON_CLK_QCOM
 	select QCOM_GDSC

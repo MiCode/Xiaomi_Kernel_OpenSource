@@ -757,15 +757,13 @@ static int wsa881x_rdac_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		wsa881x_resource_acquire(codec, ENABLE);
-		if (wsa881x->boost_enable)
-			wsa881x_boost_ctrl(codec, ENABLE);
+		wsa881x_boost_ctrl(codec, ENABLE);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		swr_slvdev_datapath_control(wsa881x->swr_slave,
 					    wsa881x->swr_slave->dev_num,
 					    false);
-		if (wsa881x->boost_enable)
-			wsa881x_boost_ctrl(codec, DISABLE);
+		wsa881x_boost_ctrl(codec, DISABLE);
 		wsa881x_resource_acquire(codec, DISABLE);
 		break;
 	}
@@ -988,6 +986,7 @@ static int32_t wsa881x_temp_reg_read(struct snd_soc_codec *codec,
 {
 	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
 	struct swr_device *dev;
+	u8 retry = WSA881X_NUM_RETRY;
 	u8 devnum = 0;
 
 	if (!wsa881x) {
@@ -996,7 +995,12 @@ static int32_t wsa881x_temp_reg_read(struct snd_soc_codec *codec,
 	}
 	dev = wsa881x->swr_slave;
 	if (dev && (wsa881x->state == WSA881X_DEV_DOWN)) {
-		if (swr_get_logical_dev_num(dev, dev->addr, &devnum)) {
+		while (swr_get_logical_dev_num(dev, dev->addr, &devnum) &&
+		       retry--) {
+			/* Retry after 1 msec delay */
+			usleep_range(1000, 1100);
+		}
+		if (retry == 0) {
 			dev_err(codec->dev,
 				"%s get devnum %d for dev addr %lx failed\n",
 				__func__, devnum, dev->addr);
@@ -1108,8 +1112,9 @@ static int wsa881x_swr_startup(struct swr_device *swr_dev)
 	usleep_range(5000, 5010);
 	ret = swr_get_logical_dev_num(swr_dev, swr_dev->addr, &devnum);
 	if (ret) {
-		dev_dbg(&swr_dev->dev, "%s failed to get devnum, err:%d\n",
-			__func__, ret);
+		dev_dbg(&swr_dev->dev,
+			"%s get devnum %d for dev addr %lx failed\n",
+			__func__, devnum, swr_dev->addr);
 		goto err;
 	}
 	swr_dev->dev_num = devnum;

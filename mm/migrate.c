@@ -183,9 +183,9 @@ void putback_movable_pages(struct list_head *l)
 			unlock_page(page);
 			put_page(page);
 		} else {
-			putback_lru_page(page);
 			dec_node_page_state(page, NR_ISOLATED_ANON +
 					page_is_file_cache(page));
+			putback_lru_page(page);
 		}
 	}
 }
@@ -1318,6 +1318,8 @@ int migrate_pages(struct list_head *from, new_page_t get_new_page,
 	struct page *page2;
 	int swapwrite = current->flags & PF_SWAPWRITE;
 	int rc;
+
+	trace_mm_migrate_pages_start(mode, reason);
 
 	if (!swapwrite)
 		current->flags |= PF_SWAPWRITE;

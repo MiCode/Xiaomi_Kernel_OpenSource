@@ -968,8 +968,13 @@ static inline
 uint32_t qla2x00_isp_reg_stat(struct qla_hw_data *ha)
 {
 	struct device_reg_24xx __iomem *reg = &ha->iobase->isp24;
+	struct device_reg_82xx __iomem *reg82 = &ha->iobase->isp82;
 
-	return ((RD_REG_DWORD(&reg->host_status)) == ISP_REG_DISCONNECT);
+	if (IS_P3P_TYPE(ha))
+		return ((RD_REG_DWORD(&reg82->host_int)) == ISP_REG_DISCONNECT);
+	else
+		return ((RD_REG_DWORD(&reg->host_status)) ==
+			ISP_REG_DISCONNECT);
 }
 
 /**************************************************************************
@@ -4045,6 +4050,7 @@ struct scsi_qla_host *qla2x00_create_host(struct scsi_host_template *sht,
 
 	spin_lock_init(&vha->work_lock);
 	spin_lock_init(&vha->cmd_list_lock);
+	init_waitqueue_head(&vha->vref_waitq);
 
 	sprintf(vha->host_str, "%s_%ld", QLA2XXX_DRIVER_NAME, vha->host_no);
 	ql_dbg(ql_dbg_init, vha, 0x0041,

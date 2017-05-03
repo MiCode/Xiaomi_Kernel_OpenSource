@@ -1,4 +1,5 @@
 
+dtb-$(CONFIG_ARCH_SDXPOORWILLS) += sdxpoorwills-rumi.dtb
 
 
 ifeq ($(CONFIG_ARM64),y)

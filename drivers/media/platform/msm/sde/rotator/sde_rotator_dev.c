@@ -450,11 +450,15 @@ static void sde_rotator_stop_streaming(struct vb2_queue *q)
 			list_empty(&ctx->pending_list),
 			msecs_to_jiffies(rot_dev->streamoff_timeout));
 	mutex_lock(q->lock);
-	if (!ret)
+	if (!ret) {
 		SDEDEV_ERR(rot_dev->dev,
 				"timeout to stream off s:%d t:%d p:%d\n",
 				ctx->session_id, q->type,
 				!list_empty(&ctx->pending_list));
+		sde_rot_mgr_lock(rot_dev->mgr);
+		sde_rotator_cancel_all_requests(rot_dev->mgr, ctx->private);
+		sde_rot_mgr_unlock(rot_dev->mgr);
+	}
 
 	sde_rotator_return_all_buffers(q, VB2_BUF_STATE_ERROR);
 
@@ -1309,6 +1313,35 @@ int sde_rotator_inline_get_downscale_caps(struct platform_device *pdev,
 	return rc;
 }
 EXPORT_SYMBOL(sde_rotator_inline_get_downscale_caps);
+
+/*
+ * sde_rotator_inline_get_maxlinewidth - get maximum line width of rotator
+ * @pdev: Pointer to platform device
+ * return: maximum line width
+ */
+int sde_rotator_inline_get_maxlinewidth(struct platform_device *pdev)
+{
+	struct sde_rotator_device *rot_dev;
+	int maxlinewidth;
+
+	if (!pdev) {
+		SDEROT_ERR("invalid platform device\n");
+		return -EINVAL;
+	}
+
+	rot_dev = (struct sde_rotator_device *)platform_get_drvdata(pdev);
+	if (!rot_dev || !rot_dev->mgr) {
+		SDEROT_ERR("invalid rotator device\n");
+		return -EINVAL;
+	}
+
+	sde_rot_mgr_lock(rot_dev->mgr);
+	maxlinewidth = sde_rotator_get_maxlinewidth(rot_dev->mgr);
+	sde_rot_mgr_unlock(rot_dev->mgr);
+
+	return maxlinewidth;
+}
+EXPORT_SYMBOL(sde_rotator_inline_get_maxlinewidth);
 
 /*
  * sde_rotator_inline_get_pixfmt_caps - get pixel format capability
@@ -2561,7 +2594,12 @@ static long sde_rotator_private_ioctl(struct file *file, void *fh,
 static long sde_rotator_compat_ioctl32(struct file *file,
 	unsigned int cmd, unsigned long arg)
 {
+	struct video_device *vdev = video_devdata(file);
+	struct sde_rotator_ctx *ctx =
+			sde_rotator_ctx_from_fh(file->private_data);
 	long ret;
+
+	mutex_lock(vdev->lock);
 
 	switch (cmd) {
 	case VIDIOC_S_SDE_ROTATOR_FENCE:
@@ -2571,14 +2609,14 @@ static long sde_rotator_compat_ioctl32(struct file *file,
 
 		if (copy_from_user(&fence, (void __user *)arg,
 				sizeof(struct msm_sde_rotator_fence)))
-			return -EFAULT;
+			goto ioctl32_error;
 
 		ret = sde_rotator_private_ioctl(file, file->private_data,
 			0, cmd, (void *)&fence);
 
 		if (copy_to_user((void __user *)arg, &fence,
 				sizeof(struct msm_sde_rotator_fence)))
-			return -EFAULT;
+			goto ioctl32_error;
 
 		break;
 	}
@@ -2589,24 +2627,31 @@ static long sde_rotator_compat_ioctl32(struct file *file,
 
 		if (copy_from_user(&comp_ratio, (void __user *)arg,
 				sizeof(struct msm_sde_rotator_comp_ratio)))
-			return -EFAULT;
+			goto ioctl32_error;
 
 		ret = sde_rotator_private_ioctl(file, file->private_data,
 			0, cmd, (void *)&comp_ratio);
 
 		if (copy_to_user((void __user *)arg, &comp_ratio,
 				sizeof(struct msm_sde_rotator_comp_ratio)))
-			return -EFAULT;
+			goto ioctl32_error;
 
 		break;
 	}
 	default:
+		SDEDEV_ERR(ctx->rot_dev->dev, "invalid ioctl32 type:%x\n", cmd);
 		ret = -ENOIOCTLCMD;
 		break;
 
 	}
 
+	mutex_unlock(vdev->lock);
 	return ret;
+
+ioctl32_error:
+	mutex_unlock(vdev->lock);
+	SDEDEV_ERR(ctx->rot_dev->dev, "error handling ioctl32 cmd:%x\n", cmd);
+	return -EFAULT;
 }
 #endif
 

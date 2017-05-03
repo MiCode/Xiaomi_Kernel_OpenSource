@@ -257,6 +257,17 @@ config PAGE_OWNER
 
 	  If unsure, say N.
 
+config PAGE_OWNER_ENABLE_DEFAULT
+	bool "Enable Track page owner by default"
+	depends on PAGE_OWNER
+	---help---
+	  This keeps track of what call chain is the owner of a page, may
+	  help to find bare alloc_page(s) leaks. If you include this
+	  feature on your build, it is enabled by default. You should pass
+	  "page_owner=off" to boot parameter in order to disable it. Eats
+	  a fair amount of memory if enabled. See tools/vm/page_owner_sort.c
+	  for user-space helper.
+
 config DEBUG_FS
 	bool "Debug Filesystem"
 	select SRCU
@@ -2029,6 +2040,19 @@ config MEMTEST
 	        memtest=17, mean do 17 test patterns.
 	  If you are unsure how to answer this question, answer N.
 
+config MEMTEST_ENABLE_DEFAULT
+	int "Enable Memtest pattern test by default? (0-17)"
+	range 0 17
+	default "0"
+	depends on MEMTEST
+	help
+	  This option helps to select Memtest to be enabled through
+	  kernel defconfig options. Alternatively it can be enabled
+	  using memtest=<patterns> kernel command line.
+
+	  Default value is kept as "0" so that it is kept as disabled.
+	  To enable enter any value between 1-17 range.
+
 config TEST_STATIC_KEYS
 	tristate "Test static keys"
 	default n
@@ -2037,6 +2061,13 @@ config TEST_STATIC_KEYS
 	  Test the static key interfaces.
 
 	  If unsure, say N.
+
+config PANIC_ON_DATA_CORRUPTION
+	bool "Cause a Kernel Panic When Data Corruption is detected"
+	help
+	 Select this option to upgrade warnings for potentially
+	 recoverable data corruption scenarios to system-halting panics,
+	 for easier detection and debug.
 
 source "samples/Kconfig"
 

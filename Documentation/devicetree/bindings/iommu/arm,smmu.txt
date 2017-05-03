@@ -25,6 +25,8 @@ conditions.
 
 - reg           : Base address and size of the SMMU.
 
+- reg-names	: For the "qcom,qsmmu-v500" device "tcu-base" is expected.
+
 - #global-interrupts : The number of global interrupts exposed by the
                        device.
 
@@ -176,6 +178,9 @@ arm mmu-500 implementation.
 		"base" is the main TBU register region.
 		"status-reg" indicates whether hw can process a new request.
 
+-qcom,stream-id-range:
+		Pair of values describing the smallest supported stream-id
+		and the size of the entire set.
 
 Example:
 smmu {
@@ -186,5 +191,6 @@ smmu {
 			<0x2000 0x8>;
 		reg-names = "base",
 			"status-reg";
+		qcom,stream-id-range = <0x800 0x400>;
 	};
 };

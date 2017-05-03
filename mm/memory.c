@@ -3050,7 +3050,7 @@ int alloc_set_pte(struct fault_env *fe, struct mem_cgroup *memcg,
 }
 
 static unsigned long fault_around_bytes __read_mostly =
-	rounddown_pow_of_two(65536);
+	rounddown_pow_of_two(4096);
 
 #ifdef CONFIG_DEBUG_FS
 static int fault_around_bytes_get(void *data, u64 *val)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,7 @@ static const char *resource_name_to_str[IPA_RM_RESOURCE_MAX] = {
 	__stringify(IPA_RM_RESOURCE_WLAN_PROD),
 	__stringify(IPA_RM_RESOURCE_ODU_ADAPT_PROD),
 	__stringify(IPA_RM_RESOURCE_MHI_PROD),
+	__stringify(IPA_RM_RESOURCE_ETHERNET_PROD),
 	__stringify(IPA_RM_RESOURCE_Q6_CONS),
 	__stringify(IPA_RM_RESOURCE_USB_CONS),
 	__stringify(IPA_RM_RESOURCE_USB_DPL_CONS),
@@ -36,6 +37,7 @@ static const char *resource_name_to_str[IPA_RM_RESOURCE_MAX] = {
 	__stringify(IPA_RM_RESOURCE_APPS_CONS),
 	__stringify(IPA_RM_RESOURCE_ODU_ADAPT_CONS),
 	__stringify(IPA_RM_RESOURCE_MHI_CONS),
+	__stringify(IPA_RM_RESOURCE_ETHERNET_CONS),
 };
 
 struct ipa_rm_profile_vote_type {

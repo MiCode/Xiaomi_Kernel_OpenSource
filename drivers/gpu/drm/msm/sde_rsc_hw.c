@@ -17,7 +17,7 @@
 #include <linux/debugfs.h>
 #include <linux/delay.h>
 
-#include "sde_rsc.h"
+#include "sde_rsc_priv.h"
 
 /* display rsc offset */
 #define SDE_RSCC_PDC_SEQ_START_ADDR_REG_OFFSET_DRV0	0x020
@@ -36,6 +36,7 @@
 #define SDE_RSCC_AMC_TCS_MODE_IRQ_STATUS_DRV0		0x1c00
 
 #define SDE_RSCC_SOFT_WAKEUP_TIME_LO_DRV0		0xc04
+#define SDE_RSCC_SOFT_WAKEUP_TIME_HI_DRV0		0xc08
 #define SDE_RSCC_MAX_IDLE_DURATION_DRV0			0xc0c
 #define SDE_RSC_SOLVER_TIME_SLOT_TABLE_0_DRV0		0x1000
 #define SDE_RSC_SOLVER_TIME_SLOT_TABLE_1_DRV0		0x1004
@@ -224,7 +225,9 @@ static int rsc_hw_solver_init(struct sde_rsc_priv *rsc)
 	pr_debug("rsc solver init\n");
 
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SOFT_WAKEUP_TIME_LO_DRV0,
-					0x7FFFFFFF, rsc->debug_mode);
+					0xFFFFFFFF, rsc->debug_mode);
+	dss_reg_w(&rsc->drv_io, SDE_RSCC_SOFT_WAKEUP_TIME_HI_DRV0,
+					0xFFFFFFFF, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_MAX_IDLE_DURATION_DRV0,
 					0xEFFFFFFF, rsc->debug_mode);
 
@@ -308,12 +311,35 @@ int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
 
 	rsc_event_trigger(rsc, SDE_RSC_EVENT_PRE_CORE_PC);
 
+	/* update qtimers to high during clk & video mode state */
+	if ((rsc->current_state == SDE_RSC_VID_STATE) ||
+			(rsc->current_state == SDE_RSC_CLK_STATE)) {
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F0_QTMR_V1_CNTP_CVAL_HI,
+						0xffffffff, rsc->debug_mode);
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F0_QTMR_V1_CNTP_CVAL_LO,
+						0xffffffff, rsc->debug_mode);
+	}
+
 	wrapper_status = dss_reg_r(&rsc->wrapper_io, SDE_RSCC_WRAPPER_CTRL,
 				rsc->debug_mode);
 	wrapper_status |= BIT(3);
 	wrapper_status |= BIT(0);
 	dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_CTRL,
 					wrapper_status, rsc->debug_mode);
+
+	/**
+	 * force busy and idle during clk & video mode state because it
+	 * is trying to entry in mode-2 without turning on the vysnc.
+	 */
+	if ((rsc->current_state == SDE_RSC_VID_STATE) ||
+			(rsc->current_state == SDE_RSC_CLK_STATE)) {
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
+				BIT(0) | BIT(1), rsc->debug_mode);
+		wmb(); /* force busy gurantee */
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
+				BIT(0) | BIT(9), rsc->debug_mode);
+	}
+
 	/* make sure that mode-2 is triggered before wait*/
 	wmb();
 
@@ -331,24 +357,41 @@ int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
 		goto end;
 	}
 
+	if ((rsc->current_state == SDE_RSC_VID_STATE) ||
+			(rsc->current_state == SDE_RSC_CLK_STATE)) {
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
+					BIT(0) | BIT(8), rsc->debug_mode);
+		wmb(); /* force busy on vsync */
+	}
+
 	rsc_event_trigger(rsc, SDE_RSC_EVENT_POST_CORE_PC);
 
 	return 0;
 
 end:
-	regulator_set_mode(rsc->fs, REGULATOR_MODE_NORMAL);
-
 	rsc_event_trigger(rsc, SDE_RSC_EVENT_POST_CORE_RESTORE);
 
 	return rc;
 }
 
-int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc)
+int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc, enum sde_rsc_state state)
 {
 	int rc = -EBUSY;
 	int count, reg;
 
 	rsc_event_trigger(rsc, SDE_RSC_EVENT_PRE_CORE_RESTORE);
+
+	/**
+	 * force busy and idle during clk & video mode state because it
+	 * is trying to entry in mode-2 without turning on the vysnc.
+	 */
+	if ((state == SDE_RSC_VID_STATE) || (state == SDE_RSC_CLK_STATE)) {
+		reg = dss_reg_r(&rsc->wrapper_io,
+			SDE_RSCC_WRAPPER_OVERRIDE_CTRL, rsc->debug_mode);
+		reg &= ~(BIT(8) | BIT(0));
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
+							reg, rsc->debug_mode);
+	}
 
 	// needs review with HPG sequence
 	dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F1_QTMR_V1_CNTP_CVAL_LO,
@@ -377,7 +420,7 @@ int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc)
 			rc = 0;
 			break;
 		}
-		usleep_range(1, 2);
+		usleep_range(10, 100);
 	}
 
 	reg = dss_reg_r(&rsc->wrapper_io, SDE_RSCC_SPARE_PWR_EVENT,
@@ -385,13 +428,8 @@ int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc)
 	reg &= ~BIT(13);
 	dss_reg_w(&rsc->wrapper_io, SDE_RSCC_SPARE_PWR_EVENT,
 							reg, rsc->debug_mode);
-
 	if (rc)
 		pr_err("vdd reg is not enabled yet\n");
-
-	rc = regulator_set_mode(rsc->fs, REGULATOR_MODE_NORMAL);
-	if (rc)
-		pr_err("vdd reg normal mode set failed rc:%d\n", rc);
 
 	rsc_event_trigger(rsc, SDE_RSC_EVENT_POST_CORE_RESTORE);
 
@@ -405,7 +443,7 @@ static int sde_rsc_state_update(struct sde_rsc_priv *rsc,
 	int reg;
 
 	if (rsc->power_collapse) {
-		rc = sde_rsc_mode2_exit(rsc);
+		rc = sde_rsc_mode2_exit(rsc, state);
 		if (rc)
 			pr_err("power collapse: mode2 exit failed\n");
 		else
@@ -420,6 +458,9 @@ static int sde_rsc_state_update(struct sde_rsc_priv *rsc,
 						0x1, rsc->debug_mode);
 		dss_reg_w(&rsc->drv_io, SDE_RSCC_SOLVER_OVERRIDE_CTRL_DRV0,
 							0x0, rsc->debug_mode);
+		dss_reg_w(&rsc->drv_io,
+			SDE_RSC_SOLVER_SOLVER_MODES_ENABLED_DRV0, 0x7,
+			rsc->debug_mode);
 		reg = dss_reg_r(&rsc->wrapper_io,
 			SDE_RSCC_WRAPPER_OVERRIDE_CTRL, rsc->debug_mode);
 		reg |= (BIT(0) | BIT(8));
@@ -443,12 +484,28 @@ static int sde_rsc_state_update(struct sde_rsc_priv *rsc,
 		reg &= ~(BIT(1) | BIT(0));
 		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
 							reg, rsc->debug_mode);
-		dss_reg_w(&rsc->drv_io, SDE_RSCC_SOLVER_OVERRIDE_CTRL_DRV0,
-							0x1, rsc->debug_mode);
+		dss_reg_w(&rsc->drv_io,
+			SDE_RSC_SOLVER_SOLVER_MODES_ENABLED_DRV0, 0x5,
+			rsc->debug_mode);
 		/* make sure that solver mode is override */
 		wmb();
 
 		rsc_event_trigger(rsc, SDE_RSC_EVENT_SOLVER_DISABLED);
+		break;
+
+	case SDE_RSC_CLK_STATE:
+		pr_debug("clk state handling\n");
+
+		reg = dss_reg_r(&rsc->wrapper_io,
+			SDE_RSCC_WRAPPER_OVERRIDE_CTRL, rsc->debug_mode);
+		reg &= ~(BIT(8) | BIT(0));
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
+							reg, rsc->debug_mode);
+		dss_reg_w(&rsc->drv_io,
+			SDE_RSC_SOLVER_SOLVER_MODES_ENABLED_DRV0, 0x5,
+			rsc->debug_mode);
+		/* make sure that solver mode is disabled */
+		wmb();
 		break;
 
 	case SDE_RSC_IDLE_STATE:
@@ -693,9 +750,6 @@ int sde_rsc_hw_register(struct sde_rsc_priv *rsc)
 	rsc->hw_ops.tcs_wait = rsc_hw_tcs_wait;
 	rsc->hw_ops.tcs_use_ok = rsc_hw_tcs_use_ok;
 	rsc->hw_ops.is_amc_mode = rsc_hw_is_amc_mode;
-
-	rsc->hw_ops.mode2_entry = sde_rsc_mode2_entry;
-	rsc->hw_ops.mode2_exit = sde_rsc_mode2_exit;
 
 	rsc->hw_ops.hw_vsync = rsc_hw_vsync;
 	rsc->hw_ops.state_update = sde_rsc_state_update;

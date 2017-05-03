@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,6 +96,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmhamster")
 #define early_machine_is_msmfalcon()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmfalcon")
+#define early_machine_is_sdxpoorwills()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdxpoorwills")
 #define early_machine_is_sdm845()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdm845")
 #define early_machine_is_sdm830()	\
@@ -137,6 +139,7 @@
 #define early_machine_is_apqcobalt()	0
 #define early_machine_is_msmhamster()	0
 #define early_machine_is_msmfalcon()	0
+#define early_machine_is_sdxpoorwills()	0
 #define early_machine_is_sdm845()	0
 #define early_machine_is_sdm830()	0
 #endif
@@ -198,6 +201,7 @@ enum msm_cpu {
 	MSM_CPU_COBALT,
 	MSM_CPU_HAMSTER,
 	MSM_CPU_FALCON,
+	SDX_CPU_SDXPOORWILLS,
 	MSM_CPU_SDM845,
 	MSM_CPU_SDM830,
 };

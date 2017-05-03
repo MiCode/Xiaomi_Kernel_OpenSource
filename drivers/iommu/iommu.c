@@ -1750,3 +1750,23 @@ int iommu_fwspec_add_ids(struct device *dev, u32 *ids, int num_ids)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(iommu_fwspec_add_ids);
+
+/*
+ * Return the id asoociated with a pci device.
+ */
+int iommu_fwspec_get_id(struct device *dev, u32 *id)
+{
+	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+
+	if (!fwspec)
+		return -EINVAL;
+
+	if (!dev_is_pci(dev))
+		return -EINVAL;
+
+	if (fwspec->num_ids != 1)
+		return -EINVAL;
+
+	*id = fwspec->ids[0];
+	return 0;
+}

@@ -1238,7 +1238,7 @@ static struct usb_function_instance *f_midi_alloc_inst(void)
 	opts->func_inst.free_func_inst = f_midi_free_inst;
 	opts->index = SNDRV_DEFAULT_IDX1;
 	opts->id = SNDRV_DEFAULT_STR1;
-	opts->buflen = 512;
+	opts->buflen = 1024;
 	opts->qlen = 32;
 	opts->in_ports = 1;
 	opts->out_ports = 1;
@@ -1284,7 +1284,7 @@ static void f_midi_unbind(struct usb_configuration *c, struct usb_function *f)
 	card = midi->card;
 	midi->card = NULL;
 	if (card)
-		snd_card_free(card);
+		snd_card_free_when_closed(card);
 
 	usb_free_all_descriptors(f);
 }

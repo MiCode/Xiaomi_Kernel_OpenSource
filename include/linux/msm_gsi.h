@@ -367,6 +367,7 @@ enum gsi_xfer_flag {
 enum gsi_xfer_elem_type {
 	GSI_XFER_ELEM_DATA,
 	GSI_XFER_ELEM_IMME_CMD,
+	GSI_XFER_ELEM_NOP,
 };
 
 /**
@@ -409,6 +410,7 @@ enum gsi_xfer_elem_type {
  *
  *		    GSI_XFER_ELEM_DATA: for all data transfers
  *		    GSI_XFER_ELEM_IMME_CMD: for IPA immediate commands
+ *		    GSI_XFER_ELEM_NOP: for event generation only
  *
  * @xfer_user_data: cookie used in xfer_cb
  *

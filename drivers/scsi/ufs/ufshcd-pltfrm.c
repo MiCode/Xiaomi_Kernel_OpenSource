@@ -40,6 +40,22 @@
 #include "ufshcd.h"
 #include "ufshcd-pltfrm.h"
 
+static int ufshcd_parse_reset_info(struct ufs_hba *hba)
+{
+	int ret = 0;
+
+	hba->core_reset = devm_reset_control_get(hba->dev,
+				"core_reset");
+	if (IS_ERR(hba->core_reset)) {
+		ret = PTR_ERR(hba->core_reset);
+		dev_err(hba->dev, "core_reset unavailable,err = %d\n",
+				ret);
+		hba->core_reset = NULL;
+	}
+
+	return ret;
+}
+
 static int ufshcd_parse_clock_info(struct ufs_hba *hba)
 {
 	int ret = 0;
@@ -297,6 +313,20 @@ static void ufshcd_parse_dev_ref_clk_freq(struct ufs_hba *hba)
 		hba->dev_ref_clk_freq = REF_CLK_FREQ_26_MHZ;
 }
 
+static int ufshcd_parse_pinctrl_info(struct ufs_hba *hba)
+{
+	int ret = 0;
+
+	/* Try to obtain pinctrl handle */
+	hba->pctrl = devm_pinctrl_get(hba->dev);
+	if (IS_ERR(hba->pctrl)) {
+		ret = PTR_ERR(hba->pctrl);
+		hba->pctrl = NULL;
+	}
+
+	return ret;
+}
+
 #ifdef CONFIG_SMP
 /**
  * ufshcd_pltfrm_suspend - suspend power management function
@@ -399,6 +429,20 @@ int ufshcd_pltfrm_init(struct platform_device *pdev,
 		dev_err(&pdev->dev, "%s: regulator init failed %d\n",
 				__func__, err);
 		goto dealloc_host;
+	}
+
+	err = ufshcd_parse_reset_info(hba);
+	if (err) {
+		dev_err(&pdev->dev, "%s: reset parse failed %d\n",
+				__func__, err);
+		goto dealloc_host;
+	}
+
+	err = ufshcd_parse_pinctrl_info(hba);
+	if (err) {
+		dev_dbg(&pdev->dev, "%s: unable to parse pinctrl data %d\n",
+				__func__, err);
+		/* let's not fail the probe */
 	}
 
 	ufshcd_parse_dev_ref_clk_freq(hba);

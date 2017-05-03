@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -97,6 +97,11 @@ static const struct snd_soc_dapm_route tavil_dsd_audio_map[] = {
 	{"DSD_FILTER_1", NULL, "DSD_R IF MUX"},
 	{"DSD_FILTER_1", NULL, "RX INT2 NATIVE SUPPLY"},
 	{"RX INT2 MIX3", "DSD HPHR Switch", "DSD_FILTER_1"},
+
+	{"DSD_FILTER_0", NULL, "RX INT3 NATIVE SUPPLY"},
+	{"RX INT3 MIX3", "DSD LO1 Switch", "DSD_FILTER_0"},
+	{"DSD_FILTER_1", NULL, "RX INT4 NATIVE SUPPLY"},
+	{"RX INT4 MIX3", "DSD LO2 Switch", "DSD_FILTER_1"},
 };
 
 static bool is_valid_dsd_interpolator(int interp_num)

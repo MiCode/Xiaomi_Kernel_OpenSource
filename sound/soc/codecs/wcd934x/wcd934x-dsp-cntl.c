@@ -401,6 +401,8 @@ static int wcd_cntl_clocks_enable(struct wcd_dsp_cntl *cntl)
 			__func__, ret);
 		goto done;
 	}
+	/* Pull CPAR out of reset */
+	snd_soc_update_bits(codec, WCD934X_CPE_SS_CPAR_CTL, 0x04, 0x00);
 
 	/* Configure and Enable CPE FLL clock */
 	ret = wcd_cntl_cpe_fll_ctrl(cntl, true);
@@ -422,6 +424,7 @@ err_cpe_clk:
 	if (cntl->cdc_cb && cntl->cdc_cb->cdc_clk_en)
 		cntl->cdc_cb->cdc_clk_en(codec, false);
 
+	snd_soc_update_bits(codec, WCD934X_CPE_SS_CPAR_CTL, 0x04, 0x04);
 	WCD_CNTL_MUTEX_UNLOCK(codec, cntl->clk_mutex);
 	return ret;
 }
@@ -458,6 +461,9 @@ static int wcd_cntl_clocks_disable(struct wcd_dsp_cntl *cntl)
 		ret = -EINVAL;
 
 	cntl->is_clk_enabled = false;
+
+	/* Put CPAR in reset */
+	snd_soc_update_bits(codec, WCD934X_CPE_SS_CPAR_CTL, 0x04, 0x04);
 done:
 	WCD_CNTL_MUTEX_UNLOCK(codec, cntl->clk_mutex);
 	return ret;
@@ -469,9 +475,9 @@ static void wcd_cntl_cpar_ctrl(struct wcd_dsp_cntl *cntl,
 	struct snd_soc_codec *codec = cntl->codec;
 
 	if (enable)
-		snd_soc_write(codec, WCD934X_CPE_SS_CPAR_CTL, 0x03);
+		snd_soc_update_bits(codec, WCD934X_CPE_SS_CPAR_CTL, 0x03, 0x03);
 	else
-		snd_soc_write(codec, WCD934X_CPE_SS_CPAR_CTL, 0x00);
+		snd_soc_update_bits(codec, WCD934X_CPE_SS_CPAR_CTL, 0x03, 0x00);
 }
 
 static int wcd_cntl_enable_memory(struct wcd_dsp_cntl *cntl,
@@ -601,8 +607,6 @@ static void wcd_cntl_do_shutdown(struct wcd_dsp_cntl *cntl)
 	/* Disable WDOG */
 	snd_soc_update_bits(codec, WCD934X_CPE_SS_WDOG_CFG,
 			    0x3F, 0x01);
-	snd_soc_update_bits(codec, WCD934X_CODEC_RPM_CLK_MCLK_CFG,
-			    0x04, 0x00);
 
 	/* Put WDSP in reset state */
 	snd_soc_update_bits(codec, WCD934X_CPE_SS_CPE_CTL,
@@ -627,11 +631,7 @@ static int wcd_cntl_do_boot(struct wcd_dsp_cntl *cntl)
 	if (cntl->debug_mode) {
 		snd_soc_update_bits(codec, WCD934X_CPE_SS_WDOG_CFG,
 				    0x3F, 0x01);
-		snd_soc_update_bits(codec, WCD934X_CODEC_RPM_CLK_MCLK_CFG,
-				    0x04, 0x00);
 	} else {
-		snd_soc_update_bits(codec, WCD934X_CODEC_RPM_CLK_MCLK_CFG,
-				    0x04, 0x04);
 		snd_soc_update_bits(codec, WCD934X_CPE_SS_WDOG_CFG,
 				    0x3F, 0x21);
 	}

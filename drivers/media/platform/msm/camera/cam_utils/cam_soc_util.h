@@ -58,6 +58,7 @@ struct cam_soc_reg_map {
  * @index:                  Instance id for the camera device
  * @irq_name:               Name of the irq associated with the device
  * @irq_line:               Irq resource
+ * @irq_data:               Private data that is passed when IRQ is requested
  * @num_mem_block:          Number of entry in the "reg-names"
  * @mem_block_name:         Array of the reg block name
  * @mem_block_cam_base:     Array of offset of this register space compared
@@ -85,6 +86,7 @@ struct cam_hw_soc_info {
 
 	const char                     *irq_name;
 	struct resource                *irq_line;
+	void                           *irq_data;
 
 	uint32_t                        num_mem_block;
 	const char                     *mem_block_name[CAM_SOC_MAX_BLOCK];

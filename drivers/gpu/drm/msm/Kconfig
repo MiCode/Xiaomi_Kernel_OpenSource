@@ -113,3 +113,13 @@ config DRM_SDE_EVTLOG_DEBUG
           driver during fatal errors and enable some display-driver logging
           into an internal buffer (this avoids logging overhead).
 
+config DRM_SDE_RSC
+	bool "Enable sde resource state coordinator(rsc) driver"
+	depends on DRM_MSM
+	help
+          The SDE DRM RSC provides display Resource State Coordinator support
+          to vote the ab/ib bandwidth for primary display. Each rsc client
+          can vote their active state. Any active request from any client
+          avoids the display core power collapse. A client can also register
+          for display core power collapse events on rsc.
+

@@ -28,6 +28,7 @@
 
 #include <asm/cacheflush.h>
 #include <asm/system_misc.h>
+#include <asm/memory.h>
 
 #include <soc/qcom/scm.h>
 #include <soc/qcom/restart.h>
@@ -57,11 +58,17 @@ static int download_mode = 1;
 #ifdef CONFIG_QCOM_DLOAD_MODE
 #define EDL_MODE_PROP "qcom,msm-imem-emergency_download_mode"
 #define DL_MODE_PROP "qcom,msm-imem-download_mode"
+#ifdef CONFIG_RANDOMIZE_BASE
+#define KASLR_OFFSET_PROP "qcom,msm-imem-kaslr_offset"
+#endif
 
 static int in_panic;
 static void *dload_mode_addr;
 static bool dload_mode_enabled;
 static void *emergency_dload_mode_addr;
+#ifdef CONFIG_RANDOMIZE_BASE
+static void *kaslr_imem_addr;
+#endif
 static bool scm_dload_supported;
 
 static int dload_set(const char *val, struct kernel_param *kp);
@@ -420,6 +427,27 @@ static int msm_restart_probe(struct platform_device *pdev)
 			pr_err("unable to map imem EDLOAD mode offset\n");
 	}
 
+#ifdef CONFIG_RANDOMIZE_BASE
+#define KASLR_OFFSET_BIT_MASK	0x00000000FFFFFFFF
+	np = of_find_compatible_node(NULL, NULL, KASLR_OFFSET_PROP);
+	if (!np) {
+		pr_err("unable to find DT imem KASLR_OFFSET node\n");
+	} else {
+		kaslr_imem_addr = of_iomap(np, 0);
+		if (!kaslr_imem_addr)
+			pr_err("unable to map imem KASLR offset\n");
+	}
+
+	if (kaslr_imem_addr && scm_is_secure_device()) {
+		__raw_writel(0xdead4ead, kaslr_imem_addr);
+		__raw_writel(KASLR_OFFSET_BIT_MASK &
+		(kimage_vaddr - KIMAGE_VADDR), kaslr_imem_addr + 4);
+		__raw_writel(KASLR_OFFSET_BIT_MASK &
+			((kimage_vaddr - KIMAGE_VADDR) >> 32),
+			kaslr_imem_addr + 8);
+		iounmap(kaslr_imem_addr);
+	}
+#endif
 #endif
 	np = of_find_compatible_node(NULL, NULL,
 				"qcom,msm-imem-restart_reason");
@@ -484,4 +512,4 @@ static int __init msm_restart_init(void)
 {
 	return platform_driver_register(&msm_restart_driver);
 }
-device_initcall(msm_restart_init);
+pure_initcall(msm_restart_init);

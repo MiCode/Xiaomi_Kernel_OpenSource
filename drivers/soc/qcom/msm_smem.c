@@ -79,6 +79,7 @@ static int spinlocks_initialized;
 static void *smem_ramdump_dev;
 static DEFINE_MUTEX(spinlock_init_lock);
 static DEFINE_SPINLOCK(smem_init_check_lock);
+static struct device *smem_dev;
 static int smem_module_inited;
 static RAW_NOTIFIER_HEAD(smem_module_init_notifier_list);
 static DEFINE_MUTEX(smem_module_init_notifier_lock);
@@ -374,7 +375,7 @@ static void *__smem_get_entry_secure(unsigned int id,
 	uint32_t a_hdr_size;
 	int rc;
 
-	SMEM_DBG("%s(%u, %u, %u, %u, %d, %d)\n", __func__, id, *size, to_proc,
+	SMEM_DBG("%s(%u, %u, %u, %d, %d)\n", __func__, id, to_proc,
 					flags, skip_init_check, use_rspinlock);
 
 	if (!skip_init_check && !smem_initialized_check())
@@ -817,7 +818,7 @@ EXPORT_SYMBOL(smem_alloc);
 void *smem_get_entry(unsigned int id, unsigned int *size, unsigned int to_proc,
 							unsigned int flags)
 {
-	SMEM_DBG("%s(%u, %u, %u, %u)\n", __func__, id, *size, to_proc, flags);
+	SMEM_DBG("%s(%u, %u, %u)\n", __func__, id, to_proc, flags);
 
 	/*
 	 * Handle the circular dependecy between SMEM and software implemented
@@ -1084,7 +1085,8 @@ static __init int modem_restart_late_init(void)
 	void *handle;
 	struct restart_notifier_block *nb;
 
-	smem_ramdump_dev = create_ramdump_device("smem", NULL);
+	if (smem_dev)
+		smem_ramdump_dev = create_ramdump_device("smem", smem_dev);
 	if (IS_ERR_OR_NULL(smem_ramdump_dev)) {
 		LOG_ERR("%s: Unable to create smem ramdump device.\n",
 			__func__);
@@ -1509,7 +1511,7 @@ smem_targ_info_done:
 		SMEM_INFO("smem security enabled\n");
 		smem_init_security();
 	}
-
+	smem_dev = &pdev->dev;
 	probe_done = true;
 
 	ret = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);

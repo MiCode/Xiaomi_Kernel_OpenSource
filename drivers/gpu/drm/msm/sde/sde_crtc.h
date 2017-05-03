@@ -25,6 +25,7 @@
 #include "sde_fence.h"
 #include "sde_kms.h"
 #include "sde_core_perf.h"
+#include "sde_hw_blk.h"
 
 #define SDE_CRTC_NAME_SIZE	12
 
@@ -92,7 +93,7 @@ struct sde_crtc_event {
 	struct kthread_work kt_work;
 	void *sde_crtc;
 
-	void (*cb_func)(void *usr);
+	void (*cb_func)(struct drm_crtc *crtc, void *usr);
 	void *usr;
 };
 
@@ -107,7 +108,7 @@ struct sde_crtc_event {
  * @name          : ASCII description of this crtc
  * @num_ctls      : Number of ctl paths in use
  * @num_mixers    : Number of mixers in use
- * @mixer         : List of active mixers
+ * @mixers        : List of active mixers
  * @event         : Pointer to last received drm vblank event. If there is a
  *                  pending vblank event, this will be non-null.
  * @vsync_count   : Running count of received vsync events
@@ -124,6 +125,8 @@ struct sde_crtc_event {
  * @feature_list  : list of color processing features supported on a crtc
  * @active_list   : list of color processing features are active
  * @dirty_list    : list of color processing features are dirty
+ * @ad_dirty: list containing ad properties that are dirty
+ * @ad_active: list containing ad properties that are active
  * @crtc_lock     : crtc lock around create, destroy and access.
  * @frame_pending : Whether or not an update is pending
  * @frame_events  : static allocation of in-flight frame events
@@ -134,6 +137,7 @@ struct sde_crtc_event {
  * @event_cache   : Local cache of event worker structures
  * @event_free_list : List of available event structures
  * @event_lock    : Spinlock around event handling code
+ * @misr_enable   : boolean entry indicates misr enable/disable status.
  */
 struct sde_crtc {
 	struct drm_crtc base;
@@ -165,6 +169,9 @@ struct sde_crtc {
 	struct list_head feature_list;
 	struct list_head active_list;
 	struct list_head dirty_list;
+	struct list_head ad_dirty;
+	struct list_head ad_active;
+	struct list_head user_event_list;
 
 	struct mutex crtc_lock;
 
@@ -179,9 +186,60 @@ struct sde_crtc {
 	struct sde_crtc_event event_cache[SDE_CRTC_MAX_EVENT_COUNT];
 	struct list_head event_free_list;
 	spinlock_t event_lock;
+	bool misr_enable;
 };
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)
+
+/**
+ * struct sde_crtc_res_ops - common operations for crtc resources
+ * @get: get given resource
+ * @put: put given resource
+ */
+struct sde_crtc_res_ops {
+	void *(*get)(void *val, u32 type, u64 tag);
+	void (*put)(void *val);
+};
+
+/* crtc resource type (0x0-0xffff reserved for hw block type */
+#define SDE_CRTC_RES_ROT_OUT_FBO	0x10000
+#define SDE_CRTC_RES_ROT_OUT_FB		0x10001
+#define SDE_CRTC_RES_ROT_PLANE		0x10002
+#define SDE_CRTC_RES_ROT_IN_FB		0x10003
+
+#define SDE_CRTC_RES_FLAG_FREE		BIT(0)
+
+/**
+ * struct sde_crtc_res - definition of crtc resources
+ * @list: list of crtc resource
+ * @type: crtc resource type
+ * @tag: unique identifier per type
+ * @refcount: reference/usage count
+ * @ops: callback operations
+ * @val: resource handle associated with type/tag
+ * @flags: customization flags
+ */
+struct sde_crtc_res {
+	struct list_head list;
+	u32 type;
+	u64 tag;
+	atomic_t refcount;
+	struct sde_crtc_res_ops ops;
+	void *val;
+	u32 flags;
+};
+
+/**
+ * sde_crtc_respool - crtc resource pool
+ * @sequence_id: sequence identifier, incremented per state duplication
+ * @res_list: list of resource managed by this resource pool
+ * @ops: resource operations for parent resource pool
+ */
+struct sde_crtc_respool {
+	u32 sequence_id;
+	struct list_head res_list;
+	struct sde_crtc_res_ops ops;
+};
 
 /**
  * struct sde_crtc_state - sde container for atomic crtc state
@@ -190,6 +248,13 @@ struct sde_crtc {
  * @num_connectors: Number of associated drm connectors
  * @intf_mode     : Interface mode of the primary connector
  * @rsc_client    : sde rsc client when mode is valid
+ * @lm_bounds     : LM boundaries based on current mode full resolution, no ROI.
+ *                  Origin top left of CRTC.
+ * @crtc_roi      : Current CRTC ROI. Possibly sub-rectangle of mode.
+ *                  Origin top left of CRTC.
+ * @lm_roi        : Current LM ROI, possibly sub-rectangle of mode.
+ *                  Origin top left of CRTC.
+ * @user_roi_list : List of user's requested ROIs as from set property
  * @property_values: Current crtc property values
  * @input_fence_timeout_ns : Cached input fence timeout, in ns
  * @property_blobs: Reference pointers for blob properties
@@ -197,6 +262,8 @@ struct sde_crtc {
  * @dim_layer: Dim layer configs
  * @cur_perf: current performance state
  * @new_perf: new performance state
+ * @sbuf_cfg: stream buffer configuration
+ * @sbuf_prefill_line: number of line for inline rotator prefetch
  */
 struct sde_crtc_state {
 	struct drm_crtc_state base;
@@ -207,6 +274,11 @@ struct sde_crtc_state {
 	struct sde_rsc_client *rsc_client;
 	bool rsc_update;
 
+	struct sde_rect lm_bounds[CRTC_DUAL_MIXERS];
+	struct sde_rect crtc_roi;
+	struct sde_rect lm_roi[CRTC_DUAL_MIXERS];
+	struct msm_roi_list user_roi_list;
+
 	uint64_t property_values[CRTC_PROP_COUNT];
 	uint64_t input_fence_timeout_ns;
 	struct drm_property_blob *property_blobs[CRTC_PROP_COUNT];
@@ -215,6 +287,10 @@ struct sde_crtc_state {
 
 	struct sde_core_perf_params cur_perf;
 	struct sde_core_perf_params new_perf;
+	struct sde_ctl_sbuf_cfg sbuf_cfg;
+	u64 sbuf_prefill_line;
+
+	struct sde_crtc_respool rp;
 };
 
 #define to_sde_crtc_state(x) \
@@ -237,30 +313,6 @@ static inline int sde_crtc_mixer_width(struct sde_crtc *sde_crtc,
 
 	return  sde_crtc->num_mixers == CRTC_DUAL_MIXERS ?
 		mode->hdisplay / CRTC_DUAL_MIXERS : mode->hdisplay;
-}
-
-static inline uint32_t get_crtc_split_width(struct drm_crtc *crtc)
-{
-	struct drm_display_mode *mode;
-	struct sde_crtc *sde_crtc;
-
-	if (!crtc || !crtc->state)
-		return 0;
-
-	sde_crtc = to_sde_crtc(crtc);
-	mode = &crtc->state->adjusted_mode;
-	return sde_crtc_mixer_width(sde_crtc, mode);
-}
-
-static inline uint32_t get_crtc_mixer_height(struct drm_crtc *crtc)
-{
-	struct drm_display_mode *mode;
-
-	if (!crtc || !crtc->state)
-		return 0;
-
-	mode = &crtc->state->adjusted_mode;
-	return mode->vdisplay;
 }
 
 /**
@@ -308,16 +360,20 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane);
 void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file);
 
 /**
+ * sde_crtc_register_custom_event - api for enabling/disabling crtc event
+ * @kms: Pointer to sde_kms
+ * @crtc_drm: Pointer to crtc object
+ * @event: Event that client is interested
+ * @en: Flag to enable/disable the event
+ */
+int sde_crtc_register_custom_event(struct sde_kms *kms,
+		struct drm_crtc *crtc_drm, u32 event, bool en);
+
+/**
  * sde_crtc_get_intf_mode - get interface mode of the given crtc
  * @crtc: Pointert to crtc
  */
-static inline enum sde_intf_mode sde_crtc_get_intf_mode(struct drm_crtc *crtc)
-{
-	struct sde_crtc_state *cstate =
-			crtc ? to_sde_crtc_state(crtc->state) : NULL;
-
-	return cstate ? cstate->intf_mode : INTF_MODE_NONE;
-}
+enum sde_intf_mode sde_crtc_get_intf_mode(struct drm_crtc *crtc);
 
 /**
  * sde_crtc_get_client_type - check the crtc type- rt, nrt, rsc, etc.
@@ -353,6 +409,46 @@ static inline bool sde_crtc_is_enabled(struct drm_crtc *crtc)
  * Returns: Zero on success
  */
 int sde_crtc_event_queue(struct drm_crtc *crtc,
-		void (*func)(void *usr), void *usr);
+		void (*func)(struct drm_crtc *crtc, void *usr), void *usr);
+
+/**
+ * sde_crtc_res_add - add given resource to resource pool in crtc state
+ * @state: Pointer to drm crtc state
+ * @type: Resource type
+ * @tag: Search tag for given resource
+ * @val: Resource handle
+ * @ops: Resource callback operations
+ * return: 0 if success; error code otherwise
+ */
+int sde_crtc_res_add(struct drm_crtc_state *state, u32 type, u64 tag,
+		void *val, struct sde_crtc_res_ops *ops);
+
+/**
+ * sde_crtc_res_get - get given resource from resource pool in crtc state
+ * @state: Pointer to drm crtc state
+ * @type: Resource type
+ * @tag: Search tag for given resource
+ * return: Resource handle if success; pointer error or null otherwise
+ */
+void *sde_crtc_res_get(struct drm_crtc_state *state, u32 type, u64 tag);
+
+/**
+ * sde_crtc_res_put - return given resource to resource pool in crtc state
+ * @state: Pointer to drm crtc state
+ * @type: Resource type
+ * @tag: Search tag for given resource
+ * return: None
+ */
+void sde_crtc_res_put(struct drm_crtc_state *state, u32 type, u64 tag);
+
+/**
+ * sde_crtc_get_crtc_roi - retrieve the crtc_roi from the given state object
+ *	used to allow the planes to adjust their final lm out_xy value in the
+ *	case of partial update
+ * @crtc_state: Pointer to crtc state
+ * @crtc_roi: Output pointer to crtc roi in the given state
+ */
+void sde_crtc_get_crtc_roi(struct drm_crtc_state *state,
+		const struct sde_rect **crtc_roi);
 
 #endif /* _SDE_CRTC_H_ */

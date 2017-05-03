@@ -73,9 +73,6 @@ its hardware characteristcs.
 	  AMBA markee):
 		- "arm,coresight-replicator"
 		- "qcom,coresight-csr"
-		- "arm,coresight-cti"
-		- "qcom,coresight-tpda"
-		- "qcom,coresight-tpdm"
 		- "qcom,coresight-remote-etm"
 		- "qcom,coresight-hwevent"
 		- "qcom,coresight-dummy"
@@ -264,7 +261,7 @@ Example:
 	};
 
 	tpda_mss: tpda@7043000 {
-		compatible = "qcom,coresight-tpda";
+		compatible = "qcom,coresight-tpda", "arm,primecell";
 		reg = <0x7043000 0x1000>;
 		reg-names = "tpda-base";
 
@@ -274,9 +271,8 @@ Example:
 		qcom,dsb-elem-size = <0 32>;
 		qcom,cmb-elem-size = <0 32>;
 
-		clocks = <&clock_gcc clk_qdss_clk>,
-			 <&clock_gcc clk_qdss_a_clk>;
-		clock-names = "core_clk", "core_a_clk";
+		clocks = <&clock_aop clk_qdss_clk>;
+		clock-names = "apb_pclk";
 
 		ports {
 			#address-cells = <1>;
@@ -345,15 +341,14 @@ Example:
 	};
 
 	tpdm_mss: tpdm@7042000 {
-		compatible = "qcom,coresight-tpdm";
+		compatible = "qcom,coresight-tpdm", "arm,primecell";
 		reg = <0x7042000 0x1000>;
 		reg-names = "tpdm-base";
 
 		coresight-name = "coresight-tpdm-mss";
 
-		clocks = <&clock_gcc clk_qdss_clk>,
-			 <&clock_gcc clk_qdss_a_clk>;
-		clock-names = "core_clk", "core_a_clk";
+		clocks = <&clock_aop qdss_clk>;
+		clock-names = "apb_pclk";
 
 		port{
 			tpdm_mss_out_tpda_mss: endpoint {
@@ -364,15 +359,14 @@ Example:
 
 4. CTIs
 	cti0: cti@6010000 {
-		compatible = "arm,coresight-cti";
+		compatible = "arm,coresight-cti", "arm,primecell";
 		reg = <0x6010000 0x1000>;
 		reg-names = "cti-base";
 
 		coresight-name = "coresight-cti0";
 
-		clocks = <&clock_gcc clk_qdss_clk>,
-			 <&clock_gcc clk_qdss_a_clk>;
-		clock-names = "core_clk", "core_a_clk";
+		clocks = <&clock_aop qdss_clk>;
+		clock-names = "apb_pclk";
 	};
 
 [1]. There is currently two version of STM: STM32 and STM500.  Both

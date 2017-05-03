@@ -90,6 +90,37 @@ arr_err:
 	return NULL;
 }
 
+static struct msm_bus_rsc_device_type *get_rsc_device_info(
+		struct device_node *dev_node,
+		struct platform_device *pdev)
+{
+	struct msm_bus_rsc_device_type *rsc_dev;
+	int ret;
+
+	rsc_dev = devm_kzalloc(&pdev->dev,
+			sizeof(struct msm_bus_rsc_device_type),
+			GFP_KERNEL);
+	if (!rsc_dev) {
+		dev_err(&pdev->dev,
+			"Error: Unable to allocate memory for rsc_dev\n");
+		goto rsc_dev_err;
+	}
+
+	ret = of_property_read_u32(dev_node, "qcom,req_state",
+			&rsc_dev->req_state);
+	if (ret) {
+		dev_dbg(&pdev->dev, "req_state missing, using default\n");
+		rsc_dev->req_state = 2;
+	}
+
+	return rsc_dev;
+
+rsc_dev_err:
+	devm_kfree(&pdev->dev, rsc_dev);
+	rsc_dev = 0;
+	return NULL;
+}
+
 static struct msm_bus_bcm_device_type *get_bcm_device_info(
 		struct device_node *dev_node,
 		struct platform_device *pdev)
@@ -112,11 +143,6 @@ static struct msm_bus_bcm_device_type *get_bcm_device_info(
 		dev_warn(&pdev->dev, "Bcm node is missing name\n");
 		goto bcm_dev_err;
 	}
-
-	ret = of_property_read_u32(dev_node, "qcom,drv-id",
-			&bcm_dev->drv_id);
-	if (ret)
-		dev_dbg(&pdev->dev, "drv-id is missing\n");
 
 	return bcm_dev;
 
@@ -359,6 +385,7 @@ static struct msm_bus_node_info_type *get_node_info_data(
 	struct device_node *con_node;
 	struct device_node *bus_dev;
 	struct device_node *bcm_dev;
+	struct device_node *rsc_dev;
 
 	node_info = devm_kzalloc(&pdev->dev,
 			sizeof(struct msm_bus_node_info_type),
@@ -456,13 +483,34 @@ static struct msm_bus_node_info_type *get_node_info_data(
 					node_info->id);
 			goto node_info_err;
 		}
-		dev_err(&pdev->dev, "found bcm device. Node %d BCM:%d\n",
-				node_info->id, node_info->bcm_dev_ids[0]);
-
 		of_node_put(bcm_dev);
 	}
 
+	if (of_get_property(dev_node, "qcom,rscs", &size)) {
+		node_info->num_rsc_devs = size / sizeof(int);
+		node_info->rsc_dev_ids = devm_kzalloc(&pdev->dev, size,
+				GFP_KERNEL);
+	} else {
+		node_info->num_rsc_devs = 0;
+		node_info->rsc_devs = 0;
+	}
+
+	for (i = 0; i < node_info->num_rsc_devs; i++) {
+		rsc_dev = of_parse_phandle(dev_node, "qcom,rscs", i);
+		if (IS_ERR_OR_NULL(rsc_dev))
+			goto node_info_err;
+
+		if (of_property_read_u32(rsc_dev, "cell-id",
+				&node_info->rsc_dev_ids[i])){
+			dev_err(&pdev->dev, "Can't find rsc device. Node %d",
+					node_info->id);
+			goto node_info_err;
+		}
+		of_node_put(rsc_dev);
+	}
+
 	node_info->is_bcm_dev = of_property_read_bool(dev_node, "qcom,bcm-dev");
+	node_info->is_rsc_dev = of_property_read_bool(dev_node, "qcom,rsc-dev");
 	node_info->is_fab_dev = of_property_read_bool(dev_node, "qcom,fab-dev");
 	node_info->virt_dev = of_property_read_bool(dev_node, "qcom,virt-dev");
 
@@ -500,6 +548,18 @@ static int get_bus_node_device_data(
 		if (IS_ERR_OR_NULL(node_device->bcmdev)) {
 			dev_err(&pdev->dev,
 				"Error: BCM device info missing\n");
+			devm_kfree(&pdev->dev, node_device->node_info);
+			return -ENODATA;
+		}
+	}
+
+	if (node_device->node_info->is_rsc_dev) {
+
+		node_device->rscdev = get_rsc_device_info(dev_node, pdev);
+
+		if (IS_ERR_OR_NULL(node_device->rscdev)) {
+			dev_err(&pdev->dev,
+				"Error: RSC device info missing\n");
 			devm_kfree(&pdev->dev, node_device->node_info);
 			return -ENODATA;
 		}

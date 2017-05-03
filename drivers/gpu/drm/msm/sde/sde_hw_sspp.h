@@ -308,6 +308,56 @@ struct sde_hw_pipe_qos_cfg {
 };
 
 /**
+ * enum system cache rotation operation mode
+ */
+enum {
+	SDE_PIPE_SC_OP_MODE_OFFLINE,
+	SDE_PIPE_SC_OP_MODE_INLINE_SINGLE,
+	SDE_PIPE_SC_OP_MODE_INLINE_LEFT,
+	SDE_PIPE_SC_OP_MODE_INLINE_RIGHT,
+};
+
+/**
+ * enum system cache read operation type
+ */
+enum {
+	SDE_PIPE_SC_RD_OP_TYPE_CACHEABLE,
+	SDE_PIPE_SC_RD_OP_TYPE_INVALIDATE,
+	SDE_PIPE_SC_RD_OP_TYPE_EVICTION,
+};
+
+/**
+ * struct sde_hw_pipe_sc_cfg - system cache configuration
+ * @op_mode: rotation operating mode
+ * @rd_en: system cache read enable
+ * @rd_scid: system cache read block id
+ * @rd_noallocate: system cache read no allocate attribute
+ * @rd_op_type: system cache read operation type
+ */
+struct sde_hw_pipe_sc_cfg {
+	u32 op_mode;
+	bool rd_en;
+	u32 rd_scid;
+	bool rd_noallocate;
+	u32 rd_op_type;
+};
+
+/**
+ * Maximum number of stream buffer plane
+ */
+#define SDE_PIPE_SBUF_PLANE_NUM	2
+
+/**
+ * struct sde_hw_pipe_sbuf_status - stream buffer status
+ * @empty: indicate if stream buffer is empty of not
+ * @rd_ptr: current read pointer of stream buffer
+ */
+struct sde_hw_pipe_sbuf_status {
+	bool empty[SDE_PIPE_SBUF_PLANE_NUM];
+	u32 rd_ptr[SDE_PIPE_SBUF_PLANE_NUM];
+};
+
+/**
  * struct sde_hw_sspp_ops - interface to the SSPP Hw driver functions
  * Caller must call the init function to get the pipe context for each pipe
  * Assumption is these functions will be called after clocks are enabled
@@ -488,6 +538,22 @@ struct sde_hw_sspp_ops {
 		struct sde_hw_pipe_cfg *pipe_cfg,
 		struct sde_hw_pixel_ext *pe_cfg,
 		void *scaler_cfg);
+
+	/**
+	 * setup_sys_cache - setup system cache configuration
+	 * @ctx: Pointer to pipe context
+	 * @cfg: Pointer to system cache configuration
+	 */
+	void (*setup_sys_cache)(struct sde_hw_pipe *ctx,
+			struct sde_hw_pipe_sc_cfg *cfg);
+
+	/**
+	 * get_sbuf_status - get stream buffer status
+	 * @ctx: Pointer to pipe context
+	 * @status: Pointer to stream buffer status
+	 */
+	void (*get_sbuf_status)(struct sde_hw_pipe *ctx,
+			struct sde_hw_pipe_sbuf_status *status);
 };
 
 /**

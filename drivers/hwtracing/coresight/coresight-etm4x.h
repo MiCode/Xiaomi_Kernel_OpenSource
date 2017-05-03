@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -143,7 +143,7 @@
 #define ETM_MAX_RES_SEL			16
 #define ETM_MAX_SS_CMP			8
 
-#define ETM_ARCH_V4			0x40
+#define ETM_ARCH_MAJOR_V4		0x4
 #define ETMv4_SYNC_MASK			0x1F
 #define ETM_CYC_THRESHOLD_MASK		0xFFF
 #define ETMv4_EVENT_MASK		0xFF

@@ -320,7 +320,7 @@ static int sde_debugfs_core_irq_show(struct seq_file *s, void *v)
 
 DEFINE_SDE_DEBUGFS_SEQ_FOPS(sde_debugfs_core_irq);
 
-static int sde_debugfs_core_irq_init(struct sde_kms *sde_kms,
+int sde_debugfs_core_irq_init(struct sde_kms *sde_kms,
 		struct dentry *parent)
 {
 	sde_kms->irq_obj.debugfs_file = debugfs_create_file("core_irq", 0644,
@@ -330,20 +330,20 @@ static int sde_debugfs_core_irq_init(struct sde_kms *sde_kms,
 	return 0;
 }
 
-static void sde_debugfs_core_irq_destroy(struct sde_kms *sde_kms)
+void sde_debugfs_core_irq_destroy(struct sde_kms *sde_kms)
 {
 	debugfs_remove(sde_kms->irq_obj.debugfs_file);
 	sde_kms->irq_obj.debugfs_file = NULL;
 }
 
 #else
-static int sde_debugfs_core_irq_init(struct sde_kms *sde_kms,
+int sde_debugfs_core_irq_init(struct sde_kms *sde_kms,
 		struct dentry *parent)
 {
 	return 0;
 }
 
-static void sde_debugfs_core_irq_destroy(struct sde_kms *sde_kms)
+void sde_debugfs_core_irq_destroy(struct sde_kms *sde_kms)
 {
 }
 #endif
@@ -385,8 +385,6 @@ void sde_core_irq_preinstall(struct sde_kms *sde_kms)
 		atomic_set(&sde_kms->irq_obj.enable_counts[i], 0);
 		atomic_set(&sde_kms->irq_obj.irq_counts[i], 0);
 	}
-
-	sde_debugfs_core_irq_init(sde_kms, sde_debugfs_get_root(sde_kms));
 }
 
 int sde_core_irq_postinstall(struct sde_kms *sde_kms)
@@ -410,8 +408,6 @@ void sde_core_irq_uninstall(struct sde_kms *sde_kms)
 		return;
 	}
 	priv = sde_kms->dev->dev_private;
-
-	sde_debugfs_core_irq_destroy(sde_kms);
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
 	for (i = 0; i < sde_kms->irq_obj.total_irqs; i++)

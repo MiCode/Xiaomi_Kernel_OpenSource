@@ -91,7 +91,8 @@ void kgsl_sync_timeline_destroy(struct kgsl_context *context);
 void kgsl_sync_timeline_put(struct kgsl_sync_timeline *ktimeline);
 
 struct kgsl_sync_fence_cb *kgsl_sync_fence_async_wait(int fd,
-					void (*func)(void *priv), void *priv);
+					void (*func)(void *priv), void *priv,
+					char *fence_name, int name_len);
 
 int kgsl_sync_fence_async_cancel(struct kgsl_sync_fence_cb *kcb);
 
@@ -109,8 +110,8 @@ void kgsl_syncsource_put(struct kgsl_syncsource *syncsource);
 void kgsl_syncsource_cleanup(struct kgsl_process_private *private,
 					struct kgsl_syncsource *syncsource);
 
-void kgsl_dump_fence(struct kgsl_sync_fence_cb *handle,
-				char *fence_str, int len);
+void kgsl_dump_fence(struct kgsl_drawobj_sync_event *event,
+					char *fence_str, int len);
 
 #else
 static inline int kgsl_add_fence_event(struct kgsl_device *device,
@@ -134,8 +135,10 @@ static inline void kgsl_sync_timeline_put(struct kgsl_sync_timeline *ktimeline)
 {
 }
 
-static inline struct kgsl_sync_fence_cb *kgsl_sync_fence_async_wait(int fd,
-					void (*func)(void *priv), void *priv)
+
+struct kgsl_sync_fence_cb *kgsl_sync_fence_async_wait(int fd,
+					void (*func)(void *priv), void *priv,
+					char *fence_name, int name_len)
 {
 	return NULL;
 }
@@ -185,8 +188,8 @@ static inline void kgsl_syncsource_cleanup(struct kgsl_process_private *private,
 
 }
 
-void kgsl_dump_fence(struct kgsl_sync_fence_cb *handle,
-				char *fence_str, int len)
+void kgsl_dump_fence(struct kgsl_drawobj_sync_event *event,
+					char *fence_str, int len)
 {
 }
 

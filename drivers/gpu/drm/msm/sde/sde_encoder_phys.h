@@ -16,6 +16,7 @@
 #define __SDE_ENCODER_PHYS_H__
 
 #include <linux/jiffies.h>
+#include <linux/sde_rsc.h>
 
 #include "sde_kms.h"
 #include "sde_hw_intf.h"
@@ -26,8 +27,6 @@
 #include "sde_hw_cdm.h"
 #include "sde_encoder.h"
 #include "sde_connector.h"
-
-#include "sde_rsc.h"
 
 #define SDE_ENCODER_NAME_MAX	16
 
@@ -141,15 +140,15 @@ struct sde_encoder_phys_ops {
 			struct drm_connector_state *conn_state);
 	int (*control_vblank_irq)(struct sde_encoder_phys *enc, bool enable);
 	int (*wait_for_commit_done)(struct sde_encoder_phys *phys_enc);
-	void (*prepare_for_kickoff)(struct sde_encoder_phys *phys_enc);
+	void (*prepare_for_kickoff)(struct sde_encoder_phys *phys_enc,
+			struct sde_encoder_kickoff_params *params);
 	void (*handle_post_kickoff)(struct sde_encoder_phys *phys_enc);
 	void (*trigger_start)(struct sde_encoder_phys *phys_enc);
 	bool (*needs_single_flush)(struct sde_encoder_phys *phys_enc);
 
 	void (*setup_misr)(struct sde_encoder_phys *phys_encs,
-			struct sde_misr_params *misr_map);
-	void (*collect_misr)(struct sde_encoder_phys *phys_enc,
-			struct sde_misr_params *misr_map);
+				bool enable, u32 frame_count);
+	u32 (*collect_misr)(struct sde_encoder_phys *phys_enc);
 	void (*hw_reset)(struct sde_encoder_phys *phys_enc);
 };
 
@@ -183,7 +182,6 @@ enum sde_intr_idx {
  * @hw_pp:		Hardware interface to the ping pong registers
  * @sde_kms:		Pointer to the sde_kms top level
  * @cached_mode:	DRM mode cached at mode_set time, acted on in enable
- * @misr_map:		Interface for setting and collecting MISR data
  * @enabled:		Whether the encoder has enabled and running a mode
  * @split_role:		Role to play in a split-panel configuration
  * @intf_mode:		Interface mode
@@ -212,7 +210,6 @@ struct sde_encoder_phys {
 	struct sde_hw_pingpong *hw_pp;
 	struct sde_kms *sde_kms;
 	struct drm_display_mode cached_mode;
-	struct sde_misr_params *misr_map;
 	enum sde_enc_split_role split_role;
 	enum sde_intf_mode intf_mode;
 	enum sde_intf intf_idx;
@@ -238,12 +235,16 @@ static inline int sde_encoder_phys_inc_pending(struct sde_encoder_phys *phys)
  * @irq_idx:	IRQ interface lookup index
  * @irq_cb:	interrupt callback
  * @hw_intf:	Hardware interface to the intf registers
+ * @timing_params: Current timing parameter
+ * @rot_prefill_line: number of line to prefill for inline rotation; 0 disable
  */
 struct sde_encoder_phys_vid {
 	struct sde_encoder_phys base;
 	int irq_idx[INTR_IDX_MAX];
 	struct sde_irq_callback irq_cb[INTR_IDX_MAX];
 	struct sde_hw_intf *hw_intf;
+	struct intf_timing_params timing_params;
+	u64 rot_prefill_line;
 };
 
 /**

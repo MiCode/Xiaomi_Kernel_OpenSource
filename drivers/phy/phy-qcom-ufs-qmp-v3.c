@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,26 +20,24 @@ static
 int ufs_qcom_phy_qmp_v3_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 					bool is_rate_B)
 {
-	int err;
-	int tbl_size_A, tbl_size_B;
-	struct ufs_qcom_phy_calibration *tbl_A, *tbl_B;
+	/*
+	 * Writing PHY calibration in this order:
+	 * 1. Write Rate-A calibration first (1-lane mode).
+	 * 2. Write 2nd lane configuration if needed.
+	 * 3. Write Rate-B calibration overrides
+	 */
+	ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_A,
+			       ARRAY_SIZE(phy_cal_table_rate_A));
+	if (ufs_qcom_phy->lanes_per_direction == 2)
+		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_2nd_lane,
+				       ARRAY_SIZE(phy_cal_table_2nd_lane));
+	if (is_rate_B)
+		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_B,
+				       ARRAY_SIZE(phy_cal_table_rate_B));
+	/* flush buffered writes */
+	mb();
 
-	tbl_size_B = ARRAY_SIZE(phy_cal_table_rate_B);
-	tbl_B = phy_cal_table_rate_B;
-
-	tbl_A = phy_cal_table_rate_A;
-	tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A);
-
-	err = ufs_qcom_phy_calibrate(ufs_qcom_phy,
-				     tbl_A, tbl_size_A,
-				     tbl_B, tbl_size_B,
-				     is_rate_B);
-
-	if (err)
-		dev_err(ufs_qcom_phy->dev,
-			"%s: ufs_qcom_phy_calibrate() failed %d\n",
-			__func__, err);
-	return err;
+	return 0;
 }
 
 static int ufs_qcom_phy_qmp_v3_init(struct phy *generic_phy)
@@ -145,37 +143,20 @@ out:
 	return err;
 }
 
-static
-int ufs_qcom_phy_qmp_v3_configure_lpm(struct ufs_qcom_phy *ufs_qcom_phy,
-					bool enable)
+static void ufs_qcom_phy_qmp_v3_dbg_register_dump(struct ufs_qcom_phy *phy)
 {
-	int err = 0;
-	int tbl_size;
-	struct ufs_qcom_phy_calibration *tbl = NULL;
-
-	/* The default low power mode configuration is SVS2 */
-	if (enable) {
-		tbl_size = ARRAY_SIZE(phy_cal_table_svs2_enable);
-		tbl = phy_cal_table_svs2_enable;
-	} else {
-		tbl_size = ARRAY_SIZE(phy_cal_table_svs2_disable);
-		tbl = phy_cal_table_svs2_disable;
-	}
-
-	if (!tbl) {
-		dev_err(ufs_qcom_phy->dev, "%s: tbl for SVS2 %s is NULL",
-			__func__, enable ? "enable" : "disable");
-		err = -EINVAL;
-		goto out;
-	}
-
-	ufs_qcom_phy_write_tbl(ufs_qcom_phy, tbl, tbl_size);
-
-	/* flush buffered writes */
-	mb();
-
-out:
-	return err;
+	ufs_qcom_phy_dump_regs(phy, COM_BASE, COM_SIZE,
+					"PHY QSERDES COM Registers ");
+	ufs_qcom_phy_dump_regs(phy, PHY_BASE, PHY_SIZE,
+					"PHY Registers ");
+	ufs_qcom_phy_dump_regs(phy, RX_BASE(0), RX_SIZE,
+					"PHY RX0 Registers ");
+	ufs_qcom_phy_dump_regs(phy, TX_BASE(0), TX_SIZE,
+					"PHY TX0 Registers ");
+	ufs_qcom_phy_dump_regs(phy, RX_BASE(1), RX_SIZE,
+					"PHY RX1 Registers ");
+	ufs_qcom_phy_dump_regs(phy, TX_BASE(1), TX_SIZE,
+					"PHY TX1 Registers ");
 }
 
 struct phy_ops ufs_qcom_phy_qmp_v3_phy_ops = {
@@ -193,7 +174,7 @@ struct ufs_qcom_phy_specific_ops phy_v3_ops = {
 	.set_tx_lane_enable	= ufs_qcom_phy_qmp_v3_set_tx_lane_enable,
 	.ctrl_rx_linecfg	= ufs_qcom_phy_qmp_v3_ctrl_rx_linecfg,
 	.power_control		= ufs_qcom_phy_qmp_v3_power_control,
-	.configure_lpm		= ufs_qcom_phy_qmp_v3_configure_lpm,
+	.dbg_register_dump	= ufs_qcom_phy_qmp_v3_dbg_register_dump,
 };
 
 static int ufs_qcom_phy_qmp_v3_probe(struct platform_device *pdev)

@@ -38,97 +38,217 @@
 			label = "pmi8998_tz";
 		};
 
-		pmi8998_gpios: gpios {
-			compatible = "qcom,qpnp-pin";
+		pmi8998_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0xe00>;
+			interrupts = <0x2 0xc0 0 IRQ_TYPE_NONE>,
+					<0x2 0xc1 0 IRQ_TYPE_NONE>,
+					<0x2 0xc2 0 IRQ_TYPE_NONE>,
+					<0x2 0xc4 0 IRQ_TYPE_NONE>,
+					<0x2 0xc5 0 IRQ_TYPE_NONE>,
+					<0x2 0xc7 0 IRQ_TYPE_NONE>,
+					<0x2 0xc8 0 IRQ_TYPE_NONE>,
+					<0x2 0xc9 0 IRQ_TYPE_NONE>,
+					<0x2 0xca 0 IRQ_TYPE_NONE>,
+					<0x2 0xcb 0 IRQ_TYPE_NONE>,
+					<0x2 0xcd 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pmi8998_gpio1", "pmi8998_gpio2",
+					"pmi8998_gpio3", "pmi8998_gpio5",
+					"pmi8998_gpio6", "pmi8998_gpio8",
+					"pmi8998_gpio9", "pmi8998_gpio10",
+					"pmi8998_gpio11", "pmi8998_gpio12",
+					"pmi8998_gpio14";
 			gpio-controller;
 			#gpio-cells = <2>;
+			qcom,gpios-disallowed = <4 7 13>;
+		};
+
+		qcom,qpnp-qnovo@1500 {
+			compatible = "qcom,qpnp-qnovo";
+			reg = <0x1500 0x100>;
+			interrupts = <0x2 0x15 0x0 IRQ_TYPE_NONE>;
+			interrupt-names = "ptrain-done";
+			qcom,pmic-revid = <&pmi8998_revid>;
+		};
+
+		pmi8998_charger: qcom,qpnp-smb2 {
+			compatible = "qcom,qpnp-smb2";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			label = "pmi8998-gpio";
 
-			gpio@c000 {
-				reg = <0xc000 0x100>;
-				qcom,pin-num = <1>;
-				status = "disabled";
+			qcom,pmic-revid = <&pmi8998_revid>;
+
+			io-channels = <&pmi8998_rradc 8>,
+				      <&pmi8998_rradc 10>,
+				      <&pmi8998_rradc 3>,
+				      <&pmi8998_rradc 4>;
+			io-channel-names = "charger_temp",
+					   "charger_temp_max",
+					   "usbin_i",
+					   "usbin_v";
+
+			qcom,boost-threshold-ua = <100000>;
+			qcom,wipower-max-uw = <5000000>;
+
+			qcom,thermal-mitigation
+					= <3000000 1500000 1000000 500000>;
+
+			qcom,chgr@1000 {
+				reg = <0x1000 0x100>;
+				interrupts =
+					<0x2 0x10 0x0 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x10 0x1 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x10 0x2 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x10 0x3 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x10 0x4 IRQ_TYPE_EDGE_RISING>;
+
+				interrupt-names = "chg-error",
+						  "chg-state-change",
+						  "step-chg-state-change",
+						  "step-chg-soc-update-fail",
+						  "step-chg-soc-update-request";
 			};
 
-			gpio@c100 {
-				reg = <0xc100 0x100>;
-				qcom,pin-num = <2>;
-				status = "disabled";
+			qcom,otg@1100 {
+				reg = <0x1100 0x100>;
+				interrupts = <0x2 0x11 0x0 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x11 0x1 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x11 0x2 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x11 0x3 IRQ_TYPE_EDGE_BOTH>;
+
+				interrupt-names = "otg-fail",
+						  "otg-overcurrent",
+						  "otg-oc-dis-sw-sts",
+						  "testmode-change-detect";
 			};
 
-			gpio@c200 {
-				reg = <0xc200 0x100>;
-				qcom,pin-num = <3>;
-				status = "disabled";
+			qcom,bat-if@1200 {
+				reg = <0x1200 0x100>;
+				interrupts =
+					<0x2 0x12 0x0 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x12 0x1 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x12 0x2 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x12 0x3 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x12 0x4 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x12 0x5 IRQ_TYPE_EDGE_BOTH>;
+
+				interrupt-names = "bat-temp",
+						  "bat-ocp",
+						  "bat-ov",
+						  "bat-low",
+						  "bat-therm-or-id-missing",
+						  "bat-terminal-missing";
 			};
 
-			gpio@c300 {
-				reg = <0xc300 0x100>;
-				qcom,pin-num = <4>;
-				status = "disabled";
+			qcom,usb-chgpth@1300 {
+				reg = <0x1300 0x100>;
+				interrupts =
+					<0x2 0x13 0x0 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x13 0x1 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x13 0x2 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x13 0x3 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x13 0x4 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x13 0x5 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x13 0x6 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x13 0x7 IRQ_TYPE_EDGE_RISING>;
+
+				interrupt-names = "usbin-collapse",
+						  "usbin-lt-3p6v",
+						  "usbin-uv",
+						  "usbin-ov",
+						  "usbin-plugin",
+						  "usbin-src-change",
+						  "usbin-icl-change",
+						  "type-c-change";
 			};
 
-			gpio@c400 {
-				reg = <0xc400 0x100>;
-				qcom,pin-num = <5>;
-				status = "disabled";
+			qcom,dc-chgpth@1400 {
+				reg = <0x1400 0x100>;
+				interrupts =
+					<0x2 0x14 0x0 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x14 0x1 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x14 0x2 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x14 0x3 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x14 0x4 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x14 0x5 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x14 0x6 IRQ_TYPE_EDGE_RISING>;
+
+				interrupt-names = "dcin-collapse",
+						  "dcin-lt-3p6v",
+						  "dcin-uv",
+						  "dcin-ov",
+						  "dcin-plugin",
+						  "div2-en-dg",
+						  "dcin-icl-change";
 			};
 
-			gpio@c500 {
-				reg = <0xc500 0x100>;
-				qcom,pin-num = <6>;
-				status = "disabled";
-			};
+			qcom,chgr-misc@1600 {
+				reg = <0x1600 0x100>;
+				interrupts =
+					<0x2 0x16 0x0 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x16 0x1 IRQ_TYPE_EDGE_RISING>,
+					<0x2 0x16 0x2 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x16 0x3 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x16 0x4 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x16 0x5 IRQ_TYPE_EDGE_BOTH>,
+					<0x2 0x16 0x6 IRQ_TYPE_EDGE_FALLING>,
+					<0x2 0x16 0x7 IRQ_TYPE_EDGE_BOTH>;
 
-			gpio@c600 {
-				reg = <0xc600 0x100>;
-				qcom,pin-num = <7>;
-				status = "disabled";
+				interrupt-names = "wdog-snarl",
+						  "wdog-bark",
+						  "aicl-fail",
+						  "aicl-done",
+						  "high-duty-cycle",
+						  "input-current-limiting",
+						  "temperature-change",
+						  "switcher-power-ok";
 			};
+		};
 
-			gpio@c700 {
-				reg = <0xc700 0x100>;
-				qcom,pin-num = <8>;
-				status = "disabled";
-			};
+		pmi8998_pdphy: qcom,usb-pdphy@1700 {
+			compatible = "qcom,qpnp-pdphy";
+			reg = <0x1700 0x100>;
+			vdd-pdphy-supply = <&pm8998_l24>;
+			vbus-supply = <&smb2_vbus>;
+			vconn-supply = <&smb2_vconn>;
+			interrupts = <0x2 0x17 0x0 IRQ_TYPE_EDGE_RISING>,
+				     <0x2 0x17 0x1 IRQ_TYPE_EDGE_RISING>,
+				     <0x2 0x17 0x2 IRQ_TYPE_EDGE_RISING>,
+				     <0x2 0x17 0x3 IRQ_TYPE_EDGE_RISING>,
+				     <0x2 0x17 0x4 IRQ_TYPE_EDGE_RISING>,
+				     <0x2 0x17 0x5 IRQ_TYPE_EDGE_RISING>,
+				     <0x2 0x17 0x6 IRQ_TYPE_EDGE_RISING>;
 
-			gpio@c800 {
-				reg = <0xc800 0x100>;
-				qcom,pin-num = <9>;
-				status = "disabled";
-			};
+			interrupt-names = "sig-tx",
+					  "sig-rx",
+					  "msg-tx",
+					  "msg-rx",
+					  "msg-tx-failed",
+					  "msg-tx-discarded",
+					  "msg-rx-discarded";
 
-			gpio@c900 {
-				reg = <0xc900 0x100>;
-				qcom,pin-num = <10>;
-				status = "disabled";
-			};
+			qcom,default-sink-caps = <5000 3000>, /* 5V @ 3A */
+						 <9000 3000>, /* 9V @ 3A */
+						 <12000 2250>; /* 12V @ 2.25A */
+		};
 
-			gpio@ca00 {
-				reg = <0xca00 0x100>;
-				qcom,pin-num = <11>;
-				status = "disabled";
-			};
-
-			gpio@cb00 {
-				reg = <0xcb00 0x100>;
-				qcom,pin-num = <12>;
-				status = "disabled";
-			};
-
-			gpio@cc00 {
-				reg = <0xcc00 0x100>;
-				qcom,pin-num = <13>;
-				status = "disabled";
-			};
-
-			gpio@cd00 {
-				reg = <0xcd00 0x100>;
-				qcom,pin-num = <14>;
-				status = "disabled";
-			};
+		bcl_sensor: bcl@4200 {
+			compatible = "qcom,msm-bcl-lmh";
+			reg = <0x4200 0xff>,
+				<0x4300 0xff>;
+			reg-names = "fg_user_adc",
+					"fg_lmh";
+			interrupts = <0x2 0x42 0x0 IRQ_TYPE_NONE>,
+					<0x2 0x42 0x1 IRQ_TYPE_NONE>,
+					<0x2 0x42 0x2 IRQ_TYPE_NONE>,
+					<0x2 0x42 0x3 IRQ_TYPE_NONE>,
+					<0x2 0x42 0x4 IRQ_TYPE_NONE>;
+			interrupt-names = "bcl-high-ibat",
+						"bcl-very-high-ibat",
+						"bcl-low-vbat",
+						"bcl-very-low-vbat",
+						"bcl-crit-low-vbat";
+			#thermal-sensor-cells = <1>;
 		};
 
 		pmi8998_rradc: rradc@4500 {
@@ -138,6 +258,70 @@
 			#size-cells = <0>;
 			#io-channel-cells = <1>;
 			qcom,pmic-revid = <&pmi8998_revid>;
+		};
+
+		pmi8998_fg: qpnp,fg {
+			compatible = "qcom,fg-gen3";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			qcom,pmic-revid = <&pmi8998_revid>;
+			io-channels = <&pmi8998_rradc 0>;
+			io-channel-names = "rradc_batt_id";
+			qcom,rradc-base = <0x4500>;
+			qcom,fg-esr-timer-awake = <96>;
+			qcom,fg-esr-timer-asleep = <256>;
+			qcom,cycle-counter-en;
+			status = "okay";
+
+			qcom,fg-batt-soc@4000 {
+				status = "okay";
+				reg = <0x4000 0x100>;
+				interrupts = <0x2 0x40 0x0 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x40 0x1 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x40 0x2
+							IRQ_TYPE_EDGE_RISING>,
+					     <0x2 0x40 0x3
+							IRQ_TYPE_EDGE_RISING>,
+					     <0x2 0x40 0x4 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x40 0x5
+							IRQ_TYPE_EDGE_RISING>,
+					     <0x2 0x40 0x6 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x40 0x7 IRQ_TYPE_EDGE_BOTH>;
+				interrupt-names = "soc-update",
+						  "soc-ready",
+						  "bsoc-delta",
+						  "msoc-delta",
+						  "msoc-low",
+						  "msoc-empty",
+						  "msoc-high",
+						  "msoc-full";
+			};
+
+			qcom,fg-batt-info@4100 {
+				status = "okay";
+				reg = <0x4100 0x100>;
+				interrupts = <0x2 0x41 0x0 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x41 0x1 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x41 0x2 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x41 0x3 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x41 0x6 IRQ_TYPE_EDGE_BOTH>;
+				interrupt-names = "vbatt-pred-delta",
+						  "vbatt-low",
+						  "esr-delta",
+						  "batt-missing",
+						  "batt-temp-delta";
+			};
+
+			qcom,fg-memif@4400 {
+				status = "okay";
+				reg = <0x4400 0x100>;
+				interrupts = <0x2 0x44 0x0 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x44 0x1 IRQ_TYPE_EDGE_BOTH>,
+					     <0x2 0x44 0x2 IRQ_TYPE_EDGE_BOTH>;
+				interrupt-names = "ima-rdy",
+						  "mem-xcp",
+						  "dma-grant";
+			};
 		};
 	};
 
@@ -372,7 +556,7 @@
 			qcom,en-ext-pfet-sc-pro;
 			qcom,pmic-revid = <&pmi8998_revid>;
 			qcom,loop-auto-gm-en;
-			status = "okay";
+			status = "disabled";
 		};
 
 		flash_led: qcom,leds@d300 {
@@ -482,6 +666,133 @@
 				qcom,led-name = "led:switch_1";
 				qcom,led-mask = <4>;
 				qcom,default-led-trigger = "switch1_trigger";
+			};
+		};
+	};
+};
+
+&thermal_zones {
+	ibat-high {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&bcl_sensor 0>;
+
+		trips {
+			ibat_high: low-ibat {
+				temperature = <4200>;
+				hysteresis = <200>;
+				type = "passive";
+			};
+		};
+	};
+	ibat-vhigh {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&bcl_sensor 1>;
+
+		trips {
+			ibat_vhigh: ibat_vhigh {
+				temperature = <4300>;
+				hysteresis = <100>;
+				type = "passive";
+			};
+		};
+	};
+	vbat {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&bcl_sensor 2>;
+		tracks-low;
+
+		trips {
+			low_vbat: low-vbat {
+				temperature = <3300>;
+				hysteresis = <100>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			vbat_cpu4 {
+				trip = <&low_vbat>;
+				cooling-device = <&CPU4 22 22>;
+			};
+			vbat_cpu5 {
+				trip = <&low_vbat>;
+				cooling-device = <&CPU5 22 22>;
+			};
+			vbat_map6 {
+				trip = <&low_vbat>;
+				cooling-device = <&CPU6 22 22>;
+			};
+			vbat_map7 {
+				trip = <&low_vbat>;
+				cooling-device = <&CPU7 22 22>;
+			};
+		};
+	};
+	vbat_low {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&bcl_sensor 3>;
+		tracks-low;
+
+		trips {
+			low-vbat {
+				temperature = <3100>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+	};
+	vbat_too_low {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&bcl_sensor 4>;
+		tracks-low;
+
+		trips {
+			low-vbat {
+				temperature = <2900>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+	};
+	soc {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "low_limits_cap";
+		thermal-sensors = <&bcl_sensor 5>;
+		tracks-low;
+
+		trips {
+			low_soc: low-soc {
+				temperature = <10>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+		cooling-maps {
+			soc_cpu4 {
+				trip = <&low_soc>;
+				cooling-device = <&CPU4 22 22>;
+			};
+			soc_cpu5 {
+				trip = <&low_soc>;
+				cooling-device = <&CPU5 22 22>;
+			};
+			soc_map6 {
+				trip = <&low_soc>;
+				cooling-device = <&CPU6 22 22>;
+			};
+			soc_map7 {
+				trip = <&low_soc>;
+				cooling-device = <&CPU7 22 22>;
 			};
 		};
 	};

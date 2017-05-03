@@ -983,6 +983,9 @@ static int cprh_kbss_read_fuse_data(struct cpr3_regulator *vreg)
 		return -EINVAL;
 	}
 
+	vreg->fuse_corner_count = fuse_corners;
+	vreg->platform_fuses = fuse;
+
 	fuse->ro_sel = devm_kcalloc(vreg->thread->ctrl->dev, fuse_corners,
 			sizeof(*fuse->ro_sel), GFP_KERNEL);
 	fuse->init_voltage = devm_kcalloc(vreg->thread->ctrl->dev, fuse_corners,
@@ -1037,8 +1040,6 @@ static int cprh_kbss_read_fuse_data(struct cpr3_regulator *vreg)
 
 	vreg->speed_bin_fuse	= fuse->speed_bin;
 	vreg->cpr_rev_fuse	= fuse->cpr_fusing_rev;
-	vreg->fuse_corner_count	= fuse_corners;
-	vreg->platform_fuses	= fuse;
 
 	return 0;
 }

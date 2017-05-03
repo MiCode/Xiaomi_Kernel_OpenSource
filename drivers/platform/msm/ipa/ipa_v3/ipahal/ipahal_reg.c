@@ -81,6 +81,9 @@ static const char *ipareg_name_to_str[IPA_REG_MAX] = {
 	__stringify(IPA_QSB_MAX_WRITES),
 	__stringify(IPA_QSB_MAX_READS),
 	__stringify(IPA_TX_CFG),
+	__stringify(IPA_IDLE_INDICATION_CFG),
+	__stringify(IPA_DPS_SEQUENCER_FIRST),
+	__stringify(IPA_HPS_SEQUENCER_FIRST),
 };
 
 static void ipareg_construct_dummy(enum ipahal_reg_name reg,

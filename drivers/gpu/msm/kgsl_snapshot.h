@@ -225,6 +225,7 @@ struct kgsl_snapshot_istore {
 #define SNAPSHOT_DEBUG_CP_ROQ     10
 #define SNAPSHOT_DEBUG_SHADER_MEMORY 11
 #define SNAPSHOT_DEBUG_CP_MERCIU 12
+#define SNAPSHOT_DEBUG_SQE_VERSION 14
 
 struct kgsl_snapshot_debug {
 	int type;    /* Type identifier for the attached tata */

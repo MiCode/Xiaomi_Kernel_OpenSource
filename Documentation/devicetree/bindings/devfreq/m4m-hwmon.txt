@@ -1,0 +1,22 @@
+MSM M4M hardware monitor device
+
+m4m-hwmon is a device that represents the MSM M4M hardware monitors
+that can be used to measure the various types of requests in the MSM M4M.
+
+Required properties:
+- compatible:		Must be "qcom,m4m-hwmon"
+- reg:			Pairs of physical base addresses and region sizes of
+			memory mapped registers.
+- interrupts:		Lists the threshold IRQ.
+- qcom,counter-event-sel: Array of counter and event selection values.
+- qcom,target-dev:	The DT device that is monitored by this MSM M4M
+			counter configuration.
+
+Example:
+	qcom,m4m-hwmon {
+		compatible = "qcom,m4m-hwmon";
+		reg = <0x6530000 0x160>;
+		interrupts = <0 19 4>;
+		qcom,counter-event-sel = <4 0x100>;
+		qcom,target-dev = <&m4m_cache>;
+	};

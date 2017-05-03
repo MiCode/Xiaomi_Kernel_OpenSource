@@ -19,16 +19,19 @@
 #include <linux/kernel.h>
 #include <linux/regmap.h>
 #include <linux/module.h>
+#include <linux/notifier.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/spmi.h>
 #include <linux/platform_device.h>
 #include <linux/string.h>
+#include <linux/workqueue.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/qpnp/qpnp-revid.h>
+#include <linux/regulator/qpnp-labibb-regulator.h>
 
 #define QPNP_LABIBB_REGULATOR_DRIVER_NAME	"qcom,qpnp-labibb-regulator"
 
@@ -594,6 +597,7 @@ struct qpnp_labibb {
 	const struct lab_ver_ops	*lab_ver_ops;
 	struct mutex			bus_mutex;
 	enum qpnp_labibb_mode		mode;
+	struct work_struct		lab_vreg_ok_work;
 	bool				standalone;
 	bool				ttw_en;
 	bool				in_ttw_mode;
@@ -603,9 +607,12 @@ struct qpnp_labibb {
 	bool				ttw_force_lab_on;
 	bool				skip_2nd_swire_cmd;
 	bool				pfm_enable;
+	bool				notify_lab_vreg_ok_sts;
 	u32				swire_2nd_cmd_delay;
 	u32				swire_ibb_ps_enable_delay;
 };
+
+static RAW_NOTIFIER_HEAD(labibb_notifier);
 
 struct ibb_ver_ops {
 	int (*set_default_voltage)(struct qpnp_labibb *labibb,
@@ -2124,6 +2131,36 @@ static int qpnp_labibb_regulator_ttw_mode_exit(struct qpnp_labibb *labibb)
 	return rc;
 }
 
+static void qpnp_lab_vreg_notifier_work(struct work_struct *work)
+{
+	int rc = 0;
+	u16 retries = 1000, dly = 5000;
+	u8 val;
+	struct qpnp_labibb *labibb  = container_of(work, struct qpnp_labibb,
+							lab_vreg_ok_work);
+
+	while (retries--) {
+		rc = qpnp_labibb_read(labibb, labibb->lab_base +
+					REG_LAB_STATUS1, &val, 1);
+		if (rc < 0) {
+			pr_err("read register %x failed rc = %d\n",
+				REG_LAB_STATUS1, rc);
+			return;
+		}
+
+		if (val & LAB_STATUS1_VREG_OK) {
+			raw_notifier_call_chain(&labibb_notifier,
+						LAB_VREG_OK, NULL);
+			break;
+		}
+
+		usleep_range(dly, dly + 100);
+	}
+
+	if (!retries)
+		pr_err("LAB_VREG_OK not set, failed to notify\n");
+}
+
 static int qpnp_labibb_regulator_enable(struct qpnp_labibb *labibb)
 {
 	int rc;
@@ -2325,6 +2362,9 @@ static int qpnp_lab_regulator_enable(struct regulator_dev *rdev)
 
 		labibb->lab_vreg.vreg_enabled = 1;
 	}
+
+	if (labibb->notify_lab_vreg_ok_sts)
+		schedule_work(&labibb->lab_vreg_ok_work);
 
 	return 0;
 }
@@ -2577,6 +2617,9 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 			rc);
 		return rc;
 	}
+
+	labibb->notify_lab_vreg_ok_sts = of_property_read_bool(of_node,
+					"qcom,notify-lab-vreg-ok-sts");
 
 	rc = of_property_read_u32(of_node, "qcom,qpnp-lab-soft-start",
 					&(labibb->lab_vreg.soft_start));
@@ -3817,6 +3860,8 @@ static int qpnp_labibb_regulator_probe(struct platform_device *pdev)
 			goto fail_registration;
 		}
 	}
+
+	INIT_WORK(&labibb->lab_vreg_ok_work, qpnp_lab_vreg_notifier_work);
 	dev_set_drvdata(&pdev->dev, labibb);
 	pr_info("LAB/IBB registered successfully, lab_vreg enable=%d ibb_vreg enable=%d swire_control=%d\n",
 						labibb->lab_vreg.vreg_enabled,
@@ -3834,6 +3879,18 @@ fail_registration:
 	return rc;
 }
 
+int qpnp_labibb_notifier_register(struct notifier_block *nb)
+{
+	return raw_notifier_chain_register(&labibb_notifier, nb);
+}
+EXPORT_SYMBOL(qpnp_labibb_notifier_register);
+
+int qpnp_labibb_notifier_unregister(struct notifier_block *nb)
+{
+	return raw_notifier_chain_unregister(&labibb_notifier, nb);
+}
+EXPORT_SYMBOL(qpnp_labibb_notifier_unregister);
+
 static int qpnp_labibb_regulator_remove(struct platform_device *pdev)
 {
 	struct qpnp_labibb *labibb = dev_get_drvdata(&pdev->dev);
@@ -3843,6 +3900,8 @@ static int qpnp_labibb_regulator_remove(struct platform_device *pdev)
 			regulator_unregister(labibb->lab_vreg.rdev);
 		if (labibb->ibb_vreg.rdev)
 			regulator_unregister(labibb->ibb_vreg.rdev);
+
+		cancel_work_sync(&labibb->lab_vreg_ok_work);
 	}
 	return 0;
 }

@@ -536,6 +536,17 @@ static int pil_make_proxy_vote(struct pil_desc *pil)
 	if (d->subsys_desc.no_auth)
 		return 0;
 
+	if (d->bus_client) {
+		rc = msm_bus_scale_client_update_request(d->bus_client, 1);
+		if (rc) {
+			dev_err(pil->dev, "bandwidth request failed(rc:%d)\n",
+									rc);
+			return rc;
+		}
+	} else
+		WARN(d->enable_bus_scaling, "Bus scaling not set up for %s!\n",
+					d->subsys_desc.name);
+
 	rc = enable_regulators(d, pil->dev, d->proxy_regs,
 					d->proxy_reg_count, false);
 	if (rc)
@@ -546,20 +557,8 @@ static int pil_make_proxy_vote(struct pil_desc *pil)
 	if (rc)
 		goto err_clks;
 
-	if (d->bus_client) {
-		rc = msm_bus_scale_client_update_request(d->bus_client, 1);
-		if (rc) {
-			dev_err(pil->dev, "bandwidth request failed(rc:%d)\n",
-									rc);
-			goto err_bw;
-		}
-	} else
-		WARN(d->enable_bus_scaling, "Bus scaling not set up for %s!\n",
-					d->subsys_desc.name);
-
 	return 0;
-err_bw:
-	disable_unprepare_clocks(d->proxy_clks, d->proxy_clk_count);
+
 err_clks:
 	disable_regulators(d, d->proxy_regs, d->proxy_reg_count, false);
 
@@ -573,15 +572,15 @@ static void pil_remove_proxy_vote(struct pil_desc *pil)
 	if (d->subsys_desc.no_auth)
 		return;
 
+	disable_unprepare_clocks(d->proxy_clks, d->proxy_clk_count);
+
+	disable_regulators(d, d->proxy_regs, d->proxy_reg_count, true);
+
 	if (d->bus_client)
 		msm_bus_scale_client_update_request(d->bus_client, 0);
 	else
 		WARN(d->enable_bus_scaling, "Bus scaling not set up for %s!\n",
 					d->subsys_desc.name);
-
-	disable_unprepare_clocks(d->proxy_clks, d->proxy_clk_count);
-
-	disable_regulators(d, d->proxy_regs, d->proxy_reg_count, true);
 }
 
 static int pil_init_image_trusted(struct pil_desc *pil,
@@ -693,6 +692,10 @@ static int pil_auth_and_reset(struct pil_desc *pil)
 	desc.args[0] = proc = d->pas_id;
 	desc.arginfo = SCM_ARGS(1);
 
+	rc = scm_pas_enable_bw();
+	if (rc)
+		return rc;
+
 	rc = enable_regulators(d, pil->dev, d->regs, d->reg_count, false);
 	if (rc)
 		return rc;
@@ -700,10 +703,6 @@ static int pil_auth_and_reset(struct pil_desc *pil)
 	rc = prepare_enable_clocks(pil->dev, d->clks, d->clk_count);
 	if (rc)
 		goto err_clks;
-
-	rc = scm_pas_enable_bw();
-	if (rc)
-		goto err_reset;
 
 	if (!is_scm_armv8()) {
 		rc = scm_call(SCM_SVC_PIL, PAS_AUTH_AND_RESET_CMD, &proc,
@@ -739,10 +738,21 @@ static int pil_shutdown_trusted(struct pil_desc *pil)
 	desc.args[0] = proc = d->pas_id;
 	desc.arginfo = SCM_ARGS(1);
 
+	if (d->bus_client) {
+		rc = msm_bus_scale_client_update_request(d->bus_client, 1);
+		if (rc) {
+			dev_err(pil->dev, "bandwidth request failed(rc:%d)\n",
+									rc);
+			return rc;
+		}
+	} else
+		WARN(d->enable_bus_scaling, "Bus scaling not set up for %s!\n",
+					d->subsys_desc.name);
+
 	rc = enable_regulators(d, pil->dev, d->proxy_regs,
 					d->proxy_reg_count, true);
 	if (rc)
-		return rc;
+		goto err_regulators;
 
 	rc = prepare_enable_clocks(pil->dev, d->proxy_clks,
 						d->proxy_clk_count);
@@ -760,6 +770,11 @@ static int pil_shutdown_trusted(struct pil_desc *pil)
 
 	disable_unprepare_clocks(d->proxy_clks, d->proxy_clk_count);
 	disable_regulators(d, d->proxy_regs, d->proxy_reg_count, false);
+	if (d->bus_client)
+		msm_bus_scale_client_update_request(d->bus_client, 0);
+	else
+		WARN(d->enable_bus_scaling, "Bus scaling not set up for %s!\n",
+					d->subsys_desc.name);
 
 	if (rc)
 		return rc;
@@ -768,8 +783,15 @@ static int pil_shutdown_trusted(struct pil_desc *pil)
 	disable_regulators(d, d->regs, d->reg_count, false);
 
 	return scm_ret;
+
 err_clks:
 	disable_regulators(d, d->proxy_regs, d->proxy_reg_count, false);
+err_regulators:
+	if (d->bus_client)
+		msm_bus_scale_client_update_request(d->bus_client, 0);
+	else
+		WARN(d->enable_bus_scaling, "Bus scaling not set up for %s!\n",
+					d->subsys_desc.name);
 	return rc;
 }
 
@@ -1054,7 +1076,7 @@ static int pil_tz_driver_probe(struct platform_device *pdev)
 									rc);
 			return rc;
 		}
-		scm_pas_init(MSM_BUS_MASTER_CRYPTO_CORE0);
+		scm_pas_init(MSM_BUS_MASTER_CRYPTO_CORE_0);
 	}
 
 	rc = pil_desc_init(&d->desc);

@@ -20,7 +20,7 @@
 #include <sound/q6core.h>
 
 
-#ifdef CONFIG_DOLBY_DS2
+#if defined(CONFIG_DOLBY_DS2) || defined(CONFIG_DOLBY_LICENSE)
 
 /* ramp up/down for 30ms    */
 #define DOLBY_SOFT_VOLUME_PERIOD	40
@@ -198,7 +198,8 @@ static void msm_ds2_dap_check_and_update_ramp_wait(int port_id, int copp_idx,
 	uint32_t param_payload_len = PARAM_PAYLOAD_SIZE * sizeof(uint32_t);
 	int rc = 0;
 
-	update_params_value = kzalloc(params_length, GFP_KERNEL);
+	update_params_value = kzalloc(params_length + param_payload_len,
+				      GFP_KERNEL);
 	if (!update_params_value)
 		goto end;
 
@@ -999,6 +1000,20 @@ static int msm_ds2_dap_handle_bypass(struct dolby_param_data *dolby_data)
 							copp_idx, rc);
 					}
 				}
+				/* Turn on qti modules */
+				for (j = 1; j < mod_list[0]; j++) {
+					if (!msm_ds2_dap_can_enable_module(
+						mod_list[j]) ||
+						mod_list[j] ==
+						DS2_MODULE_ID)
+						continue;
+					pr_debug("%s: param enable %d\n",
+						__func__, mod_list[j]);
+					adm_param_enable(port_id, copp_idx,
+							 mod_list[j],
+							 MODULE_ENABLE);
+				}
+
 				/* Add adm api to resend calibration on port */
 				rc = msm_ds2_dap_send_cal_data(i);
 				if (rc < 0) {
@@ -1642,6 +1657,7 @@ static int msm_ds2_dap_param_visualizer_control_get(u32 cmd, void *arg)
 		ret = 0;
 		dolby_data->length = 0;
 		pr_err("%s Incorrect VCNB length", __func__);
+		return -EINVAL;
 	}
 
 	params_length = (2*length + DOLBY_VIS_PARAM_HEADER_SIZE) *
@@ -2296,4 +2312,4 @@ int msm_ds2_dap_ioctl_shared(struct snd_hwdep *hw, struct file *file,
 {
 	return 0;
 }
-#endif /*CONFIG_DOLBY_DS2*/
+#endif /* CONFIG_DOLBY_DS2 || CONFIG_DOLBY_LICENSE */

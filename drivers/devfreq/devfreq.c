@@ -70,6 +70,29 @@ static struct devfreq *find_device_devfreq(struct device *dev)
 }
 
 /**
+ * devfreq_set_freq_limits() - Set min and max frequency from freq_table
+ * @devfreq:	the devfreq instance
+ */
+static void devfreq_set_freq_limits(struct devfreq *devfreq)
+{
+	int idx;
+	unsigned long min = ~0, max = 0;
+
+	if (!devfreq->profile->freq_table)
+		return;
+
+	for (idx = 0; idx < devfreq->profile->max_state; idx++) {
+		if (min > devfreq->profile->freq_table[idx])
+			min = devfreq->profile->freq_table[idx];
+		if (max < devfreq->profile->freq_table[idx])
+			max = devfreq->profile->freq_table[idx];
+	}
+
+	devfreq->min_freq = min;
+	devfreq->max_freq = max;
+}
+
+/**
  * devfreq_get_freq_level() - Lookup freq_table for the frequency
  * @devfreq:	the devfreq instance
  * @freq:	the target frequency
@@ -569,6 +592,7 @@ struct devfreq *devfreq_add_device(struct device *dev,
 		devfreq_set_freq_table(devfreq);
 		mutex_lock(&devfreq->lock);
 	}
+	devfreq_set_freq_limits(devfreq);
 
 	dev_set_name(&devfreq->dev, "%s", dev_name(dev));
 	err = device_register(&devfreq->dev);
@@ -925,7 +949,7 @@ static ssize_t governor_store(struct device *dev, struct device_attribute *attr,
 	struct devfreq *df = to_devfreq(dev);
 	int ret;
 	char str_governor[DEVFREQ_NAME_LEN + 1];
-	struct devfreq_governor *governor;
+	const struct devfreq_governor *governor, *prev_gov;
 
 	ret = sscanf(buf, "%" __stringify(DEVFREQ_NAME_LEN) "s", str_governor);
 	if (ret != 1)
@@ -953,12 +977,21 @@ static ssize_t governor_store(struct device *dev, struct device_attribute *attr,
 			goto out;
 		}
 	}
+	prev_gov = df->governor;
 	df->governor = governor;
 	strncpy(df->governor_name, governor->name, DEVFREQ_NAME_LEN);
 	ret = df->governor->event_handler(df, DEVFREQ_GOV_START, NULL);
-	if (ret)
+	if (ret) {
 		dev_warn(dev, "%s: Governor %s not started(%d)\n",
 			 __func__, df->governor->name, ret);
+		if (prev_gov) {
+			df->governor = prev_gov;
+			strlcpy(df->governor_name, prev_gov->name,
+				DEVFREQ_NAME_LEN);
+			df->governor->event_handler(df, DEVFREQ_GOV_START,
+						    NULL);
+		}
+	}
 out:
 	mutex_unlock(&devfreq_list_lock);
 

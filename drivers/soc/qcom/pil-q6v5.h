@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,8 @@ struct q6v5_data {
 	struct clk *snoc_axi_clk;
 	struct clk *mnoc_axi_clk;
 	struct clk *qdss_clk;
+	struct clk *prng_clk;
+	struct clk *axis2_clk;
 	void __iomem *axi_halt_base; /* Halt base of q6, mss,
 				      * nc are in same 4K page
 				      */

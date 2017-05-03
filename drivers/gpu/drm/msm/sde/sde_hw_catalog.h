@@ -110,6 +110,7 @@ enum {
  * @SDE_SSPP_EXCL_RECT,      SSPP supports exclusion rect
  * @SDE_SSPP_SMART_DMA_V1,   SmartDMA 1.0 support
  * @SDE_SSPP_SMART_DMA_V2,   SmartDMA 2.0 support
+ * @SDE_SSPP_SBUF,           SSPP support inline stream buffer
  * @SDE_SSPP_MAX             maximum value
  */
 enum {
@@ -128,6 +129,7 @@ enum {
 	SDE_SSPP_EXCL_RECT,
 	SDE_SSPP_SMART_DMA_V1,
 	SDE_SSPP_SMART_DMA_V2,
+	SDE_SSPP_SBUF,
 	SDE_SSPP_MAX
 };
 
@@ -199,12 +201,24 @@ enum {
  * CTL sub-blocks
  * @SDE_CTL_SPLIT_DISPLAY       CTL supports video mode split display
  * @SDE_CTL_PINGPONG_SPLIT      CTL supports pingpong split
+ * @SDE_CTL_SBUF                CTL supports inline stream buffer
  * @SDE_CTL_MAX
  */
 enum {
 	SDE_CTL_SPLIT_DISPLAY = 0x1,
 	SDE_CTL_PINGPONG_SPLIT,
+	SDE_CTL_SBUF,
 	SDE_CTL_MAX
+};
+
+/**
+ * INTF sub-blocks
+ * @SDE_INTF_ROT_START          INTF supports rotator start trigger
+ * @SDE_INTF_MAX
+ */
+enum {
+	SDE_INTF_ROT_START = 0x1,
+	SDE_INTF_MAX
 };
 
 /**
@@ -599,6 +613,23 @@ struct sde_wb_cfg {
 };
 
 /**
+ * struct sde_rot_cfg - information of rotator blocks
+ * @id                 enum identifying this block
+ * @base               register offset of this block
+ * @len                length of hardware block
+ * @features           bit mask identifying sub-blocks/features
+ * @pdev               private device handle
+ * @scid               subcache identifier
+ * @slice_size         subcache slice size
+ */
+struct sde_rot_cfg {
+	SDE_HW_BLK_INFO;
+	void *pdev;
+	int scid;
+	size_t slice_size;
+};
+
+/**
  * struct sde_vbif_dynamic_ot_cfg - dynamic OT setting
  * @pps                pixel per seconds
  * @ot_limit           OT limit to use up to specified pixel per second
@@ -680,6 +711,8 @@ struct sde_perf_cfg {
  * @has_cdp            Client driver prefetch feature status
  * @has_wb_ubwc        UBWC feature supported on WB
  * @ubwc_version       UBWC feature version (0x0 for not supported)
+ * @has_sbuf           indicate if stream buffer is available
+ * @sbuf_headroom      stream buffer headroom in lines
  * @dma_formats        Supported formats for dma pipe
  * @cursor_formats     Supported formats for cursor pipe
  * @vig_formats        Supported formats for vig pipe
@@ -700,6 +733,8 @@ struct sde_mdss_cfg {
 	bool has_dim_layer;
 	bool has_wb_ubwc;
 	u32 ubwc_version;
+	bool has_sbuf;
+	u32 sbuf_headroom;
 
 	u32 mdss_count;
 	struct sde_mdss_base_cfg mdss[MAX_BLOCKS];
@@ -734,11 +769,17 @@ struct sde_mdss_cfg {
 	u32 wb_count;
 	struct sde_wb_cfg wb[MAX_BLOCKS];
 
+	u32 rot_count;
+	struct sde_rot_cfg rot[MAX_BLOCKS];
+
 	u32 vbif_count;
 	struct sde_vbif_cfg vbif[MAX_BLOCKS];
 
 	u32 reg_dma_count;
 	struct sde_reg_dma_cfg dma_cfg;
+
+	u32 ad_count;
+
 	/* Add additional block data structures here */
 
 	struct sde_perf_cfg perf;

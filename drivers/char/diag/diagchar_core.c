@@ -143,6 +143,14 @@ module_param(max_clients, uint, 0000);
 static struct timer_list drain_timer;
 static int timer_in_progress;
 
+/*
+ * Diag Mask clear variable
+ * Used for clearing masks upon
+ * USB disconnection and stopping ODL
+ */
+static int diag_mask_clear_param = 1;
+module_param(diag_mask_clear_param, int, 0644);
+
 struct diag_apps_data_t {
 	void *buf;
 	uint32_t len;
@@ -388,7 +396,10 @@ static uint32_t diag_translate_kernel_to_user_mask(uint32_t peripheral_mask)
 
 	return ret;
 }
-
+int diag_mask_param(void)
+{
+	return diag_mask_clear_param;
+}
 void diag_clear_masks(struct diag_md_session_t *info)
 {
 	int ret;
@@ -421,14 +432,17 @@ static void diag_close_logging_process(const int pid)
 	if (!session_info)
 		return;
 
-	diag_clear_masks(session_info);
+	if (diag_mask_clear_param)
+		diag_clear_masks(session_info);
 
 	mutex_lock(&driver->diag_maskclear_mutex);
 	driver->mask_clear = 1;
 	mutex_unlock(&driver->diag_maskclear_mutex);
 
+	mutex_lock(&driver->diagchar_mutex);
 	session_peripheral_mask = session_info->peripheral_mask;
 	diag_md_session_close(session_info);
+	mutex_unlock(&driver->diagchar_mutex);
 	for (i = 0; i < NUM_MD_SESSIONS; i++)
 		if (MD_PERIPHERAL_MASK(i) & session_peripheral_mask)
 			diag_mux_close_peripheral(DIAG_LOCAL_PROC, i);
@@ -701,6 +715,11 @@ struct diag_cmd_reg_entry_t *diag_cmd_search(
 
 	list_for_each_safe(start, temp, &driver->cmd_reg_list) {
 		item = list_entry(start, struct diag_cmd_reg_t, link);
+		if (&item->entry == NULL) {
+			pr_err("diag: In %s, unable to search command\n",
+			       __func__);
+			return NULL;
+		}
 		temp_entry = &item->entry;
 		if (temp_entry->cmd_code == entry->cmd_code &&
 		    temp_entry->subsys_id == entry->subsys_id &&
@@ -3397,7 +3416,7 @@ static int diagchar_cleanup(void)
 static int __init diagchar_init(void)
 {
 	dev_t dev;
-	int ret;
+	int ret, i;
 
 	pr_debug("diagfwd initializing ..\n");
 	ret = 0;
@@ -3440,10 +3459,12 @@ static int __init diagchar_init(void)
 	mutex_init(&driver->hdlc_disable_mutex);
 	mutex_init(&driver->diagchar_mutex);
 	mutex_init(&driver->diag_maskclear_mutex);
+	mutex_init(&driver->diag_notifier_mutex);
 	mutex_init(&driver->diag_file_mutex);
 	mutex_init(&driver->delayed_rsp_mutex);
 	mutex_init(&apps_data_mutex);
-	mutex_init(&driver->diagfwd_channel_mutex);
+	for (i = 0; i < NUM_PERIPHERALS; i++)
+		mutex_init(&driver->diagfwd_channel_mutex[i]);
 	init_waitqueue_head(&driver->wait_q);
 	INIT_WORK(&(driver->diag_drain_work), diag_drain_work_fn);
 	INIT_WORK(&(driver->update_user_clients),

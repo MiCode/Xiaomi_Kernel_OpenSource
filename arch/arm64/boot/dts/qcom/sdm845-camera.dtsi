@@ -16,4 +16,213 @@
 		compatible = "qcom,cam-req-mgr";
 		status = "ok";
 	};
+
+	qcom,csiphy@ac65000 {
+		cell-index = <0>;
+		compatible = "qcom,csiphy-v1.0", "qcom,csiphy";
+		reg = <0x0ac65000 0x1000>;
+		reg-names = "csiphy";
+		interrupts = <0 477 0>;
+		interrupt-names = "csiphy";
+		gdscr-supply = <&titan_top_gdsc>;
+		qcom,cam-vreg-name = "gdscr";
+		qcom,csi-vdd-voltage = <1200000>;
+		qcom,mipi-csi-vdd-supply = <&pm8998_l26>;
+		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
+			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
+			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
+			<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
+			<&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
+			<&clock_camcc CAM_CC_CSIPHY0_CLK>,
+			<&clock_camcc CAM_CC_CSI0PHYTIMER_CLK_SRC>,
+			<&clock_camcc CAM_CC_CSI0PHYTIMER_CLK>,
+			<&clock_camcc CAM_CC_IFE_0_CSID_CLK>,
+			<&clock_camcc CAM_CC_IFE_0_CSID_CLK_SRC>;
+		clock-names = "camnoc_axi_clk",
+			"soc_ahb_clk",
+			"slow_ahb_src_clk",
+			"cpas_ahb_clk",
+			"cphy_rx_clk_src",
+			"csiphy0_clk",
+			"csi0phytimer_clk_src",
+			"csi0phytimer_clk",
+			"ife_0_csid_clk",
+			"ife_0_csid_clk_src";
+		qcom,clock-rates =
+			<0 0 80000000 0 320000000 0 269333333 0 0 384000000>;
+		status = "ok";
+	};
+
+	qcom,csiphy@ac66000{
+		cell-index = <1>;
+		compatible = "qcom,csiphy-v1.0", "qcom,csiphy";
+		reg = <0xac66000 0x1000>;
+		reg-names = "csiphy";
+		interrupts = <0 478 0>;
+		interrupt-names = "csiphy";
+		gdscr-supply = <&titan_top_gdsc>;
+		qcom,cam-vreg-name = "gdscr";
+		qcom,csi-vdd-voltage = <1200000>;
+		qcom,mipi-csi-vdd-supply = <&pm8998_l26>;
+		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
+			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
+			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
+			<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
+			<&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
+			<&clock_camcc CAM_CC_CSIPHY1_CLK>,
+			<&clock_camcc CAM_CC_CSI1PHYTIMER_CLK_SRC>,
+			<&clock_camcc CAM_CC_CSI0PHYTIMER_CLK>,
+			<&clock_camcc CAM_CC_IFE_1_CSID_CLK>,
+			<&clock_camcc CAM_CC_IFE_1_CSID_CLK_SRC>;
+		clock-names = "camnoc_axi_clk",
+			"soc_ahb_clk",
+			"slow_ahb_src_clk",
+			"cpas_ahb_clk",
+			"cphy_rx_clk_src",
+			"csiphy1_clk",
+			"csi1phytimer_clk_src",
+			"csi1phytimer_clk",
+			"ife_1_csid_clk",
+			"ife_1_csid_clk_src";
+		qcom,clock-rates =
+			<0 0 80000000 0 320000000 0 269333333 0 0 384000000>;
+
+		status = "ok";
+	};
+
+	qcom,csiphy@ac67000 {
+		cell-index = <2>;
+		compatible = "qcom,csiphy-v1.0", "qcom,csiphy";
+		reg = <0xac67000 0x1000>;
+		reg-names = "csiphy";
+		interrupts = <0 479 0>;
+		interrupt-names = "csiphy";
+		gdscr-supply = <&titan_top_gdsc>;
+		qcom,cam-vreg-name = "gdscr";
+		qcom,csi-vdd-voltage = <1200000>;
+		qcom,mipi-csi-vdd-supply = <&pm8998_l26>;
+		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
+			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
+			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
+			<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
+			<&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
+			<&clock_camcc CAM_CC_CSIPHY2_CLK>,
+			<&clock_camcc CAM_CC_CSI2PHYTIMER_CLK_SRC>,
+			<&clock_camcc CAM_CC_CSI2PHYTIMER_CLK>,
+			<&clock_camcc CAM_CC_IFE_LITE_CSID_CLK>,
+			<&clock_camcc CAM_CC_IFE_LITE_CSID_CLK_SRC>;
+		clock-names = "camnoc_axi_clk",
+			"soc_ahb_clk",
+			"slow_ahb_src_clk",
+			"cpas_ahb_clk",
+			"cphy_rx_clk_src",
+			"csiphy2_clk",
+			"csi2phytimer_clk_src",
+			"csi2phytimer_clk",
+			"ife_lite_csid_clk",
+			"ife_lite_csid_clk_src";
+		qcom,clock-rates =
+			<0 0 80000000 0 320000000 0 269333333 0 0 384000000>;
+		status = "ok";
+	};
+
+	cci: qcom,cci@ac4a000 {
+		cell-index = <0>;
+		compatible = "qcom,cci";
+		reg = <0xac4a000 0x4000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "cci";
+		interrupts = <0 460 0>;
+		interrupt-names = "cci";
+		status = "ok";
+		gdscr-supply = <&titan_top_gdsc>;
+		qcom,cam-vreg-name = "gdscr";
+		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
+			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
+			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
+			<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
+			<&clock_camcc CAM_CC_CCI_CLK>,
+			<&clock_camcc CAM_CC_CCI_CLK_SRC>;
+		clock-names = "camnoc_axi_clk",
+			"soc_ahb_clk",
+			"slow_ahb_src_clk",
+			"cpas_ahb_clk",
+			"cci_clk",
+			"cci_clk_src";
+		qcom,clock-rates = <0 0 80000000 0 0 37500000>;
+		pinctrl-names = "cci_default", "cci_suspend";
+		pinctrl-0 = <&cci0_active &cci1_active>;
+		pinctrl-1 = <&cci0_suspend &cci1_suspend>;
+		gpios = <&tlmm 17 0>,
+			<&tlmm 18 0>,
+			<&tlmm 19 0>,
+			<&tlmm 20 0>;
+		qcom,gpio-tbl-num = <0 1 2 3>;
+		qcom,gpio-tbl-flags = <1 1 1 1>;
+		qcom,gpio-tbl-label = "CCI_I2C_DATA0",
+					"CCI_I2C_CLK0",
+					"CCI_I2C_DATA1",
+					"CCI_I2C_CLK1";
+
+		i2c_freq_100Khz: qcom,i2c_standard_mode {
+			qcom,hw-thigh = <201>;
+			qcom,hw-tlow = <174>;
+			qcom,hw-tsu-sto = <204>;
+			qcom,hw-tsu-sta = <231>;
+			qcom,hw-thd-dat = <22>;
+			qcom,hw-thd-sta = <162>;
+			qcom,hw-tbuf = <227>;
+			qcom,hw-scl-stretch-en = <0>;
+			qcom,hw-trdhld = <6>;
+			qcom,hw-tsp = <3>;
+			qcom,cci-clk-src = <37500000>;
+			status = "ok";
+		};
+
+		i2c_freq_400Khz: qcom,i2c_fast_mode {
+			qcom,hw-thigh = <38>;
+			qcom,hw-tlow = <56>;
+			qcom,hw-tsu-sto = <40>;
+			qcom,hw-tsu-sta = <40>;
+			qcom,hw-thd-dat = <22>;
+			qcom,hw-thd-sta = <35>;
+			qcom,hw-tbuf = <62>;
+			qcom,hw-scl-stretch-en = <0>;
+			qcom,hw-trdhld = <6>;
+			qcom,hw-tsp = <3>;
+			qcom,cci-clk-src = <37500000>;
+			status = "ok";
+		};
+
+		i2c_freq_custom: qcom,i2c_custom_mode {
+			qcom,hw-thigh = <38>;
+			qcom,hw-tlow = <56>;
+			qcom,hw-tsu-sto = <40>;
+			qcom,hw-tsu-sta = <40>;
+			qcom,hw-thd-dat = <22>;
+			qcom,hw-thd-sta = <35>;
+			qcom,hw-tbuf = <62>;
+			qcom,hw-scl-stretch-en = <1>;
+			qcom,hw-trdhld = <6>;
+			qcom,hw-tsp = <3>;
+			qcom,cci-clk-src = <37500000>;
+			status = "ok";
+		};
+
+		i2c_freq_1Mhz: qcom,i2c_fast_plus_mode {
+			qcom,hw-thigh = <16>;
+			qcom,hw-tlow = <22>;
+			qcom,hw-tsu-sto = <17>;
+			qcom,hw-tsu-sta = <18>;
+			qcom,hw-thd-dat = <16>;
+			qcom,hw-thd-sta = <15>;
+			qcom,hw-tbuf = <24>;
+			qcom,hw-scl-stretch-en = <0>;
+			qcom,hw-trdhld = <3>;
+			qcom,hw-tsp = <3>;
+			qcom,cci-clk-src = <37500000>;
+			status = "ok";
+		};
+	};
 };

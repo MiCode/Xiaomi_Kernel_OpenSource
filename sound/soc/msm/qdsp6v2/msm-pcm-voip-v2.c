@@ -815,10 +815,20 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 			if (prtd->mode == MODE_PCM) {
 				ret = copy_from_user(&buf_node->frame.voc_pkt,
 							buf, count);
+				if (ret) {
+					pr_err("%s: copy from user failed %d\n",
+					       __func__, ret);
+					return -EFAULT;
+				}
 				buf_node->frame.pktlen = count;
 			} else {
 				ret = copy_from_user(&buf_node->frame,
 							buf, count);
+				if (ret) {
+					pr_err("%s: copy from user failed %d\n",
+					       __func__, ret);
+					return -EFAULT;
+				}
 				if (buf_node->frame.pktlen >= count)
 					buf_node->frame.pktlen = count -
 					(sizeof(buf_node->frame.frm_hdr) +

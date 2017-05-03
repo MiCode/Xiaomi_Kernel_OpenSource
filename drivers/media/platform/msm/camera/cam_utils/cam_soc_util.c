@@ -59,7 +59,7 @@ int cam_soc_util_clk_enable(struct clk *clk, const char *clk_name,
 	int rc = 0;
 	long clk_rate_round;
 
-	if (!clk || !clk_name || !clk_rate)
+	if (!clk || !clk_name)
 		return -EINVAL;
 
 	CDBG("enable %s, clk %pK rate %d\n",
@@ -231,8 +231,8 @@ static int cam_soc_util_get_dt_clk_info(struct cam_hw_soc_info *soc_info)
 		return rc;
 	}
 
-	rc = of_property_read_string_index(of_node, "src-clock-name",
-				i, &src_clk_str);
+	rc = of_property_read_string_index(of_node, "src-clock-name", 0,
+		&src_clk_str);
 	if (rc) {
 		CDBG("No src_clk_str found\n");
 		soc_info->src_clk_idx = -1;
@@ -412,6 +412,7 @@ int cam_soc_util_request_platform_resource(struct cam_hw_soc_info *soc_info,
 			goto put_regulator;
 		}
 		disable_irq(soc_info->irq_line->start);
+		soc_info->irq_data = irq_data;
 	}
 
 	/* Get Clock */
@@ -439,7 +440,8 @@ put_clk:
 
 	if (soc_info->irq_line) {
 		disable_irq(soc_info->irq_line->start);
-		free_irq(soc_info->irq_line->start, soc_info);
+		devm_free_irq(&soc_info->pdev->dev,
+			soc_info->irq_line->start, irq_data);
 	}
 
 put_regulator:
@@ -495,7 +497,8 @@ int cam_soc_util_release_platform_resource(struct cam_hw_soc_info *soc_info)
 
 	if (soc_info->irq_line) {
 		disable_irq(soc_info->irq_line->start);
-		free_irq(soc_info->irq_line->start, soc_info);
+		devm_free_irq(&soc_info->pdev->dev,
+			soc_info->irq_line->start, soc_info->irq_data);
 	}
 
 	return 0;

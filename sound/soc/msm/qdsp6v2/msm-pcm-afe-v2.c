@@ -682,6 +682,7 @@ done:
 	mutex_unlock(&prtd->lock);
 	prtd->prepared--;
 	kfree(prtd);
+	runtime->private_data = NULL;
 	return 0;
 }
 static int msm_afe_prepare(struct snd_pcm_substream *substream)

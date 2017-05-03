@@ -18,6 +18,7 @@
 #include "ipa_i.h"
 #include "ipa_trace.h"
 
+#define IPA_WAN_AGGR_PKT_CNT 5
 #define IPA_LAST_DESC_CNT 0xFFFF
 #define POLLING_INACTIVITY_RX 40
 #define POLLING_INACTIVITY_TX 40
@@ -321,8 +322,8 @@ int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 		dma_address = desc->dma_address;
 		tx_pkt->no_unmap_dma = true;
 	}
-	if (!dma_address) {
-		IPAERR("failed to DMA wrap\n");
+	if (dma_mapping_error(ipa_ctx->pdev, dma_address)) {
+		IPAERR("dma_map_single failed\n");
 		goto fail_dma_map;
 	}
 
@@ -444,7 +445,7 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 		}
 		dma_addr  = dma_map_single(ipa_ctx->pdev,
 				transfer.iovec, size, DMA_TO_DEVICE);
-		if (!dma_addr) {
+		if (dma_mapping_error(ipa_ctx->pdev, dma_addr)) {
 			IPAERR("dma_map_single failed for sps xfr buff\n");
 			kfree(transfer.iovec);
 			return -EFAULT;
@@ -492,6 +493,15 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 					tx_pkt->mem.base,
 					tx_pkt->mem.size,
 					DMA_TO_DEVICE);
+
+				if (dma_mapping_error(ipa_ctx->pdev,
+					tx_pkt->mem.phys_base)) {
+					IPAERR("dma_map_single ");
+					IPAERR("failed\n");
+					fail_dma_wrap = 1;
+					goto failure;
+				}
+
 			} else {
 				tx_pkt->mem.phys_base = desc[i].dma_address;
 				tx_pkt->no_unmap_dma = true;
@@ -1099,15 +1109,17 @@ int ipa2_rx_poll(u32 clnt_hdl, int weight)
 			break;
 
 		ipa_wq_rx_common(ep->sys, iov.size);
-		cnt += 5;
+		cnt += IPA_WAN_AGGR_PKT_CNT;
 	};
 
-	if (cnt == 0) {
+	if (cnt == 0 || cnt < weight) {
 		ep->inactive_cycles++;
 		ep->client_notify(ep->priv, IPA_CLIENT_COMP_NAPI, 0);
 
 		if (ep->inactive_cycles > 3 || ep->sys->len == 0) {
 			ep->switch_to_intr = true;
+			delay = 0;
+		} else if (cnt < weight) {
 			delay = 0;
 		}
 		queue_delayed_work(ep->sys->wq,
@@ -1870,8 +1882,8 @@ begin:
 		rx_pkt->data.dma_addr = dma_map_single(ipa_ctx->pdev, ptr,
 						     sys->rx_buff_sz,
 						     DMA_FROM_DEVICE);
-		if (rx_pkt->data.dma_addr == 0 ||
-				rx_pkt->data.dma_addr == ~0) {
+		if (dma_mapping_error(ipa_ctx->pdev,
+				rx_pkt->data.dma_addr)) {
 			pr_err_ratelimited("%s dma map fail %p for %p sys=%p\n",
 			       __func__, (void *)rx_pkt->data.dma_addr,
 			       ptr, sys);
@@ -2026,18 +2038,20 @@ static void ipa_alloc_wlan_rx_common_cache(u32 size)
 		ptr = skb_put(rx_pkt->data.skb, IPA_WLAN_RX_BUFF_SZ);
 		rx_pkt->data.dma_addr = dma_map_single(ipa_ctx->pdev, ptr,
 				IPA_WLAN_RX_BUFF_SZ, DMA_FROM_DEVICE);
-		if (rx_pkt->data.dma_addr == 0 ||
-				rx_pkt->data.dma_addr == ~0) {
+		if (dma_mapping_error(ipa_ctx->pdev,
+				rx_pkt->data.dma_addr)) {
 			IPAERR("dma_map_single failure %p for %p\n",
 			       (void *)rx_pkt->data.dma_addr, ptr);
 			goto fail_dma_mapping;
 		}
 
+		spin_lock_bh(&ipa_ctx->wc_memb.wlan_spinlock);
 		list_add_tail(&rx_pkt->link,
 			&ipa_ctx->wc_memb.wlan_comm_desc_list);
 		rx_len_cached = ++ipa_ctx->wc_memb.wlan_comm_total_cnt;
 
 		ipa_ctx->wc_memb.wlan_comm_free_cnt++;
+		spin_unlock_bh(&ipa_ctx->wc_memb.wlan_spinlock);
 
 	}
 
@@ -2098,8 +2112,8 @@ static void ipa_replenish_rx_cache(struct ipa_sys_context *sys)
 		rx_pkt->data.dma_addr = dma_map_single(ipa_ctx->pdev, ptr,
 						     sys->rx_buff_sz,
 						     DMA_FROM_DEVICE);
-		if (rx_pkt->data.dma_addr == 0 ||
-				rx_pkt->data.dma_addr == ~0) {
+		if (dma_mapping_error(ipa_ctx->pdev,
+				rx_pkt->data.dma_addr)) {
 			IPAERR("dma_map_single failure %p for %p\n",
 			       (void *)rx_pkt->data.dma_addr, ptr);
 			goto fail_dma_mapping;
@@ -2156,9 +2170,10 @@ static void ipa_replenish_rx_cache_recycle(struct ipa_sys_context *sys)
 		ptr = skb_put(rx_pkt->data.skb, sys->rx_buff_sz);
 		rx_pkt->data.dma_addr = dma_map_single(ipa_ctx->pdev,
 			ptr, sys->rx_buff_sz, DMA_FROM_DEVICE);
-		if (rx_pkt->data.dma_addr == 0 ||
-			rx_pkt->data.dma_addr == ~0)
+		if (dma_mapping_error(ipa_ctx->pdev, rx_pkt->data.dma_addr)) {
+			IPAERR("dma_map_single failure for rx_pkt\n");
 			goto fail_dma_mapping;
+		}
 
 		list_add_tail(&rx_pkt->link, &sys->head_desc_list);
 		rx_len_cached = ++sys->len;
@@ -3176,14 +3191,9 @@ static int ipa_assign_policy_v2(struct ipa_sys_connect_params *in,
 				sys->repl_hdlr =
 				   ipa_replenish_rx_cache;
 			}
-			if (in->napi_enabled) {
-				sys->rx_pool_sz =
-					   IPA_WAN_NAPI_CONS_RX_POOL_SZ;
-				if (in->recycle_enabled) {
-					sys->repl_hdlr =
-					   ipa_replenish_rx_cache_recycle;
-				}
-			}
+			if (in->napi_enabled && in->recycle_enabled)
+				sys->repl_hdlr =
+					ipa_replenish_rx_cache_recycle;
 			sys->ep->wakelock_client =
 			   IPA_WAKELOCK_REF_CLIENT_WAN_RX;
 			in->ipa_ep_cfg.aggr.aggr_sw_eof_active

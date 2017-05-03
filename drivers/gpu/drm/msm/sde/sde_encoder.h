@@ -45,6 +45,14 @@ struct sde_encoder_hw_resources {
 };
 
 /**
+ * sde_encoder_kickoff_params - info encoder requires at kickoff
+ * @inline_rotate_prefill: number of lines to prefill for inline rotation
+ */
+struct sde_encoder_kickoff_params {
+	u32 inline_rotate_prefill;
+};
+
+/**
  * sde_encoder_get_hw_resources - Populate table of required hardware resources
  * @encoder:	encoder pointer
  * @hw_res:	resource table to populate with encoder required resources
@@ -75,13 +83,11 @@ void sde_encoder_register_frame_event_callback(struct drm_encoder *encoder,
 		void (*cb)(void *, u32), void *data);
 
 /**
- * sde_encoder_update_rsc_client - updates the rsc client state for primary
+ * sde_encoder_get_rsc_client - gets the rsc client state for primary
  *      for primary display.
  * @encoder:	encoder pointer
- * @enable:	enable/disable the client
  */
-struct sde_rsc_client *sde_encoder_update_rsc_client(
-		struct drm_encoder *encoder, bool enable);
+struct sde_rsc_client *sde_encoder_get_rsc_client(struct drm_encoder *encoder);
 
 /**
  * sde_encoder_prepare_for_kickoff - schedule double buffer flip of the ctl
@@ -89,8 +95,10 @@ struct sde_rsc_client *sde_encoder_update_rsc_client(
  *	Immediately: if no previous commit is outstanding.
  *	Delayed: Block until next trigger can be issued.
  * @encoder:	encoder pointer
+ * @params:	kickoff time parameters
  */
-void sde_encoder_prepare_for_kickoff(struct drm_encoder *encoder);
+void sde_encoder_prepare_for_kickoff(struct drm_encoder *encoder,
+		struct sde_encoder_kickoff_params *params);
 
 /**
  * sde_encoder_kickoff - trigger a double buffer flip of the ctl path
@@ -114,6 +122,24 @@ int sde_encoder_wait_for_commit_done(struct drm_encoder *drm_encoder);
  * @encoder: Pointer to drm encoder object
  */
 enum sde_intf_mode sde_encoder_get_intf_mode(struct drm_encoder *encoder);
+
+/**
+ * enum sde_encoder_property - property tags for sde enoder
+ * @SDE_ENCODER_PROPERTY_INLINE_ROTATE_REFILL: # of prefill line, 0 to disable
+ */
+enum sde_encoder_property {
+	SDE_ENCODER_PROPERTY_INLINE_ROTATE_PREFILL,
+	SDE_ENCODER_PROPERTY_MAX,
+};
+
+/*
+ * sde_encoder_set_property - set the property tag to the given value
+ * @encoder: Pointer to drm encoder object
+ * @tag: property tag
+ * @val: property value
+ * return: 0 if success; errror code otherwise
+ */
+int sde_encoder_set_property(struct drm_encoder *encoder, u32 tag, u64 val);
 
 /**
  * sde_encoder_init - initialize virtual encoder object

@@ -109,6 +109,7 @@ struct msm_audio {
 	int cmd_interrupt;
 	bool meta_data_mode;
 	uint32_t volume;
+	bool compress_enable;
 	/* array of frame info */
 	struct msm_audio_in_frame_info in_frame_info[CAPTURE_MAX_NUM_PERIODS];
 };
@@ -123,6 +124,7 @@ struct output_meta_data_st {
 
 struct msm_plat_data {
 	int perf_mode;
+	struct snd_pcm *pcm;
 };
 
 #endif /*_MSM_PCM_H*/

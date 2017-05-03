@@ -178,6 +178,7 @@ struct kgsl_functable {
 		const char *name, struct clk *clk);
 	void (*gpu_model)(struct kgsl_device *device, char *str,
 		size_t bufsz);
+	void (*stop_fault_timer)(struct kgsl_device *device);
 };
 
 struct kgsl_ioctl {
@@ -566,6 +567,17 @@ static inline void kgsl_regrmw(struct kgsl_device *device,
 	device->ftbl->regread(device, offsetwords, &val);
 	val &= ~mask;
 	device->ftbl->regwrite(device, offsetwords, val | bits);
+}
+
+static inline void kgsl_gmu_regrmw(struct kgsl_device *device,
+		unsigned int offsetwords,
+		unsigned int mask, unsigned int bits)
+{
+	unsigned int val = 0;
+
+	kgsl_gmu_regread(device, offsetwords, &val);
+	val &= ~mask;
+	kgsl_gmu_regwrite(device, offsetwords, val | bits);
 }
 
 static inline int kgsl_idle(struct kgsl_device *device)

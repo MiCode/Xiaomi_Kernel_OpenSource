@@ -789,9 +789,9 @@ static void process_rx_cmd(struct edge_info *einfo,
 				offset += sizeof(*intents);
 				einfo->xprt_if.glink_core_if_ptr->
 					rx_cmd_remote_rx_intent_put_cookie(
-						&einfo->xprt_if, cmd->param1,
-						intents->id, intents->size,
-						(void *)(intents->addr));
+					&einfo->xprt_if, cmd->param1,
+					intents->id, intents->size,
+					(void *)(uintptr_t)(intents->addr));
 			}
 			break;
 
@@ -821,9 +821,10 @@ static void process_rx_cmd(struct edge_info *einfo,
 		case TRACER_PKT_CONT_CMD:
 			rx_descp = (struct rx_desc *)(rx_data + offset);
 			offset += sizeof(*rx_descp);
-			process_rx_data(einfo, cmd->id,	cmd->param1,
-					cmd->param2, (void *)rx_descp->addr,
-					rx_descp->size,	rx_descp->size_left);
+			process_rx_data(einfo, cmd->id, cmd->param1,
+					cmd->param2,
+					(void *)(uintptr_t)(rx_descp->addr),
+					rx_descp->size, rx_descp->size_left);
 			break;
 
 		case TX_SHORT_DATA_CMD:
@@ -875,23 +876,22 @@ static void __rx_worker(struct edge_info *einfo)
 	int rcu_id;
 
 	rcu_id = srcu_read_lock(&einfo->use_ref);
+	if (einfo->in_ssr) {
+		srcu_read_unlock(&einfo->use_ref, rcu_id);
+		return;
+	}
+
 	if (unlikely(!einfo->rx_fifo_start)) {
 		rx_avail = glink_spi_xprt_read_avail(einfo);
 		if (!rx_avail) {
 			srcu_read_unlock(&einfo->use_ref, rcu_id);
 			return;
 		}
-		einfo->in_ssr = false;
 		einfo->xprt_if.glink_core_if_ptr->link_up(&einfo->xprt_if);
 	}
 
-	if (einfo->in_ssr) {
-		srcu_read_unlock(&einfo->use_ref, rcu_id);
-		return;
-	}
-
 	glink_spi_xprt_set_poll_mode(einfo);
-	while (inactive_cycles < MAX_INACTIVE_CYCLES) {
+	do {
 		if (einfo->tx_resume_needed &&
 		    glink_spi_xprt_write_avail(einfo)) {
 			einfo->tx_resume_needed = false;
@@ -926,7 +926,7 @@ static void __rx_worker(struct edge_info *einfo)
 		}
 		process_rx_cmd(einfo, rx_data, rx_avail);
 		kfree(rx_data);
-	}
+	} while (inactive_cycles < MAX_INACTIVE_CYCLES && !einfo->in_ssr);
 	glink_spi_xprt_set_irq_mode(einfo);
 	srcu_read_unlock(&einfo->use_ref, rcu_id);
 }
@@ -1818,8 +1818,15 @@ static int glink_wdsp_cmpnt_event_handler(struct device *dev,
 		spi_dev = to_spi_device(sdev);
 		einfo->spi_dev = spi_dev;
 		break;
+	case WDSP_EVENT_POST_BOOTUP:
+		einfo->in_ssr = false;
+		synchronize_srcu(&einfo->use_ref);
+		/* No break here to trigger fake rx_worker */
 	case WDSP_EVENT_IPC1_INTR:
 		kthread_queue_work(&einfo->kworker, &einfo->kwork);
+		break;
+	case WDSP_EVENT_PRE_SHUTDOWN:
+		ssr(&einfo->xprt_if);
 		break;
 	default:
 		pr_debug("%s: unhandled event %d", __func__, event);
@@ -2040,7 +2047,6 @@ static int glink_spi_probe(struct platform_device *pdev)
 	init_xprt_cfg(einfo, subsys_name);
 	init_xprt_if(einfo);
 
-	einfo->in_ssr = true;
 	einfo->fifo_size = DEFAULT_FIFO_SIZE;
 	kthread_init_work(&einfo->kwork, rx_worker);
 	kthread_init_worker(&einfo->kworker);

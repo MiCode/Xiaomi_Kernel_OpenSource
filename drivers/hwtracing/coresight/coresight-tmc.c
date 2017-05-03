@@ -436,8 +436,11 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 		if (ret)
 			drvdata->size = SZ_1M;
 
+		if (of_property_read_bool(np, "arm,sg-enable"))
+			drvdata->memtype  = TMC_ETR_MEM_TYPE_SG;
+		else
+			drvdata->memtype  = TMC_ETR_MEM_TYPE_CONTIG;
 		drvdata->mem_size = drvdata->size;
-		drvdata->memtype  = TMC_ETR_MEM_TYPE_CONTIG;
 		drvdata->mem_type = drvdata->memtype;
 	} else {
 		drvdata->size = readl_relaxed(drvdata->base + TMC_RSZ) * 4;

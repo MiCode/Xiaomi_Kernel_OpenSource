@@ -143,14 +143,21 @@ struct phy_ulps_config_ops {
 	 * @phy:           Pointer to DSI PHY hardware instance.
 	 *
 	 * Returns an ORed list of lanes (enum dsi_data_lanes) that are in ULPS
-	 * state. If 0 is returned, all the lanes are active.
+	 * state.
 	 *
 	 * Return: List of lanes in ULPS state.
 	 */
 	u32 (*get_lanes_in_ulps)(struct dsi_phy_hw *phy);
+
+	/**
+	 * is_lanes_in_ulps() - checks if the given lanes are in ulps
+	 * @lanes:           lanes to be checked.
+	 * @ulps_lanes:	   lanes in ulps currenly.
+	 *
+	 * Return: true if all the given lanes are in ulps; false otherwise.
+	 */
+	bool (*is_lanes_in_ulps)(u32 ulps, u32 ulps_lanes);
 };
-
-
 
 /**
  * struct dsi_phy_hw_ops - Operations for DSI PHY hardware.

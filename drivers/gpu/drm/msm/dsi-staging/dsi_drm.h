@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -79,5 +79,16 @@ struct dsi_bridge *dsi_drm_bridge_init(struct dsi_display *display,
 		struct drm_encoder *encoder);
 
 void dsi_drm_bridge_cleanup(struct dsi_bridge *bridge);
+
+/**
+ * dsi_display_pre_kickoff - program kickoff-time features
+ * @connector: Pointer to drm connector structure
+ * @display: Pointer to private display structure
+ * @params: Parameters for kickoff-time programming
+ * Returns: Zero on success
+ */
+int dsi_conn_pre_kickoff(struct drm_connector *connector,
+		void *display,
+		struct msm_display_kickoff_params *params);
 
 #endif /* _DSI_DRM_H_ */

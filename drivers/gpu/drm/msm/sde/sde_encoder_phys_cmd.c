@@ -135,8 +135,7 @@ static void sde_encoder_phys_cmd_pp_rd_ptr_irq(void *arg, int irq_idx)
 			phys_enc);
 }
 
-static bool _sde_encoder_phys_is_ppsplit_slave(
-		struct sde_encoder_phys *phys_enc)
+static bool _sde_encoder_phys_is_ppsplit(struct sde_encoder_phys *phys_enc)
 {
 	enum sde_rm_topology_name topology;
 
@@ -144,8 +143,7 @@ static bool _sde_encoder_phys_is_ppsplit_slave(
 		return false;
 
 	topology = sde_connector_get_topology_name(phys_enc->connector);
-	if (topology == SDE_RM_TOPOLOGY_PPSPLIT &&
-			phys_enc->split_role == ENC_ROLE_SLAVE)
+	if (topology == SDE_RM_TOPOLOGY_PPSPLIT)
 		return true;
 
 	return false;
@@ -167,6 +165,10 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 		do_log = true;
 	}
 
+	SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx - PINGPONG_0,
+			cmd_enc->pp_timeout_report_cnt,
+			atomic_read(&phys_enc->pending_kickoff_cnt));
+
 	/* to avoid flooding, only log first time, and "dead" time */
 	if (do_log) {
 		SDE_ERROR_CMDENC(cmd_enc,
@@ -176,10 +178,7 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 				cmd_enc->pp_timeout_report_cnt,
 				atomic_read(&phys_enc->pending_kickoff_cnt));
 
-		SDE_EVT32(DRMID(phys_enc->parent),
-				phys_enc->hw_pp->idx - PINGPONG_0,
-				0xbad, cmd_enc->pp_timeout_report_cnt,
-				atomic_read(&phys_enc->pending_kickoff_cnt));
+		SDE_EVT32(DRMID(phys_enc->parent), SDE_EVTLOG_FATAL);
 
 		SDE_DBG_DUMP("sde", "dsi0_ctrl", "dsi0_phy", "dsi1_ctrl",
 				"dsi1_phy", "vbif", "dbg_bus",
@@ -196,6 +195,16 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 				phys_enc->parent, phys_enc, frame_event);
 
 	return -ETIMEDOUT;
+}
+
+static bool _sde_encoder_phys_is_ppsplit_slave(
+		struct sde_encoder_phys *phys_enc)
+{
+	if (!phys_enc)
+		return false;
+
+	return _sde_encoder_phys_is_ppsplit(phys_enc) &&
+			phys_enc->split_role == ENC_ROLE_SLAVE;
 }
 
 static int _sde_encoder_phys_cmd_wait_for_idle(
@@ -462,13 +471,10 @@ static void sde_encoder_phys_cmd_pingpong_config(
 static bool sde_encoder_phys_cmd_needs_single_flush(
 		struct sde_encoder_phys *phys_enc)
 {
-	enum sde_rm_topology_name topology;
-
 	if (!phys_enc)
 		return false;
 
-	topology = sde_connector_get_topology_name(phys_enc->connector);
-	return topology == SDE_RM_TOPOLOGY_PPSPLIT;
+	return _sde_encoder_phys_is_ppsplit(phys_enc);
 }
 
 static int sde_encoder_phys_cmd_control_vblank_irq(
@@ -653,7 +659,8 @@ static void sde_encoder_phys_cmd_get_hw_resources(
 }
 
 static void sde_encoder_phys_cmd_prepare_for_kickoff(
-		struct sde_encoder_phys *phys_enc)
+		struct sde_encoder_phys *phys_enc,
+		struct sde_encoder_kickoff_params *params)
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
@@ -687,7 +694,7 @@ static int sde_encoder_phys_cmd_wait_for_commit_done(
 			to_sde_encoder_phys_cmd(phys_enc);
 
 	if (cmd_enc->serialize_wait4pp)
-		sde_encoder_phys_cmd_prepare_for_kickoff(phys_enc);
+		sde_encoder_phys_cmd_prepare_for_kickoff(phys_enc, NULL);
 
 	/*
 	 * following statement is true serialize_wait4pp is false.

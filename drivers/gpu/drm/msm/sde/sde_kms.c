@@ -21,6 +21,7 @@
 #include <drm/drm_crtc.h>
 #include <linux/debugfs.h>
 #include <linux/of_irq.h>
+#include <linux/dma-buf.h>
 
 #include "msm_drv.h"
 #include "msm_mmu.h"
@@ -56,7 +57,7 @@ static const char * const iommu_ports[] = {
  * # echo 0x2 > /sys/module/drm/parameters/debug
  *
  * To enable DRM driver h/w logging
- * # echo <mask> > /sys/kernel/debug/dri/0/hw_log_mask
+ * # echo <mask> > /sys/kernel/debug/dri/0/debug/hw_log_mask
  *
  * See sde_hw_mdss.h for h/w logging mask definitions (search for SDE_DBG_MASK_)
  */
@@ -80,7 +81,8 @@ MODULE_PARM_DESC(sdecustom, "Enable customizations for sde clients");
 
 static int sde_kms_hw_init(struct msm_kms *kms);
 static int _sde_kms_mmu_destroy(struct sde_kms *sde_kms);
-
+static int _sde_kms_register_events(struct msm_kms *kms,
+		struct drm_mode_object *obj, u32 event, bool en);
 bool sde_is_custom_client(void)
 {
 	return sdecustom;
@@ -273,7 +275,13 @@ void *sde_debugfs_create_regset32(const char *name, umode_t mode,
 
 void *sde_debugfs_get_root(struct sde_kms *sde_kms)
 {
-	return sde_kms ? sde_kms->dev->primary->debugfs_root : 0;
+	struct msm_drm_private *priv;
+
+	if (!sde_kms || !sde_kms->dev || !sde_kms->dev->dev_private)
+		return NULL;
+
+	priv = sde_kms->dev->dev_private;
+	return priv->debug_root;
 }
 
 static int _sde_debugfs_init(struct sde_kms *sde_kms)
@@ -294,8 +302,9 @@ static int _sde_debugfs_init(struct sde_kms *sde_kms)
 	/* allow debugfs_root to be NULL */
 	debugfs_create_x32(SDE_DEBUGFS_HWMASKNAME, 0644, debugfs_root, p);
 
-	sde_debugfs_danger_init(sde_kms, debugfs_root);
-	sde_debugfs_vbif_init(sde_kms, debugfs_root);
+	(void) sde_debugfs_danger_init(sde_kms, debugfs_root);
+	(void) sde_debugfs_vbif_init(sde_kms, debugfs_root);
+	(void) sde_debugfs_core_irq_init(sde_kms, debugfs_root);
 
 	rc = sde_core_perf_debugfs_init(&sde_kms->perf, debugfs_root);
 	if (rc) {
@@ -312,6 +321,7 @@ static void _sde_debugfs_destroy(struct sde_kms *sde_kms)
 	if (sde_kms) {
 		sde_debugfs_vbif_destroy(sde_kms);
 		sde_debugfs_danger_destroy(sde_kms);
+		sde_debugfs_core_irq_destroy(sde_kms);
 	}
 }
 #else
@@ -322,18 +332,6 @@ static int _sde_debugfs_init(struct sde_kms *sde_kms)
 
 static void _sde_debugfs_destroy(struct sde_kms *sde_kms)
 {
-	return 0;
-}
-
-static void sde_debugfs_danger_destroy(struct sde_kms *sde_kms,
-		struct dentry *parent)
-{
-}
-
-static int sde_debugfs_danger_init(struct sde_kms *sde_kms,
-		struct dentry *parent)
-{
-	return 0;
 }
 #endif
 
@@ -350,9 +348,16 @@ static void sde_kms_disable_vblank(struct msm_kms *kms, struct drm_crtc *crtc)
 static void sde_kms_prepare_commit(struct msm_kms *kms,
 		struct drm_atomic_state *state)
 {
-	struct sde_kms *sde_kms = to_sde_kms(kms);
-	struct drm_device *dev = sde_kms->dev;
-	struct msm_drm_private *priv = dev->dev_private;
+	struct sde_kms *sde_kms;
+	struct msm_drm_private *priv;
+
+	if (!kms)
+		return;
+	sde_kms = to_sde_kms(kms);
+
+	if (!sde_kms->dev || !sde_kms->dev->dev_private)
+		return;
+	priv = sde_kms->dev->dev_private;
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
 }
@@ -375,12 +380,19 @@ static void sde_kms_commit(struct msm_kms *kms,
 static void sde_kms_complete_commit(struct msm_kms *kms,
 		struct drm_atomic_state *old_state)
 {
-	struct sde_kms *sde_kms = to_sde_kms(kms);
-	struct drm_device *dev = sde_kms->dev;
-	struct msm_drm_private *priv = dev->dev_private;
+	struct sde_kms *sde_kms;
+	struct msm_drm_private *priv;
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *old_crtc_state;
 	int i;
+
+	if (!kms || !old_state)
+		return;
+	sde_kms = to_sde_kms(kms);
+
+	if (!sde_kms->dev || !sde_kms->dev->dev_private)
+		return;
+	priv = sde_kms->dev->dev_private;
 
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i)
 		sde_crtc_complete_commit(crtc, old_crtc_state);
@@ -415,11 +427,11 @@ static void sde_kms_wait_for_commit_done(struct msm_kms *kms,
 		if (encoder->crtc != crtc)
 			continue;
 		/*
-		 * Wait post-flush if necessary to delay before plane_cleanup
-		 * For example, wait for vsync in case of video mode panels
-		 * This should be a no-op for command mode panels
+		 * Wait for post-flush if necessary to delay before
+		 * plane_cleanup. For example, wait for vsync in case of video
+		 * mode panels. This may be a no-op for command mode panels.
 		 */
-		SDE_EVT32(DRMID(crtc));
+		SDE_EVT32_VERBOSE(DRMID(crtc));
 		ret = sde_encoder_wait_for_commit_done(encoder);
 		if (ret && ret != -EWOULDBLOCK) {
 			SDE_ERROR("wait for commit done returned %d\n", ret);
@@ -553,7 +565,9 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.mode_valid = dsi_conn_mode_valid,
 		.get_info =   dsi_display_get_info,
 		.set_backlight = dsi_display_set_backlight,
-		.soft_reset   = dsi_display_soft_reset
+		.soft_reset   = dsi_display_soft_reset,
+		.pre_kickoff  = dsi_conn_pre_kickoff,
+		.clk_ctrl = dsi_display_clk_ctrl
 	};
 	static const struct sde_connector_ops wb_ops = {
 		.post_init =    sde_wb_connector_post_init,
@@ -808,6 +822,284 @@ fail:
 	return ret;
 }
 
+/**
+ * struct sde_kms_fbo_fb - framebuffer creation list
+ * @list: list of framebuffer attached to framebuffer object
+ * @fb: Pointer to framebuffer attached to framebuffer object
+ */
+struct sde_kms_fbo_fb {
+	struct list_head list;
+	struct drm_framebuffer *fb;
+};
+
+struct drm_framebuffer *sde_kms_fbo_create_fb(struct drm_device *dev,
+		struct sde_kms_fbo *fbo)
+{
+	struct drm_framebuffer *fb = NULL;
+	struct sde_kms_fbo_fb *fbo_fb;
+	struct drm_mode_fb_cmd2 mode_cmd = {0};
+	u32 base_offset = 0;
+	int i, ret;
+
+	if (!dev) {
+		SDE_ERROR("invalid drm device node\n");
+		return NULL;
+	}
+
+	fbo_fb = kzalloc(sizeof(struct sde_kms_fbo_fb), GFP_KERNEL);
+	if (!fbo_fb)
+		return NULL;
+
+	mode_cmd.pixel_format = fbo->pixel_format;
+	mode_cmd.width = fbo->width;
+	mode_cmd.height = fbo->height;
+	mode_cmd.flags = fbo->flags;
+
+	for (i = 0; i < fbo->nplane; i++) {
+		mode_cmd.offsets[i] = base_offset;
+		mode_cmd.pitches[i] = fbo->layout.plane_pitch[i];
+		mode_cmd.modifier[i] = fbo->modifier[i];
+		base_offset += fbo->layout.plane_size[i];
+		SDE_DEBUG("offset[%d]:%x\n", i, mode_cmd.offsets[i]);
+	}
+
+	fb = msm_framebuffer_init(dev, &mode_cmd, fbo->bo);
+	if (IS_ERR(fb)) {
+		ret = PTR_ERR(fb);
+		fb = NULL;
+		SDE_ERROR("failed to allocate fb %d\n", ret);
+		goto fail;
+	}
+
+	/* need to take one reference for gem object */
+	for (i = 0; i < fbo->nplane; i++)
+		drm_gem_object_reference(fbo->bo[i]);
+
+	SDE_DEBUG("register private fb:%d\n", fb->base.id);
+
+	INIT_LIST_HEAD(&fbo_fb->list);
+	fbo_fb->fb = fb;
+	drm_framebuffer_reference(fbo_fb->fb);
+	list_add_tail(&fbo_fb->list, &fbo->fb_list);
+
+	return fb;
+
+fail:
+	kfree(fbo_fb);
+	return NULL;
+}
+
+static void sde_kms_fbo_destroy(struct sde_kms_fbo *fbo)
+{
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+	struct drm_device *dev;
+	struct sde_kms_fbo_fb *curr, *next;
+	int i;
+
+	if (!fbo) {
+		SDE_ERROR("invalid drm device node\n");
+		return;
+	}
+	dev = fbo->dev;
+
+	if (!dev || !dev->dev_private) {
+		SDE_ERROR("invalid drm device node\n");
+		return;
+	}
+	priv = dev->dev_private;
+
+	if (!priv->kms) {
+		SDE_ERROR("invalid kms handle\n");
+		return;
+	}
+	sde_kms = to_sde_kms(priv->kms);
+
+	SDE_DEBUG("%dx%d@%c%c%c%c/%llx/%x\n", fbo->width, fbo->height,
+			fbo->pixel_format >> 0, fbo->pixel_format >> 8,
+			fbo->pixel_format >> 16, fbo->pixel_format >> 24,
+			fbo->modifier[0], fbo->flags);
+
+	list_for_each_entry_safe(curr, next, &fbo->fb_list, list) {
+		SDE_DEBUG("unregister private fb:%d\n", curr->fb->base.id);
+		drm_framebuffer_unregister_private(curr->fb);
+		drm_framebuffer_unreference(curr->fb);
+		list_del(&curr->list);
+		kfree(curr);
+	}
+
+	for (i = 0; i < fbo->layout.num_planes; i++) {
+		if (fbo->bo[i]) {
+			mutex_lock(&dev->struct_mutex);
+			drm_gem_object_unreference(fbo->bo[i]);
+			mutex_unlock(&dev->struct_mutex);
+			fbo->bo[i] = NULL;
+		}
+	}
+
+	if (fbo->dma_buf) {
+		dma_buf_put(fbo->dma_buf);
+		fbo->dma_buf = NULL;
+	}
+
+	if (sde_kms->iclient && fbo->ihandle) {
+		ion_free(sde_kms->iclient, fbo->ihandle);
+		fbo->ihandle = NULL;
+	}
+}
+
+struct sde_kms_fbo *sde_kms_fbo_alloc(struct drm_device *dev, u32 width,
+		u32 height, u32 pixel_format, u64 modifier[4], u32 flags)
+{
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+	struct sde_kms_fbo *fbo;
+	int i, ret;
+
+	if (!dev || !dev->dev_private) {
+		SDE_ERROR("invalid drm device node\n");
+		return NULL;
+	}
+	priv = dev->dev_private;
+
+	if (!priv->kms) {
+		SDE_ERROR("invalid kms handle\n");
+		return NULL;
+	}
+	sde_kms = to_sde_kms(priv->kms);
+
+	SDE_DEBUG("%dx%d@%c%c%c%c/%llx/%x\n", width, height,
+			pixel_format >> 0, pixel_format >> 8,
+			pixel_format >> 16, pixel_format >> 24,
+			modifier[0], flags);
+
+	fbo = kzalloc(sizeof(struct sde_kms_fbo), GFP_KERNEL);
+	if (!fbo)
+		return NULL;
+
+	atomic_set(&fbo->refcount, 0);
+	INIT_LIST_HEAD(&fbo->fb_list);
+	fbo->dev = dev;
+	fbo->width = width;
+	fbo->height = height;
+	fbo->pixel_format = pixel_format;
+	fbo->flags = flags;
+	for (i = 0; i < ARRAY_SIZE(fbo->modifier); i++)
+		fbo->modifier[i] = modifier[i];
+	fbo->nplane = drm_format_num_planes(fbo->pixel_format);
+	fbo->fmt = sde_get_sde_format_ext(fbo->pixel_format, fbo->modifier,
+			fbo->nplane);
+	if (!fbo->fmt) {
+		ret = -EINVAL;
+		SDE_ERROR("failed to find pixel format\n");
+		goto done;
+	}
+
+	ret = sde_format_get_plane_sizes(fbo->fmt, fbo->width, fbo->height,
+			&fbo->layout);
+	if (ret) {
+		SDE_ERROR("failed to get plane sizes\n");
+		goto done;
+	}
+
+	/* allocate backing buffer object */
+	if (sde_kms->iclient) {
+		u32 heap_id = fbo->flags & DRM_MODE_FB_SECURE ?
+				ION_HEAP(ION_SECURE_DISPLAY_HEAP_ID) :
+				ION_HEAP(ION_SYSTEM_HEAP_ID);
+
+		fbo->ihandle = ion_alloc(sde_kms->iclient,
+				fbo->layout.total_size, SZ_4K, heap_id, 0);
+		if (IS_ERR_OR_NULL(fbo->ihandle)) {
+			SDE_ERROR("failed to alloc ion memory\n");
+			ret = PTR_ERR(fbo->ihandle);
+			fbo->ihandle = NULL;
+			goto done;
+		}
+
+		fbo->dma_buf = ion_share_dma_buf(sde_kms->iclient,
+				fbo->ihandle);
+		if (IS_ERR(fbo->dma_buf)) {
+			SDE_ERROR("failed to share ion memory\n");
+			ret = -ENOMEM;
+			fbo->dma_buf = NULL;
+			goto done;
+		}
+
+		fbo->bo[0] = dev->driver->gem_prime_import(dev,
+				fbo->dma_buf);
+		if (IS_ERR(fbo->bo[0])) {
+			SDE_ERROR("failed to import ion memory\n");
+			ret = PTR_ERR(fbo->bo[0]);
+			fbo->bo[0] = NULL;
+			goto done;
+		}
+	} else {
+		mutex_lock(&dev->struct_mutex);
+		fbo->bo[0] = msm_gem_new(dev, fbo->layout.total_size,
+				MSM_BO_SCANOUT | MSM_BO_WC);
+		if (IS_ERR(fbo->bo[0])) {
+			mutex_unlock(&dev->struct_mutex);
+			SDE_ERROR("failed to new gem buffer\n");
+			ret = PTR_ERR(fbo->bo[0]);
+			fbo->bo[0] = NULL;
+			goto done;
+		}
+		mutex_unlock(&dev->struct_mutex);
+	}
+
+	mutex_lock(&dev->struct_mutex);
+	for (i = 1; i < fbo->layout.num_planes; i++) {
+		fbo->bo[i] = fbo->bo[0];
+		drm_gem_object_reference(fbo->bo[i]);
+	}
+	mutex_unlock(&dev->struct_mutex);
+
+done:
+	if (ret) {
+		sde_kms_fbo_destroy(fbo);
+		kfree(fbo);
+		fbo = NULL;
+	} else {
+		sde_kms_fbo_reference(fbo);
+	}
+
+	return fbo;
+}
+
+int sde_kms_fbo_reference(struct sde_kms_fbo *fbo)
+{
+	if (!fbo) {
+		SDE_ERROR("invalid parameters\n");
+		return -EINVAL;
+	}
+
+	SDE_DEBUG("%pS refcount:%d\n", __builtin_return_address(0),
+			atomic_read(&fbo->refcount));
+
+	atomic_inc(&fbo->refcount);
+
+	return 0;
+}
+
+void sde_kms_fbo_unreference(struct sde_kms_fbo *fbo)
+{
+	if (!fbo) {
+		SDE_ERROR("invalid parameters\n");
+		return;
+	}
+
+	SDE_DEBUG("%pS refcount:%d\n", __builtin_return_address(0),
+			atomic_read(&fbo->refcount));
+
+	if (!atomic_read(&fbo->refcount)) {
+		SDE_ERROR("invalid refcount\n");
+		return;
+	} else if (atomic_dec_return(&fbo->refcount) == 0) {
+		sde_kms_fbo_destroy(fbo);
+	}
+}
+
 static int sde_kms_postinit(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
@@ -861,7 +1153,11 @@ static void _sde_kms_hw_destroy(struct sde_kms *sde_kms,
 	/* safe to call these more than once during shutdown */
 	_sde_debugfs_destroy(sde_kms);
 	_sde_kms_mmu_destroy(sde_kms);
-	sde_core_perf_destroy(&sde_kms->perf);
+
+	if (sde_kms->iclient) {
+		ion_client_destroy(sde_kms->iclient);
+		sde_kms->iclient = NULL;
+	}
 
 	if (sde_kms->catalog) {
 		for (i = 0; i < sde_kms->catalog->vbif_count; i++) {
@@ -948,12 +1244,13 @@ static const struct msm_kms_funcs kms_funcs = {
 	.get_format      = sde_get_msm_format,
 	.round_pixclk    = sde_kms_round_pixclk,
 	.destroy         = sde_kms_destroy,
+	.register_events = _sde_kms_register_events,
 };
 
 /* the caller api needs to turn on clock before calling it */
 static inline void _sde_kms_core_hw_rev_init(struct sde_kms *sde_kms)
 {
-	return;
+	sde_kms->core_rev = readl_relaxed(sde_kms->mmio + 0x0);
 }
 
 static int _sde_kms_mmu_destroy(struct sde_kms *sde_kms)
@@ -1143,6 +1440,8 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	sde_kms->core_client = sde_power_client_create(&priv->phandle, "core");
 	if (IS_ERR_OR_NULL(sde_kms->core_client)) {
 		rc = PTR_ERR(sde_kms->core_client);
+		if (!sde_kms->core_client)
+			rc = -EINVAL;
 		SDE_ERROR("sde power client create failed: %d\n", rc);
 		sde_kms->core_client = NULL;
 		goto error;
@@ -1162,6 +1461,8 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	sde_kms->catalog = sde_hw_catalog_init(dev, sde_kms->core_rev);
 	if (IS_ERR_OR_NULL(sde_kms->catalog)) {
 		rc = PTR_ERR(sde_kms->catalog);
+		if (!sde_kms->catalog)
+			rc = -EINVAL;
 		SDE_ERROR("catalog init failed: %d\n", rc);
 		sde_kms->catalog = NULL;
 		goto power_error;
@@ -1189,6 +1490,8 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	sde_kms->hw_mdp = sde_rm_get_mdp(&sde_kms->rm);
 	if (IS_ERR_OR_NULL(sde_kms->hw_mdp)) {
 		rc = PTR_ERR(sde_kms->hw_mdp);
+		if (!sde_kms->hw_mdp)
+			rc = -EINVAL;
 		SDE_ERROR("failed to get hw_mdp: %d\n", rc);
 		sde_kms->hw_mdp = NULL;
 		goto power_error;
@@ -1201,10 +1504,19 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 				sde_kms->vbif[vbif_idx], sde_kms->catalog);
 		if (IS_ERR_OR_NULL(sde_kms->hw_vbif[vbif_idx])) {
 			rc = PTR_ERR(sde_kms->hw_vbif[vbif_idx]);
+			if (!sde_kms->hw_vbif[vbif_idx])
+				rc = -EINVAL;
 			SDE_ERROR("failed to init vbif %d: %d\n", vbif_idx, rc);
 			sde_kms->hw_vbif[vbif_idx] = NULL;
 			goto power_error;
 		}
+	}
+
+	sde_kms->iclient = msm_ion_client_create(dev->unique);
+	if (IS_ERR(sde_kms->iclient)) {
+		rc = PTR_ERR(sde_kms->iclient);
+		SDE_DEBUG("msm_ion_client not available: %d\n", rc);
+		sde_kms->iclient = NULL;
 	}
 
 	/*
@@ -1218,7 +1530,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	}
 
 	rc = sde_core_perf_init(&sde_kms->perf, dev, sde_kms->catalog,
-			&priv->phandle, priv->pclient, "core_clk_src");
+			&priv->phandle, priv->pclient, "core_clk");
 	if (rc) {
 		SDE_ERROR("failed to init perf %d\n", rc);
 		goto perf_err;
@@ -1252,6 +1564,8 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	sde_kms->hw_intr = sde_hw_intr_init(sde_kms->mmio, sde_kms->catalog);
 	if (IS_ERR_OR_NULL(sde_kms->hw_intr)) {
 		rc = PTR_ERR(sde_kms->hw_intr);
+		if (!sde_kms->hw_intr)
+			rc = -EINVAL;
 		SDE_ERROR("hw_intr init failed: %d\n", rc);
 		sde_kms->hw_intr = NULL;
 		goto hw_intr_init_err;
@@ -1295,4 +1609,33 @@ struct msm_kms *sde_kms_init(struct drm_device *dev)
 	sde_kms->dev = dev;
 
 	return &sde_kms->base;
+}
+
+static int _sde_kms_register_events(struct msm_kms *kms,
+		struct drm_mode_object *obj, u32 event, bool en)
+{
+	int ret = 0;
+	struct drm_crtc *crtc = NULL;
+	struct drm_connector *conn = NULL;
+	struct sde_kms *sde_kms = NULL;
+
+	if (!kms || !obj) {
+		SDE_ERROR("invalid argument kms %pK obj %pK\n", kms, obj);
+		return -EINVAL;
+	}
+
+	sde_kms = to_sde_kms(kms);
+	switch (obj->type) {
+	case DRM_MODE_OBJECT_CRTC:
+		crtc = obj_to_crtc(obj);
+		ret = sde_crtc_register_custom_event(sde_kms, crtc, event, en);
+		break;
+	case DRM_MODE_OBJECT_CONNECTOR:
+		conn = obj_to_connector(obj);
+		ret = sde_connector_register_custom_event(sde_kms, conn, event,
+				en);
+		break;
+	}
+
+	return ret;
 }

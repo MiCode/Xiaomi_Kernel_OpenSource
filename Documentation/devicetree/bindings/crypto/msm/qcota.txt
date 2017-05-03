@@ -1,0 +1,42 @@
+* QCOTA (Over The Air Crypto Device)
+
+Required properties:
+  - compatible : should be "qcom,qcota"
+  - reg : should contain crypto, BAM register map.
+  - reg-names : should contain the crypto and bam base register names.
+  - interrupts : should contain crypto BAM interrupt.
+  - qcom,bam-pipe-pair : should contain crypto BAM pipe pair index.
+  - qcom,ce-hw-instance : should contain crypto HW instance.
+  - qcom,ce-device: Unique QCOTA device identifier. 0 for first
+			instance, 1 for second instance, n-1 for n-th instance.
+  - qcom,ce-opp-freq: indicates the CE operating frequency in Hz, changes from target to target.
+
+Optional properties:
+  - qcom,support-core-clk-only : optional, indicates if the HW supports single crypto core clk.
+  - qcom,bsm-ee : optional, indicate the BAM EE value, changes from target to target.Default value is 1 if not specified.
+
+Example:
+
+	qcom,qcota@fe140000 {
+		compatible = "qcom,qcota";
+		reg = <0xfe140000 0x20000>,
+			<0xfe144000 0x8000>;
+		reg-names = "crypto-base","crypto-bam-base";
+		interrupts = <0 111 0>;
+		qcom,bam-pipe-pair = <1>;
+		qcom,ce-hw-instance = <2>;
+		qcom,ce-device = <0>;
+		qcom,ce-opp-freq = <100000000>;
+	};
+
+	qcom,qcota@fe0c0000 {
+		compatible = "qcom,qcota";
+		reg = <0xfe0c0000 0x20000>,
+			<0xfe0c4000 0x8000>;
+		reg-names = "crypto-base","crypto-bam-base";
+		interrupts = <0 113 0>;
+		qcom,bam-pipe-pair = <1>;
+		qcom,ce-hw-instance = <4>;
+		qcom,ce-device = <1>;
+		qcom,ce-opp-freq = <100000000>;
+	};

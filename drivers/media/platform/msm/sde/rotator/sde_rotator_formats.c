@@ -284,6 +284,27 @@ static struct sde_mdp_format_params_ubwc sde_mdp_format_ubwc_map[] = {
 		},
 	},
 	{
+		.mdp_format = {
+			FMT_YUV_COMMON(SDE_PIX_FMT_Y_CBCR_H2V2_P010_UBWC),
+			.description = "SDE/Y_CBCR_H2V2_P010_UBWC",
+			.flag = 0,
+			.fetch_planes = SDE_MDP_PLANE_PSEUDO_PLANAR,
+			.chroma_sample = SDE_MDP_CHROMA_420,
+			.unpack_count = 2,
+			.bpp = 2,
+			.frame_format = SDE_MDP_FMT_TILE_A5X,
+			.pixel_mode = SDE_MDP_PIXEL_10BIT,
+			.element = { C1_B_Cb, C2_R_Cr },
+			.unpack_tight = 0,
+			.unpack_align_msb = 1,
+			.is_ubwc = SDE_MDP_COMPRESS_UBWC
+		},
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 32,
+		},
+	},
+	{
 		.mdp_format =
 			FMT_RGB_1010102(SDE_PIX_FMT_RGBA_1010102_TILE,
 			"SDE/RGBA_1010102_TILE",
@@ -515,6 +536,27 @@ static struct sde_mdp_format_params_ubwc sde_mdp_format_ubwc_map[] = {
 		.micro = {
 			.tile_height = 4,
 			.tile_width = 16,
+		},
+	},
+	{
+		.mdp_format = {
+			FMT_YUV_COMMON(SDE_PIX_FMT_Y_CBCR_H2V2_P010_TILE),
+			.description = "SDE/Y_CBCR_H2V2_P010_TILE",
+			.flag = SDE_MDP_FORMAT_FLAG_PRIVATE,
+			.fetch_planes = SDE_MDP_PLANE_PSEUDO_PLANAR,
+			.chroma_sample = SDE_MDP_CHROMA_420,
+			.unpack_count = 2,
+			.bpp = 2,
+			.frame_format = SDE_MDP_FMT_TILE_A5X,
+			.pixel_mode = SDE_MDP_PIXEL_10BIT,
+			.element = { C1_B_Cb, C2_R_Cr },
+			.unpack_tight = 0,
+			.unpack_align_msb = 1,
+			.is_ubwc = SDE_MDP_COMPRESS_NONE,
+		},
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 32,
 		},
 	},
 };
@@ -852,6 +894,11 @@ int sde_rot_get_base_tilea5x_pixfmt(u32 src_pixfmt, u32 *dst_pixfmt)
 	case SDE_PIX_FMT_BGRX_1010102:
 	case SDE_PIX_FMT_BGRX_1010102_TILE:
 		*dst_pixfmt = SDE_PIX_FMT_BGRX_1010102_TILE;
+		break;
+	case SDE_PIX_FMT_Y_CBCR_H2V2_P010:
+	case SDE_PIX_FMT_Y_CBCR_H2V2_P010_TILE:
+	case SDE_PIX_FMT_Y_CBCR_H2V2_P010_UBWC:
+		*dst_pixfmt = SDE_PIX_FMT_Y_CBCR_H2V2_P010_TILE;
 		break;
 	case SDE_PIX_FMT_Y_CBCR_H2V2_TP10:
 	case SDE_PIX_FMT_Y_CBCR_H2V2_TP10_UBWC:

@@ -89,6 +89,7 @@
 #include "sched.h"
 #include "../workqueue_internal.h"
 #include "../smpboot.h"
+#include "../time/tick-internal.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/sched.h>
@@ -2171,6 +2172,7 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	wallclock = sched_ktime_clock();
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);
+	cpufreq_update_util(rq, 0);
 	raw_spin_unlock(&rq->lock);
 
 	rcu_read_lock();
@@ -2263,6 +2265,7 @@ static void try_to_wake_up_local(struct task_struct *p, struct pin_cookie cookie
 
 		update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 		update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);
+		cpufreq_update_util(rq, 0);
 		ttwu_activate(rq, p, ENQUEUE_WAKEUP);
 		note_task_waking(p, wallclock);
 	}
@@ -3369,6 +3372,8 @@ void scheduler_tick(void)
 
 	wallclock = sched_ktime_clock();
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
+
+	cpufreq_update_util(rq, 0);
 	early_notif = early_detection_notify(rq, wallclock);
 
 	raw_spin_unlock(&rq->lock);
@@ -3393,7 +3398,8 @@ void scheduler_tick(void)
 	if (curr->sched_class == &fair_sched_class)
 		check_for_migration(rq, curr);
 
-	core_ctl_check(wallclock);
+	if (cpu == tick_do_timer_cpu)
+		core_ctl_check(wallclock);
 	sched_freq_tick(cpu);
 }
 
@@ -3702,6 +3708,7 @@ static void __sched notrace __schedule(bool preempt)
 	if (likely(prev != next)) {
 		update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);
 		update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, 0);
+		cpufreq_update_util(rq, 0);
 		if (!is_idle_task(prev) && !prev->on_rq)
 			update_avg_burst(prev);
 
@@ -3715,6 +3722,7 @@ static void __sched notrace __schedule(bool preempt)
 		rq = context_switch(rq, prev, next, cookie); /* unlocks the rq */
 	} else {
 		update_task_ravg(prev, rq, TASK_UPDATE, wallclock, 0);
+		cpufreq_update_util(rq, 0);
 		lockdep_unpin_lock(&rq->lock, cookie);
 		raw_spin_unlock_irq(&rq->lock);
 	}

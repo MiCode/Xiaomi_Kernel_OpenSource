@@ -23,6 +23,17 @@ config PWRSEQ_SIMPLE
 	  This driver can also be built as a module. If so, the module
 	  will be called pwrseq_simple.
 
+config MMC_RING_BUFFER
+	bool "MMC_RING_BUFFER"
+	depends on MMC
+	default n
+	help
+	  This enables the ring buffer tracing of significant
+	  events for mmc driver to provide command history for
+	  debugging purpose.
+
+	  If unsure, say N.
+
 config MMC_EMBEDDED_SDIO
 	boolean "MMC embedded SDIO device support (EXPERIMENTAL)"
 	help
@@ -37,3 +48,13 @@ config MMC_PARANOID_SD_INIT
 	  about re-trying SD init requests. This can be a useful
 	  work-around for buggy controllers and hardware. Enable
 	  if you are experiencing issues with SD detection.
+
+config MMC_CLKGATE
+	bool "MMC host clock gating"
+	help
+	  This will attempt to aggressively gate the clock to the MMC card.
+	  This is done to save power due to gating off the logic and bus
+	  noise when the MMC card is not in use. Your host driver has to
+	  support handling this in order for it to be of any use.
+
+	  If unsure, say N.

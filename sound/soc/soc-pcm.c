@@ -1931,13 +1931,13 @@ static int dpcm_fe_dai_shutdown(struct snd_pcm_substream *substream)
 
 	dpcm_set_fe_update_state(fe, stream, SND_SOC_DPCM_UPDATE_FE);
 
-	/* shutdown the BEs */
-	dpcm_be_dai_shutdown(fe, substream->stream);
-
 	dev_dbg(fe->dev, "ASoC: close FE %s\n", fe->dai_link->name);
 
 	/* now shutdown the frontend */
 	soc_pcm_close(substream);
+
+	/* shutdown the BEs */
+	dpcm_be_dai_shutdown(fe, substream->stream);
 
 	/* run the stream event for each BE */
 	dpcm_dapm_stream_event(fe, stream, SND_SOC_DAPM_STREAM_STOP);
@@ -2521,6 +2521,10 @@ void dpcm_be_dai_prepare_async(struct snd_soc_pcm_runtime *fe, int stream,
 							    dpcm, domain);
 		} else {
 			dpcm_async[i++] = dpcm;
+			if (i == DPCM_MAX_BE_USERS) {
+				dev_dbg(fe->dev, "ASoC: MAX backend users!\n");
+				break;
+			}
 		}
 	}
 

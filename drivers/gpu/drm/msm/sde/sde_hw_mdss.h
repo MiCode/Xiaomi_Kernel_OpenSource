@@ -46,17 +46,24 @@
 enum sde_format_flags {
 	SDE_FORMAT_FLAG_YUV_BIT,
 	SDE_FORMAT_FLAG_DX_BIT,
+	SDE_FORMAT_FLAG_COMPRESSED_BIT,
 	SDE_FORMAT_FLAG_BIT_MAX,
 };
 
 #define SDE_FORMAT_FLAG_YUV		BIT(SDE_FORMAT_FLAG_YUV_BIT)
 #define SDE_FORMAT_FLAG_DX		BIT(SDE_FORMAT_FLAG_DX_BIT)
+#define SDE_FORMAT_FLAG_COMPRESSED	BIT(SDE_FORMAT_FLAG_COMPRESSED_BIT)
 #define SDE_FORMAT_IS_YUV(X)		\
 	(test_bit(SDE_FORMAT_FLAG_YUV_BIT, (X)->flag))
 #define SDE_FORMAT_IS_DX(X)		\
 	(test_bit(SDE_FORMAT_FLAG_DX_BIT, (X)->flag))
 #define SDE_FORMAT_IS_LINEAR(X)		((X)->fetch_mode == SDE_FETCH_LINEAR)
-#define SDE_FORMAT_IS_UBWC(X)		((X)->fetch_mode == SDE_FETCH_UBWC)
+#define SDE_FORMAT_IS_TILE(X) \
+	(((X)->fetch_mode == SDE_FETCH_UBWC) && \
+			!test_bit(SDE_FORMAT_FLAG_COMPRESSED_BIT, (X)->flag))
+#define SDE_FORMAT_IS_UBWC(X) \
+	(((X)->fetch_mode == SDE_FETCH_UBWC) && \
+			test_bit(SDE_FORMAT_FLAG_COMPRESSED_BIT, (X)->flag))
 
 #define SDE_BLEND_FG_ALPHA_FG_CONST	(0 << 0)
 #define SDE_BLEND_FG_ALPHA_BG_CONST	(1 << 0)
@@ -86,6 +93,7 @@ enum sde_hw_blk_type {
 	SDE_HW_BLK_INTF,
 	SDE_HW_BLK_WB,
 	SDE_HW_BLK_DSC,
+	SDE_HW_BLK_ROT,
 	SDE_HW_BLK_MAX,
 };
 
@@ -268,6 +276,11 @@ enum sde_iommu_domain {
 	SDE_IOMMU_DOMAIN_UNSECURE,
 	SDE_IOMMU_DOMAIN_SECURE,
 	SDE_IOMMU_DOMAIN_MAX
+};
+
+enum sde_rot {
+	ROT_0 = 1,
+	ROT_MAX
 };
 
 /**
@@ -455,6 +468,7 @@ struct sde_mdss_color {
 #define SDE_DBG_MASK_TOP      (1 << 9)
 #define SDE_DBG_MASK_VBIF     (1 << 10)
 #define SDE_DBG_MASK_DSC      (1 << 11)
+#define SDE_DBG_MASK_ROT      (1 << 12)
 
 /**
  * struct sde_hw_cp_cfg: hardware dspp/lm feature payload.
@@ -462,12 +476,20 @@ struct sde_mdss_color {
  * @len: Length of the payload.
  * @ctl: control pointer associated with dspp/lm.
  * @last_feature: last feature that will be set.
+ * @num_of_mixers: number of layer mixers for the display.
+ * @mixer_info: mixer info pointer associated with lm.
+ * @displayv: height of the display.
+ * @displayh: width of the display.
  */
 struct sde_hw_cp_cfg {
 	void *payload;
 	u32 len;
 	void *ctl;
 	u32 last_feature;
+	u32 num_of_mixers;
+	void *mixer_info;
+	u32 displayv;
+	u32 displayh;
 };
 
 /**

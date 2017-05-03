@@ -1,0 +1,231 @@
+Introduction:
+=============
+
+This driver provides IOCTLS for user space application to access crypto
+engine hardware for the qcedev crypto services. The driver supports the
+following crypto algorithms
+- AES-128, AES-256 (ECB, CBC and CTR mode)
+- AES-192, (ECB, CBC and CTR mode)
+  (support exists on platform supporting CE 3.x hardware)
+- SHA1/SHA256
+- AES-128, AES-256 (XTS), AES CMAC, SHA1/SHA256 HMAC
+  (support exists on platform supporting CE 4.x hardware)
+
+Hardware description:
+=====================
+Crypto 3E provides cipher and hash algorithms as defined in the
+3GPP forum specifications.
+
+
+Software description
+====================
+
+The driver is a Linux platform device driver. For an msm target,
+there can be multiple crypto devices assigned for QCEDEV.
+
+The driver is a misc device driver as well.
+The following operations are registered in the driver,
+-qcedev_ioctl()
+-qcedev_open()
+-qcedev_release()
+
+The following IOCTLS are available to the user space application(s)-
+
+  Cipher IOCTLs:
+  --------------
+    QCEDEV_IOCTL_ENC_REQ is for encrypting data.
+    QCEDEV_IOCTL_DEC_REQ is for decrypting data.
+
+  Hashing/HMAC IOCTLs
+  -------------------
+
+    QCEDEV_IOCTL_SHA_INIT_REQ is for initializing a hash/hmac request.
+    QCEDEV_IOCTL_SHA_UPDATE_REQ is for updating hash/hmac.
+    QCEDEV_IOCTL_SHA_FINAL_REQ is for ending the hash/mac request.
+    QCEDEV_IOCTL_GET_SHA_REQ is for retrieving the hash/hmac for data
+	packet of known size.
+    QCEDEV_IOCTL_GET_CMAC_REQ is for retrieving the MAC (using AES CMAC
+	algorithm) for data packet of known size.
+
+The requests are synchronous. The driver will put the process to
+sleep, waiting for the completion of the requests using wait_for_completion().
+
+Since the requests are coming out of user space application, before giving
+the requests to the low level qce driver, the ioctl requests and the
+associated input/output buffer will have to be safe checked, and copied
+to/from kernel space.
+
+The extra copying of requests/buffer can affect the performance. The issue
+with copying the data buffer is resolved by having the client use PMEM
+allocated buffers.
+
+NOTE:  Using memory allocated via PMEM is supported only for in place
+       operations where source and destination buffers point to the same
+       location. Support for different source and destination buffers
+       is not supported currently.
+       Furthermore, when using PMEM, and in AES CTR mode, when issuing an
+       encryption or decryption request, a non-zero byteoffset is not
+       supported.
+
+The design of the driver is to allow multiple open, and multiple requests
+to be issued from application(s). Therefore, the driver will internally queue
+the requests, and serialize the requests to the low level qce (or qce40) driver.
+
+On an IOCTL request from an application, if there is no outstanding
+request, a the driver will issue a "qce" request, otherwise,
+the request is queued in the driver queue.  The process is suspended
+waiting for completion.
+
+On completion of a request by the low level qce driver, the internal
+tasklet (done_tasklet) is scheduled. The sole purpose of done_tasklet is
+to call the completion of the current active request (complete()), and
+issue more requests to the qce, if any.
+When the process wakes up from wait_for_completion(), it will collect the
+return code, and return the ioctl.
+
+A spin lock is used to protect the critical section of internal queue to
+be accessed from multiple tasks, SMP, and completion callback
+from qce.
+
+The driver maintains a set of statistics using debug fs. The files are
+in /debug/qcedev/stats1, /debug/qcedev/stats2, /debug/qcedev/stats3;
+one for each instance of device. Reading the file associated with
+a device will retrieve the driver statistics for that device.
+Any write to the file will clear the statistics.
+
+
+Power Management
+================
+n/a
+
+
+Interface:
+==========
+
+Linux user space applications will need to open a handle
+(file descriptor) to the qcedev device.  This is achieved by doing
+the following to retrieve a file descriptor to the device.
+
+     fd = open("/dev/qce", O_RDWR);
+     ..
+     ioctl(fd, ...);
+
+Once a valid fd is retrieved, user can call the following ioctls with
+the fd as the first parameter and a pointer to an appropriate data
+structure, qcedev_cipher_op_req or qcedev_sha_op_req (depending on
+cipher/hash functionality) as the second parameter.
+
+The following IOCTLS are available to the user space application(s)-
+
+  Cipher IOCTLs:
+  --------------
+    QCEDEV_IOCTL_ENC_REQ is for encrypting data.
+    QCEDEV_IOCTL_DEC_REQ is for decrypting data.
+
+	The caller of the IOCTL passes a pointer to the structure shown
+	below, as the second parameter.
+
+	struct	qcedev_cipher_op_req {
+		int				use_pmem;
+		union{
+			struct qcedev_pmem_info pmem;
+			struct qcedev_vbuf_info vbuf;
+		};
+		uint32_t			entries;
+		uint32_t			data_len;
+		uint8_t				in_place_op;
+		uint8_t				enckey[QCEDEV_MAX_KEY_SIZE];
+		uint32_t			encklen;
+		uint8_t				iv[QCEDEV_MAX_IV_SIZE];
+		uint32_t			ivlen;
+		uint32_t			byteoffset;
+		enum qcedev_cipher_alg_enum	alg;
+		enum qcedev_cipher_mode_enum	mode;
+		enum qcedev_oper_enum		op;
+	};
+
+  Hashing/HMAC IOCTLs
+  -------------------
+
+    QCEDEV_IOCTL_SHA_INIT_REQ is for initializing a hash/hmac request.
+    QCEDEV_IOCTL_SHA_UPDATE_REQ is for updating hash/hmac.
+    QCEDEV_IOCTL_SHA_FINAL_REQ is for ending the hash/mac request.
+    QCEDEV_IOCTL_GET_SHA_REQ is for retrieving the hash/hmac for data
+	packet of known size.
+    QCEDEV_IOCTL_GET_CMAC_REQ is for retrieving the MAC (using AES CMAC
+	algorithm) for data packet of known size.
+
+	The caller of the IOCTL passes a pointer to the structure shown
+	below, as the second parameter.
+
+	struct	qcedev_sha_op_req {
+		struct buf_info			data[QCEDEV_MAX_BUFFERS];
+		uint32_t			entries;
+		uint32_t			data_len;
+		uint8_t				digest[QCEDEV_MAX_SHA_DIGEST];
+		uint32_t			diglen;
+		uint8_t				*authkey;
+		uint32_t			authklen;
+		enum qcedev_sha_alg_enum	alg;
+		struct qcedev_sha_ctxt		ctxt;
+	};
+
+The IOCTLs and associated request data structures are defined in qcedev.h
+
+
+Module parameters:
+==================
+
+The following module parameters are defined in the board init file.
+-CE hardware nase register address
+-Data mover channel used for transfer to/from CE hardware
+These parameters differ in each platform.
+
+
+
+Dependencies:
+=============
+qce driver. Please see Documentation/arm/msm/qce.txt.
+
+
+User space utilities:
+=====================
+
+none
+
+Known issues:
+=============
+
+none.
+
+
+To do:
+======
+  Enhance Cipher functionality:
+  (1) Add support for handling > 32KB for ciphering functionality when
+  - operation is not an "in place" operation (source != destination).
+    (when using PMEM allocated memory)
+
+Limitations:
+============
+  (1) In case of cipher functionality, Driver does not support
+      a combination of different memory sources for source/destination.
+      In other words,  memory pointed to by  src and dst,
+      must BOTH (src/dst) be "pmem" or BOTH(src/dst) be "vbuf".
+
+  (2) In case of hash functionality, driver does not support handling data
+      buffers allocated via PMEM.
+
+  (3) Do not load this driver if your device already has kernel space apps
+      that need to access the crypto hardware.
+      Make sure to have qcedev module disabled/unloaded and implement your user
+      space application to use the software implementation (ex: openssl/crypto)
+      of the crypto algorithms.
+      (NOTE:  Please refer to details on the limitations listed in qce.txt)
+
+  (4) If your device has Playready (Windows Media DRM) application enabled
+      and uses the qcedev module to access the crypto hardware accelerator,
+      please be informed that for performance reasons, the CE hardware will
+      need to be dedicated to playready application.  Any other user space
+      application should be implemented to use the software implementation
+      (ex: openssl/crypto) of the crypto algorithms.

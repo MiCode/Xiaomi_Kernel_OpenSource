@@ -113,7 +113,6 @@ config CPU_FREQ_DEFAULT_GOV_SCHED
 config CPU_FREQ_DEFAULT_GOV_INTERACTIVE
 	bool "interactive"
 	select CPU_FREQ_GOV_INTERACTIVE
-	select CPU_FREQ_GOV_PERFORMANCE
 	help
 	  Use the CPUFreq governor 'interactive' as default. This allows
 	  you to get a full dynamic cpu frequency capable system by simply
@@ -187,6 +186,23 @@ config CPU_FREQ_GOV_ONDEMAND
 
 	  If in doubt, say N.
 
+config CPU_FREQ_GOV_INTERACTIVE
+	tristate "'interactive' cpufreq policy governor"
+	help
+	  'interactive' - This driver adds a dynamic cpufreq policy governor
+	  designed for latency-sensitive workloads.
+
+	  This governor attempts to reduce the latency of clock
+	  increases so that the system is more responsive to
+	  interactive workloads.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called cpufreq_interactive.
+
+	  For details, take a look at linux/Documentation/cpu-freq.
+
+	  If in doubt, say N.
+
 config CPU_FREQ_GOV_CONSERVATIVE
 	tristate "'conservative' cpufreq governor"
 	depends on CPU_FREQ
@@ -211,6 +227,17 @@ config CPU_FREQ_GOV_CONSERVATIVE
 
 	  If in doubt, say N.
 
+config CPU_BOOST
+	tristate "Event base short term CPU freq boost"
+	depends on CPU_FREQ
+	help
+	  This driver boosts the frequency of one or more CPUs based on
+	  various events that might occur in the system. As of now, the
+	  events it reacts to are:
+	  - Migration of important threads from one CPU to another.
+
+	  If in doubt, say N.
+
 config CPU_FREQ_GOV_SCHED
 	bool "'sched' cpufreq governor"
 	depends on CPU_FREQ
@@ -221,26 +248,6 @@ config CPU_FREQ_GOV_SCHED
 	  scheduler as a function of cpu capacity utilization. It does
 	  not evaluate utilization on a periodic basis (as ondemand
 	  does) but instead is event-driven by the scheduler.
-
-	  If in doubt, say N.
-
-config CPU_FREQ_GOV_INTERACTIVE
-	tristate "'interactive' cpufreq policy governor"
-	depends on CPU_FREQ
-	select CPU_FREQ_GOV_ATTR_SET
-	select IRQ_WORK
-	help
-	  'interactive' - This driver adds a dynamic cpufreq policy governor
-	  designed for latency-sensitive workloads.
-
-	  This governor attempts to reduce the latency of clock
-	  increases so that the system is more responsive to
-	  interactive workloads.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called cpufreq_interactive.
-
-	  For details, take a look at linux/Documentation/cpu-freq.
 
 	  If in doubt, say N.
 

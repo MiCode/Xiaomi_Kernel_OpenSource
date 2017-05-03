@@ -855,7 +855,9 @@ static inline int dma_mmap_nonconsistent(struct device *dev,
 		struct vm_area_struct *vma, void *cpu_addr,
 		dma_addr_t dma_addr, size_t size)
 {
-	return -ENODEV;
+	unsigned long attrs = DMA_ATTR_NON_CONSISTENT;
+
+	return dma_mmap_attrs(dev, vma, cpu_addr, dma_addr, size, attrs);
 }
 
 #if defined(CONFIG_NEED_DMA_MAP_STATE) || defined(CONFIG_DMA_API_DEBUG)

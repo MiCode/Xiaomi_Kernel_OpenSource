@@ -39,6 +39,7 @@ struct se_geni_rsc {
 	struct clk *m_ahb_clk;
 	struct clk *s_ahb_clk;
 	struct msm_bus_client_handle *bus_bw;
+	unsigned int bus_mas;
 	unsigned long ab;
 	unsigned long ib;
 	struct pinctrl *geni_pinctrl;
@@ -87,6 +88,7 @@ struct se_geni_rsc {
 #define SE_GENI_RX_RFR_WATERMARK_REG	(0x814)
 #define SE_GENI_M_GP_LENGTH		(0x910)
 #define SE_GENI_S_GP_LENGTH		(0x914)
+#define SE_GSI_EVENT_EN			(0xE18)
 #define SE_IRQ_EN			(0xE1C)
 #define SE_HW_PARAM_0			(0xE24)
 #define SE_HW_PARAM_1			(0xE28)
@@ -220,6 +222,12 @@ struct se_geni_rsc {
 #define RX_LAST_BYTE_VALID_SHFT	(28)
 #define RX_FIFO_WC_MSK		(GENMASK(24, 0))
 
+/* SE_GSI_EVENT_EN fields */
+#define DMA_RX_EVENT_EN		(BIT(0))
+#define DMA_TX_EVENT_EN		(BIT(1))
+#define GENI_M_EVENT_EN		(BIT(2))
+#define GENI_S_EVENT_EN		(BIT(3))
+
 /* SE_IRQ_EN fields */
 #define DMA_RX_IRQ_EN		(BIT(0))
 #define DMA_TX_IRQ_EN		(BIT(1))
@@ -247,6 +255,17 @@ struct se_geni_rsc {
 #define RX_DMA_ZERO_PADDING_EN	(BIT(5))
 #define RX_DMA_IRQ_DELAY_MSK	(GENMASK(8, 6))
 #define RX_DMA_IRQ_DELAY_SHFT	(6)
+
+static inline unsigned int geni_read_reg_nolog(void __iomem *base, int offset)
+{
+	return readl_relaxed_no_log(base + offset);
+}
+
+static inline void geni_write_reg_nolog(unsigned int value, void __iomem *base,
+				int offset)
+{
+	return writel_relaxed_no_log(value, (base + offset));
+}
 
 static inline unsigned int geni_read_reg(void __iomem *base, int offset)
 {
@@ -320,9 +339,11 @@ static inline int se_io_set_mode(void __iomem *base, int mode)
 	int ret = 0;
 	unsigned int io_mode = 0;
 	unsigned int geni_dma_mode = 0;
+	unsigned int gsi_event_en = 0;
 
 	io_mode = geni_read_reg(base, SE_IRQ_EN);
 	geni_dma_mode = geni_read_reg(base, SE_GENI_DMA_MODE_EN);
+	gsi_event_en = geni_read_reg(base, SE_GSI_EVENT_EN);
 
 	switch (mode) {
 	case FIFO_MODE:
@@ -330,15 +351,23 @@ static inline int se_io_set_mode(void __iomem *base, int mode)
 		io_mode |= (GENI_M_IRQ_EN | GENI_S_IRQ_EN);
 		io_mode |= (DMA_TX_IRQ_EN | DMA_RX_IRQ_EN);
 		geni_dma_mode &= ~GENI_DMA_MODE_EN;
+		gsi_event_en = 0;
 		break;
 
 	}
+	case GSI_DMA:
+		geni_dma_mode |= GENI_DMA_MODE_EN;
+		io_mode &= ~(DMA_TX_IRQ_EN | DMA_RX_IRQ_EN);
+		gsi_event_en |= (DMA_RX_EVENT_EN | DMA_TX_EVENT_EN |
+					GENI_M_EVENT_EN | GENI_S_EVENT_EN);
+		break;
 	default:
 		ret = -ENXIO;
 		goto exit_set_mode;
 	}
 	geni_write_reg(io_mode, base, SE_IRQ_EN);
 	geni_write_reg(geni_dma_mode, base, SE_GENI_DMA_MODE_EN);
+	geni_write_reg(gsi_event_en, base, SE_GSI_EVENT_EN);
 exit_set_mode:
 	return ret;
 }
@@ -418,7 +447,7 @@ static inline void geni_abort_m_cmd(void __iomem *base)
 	geni_write_reg(M_GENI_CMD_ABORT, base, SE_GENI_M_CMD_CTRL_REG);
 }
 
-static inline void qcom_geni_abort_s_cmd(void __iomem *base)
+static inline void geni_abort_s_cmd(void __iomem *base)
 {
 	geni_write_reg(S_GENI_CMD_ABORT, base, SE_GENI_S_CMD_CTRL_REG);
 }

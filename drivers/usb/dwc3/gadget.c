@@ -284,6 +284,7 @@ void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
 		int status)
 {
 	struct dwc3			*dwc = dep->dwc;
+	unsigned int			unmap_after_complete = false;
 
 	req->started = false;
 	list_del(&req->list);
@@ -292,11 +293,22 @@ void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
 	if (req->request.status == -EINPROGRESS)
 		req->request.status = status;
 
-	if (dwc->ep0_bounced && dep->number <= 1)
+	/*
+	 * NOTICE we don't want to unmap before calling ->complete() if we're
+	 * dealing with a bounced ep0 request. If we unmap it here, we would end
+	 * up overwritting the contents of req->buf and this could confuse the
+	 * gadget driver.
+	 */
+	if (dwc->ep0_bounced && dep->number <= 1) {
 		dwc->ep0_bounced = false;
 
-	usb_gadget_unmap_request(&dwc->gadget, &req->request,
-			req->direction);
+		usb_gadget_unmap_request_by_dev(dwc->sysdev,
+				&req->request, req->direction);
+		unmap_after_complete = true;
+	} else {
+		usb_gadget_unmap_request(&dwc->gadget,
+				&req->request, req->direction);
+	}
 
 	trace_dwc3_gadget_giveback(req);
 
@@ -304,8 +316,9 @@ void dwc3_gadget_giveback(struct dwc3_ep *dep, struct dwc3_request *req,
 	usb_gadget_giveback_request(&dep->endpoint, &req->request);
 	spin_lock(&dwc->lock);
 
-	if (dep->number > 1)
-		pm_runtime_put(dwc->dev);
+	if (unmap_after_complete)
+		usb_gadget_unmap_request(&dwc->gadget,
+				&req->request, req->direction);
 }
 
 int dwc3_send_gadget_generic_command(struct dwc3 *dwc, unsigned cmd, u32 param)
@@ -476,7 +489,7 @@ static int dwc3_alloc_trb_pool(struct dwc3_ep *dep)
 	if (dep->trb_pool)
 		return 0;
 
-	dep->trb_pool = dma_zalloc_coherent(dwc->dev,
+	dep->trb_pool = dma_zalloc_coherent(dwc->sysdev,
 			sizeof(struct dwc3_trb) * num_trbs,
 			&dep->trb_pool_dma, GFP_KERNEL);
 	if (!dep->trb_pool) {
@@ -508,7 +521,7 @@ static void dwc3_free_trb_pool(struct dwc3_ep *dep)
 		dbg_event(dep->number, "Clr_TRB", 0);
 		dev_dbg(dwc->dev, "Clr_TRB ring of %s\n", dep->name);
 
-		dma_free_coherent(dwc->dev,
+		dma_free_coherent(dwc->sysdev,
 				sizeof(struct dwc3_trb) * DWC3_TRB_NUM,
 				dep->trb_pool, dep->trb_pool_dma);
 		dep->trb_pool = NULL;
@@ -1150,8 +1163,8 @@ static int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep, u16 cmd_param)
 		 * here and stop, unmap, free and del each of the linked
 		 * requests instead of what we do now.
 		 */
-		usb_gadget_unmap_request(&dwc->gadget, &req->request,
-				req->direction);
+		usb_gadget_unmap_request_by_dev(dwc->sysdev,
+				&req->request, req->direction);
 		list_del(&req->list);
 		return ret;
 	}
@@ -1225,7 +1238,6 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 		return ret;
 	}
 
-	pm_runtime_get(dwc->dev);
 	req->request.actual	= 0;
 	req->request.status	= -EINPROGRESS;
 	req->direction		= dep->direction;
@@ -1233,8 +1245,8 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 
 	trace_dwc3_ep_queue(req);
 
-	ret = usb_gadget_map_request(&dwc->gadget, &req->request,
-			dep->direction);
+	ret = usb_gadget_map_request_by_dev(dwc->sysdev, &req->request,
+					    dep->direction);
 	if (ret)
 		return ret;
 
@@ -2099,6 +2111,18 @@ static int __dwc3_gadget_start(struct dwc3 *dwc)
 	u32			reg;
 
 	dbg_event(0xFF, "__Gadgetstart", 0);
+
+	/*
+	 * Use IMOD if enabled via dwc->imod_interval. Otherwise, if
+	 * the core supports IMOD, disable it.
+	 */
+	if (dwc->imod_interval) {
+		dwc3_writel(dwc->regs, DWC3_DEV_IMOD(0), dwc->imod_interval);
+		dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(0), DWC3_GEVNTCOUNT_EHB);
+	} else if (dwc3_has_imod(dwc)) {
+		dwc3_writel(dwc->regs, DWC3_DEV_IMOD(0), 0);
+	}
+
 	reg = dwc3_readl(dwc->regs, DWC3_DCFG);
 	reg &= ~(DWC3_DCFG_SPEED_MASK);
 
@@ -3473,8 +3497,6 @@ static irqreturn_t dwc3_process_event_buf(struct dwc3 *dwc)
 		 */
 		evt->lpos = (evt->lpos + 4) % DWC3_EVENT_BUFFERS_SIZE;
 		left -= 4;
-
-		dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(0), 4);
 	}
 
 	dwc->bh_handled_evt_cnt[dwc->bh_dbg_index] += (evt->count / 4);
@@ -3487,7 +3509,20 @@ static irqreturn_t dwc3_process_event_buf(struct dwc3 *dwc)
 	reg &= ~DWC3_GEVNTSIZ_INTMASK;
 	dwc3_writel(dwc->regs, DWC3_GEVNTSIZ(0), reg);
 
+	if (dwc->imod_interval)
+		dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(0),
+				DWC3_GEVNTCOUNT_EHB);
+
 	return ret;
+}
+
+void dwc3_bh_work(struct work_struct *w)
+{
+	struct dwc3 *dwc = container_of(w, struct dwc3, bh_work);
+
+	 pm_runtime_get_sync(dwc->dev);
+	 dwc3_thread_interrupt(dwc->irq, dwc);
+	 pm_runtime_put(dwc->dev);
 }
 
 static irqreturn_t dwc3_thread_interrupt(int irq, void *_dwc)
@@ -3543,6 +3578,8 @@ static irqreturn_t dwc3_check_event_buf(struct dwc3 *dwc)
 	reg |= DWC3_GEVNTSIZ_INTMASK;
 	dwc3_writel(dwc->regs, DWC3_GEVNTSIZ(0), reg);
 
+	dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(0), count);
+
 	return IRQ_WAKE_THREAD;
 }
 
@@ -3572,7 +3609,7 @@ irqreturn_t dwc3_interrupt(int irq, void *_dwc)
 	dwc->irq_dbg_index = (dwc->irq_dbg_index + 1) % MAX_INTR_STATS;
 
 	if (ret == IRQ_WAKE_THREAD)
-		dwc3_thread_interrupt(dwc->irq, dwc);
+		queue_work(dwc->dwc_wq, &dwc->bh_work);
 
 	return IRQ_HANDLED;
 }
@@ -3615,7 +3652,7 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 
 	INIT_WORK(&dwc->wakeup_work, dwc3_gadget_wakeup_work);
 
-	dwc->ctrl_req = dma_alloc_coherent(dwc->dev, sizeof(*dwc->ctrl_req),
+	dwc->ctrl_req = dma_alloc_coherent(dwc->sysdev, sizeof(*dwc->ctrl_req),
 			&dwc->ctrl_req_addr, GFP_KERNEL);
 	if (!dwc->ctrl_req) {
 		dev_err(dwc->dev, "failed to allocate ctrl request\n");
@@ -3623,8 +3660,9 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 		goto err0;
 	}
 
-	dwc->ep0_trb = dma_alloc_coherent(dwc->dev, sizeof(*dwc->ep0_trb) * 2,
-			&dwc->ep0_trb_addr, GFP_KERNEL);
+	dwc->ep0_trb = dma_alloc_coherent(dwc->sysdev,
+					  sizeof(*dwc->ep0_trb) * 2,
+					  &dwc->ep0_trb_addr, GFP_KERNEL);
 	if (!dwc->ep0_trb) {
 		dev_err(dwc->dev, "failed to allocate ep0 trb\n");
 		ret = -ENOMEM;
@@ -3637,7 +3675,7 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 		goto err2;
 	}
 
-	dwc->ep0_bounce = dma_alloc_coherent(dwc->dev,
+	dwc->ep0_bounce = dma_alloc_coherent(dwc->sysdev,
 			DWC3_EP0_BOUNCE_SIZE, &dwc->ep0_bounce_addr,
 			GFP_KERNEL);
 	if (!dwc->ep0_bounce) {
@@ -3716,18 +3754,18 @@ err5:
 
 err4:
 	dwc3_gadget_free_endpoints(dwc);
-	dma_free_coherent(dwc->dev, DWC3_EP0_BOUNCE_SIZE,
+	dma_free_coherent(dwc->sysdev, DWC3_EP0_BOUNCE_SIZE,
 			dwc->ep0_bounce, dwc->ep0_bounce_addr);
 
 err3:
 	kfree(dwc->setup_buf);
 
 err2:
-	dma_free_coherent(dwc->dev, sizeof(*dwc->ep0_trb) * 2,
+	dma_free_coherent(dwc->sysdev, sizeof(*dwc->ep0_trb) * 2,
 			dwc->ep0_trb, dwc->ep0_trb_addr);
 
 err1:
-	dma_free_coherent(dwc->dev, sizeof(*dwc->ctrl_req),
+	dma_free_coherent(dwc->sysdev, sizeof(*dwc->ctrl_req),
 			dwc->ctrl_req, dwc->ctrl_req_addr);
 
 err0:
@@ -3747,16 +3785,16 @@ void dwc3_gadget_exit(struct dwc3 *dwc)
 
 	dwc3_gadget_free_endpoints(dwc);
 
-	dma_free_coherent(dwc->dev, DWC3_EP0_BOUNCE_SIZE,
+	dma_free_coherent(dwc->sysdev, DWC3_EP0_BOUNCE_SIZE,
 			dwc->ep0_bounce, dwc->ep0_bounce_addr);
 
 	kfree(dwc->setup_buf);
 	kfree(dwc->zlp_buf);
 
-	dma_free_coherent(dwc->dev, sizeof(*dwc->ep0_trb) * 2,
+	dma_free_coherent(dwc->sysdev, sizeof(*dwc->ep0_trb) * 2,
 			dwc->ep0_trb, dwc->ep0_trb_addr);
 
-	dma_free_coherent(dwc->dev, sizeof(*dwc->ctrl_req),
+	dma_free_coherent(dwc->sysdev, sizeof(*dwc->ctrl_req),
 			dwc->ctrl_req, dwc->ctrl_req_addr);
 }
 

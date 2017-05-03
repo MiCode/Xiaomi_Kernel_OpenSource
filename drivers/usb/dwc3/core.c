@@ -323,7 +323,7 @@ static void dwc3_frame_length_adjustment(struct dwc3 *dwc)
 static void dwc3_free_one_event_buffer(struct dwc3 *dwc,
 		struct dwc3_event_buffer *evt)
 {
-	dma_free_coherent(dwc->dev, evt->length, evt->buf, evt->dma);
+	dma_free_coherent(dwc->sysdev, evt->length, evt->buf, evt->dma);
 }
 
 /**
@@ -345,7 +345,7 @@ static struct dwc3_event_buffer *dwc3_alloc_one_event_buffer(struct dwc3 *dwc,
 
 	evt->dwc	= dwc;
 	evt->length	= length;
-	evt->buf	= dma_alloc_coherent(dwc->dev, length,
+	evt->buf	= dma_alloc_coherent(dwc->sysdev, length,
 			&evt->dma, GFP_KERNEL);
 	if (!evt->buf)
 		return ERR_PTR(-ENOMEM);
@@ -474,11 +474,11 @@ static int dwc3_setup_scratch_buffers(struct dwc3 *dwc)
 	if (!WARN_ON(dwc->scratchbuf))
 		return 0;
 
-	scratch_addr = dma_map_single(dwc->dev, dwc->scratchbuf,
+	scratch_addr = dma_map_single(dwc->sysdev, dwc->scratchbuf,
 			dwc->nr_scratch * DWC3_SCRATCHBUF_SIZE,
 			DMA_BIDIRECTIONAL);
-	if (dma_mapping_error(dwc->dev, scratch_addr)) {
-		dev_err(dwc->dev, "failed to map scratch buffer\n");
+	if (dma_mapping_error(dwc->sysdev, scratch_addr)) {
+		dev_err(dwc->sysdev, "failed to map scratch buffer\n");
 		ret = -EFAULT;
 		goto err0;
 	}
@@ -502,7 +502,7 @@ static int dwc3_setup_scratch_buffers(struct dwc3 *dwc)
 	return 0;
 
 err1:
-	dma_unmap_single(dwc->dev, dwc->scratch_addr, dwc->nr_scratch *
+	dma_unmap_single(dwc->sysdev, dwc->scratch_addr, dwc->nr_scratch *
 			DWC3_SCRATCHBUF_SIZE, DMA_BIDIRECTIONAL);
 
 err0:
@@ -521,7 +521,7 @@ static void dwc3_free_scratch_buffers(struct dwc3 *dwc)
 	if (!WARN_ON(dwc->scratchbuf))
 		return;
 
-	dma_unmap_single(dwc->dev, dwc->scratch_addr, dwc->nr_scratch *
+	dma_unmap_single(dwc->sysdev, dwc->scratch_addr, dwc->nr_scratch *
 			DWC3_SCRATCHBUF_SIZE, DMA_BIDIRECTIONAL);
 	kfree(dwc->scratchbuf);
 }
@@ -739,6 +739,16 @@ int dwc3_core_init(struct dwc3 *dwc)
 			dwc->maximum_speed = dwc->max_hw_supp_speed;
 		}
 	}
+
+	/*
+	 * Workaround for STAR 9000961433 which affects only version
+	 * 3.00a of the DWC_usb3 core. This prevents the controller
+	 * interrupt from being masked while handling events. IMOD
+	 * allows us to work around this issue. Enable it for the
+	 * affected version.
+	 */
+	 if (!dwc->imod_interval && (dwc->revision == DWC3_REVISION_300A))
+		dwc->imod_interval = 1;
 
 	/* issue device SoftReset too */
 	ret = dwc3_core_reset(dwc);
@@ -1054,60 +1064,30 @@ EXPORT_SYMBOL(dwc3_notify_event);
 
 int dwc3_core_pre_init(struct dwc3 *dwc)
 {
-	int ret;
+	int ret = 0;
 
 	dwc3_cache_hwparams(dwc);
-
-	ret = dwc3_phy_setup(dwc);
-	if (ret)
-		goto err0;
-
 	if (!dwc->ev_buf) {
 		ret = dwc3_alloc_event_buffers(dwc, DWC3_EVENT_BUFFERS_SIZE);
 		if (ret) {
 			dev_err(dwc->dev, "failed to allocate event buffers\n");
 			ret = -ENOMEM;
-			goto err1;
 		}
 	}
 
-	ret = dwc3_core_init(dwc);
-	if (ret) {
-		dev_err(dwc->dev, "failed to initialize core\n");
-		goto err2;
-	}
-
-	ret = phy_power_on(dwc->usb2_generic_phy);
-	if (ret < 0)
-		goto err3;
-
-	ret = phy_power_on(dwc->usb3_generic_phy);
-	if (ret < 0)
-		goto err4;
-
-	ret = dwc3_event_buffers_setup(dwc);
-	if (ret) {
-		dev_err(dwc->dev, "failed to setup event buffers\n");
-		goto err5;
-	}
-
-	return ret;
-
-err5:
-	phy_power_off(dwc->usb3_generic_phy);
-err4:
-	phy_power_off(dwc->usb2_generic_phy);
-err3:
-	dwc3_core_exit(dwc);
-err2:
-	dwc3_free_event_buffers(dwc);
-err1:
-	dwc3_ulpi_exit(dwc);
-err0:
 	return ret;
 }
 
 #define DWC3_ALIGN_MASK		(16 - 1)
+
+/* check whether the core supports IMOD */
+bool dwc3_has_imod(struct dwc3 *dwc)
+{
+	return ((dwc3_is_usb3(dwc) &&
+		dwc->revision >= DWC3_REVISION_300A) ||
+		(dwc3_is_usb31(dwc) &&
+		dwc->revision >= DWC3_USB31_REVISION_120A));
+}
 
 static int dwc3_probe(struct platform_device *pdev)
 {
@@ -1154,8 +1134,8 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	/* will be enabled in dwc3_msm_resume() */
 	irq_set_status_flags(irq, IRQ_NOAUTOEN);
-	ret = devm_request_threaded_irq(dev, irq, NULL, dwc3_interrupt,
-			IRQF_SHARED | IRQF_ONESHOT, "dwc3", dwc);
+	ret = devm_request_irq(dev, irq, dwc3_interrupt, IRQF_SHARED, "dwc3",
+			dwc);
 	if (ret) {
 		dev_err(dwc->dev, "failed to request irq #%d --> %d\n",
 				irq, ret);
@@ -1213,6 +1193,13 @@ static int dwc3_probe(struct platform_device *pdev)
 	}
 
 	dwc->hsphy_mode = of_usb_get_phy_mode(dev->of_node);
+
+	dwc->sysdev_is_parent = device_property_read_bool(dev,
+				"linux,sysdev_is_parent");
+	if (dwc->sysdev_is_parent)
+		dwc->sysdev = dwc->dev->parent;
+	else
+		dwc->sysdev = dwc->dev;
 
 	dwc->has_lpm_erratum = device_property_read_bool(dev,
 				"snps,has-lpm-erratum");
@@ -1288,11 +1275,13 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	spin_lock_init(&dwc->lock);
 
-	if (!dev->dma_mask) {
-		dev->dma_mask = dev->parent->dma_mask;
-		dev->dma_parms = dev->parent->dma_parms;
-		dma_set_coherent_mask(dev, dev->parent->coherent_dma_mask);
+	dwc->dwc_wq = alloc_ordered_workqueue("dwc_wq", WQ_HIGHPRI);
+	if (!dwc->dwc_wq) {
+		pr_err("%s: Unable to create workqueue dwc_wq\n", __func__);
+		return -ENOMEM;
 	}
+
+	INIT_WORK(&dwc->bh_work, dwc3_bh_work);
 
 	pm_runtime_no_callbacks(dev);
 	pm_runtime_set_active(dev);
@@ -1365,6 +1354,7 @@ err0:
 	 * memory region the next time probe is called.
 	 */
 	res->start -= DWC3_GLOBALS_REGS_START;
+	destroy_workqueue(dwc->dwc_wq);
 
 	return ret;
 }
@@ -1387,6 +1377,8 @@ static int dwc3_remove(struct platform_device *pdev)
 
 	dwc3_core_exit(dwc);
 	dwc3_ulpi_exit(dwc);
+
+	destroy_workqueue(dwc->dwc_wq);
 
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_allow(&pdev->dev);
@@ -1547,6 +1539,10 @@ static int dwc3_suspend(struct device *dev)
 	struct dwc3	*dwc = dev_get_drvdata(dev);
 	int		ret;
 
+	/* Check if platform glue driver handling PM, if not then handle here */
+	if (!dwc3_notify_event(dwc, DWC3_CORE_PM_SUSPEND_EVENT))
+		return 0;
+
 	ret = dwc3_suspend_common(dwc);
 	if (ret)
 		return ret;
@@ -1560,6 +1556,10 @@ static int dwc3_resume(struct device *dev)
 {
 	struct dwc3	*dwc = dev_get_drvdata(dev);
 	int		ret;
+
+	/* Check if platform glue driver handling PM, if not then handle here */
+	if (!dwc3_notify_event(dwc, DWC3_CORE_PM_RESUME_EVENT))
+		return 0;
 
 	pinctrl_pm_select_default_state(dev);
 

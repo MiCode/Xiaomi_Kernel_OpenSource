@@ -104,6 +104,7 @@ int sde_rotator_inline_get_dst_pixfmt(struct platform_device *pdev,
 		u32 src_pixfmt, u32 *dst_pixfmt);
 int sde_rotator_inline_get_downscale_caps(struct platform_device *pdev,
 		char *downscale_caps, int len);
+int sde_rotator_inline_get_maxlinewidth(struct platform_device *pdev);
 int sde_rotator_inline_get_pixfmt_caps(struct platform_device *pdev,
 		bool input, u32 *pixfmt, int len);
 int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,

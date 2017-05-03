@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,7 +23,7 @@
 #define LOW_TEMP_THRESHOLD 5
 #define HIGH_TEMP_THRESHOLD 45
 #define TEMP_INVALID	0xFFFF
-
+#define WSA881X_TEMP_RETRY 3
 /*
  * wsa881x_get_temp - get wsa temperature
  * @thermal: thermal zone device
@@ -44,6 +44,7 @@ int wsa881x_get_temp(struct thermal_zone_device *thermal,
 	int temp_val;
 	int t1 = T1_TEMP;
 	int t2 = T2_TEMP;
+	u8 retry = WSA881X_TEMP_RETRY;
 
 	if (!thermal)
 		return -EINVAL;
@@ -60,6 +61,7 @@ int wsa881x_get_temp(struct thermal_zone_device *thermal,
 		pr_err("%s: pdata is NULL\n", __func__);
 		return -EINVAL;
 	}
+temp_retry:
 	if (pdata->wsa_temp_reg_read) {
 		ret = pdata->wsa_temp_reg_read(codec, &reg);
 		if (ret) {
@@ -101,6 +103,10 @@ int wsa881x_get_temp(struct thermal_zone_device *thermal,
 		printk_ratelimited("%s: T0: %d is out of range[%d, %d]\n",
 				   __func__, temp_val, LOW_TEMP_THRESHOLD,
 				   HIGH_TEMP_THRESHOLD);
+		if (retry--) {
+			msleep(20);
+			goto temp_retry;
+		}
 	}
 	if (temp)
 		*temp = temp_val;

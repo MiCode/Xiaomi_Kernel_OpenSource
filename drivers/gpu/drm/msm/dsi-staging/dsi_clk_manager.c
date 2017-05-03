@@ -185,10 +185,12 @@ int dsi_core_clk_start(struct dsi_core_clks *c_clks)
 {
 	int rc = 0;
 
-	rc = clk_prepare_enable(c_clks->clks.mdp_core_clk);
-	if (rc) {
-		pr_err("failed to enable mdp_core_clk, rc=%d\n", rc);
-		goto error;
+	if (c_clks->clks.mdp_core_clk) {
+		rc = clk_prepare_enable(c_clks->clks.mdp_core_clk);
+		if (rc) {
+			pr_err("failed to enable mdp_core_clk, rc=%d\n", rc);
+			goto error;
+		}
 	}
 
 	if (c_clks->clks.mnoc_clk) {
@@ -199,59 +201,87 @@ int dsi_core_clk_start(struct dsi_core_clks *c_clks)
 		}
 	}
 
-	rc = clk_prepare_enable(c_clks->clks.iface_clk);
-	if (rc) {
-		pr_err("failed to enable iface_clk, rc=%d\n", rc);
-		goto error_disable_mnoc_clk;
+	if (c_clks->clks.iface_clk) {
+		rc = clk_prepare_enable(c_clks->clks.iface_clk);
+		if (rc) {
+			pr_err("failed to enable iface_clk, rc=%d\n", rc);
+			goto error_disable_mnoc_clk;
+		}
 	}
 
-	rc = clk_prepare_enable(c_clks->clks.bus_clk);
-	if (rc) {
-		pr_err("failed to enable bus_clk, rc=%d\n", rc);
-		goto error_disable_iface_clk;
+	if (c_clks->clks.bus_clk) {
+		rc = clk_prepare_enable(c_clks->clks.bus_clk);
+		if (rc) {
+			pr_err("failed to enable bus_clk, rc=%d\n", rc);
+			goto error_disable_iface_clk;
+		}
 	}
 
-	rc = clk_prepare_enable(c_clks->clks.core_mmss_clk);
-	if (rc) {
-		pr_err("failed to enable core_mmss_clk, rc=%d\n", rc);
-		goto error_disable_bus_clk;
+	if (c_clks->clks.core_mmss_clk) {
+		rc = clk_prepare_enable(c_clks->clks.core_mmss_clk);
+		if (rc) {
+			pr_err("failed to enable core_mmss_clk, rc=%d\n", rc);
+			goto error_disable_bus_clk;
+		}
 	}
 
-	rc = msm_bus_scale_client_update_request(c_clks->bus_handle, 1);
-	if (rc) {
-		pr_err("bus scale client enable failed, rc=%d\n", rc);
-		goto error_disable_mmss_clk;
+	if (c_clks->bus_handle) {
+		rc = msm_bus_scale_client_update_request(c_clks->bus_handle, 1);
+		if (rc) {
+			pr_err("bus scale client enable failed, rc=%d\n", rc);
+			goto error_disable_mmss_clk;
+		}
 	}
 
 	return rc;
 
 error_disable_mmss_clk:
-	clk_disable_unprepare(c_clks->clks.core_mmss_clk);
+	if (c_clks->clks.core_mmss_clk)
+		clk_disable_unprepare(c_clks->clks.core_mmss_clk);
 error_disable_bus_clk:
-	clk_disable_unprepare(c_clks->clks.bus_clk);
+	if (c_clks->clks.bus_clk)
+		clk_disable_unprepare(c_clks->clks.bus_clk);
 error_disable_iface_clk:
-	clk_disable_unprepare(c_clks->clks.iface_clk);
+	if (c_clks->clks.iface_clk)
+		clk_disable_unprepare(c_clks->clks.iface_clk);
 error_disable_mnoc_clk:
 	if (c_clks->clks.mnoc_clk)
 		clk_disable_unprepare(c_clks->clks.mnoc_clk);
 error_disable_core_clk:
-	clk_disable_unprepare(c_clks->clks.mdp_core_clk);
+	if (c_clks->clks.mdp_core_clk)
+		clk_disable_unprepare(c_clks->clks.mdp_core_clk);
 error:
 	return rc;
 }
 
 int dsi_core_clk_stop(struct dsi_core_clks *c_clks)
 {
-	if (msm_bus_scale_client_update_request(c_clks->bus_handle, 0))
-		pr_err("bus scale client disable failed\n");
-	clk_disable_unprepare(c_clks->clks.core_mmss_clk);
-	clk_disable_unprepare(c_clks->clks.bus_clk);
-	clk_disable_unprepare(c_clks->clks.iface_clk);
+	int rc = 0;
+
+	if (c_clks->bus_handle) {
+		rc = msm_bus_scale_client_update_request(c_clks->bus_handle, 0);
+		if (rc) {
+			pr_err("bus scale client disable failed, rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	if (c_clks->clks.core_mmss_clk)
+		clk_disable_unprepare(c_clks->clks.core_mmss_clk);
+
+	if (c_clks->clks.bus_clk)
+		clk_disable_unprepare(c_clks->clks.bus_clk);
+
+	if (c_clks->clks.iface_clk)
+		clk_disable_unprepare(c_clks->clks.iface_clk);
+
 	if (c_clks->clks.mnoc_clk)
 		clk_disable_unprepare(c_clks->clks.mnoc_clk);
-	clk_disable_unprepare(c_clks->clks.mdp_core_clk);
 
-	return 0;
+	if (c_clks->clks.mdp_core_clk)
+		clk_disable_unprepare(c_clks->clks.mdp_core_clk);
+
+	return rc;
 }
 
 static int dsi_link_clk_set_rate(struct dsi_link_clks *l_clks)
@@ -458,11 +488,18 @@ static int dsi_display_core_clk_enable(struct dsi_core_clks *clks,
 	 */
 
 	m_clks = &clks[master_ndx];
+	rc = sde_power_resource_enable(m_clks->clks.phandle,
+			m_clks->clks.dsi_core_client, true);
+
+	if (rc) {
+		pr_err("Power resource enable failed, rc=%d\n", rc);
+		goto error;
+	}
 
 	rc = dsi_core_clk_start(m_clks);
 	if (rc) {
 		pr_err("failed to turn on master clocks, rc=%d\n", rc);
-		goto error;
+		goto error_disable_master_resource;
 	}
 
 	/* Turn on rest of the core clocks */
@@ -471,15 +508,28 @@ static int dsi_display_core_clk_enable(struct dsi_core_clks *clks,
 		if (!clk || (clk == m_clks))
 			continue;
 
+		rc = sde_power_resource_enable(clk->clks.phandle,
+				clk->clks.dsi_core_client, true);
+		if (rc) {
+			pr_err("Power resource enable failed, rc=%d\n", rc);
+			goto error_disable_master;
+		}
+
 		rc = dsi_core_clk_start(clk);
 		if (rc) {
 			pr_err("failed to turn on clocks, rc=%d\n", rc);
+			(void)sde_power_resource_enable(clk->clks.phandle,
+					clk->clks.dsi_core_client, false);
 			goto error_disable_master;
 		}
 	}
 	return rc;
 error_disable_master:
 	(void)dsi_core_clk_stop(m_clks);
+
+error_disable_master_resource:
+	(void)sde_power_resource_enable(m_clks->clks.phandle,
+				m_clks->clks.dsi_core_client, false);
 error:
 	return rc;
 }
@@ -547,14 +597,30 @@ static int dsi_display_core_clk_disable(struct dsi_core_clks *clks,
 			continue;
 
 		rc = dsi_core_clk_stop(clk);
-		if (rc)
-			pr_err("failed to turn off clocks, rc=%d\n", rc);
+		if (rc) {
+			pr_debug("failed to turn off clocks, rc=%d\n", rc);
+			goto error;
+		}
+
+		rc = sde_power_resource_enable(clk->clks.phandle,
+				clk->clks.dsi_core_client, false);
+		if (rc) {
+			pr_err("Power resource disable failed: %d\n", rc);
+			goto error;
+		}
 	}
 
 	rc = dsi_core_clk_stop(m_clks);
-	if (rc)
+	if (rc) {
 		pr_err("failed to turn off master clocks, rc=%d\n", rc);
+		goto error;
+	}
 
+	rc = sde_power_resource_enable(m_clks->clks.phandle,
+				m_clks->clks.dsi_core_client, false);
+	if (rc)
+		pr_err("Power resource disable failed: %d\n", rc);
+error:
 	return rc;
 }
 

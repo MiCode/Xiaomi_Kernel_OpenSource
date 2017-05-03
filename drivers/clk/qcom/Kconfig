@@ -1,6 +1,7 @@
 config QCOM_GDSC
 	bool
 	select PM_GENERIC_DOMAINS if PM
+	depends on REGULATOR
 
 config COMMON_CLK_QCOM
 	tristate "Support for Qualcomm's clock controllers"
@@ -178,6 +179,15 @@ config MSM_CAMCC_SDM845
 	  Say Y if you want to support camera devices and functionality such as
 	  capturing pictures.
 
+config MSM_DISPCC_SDM845
+	tristate "SDM845 Display Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc
+	  sdm845 devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
+
 config CLOCK_QPNP_DIV
 	tristate "QPNP PMIC clkdiv driver"
 	depends on COMMON_CLK_QCOM && SPMI
@@ -195,3 +205,34 @@ config MSM_CLK_RPMH
 	  SoCs. It accepts requests from other hardware subsystems via RSC.
 	  Say Y to support the clocks managed by RPMh VRM/ARC on platforms
 	  such as sdm845.
+
+config CLOCK_CPU_OSM
+	tristate "OSM CPU Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	 Support for the OSM clock controller.
+	 Operating State Manager (OSM) is a hardware engine used by some
+	 Qualcomm Technologies, Inc. (QTI) SoCs to manage frequency and
+	 voltage scaling in hardware. OSM is capable of controlling
+	 frequency and voltage requests for multiple clusters via the
+	 existence of multiple OSM domains.
+	 Say Y if you want to support OSM clocks.
+
+config MSM_GPUCC_SDM845
+	tristate "SDM845 Graphics Clock Controller"
+	depends on MSM_GCC_SDM845
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
+	  sdm845 devices.
+	  Say Y if you want to support graphics controller devices.
+
+config MSM_CLK_AOP_QMP
+	tristate "AOP QMP Clock Driver"
+	depends on COMMON_CLK_QCOM && MSM_QMP
+	help
+	Always On Processor manages few shared clocks on some Qualcomm
+	Technologies, Inc. SoCs. It accepts requests from other hardware
+	subsystems via QMP mailboxes.
+	Say Y to support the clocks managed by AOP on platforms such as sdm845.
+
+source "drivers/clk/qcom/mdss/Kconfig"

@@ -34,6 +34,8 @@
 
 #define AAC_FORMAT_ADTS 65535
 
+#define MAX_SAMPLE_RATE_384K 384000
+
 static long aac_in_ioctl_shared(struct file *file, unsigned int cmd, void *arg)
 {
 	struct q6audio_in  *audio = file->private_data;
@@ -229,6 +231,13 @@ static long aac_in_ioctl_shared(struct file *file, unsigned int cmd, void *arg)
 		} else if (cfg->channels == 2) {
 			cfg->channels = CH_MODE_STEREO;
 		} else {
+			rc = -EINVAL;
+			break;
+		}
+
+		if (cfg->sample_rate > MAX_SAMPLE_RATE_384K) {
+			pr_err("%s: ERROR: invalid sample rate = %u",
+				__func__, cfg->sample_rate);
 			rc = -EINVAL;
 			break;
 		}
