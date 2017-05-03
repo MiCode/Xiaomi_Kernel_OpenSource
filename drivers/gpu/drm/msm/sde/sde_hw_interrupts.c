@@ -109,6 +109,15 @@
 #define SDE_INTR_PING_PONG_3_TE_DETECTED BIT(27)
 
 /**
+ * Ctl start interrupt status bit definitions
+ */
+#define SDE_INTR_CTL_0_START BIT(9)
+#define SDE_INTR_CTL_1_START BIT(10)
+#define SDE_INTR_CTL_2_START BIT(11)
+#define SDE_INTR_CTL_3_START BIT(12)
+#define SDE_INTR_CTL_4_START BIT(13)
+
+/**
  * Concurrent WB overflow interrupt status bit definitions
  */
 #define SDE_INTR_CWB_2_OVERFLOW BIT(14)
@@ -325,15 +334,21 @@ static const struct sde_irq_type sde_irq_map[] = {
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 1},
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 1},
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 1},
-	/* irq_idx: 40-43 */
+	/* irq_idx: 40 */
 	{ SDE_IRQ_TYPE_PING_PONG_RD_PTR, PINGPONG_S0,
 		SDE_INTR_PING_PONG_S0_RD_PTR, 1},
-	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 1},
-	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 1},
-	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 1},
-	/* irq_idx: 44-47 */
-	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 1},
-	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 1},
+	/* irq_idx: 41-45 */
+	{ SDE_IRQ_TYPE_CTL_START, CTL_0,
+		SDE_INTR_CTL_0_START, 1},
+	{ SDE_IRQ_TYPE_CTL_START, CTL_1,
+		SDE_INTR_CTL_1_START, 1},
+	{ SDE_IRQ_TYPE_CTL_START, CTL_2,
+		SDE_INTR_CTL_2_START, 1},
+	{ SDE_IRQ_TYPE_CTL_START, CTL_3,
+		SDE_INTR_CTL_3_START, 1},
+	{ SDE_IRQ_TYPE_CTL_START, CTL_4,
+		SDE_INTR_CTL_4_START, 1},
+	/* irq_idx: 46-47 */
 	{ SDE_IRQ_TYPE_CWB_OVERFLOW, CWB_2, SDE_INTR_CWB_2_OVERFLOW, 1},
 	{ SDE_IRQ_TYPE_CWB_OVERFLOW, CWB_3, SDE_INTR_CWB_3_OVERFLOW, 1},
 	/* irq_idx: 48-51 */
