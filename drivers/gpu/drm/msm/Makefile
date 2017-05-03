@@ -13,6 +13,7 @@ msm_drm-y := \
 	hdmi/hdmi_connector.o \
 	hdmi/hdmi_hdcp.o \
 	hdmi/hdmi_i2c.o \
+	hdmi/hdmi_util.o \
 	hdmi/hdmi_phy_8960.o \
 	hdmi/hdmi_phy_8x60.o \
 	hdmi/hdmi_phy_8x74.o \
@@ -101,6 +102,7 @@ msm_drm-$(CONFIG_DRM_MSM_DSI_STAGING) += dsi-staging/dsi_phy.o \
 				dsi-staging/dsi_display_test.o
 
 msm_drm-$(CONFIG_DRM_SDE_HDMI) += \
+	hdmi-staging/sde_hdmi_util.o \
 	hdmi-staging/sde_hdmi.o \
 	hdmi-staging/sde_hdmi_bridge.o \
 	hdmi-staging/sde_hdmi_audio.o \

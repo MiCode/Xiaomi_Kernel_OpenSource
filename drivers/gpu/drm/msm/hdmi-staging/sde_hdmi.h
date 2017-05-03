@@ -29,6 +29,7 @@
 #include "sde_connector.h"
 #include "msm_drv.h"
 #include "sde_edid_parser.h"
+#include "sde_hdmi_util.h"
 
 #ifdef HDMI_DEBUG_ENABLE
 #define SDE_HDMI_DEBUG(fmt, args...)   SDE_ERROR(fmt, ##args)
@@ -130,6 +131,7 @@ struct sde_hdmi {
 	u32 max_pclk_khz;
 	bool hdcp1_use_sw_keys;
 	u32 hdcp14_present;
+	struct sde_hdmi_tx_ddc_ctrl ddc_ctrl;
 	struct work_struct hpd_work;
 	bool codec_ready;
 	bool client_notify_pending;
@@ -336,32 +338,6 @@ struct drm_bridge *sde_hdmi_bridge_init(struct hdmi *hdmi);
  * Return: void.
  */
 void sde_hdmi_set_mode(struct hdmi *hdmi, bool power_on);
-
-/**
- * sde_hdmi_ddc_read() - common hdmi ddc read API.
- * @hdmi:          Handle to the hdmi.
- * @addr:          Command address.
- * @offset:        Command offset.
- * @data:          Data buffer for read back.
- * @data_len:      Data buffer length.
- *
- * Return: error code.
- */
-int sde_hdmi_ddc_read(struct hdmi *hdmi, u16 addr, u8 offset,
-					  u8 *data, u16 data_len);
-
-/**
- * sde_hdmi_ddc_write() - common hdmi ddc write API.
- * @hdmi:          Handle to the hdmi.
- * @addr:          Command address.
- * @offset:        Command offset.
- * @data:          Data buffer for write.
- * @data_len:      Data buffer length.
- *
- * Return: error code.
- */
-int sde_hdmi_ddc_write(struct hdmi *hdmi, u16 addr, u8 offset,
-					   u8 *data, u16 data_len);
 
 /**
  * sde_hdmi_scdc_read() - hdmi 2.0 ddc read API.

@@ -30,6 +30,7 @@
 #include "msm_drv.h"
 #include "sde_hdmi.h"
 #include "sde_hdmi_regs.h"
+#include "hdmi.h"
 
 static DEFINE_MUTEX(sde_hdmi_list_lock);
 static LIST_HEAD(sde_hdmi_list);
@@ -917,6 +918,12 @@ static void _sde_hdmi_cec_update_phys_addr(struct sde_hdmi *display)
 	else
 		cec_notifier_set_phys_addr(display->notifier,
 			CEC_PHYS_ADDR_INVALID);
+
+}
+
+static void _sde_hdmi_init_ddc(struct sde_hdmi *display, struct hdmi *hdmi)
+{
+	display->ddc_ctrl.io = &display->io[HDMI_TX_CORE_IO];
 }
 
 static void _sde_hdmi_map_regs(struct sde_hdmi *display, struct hdmi *hdmi)
@@ -1200,83 +1207,7 @@ void sde_hdmi_set_mode(struct hdmi *hdmi, bool power_on)
 			power_on ? "Enable" : "Disable", ctrl);
 }
 
-int sde_hdmi_ddc_read(struct hdmi *hdmi, u16 addr, u8 offset,
-					  u8 *data, u16 data_len)
-{
-	int rc;
-	int retry = 5;
-	struct i2c_msg msgs[] = {
-		{
-			.addr   = addr >> 1,
-			.flags  = 0,
-			.len    = 1,
-			.buf    = &offset,
-		}, {
-			.addr   = addr >> 1,
-			.flags  = I2C_M_RD,
-			.len    = data_len,
-			.buf    = data,
-		}
-	};
-
-	SDE_HDMI_DEBUG("Start DDC read");
- retry:
-	rc = i2c_transfer(hdmi->i2c, msgs, 2);
-
-	retry--;
-	if (rc == 2)
-		rc = 0;
-	else if (retry > 0)
-		goto retry;
-	else
-		rc = -EIO;
-
-	SDE_HDMI_DEBUG("End DDC read %d", rc);
-
-	return rc;
-}
-
 #define DDC_WRITE_MAX_BYTE_NUM 32
-
-int sde_hdmi_ddc_write(struct hdmi *hdmi, u16 addr, u8 offset,
-					   u8 *data, u16 data_len)
-{
-	int rc;
-	int retry = 10;
-	u8 buf[DDC_WRITE_MAX_BYTE_NUM];
-	struct i2c_msg msgs[] = {
-		{
-			.addr   = addr >> 1,
-			.flags  = 0,
-			.len    = 1,
-		}
-	};
-
-	SDE_HDMI_DEBUG("Start DDC write");
-	if (data_len > (DDC_WRITE_MAX_BYTE_NUM - 1)) {
-		SDE_ERROR("%s: write size too big\n", __func__);
-		return -ERANGE;
-	}
-
-	buf[0] = offset;
-	memcpy(&buf[1], data, data_len);
-	msgs[0].buf = buf;
-	msgs[0].len = data_len + 1;
- retry:
-	rc = i2c_transfer(hdmi->i2c, msgs, 1);
-
-	retry--;
-	if (rc == 1)
-		rc = 0;
-	else if (retry > 0)
-		goto retry;
-	else
-		rc = -EIO;
-
-	SDE_HDMI_DEBUG("End DDC write %d", rc);
-
-	return rc;
-}
 
 int sde_hdmi_scdc_read(struct hdmi *hdmi, u32 data_type, u32 *val)
 {
@@ -1334,7 +1265,8 @@ int sde_hdmi_scdc_read(struct hdmi *hdmi, u32 data_type, u32 *val)
 		break;
 	}
 
-	rc = sde_hdmi_ddc_read(hdmi, dev_addr, offset, data_buf, data_len);
+	rc = hdmi_ddc_read(hdmi, dev_addr, offset, data_buf,
+					   data_len, true);
 	if (rc) {
 		SDE_ERROR("DDC Read failed for %d\n", data_type);
 		return rc;
@@ -1406,8 +1338,8 @@ int sde_hdmi_scdc_write(struct hdmi *hdmi, u32 data_type, u32 val)
 		dev_addr = 0xA8;
 		data_len = 1;
 		offset = HDMI_SCDC_TMDS_CONFIG;
-		rc = sde_hdmi_ddc_read(hdmi, dev_addr, offset, &read_val,
-							   data_len);
+		rc = hdmi_ddc_read(hdmi, dev_addr, offset, &read_val,
+						   data_len, true);
 		if (rc) {
 			SDE_ERROR("scdc read failed\n");
 			return rc;
@@ -1431,7 +1363,8 @@ int sde_hdmi_scdc_write(struct hdmi *hdmi, u32 data_type, u32 val)
 		return -EINVAL;
 	}
 
-	rc = sde_hdmi_ddc_write(hdmi, dev_addr, offset, data_buf, data_len);
+	rc = hdmi_ddc_write(hdmi, dev_addr, offset, data_buf,
+						data_len, true);
 	if (rc) {
 		SDE_ERROR("DDC Read failed for %d\n", data_type);
 		return rc;
@@ -1861,6 +1794,7 @@ static int sde_hdmi_bind(struct device *dev, struct device *master, void *data)
 	display->drm_dev = drm;
 
 	_sde_hdmi_map_regs(display, priv->hdmi);
+	_sde_hdmi_init_ddc(display, priv->hdmi);
 
 	mutex_unlock(&display->display_lock);
 	return rc;
