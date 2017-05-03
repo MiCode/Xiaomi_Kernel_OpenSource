@@ -443,6 +443,49 @@ enum bpf_func_id {
 	 */
 	BPF_FUNC_set_hash_invalid,
 
+	/**
+	 * int bpf_get_numa_node_id()
+	 *     Return: Id of current NUMA node.
+	 */
+	BPF_FUNC_get_numa_node_id,
+
+	/**
+	 * int bpf_skb_change_head()
+	 *     Grows headroom of skb and adjusts MAC header offset accordingly.
+	 *     Will extends/reallocae as required automatically.
+	 *     May change skb data pointer and will thus invalidate any check
+	 *     performed for direct packet access.
+	 *     @skb: pointer to skb
+	 *     @len: length of header to be pushed in front
+	 *     @flags: Flags (unused for now)
+	 *     Return: 0 on success or negative error
+	 */
+	BPF_FUNC_skb_change_head,
+
+	/**
+	 * int bpf_xdp_adjust_head(xdp_md, delta)
+	 *     Adjust the xdp_md.data by delta
+	 *     @xdp_md: pointer to xdp_md
+	 *     @delta: An positive/negative integer to be added to xdp_md.data
+	 *     Return: 0 on success or negative on error
+	 */
+	BPF_FUNC_xdp_adjust_head,
+
+	/**
+	 * int bpf_probe_read_str(void *dst, int size, const void *unsafe_ptr)
+	 *     Copy a NUL terminated string from unsafe address. In case the string
+	 *     length is smaller than size, the target is not padded with further NUL
+	 *     bytes. In case the string length is larger than size, just count-1
+	 *     bytes are copied and the last byte is set to NUL.
+	 *     @dst: destination address
+	 *     @size: maximum number of bytes to copy, including the trailing NUL
+	 *     @unsafe_ptr: unsafe address
+	 *     Return:
+	 *       > 0 length of the string including the trailing NUL on success
+	 *       < 0 error
+	 */
+	BPF_FUNC_probe_read_str,
+
 	__BPF_FUNC_MAX_ID,
 };
 
