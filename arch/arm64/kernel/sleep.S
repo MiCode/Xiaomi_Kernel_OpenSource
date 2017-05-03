@@ -82,7 +82,6 @@ ENTRY(__cpu_suspend_enter)
 	str	x2, [x0, #CPU_CTX_SP]
 	ldr	x1, =sleep_save_sp
 	ldr	x1, [x1, #SLEEP_SAVE_SP_VIRT]
-#ifdef CONFIG_SMP
 	mrs	x7, mpidr_el1
 	ldr	x9, =mpidr_hash
 	ldr	x10, [x9, #MPIDR_HASH_MASK]
@@ -94,7 +93,6 @@ ENTRY(__cpu_suspend_enter)
 	ldp	w5, w6, [x9, #(MPIDR_HASH_SHIFTS + 8)]
 	compute_mpidr_hash x8, x3, x4, x5, x6, x7, x10
 	add	x1, x1, x8, lsl #3
-#endif
 	bl	__cpu_suspend_save
 	/*
 	 * Grab suspend finisher in x20 and its argument in x19
@@ -134,6 +132,14 @@ ENTRY(cpu_resume_mmu)
 	ldr	x3, =cpu_resume_after_mmu
 	msr	sctlr_el1, x0		// restore sctlr_el1
 	isb
+	/*
+	 * Invalidate the local I-cache so that any instructions fetched
+	 * speculatively from the PoC are discarded, since they may have
+	 * been dynamically patched at the PoU.
+	 */
+	ic	iallu
+	dsb	nsh
+	isb
 	br	x3			// global jump to virtual address
 ENDPROC(cpu_resume_mmu)
 cpu_resume_after_mmu:
@@ -149,7 +155,6 @@ ENDPROC(cpu_resume_after_mmu)
 
 ENTRY(cpu_resume)
 	bl	el2_setup		// if in EL2 drop to EL1 cleanly
-#ifdef CONFIG_SMP
 	mrs	x1, mpidr_el1
 	adrp	x8, mpidr_hash
 	add x8, x8, #:lo12:mpidr_hash // x8 = struct mpidr_hash phys address
@@ -159,9 +164,6 @@ ENTRY(cpu_resume)
 	ldp	w5, w6, [x8, #(MPIDR_HASH_SHIFTS + 8)]
 	compute_mpidr_hash x7, x3, x4, x5, x6, x1, x2
         /* x7 contains hash index, let's use it to grab context pointer */
-#else
-	mov	x7, xzr
-#endif
 	adrp	x0, sleep_save_sp
 	add	x0, x0, #:lo12:sleep_save_sp
 	ldr	x0, [x0, #SLEEP_SAVE_SP_PHYS]
@@ -172,6 +174,9 @@ ENTRY(cpu_resume)
 	/* load physical address of identity map page table in x1 */
 	ldr	x1, [x1, #:lo12:sleep_idmap_phys]
 	mov	sp, x2
+	/* save thread_info */
+	and	x2, x2, #~(THREAD_SIZE - 1)
+	msr	sp_el0, x2
 	/*
 	 * cpu_do_resume expects x0 to contain context physical address
 	 * pointer and x1 to contain physical address of 1:1 page tables

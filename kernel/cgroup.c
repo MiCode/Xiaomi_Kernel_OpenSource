@@ -2326,7 +2326,6 @@ static int cgroup_attach_task(struct cgroup *dst_cgrp,
 	cgroup_migrate_finish(&preloaded_csets);
 	return ret;
 }
-
 int subsys_cgroup_allow_attach(struct cgroup_subsys_state *css, struct cgroup_taskset *tset)
 {
 	const struct cred *cred = current_cred(), *tcred;
@@ -2341,25 +2340,6 @@ int subsys_cgroup_allow_attach(struct cgroup_subsys_state *css, struct cgroup_ta
 		if (current != task && !uid_eq(cred->euid, tcred->uid) &&
 		    !uid_eq(cred->euid, tcred->suid))
 			return -EACCES;
-	}
-
-	return 0;
-}
-
-static int cgroup_allow_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
-{
-	struct cgroup_subsys_state *css;
-	int i;
-	int ret;
-
-	for_each_css(css, i, cgrp) {
-		if (css->ss->allow_attach) {
-			ret = css->ss->allow_attach(css, tset);
-			if (ret)
-				return ret;
-		} else {
-			return -EACCES;
-		}
 	}
 
 	return 0;
@@ -2402,25 +2382,11 @@ retry_find_task:
 		tcred = __task_cred(tsk);
 		if (!uid_eq(cred->euid, GLOBAL_ROOT_UID) &&
 		    !uid_eq(cred->euid, tcred->uid) &&
-		    !uid_eq(cred->euid, tcred->suid)) {
-			/*
-			 * if the default permission check fails, give each
-			 * cgroup a chance to extend the permission check
-			 */
-			struct cgroup_taskset tset = {
-				.src_csets = LIST_HEAD_INIT(tset.src_csets),
-				.dst_csets = LIST_HEAD_INIT(tset.dst_csets),
-				.csets = &tset.src_csets,
-			};
-			struct css_set *cset;
-			cset = task_css_set(tsk);
-			list_add(&cset->mg_node, &tset.src_csets);
-			ret = cgroup_allow_attach(cgrp, &tset);
-			list_del_init(&cset->mg_node);
-			if (ret) {
-				rcu_read_unlock();
-				goto out_unlock_cgroup;
-			}
+		    !uid_eq(cred->euid, tcred->suid) &&
+		    !ns_capable(tcred->user_ns, CAP_SYS_RESOURCE)) {
+			rcu_read_unlock();
+			ret = -EACCES;
+			goto out_unlock_cgroup;
 		}
 	} else
 		tsk = current;
