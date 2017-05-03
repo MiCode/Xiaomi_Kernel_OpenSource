@@ -920,6 +920,8 @@ int create_pkt_cmd_session_set_property(
 	pkt->session_id = hash32_ptr(session);
 	pkt->num_properties = 1;
 
+	dprintk(VIDC_DBG, "Setting HAL Property = 0x%x\n", ptype);
+
 	switch (ptype) {
 	case HAL_CONFIG_FRAME_RATE:
 	{

@@ -964,8 +964,8 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 
 	if (!rc && property_id) {
 		dprintk(VIDC_DBG,
-			"Control: HAL property=%#x,ctrl: id=%#x,value=%#x\n",
-			property_id, ctrl->id, ctrl->val);
+			"Control: Name = %s, ID = 0x%x Value = %d\n",
+				ctrl->name, ctrl->id, ctrl->val);
 		rc = call_hfi_op(hdev, session_set_property, (void *)
 				inst->session, property_id, pdata);
 	}
