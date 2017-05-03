@@ -26,12 +26,10 @@ int msm_vidc_fw_debug_mode = 1;
 int msm_vidc_fw_low_power_mode = 1;
 int msm_vidc_hw_rsp_timeout = 2000;
 bool msm_vidc_fw_coverage = !true;
-bool msm_vidc_dec_dcvs_mode = true;
-bool msm_vidc_enc_dcvs_mode = true;
 bool msm_vidc_sys_idle_indicator = !true;
 int msm_vidc_firmware_unload_delay = 15000;
 bool msm_vidc_thermal_mitigation_disabled = !true;
-bool msm_vidc_bitrate_clock_scaling = true;
+bool msm_vidc_clock_scaling = true;
 bool msm_vidc_debug_timeout = !true;
 
 #define MAX_DBG_BUF_SIZE 4096
@@ -174,8 +172,6 @@ struct dentry *msm_vidc_debugfs_init_drv(void)
 	__debugfs_create(x32, "fw_level", &msm_vidc_fw_debug) &&
 	__debugfs_create(u32, "fw_debug_mode", &msm_vidc_fw_debug_mode) &&
 	__debugfs_create(bool, "fw_coverage", &msm_vidc_fw_coverage) &&
-	__debugfs_create(bool, "dcvs_dec_mode", &msm_vidc_dec_dcvs_mode) &&
-	__debugfs_create(bool, "dcvs_enc_mode", &msm_vidc_enc_dcvs_mode) &&
 	__debugfs_create(u32, "fw_low_power_mode",
 			&msm_vidc_fw_low_power_mode) &&
 	__debugfs_create(u32, "debug_output", &msm_vidc_debug_out) &&
@@ -186,8 +182,8 @@ struct dentry *msm_vidc_debugfs_init_drv(void)
 			&msm_vidc_firmware_unload_delay) &&
 	__debugfs_create(bool, "disable_thermal_mitigation",
 			&msm_vidc_thermal_mitigation_disabled) &&
-	__debugfs_create(bool, "bitrate_clock_scaling",
-			&msm_vidc_bitrate_clock_scaling) &&
+	__debugfs_create(bool, "clock_scaling",
+			&msm_vidc_clock_scaling) &&
 	__debugfs_create(bool, "debug_timeout",
 			&msm_vidc_debug_timeout);
 
