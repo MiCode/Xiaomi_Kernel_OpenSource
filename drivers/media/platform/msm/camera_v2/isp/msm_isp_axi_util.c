@@ -841,7 +841,6 @@ static void msm_isp_sync_dual_cam_frame_id(
 		}
 	}
 
-	WARN_ON(ms_res->dual_sync_mode == MSM_ISP_DUAL_CAM_ASYNC);
 	/* find highest frame id */
 	for (i = 0; i < MAX_VFE * VFE_SRC_MAX; i++) {
 		if (ms_res->src_info[i] == NULL)
@@ -915,7 +914,7 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 			 */
 			if (ms_res->src_sof_mask & (1 <<
 				src_info->dual_hw_ms_info.index)) {
-				pr_err("Frame out of sync on vfe %d\n",
+				pr_err_ratelimited("Frame out of sync on vfe %d\n",
 					vfe_dev->pdev->id);
 				/*
 				 * set this isp as async mode to force
