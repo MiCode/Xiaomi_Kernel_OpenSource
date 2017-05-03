@@ -61,7 +61,7 @@
 #define TRUE   1
 #define FALSE  0
 
-#define CSID_TIMEOUT msecs_to_jiffies(100)
+#define CSID_TIMEOUT msecs_to_jiffies(500)
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)

@@ -152,7 +152,12 @@
 			gpio@c000 {
 				reg = <0xc000 0x100>;
 				qcom,pin-num = <1>;
-				status = "disabled";
+				qcom,mode = <1>;
+				qcom,pull = <4>;
+				qcom,src-sel = <2>;
+				qcom,master-en = <1>;
+				qcom,out-strength = <2>;
+				status = "okay";
 			};
 
 			gpio@c100 {
@@ -203,19 +208,19 @@
 			#size-cells = <1>;
 
 			qcom,iterm-ma = <100>;
-			qcom,float-voltage-mv = <4200>;
-			qcom,resume-delta-mv = <200>;
+			qcom,float-voltage-mv = <4400>;
+			qcom,resume-delta-mv = <50>;
 			qcom,chg-inhibit-fg;
+			qcom,charge-unknown-battery;
 			qcom,rparasitic-uohm = <100000>;
 			qcom,bms-psy-name = "bms";
 			qcom,thermal-mitigation = <1500 700 600 0>;
-			qcom,parallel-usb-min-current-ma = <1400>;
-			qcom,parallel-usb-9v-min-current-ma = <900>;
-			qcom,parallel-allowed-lowering-ma = <500>;
 			qcom,pmic-revid = <&pmi8950_revid>;
 			qcom,force-aicl-rerun;
 			qcom,aicl-rerun-period-s = <180>;
 			qcom,autoadjust-vfloat;
+			qcom,fastchg-current-comp = <900>;
+			qcom,float-voltage-comp = <11>;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
@@ -317,16 +322,18 @@
 			compatible = "qcom,qpnp-fg";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			qcom,resume-soc = <95>;
+			qcom,resume-soc = <99>;
 			status = "okay";
 			qcom,bcl-lm-threshold-ma = <127>;
 			qcom,bcl-mh-threshold-ma = <405>;
 			qcom,fg-iterm-ma = <150>;
 			qcom,fg-chg-iterm-ma = <100>;
 			qcom,pmic-revid = <&pmi8950_revid>;
-			qcom,fg-cutoff-voltage-mv = <3500>;
+			qcom,fg-cutoff-voltage-mv = <3400>;
 			qcom,cycle-counter-en;
 			qcom,capacity-learning-on;
+			qcom,fg-cc-cv-threshold-mv = <4380>;
+			qcom,fg-vbat-estimate-diff-mv = <200>;
 
 			qcom,fg-soc@4000 {
 			status = "okay";
@@ -419,7 +426,7 @@
 		#size-cells = <1>;
 
 		pmi8950_pwm: pwm@b000 {
-			status = "disabled";
+			status = "okay";
 			compatible = "qcom,qpnp-pwm";
 			reg = <0xb000 0x100>;
 			reg-names = "qpnp-lpg-channel-base";
@@ -530,7 +537,7 @@
 			qcom,fs-curr-ua = <20000>;
 			qcom,ibb-pwrup-dly = <8>;
 			qcom,led-strings-list = [00 01];
-			qcom,en-ext-pfet-sc-pro;
+			qcom,en-cabc;
 		};
 
 		flash_led: qcom,leds@d300 {
@@ -576,6 +583,16 @@
 				qcom,duration = <1280>;
 				qcom,id = <1>;
 				qcom,current = <625>;
+			};
+
+			pmi8950_flashlight: qcom,flashlight {
+				label = "torch";
+				qcom,led-name = "flashlight";
+				qcom,default-led-trigger =
+						"torch0_trigger";
+				qcom,max-current = <200>;
+				qcom,id = <0>;
+				qcom,current = <120>;
 			};
 
 			pmi8950_torch0: qcom,torch_0 {
@@ -624,7 +641,7 @@
 			qcom,wave-play-rate-us = <5263>;
 			qcom,actuator-type = "erm";
 			qcom,wave-shape = "square";
-			qcom,vmax-mv = <2000>;
+			qcom,vmax-mv = <3000>;
 			qcom,ilim-ma = <800>;
 			qcom,sc-deb-cycles = <8>;
 			qcom,int-pwm-freq-khz = <505>;

@@ -1024,6 +1024,7 @@ static int msm_compr_ioctl_shared(struct snd_pcm_substream *substream,
 			struct snd_dec_ddp *ddp =
 				&compr->info.codec_param.codec.options.ddp;
 			uint32_t params_length = 0;
+			memset(params_value, 0, MAX_AC3_PARAM_SIZE);
 			/* check integer overflow */
 			if (ddp->params_length > UINT_MAX/sizeof(int)) {
 				pr_err("%s: Integer overflow ddp->params_length %d\n",
@@ -1064,12 +1065,14 @@ static int msm_compr_ioctl_shared(struct snd_pcm_substream *substream,
 			struct snd_dec_ddp *ddp =
 				&compr->info.codec_param.codec.options.ddp;
 			uint32_t params_length = 0;
+			memset(params_value, 0, MAX_AC3_PARAM_SIZE);
 			/* check integer overflow */
 			if (ddp->params_length > UINT_MAX/sizeof(int)) {
 				pr_err("%s: Integer overflow ddp->params_length %d\n",
 				__func__, ddp->params_length);
 				return -EINVAL;
 			}
+			params_length = ddp->params_length*sizeof(int);
 			if (params_length > MAX_AC3_PARAM_SIZE) {
 				/*MAX is 36*sizeof(int) this should not happen*/
 				pr_err("%s: params_length(%d) is greater than %zd\n",

@@ -547,6 +547,32 @@ config TOUCHSCREEN_EDT_FT5X06
 	  To compile this driver as a module, choose M here: the
 	  module will be called edt-ft5x06.
 
+config TOUCHSCREEN_FT5435
+	tristate "FocalTech touchscreens"
+	depends on I2C
+	help
+	  Say Y here if you have a ft5435 touchscreen.
+	  Ft5435 controllers are multi touch controllers which can
+	  report 5 touches at a time.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ft5435_ts.
+
+config TOUCHSCREEN_IST3038C
+	tristate "imagies touchscreens"
+	depends on I2C
+	help
+	  Say Y here if you have a ist3038c touchscreen.
+	  Ft5x06 controllers are multi touch controllers which can
+	  report 5 touches at a time.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ist3038c_ts.
+
 config TOUCHSCREEN_MIGOR
 	tristate "Renesas MIGO-R touchscreen"
 	depends on SH_MIGOR && I2C
@@ -867,10 +893,10 @@ config TOUCHSCREEN_TSC_SERIO
 	  module will be called tsc40.
 
 config TOUCHSCREEN_TSC2005
-        tristate "TSC2005 based touchscreens"
-        depends on SPI_MASTER
-        help
-          Say Y here if you have a TSC2005 based touchscreen.
+	tristate "TSC2005 based touchscreens"
+	depends on SPI_MASTER
+	help
+	  Say Y here if you have a TSC2005 based touchscreen.
 
 	  If unsure, say N.
 
@@ -1049,8 +1075,8 @@ config TOUCHSCREEN_FT5X06
 
          If unsure, say N.
 
-         To compile this driver as a module, choose M here: the
-         module will be called ft5x06_ts.
+	 To compile this driver as a module, choose M here: the
+	 module will be called ft5x06_ts.
 
 config FT_SECURE_TOUCH
 	bool "Secure Touch support for Focaltech Touchscreen"
@@ -1126,6 +1152,5 @@ config TOUCHSCREEN_MAXIM_STI
 	  To compile this driver as a module, choose M here: the
 	  module will be called maxim_sti.
 
-source "drivers/input/touchscreen/gt9xx/Kconfig"
 
 endif

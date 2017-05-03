@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -852,6 +853,8 @@ static void qusb_phy_shutdown(struct usb_phy *phy)
 	wmb();
 
 	qusb_phy_enable_clocks(qphy, false);
+	qusb_phy_enable_power(qphy, false);
+
 }
 
 /**

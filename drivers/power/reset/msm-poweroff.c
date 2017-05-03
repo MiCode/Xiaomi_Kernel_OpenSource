@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,7 +48,7 @@
 
 
 static int restart_mode;
-static void *restart_reason, *dload_type_addr;
+static void *restart_reason;
 static bool scm_pmic_arbiter_disable_supported;
 static bool scm_deassert_ps_hold_supported;
 /* Download mode master kill-switch */
@@ -60,12 +61,13 @@ static void scm_disable_sdi(void);
  * So the SDI cannot be re-enabled when it already by-passed.
 */
 static int download_mode = 1;
-static struct kobject dload_kobj;
 
 #ifdef CONFIG_MSM_DLOAD_MODE
 #define EDL_MODE_PROP "qcom,msm-imem-emergency_download_mode"
 #define DL_MODE_PROP "qcom,msm-imem-download_mode"
 
+static struct kobject dload_kobj;
+static void *dload_type_addr;
 static int in_panic;
 static void *dload_mode_addr;
 static bool dload_mode_enabled;
@@ -149,7 +151,7 @@ static bool get_dload_mode(void)
 
 static void enable_emergency_dload_mode(void)
 {
-	int ret;
+
 
 	if (emergency_dload_mode_addr) {
 		__raw_writel(EMERGENCY_DLOAD_MAGIC1,
@@ -167,9 +169,6 @@ static void enable_emergency_dload_mode(void)
 		mb();
 	}
 
-	ret = scm_set_dload_mode(SCM_EDLOAD_MODE, 0);
-	if (ret)
-		pr_err("Failed to set secure EDLOAD mode: %d\n", ret);
 }
 
 static int dload_set(const char *val, struct kernel_param *kp)
@@ -284,6 +283,8 @@ static void msm_restart_prepare(const char *cmd)
 		need_warm_reset = (get_dload_mode() ||
 				(cmd != NULL && cmd[0] != '\0'));
 	}
+
+	printk("%s():need_warm_reset=%d\n", __func__, need_warm_reset);
 
 	/* Hard reset the PMIC unless memory contents must be maintained. */
 	if (need_warm_reset) {
@@ -403,6 +404,7 @@ static void do_msm_poweroff(void)
 	return;
 }
 
+#ifdef CONFIG_MSM_DLOAD_MODE
 static ssize_t attr_show(struct kobject *kobj, struct attribute *attr,
 				char *buf)
 {
@@ -480,6 +482,7 @@ static struct attribute *reset_attrs[] = {
 static struct attribute_group reset_attr_group = {
 	.attrs = reset_attrs,
 };
+#endif
 
 static int msm_restart_probe(struct platform_device *pdev)
 {

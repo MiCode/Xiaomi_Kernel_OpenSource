@@ -123,11 +123,22 @@ config IR_XMP_DECODER
 	---help---
 	   Enable this option if you have IR with XMP protocol, and
 	   if the IR is decoded in software
+
+config IR_DUMP_DECODER
+	tristate "Enable IR dump decoder for debugging purpose"
+	depends on RC_CORE
+	default n
+
+	---help---
+	   Enable this option if you have an infrared remote control which
+	   you want to dump the IR signal.
+
 endif #RC_DECODERS
 
 menuconfig RC_DEVICES
 	bool "Remote Controller devices"
 	depends on RC_CORE
+	default y
 
 if RC_DEVICES
 
@@ -340,6 +351,25 @@ config IR_GPIO_CIR
 
 	   To compile this driver as a module, choose M here: the module will
 	   be called gpio-ir-recv.
+
+
+config IR_GPIO
+	tristate "GPIO IR remote control"
+	depends on RC_CORE
+	---help---
+	   Say Y if you want to use GPIO based IR.
+
+	   To compile this driver as a module, choose M here: the module will
+	   be called gpio-ir.
+
+config IR_PWM
+	tristate "PWM IR remote control"
+	depends on RC_CORE
+	---help---
+	   Say Y if you want to use PWM based IR.
+
+	   To compile this driver as a module, choose M here: the module will
+	   be called pwm-ir.
 
 config RC_ST
 	tristate "ST remote control receiver"

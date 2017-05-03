@@ -1,0 +1,61 @@
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,qrd_msm8953_sku1_4000mah {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <4000>;
+	qcom,batt-id-kohm = <33>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "qrd_msm8953_sku1_4000mah";
+	qcom,fastchg-current-ma = <2000>;
+	qcom,fg-cc-cv-threshold-mv = <4390>;
+	qcom,chg-rslow-comp-c1 = <6733839>;
+	qcom,chg-rslow-comp-c2 = <23336040>;
+	qcom,chg-rs-to-rslow = <1049243>;
+	qcom,chg-rslow-comp-thr = <0xDB>;
+	qcom,checksum = <0x7E2A>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.14";
+	qcom,fg-profile-data = [
+		C6 83 8A 77
+		3E 80 84 75
+		72 83 A1 7C
+		A0 90 FC 97
+		3F 82 09 99
+		92 B7 97 C3
+		4C 14 EB 83
+		A7 7C CE 80
+		79 76 60 83
+		3B 64 34 88
+		19 94 49 82
+		07 9A 7F BD
+		BF CA 53 0D
+		32 0B 68 59
+		14 70 71 FD
+		8C 28 9C 45
+		3F 21 00 00
+		B6 47 FE 30
+		0B 40 00 00
+		00 00 00 00
+		00 00 00 00
+		3A 70 78 6B
+		F7 77 7F 88
+		32 7C F2 70
+		64 75 0B 79
+		2B 77 F3 6B
+		CA 70 7D B1
+		21 57 6B 6B
+		6D A0 71 0C
+		28 00 FF 36
+		F0 11 30 03
+		00 00 00 0C
+	];
+};

@@ -790,7 +790,7 @@ out:
 	mmc_free_ext_csd(bw_ext_csd);
 	return err;
 }
-
+MMC_DEV_ATTR(hq_fw_version, "0x%08x\n", card->ext_csd.fw_version);
 MMC_DEV_ATTR(cid, "%08x%08x%08x%08x\n", card->raw_cid[0], card->raw_cid[1],
 	card->raw_cid[2], card->raw_cid[3]);
 MMC_DEV_ATTR(csd, "%08x%08x%08x%08x\n", card->raw_csd[0], card->raw_csd[1],
@@ -814,6 +814,7 @@ MMC_DEV_ATTR(enhanced_rpmb_supported, "%#x\n",
 MMC_DEV_ATTR(rel_sectors, "%#x\n", card->ext_csd.rel_sectors);
 
 static struct attribute *mmc_std_attrs[] = {
+	&dev_attr_hq_fw_version.attr,
 	&dev_attr_cid.attr,
 	&dev_attr_csd.attr,
 	&dev_attr_date.attr,
@@ -2378,12 +2379,6 @@ static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 			goto out;
 	}
 
-	if (mmc_card_doing_auto_bkops(host->card)) {
-		err = mmc_set_auto_bkops(host->card, false);
-		if (err)
-			goto out;
-	}
-
 	err = mmc_flush_cache(host->card);
 	if (err)
 		goto out;
@@ -2462,9 +2457,6 @@ static int mmc_partial_init(struct mmc_host *host)
 	}
 	pr_debug("%s: %s: reading and comparing ext_csd successful\n",
 		mmc_hostname(host), __func__);
-
-	if (mmc_card_support_auto_bkops(host->card))
-		(void)mmc_set_auto_bkops(host->card, true);
 
 	if (card->ext_csd.cmdq_support && (card->host->caps2 &
 					   MMC_CAP2_CMD_QUEUE)) {

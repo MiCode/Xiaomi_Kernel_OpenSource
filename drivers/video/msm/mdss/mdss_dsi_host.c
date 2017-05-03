@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1186,6 +1187,27 @@ int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	return ret;
 }
 
+extern u32 te_count;
+static u32 te_count_old = 1;
+
+int mdss_dsi_TE_NT35596_check (struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	int ret = 1;
+
+	if (te_count_old != te_count) {
+
+		te_count_old = te_count;
+	} else {
+		ret = 0;
+		pr_err("liujia te_count doesnt add as time");
+	}
+	if (te_count >= 10000)
+		te_count = 0;
+
+	return ret;
+
+}
+
 void mdss_dsi_dsc_config(struct mdss_dsi_ctrl_pdata *ctrl, struct dsc_desc *dsc)
 {
 	u32 data, offset;
@@ -2303,7 +2325,8 @@ void mdss_dsi_wait4video_done(struct mdss_dsi_ctrl_pdata *ctrl)
 
 	/* DSI_INTL_CTRL */
 	data = MIPI_INP((ctrl->ctrl_base) + 0x0110);
-	data &= DSI_INTR_TOTAL_MASK;
+	/* clear previous VIDEO_DONE interrupt as well */
+       data &= (DSI_INTR_TOTAL_MASK | DSI_INTR_VIDEO_DONE);
 	data |= DSI_INTR_VIDEO_DONE_MASK;
 
 	MIPI_OUTP((ctrl->ctrl_base) + 0x0110, data);
@@ -2958,6 +2981,13 @@ static bool mdss_dsi_fifo_status(struct mdss_dsi_ctrl_pdata *ctrl)
 		MIPI_OUTP(base + 0x000c, status);
 
 		pr_err("%s: status=%x\n", __func__, status);
+
+		/*
+		* if DSI FIFO overflow is masked,
+		* do not report overflow error
+		*/
+		if (MIPI_INP(base + 0x10c) & 0xf0000)
+			status = status & 0xaaaaffff;
 
 		if (status & 0x44440000) {/* DLNx_HS_FIFO_OVERFLOW */
 			dsi_send_events(ctrl, DSI_EV_DLNx_FIFO_OVERFLOW, 0);

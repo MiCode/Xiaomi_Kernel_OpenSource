@@ -794,6 +794,11 @@ config MSM_REMOTEQDSS
 	  enable/disable these events. Interface located in
 	  /sys/class/remoteqdss.
 
+config SERIAL_NUM
+	bool "Enable Serial Number Proc Interface"
+	help
+	  Provide a interface for reading CPU serial number
+
 source "drivers/soc/qcom/memshare/Kconfig"
 
 endif # ARCH_MSM

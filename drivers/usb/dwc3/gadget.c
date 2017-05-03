@@ -2,6 +2,7 @@
  * gadget.c - DesignWare USB3 DRD Controller Gadget Framework Link
  *
  * Copyright (C) 2010-2011 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2017 XiaoMi, Inc.
  *
  * Authors: Felipe Balbi <balbi@ti.com>,
  *	    Sebastian Andrzej Siewior <bigeasy@linutronix.de>
@@ -334,7 +335,7 @@ int dwc3_send_gadget_ep_cmd(struct dwc3 *dwc, unsigned ep,
 		unsigned cmd, struct dwc3_gadget_ep_cmd_params *params)
 {
 	struct dwc3_ep		*dep = dwc->eps[ep];
-	u32			timeout = 1500;
+	u32			timeout = 3000;
 	u32			reg;
 
 	trace_dwc3_gadget_ep_cmd(dep, cmd, params);
@@ -371,6 +372,10 @@ int dwc3_send_gadget_ep_cmd(struct dwc3 *dwc, unsigned ep,
 		if (!timeout) {
 			dev_err(dwc->dev, "%s command timeout for %s\n",
 				dwc3_gadget_ep_cmd_string(cmd), dep->name);
+			if (!(cmd & DWC3_DEPCMD_ENDTRANSFER)) {
+				dwc->ep_cmd_timeout_cnt++;
+				dwc3_notify_event(dwc, DWC3_CONTROLLER_RESTART_USB_SESSION, 0);
+			}
 			return -ETIMEDOUT;
 		}
 

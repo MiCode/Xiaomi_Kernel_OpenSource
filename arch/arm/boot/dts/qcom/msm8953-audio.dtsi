@@ -15,12 +15,24 @@
 
 &int_codec {
 	qcom,model = "msm8953-snd-card-mtp";
-
+	qcom,msm-ext-pa = "primary";
 	qcom,cdc-us-euro-gpios = <&tlmm 63 0>;
+	qcom,msm-spk-ext-pa = <&tlmm 96 0>;
 	qcom,msm-mbhc-hphl-swh = <0>;
 	qcom,msm-mbhc-gnd-swh = <0>;
 	qcom,msm-hs-micbias-type = "internal";
 	qcom,msm-micbias1-ext-cap;
+	qcom,msm-mclk-freq = <9600000>;
+	qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"SPK_RX_BIAS", "MCLK",
+			"INT_LDO_H", "MCLK",
+			"MIC BIAS External", "Handset Mic",
+			"MIC BIAS Internal2", "Headset Mic",
+			"MIC BIAS Internal1", "Secondary Mic",
+			"AMIC1", "MIC BIAS External",
+			"AMIC2", "MIC BIAS Internal2",
+			"AMIC3", "MIC BIAS Internal1";
 
 	qcom,msm-gpios =
 		"pri_i2s",
@@ -115,12 +127,6 @@
 	asoc-codec = <&stub_codec>, <&pm8953_diangu_dig>, <&hdmi_dba>;
 	asoc-codec-names = "msm-stub-codec.1", "cajon_codec",
 						"msm-hdmi-dba-codec-rx";
-	asoc-wsa-codec-names = "wsa881x-i2c-codec.2-000f";
-	asoc-wsa-codec-prefixes = "SpkrMono";
-
-	msm-vdd-wsa-switch-supply = <&pm8953_l5>;
-	qcom,msm-vdd-wsa-switch-voltage = <1800000>;
-	qcom,msm-vdd-wsa-switch-current = <10000>;
 };
 
 &pm8953_gpios {

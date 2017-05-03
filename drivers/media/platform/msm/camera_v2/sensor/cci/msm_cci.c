@@ -32,7 +32,7 @@
 #define CYCLES_PER_MICRO_SEC_DEFAULT 4915
 #define CCI_MAX_DELAY 1000000
 
-#define CCI_TIMEOUT msecs_to_jiffies(500)
+#define CCI_TIMEOUT msecs_to_jiffies(800)
 
 /* TODO move this somewhere else */
 #define MSM_CCI_DRV_NAME "msm_cci"
@@ -41,6 +41,7 @@
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
 #undef CCI_DBG
+#define MSM_CCI_DEBUG
 #ifdef MSM_CCI_DEBUG
 #define CCI_DBG(fmt, args...) pr_err(fmt, ##args)
 #else

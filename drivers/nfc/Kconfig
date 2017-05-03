@@ -82,3 +82,10 @@ config NFC_NQ
 	  This enables the NFC driver for NQx based devices.
 	  This is for i2c connected version. NCI protocol logic
 	  resides in the usermode and it has no other NFC dependencies.
+config NFC_PN548
+	tristate "NXP PN548"
+	depends on I2C
+	help
+	  This enables the NFC driver for NQx based devices.
+	  This is for i2c connected version. NCI protocol logic
+	  resides in the usermode and it has no other NFC dependencies.

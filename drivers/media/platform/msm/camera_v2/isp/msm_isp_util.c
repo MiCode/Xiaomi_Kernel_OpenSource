@@ -1741,9 +1741,10 @@ static inline void msm_isp_update_error_info(struct vfe_device *vfe_dev,
 	vfe_dev->error_info.error_count++;
 }
 
-static void msm_isp_process_overflow_irq(
+void msm_isp_process_overflow_irq(
 	struct vfe_device *vfe_dev,
-	uint32_t *irq_status0, uint32_t *irq_status1)
+	uint32_t *irq_status0, uint32_t *irq_status1,
+	uint32_t force_overflow)
 {
 	uint32_t overflow_mask;
 
@@ -1766,7 +1767,8 @@ static void msm_isp_process_overflow_irq(
 	/*Check if any overflow bit is set*/
 	vfe_dev->hw_info->vfe_ops.core_ops.
 		get_overflow_mask(&overflow_mask);
-	overflow_mask &= *irq_status1;
+	if (!force_overflow)
+		overflow_mask &= *irq_status1;
 
 	if (overflow_mask) {
 		struct msm_isp_event_data error_event;
@@ -1879,7 +1881,7 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 	ping_pong_status = vfe_dev->hw_info->vfe_ops.axi_ops.
 		get_pingpong_status(vfe_dev);
 	msm_isp_process_overflow_irq(vfe_dev,
-		&irq_status0, &irq_status1);
+		&irq_status0, &irq_status1, 0);
 
 	vfe_dev->hw_info->vfe_ops.core_ops.
 		get_error_mask(&error_mask0, &error_mask1);

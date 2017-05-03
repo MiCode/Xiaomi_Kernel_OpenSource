@@ -1,0 +1,48 @@
+
+qcom,2728170_mido_sunwoda_4100mah_averaged_masterslave_jan3rd2017 {
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <4100>;
+	qcom,batt-id-kohm = <40>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "qrd_msm8953_sunwoda_atl_4100mah";
+	qcom,chg-rslow-comp-c1 = <3159320>;
+	qcom,chg-rslow-comp-c2 = <4074348>;
+	qcom,chg-rs-to-rslow = <921524>;
+	qcom,chg-rslow-comp-thr = <0x9C>;
+	qcom,checksum = <0xDC57>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.16";
+	qcom,fg-profile-data = [
+		 DC 83 AD 7C
+		 04 81 2F 77
+		 5E 83 68 6E
+		 C6 88 02 94
+		 34 82 87 99
+		 7C BC F0 C8
+		 57 0F 11 88
+		 BA 7E 69 82
+		 D1 7C 48 83
+		 1C 72 05 75
+		 09 6D 53 82
+		 5A 99 80 BC
+		 1E C9 60 0C
+		 EC 0F E8 59
+		 14 70 DA FC
+		 59 32 B3 45
+		 5F 28 00 00
+		 05 47 6C 38
+		 6E 33 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 8A 70 78 6A
+		 BA 7E 25 88
+		 28 7C B2 71
+		 DF 6C 90 78
+		 2E 74 DB 68
+		 FD 5B BA A1
+		 32 86 68 DC
+		 66 A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};
