@@ -583,44 +583,92 @@ static void _words_to_byte_stream(uint32_t *iv, unsigned char *b,
 static void qcrypto_ce_set_bus(struct crypto_engine *pengine,
 				 bool high_bw_req)
 {
+	struct crypto_priv *cp = pengine->pcp;
+	unsigned int control_flag;
 	int ret = 0;
 
-	if (high_bw_req) {
+	if (cp->ce_support.req_bw_before_clk) {
+		if (high_bw_req)
+			control_flag = QCE_BW_REQUEST_FIRST;
+		else
+			control_flag = QCE_CLK_DISABLE_FIRST;
+	} else {
+		if (high_bw_req)
+			control_flag = QCE_CLK_ENABLE_FIRST;
+		else
+			control_flag = QCE_BW_REQUEST_RESET_FIRST;
+	}
+
+	switch (control_flag) {
+	case QCE_CLK_ENABLE_FIRST:
 		ret = qce_enable_clk(pengine->qce);
 		if (ret) {
 			pr_err("%s Unable enable clk\n", __func__);
-			goto clk_err;
+			return;
 		}
 		ret = msm_bus_scale_client_update_request(
 				pengine->bus_scale_handle, 1);
 		if (ret) {
-			pr_err("%s Unable to set to high bandwidth\n",
-						__func__);
-			qce_disable_clk(pengine->qce);
-			goto clk_err;
+			pr_err("%s Unable to set high bw\n", __func__);
+			ret = qce_disable_clk(pengine->qce);
+			if (ret)
+				pr_err("%s Unable disable clk\n", __func__);
+			return;
 		}
-	} else {
+		break;
+	case QCE_BW_REQUEST_FIRST:
+		ret = msm_bus_scale_client_update_request(
+				pengine->bus_scale_handle, 1);
+		if (ret) {
+			pr_err("%s Unable to set high bw\n", __func__);
+			return;
+		}
+		ret = qce_enable_clk(pengine->qce);
+		if (ret) {
+			pr_err("%s Unable enable clk\n", __func__);
+			ret = msm_bus_scale_client_update_request(
+				pengine->bus_scale_handle, 0);
+			if (ret)
+				pr_err("%s Unable to set low bw\n", __func__);
+			return;
+		}
+		break;
+	case QCE_CLK_DISABLE_FIRST:
+		ret = qce_disable_clk(pengine->qce);
+		if (ret) {
+			pr_err("%s Unable to disable clk\n", __func__);
+			return;
+		}
 		ret = msm_bus_scale_client_update_request(
 				pengine->bus_scale_handle, 0);
 		if (ret) {
-			pr_err("%s Unable to set to low bandwidth\n",
-						__func__);
-			goto clk_err;
+			pr_err("%s Unable to set low bw\n", __func__);
+			ret = qce_enable_clk(pengine->qce);
+			if (ret)
+				pr_err("%s Unable enable clk\n", __func__);
+			return;
+		}
+		break;
+	case QCE_BW_REQUEST_RESET_FIRST:
+		ret = msm_bus_scale_client_update_request(
+				pengine->bus_scale_handle, 0);
+		if (ret) {
+			pr_err("%s Unable to set low bw\n", __func__);
+			return;
 		}
 		ret = qce_disable_clk(pengine->qce);
 		if (ret) {
-			pr_err("%s Unable disable clk\n", __func__);
+			pr_err("%s Unable to disable clk\n", __func__);
 			ret = msm_bus_scale_client_update_request(
 				pengine->bus_scale_handle, 1);
 			if (ret)
-				pr_err("%s Unable to set to high bandwidth\n",
-						__func__);
-			goto clk_err;
+				pr_err("%s Unable to set high bw\n", __func__);
+			return;
 		}
+		break;
+	default:
+		return;
 	}
-clk_err:
-	return;
-
 }
 
 static void qcrypto_bw_reaper_timer_callback(unsigned long data)
@@ -4856,12 +4904,36 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	if (!pengine)
 		return -ENOMEM;
 
-	/* open qce */
+	cp->platform_support.bus_scale_table = (struct msm_bus_scale_pdata *)
+					msm_bus_cl_get_pdata(pdev);
+	if (!cp->platform_support.bus_scale_table) {
+		dev_err(&pdev->dev, "bus_scale_table is NULL\n");
+		pengine->bw_state = BUS_HAS_BANDWIDTH;
+	} else {
+		pengine->bus_scale_handle = msm_bus_scale_register_client(
+				(struct msm_bus_scale_pdata *)
+				cp->platform_support.bus_scale_table);
+		if (!pengine->bus_scale_handle) {
+			dev_err(&pdev->dev, "failed to get bus scale handle\n");
+			rc = -ENOMEM;
+			goto exit_kzfree;
+		}
+		pengine->bw_state = BUS_NO_BANDWIDTH;
+	}
+	rc = msm_bus_scale_client_update_request(pengine->bus_scale_handle, 1);
+	if (rc) {
+		dev_err(&pdev->dev, "failed to set high bandwidth\n");
+		goto exit_kzfree;
+	}
 	handle = qce_open(pdev, &rc);
 	if (handle == NULL) {
-		kzfree(pengine);
-		platform_set_drvdata(pdev, NULL);
-		return rc;
+		rc = -ENODEV;
+		goto exit_free_pdata;
+	}
+	rc = msm_bus_scale_client_update_request(pengine->bus_scale_handle, 0);
+	if (rc) {
+		dev_err(&pdev->dev, "failed to set low bandwidth\n");
+		goto exit_qce_close;
 	}
 
 	platform_set_drvdata(pdev, pengine);
@@ -4903,7 +4975,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 			pengine->max_req, GFP_KERNEL);
 	if (pqcrypto_req_control == NULL) {
 		rc = -ENOMEM;
-		goto err;
+		goto exit_unlock_mutex;
 	}
 	qcrypto_init_req_control(pengine, pqcrypto_req_control);
 	if (cp->ce_support.bam)	 {
@@ -4911,15 +4983,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 		cp->platform_support.shared_ce_resource = 0;
 		cp->platform_support.hw_key_support = cp->ce_support.hw_key;
 		cp->platform_support.sha_hmac = 1;
-
-		cp->platform_support.bus_scale_table =
-			(struct msm_bus_scale_pdata *)
-					msm_bus_cl_get_pdata(pdev);
-		if (!cp->platform_support.bus_scale_table)
-			pr_warn("bus_scale_table is NULL\n");
-
 		pengine->ce_device = cp->ce_support.ce_device;
-
 	} else {
 		platform_support =
 			(struct msm_ce_hw_support *)pdev->dev.platform_data;
@@ -4928,33 +4992,11 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 				platform_support->shared_ce_resource;
 		cp->platform_support.hw_key_support =
 				platform_support->hw_key_support;
-		cp->platform_support.bus_scale_table =
-				platform_support->bus_scale_table;
 		cp->platform_support.sha_hmac = platform_support->sha_hmac;
 	}
 
-	pengine->bus_scale_handle = 0;
-
-	if (cp->platform_support.bus_scale_table != NULL) {
-		pengine->bus_scale_handle =
-			msm_bus_scale_register_client(
-				(struct msm_bus_scale_pdata *)
-					cp->platform_support.bus_scale_table);
-		if (!pengine->bus_scale_handle) {
-			pr_err("%s not able to get bus scale\n",
-				__func__);
-			rc =  -ENOMEM;
-			goto err;
-		}
-		pengine->bw_state = BUS_NO_BANDWIDTH;
-	} else {
-		pengine->bw_state = BUS_HAS_BANDWIDTH;
-	}
-
-	if (cp->total_units != 1) {
-		mutex_unlock(&cp->engine_lock);
-		return 0;
-	}
+	if (cp->total_units != 1)
+		goto exit_unlock_mutex;
 
 	/* register crypto cipher algorithms the device supports */
 	for (i = 0; i < ARRAY_SIZE(_qcrypto_ablk_cipher_algos); i++) {
@@ -5243,13 +5285,19 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	}
 	mutex_unlock(&cp->engine_lock);
 
-
 	return 0;
 err:
 	_qcrypto_remove_engine(pengine);
+	kzfree(pqcrypto_req_control);
+exit_unlock_mutex:
 	mutex_unlock(&cp->engine_lock);
+exit_qce_close:
 	if (pengine->qce)
 		qce_close(pengine->qce);
+exit_free_pdata:
+	msm_bus_scale_client_update_request(pengine->bus_scale_handle, 0);
+	platform_set_drvdata(pdev, NULL);
+exit_kzfree:
 	kzfree(pengine);
 	return rc;
 };
