@@ -35,11 +35,6 @@ Charger specific properties:
 		addition battery properties will be faked such that the device
 		assumes normal operation.
 
-- qcom,external-vconn
-  Usage:      optional
-  Value type: <empty>
-  Definition: Boolean flag which indicates VCONN is sourced externally.
-
 - qcom,fcc-max-ua
   Usage:      optional
   Value type: <u32>
