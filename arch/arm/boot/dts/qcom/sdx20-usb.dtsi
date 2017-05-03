@@ -70,7 +70,6 @@
 			snps,lpm-nyet-threshold = /bits/ 8 <0xf>;
 			snps,hird-threshold = /bits/ 8 <0x10>;
 			snps,bus-suspend-enable;
-			snps,usb3-u1u2-disable;
 			snps,disable-clk-gating;
 			snps,num-gsi-evt-buffs = <0x3>;
 			xhci-imod-value = <4000>;
