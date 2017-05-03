@@ -3383,6 +3383,21 @@ static bool cea_db_is_hdmi_vsdb(const u8 *db)
 	return hdmi_id == HDMI_IEEE_OUI;
 }
 
+static bool cea_db_is_hdmi_hf_vsdb(const u8 *db)
+{
+	int hdmi_id;
+
+	if (cea_db_tag(db) != VENDOR_BLOCK)
+		return false;
+
+	if (cea_db_payload_len(db) < 7)
+		return false;
+
+	hdmi_id = db[1] | (db[2] << 8) | (db[3] << 16);
+
+	return hdmi_id == HDMI_IEEE_OUI_HF;
+}
+
 #define for_each_cea_db(cea, i, start, end) \
 	for ((i) = (start); (i) < (end) && (i) + cea_db_payload_len(&(cea)[(i)]) < (end); (i) += cea_db_payload_len(&(cea)[(i)]) + 1)
 
@@ -3499,6 +3514,37 @@ drm_parse_hdmi_vsdb_audio(struct drm_connector *connector, const u8 *db)
 		      connector->video_latency[1],
 		      connector->audio_latency[0],
 		      connector->audio_latency[1]);
+}
+
+static void
+parse_hdmi_hf_vsdb(struct drm_connector *connector, const u8 *db)
+{
+	u8 len = cea_db_payload_len(db);
+
+	if (len < 7)
+		return;
+
+	if (db[4] != 1)
+		return; /* invalid version */
+
+	connector->max_tmds_char = db[5] * 5;
+	connector->scdc_present = db[6] & (1 << 7);
+	connector->rr_capable = db[6] & (1 << 6);
+	connector->flags_3d = db[6] & 0x7;
+	connector->supports_scramble = connector->scdc_present &&
+			(db[6] & (1 << 3));
+
+	DRM_DEBUG_KMS("HDMI v2: max TMDS char %d, "
+			"scdc %s, "
+			"rr %s, "
+			"3D flags 0x%x, "
+			"scramble %s\n",
+			connector->max_tmds_char,
+			connector->scdc_present ? "available" : "not available",
+			connector->rr_capable ? "capable" : "not capable",
+			connector->flags_3d,
+			connector->supports_scramble ?
+				"supported" : "not supported");
 }
 
 static void
@@ -3625,6 +3671,9 @@ void drm_edid_to_eld(struct drm_connector *connector, struct edid *edid)
 				/* HDMI Vendor-Specific Data Block */
 				if (cea_db_is_hdmi_vsdb(db))
 					drm_parse_hdmi_vsdb_audio(connector, db);
+				/* HDMI Forum Vendor-Specific Data Block */
+				else if (cea_db_is_hdmi_hf_vsdb(db))
+					parse_hdmi_hf_vsdb(connector, db);
 				break;
 			default:
 				break;
