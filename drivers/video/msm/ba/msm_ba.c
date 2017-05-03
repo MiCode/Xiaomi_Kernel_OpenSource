@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,54 +68,6 @@ int msm_ba_querycap(void *instance, struct v4l2_capability *cap)
 	return 0;
 }
 EXPORT_SYMBOL(msm_ba_querycap);
-
-int msm_ba_g_priority(void *instance, enum v4l2_priority *prio)
-{
-	struct msm_ba_inst *inst = instance;
-	struct msm_ba_input *ba_input = NULL;
-	int rc = 0;
-
-	if (!inst || !prio) {
-		dprintk(BA_ERR,
-			"Invalid prio, inst = 0x%p, prio = 0x%p", inst, prio);
-		return -EINVAL;
-	}
-
-	ba_input = msm_ba_find_input(inst->sd_input.index);
-	if (!ba_input) {
-		dprintk(BA_ERR, "Could not find input index: %d",
-				inst->sd_input.index);
-		return -EINVAL;
-	}
-	*prio = ba_input->prio;
-
-	return rc;
-}
-EXPORT_SYMBOL(msm_ba_g_priority);
-
-int msm_ba_s_priority(void *instance, enum v4l2_priority prio)
-{
-	struct msm_ba_inst *inst = instance;
-	struct msm_ba_input *ba_input = NULL;
-	int rc = 0;
-
-	dprintk(BA_DBG, "Enter %s, prio: %d", __func__, prio);
-
-	if (!inst)
-		return -EINVAL;
-
-	ba_input = msm_ba_find_input(inst->sd_input.index);
-	if (!ba_input) {
-		dprintk(BA_ERR, "Could not find input index: %d",
-				inst->sd_input.index);
-		return -EINVAL;
-	}
-	ba_input->prio = prio;
-	inst->input_prio = prio;
-
-	return rc;
-}
-EXPORT_SYMBOL(msm_ba_s_priority);
 
 int msm_ba_s_parm(void *instance, struct v4l2_streamparm *a)
 {
@@ -210,8 +162,7 @@ int msm_ba_s_input(void *instance, unsigned int index)
 		return -EINVAL;
 	}
 	if (ba_input->in_use &&
-		ba_input->prio == V4L2_PRIORITY_RECORD &&
-		ba_input->prio != inst->input_prio) {
+		inst->event_handler.prio == V4L2_PRIORITY_RECORD) {
 		dprintk(BA_WARN, "Input %d in use", index);
 		return -EBUSY;
 	}
@@ -354,7 +305,7 @@ int msm_ba_g_fmt(void *instance, struct v4l2_format *f)
 	struct msm_ba_input *ba_input = NULL;
 	v4l2_std_id new_std = V4L2_STD_UNKNOWN;
 	struct v4l2_dv_timings sd_dv_timings;
-	struct v4l2_mbus_framefmt sd_mbus_fmt;
+	struct v4l2_subdev_format sd_fmt;
 	int rc = 0;
 
 	if (!inst || !f)
@@ -388,29 +339,29 @@ int msm_ba_g_fmt(void *instance, struct v4l2_format *f)
 		}
 	}
 
-	rc = v4l2_subdev_call(sd, video, g_mbus_fmt, &sd_mbus_fmt);
+	rc = v4l2_subdev_call(sd, pad, get_fmt, NULL, &sd_fmt);
 	if (rc) {
-		dprintk(BA_ERR, "g_mbus_fmt failed %d for sd: %s",
+		dprintk(BA_ERR, "get_fmt failed %d for sd: %s",
 				rc, sd->name);
 	} else {
-		f->fmt.pix.height = sd_mbus_fmt.height;
-		f->fmt.pix.width = sd_mbus_fmt.width;
-		switch (sd_mbus_fmt.code) {
-		case V4L2_MBUS_FMT_YUYV8_2X8:
+		f->fmt.pix.height = sd_fmt.format.height;
+		f->fmt.pix.width = sd_fmt.format.width;
+		switch (sd_fmt.format.code) {
+		case MEDIA_BUS_FMT_YUYV8_2X8:
 			f->fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
 			break;
-		case V4L2_MBUS_FMT_YVYU8_2X8:
+		case MEDIA_BUS_FMT_YVYU8_2X8:
 			f->fmt.pix.pixelformat = V4L2_PIX_FMT_YVYU;
 			break;
-		case V4L2_MBUS_FMT_VYUY8_2X8:
+		case MEDIA_BUS_FMT_VYUY8_2X8:
 			f->fmt.pix.pixelformat = V4L2_PIX_FMT_VYUY;
 			break;
-		case V4L2_MBUS_FMT_UYVY8_2X8:
+		case MEDIA_BUS_FMT_UYVY8_2X8:
 			f->fmt.pix.pixelformat = V4L2_PIX_FMT_UYVY;
 			break;
 		default:
 			dprintk(BA_ERR, "Unknown sd_mbus_fmt.code 0x%x",
-				sd_mbus_fmt.code);
+				sd_fmt.format.code);
 			f->fmt.pix.pixelformat = V4L2_PIX_FMT_UYVY;
 			break;
 		}
@@ -713,8 +664,8 @@ static int msm_ba_register_v4l2_subdev(struct v4l2_device *v4l2_dev,
 			kfree(vdev);
 		} else {
 #if defined(CONFIG_MEDIA_CONTROLLER)
-			sd->entity.info.v4l.major = VIDEO_MAJOR;
-			sd->entity.info.v4l.minor = vdev->minor;
+			sd->entity.info.dev.major = VIDEO_MAJOR;
+			sd->entity.info.dev.minor = vdev->minor;
 			sd->entity.name = video_device_node_name(vdev);
 #endif
 			sd->devnode = vdev;
@@ -893,7 +844,7 @@ void *msm_ba_open(const struct msm_ba_ext_ops *ext_ops)
 	dev_ctxt->state = BA_DEV_INIT_DONE;
 	inst->state = MSM_BA_DEV_INIT_DONE;
 	inst->sd_input.index = 0;
-	inst->input_prio = V4L2_PRIORITY_DEFAULT;
+	inst->event_handler.prio = V4L2_PRIORITY_DEFAULT;
 
 	inst->debugfs_root =
 		msm_ba_debugfs_init_inst(inst, dev_ctxt->debugfs_root);

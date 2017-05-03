@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -214,7 +214,6 @@ void msm_ba_add_inputs(struct v4l2_subdev *sd)
 			input->ba_out = msm_ba_inp_cfg[i].ba_out;
 			input->ba_node_addr = msm_ba_inp_cfg[i].ba_node;
 			input->ba_ip_idx = i;
-			input->prio = V4L2_PRIORITY_DEFAULT;
 			input->input_user_type =
 				msm_ba_inp_cfg[i].input_user_type;
 			input->sd = sd;

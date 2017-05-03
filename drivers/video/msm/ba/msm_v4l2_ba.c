@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -81,22 +81,6 @@ static int msm_ba_v4l2_querycap(struct file *filp, void *fh,
 	struct msm_ba_inst *ba_inst = get_ba_inst(filp, fh);
 
 	return msm_ba_querycap((void *)ba_inst, cap);
-}
-
-static int msm_ba_v4l2_g_priority(struct file *filp, void *fh,
-					enum v4l2_priority *prio)
-{
-	struct msm_ba_inst *ba_inst = get_ba_inst(filp, fh);
-
-	return msm_ba_g_priority((void *)ba_inst, prio);
-}
-
-static int msm_ba_v4l2_s_priority(struct file *filp, void *fh,
-					enum v4l2_priority prio)
-{
-	struct msm_ba_inst *ba_inst = get_ba_inst(filp, fh);
-
-	return msm_ba_s_priority((void *)ba_inst, prio);
 }
 
 int msm_ba_v4l2_enum_input(struct file *file, void *fh,
@@ -245,8 +229,6 @@ static int msm_ba_v4l2_g_parm(struct file *file, void *fh,
 
 static const struct v4l2_ioctl_ops msm_ba_v4l2_ioctl_ops = {
 	.vidioc_querycap = msm_ba_v4l2_querycap,
-	.vidioc_g_priority = msm_ba_v4l2_g_priority,
-	.vidioc_s_priority = msm_ba_v4l2_s_priority,
 	.vidioc_enum_fmt_vid_cap = msm_ba_v4l2_enum_fmt,
 	.vidioc_enum_fmt_vid_out = msm_ba_v4l2_enum_fmt,
 	.vidioc_s_fmt_vid_cap = msm_ba_v4l2_s_fmt,
@@ -286,7 +268,7 @@ static const struct v4l2_file_operations msm_ba_v4l2_ba_fops = {
 	.owner = THIS_MODULE,
 	.open = msm_ba_v4l2_open,
 	.release = msm_ba_v4l2_close,
-	.ioctl = video_ioctl2,
+	.unlocked_ioctl = video_ioctl2,
 	.poll = msm_ba_v4l2_poll,
 };
 
