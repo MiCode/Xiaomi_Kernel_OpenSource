@@ -61,7 +61,7 @@
 		reg = <0x15000000 0x80000>,
 			<0x150c2000 0x20>;
 		reg-names = "base", "tcu-base";
-		#iommu-cells = <1>;
+		#iommu-cells = <2>;
 		qcom,skip-init;
 		#global-interrupts = <1>;
 		#size-cells = <1>;
@@ -339,6 +339,6 @@
 		 * This SID belongs to PCIE. We can't use a fake SID for
 		 * the apps_smmu device.
 		 */
-		iommus = <&apps_smmu 0x1c03>;
+		iommus = <&apps_smmu 0x1c03 0>;
 	};
 };

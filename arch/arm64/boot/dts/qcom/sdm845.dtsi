@@ -1537,76 +1537,76 @@
 		qcom,msm_fastrpc_compute_cb1 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x1401>,
-				 <&apps_smmu 0x1421>;
+			iommus = <&apps_smmu 0x1401 0x0>,
+				 <&apps_smmu 0x1421 0x0>;
 		};
 		qcom,msm_fastrpc_compute_cb2 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x1402>,
-				 <&apps_smmu 0x1422>;
+			iommus = <&apps_smmu 0x1402 0x0>,
+				 <&apps_smmu 0x1422 0x0>;
 		};
 		qcom,msm_fastrpc_compute_cb3 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x1403>,
-				 <&apps_smmu 0x1423>;
+			iommus = <&apps_smmu 0x1403 0x0>,
+				 <&apps_smmu 0x1423 0x0>;
 		};
 		qcom,msm_fastrpc_compute_cb4 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x1404>,
-				 <&apps_smmu 0x1424>;
+			iommus = <&apps_smmu 0x1404 0x0>,
+				 <&apps_smmu 0x1424 0x0>;
 		};
 		qcom,msm_fastrpc_compute_cb5 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x1405>,
-				 <&apps_smmu 0x1425>;
+			iommus = <&apps_smmu 0x1405 0x0>,
+				 <&apps_smmu 0x1425 0x0>;
 		};
 		qcom,msm_fastrpc_compute_cb6 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x1406>,
-				 <&apps_smmu 0x1426>;
+			iommus = <&apps_smmu 0x1406 0x0>,
+				 <&apps_smmu 0x1426 0x0>;
 		};
 		qcom,msm_fastrpc_compute_cb7 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x1407>,
-				 <&apps_smmu 0x1427>;
+			iommus = <&apps_smmu 0x1407 0x0>,
+				 <&apps_smmu 0x1427 0x0>;
 		};
 		qcom,msm_fastrpc_compute_cb8 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x1408>,
-				 <&apps_smmu 0x1428>;
+			iommus = <&apps_smmu 0x1408 0x0>,
+				 <&apps_smmu 0x1428 0x0>;
 		};
 		qcom,msm_fastrpc_compute_cb9 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
 			qcom,secure-context-bank;
-			iommus = <&apps_smmu 0x1409>,
-				 <&apps_smmu 0x1419>,
-				 <&apps_smmu 0x1429>;
+			iommus = <&apps_smmu 0x1409 0x0>,
+				 <&apps_smmu 0x1419 0x0>,
+				 <&apps_smmu 0x1429 0x0>;
 		};
 		qcom,msm_fastrpc_compute_cb10 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
 			qcom,secure-context-bank;
-			iommus = <&apps_smmu 0x140A>,
-				 <&apps_smmu 0x141A>,
-				 <&apps_smmu 0x142A>;
+			iommus = <&apps_smmu 0x140A 0x0>,
+				 <&apps_smmu 0x141A 0x0>,
+				 <&apps_smmu 0x142A 0x0>;
 		};
 		qcom,msm_fastrpc_compute_cb11 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "adsprpc-smd";
-			iommus = <&apps_smmu 0x1823>;
+			iommus = <&apps_smmu 0x1823 0x0>;
 		};
 		qcom,msm_fastrpc_compute_cb12 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "adsprpc-smd";
-			iommus = <&apps_smmu 0x1824>;
+			iommus = <&apps_smmu 0x1824 0x0>;
 		};
 	};
 
@@ -2301,18 +2301,18 @@
 
 		ipa_smmu_ap: ipa_smmu_ap {
 			compatible = "qcom,ipa-smmu-ap-cb";
-			iommus = <&apps_smmu 0x720>;
+			iommus = <&apps_smmu 0x720 0x0>;
 			qcom,iova-mapping = <0x20000000 0x40000000>;
 		};
 
 		ipa_smmu_wlan: ipa_smmu_wlan {
 			compatible = "qcom,ipa-smmu-wlan-cb";
-			iommus = <&apps_smmu 0x721>;
+			iommus = <&apps_smmu 0x721 0x0>;
 		};
 
 		ipa_smmu_uc: ipa_smmu_uc {
 			compatible = "qcom,ipa-smmu-uc-cb";
-			iommus = <&apps_smmu 0x722>;
+			iommus = <&apps_smmu 0x722 0x0>;
 			qcom,iova-mapping = <0x40000000 0x20000000>;
 		};
 	};
@@ -2379,8 +2379,8 @@
 		      <0xa0000000 0x10000000>,
 		      <0xb0000000 0x10000>;
 		reg-names = "membase", "smmu_iova_base", "smmu_iova_ipa";
-		iommus = <&apps_smmu 0x0040>,
-			 <&apps_smmu 0x0041>;
+		iommus = <&apps_smmu 0x0040 0x0>,
+			 <&apps_smmu 0x0041 0x0>;
 		interrupts = <0 414 0 /* CE0 */ >,
 			     <0 415 0 /* CE1 */ >,
 			     <0 416 0 /* CE2 */ >,
