@@ -1958,6 +1958,7 @@ int msm_venc_s_ext_ctrl(struct msm_vidc_inst *inst,
 			/* Enable QP for all frame types by default */
 			qp.enable = 7;
 			qp_range.layer_id = control[i].value;
+			bitrate.layer_id = control[i].value;
 			i++;
 			while (i < ctrl->count) {
 			switch (control[i].id) {
