@@ -350,10 +350,9 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 	/* Know which TCSes were triggered */
 	irq_status = read_tcs_reg(base, TCS_DRV_IRQ_STATUS, 0, 0);
 
-	for (m = 0; irq_status >= BIT(m); m++) {
-		if (!(irq_status & BIT(m)))
+	for (m = 0; m < drv->num_tcs; m++) {
+		if (!(irq_status & (u32)BIT(m)))
 			continue;
-
 		atomic_inc(&drv->tcs_irq_count[m]);
 
 		resp = get_response(drv, m);
@@ -523,9 +522,11 @@ static int check_for_req_inflight(struct tcs_drv *drv, struct tcs_mbox *tcs,
 			continue;
 
 		curr_enabled = read_tcs_reg(base, TCS_DRV_CMD_ENABLE, m, 0);
-		for (j = 0; j < curr_enabled; j++) {
-			if (!(curr_enabled & BIT(j)))
+
+		for (j = 0; j < MAX_CMDS_PER_TCS; j++) {
+			if (!(curr_enabled & (u32)BIT(j)))
 				continue;
+
 			addr = read_tcs_reg(base, TCS_DRV_CMD_ADDR, m, j);
 			for (k = 0; k < msg->num_payload; k++) {
 				if (addr == msg->payload[k].addr)
