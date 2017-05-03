@@ -102,6 +102,10 @@
 	qcom,led-strings-list = [01 02];
 };
 
+&mdss_mdp {
+	#cooling-cells = <2>;
+};
+
 &ufsphy_mem {
 	compatible = "qcom,ufs-phy-qmp-v3";
 
