@@ -1305,6 +1305,30 @@
 		};
 	};
 
+	cti_ddr0: cti@69e1000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b969>;
+		reg = <0x69e1000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-ddr0";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti_ddr1: cti@69e4000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b969>;
+		reg = <0x69e4000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti-ddr1";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
 	cti0: cti@6010000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b966>;
