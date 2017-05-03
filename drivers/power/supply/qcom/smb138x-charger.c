@@ -598,26 +598,6 @@ static enum power_supply_property smb1355_parallel_props[] = {
 	POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
 };
 
-static int smb138x_get_parallel_charging(struct smb138x *chip, int *disabled)
-{
-	struct smb_charger *chg = &chip->chg;
-	int rc = 0;
-	u8 cfg2;
-
-	rc = smblib_read(chg, CHGR_CFG2_REG, &cfg2);
-	if (rc < 0) {
-		pr_err("Couldn't read en_cmg_reg rc=%d\n", rc);
-		return rc;
-	}
-
-	if (cfg2 & CHG_EN_SRC_BIT)
-		*disabled = 0;
-	else
-		*disabled = 1;
-
-	return 0;
-}
-
 static int smb138x_parallel_get_prop(struct power_supply *psy,
 				     enum power_supply_property prop,
 				     union power_supply_propval *val)
@@ -644,7 +624,7 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 			val->intval = !(temp & DISABLE_CHARGING_BIT);
 		break;
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
-		rc = smb138x_get_parallel_charging(chip, &val->intval);
+		rc = smblib_get_usb_suspend(chg, &val->intval);
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
 		if ((chip->dt.pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
@@ -714,33 +694,28 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 	return rc;
 }
 
-static int smb138x_set_parallel_charging(struct smb138x *chip, bool disable)
+static int smb138x_set_parallel_suspend(struct smb138x *chip, bool suspend)
 {
 	struct smb_charger *chg = &chip->chg;
 	int rc = 0;
 
 	rc = smblib_masked_write(chg, WD_CFG_REG, WDOG_TIMER_EN_BIT,
-				 disable ? 0 : WDOG_TIMER_EN_BIT);
+				 suspend ? 0 : WDOG_TIMER_EN_BIT);
 	if (rc < 0) {
 		pr_err("Couldn't %s watchdog rc=%d\n",
-		       disable ? "disable" : "enable", rc);
-		disable = true;
+		       suspend ? "disable" : "enable", rc);
+		suspend = true;
 	}
 
-	/*
-	 * Configure charge enable for high polarity and
-	 * When disabling charging set it to cmd register control(cmd bit=0)
-	 * When enabling charging set it to pin control
-	 */
-	rc = smblib_masked_write(chg, CHGR_CFG2_REG,
-			CHG_EN_POLARITY_BIT | CHG_EN_SRC_BIT,
-			disable ? 0 : CHG_EN_SRC_BIT);
+	rc = smblib_masked_write(chg, USBIN_CMD_IL_REG, USBIN_SUSPEND_BIT,
+				 suspend ? USBIN_SUSPEND_BIT : 0);
 	if (rc < 0) {
-		pr_err("Couldn't configure charge enable source rc=%d\n", rc);
+		pr_err("Couldn't %s parallel charger rc=%d\n",
+		       suspend ? "suspend" : "resume", rc);
 		return rc;
 	}
 
-	return 0;
+	return rc;
 }
 
 static int smb138x_parallel_set_prop(struct power_supply *psy,
@@ -753,7 +728,7 @@ static int smb138x_parallel_set_prop(struct power_supply *psy,
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
-		rc = smb138x_set_parallel_charging(chip, (bool)val->intval);
+		rc = smb138x_set_parallel_suspend(chip, (bool)val->intval);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		if ((chip->dt.pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
@@ -971,25 +946,10 @@ static int smb138x_init_slave_hw(struct smb138x *chip)
 		return rc;
 	}
 
-	/* disable the charging path when under s/w control */
-	rc = smblib_masked_write(chg, CHARGING_ENABLE_CMD_REG,
-				 CHARGING_ENABLE_CMD_BIT, 0);
+	/* suspend parallel charging */
+	rc = smb138x_set_parallel_suspend(chip, true);
 	if (rc < 0) {
-		pr_err("Couldn't disable charging rc=%d\n", rc);
-		return rc;
-	}
-
-	/* disable parallel charging path */
-	rc = smb138x_set_parallel_charging(chip, true);
-	if (rc < 0) {
-		pr_err("Couldn't disable parallel path rc=%d\n", rc);
-		return rc;
-	}
-
-	/* unsuspend parallel charging */
-	rc = smblib_masked_write(chg, USBIN_CMD_IL_REG, USBIN_SUSPEND_BIT, 0);
-	if (rc < 0) {
-		pr_err("Couldn't unsuspend parallel charging rc=%d\n", rc);
+		pr_err("Couldn't suspend parallel charging rc=%d\n", rc);
 		return rc;
 	}
 
@@ -997,6 +957,24 @@ static int smb138x_init_slave_hw(struct smb138x *chip)
 	rc = smblib_set_charge_param(chg, &chg->param.fcc, 0);
 	if (rc < 0) {
 		pr_err("Couldn't set 0 FCC rc=%d\n", rc);
+		return rc;
+	}
+
+	/* enable the charging path */
+	rc = smblib_masked_write(chg, CHARGING_ENABLE_CMD_REG,
+				 CHARGING_ENABLE_CMD_BIT,
+				 CHARGING_ENABLE_CMD_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't enable charging rc=%d\n", rc);
+		return rc;
+	}
+
+	/* configure charge enable for software control; active high */
+	rc = smblib_masked_write(chg, CHGR_CFG2_REG,
+				 CHG_EN_POLARITY_BIT | CHG_EN_SRC_BIT, 0);
+	if (rc < 0) {
+		pr_err("Couldn't configure charge enable source rc=%d\n",
+			rc);
 		return rc;
 	}
 
