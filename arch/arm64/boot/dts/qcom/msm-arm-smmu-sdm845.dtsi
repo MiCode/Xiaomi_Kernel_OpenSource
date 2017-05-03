@@ -328,9 +328,9 @@
 	apps_iommu_test_device {
 		compatible = "iommu-debug-test";
 		/*
-		 * This SID belongs to PCIE. We can't use a fake SID for
+		 * This SID belongs to QUP1-GSI. We can't use a fake SID for
 		 * the apps_smmu device.
 		 */
-		iommus = <&apps_smmu 0x1c03 0>;
+		iommus = <&apps_smmu 0x16 0>;
 	};
 };
