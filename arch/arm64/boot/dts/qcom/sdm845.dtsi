@@ -2425,6 +2425,7 @@
 			 <&clock_gcc GCC_CE1_AHB_CLK>,
 			 <&clock_gcc GCC_CE1_AXI_CLK>;
 		qcom,ce-opp-freq = <171430000>;
+		qcom,request-bw-before-clk;
 	};
 
 	qcom_crypto: qcrypto@1de0000 {
@@ -2452,6 +2453,7 @@
 			 <&clock_gcc GCC_CE1_AHB_CLK>,
 			 <&clock_gcc GCC_CE1_AXI_CLK>;
 		qcom,ce-opp-freq = <171430000>;
+		qcom,request-bw-before-clk;
 		qcom,use-sw-aes-cbc-ecb-ctr-algo;
 		qcom,use-sw-aes-xts-algo;
 		qcom,use-sw-aes-ccm-algo;
