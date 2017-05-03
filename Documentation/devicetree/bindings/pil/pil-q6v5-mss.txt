@@ -16,6 +16,8 @@ Required properties:
 		      If "halt_base" is in same 4K pages this register then
 		      this will be defined else "halt_q6", "halt_modem",
 		      "halt_nc" is required.
+		      "pdc_sync" is the power domain register introduced in
+		      sdm845 for power domain of subsystems.
 - interrupts:         The modem watchdog interrupt
 - vdd_cx-supply:      Reference to the regulator that supplies the vdd_cx domain.
 - vdd_cx-voltage:     Voltage corner/level(max) for cx rail.

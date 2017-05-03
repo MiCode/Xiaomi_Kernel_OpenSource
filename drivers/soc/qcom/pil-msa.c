@@ -75,6 +75,10 @@
 #define MSS_RESTART_ID			0xA
 
 #define MSS_MAGIC			0XAABADEAD
+
+#define MSS_PDC_OFFSET			8
+#define MSS_PDC_MASK			BIT(MSS_PDC_OFFSET)
+
 enum scm_cmd {
 	PAS_MEM_SETUP_CMD = 2,
 };
@@ -204,6 +208,23 @@ static void pil_mss_disable_clks(struct q6v5_data *drv)
 		clk_disable_unprepare(drv->ahb_clk);
 }
 
+static void pil_mss_pdc_sync(struct q6v5_data *drv, bool pdc_sync)
+{
+	u32 val = 0;
+
+	if (drv->pdc_sync) {
+		val = readl_relaxed(drv->pdc_sync);
+		if (pdc_sync)
+			val |= MSS_PDC_MASK;
+		else
+			val &= ~MSS_PDC_MASK;
+		writel_relaxed(val, drv->pdc_sync);
+		/* Ensure PDC is written before next write */
+		wmb();
+		udelay(2);
+	}
+}
+
 static int pil_mss_restart_reg(struct q6v5_data *drv, u32 mss_restart)
 {
 	int ret = 0;
@@ -304,6 +325,7 @@ int pil_mss_shutdown(struct pil_desc *pil)
 									ret);
 	}
 
+	pil_mss_pdc_sync(drv, 1);
 	ret = pil_mss_restart_reg(drv, 1);
 
 	if (drv->is_booted) {
@@ -468,6 +490,8 @@ static int pil_mss_reset(struct pil_desc *pil)
 	if (ret)
 		goto err_restart;
 
+	pil_mss_pdc_sync(drv, 0);
+
 	ret = pil_mss_enable_clks(drv);
 	if (ret)
 		goto err_clks;
@@ -523,6 +547,7 @@ err_q6v5_reset:
 	if (drv->ahb_clk_vote)
 		clk_disable_unprepare(drv->ahb_clk);
 err_clks:
+	pil_mss_pdc_sync(drv, 1);
 	pil_mss_restart_reg(drv, 1);
 err_restart:
 	pil_mss_power_down(drv);

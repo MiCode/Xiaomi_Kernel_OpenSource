@@ -284,6 +284,13 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 	if (!q6->restart_reg)
 		return -ENOMEM;
 
+	q6->pdc_sync = NULL;
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pdc_sync");
+	if (res) {
+		q6->pdc_sync = devm_ioremap(&pdev->dev,
+						res->start, resource_size(res));
+	}
+
 	q6->vreg = NULL;
 
 	prop = of_find_property(pdev->dev.of_node, "vdd_mss-supply", NULL);
