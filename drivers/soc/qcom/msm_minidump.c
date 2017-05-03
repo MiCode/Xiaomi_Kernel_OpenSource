@@ -101,7 +101,7 @@ static inline char *elf_lookup_string(struct elfhdr *hdr, int offset)
 {
 	char *strtab = elf_str_table(hdr);
 
-	if ((strtab == NULL) | (stringtable_idx < offset))
+	if ((strtab == NULL) || (stringtable_idx < offset))
 		return NULL;
 	return strtab + offset;
 }
@@ -111,7 +111,7 @@ static inline unsigned int set_section_name(const char *name)
 	char *strtab = elf_str_table(md_ehdr);
 	int ret = 0;
 
-	if ((strtab == NULL) | (name == NULL))
+	if ((strtab == NULL) || (name == NULL))
 		return 0;
 
 	ret = stringtable_idx;
