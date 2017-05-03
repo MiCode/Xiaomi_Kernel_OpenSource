@@ -132,7 +132,7 @@ static void msm_ispif_get_pack_mask_from_cfg(
 			pack_mask[0] |= temp;
 		CDBG("%s:num %d cid %d mode %d pack_mask %x %x\n",
 			__func__, entry->num_cids, entry->cids[i],
-			pack_cfg[i].pack_mode,
+			pack_cfg[entry->cids[i]].pack_mode,
 			pack_mask[0], pack_mask[1]);
 
 	}
@@ -162,6 +162,16 @@ static int msm_ispif_config2(struct ispif_device *ispif,
 			params->num);
 		rc = -EINVAL;
 		return rc;
+	}
+
+	for (i = 0; i < params->num; i++) {
+		int j;
+
+		if (params->entries[i].num_cids > MAX_CID_CH_v2)
+			return -EINVAL;
+		for (j = 0; j < params->entries[i].num_cids; j++)
+			if (params->entries[i].cids[j] >= CID_MAX)
+				return -EINVAL;
 	}
 
 	for (i = 0; i < params->num; i++) {
