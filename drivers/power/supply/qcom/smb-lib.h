@@ -64,6 +64,7 @@ enum print_reason {
 #define CC2_WA_VOTER			"CC2_WA_VOTER"
 #define QNOVO_VOTER			"QNOVO_VOTER"
 #define BATT_PROFILE_VOTER		"BATT_PROFILE_VOTER"
+#define OTG_DELAY_VOTER			"OTG_DELAY_VOTER"
 
 #define VCONN_MAX_ATTEMPTS	3
 #define OTG_MAX_ATTEMPTS	3
@@ -229,6 +230,7 @@ struct smb_charger {
 	enum smb_mode		mode;
 	struct smb_chg_freq	chg_freq;
 	int			smb_version;
+	int			otg_delay_ms;
 
 	/* locks */
 	struct mutex		lock;
@@ -290,6 +292,7 @@ struct smb_charger {
 	struct delayed_work	icl_change_work;
 	struct delayed_work	pl_enable_work;
 	struct work_struct	legacy_detection_work;
+	struct delayed_work	uusb_otg_work;
 
 	/* cached status */
 	int			voltage_min_uv;

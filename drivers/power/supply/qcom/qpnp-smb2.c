@@ -266,8 +266,9 @@ module_param_named(
 	debug_mask, __debug_mask, int, 0600
 );
 
-#define MICRO_1P5A	1500000
-#define MICRO_P1A	100000
+#define MICRO_1P5A		1500000
+#define MICRO_P1A		100000
+#define OTG_DEFAULT_DEGLITCH_TIME_MS	50
 static int smb2_parse_dt(struct smb2 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
@@ -397,6 +398,12 @@ static int smb2_parse_dt(struct smb2 *chip)
 
 	chg->suspend_input_on_debug_batt = of_property_read_bool(node,
 					"qcom,suspend-input-on-debug-batt");
+
+	rc = of_property_read_u32(node, "qcom,otg-deglitch-time-ms",
+					&chg->otg_delay_ms);
+	if (rc < 0)
+		chg->otg_delay_ms = OTG_DEFAULT_DEGLITCH_TIME_MS;
+
 	return 0;
 }
 

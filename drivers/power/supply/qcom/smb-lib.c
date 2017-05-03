@@ -3730,26 +3730,6 @@ static void smblib_handle_typec_debounce_done(struct smb_charger *chg,
 		   smblib_typec_mode_name[pval.intval]);
 }
 
-irqreturn_t smblib_handle_usb_typec_change_for_uusb(struct smb_charger *chg)
-{
-	int rc;
-	u8 stat;
-
-	rc = smblib_read(chg, TYPE_C_STATUS_3_REG, &stat);
-	if (rc < 0) {
-		smblib_err(chg, "Couldn't read TYPE_C_STATUS_3 rc=%d\n", rc);
-		return IRQ_HANDLED;
-	}
-	smblib_dbg(chg, PR_REGISTER, "TYPE_C_STATUS_3 = 0x%02x OTG=%d\n",
-		stat, !!(stat & (U_USB_GND_NOVBUS_BIT | U_USB_GND_BIT)));
-
-	extcon_set_cable_state_(chg->extcon, EXTCON_USB_HOST,
-			!!(stat & (U_USB_GND_NOVBUS_BIT | U_USB_GND_BIT)));
-	power_supply_changed(chg->usb_psy);
-
-	return IRQ_HANDLED;
-}
-
 static void smblib_usb_typec_change(struct smb_charger *chg)
 {
 	int rc;
@@ -3784,7 +3764,11 @@ irqreturn_t smblib_handle_usb_typec_change(int irq, void *data)
 	struct smb_charger *chg = irq_data->parent_data;
 
 	if (chg->micro_usb_mode) {
-		smblib_handle_usb_typec_change_for_uusb(chg);
+		cancel_delayed_work_sync(&chg->uusb_otg_work);
+		vote(chg->awake_votable, OTG_DELAY_VOTER, true, 0);
+		smblib_dbg(chg, PR_INTERRUPT, "Scheduling OTG work\n");
+		schedule_delayed_work(&chg->uusb_otg_work,
+				msecs_to_jiffies(chg->otg_delay_ms));
 		return IRQ_HANDLED;
 	}
 
@@ -3869,6 +3853,30 @@ irqreturn_t smblib_handle_wdog_bark(int irq, void *data)
 /***************
  * Work Queues *
  ***************/
+static void smblib_uusb_otg_work(struct work_struct *work)
+{
+	struct smb_charger *chg = container_of(work, struct smb_charger,
+						uusb_otg_work.work);
+	int rc;
+	u8 stat;
+	bool otg;
+
+	rc = smblib_read(chg, TYPE_C_STATUS_3_REG, &stat);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read TYPE_C_STATUS_3 rc=%d\n", rc);
+		goto out;
+	}
+
+	otg = !!(stat & (U_USB_GND_NOVBUS_BIT | U_USB_GND_BIT));
+	extcon_set_cable_state_(chg->extcon, EXTCON_USB_HOST, otg);
+	smblib_dbg(chg, PR_REGISTER, "TYPE_C_STATUS_3 = 0x%02x OTG=%d\n",
+			stat, otg);
+	power_supply_changed(chg->usb_psy);
+
+out:
+	vote(chg->awake_votable, OTG_DELAY_VOTER, false, 0);
+}
+
 
 static void smblib_hvdcp_detect_work(struct work_struct *work)
 {
@@ -4450,6 +4458,7 @@ int smblib_init(struct smb_charger *chg)
 	INIT_DELAYED_WORK(&chg->icl_change_work, smblib_icl_change_work);
 	INIT_DELAYED_WORK(&chg->pl_enable_work, smblib_pl_enable_work);
 	INIT_WORK(&chg->legacy_detection_work, smblib_legacy_detection_work);
+	INIT_DELAYED_WORK(&chg->uusb_otg_work, smblib_uusb_otg_work);
 	chg->fake_capacity = -EINVAL;
 	chg->fake_input_current_limited = -EINVAL;
 
@@ -4504,6 +4513,7 @@ int smblib_deinit(struct smb_charger *chg)
 		cancel_delayed_work_sync(&chg->icl_change_work);
 		cancel_delayed_work_sync(&chg->pl_enable_work);
 		cancel_work_sync(&chg->legacy_detection_work);
+		cancel_delayed_work_sync(&chg->uusb_otg_work);
 		power_supply_unreg_notifier(&chg->nb);
 		smblib_destroy_votables(chg);
 		qcom_batt_deinit();

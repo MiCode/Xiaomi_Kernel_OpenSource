@@ -176,6 +176,12 @@ Charger specific properties:
   Definition: Specifies the maximum charger buck/boost switching frequency in
 		 KHz. It overrides the max frequency defined for the charger.
 
+- qcom,otg-deglitch-time-ms
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the deglitch interval for OTG detection.
+		If the value is not present, 50 msec is used as default.
+
 =============================================
 Second Level Nodes - SMB2 Charger Peripherals
 =============================================
