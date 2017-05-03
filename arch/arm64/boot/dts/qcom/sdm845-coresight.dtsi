@@ -1081,6 +1081,15 @@
 					    <&tpdm_turing_out_funnel_turing>;
 				};
 			};
+
+			port@2 {
+				reg = <1>;
+				funnel_turing_in_turing_etm0: endpoint {
+					slave-mode;
+					remote-endpoint =
+					    <&turing_etm0_out_funnel_turing>;
+				};
+			};
 		};
 	};
 
@@ -1702,6 +1711,20 @@
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
+	};
+
+	turing_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-name = "coresight-turing-etm0";
+		qcom,inst-id = <1>;
+
+		port{
+			turing_etm0_out_funnel_turing: endpoint {
+				remote-endpoint =
+					<&funnel_turing_in_turing_etm0>;
+			};
+		};
 	};
 
 	dummy_eud: dummy_sink {
