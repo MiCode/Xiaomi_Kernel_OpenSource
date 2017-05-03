@@ -241,18 +241,28 @@ int cmd_db_get_slave_id(const char *resource_id)
 
 static int cmd_db_dev_probe(struct platform_device *pdev)
 {
-	struct resource *res;
+	struct resource res;
+	void __iomem *dict;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
+	dict = of_iomap(pdev->dev.of_node, 0);
+	if (!dict) {
 		cmd_db_status = -ENOMEM;
 		goto failed;
 	}
 
-	start_addr = devm_ioremap_resource(&pdev->dev, res);
+	/*
+	 * Read start address and size of the command DB address from
+	 * shared dictionary location
+	 */
+	res.start = readl_relaxed(dict);
+	res.end = res.start + readl_relaxed(dict + 0x4);
+	res.flags = IORESOURCE_MEM;
+	iounmap(dict);
 
-	cmd_db_header = devm_kzalloc(&pdev->dev, sizeof(*cmd_db_header),
-			GFP_KERNEL);
+	start_addr = devm_ioremap_resource(&pdev->dev, &res);
+
+	cmd_db_header = devm_kzalloc(&pdev->dev,
+			sizeof(*cmd_db_header), GFP_KERNEL);
 
 	if (!cmd_db_header) {
 		cmd_db_status = -ENOMEM;
