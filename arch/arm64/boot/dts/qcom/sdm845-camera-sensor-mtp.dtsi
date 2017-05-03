@@ -118,10 +118,12 @@
 		cam_vio-supply = <&pm8998_lvs1>;
 		cam_vana-supply = <&pmi8998_bob>;
 		cam_vdig-supply = <&camera_rear_ldo>;
-		qcom,cam-vreg-name = "cam_vio", "cam_vana", "cam_vdig";
-		qcom,cam-vreg-min-voltage = <0 3312000 1050000>;
-		qcom,cam-vreg-max-voltage = <0 3600000 1050000>;
-		qcom,cam-vreg-op-mode = <0 80000 105000>;
+		cam_clk-supply = <&titan_top_gdsc>;
+		qcom,cam-vreg-name = "cam_vio", "cam_vana", "cam_vdig",
+			"cam_clk";
+		qcom,cam-vreg-min-voltage = <0 3312000 1050000 0>;
+		qcom,cam-vreg-max-voltage = <0 3600000 1050000 0>;
+		qcom,cam-vreg-op-mode = <0 80000 105000 0>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk0_active
@@ -157,10 +159,12 @@
 		cam_vdig-supply = <&camera_ldo>;
 		cam_vio-supply = <&pm8998_lvs1>;
 		cam_vana-supply = <&pmi8998_bob>;
-		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
-		qcom,cam-vreg-min-voltage = <1050000 0 3312000>;
-		qcom,cam-vreg-max-voltage = <1050000 0 3600000>;
-		qcom,cam-vreg-op-mode = <105000 0 80000>;
+		cam_clk-supply = <&titan_top_gdsc>;
+		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana",
+			"cam_clk";
+		qcom,cam-vreg-min-voltage = <1050000 0 3312000 0>;
+		qcom,cam-vreg-max-voltage = <1050000 0 3600000 0>;
+		qcom,cam-vreg-op-mode = <105000 0 80000 0>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk2_active
@@ -193,10 +197,12 @@
 		cam_vio-supply = <&pm8998_lvs1>;
 		cam_vana-supply = <&pmi8998_bob>;
 		cam_vdig-supply = <&camera_ldo>;
-		qcom,cam-vreg-name = "cam_vio", "cam_vana", "cam_vdig";
-		qcom,cam-vreg-min-voltage = <0 3312000 1050000>;
-		qcom,cam-vreg-max-voltage = <0 3600000 1050000>;
-		qcom,cam-vreg-op-mode = <0 80000 105000>;
+		cam_clk-supply = <&titan_top_gdsc>;
+		qcom,cam-vreg-name = "cam_vio", "cam_vana", "cam_vdig",
+			"cam_clk";
+		qcom,cam-vreg-min-voltage = <0 3312000 1050000 0>;
+		qcom,cam-vreg-max-voltage = <0 3600000 1050000 0>;
+		qcom,cam-vreg-op-mode = <0 80000 105000 0>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk1_active
@@ -240,10 +246,12 @@
 		cam_vio-supply = <&pm8998_lvs1>;
 		cam_vana-supply = <&pmi8998_bob>;
 		cam_vdig-supply = <&camera_rear_ldo>;
-		qcom,cam-vreg-name = "cam_vio", "cam_vana", "cam_vdig";
-		qcom,cam-vreg-min-voltage = <0 3312000 1050000>;
-		qcom,cam-vreg-max-voltage = <0 3600000 1050000>;
-		qcom,cam-vreg-op-mode = <0 80000 105000>;
+		cam_clk-supply = <&titan_top_gdsc>;
+		qcom,cam-vreg-name = "cam_vio", "cam_vana", "cam_vdig",
+			"cam_clk";
+		qcom,cam-vreg-min-voltage = <0 3312000 1050000 0>;
+		qcom,cam-vreg-max-voltage = <0 3600000 1050000 0>;
+		qcom,cam-vreg-op-mode = <0 80000 105000 0>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk0_active
@@ -280,10 +288,12 @@
 		cam_vdig-supply = <&camera_ldo>;
 		cam_vio-supply = <&pm8998_lvs1>;
 		cam_vana-supply = <&pmi8998_bob>;
-		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
-		qcom,cam-vreg-min-voltage = <1050000 0 3312000>;
-		qcom,cam-vreg-max-voltage = <1050000 0 3600000>;
-		qcom,cam-vreg-op-mode = <105000 0 80000>;
+		cam_clk-supply = <&titan_top_gdsc>;
+		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana",
+			"cam_clk";
+		qcom,cam-vreg-min-voltage = <1050000 0 3312000 0>;
+		qcom,cam-vreg-max-voltage = <1050000 0 3600000 0>;
+		qcom,cam-vreg-op-mode = <105000 0 80000 0>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk2_active
@@ -322,10 +332,12 @@
 		cam_vio-supply = <&pm8998_lvs1>;
 		cam_vana-supply = <&pmi8998_bob>;
 		cam_vdig-supply = <&camera_ldo>;
-		qcom,cam-vreg-name = "cam_vio", "cam_vana", "cam_vdig";
-		qcom,cam-vreg-min-voltage = <0 3312000 1050000>;
-		qcom,cam-vreg-max-voltage = <0 3600000 1050000>;
-		qcom,cam-vreg-op-mode = <0 80000 105000>;
+		cam_clk-supply = <&titan_top_gdsc>;
+		qcom,cam-vreg-name = "cam_vio", "cam_vana", "cam_vdig",
+			"cam_clk";
+		qcom,cam-vreg-min-voltage = <0 3312000 1050000 0>;
+		qcom,cam-vreg-max-voltage = <0 3600000 1050000 0>;
+		qcom,cam-vreg-op-mode = <0 80000 105000 0>;
 		qcom,gpio-no-mux = <0>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk1_active
