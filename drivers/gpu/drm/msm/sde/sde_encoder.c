@@ -831,6 +831,8 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc = NULL;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
 	int i = 0;
 	int ret = 0;
 
@@ -846,6 +848,13 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 	}
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
+	priv = drm_enc->dev->dev_private;
+	sde_kms = to_sde_kms(priv->kms);
+
+	if (!sde_kms) {
+		SDE_ERROR("invalid sde_kms\n");
+		return;
+	}
 
 	SDE_DEBUG_ENC(sde_enc, "\n");
 	SDE_EVT32(DRMID(drm_enc));
@@ -876,6 +885,12 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 		SDE_ERROR("virt encoder has no master! num_phys %d\n", i);
 	else if (sde_enc->cur_master->ops.enable)
 		sde_enc->cur_master->ops.enable(sde_enc->cur_master);
+
+	if (sde_enc->cur_master && sde_enc->cur_master->hw_mdptop &&
+			sde_enc->cur_master->hw_mdptop->ops.reset_ubwc)
+		sde_enc->cur_master->hw_mdptop->ops.reset_ubwc(
+				sde_enc->cur_master->hw_mdptop,
+				sde_kms->catalog);
 
 	if (_sde_is_dsc_enabled(sde_enc)) {
 		ret = _sde_encoder_dsc_setup(sde_enc);
