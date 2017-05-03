@@ -1,0 +1,21 @@
+Qualcomm Technologies, Inc. SSC Driver
+
+msm-ssc-sensors driver implements the mechanism that allows to load SLPI firmware images.
+
+Required properties:
+
+ - compatible:  This must be "qcom,msm-ssc-sensors"
+
+Optional properties:
+
+ - qcom,firmware-name: SLPI firmware name, must be "slpi" or "slpi_v1" or "slpi_v2"
+	Firmware name is not required, if sensors driver is sharing processor for execution.
+
+
+Example:
+ The following for sdm845.
+
+	qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+		qcom,firmware-name = "slpi";
+	};
