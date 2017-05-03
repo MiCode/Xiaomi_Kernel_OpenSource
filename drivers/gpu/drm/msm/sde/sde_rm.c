@@ -107,7 +107,6 @@ struct sde_rm_hw_blk {
 	struct sde_rm_rsvp *rsvp_nxt;
 	enum sde_hw_blk_type type;
 	uint32_t id;
-	void *catalog;
 	void *hw;
 };
 
@@ -368,7 +367,6 @@ static int _sde_rm_hw_blk_create(
 
 	blk->type = type;
 	blk->id = id;
-	blk->catalog = hw_catalog_info;
 	blk->hw = hw;
 	list_add_tail(&blk->list, &rm->hw_blks[type]);
 
@@ -548,8 +546,9 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 		struct sde_rm_hw_blk **pp,
 		struct sde_rm_hw_blk *primary_lm)
 {
-	struct sde_lm_cfg *lm_cfg = (struct sde_lm_cfg *)lm->catalog;
-	struct sde_pingpong_cfg *pp_cfg;
+	const struct sde_lm_cfg *lm_cfg =
+			((struct sde_hw_mixer *)(lm->hw))->cap;
+	const struct sde_pingpong_cfg *pp_cfg;
 	struct sde_rm_hw_iter iter;
 
 	*dspp = NULL;
@@ -560,8 +559,8 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 
 	/* Check if this layer mixer is a peer of the proposed primary LM */
 	if (primary_lm) {
-		struct sde_lm_cfg *prim_lm_cfg =
-				(struct sde_lm_cfg *)primary_lm->catalog;
+		const struct sde_lm_cfg *prim_lm_cfg =
+				((struct sde_hw_mixer *)(primary_lm->hw))->cap;
 
 		if (!test_bit(lm_cfg->id, &prim_lm_cfg->lm_pair_mask)) {
 			SDE_DEBUG("lm %d not peer of lm %d\n", lm_cfg->id,
@@ -627,7 +626,7 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 		return false;
 	}
 
-	pp_cfg = (struct sde_pingpong_cfg *)((*pp)->catalog);
+	pp_cfg = ((struct sde_hw_pingpong *)((*pp)->hw))->pingpong_hw_cap;
 	if ((reqs->topology->top_name == SDE_RM_TOPOLOGY_PPSPLIT) &&
 			!(test_bit(SDE_PINGPONG_SPLIT, &pp_cfg->features))) {
 		SDE_DEBUG("pp %d doesn't support ppsplit\n", pp_cfg->id);
@@ -715,9 +714,10 @@ static int _sde_rm_reserve_lms(
 		rc = -ENAVAIL;
 		sde_rm_init_hw_iter(&iter_i, 0, SDE_HW_BLK_PINGPONG);
 		while (_sde_rm_get_hw_locked(rm, &iter_i)) {
-			struct sde_pingpong_cfg *pp_cfg =
-				(struct sde_pingpong_cfg *)
-				(iter_i.blk->catalog);
+			const struct sde_hw_pingpong *pp =
+				(struct sde_hw_pingpong *)(iter_i.blk->hw);
+			const struct sde_pingpong_cfg *pp_cfg =
+					pp->pingpong_hw_cap;
 
 			if (!(test_bit(SDE_PINGPONG_SLAVE, &pp_cfg->features)))
 				continue;
@@ -746,17 +746,18 @@ static int _sde_rm_reserve_ctls(
 
 	sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_CTL);
 	while (_sde_rm_get_hw_locked(rm, &iter)) {
-		unsigned long caps;
+		const struct sde_hw_ctl *ctl =
+				(struct sde_hw_ctl *)(iter.blk->hw);
+		unsigned long features = ctl->caps->features;
 		bool has_split_display, has_ppsplit;
 
 		if (RESERVED_BY_OTHER(iter.blk, rsvp))
 			continue;
 
-		caps = ((struct sde_ctl_cfg *)iter.blk->catalog)->features;
-		has_split_display = BIT(SDE_CTL_SPLIT_DISPLAY) & caps;
-		has_ppsplit = BIT(SDE_CTL_PINGPONG_SPLIT) & caps;
+		has_split_display = BIT(SDE_CTL_SPLIT_DISPLAY) & features;
+		has_ppsplit = BIT(SDE_CTL_PINGPONG_SPLIT) & features;
 
-		SDE_DEBUG("ctl %d caps 0x%lX\n", iter.blk->id, caps);
+		SDE_DEBUG("ctl %d caps 0x%lX\n", iter.blk->id, features);
 
 		if (top->needs_split_display != has_split_display)
 			continue;
@@ -820,24 +821,24 @@ static int _sde_rm_reserve_cdm(
 		enum sde_hw_blk_type type)
 {
 	struct sde_rm_hw_iter iter;
-	struct sde_cdm_cfg *cdm;
 
 	sde_rm_init_hw_iter(&iter, 0, SDE_HW_BLK_CDM);
 	while (_sde_rm_get_hw_locked(rm, &iter)) {
+		const struct sde_hw_cdm *cdm =
+				(struct sde_hw_cdm *)(iter.blk->hw);
+		const struct sde_cdm_cfg *caps = cdm->cdm_hw_cap;
 		bool match = false;
 
 		if (RESERVED_BY_OTHER(iter.blk, rsvp))
 			continue;
 
-		cdm = (struct sde_cdm_cfg *)(iter.blk->catalog);
-
 		if (type == SDE_HW_BLK_INTF && id != INTF_MAX)
-			match = test_bit(id, &cdm->intf_connect);
+			match = test_bit(id, &caps->intf_connect);
 		else if (type == SDE_HW_BLK_WB && id != WB_MAX)
-			match = test_bit(id, &cdm->wb_connect);
+			match = test_bit(id, &caps->wb_connect);
 
 		SDE_DEBUG("type %d id %d, cdm intfs %lu wbs %lu match %d\n",
-				type, id, cdm->intf_connect, cdm->wb_connect,
+				type, id, caps->intf_connect, caps->wb_connect,
 				match);
 
 		if (!match)
