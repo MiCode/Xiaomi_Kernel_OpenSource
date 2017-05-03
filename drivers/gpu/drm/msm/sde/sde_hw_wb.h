@@ -131,16 +131,17 @@ struct sde_hw_wb_ops {
 
 /**
  * struct sde_hw_wb : WB driver object
- * @struct sde_hw_blk_reg_map *hw;
+ * @base: hardware block base structure
+ * @hw: block hardware details
  * @catalog: back pointer to catalog
- * @mdp:          pointer to associated mdp portion of the catalog
- * @idx
- * @wb_hw_caps
- * @ops
+ * @mdp: pointer to associated mdp portion of the catalog
+ * @idx: hardware index number within type
+ * @wb_hw_caps: hardware capabilities
+ * @ops: function pointers
  * @hw_mdp: MDP top level hardware block
  */
 struct sde_hw_wb {
-	/* base */
+	struct sde_hw_blk base;
 	struct sde_hw_blk_reg_map hw;
 	struct sde_mdss_cfg *catalog;
 	struct sde_mdp_cfg *mdp;

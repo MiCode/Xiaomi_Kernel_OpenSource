@@ -15,6 +15,7 @@
 #include "sde_hw_catalog.h"
 #include "sde_hw_pingpong.h"
 #include "sde_dbg.h"
+#include "sde_kms.h"
 
 #define PP_TEAR_CHECK_EN                0x000
 #define PP_SYNC_CONFIG_VSYNC            0x004
@@ -162,12 +163,18 @@ static void _setup_pingpong_ops(struct sde_hw_pingpong_ops *ops,
 	ops->disable_dsc = sde_hw_pp_dsc_disable;
 };
 
+static struct sde_hw_blk_ops sde_hw_ops = {
+	.start = NULL,
+	.stop = NULL,
+};
+
 struct sde_hw_pingpong *sde_hw_pingpong_init(enum sde_pingpong idx,
 		void __iomem *addr,
 		struct sde_mdss_cfg *m)
 {
 	struct sde_hw_pingpong *c;
 	struct sde_pingpong_cfg *cfg;
+	int rc;
 
 	c = kzalloc(sizeof(*c), GFP_KERNEL);
 	if (!c)
@@ -183,13 +190,26 @@ struct sde_hw_pingpong *sde_hw_pingpong_init(enum sde_pingpong idx,
 	c->pingpong_hw_cap = cfg;
 	_setup_pingpong_ops(&c->ops, c->pingpong_hw_cap->features);
 
+	rc = sde_hw_blk_init(&c->base, SDE_HW_BLK_PINGPONG, idx, &sde_hw_ops);
+	if (rc) {
+		SDE_ERROR("failed to init hw blk %d\n", rc);
+		goto blk_init_error;
+	}
+
 	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,
 			c->hw.blk_off + c->hw.length, c->hw.xin_id);
 
 	return c;
+
+blk_init_error:
+	kzfree(c);
+
+	return ERR_PTR(rc);
 }
 
 void sde_hw_pingpong_destroy(struct sde_hw_pingpong *pp)
 {
+	if (pp)
+		sde_hw_blk_destroy(&pp->base);
 	kfree(pp);
 }

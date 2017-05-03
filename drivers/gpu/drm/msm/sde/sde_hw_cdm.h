@@ -15,6 +15,7 @@
 
 #include "sde_hw_mdss.h"
 #include "sde_hw_top.h"
+#include "sde_hw_blk.h"
 
 struct sde_hw_cdm;
 
@@ -92,7 +93,7 @@ struct sde_hw_cdm_ops {
 };
 
 struct sde_hw_cdm {
-	/* base */
+	struct sde_hw_blk base;
 	struct sde_hw_blk_reg_map hw;
 
 	/* chroma down */

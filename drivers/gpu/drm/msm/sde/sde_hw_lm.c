@@ -16,6 +16,7 @@
 #include "sde_hw_lm.h"
 #include "sde_hw_mdss.h"
 #include "sde_dbg.h"
+#include "sde_kms.h"
 
 #define LM_OP_MODE                        0x00
 #define LM_OUT_SIZE                       0x04
@@ -277,12 +278,18 @@ static void _setup_mixer_ops(struct sde_mdss_cfg *m,
 	}
 };
 
+static struct sde_hw_blk_ops sde_hw_ops = {
+	.start = NULL,
+	.stop = NULL,
+};
+
 struct sde_hw_mixer *sde_hw_lm_init(enum sde_lm idx,
 		void __iomem *addr,
 		struct sde_mdss_cfg *m)
 {
 	struct sde_hw_mixer *c;
 	struct sde_lm_cfg *cfg;
+	int rc;
 
 	c = kzalloc(sizeof(*c), GFP_KERNEL);
 	if (!c)
@@ -299,13 +306,26 @@ struct sde_hw_mixer *sde_hw_lm_init(enum sde_lm idx,
 	c->cap = cfg;
 	_setup_mixer_ops(m, &c->ops, c->cap->features);
 
+	rc = sde_hw_blk_init(&c->base, SDE_HW_BLK_LM, idx, &sde_hw_ops);
+	if (rc) {
+		SDE_ERROR("failed to init hw blk %d\n", rc);
+		goto blk_init_error;
+	}
+
 	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,
 			c->hw.blk_off + c->hw.length, c->hw.xin_id);
 
 	return c;
+
+blk_init_error:
+	kzfree(c);
+
+	return ERR_PTR(rc);
 }
 
 void sde_hw_lm_destroy(struct sde_hw_mixer *lm)
 {
+	if (lm)
+		sde_hw_blk_destroy(&lm->base);
 	kfree(lm);
 }

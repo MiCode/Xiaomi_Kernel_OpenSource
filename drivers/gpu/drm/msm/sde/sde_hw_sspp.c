@@ -16,6 +16,7 @@
 #include "sde_hw_sspp.h"
 #include "sde_hw_color_processing.h"
 #include "sde_dbg.h"
+#include "sde_kms.h"
 
 #define SDE_FETCH_CONFIG_RESET_VALUE   0x00000087
 
@@ -1216,12 +1217,18 @@ static struct sde_sspp_cfg *_sspp_offset(enum sde_sspp sspp,
 	return ERR_PTR(-ENOMEM);
 }
 
+static struct sde_hw_blk_ops sde_hw_ops = {
+	.start = NULL,
+	.stop = NULL,
+};
+
 struct sde_hw_pipe *sde_hw_sspp_init(enum sde_sspp idx,
 			void __iomem *addr,
 			struct sde_mdss_cfg *catalog)
 {
 	struct sde_hw_pipe *hw_pipe;
 	struct sde_sspp_cfg *cfg;
+	int rc;
 
 	if (!addr || !catalog)
 		return ERR_PTR(-EINVAL);
@@ -1243,6 +1250,12 @@ struct sde_hw_pipe *sde_hw_sspp_init(enum sde_sspp idx,
 	hw_pipe->cap = cfg;
 	_setup_layer_ops(hw_pipe, hw_pipe->cap->features);
 
+	rc = sde_hw_blk_init(&hw_pipe->base, SDE_HW_BLK_SSPP, idx, &sde_hw_ops);
+	if (rc) {
+		SDE_ERROR("failed to init hw blk %d\n", rc);
+		goto blk_init_error;
+	}
+
 	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name,
 			hw_pipe->hw.blk_off,
 			hw_pipe->hw.blk_off + hw_pipe->hw.length,
@@ -1257,10 +1270,17 @@ struct sde_hw_pipe *sde_hw_sspp_init(enum sde_sspp idx,
 			hw_pipe->hw.xin_id);
 
 	return hw_pipe;
+
+blk_init_error:
+	kzfree(hw_pipe);
+
+	return ERR_PTR(rc);
 }
 
 void sde_hw_sspp_destroy(struct sde_hw_pipe *ctx)
 {
+	if (ctx)
+		sde_hw_blk_destroy(&ctx->base);
 	kfree(ctx);
 }
 

@@ -15,6 +15,7 @@
 
 #include "sde_hw_mdss.h"
 #include "sde_hw_util.h"
+#include "sde_hw_blk.h"
 
 struct sde_hw_mixer;
 
@@ -89,7 +90,7 @@ struct sde_hw_lm_ops {
 };
 
 struct sde_hw_mixer {
-	/* base */
+	struct sde_hw_blk base;
 	struct sde_hw_blk_reg_map hw;
 
 	/* lm */
