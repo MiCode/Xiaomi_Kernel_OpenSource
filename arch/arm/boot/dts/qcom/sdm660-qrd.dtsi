@@ -235,7 +235,7 @@
 
 &i2c_2 {
 	status = "ok";
-	smb1351-charger@1d {
+	smb1351_charger: smb1351-charger@1d {
 		compatible = "qcom,smb1351-charger";
 		reg = <0x1d>;
 		qcom,parallel-charger;
