@@ -706,6 +706,8 @@ void dsi_ctrl_hw_cmn_clear_interrupt_status(struct dsi_ctrl_hw *ctrl, u32 ints)
 {
 	u32 reg = 0;
 
+	reg = DSI_R32(ctrl, DSI_INT_CTRL);
+
 	if (ints & DSI_CMD_MODE_DMA_DONE)
 		reg |= BIT(0);
 	if (ints & DSI_CMD_FRAME_DONE)

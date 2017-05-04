@@ -85,6 +85,16 @@ enum drm_mode_status dsi_conn_mode_valid(struct drm_connector *connector,
 		struct drm_display_mode *mode,
 		void *display);
 
+/**
+ * dsi_conn_enable_event - callback to notify DSI driver of event registeration
+ * @connector: Pointer to drm connector structure
+ * @event_idx: Connector event index
+ * @enable: Whether or not the event is enabled
+ * @display: Pointer to private display handle
+ */
+void dsi_conn_enable_event(struct drm_connector *connector,
+		uint32_t event_idx, bool enable, void *display);
+
 struct dsi_bridge *dsi_drm_bridge_init(struct dsi_display *display,
 		struct drm_device *dev,
 		struct drm_encoder *encoder);

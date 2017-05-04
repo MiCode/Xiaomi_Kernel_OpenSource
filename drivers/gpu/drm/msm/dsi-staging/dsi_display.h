@@ -444,6 +444,17 @@ int dsi_display_set_tpg_state(struct dsi_display *display, bool enable);
 int dsi_display_clock_gate(struct dsi_display *display, bool enable);
 int dsi_dispaly_static_frame(struct dsi_display *display, bool enable);
 
+/**
+ * dsi_display_enable_event() - enable interrupt based connector event
+ * @display:            Handle to display.
+ * @event_idx:          Event index.
+ * @event_info:         Event callback definition.
+ * @enable:             Whether to enable/disable the event interrupt.
+ */
+void dsi_display_enable_event(struct dsi_display *display,
+		uint32_t event_idx, struct dsi_event_cb_info *event_info,
+		bool enable);
+
 int dsi_display_set_backlight(void *display, u32 bl_lvl);
 
 /**

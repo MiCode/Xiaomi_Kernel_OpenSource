@@ -19,6 +19,7 @@
 #include <linux/err.h>
 
 #include "msm_drv.h"
+#include "sde_connector.h"
 #include "dsi_display.h"
 #include "dsi_panel.h"
 #include "dsi_ctrl.h"
@@ -499,7 +500,45 @@ static int dsi_display_phy_idle_off(struct dsi_display *display)
 	return 0;
 }
 
+void dsi_display_enable_event(struct dsi_display *display,
+		uint32_t event_idx, struct dsi_event_cb_info *event_info,
+		bool enable)
+{
+	uint32_t irq_status_idx = DSI_STATUS_INTERRUPT_COUNT;
+	int i;
 
+	if (!display) {
+		pr_err("invalid display\n");
+		return;
+	}
+
+	if (event_info)
+		event_info->event_idx = event_idx;
+
+	switch (event_idx) {
+	case SDE_CONN_EVENT_VID_DONE:
+		irq_status_idx = DSI_SINT_VIDEO_MODE_FRAME_DONE;
+		break;
+	case SDE_CONN_EVENT_CMD_DONE:
+		irq_status_idx = DSI_SINT_CMD_FRAME_DONE;
+		break;
+	default:
+		/* nothing to do */
+		pr_debug("[%s] unhandled event %d\n", display->name, event_idx);
+		return;
+	}
+
+	if (enable) {
+		for (i = 0; i < display->ctrl_count; i++)
+			dsi_ctrl_enable_status_interrupt(
+					display->ctrl[i].ctrl, irq_status_idx,
+					event_info);
+	} else {
+		for (i = 0; i < display->ctrl_count; i++)
+			dsi_ctrl_disable_status_interrupt(
+					display->ctrl[i].ctrl, irq_status_idx);
+	}
+}
 
 static int dsi_display_ctrl_power_on(struct dsi_display *display)
 {
@@ -1215,8 +1254,7 @@ static int dsi_display_broadcast_cmd(struct dsi_display *display,
 			goto error;
 		}
 
-		rc = dsi_ctrl_cmd_tx_trigger(ctrl->ctrl,
-			DSI_CTRL_CMD_BROADCAST);
+		rc = dsi_ctrl_cmd_tx_trigger(ctrl->ctrl, flags);
 		if (rc) {
 			pr_err("[%s] cmd trigger failed, rc=%d\n",
 			       display->name, rc);
@@ -1224,9 +1262,7 @@ static int dsi_display_broadcast_cmd(struct dsi_display *display,
 		}
 	}
 
-	rc = dsi_ctrl_cmd_tx_trigger(m_ctrl->ctrl,
-				(DSI_CTRL_CMD_BROADCAST_MASTER |
-				 DSI_CTRL_CMD_BROADCAST));
+	rc = dsi_ctrl_cmd_tx_trigger(m_ctrl->ctrl, m_flags);
 	if (rc) {
 		pr_err("[%s] cmd trigger failed for master, rc=%d\n",
 		       display->name, rc);
