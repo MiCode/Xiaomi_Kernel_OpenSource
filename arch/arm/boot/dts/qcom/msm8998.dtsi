@@ -3200,6 +3200,10 @@
 			 <&clock_gcc clk_rf_clk3_pin>;
 		clock-names = "rf_clk3_clk", "rf_clk3_pin_clk";
 		qcom,smmu-support;
+		qcom,smmu-s1-en;
+		qcom,smmu-fast-map;
+		qcom,smmu-coherent;
+		qcom,smmu-mapping = <0x20000000 0xe0000000>;
 		status = "disabled";
 	};
 
