@@ -235,6 +235,14 @@
 			qcom,init-voltage = <1800000>;
 			status = "okay";
 		};
+
+		pm660_l12_ao: regulator-l12-ao {
+			regulator-name = "pm660_l12_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+		};
 	};
 
 	rpm-regulator-ldoa13 {

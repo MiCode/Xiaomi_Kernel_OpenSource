@@ -24,9 +24,10 @@
 	};
 
 	qcom,gcc@1800000 {
-		/delete-property/ vdd_dig-supply;
-		/delete-property/ vdd_sr2_dig-supply;
-		/delete-property/ vdd_sr2_pll-supply;
+		vdd_dig-supply = <&pm660_s2_corner>;
+		vdd_sr2_dig-supply = <&pm660_s2_corner_ao>;
+		vdd_sr2_pll-supply = <&pm660_l12_ao>;
+
 	};
 
 	qcom,wcnss-wlan@a000000 {
@@ -84,7 +85,7 @@
 	};
 
 	qcom,clock-a7@0b011050 {
-		/delete-property/ cpu-vdd-supply;
+		cpu-vdd-supply = <&pm660_s2_corner_ao>;
 	};
 
 	vadc@3400 {
