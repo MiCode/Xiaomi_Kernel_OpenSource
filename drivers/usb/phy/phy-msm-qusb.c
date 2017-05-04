@@ -752,6 +752,9 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			writel_relaxed(0x00,
 				qphy->base + QUSB2PHY_PORT_INTR_CTRL);
 
+			/* Disable PHY */
+			writel_relaxed(POWER_DOWN,
+				qphy->base + QUSB2PHY_PORT_POWERDOWN);
 			/* Make sure that above write is completed */
 			wmb();
 
