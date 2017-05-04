@@ -117,6 +117,7 @@ struct sde_encoder_virt_ops {
  * @collect_misr:		Collects MISR data on frame update
  * @hw_reset:			Issue HW recovery such as CTL reset and clear
  *				SDE_ENC_ERR_NEEDS_HW_RESET state
+ * @irq_control:		Handler to enable/disable all the encoder IRQs
  */
 
 struct sde_encoder_phys_ops {
@@ -150,6 +151,7 @@ struct sde_encoder_phys_ops {
 				bool enable, u32 frame_count);
 	u32 (*collect_misr)(struct sde_encoder_phys *phys_enc);
 	void (*hw_reset)(struct sde_encoder_phys *phys_enc);
+	void (*irq_control)(struct sde_encoder_phys *phys, bool enable);
 };
 
 /**

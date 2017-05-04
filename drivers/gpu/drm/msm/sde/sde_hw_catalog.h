@@ -713,6 +713,7 @@ struct sde_perf_cfg {
  * @ubwc_version       UBWC feature version (0x0 for not supported)
  * @has_sbuf           indicate if stream buffer is available
  * @sbuf_headroom      stream buffer headroom in lines
+ * @has_idle_pc        indicate if idle power collapse feature is supported
  * @dma_formats        Supported formats for dma pipe
  * @cursor_formats     Supported formats for cursor pipe
  * @vig_formats        Supported formats for vig pipe
@@ -735,6 +736,7 @@ struct sde_mdss_cfg {
 	u32 ubwc_version;
 	bool has_sbuf;
 	u32 sbuf_headroom;
+	bool has_idle_pc;
 
 	u32 mdss_count;
 	struct sde_mdss_base_cfg mdss[MAX_BLOCKS];

@@ -316,6 +316,21 @@ static inline int sde_crtc_mixer_width(struct sde_crtc *sde_crtc,
 }
 
 /**
+ * sde_crtc_frame_pending - retun the number of pending frames
+ * @crtc: Pointer to drm crtc object
+ */
+static inline int sde_crtc_frame_pending(struct drm_crtc *crtc)
+{
+	struct sde_crtc *sde_crtc;
+
+	if (!crtc)
+		return -EINVAL;
+
+	sde_crtc = to_sde_crtc(crtc);
+	return atomic_read(&sde_crtc->frame_pending);
+}
+
+/**
  * sde_crtc_vblank - enable or disable vblanks for this crtc
  * @crtc: Pointer to drm crtc object
  * @en: true to enable vblanks, false to disable
