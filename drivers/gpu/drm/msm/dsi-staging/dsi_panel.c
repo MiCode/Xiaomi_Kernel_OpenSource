@@ -20,6 +20,19 @@
 #include "dsi_panel.h"
 #include "dsi_ctrl_hw.h"
 
+#define MAX_CMDLINE_PARAM_LEN 256
+static char display_config[MAX_CMDLINE_PARAM_LEN];
+
+/**
+ * topology is currently defined by a set of following 3 values:
+ * 1. num of layer mixers
+ * 2. num of compression encoders
+ * 3. num of interfaces
+ */
+#define TOPOLOGY_SET_LEN 3
+#define INT_BASE_10 10
+#define MAX_TOPOLOGY 5
+
 #define DSI_PANEL_DEFAULT_LABEL  "Default dsi panel"
 
 #define DEFAULT_MDP_TRANSFER_TIME 14000
@@ -1912,25 +1925,18 @@ int dsi_panel_parse_dsc_params(struct dsi_panel *panel,
 	u32 data;
 	int rc = -EINVAL;
 	int intf_width;
-	struct device_node *dsc_np = NULL;
 
 	if (!panel->dsc_enabled)
 		return 0;
 
-	dsc_np = of_parse_phandle(of_node, "qcom,config-select", 0);
-	if (!dsc_np) {
-		pr_err("no dsc config found\n");
-		goto error;
-	}
-
-	rc = of_property_read_u32(dsc_np, "qcom,mdss-dsc-slice-height", &data);
+	rc = of_property_read_u32(of_node, "qcom,mdss-dsc-slice-height", &data);
 	if (rc) {
 		pr_err("failed to parse qcom,mdss-dsc-slice-height\n");
 		goto error;
 	}
 	panel->dsc.slice_height = data;
 
-	rc = of_property_read_u32(dsc_np, "qcom,mdss-dsc-slice-width", &data);
+	rc = of_property_read_u32(of_node, "qcom,mdss-dsc-slice-width", &data);
 	if (rc) {
 		pr_err("failed to parse qcom,mdss-dsc-slice-width\n");
 		goto error;
@@ -1946,14 +1952,15 @@ int dsi_panel_parse_dsc_params(struct dsi_panel *panel,
 	panel->dsc.pic_width = panel->mode.timing.h_active;
 	panel->dsc.pic_height = panel->mode.timing.v_active;
 
-	rc = of_property_read_u32(dsc_np, "qcom,mdss-dsc-slice-per-pkt", &data);
+	rc = of_property_read_u32(of_node, "qcom,mdss-dsc-slice-per-pkt",
+			&data);
 	if (rc) {
 		pr_err("failed to parse qcom,mdss-dsc-slice-per-pkt\n");
 		goto error;
 	}
 	panel->dsc.slice_per_pkt = data;
 
-	rc = of_property_read_u32(dsc_np, "qcom,mdss-dsc-bit-per-component",
+	rc = of_property_read_u32(of_node, "qcom,mdss-dsc-bit-per-component",
 		&data);
 	if (rc) {
 		pr_err("failed to parse qcom,mdss-dsc-bit-per-component\n");
@@ -1961,14 +1968,15 @@ int dsi_panel_parse_dsc_params(struct dsi_panel *panel,
 	}
 	panel->dsc.bpc = data;
 
-	rc = of_property_read_u32(dsc_np, "qcom,mdss-dsc-bit-per-pixel", &data);
+	rc = of_property_read_u32(of_node, "qcom,mdss-dsc-bit-per-pixel",
+			&data);
 	if (rc) {
 		pr_err("failed to parse qcom,mdss-dsc-bit-per-pixel\n");
 		goto error;
 	}
 	panel->dsc.bpp = data;
 
-	panel->dsc.block_pred_enable = of_property_read_bool(dsc_np,
+	panel->dsc.block_pred_enable = of_property_read_bool(of_node,
 		"qcom,mdss-dsc-block-prediction-enable");
 
 	panel->dsc.full_frame_slices = DIV_ROUND_UP(intf_width,
@@ -2025,6 +2033,112 @@ static int dsi_panel_parse_hdr_config(struct dsi_panel *panel,
 		}
 	}
 	return 0;
+}
+
+static int dsi_get_cmdline_top_override(void)
+{
+	char *str = display_config;
+	int top_index = -1;
+
+	/*
+	 * This module need to be updated with needed cmd line argument parsing
+	 * for other dsi parameters.
+	 */
+	if (strlcat(str, "\0", sizeof(str)) > sizeof(str))
+		return -EINVAL;
+
+	str = strnstr(display_config, "config", strlen(display_config));
+	if (!str)
+		return -EINVAL;
+
+	if (kstrtol(str + strlen("config"), INT_BASE_10,
+				(unsigned long *)&top_index))
+		return -EINVAL;
+
+	return top_index;
+}
+
+static int dsi_panel_parse_topology(struct dsi_panel *panel,
+		struct device_node *of_node)
+{
+	struct msm_display_topology *topology;
+	u32 top_count, top_sel, *array = NULL;
+	int i, len = 0;
+	int rc = -EINVAL;
+
+	len = of_property_count_u32_elems(of_node, "qcom,display-topology");
+	if (len <= 0 || len % TOPOLOGY_SET_LEN ||
+			len > (TOPOLOGY_SET_LEN * MAX_TOPOLOGY)) {
+		pr_err("invalid topology list for the panel, rc = %d\n", rc);
+		return rc;
+	}
+
+	top_count = len / TOPOLOGY_SET_LEN;
+
+	array = kcalloc(len, sizeof(u32), GFP_KERNEL);
+	if (!array)
+		return -ENOMEM;
+
+	rc = of_property_read_u32_array(of_node,
+			"qcom,display-topology", array, len);
+	if (rc) {
+		pr_err("unable to read the display topologies, rc = %d\n", rc);
+		goto read_fail;
+	}
+
+	topology = kcalloc(top_count, sizeof(*topology), GFP_KERNEL);
+	if (!topology) {
+		rc = -ENOMEM;
+		goto read_fail;
+	}
+
+	for (i = 0; i < top_count; i++) {
+		struct msm_display_topology *top = &topology[i];
+
+		top->num_lm = array[i * TOPOLOGY_SET_LEN];
+		top->num_enc = array[i * TOPOLOGY_SET_LEN + 1];
+		top->num_intf = array[i * TOPOLOGY_SET_LEN + 2];
+	};
+
+	top_sel = dsi_get_cmdline_top_override();
+	if (top_sel >= 0 && top_sel < top_count) {
+		pr_info("overidden topology: lm: %d comp_enc:%d intf: %d\n",
+			topology[top_sel].num_lm,
+			topology[top_sel].num_enc,
+			topology[top_sel].num_intf);
+		goto parse_done;
+	}
+
+	rc = of_property_read_u32(of_node,
+			"qcom,default-topology-index", &top_sel);
+	if (rc) {
+		pr_err("no default topology selected, rc = %d\n", rc);
+		goto parse_fail;
+	}
+
+	if (top_sel >= top_count) {
+		rc = -EINVAL;
+		pr_err("default topology is specified is not valid, rc = %d\n",
+			rc);
+		goto parse_fail;
+	}
+
+	pr_info("default topology: lm: %d comp_enc:%d intf: %d\n",
+		topology[top_sel].num_lm,
+		topology[top_sel].num_enc,
+		topology[top_sel].num_intf);
+
+parse_done:
+	panel->mode.mode_info = kzalloc(sizeof(struct msm_mode_info),
+			GFP_KERNEL);
+	memcpy(&panel->mode.mode_info->topology, &topology[top_sel],
+		sizeof(struct msm_display_topology));
+parse_fail:
+	kfree(topology);
+read_fail:
+	kfree(array);
+
+	return rc;
 }
 
 struct dsi_panel *dsi_panel_get(struct device *parent,
@@ -2084,6 +2198,13 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	panel->mode.pixel_clk_khz = (DSI_H_TOTAL(&panel->mode.timing) *
 				    DSI_V_TOTAL(&panel->mode.timing) *
 				    panel->mode.timing.refresh_rate) / 1000;
+
+	rc = dsi_panel_parse_topology(panel, of_node);
+	if (rc) {
+		pr_err("failed to parse panel topology, rc=%d\n", rc);
+		goto error;
+	}
+
 	rc = dsi_panel_parse_host_config(panel, of_node);
 	if (rc) {
 		pr_err("failed to parse host configuration, rc=%d\n", rc);
@@ -2152,6 +2273,8 @@ void dsi_panel_put(struct dsi_panel *panel)
 
 	for (i = 0; i < DSI_CMD_SET_MAX; i++)
 		dsi_panel_destroy_cmd_packets(&panel->cmd_sets[i]);
+
+	kfree(panel->mode.mode_info);
 
 	/* TODO:  more free */
 	kfree(panel);
@@ -2611,3 +2734,6 @@ error:
 	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
+
+module_param_string(display_param, display_config, MAX_CMDLINE_PARAM_LEN, 0600);
+MODULE_PARM_DESC(display_param, "format: configx - x indexes the selected topology from the display topology list. Index 0 corresponds to the first topology in the list");
