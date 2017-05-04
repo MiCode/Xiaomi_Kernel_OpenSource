@@ -611,6 +611,55 @@ static int fast_smmu_mmap_attrs(struct device *dev, struct vm_area_struct *vma,
 	return ret;
 }
 
+static dma_addr_t fast_smmu_dma_map_resource(
+			struct device *dev, phys_addr_t phys_addr,
+			size_t size, enum dma_data_direction dir,
+			unsigned long attrs)
+{
+	struct dma_fast_smmu_mapping *mapping = dev->archdata.mapping->fast;
+	size_t offset = phys_addr & ~FAST_PAGE_MASK;
+	size_t len = round_up(size + offset, FAST_PAGE_SIZE);
+	dma_addr_t dma_addr;
+	int prot;
+	unsigned long flags;
+
+	spin_lock_irqsave(&mapping->lock, flags);
+	dma_addr = __fast_smmu_alloc_iova(mapping, attrs, len);
+	spin_unlock_irqrestore(&mapping->lock, flags);
+
+	if (dma_addr == DMA_ERROR_CODE)
+		return dma_addr;
+
+	prot = __fast_dma_direction_to_prot(dir);
+	prot |= IOMMU_MMIO;
+
+	if (iommu_map(mapping->domain, dma_addr, phys_addr - offset,
+			len, prot)) {
+		spin_lock_irqsave(&mapping->lock, flags);
+		__fast_smmu_free_iova(mapping, dma_addr, len);
+		spin_unlock_irqrestore(&mapping->lock, flags);
+		return DMA_ERROR_CODE;
+	}
+	return dma_addr + offset;
+}
+
+static void fast_smmu_dma_unmap_resource(
+			struct device *dev, dma_addr_t addr,
+			size_t size, enum dma_data_direction dir,
+			unsigned long attrs)
+{
+	struct dma_fast_smmu_mapping *mapping = dev->archdata.mapping->fast;
+	size_t offset = addr & ~FAST_PAGE_MASK;
+	size_t len = round_up(size + offset, FAST_PAGE_SIZE);
+	unsigned long flags;
+
+	iommu_unmap(mapping->domain, addr - offset, len);
+	spin_lock_irqsave(&mapping->lock, flags);
+	__fast_smmu_free_iova(mapping, addr, len);
+	spin_unlock_irqrestore(&mapping->lock, flags);
+}
+
+
 static int fast_smmu_dma_supported(struct device *dev, u64 mask)
 {
 	return mask <= 0xffffffff;
@@ -667,6 +716,8 @@ static const struct dma_map_ops fast_smmu_dma_ops = {
 	.unmap_sg = fast_smmu_unmap_sg,
 	.sync_sg_for_cpu = fast_smmu_sync_sg_for_cpu,
 	.sync_sg_for_device = fast_smmu_sync_sg_for_device,
+	.map_resource = fast_smmu_dma_map_resource,
+	.unmap_resource = fast_smmu_dma_unmap_resource,
 	.dma_supported = fast_smmu_dma_supported,
 	.mapping_error = fast_smmu_mapping_error,
 };
