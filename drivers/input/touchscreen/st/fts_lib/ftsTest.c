@@ -301,7 +301,7 @@ int production_test_ito(void)
 {
 	int res = OK;
 	u8 cmd;
-	u8 readData[FIFO_EVENT_SIZE];
+	u8 readData[FIFO_EVENT_SIZE] = {0};
 	int eventToSearch[2] = {EVENTID_ERROR_EVENT, EVENT_TYPE_ITO}; /* look for ito event */
 
 	logError(0, "%s ITO Production test is starting...\n", tag);
@@ -347,7 +347,7 @@ int production_test_initialization(void)
 {
 	int res;
 	u8 cmd;
-	u8 readData[FIFO_EVENT_SIZE];
+	u8 readData[FIFO_EVENT_SIZE]  = {0};
 	int eventToSearch[2] = {EVENTID_STATUS_UPDATE, EVENT_TYPE_FULL_INITIALIZATION};
 
 	logError(0, "%s INITIALIZATION Production test is starting...\n", tag);
@@ -397,7 +397,7 @@ int ms_compensation_tuning(void)
 {
 	int res;
 	u8 cmd;
-	u8 readData[FIFO_EVENT_SIZE];
+	u8 readData[FIFO_EVENT_SIZE] = {0};
 	int eventToSearch[2] = {EVENTID_STATUS_UPDATE, EVENT_TYPE_MS_TUNING_CMPL};
 
 	logError(0, "%s MS INITIALIZATION command sent...\n", tag);
@@ -429,7 +429,7 @@ int ss_compensation_tuning(void)
 {
 	int res;
 	u8 cmd;
-	u8 readData[FIFO_EVENT_SIZE];
+	u8 readData[FIFO_EVENT_SIZE] = {0};
 	int eventToSearch[2] = {EVENTID_STATUS_UPDATE, EVENT_TYPE_SS_TUNING_CMPL};
 
 	logError(0, "%s SS INITIALIZATION command sent...\n", tag);
@@ -461,7 +461,7 @@ int lp_timer_calibration(void)
 {
 	int res;
 	u8 cmd;
-	u8 readData[FIFO_EVENT_SIZE];
+	u8 readData[FIFO_EVENT_SIZE] = {0};
 	int eventToSearch[2] = {EVENTID_STATUS_UPDATE, EVENT_TYPE_LPTIMER_TUNING_CMPL};
 
 	logError(0, "%s LP TIMER CALIBRATION command sent...\n", tag);
@@ -493,7 +493,7 @@ int save_cx_tuning(void)
 {
 	int res;
 	u8 cmd;
-	u8 readData[FIFO_EVENT_SIZE];
+	u8 readData[FIFO_EVENT_SIZE] = {0};
 	int eventToSearch[2] = {EVENTID_STATUS_UPDATE, EVENT_TYPE_COMP_DATA_SAVED};
 
 	logError(0, "%s SAVE CX command sent...\n", tag);

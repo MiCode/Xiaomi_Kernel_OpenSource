@@ -28,7 +28,7 @@ static u8 custom_gesture_index[GESTURE_CUSTOM_NUMBER] = { 0 };
 int enableGesture(u8 *mask, int size)
 {
 	u8 cmd[size+2];
-	u8 readData[FIFO_EVENT_SIZE];
+	u8 readData[FIFO_EVENT_SIZE] = {0};
 	int i, res;
 	int event_to_search[4] = {EVENTID_GESTURE, EVENT_TYPE_ENB, 0x00, GESTURE_ENABLE};
 
@@ -82,7 +82,7 @@ int enableGesture(u8 *mask, int size)
 int disableGesture(u8 *mask, int size)
 {
 	u8 cmd[2+GESTURE_MASK_SIZE];
-	u8 readData[FIFO_EVENT_SIZE];
+	u8 readData[FIFO_EVENT_SIZE] = {0};
 	u8 temp;
 	int i, res;
 	int event_to_search[4] = { EVENTID_GESTURE, EVENT_TYPE_ENB, 0x00, GESTURE_DISABLE };
@@ -141,7 +141,7 @@ int startAddCustomGesture(u8 gestureID)
 {
 	u8 cmd[3] = { FTS_CMD_GESTURE_CMD, GESTURE_START_ADD,  gestureID };
 	int res;
-	u8 readData[FIFO_EVENT_SIZE];
+	u8 readData[FIFO_EVENT_SIZE] = {0};
 	int event_to_search[4] = { EVENTID_GESTURE, EVENT_TYPE_ENB, gestureID, GESTURE_START_ADD };
 
 	res = fts_writeFwCmd(cmd, 3);
@@ -168,7 +168,7 @@ int finishAddCustomGesture(u8 gestureID)
 {
 	u8 cmd[3] = { FTS_CMD_GESTURE_CMD, GESTURE_FINISH_ADD,  gestureID };
 	int res;
-	u8 readData[FIFO_EVENT_SIZE];
+	u8 readData[FIFO_EVENT_SIZE] = {0};
 	int event_to_search[4] = { EVENTID_GESTURE, EVENT_TYPE_ENB, gestureID, GESTURE_FINISH_ADD };
 
 	res = fts_writeFwCmd(cmd, 3);
@@ -199,7 +199,7 @@ int loadCustomGesture(u8 *template, u8 gestureID)
 	int toWrite, offset = 0;
 	u8 cmd[TEMPLATE_CHUNK + 5];
 	int event_to_search[4] = { EVENTID_GESTURE, EVENT_TYPE_ENB, gestureID, GESTURE_DATA_ADD };
-	u8 readData[FIFO_EVENT_SIZE];
+	u8 readData[FIFO_EVENT_SIZE] = {0};
 
 	logError(0, "%s Starting adding custom gesture procedure...\n", tag);
 
@@ -359,7 +359,7 @@ int removeCustomGesture(u8 gestureID)
 	int res, index;
 	u8 cmd[3] = { FTS_CMD_GESTURE_CMD, GETURE_REMOVE_CUSTOM, gestureID };
 	int event_to_search[4] = {EVENTID_GESTURE, EVENT_TYPE_ENB, gestureID, GETURE_REMOVE_CUSTOM };
-	u8 readData[FIFO_EVENT_SIZE];
+	u8 readData[FIFO_EVENT_SIZE] = {0};
 
 	index = gestureID - GESTURE_CUSTOM_OFFSET;
 
