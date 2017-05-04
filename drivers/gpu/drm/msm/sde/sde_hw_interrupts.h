@@ -25,7 +25,7 @@
 #define IRQ_SOURCE_DSI1		BIT(5)
 #define IRQ_SOURCE_HDMI		BIT(8)
 #define IRQ_SOURCE_EDP		BIT(12)
-#define	IRQ_SOURCE_MHL		BIT(16)
+#define IRQ_SOURCE_MHL		BIT(16)
 
 /**
  * sde_intr_type - HW Interrupt Type
