@@ -479,11 +479,11 @@ static inline int get_rx_fifo_depth(void __iomem *base)
 	return rx_fifo_depth;
 }
 
-static inline void se_config_packing(void __iomem *base, int bpw,
-				int pack_words, bool msb_to_lsb)
+static inline void se_get_packing_config(int bpw, int pack_words,
+					bool msb_to_lsb, unsigned long *cfg0,
+					unsigned long *cfg1)
 {
 	u32 cfg[4] = {0};
-	unsigned long cfg0, cfg1;
 	int len = ((bpw < 8) ? (bpw - 1) : 7);
 	int idx = ((msb_to_lsb == 1) ? len : 0);
 	int iter = (bpw * pack_words) >> 3;
@@ -495,8 +495,16 @@ static inline void se_config_packing(void __iomem *base, int bpw,
 		if (i == iter - 1)
 			cfg[i] |= 1;
 	}
-	cfg0 = cfg[0] | (cfg[1] << 10);
-	cfg1 = cfg[2] | (cfg[3] << 10);
+	*cfg0 = cfg[0] | (cfg[1] << 10);
+	*cfg1 = cfg[2] | (cfg[3] << 10);
+}
+
+static inline void se_config_packing(void __iomem *base, int bpw,
+				int pack_words, bool msb_to_lsb)
+{
+	unsigned long cfg0, cfg1;
+
+	se_get_packing_config(bpw, pack_words, msb_to_lsb, &cfg0, &cfg1);
 	geni_write_reg(cfg0, base, SE_GENI_TX_PACKING_CFG0);
 	geni_write_reg(cfg1, base, SE_GENI_TX_PACKING_CFG1);
 	geni_write_reg(cfg0, base, SE_GENI_RX_PACKING_CFG0);
