@@ -1154,6 +1154,7 @@ static int wsa881x_swr_probe(struct swr_device *pdev)
 	int ret = 0;
 	struct wsa881x_priv *wsa881x;
 	u8 devnum = 0;
+	bool pin_state_current = false;
 
 	wsa881x = devm_kzalloc(&pdev->dev, sizeof(struct wsa881x_priv),
 			    GFP_KERNEL);
@@ -1184,6 +1185,9 @@ static int wsa881x_swr_probe(struct swr_device *pdev)
 		if (ret)
 			goto err;
 	}
+	if (wsa881x->wsa_rst_np)
+		pin_state_current = msm_cdc_pinctrl_get_state(
+						wsa881x->wsa_rst_np);
 	wsa881x_gpio_ctrl(wsa881x, true);
 	wsa881x->state = WSA881X_DEV_UP;
 
@@ -1246,6 +1250,8 @@ static int wsa881x_swr_probe(struct swr_device *pdev)
 	return 0;
 
 dev_err:
+	if (pin_state_current == false)
+		wsa881x_gpio_ctrl(wsa881x, false);
 	swr_remove_device(pdev);
 err:
 	return ret;
