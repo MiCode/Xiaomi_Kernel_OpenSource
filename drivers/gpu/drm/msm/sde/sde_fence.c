@@ -16,6 +16,8 @@
 #include "sde_kms.h"
 #include "sde_fence.h"
 
+#define TIMELINE_VAL_LENGTH		128
+
 void *sde_sync_get(uint64_t fd)
 {
 	/* force signed compare, fdget accepts an int argument */
@@ -31,14 +33,31 @@ void sde_sync_put(void *fence)
 signed long sde_sync_wait(void *fnc, long timeout_ms)
 {
 	struct fence *fence = fnc;
+	int rc;
+	char timeline_str[TIMELINE_VAL_LENGTH];
 
 	if (!fence)
 		return -EINVAL;
 	else if (fence_is_signaled(fence))
 		return timeout_ms ? msecs_to_jiffies(timeout_ms) : 1;
 
-	return fence_wait_timeout(fence, true,
+	rc = fence_wait_timeout(fence, true,
 				msecs_to_jiffies(timeout_ms));
+	if (!rc || (rc == -EINVAL)) {
+		if (fence->ops->timeline_value_str)
+			fence->ops->timeline_value_str(fence,
+					timeline_str, TIMELINE_VAL_LENGTH);
+
+		SDE_ERROR(
+			"fence driver name:%s timeline name:%s seqno:0x%x timeline:%s signaled:0x%x\n",
+			fence->ops->get_driver_name(fence),
+			fence->ops->get_timeline_name(fence),
+			fence->seqno, timeline_str,
+			fence->ops->signaled ?
+				fence->ops->signaled(fence) : 0xffffffff);
+	}
+
+	return rc;
 }
 
 uint32_t sde_sync_get_name_prefix(void *fence)
