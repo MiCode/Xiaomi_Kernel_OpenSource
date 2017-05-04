@@ -125,6 +125,7 @@ struct bio {
  * BVEC_POOL_IDX()
  */
 #define BIO_RESET_BITS	10
+#define BIO_INLINECRYPT 15
 
 /*
  * We support 6 different bvec pools, the last one is magic in that it
