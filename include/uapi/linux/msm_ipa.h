@@ -69,8 +69,12 @@
 #define IPA_IOCTL_ADD_FLT_RULE_AFTER 44
 #define IPA_IOCTL_GET_HW_VERSION 45
 #define IPA_IOCTL_ADD_RT_RULE_EXT 46
-#define IPA_IOCTL_NAT_MODIFY_PDN 47
-#define IPA_IOCTL_MAX 48
+#define IPA_IOCTL_ADD_VLAN_IFACE 47
+#define IPA_IOCTL_DEL_VLAN_IFACE 48
+#define IPA_IOCTL_ADD_L2TP_VLAN_MAPPING 49
+#define IPA_IOCTL_DEL_L2TP_VLAN_MAPPING 50
+#define IPA_IOCTL_NAT_MODIFY_PDN 51
+#define IPA_IOCTL_MAX 52
 
 /**
  * max size of the header to be inserted
@@ -452,7 +456,16 @@ enum ipa_ssr_event {
 	IPA_SSR_EVENT_MAX
 };
 
-#define IPA_EVENT_MAX_NUM ((int)IPA_SSR_EVENT_MAX)
+enum ipa_vlan_l2tp_event {
+	ADD_VLAN_IFACE = IPA_SSR_EVENT_MAX,
+	DEL_VLAN_IFACE,
+	ADD_L2TP_VLAN_MAPPING,
+	DEL_L2TP_VLAN_MAPPING,
+	IPA_VLAN_L2TP_EVENT_MAX,
+};
+
+#define IPA_EVENT_MAX_NUM (IPA_VLAN_L2TP_EVENT_MAX)
+#define IPA_EVENT_MAX ((int)IPA_EVENT_MAX_NUM)
 
 /**
  * enum ipa_rm_resource_name - IPA RM clients identification names
@@ -1446,6 +1459,30 @@ struct ipa_ioc_nat_pdn_entry {
 };
 
 /**
+ * struct ipa_ioc_vlan_iface_info - add vlan interface
+ * @name: interface name
+ * @vlan_id: VLAN ID
+ */
+struct ipa_ioc_vlan_iface_info {
+	char name[IPA_RESOURCE_NAME_MAX];
+	uint8_t vlan_id;
+};
+
+/**
+ * struct ipa_ioc_l2tp_vlan_mapping_info - l2tp->vlan mapping info
+ * @iptype: l2tp tunnel IP type
+ * @l2tp_iface_name: l2tp interface name
+ * @l2tp_session_id: l2tp session id
+ * @vlan_iface_name: vlan interface name
+ */
+struct ipa_ioc_l2tp_vlan_mapping_info {
+	enum ipa_ip_type iptype;
+	char l2tp_iface_name[IPA_RESOURCE_NAME_MAX];
+	uint8_t l2tp_session_id;
+	char vlan_iface_name[IPA_RESOURCE_NAME_MAX];
+};
+
+/**
  * struct ipa_msg_meta - Format of the message meta-data.
  * @msg_type: the type of the message
  * @rsvd: reserved bits for future use.
@@ -1722,6 +1759,21 @@ enum ipacm_client_enum {
 				IPA_IOCTL_GET_HW_VERSION, \
 				enum ipa_hw_type *)
 
+#define IPA_IOC_ADD_VLAN_IFACE _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_ADD_VLAN_IFACE, \
+				struct ipa_ioc_vlan_iface_info *)
+
+#define IPA_IOC_DEL_VLAN_IFACE _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_DEL_VLAN_IFACE, \
+				struct ipa_ioc_vlan_iface_info *)
+
+#define IPA_IOC_ADD_L2TP_VLAN_MAPPING _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_ADD_L2TP_VLAN_MAPPING, \
+				struct ipa_ioc_l2tp_vlan_mapping_info *)
+
+#define IPA_IOC_DEL_L2TP_VLAN_MAPPING _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_DEL_L2TP_VLAN_MAPPING, \
+				struct ipa_ioc_l2tp_vlan_mapping_info *)
 /*
  * unique magic number of the Tethering bridge ioctls
  */
