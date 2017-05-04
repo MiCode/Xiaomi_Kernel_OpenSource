@@ -206,6 +206,20 @@ config NAU7802
 	  To compile this driver as a module, choose M here: the
 	  module will be called nau7802.
 
+config QCOM_RRADC
+	tristate "Qualcomm Technologies Inc. PMIC Round robin ADC"
+	depends on MSM_SPMI
+	help
+	  This is the PMIC Round Robin ADC driver.
+
+	  The driver supports multiple channels read used for telemetry
+	  and supports clients to read batt_id, batt_therm, PMIC die
+	  temperature, USB_IN and DC_IN voltage and current.
+	  The RRADC is a 10-bit ADC.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called qcom-rradc.
+
 config ROCKCHIP_SARADC
 	tristate "Rockchip SARADC driver"
 	depends on ARCH_ROCKCHIP || (ARM && COMPILE_TEST)
