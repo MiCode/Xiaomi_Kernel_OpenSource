@@ -1146,8 +1146,10 @@ static int ath10k_snoc_hif_power_up(struct ath10k *ar)
 	if (ar->state == ATH10K_STATE_ON ||
 	    test_bit(ATH10K_FLAG_CRASH_FLUSH, &ar->dev_flags)) {
 		ret = ath10k_snoc_bus_configure(ar);
-		if (ret)
+		if (ret) {
 			ath10k_err(ar, "failed to configure bus: %d\n", ret);
+			return ret;
+		}
 	}
 	ret = ath10k_snoc_init_pipes(ar);
 	if (ret) {
