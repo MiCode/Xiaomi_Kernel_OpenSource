@@ -756,7 +756,7 @@ fail:
 }
 
 struct drm_gem_object *msm_gem_import(struct drm_device *dev,
-		uint32_t size, struct sg_table *sgt)
+		uint32_t size, struct sg_table *sgt, u32 flags)
 {
 	struct msm_gem_object *msm_obj;
 	struct drm_gem_object *obj;
@@ -788,6 +788,9 @@ struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 		ret = -ENOMEM;
 		goto fail;
 	}
+
+	/* OR the passed in flags */
+	msm_obj->flags |= flags;
 
 	ret = drm_prime_sg_to_page_addr_arrays(sgt, msm_obj->pages, NULL, npages);
 	if (ret)
