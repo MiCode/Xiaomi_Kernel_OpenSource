@@ -28,16 +28,19 @@
 #include <drm/drmP.h>
 #include <drm/drm_irq.h>
 #include "sde_rsc_priv.h"
+#include "sde_dbg.h"
 
-/* this time is ~0.02ms */
-#define RSC_BACKOFF_TIME_NS		 20000
+/* worst case time to execute the one tcs vote(sleep/wake) - ~1ms */
+#define TCS_CASE_EXECUTION_TIME				1064000
 
-/* next two values should be same based on doc */
+/* this time is ~1ms - only wake tcs in any mode */
+#define RSC_BACKOFF_TIME_NS		 (TCS_CASE_EXECUTION_TIME + 100)
 
-/* this time is ~0.2ms */
-#define RSC_MODE_THRESHOLD_TIME_IN_NS	200000
-/* this time is ~0.2ms */
-#define RSC_TIME_SLOT_0_NS		200000
+/* this time is ~1ms - only wake TCS in mode-0 */
+#define RSC_MODE_THRESHOLD_TIME_IN_NS	((TCS_CASE_EXECUTION_TIME >> 1) + 100)
+
+/* this time is ~2ms - sleep+ wake TCS in mode-1 */
+#define RSC_TIME_SLOT_0_NS		((TCS_CASE_EXECUTION_TIME * 2) + 100)
 
 #define DEFAULT_PANEL_FPS		60
 #define DEFAULT_PANEL_JITTER		5
@@ -74,6 +77,7 @@ struct sde_rsc_client *sde_rsc_client_create(u32 rsc_index, char *client_name,
 {
 	struct sde_rsc_client *client;
 	struct sde_rsc_priv *rsc;
+	static int id;
 
 	if (!client_name) {
 		pr_err("client name is null- not supported\n");
@@ -83,7 +87,7 @@ struct sde_rsc_client *sde_rsc_client_create(u32 rsc_index, char *client_name,
 		return ERR_PTR(-EINVAL);
 	} else if (!rsc_prv_list[rsc_index]) {
 		pr_err("rsc not probed yet or not available\n");
-		return ERR_PTR(-EINVAL);
+		return NULL;
 	}
 
 	rsc = rsc_prv_list[rsc_index];
@@ -95,12 +99,14 @@ struct sde_rsc_client *sde_rsc_client_create(u32 rsc_index, char *client_name,
 	strlcpy(client->name, client_name, MAX_RSC_CLIENT_NAME_LEN);
 	client->current_state = SDE_RSC_IDLE_STATE;
 	client->rsc_index = rsc_index;
+	client->id = id;
 	if (is_primary_client)
 		rsc->primary_client = client;
 	pr_debug("client %s rsc index:%d primary:%d\n", client_name,
 						rsc_index, is_primary_client);
 
 	list_add(&client->list, &rsc->client_list);
+	id++;
 	mutex_unlock(&rsc->client_lock);
 
 	return client;
@@ -502,6 +508,8 @@ int sde_rsc_client_state_update(struct sde_rsc_client *caller_client,
 		return -EINVAL;
 
 	mutex_lock(&rsc->client_lock);
+	SDE_EVT32(caller_client->id, caller_client->current_state,
+			state, rsc->current_state, SDE_EVTLOG_FUNC_ENTRY);
 	caller_client->crtc_id = crtc_id;
 	caller_client->current_state = state;
 
@@ -559,14 +567,20 @@ int sde_rsc_client_state_update(struct sde_rsc_client *caller_client,
 
 	if (rc == STATE_UPDATE_NOT_ALLOWED) {
 		rc = 0;
+		SDE_EVT32(caller_client->id, caller_client->current_state,
+			state, rsc->current_state, rc, SDE_EVTLOG_FUNC_CASE1);
 		goto clk_disable;
 	} else if (rc) {
 		pr_debug("state:%d update failed rc:%d\n", state, rc);
+		SDE_EVT32(caller_client->id, caller_client->current_state,
+			state, rsc->current_state, rc, SDE_EVTLOG_FUNC_CASE2);
 		goto clk_disable;
 	}
 
 	pr_debug("state switch successfully complete: %d\n", state);
 	rsc->current_state = state;
+	SDE_EVT32(caller_client->id, caller_client->current_state,
+			state, rsc->current_state, SDE_EVTLOG_FUNC_EXIT);
 
 clk_disable:
 	if (rsc->current_state == SDE_RSC_IDLE_STATE)
@@ -1063,9 +1077,6 @@ static int sde_rsc_probe(struct platform_device *pdev)
 		pr_err("sde rsc:get display rsc failed ret:%d\n", ret);
 		goto sde_rsc_fail;
 	}
-	rpmh_invalidate(rsc->disp_rsc);
-	/* call flush to disable the disp rsc interrupt */
-	rpmh_flush(rsc->disp_rsc);
 
 	ret = msm_dss_ioremap_byname(pdev, &rsc->wrapper_io, "wrapper");
 	if (ret) {

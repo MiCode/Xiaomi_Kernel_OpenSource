@@ -79,6 +79,7 @@ enum sde_rsc_state {
  * @current_state:   current client state
  * @crtc_id:		crtc_id associated with this rsc client.
  * @rsc_index:	rsc index of a client - only index "0" valid.
+ * @id:		Index of client. It will be assigned during client_create call
  * @list:	list to attach client master list
  */
 struct sde_rsc_client {
@@ -86,6 +87,7 @@ struct sde_rsc_client {
 	short current_state;
 	int crtc_id;
 	u32 rsc_index;
+	u32 id;
 	struct list_head list;
 };
 
