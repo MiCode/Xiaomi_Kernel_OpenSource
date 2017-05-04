@@ -2600,7 +2600,7 @@ static int _kgsl_iommu_cb_probe(struct kgsl_device *device,
 
 static const struct {
 	char *feature;
-	int bit;
+	unsigned long bit;
 } kgsl_iommu_features[] = {
 	{ "qcom,retention", KGSL_MMU_RETENTION },
 	{ "qcom,global_pt", KGSL_MMU_GLOBAL_PAGETABLE },
