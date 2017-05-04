@@ -129,6 +129,12 @@
 	/delete-property/ vreg-cx-supply;
 };
 
+&pcie1 {
+	/delete-property/ vreg-1.8-supply;
+	/delete-property/ vreg-0.9-supply;
+	/delete-property/ vreg-cx-supply;
+};
+
 &cam_csiphy0 {
 	/delete-property/ mipi-csi-vdd-supply;
 };

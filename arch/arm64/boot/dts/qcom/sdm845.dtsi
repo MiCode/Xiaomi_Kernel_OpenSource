@@ -36,6 +36,7 @@
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
 		ufshc2 = &ufshc_card; /* Removable UFS slot */
 		pci-domain0 = &pcie0;
+		pci-domain1 = &pcie1;
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 	};
 
