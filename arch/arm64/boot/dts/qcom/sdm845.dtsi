@@ -1446,6 +1446,7 @@
 	};
 
 	slim_qca: slim@17240000 {
+		status = "ok";
 		cell-index = <3>;
 		compatible = "qcom,slim-ngd";
 		reg = <0x17240000 0x2c000>,
@@ -1453,6 +1454,14 @@
 		reg-names = "slimbus_physical", "slimbus_bam_physical";
 		interrupts = <0 291 0>, <0 292 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+
+		/* Slimbus Slave DT for WCN3990 */
+		btfmslim_codec: wcn3990 {
+			compatible = "qcom,btfmslim_slave";
+			elemental-addr = [00 01 20 02 17 02];
+			qcom,btfm-slim-ifd = "btfmslim_slave_ifd";
+			qcom,btfm-slim-ifd-elemental-addr = [00 00 20 02 17 02];
+		};
 	};
 
 	eud: qcom,msm-eud@88e0000 {
