@@ -53,6 +53,15 @@
 #define QUSB2PHY_PORT_TUNE1		0x23c
 #define QUSB2PHY_TEST1			0x24C
 
+#define QUSB2PHY_PLL_CORE_INPUT_OVERRIDE 0x0a8
+#define CORE_PLL_RATE			BIT(0)
+#define CORE_PLL_RATE_MUX		BIT(1)
+#define CORE_PLL_EN			BIT(2)
+#define CORE_PLL_EN_MUX			BIT(3)
+#define CORE_PLL_EN_FROM_RESET		BIT(4)
+#define CORE_RESET			BIT(5)
+#define CORE_RESET_MUX			BIT(6)
+
 #define QUSB2PHY_1P8_VOL_MIN           1800000 /* uV */
 #define QUSB2PHY_1P8_VOL_MAX           1800000 /* uV */
 #define QUSB2PHY_1P8_HPM_LOAD          30000   /* uA */
@@ -625,6 +634,11 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			writel_relaxed(intr_mask,
 				qphy->base + QUSB2PHY_INTR_CTRL);
 
+			/* hold core PLL in reset */
+			writel_relaxed(CORE_PLL_EN_FROM_RESET |
+				CORE_RESET | CORE_RESET_MUX,
+				qphy->base + QUSB2PHY_PLL_CORE_INPUT_OVERRIDE);
+
 			dev_dbg(phy->dev, "%s: intr_mask = %x\n",
 			__func__, intr_mask);
 
@@ -657,6 +671,13 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 		if (qphy->cable_connected ||
 			(qphy->phy.flags & PHY_HOST_MODE)) {
 			qusb_phy_enable_clocks(qphy, true);
+
+			/* bring core PLL out of reset */
+			writel_relaxed(CORE_PLL_EN_FROM_RESET,
+				qphy->base + QUSB2PHY_PLL_CORE_INPUT_OVERRIDE);
+
+			/* Makes sure that above write goes through */
+			wmb();
 
 			/* restore the default clock settings */
 			writel_relaxed(analog_ctrl_two,
