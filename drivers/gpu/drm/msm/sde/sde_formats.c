@@ -1072,7 +1072,8 @@ int sde_format_check_modified_format(
 			DRM_ERROR("invalid handle for plane %d\n", i);
 			return -EINVAL;
 		}
-		bos_total_size += bos[i]->size;
+		if ((i == 0) || (bos[i] != bos[0]))
+			bos_total_size += bos[i]->size;
 	}
 
 	if (bos_total_size < layout.total_size) {
