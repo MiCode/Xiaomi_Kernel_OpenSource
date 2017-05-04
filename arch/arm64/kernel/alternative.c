@@ -27,14 +27,29 @@
 #include <asm/insn.h>
 #include <linux/stop_machine.h>
 
+#define __ALT_PTR(a,f)		(u32 *)((void *)&(a)->f + (a)->f)
+#define ALT_ORIG_PTR(a)		__ALT_PTR(a, orig_offset)
+#define ALT_REPL_PTR(a)		__ALT_PTR(a, alt_offset)
+
 extern struct alt_instr __alt_instructions[], __alt_instructions_end[];
 
-static int __apply_alternatives(void *dummy)
+struct alt_region {
+	struct alt_instr *begin;
+	struct alt_instr *end;
+};
+
+/*
+ * Check if the target PC is within an alternative block.
+ */
+
+static void __apply_alternatives(void *alt_region)
 {
 	struct alt_instr *alt;
 	u32 *origptr, *replptr, *endptr;
+	struct alt_region *region = alt_region;
 
-	for (alt = __alt_instructions; alt < __alt_instructions_end; alt++) {
+	for (alt = region->begin; alt < region->end; alt++) {
+
 		if (!cpus_have_cap(alt->cpufeature))
 			continue;
 
@@ -48,14 +63,48 @@ static int __apply_alternatives(void *dummy)
 		for (; origptr < endptr; origptr++, replptr++)
 			BUG_ON(aarch64_insn_patch_text_nosync(origptr, *replptr));
 	}
+}
+
+/*
+ * We might be patching the stop_machine state machine, so implement a
+ * really simple polling protocol here.
+ */
+static int __apply_alternatives_multi_stop(void *unused)
+{
+	static int patched = 0;
+	struct alt_region region = {
+		.begin	= __alt_instructions,
+		.end	= __alt_instructions_end,
+	};
+
+	/* We always have a CPU 0 at this point (__init) */
+	if (smp_processor_id()) {
+		while (!READ_ONCE(patched))
+			cpu_relax();
+	} else {
+		BUG_ON(patched);
+		__apply_alternatives(&region);
+		/* Barriers provided by the cache flushing */
+		WRITE_ONCE(patched, 1);
+	}
 
 	return 0;
 }
 
-void apply_alternatives(void)
+void __init apply_alternatives_all(void)
 {
 	/* better not try code patching on a live SMP system */
-	stop_machine(__apply_alternatives, NULL, NULL);
+	stop_machine(__apply_alternatives_multi_stop, NULL, cpu_online_mask);
+}
+
+void apply_alternatives(void *start, size_t length)
+{
+	struct alt_region region = {
+		.begin	= start,
+		.end	= start + length,
+	};
+
+	__apply_alternatives(&region);
 }
 
 void free_alternatives_memory(void)
