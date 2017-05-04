@@ -808,6 +808,44 @@ static int _sde_crtc_set_crtc_roi(struct drm_crtc *crtc,
 	return 0;
 }
 
+static int _sde_crtc_check_autorefresh(struct drm_crtc *crtc,
+		struct drm_crtc_state *state)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *crtc_state;
+	struct drm_connector *conn;
+	struct drm_connector_state *conn_state;
+	int i;
+
+	if (!crtc || !state)
+		return -EINVAL;
+
+	sde_crtc = to_sde_crtc(crtc);
+	crtc_state = to_sde_crtc_state(state);
+
+	if (sde_kms_rect_is_null(&crtc_state->crtc_roi))
+		return 0;
+
+	/* partial update active, check if autorefresh is also requested */
+	for_each_connector_in_state(state->state, conn, conn_state, i) {
+		uint64_t autorefresh;
+
+		if (!conn_state || conn_state->crtc != crtc)
+			continue;
+
+		autorefresh = sde_connector_get_property(conn_state,
+				CONNECTOR_PROP_AUTOREFRESH);
+		if (autorefresh) {
+			SDE_ERROR(
+				"%s: autorefresh & partial crtc roi incompatible %llu\n",
+					sde_crtc->name, autorefresh);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
 static int _sde_crtc_set_lm_roi(struct drm_crtc *crtc,
 		struct drm_crtc_state *state, int lm_idx)
 {
@@ -950,6 +988,10 @@ static int _sde_crtc_check_rois(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 
 	rc = _sde_crtc_set_crtc_roi(crtc, state);
+	if (rc)
+		return rc;
+
+	rc = _sde_crtc_check_autorefresh(crtc, state);
 	if (rc)
 		return rc;
 
