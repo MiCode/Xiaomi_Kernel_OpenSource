@@ -333,10 +333,24 @@ static void sde_encoder_phys_vid_underrun_irq(void *arg, int irq_idx)
 			phys_enc);
 }
 
+static bool _sde_encoder_phys_is_ppsplit(struct sde_encoder_phys *phys_enc)
+{
+	enum sde_rm_topology_name topology;
+
+	if (!phys_enc)
+		return false;
+
+	topology = sde_connector_get_topology_name(phys_enc->connector);
+	if (topology == SDE_RM_TOPOLOGY_PPSPLIT)
+		return true;
+
+	return false;
+}
+
 static bool sde_encoder_phys_vid_needs_single_flush(
 		struct sde_encoder_phys *phys_enc)
 {
-	return phys_enc && phys_enc->split_role != ENC_ROLE_SOLO;
+	return phys_enc && _sde_encoder_phys_is_ppsplit(phys_enc);
 }
 
 static int sde_encoder_phys_vid_register_irq(struct sde_encoder_phys *phys_enc,
@@ -674,7 +688,7 @@ static int sde_encoder_phys_vid_wait_for_vblank(
 			KICKOFF_TIMEOUT_MS);
 	if (ret <= 0) {
 		irq_status = sde_core_irq_read(phys_enc->sde_kms,
-				INTR_IDX_VSYNC, true);
+				vid_enc->irq_idx[INTR_IDX_VSYNC], true);
 		if (irq_status) {
 			SDE_EVT32(DRMID(phys_enc->parent),
 					vid_enc->hw_intf->idx - INTF_0);
