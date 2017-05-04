@@ -2289,6 +2289,8 @@ static void msm_isp_input_disable(struct vfe_device *vfe_dev, int cmd_type)
 			ms_res->src_info[src_info->dual_hw_ms_info.index] =
 				NULL;
 			ms_res->num_src--;
+			if (ms_res->num_src == 0)
+				ms_res->dual_sync_mode = MSM_ISP_DUAL_CAM_ASYNC;
 			src_info->dual_hw_ms_info.sync_state =
 						MSM_ISP_DUAL_CAM_ASYNC;
 			src_info->dual_hw_type = DUAL_NONE;
