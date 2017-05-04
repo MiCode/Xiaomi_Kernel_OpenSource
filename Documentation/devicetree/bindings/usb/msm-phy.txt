@@ -149,6 +149,10 @@ Required properties:
 	"vdd" : vdd supply for digital circuit operation
 	"vdda18" : 1.8v high-voltage analog supply
 	"vdda33" : 3.3v high-voltage analog supply
+ - clocks: a list of phandles to the PHY clocks. Use as per
+   Documentation/devicetree/bindings/clock/clock-bindings.txt
+ - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
+   property. "ref_clk_src" is a mandatory clock.
  - qcom,vdd-voltage-level: This property must be a list of three integer
    values (no, min, max) where each value represents either a voltage in
    microvolts or a value corresponding to voltage corner
@@ -164,16 +168,10 @@ Optional properties:
    via the QSCRATCH interface.
    "emu_phy_base" : phy base address used for programming emulation target phy.
    "ref_clk_addr" : ref_clk bcr address used for on/off ref_clk before reset.
-   "tcsr_phy_clk_scheme_sel": address used to determine QUSB PHY clk source.
-   "tcsr_phy_level_shift_keeper": address used to clamp QUSB PHY level shifter.
-   "efuse_addr": EFUSE address to read and update analog tune parameter.
- - reg-names: Should be "qscratch_base". The qscratch register bank
-   allows us to manipulate QUSB PHY bits eg. to enable D+ pull-up using s/w
-   control in device mode. The reg-names property is required if the
-   reg property is specified.
- - tcsr_clamp_dig_n" : To enable/disable digital clamp to the phy. When
-   de-asserted, it will prevent random leakage from qusb2 phy resulting from
-   out of sequence turn on/off of 1p8, 3p3 and DVDD regulators.
+ - clocks: a list of phandles to the PHY clocks. Use as per
+   Documentation/devicetree/bindings/clock/clock-bindings.txt
+ - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
+   property. "cfg_ahb_clk" and "ref_clk" are optional clocks.
  - qcom,qusb-phy-init-seq: QUSB PHY initialization sequence with value,reg pair.
  - qcom,qusb-phy-host-init-seq: QUSB PHY initialization sequence for host mode
    with value,reg pair.

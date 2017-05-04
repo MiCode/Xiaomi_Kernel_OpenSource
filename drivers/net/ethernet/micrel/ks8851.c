@@ -825,13 +825,14 @@ static void ks8851_wrpkts3(struct ks8851_net *ks)
 			dev->stats.tx_bytes += txb->len;
 			dev->stats.tx_packets++;
 			txb->tstamp = ktime_get();
-			/* create clone for us to return on the Tx path */
-			clone = skb_clone_sk(txb);
-			if (clone) {
-				memset(&hwtstamps, 0,
-				       sizeof(struct skb_shared_hwtstamps));
-				skb_complete_tx_timestamp(clone, &hwtstamps);
+			if (skb_shinfo(txb)->tx_flags & SKBTX_SW_TSTAMP &&
+			    !(skb_shinfo(txb)->tx_flags & SKBTX_IN_PROGRESS)) {
+				clone = skb_clone_sk(txb);
+				if (clone)
+					skb_complete_tx_timestamp(clone,
+								  &hwtstamps);
 			}
+
 			dev_kfree_skb(txb);
 		}
 	}
@@ -1360,6 +1361,7 @@ static const struct ethtool_ops ks8851_ethtool_ops = {
 	.get_eeprom_len	= ks8851_get_eeprom_len,
 	.get_eeprom	= ks8851_get_eeprom,
 	.set_eeprom	= ks8851_set_eeprom,
+	.get_ts_info	= ethtool_op_get_ts_info,
 };
 
 /* MII interface controls */
@@ -1572,7 +1574,13 @@ static int ks8851_probe(struct spi_device *spi)
 	if (gpio_is_valid(gpio)) {
 		pr_debug("eth: spi reset GPIO set to 1\n");
 		usleep_range(10000, 11000);
-		gpio_direction_output(gpio, 0x1);
+		ret = gpio_direction_output(gpio, 0x1);
+		/**
+		*To sustain the normal proble behavior after hard reset
+		*delay needed to be introduced (depends on device conf)
+		*/
+		msleep(2000);
+		pr_debug("ks8851:return value for reset is %d\n", ret);
 	} else {
 		pr_debug("[%s:]eth: spi reset GPIO is invalid\n", __func__);
 	}

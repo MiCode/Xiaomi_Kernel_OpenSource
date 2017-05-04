@@ -1,0 +1,135 @@
+/*
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm-pm660.dtsi"
+#include "msm-pm660-rpm-regulator.dtsi"
+#include "msm8909w-pm660-regulator.dtsi"
+
+&soc {
+	i2c@78b9000 {
+		synaptics@20 {
+			/delete-property/ avdd-supply;
+			/delete-property/ vdd-supply;
+		};
+	};
+
+	qcom,gcc@1800000 {
+		/delete-property/ vdd_dig-supply;
+		/delete-property/ vdd_sr2_dig-supply;
+		/delete-property/ vdd_sr2_pll-supply;
+	};
+
+	qcom,wcnss-wlan@a000000 {
+		/delete-property/ qcom,pronto-vddmx-supply;
+		/delete-property/ qcom,pronto-vddcx-supply;
+		/delete-property/ qcom,pronto-vddpx-supply;
+		/delete-property/ qcom,iris-vddxo-supply;
+		/delete-property/ qcom,iris-vddrfa-supply;
+		/delete-property/ qcom,iris-vddpa-supply;
+		/delete-property/ qcom,iris-vdddig-supply;
+		/delete-property/ qcom,wcnss-adc_tm;
+	};
+
+	usb@78d9000 {
+		/delete-property/ hsusb_vdd_dig-supply;
+		/delete-property/ HSUSB_1p8-supply;
+		/delete-property/ HSUSB_3p3-supply;
+	};
+
+	qcom,pronto@a21b000 {
+		/delete-property/ vdd_pronto_pll-supply;
+	};
+
+	qcom,mss@4080000 {
+		/delete-property/ vdd_cx-supply;
+		/delete-property/ vdd_mx-supply;
+		/delete-property/ vdd_pll-supply;
+	};
+
+	tpiu@820000 {
+		/delete-property/ vdd-supply;
+		/delete-property/ vdd-io-supply;
+	};
+
+	qpdi@1941000 {
+		/delete-property/ vdd-supply;
+		/delete-property/ vdd-io-supply;
+	};
+
+	qcom,mdss_dsi@0 {
+		/delete-property/ vdda-supply;
+		/delete-property/ vddio-supply;
+		qcom,mdss_dsi_ctrl0@1ac8000 {
+			/delete-property/ vdd-supply;
+			/delete-property/ vddio-supply;
+		};
+	};
+
+	qcom,mdss_dsi_pll@1ac8300 {
+		/delete-property/ vddio-supply;
+	};
+
+	qcom,msm-thermal {
+		/delete-property/ vdd-dig-supply;
+	};
+
+	qcom,clock-a7@0b011050 {
+		/delete-property/ cpu-vdd-supply;
+	};
+
+	vadc@3400 {
+		/delete-property/ qcom,adc_tm-vadc;
+		/delete-property/ qcom,pmic-revid;
+	};
+
+	msm8x16_wcd_codec@f000 {
+		/delete-property/ cdc-vdda-cp-supply;
+		/delete-property/ cdc-vdda-h-supply;
+		/delete-property/ cdc-vdd-px-supply;
+		/delete-property/ cdc-vdd-pa-supply;
+		/delete-property/ cdc-vdd-mic-bias-supply;
+	};
+};
+
+&audio_codec_mtp {
+	/delete-property/ asoc-codec;
+};
+
+&sdhc_1 {
+	/delete-property/ vdd-supply;
+	/delete-property/ vdd-io-supply;
+};
+
+&sdhc_2 {
+	/delete-property/ vdd-supply;
+	/delete-property/ vdd-io-supply;
+};
+
+&dsi_auo_qvga_cmd {
+	/delete-property/ qcom,mdss-dsi-pwm-gpio;
+};
+
+&dsi_auo_cx_qvga_cmd {
+	/delete-property/ qcom,mdss-dsi-pwm-gpio;
+};
+&dsi_hx8394d_480_vid {
+	/delete-property/ qcom,mdss-dsi-pwm-gpio;
+};
+
+&dsi_hx8394d_720_vid {
+	/delete-property/ qcom,mdss-dsi-pwm-gpio;
+};
+
+&dsi_hx8394d_qhd_vid {
+	/delete-property/ qcom,mdss-dsi-pwm-gpio;
+};

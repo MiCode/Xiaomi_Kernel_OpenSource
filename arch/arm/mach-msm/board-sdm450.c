@@ -11,35 +11,22 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/kernel.h>
+#include <asm/mach/arch.h>
+#include "board-dt.h"
 
-/ {
-	qcom,msm-id = <322 0x10000>;
+static const char *sdm450_dt_match[] __initconst = {
+	"qcom,sdm450",
+	NULL
 };
 
-&apc_vreg_corner {
-	qcom,cpr-quotient-adjustment =
-			<42	42	42>;
-	qcom,cpr-init-voltage-adjustment =
-			<25000	25000	25000>;
-};
+static void __init sdm450_init(void)
+{
+	board_dt_populate(NULL);
+}
 
-&modem_adsp_mem {
-	reg = <0x82a00000 0x2a00000>;
-};
-
-&cnss_debug_mem {
-	status = "disabled";
-};
-
-&qcom_seecom {
-	reg = <0x87900000 0x280000>;
-	status = "okay";
-};
-
-&external_image_mem {
-	reg = <0x87900000 0x700000>;
-};
-
-&qseecom_mem {
-	status = "okay";
-};
+DT_MACHINE_START(SDM450_DT,
+	"Qualcomm Technologies, Inc. SDM450 (Flattened Device Tree)")
+	.init_machine = sdm450_init,
+	.dt_compat = sdm450_dt_match,
+MACHINE_END

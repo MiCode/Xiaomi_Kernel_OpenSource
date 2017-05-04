@@ -1416,13 +1416,6 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
 	return 0;
 }
 
-static inline enum dwc3_link_state dwc3_get_link_state(struct dwc3 *dwc)
-{
-	u32 reg;
-	reg = dwc3_readl(dwc->regs, DWC3_DSTS);
-	return DWC3_DSTS_USBLNKST(reg);
-}
-
 static bool dwc3_gadget_is_suspended(struct dwc3 *dwc)
 {
 	if (atomic_read(&dwc->in_lpm) ||
@@ -3689,6 +3682,9 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 	 * REVISIT: Here we should clear all pending IRQs to be
 	 * sure we're starting from a well known location.
 	 */
+
+	dwc->gadget.usb_core_id = dwc->core_id;
+	dev_dbg(dwc->dev, "%s core_id : %d\n", __func__, dwc->core_id);
 
 	ret = dwc3_gadget_init_endpoints(dwc);
 	if (ret)
