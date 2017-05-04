@@ -17,15 +17,15 @@
 
 struct profiler_bw_cntrs_req {
 	uint32_t total;
-	uint32_t gpu;
 	uint32_t cpu;
+	uint32_t gpu;
 	uint32_t cmd;
 };
 
 struct compat_profiler_bw_cntrs_req {
 	compat_uint_t total;
-	compat_uint_t gpu;
 	compat_uint_t cpu;
+	compat_uint_t gpu;
 	compat_uint_t cmd;
 };
 
