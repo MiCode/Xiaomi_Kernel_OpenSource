@@ -116,6 +116,7 @@
 		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
 		qcom,platform-te-gpio = <&tlmm 10 0>;
 		qcom,platform-reset-gpio = <&tlmm 6 0>;
+		qcom,panel-mode-gpio = <&tlmm 52 0>;
 
 		qcom,dsi-panel = <&dsi_sharp_4k_dsc_video>;
 		vddio-supply = <&pm8998_l14>;
@@ -139,6 +140,7 @@
 		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
 		qcom,platform-te-gpio = <&tlmm 10 0>;
 		qcom,platform-reset-gpio = <&tlmm 6 0>;
+		qcom,panel-mode-gpio = <&tlmm 52 0>;
 
 		qcom,dsi-panel = <&dsi_sharp_4k_dsc_cmd>;
 		vddio-supply = <&pm8998_l14>;
@@ -162,6 +164,7 @@
 		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
 		qcom,platform-te-gpio = <&tlmm 10 0>;
 		qcom,platform-reset-gpio = <&tlmm 6 0>;
+		qcom,panel-mode-gpio = <&tlmm 52 0>;
 
 		qcom,dsi-panel = <&dsi_sharp_1080_cmd>;
 		vddio-supply = <&pm8998_l14>;
@@ -185,6 +188,7 @@
 		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
 		qcom,platform-te-gpio = <&tlmm 10 0>;
 		qcom,platform-reset-gpio = <&tlmm 6 0>;
+		qcom,panel-mode-gpio = <&tlmm 52 0>;
 
 		qcom,dsi-panel = <&dsi_dual_sharp_1080_120hz_cmd>;
 		vddio-supply = <&pm8998_l14>;
@@ -231,6 +235,7 @@
 		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
 		qcom,platform-te-gpio = <&tlmm 10 0>;
 		qcom,platform-reset-gpio = <&tlmm 6 0>;
+		qcom,panel-mode-gpio = <&tlmm 52 0>;
 
 		qcom,dsi-panel = <&dsi_dual_nt35597_truly_cmd>;
 		vddio-supply = <&pm8998_l14>;
@@ -254,6 +259,7 @@
 		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
 		qcom,platform-te-gpio = <&tlmm 10 0>;
 		qcom,platform-reset-gpio = <&tlmm 6 0>;
+		qcom,panel-mode-gpio = <&tlmm 52 0>;
 
 		qcom,dsi-panel = <&dsi_nt35597_truly_dsc_cmd>;
 		vddio-supply = <&pm8998_l14>;
@@ -277,6 +283,7 @@
 		pinctrl-1 = <&sde_dsi_suspend &sde_te_suspend>;
 		qcom,platform-te-gpio = <&tlmm 10 0>;
 		qcom,platform-reset-gpio = <&tlmm 6 0>;
+		qcom,panel-mode-gpio = <&tlmm 52 0>;
 
 		qcom,dsi-panel = <&dsi_nt35597_truly_dsc_video>;
 		vddio-supply = <&pm8998_l14>;
