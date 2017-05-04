@@ -1901,6 +1901,14 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	priv = sde_kms->dev->dev_private;
 	cstate = to_sde_crtc_state(crtc->state);
 
+	/*
+	 * If no mixers has been allocated in sde_crtc_atomic_check(),
+	 * it means we are trying to start a CRTC whose state is disabled:
+	 * nothing else needs to be done.
+	 */
+	if (unlikely(!sde_crtc->num_mixers))
+		return;
+
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		struct sde_encoder_kickoff_params params = { 0 };
 
@@ -2309,6 +2317,10 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 
 	mode = &state->adjusted_mode;
 	SDE_DEBUG("%s: check", sde_crtc->name);
+
+	/* force a full mode set if active state changed */
+	if (state->active_changed)
+		state->mode_changed = true;
 
 	memset(pipe_staged, 0, sizeof(pipe_staged));
 

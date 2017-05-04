@@ -356,4 +356,14 @@ struct sde_drm_roi_v1 {
 	struct drm_clip_rect roi[SDE_MAX_ROI_V1];
 };
 
+/**
+ * Define extended power modes supported by the SDE connectors.
+ */
+#define SDE_MODE_DPMS_ON	0
+#define SDE_MODE_DPMS_LP1	1
+#define SDE_MODE_DPMS_LP2	2
+#define SDE_MODE_DPMS_STANDBY	3
+#define SDE_MODE_DPMS_SUSPEND	4
+#define SDE_MODE_DPMS_OFF	5
+
 #endif /* _SDE_DRM_H_ */
