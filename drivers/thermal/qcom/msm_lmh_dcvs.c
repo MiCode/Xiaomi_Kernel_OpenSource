@@ -34,6 +34,9 @@
 
 #include "../thermal_core.h"
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/lmh.h>
+
 #define LIMITS_DCVSH                0x10
 #define LIMITS_PROFILE_CHANGE       0x01
 #define LIMITS_NODE_DCVS            0x44435653
@@ -60,10 +63,10 @@
 #define LIMITS_TEMP_HIGH_THRESH_MAX 120000
 #define LIMITS_LOW_THRESHOLD_OFFSET 500
 #define LIMITS_POLLING_DELAY_MS     10
-#define LIMITS_CLUSTER_0_REQ        0x179C1B04
-#define LIMITS_CLUSTER_1_REQ        0x179C3B04
-#define LIMITS_CLUSTER_0_INT_CLR    0x179CE808
-#define LIMITS_CLUSTER_1_INT_CLR    0x179CC808
+#define LIMITS_CLUSTER_0_REQ        0x17D43704
+#define LIMITS_CLUSTER_1_REQ        0x17D45F04
+#define LIMITS_CLUSTER_0_INT_CLR    0x17D78808
+#define LIMITS_CLUSTER_1_INT_CLR    0x17D70808
 #define LIMITS_CLUSTER_0_MIN_FREQ   0x17D78BC0
 #define LIMITS_CLUSTER_1_MIN_FREQ   0x17D70BC0
 #define dcvsh_get_frequency(_val, _max) do { \
@@ -146,6 +149,9 @@ static unsigned long limits_mitigation_notify(struct limits_dcvs_hw *hw)
 		goto notify_exit;
 	}
 
+	pr_debug("CPU:%d max value read:%lu\n",
+			cpumask_first(&hw->core_map),
+			max_limit);
 	freq_val = FREQ_KHZ_TO_HZ(max_limit);
 	rcu_read_lock();
 	opp_entry = dev_pm_opp_find_freq_floor(cpu_dev, &freq_val);
@@ -165,6 +171,9 @@ static unsigned long limits_mitigation_notify(struct limits_dcvs_hw *hw)
 	max_limit = FREQ_HZ_TO_KHZ(freq_val);
 
 	sched_update_cpu_freq_min_max(&hw->core_map, 0, max_limit);
+	pr_debug("CPU:%d max limit:%lu\n", cpumask_first(&hw->core_map),
+			max_limit);
+	trace_lmh_dcvs_freq(cpumask_first(&hw->core_map), max_limit);
 
 notify_exit:
 	hw->hw_freq_limit = max_limit;
@@ -344,6 +353,7 @@ static int lmh_set_max_limit(int cpu, u32 freq)
 	ret = limits_dcvs_write(hw->affinity, LIMITS_SUB_FN_GENERAL,
 				  LIMITS_DOMAIN_MAX, max_freq);
 	mutex_unlock(&hw->access_lock);
+	lmh_dcvs_notify(hw);
 
 	return ret;
 }
