@@ -71,6 +71,7 @@ __ffs_data_got_strings(struct ffs_data *ffs, char *data, size_t len);
 /* The function structure ***************************************************/
 
 struct ffs_ep;
+static bool first_read_done;
 
 struct ffs_function {
 	struct usb_configuration	*conf;
@@ -756,6 +757,7 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 {
 	struct ffs_epfile *epfile = file->private_data;
 	struct ffs_ep *ep;
+	struct ffs_data *ffs = epfile->ffs;
 	char *data = NULL;
 	ssize_t ret, data_len = -EINVAL;
 	int halt;
@@ -764,6 +766,7 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 		atomic_read(&epfile->error), io_data->read ? "READ" : "WRITE");
 
 	smp_mb__before_atomic();
+retry:
 	if (atomic_read(&epfile->error))
 		return -ENODEV;
 
@@ -968,10 +971,36 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 				 * disabled (disconnect) or changed
 				 * (composition switch) ?
 				 */
-				if (epfile->ep == ep)
+				if (epfile->ep == ep) {
 					ret = ep->status;
-				else
+					if (ret >= 0)
+						first_read_done = true;
+				} else {
 					ret = -ENODEV;
+				}
+
+				/* do wait again if func eps are not enabled */
+				if (io_data->read && !first_read_done
+							&& ret < 0) {
+					unsigned short count = ffs->eps_count;
+
+					pr_debug("%s: waiting for the online state\n",
+						 __func__);
+					ret = 0;
+					kfree(data);
+					data = NULL;
+					data_len = -EINVAL;
+					spin_unlock_irq(&epfile->ffs->eps_lock);
+					mutex_unlock(&epfile->mutex);
+					epfile = ffs->epfiles;
+					do {
+						atomic_set(&epfile->error, 0);
+						++epfile;
+					} while (--count);
+					epfile = file->private_data;
+					goto retry;
+				}
+
 				spin_unlock_irq(&epfile->ffs->eps_lock);
 				if (io_data->read && ret > 0) {
 
@@ -1038,6 +1067,7 @@ ffs_epfile_open(struct inode *inode, struct file *file)
 
 	smp_mb__before_atomic();
 	atomic_set(&epfile->error, 0);
+	first_read_done = false;
 
 	ffs_log("exit:state %d setup_state %d flag %lu", epfile->ffs->state,
 		epfile->ffs->setup_state, epfile->ffs->flags);
@@ -1159,7 +1189,7 @@ static ssize_t ffs_epfile_read_iter(struct kiocb *kiocb, struct iov_iter *to)
 		*to = p->data;
 	}
 
-	ffs_log("enter");
+	ffs_log("exit");
 
 	return res;
 }
@@ -3343,6 +3373,8 @@ static int ffs_func_set_alt(struct usb_function *f,
 	if (ffs->func) {
 		ffs_func_eps_disable(ffs->func);
 		ffs->func = NULL;
+		/* matching put to allow LPM on disconnect */
+		usb_gadget_autopm_put_async(ffs->gadget);
 	}
 
 	if (ffs->state == FFS_DEACTIVATED) {
@@ -3376,14 +3408,9 @@ static int ffs_func_set_alt(struct usb_function *f,
 
 static void ffs_func_disable(struct usb_function *f)
 {
-	struct ffs_function *func = ffs_func_from_usb(f);
-	struct ffs_data *ffs = func->ffs;
-
 	ffs_log("enter");
 
 	ffs_func_set_alt(f, 0, (unsigned)-1);
-	/* matching put to allow LPM on disconnect */
-	usb_gadget_autopm_put_async(ffs->gadget);
 
 	ffs_log("exit");
 }
