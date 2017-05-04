@@ -3,3 +3,4 @@ qcom_tsens-y			+= tsens.o tsens-common.o tsens-8916.o tsens-8974.o tsens-8960.o 
 obj-$(CONFIG_MSM_BCL_PERIPHERAL_CTL) += bcl_peripheral.o
 obj-$(CONFIG_QTI_THERMAL_LIMITS_DCVS) += msm_lmh_dcvs.o
 obj-$(CONFIG_QTI_VIRTUAL_SENSOR) += qti_virtual_sensor.o
+obj-$(CONFIG_QTI_REG_COOLING_DEVICE) += regulator_cooling.o
