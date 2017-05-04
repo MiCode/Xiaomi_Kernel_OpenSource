@@ -89,6 +89,9 @@ SoCs:
 - SDM845
   compatible = "qcom,sdm845"
 
+- SDM855
+  compatible = "qcom,sdm855"
+
 - SDM830
   compatible = "qcom,sdm830"
 
@@ -306,3 +309,7 @@ compatible = "qcom,mdmcalifornium-mtp"
 compatible = "qcom,apq8009-cdp"
 compatible = "qcom,apq8009-mtp"
 compatible = "qcom,sdxpoorwills-rumi"
+compatible = "qcom,sdm855-rumi"
+compatible = "qcom,sdm855-mtp"
+compatible = "qcom,sdm855-cdp"
+compatible = "qcom,sdm855-qrd"
