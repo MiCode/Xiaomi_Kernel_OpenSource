@@ -497,7 +497,7 @@ static size_t store_dload_mode(struct kobject *kobj, struct attribute *attr,
 	if (sysfs_streq(buf, "full")) {
 		dload_type = SCM_DLOAD_FULLDUMP;
 	} else if (sysfs_streq(buf, "mini")) {
-		if (!msm_minidump_enabled()) {
+		if (!minidump_enabled) {
 			pr_err("Minidump is not enabled\n");
 			return -ENODEV;
 		}
