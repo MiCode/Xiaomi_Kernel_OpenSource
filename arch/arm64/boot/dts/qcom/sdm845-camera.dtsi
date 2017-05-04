@@ -71,7 +71,7 @@
 			<&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
 			<&clock_camcc CAM_CC_CSIPHY1_CLK>,
 			<&clock_camcc CAM_CC_CSI1PHYTIMER_CLK_SRC>,
-			<&clock_camcc CAM_CC_CSI0PHYTIMER_CLK>,
+			<&clock_camcc CAM_CC_CSI1PHYTIMER_CLK>,
 			<&clock_camcc CAM_CC_IFE_1_CSID_CLK>,
 			<&clock_camcc CAM_CC_IFE_1_CSID_CLK_SRC>;
 		clock-names = "camnoc_axi_clk",
