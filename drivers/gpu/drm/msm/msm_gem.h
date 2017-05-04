@@ -118,6 +118,7 @@ struct msm_gem_submit {
 	bool valid;
 	uint64_t profile_buf_iova;
 	void *profile_buf_vaddr;
+	bool secure;
 	unsigned int nr_cmds;
 	unsigned int nr_bos;
 	struct {

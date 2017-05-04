@@ -38,6 +38,8 @@ struct msm_gpu_config {
 	int nr_rings;
 	uint64_t va_start;
 	uint64_t va_end;
+	uint64_t secure_va_start;
+	uint64_t secure_va_end;
 };
 
 /* So far, with hardware that I've seen to date, we can have:
@@ -114,6 +116,7 @@ struct msm_gpu {
 	int irq;
 
 	struct msm_gem_address_space *aspace;
+	struct msm_gem_address_space *secure_aspace;
 
 	/* Power Control: */
 	struct regulator *gpu_reg, *gpu_cx;

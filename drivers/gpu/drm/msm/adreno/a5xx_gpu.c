@@ -15,6 +15,9 @@
 #include "msm_iommu.h"
 #include "a5xx_gpu.h"
 
+#define SECURE_VA_START 0xc0000000
+#define SECURE_VA_SIZE  SZ_256M
+
 static void a5xx_flush(struct msm_gpu *gpu, struct msm_ringbuffer *ring)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
@@ -133,6 +136,12 @@ static int a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 	OUT_PKT7(ring, CP_YIELD_ENABLE, 1);
 	OUT_RING(ring, 0x02);
 
+	/* Turn on secure mode if the submission is secure */
+	if (submit->secure) {
+		OUT_PKT7(ring, CP_SET_SECURE_MODE, 1);
+		OUT_RING(ring, 1);
+	}
+
 	/* Record the always on counter before command execution */
 	if (submit->profile_buf_iova) {
 		uint64_t gpuaddr = submit->profile_buf_iova +
@@ -211,6 +220,11 @@ static int a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 	OUT_RING(ring, lower_32_bits(rbmemptr(adreno_gpu, ring->id, fence)));
 	OUT_RING(ring, upper_32_bits(rbmemptr(adreno_gpu, ring->id, fence)));
 	OUT_RING(ring, submit->fence);
+
+	if (submit->secure) {
+		OUT_PKT7(ring, CP_SET_SECURE_MODE, 1);
+		OUT_RING(ring, 0);
+	}
 
 	/* Yield the floor on command completion */
 	OUT_PKT7(ring, CP_CONTEXT_SWITCH_YIELD, 4);
@@ -762,14 +776,10 @@ static int a5xx_hw_init(struct msm_gpu *gpu)
 			ADRENO_PROTECT_RW(0x10000, 0x8000));
 
 	gpu_write(gpu, REG_A5XX_RBBM_SECVID_TSB_CNTL, 0);
-	/*
-	 * Disable the trusted memory range - we don't actually supported secure
-	 * memory rendering at this point in time and we don't want to block off
-	 * part of the virtual memory space.
-	 */
+
 	gpu_write64(gpu, REG_A5XX_RBBM_SECVID_TSB_TRUSTED_BASE_LO,
-		REG_A5XX_RBBM_SECVID_TSB_TRUSTED_BASE_HI, 0x00000000);
-	gpu_write(gpu, REG_A5XX_RBBM_SECVID_TSB_TRUSTED_SIZE, 0x00000000);
+		REG_A5XX_RBBM_SECVID_TSB_TRUSTED_BASE_HI, SECURE_VA_START);
+	gpu_write(gpu, REG_A5XX_RBBM_SECVID_TSB_TRUSTED_SIZE, SECURE_VA_SIZE);
 
 	/* Put the GPU into 64 bit by default */
 	gpu_write(gpu, REG_A5XX_CP_ADDR_MODE_CNTL, 0x1);
@@ -1404,6 +1414,9 @@ struct msm_gpu *a5xx_gpu_init(struct drm_device *dev)
 	 */
 	a5xx_config.va_start = 0x800000000;
 	a5xx_config.va_end = 0x8ffffffff;
+
+	a5xx_config.secure_va_start = SECURE_VA_START;
+	a5xx_config.secure_va_end = SECURE_VA_START + SECURE_VA_SIZE - 1;
 
 	ret = adreno_gpu_init(dev, pdev, adreno_gpu, &funcs, &a5xx_config);
 	if (ret) {
