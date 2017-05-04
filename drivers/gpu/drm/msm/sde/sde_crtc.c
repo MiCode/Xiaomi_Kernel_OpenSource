@@ -1066,6 +1066,10 @@ static void _sde_crtc_program_lm_output_roi(struct drm_crtc *crtc)
 		if (sde_kms_rect_is_null(lm_roi))
 			continue;
 
+		hw_lm->cfg.out_width = lm_roi->w;
+		hw_lm->cfg.out_height = lm_roi->h;
+		hw_lm->cfg.right_mixer = lm_horiz_position;
+
 		cfg.out_width = lm_roi->w;
 		cfg.out_height = lm_roi->h;
 		cfg.right_mixer = lm_horiz_position++;
