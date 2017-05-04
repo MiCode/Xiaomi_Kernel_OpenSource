@@ -306,7 +306,6 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 		.subsys = "slpi",
 		.link.link_info.edge = "dsps",
 		.link.link_info.transport = "smem",
-		.vmid = VMID_SSC_Q6,
 	},
 	{
 		.name = "cdsprpc-smd",
