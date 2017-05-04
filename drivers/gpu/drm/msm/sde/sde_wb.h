@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,7 @@
  * @wb_lock		Serialization lock for writeback context structure
  * @connector:		Connector associated with writeback device
  * @encoder:		Encoder associated with writeback device
+ * @max_mixer_width:    Max width supported by SDE LM HW block
  * @count_modes:	Length of writeback connector modes array
  * @modes:		Writeback connector modes array
  */
@@ -49,6 +50,8 @@ struct sde_wb_device {
 	struct drm_encoder *encoder;
 
 	enum drm_connector_status detect_status;
+	u32 max_mixer_width;
+
 	u32 count_modes;
 	struct drm_mode_modeinfo *modes;
 };
@@ -181,6 +184,17 @@ int sde_wb_connector_set_property(struct drm_connector *connector,
  * Returns: Zero on success
  */
 int sde_wb_get_info(struct msm_display_info *info, void *display);
+
+/**
+ * sde_wb_get_topology - retrieve current topology for the mode selected
+ * @drm_mode: Display mode set for the display
+ * @topology: Out parameter. Topology for the mode.
+ * @max_mixer_width: max width supported by HW layer mixer
+ * Returns: zero on success
+ */
+int sde_wb_get_topology(const struct drm_display_mode *drm_mode,
+		struct msm_display_topology *topology,
+		u32 max_mixer_width);
 
 /**
  * sde_wb_connector_get_wb - retrieve writeback device of the given connector

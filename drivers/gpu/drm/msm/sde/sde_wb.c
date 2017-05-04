@@ -286,6 +286,27 @@ int sde_wb_get_info(struct msm_display_info *info, void *display)
 	return 0;
 }
 
+int sde_wb_get_topology(const struct drm_display_mode *drm_mode,
+	struct msm_display_topology *topology, u32 max_mixer_width)
+{
+	const u32 dual_lm = 2;
+	const u32 single_lm = 1;
+	const u32 single_intf = 1;
+	const u32 no_enc = 0;
+
+	if (!drm_mode || !topology || !max_mixer_width) {
+		pr_err("invalid params\n");
+		return -EINVAL;
+	}
+
+	topology->num_lm = (max_mixer_width <= drm_mode->hdisplay) ?
+							dual_lm : single_lm;
+	topology->num_enc = no_enc;
+	topology->num_intf = single_intf;
+
+	return 0;
+}
+
 int sde_wb_connector_post_init(struct drm_connector *connector,
 		void *info,
 		void *display)
