@@ -52,8 +52,8 @@
 
 /* default stream buffer headroom in lines */
 #define DEFAULT_SBUF_HEADROOM	20
-#define DEFAULT_UBWC_MALSIZE	1
-#define DEFAULT_UBWC_SWIZZLE	1
+#define DEFAULT_UBWC_MALSIZE	0
+#define DEFAULT_UBWC_SWIZZLE	0
 
 #define DEFAULT_MAXLINEWIDTH	4096
 
