@@ -18,16 +18,20 @@
 #ifndef __ASM_UACCESS_H
 #define __ASM_UACCESS_H
 
+#include <asm/alternative.h>
+#include <asm/kernel-pgtable.h>
+#include <asm/sysreg.h>
+
+#ifndef __ASSEMBLY__
+
 /*
  * User space memory access functions
  */
 #include <linux/string.h>
 #include <linux/thread_info.h>
 
-#include <asm/alternative.h>
 #include <asm/cpufeature.h>
 #include <asm/ptrace.h>
-#include <asm/sysreg.h>
 #include <asm/errno.h>
 #include <asm/memory.h>
 #include <asm/compiler.h>
@@ -64,6 +68,16 @@ extern int fixup_exception(struct pt_regs *regs);
 static inline void set_fs(mm_segment_t fs)
 {
 	current_thread_info()->addr_limit = fs;
+
+	/*
+	 * Enable/disable UAO so that copy_to_user() etc can access
+	 * kernel memory with the unprivileged instructions.
+	 */
+	if (IS_ENABLED(CONFIG_ARM64_UAO) && fs == KERNEL_DS)
+		asm(ALTERNATIVE("nop", SET_PSTATE_UAO(1), ARM64_HAS_UAO));
+	else
+		asm(ALTERNATIVE("nop", SET_PSTATE_UAO(0), ARM64_HAS_UAO,
+				CONFIG_ARM64_UAO));
 }
 
 #define segment_eq(a,b)	((a) == (b))
@@ -106,6 +120,99 @@ static inline void set_fs(mm_segment_t fs)
 #define user_addr_max			get_fs
 
 /*
+ * User access enabling/disabling.
+ */
+#ifdef CONFIG_ARM64_SW_TTBR0_PAN
+static inline void __uaccess_ttbr0_disable(void)
+{
+	unsigned long ttbr;
+
+	/* reserved_ttbr0 placed at the end of swapper_pg_dir */
+	ttbr = read_sysreg(ttbr1_el1) + SWAPPER_DIR_SIZE;
+	write_sysreg(ttbr, ttbr0_el1);
+	isb();
+}
+
+static inline void __uaccess_ttbr0_enable(void)
+{
+	unsigned long flags;
+
+	/*
+	 * Disable interrupts to avoid preemption between reading the 'ttbr0'
+	 * variable and the MSR. A context switch could trigger an ASID
+	 * roll-over and an update of 'ttbr0'.
+	 */
+	local_irq_save(flags);
+	write_sysreg(current_thread_info()->ttbr0, ttbr0_el1);
+	isb();
+	local_irq_restore(flags);
+}
+
+static inline bool uaccess_ttbr0_disable(void)
+{
+	if (!system_uses_ttbr0_pan())
+		return false;
+	__uaccess_ttbr0_disable();
+	return true;
+}
+
+static inline bool uaccess_ttbr0_enable(void)
+{
+	if (!system_uses_ttbr0_pan())
+		return false;
+	__uaccess_ttbr0_enable();
+	return true;
+}
+#else
+static inline bool uaccess_ttbr0_disable(void)
+{
+	return false;
+}
+
+static inline bool uaccess_ttbr0_enable(void)
+{
+	return false;
+}
+#endif
+
+#define __uaccess_disable(alt)						\
+do {									\
+	if (!uaccess_ttbr0_disable())					\
+		asm(ALTERNATIVE("nop", SET_PSTATE_PAN(1), alt,		\
+				CONFIG_ARM64_PAN));			\
+} while (0)
+
+#define __uaccess_enable(alt)						\
+do {									\
+	if (!uaccess_ttbr0_enable())					\
+		asm(ALTERNATIVE("nop", SET_PSTATE_PAN(0), alt,		\
+				CONFIG_ARM64_PAN));			\
+} while (0)
+
+static inline void uaccess_disable(void)
+{
+	__uaccess_disable(ARM64_HAS_PAN);
+}
+
+static inline void uaccess_enable(void)
+{
+	__uaccess_enable(ARM64_HAS_PAN);
+}
+
+/*
+ * These functions are no-ops when UAO is present.
+ */
+static inline void uaccess_disable_not_uao(void)
+{
+	__uaccess_disable(ARM64_ALT_PAN_NOT_UAO);
+}
+
+static inline void uaccess_enable_not_uao(void)
+{
+	__uaccess_enable(ARM64_ALT_PAN_NOT_UAO);
+}
+
+/*
  * The "__xxx" versions of the user access functions do not verify the address
  * space - it must have been done previously with a separate "access_ok()"
  * call.
@@ -113,9 +220,10 @@ static inline void set_fs(mm_segment_t fs)
  * The "__xxx_error" versions set the third argument to -EFAULT if an error
  * occurs, and leave it unchanged on success.
  */
-#define __get_user_asm(instr, reg, x, addr, err)			\
+#define __get_user_asm(instr, alt_instr, reg, x, addr, err, feature)	\
 	asm volatile(							\
-	"1:	" instr "	" reg "1, [%2]\n"			\
+	"1:"ALTERNATIVE(instr "     " reg "1, [%2]\n",			\
+			alt_instr " " reg "1, [%2]\n", feature)		\
 	"2:\n"								\
 	"	.section .fixup, \"ax\"\n"				\
 	"	.align	2\n"						\
@@ -134,27 +242,29 @@ static inline void set_fs(mm_segment_t fs)
 do {									\
 	unsigned long __gu_val;						\
 	__chk_user_ptr(ptr);						\
-	asm(ALTERNATIVE("nop", SET_PSTATE_PAN(0), ARM64_HAS_PAN,	\
-			CONFIG_ARM64_PAN));				\
+	uaccess_enable_not_uao();					\
 	switch (sizeof(*(ptr))) {					\
 	case 1:								\
-		__get_user_asm("ldrb", "%w", __gu_val, (ptr), (err));	\
+		__get_user_asm("ldrb", "ldtrb", "%w", __gu_val, (ptr),  \
+			       (err), ARM64_HAS_UAO);			\
 		break;							\
 	case 2:								\
-		__get_user_asm("ldrh", "%w", __gu_val, (ptr), (err));	\
+		__get_user_asm("ldrh", "ldtrh", "%w", __gu_val, (ptr),  \
+			       (err), ARM64_HAS_UAO);			\
 		break;							\
 	case 4:								\
-		__get_user_asm("ldr", "%w", __gu_val, (ptr), (err));	\
+		__get_user_asm("ldr", "ldtr", "%w", __gu_val, (ptr),	\
+			       (err), ARM64_HAS_UAO);			\
 		break;							\
 	case 8:								\
-		__get_user_asm("ldr", "%",  __gu_val, (ptr), (err));	\
+		__get_user_asm("ldr", "ldtr", "%",  __gu_val, (ptr),	\
+			       (err), ARM64_HAS_UAO);			\
 		break;							\
 	default:							\
 		BUILD_BUG();						\
 	}								\
+	uaccess_disable_not_uao();					\
 	(x) = (__force __typeof__(*(ptr)))__gu_val;			\
-	asm(ALTERNATIVE("nop", SET_PSTATE_PAN(1), ARM64_HAS_PAN,	\
-			CONFIG_ARM64_PAN));				\
 } while (0)
 
 #define __get_user(x, ptr)						\
@@ -181,9 +291,10 @@ do {									\
 		((x) = 0, -EFAULT);					\
 })
 
-#define __put_user_asm(instr, reg, x, addr, err)			\
+#define __put_user_asm(instr, alt_instr, reg, x, addr, err, feature)	\
 	asm volatile(							\
-	"1:	" instr "	" reg "1, [%2]\n"			\
+	"1:"ALTERNATIVE(instr "     " reg "1, [%2]\n",			\
+			alt_instr " " reg "1, [%2]\n", feature)		\
 	"2:\n"								\
 	"	.section .fixup,\"ax\"\n"				\
 	"	.align	2\n"						\
@@ -201,26 +312,28 @@ do {									\
 do {									\
 	__typeof__(*(ptr)) __pu_val = (x);				\
 	__chk_user_ptr(ptr);						\
-	asm(ALTERNATIVE("nop", SET_PSTATE_PAN(0), ARM64_HAS_PAN,	\
-			CONFIG_ARM64_PAN));				\
+	uaccess_enable_not_uao();					\
 	switch (sizeof(*(ptr))) {					\
 	case 1:								\
-		__put_user_asm("strb", "%w", __pu_val, (ptr), (err));	\
+		__put_user_asm("strb", "sttrb", "%w", __pu_val, (ptr),	\
+			       (err), ARM64_HAS_UAO);			\
 		break;							\
 	case 2:								\
-		__put_user_asm("strh", "%w", __pu_val, (ptr), (err));	\
+		__put_user_asm("strh", "sttrh", "%w", __pu_val, (ptr),	\
+			       (err), ARM64_HAS_UAO);			\
 		break;							\
 	case 4:								\
-		__put_user_asm("str",  "%w", __pu_val, (ptr), (err));	\
+		__put_user_asm("str", "sttr", "%w", __pu_val, (ptr),	\
+			       (err), ARM64_HAS_UAO);			\
 		break;							\
 	case 8:								\
-		__put_user_asm("str",  "%", __pu_val, (ptr), (err));	\
+		__put_user_asm("str", "sttr", "%", __pu_val, (ptr),	\
+			       (err), ARM64_HAS_UAO);			\
 		break;							\
 	default:							\
 		BUILD_BUG();						\
 	}								\
-	asm(ALTERNATIVE("nop", SET_PSTATE_PAN(1), ARM64_HAS_PAN,	\
-			CONFIG_ARM64_PAN));				\
+	uaccess_disable_not_uao();					\
 } while (0)
 
 #define __put_user(x, ptr)						\
@@ -304,5 +417,67 @@ extern long strncpy_from_user(char *dest, const char __user *src, long count);
 
 extern __must_check long strlen_user(const char __user *str);
 extern __must_check long strnlen_user(const char __user *str, long n);
+
+#else	/* __ASSEMBLY__ */
+
+#include <asm/assembler.h>
+
+/*
+ * User access enabling/disabling macros.
+ */
+#ifdef CONFIG_ARM64_SW_TTBR0_PAN
+	.macro	__uaccess_ttbr0_disable, tmp1
+	mrs	\tmp1, ttbr1_el1		// swapper_pg_dir
+	add	\tmp1, \tmp1, #SWAPPER_DIR_SIZE	// reserved_ttbr0 at the end of swapper_pg_dir
+	msr	ttbr0_el1, \tmp1		// set reserved TTBR0_EL1
+	isb
+	.endm
+
+	.macro	__uaccess_ttbr0_enable, tmp1
+	get_thread_info \tmp1
+	ldr	\tmp1, [\tmp1, #TSK_TI_TTBR0]	// load saved TTBR0_EL1
+	msr	ttbr0_el1, \tmp1		// set the non-PAN TTBR0_EL1
+	isb
+	.endm
+
+	.macro	uaccess_ttbr0_disable, tmp1
+alternative_if_not ARM64_HAS_PAN
+	__uaccess_ttbr0_disable \tmp1
+alternative_else_nop_endif
+	.endm
+
+	.macro	uaccess_ttbr0_enable, tmp1, tmp2
+alternative_if_not ARM64_HAS_PAN
+	save_and_disable_irq \tmp2		// avoid preemption
+	__uaccess_ttbr0_enable \tmp1
+	restore_irq \tmp2
+alternative_else_nop_endif
+	.endm
+#else
+	.macro	uaccess_ttbr0_disable, tmp1
+	.endm
+
+	.macro	uaccess_ttbr0_enable, tmp1, tmp2
+	.endm
+#endif
+
+/*
+ * These macros are no-ops when UAO is present.
+ */
+	.macro	uaccess_disable_not_uao, tmp1
+	uaccess_ttbr0_disable \tmp1
+alternative_if ARM64_ALT_PAN_NOT_UAO
+	SET_PSTATE_PAN(1)
+alternative_else_nop_endif
+	.endm
+
+	.macro	uaccess_enable_not_uao, tmp1, tmp2
+	uaccess_ttbr0_enable \tmp1, \tmp2
+alternative_if ARM64_ALT_PAN_NOT_UAO
+	SET_PSTATE_PAN(0)
+alternative_else_nop_endif
+	.endm
+
+#endif	/* __ASSEMBLY__ */
 
 #endif /* __ASM_UACCESS_H */
