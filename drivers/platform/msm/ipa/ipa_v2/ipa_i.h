@@ -837,6 +837,7 @@ struct ipa_active_clients {
 struct ipa_wakelock_ref_cnt {
 	spinlock_t spinlock;
 	u32 cnt;
+	bool wakelock_acquired;
 };
 
 struct ipa_tag_completion {
