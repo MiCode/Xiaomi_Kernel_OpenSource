@@ -13,6 +13,7 @@
 #define pr_fmt(fmt) "icnss: " fmt
 
 #include <asm/dma-iommu.h>
+#include <linux/of_address.h>
 #include <linux/clk.h>
 #include <linux/iommu.h>
 #include <linux/export.h>
@@ -4160,6 +4161,9 @@ static int icnss_probe(struct platform_device *pdev)
 	int i;
 	struct device *dev = &pdev->dev;
 	struct icnss_priv *priv;
+	const __be32 *addrp;
+	u64 prop_size = 0;
+	struct device_node *np;
 
 	if (penv) {
 		icnss_pr_err("Driver is already initialized\n");
@@ -4231,24 +4235,53 @@ static int icnss_probe(struct platform_device *pdev)
 		}
 	}
 
-	ret = of_property_read_u32(dev->of_node, "qcom,wlan-msa-memory",
-				   &priv->msa_mem_size);
+	np = of_parse_phandle(dev->of_node,
+			      "qcom,wlan-msa-fixed-region", 0);
+	if (np) {
+		addrp = of_get_address(np, 0, &prop_size, NULL);
+		if (!addrp) {
+			icnss_pr_err("Failed to get assigned-addresses or property\n");
+			ret = -EINVAL;
+			goto out;
+		}
 
-	if (ret || priv->msa_mem_size == 0) {
-		icnss_pr_err("Fail to get MSA Memory Size: %u, ret: %d\n",
-			     priv->msa_mem_size, ret);
-		goto out;
+		priv->msa_pa = of_translate_address(np, addrp);
+		if (priv->msa_pa == OF_BAD_ADDR) {
+			icnss_pr_err("Failed to translate MSA PA from device-tree\n");
+			ret = -EINVAL;
+			goto out;
+		}
+
+		priv->msa_va = memremap(priv->msa_pa,
+					(unsigned long)prop_size, MEMREMAP_WT);
+		if (!priv->msa_va) {
+			icnss_pr_err("MSA PA ioremap failed: phy addr: %pa\n",
+				     &priv->msa_pa);
+			ret = -EINVAL;
+			goto out;
+		}
+		priv->msa_mem_size = prop_size;
+	} else {
+		ret = of_property_read_u32(dev->of_node, "qcom,wlan-msa-memory",
+					   &priv->msa_mem_size);
+		if (ret || priv->msa_mem_size == 0) {
+			icnss_pr_err("Fail to get MSA Memory Size: %u ret: %d\n",
+				     priv->msa_mem_size, ret);
+			goto out;
+		}
+
+		priv->msa_va = dmam_alloc_coherent(&pdev->dev,
+				priv->msa_mem_size, &priv->msa_pa, GFP_KERNEL);
+
+		if (!priv->msa_va) {
+			icnss_pr_err("DMA alloc failed for MSA\n");
+			ret = -ENOMEM;
+			goto out;
+		}
 	}
 
-	priv->msa_va = dmam_alloc_coherent(&pdev->dev, priv->msa_mem_size,
-					   &priv->msa_pa, GFP_KERNEL);
-	if (!priv->msa_va) {
-		icnss_pr_err("DMA alloc failed for MSA\n");
-		ret = -ENOMEM;
-		goto out;
-	}
-	icnss_pr_dbg("MSA pa: %pa, MSA va: 0x%p\n", &priv->msa_pa,
-		     priv->msa_va);
+	icnss_pr_dbg("MSA pa: %pa, MSA va: 0x%p MSA Memory Size: 0x%x\n",
+		     &priv->msa_pa, (void *)priv->msa_va, priv->msa_mem_size);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 					   "smmu_iova_base");
