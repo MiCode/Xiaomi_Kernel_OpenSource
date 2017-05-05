@@ -1029,19 +1029,16 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_OPERATION_CFG:
-		pr_err("received VIDIOC_MSM_ISP_OPERATION_CFG\n");
 		mutex_lock(&vfe_dev->core_mutex);
 		msm_isp_operation_cfg(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_AXI_OUTPUT_CFG:
-		pr_err("received VIDIOC_MSM_ISP_AXI_OUTPUT_CFG\n");
 		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_axi_output_cfg(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_CAMIF_CFG:
-		pr_err("received VFE_CMD_ID_CAMIF_CONFIG\n");
 		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_camif_cfg(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->core_mutex);
