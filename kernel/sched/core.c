@@ -76,7 +76,6 @@
 #include <linux/frame.h>
 #include <linux/prefetch.h>
 #include <linux/irq.h>
-#include <linux/sched/core_ctl.h>
 
 #include <asm/switch_to.h>
 #include <asm/tlb.h>

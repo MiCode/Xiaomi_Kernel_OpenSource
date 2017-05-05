@@ -23,6 +23,7 @@
 #include <linux/cpufreq.h>
 #include <linux/list_sort.h>
 #include <linux/jiffies.h>
+#include <linux/sched/core_ctl.h>
 #include <trace/events/sched.h>
 #include "sched.h"
 #include "walt.h"
@@ -2946,4 +2947,6 @@ void walt_irq_work(struct irq_work *irq_work)
 
 	for_each_cpu(cpu, cpu_possible_mask)
 		raw_spin_unlock(&cpu_rq(cpu)->lock);
+
+	core_ctl_check(this_rq()->window_start);
 }
