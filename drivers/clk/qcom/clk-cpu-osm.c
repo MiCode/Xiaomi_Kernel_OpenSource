@@ -33,6 +33,8 @@
 #include <linux/regmap.h>
 #include <linux/uaccess.h>
 #include <linux/sched.h>
+#include <linux/cpufreq.h>
+#include <linux/slab.h>
 #include <soc/qcom/scm.h>
 #include <dt-bindings/clock/qcom,cpucc-sdm845.h>
 
@@ -42,6 +44,7 @@
 #include "clk-voter.h"
 #include "clk-debug.h"
 
+#define OSM_INIT_RATE			300000000UL
 #define OSM_TABLE_SIZE			40
 #define SINGLE_CORE			1
 #define MAX_CLUSTER_CNT			3
@@ -922,6 +925,193 @@ static struct clk_osm *logical_cpu_to_clk(int cpu)
 
 	return cpu_clk_map[cpu];
 }
+
+static struct clk_osm *osm_configure_policy(struct cpufreq_policy *policy)
+{
+	int cpu;
+	struct clk_hw *parent, *c_parent;
+	struct clk_osm *first;
+	struct clk_osm *c, *n;
+
+	c = logical_cpu_to_clk(policy->cpu);
+	if (!c)
+		return NULL;
+
+	c_parent = clk_hw_get_parent(&c->hw);
+	if (!c_parent)
+		return NULL;
+
+	/*
+	 * Don't put any other CPUs into the policy if we're doing
+	 * per_core_dcvs
+	 */
+	if (to_clk_osm(c_parent)->per_core_dcvs)
+		return c;
+
+	first = c;
+	/* Find CPUs that share the same clock domain */
+	for_each_possible_cpu(cpu) {
+		n = logical_cpu_to_clk(cpu);
+		if (!n)
+			continue;
+
+		parent = clk_hw_get_parent(&n->hw);
+		if (!parent)
+			return NULL;
+		if (parent != c_parent)
+			continue;
+
+		cpumask_set_cpu(cpu, policy->cpus);
+		if (n->core_num == 0)
+			first = n;
+	}
+
+	return first;
+}
+
+static void
+osm_set_index(struct clk_osm *c, unsigned int index, unsigned int num)
+{
+	clk_osm_write_reg(c, index, DCVS_PERF_STATE_DESIRED_REG(num), OSM_BASE);
+
+	/* Make sure the write goes through before proceeding */
+	clk_osm_mb(c, OSM_BASE);
+}
+
+static int
+osm_cpufreq_target_index(struct cpufreq_policy *policy, unsigned int index)
+{
+	struct clk_osm *c = policy->driver_data;
+
+	osm_set_index(c, index, c->core_num);
+	return 0;
+}
+
+static unsigned int osm_cpufreq_get(unsigned int cpu)
+{
+	struct cpufreq_policy *policy = cpufreq_cpu_get_raw(cpu);
+	struct clk_osm *c;
+	u32 index;
+
+	if (!policy)
+		return 0;
+
+	c = policy->driver_data;
+	index = clk_osm_read_reg(c, DCVS_PERF_STATE_DESIRED_REG(c->core_num));
+
+	return policy->freq_table[index].frequency;
+}
+
+static int osm_cpufreq_cpu_init(struct cpufreq_policy *policy)
+{
+	struct cpufreq_frequency_table *table;
+	struct clk_osm *c, *parent;
+	struct clk_hw *p_hw;
+	int ret;
+	unsigned int i;
+	unsigned int xo_kHz;
+
+	c = osm_configure_policy(policy);
+	if (!c) {
+		pr_err("no clock for CPU%d\n", policy->cpu);
+		return -ENODEV;
+	}
+
+	p_hw = clk_hw_get_parent(&c->hw);
+	if (!p_hw) {
+		pr_err("no parent clock for CPU%d\n", policy->cpu);
+		return -ENODEV;
+	}
+
+	parent = to_clk_osm(p_hw);
+	c->vbases[OSM_BASE] = parent->vbases[OSM_BASE];
+
+	p_hw = clk_hw_get_parent(p_hw);
+	if (!p_hw) {
+		pr_err("no xo clock for CPU%d\n", policy->cpu);
+		return -ENODEV;
+	}
+	xo_kHz = clk_hw_get_rate(p_hw) / 1000;
+
+	table = kcalloc(OSM_TABLE_SIZE + 1, sizeof(*table), GFP_KERNEL);
+	if (!table)
+		return -ENOMEM;
+
+	for (i = 0; i < OSM_TABLE_SIZE; i++) {
+		u32 data, src, div, lval, core_count;
+
+		data = clk_osm_read_reg(c, FREQ_REG + i * OSM_REG_SIZE);
+		src = (data & GENMASK(31, 30)) >> 30;
+		div = (data & GENMASK(29, 28)) >> 28;
+		lval = data & GENMASK(7, 0);
+		core_count = CORE_COUNT_VAL(data);
+
+		if (!src)
+			table[i].frequency = OSM_INIT_RATE / 1000;
+		else
+			table[i].frequency = xo_kHz * lval;
+		table[i].driver_data = table[i].frequency;
+
+		if (core_count != MAX_CORE_COUNT)
+			table[i].frequency = CPUFREQ_ENTRY_INVALID;
+
+		/* Two of the same frequencies means end of table */
+		if (i > 0 && table[i - 1].driver_data == table[i].driver_data) {
+			struct cpufreq_frequency_table *prev = &table[i - 1];
+
+			if (prev->frequency == CPUFREQ_ENTRY_INVALID) {
+				prev->flags = CPUFREQ_BOOST_FREQ;
+				prev->frequency = prev->driver_data;
+			}
+
+			break;
+		}
+	}
+	table[i].frequency = CPUFREQ_TABLE_END;
+
+	ret = cpufreq_table_validate_and_show(policy, table);
+	if (ret) {
+		pr_err("%s: invalid frequency table: %d\n", __func__, ret);
+		goto err;
+	}
+
+	policy->driver_data = c;
+
+	clk_osm_enable(&parent->hw);
+	udelay(300);
+
+	return 0;
+
+err:
+	kfree(table);
+	return ret;
+}
+
+static int osm_cpufreq_cpu_exit(struct cpufreq_policy *policy)
+{
+	kfree(policy->freq_table);
+	policy->freq_table = NULL;
+	return 0;
+}
+
+static struct freq_attr *osm_cpufreq_attr[] = {
+	&cpufreq_freq_attr_scaling_available_freqs,
+	&cpufreq_freq_attr_scaling_boost_freqs,
+	NULL
+};
+
+static struct cpufreq_driver qcom_osm_cpufreq_driver = {
+	.flags		= CPUFREQ_STICKY | CPUFREQ_NEED_INITIAL_FREQ_CHECK |
+			  CPUFREQ_HAVE_GOVERNOR_PER_POLICY,
+	.verify		= cpufreq_generic_frequency_table_verify,
+	.target_index	= osm_cpufreq_target_index,
+	.get		= osm_cpufreq_get,
+	.init		= osm_cpufreq_cpu_init,
+	.exit		= osm_cpufreq_cpu_exit,
+	.name		= "osm-cpufreq",
+	.attr		= osm_cpufreq_attr,
+	.boost_enabled	= true,
+};
 
 static inline int clk_osm_count_ns(struct clk_osm *c, u64 nsec)
 {
@@ -2890,16 +3080,13 @@ static int clk_osm_acd_init(struct clk_osm *c)
 	return 0;
 }
 
-static unsigned long init_rate = 300000000;
-
 static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 {
-	int rc = 0, cpu, i;
+	int rc = 0, i;
 	int pvs_ver = 0;
 	u32 pte_efuse, val;
 	int num_clks = ARRAY_SIZE(osm_qcom_clk_hws);
 	struct clk *ext_xo_clk, *clk;
-	struct clk_osm *c, *parent;
 	struct device *dev = &pdev->dev;
 	struct clk_onecell_data *clk_data;
 	char l3speedbinstr[] = "qcom,l3-speedbin0-v0";
@@ -3207,7 +3394,7 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 	get_online_cpus();
 
 	/* Set the L3 clock to run off GPLL0 and enable OSM for the domain */
-	rc = clk_set_rate(l3_clk.hw.clk, init_rate);
+	rc = clk_set_rate(l3_clk.hw.clk, OSM_INIT_RATE);
 	if (rc) {
 		dev_err(&pdev->dev, "Unable to set init rate on L3 cluster, rc=%d\n",
 			rc);
@@ -3217,42 +3404,11 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 		     "Failed to enable clock for L3\n");
 	udelay(300);
 
-	/* Set CPU clocks to run off GPLL0 and enable OSM for both domains */
-	for_each_online_cpu(cpu) {
-		c = logical_cpu_to_clk(cpu);
-		if (!c) {
-			pr_err("no clock device for CPU=%d\n", cpu);
-			return -EINVAL;
-		}
-
-		parent = to_clk_osm(clk_hw_get_parent(&c->hw));
-		if (!parent->per_core_dcvs) {
-			if (cpu >= 0 && cpu <= 3)
-				c = logical_cpu_to_clk(0);
-			else if (cpu >= 4 && cpu <= 7)
-				c = logical_cpu_to_clk(4);
-			if (!c)
-				return -EINVAL;
-		}
-
-		rc = clk_set_rate(c->hw.clk, init_rate);
-		if (rc) {
-			dev_err(&pdev->dev, "Unable to set init rate on %s, rc=%d\n",
-					clk_hw_get_name(&parent->hw), rc);
-			goto provider_err;
-		}
-		WARN(clk_prepare_enable(c->hw.clk),
-					"Failed to enable OSM for %s\n",
-					clk_hw_get_name(&parent->hw));
-		udelay(300);
+	/* Configure default rate to lowest frequency */
+	for (i = 0; i < MAX_CORE_COUNT; i++) {
+		osm_set_index(&pwrcl_clk, 0, i);
+		osm_set_index(&perfcl_clk, 0, i);
 	}
-
-	/*
-	 * Add always-on votes for the CPU cluster clocks since we do not want
-	 * to re-enable OSM at any point.
-	 */
-	clk_prepare_enable(pwrcl_clk.hw.clk);
-	clk_prepare_enable(perfcl_clk.hw.clk);
 
 	populate_opp_table(pdev);
 	populate_debugfs_dir(&l3_clk);
@@ -3261,18 +3417,24 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 
 	of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
 	register_cpu_cycle_counter_cb(&cb);
-	pr_info("OSM driver inited\n");
 	put_online_cpus();
 
+	rc = cpufreq_register_driver(&qcom_osm_cpufreq_driver);
+	if (rc)
+		goto provider_err;
+
+	pr_info("OSM CPUFreq driver inited\n");
 	return 0;
+
 provider_err:
 	if (clk_data)
 		devm_kfree(&pdev->dev, clk_data->clks);
 clk_err:
 	devm_kfree(&pdev->dev, clk_data);
 exit:
-	dev_err(&pdev->dev, "OSM driver failed to initialize, rc=%d\n", rc);
-	panic("Unable to Setup OSM");
+	dev_err(&pdev->dev, "OSM CPUFreq driver failed to initialize, rc=%d\n",
+		rc);
+	panic("Unable to Setup OSM CPUFreq");
 }
 
 static const struct of_device_id match_table[] = {
