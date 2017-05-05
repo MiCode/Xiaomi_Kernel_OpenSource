@@ -333,6 +333,20 @@ static inline void send_tcs_response(struct tcs_response *resp)
 	tasklet_schedule(&resp->tasklet);
 }
 
+static inline void enable_tcs_irq(struct tcs_drv *drv, int m, bool enable)
+{
+	void __iomem *base = drv->reg_base;
+	u32 data;
+
+	/* Enable interrupts for non-ACTIVE TCS */
+	data = read_tcs_reg(base, TCS_DRV_IRQ_ENABLE, 0, 0);
+	if (enable)
+		data |= BIT(m);
+	else
+		data &= ~BIT(m);
+	write_tcs_reg(base, TCS_DRV_IRQ_ENABLE, 0, 0, data);
+}
+
 /**
  * tcs_irq_handler: TX Done / Recv data handler
  */
@@ -395,6 +409,12 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 			data = read_tcs_reg(base, TCS_DRV_CONTROL, m, 0);
 			data &= ~TCS_AMC_MODE_ENABLE;
 			write_tcs_reg(base, TCS_DRV_CONTROL, m, 0, data);
+			/*
+			 * Disable interrupt for this TCS to avoid being
+			 * spammed with interrupts coming when the solver
+			 * sends its wake votes.
+			 */
+			enable_tcs_irq(drv, m, false);
 		} else {
 			/* Clear the enable bit for the commands */
 			write_tcs_reg(base, TCS_DRV_CMD_ENABLE, m, 0, 0);
@@ -659,6 +679,9 @@ static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 		/* Mark the TCS as busy */
 		atomic_set(&drv->tcs_in_use[m], 1);
 		atomic_inc(&drv->tcs_send_count[m]);
+		/* Enable interrupt for active votes through wake TCS */
+		if (tcs->type != ACTIVE_TCS)
+			enable_tcs_irq(drv, m, true);
 	}
 
 	/* Write to the TCS or AMC */
@@ -902,7 +925,6 @@ static int tcs_drv_probe(struct platform_device *pdev)
 	u32 config, max_tcs, ncpt;
 	int tcs_type_count[TCS_TYPE_NR] = { 0 };
 	struct resource *res;
-	u32 irq_mask;
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
@@ -1043,14 +1065,9 @@ static int tcs_drv_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	/*
-	 * Enable interrupts for AMC TCS,
-	 * if there are no AMC TCS, use wake TCS.
-	 */
-	irq_mask = (drv->tcs[ACTIVE_TCS].num_tcs) ?
-				drv->tcs[ACTIVE_TCS].tcs_mask :
-				drv->tcs[WAKE_TCS].tcs_mask;
-	write_tcs_reg(drv->reg_base, TCS_DRV_IRQ_ENABLE, 0, 0, irq_mask);
+	/* Enable interrupts for AMC TCS */
+	write_tcs_reg(drv->reg_base, TCS_DRV_IRQ_ENABLE, 0, 0,
+					drv->tcs[ACTIVE_TCS].tcs_mask);
 
 	for (i = 0; i < ARRAY_SIZE(drv->tcs_in_use); i++)
 		atomic_set(&drv->tcs_in_use[i], 0);
