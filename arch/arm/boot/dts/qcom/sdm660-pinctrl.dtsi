@@ -36,16 +36,28 @@
 		led_enable: led_enable {
 			mux {
 				pins = "gpio40";
-				drive_strength = <16>;
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio40";
+				drive_strength = <2>;
 				output-high;
+				bias-disable;
 			};
 		};
 
 		led_disable: led_disable {
 			mux {
 				pins = "gpio40";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio40";
 				drive_strength = <2>;
 				output-low;
+				bias-disable;
 			};
 		};
 
