@@ -608,11 +608,14 @@ static void _sde_crtc_setup_dim_layer_cfg(struct drm_crtc *crtc,
 	int i;
 
 	if (!dim_layer->rect.w || !dim_layer->rect.h) {
-		SDE_DEBUG("empty dim layer\n");
+		SDE_DEBUG("empty dim_layer\n");
 		return;
 	}
 
 	cstate = to_sde_crtc_state(crtc->state);
+
+	SDE_DEBUG("dim_layer - flags:%d, stage:%d\n",
+			dim_layer->flags, dim_layer->stage);
 
 	split_dim_layer.stage = dim_layer->stage;
 	split_dim_layer.color_fill = dim_layer->color_fill;
@@ -647,8 +650,12 @@ static void _sde_crtc_setup_dim_layer_cfg(struct drm_crtc *crtc,
 		} else {
 			split_dim_layer.rect.x =
 					split_dim_layer.rect.x -
-					cstate->lm_bounds[i].w;
+						cstate->lm_bounds[i].x;
 		}
+
+		SDE_DEBUG("split_dim_layer - LM:%d, rect:{%d,%d,%d,%d}}\n",
+			i, split_dim_layer.rect.x, split_dim_layer.rect.y,
+			split_dim_layer.rect.w, split_dim_layer.rect.h);
 
 		lm = mixer[i].hw_lm;
 		mixer[i].mixer_op_mode |= 1 << split_dim_layer.stage;
@@ -1562,26 +1569,28 @@ static void _sde_crtc_set_dim_layer_v1(struct sde_crtc_state *cstate,
 {
 	struct sde_drm_dim_layer_v1 dim_layer_v1;
 	struct sde_drm_dim_layer_cfg *user_cfg;
+	struct sde_hw_dim_layer *dim_layer;
 	u32 count, i;
 
 	if (!cstate) {
 		SDE_ERROR("invalid cstate\n");
 		return;
 	}
+	dim_layer = cstate->dim_layer;
 
 	if (!usr_ptr) {
-		SDE_DEBUG("dim layer data removed\n");
+		SDE_DEBUG("dim_layer data removed\n");
 		return;
 	}
 
 	if (copy_from_user(&dim_layer_v1, usr_ptr, sizeof(dim_layer_v1))) {
-		SDE_ERROR("failed to copy dim layer data\n");
+		SDE_ERROR("failed to copy dim_layer data\n");
 		return;
 	}
 
 	count = dim_layer_v1.num_layers;
-	if (!count || (count > SDE_MAX_DIM_LAYERS)) {
-		SDE_ERROR("invalid number of Dim Layers:%d", count);
+	if (count > SDE_MAX_DIM_LAYERS) {
+		SDE_ERROR("invalid number of dim_layers:%d", count);
 		return;
 	}
 
@@ -1589,22 +1598,31 @@ static void _sde_crtc_set_dim_layer_v1(struct sde_crtc_state *cstate,
 	cstate->num_dim_layers = count;
 	for (i = 0; i < count; i++) {
 		user_cfg = &dim_layer_v1.layer_cfg[i];
-		cstate->dim_layer[i].flags = user_cfg->flags;
-		cstate->dim_layer[i].stage = user_cfg->stage + SDE_STAGE_0;
 
-		cstate->dim_layer[i].rect.x = user_cfg->rect.x1;
-		cstate->dim_layer[i].rect.y = user_cfg->rect.y1;
-		cstate->dim_layer[i].rect.w = user_cfg->rect.x2 -
-						user_cfg->rect.x1 + 1;
-		cstate->dim_layer[i].rect.h = user_cfg->rect.y2 -
-						user_cfg->rect.y1 + 1;
+		dim_layer[i].flags = user_cfg->flags;
+		dim_layer[i].stage = user_cfg->stage + SDE_STAGE_0;
 
-		cstate->dim_layer[i].color_fill = (struct sde_mdss_color) {
+		dim_layer[i].rect.x = user_cfg->rect.x1;
+		dim_layer[i].rect.y = user_cfg->rect.y1;
+		dim_layer[i].rect.w = user_cfg->rect.x2 - user_cfg->rect.x1;
+		dim_layer[i].rect.h = user_cfg->rect.y2 - user_cfg->rect.y1;
+
+		dim_layer[i].color_fill = (struct sde_mdss_color) {
 				user_cfg->color_fill.color_0,
 				user_cfg->color_fill.color_1,
 				user_cfg->color_fill.color_2,
 				user_cfg->color_fill.color_3,
 		};
+
+		SDE_DEBUG("dim_layer[%d] - flags:%d, stage:%d\n",
+				i, dim_layer[i].flags, dim_layer[i].stage);
+		SDE_DEBUG(" rect:{%d,%d,%d,%d}, color:{%d,%d,%d,%d}\n",
+				dim_layer[i].rect.x, dim_layer[i].rect.y,
+				dim_layer[i].rect.w, dim_layer[i].rect.h,
+				dim_layer[i].color_fill.color_0,
+				dim_layer[i].color_fill.color_1,
+				dim_layer[i].color_fill.color_2,
+				dim_layer[i].color_fill.color_3);
 	}
 }
 
@@ -2528,9 +2546,10 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		/* check dim layer stage with every plane */
 		for (i = 0; i < cstate->num_dim_layers; i++) {
 			if (pstates[cnt].stage == cstate->dim_layer[i].stage) {
-				SDE_ERROR("plane%d/dimlayer in same stage:%d\n",
-						plane->base.id,
-						cstate->dim_layer[i].stage);
+				SDE_ERROR(
+					"plane:%d/dim_layer:%i-same stage:%d\n",
+					plane->base.id, i,
+					cstate->dim_layer[i].stage);
 				rc = -EINVAL;
 				goto end;
 			}
@@ -2801,15 +2820,17 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 	msm_property_install_blob(&sde_crtc->property_info, "capabilities",
 		DRM_MODE_PROP_IMMUTABLE, CRTC_PROP_INFO);
 
-	if (catalog->has_dim_layer) {
-		msm_property_install_volatile_range(&sde_crtc->property_info,
-			"dim_layer_v1", 0x0, 0, ~0, 0, CRTC_PROP_DIM_LAYER_V1);
-	}
-
 	msm_property_install_volatile_range(&sde_crtc->property_info,
 		"sde_drm_roi_v1", 0x0, 0, ~0, 0, CRTC_PROP_ROI_V1);
 
 	sde_kms_info_reset(info);
+
+	if (catalog->has_dim_layer) {
+		msm_property_install_volatile_range(&sde_crtc->property_info,
+			"dim_layer_v1", 0x0, 0, ~0, 0, CRTC_PROP_DIM_LAYER_V1);
+		sde_kms_info_add_keyint(info, "dim_layer_v1_max_layers",
+				SDE_MAX_DIM_LAYERS);
+	}
 
 	sde_kms_info_add_keyint(info, "hw_version", catalog->hwversion);
 	sde_kms_info_add_keyint(info, "max_linewidth",
@@ -3010,6 +3031,7 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 	struct drm_display_mode *mode;
 	struct drm_framebuffer *fb;
 	struct drm_plane_state *state;
+	struct sde_crtc_state *cstate;
 
 	int i, out_width;
 
@@ -3018,6 +3040,7 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 
 	sde_crtc = s->private;
 	crtc = &sde_crtc->base;
+	cstate = to_sde_crtc_state(crtc->state);
 
 	mutex_lock(&sde_crtc->crtc_lock);
 	mode = &crtc->state->adjusted_mode;
@@ -3041,6 +3064,23 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 	}
 
 	seq_puts(s, "\n");
+
+	for (i = 0; i < cstate->num_dim_layers; i++) {
+		struct sde_hw_dim_layer *dim_layer = &cstate->dim_layer[i];
+
+		seq_printf(s, "\tdim_layer:%d] stage:%d flags:%d\n",
+				i, dim_layer->stage, dim_layer->flags);
+		seq_printf(s, "\tdst_x:%d dst_y:%d dst_w:%d dst_h:%d\n",
+				dim_layer->rect.x, dim_layer->rect.y,
+				dim_layer->rect.w, dim_layer->rect.h);
+		seq_printf(s,
+			"\tcolor_0:%d color_1:%d color_2:%d color_3:%d\n",
+				dim_layer->color_fill.color_0,
+				dim_layer->color_fill.color_1,
+				dim_layer->color_fill.color_2,
+				dim_layer->color_fill.color_3);
+		seq_puts(s, "\n");
+	}
 
 	drm_atomic_crtc_for_each_plane(plane, crtc) {
 		pstate = to_sde_plane_state(plane->state);
