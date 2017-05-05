@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -329,7 +329,6 @@ int esoc_clink_del_device(struct device *dev, void *dummy)
 	esoc_udev = esoc_udev_get_by_minor(esoc_clink->id);
 	if (!esoc_udev)
 		return 0;
-	return_esoc_udev(esoc_udev);
 	device_destroy(esoc_class, MKDEV(esoc_major, esoc_clink->id));
 	return_esoc_udev(esoc_udev);
 	return 0;

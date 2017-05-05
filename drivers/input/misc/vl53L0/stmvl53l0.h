@@ -208,6 +208,7 @@ struct stmvl53l0_module_fn_t {
 	void (*deinit)(void *);
 	int (*power_up)(void *, unsigned int *);
 	int (*power_down)(void *);
+	int (*query_power_status)(void *);
 };
 
 

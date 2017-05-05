@@ -51,11 +51,12 @@ struct cci_data {
 	struct msm_camera_gpio_conf *gconf;
 	struct msm_pinctrl_info pinctrl_info;
 	uint8_t cam_pinctrl_status;
-
 };
+
 int stmvl53l0_init_cci(void);
 void stmvl53l0_exit_cci(void *);
 int stmvl53l0_power_down_cci(void *);
 int stmvl53l0_power_up_cci(void *, unsigned int *);
+int stmvl53l0_cci_power_status(void *);
 #endif /* CAMERA_CCI */
 #endif /* STMVL53L0_CCI_H */

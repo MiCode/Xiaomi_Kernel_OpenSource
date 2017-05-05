@@ -22,11 +22,13 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		interrupt-parent = <&tlmm>;
-		interrupts = <21 0x0>;
+		interrupts = <21 IRQ_TYPE_LEVEL_LOW>;
 		interrupt_names = "smb138x";
 		interrupt-controller;
 		#interrupt-cells = <3>;
 		qcom,periph-map = <0x10 0x11 0x12 0x13 0x14 0x16 0x36>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&smb_int_default>;
 
 		smb138x_revid: qcom,revid@100 {
 			compatible = "qcom,qpnp-revid";
@@ -127,6 +129,21 @@
 				interrupt-names = "wdog-bark",
 						  "temperature-change";
 			};
+		};
+	};
+};
+
+&tlmm {
+	smb_int_default: smb_int_default {
+		mux {
+			pins = "gpio21";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio21";
+			drive-strength = <2>;
+			bias-pull-up;
 		};
 	};
 };
