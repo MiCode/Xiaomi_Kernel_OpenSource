@@ -652,6 +652,16 @@ int snd_usb_parse_audio_interface(struct snd_usb_audio *chip, int iface_no)
 		case UAC_VERSION_3: {
 			int wMaxPacketSize;
 
+			/*
+			 * Allocate a dummy instance of fmt and set format type
+			 * to UAC_FORMAT_TYPE_I for BADD support; free fmt
+			 * after its last usage
+			 */
+			fmt = kzalloc(sizeof(*fmt), GFP_KERNEL);
+			if (!fmt)
+				return -ENOMEM;
+
+			fmt->bFormatType = UAC_FORMAT_TYPE_I;
 			format = UAC_FORMAT_TYPE_I_PCM;
 			clock = BADD_CLOCK_SOURCE;
 			wMaxPacketSize = le16_to_cpu(get_endpoint(alts, 0)
@@ -678,6 +688,7 @@ int snd_usb_parse_audio_interface(struct snd_usb_audio *chip, int iface_no)
 				dev_err(&dev->dev,
 					"%u:%d: invalid wMaxPacketSize\n",
 					iface_no, altno);
+				kfree(fmt);
 				continue;
 			}
 		}
@@ -776,6 +787,8 @@ populate_fp:
 			continue;
 		}
 
+		if (protocol == UAC_VERSION_3)
+			kfree(fmt);
 		/* Create chmap */
 		if (fp->channels != num_channels)
 			chconfig = 0;
