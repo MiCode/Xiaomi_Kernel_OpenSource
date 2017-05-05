@@ -381,7 +381,7 @@ static void *_sde_crtc_rp_get(struct sde_crtc_respool *rp, u32 type, u64 tag)
 	if (rp->ops.get)
 		val = rp->ops.get(NULL, type, -1);
 	if (IS_ERR_OR_NULL(val)) {
-		SDE_ERROR("crtc%d.%u failed to get res:0x%x//\n",
+		SDE_DEBUG("crtc%d.%u failed to get res:0x%x//\n",
 				crtc->base.id, rp->sequence_id, type);
 		return NULL;
 	}
