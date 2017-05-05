@@ -2839,3 +2839,30 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
 	BUG_ON((s64)*src_nt_prev_runnable_sum < 0);
 }
 
+/*
+ * Runs in hard-irq context. This should ideally run just after the latest
+ * window roll-over.
+ */
+void walt_irq_work(struct irq_work *irq_work)
+{
+	struct rq *rq;
+	int cpu;
+	u64 wc;
+
+	for_each_cpu(cpu, cpu_possible_mask)
+		raw_spin_lock(&cpu_rq(cpu)->lock);
+
+	wc = sched_ktime_clock();
+
+	for_each_cpu(cpu, cpu_possible_mask) {
+		if (cpu == smp_processor_id())
+			continue;
+		rq = cpu_rq(cpu);
+		if (rq->curr)
+			update_task_ravg(rq->curr, rq, TASK_UPDATE, wc, 0);
+		cpufreq_update_util(rq, 0);
+	}
+
+	for_each_cpu(cpu, cpu_possible_mask)
+		raw_spin_unlock(&cpu_rq(cpu)->lock);
+}

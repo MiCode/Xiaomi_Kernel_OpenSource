@@ -251,6 +251,8 @@ static inline int same_cluster(int src_cpu, int dst_cpu)
 
 void sort_clusters(void);
 
+void walt_irq_work(struct irq_work *irq_work);
+
 #else /* CONFIG_SCHED_WALT */
 
 static inline void update_task_ravg(struct task_struct *p, struct rq *rq,

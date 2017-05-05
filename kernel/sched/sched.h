@@ -798,6 +798,7 @@ struct rq {
 	u8 curr_table;
 	int prev_top;
 	int curr_top;
+	struct irq_work irq_work;
 #endif
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
