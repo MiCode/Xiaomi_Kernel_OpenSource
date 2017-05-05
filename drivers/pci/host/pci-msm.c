@@ -730,6 +730,8 @@ static const struct msm_pcie_irq_info_t msm_pcie_msi_info[MSM_PCIE_MAX_MSI] = {
 	{"msi_28", 0}, {"msi_29", 0}, {"msi_30", 0}, {"msi_31", 0}
 };
 
+static int msm_pcie_config_device(struct pci_dev *dev, void *pdev);
+
 #ifdef CONFIG_ARM
 #define PCIE_BUS_PRIV_DATA(bus) \
 	(((struct pci_sys_data *)bus->sysdata)->private_data)
@@ -3878,6 +3880,9 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 
 	msm_pcie_config_link_state(dev);
 
+	if (dev->enumerated)
+		pci_walk_bus(dev->dev->bus, &msm_pcie_config_device, dev);
+
 	dev->link_status = MSM_PCIE_LINK_ENABLED;
 	dev->power_on = true;
 	dev->suspending = false;
@@ -5328,6 +5333,26 @@ void msm_pcie_irq_deinit(struct msm_pcie_dev_t *dev)
 		disable_irq(dev->wake_n);
 }
 
+static int msm_pcie_config_device(struct pci_dev *dev, void *pdev)
+{
+	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *)pdev;
+	u8 busnr = dev->bus->number;
+	u8 slot = PCI_SLOT(dev->devfn);
+	u8 func = PCI_FUNC(dev->devfn);
+
+	PCIE_DBG(pcie_dev, "PCIe: RC%d: configure PCI device %02x:%02x.%01x\n",
+		pcie_dev->rc_idx, busnr, slot, func);
+
+	return 0;
+}
+
+/* Hook to setup PCI device during PCI framework scan */
+int pcibios_add_device(struct pci_dev *dev)
+{
+	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev->bus);
+
+	return msm_pcie_config_device(dev, pcie_dev);
+}
 
 static int msm_pcie_probe(struct platform_device *pdev)
 {
