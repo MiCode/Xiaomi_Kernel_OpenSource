@@ -572,7 +572,7 @@ end:
 }
 
 int rsc_hw_mode_ctrl(struct sde_rsc_priv *rsc, enum rsc_mode_req request,
-		char *buffer, int buffer_size, bool mode)
+		char *buffer, int buffer_size, u32 mode)
 {
 	u32 blen = 0;
 	u32 slot_time;
@@ -588,28 +588,19 @@ int rsc_hw_mode_ctrl(struct sde_rsc_priv *rsc, enum rsc_mode_req request,
 			rsc->debug_mode));
 		break;
 
-	case MODE0_UPDATE:
-		slot_time = mode ? rsc->timer_config.rsc_time_slot_0_ns :
+	case MODE_UPDATE:
+		slot_time = mode & BIT(0) ? 0x0 :
+					rsc->timer_config.rsc_time_slot_2_ns;
+		dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_TIME_SLOT_TABLE_0_DRV0,
+						slot_time, rsc->debug_mode);
+
+		slot_time = mode & BIT(1) ?
+			rsc->timer_config.rsc_time_slot_0_ns :
 				rsc->timer_config.rsc_time_slot_2_ns;
 		dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_TIME_SLOT_TABLE_1_DRV0,
 						slot_time, rsc->debug_mode);
-		slot_time = mode ? rsc->timer_config.rsc_time_slot_1_ns :
-				rsc->timer_config.rsc_time_slot_2_ns;
-		dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_TIME_SLOT_TABLE_2_DRV0,
-						slot_time, rsc->debug_mode);
-		rsc->power_collapse_block = mode;
-		break;
 
-	case MODE1_UPDATE:
-		slot_time = mode ? rsc->timer_config.rsc_time_slot_1_ns :
-				rsc->timer_config.rsc_time_slot_2_ns;
-		dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_TIME_SLOT_TABLE_2_DRV0,
-						slot_time, rsc->debug_mode);
-		rsc->power_collapse_block = mode;
-		break;
-
-	case MODE2_UPDATE:
-		rsc->power_collapse_block = mode;
+		rsc->power_collapse_block = !(mode & BIT(2));
 		break;
 
 	default:
@@ -673,7 +664,7 @@ int rsc_hw_vsync(struct sde_rsc_priv *rsc, enum rsc_vsync_req request,
 			return blen;
 
 		blen = snprintf(buffer, buffer_size - blen, "vsync0:0x%x\n",
-			 dss_reg_r(&rsc->drv_io,
+			 dss_reg_r(&rsc->wrapper_io,
 				SDE_RSCC_WRAPPER_VSYNC_TIMESTAMP0,
 				rsc->debug_mode));
 		if (blen >= buffer_size)
@@ -681,15 +672,15 @@ int rsc_hw_vsync(struct sde_rsc_priv *rsc, enum rsc_vsync_req request,
 
 		blen += snprintf(buffer + blen, buffer_size - blen,
 			"vsync1:0x%x\n",
-			 dss_reg_r(&rsc->drv_io,
+			 dss_reg_r(&rsc->wrapper_io,
 				SDE_RSCC_WRAPPER_VSYNC_TIMESTAMP1,
 				rsc->debug_mode));
 		break;
 
 	case VSYNC_ENABLE:
-		reg = BIT(8) | BIT(9) | ((mode & 0x7) < 10);
+		reg = BIT(8) | ((mode & 0x7) < 10);
 		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_DEBUG_BUS,
-					mode, rsc->debug_mode);
+					reg, rsc->debug_mode);
 		break;
 
 	case VSYNC_DISABLE:

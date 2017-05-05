@@ -25,20 +25,27 @@
 
 #define MAX_RSC_COUNT		5
 
+#define ALL_MODES_DISABLED	0x0
+#define ONLY_MODE_0_ENABLED	0x1
+#define ONLY_MODE_0_1_ENABLED	0x3
+#define ALL_MODES_ENABLED	0x7
+
+#define MAX_COUNT_SIZE_SUPPORTED	128
+
 struct sde_rsc_priv;
 
 /**
  * rsc_mode_req: sde rsc mode request information
  * MODE_READ: read vsync status
- * MODE0_UPDATE: mode0 status , this should be 0x0
- * MODE1_UPDATE: mode1 status , this should be 0x1
- * MODE2_UPDATE: mode2 status , this should be 0x2
+ * MODE_UPDATE: mode timeslot update
+ *            0x0: all modes are disabled.
+ *            0x1: Mode-0 is enabled and other two modes are disabled.
+ *            0x3: Mode-0 & Mode-1 are enabled and mode-2 is disabled.
+ *            0x7: all modes are enabled.
  */
 enum rsc_mode_req {
 	MODE_READ,
-	MODE0_UPDATE = 0x1,
-	MODE1_UPDATE = 0x2,
-	MODE2_UPDATE = 0x3,
+	MODE_UPDATE = 0x1,
 };
 
 /**
@@ -78,7 +85,7 @@ struct sde_rsc_hw_ops {
 	int (*state_update)(struct sde_rsc_priv *rsc, enum sde_rsc_state state);
 	int (*debug_show)(struct seq_file *s, struct sde_rsc_priv *rsc);
 	int (*mode_ctrl)(struct sde_rsc_priv *rsc, enum rsc_mode_req request,
-		char *buffer, int buffer_size, bool mode);
+		char *buffer, int buffer_size, u32 mode);
 };
 
 /**
