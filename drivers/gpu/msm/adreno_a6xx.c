@@ -1722,7 +1722,10 @@ static const char *a6xx_iommu_fault_block(struct adreno_device *adreno_dev,
 	else if (client_id != 3)
 		return fault_block[client_id];
 
+	mutex_lock(&device->mutex);
 	kgsl_regread(device, A6XX_UCHE_CLIENT_PF, &uche_client_id);
+	mutex_unlock(&device->mutex);
+
 	return uche_client[uche_client_id & A6XX_UCHE_CLIENT_PF_CLIENT_ID_MASK];
 }
 
