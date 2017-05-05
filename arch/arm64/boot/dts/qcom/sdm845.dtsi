@@ -1061,7 +1061,7 @@
 		status = "disabled";
 	};
 
-	ufshc_mem: ufshc_mem@1d84000 {
+	ufshc_mem: ufshc@1d84000 {
 		compatible = "qcom,ufshc";
 		reg = <0x1d84000 0x2500>;
 		interrupts = <0 265 0>;
