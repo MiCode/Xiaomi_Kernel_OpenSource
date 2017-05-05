@@ -75,7 +75,26 @@ end:
 static long cam_subdev_compat_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, unsigned long arg)
 {
-	return cam_subdev_ioctl(sd, cmd, compat_ptr(arg));
+	struct cam_control cmd_data;
+	int rc;
+
+	if (copy_from_user(&cmd_data, (void __user *)arg,
+		sizeof(cmd_data))) {
+		pr_err("Failed to copy from user_ptr=%pK size=%zu\n",
+			(void __user *)arg, sizeof(cmd_data));
+		return -EFAULT;
+	}
+	rc = cam_subdev_ioctl(sd, cmd, &cmd_data);
+	if (!rc) {
+		if (copy_to_user((void __user *)arg, &cmd_data,
+			sizeof(cmd_data))) {
+			pr_err("Failed to copy to user_ptr=%pK size=%zu\n",
+				(void __user *)arg, sizeof(cmd_data));
+			rc = -EFAULT;
+		}
+	}
+
+	return rc;
 }
 #endif
 
