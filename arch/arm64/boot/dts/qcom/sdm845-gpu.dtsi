@@ -12,6 +12,12 @@
 
 &soc {
 
+	pil_gpu: qcom,kgsl-hyp {
+		compatible = "qcom,pil-tz-generic";
+		qcom,pas-id = <13>;
+		qcom,firmware-name = "a630_zap";
+	};
+
 	msm_bus: qcom,kgsl-busmon{
 		label = "kgsl-busmon";
 		compatible = "qcom,kgsl-busmon";
