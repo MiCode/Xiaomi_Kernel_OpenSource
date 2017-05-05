@@ -1770,3 +1770,16 @@ int iommu_fwspec_get_id(struct device *dev, u32 *id)
 	*id = fwspec->ids[0];
 	return 0;
 }
+
+/*
+ * Until a formal solution for probe deferral becomes part
+ * of the iommu framework...
+ */
+int iommu_is_available(struct device *dev)
+{
+	if (!dev->bus->iommu_ops ||
+		!dev->iommu_fwspec ||
+		!dev->iommu_group)
+		return -EPROBE_DEFER;
+	return 0;
+}
