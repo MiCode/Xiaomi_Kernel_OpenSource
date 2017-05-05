@@ -34,6 +34,7 @@
 	aliases {
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
 		ufshc2 = &ufshc_card; /* Removable UFS slot */
+		pci-domain0 = &pcie0;
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 	};
 
@@ -3648,6 +3649,7 @@
 #include "sdm845-vidc.dtsi"
 #include "sdm845-pm.dtsi"
 #include "sdm845-pinctrl.dtsi"
+#include "sdm845-pcie.dtsi"
 #include "sdm845-audio.dtsi"
 #include "sdm845-gpu.dtsi"
 #include "sdm845-usb.dtsi"
