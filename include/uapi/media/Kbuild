@@ -1,3 +1,4 @@
+header-y += cam_cpas.h
 header-y += cam_defs.h
 header-y += cam_isp.h
 header-y += cam_isp_vfe.h
