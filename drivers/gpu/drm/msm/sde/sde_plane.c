@@ -2447,7 +2447,7 @@ static void _sde_plane_sspp_atomic_check_mode_changed(struct sde_plane *psde,
 		   pstate->excl_rect.h != old_pstate->excl_rect.h ||
 		   pstate->excl_rect.x != old_pstate->excl_rect.x ||
 		   pstate->excl_rect.y != old_pstate->excl_rect.y) {
-		SDE_DEBUG_PLANE(psde, "excl rect updated\n");
+		SDE_DEBUG_PLANE(psde, "excl_rect updated\n");
 		pstate->dirty |= SDE_PLANE_DIRTY_RECTS;
 	}
 
@@ -2660,6 +2660,9 @@ static int sde_plane_sspp_atomic_check(struct drm_plane *plane,
 				(char *)&fmt->base.pixel_format);
 			ret = -EINVAL;
 		}
+		SDE_DEBUG_PLANE(psde, "excl_rect: {%d,%d,%d,%d}\n",
+				pstate->excl_rect.x, pstate->excl_rect.y,
+				pstate->excl_rect.w, pstate->excl_rect.h);
 	}
 
 modeset_update:
@@ -3480,20 +3483,24 @@ static void _sde_plane_set_excl_rect_v1(struct sde_plane *psde,
 	}
 
 	if (!usr_ptr) {
-		SDE_DEBUG_PLANE(psde, "excl rect data removed\n");
+		SDE_DEBUG_PLANE(psde, "invalid  excl_rect user data\n");
 		return;
 	}
 
 	if (copy_from_user(&excl_rect_v1, usr_ptr, sizeof(excl_rect_v1))) {
-		SDE_ERROR_PLANE(psde, "failed to copy excl rect data\n");
+		SDE_ERROR_PLANE(psde, "failed to copy excl_rect data\n");
 		return;
 	}
 
 	/* populate from user space */
 	pstate->excl_rect.x = excl_rect_v1.x1;
 	pstate->excl_rect.y = excl_rect_v1.y1;
-	pstate->excl_rect.w = excl_rect_v1.x2 - excl_rect_v1.x1 + 1;
-	pstate->excl_rect.h = excl_rect_v1.y2 - excl_rect_v1.y1 + 1;
+	pstate->excl_rect.w = excl_rect_v1.x2 - excl_rect_v1.x1;
+	pstate->excl_rect.h = excl_rect_v1.y2 - excl_rect_v1.y1;
+
+	SDE_DEBUG_PLANE(psde, "excl_rect: {%d,%d,%d,%d}\n",
+			pstate->excl_rect.x, pstate->excl_rect.y,
+			pstate->excl_rect.w, pstate->excl_rect.h);
 }
 
 static int sde_plane_atomic_set_property(struct drm_plane *plane,
