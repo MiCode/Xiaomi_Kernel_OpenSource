@@ -40,4 +40,11 @@ struct cam_req_mgr_device {
 	spinlock_t cam_eventq_lock;
 };
 
+#define CAM_REQ_MGR_GET_PAYLOAD_PTR(ev, type)        \
+	(type *)((char *)ev.u.data)
+
+int cam_req_mgr_notify_frame_message(struct cam_req_mgr_message *msg,
+	uint32_t id,
+	uint32_t type);
+
 #endif /* _CAM_REQ_MGR_DEV_H_ */

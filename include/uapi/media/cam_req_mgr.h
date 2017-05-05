@@ -325,4 +325,55 @@ struct cam_mem_cache_ops_cmd {
 	uint32_t mem_cache_ops;
 };
 
+/**
+ * Request Manager : error message type
+ * @CAM_REQ_MGR_ERROR_TYPE_DEVICE: Device error message, fatal to session
+ * @CAM_REQ_MGR_ERROR_TYPE_REQUEST: Error on a single request, not fatal
+ * @CAM_REQ_MGR_ERROR_TYPE_BUFFER: Buffer was not filled, not fatal
+ */
+#define CAM_REQ_MGR_ERROR_TYPE_DEVICE           0
+#define CAM_REQ_MGR_ERROR_TYPE_REQUEST          1
+#define CAM_REQ_MGR_ERROR_TYPE_BUFFER           2
+
+/**
+ * struct cam_req_mgr_error_msg
+ * @error_type: type of error
+ * @request_id: request id of frame
+ * @device_hdl: device handle
+ * @reserved: reserved field
+ * @resource_size: size of the resource
+ */
+struct cam_req_mgr_error_msg {
+	uint32_t error_type;
+	uint32_t request_id;
+	int32_t device_hdl;
+	int32_t reserved;
+	uint64_t resource_size;
+};
+
+/**
+ * struct cam_req_mgr_frame_msg
+ * @request_id: request id of frame
+ * @frame_count: running count of frames
+ * @timestamp: timestamp of frame
+ */
+struct cam_req_mgr_frame_msg {
+	uint64_t request_id;
+	uint64_t frame_count;
+	uint64_t timestamp;
+};
+
+/**
+ * struct cam_req_mgr_message
+ * @session_hdl: session to which the frame belongs to
+ * @reserved: reserved field
+ * @u: union which can either be error or frame message
+ */
+struct cam_req_mgr_message {
+	int32_t session_hdl;
+	union {
+		struct cam_req_mgr_error_msg err_msg;
+		struct cam_req_mgr_frame_msg frame_msg;
+	} u;
+};
 #endif /* __UAPI_LINUX_CAM_REQ_MGR_H */
