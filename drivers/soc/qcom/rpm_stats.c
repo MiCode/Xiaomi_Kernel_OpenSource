@@ -231,34 +231,28 @@ static const struct file_operations msm_rpmstats_fops = {
 static ssize_t rpmstats_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
 {
-	struct msm_rpmstats_private_data *prvdata = NULL;
+	struct msm_rpmstats_private_data prvdata;
 	struct msm_rpmstats_platform_data *pdata = NULL;
 
 	pdata = GET_PDATA_OF_ATTR(attr);
 
-	prvdata =
-		kmalloc(sizeof(*prvdata), GFP_KERNEL);
-	if (!prvdata)
-		return -ENOMEM;
-
-	prvdata->reg_base = ioremap_nocache(pdata->phys_addr_base,
+	prvdata.reg_base = ioremap_nocache(pdata->phys_addr_base,
 					pdata->phys_size);
-	if (!prvdata->reg_base) {
-		kfree(prvdata);
+	if (!prvdata.reg_base) {
 		pr_err("%s: ERROR could not ioremap start=%pa, len=%u\n",
 			__func__, &pdata->phys_addr_base,
 			pdata->phys_size);
 		return -EBUSY;
 	}
 
-	prvdata->read_idx = prvdata->len = 0;
-	prvdata->platform_data = pdata;
-	prvdata->num_records = RPM_STATS_NUM_REC;
+	prvdata.read_idx = prvdata.len = 0;
+	prvdata.platform_data = pdata;
+	prvdata.num_records = RPM_STATS_NUM_REC;
 
-	if (prvdata->read_idx < prvdata->num_records)
-		prvdata->len = msm_rpmstats_copy_stats(prvdata);
+	if (prvdata.read_idx < prvdata.num_records)
+		prvdata.len = msm_rpmstats_copy_stats(&prvdata);
 
-	return snprintf(buf, prvdata->len, prvdata->buf);
+	return snprintf(buf, prvdata.len, prvdata.buf);
 }
 
 static int msm_rpmstats_create_sysfs(struct msm_rpmstats_platform_data *pd)
