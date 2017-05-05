@@ -10605,10 +10605,60 @@ static int msm_routing_put_app_type_cfg_control(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm_routing_put_app_type_gain_control(struct snd_kcontrol *kcontrol,
+					  struct snd_ctl_elem_value *ucontrol)
+{
+	int j, fe_id, be_id, port_type;
+	int ret = 0;
+	unsigned long copp;
+	struct msm_pcm_routing_bdai_data *bedai;
+	int dir = ucontrol->value.integer.value[0] ? SESSION_TYPE_TX :
+						     SESSION_TYPE_RX;
+	int app_type = ucontrol->value.integer.value[1];
+	int gain = (ucontrol->value.integer.value[2] +
+		    ucontrol->value.integer.value[3])/2;
+
+	port_type = (dir == SESSION_TYPE_RX) ? MSM_AFE_PORT_TYPE_RX :
+					       MSM_AFE_PORT_TYPE_TX;
+
+	mutex_lock(&routing_lock);
+	for (be_id = 0; be_id < MSM_BACKEND_DAI_MAX; be_id++) {
+		if (is_be_dai_extproc(be_id))
+			continue;
+
+		bedai = &msm_bedais[be_id];
+		if (afe_get_port_type(bedai->port_id) != port_type)
+			continue;
+
+		if (!bedai->active)
+			continue;
+
+		for (fe_id = 0; fe_id < MSM_FRONTEND_DAI_MAX; fe_id++) {
+			if (!test_bit(fe_id, &bedai->fe_sessions[0]))
+				continue;
+
+			if (app_type !=
+			    fe_dai_app_type_cfg[fe_id][dir][be_id].app_type)
+				continue;
+
+			copp = session_copp_map[fe_id][dir][be_id];
+			for (j = 0; j < MAX_COPPS_PER_PORT; j++) {
+				if (!test_bit(j, &copp))
+					continue;
+				ret |= adm_set_volume(bedai->port_id, j, gain);
+			}
+		}
+	}
+	mutex_unlock(&routing_lock);
+	return ret ? -EINVAL : 0;
+}
+
 static const struct snd_kcontrol_new app_type_cfg_controls[] = {
 	SOC_SINGLE_MULTI_EXT("App Type Config", SND_SOC_NOPM, 0,
 	0xFFFFFFFF, 0, 128, msm_routing_get_app_type_cfg_control,
 	msm_routing_put_app_type_cfg_control),
+	SOC_SINGLE_MULTI_EXT("App Type Gain", SND_SOC_NOPM, 0,
+	0x2000, 0, 4, NULL, msm_routing_put_app_type_gain_control)
 };
 
 static int msm_routing_get_lsm_app_type_cfg_control(
