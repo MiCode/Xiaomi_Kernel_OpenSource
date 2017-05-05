@@ -27,11 +27,11 @@
 #include <linux/iommu.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
-#include <linux/regulator/rpm-smd-regulator.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/of_gpio.h>
-#include <linux/clk/msm-clk.h>
+#include <linux/clk/qcom.h>
 #include <linux/reset.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
@@ -64,6 +64,19 @@
 #elif defined(CONFIG_ARCH_MSM8998)
 #define PCIE_VENDOR_ID_RCP		0x17cb
 #define PCIE_DEVICE_ID_RCP		0x0105
+
+#define PCIE20_L1SUB_CONTROL1		0x1E4
+#define PCIE20_PARF_DBI_BASE_ADDR       0x350
+#define PCIE20_PARF_SLV_ADDR_SPACE_SIZE 0x358
+
+#define TX_BASE 0
+#define RX_BASE 0
+#define PCS_BASE 0x800
+#define PCS_MISC_BASE 0
+
+#elif defined(CONFIG_ARCH_SDM845)
+#define PCIE_VENDOR_ID_RCP		0x17cb
+#define PCIE_DEVICE_ID_RCP		0x0106
 
 #define PCIE20_L1SUB_CONTROL1		0x1E4
 #define PCIE20_PARF_DBI_BASE_ADDR       0x350
@@ -212,6 +225,7 @@
 #define PCIE_COM_DEBUG_BUS_3_STATUS	0x468
 
 #define PCIE20_PARF_SYS_CTRL	     0x00
+#define PCIE20_PARF_PM_CTRL		0x20
 #define PCIE20_PARF_PM_STTS		0x24
 #define PCIE20_PARF_PCS_DEEMPH	   0x34
 #define PCIE20_PARF_PCS_SWING	    0x38
@@ -228,6 +242,7 @@
 #define PCIE20_PARF_SID_OFFSET		0x234
 #define PCIE20_PARF_BDF_TRANSLATE_CFG	0x24C
 #define PCIE20_PARF_BDF_TRANSLATE_N	0x250
+#define PCIE20_PARF_DEVICE_TYPE		0x1000
 
 #define PCIE20_ELBI_VERSION		0x00
 #define PCIE20_ELBI_SYS_CTRL	     0x04
@@ -300,7 +315,7 @@
 #define MAX_PROP_SIZE 32
 #define MAX_RC_NAME_LEN 15
 #define MSM_PCIE_MAX_VREG 4
-#define MSM_PCIE_MAX_CLK 9
+#define MSM_PCIE_MAX_CLK 12
 #define MSM_PCIE_MAX_PIPE_CLK 1
 #define MAX_RC_NUM 3
 #define MAX_DEVICE_NUM 20
@@ -314,7 +329,7 @@
 #define PCIE_CLEAR				0xDEADBEEF
 #define PCIE_LINK_DOWN				0xFFFFFFFF
 
-#define MSM_PCIE_MAX_RESET 4
+#define MSM_PCIE_MAX_RESET 5
 #define MSM_PCIE_MAX_PIPE_RESET 1
 
 #define MSM_PCIE_MSI_PHY 0xa0000000
@@ -734,18 +749,21 @@ static struct msm_pcie_gpio_info_t msm_pcie_gpio_info[MSM_PCIE_MAX_GPIO] = {
 static struct msm_pcie_reset_info_t
 msm_pcie_reset_info[MAX_RC_NUM][MSM_PCIE_MAX_RESET] = {
 	{
+		{NULL, "pcie_0_core_reset", false},
 		{NULL, "pcie_phy_reset", false},
 		{NULL, "pcie_phy_com_reset", false},
 		{NULL, "pcie_phy_nocsr_com_phy_reset", false},
 		{NULL, "pcie_0_phy_reset", false}
 	},
 	{
+		{NULL, "pcie_1_core_reset", false},
 		{NULL, "pcie_phy_reset", false},
 		{NULL, "pcie_phy_com_reset", false},
 		{NULL, "pcie_phy_nocsr_com_phy_reset", false},
 		{NULL, "pcie_1_phy_reset", false}
 	},
 	{
+		{NULL, "pcie_2_core_reset", false},
 		{NULL, "pcie_phy_reset", false},
 		{NULL, "pcie_phy_com_reset", false},
 		{NULL, "pcie_phy_nocsr_com_phy_reset", false},
@@ -778,6 +796,9 @@ static struct msm_pcie_clk_info_t
 	{NULL, "pcie_0_slv_axi_clk", 0, true, true},
 	{NULL, "pcie_0_ldo", 0, false, true},
 	{NULL, "pcie_0_smmu_clk", 0, false, false},
+	{NULL, "pcie_0_slv_q2a_axi_clk", 0, false, false},
+	{NULL, "pcie_phy_refgen_clk", 0, false, false},
+	{NULL, "pcie_tbu_clk", 0, false, false},
 	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
 	{NULL, "pcie_phy_aux_clk", 0, false, false}
 	},
@@ -789,6 +810,9 @@ static struct msm_pcie_clk_info_t
 	{NULL, "pcie_1_slv_axi_clk", 0, true,  true},
 	{NULL, "pcie_1_ldo", 0, false, true},
 	{NULL, "pcie_1_smmu_clk", 0, false, false},
+	{NULL, "pcie_1_slv_q2a_axi_clk", 0, false, false},
+	{NULL, "pcie_phy_refgen_clk", 0, false, false},
+	{NULL, "pcie_tbu_clk", 0, false, false},
 	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
 	{NULL, "pcie_phy_aux_clk", 0, false, false}
 	},
@@ -800,6 +824,9 @@ static struct msm_pcie_clk_info_t
 	{NULL, "pcie_2_slv_axi_clk", 0, true, true},
 	{NULL, "pcie_2_ldo", 0, false, true},
 	{NULL, "pcie_2_smmu_clk", 0, false, false},
+	{NULL, "pcie_2_slv_q2a_axi_clk", 0, false, false},
+	{NULL, "pcie_phy_refgen_clk", 0, false, false},
+	{NULL, "pcie_tbu_clk", 0, false, false},
 	{NULL, "pcie_phy_cfg_ahb_clk", 0, false, false},
 	{NULL, "pcie_phy_aux_clk", 0, false, false}
 	}
@@ -3512,8 +3539,8 @@ int msm_pcie_vreg_init(struct msm_pcie_dev_t *dev)
 						dev->rc_idx,
 						dev->vreg[i].name);
 					regulator_set_voltage(hdl,
-						RPM_REGULATOR_CORNER_NONE,
-						INT_MAX);
+						RPMH_REGULATOR_LEVEL_OFF,
+						RPMH_REGULATOR_LEVEL_MAX);
 				}
 			}
 
@@ -3542,8 +3569,8 @@ static void msm_pcie_vreg_deinit(struct msm_pcie_dev_t *dev)
 					dev->rc_idx,
 					dev->vreg[i].name);
 				regulator_set_voltage(dev->vreg[i].hdl,
-					RPM_REGULATOR_CORNER_NONE,
-					INT_MAX);
+					RPMH_REGULATOR_LEVEL_OFF,
+					RPMH_REGULATOR_LEVEL_MAX);
 			}
 		}
 	}
@@ -4552,6 +4579,13 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 		PCIE_DBG(dev, "RC%d: restoring sec config\n", dev->rc_idx);
 		msm_pcie_restore_sec_config(dev);
 	}
+
+	/* configure PCIe to RC mode */
+	msm_pcie_write_reg(dev->parf, PCIE20_PARF_DEVICE_TYPE, 0x4);
+
+	/* enable l1 mode, clear bit 5 (REQ_NOT_ENTR_L1) */
+	if (dev->l1_supported)
+		msm_pcie_write_mask(dev->parf + PCIE20_PARF_PM_CTRL, BIT(5), 0);
 
 	/* enable PCIe clocks and resets */
 	msm_pcie_write_mask(dev->parf + PCIE20_PARF_PHY_CTRL, BIT(0), 0);
