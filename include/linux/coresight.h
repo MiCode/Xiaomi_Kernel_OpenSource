@@ -41,13 +41,6 @@
 
 extern struct bus_type coresight_bustype;
 
-enum coresight_clk_rate {
-	CORESIGHT_CLK_RATE_OFF,
-	CORESIGHT_CLK_RATE_TRACE = 1000,
-	CORESIGHT_CLK_RATE_HSTRACE = 2000,
-	CORESIGHT_CLK_RATE_FIXED = 3000,
-};
-
 enum coresight_dev_type {
 	CORESIGHT_DEV_TYPE_NONE,
 	CORESIGHT_DEV_TYPE_SINK,
