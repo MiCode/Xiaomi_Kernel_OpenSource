@@ -212,7 +212,7 @@
 
 		qcom,mdss-pp-offsets {
 			qcom,mdss-sspp-mdss-igc-lut-off = <0x2000>;
-			qcom,mdss-sspp-vig-pcc-off = <0x1780>;
+			qcom,mdss-sspp-vig-pcc-off = <0x1b00>;
 			qcom,mdss-sspp-rgb-pcc-off = <0x380>;
 			qcom,mdss-sspp-dma-pcc-off = <0x380>;
 			qcom,mdss-lm-pgc-off = <0x3c0>;
