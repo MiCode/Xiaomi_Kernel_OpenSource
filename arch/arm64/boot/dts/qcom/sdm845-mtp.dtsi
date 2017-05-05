@@ -221,6 +221,8 @@
 	qcom,vddp-ref-clk-supply = <&pm8998_l2>;
 	qcom,vddp-ref-clk-max-microamp = <100>;
 
+	extcon = <&extcon_storage_cd>;
+
 	status = "ok";
 };
 
