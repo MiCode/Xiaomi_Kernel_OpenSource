@@ -377,6 +377,45 @@ static int sde_gamut_get_mode_info(struct drm_msm_3d_gamut *payload,
 	return rc;
 }
 
+static void dspp_3d_gamutv4_off(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_reg_dma_kickoff_cfg kick_off;
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	u32 op_mode;
+	struct sde_hw_reg_dma_ops *dma_ops;
+	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
+	int rc;
+
+	dma_ops = sde_reg_dma_get_ops();
+	dma_ops->reset_reg_dma_buf(dspp_buf[GAMUT][ctx->idx]);
+
+	REG_DMA_INIT_OPS(dma_write_cfg, dspp_mapping[ctx->idx], GAMUT,
+			dspp_buf[GAMUT][ctx->idx]);
+
+	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("write decode select failed ret %d\n", rc);
+		return;
+	}
+
+	REG_DMA_SETUP_OPS(dma_write_cfg,
+		ctx->cap->sblk->gamut.base,
+		&op_mode, sizeof(op_mode), REG_SINGLE_WRITE, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("opmode write single reg failed ret %d\n", rc);
+		return;
+	}
+
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, dspp_buf[GAMUT][ctx->idx],
+			REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	kick_off.last_command = hw_cfg->last_feature;
+	rc = dma_ops->kick_off(&kick_off);
+	if (rc)
+		DRM_ERROR("failed to kick off ret %d\n", rc);
+}
+
 void reg_dmav1_setup_dspp_3d_gamutv4(struct sde_hw_dspp *ctx, void *cfg)
 {
 	struct drm_msm_3d_gamut *payload;
@@ -394,7 +433,7 @@ void reg_dmav1_setup_dspp_3d_gamutv4(struct sde_hw_dspp *ctx, void *cfg)
 	op_mode = SDE_REG_READ(&ctx->hw, ctx->cap->sblk->gamut.base);
 	if (!hw_cfg->payload) {
 		DRM_DEBUG_DRIVER("disable gamut feature\n");
-		SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->gamut.base, 0);
+		dspp_3d_gamutv4_off(ctx, cfg);
 		return;
 	}
 
