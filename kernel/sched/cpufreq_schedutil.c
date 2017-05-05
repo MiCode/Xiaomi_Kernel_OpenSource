@@ -57,6 +57,8 @@ struct sugov_cpu {
 	unsigned int		iowait_boost_max;
 	u64			last_update;
 
+	struct sched_walt_cpu_load walt_load;
+
 	unsigned long		bw_dl;
 	unsigned long		max;
 
@@ -311,13 +313,21 @@ unsigned long schedutil_freq_util(int cpu, unsigned long util,
 static unsigned long sugov_get_util(struct sugov_cpu *sg_cpu)
 {
 	struct rq *rq = cpu_rq(sg_cpu->cpu);
-	unsigned long util = boosted_cpu_util(sg_cpu->cpu, cpu_util_rt(rq));
 	unsigned long max = arch_scale_cpu_capacity(NULL, sg_cpu->cpu);
+#ifdef CONFIG_SCHED_WALT
+
+	sg_cpu->max = max;
+	sg_cpu->bw_dl = cpu_bw_dl(rq);
+
+	return cpu_util_freq(sg_cpu->cpu, &sg_cpu->walt_load);
+#else
+	unsigned long util = boosted_cpu_util(sg_cpu->cpu, cpu_util_rt(rq));
 
 	sg_cpu->max = max;
 	sg_cpu->bw_dl = cpu_bw_dl(rq);
 
 	return schedutil_freq_util(sg_cpu->cpu, util, max, FREQUENCY_UTIL);
+#endif
 }
 
 /**
