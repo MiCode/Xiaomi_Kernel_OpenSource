@@ -1018,6 +1018,7 @@ static void tmc_disable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 {
 	unsigned long flags;
 
+	mutex_lock(&drvdata->mem_lock);
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 	if (drvdata->reading)
 		goto out;
@@ -1054,7 +1055,7 @@ out:
 	}
 
 	pm_runtime_put(drvdata->dev);
-
+	mutex_unlock(&drvdata->mem_lock);
 	dev_info(drvdata->dev, "TMC disabled\n");
 }
 
