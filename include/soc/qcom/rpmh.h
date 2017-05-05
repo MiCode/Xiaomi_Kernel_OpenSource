@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,8 @@ int rpmh_write_async(struct rpmh_client *rc, enum rpmh_state state,
 int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 			struct tcs_cmd *cmd, int *n);
 
+int rpmh_mode_solver_set(struct rpmh_client *rc, bool enable);
+
 int rpmh_write_control(struct rpmh_client *rc, struct tcs_cmd *cmd, int n);
 
 int rpmh_invalidate(struct rpmh_client *rc);
@@ -68,6 +70,9 @@ static inline int rpmh_write_async(struct rpmh_client *rc,
 
 static inline int rpmh_write_passthru(struct rpmh_client *rc,
 			enum rpmh_state state, struct tcs_cmd *cmd, int *n)
+{ return -ENODEV; }
+
+static inline int rpmh_mode_solver_set(struct rpmh_client *rc, bool enable)
 { return -ENODEV; }
 
 static inline int rpmh_write_control(struct rpmh_client *rc,
