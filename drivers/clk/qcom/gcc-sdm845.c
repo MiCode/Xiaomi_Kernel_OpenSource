@@ -158,6 +158,12 @@ static const char * const gcc_parent_names_7[] = {
 	"core_bi_pll_test_se",
 };
 
+static const char * const gcc_parent_names_8[] = {
+	"bi_tcxo_ao",
+	"gpll0",
+	"core_bi_pll_test_se",
+};
+
 static struct clk_dummy measure_only_snoc_clk = {
 	.rrate = 1000,
 	.hw.init = &(struct clk_init_data){
@@ -298,11 +304,11 @@ static struct clk_rcg2 gcc_cpuss_rbcpr_clk_src = {
 	.freq_tbl = ftbl_gcc_cpuss_rbcpr_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_cpuss_rbcpr_clk_src",
-		.parent_names = gcc_parent_names_3,
+		.parent_names = gcc_parent_names_8,
 		.num_parents = 3,
 		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
-		VDD_CX_FMAX_MAP1(
+		VDD_CX_FMAX_MAP1_AO(
 			MIN, 19200000),
 	},
 };
