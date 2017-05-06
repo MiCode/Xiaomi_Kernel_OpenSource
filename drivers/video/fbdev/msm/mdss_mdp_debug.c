@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1757,6 +1757,8 @@ void mdss_mdp_hw_rev_debug_caps_init(struct mdss_data_type *mdata)
 		break;
 	case MDSS_MDP_HW_REV_300:
 	case MDSS_MDP_HW_REV_301:
+	case MDSS_MDP_HW_REV_320:
+	case MDSS_MDP_HW_REV_330:
 		mdata->dbg_bus = dbg_bus_msm8998;
 		mdata->dbg_bus_size = ARRAY_SIZE(dbg_bus_msm8998);
 		mdata->vbif_dbg_bus = vbif_dbg_bus_msm8998;
