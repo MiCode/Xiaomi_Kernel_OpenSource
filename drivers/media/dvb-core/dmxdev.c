@@ -1615,7 +1615,7 @@ static int dvb_dvr_get_event(struct dmxdev *dmxdev,
 				unsigned int f_flags,
 				struct dmx_filter_event *event)
 {
-	int res;
+	int res = 0;
 
 	if (!((f_flags & O_ACCMODE) == O_RDONLY))
 		return -EINVAL;
@@ -2402,8 +2402,10 @@ static int dvb_dmxdev_set_playback_mode(struct dmxdev_filter *dmxdevfilter,
 		(playback_mode != DMX_PB_MODE_PULL))
 		return -EINVAL;
 
+	if (dmxdev->demux->set_playback_mode == NULL)
+		return -EINVAL;
+
 	if (((dmxdev->source < DMX_SOURCE_DVR0) ||
-		 !dmxdev->demux->set_playback_mode ||
 		 !(caps.caps & DMX_CAP_PULL_MODE)) &&
 		 (playback_mode == DMX_PB_MODE_PULL))
 		return -EPERM;
@@ -2520,7 +2522,7 @@ static int dvb_dmxdev_release_data(struct dmxdev_filter *dmxdevfilter,
 static int dvb_dmxdev_get_event(struct dmxdev_filter *dmxdevfilter,
 					struct dmx_filter_event *event)
 {
-	int res;
+	int res = 0;
 
 	spin_lock_irq(&dmxdevfilter->dev->lock);
 
