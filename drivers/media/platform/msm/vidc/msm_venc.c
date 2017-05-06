@@ -432,13 +432,9 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "VP8 Profile Level",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED,
-		.maximum = V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_1,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3,
 		.default_value = V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0,
-		.menu_skip_mask = ~(
-		(1 << V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED) |
-		(1 << V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0) |
-		(1 << V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_1)
-		),
+		.menu_skip_mask = 0,
 		.qmenu = vp8_profile_level,
 	},
 	{
@@ -1308,10 +1304,10 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
 		property_id = HAL_PARAM_PROFILE_LEVEL_CURRENT;
-		profile_level.profile = msm_comm_v4l2_to_hal(
+		profile_level.profile = HAL_VPX_PROFILE_MAIN;
+		profile_level.level = msm_comm_v4l2_to_hal(
 				V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL,
 				ctrl->val);
-		profile_level.level = HAL_VPX_PROFILE_UNUSED;
 		pdata = &profile_level;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_PROFILE:

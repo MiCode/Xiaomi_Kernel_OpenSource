@@ -219,13 +219,9 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.name = "VP8 Profile Level",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED,
-		.maximum = V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_1,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3,
 		.default_value = V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0,
-		.menu_skip_mask = ~(
-			(1 << V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED) |
-			(1 << V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0) |
-			(1 << V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_1)
-		),
+		.menu_skip_mask = 0,
 		.qmenu = vp8_profile_level,
 		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
 	},
