@@ -28,6 +28,7 @@
 		reg-names = "vidc", "efuse";
 		qcom,venus-uplift-freq = <540000000>;
 		qcom,speedbin-version = <0x7 0x8>;
+		qcom,never-unload-fw;
 	};
 };
 
