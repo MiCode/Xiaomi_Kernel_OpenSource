@@ -1,0 +1,219 @@
+/*
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/clock/qcom,gcc-sdxpoorwills.h>
+
+&soc {
+	/* USB port for DWC3 controller */
+	usb: ssusb@a600000 {
+		compatible = "qcom,dwc-usb3-msm";
+		reg = <0x0a600000 0xf8c00>;
+		reg-names = "core_base";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		interrupts = <0 131 0>, <0 130 0>, <0 59 0>;
+		interrupt-names = "hs_phy_irq", "pwr_event_irq", "ss_phy_irq";
+
+		USB3_GDSC-supply = <&gdsc_usb30>;
+		qcom,usb-dbm = <&dbm_1p5>;
+		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
+		qcom,num-gsi-evt-buffs = <0x3>;
+
+		clocks = <&clock_gcc GCC_USB30_MASTER_CLK>,
+			 <&clock_gcc GCC_SYS_NOC_USB3_CLK>,
+			 <&clock_gcc GCC_USB30_MOCK_UTMI_CLK>,
+			 <&clock_gcc GCC_USB30_SLEEP_CLK>,
+			 <&clock_gcc GCC_USB_PHY_CFG_AHB2PHY_CLK>,
+			 <&clock_gcc GCC_USB3_PRIM_CLKREF_CLK>;
+
+		clock-names = "core_clk", "iface_clk", "utmi_clk", "sleep_clk",
+				"cfg_ahb_clk", "xo";
+
+		qcom,core-clk-rate = <133333333>;
+		qcom,core-clk-rate-hs = <66666667>;
+
+		resets = <&clock_gcc GCC_USB30_BCR>;
+		reset-names = "core_reset";
+
+		dwc3@a600000 {
+			compatible = "snps,dwc3";
+			reg = <0x0a600000 0xcd00>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 133 0>;
+			usb-phy = <&usb2_phy>, <&usb3_qmp_phy>;
+			tx-fifo-resize;
+			linux,sysdev_is_parent;
+			snps,disable-clk-gating;
+			snps,has-lpm-erratum;
+			snps,hird-threshold = /bits/ 8 <0x10>;
+		};
+	};
+
+	/* USB port for High Speed PHY */
+	usb2_phy: hsphy@ff1000 {
+		compatible = "qcom,usb-hsphy-snps-femto";
+		reg = <0xff1000 0x400>;
+		reg-names = "hsusb_phy_base";
+
+		vdd-supply = <&pmxpoorwills_l4>;
+		vdda18-supply = <&pmxpoorwills_l5>;
+		vdda33-supply = <&pmxpoorwills_l10>;
+		qcom,vdd-voltage-level = <0 872000 872000>;
+		clocks = <&clock_rpmh RPMH_CXO_CLK>,
+			 <&clock_gcc GCC_USB_PHY_CFG_AHB2PHY_CLK>;
+		clock-names = "ref_clk_src", "cfg_ahb_clk";
+
+		resets = <&clock_gcc GCC_QUSB2PHY_BCR>;
+		reset-names = "phy_reset";
+	};
+
+	dbm_1p5: dbm@a6f8000 {
+		compatible = "qcom,usb-dbm-1p5";
+		reg = <0xa6f8000 0x400>;
+		qcom,reset-ep-after-lpm-resume;
+	};
+
+	usb_nop_phy: usb_nop_phy {
+		compatible = "usb-nop-xceiv";
+	};
+
+	/* USB port for Super Speed PHY */
+	usb3_qmp_phy: ssphy@ff0000 {
+		compatible = "qcom,usb-ssphy-qmp-v2";
+		reg = <0xff0000 0x1000>;
+		reg-names = "qmp_phy_base";
+
+		vdd-supply = <&pmxpoorwills_l4>;
+		core-supply = <&pmxpoorwills_l1>;
+		qcom,vdd-voltage-level = <0 872000 872000>;
+		qcom,vbus-valid-override;
+		qcom,qmp-phy-init-seq =
+		/* <reg_offset, value, delay> */
+			<0x048 0x07 0x00 /* QSERDES_COM_PLL_IVCO */
+			 0x080 0x14 0x00 /* QSERDES_COM_SYSCLK_EN_SEL */
+			 0x034 0x04 0x00 /* QSERDES_COM_BIAS_EN_CLKBUFLR_EN */
+			 0x138 0x30 0x00 /* QSERDES_COM_CLK_SELECT */
+			 0x03c 0x02 0x00 /* QSERDES_COM_SYS_CLK_CTRL */
+			 0x08c 0x08 0x00 /* QSERDES_COM_RESETSM_CNTRL2 */
+			 0x15c 0x06 0x00 /* QSERDES_COM_CMN_CONFIG */
+			 0x164 0x01 0x00 /* QSERDES_COM_SVS_MODE_CLK_SEL */
+			 0x13c 0x80 0x00 /* QSERDES_COM_HSCLK_SEL */
+			 0x0b0 0x82 0x00 /* QSERDES_COM_DEC_START_MODE0 */
+			 0x0b8 0xab 0x00 /* QSERDES_COM_DIV_FRAC_START1_MODE0 */
+			 0x0bc 0xea 0x00 /* QSERDES_COM_DIV_FRAC_START2_MODE0 */
+			 0x0c0 0x02 0x00 /* QSERDES_COM_DIV_FRAC_START3_MODE0 */
+			 0x060 0x06 0x00 /* QSERDES_COM_CP_CTRL_MODE0 */
+			 0x068 0x16 0x00 /* QSERDES_COM_PLL_RCTRL_MODE0 */
+			 0x070 0x36 0x00 /* QSERDES_COM_PLL_CCTRL_MODE0 */
+			 0x0dc 0x00 0x00 /* QSERDES_COM_INTEGLOOP_GAIN1_MODE0 */
+			 0x0d8 0x3f 0x00 /* QSERDES_COM_INTEGLOOP_GAIN0_MODE0 */
+			 0x0f8 0x01 0x00 /* QSERDES_COM_VCO_TUNE2_MODE0 */
+			 0x0f4 0xc9 0x00 /* QSERDES_COM_VCO_TUNE1_MODE0 */
+			 0x148 0x0a 0x00 /* QSERDES_COM_CORECLK_DIV_MODE0 */
+			 0x0a0 0x00 0x00 /* QSERDES_COM_LOCK_CMP3_MODE0 */
+			 0x09c 0x34 0x00 /* QSERDES_COM_LOCK_CMP2_MODE0 */
+			 0x098 0x15 0x00 /* QSERDES_COM_LOCK_CMP1_MODE0 */
+			 0x090 0x04 0x00 /* QSERDES_COM_LOCK_CMP_EN */
+			 0x154 0x00 0x00 /* QSERDES_COM_CORE_CLK_EN */
+			 0x094 0x00 0x00 /* QSERDES_COM_LOCK_CMP_CFG */
+			 0x0f0 0x00 0x00 /* QSERDES_COM_VCO_TUNE_MAP */
+			 0x040 0x0a 0x00 /* QSERDES_COM_SYSCLK_BUF_ENABLE */
+			 0x0d0 0x80 0x00 /* QSERDES_COM_INTEGLOOP_INITVAL */
+			 0x010 0x01 0x00 /* QSERDES_COM_SSC_EN_CENTER */
+			 0x01c 0x31 0x00 /* QSERDES_COM_SSC_PER1 */
+			 0x020 0x01 0x00 /* QSERDES_COM_SSC_PER2 */
+			 0x014 0x00 0x00 /* QSERDES_COM_SSC_ADJ_PER1 */
+			 0x018 0x00 0x00 /* QSERDES_COM_SSC_ADJ_PER2 */
+			 0x024 0x85 0x00 /* QSERDES_COM_SSC_STEP_SIZE1 */
+			 0x028 0x07 0x00 /* QSERDES_COM_SSC_STEP_SIZE2 */
+			 0x4c0 0x0c 0x00 /* QSERDES_RX_VGA_CAL_CNTRL2 */
+			 0x564 0x50 0x00 /* QSERDES_RX_RX_MODE_00 */
+			 0x430 0x0b 0x00 /* QSERDES_RX_UCDR_FASTLOCK_FO_GAIN */
+			 0x4d4 0x0e 0x00 /* QSERDES_RX_RX_EQU_ADAPTOR_CNTRL2 */
+			 0x4d8 0x4e 0x00 /* QSERDES_RX_RX_EQU_ADAPTOR_CNTRL3 */
+			 0x4dc 0x18 0x00 /* QSERDES_RX_RX_EQU_ADAPTOR_CNTRL4 */
+			 0x4f8 0x77 0x00 /* RX_RX_EQ_OFFSET_ADAPTOR_CNTRL1 */
+			 0x4fc 0x80 0x00 /* RX_RX_OFFSET_ADAPTOR_CNTRL2 */
+			 0x504 0x03 0x00 /* QSERDES_RX_SIGDET_CNTRL */
+			 0x50c 0x1c 0x00 /* QSERDES_RX_SIGDET_DEGLITCH_CNTRL */
+			 0x434 0x75 0x00 /* RX_UCDR_SO_SATURATION_AND_ENABLE */
+			 0x444 0x80 0x00 /* QSERDES_RX_UCDR_PI_CONTROLS */
+			 0x408 0x0a 0x00 /* QSERDES_RX_UCDR_FO_GAIN */
+			 0x40c 0x06 0x00 /* QSERDES_RX_UCDR_SO_GAIN */
+			 0x500 0x00 0x00 /* QSERDES_RX_SIGDET_ENABLES */
+			 0x260 0x10 0x00 /* QSERDES_TX_HIGHZ_DRVR_EN */
+			 0x2a4 0x12 0x00 /* QSERDES_TX_RCV_DETECT_LVL_2 */
+			 0x28c 0xc6 0x00 /* QSERDES_TX_LANE_MODE_1 */
+			 0x248 0x09 0x00 /* TX_RES_CODE_LANE_OFFSET_RX */
+			 0x244 0x0d 0x00 /* TX_RES_CODE_LANE_OFFSET_TX */
+			 0x8c8 0x83 0x00 /* USB3_UNI_PCS_FLL_CNTRL2 */
+			 0x8cc 0x09 0x00 /* USB3_UNI_PCS_FLL_CNT_VAL_L */
+			 0x8d0 0xa2 0x00 /* USB3_UNI_PCS_FLL_CNT_VAL_H_TOL */
+			 0x8d4 0x40 0x00 /* USB3_UNI_PCS_FLL_MAN_CODE */
+			 0x8c4 0x02 0x00 /* USB3_UNI_PCS_FLL_CNTRL1 */
+			 0x864 0x1b 0x00 /* USB3_UNI_PCS_POWER_STATE_CONFIG2 */
+			 0x80c 0x9f 0x00 /* USB3_UNI_PCS_TXMGN_V0 */
+			 0x810 0x9f 0x00 /* USB3_UNI_PCS_TXMGN_V1 */
+			 0x814 0xb5 0x00 /* USB3_UNI_PCS_TXMGN_V2 */
+			 0x818 0x4c 0x00 /* USB3_UNI_PCS_TXMGN_V3 */
+			 0x81c 0x64 0x00 /* USB3_UNI_PCS_TXMGN_V4 */
+			 0x820 0x6a 0x00 /* USB3_UNI_PCS_TXMGN_LS */
+			 0x824 0x15 0x00 /* USB3_UNI_PCS_TXDEEMPH_M6DB_V0 */
+			 0x828 0x0d 0x00 /* USB3_UNI_PCS_TXDEEMPH_M3P5DB_V0 */
+			 0x82c 0x15 0x00 /* USB3_UNI_PCS_TXDEEMPH_M6DB_V1 */
+			 0x830 0x0d 0x00 /* USB3_UNI_PCS_TXDEEMPH_M3P5DB_V1 */
+			 0x834 0x15 0x00 /* USB3_UNI_PCS_TXDEEMPH_M6DB_V2 */
+			 0x838 0x0d 0x00 /* USB3_UNI_PCS_TXDEEMPH_M3P5DB_V2 */
+			 0x83c 0x15 0x00 /* USB3_UNI_PCS_TXDEEMPH_M6DB_V3 */
+			 0x840 0x0d 0x00 /* USB3_UNI_PCS_TXDEEMPH_M3P5DB_V3 */
+			 0x844 0x15 0x00 /* USB3_UNI_PCS_TXDEEMPH_M6DB_V4 */
+			 0x848 0x0d 0x00 /* USB3_UNI_PCS_TXDEEMPH_M3P5DB_V4 */
+			 0x84c 0x15 0x00 /* USB3_UNI_PCS_TXDEEMPH_M6DB_LS */
+			 0x850 0x0d 0x00 /* USB3_UNI_PCS_TXDEEMPH_M3P5DB_LS */
+			 0x85c 0x02 0x00 /* USB3_UNI_PCS_RATE_SLEW_CNTRL */
+			 0x8a0 0x04 0x00 /* PCS_PWRUP_RESET_DLY_TIME_AUXCLK */
+			 0x88c 0x44 0x00 /* USB3_UNI_PCS_TSYNC_RSYNC_TIME */
+			 0x880 0xd1 0x00 /* USB3_UNI_PCS_LOCK_DETECT_CONFIG1 */
+			 0x884 0x1f 0x00 /* USB3_UNI_PCS_LOCK_DETECT_CONFIG2 */
+			 0x888 0x47 0x00 /* USB3_UNI_PCS_LOCK_DETECT_CONFIG3 */
+			 0x870 0xe7 0x00 /* USB3_UNI_PCS_RCVR_DTCT_DLY_P1U2_L */
+			 0x874 0x03 0x00 /* USB3_UNI_PCS_RCVR_DTCT_DLY_P1U2_H */
+			 0x878 0x40 0x00 /* USB3_UNI_PCS_RCVR_DTCT_DLY_U3_L */
+			 0x87c 0x00 0x00 /* USB3_UNI_PCS_RCVR_DTCT_DLY_U3_H */
+			 0x9d8 0xba 0x00 /* USB3_UNI_PCS_RX_SIGDET_LVL */
+			 0x8b8 0x75 0x00 /* RXEQTRAINING_WAIT_TIME */
+			 0x8b0 0x86 0x00 /* PCS_LFPS_TX_ECSTART_EQTLOCK */
+			 0x8bc 0x13 0x00 /* PCS_RXEQTRAINING_RUN_TIME */
+			 0xa0c 0x21 0x00 /* USB3_UNI_PCS_REFGEN_REQ_CONFIG1 */
+			 0xa10 0x60 0x00 /* USB3_UNI_PCS_REFGEN_REQ_CONFIG2 */
+			 0xffffffff 0xffffffff 0x00>;
+
+		qcom,qmp-phy-reg-offset =
+				<0x974 /* USB3_UNI_PCS_PCS_STATUS */
+				 0x8d8 /* USB3_UNI_PCS_AUTONOMOUS_MODE_CTRL */
+				 0x8dc /* USB3_UNI_PCS_LFPS_RXTERM_IRQ_CLEAR */
+				 0x804 /* USB3_UNI_PCS_POWER_DOWN_CONTROL */
+				 0x800 /* USB3_UNI_PCS_SW_RESET */
+				 0x808>; /* USB3_UNI_PCS_START_CONTROL */
+
+		clocks = <&clock_gcc GCC_USB3_PHY_AUX_CLK>,
+			 <&clock_gcc GCC_USB3_PHY_PIPE_CLK>,
+			 <&clock_rpmh RPMH_CXO_CLK>,
+			 <&clock_gcc GCC_USB_PHY_CFG_AHB2PHY_CLK>;
+
+		clock-names = "aux_clk", "pipe_clk", "ref_clk_src",
+				"cfg_ahb_clk";
+	};
+};
