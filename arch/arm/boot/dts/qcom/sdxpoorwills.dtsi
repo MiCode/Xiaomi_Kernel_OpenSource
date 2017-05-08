@@ -157,4 +157,18 @@
 			<&clock_gcc GCC_BLSP1_AHB_CLK>;
 		clock-names = "core", "iface";
 	};
+
+	gdsc_usb30: qcom,gdsc@10b004 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_usb30";
+		reg = <0x0010b004 0x4>;
+		status = "ok";
+	};
+
+	gdsc_pcie: qcom,gdsc@137004 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_pcie";
+		reg = <0x00137004 0x4>;
+		status = "ok";
+	};
 };

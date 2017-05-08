@@ -28,3 +28,11 @@
 	pinctrl-0 = <&uart2_console_active>;
 	status = "ok";
 };
+
+&gdsc_usb30 {
+	compatible = "regulator-fixed";
+};
+
+&gdsc_pcie {
+	compatible = "regulator-fixed";
+};
