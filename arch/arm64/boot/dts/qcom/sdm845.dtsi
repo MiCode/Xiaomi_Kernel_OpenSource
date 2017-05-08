@@ -759,6 +759,7 @@
 		clock-names = "devfreq_clk";
 		clocks = <&clock_cpucc L3_CLUSTER0_VOTE_CLK>;
 		governor = "performance";
+		qcom,prepare-clk;
 		freq-tbl-khz =
 			< 300000 >,
 			< 422400 >,
@@ -776,6 +777,7 @@
 		clock-names = "devfreq_clk";
 		clocks = <&clock_cpucc L3_CLUSTER1_VOTE_CLK>;
 		governor = "performance";
+		qcom,prepare-clk;
 		freq-tbl-khz =
 			< 300000 >,
 			< 422400 >,
