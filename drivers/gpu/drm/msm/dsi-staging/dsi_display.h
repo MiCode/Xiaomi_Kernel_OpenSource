@@ -489,6 +489,12 @@ void dsi_display_enable_event(struct dsi_display *display,
 int dsi_display_set_backlight(void *display, u32 bl_lvl);
 
 /**
+ * dsi_display_check_status() - check if panel is dead or alive
+ * @display:            Handle to display.
+ */
+int dsi_display_check_status(void *display);
+
+/**
  * dsi_display_soft_reset() - perform a soft reset on DSI controller
  * @display:         Handle to display
  *
