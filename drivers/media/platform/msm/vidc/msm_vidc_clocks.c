@@ -831,7 +831,7 @@ static u32 get_core_load(struct msm_vidc_core *core,
 	list_for_each_entry(inst, &core->instances, list) {
 		u32 cycles, lp_cycles;
 
-		if (!(inst->clk_data.core_id && core_id))
+		if (!(inst->clk_data.core_id & core_id))
 			continue;
 		if (inst->session_type == MSM_VIDC_DECODER) {
 			cycles = lp_cycles = inst->clk_data.entry->vpp_cycles;
