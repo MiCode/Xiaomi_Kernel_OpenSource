@@ -35,6 +35,7 @@
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/sysmon.h>
+#include <trace/events/trace_msm_pil_event.h>
 
 #include <asm/current.h>
 
@@ -534,8 +535,10 @@ static void notify_each_subsys_device(struct subsys_device **list,
 		notif_data.no_auth = dev->desc->no_auth;
 		notif_data.pdev = pdev;
 
+		trace_pil_notif("before_send_notif", notif, dev->desc->fw_name);
 		subsys_notif_queue_notification(dev->notify, notif,
 								&notif_data);
+		trace_pil_notif("after_send_notif", notif, dev->desc->fw_name);
 	}
 }
 
