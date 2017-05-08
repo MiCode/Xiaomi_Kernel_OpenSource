@@ -28,6 +28,7 @@
 #include <sound/q6adm-v2.h>
 #include <sound/q6asm-v2.h>
 #include <sound/q6afe-v2.h>
+#include <sound/q6common.h>
 #include <sound/tlv.h>
 #include <sound/asound.h>
 #include <sound/pcm_params.h>
@@ -16426,6 +16427,47 @@ static const struct snd_kcontrol_new stereo_channel_reverse_control[] = {
 	msm_routing_stereo_channel_reverse_control_put),
 };
 
+static int msm_routing_instance_id_support_info(struct snd_kcontrol *kcontrol,
+						struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_BOOLEAN;
+	uinfo->count = 1;
+	return 0;
+}
+
+static int msm_routing_instance_id_support_put(
+	struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
+{
+	bool supported = ucontrol->value.integer.value[0] ? true : false;
+
+	q6common_update_instance_id_support(supported);
+
+	return 0;
+}
+
+static int msm_routing_instance_id_support_get(
+	struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
+{
+	bool supported = false;
+
+	supported = q6common_is_instance_id_supported();
+	ucontrol->value.integer.value[0] = supported ? 1 : 0;
+
+	return 0;
+}
+
+static const struct snd_kcontrol_new
+	msm_routing_feature_support_mixer_controls[] = {
+		{
+			.access = SNDRV_CTL_ELEM_ACCESS_READ |
+				  SNDRV_CTL_ELEM_ACCESS_WRITE,
+			.info = msm_routing_instance_id_support_info,
+			.name = "Instance ID Support",
+			.put = msm_routing_instance_id_support_put,
+			.get = msm_routing_instance_id_support_get,
+		},
+};
+
 static struct snd_pcm_ops msm_routing_pcm_ops = {
 	.hw_params	= msm_pcm_routing_hw_params,
 	.close          = msm_pcm_routing_close,
@@ -16585,6 +16627,10 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 					ARRAY_SIZE(aptx_dec_license_controls));
 	snd_soc_add_platform_controls(platform, stereo_channel_reverse_control,
 				ARRAY_SIZE(stereo_channel_reverse_control));
+	snd_soc_add_platform_controls(
+		platform, msm_routing_feature_support_mixer_controls,
+		ARRAY_SIZE(msm_routing_feature_support_mixer_controls));
+
 	return 0;
 }
 
