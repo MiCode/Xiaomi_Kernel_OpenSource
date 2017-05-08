@@ -39,6 +39,8 @@
 #include <asm/uaccess.h>
 #include <asm/setup.h>
 #include <asm-generic/io-64-nonatomic-lo-hi.h>
+#define CREATE_TRACE_POINTS
+#include <trace/events/trace_msm_pil_event.h>
 
 #include "peripheral-loader.h"
 
@@ -835,6 +837,7 @@ int pil_boot(struct pil_desc *desc)
 		goto release_fw;
 	}
 
+	trace_pil_event("before_init_image", desc);
 	if (desc->ops->init_image)
 		ret = desc->ops->init_image(desc, fw->data, fw->size);
 	if (ret) {
@@ -843,6 +846,7 @@ int pil_boot(struct pil_desc *desc)
 		goto err_boot;
 	}
 
+	trace_pil_event("before_mem_setup", desc);
 	if (desc->ops->mem_setup)
 		ret = desc->ops->mem_setup(desc, priv->region_start,
 				priv->region_end - priv->region_start);
@@ -858,6 +862,7 @@ int pil_boot(struct pil_desc *desc)
 		 * Also for secure boot devices, modem memory has to be released
 		 * after MBA is booted
 		 */
+		trace_pil_event("before_assign_mem", desc);
 		if (desc->modem_ssr) {
 			ret = pil_assign_mem_to_linux(desc, priv->region_start,
 				(priv->region_end - priv->region_start));
@@ -876,6 +881,7 @@ int pil_boot(struct pil_desc *desc)
 		hyp_assign = true;
 	}
 
+	trace_pil_event("before_load_seg", desc);
 	list_for_each_entry(seg, &desc->priv->segs, list) {
 		ret = pil_load_seg(desc, seg);
 		if (ret)
@@ -883,6 +889,7 @@ int pil_boot(struct pil_desc *desc)
 	}
 
 	if (desc->subsys_vmid > 0) {
+		trace_pil_event("before_reclaim_mem", desc);
 		ret =  pil_reclaim_mem(desc, priv->region_start,
 				(priv->region_end - priv->region_start),
 				desc->subsys_vmid);
@@ -894,12 +901,14 @@ int pil_boot(struct pil_desc *desc)
 		hyp_assign = false;
 	}
 
+	trace_pil_event("before_auth_reset", desc);
 	ret = desc->ops->auth_and_reset(desc);
 	if (ret) {
 		pil_err(desc, "Failed to bring out of reset(rc:%d)\n", ret);
 		subsys_set_error(desc->subsys_dev, firmware_error_msg);
 		goto err_auth_and_reset;
 	}
+	trace_pil_event("reset_done", desc);
 	pil_info(desc, "Brought out of reset\n");
 	desc->modem_ssr = false;
 err_auth_and_reset:
