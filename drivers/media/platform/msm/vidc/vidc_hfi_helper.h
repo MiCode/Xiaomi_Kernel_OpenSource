@@ -283,7 +283,7 @@ struct hfi_buffer_info {
 	 (HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01C)
 #define HFI_PROPERTY_PARAM_VENC_VIDEO_SIGNAL_INFO	\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01D)
-#define HFI_PROPERTY_PARAM_VENC_H264_VUI_TIMING_INFO	\
+#define HFI_PROPERTY_PARAM_VENC_VUI_TIMING_INFO	\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x01E)
 #define HFI_PROPERTY_PARAM_VENC_LOW_LATENCY_MODE	\
 	(HFI_PROPERTY_PARAM_VENC_COMMON_START + 0x022)
@@ -589,7 +589,7 @@ struct hfi_video_signal_metadata {
 	u32 matrix_coeffs;
 };
 
-struct hfi_h264_vui_timing_info {
+struct hfi_vui_timing_info {
 	u32 enable;
 	u32 fixed_frame_rate;
 	u32 time_scale;

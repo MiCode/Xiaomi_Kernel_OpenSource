@@ -1140,6 +1140,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	int max_hierp_layers;
 	int baselayerid = 0;
 	struct hal_video_signal_info signal_info = {0};
+	struct hal_vui_timing_info vui_timing_info = {0};
 	enum hal_iframesize_type iframesize_type = HAL_IFRAMESIZE_TYPE_DEFAULT;
 
 	if (!inst || !inst->core || !inst->core->device) {
@@ -1863,6 +1864,36 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		property_id = HAL_PARAM_VENC_DISABLE_RC_TIMESTAMP;
 		enable.enable = ctrl->val;
 		pdata = &enable;
+		break;
+	}
+	case V4L2_CID_MPEG_VIDC_VIDEO_VUI_TIMING_INFO:
+	{
+		struct v4l2_ctrl *rc_mode;
+		bool cfr = false;
+
+		property_id = HAL_PARAM_VENC_VUI_TIMING_INFO;
+		pdata = &vui_timing_info;
+
+		if (ctrl->val != V4L2_MPEG_VIDC_VIDEO_VUI_TIMING_INFO_ENABLED) {
+			vui_timing_info.enable = 0;
+			break;
+		}
+
+		rc_mode = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL);
+
+		switch (rc_mode->val) {
+		case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_VBR_CFR:
+		case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_CBR_CFR:
+		case V4L2_CID_MPEG_VIDC_VIDEO_RATE_CONTROL_MBR_CFR:
+			cfr = true;
+			break;
+		default:
+			cfr = false;
+		}
+
+		vui_timing_info.enable = 1;
+		vui_timing_info.fixed_frame_rate = cfr;
+		vui_timing_info.time_scale = NSEC_PER_SEC;
 		break;
 	}
 	default:

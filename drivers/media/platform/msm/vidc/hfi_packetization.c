@@ -1480,22 +1480,22 @@ int create_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;
 	}
-	case HAL_PARAM_VENC_H264_VUI_TIMING_INFO:
+	case HAL_PARAM_VENC_VUI_TIMING_INFO:
 	{
-		struct hfi_h264_vui_timing_info *hfi;
-		struct hal_h264_vui_timing_info *timing_info = pdata;
+		struct hfi_vui_timing_info *hfi;
+		struct hal_vui_timing_info *timing_info = pdata;
 
 		pkt->rg_property_data[0] =
-			HFI_PROPERTY_PARAM_VENC_H264_VUI_TIMING_INFO;
+			HFI_PROPERTY_PARAM_VENC_VUI_TIMING_INFO;
 
-		hfi = (struct hfi_h264_vui_timing_info *)&pkt->
+		hfi = (struct hfi_vui_timing_info *)&pkt->
 			rg_property_data[1];
 		hfi->enable = timing_info->enable;
 		hfi->fixed_frame_rate = timing_info->fixed_frame_rate;
 		hfi->time_scale = timing_info->time_scale;
 
 		pkt->size += sizeof(u32) +
-			sizeof(struct hfi_h264_vui_timing_info);
+			sizeof(struct hfi_vui_timing_info);
 		break;
 	}
 	case HAL_CONFIG_VPE_DEINTERLACE:
