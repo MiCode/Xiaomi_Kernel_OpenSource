@@ -56,9 +56,6 @@ MODULE_PARM_DESC(swfdetect, "Enable soft fault detection");
 #define DRIVER_VERSION_MAJOR   3
 #define DRIVER_VERSION_MINOR   1
 
-/* Number of times to try hard reset */
-#define NUM_TIMES_RESET_RETRY 5
-
 #define KGSL_LOG_LEVEL_DEFAULT 3
 
 static void adreno_input_work(struct work_struct *work);
@@ -513,8 +510,6 @@ static struct input_handler adreno_input_handler = {
 	.name = "kgsl",
 	.id_table = adreno_input_ids,
 };
-
-static int adreno_soft_reset(struct kgsl_device *device);
 
 /*
  * _soft_reset() - Soft reset GPU
@@ -1626,7 +1621,7 @@ error_pwr_off:
  * Power up the GPU and initialize it.  If priority is specified then elevate
  * the thread priority for the duration of the start operation
  */
-static int adreno_start(struct kgsl_device *device, int priority)
+int adreno_start(struct kgsl_device *device, int priority)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int nice = task_nice(current);
@@ -2311,7 +2306,7 @@ bool adreno_hw_isidle(struct adreno_device *adreno_dev)
  * The GPU hardware is reset but we never pull power so we can skip
  * a lot of the standard adreno_stop/adreno_start sequence
  */
-static int adreno_soft_reset(struct kgsl_device *device)
+int adreno_soft_reset(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);

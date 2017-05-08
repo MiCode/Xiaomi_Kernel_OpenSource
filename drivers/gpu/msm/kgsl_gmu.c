@@ -748,6 +748,7 @@ static irqreturn_t gmu_irq_handler(int irq, void *data)
 {
 	struct gmu_device *gmu = data;
 	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int status = 0;
 
 	adreno_read_gmureg(ADRENO_DEVICE(device),
@@ -756,9 +757,12 @@ static irqreturn_t gmu_irq_handler(int irq, void *data)
 			ADRENO_REG_GMU_AO_HOST_INTERRUPT_CLR, status);
 
 	/* Ignore GMU_INT_RSCC_COMP and GMU_INT_DBD WAKEUP interrupts */
-	if (status & GMU_INT_WDOG_BITE)
+	if (status & GMU_INT_WDOG_BITE) {
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"GMU watchdog expired interrupt received\n");
+		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
+		adreno_dispatcher_schedule(device);
+	}
 	if (status & GMU_INT_HOST_AHB_BUS_ERR)
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"AHB bus error interrupt received\n");
@@ -775,6 +779,7 @@ static irqreturn_t hfi_irq_handler(int irq, void *data)
 	struct kgsl_hfi *hfi = data;
 	struct gmu_device *gmu = container_of(hfi, struct gmu_device, hfi);
 	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int status = 0;
 
 	adreno_read_gmureg(ADRENO_DEVICE(device),
@@ -784,9 +789,12 @@ static irqreturn_t hfi_irq_handler(int irq, void *data)
 
 	if (status & HFI_IRQ_MSGQ_MASK)
 		tasklet_hi_schedule(&hfi->tasklet);
-	if (status & HFI_IRQ_CM3_FAULT_MASK)
+	if (status & HFI_IRQ_CM3_FAULT_MASK) {
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"GMU CM3 fault interrupt received\n");
+		adreno_set_gpu_fault(adreno_dev, ADRENO_GMU_FAULT);
+		adreno_dispatcher_schedule(device);
+	}
 	if (status & ~HFI_IRQ_MASK)
 		dev_err_ratelimited(&gmu->pdev->dev,
 				"Unhandled HFI interrupts 0x%lx\n",

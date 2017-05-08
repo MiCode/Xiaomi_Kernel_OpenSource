@@ -1558,7 +1558,8 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 	 * For the soft reset case with GMU enabled this part is done
 	 * by the GMU firmware
 	 */
-	if (kgsl_gmu_isenabled(device))
+	if (kgsl_gmu_isenabled(device) &&
+		!test_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv))
 		return 0;
 
 
@@ -1742,6 +1743,89 @@ static int a6xx_rpmh_gpu_pwrctrl(struct adreno_device *adreno_dev,
 		ret = -EINVAL;
 		break;
 	}
+
+	return ret;
+}
+
+/**
+ * a6xx_reset() - Helper function to reset the GPU
+ * @device: Pointer to the KGSL device structure for the GPU
+ * @fault: Type of fault. Needed to skip soft reset for MMU fault
+ *
+ * Try to reset the GPU to recover from a fault.  First, try to do a low latency
+ * soft reset.  If the soft reset fails for some reason, then bring out the big
+ * guns and toggle the footswitch.
+ */
+static int a6xx_reset(struct kgsl_device *device, int fault)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	int ret = -EINVAL;
+	int i = 0;
+
+	/* Use the regular reset sequence for No GMU */
+	if (!kgsl_gmu_isenabled(device))
+		return adreno_reset(device, fault);
+
+	/* Transition from ACTIVE to RESET state */
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_RESET);
+
+	/* Try soft reset first */
+	if (!(fault & ADRENO_IOMMU_PAGE_FAULT)) {
+		int acked;
+
+		/* NMI */
+		kgsl_gmu_regwrite(device, A6XX_GMU_NMI_CONTROL_STATUS, 0);
+		kgsl_gmu_regwrite(device, A6XX_GMU_CM3_CFG, (1 << 9));
+
+		for (i = 0; i < 10; i++) {
+			kgsl_gmu_regread(device,
+					A6XX_GMU_NMI_CONTROL_STATUS, &acked);
+
+			/* NMI FW ACK recevied */
+			if (acked == 0x1)
+				break;
+
+			udelay(100);
+		}
+
+		if (acked)
+			ret = adreno_soft_reset(device);
+		if (ret)
+			KGSL_DEV_ERR_ONCE(device, "Device soft reset failed\n");
+	}
+	if (ret) {
+		/* If soft reset failed/skipped, then pull the power */
+		set_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv);
+		/* since device is officially off now clear start bit */
+		clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
+
+		/* Keep trying to start the device until it works */
+		for (i = 0; i < NUM_TIMES_RESET_RETRY; i++) {
+			ret = adreno_start(device, 0);
+			if (!ret)
+				break;
+
+			msleep(20);
+		}
+	}
+
+	clear_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv);
+
+	if (ret)
+		return ret;
+
+	if (i != 0)
+		KGSL_DRV_WARN(device, "Device hard reset tried %d tries\n", i);
+
+	/*
+	 * If active_cnt is non-zero then the system was active before
+	 * going into a reset - put it back in that state
+	 */
+
+	if (atomic_read(&device->active_cnt))
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_ACTIVE);
+	else
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_NAP);
 
 	return ret;
 }
@@ -2496,5 +2580,6 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.hw_isidle = a6xx_hw_isidle, /* Replaced by NULL if GMU is disabled */
 	.wait_for_gmu_idle = a6xx_wait_for_gmu_idle,
 	.iommu_fault_block = a6xx_iommu_fault_block,
+	.reset = a6xx_reset,
 	.soft_reset = a6xx_soft_reset,
 };

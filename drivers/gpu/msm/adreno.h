@@ -159,10 +159,12 @@
 #define KGSL_END_OF_PROFILE_IDENTIFIER	0x2DEFADE2
 #define KGSL_PWRON_FIXUP_IDENTIFIER	0x2AFAFAFA
 
+/* Number of times to try hard reset */
+#define NUM_TIMES_RESET_RETRY 5
+
 /* One cannot wait forever for the core to idle, so set an upper limit to the
  * amount of time to wait for the core to go idle
  */
-
 #define ADRENO_IDLE_TIMEOUT (20 * 1000)
 
 #define ADRENO_UCHE_GMEM_BASE	0x100000
@@ -204,6 +206,7 @@ enum adreno_gpurev {
 #define ADRENO_TIMEOUT_FAULT BIT(2)
 #define ADRENO_IOMMU_PAGE_FAULT BIT(3)
 #define ADRENO_PREEMPT_FAULT BIT(4)
+#define ADRENO_GMU_FAULT BIT(5)
 
 #define ADRENO_SPTP_PC_CTRL 0
 #define ADRENO_PPD_CTRL     1
@@ -866,6 +869,7 @@ struct adreno_gpudev {
 	int (*wait_for_gmu_idle)(struct adreno_device *);
 	const char *(*iommu_fault_block)(struct adreno_device *adreno_dev,
 				unsigned int fsynr1);
+	int (*reset)(struct kgsl_device *, int fault);
 	int (*soft_reset)(struct adreno_device *);
 };
 
@@ -955,6 +959,8 @@ extern struct adreno_gpudev adreno_a6xx_gpudev;
 extern int adreno_wake_nice;
 extern unsigned int adreno_wake_timeout;
 
+int adreno_start(struct kgsl_device *device, int priority);
+int adreno_soft_reset(struct kgsl_device *device);
 long adreno_ioctl(struct kgsl_device_private *dev_priv,
 		unsigned int cmd, unsigned long arg);
 
