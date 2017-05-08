@@ -2090,6 +2090,8 @@ static int mdss_fb_blank(int blank_mode, struct fb_info *info)
 		return ret;
 	}
 
+	MDSS_XLOG(blank_mode, XLOG_FUNC_ENTRY);
+
 	mutex_lock(&mfd->mdss_sysfs_lock);
 
 	if (mfd->op_enable == 0) {
@@ -2125,6 +2127,7 @@ static int mdss_fb_blank(int blank_mode, struct fb_info *info)
 
 end:
 	mutex_unlock(&mfd->mdss_sysfs_lock);
+	MDSS_XLOG(blank_mode, XLOG_FUNC_EXIT);
 
 	return ret;
 }
@@ -4642,11 +4645,22 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 	struct mdp_output_layer __user *output_layer_user;
 	struct mdp_destination_scaler_data *ds_data = NULL;
 	struct mdp_destination_scaler_data __user *ds_data_user;
+	struct msm_fb_data_type *mfd;
 
 	ret = copy_from_user(&commit, argp, sizeof(struct mdp_layer_commit));
 	if (ret) {
 		pr_err("%s:copy_from_user failed\n", __func__);
 		return ret;
+	}
+
+	mfd = (struct msm_fb_data_type *)info->par;
+	if (!mfd)
+		return -EINVAL;
+
+	if (mfd->panel_info->panel_dead) {
+		pr_err("early commit return\n");
+		MDSS_XLOG(mfd->panel_info->panel_dead);
+		return 0;
 	}
 
 	output_layer_user = commit.commit_v1.output_layer;

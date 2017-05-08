@@ -21,6 +21,7 @@
 #include "mdss_debug.h"
 #include "mdss_mdp_trace.h"
 #include "mdss_dsi_clk.h"
+#include <linux/interrupt.h>
 
 #define MAX_RECOVERY_TRIALS 10
 #define MAX_SESSIONS 2
@@ -2090,7 +2091,7 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 	struct mdss_mdp_cmd_ctx *ctx;
 	struct mdss_panel_data *pdata;
 	unsigned long flags;
-	int rc = 0;
+	int rc = 0, recovery = 0;
 
 	ctx = (struct mdss_mdp_cmd_ctx *) ctl->intf_ctx[MASTER_CTX];
 	if (!ctx) {
@@ -2106,6 +2107,7 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 	pr_debug("%s: intf_num=%d ctx=%pK koff_cnt=%d\n", __func__,
 			ctl->intf_num, ctx, atomic_read(&ctx->koff_cnt));
 
+	enable_irq(gpio_to_irq(pdata->panel_te_gpio));
 	rc = __mdss_mdp_wait4pingpong(ctx);
 
 	trace_mdp_cmd_wait_pingpong(ctl->num,
@@ -2146,17 +2148,26 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 				atomic_read(&ctx->koff_cnt));
 		if (ctx->pp_timeout_report_cnt == 0) {
 			MDSS_XLOG(0xbad);
-			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
-				"dsi1_ctrl", "dsi1_phy", "vbif", "vbif_nrt",
-				"dbg_bus", "vbif_dbg_bus",
-				"dsi_dbg_bus", "panic");
+			reinit_completion(&pdata->te_done);
+			rc = wait_for_completion_timeout(&pdata->te_done,
+					KOFF_TIMEOUT);
+			if (!rc) {
+				disable_irq(gpio_to_irq(pdata->panel_te_gpio));
+				recovery = 1;
+				mdss_fb_report_panel_dead(ctl->mfd);
+			} else {
+				MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl",
+					"dsi0_phy", "dsi1_ctrl", "dsi1_phy",
+					"vbif", "vbif_nrt",
+					"dbg_bus", "vbif_dbg_bus",
+					"dsi_dbg_bus", "panic");
+			}
 		} else if (ctx->pp_timeout_report_cnt == MAX_RECOVERY_TRIALS) {
 			MDSS_XLOG(0xbad2);
 			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
 				"dsi1_ctrl", "dsi1_phy", "vbif", "vbif_nrt",
 				"dbg_bus", "vbif_dbg_bus",
 				"dsi_dbg_bus", "panic");
-			mdss_fb_report_panel_dead(ctl->mfd);
 		}
 		ctx->pp_timeout_report_cnt++;
 		rc = -EPERM;
@@ -2168,6 +2179,9 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 	}
 
 	cancel_work_sync(&ctx->pp_done_work);
+
+	if (!recovery)
+		disable_irq(gpio_to_irq(pdata->panel_te_gpio));
 
 	/* signal any pending ping pong done events */
 	while (atomic_add_unless(&ctx->pp_done_cnt, -1, 0))

@@ -243,7 +243,7 @@ void mdss_dsi_disable_irq_nosync(struct mdss_dsi_ctrl_pdata *ctrl, u32 term)
 	}
 	ctrl->dsi_irq_mask &= ~term;
 	if (ctrl->dsi_irq_mask == 0) {
-		MDSS_XLOG(ctrl->ndx, term);
+		/* MDSS_XLOG(ctrl->ndx, term); */
 		ctrl->mdss_util->disable_irq_nosync(ctrl->dsi_hw);
 		pr_debug("%s: IRQ Disable, ndx=%d mask=%x term=%x\n", __func__,
 			ctrl->ndx, (int)ctrl->dsi_irq_mask, (int)term);
@@ -2187,7 +2187,7 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 
 	MIPI_OUTP((ctrl->ctrl_base) + 0x090, 0x01);
 	wmb();
-	MDSS_XLOG(ctrl->dma_addr, len);
+	/* MDSS_XLOG(ctrl->dma_addr, len); */
 
 	if (ctrl->do_unicast) {
 		/* let cmd_trigger to kickoff later */
@@ -2561,10 +2561,12 @@ void mdss_dsi_cmd_mdp_busy(struct mdss_dsi_ctrl_pdata *ctrl)
 		if (!rc) {
 			if (mdss_dsi_mdp_busy_tout_check(ctrl)) {
 				pr_err("%s: timeout error\n", __func__);
-				MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl",
-					"dsi0_phy", "dsi1_ctrl", "dsi1_phy",
-					"vbif", "vbif_nrt", "dbg_bus",
-					"vbif_dbg_bus", "dsi_dbg_bus", "panic");
+				/*
+				 * MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl",
+				 *	"dsi0_phy", "dsi1_ctrl", "dsi1_phy",
+				 *	"vbif", "vbif_nrt", "dbg_bus",
+				 *	"vbif_dbg_bus", "dsi_dbg_bus", "panic");
+				 */
 			}
 		}
 	}
@@ -3288,7 +3290,7 @@ irqreturn_t mdss_dsi_isr(int irq, void *ptr)
 	}
 
 	if (isr & DSI_INTR_CMD_DMA_DONE) {
-		MDSS_XLOG(ctrl->ndx, ctrl->mdp_busy, isr, 0x98);
+		/* MDSS_XLOG(ctrl->ndx, ctrl->mdp_busy, isr, 0x98); */
 		spin_lock(&ctrl->mdp_lock);
 		mdss_dsi_disable_irq_nosync(ctrl, DSI_CMD_TERM);
 		complete(&ctrl->dma_comp);
