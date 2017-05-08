@@ -24,8 +24,10 @@
 #define NUM_LNODES	3
 #define MAX_STR_CL	50
 
-#define MSM_BUS_MAS_ALC	144
-#define MSM_BUS_RSC_APPS 8000
+#define MSM_BUS_MAS_ALC			144
+#define MSM_BUS_RSC_APPS		8000
+#define MSM_BUS_RSC_DISP		8001
+#define BCM_TCS_CMD_ACV_APPS		0x8
 
 struct bus_search_type {
 	struct list_head link;
@@ -127,16 +129,14 @@ static void bcm_add_bus_req(struct device *dev)
 		goto exit_bcm_add_bus_req;
 	}
 
-	if (cur_dev->node_info->bcm_req_idx != -1)
-		goto exit_bcm_add_bus_req;
-
 	if (!cur_dev->node_info->num_bcm_devs)
 		goto exit_bcm_add_bus_req;
 
 	for (i = 0; i < cur_dev->node_info->num_bcm_devs; i++) {
+		if (cur_dev->node_info->bcm_req_idx[i] != -1)
+			continue;
 		bcm_dev = to_msm_bus_node(cur_dev->node_info->bcm_devs[i]);
 		max_num_lnodes = bcm_dev->bcmdev->num_bus_devs;
-
 		if (!bcm_dev->num_lnodes) {
 			bcm_dev->lnode_list = devm_kzalloc(dev,
 				sizeof(struct link_node) * max_num_lnodes,
@@ -183,7 +183,7 @@ static void bcm_add_bus_req(struct device *dev)
 
 		lnode->in_use = 1;
 		lnode->bus_dev_id = cur_dev->node_info->id;
-		cur_dev->node_info->bcm_req_idx = lnode_idx;
+		cur_dev->node_info->bcm_req_idx[i] = lnode_idx;
 		memset(lnode->lnode_ib, 0, sizeof(uint64_t) * NUM_CTX);
 		memset(lnode->lnode_ab, 0, sizeof(uint64_t) * NUM_CTX);
 	}
@@ -483,11 +483,35 @@ exit_getpath:
 	return first_hop;
 }
 
+static void bcm_update_acv_req(struct msm_bus_node_device_type *cur_rsc,
+				uint64_t max_ab, uint64_t max_ib,
+				uint64_t *vec_a, uint64_t *vec_b,
+				uint32_t *acv, int ctx)
+{
+	uint32_t acv_bmsk = 0;
+	/*
+	 * Base ACV voting on current RSC until mapping is set up in commanddb
+	 * that allows us to vote ACV based on master.
+	 */
+
+	if (cur_rsc->node_info->id == MSM_BUS_RSC_APPS)
+		acv_bmsk = BCM_TCS_CMD_ACV_APPS;
+
+	if (max_ab == 0 && max_ib == 0)
+		*acv = *acv & ~acv_bmsk;
+	else
+		*acv = *acv | acv_bmsk;
+	*vec_a = 0;
+	*vec_b = *acv;
+}
+
 static void bcm_update_bus_req(struct device *dev, int ctx)
 {
 	struct msm_bus_node_device_type *cur_dev = NULL;
 	struct msm_bus_node_device_type *bcm_dev = NULL;
-	int i;
+	struct msm_bus_node_device_type *cur_rsc = NULL;
+
+	int i, j;
 	uint64_t max_ib = 0;
 	uint64_t max_ab = 0;
 	int lnode_idx = 0;
@@ -507,7 +531,7 @@ static void bcm_update_bus_req(struct device *dev, int ctx)
 		if (!bcm_dev)
 			goto exit_bcm_update_bus_req;
 
-		lnode_idx = cur_dev->node_info->bcm_req_idx;
+		lnode_idx = cur_dev->node_info->bcm_req_idx[i];
 		bcm_dev->lnode_list[lnode_idx].lnode_ib[ctx] =
 			msm_bus_div64(cur_dev->node_bw[ctx].max_ib *
 					(uint64_t)bcm_dev->bcmdev->width,
@@ -519,19 +543,19 @@ static void bcm_update_bus_req(struct device *dev, int ctx)
 				cur_dev->node_info->agg_params.buswidth *
 				cur_dev->node_info->agg_params.num_aggports);
 
-		for (i = 0; i < bcm_dev->num_lnodes; i++) {
+		for (j = 0; j < bcm_dev->num_lnodes; j++) {
 			if (ctx == ACTIVE_CTX) {
 				max_ib = max(max_ib,
-				max(bcm_dev->lnode_list[i].lnode_ib[ACTIVE_CTX],
-				bcm_dev->lnode_list[i].lnode_ib[DUAL_CTX]));
+				max(bcm_dev->lnode_list[j].lnode_ib[ACTIVE_CTX],
+				bcm_dev->lnode_list[j].lnode_ib[DUAL_CTX]));
 				max_ab = max(max_ab,
-				bcm_dev->lnode_list[i].lnode_ab[ACTIVE_CTX] +
-				bcm_dev->lnode_list[i].lnode_ab[DUAL_CTX]);
+				bcm_dev->lnode_list[j].lnode_ab[ACTIVE_CTX] +
+				bcm_dev->lnode_list[j].lnode_ab[DUAL_CTX]);
 			} else {
 				max_ib = max(max_ib,
-					bcm_dev->lnode_list[i].lnode_ib[ctx]);
+					bcm_dev->lnode_list[j].lnode_ib[ctx]);
 				max_ab = max(max_ab,
-					bcm_dev->lnode_list[i].lnode_ab[ctx]);
+					bcm_dev->lnode_list[j].lnode_ab[ctx]);
 			}
 		}
 		bcm_dev->node_bw[ctx].max_ab = max_ab;
@@ -540,8 +564,18 @@ static void bcm_update_bus_req(struct device *dev, int ctx)
 		max_ab = msm_bus_div64(max_ab, bcm_dev->bcmdev->unit_size);
 		max_ib = msm_bus_div64(max_ib, bcm_dev->bcmdev->unit_size);
 
-		bcm_dev->node_vec[ctx].vec_a = max_ab;
-		bcm_dev->node_vec[ctx].vec_b = max_ib;
+		if (bcm_dev->node_info->id == MSM_BUS_BCM_ACV) {
+			cur_rsc = to_msm_bus_node(bcm_dev->node_info->
+						rsc_devs[0]);
+			bcm_update_acv_req(cur_rsc, max_ab, max_ib,
+					&bcm_dev->node_vec[ctx].vec_a,
+					&bcm_dev->node_vec[ctx].vec_b,
+					&cur_rsc->rscdev->acv[ctx], ctx);
+
+		} else {
+			bcm_dev->node_vec[ctx].vec_a = max_ab;
+			bcm_dev->node_vec[ctx].vec_b = max_ib;
+		}
 	}
 exit_bcm_update_bus_req:
 	return;
@@ -551,7 +585,8 @@ static void bcm_query_bus_req(struct device *dev, int ctx)
 {
 	struct msm_bus_node_device_type *cur_dev = NULL;
 	struct msm_bus_node_device_type *bcm_dev = NULL;
-	int i;
+	struct msm_bus_node_device_type *cur_rsc = NULL;
+	int i, j;
 	uint64_t max_query_ib = 0;
 	uint64_t max_query_ab = 0;
 	int lnode_idx = 0;
@@ -571,7 +606,7 @@ static void bcm_query_bus_req(struct device *dev, int ctx)
 		if (!bcm_dev)
 			goto exit_bcm_query_bus_req;
 
-		lnode_idx = cur_dev->node_info->bcm_req_idx;
+		lnode_idx = cur_dev->node_info->bcm_req_idx[i];
 		bcm_dev->lnode_list[lnode_idx].lnode_query_ib[ctx] =
 			msm_bus_div64(cur_dev->node_bw[ctx].max_query_ib *
 					(uint64_t)bcm_dev->bcmdev->width,
@@ -583,25 +618,25 @@ static void bcm_query_bus_req(struct device *dev, int ctx)
 				cur_dev->node_info->agg_params.num_aggports *
 				cur_dev->node_info->agg_params.buswidth);
 
-		for (i = 0; i < bcm_dev->num_lnodes; i++) {
+		for (j = 0; j < bcm_dev->num_lnodes; j++) {
 			if (ctx == ACTIVE_CTX) {
 				max_query_ib = max(max_query_ib,
-				max(bcm_dev->lnode_list[i].
+				max(bcm_dev->lnode_list[j].
 					lnode_query_ib[ACTIVE_CTX],
-				bcm_dev->lnode_list[i].
+				bcm_dev->lnode_list[j].
 					lnode_query_ib[DUAL_CTX]));
 
 				max_query_ab = max(max_query_ab,
-				bcm_dev->lnode_list[i].
+				bcm_dev->lnode_list[j].
 						lnode_query_ab[ACTIVE_CTX] +
-				bcm_dev->lnode_list[i].
+				bcm_dev->lnode_list[j].
 						lnode_query_ab[DUAL_CTX]);
 			} else {
 				max_query_ib = max(max_query_ib,
-					bcm_dev->lnode_list[i].
+					bcm_dev->lnode_list[j].
 						lnode_query_ib[ctx]);
 				max_query_ab = max(max_query_ab,
-					bcm_dev->lnode_list[i].
+					bcm_dev->lnode_list[j].
 						lnode_query_ab[ctx]);
 			}
 		}
@@ -610,6 +645,18 @@ static void bcm_query_bus_req(struct device *dev, int ctx)
 						bcm_dev->bcmdev->unit_size);
 		max_query_ib = msm_bus_div64(max_query_ib,
 						bcm_dev->bcmdev->unit_size);
+
+		if (bcm_dev->node_info->id == MSM_BUS_BCM_ACV) {
+			cur_rsc = to_msm_bus_node(bcm_dev->node_info->
+						rsc_devs[0]);
+			bcm_update_acv_req(cur_rsc, max_query_ab, max_query_ib,
+					&bcm_dev->node_vec[ctx].query_vec_a,
+					&bcm_dev->node_vec[ctx].query_vec_b,
+					&cur_rsc->rscdev->query_acv[ctx], ctx);
+		} else {
+			bcm_dev->node_vec[ctx].query_vec_a = max_query_ab;
+			bcm_dev->node_vec[ctx].query_vec_b = max_query_ib;
+		}
 
 		bcm_dev->node_bw[ctx].max_query_ab = max_query_ab;
 		bcm_dev->node_bw[ctx].max_query_ib = max_query_ib;
