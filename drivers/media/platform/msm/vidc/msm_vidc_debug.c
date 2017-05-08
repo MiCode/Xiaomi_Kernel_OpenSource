@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,7 @@ int msm_vidc_debug_timeout = 0;
 #define MAX_DBG_BUF_SIZE 4096
 
 struct debug_buffer {
+	struct mutex lock;
 	char ptr[MAX_DBG_BUF_SIZE];
 	char *curr;
 	u32 filled_size;
@@ -60,8 +61,12 @@ static u32 write_str(struct debug_buffer *buffer, const char *fmt, ...)
 {
 	va_list args;
 	u32 size;
+
+	char *curr = buffer->curr;
+	char *end = buffer->ptr + MAX_DBG_BUF_SIZE;
+
 	va_start(args, fmt);
-	size = vscnprintf(buffer->curr, MAX_DBG_BUF_SIZE - 1, fmt, args);
+	size = vscnprintf(curr, end - curr, fmt, args);
 	va_end(args);
 	buffer->curr += size;
 	buffer->filled_size += size;
@@ -75,12 +80,15 @@ static ssize_t core_info_read(struct file *file, char __user *buf,
 	struct hfi_device *hdev;
 	struct hal_fw_info fw_info = { {0} };
 	int i = 0, rc = 0;
+	ssize_t len = 0;
 
 	if (!core || !core->device) {
 		dprintk(VIDC_ERR, "Invalid params, core: %pK\n", core);
 		return 0;
 	}
 	hdev = core->device;
+
+	mutex_lock(&dbg_buf.lock);
 	INIT_DBG_BUF(dbg_buf);
 	write_str(&dbg_buf, "===============================\n");
 	write_str(&dbg_buf, "CORE %d: %pK\n", core->id, core);
@@ -104,8 +112,11 @@ err_fw_info:
 			completion_done(&core->completions[SYS_MSG_INDEX(i)]) ?
 			"pending" : "done");
 	}
-	return simple_read_from_buffer(buf, count, ppos,
+	len = simple_read_from_buffer(buf, count, ppos,
 			dbg_buf.ptr, dbg_buf.filled_size);
+
+	mutex_unlock(&dbg_buf.lock);
+	return len;
 }
 
 static const struct file_operations core_info_fops = {
@@ -143,7 +154,10 @@ static const struct file_operations ssr_fops = {
 struct dentry *msm_vidc_debugfs_init_drv(void)
 {
 	bool ok = false;
-	struct dentry *dir = debugfs_create_dir("msm_vidc", NULL);
+	struct dentry *dir = NULL;
+
+	mutex_init(&dbg_buf.lock);
+	dir = debugfs_create_dir("msm_vidc", NULL);
 	if (IS_ERR_OR_NULL(dir)) {
 		dir = NULL;
 		goto failed_create_dir;
@@ -212,6 +226,7 @@ struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
 		dprintk(VIDC_ERR, "Failed to create debugfs for msm_vidc\n");
 		goto failed_create_dir;
 	}
+
 	if (!debugfs_create_file("info", S_IRUGO, dir, core, &core_info_fops)) {
 		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
 		goto failed_create_dir;
@@ -266,6 +281,7 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 	struct msm_vidc_inst *inst = file->private_data;
 	struct msm_vidc_core *core = inst ? inst->core : NULL;
 	int i, j;
+	ssize_t len = 0;
 
 	if (!inst || !core) {
 		dprintk(VIDC_ERR, "Invalid params, core: %pK inst %pK\n",
@@ -277,6 +293,7 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 		return 0;
 	}
 
+	mutex_lock(&dbg_buf.lock);
 	INIT_DBG_BUF(dbg_buf);
 	write_str(&dbg_buf, "===============================\n");
 	write_str(&dbg_buf, "INSTANCE: %pK (%s)\n", inst,
@@ -333,9 +350,12 @@ static ssize_t inst_info_read(struct file *file, char __user *buf,
 	write_str(&dbg_buf, "FBD Count: %d\n", inst->count.fbd);
 
 	publish_unreleased_reference(inst);
-	put_inst(inst);
-	return simple_read_from_buffer(buf, count, ppos,
+	len = simple_read_from_buffer(buf, count, ppos,
 		dbg_buf.ptr, dbg_buf.filled_size);
+
+	mutex_unlock(&dbg_buf.lock);
+	put_inst(inst);
+	return len;
 }
 
 static const struct file_operations inst_info_fops = {
@@ -414,5 +434,10 @@ void msm_vidc_debugfs_update(struct msm_vidc_inst *inst,
 		dprintk(VIDC_ERR, "Invalid state in debugfs: %d\n", e);
 		break;
 	}
+}
+
+void msm_vidc_debugfs_deinit_drv(void)
+{
+	mutex_destroy(&dbg_buf.lock);
 }
 
