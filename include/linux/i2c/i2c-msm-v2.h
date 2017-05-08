@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015,2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015,2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -201,7 +201,6 @@ enum i2c_msm_power_state {
 #define I2C_MSM_MAX_POLL_MSEC           (100)
 #define I2C_MSM_TIMEOUT_SAFETY_COEF     (10)
 #define I2C_MSM_TIMEOUT_MIN_USEC        (500000)
-#define I2C_QUP_MAX_BUS_RECOVERY_RETRY  (10)
 
 /* QUP v2 tags */
 #define QUP_TAG2_DATA_WRITE        (0x82ULL)
