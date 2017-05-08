@@ -232,12 +232,10 @@
 
 		msm_cam_smmu_ife {
 			compatible = "qcom,msm-cam-smmu-cb";
-			iommus = <&apps_smmu 0x808>,
-				<&apps_smmu 0x810>,
-				<&apps_smmu 0x818>,
-				<&apps_smmu 0xc08>,
-				<&apps_smmu 0xc10>,
-				<&apps_smmu 0xc18>;
+			iommus = <&apps_smmu 0x808 0x0>,
+				<&apps_smmu 0x810 0x8>,
+				<&apps_smmu 0xc08 0x0>,
+				<&apps_smmu 0xc10 0x8>;
 			label = "ife";
 			ife_iova_mem_map: iova-mem-map {
 				/* IO region is approximately 3.4 GB */
@@ -259,13 +257,11 @@
 
 		msm_cam_smmu_icp {
 			compatible = "qcom,msm-cam-smmu-cb";
-			iommus = <&apps_smmu 0x1078>,
-				<&apps_smmu 0x1020>,
-				<&apps_smmu 0x1028>,
-				<&apps_smmu 0x1040>,
-				<&apps_smmu 0x1048>,
-				<&apps_smmu 0x1030>,
-				<&apps_smmu 0x1050>;
+			iommus = <&apps_smmu 0x1078 0x2>,
+				<&apps_smmu 0x1020 0x8>,
+				<&apps_smmu 0x1040 0x8>,
+				<&apps_smmu 0x1030 0x0>,
+				<&apps_smmu 0x1050 0x0>;
 			label = "icp";
 			icp_iova_mem_map: iova-mem-map {
 				iova-mem-region-firmware {
@@ -299,7 +295,7 @@
 
 		msm_cam_smmu_cpas_cdm {
 			compatible = "qcom,msm-cam-smmu-cb";
-			iommus = <&apps_smmu 0x1000>;
+			iommus = <&apps_smmu 0x1000 0x0>;
 			label = "cpas-cdm0";
 			cpas_cdm_iova_mem_map: iova-mem-map {
 				iova-mem-region-io {
@@ -315,7 +311,7 @@
 
 		msm_cam_smmu_secure {
 			compatible = "qcom,msm-cam-smmu-cb";
-			iommus = <&apps_smmu 0x1001>;
+			iommus = <&apps_smmu 0x1001 0x0>;
 			label = "cam-secure";
 			cam_secure_iova_mem_map: iova-mem-map {
 				/* Secure IO region is approximately 3.4 GB */
