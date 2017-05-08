@@ -170,6 +170,12 @@ void dsi_ctrl_hw_cmn_phy_reset_config(struct dsi_ctrl_hw *ctrl,
 			bool enable);
 void dsi_ctrl_hw_22_phy_reset_config(struct dsi_ctrl_hw *ctrl,
 			bool enable);
+u32 dsi_ctrl_hw_cmn_get_cmd_read_data(struct dsi_ctrl_hw *ctrl,
+				     u8 *rd_buf,
+				     u32 read_offset,
+				     u32 rx_byte,
+				     u32 pkt_size, u32 *hw_read_cnt);
+void dsi_ctrl_hw_cmn_clear_rdbk_reg(struct dsi_ctrl_hw *ctrl);
 
 /* Definitions specific to 1.4 DSI controller hardware */
 int dsi_ctrl_hw_14_wait_for_lane_idle(struct dsi_ctrl_hw *ctrl, u32 lanes);

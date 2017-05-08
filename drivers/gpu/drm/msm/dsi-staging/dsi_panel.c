@@ -2495,6 +2495,7 @@ static bool dsi_panel_parse_esd_status_len(struct device_node *np,
 
 static void dsi_panel_esd_config_deinit(struct drm_panel_esd_config *esd_config)
 {
+	kfree(esd_config->status_buf);
 	kfree(esd_config->return_buf);
 	kfree(esd_config->status_value);
 	kfree(esd_config->status_valid_params);
@@ -2621,6 +2622,10 @@ static int dsi_panel_parse_esd_config(struct dsi_panel *panel,
 		goto error3;
 	}
 
+	esd_config->status_buf = kzalloc(SZ_4K, GFP_KERNEL);
+	if (!esd_config->status_buf)
+		goto error4;
+
 	rc = of_property_read_u32_array(of_node,
 		"qcom,mdss-dsi-panel-status-value",
 		esd_config->status_value, esd_config->groups * status_len);
@@ -2632,6 +2637,8 @@ static int dsi_panel_parse_esd_config(struct dsi_panel *panel,
 
 	return 0;
 
+error4:
+	kfree(esd_config->return_buf);
 error3:
 	kfree(esd_config->status_value);
 error2:

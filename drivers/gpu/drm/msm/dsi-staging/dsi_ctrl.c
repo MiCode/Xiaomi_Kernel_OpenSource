@@ -886,6 +886,11 @@ static int dsi_ctrl_copy_and_pad_cmd(struct dsi_ctrl *dsi_ctrl,
 		buf[3] |= BIT(6);
 
 	buf[3] |= BIT(7);
+
+	/* send embedded BTA for read commands */
+	if ((buf[2] & 0x3f) == MIPI_DSI_DCS_READ)
+		buf[3] |= BIT(5);
+
 	*buffer = buf;
 	*size = len;
 
@@ -1061,6 +1066,7 @@ static int dsi_set_max_return_size(struct dsi_ctrl *dsi_ctrl,
 {
 	int rc = 0;
 	u8 tx[2] = { (u8)(size & 0xFF), (u8)(size >> 8) };
+	u32 flags = DSI_CTRL_CMD_FETCH_MEMORY;
 	struct mipi_dsi_msg msg = {
 		.channel = rx_msg->channel,
 		.type = MIPI_DSI_SET_MAXIMUM_RETURN_PACKET_SIZE,
@@ -1068,11 +1074,63 @@ static int dsi_set_max_return_size(struct dsi_ctrl *dsi_ctrl,
 		.tx_buf = tx,
 	};
 
-	rc = dsi_message_tx(dsi_ctrl, &msg, 0x0);
+	rc = dsi_message_tx(dsi_ctrl, &msg, flags);
 	if (rc)
 		pr_err("failed to send max return size packet, rc=%d\n", rc);
 
 	return rc;
+}
+
+/* Helper functions to support DCS read operation */
+static int dsi_parse_short_read1_resp(const struct mipi_dsi_msg *msg,
+		unsigned char *buff)
+{
+	u8 *data = msg->rx_buf;
+	int read_len = 1;
+
+	if (!data)
+		return 0;
+
+	/* remove dcs type */
+	if (msg->rx_len >= 1)
+		data[0] = buff[1];
+	else
+		read_len = 0;
+
+	return read_len;
+}
+
+static int dsi_parse_short_read2_resp(const struct mipi_dsi_msg *msg,
+		unsigned char *buff)
+{
+	u8 *data = msg->rx_buf;
+	int read_len = 2;
+
+	if (!data)
+		return 0;
+
+	/* remove dcs type */
+	if (msg->rx_len >= 2) {
+		data[0] = buff[1];
+		data[1] = buff[2];
+	} else {
+		read_len = 0;
+	}
+
+	return read_len;
+}
+
+static int dsi_parse_long_read_resp(const struct mipi_dsi_msg *msg,
+		unsigned char *buff)
+{
+	if (!msg->rx_buf)
+		return 0;
+
+	/* remove dcs type */
+	if (msg->rx_buf && msg->rx_len)
+		memcpy(msg->rx_buf, buff + 4, msg->rx_len);
+
+	return msg->rx_len;
 }
 
 static int dsi_message_rx(struct dsi_ctrl *dsi_ctrl,
@@ -1080,12 +1138,13 @@ static int dsi_message_rx(struct dsi_ctrl *dsi_ctrl,
 			  u32 flags)
 {
 	int rc = 0;
-	u32 rd_pkt_size;
-	u32 total_read_len;
-	u32 bytes_read = 0, tot_bytes_read = 0;
-	u32 current_read_len;
+	u32 rd_pkt_size, total_read_len, hw_read_cnt;
+	u32 current_read_len = 0, total_bytes_read = 0;
 	bool short_resp = false;
 	bool read_done = false;
+	u32 dlen, diff, rlen = msg->rx_len;
+	unsigned char *buff;
+	char cmd;
 
 	if (msg->rx_len <= 2) {
 		short_resp = true;
@@ -1101,6 +1160,7 @@ static int dsi_message_rx(struct dsi_ctrl *dsi_ctrl,
 
 		total_read_len = current_read_len + 6;
 	}
+	buff = msg->rx_buf;
 
 	while (!read_done) {
 		rc = dsi_set_max_return_size(dsi_ctrl, msg, rd_pkt_size);
@@ -1110,23 +1170,78 @@ static int dsi_message_rx(struct dsi_ctrl *dsi_ctrl,
 			goto error;
 		}
 
+		/* clear RDBK_DATA registers before proceeding */
+		dsi_ctrl->hw.ops.clear_rdbk_register(&dsi_ctrl->hw);
+
 		rc = dsi_message_tx(dsi_ctrl, msg, flags);
 		if (rc) {
 			pr_err("Message transmission failed, rc=%d\n", rc);
 			goto error;
 		}
 
+		dlen = dsi_ctrl->hw.ops.get_cmd_read_data(&dsi_ctrl->hw,
+					buff, total_bytes_read,
+					total_read_len, rd_pkt_size,
+					&hw_read_cnt);
+		if (!dlen)
+			goto error;
 
-		tot_bytes_read += bytes_read;
 		if (short_resp)
+			break;
+
+		if (rlen <= current_read_len) {
+			diff = current_read_len - rlen;
 			read_done = true;
-		else if (msg->rx_len <= tot_bytes_read)
-			read_done = true;
+		} else {
+			diff = 0;
+			rlen -= current_read_len;
+		}
+
+		dlen -= 2; /* 2 bytes of CRC */
+		dlen -= diff;
+		buff += dlen;
+		total_bytes_read += dlen;
+		if (!read_done) {
+			current_read_len = 14; /* Not first read */
+			if (rlen < current_read_len)
+				rd_pkt_size += rlen;
+			else
+				rd_pkt_size += current_read_len;
+		}
 	}
+
+	if (hw_read_cnt < 16 && !short_resp)
+		buff = msg->rx_buf + (16 - hw_read_cnt);
+	else
+		buff = msg->rx_buf;
+
+	/* parse the data read from panel */
+	cmd = buff[0];
+	switch (cmd) {
+	case MIPI_DSI_RX_ACKNOWLEDGE_AND_ERROR_REPORT:
+		pr_err("Rx ACK_ERROR\n");
+		rc = 0;
+		break;
+	case MIPI_DSI_RX_GENERIC_SHORT_READ_RESPONSE_1BYTE:
+	case MIPI_DSI_RX_DCS_SHORT_READ_RESPONSE_1BYTE:
+		rc = dsi_parse_short_read1_resp(msg, buff);
+		break;
+	case MIPI_DSI_RX_GENERIC_SHORT_READ_RESPONSE_2BYTE:
+	case MIPI_DSI_RX_DCS_SHORT_READ_RESPONSE_2BYTE:
+		rc = dsi_parse_short_read2_resp(msg, buff);
+		break;
+	case MIPI_DSI_RX_GENERIC_LONG_READ_RESPONSE:
+	case MIPI_DSI_RX_DCS_LONG_READ_RESPONSE:
+		rc = dsi_parse_long_read_resp(msg, buff);
+		break;
+	default:
+		pr_warn("Invalid response\n");
+		rc = 0;
+	}
+
 error:
 	return rc;
 }
-
 
 static int dsi_enable_ulps(struct dsi_ctrl *dsi_ctrl)
 {
@@ -2335,8 +2450,8 @@ int dsi_ctrl_cmd_transfer(struct dsi_ctrl *dsi_ctrl,
 
 	if (flags & DSI_CTRL_CMD_READ) {
 		rc = dsi_message_rx(dsi_ctrl, msg, flags);
-		if (rc)
-			pr_err("read message failed, rc=%d\n", rc);
+		if (rc <= 0)
+			pr_err("read message failed read length, rc=%d\n", rc);
 	} else {
 		rc = dsi_message_tx(dsi_ctrl, msg, flags);
 		if (rc)
