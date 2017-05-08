@@ -207,8 +207,9 @@ static int _sde_fence_create_fd(void *fence_ctx, uint32_t val)
 	if (!sde_fence)
 		return -ENOMEM;
 
-	snprintf(sde_fence->name, SDE_FENCE_NAME_SIZE, "fence%u", val);
-
+	sde_fence->ctx = fence_ctx;
+	snprintf(sde_fence->name, SDE_FENCE_NAME_SIZE, "sde_fence:%s:%u",
+						sde_fence->ctx->name, val);
 	fence_init(&sde_fence->base, &sde_fence_ops, &ctx->lock,
 		ctx->context, val);
 
@@ -231,13 +232,13 @@ static int _sde_fence_create_fd(void *fence_ctx, uint32_t val)
 	}
 
 	fd_install(fd, sync_file->file);
+	sde_fence->fd = fd;
+	kref_get(&ctx->kref);
 
 	spin_lock(&ctx->list_lock);
-	sde_fence->ctx = fence_ctx;
-	sde_fence->fd = fd;
 	list_add_tail(&sde_fence->fence_list, &ctx->fence_list_head);
-	kref_get(&ctx->kref);
 	spin_unlock(&ctx->list_lock);
+
 exit:
 	return fd;
 }
@@ -357,6 +358,8 @@ void sde_fence_signal(struct sde_fence_context *ctx, bool is_error)
 	}
 	spin_unlock_irqrestore(&ctx->lock, flags);
 
+	SDE_EVT32(ctx->drm_id, ctx->done_count);
+
 	spin_lock(&ctx->list_lock);
 	if (list_empty(&ctx->fence_list_head)) {
 		SDE_DEBUG("nothing to trigger!-no get_prop call\n");
@@ -370,7 +373,7 @@ void sde_fence_signal(struct sde_fence_context *ctx, bool is_error)
 
 	list_for_each_entry_safe(fc, next, &local_list_head, fence_list) {
 		spin_lock_irqsave(&ctx->lock, flags);
-		is_signaled = fence_signal_locked(&fc->base);
+		is_signaled = fence_is_signaled_locked(&fc->base);
 		spin_unlock_irqrestore(&ctx->lock, flags);
 
 		if (is_signaled) {
@@ -381,6 +384,4 @@ void sde_fence_signal(struct sde_fence_context *ctx, bool is_error)
 			spin_unlock(&ctx->list_lock);
 		}
 	}
-
-	SDE_EVT32(ctx->drm_id, ctx->done_count);
 }
