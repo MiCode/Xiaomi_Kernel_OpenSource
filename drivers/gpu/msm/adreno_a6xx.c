@@ -224,9 +224,27 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 	adreno_dev->sp_pvt_gpuaddr = addr + SZ_64K;
 }
 
+static void _update_always_on_regs(struct adreno_device *adreno_dev)
+{
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	unsigned int *const regs = gpudev->reg_offsets->offsets;
+
+	regs[ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO] =
+		A6XX_CP_ALWAYS_ON_COUNTER_LO;
+	regs[ADRENO_REG_RBBM_ALWAYSON_COUNTER_HI] =
+		A6XX_CP_ALWAYS_ON_COUNTER_HI;
+}
+
 static void a6xx_init(struct adreno_device *adreno_dev)
 {
 	a6xx_crashdump_init(adreno_dev);
+
+	/*
+	 * If the GMU is not enabled, rewrite the offset for the always on
+	 * counters to point to the CP always on instead of GMU always on
+	 */
+	if (!kgsl_gmu_isenabled(KGSL_DEVICE(adreno_dev)))
+		_update_always_on_regs(adreno_dev);
 }
 
 /**
