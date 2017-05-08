@@ -1643,6 +1643,9 @@ static int dsi_panel_parse_misc_features(struct dsi_panel *panel,
 
 	panel->te_using_watchdog_timer = of_property_read_bool(of_node,
 					"qcom,mdss-dsi-te-using-wd");
+
+	panel->sync_broadcast_en = of_property_read_bool(of_node,
+			"qcom,cmd-sync-wait-broadcast");
 	return 0;
 }
 
@@ -2428,6 +2431,209 @@ static int dsi_panel_parse_dms_info(struct dsi_panel *panel,
 	return 0;
 };
 
+/*
+ * The length of all the valid values to be checked should not be greater
+ * than the length of returned data from read command.
+ */
+static bool
+dsi_panel_parse_esd_check_valid_params(struct dsi_panel *panel, u32 count)
+{
+	int i;
+	struct drm_panel_esd_config *config = &panel->esd_config;
+
+	for (i = 0; i < count; ++i) {
+		if (config->status_valid_params[i] >
+				config->status_cmds_rlen[i]) {
+			pr_debug("ignore valid params\n");
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static bool dsi_panel_parse_esd_status_len(struct device_node *np,
+	char *prop_key, u32 **target, u32 cmd_cnt)
+{
+	int tmp;
+
+	if (!of_find_property(np, prop_key, &tmp))
+		return false;
+
+	tmp /= sizeof(u32);
+	if (tmp != cmd_cnt) {
+		pr_err("request property(%d) do not match cmd count(%d)\n",
+				tmp, cmd_cnt);
+		return false;
+	}
+
+	*target = kcalloc(tmp, sizeof(u32), GFP_KERNEL);
+	if (IS_ERR_OR_NULL(*target)) {
+		pr_err("Error allocating memory for property\n");
+		return false;
+	}
+
+	if (of_property_read_u32_array(np, prop_key, *target, tmp)) {
+		pr_err("cannot get values from dts\n");
+		kfree(*target);
+		*target = NULL;
+		return false;
+	}
+
+	return true;
+}
+
+static void dsi_panel_esd_config_deinit(struct drm_panel_esd_config *esd_config)
+{
+	kfree(esd_config->return_buf);
+	kfree(esd_config->status_value);
+	kfree(esd_config->status_valid_params);
+	kfree(esd_config->status_cmds_rlen);
+	kfree(esd_config->status_cmd.cmds);
+}
+
+static int dsi_panel_parse_esd_config(struct dsi_panel *panel,
+				     struct device_node *of_node)
+{
+	int rc = 0;
+	u32 tmp;
+	u32 i, status_len, *lenp;
+	struct property *data;
+	const char *string;
+	struct drm_panel_esd_config *esd_config;
+
+	esd_config = &panel->esd_config;
+	esd_config->esd_enabled = of_property_read_bool(of_node,
+		"qcom,esd-check-enabled");
+
+	if (!esd_config->esd_enabled)
+		return 0;
+
+	rc = of_property_read_string(of_node,
+			"qcom,mdss-dsi-panel-status-check-mode", &string);
+	if (!rc) {
+		if (!strcmp(string, "bta_check")) {
+			esd_config->status_mode = ESD_MODE_SW_BTA;
+		} else if (!strcmp(string, "reg_read")) {
+			esd_config->status_mode = ESD_MODE_REG_READ;
+		} else if (!strcmp(string, "te_signal_check")) {
+			if (panel->panel_mode == DSI_OP_CMD_MODE) {
+				esd_config->status_mode = ESD_MODE_PANEL_TE;
+			} else {
+				pr_err("TE-ESD not valid for video mode\n");
+				rc = -EINVAL;
+				goto error;
+			}
+		} else {
+			pr_err("No valid panel-status-check-mode string\n");
+			rc = -EINVAL;
+			goto error;
+		}
+	} else {
+		pr_debug("status check method not defined!\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	if ((esd_config->status_mode == ESD_MODE_SW_BTA) ||
+		(esd_config->status_mode == ESD_MODE_PANEL_TE))
+		return 0;
+
+	dsi_panel_parse_cmd_sets_sub(&esd_config->status_cmd,
+				DSI_CMD_SET_PANEL_STATUS, of_node);
+	if (!esd_config->status_cmd.count) {
+		pr_err("panel status command parsing failed\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	if (!dsi_panel_parse_esd_status_len(of_node,
+		"qcom,mdss-dsi-panel-status-read-length",
+			&panel->esd_config.status_cmds_rlen,
+				esd_config->status_cmd.count)) {
+		pr_err("Invalid status read length\n");
+		rc = -EINVAL;
+		goto error1;
+	}
+
+	if (dsi_panel_parse_esd_status_len(of_node,
+		"qcom,mdss-dsi-panel-status-valid-params",
+			&panel->esd_config.status_valid_params,
+				esd_config->status_cmd.count)) {
+		if (!dsi_panel_parse_esd_check_valid_params(panel,
+					esd_config->status_cmd.count)) {
+			rc = -EINVAL;
+			goto error2;
+		}
+	}
+
+	status_len = 0;
+	lenp = esd_config->status_valid_params ?: esd_config->status_cmds_rlen;
+	for (i = 0; i < esd_config->status_cmd.count; ++i)
+		status_len += lenp[i];
+
+	if (!status_len) {
+		rc = -EINVAL;
+		goto error2;
+	}
+
+	/*
+	 * Some panel may need multiple read commands to properly
+	 * check panel status. Do a sanity check for proper status
+	 * value which will be compared with the value read by dsi
+	 * controller during ESD check. Also check if multiple read
+	 * commands are there then, there should be corresponding
+	 * status check values for each read command.
+	 */
+	data = of_find_property(of_node,
+			"qcom,mdss-dsi-panel-status-value", &tmp);
+	tmp /= sizeof(u32);
+	if (!IS_ERR_OR_NULL(data) && tmp != 0 && (tmp % status_len) == 0) {
+		esd_config->groups = tmp / status_len;
+	} else {
+		pr_err("error parse panel-status-value\n");
+		rc = -EINVAL;
+		goto error2;
+	}
+
+	esd_config->status_value =
+		kzalloc(sizeof(u32) * status_len * esd_config->groups,
+			GFP_KERNEL);
+	if (!esd_config->status_value) {
+		rc = -ENOMEM;
+		goto error2;
+	}
+
+	esd_config->return_buf = kcalloc(status_len * esd_config->groups,
+			sizeof(unsigned char), GFP_KERNEL);
+	if (!esd_config->return_buf) {
+		rc = -ENOMEM;
+		goto error3;
+	}
+
+	rc = of_property_read_u32_array(of_node,
+		"qcom,mdss-dsi-panel-status-value",
+		esd_config->status_value, esd_config->groups * status_len);
+	if (rc) {
+		pr_debug("error reading panel status values\n");
+		memset(esd_config->status_value, 0,
+				esd_config->groups * status_len);
+	}
+
+	return 0;
+
+error3:
+	kfree(esd_config->status_value);
+error2:
+	kfree(esd_config->status_valid_params);
+	kfree(esd_config->status_cmds_rlen);
+error1:
+	kfree(esd_config->status_cmd.cmds);
+error:
+	panel->esd_config.esd_enabled = false;
+	return rc;
+}
+
 struct dsi_panel *dsi_panel_get(struct device *parent,
 				struct device_node *of_node,
 				int topology_override)
@@ -2501,6 +2707,22 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	if (rc)
 		pr_debug("failed to get dms info, rc=%d\n", rc);
 
+	rc = dsi_panel_parse_esd_config(panel, of_node);
+	if (rc) {
+		pr_debug("failed to parse esd config, rc=%d\n", rc);
+	} else {
+		u8 *esd_mode = NULL;
+
+		if (panel->esd_config.status_mode == ESD_MODE_REG_READ)
+			esd_mode = "register_read";
+		else if (panel->esd_config.status_mode == ESD_MODE_SW_BTA)
+			esd_mode = "bta_trigger";
+		else if (panel->esd_config.status_mode ==  ESD_MODE_PANEL_TE)
+			esd_mode = "te_check";
+
+		pr_info("ESD enabled with mode: %s\n", esd_mode);
+	}
+
 	panel->panel_of_node = of_node;
 	drm_panel_init(&panel->drm_panel);
 	mutex_init(&panel->panel_lock);
@@ -2513,6 +2735,9 @@ error:
 
 void dsi_panel_put(struct dsi_panel *panel)
 {
+	/* free resources allocated for ESD check */
+	dsi_panel_esd_config_deinit(&panel->esd_config);
+
 	kfree(panel);
 }
 

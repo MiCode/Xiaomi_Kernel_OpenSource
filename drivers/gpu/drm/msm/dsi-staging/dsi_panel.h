@@ -115,6 +115,25 @@ struct dsi_panel_reset_config {
 	u32 mode_sel_state;
 };
 
+enum esd_check_status_mode {
+	ESD_MODE_REG_READ,
+	ESD_MODE_SW_BTA,
+	ESD_MODE_PANEL_TE,
+	ESD_MODE_MAX
+};
+
+struct drm_panel_esd_config {
+	bool esd_enabled;
+
+	enum esd_check_status_mode status_mode;
+	struct dsi_panel_cmd_set status_cmd;
+	u32 *status_cmds_rlen;
+	u32 *status_valid_params;
+	u32 *status_value;
+	unsigned char *return_buf;
+	u32 groups;
+};
+
 struct dsi_panel {
 	const char *name;
 	struct device_node *panel_of_node;
@@ -143,6 +162,7 @@ struct dsi_panel {
 	struct dsi_panel_reset_config reset_config;
 	struct dsi_pinctrl_info pinctrl;
 	struct drm_panel_hdr_properties hdr_props;
+	struct drm_panel_esd_config esd_config;
 
 	bool lp11_init;
 	bool ulps_enabled;
@@ -153,6 +173,8 @@ struct dsi_panel {
 
 	char dsc_pps_cmd[DSI_CMD_PPS_SIZE];
 	enum dsi_dms_mode dms_mode;
+
+	bool sync_broadcast_en;
 };
 
 static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)
