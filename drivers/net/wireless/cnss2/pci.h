@@ -14,6 +14,7 @@
 #define _CNSS_PCI_H
 
 #include <asm/dma-iommu.h>
+#include <linux/iommu.h>
 #include <linux/msm_mhi.h>
 #include <linux/msm_pcie.h>
 #include <linux/pci.h>
