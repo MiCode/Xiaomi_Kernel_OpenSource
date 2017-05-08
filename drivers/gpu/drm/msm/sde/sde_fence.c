@@ -139,10 +139,9 @@ static void sde_fence_release(struct fence *fence)
 	struct sde_fence *f = to_sde_fence(fence);
 	struct sde_fence *fc, *next;
 	struct sde_fence_context *ctx = f->ctx;
-	unsigned long flags;
 	bool release_kref = false;
 
-	spin_lock_irqsave(&ctx->lock, flags);
+	spin_lock(&ctx->list_lock);
 	list_for_each_entry_safe(fc, next, &ctx->fence_list_head,
 				 fence_list) {
 		/* fence release called before signal */
@@ -152,7 +151,7 @@ static void sde_fence_release(struct fence *fence)
 			break;
 		}
 	}
-	spin_unlock_irqrestore(&ctx->lock, flags);
+	spin_unlock(&ctx->list_lock);
 
 	/* keep kput outside spin_lock because it may release ctx */
 	if (release_kref)
@@ -198,7 +197,6 @@ static int _sde_fence_create_fd(void *fence_ctx, uint32_t val)
 	struct sync_file *sync_file;
 	signed int fd = -EINVAL;
 	struct sde_fence_context *ctx = fence_ctx;
-	unsigned long flags;
 
 	if (!ctx) {
 		SDE_ERROR("invalid context\n");
@@ -234,12 +232,12 @@ static int _sde_fence_create_fd(void *fence_ctx, uint32_t val)
 
 	fd_install(fd, sync_file->file);
 
-	spin_lock_irqsave(&ctx->lock, flags);
+	spin_lock(&ctx->list_lock);
 	sde_fence->ctx = fence_ctx;
 	sde_fence->fd = fd;
 	list_add_tail(&sde_fence->fence_list, &ctx->fence_list_head);
 	kref_get(&ctx->kref);
-	spin_unlock_irqrestore(&ctx->lock, flags);
+	spin_unlock(&ctx->list_lock);
 exit:
 	return fd;
 }
@@ -260,6 +258,7 @@ int sde_fence_init(struct sde_fence_context *ctx,
 	ctx->context = fence_context_alloc(1);
 
 	spin_lock_init(&ctx->lock);
+	spin_lock_init(&ctx->list_lock);
 	INIT_LIST_HEAD(&ctx->fence_list_head);
 
 	return 0;
@@ -333,7 +332,8 @@ void sde_fence_signal(struct sde_fence_context *ctx, bool is_error)
 {
 	unsigned long flags;
 	struct sde_fence *fc, *next;
-	uint32_t count = 0;
+	bool is_signaled = false;
+	struct list_head local_list_head;
 
 	if (!ctx) {
 		SDE_ERROR("invalid ctx, %pK\n", ctx);
@@ -342,37 +342,45 @@ void sde_fence_signal(struct sde_fence_context *ctx, bool is_error)
 		return;
 	}
 
+	INIT_LIST_HEAD(&local_list_head);
+
 	spin_lock_irqsave(&ctx->lock, flags);
 	if ((int)(ctx->done_count - ctx->commit_count) < 0) {
 		++ctx->done_count;
+		SDE_DEBUG("fence_signal:done count:%d commit count:%d\n",
+					ctx->commit_count, ctx->done_count);
 	} else {
 		SDE_ERROR("extra signal attempt! done count:%d commit:%d\n",
 					ctx->done_count, ctx->commit_count);
-		goto end;
+		spin_unlock_irqrestore(&ctx->lock, flags);
+		return;
 	}
+	spin_unlock_irqrestore(&ctx->lock, flags);
 
+	spin_lock(&ctx->list_lock);
 	if (list_empty(&ctx->fence_list_head)) {
 		SDE_DEBUG("nothing to trigger!-no get_prop call\n");
-		goto end;
+		spin_unlock(&ctx->list_lock);
+		return;
 	}
 
-	SDE_DEBUG("fence_signal:done count:%d commit count:%d\n",
-					ctx->commit_count, ctx->done_count);
+	list_for_each_entry_safe(fc, next, &ctx->fence_list_head, fence_list)
+		list_move(&fc->fence_list, &local_list_head);
+	spin_unlock(&ctx->list_lock);
 
-	list_for_each_entry_safe(fc, next, &ctx->fence_list_head,
-				 fence_list) {
-		if (fence_is_signaled_locked(&fc->base)) {
-			list_del_init(&fc->fence_list);
-			count++;
+	list_for_each_entry_safe(fc, next, &local_list_head, fence_list) {
+		spin_lock_irqsave(&ctx->lock, flags);
+		is_signaled = fence_signal_locked(&fc->base);
+		spin_unlock_irqrestore(&ctx->lock, flags);
+
+		if (is_signaled) {
+			kref_put(&ctx->kref, sde_fence_destroy);
+		} else {
+			spin_lock(&ctx->list_lock);
+			list_move(&fc->fence_list, &ctx->fence_list_head);
+			spin_unlock(&ctx->list_lock);
 		}
 	}
 
 	SDE_EVT32(ctx->drm_id, ctx->done_count);
-
-end:
-	spin_unlock_irqrestore(&ctx->lock, flags);
-
-	/* keep this outside spin_lock because same ctx may be released */
-	for (; count > 0; count--)
-		kref_put(&ctx->kref, sde_fence_destroy);
 }
