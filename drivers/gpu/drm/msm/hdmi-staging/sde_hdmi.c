@@ -401,12 +401,111 @@ static const struct file_operations edid_vendor_name_fops = {
 	.read = _sde_hdmi_edid_vendor_name_read,
 };
 
+static u64 _sde_hdmi_clip_valid_pclk(struct drm_display_mode *mode, u64 pclk_in)
+{
+	u32 pclk_delta, pclk;
+	u64 pclk_clip = pclk_in;
+
+	/* as per standard, 0.5% of deviation is allowed */
+	pclk = mode->clock * HDMI_KHZ_TO_HZ;
+	pclk_delta = pclk * 5 / 1000;
+
+	if (pclk_in < (pclk - pclk_delta))
+		pclk_clip = pclk - pclk_delta;
+	else if (pclk_in > (pclk + pclk_delta))
+		pclk_clip = pclk + pclk_delta;
+
+	if (pclk_in != pclk_clip)
+		pr_warn("clip pclk from %lld to %lld\n", pclk_in, pclk_clip);
+
+	return pclk_clip;
+}
+
+/**
+ * _sde_hdmi_update_pll_delta() - Update the HDMI pixel clock as per input ppm
+ *
+ * @ppm: ppm is parts per million multiplied by 1000.
+ * return: 0 on success, non-zero in case of failure.
+ *
+ * The input ppm will be clipped if it's more than or less than 5% of the TMDS
+ * clock rate defined by HDMI spec.
+ */
+static int _sde_hdmi_update_pll_delta(struct sde_hdmi *display, s32 ppm)
+{
+	struct hdmi *hdmi = display->ctrl.ctrl;
+	struct drm_display_mode *current_mode = &display->mode;
+	u64 cur_pclk, dst_pclk;
+	u64 clip_pclk;
+	int rc = 0;
+
+	if (!hdmi->power_on || !display->connected) {
+		SDE_ERROR("HDMI display is not ready\n");
+		return -EINVAL;
+	}
+
+	/* get current pclk */
+	cur_pclk = hdmi->pixclock;
+	/* get desired pclk */
+	dst_pclk = cur_pclk * (1000000000 + ppm);
+	do_div(dst_pclk, 1000000000);
+
+	clip_pclk = _sde_hdmi_clip_valid_pclk(current_mode, dst_pclk);
+
+	/* update pclk */
+	if (clip_pclk != cur_pclk) {
+		SDE_DEBUG("PCLK changes from %llu to %llu when delta is %d\n",
+				cur_pclk, clip_pclk, ppm);
+
+		rc = clk_set_rate(hdmi->pwr_clks[0], clip_pclk);
+		if (rc < 0) {
+			SDE_ERROR("PLL update failed, reset clock rate\n");
+			return rc;
+		}
+
+		hdmi->pixclock = clip_pclk;
+	}
+
+	return rc;
+}
+
+static ssize_t _sde_hdmi_debugfs_pll_delta_write(struct file *file,
+		    const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	struct sde_hdmi *display = file->private_data;
+	char buf[10];
+	int ppm = 0;
+
+	if (!display)
+		return -ENODEV;
+
+	if (count >= sizeof(buf))
+		return -EFAULT;
+
+	if (copy_from_user(buf, user_buf, count))
+		return -EFAULT;
+
+	buf[count] = 0;	/* end of string */
+
+	if (kstrtoint(buf, 0, &ppm))
+		return -EFAULT;
+
+	if (ppm)
+		_sde_hdmi_update_pll_delta(display, ppm);
+
+	return count;
+}
+
+static const struct file_operations pll_delta_fops = {
+	.open = simple_open,
+	.write = _sde_hdmi_debugfs_pll_delta_write,
+};
+
 static int _sde_hdmi_debugfs_init(struct sde_hdmi *display)
 {
 	int rc = 0;
 	struct dentry *dir, *dump_file, *edid_modes;
 	struct dentry *edid_vsdb_info, *edid_hdr_info, *edid_hfvsdb_info;
-	struct dentry *edid_vcdb_info, *edid_vendor_name;
+	struct dentry *edid_vcdb_info, *edid_vendor_name, *pll_file;
 
 	dir = debugfs_create_dir(display->name, NULL);
 	if (!dir) {
@@ -423,7 +522,19 @@ static int _sde_hdmi_debugfs_init(struct sde_hdmi *display)
 					&dump_info_fops);
 	if (IS_ERR_OR_NULL(dump_file)) {
 		rc = PTR_ERR(dump_file);
-		SDE_ERROR("[%s]debugfs create file failed, rc=%d\n",
+		SDE_ERROR("[%s]debugfs create dump_info file failed, rc=%d\n",
+		       display->name, rc);
+		goto error_remove_dir;
+	}
+
+	pll_file = debugfs_create_file("pll_delta",
+					0644,
+					dir,
+					display,
+					&pll_delta_fops);
+	if (IS_ERR_OR_NULL(pll_file)) {
+		rc = PTR_ERR(pll_file);
+		SDE_ERROR("[%s]debugfs create pll_delta file failed, rc=%d\n",
 		       display->name, rc);
 		goto error_remove_dir;
 	}
@@ -1321,6 +1432,28 @@ int sde_hdmi_get_info(struct msm_display_info *info,
 	info->compression = MSM_DISPLAY_COMPRESS_NONE;
 
 	mutex_unlock(&hdmi_display->display_lock);
+	return rc;
+}
+
+int sde_hdmi_set_property(struct drm_connector *connector,
+			struct drm_connector_state *state,
+			int property_index,
+			uint64_t value,
+			void *display)
+{
+	int rc = 0;
+
+	if (!connector || !display) {
+		SDE_ERROR("connector=%pK or display=%pK is NULL\n",
+			connector, display);
+		return 0;
+	}
+
+	SDE_DEBUG("\n");
+
+	if (property_index == CONNECTOR_PROP_PLL_DELTA)
+		rc = _sde_hdmi_update_pll_delta(display, value);
+
 	return rc;
 }
 

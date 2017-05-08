@@ -22,10 +22,6 @@
 #include "msm_mmu.h"
 #include "mdp5_kms.h"
 
-static const char *iommu_ports[] = {
-		"mdp_0",
-};
-
 static int mdp5_hw_init(struct msm_kms *kms)
 {
 	struct mdp5_kms *mdp5_kms = to_mdp5_kms(to_mdp_kms(kms));
@@ -613,8 +609,7 @@ struct msm_kms *mdp5_kms_init(struct drm_device *dev)
 
 		mdp5_kms->aspace = aspace;
 
-		ret = aspace->mmu->funcs->attach(aspace->mmu, iommu_ports,
-				ARRAY_SIZE(iommu_ports));
+		ret = aspace->mmu->funcs->attach(aspace->mmu, NULL, 0);
 		if (ret) {
 			dev_err(&pdev->dev, "failed to attach iommu: %d\n",
 				ret);

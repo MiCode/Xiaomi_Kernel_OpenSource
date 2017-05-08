@@ -17,6 +17,7 @@
 
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
+#include <soc/qcom/secure_buffer.h>
 #include "msm_drv.h"
 #include "msm_iommu.h"
 
@@ -27,31 +28,17 @@ static int msm_fault_handler(struct iommu_domain *iommu, struct device *dev,
 	return 0;
 }
 
-/*
- * Get and enable the IOMMU clocks so that we can make
- * sure they stay on the entire duration so that we can
- * safely change the pagetable from the GPU
- */
-static void _get_iommu_clocks(struct msm_mmu *mmu, struct platform_device *pdev)
+static void iommu_get_clocks(struct msm_iommu *iommu, struct device *dev)
 {
-	struct msm_iommu *iommu = to_msm_iommu(mmu);
-	struct device *dev;
 	struct property *prop;
 	const char *name;
 	int i = 0;
 
-	if (WARN_ON(!pdev))
-		return;
-
-	dev = &pdev->dev;
-
 	iommu->nr_clocks =
 		of_property_count_strings(dev->of_node, "clock-names");
 
-	if (iommu->nr_clocks < 0) {
-		iommu->nr_clocks = 0;
+	if (iommu->nr_clocks < 0)
 		return;
-	}
 
 	if (WARN_ON(iommu->nr_clocks > ARRAY_SIZE(iommu->clocks)))
 		iommu->nr_clocks = ARRAY_SIZE(iommu->clocks);
@@ -60,78 +47,58 @@ static void _get_iommu_clocks(struct msm_mmu *mmu, struct platform_device *pdev)
 		if (i == iommu->nr_clocks)
 			break;
 
-		iommu->clocks[i] =  clk_get(dev, name);
-		if (iommu->clocks[i])
-			clk_prepare_enable(iommu->clocks[i]);
-
-		i++;
+		iommu->clocks[i++] =  clk_get(dev, name);
 	}
 }
 
-static int _attach_iommu_device(struct msm_mmu *mmu,
-		struct iommu_domain *domain, const char **names, int cnt)
-{
-	int i;
 
-	/* See if there is a iommus member in the current device.  If not, look
-	 * for the names and see if there is one in there.
-	 */
-
-	if (of_find_property(mmu->dev->of_node, "iommus", NULL))
-		return iommu_attach_device(domain, mmu->dev);
-
-	/* Look through the list of names for a target */
-	for (i = 0; i < cnt; i++) {
-		struct device_node *node =
-			of_find_node_by_name(mmu->dev->of_node, names[i]);
-
-		if (!node)
-			continue;
-
-		if (of_find_property(node, "iommus", NULL)) {
-			struct platform_device *pdev;
-
-			/* Get the platform device for the node */
-			of_platform_populate(node->parent, NULL, NULL,
-				mmu->dev);
-
-			pdev = of_find_device_by_node(node);
-
-			if (!pdev)
-				continue;
-
-			_get_iommu_clocks(mmu,
-				of_find_device_by_node(node->parent));
-
-			mmu->dev = &pdev->dev;
-
-			return iommu_attach_device(domain, mmu->dev);
-		}
-	}
-
-	dev_err(mmu->dev, "Couldn't find a IOMMU device\n");
-	return -ENODEV;
-}
-
-static int msm_iommu_attach(struct msm_mmu *mmu, const char **names, int cnt)
+static void msm_iommu_clocks_enable(struct msm_mmu *mmu)
 {
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
-	int val = 1, ret;
+	int i;
+
+	if (!iommu->nr_clocks)
+		iommu_get_clocks(iommu, mmu->dev->parent);
+
+	for (i = 0; i < iommu->nr_clocks; i++) {
+		if (iommu->clocks[i])
+			clk_prepare_enable(iommu->clocks[i]);
+	}
+}
+
+static void msm_iommu_clocks_disable(struct msm_mmu *mmu)
+{
+	struct msm_iommu *iommu = to_msm_iommu(mmu);
+	int i;
+
+	for (i = 0; i < iommu->nr_clocks; i++) {
+		if (iommu->clocks[i])
+			clk_disable_unprepare(iommu->clocks[i]);
+	}
+}
+
+static int msm_iommu_attach(struct msm_mmu *mmu, const char **names,
+		int cnt)
+{
+	struct msm_iommu *iommu = to_msm_iommu(mmu);
+
+	return iommu_attach_device(iommu->domain, mmu->dev);
+}
+
+static int msm_iommu_attach_user(struct msm_mmu *mmu, const char **names,
+		int cnt)
+{
+	struct msm_iommu *iommu = to_msm_iommu(mmu);
+	int ret, val = 1;
 
 	/* Hope springs eternal */
-	iommu->allow_dynamic = true;
-
-	/* per-instance pagetables need TTBR1 support in the IOMMU driver */
-	ret = iommu_domain_set_attr(iommu->domain,
-		DOMAIN_ATTR_ENABLE_TTBR1, &val);
-	if (ret)
-		iommu->allow_dynamic = false;
+	iommu->allow_dynamic = !iommu_domain_set_attr(iommu->domain,
+		DOMAIN_ATTR_ENABLE_TTBR1, &val) ? true : false;
 
 	/* Mark the GPU as I/O coherent if it is supported */
 	iommu->is_coherent = of_dma_is_coherent(mmu->dev->of_node);
 
-	/* Attach the device to the domain */
-	ret = _attach_iommu_device(mmu, iommu->domain, names, cnt);
+	ret = iommu_attach_device(iommu->domain, mmu->dev);
 	if (ret)
 		return ret;
 
@@ -176,17 +143,25 @@ static int msm_iommu_attach_dynamic(struct msm_mmu *mmu, const char **names,
 	return 0;
 }
 
+static int msm_iommu_attach_secure(struct msm_mmu *mmu, const char **names,
+		int cnt)
+{
+	struct msm_iommu *iommu = to_msm_iommu(mmu);
+	int ret, vmid = VMID_CP_PIXEL;
+
+	ret = iommu_domain_set_attr(iommu->domain, DOMAIN_ATTR_SECURE_VMID,
+		&vmid);
+	if (ret)
+		return ret;
+
+	return iommu_attach_device(iommu->domain, mmu->dev);
+}
+
 static void msm_iommu_detach(struct msm_mmu *mmu)
 {
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
-	int i;
 
 	iommu_detach_device(iommu->domain, mmu->dev);
-
-	for (i = 0; i < iommu->nr_clocks; i++) {
-		if (iommu->clocks[i])
-			clk_disable(iommu->clocks[i]);
-	}
 }
 
 static void msm_iommu_detach_dynamic(struct msm_mmu *mmu)
@@ -196,69 +171,50 @@ static void msm_iommu_detach_dynamic(struct msm_mmu *mmu)
 }
 
 static int msm_iommu_map(struct msm_mmu *mmu, uint64_t iova,
-		struct sg_table *sgt, int prot)
+		struct sg_table *sgt, u32 flags, void *priv)
 {
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
 	struct iommu_domain *domain = iommu->domain;
-	struct scatterlist *sg;
-	uint64_t da = iova;
-	unsigned int i, j;
 	int ret;
+	u32 prot = IOMMU_READ;
 
 	if (!domain || !sgt)
 		return -EINVAL;
 
-	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
-		phys_addr_t pa = sg_phys(sg) - sg->offset;
-		size_t bytes = sg->length + sg->offset;
+	if (!(flags & MSM_BO_GPU_READONLY))
+		prot |= IOMMU_WRITE;
 
-		VERB("map[%d]: %016llx %pa(%zx)", i, iova, &pa, bytes);
+	if (flags & MSM_BO_PRIVILEGED)
+		prot |= IOMMU_PRIV;
 
-		ret = iommu_map(domain, da, pa, bytes, prot);
-		if (ret)
-			goto fail;
+	if ((flags & MSM_BO_CACHED) && msm_iommu_coherent(mmu))
+		prot |= IOMMU_CACHE;
 
-		da += bytes;
-	}
+	/* iommu_map_sg returns the number of bytes mapped */
+	ret =  iommu_map_sg(domain, iova, sgt->sgl, sgt->nents, prot);
+	if (ret)
+		sgt->sgl->dma_address = iova;
 
-	return 0;
-
-fail:
-	da = iova;
-
-	for_each_sg(sgt->sgl, sg, i, j) {
-		size_t bytes = sg->length + sg->offset;
-		iommu_unmap(domain, da, bytes);
-		da += bytes;
-	}
-	return ret;
+	return ret ? 0 : -ENOMEM;
 }
 
-static int msm_iommu_unmap(struct msm_mmu *mmu, uint64_t iova,
-		struct sg_table *sgt)
+static void msm_iommu_unmap(struct msm_mmu *mmu, uint64_t iova,
+		struct sg_table *sgt, void *priv)
 {
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
 	struct iommu_domain *domain = iommu->domain;
 	struct scatterlist *sg;
-	uint64_t da = iova;
-	int i;
+	size_t len = 0;
+	int ret, i;
 
-	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
-		size_t bytes = sg->length + sg->offset;
-		size_t unmapped;
+	for_each_sg(sgt->sgl, sg, sgt->nents, i)
+		len += sg->length;
 
-		unmapped = iommu_unmap(domain, da, bytes);
-		if (unmapped < bytes)
-			return unmapped;
+	ret = iommu_unmap(domain, iova, len);
+	if (ret != len)
+		dev_warn(mmu->dev, "could not unmap iova %llx\n", iova);
 
-		VERB("unmap[%d]: %016llx(%zx)", i, iova, bytes);
-
-		BUG_ON(!PAGE_ALIGNED(bytes));
-
-		da += bytes;
-	}
-
-	return 0;
+	sgt->sgl->dma_address = 0;
 }
 
 static void msm_iommu_destroy(struct msm_mmu *mmu)
@@ -268,8 +224,49 @@ static void msm_iommu_destroy(struct msm_mmu *mmu)
 	kfree(iommu);
 }
 
-static const struct msm_mmu_funcs funcs = {
+static struct device *find_context_bank(const char *name)
+{
+	struct device_node *node = of_find_node_by_name(NULL, name);
+	struct platform_device *pdev, *parent;
+
+	if (!node)
+		return ERR_PTR(-ENODEV);
+
+	if (!of_find_property(node, "iommus", NULL))
+		return ERR_PTR(-ENODEV);
+
+	/* Get the parent device */
+	parent = of_find_device_by_node(node->parent);
+
+	/* Populate the sub nodes */
+	of_platform_populate(parent->dev.of_node, NULL, NULL, &parent->dev);
+
+	/* Get the context bank device */
+	pdev = of_find_device_by_node(node);
+
+	return pdev ? &pdev->dev : ERR_PTR(-ENODEV);
+}
+
+static const struct msm_mmu_funcs default_funcs = {
 		.attach = msm_iommu_attach,
+		.detach = msm_iommu_detach,
+		.map = msm_iommu_map,
+		.unmap = msm_iommu_unmap,
+		.destroy = msm_iommu_destroy,
+};
+
+static const struct msm_mmu_funcs user_funcs = {
+		.attach = msm_iommu_attach_user,
+		.detach = msm_iommu_detach,
+		.map = msm_iommu_map,
+		.unmap = msm_iommu_unmap,
+		.destroy = msm_iommu_destroy,
+		.enable = msm_iommu_clocks_enable,
+		.disable = msm_iommu_clocks_disable,
+};
+
+static const struct msm_mmu_funcs secure_funcs = {
+		.attach = msm_iommu_attach_secure,
 		.detach = msm_iommu_detach,
 		.map = msm_iommu_map,
 		.unmap = msm_iommu_unmap,
@@ -284,8 +281,26 @@ static const struct msm_mmu_funcs dynamic_funcs = {
 		.destroy = msm_iommu_destroy,
 };
 
-struct msm_mmu *_msm_iommu_new(struct device *dev, struct iommu_domain *domain,
-		const struct msm_mmu_funcs *funcs)
+static const struct {
+	const char *cbname;
+	const struct msm_mmu_funcs *funcs;
+} msm_iommu_domains[] = {
+	[MSM_IOMMU_DOMAIN_DEFAULT] = {
+		.cbname = NULL,
+		.funcs = &default_funcs,
+	},
+	[MSM_IOMMU_DOMAIN_USER] = {
+		.cbname = "gfx3d_user",
+		.funcs = &user_funcs,
+	},
+	[MSM_IOMMU_DOMAIN_SECURE] = {
+		.cbname = "gfx3d_secure",
+		.funcs = &secure_funcs
+	},
+};
+
+static struct msm_mmu *iommu_create(struct device *dev,
+		struct iommu_domain *domain, const struct msm_mmu_funcs *funcs)
 {
 	struct msm_iommu *iommu;
 
@@ -299,9 +314,23 @@ struct msm_mmu *_msm_iommu_new(struct device *dev, struct iommu_domain *domain,
 
 	return &iommu->base;
 }
-struct msm_mmu *msm_iommu_new(struct device *dev, struct iommu_domain *domain)
+
+struct msm_mmu *msm_iommu_new(struct device *parent,
+		enum msm_iommu_domain_type type, struct iommu_domain *domain)
 {
-	return _msm_iommu_new(dev, domain, &funcs);
+	struct device *dev = parent;
+
+	if (type >= ARRAY_SIZE(msm_iommu_domains) ||
+		!msm_iommu_domains[type].funcs)
+		return ERR_PTR(-ENODEV);
+
+	if (msm_iommu_domains[type].cbname) {
+		dev = find_context_bank(msm_iommu_domains[type].cbname);
+		if (IS_ERR(dev))
+			return ERR_CAST(dev);
+	}
+
+	return iommu_create(dev, domain, msm_iommu_domains[type].funcs);
 }
 
 /*
@@ -326,7 +355,7 @@ struct msm_mmu *msm_iommu_new_dynamic(struct msm_mmu *base)
 	if (!domain)
 		return ERR_PTR(-ENODEV);
 
-	mmu = _msm_iommu_new(base->dev, domain, &dynamic_funcs);
+	mmu = iommu_create(base->dev, domain, &dynamic_funcs);
 
 	if (IS_ERR(mmu)) {
 		if (domain)

@@ -81,6 +81,14 @@ extern void fpsimd_save_partial_state(struct fpsimd_partial_state *state,
 				      u32 num_regs);
 extern void fpsimd_load_partial_state(struct fpsimd_partial_state *state);
 
+#ifdef CONFIG_ENABLE_FP_SIMD_SETTINGS
+extern void fpsimd_disable_trap(void);
+extern void fpsimd_enable_trap(void);
+#else
+static inline void fpsimd_disable_trap(void) {}
+static inline void fpsimd_enable_trap(void) {}
+#endif
+
 #endif
 
 #endif

@@ -183,6 +183,9 @@ int msm_gpu_pm_resume(struct msm_gpu *gpu)
 	if (ret)
 		return ret;
 
+	if (gpu->aspace && gpu->aspace->mmu)
+		msm_mmu_enable(gpu->aspace->mmu);
+
 	return 0;
 }
 
@@ -202,6 +205,9 @@ int msm_gpu_pm_suspend(struct msm_gpu *gpu)
 
 	if (WARN_ON(gpu->active_cnt < 0))
 		return -EINVAL;
+
+	if (gpu->aspace && gpu->aspace->mmu)
+		msm_mmu_disable(gpu->aspace->mmu);
 
 	ret = disable_axi(gpu);
 	if (ret)
@@ -837,7 +843,7 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 
 		dev_info(drm->dev, "%s: using IOMMU\n", name);
 		gpu->aspace = msm_gem_address_space_create(&pdev->dev,
-				iommu, "gpu");
+				iommu, MSM_IOMMU_DOMAIN_USER, "gpu");
 		if (IS_ERR(gpu->aspace)) {
 			ret = PTR_ERR(gpu->aspace);
 			dev_err(drm->dev, "failed to init iommu: %d\n", ret);

@@ -1163,7 +1163,7 @@ static const u32 a5xx_registers[] = {
 	0xe9c0, 0xe9c7, 0xe9d0, 0xe9d1, 0xea00, 0xea01, 0xea10, 0xea1c,
 	0xea40, 0xea68, 0xea80, 0xea80, 0xea82, 0xeaa3, 0xeaa5, 0xeac2,
 	0xeb80, 0xeb8f, 0xebb0, 0xebb0, 0xec00, 0xec05, 0xec08, 0xece9,
-	0xecf0, 0xecf0, 0xf400, 0xf400, 0xf800, 0xf807,
+	0xecf0, 0xecf0, 0xf800, 0xf807,
 	~0
 };
 
@@ -1368,6 +1368,7 @@ struct msm_gpu *a5xx_gpu_init(struct drm_device *dev)
 	struct a5xx_gpu *a5xx_gpu = NULL;
 	struct adreno_gpu *adreno_gpu;
 	struct msm_gpu *gpu;
+	struct msm_gpu_config a5xx_config = { 0 };
 	int ret;
 
 	if (!pdev) {
@@ -1391,7 +1392,20 @@ struct msm_gpu *a5xx_gpu_init(struct drm_device *dev)
 	/* Check the efuses for some configuration */
 	a5xx_efuses_read(pdev, adreno_gpu);
 
-	ret = adreno_gpu_init(dev, pdev, adreno_gpu, &funcs, 4);
+	a5xx_config.ioname = MSM_GPU_DEFAULT_IONAME;
+	a5xx_config.irqname = MSM_GPU_DEFAULT_IRQNAME;
+
+	/* Set the number of rings to 4 - yay preemption */
+	a5xx_config.nr_rings = 4;
+
+	/*
+	 * Set the user domain range to fall into the TTBR1 region for global
+	 * objects
+	 */
+	a5xx_config.va_start = 0x800000000;
+	a5xx_config.va_end = 0x8ffffffff;
+
+	ret = adreno_gpu_init(dev, pdev, adreno_gpu, &funcs, &a5xx_config);
 	if (ret) {
 		a5xx_destroy(&(a5xx_gpu->base.base));
 		return ERR_PTR(ret);

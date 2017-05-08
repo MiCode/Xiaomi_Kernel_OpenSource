@@ -10,21 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#include "dsi-panel-toshiba-720p-video.dtsi"
-#include "dsi-panel-sharp-dualmipi-wqxga-video.dtsi"
-#include "dsi-panel-nt35597-dualmipi-wqxga-video.dtsi"
-#include "dsi-panel-nt35597-dualmipi-wqxga-cmd.dtsi"
-#include "dsi-panel-nt35597-dsc-wqxga-video.dtsi"
-#include "dsi-panel-jdi-dualmipi-video.dtsi"
-#include "dsi-panel-jdi-dualmipi-cmd.dtsi"
-#include "dsi-panel-jdi-4k-dualmipi-video-nofbc.dtsi"
-#include "dsi-panel-sim-video.dtsi"
-#include "dsi-panel-sim-dualmipi-video.dtsi"
-#include "dsi-panel-sim-cmd.dtsi"
-#include "dsi-panel-sim-dualmipi-cmd.dtsi"
-#include "dsi-panel-nt35597-dsc-wqxga-cmd.dtsi"
-#include "dsi-panel-hx8379a-truly-fwvga-video.dtsi"
-#include "dsi-panel-r69007-dualdsi-wqxga-cmd.dtsi"
+#include "msm8996-mdss-panels.dtsi"
 #include "dsi-panel-jdi-1080p-video.dtsi"
 #include "dsi-panel-sharp-1080p-cmd.dtsi"
 
@@ -122,9 +108,9 @@
 
 		qcom,dsi-panel = <&dsi_dual_sharp_video>;
 		vddio-supply = <&pm8994_l14>;
-		lab-supply = <&lab_regulator>;
-		ibb-supply = <&ibb_regulator>;
-		qcom,dsi-display-active;
+		/delete-property/ lab-supply;
+		/delete-property/ ibb-supply;
+		/delete-property/ qcom,dsi-display-active;
 	};
 
 	single_dsi_sim_vid: qcom,dsi-display@1 {
@@ -145,8 +131,8 @@
 
 		qcom,dsi-panel = <&dsi_sim_vid>;
 		vddio-supply = <&pm8994_l14>;
-		lab-supply = <&lab_regulator>;
-		ibb-supply = <&ibb_regulator>;
+		/delete-property/ lab-supply;
+		/delete-property/ ibb-supply;
 	};
 
 	dsi_toshiba_720p_vid: qcom,dsi-display@2 {
@@ -207,8 +193,8 @@
 		qcom,dsi-panel = <&dsi_sharp_1080_cmd>;
 		vddio-supply = <&pm8994_l14>;
 		vdd-supply = <&pm8994_l19>;
-		lab-supply = <&lab_regulator>;
-		ibb-supply = <&ibb_regulator>;
+		/delete-property/ lab-supply;
+		/delete-property/ ibb-supply;
 	};
 
 	sde_wb: qcom,wb-display@0 {
@@ -236,8 +222,8 @@
 
 		qcom,dsi-panel = <&dsi_dual_nt35597_cmd>;
 		vddio-supply = <&pm8994_l14>;
-		lab-supply = <&lab_regulator>;
-		ibb-supply = <&ibb_regulator>;
+		/delete-property/ lab-supply;
+		/delete-property/ ibb-supply;
 	};
 
 	dsi_dual_nt35597_video_1: qcom,dsi-display@6 {
@@ -258,14 +244,61 @@
 
 		qcom,dsi-panel = <&dsi_dual_nt35597_video>;
 		vddio-supply = <&pm8994_l14>;
-		lab-supply = <&lab_regulator>;
-		ibb-supply = <&ibb_regulator>;
+		/delete-property/ lab-supply;
+		/delete-property/ ibb-supply;
+	};
+
+	dsi_adv_7533_1: qcom,dsi-display@7 {
+		compatible = "qcom,dsi-display";
+		label = "dsi_adv_7533_1";
+		qcom,display-type = "secondary";
+
+		qcom,dsi-ctrl = <&mdss_dsi0>;
+		qcom,dsi-phy = <&mdss_dsi_phy0>;
+		clocks = <&clock_mmss clk_ext_byte0_clk_src>,
+			<&clock_mmss clk_ext_pclk0_clk_src>;
+		clock-names = "src_byte_clk", "src_pixel_clk";
+
+		qcom,dsi-panel = <&dsi_adv7533_720p>;
+		vddio-supply = <&pm8994_l14>;
+		qcom,bridge-index = <0>;
+	};
+
+	dsi_adv_7533_2: qcom,dsi-display@8 {
+		compatible = "qcom,dsi-display";
+		label = "dsi_adv_7533_2";
+		qcom,display-type = "tertiary";
+
+		qcom,dsi-ctrl = <&mdss_dsi1>;
+		qcom,dsi-phy = <&mdss_dsi_phy1>;
+		clocks = <&clock_mmss clk_ext_byte1_clk_src>,
+			<&clock_mmss clk_ext_pclk1_clk_src>;
+		clock-names = "src_byte_clk", "src_pixel_clk";
+
+		qcom,dsi-panel = <&dsi_adv7533_720p>;
+		vddio-supply = <&pm8994_l14>;
+		qcom,bridge-index = <1>;
+	};
+
+	msm_ext_disp: qcom,msm_ext_disp {
+		compatible = "qcom,msm-ext-disp";
+
+		ext_disp_audio_codec: qcom,msm-ext-disp-audio-codec-rx {
+			compatible = "qcom,msm-ext-disp-audio-codec-rx";
+			qcom,msm_ext_disp = <&msm_ext_disp>;
+		};
+	};
+
+	sde_hdmi: qcom,hdmi-display {
+		compatible = "qcom,hdmi-display";
+		label = "sde_hdmi";
+		qcom,display-type = "primary";
+		qcom,msm_ext_disp = <&msm_ext_disp>;
 	};
 };
 
 &mdss_mdp {
-	connectors = <&dsi_dual_sharp_video_1
-		&sde_wb>;
+	connectors = <&mdss_hdmi &sde_hdmi &dsi_adv_7533_1 &dsi_adv_7533_2>;
 };
 
 &dsi_dual_sharp_video {

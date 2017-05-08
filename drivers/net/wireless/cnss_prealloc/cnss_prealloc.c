@@ -228,6 +228,7 @@ void wcnss_prealloc_check_memory_leak(void)
 #else
 void wcnss_prealloc_check_memory_leak(void) {}
 #endif
+EXPORT_SYMBOL(wcnss_prealloc_check_memory_leak);
 
 int wcnss_pre_alloc_reset(void)
 {
@@ -243,6 +244,7 @@ int wcnss_pre_alloc_reset(void)
 
 	return n;
 }
+EXPORT_SYMBOL(wcnss_pre_alloc_reset);
 
 int prealloc_memory_stats_show(struct seq_file *fp, void *data)
 {

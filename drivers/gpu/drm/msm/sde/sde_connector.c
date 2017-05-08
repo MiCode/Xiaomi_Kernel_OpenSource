@@ -540,14 +540,6 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 		goto error_unregister_conn;
 	}
 
-	if (c_conn->ops.set_backlight) {
-		rc = sde_backlight_setup(&c_conn->base);
-		if (rc) {
-			pr_err("failed to setup backlight, rc=%d\n", rc);
-			goto error_unregister_conn;
-		}
-	}
-
 	/* create properties */
 	msm_property_init(&c_conn->property_info, &c_conn->base.base, dev,
 			priv->conn_property, c_conn->property_data,
@@ -585,6 +577,10 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 
 	msm_property_install_range(&c_conn->property_info, "RETIRE_FENCE",
 			0x0, 0, INR_OPEN_MAX, 0, CONNECTOR_PROP_RETIRE_FENCE);
+
+	msm_property_install_volatile_signed_range(&c_conn->property_info,
+			"PLL_DELTA", 0x0, INT_MIN, INT_MAX, 0,
+			CONNECTOR_PROP_PLL_DELTA);
 
 	/* enum/bitmask properties */
 	msm_property_install_enum(&c_conn->property_info, "topology_name",

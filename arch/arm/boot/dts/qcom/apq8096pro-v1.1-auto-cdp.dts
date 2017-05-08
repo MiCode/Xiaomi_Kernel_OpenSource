@@ -1,0 +1,37 @@
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "apq8096pro-v1.1.dtsi"
+#include "msm8996-pm8994.dtsi"
+#include "msm8996-auto-cdp.dtsi"
+#include "msm8996pro-auto.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. APQ 8096 pro v1.1 AUTO CDP";
+	compatible = "qcom,msm8996-cdp", "qcom,msm8996", "qcom,cdp";
+	qcom,msm-id = <316 0x10001>;
+	qcom,board-id = <0x03010001 0>;
+};
+
+&spi_9 {
+	status = "ok";
+	can-controller@0 {
+		compatible = "renesas,rh850";
+		reg = <0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <127 0>;
+		spi-max-frequency = <5000000>;
+	};
+};
+
