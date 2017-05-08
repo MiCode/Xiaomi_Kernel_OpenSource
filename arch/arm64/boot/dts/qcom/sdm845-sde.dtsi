@@ -117,8 +117,6 @@
 		qcom,sde-mixer-blendstages = <0xb>;
 		qcom,sde-highest-bank-bit = <0x2>;
 		qcom,sde-ubwc-version = <0x200>;
-		qcom,sde-ubwc-static = <0x100>;
-		qcom,sde-ubwc-swizzle = <1>;
 		qcom,sde-panic-per-pipe;
 		qcom,sde-has-cdp;
 		qcom,sde-has-src-split;
@@ -219,8 +217,6 @@
 
 		qcom,mdss-rot-mode = <1>;
 		qcom,mdss-highest-bank-bit = <0x2>;
-		qcom,sde-ubwc-malsize = <1>;
-		qcom,sde-ubwc-swizzle = <1>;
 
 		/* Bus Scale Settings */
 		qcom,msm-bus,name = "mdss_rotator";
