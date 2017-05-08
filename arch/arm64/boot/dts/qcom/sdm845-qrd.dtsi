@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include "smb1355.dtsi"
+
 /{
 	qrd_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
@@ -20,6 +22,10 @@
 
 &pmi8998_fg {
 	qcom,battery-data = <&qrd_batterydata>;
+};
+
+&smb1355_charger {
+	status = "ok";
 };
 
 &mdss_mdp {
