@@ -305,7 +305,7 @@
 
 	usb_audio_qmi_dev {
 		compatible = "qcom,usb-audio-qmi-dev";
-		iommus = <&apps_smmu 0x182c>;
+		iommus = <&apps_smmu 0x182c 0x0>;
 		qcom,usb-audio-stream-id = <0xc>;
 		qcom,usb-audio-intr-num = <2>;
 	};
