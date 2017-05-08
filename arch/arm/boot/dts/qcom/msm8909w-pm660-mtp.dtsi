@@ -41,9 +41,9 @@
 	};
 
 	usb@78d9000 {
-		/delete-property/ hsusb_vdd_dig-supply;
-		/delete-property/ HSUSB_1p8-supply;
-		/delete-property/ HSUSB_3p3-supply;
+		hsusb_vdd_dig-supply = <&pm660_l5>;
+		HSUSB_1p8-supply = <&pm660_l12>;
+		HSUSB_3p3-supply = <&pm660_l16>;
 	};
 
 	qcom,pronto@a21b000 {
