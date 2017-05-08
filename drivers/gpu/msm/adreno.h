@@ -864,6 +864,7 @@ struct adreno_gpudev {
 	int (*wait_for_gmu_idle)(struct adreno_device *);
 	const char *(*iommu_fault_block)(struct adreno_device *adreno_dev,
 				unsigned int fsynr1);
+	int (*soft_reset)(struct adreno_device *);
 };
 
 /**

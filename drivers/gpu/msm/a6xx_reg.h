@@ -114,6 +114,7 @@
 #define A6XX_RBBM_INT_0_STATUS                   0x201
 #define A6XX_RBBM_STATUS                         0x210
 #define A6XX_RBBM_STATUS3                        0x213
+#define A6XX_RBBM_VBIF_GX_RESET_STATUS           0x215
 #define A6XX_RBBM_PERFCTR_CP_0_LO                0x400
 #define A6XX_RBBM_PERFCTR_CP_0_HI                0x401
 #define A6XX_RBBM_PERFCTR_CP_1_LO                0x402
