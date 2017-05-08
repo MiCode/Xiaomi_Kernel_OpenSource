@@ -11,8 +11,7 @@ to set thresholds and receive threshold notifications.
 VADC_TM node
 
 Required properties:
-- compatible : should be "qcom,qpnp-adc-tm" for thermal ADC driver.
-	     : should be "qcom,qpnp-adc-tm-hc" for thermal ADC driver using
+- compatible : should be "qcom,qpnp-adc-tm-hc" for thermal ADC driver using
 	       refreshed BTM peripheral.
 - reg : offset and length of the PMIC Aribter register map.
 - address-cells : Must be one.
@@ -156,51 +155,6 @@ client_node {
 	qcom,client-adc_tm = <&pm8941_adc_tm>;
 };
 
-Example for "qcom,qpnp-adc-tm" device:
-	/* Main Node */
-	qcom,vadc@3400 {
-                        compatible = "qcom,qpnp-adc-tm";
-                        reg = <0x3400 0x100>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-                        interrupts = <0x0 0x34 0x0>,
-					<0x0 0x34 0x3>,
-					<0x0 0x34 0x4>;
-			interrupt-names = "eoc-int-en-set",
-					  "high-thr-en-set",
-					  "low-thr-en-set";
-                        qcom,adc-bit-resolution = <15>;
-                        qcom,adc-vdd-reference = <1800>;
-			qcom,adc_tm-vadc = <&pm8941_vadc>;
-
-			/* Channel Node to be registered as part of thermal sysfs */
-                        chan@b5 {
-                                label = "pa_therm1";
-				reg = <0xb5>;
-                                qcom,decimation = <0>;
-                                qcom,pre-div-channel-scaling = <0>;
-                                qcom,calibration-type = "absolute";
-                                qcom,scale-function = <2>;
-                                qcom,hw-settle-time = <0>;
-                                qcom,fast-avg-setup = <0>;
-				qcom,btm-channel-number = <0x70>;
-				qcom,thermal-node;
-                        };
-
-			/* Channel Node */
-			chan@6 {
-				label = "vbat_sns";
-				reg = <6>;
-				qcom,decimation = <0>;
-				qcom,pre-div-channel-scaling = <1>;
-				qcom,calibration-type = "absolute";
-				qcom,scale-function = <3>;
-				qcom,hw-settle-time = <0>;
-				qcom,fast-avg-setup = <0>;
-				qcom,btm-channel-number = <0x78>;
-			};
-	};
-
 Example for "qcom,qpnp-adc-tm-hc" device:
 	/* Main Node */
 	pm8998_adc_tm: vadc@3400 {
@@ -218,7 +172,7 @@ Example for "qcom,qpnp-adc-tm-hc" device:
 
 			/* Channel Node to be registered as part of thermal sysfs */
                         chan@b5 {
-                                label = "pa_therm1";
+                                label = "msm_therm";
 				reg = <0xb5>;
                                 qcom,pre-div-channel-scaling = <0>;
                                 qcom,calibration-type = "absolute";
@@ -239,3 +193,21 @@ Example for "qcom,qpnp-adc-tm-hc" device:
 				qcom,btm-channel-number = <0x78>;
 			};
 	};
+
+/* Example to register thermal sensor using of_thermal */
+&thermal_zones {
+	msm-therm-adc {
+		polling-delay-passive = <0>;
+		polling-delay = <0>;
+		thermal-sensors = <&pm8998_adc_tm 0xb5>;
+		thermal-governor = "user_space";
+
+		trips {
+			active-config0 {
+				temperature = <65000>;
+				hysteresis = <1000>;
+				type = "passive";
+			};
+		};
+	};
+};
