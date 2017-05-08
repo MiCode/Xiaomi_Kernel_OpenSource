@@ -1731,7 +1731,7 @@
 		compatible = "qcom,coresight-remote-etm";
 
 		coresight-name = "coresight-turing-etm0";
-		qcom,inst-id = <1>;
+		qcom,inst-id = <13>;
 
 		port{
 			turing_etm0_out_funnel_turing: endpoint {
