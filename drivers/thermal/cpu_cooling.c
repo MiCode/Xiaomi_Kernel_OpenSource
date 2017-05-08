@@ -909,13 +909,11 @@ __cpufreq_cooling_register(struct device_node *np,
 	struct cpufreq_cooling_device *cpufreq_dev;
 	char dev_name[THERMAL_NAME_LENGTH];
 	struct cpufreq_frequency_table *pos, *table;
-	struct cpumask temp_mask;
 	unsigned int freq, i, num_cpus;
 	int ret;
 	struct thermal_cooling_device_ops *cooling_ops;
 
-	cpumask_and(&temp_mask, clip_cpus, cpu_online_mask);
-	policy = cpufreq_cpu_get(cpumask_first(&temp_mask));
+	policy = cpufreq_cpu_get(cpumask_first(clip_cpus));
 	if (!policy) {
 		pr_debug("%s: CPUFreq policy not found\n", __func__);
 		return ERR_PTR(-EPROBE_DEFER);
