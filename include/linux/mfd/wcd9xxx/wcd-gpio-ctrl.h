@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +16,9 @@
 #include <linux/types.h>
 #include <linux/of.h>
 
-#ifdef CONFIG_WCD9335_CODEC
+#if defined(CONFIG_WCD9335_CODEC) || \
+	defined(CONFIG_WCD9330_CODEC) || \
+	defined(CONFIG_WCD9306_CODEC)
 extern int wcd_gpio_ctrl_select_sleep_state(struct device_node *);
 extern int wcd_gpio_ctrl_select_active_state(struct device_node *);
 
