@@ -29,5 +29,11 @@ int cnss_wlfw_wlan_mode_send_sync(struct cnss_plat_data *plat_priv,
 				  enum wlfw_driver_mode_enum_v01 mode);
 int cnss_wlfw_wlan_cfg_send_sync(struct cnss_plat_data *plat_priv,
 				 struct wlfw_wlan_cfg_req_msg_v01 *data);
+int cnss_wlfw_athdiag_read_send_sync(struct cnss_plat_data *plat_priv,
+				     uint32_t offset, uint32_t mem_type,
+				     uint32_t data_len, uint8_t *data);
+int cnss_wlfw_athdiag_write_send_sync(struct cnss_plat_data *plat_priv,
+				      uint32_t offset, uint32_t mem_type,
+				      uint32_t data_len, uint8_t *data);
 
 #endif /* _CNSS_QMI_H */
