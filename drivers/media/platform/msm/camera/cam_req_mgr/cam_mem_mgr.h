@@ -13,6 +13,7 @@
 #ifndef _CAM_MEM_MGR_H_
 #define _CAM_MEM_MGR_H_
 
+#include <linux/mutex.h>
 #include <media/cam_req_mgr.h>
 #include "cam_mem_mgr_api.h"
 
