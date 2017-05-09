@@ -1452,8 +1452,10 @@ static int __init hbtp_init(void)
 
 	hbtp->sensor_data = kzalloc(sizeof(struct hbtp_sensor_data),
 			GFP_KERNEL);
-	if (!hbtp->sensor_data)
+	if (!hbtp->sensor_data) {
+		error = -ENOMEM;
 		goto err_sensordata;
+	}
 
 	mutex_init(&hbtp->mutex);
 	mutex_init(&hbtp->sensormutex);
