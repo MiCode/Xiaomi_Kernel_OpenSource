@@ -136,17 +136,33 @@ static int trigger_ssr_open(struct inode *inode, struct file *file)
 
 static ssize_t trigger_ssr_write(struct file *filp, const char __user *buf,
 		size_t count, loff_t *ppos) {
-	u32 ssr_trigger_val;
+	unsigned long ssr_trigger_val = 0;
 	int rc;
 	struct msm_vidc_core *core = filp->private_data;
-	rc = sscanf(buf, "%d", &ssr_trigger_val);
-	if (rc < 0) {
+	char *kbuf = NULL;
+
+	kbuf = kzalloc(count, GFP_KERNEL);
+	if (!kbuf) {
+		dprintk(VIDC_WARN, "%s No memory\n", __func__);
+		rc = -ENOMEM;
+		goto exit;
+	}
+	if (copy_from_user(kbuf, buf, count)) {
+		dprintk(VIDC_WARN, "%s User memory fault\n", __func__);
+		rc = -EFAULT;
+		goto exit;
+	}
+
+	rc = kstrtoul(kbuf, 0, &ssr_trigger_val);
+	if (rc) {
 		dprintk(VIDC_WARN, "returning error err %d\n", rc);
 		rc = -EINVAL;
 	} else {
 		msm_vidc_trigger_ssr(core, ssr_trigger_val);
 		rc = count;
 	}
+exit:
+	kfree(kbuf);
 	return rc;
 }
 
