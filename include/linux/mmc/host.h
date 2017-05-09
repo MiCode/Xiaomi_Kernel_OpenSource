@@ -18,6 +18,7 @@
 #include <linux/devfreq.h>
 #include <linux/fault-inject.h>
 #include <linux/blkdev.h>
+#include <linux/extcon.h>
 
 #include <linux/mmc/core.h>
 #include <linux/mmc/card.h>
@@ -594,6 +595,8 @@ struct mmc_host {
 	 * actually disabling the clock from it's source.
 	 */
 	bool			card_clock_off;
+	struct extcon_dev	*extcon;
+	struct notifier_block card_detect_nb;
 
 #ifdef CONFIG_MMC_PERF_PROFILING
 	struct {
