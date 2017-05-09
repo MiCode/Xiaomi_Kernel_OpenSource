@@ -309,6 +309,14 @@ config ARCH_MSM8953
 	  This enables support for the MSM8953 chipset. If you don't
 	  know what to do here, say N
 
+config ARCH_SDM450
+	bool "Enable Support for Qualcomm Technologies Inc SDM450"
+	depends on ARCH_MSM
+	select ARCH_MSM8953_SOC_SETTINGS
+	help
+	  This enables support for the SDM450 chipset. If you don't
+	  know what to do here, say N
+
 config ARCH_MSM8937
 	bool "Enable Support for Qualcomm Technologies Inc MSM8937"
 	depends on ARCH_MSM
