@@ -27,7 +27,7 @@
 #define FORCE_ENABLE_RECOVERY   1
 #define AUTO_RECOVERY           0
 
-#define CRM_WORKQ_NUM_TASKS 30
+#define CRM_WORKQ_NUM_TASKS 60
 
 /**
  * enum crm_workq_task_type
