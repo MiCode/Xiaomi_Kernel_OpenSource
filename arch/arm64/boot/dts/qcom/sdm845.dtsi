@@ -821,6 +821,13 @@
 		interrupts = <1 5 4>;
 	};
 
+	clock_rpmh: qcom,rpmhclk {
+		compatible = "qcom,rpmh-clk-sdm845";
+		#clock-cells = <1>;
+		mboxes = <&apps_rsc 0>;
+		mbox-names = "apps";
+	};
+
 	clock_gcc: qcom,gcc@100000 {
 		compatible = "qcom,gcc-sdm845", "syscon";
 		reg = <0x100000 0x1f0000>;
@@ -993,13 +1000,6 @@
 		clocks = <&clock_rpmh RPMH_CXO_CLK_A>;
 		#clock-cells = <1>;
 		#reset-cells = <1>;
-	};
-
-	clock_rpmh: qcom,rpmhclk {
-		compatible = "qcom,rpmh-clk-sdm845";
-		#clock-cells = <1>;
-		mboxes = <&apps_rsc 0>;
-		mbox-names = "apps";
 	};
 
 	clock_debug: qcom,cc-debug@100000 {
