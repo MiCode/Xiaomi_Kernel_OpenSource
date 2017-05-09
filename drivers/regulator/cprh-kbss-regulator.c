@@ -34,9 +34,16 @@
 
 #include "cpr3-regulator.h"
 
-#define MSM8998_KBSS_FUSE_CORNERS	4
-#define SDM660_KBSS_FUSE_CORNERS	5
-#define SDM845_KBSS_FUSE_CORNERS	3
+#define MSM8998_KBSS_FUSE_CORNERS			4
+#define SDM660_KBSS_FUSE_CORNERS			5
+
+#define SDM845_KBSS_POWER_CLUSTER_FUSE_CORNERS		4
+#define SDM845_KBSS_PERFORMANCE_CLUSTER_FUSE_CORNERS	3
+/*
+ * This must be set to the larger of SDM845_KBSS_POWER_CLUSTER_FUSE_CORNERS and
+ * SDM845_KBSS_PERFORMANCE_CLUSTER_FUSE_CORNERS values.
+ */
+#define SDM845_KBSS_MAX_FUSE_CORNERS			4
 
 /**
  * struct cprh_kbss_fuses - KBSS specific fuse data
@@ -79,7 +86,7 @@ struct cprh_kbss_fuses {
  */
 #define CPRH_MSM8998_KBSS_FUSE_COMBO_COUNT	32
 #define CPRH_SDM660_KBSS_FUSE_COMBO_COUNT	16
-#define CPRH_SDM845_KBSS_FUSE_COMBO_COUNT	8
+#define CPRH_SDM845_KBSS_FUSE_COMBO_COUNT	16
 
 /*
  * Constants which define the name of each fuse corner.
@@ -146,16 +153,18 @@ static const char * const cprh_sdm660_perf_kbss_fuse_corner_name[] = {
 #define CPRH_KBSS_PERFORMANCE_CLUSTER_THREAD_ID	0
 
 static const char * const
-cprh_sdm845_kbss_fuse_corner_name[2][SDM845_KBSS_FUSE_CORNERS] = {
+cprh_sdm845_kbss_fuse_corner_name[2][SDM845_KBSS_MAX_FUSE_CORNERS] = {
 	[CPRH_KBSS_POWER_CLUSTER_ID] = {
 		"LowSVS",
 		"SVS_L1",
 		"NOM_L1",
+		"TURBO",
 	},
 	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
 		"SVS",
 		"NOM",
 		"TURBO_L2",
+		"",
 	},
 };
 
@@ -325,17 +334,19 @@ sdm660_kbss_quot_offset_param[2][SDM660_KBSS_FUSE_CORNERS][3] = {
  *		 different fuse rows.
  */
 static const struct cpr3_fuse_param
-sdm845_kbss_ro_sel_param[2][2][SDM845_KBSS_FUSE_CORNERS][3] = {
+sdm845_kbss_ro_sel_param[2][2][SDM845_KBSS_MAX_FUSE_CORNERS][3] = {
 	[CPRH_KBSS_POWER_CLUSTER_ID] = {
 		[CPRH_KBSS_POWER_CLUSTER_THREAD_ID] = {
 			{{66, 52, 55}, {} },
 			{{66, 48, 51}, {} },
 			{{66, 44, 47}, {} },
+			{{66, 40, 43}, {} },
 		},
 		[CPRH_KBSS_L3_THREAD_ID] = {
 			{{66, 52, 55}, {} },
 			{{66, 48, 51}, {} },
 			{{66, 44, 47}, {} },
+			{{66, 40, 43}, {} },
 		},
 	},
 	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
@@ -348,17 +359,19 @@ sdm845_kbss_ro_sel_param[2][2][SDM845_KBSS_FUSE_CORNERS][3] = {
 };
 
 static const struct cpr3_fuse_param
-sdm845_kbss_init_voltage_param[2][2][SDM845_KBSS_FUSE_CORNERS][3] = {
+sdm845_kbss_init_voltage_param[2][2][SDM845_KBSS_MAX_FUSE_CORNERS][3] = {
 	[CPRH_KBSS_POWER_CLUSTER_ID] = {
 		[CPRH_KBSS_POWER_CLUSTER_THREAD_ID] = {
 			{{67, 10, 15}, {} },
 			{{67,  4,  9}, {} },
 			{{66, 62, 63}, {67,  0,  3}, {} },
+			{{66, 56, 61}, {} },
 		},
 		[CPRH_KBSS_L3_THREAD_ID] = {
 			{{68, 47, 52}, {} },
 			{{68, 41, 46}, {} },
 			{{68, 35, 40}, {} },
+			{{68, 29, 34}, {} },
 		},
 	},
 	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
@@ -371,17 +384,19 @@ sdm845_kbss_init_voltage_param[2][2][SDM845_KBSS_FUSE_CORNERS][3] = {
 };
 
 static const struct cpr3_fuse_param
-sdm845_kbss_target_quot_param[2][2][SDM845_KBSS_FUSE_CORNERS][3] = {
+sdm845_kbss_target_quot_param[2][2][SDM845_KBSS_MAX_FUSE_CORNERS][3] = {
 	[CPRH_KBSS_POWER_CLUSTER_ID] = {
 		[CPRH_KBSS_POWER_CLUSTER_THREAD_ID] = {
 			{{67, 52, 63}, {} },
 			{{67, 40, 51}, {} },
 			{{67, 28, 39}, {} },
+			{{67, 16, 27}, {} },
 		},
 		[CPRH_KBSS_L3_THREAD_ID] = {
 			{{69, 25, 36}, {} },
 			{{69, 13, 24}, {} },
 			{{69,  1, 12}, {} },
+			{{68, 53, 63}, {69,  0,  0}, {} },
 		},
 	},
 	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
@@ -394,17 +409,19 @@ sdm845_kbss_target_quot_param[2][2][SDM845_KBSS_FUSE_CORNERS][3] = {
 };
 
 static const struct cpr3_fuse_param
-sdm845_kbss_quot_offset_param[2][2][SDM845_KBSS_FUSE_CORNERS][2] = {
+sdm845_kbss_quot_offset_param[2][2][SDM845_KBSS_MAX_FUSE_CORNERS][2] = {
 	[CPRH_KBSS_POWER_CLUSTER_ID] = {
 		[CPRH_KBSS_POWER_CLUSTER_THREAD_ID] = {
 			{{} },
 			{{68, 14, 20}, {} },
 			{{68,  7, 13}, {} },
+			{{68,  0,  6}, {} },
 		},
 		[CPRH_KBSS_L3_THREAD_ID] = {
 			{{} },
 			{{69, 51, 57}, {} },
 			{{69, 44, 50}, {} },
+			{{69, 37, 43}, {} },
 		},
 	},
 	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
@@ -539,17 +556,19 @@ sdm660_kbss_fuse_ref_volt[2][SDM660_KBSS_FUSE_CORNERS] = {
  * Open loop voltage fuse reference voltages in microvolts for SDM845
  */
 static const int
-sdm845_kbss_fuse_ref_volt[2][2][SDM845_KBSS_FUSE_CORNERS] = {
+sdm845_kbss_fuse_ref_volt[2][2][SDM845_KBSS_MAX_FUSE_CORNERS] = {
 	[CPRH_KBSS_POWER_CLUSTER_ID] = {
 		[CPRH_KBSS_POWER_CLUSTER_THREAD_ID] = {
 			688000,
 			812000,
 			896000,
+			900000,
 		},
 		[CPRH_KBSS_L3_THREAD_ID] = {
 			688000,
 			812000,
 			896000,
+			900000,
 		},
 	},
 	[CPRH_KBSS_PERFORMANCE_CLUSTER_ID] = {
@@ -976,7 +995,10 @@ static int cprh_kbss_read_fuse_data(struct cpr3_regulator *vreg)
 		break;
 	case SDM845_V1_SOC_ID:
 	case SDM845_V2_SOC_ID:
-		fuse_corners = SDM845_KBSS_FUSE_CORNERS;
+		fuse_corners = vreg->thread->ctrl->ctrl_id
+					== CPRH_KBSS_POWER_CLUSTER_ID
+				? SDM845_KBSS_POWER_CLUSTER_FUSE_CORNERS
+				: SDM845_KBSS_PERFORMANCE_CLUSTER_FUSE_CORNERS;
 		break;
 	default:
 		cpr3_err(vreg, "unsupported soc id = %d\n", soc_revision);
