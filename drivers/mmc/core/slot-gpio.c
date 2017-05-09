@@ -17,6 +17,7 @@
 #include <linux/mmc/slot-gpio.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/extcon.h>
 
 #include "slot-gpio.h"
 
@@ -161,6 +162,54 @@ void mmc_gpiod_request_cd_irq(struct mmc_host *host)
 		host->caps |= MMC_CAP_NEEDS_POLL;
 }
 EXPORT_SYMBOL(mmc_gpiod_request_cd_irq);
+
+static int mmc_card_detect_notifier(struct notifier_block *nb,
+				       unsigned long event, void *ptr)
+{
+	struct mmc_host *host = container_of(nb, struct mmc_host,
+					     card_detect_nb);
+
+	host->trigger_card_event = true;
+	mmc_detect_change(host, 0);
+
+	return NOTIFY_DONE;
+}
+
+void mmc_register_extcon(struct mmc_host *host)
+{
+	struct extcon_dev *extcon = host->extcon;
+	int err;
+
+	if (!extcon)
+		return;
+
+	host->card_detect_nb.notifier_call = mmc_card_detect_notifier;
+	err = extcon_register_notifier(extcon, EXTCON_MECHANICAL,
+				       &host->card_detect_nb);
+	if (err) {
+		dev_err(mmc_dev(host), "%s: extcon_register_notifier() failed ret=%d\n",
+			__func__, err);
+		host->caps |= MMC_CAP_NEEDS_POLL;
+	}
+}
+EXPORT_SYMBOL(mmc_register_extcon);
+
+void mmc_unregister_extcon(struct mmc_host *host)
+{
+	struct extcon_dev *extcon = host->extcon;
+	int err;
+
+	if (!extcon)
+		return;
+
+	err = extcon_unregister_notifier(extcon, EXTCON_MECHANICAL,
+					 &host->card_detect_nb);
+	if (err)
+		dev_err(mmc_dev(host), "%s: extcon_unregister_notifier() failed ret=%d\n",
+			__func__, err);
+}
+EXPORT_SYMBOL(mmc_unregister_extcon);
+
 
 int mmc_gpio_set_cd_wake(struct mmc_host *host, bool on)
 {
