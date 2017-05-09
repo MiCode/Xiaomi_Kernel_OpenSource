@@ -18,6 +18,7 @@
 #include <linux/interrupt.h>
 
 struct subsys_device;
+extern struct bus_type subsys_bus_type;
 
 enum {
 	RESET_SOC = 0,

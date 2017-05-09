@@ -15,3 +15,31 @@
 / {
 	qcom,msm-id = <322 0x10000>;
 };
+
+&apc_vreg_corner {
+	qcom,cpr-quotient-adjustment =
+			<42	42	42>;
+	qcom,cpr-init-voltage-adjustment =
+			<25000	25000	25000>;
+};
+
+&modem_adsp_mem {
+	reg = <0x82a00000 0x2a00000>;
+};
+
+&cnss_debug_mem {
+	status = "disabled";
+};
+
+&qcom_seecom {
+	reg = <0x87900000 0x280000>;
+	status = "okay";
+};
+
+&external_image_mem {
+	reg = <0x87900000 0x700000>;
+};
+
+&qseecom_mem {
+	status = "okay";
+};

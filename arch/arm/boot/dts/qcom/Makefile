@@ -169,7 +169,13 @@ dtb-$(CONFIG_ARCH_SDX20) += sdx20-emmc-cdp.dtb \
 	sdx20-nand-cdp.dtb \
 	sdx20-nand-mtp.dtb \
 	sdx20-nand-dualwifi-mtp.dtb \
-	sdx20-nand-dualwifi-cdp.dtb
+	sdx20-nand-dualwifi-cdp.dtb \
+	sdx20-v2-emmc-cdp.dtb \
+	sdx20-v2-emmc-mtp.dtb \
+	sdx20-v2-nand-cdp.dtb \
+	sdx20-v2-nand-mtp.dtb \
+	sdx20-v2-nand-dualwifi-mtp.dtb \
+	sdx20-v2-nand-dualwifi-cdp.dtb
 
 dtb-$(CONFIG_ARCH_MSM8937) += msm8937-rumi.dtb \
 	msm8937-pmi8950-cdp.dtb \
@@ -254,6 +260,10 @@ dtb-$(CONFIG_ARCH_MSM8953) += msm8953-sim.dtb \
 	msm8953-iot-mtp.dtb \
 	apq8053-iot-mtp.dtb
 
+dtb-$(CONFIG_ARCH_SDM450) += sdm450-rcm.dtb \
+	sdm450-cdp.dtb \
+	sdm450-mtp.dtb
+
 dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-rumi.dtb \
 	mdm9607-cdp.dtb \
 	mdm9607-mtp.dtb \
@@ -270,6 +280,8 @@ dtb-$(CONFIG_ARCH_MSM8916) += msm8952-qrd-skum.dtb \
        msm8952-mtp.dtb
 
 dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
+        msm8909-1gb-qrd-skuc.dtb \
+        msm8909-1gb-qrd-skue.dtb \
 	msm8909w-wtp.dtb \
 	apq8009w-wtp.dtb \
 	apq8009w-cdp.dtb \
@@ -291,6 +303,8 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
 	apq8009w-1gb-swoctp-circpanel.dtb \
 	apq8009w-1gb-nowgr-swoctp.dtb \
 	apq8009w-1gb-nowgr-swoctp-circpanel.dtb \
+	msm8909w-bg-wtp-v1.dtb \
+	msm8909w-bg-wtp-v2.dtb \
 	apq8009-mtp-wcd9326.dtb \
 	msm8909-mtp-wcd9326.dtb \
 	msm8909-mtp-wcd9326-refboard.dtb \

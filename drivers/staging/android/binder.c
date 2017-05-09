@@ -1481,7 +1481,7 @@ static void binder_transaction_buffer_release(struct binder_proc *proc,
 
 			fp = to_flat_binder_object(hdr);
 			ref = binder_get_ref(proc, fp->handle,
-					hdr->type == BINDER_TYPE_HANDLE);
+					     hdr->type == BINDER_TYPE_HANDLE);
 			if (ref == NULL) {
 				pr_err("transaction release %d bad handle %d\n",
 				 debug_id, fp->handle);
@@ -2072,7 +2072,7 @@ static void binder_transaction(struct binder_proc *proc,
 
 			fp = to_flat_binder_object(hdr);
 			ret = binder_translate_binder(fp, t, thread);
-			 if (ret < 0) {
+			if (ret < 0) {
 				return_error = BR_FAILED_REPLY;
 				goto err_translate_failed;
 			}
@@ -2083,7 +2083,7 @@ static void binder_transaction(struct binder_proc *proc,
 
 			fp = to_flat_binder_object(hdr);
 			ret = binder_translate_handle(fp, t, thread);
-			 if (ret < 0) {
+			if (ret < 0) {
 				return_error = BR_FAILED_REPLY;
 				goto err_translate_failed;
 			}
@@ -2092,7 +2092,7 @@ static void binder_transaction(struct binder_proc *proc,
 		case BINDER_TYPE_FD: {
 			struct binder_fd_object *fp = to_binder_fd_object(hdr);
 			int target_fd = binder_translate_fd(fp->fd, t, thread,
-								in_reply_to);
+							    in_reply_to);
 
 			if (target_fd < 0) {
 				return_error = BR_FAILED_REPLY;
@@ -3211,6 +3211,7 @@ static int binder_ioctl_set_ctx_mgr(struct file *filp)
 		ret = -EBUSY;
 		goto out;
 	}
+
 	ret = security_binder_set_context_mgr(proc->tsk);
 	if (ret < 0)
 		goto out;
@@ -3219,7 +3220,7 @@ static int binder_ioctl_set_ctx_mgr(struct file *filp)
 			pr_err("BINDER_SET_CONTEXT_MGR bad uid %d != %d\n",
 			       from_kuid(&init_user_ns, curr_euid),
 			       from_kuid(&init_user_ns,
-					context->binder_context_mgr_uid));
+					 context->binder_context_mgr_uid));
 			ret = -EPERM;
 			goto out;
 		}
@@ -4213,7 +4214,7 @@ static int __init init_binder_device(const char *name)
 
 static int __init binder_init(void)
 {
-	int ret = 0;
+	int ret;
 	char *device_name, *device_names;
 	struct binder_device *device;
 	struct hlist_node *tmp;

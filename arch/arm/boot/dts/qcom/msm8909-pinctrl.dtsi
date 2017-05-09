@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +40,84 @@
 				pins = "gpio4", "gpio5";
 				drive-strength = <2>;
 				bias-pull-down;
+			};
+		};
+
+		blsp1_uart2_tx_active: blsp1_uart2_tx_active {
+			mux {
+				pins = "gpio20";
+				function = "blsp_uart2_a";
+			};
+
+			config {
+				pins = "gpio20";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		blsp1_uart2_tx_sleep: blsp1_uart2_tx_sleep {
+			mux {
+				pins = "gpio20";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio20";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		blsp1_uart2_rxcts_active: blsp1_uart2_rxcts_active {
+			mux {
+				pins = "gpio21", "gpio111";
+				function = "blsp_uart2_a";
+			};
+
+			config {
+				pins = "gpio21", "gpio111";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		blsp1_uart2_rxcts_sleep: blsp1_uart2_rxcts_sleep {
+			mux {
+				pins = "gpio21", "gpio111";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio21", "gpio111";
+				drive-strength = <2>;
+				bias-no-pull;
+			};
+		};
+
+		blsp1_uart2_rfr_active: blsp1_uart2_rfr_active {
+			mux {
+				pins = "gpio112";
+				function = "blsp_uart2_a";
+			};
+
+			config {
+				pins = "gpio112";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		blsp1_uart2_rfr_sleep: blsp1_uart2_rfr_sleep {
+			mux {
+				pins = "gpio112";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio112";
+				drive-strength = <2>;
+				bias-no-pull;
 			};
 		};
 
@@ -142,6 +220,108 @@
 				};
 				config {
 					pins = "gpio10";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
+		spi2 {
+			spi2_default: spi2_default {
+				mux {
+					pins = "gpio20", "gpio21",
+						"gpio112";
+					function = "blsp_spi2";
+				};
+				config {
+					pins = "gpio20", "gpio21",
+						"gpio112";
+					drive-strength = <12>; /* 12 MA */
+					bias-disable; /* No PULL */
+				};
+			};
+			spi2_sleep: spi2_sleep {
+				mux {
+					pins = "gpio20", "gpio21",
+						"gpio112";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio20", "gpio21",
+						"gpio112";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-down; /* pull down */
+				};
+			};
+			spi2_cs0_active: spi2_cs0_active {
+				mux {
+					pins = "gpio111";
+					function = "blsp_spi2";
+				};
+				config {
+					pins = "gpio111";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+			spi2_cs0_sleep: spi2_cs0_sleep {
+				mux {
+					pins = "gpio111";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio111";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
+		spi4 {
+			spi4_default: spi4_default {
+				mux {
+					pins = "gpio12", "gpio13",
+						"gpio15";
+					function = "blsp_spi4";
+				};
+				config {
+					pins = "gpio12", "gpio13",
+						"gpio15";
+					drive-strength = <12>; /* 12 MA */
+					bias-disable; /* No PULL */
+				};
+			};
+			spi4_sleep: spi4_sleep {
+				mux {
+					pins = "gpio12", "gpio13",
+						"gpio15";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio12", "gpio13",
+						"gpio15";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-down; /* pull down */
+				};
+			};
+			spi4_cs0_active: spi4_cs0_active {
+				mux {
+					pins = "gpio14";
+					function = "blsp_spi4";
+				};
+				config {
+					pins = "gpio14";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+			spi4_cs0_sleep: spi4_cs0_sleep {
+				mux {
+					pins = "gpio14";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio14";
 					drive-strength = <2>;
 					bias-disable;
 				};

@@ -1373,6 +1373,7 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 	struct ipa3_ep_context *ep;
 	int empty;
 	int result;
+	int i;
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0) {
@@ -1403,7 +1404,17 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 		cancel_delayed_work_sync(&ep->sys->replenish_rx_work);
 	flush_workqueue(ep->sys->wq);
 	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
-		result = ipa3_stop_gsi_channel(clnt_hdl);
+		/* channel stop might fail on timeout if IPA is busy */
+		for (i = 0; i < IPA_GSI_CHANNEL_STOP_MAX_RETRY; i++) {
+			result = ipa3_stop_gsi_channel(clnt_hdl);
+			if (result == GSI_STATUS_SUCCESS)
+				break;
+
+			if (result != -GSI_STATUS_AGAIN &&
+			    result != -GSI_STATUS_TIMED_OUT)
+				break;
+		}
+
 		if (result != GSI_STATUS_SUCCESS) {
 			IPAERR("GSI stop chan err: %d.\n", result);
 			BUG();
@@ -3944,6 +3955,7 @@ static int ipa_gsi_setup_channel(struct ipa_sys_connect_params *in,
 	if (!gsi_channel_props.ring_base_vaddr) {
 		IPAERR("fail to dma alloc %u bytes\n",
 			gsi_channel_props.ring_len);
+		result = -ENOMEM;
 		goto fail_alloc_channel_ring;
 	}
 	gsi_channel_props.ring_base_addr = dma_addr;

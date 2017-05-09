@@ -38,6 +38,18 @@ struct efi_memory_map memmap;
 
 static u64 efi_system_table;
 
+static pgd_t efi_pgd[PTRS_PER_PGD] __page_aligned_bss;
+
+static struct mm_struct efi_mm = {
+	.mm_rb			= RB_ROOT,
+	.pgd			= efi_pgd,
+	.mm_users		= ATOMIC_INIT(2),
+	.mm_count		= ATOMIC_INIT(1),
+	.mmap_sem		= __RWSEM_INITIALIZER(efi_mm.mmap_sem),
+	.page_table_lock	= __SPIN_LOCK_UNLOCKED(efi_mm.page_table_lock),
+	.mmlist			= LIST_HEAD_INIT(efi_mm.mmlist),
+};
+
 static int uefi_debug __initdata;
 static int __init uefi_debug_setup(char *str)
 {
@@ -213,6 +225,48 @@ void __init efi_init(void)
 		return;
 
 	reserve_regions();
+	early_memunmap(memmap.map, params.mmap_size);
+}
+
+static bool __init efi_virtmap_init(void)
+{
+	efi_memory_desc_t *md;
+
+	init_new_context(NULL, &efi_mm);
+
+	for_each_efi_memory_desc(&memmap, md) {
+		u64 paddr, npages, size;
+		pgprot_t prot;
+
+		if (!(md->attribute & EFI_MEMORY_RUNTIME))
+			continue;
+		if (md->virt_addr == 0)
+			return false;
+
+		paddr = md->phys_addr;
+		npages = md->num_pages;
+		memrange_efi_to_native(&paddr, &npages);
+		size = npages << PAGE_SHIFT;
+
+		pr_info("  EFI remap 0x%016llx => %p\n",
+			md->phys_addr, (void *)md->virt_addr);
+
+		/*
+		 * Only regions of type EFI_RUNTIME_SERVICES_CODE need to be
+		 * executable, everything else can be mapped with the XN bits
+		 * set.
+		 */
+		if (!is_normal_ram(md))
+			prot = __pgprot(PROT_DEVICE_nGnRE);
+		else if (md->type == EFI_RUNTIME_SERVICES_CODE)
+			prot = PAGE_KERNEL_EXEC;
+		else
+			prot = PAGE_KERNEL;
+
+		create_pgd_mapping(&efi_mm, paddr, md->virt_addr, size,
+				   __pgprot(pgprot_val(prot) | PTE_NG));
+	}
+	return true;
 }
 
 /*
@@ -229,19 +283,21 @@ static int __init arm64_enable_runtime_services(void)
 		return -1;
 	}
 
-	mapsize = memmap.map_end - memmap.map;
-
 	if (efi_runtime_disabled()) {
 		pr_info("EFI runtime services will be disabled.\n");
 		return -1;
 	}
 
 	pr_info("Remapping and enabling EFI services.\n");
-	/* replace early memmap mapping with permanent mapping */
+
+	mapsize = memmap.map_end - memmap.map;
 	memmap.map = (__force void *)ioremap_cache((phys_addr_t)memmap.phys_map,
 						   mapsize);
+	if (!memmap.map) {
+		pr_err("Failed to remap EFI memory map\n");
+		return -1;
+	}
 	memmap.map_end = memmap.map + mapsize;
-
 	efi.memmap = &memmap;
 
 	efi.systab = (__force void *)ioremap_cache(efi_system_table,
@@ -252,7 +308,7 @@ static int __init arm64_enable_runtime_services(void)
 	}
 	set_bit(EFI_SYSTEM_TABLES, &efi.flags);
 
-	if (!efi_enabled(EFI_VIRTMAP)) {
+	if (!efi_virtmap_init()) {
 		pr_err("No UEFI virtual mapping was installed -- runtime services will not be available\n");
 		return -1;
 	}
@@ -281,25 +337,32 @@ static int __init arm64_dmi_init(void)
 }
 core_initcall(arm64_dmi_init);
 
-static pgd_t efi_pgd[PTRS_PER_PGD] __page_aligned_bss;
-
-static struct mm_struct efi_mm = {
-	.mm_rb			= RB_ROOT,
-	.pgd			= efi_pgd,
-	.mm_users		= ATOMIC_INIT(2),
-	.mm_count		= ATOMIC_INIT(1),
-	.mmap_sem		= __RWSEM_INITIALIZER(efi_mm.mmap_sem),
-	.page_table_lock	= __SPIN_LOCK_UNLOCKED(efi_mm.page_table_lock),
-	.mmlist			= LIST_HEAD_INIT(efi_mm.mmlist),
-	INIT_MM_CONTEXT(efi_mm)
-};
-
 static void efi_set_pgd(struct mm_struct *mm)
 {
-	cpu_switch_mm(mm->pgd, mm);
-	flush_tlb_all();
-	if (icache_is_aivivt())
-		__flush_icache_all();
+	__switch_mm(mm);
+
+	if (system_uses_ttbr0_pan()) {
+		if (mm != current->active_mm) {
+			/*
+			 * Update the current thread's saved ttbr0 since it is
+			 * restored as part of a return from exception. Set
+			 * the hardware TTBR0_EL1 using cpu_switch_mm()
+			 * directly to enable potential errata workarounds.
+			 */
+			update_saved_ttbr0(current, mm);
+			cpu_switch_mm(mm->pgd, mm);
+		} else {
+			/*
+			 * Defer the switch to the current thread's TTBR0_EL1
+			 * until uaccess_enable(). Restore the current
+			 * thread's saved ttbr0 corresponding to its active_mm
+			 * (if different from init_mm).
+			 */
+			cpu_set_reserved_ttbr0();
+			if (current->active_mm != &init_mm)
+				update_saved_ttbr0(current, current->active_mm);
+		}
+	}
 }
 
 void efi_virtmap_load(void)
@@ -312,48 +375,4 @@ void efi_virtmap_unload(void)
 {
 	efi_set_pgd(current->active_mm);
 	preempt_enable();
-}
-
-void __init efi_virtmap_init(void)
-{
-	efi_memory_desc_t *md;
-
-	if (!efi_enabled(EFI_BOOT))
-		return;
-
-	for_each_efi_memory_desc(&memmap, md) {
-		u64 paddr, npages, size;
-		pgprot_t prot;
-
-		if (!(md->attribute & EFI_MEMORY_RUNTIME))
-			continue;
-		if (WARN(md->virt_addr == 0,
-			 "UEFI virtual mapping incomplete or missing -- no entry found for 0x%llx\n",
-			 md->phys_addr))
-			return;
-
-		paddr = md->phys_addr;
-		npages = md->num_pages;
-		memrange_efi_to_native(&paddr, &npages);
-		size = npages << PAGE_SHIFT;
-
-		pr_info("  EFI remap 0x%016llx => %p\n",
-			md->phys_addr, (void *)md->virt_addr);
-
-		/*
-		 * Only regions of type EFI_RUNTIME_SERVICES_CODE need to be
-		 * executable, everything else can be mapped with the XN bits
-		 * set.
-		 */
-		if (!is_normal_ram(md))
-			prot = __pgprot(PROT_DEVICE_nGnRE);
-		else if (md->type == EFI_RUNTIME_SERVICES_CODE)
-			prot = PAGE_KERNEL_EXEC;
-		else
-			prot = PAGE_KERNEL;
-
-		create_pgd_mapping(&efi_mm, paddr, md->virt_addr, size, prot);
-	}
-	set_bit(EFI_VIRTMAP, &efi.flags);
-	early_memunmap(memmap.map, memmap.map_end - memmap.map);
 }

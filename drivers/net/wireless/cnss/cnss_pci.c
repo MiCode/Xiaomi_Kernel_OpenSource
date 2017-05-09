@@ -3135,6 +3135,9 @@ static struct platform_driver cnss_driver = {
 		.name = "cnss",
 		.owner = THIS_MODULE,
 		.of_match_table = cnss_dt_match,
+#ifdef CONFIG_CNSS_ASYNC
+		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
+#endif
 	},
 };
 

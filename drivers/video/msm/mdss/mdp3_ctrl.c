@@ -2660,6 +2660,10 @@ static int mdp3_ctrl_ioctl_handler(struct msm_fb_data_type *mfd,
 		break;
 	case MSMFB_OVERLAY_PLAY:
 		rc = copy_from_user(&ov_data, argp, sizeof(ov_data));
+		mutex_lock(&mdp3_res->fs_idle_pc_lock);
+		if (mdp3_session->in_splash_screen)
+			mdp3_ctrl_reset(mfd);
+		mutex_unlock(&mdp3_res->fs_idle_pc_lock);
 		if (!rc)
 			rc = mdp3_overlay_play(mfd, &ov_data);
 		if (rc)

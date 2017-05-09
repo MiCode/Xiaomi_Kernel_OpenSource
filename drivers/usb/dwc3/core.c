@@ -783,6 +783,7 @@ static int dwc3_probe(struct platform_device *pdev)
 	u8			lpm_nyet_threshold;
 	u8			hird_threshold;
 	u32			num_evt_buffs;
+	u32			core_id;
 	int			irq;
 
 	int			ret;
@@ -895,6 +896,11 @@ static int dwc3_probe(struct platform_device *pdev)
 			"snps,num-gsi-evt-buffs", &num_evt_buffs);
 		if (!ret)
 			dwc->num_gsi_event_buffers = num_evt_buffs;
+
+		ret = of_property_read_u32(node,
+				"qcom,usb-core-id", &core_id);
+		if (!ret)
+			dwc->core_id = core_id;
 
 		if (dwc->enable_bus_suspend) {
 			pm_runtime_set_autosuspend_delay(dev, 500);

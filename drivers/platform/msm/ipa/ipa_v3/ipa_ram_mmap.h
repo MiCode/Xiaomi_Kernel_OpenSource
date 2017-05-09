@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,8 @@
 
 /*
  * IPA v3.0 SRAM memory layout:
+ * +-------------------------+
+ * |    UC MEM               |
  * +-------------------------+
  * |    UC INFO              |
  * +-------------------------+
@@ -105,6 +107,8 @@
  * | MODEM PROC CTX          |
  * +-------------------------+
  * | APPS PROC CTX           |
+ * +-------------------------+
+ * |    CANARY               |
  * +-------------------------+
  * |    CANARY               |
  * +-------------------------+
@@ -303,5 +307,269 @@
 #define IPA_MEM_v3_0_RAM_APPS_V6_RT_NHASH_OFST IPA_MEM_v3_0_RAM_END_OFST
 #define IPA_MEM_v3_0_RAM_APPS_V6_RT_NHASH_SIZE 0
 #define IPA_MEM_v3_0_RAM_HDR_SIZE_DDR 2048
+
+/*
+ * IPA v3.5 SRAM memory layout:
+ * +-------------------------+
+ * |    UC MEM               |
+ * +-------------------------+
+ * |    UC INFO              |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | V4 FLT HDR HASHABLE     |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | V4 FLT HDR NON-HASHABLE |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | V6 FLT HDR HASHABLE     |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | V6 FLT HDR NON-HASHABLE |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | V4 RT HDR HASHABLE      |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | V4 RT HDR NON-HASHABLE  |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | V6 RT HDR HASHABLE      |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | V6 RT HDR NON-HASHABLE  |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |  MODEM HDR              |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * | MODEM PROC CTX          |
+ * +-------------------------+
+ * | APPS PROC CTX           |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |  MODEM MEM              |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |  UC EVENT RING          |
+ * +-------------------------+
+ */
+
+/*
+ * NOTE: Change in one off IPA v3.5 RAM offsets requires change in all
+ *       subsequent offsets
+ */
+#define IPA_MEM_v3_5_RAM_UC_INFO_OFST IPA_MEM_v3_0_RAM_UC_INFO_OFST
+#define IPA_MEM_v3_5_RAM_UC_INFO_SIZE IPA_MEM_v3_0_RAM_UC_INFO_SIZE
+
+/* uC info 4B aligned */
+#if (IPA_MEM_v3_5_RAM_UC_INFO_OFST & 3)
+#error uC info is not 4B aligned
+#endif
+
+#define IPA_MEM_v3_5_RAM_OFST_START IPA_MEM_v3_0_RAM_OFST_START
+
+#define IPA_MEM_v3_5_RAM_V4_FLT_HASH_OFST IPA_MEM_v3_0_RAM_V4_FLT_HASH_OFST
+#define IPA_MEM_v3_5_RAM_V4_FLT_HASH_SIZE IPA_MEM_v3_0_RAM_V4_FLT_HASH_SIZE
+
+/* V4 filtering hashable header table is 8B aligned */
+#if (IPA_MEM_v3_5_RAM_V4_FLT_HASH_OFST & 7)
+#error V4 filtering hashable header table is not 8B aligned
+#endif
+
+#define IPA_MEM_v3_5_RAM_V4_FLT_NHASH_OFST IPA_MEM_v3_0_RAM_V4_FLT_NHASH_OFST
+#define IPA_MEM_v3_5_RAM_V4_FLT_NHASH_SIZE IPA_MEM_v3_0_RAM_V4_FLT_NHASH_SIZE
+
+/* V4 filtering non-hashable header table is 8B aligned */
+#if (IPA_MEM_v3_5_RAM_V4_FLT_NHASH_OFST & 7)
+#error V4 filtering non-hashable header table is not 8B aligned
+#endif
+
+#define IPA_MEM_v3_5_RAM_V6_FLT_HASH_OFST IPA_MEM_v3_0_RAM_V6_FLT_HASH_OFST
+#define IPA_MEM_v3_5_RAM_V6_FLT_HASH_SIZE IPA_MEM_v3_0_RAM_V6_FLT_HASH_SIZE
+
+/* V6 filtering hashable header table is 8B aligned */
+#if (IPA_MEM_v3_5_RAM_V6_FLT_HASH_OFST & 7)
+#error V6 filtering hashable header table is not 8B aligned
+#endif
+
+#define IPA_MEM_v3_5_RAM_V6_FLT_NHASH_OFST IPA_MEM_v3_0_RAM_V6_FLT_NHASH_OFST
+#define IPA_MEM_v3_5_RAM_V6_FLT_NHASH_SIZE IPA_MEM_v3_0_RAM_V6_FLT_NHASH_SIZE
+
+/* V6 filtering non-hashable header table is 8B aligned */
+#if (IPA_MEM_v3_5_RAM_V6_FLT_NHASH_OFST & 7)
+#error V6 filtering header table is not 8B aligned
+#endif
+
+#define IPA_MEM_v3_5_RAM_V4_RT_NUM_INDEX IPA_MEM_v3_0_RAM_V4_RT_NUM_INDEX
+#define IPA_MEM_v3_5_V4_MODEM_RT_INDEX_LO IPA_MEM_v3_0_V4_MODEM_RT_INDEX_LO
+#define IPA_MEM_v3_5_V4_MODEM_RT_INDEX_HI IPA_MEM_v3_0_V4_MODEM_RT_INDEX_HI
+#define IPA_MEM_v3_5_V4_APPS_RT_INDEX_LO IPA_MEM_v3_0_V4_APPS_RT_INDEX_LO
+#define IPA_MEM_v3_5_V4_APPS_RT_INDEX_HI IPA_MEM_v3_0_V4_APPS_RT_INDEX_HI
+
+#define IPA_MEM_v3_5_RAM_V4_RT_HASH_OFST IPA_MEM_v3_0_RAM_V4_RT_HASH_OFST
+#define IPA_MEM_v3_5_RAM_V4_RT_HASH_SIZE IPA_MEM_v3_0_RAM_V4_RT_HASH_SIZE
+
+/* V4 routing hashable header table is 8B aligned */
+#if (IPA_MEM_v3_5_RAM_V4_RT_HASH_OFST & 7)
+#error V4 routing hashable header table is not 8B aligned
+#endif
+
+#define IPA_MEM_v3_5_RAM_V4_RT_NHASH_OFST IPA_MEM_v3_0_RAM_V4_RT_NHASH_OFST
+#define IPA_MEM_v3_5_RAM_V4_RT_NHASH_SIZE IPA_MEM_v3_0_RAM_V4_RT_NHASH_SIZE
+
+/* V4 routing non-hashable header table is 8B aligned */
+#if (IPA_MEM_v3_5_RAM_V4_RT_NHASH_OFST & 7)
+#error V4 routing non-hashable header table is not 8B aligned
+#endif
+
+#define IPA_MEM_v3_5_RAM_V6_RT_NUM_INDEX IPA_MEM_v3_0_RAM_V6_RT_NUM_INDEX
+#define IPA_MEM_v3_5_V6_MODEM_RT_INDEX_LO IPA_MEM_v3_0_V6_MODEM_RT_INDEX_LO
+#define IPA_MEM_v3_5_V6_MODEM_RT_INDEX_HI IPA_MEM_v3_0_V6_MODEM_RT_INDEX_HI
+#define IPA_MEM_v3_5_V6_APPS_RT_INDEX_LO IPA_MEM_v3_0_V6_APPS_RT_INDEX_LO
+#define IPA_MEM_v3_5_V6_APPS_RT_INDEX_HI IPA_MEM_v3_0_V6_APPS_RT_INDEX_HI
+
+#define IPA_MEM_v3_5_RAM_V6_RT_HASH_OFST IPA_MEM_v3_0_RAM_V6_RT_HASH_OFST
+#define IPA_MEM_v3_5_RAM_V6_RT_HASH_SIZE IPA_MEM_v3_0_RAM_V6_RT_HASH_SIZE
+
+/* V6 routing hashable header table is 8B aligned */
+#if (IPA_MEM_v3_5_RAM_V6_RT_HASH_OFST & 7)
+#error V6 routing hashable header table is not 8B aligned
+#endif
+
+#define IPA_MEM_v3_5_RAM_V6_RT_NHASH_OFST IPA_MEM_v3_0_RAM_V6_RT_NHASH_OFST
+#define IPA_MEM_v3_5_RAM_V6_RT_NHASH_SIZE IPA_MEM_v3_0_RAM_V6_RT_NHASH_SIZE
+
+/* V6 routing non-hashable header table is 8B aligned */
+#if (IPA_MEM_v3_5_RAM_V6_RT_NHASH_OFST & 7)
+#error V6 routing non-hashable header table is not 8B aligned
+#endif
+
+#define IPA_MEM_v3_5_RAM_MODEM_HDR_OFST IPA_MEM_v3_0_RAM_MODEM_HDR_OFST
+#define IPA_MEM_v3_5_RAM_MODEM_HDR_SIZE IPA_MEM_v3_0_RAM_MODEM_HDR_SIZE
+
+/* header table is 8B aligned */
+#if (IPA_MEM_v3_5_RAM_MODEM_HDR_OFST & 7)
+#error header table is not 8B aligned
+#endif
+
+#define IPA_MEM_v3_5_RAM_APPS_HDR_OFST IPA_MEM_v3_0_RAM_APPS_HDR_OFST
+#define IPA_MEM_v3_5_RAM_APPS_HDR_SIZE IPA_MEM_v3_0_RAM_APPS_HDR_SIZE
+
+/* header table is 8B aligned */
+#if (IPA_MEM_v3_5_RAM_APPS_HDR_OFST & 7)
+#error header table is not 8B aligned
+#endif
+
+#define IPA_MEM_v3_5_RAM_MODEM_HDR_PROC_CTX_OFST \
+		IPA_MEM_v3_0_RAM_MODEM_HDR_PROC_CTX_OFST
+#define IPA_MEM_v3_5_RAM_MODEM_HDR_PROC_CTX_SIZE \
+		IPA_MEM_v3_0_RAM_MODEM_HDR_PROC_CTX_SIZE
+
+/* header processing context table is 8B aligned */
+#if (IPA_MEM_v3_5_RAM_MODEM_HDR_PROC_CTX_OFST & 7)
+#error header processing context table is not 8B aligned
+#endif
+
+#define IPA_MEM_v3_5_RAM_APPS_HDR_PROC_CTX_OFST \
+		IPA_MEM_v3_0_RAM_APPS_HDR_PROC_CTX_OFST
+#define IPA_MEM_v3_5_RAM_APPS_HDR_PROC_CTX_SIZE \
+		IPA_MEM_v3_0_RAM_APPS_HDR_PROC_CTX_SIZE
+
+/* header processing context table is 8B aligned */
+#if (IPA_MEM_v3_5_RAM_APPS_HDR_PROC_CTX_OFST & 7)
+#error header processing context table is not 8B aligned
+#endif
+
+#define IPA_MEM_v3_5_RAM_MODEM_OFST IPA_MEM_v3_0_RAM_MODEM_OFST
+#define IPA_MEM_v3_5_RAM_MODEM_SIZE 4132
+
+/* modem memory is 8B aligned */
+#if (IPA_MEM_v3_5_RAM_MODEM_OFST & 7)
+#error modem memory is not 8B aligned
+#endif
+
+#define IPA_MEM_v3_5_UC_EVENT_RING_OFST (IPA_MEM_v3_5_RAM_MODEM_OFST + \
+		IPA_MEM_v3_5_RAM_MODEM_SIZE + IPA_MEM_CANARY_SIZE)
+#define IPA_MEM_v3_5_UC_EVENT_RING_SIZE 1024
+
+/* uC Event Ring memory is 1024B aligned */
+#if (IPA_MEM_v3_5_UC_EVENT_RING_OFST & 1023)
+#error uC Event Ring memory is not 1024B aligned
+#endif
+
+#define IPA_MEM_v3_5_RAM_APPS_V4_FLT_HASH_OFST \
+		(IPA_MEM_v3_5_UC_EVENT_RING_OFST + \
+		IPA_MEM_v3_5_UC_EVENT_RING_SIZE)
+#define IPA_MEM_v3_5_RAM_APPS_V4_FLT_HASH_SIZE \
+		IPA_MEM_v3_0_RAM_APPS_V4_FLT_HASH_SIZE
+
+#define IPA_MEM_v3_5_RAM_APPS_V4_FLT_NHASH_OFST \
+		(IPA_MEM_v3_5_RAM_APPS_V4_FLT_HASH_OFST + \
+		IPA_MEM_v3_5_RAM_APPS_V4_FLT_HASH_SIZE)
+#define IPA_MEM_v3_5_RAM_APPS_V4_FLT_NHASH_SIZE \
+		IPA_MEM_v3_0_RAM_APPS_V4_FLT_NHASH_SIZE
+
+#define IPA_MEM_v3_5_RAM_APPS_V6_FLT_HASH_OFST \
+		(IPA_MEM_v3_5_RAM_APPS_V4_FLT_NHASH_OFST + \
+		IPA_MEM_v3_5_RAM_APPS_V4_FLT_NHASH_SIZE)
+#define IPA_MEM_v3_5_RAM_APPS_V6_FLT_HASH_SIZE \
+		IPA_MEM_v3_0_RAM_APPS_V6_FLT_HASH_SIZE
+
+#define IPA_MEM_v3_5_RAM_APPS_V6_FLT_NHASH_OFST \
+		(IPA_MEM_v3_5_RAM_APPS_V6_FLT_HASH_OFST + \
+		IPA_MEM_v3_5_RAM_APPS_V6_FLT_HASH_SIZE)
+#define IPA_MEM_v3_5_RAM_APPS_V6_FLT_NHASH_SIZE \
+		IPA_MEM_v3_0_RAM_APPS_V6_FLT_NHASH_SIZE
+
+#define IPA_MEM_v3_5_RAM_END_OFST (IPA_MEM_v3_5_RAM_APPS_V6_FLT_NHASH_OFST + \
+		IPA_MEM_v3_5_RAM_APPS_V6_FLT_NHASH_SIZE)
+#define IPA_MEM_v3_5_RAM_APPS_V4_RT_HASH_OFST IPA_MEM_v3_5_RAM_END_OFST
+#define IPA_MEM_v3_5_RAM_APPS_V4_RT_HASH_SIZE \
+		IPA_MEM_v3_0_RAM_APPS_V4_RT_HASH_SIZE
+#define IPA_MEM_v3_5_RAM_APPS_V4_RT_NHASH_OFST IPA_MEM_v3_5_RAM_END_OFST
+#define IPA_MEM_v3_5_RAM_APPS_V4_RT_NHASH_SIZE \
+		IPA_MEM_v3_0_RAM_APPS_V4_RT_NHASH_SIZE
+#define IPA_MEM_v3_5_RAM_APPS_V6_RT_HASH_OFST IPA_MEM_v3_5_RAM_END_OFST
+#define IPA_MEM_v3_5_RAM_APPS_V6_RT_HASH_SIZE \
+		IPA_MEM_v3_0_RAM_APPS_V6_RT_HASH_SIZE
+#define IPA_MEM_v3_5_RAM_APPS_V6_RT_NHASH_OFST IPA_MEM_v3_5_RAM_END_OFST
+#define IPA_MEM_v3_5_RAM_APPS_V6_RT_NHASH_SIZE \
+		IPA_MEM_v3_0_RAM_APPS_V6_RT_NHASH_SIZE
+#define IPA_MEM_v3_5_RAM_HDR_SIZE_DDR IPA_MEM_v3_0_RAM_HDR_SIZE_DDR
 
 #endif /* _IPA_RAM_MMAP_H_ */

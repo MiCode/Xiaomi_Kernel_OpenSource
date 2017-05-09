@@ -229,6 +229,16 @@ config INPUT_MPU3050
 	  To compile this driver as a module, choose M here: the
 	  module will be called mpu3050.
 
+config SENSORS_MPU6050
+	tristate "MPU6050 6-axis gyroscope and acceleromater combo"
+	depends on I2C
+	help
+	  Say Y here if you want to support InvenSense MPU6050
+	  connected via an I2C bus.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called mpu6050.
+
 config INPUT_APANEL
 	tristate "Fujitsu Lifebook Application Panel buttons"
 	depends on X86 && I2C && LEDS_CLASS

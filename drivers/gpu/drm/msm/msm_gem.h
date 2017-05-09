@@ -64,6 +64,7 @@ struct msm_gem_object {
 		struct sg_table *sgt;
 		dma_addr_t iova;
 	} domain[NUM_DOMAINS];
+	struct sg_table *import_sgt;
 
 	/* normally (resv == &_resv) except for imported bo's */
 	struct reservation_object *resv;

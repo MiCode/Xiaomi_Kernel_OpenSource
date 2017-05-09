@@ -1277,6 +1277,10 @@
 	};
 };
 
+&android_usb1 {
+	status = "ok";
+};
+
 &usb2s {
 	status = "ok";
 	qcom,no-wakeup-src-in-hostmode;

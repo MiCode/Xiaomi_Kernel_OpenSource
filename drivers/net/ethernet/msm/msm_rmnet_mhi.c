@@ -985,14 +985,17 @@ static void rmnet_mhi_cb(struct mhi_cb_info *cb_info)
 		if (cb_info->chan == rmnet_mhi_ptr->rx_channel) {
 			rmnet_log(rmnet_mhi_ptr, MSG_INFO,
 				  "Receive MHI_DISABLE notification for rx path\n");
-			rmnet_mhi_disable(rmnet_mhi_ptr);
+			if (rmnet_mhi_ptr->dev)
+				rmnet_mhi_disable(rmnet_mhi_ptr);
 		} else {
 			rmnet_log(rmnet_mhi_ptr, MSG_INFO,
 				  "Receive MHI_DISABLE notification for tx path\n");
 			rmnet_mhi_ptr->tx_enabled = 0;
-			rmnet_mhi_internal_clean_unmap_buffers
-				(rmnet_mhi_ptr->dev, &rmnet_mhi_ptr->tx_buffers,
-				 DMA_TO_DEVICE);
+			if (rmnet_mhi_ptr->dev)
+				rmnet_mhi_internal_clean_unmap_buffers(
+						rmnet_mhi_ptr->dev,
+						&rmnet_mhi_ptr->tx_buffers,
+						DMA_TO_DEVICE);
 		}
 
 		/* Remove all votes disabling low power mode */

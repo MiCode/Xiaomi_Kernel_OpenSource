@@ -4722,6 +4722,222 @@ static void ipa_init_mem_partition_v3_0(void)
 		IPA_MEM_v3_0_RAM_APPS_V6_RT_NHASH_SIZE;
 }
 
+static void ipa_init_mem_partition_v3_5(void)
+{
+	IPADBG("Memory partition IPA 3.5\n");
+	IPA_MEM_PART(nat_ofst) = IPA_RAM_NAT_OFST;
+	IPA_MEM_PART(nat_size) = IPA_RAM_NAT_SIZE;
+	IPADBG("NAT OFST 0x%x SIZE 0x%x\n", IPA_MEM_PART(nat_ofst),
+		IPA_MEM_PART(nat_size));
+
+	IPA_MEM_PART(uc_info_ofst) = IPA_MEM_v3_5_RAM_UC_INFO_OFST;
+	IPA_MEM_PART(uc_info_size) = IPA_MEM_v3_5_RAM_UC_INFO_SIZE;
+	IPADBG("UC INFO OFST 0x%x SIZE 0x%x\n", IPA_MEM_PART(uc_info_ofst),
+		IPA_MEM_PART(uc_info_size));
+
+	IPA_MEM_PART(ofst_start) = IPA_MEM_v3_5_RAM_OFST_START;
+	IPADBG("RAM OFST 0x%x\n", IPA_MEM_PART(ofst_start));
+
+	IPA_MEM_PART(v4_flt_hash_ofst) = IPA_MEM_v3_5_RAM_V4_FLT_HASH_OFST;
+	IPA_MEM_PART(v4_flt_hash_size) = IPA_MEM_v3_5_RAM_V4_FLT_HASH_SIZE;
+	IPA_MEM_PART(v4_flt_hash_size_ddr) = IPA_MEM_RAM_V4_FLT_HASH_SIZE_DDR;
+	IPADBG("V4 FLT HASHABLE OFST 0x%x SIZE 0x%x DDR SIZE 0x%x\n",
+		IPA_MEM_PART(v4_flt_hash_ofst),
+		IPA_MEM_PART(v4_flt_hash_size),
+		IPA_MEM_PART(v4_flt_hash_size_ddr));
+
+	IPA_MEM_PART(v4_flt_nhash_ofst) = IPA_MEM_v3_5_RAM_V4_FLT_NHASH_OFST;
+	IPA_MEM_PART(v4_flt_nhash_size) = IPA_MEM_v3_5_RAM_V4_FLT_NHASH_SIZE;
+	IPA_MEM_PART(v4_flt_nhash_size_ddr) = IPA_MEM_RAM_V4_FLT_NHASH_SIZE_DDR;
+	IPADBG("V4 FLT NON-HASHABLE OFST 0x%x SIZE 0x%x DDR SIZE 0x%x\n",
+		IPA_MEM_PART(v4_flt_nhash_ofst),
+		IPA_MEM_PART(v4_flt_nhash_size),
+		IPA_MEM_PART(v4_flt_nhash_size_ddr));
+
+	IPA_MEM_PART(v6_flt_hash_ofst) = IPA_MEM_v3_5_RAM_V6_FLT_HASH_OFST;
+	IPA_MEM_PART(v6_flt_hash_size) = IPA_MEM_v3_5_RAM_V6_FLT_HASH_SIZE;
+	IPA_MEM_PART(v6_flt_hash_size_ddr) = IPA_MEM_RAM_V6_FLT_HASH_SIZE_DDR;
+	IPADBG("V6 FLT HASHABLE OFST 0x%x SIZE 0x%x DDR SIZE 0x%x\n",
+		IPA_MEM_PART(v6_flt_hash_ofst), IPA_MEM_PART(v6_flt_hash_size),
+		IPA_MEM_PART(v6_flt_hash_size_ddr));
+
+	IPA_MEM_PART(v6_flt_nhash_ofst) = IPA_MEM_v3_5_RAM_V6_FLT_NHASH_OFST;
+	IPA_MEM_PART(v6_flt_nhash_size) = IPA_MEM_v3_5_RAM_V6_FLT_NHASH_SIZE;
+	IPA_MEM_PART(v6_flt_nhash_size_ddr) = IPA_MEM_RAM_V6_FLT_NHASH_SIZE_DDR;
+	IPADBG("V6 FLT NON-HASHABLE OFST 0x%x SIZE 0x%x DDR SIZE 0x%x\n",
+		IPA_MEM_PART(v6_flt_nhash_ofst),
+		IPA_MEM_PART(v6_flt_nhash_size),
+		IPA_MEM_PART(v6_flt_nhash_size_ddr));
+
+	IPA_MEM_PART(v4_rt_num_index) = IPA_MEM_v3_5_RAM_V4_RT_NUM_INDEX;
+	IPADBG("V4 RT NUM INDEX 0x%x\n", IPA_MEM_PART(v4_rt_num_index));
+
+	IPA_MEM_PART(v4_modem_rt_index_lo) =
+		IPA_MEM_v3_5_V4_MODEM_RT_INDEX_LO;
+	IPA_MEM_PART(v4_modem_rt_index_hi) =
+		IPA_MEM_v3_5_V4_MODEM_RT_INDEX_HI;
+	IPADBG("V4 RT MODEM INDEXES 0x%x - 0x%x\n",
+		IPA_MEM_PART(v4_modem_rt_index_lo),
+		IPA_MEM_PART(v4_modem_rt_index_hi));
+
+	IPA_MEM_PART(v4_apps_rt_index_lo) =
+		IPA_MEM_v3_5_V4_APPS_RT_INDEX_LO;
+	IPA_MEM_PART(v4_apps_rt_index_hi) =
+		IPA_MEM_v3_5_V4_APPS_RT_INDEX_HI;
+	IPADBG("V4 RT APPS INDEXES 0x%x - 0x%x\n",
+		IPA_MEM_PART(v4_apps_rt_index_lo),
+		IPA_MEM_PART(v4_apps_rt_index_hi));
+
+	IPA_MEM_PART(v4_rt_hash_ofst) = IPA_MEM_v3_5_RAM_V4_RT_HASH_OFST;
+	IPADBG("V4 RT HASHABLE OFST 0x%x\n", IPA_MEM_PART(v4_rt_hash_ofst));
+
+	IPA_MEM_PART(v4_rt_hash_size) = IPA_MEM_v3_5_RAM_V4_RT_HASH_SIZE;
+	IPA_MEM_PART(v4_rt_hash_size_ddr) = IPA_MEM_RAM_V4_RT_HASH_SIZE_DDR;
+	IPADBG("V4 RT HASHABLE SIZE 0x%x DDR SIZE 0x%x\n",
+		IPA_MEM_PART(v4_rt_hash_size),
+		IPA_MEM_PART(v4_rt_hash_size_ddr));
+
+	IPA_MEM_PART(v4_rt_nhash_ofst) = IPA_MEM_v3_5_RAM_V4_RT_NHASH_OFST;
+	IPADBG("V4 RT NON-HASHABLE OFST 0x%x\n",
+		IPA_MEM_PART(v4_rt_nhash_ofst));
+
+	IPA_MEM_PART(v4_rt_nhash_size) = IPA_MEM_v3_5_RAM_V4_RT_NHASH_SIZE;
+	IPA_MEM_PART(v4_rt_nhash_size_ddr) = IPA_MEM_RAM_V4_RT_NHASH_SIZE_DDR;
+	IPADBG("V4 RT HASHABLE SIZE 0x%x DDR SIZE 0x%x\n",
+		IPA_MEM_PART(v4_rt_nhash_size),
+		IPA_MEM_PART(v4_rt_nhash_size_ddr));
+
+	IPA_MEM_PART(v6_rt_num_index) = IPA_MEM_v3_5_RAM_V6_RT_NUM_INDEX;
+	IPADBG("V6 RT NUM INDEX 0x%x\n", IPA_MEM_PART(v6_rt_num_index));
+
+	IPA_MEM_PART(v6_modem_rt_index_lo) =
+		IPA_MEM_v3_5_V6_MODEM_RT_INDEX_LO;
+	IPA_MEM_PART(v6_modem_rt_index_hi) =
+		IPA_MEM_v3_5_V6_MODEM_RT_INDEX_HI;
+	IPADBG("V6 RT MODEM INDEXES 0x%x - 0x%x\n",
+		IPA_MEM_PART(v6_modem_rt_index_lo),
+		IPA_MEM_PART(v6_modem_rt_index_hi));
+
+	IPA_MEM_PART(v6_apps_rt_index_lo) =
+		IPA_MEM_v3_5_V6_APPS_RT_INDEX_LO;
+	IPA_MEM_PART(v6_apps_rt_index_hi) =
+		IPA_MEM_v3_5_V6_APPS_RT_INDEX_HI;
+	IPADBG("V6 RT APPS INDEXES 0x%x - 0x%x\n",
+		IPA_MEM_PART(v6_apps_rt_index_lo),
+		IPA_MEM_PART(v6_apps_rt_index_hi));
+
+	IPA_MEM_PART(v6_rt_hash_ofst) = IPA_MEM_v3_5_RAM_V6_RT_HASH_OFST;
+	IPADBG("V6 RT HASHABLE OFST 0x%x\n", IPA_MEM_PART(v6_rt_hash_ofst));
+
+	IPA_MEM_PART(v6_rt_hash_size) = IPA_MEM_v3_5_RAM_V6_RT_HASH_SIZE;
+	IPA_MEM_PART(v6_rt_hash_size_ddr) = IPA_MEM_RAM_V6_RT_HASH_SIZE_DDR;
+	IPADBG("V6 RT HASHABLE SIZE 0x%x DDR SIZE 0x%x\n",
+		IPA_MEM_PART(v6_rt_hash_size),
+		IPA_MEM_PART(v6_rt_hash_size_ddr));
+
+	IPA_MEM_PART(v6_rt_nhash_ofst) = IPA_MEM_v3_5_RAM_V6_RT_NHASH_OFST;
+	IPADBG("V6 RT NON-HASHABLE OFST 0x%x\n",
+		IPA_MEM_PART(v6_rt_nhash_ofst));
+
+	IPA_MEM_PART(v6_rt_nhash_size) = IPA_MEM_v3_5_RAM_V6_RT_NHASH_SIZE;
+	IPA_MEM_PART(v6_rt_nhash_size_ddr) = IPA_MEM_RAM_V6_RT_NHASH_SIZE_DDR;
+	IPADBG("V6 RT NON-HASHABLE SIZE 0x%x DDR SIZE 0x%x\n",
+		IPA_MEM_PART(v6_rt_nhash_size),
+		IPA_MEM_PART(v6_rt_nhash_size_ddr));
+
+	IPA_MEM_PART(modem_hdr_ofst) = IPA_MEM_v3_5_RAM_MODEM_HDR_OFST;
+	IPA_MEM_PART(modem_hdr_size) = IPA_MEM_v3_5_RAM_MODEM_HDR_SIZE;
+	IPADBG("MODEM HDR OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(modem_hdr_ofst), IPA_MEM_PART(modem_hdr_size));
+
+	IPA_MEM_PART(apps_hdr_ofst) = IPA_MEM_v3_5_RAM_APPS_HDR_OFST;
+	IPA_MEM_PART(apps_hdr_size) = IPA_MEM_v3_5_RAM_APPS_HDR_SIZE;
+	IPA_MEM_PART(apps_hdr_size_ddr) = IPA_MEM_v3_5_RAM_HDR_SIZE_DDR;
+	IPADBG("APPS HDR OFST 0x%x SIZE 0x%x DDR SIZE 0x%x\n",
+		IPA_MEM_PART(apps_hdr_ofst), IPA_MEM_PART(apps_hdr_size),
+		IPA_MEM_PART(apps_hdr_size_ddr));
+
+	IPA_MEM_PART(modem_hdr_proc_ctx_ofst) =
+		IPA_MEM_v3_5_RAM_MODEM_HDR_PROC_CTX_OFST;
+	IPA_MEM_PART(modem_hdr_proc_ctx_size) =
+		IPA_MEM_v3_5_RAM_MODEM_HDR_PROC_CTX_SIZE;
+	IPADBG("MODEM HDR PROC CTX OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(modem_hdr_proc_ctx_ofst),
+		IPA_MEM_PART(modem_hdr_proc_ctx_size));
+
+	IPA_MEM_PART(apps_hdr_proc_ctx_ofst) =
+		IPA_MEM_v3_5_RAM_APPS_HDR_PROC_CTX_OFST;
+	IPA_MEM_PART(apps_hdr_proc_ctx_size) =
+		IPA_MEM_v3_5_RAM_APPS_HDR_PROC_CTX_SIZE;
+	IPA_MEM_PART(apps_hdr_proc_ctx_size_ddr) =
+		IPA_MEM_RAM_HDR_PROC_CTX_SIZE_DDR;
+	IPADBG("APPS HDR PROC CTX OFST 0x%x SIZE 0x%x DDR SIZE 0x%x\n",
+		IPA_MEM_PART(apps_hdr_proc_ctx_ofst),
+		IPA_MEM_PART(apps_hdr_proc_ctx_size),
+		IPA_MEM_PART(apps_hdr_proc_ctx_size_ddr));
+
+	IPA_MEM_PART(modem_ofst) = IPA_MEM_v3_5_RAM_MODEM_OFST;
+	IPA_MEM_PART(modem_size) = IPA_MEM_v3_5_RAM_MODEM_SIZE;
+	IPADBG("MODEM OFST 0x%x SIZE 0x%x\n", IPA_MEM_PART(modem_ofst),
+		IPA_MEM_PART(modem_size));
+
+	IPA_MEM_PART(uc_event_ring_ofst) = IPA_MEM_v3_5_UC_EVENT_RING_OFST;
+	IPA_MEM_PART(uc_event_ring_size) = IPA_MEM_v3_5_UC_EVENT_RING_SIZE;
+	IPADBG("UC EVENT RING OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(uc_event_ring_ofst),
+		IPA_MEM_PART(uc_event_ring_size));
+
+	IPA_MEM_PART(apps_v4_flt_hash_ofst) =
+		IPA_MEM_v3_5_RAM_APPS_V4_FLT_HASH_OFST;
+	IPA_MEM_PART(apps_v4_flt_hash_size) =
+		IPA_MEM_v3_5_RAM_APPS_V4_FLT_HASH_SIZE;
+	IPADBG("V4 APPS HASHABLE FLT OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(apps_v4_flt_hash_ofst),
+		IPA_MEM_PART(apps_v4_flt_hash_size));
+
+	IPA_MEM_PART(apps_v4_flt_nhash_ofst) =
+		IPA_MEM_v3_5_RAM_APPS_V4_FLT_NHASH_OFST;
+	IPA_MEM_PART(apps_v4_flt_nhash_size) =
+		IPA_MEM_v3_5_RAM_APPS_V4_FLT_NHASH_SIZE;
+	IPADBG("V4 APPS NON-HASHABLE FLT OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(apps_v4_flt_nhash_ofst),
+		IPA_MEM_PART(apps_v4_flt_nhash_size));
+
+	IPA_MEM_PART(apps_v6_flt_hash_ofst) =
+		IPA_MEM_v3_5_RAM_APPS_V6_FLT_HASH_OFST;
+	IPA_MEM_PART(apps_v6_flt_hash_size) =
+		IPA_MEM_v3_5_RAM_APPS_V6_FLT_HASH_SIZE;
+	IPADBG("V6 APPS HASHABLE FLT OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(apps_v6_flt_hash_ofst),
+		IPA_MEM_PART(apps_v6_flt_hash_size));
+
+	IPA_MEM_PART(apps_v6_flt_nhash_ofst) =
+		IPA_MEM_v3_5_RAM_APPS_V6_FLT_NHASH_OFST;
+	IPA_MEM_PART(apps_v6_flt_nhash_size) =
+		IPA_MEM_v3_5_RAM_APPS_V6_FLT_NHASH_SIZE;
+	IPADBG("V6 APPS NON-HASHABLE FLT OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(apps_v6_flt_nhash_ofst),
+		IPA_MEM_PART(apps_v6_flt_nhash_size));
+
+	IPA_MEM_PART(end_ofst) = IPA_MEM_v3_5_RAM_END_OFST;
+	IPA_MEM_PART(apps_v4_rt_hash_ofst) =
+		IPA_MEM_v3_5_RAM_APPS_V4_RT_HASH_OFST;
+	IPA_MEM_PART(apps_v4_rt_hash_size) =
+		IPA_MEM_v3_5_RAM_APPS_V4_RT_HASH_SIZE;
+	IPA_MEM_PART(apps_v4_rt_nhash_ofst) =
+		IPA_MEM_v3_5_RAM_APPS_V4_RT_NHASH_OFST;
+	IPA_MEM_PART(apps_v4_rt_nhash_size) =
+		IPA_MEM_v3_5_RAM_APPS_V4_RT_NHASH_SIZE;
+	IPA_MEM_PART(apps_v6_rt_hash_ofst) =
+		IPA_MEM_v3_5_RAM_APPS_V6_RT_HASH_OFST;
+	IPA_MEM_PART(apps_v6_rt_hash_size) =
+		IPA_MEM_v3_5_RAM_APPS_V6_RT_HASH_SIZE;
+	IPA_MEM_PART(apps_v6_rt_nhash_ofst) =
+		IPA_MEM_v3_5_RAM_APPS_V6_RT_NHASH_OFST;
+	IPA_MEM_PART(apps_v6_rt_nhash_size) =
+		IPA_MEM_v3_5_RAM_APPS_V6_RT_NHASH_SIZE;
+}
+
 /**
  * ipa_ctrl_static_bind() - set the appropriate methods for
  *  IPA Driver based on the HW version
@@ -4735,7 +4951,13 @@ static void ipa_init_mem_partition_v3_0(void)
 int ipa3_controller_static_bind(struct ipa3_controller *ctrl,
 		enum ipa_hw_type hw_type)
 {
-	ipa_init_mem_partition_v3_0();
+	if (hw_type >= IPA_HW_v3_5) {
+		ipa_init_mem_partition_v3_5();
+		ctrl->ipa_init_sram = _ipa_init_sram_v3_5;
+	} else {
+		ipa_init_mem_partition_v3_0();
+		ctrl->ipa_init_sram = _ipa_init_sram_v3_0;
+	}
 
 	ctrl->ipa_init_rt4 = _ipa_init_rt4_v3;
 	ctrl->ipa_init_rt6 = _ipa_init_rt6_v3;
@@ -4756,7 +4978,6 @@ int ipa3_controller_static_bind(struct ipa3_controller *ctrl,
 	ctrl->clock_scaling_bw_threshold_turbo =
 		IPA_V3_0_BW_THRESHOLD_TURBO_MBPS;
 	ctrl->ipa_reg_base_ofst = ipahal_get_reg_base();
-	ctrl->ipa_init_sram = _ipa_init_sram_v3_0;
 	ctrl->ipa_sram_read_settings = _ipa_sram_settings_read_v3_0;
 
 	ctrl->ipa_init_hdr = _ipa_init_hdr_v3_0;
@@ -5802,6 +6023,51 @@ void ipa3_suspend_apps_pipes(bool suspend)
 	}
 }
 
+int ipa3_allocate_dma_task_for_gsi(void)
+{
+	struct ipahal_imm_cmd_dma_task_32b_addr cmd = { 0 };
+
+	IPADBG("Allocate mem\n");
+	ipa3_ctx->dma_task_info.mem.size = IPA_GSI_CHANNEL_STOP_PKT_SIZE;
+	ipa3_ctx->dma_task_info.mem.base = dma_alloc_coherent(ipa3_ctx->pdev,
+		ipa3_ctx->dma_task_info.mem.size,
+		&ipa3_ctx->dma_task_info.mem.phys_base,
+		GFP_KERNEL);
+	if (!ipa3_ctx->dma_task_info.mem.base) {
+		IPAERR("no mem\n");
+		return -EFAULT;
+	}
+
+	cmd.flsh = 1;
+	cmd.size1 = ipa3_ctx->dma_task_info.mem.size;
+	cmd.addr1 = ipa3_ctx->dma_task_info.mem.phys_base;
+	cmd.packet_size = ipa3_ctx->dma_task_info.mem.size;
+	ipa3_ctx->dma_task_info.cmd_pyld = ipahal_construct_imm_cmd(
+			IPA_IMM_CMD_DMA_TASK_32B_ADDR, &cmd, false);
+	if (!ipa3_ctx->dma_task_info.cmd_pyld) {
+		IPAERR("failed to construct dma_task_32b_addr cmd\n");
+		dma_free_coherent(ipa3_ctx->pdev,
+			ipa3_ctx->dma_task_info.mem.size,
+			ipa3_ctx->dma_task_info.mem.base,
+			ipa3_ctx->dma_task_info.mem.phys_base);
+		memset(&ipa3_ctx->dma_task_info, 0,
+			sizeof(ipa3_ctx->dma_task_info));
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
+void ipa3_free_dma_task_for_gsi(void)
+{
+	dma_free_coherent(ipa3_ctx->pdev,
+		ipa3_ctx->dma_task_info.mem.size,
+		ipa3_ctx->dma_task_info.mem.base,
+		ipa3_ctx->dma_task_info.mem.phys_base);
+	ipahal_destroy_imm_cmd(ipa3_ctx->dma_task_info.cmd_pyld);
+	memset(&ipa3_ctx->dma_task_info, 0, sizeof(ipa3_ctx->dma_task_info));
+}
+
 /**
  * ipa3_inject_dma_task_for_gsi()- Send DMA_TASK to IPA for GSI stop channel
  *
@@ -5810,41 +6076,12 @@ void ipa3_suspend_apps_pipes(bool suspend)
  */
 int ipa3_inject_dma_task_for_gsi(void)
 {
-	static struct ipa_mem_buffer mem = {0};
-	struct ipahal_imm_cmd_dma_task_32b_addr cmd = {0};
-	static struct ipahal_imm_cmd_pyld *cmd_pyld;
 	struct ipa3_desc desc = {0};
-
-	/* allocate the memory only for the very first time */
-	if (!mem.base) {
-		IPADBG("Allocate mem\n");
-		mem.size = IPA_GSI_CHANNEL_STOP_PKT_SIZE;
-		mem.base = dma_alloc_coherent(ipa3_ctx->pdev,
-			mem.size,
-			&mem.phys_base,
-			GFP_KERNEL);
-		if (!mem.base) {
-			IPAERR("no mem\n");
-			return -EFAULT;
-		}
-	}
-	if (!cmd_pyld) {
-		cmd.flsh = 1;
-		cmd.size1 = mem.size;
-		cmd.addr1 = mem.phys_base;
-		cmd.packet_size = mem.size;
-		cmd_pyld = ipahal_construct_imm_cmd(
-			IPA_IMM_CMD_DMA_TASK_32B_ADDR, &cmd, false);
-		if (!cmd_pyld) {
-			IPAERR("failed to construct dma_task_32b_addr cmd\n");
-			return -EFAULT;
-		}
-	}
 
 	desc.opcode = ipahal_imm_cmd_get_opcode_param(
 		IPA_IMM_CMD_DMA_TASK_32B_ADDR, 1);
-	desc.pyld = cmd_pyld->data;
-	desc.len = cmd_pyld->len;
+	desc.pyld = ipa3_ctx->dma_task_info.cmd_pyld->data;
+	desc.len = ipa3_ctx->dma_task_info.cmd_pyld->len;
 	desc.type = IPA_IMM_CMD_DESC;
 
 	IPADBG("sending 1B packet to IPA\n");
@@ -5885,21 +6122,30 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 
 	memset(&mem, 0, sizeof(mem));
 
-	for (i = 0; i < IPA_GSI_CHANNEL_STOP_MAX_RETRY; i++) {
-		IPADBG("Calling gsi_stop_channel\n");
+	if (IPA_CLIENT_IS_PROD(ep->client)) {
+		IPADBG("Calling gsi_stop_channel ch:%lu\n",
+			ep->gsi_chan_hdl);
 		res = gsi_stop_channel(ep->gsi_chan_hdl);
-		IPADBG("gsi_stop_channel returned %d\n", res);
+		IPADBG("gsi_stop_channel ch: %lu returned %d\n",
+			ep->gsi_chan_hdl, res);
+		goto end_sequence;
+	}
+
+	for (i = 0; i < IPA_GSI_CHANNEL_STOP_MAX_RETRY; i++) {
+		IPADBG("Calling gsi_stop_channel ch:%lu\n",
+			ep->gsi_chan_hdl);
+		res = gsi_stop_channel(ep->gsi_chan_hdl);
+		IPADBG("gsi_stop_channel ch: %lu returned %d\n",
+			ep->gsi_chan_hdl, res);
 		if (res != -GSI_STATUS_AGAIN && res != -GSI_STATUS_TIMED_OUT)
 			goto end_sequence;
 
-		if (IPA_CLIENT_IS_CONS(ep->client)) {
-			IPADBG("Inject a DMA_TASK with 1B packet to IPA\n");
-			/* Send a 1B packet DMA_TASK to IPA and try again */
-			res = ipa3_inject_dma_task_for_gsi();
-			if (res) {
-				IPAERR("Failed to inject DMA TASk for GSI\n");
-				goto end_sequence;
-			}
+		IPADBG("Inject a DMA_TASK with 1B packet to IPA\n");
+		/* Send a 1B packet DMA_TASK to IPA and try again */
+		res = ipa3_inject_dma_task_for_gsi();
+		if (res) {
+			IPAERR("Failed to inject DMA TASk for GSI\n");
+			goto end_sequence;
 		}
 
 		/* sleep for short period to flush IPA */

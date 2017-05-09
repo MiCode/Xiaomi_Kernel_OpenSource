@@ -53,6 +53,15 @@
 #define QUSB2PHY_PORT_TUNE1		0x23c
 #define QUSB2PHY_TEST1			0x24C
 
+#define QUSB2PHY_PLL_CORE_INPUT_OVERRIDE 0x0a8
+#define CORE_PLL_RATE			BIT(0)
+#define CORE_PLL_RATE_MUX		BIT(1)
+#define CORE_PLL_EN			BIT(2)
+#define CORE_PLL_EN_MUX			BIT(3)
+#define CORE_PLL_EN_FROM_RESET		BIT(4)
+#define CORE_RESET			BIT(5)
+#define CORE_RESET_MUX			BIT(6)
+
 #define QUSB2PHY_1P8_VOL_MIN           1800000 /* uV */
 #define QUSB2PHY_1P8_VOL_MAX           1800000 /* uV */
 #define QUSB2PHY_1P8_HPM_LOAD          30000   /* uA */
@@ -158,15 +167,23 @@ static void qusb_phy_enable_clocks(struct qusb_phy *qphy, bool on)
 
 	if (!qphy->clocks_enabled && on) {
 		clk_prepare_enable(qphy->ref_clk_src);
-		clk_prepare_enable(qphy->ref_clk);
-		clk_prepare_enable(qphy->cfg_ahb_clk);
+		if (qphy->ref_clk)
+			clk_prepare_enable(qphy->ref_clk);
+
+		if (qphy->cfg_ahb_clk)
+			clk_prepare_enable(qphy->cfg_ahb_clk);
+
 		qphy->clocks_enabled = true;
 	}
 
 	if (qphy->clocks_enabled && !on) {
-		clk_disable_unprepare(qphy->ref_clk);
+		if (qphy->cfg_ahb_clk)
+			clk_disable_unprepare(qphy->cfg_ahb_clk);
+
+		if (qphy->ref_clk)
+			clk_disable_unprepare(qphy->ref_clk);
+
 		clk_disable_unprepare(qphy->ref_clk_src);
-		clk_disable_unprepare(qphy->cfg_ahb_clk);
 		qphy->clocks_enabled = false;
 	}
 
@@ -617,6 +634,11 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			writel_relaxed(intr_mask,
 				qphy->base + QUSB2PHY_INTR_CTRL);
 
+			/* hold core PLL in reset */
+			writel_relaxed(CORE_PLL_EN_FROM_RESET |
+				CORE_RESET | CORE_RESET_MUX,
+				qphy->base + QUSB2PHY_PLL_CORE_INPUT_OVERRIDE);
+
 			dev_dbg(phy->dev, "%s: intr_mask = %x\n",
 			__func__, intr_mask);
 
@@ -649,6 +671,13 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 		if (qphy->cable_connected ||
 			(qphy->phy.flags & PHY_HOST_MODE)) {
 			qusb_phy_enable_clocks(qphy, true);
+
+			/* bring core PLL out of reset */
+			writel_relaxed(CORE_PLL_EN_FROM_RESET,
+				qphy->base + QUSB2PHY_PLL_CORE_INPUT_OVERRIDE);
+
+			/* Makes sure that above write goes through */
+			wmb();
 
 			/* restore the default clock settings */
 			writel_relaxed(analog_ctrl_two,
@@ -835,15 +864,28 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		}
 	}
 
+	/* ref_clk_src is needed irrespective of SE_CLK or DIFF_CLK usage */
 	qphy->ref_clk_src = devm_clk_get(dev, "ref_clk_src");
-	if (IS_ERR(qphy->ref_clk_src))
+	if (IS_ERR(qphy->ref_clk_src)) {
 		dev_dbg(dev, "clk get failed for ref_clk_src\n");
+		ret = PTR_ERR(qphy->ref_clk_src);
+		return ret;
+	}
 
-	qphy->ref_clk = devm_clk_get(dev, "ref_clk");
-	if (IS_ERR(qphy->ref_clk))
-		dev_dbg(dev, "clk get failed for ref_clk\n");
-	else
+	/* ref_clk is needed only for DIFF_CLK case, hence make it optional. */
+	if (of_property_match_string(pdev->dev.of_node,
+				"clock-names", "ref_clk") >= 0) {
+		qphy->ref_clk = devm_clk_get(dev, "ref_clk");
+		if (IS_ERR(qphy->ref_clk)) {
+			ret = PTR_ERR(qphy->ref_clk);
+			if (ret != -EPROBE_DEFER)
+				dev_dbg(dev,
+					"clk get failed for ref_clk\n");
+			return ret;
+		}
+
 		clk_set_rate(qphy->ref_clk, 19200000);
+	}
 
 	if (of_property_match_string(pdev->dev.of_node,
 				"clock-names", "cfg_ahb_clk") >= 0) {
@@ -1024,14 +1066,7 @@ static int qusb_phy_remove(struct platform_device *pdev)
 	struct qusb_phy *qphy = platform_get_drvdata(pdev);
 
 	usb_remove_phy(&qphy->phy);
-
-	if (qphy->clocks_enabled) {
-		clk_disable_unprepare(qphy->cfg_ahb_clk);
-		clk_disable_unprepare(qphy->ref_clk);
-		clk_disable_unprepare(qphy->ref_clk_src);
-		qphy->clocks_enabled = false;
-	}
-
+	qusb_phy_enable_clocks(qphy, false);
 	qusb_phy_enable_power(qphy, false, true);
 
 	return 0;

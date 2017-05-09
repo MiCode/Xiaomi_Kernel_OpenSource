@@ -1571,6 +1571,8 @@ static int gbam_wake_cb(void *param)
 	struct gbam_port	*port = (struct gbam_port *)param;
 	struct usb_gadget	*gadget;
 	unsigned long flags;
+	struct usb_function *func;
+	int ret;
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	if (!port->port_usb) {
@@ -1581,11 +1583,23 @@ static int gbam_wake_cb(void *param)
 	}
 
 	gadget = port->port_usb->gadget;
+	func = port->port_usb->f;
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	pr_debug("%s: woken up by peer\n", __func__);
 
-	return usb_gadget_wakeup(gadget);
+	if ((gadget->speed == USB_SPEED_SUPER) &&
+	    (func->func_is_suspended))
+		ret = usb_func_wakeup(func);
+	else
+		ret = usb_gadget_wakeup(gadget);
+
+	if ((ret == -EBUSY) || (ret == -EAGAIN))
+		pr_debug("Remote wakeup is delayed due to LPM exit\n");
+	else if (ret)
+		pr_err("Failed to wake up the USB core. ret=%d\n", ret);
+
+	return ret;
 }
 
 static void gbam2bam_suspend_work(struct work_struct *w)
@@ -2014,6 +2028,42 @@ const struct file_operations gbam_stats_ops = {
 	.write = gbam_reset_stats,
 };
 
+static ssize_t gbam_rw_write(struct file *file, const char __user *ubuf,
+				size_t count, loff_t *ppos)
+{
+	struct gbam_port	*port = bam2bam_ports[0];
+	struct usb_function	*func;
+	struct usb_gadget	*gadget;
+	unsigned long		flags;
+
+	if (!port)
+		return -ENODEV;
+
+	spin_lock_irqsave(&port->port_lock, flags);
+	if (!port->port_usb) {
+		pr_debug("%s: usb cable is disconnected, exiting\n",
+				__func__);
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		return -ENODEV;
+	}
+
+	gadget = port->port_usb->gadget;
+	func = port->port_usb->f;
+	spin_unlock_irqrestore(&port->port_lock, flags);
+
+	if ((gadget->speed == USB_SPEED_SUPER) && (func->func_is_suspended)) {
+		pr_debug("%s Initiating usb_func rwakeup\n", __func__);
+		usb_func_wakeup(func);
+	}
+
+	return count;
+}
+
+
+const struct file_operations debug_remote_wakeup_fops = {
+	.write = gbam_rw_write,
+};
+
 struct dentry *gbam_dent;
 static void gbam_debugfs_init(void)
 {
@@ -2025,6 +2075,9 @@ static void gbam_debugfs_init(void)
 	gbam_dent = debugfs_create_dir("usb_rmnet", 0);
 	if (!gbam_dent || IS_ERR(gbam_dent))
 		return;
+
+	debugfs_create_file("remote_wakeup", 0444, gbam_dent, 0,
+			&debug_remote_wakeup_fops);
 
 	dfile = debugfs_create_file("status", 0444, gbam_dent, 0,
 			&gbam_stats_ops);
