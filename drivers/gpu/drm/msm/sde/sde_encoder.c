@@ -1169,33 +1169,78 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 	}
 }
 
-static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
+static void _sde_encoder_virt_enable_helper(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc = NULL;
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
-	int i = 0;
 	int ret = 0;
 
-	if (!drm_enc) {
-		SDE_ERROR("invalid encoder\n");
+	if (!drm_enc || !drm_enc->dev || !drm_enc->dev->dev_private) {
+		SDE_ERROR("invalid parameters\n");
 		return;
-	} else if (!drm_enc->dev) {
-		SDE_ERROR("invalid dev\n");
-		return;
-	} else if (!drm_enc->dev->dev_private) {
-		SDE_ERROR("invalid dev_private\n");
+	}
+	priv = drm_enc->dev->dev_private;
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	if (!sde_enc || !sde_enc->cur_master) {
+		SDE_ERROR("invalid sde encoder/master\n");
 		return;
 	}
 
-	sde_enc = to_sde_encoder_virt(drm_enc);
-	priv = drm_enc->dev->dev_private;
 	sde_kms = to_sde_kms(priv->kms);
-
 	if (!sde_kms) {
 		SDE_ERROR("invalid sde_kms\n");
 		return;
 	}
+
+	if (sde_enc->cur_master->hw_mdptop &&
+			sde_enc->cur_master->hw_mdptop->ops.reset_ubwc)
+		sde_enc->cur_master->hw_mdptop->ops.reset_ubwc(
+				sde_enc->cur_master->hw_mdptop,
+				sde_kms->catalog);
+
+	if (_sde_is_dsc_enabled(sde_enc)) {
+		ret = _sde_encoder_dsc_setup(sde_enc);
+		if (ret)
+			SDE_ERROR_ENC(sde_enc, "failed to setup DSC:%d\n", ret);
+	}
+}
+
+void sde_encoder_virt_restore(struct drm_encoder *drm_enc)
+{
+	struct sde_encoder_virt *sde_enc = NULL;
+	int i;
+
+	if (!drm_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+	sde_enc = to_sde_encoder_virt(drm_enc);
+
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		if (phys && (phys != sde_enc->cur_master) && phys->ops.restore)
+			phys->ops.restore(phys);
+	}
+
+	if (sde_enc->cur_master && sde_enc->cur_master->ops.restore)
+		sde_enc->cur_master->ops.restore(sde_enc->cur_master);
+
+	_sde_encoder_virt_enable_helper(drm_enc);
+}
+
+static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
+{
+	struct sde_encoder_virt *sde_enc = NULL;
+	int i, ret = 0;
+
+	if (!drm_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+	sde_enc = to_sde_encoder_virt(drm_enc);
 
 	SDE_DEBUG_ENC(sde_enc, "\n");
 	SDE_EVT32(DRMID(drm_enc));
@@ -1230,21 +1275,10 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 			phys->ops.enable(phys);
 	}
 
-	if (sde_enc->cur_master && sde_enc->cur_master->ops.enable)
+	if (sde_enc->cur_master->ops.enable)
 		sde_enc->cur_master->ops.enable(sde_enc->cur_master);
 
-	if (sde_enc->cur_master && sde_enc->cur_master->hw_mdptop &&
-			sde_enc->cur_master->hw_mdptop->ops.reset_ubwc)
-		sde_enc->cur_master->hw_mdptop->ops.reset_ubwc(
-				sde_enc->cur_master->hw_mdptop,
-				sde_kms->catalog);
-
-	if (_sde_is_dsc_enabled(sde_enc)) {
-		ret = _sde_encoder_dsc_setup(sde_enc);
-		if (ret)
-			SDE_ERROR_ENC(sde_enc, "failed to setup DSC: %d\n",
-					ret);
-	}
+	_sde_encoder_virt_enable_helper(drm_enc);
 }
 
 static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)

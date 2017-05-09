@@ -2190,21 +2190,62 @@ static int _sde_crtc_vblank_no_lock(struct sde_crtc *sde_crtc, bool en)
 	return 0;
 }
 
+static void sde_crtc_handle_power_event(u32 event_type, void *arg)
+{
+	struct drm_crtc *crtc = arg;
+	struct sde_crtc *sde_crtc;
+	struct drm_encoder *encoder;
+
+	if (!crtc) {
+		SDE_ERROR("invalid crtc\n");
+		return;
+	}
+	sde_crtc = to_sde_crtc(crtc);
+
+	mutex_lock(&sde_crtc->crtc_lock);
+
+	SDE_EVT32(DRMID(crtc), event_type);
+
+	if (event_type == SDE_POWER_EVENT_POST_ENABLE) {
+		/* restore encoder; crtc will be programmed during commit */
+		drm_for_each_encoder(encoder, crtc->dev) {
+			if (encoder->crtc != crtc)
+				continue;
+
+			sde_encoder_virt_restore(encoder);
+		}
+
+	} else if (event_type == SDE_POWER_EVENT_POST_DISABLE) {
+		struct drm_plane *plane;
+
+		/*
+		 * set revalidate flag in planes, so it will be re-programmed
+		 * in the next frame update
+		 */
+		drm_atomic_crtc_for_each_plane(plane, crtc)
+			sde_plane_set_revalidate(plane, true);
+	}
+
+	mutex_unlock(&sde_crtc->crtc_lock);
+}
+
 static void sde_crtc_disable(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *cstate;
 	struct drm_encoder *encoder;
+	struct msm_drm_private *priv;
 	unsigned long flags;
 	struct sde_crtc_irq_info *node = NULL;
 	int ret;
 
-	if (!crtc || !crtc->dev || !crtc->state) {
+	if (!crtc || !crtc->dev || !crtc->dev->dev_private || !crtc->state) {
 		SDE_ERROR("invalid crtc\n");
 		return;
 	}
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(crtc->state);
+	priv = crtc->dev->dev_private;
 
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
 
@@ -2244,6 +2285,10 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 		cstate->rsc_update = false;
 	}
 
+	if (sde_crtc->power_event)
+		sde_power_handle_unregister_event(&priv->phandle,
+				sde_crtc->power_event);
+
 	memset(sde_crtc->mixers, 0, sizeof(sde_crtc->mixers));
 	sde_crtc->num_mixers = 0;
 
@@ -2265,14 +2310,16 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc;
 	struct drm_encoder *encoder;
+	struct msm_drm_private *priv;
 	unsigned long flags;
 	struct sde_crtc_irq_info *node = NULL;
 	int ret;
 
-	if (!crtc) {
+	if (!crtc || !crtc->dev || !crtc->dev->dev_private) {
 		SDE_ERROR("invalid crtc\n");
 		return;
 	}
+	priv = crtc->dev->dev_private;
 
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
 	SDE_EVT32(DRMID(crtc));
@@ -2295,6 +2342,11 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 				sde_crtc->name, node->event);
 	}
 	spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
+
+	sde_crtc->power_event = sde_power_handle_register_event(
+		&priv->phandle,
+		SDE_POWER_EVENT_POST_ENABLE | SDE_POWER_EVENT_POST_DISABLE,
+		sde_crtc_handle_power_event, crtc, sde_crtc->name);
 }
 
 struct plane_state {

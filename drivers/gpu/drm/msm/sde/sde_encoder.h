@@ -127,6 +127,12 @@ int sde_encoder_wait_for_commit_done(struct drm_encoder *drm_encoder);
 enum sde_intf_mode sde_encoder_get_intf_mode(struct drm_encoder *encoder);
 
 /**
+ * sde_encoder_virt_restore - restore the encoder configs
+ * @encoder:	encoder pointer
+ */
+void sde_encoder_virt_restore(struct drm_encoder *encoder);
+
+/**
  * enum sde_encoder_property - property tags for sde enoder
  * @SDE_ENCODER_PROPERTY_INLINE_ROTATE_REFILL: # of prefill line, 0 to disable
  */

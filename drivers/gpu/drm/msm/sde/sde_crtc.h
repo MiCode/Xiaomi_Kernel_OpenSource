@@ -138,6 +138,7 @@ struct sde_crtc_event {
  * @event_free_list : List of available event structures
  * @event_lock    : Spinlock around event handling code
  * @misr_enable   : boolean entry indicates misr enable/disable status.
+ * @power_event   : registered power event handle
  */
 struct sde_crtc {
 	struct drm_crtc base;
@@ -187,6 +188,8 @@ struct sde_crtc {
 	struct list_head event_free_list;
 	spinlock_t event_lock;
 	bool misr_enable;
+
+	struct sde_power_event *power_event;
 };
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)
