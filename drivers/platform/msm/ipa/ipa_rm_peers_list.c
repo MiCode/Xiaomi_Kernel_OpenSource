@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,9 +32,6 @@ static int ipa_rm_peers_list_get_resource_index(
 		resource_index = ipa_rm_prod_index(resource_name);
 	else if (IPA_RM_RESORCE_IS_CONS(resource_name)) {
 		resource_index = ipa_rm_cons_index(resource_name);
-		if (resource_index != IPA_RM_INDEX_INVALID)
-			resource_index =
-				resource_index - IPA_RM_RESOURCE_PROD_MAX;
 	}
 
 	return resource_index;
