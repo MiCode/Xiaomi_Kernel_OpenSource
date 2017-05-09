@@ -70,6 +70,7 @@ Optional properties:
 			  2: 38.4 MHz
 			  3: 52 MHz
 			  Defaults to 26 MHz if not specified.
+- extcon:       phandle to external connector (Refer Documentation/devicetree/bindings/extcon/extcon-gpio.txt for more details).
 
 Note: If above properties are not defined it can be assumed that the supply
 regulators or clocks are always on.

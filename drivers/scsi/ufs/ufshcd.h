@@ -57,6 +57,7 @@
 #include <linux/completion.h>
 #include <linux/regulator/consumer.h>
 #include <linux/reset.h>
+#include <linux/extcon.h>
 #include "unipro.h"
 
 #include <asm/irq.h>
@@ -724,6 +725,10 @@ struct ufshcd_cmd_log {
  * @ufs_stats: ufshcd statistics to be used via debugfs
  * @debugfs_files: debugfs files associated with the ufs stats
  * @ufshcd_dbg_print: Bitmask for enabling debug prints
+ * @extcon: pointer to external connector device
+ * @card_detect_nb: card detector notifier registered with @extcon
+ * @card_detect_work: work to exectute the card detect function
+ * @card_detect_event: card detect event, 0 = removed, 1 = inserted
  * @vreg_info: UFS device voltage regulator information
  * @clk_list_head: UFS host controller clocks list node head
  * @pwr_info: holds current power mode
@@ -895,6 +900,11 @@ struct ufs_hba {
 
 	/* Bitmask for enabling debug prints */
 	u32 ufshcd_dbg_print;
+
+	struct extcon_dev *extcon;
+	struct notifier_block card_detect_nb;
+	struct work_struct card_detect_work;
+	unsigned long card_detect_event;
 
 	struct ufs_pa_layer_attr pwr_info;
 	struct ufs_pwr_mode_info max_pwr_info;
