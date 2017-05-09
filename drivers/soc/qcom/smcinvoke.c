@@ -429,10 +429,17 @@ long smcinvoke_ioctl(struct file *filp, unsigned cmd, unsigned long arg)
 		if (ret)
 			goto out;
 
-		ret = marshal_out(in_msg, inmsg_size, &req, args_buf);
+		/*
+		 * if invoke op results in an err, no need to marshal_out and
+		 * copy args buf to user space
+		 */
+		if (!req.result) {
+			ret = marshal_out(in_msg, inmsg_size, &req, args_buf);
 
-		ret |=  copy_to_user((void __user *)(uintptr_t)(req.args),
+			ret |=  copy_to_user(
+					(void __user *)(uintptr_t)(req.args),
 					args_buf, nr_args * req.argsize);
+		}
 		ret |=  copy_to_user((void __user *)arg, &req, sizeof(req));
 		if (ret)
 			goto out;
