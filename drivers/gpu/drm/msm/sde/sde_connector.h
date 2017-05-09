@@ -169,6 +169,20 @@ struct sde_connector_ops {
 	 * @enable: State of clks
 	 */
 	int (*clk_ctrl)(void *handle, u32 type, u32 state);
+
+	/**
+	 * set_power - update dpms setting
+	 * @connector: Pointer to drm connector structure
+	 * @power_mode: One of the following,
+	 *              SDE_MODE_DPMS_ON
+	 *              SDE_MODE_DPMS_LP1
+	 *              SDE_MODE_DPMS_LP2
+	 *              SDE_MODE_DPMS_OFF
+	 * @display: Pointer to private display structure
+	 * Returns: Zero on success
+	 */
+	int (*set_power)(struct drm_connector *connector,
+			int power_mode, void *display);
 };
 
 /**
@@ -203,8 +217,12 @@ struct sde_connector_evt {
  * @mmu_secure: MMU id for secure buffers
  * @mmu_unsecure: MMU id for unsecure buffers
  * @name: ASCII name of connector
+ * @lock: Mutex lock object for this structure
  * @retire_fence: Retire fence context reference
  * @ops: Local callback function pointer table
+ * @dpms_mode: DPMS property setting from user space
+ * @lp_mode: LP property setting from user space
+ * @last_panel_power_mode: Last consolidated dpms/lp mode setting
  * @property_info: Private structure for generic property handling
  * @property_data: Array of private data for generic property handling
  * @blob_caps: Pointer to blob structure for 'capabilities' property
@@ -226,8 +244,12 @@ struct sde_connector {
 
 	char name[SDE_CONNECTOR_NAME_SIZE];
 
+	struct mutex lock;
 	struct sde_fence_context retire_fence;
 	struct sde_connector_ops ops;
+	int dpms_mode;
+	int lp_mode;
+	int last_panel_power_mode;
 
 	struct msm_property_info property_info;
 	struct msm_property_data property_data[CONNECTOR_PROP_COUNT];
@@ -390,6 +412,13 @@ int sde_connector_get_info(struct drm_connector *connector,
  * @enable: true/false to enable/disable
  */
 void sde_connector_clk_ctrl(struct drm_connector *connector, bool enable);
+
+/**
+ * sde_connector_get_dpms - query dpms setting
+ * @connector: Pointer to drm connector structure
+ * Returns: Current DPMS setting for connector
+ */
+int sde_connector_get_dpms(struct drm_connector *connector);
 
 /**
  * sde_connector_trigger_event - indicate that an event has occurred
