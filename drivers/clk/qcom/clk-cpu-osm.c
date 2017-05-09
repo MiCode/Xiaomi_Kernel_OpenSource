@@ -53,10 +53,10 @@
 
 #define OSM_REG_SIZE			32
 
-#define L3_EFUSE_SHIFT			0
-#define L3_EFUSE_MASK			0
-#define PWRCL_EFUSE_SHIFT		0
-#define PWRCL_EFUSE_MASK		0
+#define L3_EFUSE_SHIFT			29
+#define L3_EFUSE_MASK			0x7
+#define PWRCL_EFUSE_SHIFT		29
+#define PWRCL_EFUSE_MASK		0x7
 #define PERFCL_EFUSE_SHIFT		29
 #define PERFCL_EFUSE_MASK		0x7
 
@@ -2146,6 +2146,20 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 
 	/* efuse speed bin fuses are optional */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					   "l3_efuse");
+	if (res) {
+		pbase = (unsigned long)res->start;
+		vbase = devm_ioremap(&pdev->dev, res->start,
+				     resource_size(res));
+		if (!vbase) {
+			dev_err(&pdev->dev, "Unable to map in l3_efuse base\n");
+			return -ENOMEM;
+		}
+		l3_clk.pbases[EFUSE_BASE] = pbase;
+		l3_clk.vbases[EFUSE_BASE] = vbase;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 					   "pwrcl_efuse");
 	if (res) {
 		pbase = (unsigned long)res->start;
@@ -2247,7 +2261,7 @@ static unsigned long init_rate = 300000000;
 static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 {
 	int rc = 0, cpu, i;
-	int speedbin = 0, pvs_ver = 0;
+	int pvs_ver = 0;
 	u32 pte_efuse, val;
 	int num_clks = ARRAY_SIZE(osm_qcom_clk_hws);
 	struct clk *ext_xo_clk, *clk;
@@ -2304,11 +2318,11 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 		l3_clk.speedbin = ((pte_efuse >> L3_EFUSE_SHIFT) &
 						    L3_EFUSE_MASK);
 		snprintf(l3speedbinstr, ARRAY_SIZE(l3speedbinstr),
-			 "qcom,l3-speedbin%d-v%d", speedbin, pvs_ver);
+			 "qcom,l3-speedbin%d-v%d", l3_clk.speedbin, pvs_ver);
 	}
 
 	dev_info(&pdev->dev, "using L3 speed bin %u and pvs_ver %d\n",
-		 speedbin, pvs_ver);
+		 l3_clk.speedbin, pvs_ver);
 
 	rc = clk_osm_get_lut(pdev, &l3_clk, l3speedbinstr);
 	if (rc) {
@@ -2323,11 +2337,12 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 		pwrcl_clk.speedbin = ((pte_efuse >> PWRCL_EFUSE_SHIFT) &
 						    PWRCL_EFUSE_MASK);
 		snprintf(pwrclspeedbinstr, ARRAY_SIZE(pwrclspeedbinstr),
-			 "qcom,pwrcl-speedbin%d-v%d", speedbin, pvs_ver);
+			 "qcom,pwrcl-speedbin%d-v%d", pwrcl_clk.speedbin,
+							pvs_ver);
 	}
 
 	dev_info(&pdev->dev, "using pwrcl speed bin %u and pvs_ver %d\n",
-		 speedbin, pvs_ver);
+		 pwrcl_clk.speedbin, pvs_ver);
 
 	rc = clk_osm_get_lut(pdev, &pwrcl_clk, pwrclspeedbinstr);
 	if (rc) {
@@ -2342,11 +2357,12 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 		perfcl_clk.speedbin = ((pte_efuse >> PERFCL_EFUSE_SHIFT) &
 							PERFCL_EFUSE_MASK);
 		snprintf(perfclspeedbinstr, ARRAY_SIZE(perfclspeedbinstr),
-			 "qcom,perfcl-speedbin%d-v%d", speedbin, pvs_ver);
+			 "qcom,perfcl-speedbin%d-v%d", perfcl_clk.speedbin,
+							pvs_ver);
 	}
 
 	dev_info(&pdev->dev, "using perfcl speed bin %u and pvs_ver %d\n",
-		 speedbin, pvs_ver);
+		 perfcl_clk.speedbin, pvs_ver);
 
 	rc = clk_osm_get_lut(pdev, &perfcl_clk, perfclspeedbinstr);
 	if (rc) {
