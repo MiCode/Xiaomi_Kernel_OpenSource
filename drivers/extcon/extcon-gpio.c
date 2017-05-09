@@ -26,6 +26,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
+#include <linux/of_gpio.h>
 
 /**
  * struct gpio_extcon_data - A simple GPIO-controlled extcon device state container.
@@ -40,6 +41,9 @@
  * @irq_flags:		IRQ Flags (e.g., IRQF_TRIGGER_LOW).
  * @check_on_resume:	Boolean describing whether to check the state of gpio
  *			while resuming from sleep.
+ * @pctrl:		GPIO pinctrl handle.
+ * @pctrl_default:	GPIO pinctrl default state handle.
+ * @supported_cable:	Supported extcon cables.
  */
 struct gpio_extcon_data {
 	struct extcon_dev *edev;
@@ -51,6 +55,9 @@ struct gpio_extcon_data {
 	unsigned long debounce;
 	unsigned long irq_flags;
 	bool check_on_resume;
+	struct pinctrl *pctrl;
+	struct pinctrl_state *pins_default;
+	unsigned int *supported_cable;
 };
 
 static void gpio_extcon_work(struct work_struct *work)
@@ -73,6 +80,66 @@ static irqreturn_t gpio_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static int extcon_parse_pinctrl_data(struct device *dev,
+				     struct gpio_extcon_data *data)
+{
+	struct pinctrl *pctrl;
+	int ret = 0;
+
+	/* Try to obtain pinctrl handle */
+	pctrl = devm_pinctrl_get(dev);
+	if (IS_ERR(pctrl)) {
+		ret = PTR_ERR(pctrl);
+		goto out;
+	}
+	data->pctrl = pctrl;
+
+	/* Look-up and keep the state handy to be used later */
+	data->pins_default = pinctrl_lookup_state(data->pctrl, "default");
+	if (IS_ERR(data->pins_default)) {
+		ret = PTR_ERR(data->pins_default);
+		dev_err(dev, "Can't get default pinctrl state, ret %d\n", ret);
+	}
+out:
+	return ret;
+}
+
+/* Parse extcon data */
+static int extcon_populate_data(struct device *dev,
+				struct gpio_extcon_data *data)
+{
+	struct device_node *np = dev->of_node;
+	u32 val;
+	int ret = 0;
+
+	ret = of_property_read_u32(np, "extcon-id", &data->extcon_id);
+	if (ret) {
+		dev_err(dev, "failed to read extcon-id property, %d\n", ret);
+		goto out;
+	}
+
+	ret = of_property_read_u32(np, "irq-flags", &val);
+	if (ret) {
+		dev_err(dev, "failed to read irq-flags property, %d\n", ret);
+		goto out;
+	}
+	data->irq_flags = val;
+
+	ret = of_property_read_u32(np, "debounce-ms", &val);
+	if (ret) {
+		dev_err(dev, "failed to read debounce-ms property, %d\n", ret);
+		goto out;
+	}
+	data->debounce = val;
+
+	ret = extcon_parse_pinctrl_data(dev, data);
+	if (ret)
+		dev_err(dev, "failed to parse pinctrl data\n");
+
+out:
+	return ret;
+}
+
 static int gpio_extcon_probe(struct platform_device *pdev)
 {
 	struct gpio_extcon_data *data;
@@ -83,25 +150,44 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 	if (!data)
 		return -ENOMEM;
 
-	/*
-	 * FIXME: extcon_id represents the unique identifier of external
-	 * connectors such as EXTCON_USB, EXTCON_DISP_HDMI and so on. extcon_id
-	 * is necessary to register the extcon device. But, it's not yet
-	 * developed to get the extcon id from device-tree or others.
-	 * On later, it have to be solved.
-	 */
-	if (!data->irq_flags || data->extcon_id > EXTCON_NONE)
+	if (!data->irq_flags) {
+		/* try populating gpio extcon data from device tree */
+		ret = extcon_populate_data(dev, data);
+		if (ret)
+			return ret;
+	}
+	if (!data->irq_flags || data->extcon_id >= EXTCON_NUM)
 		return -EINVAL;
+
+	ret = pinctrl_select_state(data->pctrl, data->pins_default);
+	if (ret < 0)
+		dev_err(dev, "pinctrl state select failed, ret %d\n", ret);
 
 	data->gpiod = devm_gpiod_get(dev, "extcon", GPIOD_IN);
 	if (IS_ERR(data->gpiod))
 		return PTR_ERR(data->gpiod);
+
+	if (data->debounce) {
+		ret = gpiod_set_debounce(data->gpiod, data->debounce * 1000);
+		if (ret < 0)
+			data->debounce_jiffies =
+				msecs_to_jiffies(data->debounce);
+	}
+
 	data->irq = gpiod_to_irq(data->gpiod);
 	if (data->irq <= 0)
 		return data->irq;
 
+	data->supported_cable = devm_kzalloc(dev,
+					     sizeof(*data->supported_cable) * 2,
+					     GFP_KERNEL);
+	if (!data->supported_cable)
+		return -ENOMEM;
+
+	data->supported_cable[0] = data->extcon_id;
+	data->supported_cable[1] = EXTCON_NONE;
 	/* Allocate the memory of extcon devie and register extcon device */
-	data->edev = devm_extcon_dev_allocate(dev, &data->extcon_id);
+	data->edev = devm_extcon_dev_allocate(dev, data->supported_cable);
 	if (IS_ERR(data->edev)) {
 		dev_err(dev, "failed to allocate extcon device\n");
 		return -ENOMEM;
@@ -155,12 +241,18 @@ static int gpio_extcon_resume(struct device *dev)
 
 static SIMPLE_DEV_PM_OPS(gpio_extcon_pm_ops, NULL, gpio_extcon_resume);
 
+static const struct of_device_id extcon_gpio_of_match[] = {
+	{ .compatible = "extcon-gpio"},
+	{},
+};
+
 static struct platform_driver gpio_extcon_driver = {
 	.probe		= gpio_extcon_probe,
 	.remove		= gpio_extcon_remove,
 	.driver		= {
 		.name	= "extcon-gpio",
 		.pm	= &gpio_extcon_pm_ops,
+		.of_match_table = of_match_ptr(extcon_gpio_of_match),
 	},
 };
 
