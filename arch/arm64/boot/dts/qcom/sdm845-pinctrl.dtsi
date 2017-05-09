@@ -458,6 +458,58 @@
 			};
 		};
 
+		sde_dp_aux_active: sde_dp_aux_active {
+			mux {
+				pins = "gpio43", "gpio51";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio43", "gpio51";
+				bias-disable = <0>; /* no pull */
+				drive-strength = <8>;
+			};
+		};
+
+		sde_dp_aux_suspend: sde_dp_aux_suspend {
+			mux {
+				pins = "gpio43", "gpio51";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio43", "gpio51";
+				bias-pull-down;
+				drive-strength = <2>;
+			};
+		};
+
+		sde_dp_usbplug_cc_active: sde_dp_usbplug_cc_active {
+			mux {
+				pins = "gpio38";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio38";
+				bias-disable;
+				drive-strength = <16>;
+			};
+		};
+
+		sde_dp_usbplug_cc_suspend: sde_dp_usbplug_cc_suspend {
+			mux {
+				pins = "gpio38";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio38";
+				bias-pull-down;
+				drive-strength = <2>;
+			};
+		};
+
 		sec_aux_pcm {
 			sec_aux_pcm_sleep: sec_aux_pcm_sleep {
 				mux {
