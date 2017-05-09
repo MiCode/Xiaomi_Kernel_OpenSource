@@ -546,7 +546,7 @@ static int _sde_connector_set_roi_v1(
 			return rc;
 
 		c_state->rois.roi[i] = roi_v1.roi[i];
-		SDE_DEBUG_CONN(c_conn, "roi%d: roi 0x%x 0x%x 0x%x 0x%x\n", i,
+		SDE_DEBUG_CONN(c_conn, "roi%d: roi (%d,%d) (%d,%d)\n", i,
 				c_state->rois.roi[i].x1,
 				c_state->rois.roi[i].y1,
 				c_state->rois.roi[i].x2,
