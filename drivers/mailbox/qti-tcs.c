@@ -796,33 +796,33 @@ static int chan_tcs_write(struct mbox_chan *chan, void *data)
 	int count = 0;
 
 	if (!msg) {
-		dev_err(dev, "Payload error.\n");
+		dev_err(dev, "Payload error\n");
 		ret = -EINVAL;
 		goto tx_fail;
 	}
 
 	if (!msg->payload || msg->num_payload > MAX_RPMH_PAYLOAD) {
-		dev_err(dev, "Payload error.\n");
+		dev_err(dev, "Payload error\n");
 		ret = -EINVAL;
 		goto tx_fail;
 	}
 
 	if (msg->invalidate || msg->is_control) {
-		dev_err(dev, "Incorrect API.\n");
+		dev_err(dev, "Incorrect API\n");
 		ret = -EINVAL;
 		goto tx_fail;
 	}
 
 	if (msg->state != RPMH_ACTIVE_ONLY_STATE &&
 			msg->state != RPMH_AWAKE_STATE) {
-		dev_err(dev, "Incorrect API.\n");
+		dev_err(dev, "Incorrect API\n");
 		ret = -EINVAL;
 		goto tx_fail;
 	}
 
 	/* Read requests should always be single */
 	if (msg->is_read && msg->num_payload > 1) {
-		dev_err(dev, "Incorrect read request.\n");
+		dev_err(dev, "Incorrect read request\n");
 		ret = -EINVAL;
 		goto tx_fail;
 	}
@@ -888,7 +888,7 @@ static int tcs_control_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg)
 		return PTR_ERR(tcs);
 
 	if (msg->num_payload != tcs->ncpt) {
-		dev_err(dev, "Request must fit the control TCS size.\n");
+		dev_err(dev, "Request must fit the control TCS size\n");
 		return -EINVAL;
 	}
 
@@ -912,12 +912,12 @@ static int chan_tcs_ctrl_write(struct mbox_chan *chan, void *data)
 	int ret = -EINVAL;
 
 	if (!msg) {
-		dev_err(dev, "Payload error.\n");
+		dev_err(dev, "Payload error\n");
 		goto tx_done;
 	}
 
 	if (msg->num_payload > MAX_RPMH_PAYLOAD) {
-		dev_err(dev, "Payload error.\n");
+		dev_err(dev, "Payload error\n");
 		goto tx_done;
 	}
 
