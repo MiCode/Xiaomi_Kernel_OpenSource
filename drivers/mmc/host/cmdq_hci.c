@@ -942,12 +942,17 @@ skip_cqterri:
 		 * before setting doorbell, hence one is not needed here.
 		 */
 		for_each_set_bit(tag, &comp_status, cq_host->num_slots) {
-			/* complete the corresponding mrq */
-			pr_debug("%s: completing tag -> %lu\n",
-				 mmc_hostname(mmc), tag);
-			MMC_TRACE(mmc, "%s: completing tag -> %lu\n",
-				__func__, tag);
+			mrq = get_req_by_tag(cq_host, tag);
+			if (!((mrq->cmd && mrq->cmd->error) ||
+					mrq->cmdq_req->resp_err ||
+					(mrq->data && mrq->data->error))) {
+				/* complete the corresponding mrq */
+				pr_debug("%s: completing tag -> %lu\n",
+					 mmc_hostname(mmc), tag);
+				MMC_TRACE(mmc, "%s: completing tag -> %lu\n",
+					__func__, tag);
 				cmdq_finish_data(mmc, tag);
+			}
 		}
 	}
 
