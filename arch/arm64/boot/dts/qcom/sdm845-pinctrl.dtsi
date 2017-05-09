@@ -2839,4 +2839,13 @@
 			power-source = <0>;
 		};
 	};
+
+	usb2_ext_5v_boost {
+		usb2_ext_5v_boost_default: usb2_ext_5v_boost_default {
+			pins = "gpio10";
+			function = "normal";
+			output-low;
+			power-source = <0>;
+		};
+	};
 };
