@@ -91,6 +91,14 @@ struct sde_hw_ctl_ops {
 	void (*trigger_start)(struct sde_hw_ctl *ctx);
 
 	/**
+	 * kickoff prepare is in progress hw operation for sw
+	 * controlled interfaces: DSI cmd mode and WB interface
+	 * are SW controlled
+	 * @ctx       : ctl path ctx pointer
+	 */
+	void (*trigger_pending)(struct sde_hw_ctl *ctx);
+
+	/**
 	 * kickoff rotator operation for Sw controlled interfaces
 	 * DSI cmd mode and WB interface are SW controlled
 	 * @ctx       : ctl path ctx pointer

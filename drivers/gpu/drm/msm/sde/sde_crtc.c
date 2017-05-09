@@ -1765,9 +1765,9 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 		struct drm_crtc_state *old_state)
 {
 	struct sde_crtc *sde_crtc;
+	struct drm_encoder *encoder;
 	struct drm_device *dev;
 	unsigned long flags;
-	u32 i;
 
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
@@ -1798,12 +1798,12 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 		spin_unlock_irqrestore(&dev->event_lock, flags);
 	}
 
-	/* Reset flush mask from previous commit */
-	for (i = 0; i < ARRAY_SIZE(sde_crtc->mixers); i++) {
-		struct sde_hw_ctl *ctl = sde_crtc->mixers[i].hw_ctl;
+	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
+		if (encoder->crtc != crtc)
+			continue;
 
-		if (ctl)
-			ctl->ops.clear_pending_flush(ctl);
+		/* encoder will trigger pending mask now */
+		sde_encoder_trigger_kickoff_pending(encoder);
 	}
 
 	/*

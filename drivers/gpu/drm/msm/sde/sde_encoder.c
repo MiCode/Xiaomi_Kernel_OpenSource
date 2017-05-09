@@ -1755,6 +1755,38 @@ static void _sde_encoder_update_master(struct drm_encoder *drm_enc,
 	}
 }
 
+void sde_encoder_trigger_kickoff_pending(struct drm_encoder *drm_enc)
+{
+	struct sde_encoder_virt *sde_enc;
+	struct sde_encoder_phys *phys;
+	unsigned int i;
+	struct sde_hw_ctl *ctl;
+	struct msm_display_info *disp_info;
+
+	if (!drm_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	disp_info = &sde_enc->disp_info;
+
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		phys = sde_enc->phys_encs[i];
+
+		if (phys && phys->hw_ctl) {
+			ctl = phys->hw_ctl;
+			if (ctl->ops.clear_pending_flush)
+				ctl->ops.clear_pending_flush(ctl);
+
+			/* update only for command mode primary ctl */
+			if ((phys == sde_enc->cur_master) &&
+			   (disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE)
+			    && ctl->ops.trigger_pending)
+				ctl->ops.trigger_pending(ctl);
+		}
+	}
+}
+
 void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 		struct sde_encoder_kickoff_params *params)
 {
@@ -1788,6 +1820,7 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 
 	/* if any phys needs reset, reset all phys, in-order */
 	if (needs_hw_reset) {
+		SDE_EVT32(DRMID(drm_enc), SDE_EVTLOG_FUNC_CASE1);
 		for (i = 0; i < sde_enc->num_phys_encs; i++) {
 			phys = sde_enc->phys_encs[i];
 			if (phys && phys->ops.hw_reset)

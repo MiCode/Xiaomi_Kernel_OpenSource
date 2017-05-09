@@ -104,6 +104,13 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *encoder,
 		struct sde_encoder_kickoff_params *params);
 
 /**
+ * sde_encoder_trigger_kickoff_pending - Clear the flush bits from previous
+ *        kickoff and trigger the ctl prepare progress for command mode display.
+ * @encoder:	encoder pointer
+ */
+void sde_encoder_trigger_kickoff_pending(struct drm_encoder *encoder);
+
+/**
  * sde_encoder_kickoff - trigger a double buffer flip of the ctl path
  *	(i.e. ctl flush and start) immediately.
  * @encoder:	encoder pointer

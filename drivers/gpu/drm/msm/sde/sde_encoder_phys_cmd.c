@@ -33,6 +33,9 @@
 
 #define PP_TIMEOUT_MAX_TRIALS	10
 
+/* wait for 2 vyncs only */
+#define CTL_START_TIMEOUT_MS	32
+
 /*
  * Tearcheck sync start and continue thresholds are empirically found
  * based on common panels In the future, may want to allow panels to override
@@ -170,9 +173,33 @@ static void sde_encoder_phys_cmd_pp_rd_ptr_irq(void *arg, int irq_idx)
 	if (!cmd_enc)
 		return;
 
+	SDE_EVT32_IRQ(DRMID(phys_enc->parent),
+			phys_enc->hw_pp->idx - PINGPONG_0, 0xfff);
+
 	if (phys_enc->parent_ops.handle_vblank_virt)
 		phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent,
 			phys_enc);
+}
+
+static void sde_encoder_phys_cmd_ctl_start_irq(void *arg, int irq_idx)
+{
+	struct sde_encoder_phys_cmd *cmd_enc = arg;
+	struct sde_encoder_phys *phys_enc;
+	struct sde_hw_ctl *ctl;
+
+	if (!cmd_enc)
+		return;
+
+	phys_enc = &cmd_enc->base;
+	if (!phys_enc->hw_ctl)
+		return;
+
+	ctl = phys_enc->hw_ctl;
+	SDE_EVT32_IRQ(DRMID(phys_enc->parent), ctl->idx - CTL_0, 0xfff);
+	atomic_add_unless(&phys_enc->pending_ctlstart_cnt, -1, 0);
+
+	/* Signal any waiting ctl start interrupt */
+	wake_up_all(&phys_enc->pending_kickoff_wq);
 }
 
 static bool _sde_encoder_phys_is_ppsplit(struct sde_encoder_phys *phys_enc)
@@ -280,7 +307,7 @@ static int _sde_encoder_phys_cmd_wait_for_idle(
 	if (ret <= 0) {
 		/* read and clear interrupt */
 		irq_status = sde_core_irq_read(phys_enc->sde_kms,
-				INTR_IDX_PINGPONG, true);
+				cmd_enc->irq_idx[INTR_IDX_PINGPONG], true);
 		if (irq_status) {
 			unsigned long flags;
 			SDE_EVT32(DRMID(phys_enc->parent),
@@ -335,8 +362,13 @@ static int sde_encoder_phys_cmd_register_irq(struct sde_encoder_phys *phys_enc,
 		return -EINVAL;
 	}
 
-	idx_lookup = (intr_type == SDE_IRQ_TYPE_INTF_UNDER_RUN) ?
-			phys_enc->intf_idx : phys_enc->hw_pp->idx;
+	if (intr_type == SDE_IRQ_TYPE_INTF_UNDER_RUN)
+		idx_lookup = phys_enc->intf_idx;
+	else if (intr_type == SDE_IRQ_TYPE_CTL_START)
+		idx_lookup = phys_enc->hw_ctl ? phys_enc->hw_ctl->idx : -1;
+	else
+		idx_lookup = phys_enc->hw_pp->idx;
+
 	cmd_enc->irq_idx[idx] = sde_core_irq_idx_lookup(phys_enc->sde_kms,
 			intr_type, idx_lookup);
 	if (cmd_enc->irq_idx[idx] < 0) {
@@ -449,8 +481,12 @@ end:
 void sde_encoder_phys_cmd_irq_control(struct sde_encoder_phys *phys_enc,
 		bool enable)
 {
+	struct sde_encoder_phys_cmd *cmd_enc;
+
 	if (!phys_enc || _sde_encoder_phys_is_ppsplit_slave(phys_enc))
 		return;
+
+	cmd_enc = to_sde_encoder_phys_cmd(phys_enc);
 
 	if (enable) {
 		sde_encoder_phys_cmd_register_irq(phys_enc,
@@ -466,7 +502,17 @@ void sde_encoder_phys_cmd_irq_control(struct sde_encoder_phys *phys_enc,
 				INTR_IDX_UNDERRUN,
 				sde_encoder_phys_cmd_underrun_irq,
 				"underrun");
+
+		if (sde_encoder_phys_cmd_is_master(phys_enc))
+			sde_encoder_phys_cmd_register_irq(phys_enc,
+				SDE_IRQ_TYPE_CTL_START,
+				INTR_IDX_CTL_START,
+				sde_encoder_phys_cmd_ctl_start_irq,
+				"ctl_start");
 	} else {
+		if (sde_encoder_phys_cmd_is_master(phys_enc))
+			sde_encoder_phys_cmd_unregister_irq(
+				phys_enc, INTR_IDX_CTL_START);
 		sde_encoder_phys_cmd_unregister_irq(
 				phys_enc, INTR_IDX_UNDERRUN);
 		sde_encoder_phys_cmd_control_vblank_irq(phys_enc, false);
@@ -713,24 +759,73 @@ static void sde_encoder_phys_cmd_prepare_for_kickoff(
 	}
 }
 
+static int _sde_encoder_phys_cmd_wait_for_ctl_start(
+		struct sde_encoder_phys *phys_enc)
+{
+	int rc = 0;
+	struct sde_hw_ctl *ctl;
+	u32 irq_status;
+	struct sde_encoder_phys_cmd *cmd_enc;
+
+	if (!phys_enc->hw_ctl) {
+		SDE_ERROR("invalid ctl\n");
+		return -EINVAL;
+	}
+
+	ctl = phys_enc->hw_ctl;
+	cmd_enc = to_sde_encoder_phys_cmd(phys_enc);
+	rc = sde_encoder_helper_wait_event_timeout(DRMID(phys_enc->parent),
+			ctl->idx - CTL_0,
+			&phys_enc->pending_kickoff_wq,
+			&phys_enc->pending_ctlstart_cnt,
+			CTL_START_TIMEOUT_MS);
+	if (rc <= 0) {
+		/* read and clear interrupt */
+		irq_status = sde_core_irq_read(phys_enc->sde_kms,
+				cmd_enc->irq_idx[INTR_IDX_CTL_START], true);
+		if (irq_status) {
+			unsigned long flags;
+
+			SDE_EVT32(DRMID(phys_enc->parent), ctl->idx - CTL_0);
+			SDE_DEBUG_CMDENC(cmd_enc,
+					"ctl:%d start done but irq not triggered\n",
+					ctl->idx - CTL_0);
+			local_irq_save(flags);
+			sde_encoder_phys_cmd_ctl_start_irq(cmd_enc,
+					INTR_IDX_CTL_START);
+			local_irq_restore(flags);
+			rc = 0;
+		} else {
+			SDE_ERROR("ctl start interrupt wait failed\n");
+			rc = -EINVAL;
+		}
+	} else {
+		rc = 0;
+	}
+
+	return rc;
+}
+
 static int sde_encoder_phys_cmd_wait_for_commit_done(
 		struct sde_encoder_phys *phys_enc)
 {
-	struct sde_encoder_phys_cmd *cmd_enc =
-			to_sde_encoder_phys_cmd(phys_enc);
+	int rc = 0;
+	struct sde_encoder_phys_cmd *cmd_enc;
 
-	if (cmd_enc->serialize_wait4pp)
+	if (!phys_enc)
+		return -EINVAL;
+
+	cmd_enc = to_sde_encoder_phys_cmd(phys_enc);
+
+	/* only required for master controller */
+	if (sde_encoder_phys_cmd_is_master(phys_enc))
+		rc = _sde_encoder_phys_cmd_wait_for_ctl_start(phys_enc);
+
+	/* required for both controllers */
+	if (!rc && cmd_enc->serialize_wait4pp)
 		sde_encoder_phys_cmd_prepare_for_kickoff(phys_enc, NULL);
 
-	/*
-	 * following statement is true serialize_wait4pp is false.
-	 *
-	 * Since ctl_start "commits" the transaction to hardware, and the
-	 * tearcheck block takes it from there, there is no need to have a
-	 * separate wait for committed, a la wait-for-vsync in video mode
-	 */
-
-	return 0;
+	return rc;
 }
 
 static void sde_encoder_phys_cmd_update_split_role(
@@ -815,6 +910,7 @@ struct sde_encoder_phys *sde_encoder_phys_cmd_init(
 		INIT_LIST_HEAD(&cmd_enc->irq_cb[i].list);
 	atomic_set(&phys_enc->vblank_refcount, 0);
 	atomic_set(&phys_enc->pending_kickoff_cnt, 0);
+	atomic_set(&phys_enc->pending_ctlstart_cnt, 0);
 	init_waitqueue_head(&phys_enc->pending_kickoff_wq);
 
 	SDE_DEBUG_CMDENC(cmd_enc, "created\n");

@@ -172,6 +172,7 @@ enum sde_intr_idx {
 	INTR_IDX_VSYNC,
 	INTR_IDX_PINGPONG,
 	INTR_IDX_UNDERRUN,
+	INTR_IDX_CTL_START,
 	INTR_IDX_RDPTR,
 	INTR_IDX_MAX,
 };
@@ -205,6 +206,8 @@ enum sde_intr_idx {
  *				vs. the number of done/vblank irqs. Should hover
  *				between 0-2 Incremented when a new kickoff is
  *				scheduled. Decremented in irq handler
+ * @pending_ctlstart_cnt:	Atomic counter tracking the number of ctl start
+ *                              pending.
  * @pending_kickoff_wq:		Wait queue for blocking until kickoff completes
  */
 struct sde_encoder_phys {
@@ -228,12 +231,14 @@ struct sde_encoder_phys {
 	atomic_t vblank_refcount;
 	atomic_t vsync_cnt;
 	atomic_t underrun_cnt;
+	atomic_t pending_ctlstart_cnt;
 	atomic_t pending_kickoff_cnt;
 	wait_queue_head_t pending_kickoff_wq;
 };
 
 static inline int sde_encoder_phys_inc_pending(struct sde_encoder_phys *phys)
 {
+	atomic_inc_return(&phys->pending_ctlstart_cnt);
 	return atomic_inc_return(&phys->pending_kickoff_cnt);
 }
 
