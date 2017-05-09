@@ -490,11 +490,13 @@ bool msm_smem_compare_buffers(void *clt, int fd, void *priv)
 }
 
 static int ion_cache_operations(struct smem_client *client,
-	struct msm_smem *mem, enum smem_cache_ops cache_op)
+	struct msm_smem *mem, enum smem_cache_ops cache_op,
+	int size)
 {
 	unsigned long ionflag = 0;
 	int rc = 0;
 	int msm_cache_ops = 0;
+	int op_size = 0;
 	if (!mem || !client) {
 		dprintk(VIDC_ERR, "Invalid params: %pK, %pK\n",
 			mem, client);
@@ -523,10 +525,15 @@ static int ion_cache_operations(struct smem_client *client,
 			rc = -EINVAL;
 			goto cache_op_failed;
 		}
+		if (size <= 0)
+			op_size = mem->size;
+		else
+			op_size = mem->size < size ? mem->size : size;
+
 		rc = msm_ion_do_cache_offset_op(client->clnt,
 				(struct ion_handle *)mem->smem_priv,
 				0, mem->offset,
-				(unsigned long)mem->size, msm_cache_ops);
+				(unsigned long)op_size, msm_cache_ops);
 		if (rc) {
 			dprintk(VIDC_ERR,
 					"cache operation failed %d\n", rc);
@@ -538,7 +545,7 @@ cache_op_failed:
 }
 
 int msm_smem_cache_operations(void *clt, struct msm_smem *mem,
-		enum smem_cache_ops cache_op)
+		enum smem_cache_ops cache_op, int size)
 {
 	struct smem_client *client = clt;
 	int rc = 0;
@@ -549,7 +556,7 @@ int msm_smem_cache_operations(void *clt, struct msm_smem *mem,
 	}
 	switch (client->mem_type) {
 	case SMEM_ION:
-		rc = ion_cache_operations(client, mem, cache_op);
+		rc = ion_cache_operations(client, mem, cache_op, size);
 		if (rc)
 			dprintk(VIDC_ERR,
 			"Failed cache operations: %d\n", rc);
