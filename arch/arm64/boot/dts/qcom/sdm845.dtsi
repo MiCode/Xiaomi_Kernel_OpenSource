@@ -1832,6 +1832,15 @@
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
 		qcom,apps-ch-pipes = <0x780000>;
 		qcom,ea-pc = <0x270>;
+		qcom,iommu-s1-bypass;
+
+		iommu_slim_aud_ctrl_cb: qcom,iommu_slim_ctrl_cb {
+			compatible = "qcom,iommu-slim-ctrl-cb";
+			iommus = <&apps_smmu 0x1806 0x0>,
+				 <&apps_smmu 0x180d 0x0>,
+				 <&apps_smmu 0x180e 0x1>,
+				 <&apps_smmu 0x1810 0x1>;
+		};
 	};
 
 	slim_qca: slim@17240000 {
@@ -1843,6 +1852,12 @@
 		reg-names = "slimbus_physical", "slimbus_bam_physical";
 		interrupts = <0 291 0>, <0 292 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,iommu-s1-bypass;
+
+		iommu_slim_qca_ctrl_cb: qcom,iommu_slim_ctrl_cb {
+			compatible = "qcom,iommu-slim-ctrl-cb";
+			iommus = <&apps_smmu 0x1813 0x0>;
+		};
 
 		/* Slimbus Slave DT for WCN3990 */
 		btfmslim_codec: wcn3990 {
