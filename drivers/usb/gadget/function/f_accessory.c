@@ -917,8 +917,7 @@ err:
 EXPORT_SYMBOL_GPL(acc_ctrlrequest);
 
 static int
-__acc_function_bind(struct usb_configuration *c,
-			struct usb_function *f, bool configfs)
+acc_function_bind_configfs(struct usb_configuration *c, struct usb_function *f)
 {
 	struct usb_composite_dev *cdev = c->cdev;
 	struct acc_dev	*dev = func_to_dev(f);
@@ -927,16 +926,15 @@ __acc_function_bind(struct usb_configuration *c,
 
 	DBG(cdev, "acc_function_bind dev: %p\n", dev);
 
-	if (configfs) {
-		if (acc_string_defs[INTERFACE_STRING_INDEX].id == 0) {
-			ret = usb_string_id(c->cdev);
-			if (ret < 0)
-				return ret;
-			acc_string_defs[INTERFACE_STRING_INDEX].id = ret;
-			acc_interface_desc.iInterface = ret;
-		}
-		dev->cdev = c->cdev;
+	if (acc_string_defs[INTERFACE_STRING_INDEX].id == 0) {
+		ret = usb_string_id(c->cdev);
+		if (ret < 0)
+			return ret;
+		acc_string_defs[INTERFACE_STRING_INDEX].id = ret;
+		acc_interface_desc.iInterface = ret;
 	}
+	dev->cdev = c->cdev;
+
 	ret = hid_register_driver(&acc_hid_driver);
 	if (ret)
 		return ret;
@@ -967,17 +965,6 @@ __acc_function_bind(struct usb_configuration *c,
 			gadget_is_dualspeed(c->cdev->gadget) ? "dual" : "full",
 			f->name, dev->ep_in->name, dev->ep_out->name);
 	return 0;
-}
-
-static int
-acc_function_bind(struct usb_configuration *c, struct usb_function *f) {
-	return __acc_function_bind(c, f, false);
-}
-
-static int
-acc_function_bind_configfs(struct usb_configuration *c,
-			struct usb_function *f) {
-	return __acc_function_bind(c, f, true);
 }
 
 static void
@@ -1177,35 +1164,6 @@ static void acc_function_disable(struct usb_function *f)
 	wake_up(&dev->read_wq);
 
 	VDBG(cdev, "%s disabled\n", dev->function.name);
-}
-
-static int acc_bind_config(struct usb_configuration *c)
-{
-	struct acc_dev *dev = _acc_dev;
-	int ret;
-
-	printk(KERN_INFO "acc_bind_config\n");
-
-	/* allocate a string ID for our interface */
-	if (acc_string_defs[INTERFACE_STRING_INDEX].id == 0) {
-		ret = usb_string_id(c->cdev);
-		if (ret < 0)
-			return ret;
-		acc_string_defs[INTERFACE_STRING_INDEX].id = ret;
-		acc_interface_desc.iInterface = ret;
-	}
-
-	dev->cdev = c->cdev;
-	dev->function.name = "accessory";
-	dev->function.strings = acc_strings,
-	dev->function.fs_descriptors = fs_acc_descs;
-	dev->function.hs_descriptors = hs_acc_descs;
-	dev->function.bind = acc_function_bind;
-	dev->function.unbind = acc_function_unbind;
-	dev->function.set_alt = acc_function_set_alt;
-	dev->function.disable = acc_function_disable;
-
-	return usb_add_function(c, &dev->function);
 }
 
 static int acc_setup(void)
