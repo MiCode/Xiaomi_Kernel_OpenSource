@@ -1463,6 +1463,14 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 		return;
 	}
 
+	if (phys->split_role == ENC_ROLE_SKIP) {
+		SDE_DEBUG_ENC(to_sde_encoder_virt(phys->parent),
+				"skip flush pp%d ctl%d\n",
+				phys->hw_pp->idx - PINGPONG_0,
+				ctl->idx - CTL_0);
+		return;
+	}
+
 	pending_kickoff_cnt = sde_encoder_phys_inc_pending(phys);
 
 	if (extra_flush_bits && ctl->ops.update_pending_flush)
@@ -1484,11 +1492,21 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
  */
 static inline void _sde_encoder_trigger_start(struct sde_encoder_phys *phys)
 {
+	struct sde_hw_ctl *ctl;
+
 	if (!phys) {
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
 
+	ctl = phys->hw_ctl;
+	if (phys->split_role == ENC_ROLE_SKIP) {
+		SDE_DEBUG_ENC(to_sde_encoder_virt(phys->parent),
+				"skip start pp%d ctl%d\n",
+				phys->hw_pp->idx - PINGPONG_0,
+				ctl->idx - CTL_0);
+		return;
+	}
 	if (phys->ops.trigger_start && phys->enable_state != SDE_ENC_DISABLED)
 		phys->ops.trigger_start(phys);
 }
@@ -1620,9 +1638,13 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 			topology = sde_connector_get_topology_name(
 					phys->connector);
 
-		/* don't wait on ppsplit slaves, they dont register irqs */
+		/*
+		 * don't wait on ppsplit slaves or skipped encoders because
+		 * they dont receive irqs
+		 */
 		if (!(topology == SDE_RM_TOPOLOGY_PPSPLIT &&
-				phys->split_role == ENC_ROLE_SLAVE))
+				phys->split_role == ENC_ROLE_SLAVE) &&
+				phys->split_role != ENC_ROLE_SKIP)
 			set_bit(i, sde_enc->frame_busy_mask);
 
 		if (!phys->ops.needs_single_flush ||
@@ -1645,6 +1667,60 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 	spin_unlock_irqrestore(&sde_enc->enc_spinlock, lock_flags);
 }
 
+static void _sde_encoder_update_master(struct drm_encoder *drm_enc,
+		struct sde_encoder_kickoff_params *params)
+{
+	struct sde_encoder_virt *sde_enc;
+	struct sde_encoder_phys *phys;
+	int i, num_active_phys;
+	bool master_assigned = false;
+
+	if (!drm_enc || !params)
+		return;
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+
+	if (sde_enc->num_phys_encs <= 1)
+		return;
+
+	/* count bits set */
+	num_active_phys = hweight_long(params->affected_displays);
+
+	SDE_DEBUG_ENC(sde_enc, "affected_displays 0x%lx num_active_phys %d\n",
+			params->affected_displays, num_active_phys);
+
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		enum sde_enc_split_role prv_role, new_role;
+		bool active;
+
+		phys = sde_enc->phys_encs[i];
+		if (!phys || !phys->ops.update_split_role)
+			continue;
+
+		active = test_bit(i, &params->affected_displays);
+		prv_role = phys->split_role;
+
+		if (active && num_active_phys == 1)
+			new_role = ENC_ROLE_SOLO;
+		else if (active && !master_assigned)
+			new_role = ENC_ROLE_MASTER;
+		else if (active)
+			new_role = ENC_ROLE_SLAVE;
+		else
+			new_role = ENC_ROLE_SKIP;
+
+		phys->ops.update_split_role(phys, new_role);
+		if (new_role == ENC_ROLE_SOLO || new_role == ENC_ROLE_MASTER) {
+			sde_enc->cur_master = phys;
+			master_assigned = true;
+		}
+
+		SDE_DEBUG_ENC(sde_enc, "pp %d role prv %d new %d active %d\n",
+				phys->hw_pp->idx - PINGPONG_0, prv_role,
+				phys->split_role, active);
+	}
+}
+
 void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 		struct sde_encoder_kickoff_params *params)
 {
@@ -1654,8 +1730,8 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 	unsigned int i;
 	int rc;
 
-	if (!drm_enc) {
-		SDE_ERROR("invalid encoder\n");
+	if (!drm_enc || !params) {
+		SDE_ERROR("invalid args\n");
 		return;
 	}
 	sde_enc = to_sde_encoder_virt(drm_enc);
@@ -1684,6 +1760,8 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 				phys->ops.hw_reset(phys);
 		}
 	}
+
+	_sde_encoder_update_master(drm_enc, params);
 
 	if (sde_enc->cur_master && sde_enc->cur_master->connector) {
 		rc = sde_connector_pre_kickoff(sde_enc->cur_master->connector);
