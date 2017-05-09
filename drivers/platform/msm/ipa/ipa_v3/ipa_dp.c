@@ -1055,7 +1055,7 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 		ipa_assert();
 		return result;
 	}
-	result = gsi_reset_channel(ep->gsi_chan_hdl);
+	result = ipa3_reset_gsi_channel(clnt_hdl);
 	if (result != GSI_STATUS_SUCCESS) {
 		IPAERR("Failed to reset chan: %d.\n", result);
 		ipa_assert();
