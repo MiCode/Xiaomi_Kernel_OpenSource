@@ -12,6 +12,7 @@
  */
 
 #define CREATE_TRACE_POINTS
+#define MAX_SSR_STRING_LEN 10
 #include "msm_vidc_debug.h"
 #include "vidc_hfi_api.h"
 
@@ -134,21 +135,36 @@ static int trigger_ssr_open(struct inode *inode, struct file *file)
 
 static ssize_t trigger_ssr_write(struct file *filp, const char __user *buf,
 		size_t count, loff_t *ppos) {
-	u32 ssr_trigger_val;
-	int rc;
+	unsigned long ssr_trigger_val = 0;
+	int rc = 0;
 	struct msm_vidc_core *core = filp->private_data;
+	size_t size = MAX_SSR_STRING_LEN;
+	char kbuf[MAX_SSR_STRING_LEN + 1] = {0};
 
 	if (!buf)
 		return -EINVAL;
 
-	rc = kstrtou32(buf, 0, &ssr_trigger_val);
-	if (rc < 0) {
+	if (!count)
+		goto exit;
+
+	if (count < size)
+		size = count;
+
+	if (copy_from_user(kbuf, buf, size)) {
+		dprintk(VIDC_WARN, "%s User memory fault\n", __func__);
+		rc = -EFAULT;
+		goto exit;
+	}
+
+	rc = kstrtoul(kbuf, 0, &ssr_trigger_val);
+	if (rc) {
 		dprintk(VIDC_WARN, "returning error err %d\n", rc);
 		rc = -EINVAL;
 	} else {
 		msm_vidc_trigger_ssr(core, ssr_trigger_val);
 		rc = count;
 	}
+exit:
 	return rc;
 }
 
