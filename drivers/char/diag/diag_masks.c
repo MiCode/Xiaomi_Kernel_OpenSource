@@ -457,7 +457,9 @@ static void diag_send_feature_mask_update(uint8_t peripheral)
 	if (driver->supports_apps_hdlc_encoding)
 		DIAG_SET_FEATURE_MASK(F_DIAG_APPS_HDLC_ENCODE);
 	if (driver->supports_apps_header_untagging) {
-		if (peripheral == PERIPHERAL_MODEM) {
+		if (peripheral == PERIPHERAL_MODEM ||
+			peripheral == PERIPHERAL_LPASS ||
+			peripheral == PERIPHERAL_CDSP) {
 			DIAG_SET_FEATURE_MASK(F_DIAG_PKT_HEADER_UNTAG);
 			driver->peripheral_untag[peripheral] =
 				ENABLE_PKT_HEADER_UNTAGGING;

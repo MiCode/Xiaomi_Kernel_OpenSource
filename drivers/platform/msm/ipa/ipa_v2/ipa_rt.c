@@ -698,6 +698,7 @@ int __ipa_commit_rt_v2(enum ipa_ip_type ip)
 	struct ipa_mem_buffer head;
 	struct ipa_hw_imm_cmd_dma_shared_mem *cmd1 = NULL;
 	struct ipa_hw_imm_cmd_dma_shared_mem *cmd2 = NULL;
+	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 	u16 avail;
 	u32 num_modem_rt_index;
 	int rc = 0;
@@ -748,7 +749,7 @@ int __ipa_commit_rt_v2(enum ipa_ip_type ip)
 	}
 
 	cmd1 = kzalloc(sizeof(struct ipa_hw_imm_cmd_dma_shared_mem),
-		GFP_KERNEL);
+		flag);
 	if (cmd1 == NULL) {
 		IPAERR("Failed to alloc immediate command object\n");
 		rc = -ENOMEM;
@@ -765,7 +766,7 @@ int __ipa_commit_rt_v2(enum ipa_ip_type ip)
 
 	if (lcl) {
 		cmd2 = kzalloc(sizeof(struct ipa_hw_imm_cmd_dma_shared_mem),
-			GFP_KERNEL);
+			flag);
 		if (cmd2 == NULL) {
 			IPAERR("Failed to alloc immediate command object\n");
 			rc = -ENOMEM;

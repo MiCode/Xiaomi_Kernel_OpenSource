@@ -47,6 +47,8 @@
 #define CCI_DBG(fmt, args...) pr_debug(fmt, ##args)
 #endif
 
+#define CCI_DUMP_REG 0
+
 /* Max bytes that can be read per CCI read transaction */
 #define CCI_READ_MAX 12
 #define CCI_I2C_READ_MAX_RETRIES 3
@@ -296,6 +298,9 @@ static uint32_t msm_cci_wait(struct cci_device *cci_dev,
 		__func__, __LINE__);
 
 	if (rc <= 0) {
+		if (CCI_DUMP_REG)
+			msm_cci_dump_registers(cci_dev, master, queue);
+
 		pr_err("%s: %d wait for queue: %d\n",
 			 __func__, __LINE__, queue);
 		if (rc == 0)
@@ -927,7 +932,9 @@ static int32_t msm_cci_i2c_read(struct v4l2_subdev *sd,
 	rc = wait_for_completion_timeout(&cci_dev->
 		cci_master_info[master].reset_complete, CCI_TIMEOUT);
 	if (rc <= 0) {
-		msm_cci_dump_registers(cci_dev, master, queue);
+		if (CCI_DUMP_REG)
+			msm_cci_dump_registers(cci_dev, master, queue);
+
 		if (rc == 0)
 			rc = -ETIMEDOUT;
 		pr_err("%s: %d wait_for_completion_timeout rc = %d\n",

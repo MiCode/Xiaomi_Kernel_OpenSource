@@ -684,8 +684,10 @@ static void mdss_mdp_video_timegen_flush(struct mdss_mdp_ctl *ctl,
 			ctl_flush |= (BIT(31) >>
 					(sctx->intf_num - MDSS_MDP_INTF0));
 	}
+	MDSS_XLOG(ctl->intf_num, sctx?sctx->intf_num:0xf00, ctl_flush,
+				mdss_mdp_ctl_read(ctl, MDSS_MDP_REG_CTL_FLUSH));
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, ctl_flush);
-	MDSS_XLOG(ctl->intf_num, sctx?sctx->intf_num:0xf00, ctl_flush);
+
 }
 
 static inline void video_vsync_irq_enable(struct mdss_mdp_ctl *ctl, bool clear)
@@ -1384,7 +1386,7 @@ static int mdss_mdp_video_dfps_wait4vsync(struct mdss_mdp_ctl *ctl)
 			pr_err("error polling for vsync\n");
 			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
 				"dsi1_ctrl", "dsi1_phy", "vbif", "dbg_bus",
-				"vbif_dbg_bus", "panic");
+				"vbif_dbg_bus", "dsi_dbg_bus", "panic");
 		}
 	} else {
 		rc = 0;

@@ -5193,7 +5193,7 @@ static int afe_sidetone(u16 tx_port_id, u16 rx_port_id, bool enable)
 					AFE_API_VERSION_LOOPBACK_CONFIG;
 	cmd_sidetone.cfg_data.dst_port_id = rx_port_id;
 	cmd_sidetone.cfg_data.routing_mode = LB_MODE_SIDETONE;
-	cmd_sidetone.cfg_data.enable = ((enable == 1) ? sidetone_enable : 0);
+	cmd_sidetone.cfg_data.enable = enable;
 
 	pr_debug("%s rx(0x%x) tx(0x%x) enable(%d) mid(0x%x) gain(%d) sidetone_enable(%d)\n",
 		  __func__, rx_port_id, tx_port_id,

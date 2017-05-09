@@ -69,6 +69,14 @@ error:
 	return ret;
 }
 
+static inline int is_fm_port(uint8_t port_num)
+{
+	if (port_num == CHRK_SB_PGD_PORT_TX1_FM ||
+		port_num == CHRK_SB_PGD_PORT_TX2_FM)
+		return 1;
+	else
+		return 0;
+}
 
 int btfm_slim_chrk_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 	uint8_t rxport, uint8_t enable)
@@ -88,9 +96,7 @@ int btfm_slim_chrk_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 		goto enable_disable_txport;
 
 	/* Multiple Channel Setting - only for FM Tx */
-	if (port_num == CHRK_SB_PGD_PORT_TX1_FM ||
-		port_num == CHRK_SB_PGD_PORT_TX2_FM) {
-
+	if (is_fm_port(port_num)) {
 		reg_val = (0x1 << CHRK_SB_PGD_PORT_TX1_FM) |
 				(0x1 << CHRK_SB_PGD_PORT_TX2_FM);
 		reg = CHRK_SB_PGD_TX_PORTn_MULTI_CHNL_0(port_num);
@@ -116,10 +122,14 @@ enable_disable_txport:
 	reg = CHRK_SB_PGD_PORT_TX_CFGN(port_num);
 
 enable_disable_rxport:
-	if (enable)
-		/* Set water mark to 1 and enable the port */
-		reg_val = CHRK_SB_PGD_PORT_ENABLE | CHRK_SB_PGD_PORT_WM_LB;
-	else
+	if (enable) {
+		if (is_fm_port(port_num))
+			reg_val = CHRK_SB_PGD_PORT_ENABLE |
+					CHRK_SB_PGD_PORT_WM_L3;
+		else
+			reg_val = CHRK_SB_PGD_PORT_ENABLE |
+					CHRK_SB_PGD_PORT_WM_LB;
+	} else
 		reg_val = CHRK_SB_PGD_PORT_DISABLE;
 
 	ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
