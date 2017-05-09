@@ -514,7 +514,8 @@
 		camss-vdd-supply = <&gdsc_camss_top>;
 		smmu-vdd-supply = <&gdsc_bimc_smmu>;
 		qcom,vdd-names = "vdd", "camss-vdd", "smmu-vdd";
-		clocks = <&clock_rpmcc MMSSNOC_AXI_CLK>,
+		clocks = <&clock_mmss MMSS_THROTTLE_CAMSS_AXI_CLK>,
+			<&clock_rpmcc MMSSNOC_AXI_CLK>,
 			<&clock_mmss MMSS_MNOC_AHB_CLK>,
 			<&clock_mmss MMSS_BIMC_SMMU_AHB_CLK>,
 			<&clock_mmss MMSS_BIMC_SMMU_AXI_CLK>,
@@ -527,16 +528,17 @@
 			<&clock_mmss MMSS_CAMSS_VFE_VBIF_AHB_CLK>,
 			<&clock_mmss MMSS_CAMSS_VFE_VBIF_AXI_CLK>,
 			<&clock_mmss MMSS_CAMSS_CSI_VFE0_CLK>;
-		clock-names = "mmssnoc_axi", "mnoc_ahb_clk",
-			"bimc_smmu_ahb_clk", "bimc_smmu_axi_clk",
-			"camss_ahb_clk", "camss_top_ahb_clk", "vfe_clk_src",
+		clock-names = "mmss_throttle_camss_axi_clk", "mmssnoc_axi",
+			"mnoc_ahb_clk", "bimc_smmu_ahb_clk",
+			"bimc_smmu_axi_clk", "camss_ahb_clk",
+			"camss_top_ahb_clk", "vfe_clk_src",
 			"camss_vfe_clk", "camss_vfe_stream_clk",
 			"camss_vfe_ahb_clk", "camss_vfe_vbif_ahb_clk",
 			"camss_vfe_vbif_axi_clk",
 			"camss_csi_vfe_clk";
-		qcom,clock-rates = <0 0 0 0 0 0 404000000 0 0 0 0 0 0
-					0 0 0 0 0 0 480000000 0 0 0 0 0 0
-					0 0 0 0 0 0 576000000 0 0 0 0 0 0>;
+		qcom,clock-rates = <0 0 0 0 0 0 0 404000000 0 0 0 0 0 0
+					0 0 0 0 0 0 0 480000000 0 0 0 0 0 0
+					0 0 0 0 0 0 0 576000000 0 0 0 0 0 0>;
 		status = "ok";
 		qos-entries = <8>;
 		qos-regs = <0x404 0x408 0x40c 0x410 0x414 0x418
@@ -595,7 +597,8 @@
 		camss-vdd-supply = <&gdsc_camss_top>;
 		smmu-vdd-supply = <&gdsc_bimc_smmu>;
 		qcom,vdd-names = "vdd", "camss-vdd", "smmu-vdd";
-		clocks = <&clock_rpmcc MMSSNOC_AXI_CLK>,
+		clocks = <&clock_mmss MMSS_THROTTLE_CAMSS_AXI_CLK>,
+			<&clock_rpmcc MMSSNOC_AXI_CLK>,
 			<&clock_mmss MMSS_MNOC_AHB_CLK>,
 			<&clock_mmss MMSS_BIMC_SMMU_AHB_CLK>,
 			<&clock_mmss MMSS_BIMC_SMMU_AXI_CLK>,
@@ -608,16 +611,17 @@
 			<&clock_mmss MMSS_CAMSS_VFE_VBIF_AHB_CLK>,
 			<&clock_mmss MMSS_CAMSS_VFE_VBIF_AXI_CLK>,
 			<&clock_mmss MMSS_CAMSS_CSI_VFE1_CLK>;
-		clock-names = "mmssnoc_axi", "mnoc_ahb_clk",
-			"bimc_smmu_ahb_clk", "bimc_smmu_axi_clk",
-			"camss_ahb_clk", "camss_top_ahb_clk", "vfe_clk_src",
+		clock-names = "mmss_throttle_camss_axi_clk", "mmssnoc_axi",
+			"mnoc_ahb_clk", "bimc_smmu_ahb_clk",
+			"bimc_smmu_axi_clk", "camss_ahb_clk",
+			"camss_top_ahb_clk", "vfe_clk_src",
 			"camss_vfe_clk", "camss_vfe_stream_clk",
 			"camss_vfe_ahb_clk", "camss_vfe_vbif_ahb_clk",
 			"camss_vfe_vbif_axi_clk",
 			"camss_csi_vfe_clk";
-		qcom,clock-rates = <0 0 0 0 0 0 404000000 0 0 0 0 0 0
-					0 0 0 0 0 0 480000000 0 0 0 0 0 0
-					0 0 0 0 0 0 576000000 0 0 0 0 0 0>;
+		qcom,clock-rates = <0 0 0 0 0 0 0 404000000 0 0 0 0 0 0
+					0 0 0 0 0 0 0 480000000 0 0 0 0 0 0
+					0 0 0 0 0 0 0 576000000 0 0 0 0 0 0>;
 		status = "ok";
 		qos-entries = <8>;
 		qos-regs = <0x404 0x408 0x40c 0x410 0x414 0x418
