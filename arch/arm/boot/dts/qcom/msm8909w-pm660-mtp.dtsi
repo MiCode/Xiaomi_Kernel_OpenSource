@@ -44,6 +44,8 @@
 		hsusb_vdd_dig-supply = <&pm660_l5>;
 		HSUSB_1p8-supply = <&pm660_l12>;
 		HSUSB_3p3-supply = <&pm660_l16>;
+		qcom,hsusb-otg-mode = <1>; /* DEVICE only */
+		qcom,hsusb-otg-otg-control = <3>; /* USER */
 	};
 
 	qcom,pronto@a21b000 {
