@@ -2667,11 +2667,11 @@
 
 		trigout_a: trigout_a {
 			mux {
-				pins = "gpio62", "gpio51";
+				pins = "gpio90";
 				function = "qdss_cti";
 			};
 			config {
-				pins = "gpio62", "gpio51";
+				pins = "gpio90";
 				drive-strength = <2>;
 				bias-disable;
 			};
