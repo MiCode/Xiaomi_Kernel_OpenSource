@@ -65,6 +65,7 @@ static struct target_type android_verity_target = {
 	.io_hints               = verity_io_hints,
 };
 
+#ifndef MODULE
 static int __init verified_boot_state_param(char *line)
 {
 	strlcpy(verifiedbootstate, line, sizeof(verifiedbootstate));
@@ -96,6 +97,7 @@ static int __init verity_buildvariant(char *line)
 }
 
 __setup("buildvariant=", verity_buildvariant);
+#endif
 
 static inline bool default_verity_key_id(void)
 {
