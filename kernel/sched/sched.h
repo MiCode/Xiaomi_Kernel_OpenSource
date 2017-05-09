@@ -2201,7 +2201,7 @@ static inline void cpufreq_update_util(struct rq *rq, unsigned int flags)
 {
 	struct update_util_data *data;
 
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 	/*
 	 * Skip if we've already reported, but not if this is an inter-cluster
 	 * migration
