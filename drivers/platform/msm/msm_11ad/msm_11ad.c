@@ -901,7 +901,7 @@ out_rc:
 static void msm_11ad_init_cpu_boost(struct msm11ad_ctx *ctx)
 {
 	unsigned int minfreq = 0, maxfreq = 0, freq;
-	int i, boost_cpu;
+	int i, boost_cpu = 0;
 
 	for_each_possible_cpu(i) {
 		freq = cpufreq_quick_get_max(i);
