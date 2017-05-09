@@ -625,11 +625,8 @@ static int sdcardfs_permission(struct vfsmount *mnt, struct inode *inode, int ma
 	if (IS_ERR(mnt))
 		return PTR_ERR(mnt);
 
-	if (!top) {
-		release_top(SDCARDFS_I(inode));
-		WARN(1, "Top value was null!\n");
+	if (!top)
 		return -EINVAL;
-	}
 
 	/*
 	 * Permission check on sdcardfs inode.
@@ -704,10 +701,8 @@ static int sdcardfs_setattr(struct vfsmount *mnt, struct dentry *dentry, struct 
 	inode = d_inode(dentry);
 	top = grab_top(SDCARDFS_I(inode));
 
-	if (!top) {
-		release_top(SDCARDFS_I(inode));
+	if (!top)
 		return -EINVAL;
-	}
 
 	/*
 	 * Permission check on sdcardfs inode.
