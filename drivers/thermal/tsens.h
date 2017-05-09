@@ -31,6 +31,7 @@ enum tsens_dbg_type {
 	TSENS_DBG_POLL,
 	TSENS_DBG_LOG_TEMP_READS,
 	TSENS_DBG_LOG_INTERRUPT_TIMESTAMP,
+	TSENS_DBG_LOG_BUS_ID_DATA,
 	TSENS_DBG_LOG_MAX
 };
 
@@ -109,9 +110,9 @@ struct tsens_data {
 	unsigned int			*hw_ids;
 	u32				temp_factor;
 	bool				cycle_monitor;
-	u32				cycle_compltn_monitor_val;
+	u32				cycle_compltn_monitor_mask;
 	bool				wd_bark;
-	u32				wd_bark_val;
+	u32				wd_bark_mask;
 };
 
 struct tsens_device {
