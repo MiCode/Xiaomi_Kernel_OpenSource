@@ -791,21 +791,10 @@ int dsi_phy_enable(struct msm_dsi_phy *phy,
 		   bool skip_validation)
 {
 	int rc = 0;
-	struct dsi_clk_ctrl_info clk_info;
 
 	if (!phy || !config) {
 		pr_err("Invalid params\n");
 		return -EINVAL;
-	}
-
-	clk_info.client = DSI_CLK_REQ_DSI_CLIENT;
-	clk_info.clk_type = DSI_CORE_CLK;
-	clk_info.clk_state = DSI_CLK_ON;
-
-	rc = phy->clk_cb.dsi_clk_cb(phy->clk_cb.priv, clk_info);
-	if (rc) {
-		pr_err("failed to enable DSI core clocks\n");
-		return rc;
 	}
 
 	mutex_lock(&phy->phy_lock);
@@ -839,10 +828,6 @@ int dsi_phy_enable(struct msm_dsi_phy *phy,
 error:
 	mutex_unlock(&phy->phy_lock);
 
-	clk_info.clk_state = DSI_CLK_OFF;
-	rc = phy->clk_cb.dsi_clk_cb(phy->clk_cb.priv, clk_info);
-	if (rc)
-		pr_err("failed to disable DSI core clocks\n");
 	return rc;
 }
 
@@ -855,33 +840,16 @@ error:
 int dsi_phy_disable(struct msm_dsi_phy *phy)
 {
 	int rc = 0;
-	struct dsi_clk_ctrl_info clk_info;
 
 	if (!phy) {
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
 
-	clk_info.client = DSI_CLK_REQ_DSI_CLIENT;
-	clk_info.clk_type = DSI_CORE_CLK;
-	clk_info.clk_state = DSI_CLK_ON;
-
-	rc = phy->clk_cb.dsi_clk_cb(phy->clk_cb.priv, clk_info);
-	if (rc) {
-		pr_err("failed to enable DSI core clocks\n");
-		return rc;
-	}
-
 	mutex_lock(&phy->phy_lock);
 	dsi_phy_disable_hw(phy);
 	phy->dsi_phy_state = DSI_PHY_ENGINE_OFF;
 	mutex_unlock(&phy->phy_lock);
-
-	clk_info.clk_state = DSI_CLK_OFF;
-
-	rc = phy->clk_cb.dsi_clk_cb(phy->clk_cb.priv, clk_info);
-	if (rc)
-		pr_err("failed to disable DSI core clocks\n");
 
 	return rc;
 }

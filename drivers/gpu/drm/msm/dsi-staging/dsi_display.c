@@ -3113,6 +3113,11 @@ int dsi_display_post_enable(struct dsi_display *display)
 		pr_err("[%s] panel post-enable failed, rc=%d\n",
 		       display->name, rc);
 
+	/* remove the clk vote for CMD mode panels */
+	if (display->config.panel_mode == DSI_OP_CMD_MODE)
+		dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_ALL_CLKS, DSI_CLK_OFF);
+
 	mutex_unlock(&display->display_lock);
 	return rc;
 }
@@ -3127,6 +3132,11 @@ int dsi_display_pre_disable(struct dsi_display *display)
 	}
 
 	mutex_lock(&display->display_lock);
+
+	/* enable the clk vote for CMD mode panels */
+	if (display->config.panel_mode == DSI_OP_CMD_MODE)
+		dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_ALL_CLKS, DSI_CLK_ON);
 
 	rc = dsi_panel_pre_disable(display->panel);
 	if (rc)
