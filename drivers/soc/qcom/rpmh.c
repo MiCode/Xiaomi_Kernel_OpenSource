@@ -504,8 +504,12 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 	/* Create async request batches */
 	for (i = 0; i < count; i++) {
 		rpm_msg[i] = __get_rpmh_msg_async(rc, state, cmd, n[i]);
-		if (IS_ERR_OR_NULL(rpm_msg[i]))
+		if (IS_ERR_OR_NULL(rpm_msg[i])) {
+			/* Clean up our call by spoofing tx_done */
+			for (j = 0 ; j < i; j++)
+				rpmh_tx_done(&rc->client, &rpm_msg[j]->msg, 0);
 			return PTR_ERR(rpm_msg[i]);
+		}
 		cmd += n[i];
 	}
 
@@ -518,10 +522,13 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 			rpm_msg[i]->wait_count = &wait_count;
 			/* Bypass caching and write to mailbox directly */
 			ret = mbox_send_message(rc->chan, &rpm_msg[i]->msg);
-			if (ret < 0)
-				return ret;
+			if (ret < 0) {
+				pr_err("Error(%d) sending RPM message addr=0x%x\n",
+					ret, rpm_msg[i]->msg.payload[0].addr);
+				break;
+			}
 		}
-		wait_event(waitq, atomic_read(&wait_count) == 0);
+		wait_event(waitq, atomic_read(&wait_count) == (count - i));
 	} else {
 		/* Send Sleep requests to the controller, expect no response */
 		for (i = 0; i < count; i++) {
