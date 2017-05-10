@@ -138,12 +138,16 @@ static void sde_fence_release(struct fence *fence)
 {
 	struct sde_fence *f = to_sde_fence(fence);
 	struct sde_fence *fc, *next;
-	struct sde_fence_context *ctx = f->ctx;
+	struct sde_fence_context *ctx;
 	bool release_kref = false;
 
+	if (!fence || !f->ctx)
+		return;
+
+	ctx = f->ctx;
+
 	spin_lock(&ctx->list_lock);
-	list_for_each_entry_safe(fc, next, &ctx->fence_list_head,
-				 fence_list) {
+	list_for_each_entry_safe(fc, next, &ctx->fence_list_head, fence_list) {
 		/* fence release called before signal */
 		if (f == fc) {
 			list_del_init(&fc->fence_list);
@@ -159,16 +163,21 @@ static void sde_fence_release(struct fence *fence)
 	kfree_rcu(f, base.rcu);
 }
 
-static void sde_fence_value_str(struct fence *fence,
-				    char *str, int size)
+static void sde_fence_value_str(struct fence *fence, char *str, int size)
 {
+	if (!fence || !str)
+		return;
+
 	snprintf(str, size, "%d", fence->seqno);
 }
 
-static void sde_fence_timeline_value_str(struct fence *fence,
-					     char *str, int size)
+static void sde_fence_timeline_value_str(struct fence *fence, char *str,
+		int size)
 {
 	struct sde_fence *f = to_sde_fence(fence);
+
+	if (!fence || !f->ctx || !str)
+		return;
 
 	snprintf(str, size, "%d", f->ctx->done_count);
 }
@@ -226,6 +235,7 @@ static int _sde_fence_create_fd(void *fence_ctx, uint32_t val)
 	sync_file = sync_file_create(&sde_fence->base);
 	if (sync_file == NULL) {
 		put_unused_fd(fd);
+		fd = -EINVAL;
 		fence_put(&sde_fence->base);
 		SDE_ERROR("couldn't create fence, %s\n", sde_fence->name);
 		goto exit;
@@ -244,16 +254,15 @@ exit:
 }
 
 int sde_fence_init(struct sde_fence_context *ctx,
-		const char *name,
-		uint32_t drm_id)
+		const char *name, uint32_t drm_id)
 {
-	if (!ctx) {
+	if (!ctx || !name) {
 		SDE_ERROR("invalid argument(s)\n");
 		return -EINVAL;
 	}
 	memset(ctx, 0, sizeof(*ctx));
 
-	strlcpy(ctx->name, name, SDE_FENCE_NAME_SIZE);
+	strlcpy(ctx->name, name, ARRAY_SIZE(ctx->name));
 	ctx->drm_id = drm_id;
 	kref_init(&ctx->kref);
 	ctx->context = fence_context_alloc(1);
