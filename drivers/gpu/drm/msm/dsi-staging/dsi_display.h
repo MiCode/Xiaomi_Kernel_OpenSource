@@ -155,6 +155,10 @@ struct dsi_display {
 	bool ulps_enabled;
 	bool clamp_enabled;
 	bool phy_idle_power_off;
+	struct drm_gem_object *tx_cmd_buf;
+	u32 cmd_buffer_size;
+	u32 cmd_buffer_iova;
+	void *vaddr;
 
 	struct mipi_dsi_host host;
 	struct dsi_bridge    *bridge;

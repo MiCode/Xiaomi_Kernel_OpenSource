@@ -16,6 +16,7 @@
 
 #include <linux/list.h>
 #include <linux/of.h>
+#include <linux/err.h>
 
 #include "msm_drv.h"
 #include "dsi_display.h"
@@ -1004,9 +1005,9 @@ static int dsi_display_broadcast_cmd(struct dsi_display *display,
 	int i;
 
 	m_flags = (DSI_CTRL_CMD_BROADCAST | DSI_CTRL_CMD_BROADCAST_MASTER |
-		   DSI_CTRL_CMD_DEFER_TRIGGER | DSI_CTRL_CMD_FIFO_STORE);
+		   DSI_CTRL_CMD_DEFER_TRIGGER | DSI_CTRL_CMD_FETCH_MEMORY);
 	flags = (DSI_CTRL_CMD_BROADCAST | DSI_CTRL_CMD_DEFER_TRIGGER |
-		 DSI_CTRL_CMD_FIFO_STORE);
+		 DSI_CTRL_CMD_FETCH_MEMORY);
 
 	/*
 	 * 1. Setup commands in FIFO
@@ -1101,8 +1102,8 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 				 const struct mipi_dsi_msg *msg)
 {
 	struct dsi_display *display = to_dsi_display(host);
-
-	int rc = 0;
+	struct dsi_display_ctrl *display_ctrl;
+	int rc = 0, cnt = 0;
 
 	if (!host || !msg) {
 		pr_err("Invalid params\n");
@@ -1131,6 +1132,44 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 		goto error_disable_clks;
 	}
 
+	if (display->tx_cmd_buf == NULL) {
+		mutex_lock(&display->drm_dev->struct_mutex);
+		display->tx_cmd_buf = msm_gem_new(display->drm_dev,
+				SZ_4K,
+				MSM_BO_UNCACHED);
+		mutex_unlock(&display->drm_dev->struct_mutex);
+
+		display->cmd_buffer_size = SZ_4K;
+
+		if ((display->tx_cmd_buf) == NULL) {
+			pr_err("value of display->tx_cmd_buf is NULL");
+			goto error_disable_cmd_engine;
+		}
+		rc = msm_gem_get_iova(display->tx_cmd_buf, 0,
+					&(display->cmd_buffer_iova));
+		if (rc) {
+			pr_err("failed to get the iova rc %d\n", rc);
+			goto free_gem;
+		}
+
+		display->vaddr =
+			(void *) msm_gem_get_vaddr(display->tx_cmd_buf);
+
+		if (IS_ERR_OR_NULL(display->vaddr)) {
+			pr_err("failed to get va rc %d\n", rc);
+			rc = -EINVAL;
+			goto put_iova;
+		}
+
+		for (cnt = 0; cnt < display->ctrl_count; cnt++) {
+			display_ctrl = &display->ctrl[cnt];
+			display_ctrl->ctrl->cmd_buffer_size = SZ_4K;
+			display_ctrl->ctrl->cmd_buffer_iova =
+						display->cmd_buffer_iova;
+			display_ctrl->ctrl->vaddr = display->vaddr;
+		}
+	}
+
 	if (display->ctrl_count > 1 && !(msg->flags & MIPI_DSI_MSG_UNICAST)) {
 		rc = dsi_display_broadcast_cmd(display, msg);
 		if (rc) {
@@ -1143,13 +1182,19 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 				msg->ctrl : 0;
 
 		rc = dsi_ctrl_cmd_transfer(display->ctrl[ctrl_idx].ctrl, msg,
-					  DSI_CTRL_CMD_FIFO_STORE);
+					  DSI_CTRL_CMD_FETCH_MEMORY);
 		if (rc) {
 			pr_err("[%s] cmd transfer failed, rc=%d\n",
 			       display->name, rc);
 			goto error_disable_cmd_engine;
 		}
 	}
+	return rc;
+
+put_iova:
+	msm_gem_put_iova(display->tx_cmd_buf, 0);
+free_gem:
+	msm_gem_free_object(display->tx_cmd_buf);
 error_disable_cmd_engine:
 	(void)dsi_display_cmd_engine_disable(display);
 error_disable_clks:
