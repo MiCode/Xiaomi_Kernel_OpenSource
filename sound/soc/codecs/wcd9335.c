@@ -13721,21 +13721,21 @@ void tasha_get_codec_ver(struct tasha_priv *tasha)
 	int i;
 	u8 val;
 	struct tasha_reg_mask_val codec_reg[] = {
-		{WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT10, 0xFF, 0xFF},
-		{WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT11, 0xFF, 0x83},
-		{WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT12, 0xFF, 0x0A},
+		{WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT10, 0xFF, 0x00},
+		{WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT11, 0xFF, 0x00},
+		{WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT12, 0xFF, 0x00},
 	};
 
 	__tasha_enable_efuse_sensing(tasha);
 	for (i = 0; i < ARRAY_SIZE(codec_reg); i++) {
 		val = wcd9xxx_reg_read(&tasha->wcd9xxx->core_res,
 				codec_reg[i].reg);
-		if (!(val && codec_reg[i].val)) {
+		if (!(val)) {
 			codec_ver = WCD9335;
 			goto ret;
-		}
+		} else
+			codec_ver = WCD9326;
 	}
-	codec_ver = WCD9326;
 ret:
 	pr_debug("%s: codec is %d\n", __func__, codec_ver);
 }

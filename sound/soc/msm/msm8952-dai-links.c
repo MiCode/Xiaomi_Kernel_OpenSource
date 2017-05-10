@@ -1739,6 +1739,9 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		msm8952_dai_links = msm8952_tomtom_dai_links;
 	} else if (strnstr(card->name, "tasha", strlen(card->name))) {
 		codec_ver = tasha_codec_ver();
+
+		if (codec_ver == WCD9XXX)
+			return NULL;
 		if (codec_ver == WCD9326) {
 			if (!strcmp(card->name, "msm8952-tasha-snd-card"))
 				card->name = tasha_lite[MSM8952_TASHA_LITE];
