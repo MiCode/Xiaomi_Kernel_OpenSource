@@ -1953,20 +1953,32 @@ EXPORT_SYMBOL(arm_iommu_release_mapping);
  *
  * Attaches specified io address space mapping to the provided device,
  * this replaces the dma operations (dma_map_ops pointer) with the
- * IOMMU aware version. More than one client might be attached to
- * the same io address space mapping.
+ * IOMMU aware version. Only one device in an iommu_group may use this
+ * function.
  */
 int arm_iommu_attach_device(struct device *dev,
 			    struct dma_iommu_mapping *mapping)
 {
 	int err;
 	int s1_bypass = 0, is_fast = 0;
+	struct iommu_group *group;
+
+	group = dev->iommu_group;
+	if (!group) {
+		dev_err(dev, "No iommu associated with device\n");
+		return -ENODEV;
+	}
+
+	if (iommu_get_domain_for_dev(dev)) {
+		dev_err(dev, "Device already attached to other iommu_domain\n");
+		return -EINVAL;
+	}
 
 	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_FAST, &is_fast);
 	if (is_fast)
 		return fast_smmu_attach_device(dev, mapping);
 
-	err = iommu_attach_device(mapping->domain, dev);
+	err = iommu_attach_group(mapping->domain, group);
 	if (err)
 		return err;
 
@@ -1994,6 +2006,7 @@ void arm_iommu_detach_device(struct device *dev)
 {
 	struct dma_iommu_mapping *mapping;
 	int is_fast, s1_bypass = 0;
+	struct iommu_group *group;
 
 	mapping = to_dma_iommu_mapping(dev);
 	if (!mapping) {
@@ -2013,7 +2026,13 @@ void arm_iommu_detach_device(struct device *dev)
 	if (msm_dma_unmap_all_for_dev(dev))
 		dev_warn(dev, "IOMMU detach with outstanding mappings\n");
 
-	iommu_detach_device(mapping->domain, dev);
+	group = dev->iommu_group;
+	if (!group) {
+		dev_err(dev, "No iommu associated with device\n");
+		return;
+	}
+
+	iommu_detach_group(mapping->domain, group);
 	kref_put(&mapping->kref, release_iommu_mapping);
 	dev->archdata.mapping = NULL;
 	if (!s1_bypass)
