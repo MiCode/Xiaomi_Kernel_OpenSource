@@ -141,8 +141,8 @@ struct dsi_display_clk_info {
  * @clock_info:       Clock sourcing for DSI display.
  * @config:           DSI host configuration information.
  * @lane_map:         Lane mapping between DSI host and Panel.
- * @num_of_modes:     Number of modes supported by display.
  * @cmdline_topology: Display topology shared from kernel command line.
+ * @cmdline_timing:   Display timing shared from kernel command line.
  * @is_tpg_enabled:   TPG state.
  * @ulps_enabled:     ulps state.
  * @clamp_enabled:    clamp state.
@@ -182,8 +182,8 @@ struct dsi_display {
 	struct dsi_display_clk_info clock_info;
 	struct dsi_host_config config;
 	struct dsi_lane_map lane_map;
-	u32 num_of_modes;
 	int cmdline_topology;
+	int cmdline_timing;
 	bool is_tpg_enabled;
 	bool ulps_enabled;
 	bool clamp_enabled;
@@ -280,21 +280,36 @@ int dsi_display_drm_bridge_deinit(struct dsi_display *display);
 int dsi_display_get_info(struct msm_display_info *info, void *disp);
 
 /**
+ * dsi_display_get_mode_count() - get number of modes supported by the display
+ * @display:            Handle to display.
+ * @count:              Number of modes supported
+ *
+ * Return: error code.
+ */
+int dsi_display_get_mode_count(struct dsi_display *display, u32 *count);
+
+/**
  * dsi_display_get_modes() - get modes supported by display
  * @display:            Handle to display.
  * @modes;              Pointer to array of modes. Memory allocated should be
  *			big enough to store (count * struct dsi_display_mode)
  *			elements. If modes pointer is NULL, number of modes will
  *			be stored in the memory pointed to by count.
- * @count:              If modes is NULL, number of modes will be stored. If
- *			not, mode information will be copied (number of modes
- *			copied will be equal to *count).
  *
  * Return: error code.
  */
 int dsi_display_get_modes(struct dsi_display *display,
-			  struct dsi_display_mode *modes,
-			  u32 *count);
+			  struct dsi_display_mode *modes);
+
+/**
+ * dsi_display_put_mode() - free up mode created for the display
+ * @display:            Handle to display.
+ * @mode:               Display mode to be freed up
+ *
+ * Return: error code.
+ */
+void dsi_display_put_mode(struct dsi_display *display,
+	struct dsi_display_mode *mode);
 
 /**
  * dsi_display_validate_mode() - validates if mode is supported by display

@@ -49,9 +49,9 @@ static void convert_to_dsi_mode(const struct drm_display_mode *drm_mode,
 	dsi_mode->timing.refresh_rate = drm_mode->vrefresh;
 
 	dsi_mode->pixel_clk_khz = drm_mode->clock;
-	dsi_mode->panel_mode = 0; /* TODO: Panel Mode */
 
-	dsi_mode->mode_info = (struct msm_mode_info *)drm_mode->private;
+	dsi_mode->priv_info =
+		(struct dsi_display_mode_priv_info *)drm_mode->private;
 
 	if (msm_is_mode_seamless(drm_mode))
 		dsi_mode->dsi_mode_flags |= DSI_MODE_FLAG_SEAMLESS;
@@ -84,7 +84,7 @@ static void convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
 	drm_mode->vrefresh = dsi_mode->timing.refresh_rate;
 	drm_mode->clock = dsi_mode->pixel_clk_khz;
 
-	drm_mode->private = (int *)dsi_mode->mode_info;
+	drm_mode->private = (int *)dsi_mode->priv_info;
 
 	if (dsi_mode->dsi_mode_flags & DSI_MODE_FLAG_SEAMLESS)
 		drm_mode->flags |= DRM_MODE_FLAG_SEAMLESS;
@@ -237,10 +237,6 @@ static void dsi_bridge_mode_set(struct drm_bridge *bridge,
 
 	memset(&(c_bridge->dsi_mode), 0x0, sizeof(struct dsi_display_mode));
 	convert_to_dsi_mode(adjusted_mode, &(c_bridge->dsi_mode));
-
-	pr_debug("note: using panel cmd/vid mode instead of user val\n");
-	c_bridge->dsi_mode.panel_mode =
-		c_bridge->display->panel->mode.panel_mode;
 }
 
 static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
@@ -271,22 +267,39 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 	return ret;
 }
 
-int dsi_conn_get_topology(const struct drm_display_mode *drm_mode,
-	struct msm_display_topology *topology,
+int dsi_conn_get_mode_info(const struct drm_display_mode *drm_mode,
+	struct msm_mode_info *mode_info,
 	u32 max_mixer_width)
 {
 	struct dsi_display_mode dsi_mode;
+	struct dsi_mode_info *timing;
 
-	if (!drm_mode || !topology)
+	if (!drm_mode || !mode_info)
 		return -EINVAL;
 
 	convert_to_dsi_mode(drm_mode, &dsi_mode);
 
-	if (!dsi_mode.mode_info)
+	if (!dsi_mode.priv_info)
 		return -EINVAL;
 
-	memcpy(topology, &dsi_mode.mode_info->topology,
+	memset(mode_info, 0, sizeof(*mode_info));
+
+	timing = &dsi_mode.timing;
+	mode_info->frame_rate = dsi_mode.timing.refresh_rate;
+	mode_info->vtotal = DSI_V_TOTAL(timing);
+	mode_info->prefill_lines = dsi_mode.priv_info->panel_prefill_lines;
+	mode_info->jitter_numer = dsi_mode.priv_info->panel_jitter_numer;
+	mode_info->jitter_denom = dsi_mode.priv_info->panel_jitter_denom;
+
+	memcpy(&mode_info->topology, &dsi_mode.priv_info->topology,
 			sizeof(struct msm_display_topology));
+
+	mode_info->comp_info.comp_type = MSM_DISPLAY_COMPRESSION_NONE;
+	if (dsi_mode.priv_info->dsc_enabled) {
+		mode_info->comp_info.comp_type = MSM_DISPLAY_COMPRESSION_DSC;
+		memcpy(&mode_info->comp_info.dsc_info, &dsi_mode.priv_info->dsc,
+			sizeof(dsi_mode.priv_info->dsc));
+	}
 
 	return 0;
 }
@@ -343,7 +356,7 @@ int dsi_conn_post_init(struct drm_connector *connector,
 	panel = dsi_display->panel;
 	sde_kms_info_add_keystr(info, "panel name", panel->name);
 
-	switch (panel->mode.panel_mode) {
+	switch (panel->panel_mode) {
 	case DSI_OP_VIDEO_MODE:
 		sde_kms_info_add_keystr(info, "panel mode", "video");
 		break;
@@ -353,7 +366,7 @@ int dsi_conn_post_init(struct drm_connector *connector,
 				panel->cmd_config.mdp_transfer_time_us);
 		break;
 	default:
-		pr_debug("invalid panel type:%d\n", panel->mode.panel_mode);
+		pr_debug("invalid panel type:%d\n", panel->panel_mode);
 		break;
 	}
 	sde_kms_info_add_keystr(info, "dfps support",
@@ -449,6 +462,21 @@ enum drm_connector_status dsi_conn_detect(struct drm_connector *conn,
 	return status;
 }
 
+void dsi_connector_put_modes(struct drm_connector *connector,
+	void *display)
+{
+	struct drm_display_mode *drm_mode;
+	struct dsi_display_mode dsi_mode;
+
+	if (!connector || !display)
+		return;
+
+	 list_for_each_entry(drm_mode, &connector->modes, head) {
+		convert_to_dsi_mode(drm_mode, &dsi_mode);
+		dsi_display_put_mode(display, &dsi_mode);
+	}
+}
+
 int dsi_connector_get_modes(struct drm_connector *connector,
 		void *display)
 {
@@ -466,7 +494,7 @@ int dsi_connector_get_modes(struct drm_connector *connector,
 		 */
 		goto end;
 	}
-	rc = dsi_display_get_modes(display, NULL, &count);
+	rc = dsi_display_get_mode_count(display, &count);
 	if (rc) {
 		pr_err("failed to get num of modes, rc=%d\n", rc);
 		goto error;
@@ -479,7 +507,7 @@ int dsi_connector_get_modes(struct drm_connector *connector,
 		goto end;
 	}
 
-	rc = dsi_display_get_modes(display, modes, &count);
+	rc = dsi_display_get_modes(display, modes);
 	if (rc) {
 		pr_err("failed to get modes, rc=%d\n", rc);
 		count = 0;

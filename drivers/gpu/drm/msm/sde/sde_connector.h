@@ -65,6 +65,14 @@ struct sde_connector_ops {
 			void *display);
 
 	/**
+	 * put_modes - free up drm modes of the connector
+	 * @connector: Pointer to drm connector structure
+	 * @display: Pointer to private display handle
+	 */
+	void (*put_modes)(struct drm_connector *connector,
+			void *display);
+
+	/**
 	 * update_pps - update pps command for the display panel
 	 * @pps_cmd: Pointer to pps command
 	 * @display: Pointer to private display handle
@@ -122,14 +130,14 @@ struct sde_connector_ops {
 	int (*get_info)(struct msm_display_info *info, void *display);
 
 	/**
-	 * get_topology - retrieve current topology for the mode selected
+	 * get_mode_info - retrieve mode information
 	 * @drm_mode: Display mode set for the display
-	 * @topology: Out parameter. Topology for the mode.
+	 * @mode_info: Out parameter. information of the display mode
 	 * @max_mixer_width: max width supported by HW layer mixer
 	 * Returns: Zero on success
 	 */
-	int (*get_topology)(const struct drm_display_mode *drm_mode,
-			struct msm_display_topology *topology,
+	int (*get_mode_info)(const struct drm_display_mode *drm_mode,
+			struct msm_mode_info *mode_info,
 			u32 max_mixer_width);
 
 	/**
