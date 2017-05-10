@@ -1,0 +1,8 @@
+config QTI_PDC
+        bool "QTI PDC"
+        depends on ARCH_QCOM
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_HIERARCHY
+        help
+          QTI Power Domain Controller driver to manage and configure wakeup
+          IRQs
