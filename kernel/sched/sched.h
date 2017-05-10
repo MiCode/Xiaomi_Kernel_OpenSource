@@ -2219,7 +2219,7 @@ static inline void cpufreq_update_util(struct rq *rq, unsigned int flags)
 {
 	struct update_util_data *data;
 
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 	/*
 	 * Skip if we've already reported, but not if this is an inter-cluster
 	 * migration
@@ -2231,9 +2231,10 @@ static inline void cpufreq_update_util(struct rq *rq, unsigned int flags)
 	rq->load_reported_window = rq->window_start;
 #endif
 
-	data = rcu_dereference_sched(*this_cpu_ptr(&cpufreq_update_util_data));
+	data = rcu_dereference_sched(*per_cpu_ptr(&cpufreq_update_util_data,
+					cpu_of(rq)));
 	if (data)
-		data->func(data, rq_clock(rq), flags);
+		data->func(data, sched_clock(), flags);
 }
 
 static inline void cpufreq_update_this_cpu(struct rq *rq, unsigned int flags)
