@@ -2251,7 +2251,7 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 	u32 pte_efuse, val;
 	int num_clks = ARRAY_SIZE(osm_qcom_clk_hws);
 	struct clk *ext_xo_clk, *clk;
-	struct clk_osm *c;
+	struct clk_osm *c, *parent;
 	struct device *dev = &pdev->dev;
 	struct clk_onecell_data *clk_data;
 	char l3speedbinstr[] = "qcom,l3-speedbin0-v0";
@@ -2527,25 +2527,7 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 
 	get_online_cpus();
 
-	/* Enable OSM */
-	for_each_online_cpu(cpu) {
-		c = logical_cpu_to_clk(cpu);
-		if (!c) {
-			pr_err("no clock device for CPU=%d\n", cpu);
-			return -EINVAL;
-		}
-
-		rc = clk_set_rate(c->hw.clk, init_rate);
-		if (rc) {
-			dev_err(&pdev->dev, "Unable to set init rate on CPU %d, rc=%d\n",
-			cpu, rc);
-			goto provider_err;
-		}
-		WARN(clk_prepare_enable(c->hw.clk),
-		     "Failed to enable clock for cpu %d\n", cpu);
-		udelay(300);
-	}
-
+	/* Set the L3 clock to run off GPLL0 and enable OSM for the domain */
 	rc = clk_set_rate(l3_clk.hw.clk, init_rate);
 	if (rc) {
 		dev_err(&pdev->dev, "Unable to set init rate on L3 cluster, rc=%d\n",
@@ -2555,6 +2537,43 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 	WARN(clk_prepare_enable(l3_clk.hw.clk),
 		     "Failed to enable clock for L3\n");
 	udelay(300);
+
+	/* Set CPU clocks to run off GPLL0 and enable OSM for both domains */
+	for_each_online_cpu(cpu) {
+		c = logical_cpu_to_clk(cpu);
+		if (!c) {
+			pr_err("no clock device for CPU=%d\n", cpu);
+			return -EINVAL;
+		}
+
+		parent = to_clk_osm(clk_hw_get_parent(&c->hw));
+		if (!parent->per_core_dcvs) {
+			if (cpu >= 0 && cpu <= 3)
+				c = logical_cpu_to_clk(0);
+			else if (cpu >= 4 && cpu <= 7)
+				c = logical_cpu_to_clk(4);
+			if (!c)
+				return -EINVAL;
+		}
+
+		rc = clk_set_rate(c->hw.clk, init_rate);
+		if (rc) {
+			dev_err(&pdev->dev, "Unable to set init rate on %s, rc=%d\n",
+					clk_hw_get_name(&parent->hw), rc);
+			goto provider_err;
+		}
+		WARN(clk_prepare_enable(c->hw.clk),
+					"Failed to enable OSM for %s\n",
+					clk_hw_get_name(&parent->hw));
+		udelay(300);
+	}
+
+	/*
+	 * Add always-on votes for the CPU cluster clocks since we do not want
+	 * to re-enable OSM at any point.
+	 */
+	clk_prepare_enable(pwrcl_clk.hw.clk);
+	clk_prepare_enable(perfcl_clk.hw.clk);
 
 	populate_opp_table(pdev);
 
