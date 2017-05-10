@@ -105,6 +105,7 @@ struct limits_dcvs_hw {
 };
 
 LIST_HEAD(lmh_dcvs_hw_list);
+DEFINE_MUTEX(lmh_dcvs_list_access);
 
 static int limits_dcvs_get_freq_limits(uint32_t cpu, unsigned long *max_freq,
 					 unsigned long *min_freq)
@@ -299,10 +300,14 @@ static struct limits_dcvs_hw *get_dcvsh_hw_from_cpu(int cpu)
 {
 	struct limits_dcvs_hw *hw;
 
+	mutex_lock(&lmh_dcvs_list_access);
 	list_for_each_entry(hw, &lmh_dcvs_hw_list, list) {
-		if (cpumask_test_cpu(cpu, &hw->core_map))
+		if (cpumask_test_cpu(cpu, &hw->core_map)) {
+			mutex_unlock(&lmh_dcvs_list_access);
 			return hw;
+		}
 	}
+	mutex_unlock(&lmh_dcvs_list_access);
 
 	return NULL;
 }
@@ -378,6 +383,42 @@ static struct cpu_cooling_ops cd_ops = {
 	.floor_limit = lmh_set_min_limit,
 };
 
+static int limits_cpu_online(unsigned int online_cpu)
+{
+	struct limits_dcvs_hw *hw = get_dcvsh_hw_from_cpu(online_cpu);
+	unsigned int idx = 0, cpu = 0;
+
+	if (!hw)
+		return 0;
+
+	for_each_cpu(cpu, &hw->core_map) {
+		cpumask_t cpu_mask  = { CPU_BITS_NONE };
+
+		if (cpu != online_cpu) {
+			idx++;
+			continue;
+		} else if (hw->cdev_data[idx].cdev) {
+			return 0;
+		}
+		cpumask_set_cpu(cpu, &cpu_mask);
+		hw->cdev_data[idx].max_freq = U32_MAX;
+		hw->cdev_data[idx].min_freq = 0;
+		hw->cdev_data[idx].cdev = cpufreq_platform_cooling_register(
+						&cpu_mask, &cd_ops);
+		if (IS_ERR_OR_NULL(hw->cdev_data[idx].cdev)) {
+			pr_err("CPU:%u cooling device register error:%ld\n",
+				cpu, PTR_ERR(hw->cdev_data[idx].cdev));
+			hw->cdev_data[idx].cdev = NULL;
+		} else {
+			pr_debug("CPU:%u cooling device registered\n", cpu);
+		}
+		break;
+
+	}
+
+	return 0;
+}
+
 static int limits_dcvs_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -388,7 +429,7 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 	struct device_node *cpu_node, *lmh_node;
 	uint32_t request_reg, clear_reg, min_reg;
 	unsigned long max_freq, min_freq;
-	int cpu, idx;
+	int cpu;
 	cpumask_t mask = { CPU_BITS_NONE };
 
 	for_each_possible_cpu(cpu) {
@@ -504,24 +545,7 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 		goto unregister_sensor;
 	}
 
-	/* Setup cooling devices to request mitigation states */
 	mutex_init(&hw->access_lock);
-	idx = 0;
-	for_each_cpu(cpu, &hw->core_map) {
-		cpumask_t cpu_mask  = { CPU_BITS_NONE };
-
-		cpumask_set_cpu(cpu, &cpu_mask);
-		hw->cdev_data[idx].cdev = cpufreq_platform_cooling_register(
-						&cpu_mask, &cd_ops);
-		if (IS_ERR_OR_NULL(hw->cdev_data[idx].cdev)) {
-			ret = PTR_ERR(hw->cdev_data[idx].cdev);
-			goto unregister_cdev;
-		}
-		hw->cdev_data[idx].max_freq = U32_MAX;
-		hw->cdev_data[idx].min_freq = 0;
-		idx++;
-	}
-
 	init_timer_deferrable(&hw->poll_timer);
 	hw->poll_timer.data = (unsigned long)hw;
 	hw->poll_timer.function = limits_dcvs_poll;
@@ -552,17 +576,18 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 	}
 
 probe_exit:
+	mutex_lock(&lmh_dcvs_list_access);
 	INIT_LIST_HEAD(&hw->list);
 	list_add(&hw->list, &lmh_dcvs_hw_list);
+	mutex_unlock(&lmh_dcvs_list_access);
+
+	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "lmh-dcvs/cdev:online",
+				limits_cpu_online, NULL);
+	if (ret < 0)
+		goto unregister_sensor;
+	ret = 0;
 
 	return ret;
-
-unregister_cdev:
-	for (idx = 0; idx < cpumask_weight(&mask); idx++) {
-		if (IS_ERR_OR_NULL(hw->cdev_data[idx].cdev))
-			continue;
-		cpufreq_cooling_unregister(hw->cdev_data[idx].cdev);
-	}
 
 unregister_sensor:
 	thermal_zone_of_sensor_unregister(&pdev->dev, tzdev);
