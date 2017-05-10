@@ -14408,10 +14408,10 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 			pr_debug("%s voice session_id: 0x%x\n", __func__,
 				 session_id);
 
-			if (session_type == SESSION_TYPE_TX)
-				voc_path_type = TX_PATH;
-			else
+			if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 				voc_path_type = RX_PATH;
+			else
+				voc_path_type = TX_PATH;
 
 			voc_set_route_flag(session_id, voc_path_type, 1);
 
