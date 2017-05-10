@@ -1678,6 +1678,11 @@
 			compatible = "qcom,msm-imem-kaslr_offset";
 			reg = <0x6d0 12>;
 		};
+
+		diag_dload@c8 {
+			compatible = "qcom,msm-imem-diag-dload";
+			reg = <0xc8 200>;
+		};
 	};
 
 	qcom,venus@aae0000 {
