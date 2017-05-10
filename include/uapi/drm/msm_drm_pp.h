@@ -96,8 +96,8 @@ struct drm_msm_memcol {
  * @c2_c1: Holds c2/c1 values
  */
 struct drm_msm_3d_col {
-	__u32 c0;
 	__u32 c2_c1;
+	__u32 c0;
 };
 /**
  * struct drm_msm_3d_gamut - 3d gamut feature structure

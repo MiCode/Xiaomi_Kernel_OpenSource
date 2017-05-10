@@ -180,7 +180,7 @@ static int sde_cp_disable_crtc_blob_property(struct sde_cp_node *prop_node)
 	struct drm_property_blob *blob = prop_node->blob_ptr;
 
 	if (!blob)
-		return -EINVAL;
+		return 0;
 	drm_property_unreference_blob(blob);
 	prop_node->blob_ptr = NULL;
 	return 0;

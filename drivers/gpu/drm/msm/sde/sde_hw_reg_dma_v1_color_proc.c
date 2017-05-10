@@ -347,10 +347,9 @@ static int sde_gamut_get_mode_info(struct drm_msm_3d_gamut *payload,
 		break;
 	case GAMUT_3D_MODE_5:
 		*tbl_len = GAMUT_3D_MODE5_TBL_SZ * sizeof(u32) * 2;
-		*tbl_off = 0;
+		*tbl_off = GAMUT_MODE_5_OFF;
 		*scale_off = GAMUT_SCALEB_OFFSET_OFF;
 		*opcode = gamut_mode_5 << 2;
-		*opcode |= GAMUT_MAP_EN;
 		break;
 	case GAMUT_3D_MODE_13:
 		*tbl_len = GAMUT_3D_MODE13_TBL_SZ * sizeof(u32) * 2;
@@ -364,7 +363,6 @@ static int sde_gamut_get_mode_info(struct drm_msm_3d_gamut *payload,
 		*scale_off = (*opcode == gamut_mode_13a) ?
 			GAMUT_SCALEA_OFFSET_OFF : GAMUT_SCALEB_OFFSET_OFF;
 		*opcode <<= 2;
-		*opcode |= GAMUT_MAP_EN;
 		break;
 	default:
 		rc = -EINVAL;
@@ -475,7 +473,7 @@ void reg_dmav1_setup_dspp_3d_gamutv4(struct sde_hw_dspp *ctx, void *cfg)
 		}
 		REG_DMA_SETUP_OPS(dma_write_cfg,
 		    ctx->cap->sblk->gamut.base + GAMUT_LOWER_COLOR_OFF,
-		    &payload->col[i][0].c0, tbl_len,
+		    &payload->col[i][0].c2_c1, tbl_len,
 		    REG_BLK_WRITE_MULTIPLE, 2, 0);
 		rc = dma_ops->setup_payload(&dma_write_cfg);
 		if (rc) {
