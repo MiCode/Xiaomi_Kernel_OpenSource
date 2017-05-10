@@ -121,9 +121,6 @@ struct cam_iommu_handle {
 #define CAM_FORMAT_Y_ONLY                       45
 #define CAM_FORMAT_MAX                          46
 
-
-/* camera packet */
-
 /* camera rotaion */
 #define CAM_ROTATE_CW_0_DEGREE                  0
 #define CAM_ROTATE_CW_90_DEGREE                 1
@@ -343,7 +340,6 @@ struct cam_packet {
 
 };
 
-/* Release Device */
 /**
  * struct cam_release_dev_cmd - Control payload for release devices
  *
@@ -355,7 +351,6 @@ struct cam_release_dev_cmd {
 	int32_t                 dev_handle;
 };
 
-/* Start/Stop device */
 /**
  * struct cam_start_stop_dev_cmd - Control payload for start/stop device
  *
@@ -368,7 +363,6 @@ struct cam_start_stop_dev_cmd {
 	int32_t                 dev_handle;
 };
 
-/* Configure Device */
 /**
  * struct cam_config_dev_cmd - Command payload for configure device
  *
@@ -386,7 +380,6 @@ struct cam_config_dev_cmd {
 	uint64_t                packet_handle;
 };
 
-/* Query Device Caps */
 /**
  * struct cam_query_cap_cmd - Payload for query device capability
  *
@@ -401,7 +394,6 @@ struct cam_query_cap_cmd {
 	uint64_t        caps_handle;
 };
 
-/* Acquire Device */
 /**
  * struct cam_acquire_dev_cmd - Control payload for acquire devices
  *
