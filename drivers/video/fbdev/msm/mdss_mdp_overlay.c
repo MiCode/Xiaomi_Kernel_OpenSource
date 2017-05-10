@@ -3864,7 +3864,8 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct dynamic_fps_data data = {0};
 
-	if (!mdp5_data->ctl || !mdss_mdp_ctl_is_power_on(mdp5_data->ctl)) {
+	if (!mdp5_data->ctl || !mdss_mdp_ctl_is_power_on(mdp5_data->ctl) ||
+			mdss_panel_is_power_off(mfd->panel_power_state)) {
 		pr_debug("panel is off\n");
 		return count;
 	}
