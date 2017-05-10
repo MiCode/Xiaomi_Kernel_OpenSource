@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -805,8 +805,15 @@ static enum handoff alpha_pll_handoff(struct clk *c)
 	update_vco_tbl(pll);
 
 	if (!is_locked(pll)) {
-		if (c->rate && alpha_pll_set_rate(c, c->rate))
-			WARN(1, "%s: Failed to configure rate\n", c->dbg_name);
+		if (pll->slew) {
+			if (c->rate && dyna_alpha_pll_set_rate(c, c->rate))
+				WARN(1, "%s: Failed to configure rate\n",
+					c->dbg_name);
+		} else {
+			if (c->rate && alpha_pll_set_rate(c, c->rate))
+				WARN(1, "%s: Failed to configure rate\n",
+					c->dbg_name);
+		}
 		__init_alpha_pll(c);
 		return HANDOFF_DISABLED_CLK;
 	} else if (pll->fsm_en_mask && !is_fsm_mode(MODE_REG(pll))) {
