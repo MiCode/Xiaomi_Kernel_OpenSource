@@ -1602,7 +1602,7 @@ unsigned int nr_eligible_big_tasks(int cpu)
 	int nr_big = rq->hmp_stats.nr_big_tasks;
 	int nr = rq->nr_running;
 
-	if (cpu_max_possible_capacity(cpu) != max_possible_capacity)
+	if (!is_max_capacity_cpu(cpu))
 		return nr_big;
 
 	return nr;
