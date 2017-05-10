@@ -798,11 +798,15 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 	}
 
 	spm_data.vctl_port = -1;
+	spm_data.vctl_port_ub = -1;
 	spm_data.phase_port = -1;
 	spm_data.pfm_port = -1;
 
 	key = "qcom,vctl-port";
 	of_property_read_u32(node, key, &spm_data.vctl_port);
+
+	key = "qcom,vctl-port-ub";
+	of_property_read_u32(node, key, &spm_data.vctl_port_ub);
 
 	key = "qcom,phase-port";
 	of_property_read_u32(node, key, &spm_data.phase_port);
