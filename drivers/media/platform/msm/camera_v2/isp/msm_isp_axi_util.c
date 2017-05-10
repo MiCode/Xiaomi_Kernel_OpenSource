@@ -3348,9 +3348,7 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	 */
 	if (((frame_src == VFE_PIX_0) && ((frame_id !=
 		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id + vfe_dev->
-		axi_data.src_info[VFE_PIX_0].sof_counter_step) ||
-		(frame_id <= vfe_dev->
-		axi_data.src_info[VFE_PIX_0].eof_id + 1))) ||
+		axi_data.src_info[VFE_PIX_0].sof_counter_step))) ||
 		((frame_src != VFE_PIX_0) && (frame_id !=
 		vfe_dev->axi_data.src_info[frame_src].frame_id + vfe_dev->
 		axi_data.src_info[frame_src].sof_counter_step)) ||
