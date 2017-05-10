@@ -223,6 +223,7 @@ void cam_sync_util_cb_dispatch(struct work_struct *cb_dispatch_work)
 		cb_info->status,
 		cb_info->cb_data);
 
+	list_del_init(&cb_info->list);
 	kfree(cb_info);
 }
 

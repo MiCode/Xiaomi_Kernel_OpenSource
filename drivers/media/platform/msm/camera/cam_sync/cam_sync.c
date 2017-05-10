@@ -246,7 +246,6 @@ int cam_sync_signal(int32_t sync_obj, uint32_t status)
 			sync_cb->status = list_info->status;
 			queue_work(sync_dev->work_queue,
 				&sync_cb->cb_dispatch_work);
-			list_del_init(&sync_cb->list);
 		}
 
 		/* Dispatch user payloads if any were registered earlier */
