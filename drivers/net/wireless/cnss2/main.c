@@ -1258,6 +1258,22 @@ static void cnss_crash_shutdown(const struct subsys_desc *subsys_desc)
 	}
 }
 
+static const char *cnss_recovery_reason_to_str(enum cnss_recovery_reason reason)
+{
+	switch (reason) {
+	case CNSS_REASON_DEFAULT:
+		return "DEFAULT";
+	case CNSS_REASON_LINK_DOWN:
+		return "LINK_DOWN";
+	case CNSS_REASON_RDDM:
+		return "RDDM";
+	case CNSS_REASON_TIMEOUT:
+		return "TIMEOUT";
+	}
+
+	return "UNKNOWN";
+};
+
 static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 			    enum cnss_recovery_reason reason)
 {
@@ -1294,7 +1310,8 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 	case CNSS_REASON_TIMEOUT:
 		break;
 	default:
-		cnss_pr_err("Unsupported recovery reason (%d)\n", reason);
+		cnss_pr_err("Unsupported recovery reason: %s(%d)\n",
+			    cnss_recovery_reason_to_str(reason), reason);
 		break;
 	}
 
@@ -1319,7 +1336,8 @@ static int cnss_driver_recovery_hdlr(struct cnss_plat_data *plat_priv,
 	struct cnss_recovery_data *recovery_data = data;
 	int ret = 0;
 
-	cnss_pr_dbg("Driver recovery is triggered: reason %d\n",
+	cnss_pr_dbg("Driver recovery is triggered with reason: %s(%d)\n",
+		    cnss_recovery_reason_to_str(recovery_data->reason),
 		    recovery_data->reason);
 
 	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
