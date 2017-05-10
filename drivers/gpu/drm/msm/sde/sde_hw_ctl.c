@@ -15,6 +15,7 @@
 #include "sde_hw_ctl.h"
 #include "sde_dbg.h"
 #include "sde_kms.h"
+#include "sde_reg_dma.h"
 
 #define   CTL_LAYER(lm)                 \
 	(((lm) == LM_5) ? (0x024) : (((lm) - LM_0) * 0x004))
@@ -111,6 +112,11 @@ static u32 sde_hw_ctl_get_pending_flush(struct sde_hw_ctl *ctx)
 
 static inline void sde_hw_ctl_trigger_flush(struct sde_hw_ctl *ctx)
 {
+	struct sde_hw_reg_dma_ops *ops = sde_reg_dma_get_ops();
+
+	if (ops && ops->last_command)
+		ops->last_command(ctx, DMA_CTL_QUEUE0);
+
 	SDE_REG_WRITE(&ctx->hw, CTL_FLUSH, ctx->pending_flush_mask);
 }
 

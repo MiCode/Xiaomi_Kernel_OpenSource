@@ -526,7 +526,7 @@ static void sde_cp_crtc_install_enum_property(struct drm_crtc *crtc,
 }
 
 static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
-				   struct sde_crtc *sde_crtc, u32 last_feature)
+				   struct sde_crtc *sde_crtc)
 {
 	struct sde_hw_cp_cfg hw_cfg;
 	struct sde_hw_mixer *hw_lm;
@@ -541,16 +541,13 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 	hw_cfg.num_of_mixers = sde_crtc->num_mixers;
 	hw_cfg.displayh = sde_crtc->base.mode.hdisplay;
 	hw_cfg.displayv = sde_crtc->base.mode.vdisplay;
+	hw_cfg.last_feature = 0;
 
 	for (i = 0; i < num_mixers && !ret; i++) {
 		hw_lm = sde_crtc->mixers[i].hw_lm;
 		hw_dspp = sde_crtc->mixers[i].hw_dspp;
 		hw_cfg.ctl = sde_crtc->mixers[i].hw_ctl;
 		hw_cfg.mixer_info = hw_lm;
-		if (i == num_mixers - 1)
-			hw_cfg.last_feature = last_feature;
-		else
-			hw_cfg.last_feature = 0;
 		switch (prop_node->feature) {
 		case SDE_CP_CRTC_DSPP_VLUT:
 			if (!hw_dspp || !hw_dspp->ops.setup_vlut) {
@@ -724,7 +721,6 @@ void sde_cp_crtc_apply_properties(struct drm_crtc *crtc)
 	struct sde_hw_ctl *ctl;
 	uint32_t flush_mask = 0;
 	u32 num_mixers = 0, i = 0;
-	u32 num_of_features;
 
 	if (!crtc || !crtc->dev) {
 		DRM_ERROR("invalid crtc %pK dev %pK\n", crtc,
@@ -757,15 +753,9 @@ void sde_cp_crtc_apply_properties(struct drm_crtc *crtc)
 		set_dspp_flush = true;
 	}
 
-	num_of_features = 0;
-	list_for_each_entry(prop_node, &sde_crtc->dirty_list, dirty_list)
-		num_of_features++;
-
 	list_for_each_entry_safe(prop_node, n, &sde_crtc->dirty_list,
 				dirty_list) {
-		num_of_features--;
-		sde_cp_crtc_setfeature(prop_node, sde_crtc,
-				(num_of_features == 0));
+		sde_cp_crtc_setfeature(prop_node, sde_crtc);
 		/* Set the flush flag to true */
 		if (prop_node->is_dspp_feature)
 			set_dspp_flush = true;
@@ -773,16 +763,10 @@ void sde_cp_crtc_apply_properties(struct drm_crtc *crtc)
 			set_lm_flush = true;
 	}
 
-	num_of_features = 0;
-	list_for_each_entry(prop_node, &sde_crtc->ad_dirty, dirty_list)
-		num_of_features++;
-
 	list_for_each_entry_safe(prop_node, n, &sde_crtc->ad_dirty,
 				dirty_list) {
-		num_of_features--;
 		set_dspp_flush = true;
-		sde_cp_crtc_setfeature(prop_node, sde_crtc,
-				(num_of_features == 0));
+		sde_cp_crtc_setfeature(prop_node, sde_crtc);
 	}
 
 	for (i = 0; i < num_mixers; i++) {

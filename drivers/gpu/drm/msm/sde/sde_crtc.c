@@ -2488,6 +2488,7 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 			sde_plane_set_revalidate(plane, true);
 
 		drm_modeset_unlock_crtc(crtc);
+		sde_cp_crtc_suspend(crtc);
 	}
 
 	mutex_unlock(&sde_crtc->crtc_lock);
