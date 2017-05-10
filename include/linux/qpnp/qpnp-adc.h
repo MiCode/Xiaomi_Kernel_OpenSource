@@ -958,6 +958,7 @@ enum qpnp_state_request {
  * @low_temp: Low temperature threshold for which notification is requested.
  * @high_thr_voltage: High voltage for which notification is requested.
  * @low_thr_voltage: Low voltage for which notification is requested.
+ * @adc_tm_hc: Represents the refreshed BTM register design.
  * @state_request: Enable/disable the corresponding high and low temperature
  *		thresholds.
  * @timer_interval1: Select polling rate from qpnp_adc_meas_timer_1 type.
@@ -980,6 +981,7 @@ struct qpnp_adc_tm_btm_param {
 	int32_t					low_thr;
 	int32_t					gain_num;
 	int32_t					gain_den;
+	bool					adc_tm_hc;
 	enum qpnp_vadc_channels			channel;
 	enum qpnp_state_request			state_request;
 	enum qpnp_adc_meas_timer_1		timer_interval;
@@ -1746,19 +1748,25 @@ int32_t qpnp_adc_qrd_skue_btm_scaler(struct qpnp_vadc_chip *dev,
  *		and convert given temperature to voltage on supported
  *		thermistor channels using 100k pull-up.
  * @dev:	Structure device for qpnp vadc
+ * @adc_prop:	adc properties of the qpnp adc such as bit resolution,
+ *		reference voltage.
  * @param:	The input temperature values.
  */
 int32_t qpnp_adc_tm_scale_therm_voltage_pu2(struct qpnp_vadc_chip *dev,
+		const struct qpnp_adc_properties *adc_properties,
 				struct qpnp_adc_tm_config *param);
 /**
  * qpnp_adc_tm_scale_therm_voltage_pu2() - Performs reverse calibration
  *		and converts the given ADC code to temperature for
  *		thermistor channels using 100k pull-up.
  * @dev:	Structure device for qpnp vadc
+ * @adc_prop:	adc properties of the qpnp adc such as bit resolution,
+ *		reference voltage.
  * @reg:	The input ADC code.
  * @result:	The physical measurement temperature on the thermistor.
  */
 int32_t qpnp_adc_tm_scale_voltage_therm_pu2(struct qpnp_vadc_chip *dev,
+			const struct qpnp_adc_properties *adc_prop,
 				uint32_t reg, int64_t *result);
 /**
  * qpnp_adc_usb_scaler() - Performs reverse calibration on the low/high
@@ -2096,11 +2104,13 @@ static inline int32_t qpnp_adc_scale_millidegc_pmic_voltage_thr(
 { return -ENXIO; }
 static inline int32_t qpnp_adc_tm_scale_therm_voltage_pu2(
 				struct qpnp_vadc_chip *dev,
+			const struct qpnp_adc_properties *adc_properties,
 				struct qpnp_adc_tm_config *param)
 { return -ENXIO; }
 static inline int32_t qpnp_adc_tm_scale_voltage_therm_pu2(
 				struct qpnp_vadc_chip *dev,
-				uint32_t reg, int64_t *result)
+			const struct qpnp_adc_properties *adc_prop,
+			uint32_t reg, int64_t *result)
 { return -ENXIO; }
 static inline int32_t qpnp_adc_smb_btm_rscaler(struct qpnp_vadc_chip *dev,
 		struct qpnp_adc_tm_btm_param *param,

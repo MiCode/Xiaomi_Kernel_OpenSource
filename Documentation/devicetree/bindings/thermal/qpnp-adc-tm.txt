@@ -12,13 +12,40 @@ VADC_TM node
 
 Required properties:
 - compatible : should be "qcom,qpnp-adc-tm" for thermal ADC driver.
+	     : should be "qcom,qpnp-adc-tm-hc" for thermal ADC driver using
+	       refreshed BTM peripheral.
 - reg : offset and length of the PMIC Aribter register map.
 - address-cells : Must be one.
 - size-cells : Must be zero.
 - interrupts : The thermal ADC bank peripheral interrupts for eoc, high and low interrupts.
-- interrupt-names : Should be "eoc-int-en-set", "high-thr-en-set" and "low-thr-en-set".
+- interrupt-names : Should be "eoc-int-en-set", "high-thr-en-set" and "low-thr-en-set"
+		    for qcom,qpnp-adc-tm type.
+		  : Should be "eoc-int-en-set" for qcom,qpnp-adc-tm-hc type.
 - qcom,adc-bit-resolution : Bit resolution of the ADC.
 - qcom,adc-vdd-reference : Voltage reference used by the ADC.
+
+The following properties are required in the main node for qcom,qpnp-adc-tm-hc peripheral.
+- qcom,decimation : Should be present for qcom,qpnp-adc-tm-hc peripheral as its common setting
+		    across all the channels. Sampling rate to use for all the channel measurements.
+		    Select from the following unsigned int.
+		    0 : 512
+		    1 : 1K
+		    2 : 2K
+		    3 : 4K
+- qcom,fast-avg-setup : Should be present for qcom,qpnp-adc-tm-hc peripheral as its common setting
+		    across all the channels. Average number of samples to be used for measurement.
+		    Fast averaging provides the option to obtain a single measurement from the ADC
+		    that is an average of multiple samples. The value selected is 2^(value)
+		    Select from the following unsigned int.
+			0 : 1
+			1 : 2
+			2 : 4
+			3 : 8
+			4 : 16
+			5 : 32
+			6 : 64
+			7 : 128
+			8 : 256
 
 Optional properties:
 - qcom,thermal-node : If present a thermal node is created and the channel is registered as
@@ -54,6 +81,8 @@ Required properties:
 		    1 : 1K
 		    2 : 2K
 		    3 : 4K
+		    Note: This property is not required in the channel node in qcom,qpnp-adc-tm-hc
+		    peripheral.
 - qcom,pre-div-channel-scaling : Pre-div used for the channel before the signal is being measured.
 				 Select from the following unsigned int for the corresponding
 				 numerator/denominator pre-div ratio.
@@ -115,6 +144,8 @@ Required properties:
 			6 : 64
 			7 : 128
 			8 : 256
+			Note: This property is not required in the channel node in
+			qcom,qpnp-adc-tm-hc peripheral.
 - qcom,btm-channel-number : Depending on the PMIC version, a max of upto 8 BTM channels.
 			    The BTM channel numbers are statically allocated to the
 			    corresponding channel node.
@@ -126,7 +157,7 @@ client_node {
 	qcom,client-adc_tm = <&pm8941_adc_tm>;
 };
 
-Example:
+Example for "qcom,qpnp-adc-tm" device:
 	/* Main Node */
 	qcom,vadc@3400 {
                         compatible = "qcom,qpnp-adc-tm";
@@ -167,6 +198,45 @@ Example:
 				qcom,scale-function = <3>;
 				qcom,hw-settle-time = <0>;
 				qcom,fast-avg-setup = <0>;
+				qcom,btm-channel-number = <0x78>;
+			};
+	};
+
+Example for "qcom,qpnp-adc-tm-hc" device:
+	/* Main Node */
+	pm8998_adc_tm: vadc@3400 {
+			compatible = "qcom,qpnp-adc-tm-hc";
+			reg = <0x3400 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x0 0x34 0x0 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "eoc-int-en-set";
+			qcom,adc-bit-resolution = <15>;
+			qcom,adc-vdd-reference = <1875>;
+			qcom,adc_tm-vadc = <&pm8998_vadc>;
+			qcom,decimation = <0>;
+			qcom,fast-avg-setup = <0>;
+
+			/* Channel Node to be registered as part of thermal sysfs */
+                        chan@b5 {
+                                label = "pa_therm1";
+				reg = <0xb5>;
+                                qcom,pre-div-channel-scaling = <0>;
+                                qcom,calibration-type = "absolute";
+                                qcom,scale-function = <2>;
+                                qcom,hw-settle-time = <0>;
+				qcom,btm-channel-number = <0x70>;
+				qcom,thermal-node;
+                        };
+
+			/* Channel Node */
+			chan@6 {
+				label = "vbat_sns";
+				reg = <6>;
+				qcom,pre-div-channel-scaling = <1>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <3>;
+				qcom,hw-settle-time = <0>;
 				qcom,btm-channel-number = <0x78>;
 			};
 	};
