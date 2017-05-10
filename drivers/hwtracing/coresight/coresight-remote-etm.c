@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -186,10 +186,12 @@ static void remote_etm_rcv_msg(struct work_struct *work)
 	struct remote_etm_drvdata *drvdata = container_of(work,
 						struct remote_etm_drvdata,
 						work_rcv_msg);
-
+	mutex_lock(&drvdata->mutex);
 	if (qmi_recv_msg(drvdata->handle) < 0)
 		dev_err(drvdata->dev, "%s: Error receiving QMI message\n",
 			__func__);
+
+	mutex_unlock(&drvdata->mutex);
 }
 
 static void remote_etm_notify(struct qmi_handle *handle,
@@ -227,6 +229,7 @@ static void remote_etm_svc_arrive(struct work_struct *work)
 		return;
 	}
 
+	mutex_lock(&drvdata->mutex);
 	if (qmi_connect_to_service(drvdata->handle, CORESIGHT_QMI_SVC_ID,
 				   CORESIGHT_QMI_VERSION,
 				   drvdata->inst_id) < 0) {
@@ -236,7 +239,6 @@ static void remote_etm_svc_arrive(struct work_struct *work)
 		drvdata->handle = NULL;
 	}
 
-	mutex_lock(&drvdata->mutex);
 	if (drvdata->inst_id < sizeof(int)*BITS_PER_BYTE
 	    && (boot_enable & BIT(drvdata->inst_id))) {
 		if (!drvdata->enable)
@@ -251,9 +253,10 @@ static void remote_etm_svc_exit(struct work_struct *work)
 	struct remote_etm_drvdata *drvdata = container_of(work,
 						struct remote_etm_drvdata,
 						work_svc_exit);
-
+	mutex_lock(&drvdata->mutex);
 	qmi_handle_destroy(drvdata->handle);
 	drvdata->handle = NULL;
+	mutex_unlock(&drvdata->mutex);
 }
 
 static int remote_etm_svc_event_notify(struct notifier_block *this,
