@@ -122,7 +122,7 @@ struct schedtune {
 	/* Boost value for tasks on that SchedTune CGroup */
 	int boost;
 
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 	/* Toggle ability to override sched boost enabled */
 	bool sched_boost_no_override;
 
@@ -147,7 +147,7 @@ struct schedtune {
 
 	/* Controls whether further updates are allowed to the colocate flag */
 	bool colocate_update_disabled;
-#endif /* CONFIG_SCHED_HMP */
+#endif /* CONFIG_SCHED_WALT */
 
 	/* Performance Boost (B) region threshold params */
 	int perf_boost_idx;
@@ -187,7 +187,7 @@ static inline struct schedtune *parent_st(struct schedtune *st)
 static struct schedtune
 root_schedtune = {
 	.boost	= 0,
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 	.sched_boost_no_override = false,
 	.sched_boost_enabled = true,
 	.sched_boost_enabled_backup = true,
@@ -274,7 +274,7 @@ struct boost_groups {
 /* Boost groups affecting each CPU in the system */
 DEFINE_PER_CPU(struct boost_groups, cpu_boost_groups);
 
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 static inline void init_sched_boost(struct schedtune *st)
 {
 	st->sched_boost_no_override = false;
@@ -343,7 +343,7 @@ static int sched_boost_override_write(struct cgroup_subsys_state *css,
 	return 0;
 }
 
-#endif /* CONFIG_SCHED_HMP */
+#endif /* CONFIG_SCHED_WALT */
 
 static void
 schedtune_cpu_update(int cpu)
@@ -548,7 +548,7 @@ int schedtune_can_attach(struct cgroup_taskset *tset)
 	return 0;
 }
 
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 static u64 sched_boost_enabled_read(struct cgroup_subsys_state *css,
 			struct cftype *cft)
 {
@@ -589,11 +589,11 @@ static int sched_colocate_write(struct cgroup_subsys_state *css,
 	return 0;
 }
 
-#else /* CONFIG_SCHED_HMP */
+#else /* CONFIG_SCHED_WALT */
 
 static inline void init_sched_boost(struct schedtune *st) { }
 
-#endif /* CONFIG_SCHED_HMP */
+#endif /* CONFIG_SCHED_WALT */
 
 void schedtune_cancel_attach(struct cgroup_taskset *tset)
 {
@@ -729,7 +729,7 @@ boost_read(struct cgroup_subsys_state *css, struct cftype *cft)
 	return st->boost;
 }
 
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 static void schedtune_attach(struct cgroup_taskset *tset)
 {
 	struct task_struct *task;
@@ -786,7 +786,7 @@ boost_write(struct cgroup_subsys_state *css, struct cftype *cft,
 }
 
 static struct cftype files[] = {
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 	{
 		.name = "sched_boost_no_override",
 		.read_u64 = sched_boost_override_read,

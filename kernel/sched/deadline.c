@@ -15,10 +15,11 @@
  *                    Fabio Checconi <fchecconi@gmail.com>
  */
 #include "sched.h"
+#include "walt.h"
 
 #include <linux/slab.h>
 
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 
 static void
 inc_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p)
@@ -43,7 +44,7 @@ fixup_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p,
 				      pred_demand_delta);
 }
 
-#else	/* CONFIG_SCHED_HMP */
+#else	/* CONFIG_SCHED_WALT */
 
 static inline void
 inc_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p) { }
@@ -51,7 +52,7 @@ inc_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p) { }
 static inline void
 dec_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p) { }
 
-#endif	/* CONFIG_SCHED_HMP */
+#endif	/* CONFIG_SCHED_WALT */
 
 struct dl_bandwidth def_dl_bandwidth;
 
@@ -1843,7 +1844,7 @@ const struct sched_class dl_sched_class = {
 	.switched_to		= switched_to_dl,
 
 	.update_curr		= update_curr_dl,
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 	.fixup_hmp_sched_stats	= fixup_hmp_sched_stats_dl,
 #endif
 };

@@ -87,6 +87,7 @@
 #endif
 
 #include "sched.h"
+#include "walt.h"
 #include "../workqueue_internal.h"
 #include "../smpboot.h"
 #include "../time/tick-internal.h"
@@ -2193,6 +2194,9 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 		notif_required = true;
 	}
 
+	if (!__task_in_cum_window_demand(cpu_rq(cpu), p))
+		inc_cum_window_demand(cpu_rq(cpu), p, task_load(p));
+
 	note_task_waking(p, wallclock);
 #endif /* CONFIG_SMP */
 
@@ -2265,6 +2269,8 @@ static void try_to_wake_up_local(struct task_struct *p, struct pin_cookie cookie
 
 		update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 		update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);
+		if (!__task_in_cum_window_demand(rq, p))
+			inc_cum_window_demand(rq, p, task_load(p));
 		cpufreq_update_util(rq, 0);
 		ttwu_activate(rq, p, ENQUEUE_WAKEUP);
 		note_task_waking(p, wallclock);
@@ -2352,8 +2358,9 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	p->se.prev_sum_exec_runtime	= 0;
 	p->se.nr_migrations		= 0;
 	p->se.vruntime			= 0;
+	p->last_sleep_ts		= 0;
+
 	INIT_LIST_HEAD(&p->se.group_node);
-	walt_init_new_task_load(p);
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	p->se.cfs_rq			= NULL;
@@ -2717,8 +2724,6 @@ void wake_up_new_task(struct task_struct *p)
 
 	add_new_task_to_grp(p);
 	raw_spin_lock_irqsave(&p->pi_lock, rf.flags);
-
-	walt_init_new_task_load(p);
 
 	p->state = TASK_RUNNING;
 #ifdef CONFIG_SMP
@@ -3255,15 +3260,9 @@ unsigned long long task_sched_runtime(struct task_struct *p)
 	return ns;
 }
 
-#ifdef CONFIG_CPU_FREQ_GOV_SCHED
+unsigned int capacity_margin_freq = 1280; /* ~20% margin */
 
-static inline
-unsigned long add_capacity_margin(unsigned long cpu_capacity)
-{
-	cpu_capacity  = cpu_capacity * capacity_margin;
-	cpu_capacity /= SCHED_CAPACITY_SCALE;
-	return cpu_capacity;
-}
+#ifdef CONFIG_CPU_FREQ_GOV_SCHED
 
 static inline
 unsigned long sum_capacity_reqs(unsigned long cfs_cap,
@@ -3287,7 +3286,7 @@ static void sched_freq_tick_pelt(int cpu)
 	 * To make free room for a task that is building up its "real"
 	 * utilization and to harm its performance the least, request
 	 * a jump to a higher OPP as soon as the margin of free capacity
-	 * is impacted (specified by capacity_margin).
+	 * is impacted (specified by capacity_margin_freq).
 	 */
 	set_cfs_cpu_capacity(cpu, true, cpu_utilization);
 }
@@ -3295,22 +3294,13 @@ static void sched_freq_tick_pelt(int cpu)
 #ifdef CONFIG_SCHED_WALT
 static void sched_freq_tick_walt(int cpu)
 {
-	unsigned long cpu_utilization = cpu_util(cpu);
-	unsigned long capacity_curr = capacity_curr_of(cpu);
+	unsigned long cpu_utilization = cpu_util_freq(cpu, NULL);
 
 	if (walt_disabled || !sysctl_sched_use_walt_cpu_util)
 		return sched_freq_tick_pelt(cpu);
 
-	/*
-	 * Add a margin to the WALT utilization.
-	 * NOTE: WALT tracks a single CPU signal for all the scheduling
-	 * classes, thus this margin is going to be added to the DL class as
-	 * well, which is something we do not do in sched_freq_tick_pelt case.
-	 */
-	cpu_utilization = add_capacity_margin(cpu_utilization);
-	if (cpu_utilization <= capacity_curr)
-		return;
-
+	cpu_utilization = cpu_utilization * SCHED_CAPACITY_SCALE /
+			  capacity_orig_of(cpu);
 	/*
 	 * It is likely that the load is growing so we
 	 * keep the added margin in our request as an
@@ -3326,14 +3316,7 @@ static void sched_freq_tick_walt(int cpu)
 
 static void sched_freq_tick(int cpu)
 {
-	unsigned long capacity_orig, capacity_curr;
-
 	if (!sched_freq())
-		return;
-
-	capacity_orig = capacity_orig_of(cpu);
-	capacity_curr = capacity_curr_of(cpu);
-	if (capacity_curr == capacity_orig)
 		return;
 
 	_sched_freq_tick(cpu);
@@ -3363,16 +3346,14 @@ void scheduler_tick(void)
 	old_load = task_load(curr);
 	set_window_start(rq);
 
-	update_rq_clock(rq);
-	curr->sched_class->task_tick(rq, curr, 0);
-	cpu_load_update_active(rq);
-	walt_update_task_ravg(rq->curr, rq, TASK_UPDATE,
-			walt_ktime_clock(), 0);
-	calc_global_load_tick(rq);
 
 	wallclock = sched_ktime_clock();
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 
+	update_rq_clock(rq);
+	curr->sched_class->task_tick(rq, curr, 0);
+	cpu_load_update_active(rq);
+	calc_global_load_tick(rq);
 	cpufreq_update_util(rq, 0);
 	early_notif = early_detection_notify(rq, wallclock);
 
@@ -3706,6 +3687,9 @@ static void __sched notrace __schedule(bool preempt)
 
 	wallclock = sched_ktime_clock();
 	if (likely(prev != next)) {
+		if (!prev->on_rq)
+			prev->last_sleep_ts = wallclock;
+
 		update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);
 		update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, 0);
 		cpufreq_update_util(rq, 0);
@@ -8163,7 +8147,6 @@ void __init sched_init_smp(void)
 {
 	cpumask_var_t non_isolated_cpus;
 
-	walt_init_cpu_efficiency();
 	alloc_cpumask_var(&non_isolated_cpus, GFP_KERNEL);
 	alloc_cpumask_var(&fallback_doms, GFP_KERNEL);
 
@@ -8377,10 +8360,11 @@ void __init sched_init(void)
 		rq->avg_idle = 2*sysctl_sched_migration_cost;
 		rq->max_idle_balance_cost = sysctl_sched_migration_cost;
 		rq->push_task = NULL;
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 		cpumask_set_cpu(i, &rq->freq_domain_cpumask);
 		rq->hmp_stats.cumulative_runnable_avg = 0;
 		rq->window_start = 0;
+		rq->cum_window_start = 0;
 		rq->hmp_stats.nr_big_tasks = 0;
 		rq->hmp_flags = 0;
 		rq->cur_irqload = 0;
@@ -8422,6 +8406,7 @@ void __init sched_init(void)
 
 			clear_top_tasks_bitmap(rq->top_tasks_bitmap[j]);
 		}
+		rq->cum_window_demand = 0;
 #endif
 		INIT_LIST_HEAD(&rq->cfs_tasks);
 
@@ -9646,7 +9631,7 @@ const u32 sched_prio_to_wmult[40] = {
  /*  15 */ 119304647, 148102320, 186737708, 238609294, 286331153,
 };
 
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 /*
  * sched_exit() - Set EXITING_TASK_MARKER in task's ravg.demand field
  *
@@ -9674,6 +9659,7 @@ void sched_exit(struct task_struct *p)
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	dequeue_task(rq, p, 0);
 	reset_task_stats(p);
+	dec_cum_window_demand(rq, p);
 	p->ravg.mark_start = wallclock;
 	p->ravg.sum_history[0] = EXITING_TASK_MARKER;
 	free_task_load_ptrs(p);
@@ -9682,4 +9668,4 @@ void sched_exit(struct task_struct *p)
 	clear_ed_task(p, rq);
 	task_rq_unlock(rq, p, &rf);
 }
-#endif /* CONFIG_SCHED_HMP */
+#endif /* CONFIG_SCHED_WALT */
