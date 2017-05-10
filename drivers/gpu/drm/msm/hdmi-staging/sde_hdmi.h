@@ -20,6 +20,7 @@
 #include <linux/debugfs.h>
 #include <linux/of_device.h>
 #include <linux/msm_ext_display.h>
+#include <linux/hdcp_qseecom.h>
 
 #include <drm/drmP.h>
 #include <drm/drm_crtc.h>
@@ -30,6 +31,7 @@
 #include "msm_drv.h"
 #include "sde_edid_parser.h"
 #include "sde_hdmi_util.h"
+#include "sde_hdcp.h"
 
 #ifdef HDMI_DEBUG_ENABLE
 #define SDE_HDMI_DEBUG(fmt, args...)   SDE_ERROR(fmt, ##args)
@@ -113,7 +115,7 @@ struct sde_hdmi {
 	const char *display_type;
 	struct list_head list;
 	struct mutex display_lock;
-
+	struct mutex hdcp_mutex;
 	struct sde_hdmi_ctrl ctrl;
 
 	struct platform_device *ext_pdev;
@@ -131,6 +133,12 @@ struct sde_hdmi {
 	u32 max_pclk_khz;
 	bool hdcp1_use_sw_keys;
 	u32 hdcp14_present;
+	u32 hdcp22_present;
+	u8 hdcp_status;
+	u32 enc_lvl;
+	bool auth_state;
+	void *hdcp_data;
+	struct sde_hdcp_ops *hdcp_ops;
 	struct sde_hdmi_tx_ddc_ctrl ddc_ctrl;
 	struct work_struct hpd_work;
 	bool codec_ready;
@@ -139,6 +147,7 @@ struct sde_hdmi {
 	struct irq_domain *irq_domain;
 	struct cec_notifier *notifier;
 
+	struct delayed_work hdcp_cb_work;
 	struct dss_io_data io[HDMI_TX_MAX_IO];
 	/* DEBUG FS */
 	struct dentry *root;
@@ -405,6 +414,11 @@ void sde_hdmi_notify_clients(struct sde_hdmi *display, bool connected);
 void sde_hdmi_ack_state(struct drm_connector *connector,
 	enum drm_connector_status status);
 
+bool sde_hdmi_tx_is_hdcp_enabled(struct sde_hdmi *hdmi_ctrl);
+bool sde_hdmi_tx_is_encryption_set(struct sde_hdmi *hdmi_ctrl);
+bool sde_hdmi_tx_is_stream_shareable(struct sde_hdmi *hdmi_ctrl);
+bool sde_hdmi_tx_is_panel_on(struct sde_hdmi *hdmi_ctrl);
+
 #else /*#ifdef CONFIG_DRM_SDE_HDMI*/
 
 static inline u32 sde_hdmi_get_num_of_displays(void)
@@ -461,6 +475,26 @@ static inline int sde_hdmi_dev_init(struct sde_hdmi *display)
 static inline int sde_hdmi_dev_deinit(struct sde_hdmi *display)
 {
 	return 0;
+}
+
+bool hdmi_tx_is_hdcp_enabled(struct sde_hdmi *hdmi_ctrl)
+{
+	return false;
+}
+
+bool sde_hdmi_tx_is_encryption_set(struct sde_hdmi *hdmi_ctrl)
+{
+	return false;
+}
+
+bool sde_hdmi_tx_is_stream_shareable(struct sde_hdmi *hdmi_ctrl)
+{
+	return false;
+}
+
+bool sde_hdmi_tx_is_panel_on(struct sde_hdmi *hdmi_ctrl)
+{
+	return false;
 }
 
 static inline int sde_hdmi_drm_init(struct sde_hdmi *display,

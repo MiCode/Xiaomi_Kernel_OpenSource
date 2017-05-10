@@ -424,6 +424,102 @@ static u64 _sde_hdmi_clip_valid_pclk(struct drm_display_mode *mode, u64 pclk_in)
 	return pclk_clip;
 }
 
+static void sde_hdmi_tx_hdcp_cb(void *ptr, enum sde_hdcp_states status)
+{
+	struct sde_hdmi *hdmi_ctrl = (struct sde_hdmi *)ptr;
+	struct hdmi *hdmi;
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+
+	hdmi = hdmi_ctrl->ctrl.ctrl;
+	hdmi_ctrl->hdcp_status = status;
+	queue_delayed_work(hdmi->workq, &hdmi_ctrl->hdcp_cb_work, HZ/4);
+}
+
+static void sde_hdmi_tx_hdcp_cb_work(struct work_struct *work)
+{
+	struct sde_hdmi *hdmi_ctrl = NULL;
+	struct delayed_work *dw = to_delayed_work(work);
+	int rc = 0;
+	struct hdmi *hdmi;
+
+	hdmi_ctrl = container_of(dw, struct sde_hdmi, hdcp_cb_work);
+	if (!hdmi_ctrl) {
+		DEV_DBG("%s: invalid input\n", __func__);
+		return;
+	}
+
+	hdmi = hdmi_ctrl->ctrl.ctrl;
+
+	switch (hdmi_ctrl->hdcp_status) {
+	case HDCP_STATE_AUTHENTICATED:
+		hdmi_ctrl->auth_state = true;
+
+		if (sde_hdmi_tx_is_panel_on(hdmi_ctrl) &&
+			sde_hdmi_tx_is_stream_shareable(hdmi_ctrl)) {
+			rc = sde_hdmi_config_avmute(hdmi, false);
+		}
+
+		if (hdmi_ctrl->hdcp1_use_sw_keys &&
+			hdmi_ctrl->hdcp14_present) {
+			if (!hdmi_ctrl->hdcp22_present)
+				hdcp1_set_enc(true);
+		}
+		break;
+	case HDCP_STATE_AUTH_FAIL:
+		if (hdmi_ctrl->hdcp1_use_sw_keys && hdmi_ctrl->hdcp14_present) {
+			if (hdmi_ctrl->auth_state && !hdmi_ctrl->hdcp22_present)
+				hdcp1_set_enc(false);
+		}
+
+		hdmi_ctrl->auth_state = false;
+
+		if (sde_hdmi_tx_is_encryption_set(hdmi_ctrl) ||
+			!sde_hdmi_tx_is_stream_shareable(hdmi_ctrl))
+			rc = sde_hdmi_config_avmute(hdmi, true);
+
+		if (sde_hdmi_tx_is_panel_on(hdmi_ctrl)) {
+			pr_debug("%s: Reauthenticating\n", __func__);
+			if (hdmi_ctrl->hdcp_ops && hdmi_ctrl->hdcp_data) {
+				rc = hdmi_ctrl->hdcp_ops->reauthenticate(
+					 hdmi_ctrl->hdcp_data);
+				if (rc)
+					pr_err("%s: HDCP reauth failed. rc=%d\n",
+						   __func__, rc);
+			} else
+				pr_err("%s: NULL HDCP Ops and Data\n",
+					   __func__);
+		} else {
+			pr_debug("%s: Not reauthenticating. Cable not conn\n",
+					 __func__);
+		}
+
+		break;
+	case HDCP_STATE_AUTH_ENC_NONE:
+		hdmi_ctrl->enc_lvl = HDCP_STATE_AUTH_ENC_NONE;
+		if (sde_hdmi_tx_is_panel_on(hdmi_ctrl))
+			rc = sde_hdmi_config_avmute(hdmi, false);
+		break;
+	case HDCP_STATE_AUTH_ENC_1X:
+	case HDCP_STATE_AUTH_ENC_2P2:
+		hdmi_ctrl->enc_lvl = hdmi_ctrl->hdcp_status;
+
+		if (sde_hdmi_tx_is_panel_on(hdmi_ctrl) &&
+			sde_hdmi_tx_is_stream_shareable(hdmi_ctrl)) {
+			rc = sde_hdmi_config_avmute(hdmi, false);
+		} else {
+			rc = sde_hdmi_config_avmute(hdmi, true);
+		}
+		break;
+	default:
+		break;
+		/* do nothing */
+	}
+}
+
 /**
  * _sde_hdmi_update_pll_delta() - Update the HDMI pixel clock as per input ppm
  *
@@ -1561,6 +1657,34 @@ static int sde_hdmi_tx_check_capability(struct sde_hdmi *sde_hdmi)
 	return ret;
 } /* hdmi_tx_check_capability */
 
+static int _sde_hdmi_init_hdcp(struct sde_hdmi *hdmi_ctrl)
+{
+	struct sde_hdcp_init_data hdcp_init_data;
+	int rc = 0;
+	struct hdmi *hdmi;
+
+	if (!hdmi_ctrl) {
+		SDE_ERROR("sde_hdmi is NULL\n");
+		return -EINVAL;
+	}
+
+	hdmi = hdmi_ctrl->ctrl.ctrl;
+	hdcp_init_data.phy_addr      = hdmi->mmio_phy_addr;
+	hdcp_init_data.core_io       = &hdmi_ctrl->io[HDMI_TX_CORE_IO];
+	hdcp_init_data.qfprom_io     = &hdmi_ctrl->io[HDMI_TX_QFPROM_IO];
+	hdcp_init_data.hdcp_io       = &hdmi_ctrl->io[HDMI_TX_HDCP_IO];
+	hdcp_init_data.mutex         = &hdmi_ctrl->hdcp_mutex;
+	hdcp_init_data.workq         = hdmi->workq;
+	hdcp_init_data.notify_status = sde_hdmi_tx_hdcp_cb;
+	hdcp_init_data.cb_data       = (void *)hdmi_ctrl;
+	hdcp_init_data.hdmi_tx_ver   = hdmi_ctrl->hdmi_tx_major_version;
+	hdcp_init_data.sec_access    = true;
+	hdcp_init_data.client_id     = HDCP_CLIENT_HDMI;
+	hdcp_init_data.ddc_ctrl      = &hdmi_ctrl->ddc_ctrl;
+
+	return rc;
+}
+
 int sde_hdmi_connector_post_init(struct drm_connector *connector,
 		void *info,
 		void *display)
@@ -1795,6 +1919,11 @@ static int sde_hdmi_bind(struct device *dev, struct device *master, void *data)
 
 	_sde_hdmi_map_regs(display, priv->hdmi);
 	_sde_hdmi_init_ddc(display, priv->hdmi);
+
+	INIT_DELAYED_WORK(&display->hdcp_cb_work,
+					  sde_hdmi_tx_hdcp_cb_work);
+	mutex_init(&display->hdcp_mutex);
+	_sde_hdmi_init_hdcp(display);
 
 	mutex_unlock(&display->display_lock);
 	return rc;

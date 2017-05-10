@@ -198,3 +198,116 @@ int sde_hdmi_ddc_write(void *cb_data)
 error:
 	return status;
 } /* hdmi_ddc_write */
+
+bool sde_hdmi_tx_is_hdcp_enabled(struct sde_hdmi *hdmi_ctrl)
+{
+	if (!hdmi_ctrl) {
+		SDE_ERROR("%s: invalid input\n", __func__);
+		return false;
+	}
+
+	return (hdmi_ctrl->hdcp14_present || hdmi_ctrl->hdcp22_present) &&
+		hdmi_ctrl->hdcp_ops;
+}
+
+bool sde_hdmi_tx_is_encryption_set(struct sde_hdmi *hdmi_ctrl)
+{
+	bool enc_en = true;
+	u32 reg_val;
+	struct hdmi *hdmi;
+
+	if (!hdmi_ctrl) {
+		SDE_ERROR("%s: invalid input\n", __func__);
+		goto end;
+	}
+
+	hdmi = hdmi_ctrl->ctrl.ctrl;
+
+	reg_val = hdmi_read(hdmi, HDMI_HDCP_CTRL2);
+	if ((reg_val & BIT(0)) && (reg_val & BIT(1)))
+		goto end;
+
+	if (hdmi_read(hdmi, HDMI_CTRL) & BIT(2))
+		goto end;
+
+	return false;
+
+end:
+	return enc_en;
+} /* sde_hdmi_tx_is_encryption_set */
+
+bool sde_hdmi_tx_is_stream_shareable(struct sde_hdmi *hdmi_ctrl)
+{
+	bool ret;
+
+	if (!hdmi_ctrl) {
+		SDE_ERROR("%s: invalid input\n", __func__);
+		return false;
+	}
+
+	switch (hdmi_ctrl->enc_lvl) {
+	case HDCP_STATE_AUTH_ENC_NONE:
+		ret = true;
+		break;
+	case HDCP_STATE_AUTH_ENC_1X:
+		ret = sde_hdmi_tx_is_hdcp_enabled(hdmi_ctrl) &&
+				hdmi_ctrl->auth_state;
+		break;
+	case HDCP_STATE_AUTH_ENC_2P2:
+		ret = hdmi_ctrl->hdcp22_present &&
+			hdmi_ctrl->auth_state;
+		break;
+	default:
+		ret = false;
+	}
+
+	return ret;
+}
+
+bool sde_hdmi_tx_is_panel_on(struct sde_hdmi *hdmi_ctrl)
+{
+	struct hdmi *hdmi;
+
+	if (!hdmi_ctrl) {
+		SDE_ERROR("%s: invalid input\n", __func__);
+		return false;
+	}
+
+	hdmi = hdmi_ctrl->ctrl.ctrl;
+
+	return hdmi_ctrl->connected && hdmi->power_on;
+}
+
+int sde_hdmi_config_avmute(struct hdmi *hdmi, bool set)
+{
+	u32 av_mute_status;
+	bool av_pkt_en = false;
+
+	if (!hdmi) {
+		SDE_ERROR("invalid HDMI Ctrl\n");
+		return -ENODEV;
+	}
+
+	av_mute_status = hdmi_read(hdmi, HDMI_GC);
+
+	if (set) {
+		if (!(av_mute_status & BIT(0))) {
+			hdmi_write(hdmi, HDMI_GC, av_mute_status | BIT(0));
+			av_pkt_en = true;
+		}
+	} else {
+		if (av_mute_status & BIT(0)) {
+			hdmi_write(hdmi, HDMI_GC, av_mute_status & ~BIT(0));
+			av_pkt_en = true;
+		}
+	}
+
+	/* Enable AV Mute tranmission here */
+	if (av_pkt_en)
+		hdmi_write(hdmi, HDMI_VBI_PKT_CTRL,
+			hdmi_read(hdmi, HDMI_VBI_PKT_CTRL) | (BIT(4) & BIT(5)));
+
+	SDE_DEBUG("AVMUTE %s\n", set ? "set" : "cleared");
+
+	return 0;
+}
