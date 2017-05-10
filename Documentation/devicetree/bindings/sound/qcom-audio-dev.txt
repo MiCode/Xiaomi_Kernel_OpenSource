@@ -2256,8 +2256,8 @@ Optional properties:
 - qcom,wcn-btfm : Property to specify if WCN BT/FM chip is used for the target
 - qcom,msm-mbhc-usbc-audio-supported : Property to specify if analog audio feature is
 				       enabled or not.
-- qcom,usbc-analog-en1_gpio : EN1 GPIO to enable USB type-C analog audio
-- qcom,usbc-analog-en2_n_gpio : EN2 GPIO to enable USB type-C analog audio
+- qcom,usbc-analog-en1-gpio : EN1 GPIO to enable USB type-C analog audio
+- qcom,usbc-analog-en2-gpio : EN2 GPIO to enable USB type-C analog audio
 - qcom,usbc-analog-force_detect_gpio : Force detect GPIO to enable USB type-C analog audio
 
 Example:
@@ -2333,8 +2333,8 @@ Example:
 		qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrLeft",
 					  "SpkrRight", "SpkrLeft";
 		qcom,msm-mbhc-usbc-audio-supported = <1>;
-		qcom,usbc-analog-en1_gpio = <&wcd_usbc_analog_en1_gpio>;
-		qcom,usbc-analog-en2_n_gpio = <&wcd_usbc_analog_en2n_gpio>;
+		qcom,usbc-analog-en1-gpio = <&wcd_usbc_analog_en1_gpio>;
+		qcom,usbc-analog-en2-gpio = <&tlmm 51 0>;
 		qcom,usbc-analog-force_detect_gpio = <&wcd_usbc_analog_f_gpio>;
 	};
 

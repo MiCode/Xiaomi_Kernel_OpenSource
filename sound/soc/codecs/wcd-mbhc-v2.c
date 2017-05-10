@@ -1460,18 +1460,12 @@ static int wcd_mbhc_usb_c_analog_setup_gpios(struct wcd_mbhc *mbhc,
 		if (config->usbc_en1_gpio_p)
 			rc = msm_cdc_pinctrl_select_active_state(
 				config->usbc_en1_gpio_p);
-		if (rc == 0 && config->usbc_en2n_gpio_p)
-			rc = msm_cdc_pinctrl_select_active_state(
-				config->usbc_en2n_gpio_p);
 		if (rc == 0 && config->usbc_force_gpio_p)
 			rc = msm_cdc_pinctrl_select_active_state(
 				config->usbc_force_gpio_p);
 		mbhc->usbc_mode = POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER;
 	} else {
 		/* no delay is required when disabling GPIOs */
-		if (config->usbc_en2n_gpio_p)
-			msm_cdc_pinctrl_select_sleep_state(
-				config->usbc_en2n_gpio_p);
 		if (config->usbc_en1_gpio_p)
 			msm_cdc_pinctrl_select_sleep_state(
 				config->usbc_en1_gpio_p);
@@ -1490,6 +1484,8 @@ static int wcd_mbhc_usb_c_analog_setup_gpios(struct wcd_mbhc *mbhc,
 		}
 
 		mbhc->usbc_mode = POWER_SUPPLY_TYPEC_NONE;
+		if (mbhc->mbhc_cfg->swap_gnd_mic)
+			mbhc->mbhc_cfg->swap_gnd_mic(mbhc->codec, false);
 	}
 
 	return rc;
@@ -1675,16 +1671,9 @@ int wcd_mbhc_start(struct wcd_mbhc *mbhc, struct wcd_mbhc_config *mbhc_cfg)
 		dev_dbg(mbhc->codec->dev, "%s: usbc analog enabled\n",
 				__func__);
 		rc = wcd_mbhc_init_gpio(mbhc, mbhc_cfg,
-				"qcom,usbc-analog-en1_gpio",
+				"qcom,usbc-analog-en1-gpio",
 				&config->usbc_en1_gpio,
 				&config->usbc_en1_gpio_p);
-		if (rc)
-			goto err;
-
-		rc = wcd_mbhc_init_gpio(mbhc, mbhc_cfg,
-				"qcom,usbc-analog-en2_n_gpio",
-				&config->usbc_en2n_gpio,
-				&config->usbc_en2n_gpio_p);
 		if (rc)
 			goto err;
 
@@ -1734,12 +1723,6 @@ err:
 		gpio_free(config->usbc_en1_gpio);
 		config->usbc_en1_gpio = 0;
 	}
-	if (config->usbc_en2n_gpio > 0) {
-		dev_dbg(card->dev, "%s free usb_en2 gpio %d\n",
-			__func__, config->usbc_en2n_gpio);
-		gpio_free(config->usbc_en2n_gpio);
-		config->usbc_en2n_gpio = 0;
-	}
 	if (config->usbc_force_gpio > 0) {
 		dev_dbg(card->dev, "%s free usb_force gpio %d\n",
 			__func__, config->usbc_force_gpio);
@@ -1748,8 +1731,6 @@ err:
 	}
 	if (config->usbc_en1_gpio_p)
 		of_node_put(config->usbc_en1_gpio_p);
-	if (config->usbc_en2n_gpio_p)
-		of_node_put(config->usbc_en2n_gpio_p);
 	if (config->usbc_force_gpio_p)
 		of_node_put(config->usbc_force_gpio_p);
 	dev_dbg(mbhc->codec->dev, "%s: leave %d\n", __func__, rc);
@@ -1790,15 +1771,11 @@ void wcd_mbhc_stop(struct wcd_mbhc *mbhc)
 		/* free GPIOs */
 		if (config->usbc_en1_gpio > 0)
 			gpio_free(config->usbc_en1_gpio);
-		if (config->usbc_en2n_gpio > 0)
-			gpio_free(config->usbc_en2n_gpio);
 		if (config->usbc_force_gpio)
 			gpio_free(config->usbc_force_gpio);
 
 		if (config->usbc_en1_gpio_p)
 			of_node_put(config->usbc_en1_gpio_p);
-		if (config->usbc_en2n_gpio_p)
-			of_node_put(config->usbc_en2n_gpio_p);
 		if (config->usbc_force_gpio_p)
 			of_node_put(config->usbc_force_gpio_p);
 	}
