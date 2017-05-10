@@ -540,6 +540,7 @@ static int tmc_probe(struct amba_device *adev, const struct amba_id *id)
 			drvdata->memtype  = TMC_ETR_MEM_TYPE_CONTIG;
 		drvdata->mem_size = drvdata->size;
 		drvdata->mem_type = drvdata->memtype;
+		drvdata->out_mode = TMC_ETR_OUT_MODE_MEM;
 	} else {
 		drvdata->size = readl_relaxed(drvdata->base + TMC_RSZ) * 4;
 	}
