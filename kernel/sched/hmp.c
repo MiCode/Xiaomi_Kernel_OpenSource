@@ -1236,39 +1236,6 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 		sched_ktime_clock() - start_ts, reason, old, new);
 }
 
-/*
- * In this function we match the accumulated subtractions with the current
- * and previous windows we are operating with. Ignore any entries where
- * the window start in the load_subtraction struct does not match either
- * the curent or the previous window. This could happen whenever CPUs
- * become idle or busy with interrupts disabled for an extended period.
- */
-static inline void account_load_subtractions(struct rq *rq)
-{
-	u64 ws = rq->window_start;
-	u64 prev_ws = ws - sched_ravg_window;
-	struct load_subtractions *ls = rq->load_subs;
-	int i;
-
-	for (i = 0; i < NUM_TRACKED_WINDOWS; i++) {
-		if (ls[i].window_start == ws) {
-			rq->curr_runnable_sum -= ls[i].subs;
-			rq->nt_curr_runnable_sum -= ls[i].new_subs;
-		} else if (ls[i].window_start == prev_ws) {
-			rq->prev_runnable_sum -= ls[i].subs;
-			rq->nt_prev_runnable_sum -= ls[i].new_subs;
-		}
-
-		ls[i].subs = 0;
-		ls[i].new_subs = 0;
-	}
-
-	BUG_ON((s64)rq->prev_runnable_sum < 0);
-	BUG_ON((s64)rq->curr_runnable_sum < 0);
-	BUG_ON((s64)rq->nt_prev_runnable_sum < 0);
-	BUG_ON((s64)rq->nt_curr_runnable_sum < 0);
-}
-
 void sched_get_cpus_busy(struct sched_load *busy,
 			 const struct cpumask *query_cpus)
 {
@@ -1633,30 +1600,6 @@ static int register_sched_callback(void)
  * for further information.
  */
 core_initcall(register_sched_callback);
-
-bool early_detection_notify(struct rq *rq, u64 wallclock)
-{
-	struct task_struct *p;
-	int loop_max = 10;
-
-	if (sched_boost_policy() == SCHED_BOOST_NONE || !rq->cfs.h_nr_running)
-		return 0;
-
-	rq->ed_task = NULL;
-	list_for_each_entry(p, &rq->cfs_tasks, se.group_node) {
-		if (!loop_max)
-			break;
-
-		if (wallclock - p->last_wake_ts >= EARLY_DETECTION_DURATION) {
-			rq->ed_task = p;
-			return 1;
-		}
-
-		loop_max--;
-	}
-
-	return 0;
-}
 
 void update_avg_burst(struct task_struct *p)
 {

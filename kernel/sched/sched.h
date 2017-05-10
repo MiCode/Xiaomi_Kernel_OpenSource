@@ -2672,6 +2672,8 @@ extern int got_boost_kick(void);
 extern void clear_boost_kick(int cpu);
 extern enum sched_boost_policy sched_boost_policy(void);
 extern void sched_boost_parse_dt(void);
+extern void clear_ed_task(struct task_struct *p, struct rq *rq);
+extern bool early_detection_notify(struct rq *rq, u64 wallclock);
 
 #else	/* CONFIG_SCHED_WALT */
 
@@ -2818,6 +2820,13 @@ static inline enum sched_boost_policy sched_boost_policy(void)
 
 static inline void sched_boost_parse_dt(void) { }
 
+static inline void clear_ed_task(struct task_struct *p, struct rq *rq) { }
+
+static inline bool early_detection_notify(struct rq *rq, u64 wallclock)
+{
+	return 0;
+}
+
 #endif	/* CONFIG_SCHED_WALT */
 
 #ifdef CONFIG_SCHED_HMP
@@ -2830,10 +2839,8 @@ extern void notify_migration(int src_cpu, int dest_cpu,
 extern void note_task_waking(struct task_struct *p, u64 wallclock);
 extern void
 check_for_freq_change(struct rq *rq, bool check_pred, bool check_groups);
-extern void clear_ed_task(struct task_struct *p, struct rq *rq);
 extern void fixup_nr_big_tasks(struct hmp_sched_stats *stats,
 					struct task_struct *p, s64 delta);
-extern bool early_detection_notify(struct rq *rq, u64 wallclock);
 extern unsigned int power_cost(int cpu, u64 demand);
 extern unsigned int cpu_temp(int cpu);
 extern void pre_big_task_count_change(const struct cpumask *cpus);
@@ -2888,15 +2895,8 @@ static inline void note_task_waking(struct task_struct *p, u64 wallclock) { }
 static inline void
 check_for_freq_change(struct rq *rq, bool check_pred, bool check_groups) { }
 
-static inline void clear_ed_task(struct task_struct *p, struct rq *rq) { }
-
 static inline void fixup_nr_big_tasks(struct hmp_sched_stats *stats,
 				      struct task_struct *p, s64 delta) { }
-
-static inline bool early_detection_notify(struct rq *rq, u64 wallclock)
-{
-	return 0;
-}
 
 static inline unsigned int power_cost(int cpu, u64 demand)
 {
