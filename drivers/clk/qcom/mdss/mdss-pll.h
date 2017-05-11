@@ -94,6 +94,8 @@ struct mdss_pll_resources {
 	 * suspend/resume scenario. Cached the vco rate for such plls.
 	 */
 	unsigned long	vco_cached_rate;
+	u32		cached_cfg0;
+	u32		cached_cfg1;
 
 	/* dsi/edp/hmdi pll interface type */
 	u32		pll_interface_type;
