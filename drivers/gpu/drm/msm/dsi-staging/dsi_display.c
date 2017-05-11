@@ -1243,7 +1243,7 @@ static int dsi_display_clocks_init(struct dsi_display *display)
 	mux->byte_clk = devm_clk_get(&display->pdev->dev, "mux_byte_clk");
 	if (IS_ERR_OR_NULL(mux->byte_clk)) {
 		rc = PTR_ERR(mux->byte_clk);
-		pr_err("failed to get mux_byte_clk, rc=%d\n", rc);
+		pr_debug("failed to get mux_byte_clk, rc=%d\n", rc);
 		mux->byte_clk = NULL;
 		/*
 		 * Skip getting rest of clocks since one failed. This is a
@@ -1258,7 +1258,7 @@ static int dsi_display_clocks_init(struct dsi_display *display)
 	if (IS_ERR_OR_NULL(mux->pixel_clk)) {
 		rc = PTR_ERR(mux->pixel_clk);
 		mux->pixel_clk = NULL;
-		pr_err("failed to get mux_pixel_clk, rc=%d\n", rc);
+		pr_debug("failed to get mux_pixel_clk, rc=%d\n", rc);
 		/*
 		 * Skip getting rest of clocks since one failed. This is a
 		 * non-critical failure since these clocks are requied only for
@@ -1570,7 +1570,7 @@ static int dsi_display_parse_lane_map(struct dsi_display *display)
 			display->lane_map.lane_map_v2[i] = BIT(temp[i]);
 		return 0;
 	} else if (rc != EINVAL) {
-		pr_warn("Incorrect mapping, configure default\n");
+		pr_debug("Incorrect mapping, configure default\n");
 		goto set_default;
 	}
 
