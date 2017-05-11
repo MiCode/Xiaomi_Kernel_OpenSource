@@ -780,14 +780,15 @@ static ssize_t _sde_debugfs_mode_ctrl_write(struct file *file,
 			const char __user *p, size_t count, loff_t *ppos)
 {
 	struct sde_rsc_priv *rsc = file->private_data;
-	char *input, *mode;
-	u32 mode0_state = 0, mode1_state = 0, mode2_state = 0;
+	char *input;
+	u32 mode_state = 0;
 	int rc;
 
-	if (!rsc || !rsc->hw_ops.mode_ctrl)
+	if (!rsc || !rsc->hw_ops.mode_ctrl || !count ||
+					count > MAX_COUNT_SIZE_SUPPORTED)
 		return 0;
 
-	input = kmalloc(count, GFP_KERNEL);
+	input = kmalloc(count + 1, GFP_KERNEL);
 	if (!input)
 		return -ENOMEM;
 
@@ -795,43 +796,35 @@ static ssize_t _sde_debugfs_mode_ctrl_write(struct file *file,
 		kfree(input);
 		return -EFAULT;
 	}
-	input[count - 1] = '\0';
+	input[count] = '\0';
+
+	rc = kstrtoint(input, 0, &mode_state);
+	if (rc) {
+		pr_err("mode_state: int conversion failed rc:%d\n", rc);
+		goto end;
+	}
+
+	pr_debug("mode_state: %d\n", mode_state);
+	mode_state &= 0x7;
+	if (mode_state != ALL_MODES_DISABLED &&
+			mode_state != ALL_MODES_ENABLED &&
+			mode_state != ONLY_MODE_0_ENABLED &&
+			mode_state != ONLY_MODE_0_1_ENABLED) {
+		pr_err("invalid mode:%d combination\n", mode_state);
+		goto end;
+	}
 
 	mutex_lock(&rsc->client_lock);
 	rc = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
 	if (rc)
 		goto clk_enable_fail;
 
-	mode = strnstr(input, "mode0=", strlen("mode0="));
-	if (mode) {
-		mode0_state = mode[0] - '0';
-		mode0_state &= BIT(0);
-		rsc->hw_ops.mode_ctrl(rsc, MODE0_UPDATE, NULL, 0, mode0_state);
-		goto end;
-	}
-
-	mode = strnstr(input, "mode1=", strlen("mode1="));
-	if (mode) {
-		mode1_state = mode[0] - '0';
-		mode1_state &= BIT(0);
-		rsc->hw_ops.mode_ctrl(rsc, MODE1_UPDATE, NULL, 0, mode1_state);
-		goto end;
-	}
-
-	mode = strnstr(input, "mode2=", strlen("mode2="));
-	if (mode) {
-		mode2_state = mode[0] - '0';
-		mode2_state &= BIT(0);
-		rsc->hw_ops.mode_ctrl(rsc, MODE2_UPDATE, NULL, 0, mode2_state);
-	}
-
-end:
+	rsc->hw_ops.mode_ctrl(rsc, MODE_UPDATE, NULL, 0, mode_state);
 	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
+
 clk_enable_fail:
 	mutex_unlock(&rsc->client_lock);
-
-	pr_info("req: mode0:%d mode1:%d mode2:%d\n", mode0_state, mode1_state,
-								mode2_state);
+end:
 	kfree(input);
 	return count;
 }
@@ -879,14 +872,15 @@ static ssize_t _sde_debugfs_vsync_mode_write(struct file *file,
 			const char __user *p, size_t count, loff_t *ppos)
 {
 	struct sde_rsc_priv *rsc = file->private_data;
-	char *input, *vsync_mode;
+	char *input;
 	u32 vsync_state = 0;
 	int rc;
 
-	if (!rsc || !rsc->hw_ops.hw_vsync)
+	if (!rsc || !rsc->hw_ops.hw_vsync || !count ||
+				count > MAX_COUNT_SIZE_SUPPORTED)
 		return 0;
 
-	input = kmalloc(count, GFP_KERNEL);
+	input = kmalloc(count + 1, GFP_KERNEL);
 	if (!input)
 		return -ENOMEM;
 
@@ -894,18 +888,21 @@ static ssize_t _sde_debugfs_vsync_mode_write(struct file *file,
 		kfree(input);
 		return -EFAULT;
 	}
-	input[count - 1] = '\0';
+	input[count] = '\0';
 
-	vsync_mode = strnstr(input, "vsync_mode=", strlen("vsync_mode="));
-	if (vsync_mode) {
-		vsync_state = vsync_mode[0] - '0';
-		vsync_state &= 0x7;
+	rc = kstrtoint(input, 0, &vsync_state);
+	if (rc) {
+		pr_err("vsync_state: int conversion failed rc:%d\n", rc);
+		goto end;
 	}
+
+	pr_debug("vsync_state: %d\n", vsync_state);
+	vsync_state &= 0x7;
 
 	mutex_lock(&rsc->client_lock);
 	rc = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
 	if (rc)
-		goto end;
+		goto clk_en_fail;
 
 	if (vsync_state)
 		rsc->hw_ops.hw_vsync(rsc, VSYNC_ENABLE, NULL,
@@ -915,8 +912,9 @@ static ssize_t _sde_debugfs_vsync_mode_write(struct file *file,
 
 	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
 
-end:
+clk_en_fail:
 	mutex_unlock(&rsc->client_lock);
+end:
 	kfree(input);
 	return count;
 }
