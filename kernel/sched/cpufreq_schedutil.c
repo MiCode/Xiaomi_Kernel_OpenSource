@@ -56,6 +56,8 @@ struct sugov_cpu {
 	unsigned long iowait_boost_max;
 	u64 last_update;
 
+	struct sched_walt_cpu_load walt_load;
+
 	/* The fields below are only needed when sharing a policy. */
 	unsigned long util;
 	unsigned long max;
@@ -152,11 +154,14 @@ static void sugov_get_util(unsigned long *util, unsigned long *max, int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 	unsigned long cfs_max;
+	struct sugov_cpu *loadcpu = &per_cpu(sugov_cpu, cpu);
 
 	cfs_max = arch_scale_cpu_capacity(NULL, cpu);
 
 	*util = min(rq->cfs.avg.util_avg, cfs_max);
 	*max = cfs_max;
+
+	*util = cpu_util_freq(cpu, &loadcpu->walt_load);
 }
 
 static void sugov_set_iowait_boost(struct sugov_cpu *sg_cpu, u64 time,
