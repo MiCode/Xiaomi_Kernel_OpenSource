@@ -253,7 +253,7 @@ static unsigned int sugov_next_freq_shared(struct sugov_cpu *sg_cpu,
 		 * idle now (and clear iowait_boost for it).
 		 */
 		delta_ns = last_freq_update_time - j_sg_cpu->last_update;
-		if (delta_ns > TICK_NSEC) {
+		if (delta_ns > sched_ravg_window) {
 			j_sg_cpu->iowait_boost = 0;
 			continue;
 		}
