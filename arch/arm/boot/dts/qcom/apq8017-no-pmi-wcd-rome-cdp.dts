@@ -154,7 +154,3 @@
 &secure_mem {
 	status = "disabled";
 };
-
-&venus_mem {
-	status = "disabled";
-};
