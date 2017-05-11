@@ -300,6 +300,12 @@
 				qcom,cal-val = <0>;
 			};
 		};
+
+		pm660_pbs: qcom,pbs@7300 {
+			compatible = "qcom,qpnp-pbs";
+			reg = <0x7300 0x100>;
+			status = "disabled";
+		};
 	};
 
 	qcom,pm660@1 {
