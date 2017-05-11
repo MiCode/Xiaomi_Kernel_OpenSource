@@ -2395,7 +2395,7 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 			item->input.format, item->output.format,
 			entry->perf->config.frame_rate);
 
-	if (mdata->default_ot_rd_limit) {
+	if (!ctx->sbuf_mode && mdata->default_ot_rd_limit) {
 		struct sde_mdp_set_ot_params ot_params;
 
 		memset(&ot_params, 0, sizeof(struct sde_mdp_set_ot_params));
@@ -2417,7 +2417,7 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 		sde_mdp_set_ot_limit(&ot_params);
 	}
 
-	if (mdata->default_ot_wr_limit) {
+	if (!ctx->sbuf_mode && mdata->default_ot_wr_limit) {
 		struct sde_mdp_set_ot_params ot_params;
 
 		memset(&ot_params, 0, sizeof(struct sde_mdp_set_ot_params));
@@ -2449,7 +2449,8 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 	}
 
 	/* VBIF QoS and other settings */
-	sde_hw_rotator_vbif_setting(rot);
+	if (!ctx->sbuf_mode)
+		sde_hw_rotator_vbif_setting(rot);
 
 	return 0;
 
