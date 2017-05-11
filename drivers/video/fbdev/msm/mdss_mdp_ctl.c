@@ -815,7 +815,7 @@ static inline bool validate_comp_ratio(struct mult_factor *factor)
 	return factor->numer && factor->denom;
 }
 
-u32 apply_comp_ratio_factor(u32 quota,
+u64 apply_comp_ratio_factor(u64 quota,
 	struct mdss_mdp_format_params *fmt,
 	struct mult_factor *factor)
 {
