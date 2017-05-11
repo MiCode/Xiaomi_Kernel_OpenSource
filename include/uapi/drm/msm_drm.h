@@ -22,6 +22,10 @@
 #include <drm/drm.h>
 #include <drm/sde_drm.h>
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 /* Please note that modifications to all structs defined here are
  * subject to backwards-compatibility constraints:
  *  1) Do not use pointers, use __u64 instead for 32 bit / 64 bit
@@ -387,4 +391,9 @@ struct drm_msm_gem_sync {
 		struct drm_msm_counter_read)
 #define DRM_IOCTL_MSM_GEM_SYNC DRM_IOW(DRM_COMMAND_BASE + DRM_MSM_GEM_SYNC,\
 		struct drm_msm_gem_sync)
+
+#if defined(__cplusplus)
+}
+#endif
+
 #endif /* __MSM_DRM_H__ */
