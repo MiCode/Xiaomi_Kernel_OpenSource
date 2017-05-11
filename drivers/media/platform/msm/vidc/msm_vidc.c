@@ -1888,13 +1888,13 @@ static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	switch (ctrl->id) {
 
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
-	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
 	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE:
 	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_PROFILE:
 		ctrl->val = inst->profile;
 		break;
 
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
 	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL:
 	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_TIER_LEVEL:
 		ctrl->val = inst->level;
