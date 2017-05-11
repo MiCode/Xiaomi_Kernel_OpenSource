@@ -40,6 +40,8 @@ const char *migrate_type_names[] = {"GROUP_TO_RQ", "RQ_TO_GROUP",
 #define SCHED_FREQ_ACCOUNT_WAIT_TIME 0
 #define SCHED_ACCOUNT_WAIT_TIME 1
 
+#define EARLY_DETECTION_DURATION 9500000
+
 static ktime_t ktime_last;
 static bool sched_ktime_suspended;
 static struct cpu_cycle_counter_cb cpu_cycle_counter_cb;
@@ -341,6 +343,36 @@ static void update_task_cpu_cycles(struct task_struct *p, int cpu)
 		p->cpu_cycles = cpu_cycle_counter_cb.get_cpu_cycle_counter(cpu);
 }
 
+void clear_ed_task(struct task_struct *p, struct rq *rq)
+{
+	if (p == rq->ed_task)
+		rq->ed_task = NULL;
+}
+
+bool early_detection_notify(struct rq *rq, u64 wallclock)
+{
+	struct task_struct *p;
+	int loop_max = 10;
+
+	if (sched_boost_policy() == SCHED_BOOST_NONE || !rq->cfs.h_nr_running)
+		return 0;
+
+	rq->ed_task = NULL;
+	list_for_each_entry(p, &rq->cfs_tasks, se.group_node) {
+		if (!loop_max)
+			break;
+
+		if (wallclock - p->last_wake_ts >= EARLY_DETECTION_DURATION) {
+			rq->ed_task = p;
+			return 1;
+		}
+
+		loop_max--;
+	}
+
+	return 0;
+}
+
 void sched_account_irqstart(int cpu, struct task_struct *curr, u64 wallclock)
 {
 	struct rq *rq = cpu_rq(cpu);
@@ -466,6 +498,9 @@ u64 freq_policy_load(struct rq *rq)
 	u64 aggr_grp_load = cluster->aggr_grp_load;
 	u64 load;
 
+	if (rq->ed_task != NULL)
+		return sched_ravg_window;
+
 	if (aggr_grp_load > sched_freq_aggregate_threshold)
 		load = rq->prev_runnable_sum + aggr_grp_load;
 	else
@@ -485,6 +520,39 @@ u64 freq_policy_load(struct rq *rq)
 	}
 
 	return load;
+}
+
+/*
+ * In this function we match the accumulated subtractions with the current
+ * and previous windows we are operating with. Ignore any entries where
+ * the window start in the load_subtraction struct does not match either
+ * the curent or the previous window. This could happen whenever CPUs
+ * become idle or busy with interrupts disabled for an extended period.
+ */
+static inline void account_load_subtractions(struct rq *rq)
+{
+	u64 ws = rq->window_start;
+	u64 prev_ws = ws - sched_ravg_window;
+	struct load_subtractions *ls = rq->load_subs;
+	int i;
+
+	for (i = 0; i < NUM_TRACKED_WINDOWS; i++) {
+		if (ls[i].window_start == ws) {
+			rq->curr_runnable_sum -= ls[i].subs;
+			rq->nt_curr_runnable_sum -= ls[i].new_subs;
+		} else if (ls[i].window_start == prev_ws) {
+			rq->prev_runnable_sum -= ls[i].subs;
+			rq->nt_prev_runnable_sum -= ls[i].new_subs;
+		}
+
+		ls[i].subs = 0;
+		ls[i].new_subs = 0;
+	}
+
+	BUG_ON((s64)rq->prev_runnable_sum < 0);
+	BUG_ON((s64)rq->curr_runnable_sum < 0);
+	BUG_ON((s64)rq->nt_prev_runnable_sum < 0);
+	BUG_ON((s64)rq->nt_curr_runnable_sum < 0);
 }
 
 static inline void create_subtraction_entry(struct rq *rq, u64 ws, int index)
@@ -2927,6 +2995,7 @@ static void transfer_busy_time(struct rq *rq, struct related_thread_group *grp,
  */
 void walt_irq_work(struct irq_work *irq_work)
 {
+	struct sched_cluster *cluster;
 	struct rq *rq;
 	int cpu;
 	u64 wc;
@@ -2936,13 +3005,21 @@ void walt_irq_work(struct irq_work *irq_work)
 
 	wc = sched_ktime_clock();
 
-	for_each_cpu(cpu, cpu_possible_mask) {
-		if (cpu == smp_processor_id())
-			continue;
-		rq = cpu_rq(cpu);
-		if (rq->curr)
-			update_task_ravg(rq->curr, rq, TASK_UPDATE, wc, 0);
-		cpufreq_update_util(rq, 0);
+	for_each_sched_cluster(cluster) {
+		raw_spin_lock(&cluster->load_lock);
+
+		for_each_cpu(cpu, &cluster->cpus) {
+			rq = cpu_rq(cpu);
+			if (rq->curr) {
+				update_task_ravg(rq->curr, rq,
+						TASK_UPDATE, wc, 0);
+				account_load_subtractions(rq);
+			}
+
+			cpufreq_update_util(rq, 0);
+		}
+
+		raw_spin_unlock(&cluster->load_lock);
 	}
 
 	for_each_cpu(cpu, cpu_possible_mask)

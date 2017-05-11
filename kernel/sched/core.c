@@ -801,6 +801,9 @@ void deactivate_task(struct rq *rq, struct task_struct *p, int flags)
 	if (task_contributes_to_load(p))
 		rq->nr_uninterruptible++;
 
+	if (flags & DEQUEUE_SLEEP)
+		clear_ed_task(p, rq);
+
 	dequeue_task(rq, p, flags);
 }
 
@@ -8425,6 +8428,7 @@ void __init sched_init(void)
 		rq->old_estimated_time = 0;
 		rq->old_busy_time_group = 0;
 		rq->hmp_stats.pred_demands_sum = 0;
+		rq->ed_task = NULL;
 		rq->curr_table = 0;
 		rq->prev_top = 0;
 		rq->curr_top = 0;
