@@ -299,7 +299,7 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 {
 	struct sde_hw_blk_reg_map *c;
 	u32 chroma_samp, unpack, src_format;
-	u32 secure = 0;
+	u32 secure = 0, secure_bit_mask;
 	u32 opmode = 0;
 	u32 op_mode_off, unpack_pat_off, format_off;
 	u32 idx;
@@ -311,10 +311,12 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 		op_mode_off = SSPP_SRC_OP_MODE;
 		unpack_pat_off = SSPP_SRC_UNPACK_PATTERN;
 		format_off = SSPP_SRC_FORMAT;
+		secure_bit_mask = (rect_mode == SDE_SSPP_RECT_SOLO) ? 0xF : 0x5;
 	} else {
 		op_mode_off = SSPP_SRC_OP_MODE_REC1;
 		unpack_pat_off = SSPP_SRC_UNPACK_PATTERN_REC1;
 		format_off = SSPP_SRC_FORMAT_REC1;
+		secure_bit_mask = 0xA;
 	}
 
 	c = &ctx->hw;
@@ -322,16 +324,11 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 	opmode &= ~(MDSS_MDP_OP_FLIP_LR | MDSS_MDP_OP_FLIP_UD |
 			MDSS_MDP_OP_BWC_EN | MDSS_MDP_OP_PE_OVERRIDE);
 
-	if (flags & SDE_SSPP_SECURE_OVERLAY_SESSION) {
-		secure = SDE_REG_READ(c, SSPP_SRC_ADDR_SW_STATUS + idx);
-
-		if (rect_mode == SDE_SSPP_RECT_SOLO)
-			secure |= 0xF;
-		else if (rect_mode == SDE_SSPP_RECT_0)
-			secure |= 0x5;
-		else if (rect_mode == SDE_SSPP_RECT_1)
-			secure |= 0xA;
-	}
+	secure = SDE_REG_READ(c, SSPP_SRC_ADDR_SW_STATUS + idx);
+	if (flags & SDE_SSPP_SECURE_OVERLAY_SESSION)
+		secure |= secure_bit_mask;
+	else
+		secure &= ~secure_bit_mask;
 
 	if (flags & SDE_SSPP_FLIP_LR)
 		opmode |= MDSS_MDP_OP_FLIP_LR;
@@ -803,11 +800,17 @@ static void sde_hw_sspp_setup_rects(struct sde_hw_pipe *ctx,
 		ystride1 = SDE_REG_READ(c, SSPP_SRC_YSTRIDE1 + idx);
 
 		if (rect_index == SDE_SSPP_RECT_0) {
-			ystride0 |= cfg->layout.plane_pitch[0];
-			ystride1 |= cfg->layout.plane_pitch[2];
-		}  else {
-			ystride0 |= cfg->layout.plane_pitch[0] << 16;
-			ystride1 |= cfg->layout.plane_pitch[2] << 16;
+			ystride0 = (ystride0 & 0xFFFF0000) |
+				(cfg->layout.plane_pitch[0] & 0x0000FFFF);
+			ystride1 = (ystride1 & 0xFFFF0000)|
+				(cfg->layout.plane_pitch[2] & 0x0000FFFF);
+		} else {
+			ystride0 = (ystride0 & 0x0000FFFF) |
+				((cfg->layout.plane_pitch[0] << 16) &
+				 0xFFFF0000);
+			ystride1 = (ystride1 & 0x0000FFFF) |
+				((cfg->layout.plane_pitch[2] << 16) &
+				 0xFFFF0000);
 		}
 	}
 

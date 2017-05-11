@@ -2563,11 +2563,14 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 	}
 
 	for (i = 1; i < SSPP_MAX; i++) {
-		if (pipe_staged[i] &&
-			is_sde_plane_virtual(pipe_staged[i]->plane)) {
-			SDE_ERROR("invalid use of virtual plane: %d\n",
+		if (pipe_staged[i]) {
+			sde_plane_clear_multirect(pipe_staged[i]);
+
+			if (is_sde_plane_virtual(pipe_staged[i]->plane)) {
+				SDE_ERROR("invalid use of virtual plane: %d\n",
 					pipe_staged[i]->plane->base.id);
-			goto end;
+				goto end;
+			}
 		}
 	}
 
@@ -3081,6 +3084,8 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 		seq_printf(s, "\tdst x:%4d dst_y:%4d dst_w:%4d dst_h:%4d\n",
 			state->crtc_x, state->crtc_y, state->crtc_w,
 			state->crtc_h);
+		seq_printf(s, "\tmultirect: mode: %d index: %d\n",
+			pstate->multirect_mode, pstate->multirect_index);
 		seq_puts(s, "\n");
 	}
 

@@ -207,8 +207,13 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
  *				      against hw limitations
  * @plane: drm plate states of the multirect pair
  */
-
 int sde_plane_validate_multirect_v2(struct sde_multirect_plane_states *plane);
+
+/**
+ * sde_plane_clear_multirect - clear multirect bits for the given pipe
+ * @drm_state: Pointer to DRM plane state
+ */
+void sde_plane_clear_multirect(const struct drm_plane_state *drm_state);
 
 /**
  * sde_plane_wait_input_fence - wait for input fence object
