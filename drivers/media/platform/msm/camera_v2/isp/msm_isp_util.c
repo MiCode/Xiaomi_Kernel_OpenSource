@@ -2314,7 +2314,7 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	/* Register page fault handler */
 	vfe_dev->buf_mgr->pagefault_debug_disable = 0;
 	/* initialize pd_buf_idx with an invalid index 0xF */
-	vfe_dev->pd_buf_idx = 0xF;
+	vfe_dev->common_data->pd_buf_idx = 0xF;
 
 	cam_smmu_reg_client_page_fault_handler(
 			vfe_dev->buf_mgr->iommu_hdl,
