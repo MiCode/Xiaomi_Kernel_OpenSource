@@ -574,6 +574,40 @@ static unsigned int _adreno_iommu_set_pt_v2_a5xx(struct kgsl_device *device,
 	return cmds - cmds_orig;
 }
 
+static unsigned int _adreno_iommu_set_pt_v2_a6xx(struct kgsl_device *device,
+					unsigned int *cmds_orig,
+					u64 ttbr0, u32 contextidr,
+					struct adreno_ringbuffer *rb,
+					unsigned int cb_num)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned int *cmds = cmds_orig;
+
+	cmds += _adreno_iommu_add_idle_cmds(adreno_dev, cmds);
+	cmds += cp_wait_for_me(adreno_dev, cmds);
+
+	/* CP switches the pagetable and flushes the Caches */
+	*cmds++ = cp_packet(adreno_dev, CP_SMMU_TABLE_UPDATE, 4);
+	*cmds++ = lower_32_bits(ttbr0);
+	*cmds++ = upper_32_bits(ttbr0);
+	*cmds++ = contextidr;
+	*cmds++ = cb_num;
+
+	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 4, 1);
+	cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc.gpuaddr +
+		PT_INFO_OFFSET(ttbr0)));
+	*cmds++ = lower_32_bits(ttbr0);
+	*cmds++ = upper_32_bits(ttbr0);
+	*cmds++ = contextidr;
+
+	/* release all commands with wait_for_me */
+	cmds += cp_wait_for_me(adreno_dev, cmds);
+
+	cmds += _adreno_iommu_add_idle_cmds(adreno_dev, cmds);
+
+	return cmds - cmds_orig;
+}
+
 /**
  * adreno_iommu_set_pt_generate_cmds() - Generate commands to change pagetable
  * @rb: The RB pointer in which these commaands are to be submitted
@@ -588,6 +622,7 @@ unsigned int adreno_iommu_set_pt_generate_cmds(
 	struct adreno_device *adreno_dev = ADRENO_RB_DEVICE(rb);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_iommu *iommu = KGSL_IOMMU_PRIV(device);
+	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 	u64 ttbr0;
 	u32 contextidr;
 	unsigned int *cmds_orig = cmds;
@@ -601,7 +636,11 @@ unsigned int adreno_iommu_set_pt_generate_cmds(
 		iommu->setstate.gpuaddr + KGSL_IOMMU_SETSTATE_NOP_OFFSET);
 
 	if (iommu->version >= 2) {
-		if (adreno_is_a5xx(adreno_dev) || adreno_is_a6xx(adreno_dev))
+		if (adreno_is_a6xx(adreno_dev))
+			cmds += _adreno_iommu_set_pt_v2_a6xx(device, cmds,
+						ttbr0, contextidr, rb,
+						ctx->cb_num);
+		else if (adreno_is_a5xx(adreno_dev))
 			cmds += _adreno_iommu_set_pt_v2_a5xx(device, cmds,
 						ttbr0, contextidr, rb);
 		else if (adreno_is_a4xx(adreno_dev))
