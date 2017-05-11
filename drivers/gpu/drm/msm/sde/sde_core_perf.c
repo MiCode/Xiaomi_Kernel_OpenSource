@@ -27,6 +27,21 @@
 #include "sde_crtc.h"
 #include "sde_core_perf.h"
 
+#define SDE_PERF_MODE_STRING_SIZE	128
+
+/**
+ * enum sde_perf_mode - performance tuning mode
+ * @SDE_PERF_MODE_NORMAL: performance controlled by user mode client
+ * @SDE_PERF_MODE_MINIMUM: performance bounded by minimum setting
+ * @SDE_PERF_MODE_FIXED: performance bounded by fixed setting
+ */
+enum sde_perf_mode {
+	SDE_PERF_MODE_NORMAL,
+	SDE_PERF_MODE_MINIMUM,
+	SDE_PERF_MODE_FIXED,
+	SDE_PERF_MODE_MAX
+};
+
 static struct sde_kms *_sde_crtc_get_kms(struct drm_crtc *crtc)
 {
 	struct msm_drm_private *priv;
@@ -92,7 +107,7 @@ static void _sde_core_perf_calc_crtc(struct drm_crtc *crtc,
 	perf->core_clk_rate =
 			sde_crtc_get_property(sde_cstate, CRTC_PROP_CORE_CLK);
 
-	SDE_DEBUG("crtc=%d clk_rate=%u ib=%llu ab=%llu\n",
+	SDE_DEBUG("crtc=%d clk_rate=%llu ib=%llu ab=%llu\n",
 			crtc->base.id, perf->core_clk_rate,
 			perf->max_per_pipe_ib, perf->bw_ctl);
 }
@@ -197,6 +212,11 @@ static void _sde_core_perf_crtc_update_bus(struct sde_kms *kms,
 	bus_ab_quota = max(bw_sum_of_intfs, kms->perf.perf_tune.min_bus_vote);
 	bus_ib_quota = perf.max_per_pipe_ib;
 
+	if (kms->perf.perf_tune.mode == SDE_PERF_MODE_FIXED) {
+		bus_ab_quota = kms->perf.fix_core_ab_vote;
+		bus_ib_quota = kms->perf.fix_core_ib_vote;
+	}
+
 	switch (curr_client_type) {
 	case NRT_CLIENT:
 		sde_power_data_bus_set_quota(&priv->phandle, kms->core_client,
@@ -282,9 +302,9 @@ void sde_core_perf_crtc_release_bw(struct drm_crtc *crtc)
 	}
 }
 
-static u32 _sde_core_perf_get_core_clk_rate(struct sde_kms *kms)
+static u64 _sde_core_perf_get_core_clk_rate(struct sde_kms *kms)
 {
-	u32 clk_rate = 0;
+	u64 clk_rate = kms->perf.perf_tune.min_core_clk;
 	struct drm_crtc *crtc;
 	struct sde_crtc_state *sde_cstate;
 
@@ -297,7 +317,10 @@ static u32 _sde_core_perf_get_core_clk_rate(struct sde_kms *kms)
 		}
 	}
 
-	SDE_DEBUG("clk:%u\n", clk_rate);
+	if (kms->perf.perf_tune.mode == SDE_PERF_MODE_FIXED)
+		clk_rate = kms->perf.fix_core_clk_rate;
+
+	SDE_DEBUG("clk:%llu\n", clk_rate);
 
 	return clk_rate;
 }
@@ -307,7 +330,7 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 {
 	struct sde_core_perf_params *new, *old;
 	int update_bus = 0, update_clk = 0;
-	u32 clk_rate = 0;
+	u64 clk_rate = 0;
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *sde_cstate;
 	int ret;
@@ -329,7 +352,7 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 	sde_cstate = to_sde_crtc_state(crtc->state);
 
-	SDE_DEBUG("crtc:%d stop_req:%d core_clk:%u\n",
+	SDE_DEBUG("crtc:%d stop_req:%d core_clk:%llu\n",
 			crtc->base.id, stop_req, kms->perf.core_clk_rate);
 
 	old = &sde_cstate->cur_perf;
@@ -382,13 +405,13 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 		ret = sde_power_clk_set_rate(&priv->phandle,
 				kms->perf.clk_name, clk_rate);
 		if (ret) {
-			SDE_ERROR("failed to set %s clock rate %u\n",
+			SDE_ERROR("failed to set %s clock rate %llu\n",
 					kms->perf.clk_name, clk_rate);
 			return;
 		}
 
 		kms->perf.core_clk_rate = clk_rate;
-		SDE_DEBUG("update clk rate = %d HZ\n", clk_rate);
+		SDE_DEBUG("update clk rate = %lld HZ\n", clk_rate);
 	}
 }
 
@@ -399,7 +422,7 @@ static ssize_t _sde_core_perf_mode_write(struct file *file,
 {
 	struct sde_core_perf *perf = file->private_data;
 	struct sde_perf_cfg *cfg = &perf->catalog->perf;
-	int perf_mode = 0;
+	u32 perf_mode = 0;
 	char buf[10];
 
 	if (!perf)
@@ -413,19 +436,28 @@ static ssize_t _sde_core_perf_mode_write(struct file *file,
 
 	buf[count] = 0;	/* end of string */
 
-	if (kstrtoint(buf, 0, &perf_mode))
+	if (kstrtouint(buf, 0, &perf_mode))
 		return -EFAULT;
 
-	if (perf_mode) {
+	if (perf_mode >= SDE_PERF_MODE_MAX)
+		return -EFAULT;
+
+	if (perf_mode == SDE_PERF_MODE_FIXED) {
+		DRM_INFO("fix performance mode\n");
+	} else if (perf_mode == SDE_PERF_MODE_MINIMUM) {
 		/* run the driver with max clk and BW vote */
 		perf->perf_tune.min_core_clk = perf->max_core_clk_rate;
 		perf->perf_tune.min_bus_vote =
 				(u64) cfg->max_bw_high * 1000;
-	} else {
+		DRM_INFO("minimum performance mode\n");
+	} else if (perf_mode == SDE_PERF_MODE_NORMAL) {
 		/* reset the perf tune params to 0 */
 		perf->perf_tune.min_core_clk = 0;
 		perf->perf_tune.min_bus_vote = 0;
+		DRM_INFO("normal performance mode\n");
 	}
+	perf->perf_tune.mode = perf_mode;
+
 	return count;
 }
 
@@ -434,7 +466,7 @@ static ssize_t _sde_core_perf_mode_read(struct file *file,
 {
 	struct sde_core_perf *perf = file->private_data;
 	int len = 0;
-	char buf[40] = {'\0'};
+	char buf[SDE_PERF_MODE_STRING_SIZE] = {'\0'};
 
 	if (!perf)
 		return -ENODEV;
@@ -442,7 +474,9 @@ static ssize_t _sde_core_perf_mode_read(struct file *file,
 	if (*ppos)
 		return 0;	/* the end */
 
-	len = snprintf(buf, sizeof(buf), "min_mdp_clk %lu min_bus_vote %llu\n",
+	len = snprintf(buf, sizeof(buf),
+			"mode %d min_mdp_clk %llu min_bus_vote %llu\n",
+			perf->perf_tune.mode,
 			perf->perf_tune.min_core_clk,
 			perf->perf_tune.min_bus_vote);
 	if (len < 0 || len >= sizeof(buf))
@@ -491,7 +525,7 @@ int sde_core_perf_debugfs_init(struct sde_core_perf *perf,
 
 	debugfs_create_u64("max_core_clk_rate", 0644, perf->debugfs_root,
 			&perf->max_core_clk_rate);
-	debugfs_create_u32("core_clk_rate", 0644, perf->debugfs_root,
+	debugfs_create_u64("core_clk_rate", 0644, perf->debugfs_root,
 			&perf->core_clk_rate);
 	debugfs_create_u32("enable_bw_release", 0644, perf->debugfs_root,
 			(u32 *)&perf->enable_bw_release);
@@ -501,6 +535,12 @@ int sde_core_perf_debugfs_init(struct sde_core_perf *perf,
 			(u32 *)&catalog->perf.max_bw_high);
 	debugfs_create_file("perf_mode", 0644, perf->debugfs_root,
 			(u32 *)perf, &sde_core_perf_mode_fops);
+	debugfs_create_u64("fix_core_clk_rate", 0644, perf->debugfs_root,
+			&perf->fix_core_clk_rate);
+	debugfs_create_u64("fix_core_ib_vote", 0644, perf->debugfs_root,
+			&perf->fix_core_ib_vote);
+	debugfs_create_u64("fix_core_ab_vote", 0644, perf->debugfs_root,
+			&perf->fix_core_ab_vote);
 
 	return 0;
 }
