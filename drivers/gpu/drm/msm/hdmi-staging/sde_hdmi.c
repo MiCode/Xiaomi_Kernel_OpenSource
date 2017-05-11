@@ -1428,8 +1428,8 @@ int sde_hdmi_get_info(struct msm_display_info *info,
 				MSM_DISPLAY_CAP_EDID | MSM_DISPLAY_CAP_VID_MODE;
 	}
 	info->is_connected = hdmi_display->connected;
-	info->max_width = 1920;
-	info->max_height = 1080;
+	info->max_width = 4096;
+	info->max_height = 2160;
 	info->compression = MSM_DISPLAY_COMPRESS_NONE;
 
 	mutex_unlock(&hdmi_display->display_lock);
