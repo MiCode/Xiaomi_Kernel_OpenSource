@@ -111,11 +111,11 @@ static int stmvl53l0_get_dt_data(struct device *dev, struct cci_data *data)
 				vl53l0_errmsg("failed %d\n", __LINE__);
 				return rc;
 			}
+			vl53l0_dbgmsg("vreg-name: %s min_volt: %d max_volt: %d",
+					vreg_cfg->cam_vreg->reg_name,
+					vreg_cfg->cam_vreg->min_voltage,
+					vreg_cfg->cam_vreg->max_voltage);
 		}
-		vl53l0_dbgmsg("vreg-name: %s min_volt: %d max_volt: %d",
-			      vreg_cfg->cam_vreg->reg_name,
-			      vreg_cfg->cam_vreg->min_voltage,
-			      vreg_cfg->cam_vreg->max_voltage);
 
 		rc = msm_sensor_driver_get_gpio_data(&(data->gconf), of_node);
 		if ((rc < 0) || (data->gconf == NULL)) {
@@ -289,6 +289,11 @@ static int32_t stmvl53l0_platform_probe(struct platform_device *pdev)
 	if (vl53l0_data) {
 		vl53l0_data->client_object =
 		    kzalloc(sizeof(struct cci_data), GFP_KERNEL);
+		if (!vl53l0_data->client_object) {
+			rc = -ENOMEM;
+			kfree(vl53l0_data);
+			return rc;
+		}
 		cci_object = (struct cci_data *)vl53l0_data->client_object;
 	}
 	cci_object->client =
@@ -380,6 +385,11 @@ int stmvl53l0_power_up_cci(void *cci_object, unsigned int *preset_flag)
 	vl53l0_dbgmsg("Enter");
 
 	/* need to init cci first */
+	if (!data) {
+		pr_err("%s:%d failed\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+
 	ret = stmvl53l0_cci_init(data);
 	if (ret) {
 		vl53l0_errmsg("stmvl53l0_cci_init failed %d\n", __LINE__);
@@ -429,7 +439,7 @@ int stmvl53l0_power_up_cci(void *cci_object, unsigned int *preset_flag)
 	}
 
 	/* actual power up */
-	if (data && data->device_type == MSM_CAMERA_PLATFORM_DEVICE) {
+	if (data->device_type == MSM_CAMERA_PLATFORM_DEVICE) {
 		ret = stmvl53l0_vreg_control(data, 1);
 		if (ret < 0) {
 			vl53l0_errmsg("stmvl53l0_vreg_control failed %d\n",
