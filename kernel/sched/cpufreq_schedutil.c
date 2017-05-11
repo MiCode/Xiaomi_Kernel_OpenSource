@@ -294,6 +294,10 @@ static void sugov_update_shared(struct update_util_data *hook, u64 time,
 	sugov_set_iowait_boost(sg_cpu, time, flags);
 	sg_cpu->last_update = time;
 
+	trace_sugov_util_update(sg_cpu->cpu, sg_cpu->util, max,
+				sg_cpu->walt_load.nl,
+				sg_cpu->walt_load.pl, flags);
+
 	if (sugov_should_update_freq(sg_policy, time)) {
 		next_f = sugov_next_freq_shared(sg_cpu, util, max, flags);
 		sugov_update_commit(sg_policy, time, next_f);
