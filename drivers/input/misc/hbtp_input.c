@@ -1479,6 +1479,7 @@ static int __init hbtp_init(void)
 	sensor_kobject = kobject_create_and_add("hbtpsensor", kernel_kobj);
 	if (!sensor_kobject) {
 		pr_err("%s: Could not create hbtpsensor kobject\n", __func__);
+		error = -ENOMEM;
 		goto err_kobject_create;
 	}
 
