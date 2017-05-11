@@ -342,8 +342,20 @@ static void sde_encoder_phys_wb_setup_fb(struct sde_encoder_phys *phys_enc,
 		hw_wb->ops.setup_cdp(hw_wb, cdp_cfg);
 	}
 
-	if (hw_wb->ops.setup_outaddress)
+	if (hw_wb->ops.setup_outaddress) {
+		SDE_EVT32(hw_wb->idx,
+				wb_cfg->dest.width,
+				wb_cfg->dest.height,
+				wb_cfg->dest.plane_addr[0],
+				wb_cfg->dest.plane_size[0],
+				wb_cfg->dest.plane_addr[1],
+				wb_cfg->dest.plane_size[1],
+				wb_cfg->dest.plane_addr[2],
+				wb_cfg->dest.plane_size[2],
+				wb_cfg->dest.plane_addr[3],
+				wb_cfg->dest.plane_size[3]);
 		hw_wb->ops.setup_outaddress(hw_wb, wb_cfg);
+	}
 }
 
 /**

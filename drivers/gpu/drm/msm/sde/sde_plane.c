@@ -788,9 +788,22 @@ static inline void _sde_plane_set_scanout(struct drm_plane *plane,
 		SDE_DEBUG_PLANE(psde, "not updating same src addrs\n");
 	else if (ret)
 		SDE_ERROR_PLANE(psde, "failed to get format layout, %d\n", ret);
-	else if (psde->pipe_hw->ops.setup_sourceaddress)
+	else if (psde->pipe_hw->ops.setup_sourceaddress) {
+		SDE_EVT32(psde->pipe_hw->idx,
+				pipe_cfg->layout.width,
+				pipe_cfg->layout.height,
+				pipe_cfg->layout.plane_addr[0],
+				pipe_cfg->layout.plane_size[0],
+				pipe_cfg->layout.plane_addr[1],
+				pipe_cfg->layout.plane_size[1],
+				pipe_cfg->layout.plane_addr[2],
+				pipe_cfg->layout.plane_size[2],
+				pipe_cfg->layout.plane_addr[3],
+				pipe_cfg->layout.plane_size[3],
+				pstate->multirect_index);
 		psde->pipe_hw->ops.setup_sourceaddress(psde->pipe_hw, pipe_cfg,
 						pstate->multirect_index);
+	}
 }
 
 static int _sde_plane_setup_scaler3_lut(struct sde_plane *psde,
