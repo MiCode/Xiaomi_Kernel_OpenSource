@@ -182,6 +182,8 @@ struct mailbox_config_info {
  * @deferred_cmds:		List of deferred commands that need to be
  *				processed in process context.
  * @deferred_cmds_cnt:		Number of deferred commands in queue.
+ * @rt_vote_lock:		Serialize access to RT rx votes
+ * @rt_votes:			Vote count for RT rx thread priority
  * @num_pw_states:		Size of @ramp_time_us.
  * @ramp_time_us:		Array of ramp times in microseconds where array
  *				index position represents a power state.
@@ -221,6 +223,8 @@ struct edge_info {
 	spinlock_t rx_lock;
 	struct list_head deferred_cmds;
 	uint32_t deferred_cmds_cnt;
+	spinlock_t rt_vote_lock;
+	uint32_t rt_votes;
 	uint32_t num_pw_states;
 	unsigned long *ramp_time_us;
 	struct mailbox_config_info *mailbox;
@@ -2093,6 +2097,52 @@ static int power_unvote(struct glink_transport_if *if_ptr)
 }
 
 /**
+ * rx_rt_vote() - Increment and RX thread RT vote
+ * @if_ptr:	The transport interface on which power voting is requested.
+ *
+ * Return: 0 on Success, standard error otherwise.
+ */
+static int rx_rt_vote(struct glink_transport_if *if_ptr)
+{
+	struct edge_info *einfo;
+	struct sched_param param = { .sched_priority = 1 };
+	int ret = 0;
+	unsigned long flags;
+
+	einfo = container_of(if_ptr, struct edge_info, xprt_if);
+	spin_lock_irqsave(&einfo->rt_vote_lock, flags);
+	if (!einfo->rt_votes)
+		ret = sched_setscheduler_nocheck(einfo->task, SCHED_FIFO,
+							&param);
+	einfo->rt_votes++;
+	spin_unlock_irqrestore(&einfo->rt_vote_lock, flags);
+	return ret;
+}
+
+/**
+ * rx_rt_unvote() - Remove a RX thread RT vote
+ * @if_ptr:	The transport interface on which power voting is requested.
+ *
+ * Return: 0 on Success, standard error otherwise.
+ */
+static int rx_rt_unvote(struct glink_transport_if *if_ptr)
+{
+	struct edge_info *einfo;
+	struct sched_param param = { .sched_priority = 0 };
+	int ret = 0;
+	unsigned long flags;
+
+	einfo = container_of(if_ptr, struct edge_info, xprt_if);
+	spin_lock_irqsave(&einfo->rt_vote_lock, flags);
+	einfo->rt_votes--;
+	if (!einfo->rt_votes)
+		ret = sched_setscheduler_nocheck(einfo->task, SCHED_NORMAL,
+							&param);
+	spin_unlock_irqrestore(&einfo->rt_vote_lock, flags);
+	return ret;
+}
+
+/**
  * negotiate_features_v1() - determine what features of a version can be used
  * @if_ptr:	The transport for which features are negotiated for.
  * @version:	The version negotiated.
@@ -2137,6 +2187,8 @@ static void init_xprt_if(struct edge_info *einfo)
 	einfo->xprt_if.get_power_vote_ramp_time = get_power_vote_ramp_time;
 	einfo->xprt_if.power_vote = power_vote;
 	einfo->xprt_if.power_unvote = power_unvote;
+	einfo->xprt_if.rx_rt_vote = rx_rt_vote;
+	einfo->xprt_if.rx_rt_unvote = rx_rt_unvote;
 }
 
 /**
@@ -2310,6 +2362,8 @@ static int glink_smem_native_probe(struct platform_device *pdev)
 	init_srcu_struct(&einfo->use_ref);
 	spin_lock_init(&einfo->rx_lock);
 	INIT_LIST_HEAD(&einfo->deferred_cmds);
+	spin_lock_init(&einfo->rt_vote_lock);
+	einfo->rt_votes = 0;
 
 	mutex_lock(&probe_lock);
 	if (edge_infos[einfo->remote_proc_id]) {
