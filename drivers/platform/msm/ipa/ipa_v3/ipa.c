@@ -1884,7 +1884,7 @@ static void ipa3_halt_q6_cons_gsi_channels(void)
 			if (ep_idx == -1)
 				continue;
 
-			gsi_ep_cfg = ipa3_get_gsi_ep_info(ep_idx);
+			gsi_ep_cfg = ipa3_get_gsi_ep_info(client_idx);
 			if (!gsi_ep_cfg) {
 				IPAERR("failed to get GSI config\n");
 				ipa_assert();
@@ -2362,6 +2362,7 @@ void ipa3_q6_pre_shutdown_cleanup(void)
 void ipa3_q6_post_shutdown_cleanup(void)
 {
 	int client_idx;
+	int ep_idx;
 
 	IPADBG_LOW("ENTER\n");
 
@@ -2378,6 +2379,10 @@ void ipa3_q6_post_shutdown_cleanup(void)
 
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++)
 		if (IPA_CLIENT_IS_Q6_PROD(client_idx)) {
+			ep_idx = ipa3_get_ep_mapping(client_idx);
+			if (ep_idx == -1)
+				continue;
+
 			if (ipa3_uc_is_gsi_channel_empty(client_idx)) {
 				IPAERR("fail to validate Q6 ch emptiness %d\n",
 					client_idx);

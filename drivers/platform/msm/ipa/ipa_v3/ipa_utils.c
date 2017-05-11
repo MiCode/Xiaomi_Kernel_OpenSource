@@ -1703,10 +1703,11 @@ int ipa3_get_ep_mapping(enum ipa_client_type client)
 const struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info
 	(enum ipa_client_type client)
 {
-	if (client >= IPA_CLIENT_MAX || client < 0) {
-		IPAERR("Bad client number! client =%d\n", client);
+	int ep_idx;
+
+	ep_idx = ipa3_get_ep_mapping(client);
+	if (ep_idx == IPA_EP_NOT_ALLOCATED)
 		return NULL;
-	}
 
 	return &(ipa3_ep_mapping[ipa3_get_hw_type_index()]
 		[client].ipa_gsi_ep_info);
