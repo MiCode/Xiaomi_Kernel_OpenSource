@@ -107,8 +107,8 @@
 };
 
 &sdhc_1 {
-	/delete-property/ vdd-supply;
-	/delete-property/ vdd-io-supply;
+	vdd-supply = <&pm660_l19>;
+	vdd-io-supply = <&pm660_l13>;
 };
 
 &sdhc_2 {
