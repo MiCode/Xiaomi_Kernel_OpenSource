@@ -84,6 +84,8 @@ struct sde_hdmi_ctrl {
  * @connected:        If HDMI display is connected.
  * @is_tpg_enabled:   TPG state.
  * @hpd_work:         HPD work structure.
+ * @codec_ready:      If audio codec is ready.
+ * @client_notify_pending: If there is client notification pending.
  * @root:             Debug fs root entry.
  */
 struct sde_hdmi {
@@ -109,6 +111,8 @@ struct sde_hdmi {
 	bool is_tpg_enabled;
 
 	struct work_struct hpd_work;
+	bool codec_ready;
+	bool client_notify_pending;
 
 	/* DEBUG FS */
 	struct dentry *root;
@@ -379,13 +383,12 @@ int sde_hdmi_config_avmute(struct hdmi *hdmi, bool set);
 
 /**
  * sde_hdmi_notify_clients() - notify hdmi clients of the connection status.
- * @connector:     Handle to the drm_connector.
+ * @display:       Handle to sde_hdmi.
  * @connected:     connection status.
  *
  * Return: void.
  */
-void sde_hdmi_notify_clients(struct drm_connector *connector,
-	bool connected);
+void sde_hdmi_notify_clients(struct sde_hdmi *display, bool connected);
 
 /**
  * sde_hdmi_ack_state() - acknowledge the connection status.
