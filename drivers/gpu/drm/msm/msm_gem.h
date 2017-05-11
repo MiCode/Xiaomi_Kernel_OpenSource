@@ -24,6 +24,7 @@
 
 /* Additional internal-use only BO flags: */
 #define MSM_BO_STOLEN        0x10000000    /* try to use stolen/splash memory */
+#define MSM_BO_LOCKED        0x20000000    /* Pages have been securely locked */
 
 struct msm_gem_address_space {
 	const char *name;
@@ -118,6 +119,7 @@ struct msm_gem_submit {
 	bool valid;
 	uint64_t profile_buf_iova;
 	void *profile_buf_vaddr;
+	bool secure;
 	unsigned int nr_cmds;
 	unsigned int nr_bos;
 	struct {
