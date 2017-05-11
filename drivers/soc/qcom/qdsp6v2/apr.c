@@ -908,7 +908,12 @@ done:
 	return NOTIFY_OK;
 }
 
-static struct notifier_block service_nb = {
+static struct notifier_block adsp_service_nb = {
+	.notifier_call  = apr_notifier_service_cb,
+	.priority = 0,
+};
+
+static struct notifier_block modem_service_nb = {
 	.notifier_call  = apr_notifier_service_cb,
 	.priority = 0,
 };
@@ -938,9 +943,9 @@ static int __init apr_init(void)
 
 	is_initial_boot = true;
 	subsys_notif_register("apr_adsp", AUDIO_NOTIFIER_ADSP_DOMAIN,
-			      &service_nb);
+			      &adsp_service_nb);
 	subsys_notif_register("apr_modem", AUDIO_NOTIFIER_MODEM_DOMAIN,
-			      &service_nb);
+			      &modem_service_nb);
 
 	return 0;
 }
