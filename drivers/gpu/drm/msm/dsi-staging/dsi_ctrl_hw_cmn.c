@@ -248,7 +248,7 @@ void dsi_ctrl_hw_cmn_setup_cmd_stream(struct dsi_ctrl_hw *ctrl,
 		reg_ctrl = DSI_R32(ctrl, DSI_COMMAND_COMPRESSION_MODE_CTRL);
 		reg_ctrl2 = DSI_R32(ctrl, DSI_COMMAND_COMPRESSION_MODE_CTRL2);
 		width_final = mode->dsc->pclk_per_line;
-		stride_final = width_final * (h_stride / mode->h_active);
+		stride_final = mode->dsc->bytes_per_pkt;
 
 		reg = 0x39 << 8;
 		/*
