@@ -3027,6 +3027,7 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 		{SDE_DRM_DEINTERLACE, "deinterlace"}
 	};
 	const struct sde_format_extended *format_list;
+	struct sde_format_extended *virt_format_list = NULL;
 	struct sde_kms_info *info;
 	struct sde_plane *psde = to_sde_plane(plane);
 	int zpos_max = 255;
@@ -3165,9 +3166,28 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	format_list = psde->pipe_sblk->format_list;
 
 	if (master_plane_id) {
+		int index, array_size;
+
+		array_size = ARRAY_SIZE(plane_formats)
+					+ ARRAY_SIZE(rgb_10bit_formats);
+		virt_format_list = kcalloc(array_size,
+				sizeof(struct sde_format_extended), GFP_KERNEL);
+		if (!virt_format_list) {
+			SDE_ERROR(
+			"failed to allocate virtual pipe format list\n");
+			return;
+		}
+
+		index = sde_copy_formats(virt_format_list, array_size,
+				0, plane_formats, ARRAY_SIZE(plane_formats));
+		sde_copy_formats(virt_format_list, array_size,
+				index, rgb_10bit_formats,
+				ARRAY_SIZE(rgb_10bit_formats));
+
+		format_list = virt_format_list;
+
 		sde_kms_info_add_keyint(info, "primary_smart_plane_id",
-				master_plane_id);
-		format_list = plane_formats;
+						master_plane_id);
 	}
 
 	if (format_list) {
@@ -3197,6 +3217,7 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 			info->data, info->len, PLANE_PROP_INFO);
 
 	kfree(info);
+	kfree(virt_format_list);
 
 	if (psde->features & BIT(SDE_SSPP_MEMCOLOR)) {
 		snprintf(feature_name, sizeof(feature_name), "%s%d",
@@ -3914,6 +3935,7 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 {
 	struct drm_plane *plane = NULL;
 	const struct sde_format_extended *format_list;
+	struct sde_format_extended *virt_format_list = NULL;
 	struct sde_plane *psde;
 	struct msm_drm_private *priv;
 	struct sde_kms *kms;
@@ -3988,8 +4010,28 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 
 	format_list = psde->pipe_sblk->format_list;
 
-	if (master_plane_id)
-		format_list = plane_formats;
+	if (master_plane_id) {
+		int index, array_size;
+
+		array_size = ARRAY_SIZE(plane_formats)
+					+ ARRAY_SIZE(rgb_10bit_formats);
+		virt_format_list = kcalloc(array_size,
+					sizeof(struct sde_format_extended),
+					GFP_KERNEL);
+		if (!virt_format_list) {
+			SDE_ERROR(
+			"failed to allocate virtual pipe format list\n");
+			goto clean_sspp;
+		}
+
+		index = sde_copy_formats(virt_format_list, array_size,
+				0, plane_formats, ARRAY_SIZE(plane_formats));
+		sde_copy_formats(virt_format_list, array_size,
+				index, rgb_10bit_formats,
+				ARRAY_SIZE(rgb_10bit_formats));
+
+		format_list = virt_format_list;
+	}
 
 	psde->nformats = sde_populate_formats(format_list,
 				psde->formats,
@@ -4040,5 +4082,6 @@ clean_sspp:
 clean_plane:
 	kfree(psde);
 exit:
+	kfree(virt_format_list);
 	return ERR_PTR(ret);
 }

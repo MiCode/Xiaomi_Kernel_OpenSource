@@ -91,3 +91,33 @@ void sde_hw_csc_setup(struct sde_hw_blk_reg_map *c,
 	SDE_REG_WRITE(c, csc_reg_off + 0x40, data->csc_post_bv[2]);
 }
 
+/**
+ * _sde_copy_formats   - copy formats from src_list to dst_list
+ * @dst_list:          pointer to destination list where to copy formats
+ * @dst_list_size:     size of destination list
+ * @dst_list_pos:      starting position on the list where to copy formats
+ * @src_list:          pointer to source list where to copy formats from
+ * @src_list_size:     size of source list
+ * Return: number of elements populated
+ */
+uint32_t sde_copy_formats(
+		struct sde_format_extended *dst_list,
+		uint32_t dst_list_size,
+		uint32_t dst_list_pos,
+		const struct sde_format_extended *src_list,
+		uint32_t src_list_size)
+{
+	uint32_t cur_pos, i;
+
+	if (!dst_list || !src_list || (dst_list_pos >= (dst_list_size - 1)))
+		return 0;
+
+	for (i = 0, cur_pos = dst_list_pos;
+		(cur_pos < (dst_list_size - 1)) && (i < src_list_size)
+		&& src_list[i].fourcc_format; ++i, ++cur_pos)
+		dst_list[cur_pos] = src_list[i];
+
+	dst_list[cur_pos].fourcc_format = 0;
+
+	return i;
+}
