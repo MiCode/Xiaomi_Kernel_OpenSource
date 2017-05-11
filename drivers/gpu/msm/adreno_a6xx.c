@@ -1215,7 +1215,8 @@ static int a6xx_notify_slumber(struct kgsl_device *device)
 	if (ret)
 		dev_err(&gmu->pdev->dev, "OOB set for slumber timed out\n");
 	else {
-		kgsl_gmu_regread(device, A6XX_GMU_RPMH_POWER_STATE, &state);
+		kgsl_gmu_regread(device,
+			A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE, &state);
 		if (state != GPU_HW_SLUMBER) {
 			dev_err(&gmu->pdev->dev,
 					"Failed to prepare for slumber\n");
@@ -2251,7 +2252,7 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_HFI_SFR_ADDR,
 				A6XX_GMU_HFI_SFR_ADDR),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_RPMH_POWER_STATE,
-				A6XX_GMU_RPMH_POWER_STATE),
+				A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_GMU2HOST_INTR_CLR,
 				A6XX_GMU_GMU2HOST_INTR_CLR),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_GMU2HOST_INTR_INFO,
