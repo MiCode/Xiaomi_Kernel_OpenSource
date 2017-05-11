@@ -1232,35 +1232,32 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 	struct device *dev = &gmu->pdev->dev;
 	int ret = 0;
 
-	if (device->state != KGSL_STATE_INIT &&
-		device->state != KGSL_STATE_SUSPEND) {
-		/* RSC wake sequence */
-		kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, BIT(1));
+	/* RSC wake sequence */
+	kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, BIT(1));
 
-		/* Write request before polling */
-		wmb();
+	/* Write request before polling */
+	wmb();
 
-		if (timed_poll_check(device,
-				A6XX_GMU_RSCC_CONTROL_ACK,
-				BIT(1),
-				GPU_START_TIMEOUT,
-				BIT(1))) {
-			dev_err(dev, "Failed to do GPU RSC power on\n");
-			return -EINVAL;
-		}
-
-		if (timed_poll_check(device,
-				A6XX_RSCC_SEQ_BUSY_DRV0,
-				0,
-				GPU_START_TIMEOUT,
-				0xFFFFFFFF))
-			goto error_rsc;
-
-		kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 0);
-
-		/* Turn on the HM and SPTP head switches */
-		ret = a6xx_hm_sptprac_control(device, true);
+	if (timed_poll_check(device,
+			A6XX_GMU_RSCC_CONTROL_ACK,
+			BIT(1),
+			GPU_START_TIMEOUT,
+			BIT(1))) {
+		dev_err(dev, "Failed to do GPU RSC power on\n");
+		return -EINVAL;
 	}
+
+	if (timed_poll_check(device,
+			A6XX_RSCC_SEQ_BUSY_DRV0,
+			0,
+			GPU_START_TIMEOUT,
+			0xFFFFFFFF))
+		goto error_rsc;
+
+	kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 0);
+
+	/* Turn on the HM and SPTP head switches */
+	ret = a6xx_hm_sptprac_control(device, true);
 
 	return ret;
 
@@ -1319,16 +1316,21 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	int ret, i;
 
 	if (boot_state == GMU_COLD_BOOT || boot_state == GMU_RESET) {
-		/* Turn on the HM and SPTP head switches */
-		ret = a6xx_hm_sptprac_control(device, true);
-		if (ret)
-			return ret;
 
 		/* Turn on TCM retention */
 		kgsl_gmu_regwrite(device, A6XX_GMU_GENERAL_7, 1);
 
-		if (!test_and_set_bit(GMU_BOOT_INIT_DONE, &gmu->flags))
+		if (!test_and_set_bit(GMU_BOOT_INIT_DONE, &gmu->flags)) {
 			_load_gmu_rpmh_ucode(device);
+			/* Turn on the HM and SPTP head switches */
+			ret = a6xx_hm_sptprac_control(device, true);
+			if (ret)
+				return ret;
+		} else {
+			ret = a6xx_rpmh_power_on_gpu(device);
+			if (ret)
+				return ret;
+		}
 
 		if (gmu->load_mode == TCM_BOOT) {
 			/* Load GMU image via AHB bus */
@@ -1486,7 +1488,9 @@ static bool a6xx_hw_isidle(struct adreno_device *adreno_dev)
 
 	kgsl_gmu_regread(KGSL_DEVICE(adreno_dev),
 		A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &reg);
-	return ((~reg & GPUBUSYIGNAHB) != 0);
+	if (reg & GPUBUSYIGNAHB)
+		return false;
+	return true;
 }
 
 static int a6xx_wait_for_gmu_idle(struct adreno_device *adreno_dev)
