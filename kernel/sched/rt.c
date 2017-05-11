@@ -4,12 +4,13 @@
  */
 
 #include "sched.h"
+#include "walt.h"
 
 #include <linux/slab.h>
 #include <linux/irq_work.h>
 #include <trace/events/sched.h>
 
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 
 static void
 inc_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p)
@@ -37,6 +38,7 @@ fixup_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p,
 #ifdef CONFIG_SMP
 static int find_lowest_rq(struct task_struct *task);
 
+#ifdef CONFIG_SCHED_HMP
 static int
 select_task_rq_rt_hmp(struct task_struct *p, int cpu, int sd_flag, int flags)
 {
@@ -50,8 +52,9 @@ select_task_rq_rt_hmp(struct task_struct *p, int cpu, int sd_flag, int flags)
 
 	return cpu;
 }
+#endif /* CONFIG_SCHED_HMP */
 #endif /* CONFIG_SMP */
-#else  /* CONFIG_SCHED_HMP */
+#else  /* CONFIG_SCHED_WALT */
 
 static inline void
 inc_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p) { }
@@ -1527,9 +1530,10 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
 	 * This test is optimistic, if we get it wrong the load-balancer
 	 * will have to sort it out.
 	 */
-	if (curr && unlikely(rt_task(curr)) &&
-	    (tsk_nr_cpus_allowed(curr) < 2 ||
-	     curr->prio <= p->prio)) {
+	if (energy_aware() ||
+	    (curr && unlikely(rt_task(curr)) &&
+	     (tsk_nr_cpus_allowed(curr) < 2 ||
+	      curr->prio <= p->prio))) {
 		int target = find_lowest_rq(p);
 
 		/*
@@ -1820,12 +1824,33 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 }
 #endif	/* CONFIG_SCHED_HMP */
 
+static inline unsigned long task_util(struct task_struct *p)
+{
+#ifdef CONFIG_SCHED_WALT
+	if (!walt_disabled && sysctl_sched_use_walt_task_util) {
+		u64 demand = p->ravg.demand;
+
+		return (demand << 10) / sched_ravg_window;
+	}
+#endif
+	return p->se.avg.util_avg;
+}
+
 static int find_lowest_rq(struct task_struct *task)
 {
 	struct sched_domain *sd;
+	struct sched_group *sg, *sg_target;
 	struct cpumask *lowest_mask = this_cpu_cpumask_var_ptr(local_cpu_mask);
 	int this_cpu = smp_processor_id();
-	int cpu      = task_cpu(task);
+	int cpu, best_cpu;
+	struct cpumask search_cpu, backup_search_cpu;
+	unsigned long cpu_capacity, capacity = ULONG_MAX;
+	unsigned long util, best_cpu_util = ULONG_MAX;
+	int best_cpu_idle_idx = INT_MAX;
+	int cpu_idle_idx = -1;
+	long new_util_cum;
+	int max_spare_cap_cpu = -1;
+	long max_spare_cap = -LONG_MAX;
 
 #ifdef CONFIG_SCHED_HMP
 	return find_lowest_rq_hmp(task);
@@ -1841,6 +1866,99 @@ static int find_lowest_rq(struct task_struct *task)
 	if (!cpupri_find(&task_rq(task)->rd->cpupri, task, lowest_mask))
 		return -1; /* No targets found */
 
+	if (energy_aware() && sysctl_sched_is_big_little) {
+		sg_target = NULL;
+		best_cpu = -1;
+
+		rcu_read_lock();
+		sd = rcu_dereference(per_cpu(sd_ea, task_cpu(task)));
+		if (!sd) {
+			rcu_read_unlock();
+			goto noea;
+		}
+
+		sg = sd->groups;
+		do {
+			cpu = group_first_cpu(sg);
+			cpu_capacity = capacity_orig_of(cpu);
+			if (cpu_capacity < capacity) {
+				capacity = cpu_capacity;
+				sg_target = sg;
+			}
+		} while (sg = sg->next, sg != sd->groups);
+		rcu_read_unlock();
+
+		cpumask_and(&search_cpu, lowest_mask,
+			    sched_group_cpus(sg_target));
+		cpumask_copy(&backup_search_cpu, lowest_mask);
+		cpumask_andnot(&backup_search_cpu, &backup_search_cpu,
+			       &search_cpu);
+
+retry:
+		for_each_cpu(cpu, &search_cpu) {
+			/*
+			 * Don't use capcity_curr_of() since it will
+			 * double count rt task load.
+			 */
+			util = cpu_util(cpu);
+			if (!cpu_overutilized(cpu)) {
+				if (sched_cpu_high_irqload(cpu))
+					continue;
+
+				new_util_cum = cpu_util_cum(cpu, 0);
+
+				if (!task_in_cum_window_demand(cpu_rq(cpu),
+							       task))
+					new_util_cum += task_util(task);
+
+				trace_sched_cpu_util(task, cpu, task_util(task),
+						     0, new_util_cum, 0);
+
+				if (sysctl_sched_cstate_aware)
+					cpu_idle_idx =
+					    (cpu == smp_processor_id() ||
+					     cpu_rq(cpu)->nr_running) ?
+					     -1 :
+					     idle_get_state_idx(cpu_rq(cpu));
+
+				if (add_capacity_margin(new_util_cum) <
+				    capacity_curr_of(cpu)) {
+					if (cpu_idle_idx < best_cpu_idle_idx ||
+					    (best_cpu != task_cpu(task) &&
+					     (best_cpu_idle_idx ==
+					      cpu_idle_idx &&
+					      best_cpu_util > util))) {
+						best_cpu_util = util;
+						best_cpu = cpu;
+						best_cpu_idle_idx =
+						    cpu_idle_idx;
+					}
+				} else {
+					long spare_cap = capacity_of(cpu) -
+							 util;
+
+					if (spare_cap > 0 &&
+					    max_spare_cap < spare_cap) {
+						max_spare_cap_cpu = cpu;
+						max_spare_cap = spare_cap;
+					}
+				}
+			}
+		}
+
+		if (best_cpu != -1) {
+			return best_cpu;
+		} else if (max_spare_cap_cpu != -1) {
+			return max_spare_cap_cpu;
+		} else if (!cpumask_empty(&backup_search_cpu)) {
+			cpumask_copy(&search_cpu, &backup_search_cpu);
+			cpumask_clear(&backup_search_cpu);
+			goto retry;
+		}
+	}
+
+noea:
+	cpu = task_cpu(task);
 	/*
 	 * At this point we have built a mask of cpus representing the
 	 * lowest priority tasks in the system.  Now we want to elect
@@ -2563,7 +2681,7 @@ const struct sched_class rt_sched_class = {
 	.switched_to		= switched_to_rt,
 
 	.update_curr		= update_curr_rt,
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 	.fixup_hmp_sched_stats	= fixup_hmp_sched_stats_rt,
 #endif
 };

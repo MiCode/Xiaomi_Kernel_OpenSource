@@ -1261,12 +1261,20 @@ endif # CGROUPS
 
 config SCHED_HMP
 	bool "Scheduler support for heterogenous multi-processor systems"
+	select SCHED_WALT
 	depends on SMP && FAIR_GROUP_SCHED
 	help
 	  This feature will let the scheduler optimize task placement on
 	  systems made of heterogeneous cpus i.e cpus that differ either
 	  in their instructions per-cycle capability or the maximum
 	  frequency they can attain.
+
+config SCHED_WALT
+	bool "WALT"
+	depends on SMP && FAIR_GROUP_SCHED
+	help
+	  Use Window-Assisted Load Tracking (WALT) as an alternative or
+	  additional load tracking scheme in lieu of or along with PELT.
 
 config SCHED_HMP_CSTATE_AWARE
 	bool "CPU C-state aware scheduler"
