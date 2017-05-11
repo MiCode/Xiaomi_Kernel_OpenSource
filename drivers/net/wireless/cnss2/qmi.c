@@ -26,8 +26,8 @@
 #define BDF_FILE_NAME_PREFIX		"bdwlan.b"
 
 #ifdef CONFIG_CNSS2_DEBUG
-static unsigned long qmi_timeout = 10000;
-module_param(qmi_timeout, ulong, S_IRUSR | S_IWUSR);
+static unsigned int qmi_timeout = 10000;
+module_param(qmi_timeout, uint, S_IRUSR | S_IWUSR);
 MODULE_PARM_DESC(qmi_timeout, "Timeout for QMI message in milliseconds");
 
 #define QMI_WLFW_TIMEOUT_MS		qmi_timeout
@@ -841,7 +841,9 @@ static void cnss_wlfw_clnt_ind(struct qmi_handle *handle,
 
 unsigned int cnss_get_qmi_timeout(void)
 {
-	return qmi_timeout;
+	cnss_pr_dbg("QMI timeout is %u ms\n", QMI_WLFW_TIMEOUT_MS);
+
+	return QMI_WLFW_TIMEOUT_MS;
 }
 EXPORT_SYMBOL(cnss_get_qmi_timeout);
 
