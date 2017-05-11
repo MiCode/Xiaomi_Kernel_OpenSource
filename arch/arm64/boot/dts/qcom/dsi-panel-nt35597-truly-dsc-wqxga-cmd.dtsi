@@ -221,41 +221,12 @@
 		qcom,mdss-dsi-te-using-te-pin;
 
 		qcom,compression-mode = "dsc";
-		qcom,config-select = <&dsi_nt35597_truly_dsc_cmd_config0>;
+		qcom,mdss-dsc-slice-height = <16>;
+		qcom,mdss-dsc-slice-width = <720>;
+		qcom,mdss-dsc-slice-per-pkt = <2>;
+		qcom,mdss-dsc-bit-per-component = <8>;
+		qcom,mdss-dsc-bit-per-pixel = <8>;
+		qcom,mdss-dsc-block-prediction-enable;
 
-		dsi_nt35597_truly_dsc_cmd_config0: config0 {
-			qcom,mdss-dsc-encoders = <1>;
-			qcom,mdss-dsc-slice-height = <16>;
-			qcom,mdss-dsc-slice-width = <720>;
-			qcom,mdss-dsc-slice-per-pkt = <2>;
-
-			qcom,mdss-dsc-bit-per-component = <8>;
-			qcom,mdss-dsc-bit-per-pixel = <8>;
-			qcom,mdss-dsc-block-prediction-enable;
-		};
-
-		dsi_nt35597_truly_dsc_cmd_config1: config1 {
-			qcom,lm-split = <720 720>;
-			qcom,mdss-dsc-encoders = <1>; /* 3D Mux */
-			qcom,mdss-dsc-slice-height = <16>;
-			qcom,mdss-dsc-slice-width = <720>;
-			qcom,mdss-dsc-slice-per-pkt = <2>;
-
-			qcom,mdss-dsc-bit-per-component = <8>;
-			qcom,mdss-dsc-bit-per-pixel = <8>;
-			qcom,mdss-dsc-block-prediction-enable;
-		};
-
-		dsi_nt35597_truly_dsc_cmd_config2: config2 {
-			qcom,lm-split = <720 720>;
-			qcom,mdss-dsc-encoders = <2>; /* DSC Merge */
-			qcom,mdss-dsc-slice-height = <16>;
-			qcom,mdss-dsc-slice-width = <720>;
-			qcom,mdss-dsc-slice-per-pkt = <2>;
-
-			qcom,mdss-dsc-bit-per-component = <8>;
-			qcom,mdss-dsc-bit-per-pixel = <8>;
-			qcom,mdss-dsc-block-prediction-enable;
-		};
 	};
 };
