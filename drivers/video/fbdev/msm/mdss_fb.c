@@ -3614,7 +3614,6 @@ static void mdss_fb_var_to_panelinfo(struct fb_var_screeninfo *var,
 	else
 		pinfo->lcdc.v_polarity = 1;
 
-	pinfo->clk_rate = var->pixclock;
 }
 
 void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
