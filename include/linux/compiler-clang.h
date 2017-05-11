@@ -44,3 +44,7 @@
 #define __must_be_array(a) BUILD_BUG_ON_ZERO(__same_type((a), &(a)[0]))
 #define __assume_aligned(a, ...)	\
 	__attribute__((__assume_aligned__(a, ## __VA_ARGS__)))
+
+#ifdef CONFIG_CFI_CLANG
+#define __nocfi		__attribute__((no_sanitize("cfi")))
+#endif
