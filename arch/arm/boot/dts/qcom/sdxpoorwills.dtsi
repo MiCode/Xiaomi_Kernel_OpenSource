@@ -12,6 +12,8 @@
 
 
 #include "skeleton.dtsi"
+
+#include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/clock/qcom,gcc-sdxpoorwills.h>
 
 / {
@@ -145,6 +147,12 @@
 	clock_cpu: qcom,clock-a7@17810008 {
 		compatible = "qcom,dummycc";
 		clock-output-names = "cpu_clocks";
+		#clock-cells = <1>;
+	};
+
+	clock_rpmh: qcom,rpmhclk {
+		compatible = "qcom,dummycc";
+		clock-output-names = "rpmh_clocks";
 		#clock-cells = <1>;
 	};
 
