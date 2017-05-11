@@ -118,6 +118,12 @@ enum sde_bus_clients {
 	SDE_MAX_BUS_CLIENTS
 };
 
+enum sde_rot_op {
+	SDE_ROT_RD,
+	SDE_ROT_WR,
+	SDE_ROT_OP_MAX
+};
+
 enum sde_rot_regdump_access {
 	SDE_ROT_REGDUMP_READ,
 	SDE_ROT_REGDUMP_WRITE,
@@ -212,6 +218,8 @@ struct sde_rot_data_type {
 
 	void *sde_rot_hw;
 	int sec_cam_en;
+
+	u32 enable_cdp[SDE_ROT_OP_MAX];
 
 	struct ion_client *iclient;
 
