@@ -206,6 +206,8 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	if (!sugov_should_update_freq(sg_policy, time))
 		return;
 
+	flags &= ~SCHED_CPUFREQ_RT_DL;
+
 	if (flags & SCHED_CPUFREQ_RT_DL) {
 		next_f = policy->cpuinfo.max_freq;
 	} else {
@@ -277,6 +279,8 @@ static void sugov_update_shared(struct update_util_data *hook, u64 time,
 	unsigned int next_f;
 
 	sugov_get_util(&util, &max);
+
+	flags &= ~SCHED_CPUFREQ_RT_DL;
 
 	raw_spin_lock(&sg_policy->update_lock);
 
