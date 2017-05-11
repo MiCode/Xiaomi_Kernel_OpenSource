@@ -79,9 +79,12 @@ struct sched_cluster {
 	unsigned int static_cluster_pwr_cost;
 	int notifier_sent;
 	bool wake_up_idle;
+	u64 aggr_grp_load;
 };
 
 extern unsigned int sched_disable_window_stats;
+
+extern struct timer_list sched_grp_timer;
 #endif /* CONFIG_SCHED_WALT */
 
 
@@ -798,6 +801,7 @@ struct rq {
 	u8 curr_table;
 	int prev_top;
 	int curr_top;
+	struct irq_work irq_work;
 #endif
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
@@ -1785,20 +1789,34 @@ static inline unsigned long cpu_util_cum(int cpu, int delta)
 	return (delta >= capacity) ? capacity : delta;
 }
 
+#ifdef CONFIG_SCHED_WALT
+u64 freq_policy_load(struct rq *rq);
+#endif
+
 static inline unsigned long
 cpu_util_freq(int cpu, struct sched_walt_cpu_load *walt_load)
 {
-	u64 util = cpu_rq(cpu)->cfs.avg.util_avg;
+	struct rq *rq = cpu_rq(cpu);
+	u64 util = rq->cfs.avg.util_avg;
 	unsigned long capacity = capacity_orig_of(cpu);
 
 #ifdef CONFIG_SCHED_WALT
 	if (!walt_disabled && sysctl_sched_use_walt_cpu_util) {
-		util = cpu_rq(cpu)->prev_runnable_sum;
+
+		util = freq_policy_load(rq);
 		util = div64_u64(util,
 				 sched_ravg_window >> SCHED_CAPACITY_SHIFT);
 
-		if (walt_load)
+		if (walt_load) {
+			u64 nl = cpu_rq(cpu)->nt_prev_runnable_sum +
+				rq->grp_time.nt_prev_runnable_sum;
+
+			nl = div64_u64(nl, sched_ravg_window >>
+						SCHED_CAPACITY_SHIFT);
+
 			walt_load->prev_window_util = util;
+			walt_load->nl = nl;
+		}
 	}
 #endif
 	return (util >= capacity) ? capacity : util;
@@ -2303,7 +2321,6 @@ extern unsigned int  __read_mostly sched_load_granule;
 
 extern u64 sched_ktime_clock(void);
 extern int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb);
-extern void clear_boost_kick(int cpu);
 extern void reset_cpu_hmp_stats(int cpu, int reset_cra);
 extern int update_preferred_cluster(struct related_thread_group *grp,
 			struct task_struct *p, u32 old_load);
@@ -2649,6 +2666,13 @@ extern void update_cpu_cluster_capacity(const cpumask_t *cpus);
 
 extern unsigned long thermal_cap(int cpu);
 
+extern void clear_hmp_request(int cpu);
+
+extern int got_boost_kick(void);
+extern void clear_boost_kick(int cpu);
+extern enum sched_boost_policy sched_boost_policy(void);
+extern void sched_boost_parse_dt(void);
+
 #else	/* CONFIG_SCHED_WALT */
 
 struct hmp_sched_stats;
@@ -2659,8 +2683,6 @@ static inline bool task_sched_boost(struct task_struct *p)
 {
 	return true;
 }
-
-static inline void clear_boost_kick(int cpu) { }
 
 static inline void check_for_migration(struct rq *rq, struct task_struct *p) { }
 
@@ -2780,6 +2802,22 @@ static inline unsigned long thermal_cap(int cpu)
 }
 #endif
 
+static inline void clear_hmp_request(int cpu) { }
+
+static inline int got_boost_kick(void)
+{
+	return 0;
+}
+
+static inline void clear_boost_kick(int cpu) { }
+
+static inline enum sched_boost_policy sched_boost_policy(void)
+{
+	return SCHED_BOOST_NONE;
+}
+
+static inline void sched_boost_parse_dt(void) { }
+
 #endif	/* CONFIG_SCHED_WALT */
 
 #ifdef CONFIG_SCHED_HMP
@@ -2789,11 +2827,9 @@ extern int is_big_task(struct task_struct *p);
 extern unsigned int pct_task_load(struct task_struct *p);
 extern void notify_migration(int src_cpu, int dest_cpu,
 			bool src_cpu_dead, struct task_struct *p);
-extern void clear_hmp_request(int cpu);
 extern void note_task_waking(struct task_struct *p, u64 wallclock);
 extern void
 check_for_freq_change(struct rq *rq, bool check_pred, bool check_groups);
-extern int got_boost_kick(void);
 extern void clear_ed_task(struct task_struct *p, struct rq *rq);
 extern void fixup_nr_big_tasks(struct hmp_sched_stats *stats,
 					struct task_struct *p, s64 delta);
@@ -2802,8 +2838,6 @@ extern unsigned int power_cost(int cpu, u64 demand);
 extern unsigned int cpu_temp(int cpu);
 extern void pre_big_task_count_change(const struct cpumask *cpus);
 extern void post_big_task_count_change(const struct cpumask *cpus);
-extern enum sched_boost_policy sched_boost_policy(void);
-extern void sched_boost_parse_dt(void);
 extern void set_hmp_defaults(void);
 extern void update_avg_burst(struct task_struct *p);
 extern void set_task_last_switch_out(struct task_struct *p, u64 wallclock);
@@ -2837,6 +2871,7 @@ static inline bool is_short_burst_task(struct task_struct *p)
 	return p->ravg.avg_burst < sysctl_sched_short_burst &&
 	       p->ravg.avg_sleep_time > sysctl_sched_short_sleep;
 }
+
 #else
 static inline bool energy_aware(void)
 {
@@ -2848,17 +2883,10 @@ static inline int pct_task_load(struct task_struct *p) { return 0; }
 static inline void notify_migration(int src_cpu, int dest_cpu,
 			bool src_cpu_dead, struct task_struct *p) { }
 
-static inline void clear_hmp_request(int cpu) { }
-
 static inline void note_task_waking(struct task_struct *p, u64 wallclock) { }
 
 static inline void
 check_for_freq_change(struct rq *rq, bool check_pred, bool check_groups) { }
-
-static inline int got_boost_kick(void)
-{
-	return 0;
-}
 
 static inline void clear_ed_task(struct task_struct *p, struct rq *rq) { }
 
@@ -2884,29 +2912,11 @@ static inline void pre_big_task_count_change(const struct cpumask *cpus) { }
 
 static inline void post_big_task_count_change(const struct cpumask *cpus) { }
 
-static inline enum sched_boost_policy sched_boost_policy(void)
-{
-	return SCHED_BOOST_NONE;
-}
-
-static inline void sched_boost_parse_dt(void) { }
-
 static inline void set_hmp_defaults(void) { }
 
 static inline void update_avg_burst(struct task_struct *p) { }
 
 static inline void set_task_last_switch_out(struct task_struct *p,
 					    u64 wallclock) { }
-
-static inline unsigned int nr_eligible_big_tasks(int cpu)
-{
-	return 0;
-}
-
-static inline void
-inc_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p) { }
-
-static inline void
-dec_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p) { }
 
 #endif /* CONFIG_SCHED_HMP */

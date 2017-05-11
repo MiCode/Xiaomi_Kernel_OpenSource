@@ -1844,13 +1844,15 @@ static int find_lowest_rq(struct task_struct *task)
 	int this_cpu = smp_processor_id();
 	int cpu, best_cpu;
 	struct cpumask search_cpu, backup_search_cpu;
-	unsigned long cpu_capacity, capacity = ULONG_MAX;
+	unsigned long cpu_capacity;
+	unsigned long best_capacity;
 	unsigned long util, best_cpu_util = ULONG_MAX;
 	int best_cpu_idle_idx = INT_MAX;
 	int cpu_idle_idx = -1;
 	long new_util_cum;
 	int max_spare_cap_cpu = -1;
 	long max_spare_cap = -LONG_MAX;
+	bool placement_boost;
 
 #ifdef CONFIG_SCHED_HMP
 	return find_lowest_rq_hmp(task);
@@ -1870,6 +1872,13 @@ static int find_lowest_rq(struct task_struct *task)
 		sg_target = NULL;
 		best_cpu = -1;
 
+		/*
+		 * Since this code is inside sched_is_big_little, we are going
+		 * to assume that boost policy is SCHED_BOOST_ON_BIG
+		 */
+		placement_boost = sched_boost() == FULL_THROTTLE_BOOST;
+		best_capacity = placement_boost ? 0 : ULONG_MAX;
+
 		rcu_read_lock();
 		sd = rcu_dereference(per_cpu(sd_ea, task_cpu(task)));
 		if (!sd) {
@@ -1881,9 +1890,17 @@ static int find_lowest_rq(struct task_struct *task)
 		do {
 			cpu = group_first_cpu(sg);
 			cpu_capacity = capacity_orig_of(cpu);
-			if (cpu_capacity < capacity) {
-				capacity = cpu_capacity;
-				sg_target = sg;
+
+			if (unlikely(placement_boost)) {
+				if (cpu_capacity > best_capacity) {
+					best_capacity = cpu_capacity;
+					sg_target = sg;
+				}
+			} else {
+				if (cpu_capacity < best_capacity) {
+					best_capacity = cpu_capacity;
+					sg_target = sg;
+				}
 			}
 		} while (sg = sg->next, sg != sd->groups);
 		rcu_read_unlock();
@@ -1902,6 +1919,9 @@ retry:
 			 */
 			util = cpu_util(cpu);
 			if (!cpu_overutilized(cpu)) {
+				if (cpu_isolated(cpu))
+					continue;
+
 				if (sched_cpu_high_irqload(cpu))
 					continue;
 

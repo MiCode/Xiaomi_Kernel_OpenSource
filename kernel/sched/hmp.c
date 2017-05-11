@@ -186,30 +186,6 @@ unsigned long __weak arch_get_cpu_efficiency(int cpu)
 	return SCHED_CAPACITY_SCALE;
 }
 
-/* Clear any HMP scheduler related requests pending from or on cpu */
-void clear_hmp_request(int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-	unsigned long flags;
-
-	clear_boost_kick(cpu);
-	clear_reserved(cpu);
-	if (rq->push_task) {
-		struct task_struct *push_task = NULL;
-
-		raw_spin_lock_irqsave(&rq->lock, flags);
-		if (rq->push_task) {
-			clear_reserved(rq->push_cpu);
-			push_task = rq->push_task;
-			rq->push_task = NULL;
-		}
-		rq->active_balance = 0;
-		raw_spin_unlock_irqrestore(&rq->lock, flags);
-		if (push_task)
-			put_task_struct(push_task);
-	}
-}
-
 int sched_set_static_cpu_pwr_cost(int cpu, unsigned int cost)
 {
 	struct rq *rq = cpu_rq(cpu);
@@ -829,24 +805,6 @@ unsigned int pct_task_load(struct task_struct *p)
 	load = div64_u64((u64)task_load(p) * 100, (u64)max_task_load());
 
 	return load;
-}
-
-/*
- * Return total number of tasks "eligible" to run on highest capacity cpu
- *
- * This is simply nr_big_tasks for cpus which are not of max_capacity and
- * nr_running for cpus of max_capacity
- */
-unsigned int nr_eligible_big_tasks(int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-	int nr_big = rq->hmp_stats.nr_big_tasks;
-	int nr = rq->nr_running;
-
-	if (cpu_max_possible_capacity(cpu) != max_possible_capacity)
-		return nr_big;
-
-	return nr;
 }
 
 static int __init set_sched_ravg_window(char *str)
