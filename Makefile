@@ -676,6 +676,33 @@ export DISABLE_LTO
 export LDFINAL_vmlinux LDFLAGS_FINAL_vmlinux
 endif
 
+ifdef CONFIG_CFI_CLANG
+cfi-clang-flags	+= -fsanitize=cfi
+DISABLE_CFI_CLANG := -fno-sanitize=cfi
+ifdef CONFIG_MODULES
+cfi-clang-flags	+= -fsanitize-cfi-cross-dso
+DISABLE_CFI_CLANG += -fno-sanitize-cfi-cross-dso
+endif
+ifdef CONFIG_CFI_PERMISSIVE
+cfi-clang-flags	+= -fsanitize-recover=cfi -fno-sanitize-trap=cfi
+endif
+
+# also disable CFI when LTO is disabled
+DISABLE_LTO_CLANG += $(DISABLE_CFI_CLANG)
+# allow disabling only clang CFI where needed
+export DISABLE_CFI_CLANG
+endif
+
+ifdef CONFIG_CFI
+# cfi-flags are re-tested in prepare-compiler-check
+cfi-flags	:= $(cfi-clang-flags)
+KBUILD_CFLAGS	+= $(cfi-flags)
+
+DISABLE_CFI	:= $(DISABLE_CFI_CLANG)
+DISABLE_LTO	+= $(DISABLE_CFI)
+export DISABLE_CFI
+endif
+
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS	+= $(call cc-option,-Oz,-Os)
 KBUILD_CFLAGS	+= $(call cc-disable-warning,maybe-uninitialized,)
@@ -1146,6 +1173,11 @@ ifdef stackp-check
   ifneq ($(shell $(CONFIG_SHELL) $(stackp-check) $(CC) $(KBUILD_CPPFLAGS) $(biarch)),y)
 	@echo Cannot use CONFIG_CC_STACKPROTECTOR_$(stackp-name): \
                   $(stackp-flag) available but compiler is broken >&2 && exit 1
+  endif
+endif
+ifdef cfi-flags
+  ifeq ($(call cc-option, $(cfi-flags)),)
+	@echo Cannot use CONFIG_CFI: $(cfi-flags) not supported by compiler >&2 && exit 1
   endif
 endif
 	@:
