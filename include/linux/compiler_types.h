@@ -257,6 +257,10 @@ struct ftrace_likely_data {
 #define __norecordmcount
 #endif
 
+#ifndef __nocfi
+#define __nocfi
+#endif
+
 /*
  * Assume alignment of return value.
  */
