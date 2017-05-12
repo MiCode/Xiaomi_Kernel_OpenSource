@@ -24,6 +24,13 @@
 #include <drm/drm_crtc.h>
 #include <drm/drm_edid.h>
 #include "hdmi.h"
+#include "sde_kms.h"
+
+#ifdef SDE_HDCP_DEBUG_ENABLE
+#define SDE_HDCP_DEBUG(fmt, args...)   SDE_ERROR(fmt, ##args)
+#else
+#define SDE_HDCP_DEBUG(fmt, args...)   SDE_DEBUG(fmt, ##args)
+#endif
 
 enum sde_hdcp_client_id {
 	HDCP_CLIENT_HDMI,
@@ -69,7 +76,7 @@ struct sde_hdcp_ops {
 void *sde_hdcp_1x_init(struct sde_hdcp_init_data *init_data);
 void sde_hdcp_1x_deinit(void *input);
 
-struct hdcp_ops *sde_hdcp_1x_start(void *input);
+struct sde_hdcp_ops *sde_hdcp_1x_start(void *input);
 
 const char *sde_hdcp_state_name(enum sde_hdcp_states hdcp_state);
 

@@ -439,6 +439,22 @@ static void sde_hdmi_tx_hdcp_cb(void *ptr, enum sde_hdcp_states status)
 	queue_delayed_work(hdmi->workq, &hdmi_ctrl->hdcp_cb_work, HZ/4);
 }
 
+void sde_hdmi_hdcp_off(struct sde_hdmi *hdmi_ctrl)
+{
+
+	if (!hdmi_ctrl) {
+		SDE_ERROR("%s: invalid input\n", __func__);
+		return;
+	}
+
+	if (hdmi_ctrl->hdcp_ops)
+		hdmi_ctrl->hdcp_ops->off(hdmi_ctrl->hdcp_data);
+
+	flush_delayed_work(&hdmi_ctrl->hdcp_cb_work);
+
+	hdmi_ctrl->hdcp_ops = NULL;
+}
+
 static void sde_hdmi_tx_hdcp_cb_work(struct work_struct *work)
 {
 	struct sde_hdmi *hdmi_ctrl = NULL;
@@ -1123,8 +1139,14 @@ static irqreturn_t _sde_hdmi_irq(int irq, void *dev_id)
 	hdmi_i2c_irq(hdmi->i2c);
 
 	/* Process HDCP: */
-	if (hdmi->hdcp_ctrl && hdmi->is_hdcp_supported)
-		hdmi_hdcp_ctrl_irq(hdmi->hdcp_ctrl);
+	if (sde_hdmi->hdcp_ops && sde_hdmi->hdcp_data) {
+		if (sde_hdmi->hdcp_ops->isr) {
+			if (sde_hdmi->hdcp_ops->isr(
+				sde_hdmi->hdcp_data))
+				DEV_ERR("%s: hdcp_1x_isr failed\n",
+						__func__);
+		}
+	}
 
 	/* Process CEC: */
 	_sde_hdmi_cec_irq(sde_hdmi);
@@ -1660,6 +1682,7 @@ static int sde_hdmi_tx_check_capability(struct sde_hdmi *sde_hdmi)
 static int _sde_hdmi_init_hdcp(struct sde_hdmi *hdmi_ctrl)
 {
 	struct sde_hdcp_init_data hdcp_init_data;
+	void *hdcp_data;
 	int rc = 0;
 	struct hdmi *hdmi;
 
@@ -1682,6 +1705,21 @@ static int _sde_hdmi_init_hdcp(struct sde_hdmi *hdmi_ctrl)
 	hdcp_init_data.client_id     = HDCP_CLIENT_HDMI;
 	hdcp_init_data.ddc_ctrl      = &hdmi_ctrl->ddc_ctrl;
 
+	if (hdmi_ctrl->hdcp14_present) {
+		hdcp_data = sde_hdcp_1x_init(&hdcp_init_data);
+
+		if (IS_ERR_OR_NULL(hdcp_data)) {
+			DEV_ERR("%s: hdcp 1.4 init failed\n", __func__);
+			rc = -EINVAL;
+			kfree(hdcp_data);
+			goto end;
+		} else {
+			hdmi_ctrl->hdcp_feature_data[SDE_HDCP_1x] = hdcp_data;
+			SDE_HDMI_DEBUG("%s: HDCP 1.4 initialized\n", __func__);
+		}
+	}
+
+end:
 	return rc;
 }
 
@@ -1718,7 +1756,36 @@ int sde_hdmi_connector_post_init(struct drm_connector *connector,
 		SDE_ERROR("failed to enable HPD: %d\n", rc);
 
 	_sde_hdmi_get_tx_version(sde_hdmi);
+
 	sde_hdmi_tx_check_capability(sde_hdmi);
+
+	_sde_hdmi_init_hdcp(sde_hdmi);
+
+	return rc;
+}
+
+int sde_hdmi_start_hdcp(struct drm_connector *connector)
+{
+	int rc;
+	struct sde_connector *c_conn = to_sde_connector(connector);
+	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
+	struct hdmi *hdmi = display->ctrl.ctrl;
+
+	if (!hdmi) {
+		SDE_ERROR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!sde_hdmi_tx_is_hdcp_enabled(display))
+		return 0;
+
+	if (sde_hdmi_tx_is_encryption_set(display))
+		sde_hdmi_config_avmute(hdmi, true);
+
+	rc = display->hdcp_ops->authenticate(display->hdcp_data);
+	if (rc)
+		SDE_ERROR("%s: hdcp auth failed. rc=%d\n", __func__, rc);
+
 	return rc;
 }
 
@@ -1835,6 +1902,9 @@ int sde_hdmi_dev_deinit(struct sde_hdmi *display)
 		SDE_ERROR("Invalid params\n");
 		return -EINVAL;
 	}
+	if (display->hdcp_feature_data[SDE_HDCP_1x])
+		sde_hdcp_1x_deinit(display->hdcp_feature_data[SDE_HDCP_1x]);
+
 	return 0;
 }
 
@@ -1923,8 +1993,6 @@ static int sde_hdmi_bind(struct device *dev, struct device *master, void *data)
 	INIT_DELAYED_WORK(&display->hdcp_cb_work,
 					  sde_hdmi_tx_hdcp_cb_work);
 	mutex_init(&display->hdcp_mutex);
-	_sde_hdmi_init_hdcp(display);
-
 	mutex_unlock(&display->display_lock);
 	return rc;
 

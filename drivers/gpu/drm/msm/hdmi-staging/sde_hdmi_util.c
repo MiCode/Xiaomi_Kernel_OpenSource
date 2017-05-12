@@ -307,7 +307,7 @@ int sde_hdmi_config_avmute(struct hdmi *hdmi, bool set)
 		hdmi_write(hdmi, HDMI_VBI_PKT_CTRL,
 			hdmi_read(hdmi, HDMI_VBI_PKT_CTRL) | (BIT(4) & BIT(5)));
 
-	SDE_DEBUG("AVMUTE %s\n", set ? "set" : "cleared");
+	pr_info("AVMUTE %s\n", set ? "set" : "cleared");
 
 	return 0;
 }

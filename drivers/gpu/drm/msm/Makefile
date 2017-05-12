@@ -51,7 +51,8 @@ msm_drm-y := \
 	sde_dbg_evtlog.o \
 	sde_io_util.o \
 	dba_bridge.o \
-	sde_edid_parser.o
+	sde_edid_parser.o \
+	sde_hdcp_1x.o
 
 # use drm gpu driver only if qcom_kgsl driver not available
 ifneq ($(CONFIG_QCOM_KGSL),y)

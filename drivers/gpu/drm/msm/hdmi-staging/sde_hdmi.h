@@ -85,6 +85,11 @@ enum hdmi_tx_io_type {
 	HDMI_TX_MAX_IO
 };
 
+enum hdmi_tx_feature_type {
+	SDE_HDCP_1x,
+	SDE_HDCP_2P2
+};
+
 /**
  * struct sde_hdmi - hdmi display information
  * @pdev:             Pointer to platform device.
@@ -137,7 +142,12 @@ struct sde_hdmi {
 	u8 hdcp_status;
 	u32 enc_lvl;
 	bool auth_state;
+	/*hold final data
+	 *based on hdcp support
+	 */
 	void *hdcp_data;
+	/*hold hdcp init data*/
+	void *hdcp_feature_data[2];
 	struct sde_hdcp_ops *hdcp_ops;
 	struct sde_hdmi_tx_ddc_ctrl ddc_ctrl;
 	struct work_struct hpd_work;
@@ -418,6 +428,8 @@ bool sde_hdmi_tx_is_hdcp_enabled(struct sde_hdmi *hdmi_ctrl);
 bool sde_hdmi_tx_is_encryption_set(struct sde_hdmi *hdmi_ctrl);
 bool sde_hdmi_tx_is_stream_shareable(struct sde_hdmi *hdmi_ctrl);
 bool sde_hdmi_tx_is_panel_on(struct sde_hdmi *hdmi_ctrl);
+int sde_hdmi_start_hdcp(struct drm_connector *connector);
+void sde_hdmi_hdcp_off(struct sde_hdmi *hdmi_ctrl);
 
 #else /*#ifdef CONFIG_DRM_SDE_HDMI*/
 
@@ -501,6 +513,16 @@ static inline int sde_hdmi_drm_init(struct sde_hdmi *display,
 				struct drm_encoder *enc)
 {
 	return 0;
+}
+
+int sde_hdmi_start_hdcp(struct drm_connector *connector)
+{
+	return 0;
+}
+
+void sde_hdmi_hdcp_off(struct sde_hdmi *hdmi_ctrl)
+{
+
 }
 
 static inline int sde_hdmi_drm_deinit(struct sde_hdmi *display)
