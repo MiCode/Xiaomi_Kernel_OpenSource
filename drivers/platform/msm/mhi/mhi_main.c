@@ -508,6 +508,7 @@ int mhi_register_channel(struct mhi_client_handle **client_handle,
 	struct mhi_client_config *client_config;
 	const char *node_name;
 	enum MHI_CLIENT_CHANNEL chan;
+	struct mhi_chan_info chan_info = {0};
 	int ret;
 
 	if (!client_info || client_info->dev->of_node == NULL)
@@ -536,6 +537,14 @@ int mhi_register_channel(struct mhi_client_handle **client_handle,
 
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
 		"Registering channel 0x%x for client\n", chan);
+
+	/* check if it's a supported channel by endpoint */
+	ret = get_chan_props(mhi_dev_ctxt, chan, &chan_info);
+	if (ret) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"Client try to register unsupported chan:%d\n", chan);
+		return -EINVAL;
+	}
 
 	*client_handle = kzalloc(sizeof(struct mhi_client_handle), GFP_KERNEL);
 	if (NULL == *client_handle)
@@ -567,7 +576,7 @@ int mhi_register_channel(struct mhi_client_handle **client_handle,
 	if (MHI_CLIENT_IP_HW_0_IN  == chan)
 		client_config->intmod_t = 10;
 
-	get_chan_props(mhi_dev_ctxt, chan, &client_config->chan_info);
+	client_config->chan_info = chan_info;
 	ret = enable_bb_ctxt(mhi_dev_ctxt, &mhi_dev_ctxt->chan_bb_list[chan],
 			     client_config->chan_info.max_desc, chan,
 			     client_config->client_info.max_payload);
