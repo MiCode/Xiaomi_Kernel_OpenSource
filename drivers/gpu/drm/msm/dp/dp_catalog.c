@@ -493,6 +493,43 @@ static void dp_catalog_ctrl_set_pattern(struct dp_catalog_ctrl *ctrl,
 		pr_err("set link_train=%d failed\n", pattern);
 }
 
+static void dp_catalog_ctrl_usb_reset(struct dp_catalog_ctrl *ctrl, bool flip)
+{
+	struct dp_catalog_private *catalog;
+	void __iomem *base;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp_catalog_get_priv(ctrl);
+
+	base = catalog->io->usb3_dp_com.base;
+
+	dp_write(base + USB3_DP_COM_RESET_OVRD_CTRL, 0x0a);
+	dp_write(base + USB3_DP_COM_PHY_MODE_CTRL, 0x02);
+	dp_write(base + USB3_DP_COM_SW_RESET, 0x01);
+	/* make sure usb3 com phy software reset is done */
+	wmb();
+
+	if (!flip) /* CC1 */
+		dp_write(base + USB3_DP_COM_TYPEC_CTRL, 0x02);
+	else /* CC2 */
+		dp_write(base + USB3_DP_COM_TYPEC_CTRL, 0x03);
+
+	dp_write(base + USB3_DP_COM_SWI_CTRL, 0x00);
+	dp_write(base + USB3_DP_COM_SW_RESET, 0x00);
+	/* make sure the software reset is done */
+	wmb();
+
+	dp_write(base + USB3_DP_COM_POWER_DOWN_CTRL, 0x01);
+	dp_write(base + USB3_DP_COM_RESET_OVRD_CTRL, 0x00);
+	/* make sure phy is brought out of reset */
+	wmb();
+
+}
+
 static void dp_catalog_ctrl_reset(struct dp_catalog_ctrl *ctrl)
 {
 	u32 sw_reset;
@@ -937,6 +974,7 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
 		.config_msa     = dp_catalog_ctrl_config_msa,
 		.set_pattern    = dp_catalog_ctrl_set_pattern,
 		.reset          = dp_catalog_ctrl_reset,
+		.usb_reset      = dp_catalog_ctrl_usb_reset,
 		.mainlink_ready = dp_catalog_ctrl_mainlink_ready,
 		.enable_irq     = dp_catalog_ctrl_enable_irq,
 		.hpd_config     = dp_catalog_ctrl_hpd_config,

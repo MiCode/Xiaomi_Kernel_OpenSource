@@ -65,6 +65,7 @@ struct dp_display_data {
  * @dp_cc_io: DP cc's mapped memory address
  * @qfprom_io: qfprom's mapped memory address
  * @dp_pll_io: DP PLL mapped memory address
+ * @usb3_dp_com: USB3 DP PHY combo mapped memory address
  * @hdcp_io: hdcp's mapped memory address
  */
 struct dp_io {
@@ -75,6 +76,7 @@ struct dp_io {
 	struct dss_io_data dp_cc_io;
 	struct dss_io_data qfprom_io;
 	struct dss_io_data dp_pll_io;
+	struct dss_io_data usb3_dp_com;
 	struct dss_io_data hdcp_io;
 };
 
