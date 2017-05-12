@@ -9,7 +9,7 @@ Properties:
 - compatible
 	Usage:      required
 	Value type: <string>
-	Definition: must be "qcom,clk-cpu-osm".
+	Definition: must be "qcom,clk-cpu-osm" or "qcom,clk-cpu-osm-v2".
 
 - reg
 	Usage:      required

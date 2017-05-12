@@ -150,12 +150,17 @@
 
 #define DATA_MEM(n)			(0x400 + (n) * 4)
 
-#define DCVS_PERF_STATE_DESIRED_REG_0	0x780
-#define DCVS_PERF_STATE_DESIRED_REG(n) (DCVS_PERF_STATE_DESIRED_REG_0 + \
-					(4 * n))
-#define OSM_CYCLE_COUNTER_STATUS_REG_0	0x7d0
-#define OSM_CYCLE_COUNTER_STATUS_REG(n)	(OSM_CYCLE_COUNTER_STATUS_REG_0 + \
-					(4 * n))
+#define DCVS_PERF_STATE_DESIRED_REG_0_V1	0x780
+#define DCVS_PERF_STATE_DESIRED_REG_0_V2	0x920
+#define DCVS_PERF_STATE_DESIRED_REG(n, v2) \
+	(((v2) ? DCVS_PERF_STATE_DESIRED_REG_0_V2 \
+		: DCVS_PERF_STATE_DESIRED_REG_0_V1) + 4 * (n))
+
+#define OSM_CYCLE_COUNTER_STATUS_REG_0_V1	0x7d0
+#define OSM_CYCLE_COUNTER_STATUS_REG_0_V2	0x9c0
+#define OSM_CYCLE_COUNTER_STATUS_REG(n, v2) \
+	(((v2) ? OSM_CYCLE_COUNTER_STATUS_REG_0_V2 \
+		: OSM_CYCLE_COUNTER_STATUS_REG_0_V1) + 4 * (n))
 
 /* ACD registers */
 #define ACD_HW_VERSION		0x0
@@ -444,6 +449,8 @@ static int clk_osm_acd_auto_local_write_reg(struct clk_osm *c, u32 mask)
 	return 0;
 }
 
+static bool is_v2;
+
 static inline struct clk_osm *to_clk_osm(struct clk_hw *_hw)
 {
 	return container_of(_hw, struct clk_osm, hw);
@@ -604,8 +611,8 @@ static int l3_clk_set_rate(struct clk_hw *hw, unsigned long rate,
 	}
 	pr_debug("rate: %lu --> index %d\n", rate, index);
 
-	clk_osm_write_reg(cpuclk, index, DCVS_PERF_STATE_DESIRED_REG_0,
-				OSM_BASE);
+	clk_osm_write_reg(cpuclk, index, DCVS_PERF_STATE_DESIRED_REG(0, is_v2),
+						OSM_BASE);
 
 	/* Make sure the write goes through before proceeding */
 	clk_osm_mb(cpuclk, OSM_BASE);
@@ -622,7 +629,7 @@ static unsigned long l3_clk_recalc_rate(struct clk_hw *hw,
 	if (!cpuclk)
 		return -EINVAL;
 
-	index = clk_osm_read_reg(cpuclk, DCVS_PERF_STATE_DESIRED_REG_0);
+	index = clk_osm_read_reg(cpuclk, DCVS_PERF_STATE_DESIRED_REG(0, is_v2));
 
 	pr_debug("%s: Index %d, freq %ld\n", __func__, index,
 				cpuclk->osm_table[index].frequency);
@@ -890,7 +897,8 @@ static struct clk_osm *osm_configure_policy(struct cpufreq_policy *policy)
 static void
 osm_set_index(struct clk_osm *c, unsigned int index, unsigned int num)
 {
-	clk_osm_write_reg(c, index, DCVS_PERF_STATE_DESIRED_REG(num), OSM_BASE);
+	clk_osm_write_reg(c, index, DCVS_PERF_STATE_DESIRED_REG(num, is_v2),
+							OSM_BASE);
 
 	/* Make sure the write goes through before proceeding */
 	clk_osm_mb(c, OSM_BASE);
@@ -915,8 +923,8 @@ static unsigned int osm_cpufreq_get(unsigned int cpu)
 		return 0;
 
 	c = policy->driver_data;
-	index = clk_osm_read_reg(c, DCVS_PERF_STATE_DESIRED_REG(c->core_num));
-
+	index = clk_osm_read_reg(c,
+			DCVS_PERF_STATE_DESIRED_REG(c->core_num, is_v2));
 	return policy->freq_table[index].frequency;
 }
 
@@ -1872,6 +1880,7 @@ static void populate_opp_table(struct platform_device *pdev)
 static u64 clk_osm_get_cpu_cycle_counter(int cpu)
 {
 	u32 val;
+	int core_num;
 	unsigned long flags;
 	struct clk_osm *parent, *c = logical_cpu_to_clk(cpu);
 
@@ -1887,12 +1896,9 @@ static u64 clk_osm_get_cpu_cycle_counter(int cpu)
 	 * Use core 0's copy as proxy for the whole cluster when per
 	 * core DCVS is disabled.
 	 */
-	if (parent->per_core_dcvs)
-		val = clk_osm_read_reg_no_log(parent,
-			OSM_CYCLE_COUNTER_STATUS_REG(c->core_num));
-	else
-		val = clk_osm_read_reg_no_log(parent,
-			OSM_CYCLE_COUNTER_STATUS_REG(0));
+	core_num = parent->per_core_dcvs ? c->core_num : 0;
+	val = clk_osm_read_reg_no_log(parent,
+			OSM_CYCLE_COUNTER_STATUS_REG(core_num, is_v2));
 
 	if (val < c->prev_cycle_counter) {
 		/* Handle counter overflow */
@@ -2997,6 +3003,9 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 		return PTR_ERR(ext_xo_clk);
 	}
 
+	is_v2 = of_device_is_compatible(pdev->dev.of_node,
+					"qcom,clk-cpu-osm-v2");
+
 	clk_data = devm_kzalloc(&pdev->dev, sizeof(struct clk_onecell_data),
 								GFP_KERNEL);
 	if (!clk_data)
@@ -3324,6 +3333,7 @@ exit:
 
 static const struct of_device_id match_table[] = {
 	{ .compatible = "qcom,clk-cpu-osm" },
+	{ .compatible = "qcom,clk-cpu-osm-v2" },
 	{}
 };
 
