@@ -3916,7 +3916,7 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 #ifndef CONFIG_64BIT
 		smmu->va_size = min(32UL, smmu->va_size);
 #endif
-		smmu->va_size = min(36UL, smmu->va_size);
+		smmu->va_size = min(39UL, smmu->va_size);
 		size = 0;
 		if (id & ID2_PTFS_4K)
 			size |= SZ_4K | SZ_2M | SZ_1G;
