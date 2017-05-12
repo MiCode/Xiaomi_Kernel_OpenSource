@@ -418,7 +418,7 @@ exit_geni_se_init:
 static inline void geni_setup_m_cmd(void __iomem *base, u32 cmd,
 								u32 params)
 {
-	u32 m_cmd = geni_read_reg(base, SE_GENI_M_CMD0);
+	u32 m_cmd = 0;
 
 	m_cmd &= ~(M_OPCODE_MSK | M_PARAMS_MSK);
 	m_cmd |= (cmd << M_OPCODE_SHFT);
@@ -429,7 +429,7 @@ static inline void geni_setup_m_cmd(void __iomem *base, u32 cmd,
 static inline void geni_setup_s_cmd(void __iomem *base, u32 cmd,
 								u32 params)
 {
-	u32 s_cmd = geni_read_reg(base, SE_GENI_S_CMD0);
+	u32 s_cmd = 0;
 
 	s_cmd &= ~(S_OPCODE_MSK | S_PARAMS_MSK);
 	s_cmd |= (cmd << S_OPCODE_SHFT);
