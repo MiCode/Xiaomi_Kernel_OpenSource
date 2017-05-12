@@ -453,7 +453,7 @@ static int msm_ba_probe(struct platform_device *pdev)
 	struct ba_ctxt *ba_ctxt;
 	int rc = 0;
 
-	dprintk(BA_INFO, "Enter %s: pdev %p device id = %d",
+	dprintk(BA_INFO, "Enter %s: pdev %pK device id = %d",
 		__func__, pdev, pdev->id);
 	ba_ctxt = msm_ba_get_ba_context();
 
