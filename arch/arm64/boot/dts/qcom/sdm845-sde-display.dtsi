@@ -153,8 +153,8 @@
 		label = "dsi_sharp_1080_cmd_display";
 		qcom,display-type = "primary";
 
-		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
-		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
+		qcom,dsi-ctrl = <&mdss_dsi0>;
+		qcom,dsi-phy = <&mdss_dsi_phy0>;
 		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
 			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
@@ -436,8 +436,10 @@
 };
 
 &dsi_sharp_1080_cmd {
-	qcom,display-topology = <2 0 2>,
-				<1 0 2>;
+	qcom,mdss-dsi-panel-phy-timings = [00 1A 06 06 22 20 07 07 04 03 04 00];
+	qcom,mdss-dsi-t-clk-post = <0x0c>;
+	qcom,mdss-dsi-t-clk-pre = <0x29>;
+	qcom,display-topology = <1 0 1>;
 	qcom,default-topology-index = <0>;
 };
 
