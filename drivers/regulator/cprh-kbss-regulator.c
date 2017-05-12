@@ -2282,6 +2282,13 @@ static int cprh_kbss_init_controller(struct cpr3_controller *ctrl)
 				 rc);
 			return rc;
 		}
+
+		ctrl->acd_notwait_for_cl_settled =
+			of_property_read_bool(ctrl->dev->of_node,
+					      "qcom,cpr-acd-notwait-for-cl-settled");
+		ctrl->acd_adj_avg_fast_update =
+			of_property_read_bool(ctrl->dev->of_node,
+					      "qcom,cpr-acd-avg-fast-update");
 	}
 
 	rc = of_property_read_u32(ctrl->dev->of_node,
