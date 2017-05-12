@@ -1,0 +1,111 @@
+* Qualcomm Technologies, Inc. MSM Camera IFE CSID
+
+Camera IFE CSID device provides the definitions for enabling
+the IFE CSID hardware. It also provides the functions for the client
+to control the IFE CSID hardware.
+
+=======================
+Required Node Structure
+=======================
+The IFE CSID device is described in one level of the device node.
+
+======================================
+First Level Node - CAM IFE CSID device
+======================================
+- compatible
+  Usage: required
+  Value type: <string>
+  Definition: Should be "qcom,csid170" or "qcom,csid-lite170".
+
+- cell-index
+  Usage: required
+  Value type: <u32>
+  Definition: Should specify the hardware index id.
+
+- reg-names
+  Usage: required
+  Value type: <string>
+  Definition: Should be "csid".
+
+- reg
+  Usage: required
+  Value type: <u32>
+  Definition: Register values.
+
+- interrupt-names
+  Usage: Required
+  Value type: <string>
+  Definition: Name of the interrupt.
+
+- interrupts
+  Usage: Required
+  Value type: <u32>
+  Definition: Interrupt associated with IFE CSID HW.
+
+- regulator-names
+  Usage: required
+  Value type: <string>
+  Definition: Name of the regulator resources for IFE CSID HW.
+
+- xxxx-supply
+  Usage: required
+  Value type: <phandle>
+  Definition: Regulator reference corresponding to the names listed in
+                "regulator-names".
+
+- clock-names
+  Usage: required
+  Value type: <string>
+  Definition: List of clock names required for IFE CSID HW.
+
+- clocks
+  Usage: required
+  Value type: <phandle>
+  Definition: List of clocks used for IFE CSID HW.
+
+- clock-rates
+  Usage: required
+  Value type: <u32>
+  Definition: List of clocks rates.
+
+- src-clock-name
+  Usage: required
+  Value type: <string>
+  Definition: Source clock name.
+
+
+
+Example:
+
+	qcom,csid0@acb3000 {
+		cell-index = <0>;
+		compatible = "qcom,csid170";
+		reg = <0xacb3000 0x1000>;
+		reg-names = "csid";
+		interrupts = <0 464 0>;
+		interrupt-names = "csid";
+		vdd-names = "camss", "ife0";
+		camss-supply = <&titan_top_gdsc>;
+		ife0-supply = <&ife_0_gdsc>;
+		clock-names = "soc_ahb_clk",
+			"cpas_ahb_clk",
+			"slow_ahb_clk_src",
+			"ife_clk",
+			"ife_clk_src",
+			"ife_csid_clk",
+			"ife_csid_clk_src",
+			"ife_cphy_rx_clk",
+			"cphy_rx_clk_src";
+		clocks = <&clock_camcc CAM_CC_SOC_AHB_CLK>,
+			<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
+			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
+			<&clock_camcc CAM_CC_IFE_0_CLK>,
+			<&clock_camcc CAM_CC_IFE_0_CLK_SRC>,
+			<&clock_camcc CAM_CC_IFE_0_CSID_CLK>,
+			<&clock_camcc CAM_CC_IFE_0_CSID_CLK_SRC>,
+			<&clock_camcc CAM_CC_IFE_0_CPHY_RX_CLK>,
+			<&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>;
+		clock-rates = <0 0 80000000 0 320000000 0 384000000 0 384000000>;
+		src-clock-name = "ife_csid_clk_src";
+		status = "ok";
+	};
