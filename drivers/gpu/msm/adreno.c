@@ -1251,9 +1251,12 @@ static int adreno_init(struct kgsl_device *device)
 		return ret;
 
 	/* Put the GPU in a responsive state */
-	ret = kgsl_pwrctrl_change_state(device, KGSL_STATE_AWARE);
-	if (ret)
-		return ret;
+	if (ADRENO_GPUREV(adreno_dev) < 600) {
+		/* No need for newer generation architectures */
+		ret = kgsl_pwrctrl_change_state(device, KGSL_STATE_AWARE);
+		if (ret)
+			return ret;
+	}
 
 	ret = adreno_iommu_init(adreno_dev);
 	if (ret)
@@ -1263,7 +1266,8 @@ static int adreno_init(struct kgsl_device *device)
 	adreno_fault_detect_init(adreno_dev);
 
 	/* Power down the device */
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
+	if (ADRENO_GPUREV(adreno_dev) < 600)
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
 
 	if (gpudev->init != NULL)
 		gpudev->init(adreno_dev);
@@ -1328,6 +1332,9 @@ static int adreno_init(struct kgsl_device *device)
 static bool regulators_left_on(struct kgsl_device *device)
 {
 	int i;
+
+	if (kgsl_gmu_isenabled(device))
+		return false;
 
 	for (i = 0; i < KGSL_MAX_REGULATORS; i++) {
 		struct kgsl_regulator *regulator =
