@@ -377,6 +377,12 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 
 	drvdata = file->private_data;
 
+	if (IS_ERR(priv_arg)) {
+		dev_err(drvdata->dev, "%s: invalid user space pointer %lu\n",
+			__func__, arg);
+		return -EINVAL;
+	}
+
 	mutex_lock(&drvdata->mutex);
 
 	pr_debug("qbt1000_ioctl %d\n", cmd);
@@ -401,6 +407,13 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			goto end;
 		}
 
+		if (strcmp(app.name, FP_APP_NAME)) {
+			dev_err(drvdata->dev, "%s: Invalid app name\n",
+				__func__);
+			rc = -EINVAL;
+			goto end;
+		}
+
 		if (drvdata->app_handle) {
 			dev_err(drvdata->dev, "%s: LOAD app already loaded, unloading first\n",
 				__func__);
@@ -414,6 +427,7 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 		}
 
 		pr_debug("app %s load before\n", app.name);
+		app.name[MAX_NAME_SIZE - 1] = '\0';
 
 		/* start the TZ app */
 		rc = qseecom_start_app(
@@ -427,7 +441,8 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 				pr_err("App %s failed to set bw\n", app.name);
 			}
 		} else {
-			pr_err("app %s failed to load\n", app.name);
+			dev_err(drvdata->dev, "%s: Fingerprint Trusted App failed to load\n",
+				__func__);
 			goto end;
 		}
 
@@ -447,9 +462,7 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 
 		pr_debug("app %s load after\n", app.name);
 
-		if (!strcmp(app.name, FP_APP_NAME))
-			drvdata->fp_app_handle = drvdata->app_handle;
-
+		drvdata->fp_app_handle = drvdata->app_handle;
 		break;
 	}
 	case QBT1000_UNLOAD_APP:
