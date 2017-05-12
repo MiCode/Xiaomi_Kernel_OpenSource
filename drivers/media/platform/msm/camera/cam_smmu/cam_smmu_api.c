@@ -94,11 +94,6 @@ struct scratch_mapping {
 	dma_addr_t base;
 };
 
-struct cam_smmu_region_info {
-	dma_addr_t iova_start;
-	size_t iova_len;
-};
-
 struct cam_context_bank_info {
 	struct device *dev;
 	struct dma_iommu_mapping *mapping;
@@ -993,6 +988,87 @@ end:
 	return rc;
 }
 EXPORT_SYMBOL(cam_smmu_dealloc_firmware);
+
+int cam_smmu_get_region_info(int32_t smmu_hdl,
+	enum cam_smmu_region_id region_id,
+	struct cam_smmu_region_info *region_info)
+{
+	int32_t idx;
+	struct cam_context_bank_info *cb = NULL;
+
+	if (!region_info) {
+		pr_err("Invalid region_info pointer\n");
+		return -EINVAL;
+	}
+
+	if (smmu_hdl == HANDLE_INIT) {
+		pr_err("Invalid handle\n");
+		return -EINVAL;
+	}
+
+	idx = GET_SMMU_TABLE_IDX(smmu_hdl);
+	if (idx < 0 || idx >= iommu_cb_set.cb_num) {
+		pr_err("Handle or index invalid. idx = %d hdl = %x\n",
+			idx, smmu_hdl);
+		return -EINVAL;
+	}
+
+	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
+	cb = &iommu_cb_set.cb_info[idx];
+	if (!cb) {
+		pr_err("SMMU context bank pointer invalid\n");
+		mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+		return -EINVAL;
+	}
+
+	switch (region_id) {
+	case CAM_SMMU_REGION_FIRMWARE:
+		if (!cb->firmware_support) {
+			pr_err("Firmware not supported\n");
+			mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+			return -ENODEV;
+		}
+		region_info->iova_start = cb->firmware_info.iova_start;
+		region_info->iova_len = cb->firmware_info.iova_len;
+		break;
+	case CAM_SMMU_REGION_SHARED:
+		if (!cb->shared_support) {
+			pr_err("Shared mem not supported\n");
+			mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+			return -ENODEV;
+		}
+		region_info->iova_start = cb->shared_info.iova_start;
+		region_info->iova_len = cb->shared_info.iova_len;
+		break;
+	case CAM_SMMU_REGION_SCRATCH:
+		if (!cb->scratch_buf_support) {
+			pr_err("Scratch memory not supported\n");
+			mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+			return -ENODEV;
+		}
+		region_info->iova_start = cb->scratch_info.iova_start;
+		region_info->iova_len = cb->scratch_info.iova_len;
+		break;
+	case CAM_SMMU_REGION_IO:
+		if (!cb->io_support) {
+			pr_err("IO memory not supported\n");
+			mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+			return -ENODEV;
+		}
+		region_info->iova_start = cb->io_info.iova_start;
+		region_info->iova_len = cb->io_info.iova_len;
+		break;
+	default:
+		pr_err("Invalid region id: %d for smmu hdl: %X\n",
+			smmu_hdl, region_id);
+		mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+		return -EINVAL;
+	}
+
+	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+	return 0;
+}
+EXPORT_SYMBOL(cam_smmu_get_region_info);
 
 static int cam_smmu_map_buffer_and_add_to_list(int idx, int ion_fd,
 	 enum dma_data_direction dma_dir, dma_addr_t *paddr_ptr,

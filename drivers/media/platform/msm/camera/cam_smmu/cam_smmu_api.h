@@ -49,6 +49,17 @@ enum cam_smmu_region_id {
 };
 
 /**
+ * @brief            : Structure to store region information
+ *
+ * @param iova_start : Start address of region
+ * @param iova_len   : length of region
+ */
+struct cam_smmu_region_info {
+	dma_addr_t iova_start;
+	size_t iova_len;
+};
+
+/**
  * @brief           : Gets an smmu handle
  *
  * @param identifier: Unique identifier to be used by clients which they
@@ -252,4 +263,17 @@ int cam_smmu_alloc_firmware(int32_t smmu_hdl,
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 int cam_smmu_dealloc_firmware(int32_t smmu_hdl);
+
+/**
+ * @brief Gets region information specified by smmu handle and region id
+ *
+ * @param smmu_hdl: SMMU handle identifying the context bank
+ * @param region_id: Region id for which information is desired
+ * @param region_info: Struct populated with region information
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_smmu_get_region_info(int32_t smmu_hdl,
+	enum cam_smmu_region_id region_id,
+	struct cam_smmu_region_info *region_info);
 #endif /* _CAM_SMMU_API_H_ */
