@@ -121,6 +121,7 @@
 		qcom,sde-has-cdp;
 		qcom,sde-has-src-split;
 		qcom,sde-has-dim-layer;
+		qcom,sde-has-idle-pc;
 		qcom,sde-max-bw-low-kbps = <9600000>;
 		qcom,sde-max-bw-high-kbps = <9600000>;
 		qcom,sde-dram-channels = <2>;
