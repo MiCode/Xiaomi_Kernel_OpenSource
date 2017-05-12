@@ -2608,7 +2608,7 @@
 	};
 
 	thermal_zones: thermal-zones {
-		aoss0-ts0-h {
+		aoss0-usr {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "user_space";
@@ -2622,7 +2622,7 @@
 			};
 		};
 
-		cpu0-silver-ts0-h {
+		cpu0-silver-usr {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "user_space";
@@ -2636,7 +2636,7 @@
 			};
 		};
 
-		cpu1-silver-ts0-h {
+		cpu1-silver-usr {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "user_space";
@@ -2650,7 +2650,7 @@
 			};
 		};
 
-		cpu2-silver-ts0-h {
+		cpu2-silver-usr {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "user_space";
@@ -2664,7 +2664,7 @@
 			};
 		};
 
-		cpu3-silver-ts0-h {
+		cpu3-silver-usr {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-sensors = <&tsens0 4>;
@@ -2678,7 +2678,7 @@
 			};
 		};
 
-		kryo-l3-0-ts0-h {
+		kryo-l3-0-usr {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-sensors = <&tsens0 5>;
@@ -2692,7 +2692,7 @@
 			};
 		};
 
-		kryo-l3-1-ts0-h {
+		kryo-l3-1-usr {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-sensors = <&tsens0 6>;
@@ -2706,7 +2706,7 @@
 			};
 		};
 
-		cpu0-gold-ts0-h {
+		cpu0-gold-usr {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-sensors = <&tsens0 7>;
@@ -2720,7 +2720,7 @@
 			};
 		};
 
-		cpu1-gold-ts0-h {
+		cpu1-gold-usr {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-sensors = <&tsens0 8>;
@@ -2734,7 +2734,7 @@
 			};
 		};
 
-		cpu2-gold-ts0-h {
+		cpu2-gold-usr {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-sensors = <&tsens0 9>;
@@ -2748,7 +2748,7 @@
 			};
 		};
 
-		cpu3-gold-ts0-h {
+		cpu3-gold-usr {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-sensors = <&tsens0 10>;
@@ -2762,7 +2762,7 @@
 			};
 		};
 
-		gpu0-ts0-h {
+		gpu0-usr {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-sensors = <&tsens0 11>;
@@ -2776,7 +2776,7 @@
 			};
 		};
 
-		gpu1-ts0-h {
+		gpu1-usr {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "user_space";
@@ -2790,7 +2790,7 @@
 			};
 		};
 
-		aoss1-ts1-h {
+		aoss1-usr {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-sensors = <&tsens1 0>;
@@ -2804,7 +2804,7 @@
 			};
 		};
 
-		mdm-dsp-ts1-h {
+		mdm-dsp-usr {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-sensors = <&tsens1 1>;
@@ -2820,7 +2820,7 @@
 
 
 
-		ddr-ts1-h {
+		ddr-usr {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-sensors = <&tsens1 2>;
@@ -2834,7 +2834,7 @@
 			};
 		};
 
-		wlan-ts1-h {
+		wlan-usr {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-sensors = <&tsens1 3>;
@@ -2848,7 +2848,7 @@
 			};
 		};
 
-		compute-hvx-ts1-h {
+		compute-hvx-usr {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-sensors = <&tsens1 4>;
@@ -2862,7 +2862,7 @@
 			};
 		};
 
-		camera-ts1-h {
+		camera-usr {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-sensors = <&tsens1 5>;
@@ -2876,7 +2876,7 @@
 			};
 		};
 
-		mmss-ts1-h {
+		mmss-usr {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-sensors = <&tsens1 6>;
@@ -2890,7 +2890,7 @@
 			};
 		};
 
-		mdm-core-ts1-h {
+		mdm-core-usr {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-sensors = <&tsens1 7>;
@@ -2904,7 +2904,7 @@
 			};
 		};
 
-		gpu0 {
+		gpu0-step {
 			polling-delay-passive = <10>;
 			polling-delay = <0>;
 			thermal-sensors = <&tsens0 11>;
@@ -2925,7 +2925,7 @@
 			};
 		};
 
-		gpu1 {
+		gpu1-step {
 			polling-delay-passive = <10>;
 			polling-delay = <0>;
 			thermal-sensors = <&tsens0 12>;
@@ -2946,7 +2946,7 @@
 			};
 		};
 
-		pop-mem {
+		pop-mem-step {
 			polling-delay-passive = <10>;
 			polling-delay = <0>;
 			thermal-sensors = <&tsens1 2>;
@@ -2967,7 +2967,7 @@
 			};
 		};
 
-		aoss0-ts0-l {
+		aoss0-lowf {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "low_limits_floor";
@@ -2996,7 +2996,7 @@
 			};
 		};
 
-		cpu0-silver-ts0-l {
+		cpu0-silver-lowf {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "low_limits_floor";
@@ -3025,7 +3025,7 @@
 			};
 		};
 
-		cpu1-silver-ts0-l {
+		cpu1-silver-lowf {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "low_limits_floor";
@@ -3054,7 +3054,7 @@
 			};
 		};
 
-		cpu2-silver-ts0-l {
+		cpu2-silver-lowf {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "low_limits_floor";
@@ -3083,7 +3083,7 @@
 			};
 		};
 
-		cpu3-silver-ts0-l {
+		cpu3-silver-lowf {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "low_limits_floor";
@@ -3112,7 +3112,7 @@
 			};
 		};
 
-		kryo-l3-0-ts0-l {
+		kryo-l3-0-lowf {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "low_limits_floor";
@@ -3141,7 +3141,7 @@
 			};
 		};
 
-		kryo-l3-1-ts0-l {
+		kryo-l3-1-lowf {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "low_limits_floor";
@@ -3170,7 +3170,7 @@
 			};
 		};
 
-		cpu0-gold-ts0-l {
+		cpu0-gold-lowf {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "low_limits_floor";
@@ -3199,7 +3199,7 @@
 			};
 		};
 
-		cpu1-gold-ts0-l {
+		cpu1-gold-lowf {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "low_limits_floor";
@@ -3228,7 +3228,7 @@
 			};
 		};
 
-		cpu2-gold-ts0-l {
+		cpu2-gold-lowf {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "low_limits_floor";
@@ -3257,11 +3257,11 @@
 			};
 		};
 
-		cpu3-gold-ts0-l {
+		cpu3-gold-lowf {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "low_limits_floor";
-			thermal-sensors = <&tsens0 9>;
+			thermal-sensors = <&tsens0 10>;
 			tracks-low;
 			trips {
 				cpug3_trip: cpug3-trip {
@@ -3286,11 +3286,11 @@
 			};
 		};
 
-		gpu0-ts0-l {
+		gpu0-lowf {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "low_limits_floor";
-			thermal-sensors = <&tsens0 10>;
+			thermal-sensors = <&tsens0 11>;
 			tracks-low;
 			trips {
 				gpu0_trip_l: gpu0-trip {
@@ -3315,11 +3315,11 @@
 			};
 		};
 
-		gpu1-ts0-l {
+		gpu1-lowf {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "low_limits_floor";
-			thermal-sensors = <&tsens0 11>;
+			thermal-sensors = <&tsens0 12>;
 			tracks-low;
 			trips {
 				gpu1_trip_l: gpu1-trip_l {
@@ -3344,7 +3344,7 @@
 			};
 		};
 
-		aoss1-ts1-l {
+		aoss1-lowf {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "low_limits_floor";
@@ -3373,7 +3373,7 @@
 			};
 		};
 
-		mdm-dsp-ts1-l {
+		mdm-dsp-lowf {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "low_limits_floor";
@@ -3402,7 +3402,7 @@
 			};
 		};
 
-		ddr-ts1-l {
+		ddr-lowf {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "low_limits_floor";
@@ -3431,7 +3431,7 @@
 			};
 		};
 
-		wlan-ts1-l {
+		wlan-lowf {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "low_limits_floor";
@@ -3460,7 +3460,7 @@
 			};
 		};
 
-		compute-hvx-ts1-l {
+		compute-hvx-lowf {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "low_limits_floor";
@@ -3489,7 +3489,7 @@
 			};
 		};
 
-		camera-ts1-l {
+		camera-lowf {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "low_limits_floor";
@@ -3518,7 +3518,7 @@
 			};
 		};
 
-		mmss-ts1-l {
+		mmss-lowf {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "low_limits_floor";
@@ -3547,7 +3547,7 @@
 			};
 		};
 
-		mdm-core-ts1-l {
+		mdm-core-lowf {
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
 			thermal-governor = "low_limits_floor";
