@@ -497,6 +497,12 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 			resp->usb_audio_subslot_size = SUBSLOTSIZE_24_BIT;
 			break;
 		}
+
+		default:
+			pr_err("%d: %u: Invalid wMaxPacketSize\n",
+				subs->interface, subs->altset_idx);
+			ret = -EINVAL;
+			goto err;
 		}
 		resp->usb_audio_subslot_size_valid = 1;
 	} else {
