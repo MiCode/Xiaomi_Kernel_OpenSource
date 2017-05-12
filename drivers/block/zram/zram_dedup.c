@@ -109,6 +109,51 @@ static unsigned long zram_dedup_put(struct zram *zram,
 	return entry->refcount;
 }
 
+static struct zram_entry *__zram_dedup_get(struct zram *zram,
+				struct zram_hash *hash, unsigned char *mem,
+				struct zram_entry *entry)
+{
+	struct zram_entry *tmp, *prev = NULL;
+	struct rb_node *rb_node;
+
+	/* find left-most entry with same checksum */
+	while ((rb_node = rb_prev(&entry->rb_node))) {
+		tmp = rb_entry(rb_node, struct zram_entry, rb_node);
+		if (tmp->checksum != entry->checksum)
+			break;
+
+		entry = tmp;
+	}
+
+again:
+	entry->refcount++;
+	atomic64_add(entry->len, &zram->stats.dup_data_size);
+	spin_unlock(&hash->lock);
+
+	if (prev)
+		zram_entry_free(zram, prev);
+
+	if (zram_dedup_match(zram, entry, mem))
+		return entry;
+
+	spin_lock(&hash->lock);
+	tmp = NULL;
+	rb_node = rb_next(&entry->rb_node);
+	if (rb_node)
+		tmp = rb_entry(rb_node, struct zram_entry, rb_node);
+
+	if (tmp && (tmp->checksum == entry->checksum)) {
+		prev = entry;
+		entry = tmp;
+		goto again;
+	}
+
+	spin_unlock(&hash->lock);
+	zram_entry_free(zram, entry);
+
+	return NULL;
+}
+
 static struct zram_entry *zram_dedup_get(struct zram *zram,
 				unsigned char *mem, u32 checksum)
 {
@@ -122,18 +167,8 @@ static struct zram_entry *zram_dedup_get(struct zram *zram,
 	rb_node = hash->rb_root.rb_node;
 	while (rb_node) {
 		entry = rb_entry(rb_node, struct zram_entry, rb_node);
-		if (checksum == entry->checksum) {
-			entry->refcount++;
-			atomic64_add(entry->len, &zram->stats.dup_data_size);
-			spin_unlock(&hash->lock);
-
-			if (zram_dedup_match(zram, entry, mem))
-				return entry;
-
-			zram_entry_free(zram, entry);
-
-			return NULL;
-		}
+		if (checksum == entry->checksum)
+			return __zram_dedup_get(zram, hash, mem, entry);
 
 		if (checksum < entry->checksum)
 			rb_node = rb_node->rb_left;
