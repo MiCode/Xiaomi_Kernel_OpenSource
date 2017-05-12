@@ -460,4 +460,42 @@
 			};
 		};
 	};
+
+	qcom,cam-cdm-intf {
+		compatible = "qcom,cam-cdm-intf";
+		cell-index = <0>;
+		label = "cam-cdm-intf";
+		num-hw-cdm = <1>;
+		cdm-client-names = "ife",
+			"jpeg-dma",
+			"jpeg",
+			"fd";
+		status = "ok";
+	};
+
+	qcom,cpas-cdm0@ac48000 {
+		cell-index = <0>;
+		compatible = "qcom,cam170-cpas-cdm0";
+		label = "cpas-cdm";
+		reg = <0xac48000 0x1000>;
+		reg-names = "cpas-cdm";
+		reg-cam-base = <0x48000>;
+		interrupts = <0 461 0>;
+		interrupt-names = "cpas-cdm";
+		regulator-names = "camss";
+		camss-supply = <&titan_top_gdsc>;
+		clock-names = "gcc_camera_ahb",
+			"gcc_camera_axi",
+			"cam_cc_soc_ahb_clk",
+			"cam_cc_cpas_ahb_clk",
+			"cam_cc_camnoc_axi_clk";
+		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>,
+			<&clock_gcc GCC_CAMERA_AXI_CLK>,
+			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
+			<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
+			<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>;
+		clock-rates = <0 0 0 0 0>;
+		cdm-client-names = "vfe";
+		status = "ok";
+	};
 };
