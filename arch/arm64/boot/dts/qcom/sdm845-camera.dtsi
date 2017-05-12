@@ -373,11 +373,13 @@
 		client-id-based;
 		client-names =
 			"csiphy0", "csiphy1", "csiphy2", "cci0",
+			"csid0", "csid1", "csid2",
 			"ife0", "ife1", "ife2", "ipe0",
 			"ipe1", "cam-cdm-intf0", "cpas-cdm0", "bps0",
 			"icp0", "jpeg-dma0", "jpeg0", "fd0";
 		client-axi-port-names =
 			"cam_hf_1", "cam_hf_2", "cam_hf_2", "cam_sf_1",
+			"cam_hf_1", "cam_hf_2", "cam_hf_2",
 			"cam_hf_1", "cam_hf_2", "cam_hf_2", "cam_sf_1",
 			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1",
 			"cam_sf_1", "cam_sf_1", "cam_sf_1", "cam_sf_1";
