@@ -41,6 +41,9 @@ void zram_dedup_insert(struct zram *zram, struct zram_entry *new,
 	struct rb_node **rb_node, *parent = NULL;
 	struct zram_entry *entry;
 
+	if (!zram_dedup_enabled(zram))
+		return;
+
 	new->checksum = checksum;
 	hash = &zram->hash[checksum % zram->hash_size];
 	rb_root = &hash->rb_root;
@@ -148,6 +151,9 @@ struct zram_entry *zram_dedup_find(struct zram *zram, struct page *page,
 	void *mem;
 	struct zram_entry *entry;
 
+	if (!zram_dedup_enabled(zram))
+		return NULL;
+
 	mem = kmap_atomic(page);
 	*checksum = zram_dedup_checksum(mem);
 
@@ -160,6 +166,9 @@ struct zram_entry *zram_dedup_find(struct zram *zram, struct page *page,
 void zram_dedup_init_entry(struct zram *zram, struct zram_entry *entry,
 				unsigned long handle, unsigned int len)
 {
+	if (!zram_dedup_enabled(zram))
+		return;
+
 	entry->handle = handle;
 	entry->refcount = 1;
 	entry->len = len;
@@ -167,6 +176,9 @@ void zram_dedup_init_entry(struct zram *zram, struct zram_entry *entry,
 
 bool zram_dedup_put_entry(struct zram *zram, struct zram_entry *entry)
 {
+	if (!zram_dedup_enabled(zram))
+		return true;
+
 	if (zram_dedup_put(zram, entry))
 		return false;
 
@@ -177,6 +189,9 @@ int zram_dedup_init(struct zram *zram, size_t num_pages)
 {
 	int i;
 	struct zram_hash *hash;
+
+	if (!zram_dedup_enabled(zram))
+		return 0;
 
 	zram->hash_size = num_pages >> ZRAM_HASH_SHIFT;
 	zram->hash_size = min_t(size_t, ZRAM_HASH_SIZE_MAX, zram->hash_size);
