@@ -682,6 +682,7 @@ static void sde_encoder_phys_vid_prepare_for_kickoff(
 	if (rc) {
 		SDE_ERROR_VIDENC(vid_enc, "ctl %d reset failure: %d\n",
 				ctl->idx, rc);
+		sde_encoder_helper_unregister_irq(phys_enc, INTR_IDX_VSYNC);
 		SDE_DBG_DUMP("panic");
 	}
 
