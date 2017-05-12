@@ -1038,6 +1038,11 @@ static int cnss_qca6290_powerup(struct cnss_plat_data *plat_priv)
 		return -ENODEV;
 	}
 
+	if (plat_priv->ramdump_info_v2.dump_data_valid) {
+		cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_DEINIT);
+		cnss_pci_clear_dump_info(pci_priv);
+	}
+
 	ret = cnss_power_on_device(plat_priv);
 	if (ret) {
 		cnss_pr_err("Failed to power on device, err = %d\n", ret);
