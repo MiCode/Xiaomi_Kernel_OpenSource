@@ -697,7 +697,7 @@ static int dsi_ctrl_axi_bus_client_init(struct platform_device *pdev,
 	bus->bus_scale_table = msm_bus_cl_get_pdata(pdev);
 	if (IS_ERR_OR_NULL(bus->bus_scale_table)) {
 		rc = PTR_ERR(bus->bus_scale_table);
-		pr_err("msm_bus_cl_get_pdata() failed, rc = %d\n", rc);
+		pr_debug("msm_bus_cl_get_pdata() failed, rc = %d\n", rc);
 		bus->bus_scale_table = NULL;
 		return rc;
 	}
@@ -1256,7 +1256,7 @@ static int dsi_ctrl_dev_probe(struct platform_device *pdev)
 
 	rc = dsi_ctrl_axi_bus_client_init(pdev, dsi_ctrl);
 	if (rc)
-		pr_err("failed to init axi bus client, rc = %d\n", rc);
+		pr_debug("failed to init axi bus client, rc = %d\n", rc);
 
 	item->ctrl = dsi_ctrl;
 

@@ -1415,7 +1415,7 @@ static int dsi_panel_parse_cmd_sets_sub(struct dsi_panel_cmd_set *cmd,
 
 	data = of_get_property(of_node, cmd_set_prop_map[type], &length);
 	if (!data) {
-		pr_err("%s commands not defined\n", cmd_set_prop_map[type]);
+		pr_debug("%s commands not defined\n", cmd_set_prop_map[type]);
 		rc = -ENOTSUPP;
 		goto error;
 	}
@@ -1480,7 +1480,7 @@ static int dsi_panel_parse_cmd_sets(struct dsi_panel *panel,
 		} else {
 			rc = dsi_panel_parse_cmd_sets_sub(set, i, of_node);
 			if (rc)
-				pr_err("[%s] failed to parse set %d\n",
+				pr_debug("[%s] failed to parse set %d\n",
 					panel->name, i);
 		}
 	}
@@ -1789,8 +1789,8 @@ static int dsi_panel_parse_bl_config(struct dsi_panel *panel,
 					      "qcom,platform-bklight-en-gpio",
 					      0);
 	if (!gpio_is_valid(panel->bl_config.en_gpio)) {
-		pr_err("[%s] failed get bklt gpio, rc=%d\n", panel->name, rc);
-		rc = -EINVAL;
+		pr_debug("[%s] failed get bklt gpio, rc=%d\n", panel->name, rc);
+		rc = 0;
 		goto error;
 	}
 

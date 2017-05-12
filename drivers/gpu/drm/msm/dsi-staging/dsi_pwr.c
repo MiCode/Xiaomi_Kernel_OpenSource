@@ -238,7 +238,8 @@ int dsi_pwr_of_get_vreg_data(struct device_node *of_node,
 	if (!supply_root_node) {
 		supply_root_node = of_parse_phandle(of_node, supply_name, 0);
 		if (!supply_root_node) {
-			pr_err("No supply entry present for %s\n", supply_name);
+			pr_debug("No supply entry present for %s\n",
+					supply_name);
 			return -EINVAL;
 		}
 	}
@@ -296,7 +297,8 @@ int dsi_pwr_get_dt_vreg_data(struct device *dev,
 	if (!supply_root_node) {
 		supply_root_node = of_parse_phandle(of_node, supply_name, 0);
 		if (!supply_root_node) {
-			pr_err("No supply entry present for %s\n", supply_name);
+			pr_debug("No supply entry present for %s\n",
+					supply_name);
 			return -EINVAL;
 		}
 	}
