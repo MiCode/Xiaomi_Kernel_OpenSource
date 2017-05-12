@@ -197,6 +197,7 @@
 #define GCC_AGGRE_UFS_PHY_AXI_HW_CTL_CLK			179
 #define GCC_UFS_CARD_PHY_AUX_HW_CTL_CLK				180
 #define GCC_UFS_PHY_PHY_AUX_HW_CTL_CLK				181
+#define GCC_GPU_IREF_CLK					182
 
 /* GCC reset clocks */
 #define GCC_GPU_BCR						0
