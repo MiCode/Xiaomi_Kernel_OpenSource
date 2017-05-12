@@ -1174,7 +1174,10 @@ static void _sde_encoder_virt_enable_helper(struct drm_encoder *drm_enc)
 	struct sde_encoder_virt *sde_enc = NULL;
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
+	struct sde_hw_mdp *hw_mdptop;
+	int i = 0;
 	int ret = 0;
+	struct sde_watchdog_te_status te_cfg = { 0 };
 
 	if (!drm_enc || !drm_enc->dev || !drm_enc->dev->dev_private) {
 		SDE_ERROR("invalid parameters\n");
@@ -1185,6 +1188,14 @@ static void _sde_encoder_virt_enable_helper(struct drm_encoder *drm_enc)
 	sde_enc = to_sde_encoder_virt(drm_enc);
 	if (!sde_enc || !sde_enc->cur_master) {
 		SDE_ERROR("invalid sde encoder/master\n");
+		return;
+	}
+
+	sde_kms = to_sde_kms(priv->kms);
+	hw_mdptop = sde_kms->hw_mdp;
+
+	if (!hw_mdptop) {
+		SDE_ERROR("invalid mdptop\n");
 		return;
 	}
 
@@ -1204,6 +1215,16 @@ static void _sde_encoder_virt_enable_helper(struct drm_encoder *drm_enc)
 		ret = _sde_encoder_dsc_setup(sde_enc);
 		if (ret)
 			SDE_ERROR_ENC(sde_enc, "failed to setup DSC:%d\n", ret);
+	}
+
+	if (hw_mdptop->ops.setup_vsync_sel) {
+		for (i = 0; i < sde_enc->num_phys_encs; i++)
+			te_cfg.ppnumber[i] = sde_enc->hw_pp[i]->idx;
+
+		te_cfg.pp_count = sde_enc->num_phys_encs;
+		te_cfg.frame_rate = sde_enc->disp_info.frame_rate;
+		hw_mdptop->ops.setup_vsync_sel(hw_mdptop, &te_cfg,
+				sde_enc->disp_info.is_te_using_watchdog_timer);
 	}
 }
 

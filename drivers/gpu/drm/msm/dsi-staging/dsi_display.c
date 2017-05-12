@@ -2742,6 +2742,8 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 		break;
 	case DSI_OP_CMD_MODE:
 		info->capabilities |= MSM_DISPLAY_CAP_CMD_MODE;
+		info->is_te_using_watchdog_timer =
+			display->panel->te_using_watchdog_timer;
 		break;
 	default:
 		pr_err("unknwown dsi panel mode %d\n",

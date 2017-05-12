@@ -193,6 +193,8 @@ Optional properties:
 					"dsi_cmd_mode" = enable command mode.
 - qcom,5v-boost-gpio:			Specifies the panel gpio for display 5v boost.
 - qcom,mdss-dsi-te-check-enable:	Boolean to enable Tear Check configuration.
+- qcom,mdss-dsi-te-using-wd:		Boolean entry enables the watchdog timer support to generate the vsync signal
+					for command mode panel. By default, panel TE will be used to generate the vsync.
 - qcom,mdss-dsi-te-using-te-pin:	Boolean to specify whether using hardware vsync.
 - qcom,mdss-dsi-te-pin-select:		Specifies TE operating mode.
 					0 = TE through embedded dcs command
@@ -568,6 +570,7 @@ Example:
 		qcom,mdss-dsi-interleave-mode = <0>;
 		qcom,mdss-dsi-panel-type = "dsi_video_mode";
 		qcom,mdss-dsi-te-check-enable;
+		qcom,mdss-dsi-te-using-wd;
 		qcom,mdss-dsi-te-using-te-pin;
 		qcom,mdss-dsi-te-dcs-command = <1>;
 		qcom,mdss-dsi-wr-mem-continue = <0x3c>;
