@@ -87,5 +87,6 @@ void hdmi_edid_config_override(void *input, bool enable,
 		struct hdmi_edid_override_data *data);
 void hdmi_edid_set_max_pclk_rate(void *input, u32 max_pclk_khz);
 bool hdmi_edid_is_audio_supported(void *input);
+u32 hdmi_edid_get_sink_caps_max_tmds_clk(void *input);
 
 #endif /* __HDMI_EDID_H__ */
