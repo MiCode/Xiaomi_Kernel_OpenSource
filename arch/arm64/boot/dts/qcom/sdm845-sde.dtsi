@@ -177,7 +177,6 @@
 	};
 
 	sde_rscc: qcom,sde_rscc@af20000 {
-		status = "disabled";
 		cell-index = <0>;
 		compatible = "qcom,sde-rsc";
 		reg = <0xaf20000 0x1c44>,
@@ -186,12 +185,15 @@
 		qcom,sde-rsc-version = <1>;
 
 		vdd-supply = <&mdss_core_gdsc>;
-		clocks = <&clock_dispcc DISP_CC_MDSS_RSCC_AHB_CLK>,
-			<&clock_dispcc DISP_CC_MDSS_RSCC_VSYNC_CLK>;
-		clock-names = "iface_clk", "vsync_clk";
+		clocks = <&clock_dispcc DISP_CC_MDSS_RSCC_VSYNC_CLK>,
+			<&clock_dispcc DISP_CC_MDSS_RSCC_AHB_CLK>;
+		clock-names = "vsync_clk", "iface_clk";
 		clock-rate = <0 0>;
 
 		qcom,sde-dram-channels = <2>;
+
+		mboxes = <&disp_rsc 0>;
+		mbox-names = "disp_rsc";
 
 		/* data and reg bus scale settings */
 		qcom,sde-data-bus {
