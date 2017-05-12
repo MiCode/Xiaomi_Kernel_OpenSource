@@ -121,6 +121,7 @@ struct qce_device {
 	bool support_hw_key;
 	bool support_clk_mgmt_sus_res;
 	bool support_only_core_src_clk;
+	bool request_bw_before_clk;
 
 	void __iomem *iobase;	    /* Virtual io base of CE HW  */
 	unsigned int phy_iobase;    /* Physical io base of CE HW    */
@@ -298,7 +299,7 @@ static int _probe_ce_engine(struct qce_device *pce_dev)
 
 	pce_dev->ce_bam_info.ce_burst_size = MAX_CE_BAM_BURST_SIZE;
 
-	dev_info(pce_dev->pdev, "CE device = 0x%x\n, IO base, CE = 0x%p\n, Consumer (IN) PIPE %d,    Producer (OUT) PIPE %d\n IO base BAM = 0x%p\n BAM IRQ %d\n Engines Availability = 0x%x\n",
+	dev_info(pce_dev->pdev, "CE device = %#x IO base, CE = %pK Consumer (IN) PIPE %d,\nProducer (OUT) PIPE %d IO base BAM = %pK\nBAM IRQ %d Engines Availability = %#x\n",
 			pce_dev->ce_bam_info.ce_device, pce_dev->iobase,
 			pce_dev->ce_bam_info.dest_pipe_index,
 			pce_dev->ce_bam_info.src_pipe_index,
@@ -5675,6 +5676,8 @@ static int __qce_get_device_tree_data(struct platform_device *pdev,
 		(&pdev->dev)->of_node, "qcom,clk-mgmt-sus-res");
 	pce_dev->support_only_core_src_clk = of_property_read_bool(
 		(&pdev->dev)->of_node, "qcom,support-core-clk-only");
+	pce_dev->request_bw_before_clk = of_property_read_bool(
+		(&pdev->dev)->of_node, "qcom,request-bw-before-clk");
 
 	if (of_property_read_u32((&pdev->dev)->of_node,
 				"qcom,bam-pipe-pair",
@@ -5762,6 +5765,9 @@ static int __qce_init_clk(struct qce_device *pce_dev)
 
 	pce_dev->ce_core_src_clk = clk_get(pce_dev->pdev, "core_clk_src");
 	if (!IS_ERR(pce_dev->ce_core_src_clk)) {
+		if (pce_dev->request_bw_before_clk)
+			goto skip_set_rate;
+
 		rc = clk_set_rate(pce_dev->ce_core_src_clk,
 						pce_dev->ce_opp_freq_hz);
 		if (rc) {
@@ -5780,6 +5786,7 @@ static int __qce_init_clk(struct qce_device *pce_dev)
 		pce_dev->ce_core_src_clk = NULL;
 	}
 
+skip_set_rate:
 	if (pce_dev->support_only_core_src_clk) {
 		pce_dev->ce_core_clk = NULL;
 		pce_dev->ce_clk = NULL;
@@ -6096,6 +6103,7 @@ int qce_hw_support(void *handle, struct ce_hw_support *ce_support)
 	ce_support->hw_key = pce_dev->support_hw_key;
 	ce_support->aes_ccm = true;
 	ce_support->clk_mgmt_sus_res = pce_dev->support_clk_mgmt_sus_res;
+	ce_support->req_bw_before_clk = pce_dev->request_bw_before_clk;
 	if (pce_dev->ce_bam_info.minor_version)
 		ce_support->aligned_only = false;
 	else
