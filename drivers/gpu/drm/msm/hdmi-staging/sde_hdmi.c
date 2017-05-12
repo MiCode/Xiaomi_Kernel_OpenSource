@@ -48,6 +48,9 @@ static LIST_HEAD(sde_hdmi_list);
 #define HDMI_SCDC_ERR_DET_2_H           0x55
 #define HDMI_SCDC_ERR_DET_CHECKSUM      0x56
 
+#define HDMI_DISPLAY_MAX_WIDTH          4096
+#define HDMI_DISPLAY_MAX_HEIGHT         2160
+
 static const struct of_device_id sde_hdmi_dt_match[] = {
 	{.compatible = "qcom,hdmi-display"},
 	{}
@@ -1428,8 +1431,8 @@ int sde_hdmi_get_info(struct msm_display_info *info,
 				MSM_DISPLAY_CAP_EDID | MSM_DISPLAY_CAP_VID_MODE;
 	}
 	info->is_connected = hdmi_display->connected;
-	info->max_width = 4096;
-	info->max_height = 2160;
+	info->max_width = HDMI_DISPLAY_MAX_WIDTH;
+	info->max_height = HDMI_DISPLAY_MAX_HEIGHT;
 	info->compression = MSM_DISPLAY_COMPRESS_NONE;
 
 	mutex_unlock(&hdmi_display->display_lock);
