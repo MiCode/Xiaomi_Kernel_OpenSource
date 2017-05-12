@@ -35,11 +35,6 @@
 
 #include "thermal_core.h"
 
-#define for_each_tz_sibling(pos, head)                                         \
-	for (pos = list_first_entry((head), struct __thermal_zone, list);\
-		&(pos->list) != (head);                                  \
-		pos = list_next_entry(pos, list))                        \
-
 /***   Private data structures to represent thermal device tree data ***/
 /**
  * struct __thermal_bind_param - a match between trip and cooling device
@@ -436,7 +431,7 @@ static int of_thermal_aggregate_trip_types(struct thermal_zone_device *tz,
 	enum thermal_trip_type type = 0;
 
 	head = &data->senps->first_tz;
-	for_each_tz_sibling(data, head) {
+	list_for_each_entry(data, head, list) {
 		zone = data->tzd;
 		for (trip = 0; trip < data->ntrips; trip++) {
 			of_thermal_get_trip_type(zone, trip, &type);
@@ -499,7 +494,7 @@ void of_thermal_handle_trip(struct thermal_zone_device *tz)
 	struct list_head *head;
 
 	head = &data->senps->first_tz;
-	for_each_tz_sibling(data, head) {
+	list_for_each_entry(data, head, list) {
 		zone = data->tzd;
 		thermal_zone_device_update(zone, THERMAL_EVENT_UNSPECIFIED);
 	}
@@ -684,7 +679,7 @@ EXPORT_SYMBOL_GPL(thermal_zone_of_sensor_register);
 void thermal_zone_of_sensor_unregister(struct device *dev,
 				       struct thermal_zone_device *tzd)
 {
-	struct __thermal_zone *tz;
+	struct __thermal_zone *tz, *next;
 	struct thermal_zone_device *pos;
 	struct list_head *head;
 
@@ -698,7 +693,7 @@ void thermal_zone_of_sensor_unregister(struct device *dev,
 		return;
 
 	head = &tz->senps->first_tz;
-	for_each_tz_sibling(tz, head) {
+	list_for_each_entry_safe(tz, next, head, list) {
 		pos = tz->tzd;
 		mutex_lock(&pos->lock);
 		pos->ops->get_temp = NULL;
