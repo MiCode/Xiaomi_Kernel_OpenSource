@@ -1,0 +1,257 @@
+Qualcomm Technologies, Inc. Haptics driver
+
+QPNP (Qualcomm Technologies, Inc. Plug N Play) Haptics is a peripheral on some
+QTI PMICs. It can be interfaced with the host processor via SPMI or I2C bus.
+
+Haptics peripheral can support different actuators or vibrators,
+1. Eccentric Rotation Mass (ERM)
+2. Linear Resonant Actuator (LRA)
+
+Also, it can support multiple modes of operation: Direct, Buffer, PWM or Audio.
+
+Haptics device is described under a single level of node.
+
+Properties:
+
+- compatible
+  Usage:      required
+  Value type: <string>
+  Definition: "qcom,qpnp-haptics".
+
+- reg
+  Usage:      required
+  Value type: <u32>
+  Definition: Base address of haptics peripheral.
+
+- interrupts
+  Usage:      required
+  Value type: <prop-encoded-array>
+  Definition: Peripheral interrupt specifier.
+
+- interrupt-names
+  Usage:      required
+  Value type: <stringlist>
+  Definition: Interrupt names.  This list must match up 1-to-1 with the
+		interrupts specified in the 'interrupts' property. Currently
+		supported interrupts are short-circuit and play.
+
+- qcom,pmic-revid
+  Usage:      required
+  Value type: <phandle>
+  Definition: Should specify the phandle of PMIC's revid module. This is used to
+		identify the PMIC subtype.
+
+- qcom,pmic-misc
+  Usage:      optional
+  Value type: <phandle>
+  Definition: Should specify the phandle of PMIC's misc module. This is used to
+		read the clock trim error register under MISC peripheral.
+
+- qcom,misc-clk-trim-error-reg
+  Usage:      optional
+  Value type: <u32>
+  Definition: Register offset in MISC peripheral to read the clock trim error.
+		If this is specified, then qcom,pmic-misc should be specified.
+
+- qcom,actuator-type
+  Usage:      optional
+  Value type: <u32>
+  Definition: Allowed values are 0 for LRA and 1 for ERM. If this is not
+		specified, then LRA type will be used by default.
+
+- qcom,play-mode
+  Usage:      optional
+  Value type: <string>
+  Definition: Allowed values are: "direct", "buffer", "pwm", "auto". If not
+		specified for LRA actuator, auto mode will be selected by
+		default.
+
+- qcom,wave-shape
+  Usage:      optional
+  Value type: <string>
+  Definition: Wave shape to be played. Allowed values: "sine" or "square".
+		Default value is "square".
+
+- qcom,wave-play-rate-us
+  Usage:      optional
+  Value type: <u32>
+  Definition: Wave sample duration in microseconds. This should match with
+		the frequency the vibrator supports.
+		Allowed values are: 0 to 20475. Default value is 5715.
+
+- qcom,max-play-time-us
+  Usage:      optional
+  Value type: <u32>
+  Definition: Maximum play time supported in microseconds. Default value is
+		15000.
+
+- qcom,vmax-mv
+  Usage:      optional
+  Value type: <u32>
+  Definition: Maximum output voltage in millivolts. Value specified here will
+		be rounded off to the closest multiple of 116 mV.
+		Allowed values: 0 to 3596. Default value is 3596.
+
+- qcom,ilim-ma
+  Usage:      optional
+  Value type: <u32>
+  Definition: Output current limit in mA. Allowed values: 400 or 800. Default
+		value is 400.
+
+- qcom,en-brake
+  Usage:      optional
+  Value type: <empty>
+  Definition: Enables internal reverse braking.
+
+- qcom,brake-pattern
+  Usage:      optional
+  Value type: <prop-encoded-array>
+  Definition: Brake pattern to be applied. If specified, should be having
+		4 elements. Allowed values for each element are:
+		0, 1: Vmax/4, 2: Vmax/2, 3: Vmax.
+
+- qcom,sc-dbc-cycles
+  Usage:      optional
+  Value type: <u32>
+  Definition: Short circuit debounce cycles for internal PWM.
+		Allowed values: 0, 8, 16 or 32.
+
+Following properties are specific only to LRA vibrators.
+
+- qcom,lra-auto-res-mode
+  Usage:      optional
+  Value type: <string>
+  Definition: Auto resonance method. Allowed values are:
+		For pmi8998 and chips earlier,
+		"none" : No auto resonance
+		"zxd" : Zero crossing detection method
+		"qwd" : Quarter wave drive method
+		"max-qwd" : Maximum QWD
+		"zxd-eop" : ZXD + End of Pattern
+		For pm660,
+		"zxd" : Zero crossing detection method
+		"qwd" : Quarter wave drive method
+
+- qcom,lra-high-z
+  Usage:      optional
+  Value type: <string>
+  Definition: High Z configuration for auto resonance. Allowed values are:
+		"none", "opt1", "opt2" and "opt3".
+		For pm660, "opt0" is valid value for 1 LRA period.
+
+- qcom,lra-res-cal-period
+  Usage:      optional
+  Value type: <u32>
+  Definition: Auto resonance calibration period. Allowed values are:
+		For pmi8998 and chips earlier: 4, 8, 16, and 32.
+		For pm660: 4, 8, 16, 32, 64, 128 and 256.
+
+- qcom,lra-qwd-drive-duration
+  Usage:      optional
+  Value type: <u32>
+  Definition: LRA drive duration in QWD mode. Applies only for pm660 currently.
+		Allowed values are: 0 and 1, for 1/4 and 3/8 LRA period.
+		respectively.
+
+- qcom,lra-calibrate-at-eop
+  Usage:      optional
+  Value type: <u32>
+  Definition: Enables calibration at end of pattern. Applies only for pm660
+		currently. Allowed values are: 0 and 1.
+
+- qcom,auto-res-err-recovery-hw
+  Usage:      optional
+  Value type: <empty>
+  Definition: Enables Hardware auto resonance error recovery. Applies only for
+		pm660 currently.
+
+- qcom,drive-period-code-max-variation-pct
+  Usage:      optional
+  Value type: <u32>
+  Definition: Maximum allowed variation of LRA drive period code in percentage
+		above which RATE_CFG registers will not be updated by SW when
+		auto resonance is enabled and auto resonance error correction
+		algorithm is running. If not specified, default value is 25%.
+
+- qcom,drive-period-code-min-variation-pct
+  Usage:      optional
+  Value type: <u32>
+  Definition: Minimum allowed variation of LRA drive period code in percentage
+		below which RATE_CFG registers will not be updated by SW when
+		auto resonance is enabled and auto resonance error correction
+		algorithm is running. If not specified, default value is 25%.
+
+Following properties are applicable only when "qcom,play-mode" is set to
+"buffer".
+
+- qcom,wave-rep-cnt
+  Usage:      optional
+  Value type: <u32>
+  Definition: Repetition count for wave form.
+		Allowed values are: 1, 2, 4, 8, 16, 32, 64 and 128. Default
+		value is 1.
+
+- qcom,wave-samp-rep-cnt
+  Usage:      optional
+  Value type: <u32>
+  Definition: Repetition count for each sample of wave form. Allowed values
+		are: 1, 2, 4 and 8. Default value is 1.
+
+- qcom,wave-samples
+  Usage:      optional
+  Value type: <prop-encoded-array>
+  Definition: Wave samples in an array of 8 elements. Each element takes the
+		following representation, bit 0: unused, bits[5:1] : amplitude,
+		bit 6: overdrive, bit 7: sign. Default sample value is 0x3E.
+
+Following properties are applicable only when "qcom,play-mode" is set to
+"pwm".
+
+- pwms
+  Usage:      required, if "qcom,play-mode" is set to "pwm".
+  Value type: <phandle>
+  Definition: PWM device that is feeding its output to Haptics.
+
+- qcom,period-us
+  Usage:      required, if "qcom,play-mode" is set to "pwm".
+  Value type: <u32>
+  Definition: PWM period in us.
+
+- qcom,duty-us
+  Usage:      required, if "qcom,play-mode" is set to "pwm".
+  Value type: <u32>
+  Definition: PWM duty cycle in us.
+
+- qcom,ext-pwm-freq-khz
+  Usage:      optional
+  Value type: <u32>
+  Definition: Frequency for external PWM in KHz.
+		Allowed values are: 25, 50, 75 and 100.
+
+- qcom,ext-pwm-dtest-line
+  Usage:      optional
+  Value type: <u32>
+  Definition: DTEST line which is used for external PWM.
+
+Example:
+	qcom,haptics@c000 {
+		compatible = "qcom,qpnp-haptics";
+		reg = <0xc000 0x100>;
+		interrupts = <0x3 0xc0 0x0 IRQ_TYPE_EDGE_RISING>,
+			     <0x3 0xc0 0x1 IRQ_TYPE_EDGE_BOTH>;
+		interrupt-names = "hap-sc-irq", "hap-play-irq";
+		qcom,pmic-revid = <&pmi8998_revid>;
+		qcom,pmic-misc = <&pmi8998_misc>;
+		qcom,misc-clk-trim-error-reg = <0xf3>;
+		qcom,actuator-type = <0>;
+		qcom,play-mode = "direct";
+		qcom,vmax-mv = <3200>;
+		qcom,ilim-ma = <800>;
+		qcom,sc-dbc-cycles = <8>;
+		qcom,wave-play-rate-us = <6667>;
+		qcom,en-brake;
+		qcom,brake-pattern = <0x3 0x0 0x0 0x0>;
+		qcom,lra-high-z = "opt1";
+		qcom,lra-auto-res-mode = "qwd";
+		qcom,lra-res-cal-period = <4>;
+	};
