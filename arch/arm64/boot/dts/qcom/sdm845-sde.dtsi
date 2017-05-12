@@ -37,8 +37,8 @@
 		interrupts = <0 83 0>;
 		interrupt-controller;
 		#interrupt-cells = <1>;
-		iommus = <&apps_smmu 0x880 0x0>, <&apps_smmu 0x888 0x0>,
-			<&apps_smmu 0xc80 0x0>, <&apps_smmu 0xc88 0x0>;
+		iommus = <&apps_smmu 0x880 0x8>,
+			<&apps_smmu 0xc80 0x8>;
 
 		#address-cells = <1>;
 		#size-cells = <0>;
