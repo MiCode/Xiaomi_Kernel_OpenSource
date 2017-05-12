@@ -491,22 +491,6 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 	if (IS_ERR_OR_NULL(tzdev))
 		return PTR_ERR(tzdev);
 
-	/* Setup cooling devices to request mitigation states */
-	mutex_init(&hw->access_lock);
-	idx = 0;
-	for_each_cpu(cpu, &hw->core_map) {
-		cpumask_t cpu_mask  = { CPU_BITS_NONE };
-
-		cpumask_set_cpu(cpu, &cpu_mask);
-		hw->cdev_data[idx].cdev = cpufreq_platform_cooling_register(
-						&cpu_mask, &cd_ops);
-		if (IS_ERR_OR_NULL(hw->cdev_data[idx].cdev))
-			return PTR_ERR(hw->cdev_data[idx].cdev);
-		hw->cdev_data[idx].max_freq = U32_MAX;
-		hw->cdev_data[idx].min_freq = 0;
-		idx++;
-	}
-
 	switch (affinity) {
 	case 0:
 		request_reg = LIMITS_CLUSTER_0_REQ;
@@ -519,33 +503,53 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 		min_reg = LIMITS_CLUSTER_1_MIN_FREQ;
 		break;
 	default:
-		return -EINVAL;
+		ret = -EINVAL;
+		goto unregister_sensor;
 	};
 
+	hw->min_freq_reg = devm_ioremap(&pdev->dev, min_reg, 0x4);
+	if (!hw->min_freq_reg) {
+		pr_err("min frequency enable register remap failed\n");
+		ret = -ENOMEM;
+		goto unregister_sensor;
+	}
+
+	/* Setup cooling devices to request mitigation states */
+	mutex_init(&hw->access_lock);
+	idx = 0;
+	for_each_cpu(cpu, &hw->core_map) {
+		cpumask_t cpu_mask  = { CPU_BITS_NONE };
+
+		cpumask_set_cpu(cpu, &cpu_mask);
+		hw->cdev_data[idx].cdev = cpufreq_platform_cooling_register(
+						&cpu_mask, &cd_ops);
+		if (IS_ERR_OR_NULL(hw->cdev_data[idx].cdev)) {
+			ret = PTR_ERR(hw->cdev_data[idx].cdev);
+			goto unregister_cdev;
+		}
+		hw->cdev_data[idx].max_freq = U32_MAX;
+		hw->cdev_data[idx].min_freq = 0;
+		idx++;
+	}
+
+	init_timer_deferrable(&hw->poll_timer);
+	hw->poll_timer.data = (unsigned long)hw;
+	hw->poll_timer.function = limits_dcvs_poll;
 	hw->osm_hw_reg = devm_ioremap(&pdev->dev, request_reg, 0x4);
 	if (!hw->osm_hw_reg) {
 		pr_err("register remap failed\n");
-		return -ENOMEM;
+		goto probe_exit;
 	}
 	hw->int_clr_reg = devm_ioremap(&pdev->dev, clear_reg, 0x4);
 	if (!hw->int_clr_reg) {
 		pr_err("interrupt clear reg remap failed\n");
-		return -ENOMEM;
+		goto probe_exit;
 	}
-	hw->min_freq_reg = devm_ioremap(&pdev->dev, min_reg, 0x4);
-	if (!hw->min_freq_reg) {
-		pr_err("min frequency enable register remap failed\n");
-		return -ENOMEM;
-	}
-	init_timer_deferrable(&hw->poll_timer);
-	hw->poll_timer.data = (unsigned long)hw;
-	hw->poll_timer.function = limits_dcvs_poll;
 
 	hw->irq_num = of_irq_get(pdev->dev.of_node, 0);
 	if (hw->irq_num < 0) {
-		ret = hw->irq_num;
-		pr_err("Error getting IRQ number. err:%d\n", ret);
-		return ret;
+		pr_err("Error getting IRQ number. err:%d\n", hw->irq_num);
+		goto probe_exit;
 	}
 	atomic_set(&hw->is_irq_enabled, 1);
 	ret = devm_request_threaded_irq(&pdev->dev, hw->irq_num, NULL,
@@ -553,11 +557,25 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 		| IRQF_NO_SUSPEND, hw->sensor_name, hw);
 	if (ret) {
 		pr_err("Error registering for irq. err:%d\n", ret);
-		return ret;
+		ret = 0;
+		goto probe_exit;
 	}
 
+probe_exit:
 	INIT_LIST_HEAD(&hw->list);
 	list_add(&hw->list, &lmh_dcvs_hw_list);
+
+	return ret;
+
+unregister_cdev:
+	for (idx = 0; idx < cpumask_weight(&mask); idx++) {
+		if (IS_ERR_OR_NULL(hw->cdev_data[idx].cdev))
+			continue;
+		cpufreq_cooling_unregister(hw->cdev_data[idx].cdev);
+	}
+
+unregister_sensor:
+	thermal_zone_of_sensor_unregister(&pdev->dev, tzdev);
 
 	return ret;
 }
