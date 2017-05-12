@@ -31,18 +31,20 @@
 		(c) ? (c)->base.base.id : -1, ##__VA_ARGS__)
 
 static const struct drm_prop_enum_list e_topology_name[] = {
-	{SDE_RM_TOPOLOGY_UNKNOWN,	"sde_unknown"},
+	{SDE_RM_TOPOLOGY_NONE,	"sde_none"},
 	{SDE_RM_TOPOLOGY_SINGLEPIPE,	"sde_singlepipe"},
+	{SDE_RM_TOPOLOGY_SINGLEPIPE_DSC,	"sde_singlepipe_dsc"},
 	{SDE_RM_TOPOLOGY_DUALPIPE,	"sde_dualpipe"},
+	{SDE_RM_TOPOLOGY_DUALPIPE_DSC,	"sde_dualpipe_dsc"},
+	{SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE,	"sde_dualpipemerge"},
+	{SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE_DSC,	"sde_dualpipemerge_dsc"},
+	{SDE_RM_TOPOLOGY_DUALPIPE_DSCMERGE,	"sde_dualpipe_dscmerge"},
 	{SDE_RM_TOPOLOGY_PPSPLIT,	"sde_ppsplit"},
-	{SDE_RM_TOPOLOGY_DUALPIPEMERGE,	"sde_dualpipemerge"}
 };
 static const struct drm_prop_enum_list e_topology_control[] = {
 	{SDE_RM_TOPCTL_RESERVE_LOCK,	"reserve_lock"},
 	{SDE_RM_TOPCTL_RESERVE_CLEAR,	"reserve_clear"},
 	{SDE_RM_TOPCTL_DSPP,		"dspp"},
-	{SDE_RM_TOPCTL_FORCE_TILING,	"force_tiling"},
-	{SDE_RM_TOPCTL_PPSPLIT,		"ppsplit"}
 };
 static const struct drm_prop_enum_list e_power_mode[] = {
 	{SDE_MODE_DPMS_ON,	"ON"},
@@ -655,11 +657,6 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 			if (rc)
 				SDE_ERROR("prep fb failed, %d\n", rc);
 		}
-		break;
-	case CONNECTOR_PROP_TOPOLOGY_CONTROL:
-		rc = sde_rm_check_property_topctl(val);
-		if (rc)
-			SDE_ERROR("invalid topology_control: 0x%llX\n", val);
 		break;
 	case CONNECTOR_PROP_LP:
 		mutex_lock(&c_conn->lock);

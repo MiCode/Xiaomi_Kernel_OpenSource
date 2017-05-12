@@ -22,18 +22,27 @@
 
 /**
  * enum sde_rm_topology_name - HW resource use case in use by connector
- * @SDE_RM_TOPOLOGY_UNKNOWN: No topology in use currently
- * @SDE_RM_TOPOLOGY_SINGLEPIPE: 1 LM, 1 PP, 1 INTF/WB
- * @SDE_RM_TOPOLOGY_DUALPIPE: 2 LM, 2 PP, 2 INTF/WB
- * @SDE_RM_TOPOLOGY_PPSPLIT: 1 LM, 2 PPs, 2 INTF/WB
- * @SDE_RM_TOPOLOGY_DUALPIPEMERGE: 2 LM, 2 PP, 3DMux, 1 INTF/WB
+ * @SDE_RM_TOPOLOGY_NONE:                 No topology in use currently
+ * @SDE_RM_TOPOLOGY_SINGLEPIPE:           1 LM, 1 PP, 1 INTF/WB
+ * @SDE_RM_TOPOLOGY_SINGLEPIPE_DSC:       1 LM, 1 DSC, 1 PP, 1 INTF/WB
+ * @SDE_RM_TOPOLOGY_DUALPIPE:             2 LM, 2 PP, 2 INTF/WB
+ * @SDE_RM_TOPOLOGY_DUALPIPE_DSC:         2 LM, 2 DSC, 2 PP, 2 INTF/WB
+ * @SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE:     2 LM, 2 PP, 3DMux, 1 INTF/WB
+ * @SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE_DSC: 2 LM, 2 PP, 3DMux, 1 DSC, 1 INTF/WB
+ * @SDE_RM_TOPOLOGY_DUALPIPE_DSCMERGE:    2 LM, 2 PP, 2 DSC Merge, 1 INTF/WB
+ * @SDE_RM_TOPOLOGY_PPSPLIT:              1 LM, 2 PPs, 2 INTF/WB
  */
 enum sde_rm_topology_name {
-	SDE_RM_TOPOLOGY_UNKNOWN = 0,
+	SDE_RM_TOPOLOGY_NONE = 0,
 	SDE_RM_TOPOLOGY_SINGLEPIPE,
+	SDE_RM_TOPOLOGY_SINGLEPIPE_DSC,
 	SDE_RM_TOPOLOGY_DUALPIPE,
+	SDE_RM_TOPOLOGY_DUALPIPE_DSC,
+	SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE,
+	SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE_DSC,
+	SDE_RM_TOPOLOGY_DUALPIPE_DSCMERGE,
 	SDE_RM_TOPOLOGY_PPSPLIT,
-	SDE_RM_TOPOLOGY_DUALPIPEMERGE,
+	SDE_RM_TOPOLOGY_MAX,
 };
 
 /**
@@ -47,18 +56,11 @@ enum sde_rm_topology_name {
  *                               Normal behavior would not impact the
  *                               reservation list during the AtomicTest phase.
  * @SDE_RM_TOPCTL_DSPP: Require layer mixers with DSPP capabilities
- * @SDE_RM_TOPCTL_FORCE_TILING: Require kernel to split across multiple layer
- *                              mixers, despite width fitting within capability
- *                              of a single layer mixer.
- * @SDE_RM_TOPCTL_PPSPLIT: Require kernel to use pingpong split pipe
- *                         configuration instead of dual pipe.
  */
 enum sde_rm_topology_control {
 	SDE_RM_TOPCTL_RESERVE_LOCK,
 	SDE_RM_TOPCTL_RESERVE_CLEAR,
 	SDE_RM_TOPCTL_DSPP,
-	SDE_RM_TOPCTL_FORCE_TILING,
-	SDE_RM_TOPCTL_PPSPLIT,
 };
 
 /**

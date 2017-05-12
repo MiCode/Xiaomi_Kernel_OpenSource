@@ -33,15 +33,16 @@
  * @intfs:	Interfaces this encoder is using, INTF_MODE_NONE if unused
  * @wbs:	Writebacks this encoder is using, INTF_MODE_NONE if unused
  * @needs_cdm:	Encoder requests a CDM based on pixel format conversion needs
- * @needs_dsc:	Request to allocate DSC block
- * @display_num_of_h_tiles:
+ * @display_num_of_h_tiles: Number of horizontal tiles in case of split
+ *                          interface
+ * @topology:   Topology of the display
  */
 struct sde_encoder_hw_resources {
 	enum sde_intf_mode intfs[INTF_MAX];
 	enum sde_intf_mode wbs[WB_MAX];
 	bool needs_cdm;
-	bool needs_dsc;
 	u32 display_num_of_h_tiles;
+	struct msm_display_topology topology;
 };
 
 /**
