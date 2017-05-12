@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,9 @@
 #include <linux/of_address.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/scm.h>
+#include <linux/of_device.h>
+#include <linux/dma-mapping.h>
+#include <linux/module.h>
 
 #define MSM_DUMP_TABLE_VERSION		MSM_DUMP_MAKE_VERSION(2, 0)
 
@@ -195,3 +198,84 @@ static int __init init_debug_lar_unlock(void)
 }
 early_initcall(init_debug_lar_unlock);
 #endif
+
+static int mem_dump_probe(struct platform_device *pdev)
+{
+	struct device_node *child_node;
+	const struct device_node *node = pdev->dev.of_node;
+	static dma_addr_t dump_addr;
+	static void *dump_vaddr;
+	struct msm_dump_data *dump_data;
+	struct msm_dump_entry dump_entry;
+	int ret;
+	u32 size, id;
+
+	for_each_available_child_of_node(node, child_node) {
+		ret = of_property_read_u32(child_node, "qcom,dump-size", &size);
+		if (ret) {
+			dev_err(&pdev->dev, "Unable to find size for %s\n",
+					child_node->name);
+			continue;
+		}
+
+		ret = of_property_read_u32(child_node, "qcom,dump-id", &id);
+		if (ret) {
+			dev_err(&pdev->dev, "Unable to find id for %s\n",
+					child_node->name);
+			continue;
+		}
+
+		dump_vaddr = (void *) dma_alloc_coherent(&pdev->dev, size,
+						&dump_addr, GFP_KERNEL);
+
+		if (!dump_vaddr) {
+			dev_err(&pdev->dev, "Couldn't get memory for dumping\n");
+			continue;
+		}
+
+		memset(dump_vaddr, 0x0, size);
+
+		dump_data = devm_kzalloc(&pdev->dev,
+				sizeof(struct msm_dump_data), GFP_KERNEL);
+		if (!dump_data) {
+			dma_free_coherent(&pdev->dev, size, dump_vaddr,
+					dump_addr);
+			continue;
+		}
+
+		dump_data->addr = dump_addr;
+		dump_data->len = size;
+		dump_entry.id = id;
+		dump_entry.addr = virt_to_phys(dump_data);
+		ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+		if (ret) {
+			dev_err(&pdev->dev, "Data dump setup failed, id = %d\n",
+				id);
+			dma_free_coherent(&pdev->dev, size, dump_vaddr,
+					dump_addr);
+			devm_kfree(&pdev->dev, dump_data);
+		}
+	}
+	return 0;
+}
+
+static const struct of_device_id mem_dump_match_table[] = {
+	{.compatible = "qcom,mem-dump",},
+	{}
+};
+
+static struct platform_driver mem_dump_driver = {
+	.probe = mem_dump_probe,
+	.driver = {
+		.name = "msm_mem_dump",
+		.owner = THIS_MODULE,
+		.of_match_table = mem_dump_match_table,
+	},
+};
+
+static int __init mem_dump_init(void)
+{
+	return platform_driver_register(&mem_dump_driver);
+}
+
+pure_initcall(mem_dump_init);
