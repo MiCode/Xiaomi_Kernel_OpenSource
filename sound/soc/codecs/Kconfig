@@ -878,13 +878,6 @@ config SND_SOC_UDA1380
 config SND_SOC_WCD934X_DSD
         tristate
 
-config SND_SOC_WCD9320
-        tristate
-
-config SND_SOC_WCD9330
-        tristate
-	depends on WCD9330_CODEC
-
 config SND_SOC_WCD9335
         tristate
 	depends on WCD9335_CODEC
@@ -916,21 +909,17 @@ config SND_SOC_WSA881X_ANALOG
         tristate
 	select REGMAP_I2C
 
-config SND_SOC_WCD9XXX
-	tristate
-	default y if SND_SOC_WCD9320=y || SND_SOC_WCD9330=y || SND_SOC_WCD9335=y
-
 config SND_SOC_WCD9XXX_V2
 	tristate
 	default y if SND_SOC_WCD9335=y
 
 config SND_SOC_WCD_CPE
 	tristate
-	default y if SND_SOC_WCD9330=y || SND_SOC_WCD9335=y
+	default y if SND_SOC_WCD9335=y
 
 config AUDIO_EXT_CLK
 	tristate
-	default y if SND_SOC_WCD9335=y || SND_SOC_WCD9330=y || SND_SOC_SDM660_CDC=y
+	default y if SND_SOC_WCD9335=y || SND_SOC_SDM660_CDC=y
 
 config SND_SOC_WCD_MBHC
 	tristate
