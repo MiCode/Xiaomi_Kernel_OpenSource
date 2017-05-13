@@ -1252,7 +1252,7 @@ static void fts_event_handler(struct work_struct *work)
 static int cx_crc_check(void)
 {
 	unsigned char regAdd1[3] = {FTS_CMD_HW_REG_R, ADDR_CRC_BYTE0, ADDR_CRC_BYTE1};
-	unsigned char val;
+	unsigned char val = 0;
 	unsigned char crc_status;
 	unsigned int error;
 

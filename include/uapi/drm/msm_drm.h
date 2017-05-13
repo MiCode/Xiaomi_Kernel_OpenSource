@@ -22,6 +22,10 @@
 #include <drm/drm.h>
 #include <drm/sde_drm.h>
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 /* Please note that modifications to all structs defined here are
  * subject to backwards-compatibility constraints:
  *  1) Do not use pointers, use __u64 instead for 32 bit / 64 bit
@@ -78,6 +82,7 @@ struct drm_msm_param {
 #define MSM_BO_SCANOUT       0x00000001     /* scanout capable */
 #define MSM_BO_GPU_READONLY  0x00000002
 #define MSM_BO_PRIVILEGED    0x00000004
+#define MSM_BO_SECURE        0x00000008	    /* Allocate and map as secure */
 #define MSM_BO_CACHE_MASK    0x000f0000
 /* cache modes */
 #define MSM_BO_CACHED        0x00010000
@@ -86,6 +91,7 @@ struct drm_msm_param {
 
 #define MSM_BO_FLAGS         (MSM_BO_SCANOUT | \
                               MSM_BO_GPU_READONLY | \
+                              MSM_BO_SECURE | \
                               MSM_BO_CACHED | \
                               MSM_BO_WC | \
                               MSM_BO_UNCACHED)
@@ -385,4 +391,9 @@ struct drm_msm_gem_sync {
 		struct drm_msm_counter_read)
 #define DRM_IOCTL_MSM_GEM_SYNC DRM_IOW(DRM_COMMAND_BASE + DRM_MSM_GEM_SYNC,\
 		struct drm_msm_gem_sync)
+
+#if defined(__cplusplus)
+}
+#endif
+
 #endif /* __MSM_DRM_H__ */

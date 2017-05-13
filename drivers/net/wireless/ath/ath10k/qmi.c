@@ -888,12 +888,13 @@ void ath10k_snoc_stop_qmi_service(struct ath10k *ar)
 
 	ath10k_dbg(ar, ATH10K_DBG_SNOC, "Removing QMI service..\n");
 
+	wake_up_all(&ath10k_fw_ready_wait_event);
+	cancel_work_sync(&qmi_cfg->event_work);
+	cancel_work_sync(&qmi_cfg->qmi_recv_msg_work);
 	qmi_svc_event_notifier_unregister(WLFW_SERVICE_ID_V01,
 					  WLFW_SERVICE_VERS_V01,
 					  WLFW_SERVICE_INS_ID_V01,
 					  &qmi_cfg->wlfw_clnt_nb);
-
-	wake_up_all(&ath10k_fw_ready_wait_event);
 	destroy_workqueue(qmi_cfg->event_wq);
 	qmi_cfg = NULL;
 }

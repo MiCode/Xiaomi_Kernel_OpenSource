@@ -2115,10 +2115,10 @@ static int stmvl53l0_init_client(struct stmvl53l0_data *data)
 	VL53L0_Error Status = VL53L0_ERROR_NONE;
 	VL53L0_DeviceInfo_t DeviceInfo;
 	VL53L0_DEV vl53l0_dev = data;
-	uint32_t refSpadCount;
-	uint8_t isApertureSpads;
-	uint8_t VhvSettings;
-	uint8_t PhaseCal;
+	uint32_t refSpadCount = 0;
+	uint8_t isApertureSpads = 0;
+	uint8_t VhvSettings = 0;
+	uint8_t PhaseCal = 0;
 
 
 	vl53l0_dbgmsg("Enter\n");
@@ -2380,17 +2380,17 @@ static int stmvl53l0_config_use_case(struct stmvl53l0_data *data)
 			vl53l0_dev,
 			VL53L0_CHECKENABLE_SIGMA_FINAL_RANGE,
 			 1);
-	}
 
-	if (Status == VL53L0_ERROR_NONE) {
-		Status = papi_func_tbl->SetLimitCheckEnable(
-			vl53l0_dev,
-			VL53L0_CHECKENABLE_SIGNAL_RATE_FINAL_RANGE,
-			 1);
-	} else {
-		vl53l0_errmsg(
-		"SetLimitCheckEnable(SIGMA_FINAL_RANGE) failed with errcode = %d\n",
-		 Status);
+		if (Status == VL53L0_ERROR_NONE) {
+			Status = papi_func_tbl->SetLimitCheckEnable(
+				vl53l0_dev,
+				VL53L0_CHECKENABLE_SIGNAL_RATE_FINAL_RANGE,
+				 1);
+		} else {
+			vl53l0_errmsg(
+			"SetLimitCheckEnable(SIGMA_FINAL_RANGE) failed with errcode = %d\n",
+			 Status);
+		}
 	}
 
 

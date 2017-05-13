@@ -691,6 +691,8 @@ static int icnss_qmi_pin_connect_result_ind(void *msg, unsigned int msg_len)
 		goto out;
 	}
 
+	memset(&ind_msg, 0, sizeof(ind_msg));
+
 	ind_desc.msg_id = QMI_WLFW_PIN_CONNECT_RESULT_IND_V01;
 	ind_desc.max_msg_len = WLFW_PIN_CONNECT_RESULT_IND_MSG_V01_MAX_MSG_LEN;
 	ind_desc.ei_array = wlfw_pin_connect_result_ind_msg_v01_ei;

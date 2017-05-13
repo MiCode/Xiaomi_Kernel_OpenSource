@@ -26,6 +26,10 @@
 
 #include <linux/types.h>
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 #define fourcc_code(a, b, c, d) ((__u32)(a) | ((__u32)(b) << 8) | \
 				 ((__u32)(c) << 16) | ((__u32)(d) << 24))
 
@@ -236,5 +240,9 @@
  * Implementation may be platform and base-format specific.
  */
 #define DRM_FORMAT_MOD_QCOM_COMPRESSED	fourcc_mod_code(QCOM, 1)
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif /* DRM_FOURCC_H */

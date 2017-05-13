@@ -4802,7 +4802,7 @@ static void __mdss_mdp_mixer_get_offsets(u32 mixer_num,
 	offsets[2] = MDSS_MDP_REG_CTL_LAYER_EXTN2(mixer_num);
 }
 
-static inline int __mdss_mdp_mixer_get_hw_num(struct mdss_mdp_mixer *mixer)
+int mdss_mdp_mixer_get_hw_num(struct mdss_mdp_mixer *mixer)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
@@ -4858,7 +4858,7 @@ static void __mdss_mdp_mixer_write_cfg(struct mdss_mdp_mixer *mixer,
 	if (!mixer)
 		return;
 
-	mixer_num = __mdss_mdp_mixer_get_hw_num(mixer);
+	mixer_num = mdss_mdp_mixer_get_hw_num(mixer);
 
 	if (cfg) {
 		for (i = 0; i < NUM_MIXERCFG_REGS; i++)
@@ -4905,7 +4905,7 @@ bool mdss_mdp_mixer_reg_has_pipe(struct mdss_mdp_mixer *mixer,
 
 	memset(&mixercfg, 0, sizeof(mixercfg));
 
-	mixer_num = __mdss_mdp_mixer_get_hw_num(mixer);
+	mixer_num = mdss_mdp_mixer_get_hw_num(mixer);
 	__mdss_mdp_mixer_get_offsets(mixer_num, offs, NUM_MIXERCFG_REGS);
 
 	for (i = 0; i < NUM_MIXERCFG_REGS; i++)
@@ -5130,7 +5130,7 @@ static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 		mixercfg.cursor_enabled = true;
 
 update_mixer:
-	mixer_num = __mdss_mdp_mixer_get_hw_num(mixer_hw);
+	mixer_num = mdss_mdp_mixer_get_hw_num(mixer_hw);
 	ctl_hw->flush_bits |= BIT(mixer_num < 5 ? 6 + mixer_num : 20);
 
 	/* Read GC enable/disable status on LM */
@@ -5775,20 +5775,11 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 
 	if (ctl->ops.avr_ctrl_fnc) {
+		/* avr_ctrl_fnc will configure both master & slave */
 		ret = ctl->ops.avr_ctrl_fnc(ctl, true);
 		if (ret) {
 			pr_err("error configuring avr ctrl registers ctl=%d err=%d\n",
 				ctl->num, ret);
-			mutex_unlock(&ctl->lock);
-			return ret;
-		}
-	}
-
-	if (sctl && sctl->ops.avr_ctrl_fnc) {
-		ret = sctl->ops.avr_ctrl_fnc(sctl, true);
-		if (ret) {
-			pr_err("error configuring avr ctrl registers sctl=%d err=%d\n",
-				sctl->num, ret);
 			mutex_unlock(&ctl->lock);
 			return ret;
 		}
@@ -6046,6 +6037,10 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	ctl_flush_bits |= ctl->flush_bits;
 
 	ATRACE_BEGIN("flush_kickoff");
+
+	MDSS_XLOG(ctl->intf_num, ctl_flush_bits, sctl_flush_bits,
+		mdss_mdp_ctl_read(ctl, MDSS_MDP_REG_CTL_FLUSH), split_lm_valid);
+
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, ctl_flush_bits);
 	if (sctl) {
 		if (sctl_flush_bits) {
@@ -6057,8 +6052,6 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	}
 	ctl->commit_in_progress = false;
 
-	MDSS_XLOG(ctl->intf_num, ctl_flush_bits, sctl_flush_bits,
-		split_lm_valid);
 	wmb();
 	ctl->flush_reg_data = ctl_flush_bits;
 	ctl->flush_bits = 0;

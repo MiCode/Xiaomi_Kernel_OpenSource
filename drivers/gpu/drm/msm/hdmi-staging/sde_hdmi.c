@@ -934,7 +934,6 @@ static void _sde_hdmi_hotplug_work(struct work_struct *work)
 	} else
 		sde_free_edid((void **)&sde_hdmi->edid_ctrl);
 
-	sde_hdmi_notify_clients(connector, sde_hdmi->connected);
 	drm_helper_hpd_irq_event(connector->dev);
 }
 
@@ -964,8 +963,7 @@ static void _sde_hdmi_connector_irq(struct sde_hdmi *sde_hdmi)
 			hpd_int_ctrl |= HDMI_HPD_INT_CTRL_INT_CONNECT;
 		hdmi_write(hdmi, REG_HDMI_HPD_INT_CTRL, hpd_int_ctrl);
 
-		if (!sde_hdmi->non_pluggable)
-			queue_work(hdmi->workq, &sde_hdmi->hpd_work);
+		queue_work(hdmi->workq, &sde_hdmi->hpd_work);
 	}
 }
 
@@ -1054,6 +1052,25 @@ static int _sde_hdmi_get_cable_status(struct platform_device *pdev, u32 vote)
 	return hdmi->power_on && display->connected;
 }
 
+static void _sde_hdmi_audio_codec_ready(struct platform_device *pdev)
+{
+	struct sde_hdmi *display = platform_get_drvdata(pdev);
+
+	if (!display) {
+		SDE_ERROR("invalid param(s), display %pK\n", display);
+		return;
+	}
+
+	mutex_lock(&display->display_lock);
+	if (!display->codec_ready) {
+		display->codec_ready = true;
+
+		if (display->client_notify_pending)
+			sde_hdmi_notify_clients(display, display->connected);
+	}
+	mutex_unlock(&display->display_lock);
+}
+
 static int _sde_hdmi_ext_disp_init(struct sde_hdmi *display)
 {
 	int rc = 0;
@@ -1073,6 +1090,8 @@ static int _sde_hdmi_ext_disp_init(struct sde_hdmi *display)
 		_sde_hdmi_get_audio_edid_blk;
 	display->ext_audio_data.codec_ops.cable_status =
 		_sde_hdmi_get_cable_status;
+	display->ext_audio_data.codec_ops.codec_ready =
+		_sde_hdmi_audio_codec_ready;
 
 	if (!display->pdev->dev.of_node) {
 		SDE_ERROR("[%s]cannot find sde_hdmi of_node\n", display->name);
@@ -1101,38 +1120,20 @@ static int _sde_hdmi_ext_disp_init(struct sde_hdmi *display)
 	return rc;
 }
 
-void sde_hdmi_notify_clients(struct drm_connector *connector,
-	bool connected)
+void sde_hdmi_notify_clients(struct sde_hdmi *display, bool connected)
 {
-	struct sde_connector *c_conn = to_sde_connector(connector);
-	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
 	int state = connected ?
 		EXT_DISPLAY_CABLE_CONNECT : EXT_DISPLAY_CABLE_DISCONNECT;
 
 	if (display && display->ext_audio_data.intf_ops.hpd) {
 		struct hdmi *hdmi = display->ctrl.ctrl;
-		u32 flags = MSM_EXT_DISP_HPD_VIDEO;
+		u32 flags = MSM_EXT_DISP_HPD_ASYNC_VIDEO;
 
 		if (hdmi->hdmi_mode)
 			flags |= MSM_EXT_DISP_HPD_AUDIO;
 
 		display->ext_audio_data.intf_ops.hpd(display->ext_pdev,
 				display->ext_audio_data.type, state, flags);
-	}
-}
-
-void sde_hdmi_ack_state(struct drm_connector *connector,
-	enum drm_connector_status status)
-{
-	struct sde_connector *c_conn = to_sde_connector(connector);
-	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
-
-	if (display) {
-		struct hdmi *hdmi = display->ctrl.ctrl;
-
-		if (hdmi->hdmi_mode && display->ext_audio_data.intf_ops.notify)
-			display->ext_audio_data.intf_ops.notify(
-				display->ext_pdev, status);
 	}
 }
 
@@ -1427,8 +1428,8 @@ int sde_hdmi_get_info(struct msm_display_info *info,
 				MSM_DISPLAY_CAP_EDID | MSM_DISPLAY_CAP_VID_MODE;
 	}
 	info->is_connected = hdmi_display->connected;
-	info->max_width = 1920;
-	info->max_height = 1080;
+	info->max_width = 4096;
+	info->max_height = 2160;
 	info->compression = MSM_DISPLAY_COMPRESS_NONE;
 
 	mutex_unlock(&hdmi_display->display_lock);

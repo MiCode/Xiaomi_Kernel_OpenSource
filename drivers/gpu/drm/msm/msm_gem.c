@@ -18,11 +18,30 @@
 #include <linux/spinlock.h>
 #include <linux/shmem_fs.h>
 #include <linux/dma-buf.h>
+#include <soc/qcom/secure_buffer.h>
 
 #include "msm_drv.h"
 #include "msm_gem.h"
 #include "msm_gpu.h"
 #include "msm_mmu.h"
+
+static int protect_pages(struct msm_gem_object *msm_obj)
+{
+	int perm = PERM_READ | PERM_WRITE;
+	int src = VMID_HLOS;
+	int dst = VMID_CP_PIXEL;
+
+	return hyp_assign_table(msm_obj->sgt, &src, 1, &dst, &perm, 1);
+}
+
+static int unprotect_pages(struct msm_gem_object *msm_obj)
+{
+	int perm = PERM_READ | PERM_WRITE | PERM_EXEC;
+	int src = VMID_CP_PIXEL;
+	int dst = VMID_HLOS;
+
+	return hyp_assign_table(msm_obj->sgt, &src, 1, &dst, &perm, 1);
+}
 
 static void *get_dmabuf_ptr(struct drm_gem_object *obj)
 {
@@ -109,6 +128,20 @@ static struct page **get_pages(struct drm_gem_object *obj)
 		if (msm_obj->flags & (MSM_BO_WC|MSM_BO_UNCACHED))
 			dma_sync_sg_for_device(dev->dev, msm_obj->sgt->sgl,
 				msm_obj->sgt->nents, DMA_BIDIRECTIONAL);
+
+		/* Secure the pages if we need to */
+		if (use_pages(obj) && msm_obj->flags & MSM_BO_SECURE) {
+			int ret = protect_pages(msm_obj);
+
+			if (ret)
+				return ERR_PTR(ret);
+
+			/*
+			 * Set a flag to indicate the pages are locked by us and
+			 * need to be unlocked when the pages get freed
+			 */
+			msm_obj->flags |= MSM_BO_LOCKED;
+		}
 	}
 
 	return msm_obj->pages;
@@ -119,12 +152,17 @@ static void put_pages(struct drm_gem_object *obj)
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
 
 	if (msm_obj->pages) {
+		if (msm_obj->flags & MSM_BO_LOCKED) {
+			unprotect_pages(msm_obj);
+			msm_obj->flags &= ~MSM_BO_LOCKED;
+		}
+
 		sg_free_table(msm_obj->sgt);
 		kfree(msm_obj->sgt);
 
-		if (use_pages(obj))
+		if (use_pages(obj)) {
 			drm_gem_put_pages(obj, msm_obj->pages, true, false);
-		else {
+		} else {
 			drm_mm_remove_node(msm_obj->vram_node);
 			drm_free_large(msm_obj->pages);
 		}
@@ -152,6 +190,12 @@ int msm_gem_mmap_obj(struct drm_gem_object *obj,
 		struct vm_area_struct *vma)
 {
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
+
+	/* We can't mmap secure objects */
+	if (msm_obj->flags & MSM_BO_SECURE) {
+		drm_gem_vm_close(vma);
+		return -EACCES;
+	}
 
 	vma->vm_flags &= ~VM_PFNMAP;
 	vma->vm_flags |= VM_MIXEDMAP;
@@ -756,7 +800,7 @@ fail:
 }
 
 struct drm_gem_object *msm_gem_import(struct drm_device *dev,
-		uint32_t size, struct sg_table *sgt)
+		uint32_t size, struct sg_table *sgt, u32 flags)
 {
 	struct msm_gem_object *msm_obj;
 	struct drm_gem_object *obj;
@@ -788,6 +832,9 @@ struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 		ret = -ENOMEM;
 		goto fail;
 	}
+
+	/* OR the passed in flags */
+	msm_obj->flags |= flags;
 
 	ret = drm_prime_sg_to_page_addr_arrays(sgt, msm_obj->pages, NULL, npages);
 	if (ret)

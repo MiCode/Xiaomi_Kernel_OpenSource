@@ -469,7 +469,7 @@ int msm_gem_new_handle(struct drm_device *dev, struct drm_file *file,
 struct drm_gem_object *msm_gem_new(struct drm_device *dev,
 		uint32_t size, uint32_t flags);
 struct drm_gem_object *msm_gem_import(struct drm_device *dev,
-		uint32_t size, struct sg_table *sgt);
+		uint32_t size, struct sg_table *sgt, u32 flags);
 void msm_gem_sync(struct drm_gem_object *obj, u32 op);
 
 int msm_framebuffer_prepare(struct drm_framebuffer *fb,

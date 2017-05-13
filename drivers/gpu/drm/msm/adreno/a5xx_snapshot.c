@@ -733,6 +733,35 @@ static void a5xx_snapshot_indexed_registers(struct msm_gpu *gpu,
 	}
 }
 
+static void a5xx_snapshot_preemption(struct msm_gpu *gpu, struct msm_snapshot
+		*snapshot)
+{
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+	struct a5xx_gpu *a5xx_gpu = to_a5xx_gpu(adreno_gpu);
+	struct msm_snapshot_gpu_object header = {
+		.type = SNAPSHOT_GPU_OBJECT_GLOBAL,
+		.size = A5XX_PREEMPT_RECORD_SIZE >> 2,
+		.pt_base = 0,
+	};
+	int index;
+
+	if (gpu->nr_rings <= 1)
+		return;
+
+	for (index = 0; index < gpu->nr_rings; index++) {
+
+		header.gpuaddr = a5xx_gpu->preempt_iova[index];
+
+		if (!SNAPSHOT_HEADER(snapshot, header,
+			SNAPSHOT_SECTION_GPU_OBJECT_V2,
+			A5XX_PREEMPT_RECORD_SIZE >> 2))
+			return;
+
+		SNAPSHOT_MEMCPY(snapshot, a5xx_gpu->preempt[index],
+				A5XX_PREEMPT_RECORD_SIZE);
+	}
+}
+
 int a5xx_snapshot(struct msm_gpu *gpu, struct msm_snapshot *snapshot)
 {
 	struct crashdump crashdump = { 0 };
@@ -786,6 +815,9 @@ int a5xx_snapshot(struct msm_gpu *gpu, struct msm_snapshot *snapshot)
 
 	/* CP MERCIU */
 	a5xx_snapshot_cp_merciu(gpu, snapshot);
+
+	/* Preemption records*/
+	a5xx_snapshot_preemption(gpu, snapshot);
 
 	crashdump_destroy(gpu, &crashdump);
 	snapshot->priv = NULL;

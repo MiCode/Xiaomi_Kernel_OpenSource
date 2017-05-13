@@ -76,6 +76,10 @@ Optional properties when qcom,actuator-type is "lra"
 			at End of Pattern
  - qcom,lra-res-cal-period : Auto resonance calibration period. The values range from
 			4 to 32(default)
+- qcom,lra-auto-mode : If this property is specified, haptics mode for LRA
+		       actuators will be automatically configured along with
+		       other required settings runtime based on the duration
+		       of the pattern.
  - qcom,perform-lra-auto-resonance-search : boolean, define this property if:
 		a) the underlying PMI chip does not have a register in the MISC block to
 		read the error percentage in RC clock

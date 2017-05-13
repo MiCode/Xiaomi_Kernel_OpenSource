@@ -563,6 +563,15 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 			return ret;
 	}
 
+	if (gpu->secure_aspace) {
+		mmu = gpu->secure_aspace->mmu;
+		if (mmu) {
+			ret = mmu->funcs->attach(mmu, NULL, 0);
+			if (ret)
+				return ret;
+		}
+	}
+
 	mutex_lock(&drm->struct_mutex);
 	adreno_gpu->memptrs_bo = msm_gem_new(drm, sizeof(*adreno_gpu->memptrs),
 			MSM_BO_UNCACHED);
@@ -605,6 +614,12 @@ void adreno_gpu_cleanup(struct adreno_gpu *gpu)
 	msm_gpu_cleanup(&gpu->base);
 
 	if (aspace) {
+		aspace->mmu->funcs->detach(aspace->mmu);
+		msm_gem_address_space_put(aspace);
+	}
+
+	if (gpu->base.secure_aspace) {
+		aspace = gpu->base.secure_aspace;
 		aspace->mmu->funcs->detach(aspace->mmu);
 		msm_gem_address_space_put(aspace);
 	}

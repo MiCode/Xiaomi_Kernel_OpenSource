@@ -1208,23 +1208,34 @@ static int msm_ioctl_gem_info(struct drm_device *dev, void *data,
 	if (args->flags & ~MSM_INFO_FLAGS)
 		return -EINVAL;
 
-	if (!ctx || !ctx->aspace)
-		return -EINVAL;
-
 	obj = drm_gem_object_lookup(dev, file, args->handle);
 	if (!obj)
 		return -ENOENT;
 
 	if (args->flags & MSM_INFO_IOVA) {
+		struct msm_gem_address_space *aspace = NULL;
+		struct msm_drm_private *priv = dev->dev_private;
+		struct msm_gem_object *msm_obj = to_msm_bo(obj);
 		uint64_t iova;
 
-		ret = msm_gem_get_iova(obj, ctx->aspace, &iova);
+		if (msm_obj->flags & MSM_BO_SECURE && priv->gpu)
+			aspace = priv->gpu->secure_aspace;
+		else if (ctx)
+			aspace = ctx->aspace;
+
+		if (!aspace) {
+			ret = -EINVAL;
+			goto out;
+		}
+
+		ret = msm_gem_get_iova(obj, aspace, &iova);
 		if (!ret)
 			args->offset = iova;
 	} else {
 		args->offset = msm_gem_mmap_offset(obj);
 	}
 
+out:
 	drm_gem_object_unreference_unlocked(obj);
 
 	return ret;

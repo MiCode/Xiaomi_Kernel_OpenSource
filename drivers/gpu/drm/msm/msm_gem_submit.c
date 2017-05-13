@@ -50,6 +50,7 @@ static struct msm_gem_submit *submit_create(struct drm_device *dev,
 
 		submit->profile_buf_vaddr = NULL;
 		submit->profile_buf_iova = 0;
+		submit->secure = false;
 
 		INIT_LIST_HEAD(&submit->bo_list);
 		ww_acquire_init(&submit->ticket, &reservation_ww_class);
@@ -66,7 +67,8 @@ copy_from_user_inatomic(void *to, const void __user *from, unsigned long n)
 	return -EFAULT;
 }
 
-static int submit_lookup_objects(struct msm_gem_submit *submit,
+static int submit_lookup_objects(struct msm_gpu *gpu,
+		struct msm_gem_submit *submit,
 		struct drm_msm_gem_submit *args, struct drm_file *file)
 {
 	unsigned i;
@@ -119,6 +121,20 @@ static int submit_lookup_objects(struct msm_gem_submit *submit,
 
 		msm_obj = to_msm_bo(obj);
 
+		/*
+		 * If the buffer is marked as secure make sure that we can
+		 * handle secure buffers and then mark the submission as secure
+		 */
+		if (msm_obj->flags & MSM_BO_SECURE) {
+			if (!gpu->secure_aspace) {
+				DRM_ERROR("Cannot handle secure buffers\n");
+				ret = -EINVAL;
+				goto out_unlock;
+			}
+
+			submit->secure = true;
+		}
+
 		if (!list_empty(&msm_obj->submit_entry)) {
 			DRM_ERROR("handle %u at index %u already on submit list\n",
 					submit_bo.handle, i);
@@ -143,12 +159,17 @@ out:
 	return ret;
 }
 
-static void submit_unlock_unpin_bo(struct msm_gem_submit *submit, int i)
+static void submit_unlock_unpin_bo(struct msm_gpu *gpu,
+		struct msm_gem_submit *submit, int i)
 {
 	struct msm_gem_object *msm_obj = submit->bos[i].obj;
+	struct msm_gem_address_space *aspace;
+
+	aspace = (msm_obj->flags & MSM_BO_SECURE) ?
+			gpu->secure_aspace : submit->aspace;
 
 	if (submit->bos[i].flags & BO_PINNED)
-		msm_gem_put_iova(&msm_obj->base, submit->aspace);
+		msm_gem_put_iova(&msm_obj->base, aspace);
 
 	if (submit->bos[i].flags & BO_LOCKED)
 		ww_mutex_unlock(&msm_obj->resv->lock);
@@ -160,7 +181,8 @@ static void submit_unlock_unpin_bo(struct msm_gem_submit *submit, int i)
 }
 
 /* This is where we make sure all the bo's are reserved and pin'd: */
-static int submit_validate_objects(struct msm_gem_submit *submit)
+static int submit_validate_objects(struct msm_gpu *gpu,
+		struct msm_gem_submit *submit)
 {
 	int contended, slow_locked = -1, i, ret = 0;
 
@@ -169,7 +191,11 @@ retry:
 
 	for (i = 0; i < submit->nr_bos; i++) {
 		struct msm_gem_object *msm_obj = submit->bos[i].obj;
+		struct msm_gem_address_space *aspace;
 		uint64_t iova;
+
+		aspace = (msm_obj->flags & MSM_BO_SECURE) ?
+			gpu->secure_aspace : submit->aspace;
 
 		if (slow_locked == i)
 			slow_locked = -1;
@@ -186,8 +212,7 @@ retry:
 
 
 		/* if locking succeeded, pin bo: */
-		ret = msm_gem_get_iova_locked(&msm_obj->base,
-				submit->aspace, &iova);
+		ret = msm_gem_get_iova_locked(&msm_obj->base, aspace, &iova);
 
 		/* this would break the logic in the fail path.. there is no
 		 * reason for this to happen, but just to be on the safe side
@@ -215,10 +240,10 @@ retry:
 
 fail:
 	for (; i >= 0; i--)
-		submit_unlock_unpin_bo(submit, i);
+		submit_unlock_unpin_bo(gpu, submit, i);
 
 	if (slow_locked > 0)
-		submit_unlock_unpin_bo(submit, slow_locked);
+		submit_unlock_unpin_bo(gpu, submit, slow_locked);
 
 	if (ret == -EDEADLK) {
 		struct msm_gem_object *msm_obj = submit->bos[contended].obj;
@@ -264,6 +289,11 @@ static int submit_reloc(struct msm_gem_submit *submit, struct msm_gem_object *ob
 
 	if (offset % 4) {
 		DRM_ERROR("non-aligned cmdstream buffer: %u\n", offset);
+		return -EINVAL;
+	}
+
+	if (obj->flags & MSM_BO_SECURE) {
+		DRM_ERROR("cannot do relocs on a secure buffer\n");
 		return -EINVAL;
 	}
 
@@ -327,13 +357,14 @@ static int submit_reloc(struct msm_gem_submit *submit, struct msm_gem_object *ob
 	return 0;
 }
 
-static void submit_cleanup(struct msm_gem_submit *submit, bool fail)
+static void submit_cleanup(struct msm_gpu *gpu, struct msm_gem_submit *submit,
+		bool fail)
 {
 	unsigned i;
 
 	for (i = 0; i < submit->nr_bos; i++) {
 		struct msm_gem_object *msm_obj = submit->bos[i].obj;
-		submit_unlock_unpin_bo(submit, i);
+		submit_unlock_unpin_bo(gpu, submit, i);
 		list_del_init(&msm_obj->submit_entry);
 		drm_gem_object_unreference(&msm_obj->base);
 	}
@@ -373,11 +404,11 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 		goto out;
 	}
 
-	ret = submit_lookup_objects(submit, args, file);
+	ret = submit_lookup_objects(gpu, submit, args, file);
 	if (ret)
 		goto out;
 
-	ret = submit_validate_objects(submit);
+	ret = submit_validate_objects(gpu, submit);
 	if (ret)
 		goto out;
 
@@ -460,7 +491,7 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 
 out:
 	if (submit)
-		submit_cleanup(submit, !!ret);
+		submit_cleanup(gpu, submit, !!ret);
 	mutex_unlock(&dev->struct_mutex);
 	return ret;
 }
