@@ -979,11 +979,17 @@ static int etm4_probe(struct amba_device *adev, const struct amba_id *id)
 	drvdata->cpu = pdata ? pdata->cpu : 0;
 
 	get_online_cpus();
-	etmdrvdata[drvdata->cpu] = drvdata;
 
-	if (smp_call_function_single(drvdata->cpu,
-				etm4_init_arch_data,  drvdata, 1))
+	ret = smp_call_function_single(drvdata->cpu,
+				       etm4_init_arch_data, drvdata, 1);
+	if (ret) {
 		dev_err(dev, "ETM arch init failed\n");
+		put_online_cpus();
+		return ret;
+	} else if (etm4_arch_supported(drvdata->arch) == false) {
+		put_online_cpus();
+		return -EINVAL;
+	}
 
 	if (!etm4_count++) {
 		cpuhp_setup_state_nocalls(CPUHP_AP_ARM_CORESIGHT4_STARTING,
@@ -998,11 +1004,6 @@ static int etm4_probe(struct amba_device *adev, const struct amba_id *id)
 	}
 
 	put_online_cpus();
-
-	if (etm4_arch_supported(drvdata->arch) == false) {
-		ret = -EINVAL;
-		goto err_arch_supported;
-	}
 
 	etm4_init_trace_id(drvdata);
 	etm4_set_default(&drvdata->config);
@@ -1026,6 +1027,9 @@ static int etm4_probe(struct amba_device *adev, const struct amba_id *id)
 	}
 
 	pm_runtime_put(&adev->dev);
+
+	etmdrvdata[drvdata->cpu] = drvdata;
+
 	dev_info(dev, "%s initialized\n", (char *)id->data);
 
 	if (boot_enable) {
