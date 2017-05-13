@@ -47,6 +47,7 @@ static bool sched_ktime_suspended;
 static struct cpu_cycle_counter_cb cpu_cycle_counter_cb;
 static bool use_cycle_counter;
 DEFINE_MUTEX(cluster_lock);
+static atomic64_t walt_irq_work_lastq_ws;
 
 u64 sched_ktime_clock(void)
 {
@@ -298,11 +299,12 @@ void reset_hmp_stats(struct hmp_sched_stats *stats, int reset_cra)
  */
 __read_mostly int sched_freq_aggregate_threshold;
 
-static void
+static u64
 update_window_start(struct rq *rq, u64 wallclock, int event)
 {
 	s64 delta;
 	int nr_windows;
+	u64 old_window_start = rq->window_start;
 
 	delta = wallclock - rq->window_start;
 	/* If the MPM global timer is cleared, set delta as 0 to avoid kernel BUG happening */
@@ -312,7 +314,7 @@ update_window_start(struct rq *rq, u64 wallclock, int event)
 	}
 
 	if (delta < sched_ravg_window)
-		return;
+		return old_window_start;
 
 	nr_windows = div64_u64(delta, sched_ravg_window);
 	rq->window_start += (u64)nr_windows * (u64)sched_ravg_window;
@@ -320,6 +322,8 @@ update_window_start(struct rq *rq, u64 wallclock, int event)
 	rq->cum_window_demand = rq->hmp_stats.cumulative_runnable_avg;
 	if (event == PUT_PREV_TASK)
 		rq->cum_window_demand += rq->curr->ravg.demand;
+
+	return old_window_start;
 }
 
 int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb)
@@ -919,6 +923,7 @@ void set_window_start(struct rq *rq)
 	if (!sync_cpu_available) {
 		rq->window_start = sched_ktime_clock();
 		sync_cpu_available = 1;
+		atomic_set(&walt_irq_work_lastq_ws, rq->window_start);
 	} else {
 		struct rq *sync_rq = cpu_rq(cpumask_any(cpu_online_mask));
 
@@ -1904,11 +1909,24 @@ update_task_rq_cpu_cycles(struct task_struct *p, struct rq *rq, int event,
 	trace_sched_get_task_cpu_cycles(cpu, event, rq->cc.cycles, rq->cc.time);
 }
 
+static inline void run_walt_irq_work(u64 old_window_start, struct rq *rq)
+{
+	u64 result;
+
+	if (old_window_start == rq->window_start)
+		return;
+
+	result = atomic_cmpxchg(&walt_irq_work_lastq_ws, old_window_start,
+				   rq->window_start);
+	if (result == old_window_start)
+		irq_work_queue(&rq->irq_work);
+}
+
 /* Reflect task activity on its demand and cpu's busy time statistics */
 void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime)
 {
-	u64 runtime;
+	u64 runtime, old_window_start;
 
 	if (!rq->window_start || sched_disable_window_stats ||
 	    p->ravg.mark_start == wallclock)
@@ -1916,7 +1934,7 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 
 	lockdep_assert_held(&rq->lock);
 
-	update_window_start(rq, wallclock, event);
+	old_window_start = update_window_start(rq, wallclock, event);
 
 	if (!p->ravg.mark_start) {
 		update_task_cpu_cycles(p, cpu_of(rq));
@@ -1936,6 +1954,8 @@ done:
 				rq->cc.cycles, rq->cc.time, &rq->grp_time);
 
 	p->ravg.mark_start = wallclock;
+
+	run_walt_irq_work(old_window_start, rq);
 }
 
 u32 sched_get_init_task_load(struct task_struct *p)
