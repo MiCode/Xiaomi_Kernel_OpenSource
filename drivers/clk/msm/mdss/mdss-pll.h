@@ -70,6 +70,7 @@ struct dfps_info {
 	struct dfps_panel_info panel_dfps;
 	struct dfps_codes_info codes_dfps[DFPS_MAX_NUM_OF_FRAME_RATES];
 	void *dfps_fb_base;
+	uint32_t chip_serial;
 };
 
 struct mdss_pll_resources {
