@@ -14,6 +14,7 @@
 #define _CAM_VFE_TOP_VER2_H_
 
 #include "cam_vfe_camif_ver2.h"
+#include "cam_vfe_rdi.h"
 
 #define CAM_VFE_TOP_VER2_MUX_MAX 4
 

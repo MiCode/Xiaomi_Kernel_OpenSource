@@ -26,6 +26,8 @@
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
+#define FRAME_BASED_EN 0
+
 static uint32_t irq_reg_offset[CAM_IFE_BUS_IRQ_REGISTERS_MAX] = {
 	0x0000205C,
 	0x00002060,
@@ -649,6 +651,11 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 		wm_res->res_priv;
 	struct cam_vfe_bus_ver2_common_data        *common_data =
 		rsrc_data->common_data;
+	uint32_t                                    width;
+	uint32_t                                    height;
+	uint32_t                                    pack_fmt;
+	uint32_t                                    stride;
+	uint32_t                                    en_cfg;
 
 	CDBG("WM res %d width = %d, height = %d\n", rsrc_data->index,
 		rsrc_data->width, rsrc_data->height);
@@ -657,22 +664,39 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 	CDBG("WM res %d stride = %d, burst len = %d\n",
 		rsrc_data->index, rsrc_data->width, 0xf);
 
-	cam_io_w_mb(0,
-		common_data->mem_base + rsrc_data->hw_regs->header_addr);
-	cam_io_w_mb(0,
-		common_data->mem_base + rsrc_data->hw_regs->header_cfg);
-	cam_io_w_mb(0,
-		common_data->mem_base + rsrc_data->hw_regs->frame_inc);
-	cam_io_w_mb(rsrc_data->width,
+	cam_io_w_mb(0, common_data->mem_base + rsrc_data->hw_regs->header_addr);
+	cam_io_w_mb(0, common_data->mem_base + rsrc_data->hw_regs->header_cfg);
+	cam_io_w_mb(0, common_data->mem_base + rsrc_data->hw_regs->frame_inc);
+	cam_io_w(0xf, common_data->mem_base + rsrc_data->hw_regs->burst_limit);
+
+	if (rsrc_data->index < 3) {
+		width = rsrc_data->width * 5/4;
+		height = 1;
+		pack_fmt = 0x0;
+		stride = rsrc_data->width * 5/4;
+		en_cfg = 0x3;
+	} else if (rsrc_data->index < 5) {
+		width = rsrc_data->width;
+		height = rsrc_data->height;
+		pack_fmt = 0xE;
+		stride = rsrc_data->width;
+		en_cfg = 0x1;
+	} else {
+		width = rsrc_data->width * 4;
+		height = rsrc_data->height / 2;
+		pack_fmt = 0x0;
+		stride = rsrc_data->width * 4;
+		en_cfg = 0x1;
+	}
+
+	cam_io_w_mb(width,
 		common_data->mem_base + rsrc_data->hw_regs->buffer_width_cfg);
-	cam_io_w(rsrc_data->height,
+	cam_io_w(height,
 		common_data->mem_base + rsrc_data->hw_regs->buffer_height_cfg);
-	cam_io_w(0xe,
+	cam_io_w(pack_fmt,
 		common_data->mem_base + rsrc_data->hw_regs->packer_cfg);
-	cam_io_w(rsrc_data->width,
+	cam_io_w(stride,
 		common_data->mem_base + rsrc_data->hw_regs->stride);
-	cam_io_w(0xf,
-		common_data->mem_base + rsrc_data->hw_regs->burst_limit);
 
 	cam_io_w(0xFFFFFFFF, common_data->mem_base +
 		rsrc_data->hw_regs->irq_subsample_pattern);
@@ -680,9 +704,9 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 		rsrc_data->hw_regs->irq_subsample_period);
 
 	cam_io_w(0xFFFFFFFF,
-	 common_data->mem_base + rsrc_data->hw_regs->framedrop_pattern);
+		common_data->mem_base + rsrc_data->hw_regs->framedrop_pattern);
 	cam_io_w(0x0,
-	 common_data->mem_base + rsrc_data->hw_regs->framedrop_period);
+		common_data->mem_base + rsrc_data->hw_regs->framedrop_period);
 
 	/* UBWC registers */
 	switch (rsrc_data->format) {
@@ -702,10 +726,16 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 	}
 
 	/* Enable WM */
-	cam_io_w_mb(0x1,
-		common_data->mem_base + rsrc_data->hw_regs->cfg);
-	CDBG("enable WM red %d offset 0x%x val 0x%x\n", rsrc_data->index,
-		(uint32_t) rsrc_data->hw_regs->cfg, 0x1);
+	cam_io_w_mb(en_cfg, common_data->mem_base + rsrc_data->hw_regs->cfg);
+
+	CDBG("WM res %d width = %d, height = %d\n", rsrc_data->index,
+		width, height);
+	CDBG("WM res %d pk_fmt = %d\n", rsrc_data->index,
+		pack_fmt & PACKER_FMT_MAX);
+	CDBG("WM res %d stride = %d, burst len = %d\n",
+		rsrc_data->index, stride, 0xf);
+	CDBG("enable WM res %d offset 0x%x val 0x%x\n", rsrc_data->index,
+		(uint32_t) rsrc_data->hw_regs->cfg, en_cfg);
 
 	wm_res->res_state = CAM_ISP_RESOURCE_STATE_STREAMING;
 
@@ -754,14 +784,22 @@ static int cam_vfe_bus_handle_wm_done_bottom_half(void *wm_node,
 	int rc = CAM_VFE_IRQ_STATUS_ERR;
 	struct cam_isp_resource_node          *wm_res = wm_node;
 	struct cam_vfe_bus_irq_evt_payload    *evt_payload = evt_payload_priv;
-	struct cam_vfe_bus_ver2_wm_resource_data *rsrc_data = wm_res->res_priv;
-	uint32_t  *cam_ife_irq_regs = evt_payload->irq_reg_val;
+	struct cam_vfe_bus_ver2_wm_resource_data *rsrc_data =
+		(wm_res == NULL) ? NULL : wm_res->res_priv;
+	uint32_t  *cam_ife_irq_regs;
 	uint32_t   status_reg;
 
-	status_reg = cam_ife_irq_regs[CAM_IFE_IRQ_BUS_REG_STATUS0];
+	if (!evt_payload || !rsrc_data)
+		return rc;
 
-	if (status_reg & BIT(rsrc_data->index))
+	cam_ife_irq_regs = evt_payload->irq_reg_val;
+	status_reg = cam_ife_irq_regs[CAM_IFE_IRQ_BUS_REG_STATUS1];
+
+	if (status_reg & BIT(rsrc_data->index)) {
+		cam_ife_irq_regs[CAM_IFE_IRQ_BUS_REG_STATUS1] &=
+			~BIT(rsrc_data->index);
 		rc = CAM_VFE_IRQ_STATUS_SUCCESS;
+	}
 
 	if (rc == CAM_VFE_IRQ_STATUS_SUCCESS)
 		cam_vfe_bus_put_evt_payload(evt_payload->core_info,
@@ -974,9 +1012,6 @@ static int cam_vfe_bus_start_comp_grp(struct cam_isp_resource_node *comp_grp)
 	 * Individual Comp_Grp Subscribe IRQ can be done here once
 	 * dynamic IRQ enable support is added.
 	 */
-	cam_io_w_mb(0x00001F70, common_data->mem_base + 0x2044);
-	cam_io_w_mb(0x000FFFE7, common_data->mem_base + 0x2048);
-	cam_io_w_mb(0x000000FF, common_data->mem_base + 0x204c);
 
 	cam_io_w_mb(rsrc_data->composite_mask, common_data->mem_base +
 		rsrc_data->hw_regs->comp_mask);
@@ -1051,10 +1086,15 @@ static int cam_vfe_bus_handle_comp_done_bottom_half(
 	struct cam_isp_resource_node          *comp_grp = handler_priv;
 	struct cam_vfe_bus_irq_evt_payload    *evt_payload = evt_payload_priv;
 	struct cam_vfe_bus_ver2_comp_grp_data *rsrc_data = comp_grp->res_priv;
-	uint32_t  *cam_ife_irq_regs = evt_payload->irq_reg_val;
-	uint32_t   status_reg;
-	uint32_t   comp_err_reg;
-	uint32_t   dual_comp_grp;
+	uint32_t                              *cam_ife_irq_regs;
+	uint32_t                               status_reg;
+	uint32_t                               comp_err_reg;
+	uint32_t                               comp_grp_id;
+
+	if (!evt_payload)
+		return rc;
+
+	cam_ife_irq_regs = evt_payload->irq_reg_val;
 
 	CDBG("comp grp type %d\n", rsrc_data->comp_grp_type);
 	switch (rsrc_data->comp_grp_type) {
@@ -1064,7 +1104,7 @@ static int cam_vfe_bus_handle_comp_done_bottom_half(
 	case CAM_VFE_BUS_VER2_COMP_GRP_3:
 	case CAM_VFE_BUS_VER2_COMP_GRP_4:
 	case CAM_VFE_BUS_VER2_COMP_GRP_5:
-		dual_comp_grp = (rsrc_data->comp_grp_type -
+		comp_grp_id = (rsrc_data->comp_grp_type -
 			CAM_VFE_BUS_VER2_COMP_GRP_0);
 
 		/* Check for Regular composite error */
@@ -1086,12 +1126,15 @@ static int cam_vfe_bus_handle_comp_done_bottom_half(
 			break;
 		}
 
-		/* Regular Composite SUCCESS*/
-		if (status_reg & BIT(dual_comp_grp + 5))
+		/* Regular Composite SUCCESS */
+		if (status_reg & BIT(comp_grp_id + 5)) {
+			cam_ife_irq_regs[CAM_IFE_IRQ_BUS_REG_STATUS0] &=
+				~BIT(comp_grp_id + 5);
 			rc = CAM_VFE_IRQ_STATUS_SUCCESS;
+		}
 
 		CDBG("status reg = 0x%x, bit index = %d\n",
-			status_reg, (dual_comp_grp + 5));
+			status_reg, (comp_grp_id + 5));
 		break;
 
 	case CAM_VFE_BUS_VER2_COMP_GRP_DUAL_0:
@@ -1100,7 +1143,7 @@ static int cam_vfe_bus_handle_comp_done_bottom_half(
 	case CAM_VFE_BUS_VER2_COMP_GRP_DUAL_3:
 	case CAM_VFE_BUS_VER2_COMP_GRP_DUAL_4:
 	case CAM_VFE_BUS_VER2_COMP_GRP_DUAL_5:
-		dual_comp_grp = (rsrc_data->comp_grp_type -
+		comp_grp_id = (rsrc_data->comp_grp_type -
 			CAM_VFE_BUS_VER2_COMP_GRP_DUAL_0);
 
 		/* Check for DUAL composite error */
@@ -1122,12 +1165,14 @@ static int cam_vfe_bus_handle_comp_done_bottom_half(
 			break;
 		}
 
-		/* DUAL Composite SUCCESS*/
-		if (status_reg & BIT(dual_comp_grp))
+		/* DUAL Composite SUCCESS */
+		if (status_reg & BIT(comp_grp_id)) {
+			cam_ife_irq_regs[CAM_IFE_IRQ_BUS_REG_STATUS2] &=
+				~BIT(comp_grp_id + 5);
 			rc = CAM_VFE_IRQ_STATUS_SUCCESS;
+		}
 
 		break;
-
 	default:
 		rc = CAM_VFE_IRQ_STATUS_ERR;
 		break;
@@ -1302,7 +1347,9 @@ static int cam_vfe_bus_release_vfe_out(void *bus_priv,
 static int cam_vfe_bus_start_vfe_out(struct cam_isp_resource_node *vfe_out)
 {
 	int rc = 0, i;
-	struct cam_vfe_bus_ver2_vfe_out_data *rsrc_data = vfe_out->res_priv;
+	struct cam_vfe_bus_ver2_vfe_out_data  *rsrc_data = vfe_out->res_priv;
+	struct cam_vfe_bus_ver2_common_data   *common_data =
+		rsrc_data->common_data;
 
 	CDBG("Start resource index %d\n", rsrc_data->out_type);
 
@@ -1311,6 +1358,11 @@ static int cam_vfe_bus_start_vfe_out(struct cam_isp_resource_node *vfe_out)
 			vfe_out->res_state);
 		return -EACCES;
 	}
+
+	/* Enable IRQ Mask */
+	cam_io_w_mb(0x00001F70, common_data->mem_base + 0x2044);
+	cam_io_w_mb(0x000FFFE7, common_data->mem_base + 0x2048);
+	cam_io_w_mb(0x000000FF, common_data->mem_base + 0x204c);
 
 	for (i = 0; i < rsrc_data->num_wm; i++)
 		rc = cam_vfe_bus_start_wm(rsrc_data->wm_res[i]);
@@ -1335,12 +1387,6 @@ static int cam_vfe_bus_start_vfe_out(struct cam_isp_resource_node *vfe_out)
 	cam_io_w_mb(0x0, rsrc_data->common_data->mem_base + 0x00002080);
 	/* BUS_WR_INPUT_IF_ADDR_SYNC_NO_SYNC */
 	cam_io_w_mb(0xFFFFF, rsrc_data->common_data->mem_base + 0x00002084);
-	/* no clock gating at bus input */
-	cam_io_w_mb(0xFFFFF, rsrc_data->common_data->mem_base + 0x0000200C);
-	/*  BUS_WR_PWR_ISO_CFG */
-	cam_io_w_mb(0x0, rsrc_data->common_data->mem_base + 0x000020CC);
-	/*  BUS_WR_TEST_BUS_CTRL */
-	cam_io_w_mb(0x0, rsrc_data->common_data->mem_base + 0x0000211C);
 	/*  BUS_WR_INPUT_IF_ADDR_SYNC_0 */
 	cam_io_w_mb(0x0, rsrc_data->common_data->mem_base + 0x00002088);
 	cam_io_w_mb(0x0, rsrc_data->common_data->mem_base + 0x0000208c);
@@ -1350,6 +1396,12 @@ static int cam_vfe_bus_start_vfe_out(struct cam_isp_resource_node *vfe_out)
 	cam_io_w_mb(0x0, rsrc_data->common_data->mem_base + 0x0000209c);
 	cam_io_w_mb(0x0, rsrc_data->common_data->mem_base + 0x000020a0);
 	cam_io_w_mb(0x0, rsrc_data->common_data->mem_base + 0x000020a4);
+
+	/* no clock gating at bus input */
+	cam_io_w_mb(0xFFFFF, rsrc_data->common_data->mem_base + 0x0000200C);
+
+	/* BUS_WR_TEST_BUS_CTRL */
+	cam_io_w_mb(0x0, rsrc_data->common_data->mem_base + 0x0000211C);
 
 	return rc;
 }
@@ -1400,7 +1452,7 @@ static int cam_vfe_bus_handle_vfe_out_done_bottom_half(
 			rsrc_data->comp_grp, evt_payload_priv);
 	} else {
 		rc = rsrc_data->wm_res[0]->bottom_half_handler(
-			rsrc_data->comp_grp, evt_payload_priv);
+			rsrc_data->wm_res[0], evt_payload_priv);
 	}
 
 	return rc;
@@ -1449,6 +1501,7 @@ static int cam_vfe_bus_get_evt_payload(
 	struct cam_vfe_bus_irq_evt_payload  **evt_payload)
 {
 	if (list_empty(&bus_priv->free_payload_list)) {
+		*evt_payload = NULL;
 		pr_err("No free payload\n");
 		return -ENODEV;
 	}
@@ -1463,6 +1516,16 @@ static int cam_vfe_bus_put_evt_payload(void     *core_info,
 	struct cam_vfe_bus_irq_evt_payload     **evt_payload)
 {
 	struct cam_vfe_bus_ver2_priv         *bus_priv = NULL;
+	uint32_t  *cam_ife_irq_regs = (*evt_payload)->irq_reg_val;
+	uint32_t   status_reg0, status_reg1;
+
+	status_reg0 = cam_ife_irq_regs[CAM_IFE_IRQ_BUS_REG_STATUS0];
+	status_reg1 = cam_ife_irq_regs[CAM_IFE_IRQ_BUS_REG_STATUS1];
+
+	if (status_reg0 || status_reg1) {
+		CDBG("status0 0x%x status1 0x%x\n", status_reg0, status_reg1);
+		return 0;
+	}
 
 	if (!core_info) {
 		pr_err("Invalid param core_info NULL");
@@ -1489,6 +1552,7 @@ static int cam_vfe_bus_ver2_handle_irq(uint32_t    evt_id,
 	struct cam_vfe_bus                    *bus_info;
 	struct cam_vfe_bus_ver2_priv          *bus_priv;
 	struct cam_irq_controller_reg_info    *reg_info;
+	uint32_t                               irq_mask;
 
 	handler_priv = th_payload->handler_priv;
 	core_info    = handler_priv->core_info;
@@ -1517,8 +1581,10 @@ static int cam_vfe_bus_ver2_handle_irq(uint32_t    evt_id,
 			(uint64_t)handler_priv->core_info);
 
 	for (i = 0; i < CAM_IFE_BUS_IRQ_REGISTERS_MAX; i++) {
-		evt_payload->irq_reg_val[i] = cam_io_r(handler_priv->mem_base +
-			irq_reg_offset[i]);
+		irq_mask = cam_io_r(handler_priv->mem_base +
+			irq_reg_offset[i] - (0xC * 2));
+		evt_payload->irq_reg_val[i] = irq_mask &
+			cam_io_r(handler_priv->mem_base + irq_reg_offset[i]);
 		CDBG("irq_status%d = 0x%x\n", i, evt_payload->irq_reg_val[i]);
 	}
 	for (i = 0; i <= CAM_IFE_IRQ_BUS_REG_STATUS2; i++) {
@@ -1546,7 +1612,7 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 	struct cam_isp_hw_get_buf_update         *update_buf;
 	struct cam_vfe_bus_ver2_vfe_out_data     *vfe_out_data = NULL;
 	struct cam_vfe_bus_ver2_wm_resource_data *wm_data = NULL;
-	uint32_t  reg_val_pair[6];
+	uint32_t  reg_val_pair[8];
 	uint32_t i, size = 0;
 
 	/*

@@ -106,6 +106,7 @@ struct cam_irq_controller {
 	struct list_head                th_list_head[CAM_IRQ_PRIORITY_MAX];
 	uint32_t                        hdl_idx;
 	rwlock_t                        rw_lock;
+	struct cam_irq_th_payload       th_payload;
 };
 
 int cam_irq_controller_deinit(void **irq_controller)
@@ -118,11 +119,13 @@ int cam_irq_controller_deinit(void **irq_controller)
 			&controller->evt_handler_list_head,
 			struct cam_irq_evt_handler, list_node);
 		list_del_init(&evt_handler->list_node);
+		kfree(evt_handler->evt_bit_mask_arr);
 		kfree(evt_handler);
 	}
 
-	kfree(controller->irq_register_arr);
+	kfree(controller->th_payload.evt_status_arr);
 	kfree(controller->irq_status_arr);
+	kfree(controller->irq_register_arr);
 	kfree(controller);
 	*irq_controller = NULL;
 	return 0;
@@ -166,6 +169,16 @@ int cam_irq_controller_init(const char       *name,
 		rc = -ENOMEM;
 		goto status_alloc_error;
 	}
+
+	controller->th_payload.evt_status_arr =
+		kzalloc(register_info->num_registers * sizeof(uint32_t),
+		GFP_KERNEL);
+	if (!controller->th_payload.evt_status_arr) {
+		CDBG("Failed to allocate BH payload bit mask Arr\n");
+		rc = -ENOMEM;
+		goto evt_mask_alloc_error;
+	}
+
 	controller->name = name;
 
 	CDBG("num_registers: %d\n", register_info->num_registers);
@@ -206,6 +219,8 @@ int cam_irq_controller_init(const char       *name,
 
 	return rc;
 
+evt_mask_alloc_error:
+	kfree(controller->irq_status_arr);
 status_alloc_error:
 	kfree(controller->irq_register_arr);
 reg_alloc_error:
@@ -415,9 +430,10 @@ static void cam_irq_controller_th_processing(
 	struct list_head               *th_list_head)
 {
 	struct cam_irq_evt_handler     *evt_handler = NULL;
-	struct cam_irq_th_payload       th_payload;
+	struct cam_irq_th_payload      *th_payload = &controller->th_payload;
 	bool                            is_irq_match;
 	int                             rc = -EINVAL;
+	int                             i;
 
 	CDBG("Enter\n");
 
@@ -433,10 +449,14 @@ static void cam_irq_controller_th_processing(
 
 		CDBG("match found\n");
 
-		cam_irq_th_payload_init(&th_payload);
-		th_payload.handler_priv   = evt_handler->handler_priv;
-		th_payload.num_registers  = controller->num_registers;
-		th_payload.evt_status_arr = controller->irq_status_arr;
+		cam_irq_th_payload_init(th_payload);
+		th_payload->handler_priv  = evt_handler->handler_priv;
+		th_payload->num_registers = controller->num_registers;
+		for (i = 0; i < controller->num_registers; i++) {
+			th_payload->evt_status_arr[i] =
+				controller->irq_status_arr[i] &
+				evt_handler->evt_bit_mask_arr[i];
+		}
 
 		/*
 		 * irq_status_arr[0] is dummy argument passed. the entire
@@ -445,8 +465,7 @@ static void cam_irq_controller_th_processing(
 		if (evt_handler->top_half_handler)
 			rc = evt_handler->top_half_handler(
 				controller->irq_status_arr[0],
-				(void *)&th_payload);
-
+				(void *)th_payload);
 
 		if (!rc && evt_handler->bottom_half_handler) {
 			CDBG("Enqueuing bottom half\n");
@@ -454,7 +473,7 @@ static void cam_irq_controller_th_processing(
 				evt_handler->bottom_half_enqueue_func(
 					evt_handler->bottom_half,
 					evt_handler->handler_priv,
-					th_payload.evt_payload_priv,
+					th_payload->evt_payload_priv,
 					evt_handler->bottom_half_handler);
 			}
 		}
@@ -465,9 +484,10 @@ static void cam_irq_controller_th_processing(
 
 irqreturn_t cam_irq_controller_handle_irq(int irq_num, void *priv)
 {
-	struct cam_irq_controller      *controller  = priv;
-	int i, j;
-	bool need_th_processing[CAM_IRQ_PRIORITY_MAX] = {false};
+	struct cam_irq_controller  *controller  = priv;
+	bool         need_th_processing[CAM_IRQ_PRIORITY_MAX] = {false};
+	int          i;
+	int          j;
 
 	if (!controller)
 		return IRQ_NONE;
