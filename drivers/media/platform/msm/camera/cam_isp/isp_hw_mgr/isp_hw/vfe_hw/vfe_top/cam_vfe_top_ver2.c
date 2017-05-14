@@ -118,8 +118,12 @@ static int cam_vfe_top_mux_get_reg_update(
 
 	if (cdm_args->res->res_id == CAM_ISP_HW_VFE_IN_CAMIF)
 		reg_val_pair[1] = BIT(0);
-	else
-		reg_val_pair[1] = BIT(cdm_args->res->res_id + 1);
+	else {
+		uint32_t rdi_num = cdm_args->res->res_id -
+			CAM_ISP_HW_VFE_IN_RDI0;
+		/* RDI reg_update starts at BIT 1, so add 1 */
+		reg_val_pair[1] = BIT(rdi_num + 1);
+	}
 
 	cdm_util_ops->cdm_write_regrandom(cdm_args->cmd_buf_addr,
 		1, reg_val_pair);
@@ -132,13 +136,13 @@ static int cam_vfe_top_mux_get_reg_update(
 int cam_vfe_top_get_hw_caps(void *device_priv,
 	void *get_hw_cap_args, uint32_t arg_size)
 {
-	return 0;
+	return -EPERM;
 }
 
 int cam_vfe_top_init_hw(void *device_priv,
 	void *init_hw_args, uint32_t arg_size)
 {
-	return 0;
+	return -EPERM;
 }
 
 int cam_vfe_top_reset(void *device_priv,
@@ -304,13 +308,13 @@ int cam_vfe_top_stop(void *device_priv,
 int cam_vfe_top_read(void *device_priv,
 	void *read_args, uint32_t arg_size)
 {
-	return -ENODEV;
+	return -EPERM;
 }
 
 int cam_vfe_top_write(void *device_priv,
 	void *write_args, uint32_t arg_size)
 {
-	return -ENODEV;
+	return -EPERM;
 }
 
 int cam_vfe_top_process_cmd(void *device_priv, uint32_t cmd_type,
@@ -387,7 +391,10 @@ int cam_vfe_top_ver2_init(
 			/* set the RDI resource id */
 			top_priv->mux_rsrc[i].res_id =
 				CAM_ISP_HW_VFE_IN_RDI0 + j;
-			top_priv->mux_rsrc[i].res_priv = NULL;
+			rc = cam_vfe_rdi_ver2_init(hw_intf, soc_info,
+				NULL, &top_priv->mux_rsrc[i]);
+			if (rc)
+				goto deinit_resources;
 			j++;
 		}
 	}
@@ -410,6 +417,7 @@ int cam_vfe_top_ver2_init(
 
 	return rc;
 
+deinit_resources:
 err_mux_init:
 	kfree(vfe_top->top_priv);
 err_alloc_priv:

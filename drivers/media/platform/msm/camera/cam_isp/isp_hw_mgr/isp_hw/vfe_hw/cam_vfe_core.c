@@ -23,6 +23,7 @@
 #include "cam_vfe_core.h"
 #include "cam_vfe_bus.h"
 #include "cam_vfe_top.h"
+#include "cam_ife_hw_mgr.h"
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
@@ -35,9 +36,14 @@ static uint32_t irq_reg_offset[CAM_IFE_IRQ_REGISTERS_MAX] = {
 	0x0000007C,
 };
 
-static uint32_t top_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
-	0x7803FDFF,
+static uint32_t camif_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
+	0x0003FD1F,
 	0x0FFF7EB3,
+};
+
+static uint32_t rdi_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
+	0x780000e0,
+	0x00000000,
 };
 
 static uint32_t top_reset_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
@@ -440,11 +446,21 @@ int cam_vfe_start(void *hw_priv, void *start_args, uint32_t arg_size)
 
 	mutex_lock(&vfe_hw->hw_mutex);
 	if (isp_res->res_type == CAM_ISP_RESOURCE_VFE_IN) {
-		isp_res->irq_handle = cam_irq_controller_subscribe_irq(
-			core_info->vfe_irq_controller, CAM_IRQ_PRIORITY_2,
-			top_irq_reg_mask, &core_info->irq_payload,
-			cam_vfe_irq_top_half, NULL,
-			isp_res->tasklet_info, cam_tasklet_enqueue_cmd);
+		if (isp_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF)
+			isp_res->irq_handle = cam_irq_controller_subscribe_irq(
+				core_info->vfe_irq_controller,
+				CAM_IRQ_PRIORITY_2,
+				camif_irq_reg_mask, &core_info->irq_payload,
+				cam_vfe_irq_top_half, cam_ife_mgr_do_tasklet,
+				isp_res->tasklet_info, cam_tasklet_enqueue_cmd);
+		else
+			isp_res->irq_handle = cam_irq_controller_subscribe_irq(
+				core_info->vfe_irq_controller,
+				CAM_IRQ_PRIORITY_2,
+				rdi_irq_reg_mask, &core_info->irq_payload,
+				cam_vfe_irq_top_half, cam_ife_mgr_do_tasklet,
+				isp_res->tasklet_info, cam_tasklet_enqueue_cmd);
+
 		if (isp_res->irq_handle > 0)
 			rc = core_info->vfe_top->hw_ops.start(
 				core_info->vfe_top->top_priv, isp_res,
@@ -456,7 +472,7 @@ int cam_vfe_start(void *hw_priv, void *start_args, uint32_t arg_size)
 			core_info->vfe_irq_controller, CAM_IRQ_PRIORITY_1,
 			bus_irq_reg_mask, &core_info->irq_payload,
 			core_info->vfe_bus->top_half_handler,
-			NULL,
+			cam_ife_mgr_do_tasklet_buf_done,
 			isp_res->tasklet_info, cam_tasklet_enqueue_cmd);
 		if (isp_res->irq_handle > 0)
 			rc = core_info->vfe_bus->start_resource(isp_res);
