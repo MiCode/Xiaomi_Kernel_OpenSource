@@ -25,6 +25,7 @@
 #include <soc/qcom/secure_buffer.h>
 
 #include "msm_drv.h"
+#include "msm_gem.h"
 #include "msm_mmu.h"
 
 #ifndef SZ_4G
@@ -220,14 +221,18 @@ static void msm_smmu_destroy(struct msm_mmu *mmu)
 }
 
 static int msm_smmu_map_dma_buf(struct msm_mmu *mmu, struct sg_table *sgt,
-			struct dma_buf *dma_buf, int dir)
+			struct dma_buf *dma_buf, int dir, u32 flags)
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
+	unsigned long attrs = 0x0;
 	int ret;
 
-	ret = msm_dma_map_sg_lazy(client->dev, sgt->sgl, sgt->nents, dir,
-			dma_buf);
+	if (flags & MSM_BO_KEEPATTRS)
+		attrs |= DMA_ATTR_IOMMU_USE_UPSTREAM_HINT;
+
+	ret = msm_dma_map_sg_attrs(client->dev, sgt->sgl, sgt->nents, dir,
+			dma_buf, attrs);
 	if (ret != sgt->nents) {
 		DRM_ERROR("dma map sg failed\n");
 		return -ENOMEM;
