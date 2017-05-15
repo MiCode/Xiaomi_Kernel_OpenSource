@@ -6,7 +6,7 @@
 #include <media/cam_defs.h>
 
 #define CAM_SENSOR_PROBE_CMD   (CAM_COMMON_OPCODE_MAX + 1)
-
+#define CAM_SENSOR_MAX_LED_TRIGGERS 3
 /**
  * struct cam_sensor_query_cap - capabilities info for sensor
  *
@@ -42,6 +42,7 @@ struct  cam_sensor_query_cap {
  * @version          :  CSIphy version
  * @clk lane         :  Of the 5 lanes, informs lane configured
  *                      as clock lane
+ * @reserved
  */
 struct cam_csiphy_query_cap {
 	uint32_t            slot_info;
@@ -54,6 +55,7 @@ struct cam_csiphy_query_cap {
  * struct cam_actuator_query_cap - capabilities info for actuator
  *
  * @slot_info        :  Indicates about the slotId or cell Index
+ * @reserved
  */
 struct cam_actuator_query_cap {
 	uint32_t            slot_info;
@@ -85,6 +87,7 @@ struct cam_cmd_i2c_info {
  * @data_mask       :   Data mask if only few bits are valid
  * @camera_id       :   Indicates the slot to which camera
  *                      needs to be probed
+ * @reserved
  */
 struct cam_cmd_probe {
 	uint8_t     data_type;
@@ -99,9 +102,10 @@ struct cam_cmd_probe {
 } __attribute__((packed));
 
 /**
- * struct cam_power_settings - Contains sensor slave info
+ * struct cam_power_settings - Contains sensor power setting info
  *
  * @power_seq_type  :   Type of power sequence
+ * @reserved
  * @config_val_low  :   Lower 32 bit value configuration value
  * @config_val_high :   Higher 32 bit value configuration value
  *
@@ -117,8 +121,9 @@ struct cam_power_settings {
  * struct cam_cmd_power - Explains about the power settings
  *
  * @count           :    Number of power settings follows
+ * @reserved
  * @cmd_type        :    Explains type of command
- *
+ * @power_settings  :    Contains power setting info
  */
 struct cam_cmd_power {
 	uint16_t                    count;
@@ -135,7 +140,7 @@ struct cam_cmd_power {
  * @ cmd_type        :   Command buffer type
  * @ data_type       :   I2C data type
  * @ addr_type       :   I2C address type
- *
+ * @ reserved
  */
 struct i2c_rdwr_header {
 	uint16_t    count;
@@ -160,7 +165,8 @@ struct i2c_random_wr_payload {
 
 /**
  * struct cam_cmd_i2c_random_wr - I2C random write command
- *
+ * @ header            :   header of READ/WRITE I2C command
+ * @ random_wr_payload :   payload for I2C random write
  */
 struct cam_cmd_i2c_random_wr {
 	struct i2c_rdwr_header       header;
@@ -170,7 +176,7 @@ struct cam_cmd_i2c_random_wr {
 /**
  * struct cam_cmd_read - I2C read command
  * @ reg_data        :   Register data
- *
+ * @ reserved
  */
 struct cam_cmd_read {
 	uint32_t                reg_data;
@@ -179,8 +185,9 @@ struct cam_cmd_read {
 
 /**
  * struct cam_cmd_i2c_continuous_wr - I2C continuous write command
+ * @ header          :   header of READ/WRITE I2C command
  * @ reg_addr        :   Register address
- *
+ * @ data_read       :   I2C read command
  */
 struct cam_cmd_i2c_continuous_wr {
 	struct i2c_rdwr_header  header;
@@ -190,7 +197,8 @@ struct cam_cmd_i2c_continuous_wr {
 
 /**
  * struct cam_cmd_i2c_random_rd - I2C random read command
- *
+ * @ header          :   header of READ/WRITE I2C command
+ * @ data_read       :   I2C read command
  */
 struct cam_cmd_i2c_random_rd {
 	struct i2c_rdwr_header  header;
@@ -199,6 +207,7 @@ struct cam_cmd_i2c_random_rd {
 
 /**
  * struct cam_cmd_i2c_continuous_rd - I2C continuous continuous read command
+ * @ header          :   header of READ/WRITE I2C command
  * @ reg_addr        :   Register address
  *
  */
@@ -214,6 +223,7 @@ struct cam_cmd_i2c_continuous_rd {
  * @op_code         :   Opcode
  * @cmd_type        :   Explains type of command
  * @timeout         :   Timeout for retries
+ * @reserved
  * @reg_addr        :   Register Address
  * @reg_data        :   Register data
  * @data_mask       :   Data mask if only few bits are valid
@@ -237,7 +247,7 @@ struct cam_cmd_conditional_wait {
  * struct cam_cmd_unconditional_wait - Un-conditional wait command
  * @delay           :   Delay
  * @op_code         :   Opcode
- *
+ * @cmd_type        :   Explains type of command
  */
 struct cam_cmd_unconditional_wait {
 	int16_t     delay;
@@ -252,6 +262,7 @@ struct cam_cmd_unconditional_wait {
  * @csiphy_3phase :  Total number of lanes
  * @combo_mode    :  Info regarding combo_mode is enable / disable
  * @lane_cnt      :  Total number of lanes
+ * @reserved
  * @3phase        :  Details whether 3Phase / 2Phase operation
  * @settle_time   :  Settling time in ms
  * @data_rate     :  Data rate
@@ -272,6 +283,7 @@ struct cam_csiphy_info {
  * cam_csiphy_acquire_dev_info : Information needed for
  *                        csiphy at the time of acquire
  * @combo_mode     :    Indicates the device mode of operation
+ * @reserved
  *
  */
 struct cam_csiphy_acquire_dev_info {
@@ -284,6 +296,7 @@ struct cam_csiphy_acquire_dev_info {
  * @device_handle  :    Updates device handle
  * @session_handle :    Session handle for acquiring device
  * @handle_type    :    Resource handle type
+ * @reserved
  * @info_handle    :    Handle to additional info
  *                      needed for sensor sub modules
  *
@@ -301,6 +314,7 @@ struct cam_sensor_acquire_dev {
  * @session_handle :    Session handle for acquiring device
  * @device_handle  :    Updates device handle
  * @handle_type    :    Resource handle type
+ * @reserved
  * @info_handle    :    Information Needed at the time of streamOn
  *
  */
@@ -311,5 +325,93 @@ struct cam_sensor_streamon_dev {
 	uint32_t    reserved;
 	uint64_t    info_handle;
 } __attribute__((packed));
+
+/**
+ * struct cam_flash_init : Init command for the flash
+ * @flash_type  :    flash hw type
+ * @reserved
+ * @cmd_type    :    command buffer type
+ */
+struct cam_flash_init {
+	uint8_t     flash_type;
+	uint16_t    reserved;
+	uint8_t     cmd_type;
+} __attribute__((packed));
+
+/**
+ * struct cam_flash_set_rer : RedEyeReduction command buffer
+ *
+ * @count             :   Number of flash leds
+ * @opcode            :   Command buffer opcode
+ *			CAM_FLASH_FIRE_RER
+ * @cmd_type          :   command buffer operation type
+ * @num_iteration     :   Number of led turn on/off sequence
+ * @reserved
+ * @led_on_delay_ms   :   flash led turn on time in ms
+ * @led_off_delay_ms  :   flash led turn off time in ms
+ * @led_current_ma    :   flash led current in ma
+ *
+ */
+struct cam_flash_set_rer {
+	uint16_t    count;
+	uint8_t     opcode;
+	uint8_t     cmd_type;
+	uint16_t    num_iteration;
+	uint16_t    reserved;
+	uint32_t    led_on_delay_ms;
+	uint32_t    led_off_delay_ms;
+	uint32_t    led_current_ma[CAM_SENSOR_MAX_LED_TRIGGERS];
+} __attribute__((packed));
+
+/**
+ * struct cam_flash_set_on_off : led turn on/off command buffer
+ *
+ * @count              :   Number of Flash leds
+ * @opcode             :   command buffer opcodes
+ *			CAM_FLASH_FIRE_LOW
+ *			CAM_FLASH_FIRE_HIGH
+ *			CAM_FLASH_OFF
+ * @cmd_type           :   command buffer operation type
+ * @led_current_ma     :   flash led current in ma
+ *
+ */
+struct cam_flash_set_on_off {
+	uint16_t    count;
+	uint8_t     opcode;
+	uint8_t     cmd_type;
+	uint32_t    led_current_ma[CAM_SENSOR_MAX_LED_TRIGGERS];
+} __attribute__((packed));
+
+/**
+ * struct cam_flash_query_curr : query current command buffer
+ *
+ * @reserved
+ * @opcode            :   command buffer opcode
+ * @cmd_type          :   command buffer operation type
+ * @query_current_ma  :   battery current in ma
+ *
+ */
+struct cam_flash_query_curr {
+	uint16_t    reserved;
+	uint8_t     opcode;
+	uint8_t     cmd_type;
+	uint32_t    query_current_ma;
+} __attribute__ ((packed));
+
+/**
+ * struct cam_flash_query_cap  :  capabilities info for flash
+ *
+ * @slot_info           :  Indicates about the slotId or cell Index
+ * @max_current_flash   :  max supported current for flash
+ * @max_duration_flash  :  max flash turn on duration
+ * @max_current_torch   :  max supported current for torch
+ *
+ */
+struct cam_flash_query_cap_info {
+	uint32_t    slot_info;
+	uint32_t    max_current_flash[CAM_SENSOR_MAX_LED_TRIGGERS];
+	uint32_t    max_duration_flash[CAM_SENSOR_MAX_LED_TRIGGERS];
+	uint32_t    max_current_torch[CAM_SENSOR_MAX_LED_TRIGGERS];
+} __attribute__ ((packed));
 
 #endif
