@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017 The Linux Foundation.
+/* Copyright (c) 2016-2017, 2019 The Linux Foundation.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -356,6 +356,38 @@ unlock:
 	mutex_unlock(&apr_ch->m_lock);
 
 	return rc ? NULL : apr_ch;
+}
+
+int apr_tal_start_rx_rt(struct apr_svc_ch_dev *apr_ch)
+{
+	int rc = 0;
+
+	if (!apr_ch || !apr_ch->handle) {
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	mutex_lock(&apr_ch->m_lock);
+	rc = glink_start_rx_rt(apr_ch->handle);
+	mutex_unlock(&apr_ch->m_lock);
+exit:
+	return rc;
+}
+
+int apr_tal_end_rx_rt(struct apr_svc_ch_dev *apr_ch)
+{
+	int rc = 0;
+
+	if (!apr_ch || !apr_ch->handle) {
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	mutex_lock(&apr_ch->m_lock);
+	rc = glink_end_rx_rt(apr_ch->handle);
+	mutex_unlock(&apr_ch->m_lock);
+exit:
+	return rc;
 }
 
 int apr_tal_close(struct apr_svc_ch_dev *apr_ch)

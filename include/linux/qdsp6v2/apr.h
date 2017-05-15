@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -196,4 +196,6 @@ int apr_set_q6_state(enum apr_subsys_state state);
 void apr_set_subsys_state(void);
 const char *apr_get_lpass_subsys_name(void);
 uint16_t apr_get_reset_domain(uint16_t proc);
+int apr_start_rx_rt(void *handle);
+int apr_end_rx_rt(void *handle);
 #endif
