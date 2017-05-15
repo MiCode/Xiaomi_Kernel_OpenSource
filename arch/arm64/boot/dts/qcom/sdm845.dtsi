@@ -1378,6 +1378,12 @@
 		status = "disabled";
 	};
 
+	extcon_storage_cd: extcon_storage_cd {
+		compatible = "extcon-gpio";
+		extcon-id = <62>; /* EXTCON_MECHANICAL */
+		status = "disabled";
+	};
+
 	ufsphy_card: ufsphy_card@1da7000 {
 		reg = <0x1da7000 0xda8>; /* PHY regs */
 		reg-names = "phy_mem";

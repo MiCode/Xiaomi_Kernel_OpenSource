@@ -112,6 +112,19 @@
 			};
 		};
 
+		storage_cd: storage_cd {
+			mux {
+				pins = "gpio126";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio126";
+				bias-pull-up;           /* pull up */
+				drive-strength = <2>;   /* 2 MA */
+			};
+		};
+
 		sdc2_clk_on: sdc2_clk_on {
 			config {
 				pins = "sdc2_clk";
