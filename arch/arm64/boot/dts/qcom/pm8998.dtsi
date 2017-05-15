@@ -140,7 +140,6 @@
 			interrupt-names = "eoc-int-en-set";
 			qcom,adc-bit-resolution = <15>;
 			qcom,adc-vdd-reference = <1875>;
-			#thermal-sensor-cells = <1>;
 
 			chan@6 {
 				label = "die_temp";
@@ -191,6 +190,7 @@
 			qcom,adc_tm-vadc = <&pm8998_vadc>;
 			qcom,decimation = <0>;
 			qcom,fast-avg-setup = <0>;
+			#thermal-sensor-cells = <1>;
 		};
 	};
 
