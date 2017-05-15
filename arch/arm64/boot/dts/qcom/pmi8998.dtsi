@@ -76,6 +76,7 @@
 			compatible = "qcom,qpnp-smb2";
 			#address-cells = <1>;
 			#size-cells = <1>;
+			#cooling-cells = <2>;
 
 			qcom,pmic-revid = <&pmi8998_revid>;
 
