@@ -97,8 +97,8 @@ enum ecm_ipa_operation {
 };
 
 #define ECM_IPA_STATE_DEBUG(ecm_ipa_ctx) \
-	(ECM_IPA_DEBUG("Driver state - %s\n",\
-	ecm_ipa_state_string((ecm_ipa_ctx)->state)))
+	ECM_IPA_DEBUG("Driver state - %s\n",\
+	ecm_ipa_state_string((ecm_ipa_ctx)->state))
 
 /**
  * struct ecm_ipa_dev - main driver context parameters
@@ -163,8 +163,6 @@ static void resource_release(struct ecm_ipa_dev *ecm_ipa_ctx);
 static netdev_tx_t ecm_ipa_start_xmit
 	(struct sk_buff *skb, struct net_device *net);
 static int ecm_ipa_debugfs_atomic_open(struct inode *inode, struct file *file);
-static ssize_t ecm_ipa_debugfs_enable_read
-	(struct file *file, char __user *ubuf, size_t count, loff_t *ppos);
 static ssize_t ecm_ipa_debugfs_atomic_read
 	(struct file *file, char __user *ubuf, size_t count, loff_t *ppos);
 static void ecm_ipa_debugfs_init(struct ecm_ipa_dev *ecm_ipa_ctx);
@@ -558,7 +556,7 @@ static netdev_tx_t ecm_ipa_start_xmit
 	netdev_tx_t status = NETDEV_TX_BUSY;
 	struct ecm_ipa_dev *ecm_ipa_ctx = netdev_priv(net);
 
-	net->trans_start = jiffies;
+	netif_trans_update(net);
 
 	ECM_IPA_DEBUG
 		("Tx, len=%d, skb->protocol=%d, outstanding=%d\n",
