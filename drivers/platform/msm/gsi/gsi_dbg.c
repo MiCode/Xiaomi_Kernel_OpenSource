@@ -293,6 +293,16 @@ static ssize_t gsi_dump_ee(struct file *file,
 		val = gsi_readl(gsi_ctx->base +
 			GSI_V1_3_EE_n_GSI_HW_PARAM_2_OFFS(gsi_ctx->per.ee));
 		TERR("EE%2d HW_PARAM_2 0x%x\n", gsi_ctx->per.ee, val);
+	} else if (gsi_ctx->per.ver == GSI_VER_2_0) {
+		val = gsi_readl(gsi_ctx->base +
+			GSI_V1_3_EE_n_GSI_HW_PARAM_0_OFFS(gsi_ctx->per.ee));
+		TERR("EE%2d HW_PARAM_0 0x%x\n", gsi_ctx->per.ee, val);
+		val = gsi_readl(gsi_ctx->base +
+			GSI_V1_3_EE_n_GSI_HW_PARAM_1_OFFS(gsi_ctx->per.ee));
+		TERR("EE%2d HW_PARAM_1 0x%x\n", gsi_ctx->per.ee, val);
+		val = gsi_readl(gsi_ctx->base +
+			GSI_V2_0_EE_n_GSI_HW_PARAM_2_OFFS(gsi_ctx->per.ee));
+		TERR("EE%2d HW_PARAM_2 0x%x\n", gsi_ctx->per.ee, val);
 	} else {
 		WARN_ON(1);
 	}

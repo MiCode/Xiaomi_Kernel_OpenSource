@@ -649,6 +649,13 @@ static uint32_t gsi_get_max_channels(enum gsi_ver ver)
 			GSI_V1_3_EE_n_GSI_HW_PARAM_2_GSI_NUM_CH_PER_EE_BMSK) >>
 			GSI_V1_3_EE_n_GSI_HW_PARAM_2_GSI_NUM_CH_PER_EE_SHFT;
 		break;
+	case GSI_VER_2_0:
+		reg = gsi_readl(gsi_ctx->base +
+			GSI_V2_0_EE_n_GSI_HW_PARAM_2_OFFS(gsi_ctx->per.ee));
+		reg = (reg &
+			GSI_V2_0_EE_n_GSI_HW_PARAM_2_GSI_NUM_CH_PER_EE_BMSK) >>
+			GSI_V2_0_EE_n_GSI_HW_PARAM_2_GSI_NUM_CH_PER_EE_SHFT;
+		break;
 	default:
 		GSIERR("bad gsi version %d\n", ver);
 		WARN_ON(1);
@@ -683,6 +690,13 @@ static uint32_t gsi_get_max_event_rings(enum gsi_ver ver)
 		reg = (reg &
 			GSI_V1_3_EE_n_GSI_HW_PARAM_2_GSI_NUM_EV_PER_EE_BMSK) >>
 			GSI_V1_3_EE_n_GSI_HW_PARAM_2_GSI_NUM_EV_PER_EE_SHFT;
+		break;
+	case GSI_VER_2_0:
+		reg = gsi_readl(gsi_ctx->base +
+			GSI_V2_0_EE_n_GSI_HW_PARAM_2_OFFS(gsi_ctx->per.ee));
+		reg = (reg &
+			GSI_V2_0_EE_n_GSI_HW_PARAM_2_GSI_NUM_EV_PER_EE_BMSK) >>
+			GSI_V2_0_EE_n_GSI_HW_PARAM_2_GSI_NUM_EV_PER_EE_SHFT;
 		break;
 	default:
 		GSIERR("bad gsi version %d\n", ver);
