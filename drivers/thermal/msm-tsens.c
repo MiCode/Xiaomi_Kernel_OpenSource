@@ -21,6 +21,7 @@
 #include <linux/slab.h>
 #include <linux/thermal.h>
 #include "tsens.h"
+#include "qcom/qti_virtual_sensor.h"
 
 LIST_HEAD(tsens_device_list);
 
@@ -171,6 +172,9 @@ static int tsens_thermal_zone_register(struct tsens_device *tmdev)
 		pr_err("No TSENS sensors to register?\n");
 		return -ENODEV;
 	}
+
+	/* Register virtual thermal sensors. */
+	qti_virtual_sensor_register(&tmdev->pdev->dev);
 
 	return 0;
 }
