@@ -455,7 +455,7 @@ static int update_userspace_power(struct sched_params __user *argp)
 	spin_unlock(&update_lock);
 
 	for_each_possible_cpu(cpu) {
-		if (pdata_valid[cpu])
+		if (!pdata_valid[cpu])
 			continue;
 
 		blocking_notifier_call_chain(
