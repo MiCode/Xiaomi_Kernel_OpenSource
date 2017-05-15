@@ -653,7 +653,7 @@ static inline void ufshcd_cond_add_cmd_trace(struct ufs_hba *hba,
 	struct ufshcd_lrb *lrbp;
 	char *cmd_type;
 	u8 opcode = 0;
-	u8 cmd_id, idn = 0;
+	u8 cmd_id = 0, idn = 0;
 	sector_t lba = -1;
 	int transfer_len = -1;
 
@@ -674,7 +674,7 @@ static inline void ufshcd_cond_add_cmd_trace(struct ufs_hba *hba,
 		}
 	}
 
-	if (lrbp->command_type == UTP_CMD_TYPE_SCSI) {
+	if (lrbp->cmd && (lrbp->command_type == UTP_CMD_TYPE_SCSI)) {
 		cmd_type = "scsi";
 		cmd_id = (u8)(*lrbp->cmd->cmnd);
 	} else if (lrbp->command_type == UTP_CMD_TYPE_DEV_MANAGE) {
