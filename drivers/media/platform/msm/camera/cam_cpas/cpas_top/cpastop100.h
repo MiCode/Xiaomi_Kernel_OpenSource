@@ -39,7 +39,7 @@ static struct cam_camnoc_irq_sbm cam_cpas100_irq_sbm = {
 		.access_type = CAM_REG_TYPE_WRITE,
 		.enable = true,
 		.offset = 0x2080, /* SBM_FLAGOUTCLR0_LOW */
-		.value = TEST_IRQ_ENABLE ? 0x7 : 0x3,
+		.value = TEST_IRQ_ENABLE ? 0x6 : 0x2,
 	}
 };
 
@@ -164,7 +164,7 @@ static struct cam_camnoc_irq_err
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.enable = true,
 			.offset = 0x2088, /* SBM_FLAGOUTSET0_LOW */
-			.value = 0x7,
+			.value = 0x1,
 		},
 		.err_status = {
 			.access_type = CAM_REG_TYPE_READ,
@@ -191,7 +191,7 @@ static struct cam_camnoc_irq_err
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.enable = true,
 			.offset = 0x2088, /* SBM_FLAGOUTSET0_LOW */
-			.value = 0x7,
+			.value = 0x5,
 		},
 		.err_status = {
 			.access_type = CAM_REG_TYPE_READ,
