@@ -68,11 +68,14 @@
 			};
 			L1_I_0: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x9000>;
+				qcom,dump-size = <0xa000>;
 			};
 			L1_D_0: l1-dcache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x9000>;
+				qcom,dump-size = <0xa000>;
+			};
+			L1_TLB_0: l1-tlb {
+				qcom,dump-size = <0x3000>;
 			};
 		};
 
@@ -96,11 +99,14 @@
 			};
 			L1_I_100: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x9000>;
+				qcom,dump-size = <0xa000>;
 			};
 			L1_D_100: l1-dcache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x9000>;
+				qcom,dump-size = <0xa000>;
+			};
+			L1_TLB_100: l1-tlb {
+				qcom,dump-size = <0x3000>;
 			};
 		};
 
@@ -124,11 +130,14 @@
 			};
 			L1_I_200: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x9000>;
+				qcom,dump-size = <0xa000>;
 			};
 			L1_D_200: l1-dcache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x9000>;
+				qcom,dump-size = <0xa000>;
+			};
+			L1_TLB_200: l1-tlb {
+				qcom,dump-size = <0x3000>;
 			};
 		};
 
@@ -152,11 +161,14 @@
 			};
 			L1_I_300: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x9000>;
+				qcom,dump-size = <0xa000>;
 			};
 			L1_D_300: l1-dcache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x9000>;
+				qcom,dump-size = <0xa000>;
+			};
+			L1_TLB_300: l1-tlb {
+				qcom,dump-size = <0x3000>;
 			};
 		};
 
@@ -180,11 +192,14 @@
 			};
 			L1_I_400: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x12000>;
+				qcom,dump-size = <0x14000>;
 			};
 			L1_D_400: l1-dcache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x12000>;
+				qcom,dump-size = <0x14000>;
+			};
+			L1_TLB_400: l1-tlb {
+				qcom,dump-size = <0x3c000>;
 			};
 		};
 
@@ -208,11 +223,14 @@
 			};
 			L1_I_500: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x12000>;
+				qcom,dump-size = <0x14000>;
 			};
 			L1_D_500: l1-dcache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x12000>;
+				qcom,dump-size = <0x14000>;
+			};
+			L1_TLB_500: l1-tlb {
+				qcom,dump-size = <0x3c000>;
 			};
 		};
 
@@ -236,11 +254,14 @@
 			};
 			L1_I_600: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x12000>;
+				qcom,dump-size = <0x14000>;
 			};
 			L1_D_600: l1-dcache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x12000>;
+				qcom,dump-size = <0x14000>;
+			};
+			L1_TLB_600: l1-tlb {
+				qcom,dump-size = <0x3c000>;
 			};
 		};
 
@@ -264,11 +285,14 @@
 			};
 			L1_I_700: l1-icache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x12000>;
+				qcom,dump-size = <0x14000>;
 			};
 			L1_D_700: l1-dcache {
 				compatible = "arm,arch-cache";
-				qcom,dump-size = <0x12000>;
+				qcom,dump-size = <0x14000>;
+			};
+			L1_TLB_700: l1-tlb {
+				qcom,dump-size = <0x3c000>;
 			};
 		};
 
@@ -1997,6 +2021,38 @@
 		qcom,llcc4_d_cache {
 			qcom,dump-node = <&LLCC_4>;
 			qcom,dump-id = <0x124>;
+		};
+		qcom,l1_tlb_dump0 {
+			qcom,dump-node = <&L1_TLB_0>;
+			qcom,dump-id = <0x20>;
+		};
+		qcom,l1_tlb_dump100 {
+			qcom,dump-node = <&L1_TLB_100>;
+			qcom,dump-id = <0x21>;
+		};
+		qcom,l1_tlb_dump200 {
+			qcom,dump-node = <&L1_TLB_200>;
+			qcom,dump-id = <0x22>;
+		};
+		qcom,l1_tlb_dump300 {
+			qcom,dump-node = <&L1_TLB_300>;
+			qcom,dump-id = <0x23>;
+		};
+		qcom,l1_tlb_dump400 {
+			qcom,dump-node = <&L1_TLB_400>;
+			qcom,dump-id = <0x24>;
+		};
+		qcom,l1_tlb_dump500 {
+			qcom,dump-node = <&L1_TLB_500>;
+			qcom,dump-id = <0x25>;
+		};
+		qcom,l1_tlb_dump600 {
+			qcom,dump-node = <&L1_TLB_600>;
+			qcom,dump-id = <0x26>;
+		};
+		qcom,l1_tlb_dump700 {
+			qcom,dump-node = <&L1_TLB_700>;
+			qcom,dump-id = <0x27>;
 		};
 	};
 
