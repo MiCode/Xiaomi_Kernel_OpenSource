@@ -3223,44 +3223,48 @@
 			};
 		};
 
-		gpu0-step {
+		gpu-virt-max-step {
 			polling-delay-passive = <10>;
-			polling-delay = <0>;
-			thermal-sensors = <&tsens0 11>;
+			polling-delay = <100>;
 			thermal-governor = "step_wise";
 			trips {
-				gpu0_trip: gpu0-trip {
+				gpu_trip0: gpu-trip0 {
 					temperature = <95000>;
 					hysteresis = <0>;
 					type = "passive";
 				};
 			};
 			cooling-maps {
-				gpu0_cdev {
-					trip = <&gpu0_trip>;
+				gpu_cdev0 {
+					trip = <&gpu_trip0>;
 					cooling-device =
-						<&msm_gpu 1 THERMAL_NO_LIMIT>;
+						<&msm_gpu 0 THERMAL_NO_LIMIT>;
 				};
 			};
 		};
 
-		gpu1-step {
-			polling-delay-passive = <10>;
-			polling-delay = <0>;
-			thermal-sensors = <&tsens0 12>;
-			thermal-governor = "step_wise";
+		silver-virt-max-usr {
+			polling-delay-passive = <100>;
+			polling-delay = <100>;
+			thermal-governor = "user_space";
 			trips {
-				gpu1_trip: gpu1-trip {
-					temperature = <95000>;
+				silver-trip {
+					temperature = <120000>;
 					hysteresis = <0>;
 					type = "passive";
 				};
 			};
-			cooling-maps {
-				gpu1_cdev {
-					trip = <&gpu1_trip>;
-					cooling-device =
-						<&msm_gpu 1 THERMAL_NO_LIMIT>;
+		};
+
+		gold-virt-max-usr {
+			polling-delay-passive = <100>;
+			polling-delay = <100>;
+			thermal-governor = "user_space";
+			trips {
+				gold-trip {
+					temperature = <120000>;
+					hysteresis = <0>;
+					type = "passive";
 				};
 			};
 		};
