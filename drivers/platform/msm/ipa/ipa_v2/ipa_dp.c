@@ -2046,11 +2046,13 @@ static void ipa_alloc_wlan_rx_common_cache(u32 size)
 			goto fail_dma_mapping;
 		}
 
+		spin_lock_bh(&ipa_ctx->wc_memb.wlan_spinlock);
 		list_add_tail(&rx_pkt->link,
 			&ipa_ctx->wc_memb.wlan_comm_desc_list);
 		rx_len_cached = ++ipa_ctx->wc_memb.wlan_comm_total_cnt;
 
 		ipa_ctx->wc_memb.wlan_comm_free_cnt++;
+		spin_unlock_bh(&ipa_ctx->wc_memb.wlan_spinlock);
 
 	}
 
