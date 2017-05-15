@@ -476,7 +476,7 @@ int msm_comm_ctrl_init(struct msm_vidc_inst *inst,
 	for (; idx < num_ctrls; idx++) {
 		struct v4l2_ctrl *ctrl = NULL;
 
-		if (1) {
+		if (IS_PRIV_CTRL(drv_ctrls[idx].id)) {
 			/*add private control*/
 			ctrl_cfg.def = drv_ctrls[idx].default_value;
 			ctrl_cfg.flags = 0;

@@ -61,7 +61,7 @@ enum hal_extradata_id msm_comm_get_hal_extradata_index(
 struct hal_buffer_requirements *get_buff_req_buffer(
 			struct msm_vidc_inst *inst, u32 buffer_type);
 #define IS_PRIV_CTRL(idx) (\
-		(V4L2_CTRL_ID2CLASS(idx) == V4L2_CTRL_CLASS_MPEG) && \
+		(V4L2_CTRL_ID2WHICH(idx) == V4L2_CTRL_CLASS_MPEG) && \
 		V4L2_CTRL_DRIVER_PRIV(idx))
 void msm_comm_session_clean(struct msm_vidc_inst *inst);
 int msm_comm_kill_session(struct msm_vidc_inst *inst);
