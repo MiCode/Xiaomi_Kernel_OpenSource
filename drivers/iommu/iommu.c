@@ -1067,8 +1067,6 @@ static struct iommu_domain *__iommu_domain_alloc(struct bus_type *bus,
 	/* Assume all sizes by default; the driver may override this later */
 	domain->pgsize_bitmap  = bus->iommu_ops->pgsize_bitmap;
 
-	iommu_debug_domain_add(domain);
-
 	return domain;
 }
 
@@ -1132,8 +1130,6 @@ EXPORT_SYMBOL_GPL(iommu_attach_device);
 static void __iommu_detach_device(struct iommu_domain *domain,
 				  struct device *dev)
 {
-	iommu_debug_detach_device(domain, dev);
-
 	if (unlikely(domain->ops->detach_dev == NULL))
 		return;
 
