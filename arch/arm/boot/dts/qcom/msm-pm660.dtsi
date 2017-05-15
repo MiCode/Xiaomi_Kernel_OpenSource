@@ -535,6 +535,7 @@
 			qcom,rradc-base = <0x4500>;
 			qcom,fg-esr-timer-awake = <96>;
 			qcom,fg-esr-timer-asleep = <256>;
+			qcom,fg-esr-timer-charging = <96>;
 			qcom,cycle-counter-en;
 			status = "okay";
 
