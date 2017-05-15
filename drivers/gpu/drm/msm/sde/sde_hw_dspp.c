@@ -151,5 +151,7 @@ struct sde_hw_dspp *sde_hw_dspp_init(enum sde_dspp idx,
 
 void sde_hw_dspp_destroy(struct sde_hw_dspp *dspp)
 {
+	if (dspp)
+		reg_dmav1_deinit_dspp_ops(dspp->idx);
 	kfree(dspp);
 }
