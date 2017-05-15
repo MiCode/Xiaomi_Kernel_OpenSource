@@ -196,6 +196,7 @@ int32_t cam_create_device_hdl(struct cam_create_dev_hdl *hdl_data)
 	hdl_tbl->hdl[idx].ops = hdl_data->ops;
 	spin_unlock_bh(&hdl_tbl_lock);
 
+	pr_debug("%s: handle = %x\n", __func__, handle);
 	return handle;
 }
 

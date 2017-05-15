@@ -36,6 +36,7 @@ typedef int (*cam_hw_event_cb_func)(void *context, uint32_t evt_id,
  * @offset:                Memory offset
  * @len:                   Size of the configuration
  * @flags:                 Flags for the config entry(eg. DMI)
+ * @addr:                  Address of hardware update entry
  *
  */
 struct cam_hw_update_entry {
@@ -43,6 +44,7 @@ struct cam_hw_update_entry {
 	uint32_t           offset;
 	uint32_t           len;
 	uint32_t           flags;
+	uint64_t           addr;
 };
 
 /**
@@ -137,6 +139,7 @@ struct cam_hw_stop_args {
  * @max_in_map_entries:    Maximum input fence mapping supported
  * @in_map_entries:        Actual input fence mapping list (returned)
  * @num_in_map_entries:    Number of acutal input fence mapping (returned)
+ * @priv:                  Private pointer of hw update
  *
  */
 struct cam_hw_prepare_update_args {
@@ -151,6 +154,7 @@ struct cam_hw_prepare_update_args {
 	uint32_t                        max_in_map_entries;
 	struct cam_hw_fence_map_entry  *in_map_entries;
 	uint32_t                        num_in_map_entries;
+	void                           *priv;
 };
 
 /**
@@ -159,12 +163,18 @@ struct cam_hw_prepare_update_args {
  * @ctxt_to_hw_map:        HW context from the acquire
  * @num_hw_update_entries: Number of hardware update entries
  * @hw_update_entries:     Hardware update list
+ * @out_map_entries:       Out map info
+ * @num_out_map_entries:   Number of out map entries
+ * @priv:                  Private pointer
  *
  */
 struct cam_hw_config_args {
-	void                        *ctxt_to_hw_map;
-	uint32_t                     num_hw_update_entries;
-	struct cam_hw_update_entry  *hw_update_entries;
+	void                           *ctxt_to_hw_map;
+	uint32_t                        num_hw_update_entries;
+	struct cam_hw_update_entry     *hw_update_entries;
+	struct cam_hw_fence_map_entry  *out_map_entries;
+	uint32_t                        num_out_map_entries;
+	void                           *priv;
 };
 
 /**
@@ -189,6 +199,8 @@ struct cam_hw_config_args {
  * @hw_write:              Function pointer for Write hardware registers
  * @hw_cmd:                Function pointer for any customized commands for the
  *                         hardware manager
+ * @download_fw:           Function pointer for firmware downloading
+ * @hw_close:              Function pointer for subdev close
  *
  */
 struct cam_hw_mgr_intf {
@@ -204,6 +216,8 @@ struct cam_hw_mgr_intf {
 	int (*hw_read)(void *hw_priv, void *read_args);
 	int (*hw_write)(void *hw_priv, void *write_args);
 	int (*hw_cmd)(void *hw_priv, void *write_args);
+	int (*download_fw)(void *hw_priv, void *fw_download_args);
+	int (*hw_close)(void *hw_priv, void *hw_close_args);
 };
 
 #endif /* _CAM_HW_MGR_INTF_H_ */

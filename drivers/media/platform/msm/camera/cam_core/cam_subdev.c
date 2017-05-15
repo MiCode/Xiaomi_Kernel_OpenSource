@@ -148,6 +148,7 @@ int cam_subdev_probe(struct cam_subdev *sd, struct platform_device *pdev,
 	sd->sd_flags =
 		V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_HAS_EVENTS;
 	sd->ent_function = dev_type;
+
 	rc = cam_register_subdev(sd);
 	if (rc) {
 		pr_err("%s: cam_register_subdev() failed for dev: %s!\n",

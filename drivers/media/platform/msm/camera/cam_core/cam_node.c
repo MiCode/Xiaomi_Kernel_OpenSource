@@ -21,13 +21,16 @@ static int __cam_node_handle_query_cap(struct cam_node *node,
 {
 	int rc = -EFAULT;
 
-	if (!query)
+	if (!query) {
+		pr_err("%s: Invalid params\n", __func__);
 		return -EINVAL;
+	}
 
 	if (node->hw_mgr_intf.hw_get_caps) {
 		rc = node->hw_mgr_intf.hw_get_caps(
 			node->hw_mgr_intf.hw_mgr_priv, query);
 	}
+
 	return rc;
 }
 
@@ -47,7 +50,6 @@ static int __cam_node_handle_acquire_dev(struct cam_node *node,
 		list_del_init(&ctx->list);
 	}
 	mutex_unlock(&node->list_mutex);
-
 	if (!ctx) {
 		rc = -ENOMEM;
 		goto err;
@@ -254,8 +256,8 @@ int cam_node_deinit(struct cam_node *node)
 		memset(node, 0, sizeof(*node));
 
 	pr_debug("%s: deinit complete!\n", __func__);
-	return 0;
 
+	return 0;
 }
 
 int cam_node_init(struct cam_node *node, struct cam_hw_mgr_intf *hw_mgr_intf,
@@ -274,7 +276,6 @@ int cam_node_init(struct cam_node *node, struct cam_hw_mgr_intf *hw_mgr_intf,
 	strlcpy(node->name, name, sizeof(node->name));
 
 	memcpy(&node->hw_mgr_intf, hw_mgr_intf, sizeof(node->hw_mgr_intf));
-
 	node->crm_node_intf.apply_req = __cam_node_apply_req;
 	node->crm_node_intf.get_dev_info = __cam_node_get_dev_info;
 	node->crm_node_intf.link_setup = __cam_node_link_setup;
@@ -318,15 +319,18 @@ int cam_node_handle_ioctl(struct cam_node *node, struct cam_control *cmd)
 			rc = -EFAULT;
 			break;
 		}
+
 		rc = __cam_node_handle_query_cap(node, &query);
 		if (rc) {
 			pr_err("%s: querycap is failed(rc = %d)\n",
 				__func__,  rc);
 			break;
 		}
+
 		if (copy_to_user((void __user *)cmd->handle, &query,
 			sizeof(query)))
 			rc = -EFAULT;
+
 		break;
 	}
 	case CAM_ACQUIRE_DEV: {
