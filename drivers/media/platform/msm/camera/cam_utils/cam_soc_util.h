@@ -18,6 +18,7 @@
 #include <linux/io.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
+
 #include "cam_io_util.h"
 
 #define NO_SET_RATE  -1
@@ -54,7 +55,7 @@ struct cam_soc_reg_map {
  *                          Camera hardware driver module
  *
  * @pdev:                   Platform device pointer
- * @hw_version;             Camera device version
+ * @hw_version:             Camera device version
  * @index:                  Instance id for the camera device
  * @irq_name:               Name of the irq associated with the device
  * @irq_line:               Irq resource
@@ -76,7 +77,7 @@ struct cam_soc_reg_map {
  * @clk:                    Array of associated clock resources
  * @clk_rate:               Array of default clock rates
  * @src_clk_idx:            Source clock index that is rate-controllable
- * @soc_private;            Soc private data
+ * @soc_private:            Soc private data
  *
  */
 struct cam_hw_soc_info {
@@ -172,7 +173,6 @@ struct cam_hw_soc_info {
  */
 int cam_soc_util_get_dt_properties(struct cam_hw_soc_info *soc_info);
 
-
 /**
  * cam_soc_util_request_platform_resource()
  *
@@ -208,7 +208,7 @@ int cam_soc_util_release_platform_resource(struct cam_hw_soc_info *soc_info);
  *                          TRUE: Enable all clocks in soc_info Now.
  *                          False: Don't enable clocks Now. Driver will
  *                                 enable independently.
- @enable_irq:           Boolean flag:
+ * @enable_irq:         Boolean flag:
  *                          TRUE: Enable IRQ in soc_info Now.
  *                          False: Don't enable IRQ Now. Driver will
  *                                 enable independently.

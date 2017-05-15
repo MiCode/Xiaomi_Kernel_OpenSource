@@ -267,7 +267,7 @@ int cam_soc_util_get_dt_properties(struct cam_hw_soc_info *soc_info)
 
 	of_node = pdev->dev.of_node;
 
-	rc = of_property_read_u32(of_node, "cell-index", &pdev->id);
+	rc = of_property_read_u32(of_node, "cell-index", &soc_info->index);
 	if (rc) {
 		pr_err("device %s failed to read cell-index\n", pdev->name);
 		return rc;
@@ -317,11 +317,13 @@ int cam_soc_util_get_dt_properties(struct cam_hw_soc_info *soc_info)
 		}
 	}
 
-	rc = of_property_read_u32_array(of_node, "reg-cam-base",
-		soc_info->mem_block_cam_base, soc_info->num_mem_block);
-	if (rc) {
-		pr_err("Error reading register offsets\n");
-		return rc;
+	if (soc_info->num_mem_block > 0) {
+		rc = of_property_read_u32_array(of_node, "reg-cam-base",
+			soc_info->mem_block_cam_base, soc_info->num_mem_block);
+		if (rc) {
+			pr_err("Error reading register offsets\n");
+			return rc;
+		}
 	}
 
 	rc = of_property_read_string_index(of_node, "interrupt-names", 0,
