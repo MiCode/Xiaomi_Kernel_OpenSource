@@ -103,7 +103,6 @@ static inline void cam_irq_th_payload_init(
 	struct cam_irq_th_payload *th_payload) {
 	th_payload->handler_priv = NULL;
 	th_payload->evt_payload_priv = NULL;
-	th_payload->evt_status_arr = NULL;
 }
 
 typedef int (*CAM_IRQ_HANDLER_TOP_HALF)(uint32_t evt_id,
@@ -215,4 +214,4 @@ int cam_irq_controller_deinit(void **irq_controller);
  */
 irqreturn_t cam_irq_controller_handle_irq(int irq_num, void *priv);
 
-#endif /*_CAM_IRQ_CONTROLLER_H_ */
+#endif /* _CAM_IRQ_CONTROLLER_H_ */

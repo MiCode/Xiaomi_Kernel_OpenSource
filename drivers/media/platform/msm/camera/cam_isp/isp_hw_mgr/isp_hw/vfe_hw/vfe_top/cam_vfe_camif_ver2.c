@@ -124,7 +124,7 @@ static int cam_vfe_camif_resource_start(
 	cam_io_w_mb(0x1, rsrc_data->mem_base +
 			rsrc_data->camif_reg->irq_subsample_pattern);
 
-	/* epoch config with 20 line  */
+	/* epoch config with 20 line */
 	cam_io_w_mb(0x00140014,
 		rsrc_data->mem_base + rsrc_data->camif_reg->epoch_irq);
 

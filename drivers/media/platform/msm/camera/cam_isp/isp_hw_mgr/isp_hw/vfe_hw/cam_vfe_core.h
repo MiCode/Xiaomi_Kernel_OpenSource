@@ -43,7 +43,7 @@ struct cam_vfe_hw_info {
 	struct cam_isp_reg_val_pair      *vbif_settings;
 };
 
-#define CAM_VFE_EVT_MAX                    128
+#define CAM_VFE_EVT_MAX                    256
 
 struct cam_vfe_hw_core_info {
 	struct cam_vfe_hw_info             *vfe_hw_info;
