@@ -168,6 +168,7 @@ struct dsi_ctrl_interrupts {
  * struct dsi_ctrl - DSI controller object
  * @pdev:                Pointer to platform device.
  * @cell_index:          Instance cell id.
+ * @horiz_index:         Index in physical horizontal CTRL layout, 0 = leftmost
  * @name:                Name of the controller instance.
  * @refcount:            ref counter.
  * @ctrl_lock:           Mutex for hardware and object access.
@@ -182,6 +183,10 @@ struct dsi_ctrl_interrupts {
  * @pwr_info:            Power information.
  * @axi_bus_info:        AXI bus information.
  * @host_config:         Current host configuration.
+ * @mode_bounds:         Boundaries of the default mode ROI.
+ *                       Origin is at top left of all CTRLs.
+ * @roi:                 Partial update region of interest.
+ *                       Origin is top left of this CTRL.
  * @tx_cmd_buf:          Tx command buffer.
  * @cmd_buffer_size:     Size of command buffer.
  * @debugfs_root:        Root for debugfs entries.
@@ -189,6 +194,7 @@ struct dsi_ctrl_interrupts {
 struct dsi_ctrl {
 	struct platform_device *pdev;
 	u32 cell_index;
+	u32 horiz_index;
 	const char *name;
 	u32 refcount;
 	struct mutex ctrl_lock;
@@ -209,6 +215,9 @@ struct dsi_ctrl {
 	struct dsi_ctrl_bus_scale_info axi_bus_info;
 
 	struct dsi_host_config host_config;
+	struct dsi_rect mode_bounds;
+	struct dsi_rect roi;
+
 	/* Command tx and rx */
 	struct drm_gem_object *tx_cmd_buf;
 	u32 cmd_buffer_size;
@@ -387,9 +396,23 @@ int dsi_ctrl_set_ulps(struct dsi_ctrl *dsi_ctrl, bool enable);
  * DSI_CTRL_POWER_CORE_CLK_ON state and after the PHY SW reset has been
  * performed.
  *
+ * Also used to program the video mode timing values.
+ *
  * Return: error code.
  */
 int dsi_ctrl_setup(struct dsi_ctrl *dsi_ctrl);
+
+/**
+ * dsi_ctrl_set_roi() - Set DSI controller's region of interest
+ * @dsi_ctrl:        DSI controller handle.
+ * @roi:             Region of interest rectangle, must be less than mode bounds
+ * @changed:         Output parameter, set to true of the controller's ROI was
+ *                   dirtied by setting the new ROI, and DCS cmd update needed
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_set_roi(struct dsi_ctrl *dsi_ctrl, struct dsi_rect *roi,
+		bool *changed);
 
 /**
  * dsi_ctrl_set_tpg_state() - enable/disable test pattern on the controller
@@ -401,7 +424,6 @@ int dsi_ctrl_setup(struct dsi_ctrl *dsi_ctrl);
  *
  * Return: error code.
  */
-
 int dsi_ctrl_set_tpg_state(struct dsi_ctrl *dsi_ctrl, bool on);
 
 /**

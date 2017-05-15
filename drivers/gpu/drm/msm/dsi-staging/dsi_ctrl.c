@@ -1556,19 +1556,9 @@ exit:
 	return rc;
 }
 
-/**
- * dsi_ctrl_setup() - Setup DSI host hardware while coming out of idle screen.
- * @dsi_ctrl:        DSI controller handle.
- *
- * Initializes DSI controller hardware with host configuration provided by
- * dsi_ctrl_update_host_config(). Initialization can be performed only during
- * DSI_CTRL_POWER_CORE_CLK_ON state and after the PHY SW reset has been
- * performed.
- *
- * Return: error code.
- */
 int dsi_ctrl_setup(struct dsi_ctrl *dsi_ctrl)
 {
+	struct dsi_mode_info video_timing;
 	int rc = 0;
 
 	if (!dsi_ctrl) {
@@ -1577,6 +1567,12 @@ int dsi_ctrl_setup(struct dsi_ctrl *dsi_ctrl)
 	}
 
 	mutex_lock(&dsi_ctrl->ctrl_lock);
+
+	/* replace video mode width with actual roi width */
+	memcpy(&video_timing, &dsi_ctrl->host_config.video_timing,
+			sizeof(video_timing));
+	video_timing.h_active = dsi_ctrl->roi.w;
+	video_timing.v_active = dsi_ctrl->roi.h;
 
 	dsi_ctrl->hw.ops.setup_lane_map(&dsi_ctrl->hw,
 					&dsi_ctrl->host_config.lane_map);
@@ -1590,8 +1586,8 @@ int dsi_ctrl_setup(struct dsi_ctrl *dsi_ctrl)
 					&dsi_ctrl->host_config.u.cmd_engine);
 
 		dsi_ctrl->hw.ops.setup_cmd_stream(&dsi_ctrl->hw,
-				&dsi_ctrl->host_config.video_timing,
-				dsi_ctrl->host_config.video_timing.h_active * 3,
+				&video_timing,
+				video_timing.h_active * 3,
 				0x0);
 		dsi_ctrl->hw.ops.cmd_engine_en(&dsi_ctrl->hw, true);
 	} else {
@@ -1607,6 +1603,26 @@ int dsi_ctrl_setup(struct dsi_ctrl *dsi_ctrl)
 	dsi_ctrl->hw.ops.enable_error_interrupts(&dsi_ctrl->hw, 0x0);
 	dsi_ctrl->hw.ops.ctrl_en(&dsi_ctrl->hw, true);
 
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+	return rc;
+}
+
+int dsi_ctrl_set_roi(struct dsi_ctrl *dsi_ctrl, struct dsi_rect *roi,
+		bool *changed)
+{
+	int rc = 0;
+
+	if (!dsi_ctrl || !roi || !changed) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	if (!dsi_rect_is_equal(&dsi_ctrl->roi, roi)) {
+		*changed = true;
+		memcpy(&dsi_ctrl->roi, roi, sizeof(dsi_ctrl->roi));
+	} else
+		*changed = false;
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
 	return rc;
 }
@@ -1789,6 +1805,13 @@ int dsi_ctrl_update_host_config(struct dsi_ctrl *ctrl,
 
 	pr_debug("[DSI_%d]Host config updated\n", ctrl->cell_index);
 	memcpy(&ctrl->host_config, config, sizeof(ctrl->host_config));
+	ctrl->mode_bounds.x = ctrl->host_config.video_timing.h_active *
+			ctrl->horiz_index;
+	ctrl->mode_bounds.y = 0;
+	ctrl->mode_bounds.w = ctrl->host_config.video_timing.h_active;
+	ctrl->mode_bounds.h = ctrl->host_config.video_timing.v_active;
+	memcpy(&ctrl->roi, &ctrl->mode_bounds, sizeof(ctrl->mode_bounds));
+	ctrl->roi.x = 0;
 error:
 	mutex_unlock(&ctrl->ctrl_lock);
 	return rc;

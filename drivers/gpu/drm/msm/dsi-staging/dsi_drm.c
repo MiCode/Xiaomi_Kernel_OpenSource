@@ -379,6 +379,25 @@ int dsi_conn_post_init(struct drm_connector *connector,
 		break;
 	}
 
+	if (panel->roi_caps.enabled) {
+		sde_kms_info_add_keyint(info, "partial_update_num_roi",
+				panel->roi_caps.num_roi);
+		sde_kms_info_add_keyint(info, "partial_update_xstart",
+				panel->roi_caps.align.xstart_pix_align);
+		sde_kms_info_add_keyint(info, "partial_update_walign",
+				panel->roi_caps.align.width_pix_align);
+		sde_kms_info_add_keyint(info, "partial_update_wmin",
+				panel->roi_caps.align.min_width);
+		sde_kms_info_add_keyint(info, "partial_update_ystart",
+				panel->roi_caps.align.ystart_pix_align);
+		sde_kms_info_add_keyint(info, "partial_update_halign",
+				panel->roi_caps.align.height_pix_align);
+		sde_kms_info_add_keyint(info, "partial_update_hmin",
+				panel->roi_caps.align.min_height);
+		sde_kms_info_add_keyint(info, "partial_update_roimerge",
+				panel->roi_caps.merge_rois);
+	}
+
 end:
 	return 0;
 }

@@ -411,4 +411,40 @@ struct dsi_display_mode {
 	struct msm_mode_info *mode_info;
 };
 
+/**
+ * struct dsi_rect - dsi rectangle representation
+ * Note: sde_rect is also using u16, this must be maintained for memcpy
+ */
+struct dsi_rect {
+	u16 x;
+	u16 y;
+	u16 w;
+	u16 h;
+};
+
+/**
+ * dsi_rect_intersect - intersect two rectangles
+ * @r1: first rectangle
+ * @r2: scissor rectangle
+ * @result: result rectangle, all 0's on no intersection found
+ */
+void dsi_rect_intersect(const struct dsi_rect *r1,
+		const struct dsi_rect *r2,
+		struct dsi_rect *result);
+
+/**
+ * dsi_rect_is_equal - compares two rects
+ * @r1: rect value to compare
+ * @r2: rect value to compare
+ *
+ * Returns true if the rects are same
+ */
+static inline bool dsi_rect_is_equal(struct dsi_rect *r1,
+		struct dsi_rect *r2)
+{
+	return r1->x == r2->x && r1->y == r2->y && r1->w == r2->w &&
+			r1->h == r2->h;
+}
+
+
 #endif /* _DSI_DEFS_H_ */
