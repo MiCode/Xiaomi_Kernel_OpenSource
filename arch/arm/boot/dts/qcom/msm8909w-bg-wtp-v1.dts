@@ -32,18 +32,13 @@
 
 &soc {
 	i2c@78b9000 { /* BLSP1 QUP5 */
-		synaptics@20 {
-			synaptics,display-coords = <0 0 479 479>;
-			/delete-property/ synaptics,power-down;
-			/delete-property/ synaptics,disable-gpios;
-			synaptics,is_wake;
-		};
+		/delete-node/ synaptics@20;
 
 		it7260@46 {
 			compatible = "ite,it7260_ts";
 			reg = <0x46>;
 			interrupt-parent = <&msm_gpio>;
-			interrupts = <13 0x2008>;
+			interrupts = <98 0x2008>;
 			avdd-supply = <&pm8916_l17>;
 			vdd-supply = <&pm8916_l6>;
 			/* pins used by touchscreen */
@@ -52,8 +47,8 @@
 			pinctrl-0 = <&ts_int_active &ts_ite_reset_active>;
 			pinctrl-1 = <&ts_int_suspend &ts_ite_reset_suspend>;
 			pinctrl-2 = <&ts_release>;
-			ite,reset-gpio = <&msm_gpio 12 0x00>;
-			ite,irq-gpio = <&msm_gpio 13 0x2008>;
+			ite,reset-gpio = <&msm_gpio 16 0x00>;
+			ite,irq-gpio = <&msm_gpio 98 0x2008>;
 			ite,panel-coords = <0 0 320 320>;
 			ite,display-coords = <0 0 320 320>;
 			ite,reset-delay = <20>;
@@ -92,4 +87,55 @@
 	status = "ok";
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart_console_sleep>;
+};
+
+/* Pinctrl dt nodes for interrupt and reset gpio for ITE tech controller */
+&ts_int_active {
+	mux {
+		pins = "gpio98";
+	};
+
+	config {
+		pins = "gpio98";
+	};
+};
+
+&ts_int_suspend {
+	mux {
+		pins = "gpio98";
+	};
+
+	config {
+		pins = "gpio98";
+	};
+};
+
+&ts_ite_reset_active {
+	mux {
+		pins = "gpio16";
+	};
+
+	config {
+		pins = "gpio16";
+	};
+};
+
+&ts_ite_reset_suspend {
+	mux {
+		pins = "gpio16";
+	};
+
+	config {
+		pins = "gpio16";
+	};
+};
+
+&ts_release {
+	mux {
+		pins = "gpio98", "gpio16";
+	};
+
+	config {
+		pins = "gpio98", "gpio16";
+	};
 };
