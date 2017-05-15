@@ -988,8 +988,8 @@ static int cam_ife_csid_config_tpg(struct cam_ife_csid_hw   *csid_hw,
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		csid_reg->tpg_reg->csid_tpg_dt_n_cfg_2_addr);
 
-	/* select rotate period as  5 frame */
-	val =  5 << 8;
+	/* static frame with split color bar */
+	val =  1 << 5;
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		csid_reg->tpg_reg->csid_tpg_color_bars_cfg_addr);
 	/* config pix pattern */

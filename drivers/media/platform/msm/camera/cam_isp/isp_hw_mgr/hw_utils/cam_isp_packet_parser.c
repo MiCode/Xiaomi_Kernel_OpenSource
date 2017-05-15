@@ -315,15 +315,17 @@ int cam_isp_add_io_buffers(
 	struct cam_isp_resource_node       *res;
 	struct cam_ife_hw_mgr_res          *hw_mgr_res;
 	struct cam_isp_hw_get_buf_update    update_buf;
-	uint32_t kmd_buf_remain_size,  i, j, k, out_buf, in_buf,
-		res_id_out, res_id_in, num_plane, io_cfg_used_bytes, num_ent;
+	uint32_t                            kmd_buf_remain_size;
+	uint32_t                            i, j, num_out_buf, num_in_buf;
+	uint32_t                            res_id_out, res_id_in, plane_id;
+	uint32_t                            io_cfg_used_bytes, num_ent;
 	size_t size;
 
 	io_cfg = (struct cam_buf_io_cfg *) ((uint8_t *)
 			&prepare->packet->payload +
 			prepare->packet->io_configs_offset);
-	out_buf = 0;
-	in_buf  = 0;
+	num_out_buf = 0;
+	num_in_buf  = 0;
 	io_cfg_used_bytes = 0;
 
 	/* Max one hw entries required for each base */
@@ -357,17 +359,18 @@ int cam_isp_add_io_buffers(
 			CDBG("%s:%d configure output io with fill fence %d\n",
 				__func__, __LINE__, fill_fence);
 			if (fill_fence) {
-				if (out_buf < prepare->max_out_map_entries) {
-					prepare->out_map_entries[out_buf].
+				if (num_out_buf <
+					prepare->max_out_map_entries) {
+					prepare->out_map_entries[num_out_buf].
 						resource_handle =
 							io_cfg[i].resource_type;
-					prepare->out_map_entries[out_buf].
+					prepare->out_map_entries[num_out_buf].
 						sync_id = io_cfg[i].fence;
-					out_buf++;
+					num_out_buf++;
 				} else {
 					pr_err("%s:%d ln_out:%d max_ln:%d\n",
 						__func__, __LINE__,
-						out_buf,
+						num_out_buf,
 						prepare->max_out_map_entries);
 					return -EINVAL;
 				}
@@ -385,23 +388,22 @@ int cam_isp_add_io_buffers(
 			CDBG("%s:%d configure input io with fill fence %d\n",
 				__func__, __LINE__, fill_fence);
 			if (fill_fence) {
-				if (in_buf < prepare->max_in_map_entries) {
-					prepare->in_map_entries[in_buf].
+				if (num_in_buf < prepare->max_in_map_entries) {
+					prepare->in_map_entries[num_in_buf].
 						resource_handle =
 							io_cfg[i].resource_type;
-					prepare->in_map_entries[in_buf].
+					prepare->in_map_entries[num_in_buf].
 						sync_id =
 							io_cfg[i].fence;
-					in_buf++;
+					num_in_buf++;
 				} else {
 					pr_err("%s:%d ln_in:%d imax_ln:%d\n",
 						__func__, __LINE__,
-						in_buf,
+						num_in_buf,
 						prepare->max_in_map_entries);
 					return -EINVAL;
 				}
 			}
-			/*TO DO get the input FE address and add to list */
 			continue;
 		} else {
 			pr_err("%s:%d Invalid io config direction :%d\n",
@@ -427,27 +429,36 @@ int cam_isp_add_io_buffers(
 			}
 
 			memset(io_addr, 0, sizeof(io_addr));
-			num_plane = 0;
-			for (k = 0; k < CAM_PACKET_MAX_PLANES; k++) {
-				if (!io_cfg[i].mem_handle[k])
-					continue;
 
-				rc = cam_mem_get_io_buf(io_cfg[i].mem_handle[k],
-					iommu_hdl, &io_addr[num_plane], &size);
+			for (plane_id = 0; plane_id < CAM_PACKET_MAX_PLANES;
+						plane_id++) {
+				if (!io_cfg[i].mem_handle[plane_id])
+					break;
+
+				rc = cam_mem_get_io_buf(
+					io_cfg[i].mem_handle[plane_id],
+					iommu_hdl, &io_addr[plane_id], &size);
 				if (rc) {
 					pr_err("%s:%d no io addr for plane%d\n",
-						__func__, __LINE__, k);
+						__func__, __LINE__, plane_id);
 					rc = -ENOMEM;
 					return rc;
 				}
+
+				if (io_addr[plane_id] >> 32) {
+					pr_err("Invalid mapped address\n");
+					rc = -EINVAL;
+					return rc;
+				}
+
 				/* need to update with offset */
-				io_addr[num_plane] += io_cfg->offsets[k];
+				io_addr[plane_id] +=
+						io_cfg[i].offsets[plane_id];
 				CDBG("%s: get io_addr for plane %d: 0x%llx\n",
-					__func__, num_plane,
-					io_addr[num_plane]);
-				num_plane++;
+					__func__, plane_id,
+					io_addr[plane_id]);
 			}
-			if (!num_plane) {
+			if (!plane_id) {
 				pr_err("%s:%d No valid planes for res%d\n",
 					__func__, __LINE__, res->res_id);
 				rc = -ENOMEM;
@@ -471,7 +482,8 @@ int cam_isp_add_io_buffers(
 					io_cfg_used_bytes/4;
 			update_buf.cdm.size = kmd_buf_remain_size;
 			update_buf.image_buf = io_addr;
-			update_buf.num_buf   = num_plane;
+			update_buf.num_buf   = plane_id;
+			update_buf.io_cfg    = &io_cfg[i];
 
 			CDBG("%s:%d: cmd buffer 0x%pK, size %d\n", __func__,
 				__LINE__, update_buf.cdm.cmd_buf_addr,
@@ -509,8 +521,8 @@ int cam_isp_add_io_buffers(
 	}
 
 	if (fill_fence) {
-		prepare->num_out_map_entries = out_buf;
-		prepare->num_in_map_entries  = in_buf;
+		prepare->num_out_map_entries = num_out_buf;
+		prepare->num_in_map_entries  = num_in_buf;
 	}
 
 	return rc;

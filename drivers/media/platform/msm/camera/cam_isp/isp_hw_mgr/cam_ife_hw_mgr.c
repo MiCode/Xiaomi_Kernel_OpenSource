@@ -23,6 +23,7 @@
 #include "cam_isp_packet_parser.h"
 #include "cam_ife_hw_mgr.h"
 #include "cam_cdm_intf_api.h"
+#include "cam_packet_util.h"
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
@@ -1918,6 +1919,13 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 	rc = cam_isp_get_kmd_buffer(prepare->packet, &kmd_buf);
 	if (rc)
 		return rc;
+
+	rc = cam_packet_util_process_patches(prepare->packet,
+		hw_mgr->mgr_common.cmd_iommu_hdl);
+	if (rc) {
+		pr_err("%s: Patch ISP packet failed.\n", __func__);
+		return rc;
+	}
 
 	prepare->num_hw_update_entries = 0;
 	prepare->num_in_map_entries = 0;

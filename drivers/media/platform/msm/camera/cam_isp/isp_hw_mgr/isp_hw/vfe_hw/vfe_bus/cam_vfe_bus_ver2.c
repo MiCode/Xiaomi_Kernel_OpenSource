@@ -28,6 +28,16 @@
 
 #define FRAME_BASED_EN 0
 
+#define MAX_BUF_UPDATE_REG_NUM   20
+#define MAX_REG_VAL_PAIR_SIZE    \
+		(MAX_BUF_UPDATE_REG_NUM * 2 * CAM_PACKET_MAX_PLANES)
+
+#define CAM_VFE_ADD_REG_VAL_PAIR(buf_array, index, offset, val)    \
+		do {                                               \
+			buf_array[index++] = offset;               \
+			buf_array[index++] = val;                  \
+		} while (0)
+
 static uint32_t irq_reg_offset[CAM_IFE_BUS_IRQ_REGISTERS_MAX] = {
 	0x0000205C,
 	0x00002060,
@@ -64,6 +74,8 @@ struct cam_vfe_bus_ver2_common_data {
 	void                                       *bus_irq_controller;
 	void                                       *vfe_irq_controller;
 	struct cam_vfe_bus_ver2_reg_offset_common  *common_reg;
+	uint32_t                                    io_buf_update[
+							MAX_REG_VAL_PAIR_SIZE];
 };
 
 struct cam_vfe_bus_ver2_wm_resource_data {
@@ -73,6 +85,7 @@ struct cam_vfe_bus_ver2_wm_resource_data {
 
 	uint32_t             irq_enabled;
 
+	uint32_t             init_cfg_done;
 	uint32_t             offset;
 	uint32_t             width;
 	uint32_t             height;
@@ -83,10 +96,21 @@ struct cam_vfe_bus_ver2_wm_resource_data {
 	uint32_t             burst_len;
 	uint32_t             frame_based;
 
+	uint32_t             en_ubwc;
+	uint32_t             packer_cfg;
+	uint32_t             tile_cfg;
+	uint32_t             h_init;
+	uint32_t             v_init;
+	uint32_t             ubwc_meta_stride;
+	uint32_t             ubwc_mode_cfg;
+	uint32_t             ubwc_meta_offset;
+
 	uint32_t             irq_subsample_period;
 	uint32_t             irq_subsample_pattern;
 	uint32_t             framedrop_period;
 	uint32_t             framedrop_pattern;
+
+	uint32_t             en_cfg;
 };
 
 struct cam_vfe_bus_ver2_comp_grp_data {
@@ -598,15 +622,52 @@ static int cam_vfe_bus_acquire_wm(
 
 	rsrc_data->width = out_port_info->width;
 	rsrc_data->height = out_port_info->height;
-	if (plane == PLANE_C) {
-		switch (rsrc_data->format) {
-		case CAM_FORMAT_NV21:
-		case CAM_FORMAT_NV12:
-			rsrc_data->height /= 2;
+
+	if (rsrc_data->index < 3) {
+		rsrc_data->width = rsrc_data->width * 5/4 * rsrc_data->height;
+		rsrc_data->height = 1;
+		rsrc_data->pack_fmt = 0x0;
+		rsrc_data->en_cfg = 0x3;
+	} else if (rsrc_data->index < 5) {
+		switch (plane) {
+		case PLANE_Y:
+			switch (rsrc_data->format) {
+			case CAM_FORMAT_UBWC_NV12:
+			case CAM_FORMAT_UBWC_NV12_4R:
+			case CAM_FORMAT_UBWC_TP10:
+				rsrc_data->en_ubwc = 1;
+				break;
+			default:
+				break;
+			}
+			break;
+		case PLANE_C:
+			switch (rsrc_data->format) {
+			case CAM_FORMAT_NV21:
+			case CAM_FORMAT_NV12:
+				rsrc_data->height /= 2;
+				break;
+			case CAM_FORMAT_UBWC_NV12:
+			case CAM_FORMAT_UBWC_NV12_4R:
+			case CAM_FORMAT_UBWC_TP10:
+				rsrc_data->height /= 2;
+				rsrc_data->en_ubwc = 1;
+				break;
+			default:
+				break;
+			}
 			break;
 		default:
-			break;
+			pr_err("Invalid plane type %d\n", plane);
+			return -EINVAL;
 		}
+		rsrc_data->pack_fmt = 0xE;
+		rsrc_data->en_cfg = 0x1;
+	} else {
+		rsrc_data->width = rsrc_data->width * 4;
+		rsrc_data->height = rsrc_data->height / 2;
+		rsrc_data->pack_fmt = 0x0;
+		rsrc_data->en_cfg = 0x1;
 	}
 
 	if (vfe_out_res_id >= CAM_ISP_IFE_OUT_RES_RDI_0 &&
@@ -638,7 +699,16 @@ static int cam_vfe_bus_release_wm(void   *bus_priv,
 	rsrc_data->irq_subsample_pattern = 0;
 	rsrc_data->framedrop_period = 0;
 	rsrc_data->framedrop_pattern = 0;
-
+	rsrc_data->packer_cfg = 0;
+	rsrc_data->en_ubwc = 0;
+	rsrc_data->tile_cfg = 0;
+	rsrc_data->h_init = 0;
+	rsrc_data->v_init = 0;
+	rsrc_data->ubwc_meta_stride = 0;
+	rsrc_data->ubwc_mode_cfg = 0;
+	rsrc_data->ubwc_meta_offset = 0;
+	rsrc_data->init_cfg_done = 0;
+	rsrc_data->en_cfg = 0;
 	wm_res->res_state = CAM_ISP_RESOURCE_STATE_AVAILABLE;
 
 	return 0;
@@ -651,52 +721,18 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 		wm_res->res_priv;
 	struct cam_vfe_bus_ver2_common_data        *common_data =
 		rsrc_data->common_data;
-	uint32_t                                    width;
-	uint32_t                                    height;
-	uint32_t                                    pack_fmt;
-	uint32_t                                    stride;
-	uint32_t                                    en_cfg;
-
-	CDBG("WM res %d width = %d, height = %d\n", rsrc_data->index,
-		rsrc_data->width, rsrc_data->height);
-	CDBG("WM res %d pk_fmt = %d\n", rsrc_data->index,
-		rsrc_data->pack_fmt & PACKER_FMT_MAX);
-	CDBG("WM res %d stride = %d, burst len = %d\n",
-		rsrc_data->index, rsrc_data->width, 0xf);
 
 	cam_io_w_mb(0, common_data->mem_base + rsrc_data->hw_regs->header_addr);
 	cam_io_w_mb(0, common_data->mem_base + rsrc_data->hw_regs->header_cfg);
 	cam_io_w_mb(0, common_data->mem_base + rsrc_data->hw_regs->frame_inc);
 	cam_io_w(0xf, common_data->mem_base + rsrc_data->hw_regs->burst_limit);
 
-	if (rsrc_data->index < 3) {
-		width = rsrc_data->width * 5/4 * rsrc_data->height;
-		height = 1;
-		pack_fmt = 0x0;
-		stride = rsrc_data->width * 5/4 * rsrc_data->height;
-		en_cfg = 0x3;
-	} else if (rsrc_data->index < 5) {
-		width = rsrc_data->width;
-		height = rsrc_data->height;
-		pack_fmt = 0xE;
-		stride = rsrc_data->width;
-		en_cfg = 0x1;
-	} else {
-		width = rsrc_data->width * 4;
-		height = rsrc_data->height / 2;
-		pack_fmt = 0x0;
-		stride = rsrc_data->width * 4;
-		en_cfg = 0x1;
-	}
-
-	cam_io_w_mb(width,
+	cam_io_w_mb(rsrc_data->width,
 		common_data->mem_base + rsrc_data->hw_regs->buffer_width_cfg);
-	cam_io_w(height,
+	cam_io_w(rsrc_data->height,
 		common_data->mem_base + rsrc_data->hw_regs->buffer_height_cfg);
-	cam_io_w(pack_fmt,
+	cam_io_w(rsrc_data->pack_fmt,
 		common_data->mem_base + rsrc_data->hw_regs->packer_cfg);
-	cam_io_w(stride,
-		common_data->mem_base + rsrc_data->hw_regs->stride);
 
 	cam_io_w(0xFFFFFFFF, common_data->mem_base +
 		rsrc_data->hw_regs->irq_subsample_pattern);
@@ -708,34 +744,14 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 	cam_io_w(0x0,
 		common_data->mem_base + rsrc_data->hw_regs->framedrop_period);
 
-	/* UBWC registers */
-	switch (rsrc_data->format) {
-	case CAM_FORMAT_UBWC_NV12:
-		/* Program UBWC registers */
-		break;
-	default:
-		break;
-	}
-
-	/* Subscribe IRQ */
-	if (rsrc_data->irq_enabled) {
-		/*
-		 * Currently all WM IRQ are subscribed in one place. Need to
-		 * make it dynamic later.
-		 */
-	}
-
-	/* Enable WM */
-	cam_io_w_mb(en_cfg, common_data->mem_base + rsrc_data->hw_regs->cfg);
-
 	CDBG("WM res %d width = %d, height = %d\n", rsrc_data->index,
-		width, height);
+		rsrc_data->width, rsrc_data->height);
 	CDBG("WM res %d pk_fmt = %d\n", rsrc_data->index,
-		pack_fmt & PACKER_FMT_MAX);
+		rsrc_data->pack_fmt & PACKER_FMT_MAX);
 	CDBG("WM res %d stride = %d, burst len = %d\n",
-		rsrc_data->index, stride, 0xf);
+		rsrc_data->index, rsrc_data->stride, 0xf);
 	CDBG("enable WM res %d offset 0x%x val 0x%x\n", rsrc_data->index,
-		(uint32_t) rsrc_data->hw_regs->cfg, en_cfg);
+		(uint32_t) rsrc_data->hw_regs->cfg, rsrc_data->en_cfg);
 
 	wm_res->res_state = CAM_ISP_RESOURCE_STATE_STREAMING;
 
@@ -1622,10 +1638,11 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 {
 	struct cam_vfe_bus_ver2_priv             *bus_priv;
 	struct cam_isp_hw_get_buf_update         *update_buf;
+	struct cam_buf_io_cfg                    *io_cfg;
 	struct cam_vfe_bus_ver2_vfe_out_data     *vfe_out_data = NULL;
 	struct cam_vfe_bus_ver2_wm_resource_data *wm_data = NULL;
-	uint32_t  reg_val_pair[8];
-	uint32_t i, size = 0;
+	uint32_t *reg_val_pair;
+	uint32_t  i, j, size = 0;
 
 	/*
 	 * Need the entire buf io config so we can get the stride info
@@ -1643,14 +1660,181 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 		return -EINVAL;
 	}
 
-	if (update_buf->num_buf < vfe_out_data->num_wm) {
+	if (update_buf->num_buf != vfe_out_data->num_wm) {
 		pr_err("Failed! Invalid number buffers:%d required:%d\n",
 			update_buf->num_buf, vfe_out_data->num_wm);
 		return -ENOMEM;
 	}
 
-	size = vfe_out_data->cdm_util_ops->cdm_required_size_reg_random(
-		vfe_out_data->num_wm);
+	reg_val_pair = &vfe_out_data->common_data->io_buf_update[0];
+	io_cfg = update_buf->io_cfg;
+
+	for (i = 0, j = 0; i < vfe_out_data->num_wm; i++) {
+		wm_data = vfe_out_data->wm_res[i]->res_priv;
+
+		/* For initial configuration program all bus registers */
+		if (wm_data->stride != io_cfg->planes[i].plane_stride ||
+			!wm_data->init_cfg_done) {
+			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+				wm_data->hw_regs->stride,
+				io_cfg->planes[i].plane_stride);
+			wm_data->stride = io_cfg->planes[i].plane_stride;
+		}
+		CDBG("image stride 0x%x\n", wm_data->stride);
+
+		if (wm_data->framedrop_pattern != io_cfg->framedrop_pattern ||
+			!wm_data->init_cfg_done) {
+			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+				wm_data->hw_regs->framedrop_pattern,
+				io_cfg->framedrop_pattern);
+			wm_data->framedrop_pattern = io_cfg->framedrop_pattern;
+		}
+		CDBG("framedrop pattern 0x%x\n", wm_data->framedrop_pattern);
+
+		if (wm_data->framedrop_period != io_cfg->framedrop_period ||
+			!wm_data->init_cfg_done) {
+			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+				wm_data->hw_regs->framedrop_period,
+				io_cfg->framedrop_period);
+			wm_data->framedrop_period = io_cfg->framedrop_period;
+		}
+		CDBG("framedrop period 0x%x\n", wm_data->framedrop_period);
+
+		if (wm_data->irq_subsample_period != io_cfg->subsample_period
+			|| !wm_data->init_cfg_done) {
+			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+				wm_data->hw_regs->irq_subsample_period,
+				io_cfg->subsample_period);
+			wm_data->irq_subsample_period =
+				io_cfg->subsample_period;
+		}
+		CDBG("irq subsample period 0x%x\n",
+			wm_data->irq_subsample_period);
+
+		if (wm_data->irq_subsample_pattern != io_cfg->subsample_pattern
+			|| !wm_data->init_cfg_done) {
+			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+				wm_data->hw_regs->irq_subsample_pattern,
+				io_cfg->subsample_pattern);
+			wm_data->irq_subsample_pattern =
+				io_cfg->subsample_pattern;
+		}
+		CDBG("irq subsample pattern 0x%x\n",
+			wm_data->irq_subsample_pattern);
+
+		if (wm_data->en_ubwc) {
+			if (!wm_data->hw_regs->ubwc_regs) {
+				pr_err("%s: No UBWC register to configure.\n",
+					__func__);
+				return -EINVAL;
+			}
+			if (wm_data->packer_cfg !=
+				io_cfg->planes[i].packer_config ||
+				!wm_data->init_cfg_done) {
+				CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+					wm_data->hw_regs->packer_cfg,
+					io_cfg->planes[i].packer_config);
+				wm_data->packer_cfg =
+					io_cfg->planes[i].packer_config;
+			}
+			CDBG("packer cfg 0x%x\n", wm_data->packer_cfg);
+
+			if (wm_data->tile_cfg != io_cfg->planes[i].tile_config
+				|| !wm_data->init_cfg_done) {
+				CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+					wm_data->hw_regs->ubwc_regs->tile_cfg,
+					io_cfg->planes[i].tile_config);
+				wm_data->tile_cfg =
+					io_cfg->planes[i].tile_config;
+			}
+			CDBG("tile cfg 0x%x\n", wm_data->tile_cfg);
+
+			if (wm_data->h_init != io_cfg->planes[i].h_init ||
+				!wm_data->init_cfg_done) {
+				CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+					wm_data->hw_regs->ubwc_regs->h_init,
+					io_cfg->planes[i].h_init);
+				wm_data->h_init = io_cfg->planes[i].h_init;
+			}
+			CDBG("h_init 0x%x\n", wm_data->h_init);
+
+			if (wm_data->v_init != io_cfg->planes[i].v_init ||
+				!wm_data->init_cfg_done) {
+				CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+					wm_data->hw_regs->ubwc_regs->v_init,
+					io_cfg->planes[i].v_init);
+				wm_data->v_init = io_cfg->planes[i].v_init;
+			}
+			CDBG("v_init 0x%x\n", wm_data->v_init);
+
+			if (wm_data->ubwc_meta_stride !=
+				io_cfg->planes[i].meta_stride ||
+				!wm_data->init_cfg_done) {
+				CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+					wm_data->hw_regs->ubwc_regs->
+					meta_stride,
+					io_cfg->planes[i].meta_stride);
+				wm_data->ubwc_meta_stride =
+					io_cfg->planes[i].meta_stride;
+			}
+			CDBG("meta stride 0x%x\n", wm_data->ubwc_meta_stride);
+
+			if (wm_data->ubwc_mode_cfg !=
+				io_cfg->planes[i].mode_config ||
+				!wm_data->init_cfg_done) {
+				CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+					wm_data->hw_regs->ubwc_regs->mode_cfg,
+					io_cfg->planes[i].mode_config);
+				wm_data->ubwc_mode_cfg =
+					io_cfg->planes[i].mode_config;
+			}
+			CDBG("ubwc mode cfg 0x%x\n", wm_data->ubwc_mode_cfg);
+
+			if (wm_data->ubwc_meta_offset !=
+				io_cfg->planes[i].meta_offset ||
+				!wm_data->init_cfg_done) {
+				CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+					wm_data->hw_regs->ubwc_regs->
+					meta_offset,
+					io_cfg->planes[i].meta_offset);
+				wm_data->ubwc_meta_offset =
+					io_cfg->planes[i].meta_offset;
+			}
+			CDBG("ubwc meta offset 0x%x\n",
+				wm_data->ubwc_meta_offset);
+
+			/* UBWC meta address */
+			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+				wm_data->hw_regs->ubwc_regs->meta_addr,
+				update_buf->image_buf[i]);
+			CDBG("ubwc meta addr 0x%llx\n",
+				update_buf->image_buf[i]);
+		}
+
+		/* WM Image address */
+		if (wm_data->en_ubwc)
+			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+				wm_data->hw_regs->image_addr,
+				(update_buf->image_buf[i] +
+				io_cfg->planes[i].meta_size));
+		else
+			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+				wm_data->hw_regs->image_addr,
+				update_buf->image_buf[i]);
+
+		CDBG("image address 0x%x\n", reg_val_pair[j-1]);
+
+		/* enable the WM */
+		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+			wm_data->hw_regs->cfg,
+			wm_data->en_cfg);
+
+		/* set initial configuration done */
+		if (!wm_data->init_cfg_done)
+			wm_data->init_cfg_done = 1;
+	}
+
+	size = vfe_out_data->cdm_util_ops->cdm_required_size_reg_random(j/2);
 
 	/* cdm util returns dwords, need to convert to bytes */
 	if ((size * 4) > update_buf->cdm.size) {
@@ -1659,18 +1843,9 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 		return -ENOMEM;
 	}
 
-	for (i = 0 ; i < vfe_out_data->num_wm; i++) {
-		wm_data = vfe_out_data->wm_res[i]->res_priv;
-		reg_val_pair[2 * i] = wm_data->hw_regs->image_addr;
-		reg_val_pair[2 * i + 1] = update_buf->image_buf[i];
-		CDBG("offset 0x%x, value 0x%llx\n",
-			wm_data->hw_regs->image_addr,
-			(uint64_t) update_buf->image_buf[i]);
-	}
-
 	vfe_out_data->cdm_util_ops->cdm_write_regrandom(
-		update_buf->cdm.cmd_buf_addr,
-		vfe_out_data->num_wm, reg_val_pair);
+		update_buf->cdm.cmd_buf_addr, j/2, reg_val_pair);
+
 	/* cdm util returns dwords, need to convert to bytes */
 	update_buf->cdm.used_bytes = size * 4;
 
