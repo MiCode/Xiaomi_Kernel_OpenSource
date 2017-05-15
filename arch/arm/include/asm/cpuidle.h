@@ -2,6 +2,7 @@
 #define __ASM_ARM_CPUIDLE_H
 
 #include <asm/proc-fns.h>
+#include <linux/cpuidle.h>
 
 #ifdef CONFIG_CPU_IDLE
 extern int arm_cpuidle_simple_enter(struct cpuidle_device *dev,
