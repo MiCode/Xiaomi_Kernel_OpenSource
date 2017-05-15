@@ -1491,6 +1491,10 @@ static ssize_t iommu_debug_pte_read(struct file *file, char __user *ubuf,
 	ssize_t retval;
 	size_t buflen;
 
+	if (kptr_restrict != 0) {
+		pr_err("kptr_restrict needs to be disabled.\n");
+		return -EPERM;
+	}
 	if (!dev->archdata.mapping) {
 		pr_err("No mapping. Did you already attach?\n");
 		return -EINVAL;
@@ -1610,6 +1614,10 @@ static ssize_t iommu_debug_dma_atos_read(struct file *file, char __user *ubuf,
 	ssize_t retval;
 	size_t buflen;
 
+	if (kptr_restrict != 0) {
+		pr_err("kptr_restrict needs to be disabled.\n");
+		return -EPERM;
+	}
 	if (!dev->archdata.mapping) {
 		pr_err("No mapping. Did you already attach?\n");
 		return -EINVAL;
