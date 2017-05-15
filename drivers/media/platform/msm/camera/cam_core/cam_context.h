@@ -22,6 +22,8 @@ struct cam_context;
 
 /* max request number */
 #define CAM_CTX_REQ_MAX              20
+#define CAM_CTX_CFG_MAX              20
+#define CAM_CTX_RES_MAX              20
 
 /**
  * enum cam_ctx_state -  context top level states
@@ -43,13 +45,29 @@ enum cam_context_state {
  * @status:                Request status
  * @request_id:            Request id
  * @req_priv:              Derived request object
+ * @hw_update_entries:     Hardware update entries
+ * @num_hw_update_entries: Number of hardware update entries
+ * @in_map_entries:        Entries for in fences
+ * @num_in_map_entries:    Number of in map entries
+ * @out_map_entries:       Entries for out fences
+ * @num_out_map_entries:   Number of out map entries
+ * @num_in_acked:          Number of in fence acked
+ * @num_out_acked:         Number of out fence acked
  *
  */
 struct cam_ctx_request {
-	struct list_head   list;
-	uint32_t           status;
-	uint64_t           request_id;
-	void              *req_priv;
+	struct list_head              list;
+	uint32_t                      status;
+	uint64_t                      request_id;
+	void                          *req_priv;
+	struct cam_hw_update_entry    hw_update_entries[CAM_CTX_CFG_MAX];
+	uint32_t                      num_hw_update_entries;
+	struct cam_hw_fence_map_entry in_map_entries[CAM_CTX_CFG_MAX];
+	uint32_t                      num_in_map_entries;
+	struct cam_hw_fence_map_entry out_map_entries[CAM_CTX_CFG_MAX];
+	uint32_t                      num_out_map_entries;
+	uint32_t                      num_in_acked;
+	uint32_t                      num_out_acked;
 };
 
 /**
@@ -132,6 +150,7 @@ struct cam_ctx_ops {
  * @state:                 Current state for top level state machine
  * @state_machine:         Top level state machine
  * @ctx_priv:              Private context pointer
+ * @ctxt_to_hw_map:        Context to hardware mapping pointer
  *
  */
 struct cam_context {
@@ -159,6 +178,7 @@ struct cam_context {
 	struct cam_ctx_ops          *state_machine;
 
 	void                        *ctx_priv;
+	void                        *ctxt_to_hw_map;
 };
 
 /**
