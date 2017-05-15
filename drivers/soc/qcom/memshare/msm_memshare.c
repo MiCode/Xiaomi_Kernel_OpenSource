@@ -524,10 +524,6 @@ static int handle_alloc_generic_req(void *req_h, void *req, void *conn_h)
 		return -EINVAL;
 	}
 
-	memblock[client_id].free_memory += 1;
-	pr_debug("memshare: In %s, free memory count for client id: %d = %d",
-		__func__, memblock[client_id].client_id,
-			memblock[client_id].free_memory);
 	if (!memblock[client_id].alloted) {
 		if (alloc_req->client_id == 1 && alloc_req->num_bytes > 0)
 			size = alloc_req->num_bytes + MEMSHARE_GUARD_BYTES;
@@ -541,11 +537,16 @@ static int handle_alloc_generic_req(void *req_h, void *req, void *conn_h)
 			resp = 1;
 		}
 		if (!resp) {
+			memblock[client_id].free_memory += 1;
 			memblock[client_id].alloted = 1;
 			memblock[client_id].size = alloc_req->num_bytes;
 			memblock[client_id].peripheral = alloc_req->proc_id;
 		}
 	}
+	pr_debug("memshare: In %s, free memory count for client id: %d = %d",
+		__func__, memblock[client_id].client_id,
+		memblock[client_id].free_memory);
+
 	memblock[client_id].sequence_id = alloc_req->sequence_id;
 
 	fill_alloc_response(alloc_resp, client_id, &resp);
