@@ -25,6 +25,7 @@
 #include <linux/msm-bus-board.h>
 #include <linux/regulator/consumer.h>
 #include <linux/dma-direction.h>
+#include <linux/sde_rsc.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
 #include <asm/cacheflush.h>
@@ -293,7 +294,7 @@ static int sde_rotator_update_clk(struct sde_rot_mgr *mgr)
 
 	SDEROT_DBG("core_clk %lu\n", total_clk_rate);
 	ATRACE_INT("core_clk", total_clk_rate);
-	sde_rotator_set_clk_rate(mgr, total_clk_rate, SDE_ROTATOR_CLK_ROT_CORE);
+	sde_rotator_set_clk_rate(mgr, total_clk_rate, SDE_ROTATOR_CLK_MDSS_ROT);
 
 	return 0;
 }
@@ -318,8 +319,13 @@ static void sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 	if (mgr->ops_hw_pre_pmevent)
 		mgr->ops_hw_pre_pmevent(mgr, on);
 
-	ret = sde_rot_enable_vreg(mgr->module_power.vreg_config,
-		mgr->module_power.num_vreg, on);
+	if (mgr->rsc_client)
+		ret = sde_rsc_client_state_update(mgr->rsc_client,
+				on ? SDE_RSC_CLK_STATE : SDE_RSC_IDLE_STATE,
+				NULL, -1);
+	else
+		ret = sde_rot_enable_vreg(mgr->module_power.vreg_config,
+			mgr->module_power.num_vreg, on);
 	if (ret) {
 		SDEROT_WARN("Rotator regulator failed to %s\n",
 			on ? "enable" : "disable");
@@ -406,13 +412,13 @@ int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable)
 			if (ret)
 				goto error_mdss_axi;
 			ret = sde_rotator_enable_clk(mgr,
-						SDE_ROTATOR_CLK_ROT_CORE);
-			if (ret)
-				goto error_rot_core;
-			ret = sde_rotator_enable_clk(mgr,
 						SDE_ROTATOR_CLK_MDSS_ROT);
 			if (ret)
 				goto error_mdss_rot;
+			ret = sde_rotator_enable_clk(mgr,
+						SDE_ROTATOR_CLK_MDSS_ROT_SUB);
+			if (ret)
+				goto error_rot_sub;
 
 			/* Active+Sleep */
 			msm_bus_scale_client_update_context(
@@ -420,8 +426,9 @@ int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable)
 				mgr->data_bus.curr_bw_uc_idx);
 			trace_rot_bw_ao_as_context(0);
 		} else {
+			sde_rotator_disable_clk(mgr,
+					SDE_ROTATOR_CLK_MDSS_ROT_SUB);
 			sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MDSS_ROT);
-			sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_ROT_CORE);
 			sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MDSS_AXI);
 			sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MDSS_AHB);
 			sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_GCC_AXI);
@@ -437,9 +444,9 @@ int sde_rotator_clk_ctrl(struct sde_rot_mgr *mgr, int enable)
 	}
 
 	return ret;
+error_rot_sub:
+	sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MDSS_ROT);
 error_mdss_rot:
-	sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_ROT_CORE);
-error_rot_core:
 	sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MDSS_AXI);
 error_mdss_axi:
 	sde_rotator_disable_clk(mgr, SDE_ROTATOR_CLK_MDSS_AHB);
@@ -549,6 +556,12 @@ static int sde_rotator_import_buffer(struct sde_layer_buffer *buffer,
 
 	if (!input)
 		dir = DMA_FROM_DEVICE;
+
+	if (buffer->plane_count > SDE_ROT_MAX_PLANES) {
+		SDEROT_ERR("buffer plane_count exceeds MAX_PLANE limit:%d\n",
+				buffer->plane_count);
+		return -EINVAL;
+	}
 
 	data->sbuf = buffer->sbuf;
 	data->scid = buffer->scid;
@@ -2730,11 +2743,19 @@ static int sde_rotator_parse_dt_clk(struct platform_device *pdev,
 			sde_rotator_search_dt_clk(pdev, mgr, "axi_clk",
 				SDE_ROTATOR_CLK_MDSS_AXI, true) ||
 			sde_rotator_search_dt_clk(pdev, mgr, "rot_core_clk",
-				SDE_ROTATOR_CLK_ROT_CORE, true) ||
-			sde_rotator_search_dt_clk(pdev, mgr, "rot_clk",
-				SDE_ROTATOR_CLK_MDSS_ROT, true))
+				SDE_ROTATOR_CLK_MDSS_ROT, false))
 		rc = -EINVAL;
 
+	/*
+	 * If 'MDSS_ROT' is already present, place 'rot_clk' under
+	 * MDSS_ROT_SUB. Otherwise, place it directly into MDSS_ROT.
+	 */
+	if (sde_rotator_get_clk(mgr, SDE_ROTATOR_CLK_MDSS_ROT))
+		rc = sde_rotator_search_dt_clk(pdev, mgr, "rot_clk",
+				SDE_ROTATOR_CLK_MDSS_ROT_SUB, true);
+	else
+		rc = sde_rotator_search_dt_clk(pdev, mgr, "rot_clk",
+				SDE_ROTATOR_CLK_MDSS_ROT, true);
 clk_err:
 	return rc;
 }
@@ -2765,9 +2786,21 @@ static int sde_rotator_res_init(struct platform_device *pdev,
 {
 	int ret;
 
-	ret = sde_rotator_get_dt_vreg_data(&pdev->dev, &mgr->module_power);
-	if (ret)
+	mgr->rsc_client = sde_rsc_client_create(
+			SDE_RSC_INDEX, "sde_rotator_core", false);
+	if (IS_ERR(mgr->rsc_client)) {
+		ret = PTR_ERR(mgr->rsc_client);
+		pr_err("rsc client create returned %d\n", ret);
+		mgr->rsc_client = NULL;
 		return ret;
+	}
+
+	if (!mgr->rsc_client) {
+		ret = sde_rotator_get_dt_vreg_data(
+				&pdev->dev, &mgr->module_power);
+		if (ret)
+			return ret;
+	}
 
 	ret = sde_rotator_register_clk(pdev, mgr);
 	if (ret)
@@ -2787,9 +2820,15 @@ static void sde_rotator_res_destroy(struct sde_rot_mgr *mgr)
 {
 	struct platform_device *pdev = mgr->pdev;
 
-	sde_rotator_put_dt_vreg_data(&pdev->dev, &mgr->module_power);
 	sde_rotator_unregister_clk(mgr);
 	sde_rotator_bus_scale_unregister(mgr);
+
+	if (mgr->rsc_client) {
+		sde_rsc_client_destroy(mgr->rsc_client);
+		mgr->rsc_client = NULL;
+	} else {
+		sde_rotator_put_dt_vreg_data(&pdev->dev, &mgr->module_power);
+	}
 }
 
 int sde_rotator_core_init(struct sde_rot_mgr **pmgr,

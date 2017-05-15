@@ -124,6 +124,7 @@ struct ce_hw_support {
 	bool use_sw_hmac_algo;
 	bool use_sw_aes_ccm_algo;
 	bool clk_mgmt_sus_res;
+	bool req_bw_before_clk;
 	unsigned int ce_device;
 	unsigned int ce_hw_instance;
 	unsigned int max_request;

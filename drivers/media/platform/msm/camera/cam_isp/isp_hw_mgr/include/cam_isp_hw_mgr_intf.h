@@ -1,0 +1,131 @@
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#ifndef _CAM_ISP_HW_MGR_INTF_H_
+#define _CAM_ISP_HW_MGR_INTF_H_
+
+#include <linux/of.h>
+#include <linux/time.h>
+#include <linux/list.h>
+#include <uapi/media/cam_isp.h>
+#include "cam_hw_mgr_intf.h"
+
+/**
+ *  enum cam_isp_hw_event_type - Collection of the ISP hardware events
+ */
+enum cam_isp_hw_event_type {
+	CAM_ISP_HW_EVENT_ERROR,
+	CAM_ISP_HW_EVENT_SOF,
+	CAM_ISP_HW_EVENT_REG_UPDATE,
+	CAM_ISP_HW_EVENT_EPOCH,
+	CAM_ISP_HW_EVENT_EOF,
+	CAM_ISP_HW_EVENT_DONE,
+	CAM_ISP_HW_EVENT_MAX
+};
+
+
+/**
+ * enum cam_isp_hw_err_type - Collection of the ISP error types for
+ *                         ISP hardware event CAM_ISP_HW_EVENT_ERROR
+ */
+enum cam_isp_hw_err_type {
+	CAM_ISP_HW_ERROR_NONE,
+	CAM_ISP_HW_ERROR_OVERFLOW,
+	CAM_ISP_HW_ERROR_P2I_ERROR,
+	CAM_ISP_HW_ERROR_VIOLATION,
+	CAM_ISP_HW_ERROR_BUSIF_OVERFLOW,
+	CAM_ISP_HW_ERROR_MAX,
+};
+
+
+/**
+ * struct cam_isp_hw_sof_event_data - Event payload for CAM_HW_EVENT_SOF
+ *
+ * @timestamp:             Timestamp for the buf done event
+ *
+ */
+struct cam_isp_hw_sof_event_data {
+	struct timeval       timestamp;
+};
+
+/**
+ * struct cam_isp_hw_reg_update_event_data - Event payload for
+ *                         CAM_HW_EVENT_REG_UPDATE
+ *
+ * @timestamp:             Timestamp for the buf done event
+ *
+ */
+struct cam_isp_hw_reg_update_event_data {
+	struct timeval       timestamp;
+};
+
+/**
+ * struct cam_isp_hw_epoch_event_data - Event payload for CAM_HW_EVENT_EPOCH
+ *
+ * @timestamp:             Timestamp for the buf done event
+ *
+ */
+struct cam_isp_hw_epoch_event_data {
+	struct timeval       timestamp;
+};
+
+/**
+ * struct cam_isp_hw_done_event_data - Event payload for CAM_HW_EVENT_DONE
+ *
+ * @num_handles:           Number of resource handeles
+ * @resource_handle:       Resource handle array
+ * @timestamp:             Timestamp for the buf done event
+ *
+ */
+struct cam_isp_hw_done_event_data {
+	uint32_t             num_handles;
+	uint32_t             resource_handle[
+				CAM_NUM_OUT_PER_COMP_IRQ_MAX];
+	struct timeval       timestamp;
+};
+
+/**
+ * struct cam_isp_hw_eof_event_data - Event payload for CAM_HW_EVENT_EOF
+ *
+ * @timestamp:             Timestamp for the buf done event
+ *
+ */
+struct cam_isp_hw_eof_event_data {
+	struct timeval       timestamp;
+};
+
+/**
+ * struct cam_isp_hw_error_event_data - Event payload for CAM_HW_EVENT_ERROR
+ *
+ * @error_type:            error type for the error event
+ * @timestamp:             Timestamp for the buf done event
+ *
+ */
+struct cam_isp_hw_error_event_data {
+	uint32_t             error_type;
+	struct timeval       timestamp;
+};
+
+/**
+ * cam_isp_hw_mgr_init()
+ *
+ * @brief:              Initialization function for the ISP hardware manager
+ *
+ * @of_node:            Device node input
+ * @hw_mgr:             Input/output structure for the ISP hardware manager
+ *                          initialization
+ *
+ */
+int cam_isp_hw_mgr_init(struct device_node *of_node,
+	struct cam_hw_mgr_intf *hw_mgr);
+
+#endif /* __CAM_ISP_HW_MGR_INTF_H__ */

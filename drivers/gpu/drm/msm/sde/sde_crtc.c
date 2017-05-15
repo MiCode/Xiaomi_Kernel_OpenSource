@@ -808,6 +808,44 @@ static int _sde_crtc_set_crtc_roi(struct drm_crtc *crtc,
 	return 0;
 }
 
+static int _sde_crtc_check_autorefresh(struct drm_crtc *crtc,
+		struct drm_crtc_state *state)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *crtc_state;
+	struct drm_connector *conn;
+	struct drm_connector_state *conn_state;
+	int i;
+
+	if (!crtc || !state)
+		return -EINVAL;
+
+	sde_crtc = to_sde_crtc(crtc);
+	crtc_state = to_sde_crtc_state(state);
+
+	if (sde_kms_rect_is_null(&crtc_state->crtc_roi))
+		return 0;
+
+	/* partial update active, check if autorefresh is also requested */
+	for_each_connector_in_state(state->state, conn, conn_state, i) {
+		uint64_t autorefresh;
+
+		if (!conn_state || conn_state->crtc != crtc)
+			continue;
+
+		autorefresh = sde_connector_get_property(conn_state,
+				CONNECTOR_PROP_AUTOREFRESH);
+		if (autorefresh) {
+			SDE_ERROR(
+				"%s: autorefresh & partial crtc roi incompatible %llu\n",
+					sde_crtc->name, autorefresh);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
 static int _sde_crtc_set_lm_roi(struct drm_crtc *crtc,
 		struct drm_crtc_state *state, int lm_idx)
 {
@@ -826,20 +864,40 @@ static int _sde_crtc_set_lm_roi(struct drm_crtc *crtc,
 	lm_bounds = &crtc_state->lm_bounds[lm_idx];
 	lm_roi = &crtc_state->lm_roi[lm_idx];
 
-	if (!sde_kms_rect_is_null(crtc_roi)) {
-		sde_kms_rect_intersect(crtc_roi, lm_bounds, lm_roi);
-		if (sde_kms_rect_is_null(lm_roi)) {
-			SDE_ERROR("unsupported R/L only partial update\n");
-			return -EINVAL;
-		}
-	} else {
+	if (sde_kms_rect_is_null(crtc_roi))
 		memcpy(lm_roi, lm_bounds, sizeof(*lm_roi));
-	}
+	else
+		sde_kms_rect_intersect(crtc_roi, lm_bounds, lm_roi);
 
 	SDE_DEBUG("%s: lm%d roi (%d,%d,%d,%d)\n", sde_crtc->name, lm_idx,
 			lm_roi->x, lm_roi->y, lm_roi->w, lm_roi->h);
 
+	/* if any dimension is zero, clear all dimensions for clarity */
+	if (sde_kms_rect_is_null(lm_roi))
+		memset(lm_roi, 0, sizeof(*lm_roi));
+
 	return 0;
+}
+
+static u32 _sde_crtc_get_displays_affected(struct drm_crtc *crtc,
+		struct drm_crtc_state *state)
+{
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *crtc_state;
+	u32 disp_bitmask = 0;
+	int i;
+
+	sde_crtc = to_sde_crtc(crtc);
+	crtc_state = to_sde_crtc_state(state);
+
+	for (i = 0; i < sde_crtc->num_mixers; i++) {
+		if (!sde_kms_rect_is_null(&crtc_state->lm_roi[i]))
+			disp_bitmask |= BIT(i);
+	}
+
+	SDE_DEBUG("affected displays 0x%x\n", disp_bitmask);
+
+	return disp_bitmask;
 }
 
 static int _sde_crtc_check_rois_centered_and_symmetric(struct drm_crtc *crtc,
@@ -847,34 +905,41 @@ static int _sde_crtc_check_rois_centered_and_symmetric(struct drm_crtc *crtc,
 {
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *crtc_state;
-	const struct sde_rect *roi_prv, *roi_cur;
-	int lm_idx;
+	const struct sde_rect *roi[CRTC_DUAL_MIXERS];
 
 	if (!crtc || !state)
 		return -EINVAL;
+
+	sde_crtc = to_sde_crtc(crtc);
+	crtc_state = to_sde_crtc_state(state);
+
+	if (sde_crtc->num_mixers == 1)
+		return 0;
+
+	if (sde_crtc->num_mixers > CRTC_DUAL_MIXERS) {
+		SDE_ERROR("%s: unsupported number of mixers: %d\n",
+				sde_crtc->name, sde_crtc->num_mixers);
+		return -EINVAL;
+	}
 
 	/*
 	 * On certain HW, ROIs must be centered on the split between LMs,
 	 * and be of equal width.
 	 */
+	roi[0] = &crtc_state->lm_roi[0];
+	roi[1] = &crtc_state->lm_roi[1];
 
-	sde_crtc = to_sde_crtc(crtc);
-	crtc_state = to_sde_crtc_state(state);
+	/* if one of the roi is null it's a left/right-only update */
+	if (sde_kms_rect_is_null(roi[0]) || sde_kms_rect_is_null(roi[1]))
+		return 0;
 
-	roi_prv = &crtc_state->lm_roi[0];
-	for (lm_idx = 1; lm_idx < sde_crtc->num_mixers; lm_idx++) {
-		roi_cur = &crtc_state->lm_roi[lm_idx];
-
-		/* check lm rois are equal width & first roi ends at 2nd roi */
-		if (((roi_prv->x + roi_prv->w) != roi_cur->x) ||
-				(roi_prv->w != roi_cur->w)) {
-			SDE_ERROR("%s: roi lm%d x %d w %d lm%d x %d w %d\n",
-					sde_crtc->name,
-					lm_idx-1, roi_prv->x, roi_prv->w,
-					lm_idx, roi_cur->x, roi_cur->w);
-			return -EINVAL;
-		}
-		roi_prv = roi_cur;
+	/* check lm rois are equal width & first roi ends at 2nd roi */
+	if (roi[0]->x + roi[0]->w != roi[1]->x || roi[0]->w != roi[1]->w) {
+		SDE_ERROR(
+			"%s: rois not centered and symmetric: roi0 x %d w %d roi1 x %d w %d\n",
+				sde_crtc->name, roi[0]->x, roi[0]->w,
+				roi[1]->x, roi[1]->w);
+		return -EINVAL;
 	}
 
 	return 0;
@@ -950,6 +1015,10 @@ static int _sde_crtc_check_rois(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 
 	rc = _sde_crtc_set_crtc_roi(crtc, state);
+	if (rc)
+		return rc;
+
+	rc = _sde_crtc_check_autorefresh(crtc, state);
 	if (rc)
 		return rc;
 
@@ -1146,12 +1215,20 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
  */
 static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 {
-	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
-	struct sde_crtc_mixer *mixer = sde_crtc->mixers;
+	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *sde_crtc_state;
+	struct sde_crtc_mixer *mixer;
 	struct sde_hw_ctl *ctl;
 	struct sde_hw_mixer *lm;
 
 	int i;
+
+	if (!crtc)
+		return;
+
+	sde_crtc = to_sde_crtc(crtc);
+	sde_crtc_state = to_sde_crtc_state(crtc->state);
+	mixer = sde_crtc->mixers;
 
 	SDE_DEBUG("%s\n", sde_crtc->name);
 
@@ -1183,8 +1260,18 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 	_sde_crtc_blend_setup_mixer(crtc, sde_crtc, mixer);
 
 	for (i = 0; i < sde_crtc->num_mixers; i++) {
+		const struct sde_rect *lm_roi = &sde_crtc_state->lm_roi[i];
+
 		ctl = mixer[i].hw_ctl;
 		lm = mixer[i].hw_lm;
+
+		if (sde_kms_rect_is_null(lm_roi)) {
+			SDE_DEBUG(
+				"%s: lm%d leave ctl%d mask 0 since null roi\n",
+					sde_crtc->name, lm->idx - LM_0,
+					ctl->idx - CTL_0);
+			continue;
+		}
 
 		lm->ops.setup_alpha_out(lm, mixer[i].mixer_op_mode);
 
@@ -1678,9 +1765,9 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 		struct drm_crtc_state *old_state)
 {
 	struct sde_crtc *sde_crtc;
+	struct drm_encoder *encoder;
 	struct drm_device *dev;
 	unsigned long flags;
-	u32 i;
 
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
@@ -1711,12 +1798,12 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 		spin_unlock_irqrestore(&dev->event_lock, flags);
 	}
 
-	/* Reset flush mask from previous commit */
-	for (i = 0; i < ARRAY_SIZE(sde_crtc->mixers); i++) {
-		struct sde_hw_ctl *ctl = sde_crtc->mixers[i].hw_ctl;
+	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
+		if (encoder->crtc != crtc)
+			continue;
 
-		if (ctl)
-			ctl->ops.clear_pending_flush(ctl);
+		/* encoder will trigger pending mask now */
+		sde_encoder_trigger_kickoff_pending(encoder);
 	}
 
 	/*
@@ -1859,6 +1946,14 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	priv = sde_kms->dev->dev_private;
 	cstate = to_sde_crtc_state(crtc->state);
 
+	/*
+	 * If no mixers has been allocated in sde_crtc_atomic_check(),
+	 * it means we are trying to start a CRTC whose state is disabled:
+	 * nothing else needs to be done.
+	 */
+	if (unlikely(!sde_crtc->num_mixers))
+		return;
+
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		struct sde_encoder_kickoff_params params = { 0 };
 
@@ -1870,6 +1965,8 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 		 * If so, it may delay and flush at an irq event (e.g. ppdone)
 		 */
 		params.inline_rotate_prefill = cstate->sbuf_prefill_line;
+		params.affected_displays = _sde_crtc_get_displays_affected(crtc,
+				crtc->state);
 		sde_encoder_prepare_for_kickoff(encoder, &params);
 	}
 
@@ -2074,21 +2171,89 @@ static void sde_crtc_reset(struct drm_crtc *crtc)
 	crtc->state = &cstate->base;
 }
 
+static int _sde_crtc_vblank_no_lock(struct sde_crtc *sde_crtc, bool en)
+{
+	if (!sde_crtc) {
+		SDE_ERROR("invalid crtc\n");
+		return -EINVAL;
+	} else if (en && atomic_inc_return(&sde_crtc->vblank_refcount) == 1) {
+		SDE_DEBUG("crtc%d vblank enable\n", sde_crtc->base.base.id);
+		if (!sde_crtc->suspend)
+			_sde_crtc_vblank_enable_nolock(sde_crtc, true);
+	} else if (!en && atomic_read(&sde_crtc->vblank_refcount) < 1) {
+		SDE_ERROR("crtc%d invalid vblank disable\n",
+				sde_crtc->base.base.id);
+		return -EINVAL;
+	} else if (!en && atomic_dec_return(&sde_crtc->vblank_refcount) == 0) {
+		SDE_DEBUG("crtc%d vblank disable\n", sde_crtc->base.base.id);
+		if (!sde_crtc->suspend)
+			_sde_crtc_vblank_enable_nolock(sde_crtc, false);
+	} else {
+		SDE_DEBUG("crtc%d vblank %s refcount:%d\n",
+				sde_crtc->base.base.id,
+				en ? "enable" : "disable",
+				atomic_read(&sde_crtc->vblank_refcount));
+	}
+
+	return 0;
+}
+
+static void sde_crtc_handle_power_event(u32 event_type, void *arg)
+{
+	struct drm_crtc *crtc = arg;
+	struct sde_crtc *sde_crtc;
+	struct drm_encoder *encoder;
+
+	if (!crtc) {
+		SDE_ERROR("invalid crtc\n");
+		return;
+	}
+	sde_crtc = to_sde_crtc(crtc);
+
+	mutex_lock(&sde_crtc->crtc_lock);
+
+	SDE_EVT32(DRMID(crtc), event_type);
+
+	if (event_type == SDE_POWER_EVENT_POST_ENABLE) {
+		/* restore encoder; crtc will be programmed during commit */
+		drm_for_each_encoder(encoder, crtc->dev) {
+			if (encoder->crtc != crtc)
+				continue;
+
+			sde_encoder_virt_restore(encoder);
+		}
+
+	} else if (event_type == SDE_POWER_EVENT_POST_DISABLE) {
+		struct drm_plane *plane;
+
+		/*
+		 * set revalidate flag in planes, so it will be re-programmed
+		 * in the next frame update
+		 */
+		drm_atomic_crtc_for_each_plane(plane, crtc)
+			sde_plane_set_revalidate(plane, true);
+	}
+
+	mutex_unlock(&sde_crtc->crtc_lock);
+}
+
 static void sde_crtc_disable(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *cstate;
 	struct drm_encoder *encoder;
+	struct msm_drm_private *priv;
 	unsigned long flags;
 	struct sde_crtc_irq_info *node = NULL;
 	int ret;
 
-	if (!crtc || !crtc->dev || !crtc->state) {
+	if (!crtc || !crtc->dev || !crtc->dev->dev_private || !crtc->state) {
 		SDE_ERROR("invalid crtc\n");
 		return;
 	}
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(crtc->state);
+	priv = crtc->dev->dev_private;
 
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
 
@@ -2103,13 +2268,9 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 				crtc->base.id);
 		SDE_EVT32(DRMID(crtc), atomic_read(&sde_crtc->vblank_refcount),
 							SDE_EVTLOG_FUNC_CASE1);
-		drm_for_each_encoder(encoder, crtc->dev) {
-			if (encoder->crtc != crtc)
-				continue;
-			sde_encoder_register_vblank_callback(encoder, NULL,
-						NULL);
-		}
-		atomic_set(&sde_crtc->vblank_refcount, 0);
+		while (atomic_read(&sde_crtc->vblank_refcount))
+			if (_sde_crtc_vblank_no_lock(sde_crtc, false))
+				break;
 	}
 
 	if (atomic_read(&sde_crtc->frame_pending)) {
@@ -2132,6 +2293,10 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 		cstate->rsc_update = false;
 	}
 
+	if (sde_crtc->power_event)
+		sde_power_handle_unregister_event(&priv->phandle,
+				sde_crtc->power_event);
+
 	memset(sde_crtc->mixers, 0, sizeof(sde_crtc->mixers));
 	sde_crtc->num_mixers = 0;
 
@@ -2153,14 +2318,16 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 {
 	struct sde_crtc *sde_crtc;
 	struct drm_encoder *encoder;
+	struct msm_drm_private *priv;
 	unsigned long flags;
 	struct sde_crtc_irq_info *node = NULL;
 	int ret;
 
-	if (!crtc) {
+	if (!crtc || !crtc->dev || !crtc->dev->dev_private) {
 		SDE_ERROR("invalid crtc\n");
 		return;
 	}
+	priv = crtc->dev->dev_private;
 
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
 	SDE_EVT32(DRMID(crtc));
@@ -2183,6 +2350,11 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 				sde_crtc->name, node->event);
 	}
 	spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
+
+	sde_crtc->power_event = sde_power_handle_register_event(
+		&priv->phandle,
+		SDE_POWER_EVENT_POST_ENABLE | SDE_POWER_EVENT_POST_DISABLE,
+		sde_crtc_handle_power_event, crtc, sde_crtc->name);
 }
 
 struct plane_state {
@@ -2244,6 +2416,10 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 
 	mode = &state->adjusted_mode;
 	SDE_DEBUG("%s: check", sde_crtc->name);
+
+	/* force a full mode set if active state changed */
+	if (state->active_changed)
+		state->mode_changed = true;
 
 	memset(pipe_staged, 0, sizeof(pipe_staged));
 
@@ -2463,7 +2639,7 @@ end:
 int sde_crtc_vblank(struct drm_crtc *crtc, bool en)
 {
 	struct sde_crtc *sde_crtc;
-	int rc = 0;
+	int rc;
 
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
@@ -2472,25 +2648,9 @@ int sde_crtc_vblank(struct drm_crtc *crtc, bool en)
 	sde_crtc = to_sde_crtc(crtc);
 
 	mutex_lock(&sde_crtc->crtc_lock);
-	if (en && atomic_inc_return(&sde_crtc->vblank_refcount) == 1) {
-		SDE_DEBUG("crtc%d vblank enable\n", crtc->base.id);
-		if (!sde_crtc->suspend)
-			_sde_crtc_vblank_enable_nolock(sde_crtc, true);
-	} else if (!en && atomic_read(&sde_crtc->vblank_refcount) < 1) {
-		SDE_ERROR("crtc%d invalid vblank disable\n", crtc->base.id);
-		rc = -EINVAL;
-	} else if (!en && atomic_dec_return(&sde_crtc->vblank_refcount) == 0) {
-		SDE_DEBUG("crtc%d vblank disable\n", crtc->base.id);
-		if (!sde_crtc->suspend)
-			_sde_crtc_vblank_enable_nolock(sde_crtc, false);
-	} else {
-		SDE_DEBUG("crtc%d vblank %s refcount:%d\n",
-				crtc->base.id,
-				en ? "enable" : "disable",
-				atomic_read(&sde_crtc->vblank_refcount));
-	}
-
+	rc = _sde_crtc_vblank_no_lock(sde_crtc, en);
 	mutex_unlock(&sde_crtc->crtc_lock);
+
 	return rc;
 }
 

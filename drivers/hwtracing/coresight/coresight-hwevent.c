@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -216,13 +216,9 @@ static int hwevent_probe(struct platform_device *pdev)
 
 	mutex_init(&drvdata->mutex);
 
-	drvdata->clk = devm_clk_get(dev, "core_clk");
+	drvdata->clk = devm_clk_get(dev, "apb_pclk");
 	if (IS_ERR(drvdata->clk))
 		return PTR_ERR(drvdata->clk);
-
-	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
-	if (ret)
-		return ret;
 
 	drvdata->nr_hclk = of_property_count_strings(pdev->dev.of_node,
 						     "qcom,hwevent-clks");

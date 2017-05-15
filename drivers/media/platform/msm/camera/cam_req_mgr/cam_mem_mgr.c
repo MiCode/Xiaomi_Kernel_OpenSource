@@ -97,7 +97,7 @@ int cam_mem_mgr_init(void)
 	}
 
 	bitmap_size = BITS_TO_LONGS(CAM_MEM_BUFQ_MAX) * sizeof(long);
-	tbl.bitmap = kzalloc(sizeof(bitmap_size), GFP_KERNEL);
+	tbl.bitmap = kzalloc(bitmap_size, GFP_KERNEL);
 	if (!tbl.bitmap) {
 		rc = -ENOMEM;
 		goto bitmap_fail;

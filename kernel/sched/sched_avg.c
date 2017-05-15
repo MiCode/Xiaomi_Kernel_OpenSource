@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,7 @@
 #include <linux/math64.h>
 
 #include "sched.h"
+#include "walt.h"
 #include <trace/events/sched.h>
 
 static DEFINE_PER_CPU(u64, nr_prod_sum);
@@ -127,3 +128,35 @@ void sched_update_nr_prod(int cpu, long delta, bool inc)
 	spin_unlock_irqrestore(&per_cpu(nr_lock, cpu), flags);
 }
 EXPORT_SYMBOL(sched_update_nr_prod);
+
+/*
+ * Returns the CPU utilization % in the last window.
+ *
+ */
+unsigned int sched_get_cpu_util(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+	u64 util = 0;
+	unsigned long capacity = SCHED_CAPACITY_SCALE, flags;
+	unsigned int busy;
+
+	raw_spin_lock_irqsave(&rq->lock, flags);
+
+#ifdef CONFIG_SMP
+	util = rq->cfs.avg.util_avg;
+	capacity = capacity_orig_of(cpu);
+#endif
+
+#ifdef CONFIG_SCHED_WALT
+	if (!walt_disabled && sysctl_sched_use_walt_cpu_util) {
+		util = rq->prev_runnable_sum + rq->grp_time.prev_runnable_sum;
+		util = div64_u64(util,
+				 sched_ravg_window >> SCHED_CAPACITY_SHIFT);
+	}
+#endif
+	raw_spin_unlock_irqrestore(&rq->lock, flags);
+
+	util = (util >= capacity) ? capacity : util;
+	busy = (util * 100) / capacity;
+	return busy;
+}

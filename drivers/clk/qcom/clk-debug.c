@@ -133,12 +133,16 @@ static u8 clk_debug_mux_get_parent(struct clk_hw *hw)
 {
 	struct clk_debug_mux *meas = to_clk_measure(hw);
 	int i, num_parents = clk_hw_get_num_parents(hw);
+	struct clk_hw *hw_clk = clk_hw_get_parent(hw);
+
+	if (!hw_clk)
+		return 0;
 
 	for (i = 0; i < num_parents; i++) {
 		if (!strcmp(meas->parent[i].parents,
-					hw->init->parent_names[i])) {
-			pr_debug("%s: Clock name %s index %d\n", __func__,
-					hw->init->name, i);
+					clk_hw_get_name(hw_clk))) {
+			pr_debug("%s: clock parent - %s, index %d\n", __func__,
+					meas->parent[i].parents, i);
 			return i;
 		}
 	}
@@ -158,8 +162,8 @@ static int clk_debug_mux_set_parent(struct clk_hw *hw, u8 index)
 		/* Update the recursive debug mux */
 		regmap_read(meas->regmap[dbg_cc],
 				meas->parent[index].mux_offset, &regval);
-		regval &= ~meas->parent[index].mux_sel_mask <<
-				meas->parent[index].mux_sel_shift;
+		regval &= ~(meas->parent[index].mux_sel_mask <<
+				meas->parent[index].mux_sel_shift);
 		regval |= (meas->parent[index].dbg_cc_mux_sel &
 				meas->parent[index].mux_sel_mask) <<
 				meas->parent[index].mux_sel_shift;
@@ -168,31 +172,34 @@ static int clk_debug_mux_set_parent(struct clk_hw *hw, u8 index)
 
 		regmap_read(meas->regmap[dbg_cc],
 				meas->parent[index].post_div_offset, &regval);
-		regval &= ~meas->parent[index].post_div_mask <<
-				meas->parent[index].post_div_shift;
+		regval &= ~(meas->parent[index].post_div_mask <<
+				meas->parent[index].post_div_shift);
 		regval |= ((meas->parent[index].post_div_val - 1) &
 				meas->parent[index].post_div_mask) <<
 				meas->parent[index].post_div_shift;
 		regmap_write(meas->regmap[dbg_cc],
 				meas->parent[index].post_div_offset, regval);
 
-		regmap_read(meas->regmap[dbg_cc],
+		/* Not all recursive muxes have a DEBUG clock. */
+		if (meas->parent[index].cbcr_offset != U32_MAX) {
+			regmap_read(meas->regmap[dbg_cc],
 				meas->parent[index].cbcr_offset, &regval);
-		regval |= BIT(0);
-		regmap_write(meas->regmap[dbg_cc],
+			regval |= BIT(0);
+			regmap_write(meas->regmap[dbg_cc],
 				meas->parent[index].cbcr_offset, regval);
+		}
 	}
 
 	/* Update the debug sel for GCC */
 	regmap_read(meas->regmap[GCC], meas->debug_offset, &regval);
-	regval &= ~meas->src_sel_mask << meas->src_sel_shift;
+	regval &= ~(meas->src_sel_mask << meas->src_sel_shift);
 	regval |= (meas->parent[index].prim_mux_sel & meas->src_sel_mask) <<
 			meas->src_sel_shift;
 	regmap_write(meas->regmap[GCC], meas->debug_offset, regval);
 
 	/* Set the GCC mux's post divider bits */
 	regmap_read(meas->regmap[GCC], meas->post_div_offset, &regval);
-	regval &= ~meas->post_div_mask << meas->post_div_shift;
+	regval &= ~(meas->post_div_mask << meas->post_div_shift);
 	regval |= ((meas->parent[index].prim_mux_div_val - 1) &
 			meas->post_div_mask) << meas->post_div_shift;
 	regmap_write(meas->regmap[GCC], meas->post_div_offset, regval);
@@ -234,6 +241,10 @@ static int clk_debug_measure_get(void *data, u64 *val)
 		if (meas->parent[index].dbg_cc != GCC)
 			*val *= meas->parent[index].post_div_val;
 		*val *= meas->parent[index].prim_mux_div_val;
+
+		/* Accommodate for any pre-set dividers */
+		if (meas->parent[index].misc_div_val)
+			*val *= meas->parent[index].misc_div_val;
 	}
 
 	meas_rate = clk_get_rate(hw->clk);
@@ -244,7 +255,6 @@ static int clk_debug_measure_get(void *data, u64 *val)
 	sw_rate = clk_get_rate(par->clk);
 	if (sw_rate && meas_rate >= (sw_rate * 2))
 		*val *= DIV_ROUND_CLOSEST(meas_rate, sw_rate);
-
 	mutex_unlock(&clk_debug_lock);
 
 	return ret;

@@ -259,15 +259,11 @@ static int dsi_ctrl_check_state(struct dsi_ctrl *dsi_ctrl,
 			       dsi_ctrl->cell_index, op_state);
 			rc = -EINVAL;
 		} else if (state->power_state == DSI_CTRL_POWER_VREG_ON) {
-			if ((state->cmd_engine_state == DSI_CTRL_ENGINE_ON) ||
-			    (state->vid_engine_state == DSI_CTRL_ENGINE_ON) ||
-			    (state->controller_state == DSI_CTRL_ENGINE_ON)) {
-				pr_debug("[%d]State error: op=%d: %d, %d, %d\n",
+			if (state->vid_engine_state == DSI_CTRL_ENGINE_ON) {
+				pr_debug("[%d]State error: op=%d: %d\n",
 				       dsi_ctrl->cell_index,
 				       op_state,
-				       state->cmd_engine_state,
-				       state->vid_engine_state,
-				       state->controller_state);
+				       state->vid_engine_state);
 				rc = -EINVAL;
 			}
 		}
@@ -701,7 +697,7 @@ static int dsi_ctrl_axi_bus_client_init(struct platform_device *pdev,
 	bus->bus_scale_table = msm_bus_cl_get_pdata(pdev);
 	if (IS_ERR_OR_NULL(bus->bus_scale_table)) {
 		rc = PTR_ERR(bus->bus_scale_table);
-		pr_err("msm_bus_cl_get_pdata() failed, rc = %d\n", rc);
+		pr_debug("msm_bus_cl_get_pdata() failed, rc = %d\n", rc);
 		bus->bus_scale_table = NULL;
 		return rc;
 	}
@@ -1260,7 +1256,7 @@ static int dsi_ctrl_dev_probe(struct platform_device *pdev)
 
 	rc = dsi_ctrl_axi_bus_client_init(pdev, dsi_ctrl);
 	if (rc)
-		pr_err("failed to init axi bus client, rc = %d\n", rc);
+		pr_debug("failed to init axi bus client, rc = %d\n", rc);
 
 	item->ctrl = dsi_ctrl;
 

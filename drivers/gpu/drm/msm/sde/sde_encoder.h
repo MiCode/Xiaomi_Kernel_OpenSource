@@ -33,23 +33,27 @@
  * @intfs:	Interfaces this encoder is using, INTF_MODE_NONE if unused
  * @wbs:	Writebacks this encoder is using, INTF_MODE_NONE if unused
  * @needs_cdm:	Encoder requests a CDM based on pixel format conversion needs
- * @needs_dsc:	Request to allocate DSC block
- * @display_num_of_h_tiles:
+ * @display_num_of_h_tiles: Number of horizontal tiles in case of split
+ *                          interface
+ * @topology:   Topology of the display
  */
 struct sde_encoder_hw_resources {
 	enum sde_intf_mode intfs[INTF_MAX];
 	enum sde_intf_mode wbs[WB_MAX];
 	bool needs_cdm;
-	bool needs_dsc;
 	u32 display_num_of_h_tiles;
+	struct msm_display_topology topology;
 };
 
 /**
  * sde_encoder_kickoff_params - info encoder requires at kickoff
  * @inline_rotate_prefill: number of lines to prefill for inline rotation
+ * @affected_displays:  bitmask, bit set means the ROI of the commit lies within
+ *                      the bounds of the physical display at the bit index
  */
 struct sde_encoder_kickoff_params {
 	u32 inline_rotate_prefill;
+	unsigned long affected_displays;
 };
 
 /**
@@ -101,6 +105,13 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *encoder,
 		struct sde_encoder_kickoff_params *params);
 
 /**
+ * sde_encoder_trigger_kickoff_pending - Clear the flush bits from previous
+ *        kickoff and trigger the ctl prepare progress for command mode display.
+ * @encoder:	encoder pointer
+ */
+void sde_encoder_trigger_kickoff_pending(struct drm_encoder *encoder);
+
+/**
  * sde_encoder_kickoff - trigger a double buffer flip of the ctl path
  *	(i.e. ctl flush and start) immediately.
  * @encoder:	encoder pointer
@@ -122,6 +133,12 @@ int sde_encoder_wait_for_commit_done(struct drm_encoder *drm_encoder);
  * @encoder: Pointer to drm encoder object
  */
 enum sde_intf_mode sde_encoder_get_intf_mode(struct drm_encoder *encoder);
+
+/**
+ * sde_encoder_virt_restore - restore the encoder configs
+ * @encoder:	encoder pointer
+ */
+void sde_encoder_virt_restore(struct drm_encoder *encoder);
 
 /**
  * enum sde_encoder_property - property tags for sde enoder

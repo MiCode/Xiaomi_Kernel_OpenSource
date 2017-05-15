@@ -12,6 +12,7 @@
 
 #include <dt-bindings/gpio/gpio.h>
 #include "sdm845-camera-sensor-mtp.dtsi"
+#include "smb1355.dtsi"
 
 / {
 	bluetooth: bt_wcn3990 {
@@ -93,6 +94,30 @@
 	qcom,platform-reset-gpio = <&tlmm 6 0>;
 };
 
+&dsi_sim_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,platform-reset-gpio = <&tlmm 6 0>;
+};
+
+&dsi_dual_sim_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,platform-reset-gpio = <&tlmm 6 0>;
+};
+
+&dsi_sim_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,platform-reset-gpio = <&tlmm 6 0>;
+};
+
+&dsi_dual_sim_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,platform-reset-gpio = <&tlmm 6 0>;
+};
+
 &dsi_dual_nt35597_truly_video_display {
 	qcom,dsi-display-active;
 };
@@ -100,6 +125,10 @@
 &pmi8998_wled {
 	status = "okay";
 	qcom,led-strings-list = [01 02];
+};
+
+&mdss_mdp {
+	#cooling-cells = <2>;
 };
 
 &ufsphy_mem {
@@ -199,12 +228,17 @@
 	qcom,battery-data = <&mtp_batterydata>;
 };
 
+&smb1355_charger {
+	status = "ok";
+};
+
 / {
 aliases {
 		serial0 = &qupv3_se9_2uart;
 		spi0 = &qupv3_se8_spi;
 		i2c0 = &qupv3_se10_i2c;
 		i2c1 = &qupv3_se3_i2c;
+		hsuart0 = &qupv3_se6_4uart;
 	};
 };
 
@@ -221,6 +255,10 @@ aliases {
 };
 
 &qupv3_se10_i2c {
+	status = "ok";
+};
+
+&qupv3_se6_4uart {
 	status = "ok";
 };
 

@@ -526,7 +526,6 @@ enum sdm845_functions {
 	msm_mux_reserved30,
 	msm_mux_qup11,
 	msm_mux_qup14,
-	msm_mux_phase_flag3,
 	msm_mux_reserved96,
 	msm_mux_ldo_en,
 	msm_mux_reserved97,
@@ -543,17 +542,13 @@ enum sdm845_functions {
 	msm_mux_phase_flag5,
 	msm_mux_reserved103,
 	msm_mux_reserved104,
-	msm_mux_pcie1_forceon,
 	msm_mux_uim2_data,
 	msm_mux_qup13,
 	msm_mux_reserved105,
-	msm_mux_pcie1_pwren,
 	msm_mux_uim2_clk,
 	msm_mux_reserved106,
-	msm_mux_pcie1_auxen,
 	msm_mux_uim2_reset,
 	msm_mux_reserved107,
-	msm_mux_pcie1_button,
 	msm_mux_uim2_present,
 	msm_mux_reserved108,
 	msm_mux_uim1_data,
@@ -564,7 +559,6 @@ enum sdm845_functions {
 	msm_mux_reserved111,
 	msm_mux_uim1_present,
 	msm_mux_reserved112,
-	msm_mux_pcie1_prsnt2,
 	msm_mux_uim_batt,
 	msm_mux_edp_hot,
 	msm_mux_reserved113,
@@ -587,7 +581,6 @@ enum sdm845_functions {
 	msm_mux_reserved123,
 	msm_mux_reserved124,
 	msm_mux_reserved125,
-	msm_mux_sd_card,
 	msm_mux_reserved126,
 	msm_mux_reserved127,
 	msm_mux_reserved128,
@@ -647,7 +640,6 @@ enum sdm845_functions {
 	msm_mux_reserved42,
 	msm_mux_reserved43,
 	msm_mux_reserved44,
-	msm_mux_bt_reset,
 	msm_mux_qup6,
 	msm_mux_reserved45,
 	msm_mux_reserved46,
@@ -672,7 +664,6 @@ enum sdm845_functions {
 	msm_mux_gcc_gp1,
 	msm_mux_phase_flag18,
 	msm_mux_reserved57,
-	msm_mux_ssc_irq,
 	msm_mux_phase_flag19,
 	msm_mux_reserved58,
 	msm_mux_phase_flag20,
@@ -731,10 +722,8 @@ enum sdm845_functions {
 	msm_mux_reserved82,
 	msm_mux_reserved83,
 	msm_mux_reserved84,
-	msm_mux_pcie1_pwrfault,
 	msm_mux_qup5,
 	msm_mux_reserved85,
-	msm_mux_pcie1_mrl,
 	msm_mux_reserved86,
 	msm_mux_reserved87,
 	msm_mux_reserved88,
@@ -772,6 +761,7 @@ enum sdm845_functions {
 	msm_mux_reserved95,
 	msm_mux_tsif2_sync,
 	msm_mux_sdc40,
+	msm_mux_phase_flag3,
 	msm_mux_NA,
 };
 
@@ -781,19 +771,24 @@ static const char * const gpio_groups[] = {
 	"gpio15", "gpio16", "gpio17", "gpio18", "gpio19", "gpio20", "gpio21",
 	"gpio22", "gpio23", "gpio24", "gpio25", "gpio26", "gpio27", "gpio28",
 	"gpio29", "gpio30", "gpio31", "gpio32", "gpio33", "gpio34", "gpio35",
-	"gpio36", "gpio38", "gpio39", "gpio40", "gpio41", "gpio42", "gpio43",
-	"gpio44", "gpio46", "gpio47", "gpio48", "gpio49", "gpio50", "gpio51",
-	"gpio52", "gpio53", "gpio54", "gpio55", "gpio56", "gpio57", "gpio64",
-	"gpio65", "gpio66", "gpio67", "gpio68", "gpio69", "gpio70", "gpio71",
-	"gpio72", "gpio73", "gpio74", "gpio75", "gpio76", "gpio77", "gpio81",
-	"gpio82", "gpio83", "gpio84", "gpio87", "gpio88", "gpio89", "gpio90",
-	"gpio91", "gpio92", "gpio93", "gpio94", "gpio95", "gpio96", "gpio97",
-	"gpio98", "gpio99", "gpio100", "gpio101", "gpio102", "gpio103",
-	"gpio109", "gpio110", "gpio111", "gpio112", "gpio114", "gpio115",
-	"gpio116", "gpio127", "gpio128", "gpio129", "gpio130", "gpio131",
-	"gpio132", "gpio133", "gpio134", "gpio135", "gpio136", "gpio137",
-	"gpio138", "gpio139", "gpio140", "gpio141", "gpio142", "gpio143",
-	"gpio144", "gpio145", "gpio146", "gpio147", "gpio148", "gpio149",
+	"gpio36", "gpio37", "gpio38", "gpio39", "gpio40", "gpio41", "gpio42",
+	"gpio43", "gpio44", "gpio45", "gpio46", "gpio47", "gpio48", "gpio49",
+	"gpio50", "gpio51", "gpio52", "gpio53", "gpio54", "gpio55", "gpio56",
+	"gpio57", "gpio58", "gpio59", "gpio60", "gpio61", "gpio62", "gpio63",
+	"gpio64", "gpio65", "gpio66", "gpio67", "gpio68", "gpio69", "gpio70",
+	"gpio71", "gpio72", "gpio73", "gpio74", "gpio75", "gpio76", "gpio77",
+	"gpio78", "gpio79", "gpio80", "gpio81", "gpio82", "gpio83", "gpio84",
+	"gpio85", "gpio86", "gpio87", "gpio88", "gpio89", "gpio90", "gpio91",
+	"gpio92", "gpio93", "gpio94", "gpio95", "gpio96", "gpio97", "gpio98",
+	"gpio99", "gpio100", "gpio101", "gpio102", "gpio103", "gpio104",
+	"gpio105", "gpio106", "gpio107", "gpio108", "gpio109", "gpio110",
+	"gpio111", "gpio112", "gpio113", "gpio114", "gpio115", "gpio116",
+	"gpio117", "gpio118", "gpio119", "gpio120", "gpio121", "gpio122",
+	"gpio123", "gpio124", "gpio125", "gpio126", "gpio127", "gpio128",
+	"gpio129", "gpio130", "gpio131", "gpio132", "gpio133", "gpio134",
+	"gpio135", "gpio136", "gpio137", "gpio138", "gpio139", "gpio140",
+	"gpio141", "gpio142", "gpio143", "gpio144", "gpio145", "gpio146",
+	"gpio147", "gpio148", "gpio149",
 };
 static const char * const qup0_groups[] = {
 	"gpio0", "gpio1", "gpio2", "gpio3",
@@ -1075,9 +1070,6 @@ static const char * const qup11_groups[] = {
 static const char * const qup14_groups[] = {
 	"gpio31", "gpio32", "gpio33", "gpio34",
 };
-static const char * const phase_flag3_groups[] = {
-	"gpio96",
-};
 static const char * const reserved96_groups[] = {
 	"gpio96",
 };
@@ -1109,7 +1101,7 @@ static const char * const reserved101_groups[] = {
 	"gpio101",
 };
 static const char * const pci_e1_groups[] = {
-	"gpio102", "gpio103", "gpio104",
+	"gpio102", "gpio103",
 };
 static const char * const prng_rosc_groups[] = {
 	"gpio102",
@@ -1126,9 +1118,6 @@ static const char * const reserved103_groups[] = {
 static const char * const reserved104_groups[] = {
 	"gpio104",
 };
-static const char * const pcie1_forceon_groups[] = {
-	"gpio105",
-};
 static const char * const uim2_data_groups[] = {
 	"gpio105",
 };
@@ -1138,26 +1127,17 @@ static const char * const qup13_groups[] = {
 static const char * const reserved105_groups[] = {
 	"gpio105",
 };
-static const char * const pcie1_pwren_groups[] = {
-	"gpio106",
-};
 static const char * const uim2_clk_groups[] = {
 	"gpio106",
 };
 static const char * const reserved106_groups[] = {
 	"gpio106",
 };
-static const char * const pcie1_auxen_groups[] = {
-	"gpio107",
-};
 static const char * const uim2_reset_groups[] = {
 	"gpio107",
 };
 static const char * const reserved107_groups[] = {
 	"gpio107",
-};
-static const char * const pcie1_button_groups[] = {
-	"gpio108",
 };
 static const char * const uim2_present_groups[] = {
 	"gpio108",
@@ -1188,9 +1168,6 @@ static const char * const uim1_present_groups[] = {
 };
 static const char * const reserved112_groups[] = {
 	"gpio112",
-};
-static const char * const pcie1_prsnt2_groups[] = {
-	"gpio113",
 };
 static const char * const uim_batt_groups[] = {
 	"gpio113",
@@ -1258,9 +1235,6 @@ static const char * const reserved124_groups[] = {
 };
 static const char * const reserved125_groups[] = {
 	"gpio125",
-};
-static const char * const sd_card_groups[] = {
-	"gpio126",
 };
 static const char * const reserved126_groups[] = {
 	"gpio126",
@@ -1380,7 +1354,7 @@ static const char * const reserved34_groups[] = {
 	"gpio34",
 };
 static const char * const pci_e0_groups[] = {
-	"gpio35", "gpio36", "gpio37",
+	"gpio35", "gpio36",
 };
 static const char * const jitter_bist_groups[] = {
 	"gpio35",
@@ -1438,9 +1412,6 @@ static const char * const reserved43_groups[] = {
 };
 static const char * const reserved44_groups[] = {
 	"gpio44",
-};
-static const char * const bt_reset_groups[] = {
-	"gpio45",
 };
 static const char * const qup6_groups[] = {
 	"gpio45", "gpio46", "gpio47", "gpio48",
@@ -1513,11 +1484,6 @@ static const char * const phase_flag18_groups[] = {
 };
 static const char * const reserved57_groups[] = {
 	"gpio57",
-};
-static const char * const ssc_irq_groups[] = {
-	"gpio58", "gpio59", "gpio60", "gpio61", "gpio62", "gpio63", "gpio78",
-	"gpio79", "gpio80", "gpio117", "gpio118", "gpio119", "gpio120",
-	"gpio121", "gpio122", "gpio123", "gpio124", "gpio125",
 };
 static const char * const phase_flag19_groups[] = {
 	"gpio58",
@@ -1693,17 +1659,11 @@ static const char * const reserved83_groups[] = {
 static const char * const reserved84_groups[] = {
 	"gpio84",
 };
-static const char * const pcie1_pwrfault_groups[] = {
-	"gpio85",
-};
 static const char * const qup5_groups[] = {
 	"gpio85", "gpio86", "gpio87", "gpio88",
 };
 static const char * const reserved85_groups[] = {
 	"gpio85",
-};
-static const char * const pcie1_mrl_groups[] = {
-	"gpio86",
 };
 static const char * const reserved86_groups[] = {
 	"gpio86",
@@ -1816,6 +1776,9 @@ static const char * const tsif2_sync_groups[] = {
 static const char * const sdc40_groups[] = {
 	"gpio96",
 };
+static const char * const phase_flag3_groups[] = {
+	"gpio96",
+};
 
 static const struct msm_function sdm845_functions[] = {
 	FUNCTION(gpio),
@@ -1912,7 +1875,6 @@ static const struct msm_function sdm845_functions[] = {
 	FUNCTION(reserved30),
 	FUNCTION(qup11),
 	FUNCTION(qup14),
-	FUNCTION(phase_flag3),
 	FUNCTION(reserved96),
 	FUNCTION(ldo_en),
 	FUNCTION(reserved97),
@@ -1929,17 +1891,13 @@ static const struct msm_function sdm845_functions[] = {
 	FUNCTION(phase_flag5),
 	FUNCTION(reserved103),
 	FUNCTION(reserved104),
-	FUNCTION(pcie1_forceon),
 	FUNCTION(uim2_data),
 	FUNCTION(qup13),
 	FUNCTION(reserved105),
-	FUNCTION(pcie1_pwren),
 	FUNCTION(uim2_clk),
 	FUNCTION(reserved106),
-	FUNCTION(pcie1_auxen),
 	FUNCTION(uim2_reset),
 	FUNCTION(reserved107),
-	FUNCTION(pcie1_button),
 	FUNCTION(uim2_present),
 	FUNCTION(reserved108),
 	FUNCTION(uim1_data),
@@ -1950,7 +1908,6 @@ static const struct msm_function sdm845_functions[] = {
 	FUNCTION(reserved111),
 	FUNCTION(uim1_present),
 	FUNCTION(reserved112),
-	FUNCTION(pcie1_prsnt2),
 	FUNCTION(uim_batt),
 	FUNCTION(edp_hot),
 	FUNCTION(reserved113),
@@ -1973,7 +1930,6 @@ static const struct msm_function sdm845_functions[] = {
 	FUNCTION(reserved123),
 	FUNCTION(reserved124),
 	FUNCTION(reserved125),
-	FUNCTION(sd_card),
 	FUNCTION(reserved126),
 	FUNCTION(reserved127),
 	FUNCTION(reserved128),
@@ -2033,7 +1989,6 @@ static const struct msm_function sdm845_functions[] = {
 	FUNCTION(reserved42),
 	FUNCTION(reserved43),
 	FUNCTION(reserved44),
-	FUNCTION(bt_reset),
 	FUNCTION(qup6),
 	FUNCTION(reserved45),
 	FUNCTION(reserved46),
@@ -2058,7 +2013,6 @@ static const struct msm_function sdm845_functions[] = {
 	FUNCTION(gcc_gp1),
 	FUNCTION(phase_flag18),
 	FUNCTION(reserved57),
-	FUNCTION(ssc_irq),
 	FUNCTION(phase_flag19),
 	FUNCTION(reserved58),
 	FUNCTION(phase_flag20),
@@ -2117,10 +2071,8 @@ static const struct msm_function sdm845_functions[] = {
 	FUNCTION(reserved82),
 	FUNCTION(reserved83),
 	FUNCTION(reserved84),
-	FUNCTION(pcie1_pwrfault),
 	FUNCTION(qup5),
 	FUNCTION(reserved85),
-	FUNCTION(pcie1_mrl),
 	FUNCTION(reserved86),
 	FUNCTION(reserved87),
 	FUNCTION(reserved88),
@@ -2158,6 +2110,7 @@ static const struct msm_function sdm845_functions[] = {
 	FUNCTION(reserved95),
 	FUNCTION(tsif2_sync),
 	FUNCTION(sdc40),
+	FUNCTION(phase_flag3),
 };
 
 static const struct msm_pingroup sdm845_groups[] = {

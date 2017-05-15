@@ -28,6 +28,8 @@
 #include <linux/thermal.h>
 #include <linux/qpnp/qpnp-adc.h>
 
+#include "thermal_core.h"
+
 #define QPNP_TM_DRIVER_NAME "qcom,qpnp-temp-alarm"
 
 enum qpnp_tm_registers {
@@ -97,7 +99,6 @@ struct qpnp_tm_chip {
 	unsigned int			subtype;
 	enum qpnp_tm_adc_type		adc_type;
 	int				temperature;
-	enum thermal_device_mode	mode;
 	unsigned int			thresh;
 	unsigned int			clock_rate;
 	unsigned int			stage;
@@ -105,17 +106,11 @@ struct qpnp_tm_chip {
 	int				irq;
 	enum qpnp_vadc_channels		adc_channel;
 	u16				base_addr;
-	bool				allow_software_override;
 	struct qpnp_vadc_chip		*vadc_dev;
 };
 
 /* Delay between TEMP_STAT IRQ going high and status value changing in ms. */
 #define STATUS_REGISTER_DELAY_MS       40
-
-enum pmic_thermal_override_mode {
-	SOFTWARE_OVERRIDE_DISABLED = 0,
-	SOFTWARE_OVERRIDE_ENABLED,
-};
 
 /* This array maps from GEN2 alarm state to GEN1 alarm stage */
 const unsigned int alarm_state_map[8] = {0, 1, 1, 2, 2, 3, 3, 3};
@@ -152,28 +147,6 @@ static inline int qpnp_tm_write(struct qpnp_tm_chip *chip, u16 addr, u8 *buf,
 			to_spmi_device(chip->pdev->dev.parent)->usid,
 			chip->base_addr + addr,
 			len, rc);
-
-	return rc;
-}
-
-
-static inline int qpnp_tm_shutdown_override(struct qpnp_tm_chip *chip,
-			    enum pmic_thermal_override_mode mode)
-{
-	int rc = 0;
-	u8 reg;
-
-	if (chip->allow_software_override) {
-		reg = chip->thresh & SHUTDOWN_CTRL1_THRESHOLD_MASK;
-		reg |= (chip->clock_rate << SHUTDOWN_CTRL1_CLK_RATE_SHIFT)
-			& SHUTDOWN_CTRL1_CLK_RATE_MASK;
-
-		if (mode == SOFTWARE_OVERRIDE_ENABLED)
-			reg |= SHUTDOWN_CTRL1_OVERRIDE_STAGE2
-				| SHUTDOWN_CTRL1_OVERRIDE_STAGE3;
-
-		rc = qpnp_tm_write(chip, QPNP_TM_REG_SHUTDOWN_CTRL1, &reg, 1);
-	}
 
 	return rc;
 }
@@ -274,10 +247,9 @@ static int qpnp_tm_update_temp_no_adc(struct qpnp_tm_chip *chip)
 	return 0;
 }
 
-static int qpnp_tz_get_temp_no_adc(struct thermal_zone_device *thermal,
-				     int *temperature)
+static int qpnp_tz_get_temp_no_adc(void *data, int *temperature)
 {
-	struct qpnp_tm_chip *chip = thermal->devdata;
+	struct qpnp_tm_chip *chip = (struct qpnp_tm_chip *)data;
 	int rc;
 
 	if (!temperature)
@@ -292,10 +264,9 @@ static int qpnp_tz_get_temp_no_adc(struct thermal_zone_device *thermal,
 	return 0;
 }
 
-static int qpnp_tz_get_temp_qpnp_adc(struct thermal_zone_device *thermal,
-				      int *temperature)
+static int qpnp_tz_get_temp_qpnp_adc(void *data, int *temperature)
 {
-	struct qpnp_tm_chip *chip = thermal->devdata;
+	struct qpnp_tm_chip *chip = (struct qpnp_tm_chip *)data;
 	int rc;
 
 	if (!temperature)
@@ -314,121 +285,12 @@ static int qpnp_tz_get_temp_qpnp_adc(struct thermal_zone_device *thermal,
 	return 0;
 }
 
-static int qpnp_tz_get_mode(struct thermal_zone_device *thermal,
-			      enum thermal_device_mode *mode)
-{
-	struct qpnp_tm_chip *chip = thermal->devdata;
-
-	if (!mode)
-		return -EINVAL;
-
-	*mode = chip->mode;
-
-	return 0;
-}
-
-static int qpnp_tz_set_mode(struct thermal_zone_device *thermal,
-			      enum thermal_device_mode mode)
-{
-	struct qpnp_tm_chip *chip = thermal->devdata;
-	int rc = 0;
-
-	if (mode != chip->mode) {
-		if (mode == THERMAL_DEVICE_ENABLED)
-			rc = qpnp_tm_shutdown_override(chip,
-				SOFTWARE_OVERRIDE_ENABLED);
-		else
-			rc = qpnp_tm_shutdown_override(chip,
-				SOFTWARE_OVERRIDE_DISABLED);
-
-		chip->mode = mode;
-	}
-
-	return rc;
-}
-
-static int qpnp_tz_get_trip_type(struct thermal_zone_device *thermal,
-				   int trip, enum thermal_trip_type *type)
-{
-	if (trip < 0 || !type)
-		return -EINVAL;
-
-	switch (trip) {
-	case TRIP_STAGE3:
-		*type = THERMAL_TRIP_CRITICAL;
-		break;
-	case TRIP_STAGE2:
-		*type = THERMAL_TRIP_HOT;
-		break;
-	case TRIP_STAGE1:
-		*type = THERMAL_TRIP_HOT;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-static int qpnp_tz_get_trip_temp(struct thermal_zone_device *thermal,
-				   int trip, int *temperature)
-{
-	struct qpnp_tm_chip *chip = thermal->devdata;
-	int thresh_temperature;
-
-	if (trip < 0 || !temperature)
-		return -EINVAL;
-
-	thresh_temperature = chip->thresh * TEMP_THRESH_STEP + TEMP_THRESH_MIN;
-
-	switch (trip) {
-	case TRIP_STAGE3:
-		thresh_temperature += 2 * TEMP_STAGE_STEP;
-		break;
-	case TRIP_STAGE2:
-		thresh_temperature += TEMP_STAGE_STEP;
-		break;
-	case TRIP_STAGE1:
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	*temperature = thresh_temperature;
-
-	return 0;
-}
-
-static int qpnp_tz_get_crit_temp(struct thermal_zone_device *thermal,
-				   int *temperature)
-{
-	struct qpnp_tm_chip *chip = thermal->devdata;
-
-	if (!temperature)
-		return -EINVAL;
-
-	*temperature = chip->thresh * TEMP_THRESH_STEP + TEMP_THRESH_MIN +
-		2 * TEMP_STAGE_STEP;
-
-	return 0;
-}
-
-static struct thermal_zone_device_ops qpnp_thermal_zone_ops_no_adc = {
+static struct thermal_zone_of_device_ops qpnp_thermal_zone_ops_no_adc = {
 	.get_temp = qpnp_tz_get_temp_no_adc,
-	.get_mode = qpnp_tz_get_mode,
-	.set_mode = qpnp_tz_set_mode,
-	.get_trip_type = qpnp_tz_get_trip_type,
-	.get_trip_temp = qpnp_tz_get_trip_temp,
-	.get_crit_temp = qpnp_tz_get_crit_temp,
 };
 
-static struct thermal_zone_device_ops qpnp_thermal_zone_ops_qpnp_adc = {
+static struct thermal_zone_of_device_ops qpnp_thermal_zone_ops_qpnp_adc = {
 	.get_temp = qpnp_tz_get_temp_qpnp_adc,
-	.get_mode = qpnp_tz_get_mode,
-	.set_mode = qpnp_tz_set_mode,
-	.get_trip_type = qpnp_tz_get_trip_type,
-	.get_trip_temp = qpnp_tz_get_trip_temp,
-	.get_crit_temp = qpnp_tz_get_crit_temp,
 };
 
 static void qpnp_tm_work(struct work_struct *work)
@@ -474,11 +336,7 @@ static void qpnp_tm_work(struct work_struct *work)
 				chip->tm_name, stage_new, chip->stage,
 				chip->thresh, chip->temperature);
 
-		thermal_zone_device_update(chip->tz_dev,
-						THERMAL_EVENT_UNSPECIFIED);
-
-		/* Notify user space */
-		sysfs_notify(&chip->tz_dev->device.kobj, NULL, "type");
+		of_thermal_handle_trip(chip->tz_dev);
 	}
 
 bail:
@@ -539,7 +397,7 @@ static int qpnp_tm_probe(struct platform_device *pdev)
 	struct device_node *node;
 	unsigned int base;
 	struct qpnp_tm_chip *chip;
-	struct thermal_zone_device_ops *tz_ops;
+	struct thermal_zone_of_device_ops *tz_ops;
 	char *tm_name;
 	u32 default_temperature;
 	int rc = 0;
@@ -640,9 +498,6 @@ static int qpnp_tm_probe(struct platform_device *pdev)
 	else
 		tz_ops = &qpnp_thermal_zone_ops_no_adc;
 
-	chip->allow_software_override
-		= of_property_read_bool(node, "qcom,allow-override");
-
 	default_temperature = DEFAULT_NO_ADC_TEMP;
 	rc = of_property_read_u32(node, "qcom,default-temp",
 					&default_temperature);
@@ -686,18 +541,8 @@ static int qpnp_tm_probe(struct platform_device *pdev)
 		}
 	}
 
-	/* Start in HW control; switch to SW control when user changes mode. */
-	chip->mode = THERMAL_DEVICE_DISABLED;
-	rc = qpnp_tm_shutdown_override(chip, SOFTWARE_OVERRIDE_DISABLED);
-	if (rc) {
-		dev_err(&pdev->dev,
-			"%s: qpnp_tm_shutdown_override() failed, rc=%d\n",
-			__func__, rc);
-		goto err_cancel_work;
-	}
-
-	chip->tz_dev = thermal_zone_device_register(tm_name, TRIP_NUM, 0, chip,
-			tz_ops, NULL, 0, 0);
+	chip->tz_dev = thermal_zone_of_sensor_register(&pdev->dev, 0, chip,
+							tz_ops);
 	if (chip->tz_dev == NULL) {
 		dev_err(&pdev->dev,
 			"%s: thermal_zone_device_register() failed.\n",
@@ -717,7 +562,7 @@ static int qpnp_tm_probe(struct platform_device *pdev)
 	return 0;
 
 err_free_tz:
-	thermal_zone_device_unregister(chip->tz_dev);
+	thermal_zone_of_sensor_unregister(&pdev->dev, chip->tz_dev);
 err_cancel_work:
 	cancel_delayed_work_sync(&chip->irq_work);
 	kfree(chip->tm_name);
@@ -731,48 +576,15 @@ static int qpnp_tm_remove(struct platform_device *pdev)
 {
 	struct qpnp_tm_chip *chip = dev_get_drvdata(&pdev->dev);
 
+	thermal_zone_of_sensor_unregister(&pdev->dev, chip->tz_dev);
 	dev_set_drvdata(&pdev->dev, NULL);
-	thermal_zone_device_unregister(chip->tz_dev);
 	kfree(chip->tm_name);
-	qpnp_tm_shutdown_override(chip, SOFTWARE_OVERRIDE_DISABLED);
 	free_irq(chip->irq, chip);
 	cancel_delayed_work_sync(&chip->irq_work);
 	kfree(chip);
 
 	return 0;
 }
-
-#ifdef CONFIG_PM
-static int qpnp_tm_suspend(struct device *dev)
-{
-	struct qpnp_tm_chip *chip = dev_get_drvdata(dev);
-
-	/* Clear override bits in suspend to allow hardware control */
-	qpnp_tm_shutdown_override(chip, SOFTWARE_OVERRIDE_DISABLED);
-
-	return 0;
-}
-
-static int qpnp_tm_resume(struct device *dev)
-{
-	struct qpnp_tm_chip *chip = dev_get_drvdata(dev);
-
-	/* Override hardware actions so software can control */
-	if (chip->mode == THERMAL_DEVICE_ENABLED)
-		qpnp_tm_shutdown_override(chip, SOFTWARE_OVERRIDE_ENABLED);
-
-	return 0;
-}
-
-static const struct dev_pm_ops qpnp_tm_pm_ops = {
-	.suspend = qpnp_tm_suspend,
-	.resume = qpnp_tm_resume,
-};
-
-#define QPNP_TM_PM_OPS	(&qpnp_tm_pm_ops)
-#else
-#define QPNP_TM_PM_OPS	NULL
-#endif
 
 static const struct of_device_id qpnp_tm_match_table[] = {
 	{ .compatible = QPNP_TM_DRIVER_NAME, },
@@ -789,7 +601,6 @@ static struct platform_driver qpnp_tm_driver = {
 		.name		= QPNP_TM_DRIVER_NAME,
 		.of_match_table	= qpnp_tm_match_table,
 		.owner		= THIS_MODULE,
-		.pm		= QPNP_TM_PM_OPS,
 	},
 	.probe	  = qpnp_tm_probe,
 	.remove	  = qpnp_tm_remove,

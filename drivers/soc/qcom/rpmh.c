@@ -12,6 +12,7 @@
  */
 
 #include <linux/atomic.h>
+#include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
@@ -70,6 +71,7 @@ struct rpmh_mbox {
 	struct rpmh_msg *msg_pool;
 	DECLARE_BITMAP(fast_req, RPMH_MAX_FAST_RES);
 	bool dirty;
+	bool in_solver_mode;
 };
 
 struct rpmh_client {
@@ -458,9 +460,20 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 	int count = 0;
 	int ret, i, j, k;
 	bool complete_set;
+	unsigned long flags;
+	struct rpmh_mbox *rpm;
 
 	if (rpmh_standalone)
 		return 0;
+
+	/* Do not allow setting wake votes when in solver mode */
+	rpm = rc->rpmh;
+	spin_lock_irqsave(&rpm->lock, flags);
+	if (rpm->in_solver_mode && state == RPMH_WAKE_ONLY_STATE) {
+		spin_unlock_irqrestore(&rpm->lock, flags);
+		return -EIO;
+	}
+	spin_unlock_irqrestore(&rpm->lock, flags);
 
 	while (n[count++])
 		;
@@ -491,8 +504,12 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 	/* Create async request batches */
 	for (i = 0; i < count; i++) {
 		rpm_msg[i] = __get_rpmh_msg_async(rc, state, cmd, n[i]);
-		if (IS_ERR_OR_NULL(rpm_msg[i]))
+		if (IS_ERR_OR_NULL(rpm_msg[i])) {
+			/* Clean up our call by spoofing tx_done */
+			for (j = 0 ; j < i; j++)
+				rpmh_tx_done(&rc->client, &rpm_msg[j]->msg, 0);
 			return PTR_ERR(rpm_msg[i]);
+		}
 		cmd += n[i];
 	}
 
@@ -505,10 +522,13 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 			rpm_msg[i]->wait_count = &wait_count;
 			/* Bypass caching and write to mailbox directly */
 			ret = mbox_send_message(rc->chan, &rpm_msg[i]->msg);
-			if (ret < 0)
-				return ret;
+			if (ret < 0) {
+				pr_err("Error(%d) sending RPM message addr=0x%x\n",
+					ret, rpm_msg[i]->msg.payload[0].addr);
+				break;
+			}
 		}
-		wait_event(waitq, atomic_read(&wait_count) == 0);
+		wait_event(waitq, atomic_read(&wait_count) == (count - i));
 	} else {
 		/* Send Sleep requests to the controller, expect no response */
 		for (i = 0; i < count; i++) {
@@ -524,6 +544,43 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 	return 0;
 }
 EXPORT_SYMBOL(rpmh_write_passthru);
+
+/**
+ * rpmh_mode_solver_set: Indicate that the RSC controller hardware has
+ * been configured to be in solver mode
+ *
+ * @rc: The RPMH handle
+ * @enable: Boolean value indicating if the controller is in solver mode.
+ *
+ * When solver mode is enabled, passthru API will not be able to send wake
+ * votes, just awake and active votes.
+ */
+int rpmh_mode_solver_set(struct rpmh_client *rc, bool enable)
+{
+	struct rpmh_mbox *rpm;
+	unsigned long flags;
+
+	if (IS_ERR_OR_NULL(rc))
+		return -EINVAL;
+
+	if (rpmh_standalone)
+		return 0;
+
+	rpm = rc->rpmh;
+	do {
+		spin_lock_irqsave(&rpm->lock, flags);
+		if (mbox_controller_is_idle(rc->chan)) {
+			rpm->in_solver_mode = enable;
+			spin_unlock_irqrestore(&rpm->lock, flags);
+			break;
+		}
+		spin_unlock_irqrestore(&rpm->lock, flags);
+		udelay(10);
+	} while (1);
+
+	return 0;
+}
+EXPORT_SYMBOL(rpmh_mode_solver_set);
 
 /**
  * rpmh_write_control: Write async control commands to the controller

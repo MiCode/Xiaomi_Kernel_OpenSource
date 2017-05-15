@@ -37,8 +37,8 @@
 		interrupts = <0 83 0>;
 		interrupt-controller;
 		#interrupt-cells = <1>;
-		iommus = <&apps_smmu 0x880>, <&apps_smmu 0x888>,
-			<&apps_smmu 0xc80>, <&apps_smmu 0xc88>;
+		iommus = <&apps_smmu 0x880 0x8>,
+			<&apps_smmu 0xc80 0x8>;
 
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -97,8 +97,6 @@
 					1 5 9 13>;
 		qcom,sde-sspp-excl-rect = <1 1 1 1
 						1 1 1 1>;
-		qcom,sde-sspp-smart-dma-priority = <5 6 7 8 1 2 3 4>;
-		qcom,sde-smart-dma-rev = "smart_dma_v2";
 
 		qcom,sde-mixer-pair-mask = <2 1 6 0 0 3>;
 
@@ -118,10 +116,12 @@
 		qcom,sde-wb-linewidth = <4096>;
 		qcom,sde-mixer-blendstages = <0xb>;
 		qcom,sde-highest-bank-bit = <0x2>;
+		qcom,sde-ubwc-version = <0x200>;
 		qcom,sde-panic-per-pipe;
 		qcom,sde-has-cdp;
 		qcom,sde-has-src-split;
 		qcom,sde-has-dim-layer;
+		qcom,sde-has-idle-pc;
 		qcom,sde-max-bw-low-kbps = <9600000>;
 		qcom,sde-max-bw-high-kbps = <9600000>;
 		qcom,sde-dram-channels = <2>;
@@ -178,7 +178,6 @@
 	};
 
 	sde_rscc: qcom,sde_rscc@af20000 {
-		status = "disabled";
 		cell-index = <0>;
 		compatible = "qcom,sde-rsc";
 		reg = <0xaf20000 0x1c44>,
@@ -187,12 +186,15 @@
 		qcom,sde-rsc-version = <1>;
 
 		vdd-supply = <&mdss_core_gdsc>;
-		clocks = <&clock_dispcc DISP_CC_MDSS_RSCC_AHB_CLK>,
-			<&clock_dispcc DISP_CC_MDSS_RSCC_VSYNC_CLK>;
-		clock-names = "iface_clk", "vsync_clk";
+		clocks = <&clock_dispcc DISP_CC_MDSS_RSCC_VSYNC_CLK>,
+			<&clock_dispcc DISP_CC_MDSS_RSCC_AHB_CLK>;
+		clock-names = "vsync_clk", "iface_clk";
 		clock-rate = <0 0>;
 
 		qcom,sde-dram-channels = <2>;
+
+		mboxes = <&disp_rsc 0>;
+		mbox-names = "disp_rsc";
 
 		/* data and reg bus scale settings */
 		qcom,sde-data-bus {
@@ -208,7 +210,6 @@
 	};
 
 	mdss_rotator: qcom,mdss_rotator@ae00000 {
-		status = "disabled";
 		compatible = "qcom,sde_rotator";
 		reg = <0x0ae00000 0xac000>,
 		      <0x0aeb8000 0x3000>;
@@ -219,8 +220,6 @@
 
 		qcom,mdss-rot-mode = <1>;
 		qcom,mdss-highest-bank-bit = <0x2>;
-		qcom,sde-ubwc-malsize = <1>;
-		qcom,sde-ubwc-swizzle = <1>;
 
 		/* Bus Scale Settings */
 		qcom,msm-bus,name = "mdss_rotator";
@@ -238,12 +237,10 @@
 			<&clock_gcc GCC_DISP_AHB_CLK>,
 			<&clock_gcc GCC_DISP_AXI_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_AHB_CLK>,
-			<&clock_dispcc DISP_CC_MDSS_ROT_CLK_SRC>,
 			<&clock_dispcc DISP_CC_MDSS_ROT_CLK>,
 			<&clock_dispcc DISP_CC_MDSS_AXI_CLK>;
 		clock-names = "gcc_iface", "gcc_bus",
-			"iface_clk", "rot_core_clk",
-			"rot_clk", "axi_clk";
+			"iface_clk", "rot_clk", "axi_clk";
 
 		interrupt-parent = <&mdss_mdp>;
 		interrupts = <2 0>;
@@ -260,15 +257,12 @@
 
 		smmu_rot_unsec: qcom,smmu_rot_unsec_cb {
 			compatible = "qcom,smmu_sde_rot_unsec";
-			iommus = <&apps_smmu 0x1090>;
-			gdsc-mdss-supply = <&hlos1_vote_mmnoc_mmu_tbu_sf_gdsc>;
+			iommus = <&apps_smmu 0x1090 0x0>;
 		};
 
 		smmu_rot_sec: qcom,smmu_rot_sec_cb {
-			status = "disabled";
 			compatible = "qcom,smmu_sde_rot_sec";
-			iommus = <&apps_smmu 0x1091>;
-			gdsc-mdss-supply = <&hlos1_vote_mmnoc_mmu_tbu_sf_gdsc>;
+			iommus = <&apps_smmu 0x1091 0x0>;
 		};
 	};
 

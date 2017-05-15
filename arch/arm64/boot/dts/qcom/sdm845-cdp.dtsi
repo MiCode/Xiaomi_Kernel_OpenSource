@@ -93,6 +93,10 @@
 	};
 };
 
+&mdss_mdp {
+	#cooling-cells = <2>;
+};
+
 &ufsphy_mem {
 	compatible = "qcom,ufs-phy-qmp-v3";
 
@@ -202,6 +206,7 @@ aliases {
 		spi0 = &qupv3_se8_spi;
 		i2c0 = &qupv3_se10_i2c;
 		i2c1 = &qupv3_se3_i2c;
+		hsuart0 = &qupv3_se6_4uart;
 	};
 };
 
@@ -224,6 +229,30 @@ aliases {
 	qcom,platform-reset-gpio = <&tlmm 6 0>;
 };
 
+&dsi_sim_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,platform-reset-gpio = <&tlmm 6 0>;
+};
+
+&dsi_dual_sim_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,platform-reset-gpio = <&tlmm 6 0>;
+};
+
+&dsi_sim_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,platform-reset-gpio = <&tlmm 6 0>;
+};
+
+&dsi_dual_sim_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,platform-reset-gpio = <&tlmm 6 0>;
+};
+
 &dsi_dual_nt35597_truly_video_display {
 	qcom,dsi-display-active;
 };
@@ -242,6 +271,10 @@ aliases {
 };
 
 &qupv3_se10_i2c {
+	status = "ok";
+};
+
+&qupv3_se6_4uart {
 	status = "ok";
 };
 

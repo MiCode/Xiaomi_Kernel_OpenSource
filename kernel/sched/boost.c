@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/jiffies.h>
 #include "sched.h"
 #include <linux/of.h>
 #include <linux/sched/core_ctl.h>
@@ -139,6 +140,7 @@ static void _sched_set_boost(int old_val, int type)
 	case RESTRAINED_BOOST:
 		freq_aggr_threshold_backup =
 			update_freq_aggregate_threshold(1);
+		mod_timer(&sched_grp_timer, jiffies + 1);
 		break;
 
 	default:

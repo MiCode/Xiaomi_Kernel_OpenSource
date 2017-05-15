@@ -30,7 +30,6 @@
 #include "kgsl_trace.h"
 #include "adreno_a5xx_packets.h"
 
-static int zap_ucode_loaded;
 static int critical_packet_constructed;
 
 static struct kgsl_memdesc crit_pkts;
@@ -2179,7 +2178,7 @@ static int a5xx_microcode_load(struct adreno_device *adreno_dev)
 	 * appropriate register,
 	 * skip if retention is supported for the CPZ register
 	 */
-	if (zap_ucode_loaded && !(ADRENO_FEATURE(adreno_dev,
+	if (adreno_dev->zap_loaded && !(ADRENO_FEATURE(adreno_dev,
 		ADRENO_CPZ_RETENTION))) {
 		int ret;
 		struct scm_desc desc = {0};
@@ -2197,14 +2196,13 @@ static int a5xx_microcode_load(struct adreno_device *adreno_dev)
 	}
 
 	/* Load the zap shader firmware through PIL if its available */
-	if (adreno_dev->gpucore->zap_name && !zap_ucode_loaded) {
+	if (adreno_dev->gpucore->zap_name && !adreno_dev->zap_loaded) {
 		ptr = subsystem_get(adreno_dev->gpucore->zap_name);
 
 		/* Return error if the zap shader cannot be loaded */
 		if (IS_ERR_OR_NULL(ptr))
 			return (ptr == NULL) ? -ENODEV : PTR_ERR(ptr);
-
-		zap_ucode_loaded = 1;
+		adreno_dev->zap_loaded = 1;
 	}
 
 	return 0;

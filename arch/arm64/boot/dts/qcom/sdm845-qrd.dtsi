@@ -10,16 +10,55 @@
  * GNU General Public License for more details.
  */
 
+#include "smb1355.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+
 /{
 	qrd_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
 		#include "fg-gen3-batterydata-itech-3000mah.dtsi"
 		#include "fg-gen3-batterydata-ascent-3450mah.dtsi"
 	};
+
+	aliases {
+		serial0 = &qupv3_se9_2uart;
+		spi0 = &qupv3_se8_spi;
+		i2c0 = &qupv3_se10_i2c;
+		i2c1 = &qupv3_se3_i2c;
+		hsuart0 = &qupv3_se6_4uart;
+	};
+};
+
+&qupv3_se9_2uart {
+	status = "ok";
+};
+
+&qupv3_se8_spi {
+	status = "ok";
+};
+
+&qupv3_se3_i2c {
+	status = "ok";
+};
+
+&qupv3_se10_i2c {
+	status = "ok";
+};
+
+&qupv3_se6_4uart {
+	status = "ok";
 };
 
 &pmi8998_fg {
 	qcom,battery-data = <&qrd_batterydata>;
+};
+
+&smb1355_charger {
+	status = "ok";
+};
+
+&mdss_mdp {
+	#cooling-cells = <2>;
 };
 
 &soc {
@@ -28,4 +67,83 @@
 		qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0213>;
 		qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrRight";
 	};
+};
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qmp-v3";
+
+	vdda-phy-supply = <&pm8998_l1>; /* 0.88v */
+	vdda-pll-supply = <&pm8998_l26>; /* 1.2v */
+	vdda-phy-max-microamp = <62900>;
+	vdda-pll-max-microamp = <18300>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	vdd-hba-supply = <&ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm8998_l20>;
+	vccq2-supply = <&pm8998_s4>;
+	vcc-max-microamp = <600000>;
+	vccq2-max-microamp = <600000>;
+
+	qcom,vddp-ref-clk-supply = <&pm8998_l2>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	status = "ok";
+};
+
+&ufsphy_card {
+	compatible = "qcom,ufs-phy-qmp-v3";
+
+	vdda-phy-supply = <&pm8998_l1>; /* 0.88v */
+	vdda-pll-supply = <&pm8998_l26>; /* 1.2v */
+	vdda-phy-max-microamp = <62900>;
+	vdda-pll-max-microamp = <18300>;
+
+	status = "ok";
+};
+
+&ufshc_card {
+	vdd-hba-supply = <&ufs_card_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm8998_l21>;
+	vccq2-supply = <&pm8998_s4>;
+	vcc-max-microamp = <300000>;
+	vccq2-max-microamp = <300000>;
+
+	qcom,vddp-ref-clk-supply = <&pm8998_l2>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	status = "ok";
+};
+
+&labibb {
+	status = "ok";
+	qcom,qpnp-labibb-mode = "lcd";
+};
+
+&pmi8998_wled {
+	status = "okay";
+	qcom,led-strings-list = [01 02];
+};
+
+&mdss_mdp {
+	connectors = <&sde_rscc &sde_wb &dsi_sharp_4k_dsc_video_display>;
+};
+
+&dsi_sharp_4k_dsc_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-panel-mode-gpio-state = "dual_port";
+	qcom,panel-mode-gpio = <&tlmm 52 0>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-reset-gpio = <&tlmm 6 0>;
+};
+
+&dsi_sharp_4k_dsc_video_display {
+	qcom,dsi-display-active;
 };

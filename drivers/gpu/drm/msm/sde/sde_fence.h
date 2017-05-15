@@ -29,7 +29,8 @@
  * @done_count: Number of completed commits since bootup
  * @drm_id: ID number of owning DRM Object
  * @ref: kref counter on timeline
- * @lock: spinlock for timeline and fence counter protection
+ * @lock: spinlock for fence counter protection
+ * @list_lock: spinlock for timeline protection
  * @context: fence context
  * @list_head: fence list to hold all the fence created on this context
  * @name: name of fence context/timeline
@@ -40,6 +41,7 @@ struct sde_fence_context {
 	uint32_t drm_id;
 	struct kref kref;
 	spinlock_t lock;
+	spinlock_t list_lock;
 	u64 context;
 	struct list_head fence_list_head;
 	char name[SDE_FENCE_NAME_SIZE];

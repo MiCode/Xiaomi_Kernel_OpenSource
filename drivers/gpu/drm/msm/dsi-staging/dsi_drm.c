@@ -50,6 +50,8 @@ static void convert_to_dsi_mode(const struct drm_display_mode *drm_mode,
 	dsi_mode->pixel_clk_khz = drm_mode->clock;
 	dsi_mode->panel_mode = 0; /* TODO: Panel Mode */
 
+	dsi_mode->mode_info = (struct msm_mode_info *)drm_mode->private;
+
 	if (msm_is_mode_seamless(drm_mode))
 		dsi_mode->dsi_mode_flags |= DSI_MODE_FLAG_SEAMLESS;
 	if (msm_is_mode_dynamic_fps(drm_mode))
@@ -80,6 +82,8 @@ static void convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
 
 	drm_mode->vrefresh = dsi_mode->timing.refresh_rate;
 	drm_mode->clock = dsi_mode->pixel_clk_khz;
+
+	drm_mode->private = (int *)dsi_mode->mode_info;
 
 	if (dsi_mode->dsi_mode_flags & DSI_MODE_FLAG_SEAMLESS)
 		drm_mode->flags |= DRM_MODE_FLAG_SEAMLESS;
@@ -253,6 +257,26 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 	}
 
 	return ret;
+}
+
+int dsi_conn_get_topology(const struct drm_display_mode *drm_mode,
+	struct msm_display_topology *topology,
+	u32 max_mixer_width)
+{
+	struct dsi_display_mode dsi_mode;
+
+	if (!drm_mode || !topology)
+		return -EINVAL;
+
+	convert_to_dsi_mode(drm_mode, &dsi_mode);
+
+	if (!dsi_mode.mode_info)
+		return -EINVAL;
+
+	memcpy(topology, &dsi_mode.mode_info->topology,
+			sizeof(struct msm_display_topology));
+
+	return 0;
 }
 
 static const struct drm_bridge_funcs dsi_bridge_ops = {

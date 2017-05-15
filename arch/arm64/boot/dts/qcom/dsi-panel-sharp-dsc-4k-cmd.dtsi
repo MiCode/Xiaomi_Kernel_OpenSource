@@ -77,17 +77,11 @@
 				 05 01 00 00 78 00 02 10 00];
 
 		qcom,compression-mode = "dsc";
-		qcom,config-select = <&dsi_sharp_dsc_cmd_config0>;
-
-		dsi_sharp_dsc_cmd_config0: config0 {
-			qcom,mdss-dsc-encoders = <1>;
-			qcom,mdss-dsc-slice-height = <32>;
-			qcom,mdss-dsc-slice-width = <1080>;
-			qcom,mdss-dsc-slice-per-pkt = <1>;
-
-			qcom,mdss-dsc-bit-per-component = <8>;
-			qcom,mdss-dsc-bit-per-pixel = <8>;
-			qcom,mdss-dsc-block-prediction-enable;
-		};
+		qcom,mdss-dsc-slice-height = <32>;
+		qcom,mdss-dsc-slice-width = <1080>;
+		qcom,mdss-dsc-slice-per-pkt = <1>;
+		qcom,mdss-dsc-bit-per-component = <8>;
+		qcom,mdss-dsc-bit-per-pixel = <8>;
+		qcom,mdss-dsc-block-prediction-enable;
 	};
 };

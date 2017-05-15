@@ -37,7 +37,7 @@
 	readl_relaxed((dsi_hw)->disp_cc_base + (off))
 #define DSI_DISP_CC_W32(dsi_hw, off, val) \
 	do {\
-		pr_err("[DSI_%d][%s] - [0x%08x]\n", \
+		pr_debug("[DSI_%d][%s] - [0x%08x]\n", \
 			(dsi_hw)->index, #off, val); \
 		writel_relaxed((val), (dsi_hw)->disp_cc_base + (off)); \
 	} while (0)

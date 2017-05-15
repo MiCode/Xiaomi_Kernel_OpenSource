@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -131,8 +131,9 @@ kgsl_memdesc_set_align(struct kgsl_memdesc *memdesc, unsigned int align)
 	if (align > 32)
 		align = 32;
 
-	memdesc->flags &= ~KGSL_MEMALIGN_MASK;
-	memdesc->flags |= (align << KGSL_MEMALIGN_SHIFT) & KGSL_MEMALIGN_MASK;
+	memdesc->flags &= ~(uint64_t)KGSL_MEMALIGN_MASK;
+	memdesc->flags |= (uint64_t)((align << KGSL_MEMALIGN_SHIFT) &
+					KGSL_MEMALIGN_MASK);
 	return 0;
 }
 

@@ -548,7 +548,7 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 		}
 	}
 
-	if (iommu_attach_device(domain, dev)) {
+	if (iommu_attach_group(domain, dev->iommu_group)) {
 		seq_puts(s,
 			 "Couldn't attach new domain to device. Is it already attached?\n");
 		goto out_domain_free;
@@ -669,7 +669,7 @@ next:
 	}
 
 out_detach:
-	iommu_detach_device(domain, dev);
+	iommu_detach_group(domain, dev->iommu_group);
 out_domain_free:
 	iommu_domain_free(domain);
 }
@@ -1451,6 +1451,8 @@ static const struct file_operations iommu_debug_functional_arm_dma_api_fops = {
 static int iommu_debug_attach_do_attach(struct iommu_debug_device *ddev,
 					int val, bool is_secure)
 {
+	struct iommu_group *group = ddev->dev->iommu_group;
+
 	ddev->domain = iommu_domain_alloc(&platform_bus_type);
 	if (!ddev->domain) {
 		pr_err("Couldn't allocate domain\n");
@@ -1464,8 +1466,8 @@ static int iommu_debug_attach_do_attach(struct iommu_debug_device *ddev,
 		goto out_domain_free;
 	}
 
-	if (iommu_attach_device(ddev->domain, ddev->dev)) {
-		pr_err("Couldn't attach new domain to device. Is it already attached?\n");
+	if (iommu_attach_group(ddev->domain, group)) {
+		dev_err(ddev->dev, "Couldn't attach new domain to device\n");
 		goto out_domain_free;
 	}
 
@@ -1483,6 +1485,8 @@ static ssize_t __iommu_debug_attach_write(struct file *file,
 					  bool is_secure)
 {
 	struct iommu_debug_device *ddev = file->private_data;
+	struct device *dev = ddev->dev;
+	struct iommu_domain *domain;
 	ssize_t retval;
 	int val;
 
@@ -1494,12 +1498,15 @@ static ssize_t __iommu_debug_attach_write(struct file *file,
 
 	if (val) {
 		if (ddev->domain) {
-			pr_err("Already attached.\n");
+			pr_err("Iommu-Debug is already attached?\n");
 			retval = -EINVAL;
 			goto out;
 		}
-		if (WARN(ddev->dev->archdata.iommu,
-			 "Attachment tracking out of sync with device\n")) {
+
+		domain = iommu_get_domain_for_dev(dev);
+		if (domain) {
+			pr_err("Another driver is using this device's iommu\n"
+				"Iommu-Debug cannot be used concurrently\n");
 			retval = -EINVAL;
 			goto out;
 		}
@@ -1510,11 +1517,11 @@ static ssize_t __iommu_debug_attach_write(struct file *file,
 		pr_err("Attached\n");
 	} else {
 		if (!ddev->domain) {
-			pr_err("No domain. Did you already attach?\n");
+			pr_err("Iommu-Debug is not attached?\n");
 			retval = -EINVAL;
 			goto out;
 		}
-		iommu_detach_device(ddev->domain, ddev->dev);
+		iommu_detach_group(ddev->domain, dev->iommu_group);
 		iommu_domain_free(ddev->domain);
 		ddev->domain = NULL;
 		pr_err("Detached\n");
@@ -1566,7 +1573,6 @@ static ssize_t iommu_debug_attach_write_secure(struct file *file,
 {
 	return __iommu_debug_attach_write(file, ubuf, count, offset,
 					  true);
-
 }
 
 static const struct file_operations iommu_debug_secure_attach_fops = {
@@ -1866,6 +1872,10 @@ static int snarf_iommu_devices(struct device *dev, void *ignored)
 	struct dentry *dir;
 
 	if (!of_find_property(dev->of_node, "iommus", NULL))
+		return 0;
+
+	/* Hold a reference count */
+	if (!iommu_group_get(dev))
 		return 0;
 
 	ddev = kzalloc(sizeof(*ddev), GFP_KERNEL);

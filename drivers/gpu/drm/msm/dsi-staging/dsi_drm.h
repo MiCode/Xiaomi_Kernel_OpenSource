@@ -64,6 +64,17 @@ int dsi_connector_get_modes(struct drm_connector *connector,
 		void *display);
 
 /**
+ * dsi_conn_get_topology - retrieve current topology for the mode selected
+ * @drm_mode: Display mode set for the display
+ * @topology: Out parameter. Topology for the mode.
+ * @max_mixer_width: max width supported by HW layer mixer
+ * Returns: Zero on success
+ */
+int dsi_conn_get_topology(const struct drm_display_mode *drm_mode,
+	struct msm_display_topology *topology,
+	u32 max_mixer_width);
+
+/**
  * dsi_conn_mode_valid - callback to determine if specified mode is valid
  * @connector: Pointer to drm connector structure
  * @mode: Pointer to drm mode structure

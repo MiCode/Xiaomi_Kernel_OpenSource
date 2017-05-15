@@ -45,7 +45,6 @@ struct cluster_data {
 	spinlock_t pending_lock;
 	bool is_big_cluster;
 	int nrrun;
-	bool nrrun_changed;
 	struct task_struct *core_ctl_thread;
 	unsigned int first_cpu;
 	unsigned int boost;
@@ -433,32 +432,15 @@ static struct kobj_type ktype_core_ctl = {
 
 /* ==================== runqueue based core count =================== */
 
-#define RQ_AVG_TOLERANCE 2
-#define RQ_AVG_DEFAULT_MS 20
 #define NR_RUNNING_TOLERANCE 5
-static unsigned int rq_avg_period_ms = RQ_AVG_DEFAULT_MS;
 
-static s64 rq_avg_timestamp_ms;
-
-static void update_running_avg(bool trigger_update)
+static void update_running_avg(void)
 {
-	int avg, iowait_avg, big_avg, old_nrrun;
-	s64 now;
-	unsigned long flags;
+	int avg, iowait_avg, big_avg;
 	struct cluster_data *cluster;
 	unsigned int index = 0;
 
-	spin_lock_irqsave(&state_lock, flags);
-
-	now = ktime_to_ms(ktime_get());
-	if (now - rq_avg_timestamp_ms < rq_avg_period_ms - RQ_AVG_TOLERANCE) {
-		spin_unlock_irqrestore(&state_lock, flags);
-		return;
-	}
-	rq_avg_timestamp_ms = now;
 	sched_get_nr_running_avg(&avg, &iowait_avg, &big_avg);
-
-	spin_unlock_irqrestore(&state_lock, flags);
 
 	/*
 	 * Round up to the next integer if the average nr running tasks
@@ -478,7 +460,6 @@ static void update_running_avg(bool trigger_update)
 	for_each_cluster(cluster, index) {
 		if (!cluster->inited)
 			continue;
-		old_nrrun = cluster->nrrun;
 		/*
 		 * Big cluster only need to take care of big tasks, but if
 		 * there are not enough big cores, big tasks need to be run
@@ -489,14 +470,7 @@ static void update_running_avg(bool trigger_update)
 		 * than scheduler, and can't predict scheduler's behavior.
 		 */
 		cluster->nrrun = cluster->is_big_cluster ? big_avg : avg;
-		if (cluster->nrrun != old_nrrun) {
-			if (trigger_update)
-				apply_need(cluster);
-			else
-				cluster->nrrun_changed = true;
-		}
 	}
-	return;
 }
 
 /* adjust needed CPUs based on current runqueue information */
@@ -605,24 +579,15 @@ static void apply_need(struct cluster_data *cluster)
 		wake_up_core_ctl_thread(cluster);
 }
 
-static int core_ctl_set_busy(unsigned int cpu, unsigned int busy)
+static void core_ctl_set_busy(struct cpu_data *c, unsigned int busy)
 {
-	struct cpu_data *c = &per_cpu(cpu_state, cpu);
-	struct cluster_data *cluster = c->cluster;
 	unsigned int old_is_busy = c->is_busy;
 
-	if (!cluster || !cluster->inited)
-		return 0;
+	if (c->busy == busy)
+		return;
 
-	update_running_avg(false);
-	if (c->busy == busy && !cluster->nrrun_changed)
-		return 0;
 	c->busy = busy;
-	cluster->nrrun_changed = false;
-
-	apply_need(cluster);
-	trace_core_ctl_set_busy(cpu, busy, old_is_busy, c->is_busy);
-	return 0;
+	trace_core_ctl_set_busy(c->cpu, busy, old_is_busy, c->is_busy);
 }
 
 /* ========================= core count enforcement ==================== */
@@ -639,21 +604,6 @@ static void wake_up_core_ctl_thread(struct cluster_data *cluster)
 }
 
 static u64 core_ctl_check_timestamp;
-static u64 core_ctl_check_interval;
-
-static bool do_check(u64 wallclock)
-{
-	bool do_check = false;
-	unsigned long flags;
-
-	spin_lock_irqsave(&state_lock, flags);
-	if ((wallclock - core_ctl_check_timestamp) >= core_ctl_check_interval) {
-		core_ctl_check_timestamp = wallclock;
-		do_check = true;
-	}
-	spin_unlock_irqrestore(&state_lock, flags);
-	return do_check;
-}
 
 int core_ctl_set_boost(bool boost)
 {
@@ -695,21 +645,39 @@ int core_ctl_set_boost(bool boost)
 }
 EXPORT_SYMBOL(core_ctl_set_boost);
 
-void core_ctl_check(u64 wallclock)
+void core_ctl_check(u64 window_start)
 {
+	int cpu;
+	unsigned int busy;
+	struct cpu_data *c;
+	struct cluster_data *cluster;
+	unsigned int index = 0;
+
 	if (unlikely(!initialized))
 		return;
 
-	if (do_check(wallclock)) {
-		unsigned int index = 0;
-		struct cluster_data *cluster;
+	if (window_start == core_ctl_check_timestamp)
+		return;
 
-		update_running_avg(true);
+	core_ctl_check_timestamp = window_start;
 
-		for_each_cluster(cluster, index) {
-			if (eval_need(cluster))
-				wake_up_core_ctl_thread(cluster);
-		}
+	for_each_possible_cpu(cpu) {
+
+		c = &per_cpu(cpu_state, cpu);
+		cluster = c->cluster;
+
+		if (!cluster || !cluster->inited)
+			continue;
+
+		busy = sched_get_cpu_util(cpu);
+		core_ctl_set_busy(c, busy);
+	}
+
+	update_running_avg();
+
+	for_each_cluster(cluster, index) {
+		if (eval_need(cluster))
+			wake_up_core_ctl_thread(cluster);
 	}
 }
 
@@ -1079,74 +1047,25 @@ static int cluster_init(const struct cpumask *mask)
 	return kobject_add(&cluster->kobj, &dev->kobj, "core_ctl");
 }
 
-static int cpufreq_policy_cb(struct notifier_block *nb, unsigned long val,
-				void *data)
-{
-	struct cpufreq_policy *policy = data;
-	int ret;
-
-	switch (val) {
-	case CPUFREQ_CREATE_POLICY:
-		ret = cluster_init(policy->related_cpus);
-		if (ret)
-			pr_warn("unable to create core ctl group: %d\n", ret);
-		break;
-	}
-
-	return NOTIFY_OK;
-}
-
-static struct notifier_block cpufreq_pol_nb = {
-	.notifier_call = cpufreq_policy_cb,
-};
-
-static int cpufreq_gov_cb(struct notifier_block *nb, unsigned long val,
-				void *data)
-{
-	struct cpufreq_govinfo *info = data;
-
-	switch (val) {
-	case CPUFREQ_LOAD_CHANGE:
-		core_ctl_set_busy(info->cpu, info->load);
-		break;
-	}
-
-	return NOTIFY_OK;
-}
-
-static struct notifier_block cpufreq_gov_nb = {
-	.notifier_call = cpufreq_gov_cb,
-};
-
 static int __init core_ctl_init(void)
 {
 	unsigned int cpu;
+	struct cpumask cpus = *cpu_possible_mask;
 
 	if (should_skip(cpu_possible_mask))
 		return 0;
 
-	core_ctl_check_interval = (rq_avg_period_ms - RQ_AVG_TOLERANCE)
-					* NSEC_PER_MSEC;
-
 	register_cpu_notifier(&cpu_notifier);
-	cpufreq_register_notifier(&cpufreq_pol_nb, CPUFREQ_POLICY_NOTIFIER);
-	cpufreq_register_notifier(&cpufreq_gov_nb, CPUFREQ_GOVINFO_NOTIFIER);
 
-	cpu_maps_update_begin();
-	for_each_online_cpu(cpu) {
-		struct cpufreq_policy *policy;
+	for_each_cpu(cpu, &cpus) {
 		int ret;
+		const struct cpumask *cluster_cpus = cpu_coregroup_mask(cpu);
 
-		policy = cpufreq_cpu_get(cpu);
-		if (policy) {
-			ret = cluster_init(policy->related_cpus);
-			if (ret)
-				pr_warn("unable to create core ctl group: %d\n"
-					, ret);
-			cpufreq_cpu_put(policy);
-		}
+		ret = cluster_init(cluster_cpus);
+		if (ret)
+			pr_warn("unable to create core ctl group: %d\n", ret);
+		cpumask_andnot(&cpus, &cpus, cluster_cpus);
 	}
-	cpu_maps_update_done();
 	initialized = true;
 	return 0;
 }

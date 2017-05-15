@@ -841,7 +841,15 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 			goto data_bus_hdl_err;
 		}
 
-		if (!phandle->rsc_client_init) {
+		/*
+		 * - When the target is RSCC enabled, regulator should
+		 *   be enabled by the s/w only for the first time during
+		 *   bootup. After that, RSCC hardware takes care of enabling/
+		 *   disabling it.
+		 * - When the target is not RSCC enabled, regulator should
+		 *   be totally handled by the software.
+		 */
+		if (!phandle->rsc_client) {
 			rc = msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg,
 									enable);
 			if (rc) {
@@ -883,7 +891,7 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 		sde_power_reg_bus_update(phandle->reg_bus_hdl,
 							max_usecase_ndx);
 
-		if (!phandle->rsc_client_init)
+		if (!phandle->rsc_client)
 			msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg,
 									enable);
 		sde_power_data_bus_update(&phandle->data_bus_handle, enable);
@@ -901,7 +909,7 @@ clk_err:
 rsc_err:
 	sde_power_reg_bus_update(phandle->reg_bus_hdl, prev_usecase_ndx);
 reg_bus_hdl_err:
-	if (!phandle->rsc_client_init)
+	if (!phandle->rsc_client)
 		msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, 0);
 vreg_err:
 	sde_power_data_bus_update(&phandle->data_bus_handle, 0);

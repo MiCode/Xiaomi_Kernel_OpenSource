@@ -77,6 +77,18 @@ struct sde_danger_safe_status {
 };
 
 /**
+ * struct sde_watchdog_te_status - configure watchdog timer to generate TE
+ * @pp_count: number of ping pongs active
+ * @frame_rate: Display frame rate
+ * @ppnumber: base address of ping pong info
+ */
+struct sde_watchdog_te_status {
+	u32 pp_count;
+	u32 frame_rate;
+	u32 ppnumber[];
+};
+
+/**
  * struct sde_hw_mdp_ops - interface to the MDP TOP Hw driver functions
  * Assumption is these functions will be called after clocks are enabled.
  * @setup_split_pipe : Programs the pipe control registers
@@ -142,12 +154,28 @@ struct sde_hw_mdp_ops {
 			struct sde_danger_safe_status *status);
 
 	/**
+	 * setup_vsync_sel - get vsync configuration details
+	 * @mdp: mdp top context driver
+	 * @cfg: watchdog timer configuration
+	 * @watchdog_te: watchdog timer enable
+	 */
+	void (*setup_vsync_sel)(struct sde_hw_mdp *mdp,
+			struct sde_watchdog_te_status *cfg, bool watchdog_te);
+
+	/**
 	 * get_safe_status - get safe status
 	 * @mdp: mdp top context driver
 	 * @status: Pointer to danger safe status
 	 */
 	void (*get_safe_status)(struct sde_hw_mdp *mdp,
 			struct sde_danger_safe_status *status);
+
+	/**
+	 * reset_ubwc - reset top level UBWC configuration
+	 * @mdp: mdp top context driver
+	 * @m: pointer to mdss catalog data
+	 */
+	void (*reset_ubwc)(struct sde_hw_mdp *mdp, struct sde_mdss_cfg *m);
 };
 
 struct sde_hw_mdp {

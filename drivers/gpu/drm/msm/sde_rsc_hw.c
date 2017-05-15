@@ -95,6 +95,7 @@
 #define SDE_RSCC_F1_QTMR_V1_CNTP_CTL			0x302C
 
 #define MAX_CHECK_LOOPS			500
+#define POWER_CTRL_BIT_12		12
 
 static void rsc_event_trigger(struct sde_rsc_priv *rsc, uint32_t event_type)
 {
@@ -191,27 +192,27 @@ static int rsc_hw_seq_memory_init(struct sde_rsc_priv *rsc)
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x18,
 						0xa138ebaa, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x1c,
-						0xe0a581e1, rsc->debug_mode);
+						0xaca581e1, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x20,
-						0x82e2a2ed, rsc->debug_mode);
+						0xe2a2ede0, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x24,
-						0x88ea8a39, rsc->debug_mode);
+						0xea8a3982, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x28,
-						0xa6e9a920, rsc->debug_mode);
+						0xa920888c, rsc->debug_mode);
 
 	/* tcs sleep sequence */
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x2c,
-						0xa92089e6, rsc->debug_mode);
+						0x89e6a6e9, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x30,
-						0x89e7a7e9, rsc->debug_mode);
+						0xa7e9a920, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x34,
-						0x00000020, rsc->debug_mode);
+						0x002079e7, rsc->debug_mode);
 
 	/* branch address */
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_CFG_BR_ADDR_0_DRV0,
-						0x29, rsc->debug_mode);
+						0x2b, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_CFG_BR_ADDR_1_DRV0,
-						0x2f, rsc->debug_mode);
+						0x31, rsc->debug_mode);
 
 	return 0;
 }
@@ -266,7 +267,7 @@ static int rsc_hw_solver_init(struct sde_rsc_priv *rsc)
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM0_DRV0_MODE0,
 					mode_0_start_addr, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM1_DRV0_MODE0,
-					0x80000010, rsc->debug_mode);
+					0x80000000, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM2_DRV0_MODE0,
 			rsc->timer_config.rsc_backoff_time_ns, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM3_DRV0_MODE0,
@@ -275,7 +276,7 @@ static int rsc_hw_solver_init(struct sde_rsc_priv *rsc)
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM0_DRV0_MODE1,
 					mode_1_start_addr, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM1_DRV0_MODE1,
-					0x80000010, rsc->debug_mode);
+					0x80000000, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM2_DRV0_MODE1,
 			rsc->timer_config.rsc_backoff_time_ns, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM3_DRV0_MODE1,
@@ -284,9 +285,9 @@ static int rsc_hw_solver_init(struct sde_rsc_priv *rsc)
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM0_DRV0_MODE2,
 					mode_2_start_addr, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM1_DRV0_MODE2,
-					0x80000010, rsc->debug_mode);
+					0x80000000, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM2_DRV0_MODE2,
-			rsc->timer_config.rsc_backoff_time_ns, rsc->debug_mode);
+					0x0, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_MODE_PARM3_DRV0_MODE2,
 			rsc->timer_config.pdc_backoff_time_ns, rsc->debug_mode);
 
@@ -297,6 +298,7 @@ int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
 {
 	int rc;
 	int count, wrapper_status;
+	unsigned long reg;
 
 	if (rsc->power_collapse_block)
 		return -EINVAL;
@@ -355,6 +357,18 @@ int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
 	if (rc) {
 		pr_err("vdd fs is still enabled\n");
 		goto end;
+	} else {
+		rc = -EINVAL;
+		/* this wait is required to turn off the rscc clocks */
+		for (count = MAX_CHECK_LOOPS; count > 0; count--) {
+			reg = dss_reg_r(&rsc->wrapper_io,
+				SDE_RSCC_PWR_CTRL, rsc->debug_mode);
+			if (test_bit(POWER_CTRL_BIT_12, &reg)) {
+				rc = 0;
+				break;
+			}
+			usleep_range(1, 2);
+		}
 	}
 
 	if ((rsc->current_state == SDE_RSC_VID_STATE) ||
@@ -458,9 +472,6 @@ static int sde_rsc_state_update(struct sde_rsc_priv *rsc,
 						0x1, rsc->debug_mode);
 		dss_reg_w(&rsc->drv_io, SDE_RSCC_SOLVER_OVERRIDE_CTRL_DRV0,
 							0x0, rsc->debug_mode);
-		dss_reg_w(&rsc->drv_io,
-			SDE_RSC_SOLVER_SOLVER_MODES_ENABLED_DRV0, 0x7,
-			rsc->debug_mode);
 		reg = dss_reg_r(&rsc->wrapper_io,
 			SDE_RSCC_WRAPPER_OVERRIDE_CTRL, rsc->debug_mode);
 		reg |= (BIT(0) | BIT(8));
@@ -484,9 +495,6 @@ static int sde_rsc_state_update(struct sde_rsc_priv *rsc,
 		reg &= ~(BIT(1) | BIT(0));
 		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
 							reg, rsc->debug_mode);
-		dss_reg_w(&rsc->drv_io,
-			SDE_RSC_SOLVER_SOLVER_MODES_ENABLED_DRV0, 0x5,
-			rsc->debug_mode);
 		/* make sure that solver mode is override */
 		wmb();
 
@@ -501,9 +509,6 @@ static int sde_rsc_state_update(struct sde_rsc_priv *rsc,
 		reg &= ~(BIT(8) | BIT(0));
 		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
 							reg, rsc->debug_mode);
-		dss_reg_w(&rsc->drv_io,
-			SDE_RSC_SOLVER_SOLVER_MODES_ENABLED_DRV0, 0x5,
-			rsc->debug_mode);
 		/* make sure that solver mode is disabled */
 		wmb();
 		break;
@@ -567,7 +572,7 @@ end:
 }
 
 int rsc_hw_mode_ctrl(struct sde_rsc_priv *rsc, enum rsc_mode_req request,
-		char *buffer, int buffer_size, bool mode)
+		char *buffer, int buffer_size, u32 mode)
 {
 	u32 blen = 0;
 	u32 slot_time;
@@ -583,28 +588,19 @@ int rsc_hw_mode_ctrl(struct sde_rsc_priv *rsc, enum rsc_mode_req request,
 			rsc->debug_mode));
 		break;
 
-	case MODE0_UPDATE:
-		slot_time = mode ? rsc->timer_config.rsc_time_slot_0_ns :
+	case MODE_UPDATE:
+		slot_time = mode & BIT(0) ? 0x0 :
+					rsc->timer_config.rsc_time_slot_2_ns;
+		dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_TIME_SLOT_TABLE_0_DRV0,
+						slot_time, rsc->debug_mode);
+
+		slot_time = mode & BIT(1) ?
+			rsc->timer_config.rsc_time_slot_0_ns :
 				rsc->timer_config.rsc_time_slot_2_ns;
 		dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_TIME_SLOT_TABLE_1_DRV0,
 						slot_time, rsc->debug_mode);
-		slot_time = mode ? rsc->timer_config.rsc_time_slot_1_ns :
-				rsc->timer_config.rsc_time_slot_2_ns;
-		dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_TIME_SLOT_TABLE_2_DRV0,
-						slot_time, rsc->debug_mode);
-		rsc->power_collapse_block = mode;
-		break;
 
-	case MODE1_UPDATE:
-		slot_time = mode ? rsc->timer_config.rsc_time_slot_1_ns :
-				rsc->timer_config.rsc_time_slot_2_ns;
-		dss_reg_w(&rsc->drv_io, SDE_RSC_SOLVER_TIME_SLOT_TABLE_2_DRV0,
-						slot_time, rsc->debug_mode);
-		rsc->power_collapse_block = mode;
-		break;
-
-	case MODE2_UPDATE:
-		rsc->power_collapse_block = mode;
+		rsc->power_collapse_block = !(mode & BIT(2));
 		break;
 
 	default:
@@ -668,7 +664,7 @@ int rsc_hw_vsync(struct sde_rsc_priv *rsc, enum rsc_vsync_req request,
 			return blen;
 
 		blen = snprintf(buffer, buffer_size - blen, "vsync0:0x%x\n",
-			 dss_reg_r(&rsc->drv_io,
+			 dss_reg_r(&rsc->wrapper_io,
 				SDE_RSCC_WRAPPER_VSYNC_TIMESTAMP0,
 				rsc->debug_mode));
 		if (blen >= buffer_size)
@@ -676,15 +672,15 @@ int rsc_hw_vsync(struct sde_rsc_priv *rsc, enum rsc_vsync_req request,
 
 		blen += snprintf(buffer + blen, buffer_size - blen,
 			"vsync1:0x%x\n",
-			 dss_reg_r(&rsc->drv_io,
+			 dss_reg_r(&rsc->wrapper_io,
 				SDE_RSCC_WRAPPER_VSYNC_TIMESTAMP1,
 				rsc->debug_mode));
 		break;
 
 	case VSYNC_ENABLE:
-		reg = BIT(8) | BIT(9) | ((mode & 0x7) < 10);
+		reg = BIT(8) | ((mode & 0x7) < 10);
 		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_DEBUG_BUS,
-					mode, rsc->debug_mode);
+					reg, rsc->debug_mode);
 		break;
 
 	case VSYNC_DISABLE:

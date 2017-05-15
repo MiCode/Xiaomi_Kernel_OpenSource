@@ -125,7 +125,7 @@ enum sde_rotator_ts {
 enum sde_rotator_clk_type {
 	SDE_ROTATOR_CLK_MDSS_AHB,
 	SDE_ROTATOR_CLK_MDSS_AXI,
-	SDE_ROTATOR_CLK_ROT_CORE,
+	SDE_ROTATOR_CLK_MDSS_ROT_SUB,
 	SDE_ROTATOR_CLK_MDSS_ROT,
 	SDE_ROTATOR_CLK_MNOC_AHB,
 	SDE_ROTATOR_CLK_GCC_AHB,
@@ -373,6 +373,7 @@ struct sde_rot_bus_data_type {
  * @reg_bus: register bus configuration state
  * @module_power: power/clock configuration state
  * @regulator_enable: true if foot switch is enabled; false otherwise
+ * @rsc_client: pointer to rsc client handle
  * @res_ref_cnt: reference count of how many times resource is requested
  * @rot_enable_clk_cnt: reference count of how many times clock is requested
  * @rot_clk: array of rotator and periphery clocks
@@ -416,6 +417,8 @@ struct sde_rot_mgr {
 	/* Module power is only used for regulator management */
 	struct sde_module_power module_power;
 	bool regulator_enable;
+
+	struct sde_rsc_client *rsc_client;
 
 	int res_ref_cnt;
 	int rot_enable_clk_cnt;

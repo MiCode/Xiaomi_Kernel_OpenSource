@@ -23,7 +23,6 @@
 #define MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS MIN_NUM_CAPTURE_BUFFERS
 #define DEFAULT_VIDEO_CONCEAL_COLOR_BLACK 0x8010
 #define MB_SIZE_IN_PIXEL (16 * 16)
-#define MAX_OPERATING_FRAME_RATE (300 << 16)
 #define OPERATING_FRAME_RATE_STEP (1 << 16)
 
 static const char *const mpeg_video_stream_format[] = {
@@ -220,13 +219,9 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.name = "VP8 Profile Level",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED,
-		.maximum = V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_1,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3,
 		.default_value = V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0,
-		.menu_skip_mask = ~(
-			(1 << V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED) |
-			(1 << V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0) |
-			(1 << V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_1)
-		),
+		.menu_skip_mask = 0,
 		.qmenu = vp8_profile_level,
 		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
 	},
@@ -360,24 +355,13 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.name = "Set Decoder Operating rate",
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = 0,
-		.maximum = MAX_OPERATING_FRAME_RATE,
+		.maximum = INT_MAX,
 		.default_value = 0,
 		.step = OPERATING_FRAME_RATE_STEP,
 	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_vdec_ctrls)
-
-static u32 get_frame_size_nv12(int plane,
-					u32 height, u32 width)
-{
-	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12, width, height);
-}
-
-static u32 get_frame_size_nv12_ubwc(int plane, u32 height, u32 width)
-{
-	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12_UBWC, width, height);
-}
 
 static u32 get_frame_size_compressed_full_yuv(int plane,
 					u32 max_mbs_per_frame, u32 size_per_mb)
@@ -389,11 +373,6 @@ static u32 get_frame_size_compressed(int plane,
 					u32 max_mbs_per_frame, u32 size_per_mb)
 {
 	return (max_mbs_per_frame * size_per_mb * 3/2)/2;
-}
-
-static u32 get_frame_size_nv12_ubwc_10bit(int plane, u32 height, u32 width)
-{
-	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12_BPP10_UBWC, width, height);
 }
 
 static u32 get_frame_size(struct msm_vidc_inst *inst,
@@ -446,7 +425,7 @@ struct msm_vidc_format vdec_formats[] = {
 		.name = "UBWC YCbCr Semiplanar 4:2:0 10bit",
 		.description = "UBWC Y/CbCr 4:2:0 10bit",
 		.fourcc = V4L2_PIX_FMT_NV12_TP10_UBWC,
-		.get_frame_size = get_frame_size_nv12_ubwc_10bit,
+		.get_frame_size = get_frame_size_tp10_ubwc,
 		.type = CAPTURE_PORT,
 	},
 	{
@@ -681,7 +660,7 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	inst->bufq[OUTPUT_PORT].num_planes = 1;
 	inst->bufq[CAPTURE_PORT].num_planes = 1;
 	inst->prop.fps = DEFAULT_FPS;
-	inst->operating_rate = 0;
+	inst->clk_data.operating_rate = 0;
 	memcpy(&inst->fmts[OUTPUT_PORT], &vdec_formats[2],
 			sizeof(struct msm_vidc_format));
 	memcpy(&inst->fmts[CAPTURE_PORT], &vdec_formats[0],
@@ -968,8 +947,12 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE:
 		dprintk(VIDC_DBG,
 			"inst(%pK) operating rate changed from %d to %d\n",
-			inst, inst->operating_rate >> 16, ctrl->val >> 16);
-		inst->operating_rate = ctrl->val;
+			inst, inst->clk_data.operating_rate >> 16,
+				ctrl->val >> 16);
+		inst->clk_data.operating_rate = ctrl->val;
+
+		msm_vidc_update_operating_rate(inst);
+
 		break;
 	default:
 		break;
@@ -980,8 +963,8 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 
 	if (!rc && property_id) {
 		dprintk(VIDC_DBG,
-			"Control: HAL property=%#x,ctrl: id=%#x,value=%#x\n",
-			property_id, ctrl->id, ctrl->val);
+			"Control: Name = %s, ID = 0x%x Value = %d\n",
+				ctrl->name, ctrl->id, ctrl->val);
 		rc = call_hfi_op(hdev, session_set_property, (void *)
 				inst->session, property_id, pdata);
 	}

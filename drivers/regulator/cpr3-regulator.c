@@ -177,6 +177,7 @@
 #define CPR4_CPR_TIMER_CLAMP_THREAD_AGGREGATION_EN	BIT(27)
 
 #define CPR4_REG_MISC				0x700
+#define CPR4_MISC_RESET_STEP_QUOT_LOOP_EN	BIT(2)
 #define CPR4_MISC_MARGIN_TABLE_ROW_SELECT_MASK	GENMASK(23, 20)
 #define CPR4_MISC_MARGIN_TABLE_ROW_SELECT_SHIFT	20
 #define CPR4_MISC_TEMP_SENSOR_ID_START_MASK	GENMASK(27, 24)
@@ -289,6 +290,10 @@
 #define CPRH_MISC_REG2_ACD_ADJ_STEP_SIZE_UP_SHIFT	22
 #define CPRH_MISC_REG2_ACD_ADJ_STEP_SIZE_DOWN_MASK	GENMASK(21, 20)
 #define CPRH_MISC_REG2_ACD_ADJ_STEP_SIZE_DOWN_SHIFT	20
+#define CPRH_MISC_REG2_ACD_NOTWAIT_4_CL_SETTLE_MASK	BIT(16)
+#define CPRH_MISC_REG2_ACD_NOTWAIT_4_CL_SETTLE_EN	BIT(16)
+#define CPRH_MISC_REG2_ACD_AVG_FAST_UPDATE_EN_MASK	BIT(13)
+#define CPRH_MISC_REG2_ACD_AVG_FAST_UPDATE_EN	BIT(13)
 #define CPRH_MISC_REG2_ACD_AVG_EN_MASK	BIT(12)
 #define CPRH_MISC_REG2_ACD_AVG_ENABLE	BIT(12)
 
@@ -722,6 +727,11 @@ static int cpr3_regulator_init_cpr4(struct cpr3_controller *ctrl)
 	u32 pmic_step_size = 1;
 	int thread_id = 0;
 	u64 temp;
+
+	if (ctrl->reset_step_quot_loop_en)
+		cpr3_masked_write(ctrl, CPR4_REG_MISC,
+				CPR4_MISC_RESET_STEP_QUOT_LOOP_EN,
+				CPR4_MISC_RESET_STEP_QUOT_LOOP_EN);
 
 	if (ctrl->supports_hw_closed_loop) {
 		if (ctrl->saw_use_unit_mV)
@@ -1355,6 +1365,11 @@ static int cpr3_regulator_init_cprh(struct cpr3_controller *ctrl)
 		}
 	}
 
+	if (ctrl->reset_step_quot_loop_en)
+		cpr3_masked_write(ctrl, CPR4_REG_MISC,
+				CPR4_MISC_RESET_STEP_QUOT_LOOP_EN,
+				CPR4_MISC_RESET_STEP_QUOT_LOOP_EN);
+
 	if (ctrl->saw_use_unit_mV)
 		pmic_step_size = ctrl->step_volt / 1000;
 	cpr3_masked_write(ctrl, CPR4_REG_MARGIN_ADJ_CTL,
@@ -1437,6 +1452,16 @@ static int cpr3_regulator_init_cprh(struct cpr3_controller *ctrl)
 				  CPRH_MISC_REG2_ACD_ADJ_STEP_SIZE_DOWN_MASK,
 				  ctrl->acd_adj_down_step_size <<
 				  CPRH_MISC_REG2_ACD_ADJ_STEP_SIZE_DOWN_SHIFT);
+		cpr3_masked_write(ctrl, CPRH_REG_MISC_REG2,
+				  CPRH_MISC_REG2_ACD_NOTWAIT_4_CL_SETTLE_MASK,
+				  (ctrl->acd_notwait_for_cl_settled
+				   ? CPRH_MISC_REG2_ACD_NOTWAIT_4_CL_SETTLE_EN
+				   : 0));
+		cpr3_masked_write(ctrl, CPRH_REG_MISC_REG2,
+				  CPRH_MISC_REG2_ACD_AVG_FAST_UPDATE_EN_MASK,
+				  (ctrl->acd_adj_avg_fast_update
+				   ? CPRH_MISC_REG2_ACD_AVG_FAST_UPDATE_EN
+				   : 0));
 		cpr3_masked_write(ctrl, CPRH_REG_MISC_REG2,
 				  CPRH_MISC_REG2_ACD_AVG_EN_MASK,
 				  CPRH_MISC_REG2_ACD_AVG_ENABLE);

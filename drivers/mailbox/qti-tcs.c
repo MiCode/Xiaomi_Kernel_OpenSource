@@ -134,6 +134,9 @@ struct tcs_drv {
 	struct workqueue_struct *wq;
 	struct tcs_response_pool *resp_pool;
 	atomic_t tcs_in_use[MAX_POOL_SIZE];
+	/* Debug info */
+	u64 tcs_last_sent_ts[MAX_POOL_SIZE];
+	u64 tcs_last_recv_ts[MAX_POOL_SIZE];
 	atomic_t tcs_send_count[MAX_POOL_SIZE];
 	atomic_t tcs_irq_count[MAX_POOL_SIZE];
 };
@@ -170,8 +173,9 @@ static struct tcs_response *setup_response(struct tcs_drv *drv,
 	struct tcs_response_pool *pool = drv->resp_pool;
 	struct tcs_response *resp = ERR_PTR(-ENOMEM);
 	int pos;
+	unsigned long flags;
 
-	spin_lock(&pool->lock);
+	spin_lock_irqsave(&pool->lock, flags);
 	pos = find_first_zero_bit(pool->avail, MAX_POOL_SIZE);
 	if (pos != MAX_POOL_SIZE) {
 		bitmap_set(pool->avail, pos, 1);
@@ -182,7 +186,7 @@ static struct tcs_response *setup_response(struct tcs_drv *drv,
 		resp->err = err;
 		resp->in_use = false;
 	}
-	spin_unlock(&pool->lock);
+	spin_unlock_irqrestore(&pool->lock, flags);
 
 	return resp;
 }
@@ -190,32 +194,60 @@ static struct tcs_response *setup_response(struct tcs_drv *drv,
 static void free_response(struct tcs_response *resp)
 {
 	struct tcs_response_pool *pool = resp->drv->resp_pool;
+	unsigned long flags;
 
-	spin_lock(&pool->lock);
+	spin_lock_irqsave(&pool->lock, flags);
 	resp->err = -EINVAL;
 	bitmap_clear(pool->avail, resp->idx, 1);
-	spin_unlock(&pool->lock);
+	spin_unlock_irqrestore(&pool->lock, flags);
 }
 
-static inline struct tcs_response *get_response(struct tcs_drv *drv, u32 m)
+static inline struct tcs_response *get_response(struct tcs_drv *drv, u32 m,
+					bool for_use)
 {
 	struct tcs_response_pool *pool = drv->resp_pool;
 	struct tcs_response *resp = NULL;
 	int pos = 0;
+	unsigned long flags;
 
+	spin_lock_irqsave(&pool->lock, flags);
 	do {
 		pos = find_next_bit(pool->avail, MAX_POOL_SIZE, pos);
 		if (pos == MAX_POOL_SIZE)
 			break;
+
 		resp = &pool->resp[pos];
 		if (resp->m == m && !resp->in_use) {
-			resp->in_use = true;
+			resp->in_use = for_use;
 			break;
 		}
 		pos++;
+		udelay(1);
 	} while (1);
+	spin_unlock_irqrestore(&pool->lock, flags);
 
 	return resp;
+}
+
+static void print_response(struct tcs_drv *drv, int m)
+{
+	struct tcs_response *resp;
+	struct tcs_mbox_msg *msg;
+	int i;
+
+	resp = get_response(drv, m, false);
+	if (!resp)
+		return;
+
+	msg = resp->msg;
+	pr_info("Response object idx=%d:\n\tfor-tcs=%d\tin-use=%d\n",
+			resp->idx, resp->m, resp->in_use);
+	pr_info("Msg: state=%d\n", msg->state);
+	for (i = 0; i < msg->num_payload; i++)
+		pr_info("addr=0x%x data=0x%x complete=0x%x\n",
+				msg->payload[i].addr,
+				msg->payload[i].data,
+				msg->payload[i].complete);
 }
 
 static inline u32 read_drv_config(void __iomem *base)
@@ -257,17 +289,19 @@ static inline bool tcs_is_free(struct tcs_drv *drv, int m)
 
 static inline struct tcs_mbox *get_tcs_from_index(struct tcs_drv *drv, int m)
 {
-	struct tcs_mbox *tcs;
+	struct tcs_mbox *tcs = NULL;
 	int i;
 
-	for (i = 0; i < TCS_TYPE_NR; i++) {
+	for (i = 0; i < drv->num_tcs; i++) {
 		tcs = &drv->tcs[i];
-		if (tcs->tcs_mask & BIT(m))
+		if (tcs->tcs_mask & (u32)BIT(m))
 			break;
 	}
 
-	if (i == TCS_TYPE_NR)
+	if (i == drv->num_tcs) {
+		WARN(1, "Incorrect TCS index %d", m);
 		tcs = NULL;
+	}
 
 	return tcs;
 }
@@ -333,6 +367,20 @@ static inline void send_tcs_response(struct tcs_response *resp)
 	tasklet_schedule(&resp->tasklet);
 }
 
+static inline void enable_tcs_irq(struct tcs_drv *drv, int m, bool enable)
+{
+	void __iomem *base = drv->reg_base;
+	u32 data;
+
+	/* Enable interrupts for non-ACTIVE TCS */
+	data = read_tcs_reg(base, TCS_DRV_IRQ_ENABLE, 0, 0);
+	if (enable)
+		data |= BIT(m);
+	else
+		data &= ~BIT(m);
+	write_tcs_reg(base, TCS_DRV_IRQ_ENABLE, 0, 0, data);
+}
+
 /**
  * tcs_irq_handler: TX Done / Recv data handler
  */
@@ -350,22 +398,15 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 	/* Know which TCSes were triggered */
 	irq_status = read_tcs_reg(base, TCS_DRV_IRQ_STATUS, 0, 0);
 
-	for (m = 0; irq_status >= BIT(m); m++) {
-		if (!(irq_status & BIT(m)))
+	for (m = 0; m < drv->num_tcs; m++) {
+		if (!(irq_status & (u32)BIT(m)))
 			continue;
-
 		atomic_inc(&drv->tcs_irq_count[m]);
 
-		resp = get_response(drv, m);
+		resp = get_response(drv, m, true);
 		if (!resp) {
 			pr_err("No resp request for TCS-%d\n", m);
-			continue;
-		}
-
-		tcs = get_tcs_from_index(drv, m);
-		if (!tcs) {
-			pr_err("TCS-%d doesn't exist in DRV\n", m);
-			continue;
+			goto no_resp;
 		}
 
 		/* Check if all commands were completed */
@@ -391,20 +432,32 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 						resp->err);
 
 		/* Clear the AMC mode for non-ACTIVE TCSes */
-		if (tcs->type != ACTIVE_TCS) {
+		tcs = get_tcs_from_index(drv, m);
+		if (tcs && tcs->type != ACTIVE_TCS) {
 			data = read_tcs_reg(base, TCS_DRV_CONTROL, m, 0);
 			data &= ~TCS_AMC_MODE_ENABLE;
 			write_tcs_reg(base, TCS_DRV_CONTROL, m, 0, data);
+			/*
+			 * Disable interrupt for this TCS to avoid being
+			 * spammed with interrupts coming when the solver
+			 * sends its wake votes.
+			 */
+			enable_tcs_irq(drv, m, false);
 		} else {
 			/* Clear the enable bit for the commands */
 			write_tcs_reg(base, TCS_DRV_CMD_ENABLE, m, 0, 0);
 		}
 
+no_resp:
+		/* Record the recvd time stamp */
+		drv->tcs_last_recv_ts[m] = arch_counter_get_cntvct();
+
 		/* Clear the TCS IRQ status */
 		write_tcs_reg(base, TCS_DRV_IRQ_CLEAR, 0, 0, BIT(m));
 
 		/* Clean up response object and notify mbox in tasklet */
-		send_tcs_response(resp);
+		if (resp)
+			send_tcs_response(resp);
 
 		/* Notify the client that this request is completed. */
 		atomic_set(&drv->tcs_in_use[m], 0);
@@ -523,9 +576,11 @@ static int check_for_req_inflight(struct tcs_drv *drv, struct tcs_mbox *tcs,
 			continue;
 
 		curr_enabled = read_tcs_reg(base, TCS_DRV_CMD_ENABLE, m, 0);
-		for (j = 0; j < curr_enabled; j++) {
-			if (!(curr_enabled & BIT(j)))
+
+		for (j = 0; j < MAX_CMDS_PER_TCS; j++) {
+			if (!(curr_enabled & (u32)BIT(j)))
 				continue;
+
 			addr = read_tcs_reg(base, TCS_DRV_CMD_ADDR, m, j);
 			for (k = 0; k < msg->num_payload; k++) {
 				if (addr == msg->payload[k].addr)
@@ -607,7 +662,6 @@ static int find_slots(struct tcs_mbox *tcs, struct tcs_mbox_msg *msg)
 static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 				bool trigger)
 {
-	const struct device *dev = chan->cl->dev;
 	struct tcs_drv *drv = container_of(chan->mbox, struct tcs_drv, mbox);
 	int d = drv->drv_id;
 	struct tcs_mbox *tcs;
@@ -626,7 +680,6 @@ static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 	spin_lock_irqsave(&tcs->tcs_lock, flags);
 	slot = find_slots(tcs, msg);
 	if (slot < 0) {
-		dev_err(dev, "No TCS slot found.\n");
 		spin_unlock_irqrestore(&tcs->tcs_lock, flags);
 		if (resp)
 			free_response(resp);
@@ -659,6 +712,10 @@ static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 		/* Mark the TCS as busy */
 		atomic_set(&drv->tcs_in_use[m], 1);
 		atomic_inc(&drv->tcs_send_count[m]);
+		/* Enable interrupt for active votes through wake TCS */
+		if (tcs->type != ACTIVE_TCS)
+			enable_tcs_irq(drv, m, true);
+		drv->tcs_last_sent_ts[m] = arch_counter_get_cntvct();
 	}
 
 	/* Write to the TCS or AMC */
@@ -701,6 +758,24 @@ static int tcs_mbox_invalidate(struct mbox_chan *chan)
 	return 0;
 }
 
+static void dump_tcs_stats(struct tcs_drv *drv)
+{
+	int i;
+	unsigned long long curr = arch_counter_get_cntvct();
+
+	for (i = 0; i < drv->num_tcs; i++) {
+		if (!atomic_read(&drv->tcs_in_use[i]))
+			continue;
+		pr_info("Time: %llu: TCS-%d:\n\tReq Sent:%d Last Sent:%llu\n\tResp Recv:%d Last Recvd:%llu\n",
+				curr, i,
+				atomic_read(&drv->tcs_send_count[i]),
+				drv->tcs_last_sent_ts[i],
+				atomic_read(&drv->tcs_irq_count[i]),
+				drv->tcs_last_recv_ts[i]);
+		print_response(drv, i);
+	}
+}
+
 /**
  * chan_tcs_write: Validate the incoming message and write to the
  * appropriate TCS block.
@@ -714,35 +789,41 @@ static int tcs_mbox_invalidate(struct mbox_chan *chan)
  */
 static int chan_tcs_write(struct mbox_chan *chan, void *data)
 {
+	struct tcs_drv *drv = container_of(chan->mbox, struct tcs_drv, mbox);
 	struct tcs_mbox_msg *msg = data;
 	const struct device *dev = chan->cl->dev;
-	int ret = -EINVAL;
+	int ret = 0;
 	int count = 0;
 
 	if (!msg) {
-		dev_err(dev, "Payload error.\n");
+		dev_err(dev, "Payload error\n");
+		ret = -EINVAL;
 		goto tx_fail;
 	}
 
 	if (!msg->payload || msg->num_payload > MAX_RPMH_PAYLOAD) {
-		dev_err(dev, "Payload error.\n");
+		dev_err(dev, "Payload error\n");
+		ret = -EINVAL;
 		goto tx_fail;
 	}
 
 	if (msg->invalidate || msg->is_control) {
-		dev_err(dev, "Incorrect API.\n");
+		dev_err(dev, "Incorrect API\n");
+		ret = -EINVAL;
 		goto tx_fail;
 	}
 
 	if (msg->state != RPMH_ACTIVE_ONLY_STATE &&
 			msg->state != RPMH_AWAKE_STATE) {
-		dev_err(dev, "Incorrect API.\n");
+		dev_err(dev, "Incorrect API\n");
+		ret = -EINVAL;
 		goto tx_fail;
 	}
 
 	/* Read requests should always be single */
 	if (msg->is_read && msg->num_payload > 1) {
-		dev_err(dev, "Incorrect read request.\n");
+		dev_err(dev, "Incorrect read request\n");
+		ret = -EINVAL;
 		goto tx_fail;
 	}
 
@@ -756,25 +837,29 @@ static int chan_tcs_write(struct mbox_chan *chan, void *data)
 	/* Post the message to the TCS and trigger */
 	do {
 		ret = tcs_mbox_write(chan, msg, true);
-		if (ret == -EBUSY) {
-			ret = -EIO;
-			udelay(10);
-		} else
+		if (ret != -EBUSY)
 			break;
+		udelay(100);
 	} while (++count < 10);
 
 tx_fail:
-	if (ret) {
-		struct tcs_drv *drv = container_of(chan->mbox,
-					struct tcs_drv, mbox);
+	/* If there was an error in the request, schedule a response */
+	if (ret < 0 && ret != -EBUSY) {
 		struct tcs_response *resp = setup_response(
 				drv, msg, chan, TCS_M_INIT, ret);
 
 		dev_err(dev, "Error sending RPMH message %d\n", ret);
 		send_tcs_response(resp);
+		ret = 0;
 	}
 
-	return 0;
+	/* If we were just busy waiting for TCS, dump the state and return */
+	if (ret == -EBUSY) {
+		dev_err(dev, "TCS Busy, retrying RPMH message send\n");
+		dump_tcs_stats(drv);
+	}
+
+	return ret;
 }
 
 static void __tcs_write_hidden(struct tcs_drv *drv, int d,
@@ -803,7 +888,7 @@ static int tcs_control_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg)
 		return PTR_ERR(tcs);
 
 	if (msg->num_payload != tcs->ncpt) {
-		dev_err(dev, "Request must fit the control TCS size.\n");
+		dev_err(dev, "Request must fit the control TCS size\n");
 		return -EINVAL;
 	}
 
@@ -827,12 +912,12 @@ static int chan_tcs_ctrl_write(struct mbox_chan *chan, void *data)
 	int ret = -EINVAL;
 
 	if (!msg) {
-		dev_err(dev, "Payload error.\n");
+		dev_err(dev, "Payload error\n");
 		goto tx_done;
 	}
 
 	if (msg->num_payload > MAX_RPMH_PAYLOAD) {
-		dev_err(dev, "Payload error.\n");
+		dev_err(dev, "Payload error\n");
 		goto tx_done;
 	}
 
@@ -902,7 +987,6 @@ static int tcs_drv_probe(struct platform_device *pdev)
 	u32 config, max_tcs, ncpt;
 	int tcs_type_count[TCS_TYPE_NR] = { 0 };
 	struct resource *res;
-	u32 irq_mask;
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
@@ -1043,14 +1127,9 @@ static int tcs_drv_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	/*
-	 * Enable interrupts for AMC TCS,
-	 * if there are no AMC TCS, use wake TCS.
-	 */
-	irq_mask = (drv->tcs[ACTIVE_TCS].num_tcs) ?
-				drv->tcs[ACTIVE_TCS].tcs_mask :
-				drv->tcs[WAKE_TCS].tcs_mask;
-	write_tcs_reg(drv->reg_base, TCS_DRV_IRQ_ENABLE, 0, 0, irq_mask);
+	/* Enable interrupts for AMC TCS */
+	write_tcs_reg(drv->reg_base, TCS_DRV_IRQ_ENABLE, 0, 0,
+					drv->tcs[ACTIVE_TCS].tcs_mask);
 
 	for (i = 0; i < ARRAY_SIZE(drv->tcs_in_use); i++)
 		atomic_set(&drv->tcs_in_use[i], 0);

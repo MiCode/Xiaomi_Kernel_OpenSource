@@ -321,15 +321,15 @@ int msm_comm_v4l2_to_hal(int id, int value)
 	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
 		switch (value) {
 		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0:
-			return HAL_VPX_PROFILE_VERSION_0;
+			return HAL_VPX_LEVEL_VERSION_0;
 		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_1:
-			return HAL_VPX_PROFILE_VERSION_1;
+			return HAL_VPX_LEVEL_VERSION_1;
 		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_2:
-			return HAL_VPX_PROFILE_VERSION_2;
+			return HAL_VPX_LEVEL_VERSION_2;
 		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3:
-			return HAL_VPX_PROFILE_VERSION_3;
+			return HAL_VPX_LEVEL_VERSION_3;
 		case V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED:
-			return HAL_VPX_PROFILE_UNUSED;
+			return HAL_VPX_LEVEL_UNUSED;
 		default:
 			goto unknown_value;
 		}
@@ -584,9 +584,9 @@ static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
 	capture_port_mbs = NUM_MBS_PER_FRAME(inst->prop.width[CAPTURE_PORT],
 		inst->prop.height[CAPTURE_PORT]);
 
-	if (inst->operating_rate) {
-		fps = (inst->operating_rate >> 16) ?
-			inst->operating_rate >> 16 : 1;
+	if (inst->clk_data.operating_rate) {
+		fps = (inst->clk_data.operating_rate >> 16) ?
+			inst->clk_data.operating_rate >> 16 : 1;
 		/*
 		 * Check if operating rate is less than fps.
 		 * If Yes, then use fps to scale clocks
@@ -2510,7 +2510,7 @@ static bool is_thermal_permissible(struct msm_vidc_core *core)
 	}
 
 	tl = msm_comm_vidc_thermal_level(vidc_driver->thermal_level);
-	freq = core->freq;
+	freq = core->curr_freq;
 
 	is_turbo = is_core_turbo(core, freq);
 	dprintk(VIDC_DBG,
@@ -4094,9 +4094,8 @@ int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 	dprintk(VIDC_DBG, "%15s %8s %8s %8s %8s\n",
 		"buffer type", "count", "mincount_host", "mincount_fw", "size");
 	for (i = 0; i < HAL_BUFFER_MAX; i++) {
-		struct hal_buffer_requirements req = hprop.buf_req.buffer[i];
+		struct hal_buffer_requirements req = inst->buff_req.buffer[i];
 
-		inst->buff_req.buffer[i] = req;
 		if (req.buffer_type != HAL_BUFFER_NONE) {
 			dprintk(VIDC_DBG, "%15s %8d %8d %8d %8d\n",
 				get_buffer_name(req.buffer_type),
@@ -4738,9 +4737,9 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 		return 0;
 	}
 
-	// Finish FLUSH As Soon As Possible.
-	inst->dcvs.buffer_counter = 0;
-	msm_comm_scale_clocks_and_bus(inst);
+	/* Finish FLUSH As Soon As Possible. */
+
+	msm_clock_data_reset(inst);
 
 	msm_comm_flush_dynamic_buffers(inst);
 
@@ -5474,7 +5473,7 @@ static void msm_comm_print_debug_info(struct msm_vidc_inst *inst)
 	}
 	core = inst->core;
 
-	dprintk(VIDC_ERR, "Venus core frequency = %lu", core->freq);
+	dprintk(VIDC_ERR, "Venus core frequency = %lu", core->curr_freq);
 	mutex_lock(&core->lock);
 	dprintk(VIDC_ERR, "Printing instance info that caused Error\n");
 	msm_comm_print_inst_info(inst);
@@ -5519,4 +5518,29 @@ int msm_comm_session_continue(void *instance)
 sess_continue_fail:
 	mutex_unlock(&inst->lock);
 	return rc;
+}
+
+u32 get_frame_size_nv12(int plane, u32 height, u32 width)
+{
+	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12, width, height);
+}
+
+u32 get_frame_size_nv12_ubwc(int plane, u32 height, u32 width)
+{
+	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12_UBWC, width, height);
+}
+
+u32 get_frame_size_rgba(int plane, u32 height, u32 width)
+{
+	return VENUS_BUFFER_SIZE(COLOR_FMT_RGBA8888, width, height);
+}
+
+u32 get_frame_size_nv21(int plane, u32 height, u32 width)
+{
+	return VENUS_BUFFER_SIZE(COLOR_FMT_NV21, width, height);
+}
+
+u32 get_frame_size_tp10_ubwc(int plane, u32 height, u32 width)
+{
+	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12_BPP10_UBWC, width, height);
 }

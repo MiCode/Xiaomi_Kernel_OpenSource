@@ -59,6 +59,127 @@ static const struct adreno_vbif_platform a6xx_vbif_platforms[] = {
 	{ adreno_is_a630, a630_vbif },
 };
 
+
+struct kgsl_hwcg_reg {
+	unsigned int off;
+	unsigned int val;
+};
+static const struct kgsl_hwcg_reg a630_hwcg_regs[] = {
+	{A6XX_RBBM_CLOCK_CNTL_SP0, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL_SP1, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL_SP2, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL_SP3, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL2_SP0, 0x02222220},
+	{A6XX_RBBM_CLOCK_CNTL2_SP1, 0x02222220},
+	{A6XX_RBBM_CLOCK_CNTL2_SP2, 0x02222220},
+	{A6XX_RBBM_CLOCK_CNTL2_SP3, 0x02222220},
+	{A6XX_RBBM_CLOCK_DELAY_SP0, 0x0000F3CF},
+	{A6XX_RBBM_CLOCK_DELAY_SP1, 0x0000F3CF},
+	{A6XX_RBBM_CLOCK_DELAY_SP2, 0x0000F3CF},
+	{A6XX_RBBM_CLOCK_DELAY_SP3, 0x0000F3CF},
+	{A6XX_RBBM_CLOCK_HYST_SP0, 0x00000080},
+	{A6XX_RBBM_CLOCK_HYST_SP1, 0x00000080},
+	{A6XX_RBBM_CLOCK_HYST_SP2, 0x00000080},
+	{A6XX_RBBM_CLOCK_HYST_SP3, 0x00000080},
+	{A6XX_RBBM_CLOCK_CNTL_TP0, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL_TP1, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL_TP2, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL_TP3, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL2_TP0, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL2_TP1, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL2_TP2, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL2_TP3, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL3_TP0, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL3_TP1, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL3_TP2, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL3_TP3, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL4_TP0, 0x00022222},
+	{A6XX_RBBM_CLOCK_CNTL4_TP1, 0x00022222},
+	{A6XX_RBBM_CLOCK_CNTL4_TP2, 0x00022222},
+	{A6XX_RBBM_CLOCK_CNTL4_TP3, 0x00022222},
+	{A6XX_RBBM_CLOCK_HYST_TP0, 0x77777777},
+	{A6XX_RBBM_CLOCK_HYST_TP1, 0x77777777},
+	{A6XX_RBBM_CLOCK_HYST_TP2, 0x77777777},
+	{A6XX_RBBM_CLOCK_HYST_TP3, 0x77777777},
+	{A6XX_RBBM_CLOCK_HYST2_TP0, 0x77777777},
+	{A6XX_RBBM_CLOCK_HYST2_TP1, 0x77777777},
+	{A6XX_RBBM_CLOCK_HYST2_TP2, 0x77777777},
+	{A6XX_RBBM_CLOCK_HYST2_TP3, 0x77777777},
+	{A6XX_RBBM_CLOCK_HYST3_TP0, 0x07777777},
+	{A6XX_RBBM_CLOCK_HYST3_TP1, 0x07777777},
+	{A6XX_RBBM_CLOCK_HYST3_TP2, 0x07777777},
+	{A6XX_RBBM_CLOCK_HYST3_TP3, 0x07777777},
+	{A6XX_RBBM_CLOCK_HYST4_TP0, 0x00077777},
+	{A6XX_RBBM_CLOCK_HYST4_TP1, 0x00077777},
+	{A6XX_RBBM_CLOCK_HYST4_TP2, 0x00077777},
+	{A6XX_RBBM_CLOCK_HYST4_TP3, 0x00077777},
+	{A6XX_RBBM_CLOCK_DELAY_TP0, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY_TP1, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY_TP2, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY_TP3, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY2_TP0, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY2_TP1, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY2_TP2, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY2_TP3, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY3_TP0, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY3_TP1, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY3_TP2, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY3_TP3, 0x11111111},
+	{A6XX_RBBM_CLOCK_DELAY4_TP0, 0x00011111},
+	{A6XX_RBBM_CLOCK_DELAY4_TP1, 0x00011111},
+	{A6XX_RBBM_CLOCK_DELAY4_TP2, 0x00011111},
+	{A6XX_RBBM_CLOCK_DELAY4_TP3, 0x00011111},
+	{A6XX_RBBM_CLOCK_CNTL_UCHE, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL2_UCHE, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL3_UCHE, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL4_UCHE, 0x00222222},
+	{A6XX_RBBM_CLOCK_HYST_UCHE, 0x00000004},
+	{A6XX_RBBM_CLOCK_DELAY_UCHE, 0x00000002},
+	{A6XX_RBBM_CLOCK_CNTL_RB0, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL_RB1, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL_RB2, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL_RB3, 0x22222222},
+	{A6XX_RBBM_CLOCK_CNTL2_RB0, 0x00002222},
+	{A6XX_RBBM_CLOCK_CNTL2_RB1, 0x00002222},
+	{A6XX_RBBM_CLOCK_CNTL2_RB2, 0x00002222},
+	{A6XX_RBBM_CLOCK_CNTL2_RB3, 0x00002222},
+	{A6XX_RBBM_CLOCK_CNTL_CCU0, 0x00002220},
+	{A6XX_RBBM_CLOCK_CNTL_CCU1, 0x00002220},
+	{A6XX_RBBM_CLOCK_CNTL_CCU2, 0x00002220},
+	{A6XX_RBBM_CLOCK_CNTL_CCU3, 0x00002220},
+	{A6XX_RBBM_CLOCK_HYST_RB_CCU0, 0x00040F00},
+	{A6XX_RBBM_CLOCK_HYST_RB_CCU1, 0x00040F00},
+	{A6XX_RBBM_CLOCK_HYST_RB_CCU2, 0x00040F00},
+	{A6XX_RBBM_CLOCK_HYST_RB_CCU3, 0x00040F00},
+	{A6XX_RBBM_CLOCK_CNTL_RAC, 0x05022022},
+	{A6XX_RBBM_CLOCK_CNTL2_RAC, 0x00005555},
+	{A6XX_RBBM_CLOCK_DELAY_RAC, 0x00010011},
+	{A6XX_RBBM_CLOCK_HYST_RAC, 0x00445044},
+	{A6XX_RBBM_CLOCK_CNTL_TSE_RAS_RBBM, 0x04222222},
+	{A6XX_RBBM_CLOCK_MODE_GPC, 0x02222222},
+	{A6XX_RBBM_CLOCK_MODE_VFD, 0x00002222},
+	{A6XX_RBBM_CLOCK_HYST_TSE_RAS_RBBM, 0x00000000},
+	{A6XX_RBBM_CLOCK_HYST_GPC, 0x04104004},
+	{A6XX_RBBM_CLOCK_HYST_VFD, 0x00000000},
+	{A6XX_RBBM_CLOCK_DELAY_HLSQ, 0x00000000},
+	{A6XX_RBBM_CLOCK_DELAY_TSE_RAS_RBBM, 0x00004000},
+	{A6XX_RBBM_CLOCK_DELAY_GPC, 0x00000200},
+	{A6XX_RBBM_CLOCK_DELAY_VFD, 0x00002222},
+	{A6XX_RBBM_CLOCK_DELAY_HLSQ_2, 0x00000002},
+	{A6XX_RBBM_CLOCK_MODE_HLSQ, 0x00002222},
+	{A6XX_RBBM_CLOCK_CNTL_GMU_GX, 0x00000222},
+	{A6XX_RBBM_CLOCK_DELAY_GMU_GX, 0x00000111},
+	{A6XX_RBBM_CLOCK_HYST_GMU_GX, 0x00000555}
+};
+
+static const struct {
+	int (*devfunc)(struct adreno_device *adreno_dev);
+	const struct kgsl_hwcg_reg *regs;
+	unsigned int count;
+} a6xx_hwcg_registers[] = {
+	{adreno_is_a630, a630_hwcg_regs, ARRAY_SIZE(a630_hwcg_regs)}
+};
+
 static struct a6xx_protected_regs {
 	unsigned int base;
 	unsigned int count;
@@ -103,9 +224,27 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 	adreno_dev->sp_pvt_gpuaddr = addr + SZ_64K;
 }
 
+static void _update_always_on_regs(struct adreno_device *adreno_dev)
+{
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	unsigned int *const regs = gpudev->reg_offsets->offsets;
+
+	regs[ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO] =
+		A6XX_CP_ALWAYS_ON_COUNTER_LO;
+	regs[ADRENO_REG_RBBM_ALWAYSON_COUNTER_HI] =
+		A6XX_CP_ALWAYS_ON_COUNTER_HI;
+}
+
 static void a6xx_init(struct adreno_device *adreno_dev)
 {
 	a6xx_crashdump_init(adreno_dev);
+
+	/*
+	 * If the GMU is not enabled, rewrite the offset for the always on
+	 * counters to point to the CP always on instead of GMU always on
+	 */
+	if (!kgsl_gmu_isenabled(KGSL_DEVICE(adreno_dev)))
+		_update_always_on_regs(adreno_dev);
 }
 
 /**
@@ -125,7 +264,7 @@ static void a6xx_protect_init(struct adreno_device *adreno_dev)
 	unsigned int mmu_base = 0, mmu_range = 0, cur_range;
 
 	/* enable access protection to privileged registers */
-	kgsl_regwrite(device, A6XX_CP_PROTECT_CNTL, 0x00000007);
+	kgsl_regwrite(device, A6XX_CP_PROTECT_CNTL, 0x00000003);
 
 	if (mmu_prot) {
 		mmu_base = mmu_prot->base;
@@ -181,6 +320,48 @@ static void a6xx_enable_64bit(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_RBBM_SECVID_TSB_ADDR_MODE_CNTL, 0x1);
 }
 
+
+static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	const struct kgsl_hwcg_reg *regs;
+	int i, j;
+
+	if (!test_bit(ADRENO_HWCG_CTRL, &adreno_dev->pwrctrl_flag))
+		return;
+
+	for (i = 0; i < ARRAY_SIZE(a6xx_hwcg_registers); i++) {
+		if (a6xx_hwcg_registers[i].devfunc(adreno_dev))
+			break;
+	}
+
+	if (i == ARRAY_SIZE(a6xx_hwcg_registers))
+		return;
+
+	regs = a6xx_hwcg_registers[i].regs;
+
+	/* Disable SP clock before programming HWCG registers */
+	kgsl_gmu_regrmw(device, A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 0, 0);
+
+	for (j = 0; j < a6xx_hwcg_registers[i].count; j++)
+		kgsl_regwrite(device, regs[j].off, on ? regs[j].val : 0);
+
+	if (kgsl_gmu_isenabled(device)) {
+		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_AO_GMU_CGC_MODE_CNTL,
+			0x00020222);
+		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_AO_GMU_CGC_DELAY_CNTL,
+			0x00010111);
+		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_AO_GMU_CGC_HYST_CNTL,
+			0x00050555);
+	}
+	/* Enable SP clock */
+	kgsl_gmu_regrmw(device, A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 0, 1);
+
+	/* enable top level HWCG */
+	kgsl_regwrite(device, A6XX_RBBM_CLOCK_CNTL, on ? 0x8AA8AA02 : 0);
+	kgsl_regwrite(device, A5XX_RBBM_ISDB_CNT, on ? 0x00000182 : 0x00000180);
+}
+
 /*
  * a6xx_start() - Device start
  * @adreno_dev: Pointer to adreno device
@@ -197,6 +378,8 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	if (!kgsl_gmu_isenabled(device))
 		/* Legacy idle management if gmu is disabled */
 		ADRENO_GPU_DEVICE(adreno_dev)->hw_isidle = NULL;
+	/* enable hardware clockgating */
+	a6xx_hwcg_set(adreno_dev, true);
 
 	adreno_vbif_start(adreno_dev, a6xx_vbif_platforms,
 			ARRAY_SIZE(a6xx_vbif_platforms));
@@ -234,6 +417,9 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 
 	/* Set the AHB default slave response to "ERROR" */
 	kgsl_regwrite(device, A6XX_CP_AHB_CNTL, 0x1);
+
+	/* Turn on performance counters */
+	kgsl_regwrite(device, A6XX_RBBM_PERFCTR_CNTL, 0x1);
 
 	if (of_property_read_u32(device->pdev->dev.of_node,
 		"qcom,highest-bank-bit", &bit))
@@ -282,8 +468,9 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A6XX_UCHE_MODE_CNTL, (glbl_inv << 29) |
 						(mal << 23) | (bit << 21));
 
+	/* Set hang detection threshold to 4 million cycles (0x3FFFF*16) */
 	kgsl_regwrite(device, A6XX_RBBM_INTERFACE_HANG_INT_CNTL,
-					  (1 << 30) | 0x4000);
+					  (1 << 30) | 0x3ffff);
 
 	kgsl_regwrite(device, A6XX_UCHE_CLIENT_PF, 1);
 
@@ -303,7 +490,7 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 	uint64_t gpuaddr;
-	static void *zap;
+	void *zap;
 	int ret = 0;
 
 	gpuaddr = fw->memdesc.gpuaddr;
@@ -313,14 +500,15 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 				upper_32_bits(gpuaddr));
 
 	/* Load the zap shader firmware through PIL if its available */
-	if (adreno_dev->gpucore->zap_name && !zap) {
+	if (adreno_dev->gpucore->zap_name && !adreno_dev->zap_loaded) {
 		zap = subsystem_get(adreno_dev->gpucore->zap_name);
 
 		/* Return error if the zap shader cannot be loaded */
 		if (IS_ERR_OR_NULL(zap)) {
 			ret = (zap == NULL) ? -ENODEV : PTR_ERR(zap);
 			zap = NULL;
-		}
+		} else
+			adreno_dev->zap_loaded = 1;
 	}
 
 	return ret;
@@ -1068,6 +1256,8 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 				0xFFFFFFFF))
 			goto error_rsc;
 
+		kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 0);
+
 		/* Turn on the HM and SPTP head switches */
 		ret = a6xx_hm_sptprac_control(device, true);
 	}
@@ -1106,6 +1296,7 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 			&val);
 	kgsl_gmu_regread(device, A6XX_RSCC_TIMESTAMP_UNIT0_TIMESTAMP_H_DRV0,
 			&val);
+	kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 0);
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 0);
 
@@ -1553,7 +1744,10 @@ static const char *a6xx_iommu_fault_block(struct adreno_device *adreno_dev,
 	else if (client_id != 3)
 		return fault_block[client_id];
 
+	mutex_lock(&device->mutex);
 	kgsl_regread(device, A6XX_UCHE_CLIENT_PF, &uche_client_id);
+	mutex_unlock(&device->mutex);
+
 	return uche_client[uche_client_id & A6XX_UCHE_CLIENT_PF_CLIENT_ID_MASK];
 }
 
@@ -2033,10 +2227,6 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A6XX_RBBM_PERFCTR_LOAD_VALUE_LO),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
 				A6XX_RBBM_PERFCTR_LOAD_VALUE_HI),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO,
-				A6XX_CP_ALWAYS_ON_COUNTER_LO),
-	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_ALWAYSON_COUNTER_HI,
-				A6XX_CP_ALWAYS_ON_COUNTER_HI),
 	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_VERSION, A6XX_VBIF_VERSION),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO,
 				A6XX_GMU_ALWAYS_ON_COUNTER_L),

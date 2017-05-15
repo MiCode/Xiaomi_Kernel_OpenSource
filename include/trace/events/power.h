@@ -767,6 +767,33 @@ TRACE_EVENT(memlat_dev_update,
 		__entry->vote)
 );
 
+TRACE_EVENT(sugov_util_update,
+	    TP_PROTO(int cpu,
+		     unsigned long util, unsigned long max_cap,
+		     unsigned long nl, unsigned long pl,
+		     unsigned int flags),
+	    TP_ARGS(cpu, util, max_cap, nl, pl, flags),
+	    TP_STRUCT__entry(
+		    __field(	int,		cpu)
+		    __field(	unsigned long,	util)
+		    __field(	unsigned long,	max_cap)
+		    __field(	unsigned long,	nl)
+		    __field(	unsigned long,	pl)
+		    __field(	unsigned int,	flags)
+	    ),
+	    TP_fast_assign(
+		    __entry->cpu = cpu;
+		    __entry->util = util;
+		    __entry->max_cap = max_cap;
+		    __entry->nl = nl;
+		    __entry->pl = pl;
+		    __entry->flags = flags;
+	    ),
+	    TP_printk("cpu=%d util=%lu max_cap=%lu nl=%lu pl=%lu flags=%x",
+		      __entry->cpu, __entry->util, __entry->max_cap,
+		      __entry->nl, __entry->pl, __entry->flags)
+);
+
 #endif /* _TRACE_POWER_H */
 
 /* This part must be outside protection */

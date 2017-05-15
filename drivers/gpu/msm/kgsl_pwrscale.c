@@ -927,8 +927,7 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 				&data->bin.ctxt_aware_target_pwrlevel))
 			data->bin.ctxt_aware_target_pwrlevel = 1;
 
-		if ((data->bin.ctxt_aware_target_pwrlevel < 0) ||
-			(data->bin.ctxt_aware_target_pwrlevel >
+		if ((data->bin.ctxt_aware_target_pwrlevel >
 						pwr->num_pwrlevels))
 			data->bin.ctxt_aware_target_pwrlevel = 1;
 

@@ -603,6 +603,9 @@ static void vco_10nm_unprepare(struct clk_hw *hw)
 		pr_err("dsi pll resources not available\n");
 		return;
 	}
+	pll->cached_cfg0 = MDSS_PLL_REG_R(pll->phy_base, PHY_CMN_CLK_CFG0);
+	pll->cached_cfg1 = MDSS_PLL_REG_R(pll->phy_base, PHY_CMN_CLK_CFG1);
+	pr_debug("cfg0=%d,cfg1=%d\n", pll->cached_cfg0, pll->cached_cfg1);
 
 	pll->vco_cached_rate = clk_hw_get_rate(hw);
 	dsi_pll_disable(vco);
@@ -637,6 +640,12 @@ static int vco_10nm_prepare(struct clk_hw *hw)
 			mdss_pll_resource_enable(pll, false);
 			return rc;
 		}
+		pr_debug("cfg0=%d, cfg1=%d\n", pll->cached_cfg0,
+			pll->cached_cfg1);
+		MDSS_PLL_REG_W(pll->phy_base, PHY_CMN_CLK_CFG0,
+					pll->cached_cfg0);
+		MDSS_PLL_REG_W(pll->phy_base, PHY_CMN_CLK_CFG1,
+					pll->cached_cfg1);
 	}
 
 	rc = dsi_pll_enable(vco);
@@ -1111,7 +1120,7 @@ static struct dsi_pll_vco_clk dsi0pll_vco_clk = {
 	.max_rate = 3500000000UL,
 	.hw.init = &(struct clk_init_data){
 			.name = "dsi0pll_vco_clk",
-			.parent_names = (const char *[]){"xo_board"},
+			.parent_names = (const char *[]){"bi_tcxo"},
 			.num_parents = 1,
 			.ops = &clk_ops_vco_10nm,
 			.flags = CLK_GET_RATE_NOCACHE,
@@ -1124,7 +1133,7 @@ static struct dsi_pll_vco_clk dsi1pll_vco_clk = {
 	.max_rate = 3500000000UL,
 	.hw.init = &(struct clk_init_data){
 			.name = "dsi1pll_vco_clk",
-			.parent_names = (const char *[]){"xo_board"},
+			.parent_names = (const char *[]){"bi_tcxo"},
 			.num_parents = 1,
 			.ops = &clk_ops_vco_10nm,
 			.flags = CLK_GET_RATE_NOCACHE,
@@ -1241,7 +1250,7 @@ static struct clk_regmap_div dsi1pll_post_bit_div = {
 
 static struct clk_regmap_mux dsi0pll_byteclk_mux = {
 	.shift = 0,
-	.width = 0,
+	.width = 1,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "dsi0_phy_pll_out_byteclk",
@@ -1255,7 +1264,7 @@ static struct clk_regmap_mux dsi0pll_byteclk_mux = {
 
 static struct clk_regmap_mux dsi1pll_byteclk_mux = {
 	.shift = 0,
-	.width = 0,
+	.width = 1,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "dsi1_phy_pll_out_byteclk",
@@ -1269,7 +1278,7 @@ static struct clk_regmap_mux dsi1pll_byteclk_mux = {
 
 static struct clk_regmap_mux dsi0pll_pclk_src_mux = {
 	.shift = 0,
-	.width = 0,
+	.width = 1,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "dsi0pll_pclk_src_mux",
@@ -1284,7 +1293,7 @@ static struct clk_regmap_mux dsi0pll_pclk_src_mux = {
 
 static struct clk_regmap_mux dsi1pll_pclk_src_mux = {
 	.shift = 0,
-	.width = 0,
+	.width = 1,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "dsi1pll_pclk_src_mux",
@@ -1329,7 +1338,7 @@ static struct clk_regmap_div dsi1pll_pclk_src = {
 
 static struct clk_regmap_mux dsi0pll_pclk_mux = {
 	.shift = 0,
-	.width = 0,
+	.width = 1,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "dsi0_phy_pll_out_dsiclk",
@@ -1343,7 +1352,7 @@ static struct clk_regmap_mux dsi0pll_pclk_mux = {
 
 static struct clk_regmap_mux dsi1pll_pclk_mux = {
 	.shift = 0,
-	.width = 0,
+	.width = 1,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "dsi1_phy_pll_out_dsiclk",

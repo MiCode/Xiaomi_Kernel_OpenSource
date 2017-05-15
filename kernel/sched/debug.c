@@ -19,6 +19,7 @@
 #include <linux/debugfs.h>
 
 #include "sched.h"
+#include "walt.h"
 
 static DEFINE_SPINLOCK(sched_debug_lock);
 
@@ -599,7 +600,7 @@ void print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 			cfs_rq->throttle_count);
 	SEQ_printf(m, "  .%-30s: %d\n", "runtime_enabled",
 			cfs_rq->runtime_enabled);
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 	SEQ_printf(m, "  .%-30s: %d\n", "nr_big_tasks",
 			cfs_rq->hmp_stats.nr_big_tasks);
 	SEQ_printf(m, "  .%-30s: %llu\n", "cumulative_runnable_avg",
@@ -696,9 +697,11 @@ do {									\
 #ifdef CONFIG_SMP
 	P(cpu_capacity);
 #endif
+#ifdef CONFIG_SCHED_WALT
 #ifdef CONFIG_SCHED_HMP
 	P(static_cpu_pwr_cost);
 	P(cluster->static_cluster_pwr_cost);
+#endif
 	P(cluster->load_scale_factor);
 	P(cluster->capacity);
 	P(cluster->max_possible_capacity);
@@ -706,7 +709,9 @@ do {									\
 	P(cluster->cur_freq);
 	P(cluster->max_freq);
 	P(cluster->exec_scale_factor);
+#ifdef CONFIG_SCHED_WALT
 	P(hmp_stats.nr_big_tasks);
+#endif
 	SEQ_printf(m, "  .%-30s: %llu\n", "hmp_stats.cumulative_runnable_avg",
 			rq->hmp_stats.cumulative_runnable_avg);
 #endif
@@ -788,9 +793,11 @@ static void sched_debug_header(struct seq_file *m)
 	PN(sysctl_sched_wakeup_granularity);
 	P(sysctl_sched_child_runs_first);
 	P(sysctl_sched_features);
+#ifdef CONFIG_SCHED_WALT
 #ifdef CONFIG_SCHED_HMP
 	P(sched_upmigrate);
 	P(sched_downmigrate);
+#endif
 	P(sched_init_task_load_windows);
 	P(min_capacity);
 	P(max_capacity);

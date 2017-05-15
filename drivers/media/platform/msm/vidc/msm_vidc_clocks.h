@@ -31,7 +31,8 @@
 /* Considering one safeguard buffer */
 #define DCVS_BUFFER_SAFEGUARD (DCVS_DEC_EXTRA_OUTPUT_BUFFERS - 1)
 
-void msm_dcvs_init(struct msm_vidc_inst *inst);
+void msm_clock_data_reset(struct msm_vidc_inst *inst);
+int msm_vidc_update_operating_rate(struct msm_vidc_inst *inst);
 int msm_vidc_get_extra_buff_count(struct msm_vidc_inst *inst,
 	enum hal_buffer buffer_type);
 int msm_dcvs_try_enable(struct msm_vidc_inst *inst);

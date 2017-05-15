@@ -54,9 +54,9 @@
 #define MON2_ZONE_CNT(m)	((m)->base + 0x2D8)
 #define MON2_ZONE_MAX(m, zone)	((m)->base + 0x2E0 + 0x4 * zone)
 
-enum bwmon_type {
-	BWMON_1,
-	BWMON_2,
+enum mon_reg_type {
+	MON1,
+	MON2,
 };
 
 struct bwmon_spec {
@@ -91,25 +91,25 @@ struct bwmon {
 
 static DEFINE_SPINLOCK(glb_lock);
 
-static __always_inline void mon_enable(struct bwmon *m, enum bwmon_type type)
+static __always_inline void mon_enable(struct bwmon *m, enum mon_reg_type type)
 {
 	switch (type) {
-	case BWMON_1:
+	case MON1:
 		writel_relaxed(ENABLE_MASK | m->throttle_adj, MON_EN(m));
 		break;
-	case BWMON_2:
+	case MON2:
 		writel_relaxed(ENABLE_MASK | m->throttle_adj, MON2_EN(m));
 		break;
 	}
 }
 
-static __always_inline void mon_disable(struct bwmon *m, enum bwmon_type type)
+static __always_inline void mon_disable(struct bwmon *m, enum mon_reg_type type)
 {
 	switch (type) {
-	case BWMON_1:
+	case MON1:
 		writel_relaxed(m->throttle_adj, MON_EN(m));
 		break;
-	case BWMON_2:
+	case MON2:
 		writel_relaxed(m->throttle_adj, MON2_EN(m));
 		break;
 	}
@@ -124,13 +124,13 @@ static __always_inline void mon_disable(struct bwmon *m, enum bwmon_type type)
 #define MON_CLEAR_BIT	0x1
 #define MON_CLEAR_ALL_BIT	0x2
 static __always_inline
-void mon_clear(struct bwmon *m, bool clear_all, enum bwmon_type type)
+void mon_clear(struct bwmon *m, bool clear_all, enum mon_reg_type type)
 {
 	switch (type) {
-	case BWMON_1:
+	case MON1:
 		writel_relaxed(MON_CLEAR_BIT, MON_CLEAR(m));
 		break;
-	case BWMON_2:
+	case MON2:
 		if (clear_all)
 			writel_relaxed(MON_CLEAR_ALL_BIT, MON2_CLEAR(m));
 		else
@@ -172,19 +172,19 @@ static void mon_glb_irq_enable(struct bwmon *m)
 }
 
 static __always_inline
-void mon_irq_enable(struct bwmon *m, enum bwmon_type type)
+void mon_irq_enable(struct bwmon *m, enum mon_reg_type type)
 {
 	u32 val;
 
 	spin_lock(&glb_lock);
 	switch (type) {
-	case BWMON_1:
+	case MON1:
 		mon_glb_irq_enable(m);
 		val = readl_relaxed(MON_INT_EN(m));
 		val |= INT_ENABLE_V1;
 		writel_relaxed(val, MON_INT_EN(m));
 		break;
-	case BWMON_2:
+	case MON2:
 		mon_glb_irq_enable(m);
 		val = readl_relaxed(MON_INT_EN(m));
 		val |= INT_STATUS_MASK_HWS;
@@ -209,20 +209,20 @@ static void mon_glb_irq_disable(struct bwmon *m)
 }
 
 static __always_inline
-void mon_irq_disable(struct bwmon *m, enum bwmon_type type)
+void mon_irq_disable(struct bwmon *m, enum mon_reg_type type)
 {
 	u32 val;
 
 	spin_lock(&glb_lock);
 
 	switch (type) {
-	case BWMON_1:
+	case MON1:
 		mon_glb_irq_disable(m);
 		val = readl_relaxed(MON_INT_EN(m));
 		val &= ~INT_ENABLE_V1;
 		writel_relaxed(val, MON_INT_EN(m));
 		break;
-	case BWMON_2:
+	case MON2:
 		mon_glb_irq_disable(m);
 		val = readl_relaxed(MON_INT_EN(m));
 		val &= ~INT_STATUS_MASK_HWS;
@@ -238,18 +238,18 @@ void mon_irq_disable(struct bwmon *m, enum bwmon_type type)
 }
 
 static __always_inline
-unsigned int mon_irq_status(struct bwmon *m, enum bwmon_type type)
+unsigned int mon_irq_status(struct bwmon *m, enum mon_reg_type type)
 {
 	u32 mval;
 
 	switch (type) {
-	case BWMON_1:
+	case MON1:
 		mval = readl_relaxed(MON_INT_STATUS(m));
 		dev_dbg(m->dev, "IRQ status p:%x, g:%x\n", mval,
 				readl_relaxed(GLB_INT_STATUS(m)));
 		mval &= INT_STATUS_MASK;
 		break;
-	case BWMON_2:
+	case MON2:
 		mval = readl_relaxed(MON_INT_STATUS(m));
 		dev_dbg(m->dev, "IRQ status p:%x, g:%x\n", mval,
 				readl_relaxed(GLB_INT_STATUS(m)));
@@ -283,14 +283,14 @@ static void mon_glb_irq_clear(struct bwmon *m)
 }
 
 static __always_inline
-void mon_irq_clear(struct bwmon *m, enum bwmon_type type)
+void mon_irq_clear(struct bwmon *m, enum mon_reg_type type)
 {
 	switch (type) {
-	case BWMON_1:
+	case MON1:
 		writel_relaxed(INT_STATUS_MASK, MON_INT_CLR(m));
 		mon_glb_irq_clear(m);
 		break;
-	case BWMON_2:
+	case MON2:
 		writel_relaxed(INT_STATUS_MASK_HWS, MON_INT_CLR(m));
 		mon_glb_irq_clear(m);
 		break;
@@ -419,7 +419,7 @@ static unsigned long mon_get_count1(struct bwmon *m)
 	unsigned long count, status;
 
 	count = readl_relaxed(MON_CNT(m));
-	status = mon_irq_status(m, BWMON_1);
+	status = mon_irq_status(m, MON1);
 
 	dev_dbg(m->dev, "Counter: %08lx\n", count);
 
@@ -469,15 +469,15 @@ static unsigned long mon_get_zone_stats(struct bwmon *m)
 }
 
 static __always_inline
-unsigned long mon_get_count(struct bwmon *m, enum bwmon_type type)
+unsigned long mon_get_count(struct bwmon *m, enum mon_reg_type type)
 {
 	unsigned long count;
 
 	switch (type) {
-	case BWMON_1:
+	case MON1:
 		count = mon_get_count1(m);
 		break;
-	case BWMON_2:
+	case MON2:
 		count = mon_get_zone_stats(m);
 		break;
 	}
@@ -499,7 +499,7 @@ static unsigned int mbps_to_bytes(unsigned long mbps, unsigned int ms,
 }
 
 static __always_inline
-unsigned long __get_bytes_and_clear(struct bw_hwmon *hw, enum bwmon_type type)
+unsigned long __get_bytes_and_clear(struct bw_hwmon *hw, enum mon_reg_type type)
 {
 	struct bwmon *m = to_bwmon(hw);
 	unsigned long count;
@@ -515,12 +515,12 @@ unsigned long __get_bytes_and_clear(struct bw_hwmon *hw, enum bwmon_type type)
 
 static unsigned long get_bytes_and_clear(struct bw_hwmon *hw)
 {
-	return __get_bytes_and_clear(hw, BWMON_1);
+	return __get_bytes_and_clear(hw, MON1);
 }
 
 static unsigned long get_bytes_and_clear2(struct bw_hwmon *hw)
 {
-	return __get_bytes_and_clear(hw, BWMON_2);
+	return __get_bytes_and_clear(hw, MON2);
 }
 
 static unsigned long set_thres(struct bw_hwmon *hw, unsigned long bytes)
@@ -529,10 +529,10 @@ static unsigned long set_thres(struct bw_hwmon *hw, unsigned long bytes)
 	u32 limit;
 	struct bwmon *m = to_bwmon(hw);
 
-	mon_disable(m, BWMON_1);
+	mon_disable(m, MON1);
 	count = mon_get_count1(m);
-	mon_clear(m, false, BWMON_1);
-	mon_irq_clear(m, BWMON_1);
+	mon_clear(m, false, MON1);
+	mon_irq_clear(m, MON1);
 
 	if (likely(!m->spec->wrap_on_thres))
 		limit = bytes;
@@ -540,7 +540,7 @@ static unsigned long set_thres(struct bw_hwmon *hw, unsigned long bytes)
 		limit = max(bytes, 500000UL);
 
 	mon_set_limit(m, limit);
-	mon_enable(m, BWMON_1);
+	mon_enable(m, MON1);
 
 	return count;
 }
@@ -549,18 +549,18 @@ static unsigned long set_hw_events(struct bw_hwmon *hw, unsigned int sample_ms)
 {
 	struct bwmon *m = to_bwmon(hw);
 
-	mon_disable(m, BWMON_2);
-	mon_clear(m, false, BWMON_2);
-	mon_irq_clear(m, BWMON_2);
+	mon_disable(m, MON2);
+	mon_clear(m, false, MON2);
+	mon_irq_clear(m, MON2);
 
 	mon_set_zones(m, sample_ms);
-	mon_enable(m, BWMON_2);
+	mon_enable(m, MON2);
 
 	return 0;
 }
 
 static irqreturn_t
-__bwmon_intr_handler(int irq, void *dev, enum bwmon_type type)
+__bwmon_intr_handler(int irq, void *dev, enum mon_reg_type type)
 {
 	struct bwmon *m = dev;
 
@@ -576,12 +576,12 @@ __bwmon_intr_handler(int irq, void *dev, enum bwmon_type type)
 
 static irqreturn_t bwmon_intr_handler(int irq, void *dev)
 {
-	return __bwmon_intr_handler(irq, dev, BWMON_1);
+	return __bwmon_intr_handler(irq, dev, MON1);
 }
 
 static irqreturn_t bwmon_intr_handler2(int irq, void *dev)
 {
-	return __bwmon_intr_handler(irq, dev, BWMON_2);
+	return __bwmon_intr_handler(irq, dev, MON2);
 }
 
 static irqreturn_t bwmon_intr_thread(int irq, void *dev)
@@ -592,8 +592,8 @@ static irqreturn_t bwmon_intr_thread(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
-static __always_inline int
-__start_bw_hwmon(struct bw_hwmon *hw, unsigned long mbps, enum bwmon_type type)
+static __always_inline int __start_bw_hwmon(struct bw_hwmon *hw,
+		unsigned long mbps, enum mon_reg_type type)
 {
 	struct bwmon *m = to_bwmon(hw);
 	u32 limit, zone_actions;
@@ -601,11 +601,11 @@ __start_bw_hwmon(struct bw_hwmon *hw, unsigned long mbps, enum bwmon_type type)
 	irq_handler_t handler;
 
 	switch (type) {
-	case BWMON_1:
+	case MON1:
 		handler = bwmon_intr_handler;
 		limit = mbps_to_bytes(mbps, hw->df->profile->polling_ms, 0);
 		break;
-	case BWMON_2:
+	case MON2:
 		zone_actions = calc_zone_actions();
 		handler = bwmon_intr_handler2;
 		break;
@@ -625,11 +625,11 @@ __start_bw_hwmon(struct bw_hwmon *hw, unsigned long mbps, enum bwmon_type type)
 	mon_clear(m, false, type);
 
 	switch (type) {
-	case BWMON_1:
+	case MON1:
 		handler = bwmon_intr_handler;
 		mon_set_limit(m, limit);
 		break;
-	case BWMON_2:
+	case MON2:
 		mon_set_zones(m, hw->df->profile->polling_ms);
 		/* Set the zone actions to increment appropriate counters */
 		writel_relaxed(zone_actions, MON2_ZONE_ACTIONS(m));
@@ -645,16 +645,16 @@ __start_bw_hwmon(struct bw_hwmon *hw, unsigned long mbps, enum bwmon_type type)
 
 static int start_bw_hwmon(struct bw_hwmon *hw, unsigned long mbps)
 {
-	return __start_bw_hwmon(hw, mbps, BWMON_1);
+	return __start_bw_hwmon(hw, mbps, MON1);
 }
 
 static int start_bw_hwmon2(struct bw_hwmon *hw, unsigned long mbps)
 {
-	return __start_bw_hwmon(hw, mbps, BWMON_2);
+	return __start_bw_hwmon(hw, mbps, MON2);
 }
 
 static __always_inline
-void __stop_bw_hwmon(struct bw_hwmon *hw, enum bwmon_type type)
+void __stop_bw_hwmon(struct bw_hwmon *hw, enum mon_reg_type type)
 {
 	struct bwmon *m = to_bwmon(hw);
 
@@ -667,16 +667,16 @@ void __stop_bw_hwmon(struct bw_hwmon *hw, enum bwmon_type type)
 
 static void stop_bw_hwmon(struct bw_hwmon *hw)
 {
-	return __stop_bw_hwmon(hw, BWMON_1);
+	return __stop_bw_hwmon(hw, MON1);
 }
 
 static void stop_bw_hwmon2(struct bw_hwmon *hw)
 {
-	return __stop_bw_hwmon(hw, BWMON_2);
+	return __stop_bw_hwmon(hw, MON2);
 }
 
 static __always_inline
-int __suspend_bw_hwmon(struct bw_hwmon *hw, enum bwmon_type type)
+int __suspend_bw_hwmon(struct bw_hwmon *hw, enum mon_reg_type type)
 {
 	struct bwmon *m = to_bwmon(hw);
 
@@ -690,25 +690,25 @@ int __suspend_bw_hwmon(struct bw_hwmon *hw, enum bwmon_type type)
 
 static int suspend_bw_hwmon(struct bw_hwmon *hw)
 {
-	return __suspend_bw_hwmon(hw, BWMON_1);
+	return __suspend_bw_hwmon(hw, MON1);
 }
 
 static int suspend_bw_hwmon2(struct bw_hwmon *hw)
 {
-	return __suspend_bw_hwmon(hw, BWMON_2);
+	return __suspend_bw_hwmon(hw, MON2);
 }
 
-static int __resume_bw_hwmon(struct bw_hwmon *hw, enum bwmon_type type)
+static int __resume_bw_hwmon(struct bw_hwmon *hw, enum mon_reg_type type)
 {
 	struct bwmon *m = to_bwmon(hw);
 	int ret;
 	irq_handler_t handler;
 
 	switch (type) {
-	case BWMON_1:
+	case MON1:
 		handler = bwmon_intr_handler;
 		break;
-	case BWMON_2:
+	case MON2:
 		handler = bwmon_intr_handler2;
 		break;
 	}
@@ -731,12 +731,12 @@ static int __resume_bw_hwmon(struct bw_hwmon *hw, enum bwmon_type type)
 
 static int resume_bw_hwmon(struct bw_hwmon *hw)
 {
-	return __resume_bw_hwmon(hw, BWMON_1);
+	return __resume_bw_hwmon(hw, MON1);
 }
 
 static int resume_bw_hwmon2(struct bw_hwmon *hw)
 {
-	return __resume_bw_hwmon(hw, BWMON_2);
+	return __resume_bw_hwmon(hw, MON2);
 }
 
 /*************************************************************************/

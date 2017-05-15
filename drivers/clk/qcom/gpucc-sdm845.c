@@ -644,8 +644,6 @@ static int gpu_cc_gfx_sdm845_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	clk_prepare_enable(gpu_cc_cxo_clk.clkr.hw.clk);
-
 	dev_info(&pdev->dev, "Registered GFX CC clocks.\n");
 
 	return ret;

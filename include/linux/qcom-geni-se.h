@@ -86,6 +86,7 @@ struct se_geni_rsc {
 #define SE_GENI_TX_WATERMARK_REG	(0x80C)
 #define SE_GENI_RX_WATERMARK_REG	(0x810)
 #define SE_GENI_RX_RFR_WATERMARK_REG	(0x814)
+#define SE_GENI_IOS			(0x908)
 #define SE_GENI_M_GP_LENGTH		(0x910)
 #define SE_GENI_S_GP_LENGTH		(0x914)
 #define SE_GSI_EVENT_EN			(0xE18)
@@ -228,6 +229,10 @@ struct se_geni_rsc {
 #define GENI_M_EVENT_EN		(BIT(2))
 #define GENI_S_EVENT_EN		(BIT(3))
 
+/* SE_GENI_IOS fields */
+#define IO2_DATA_IN		(BIT(1))
+#define RX_DATA_IN		(BIT(0))
+
 /* SE_IRQ_EN fields */
 #define DMA_RX_IRQ_EN		(BIT(0))
 #define DMA_TX_IRQ_EN		(BIT(1))
@@ -275,7 +280,7 @@ static inline unsigned int geni_read_reg(void __iomem *base, int offset)
 static inline void geni_write_reg(unsigned int value, void __iomem *base,
 				int offset)
 {
-	return writel_relaxed(value, (base + offset));
+	writel_relaxed(value, (base + offset));
 }
 
 static inline int get_se_proto(void __iomem *base)
@@ -479,11 +484,11 @@ static inline int get_rx_fifo_depth(void __iomem *base)
 	return rx_fifo_depth;
 }
 
-static inline void se_config_packing(void __iomem *base, int bpw,
-				int pack_words, bool msb_to_lsb)
+static inline void se_get_packing_config(int bpw, int pack_words,
+					bool msb_to_lsb, unsigned long *cfg0,
+					unsigned long *cfg1)
 {
 	u32 cfg[4] = {0};
-	unsigned long cfg0, cfg1;
 	int len = ((bpw < 8) ? (bpw - 1) : 7);
 	int idx = ((msb_to_lsb == 1) ? len : 0);
 	int iter = (bpw * pack_words) >> 3;
@@ -495,8 +500,16 @@ static inline void se_config_packing(void __iomem *base, int bpw,
 		if (i == iter - 1)
 			cfg[i] |= 1;
 	}
-	cfg0 = cfg[0] | (cfg[1] << 10);
-	cfg1 = cfg[2] | (cfg[3] << 10);
+	*cfg0 = cfg[0] | (cfg[1] << 10);
+	*cfg1 = cfg[2] | (cfg[3] << 10);
+}
+
+static inline void se_config_packing(void __iomem *base, int bpw,
+				int pack_words, bool msb_to_lsb)
+{
+	unsigned long cfg0, cfg1;
+
+	se_get_packing_config(bpw, pack_words, msb_to_lsb, &cfg0, &cfg1);
 	geni_write_reg(cfg0, base, SE_GENI_TX_PACKING_CFG0);
 	geni_write_reg(cfg1, base, SE_GENI_TX_PACKING_CFG1);
 	geni_write_reg(cfg0, base, SE_GENI_RX_PACKING_CFG0);

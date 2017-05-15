@@ -28,16 +28,19 @@
 #include <drm/drmP.h>
 #include <drm/drm_irq.h>
 #include "sde_rsc_priv.h"
+#include "sde_dbg.h"
 
-/* this time is ~0.02ms */
-#define RSC_BACKOFF_TIME_NS		 20000
+/* worst case time to execute the one tcs vote(sleep/wake) - ~1ms */
+#define TCS_CASE_EXECUTION_TIME				1064000
 
-/* next two values should be same based on doc */
+/* this time is ~1ms - only wake tcs in any mode */
+#define RSC_BACKOFF_TIME_NS		 (TCS_CASE_EXECUTION_TIME + 100)
 
-/* this time is ~0.2ms */
-#define RSC_MODE_THRESHOLD_TIME_IN_NS	200000
-/* this time is ~0.2ms */
-#define RSC_TIME_SLOT_0_NS		200000
+/* this time is ~1ms - only wake TCS in mode-0 */
+#define RSC_MODE_THRESHOLD_TIME_IN_NS	((TCS_CASE_EXECUTION_TIME >> 1) + 100)
+
+/* this time is ~2ms - sleep+ wake TCS in mode-1 */
+#define RSC_TIME_SLOT_0_NS		((TCS_CASE_EXECUTION_TIME * 2) + 100)
 
 #define DEFAULT_PANEL_FPS		60
 #define DEFAULT_PANEL_JITTER		5
@@ -74,6 +77,7 @@ struct sde_rsc_client *sde_rsc_client_create(u32 rsc_index, char *client_name,
 {
 	struct sde_rsc_client *client;
 	struct sde_rsc_priv *rsc;
+	static int id;
 
 	if (!client_name) {
 		pr_err("client name is null- not supported\n");
@@ -83,7 +87,7 @@ struct sde_rsc_client *sde_rsc_client_create(u32 rsc_index, char *client_name,
 		return ERR_PTR(-EINVAL);
 	} else if (!rsc_prv_list[rsc_index]) {
 		pr_err("rsc not probed yet or not available\n");
-		return ERR_PTR(-EINVAL);
+		return NULL;
 	}
 
 	rsc = rsc_prv_list[rsc_index];
@@ -95,12 +99,14 @@ struct sde_rsc_client *sde_rsc_client_create(u32 rsc_index, char *client_name,
 	strlcpy(client->name, client_name, MAX_RSC_CLIENT_NAME_LEN);
 	client->current_state = SDE_RSC_IDLE_STATE;
 	client->rsc_index = rsc_index;
+	client->id = id;
 	if (is_primary_client)
 		rsc->primary_client = client;
 	pr_debug("client %s rsc index:%d primary:%d\n", client_name,
 						rsc_index, is_primary_client);
 
 	list_add(&client->list, &rsc->client_list);
+	id++;
 	mutex_unlock(&rsc->client_lock);
 
 	return client;
@@ -381,6 +387,8 @@ static int sde_rsc_switch_to_idle(struct sde_rsc_priv *rsc)
 
 	} else if (rsc->hw_ops.state_update) {
 		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_IDLE_STATE);
+		if (!rc)
+			rpmh_mode_solver_set(rsc->disp_rsc, false);
 	}
 
 	return rc;
@@ -413,8 +421,11 @@ static int sde_rsc_switch_to_cmd(struct sde_rsc_priv *rsc,
 		if (client->current_state == SDE_RSC_VID_STATE)
 			goto end;
 
-	if (rsc->hw_ops.state_update)
+	if (rsc->hw_ops.state_update) {
 		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_CMD_STATE);
+		if (!rc)
+			rpmh_mode_solver_set(rsc->disp_rsc, true);
+	}
 
 	/* wait for vsync for vid to cmd state switch */
 	if (!rc && (rsc->current_state == SDE_RSC_VID_STATE))
@@ -434,8 +445,11 @@ static bool sde_rsc_switch_to_clk(struct sde_rsc_priv *rsc)
 		    (client->current_state == SDE_RSC_CMD_STATE))
 			goto end;
 
-	if (rsc->hw_ops.state_update)
+	if (rsc->hw_ops.state_update) {
 		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_CLK_STATE);
+		if (!rc)
+			rpmh_mode_solver_set(rsc->disp_rsc, false);
+	}
 
 	/* wait for vsync for cmd to clk state switch */
 	if (!rc && rsc->primary_client &&
@@ -457,8 +471,11 @@ static bool sde_rsc_switch_to_vid(struct sde_rsc_priv *rsc,
 		sde_rsc_timer_calculate(rsc, config);
 
 	/* video state switch should be done immediately */
-	if (rsc->hw_ops.state_update)
+	if (rsc->hw_ops.state_update) {
 		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_VID_STATE);
+		if (!rc)
+			rpmh_mode_solver_set(rsc->disp_rsc, false);
+	}
 
 	/* wait for vsync for cmd to vid state switch */
 	if (!rc && rsc->primary_client &&
@@ -502,6 +519,8 @@ int sde_rsc_client_state_update(struct sde_rsc_client *caller_client,
 		return -EINVAL;
 
 	mutex_lock(&rsc->client_lock);
+	SDE_EVT32(caller_client->id, caller_client->current_state,
+			state, rsc->current_state, SDE_EVTLOG_FUNC_ENTRY);
 	caller_client->crtc_id = crtc_id;
 	caller_client->current_state = state;
 
@@ -559,14 +578,20 @@ int sde_rsc_client_state_update(struct sde_rsc_client *caller_client,
 
 	if (rc == STATE_UPDATE_NOT_ALLOWED) {
 		rc = 0;
+		SDE_EVT32(caller_client->id, caller_client->current_state,
+			state, rsc->current_state, rc, SDE_EVTLOG_FUNC_CASE1);
 		goto clk_disable;
 	} else if (rc) {
 		pr_debug("state:%d update failed rc:%d\n", state, rc);
+		SDE_EVT32(caller_client->id, caller_client->current_state,
+			state, rsc->current_state, rc, SDE_EVTLOG_FUNC_CASE2);
 		goto clk_disable;
 	}
 
 	pr_debug("state switch successfully complete: %d\n", state);
 	rsc->current_state = state;
+	SDE_EVT32(caller_client->id, caller_client->current_state,
+			state, rsc->current_state, SDE_EVTLOG_FUNC_EXIT);
 
 clk_disable:
 	if (rsc->current_state == SDE_RSC_IDLE_STATE)
@@ -755,14 +780,15 @@ static ssize_t _sde_debugfs_mode_ctrl_write(struct file *file,
 			const char __user *p, size_t count, loff_t *ppos)
 {
 	struct sde_rsc_priv *rsc = file->private_data;
-	char *input, *mode;
-	u32 mode0_state = 0, mode1_state = 0, mode2_state = 0;
+	char *input;
+	u32 mode_state = 0;
 	int rc;
 
-	if (!rsc || !rsc->hw_ops.mode_ctrl)
+	if (!rsc || !rsc->hw_ops.mode_ctrl || !count ||
+					count > MAX_COUNT_SIZE_SUPPORTED)
 		return 0;
 
-	input = kmalloc(count, GFP_KERNEL);
+	input = kmalloc(count + 1, GFP_KERNEL);
 	if (!input)
 		return -ENOMEM;
 
@@ -770,43 +796,35 @@ static ssize_t _sde_debugfs_mode_ctrl_write(struct file *file,
 		kfree(input);
 		return -EFAULT;
 	}
-	input[count - 1] = '\0';
+	input[count] = '\0';
+
+	rc = kstrtoint(input, 0, &mode_state);
+	if (rc) {
+		pr_err("mode_state: int conversion failed rc:%d\n", rc);
+		goto end;
+	}
+
+	pr_debug("mode_state: %d\n", mode_state);
+	mode_state &= 0x7;
+	if (mode_state != ALL_MODES_DISABLED &&
+			mode_state != ALL_MODES_ENABLED &&
+			mode_state != ONLY_MODE_0_ENABLED &&
+			mode_state != ONLY_MODE_0_1_ENABLED) {
+		pr_err("invalid mode:%d combination\n", mode_state);
+		goto end;
+	}
 
 	mutex_lock(&rsc->client_lock);
 	rc = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
 	if (rc)
 		goto clk_enable_fail;
 
-	mode = strnstr(input, "mode0=", strlen("mode0="));
-	if (mode) {
-		mode0_state = mode[0] - '0';
-		mode0_state &= BIT(0);
-		rsc->hw_ops.mode_ctrl(rsc, MODE0_UPDATE, NULL, 0, mode0_state);
-		goto end;
-	}
-
-	mode = strnstr(input, "mode1=", strlen("mode1="));
-	if (mode) {
-		mode1_state = mode[0] - '0';
-		mode1_state &= BIT(0);
-		rsc->hw_ops.mode_ctrl(rsc, MODE1_UPDATE, NULL, 0, mode1_state);
-		goto end;
-	}
-
-	mode = strnstr(input, "mode2=", strlen("mode2="));
-	if (mode) {
-		mode2_state = mode[0] - '0';
-		mode2_state &= BIT(0);
-		rsc->hw_ops.mode_ctrl(rsc, MODE2_UPDATE, NULL, 0, mode2_state);
-	}
-
-end:
+	rsc->hw_ops.mode_ctrl(rsc, MODE_UPDATE, NULL, 0, mode_state);
 	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
+
 clk_enable_fail:
 	mutex_unlock(&rsc->client_lock);
-
-	pr_info("req: mode0:%d mode1:%d mode2:%d\n", mode0_state, mode1_state,
-								mode2_state);
+end:
 	kfree(input);
 	return count;
 }
@@ -854,14 +872,15 @@ static ssize_t _sde_debugfs_vsync_mode_write(struct file *file,
 			const char __user *p, size_t count, loff_t *ppos)
 {
 	struct sde_rsc_priv *rsc = file->private_data;
-	char *input, *vsync_mode;
+	char *input;
 	u32 vsync_state = 0;
 	int rc;
 
-	if (!rsc || !rsc->hw_ops.hw_vsync)
+	if (!rsc || !rsc->hw_ops.hw_vsync || !count ||
+				count > MAX_COUNT_SIZE_SUPPORTED)
 		return 0;
 
-	input = kmalloc(count, GFP_KERNEL);
+	input = kmalloc(count + 1, GFP_KERNEL);
 	if (!input)
 		return -ENOMEM;
 
@@ -869,18 +888,21 @@ static ssize_t _sde_debugfs_vsync_mode_write(struct file *file,
 		kfree(input);
 		return -EFAULT;
 	}
-	input[count - 1] = '\0';
+	input[count] = '\0';
 
-	vsync_mode = strnstr(input, "vsync_mode=", strlen("vsync_mode="));
-	if (vsync_mode) {
-		vsync_state = vsync_mode[0] - '0';
-		vsync_state &= 0x7;
+	rc = kstrtoint(input, 0, &vsync_state);
+	if (rc) {
+		pr_err("vsync_state: int conversion failed rc:%d\n", rc);
+		goto end;
 	}
+
+	pr_debug("vsync_state: %d\n", vsync_state);
+	vsync_state &= 0x7;
 
 	mutex_lock(&rsc->client_lock);
 	rc = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
 	if (rc)
-		goto end;
+		goto clk_en_fail;
 
 	if (vsync_state)
 		rsc->hw_ops.hw_vsync(rsc, VSYNC_ENABLE, NULL,
@@ -890,8 +912,9 @@ static ssize_t _sde_debugfs_vsync_mode_write(struct file *file,
 
 	sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, false);
 
-end:
+clk_en_fail:
 	mutex_unlock(&rsc->client_lock);
+end:
 	kfree(input);
 	return count;
 }
@@ -1063,9 +1086,6 @@ static int sde_rsc_probe(struct platform_device *pdev)
 		pr_err("sde rsc:get display rsc failed ret:%d\n", ret);
 		goto sde_rsc_fail;
 	}
-	rpmh_invalidate(rsc->disp_rsc);
-	/* call flush to disable the disp rsc interrupt */
-	rpmh_flush(rsc->disp_rsc);
 
 	ret = msm_dss_ioremap_byname(pdev, &rsc->wrapper_io, "wrapper");
 	if (ret) {

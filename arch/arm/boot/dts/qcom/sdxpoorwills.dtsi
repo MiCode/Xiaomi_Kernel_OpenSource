@@ -12,6 +12,8 @@
 
 
 #include "skeleton.dtsi"
+
+#include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/clock/qcom,gcc-sdxpoorwills.h>
 
 / {
@@ -148,6 +150,12 @@
 		#clock-cells = <1>;
 	};
 
+	clock_rpmh: qcom,rpmhclk {
+		compatible = "qcom,dummycc";
+		clock-output-names = "rpmh_clocks";
+		#clock-cells = <1>;
+	};
+
 	blsp1_uart2: serial@831000 {
 		compatible = "qcom,msm-uartdm-v1.4", "qcom,msm-uartdm";
 		reg = <0x831000 0x200>;
@@ -156,5 +164,19 @@
 		clocks = <&clock_gcc GCC_BLSP1_UART2_APPS_CLK>,
 			<&clock_gcc GCC_BLSP1_AHB_CLK>;
 		clock-names = "core", "iface";
+	};
+
+	gdsc_usb30: qcom,gdsc@10b004 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_usb30";
+		reg = <0x0010b004 0x4>;
+		status = "ok";
+	};
+
+	gdsc_pcie: qcom,gdsc@137004 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_pcie";
+		reg = <0x00137004 0x4>;
+		status = "ok";
 	};
 };

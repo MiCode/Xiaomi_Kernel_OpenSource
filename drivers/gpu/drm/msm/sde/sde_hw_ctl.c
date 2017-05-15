@@ -26,6 +26,7 @@
 #define   CTL_TOP                       0x014
 #define   CTL_FLUSH                     0x018
 #define   CTL_START                     0x01C
+#define   CTL_PREPARE                   0x0d0
 #define   CTL_SW_RESET                  0x030
 #define   CTL_LAYER_EXTN_OFFSET         0x40
 #define   CTL_ROT_TOP                   0x0C0
@@ -76,6 +77,11 @@ static int _mixer_stages(const struct sde_lm_cfg *mixer, int count,
 static inline void sde_hw_ctl_trigger_start(struct sde_hw_ctl *ctx)
 {
 	SDE_REG_WRITE(&ctx->hw, CTL_START, 0x1);
+}
+
+static inline void sde_hw_ctl_trigger_pending(struct sde_hw_ctl *ctx)
+{
+	SDE_REG_WRITE(&ctx->hw, CTL_PREPARE, 0x1);
 }
 
 static inline void sde_hw_ctl_trigger_rot_start(struct sde_hw_ctl *ctx)
@@ -537,6 +543,7 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 	ops->trigger_flush = sde_hw_ctl_trigger_flush;
 	ops->get_flush_register = sde_hw_ctl_get_flush_register;
 	ops->trigger_start = sde_hw_ctl_trigger_start;
+	ops->trigger_pending = sde_hw_ctl_trigger_pending;
 	ops->setup_intf_cfg = sde_hw_ctl_intf_cfg;
 	ops->reset = sde_hw_ctl_reset_control;
 	ops->wait_reset_status = sde_hw_ctl_wait_reset_status;

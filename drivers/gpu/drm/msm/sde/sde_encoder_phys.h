@@ -41,11 +41,13 @@
  * @ENC_ROLE_SOLO:	This is the one and only panel. This encoder is master.
  * @ENC_ROLE_MASTER:	This encoder is the master of a split panel config.
  * @ENC_ROLE_SLAVE:	This encoder is not the master of a split panel config.
+ * @ENC_ROLE_SKIP:	This encoder is not participating in kickoffs
  */
 enum sde_enc_split_role {
 	ENC_ROLE_SOLO,
 	ENC_ROLE_MASTER,
-	ENC_ROLE_SLAVE
+	ENC_ROLE_SLAVE,
+	ENC_ROLE_SKIP
 };
 
 /**
@@ -117,6 +119,9 @@ struct sde_encoder_virt_ops {
  * @collect_misr:		Collects MISR data on frame update
  * @hw_reset:			Issue HW recovery such as CTL reset and clear
  *				SDE_ENC_ERR_NEEDS_HW_RESET state
+ * @irq_control:		Handler to enable/disable all the encoder IRQs
+ * @update_split_role:		Update the split role of the phys enc
+ * @restore:			Restore all the encoder configs.
  */
 
 struct sde_encoder_phys_ops {
@@ -150,6 +155,10 @@ struct sde_encoder_phys_ops {
 				bool enable, u32 frame_count);
 	u32 (*collect_misr)(struct sde_encoder_phys *phys_enc);
 	void (*hw_reset)(struct sde_encoder_phys *phys_enc);
+	void (*irq_control)(struct sde_encoder_phys *phys, bool enable);
+	void (*update_split_role)(struct sde_encoder_phys *phys_enc,
+			enum sde_enc_split_role role);
+	void (*restore)(struct sde_encoder_phys *phys);
 };
 
 /**
@@ -163,6 +172,7 @@ enum sde_intr_idx {
 	INTR_IDX_VSYNC,
 	INTR_IDX_PINGPONG,
 	INTR_IDX_UNDERRUN,
+	INTR_IDX_CTL_START,
 	INTR_IDX_RDPTR,
 	INTR_IDX_MAX,
 };
@@ -196,6 +206,8 @@ enum sde_intr_idx {
  *				vs. the number of done/vblank irqs. Should hover
  *				between 0-2 Incremented when a new kickoff is
  *				scheduled. Decremented in irq handler
+ * @pending_ctlstart_cnt:	Atomic counter tracking the number of ctl start
+ *                              pending.
  * @pending_kickoff_wq:		Wait queue for blocking until kickoff completes
  */
 struct sde_encoder_phys {
@@ -219,12 +231,14 @@ struct sde_encoder_phys {
 	atomic_t vblank_refcount;
 	atomic_t vsync_cnt;
 	atomic_t underrun_cnt;
+	atomic_t pending_ctlstart_cnt;
 	atomic_t pending_kickoff_cnt;
 	wait_queue_head_t pending_kickoff_wq;
 };
 
 static inline int sde_encoder_phys_inc_pending(struct sde_encoder_phys *phys)
 {
+	atomic_inc_return(&phys->pending_ctlstart_cnt);
 	return atomic_inc_return(&phys->pending_kickoff_cnt);
 }
 
@@ -263,7 +277,6 @@ struct sde_encoder_phys_vid {
  */
 struct sde_encoder_phys_cmd {
 	struct sde_encoder_phys base;
-	int intf_idx;
 	int stream_sel;
 	int irq_idx[INTR_IDX_MAX];
 	struct sde_irq_callback irq_cb[INTR_IDX_MAX];
@@ -419,8 +432,7 @@ static inline enum sde_3d_blend_mode sde_encoder_helper_get_3d_blend_mode(
 
 	topology = sde_connector_get_topology_name(phys_enc->connector);
 	if (phys_enc->split_role == ENC_ROLE_SOLO &&
-			topology == SDE_RM_TOPOLOGY_DUALPIPEMERGE &&
-			phys_enc->comp_type == MSM_DISPLAY_COMPRESSION_NONE)
+			topology == SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE)
 		return BLEND_3D_H_ROW_INT;
 
 	return BLEND_3D_NONE;

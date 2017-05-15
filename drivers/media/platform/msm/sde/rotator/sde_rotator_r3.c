@@ -52,8 +52,8 @@
 
 /* default stream buffer headroom in lines */
 #define DEFAULT_SBUF_HEADROOM	20
-#define DEFAULT_UBWC_MALSIZE	1
-#define DEFAULT_UBWC_SWIZZLE	1
+#define DEFAULT_UBWC_MALSIZE	0
+#define DEFAULT_UBWC_SWIZZLE	0
 
 #define DEFAULT_MAXLINEWIDTH	4096
 
@@ -3082,9 +3082,9 @@ int sde_rotator_r3_init(struct sde_rot_mgr *mgr)
 		goto error_hw_rev_init;
 
 	/* set rotator CBCR to shutoff memory/periphery on clock off.*/
-	clk_set_flags(mgr->rot_clk[SDE_ROTATOR_CLK_ROT_CORE].clk,
+	clk_set_flags(mgr->rot_clk[SDE_ROTATOR_CLK_MDSS_ROT].clk,
 			CLKFLAG_NORETAIN_MEM);
-	clk_set_flags(mgr->rot_clk[SDE_ROTATOR_CLK_ROT_CORE].clk,
+	clk_set_flags(mgr->rot_clk[SDE_ROTATOR_CLK_MDSS_ROT].clk,
 			CLKFLAG_NORETAIN_PERIPH);
 
 	mdata->sde_rot_hw = rot;

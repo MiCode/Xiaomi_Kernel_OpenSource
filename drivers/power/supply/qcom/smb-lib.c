@@ -1635,6 +1635,13 @@ int smblib_get_prop_system_temp_level(struct smb_charger *chg,
 	return 0;
 }
 
+int smblib_get_prop_system_temp_level_max(struct smb_charger *chg,
+				union power_supply_propval *val)
+{
+	val->intval = chg->thermal_levels;
+	return 0;
+}
+
 int smblib_get_prop_input_current_limited(struct smb_charger *chg,
 				union power_supply_propval *val)
 {

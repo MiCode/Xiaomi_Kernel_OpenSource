@@ -408,6 +408,7 @@ struct dsi_display_mode {
 	u32 pixel_clk_khz;
 	enum dsi_op_mode panel_mode;
 	u32 dsi_mode_flags;
+	struct msm_mode_info *mode_info;
 };
 
 #endif /* _DSI_DEFS_H_ */

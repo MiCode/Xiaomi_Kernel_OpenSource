@@ -1243,7 +1243,7 @@ static int dsi_display_clocks_init(struct dsi_display *display)
 	mux->byte_clk = devm_clk_get(&display->pdev->dev, "mux_byte_clk");
 	if (IS_ERR_OR_NULL(mux->byte_clk)) {
 		rc = PTR_ERR(mux->byte_clk);
-		pr_err("failed to get mux_byte_clk, rc=%d\n", rc);
+		pr_debug("failed to get mux_byte_clk, rc=%d\n", rc);
 		mux->byte_clk = NULL;
 		/*
 		 * Skip getting rest of clocks since one failed. This is a
@@ -1258,7 +1258,7 @@ static int dsi_display_clocks_init(struct dsi_display *display)
 	if (IS_ERR_OR_NULL(mux->pixel_clk)) {
 		rc = PTR_ERR(mux->pixel_clk);
 		mux->pixel_clk = NULL;
-		pr_err("failed to get mux_pixel_clk, rc=%d\n", rc);
+		pr_debug("failed to get mux_pixel_clk, rc=%d\n", rc);
 		/*
 		 * Skip getting rest of clocks since one failed. This is a
 		 * non-critical failure since these clocks are requied only for
@@ -1373,6 +1373,11 @@ int dsi_pre_clkoff_cb(void *priv,
 			if (rc)
 				pr_err("%s: Failed to enable dsi clamps. rc=%d\n",
 					__func__, rc);
+
+			rc = dsi_display_phy_reset_config(display, false);
+			if (rc)
+				pr_err("%s: Failed to reset phy, rc=%d\n",
+						__func__, rc);
 		} else {
 			/* Make sure that controller is not in ULPS state when
 			 * the DSI link is not active.
@@ -1426,6 +1431,13 @@ int dsi_post_clkon_cb(void *priv,
 					__func__, rc);
 				goto error;
 			}
+		}
+
+		rc = dsi_display_phy_reset_config(display, true);
+		if (rc) {
+			pr_err("%s: Failed to reset phy, rc=%d\n",
+						__func__, rc);
+			goto error;
 		}
 
 		rc = dsi_display_set_clamp(display, false);
@@ -1558,7 +1570,7 @@ static int dsi_display_parse_lane_map(struct dsi_display *display)
 			display->lane_map.lane_map_v2[i] = BIT(temp[i]);
 		return 0;
 	} else if (rc != EINVAL) {
-		pr_warn("Incorrect mapping, configure default\n");
+		pr_debug("Incorrect mapping, configure default\n");
 		goto set_default;
 	}
 
@@ -2730,6 +2742,8 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 		break;
 	case DSI_OP_CMD_MODE:
 		info->capabilities |= MSM_DISPLAY_CAP_CMD_MODE;
+		info->is_te_using_watchdog_timer =
+			display->panel->te_using_watchdog_timer;
 		break;
 	default:
 		pr_err("unknwown dsi panel mode %d\n",
@@ -2973,18 +2987,11 @@ int dsi_display_prepare(struct dsi_display *display)
 		goto error_phy_disable;
 	}
 
-	rc = dsi_display_phy_reset_config(display, true);
-	if (rc) {
-		pr_err("[%s] failed to setup DSI controller, rc=%d\n",
-		       display->name, rc);
-		goto error_ctrl_deinit;
-	}
-
 	rc = dsi_display_set_clk_src(display);
 	if (rc) {
 		pr_err("[%s] failed to set DSI link clock source, rc=%d\n",
 			display->name, rc);
-		goto error_phy_reset_off;
+		goto error_ctrl_deinit;
 	}
 
 	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
@@ -2992,7 +2999,7 @@ int dsi_display_prepare(struct dsi_display *display)
 	if (rc) {
 		pr_err("[%s] failed to enable DSI link clocks, rc=%d\n",
 		       display->name, rc);
-		goto error_phy_reset_off;
+		goto error_ctrl_deinit;
 	}
 
 	rc = dsi_display_ctrl_host_enable(display);
@@ -3015,8 +3022,6 @@ error_host_engine_off:
 error_ctrl_link_off:
 	(void)dsi_display_clk_ctrl(display->dsi_clk_handle,
 			DSI_LINK_CLK, DSI_CLK_OFF);
-error_phy_reset_off:
-	(void)dsi_display_phy_reset_config(display, false);
 error_ctrl_deinit:
 	(void)dsi_display_ctrl_deinit(display);
 error_phy_disable:
@@ -3110,6 +3115,11 @@ int dsi_display_post_enable(struct dsi_display *display)
 		pr_err("[%s] panel post-enable failed, rc=%d\n",
 		       display->name, rc);
 
+	/* remove the clk vote for CMD mode panels */
+	if (display->config.panel_mode == DSI_OP_CMD_MODE)
+		dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_ALL_CLKS, DSI_CLK_OFF);
+
 	mutex_unlock(&display->display_lock);
 	return rc;
 }
@@ -3124,6 +3134,11 @@ int dsi_display_pre_disable(struct dsi_display *display)
 	}
 
 	mutex_lock(&display->display_lock);
+
+	/* enable the clk vote for CMD mode panels */
+	if (display->config.panel_mode == DSI_OP_CMD_MODE)
+		dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_ALL_CLKS, DSI_CLK_ON);
 
 	rc = dsi_panel_pre_disable(display->panel);
 	if (rc)
@@ -3231,11 +3246,6 @@ int dsi_display_unprepare(struct dsi_display *display)
 	rc = dsi_display_phy_disable(display);
 	if (rc)
 		pr_err("[%s] failed to disable DSI PHY, rc=%d\n",
-		       display->name, rc);
-
-	rc = dsi_display_phy_reset_config(display, false);
-	if (rc)
-		pr_err("[%s] failed to disable DSI PHY reset config, rc=%d\n",
 		       display->name, rc);
 
 	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,

@@ -164,6 +164,8 @@ enum msm_mdp_conn_property {
 	/* enum/bitmask properties */
 	CONNECTOR_PROP_TOPOLOGY_NAME,
 	CONNECTOR_PROP_TOPOLOGY_CONTROL,
+	CONNECTOR_PROP_AUTOREFRESH,
+	CONNECTOR_PROP_LP,
 
 	/* total # of properties */
 	CONNECTOR_PROP_COUNT
@@ -353,6 +355,26 @@ struct msm_compression_info {
 };
 
 /**
+ * struct msm_display_topology - defines a display topology pipeline
+ * @num_lm:       number of layer mixers used
+ * @num_enc:      number of compression encoder blocks used
+ * @num_intf:     number of interfaces the panel is mounted on
+ */
+struct msm_display_topology {
+	u32 num_lm;
+	u32 num_enc;
+	u32 num_intf;
+};
+
+/**
+ * struct msm_mode_info - defines all msm custom mode info
+ * @topology - supported topology for the mode
+ */
+struct msm_mode_info {
+	struct msm_display_topology topology;
+};
+
+/**
  * struct msm_display_info - defines display properties
  * @intf_type:          DRM_MODE_CONNECTOR_ display type
  * @capabilities:       Bitmask of display flags
@@ -367,6 +389,8 @@ struct msm_compression_info {
  * @max_height:         Max height of display. In case of hot pluggable display
  *                      this is max height supported by controller
  * @is_primary:         Set to true if display is primary display
+ * @is_te_using_watchdog_timer:  Boolean to indicate watchdog TE is
+ *				 used instead of panel TE in cmd mode panels
  * @frame_rate:		Display frame rate
  * @prefill_lines:	prefill lines based on porches.
  * @vtotal:		display vertical total
@@ -390,6 +414,7 @@ struct msm_display_info {
 	uint32_t max_height;
 
 	bool is_primary;
+	bool is_te_using_watchdog_timer;
 	uint32_t frame_rate;
 	uint32_t prefill_lines;
 	uint32_t vtotal;

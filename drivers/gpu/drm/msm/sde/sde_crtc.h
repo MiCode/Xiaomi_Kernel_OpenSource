@@ -138,6 +138,7 @@ struct sde_crtc_event {
  * @event_free_list : List of available event structures
  * @event_lock    : Spinlock around event handling code
  * @misr_enable   : boolean entry indicates misr enable/disable status.
+ * @power_event   : registered power event handle
  */
 struct sde_crtc {
 	struct drm_crtc base;
@@ -187,6 +188,8 @@ struct sde_crtc {
 	struct list_head event_free_list;
 	spinlock_t event_lock;
 	bool misr_enable;
+
+	struct sde_power_event *power_event;
 };
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)
@@ -248,9 +251,9 @@ struct sde_crtc_respool {
  * @num_connectors: Number of associated drm connectors
  * @intf_mode     : Interface mode of the primary connector
  * @rsc_client    : sde rsc client when mode is valid
- * @lm_bounds     : LM boundaries based on current mode full resolution, no ROI.
- *                  Origin top left of CRTC.
  * @crtc_roi      : Current CRTC ROI. Possibly sub-rectangle of mode.
+ *                  Origin top left of CRTC.
+ * @lm_bounds     : LM boundaries based on current mode full resolution, no ROI.
  *                  Origin top left of CRTC.
  * @lm_roi        : Current LM ROI, possibly sub-rectangle of mode.
  *                  Origin top left of CRTC.
@@ -274,8 +277,8 @@ struct sde_crtc_state {
 	struct sde_rsc_client *rsc_client;
 	bool rsc_update;
 
-	struct sde_rect lm_bounds[CRTC_DUAL_MIXERS];
 	struct sde_rect crtc_roi;
+	struct sde_rect lm_bounds[CRTC_DUAL_MIXERS];
 	struct sde_rect lm_roi[CRTC_DUAL_MIXERS];
 	struct msm_roi_list user_roi_list;
 
@@ -313,6 +316,21 @@ static inline int sde_crtc_mixer_width(struct sde_crtc *sde_crtc,
 
 	return  sde_crtc->num_mixers == CRTC_DUAL_MIXERS ?
 		mode->hdisplay / CRTC_DUAL_MIXERS : mode->hdisplay;
+}
+
+/**
+ * sde_crtc_frame_pending - retun the number of pending frames
+ * @crtc: Pointer to drm crtc object
+ */
+static inline int sde_crtc_frame_pending(struct drm_crtc *crtc)
+{
+	struct sde_crtc *sde_crtc;
+
+	if (!crtc)
+		return -EINVAL;
+
+	sde_crtc = to_sde_crtc(crtc);
+	return atomic_read(&sde_crtc->frame_pending);
 }
 
 /**

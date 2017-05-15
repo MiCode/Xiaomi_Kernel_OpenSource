@@ -661,6 +661,10 @@ struct cpr3_panic_regs_info {
  * @acd_adj_up_step_size: ACD step size in units of PMIC steps used for
  *			target quotient adjustment due to an ACD up
  *			recommendation.
+ * @acd_notwait_for_cl_settled: Boolean which indicates ACD down recommendations
+ *			do not need to wait for CPR closed-loop to settle.
+ * @acd_adj_avg_fast_update: Boolean which indicates if CPR should issue
+ *			immediate voltage updates on ACD requests.
  * @acd_avg_enabled:	Boolean defining the enable state of the ACD AVG
  *			feature.
  * @count_mode:		CPR controller count mode
@@ -756,6 +760,12 @@ struct cpr3_panic_regs_info {
  * @panic_notifier:	Notifier block registered to global panic notifier list.
  * @support_ldo300_vreg: Boolean value which indicates that this CPR controller
  *			manages an underlying LDO regulator of type LDO300.
+ * @reset_step_quot_loop_en: Boolean value which indicates that this CPR
+ *			controller should be configured to reset step_quot on
+ *			each loop_en = 0 transition. This configuration allows
+ *			the CPR controller to first use the default step_quot
+ *			and then later switch to the run-time calibrated
+ *			step_quot.
  *
  * This structure contains both configuration and runtime state data.  The
  * elements cpr_allowed_sw, use_hw_closed_loop, aggr_corner, cpr_enabled,
@@ -822,6 +832,8 @@ struct cpr3_controller {
 	u32			acd_adj_up_step_limit;
 	u32			acd_adj_down_step_size;
 	u32			acd_adj_up_step_size;
+	bool			acd_notwait_for_cl_settled;
+	bool			acd_adj_avg_fast_update;
 	bool			acd_avg_enabled;
 	enum cpr3_count_mode	count_mode;
 	u32			count_repeat;
@@ -866,6 +878,7 @@ struct cpr3_controller {
 	struct cpr3_panic_regs_info *panic_regs_info;
 	struct notifier_block	panic_notifier;
 	bool			support_ldo300_vreg;
+	bool			reset_step_quot_loop_en;
 };
 
 /* Used for rounding voltages to the closest physically available set point. */
