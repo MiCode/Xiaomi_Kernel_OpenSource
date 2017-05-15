@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  */
 
-
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/of.h>
@@ -24,6 +23,7 @@
 #include "cam_isp_dev.h"
 #include "cam_isp_log.h"
 #include "cam_hw_mgr_intf.h"
+#include "cam_isp_hw_mgr_intf.h"
 #include "cam_node.h"
 
 static struct cam_isp_dev g_isp_dev;
@@ -72,7 +72,12 @@ static int cam_isp_dev_probe(struct platform_device *pdev)
 	}
 	node = (struct cam_node *) g_isp_dev.sd.token;
 
-	/* Initialize the context list */
+	rc = cam_isp_hw_mgr_init(pdev->dev.of_node, &hw_mgr_intf);
+	if (rc != 0) {
+		pr_err("%s: Can not initialized ISP HW manager!\n", __func__);
+		goto unregister;
+	}
+
 	for (i = 0; i < CAM_CTX_MAX; i++) {
 		rc = cam_isp_context_init(&g_isp_dev.ctx_isp[i],
 			&g_isp_dev.ctx[i],
@@ -84,7 +89,6 @@ static int cam_isp_dev_probe(struct platform_device *pdev)
 		}
 	}
 
-	/* Initialize the cam node */
 	rc = cam_node_init(node, &hw_mgr_intf, g_isp_dev.ctx, CAM_CTX_MAX,
 		CAM_ISP_DEV_NAME);
 	if (rc) {
@@ -126,4 +130,3 @@ module_init(cam_isp_dev_init_module);
 module_exit(cam_isp_dev_exit_module);
 MODULE_DESCRIPTION("MSM ISP driver");
 MODULE_LICENSE("GPL v2");
-
