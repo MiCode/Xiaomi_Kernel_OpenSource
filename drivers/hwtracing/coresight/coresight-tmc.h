@@ -183,6 +183,7 @@ struct tmc_drvdata {
 	struct usb_qdss_ch	*usbch;
 	struct tmc_etr_bam_data	*bamdata;
 	bool			enable_to_bam;
+	bool			sticky_enable;
 
 };
 
