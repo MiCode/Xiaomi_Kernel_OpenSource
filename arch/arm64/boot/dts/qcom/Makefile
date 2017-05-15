@@ -14,6 +14,15 @@ dtb-$(CONFIG_ARCH_SDM845) += sdm845-sim.dtb \
 	sdm845-4k-panel-cdp.dtb \
 	sdm845-4k-panel-qrd.dtb
 
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+	dtbo-$(CONFIG_ARCH_SDM845) += \
+		sdm845-cdp-overlay.dtbo \
+		sdm845-mtp-overlay.dtbo
+
+sdm845-cdp-overlay.dtbo-base := sdm845.dtb
+sdm845-mtp-overlay.dtbo-base := sdm845.dtb
+endif
+
 dtb-$(CONFIG_ARCH_SDM830) += sdm830-sim.dtb \
 	sdm830-rumi.dtb \
 	sdm830-mtp.dtb \
