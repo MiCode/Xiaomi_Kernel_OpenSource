@@ -1877,6 +1877,7 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,support-bus-scaling;
 		qcom,support-fde;
+		qcom,appsbl-qseecom-support;
 		qcom,msm-bus,vectors-KBps =
 				<55 512 0 0>,
 				<55 512 0 0>,
