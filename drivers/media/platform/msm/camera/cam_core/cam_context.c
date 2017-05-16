@@ -358,4 +358,3 @@ int cam_context_deinit(struct cam_context *ctx)
 
 	return 0;
 }
-
