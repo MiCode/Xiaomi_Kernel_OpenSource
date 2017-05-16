@@ -670,10 +670,10 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 	cam_io_w(0xf, common_data->mem_base + rsrc_data->hw_regs->burst_limit);
 
 	if (rsrc_data->index < 3) {
-		width = rsrc_data->width * 5/4;
+		width = rsrc_data->width * 5/4 * rsrc_data->height;
 		height = 1;
 		pack_fmt = 0x0;
-		stride = rsrc_data->width * 5/4;
+		stride = rsrc_data->width * 5/4 * rsrc_data->height;
 		en_cfg = 0x3;
 	} else if (rsrc_data->index < 5) {
 		width = rsrc_data->width;

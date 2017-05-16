@@ -235,12 +235,12 @@ int cam_vfe_top_release(void *device_priv,
 	top_priv = (struct cam_vfe_top_ver2_priv   *)device_priv;
 	mux_res = (struct cam_isp_resource_node *)release_args;
 
-	if (mux_res->res_state != CAM_ISP_RESOURCE_STATE_RESERVED) {
+	CDBG("%s: Resource in state %d\n", __func__, mux_res->res_state);
+	if (mux_res->res_state < CAM_ISP_RESOURCE_STATE_RESERVED) {
 		pr_err("Error! Resource in Invalid res_state :%d\n",
 			mux_res->res_state);
 		return -EINVAL;
 	}
-
 	mux_res->res_state = CAM_ISP_RESOURCE_STATE_AVAILABLE;
 
 	return 0;
@@ -290,12 +290,10 @@ int cam_vfe_top_stop(void *device_priv,
 	top_priv = (struct cam_vfe_top_ver2_priv   *)device_priv;
 	mux_res = (struct cam_isp_resource_node *)stop_args;
 
-	if (mux_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF) {
+	if (mux_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF ||
+		(mux_res->res_id >= CAM_ISP_HW_VFE_IN_RDI0 &&
+		mux_res->res_id <= CAM_ISP_HW_VFE_IN_RDI3)) {
 		rc = mux_res->stop(mux_res);
-	} else if (mux_res->res_id >= CAM_ISP_HW_VFE_IN_RDI0 &&
-		mux_res->res_id <= CAM_ISP_HW_VFE_IN_RDI3) {
-		mux_res->res_state = CAM_ISP_RESOURCE_STATE_STREAMING;
-		rc = 0;
 	} else {
 		pr_err("Invalid res id:%d\n", mux_res->res_id);
 		rc = -EINVAL;
