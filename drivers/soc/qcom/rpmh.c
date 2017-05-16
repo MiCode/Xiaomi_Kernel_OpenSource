@@ -463,6 +463,9 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 	unsigned long flags;
 	struct rpmh_mbox *rpm;
 
+	if (IS_ERR_OR_NULL(rc) || !cmd || !n)
+		return -EINVAL;
+
 	if (rpmh_standalone)
 		return 0;
 
@@ -478,7 +481,7 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 	while (n[count++])
 		;
 	count--;
-	if (count >= RPMH_MAX_REQ_IN_BATCH)
+	if (!count || count >= RPMH_MAX_REQ_IN_BATCH)
 		return -EINVAL;
 
 	if (state == RPMH_ACTIVE_ONLY_STATE || state == RPMH_AWAKE_STATE) {
