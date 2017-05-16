@@ -1318,6 +1318,12 @@ struct ipa3_plat_drv_res {
  * +-------------------------+
  * |    CANARY               |
  * +-------------------------+
+ * | PDN CONFIG              |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
+ * |    CANARY               |
+ * +-------------------------+
  * |  MODEM MEM              |
  * +-------------------------+
  * |    CANARY               |
@@ -1398,6 +1404,8 @@ struct ipa3_mem_partition {
 	u32 apps_v6_rt_nhash_size;
 	u32 uc_event_ring_ofst;
 	u32 uc_event_ring_size;
+	u32 pdn_config_ofst;
+	u32 pdn_config_size;
 };
 
 struct ipa3_controller {
@@ -1827,6 +1835,7 @@ int __ipa3_del_hdr(u32 hdr_hdl, bool by_user);
 int __ipa3_release_hdr(u32 hdr_hdl);
 int __ipa3_release_hdr_proc_ctx(u32 proc_ctx_hdl);
 int _ipa_read_ep_reg_v3_0(char *buf, int max_len, int pipe);
+int _ipa_read_ep_reg_v4_0(char *buf, int max_len, int pipe);
 void _ipa_enable_clks_v3_0(void);
 void _ipa_disable_clks_v3_0(void);
 struct device *ipa3_get_dma_dev(void);

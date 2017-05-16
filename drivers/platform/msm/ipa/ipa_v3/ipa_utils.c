@@ -42,6 +42,7 @@
 #define IPA_FORCE_CLOSE_TAG_PROCESS_TIMEOUT (10 * HZ)
 #define IPA_BCR_REG_VAL_v3_0 (0x00000001)
 #define IPA_BCR_REG_VAL_v3_5 (0x0000003B)
+#define IPA_BCR_REG_VAL_v4_0 (0x00000039)
 #define IPA_AGGR_GRAN_MIN (1)
 #define IPA_AGGR_GRAN_MAX (32)
 #define IPA_EOT_COAL_GRAN_MIN (1)
@@ -62,8 +63,6 @@
 /* configure IPA spare register 1 in order to have correct IPA version
  * set bits 0,2,3 and 4. see SpareBits documentation.xlsx
  */
-#define IPA_SPARE_REG_1_VAL (0x0000081D)
-
 
 /* HPS, DPS sequencers Types*/
 #define IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY  0x00000000
@@ -170,6 +169,7 @@ enum ipa_ver {
 	IPA_3_5,
 	IPA_3_5_MHI,
 	IPA_3_5_1,
+	IPA_4_0,
 	IPA_VER_MAX,
 };
 
@@ -1587,16 +1587,22 @@ int ipa3_cfg_filter(u32 disable)
  */
 void ipa3_cfg_qsb(void)
 {
-	int qsb_max_writes[2] = { 8, 2 };
-	int qsb_max_reads[2] = { 8, 8 };
+	struct ipahal_reg_qsb_max_reads max_reads = { 0 };
+	struct ipahal_reg_qsb_max_writes max_writes = { 0 };
+
+	max_reads.qmb_0_max_reads = 8,
+	max_reads.qmb_1_max_reads = 8,
+
+	max_writes.qmb_0_max_writes = 8;
+	max_writes.qmb_1_max_writes = 2;
 
 	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5) {
-		qsb_max_writes[1] = 4;
-		qsb_max_reads[1] = 12;
+		max_writes.qmb_1_max_writes = 4;
+		max_reads.qmb_1_max_reads = 12;
 	}
 
-	ipahal_write_reg_fields(IPA_QSB_MAX_WRITES, qsb_max_writes);
-	ipahal_write_reg_fields(IPA_QSB_MAX_READS, qsb_max_reads);
+	ipahal_write_reg_fields(IPA_QSB_MAX_WRITES, &max_writes);
+	ipahal_write_reg_fields(IPA_QSB_MAX_READS, &max_reads);
 }
 
 /**
@@ -1623,6 +1629,9 @@ int ipa3_init_hw(void)
 	case IPA_HW_v3_5:
 	case IPA_HW_v3_5_1:
 		val = IPA_BCR_REG_VAL_v3_5;
+		break;
+	case IPA_HW_v4_0:
+		val = IPA_BCR_REG_VAL_v4_0;
 		break;
 	default:
 		IPAERR("unknown HW type in dts\n");
@@ -1662,6 +1671,9 @@ u8 ipa3_get_hw_type_index(void)
 		break;
 	case IPA_HW_v3_5_1:
 		hw_type_index = IPA_3_5_1;
+		break;
+	case IPA_HW_v4_0:
+		hw_type_index = IPA_4_0;
 		break;
 	default:
 		IPAERR("Incorrect IPA version %d\n", ipa3_ctx->ipa_hw_type);
@@ -2573,12 +2585,15 @@ int ipa3_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ep_route)
 	ipa3_ctx->ep[clnt_hdl].rt_tbl_idx =
 		IPA_MEM_PART(v4_apps_rt_index_lo);
 
-	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) {
+		IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
-	init_rt.route_table_index = ipa3_ctx->ep[clnt_hdl].rt_tbl_idx;
-	ipahal_write_reg_n_fields(IPA_ENDP_INIT_ROUTE_n, clnt_hdl, &init_rt);
+		init_rt.route_table_index = ipa3_ctx->ep[clnt_hdl].rt_tbl_idx;
+		ipahal_write_reg_n_fields(IPA_ENDP_INIT_ROUTE_n,
+			clnt_hdl, &init_rt);
 
-	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
+		IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
+	}
 
 	return 0;
 }
@@ -2815,11 +2830,18 @@ int ipa3_set_aggr_mode(enum ipa_aggr_mode mode)
 {
 	struct ipahal_reg_qcncm qcncm;
 
-	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-	ipahal_read_reg_fields(IPA_QCNCM, &qcncm);
-	qcncm.mode_en = mode;
-	ipahal_write_reg_fields(IPA_QCNCM, &qcncm);
-	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+		if (mode != IPA_MBIM_AGGR) {
+			IPAERR("Only MBIM mode is supported staring 4.0\n");
+			return -EPERM;
+		}
+	} else {
+		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+		ipahal_read_reg_fields(IPA_QCNCM, &qcncm);
+		qcncm.mode_en = mode;
+		ipahal_write_reg_fields(IPA_QCNCM, &qcncm);
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+	}
 
 	return 0;
 }
@@ -2838,6 +2860,11 @@ int ipa3_set_aggr_mode(enum ipa_aggr_mode mode)
 int ipa3_set_qcncm_ndp_sig(char sig[3])
 {
 	struct ipahal_reg_qcncm qcncm;
+
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+		IPAERR("QCNCM mode is not supported staring 4.0\n");
+		return -EPERM;
+	}
 
 	if (sig == NULL) {
 		IPAERR("bad argument for ipa3_set_qcncm_ndp_sig/n");
@@ -2862,6 +2889,11 @@ int ipa3_set_qcncm_ndp_sig(char sig[3])
 int ipa3_set_single_ndp_per_mbim(bool enable)
 {
 	struct ipahal_reg_single_ndp_mode mode;
+
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+		IPAERR("QCNCM mode is not supported staring 4.0\n");
+		return -EPERM;
+	}
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	ipahal_read_reg_fields(IPA_SINGLE_NDP_MODE, &mode);
@@ -2910,12 +2942,12 @@ int ipa3_straddle_boundary(u32 start, u32 end, u32 boundary)
  */
 int ipa3_init_mem_partition(struct device_node *node)
 {
-	const size_t ram_mmap_v3_0_size = 70;
-	const size_t ram_mmap_v3_5_size = 72;
 	const size_t ram_mmap_current_version_size =
 		sizeof(ipa3_ctx->ctrl->mem_partition) / sizeof(u32);
-	const size_t version = ipa_get_hw_type();
 	int result;
+
+	memset(&ipa3_ctx->ctrl->mem_partition, 0,
+		sizeof(ipa3_ctx->ctrl->mem_partition));
 
 	IPADBG("Reading from DTS as u32 array\n");
 
@@ -2925,39 +2957,21 @@ int ipa3_init_mem_partition(struct device_node *node)
 	 * mismatch. The size of the array monotonically increasing because the
 	 * obsolete entries are set to zero rather than deleted, so the
 	 * possible sizes are in range
-	 *	[ram_mmap_v3_0_size, ram_mmap_current_version_size]
+	 *	[1, ram_mmap_current_version_size]
 	 */
 	result = of_property_read_variable_u32_array(node, "qcom,ipa-ram-mmap",
 		(u32 *)&ipa3_ctx->ctrl->mem_partition,
-		ram_mmap_v3_0_size, ram_mmap_current_version_size);
+		1, ram_mmap_current_version_size);
 
-	if (result <= 0) {
-		IPAERR("Read operation failed\n");
+	if (IPA_MEM_PART(uc_event_ring_ofst) & 1023) {
+		IPAERR("UC EVENT RING OFST 0x%x is unaligned\n",
+			IPA_MEM_PART(uc_event_ring_ofst));
 		return -ENODEV;
 	}
-	if (version < IPA_HW_v3_0)
-		ipa_assert();
-	if (version < IPA_HW_v3_5) {
-		if (result != ram_mmap_v3_0_size) {
-			IPAERR("Mismatch at IPA RAM MMAP DTS entry\n");
-			return -ENODEV;
-		}
-	} else {
-		if (result != ram_mmap_v3_5_size) {
-			IPAERR("Mismatch at IPA RAM MMAP DTS entry\n");
-			return -ENODEV;
-		}
 
-		if (IPA_MEM_PART(uc_event_ring_ofst) & 1023) {
-			IPAERR("UC EVENT RING OFST 0x%x is unaligned\n",
-				IPA_MEM_PART(uc_event_ring_ofst));
-			return -ENODEV;
-		}
-
-		IPADBG("UC EVENT RING OFST 0x%x SIZE 0x%x\n",
-			IPA_MEM_PART(uc_event_ring_ofst),
-			IPA_MEM_PART(uc_event_ring_size));
-	}
+	IPADBG("UC EVENT RING OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(uc_event_ring_ofst),
+		IPA_MEM_PART(uc_event_ring_size));
 
 	IPADBG("NAT OFST 0x%x SIZE 0x%x\n", IPA_MEM_PART(nat_ofst),
 		IPA_MEM_PART(nat_size));
@@ -3126,6 +3140,16 @@ int ipa3_init_mem_partition(struct device_node *node)
 		IPA_MEM_PART(apps_hdr_proc_ctx_size),
 		IPA_MEM_PART(apps_hdr_proc_ctx_size_ddr));
 
+	if (IPA_MEM_PART(pdn_config_ofst) & 7) {
+		IPAERR("PDN CONFIG OFST 0x%x is unaligned\n",
+			IPA_MEM_PART(pdn_config_ofst));
+		return -ENODEV;
+	}
+
+	IPADBG("PDN CONFIG OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(pdn_config_ofst),
+		IPA_MEM_PART(pdn_config_size));
+
 	if (IPA_MEM_PART(modem_ofst) & 7) {
 		IPAERR("MODEM OFST 0x%x is unaligned\n",
 			IPA_MEM_PART(modem_ofst));
@@ -3207,8 +3231,10 @@ int ipa3_controller_static_bind(struct ipa3_controller *ctrl,
 	ctrl->ipa_reg_base_ofst = ipahal_get_reg_base();
 	ctrl->ipa_init_sram = _ipa_init_sram_v3;
 	ctrl->ipa_sram_read_settings = _ipa_sram_settings_read_v3_0;
-
 	ctrl->ipa_init_hdr = _ipa_init_hdr_v3_0;
+
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
+		ctrl->ipa3_read_ep_reg = _ipa_read_ep_reg_v4_0;
 
 	return 0;
 }
@@ -4565,6 +4591,7 @@ bool ipa3_is_msm_device(void)
 	switch (ipa3_ctx->ipa_hw_type) {
 	case IPA_HW_v3_0:
 	case IPA_HW_v3_5:
+	case IPA_HW_v4_0:
 		return false;
 	case IPA_HW_v3_1:
 	case IPA_HW_v3_5_1:

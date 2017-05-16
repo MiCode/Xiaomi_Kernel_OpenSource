@@ -244,6 +244,38 @@ int _ipa_read_ep_reg_v3_0(char *buf, int max_len, int pipe)
 		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_CFG_n, pipe));
 }
 
+/**
+ * _ipa_read_ep_reg_v4_0() - Reads and prints endpoint configuration registers
+ *
+ * Returns the number of characters printed
+ * Removed IPA_ENDP_INIT_ROUTE_n from v3
+ */
+int _ipa_read_ep_reg_v4_0(char *buf, int max_len, int pipe)
+{
+	return scnprintf(
+		dbg_buff, IPA_MAX_MSG_LEN,
+		"IPA_ENDP_INIT_NAT_%u=0x%x\n"
+		"IPA_ENDP_INIT_HDR_%u=0x%x\n"
+		"IPA_ENDP_INIT_HDR_EXT_%u=0x%x\n"
+		"IPA_ENDP_INIT_MODE_%u=0x%x\n"
+		"IPA_ENDP_INIT_AGGR_%u=0x%x\n"
+		"IPA_ENDP_INIT_CTRL_%u=0x%x\n"
+		"IPA_ENDP_INIT_HOL_EN_%u=0x%x\n"
+		"IPA_ENDP_INIT_HOL_TIMER_%u=0x%x\n"
+		"IPA_ENDP_INIT_DEAGGR_%u=0x%x\n"
+		"IPA_ENDP_INIT_CFG_%u=0x%x\n",
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_NAT_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_HDR_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_HDR_EXT_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_MODE_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_AGGR_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_CTRL_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_HOL_BLOCK_EN_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_HOL_BLOCK_TIMER_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_DEAGGR_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_CFG_n, pipe));
+}
+
 static ssize_t ipa3_read_ep_reg(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
@@ -1381,6 +1413,11 @@ static ssize_t ipa3_write_dbg_cnt(struct file *file, const char __user *buf,
 	u32 option = 0;
 	struct ipahal_reg_debug_cnt_ctrl dbg_cnt_ctrl;
 
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+		IPAERR("IPA_DEBUG_CNT_CTRL is not supported in IPA 4.0\n");
+		return -EPERM;
+	}
+
 	if (sizeof(dbg_buff) < count + 1)
 		return -EFAULT;
 
@@ -1415,6 +1452,11 @@ static ssize_t ipa3_read_dbg_cnt(struct file *file, char __user *ubuf,
 {
 	int nbytes;
 	u32 regval;
+
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+		IPAERR("IPA_DEBUG_CNT_REG is not supported in IPA 4.0\n");
+		return -EPERM;
+	}
 
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 	regval =
