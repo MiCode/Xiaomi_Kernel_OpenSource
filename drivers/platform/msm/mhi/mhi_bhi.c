@@ -249,6 +249,13 @@ int bhi_rddm(struct mhi_device_ctxt *mhi_dev_ctxt, bool in_panic)
 {
 	struct bhi_ctxt_t *bhi_ctxt = &mhi_dev_ctxt->bhi_ctxt;
 	struct bhie_vec_table *rddm_table = &bhi_ctxt->rddm_table;
+	struct bhie_mem_info *bhie_mem_info;
+	u32 rx_sequence, val, current_seq;
+	u32 timeout = (bhi_ctxt->poll_timeout * 1000) / BHIE_RDDM_DELAY_TIME_US;
+	int i;
+	u32 cur_exec, prev_exec = 0;
+	u32 state, prev_state = 0;
+	u32 rx_status, prev_status = 0;
 
 	if (!rddm_table->bhie_mem_info) {
 		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "RDDM table == NULL\n");
@@ -258,9 +265,93 @@ int bhi_rddm(struct mhi_device_ctxt *mhi_dev_ctxt, bool in_panic)
 	if (!in_panic)
 		return bhi_rddm_graceful(mhi_dev_ctxt);
 
-	mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
-		"RDDM collection in panic not yet supported\n");
-	return -EINVAL;
+	/*
+	 * Below code should only be executed during kernel panic,
+	 * we expect other cores to be shutting down while we're
+	 * executing rddm transfer. After returning from this function,
+	 * we expect device to reset.
+	 */
+
+	/* Trigger device into RDDM */
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "pm_state:0x%x mhi_state:%s\n",
+		mhi_dev_ctxt->mhi_pm_state,
+		TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state));
+	if (!MHI_REG_ACCESS_VALID(mhi_dev_ctxt->mhi_pm_state)) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"Register access not allowed\n");
+		return -EIO;
+	}
+
+	/*
+	 * Normally we only set mhi_pm_state after grabbing pm_xfer_lock as a
+	 * write, by function mhi_tryset_pm_state. Since we're in a kernel
+	 * panic, we will set pm state w/o grabbing xfer lock. We're setting
+	 * pm_state to LD as a safety precautions. If another core in middle
+	 * of register access this should deter it. However, there is no
+	 * no gurantee change will take effect.
+	 */
+	mhi_dev_ctxt->mhi_pm_state = MHI_PM_LD_ERR_FATAL_DETECT;
+	/* change should take effect immediately */
+	smp_wmb();
+
+	bhie_mem_info = &rddm_table->
+		bhie_mem_info[rddm_table->segment_count - 1];
+	rx_sequence = rddm_table->sequence++;
+
+	/* program the vector table */
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Programming RXVEC table\n");
+	val = HIGH_WORD(bhie_mem_info->phys_addr);
+	mhi_reg_write(mhi_dev_ctxt, bhi_ctxt->bhi_base,
+		      BHIE_RXVECADDR_HIGH_OFFS, val);
+	val = LOW_WORD(bhie_mem_info->phys_addr);
+	mhi_reg_write(mhi_dev_ctxt, bhi_ctxt->bhi_base, BHIE_RXVECADDR_LOW_OFFS,
+		      val);
+	val = (u32)bhie_mem_info->size;
+	mhi_reg_write(mhi_dev_ctxt, bhi_ctxt->bhi_base, BHIE_RXVECSIZE_OFFS,
+		      val);
+	mhi_reg_write_field(mhi_dev_ctxt, bhi_ctxt->bhi_base, BHIE_RXVECDB_OFFS,
+			    BHIE_TXVECDB_SEQNUM_BMSK, BHIE_TXVECDB_SEQNUM_SHFT,
+			    rx_sequence);
+
+	/* trigger device into rddm */
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Triggering Device into RDDM mode\n");
+	mhi_set_m_state(mhi_dev_ctxt, MHI_STATE_SYS_ERR);
+	i = 0;
+
+	while (timeout--) {
+		cur_exec = mhi_reg_read(bhi_ctxt->bhi_base, BHI_EXECENV);
+		state = mhi_get_m_state(mhi_dev_ctxt);
+		rx_status = mhi_reg_read(bhi_ctxt->bhi_base,
+					 BHIE_RXVECSTATUS_OFFS);
+		/* if reg. values changed or each sec (udelay(1000)) log it */
+		if (cur_exec != prev_exec || state != prev_state ||
+		    rx_status != prev_status || !(i & (SZ_1K - 1))) {
+			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+				"EXECENV:0x%x MHISTATE:0x%x RXSTATUS:0x%x\n",
+				cur_exec, state, rx_status);
+			prev_exec = cur_exec;
+			prev_state = state;
+			prev_status = rx_status;
+		};
+		current_seq = (rx_status & BHIE_TXVECSTATUS_SEQNUM_BMSK) >>
+			BHIE_TXVECSTATUS_SEQNUM_SHFT;
+		rx_status = (rx_status & BHIE_TXVECSTATUS_STATUS_BMSK) >>
+			BHIE_TXVECSTATUS_STATUS_SHFT;
+
+		if ((rx_status == BHIE_TXVECSTATUS_STATUS_XFER_COMPL) &&
+		    (current_seq == rx_sequence)) {
+			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+				"rddm transfer completed\n");
+			return 0;
+		}
+		udelay(BHIE_RDDM_DELAY_TIME_US);
+		i++;
+	}
+
+	mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR, "rddm transfer timeout\n");
+
+	return -EIO;
 }
 
 static int bhi_load_firmware(struct mhi_device_ctxt *mhi_dev_ctxt,

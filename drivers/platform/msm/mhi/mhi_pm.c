@@ -22,6 +22,22 @@
 #include "mhi_hwio.h"
 #include "mhi_bhi.h"
 
+static const char *const mhi_dev_ctrl_str[MHI_DEV_CTRL_MAXCMD] = {
+	[MHI_DEV_CTRL_INIT] = "INIT",
+	[MHI_DEV_CTRL_DE_INIT] = "DE-INIT",
+	[MHI_DEV_CTRL_SUSPEND] = "SUSPEND",
+	[MHI_DEV_CTRL_RESUME] = "RESUME",
+	[MHI_DEV_CTRL_POWER_OFF] = "OFF",
+	[MHI_DEV_CTRL_POWER_ON] = "ON",
+	[MHI_DEV_CTRL_TRIGGER_RDDM] = "TRIGGER RDDM",
+	[MHI_DEV_CTRL_RDDM] = "RDDM",
+	[MHI_DEV_CTRL_RDDM_KERNEL_PANIC] = "RDDM IN PANIC",
+	[MHI_DEV_CTRL_NOTIFY_LINK_ERROR] = "LD",
+};
+
+#define TO_MHI_DEV_CTRL_STR(cmd) ((cmd >= MHI_DEV_CTRL_MAXCMD) ? "INVALID" : \
+				  mhi_dev_ctrl_str[cmd])
+
 /* Write only sysfs attributes */
 static DEVICE_ATTR(MHI_M0, S_IWUSR, NULL, sysfs_init_m0);
 static DEVICE_ATTR(MHI_M3, S_IWUSR, NULL, sysfs_init_m3);
@@ -544,16 +560,16 @@ void mhi_link_state_cb(struct msm_pcie_notify *notify)
 	}
 }
 
-int mhi_pm_control_device(struct mhi_device *mhi_device,
-		       enum mhi_dev_ctrl ctrl)
+int mhi_pm_control_device(struct mhi_device *mhi_device, enum mhi_dev_ctrl ctrl)
 {
 	struct mhi_device_ctxt *mhi_dev_ctxt = mhi_device->mhi_dev_ctxt;
+	unsigned long flags;
 
 	if (!mhi_dev_ctxt)
 		return -EINVAL;
 
-	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-		"Entered with cmd:%d\n", ctrl);
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Entered with cmd:%s\n",
+		TO_MHI_DEV_CTRL_STR(ctrl));
 
 	switch (ctrl) {
 	case MHI_DEV_CTRL_INIT:
@@ -567,8 +583,23 @@ int mhi_pm_control_device(struct mhi_device *mhi_device,
 	case MHI_DEV_CTRL_POWER_OFF:
 		mhi_pm_slave_mode_power_off(mhi_dev_ctxt);
 		break;
+	case MHI_DEV_CTRL_TRIGGER_RDDM:
+		write_lock_irqsave(&mhi_dev_ctxt->pm_xfer_lock, flags);
+		if (!MHI_REG_ACCESS_VALID(mhi_dev_ctxt->mhi_pm_state)) {
+			write_unlock_irqrestore(&mhi_dev_ctxt->pm_xfer_lock,
+						flags);
+			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+				"failed to trigger rddm, no register access in state:0x%x\n",
+				mhi_dev_ctxt->mhi_pm_state);
+			return -EIO;
+		}
+		mhi_set_m_state(mhi_dev_ctxt, MHI_STATE_SYS_ERR);
+		write_unlock_irqrestore(&mhi_dev_ctxt->pm_xfer_lock, flags);
+		break;
 	case MHI_DEV_CTRL_RDDM:
 		return bhi_rddm(mhi_dev_ctxt, false);
+	case MHI_DEV_CTRL_RDDM_KERNEL_PANIC:
+		return bhi_rddm(mhi_dev_ctxt, true);
 	case MHI_DEV_CTRL_DE_INIT:
 		if (mhi_dev_ctxt->mhi_pm_state != MHI_PM_DISABLE) {
 			enum MHI_PM_STATE cur_state;
