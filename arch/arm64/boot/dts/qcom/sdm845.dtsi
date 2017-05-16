@@ -1916,6 +1916,12 @@
 		status = "ok";
 	};
 
+	ssc_sensors: qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+		status = "ok";
+		qcom,firmware-name = "slpi";
+	};
+
 	cpuss_dump {
 		compatible = "qcom,cpuss-dump";
 		qcom,l1_i_cache0 {
