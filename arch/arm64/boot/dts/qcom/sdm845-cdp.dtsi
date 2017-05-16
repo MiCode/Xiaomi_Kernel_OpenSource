@@ -307,6 +307,12 @@ aliases {
 	qcom,led-strings-list = [01 02];
 };
 
+&pmi8998_haptics {
+	qcom,vmax-mv = <2400>;
+	qcom,lra-auto-mode;
+	status = "okay";
+};
+
 &qupv3_se8_spi {
 	status = "ok";
 };
