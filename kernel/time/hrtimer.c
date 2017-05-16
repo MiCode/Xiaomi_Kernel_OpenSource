@@ -49,7 +49,6 @@
 #include <linux/sched/deadline.h>
 #include <linux/timer.h>
 #include <linux/freezer.h>
-#include <linux/delay.h>
 
 #include <asm/uaccess.h>
 
@@ -1631,42 +1630,22 @@ static void init_hrtimers_cpu(int cpu)
 }
 
 #if defined(CONFIG_HOTPLUG_CPU)
-static void migrate_hrtimer_list(struct hrtimer_cpu_base *old_base,
-				 struct hrtimer_cpu_base *new_base,
-				 unsigned int i,
-				 bool wait,
+static void migrate_hrtimer_list(struct hrtimer_clock_base *old_base,
+				 struct hrtimer_clock_base *new_base,
 				 bool remove_pinned)
 {
 	struct hrtimer *timer;
 	struct timerqueue_node *node;
 	struct timerqueue_head pinned;
 	int is_pinned;
-	struct hrtimer_clock_base *old_c_base = &old_base->clock_base[i];
-	struct hrtimer_clock_base *new_c_base = &new_base->clock_base[i];
+	bool is_hotplug = !cpu_online(old_base->cpu_base->cpu);
 
 	timerqueue_init_head(&pinned);
 
-	while ((node = timerqueue_getnext(&old_c_base->active))) {
+	while ((node = timerqueue_getnext(&old_base->active))) {
 		timer = container_of(node, struct hrtimer, node);
-		if (wait) {
-			/* Ensure timers are done running before continuing */
-			while (hrtimer_callback_running(timer)) {
-				raw_spin_unlock(&old_base->lock);
-				raw_spin_unlock(&new_base->lock);
-				cpu_relax();
-				/*
-				 * cpu_relax may just be a barrier. Grant the
-				 * run_hrtimer_list code some time to obtain the
-				 * spinlock.
-				 */
-				udelay(2);
-				raw_spin_lock(&new_base->lock);
-				raw_spin_lock_nested(&old_base->lock,
-							SINGLE_DEPTH_NESTING);
-			}
-		} else {
+		if (is_hotplug)
 			BUG_ON(hrtimer_callback_running(timer));
-		}
 		debug_deactivate(timer);
 
 		/*
@@ -1674,7 +1653,7 @@ static void migrate_hrtimer_list(struct hrtimer_cpu_base *old_base,
 		 * timer could be seen as !active and just vanish away
 		 * under us on another CPU
 		 */
-		__remove_hrtimer(timer, old_c_base, HRTIMER_STATE_ENQUEUED, 0);
+		__remove_hrtimer(timer, old_base, HRTIMER_STATE_ENQUEUED, 0);
 
 		is_pinned = timer->state & HRTIMER_STATE_PINNED;
 		if (!remove_pinned && is_pinned) {
@@ -1682,7 +1661,7 @@ static void migrate_hrtimer_list(struct hrtimer_cpu_base *old_base,
 			continue;
 		}
 
-		timer->base = new_c_base;
+		timer->base = new_base;
 		/*
 		 * Enqueue the timers on the new cpu. This does not
 		 * reprogram the event device in case the timer
@@ -1691,7 +1670,7 @@ static void migrate_hrtimer_list(struct hrtimer_cpu_base *old_base,
 		 * sort out already expired timers and reprogram the
 		 * event device.
 		 */
-		enqueue_hrtimer(timer, new_c_base);
+		enqueue_hrtimer(timer, new_base);
 	}
 
 	/* Re-queue pinned timers for non-hotplug usecase */
@@ -1699,11 +1678,11 @@ static void migrate_hrtimer_list(struct hrtimer_cpu_base *old_base,
 		timer = container_of(node, struct hrtimer, node);
 
 		timerqueue_del(&pinned, &timer->node);
-		enqueue_hrtimer(timer, old_c_base);
+		enqueue_hrtimer(timer, old_base);
 	}
 }
 
-static void __migrate_hrtimers(int scpu, bool wait, bool remove_pinned)
+static void __migrate_hrtimers(int scpu, bool remove_pinned)
 {
 	struct hrtimer_cpu_base *old_base, *new_base;
 	unsigned long flags;
@@ -1720,8 +1699,8 @@ static void __migrate_hrtimers(int scpu, bool wait, bool remove_pinned)
 	raw_spin_lock_nested(&old_base->lock, SINGLE_DEPTH_NESTING);
 
 	for (i = 0; i < HRTIMER_MAX_CLOCK_BASES; i++) {
-		migrate_hrtimer_list(old_base, new_base, i, wait,
-								remove_pinned);
+		migrate_hrtimer_list(&old_base->clock_base[i],
+				     &new_base->clock_base[i], remove_pinned);
 	}
 
 	raw_spin_unlock(&old_base->lock);
@@ -1737,12 +1716,12 @@ static void migrate_hrtimers(int scpu)
 	BUG_ON(cpu_online(scpu));
 	tick_cancel_sched_timer(scpu);
 
-	__migrate_hrtimers(scpu, false, true);
+	__migrate_hrtimers(scpu, true);
 }
 
 void hrtimer_quiesce_cpu(void *cpup)
 {
-	__migrate_hrtimers(*(int *)cpup, true, false);
+	__migrate_hrtimers(*(int *)cpup, false);
 }
 
 #endif /* CONFIG_HOTPLUG_CPU */
