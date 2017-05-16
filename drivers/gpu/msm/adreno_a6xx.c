@@ -828,6 +828,10 @@ static void a6xx_gmu_power_config(struct kgsl_device *device)
 	struct gmu_device *gmu = &device->gmu;
 
 	/* Configure registers for idle setting. The setting is cumulative */
+
+	kgsl_gmu_regwrite(device,
+		A6XX_GMU_PWR_COL_INTER_FRAME_CTRL,  0x9C40400);
+
 	switch (gmu->idle_level) {
 	case GPU_HW_MIN_VOLT:
 		kgsl_gmu_regrmw(device, A6XX_GMU_RPMH_CTRL, 0,
