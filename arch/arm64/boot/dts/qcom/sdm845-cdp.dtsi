@@ -494,3 +494,7 @@ aliases {
 		};
 	};
 };
+
+&wil6210 {
+	status = "ok";
+};

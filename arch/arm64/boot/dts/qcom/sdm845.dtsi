@@ -3746,6 +3746,27 @@
 		qcom,affinity = <1>;
 		#thermal-sensor-cells = <0>;
 	};
+
+	wil6210: qcom,wil6210 {
+		compatible = "qcom,wil6210";
+		qcom,pcie-parent = <&pcie0>;
+		qcom,wigig-en = <&tlmm 39 0>;
+		qcom,msm-bus,name = "wil6210";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<45 512 0 0>,
+			<45 512 600000 800000>; /* ~4.6Gbps (MCS12) */
+		qcom,use-ext-supply;
+		vdd-supply= <&pm8998_s7>;
+		vddio-supply= <&pm8998_s5>;
+		qcom,use-ext-clocks;
+		clocks = <&clock_rpmh RPMH_RF_CLK3>,
+			 <&clock_rpmh RPMH_RF_CLK3_A>;
+		clock-names = "rf_clk3_clk", "rf_clk3_pin_clk";
+		qcom,smmu-support;
+		status = "disabled";
+	};
 };
 
 &pcie_0_gdsc {

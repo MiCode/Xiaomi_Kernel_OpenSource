@@ -147,3 +147,7 @@
 &dsi_sharp_4k_dsc_video_display {
 	qcom,dsi-display-active;
 };
+
+&wil6210 {
+	status = "ok";
+};
