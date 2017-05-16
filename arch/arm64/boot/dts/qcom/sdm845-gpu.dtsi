@@ -64,7 +64,6 @@
 		qcom,initial-pwrlevel = <2>;
 
 		qcom,gpu-quirk-hfi-use-reg;
-		qcom,gpu-quirk-two-pass-use-wfi;
 
 		qcom,idle-timeout = <100000000>; //msecs
 		qcom,no-nap;
