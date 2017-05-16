@@ -2107,7 +2107,6 @@ static int icnss_driver_event_register_driver(void *data)
 
 power_off:
 	icnss_hw_power_off(penv);
-	penv->ops = NULL;
 out:
 	return ret;
 }
@@ -2639,7 +2638,7 @@ int icnss_register_driver(struct icnss_driver_ops *ops)
 	}
 
 	ret = icnss_driver_event_post(ICNSS_DRIVER_EVENT_REGISTER_DRIVER,
-				      ICNSS_EVENT_SYNC, ops);
+				      0, ops);
 
 	if (ret == -EINTR)
 		ret = 0;
