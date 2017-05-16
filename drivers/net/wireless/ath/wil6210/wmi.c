@@ -580,8 +580,7 @@ static void wmi_evt_connect(struct wil6210_priv *wil, int id, void *d, int len)
 			cfg80211_connect_bss(ndev, evt->bssid, wil->bss,
 					     assoc_req_ie, assoc_req_ielen,
 					     assoc_resp_ie, assoc_resp_ielen,
-					     WLAN_STATUS_SUCCESS, GFP_KERNEL,
-					     NL80211_TIMEOUT_UNSPECIFIED);
+					     WLAN_STATUS_SUCCESS, GFP_KERNEL);
 		}
 		wil->bss = NULL;
 	} else if ((wdev->iftype == NL80211_IFTYPE_AP) ||
