@@ -430,6 +430,16 @@ struct clk *clk_get_sys(const char *dev_id, const char *con_id);
  */
 int clk_set_flags(struct clk *clk, unsigned long flags);
 
+/**
+ * clk_list_frequnecy - enumerate supported frequencies
+ * @clk: clock source
+ * @index: identify frequency to list
+ *
+ * Returns a non-negative integer frequency for success
+ * or negative errno in case of failure.
+ */
+unsigned long clk_list_frequency(struct clk *clk, unsigned int index);
+
 #else /* !CONFIG_HAVE_CLK */
 
 static inline struct clk *clk_get(struct device *dev, const char *id)
