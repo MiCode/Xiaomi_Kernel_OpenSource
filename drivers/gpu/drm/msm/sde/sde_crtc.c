@@ -2482,6 +2482,7 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 
 	/* disable clk & bw control until clk & bw properties are set */
 	cstate->bw_control = false;
+	cstate->bw_split_vote = false;
 
 	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
 	list_for_each_entry(node, &sde_crtc->user_event_list, list) {
@@ -2986,13 +2987,21 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 			catalog->perf.max_bw_high * 1000ULL,
 			CRTC_PROP_CORE_IB);
 	msm_property_install_range(&sde_crtc->property_info,
-			"mem_ab", 0x0, 0, U64_MAX,
+			"llcc_ab", 0x0, 0, U64_MAX,
 			catalog->perf.max_bw_high * 1000ULL,
-			CRTC_PROP_MEM_AB);
+			CRTC_PROP_LLCC_AB);
 	msm_property_install_range(&sde_crtc->property_info,
-			"mem_ib", 0x0, 0, U64_MAX,
+			"llcc_ib", 0x0, 0, U64_MAX,
 			catalog->perf.max_bw_high * 1000ULL,
-			CRTC_PROP_MEM_IB);
+			CRTC_PROP_LLCC_IB);
+	msm_property_install_range(&sde_crtc->property_info,
+			"dram_ab", 0x0, 0, U64_MAX,
+			catalog->perf.max_bw_high * 1000ULL,
+			CRTC_PROP_DRAM_AB);
+	msm_property_install_range(&sde_crtc->property_info,
+			"dram_ib", 0x0, 0, U64_MAX,
+			catalog->perf.max_bw_high * 1000ULL,
+			CRTC_PROP_DRAM_IB);
 	msm_property_install_range(&sde_crtc->property_info,
 			"rot_prefill_bw", 0, 0, U64_MAX,
 			catalog->perf.max_bw_high * 1000ULL,
@@ -3120,9 +3129,14 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 			case CRTC_PROP_CORE_CLK:
 			case CRTC_PROP_CORE_AB:
 			case CRTC_PROP_CORE_IB:
-			case CRTC_PROP_MEM_AB:
-			case CRTC_PROP_MEM_IB:
 				cstate->bw_control = true;
+				break;
+			case CRTC_PROP_LLCC_AB:
+			case CRTC_PROP_LLCC_IB:
+			case CRTC_PROP_DRAM_AB:
+			case CRTC_PROP_DRAM_IB:
+				cstate->bw_control = true;
+				cstate->bw_split_vote = true;
 				break;
 			default:
 				/* nothing to do */
@@ -3475,15 +3489,22 @@ static int sde_crtc_debugfs_state_show(struct seq_file *s, void *v)
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 	struct sde_crtc_state *cstate = to_sde_crtc_state(crtc->state);
 	struct sde_crtc_res *res;
+	int i;
 
 	seq_printf(s, "num_connectors: %d\n", cstate->num_connectors);
 	seq_printf(s, "client type: %d\n", sde_crtc_get_client_type(crtc));
 	seq_printf(s, "intf_mode: %d\n", sde_crtc_get_intf_mode(crtc));
-	seq_printf(s, "bw_ctl: %llu\n", sde_crtc->cur_perf.bw_ctl);
 	seq_printf(s, "core_clk_rate: %llu\n",
 			sde_crtc->cur_perf.core_clk_rate);
-	seq_printf(s, "max_per_pipe_ib: %llu\n",
-			sde_crtc->cur_perf.max_per_pipe_ib);
+	for (i = SDE_POWER_HANDLE_DBUS_ID_MNOC;
+			i < SDE_POWER_HANDLE_DBUS_ID_MAX; i++) {
+		seq_printf(s, "bw_ctl[%s]: %llu\n",
+				sde_power_handle_get_dbus_name(i),
+				sde_crtc->cur_perf.bw_ctl[i]);
+		seq_printf(s, "max_per_pipe_ib[%s]: %llu\n",
+				sde_power_handle_get_dbus_name(i),
+				sde_crtc->cur_perf.max_per_pipe_ib[i]);
+	}
 
 	seq_printf(s, "rp.%d: ", cstate->rp.sequence_id);
 	list_for_each_entry(res, &cstate->rp.res_list, list)
