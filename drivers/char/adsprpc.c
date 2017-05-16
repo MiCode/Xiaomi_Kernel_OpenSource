@@ -1488,14 +1488,15 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	int err = 0;
 	struct timespec invoket;
 
+	if (fl->profile)
+		getnstimeofday(&invoket);
+
 	VERIFY(err, fl->sctx);
 	if (err)
 		goto bail;
 	VERIFY(err, fl->cid >= 0 && fl->cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
-	if (fl->profile)
-		getnstimeofday(&invoket);
 	if (!kernel) {
 		VERIFY(err, 0 == context_restore_interrupted(fl, inv,
 								&ctx));
@@ -2440,6 +2441,9 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 	if (err)
 		goto bail;
 	cid = fl->cid;
+	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
+	if (err)
+		goto bail;
 	if (me->channel[cid].ssrcount !=
 				 me->channel[cid].prevssrcount) {
 		if (!me->channel[cid].issubsystemup) {
@@ -2448,9 +2452,6 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 				goto bail;
 		}
 	}
-	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
-	if (err)
-		goto bail;
 	fl->ssrcount = me->channel[cid].ssrcount;
 	if ((kref_get_unless_zero(&me->channel[cid].kref) == 0) ||
 	    (me->channel[cid].chan == 0)) {
