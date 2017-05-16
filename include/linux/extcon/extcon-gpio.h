@@ -33,6 +33,8 @@
  * @irq_flags:		IRQ Flags (e.g., IRQF_TRIGGER_LOW).
  * @check_on_resume:	Boolean describing whether to check the state of gpio
  *			while resuming from sleep.
+ * @pctrl:		GPIO pinctrl handle
+ * @pctrl_default:	GPIO pinctrl default state handle
  */
 struct gpio_extcon_pdata {
 	unsigned int extcon_id;
@@ -42,6 +44,9 @@ struct gpio_extcon_pdata {
 	unsigned long irq_flags;
 
 	bool check_on_resume;
+
+	struct pinctrl          *pctrl;
+	struct pinctrl_state    *pins_default;
 };
 
 #endif /* __EXTCON_GPIO_H__ */

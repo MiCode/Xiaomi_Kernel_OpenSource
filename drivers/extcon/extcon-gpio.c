@@ -28,6 +28,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
+#include <linux/of_gpio.h>
 
 struct gpio_extcon_data {
 	struct extcon_dev *edev;
@@ -37,6 +38,7 @@ struct gpio_extcon_data {
 
 	struct gpio_desc *id_gpiod;
 	struct gpio_extcon_pdata *pdata;
+	unsigned int *supported_cable;
 };
 
 static void gpio_extcon_work(struct work_struct *work)
@@ -91,15 +93,93 @@ static int gpio_extcon_init(struct device *dev, struct gpio_extcon_data *data)
 	return 0;
 }
 
+static int extcon_parse_pinctrl_data(struct device *dev,
+				     struct gpio_extcon_pdata *pdata)
+{
+	struct pinctrl *pctrl;
+	int ret = 0;
+
+	/* Try to obtain pinctrl handle */
+	pctrl = devm_pinctrl_get(dev);
+	if (IS_ERR(pctrl)) {
+		ret = PTR_ERR(pctrl);
+		goto out;
+	}
+	pdata->pctrl = pctrl;
+
+	/* Look-up and keep the state handy to be used later */
+	pdata->pins_default = pinctrl_lookup_state(pdata->pctrl,
+						   "default");
+	if (IS_ERR(pdata->pins_default)) {
+		ret = PTR_ERR(pdata->pins_default);
+		dev_err(dev, "Can't get default pinctrl state, ret %d\n", ret);
+	}
+out:
+	return ret;
+}
+
+/* Parse platform data */
+static
+struct gpio_extcon_pdata *extcon_populate_pdata(struct device *dev)
+{
+	struct gpio_extcon_pdata *pdata = NULL;
+	struct device_node *np = dev->of_node;
+	enum of_gpio_flags flags;
+	u32 val;
+
+	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata)
+		goto out;
+
+	if (of_property_read_u32(np, "extcon-id", &pdata->extcon_id)) {
+		dev_err(dev, "extcon-id property not found\n");
+		goto out;
+	}
+
+	pdata->gpio = of_get_named_gpio_flags(np, "gpio", 0, &flags);
+	if (gpio_is_valid(pdata->gpio)) {
+		if (flags & OF_GPIO_ACTIVE_LOW)
+			pdata->gpio_active_low = true;
+	} else {
+		dev_err(dev, "gpio property not found or invalid\n");
+		goto out;
+	}
+
+	if (of_property_read_u32(np, "irq-flags", &val)) {
+		dev_err(dev, "irq-flags property not found\n");
+		goto out;
+	}
+	pdata->irq_flags = val;
+
+	if (of_property_read_u32(np, "debounce-ms", &val)) {
+		dev_err(dev, "debounce-ms property not found\n");
+		goto out;
+	}
+	pdata->debounce = val;
+
+	if (extcon_parse_pinctrl_data(dev, pdata)) {
+		dev_err(dev, "failed to parse pinctrl data\n");
+		goto out;
+	}
+
+	return pdata;
+out:
+	return NULL;
+}
+
 static int gpio_extcon_probe(struct platform_device *pdev)
 {
 	struct gpio_extcon_pdata *pdata = dev_get_platdata(&pdev->dev);
 	struct gpio_extcon_data *data;
 	int ret;
 
-	if (!pdata)
-		return -EBUSY;
-	if (!pdata->irq_flags || pdata->extcon_id > EXTCON_NONE)
+	if (!pdata) {
+		/* try populating pdata from device tree */
+		pdata = extcon_populate_pdata(&pdev->dev);
+		if (!pdata)
+			return -EBUSY;
+	}
+	if (!pdata->irq_flags || pdata->extcon_id >= EXTCON_NUM)
 		return -EINVAL;
 
 	data = devm_kzalloc(&pdev->dev, sizeof(struct gpio_extcon_data),
@@ -108,13 +188,27 @@ static int gpio_extcon_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	data->pdata = pdata;
 
+	ret = pinctrl_select_state(pdata->pctrl, pdata->pins_default);
+	if (ret < 0)
+		dev_err(&pdev->dev, "pinctrl state select failed, ret %d\n",
+			ret);
+
 	/* Initialize the gpio */
 	ret = gpio_extcon_init(&pdev->dev, data);
 	if (ret < 0)
 		return ret;
 
+	data->supported_cable = devm_kzalloc(&pdev->dev,
+					     sizeof(*data->supported_cable) * 2,
+					     GFP_KERNEL);
+	if (!data->supported_cable)
+		return -ENOMEM;
+
+	data->supported_cable[0] = pdata->extcon_id;
+	data->supported_cable[1] = EXTCON_NONE;
 	/* Allocate the memory of extcon devie and register extcon device */
-	data->edev = devm_extcon_dev_allocate(&pdev->dev, &pdata->extcon_id);
+	data->edev = devm_extcon_dev_allocate(&pdev->dev,
+					      data->supported_cable);
 	if (IS_ERR(data->edev)) {
 		dev_err(&pdev->dev, "failed to allocate extcon device\n");
 		return -ENOMEM;
@@ -168,12 +262,18 @@ static int gpio_extcon_resume(struct device *dev)
 
 static SIMPLE_DEV_PM_OPS(gpio_extcon_pm_ops, NULL, gpio_extcon_resume);
 
+static const struct of_device_id extcon_gpio_of_match[] = {
+	{ .compatible = "extcon-gpio"},
+	{},
+};
+
 static struct platform_driver gpio_extcon_driver = {
 	.probe		= gpio_extcon_probe,
 	.remove		= gpio_extcon_remove,
 	.driver		= {
 		.name	= "extcon-gpio",
 		.pm	= &gpio_extcon_pm_ops,
+		.of_match_table = of_match_ptr(extcon_gpio_of_match),
 	},
 };
 
