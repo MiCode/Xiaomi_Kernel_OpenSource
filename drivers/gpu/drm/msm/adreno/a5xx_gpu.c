@@ -103,7 +103,7 @@ static void a5xx_set_pagetable(struct msm_gpu *gpu, struct msm_ringbuffer *ring,
 	OUT_RING(ring, 1);
 }
 
-static int a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
+static void a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	struct a5xx_gpu *a5xx_gpu = to_a5xx_gpu(adreno_gpu);
@@ -273,8 +273,6 @@ static int a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 
 	/* Check to see if we need to start preemption */
 	a5xx_preempt_trigger(gpu);
-
-	return 0;
 }
 
 static const struct {
