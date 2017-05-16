@@ -983,13 +983,10 @@ static int cam_vfe_bus_release_comp_grp(
 		in_rsrc_data->comp_grp_type <= CAM_VFE_BUS_VER2_COMP_GRP_DUAL_5)
 		list_add_tail(&comp_grp->list,
 			&ver2_bus_priv->free_dual_comp_grp);
-	else if (in_rsrc_data->comp_grp_type >= CAM_VFE_BUS_VER2_COMP_GRP_DUAL_0
-		&& in_rsrc_data->comp_grp_type <=
-		CAM_VFE_BUS_VER2_COMP_GRP_DUAL_5)
+	else if (in_rsrc_data->comp_grp_type >= CAM_VFE_BUS_VER2_COMP_GRP_0
+		&& in_rsrc_data->comp_grp_type <= CAM_VFE_BUS_VER2_COMP_GRP_5)
 		list_add_tail(&comp_grp->list, &ver2_bus_priv->free_comp_grp);
 
-	list_add_tail(&comp_grp->list,
-		&ver2_bus_priv->free_comp_grp);
 	in_rsrc_data->unique_id = 0;
 	in_rsrc_data->comp_grp_local_idx = 0;
 	in_rsrc_data->composite_mask = 0;
@@ -997,7 +994,7 @@ static int cam_vfe_bus_release_comp_grp(
 
 	comp_grp->res_state = CAM_ISP_RESOURCE_STATE_AVAILABLE;
 
-	return -ENODEV;
+	return 0;
 }
 
 static int cam_vfe_bus_start_comp_grp(struct cam_isp_resource_node *comp_grp)
@@ -1333,10 +1330,25 @@ release_wm:
 static int cam_vfe_bus_release_vfe_out(void *bus_priv,
 	struct cam_isp_resource_node        *vfe_out)
 {
+	uint32_t i;
+	struct cam_vfe_bus_ver2_vfe_out_data  *rsrc_data = vfe_out->res_priv;
+
 	if (vfe_out->res_state != CAM_ISP_RESOURCE_STATE_RESERVED) {
 		pr_err("Error! Invalid resource state:%d\n",
 			vfe_out->res_state);
 	}
+
+	for (i = 0; i < rsrc_data->num_wm; i++)
+		cam_vfe_bus_release_wm(bus_priv, rsrc_data->wm_res[i]);
+	rsrc_data->num_wm = 0;
+
+	if (rsrc_data->comp_grp)
+		cam_vfe_bus_release_comp_grp(bus_priv, rsrc_data->comp_grp);
+	rsrc_data->comp_grp = NULL;
+
+	vfe_out->tasklet_info = NULL;
+	vfe_out->cdm_ops = NULL;
+	rsrc_data->cdm_util_ops = NULL;
 
 	if (vfe_out->res_state == CAM_ISP_RESOURCE_STATE_RESERVED)
 		vfe_out->res_state = CAM_ISP_RESOURCE_STATE_AVAILABLE;
@@ -1360,7 +1372,7 @@ static int cam_vfe_bus_start_vfe_out(struct cam_isp_resource_node *vfe_out)
 	}
 
 	/* Enable IRQ Mask */
-	cam_io_w_mb(0x00001F70, common_data->mem_base + 0x2044);
+	cam_io_w_mb(0x00001FE0, common_data->mem_base + 0x2044);
 	cam_io_w_mb(0x000FFFE7, common_data->mem_base + 0x2048);
 	cam_io_w_mb(0x000000FF, common_data->mem_base + 0x204c);
 
