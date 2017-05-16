@@ -30,7 +30,6 @@
 #include <soc/qcom/service-notifier.h>
 #include "service-notifier-private.h"
 
-#define QMI_RESP_BIT_SHIFT(x)			(x << 16)
 #define SERVREG_NOTIF_NAME_LENGTH	QMI_SERVREG_NOTIF_NAME_LENGTH_V01
 #define SERVREG_NOTIF_SERVICE_ID	SERVREG_NOTIF_SERVICE_ID_V01
 #define SERVREG_NOTIF_SERVICE_VERS	SERVREG_NOTIF_SERVICE_VERS_V01
@@ -225,9 +224,8 @@ static void send_ind_ack(struct work_struct *work)
 	}
 
 	/* Check the response */
-	if (QMI_RESP_BIT_SHIFT(resp.resp.result) != QMI_RESULT_SUCCESS_V01)
-		pr_err("QMI request failed 0x%x\n",
-			QMI_RESP_BIT_SHIFT(resp.resp.error));
+	if (resp.resp.result != QMI_RESULT_SUCCESS_V01)
+		pr_err("QMI request failed 0x%x\n", resp.resp.error);
 	pr_info("Indication ACKed for transid %d, service %s, instance %d!\n",
 		data->ind_msg.transaction_id, data->ind_msg.service_path,
 		data->instance_id);
@@ -318,9 +316,8 @@ static int send_notif_listener_msg_req(struct service_notif_info *service_notif,
 	}
 
 	/* Check the response */
-	if (QMI_RESP_BIT_SHIFT(resp.resp.result) != QMI_RESULT_SUCCESS_V01) {
-		pr_err("QMI request failed 0x%x\n",
-					QMI_RESP_BIT_SHIFT(resp.resp.error));
+	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
+		pr_err("QMI request failed 0x%x\n", resp.resp.error);
 		return -EREMOTEIO;
 	}
 
@@ -645,15 +642,15 @@ static int send_pd_restart_req(const char *service_path,
 	}
 
 	/* Check response if PDR is disabled */
-	if (QMI_RESP_BIT_SHIFT(resp.resp.result) == QMI_ERR_DISABLED_V01) {
-		pr_err("PD restart is disabled 0x%x\n",
-					QMI_RESP_BIT_SHIFT(resp.resp.error));
+	if (resp.resp.result == QMI_RESULT_FAILURE_V01 &&
+				resp.resp.error == QMI_ERR_DISABLED_V01) {
+		pr_err("PD restart is disabled 0x%x\n", resp.resp.error);
 		return -EOPNOTSUPP;
 	}
 	/* Check the response for other error case*/
-	if (QMI_RESP_BIT_SHIFT(resp.resp.result) != QMI_RESULT_SUCCESS_V01) {
+	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
 		pr_err("QMI request for PD restart failed 0x%x\n",
-					QMI_RESP_BIT_SHIFT(resp.resp.error));
+						resp.resp.error);
 		return -EREMOTEIO;
 	}
 
