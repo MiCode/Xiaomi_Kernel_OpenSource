@@ -2310,9 +2310,12 @@ static int cam_ife_hw_mgr_handle_rup_for_camif_hw_res(
 				isp_ife_camif_res->res_id);
 		}
 
-		if (!rup_status)
+		/* only do callback for pixel reg update for now */
+		if (!rup_status && (isp_ife_camif_res->res_id ==
+			CAM_ISP_HW_VFE_IN_CAMIF)) {
 			ife_hwr_irq_rup_cb(ife_hwr_mgr_ctx->common.cb_priv,
 				CAM_ISP_HW_EVENT_REG_UPDATE, &rup_event_data);
+		}
 
 	}
 

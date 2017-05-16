@@ -490,6 +490,7 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 	uint32_t next_state)
 {
 	int rc = 0;
+	int cnt = 0;
 	struct cam_ctx_request          *req;
 	struct cam_isp_ctx_req          *req_isp;
 	struct cam_isp_context          *ctx_isp;
@@ -501,6 +502,22 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 		rc = -EFAULT;
 		goto end;
 	}
+
+	/*
+	 * When the pipeline has issue, the requests can be queued up in the
+	 * pipeline. In this case, we should reject the additional request.
+	 * The maximum number of request allowed to be outstanding is 2.
+	 *
+	 */
+	list_for_each_entry(req, &ctx->active_req_list, list) {
+		if (++cnt > 2) {
+			pr_err("%s: Apply failed due to pipeline congestion\n",
+				__func__);
+			rc = -EFAULT;
+			goto end;
+		}
+	}
+
 	req = list_first_entry(&ctx->pending_req_list, struct cam_ctx_request,
 		list);
 
@@ -1165,8 +1182,8 @@ static int __cam_isp_ctx_handle_irq_in_activated(void *context,
 		(struct cam_isp_context *)ctx->ctx_priv;
 
 	spin_lock(&ctx->lock);
-	CDBG("%s: Enter: State %d Substate %d\n",
-		__func__, ctx->state, ctx_isp->substate_activated);
+	CDBG("%s: Enter: State %d, Substate %d, evt id %d\n",
+		__func__, ctx->state, ctx_isp->substate_activated, evt_id);
 	if (ctx_isp->substate_machine_irq[ctx_isp->substate_activated].
 		irq_ops[evt_id]) {
 		rc = ctx_isp->substate_machine_irq[ctx_isp->substate_activated].
