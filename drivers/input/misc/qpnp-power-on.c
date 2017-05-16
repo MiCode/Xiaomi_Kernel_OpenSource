@@ -2123,6 +2123,9 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	if (sys_reset)
+		boot_reason = ffs(pon_sts);
+
 	index = ffs(pon_sts) - 1;
 	cold_boot = !qpnp_pon_is_warm_reset();
 	if (index >= ARRAY_SIZE(qpnp_pon_reason) || index < 0) {
@@ -2350,8 +2353,6 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 		list_add(&pon->list, &spon_dev_list);
 		spin_unlock_irqrestore(&spon_list_slock, flags);
 		pon->is_spon = true;
-	} else {
-		boot_reason = ffs(pon_sts);
 	}
 
 	/* config whether store the hard reset reason */
