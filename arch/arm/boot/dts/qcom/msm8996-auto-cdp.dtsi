@@ -335,6 +335,77 @@
 
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
+	qcom,sde-plane-id-map {
+		qcom,sde-plane-id@0 {
+			reg = <0x0>;
+			qcom,display-type = "primary";
+			qcom,plane-name = "rgb0", "rgb1";
+			qcom,plane-type = "primary";
+		};
+
+		qcom,sde-plane-id@1 {
+			reg = <0x1>;
+			qcom,display-type = "primary";
+			qcom,plane-name = "vig0", "vig1";
+			qcom,plane-type = "overlay";
+		};
+
+		qcom,sde-plane-id@2 {
+			reg = <0x2>;
+			qcom,display-type = "primary";
+			qcom,plane-name = "cursor0";
+			qcom,plane-type = "cursor";
+		};
+
+		qcom,sde-plane-id@3 {
+			reg = <0x3>;
+			qcom,display-type = "secondary";
+			qcom,plane-name = "rgb2";
+			qcom,plane-type = "primary";
+		};
+
+		qcom,sde-plane-id@4 {
+			reg = <0x4>;
+			qcom,display-type = "secondary";
+			qcom,plane-name = "vig2";
+			qcom,plane-type = "overlay";
+		};
+
+		qcom,sde-plane-id@5 {
+			reg = <0x5>;
+			qcom,display-type = "secondary";
+			qcom,plane-name = "dma0";
+			qcom,plane-type = "overlay";
+		};
+
+		qcom,sde-plane-id@6 {
+			reg = <0x6>;
+			qcom,display-type = "secondary";
+			qcom,plane-name = "cursor1";
+			qcom,plane-type = "cursor";
+		};
+
+		qcom,sde-plane-id@7 {
+			reg = <0x7>;
+			qcom,display-type = "tertiary";
+			qcom,plane-name = "rgb3";
+			qcom,plane-type = "primary";
+		};
+
+		qcom,sde-plane-id@8 {
+			reg = <0x8>;
+			qcom,display-type = "tertiary";
+			qcom,plane-name = "vig3";
+			qcom,plane-type = "overlay";
+		};
+
+		qcom,sde-plane-id@9 {
+			reg = <0x9>;
+			qcom,display-type = "tertiary";
+			qcom,plane-name = "dma1";
+			qcom,plane-type = "overlay";
+		};
+	};
 };
 
 &mdss_dsi {
