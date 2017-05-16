@@ -525,6 +525,7 @@ int __ipa_commit_rt_v1_1(enum ipa_ip_type ip)
 	struct ipa_ip_v6_routing_init *v6;
 	u16 avail;
 	u16 size;
+	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 
 	mem = kmalloc(sizeof(struct ipa_mem_buffer), GFP_KERNEL);
 	if (!mem) {
@@ -541,7 +542,7 @@ int __ipa_commit_rt_v1_1(enum ipa_ip_type ip)
 			IPA_MEM_PART(v6_rt_size_ddr);
 		size = sizeof(struct ipa_ip_v6_routing_init);
 	}
-	cmd = kmalloc(size, GFP_KERNEL);
+	cmd = kmalloc(size, flag);
 	if (!cmd) {
 		IPAERR("failed to alloc immediate command object\n");
 		goto fail_alloc_cmd;
