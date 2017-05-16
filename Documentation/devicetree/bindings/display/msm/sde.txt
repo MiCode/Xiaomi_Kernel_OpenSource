@@ -274,6 +274,29 @@ Optional properties:
 				applied in scenarios where panel interface can
 				be more tolerant to memory latency such as
 				command mode panels.
+- qcom,sde-core-ib-ff:		A string entry indicating the fudge factor for
+				core ib calculation.
+- qcom,sde-core-clk-ff:		A string entry indicating the fudge factor for
+				core clock calculation.
+- qcom,sde-comp-ratio-rt:	A string entry indicating the compression ratio
+				for each supported compressed format on realtime interface.
+				The string is composed of one or more of
+				<fourcc code>/<vendor code>/<modifier>/<compression ratio>
+				separated with spaces.
+- qcom,sde-comp-ratio-nrt:	A string entry indicating the compression ratio
+				for each supported compressed format on non-realtime interface.
+				The string is composed of one or more of
+				<fourcc code>/<vendor code>/<modifier>/<compression ratio>
+				separated with spaces.
+- qcom,sde-undersized-prefill-lines:	A u32 value indicates the size of undersized prefill in lines.
+- qcom,sde-xtra-prefill-lines:	A u32 value indicates the extra prefill in lines.
+- qcom,sde-dest-scale-prefill-lines:	A u32 value indicates the latency of destination scaler in lines.
+- qcom,sde-macrotile-prefill-lines:	A u32 value indicates the latency of macrotile in lines.
+- qcom,sde-yuv-nv12-prefill-lines:	A u32 value indicates the latency of yuv/nv12 in lines.
+- qcom,sde-linear-prefill-lines:	A u32 value indicates the latency of linear in lines.
+- qcom,sde-downscaling-prefill-lines:	A u32 value indicates the latency of downscaling in lines.
+- qcom,sde-max-per-pipe-bw-kbps:	Array of u32 value indicates the max per pipe bandwidth in Kbps.
+- qcom,sde-amortizable-threshold:	This value indicates the min for traffic shaping in lines.
 
 Bus Scaling Subnodes:
 - qcom,sde-reg-bus:		Property to provide Bus scaling for register access for
@@ -461,6 +484,21 @@ Example:
 
     qcom,sde-max-bw-high-kbps = <9000000>;
     qcom,sde-max-bw-low-kbps = <9000000>;
+
+    qcom,sde-core-ib-ff = "1.1";
+    qcom,sde-core-clk-ff = "1.0";
+    qcom,sde-comp-ratio-rt = "NV12/5/1/1.1 AB24/5/1/1.2 XB24/5/1/1.3";
+    qcom,sde-comp-ratio-nrt = "NV12/5/1/1.1 AB24/5/1/1.2 XB24/5/1/1.3";
+    qcom,sde-undersized-prefill-lines = <4>;
+    qcom,sde-xtra-prefill-lines = <5>;
+    qcom,sde-dest-scale-prefill-lines = <6>;
+    qcom,sde-macrotile-prefill-lines = <7>;
+    qcom,sde-yuv-nv12-prefill-lines = <8>;
+    qcom,sde-linear-prefill-lines = <9>;
+    qcom,sde-downscaling-prefill-lines = <10>;
+    qcom,sde-max-per-pipe-bw-kbps = <2400000 2400000 2400000 2400000
+        2400000 2400000 2400000 2400000>;
+    qcom,sde-amortizable-threshold = <11>;
 
     qcom,sde-sspp-vig-blocks {
         qcom,sde-vig-csc-off = <0x320>;

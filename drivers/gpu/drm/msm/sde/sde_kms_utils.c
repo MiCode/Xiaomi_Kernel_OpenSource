@@ -24,14 +24,14 @@ void sde_kms_info_reset(struct sde_kms_info *info)
 
 void sde_kms_info_add_keyint(struct sde_kms_info *info,
 		const char *key,
-		int32_t value)
+		int64_t value)
 {
 	uint32_t len;
 
 	if (info && key) {
 		len = snprintf(info->data + info->len,
 				SDE_KMS_INFO_MAX_SIZE - info->len,
-				"%s=%d\n",
+				"%s=%lld\n",
 				key,
 				value);
 

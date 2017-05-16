@@ -361,6 +361,7 @@ struct sde_format_extended {
  * @pcc_blk:
  * @igc_blk:
  * @format_list: Pointer to list of supported formats
+ * @max_per_pipe_bw: maximum allowable bandwidth of this pipe in kBps
  */
 struct sde_sspp_sub_blks {
 	u32 maxlinewidth;
@@ -379,6 +380,7 @@ struct sde_sspp_sub_blks {
 	u32 maxhdeciexp; /* max decimation is 2^value */
 	u32 maxvdeciexp; /* max decimation is 2^value */
 	u32 smart_dma_priority;
+	u32 max_per_pipe_bw;
 	struct sde_src_blk src_blk;
 	struct sde_scaler_blk scaler_blk;
 	struct sde_pp_blk csc_blk;
@@ -687,10 +689,36 @@ struct sde_reg_dma_cfg {
  * struct sde_perf_cfg - performance control settings
  * @max_bw_low         low threshold of maximum bandwidth (kbps)
  * @max_bw_high        high threshold of maximum bandwidth (kbps)
+ * @core_ib_ff         core instantaneous bandwidth fudge factor
+ * @core_clk_ff        core clock fudge factor
+ * @comp_ratio_rt      string of 0 or more of <fourcc>/<ven>/<mod>/<comp ratio>
+ * @comp_ratio_nrt     string of 0 or more of <fourcc>/<ven>/<mod>/<comp ratio>
+ * @undersized_prefill_lines   undersized prefill in lines
+ * @xtra_prefill_lines         extra prefill latency in lines
+ * @dest_scale_prefill_lines   destination scaler latency in lines
+ * @macrotile_perfill_lines    macrotile latency in lines
+ * @yuv_nv12_prefill_lines     yuv_nv12 latency in lines
+ * @linear_prefill_lines       linear latency in lines
+ * @downscaling_prefill_lines  downscaling latency in lines
+ * @amortizable_theshold minimum y position for traffic shaping prefill
+ * @min_prefill_lines  minimum pipeline latency in lines
  */
 struct sde_perf_cfg {
 	u32 max_bw_low;
 	u32 max_bw_high;
+	const char *core_ib_ff;
+	const char *core_clk_ff;
+	const char *comp_ratio_rt;
+	const char *comp_ratio_nrt;
+	u32 undersized_prefill_lines;
+	u32 xtra_prefill_lines;
+	u32 dest_scale_prefill_lines;
+	u32 macrotile_prefill_lines;
+	u32 yuv_nv12_prefill_lines;
+	u32 linear_prefill_lines;
+	u32 downscaling_prefill_lines;
+	u32 amortizable_threshold;
+	u32 min_prefill_lines;
 };
 
 /**

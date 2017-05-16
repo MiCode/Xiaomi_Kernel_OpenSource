@@ -554,8 +554,8 @@ int sde_core_perf_init(struct sde_core_perf *perf,
 
 	perf->max_core_clk_rate = sde_power_clk_get_max_rate(phandle, clk_name);
 	if (!perf->max_core_clk_rate) {
-		SDE_ERROR("invalid max core clk rate\n");
-		goto err;
+		SDE_DEBUG("optional max core clk rate, use default\n");
+		perf->max_core_clk_rate = SDE_PERF_DEFAULT_MAX_CORE_CLK_RATE;
 	}
 
 	return 0;

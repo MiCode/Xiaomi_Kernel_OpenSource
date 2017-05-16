@@ -3191,6 +3191,8 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 			psde->pipe_sblk->maxhdeciexp);
 	sde_kms_info_add_keyint(info, "max_vertical_deci",
 			psde->pipe_sblk->maxvdeciexp);
+	sde_kms_info_add_keyint(info, "max_per_pipe_bw",
+			psde->pipe_sblk->max_per_pipe_bw * 1000LL);
 	msm_property_set_blob(&psde->property_info, &psde->blob_info,
 			info->data, info->len, PLANE_PROP_INFO);
 
