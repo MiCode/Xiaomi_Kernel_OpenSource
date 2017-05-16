@@ -135,7 +135,7 @@ void trim_init_extable(struct module *m);
 #ifdef MODULE
 /* Creates an alias so file2alias.c can find device table. */
 #define MODULE_DEVICE_TABLE(type, name)					\
-  extern const struct type##_device_id __mod_##type##__##name##_device_table \
+extern const typeof(name) __mod_##type##__##name##_device_table		\
   __attribute__ ((unused, alias(__stringify(name))))
 #else  /* !MODULE */
 #define MODULE_DEVICE_TABLE(type, name)
@@ -224,6 +224,12 @@ struct module_ref {
 	unsigned long decs;
 } __attribute((aligned(2 * sizeof(unsigned long))));
 
+struct mod_kallsyms {
+	Elf_Sym *symtab;
+	unsigned int num_symtab;
+	char *strtab;
+};
+
 struct module {
 	enum module_state state;
 
@@ -311,14 +317,9 @@ struct module {
 #endif
 
 #ifdef CONFIG_KALLSYMS
-	/*
-	 * We keep the symbol and string tables for kallsyms.
-	 * The core_* fields below are temporary, loader-only (they
-	 * could really be discarded after module init).
-	 */
-	Elf_Sym *symtab, *core_symtab;
-	unsigned int num_symtab, core_num_syms;
-	char *strtab, *core_strtab;
+	/* Protected by RCU and/or module_mutex: use rcu_dereference() */
+	struct mod_kallsyms *kallsyms;
+	struct mod_kallsyms core_kallsyms;
 
 	/* Section attributes */
 	struct module_sect_attrs *sect_attrs;

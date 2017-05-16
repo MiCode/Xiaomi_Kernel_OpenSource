@@ -248,24 +248,24 @@ static void ni_writel(struct comedi_device *dev, uint32_t data, int reg)
 {
 	if (dev->mmio)
 		writel(data, dev->mmio + reg);
-
-	outl(data, dev->iobase + reg);
+	else
+		outl(data, dev->iobase + reg);
 }
 
 static void ni_writew(struct comedi_device *dev, uint16_t data, int reg)
 {
 	if (dev->mmio)
 		writew(data, dev->mmio + reg);
-
-	outw(data, dev->iobase + reg);
+	else
+		outw(data, dev->iobase + reg);
 }
 
 static void ni_writeb(struct comedi_device *dev, uint8_t data, int reg)
 {
 	if (dev->mmio)
 		writeb(data, dev->mmio + reg);
-
-	outb(data, dev->iobase + reg);
+	else
+		outb(data, dev->iobase + reg);
 }
 
 static uint32_t ni_readl(struct comedi_device *dev, int reg)
@@ -2105,7 +2105,7 @@ static int ni_ai_insn_read(struct comedi_device *dev,
 			   unsigned int *data)
 {
 	struct ni_private *devpriv = dev->private;
-	unsigned int mask = (s->maxdata + 1) >> 1;
+	unsigned int mask = s->maxdata;
 	int i, n;
 	unsigned signbits;
 	unsigned int d;
@@ -3015,7 +3015,15 @@ static int ni_ao_inttrig(struct comedi_device *dev,
 	int i;
 	static const int timeout = 1000;
 
-	if (trig_num != cmd->start_arg)
+	/*
+	 * Require trig_num == cmd->start_arg when cmd->start_src == TRIG_INT.
+	 * For backwards compatibility, also allow trig_num == 0 when
+	 * cmd->start_src != TRIG_INT (i.e. when cmd->start_src == TRIG_EXT);
+	 * in that case, the internal trigger is being used as a pre-trigger
+	 * before the external trigger.
+	 */
+	if (!(trig_num == cmd->start_arg ||
+	      (trig_num == 0 && cmd->start_src != TRIG_INT)))
 		return -EINVAL;
 
 	/* Null trig at beginning prevent ao start trigger from executing more than
@@ -5674,7 +5682,7 @@ static int ni_E_init(struct comedi_device *dev,
 		s->maxdata	= (devpriv->is_m_series) ? 0xffffffff
 							 : 0x00ffffff;
 		s->insn_read	= ni_tio_insn_read;
-		s->insn_write	= ni_tio_insn_read;
+		s->insn_write	= ni_tio_insn_write;
 		s->insn_config	= ni_tio_insn_config;
 #ifdef PCIDMA
 		if (dev->irq && devpriv->mite) {

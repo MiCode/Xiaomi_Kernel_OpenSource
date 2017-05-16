@@ -195,7 +195,7 @@ static int hash_accept(struct socket *sock, struct socket *newsock, int flags)
 	struct alg_sock *ask = alg_sk(sk);
 	struct hash_ctx *ctx = ask->private;
 	struct ahash_request *req = &ctx->req;
-	char state[crypto_ahash_statesize(crypto_ahash_reqtfm(req))];
+	char state[crypto_ahash_statesize(crypto_ahash_reqtfm(req)) ? : 1];
 	struct sock *sk2;
 	struct alg_sock *ask2;
 	struct hash_ctx *ctx2;
@@ -283,8 +283,8 @@ unlock_child:
 	return err;
 }
 
-static int hash_sendmsg_nokey(struct socket *sock, struct msghdr *msg,
-			      size_t size)
+static int hash_sendmsg_nokey(struct kiocb *unused, struct socket *sock,
+			      struct msghdr *msg, size_t size)
 {
 	int err;
 
@@ -307,8 +307,8 @@ static ssize_t hash_sendpage_nokey(struct socket *sock, struct page *page,
 	return hash_sendpage(sock, page, offset, size, flags);
 }
 
-static int hash_recvmsg_nokey(struct socket *sock, struct msghdr *msg,
-			      size_t ignored, int flags)
+static int hash_recvmsg_nokey(struct kiocb *unused, struct socket *sock,
+			      struct msghdr *msg, size_t ignored, int flags)
 {
 	int err;
 

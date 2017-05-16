@@ -505,6 +505,7 @@ static int ovl_remove_and_whiteout(struct dentry *dentry, bool is_dir)
 	struct dentry *upper;
 	struct dentry *opaquedir = NULL;
 	int err;
+	int flags = 0;
 
 	if (is_dir) {
 		opaquedir = ovl_check_empty_and_clear(dentry);
@@ -517,46 +518,39 @@ static int ovl_remove_and_whiteout(struct dentry *dentry, bool is_dir)
 	if (err)
 		goto out_dput;
 
+	upper = lookup_one_len(dentry->d_name.name, upperdir,
+			       dentry->d_name.len);
+	err = PTR_ERR(upper);
+	if (IS_ERR(upper))
+		goto out_unlock;
+
+	err = -ESTALE;
+	if ((opaquedir && upper != opaquedir) ||
+	    (!opaquedir && ovl_dentry_upper(dentry) &&
+	     upper != ovl_dentry_upper(dentry))) {
+		goto out_dput_upper;
+	}
+
 	whiteout = ovl_whiteout(workdir, dentry);
 	err = PTR_ERR(whiteout);
 	if (IS_ERR(whiteout))
-		goto out_unlock;
+		goto out_dput_upper;
 
-	upper = ovl_dentry_upper(dentry);
-	if (!upper) {
-		upper = lookup_one_len(dentry->d_name.name, upperdir,
-				       dentry->d_name.len);
-		err = PTR_ERR(upper);
-		if (IS_ERR(upper))
-			goto kill_whiteout;
+	if (d_is_dir(upper))
+		flags = RENAME_EXCHANGE;
 
-		err = ovl_do_rename(wdir, whiteout, udir, upper, 0);
-		dput(upper);
-		if (err)
-			goto kill_whiteout;
-	} else {
-		int flags = 0;
+	err = ovl_do_rename(wdir, whiteout, udir, upper, flags);
+	if (err)
+		goto kill_whiteout;
+	if (flags)
+		ovl_cleanup(wdir, upper);
 
-		if (opaquedir)
-			upper = opaquedir;
-		err = -ESTALE;
-		if (upper->d_parent != upperdir)
-			goto kill_whiteout;
-
-		if (is_dir)
-			flags |= RENAME_EXCHANGE;
-
-		err = ovl_do_rename(wdir, whiteout, udir, upper, flags);
-		if (err)
-			goto kill_whiteout;
-
-		if (is_dir)
-			ovl_cleanup(wdir, upper);
-	}
 	ovl_dentry_version_inc(dentry->d_parent);
 out_d_drop:
 	d_drop(dentry);
 	dput(whiteout);
+out_dput_upper:
+	dput(upper);
 out_unlock:
 	unlock_rename(workdir, upperdir);
 out_dput:
@@ -595,7 +589,8 @@ static int ovl_remove_upper(struct dentry *dentry, bool is_dir)
 	 * sole user of this dentry.  Too tricky...  Just unhash for
 	 * now.
 	 */
-	d_drop(dentry);
+	if (!err)
+		d_drop(dentry);
 	mutex_unlock(&dir->i_mutex);
 
 	return err;

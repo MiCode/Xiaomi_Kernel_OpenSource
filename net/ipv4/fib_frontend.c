@@ -814,6 +814,9 @@ void fib_del_ifaddr(struct in_ifaddr *ifa, struct in_ifaddr *iprim)
 		subnet = 1;
 	}
 
+	if (in_dev->dead)
+		goto no_promotions;
+
 	/* Deletion is more complicated than add.
 	 * We should take care of not to delete too much :-)
 	 *
@@ -889,6 +892,7 @@ void fib_del_ifaddr(struct in_ifaddr *ifa, struct in_ifaddr *iprim)
 		}
 	}
 
+no_promotions:
 	if (!(ok & BRD_OK))
 		fib_magic(RTM_DELROUTE, RTN_BROADCAST, ifa->ifa_broadcast, 32, prim);
 	if (subnet && ifa->ifa_prefixlen < 31) {
@@ -957,7 +961,8 @@ static void nl_fib_input(struct sk_buff *skb)
 
 	net = sock_net(skb->sk);
 	nlh = nlmsg_hdr(skb);
-	if (skb->len < NLMSG_HDRLEN || skb->len < nlh->nlmsg_len ||
+	if (skb->len < nlmsg_total_size(sizeof(*frn)) ||
+	    skb->len < nlh->nlmsg_len ||
 	    nlmsg_len(nlh) < sizeof(*frn))
 		return;
 

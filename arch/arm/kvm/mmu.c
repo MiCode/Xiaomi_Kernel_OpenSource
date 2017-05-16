@@ -256,6 +256,14 @@ static void unmap_range(struct kvm *kvm, pgd_t *pgdp,
 		next = kvm_pgd_addr_end(addr, end);
 		if (!pgd_none(*pgd))
 			unmap_puds(kvm, pgd, addr, next);
+		/*
+		 * If we are dealing with a large range in
+		 * stage2 table, release the kvm->mmu_lock
+		 * to prevent starvation and lockup detector
+		 * warnings.
+		 */
+		if (kvm && (next != end))
+			cond_resched_lock(&kvm->mmu_lock);
 	} while (pgd++, addr = next, addr != end);
 }
 
@@ -693,6 +701,7 @@ int kvm_alloc_stage2_pgd(struct kvm *kvm)
  */
 static void unmap_stage2_range(struct kvm *kvm, phys_addr_t start, u64 size)
 {
+	assert_spin_locked(&kvm->mmu_lock);
 	unmap_range(kvm, kvm->arch.pgd, start, size);
 }
 
@@ -777,7 +786,10 @@ void kvm_free_stage2_pgd(struct kvm *kvm)
 	if (kvm->arch.pgd == NULL)
 		return;
 
+	spin_lock(&kvm->mmu_lock);
 	unmap_stage2_range(kvm, 0, KVM_PHYS_SIZE);
+	spin_unlock(&kvm->mmu_lock);
+
 	kvm_free_hwpgd(kvm_get_hwpgd(kvm));
 	if (KVM_PREALLOC_LEVEL > 0)
 		kfree(kvm->arch.pgd);
@@ -841,11 +853,14 @@ static int stage2_set_pmd_huge(struct kvm *kvm, struct kvm_mmu_memory_cache
 	VM_BUG_ON(pmd_present(*pmd) && pmd_pfn(*pmd) != pmd_pfn(*new_pmd));
 
 	old_pmd = *pmd;
-	kvm_set_pmd(pmd, *new_pmd);
-	if (pmd_present(old_pmd))
+	if (pmd_present(old_pmd)) {
+		pmd_clear(pmd);
 		kvm_tlb_flush_vmid_ipa(kvm, addr);
-	else
+	} else {
 		get_page(virt_to_page(pmd));
+	}
+
+	kvm_set_pmd(pmd, *new_pmd);
 	return 0;
 }
 
@@ -882,12 +897,14 @@ static int stage2_set_pte(struct kvm *kvm, struct kvm_mmu_memory_cache *cache,
 
 	/* Create 2nd stage page table mapping - Level 3 */
 	old_pte = *pte;
-	kvm_set_pte(pte, *new_pte);
-	if (pte_present(old_pte))
+	if (pte_present(old_pte)) {
+		kvm_set_pte(pte, __pte(0));
 		kvm_tlb_flush_vmid_ipa(kvm, addr);
-	else
+	} else {
 		get_page(virt_to_page(pte));
+	}
 
+	kvm_set_pte(pte, *new_pte);
 	return 0;
 }
 
@@ -1402,6 +1419,7 @@ int kvm_arch_prepare_memory_region(struct kvm *kvm,
 	    (KVM_PHYS_SIZE >> PAGE_SHIFT))
 		return -EFAULT;
 
+	down_read(&current->mm->mmap_sem);
 	/*
 	 * A memory region could potentially cover multiple VMAs, and any holes
 	 * between them, so iterate over all of them to find out if we can map
@@ -1459,6 +1477,8 @@ int kvm_arch_prepare_memory_region(struct kvm *kvm,
 	else
 		stage2_flush_memslot(kvm, memslot);
 	spin_unlock(&kvm->mmu_lock);
+
+	up_read(&current->mm->mmap_sem);
 	return ret;
 }
 
@@ -1488,6 +1508,7 @@ void kvm_arch_memslots_updated(struct kvm *kvm)
 
 void kvm_arch_flush_shadow_all(struct kvm *kvm)
 {
+	kvm_free_stage2_pgd(kvm);
 }
 
 void kvm_arch_flush_shadow_memslot(struct kvm *kvm,

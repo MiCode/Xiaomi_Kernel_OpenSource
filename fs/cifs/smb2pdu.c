@@ -46,6 +46,7 @@
 #include "smb2status.h"
 #include "smb2glob.h"
 #include "cifspdu.h"
+#include "cifs_spnego.h"
 
 /*
  *  The following table defines the expected "StructureSize" of SMB2 requests
@@ -263,7 +264,7 @@ out:
 	case SMB2_CHANGE_NOTIFY:
 	case SMB2_QUERY_INFO:
 	case SMB2_SET_INFO:
-		return -EAGAIN;
+		rc = -EAGAIN;
 	}
 	unload_nls(nls_codepage);
 	return rc;
@@ -427,20 +428,15 @@ SMB2_negotiate(const unsigned int xid, struct cifs_ses *ses)
 		cifs_dbg(FYI, "missing security blob on negprot\n");
 
 	rc = cifs_enable_signing(server, ses->sign);
-#ifdef CONFIG_SMB2_ASN1  /* BB REMOVEME when updated asn1.c ready */
 	if (rc)
 		goto neg_exit;
-	if (blob_length)
-		rc = decode_neg_token_init(security_blob, blob_length,
-				   &server->sec_type);
-	if (rc == 1)
-		rc = 0;
-	else if (rc == 0) {
-		rc = -EIO;
-		goto neg_exit;
+	if (blob_length) {
+		rc = decode_negTokenInit(security_blob, blob_length, server);
+		if (rc == 1)
+			rc = 0;
+		else if (rc == 0)
+			rc = -EIO;
 	}
-#endif
-
 neg_exit:
 	free_rsp_buf(resp_buftype, rsp);
 	return rc;
@@ -534,8 +530,9 @@ SMB2_sess_setup(const unsigned int xid, struct cifs_ses *ses,
 	__le32 phase = NtLmNegotiate; /* NTLMSSP, if needed, is multistage */
 	struct TCP_Server_Info *server = ses->server;
 	u16 blob_length = 0;
-	char *security_blob;
-	char *ntlmssp_blob = NULL;
+	struct key *spnego_key = NULL;
+	char *security_blob = NULL;
+	unsigned char *ntlmssp_blob = NULL;
 	bool use_spnego = false; /* else use raw ntlmssp */
 
 	cifs_dbg(FYI, "Session Setup\n");
@@ -562,7 +559,8 @@ SMB2_sess_setup(const unsigned int xid, struct cifs_ses *ses,
 	ses->ntlmssp->sesskey_per_smbsess = true;
 
 	/* FIXME: allow for other auth types besides NTLMSSP (e.g. krb5) */
-	ses->sectype = RawNTLMSSP;
+	if (ses->sectype != Kerberos && ses->sectype != RawNTLMSSP)
+		ses->sectype = RawNTLMSSP;
 
 ssetup_ntlmssp_authenticate:
 	if (phase == NtLmChallenge)
@@ -591,7 +589,48 @@ ssetup_ntlmssp_authenticate:
 	iov[0].iov_base = (char *)req;
 	/* 4 for rfc1002 length field and 1 for pad */
 	iov[0].iov_len = get_rfc1002_length(req) + 4 - 1;
-	if (phase == NtLmNegotiate) {
+
+	if (ses->sectype == Kerberos) {
+#ifdef CONFIG_CIFS_UPCALL
+		struct cifs_spnego_msg *msg;
+
+		spnego_key = cifs_get_spnego_key(ses);
+		if (IS_ERR(spnego_key)) {
+			rc = PTR_ERR(spnego_key);
+			spnego_key = NULL;
+			goto ssetup_exit;
+		}
+
+		msg = spnego_key->payload.data;
+		/*
+		 * check version field to make sure that cifs.upcall is
+		 * sending us a response in an expected form
+		 */
+		if (msg->version != CIFS_SPNEGO_UPCALL_VERSION) {
+			cifs_dbg(VFS,
+				  "bad cifs.upcall version. Expected %d got %d",
+				  CIFS_SPNEGO_UPCALL_VERSION, msg->version);
+			rc = -EKEYREJECTED;
+			goto ssetup_exit;
+		}
+		ses->auth_key.response = kmemdup(msg->data, msg->sesskey_len,
+						 GFP_KERNEL);
+		if (!ses->auth_key.response) {
+			cifs_dbg(VFS,
+				"Kerberos can't allocate (%u bytes) memory",
+				msg->sesskey_len);
+			rc = -ENOMEM;
+			goto ssetup_exit;
+		}
+		ses->auth_key.len = msg->sesskey_len;
+		blob_length = msg->secblob_len;
+		iov[1].iov_base = msg->data + msg->sesskey_len;
+		iov[1].iov_len = blob_length;
+#else
+		rc = -EOPNOTSUPP;
+		goto ssetup_exit;
+#endif /* CONFIG_CIFS_UPCALL */
+	} else if (phase == NtLmNegotiate) { /* if not krb5 must be ntlmssp */
 		ntlmssp_blob = kmalloc(sizeof(struct _NEGOTIATE_MESSAGE),
 				       GFP_KERNEL);
 		if (ntlmssp_blob == NULL) {
@@ -614,15 +653,11 @@ ssetup_ntlmssp_authenticate:
 			/* with raw NTLMSSP we don't encapsulate in SPNEGO */
 			security_blob = ntlmssp_blob;
 		}
+		iov[1].iov_base = security_blob;
+		iov[1].iov_len = blob_length;
 	} else if (phase == NtLmAuthenticate) {
 		req->hdr.SessionId = ses->Suid;
-		ntlmssp_blob = kzalloc(sizeof(struct _NEGOTIATE_MESSAGE) + 500,
-				       GFP_KERNEL);
-		if (ntlmssp_blob == NULL) {
-			rc = -ENOMEM;
-			goto ssetup_exit;
-		}
-		rc = build_ntlmssp_auth_blob(ntlmssp_blob, &blob_length, ses,
+		rc = build_ntlmssp_auth_blob(&ntlmssp_blob, &blob_length, ses,
 					     nls_cp);
 		if (rc) {
 			cifs_dbg(FYI, "build_ntlmssp_auth_blob failed %d\n",
@@ -641,6 +676,8 @@ ssetup_ntlmssp_authenticate:
 		} else {
 			security_blob = ntlmssp_blob;
 		}
+		iov[1].iov_base = security_blob;
+		iov[1].iov_len = blob_length;
 	} else {
 		cifs_dbg(VFS, "illegal ntlmssp phase\n");
 		rc = -EIO;
@@ -652,8 +689,6 @@ ssetup_ntlmssp_authenticate:
 				cpu_to_le16(sizeof(struct smb2_sess_setup_req) -
 					    1 /* pad */ - 4 /* rfc1001 len */);
 	req->SecurityBufferLength = cpu_to_le16(blob_length);
-	iov[1].iov_base = security_blob;
-	iov[1].iov_len = blob_length;
 
 	inc_rfc1001_len(req, blob_length - 1 /* pad */);
 
@@ -664,6 +699,7 @@ ssetup_ntlmssp_authenticate:
 
 	kfree(security_blob);
 	rsp = (struct smb2_sess_setup_rsp *)iov[0].iov_base;
+	ses->Suid = rsp->hdr.SessionId;
 	if (resp_buftype != CIFS_NO_BUFFER &&
 	    rsp->hdr.Status == STATUS_MORE_PROCESSING_REQUIRED) {
 		if (phase != NtLmNegotiate) {
@@ -681,7 +717,6 @@ ssetup_ntlmssp_authenticate:
 		/* NTLMSSP Negotiate sent now processing challenge (response) */
 		phase = NtLmChallenge; /* process ntlmssp challenge */
 		rc = 0; /* MORE_PROCESSING is not an error here but expected */
-		ses->Suid = rsp->hdr.SessionId;
 		rc = decode_ntlmssp_challenge(rsp->Buffer,
 				le16_to_cpu(rsp->SecurityBufferLength), ses);
 	}
@@ -737,6 +772,10 @@ keygen_exit:
 	if (!server->sign) {
 		kfree(ses->auth_key.response);
 		ses->auth_key.response = NULL;
+	}
+	if (spnego_key) {
+		key_invalidate(spnego_key);
+		key_put(spnego_key);
 	}
 	kfree(ses->ntlmssp);
 
@@ -815,9 +854,6 @@ SMB2_tcon(const unsigned int xid, struct cifs_ses *ses, const char *tree,
 	else
 		return -EIO;
 
-	if (tcon && tcon->bad_network_name)
-		return -ENOENT;
-
 	unc_path = kmalloc(MAX_SHARENAME_LENGTH * 2, GFP_KERNEL);
 	if (unc_path == NULL)
 		return -ENOMEM;
@@ -828,6 +864,10 @@ SMB2_tcon(const unsigned int xid, struct cifs_ses *ses, const char *tree,
 		kfree(unc_path);
 		return -EINVAL;
 	}
+
+	/* SMB2 TREE_CONNECT request must be called with TreeId == 0 */
+	if (tcon)
+		tcon->tid = 0;
 
 	rc = small_smb2_init(SMB2_TREE_CONNECT, tcon, (void **) &req);
 	if (rc) {
@@ -907,8 +947,6 @@ tcon_exit:
 tcon_error_exit:
 	if (rsp->hdr.Status == STATUS_BAD_NETWORK_NAME) {
 		cifs_dbg(VFS, "BAD_NETWORK_NAME: %s\n", tree);
-		if (tcon)
-			tcon->bad_network_name = true;
 	}
 	goto tcon_exit;
 }
@@ -997,21 +1035,25 @@ parse_lease_state(struct TCP_Server_Info *server, struct smb2_create_rsp *rsp,
 {
 	char *data_offset;
 	struct create_context *cc;
-	unsigned int next = 0;
+	unsigned int next;
+	unsigned int remaining;
 	char *name;
 
 	data_offset = (char *)rsp + 4 + le32_to_cpu(rsp->CreateContextsOffset);
+	remaining = le32_to_cpu(rsp->CreateContextsLength);
 	cc = (struct create_context *)data_offset;
-	do {
-		cc = (struct create_context *)((char *)cc + next);
+	while (remaining >= sizeof(struct create_context)) {
 		name = le16_to_cpu(cc->NameOffset) + (char *)cc;
-		if (le16_to_cpu(cc->NameLength) != 4 ||
-		    strncmp(name, "RqLs", 4)) {
-			next = le32_to_cpu(cc->Next);
-			continue;
-		}
-		return server->ops->parse_lease_buf(cc, epoch);
-	} while (next != 0);
+		if (le16_to_cpu(cc->NameLength) == 4 &&
+		    strncmp(name, "RqLs", 4) == 0)
+			return server->ops->parse_lease_buf(cc, epoch);
+
+		next = le32_to_cpu(cc->Next);
+		if (!next)
+			break;
+		remaining -= next;
+		cc = (struct create_context *)((char *)cc + next);
+	}
 
 	return 0;
 }
@@ -1569,6 +1611,54 @@ smb2_echo_callback(struct mid_q_entry *mid)
 	add_credits(server, credits_received, CIFS_ECHO_OP);
 }
 
+void smb2_reconnect_server(struct work_struct *work)
+{
+	struct TCP_Server_Info *server = container_of(work,
+					struct TCP_Server_Info, reconnect.work);
+	struct cifs_ses *ses;
+	struct cifs_tcon *tcon, *tcon2;
+	struct list_head tmp_list;
+	int tcon_exist = false;
+
+	/* Prevent simultaneous reconnects that can corrupt tcon->rlist list */
+	mutex_lock(&server->reconnect_mutex);
+
+	INIT_LIST_HEAD(&tmp_list);
+	cifs_dbg(FYI, "Need negotiate, reconnecting tcons\n");
+
+	spin_lock(&cifs_tcp_ses_lock);
+	list_for_each_entry(ses, &server->smb_ses_list, smb_ses_list) {
+		list_for_each_entry(tcon, &ses->tcon_list, tcon_list) {
+			if (tcon->need_reconnect) {
+				tcon->tc_count++;
+				list_add_tail(&tcon->rlist, &tmp_list);
+				tcon_exist = true;
+			}
+		}
+	}
+	/*
+	 * Get the reference to server struct to be sure that the last call of
+	 * cifs_put_tcon() in the loop below won't release the server pointer.
+	 */
+	if (tcon_exist)
+		server->srv_count++;
+
+	spin_unlock(&cifs_tcp_ses_lock);
+
+	list_for_each_entry_safe(tcon, tcon2, &tmp_list, rlist) {
+		smb2_reconnect(SMB2_ECHO, tcon);
+		list_del_init(&tcon->rlist);
+		cifs_put_tcon(tcon);
+	}
+
+	cifs_dbg(FYI, "Reconnecting tcons finished\n");
+	mutex_unlock(&server->reconnect_mutex);
+
+	/* now we can safely release srv struct */
+	if (tcon_exist)
+		cifs_put_tcp_session(server, 1);
+}
+
 int
 SMB2_echo(struct TCP_Server_Info *server)
 {
@@ -1579,6 +1669,12 @@ SMB2_echo(struct TCP_Server_Info *server)
 				 .rq_nvec = 1 };
 
 	cifs_dbg(FYI, "In echo request\n");
+
+	if (server->tcpStatus == CifsNeedNegotiate) {
+		/* No need to send echo on newly established connections */
+		queue_delayed_work(cifsiod_wq, &server->reconnect, 0);
+		return rc;
+	}
 
 	rc = small_smb2_init(SMB2_ECHO, NULL, (void **)&req);
 	if (rc)
@@ -2329,6 +2425,22 @@ SMB2_rename(const unsigned int xid, struct cifs_tcon *tcon,
 			   size);
 	kfree(data);
 	return rc;
+}
+
+int
+SMB2_rmdir(const unsigned int xid, struct cifs_tcon *tcon,
+		  u64 persistent_fid, u64 volatile_fid)
+{
+	__u8 delete_pending = 1;
+	void *data;
+	unsigned int size;
+
+	data = &delete_pending;
+	size = 1; /* sizeof __u8 */
+
+	return send_set_info(xid, tcon, persistent_fid, volatile_fid,
+			current->tgid, FILE_DISPOSITION_INFORMATION, 1, &data,
+			&size);
 }
 
 int

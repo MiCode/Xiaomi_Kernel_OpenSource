@@ -197,12 +197,25 @@ int xen_pcibk_enable_msix(struct xen_pcibk_device *pdev,
 	struct xen_pcibk_dev_data *dev_data;
 	int i, result;
 	struct msix_entry *entries;
+	u16 cmd;
 
 	if (unlikely(verbose_request))
 		printk(KERN_DEBUG DRV_NAME ": %s: enable MSI-X\n",
 		       pci_name(dev));
+
 	if (op->value > SH_INFO_MAX_VEC)
 		return -EINVAL;
+
+	if (dev->msix_enabled)
+		return -EALREADY;
+
+	/*
+	 * PCI_COMMAND_MEMORY must be enabled, otherwise we may not be able
+	 * to access the BARs where the MSI-X entries reside.
+	 */
+	pci_read_config_word(dev, PCI_COMMAND, &cmd);
+	if (dev->msi_enabled || !(cmd & PCI_COMMAND_MEMORY))
+		return -ENXIO;
 
 	entries = kmalloc(op->value * sizeof(*entries), GFP_KERNEL);
 	if (entries == NULL)
@@ -298,9 +311,11 @@ void xen_pcibk_do_op(struct work_struct *data)
 		container_of(data, struct xen_pcibk_device, op_work);
 	struct pci_dev *dev;
 	struct xen_pcibk_dev_data *dev_data = NULL;
-	struct xen_pci_op *op = &pdev->sh_info->op;
+	struct xen_pci_op *op = &pdev->op;
 	int test_intx = 0;
 
+	*op = pdev->sh_info->op;
+	barrier();
 	dev = xen_pcibk_get_pci_dev(pdev, op->domain, op->bus, op->devfn);
 
 	if (dev == NULL)
@@ -342,6 +357,17 @@ void xen_pcibk_do_op(struct work_struct *data)
 		if ((dev_data->enable_intx != test_intx))
 			xen_pcibk_control_isr(dev, 0 /* no reset */);
 	}
+	pdev->sh_info->op.err = op->err;
+	pdev->sh_info->op.value = op->value;
+#ifdef CONFIG_PCI_MSI
+	if (op->cmd == XEN_PCI_OP_enable_msix && op->err == 0) {
+		unsigned int i;
+
+		for (i = 0; i < op->value; i++)
+			pdev->sh_info->op.msix_entries[i].vector =
+				op->msix_entries[i].vector;
+	}
+#endif
 	/* Tell the driver domain that we're done. */
 	wmb();
 	clear_bit(_XEN_PCIF_active, (unsigned long *)&pdev->sh_info->flags);

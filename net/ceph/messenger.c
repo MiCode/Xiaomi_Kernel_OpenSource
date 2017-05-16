@@ -1979,6 +1979,19 @@ static int process_connect(struct ceph_connection *con)
 
 	dout("process_connect on %p tag %d\n", con, (int)con->in_tag);
 
+	if (con->auth_reply_buf) {
+		/*
+		 * Any connection that defines ->get_authorizer()
+		 * should also define ->verify_authorizer_reply().
+		 * See get_connect_authorizer().
+		 */
+		ret = con->ops->verify_authorizer_reply(con, 0);
+		if (ret < 0) {
+			con->error_msg = "bad authorize reply";
+			return ret;
+		}
+	}
+
 	switch (con->in_reply.tag) {
 	case CEPH_MSGR_TAG_FEATURES:
 		pr_err("%s%lld %s feature set mismatch,"
@@ -2287,7 +2300,7 @@ static int read_partial_message(struct ceph_connection *con)
 		con->in_base_pos = -front_len - middle_len - data_len -
 			sizeof(m->footer);
 		con->in_tag = CEPH_MSGR_TAG_READY;
-		return 0;
+		return 1;
 	} else if ((s64)seq - (s64)con->in_seq > 1) {
 		pr_err("read_partial_message bad seq %lld expected %lld\n",
 		       seq, con->in_seq + 1);
@@ -2320,7 +2333,7 @@ static int read_partial_message(struct ceph_connection *con)
 				sizeof(m->footer);
 			con->in_tag = CEPH_MSGR_TAG_READY;
 			con->in_seq++;
-			return 0;
+			return 1;
 		}
 
 		BUG_ON(!con->in_msg);

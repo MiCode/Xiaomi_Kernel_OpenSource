@@ -797,6 +797,21 @@ static int iowarrior_probe(struct usb_interface *interface,
 			/* this one will match for the IOWarrior56 only */
 			dev->int_out_endpoint = endpoint;
 	}
+
+	if (!dev->int_in_endpoint) {
+		dev_err(&interface->dev, "no interrupt-in endpoint found\n");
+		retval = -ENODEV;
+		goto error;
+	}
+
+	if (dev->product_id == USB_DEVICE_ID_CODEMERCS_IOW56) {
+		if (!dev->int_out_endpoint) {
+			dev_err(&interface->dev, "no interrupt-out endpoint found\n");
+			retval = -ENODEV;
+			goto error;
+		}
+	}
+
 	/* we have to check the report_size often, so remember it in the endianness suitable for our machine */
 	dev->report_size = usb_endpoint_maxp(dev->int_in_endpoint);
 	if ((dev->interface->cur_altsetting->desc.bInterfaceNumber == 0) &&

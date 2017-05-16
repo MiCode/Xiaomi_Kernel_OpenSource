@@ -207,9 +207,9 @@ void ext4_evict_inode(struct inode *inode)
 		 * Note that directories do not have this problem because they
 		 * don't use page cache.
 		 */
-		if (ext4_should_journal_data(inode) &&
-		    (S_ISLNK(inode->i_mode) || S_ISREG(inode->i_mode)) &&
-		    inode->i_ino != EXT4_JOURNAL_INO) {
+		if (inode->i_ino != EXT4_JOURNAL_INO &&
+		    ext4_should_journal_data(inode) &&
+		    (S_ISLNK(inode->i_mode) || S_ISREG(inode->i_mode))) {
 			journal_t *journal = EXT4_SB(inode->i_sb)->s_journal;
 			tid_t commit_tid = EXT4_I(inode)->i_datasync_tid;
 
@@ -2441,13 +2441,36 @@ retry:
 				done = true;
 			}
 		}
-		ext4_journal_stop(handle);
+		/*
+		 * Caution: If the handle is synchronous,
+		 * ext4_journal_stop() can wait for transaction commit
+		 * to finish which may depend on writeback of pages to
+		 * complete or on page lock to be released.  In that
+		 * case, we have to wait until after after we have
+		 * submitted all the IO, released page locks we hold,
+		 * and dropped io_end reference (for extent conversion
+		 * to be able to complete) before stopping the handle.
+		 */
+		if (!ext4_handle_valid(handle) || handle->h_sync == 0) {
+			ext4_journal_stop(handle);
+			handle = NULL;
+		}
 		/* Submit prepared bio */
 		ext4_io_submit(&mpd.io_submit);
 		/* Unlock pages we didn't use */
 		mpage_release_unused_pages(&mpd, give_up_on_write);
-		/* Drop our io_end reference we got from init */
-		ext4_put_io_end(mpd.io_submit.io_end);
+		/*
+		 * Drop our io_end reference we got from init. We have
+		 * to be careful and use deferred io_end finishing if
+		 * we are still holding the transaction as we can
+		 * release the last reference to io_end which may end
+		 * up doing unwritten extent conversion.
+		 */
+		if (handle) {
+			ext4_put_io_end_defer(mpd.io_submit.io_end);
+			ext4_journal_stop(handle);
+		} else
+			ext4_put_io_end(mpd.io_submit.io_end);
 
 		if (ret == -ENOSPC && sbi->s_journal) {
 			/*
@@ -3033,29 +3056,29 @@ static ssize_t ext4_ext_direct_IO(int rw, struct kiocb *iocb,
 	 * case, we allocate an io_end structure to hook to the iocb.
 	 */
 	iocb->private = NULL;
-	ext4_inode_aio_set(inode, NULL);
-	if (!is_sync_kiocb(iocb)) {
-		io_end = ext4_init_io_end(inode, GFP_NOFS);
-		if (!io_end) {
-			ret = -ENOMEM;
-			goto retake_lock;
-		}
-		/*
-		 * Grab reference for DIO. Will be dropped in ext4_end_io_dio()
-		 */
-		iocb->private = ext4_get_io_end(io_end);
-		/*
-		 * we save the io structure for current async direct
-		 * IO, so that later ext4_map_blocks() could flag the
-		 * io structure whether there is a unwritten extents
-		 * needs to be converted when IO is completed.
-		 */
-		ext4_inode_aio_set(inode, io_end);
-	}
-
 	if (overwrite) {
 		get_block_func = ext4_get_block_write_nolock;
 	} else {
+		ext4_inode_aio_set(inode, NULL);
+		if (!is_sync_kiocb(iocb)) {
+			io_end = ext4_init_io_end(inode, GFP_NOFS);
+			if (!io_end) {
+				ret = -ENOMEM;
+				goto retake_lock;
+			}
+			/*
+			 * Grab reference for DIO. Will be dropped in
+			 * ext4_end_io_dio()
+			 */
+			iocb->private = ext4_get_io_end(io_end);
+			/*
+			 * we save the io structure for current async direct
+			 * IO, so that later ext4_map_blocks() could flag the
+			 * io structure whether there is a unwritten extents
+			 * needs to be converted when IO is completed.
+			 */
+			ext4_inode_aio_set(inode, io_end);
+		}
 		get_block_func = ext4_get_block_write;
 		dio_flags = DIO_LOCKING;
 	}
@@ -4841,6 +4864,8 @@ int ext4_mark_inode_dirty(handle_t *handle, struct inode *inode)
 	might_sleep();
 	trace_ext4_mark_inode_dirty(inode, _RET_IP_);
 	err = ext4_reserve_inode_write(handle, inode, &iloc);
+	if (err)
+		return err;
 	if (ext4_handle_valid(handle) &&
 	    EXT4_I(inode)->i_extra_isize < sbi->s_want_extra_isize &&
 	    !ext4_test_inode_state(inode, EXT4_STATE_NO_EXPAND)) {
@@ -4871,9 +4896,7 @@ int ext4_mark_inode_dirty(handle_t *handle, struct inode *inode)
 			}
 		}
 	}
-	if (!err)
-		err = ext4_mark_iloc_dirty(handle, inode, &iloc);
-	return err;
+	return ext4_mark_iloc_dirty(handle, inode, &iloc);
 }
 
 /*

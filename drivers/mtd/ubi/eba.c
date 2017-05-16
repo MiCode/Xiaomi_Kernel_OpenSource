@@ -425,8 +425,27 @@ retry:
 					ubi_warn("corrupted VID header at PEB %d, LEB %d:%d",
 						 pnum, vol_id, lnum);
 					err = -EBADMSG;
-				} else
-					ubi_ro_mode(ubi);
+				} else {
+					/*
+					 * Ending up here in the non-Fastmap case
+					 * is a clear bug as the VID header had to
+					 * be present at scan time to have it referenced.
+					 * With fastmap the story is more complicated.
+					 * Fastmap has the mapping info without the need
+					 * of a full scan. So the LEB could have been
+					 * unmapped, Fastmap cannot know this and keeps
+					 * the LEB referenced.
+					 * This is valid and works as the layer above UBI
+					 * has to do bookkeeping about used/referenced
+					 * LEBs in any case.
+					 */
+					if (ubi->fast_attach) {
+						err = -EBADMSG;
+					} else {
+						err = -EINVAL;
+						ubi_ro_mode(ubi);
+					}
+				}
 			}
 			goto out_free;
 		} else if (err == UBI_IO_BITFLIPS)
@@ -842,7 +861,7 @@ write_error:
 int ubi_eba_atomic_leb_change(struct ubi_device *ubi, struct ubi_volume *vol,
 			      int lnum, const void *buf, int len)
 {
-	int err, pnum, tries = 0, vol_id = vol->vol_id;
+	int err, pnum, old_pnum, tries = 0, vol_id = vol->vol_id;
 	struct ubi_vid_hdr *vid_hdr;
 	uint32_t crc;
 
@@ -905,15 +924,16 @@ retry:
 		goto write_error;
 	}
 
-	if (vol->eba_tbl[lnum] >= 0) {
-		err = ubi_wl_put_peb(ubi, vol_id, lnum, vol->eba_tbl[lnum], 0);
+	down_read(&ubi->fm_sem);
+	old_pnum = vol->eba_tbl[lnum];
+	vol->eba_tbl[lnum] = pnum;
+	up_read(&ubi->fm_sem);
+
+	if (old_pnum >= 0) {
+		err = ubi_wl_put_peb(ubi, vol_id, lnum, old_pnum, 0);
 		if (err)
 			goto out_leb_unlock;
 	}
-
-	down_read(&ubi->fm_sem);
-	vol->eba_tbl[lnum] = pnum;
-	up_read(&ubi->fm_sem);
 
 out_leb_unlock:
 	leb_write_unlock(ubi, vol_id, lnum);

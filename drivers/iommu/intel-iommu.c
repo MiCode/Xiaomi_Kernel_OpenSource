@@ -696,7 +696,13 @@ static struct intel_iommu *device_to_iommu(struct device *dev, u8 *bus, u8 *devf
 	int i;
 
 	if (dev_is_pci(dev)) {
+		struct pci_dev *pf_pdev;
+
 		pdev = to_pci_dev(dev);
+		/* VFs aren't listed in scope tables; we need to look up
+		 * the PF instead to find the IOMMU. */
+		pf_pdev = pci_physfn(pdev);
+		dev = &pf_pdev->dev;
 		segment = pci_domain_nr(pdev->bus);
 	} else if (ACPI_COMPANION(dev))
 		dev = &ACPI_COMPANION(dev)->dev;
@@ -709,6 +715,13 @@ static struct intel_iommu *device_to_iommu(struct device *dev, u8 *bus, u8 *devf
 		for_each_active_dev_scope(drhd->devices,
 					  drhd->devices_cnt, i, tmp) {
 			if (tmp == dev) {
+				/* For a VF use its original BDF# not that of the PF
+				 * which we used for the IOMMU lookup. Strictly speaking
+				 * we could do this for all PCI devices; we only need to
+				 * get the BDF# from the scope table for ACPI matches. */
+				if (pdev && pdev->is_virtfn)
+					goto got_pdev;
+
 				*bus = drhd->devices[i].bus;
 				*devfn = drhd->devices[i].devfn;
 				goto out;
@@ -1746,7 +1759,6 @@ static int domain_init(struct dmar_domain *domain, int guest_width)
 
 static void domain_exit(struct dmar_domain *domain)
 {
-	struct dmar_drhd_unit *drhd;
 	struct page *freelist = NULL;
 	int i;
 

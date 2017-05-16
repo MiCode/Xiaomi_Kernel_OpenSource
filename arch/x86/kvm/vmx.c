@@ -1600,6 +1600,13 @@ static void add_atomic_switch_msr(struct vcpu_vmx *vmx, unsigned msr,
 			return;
 		}
 		break;
+	case MSR_IA32_PEBS_ENABLE:
+		/* PEBS needs a quiescent period after being disabled (to write
+		 * a record).  Disabling PEBS through VMX MSR swapping doesn't
+		 * provide that period, so a CPU could write host's record into
+		 * guest's memory.
+		 */
+		wrmsrl(MSR_IA32_PEBS_ENABLE, 0);
 	}
 
 	for (i = 0; i < m->nr; ++i)
@@ -6072,14 +6079,20 @@ static int nested_vmx_check_vmptr(struct kvm_vcpu *vcpu, int exit_reason,
 		}
 
 		page = nested_get_page(vcpu, vmptr);
-		if (page == NULL ||
-		    *(u32 *)kmap(page) != VMCS12_REVISION) {
+		if (page == NULL) {
 			nested_vmx_failInvalid(vcpu);
+			skip_emulated_instruction(vcpu);
+			return 1;
+		}
+		if (*(u32 *)kmap(page) != VMCS12_REVISION) {
 			kunmap(page);
+			nested_release_page_clean(page);
+			nested_vmx_failInvalid(vcpu);
 			skip_emulated_instruction(vcpu);
 			return 1;
 		}
 		kunmap(page);
+		nested_release_page_clean(page);
 		vmx->nested.vmxon_ptr = vmptr;
 		break;
 	case EXIT_REASON_VMCLEAR:
@@ -6733,6 +6746,7 @@ static int handle_invept(struct kvm_vcpu *vcpu)
 	if (!(types & (1UL << type))) {
 		nested_vmx_failValid(vcpu,
 				VMXERR_INVALID_OPERAND_TO_INVEPT_INVVPID);
+		skip_emulated_instruction(vcpu);
 		return 1;
 	}
 
@@ -7033,8 +7047,6 @@ static bool nested_vmx_exit_handled(struct kvm_vcpu *vcpu)
 	case EXIT_REASON_TASK_SWITCH:
 		return 1;
 	case EXIT_REASON_CPUID:
-		if (kvm_register_read(vcpu, VCPU_REGS_RAX) == 0xa)
-			return 0;
 		return 1;
 	case EXIT_REASON_HLT:
 		return nested_cpu_has(vmcs12, CPU_BASED_HLT_EXITING);
@@ -7759,14 +7771,29 @@ static void vmx_load_vmcs01(struct kvm_vcpu *vcpu)
 	put_cpu();
 }
 
+/*
+ * Ensure that the current vmcs of the logical processor is the
+ * vmcs01 of the vcpu before calling free_nested().
+ */
+static void vmx_free_vcpu_nested(struct kvm_vcpu *vcpu)
+{
+       struct vcpu_vmx *vmx = to_vmx(vcpu);
+       int r;
+
+       r = vcpu_load(vcpu);
+       BUG_ON(r);
+       vmx_load_vmcs01(vcpu);
+       free_nested(vmx);
+       vcpu_put(vcpu);
+}
+
 static void vmx_free_vcpu(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
 
 	free_vpid(vmx);
 	leave_guest_mode(vcpu);
-	vmx_load_vmcs01(vcpu);
-	free_nested(vmx);
+	vmx_free_vcpu_nested(vcpu);
 	free_loaded_vmcs(vmx->loaded_vmcs);
 	kfree(vmx->guest_msrs);
 	kvm_vcpu_uninit(vcpu);

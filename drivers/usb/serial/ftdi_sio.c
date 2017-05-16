@@ -648,6 +648,8 @@ static const struct usb_device_id id_table_combined[] = {
 	{ USB_DEVICE(FTDI_VID, FTDI_ELV_TFD128_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_ELV_FM3RX_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_ELV_WS777_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_PALMSENS_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_IVIUM_XSTAT_PID) },
 	{ USB_DEVICE(FTDI_VID, LINX_SDMUSBQSS_PID) },
 	{ USB_DEVICE(FTDI_VID, LINX_MASTERDEVEL2_PID) },
 	{ USB_DEVICE(FTDI_VID, LINX_FUTURE_0_PID) },
@@ -984,7 +986,8 @@ static const struct usb_device_id id_table_combined[] = {
 	/* ekey Devices */
 	{ USB_DEVICE(FTDI_VID, FTDI_EKEY_CONV_USB_PID) },
 	/* Infineon Devices */
-	{ USB_DEVICE_INTERFACE_NUMBER(INFINEON_VID, INFINEON_TRIBOARD_PID, 1) },
+	{ USB_DEVICE_INTERFACE_NUMBER(INFINEON_VID, INFINEON_TRIBOARD_TC1798_PID, 1) },
+	{ USB_DEVICE_INTERFACE_NUMBER(INFINEON_VID, INFINEON_TRIBOARD_TC2X7_PID, 1) },
 	/* GE Healthcare devices */
 	{ USB_DEVICE(GE_HEALTHCARE_VID, GE_HEALTHCARE_NEMO_TRACKER_PID) },
 	/* Active Research (Actisense) devices */
@@ -1004,6 +1007,11 @@ static const struct usb_device_id id_table_combined[] = {
 	{ USB_DEVICE(FTDI_VID, CHETCO_SEASMART_DISPLAY_PID) },
 	{ USB_DEVICE(FTDI_VID, CHETCO_SEASMART_LITE_PID) },
 	{ USB_DEVICE(FTDI_VID, CHETCO_SEASMART_ANALOG_PID) },
+	/* ICP DAS I-756xU devices */
+	{ USB_DEVICE(ICPDAS_VID, ICPDAS_I7560U_PID) },
+	{ USB_DEVICE(ICPDAS_VID, ICPDAS_I7561U_PID) },
+	{ USB_DEVICE(ICPDAS_VID, ICPDAS_I7563U_PID) },
+	{ USB_DEVICE(WICED_VID, WICED_USB20706V2_PID) },
 	{ }					/* Terminating entry */
 };
 
@@ -1429,10 +1437,13 @@ static int read_latency_timer(struct usb_serial_port *port)
 			     FTDI_SIO_GET_LATENCY_TIMER_REQUEST_TYPE,
 			     0, priv->interface,
 			     buf, 1, WDR_TIMEOUT);
-	if (rv < 0)
+	if (rv < 1) {
 		dev_err(&port->dev, "Unable to read latency timer: %i\n", rv);
-	else
+		if (rv >= 0)
+			rv = -EIO;
+	} else {
 		priv->latency = buf[0];
+	}
 
 	kfree(buf);
 

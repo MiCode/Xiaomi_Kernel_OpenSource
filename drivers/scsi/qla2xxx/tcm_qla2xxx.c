@@ -422,7 +422,7 @@ static int tcm_qla2xxx_check_stop_free(struct se_cmd *se_cmd)
 		cmd->cmd_flags |= BIT_14;
 	}
 
-	return target_put_sess_cmd(se_cmd->se_sess, se_cmd);
+	return target_put_sess_cmd(se_cmd);
 }
 
 /* tcm_qla2xxx_release_cmd - Callback from TCM Core to release underlying
@@ -662,7 +662,6 @@ static int tcm_qla2xxx_queue_data_in(struct se_cmd *se_cmd)
 	cmd->cmd_flags |= BIT_4;
 	cmd->bufflen = se_cmd->data_length;
 	cmd->dma_data_direction = target_reverse_dma_direction(se_cmd);
-	cmd->aborted = (se_cmd->transport_state & CMD_T_ABORTED);
 
 	cmd->sg_cnt = se_cmd->t_data_nents;
 	cmd->sg = se_cmd->t_data_sg;
@@ -692,7 +691,6 @@ static int tcm_qla2xxx_queue_status(struct se_cmd *se_cmd)
 	cmd->sg_cnt = 0;
 	cmd->offset = 0;
 	cmd->dma_data_direction = target_reverse_dma_direction(se_cmd);
-	cmd->aborted = (se_cmd->transport_state & CMD_T_ABORTED);
 	if (cmd->cmd_flags &  BIT_5) {
 		pr_crit("Bit_5 already set for cmd = %p.\n", cmd);
 		dump_stack();
@@ -757,14 +755,7 @@ static void tcm_qla2xxx_aborted_task(struct se_cmd *se_cmd)
 {
 	struct qla_tgt_cmd *cmd = container_of(se_cmd,
 				struct qla_tgt_cmd, se_cmd);
-	struct scsi_qla_host *vha = cmd->vha;
-	struct qla_hw_data *ha = vha->hw;
-
-	if (!cmd->sg_mapped)
-		return;
-
-	pci_unmap_sg(ha->pdev, cmd->sg, cmd->sg_cnt, cmd->dma_data_direction);
-	cmd->sg_mapped = 0;
+	qlt_abort_cmd(cmd);
 }
 
 static void tcm_qla2xxx_clear_sess_lookup(struct tcm_qla2xxx_lport *,
@@ -1273,9 +1264,7 @@ static struct qla_tgt_sess *tcm_qla2xxx_find_sess_by_s_id(
 		return NULL;
 	}
 
-	key = (((unsigned long)s_id[0] << 16) |
-	       ((unsigned long)s_id[1] << 8) |
-	       (unsigned long)s_id[2]);
+	key = sid_to_key(s_id);
 	pr_debug("find_sess_by_s_id: 0x%06x\n", key);
 
 	se_nacl = btree_lookup32(&lport->lport_fcport_map, key);
@@ -1310,9 +1299,7 @@ static void tcm_qla2xxx_set_sess_by_s_id(
 	void *slot;
 	int rc;
 
-	key = (((unsigned long)s_id[0] << 16) |
-	       ((unsigned long)s_id[1] << 8) |
-	       (unsigned long)s_id[2]);
+	key = sid_to_key(s_id);
 	pr_debug("set_sess_by_s_id: %06x\n", key);
 
 	slot = btree_lookup32(&lport->lport_fcport_map, key);
@@ -1670,6 +1657,10 @@ static void tcm_qla2xxx_update_sess(struct qla_tgt_sess *sess, port_id_t s_id,
 	}
 
 	sess->conf_compl_supported = conf_compl_supported;
+
+	/* Reset logout parameters to default */
+	sess->logout_on_delete = 1;
+	sess->keep_nport_handle = 0;
 }
 
 /*
