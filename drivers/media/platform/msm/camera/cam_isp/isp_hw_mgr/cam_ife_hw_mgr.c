@@ -2220,7 +2220,7 @@ static int  cam_ife_hw_mgr_handle_camif_error(
 		cam_ife_hw_mgr_do_error_recovery(&recovery_data);
 		break;
 	default:
-		CDBG("%s: None error. Error type (%d)", __func__,
+		CDBG("%s: None error. Error type (%d)\n", __func__,
 			evt_payload->error_type);
 	}
 

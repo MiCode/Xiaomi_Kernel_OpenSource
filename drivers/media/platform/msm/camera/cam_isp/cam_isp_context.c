@@ -652,7 +652,7 @@ static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
 	ctx->session_hdl = 0;
 	ctx->dev_hdl = 0;
 	ctx->link_hdl = 0;
-	ctx->crm_ctx_intf = NULL;
+	ctx->ctx_crm_intf = NULL;
 	ctx_isp->frame_id = 0;
 
 	/*
