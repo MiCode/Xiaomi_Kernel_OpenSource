@@ -21,6 +21,7 @@
 extern const struct regmap_config msm_sdw_regmap_config;
 extern const u8 msm_sdw_page_map[MSM_SDW_MAX_REGISTER];
 extern const u8 msm_sdw_reg_readable[MSM_SDW_MAX_REGISTER];
+extern const u8 msm_sdw_reg_writeable[MSM_SDW_MAX_REGISTER];
 
 enum {
 	MSM_SDW_RX4 = 0,
