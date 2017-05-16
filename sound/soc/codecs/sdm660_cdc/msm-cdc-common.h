@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@ extern struct reg_default
 		msm89xx_pmic_cdc_defaults[MSM89XX_PMIC_CDC_CACHE_SIZE];
 
 bool msm89xx_cdc_core_readable_reg(struct device *dev, unsigned int reg);
+bool msm89xx_cdc_core_writeable_reg(struct device *dev, unsigned int reg);
 bool msm89xx_cdc_core_volatile_reg(struct device *dev, unsigned int reg);
 
 enum {
