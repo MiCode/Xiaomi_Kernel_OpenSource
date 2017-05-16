@@ -40,7 +40,7 @@
 		qcom,mdss-dsi-lane-3-state;
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "none";
-		qcom,mdss-dsi-reset-sequence = <1 20>, <0 20>, <1 20>;
+		qcom,mdss-dsi-reset-sequence = <1 100>, <0 100>, <1 100>;
 		qcom,mdss-dsi-tx-eot-append;
 
 		qcom,adjust-timer-wakeup-ms = <1>;
