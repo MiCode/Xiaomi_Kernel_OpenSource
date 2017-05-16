@@ -1332,12 +1332,6 @@ int gmu_start(struct kgsl_device *device)
 	 * In v2, this function call shall move ahead
 	 * of hfi_start() to save power.
 	 */
-	ret = gpudev->oob_set(adreno_dev, OOB_CPINIT_SET_MASK,
-			OOB_CPINIT_CHECK_MASK, OOB_CPINIT_CLEAR_MASK);
-	gpudev->oob_clear(adreno_dev, OOB_CPINIT_CLEAR_MASK);
-
-	if (ret)
-		goto error_gpu;
 
 	if (device->state == KGSL_STATE_INIT ||
 			device->state == KGSL_STATE_SUSPEND) {
@@ -1379,19 +1373,20 @@ void gmu_stop(struct kgsl_device *device)
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned long t;
 	bool idle = false;
+	unsigned int reg;
 
 	if (!test_bit(GMU_CLK_ON, &gmu->flags))
 		return;
 
-	if (gpudev->hw_isidle) {
-		t = jiffies + msecs_to_jiffies(GMU_IDLE_TIMEOUT);
-		while (!time_after(jiffies, t)) {
-			if (gpudev->hw_isidle(adreno_dev)) {
-				idle = true;
-				break;
-			}
-			cpu_relax();
+	t = jiffies + msecs_to_jiffies(GMU_IDLE_TIMEOUT);
+	while (!time_after(jiffies, t)) {
+		adreno_read_gmureg(ADRENO_DEVICE(device),
+			ADRENO_REG_GMU_RPMH_POWER_STATE, &reg);
+		if (reg == device->gmu.idle_level) {
+			idle = true;
+			break;
 		}
+		cpu_relax();
 	}
 
 	gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_NOTIFY_SLUMBER, 0, 0);
