@@ -2519,6 +2519,11 @@ static int usbpd_dr_set_property(struct dual_role_phy_instance *dual_role,
 	case DUAL_ROLE_PROP_MODE:
 		usbpd_dbg(&pd->dev, "Setting mode to %d\n", *val);
 
+		if (pd->current_state == PE_UNKNOWN) {
+			usbpd_warn(&pd->dev, "No active connection. Don't allow MODE change\n");
+			return -EAGAIN;
+		}
+
 		/*
 		 * Forces disconnect on CC and re-establishes connection.
 		 * This does not use PD-based PR/DR swap
