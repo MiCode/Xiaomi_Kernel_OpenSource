@@ -33,6 +33,9 @@
 #include <linux/thermal.h>
 #include <linux/list.h>
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/thermal_virtual.h>
+
 #include "thermal_core.h"
 
 /***   Private data structures to represent thermal device tree data ***/
@@ -113,6 +116,7 @@ struct __thermal_zone {
  *		  estimate temperature
  * @tz - Array of thermal zones of the sensors this virtual sensor will use
  *	 to estimate temperature
+ * @virt_tz - Virtual thermal zone pointer
  * @logic - aggregation logic to be used to estimate the temperature
  * @last_reading - last estimated temperature
  * @coefficients - array of coefficients to be used for weighted aggregation
@@ -124,6 +128,7 @@ struct __thermal_zone {
 struct virtual_sensor {
 	int                        num_sensors;
 	struct thermal_zone_device *tz[THERMAL_MAX_VIRT_SENSORS];
+	struct thermal_zone_device *virt_tz;
 	enum aggregation_logic     logic;
 	int                        last_reading;
 	int                        coefficients[THERMAL_MAX_VIRT_SENSORS];
@@ -172,6 +177,8 @@ static int virt_sensor_read_temp(void *data, int *val)
 		default:
 			break;
 		}
+		trace_virtual_temperature(sens->virt_tz, sens->tz[idx],
+					sens_temp, temp);
 	}
 
 	sens->last_reading = *val = temp;
@@ -860,6 +867,7 @@ struct thermal_zone_device *devm_thermal_of_virtual_sensor_register(
 	if (!sens)
 		return ERR_PTR(-ENOMEM);
 
+	sens->virt_tz = tzd;
 	sens->logic = sensor_data->logic;
 	sens->num_sensors = sensor_data->num_sensors;
 	if (sens->logic == VIRT_WEIGHTED_AVG) {
