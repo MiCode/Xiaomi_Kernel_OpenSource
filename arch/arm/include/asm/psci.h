@@ -14,6 +14,7 @@
 #ifndef __ASM_ARM_PSCI_H
 #define __ASM_ARM_PSCI_H
 
+extern struct cpuidle_ops psci_cpuidle_ops;
 extern struct smp_operations psci_smp_ops;
 
 #if defined(CONFIG_SMP) && defined(CONFIG_ARM_PSCI)

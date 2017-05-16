@@ -23,6 +23,8 @@
 
 #include <asm/psci.h>
 #include <asm/smp_plat.h>
+#include <asm/suspend.h>
+#include <asm/cpuidle.h>
 
 /*
  * psci_smp assumes that the following is true about PSCI:
@@ -119,6 +121,47 @@ bool __init psci_smp_available(void)
 	/* is cpu_on available at least? */
 	return (psci_ops.cpu_on != NULL);
 }
+
+int __init cpu_psci_cpu_init(struct device_node *cpu_device, int cpu)
+{
+	return 0;
+}
+
+static int psci_suspend_finisher(unsigned long state_id)
+{
+	return psci_ops.cpu_suspend(state_id, virt_to_phys(cpu_resume));
+}
+
+/*
+ * The PSCI changes are to support OS initiated low power mode where the
+ * cluster mode aggregation happens in HLOS. In this case, the cpuidle
+ * driver aggregating the cluster low power mode will provide the
+ * composite stateID to be passed down to the PSCI layer.
+ */
+int cpu_psci_cpu_suspend(int cpu, unsigned long state_id)
+{
+	int ret;
+
+	/*
+	 * idle state id 0 corresponds to wfi, should never be called
+	 * from the cpu_suspend operations
+	 */
+	if (WARN_ON_ONCE(!state_id))
+		return -EINVAL;
+
+	if (!psci_power_state_loses_context(state_id))
+		ret = psci_ops.cpu_suspend(state_id, 0);
+	else
+		ret = cpu_suspend(state_id, psci_suspend_finisher);
+
+	return ret;
+}
+
+struct cpuidle_ops __initdata psci_cpuidle_ops = {
+	.suspend	= cpu_psci_cpu_suspend,
+	.init		= cpu_psci_cpu_init,
+};
+CPUIDLE_METHOD_OF_DECLARE(psci, "psci", &psci_cpuidle_ops);
 
 struct smp_operations __initdata psci_smp_ops = {
 	.smp_boot_secondary	= psci_boot_secondary,
