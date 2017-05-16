@@ -95,6 +95,10 @@
 	status = "disabled";
 };
 
+&sdhc_2 {
+	status = "disabled";
+};
+
 &blsp1_uart1 {
 	status = "ok";
 	pinctrl-names = "default";
