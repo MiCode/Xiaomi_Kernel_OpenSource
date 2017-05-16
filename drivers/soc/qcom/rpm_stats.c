@@ -11,7 +11,6 @@
  *
  */
 
-#include <linux/debugfs.h>
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
@@ -150,84 +149,6 @@ static inline int msm_rpmstats_copy_stats(
 	return length;
 }
 
-static inline unsigned long  msm_rpmstats_read_register(void __iomem *regbase,
-		int index, int offset)
-{
-	return  readl_relaxed(regbase + index * 12 + (offset + 1) * 4);
-}
-
-static ssize_t msm_rpmstats_file_read(struct file *file, char __user *bufu,
-				  size_t count, loff_t *ppos)
-{
-	struct msm_rpmstats_private_data *prvdata;
-
-	prvdata = file->private_data;
-	if (!prvdata)
-		return -EINVAL;
-
-	if (!bufu || count == 0)
-		return -EINVAL;
-
-	if ((*ppos >= prvdata->len) &&
-		(prvdata->read_idx < prvdata->num_records)) {
-		prvdata->len = msm_rpmstats_copy_stats(prvdata);
-		*ppos = 0;
-	}
-
-	return simple_read_from_buffer(bufu, count, ppos,
-			prvdata->buf, prvdata->len);
-}
-
-static int msm_rpmstats_file_open(struct inode *inode, struct file *file)
-{
-	struct msm_rpmstats_private_data *prvdata;
-	struct msm_rpmstats_platform_data *pdata;
-
-	pdata = inode->i_private;
-
-	file->private_data = kzalloc(sizeof(*prvdata), GFP_KERNEL);
-	if (!file->private_data)
-		return -ENOMEM;
-
-	prvdata = file->private_data;
-
-	prvdata->reg_base = ioremap_nocache(pdata->phys_addr_base,
-					pdata->phys_size);
-	if (!prvdata->reg_base) {
-		kfree(file->private_data);
-		prvdata = NULL;
-		pr_err("%s: ERROR could not ioremap start=%pa, len=%u\n",
-			__func__, &pdata->phys_addr_base,
-			pdata->phys_size);
-		return -EBUSY;
-	}
-
-	prvdata->read_idx = prvdata->len = 0;
-	prvdata->platform_data = pdata;
-	prvdata->num_records = RPM_STATS_NUM_REC;
-
-	return 0;
-}
-
-static int msm_rpmstats_file_close(struct inode *inode, struct file *file)
-{
-	struct msm_rpmstats_private_data *private = file->private_data;
-
-	if (private->reg_base)
-		iounmap(private->reg_base);
-	kfree(file->private_data);
-
-	return 0;
-}
-
-static const struct file_operations msm_rpmstats_fops = {
-	.owner    = THIS_MODULE,
-	.open     = msm_rpmstats_file_open,
-	.read     = msm_rpmstats_file_read,
-	.release  = msm_rpmstats_file_close,
-	.llseek   = no_llseek,
-};
-
 static ssize_t rpmstats_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
 {
@@ -290,7 +211,6 @@ fail:
 
 static int msm_rpmstats_probe(struct platform_device *pdev)
 {
-	struct dentry *dent = NULL;
 	struct msm_rpmstats_platform_data *pdata;
 	struct msm_rpmstats_platform_data *pd;
 	struct resource *res = NULL, *offset = NULL;
@@ -326,27 +246,7 @@ static int msm_rpmstats_probe(struct platform_device *pdev)
 	if (pdev->dev.platform_data)
 		pd = pdev->dev.platform_data;
 
-	dent = debugfs_create_file("rpm_stats", 0444, NULL,
-					pdata, &msm_rpmstats_fops);
-	if (!dent) {
-		pr_err("%s: ERROR rpm_stats debugfs_create_file	fail\n",
-				__func__);
-		return -ENOMEM;
-	}
-
 	msm_rpmstats_create_sysfs(pdata);
-
-	platform_set_drvdata(pdev, dent);
-	return 0;
-}
-
-static int msm_rpmstats_remove(struct platform_device *pdev)
-{
-	struct dentry *dent;
-
-	dent = platform_get_drvdata(pdev);
-	debugfs_remove(dent);
-	platform_set_drvdata(pdev, NULL);
 
 	return 0;
 }
@@ -358,7 +258,6 @@ static const struct of_device_id rpm_stats_table[] = {
 
 static struct platform_driver msm_rpmstats_driver = {
 	.probe = msm_rpmstats_probe,
-	.remove = msm_rpmstats_remove,
 	.driver = {
 		.name = "msm_rpm_stat",
 		.owner = THIS_MODULE,
