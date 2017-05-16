@@ -1055,7 +1055,8 @@ static void mhi_dev_check_channel_interrupt(struct mhi_dev *mhi)
 
 	for (i = 0; i < MHI_MASK_ROWS_CH_EV_DB; i++) {
 		ch_num = i * MHI_MASK_CH_EV_LEN;
-		chintr_value = mhi->chdb[i].status;
+		/* Process channel status whose mask is enabled */
+		chintr_value = (mhi->chdb[i].status & mhi->chdb[i].mask);
 		if (chintr_value) {
 			mhi_log(MHI_MSG_VERBOSE,
 				"processing id: %d, ch interrupt 0x%x\n",

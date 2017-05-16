@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -133,6 +133,11 @@ static int mhi_dev_mmio_mask_set_chdb_int_a7(struct mhi_dev *dev,
 	chid_mask = (1 << chid_shft);
 	chid_idx = chdb_id/32;
 
+	if (chid_idx >= MHI_MASK_ROWS_CH_EV_DB) {
+		pr_err("Invalid channel id:%d\n", chid_idx);
+		return -EINVAL;
+	}
+
 	if (enable)
 		val = 1;
 
@@ -140,6 +145,13 @@ static int mhi_dev_mmio_mask_set_chdb_int_a7(struct mhi_dev *dev,
 					chid_mask, chid_shft, val);
 	if (rc) {
 		pr_err("Write on channel db interrupt failed\n");
+		return rc;
+	}
+
+	rc = mhi_dev_mmio_read(dev, MHI_CHDB_INT_MASK_A7_n(chid_idx),
+						&dev->chdb[chid_idx].mask);
+	if (rc) {
+		pr_err("Read channel db INT on row:%d failed\n", chid_idx);
 		return rc;
 	}
 
@@ -286,6 +298,7 @@ static int mhi_dev_mmio_set_chdb_interrupts(struct mhi_dev *dev, bool enable)
 			pr_err("Set channel db on row:%d failed\n", i);
 			return rc;
 		}
+		dev->chdb[i].mask = mask;
 	}
 
 	return rc;
