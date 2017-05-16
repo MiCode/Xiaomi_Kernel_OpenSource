@@ -119,6 +119,9 @@ static unsigned int __do_compat_ioctl_nr(unsigned int cmd32)
 static void  __copy_atomic_commit_struct(struct mdp_layer_commit  *commit,
 	struct mdp_layer_commit32 *commit32)
 {
+	unsigned int destsize = sizeof(commit->commit_v1.reserved);
+	unsigned int srcsize = sizeof(commit32->commit_v1.reserved);
+	unsigned int count = (destsize <= srcsize ? destsize : srcsize);
 	commit->version = commit32->version;
 	commit->commit_v1.flags = commit32->commit_v1.flags;
 	commit->commit_v1.input_layer_cnt =
@@ -126,7 +129,7 @@ static void  __copy_atomic_commit_struct(struct mdp_layer_commit  *commit,
 	commit->commit_v1.left_roi = commit32->commit_v1.left_roi;
 	commit->commit_v1.right_roi = commit32->commit_v1.right_roi;
 	memcpy(&commit->commit_v1.reserved, &commit32->commit_v1.reserved,
-		sizeof(commit32->commit_v1.reserved));
+		count);
 }
 
 static struct mdp_input_layer32 *__create_layer_list32(
