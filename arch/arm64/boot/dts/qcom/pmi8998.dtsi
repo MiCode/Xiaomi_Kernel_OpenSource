@@ -26,6 +26,11 @@
 			qcom,fab-id-valid;
 		};
 
+		pmi8998_misc: qcom,misc@900 {
+			compatible = "qcom,qpnp-misc";
+			reg = <0x900 0x100>;
+		};
+
 		qcom,power-on@800 {
 			compatible = "qcom,qpnp-power-on";
 			reg = <0x800 0x100>;
@@ -670,6 +675,28 @@
 				qcom,led-mask = <4>;
 				qcom,default-led-trigger = "switch1_trigger";
 			};
+		};
+
+		pmi8998_haptics: qcom,haptics@c000 {
+			compatible = "qcom,qpnp-haptics";
+			reg = <0xc000 0x100>;
+			interrupts = <0x3 0xc0 0x0 IRQ_TYPE_EDGE_BOTH>,
+				     <0x3 0xc0 0x1 IRQ_TYPE_EDGE_BOTH>;
+			interrupt-names = "hap-sc-irq", "hap-play-irq";
+			qcom,pmic-revid = <&pmi8998_revid>;
+			qcom,pmic-misc = <&pmi8998_misc>;
+			qcom,misc-clk-trim-error-reg = <0xf3>;
+			qcom,actuator-type = <0>;
+			qcom,play-mode = "direct";
+			qcom,vmax-mv = <3200>;
+			qcom,ilim-ma = <800>;
+			qcom,sc-dbc-cycles = <8>;
+			qcom,wave-play-rate-us = <6667>;
+			qcom,en-brake;
+			qcom,lra-high-z = "opt1";
+			qcom,lra-auto-res-mode = "qwd";
+			qcom,lra-res-cal-period = <4>;
+			status = "disabled";
 		};
 	};
 };
