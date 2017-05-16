@@ -1335,6 +1335,17 @@ static void msm_11ad_set_boost_affinity(struct msm11ad_ctx *ctx)
 		dev_warn(ctx->dev, "failed to set CPU boost affinity\n");
 }
 
+static void msm_11ad_clear_boost_affinity(struct msm11ad_ctx *ctx)
+{
+	int rc;
+
+	irq_modify_status(ctx->pcidev->irq, IRQ_NO_BALANCING, 0);
+	rc = irq_set_affinity_hint(ctx->pcidev->irq, NULL);
+	if (rc)
+		dev_warn(ctx->dev,
+			 "Failed clear affinity, rc=%d\n", rc);
+}
+
 /* hooks for the wil6210 driver */
 static int ops_bus_request(void *handle, u32 kbps /* KBytes/Sec */)
 {
@@ -1386,8 +1397,7 @@ static int ops_bus_request(void *handle, u32 kbps /* KBytes/Sec */)
 					dev_err(ctx->dev,
 						"Failed disable boost rc=%d\n",
 						rc);
-				irq_modify_status(ctx->pcidev->irq,
-						  IRQ_NO_BALANCING, 0);
+				msm_11ad_clear_boost_affinity(ctx);
 				dev_dbg(ctx->dev, "CPU boost disabled\n");
 			}
 			ctx->is_cpu_boosted = needs_boost;
