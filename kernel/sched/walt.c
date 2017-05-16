@@ -913,11 +913,11 @@ void set_window_start(struct rq *rq)
 {
 	static int sync_cpu_available;
 
-	if (rq->window_start)
+	if (likely(rq->window_start))
 		return;
 
 	if (!sync_cpu_available) {
-		rq->window_start = sched_ktime_clock();
+		rq->window_start = 1;
 		sync_cpu_available = 1;
 	} else {
 		struct rq *sync_rq = cpu_rq(cpumask_any(cpu_online_mask));
