@@ -39,6 +39,8 @@
 #define MIN_TIME_RESOLUTION 1
 #define MAX_TIME_RESOLUTION 0xFFFFFF
 #define DEFAULT_TIME_RESOLUTION 0x7530
+#define MIN_NUM_ENC_OUTPUT_BUFFERS 4
+#define MIN_NUM_ENC_CAPTURE_BUFFERS 5
 
 /*
  * Default 601 to 709 conversion coefficients for resolution: 176x144 negative
@@ -2123,6 +2125,15 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	inst->bufq[OUTPUT_PORT].num_planes = 1;
 	inst->bufq[CAPTURE_PORT].num_planes = 1;
 	inst->clk_data.operating_rate = 0;
+
+	inst->buff_req.buffer[1].buffer_type = HAL_BUFFER_INPUT;
+	inst->buff_req.buffer[1].buffer_count_min_host =
+	inst->buff_req.buffer[1].buffer_count_actual =
+		MIN_NUM_ENC_OUTPUT_BUFFERS;
+	inst->buff_req.buffer[2].buffer_type = HAL_BUFFER_OUTPUT;
+	inst->buff_req.buffer[2].buffer_count_min_host =
+	inst->buff_req.buffer[2].buffer_count_actual =
+		MIN_NUM_ENC_CAPTURE_BUFFERS;
 
 	/* By default, initialize OUTPUT port to UBWC YUV format */
 	fmt = msm_comm_get_pixel_fmt_fourcc(venc_formats,

@@ -20,7 +20,10 @@
 #include "msm_vidc_clocks.h"
 
 #define MSM_VDEC_DVC_NAME "msm_vdec_8974"
+#define MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS MIN_NUM_OUTPUT_BUFFERS
 #define MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS MIN_NUM_CAPTURE_BUFFERS
+#define MIN_NUM_DEC_OUTPUT_BUFFERS 4
+#define MIN_NUM_DEC_CAPTURE_BUFFERS 4
 #define DEFAULT_VIDEO_CONCEAL_COLOR_BLACK 0x8010
 #define MB_SIZE_IN_PIXEL (16 * 16)
 #define OPERATING_FRAME_RATE_STEP (1 << 16)
@@ -544,7 +547,6 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 				f->fmt.pix_mp.plane_fmt[i].sizeimage;
 		}
 
-		rc = msm_comm_try_get_bufreqs(inst);
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 
 		fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
@@ -598,8 +600,6 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			inst->bufq[OUTPUT_PORT].plane_sizes[i] =
 				f->fmt.pix_mp.plane_fmt[i].sizeimage;
 		}
-
-		rc = msm_comm_try_get_bufreqs(inst);
 	}
 err_invalid_fmt:
 	return rc;
@@ -675,6 +675,19 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	memcpy(&inst->fmts[fmt->type], fmt,
 			sizeof(struct msm_vidc_format));
 
+	inst->buff_req.buffer[1].buffer_type = HAL_BUFFER_INPUT;
+	inst->buff_req.buffer[1].buffer_count_min_host =
+	inst->buff_req.buffer[1].buffer_count_actual =
+		MIN_NUM_DEC_OUTPUT_BUFFERS;
+	inst->buff_req.buffer[2].buffer_type = HAL_BUFFER_OUTPUT;
+	inst->buff_req.buffer[2].buffer_count_min_host =
+	inst->buff_req.buffer[2].buffer_count_actual =
+		MIN_NUM_DEC_CAPTURE_BUFFERS;
+	inst->buff_req.buffer[3].buffer_type = HAL_BUFFER_OUTPUT2;
+	inst->buff_req.buffer[3].buffer_count_min_host =
+	inst->buff_req.buffer[3].buffer_count_actual =
+		MIN_NUM_DEC_CAPTURE_BUFFERS;
+
 	/* By default, initialize OUTPUT port to H264 decoder */
 	fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
 		ARRAY_SIZE(vdec_formats), V4L2_PIX_FMT_H264,
@@ -716,6 +729,7 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct v4l2_ctrl *temp_ctrl = NULL;
 	struct hal_profile_level profile_level;
 	struct hal_frame_size frame_sz;
+	struct hal_buffer_requirements *bufreq;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -777,6 +791,59 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		hal_property.enable = ctrl->val;
 		pdata = &hal_property;
 		msm_dcvs_try_enable(inst);
+
+		bufreq = get_buff_req_buffer(inst,
+				HAL_BUFFER_INPUT);
+		if (!bufreq) {
+			dprintk(VIDC_ERR,
+					"Failed : No buffer requirements : %x\n",
+					HAL_BUFFER_OUTPUT);
+			return -EINVAL;
+		}
+		bufreq->buffer_count_min =
+			MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
+
+		if (msm_comm_get_stream_output_mode(inst) ==
+				HAL_VIDEO_DECODER_SECONDARY) {
+
+			bufreq = get_buff_req_buffer(inst,
+					HAL_BUFFER_OUTPUT);
+			if (!bufreq) {
+				dprintk(VIDC_ERR,
+					"Failed : No buffer requirements: %x\n",
+						HAL_BUFFER_OUTPUT);
+				return -EINVAL;
+			}
+
+			bufreq->buffer_count_min =
+				MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS;
+
+			bufreq = get_buff_req_buffer(inst,
+					HAL_BUFFER_OUTPUT2);
+			if (!bufreq) {
+				dprintk(VIDC_ERR,
+					"Failed : No buffer requirements: %x\n",
+						HAL_BUFFER_OUTPUT2);
+				return -EINVAL;
+			}
+
+			bufreq->buffer_count_min =
+				MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS;
+		} else {
+
+			bufreq = get_buff_req_buffer(inst,
+					HAL_BUFFER_OUTPUT);
+			if (!bufreq) {
+				dprintk(VIDC_ERR,
+					"Failed : No buffer requirements: %x\n",
+						HAL_BUFFER_OUTPUT);
+				return -EINVAL;
+			}
+			bufreq->buffer_count_min =
+				MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS;
+
+		}
+
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_SECURE:
 		property_id = HAL_PARAM_SECURE;
@@ -896,7 +963,6 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 					"Failed setting OUTPUT2 size : %d\n",
 					rc);
 
-			rc = msm_comm_try_get_bufreqs(inst);
 			break;
 		default:
 			dprintk(VIDC_ERR,
@@ -920,7 +986,6 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				V4L2_CID_MPEG_VIDEO_H264_LEVEL,
 				temp_ctrl->val);
 		pdata = &profile_level;
-		rc = msm_comm_try_get_bufreqs(inst);
 		break;
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_H264_PROFILE);
@@ -932,7 +997,6 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				V4L2_CID_MPEG_VIDEO_H264_PROFILE,
 				temp_ctrl->val);
 		pdata = &profile_level;
-		rc = msm_comm_try_get_bufreqs(inst);
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_BUFFER_SIZE_LIMIT:
 		dprintk(VIDC_DBG,
@@ -1050,11 +1114,6 @@ int msm_vdec_s_ext_ctrl(struct msm_vidc_inst *inst,
 							__func__, rc);
 						break;
 					}
-					rc = msm_comm_try_get_bufreqs(inst);
-					if (rc)
-						dprintk(VIDC_ERR,
-							"%s Failed to get buffer requirements : %d\n",
-							__func__, rc);
 				}
 				break;
 			default:
