@@ -2382,6 +2382,82 @@ static int pstate_cmp(const void *a, const void *b)
 	return rc;
 }
 
+static int _sde_crtc_excl_rect_overlap_check(struct plane_state pstates[],
+	int cnt, int curr_cnt, struct sde_rect *excl_rect, int z_pos)
+{
+	struct sde_rect dst_rect, intersect;
+	int i, rc = -EINVAL;
+	const struct drm_plane_state *pstate;
+
+	/* start checking from next plane */
+	for (i = curr_cnt; i < cnt; i++) {
+		pstate = pstates[i].drm_pstate;
+		POPULATE_RECT(&dst_rect, pstate->crtc_x, pstate->crtc_y,
+				pstate->crtc_w, pstate->crtc_h, true);
+		sde_kms_rect_intersect(&dst_rect, excl_rect, &intersect);
+
+		if (intersect.w == excl_rect->w && intersect.h == excl_rect->h
+				/* next plane may be on same z-order */
+				&& z_pos != pstates[i].stage) {
+			rc = 0;
+			goto end;
+		}
+	}
+
+	SDE_ERROR("excl rect does not find top overlapping rect\n");
+end:
+	return rc;
+}
+
+/* no input validation - caller API has all the checks */
+static int _sde_crtc_excl_dim_layer_check(struct drm_crtc_state *state,
+		struct plane_state pstates[], int cnt)
+{
+	struct sde_crtc_state *cstate = to_sde_crtc_state(state);
+	struct drm_display_mode *mode = &state->adjusted_mode;
+	const struct drm_plane_state *pstate;
+	struct sde_plane_state *sde_pstate;
+	int rc = 0, i;
+
+	/* Check dim layer rect bounds and stage */
+	for (i = 0; i < cstate->num_dim_layers; i++) {
+		if ((CHECK_LAYER_BOUNDS(cstate->dim_layer[i].rect.y,
+			cstate->dim_layer[i].rect.h, mode->vdisplay)) ||
+		    (CHECK_LAYER_BOUNDS(cstate->dim_layer[i].rect.x,
+			cstate->dim_layer[i].rect.w, mode->hdisplay)) ||
+		    (cstate->dim_layer[i].stage >= SDE_STAGE_MAX) ||
+		    (!cstate->dim_layer[i].rect.w) ||
+		    (!cstate->dim_layer[i].rect.h)) {
+			SDE_ERROR("invalid dim_layer:{%d,%d,%d,%d}, stage:%d\n",
+					cstate->dim_layer[i].rect.x,
+					cstate->dim_layer[i].rect.y,
+					cstate->dim_layer[i].rect.w,
+					cstate->dim_layer[i].rect.h,
+					cstate->dim_layer[i].stage);
+			SDE_ERROR("display: %dx%d\n", mode->hdisplay,
+					mode->vdisplay);
+			rc = -E2BIG;
+			goto end;
+		}
+	}
+
+	/* this is traversing on sorted z-order pstates */
+	for (i = 0; i < cnt; i++) {
+		pstate = pstates[i].drm_pstate;
+		sde_pstate = to_sde_plane_state(pstate);
+		if (sde_pstate->excl_rect.w && sde_pstate->excl_rect.h) {
+			/* check overlap on all top z-order */
+			rc = _sde_crtc_excl_rect_overlap_check(pstates, cnt,
+			     i + 1, &sde_pstate->excl_rect, pstates[i].stage);
+			if (rc)
+				goto end;
+		}
+	}
+
+end:
+	return rc;
+}
+
 static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		struct drm_crtc_state *state)
 {
@@ -2490,30 +2566,12 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		}
 	}
 
-	/* Check dim layer rect bounds and stage */
-	for (i = 0; i < cstate->num_dim_layers; i++) {
-		if ((CHECK_LAYER_BOUNDS(cstate->dim_layer[i].rect.y,
-			cstate->dim_layer[i].rect.h, mode->vdisplay)) ||
-		    (CHECK_LAYER_BOUNDS(cstate->dim_layer[i].rect.x,
-			cstate->dim_layer[i].rect.w, mode->hdisplay)) ||
-		    (cstate->dim_layer[i].stage >= SDE_STAGE_MAX) ||
-		    (!cstate->dim_layer[i].rect.w) ||
-		    (!cstate->dim_layer[i].rect.h)) {
-			SDE_ERROR("invalid dim_layer:{%d,%d,%d,%d}, stage:%d\n",
-					cstate->dim_layer[i].rect.x,
-					cstate->dim_layer[i].rect.y,
-					cstate->dim_layer[i].rect.w,
-					cstate->dim_layer[i].rect.h,
-					cstate->dim_layer[i].stage);
-			SDE_ERROR("display: %dx%d\n", mode->hdisplay,
-					mode->vdisplay);
-			rc = -E2BIG;
-			goto end;
-		}
-	}
-
 	/* assign mixer stages based on sorted zpos property */
 	sort(pstates, cnt, sizeof(pstates[0]), pstate_cmp, NULL);
+
+	rc = _sde_crtc_excl_dim_layer_check(state, pstates, cnt);
+	if (rc)
+		goto end;
 
 	if (!sde_is_custom_client()) {
 		int stage_old = pstates[0].stage;
