@@ -383,6 +383,10 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 
 	adreno_vbif_start(adreno_dev, a6xx_vbif_platforms,
 			ARRAY_SIZE(a6xx_vbif_platforms));
+
+	/* Make all blocks contribute to the GPU BUSY perf counter */
+	kgsl_regwrite(device, A6XX_RBBM_PERFCTR_GPU_BUSY_MASKED, 0xFFFFFFFF);
+
 	/*
 	 * Set UCHE_WRITE_THRU_BASE to the UCHE_TRAP_BASE effectively
 	 * disabling L2 bypass
