@@ -86,7 +86,43 @@ static void adreno_get_submit_time(struct adreno_device *adreno_dev,
 	local_irq_restore(flags);
 }
 
-void adreno_ringbuffer_wptr(struct adreno_device *adreno_dev,
+/*
+ * Wait time before trying to write the register again.
+ * Hopefully the GMU has finished waking up during this delay.
+ */
+#define GMU_WAKEUP_DELAY 50
+/* Max amount of tries to wake up the GMU. */
+#define GMU_WAKEUP_RETRY_MAX 20
+
+/*
+ * Check the WRITEDROPPED0 bit in the
+ * FENCE_STATUS regsiter to check if the write went
+ * through. If it didn't then we retry the write.
+ */
+static inline void _gmu_wptr_update_if_dropped(struct adreno_device *adreno_dev,
+		struct adreno_ringbuffer *rb)
+{
+	unsigned int val, i;
+
+	for (i = 0; i < GMU_WAKEUP_RETRY_MAX; i++) {
+		adreno_read_gmureg(adreno_dev, ADRENO_REG_GMU_AHB_FENCE_STATUS,
+				&val);
+
+		/* If !writedropped, then wptr update was successful */
+		if (!(val & 0x1))
+			return;
+
+		/* Wait a small amount of time before trying again */
+		udelay(GMU_WAKEUP_DELAY);
+
+		/* Try to write WPTR again */
+		adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_WPTR, rb->_wptr);
+	}
+
+	dev_err(adreno_dev->dev.dev, "GMU WPTR update timed out\n");
+}
+
+static void adreno_ringbuffer_wptr(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb)
 {
 	unsigned long flags;
@@ -102,6 +138,14 @@ void adreno_ringbuffer_wptr(struct adreno_device *adreno_dev,
 			kgsl_pwrscale_busy(KGSL_DEVICE(adreno_dev));
 			adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_WPTR,
 				rb->_wptr);
+
+			/*
+			 * If GMU, ensure the write posted after a possible
+			 * GMU wakeup (write could have dropped during wakeup)
+			 */
+			if (kgsl_gmu_isenabled(KGSL_DEVICE(adreno_dev)))
+				_gmu_wptr_update_if_dropped(adreno_dev, rb);
+
 		}
 	}
 
