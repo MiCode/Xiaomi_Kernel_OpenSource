@@ -2049,6 +2049,7 @@ static void do_header_and_snapshot(struct kgsl_device *device,
 static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 	struct adreno_dispatcher_drawqueue *dispatch_q = NULL, *dispatch_q_temp;
 	struct adreno_ringbuffer *rb;
@@ -2147,6 +2148,10 @@ static int dispatcher_do_fault(struct adreno_device *adreno_dev)
 		ADRENO_REG_CP_IB1_BASE_HI, &base);
 
 	do_header_and_snapshot(device, hung_rb, cmdobj);
+
+	/* Turn off the KEEPALIVE vote from the ISR for hard fault */
+	if (gpudev->gpu_keepalive && fault & ADRENO_HARD_FAULT)
+		gpudev->gpu_keepalive(adreno_dev, false);
 
 	/* Terminate the stalled transaction and resume the IOMMU */
 	if (fault & ADRENO_IOMMU_PAGE_FAULT)

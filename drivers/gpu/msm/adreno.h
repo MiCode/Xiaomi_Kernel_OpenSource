@@ -855,6 +855,8 @@ struct adreno_gpudev {
 				unsigned int clear_mask);
 	void (*oob_clear)(struct adreno_device *adreno_dev,
 				unsigned int clear_mask);
+	void (*gpu_keepalive)(struct adreno_device *adreno_dev,
+			bool state);
 	int (*rpmh_gpu_pwrctrl)(struct adreno_device *, unsigned int ops,
 				unsigned int arg1, unsigned int arg2);
 	bool (*hw_isidle)(struct adreno_device *);
