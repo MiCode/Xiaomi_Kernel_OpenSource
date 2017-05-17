@@ -1002,6 +1002,12 @@ static void a6xx_dbgc_debug_bus_read(struct kgsl_device *device,
 	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_SEL_C, reg);
 	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_SEL_D, reg);
 
+	/*
+	 * There needs to be a delay of 1 us to ensure enough time for correct
+	 * data is funneled into the trace buffer
+	 */
+	udelay(1);
+
 	kgsl_regread(device, A6XX_DBGC_CFG_DBGBUS_TRACE_BUF2, val);
 	val++;
 	kgsl_regread(device, A6XX_DBGC_CFG_DBGBUS_TRACE_BUF1, val);
@@ -1100,6 +1106,12 @@ static void a6xx_cx_debug_bus_read(struct kgsl_device *device,
 	_cx_dbgc_regwrite(A6XX_CX_DBGC_CFG_DBGBUS_SEL_C, reg);
 	_cx_dbgc_regwrite(A6XX_CX_DBGC_CFG_DBGBUS_SEL_D, reg);
 
+	/*
+	 * There needs to be a delay of 1 us to ensure enough time for correct
+	 * data is funneled into the trace buffer
+	 */
+	udelay(1);
+
 	_cx_dbgc_regread(A6XX_CX_DBGC_CFG_DBGBUS_TRACE_BUF2, val);
 	val++;
 	_cx_dbgc_regread(A6XX_CX_DBGC_CFG_DBGBUS_TRACE_BUF1, val);
@@ -1148,8 +1160,8 @@ static void a6xx_snapshot_debugbus(struct kgsl_device *device,
 
 	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_CNTLT,
 		(0xf << A6XX_DBGC_CFG_DBGBUS_CNTLT_SEGT_SHIFT) |
-		(0x4 << A6XX_DBGC_CFG_DBGBUS_CNTLT_GRANU_SHIFT) |
-		(0x20 << A6XX_DBGC_CFG_DBGBUS_CNTLT_TRACEEN_SHIFT));
+		(0x0 << A6XX_DBGC_CFG_DBGBUS_CNTLT_GRANU_SHIFT) |
+		(0x0 << A6XX_DBGC_CFG_DBGBUS_CNTLT_TRACEEN_SHIFT));
 
 	kgsl_regwrite(device, A6XX_DBGC_CFG_DBGBUS_CNTLM,
 		0xf << A6XX_DBGC_CFG_DBGBUS_CTLTM_ENABLE_SHIFT);
@@ -1191,8 +1203,8 @@ static void a6xx_snapshot_debugbus(struct kgsl_device *device,
 	if (a6xx_cx_dbgc) {
 		_cx_dbgc_regwrite(A6XX_CX_DBGC_CFG_DBGBUS_CNTLT,
 		(0xf << A6XX_DBGC_CFG_DBGBUS_CNTLT_SEGT_SHIFT) |
-		(0x4 << A6XX_DBGC_CFG_DBGBUS_CNTLT_GRANU_SHIFT) |
-		(0x20 << A6XX_DBGC_CFG_DBGBUS_CNTLT_TRACEEN_SHIFT));
+		(0x0 << A6XX_DBGC_CFG_DBGBUS_CNTLT_GRANU_SHIFT) |
+		(0x0 << A6XX_DBGC_CFG_DBGBUS_CNTLT_TRACEEN_SHIFT));
 
 		_cx_dbgc_regwrite(A6XX_CX_DBGC_CFG_DBGBUS_CNTLM,
 			0xf << A6XX_CX_DBGC_CFG_DBGBUS_CNTLM_ENABLE_SHIFT);
