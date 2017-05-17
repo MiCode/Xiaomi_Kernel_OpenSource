@@ -78,6 +78,21 @@
 	gpio_keys {
 		/delete-node/ home;
 	};
+
+	usb_detect {
+		status = "ok";
+	};
+};
+
+&usb_otg {
+	vbus_otg-supply = <0>;
+	qcom,vbus-low-as-hostmode;
+};
+
+&i2c_4 {
+	usb2533@2c {
+		status = "ok";
+	};
 };
 
 &i2c_2 {
