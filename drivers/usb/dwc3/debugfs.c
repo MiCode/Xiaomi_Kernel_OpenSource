@@ -412,7 +412,7 @@ static ssize_t dwc3_testmode_write(struct file *file,
 	struct dwc3		*dwc = s->private;
 	unsigned long		flags;
 	u32			testmode = 0;
-	char			buf[32];
+	char			buf[32] = {};
 
 	if (atomic_read(&dwc->in_lpm)) {
 		seq_puts(s, "USB device is powered off\n");
@@ -484,7 +484,7 @@ static ssize_t dwc3_link_state_write(struct file *file,
 	struct dwc3		*dwc = s->private;
 	unsigned long		flags;
 	enum dwc3_link_state	state = 0;
-	char			buf[32];
+	char			buf[32] = {};
 
 	if (atomic_read(&dwc->in_lpm)) {
 		seq_puts(s, "USB device is powered off\n");
