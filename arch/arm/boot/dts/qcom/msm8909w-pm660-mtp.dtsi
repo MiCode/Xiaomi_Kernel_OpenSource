@@ -87,7 +87,7 @@
 	};
 
 	qcom,clock-a7@0b011050 {
-		cpu-vdd-supply = <&pm660_s2_corner_ao>;
+		cpu-vdd-supply = <&apc_vreg_corner>;
 	};
 
 	vadc@3400 {
