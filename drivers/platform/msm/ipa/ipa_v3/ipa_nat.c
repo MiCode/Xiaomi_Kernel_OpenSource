@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -420,7 +420,7 @@ int ipa3_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 		goto bail;
 	}
 
-	desc[0].opcode = ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_REGISTER_WRITE);
+	desc[0].opcode = nop_cmd_pyld->opcode;
 	desc[0].type = IPA_IMM_CMD_DESC;
 	desc[0].callback = NULL;
 	desc[0].user1 = NULL;
@@ -505,7 +505,7 @@ int ipa3_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 		goto free_nop;
 	}
 
-	desc[1].opcode = ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_IP_V4_NAT_INIT);
+	desc[1].opcode = cmd_pyld->opcode;
 	desc[1].type = IPA_IMM_CMD_DESC;
 	desc[1].callback = NULL;
 	desc[1].user1 = NULL;
@@ -668,7 +668,7 @@ int ipa3_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
 		goto bail;
 	}
 	desc[0].type = IPA_IMM_CMD_DESC;
-	desc[0].opcode = ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_REGISTER_WRITE);
+	desc[0].opcode = nop_cmd_pyld->opcode;
 	desc[0].callback = NULL;
 	desc[0].user1 = NULL;
 	desc[0].user2 = 0;
@@ -687,7 +687,7 @@ int ipa3_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
 			continue;
 		}
 		desc[1].type = IPA_IMM_CMD_DESC;
-		desc[1].opcode = ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_NAT_DMA);
+		desc[1].opcode = cmd_pyld->opcode;
 		desc[1].callback = NULL;
 		desc[1].user1 = NULL;
 		desc[1].user2 = 0;
@@ -777,7 +777,7 @@ int ipa3_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
 		result = -ENOMEM;
 		goto bail;
 	}
-	desc[0].opcode = ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_REGISTER_WRITE);
+	desc[0].opcode = nop_cmd_pyld->opcode;
 	desc[0].type = IPA_IMM_CMD_DESC;
 	desc[0].callback = NULL;
 	desc[0].user1 = NULL;
@@ -804,7 +804,7 @@ int ipa3_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
 		result = -EPERM;
 		goto destroy_regwrt_imm_cmd;
 	}
-	desc[1].opcode = ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_IP_V4_NAT_INIT);
+	desc[1].opcode = cmd_pyld->opcode;
 	desc[1].type = IPA_IMM_CMD_DESC;
 	desc[1].callback = NULL;
 	desc[1].user1 = NULL;

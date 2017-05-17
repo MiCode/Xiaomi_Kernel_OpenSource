@@ -259,6 +259,8 @@ struct ipahal_imm_cmd_register_write {
  * Perform mem copy into or out of the SW area of IPA local mem
  * @size: Size in bytes of data to copy. Expected size is up to 2K bytes
  * @local_addr: Address in IPA local memory
+ * @clear_after_read: Clear local memory at the end of a read operation allows
+ *  atomic read and clear if HPS is clear. Ignore for writes.
  * @is_read: Read operation from local memory? If not, then write.
  * @skip_pipeline_clear: if to skip pipeline clear waiting (don't wait)
  * @pipeline_clear_option: options for pipeline clear waiting
@@ -267,6 +269,7 @@ struct ipahal_imm_cmd_register_write {
 struct ipahal_imm_cmd_dma_shared_mem {
 	u32 size;
 	u32 local_addr;
+	bool clear_after_read;
 	bool is_read;
 	bool skip_pipeline_clear;
 	enum ipahal_pipeline_clear_option pipeline_clear_options;
@@ -322,13 +325,13 @@ struct ipahal_imm_cmd_dma_task_32b_addr {
 /*
  * struct ipahal_imm_cmd_pyld - Immediate cmd payload information
  * @len: length of the buffer
- * @reserved: padding bytes to make data buffer aligned
+ * @opcode: opcode of the immediate command
  * @data: buffer contains the immediate command payload. Buffer goes
  *  back to back with this structure
  */
 struct ipahal_imm_cmd_pyld {
 	u16 len;
-	u16 reserved;
+	u16 opcode;
 	u8 data[0];
 };
 
@@ -340,23 +343,6 @@ struct ipahal_imm_cmd_pyld {
  * @cmd_name: [in] Immediate command name
  */
 const char *ipahal_imm_cmd_name_str(enum ipahal_imm_cmd_name cmd_name);
-
-/*
- * ipahal_imm_cmd_get_opcode() - Get the fixed opcode of the immediate command
- */
-u16 ipahal_imm_cmd_get_opcode(enum ipahal_imm_cmd_name cmd);
-
-/*
- * ipahal_imm_cmd_get_opcode_param() - Get the opcode of an immediate command
- *  that supports dynamic opcode
- * Some commands opcode are not totaly fixed, but part of it is
- *  a supplied parameter. E.g. Low-Byte is fixed and Hi-Byte
- *  is a given parameter.
- * This API will return the composed opcode of the command given
- *  the parameter
- * Note: Use this API only for immediate comamnds that support Dynamic Opcode
- */
-u16 ipahal_imm_cmd_get_opcode_param(enum ipahal_imm_cmd_name cmd, int param);
 
 /*
  * ipahal_construct_imm_cmd() - Construct immdiate command

@@ -49,6 +49,8 @@ static const char *ipahal_pkt_status_exception_to_str
 #define IPAHAL_MEM_ALLOC(__size, __is_atomic_ctx) \
 		(kzalloc((__size), ((__is_atomic_ctx)?GFP_ATOMIC:GFP_KERNEL)))
 
+static u16 ipahal_imm_cmd_get_opcode(enum ipahal_imm_cmd_name cmd);
+
 
 static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_dma_task_32b_addr(
 	enum ipahal_imm_cmd_name cmd, const void *params, bool is_atomic_ctx)
@@ -63,6 +65,8 @@ static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_dma_task_32b_addr(
 		IPAHAL_ERR("kzalloc err\n");
 		return pyld;
 	}
+	/* Currently supports only one packet */
+	pyld->opcode = ipahal_imm_cmd_get_opcode(cmd) + (1 << 8);
 	pyld->len = sizeof(*data);
 	data = (struct ipa_imm_cmd_hw_dma_task_32b_addr *)pyld->data;
 
@@ -101,6 +105,7 @@ static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_ip_packet_tag_status(
 		IPAHAL_ERR("kzalloc err\n");
 		return pyld;
 	}
+	pyld->opcode = ipahal_imm_cmd_get_opcode(cmd);
 	pyld->len = sizeof(*data);
 	data = (struct ipa_imm_cmd_hw_ip_packet_tag_status *)pyld->data;
 
@@ -127,6 +132,7 @@ static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_dma_shared_mem(
 		IPAHAL_ERR("kzalloc err\n");
 		return pyld;
 	}
+	pyld->opcode = ipahal_imm_cmd_get_opcode(cmd);
 	pyld->len = sizeof(*data);
 	data = (struct ipa_imm_cmd_hw_dma_shared_mem *)pyld->data;
 
@@ -164,6 +170,61 @@ static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_dma_shared_mem(
 	return pyld;
 }
 
+static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_dma_shared_mem_v_4_0(
+	enum ipahal_imm_cmd_name cmd, const void *params, bool is_atomic_ctx)
+{
+	struct ipahal_imm_cmd_pyld *pyld;
+	struct ipa_imm_cmd_hw_dma_shared_mem_v_4_0 *data;
+	struct ipahal_imm_cmd_dma_shared_mem *mem_params =
+		(struct ipahal_imm_cmd_dma_shared_mem *)params;
+
+	if (unlikely(mem_params->size & ~0xFFFF)) {
+		IPAHAL_ERR("Size is bigger than 16bit width 0x%x\n",
+			mem_params->size);
+		WARN_ON(1);
+		return NULL;
+	}
+	if (unlikely(mem_params->local_addr & ~0xFFFF)) {
+		IPAHAL_ERR("Local addr is bigger than 16bit width 0x%x\n",
+			mem_params->local_addr);
+		WARN_ON(1);
+		return NULL;
+	}
+
+	pyld = IPAHAL_MEM_ALLOC(sizeof(*pyld) + sizeof(*data), is_atomic_ctx);
+	if (unlikely(!pyld)) {
+		WARN_ON(1);
+		return pyld;
+	}
+
+	pyld->opcode = ipahal_imm_cmd_get_opcode(cmd);
+	pyld->len = sizeof(*data);
+	data = (struct ipa_imm_cmd_hw_dma_shared_mem_v_4_0 *)pyld->data;
+
+	data->direction = mem_params->is_read ? 1 : 0;
+	data->clear_after_read = mem_params->clear_after_read;
+	data->size = mem_params->size;
+	data->local_addr = mem_params->local_addr;
+	data->system_addr = mem_params->system_addr;
+	pyld->opcode |= (mem_params->skip_pipeline_clear ? 1 : 0) << 8;
+	switch (mem_params->pipeline_clear_options) {
+	case IPAHAL_HPS_CLEAR:
+		break;
+	case IPAHAL_SRC_GRP_CLEAR:
+		pyld->opcode |= (1 << 9);
+		break;
+	case IPAHAL_FULL_PIPELINE_CLEAR:
+		pyld->opcode |= (2 << 9);
+		break;
+	default:
+		IPAHAL_ERR("unsupported pipline clear option %d\n",
+			mem_params->pipeline_clear_options);
+		WARN_ON(1);
+	};
+
+	return pyld;
+}
+
 static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_register_write(
 	enum ipahal_imm_cmd_name cmd, const void *params, bool is_atomic_ctx)
 {
@@ -177,6 +238,7 @@ static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_register_write(
 		IPAHAL_ERR("kzalloc err\n");
 		return pyld;
 	}
+	pyld->opcode = ipahal_imm_cmd_get_opcode(cmd);
 	pyld->len = sizeof(*data);
 	data = (struct ipa_imm_cmd_hw_register_write *)pyld->data;
 
@@ -209,6 +271,54 @@ static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_register_write(
 	return pyld;
 }
 
+static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_register_write_v_4_0(
+	enum ipahal_imm_cmd_name cmd, const void *params, bool is_atomic_ctx)
+{
+	struct ipahal_imm_cmd_pyld *pyld;
+	struct ipa_imm_cmd_hw_register_write_v_4_0 *data;
+	struct ipahal_imm_cmd_register_write *regwrt_params =
+		(struct ipahal_imm_cmd_register_write *)params;
+
+	if (unlikely(regwrt_params->offset & ~0xFFFF)) {
+		IPAHAL_ERR("Offset is bigger than 16bit width 0x%x\n",
+			regwrt_params->offset);
+		WARN_ON(1);
+		return NULL;
+	}
+
+	pyld = IPAHAL_MEM_ALLOC(sizeof(*pyld) + sizeof(*data), is_atomic_ctx);
+	if (unlikely(!pyld)) {
+		WARN_ON(1);
+		return pyld;
+	}
+	pyld->opcode = ipahal_imm_cmd_get_opcode(cmd);
+	pyld->len = sizeof(*data);
+	data = (struct ipa_imm_cmd_hw_register_write_v_4_0 *)pyld->data;
+
+	data->offset = regwrt_params->offset;
+	data->offset_high = regwrt_params->offset >> 16;
+	data->value = regwrt_params->value;
+	data->value_mask = regwrt_params->value_mask;
+
+	pyld->opcode |= (regwrt_params->skip_pipeline_clear ? 1 : 0) << 8;
+	switch (regwrt_params->pipeline_clear_options) {
+	case IPAHAL_HPS_CLEAR:
+		break;
+	case IPAHAL_SRC_GRP_CLEAR:
+		pyld->opcode |= (1 << 9);
+		break;
+	case IPAHAL_FULL_PIPELINE_CLEAR:
+		pyld->opcode |= (2 << 9);
+		break;
+	default:
+		IPAHAL_ERR("unsupported pipline clear option %d\n",
+			regwrt_params->pipeline_clear_options);
+		WARN_ON(1);
+	};
+
+	return pyld;
+}
+
 static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_ip_packet_init(
 	enum ipahal_imm_cmd_name cmd, const void *params, bool is_atomic_ctx)
 {
@@ -222,6 +332,7 @@ static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_ip_packet_init(
 		IPAHAL_ERR("kzalloc err\n");
 		return pyld;
 	}
+	pyld->opcode = ipahal_imm_cmd_get_opcode(cmd);
 	pyld->len = sizeof(*data);
 	data = (struct ipa_imm_cmd_hw_ip_packet_init *)pyld->data;
 
@@ -248,6 +359,7 @@ static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_nat_dma(
 		IPAHAL_ERR("kzalloc err\n");
 		return pyld;
 	}
+	pyld->opcode = ipahal_imm_cmd_get_opcode(cmd);
 	pyld->len = sizeof(*data);
 	data = (struct ipa_imm_cmd_hw_nat_dma *)pyld->data;
 
@@ -272,6 +384,7 @@ static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_hdr_init_system(
 		IPAHAL_ERR("kzalloc err\n");
 		return pyld;
 	}
+	pyld->opcode = ipahal_imm_cmd_get_opcode(cmd);
 	pyld->len = sizeof(*data);
 	data = (struct ipa_imm_cmd_hw_hdr_init_system *)pyld->data;
 
@@ -293,6 +406,7 @@ static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_hdr_init_local(
 		IPAHAL_ERR("kzalloc err\n");
 		return pyld;
 	}
+	pyld->opcode = ipahal_imm_cmd_get_opcode(cmd);
 	pyld->len = sizeof(*data);
 	data = (struct ipa_imm_cmd_hw_hdr_init_local *)pyld->data;
 
@@ -321,6 +435,7 @@ static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_ip_v6_routing_init(
 		IPAHAL_ERR("kzalloc err\n");
 		return pyld;
 	}
+	pyld->opcode = ipahal_imm_cmd_get_opcode(cmd);
 	pyld->len = sizeof(*data);
 	data = (struct ipa_imm_cmd_hw_ip_v6_routing_init *)pyld->data;
 
@@ -347,6 +462,7 @@ static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_ip_v4_routing_init(
 		IPAHAL_ERR("kzalloc err\n");
 		return pyld;
 	}
+	pyld->opcode = ipahal_imm_cmd_get_opcode(cmd);
 	pyld->len = sizeof(*data);
 	data = (struct ipa_imm_cmd_hw_ip_v4_routing_init *)pyld->data;
 
@@ -373,6 +489,7 @@ static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_ip_v4_nat_init(
 		IPAHAL_ERR("kzalloc err\n");
 		return pyld;
 	}
+	pyld->opcode = ipahal_imm_cmd_get_opcode(cmd);
 	pyld->len = sizeof(*data);
 	data = (struct ipa_imm_cmd_hw_ip_v4_nat_init *)pyld->data;
 
@@ -411,6 +528,7 @@ static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_ip_v6_filter_init(
 		IPAHAL_ERR("kzalloc err\n");
 		return pyld;
 	}
+	pyld->opcode = ipahal_imm_cmd_get_opcode(cmd);
 	pyld->len = sizeof(*data);
 	data = (struct ipa_imm_cmd_hw_ip_v6_filter_init *)pyld->data;
 
@@ -437,6 +555,7 @@ static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_ip_v4_filter_init(
 		IPAHAL_ERR("kzalloc err\n");
 		return pyld;
 	}
+	pyld->opcode = ipahal_imm_cmd_get_opcode(cmd);
 	pyld->len = sizeof(*data);
 	data = (struct ipa_imm_cmd_hw_ip_v4_filter_init *)pyld->data;
 
@@ -455,16 +574,11 @@ static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_ip_v4_filter_init(
  *  specific IPA version
  * @construct - CB to construct imm command payload from abstracted structure
  * @opcode - Immediate command OpCode
- * @dyn_op - Does this command supports Dynamic opcode?
- *  Some commands opcode are dynamic where the part of the opcode is
- *  supplied as param. This flag indicates if the specific command supports it
- *  or not.
  */
 struct ipahal_imm_cmd_obj {
 	struct ipahal_imm_cmd_pyld *(*construct)(enum ipahal_imm_cmd_name cmd,
 		const void *params, bool is_atomic_ctx);
 	u16 opcode;
-	bool dyn_op;
 };
 
 /*
@@ -484,43 +598,51 @@ static struct ipahal_imm_cmd_obj
 	/* IPAv3 */
 	[IPA_HW_v3_0][IPA_IMM_CMD_IP_V4_FILTER_INIT] = {
 		ipa_imm_cmd_construct_ip_v4_filter_init,
-		3, false},
+		3},
 	[IPA_HW_v3_0][IPA_IMM_CMD_IP_V6_FILTER_INIT] = {
 		ipa_imm_cmd_construct_ip_v6_filter_init,
-		4, false},
+		4},
 	[IPA_HW_v3_0][IPA_IMM_CMD_IP_V4_NAT_INIT] = {
 		ipa_imm_cmd_construct_ip_v4_nat_init,
-		5, false},
+		5},
 	[IPA_HW_v3_0][IPA_IMM_CMD_IP_V4_ROUTING_INIT] = {
 		ipa_imm_cmd_construct_ip_v4_routing_init,
-		7, false},
+		7},
 	[IPA_HW_v3_0][IPA_IMM_CMD_IP_V6_ROUTING_INIT] = {
 		ipa_imm_cmd_construct_ip_v6_routing_init,
-		8, false},
+		8},
 	[IPA_HW_v3_0][IPA_IMM_CMD_HDR_INIT_LOCAL] = {
 		ipa_imm_cmd_construct_hdr_init_local,
-		9, false},
+		9},
 	[IPA_HW_v3_0][IPA_IMM_CMD_HDR_INIT_SYSTEM] = {
 		ipa_imm_cmd_construct_hdr_init_system,
-		10, false},
+		10},
 	[IPA_HW_v3_0][IPA_IMM_CMD_REGISTER_WRITE] = {
 		ipa_imm_cmd_construct_register_write,
-		12, false},
+		12},
 	[IPA_HW_v3_0][IPA_IMM_CMD_NAT_DMA] = {
 		ipa_imm_cmd_construct_nat_dma,
-		14, false},
+		14},
 	[IPA_HW_v3_0][IPA_IMM_CMD_IP_PACKET_INIT] = {
 		ipa_imm_cmd_construct_ip_packet_init,
-		16, false},
+		16},
 	[IPA_HW_v3_0][IPA_IMM_CMD_DMA_TASK_32B_ADDR] = {
 		ipa_imm_cmd_construct_dma_task_32b_addr,
-		17, true},
+		17},
 	[IPA_HW_v3_0][IPA_IMM_CMD_DMA_SHARED_MEM] = {
 		ipa_imm_cmd_construct_dma_shared_mem,
-		19, false},
+		19},
 	[IPA_HW_v3_0][IPA_IMM_CMD_IP_PACKET_TAG_STATUS] = {
 		ipa_imm_cmd_construct_ip_packet_tag_status,
-		20, false},
+		20},
+
+	/* IPAv4 */
+	[IPA_HW_v4_0][IPA_IMM_CMD_REGISTER_WRITE] = {
+		ipa_imm_cmd_construct_register_write_v_4_0,
+		12},
+	[IPA_HW_v4_0][IPA_IMM_CMD_DMA_SHARED_MEM] = {
+		ipa_imm_cmd_construct_dma_shared_mem_v_4_0,
+		19},
 };
 
 /*
@@ -589,7 +711,7 @@ const char *ipahal_imm_cmd_name_str(enum ipahal_imm_cmd_name cmd_name)
 /*
  * ipahal_imm_cmd_get_opcode() - Get the fixed opcode of the immediate command
  */
-u16 ipahal_imm_cmd_get_opcode(enum ipahal_imm_cmd_name cmd)
+static u16 ipahal_imm_cmd_get_opcode(enum ipahal_imm_cmd_name cmd)
 {
 	u32 opcode;
 
@@ -610,63 +732,6 @@ u16 ipahal_imm_cmd_get_opcode(enum ipahal_imm_cmd_name cmd)
 	}
 
 	return opcode;
-}
-
-/*
- * ipahal_imm_cmd_get_opcode_param() - Get the opcode of an immediate command
- *  that supports dynamic opcode
- * Some commands opcode are not totaly fixed, but part of it is
- *  a supplied parameter. E.g. Low-Byte is fixed and Hi-Byte
- *  is a given parameter.
- * This API will return the composed opcode of the command given
- *  the parameter
- * Note: Use this API only for immediate comamnds that support Dynamic Opcode
- */
-u16 ipahal_imm_cmd_get_opcode_param(enum ipahal_imm_cmd_name cmd, int param)
-{
-	u32 opcode;
-
-	if (cmd >= IPA_IMM_CMD_MAX) {
-		IPAHAL_ERR("Invalid immediate command IMM_CMD=%u\n", cmd);
-		ipa_assert();
-		return -EFAULT;
-	}
-
-	IPAHAL_DBG_LOW("Get opcode of IMM_CMD=%s\n",
-		ipahal_imm_cmd_name_str(cmd));
-
-	if (!ipahal_imm_cmd_objs[ipahal_ctx->hw_type][cmd].dyn_op) {
-		IPAHAL_ERR("IMM_CMD=%s does not support dynamic opcode\n",
-			ipahal_imm_cmd_name_str(cmd));
-		ipa_assert();
-		return -EFAULT;
-	}
-
-	/* Currently, dynamic opcode commands uses params to be set
-	 *  on the Opcode hi-byte (lo-byte is fixed).
-	 * If this to be changed in the future, make the opcode calculation
-	 *  a CB per command
-	 */
-	if (param & ~0xFFFF) {
-		IPAHAL_ERR("IMM_CMD=%s opcode param is invalid\n",
-			ipahal_imm_cmd_name_str(cmd));
-		ipa_assert();
-		return -EFAULT;
-	}
-	opcode = ipahal_imm_cmd_objs[ipahal_ctx->hw_type][cmd].opcode;
-	if (opcode == -1) {
-		IPAHAL_ERR("Try to get opcode of obsolete IMM_CMD=%s\n",
-			ipahal_imm_cmd_name_str(cmd));
-		ipa_assert();
-		return -EFAULT;
-	}
-	if (opcode & ~0xFFFF) {
-		IPAHAL_ERR("IMM_CMD=%s opcode will be overridden\n",
-			ipahal_imm_cmd_name_str(cmd));
-		ipa_assert();
-		return -EFAULT;
-	}
-	return (opcode + (param<<8));
 }
 
 /*

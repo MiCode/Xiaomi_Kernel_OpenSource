@@ -1735,7 +1735,7 @@ static int ipa3_init_smem_region(int memory_region_size,
 		IPAERR("failed to construct dma_shared_mem imm cmd\n");
 		return -ENOMEM;
 	}
-	desc.opcode = ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_DMA_SHARED_MEM);
+	desc.opcode = cmd_pyld->opcode;
 	desc.pyld = cmd_pyld->data;
 	desc.len = cmd_pyld->len;
 	desc.type = IPA_IMM_CMD_DESC;
@@ -2000,8 +2000,7 @@ static int ipa3_q6_clean_q6_flt_tbls(enum ipa_ip_type ip,
 				retval = -ENOMEM;
 				goto free_empty_img;
 			}
-			desc[num_cmds].opcode = ipahal_imm_cmd_get_opcode(
-				IPA_IMM_CMD_DMA_SHARED_MEM);
+			desc[num_cmds].opcode = cmd_pyld[num_cmds]->opcode;
 			desc[num_cmds].pyld = cmd_pyld[num_cmds]->data;
 			desc[num_cmds].len = cmd_pyld[num_cmds]->len;
 			desc[num_cmds].type = IPA_IMM_CMD_DESC;
@@ -2100,8 +2099,7 @@ static int ipa3_q6_clean_q6_rt_tbls(enum ipa_ip_type ip,
 		retval = -ENOMEM;
 		goto free_desc;
 	}
-	desc->opcode =
-		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_DMA_SHARED_MEM);
+	desc->opcode = cmd_pyld->opcode;
 	desc->pyld = cmd_pyld->data;
 	desc->len = cmd_pyld->len;
 	desc->type = IPA_IMM_CMD_DESC;
@@ -2191,8 +2189,7 @@ static int ipa3_q6_clean_q6_tables(void)
 		retval = -EFAULT;
 		goto bail_desc;
 	}
-	desc->opcode =
-		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_REGISTER_WRITE);
+	desc->opcode = cmd_pyld->opcode;
 	desc->pyld = cmd_pyld->data;
 	desc->len = cmd_pyld->len;
 	desc->type = IPA_IMM_CMD_DESC;
@@ -2259,8 +2256,7 @@ static int ipa3_q6_set_ex_path_to_apps(void)
 				BUG();
 			}
 
-			desc[num_descs].opcode = ipahal_imm_cmd_get_opcode(
-				IPA_IMM_CMD_REGISTER_WRITE);
+			desc[num_descs].opcode = cmd_pyld->opcode;
 			desc[num_descs].type = IPA_IMM_CMD_DESC;
 			desc[num_descs].callback = ipa3_destroy_imm;
 			desc[num_descs].user1 = cmd_pyld;
@@ -2289,8 +2285,7 @@ static int ipa3_q6_set_ex_path_to_apps(void)
 				return -EFAULT;
 			}
 
-			desc[num_descs].opcode = ipahal_imm_cmd_get_opcode(
-				IPA_IMM_CMD_REGISTER_WRITE);
+			desc[num_descs].opcode = cmd_pyld->opcode;
 			desc[num_descs].type = IPA_IMM_CMD_DESC;
 			desc[num_descs].callback = ipa3_destroy_imm;
 			desc[num_descs].user1 = cmd_pyld;
@@ -2494,7 +2489,7 @@ int _ipa_init_hdr_v3_0(void)
 			mem.phys_base);
 		return -EFAULT;
 	}
-	desc.opcode = ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_HDR_INIT_LOCAL);
+	desc.opcode = cmd_pyld->opcode;
 	desc.type = IPA_IMM_CMD_DESC;
 	desc.pyld = cmd_pyld->data;
 	desc.len = cmd_pyld->len;
@@ -2539,7 +2534,7 @@ int _ipa_init_hdr_v3_0(void)
 			mem.phys_base);
 		return -EFAULT;
 	}
-	desc.opcode = ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_DMA_SHARED_MEM);
+	desc.opcode = cmd_pyld->opcode;
 	desc.pyld = cmd_pyld->data;
 	desc.len = cmd_pyld->len;
 	desc.type = IPA_IMM_CMD_DESC;
@@ -2611,8 +2606,7 @@ int _ipa_init_rt4_v3(void)
 		goto free_mem;
 	}
 
-	desc.opcode =
-		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_IP_V4_ROUTING_INIT);
+	desc.opcode = cmd_pyld->opcode;
 	desc.type = IPA_IMM_CMD_DESC;
 	desc.pyld = cmd_pyld->data;
 	desc.len = cmd_pyld->len;
@@ -2678,8 +2672,7 @@ int _ipa_init_rt6_v3(void)
 		goto free_mem;
 	}
 
-	desc.opcode =
-		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_IP_V6_ROUTING_INIT);
+	desc.opcode = cmd_pyld->opcode;
 	desc.type = IPA_IMM_CMD_DESC;
 	desc.pyld = cmd_pyld->data;
 	desc.len = cmd_pyld->len;
@@ -2739,7 +2732,7 @@ int _ipa_init_flt4_v3(void)
 		goto free_mem;
 	}
 
-	desc.opcode = ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_IP_V4_FILTER_INIT);
+	desc.opcode = cmd_pyld->opcode;
 	desc.type = IPA_IMM_CMD_DESC;
 	desc.pyld = cmd_pyld->data;
 	desc.len = cmd_pyld->len;
@@ -2800,7 +2793,7 @@ int _ipa_init_flt6_v3(void)
 		goto free_mem;
 	}
 
-	desc.opcode = ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_IP_V6_FILTER_INIT);
+	desc.opcode = cmd_pyld->opcode;
 	desc.type = IPA_IMM_CMD_DESC;
 	desc.pyld = cmd_pyld->data;
 	desc.len = cmd_pyld->len;
@@ -4322,6 +4315,7 @@ static int ipa3_alloc_pkt_init(void)
 		IPAERR("failed to construct IMM cmd\n");
 		return -ENOMEM;
 	}
+	ipa3_ctx->pkt_init_imm_opcode = cmd_pyld->opcode;
 
 	mem.size = cmd_pyld->len * ipa3_ctx->ipa_num_pipes;
 	mem.base = dma_alloc_coherent(ipa3_ctx->pdev, mem.size,

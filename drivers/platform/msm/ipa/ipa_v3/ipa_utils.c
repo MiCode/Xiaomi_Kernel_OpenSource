@@ -3369,8 +3369,7 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 		res = -ENOMEM;
 		goto fail_free_tag_desc;
 	}
-	tag_desc[desc_idx].opcode =
-		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_REGISTER_WRITE);
+	tag_desc[desc_idx].opcode = cmd_pyld->opcode;
 	tag_desc[desc_idx].pyld = cmd_pyld->data;
 	tag_desc[desc_idx].len = cmd_pyld->len;
 	tag_desc[desc_idx].type = IPA_IMM_CMD_DESC;
@@ -3388,8 +3387,7 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 		res = -ENOMEM;
 		goto fail_free_desc;
 	}
-	tag_desc[desc_idx].opcode =
-		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_IP_PACKET_INIT);
+	tag_desc[desc_idx].opcode = cmd_pyld->opcode;
 	tag_desc[desc_idx].pyld = cmd_pyld->data;
 	tag_desc[desc_idx].len = cmd_pyld->len;
 	tag_desc[desc_idx].type = IPA_IMM_CMD_DESC;
@@ -3406,8 +3404,7 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 		res = -ENOMEM;
 		goto fail_free_desc;
 	}
-	tag_desc[desc_idx].opcode =
-		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_IP_PACKET_TAG_STATUS);
+	tag_desc[desc_idx].opcode = cmd_pyld->opcode;
 	tag_desc[desc_idx].pyld = cmd_pyld->data;
 	tag_desc[desc_idx].len = cmd_pyld->len;
 	tag_desc[desc_idx].type = IPA_IMM_CMD_DESC;
@@ -3546,8 +3543,7 @@ static int ipa3_tag_generate_force_close_desc(struct ipa3_desc desc[],
 			goto fail_alloc_reg_write_agg_close;
 		}
 
-		desc[desc_idx].opcode =
-			ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_REGISTER_WRITE);
+		desc[desc_idx].opcode = cmd_pyld->opcode;
 		desc[desc_idx].pyld = cmd_pyld->data;
 		desc[desc_idx].len = cmd_pyld->len;
 		desc[desc_idx].type = IPA_IMM_CMD_DESC;
@@ -4335,8 +4331,7 @@ int ipa3_inject_dma_task_for_gsi(void)
 {
 	struct ipa3_desc desc = {0};
 
-	desc.opcode = ipahal_imm_cmd_get_opcode_param(
-		IPA_IMM_CMD_DMA_TASK_32B_ADDR, 1);
+	desc.opcode = ipa3_ctx->dma_task_info.cmd_pyld->opcode;
 	desc.pyld = ipa3_ctx->dma_task_info.cmd_pyld->data;
 	desc.len = ipa3_ctx->dma_task_info.cmd_pyld->len;
 	desc.type = IPA_IMM_CMD_DESC;

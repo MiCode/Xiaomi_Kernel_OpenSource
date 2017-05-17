@@ -701,6 +701,7 @@ struct ipa3_dma_xfer_wrapper {
  * or kmalloc'ed immediate command parameters/plain old data
  * @dma_address: dma mapped address of pyld
  * @dma_address_valid: valid field for dma_address
+ * @is_tag_status: flag for IP_PACKET_TAG_STATUS imd cmd
  * @len: length of the pyld
  * @opcode: for immediate commands
  * @callback: IPA client provided completion callback
@@ -715,6 +716,7 @@ struct ipa3_desc {
 	skb_frag_t *frag;
 	dma_addr_t dma_address;
 	bool dma_address_valid;
+	bool is_tag_status;
 	u16 len;
 	u16 opcode;
 	void (*callback)(void *user1, int user2);
@@ -1069,6 +1071,7 @@ struct ipa_dma_task_info {
  * @ipa_bus_hdl: msm driver handle for the data path bus
  * @ctrl: holds the core specific operations based on
  *  core version (vtable like)
+ * @pkt_init_imm_opcode: opcode for IP_PACKET_INIT imm cmd
  * @enable_clock_scaling: clock scaling is enabled ?
  * @curr_ipa_clk_rate: IPA current clock rate
  * @wcstats: wlan common buffer stats
@@ -1180,6 +1183,7 @@ struct ipa3_context {
 	bool q6_proxy_clk_vote_valid;
 	u32 ipa_num_pipes;
 	dma_addr_t pkt_init_imm[IPA3_MAX_NUM_PIPES];
+	u32 pkt_init_imm_opcode;
 
 	struct ipa3_wlan_comm_memb wc_memb;
 

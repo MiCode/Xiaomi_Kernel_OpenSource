@@ -278,7 +278,7 @@ struct ipa_imm_cmd_hw_ip_packet_init {
  *  in H/W format.
  * Write value to register. Allows reg changes to be synced with data packet
  *  and other immediate command. Can be used to access the sram
- * @sw_rsvd: Ignored by H/W. My be used by S/W
+ * @sw_rsvd: Ignored by H/W. May be used by S/W
  * @skip_pipeline_clear: 0 to wait until IPA pipeline is clear. 1 don't wait
  * @offset: offset from IPA base address - Lower 16bit of the IPA reg addr
  * @value: value to write to register
@@ -298,6 +298,29 @@ struct ipa_imm_cmd_hw_register_write {
 	u64 value_mask:32;
 	u64 pipeline_clear_options:2;
 	u64 rsvd:30;
+};
+
+/*
+ * struct ipa_imm_cmd_hw_register_write - REGISTER_WRITE command payload
+ *  in H/W format.
+ * Write value to register. Allows reg changes to be synced with data packet
+ *  and other immediate command. Can be used to access the sram
+ * @sw_rsvd: Ignored by H/W. May be used by S/W
+ * @offset_high: high bits of the Offset field - bits 17-20
+ * @rsvd: reserved - should be set to zero
+ * @offset: offset from IPA base address - Lower 16bit of the IPA reg addr
+ * @value: value to write to register
+ * @value_mask: mask specifying which value bits to write to the register
+ * @rsvd2: reserved - should be set to zero
+ */
+struct ipa_imm_cmd_hw_register_write_v_4_0 {
+	u64 sw_rsvd:11;
+	u64 offset_high:4;
+	u64 rsvd:1;
+	u64 offset:16;
+	u64 value:32;
+	u64 value_mask:32;
+	u64 rsvd2:32;
 };
 
 /*
@@ -327,6 +350,31 @@ struct ipa_imm_cmd_hw_dma_shared_mem {
 	u64 skip_pipeline_clear:1;
 	u64 pipeline_clear_options:2;
 	u64 rsvd:12;
+	u64 system_addr:64;
+};
+
+/*
+ * struct ipa_imm_cmd_hw_dma_shared_mem - DMA_SHARED_MEM command payload
+ *  in H/W format.
+ * Perform mem copy into or out of the SW area of IPA local mem
+ * @sw_rsvd: Ignored by H/W. My be used by S/W
+ * @size: Size in bytes of data to copy. Expected size is up to 2K bytes
+ * @clear_after_read: Clear local memory at the end of a read operation allows
+ *  atomic read and clear if HPS is clear. Ignore for writes.
+ * @local_addr: Address in IPA local memory
+ * @direction: Read or write?
+ *	0: IPA write, Write to local address from system address
+ *	1: IPA read, Read from local address to system address
+ * @rsvd: reserved - should be set to zero
+ * @system_addr: Address in system memory
+ */
+struct ipa_imm_cmd_hw_dma_shared_mem_v_4_0 {
+	u64 sw_rsvd:15;
+	u64 clear_after_read:1;
+	u64 size:16;
+	u64 local_addr:16;
+	u64 direction:1;
+	u64 rsvd:15;
 	u64 system_addr:64;
 };
 
