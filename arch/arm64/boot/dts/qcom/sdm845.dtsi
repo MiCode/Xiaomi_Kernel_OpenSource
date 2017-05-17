@@ -2531,6 +2531,18 @@
 		qcom,fragmented-data;
 	};
 
+	qcom,qsee_ipc_irq_bridge {
+		compatible = "qcom,qsee-ipc-irq-bridge";
+
+		qcom,qsee-ipq-irq-spss {
+			qcom,rx-irq-clr = <0x1888008 0x4>;
+			qcom,rx-irq-clr-mask = <0x2>;
+			qcom,dev-name = "qsee_ipc_irq_spss";
+			interrupts = <0 349 4>;
+			label = "spss";
+		};
+	};
+
 	qcom,spcom {
 		compatible = "qcom,spcom";
 
