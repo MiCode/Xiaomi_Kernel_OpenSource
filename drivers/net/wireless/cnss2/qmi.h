@@ -35,5 +35,7 @@ int cnss_wlfw_athdiag_read_send_sync(struct cnss_plat_data *plat_priv,
 int cnss_wlfw_athdiag_write_send_sync(struct cnss_plat_data *plat_priv,
 				      uint32_t offset, uint32_t mem_type,
 				      uint32_t data_len, uint8_t *data);
+int cnss_wlfw_ini_send_sync(struct cnss_plat_data *plat_priv,
+			    uint8_t fw_log_mode);
 
 #endif /* _CNSS_QMI_H */
