@@ -1676,6 +1676,8 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int i = 0;
 
+	if (kgsl_gmu_isenabled(device))
+		return;
 	if (test_bit(KGSL_PWRFLAGS_CLK_ON, &pwr->ctrl_flags))
 		return;
 
@@ -1785,6 +1787,8 @@ static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
+	if (kgsl_gmu_isenabled(device))
+		return;
 	if (test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->ctrl_flags))
 		return;
 
@@ -1851,6 +1855,8 @@ static int kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state)
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int status = 0;
 
+	if (kgsl_gmu_isenabled(device))
+		return 0;
 	if (test_bit(KGSL_PWRFLAGS_POWER_ON, &pwr->ctrl_flags))
 		return 0;
 
