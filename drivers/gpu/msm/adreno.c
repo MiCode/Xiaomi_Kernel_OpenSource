@@ -1488,6 +1488,15 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 		goto error_mmu_off;
 	}
 
+	/* Send OOB request to turn on the GX */
+	if (gpudev->oob_set) {
+		status = gpudev->oob_set(adreno_dev, OOB_GPUSTART_SET_MASK,
+				OOB_GPUSTART_CHECK_MASK,
+				OOB_GPUSTART_CLEAR_MASK);
+		if (status)
+			goto error_mmu_off;
+	}
+
 	/* Enable 64 bit gpu addr if feature is set */
 	if (gpudev->enable_64bit &&
 			adreno_support_64bit(adreno_dev))
@@ -1569,7 +1578,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	status = adreno_ringbuffer_start(adreno_dev, ADRENO_START_COLD);
 	if (status)
-		goto error_mmu_off;
+		goto error_oob_clear;
 
 	/* Start the dispatcher */
 	adreno_dispatcher_start(device);
@@ -1582,7 +1591,15 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 		pm_qos_update_request(&device->pwrctrl.pm_qos_req_dma,
 				pmqos_active_vote);
 
+	/* Send OOB request to allow IFPC */
+	if (gpudev->oob_clear)
+		gpudev->oob_clear(adreno_dev, OOB_GPUSTART_CLEAR_MASK);
+
 	return 0;
+
+error_oob_clear:
+	if (gpudev->oob_clear)
+		gpudev->oob_clear(adreno_dev, OOB_GPUSTART_CLEAR_MASK);
 
 error_mmu_off:
 	kgsl_mmu_stop(&device->mmu);
