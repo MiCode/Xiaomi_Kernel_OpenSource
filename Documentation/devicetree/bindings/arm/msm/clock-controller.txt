@@ -70,6 +70,7 @@ Required properties:
 			"qcom,gpucc-8996-v3.0"
 			"qcom,gpucc-8996-pro"
 			"qcom,gcc-gfx-8953"
+			"qcom,gcc-gfx-sdm450"
 			"qcom,gcc-californium"
 			"qcom,cc-debug-californium"
 			"qcom,gcc-mdm9607"
