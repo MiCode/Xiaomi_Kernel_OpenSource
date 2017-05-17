@@ -307,7 +307,6 @@ aliases {
 		qcom,scale-function = <4>;
 		qcom,hw-settle-time = <2>;
 		qcom,fast-avg-setup = <0>;
-		qcom,vadc-thermal-node;
 	};
 
 	chan@4d {
@@ -319,7 +318,6 @@ aliases {
 		qcom,scale-function = <2>;
 		qcom,hw-settle-time = <2>;
 		qcom,fast-avg-setup = <0>;
-		qcom,vadc-thermal-node;
 	};
 
 	chan@4f {
@@ -331,7 +329,6 @@ aliases {
 		qcom,scale-function = <2>;
 		qcom,hw-settle-time = <2>;
 		qcom,fast-avg-setup = <0>;
-		qcom,vadc-thermal-node;
 	};
 
 	chan@51 {
@@ -343,7 +340,6 @@ aliases {
 		qcom,scale-function = <2>;
 		qcom,hw-settle-time = <2>;
 		qcom,fast-avg-setup = <0>;
-		qcom,vadc-thermal-node;
 	};
 };
 
