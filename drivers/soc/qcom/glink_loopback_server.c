@@ -140,6 +140,7 @@ static struct ctl_ch_info ctl_ch_tbl[] = {
 	{"LOOPBACK_CTL_APSS", "mpss", "smem"},
 	{"LOOPBACK_CTL_APSS", "lpass", "smem"},
 	{"LOOPBACK_CTL_APSS", "dsps", "smem"},
+	{"LOOPBACK_CTL_APPS", "cdsp", "smem"},
 	{"LOOPBACK_CTL_APSS", "spss", "mailbox"},
 	{"LOOPBACK_CTL_APSS", "wdsp", "spi"},
 };
