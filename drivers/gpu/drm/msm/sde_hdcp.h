@@ -25,6 +25,7 @@
 #include <drm/drm_edid.h>
 #include "hdmi.h"
 #include "sde_kms.h"
+#include "sde_hdmi_util.h"
 
 #ifdef SDE_HDCP_DEBUG_ENABLE
 #define SDE_HDCP_DEBUG(fmt, args...)   SDE_ERROR(fmt, ##args)
@@ -75,7 +76,6 @@ struct sde_hdcp_ops {
 
 void *sde_hdcp_1x_init(struct sde_hdcp_init_data *init_data);
 void sde_hdcp_1x_deinit(void *input);
-
 struct sde_hdcp_ops *sde_hdcp_1x_start(void *input);
 
 const char *sde_hdcp_state_name(enum sde_hdcp_states hdcp_state);
