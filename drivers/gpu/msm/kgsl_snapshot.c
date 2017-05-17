@@ -875,6 +875,25 @@ static ssize_t timestamp_show(struct kgsl_device *device, char *buf)
 	return snprintf(buf, PAGE_SIZE, "%lu\n", timestamp);
 }
 
+static ssize_t snapshot_legacy_show(struct kgsl_device *device, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", device->snapshot_legacy);
+}
+
+static ssize_t snapshot_legacy_store(struct kgsl_device *device,
+	const char *buf, size_t count)
+{
+	unsigned int val = 0;
+	int ret;
+
+	ret = kgsl_sysfs_store(buf, &val);
+
+	if (!ret && device)
+		device->snapshot_legacy = (bool)val;
+
+	return (ssize_t) ret < 0 ? ret : count;
+}
+
 static struct bin_attribute snapshot_attr = {
 	.attr.name = "dump",
 	.attr.mode = 0444,
@@ -894,6 +913,8 @@ static SNAPSHOT_ATTR(faultcount, 0644, faultcount_show, faultcount_store);
 static SNAPSHOT_ATTR(force_panic, 0644, force_panic_show, force_panic_store);
 static SNAPSHOT_ATTR(snapshot_crashdumper, 0644, snapshot_crashdumper_show,
 	snapshot_crashdumper_store);
+static SNAPSHOT_ATTR(snapshot_legacy, 0644, snapshot_legacy_show,
+	snapshot_legacy_store);
 
 static ssize_t snapshot_sysfs_show(struct kobject *kobj,
 	struct attribute *attr, char *buf)
@@ -975,6 +996,7 @@ int kgsl_device_snapshot_init(struct kgsl_device *device)
 	device->snapshot_faultcount = 0;
 	device->force_panic = 0;
 	device->snapshot_crashdumper = 1;
+	device->snapshot_legacy = 0;
 
 	ret = kobject_init_and_add(&device->snapshot_kobj, &ktype_snapshot,
 		&device->dev->kobj, "snapshot");
@@ -1000,6 +1022,12 @@ int kgsl_device_snapshot_init(struct kgsl_device *device)
 
 	ret  = sysfs_create_file(&device->snapshot_kobj,
 			&attr_snapshot_crashdumper.attr);
+	if (ret)
+		goto done;
+
+	ret  = sysfs_create_file(&device->snapshot_kobj,
+			&attr_snapshot_legacy.attr);
+
 done:
 	return ret;
 }

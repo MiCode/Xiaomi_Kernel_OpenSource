@@ -640,6 +640,9 @@ static size_t a6xx_legacy_snapshot_cluster_dbgahb(struct kgsl_device *device,
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	int i, j;
 
+	if (!device->snapshot_legacy)
+		return 0;
+
 	if (remain < sizeof(*header)) {
 		SNAPSHOT_ERR_NOMEM(device, "REGISTERS");
 		return 0;
@@ -747,6 +750,9 @@ static size_t a6xx_legacy_snapshot_non_ctx_dbgahb(struct kgsl_device *device,
 	int count = 0;
 	unsigned int read_sel;
 	int i, j;
+
+	if (!device->snapshot_legacy)
+		return 0;
 
 	/* Figure out how many registers we are going to dump */
 	for (i = 0; i < regs->num_sets; i++) {
