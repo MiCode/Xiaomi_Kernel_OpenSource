@@ -91,8 +91,10 @@ struct spi_miso { /* TLV for MISO line */
 #define CMD_CAN_RECEIVE_FRAME		0x85
 #define CMD_CAN_DATA_BUFF_ADD		0x87
 #define CMD_CAN_DATA_BUFF_REMOVE	0x88
+#define CMD_CAN_RELEASE_BUFFER          0x89
 #define CMD_CAN_DATA_BUFF_REMOVE_ALL	0x8A
 
+#define IOCTL_RELEASE_CAN_BUFFER	(SIOCDEVPRIVATE + 0)
 #define IOCTL_ENABLE_BUFFERING		(SIOCDEVPRIVATE + 1)
 #define IOCTL_ADD_FRAME_FILTER		(SIOCDEVPRIVATE + 2)
 #define IOCTL_REMOVE_FRAME_FILTER	(SIOCDEVPRIVATE + 3)
@@ -198,7 +200,7 @@ static void k61_receive_frame(struct k61_can *priv_data,
 	struct net_device *netdev;
 	int i;
 
-	if (frame->dlc > 8 || frame->mid > 0x7FF) {
+	if (frame->dlc > 8) {
 		LOGDE("can rx frame error\n");
 		k61_frame_error(priv_data, frame);
 		return;
@@ -529,6 +531,36 @@ static netdev_tx_t k61_netdev_start_xmit(
 	return NETDEV_TX_OK;
 }
 
+static int k61_send_release_can_buffer_cmd(struct net_device *netdev)
+{
+	struct k61_can *priv_data;
+	struct k61_netdev_privdata *netdev_priv_data;
+	struct spi_device *spi;
+	char *tx_buf, *rx_buf;
+	int ret;
+	struct spi_mosi *req;
+
+	netdev_priv_data = netdev_priv(netdev);
+	priv_data = netdev_priv_data->k61_can;
+	spi = priv_data->spidev;
+
+	mutex_lock(&priv_data->spi_lock);
+	tx_buf = priv_data->tx_buf;
+	rx_buf = priv_data->rx_buf;
+	memset(tx_buf, 0, XFER_BUFFER_SIZE);
+	memset(rx_buf, 0, XFER_BUFFER_SIZE);
+	priv_data->xfer_length = XFER_BUFFER_SIZE;
+
+	req = (struct spi_mosi *)tx_buf;
+	req->cmd = CMD_CAN_RELEASE_BUFFER;
+	req->len = 0;
+	req->seq = atomic_inc_return(&priv_data->msg_seq);
+
+	ret = k61_do_spi_transaction(priv_data);
+	mutex_unlock(&priv_data->spi_lock);
+	return ret;
+}
+
 static int k61_remove_all_buffering(struct net_device *netdev)
 {
 	char *tx_buf, *rx_buf;
@@ -679,6 +711,9 @@ static int k61_netdev_do_ioctl(struct net_device *netdev,
 		break;
 	case IOCTL_DISABLE_ALL_BUFFERING:
 		ret = k61_remove_all_buffering(netdev);
+		break;
+	case IOCTL_RELEASE_CAN_BUFFER:
+		ret = k61_send_release_can_buffer_cmd(netdev);
 		break;
 	}
 	return ret;
