@@ -1106,27 +1106,6 @@ static int msm_geni_serial_startup(struct uart_port *uport)
 	scnprintf(msm_port->name, sizeof(msm_port->name), "msm_serial_geni%d",
 				uport->line);
 
-	ret = request_irq(uport->irq, msm_geni_serial_isr, IRQF_TRIGGER_HIGH,
-			msm_port->name, msm_port);
-	if (unlikely(ret)) {
-		dev_err(uport->dev, "%s: Failed to get IRQ ret %d\n",
-							__func__, ret);
-		goto exit_startup;
-	}
-
-	if (msm_port->wakeup_irq > 0) {
-		ret = request_threaded_irq(msm_port->wakeup_irq, NULL,
-				msm_geni_wakeup_isr,
-				IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
-				"hs_uart_wakeup", uport);
-		if (unlikely(ret)) {
-			dev_err(uport->dev, "%s:Failed to get WakeIRQ ret%d\n",
-								__func__, ret);
-			goto exit_startup;
-		}
-		disable_irq(msm_port->wakeup_irq);
-	}
-
 	if (likely(!uart_console(uport))) {
 		ret = msm_geni_serial_power_on(&msm_port->uport);
 		if (ret)
@@ -1156,6 +1135,26 @@ static int msm_geni_serial_startup(struct uart_port *uport)
 	 * before returning to the framework.
 	 */
 	mb();
+	ret = request_irq(uport->irq, msm_geni_serial_isr, IRQF_TRIGGER_HIGH,
+			msm_port->name, msm_port);
+	if (unlikely(ret)) {
+		dev_err(uport->dev, "%s: Failed to get IRQ ret %d\n",
+							__func__, ret);
+		goto exit_startup;
+	}
+
+	if (msm_port->wakeup_irq > 0) {
+		ret = request_threaded_irq(msm_port->wakeup_irq, NULL,
+				msm_geni_wakeup_isr,
+				IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+				"hs_uart_wakeup", uport);
+		if (unlikely(ret)) {
+			dev_err(uport->dev, "%s:Failed to get WakeIRQ ret%d\n",
+								__func__, ret);
+			goto exit_startup;
+		}
+		disable_irq(msm_port->wakeup_irq);
+	}
 	IPC_LOG_MSG(msm_port->ipc_log_misc, "%s\n", __func__);
 exit_startup:
 	return ret;
@@ -1755,6 +1754,7 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 		dev_port->rx_fifo = devm_kzalloc(uport->dev,
 				sizeof(dev_port->rx_fifo_depth * sizeof(u32)),
 								GFP_KERNEL);
+		pm_runtime_set_suspended(&pdev->dev);
 		pm_runtime_enable(&pdev->dev);
 	}
 
