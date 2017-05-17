@@ -257,18 +257,11 @@ static ssize_t rpmstats_show(struct kobject *kobj,
 
 static int msm_rpmstats_create_sysfs(struct msm_rpmstats_platform_data *pd)
 {
-	struct kobject *module_kobj = NULL;
 	struct kobject *rpmstats_kobj = NULL;
 	struct msm_rpmstats_kobj_attr *rpms_ka = NULL;
 	int ret = 0;
 
-	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
-	if (!module_kobj) {
-		pr_err("%s: Cannot find module_kset\n", __func__);
-		return -ENODEV;
-	}
-
-	rpmstats_kobj = kobject_create_and_add("rpmstats", module_kobj);
+	rpmstats_kobj = kobject_create_and_add("system_sleep", power_kobj);
 	if (!rpmstats_kobj) {
 		pr_err("%s: Cannot create rpmstats kobject\n", __func__);
 		ret = -ENOMEM;
