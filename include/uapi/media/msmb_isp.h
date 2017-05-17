@@ -1087,4 +1087,8 @@ enum msm_isp_ioctl_cmd_code {
 
 #define VIDIOC_MSM_ISP_AHB_CLK_CFG \
 	_IOWR('V', MSM_ISP_AHB_CLK_CFG, struct msm_isp_ahb_clk_cfg)
-#endif /* __MSMB_ISP__ */
+
+#define VIDIOC_MSM_ISP_BUF_DONE \
+	_IOWR('V', BASE_VIDIOC_PRIVATE+21, struct msm_isp32_event_data)
+
+#endif/* __MSMB_ISP__ */

@@ -41,13 +41,5 @@ struct msm_isp32_event_data32 {
 	} u;
 };
 
-#define VIDIOC_MSM_ISP_BUF_DONE \
-	_IOWR('V', BASE_VIDIOC_PRIVATE+21, struct msm_isp32_event_data32)
-
-#else
-
-#define VIDIOC_MSM_ISP_BUF_DONE \
-	_IOWR('V', BASE_VIDIOC_PRIVATE+21, struct msm_isp32_event_data)
-
 #endif
 #endif /* __MSMB_ISP__ */
