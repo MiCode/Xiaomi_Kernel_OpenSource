@@ -30,6 +30,7 @@
 #include <linux/file.h>
 #include <linux/fs.h>
 #include <linux/aio.h>
+#include <linux/kref.h>
 #include <linux/mm.h>
 #include <linux/mount.h>
 #include <linux/namei.h>
