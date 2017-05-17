@@ -318,6 +318,7 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 {
 	struct ion_dma_buf_attachment *a = attachment->priv;
 	struct sg_table *table;
+	int count, map_attrs;
 	struct ion_buffer *buffer = attachment->dmabuf->priv;
 
 	table = a->table;
@@ -353,6 +354,8 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 					 map_attrs);
 	}
 
+	if (count <= 0)
+		return ERR_PTR(-ENOMEM);
 
 	a->dma_mapped = true;
 	mutex_unlock(&buffer->lock);
