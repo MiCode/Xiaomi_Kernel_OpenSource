@@ -64,6 +64,7 @@ extern int msm_vidc_firmware_unload_delay;
 extern bool msm_vidc_thermal_mitigation_disabled;
 extern bool msm_vidc_clock_scaling;
 extern bool msm_vidc_debug_timeout;
+extern bool msm_vidc_syscache_disable;
 
 #define VIDC_MSG_PRIO2STRING(__level) ({ \
 	char *__str; \
