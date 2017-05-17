@@ -12319,7 +12319,7 @@ void check_for_migration(struct rq *rq, struct task_struct *p)
 			return;
 
 		new_cpu = energy_aware_wake_cpu(p, cpu, 0);
-		if (new_cpu != cpu) {
+		if (capacity_orig_of(new_cpu) > capacity_orig_of(cpu)) {
 			active_balance = kick_active_balance(rq, p, new_cpu);
 			if (active_balance) {
 				mark_reserved(new_cpu);
