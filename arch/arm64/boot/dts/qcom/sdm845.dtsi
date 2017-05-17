@@ -2153,6 +2153,18 @@
 		qcom,irq-mask = <0x100>;
 		interrupts = <GIC_SPI 156 IRQ_TYPE_EDGE_RISING>;
 		label = "lpass";
+		qcom,qos-config = <&glink_qos_adsp>;
+		qcom,ramp-time = <0xaf>;
+	};
+
+	glink_qos_adsp: qcom,glink-qos-config-adsp {
+		compatible = "qcom,glink-qos-config";
+		qcom,flow-info = <0x3c 0x0>,
+				<0x3c 0x0>,
+				<0x3c 0x0>,
+				<0x3c 0x0>;
+		qcom,mtu-size = <0x800>;
+		qcom,tput-stats-cycle = <0xa>;
 	};
 
 	qcom,glink-smem-native-xprt-dsps@86000000 {
