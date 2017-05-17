@@ -153,10 +153,9 @@ static void rpmh_tx_done(struct mbox_client *cl, void *msg, int r)
 	}
 
 	/* Signal the blocking thread we are done */
-	if (waitq) {
-		atomic_dec(wc);
-		wake_up(waitq);
-	}
+	if (wc && atomic_dec_and_test(wc))
+		if (waitq)
+			wake_up(waitq);
 }
 
 static struct rpmh_req *__find_req(struct rpmh_client *rc, u32 addr)
