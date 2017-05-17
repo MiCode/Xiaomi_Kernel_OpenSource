@@ -180,3 +180,5 @@
 		status = "ok";
 	};
 };
+
+#include "sdxpoorwills-regulator.dtsi"
