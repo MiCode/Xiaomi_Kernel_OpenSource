@@ -267,7 +267,8 @@ int adreno_perfcounter_read_group(struct adreno_device *adreno_dev,
 	}
 
 	mutex_lock(&device->mutex);
-	ret = kgsl_active_count_get(device);
+
+	ret = adreno_perfcntr_active_oob_get(adreno_dev);
 	if (ret) {
 		mutex_unlock(&device->mutex);
 		goto done;
@@ -296,7 +297,8 @@ int adreno_perfcounter_read_group(struct adreno_device *adreno_dev,
 		}
 	}
 
-	kgsl_active_count_put(device);
+	adreno_perfcntr_active_oob_put(adreno_dev);
+
 	mutex_unlock(&device->mutex);
 
 	/* write the data */

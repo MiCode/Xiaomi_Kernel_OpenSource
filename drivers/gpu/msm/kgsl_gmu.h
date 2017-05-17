@@ -70,6 +70,9 @@
 #define OOB_CPINIT_SET_MASK		BIT(16)
 #define OOB_CPINIT_CHECK_MASK		BIT(24)
 #define OOB_CPINIT_CLEAR_MASK		BIT(24)
+#define OOB_PERFCNTR_SET_MASK		BIT(17)
+#define OOB_PERFCNTR_CHECK_MASK		BIT(25)
+#define OOB_PERFCNTR_CLEAR_MASK		BIT(25)
 
 /* Bits for the flags field in the gmu structure */
 enum gmu_flags {

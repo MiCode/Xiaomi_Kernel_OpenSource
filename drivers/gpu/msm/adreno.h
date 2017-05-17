@@ -23,6 +23,7 @@
 #include "adreno_perfcounter.h"
 #include <linux/stat.h>
 #include <linux/delay.h>
+#include "kgsl_gmu.h"
 
 #include "a4xx_reg.h"
 
@@ -1673,4 +1674,37 @@ static inline unsigned int counter_delta(struct kgsl_device *device,
 	*counter = val;
 	return ret;
 }
+
+static inline int adreno_perfcntr_active_oob_get(
+		struct adreno_device *adreno_dev)
+{
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	int ret;
+
+	ret = kgsl_active_count_get(KGSL_DEVICE(adreno_dev));
+	if (ret)
+		return ret;
+
+	if (gpudev->oob_set) {
+		ret = gpudev->oob_set(adreno_dev, OOB_PERFCNTR_SET_MASK,
+				OOB_PERFCNTR_CHECK_MASK,
+				OOB_PERFCNTR_CLEAR_MASK);
+		if (ret)
+			kgsl_active_count_put(KGSL_DEVICE(adreno_dev));
+	}
+
+	return ret;
+}
+
+static inline void adreno_perfcntr_active_oob_put(
+		struct adreno_device *adreno_dev)
+{
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+
+	if (gpudev->oob_clear)
+		gpudev->oob_clear(adreno_dev, OOB_PERFCNTR_CLEAR_MASK);
+
+	kgsl_active_count_put(KGSL_DEVICE(adreno_dev));
+}
+
 #endif /*__ADRENO_H */
