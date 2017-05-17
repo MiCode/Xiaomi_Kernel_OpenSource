@@ -1360,11 +1360,12 @@ int cam_smmu_set_attr(int handle, uint32_t flags, int32_t *data)
 		/* set attributes */
 		ret = iommu_domain_set_attr(domain, cb->attr, (void *)data);
 		if (ret < 0) {
+			mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
 			pr_err("Error: set attr\n");
 			return -ENODEV;
 		}
 	} else {
-		return -EINVAL;
+		ret = -EINVAL;
 	}
 	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
 	return ret;
