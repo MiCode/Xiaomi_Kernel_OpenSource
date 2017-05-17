@@ -524,6 +524,14 @@ int cnss_athdiag_write(struct device *dev, uint32_t offset, uint32_t mem_type,
 EXPORT_SYMBOL(cnss_athdiag_write);
 #endif
 
+int cnss_set_fw_log_mode(struct device *dev, uint8_t fw_log_mode)
+{
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+
+	return cnss_wlfw_ini_send_sync(plat_priv, fw_log_mode);
+}
+EXPORT_SYMBOL(cnss_set_fw_log_mode);
+
 static int cnss_fw_mem_ready_hdlr(struct cnss_plat_data *plat_priv)
 {
 	int ret = 0;
@@ -1036,6 +1044,11 @@ static int cnss_qca6290_powerup(struct cnss_plat_data *plat_priv)
 	if (!pci_priv) {
 		cnss_pr_err("pci_priv is NULL!\n");
 		return -ENODEV;
+	}
+
+	if (plat_priv->ramdump_info_v2.dump_data_valid) {
+		cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_DEINIT);
+		cnss_pci_clear_dump_info(pci_priv);
 	}
 
 	ret = cnss_power_on_device(plat_priv);

@@ -63,3 +63,21 @@
 	};
 };
 
+&mdss_fb0 {
+	status = "disabled";
+	/delete-node/ qcom,cont-splash-memory;
+};
+
+&mdss_mdp {
+	status = "disabled";
+};
+
+&mdss_dsi0_pll {
+	status = "disabled";
+};
+
+&mdss_dsi0 {
+	status = "disabled";
+};
+
+/delete-node/ &cont_splash_mem;
