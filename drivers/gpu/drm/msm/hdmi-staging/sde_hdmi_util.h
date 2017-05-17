@@ -144,7 +144,7 @@ struct sde_hdmi_tx_hdcp2p2_ddc_data {
 };
 
 struct sde_hdmi_tx_ddc_ctrl {
-	atomic_t rxstatus_busy_wait_done;
+	struct completion rx_status_done;
 	struct dss_io_data *io;
 	struct sde_hdmi_tx_ddc_data ddc_data;
 	struct sde_hdmi_tx_hdcp2p2_ddc_data sde_hdcp2p2_ddc_data;
@@ -157,7 +157,7 @@ int sde_hdmi_ddc_scrambling_isr(void *hdmi_display);
 int _sde_hdmi_get_timeout_in_hysnc(void *hdmi_display, u32 timeout_ms);
 void _sde_hdmi_scrambler_ddc_disable(void *hdmi_display);
 void sde_hdmi_hdcp2p2_ddc_disable(void *hdmi_display);
-int sde_hdmi_hdcp2p2_ddc_read_rxstatus(void *hdmi_display);
+int sde_hdmi_hdcp2p2_read_rxstatus(void *hdmi_display);
 void sde_hdmi_ddc_config(void *hdmi_display);
 int sde_hdmi_ddc_hdcp2p2_isr(void *hdmi_display);
 

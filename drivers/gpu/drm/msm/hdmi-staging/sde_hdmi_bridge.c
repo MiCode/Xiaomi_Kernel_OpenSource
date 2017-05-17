@@ -380,13 +380,23 @@ static void sde_hdmi_update_hdcp_info(struct drm_connector *connector)
 		return;
 	}
 
+	/* check first if hdcp2p2 is supported */
+	fd = display->hdcp_feat_data[SDE_HDCP_2P2];
+	if (fd)
+		ops = sde_hdmi_hdcp2p2_start(fd);
+
+	if (ops && ops->feature_supported)
+		display->hdcp22_present = ops->feature_supported(fd);
+	else
+		display->hdcp22_present = false;
+
 	if (!display->hdcp22_present) {
 		if (display->hdcp1_use_sw_keys) {
 			display->hdcp14_present =
 				hdcp1_check_if_supported_load_app();
 		}
 		if (display->hdcp14_present) {
-			fd = display->hdcp_feature_data[SDE_HDCP_1x];
+			fd = display->hdcp_feat_data[SDE_HDCP_1x];
 			if (fd)
 				ops = sde_hdcp_1x_start(fd);
 		}
@@ -638,9 +648,9 @@ static void _sde_hdmi_bridge_mode_set(struct drm_bridge *bridge,
 		_sde_hdmi_bridge_set_spd_infoframe(hdmi, mode);
 		DRM_DEBUG("hdmi setup info frame\n");
 	}
-	_sde_hdmi_bridge_setup_scrambler(hdmi, mode);
 
 	_sde_hdmi_save_mode(hdmi, mode);
+	_sde_hdmi_bridge_setup_scrambler(hdmi, mode);
 }
 
 static const struct drm_bridge_funcs _sde_hdmi_bridge_funcs = {

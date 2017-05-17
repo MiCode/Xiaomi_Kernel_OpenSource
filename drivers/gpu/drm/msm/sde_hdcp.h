@@ -77,7 +77,8 @@ struct sde_hdcp_ops {
 void *sde_hdcp_1x_init(struct sde_hdcp_init_data *init_data);
 void sde_hdcp_1x_deinit(void *input);
 struct sde_hdcp_ops *sde_hdcp_1x_start(void *input);
-
+void *sde_hdmi_hdcp2p2_init(struct sde_hdcp_init_data *init_data);
+void sde_hdmi_hdcp2p2_deinit(void *input);
 const char *sde_hdcp_state_name(enum sde_hdcp_states hdcp_state);
-
+struct sde_hdcp_ops *sde_hdmi_hdcp2p2_start(void *input);
 #endif /* __SDE_HDCP_H__ */

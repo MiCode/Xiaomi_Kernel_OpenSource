@@ -2479,6 +2479,7 @@ void hdcp1_notify_topology(void)
 
 	snprintf(envp[1], 16, "%d", (int)DOWN_CHECK_TOPOLOGY);
 	snprintf(envp[2], 16, "%d", (int)HDCP_V1_TX);
+
 	kobject_uevent_env(&hdcp_drv_mgr->device->kobj, KOBJ_CHANGE, envp);
 	kfree(a);
 	kfree(b);
