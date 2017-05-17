@@ -1467,7 +1467,9 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 		int scid = llcc_get_slice_id(ctx->slice);
 
 		/* allocate slot for timestamp */
-		ts = stats->ts[stats->count++ % SDE_ROTATOR_NUM_EVENTS];
+		ts = stats->ts[stats->count % SDE_ROTATOR_NUM_EVENTS];
+		if (cmd_type == SDE_ROTATOR_INLINE_CMD_COMMIT)
+			stats->count++;
 
 		if (cmd->rot90)
 			flags |= SDE_ROTATION_90;
@@ -1644,6 +1646,15 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 		/* save request in private handle */
 		cmd->priv_handle = request;
 
+	} else if (cmd_type == SDE_ROTATOR_INLINE_CMD_START) {
+		if (!cmd->priv_handle) {
+			ret = -EINVAL;
+			SDEROT_ERR("invalid private handle\n");
+			goto error_invalid_handle;
+		}
+
+		request = cmd->priv_handle;
+		sde_rotator_req_set_start(request->req);
 	} else if (cmd_type == SDE_ROTATOR_INLINE_CMD_CLEANUP) {
 		if (!cmd->priv_handle) {
 			ret = -EINVAL;

@@ -60,6 +60,9 @@
 /* waiting for hw time out, 3 vsync for 30fps*/
 #define ROT_HW_ACQUIRE_TIMEOUT_IN_MS 100
 
+/* waiting for inline hw start */
+#define ROT_INLINE_START_TIMEOUT_IN_MS 2000
+
 /* default pixel per clock ratio */
 #define ROT_PIXEL_PER_CLK_NUMERATOR	36
 #define ROT_PIXEL_PER_CLK_DENOMINATOR	10
@@ -1508,6 +1511,8 @@ static void sde_rotator_commit_handler(struct work_struct *work)
 	if (entry->item.ts)
 		entry->item.ts[SDE_ROTATOR_TS_FLUSH] = ktime_get();
 
+	SDEROT_EVTLOG(entry->item.session_id, 1);
+
 	queue_work(entry->doneq->rot_work_queue, &entry->done_work);
 	sde_rot_mgr_unlock(mgr);
 	return;
@@ -1563,6 +1568,13 @@ static void sde_rotator_done_handler(struct work_struct *work)
 		entry->item.dst_rect.w, entry->item.dst_rect.h,
 		entry->item.flags,
 		entry->dnsc_factor_w, entry->dnsc_factor_h);
+
+	wait_for_completion_timeout(
+			&entry->item.inline_start,
+			msecs_to_jiffies(ROT_INLINE_START_TIMEOUT_IN_MS));
+
+	if (entry->item.ts)
+		entry->item.ts[SDE_ROTATOR_TS_START] = ktime_get();
 
 	SDEROT_EVTLOG(entry->item.session_id, 0);
 	ret = mgr->ops_wait_for_entry(hw, entry);
@@ -2332,9 +2344,34 @@ struct sde_rot_entry_container *sde_rotator_req_init(
 	for (i = 0; i < count; i++) {
 		req->entries[i].item = items[i];
 		req->entries[i].private = private;
+
+		init_completion(&req->entries[i].item.inline_start);
+		complete_all(&req->entries[i].item.inline_start);
 	}
 
 	return req;
+}
+
+void sde_rotator_req_reset_start(struct sde_rot_entry_container *req)
+{
+	int i;
+
+	if (!req)
+		return;
+
+	for (i = 0; i < req->count; i++)
+		reinit_completion(&req->entries[i].item.inline_start);
+}
+
+void sde_rotator_req_set_start(struct sde_rot_entry_container *req)
+{
+	int i;
+
+	if (!req)
+		return;
+
+	for (i = 0; i < req->count; i++)
+		complete_all(&req->entries[i].item.inline_start);
 }
 
 void sde_rotator_req_finish(struct sde_rot_mgr *mgr,

@@ -21,6 +21,7 @@
 #include <linux/types.h>
 #include <linux/cdev.h>
 #include <linux/pm_runtime.h>
+#include <linux/completion.h>
 
 #include "sde_rotator_base.h"
 #include "sde_rotator_util.h"
@@ -115,6 +116,7 @@ enum sde_rotator_ts {
 	SDE_ROTATOR_TS_QUEUE,		/* wait for h/w resource */
 	SDE_ROTATOR_TS_COMMIT,		/* prepare h/w command */
 	SDE_ROTATOR_TS_FLUSH,		/* initiate h/w processing */
+	SDE_ROTATOR_TS_START,		/* h/w triggered (if inline) */
 	SDE_ROTATOR_TS_DONE,		/* receive h/w completion */
 	SDE_ROTATOR_TS_RETIRE,		/* signal destination buffer fence */
 	SDE_ROTATOR_TS_SRCDQB,		/* dequeue source buffer */
@@ -199,6 +201,9 @@ struct sde_rotation_item {
 
 	/* Time stamp for profiling purposes */
 	ktime_t		*ts;
+
+	/* Completion structure for inline rotation */
+	struct completion inline_start;
 };
 
 /*
@@ -602,6 +607,23 @@ struct sde_rot_entry_container *sde_rotator_req_init(
 	struct sde_rot_file_private *private,
 	struct sde_rotation_item *items,
 	u32 count, u32 flags);
+
+/*
+ * sde_rotator_req_reset_start - reset inline h/w 'start' indicator
+ *	For inline rotations, the time of rotation start is not controlled
+ *	by the rotator driver. This function resets an internal 'start'
+ *	indicator that allows the rotator to delay its rotator
+ *	timeout waiting until such time as the inline rotation has
+ *	really started.
+ * @req: Pointer to rotation request
+ */
+void sde_rotator_req_reset_start(struct sde_rot_entry_container *req);
+
+/*
+ * sde_rotator_req_set_start - set inline h/w 'start' indicator
+ * @req: Pointer to rotation request
+ */
+void sde_rotator_req_set_start(struct sde_rot_entry_container *req);
 
 /*
  * sde_rotator_req_finish - notify manager that client is finished with the
