@@ -416,6 +416,11 @@ static int sde_rsc_switch_to_cmd(struct sde_rsc_priv *rsc,
 	if (config)
 		sde_rsc_timer_calculate(rsc, config);
 
+	if (rsc->current_state == SDE_RSC_CMD_STATE) {
+		rc = 0;
+		goto vsync_wait;
+	}
+
 	/* any one client in video state blocks the cmd state switch */
 	list_for_each_entry(client, &rsc->client_list, list)
 		if (client->current_state == SDE_RSC_VID_STATE)
@@ -427,8 +432,10 @@ static int sde_rsc_switch_to_cmd(struct sde_rsc_priv *rsc,
 			rpmh_mode_solver_set(rsc->disp_rsc, true);
 	}
 
-	/* wait for vsync for vid to cmd state switch */
-	if (!rc && (rsc->current_state == SDE_RSC_VID_STATE))
+vsync_wait:
+	/* wait for vsync for vid to cmd state switch and config update */
+	if (!rc && (rsc->current_state == SDE_RSC_VID_STATE ||
+			rsc->current_state == SDE_RSC_CMD_STATE))
 		drm_wait_one_vblank(rsc->master_drm,
 						rsc->primary_client->crtc_id);
 end:
@@ -470,6 +477,10 @@ static bool sde_rsc_switch_to_vid(struct sde_rsc_priv *rsc,
 	if (config && (caller_client == rsc->primary_client))
 		sde_rsc_timer_calculate(rsc, config);
 
+	/* early exit without vsync wait for vid state */
+	if (rsc->current_state == SDE_RSC_VID_STATE)
+		goto end;
+
 	/* video state switch should be done immediately */
 	if (rsc->hw_ops.state_update) {
 		rc = rsc->hw_ops.state_update(rsc, SDE_RSC_VID_STATE);
@@ -482,6 +493,8 @@ static bool sde_rsc_switch_to_vid(struct sde_rsc_priv *rsc,
 			(rsc->current_state == SDE_RSC_CMD_STATE))
 		drm_wait_one_vblank(rsc->master_drm,
 						rsc->primary_client->crtc_id);
+
+end:
 	return rc;
 }
 
