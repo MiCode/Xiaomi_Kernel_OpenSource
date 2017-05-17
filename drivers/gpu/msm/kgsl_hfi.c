@@ -573,44 +573,41 @@ int hfi_start(struct gmu_device *gmu, uint32_t boot_state)
 	if (result)
 		return result;
 
-	if (boot_state == GMU_COLD_BOOT) {
-		major = adreno_dev->gpucore->gpmu_major;
-		minor = adreno_dev->gpucore->gpmu_minor;
+	major = adreno_dev->gpucore->gpmu_major;
+	minor = adreno_dev->gpucore->gpmu_minor;
+	result = hfi_get_fw_version(gmu,
+			FW_VERSION(major, minor), &ver);
+	if (result)
+		dev_err(dev, "Failed to get FW version via HFI\n");
 
-		result = hfi_get_fw_version(gmu,
-				FW_VERSION(major, minor), &ver);
-		if (result)
-			dev_err(dev, "Failed to get FW version via HFI\n");
+	gmu->ver = ver;
+	if (major != FW_VER_MAJOR(ver))
+		dev_err(dev, "FW version major %d error (expect %d)\n",
+				FW_VER_MAJOR(ver),
+				adreno_dev->gpucore->gpmu_major);
 
-		gmu->ver = ver;
-		if (major != FW_VER_MAJOR(ver))
-			dev_err(dev, "FW version major %d error (expect %d)\n",
-					FW_VER_MAJOR(ver),
-					adreno_dev->gpucore->gpmu_major);
+	if (minor > FW_VER_MINOR(ver))
+		dev_err(dev, "FW version minor %d error (expect %d)\n",
+				FW_VER_MINOR(ver),
+				adreno_dev->gpucore->gpmu_minor);
 
-		if (minor > FW_VER_MINOR(ver))
-			dev_err(dev, "FW version minor %d error (expect %d)\n",
-					FW_VER_MINOR(ver),
-					adreno_dev->gpucore->gpmu_minor);
+	result = hfi_send_perftbl(gmu);
+	if (result)
+		return result;
 
-		result = hfi_send_perftbl(gmu);
-		if (result)
-			return result;
+	result = hfi_send_bwtbl(gmu);
+	if (result)
+		return result;
 
-		result = hfi_send_bwtbl(gmu);
-		if (result)
-			return result;
-
-		/*
-		 * FW is not ready for LM configuration
-		 * without powering on GPU.
-		 */
-		/*
-		 * result = hfi_send_lmconfig(gmu);
-		 * if (result)
-		 * return result;
-		 */
-	}
+	/*
+	 * FW is not ready for LM configuration
+	 * without powering on GPU.
+	 */
+	/*
+	 * result = hfi_send_lmconfig(gmu);
+	 * if (result)
+	 * return result;
+	 */
 
 	set_bit(GMU_HFI_ON, &gmu->flags);
 	return 0;
