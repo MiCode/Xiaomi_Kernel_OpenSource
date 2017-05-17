@@ -6334,6 +6334,62 @@ struct asm_stream_cmd_get_pp_params_v2 {
 
 #define ASM_STREAM_CMD_SET_ENCDEC_PARAM 0x00010C10
 
+#define ASM_STREAM_CMD_SET_ENCDEC_PARAM_V2     0x00013218
+
+struct asm_stream_cmd_set_encdec_param_v2 {
+	u16                  service_id;
+	/* 0 - ASM_ENCODER_SVC; 1 - ASM_DECODER_SVC */
+
+	u16                  reserved;
+
+	u32                  param_id;
+	/* ID of the parameter. */
+
+	u32                  param_size;
+	/*
+	 * Data size of this parameter, in bytes. The size is a multiple
+	 * of 4 bytes.
+	 */
+} __packed;
+
+#define ASM_STREAM_CMD_REGISTER_ENCDEC_EVENTS  0x00013219
+
+#define ASM_STREAM_CMD_ENCDEC_EVENTS           0x0001321A
+
+#define AVS_PARAM_ID_RTIC_SHARED_MEMORY_ADDR   0x00013237
+
+struct avs_rtic_shared_mem_addr {
+	struct apr_hdr hdr;
+	struct asm_stream_cmd_set_encdec_param_v2  encdec;
+	u32                 shm_buf_addr_lsw;
+	/* Lower 32 bit of the RTIC shared memory */
+
+	u32                 shm_buf_addr_msw;
+	/* Upper 32 bit of the RTIC shared memory */
+
+	u32                 buf_size;
+	/* Size of buffer */
+
+	u16                 shm_buf_mem_pool_id;
+	/* ADSP_MEMORY_MAP_SHMEM8_4K_POOL */
+
+	u16                 shm_buf_num_regions;
+	/* number of regions to map */
+
+	u32                 shm_buf_flag;
+	/* buffer property flag */
+
+	struct avs_shared_map_region_payload map_region;
+	/* memory map region*/
+} __packed;
+
+#define AVS_PARAM_ID_RTIC_EVENT_ACK           0x00013238
+
+struct avs_param_rtic_event_ack {
+	struct apr_hdr hdr;
+	struct asm_stream_cmd_set_encdec_param_v2  encdec;
+} __packed;
+
 #define ASM_PARAM_ID_ENCDEC_BITRATE     0x00010C13
 
 struct asm_bitrate_param {
