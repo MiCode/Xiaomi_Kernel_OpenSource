@@ -3813,8 +3813,10 @@ static int sdm660_cdc_notifier_service_cb(struct notifier_block *nb,
 
 	switch (opcode) {
 	case AUDIO_NOTIFIER_SERVICE_DOWN:
-		if (initial_boot)
+		if (initial_boot) {
+			initial_boot = false;
 			break;
+		}
 		dev_dbg(codec->dev,
 			"ADSP is about to power down. teardown/reset codec\n");
 		msm_anlg_cdc_device_down(codec);
