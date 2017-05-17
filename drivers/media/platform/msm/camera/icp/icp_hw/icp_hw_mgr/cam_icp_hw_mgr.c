@@ -27,6 +27,7 @@
 #include <media/cam_defs.h>
 #include <media/cam_icp.h>
 #include "cam_sync_api.h"
+#include "cam_packet_util.h"
 #include "cam_hw.h"
 #include "cam_hw_mgr_intf.h"
 #include "cam_icp_hw_mgr_intf.h"
@@ -1175,14 +1176,9 @@ static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
 	int        ctx_id = 0;
 	uint32_t   fw_handle;
 	int32_t    idx;
-	uint64_t   iova_addr, cpu_addr;
+	uint64_t   iova_addr;
 	uint32_t   fw_cmd_buf_iova_addr;
-	uint32_t   temp;
-	uint32_t  *dst_cpu_addr;
-	uint32_t  *src_buf_iova_addr;
 	size_t     fw_cmd_buf_len;
-	size_t     dst_buf_len;
-	size_t     src_buf_size;
 	int32_t    sync_in_obj[CAM_ICP_IPE_IMAGE_MAX];
 	int32_t    merged_sync_in_obj;
 
@@ -1194,7 +1190,6 @@ static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
 	struct cam_packet *packet = NULL;
 	struct cam_cmd_buf_desc *cmd_desc = NULL;
 	struct cam_buf_io_cfg *io_cfg_ptr = NULL;
-	struct cam_patch_desc *patch_desc = NULL;
 	struct hfi_cmd_ipebps_async *hfi_cmd = NULL;
 
 	if ((!prepare_args) || (!hw_mgr)) {
@@ -1279,45 +1274,11 @@ static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
 	fw_cmd_buf_iova_addr = iova_addr;
 	fw_cmd_buf_iova_addr = (fw_cmd_buf_iova_addr + cmd_desc->offset);
 
-	/* process patch descriptor */
-	patch_desc = (struct cam_patch_desc *)
-			((uint32_t *) &packet->payload +
-			packet->patch_offset/4);
-	ICP_DBG("packet = %pK patch_desc = %pK size = %lu\n",
-			(void *)packet, (void *)patch_desc,
-			sizeof(struct cam_patch_desc));
-
-	for (i = 0; i < packet->num_patches; i++) {
-		rc = cam_mem_get_io_buf(patch_desc[i].src_buf_hdl,
-			hw_mgr->iommu_hdl, &iova_addr, &src_buf_size);
-		if (rc < 0) {
-			pr_err("unable to get src buf address\n");
-			return rc;
-		}
-		src_buf_iova_addr = (uint32_t *)iova_addr;
-		temp = iova_addr;
-
-		rc = cam_mem_get_cpu_buf(patch_desc[i].dst_buf_hdl,
-			&cpu_addr, &dst_buf_len);
-		if (rc < 0) {
-			pr_err("unable to get dst buf address\n");
-			return rc;
-		}
-		dst_cpu_addr = (uint32_t *)cpu_addr;
-
-		ICP_DBG("i = %d patch info = %x %x %x %x\n", i,
-			patch_desc[i].dst_buf_hdl, patch_desc[i].dst_offset,
-			patch_desc[i].src_buf_hdl, patch_desc[i].src_offset);
-
-		dst_cpu_addr = (uint32_t *)((uint8_t *)dst_cpu_addr +
-			patch_desc[i].dst_offset);
-		temp += patch_desc[i].src_offset;
-
-		*dst_cpu_addr = temp;
-
-		ICP_DBG("patch is done for dst %pK with src %pK value %llx\n",
-			dst_cpu_addr, src_buf_iova_addr,
-			*((uint64_t *)dst_cpu_addr));
+	/* Update Buffer Address from handles and patch information */
+	rc = cam_packet_util_process_patches(packet, hw_mgr->iommu_hdl);
+	if (rc) {
+		pr_err("Patch processing failed\n");
+		return rc;
 	}
 
 	/* process io config out descriptors */

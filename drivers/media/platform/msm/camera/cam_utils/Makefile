@@ -1,1 +1,3 @@
-obj-$(CONFIG_SPECTRA_CAMERA) += cam_soc_util.o cam_io_util.o
+ccflags-y += -Idrivers/media/platform/msm/camera/cam_req_mgr/
+
+obj-$(CONFIG_SPECTRA_CAMERA) += cam_soc_util.o cam_io_util.o cam_packet_util.o
