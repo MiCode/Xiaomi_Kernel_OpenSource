@@ -58,6 +58,97 @@ static uint8_t _std_init_vector_sha256_uint8[] = {
 static DEFINE_MUTEX(send_cmd_lock);
 static DEFINE_MUTEX(qcedev_sent_bw_req);
 
+static int qcedev_control_clocks(struct qcedev_control *podev, bool enable)
+{
+	unsigned int control_flag;
+	int ret = 0;
+
+	if (podev->ce_support.req_bw_before_clk) {
+		if (enable)
+			control_flag = QCE_BW_REQUEST_FIRST;
+		else
+			control_flag = QCE_CLK_DISABLE_FIRST;
+	} else {
+		if (enable)
+			control_flag = QCE_CLK_ENABLE_FIRST;
+		else
+			control_flag = QCE_BW_REQUEST_RESET_FIRST;
+	}
+
+	switch (control_flag) {
+	case QCE_CLK_ENABLE_FIRST:
+		ret = qce_enable_clk(podev->qce);
+		if (ret) {
+			pr_err("%s Unable enable clk\n", __func__);
+			return ret;
+		}
+		ret = msm_bus_scale_client_update_request(
+				podev->bus_scale_handle, 1);
+		if (ret) {
+			pr_err("%s Unable to set high bw\n", __func__);
+			ret = qce_disable_clk(podev->qce);
+			if (ret)
+				pr_err("%s Unable disable clk\n", __func__);
+			return ret;
+		}
+		break;
+	case QCE_BW_REQUEST_FIRST:
+		ret = msm_bus_scale_client_update_request(
+				podev->bus_scale_handle, 1);
+		if (ret) {
+			pr_err("%s Unable to set high bw\n", __func__);
+			return ret;
+		}
+		ret = qce_enable_clk(podev->qce);
+		if (ret) {
+			pr_err("%s Unable enable clk\n", __func__);
+			ret = msm_bus_scale_client_update_request(
+				podev->bus_scale_handle, 0);
+			if (ret)
+				pr_err("%s Unable to set low bw\n", __func__);
+			return ret;
+		}
+		break;
+	case QCE_CLK_DISABLE_FIRST:
+		ret = qce_disable_clk(podev->qce);
+		if (ret) {
+			pr_err("%s Unable to disable clk\n", __func__);
+			return ret;
+		}
+		ret = msm_bus_scale_client_update_request(
+				podev->bus_scale_handle, 0);
+		if (ret) {
+			pr_err("%s Unable to set low bw\n", __func__);
+			ret = qce_enable_clk(podev->qce);
+			if (ret)
+				pr_err("%s Unable enable clk\n", __func__);
+			return ret;
+		}
+		break;
+	case QCE_BW_REQUEST_RESET_FIRST:
+		ret = msm_bus_scale_client_update_request(
+				podev->bus_scale_handle, 0);
+		if (ret) {
+			pr_err("%s Unable to set low bw\n", __func__);
+			return ret;
+		}
+		ret = qce_disable_clk(podev->qce);
+		if (ret) {
+			pr_err("%s Unable to disable clk\n", __func__);
+			ret = msm_bus_scale_client_update_request(
+				podev->bus_scale_handle, 1);
+			if (ret)
+				pr_err("%s Unable to set high bw\n", __func__);
+			return ret;
+		}
+		break;
+	default:
+		return -ENOENT;
+	}
+
+	return 0;
+}
+
 static void qcedev_ce_high_bw_req(struct qcedev_control *podev,
 							bool high_bw_req)
 {
@@ -66,47 +157,21 @@ static void qcedev_ce_high_bw_req(struct qcedev_control *podev,
 	mutex_lock(&qcedev_sent_bw_req);
 	if (high_bw_req) {
 		if (podev->high_bw_req_count == 0) {
-			ret = qce_enable_clk(podev->qce);
-			if (ret) {
-				pr_err("%s Unable enable clk\n", __func__);
-				mutex_unlock(&qcedev_sent_bw_req);
-				return;
-			}
-			ret = msm_bus_scale_client_update_request(
-					podev->bus_scale_handle, 1);
-			if (ret) {
-				pr_err("%s Unable to set to high bandwidth\n",
-							__func__);
-				ret = qce_disable_clk(podev->qce);
-				mutex_unlock(&qcedev_sent_bw_req);
-				return;
-			}
+			ret = qcedev_control_clocks(podev, true);
+			if (ret)
+				goto exit_unlock_mutex;
 		}
 		podev->high_bw_req_count++;
 	} else {
 		if (podev->high_bw_req_count == 1) {
-			ret = msm_bus_scale_client_update_request(
-					podev->bus_scale_handle, 0);
-			if (ret) {
-				pr_err("%s Unable to set to low bandwidth\n",
-							__func__);
-				mutex_unlock(&qcedev_sent_bw_req);
-				return;
-			}
-			ret = qce_disable_clk(podev->qce);
-			if (ret) {
-				pr_err("%s Unable disable clk\n", __func__);
-				ret = msm_bus_scale_client_update_request(
-					podev->bus_scale_handle, 1);
-				if (ret)
-					pr_err("%s Unable to set to high bandwidth\n",
-							__func__);
-				mutex_unlock(&qcedev_sent_bw_req);
-				return;
-			}
+			ret = qcedev_control_clocks(podev, false);
+			if (ret)
+				goto exit_unlock_mutex;
 		}
 		podev->high_bw_req_count--;
 	}
+
+exit_unlock_mutex:
 	mutex_unlock(&qcedev_sent_bw_req);
 }
 
@@ -1767,32 +1832,47 @@ static int qcedev_probe(struct platform_device *pdev)
 
 	tasklet_init(&podev->done_tasklet, req_done, (unsigned long)podev);
 
-	/* open qce */
+	podev->platform_support.bus_scale_table = (struct msm_bus_scale_pdata *)
+					msm_bus_cl_get_pdata(pdev);
+	if (!podev->platform_support.bus_scale_table) {
+		pr_err("bus_scale_table is NULL\n");
+		return -ENODATA;
+	}
+	podev->bus_scale_handle = msm_bus_scale_register_client(
+				(struct msm_bus_scale_pdata *)
+				podev->platform_support.bus_scale_table);
+	if (!podev->bus_scale_handle) {
+		pr_err("%s not able to get bus scale\n", __func__);
+		return -ENOMEM;
+	}
+
+	rc = msm_bus_scale_client_update_request(podev->bus_scale_handle, 1);
+	if (rc) {
+		pr_err("%s Unable to set to high bandwidth\n", __func__);
+		goto exit_unregister_bus_scale;
+	}
 	handle = qce_open(pdev, &rc);
 	if (handle == NULL) {
-		platform_set_drvdata(pdev, NULL);
-		return rc;
+		rc = -ENODEV;
+		goto exit_scale_busbandwidth;
+	}
+	rc = msm_bus_scale_client_update_request(podev->bus_scale_handle, 0);
+	if (rc) {
+		pr_err("%s Unable to set to low bandwidth\n", __func__);
+		goto exit_qce_close;
 	}
 
 	podev->qce = handle;
 	podev->pdev = pdev;
 	platform_set_drvdata(pdev, podev);
 
-	rc = misc_register(&podev->miscdevice);
 	qce_hw_support(podev->qce, &podev->ce_support);
 	if (podev->ce_support.bam) {
 		podev->platform_support.ce_shared = 0;
 		podev->platform_support.shared_ce_resource = 0;
 		podev->platform_support.hw_key_support =
 						podev->ce_support.hw_key;
-		podev->platform_support.bus_scale_table = NULL;
 		podev->platform_support.sha_hmac = 1;
-
-		podev->platform_support.bus_scale_table =
-			(struct msm_bus_scale_pdata *)
-					msm_bus_cl_get_pdata(pdev);
-		if (!podev->platform_support.bus_scale_table)
-			pr_err("bus_scale_table is NULL\n");
 	} else {
 		platform_support =
 			(struct msm_ce_hw_support *)pdev->dev.platform_data;
@@ -1801,35 +1881,27 @@ static int qcedev_probe(struct platform_device *pdev)
 				platform_support->shared_ce_resource;
 		podev->platform_support.hw_key_support =
 				platform_support->hw_key_support;
-		podev->platform_support.bus_scale_table =
-				platform_support->bus_scale_table;
 		podev->platform_support.sha_hmac = platform_support->sha_hmac;
 	}
-	if (podev->platform_support.bus_scale_table != NULL) {
-		podev->bus_scale_handle =
-			msm_bus_scale_register_client(
-				(struct msm_bus_scale_pdata *)
-				podev->platform_support.bus_scale_table);
-		if (!podev->bus_scale_handle) {
-			pr_err("%s not able to get bus scale\n",
-				__func__);
-			rc =  -ENOMEM;
-			goto err;
-		}
-	}
 
+	rc = misc_register(&podev->miscdevice);
 	if (rc >= 0)
 		return 0;
 
-	if (podev->platform_support.bus_scale_table != NULL)
-		msm_bus_scale_unregister_client(podev->bus_scale_handle);
-err:
+	misc_deregister(&podev->miscdevice);
 
+exit_qce_close:
 	if (handle)
 		qce_close(handle);
+exit_scale_busbandwidth:
+	msm_bus_scale_client_update_request(podev->bus_scale_handle, 0);
+exit_unregister_bus_scale:
+	if (podev->platform_support.bus_scale_table != NULL)
+		msm_bus_scale_unregister_client(podev->bus_scale_handle);
 	platform_set_drvdata(pdev, NULL);
-	podev->qce = NULL;
 	podev->pdev = NULL;
+	podev->qce = NULL;
+
 	return rc;
 };
 
@@ -1864,23 +1936,9 @@ static int qcedev_suspend(struct platform_device *pdev, pm_message_t state)
 
 	mutex_lock(&qcedev_sent_bw_req);
 	if (podev->high_bw_req_count) {
-		ret = msm_bus_scale_client_update_request(
-				podev->bus_scale_handle, 0);
-		if (ret) {
-			pr_err("%s Unable to set to low bandwidth\n",
-						__func__);
+		ret = qcedev_control_clocks(podev, false);
+		if (ret)
 			goto suspend_exit;
-		}
-		ret = qce_disable_clk(podev->qce);
-		if (ret) {
-			pr_err("%s Unable disable clk\n", __func__);
-			ret = msm_bus_scale_client_update_request(
-				podev->bus_scale_handle, 1);
-			if (ret)
-				pr_err("%s Unable to set to high bandwidth\n",
-					__func__);
-			goto suspend_exit;
-		}
 	}
 
 suspend_exit:
@@ -1900,22 +1958,9 @@ static int qcedev_resume(struct platform_device *pdev)
 
 	mutex_lock(&qcedev_sent_bw_req);
 	if (podev->high_bw_req_count) {
-		ret = qce_enable_clk(podev->qce);
-		if (ret) {
-			pr_err("%s Unable enable clk\n", __func__);
+		ret = qcedev_control_clocks(podev, true);
+		if (ret)
 			goto resume_exit;
-		}
-		ret = msm_bus_scale_client_update_request(
-				podev->bus_scale_handle, 1);
-		if (ret) {
-			pr_err("%s Unable to set to high bandwidth\n",
-						__func__);
-			ret = qce_disable_clk(podev->qce);
-			if (ret)
-				pr_err("%s Unable enable clk\n",
-					__func__);
-			goto resume_exit;
-		}
 	}
 
 resume_exit:

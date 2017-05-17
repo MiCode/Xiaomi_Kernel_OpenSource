@@ -56,6 +56,12 @@
 /* Maximum Nonce bytes  */
 #define MAX_NONCE  16
 
+/* Crypto clock control flags */
+#define QCE_CLK_ENABLE_FIRST		1
+#define QCE_BW_REQUEST_FIRST		2
+#define QCE_CLK_DISABLE_FIRST		3
+#define QCE_BW_REQUEST_RESET_FIRST	4
+
 typedef void (*qce_comp_func_ptr_t)(void *areq,
 		unsigned char *icv, unsigned char *iv, int ret);
 
