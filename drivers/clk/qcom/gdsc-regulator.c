@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,6 +54,9 @@
 /* Timeout Delay */
 #define TIMEOUT_US		100
 
+/* TOGGLE SW COLLAPSE */
+#define TOGGLE_SW_COLLAPSE_IN_DISABLE	BIT(0)
+
 struct gdsc {
 	struct regulator_dev	*rdev;
 	struct regulator_desc	rdesc;
@@ -79,6 +82,7 @@ struct gdsc {
 	int			reset_count;
 	int			root_clk_idx;
 	u32			gds_timeout;
+	u32			flags;
 };
 
 enum gdscr_status {
@@ -378,6 +382,13 @@ static int gdsc_disable(struct regulator_dev *rdev)
 		regval |= SW_COLLAPSE_MASK;
 		regmap_write(sc->regmap, REG_OFFSET, regval);
 
+		if (sc->flags & TOGGLE_SW_COLLAPSE_IN_DISABLE) {
+			regval &= ~SW_COLLAPSE_MASK;
+			regmap_write(sc->regmap, REG_OFFSET, regval);
+			regval |= SW_COLLAPSE_MASK;
+			regmap_write(sc->regmap, REG_OFFSET, regval);
+		}
+
 		/* Wait for 8 XO cycles before polling the status bit. */
 		mb();
 		udelay(1);
@@ -522,7 +533,7 @@ static int gdsc_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct gdsc *sc;
 	uint32_t regval, clk_dis_wait_val = 0;
-	bool retain_mem, retain_periph, support_hw_trigger;
+	bool retain_mem, retain_periph, support_hw_trigger, prop_val;
 	int i, ret;
 	u32 timeout;
 
@@ -612,6 +623,11 @@ static int gdsc_probe(struct platform_device *pdev)
 
 	sc->force_root_en = of_property_read_bool(pdev->dev.of_node,
 						"qcom,force-enable-root-clk");
+
+	prop_val = of_property_read_bool(pdev->dev.of_node,
+						"qcom,toggle-sw-collapse-in-disable");
+	if (prop_val)
+		sc->flags |= TOGGLE_SW_COLLAPSE_IN_DISABLE;
 
 	for (i = 0; i < sc->clock_count; i++) {
 		const char *clock_name;
