@@ -311,34 +311,3 @@
 		qcom,inst-id = <11>;
 	};
 };
-
-/* gpubw overrides */
-&gpubw {
-	/delete-property/ qcom,bw-tbl;
-	qcom,bw-tbl =
-			< 0 >,    /* Off */
-			< 769 >, /* 1. DDR:100.80 MHz BIMC: 201.60 MHz */
-			< 1611>, /* 2. DDR:211.20 MHz BIMC: 422.40 MHz */
-			< 2270>, /* 3. DDR:297.60 MHz BIMC: 595.20 MHz */
-			< 2929>, /* 4. DDR:384.00 MHz BIMC: 768.00 MHz */
-			< 4248>, /* 5. DDR:556.80 MHz BIMC: 1113.60 MHz */
-			< 4541>, /* 6. DDR:595.20 MHz BIMC: 1190.40 MHz */
-			< 5126>, /* 7. DDR:672.00 MHz BIMC: 1344.00 MHz */
-			< 5639>; /* 8. DDR:739.20 MHz BIMC: 1478.40 MHz */
-};
-
-/* GPU overrides */
-&msm_gpu {
-
-	/delete-property/ qcom,msm-bus,vectors-KBps;
-	qcom,msm-bus,vectors-KBps =
-				<26 512 0 0>,	    /*    off        */
-				<26 512 0   806400>, /* 1. 100.80 MHz */
-				<26 512 0  1689600>, /* 2. 211.20 MHz */
-				<26 512 0  2380800>, /* 3. 297.60 MHz */
-				<26 512 0  3072000>, /* 4. 384.00 MHz */
-				<26 512 0  4454400>, /* 5. 556.80 MHz */
-				<26 512 0  4761600>, /* 6. 595.20 MHz */
-				<26 512 0  5376000>, /* 7. 672.00 MHz */
-				<26 512 0  5913600>; /* 8. 739.20 MHz */
-};
