@@ -228,6 +228,7 @@ static int __cam_isp_ctx_epoch_in_applied(struct cam_isp_context *ctx_isp,
 		list);
 	req_isp = (struct cam_isp_ctx_req *)req->req_priv;
 
+	CDBG("Report Bubble flag %d\n", req_isp->bubble_report);
 	if (req_isp->bubble_report && ctx->ctx_crm_intf &&
 		ctx->ctx_crm_intf->notify_err) {
 		struct cam_req_mgr_error_notify notify;
@@ -237,8 +238,16 @@ static int __cam_isp_ctx_epoch_in_applied(struct cam_isp_context *ctx_isp,
 		notify.req_id = req->request_id;
 		notify.error = CRM_KMD_ERR_BUBBLE;
 		ctx->ctx_crm_intf->notify_err(&notify);
-		pr_err("%s: Notify CRM about Bubble frame %lld\n", __func__,
+		CDBG("%s: Notify CRM about Bubble frame %lld\n", __func__,
 			ctx_isp->frame_id);
+	} else {
+		/*
+		 * Since can not bubble report, always move the request to
+		 * active list.
+		 */
+		list_del_init(&req->list);
+		list_add_tail(&req->list, &ctx->active_req_list);
+		req_isp->bubble_report = 0;
 	}
 
 	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_BUBBLE;
@@ -349,6 +358,14 @@ static int __cam_isp_ctx_epoch_in_bubble_applied(
 		ctx->ctx_crm_intf->notify_err(&notify);
 		CDBG("%s: Notify CRM about Bubble frame %lld\n", __func__,
 			ctx_isp->frame_id);
+	} else {
+		/*
+		 * If we can not report bubble, then treat it as if no bubble
+		 * report. Just move the req to active list.
+		 */
+		list_del_init(&req->list);
+		list_add_tail(&req->list, &ctx->active_req_list);
+		req_isp->bubble_report = 0;
 	}
 
 	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_BUBBLE;
@@ -530,6 +547,7 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 		goto end;
 	}
 
+	CDBG("%s: Apply request %lld\n", __func__, req->request_id);
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
 	ctx_isp = (struct cam_isp_context *) ctx->ctx_priv;
 
