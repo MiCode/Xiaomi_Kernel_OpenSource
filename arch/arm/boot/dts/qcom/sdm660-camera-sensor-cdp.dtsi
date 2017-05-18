@@ -277,6 +277,7 @@
 		qcom,csiphy-sd-index = <1>;
 		qcom,csid-sd-index = <2>;
 		qcom,mount-angle = <90>;
+		qcom,led-flash-src = <&led_flash0>;
 		qcom,actuator-src = <&actuator1>;
 		qcom,eeprom-src = <&eeprom1>;
 		cam_vio-supply = <&pm660_l11>;
