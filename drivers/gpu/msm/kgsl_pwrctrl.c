@@ -77,6 +77,12 @@ static void kgsl_pwrctrl_set_state(struct kgsl_device *device,
 static void kgsl_pwrctrl_request_state(struct kgsl_device *device,
 				unsigned int state);
 static int _isense_clk_set_rate(struct kgsl_pwrctrl *pwr, int level);
+static int kgsl_pwrctrl_clk_set_rate(struct clk *grp_clk, unsigned int freq,
+				const char *name);
+static void _gpu_clk_prepare_enable(struct kgsl_device *device,
+				struct clk *clk, const char *name);
+static void _bimc_clk_prepare_enable(struct kgsl_device *device,
+				struct clk *clk, const char *name);
 
 /**
  * _record_pwrevent() - Record the history of the new event
@@ -261,7 +267,8 @@ int kgsl_clk_set_rate(struct kgsl_device *device,
 		clear_bit(GMU_DCVS_REPLAY, &gmu->flags);
 	} else
 		/* Linux clock driver scales GPU freq */
-		ret = clk_set_rate(pwr->grp_clks[0], pl->gpu_freq);
+		ret = kgsl_pwrctrl_clk_set_rate(pwr->grp_clks[0],
+			pl->gpu_freq, clocks[0]);
 
 	if (ret)
 		KGSL_PWR_ERR(device, "GPU clk freq set failure: %d\n", ret);
@@ -478,9 +485,12 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	if (pwr->gpu_bimc_int_clk) {
 		if (pwr->active_pwrlevel == 0 &&
 				!pwr->gpu_bimc_interface_enabled) {
-			clk_set_rate(pwr->gpu_bimc_int_clk,
-					pwr->gpu_bimc_int_clk_freq);
-			clk_prepare_enable(pwr->gpu_bimc_int_clk);
+			kgsl_pwrctrl_clk_set_rate(pwr->gpu_bimc_int_clk,
+					pwr->gpu_bimc_int_clk_freq,
+					"bimc_gpu_clk");
+			_bimc_clk_prepare_enable(device,
+					pwr->gpu_bimc_int_clk,
+					"bimc_gpu_clk");
 			pwr->gpu_bimc_interface_enabled = 1;
 		} else if (pwr->previous_pwrlevel == 0
 				&& pwr->gpu_bimc_interface_enabled) {
@@ -1742,24 +1752,23 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 					_isense_clk_set_rate(pwr,
 						pwr->active_pwrlevel);
 				}
-
-				for (i = KGSL_MAX_CLKS - 1; i > 0; i--)
-					clk_prepare(pwr->grp_clks[i]);
 			}
-			/*
-			 * as last step, enable grp_clk
-			 * this is to let GPU interrupt to come
-			 */
+
 			for (i = KGSL_MAX_CLKS - 1; i > 0; i--)
-				clk_enable(pwr->grp_clks[i]);
+				_gpu_clk_prepare_enable(device,
+						pwr->grp_clks[i], clocks[i]);
+
 			/* Enable the gpu-bimc-interface clocks */
 			if (pwr->gpu_bimc_int_clk) {
 				if (pwr->active_pwrlevel == 0 &&
 					!pwr->gpu_bimc_interface_enabled) {
-					clk_set_rate(pwr->gpu_bimc_int_clk,
-						pwr->gpu_bimc_int_clk_freq);
-					clk_prepare_enable(
-						pwr->gpu_bimc_int_clk);
+					kgsl_pwrctrl_clk_set_rate(
+						pwr->gpu_bimc_int_clk,
+						pwr->gpu_bimc_int_clk_freq,
+						"bimc_gpu_clk");
+					_bimc_clk_prepare_enable(device,
+						pwr->gpu_bimc_int_clk,
+						"bimc_gpu_clk");
 					pwr->gpu_bimc_interface_enabled = 1;
 				}
 			}
@@ -2087,7 +2096,55 @@ static int _isense_clk_set_rate(struct kgsl_pwrctrl *pwr, int level)
 	rate = clk_round_rate(pwr->grp_clks[pwr->isense_clk_indx],
 		level > pwr->isense_clk_on_level ?
 		KGSL_XO_CLK_FREQ : KGSL_ISENSE_CLK_FREQ);
-	return clk_set_rate(pwr->grp_clks[pwr->isense_clk_indx], rate);
+	return kgsl_pwrctrl_clk_set_rate(pwr->grp_clks[pwr->isense_clk_indx],
+			rate, clocks[pwr->isense_clk_indx]);
+}
+
+/*
+ * _gpu_clk_prepare_enable - Enable the specified GPU clock
+ * Try once to enable it and then BUG() for debug
+ */
+static void _gpu_clk_prepare_enable(struct kgsl_device *device,
+		struct clk *clk, const char *name)
+{
+	int ret;
+
+	if (device->state == KGSL_STATE_NAP) {
+		ret = clk_enable(clk);
+		if (ret)
+			goto err;
+		return;
+	}
+
+	ret = clk_prepare_enable(clk);
+	if (!ret)
+		return;
+err:
+	/* Failure is fatal so BUG() to facilitate debug */
+	KGSL_DRV_ERR(device, "GPU Clock %s enable error:%d\n", name, ret);
+}
+
+/*
+ * _bimc_clk_prepare_enable - Enable the specified GPU clock
+ *  Try once to enable it and then BUG() for debug
+ */
+static void _bimc_clk_prepare_enable(struct kgsl_device *device,
+		struct clk *clk, const char *name)
+{
+	int ret = clk_prepare_enable(clk);
+	/* Failure is fatal so BUG() to facilitate debug */
+	if (ret)
+		KGSL_DRV_ERR(device, "GPU clock %s enable error:%d\n",
+				name, ret);
+}
+
+static int kgsl_pwrctrl_clk_set_rate(struct clk *grp_clk, unsigned int freq,
+		const char *name)
+{
+	int ret = clk_set_rate(grp_clk, freq);
+
+	WARN(ret, "%s set freq %d failed:%d\n", name, freq, ret);
+	return ret;
 }
 
 static inline void _close_pcl(struct kgsl_pwrctrl *pwr)
@@ -2237,8 +2294,9 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	kgsl_clk_set_rate(device, pwr->num_pwrlevels - 1);
 
-	clk_set_rate(pwr->grp_clks[6],
-		clk_round_rate(pwr->grp_clks[6], KGSL_RBBMTIMER_CLK_FREQ));
+	kgsl_pwrctrl_clk_set_rate(pwr->grp_clks[6],
+		clk_round_rate(pwr->grp_clks[6], KGSL_RBBMTIMER_CLK_FREQ),
+		clocks[6]);
 
 	_isense_clk_set_rate(pwr, pwr->num_pwrlevels - 1);
 
