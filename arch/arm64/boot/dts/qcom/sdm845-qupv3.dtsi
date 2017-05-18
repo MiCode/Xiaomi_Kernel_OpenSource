@@ -14,6 +14,18 @@
 
 &soc {
 	/* QUPv3 South instances */
+	qupv3_0: qcom,qupv3_0_geni_se@8c0000 {
+		compatible = "qcom,qupv3-geni-se";
+		reg = <0x8c0000 0x6000>;
+		qcom,bus-mas-id = <MSM_BUS_MASTER_BLSP_1>;
+		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
+		qcom,iommu-s1-bypass;
+
+		iommu_qupv3_0_geni_se_cb: qcom,iommu_qupv3_0_geni_se_cb {
+			compatible = "qcom,qupv3-geni-se-cb";
+			iommus = <&apps_smmu 0x003 0x0>;
+		};
+	};
 
 	/*
 	 * HS UART instances. HS UART usecases can be supported on these
@@ -33,8 +45,8 @@
 		interrupts-extended = <&intc GIC_SPI 607 0>,
 				<&tlmm 48 0>;
 		status = "disabled";
-		qcom,bus-mas = <MSM_BUS_MASTER_BLSP_1>;
 		qcom,wakeup-byte = <0xFD>;
+		qcom,wrapper-core = <&qupv3_0>;
 	};
 
 	qupv3_se7_4uart: qcom,qup_uart@0x89c000 {
@@ -51,8 +63,8 @@
 		interrupts-extended = <&intc GIC_SPI 608 0>,
 				<&tlmm 96 0>;
 		status = "disabled";
-		qcom,bus-mas = <MSM_BUS_MASTER_BLSP_1>;
 		qcom,wakeup-byte = <0xFD>;
+		qcom,wrapper-core = <&qupv3_0>;
 	};
 
 	/* I2C */
@@ -69,6 +81,7 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se0_i2c_active>;
 		pinctrl-1 = <&qupv3_se0_i2c_sleep>;
+		qcom,wrapper-core = <&qupv3_0>;
 		status = "disabled";
 	};
 
@@ -85,6 +98,7 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se1_i2c_active>;
 		pinctrl-1 = <&qupv3_se1_i2c_sleep>;
+		qcom,wrapper-core = <&qupv3_0>;
 		status = "disabled";
 	};
 
@@ -101,6 +115,7 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se2_i2c_active>;
 		pinctrl-1 = <&qupv3_se2_i2c_sleep>;
+		qcom,wrapper-core = <&qupv3_0>;
 		status = "disabled";
 	};
 
@@ -117,6 +132,7 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se3_i2c_active>;
 		pinctrl-1 = <&qupv3_se3_i2c_sleep>;
+		qcom,wrapper-core = <&qupv3_0>;
 		status = "disabled";
 	};
 
@@ -133,6 +149,7 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se4_i2c_active>;
 		pinctrl-1 = <&qupv3_se4_i2c_sleep>;
+		qcom,wrapper-core = <&qupv3_0>;
 		status = "disabled";
 	};
 
@@ -149,6 +166,7 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se5_i2c_active>;
 		pinctrl-1 = <&qupv3_se5_i2c_sleep>;
+		qcom,wrapper-core = <&qupv3_0>;
 		status = "disabled";
 	};
 
@@ -165,6 +183,7 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se6_i2c_active>;
 		pinctrl-1 = <&qupv3_se6_i2c_sleep>;
+		qcom,wrapper-core = <&qupv3_0>;
 		status = "disabled";
 	};
 
@@ -181,6 +200,7 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se7_i2c_active>;
 		pinctrl-1 = <&qupv3_se7_i2c_sleep>;
+		qcom,wrapper-core = <&qupv3_0>;
 		status = "disabled";
 	};
 
@@ -200,6 +220,7 @@
 		pinctrl-1 = <&qupv3_se0_spi_sleep>;
 		interrupts = <GIC_SPI 601 0>;
 		spi-max-frequency = <50000000>;
+		qcom,wrapper-core = <&qupv3_0>;
 		status = "disabled";
 	};
 
@@ -218,6 +239,7 @@
 		pinctrl-1 = <&qupv3_se1_spi_sleep>;
 		interrupts = <GIC_SPI 602 0>;
 		spi-max-frequency = <50000000>;
+		qcom,wrapper-core = <&qupv3_0>;
 		status = "disabled";
 	};
 
@@ -236,6 +258,7 @@
 		pinctrl-1 = <&qupv3_se2_spi_sleep>;
 		interrupts = <GIC_SPI 603 0>;
 		spi-max-frequency = <50000000>;
+		qcom,wrapper-core = <&qupv3_0>;
 		status = "disabled";
 	};
 
@@ -254,6 +277,7 @@
 		pinctrl-1 = <&qupv3_se3_spi_sleep>;
 		interrupts = <GIC_SPI 604 0>;
 		spi-max-frequency = <50000000>;
+		qcom,wrapper-core = <&qupv3_0>;
 		status = "disabled";
 	};
 
@@ -272,6 +296,7 @@
 		pinctrl-1 = <&qupv3_se4_spi_sleep>;
 		interrupts = <GIC_SPI 605 0>;
 		spi-max-frequency = <50000000>;
+		qcom,wrapper-core = <&qupv3_0>;
 		status = "disabled";
 	};
 
@@ -290,6 +315,7 @@
 		pinctrl-1 = <&qupv3_se5_spi_sleep>;
 		interrupts = <GIC_SPI 606 0>;
 		spi-max-frequency = <50000000>;
+		qcom,wrapper-core = <&qupv3_0>;
 		status = "disabled";
 	};
 
@@ -308,6 +334,7 @@
 		pinctrl-1 = <&qupv3_se6_spi_sleep>;
 		interrupts = <GIC_SPI 607 0>;
 		spi-max-frequency = <50000000>;
+		qcom,wrapper-core = <&qupv3_0>;
 		status = "disabled";
 	};
 
@@ -326,10 +353,24 @@
 		pinctrl-1 = <&qupv3_se7_spi_sleep>;
 		interrupts = <GIC_SPI 608 0>;
 		spi-max-frequency = <50000000>;
+		qcom,wrapper-core = <&qupv3_0>;
 		status = "disabled";
 	};
 
 	/* QUPv3 North Instances */
+	qupv3_1: qcom,qupv3_1_geni_se@ac0000 {
+		compatible = "qcom,qupv3-geni-se";
+		reg = <0xac0000 0x6000>;
+		qcom,bus-mas-id = <MSM_BUS_MASTER_BLSP_2>;
+		qcom,bus-slv-id = <MSM_BUS_SLAVE_EBI_CH0>;
+		qcom,iommu-s1-bypass;
+
+		iommu_qupv3_1_geni_se_cb: qcom,iommu_qupv3_1_geni_se_cb {
+			compatible = "qcom,qupv3-geni-se-cb";
+			iommus = <&apps_smmu 0x6c3 0x0>;
+		};
+	};
+
 	/* 2-wire UART */
 
 	/* Debug UART Instance for CDP/MTP platform */
@@ -344,8 +385,8 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se9_2uart_active>;
 		pinctrl-1 = <&qupv3_se9_2uart_sleep>;
-		qcom,bus-mas = <MSM_BUS_MASTER_BLSP_2>;
 		interrupts = <GIC_SPI 354 0>;
+		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
 	};
 
@@ -362,7 +403,7 @@
 		pinctrl-0 = <&qupv3_se10_2uart_active>;
 		pinctrl-1 = <&qupv3_se10_2uart_sleep>;
 		interrupts = <GIC_SPI 355 0>;
-		qcom,bus-mas = <MSM_BUS_MASTER_BLSP_2>;
+		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
 	};
 
@@ -380,6 +421,7 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se8_i2c_active>;
 		pinctrl-1 = <&qupv3_se8_i2c_sleep>;
+		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
 	};
 
@@ -396,6 +438,7 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se9_i2c_active>;
 		pinctrl-1 = <&qupv3_se9_i2c_sleep>;
+		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
 	};
 
@@ -412,6 +455,7 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se10_i2c_active>;
 		pinctrl-1 = <&qupv3_se10_i2c_sleep>;
+		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
 	};
 
@@ -428,6 +472,7 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se11_i2c_active>;
 		pinctrl-1 = <&qupv3_se11_i2c_sleep>;
+		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
 	};
 
@@ -444,6 +489,7 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se12_i2c_active>;
 		pinctrl-1 = <&qupv3_se12_i2c_sleep>;
+		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
 	};
 
@@ -460,6 +506,7 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se13_i2c_active>;
 		pinctrl-1 = <&qupv3_se13_i2c_sleep>;
+		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
 	};
 
@@ -476,6 +523,7 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se14_i2c_active>;
 		pinctrl-1 = <&qupv3_se14_i2c_sleep>;
+		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
 	};
 
@@ -492,6 +540,7 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&qupv3_se15_i2c_active>;
 		pinctrl-1 = <&qupv3_se15_i2c_sleep>;
+		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
 	};
 
@@ -511,6 +560,7 @@
 		pinctrl-1 = <&qupv3_se8_spi_sleep>;
 		interrupts = <GIC_SPI 353 0>;
 		spi-max-frequency = <50000000>;
+		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
 	};
 
@@ -529,6 +579,7 @@
 		pinctrl-1 = <&qupv3_se9_spi_sleep>;
 		interrupts = <GIC_SPI 354 0>;
 		spi-max-frequency = <50000000>;
+		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
 	};
 
@@ -547,6 +598,7 @@
 		pinctrl-1 = <&qupv3_se10_spi_sleep>;
 		interrupts = <GIC_SPI 355 0>;
 		spi-max-frequency = <50000000>;
+		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
 	};
 
@@ -565,6 +617,7 @@
 		pinctrl-1 = <&qupv3_se11_spi_sleep>;
 		interrupts = <GIC_SPI 356 0>;
 		spi-max-frequency = <50000000>;
+		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
 	};
 
@@ -583,6 +636,7 @@
 		pinctrl-1 = <&qupv3_se12_spi_sleep>;
 		interrupts = <GIC_SPI 357 0>;
 		spi-max-frequency = <50000000>;
+		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
 	};
 
@@ -601,6 +655,7 @@
 		pinctrl-1 = <&qupv3_se13_spi_sleep>;
 		interrupts = <GIC_SPI 358 0>;
 		spi-max-frequency = <50000000>;
+		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
 	};
 
@@ -619,6 +674,7 @@
 		pinctrl-1 = <&qupv3_se14_spi_sleep>;
 		interrupts = <GIC_SPI 359 0>;
 		spi-max-frequency = <50000000>;
+		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
 	};
 
@@ -637,6 +693,7 @@
 		pinctrl-1 = <&qupv3_se15_spi_sleep>;
 		interrupts = <GIC_SPI 360 0>;
 		spi-max-frequency = <50000000>;
+		qcom,wrapper-core = <&qupv3_1>;
 		status = "disabled";
 	};
 };

@@ -16,6 +16,7 @@
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_platform.h>
 #include <linux/pm_runtime.h>
 #include <linux/qcom-geni-se.h>
 #include <linux/spi/spi.h>
@@ -78,6 +79,8 @@
 #define TIMESTAMP_AFTER		(3)
 #define POST_CMD_DELAY		(4)
 
+#define SPI_CORE2X_VOTE		(10000)
+
 struct spi_geni_master {
 	struct se_geni_rsc spi_rsc;
 	resource_size_t phys_addr;
@@ -96,6 +99,7 @@ struct spi_geni_master {
 	unsigned int rx_rem_bytes;
 	struct spi_transfer *cur_xfer;
 	struct completion xfer_done;
+	struct device *wrapper_dev;
 };
 
 static struct spi_master *get_spi_master(struct device *dev)
@@ -243,8 +247,8 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 			dev_err(mas->dev, "Invalid proto %d\n", proto);
 			return -ENXIO;
 		}
-		geni_se_init(mas->base, FIFO_MODE, 0x0,
-						(mas->tx_fifo_depth - 2));
+		geni_se_init(mas->base, 0x0, (mas->tx_fifo_depth - 2));
+		geni_se_select_mode(mas->base, FIFO_MODE);
 		mas->tx_fifo_depth = get_tx_fifo_depth(mas->base);
 		mas->rx_fifo_depth = get_rx_fifo_depth(mas->base);
 		mas->tx_fifo_width = get_tx_fifo_width(mas->base);
@@ -476,6 +480,8 @@ static int spi_geni_probe(struct platform_device *pdev)
 	struct spi_geni_master *geni_mas;
 	struct se_geni_rsc *rsc;
 	struct resource *res;
+	struct platform_device *wrapper_pdev;
+	struct device_node *wrapper_ph_node;
 
 	spi = spi_alloc_master(&pdev->dev, sizeof(struct spi_geni_master));
 	if (!spi) {
@@ -489,6 +495,29 @@ static int spi_geni_probe(struct platform_device *pdev)
 	rsc = &geni_mas->spi_rsc;
 	geni_mas->dev = &pdev->dev;
 	spi->dev.of_node = pdev->dev.of_node;
+	wrapper_ph_node = of_parse_phandle(pdev->dev.of_node,
+					"qcom,wrapper-core", 0);
+	if (IS_ERR_OR_NULL(wrapper_ph_node)) {
+		ret = PTR_ERR(wrapper_ph_node);
+		dev_err(&pdev->dev, "No wrapper core defined\n");
+		goto spi_geni_probe_err;
+	}
+	wrapper_pdev = of_find_device_by_node(wrapper_ph_node);
+	of_node_put(wrapper_ph_node);
+	if (IS_ERR_OR_NULL(wrapper_pdev)) {
+		ret = PTR_ERR(wrapper_pdev);
+		dev_err(&pdev->dev, "Cannot retrieve wrapper device\n");
+		goto spi_geni_probe_err;
+	}
+	geni_mas->wrapper_dev = &wrapper_pdev->dev;
+	geni_mas->spi_rsc.wrapper_dev = &wrapper_pdev->dev;
+	ret = geni_se_resources_init(rsc, SPI_CORE2X_VOTE,
+				     (DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
+	if (ret) {
+		dev_err(&pdev->dev, "Error geni_se_resources_init\n");
+		goto spi_geni_probe_err;
+	}
+
 	rsc->geni_pinctrl = devm_pinctrl_get(&pdev->dev);
 	if (IS_ERR_OR_NULL(rsc->geni_pinctrl)) {
 		dev_err(&pdev->dev, "No pinctrl config specified!\n");
