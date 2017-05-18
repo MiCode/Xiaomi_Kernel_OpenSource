@@ -5497,6 +5497,14 @@ int msm_comm_session_continue(void *instance)
 		return -EINVAL;
 	hdev = inst->core->device;
 	mutex_lock(&inst->lock);
+	if (inst->state >= MSM_VIDC_RELEASE_RESOURCES_DONE ||
+			inst->state < MSM_VIDC_START_DONE ||
+			inst->core->state == VIDC_CORE_INVALID) {
+		dprintk(VIDC_DBG,
+			"Inst %pK : Not in valid state to call %s\n",
+				inst, __func__);
+		goto sess_continue_fail;
+	}
 	if (inst->session_type == MSM_VIDC_DECODER && inst->in_reconfig) {
 		dprintk(VIDC_DBG, "send session_continue\n");
 		rc = call_hfi_op(hdev, session_continue,
@@ -5515,6 +5523,7 @@ int msm_comm_session_continue(void *instance)
 		dprintk(VIDC_ERR,
 				"session_continue called in wrong state for decoder");
 	}
+
 sess_continue_fail:
 	mutex_unlock(&inst->lock);
 	return rc;
