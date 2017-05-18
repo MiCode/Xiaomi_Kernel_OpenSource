@@ -33,6 +33,7 @@
 #include <soc/qcom/scm.h>
 
 #include "../thermal_core.h"
+#include "lmh_dbg.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/lmh.h>
@@ -590,6 +591,7 @@ probe_exit:
 	INIT_LIST_HEAD(&hw->list);
 	list_add(&hw->list, &lmh_dcvs_hw_list);
 	mutex_unlock(&lmh_dcvs_list_access);
+	lmh_debug_register(pdev);
 
 	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "lmh-dcvs/cdev:online",
 				limits_cpu_online, NULL);
