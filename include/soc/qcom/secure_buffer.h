@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,7 @@ enum vmid {
 	VMID_CP_APP = 0x12,
 	VMID_WLAN = 0x18,
 	VMID_WLAN_CE = 0x19,
+	VMID_CP_SPSS_SP = 0x1A,
 	VMID_CP_CAMERA_PREVIEW = 0x1D,
 	VMID_LAST,
 	VMID_INVAL = -1
