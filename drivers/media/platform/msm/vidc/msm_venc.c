@@ -2096,6 +2096,7 @@ int msm_venc_s_ext_ctrl(struct msm_vidc_inst *inst,
 int msm_venc_inst_init(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
+	struct msm_vidc_format *fmt = NULL;
 
 	if (!inst) {
 		dprintk(VIDC_ERR, "Invalid input = %pK\n", inst);
@@ -2120,10 +2121,30 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 	inst->bufq[CAPTURE_PORT].num_planes = 1;
 	inst->clk_data.operating_rate = 0;
 
-	memcpy(&inst->fmts[CAPTURE_PORT], &venc_formats[4],
+	/* By default, initialize OUTPUT port to UBWC YUV format */
+	fmt = msm_comm_get_pixel_fmt_fourcc(venc_formats,
+		ARRAY_SIZE(venc_formats), V4L2_PIX_FMT_NV12_UBWC,
+			OUTPUT_PORT);
+	if (!fmt || fmt->type != OUTPUT_PORT) {
+		dprintk(VIDC_ERR,
+			"venc_formats corrupted\n");
+		return -EINVAL;
+	}
+	memcpy(&inst->fmts[fmt->type], fmt,
 			sizeof(struct msm_vidc_format));
-	memcpy(&inst->fmts[OUTPUT_PORT], &venc_formats[0],
+
+	/* By default, initialize CAPTURE port to H264 encoder */
+	fmt = msm_comm_get_pixel_fmt_fourcc(venc_formats,
+		ARRAY_SIZE(venc_formats), V4L2_PIX_FMT_H264,
+			CAPTURE_PORT);
+	if (!fmt || fmt->type != CAPTURE_PORT) {
+		dprintk(VIDC_ERR,
+			"venc_formats corrupted\n");
+		return -EINVAL;
+	}
+	memcpy(&inst->fmts[fmt->type], fmt,
 			sizeof(struct msm_vidc_format));
+
 	return rc;
 }
 
