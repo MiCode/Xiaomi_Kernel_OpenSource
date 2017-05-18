@@ -940,8 +940,6 @@ out:
 int tmc_read_unprepare_etr(struct tmc_drvdata *drvdata)
 {
 	unsigned long flags;
-	dma_addr_t paddr;
-	void __iomem *vaddr = NULL;
 
 	/* config types are set a boot time and never change */
 	if (WARN_ON_ONCE(drvdata->config_type != TMC_CONFIG_TYPE_ETR))
@@ -959,21 +957,12 @@ int tmc_read_unprepare_etr(struct tmc_drvdata *drvdata)
 		 */
 		tmc_etr_enable_hw(drvdata);
 	} else {
-		/*
-		 * The ETR is not tracing and the buffer was just read.
-		 * As such prepare to free the trace buffer.
-		 */
-		vaddr = drvdata->vaddr;
-		paddr = drvdata->paddr;
-		drvdata->buf = drvdata->vaddr = NULL;
+		tmc_etr_free_mem(drvdata);
+		drvdata->buf = NULL;
 	}
 
 	drvdata->reading = false;
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
-
-	/* Free allocated memory out side of the spinlock */
-	if (vaddr)
-		dma_free_coherent(drvdata->dev, drvdata->size, vaddr, paddr);
 
 	return 0;
 }
