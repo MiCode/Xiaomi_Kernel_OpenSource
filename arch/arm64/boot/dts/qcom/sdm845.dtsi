@@ -551,7 +551,7 @@
 			size = <0 0x1400000>;
 		};
 
-		sp_mem: sp_region {  /* SPSS-HLOS ION shared mem */
+		secure_sp_mem: secure_sp_region { /* SPSS-HLOS ION shared mem */
 			compatible = "shared-dma-pool";
 			alloc-ranges = <0 0x00000000 0 0xffffffff>; /* 32-bit */
 			reusable;
