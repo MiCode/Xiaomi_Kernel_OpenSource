@@ -480,7 +480,7 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 	while (n[count++])
 		;
 	count--;
-	if (!count || count >= RPMH_MAX_REQ_IN_BATCH)
+	if (!count || count > RPMH_MAX_REQ_IN_BATCH)
 		return -EINVAL;
 
 	if (state == RPMH_ACTIVE_ONLY_STATE || state == RPMH_AWAKE_STATE) {
