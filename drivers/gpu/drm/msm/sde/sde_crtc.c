@@ -3238,7 +3238,7 @@ static int sde_crtc_debugfs_state_show(struct seq_file *s, void *v)
 	seq_printf(s, "client type: %d\n", sde_crtc_get_client_type(crtc));
 	seq_printf(s, "intf_mode: %d\n", sde_crtc_get_intf_mode(crtc));
 	seq_printf(s, "bw_ctl: %llu\n", cstate->cur_perf.bw_ctl);
-	seq_printf(s, "core_clk_rate: %u\n", cstate->cur_perf.core_clk_rate);
+	seq_printf(s, "core_clk_rate: %llu\n", cstate->cur_perf.core_clk_rate);
 	seq_printf(s, "max_per_pipe_ib: %llu\n",
 			cstate->cur_perf.max_per_pipe_ib);
 
