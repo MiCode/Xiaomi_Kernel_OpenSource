@@ -168,11 +168,13 @@ struct ipahal_reg_shared_mem_size {
  *	If set to 0 (default), PKT-STATUS will be appended before the packet
  *	for this endpoint. If set to 1, PKT-STATUS will be appended after the
  *	packet for this endpoint. Valid only for Output Pipes (IPA Producer)
+ * @status_pkt_suppress:
  */
 struct ipahal_reg_ep_cfg_status {
 	bool status_en;
 	u8 status_ep;
 	bool status_location;
+	u8 status_pkt_suppress;
 };
 
 /*
@@ -322,15 +324,50 @@ struct ipahal_reg_qcncm {
 };
 
 /*
+ * struct ipahal_reg_qsb_max_writes - IPA QSB Max Writes register
+ * @qmb_0_max_writes: Max number of outstanding writes for GEN_QMB_0
+ * @qmb_1_max_writes: Max number of outstanding writes for GEN_QMB_1
+ */
+struct ipahal_reg_qsb_max_writes {
+	u32 qmb_0_max_writes;
+	u32 qmb_1_max_writes;
+};
+
+/*
+ * struct ipahal_reg_qsb_max_reads - IPA QSB Max Reads register
+ * @qmb_0_max_reads: Max number of outstanding reads for GEN_QMB_0
+ * @qmb_1_max_reads: Max number of outstanding reads for GEN_QMB_1
+ * @qmb_0_max_read_beats: Max number of outstanding read beats for GEN_QMB_0
+ * @qmb_1_max_read_beats: Max number of outstanding read beats for GEN_QMB_1
+ */
+struct ipahal_reg_qsb_max_reads {
+	u32 qmb_0_max_reads;
+	u32 qmb_1_max_reads;
+	u32 qmb_0_max_read_beats;
+	u32 qmb_1_max_read_beats;
+};
+
+/*
  * struct ipahal_reg_tx_cfg - IPA TX_CFG register
  * @tx0_prefetch_disable: Disable prefetch on TX0
  * @tx1_prefetch_disable: Disable prefetch on TX1
- * @prefetch_almost_empty_size: Prefetch almost empty size
+ * @tx0_prefetch_almost_empty_size: Prefetch almost empty size on TX0
+ * @tx1_prefetch_almost_empty_size: Prefetch almost empty size on TX1
+ * @dmaw_scnd_outsd_pred_threshold:
+ * @dmaw_max_beats_256_dis:
+ * @dmaw_scnd_outsd_pred_en:
+ * @pa_mask_en:
  */
 struct ipahal_reg_tx_cfg {
 	bool tx0_prefetch_disable;
 	bool tx1_prefetch_disable;
-	u16 prefetch_almost_empty_size;
+	u32 tx0_prefetch_almost_empty_size;
+	u32 tx1_prefetch_almost_empty_size;
+	u32 dmaw_scnd_outsd_pred_threshold;
+	u32 dmaw_max_beats_256_dis;
+	u32 dmaw_scnd_outsd_pred_en;
+	u32 pa_mask_en;
+
 };
 
 /*

@@ -355,6 +355,29 @@ static void ipareg_construct_endp_status_n(
 			IPA_ENDP_STATUS_n_STATUS_LOCATION_BMSK);
 }
 
+static void ipareg_construct_endp_status_n_v4_0(
+	enum ipahal_reg_name reg, const void *fields, u32 *val)
+{
+	struct ipahal_reg_ep_cfg_status *ep_status =
+		(struct ipahal_reg_ep_cfg_status *)fields;
+
+	IPA_SETFIELD_IN_REG(*val, ep_status->status_en,
+			IPA_ENDP_STATUS_n_STATUS_EN_SHFT,
+			IPA_ENDP_STATUS_n_STATUS_EN_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, ep_status->status_ep,
+			IPA_ENDP_STATUS_n_STATUS_ENDP_SHFT,
+			IPA_ENDP_STATUS_n_STATUS_ENDP_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, ep_status->status_location,
+			IPA_ENDP_STATUS_n_STATUS_LOCATION_SHFT,
+			IPA_ENDP_STATUS_n_STATUS_LOCATION_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val, ep_status->status_pkt_suppress,
+			IPA_ENDP_STATUS_n_STATUS_PKT_SUPPRESS_SHFT,
+			IPA_ENDP_STATUS_n_STATUS_PKT_SUPPRESS_BMSK);
+}
+
 static void ipareg_construct_qcncm(
 	enum ipahal_reg_name reg, const void *fields, u32 *val)
 {
@@ -896,12 +919,14 @@ static void ipareg_construct_route(enum ipahal_reg_name reg,
 static void ipareg_construct_qsb_max_writes(enum ipahal_reg_name reg,
 	const void *fields, u32 *val)
 {
-	int *qsb_max_writes = (int *)fields;
+	struct ipahal_reg_qsb_max_writes *max_writes;
 
-	IPA_SETFIELD_IN_REG(*val, qsb_max_writes[0],
+	max_writes = (struct ipahal_reg_qsb_max_writes *)fields;
+
+	IPA_SETFIELD_IN_REG(*val, max_writes->qmb_0_max_writes,
 			    IPA_QSB_MAX_WRITES_GEN_QMB_0_MAX_WRITES_SHFT,
 			    IPA_QSB_MAX_WRITES_GEN_QMB_0_MAX_WRITES_BMSK);
-	IPA_SETFIELD_IN_REG(*val, qsb_max_writes[1],
+	IPA_SETFIELD_IN_REG(*val, max_writes->qmb_1_max_writes,
 			    IPA_QSB_MAX_WRITES_GEN_QMB_1_MAX_WRITES_SHFT,
 			    IPA_QSB_MAX_WRITES_GEN_QMB_1_MAX_WRITES_BMSK);
 }
@@ -909,14 +934,37 @@ static void ipareg_construct_qsb_max_writes(enum ipahal_reg_name reg,
 static void ipareg_construct_qsb_max_reads(enum ipahal_reg_name reg,
 	const void *fields, u32 *val)
 {
-	int *qsb_max_reads = (int *)fields;
+	struct ipahal_reg_qsb_max_reads *max_reads;
 
-	IPA_SETFIELD_IN_REG(*val, qsb_max_reads[0],
+	max_reads = (struct ipahal_reg_qsb_max_reads *)fields;
+
+	IPA_SETFIELD_IN_REG(*val, max_reads->qmb_0_max_reads,
 			    IPA_QSB_MAX_READS_GEN_QMB_0_MAX_READS_SHFT,
 			    IPA_QSB_MAX_READS_GEN_QMB_0_MAX_READS_BMSK);
-	IPA_SETFIELD_IN_REG(*val, qsb_max_reads[1],
+	IPA_SETFIELD_IN_REG(*val, max_reads->qmb_1_max_reads,
 			    IPA_QSB_MAX_READS_GEN_QMB_1_MAX_READS_SHFT,
 			    IPA_QSB_MAX_READS_GEN_QMB_1_MAX_READS_BMSK);
+}
+
+static void ipareg_construct_qsb_max_reads_v4_0(enum ipahal_reg_name reg,
+	const void *fields, u32 *val)
+{
+	struct ipahal_reg_qsb_max_reads *max_reads;
+
+	max_reads = (struct ipahal_reg_qsb_max_reads *)fields;
+
+	IPA_SETFIELD_IN_REG(*val, max_reads->qmb_0_max_reads,
+			    IPA_QSB_MAX_READS_GEN_QMB_0_MAX_READS_SHFT,
+			    IPA_QSB_MAX_READS_GEN_QMB_0_MAX_READS_BMSK);
+	IPA_SETFIELD_IN_REG(*val, max_reads->qmb_1_max_reads,
+			    IPA_QSB_MAX_READS_GEN_QMB_1_MAX_READS_SHFT,
+			    IPA_QSB_MAX_READS_GEN_QMB_1_MAX_READS_BMSK);
+	IPA_SETFIELD_IN_REG(*val, max_reads->qmb_0_max_read_beats,
+		    IPA_QSB_MAX_READS_GEN_QMB_0_MAX_READS_BEATS_SHFT_V4_0,
+		    IPA_QSB_MAX_READS_GEN_QMB_0_MAX_READS_BEATS_BMSK_V4_0);
+	IPA_SETFIELD_IN_REG(*val, max_reads->qmb_1_max_read_beats,
+		    IPA_QSB_MAX_READS_GEN_QMB_1_MAX_READS_BEATS_SHFT_V4_0,
+		    IPA_QSB_MAX_READS_GEN_QMB_1_MAX_READS_BEATS_BMSK_V4_0);
 }
 
 static void ipareg_parse_tx_cfg(enum ipahal_reg_name reg,
@@ -934,9 +982,44 @@ static void ipareg_parse_tx_cfg(enum ipahal_reg_name reg,
 		IPA_TX_CFG_TX1_PREFETCH_DISABLE_SHFT_V3_5,
 		IPA_TX_CFG_TX1_PREFETCH_DISABLE_BMSK_V3_5);
 
-	tx_cfg->prefetch_almost_empty_size = IPA_GETFIELD_FROM_REG(val,
+	tx_cfg->tx0_prefetch_almost_empty_size = IPA_GETFIELD_FROM_REG(val,
 		IPA_TX_CFG_PREFETCH_ALMOST_EMPTY_SIZE_SHFT_V3_5,
 		IPA_TX_CFG_PREFETCH_ALMOST_EMPTY_SIZE_BMSK_V3_5);
+
+	tx_cfg->tx1_prefetch_almost_empty_size =
+		tx_cfg->tx0_prefetch_almost_empty_size;
+}
+
+static void ipareg_parse_tx_cfg_v4_0(enum ipahal_reg_name reg,
+	void *fields, u32 val)
+{
+	struct ipahal_reg_tx_cfg *tx_cfg;
+
+	tx_cfg = (struct ipahal_reg_tx_cfg *)fields;
+
+	tx_cfg->tx0_prefetch_almost_empty_size = IPA_GETFIELD_FROM_REG(val,
+		IPA_TX_CFG_PREFETCH_ALMOST_EMPTY_SIZE_TX0_SHFT_V4_0,
+		IPA_TX_CFG_PREFETCH_ALMOST_EMPTY_SIZE_TX0_BMSK_V4_0);
+
+	tx_cfg->tx1_prefetch_almost_empty_size = IPA_GETFIELD_FROM_REG(val,
+		IPA_TX_CFG_PREFETCH_ALMOST_EMPTY_SIZE_TX1_SHFT_V4_0,
+		IPA_TX_CFG_PREFETCH_ALMOST_EMPTY_SIZE_TX1_BMSK_V4_0);
+
+	tx_cfg->dmaw_scnd_outsd_pred_en = IPA_GETFIELD_FROM_REG(val,
+		IPA_TX_CFG_DMAW_SCND_OUTSD_PRED_EN_SHFT_V4_0,
+		IPA_TX_CFG_DMAW_SCND_OUTSD_PRED_EN_BMSK_V4_0);
+
+	tx_cfg->dmaw_scnd_outsd_pred_threshold = IPA_GETFIELD_FROM_REG(val,
+		IPA_TX_CFG_DMAW_SCND_OUTSD_PRED_THRESHOLD_SHFT_V4_0,
+		IPA_TX_CFG_DMAW_SCND_OUTSD_PRED_THRESHOLD_BMSK_V4_0);
+
+	tx_cfg->dmaw_max_beats_256_dis = IPA_GETFIELD_FROM_REG(val,
+		IPA_TX_CFG_DMAW_MAX_BEATS_256_DIS_SHFT_V4_0,
+		IPA_TX_CFG_DMAW_MAX_BEATS_256_DIS_BMSK_V4_0);
+
+	tx_cfg->pa_mask_en = IPA_GETFIELD_FROM_REG(val,
+		IPA_TX_CFG_PA_MASK_EN_SHFT_V4_0,
+		IPA_TX_CFG_PA_MASK_EN_BMSK_V4_0);
 }
 
 static void ipareg_construct_tx_cfg(enum ipahal_reg_name reg,
@@ -946,6 +1029,10 @@ static void ipareg_construct_tx_cfg(enum ipahal_reg_name reg,
 
 	tx_cfg = (struct ipahal_reg_tx_cfg *)fields;
 
+	if (tx_cfg->tx0_prefetch_almost_empty_size !=
+			tx_cfg->tx1_prefetch_almost_empty_size)
+		ipa_assert();
+
 	IPA_SETFIELD_IN_REG(*val, tx_cfg->tx0_prefetch_disable,
 		IPA_TX_CFG_TX0_PREFETCH_DISABLE_SHFT_V3_5,
 		IPA_TX_CFG_TX0_PREFETCH_DISABLE_BMSK_V3_5);
@@ -954,9 +1041,41 @@ static void ipareg_construct_tx_cfg(enum ipahal_reg_name reg,
 		IPA_TX_CFG_TX1_PREFETCH_DISABLE_SHFT_V3_5,
 		IPA_TX_CFG_TX1_PREFETCH_DISABLE_BMSK_V3_5);
 
-	IPA_SETFIELD_IN_REG(*val, tx_cfg->prefetch_almost_empty_size,
+	IPA_SETFIELD_IN_REG(*val, tx_cfg->tx0_prefetch_almost_empty_size,
 		IPA_TX_CFG_PREFETCH_ALMOST_EMPTY_SIZE_SHFT_V3_5,
 		IPA_TX_CFG_PREFETCH_ALMOST_EMPTY_SIZE_BMSK_V3_5);
+}
+
+static void ipareg_construct_tx_cfg_v4_0(enum ipahal_reg_name reg,
+	const void *fields, u32 *val)
+{
+	struct ipahal_reg_tx_cfg *tx_cfg;
+
+	tx_cfg = (struct ipahal_reg_tx_cfg *)fields;
+
+	IPA_SETFIELD_IN_REG(*val, tx_cfg->tx0_prefetch_almost_empty_size,
+		IPA_TX_CFG_PREFETCH_ALMOST_EMPTY_SIZE_TX0_SHFT_V4_0,
+		IPA_TX_CFG_PREFETCH_ALMOST_EMPTY_SIZE_TX0_BMSK_V4_0);
+
+	IPA_SETFIELD_IN_REG(*val, tx_cfg->tx1_prefetch_almost_empty_size,
+		IPA_TX_CFG_PREFETCH_ALMOST_EMPTY_SIZE_TX1_SHFT_V4_0,
+		IPA_TX_CFG_PREFETCH_ALMOST_EMPTY_SIZE_TX1_BMSK_V4_0);
+
+	IPA_SETFIELD_IN_REG(*val, tx_cfg->dmaw_scnd_outsd_pred_threshold,
+		IPA_TX_CFG_DMAW_SCND_OUTSD_PRED_THRESHOLD_SHFT_V4_0,
+		IPA_TX_CFG_DMAW_SCND_OUTSD_PRED_THRESHOLD_BMSK_V4_0);
+
+	IPA_SETFIELD_IN_REG(*val, tx_cfg->dmaw_max_beats_256_dis,
+		IPA_TX_CFG_DMAW_MAX_BEATS_256_DIS_SHFT_V4_0,
+		IPA_TX_CFG_DMAW_MAX_BEATS_256_DIS_BMSK_V4_0);
+
+	IPA_SETFIELD_IN_REG(*val, tx_cfg->dmaw_scnd_outsd_pred_en,
+		IPA_TX_CFG_DMAW_SCND_OUTSD_PRED_EN_SHFT_V4_0,
+		IPA_TX_CFG_DMAW_SCND_OUTSD_PRED_EN_BMSK_V4_0);
+
+	IPA_SETFIELD_IN_REG(*val, tx_cfg->pa_mask_en,
+		IPA_TX_CFG_PA_MASK_EN_SHFT_V4_0,
+		IPA_TX_CFG_PA_MASK_EN_BMSK_V4_0);
 }
 
 static void ipareg_construct_idle_indication_cfg(enum ipahal_reg_name reg,
@@ -1266,6 +1385,38 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v3_5][IPA_IDLE_INDICATION_CFG] = {
 		ipareg_construct_idle_indication_cfg, ipareg_parse_dummy,
 		0x00000220, 0},
+
+	/* IPAv4.0 */
+	[IPA_HW_v4_0][IPA_TX_CFG] = {
+		ipareg_construct_tx_cfg_v4_0, ipareg_parse_tx_cfg_v4_0,
+		0x000001FC, 0},
+	[IPA_HW_v4_0][IPA_DEBUG_CNT_REG_n] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		-1, 0},
+	[IPA_HW_v4_0][IPA_DEBUG_CNT_CTRL_n] = {
+		ipareg_construct_debug_cnt_ctrl_n, ipareg_parse_dummy,
+		-1, 0},
+	[IPA_HW_v4_0][IPA_QCNCM] = {
+		ipareg_construct_qcncm, ipareg_parse_qcncm,
+		-1, 0},
+	[IPA_HW_v4_0][IPA_SINGLE_NDP_MODE] = {
+		ipareg_construct_single_ndp_mode, ipareg_parse_single_ndp_mode,
+		-1, 0},
+	[IPA_HW_v4_0][IPA_QSB_MAX_READS] = {
+		ipareg_construct_qsb_max_reads_v4_0, ipareg_parse_dummy,
+		0x00000078, 0},
+	[IPA_HW_v4_0][IPA_FILT_ROUT_HASH_FLUSH] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x0000014c, 0},
+	[IPA_HW_v4_0][IPA_STATE_AGGR_ACTIVE] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x000000b4, 0},
+	[IPA_HW_v4_0][IPA_ENDP_INIT_ROUTE_n] = {
+		ipareg_construct_endp_init_route_n, ipareg_parse_dummy,
+		-1, 0},
+	[IPA_HW_v4_0][IPA_ENDP_STATUS_n] = {
+		ipareg_construct_endp_status_n_v4_0, ipareg_parse_dummy,
+		0x00000840, 0x70},
 };
 
 /*
@@ -1597,11 +1748,16 @@ void ipahal_get_aggr_force_close_valmask(int ep_idx,
 	if (ipahal_ctx->hw_type <= IPA_HW_v3_1) {
 		shft = IPA_AGGR_FORCE_CLOSE_AGGR_FORCE_CLOSE_PIPE_BITMAP_SHFT;
 		bmsk = IPA_AGGR_FORCE_CLOSE_AGGR_FORCE_CLOSE_PIPE_BITMAP_BMSK;
-	} else {
+	} else if (ipahal_ctx->hw_type <= IPA_HW_v3_5_1) {
 		shft =
 		IPA_AGGR_FORCE_CLOSE_AGGR_FORCE_CLOSE_PIPE_BITMAP_SHFT_V3_5;
 		bmsk =
 		IPA_AGGR_FORCE_CLOSE_AGGR_FORCE_CLOSE_PIPE_BITMAP_BMSK_V3_5;
+	} else {
+		shft =
+		IPA_AGGR_FORCE_CLOSE_AGGR_FORCE_CLOSE_PIPE_BITMAP_SHFT_V4_0;
+		bmsk =
+		IPA_AGGR_FORCE_CLOSE_AGGR_FORCE_CLOSE_PIPE_BITMAP_BMSK_V4_0;
 	}
 
 	IPA_SETFIELD_IN_REG(valmask->val, 1 << ep_idx, shft, bmsk);
