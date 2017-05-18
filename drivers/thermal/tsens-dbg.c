@@ -35,8 +35,8 @@
 #define	TSENS_DEBUG_ID_MASK_1_4			0xffffffe1
 #define	DEBUG_SIZE				10
 
-#define TSENS_DEBUG_CONTROL(n)			((n) + 0x1130)
-#define TSENS_DEBUG_DATA(n)			((n) + 0x1134)
+#define TSENS_DEBUG_CONTROL(n)			((n) + 0x130)
+#define TSENS_DEBUG_DATA(n)			((n) + 0x134)
 
 struct tsens_dbg_func {
 	int (*dbg_func)(struct tsens_device *, u32, u32, int *);
@@ -86,10 +86,127 @@ static int tsens_dbg_log_interrupt_timestamp(struct tsens_device *data,
 	return 0;
 }
 
+static int tsens_dbg_log_bus_id_data(struct tsens_device *data,
+					u32 id, u32 dbg_type, int *val)
+{
+	struct tsens_device *tmdev = NULL;
+	u32 loop = 0, i = 0;
+	uint32_t r1, r2, r3, r4, offset = 0;
+	unsigned int debug_dump;
+	unsigned int debug_id = 0, cntrl_id = 0;
+	void __iomem *srot_addr;
+	void __iomem *controller_id_addr;
+	void __iomem *debug_id_addr;
+	void __iomem *debug_data_addr;
+
+	if (!data)
+		return -EINVAL;
+
+	pr_debug("%d %d\n", id, dbg_type);
+	tmdev = data;
+	controller_id_addr = TSENS_CONTROLLER_ID(tmdev->tsens_tm_addr);
+	debug_id_addr = TSENS_DEBUG_CONTROL(tmdev->tsens_tm_addr);
+	debug_data_addr = TSENS_DEBUG_DATA(tmdev->tsens_tm_addr);
+	srot_addr = TSENS_CTRL_ADDR(tmdev->tsens_srot_addr);
+
+	cntrl_id = readl_relaxed(controller_id_addr);
+	pr_err("Controller_id: 0x%x\n", cntrl_id);
+
+	loop = 0;
+	i = 0;
+	debug_id = readl_relaxed(debug_id_addr);
+	writel_relaxed((debug_id | (i << 1) | 1),
+			TSENS_DEBUG_CONTROL(tmdev->tsens_tm_addr));
+	while (loop < TSENS_DEBUG_LOOP_COUNT_ID_0) {
+		debug_dump = readl_relaxed(debug_data_addr);
+		r1 = readl_relaxed(debug_data_addr);
+		r2 = readl_relaxed(debug_data_addr);
+		r3 = readl_relaxed(debug_data_addr);
+		r4 = readl_relaxed(debug_data_addr);
+		pr_err("cntrl:%d, bus-id:%d value:0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
+			cntrl_id, i, debug_dump, r1, r2, r3, r4);
+		loop++;
+	}
+
+	for (i = TSENS_DBG_BUS_ID_1; i <= TSENS_DBG_BUS_ID_15; i++) {
+		loop = 0;
+		debug_id = readl_relaxed(debug_id_addr);
+		debug_id = debug_id & TSENS_DEBUG_ID_MASK_1_4;
+		writel_relaxed((debug_id | (i << 1) | 1),
+				TSENS_DEBUG_CONTROL(tmdev->tsens_tm_addr));
+		while (loop < TSENS_DEBUG_LOOP_COUNT) {
+			debug_dump = readl_relaxed(debug_data_addr);
+			pr_err("cntrl:%d, bus-id:%d with value: 0x%x\n",
+				cntrl_id, i, debug_dump);
+			if (i == TSENS_DBG_BUS_ID_2)
+				usleep_range(
+					TSENS_DEBUG_BUS_ID2_MIN_CYCLE,
+					TSENS_DEBUG_BUS_ID2_MAX_CYCLE);
+			loop++;
+		}
+	}
+
+	pr_err("Start of TSENS TM dump\n");
+	for (i = 0; i < TSENS_DEBUG_OFFSET_RANGE; i++) {
+		r1 = readl_relaxed(controller_id_addr + offset);
+		r2 = readl_relaxed(controller_id_addr + (offset +
+					TSENS_DEBUG_OFFSET_WORD1));
+		r3 = readl_relaxed(controller_id_addr +	(offset +
+					TSENS_DEBUG_OFFSET_WORD2));
+		r4 = readl_relaxed(controller_id_addr + (offset +
+					TSENS_DEBUG_OFFSET_WORD3));
+
+		pr_err("ctrl:%d:0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+			cntrl_id, offset, r1, r2, r3, r4);
+		offset += TSENS_DEBUG_OFFSET_ROW;
+	}
+
+	offset = 0;
+	pr_err("Start of TSENS SROT dump\n");
+	for (i = 0; i < TSENS_DEBUG_OFFSET_RANGE; i++) {
+		r1 = readl_relaxed(srot_addr + offset);
+		r2 = readl_relaxed(srot_addr + (offset +
+					TSENS_DEBUG_OFFSET_WORD1));
+		r3 = readl_relaxed(srot_addr + (offset +
+					TSENS_DEBUG_OFFSET_WORD2));
+		r4 = readl_relaxed(srot_addr + (offset +
+					TSENS_DEBUG_OFFSET_WORD3));
+
+		pr_err("ctrl:%d:0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+			cntrl_id, offset, r1, r2, r3, r4);
+		offset += TSENS_DEBUG_OFFSET_ROW;
+	}
+
+	loop = 0;
+	while (loop < TSENS_DEBUG_LOOP_COUNT) {
+		offset = TSENS_DEBUG_OFFSET_ROW *
+				TSENS_DEBUG_STATUS_REG_START;
+		pr_err("Start of TSENS TM dump %d\n", loop);
+		/* Limited dump of the registers for the temperature */
+		for (i = 0; i < TSENS_DEBUG_LOOP_COUNT; i++) {
+			r1 = readl_relaxed(controller_id_addr + offset);
+			r2 = readl_relaxed(controller_id_addr +
+				(offset + TSENS_DEBUG_OFFSET_WORD1));
+			r3 = readl_relaxed(controller_id_addr +
+				(offset + TSENS_DEBUG_OFFSET_WORD2));
+			r4 = readl_relaxed(controller_id_addr +
+				(offset + TSENS_DEBUG_OFFSET_WORD3));
+
+		pr_err("ctrl:%d:0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+			cntrl_id, offset, r1, r2, r3, r4);
+			offset += TSENS_DEBUG_OFFSET_ROW;
+		}
+		loop++;
+	}
+
+	return 0;
+}
+
 static struct tsens_dbg_func dbg_arr[] = {
 	[TSENS_DBG_LOG_TEMP_READS] = {tsens_dbg_log_temp_reads},
 	[TSENS_DBG_LOG_INTERRUPT_TIMESTAMP] = {
 			tsens_dbg_log_interrupt_timestamp},
+	[TSENS_DBG_LOG_BUS_ID_DATA] = {tsens_dbg_log_bus_id_data},
 };
 
 int tsens2xxx_dbg(struct tsens_device *data, u32 id, u32 dbg_type, int *val)
