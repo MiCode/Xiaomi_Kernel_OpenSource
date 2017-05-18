@@ -348,7 +348,6 @@ enum {
 	AUDIO_NOMINAL,
 	CPE_NOMINAL,
 	HPH_PA_DELAY,
-	SB_CLK_GEAR,
 	ANC_MIC_AMIC1,
 	ANC_MIC_AMIC2,
 	ANC_MIC_AMIC3,
@@ -818,7 +817,10 @@ struct tasha_priv {
 	int rx_8_count;
 	bool clk_mode;
 	bool clk_internal;
-
+	/* Lock to prevent multiple functions voting at same time */
+	struct mutex sb_clk_gear_lock;
+	/* Count for functions voting or un-voting */
+	u32 ref_count;
 	/* Lock to protect mclk enablement */
 	struct mutex mclk_lock;
 };
@@ -2948,10 +2950,7 @@ static int tasha_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 					      &dai->grph);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
-		if (!test_bit(SB_CLK_GEAR, &tasha_p->status_mask)) {
-			tasha_codec_vote_max_bw(codec, true);
-			set_bit(SB_CLK_GEAR, &tasha_p->status_mask);
-		}
+		tasha_codec_vote_max_bw(codec, true);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		ret = wcd9xxx_disconnect_port(core, &dai->wcd9xxx_ch_list,
@@ -5263,10 +5262,7 @@ static int tasha_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		if (!test_bit(SB_CLK_GEAR, &tasha->status_mask)) {
-			tasha_codec_vote_max_bw(codec, true);
-			set_bit(SB_CLK_GEAR, &tasha->status_mask);
-		}
+		tasha_codec_vote_max_bw(codec, true);
 		/* Reset if needed */
 		tasha_codec_enable_prim_interpolator(codec, reg, event);
 		break;
@@ -11127,11 +11123,8 @@ static void tasha_shutdown(struct snd_pcm_substream *substream,
 	if (tasha->intf_type == WCD9XXX_INTERFACE_TYPE_I2C)
 		return;
 
-	if ((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) &&
-	    test_bit(SB_CLK_GEAR, &tasha->status_mask)) {
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		tasha_codec_vote_max_bw(dai->codec, false);
-		clear_bit(SB_CLK_GEAR, &tasha->status_mask);
-	}
 }
 
 static int tasha_set_decimator_rate(struct snd_soc_dai *dai,
@@ -11366,15 +11359,11 @@ prim_rate:
 static int tasha_prepare(struct snd_pcm_substream *substream,
 			 struct snd_soc_dai *dai)
 {
-	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(dai->codec);
-
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
-	if ((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) &&
-	    test_bit(SB_CLK_GEAR, &tasha->status_mask)) {
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		tasha_codec_vote_max_bw(dai->codec, false);
-		clear_bit(SB_CLK_GEAR, &tasha->status_mask);
-	}
 	return 0;
 }
 
@@ -13082,13 +13071,29 @@ static int tasha_codec_vote_max_bw(struct snd_soc_codec *codec,
 	if (tasha->intf_type == WCD9XXX_INTERFACE_TYPE_I2C)
 		return 0;
 
-	if (vote)
-		bw_ops = SLIM_BW_CLK_GEAR_9;
-	else
-		bw_ops = SLIM_BW_UNVOTE;
+	mutex_lock(&tasha->sb_clk_gear_lock);
+	if (vote) {
+		tasha->ref_count++;
+		if (tasha->ref_count == 1) {
+			bw_ops = SLIM_BW_CLK_GEAR_9;
+			tasha_codec_slim_reserve_bw(codec,
+				bw_ops, true);
+		}
+	} else if (!vote && tasha->ref_count > 0) {
+		tasha->ref_count--;
+		if (tasha->ref_count == 0) {
+			bw_ops = SLIM_BW_UNVOTE;
+			tasha_codec_slim_reserve_bw(codec,
+				bw_ops, true);
+		}
+	};
 
-	return tasha_codec_slim_reserve_bw(codec,
-			bw_ops, true);
+	dev_dbg(codec->dev, "%s Value of counter after vote or un-vote is %d\n",
+		__func__, tasha->ref_count);
+
+	mutex_unlock(&tasha->sb_clk_gear_lock);
+
+	return 0;
 }
 
 static int tasha_cpe_err_irq_control(struct snd_soc_codec *codec,
@@ -13271,6 +13276,8 @@ static int tasha_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	if (ret < 0)
 		dev_err(codec->dev, "%s: invalid pdata\n", __func__);
 
+	/* Reset reference counter for voting for max bw */
+	tasha->ref_count = 0;
 	/* MBHC Init */
 	wcd_mbhc_deinit(&tasha->mbhc);
 	tasha->mbhc_started = false;
@@ -14053,6 +14060,7 @@ static int tasha_probe(struct platform_device *pdev)
 	mutex_init(&tasha->swr_read_lock);
 	mutex_init(&tasha->swr_write_lock);
 	mutex_init(&tasha->swr_clk_lock);
+	mutex_init(&tasha->sb_clk_gear_lock);
 	mutex_init(&tasha->mclk_lock);
 
 	cdc_pwr = devm_kzalloc(&pdev->dev, sizeof(struct wcd9xxx_power_region),
@@ -14157,6 +14165,7 @@ static int tasha_remove(struct platform_device *pdev)
 	mutex_destroy(&tasha->mclk_lock);
 	devm_kfree(&pdev->dev, tasha);
 	snd_soc_unregister_codec(&pdev->dev);
+	mutex_destroy(&tasha->sb_clk_gear_lock);
 	return 0;
 }
 
