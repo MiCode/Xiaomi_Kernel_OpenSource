@@ -550,9 +550,9 @@
 			io-channel-names = "rradc_batt_id",
 					   "rradc_die_temp";
 			qcom,rradc-base = <0x4500>;
-			qcom,fg-esr-timer-awake = <96>;
-			qcom,fg-esr-timer-asleep = <256>;
-			qcom,fg-esr-timer-charging = <96>;
+			qcom,fg-esr-timer-awake = <96 96>;
+			qcom,fg-esr-timer-asleep = <256 256>;
+			qcom,fg-esr-timer-charging = <0 96>;
 			qcom,cycle-counter-en;
 			status = "okay";
 
