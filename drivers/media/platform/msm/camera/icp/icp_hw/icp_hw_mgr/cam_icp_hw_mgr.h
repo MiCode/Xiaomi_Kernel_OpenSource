@@ -100,7 +100,7 @@ struct hfi_frame_process_info {
 	void *bitmap;
 	size_t bits;
 	struct mutex lock;
-	int32_t request_id[CAM_FRAME_CMD_MAX];
+	uint64_t request_id[CAM_FRAME_CMD_MAX];
 	uint32_t num_out_resources[CAM_FRAME_CMD_MAX];
 	uint32_t out_resource[CAM_FRAME_CMD_MAX][CAM_MAX_OUT_RES];
 };
