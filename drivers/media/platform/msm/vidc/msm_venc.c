@@ -86,7 +86,6 @@ static const char *const h264_video_entropy_cabac_model[] = {
 };
 
 static const char *const hevc_tier_level[] = {
-	"Level unknown"
 	"Main Tier Level 1",
 	"Main Tier Level 2",
 	"Main Tier Level 2.1",
@@ -113,6 +112,7 @@ static const char *const hevc_tier_level[] = {
 	"High Tier Level 6",
 	"High Tier Level 6.1",
 	"High Tier Level 6.2",
+	"Level unknown",
 };
 
 static const char *const hevc_profile[] = {
