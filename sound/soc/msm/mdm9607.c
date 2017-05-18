@@ -270,14 +270,13 @@ static int mdm_mi2s_clk_ctl(struct snd_soc_pcm_runtime *rtd, bool enable,
 			lpass_clk->enable = 0;
 		}
 	}
-	if (mode)
+	if (mode) {
 		lpass_clk->clk_id = Q6AFE_LPASS_CLK_ID_PRI_MI2S_IBIT;
-	else
-		lpass_clk->clk_id = Q6AFE_LPASS_CLK_ID_PRI_MI2S_EBIT;
-	ret = afe_set_lpass_clock_v2(AFE_PORT_ID_PRIMARY_MI2S_RX,
+		ret = afe_set_lpass_clock_v2(AFE_PORT_ID_PRIMARY_MI2S_RX,
 						lpass_clk);
-	if (ret < 0)
-		pr_err("%s:afe_set_lpass_clock_v2 failed\n", __func__);
+		if (ret < 0)
+			pr_err("%s:afe_set_lpass_clock_v2 failed\n", __func__);
+	}
 
 	pr_debug("%s:enable = %d mode = %u bit_clk  = %x mclk = %x\n",
 		 __func__, enable, mode, bit_clk_freq, pdata->mclk_freq);
@@ -474,14 +473,13 @@ static int mdm_sec_mi2s_clk_ctl(struct snd_soc_pcm_runtime *rtd, bool enable,
 			lpass_clk->enable = 0;
 		}
 	}
-	if (mode)
+	if (mode) {
 		lpass_clk->clk_id = Q6AFE_LPASS_CLK_ID_SEC_MI2S_IBIT;
-	else
-		lpass_clk->clk_id = Q6AFE_LPASS_CLK_ID_SEC_MI2S_EBIT;
-	ret = afe_set_lpass_clock_v2(AFE_PORT_ID_SECONDARY_MI2S_RX,
+		ret = afe_set_lpass_clock_v2(AFE_PORT_ID_SECONDARY_MI2S_RX,
 						lpass_clk);
-	if (ret < 0)
-		pr_err("%s:afe_set_lpass_clock_v2 failed\n", __func__);
+		if (ret < 0)
+			pr_err("%s:afe_set_lpass_clock_v2 failed\n", __func__);
+	}
 
 	pr_debug("%s:enable = %d mode = %u bit_clk  = %x mclk = %x\n",
 		 __func__, enable, mode, bit_clk_freq, pdata->mclk_freq);
