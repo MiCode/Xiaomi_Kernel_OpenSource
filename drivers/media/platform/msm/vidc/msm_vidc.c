@@ -909,7 +909,7 @@ int msm_vidc_release_buffer(void *instance, int buffer_type,
 
 	switch (found_buf) {
 	case 0:
-		dprintk(VIDC_WARN,
+		dprintk(VIDC_DBG,
 			"%s: No buffer(type: %d) found for index %d\n",
 			__func__, buffer_type, buffer_index);
 		break;

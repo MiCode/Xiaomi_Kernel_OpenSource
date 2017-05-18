@@ -309,9 +309,9 @@ static unsigned long msm_vidc_calc_freq(struct msm_vidc_inst *inst,
 		return freq;
 	}
 
-	dprintk(VIDC_PROF, "%s Inst %pK : Freq = %lu\n", __func__, inst, freq);
-
 	freq = max(vpp_cycles, vsp_cycles);
+
+	dprintk(VIDC_PROF, "%s Inst %pK : Freq = %lu\n", __func__, inst, freq);
 
 	return freq;
 }
