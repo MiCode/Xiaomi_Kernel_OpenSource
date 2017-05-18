@@ -1399,6 +1399,7 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 	struct sde_crtc_frame_event *fevent;
 	struct drm_crtc *crtc;
 	struct sde_crtc *sde_crtc;
+	struct sde_crtc_state *cstate;
 	struct sde_kms *sde_kms;
 	unsigned long flags;
 
@@ -1408,13 +1409,14 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 	}
 
 	fevent = container_of(work, struct sde_crtc_frame_event, work);
-	if (!fevent->crtc) {
+	if (!fevent->crtc || !fevent->crtc->state) {
 		SDE_ERROR("invalid crtc\n");
 		return;
 	}
 
 	crtc = fevent->crtc;
 	sde_crtc = to_sde_crtc(crtc);
+	cstate = to_sde_crtc_state(crtc->state);
 
 	sde_kms = _sde_crtc_get_kms(crtc);
 	if (!sde_kms) {
@@ -1453,6 +1455,9 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 			SDE_EVT32_VERBOSE(DRMID(crtc), fevent->event,
 							SDE_EVTLOG_FUNC_CASE3);
 		}
+
+		if (fevent->event == SDE_ENCODER_FRAME_EVENT_DONE)
+			sde_core_perf_crtc_update(crtc, 0, false);
 	} else {
 		SDE_ERROR("crtc%d ts:%lld unknown event %u\n", crtc->base.id,
 				ktime_to_ns(fevent->ts),
