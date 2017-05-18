@@ -442,7 +442,7 @@ end:
 	return rc;
 }
 
-static bool sde_rsc_switch_to_clk(struct sde_rsc_priv *rsc)
+static int sde_rsc_switch_to_clk(struct sde_rsc_priv *rsc)
 {
 	struct sde_rsc_client *client;
 	int rc = STATE_UPDATE_NOT_ALLOWED;
@@ -467,7 +467,7 @@ end:
 	return rc;
 }
 
-static bool sde_rsc_switch_to_vid(struct sde_rsc_priv *rsc,
+static int sde_rsc_switch_to_vid(struct sde_rsc_priv *rsc,
 	struct sde_rsc_cmd_config *config,
 	struct sde_rsc_client *caller_client)
 {
