@@ -270,8 +270,9 @@
 			io-channels = <&pmi8998_rradc 0>;
 			io-channel-names = "rradc_batt_id";
 			qcom,rradc-base = <0x4500>;
-			qcom,fg-esr-timer-awake = <96>;
-			qcom,fg-esr-timer-asleep = <256>;
+			qcom,fg-esr-timer-awake = <96 96>;
+			qcom,fg-esr-timer-asleep = <256 256>;
+			qcom,fg-esr-timer-charging = <0 96>;
 			qcom,cycle-counter-en;
 			status = "okay";
 
