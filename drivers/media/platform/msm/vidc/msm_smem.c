@@ -94,10 +94,17 @@ static int get_device_address(struct smem_client *smem_client,
 		trace_msm_smem_buffer_iommu_op_start("MAP", 0, 0,
 			align, *iova, *buffer_size);
 
-		/* Map a scatterlist into an SMMU with system cacheability */
-		rc = msm_dma_map_sg_attrs(cb->dev, table->sgl,
-			table->nents, DMA_BIDIRECTIONAL,
-			buf, DMA_ATTR_IOMMU_USE_UPSTREAM_HINT);
+		/* Map a scatterlist into SMMU */
+		if (smem_client->res->sys_cache_present) {
+			/* with sys cache attribute & delayed unmap */
+			rc = msm_dma_map_sg_attrs(cb->dev, table->sgl,
+				table->nents, DMA_BIDIRECTIONAL,
+				buf, DMA_ATTR_IOMMU_USE_UPSTREAM_HINT);
+		} else {
+			/* with delayed unmap */
+			rc = msm_dma_map_sg_lazy(cb->dev, table->sgl,
+				table->nents, DMA_BIDIRECTIONAL, buf);
+		}
 
 		if (rc != table->nents) {
 			dprintk(VIDC_ERR,

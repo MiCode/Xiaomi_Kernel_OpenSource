@@ -120,6 +120,11 @@ static inline bool __core_in_valid_state(struct venus_hfi_device *device)
 	return device->state != VENUS_STATE_DEINIT;
 }
 
+static inline bool is_sys_cache_present(struct venus_hfi_device *device)
+{
+	return device->res->sys_cache_present;
+}
+
 static void __dump_packet(u8 *packet, enum vidc_msg_prio log_level)
 {
 	u32 c = 0, packet_size = *(u32 *)packet;
@@ -3492,7 +3497,7 @@ static void __deinit_subcaches(struct venus_hfi_device *device)
 		goto exit;
 	}
 
-	if (!device->res->sys_cache_enabled)
+	if (!is_sys_cache_present(device))
 		goto exit;
 
 	venus_hfi_for_each_subcache_reverse(device, sinfo) {
@@ -3519,7 +3524,7 @@ static int __init_subcaches(struct venus_hfi_device *device)
 		return -EINVAL;
 	}
 
-	if (!device->res->sys_cache_enabled)
+	if (!is_sys_cache_present(device))
 		return 0;
 
 	venus_hfi_for_each_subcache(device, sinfo) {
@@ -3764,7 +3769,7 @@ static int __enable_subcaches(struct venus_hfi_device *device)
 	struct hfi_resource_subcache_type *sc_res;
 	struct vidc_resource_hdr rhdr;
 
-	if (!device->res->sys_cache_enabled)
+	if (!is_sys_cache_present(device))
 		return 0;
 
 	memset((void *)resource, 0x0, (sizeof(u32) * VIDC_MAX_SUBCACHE_SIZE));
@@ -3812,6 +3817,8 @@ static int __enable_subcaches(struct venus_hfi_device *device)
 
 	dprintk(VIDC_DBG, "Activated & Set Subcaches to Venus\n");
 
+	device->res->sys_cache_enabled = true;
+
 	return 0;
 
 err_fail_set_subacaches:
@@ -3830,7 +3837,7 @@ static int __disable_subcaches(struct venus_hfi_device *device)
 	struct hfi_resource_subcache_type *sc_res;
 	struct vidc_resource_hdr rhdr;
 
-	if (!device->res->sys_cache_enabled)
+	if (!is_sys_cache_present(device))
 		return 0;
 
 	dprintk(VIDC_DBG, "Disabling Subcaches\n");
@@ -3876,6 +3883,8 @@ static int __disable_subcaches(struct venus_hfi_device *device)
 			sinfo->isactive = false;
 		}
 	}
+
+	device->res->sys_cache_enabled = false;
 
 	return rc;
 }
