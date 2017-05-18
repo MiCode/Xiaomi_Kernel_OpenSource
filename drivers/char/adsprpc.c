@@ -1535,6 +1535,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 	struct fastrpc_ioctl_init *init = &uproc->init;
 	struct smq_phy_page pages[1];
 	struct fastrpc_mmap *file = 0, *mem = 0;
+	char *proc_name = NULL;
 	int srcVM[1] = {VMID_HLOS};
 	int destVM[1] = {VMID_ADSP_Q6};
 	int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
@@ -1630,15 +1631,18 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		uint64_t phys = 0;
 		ssize_t size = 0;
 		int fds[3];
-		char *proc_name;
 		struct {
 			int pgid;
 			int namelen;
 			int pageslen;
 		} inbuf;
 		VERIFY(err, proc_name = kzalloc(init->filelen, GFP_KERNEL));
+		if (err)
+			goto bail;
 		VERIFY(err, 0 == copy_from_user(proc_name,
 			(unsigned char *)init->file, init->filelen));
+		if (err)
+			goto bail;
 		inbuf.pgid = current->tgid;
 		inbuf.namelen = strlen(proc_name)+1;
 		inbuf.pageslen = 0;
@@ -1689,6 +1693,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		err = -ENOTTY;
 	}
 bail:
+	kfree(proc_name);
 	if (err && (init->flags == FASTRPC_INIT_CREATE_STATIC))
 		me->staticpd_flags = 0;
 	if (mem && err) {
