@@ -65,20 +65,15 @@ static struct llcc_slice_config sdm845_data[] =  {
 	SCT_ENTRY("audio",       6, 6, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("modemhp_grow", 7, 7, 1024, 2, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("modem",       8, 8, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("modemhw",     9, 9, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("compute",     10, 10, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("gpuhtw",      11, 11, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("gpu",         12, 12, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("gpuhtw",      11, 11, 515, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("gpu",         12, 12, 2560, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("mmuhwt",      13, 13, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 0, 1),
-	SCT_ENTRY("sensor",      14, 14, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("compute_dma", 15, 15, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("display",     16, 16, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("videofw",     17, 17, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("camerafw",    18, 18, 256, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("mss_tcm",     19, 19, 1024, 0, 0, 0x0,  0xf, 1, 0, 1, 1, 0),
 	SCT_ENTRY("modemhp_fix", 20, 20, 1024, 2, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 	SCT_ENTRY("modem_paging", 21, 21, 1024, 0, 1, 0xF,  0x0, 0, 0, 0, 1, 0),
-	SCT_ENTRY("audiohw",     22, 22, 3072, 1, 0, 0xFFF, 0x0, 0, 0, 0, 1, 0),
+	SCT_ENTRY("audiohw",     22, 22, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0),
 };
 
 static int sdm845_qcom_llcc_probe(struct platform_device *pdev)
