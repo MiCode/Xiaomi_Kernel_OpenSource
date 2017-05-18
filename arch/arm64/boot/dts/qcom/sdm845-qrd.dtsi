@@ -142,6 +142,7 @@
 	qcom,panel-mode-gpio = <&tlmm 52 0>;
 	qcom,platform-te-gpio = <&tlmm 10 0>;
 	qcom,platform-reset-gpio = <&tlmm 6 0>;
+	qcom,mdss-dsi-panel-orientation = "180";
 };
 
 &dsi_sharp_4k_dsc_video_display {
