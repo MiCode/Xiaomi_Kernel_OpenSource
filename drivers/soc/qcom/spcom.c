@@ -690,9 +690,6 @@ static int spcom_open(struct spcom_channel *ch, unsigned int timeout_msec)
 		pr_err("channel [%s] already in use.\n", name);
 		goto exit_err;
 	}
-	ch->ref_count++;
-	ch->pid = current_pid();
-	ch->txn_id = INITIAL_TXN_ID;
 
 	pr_debug("ch [%s] opened by PID [%d], count [%d]\n",
 		 name, ch->pid, ch->ref_count);
@@ -717,7 +714,12 @@ static int spcom_open(struct spcom_channel *ch, unsigned int timeout_msec)
 	} else {
 		pr_debug("glink_open [%s] ok.\n", name);
 	}
+
+	/* init channel context after successful open */
 	ch->glink_handle = handle;
+	ch->ref_count++;
+	ch->pid = current_pid();
+	ch->txn_id = INITIAL_TXN_ID;
 
 	pr_debug("Wait for connection on channel [%s] timeout_msec [%d].\n",
 		 name, timeout_msec);
