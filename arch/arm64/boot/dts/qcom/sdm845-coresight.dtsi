@@ -1396,25 +1396,61 @@
 		};
 	};
 
-	cti_ddr0: cti@69e1000 {
+	cti0_ddr0: cti@69e1000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x69e1000 0x1000>;
 		reg-names = "cti-base";
 
-		coresight-name = "coresight-cti-ddr0";
+		coresight-name = "coresight-cti0-ddr0";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
 	};
 
-	cti_ddr1: cti@69e4000 {
+	cti0_ddr1: cti@69e4000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x0003b966>;
 		reg = <0x69e4000 0x1000>;
 		reg-names = "cti-base";
 
-		coresight-name = "coresight-cti-ddr1";
+		coresight-name = "coresight-cti0-ddr1";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti1_ddr1: cti@69e5000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
+		reg = <0x69e5000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti1-ddr1";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti0_dlmm: cti@6c09000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
+		reg = <0x6c09000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti0-dlmm";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
+	cti1_dlmm: cti@6c0a000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b966>;
+		reg = <0x6c0a000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-name = "coresight-cti1-dlmm";
 
 		clocks = <&clock_aop QDSS_CLK>;
 		clock-names = "apb_pclk";
