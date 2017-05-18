@@ -145,22 +145,30 @@ First Level Node - FG Gen3 device
 
 - qcom,fg-esr-timer-charging
 	Usage:      optional
-	Value type: <u32>
+	Value type: <prop-encoded-array>
 	Definition: Number of cycles between ESR pulses while the battery is
-		    charging.
+		    charging. Array of 2 elements if specified.
+		    Element 0 - Retry value for timer
+		    Element 1 - Maximum value for timer
 
 - qcom,fg-esr-timer-awake
 	Usage:      optional
-	Value type: <u32>
+	Value type: <prop-encoded-array>
 	Definition: Number of cycles between ESR pulses while the system is
-		    awake and the battery is discharging.
+		    awake and the battery is discharging. Array of 2 elements
+		    if specified.
+		    Element 0 - Retry value for timer
+		    Element 1 - Maximum value for timer
 
 - qcom,fg-esr-timer-asleep
 	Usage:      optional
-	Value type: <u32>
+	Value type: <prop-encoded-array>
 	Definition: Number of cycles between ESR pulses while the system is
 		    asleep and the battery is discharging. This option requires
-		    qcom,fg-esr-timer-awake to be defined.
+		    qcom,fg-esr-timer-awake to be defined. Array of 2 elements
+		    if specified.
+		    Element 0 - Retry value for timer
+		    Element 1 - Maximum value for timer
 
 - qcom,fg-esr-pulse-thresh-ma
 	Usage:      optional
