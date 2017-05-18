@@ -181,8 +181,7 @@ int __ipa_commit_hdr_v3_0(void)
 				IPAERR("fail construct dma_shared_mem cmd\n");
 				goto end;
 			}
-			desc[0].opcode = ipahal_imm_cmd_get_opcode(
-				IPA_IMM_CMD_DMA_SHARED_MEM);
+			desc[0].opcode = hdr_cmd_pyld->opcode;
 			desc[0].pyld = hdr_cmd_pyld->data;
 			desc[0].len = hdr_cmd_pyld->len;
 		}
@@ -200,8 +199,7 @@ int __ipa_commit_hdr_v3_0(void)
 				IPAERR("fail construct hdr_init_system cmd\n");
 				goto end;
 			}
-			desc[0].opcode = ipahal_imm_cmd_get_opcode(
-				IPA_IMM_CMD_HDR_INIT_SYSTEM);
+			desc[0].opcode = hdr_cmd_pyld->opcode;
 			desc[0].pyld = hdr_cmd_pyld->data;
 			desc[0].len = hdr_cmd_pyld->len;
 		}
@@ -233,8 +231,7 @@ int __ipa_commit_hdr_v3_0(void)
 				IPAERR("fail construct dma_shared_mem cmd\n");
 				goto end;
 			}
-			desc[1].opcode = ipahal_imm_cmd_get_opcode(
-				IPA_IMM_CMD_DMA_SHARED_MEM);
+			desc[1].opcode = ctx_cmd_pyld->opcode;
 			desc[1].pyld = ctx_cmd_pyld->data;
 			desc[1].len = ctx_cmd_pyld->len;
 		}
@@ -262,8 +259,7 @@ int __ipa_commit_hdr_v3_0(void)
 				IPAERR("fail construct register_write cmd\n");
 				goto end;
 			}
-			desc[1].opcode = ipahal_imm_cmd_get_opcode(
-				IPA_IMM_CMD_REGISTER_WRITE);
+			desc[1].opcode = ctx_cmd_pyld->opcode;
 			desc[1].pyld = ctx_cmd_pyld->data;
 			desc[1].len = ctx_cmd_pyld->len;
 		}

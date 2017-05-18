@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -550,8 +550,7 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 		IPAERR("fail construct register_write imm cmd. IP %d\n", ip);
 		goto fail_size_valid;
 	}
-	desc[num_cmd].opcode =
-		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_REGISTER_WRITE);
+	desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
 	desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
 	desc[num_cmd].len = cmd_pyld[num_cmd]->len;
 	desc[num_cmd].type = IPA_IMM_CMD_DESC;
@@ -569,8 +568,7 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 		IPAERR("fail construct dma_shared_mem imm cmd. IP %d\n", ip);
 		goto fail_imm_cmd_construct;
 	}
-	desc[num_cmd].opcode =
-		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_DMA_SHARED_MEM);
+	desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
 	desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
 	desc[num_cmd].len = cmd_pyld[num_cmd]->len;
 	desc[num_cmd].type = IPA_IMM_CMD_DESC;
@@ -588,8 +586,7 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 		IPAERR("fail construct dma_shared_mem imm cmd. IP %d\n", ip);
 		goto fail_imm_cmd_construct;
 	}
-	desc[num_cmd].opcode =
-		ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_DMA_SHARED_MEM);
+	desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
 	desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
 	desc[num_cmd].len = cmd_pyld[num_cmd]->len;
 	desc[num_cmd].type = IPA_IMM_CMD_DESC;
@@ -609,8 +606,7 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 				ip);
 			goto fail_imm_cmd_construct;
 		}
-		desc[num_cmd].opcode =
-			ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_DMA_SHARED_MEM);
+		desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
 		desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
 		desc[num_cmd].len = cmd_pyld[num_cmd]->len;
 		desc[num_cmd].type = IPA_IMM_CMD_DESC;
@@ -630,8 +626,7 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 				ip);
 			goto fail_imm_cmd_construct;
 		}
-		desc[num_cmd].opcode =
-			ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_DMA_SHARED_MEM);
+		desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
 		desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
 		desc[num_cmd].len = cmd_pyld[num_cmd]->len;
 		desc[num_cmd].type = IPA_IMM_CMD_DESC;

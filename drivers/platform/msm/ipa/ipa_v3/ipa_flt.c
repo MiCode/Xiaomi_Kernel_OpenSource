@@ -573,7 +573,7 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 		rc = -EFAULT;
 		goto fail_reg_write_construct;
 	}
-	desc[0].opcode = ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_REGISTER_WRITE);
+	desc[0].opcode = cmd_pyld[0]->opcode;
 	desc[0].pyld = cmd_pyld[0]->data;
 	desc[0].len = cmd_pyld[0]->len;
 	desc[0].type = IPA_IMM_CMD_DESC;
@@ -609,8 +609,7 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 				ip);
 			goto fail_imm_cmd_construct;
 		}
-		desc[num_cmd].opcode =
-			ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_DMA_SHARED_MEM);
+		desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
 		desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
 		desc[num_cmd].len = cmd_pyld[num_cmd]->len;
 		desc[num_cmd++].type = IPA_IMM_CMD_DESC;
@@ -630,8 +629,7 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 				ip);
 			goto fail_imm_cmd_construct;
 		}
-		desc[num_cmd].opcode =
-			ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_DMA_SHARED_MEM);
+		desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
 		desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
 		desc[num_cmd].len = cmd_pyld[num_cmd]->len;
 		desc[num_cmd++].type = IPA_IMM_CMD_DESC;
@@ -653,8 +651,7 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 				ip);
 			goto fail_imm_cmd_construct;
 		}
-		desc[num_cmd].opcode =
-			ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_DMA_SHARED_MEM);
+		desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
 		desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
 		desc[num_cmd].len = cmd_pyld[num_cmd]->len;
 		desc[num_cmd++].type = IPA_IMM_CMD_DESC;
@@ -673,8 +670,7 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 				ip);
 			goto fail_imm_cmd_construct;
 		}
-		desc[num_cmd].opcode =
-			ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_DMA_SHARED_MEM);
+		desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
 		desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
 		desc[num_cmd].len = cmd_pyld[num_cmd]->len;
 		desc[num_cmd++].type = IPA_IMM_CMD_DESC;

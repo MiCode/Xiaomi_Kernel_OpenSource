@@ -315,9 +315,7 @@ int ipa3_send(struct ipa3_sys_context *sys,
 		}
 
 		/* populate tag field */
-		if (desc[i].opcode ==
-			ipahal_imm_cmd_get_opcode(
-				IPA_IMM_CMD_IP_PACKET_TAG_STATUS)) {
+		if (desc[i].is_tag_status) {
 			if (ipa_populate_tag_field(&desc[i], tx_pkt,
 				&tag_pyld_ret)) {
 				IPAERR("Failed to populate tag field\n");
@@ -1279,15 +1277,10 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 			 * notification. IPA will generate a status packet with
 			 * tag info as a result of the TAG STATUS command.
 			 */
-			desc[data_idx].opcode =
-				ipahal_imm_cmd_get_opcode(
-				IPA_IMM_CMD_IP_PACKET_TAG_STATUS);
-			desc[data_idx].type = IPA_IMM_CMD_DESC;
-			desc[data_idx].callback = ipa3_tag_destroy_imm;
+			desc[data_idx].is_tag_status = true;
 			data_idx++;
 		}
-		desc[data_idx].opcode =
-			ipahal_imm_cmd_get_opcode(IPA_IMM_CMD_IP_PACKET_INIT);
+		desc[data_idx].opcode = ipa3_ctx->pkt_init_imm_opcode;
 		desc[data_idx].dma_address_valid = true;
 		desc[data_idx].dma_address = ipa3_ctx->pkt_init_imm[dst_ep_idx];
 		desc[data_idx].type = IPA_IMM_CMD_DESC;
@@ -1338,11 +1331,7 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 			 * notification. IPA will generate a status packet with
 			 * tag info as a result of the TAG STATUS command.
 			 */
-			desc[data_idx].opcode =
-				ipahal_imm_cmd_get_opcode(
-					IPA_IMM_CMD_IP_PACKET_TAG_STATUS);
-			desc[data_idx].type = IPA_IMM_CMD_DESC;
-			desc[data_idx].callback = ipa3_tag_destroy_imm;
+			desc[data_idx].is_tag_status = true;
 			data_idx++;
 		}
 		desc[data_idx].pyld = skb->data;
@@ -2979,11 +2968,7 @@ int ipa3_tx_dp_mul(enum ipa_client_type src,
 			(u8)sys->ep->cfg.meta.qmap_id;
 
 		/* the tag field will be populated in ipa3_send() function */
-		desc[0].opcode =
-			ipahal_imm_cmd_get_opcode(
-				IPA_IMM_CMD_IP_PACKET_TAG_STATUS);
-		desc[0].type = IPA_IMM_CMD_DESC;
-		desc[0].callback = ipa3_tag_destroy_imm;
+		desc[0].is_tag_status = true;
 		desc[1].pyld = entry->pyld_buffer;
 		desc[1].len = entry->pyld_len;
 		desc[1].type = IPA_DATA_DESC_SKB;
@@ -3615,8 +3600,11 @@ static int ipa_populate_tag_field(struct ipa3_desc *desc,
 		 */
 		IPADBG_LOW("tx_pkt sent in tag: 0x%p\n", tx_pkt);
 		desc->pyld = tag_pyld->data;
+		desc->opcode = tag_pyld->opcode;
 		desc->len = tag_pyld->len;
 		desc->user1 = tag_pyld;
+		desc->type = IPA_IMM_CMD_DESC;
+		desc->callback = ipa3_tag_destroy_imm;
 
 		*tag_pyld_ret = tag_pyld;
 	}
