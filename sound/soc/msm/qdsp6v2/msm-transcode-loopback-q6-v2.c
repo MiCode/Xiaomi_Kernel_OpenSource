@@ -34,6 +34,7 @@
 #include <sound/compress_params.h>
 #include <sound/compress_offload.h>
 #include <sound/compress_driver.h>
+#include <linux/msm_audio.h>
 
 #include "msm-pcm-routing-v2.h"
 #include "msm-qti-pp-config.h"
@@ -109,6 +110,7 @@ static void loopback_event_handler(uint32_t opcode,
 	stream_id = q6asm_get_stream_id_from_token(token);
 
 	switch (opcode) {
+	case ASM_STREAM_CMD_ENCDEC_EVENTS:
 	case ASM_IEC_61937_MEDIA_FMT_EVENT:
 		pr_debug("%s: ASM_IEC_61937_MEDIA_FMT_EVENT\n", __func__);
 		rtd = cstream->private_data;
@@ -554,6 +556,112 @@ done:
 	return ret;
 }
 
+static int msm_transcode_ion_fd_map_put(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	unsigned long fe_id = kcontrol->private_value;
+	struct trans_loopback_pdata *pdata = (struct trans_loopback_pdata *)
+				snd_soc_component_get_drvdata(comp);
+	struct snd_compr_stream *cstream = NULL;
+	struct msm_transcode_loopback *prtd;
+	int fd;
+	int ret = 0;
+
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s Received out of bounds invalid fe_id %lu\n",
+			__func__, fe_id);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	cstream = pdata->cstream[fe_id];
+	if (cstream == NULL) {
+		pr_err("%s cstream is null\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	prtd = cstream->runtime->private_data;
+	if (!prtd) {
+		pr_err("%s: prtd is null\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	if (prtd->audio_client == NULL) {
+		pr_err("%s: audio_client is null\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	memcpy(&fd, ucontrol->value.bytes.data, sizeof(fd));
+	ret = q6asm_send_ion_fd(prtd->audio_client, fd);
+	if (ret < 0)
+		pr_err("%s: failed to register ion fd\n", __func__);
+done:
+	return ret;
+}
+
+static int msm_transcode_rtic_event_ack_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	unsigned long fe_id = kcontrol->private_value;
+	struct trans_loopback_pdata *pdata = (struct trans_loopback_pdata *)
+					snd_soc_component_get_drvdata(comp);
+	struct snd_compr_stream *cstream = NULL;
+	struct msm_transcode_loopback *prtd;
+	int ret = 0;
+	int param_length = 0;
+
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s Received invalid fe_id %lu\n",
+			__func__, fe_id);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	cstream = pdata->cstream[fe_id];
+	if (cstream == NULL) {
+		pr_err("%s cstream is null\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	prtd = cstream->runtime->private_data;
+	if (!prtd) {
+		pr_err("%s: prtd is null\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	if (prtd->audio_client == NULL) {
+		pr_err("%s: audio_client is null\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	memcpy(&param_length, ucontrol->value.bytes.data,
+		sizeof(param_length));
+	if ((param_length + sizeof(param_length))
+		>= sizeof(ucontrol->value.bytes.data)) {
+		pr_err("%s param length=%d  exceeds limit",
+			__func__, param_length);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = q6asm_send_rtic_event_ack(prtd->audio_client,
+			ucontrol->value.bytes.data + sizeof(param_length),
+			param_length);
+	if (ret < 0)
+		pr_err("%s: failed to send rtic event ack, err = %d\n",
+			__func__, ret);
+done:
+	return ret;
+}
+
 static int msm_transcode_stream_cmd_control(
 			struct snd_soc_pcm_runtime *rtd)
 {
@@ -664,6 +772,97 @@ done:
 	return ret;
 }
 
+static int msm_transcode_add_ion_fd_cmd_control(struct snd_soc_pcm_runtime *rtd)
+{
+	const char *mixer_ctl_name = "Playback ION FD";
+	const char *deviceNo = "NN";
+	char *mixer_str = NULL;
+	int ctl_len = 0, ret = 0;
+	struct snd_kcontrol_new fe_ion_fd_config_control[1] = {
+		{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "?",
+		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.info = msm_adsp_stream_cmd_info,
+		.put = msm_transcode_ion_fd_map_put,
+		.private_value = 0,
+		}
+	};
+
+	if (!rtd) {
+		pr_err("%s NULL rtd\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ctl_len = strlen(mixer_ctl_name) + 1 + strlen(deviceNo) + 1;
+	mixer_str = kzalloc(ctl_len, GFP_KERNEL);
+	if (!mixer_str) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	snprintf(mixer_str, ctl_len, "%s %d", mixer_ctl_name, rtd->pcm->device);
+	fe_ion_fd_config_control[0].name = mixer_str;
+	fe_ion_fd_config_control[0].private_value = rtd->dai_link->be_id;
+	pr_debug("%s: Registering new mixer ctl %s\n", __func__, mixer_str);
+	ret = snd_soc_add_platform_controls(rtd->platform,
+				fe_ion_fd_config_control,
+				ARRAY_SIZE(fe_ion_fd_config_control));
+	if (ret < 0)
+		pr_err("%s: failed to add ctl %s\n", __func__, mixer_str);
+
+	kfree(mixer_str);
+done:
+	return ret;
+}
+
+static int msm_transcode_add_event_ack_cmd_control(
+					struct snd_soc_pcm_runtime *rtd)
+{
+	const char *mixer_ctl_name = "Playback Event Ack";
+	const char *deviceNo = "NN";
+	char *mixer_str = NULL;
+	int ctl_len = 0, ret = 0;
+	struct snd_kcontrol_new fe_event_ack_config_control[1] = {
+		{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "?",
+		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.info = msm_adsp_stream_cmd_info,
+		.put = msm_transcode_rtic_event_ack_put,
+		.private_value = 0,
+		}
+	};
+
+	if (!rtd) {
+		pr_err("%s NULL rtd\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ctl_len = strlen(mixer_ctl_name) + 1 + strlen(deviceNo) + 1;
+	mixer_str = kzalloc(ctl_len, GFP_KERNEL);
+	if (!mixer_str) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	snprintf(mixer_str, ctl_len, "%s %d", mixer_ctl_name, rtd->pcm->device);
+	fe_event_ack_config_control[0].name = mixer_str;
+	fe_event_ack_config_control[0].private_value = rtd->dai_link->be_id;
+	pr_debug("%s: Registering new mixer ctl %s\n", __func__, mixer_str);
+	ret = snd_soc_add_platform_controls(rtd->platform,
+				fe_event_ack_config_control,
+				ARRAY_SIZE(fe_event_ack_config_control));
+	if (ret < 0)
+		pr_err("%s: failed to add ctl %s\n", __func__, mixer_str);
+
+	kfree(mixer_str);
+done:
+	return ret;
+}
+
 static int msm_transcode_loopback_new(struct snd_soc_pcm_runtime *rtd)
 {
 	int rc;
@@ -676,6 +875,17 @@ static int msm_transcode_loopback_new(struct snd_soc_pcm_runtime *rtd)
 	if (rc)
 		pr_err("%s: ADSP Stream callback Control open failed\n",
 			__func__);
+
+	rc = msm_transcode_add_ion_fd_cmd_control(rtd);
+	if (rc)
+		pr_err("%s: Could not add transcode ion fd Control\n",
+			__func__);
+
+	rc = msm_transcode_add_event_ack_cmd_control(rtd);
+	if (rc)
+		pr_err("%s: Could not add transcode event ack Control\n",
+			__func__);
+
 	return 0;
 }
 
