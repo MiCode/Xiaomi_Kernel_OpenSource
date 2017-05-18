@@ -17,6 +17,8 @@
 #include <linux/slab.h>
 #include "sde_hw_mdss.h"
 
+struct sde_format_extended;
+
 /*
  * This is the common struct maintained by each sub block
  * for mapping the register offsets in this block to the
@@ -59,5 +61,11 @@ void sde_hw_csc_setup(struct sde_hw_blk_reg_map  *c,
 		u32 csc_reg_off,
 		struct sde_csc_cfg *data, bool csc10);
 
-#endif /* _SDE_HW_UTIL_H */
+uint32_t sde_copy_formats(
+		struct sde_format_extended *dst_list,
+		uint32_t dst_list_size,
+		uint32_t dst_list_pos,
+		const struct sde_format_extended *src_list,
+		uint32_t src_list_size);
 
+#endif /* _SDE_HW_UTIL_H */

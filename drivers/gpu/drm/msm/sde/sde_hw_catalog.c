@@ -528,37 +528,6 @@ static struct sde_prop_type reg_dma_prop[REG_DMA_PROP_MAX] = {
  * static API list
  *************************************************************/
 
-/**
- * _sde_copy_formats   - copy formats from src_list to dst_list
- * @dst_list:          pointer to destination list where to copy formats
- * @dst_list_size:     size of destination list
- * @dst_list_pos:      starting position on the list where to copy formats
- * @src_list:          pointer to source list where to copy formats from
- * @src_list_size:     size of source list
- * Return: number of elements populated
- */
-static uint32_t _sde_copy_formats(
-		struct sde_format_extended *dst_list,
-		uint32_t dst_list_size,
-		uint32_t dst_list_pos,
-		const struct sde_format_extended *src_list,
-		uint32_t src_list_size)
-{
-	uint32_t cur_pos, i;
-
-	if (!dst_list || !src_list || (dst_list_pos >= (dst_list_size - 1)))
-		return 0;
-
-	for (i = 0, cur_pos = dst_list_pos;
-		(cur_pos < (dst_list_size - 1)) && (i < src_list_size)
-		&& src_list[i].fourcc_format; ++i, ++cur_pos)
-		dst_list[cur_pos] = src_list[i];
-
-	dst_list[cur_pos].fourcc_format = 0;
-
-	return i;
-}
-
 static int _parse_dt_u32_handler(struct device_node *np,
 	char *prop_name, u32 *offsets, int len, bool mandatory)
 {
@@ -2445,7 +2414,7 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 			rc = -ENOMEM;
 			goto end;
 		}
-		index = _sde_copy_formats(sde_cfg->cursor_formats,
+		index = sde_copy_formats(sde_cfg->cursor_formats,
 			cursor_list_size, 0, cursor_formats,
 			ARRAY_SIZE(cursor_formats));
 	}
@@ -2486,34 +2455,34 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 		goto end;
 	}
 
-	index = _sde_copy_formats(sde_cfg->dma_formats, dma_list_size,
+	index = sde_copy_formats(sde_cfg->dma_formats, dma_list_size,
 		0, plane_formats, ARRAY_SIZE(plane_formats));
-	index += _sde_copy_formats(sde_cfg->dma_formats, dma_list_size,
+	index += sde_copy_formats(sde_cfg->dma_formats, dma_list_size,
 		index, rgb_10bit_formats,
 		ARRAY_SIZE(rgb_10bit_formats));
 
-	index = _sde_copy_formats(sde_cfg->vig_formats, vig_list_size,
+	index = sde_copy_formats(sde_cfg->vig_formats, vig_list_size,
 		0, plane_formats_yuv, ARRAY_SIZE(plane_formats_yuv));
-	index += _sde_copy_formats(sde_cfg->vig_formats, vig_list_size,
+	index += sde_copy_formats(sde_cfg->vig_formats, vig_list_size,
 		index, rgb_10bit_formats,
 		ARRAY_SIZE(rgb_10bit_formats));
-	index += _sde_copy_formats(sde_cfg->vig_formats, vig_list_size,
+	index += sde_copy_formats(sde_cfg->vig_formats, vig_list_size,
 		index, p010_formats, ARRAY_SIZE(p010_formats));
 	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400))
-		index += _sde_copy_formats(sde_cfg->vig_formats,
+		index += sde_copy_formats(sde_cfg->vig_formats,
 			vig_list_size, index, p010_ubwc_formats,
 			ARRAY_SIZE(p010_ubwc_formats));
 
-	index += _sde_copy_formats(sde_cfg->vig_formats, vig_list_size,
+	index += sde_copy_formats(sde_cfg->vig_formats, vig_list_size,
 		index, tp10_ubwc_formats,
 		ARRAY_SIZE(tp10_ubwc_formats));
 
-	index = _sde_copy_formats(sde_cfg->wb_formats, wb2_list_size,
+	index = sde_copy_formats(sde_cfg->wb_formats, wb2_list_size,
 		0, wb2_formats, ARRAY_SIZE(wb2_formats));
-	index += _sde_copy_formats(sde_cfg->wb_formats, wb2_list_size,
+	index += sde_copy_formats(sde_cfg->wb_formats, wb2_list_size,
 		index, rgb_10bit_formats,
 		ARRAY_SIZE(rgb_10bit_formats));
-	index += _sde_copy_formats(sde_cfg->wb_formats, wb2_list_size,
+	index += sde_copy_formats(sde_cfg->wb_formats, wb2_list_size,
 		index, tp10_ubwc_formats,
 		ARRAY_SIZE(tp10_ubwc_formats));
 end:
