@@ -357,6 +357,10 @@ int dsi_conn_post_init(struct drm_connector *connector,
 	case DSI_PANEL_ROTATE_V_FLIP:
 		sde_kms_info_add_keystr(info, "panel orientation", "vert flip");
 		break;
+	case DSI_PANEL_ROTATE_HV_FLIP:
+		sde_kms_info_add_keystr(info, "panel orientation",
+							"horz & vert flip");
+		break;
 	default:
 		pr_debug("invalid panel rotation:%d\n",
 						panel->phy_props.rotation);
