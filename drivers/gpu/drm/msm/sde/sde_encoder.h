@@ -57,6 +57,14 @@ struct sde_encoder_kickoff_params {
 };
 
 /**
+ * sde_encoder_rsc_config - rsc configuration for encoder
+ * @inline_rotate_prefill: number of lines to prefill for inline rotation
+ */
+struct sde_encoder_rsc_config {
+	u32 inline_rotate_prefill;
+};
+
+/**
  * sde_encoder_get_hw_resources - Populate table of required hardware resources
  * @encoder:	encoder pointer
  * @hw_res:	resource table to populate with encoder required resources
@@ -139,24 +147,6 @@ enum sde_intf_mode sde_encoder_get_intf_mode(struct drm_encoder *encoder);
  * @encoder:	encoder pointer
  */
 void sde_encoder_virt_restore(struct drm_encoder *encoder);
-
-/**
- * enum sde_encoder_property - property tags for sde enoder
- * @SDE_ENCODER_PROPERTY_INLINE_ROTATE_REFILL: # of prefill line, 0 to disable
- */
-enum sde_encoder_property {
-	SDE_ENCODER_PROPERTY_INLINE_ROTATE_PREFILL,
-	SDE_ENCODER_PROPERTY_MAX,
-};
-
-/*
- * sde_encoder_set_property - set the property tag to the given value
- * @encoder: Pointer to drm encoder object
- * @tag: property tag
- * @val: property value
- * return: 0 if success; errror code otherwise
- */
-int sde_encoder_set_property(struct drm_encoder *encoder, u32 tag, u64 val);
 
 /**
  * sde_encoder_init - initialize virtual encoder object

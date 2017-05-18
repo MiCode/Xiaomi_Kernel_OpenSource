@@ -154,6 +154,7 @@ enum sde_enc_rc_states {
  *				clks and resources after IDLE_TIMEOUT time.
  * @topology:                   topology of the display
  * @mode_set_complete:          flag to indicate modeset completion
+ * @rsc_cfg:			rsc configuration
  */
 struct sde_encoder_virt {
 	struct drm_encoder base;
@@ -192,6 +193,8 @@ struct sde_encoder_virt {
 	struct delayed_work delayed_off_work;
 	struct msm_display_topology topology;
 	bool mode_set_complete;
+
+	struct sde_encoder_rsc_config rsc_cfg;
 };
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
@@ -760,7 +763,8 @@ static int _sde_encoder_dsc_setup(struct sde_encoder_virt *sde_enc)
 }
 
 static int sde_encoder_update_rsc_client(
-		struct drm_encoder *drm_enc, bool enable)
+		struct drm_encoder *drm_enc,
+		struct sde_encoder_rsc_config *config, bool enable)
 {
 	struct sde_encoder_virt *sde_enc;
 	enum sde_rsc_state rsc_state;
@@ -791,14 +795,22 @@ static int sde_encoder_update_rsc_client(
 		  disp_info->is_primary) ? SDE_RSC_CMD_STATE :
 		SDE_RSC_VID_STATE) : SDE_RSC_IDLE_STATE;
 
+	if (config && memcmp(&sde_enc->rsc_cfg, config,
+			sizeof(sde_enc->rsc_cfg)))
+		sde_enc->rsc_state_init = false;
+
 	if (rsc_state != SDE_RSC_IDLE_STATE && !sde_enc->rsc_state_init
 					&& disp_info->is_primary) {
 		rsc_config.fps = disp_info->frame_rate;
 		rsc_config.vtotal = disp_info->vtotal;
 		rsc_config.prefill_lines = disp_info->prefill_lines;
 		rsc_config.jitter = disp_info->jitter;
+		rsc_config.prefill_lines += config ?
+				config->inline_rotate_prefill : 0;
 		/* update it only once */
 		sde_enc->rsc_state_init = true;
+		if (config)
+			sde_enc->rsc_cfg = *config;
 
 		ret = sde_rsc_client_state_update(sde_enc->rsc_client,
 			rsc_state, &rsc_config,
@@ -835,6 +847,7 @@ static void _sde_encoder_resource_control_helper(struct drm_encoder *drm_enc,
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
 	struct sde_encoder_virt *sde_enc;
+	struct sde_encoder_rsc_config rsc_cfg = { 0 };
 	int i;
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
@@ -865,13 +878,16 @@ static void _sde_encoder_resource_control_helper(struct drm_encoder *drm_enc,
 				phys->ops.irq_control(phys, true);
 		}
 
+		rsc_cfg.inline_rotate_prefill =
+				sde_crtc_get_inline_prefill(drm_enc->crtc);
+
 		/* enable RSC */
-		sde_encoder_update_rsc_client(drm_enc, true);
+		sde_encoder_update_rsc_client(drm_enc, &rsc_cfg, true);
 
 	} else {
 
 		/* disable RSC */
-		sde_encoder_update_rsc_client(drm_enc, false);
+		sde_encoder_update_rsc_client(drm_enc, NULL, false);
 
 		/* disable all the irq */
 		for (i = 0; i < sde_enc->num_phys_encs; i++) {
