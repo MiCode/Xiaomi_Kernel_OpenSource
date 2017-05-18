@@ -78,6 +78,7 @@ static const char *ipareg_name_to_str[IPA_REG_MAX] = {
 	__stringify(IPA_RX_HPS_CLIENTS_MIN_DEPTH_1),
 	__stringify(IPA_RX_HPS_CLIENTS_MAX_DEPTH_0),
 	__stringify(IPA_RX_HPS_CLIENTS_MAX_DEPTH_1),
+	__stringify(IPA_HPS_FTCH_ARB_QUEUE_WEIGHT),
 	__stringify(IPA_QSB_MAX_WRITES),
 	__stringify(IPA_QSB_MAX_READS),
 	__stringify(IPA_TX_CFG),
@@ -1096,6 +1097,59 @@ static void ipareg_construct_idle_indication_cfg(enum ipahal_reg_name reg,
 		IPA_IDLE_INDICATION_CFG_CONST_NON_IDLE_ENABLE_BMSK_V3_5);
 }
 
+static void ipareg_construct_hps_queue_weights(enum ipahal_reg_name reg,
+	const void *fields, u32 *val)
+{
+	struct ipahal_reg_rx_hps_weights *hps_weights;
+
+	hps_weights = (struct ipahal_reg_rx_hps_weights *)fields;
+
+	IPA_SETFIELD_IN_REG(*val,
+		hps_weights->hps_queue_weight_0,
+		IPA_HPS_FTCH_ARB_QUEUE_WEIGHTS_RX_HPS_QUEUE_WEIGHT_0_SHFT,
+		IPA_HPS_FTCH_ARB_QUEUE_WEIGHTS_RX_HPS_QUEUE_WEIGHT_0_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val,
+		hps_weights->hps_queue_weight_1,
+		IPA_HPS_FTCH_ARB_QUEUE_WEIGHTS_RX_HPS_QUEUE_WEIGHT_1_SHFT,
+		IPA_HPS_FTCH_ARB_QUEUE_WEIGHTS_RX_HPS_QUEUE_WEIGHT_1_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val,
+		hps_weights->hps_queue_weight_2,
+		IPA_HPS_FTCH_ARB_QUEUE_WEIGHTS_RX_HPS_QUEUE_WEIGHT_2_SHFT,
+		IPA_HPS_FTCH_ARB_QUEUE_WEIGHTS_RX_HPS_QUEUE_WEIGHT_2_BMSK);
+
+	IPA_SETFIELD_IN_REG(*val,
+		hps_weights->hps_queue_weight_3,
+		IPA_HPS_FTCH_ARB_QUEUE_WEIGHTS_RX_HPS_QUEUE_WEIGHT_3_SHFT,
+		IPA_HPS_FTCH_ARB_QUEUE_WEIGHTS_RX_HPS_QUEUE_WEIGHT_3_BMSK);
+}
+
+static void ipareg_parse_hps_queue_weights(
+	enum ipahal_reg_name reg, void *fields, u32 val)
+{
+	struct ipahal_reg_rx_hps_weights *hps_weights =
+		(struct ipahal_reg_rx_hps_weights *)fields;
+
+	memset(hps_weights, 0, sizeof(struct ipahal_reg_rx_hps_weights));
+
+	hps_weights->hps_queue_weight_0 = IPA_GETFIELD_FROM_REG(val,
+		IPA_HPS_FTCH_ARB_QUEUE_WEIGHTS_RX_HPS_QUEUE_WEIGHT_0_SHFT,
+		IPA_HPS_FTCH_ARB_QUEUE_WEIGHTS_RX_HPS_QUEUE_WEIGHT_0_BMSK);
+
+	hps_weights->hps_queue_weight_1 = IPA_GETFIELD_FROM_REG(val,
+		IPA_HPS_FTCH_ARB_QUEUE_WEIGHTS_RX_HPS_QUEUE_WEIGHT_1_SHFT,
+		IPA_HPS_FTCH_ARB_QUEUE_WEIGHTS_RX_HPS_QUEUE_WEIGHT_1_BMSK);
+
+	hps_weights->hps_queue_weight_2 = IPA_GETFIELD_FROM_REG(val,
+		IPA_HPS_FTCH_ARB_QUEUE_WEIGHTS_RX_HPS_QUEUE_WEIGHT_2_SHFT,
+		IPA_HPS_FTCH_ARB_QUEUE_WEIGHTS_RX_HPS_QUEUE_WEIGHT_2_BMSK);
+
+	hps_weights->hps_queue_weight_3 = IPA_GETFIELD_FROM_REG(val,
+		IPA_HPS_FTCH_ARB_QUEUE_WEIGHTS_RX_HPS_QUEUE_WEIGHT_3_SHFT,
+		IPA_HPS_FTCH_ARB_QUEUE_WEIGHTS_RX_HPS_QUEUE_WEIGHT_3_BMSK);
+}
+
 /*
  * struct ipahal_reg_obj - Register H/W information for specific IPA version
  * @construct - CB to construct register value from abstracted structure
@@ -1385,6 +1439,9 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v3_5][IPA_IDLE_INDICATION_CFG] = {
 		ipareg_construct_idle_indication_cfg, ipareg_parse_dummy,
 		0x00000220, 0},
+	[IPA_HW_v3_5][IPA_HPS_FTCH_ARB_QUEUE_WEIGHT] = {
+		ipareg_construct_hps_queue_weights,
+		ipareg_parse_hps_queue_weights, 0x000005a4, 0},
 
 	/* IPAv4.0 */
 	[IPA_HW_v4_0][IPA_TX_CFG] = {

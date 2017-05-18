@@ -81,6 +81,7 @@ enum ipahal_reg_name {
 	IPA_RX_HPS_CLIENTS_MIN_DEPTH_1,
 	IPA_RX_HPS_CLIENTS_MAX_DEPTH_0,
 	IPA_RX_HPS_CLIENTS_MAX_DEPTH_1,
+	IPA_HPS_FTCH_ARB_QUEUE_WEIGHT,
 	IPA_QSB_MAX_WRITES,
 	IPA_QSB_MAX_READS,
 	IPA_TX_CFG,
@@ -271,6 +272,20 @@ struct ipahal_reg_rsrc_grp_cfg {
  */
 struct ipahal_reg_rx_hps_clients {
 	u32 client_minmax[4];
+};
+
+/*
+* struct ipahal_reg_rx_hps_weights - weight values for RX HPS clients
+* @hps_queue_weight_0 - 4 bit Weight for RX_HPS_CMDQ #0 (3:0)
+* @hps_queue_weight_1 - 4 bit Weight for RX_HPS_CMDQ #1 (7:4)
+* @hps_queue_weight_2 - 4 bit Weight for RX_HPS_CMDQ #2 (11:8)
+* @hps_queue_weight_3 - 4 bit Weight for RX_HPS_CMDQ #3 (15:12)
+*/
+struct ipahal_reg_rx_hps_weights {
+	u32 hps_queue_weight_0;
+	u32 hps_queue_weight_1;
+	u32 hps_queue_weight_2;
+	u32 hps_queue_weight_3;
 };
 
 /*
