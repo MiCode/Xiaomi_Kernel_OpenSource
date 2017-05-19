@@ -2860,7 +2860,7 @@
 			thermal-sensors = <&tsens0 0>;
 			trips {
 				active-config0 {
-					temperature = <65000>;
+					temperature = <125000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
@@ -2874,7 +2874,7 @@
 			thermal-sensors = <&tsens0 1>;
 			trips {
 				active-config0 {
-					temperature = <65000>;
+					temperature = <125000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
@@ -2888,7 +2888,7 @@
 			thermal-sensors = <&tsens0 2>;
 			trips {
 				active-config0 {
-					temperature = <65000>;
+					temperature = <125000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
@@ -2902,7 +2902,7 @@
 			thermal-sensors = <&tsens0 3>;
 			trips {
 				active-config0 {
-					temperature = <65000>;
+					temperature = <125000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
@@ -2916,7 +2916,7 @@
 			thermal-governor = "user_space";
 			trips {
 				active-config0 {
-					temperature = <65000>;
+					temperature = <125000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
@@ -2930,7 +2930,7 @@
 			thermal-governor = "user_space";
 			trips {
 				active-config0 {
-					temperature = <65000>;
+					temperature = <125000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
@@ -2944,7 +2944,7 @@
 			thermal-governor = "user_space";
 			trips {
 				active-config0 {
-					temperature = <65000>;
+					temperature = <125000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
@@ -2958,7 +2958,7 @@
 			thermal-governor = "user_space";
 			trips {
 				active-config0 {
-					temperature = <65000>;
+					temperature = <125000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
@@ -2972,7 +2972,7 @@
 			thermal-governor = "user_space";
 			trips {
 				active-config0 {
-					temperature = <65000>;
+					temperature = <125000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
@@ -2986,7 +2986,7 @@
 			thermal-governor = "user_space";
 			trips {
 				active-config0 {
-					temperature = <65000>;
+					temperature = <125000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
@@ -3000,7 +3000,7 @@
 			thermal-governor = "user_space";
 			trips {
 				active-config0 {
-					temperature = <65000>;
+					temperature = <125000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
@@ -3014,7 +3014,7 @@
 			thermal-governor = "user_space";
 			trips {
 				active-config0 {
-					temperature = <65000>;
+					temperature = <125000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
@@ -3028,7 +3028,7 @@
 			thermal-sensors = <&tsens0 12>;
 			trips {
 				active-config0 {
-					temperature = <65000>;
+					temperature = <125000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
@@ -3042,7 +3042,7 @@
 			thermal-governor = "user_space";
 			trips {
 				active-config0 {
-					temperature = <65000>;
+					temperature = <125000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
@@ -3056,7 +3056,7 @@
 			thermal-governor = "user_space";
 			trips {
 				active-config0 {
-					temperature = <65000>;
+					temperature = <125000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
@@ -3072,7 +3072,7 @@
 			thermal-governor = "user_space";
 			trips {
 				active-config0 {
-					temperature = <65000>;
+					temperature = <125000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
@@ -3086,7 +3086,7 @@
 			thermal-governor = "user_space";
 			trips {
 				active-config0 {
-					temperature = <65000>;
+					temperature = <125000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
@@ -3100,7 +3100,7 @@
 			thermal-governor = "user_space";
 			trips {
 				active-config0 {
-					temperature = <65000>;
+					temperature = <125000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
@@ -3114,7 +3114,7 @@
 			thermal-governor = "user_space";
 			trips {
 				active-config0 {
-					temperature = <65000>;
+					temperature = <125000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
@@ -3128,7 +3128,7 @@
 			thermal-governor = "user_space";
 			trips {
 				active-config0 {
-					temperature = <65000>;
+					temperature = <125000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
@@ -3142,7 +3142,7 @@
 			thermal-governor = "user_space";
 			trips {
 				active-config0 {
-					temperature = <65000>;
+					temperature = <125000>;
 					hysteresis = <1000>;
 					type = "passive";
 				};
