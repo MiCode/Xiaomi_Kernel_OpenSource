@@ -56,7 +56,7 @@
 		qcom,sde-mixer-size = <0x320>;
 
 		qcom,sde-dspp-off = <0x55000 0x57000 0x59000 0x5b000>;
-		qcom,sde-dspp-size = <0x4>;
+		qcom,sde-dspp-size = <0x17e0>;
 
 		qcom,sde-wb-off = <0x66000>;
 		qcom,sde-wb-size = <0x2c8>;
