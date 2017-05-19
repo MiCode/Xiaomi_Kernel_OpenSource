@@ -217,6 +217,7 @@
 		sw-reset = <&gpu_gx_sw_reset>;
 		qcom,reset-aon-logic;
 		qcom,poll-cfg-gdscr;
+		qcom,toggle-sw-collapse-in-disable;
 		status = "disabled";
 	};
 
