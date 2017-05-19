@@ -59,19 +59,6 @@ fail_read:
 	return 0;
 }
 
-static inline enum imem_type read_imem_type(struct platform_device *pdev)
-{
-	bool is_compatible(char *compat)
-	{
-		return !!of_find_compatible_node(NULL, NULL, compat);
-	}
-
-	return is_compatible("qcom,msm-ocmem") ? IMEM_OCMEM :
-		is_compatible("qcom,msm-vmem") ? IMEM_VMEM :
-						IMEM_NONE;
-
-}
-
 static inline void msm_vidc_free_allowed_clocks_table(
 		struct msm_vidc_platform_resources *res)
 {
@@ -88,12 +75,6 @@ static inline void msm_vidc_free_platform_version_table(
 		struct msm_vidc_platform_resources *res)
 {
 	res->pf_ver_tbl = NULL;
-}
-
-static inline void msm_vidc_free_imem_ab_table(
-		struct msm_vidc_platform_resources *res)
-{
-	res->imem_ab_tbl = NULL;
 }
 
 static inline void msm_vidc_free_reg_table(
@@ -262,43 +243,48 @@ err_qdss_addr_tbl:
 	return rc;
 }
 
-static int msm_vidc_load_imem_ab_table(struct msm_vidc_platform_resources *res)
+static int msm_vidc_load_subcache_info(struct msm_vidc_platform_resources *res)
 {
-	int num_elements = 0;
+	int rc = 0, num_subcaches = 0, c;
 	struct platform_device *pdev = res->pdev;
+	struct subcache_set *subcaches = &res->subcache_set;
 
-	if (!of_find_property(pdev->dev.of_node, "qcom,imem-ab-tbl", NULL)) {
-		/* optional property */
-		dprintk(VIDC_DBG, "qcom,imem-freq-tbl not found\n");
-		return 0;
+	num_subcaches = of_property_count_strings(pdev->dev.of_node,
+		"cache-slice-names");
+	if (num_subcaches <= 0) {
+		dprintk(VIDC_DBG, "No subcaches found\n");
+		goto err_load_subcache_table_fail;
 	}
 
-	num_elements = get_u32_array_num_elements(pdev->dev.of_node,
-			"qcom,imem-ab-tbl");
-	num_elements /= (sizeof(*res->imem_ab_tbl) / sizeof(u32));
-	if (!num_elements) {
-		dprintk(VIDC_ERR, "no elements in imem ab table\n");
-		return -EINVAL;
+	subcaches->subcache_tbl = devm_kzalloc(&pdev->dev,
+		sizeof(*subcaches->subcache_tbl) * num_subcaches, GFP_KERNEL);
+	if (!subcaches->subcache_tbl) {
+		dprintk(VIDC_ERR,
+			"Failed to allocate memory for subcache tbl\n");
+		rc = -ENOMEM;
+		goto err_load_subcache_table_fail;
 	}
 
-	res->imem_ab_tbl = devm_kzalloc(&pdev->dev, num_elements *
-			sizeof(*res->imem_ab_tbl), GFP_KERNEL);
-	if (!res->imem_ab_tbl) {
-		dprintk(VIDC_ERR, "Failed to alloc imem_ab_tbl\n");
-		return -ENOMEM;
+	subcaches->count = num_subcaches;
+	dprintk(VIDC_DBG, "Found %d subcaches\n", num_subcaches);
+
+	for (c = 0; c < num_subcaches; ++c) {
+		struct subcache_info *vsc = &res->subcache_set.subcache_tbl[c];
+
+		of_property_read_string_index(pdev->dev.of_node,
+			"cache-slice-names", c, &vsc->name);
 	}
 
-	if (of_property_read_u32_array(pdev->dev.of_node,
-		"qcom,imem-ab-tbl", (u32 *)res->imem_ab_tbl,
-		num_elements * sizeof(*res->imem_ab_tbl) / sizeof(u32))) {
-		dprintk(VIDC_ERR, "Failed to read imem_ab_tbl\n");
-		msm_vidc_free_imem_ab_table(res);
-		return -EINVAL;
-	}
-
-	res->imem_ab_tbl_size = num_elements;
+	res->sys_cache_enabled = true;
 
 	return 0;
+
+err_load_subcache_table_fail:
+	res->sys_cache_enabled = false;
+	subcaches->count = 0;
+	subcaches->subcache_tbl = NULL;
+
+	return rc;
 }
 
 /**
@@ -856,10 +842,6 @@ int read_platform_resources_from_dt(
 	kres = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	res->irq = kres ? kres->start : -1;
 
-	of_property_read_u32(pdev->dev.of_node,
-			"qcom,imem-size", &res->imem_size);
-	res->imem_type = read_imem_type(pdev);
-
 	res->sys_idle_indicator = of_property_read_bool(pdev->dev.of_node,
 			"qcom,enable-idle-indicator");
 
@@ -884,9 +866,9 @@ int read_platform_resources_from_dt(
 	if (rc)
 		dprintk(VIDC_ERR, "Failed to load pf version table: %d\n", rc);
 
-	rc = msm_vidc_load_imem_ab_table(res);
+	rc = msm_vidc_load_subcache_info(res);
 	if (rc)
-		dprintk(VIDC_WARN, "Failed to load freq table: %d\n", rc);
+		dprintk(VIDC_WARN, "Failed to load subcache info: %d\n", rc);
 
 	rc = msm_vidc_load_qdss_table(res);
 	if (rc)

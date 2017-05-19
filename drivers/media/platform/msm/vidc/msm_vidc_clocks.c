@@ -968,6 +968,8 @@ int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst)
 
 decision_done:
 	core_info.video_core_enable_mask = inst->clk_data.core_id;
+	dprintk(VIDC_DBG,
+		"Core Enable Mask %d\n", core_info.video_core_enable_mask);
 
 	rc = call_hfi_op(hdev, session_set_property,
 			(void *)inst->session,

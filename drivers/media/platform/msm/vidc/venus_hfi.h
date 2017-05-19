@@ -19,7 +19,6 @@
 #include <linux/platform_device.h>
 #include <linux/pm_qos.h>
 #include <linux/spinlock.h>
-#include "vmem/vmem.h"
 #include "vidc_hfi_api.h"
 #include "vidc_hfi_helper.h"
 #include "vidc_hfi_api.h"
@@ -48,6 +47,9 @@
 
 #define VIDC_MAX_NAME_LENGTH 64
 #define VIDC_MAX_PC_SKIP_COUNT 10
+#define VIDC_MAX_SUBCACHES 4
+#define VIDC_MAX_SUBCACHE_SIZE 52
+
 struct hfi_queue_table_header {
 	u32 qtbl_version;
 	u32 qtbl_size;
@@ -198,6 +200,11 @@ struct vidc_iface_q_info {
 #define venus_hfi_for_each_bus_reverse(__device, __binfo) \
 	venus_hfi_for_each_thing_reverse(__device, __binfo, bus)
 
+/* Subcache set helpers */
+#define venus_hfi_for_each_subcache(__device, __sinfo) \
+	venus_hfi_for_each_thing(__device, __sinfo, subcache)
+#define venus_hfi_for_each_subcache_reverse(__device, __sinfo) \
+	venus_hfi_for_each_thing_reverse(__device, __sinfo, subcache)
 
 /* Internal data used in vidc_hal not exposed to msm_vidc*/
 struct hal_data {
@@ -207,16 +214,8 @@ struct hal_data {
 	u32 register_size;
 };
 
-struct imem {
-	enum imem_type type;
-	union {
-		phys_addr_t vmem;
-	};
-};
-
 struct venus_resources {
 	struct msm_vidc_fw fw;
-	struct imem imem;
 };
 
 enum venus_hfi_state {

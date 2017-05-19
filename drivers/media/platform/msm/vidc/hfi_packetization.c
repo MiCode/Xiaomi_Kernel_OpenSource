@@ -332,37 +332,56 @@ int create_pkt_cmd_sys_coverage_config(
 
 int create_pkt_cmd_sys_set_resource(
 		struct hfi_cmd_sys_set_resource_packet *pkt,
-		struct vidc_resource_hdr *resource_hdr,
-		void *resource_value)
+		struct vidc_resource_hdr *res_hdr,
+		void *res_value)
 {
 	int rc = 0;
+	u32 i = 0;
 
-	if (!pkt || !resource_hdr || !resource_value)
+	if (!pkt || !res_hdr || !res_value) {
+		dprintk(VIDC_ERR,
+			"Invalid paramas pkt %pK res_hdr %pK res_value %pK\n",
+				pkt, res_hdr, res_value);
 		return -EINVAL;
+	}
 
 	pkt->packet_type = HFI_CMD_SYS_SET_RESOURCE;
 	pkt->size = sizeof(struct hfi_cmd_sys_set_resource_packet);
-	pkt->resource_handle = hash32_ptr(resource_hdr->resource_handle);
+	pkt->resource_handle = hash32_ptr(res_hdr->resource_handle);
 
-	switch (resource_hdr->resource_id) {
-	case VIDC_RESOURCE_OCMEM:
-	case VIDC_RESOURCE_VMEM:
+	switch (res_hdr->resource_id) {
+	case VIDC_RESOURCE_SYSCACHE:
 	{
-		struct hfi_resource_ocmem *hfioc_mem =
-			(struct hfi_resource_ocmem *)
-			&pkt->rg_resource_data[0];
+		struct hfi_resource_syscache_info_type *res_sc_info =
+			(struct hfi_resource_syscache_info_type *) res_value;
+		struct hfi_resource_subcache_type *res_sc =
+			(struct hfi_resource_subcache_type *)
+				&(res_sc_info->rg_subcache_entries[0]);
 
-		phys_addr_t imem_addr = (phys_addr_t)resource_value;
+		struct hfi_resource_syscache_info_type *hfi_sc_info =
+			(struct hfi_resource_syscache_info_type *)
+				&pkt->rg_resource_data[0];
 
-		pkt->resource_type = HFI_RESOURCE_OCMEM;
-		pkt->size += sizeof(struct hfi_resource_ocmem) - sizeof(u32);
-		hfioc_mem->size = (u32)resource_hdr->size;
-		hfioc_mem->mem = imem_addr;
+		struct hfi_resource_subcache_type *hfi_sc =
+			(struct hfi_resource_subcache_type *)
+			&(hfi_sc_info->rg_subcache_entries[0]);
+
+		pkt->resource_type = HFI_RESOURCE_SYSCACHE;
+		hfi_sc_info->num_entries = res_sc_info->num_entries;
+
+		pkt->size += (sizeof(struct hfi_resource_subcache_type))
+				 * hfi_sc_info->num_entries;
+
+		for (i = 0; i < hfi_sc_info->num_entries; i++) {
+			hfi_sc[i] = res_sc[i];
+		dprintk(VIDC_DBG, "entry hfi#%d, sc_id %d, size %d\n",
+				 i, hfi_sc[i].sc_id, hfi_sc[i].size);
+		}
 		break;
 	}
 	default:
-		dprintk(VIDC_ERR, "Invalid resource_id %d\n",
-					resource_hdr->resource_id);
+		dprintk(VIDC_ERR,
+			"Invalid resource_id %d\n", res_hdr->resource_id);
 		rc = -ENOTSUPP;
 	}
 
@@ -371,27 +390,34 @@ int create_pkt_cmd_sys_set_resource(
 
 int create_pkt_cmd_sys_release_resource(
 		struct hfi_cmd_sys_release_resource_packet *pkt,
-		struct vidc_resource_hdr *resource_hdr)
+		struct vidc_resource_hdr *res_hdr)
 {
 	int rc = 0;
 
-	if (!pkt)
+	if (!pkt || !res_hdr) {
+		dprintk(VIDC_ERR,
+			"Invalid paramas pkt %pK res_hdr %pK\n",
+				pkt, res_hdr);
 		return -EINVAL;
+	}
 
 	pkt->size = sizeof(struct hfi_cmd_sys_release_resource_packet);
 	pkt->packet_type = HFI_CMD_SYS_RELEASE_RESOURCE;
-	pkt->resource_handle = hash32_ptr(resource_hdr->resource_handle);
+	pkt->resource_handle = hash32_ptr(res_hdr->resource_handle);
 
-	switch (resource_hdr->resource_id) {
-	case VIDC_RESOURCE_OCMEM:
-	case VIDC_RESOURCE_VMEM:
-		pkt->resource_type = HFI_RESOURCE_OCMEM;
+	switch (res_hdr->resource_id) {
+	case VIDC_RESOURCE_SYSCACHE:
+		pkt->resource_type = HFI_RESOURCE_SYSCACHE;
 		break;
 	default:
-		dprintk(VIDC_ERR, "Invalid resource_id %d\n",
-					resource_hdr->resource_id);
+		dprintk(VIDC_ERR,
+			 "Invalid resource_id %d\n", res_hdr->resource_id);
 		rc = -ENOTSUPP;
 	}
+
+	dprintk(VIDC_DBG,
+		"rel_res: pkt_type 0x%x res_type 0x%x prepared\n",
+		pkt->packet_type, pkt->resource_type);
 
 	return rc;
 }
@@ -1835,6 +1861,14 @@ int create_pkt_cmd_session_set_property(
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_PARAM_WORK_MODE;
 		pkt->size += sizeof(u32) + sizeof(*work_mode);
+		break;
+	}
+	case HAL_PARAM_USE_SYS_CACHE:
+	{
+		create_pkt_enable(pkt->rg_property_data,
+			HFI_PROPERTY_PARAM_USE_SYS_CACHE,
+			(((struct hal_enable *) pdata)->enable));
+		pkt->size += sizeof(u32) * 2;
 		break;
 	}
 	/* FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET */

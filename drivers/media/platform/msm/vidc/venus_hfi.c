@@ -27,6 +27,8 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
+#include <linux/platform_device.h>
+#include <linux/soc/qcom/llcc-qcom.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/smem.h>
 #include <soc/qcom/subsystem_restart.h>
@@ -72,7 +74,6 @@ struct tzbsp_video_set_state_req {
 const struct msm_vidc_gov_data DEFAULT_BUS_VOTE = {
 	.data = NULL,
 	.data_count = 0,
-	.imem_size = 0,
 };
 
 const int max_packets = 1000;
@@ -95,6 +96,8 @@ static int __iface_cmdq_write(struct venus_hfi_device *device,
 static int __load_fw(struct venus_hfi_device *device);
 static void __unload_fw(struct venus_hfi_device *device);
 static int __tzbsp_set_video_state(enum tzbsp_video_state state);
+static int __enable_subcaches(struct venus_hfi_device *device);
+static int __disable_subcaches(struct venus_hfi_device *device);
 
 
 /**
@@ -875,7 +878,6 @@ no_data_count:
 	kfree(device->bus_vote.data);
 	device->bus_vote.data = new_data;
 	device->bus_vote.data_count = num_data;
-	device->bus_vote.imem_size = device->res->imem_size;
 
 	venus_hfi_for_each_bus(device, bus) {
 		if (bus && bus->devfreq) {
@@ -939,140 +941,33 @@ err_create_pkt:
 	return rc;
 }
 
-static int __alloc_imem(struct venus_hfi_device *device, unsigned long size)
+static int __core_release_resource(struct venus_hfi_device *device,
+		struct vidc_resource_hdr *resource_hdr)
 {
-	struct imem *imem = NULL;
+	struct hfi_cmd_sys_release_resource_packet *pkt;
+	u8 packet[VIDC_IFACEQ_VAR_SMALL_PKT_SIZE];
 	int rc = 0;
 
-	if (!device)
-		return -EINVAL;
-
-	imem = &device->resources.imem;
-	if (imem->type) {
-		dprintk(VIDC_ERR, "IMEM of type %d already allocated\n",
-				imem->type);
-		return -ENOMEM;
-	}
-
-	switch (device->res->imem_type) {
-	case IMEM_VMEM:
-	{
-		phys_addr_t vmem_buffer = 0;
-
-		rc = vmem_allocate(size, &vmem_buffer);
-		if (rc) {
-			if (rc == -ENOTSUPP) {
-				dprintk(VIDC_DBG,
-					"Target does not support vmem\n");
-				rc = 0;
-			}
-			goto imem_alloc_failed;
-		} else if (!vmem_buffer) {
-			rc = -ENOMEM;
-			goto imem_alloc_failed;
-		}
-
-		imem->vmem = vmem_buffer;
-		break;
-	}
-	case IMEM_NONE:
-		rc = 0;
-		break;
-
-	default:
-		rc = -ENOTSUPP;
-		goto imem_alloc_failed;
-	}
-
-	imem->type = device->res->imem_type;
-	dprintk(VIDC_DBG, "Allocated %ld bytes of IMEM of type %d\n", size,
-			imem->type);
-	return 0;
-imem_alloc_failed:
-	imem->type = IMEM_NONE;
-	return rc;
-}
-
-static int __free_imem(struct venus_hfi_device *device)
-{
-	struct imem *imem = NULL;
-	int rc = 0;
-
-	if (!device)
-		return -EINVAL;
-
-	imem = &device->resources.imem;
-	switch (imem->type) {
-	case IMEM_NONE:
-		/* Follow the semantics of free(NULL), which is a no-op. */
-		break;
-	case IMEM_VMEM:
-		vmem_free(imem->vmem);
-		break;
-	default:
-		rc = -ENOTSUPP;
-		goto imem_free_failed;
-	}
-
-	imem->type = IMEM_NONE;
-	return 0;
-
-imem_free_failed:
-	return rc;
-}
-
-static int __set_imem(struct venus_hfi_device *device, struct imem *imem)
-{
-	struct vidc_resource_hdr rhdr;
-	phys_addr_t addr = 0;
-	int rc = 0;
-
-	if (!device || !device->res || !imem) {
-		dprintk(VIDC_ERR, "Invalid params, core: %pK, imem: %pK\n",
-			device, imem);
+	if (!device || !resource_hdr) {
+		dprintk(VIDC_ERR, "release_res: Invalid Params\n");
 		return -EINVAL;
 	}
 
-	rhdr.resource_handle = imem; /* cookie */
-	rhdr.size = device->res->imem_size;
-	rhdr.resource_id = VIDC_RESOURCE_NONE;
+	pkt = (struct hfi_cmd_sys_release_resource_packet *) packet;
 
-	switch (imem->type) {
-	case IMEM_VMEM:
-		rhdr.resource_id = VIDC_RESOURCE_VMEM;
-		addr = imem->vmem;
-		break;
-	case IMEM_NONE:
-		dprintk(VIDC_DBG, "%s Target does not support IMEM", __func__);
-		rc = 0;
-		goto imem_set_failed;
-	default:
-		dprintk(VIDC_ERR, "IMEM of type %d unsupported\n", imem->type);
-		rc = -ENOTSUPP;
-		goto imem_set_failed;
-	}
+	rc = call_hfi_pkt_op(device, sys_release_resource,
+			pkt, resource_hdr);
 
-	MSM_VIDC_ERROR(!addr);
-
-	rc = __core_set_resource(device, &rhdr, (void *)addr);
 	if (rc) {
-		dprintk(VIDC_ERR, "Failed to set IMEM on driver\n");
-		goto imem_set_failed;
+		dprintk(VIDC_ERR, "release_res: failed to create packet\n");
+		goto err_create_pkt;
 	}
 
-	dprintk(VIDC_DBG,
-			"Managed to set IMEM buffer of type %d sized %d bytes at %pa\n",
-			rhdr.resource_id, rhdr.size, &addr);
+	rc = __iface_cmdq_write(device, pkt);
+	if (rc)
+		rc = -ENOTEMPTY;
 
-	rc = __vote_buses(device, device->bus_vote.data,
-			device->bus_vote.data_count);
-	if (rc) {
-		dprintk(VIDC_ERR,
-				"Failed to vote for buses after setting imem: %d\n",
-				rc);
-	}
-
-imem_set_failed:
+err_create_pkt:
 	return rc;
 }
 
@@ -1930,6 +1825,12 @@ static int venus_hfi_core_init(void *device)
 	rc = call_hfi_pkt_op(dev, sys_image_version, &version_pkt);
 	if (rc || __iface_cmdq_write(dev, &version_pkt))
 		dprintk(VIDC_WARN, "Failed to send image version pkt to f/w\n");
+
+	rc = __enable_subcaches(device);
+	if (rc) {
+		dprintk(VIDC_WARN,
+			"Failed to enable subcaches, err = %d\n", rc);
+	}
 
 	if (dev->res->pm_qos_latency_us) {
 #ifdef CONFIG_SMP
@@ -2848,6 +2749,8 @@ static void venus_hfi_pm_handler(struct work_struct *work)
 		return;
 	}
 
+	dprintk(VIDC_PROF,
+		"Entering venus_hfi_pm_handler\n");
 	/*
 	 * It is ok to check this variable outside the lock since
 	 * it is being updated in this context only
@@ -3094,12 +2997,7 @@ static int __response_handler(struct venus_hfi_device *device)
 			break;
 		case HAL_SYS_INIT_DONE:
 			dprintk(VIDC_DBG, "Received SYS_INIT_DONE\n");
-			/* Video driver intentionally does not unset
-			 * IMEM on venus to simplify power collapse.
-			 */
-			if (__set_imem(device, &device->resources.imem))
-				dprintk(VIDC_WARN,
-				"Failed to set IMEM. Performance will be impacted\n");
+
 			sys_init_done.capabilities =
 				device->sys_init_capabilities;
 			hfi_process_sys_init_done_prop_read(
@@ -3584,6 +3482,68 @@ err_reg_get:
 	return rc;
 }
 
+static void __deinit_subcaches(struct venus_hfi_device *device)
+{
+	struct subcache_info *sinfo = NULL;
+
+	if (!device) {
+		dprintk(VIDC_ERR, "deinit_subcaches: invalid device %pK\n",
+			device);
+		goto exit;
+	}
+
+	if (!device->res->sys_cache_enabled)
+		goto exit;
+
+	venus_hfi_for_each_subcache_reverse(device, sinfo) {
+		if (sinfo->subcache) {
+			dprintk(VIDC_DBG, "deinit_subcaches: %s\n",
+				sinfo->name);
+			llcc_slice_putd(sinfo->subcache);
+			sinfo->subcache = NULL;
+		}
+	}
+
+exit:
+	return;
+}
+
+static int __init_subcaches(struct venus_hfi_device *device)
+{
+	int rc = 0;
+	struct subcache_info *sinfo = NULL;
+
+	if (!device) {
+		dprintk(VIDC_ERR, "init_subcaches: invalid device %pK\n",
+			device);
+		return -EINVAL;
+	}
+
+	if (!device->res->sys_cache_enabled)
+		return 0;
+
+	venus_hfi_for_each_subcache(device, sinfo) {
+		sinfo->subcache = llcc_slice_getd(&device->res->pdev->dev,
+			sinfo->name);
+		if (IS_ERR_OR_NULL(sinfo->subcache)) {
+			rc = PTR_ERR(sinfo->subcache) ? : -EBADHANDLE;
+			dprintk(VIDC_ERR,
+				 "init_subcaches: invalid subcache: %s rc %d\n",
+				sinfo->name, rc);
+			sinfo->subcache = NULL;
+			goto err_subcache_get;
+		}
+		dprintk(VIDC_DBG, "init_subcaches: %s\n",
+			sinfo->name);
+	}
+
+	return 0;
+
+err_subcache_get:
+	__deinit_subcaches(device);
+	return rc;
+}
+
 static int __init_resources(struct venus_hfi_device *device,
 				struct msm_vidc_platform_resources *res)
 {
@@ -3608,6 +3568,10 @@ static int __init_resources(struct venus_hfi_device *device,
 		goto err_init_bus;
 	}
 
+	rc = __init_subcaches(device);
+	if (rc)
+		dprintk(VIDC_WARN, "Failed to init subcaches: %d\n", rc);
+
 	device->sys_init_capabilities =
 		kzalloc(sizeof(struct msm_vidc_capability)
 		* VIDC_MAX_SESSIONS, GFP_TEMPORARY);
@@ -3623,6 +3587,7 @@ err_init_clocks:
 
 static void __deinit_resources(struct venus_hfi_device *device)
 {
+	__deinit_subcaches(device);
 	__deinit_bus(device);
 	__deinit_clocks(device);
 	__deinit_regulators(device);
@@ -3789,6 +3754,132 @@ static int __disable_regulators(struct venus_hfi_device *device)
 	return rc;
 }
 
+static int __enable_subcaches(struct venus_hfi_device *device)
+{
+	int rc = 0;
+	u32 c = 0;
+	struct subcache_info *sinfo;
+	u32 resource[VIDC_MAX_SUBCACHE_SIZE];
+	struct hfi_resource_syscache_info_type *sc_res_info;
+	struct hfi_resource_subcache_type *sc_res;
+	struct vidc_resource_hdr rhdr;
+
+	if (!device->res->sys_cache_enabled)
+		return 0;
+
+	memset((void *)resource, 0x0, (sizeof(u32) * VIDC_MAX_SUBCACHE_SIZE));
+
+	sc_res_info = (struct hfi_resource_syscache_info_type *)resource;
+	sc_res = &(sc_res_info->rg_subcache_entries[0]);
+
+	/* Activate subcaches */
+	venus_hfi_for_each_subcache(device, sinfo) {
+		rc = llcc_slice_activate(sinfo->subcache);
+		if (rc) {
+			dprintk(VIDC_ERR, "Failed to activate %s: %d\n",
+				sinfo->name, rc);
+			continue;
+		}
+		sinfo->isactive = true;
+
+		/* Update the entry */
+		sc_res[c].size = sinfo->subcache->llcc_slice_size;
+		sc_res[c].sc_id = sinfo->subcache->llcc_slice_id;
+		dprintk(VIDC_DBG, "Activate subcache %s\n", sinfo->name);
+		c++;
+	}
+
+	/* Set resource to Venus for activated subcaches */
+	if (c) {
+		dprintk(VIDC_DBG, "Setting Subcaches\n");
+
+		rhdr.resource_handle = sc_res_info; /* cookie */
+		rhdr.resource_id = VIDC_RESOURCE_SYSCACHE;
+
+		sc_res_info->num_entries = c;
+
+		rc = __core_set_resource(device, &rhdr, (void *)sc_res_info);
+		if (rc) {
+			dprintk(VIDC_ERR, "Failed to set subcaches %d\n", rc);
+			goto err_fail_set_subacaches;
+		}
+	}
+
+	venus_hfi_for_each_subcache(device, sinfo) {
+		if (sinfo->isactive == true)
+			sinfo->isset = true;
+	}
+
+	dprintk(VIDC_DBG, "Activated & Set Subcaches to Venus\n");
+
+	return 0;
+
+err_fail_set_subacaches:
+	__disable_subcaches(device);
+
+	return rc;
+}
+
+static int __disable_subcaches(struct venus_hfi_device *device)
+{
+	struct subcache_info *sinfo;
+	int rc = 0;
+	u32 c = 0;
+	u32 resource[VIDC_MAX_SUBCACHE_SIZE];
+	struct hfi_resource_syscache_info_type *sc_res_info;
+	struct hfi_resource_subcache_type *sc_res;
+	struct vidc_resource_hdr rhdr;
+
+	if (!device->res->sys_cache_enabled)
+		return 0;
+
+	dprintk(VIDC_DBG, "Disabling Subcaches\n");
+
+	memset((void *)resource, 0x0, (sizeof(u32) * VIDC_MAX_SUBCACHE_SIZE));
+
+	sc_res_info = (struct hfi_resource_syscache_info_type *)resource;
+	sc_res = &(sc_res_info->rg_subcache_entries[0]);
+
+	/* Release resource command to Venus */
+	venus_hfi_for_each_subcache_reverse(device, sinfo) {
+		if (sinfo->isset == true) {
+			/* Update the entry */
+			sc_res[c].size = sinfo->subcache->llcc_slice_size;
+			sc_res[c].sc_id = sinfo->subcache->llcc_slice_id;
+			c++;
+			sinfo->isset = false;
+		}
+	}
+
+	if (c > 0) {
+		rhdr.resource_handle = sc_res_info; /* cookie */
+		rhdr.resource_id = VIDC_RESOURCE_SYSCACHE;
+
+		rc = __core_release_resource(device, &rhdr);
+		if (rc)
+			dprintk(VIDC_ERR, "Failed to release subcaches\n");
+
+		dprintk(VIDC_DBG, "Release %d subcaches\n", c);
+	}
+
+	/* De-activate subcaches */
+	venus_hfi_for_each_subcache_reverse(device, sinfo) {
+		if (sinfo->isactive == true) {
+			dprintk(VIDC_DBG, "De-activate subcache %s\n",
+				sinfo->name);
+			rc = llcc_slice_deactivate(sinfo->subcache);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"Failed to de-activate %s: %d\n",
+					sinfo->name, rc);
+			}
+			sinfo->isactive = false;
+		}
+	}
+
+	return rc;
+}
+
 static int __venus_power_on(struct venus_hfi_device *device)
 {
 	int rc = 0;
@@ -3803,12 +3894,6 @@ static int __venus_power_on(struct venus_hfi_device *device)
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to vote buses, err: %d\n", rc);
 		goto fail_vote_buses;
-	}
-
-	rc = __alloc_imem(device, device->res->imem_size);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to allocate IMEM\n");
-		goto fail_alloc_imem;
 	}
 
 	rc = __enable_regulators(device);
@@ -3855,8 +3940,6 @@ static int __venus_power_on(struct venus_hfi_device *device)
 fail_enable_clks:
 	__disable_regulators(device);
 fail_enable_gdsc:
-	__free_imem(device);
-fail_alloc_imem:
 	__unvote_buses(device);
 fail_vote_buses:
 	device->power_enabled = false;
@@ -3876,8 +3959,6 @@ static void __venus_power_off(struct venus_hfi_device *device)
 	if (__disable_regulators(device))
 		dprintk(VIDC_WARN, "Failed to disable regulators\n");
 
-	__free_imem(device);
-
 	if (__unvote_buses(device))
 		dprintk(VIDC_WARN, "Failed to unvote for buses\n");
 	device->power_enabled = false;
@@ -3896,6 +3977,9 @@ static inline int __suspend(struct venus_hfi_device *device)
 	}
 
 	dprintk(VIDC_PROF, "Entering power collapse\n");
+
+	if (__disable_subcaches(device))
+		dprintk(VIDC_ERR, "Failed to disable subcaches\n");
 
 	if (device->res->pm_qos_latency_us &&
 		pm_qos_request_active(&device->qos))
@@ -3966,6 +4050,15 @@ static inline int __resume(struct venus_hfi_device *device)
 		pm_qos_add_request(&device->qos, PM_QOS_CPU_DMA_LATENCY,
 				device->res->pm_qos_latency_us);
 	}
+
+	__sys_set_debug(device, msm_vidc_fw_debug);
+
+	rc = __enable_subcaches(device);
+	if (rc) {
+		dprintk(VIDC_WARN,
+			"Failed to enable subcaches, err = %d\n", rc);
+	}
+
 	dprintk(VIDC_PROF, "Resumed from power collapse\n");
 exit:
 	device->skip_pc_count = 0;
