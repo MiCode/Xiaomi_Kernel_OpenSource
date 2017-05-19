@@ -3399,11 +3399,12 @@ int q6asm_set_shared_circ_buff(struct audio_client *ac,
 	open->shared_circ_buf_start_phy_addr_lsw =
 			lower_32_bits(buf_circ->phys);
 	open->shared_circ_buf_start_phy_addr_msw =
-			upper_32_bits(buf_circ->phys);
+			msm_audio_populate_upper_32_bits(buf_circ->phys);
 	open->shared_circ_buf_size = bufsz * bufcnt;
 
 	open->map_region_circ_buf.shm_addr_lsw = lower_32_bits(buf_circ->phys);
-	open->map_region_circ_buf.shm_addr_msw = upper_32_bits(buf_circ->phys);
+	open->map_region_circ_buf.shm_addr_msw =
+			msm_audio_populate_upper_32_bits(buf_circ->phys);
 	open->map_region_circ_buf.mem_size_bytes = bytes_to_alloc;
 
 	mutex_unlock(&ac->cmd_lock);
@@ -3445,10 +3446,12 @@ int q6asm_set_shared_pos_buff(struct audio_client *ac,
 	open->shared_pos_buf_num_regions = 1;
 	open->shared_pos_buf_property_flag = 0x00;
 	open->shared_pos_buf_phy_addr_lsw = lower_32_bits(buf_pos->phys);
-	open->shared_pos_buf_phy_addr_msw = upper_32_bits(buf_pos->phys);
+	open->shared_pos_buf_phy_addr_msw =
+			msm_audio_populate_upper_32_bits(buf_pos->phys);
 
 	open->map_region_pos_buf.shm_addr_lsw = lower_32_bits(buf_pos->phys);
-	open->map_region_pos_buf.shm_addr_msw = upper_32_bits(buf_pos->phys);
+	open->map_region_pos_buf.shm_addr_msw =
+			msm_audio_populate_upper_32_bits(buf_pos->phys);
 	open->map_region_pos_buf.mem_size_bytes = bytes_to_alloc;
 
 done:
