@@ -1849,6 +1849,45 @@ static void arm_iommu_sync_single_for_device(struct device *dev,
 		__dma_page_cpu_to_dev(page, offset, size, dir);
 }
 
+static dma_addr_t arm_iommu_dma_map_resource(
+			struct device *dev, phys_addr_t phys_addr,
+			size_t size, enum dma_data_direction dir,
+			unsigned long attrs)
+{
+	struct dma_iommu_mapping *mapping = dev->archdata.mapping;
+	size_t offset = phys_addr & ~PAGE_MASK;
+	size_t len = PAGE_ALIGN(size + offset);
+	dma_addr_t dma_addr;
+	int prot;
+
+	dma_addr = __alloc_iova(mapping, len);
+	if (dma_addr == DMA_ERROR_CODE)
+		return dma_addr;
+
+	prot = __dma_direction_to_prot(dir);
+	prot |= IOMMU_MMIO;
+
+	if (iommu_map(mapping->domain, dma_addr, phys_addr - offset,
+			len, prot)) {
+		__free_iova(mapping, dma_addr, len);
+		return DMA_ERROR_CODE;
+	}
+	return dma_addr + offset;
+}
+
+static void arm_iommu_dma_unmap_resource(
+			struct device *dev, dma_addr_t addr,
+			size_t size, enum dma_data_direction dir,
+			unsigned long attrs)
+{
+	struct dma_iommu_mapping *mapping = dev->archdata.mapping;
+	size_t offset = addr & ~PAGE_MASK;
+	size_t len = PAGE_ALIGN(size + offset);
+
+	iommu_unmap(mapping->domain, addr - offset, len);
+	__free_iova(mapping, addr - offset, len);
+}
+
 static int arm_iommu_mapping_error(struct device *dev,
 				   dma_addr_t dma_addr)
 {
@@ -1870,6 +1909,9 @@ const struct dma_map_ops iommu_ops = {
 	.unmap_sg		= arm_iommu_unmap_sg,
 	.sync_sg_for_cpu	= arm_iommu_sync_sg_for_cpu,
 	.sync_sg_for_device	= arm_iommu_sync_sg_for_device,
+
+	.map_resource		= arm_iommu_dma_map_resource,
+	.unmap_resource		= arm_iommu_dma_unmap_resource,
 
 	.set_dma_mask		= arm_dma_set_mask,
 	.mapping_error		= arm_iommu_mapping_error,
