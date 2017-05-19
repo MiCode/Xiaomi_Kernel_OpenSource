@@ -3222,6 +3222,77 @@ fail_cmd:
 	return rc;
 }
 
+
+int q6asm_open_transcode_loopback(struct audio_client *ac,
+			uint16_t bits_per_sample,
+			uint32_t source_format, uint32_t sink_format)
+{
+	int rc = 0x00;
+	struct asm_stream_cmd_open_transcode_loopback_t open;
+
+	if (ac == NULL) {
+		pr_err("%s: APR handle NULL\n", __func__);
+		return -EINVAL;
+	}
+	if (ac->apr == NULL) {
+		pr_err("%s: AC APR handle NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: session[%d]\n", __func__, ac->session);
+
+	q6asm_add_hdr(ac, &open.hdr, sizeof(open), TRUE);
+	atomic_set(&ac->cmd_state, -1);
+	open.hdr.opcode = ASM_STREAM_CMD_OPEN_TRANSCODE_LOOPBACK;
+
+	open.mode_flags = 0;
+	open.src_endpoint_type = 0;
+	open.sink_endpoint_type = 0;
+	open.src_format_id = source_format;
+	open.sink_format_id = sink_format;
+	/* source endpoint : matrix */
+	open.audproc_topo_id = q6asm_get_asm_topology_cal();
+
+	ac->app_type = q6asm_get_asm_app_type_cal();
+	if (ac->perf_mode == LOW_LATENCY_PCM_MODE)
+		open.mode_flags |= ASM_LOW_LATENCY_STREAM_SESSION;
+	else
+		open.mode_flags |= ASM_LEGACY_STREAM_SESSION;
+	ac->topology = open.audproc_topo_id;
+	open.bits_per_sample = bits_per_sample;
+	open.reserved = 0;
+	pr_debug("%s: opening a transcode_loopback with mode_flags =[%d] session[%d]\n",
+		__func__, open.mode_flags, ac->session);
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &open);
+	if (rc < 0) {
+		pr_err("%s: open failed op[0x%x]rc[%d]\n",
+				__func__, open.hdr.opcode, rc);
+		rc = -EINVAL;
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+			(atomic_read(&ac->cmd_state) >= 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s: timeout. waited for open_transcode_loopback\n",
+			__func__);
+		rc = -ETIMEDOUT;
+		goto fail_cmd;
+	}
+	if (atomic_read(&ac->cmd_state) > 0) {
+		pr_err("%s: DSP returned error[%s]\n",
+				__func__, adsp_err_get_err_str(
+					atomic_read(&ac->cmd_state)));
+		rc = adsp_err_get_lnx_err_code(
+				atomic_read(&ac->cmd_state));
+		goto fail_cmd;
+	}
+
+	return 0;
+fail_cmd:
+	return rc;
+}
+
 static
 int q6asm_set_shared_circ_buff(struct audio_client *ac,
 			       struct asm_stream_cmd_open_shared_io *open,
