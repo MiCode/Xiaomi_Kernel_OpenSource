@@ -168,6 +168,9 @@ int msm_vidc_query_ctrl(void *instance, struct v4l2_queryctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_BLUR_HEIGHT:
 		msm_vidc_ctrl_get_range(ctrl, &inst->capability.blur_height);
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES:
+		msm_vidc_ctrl_get_range(ctrl, &inst->capability.bframe);
+		break;
 	default:
 		rc = -EINVAL;
 	}
@@ -1934,6 +1937,7 @@ static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		ctrl->val = bufreq->buffer_count_min_host;
 		break;
 	case V4L2_CID_MIN_BUFFERS_FOR_OUTPUT:
+		msm_comm_try_get_bufreqs(inst);
 		bufreq = get_buff_req_buffer(inst, HAL_BUFFER_INPUT);
 		if (!bufreq) {
 			dprintk(VIDC_ERR,

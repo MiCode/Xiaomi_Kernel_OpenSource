@@ -1202,6 +1202,16 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		else if (ctrl->id == V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES)
 			num_b = ctrl->val;
 
+		if ((num_b < inst->capability.bframe.min) ||
+			(num_b > inst->capability.bframe.max)) {
+			dprintk(VIDC_ERR,
+				"Error setting num b frames %d min, max supported is %d, %d\n",
+				num_b, inst->capability.bframe.min,
+				inst->capability.bframe.max);
+			rc = -ENOTSUPP;
+			break;
+		}
+
 		property_id = HAL_CONFIG_VENC_INTRA_PERIOD;
 		intra_period.pframes = num_p;
 		intra_period.bframes = num_b;
