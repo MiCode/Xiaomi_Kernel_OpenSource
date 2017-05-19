@@ -529,14 +529,34 @@ void reg_dmav1_setup_dspp_gcv18(struct sde_hw_dspp *ctx, void *cfg)
 		REG_DMA_SETUP_OPS(dma_write_cfg,
 			ctx->cap->sblk->gc.base + GC_C0_OFF +
 			(i * sizeof(u32) * 2),
-			lut_cfg->c0 + ARRAY_SIZE(lut_cfg->c0),
+			lut_cfg->c0 + (ARRAY_SIZE(lut_cfg->c0) * i),
 			PGC_TBL_LEN * sizeof(u32),
 			REG_BLK_WRITE_INC, 0, 0);
 		rc = dma_ops->setup_payload(&dma_write_cfg);
 		if (rc) {
-			DRM_ERROR("index init failed ret %d\n", rc);
+			DRM_ERROR("lut write failed ret %d\n", rc);
 			return;
 		}
+	}
+
+	reg = BIT(0);
+	REG_DMA_SETUP_OPS(dma_write_cfg,
+		ctx->cap->sblk->gc.base + GC_LUT_SWAP_OFF,
+		&reg, sizeof(reg), REG_SINGLE_WRITE, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("setting swap offset failed ret %d\n", rc);
+		return;
+	}
+
+	reg = GC_EN | ((lut_cfg->flags & PGC_8B_ROUND) ? GC_8B_ROUND_EN : 0);
+	REG_DMA_SETUP_OPS(dma_write_cfg,
+		ctx->cap->sblk->gc.base,
+		&reg, sizeof(reg), REG_SINGLE_WRITE, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("enabling gamma correction failed ret %d\n", rc);
+		return;
 	}
 
 	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, dspp_buf[GC][ctx->idx],
@@ -547,11 +567,6 @@ void reg_dmav1_setup_dspp_gcv18(struct sde_hw_dspp *ctx, void *cfg)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
 		return;
 	}
-
-	reg = GC_EN | ((lut_cfg->flags & PGC_8B_ROUND) ? GC_8B_ROUND_EN : 0);
-	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->gc.base + GC_LUT_SWAP_OFF,
-			BIT(0));
-	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->gc.base, reg);
 }
 
 int reg_dmav1_deinit_dspp_ops(enum sde_dspp idx)
