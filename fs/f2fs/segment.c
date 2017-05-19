@@ -752,7 +752,7 @@ static void f2fs_submit_discard_endio(struct bio *bio, int err)
 
 	dc->error = err;
 	dc->state = D_DONE;
-	complete(&dc->wait);
+	complete_all(&dc->wait);
 	bio_put(bio);
 }
 
