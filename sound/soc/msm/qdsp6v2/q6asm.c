@@ -155,12 +155,37 @@ static int out_cold_index;
 static char *out_buffer;
 static char *in_buffer;
 
-static uint32_t adsp_reg_event_opcode[] = {ASM_STREAM_CMD_REGISTER_PP_EVENTS,
-					ASM_STREAM_CMD_REGISTER_ENCDEC_EVENTS};
+static uint32_t adsp_reg_event_opcode[] = {
+	ASM_STREAM_CMD_REGISTER_PP_EVENTS,
+	ASM_STREAM_CMD_REGISTER_ENCDEC_EVENTS,
+	ASM_STREAM_CMD_REGISTER_IEC_61937_FMT_UPDATE };
 
-static uint32_t adsp_raise_event_opcode[] = {ASM_STREAM_PP_EVENT,
-					    ASM_STREAM_CMD_ENCDEC_EVENTS};
+static uint32_t adsp_raise_event_opcode[] = {
+	ASM_STREAM_PP_EVENT,
+	ASM_STREAM_CMD_ENCDEC_EVENTS,
+	ASM_IEC_61937_MEDIA_FMT_EVENT };
 
+static int is_adsp_reg_event(uint32_t cmd)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(adsp_reg_event_opcode); i++) {
+		if (cmd == adsp_reg_event_opcode[i])
+			return i;
+	}
+	return -EINVAL;
+}
+
+static int is_adsp_raise_event(uint32_t cmd)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(adsp_raise_event_opcode); i++) {
+		if (cmd == adsp_raise_event_opcode[i])
+			return i;
+	}
+	return -EINVAL;
+}
 
 static inline void q6asm_set_flag_in_token(union asm_token_struct *asm_token,
 					   int flag, int flag_offset)
@@ -1794,6 +1819,7 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		case ASM_STREAM_CMD_SET_ENCDEC_PARAM:
 		case ASM_STREAM_CMD_SET_ENCDEC_PARAM_V2:
 		case ASM_STREAM_CMD_REGISTER_ENCDEC_EVENTS:
+		case ASM_STREAM_CMD_REGISTER_IEC_61937_FMT_UPDATE:
 		case ASM_DATA_CMD_REMOVE_INITIAL_SILENCE:
 		case ASM_DATA_CMD_REMOVE_TRAILING_SILENCE:
 		case ASM_SESSION_CMD_REGISTER_FOR_RX_UNDERFLOW_EVENTS:
@@ -1807,10 +1833,9 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 				pr_err("%s: cmd = 0x%x returned error = 0x%x\n",
 					__func__, payload[0], payload[1]);
 				if (wakeup_flag) {
-					if (payload[0] ==
-						ASM_STREAM_CMD_SET_PP_PARAMS_V2
-						|| payload[0] ==
-					  ASM_STREAM_CMD_REGISTER_ENCDEC_EVENTS)
+					if ((is_adsp_reg_event(payload[0]) >= 0)
+					      || (payload[0] ==
+					      ASM_STREAM_CMD_SET_PP_PARAMS_V2))
 						atomic_set(&ac->cmd_state_pp,
 								payload[1]);
 					else
@@ -1820,9 +1845,8 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 				}
 				return 0;
 			}
-			if (payload[0] == ASM_STREAM_CMD_SET_PP_PARAMS_V2 ||
-			    payload[0] ==
-					ASM_STREAM_CMD_REGISTER_ENCDEC_EVENTS) {
+			if ((is_adsp_reg_event(payload[0]) >= 0) ||
+			    (payload[0] == ASM_STREAM_CMD_SET_PP_PARAMS_V2)) {
 				if (atomic_read(&ac->cmd_state_pp) &&
 					wakeup_flag) {
 					atomic_set(&ac->cmd_state_pp, 0);
@@ -2063,13 +2087,11 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		break;
 	case ASM_STREAM_PP_EVENT:
 	case ASM_STREAM_CMD_ENCDEC_EVENTS:
-		pr_debug("%s: ASM_STREAM_PP_EVENT payload[0][0x%x] payload[1][0x%x]",
+	case ASM_STREAM_CMD_REGISTER_IEC_61937_FMT_UPDATE:
+		pr_debug("%s: ASM_STREAM_EVENT payload[0][0x%x] payload[1][0x%x]",
 				 __func__, payload[0], payload[1]);
-		for (i = 0; i < ARRAY_SIZE(adsp_raise_event_opcode); i++)
-			if (adsp_raise_event_opcode[i] == data->opcode)
-				break;
-
-		if (i >= ARRAY_SIZE(adsp_raise_event_opcode))
+		i = is_adsp_raise_event(data->opcode);
+		if (i < 0)
 			return 0;
 
 		/* repack payload for asm_stream_pp_event
