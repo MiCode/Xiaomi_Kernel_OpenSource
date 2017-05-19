@@ -1585,7 +1585,7 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
 	while (total_written < len) {
 		ssize_t written;
 
-		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+		add_wait_queue(sk_sleep(sk), &wait);
 		while (vsock_stream_has_space(vsk) == 0 &&
 		       sk->sk_err == 0 &&
 		       !(sk->sk_shutdown & SEND_SHUTDOWN) &&
@@ -1594,13 +1594,13 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
 			/* Don't wait for non-blocking sockets. */
 			if (timeout == 0) {
 				err = -EAGAIN;
-				finish_wait(sk_sleep(sk), &wait);
+				remove_wait_queue(sk_sleep(sk), &wait);
 				goto out_err;
 			}
 
 			err = transport->notify_send_pre_block(vsk, &send_data);
 			if (err < 0) {
-				finish_wait(sk_sleep(sk), &wait);
+				remove_wait_queue(sk_sleep(sk), &wait);
 				goto out_err;
 			}
 
@@ -1609,15 +1609,15 @@ static int vsock_stream_sendmsg(struct socket *sock, struct msghdr *msg,
 			lock_sock(sk);
 			if (signal_pending(current)) {
 				err = sock_intr_errno(timeout);
-				finish_wait(sk_sleep(sk), &wait);
+				remove_wait_queue(sk_sleep(sk), &wait);
 				goto out_err;
 			} else if (timeout == 0) {
 				err = -EAGAIN;
-				finish_wait(sk_sleep(sk), &wait);
+				remove_wait_queue(sk_sleep(sk), &wait);
 				goto out_err;
 			}
 		}
-		finish_wait(sk_sleep(sk), &wait);
+		remove_wait_queue(sk_sleep(sk), &wait);
 
 		/* These checks occur both as part of and after the loop
 		 * conditional since we need to check before and after
