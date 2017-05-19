@@ -2470,7 +2470,7 @@ static int fastrpc_probe(struct platform_device *pdev)
 			int srcVM[1] = {VMID_HLOS};
 			int destVM[4] = {VMID_HLOS, VMID_MSS_MSA, VMID_SSC_Q6,
 						VMID_ADSP_Q6};
-			int destVMperm[4] = {PERM_READ | PERM_WRITE,
+			int destVMperm[4] = {PERM_READ | PERM_WRITE | PERM_EXEC,
 				PERM_READ | PERM_WRITE | PERM_EXEC,
 				PERM_READ | PERM_WRITE | PERM_EXEC,
 				PERM_READ | PERM_WRITE | PERM_EXEC,
