@@ -813,12 +813,12 @@ static int timed_poll_check(struct kgsl_device *device,
 
 	t = jiffies + msecs_to_jiffies(timeout);
 
-	while (!time_after(jiffies, t)) {
+	do {
 		kgsl_gmu_regread(device, offset, &value);
 		if ((value & mask) == expected_ret)
 			return 0;
 		cpu_relax();
-	}
+	} while (!time_after(jiffies, t));
 
 	return -EINVAL;
 }
