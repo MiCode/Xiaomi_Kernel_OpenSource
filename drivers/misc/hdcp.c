@@ -38,21 +38,6 @@
 
 #include "qseecom_kernel.h"
 
-struct msm_hdcp_mgr {
-	struct platform_device *pdev;
-	dev_t dev_num;
-	struct cdev cdev;
-	struct class *class;
-	struct device *device;
-	struct HDCP_V2V1_MSG_TOPOLOGY cached_tp;
-	u32 tp_msgid;
-};
-
-#define CLASS_NAME "hdcp"
-#define DRIVER_NAME "msm_hdcp"
-
-static struct msm_hdcp_mgr *hdcp_drv_mgr;
-
 #define TZAPP_NAME            "hdcp2p2"
 #define HDCP1_APP_NAME        "hdcp1"
 #define QSEECOM_SBUFF_SIZE    0x1000
@@ -561,6 +546,24 @@ struct hdcp_lib_message_map {
 	int msg_id;
 	const char *msg_name;
 };
+
+struct msm_hdcp_mgr {
+	struct platform_device *pdev;
+	dev_t dev_num;
+	struct cdev cdev;
+	struct class *class;
+	struct device *device;
+	struct HDCP_V2V1_MSG_TOPOLOGY cached_tp;
+	u32 tp_msgid;
+	void *client_ctx;
+	struct hdcp_lib_handle *handle;
+};
+
+#define CLASS_NAME "hdcp"
+#define DRIVER_NAME "msm_hdcp"
+
+static struct msm_hdcp_mgr *hdcp_drv_mgr;
+static struct hdcp_lib_handle *drv_client_handle;
 
 static void hdcp_lib_clean(struct hdcp_lib_handle *handle);
 static void hdcp_lib_init(struct hdcp_lib_handle *handle);
@@ -2413,7 +2416,13 @@ int hdcp_library_register(struct hdcp_register_data *data)
 	}
 
 	*data->hdcp_ctx = handle;
+	/* Cache the client ctx to be used later
+	 * HDCP driver probe happens earlier than
+	 * SDE driver probe hence caching it to
+	 * be used later.
+	 */
 
+	drv_client_handle = handle;
 	handle->thread = kthread_run(kthread_worker_fn,
 				     &handle->worker, "hdcp_tz_lib");
 
@@ -2543,8 +2552,35 @@ static ssize_t msm_hdcp_1x_sysfs_wta_tp(struct device *dev,
 	return ret;
 } /* hdmi_tx_sysfs_wta_hpd */
 
+static ssize_t hdmi_hdcp2p2_sysfs_wta_min_level_change(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int rc;
+	int min_enc_lvl;
+	struct hdcp_lib_handle *handle;
+	ssize_t ret = count;
+
+	handle = hdcp_drv_mgr->handle;
+
+	rc = kstrtoint(buf, 10, &min_enc_lvl);
+	if (rc) {
+		pr_err("%s: kstrtoint failed. rc=%d\n", __func__, rc);
+		return -EINVAL;
+	}
+
+	if (handle && handle->client_ops->notify_lvl_change) {
+		handle->client_ops->notify_lvl_change(handle->client_ctx,
+		min_enc_lvl);
+	}
+
+	return ret;
+}
+
 static DEVICE_ATTR(tp, S_IRUGO | S_IWUSR, msm_hdcp_1x_sysfs_rda_tp,
-				   msm_hdcp_1x_sysfs_wta_tp);
+msm_hdcp_1x_sysfs_wta_tp);
+
+static DEVICE_ATTR(min_level_change, S_IWUSR, NULL,
+hdmi_hdcp2p2_sysfs_wta_min_level_change);
 
 void hdcp1_cache_repeater_topology(void *hdcp1_cached_tp)
 {
@@ -2555,6 +2591,7 @@ void hdcp1_cache_repeater_topology(void *hdcp1_cached_tp)
 
 static struct attribute *msm_hdcp_fs_attrs[] = {
 	&dev_attr_tp.attr,
+	&dev_attr_min_level_change.attr,
 	NULL
 };
 
@@ -2631,6 +2668,11 @@ static int msm_hdcp_probe(struct platform_device *pdev)
 			&msm_hdcp_fs_attr_group);
 	if (ret)
 		pr_err("unable to register rotator sysfs nodes\n");
+
+	/* Store the handle in the hdcp drv mgr
+	 * to be used for the sysfs notifications
+	 */
+	hdcp_drv_mgr->handle = drv_client_handle;
 
 	return 0;
 error_cdev_add:
