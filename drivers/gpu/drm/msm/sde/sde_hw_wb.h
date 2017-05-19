@@ -157,6 +157,16 @@ struct sde_hw_wb {
 };
 
 /**
+ * sde_hw_wb - convert base object sde_hw_base to container
+ * @hw: Pointer to base hardware block
+ * return: Pointer to hardware block container
+ */
+static inline struct sde_hw_wb *to_sde_hw_wb(struct sde_hw_blk *hw)
+{
+	return container_of(hw, struct sde_hw_wb, base);
+}
+
+/**
  * sde_hw_wb_init(): Initializes and return writeback hw driver object.
  * @idx:  wb_path index for which driver object is required
  * @addr: mapped register io address of MDP

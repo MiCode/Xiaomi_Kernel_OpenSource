@@ -187,6 +187,16 @@ struct sde_hw_dspp {
 };
 
 /**
+ * sde_hw_dspp - convert base object sde_hw_base to container
+ * @hw: Pointer to base hardware block
+ * return: Pointer to hardware block container
+ */
+static inline struct sde_hw_dspp *to_sde_hw_dspp(struct sde_hw_blk *hw)
+{
+	return container_of(hw, struct sde_hw_dspp, base);
+}
+
+/**
  * sde_hw_dspp_init - initializes the dspp hw driver object.
  * should be called once before accessing every dspp.
  * @idx:  DSPP index for which driver object is required

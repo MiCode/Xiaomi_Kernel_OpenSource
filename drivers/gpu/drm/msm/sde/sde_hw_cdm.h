@@ -108,6 +108,16 @@ struct sde_hw_cdm {
 };
 
 /**
+ * sde_hw_cdm - convert base object sde_hw_base to container
+ * @hw: Pointer to base hardware block
+ * return: Pointer to hardware block container
+ */
+static inline struct sde_hw_cdm *to_sde_hw_cdm(struct sde_hw_blk *hw)
+{
+	return container_of(hw, struct sde_hw_cdm, base);
+}
+
+/**
  * sde_hw_cdm_init - initializes the cdm hw driver object.
  * should be called once before accessing every cdm.
  * @idx:  cdm index for which driver object is required

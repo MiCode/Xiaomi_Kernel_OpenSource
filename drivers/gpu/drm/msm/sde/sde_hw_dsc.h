@@ -69,6 +69,16 @@ struct sde_hw_dsc {
 };
 
 /**
+ * sde_hw_dsc - convert base object sde_hw_base to container
+ * @hw: Pointer to base hardware block
+ * return: Pointer to hardware block container
+ */
+static inline struct sde_hw_dsc *to_sde_hw_dsc(struct sde_hw_blk *hw)
+{
+	return container_of(hw, struct sde_hw_dsc, base);
+}
+
+/**
  * sde_hw_dsc_init - initializes the dsc block for the passed
  *                   dsc idx.
  * @idx:  DSC index for which driver object is required

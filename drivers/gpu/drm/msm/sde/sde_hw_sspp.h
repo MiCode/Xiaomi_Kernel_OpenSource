@@ -634,6 +634,16 @@ struct sde_hw_pipe {
 };
 
 /**
+ * sde_hw_pipe - convert base object sde_hw_base to container
+ * @hw: Pointer to base hardware block
+ * return: Pointer to hardware block container
+ */
+static inline struct sde_hw_pipe *to_sde_hw_pipe(struct sde_hw_blk *hw)
+{
+	return container_of(hw, struct sde_hw_pipe, base);
+}
+
+/**
  * sde_hw_sspp_init - initializes the sspp hw driver object.
  * Should be called once before accessing every pipe.
  * @idx:  Pipe index for which driver object is required
