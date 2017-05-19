@@ -59,6 +59,8 @@ Optional properties:
  - qcom,poll-cfg-gdscr:	Poll the CFG register of the GDSC to determine if the
 			GDSC is enabled/disabled. This flag should not be set
 			in conjunction with "hw-ctrl-addr".
+ - qcom,toggle-sw-collapse-in-disable: If set, SW_COLLAPSE bit is toggled
+			in disable call.
 
 Example:
 	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {
