@@ -994,6 +994,7 @@ static void msm_isp_update_pd_stats_idx(struct vfe_device *vfe_dev,
 	uint32_t pingpong_status = 0, pingpong_bit = 0;
 	struct msm_isp_buffer *done_buf = NULL;
 	int vfe_idx = -1;
+	unsigned long flags;
 
 	if (frame_src < VFE_RAW_0 || frame_src >  VFE_RAW_2)
 		return;
@@ -1011,10 +1012,14 @@ static void msm_isp_update_pd_stats_idx(struct vfe_device *vfe_dev,
 		pingpong_bit = ((pingpong_status >>
 			pd_stream_info->wm[vfe_idx][0]) & 0x1);
 		done_buf = pd_stream_info->buf[pingpong_bit];
+		spin_lock_irqsave(&vfe_dev->common_data->
+			common_dev_data_lock, flags);
 		if (done_buf)
-			vfe_dev->pd_buf_idx = done_buf->buf_idx;
+			vfe_dev->common_data->pd_buf_idx = done_buf->buf_idx;
 		else
-			vfe_dev->pd_buf_idx = 0xF;
+			vfe_dev->common_data->pd_buf_idx = 0xF;
+		spin_unlock_irqrestore(&vfe_dev->common_data->
+			common_dev_data_lock, flags);
 	}
 }
 
