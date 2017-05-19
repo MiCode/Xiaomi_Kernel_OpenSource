@@ -626,7 +626,7 @@ static bool _sde_rm_check_lm_and_get_connected_blks(
 		return false;
 	}
 
-	pp_cfg = ((struct sde_hw_pingpong *)((*pp)->hw))->pingpong_hw_cap;
+	pp_cfg = ((struct sde_hw_pingpong *)((*pp)->hw))->caps;
 	if ((reqs->topology->top_name == SDE_RM_TOPOLOGY_PPSPLIT) &&
 			!(test_bit(SDE_PINGPONG_SPLIT, &pp_cfg->features))) {
 		SDE_DEBUG("pp %d doesn't support ppsplit\n", pp_cfg->id);
@@ -716,8 +716,7 @@ static int _sde_rm_reserve_lms(
 		while (_sde_rm_get_hw_locked(rm, &iter_i)) {
 			const struct sde_hw_pingpong *pp =
 				(struct sde_hw_pingpong *)(iter_i.blk->hw);
-			const struct sde_pingpong_cfg *pp_cfg =
-					pp->pingpong_hw_cap;
+			const struct sde_pingpong_cfg *pp_cfg = pp->caps;
 
 			if (!(test_bit(SDE_PINGPONG_SLAVE, &pp_cfg->features)))
 				continue;
@@ -826,7 +825,7 @@ static int _sde_rm_reserve_cdm(
 	while (_sde_rm_get_hw_locked(rm, &iter)) {
 		const struct sde_hw_cdm *cdm =
 				(struct sde_hw_cdm *)(iter.blk->hw);
-		const struct sde_cdm_cfg *caps = cdm->cdm_hw_cap;
+		const struct sde_cdm_cfg *caps = cdm->caps;
 		bool match = false;
 
 		if (RESERVED_BY_OTHER(iter.blk, rsvp))

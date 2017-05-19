@@ -62,7 +62,7 @@ struct sde_hw_dsc {
 
 	/* dsc */
 	enum sde_dsc idx;
-	const struct sde_dsc_cfg *dsc_hw_cap;
+	const struct sde_dsc_cfg *caps;
 
 	/* ops */
 	struct sde_hw_dsc_ops ops;
