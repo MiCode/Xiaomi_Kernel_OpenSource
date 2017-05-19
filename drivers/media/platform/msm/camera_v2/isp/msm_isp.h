@@ -738,6 +738,7 @@ struct msm_vfe_common_dev_data {
 	struct msm_vfe_axi_stream streams[VFE_AXI_SRC_MAX * MAX_VFE];
 	struct msm_vfe_stats_stream stats_streams[MSM_ISP_STATS_MAX * MAX_VFE];
 	struct mutex vfe_common_mutex;
+	uint8_t pd_buf_idx;
 	/* Irq debug Info */
 	struct msm_vfe_irq_dump vfe_irq_dump;
 	struct msm_vfe_tasklet tasklets[MAX_VFE + 1];
@@ -837,8 +838,6 @@ struct vfe_device {
 	uint32_t bus_err_ign_mask;
 	uint32_t recovery_irq0_mask;
 	uint32_t recovery_irq1_mask;
-	/* Store the buf_idx for pd stats RDI stream */
-	uint8_t pd_buf_idx;
 	/* total bandwidth per vfe */
 	uint64_t total_bandwidth;
 };
