@@ -525,8 +525,8 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 			dcc_writel(drvdata, 0, DCC_LL_TIMEOUT(list));
 		}
 
-		/* 4. Configure data sink and function type */
-		dcc_writel(drvdata, ((drvdata->data_sink << 4) |
+		/* 4. Configure trigger, data sink and function type */
+		dcc_writel(drvdata, BIT(9) | ((drvdata->data_sink << 4) |
 			   (drvdata->func_type[list])), DCC_LL_CFG(list));
 
 		/* 5. Clears interrupt status register */
