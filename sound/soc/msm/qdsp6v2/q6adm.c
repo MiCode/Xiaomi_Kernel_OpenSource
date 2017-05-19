@@ -2169,7 +2169,8 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 		    (topology == SRS_TRUMEDIA_TOPOLOGY_ID))
 			topology = DEFAULT_COPP_TOPOLOGY;
 	} else {
-		if (path == ADM_PATH_COMPRESSED_RX)
+		if ((path == ADM_PATH_COMPRESSED_RX) ||
+		    (path == ADM_PATH_COMPRESSED_TX))
 			flags = 0;
 		else
 			flags = ADM_LEGACY_DEVICE_SESSION;
@@ -2206,7 +2207,8 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 			   acdb_id);
 		set_bit(ADM_STATUS_CALIBRATION_REQUIRED,
 		(void *)&this_adm.copp.adm_status[port_idx][copp_idx]);
-		if (path != ADM_PATH_COMPRESSED_RX)
+		if ((path != ADM_PATH_COMPRESSED_RX) &&
+		    (path != ADM_PATH_COMPRESSED_TX))
 			send_adm_custom_topology();
 	}
 
@@ -2477,6 +2479,10 @@ static void route_set_opcode_matrix_id(
 	case ADM_PATH_COMPRESSED_RX:
 		route->hdr.opcode = ADM_CMD_STREAM_DEVICE_MAP_ROUTINGS_V5;
 		route->matrix_id = ADM_MATRIX_ID_COMPRESSED_AUDIO_RX;
+		break;
+	case ADM_PATH_COMPRESSED_TX:
+		route->hdr.opcode = ADM_CMD_STREAM_DEVICE_MAP_ROUTINGS_V5;
+		route->matrix_id = ADM_MATRIX_ID_COMPRESSED_AUDIO_TX;
 		break;
 	default:
 		pr_err("%s: Wrong path set[%d]\n", __func__, path);
