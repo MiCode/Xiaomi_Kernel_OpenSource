@@ -35,7 +35,7 @@
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
-	qcom,mdss-dsi-panel-mode-gpio-state = "dual_port";
+	qcom,mdss-dsi-mode-sel-gpio-state = "dual_port";
 	qcom,panel-mode-gpio = <&tlmm 52 0>;
 	qcom,platform-te-gpio = <&tlmm 10 0>;
 	qcom,platform-reset-gpio = <&tlmm 6 0>;

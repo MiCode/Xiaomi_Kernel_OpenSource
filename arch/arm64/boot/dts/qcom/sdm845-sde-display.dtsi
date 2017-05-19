@@ -248,10 +248,10 @@
 		label = "dsi_nt35597_truly_dsc_cmd_display";
 		qcom,display-type = "primary";
 
-		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
-		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
-		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
-			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
+		qcom,dsi-ctrl = <&mdss_dsi1>;
+		qcom,dsi-phy = <&mdss_dsi_phy1>;
+		clocks = <&mdss_dsi1_pll BYTECLK_MUX_1_CLK>,
+			<&mdss_dsi1_pll PCLK_MUX_1_CLK>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
 
 		pinctrl-names = "panel_active", "panel_suspend";
@@ -272,10 +272,10 @@
 		label = "dsi_nt35597_truly_dsc_video_display";
 		qcom,display-type = "primary";
 
-		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
-		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
-		clocks = <&mdss_dsi0_pll BYTECLK_MUX_0_CLK>,
-			<&mdss_dsi0_pll PCLK_MUX_0_CLK>;
+		qcom,dsi-ctrl = <&mdss_dsi1>;
+		qcom,dsi-phy = <&mdss_dsi_phy1>;
+		clocks = <&mdss_dsi1_pll BYTECLK_MUX_1_CLK>,
+			<&mdss_dsi1_pll PCLK_MUX_1_CLK>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
 
 		pinctrl-names = "panel_active", "panel_suspend";
@@ -396,7 +396,8 @@
 	qcom,mdss-dsi-panel-phy-timings = [00 15 05 05 20 1f 05 05 03 03 04 00];
 	qcom,mdss-dsi-t-clk-post = <0x0b>;
 	qcom,mdss-dsi-t-clk-pre = <0x23>;
-	qcom,display-topology = <2 2 2>;
+	qcom,display-topology = <1 1 1>,
+				<2 2 1>;
 	qcom,default-topology-index = <0>;
 };
 
@@ -404,7 +405,8 @@
 	qcom,mdss-dsi-panel-phy-timings = [00 15 05 05 20 1f 05 05 03 03 04 00];
 	qcom,mdss-dsi-t-clk-post = <0x0b>;
 	qcom,mdss-dsi-t-clk-pre = <0x23>;
-	qcom,display-topology = <2 2 2>;
+	qcom,display-topology = <1 1 1>,
+				<2 2 1>;
 	qcom,default-topology-index = <0>;
 };
 
