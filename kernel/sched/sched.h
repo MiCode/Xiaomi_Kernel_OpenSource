@@ -25,6 +25,8 @@
 struct rq;
 struct cpuidle_state;
 
+extern __read_mostly bool sched_predl;
+
 #ifdef CONFIG_SCHED_WALT
 extern unsigned int sched_ravg_window;
 
@@ -1808,13 +1810,18 @@ cpu_util_freq(int cpu, struct sched_walt_cpu_load *walt_load)
 		if (walt_load) {
 			u64 nl = cpu_rq(cpu)->nt_prev_runnable_sum +
 				rq->grp_time.nt_prev_runnable_sum;
+			u64 pl = rq->walt_stats.pred_demands_sum;
 
 			nl = div64_u64(nl, sched_ravg_window >>
+						SCHED_CAPACITY_SHIFT);
+			pl = div64_u64(pl, sched_ravg_window >>
 						SCHED_CAPACITY_SHIFT);
 
 			walt_load->prev_window_util = util;
 			walt_load->nl = nl;
-			walt_load->pl = 0;
+			walt_load->pl = pl;
+			rq->old_busy_time = util;
+			rq->old_estimated_time = pl;
 			walt_load->ws = rq->window_start;
 		}
 	}
@@ -2236,6 +2243,9 @@ static inline void cpufreq_update_util(struct rq *rq, unsigned int flags)
 	struct update_util_data *data;
 
 #ifdef CONFIG_SCHED_WALT
+	unsigned int exception_flags = SCHED_CPUFREQ_INTERCLUSTER_MIG |
+						SCHED_CPUFREQ_PL;
+
 	/*
 	 * Skip if we've already reported, but not if this is an inter-cluster
 	 * migration. Also only allow WALT update sites.
@@ -2244,7 +2254,7 @@ static inline void cpufreq_update_util(struct rq *rq, unsigned int flags)
 		return;
 	if (!sched_disable_window_stats &&
 		(rq->load_reported_window == rq->window_start) &&
-		!(flags & SCHED_CPUFREQ_INTERCLUSTER_MIG))
+		!(flags & exception_flags))
 		return;
 	rq->load_reported_window = rq->window_start;
 #endif
