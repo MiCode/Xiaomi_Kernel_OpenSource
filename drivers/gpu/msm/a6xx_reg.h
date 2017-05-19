@@ -381,6 +381,7 @@
 #define A6XX_RBBM_PERFCTR_RBBM_SEL_1             0x508
 #define A6XX_RBBM_PERFCTR_RBBM_SEL_2             0x509
 #define A6XX_RBBM_PERFCTR_RBBM_SEL_3             0x50A
+#define A6XX_RBBM_PERFCTR_GPU_BUSY_MASKED        0x50B
 
 #define A6XX_RBBM_ISDB_CNT                       0x533
 
