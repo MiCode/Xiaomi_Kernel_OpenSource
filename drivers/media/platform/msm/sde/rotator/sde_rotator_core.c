@@ -299,13 +299,13 @@ static int sde_rotator_update_clk(struct sde_rot_mgr *mgr)
 	return 0;
 }
 
-static void sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
+static int sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 {
 	int ret;
 
-	if (WARN_ON(mgr->regulator_enable == on)) {
+	if (mgr->regulator_enable == on) {
 		SDEROT_ERR("Regulators already in selected mode on=%d\n", on);
-		return;
+		return 0;
 	}
 
 	SDEROT_EVTLOG(on);
@@ -327,9 +327,9 @@ static void sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 		ret = sde_rot_enable_vreg(mgr->module_power.vreg_config,
 			mgr->module_power.num_vreg, on);
 	if (ret) {
-		SDEROT_WARN("Rotator regulator failed to %s\n",
-			on ? "enable" : "disable");
-		return;
+		pr_err("rotator regulator failed to %s ret:%d client:%d\n",
+		      on ? "enable" : "disable", ret, mgr->rsc_client != NULL);
+		return ret;
 	}
 
 	if (mgr->ops_hw_post_pmevent)
@@ -341,6 +341,7 @@ static void sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 	}
 
 	mgr->regulator_enable = on;
+	return 0;
 }
 
 static int sde_rotator_enable_clk(struct sde_rot_mgr *mgr, int clk_idx)
@@ -2885,12 +2886,11 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 	}
 
 	*pmgr = mgr;
-
-	pm_runtime_set_suspended(&pdev->dev);
-	pm_runtime_enable(&pdev->dev);
-	if (!pm_runtime_enabled(&pdev->dev)) {
-		SDEROT_ERR("fail to enable power, force on\n");
-		sde_rotator_footswitch_ctrl(mgr, true);
+	ret = sde_rotator_footswitch_ctrl(mgr, true);
+	if (ret) {
+		SDEROT_ERR("res_init failed %d\n", ret);
+		ret = -EPROBE_DEFER;
+		goto error_fs_en_fail;
 	}
 
 	/* enable power and clock before h/w initialization/query */
@@ -2931,6 +2931,9 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 	/* disable power and clock after h/w initialization/query */
 	sde_rotator_clk_ctrl(mgr, false);
 	sde_rotator_resource_ctrl(mgr, false);
+	sde_rotator_footswitch_ctrl(mgr, false);
+	pm_runtime_set_suspended(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
 
 	return 0;
 
@@ -2940,7 +2943,8 @@ error_hw_init:
 error_map_hw_ops:
 	sde_rotator_clk_ctrl(mgr, false);
 	sde_rotator_resource_ctrl(mgr, false);
-	pm_runtime_disable(mgr->device);
+	sde_rotator_footswitch_ctrl(mgr, false);
+error_fs_en_fail:
 	sde_rotator_res_destroy(mgr);
 error_res_init:
 error_parse_dt:
@@ -3024,8 +3028,7 @@ int sde_rotator_runtime_resume(struct device *dev)
 
 	SDEROT_DBG("begin runtime_active\n");
 	ATRACE_BEGIN("runtime_active");
-	sde_rotator_footswitch_ctrl(mgr, true);
-	return 0;
+	return sde_rotator_footswitch_ctrl(mgr, true);
 }
 
 /*
