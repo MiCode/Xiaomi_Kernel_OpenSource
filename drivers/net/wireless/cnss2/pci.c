@@ -1088,7 +1088,7 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv)
 
 	dump_data->nentries = 0;
 
-	start_addr = dump_data->vaddr;
+	start_addr = plat_priv->ramdump_info_v2.dump_data_vaddr;
 	end_addr = cnss_pci_collect_dump_seg(pci_priv,
 					     MHI_RDDM_FW_SEGMENT, start_addr);
 
