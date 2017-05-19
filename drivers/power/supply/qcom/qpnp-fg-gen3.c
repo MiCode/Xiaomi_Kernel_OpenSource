@@ -3937,7 +3937,7 @@ static int fg_parse_ki_coefficients(struct fg_chip *chip)
 }
 
 #define DEFAULT_CUTOFF_VOLT_MV		3200
-#define DEFAULT_EMPTY_VOLT_MV		2800
+#define DEFAULT_EMPTY_VOLT_MV		2850
 #define DEFAULT_RECHARGE_VOLT_MV	4250
 #define DEFAULT_CHG_TERM_CURR_MA	100
 #define DEFAULT_CHG_TERM_BASE_CURR_MA	75
