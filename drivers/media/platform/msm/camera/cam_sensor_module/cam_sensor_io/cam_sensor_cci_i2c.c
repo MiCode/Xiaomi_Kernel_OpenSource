@@ -146,11 +146,9 @@ int32_t cam_cci_i2c_poll(struct cam_sensor_cci_client *client,
 	for (i = 0; i < delay_ms; i++) {
 		rc = cam_cci_i2c_compare(client,
 			addr, data, data_mask, data_type, addr_type);
-		if (!rc) {
-			pr_err("%s:%d Fail in comparing the data in poll\n",
-				__func__, __LINE__);
+		if (!rc)
 			return rc;
-		}
+
 		usleep_range(1000, 1010);
 	}
 

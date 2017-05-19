@@ -974,7 +974,7 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 						del_req_id, rc);
 			}
 		} else {
-			pr_err("%s:%d Invalid/NOP request to apply: %lld\n",
+			CDBG("%s:%d Invalid/NOP request to apply: %lld\n",
 				__func__, __LINE__, req_id);
 		}
 	}
