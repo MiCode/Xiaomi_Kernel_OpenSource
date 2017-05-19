@@ -407,6 +407,14 @@ void sde_kms_rect_intersect(const struct sde_rect *r1,
 		struct sde_rect *result);
 
 /**
+ * sde_kms_rect_merge_rectangles - merge a rectangle list into one rect
+ * @rois: pointer to the list of rois
+ * @result: output rectangle, all 0 on error
+ */
+void sde_kms_rect_merge_rectangles(const struct msm_roi_list *rois,
+		struct sde_rect *result);
+
+/**
  * sde_kms_rect_is_equal - compares two rects
  * @r1: rect value to compare
  * @r2: rect value to compare
