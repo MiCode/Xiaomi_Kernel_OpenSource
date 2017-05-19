@@ -17,8 +17,8 @@
 #include "sde_ad4.h"
 
 #define IDLE_2_RUN(x) ((x) == (ad4_init | ad4_cfg | ad4_mode | ad4_input))
-#define MERGE_WIDTH_RIGHT 4
-#define MERGE_WIDTH_LEFT 3
+#define MERGE_WIDTH_RIGHT 6
+#define MERGE_WIDTH_LEFT 5
 
 enum ad4_ops_bitmask {
 	ad4_init = BIT(AD_INIT),
@@ -179,7 +179,7 @@ static int ad4_params_check(struct sde_hw_dspp *dspp,
 			cfg->hw_cfg->displayh, cfg->hw_cfg->displayv);
 		return -EINVAL;
 	} else if (hw_lm->cfg.out_height != cfg->hw_cfg->displayv &&
-		    hw_lm->cfg.out_width != (cfg->hw_cfg->displayh >> 2)) {
+		    hw_lm->cfg.out_width != (cfg->hw_cfg->displayh >> 1)) {
 		DRM_ERROR("dual_lm lmh %d lmw %d displayh %d displayw %d\n",
 			hw_lm->cfg.out_height, hw_lm->cfg.out_width,
 			cfg->hw_cfg->displayh, cfg->hw_cfg->displayv);
@@ -250,6 +250,7 @@ static int ad4_init_setup(struct sde_hw_dspp *dspp, struct sde_ad_hw_cfg *cfg)
 				MERGE_WIDTH_LEFT;
 			proc_start = 0;
 			proc_end = (cfg->hw_cfg->displayh >> 1) - 1;
+			tile_ctl |= 0x10;
 		}
 	}
 
@@ -769,7 +770,8 @@ static int ad4_mode_setup_common(struct sde_hw_dspp *dspp,
 					(cfg->hw_cfg->payload));
 	info[dspp->idx].completed_ops_mask |= ad4_mode;
 
-	if (IDLE_2_RUN(info[dspp->idx].completed_ops_mask))
+	if (IDLE_2_RUN(info[dspp->idx].completed_ops_mask) ||
+					info[dspp->idx].cached_mode == AD4_OFF)
 		ad4_mode_setup(dspp, info[dspp->idx].cached_mode);
 
 	return 0;
