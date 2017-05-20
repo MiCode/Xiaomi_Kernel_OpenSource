@@ -1712,6 +1712,7 @@ static const struct file_operations iommu_debug_map_fops = {
  *				0: normal mapping
  *				1: force coherent mapping
  *				2: force non-cohernet mapping
+ *				3: use system cache
  */
 static ssize_t iommu_debug_dma_map_write(struct file *file,
 		const char __user *ubuf, size_t count, loff_t *offset)
@@ -1782,6 +1783,8 @@ static ssize_t iommu_debug_dma_map_write(struct file *file,
 		dma_attrs = DMA_ATTR_FORCE_COHERENT;
 	else if (attr == 2)
 		dma_attrs = DMA_ATTR_FORCE_NON_COHERENT;
+	else if (attr == 3)
+		dma_attrs = DMA_ATTR_IOMMU_USE_UPSTREAM_HINT;
 	else
 		goto invalid_format;
 
@@ -1803,7 +1806,7 @@ out:
 	return retval;
 
 invalid_format:
-	pr_err("Invalid format. Expected: addr,len,dma attr where 'dma attr' is\n0: normal mapping\n1: force coherent\n2: force non-cohernet\n");
+	pr_err("Invalid format. Expected: addr,len,dma attr where 'dma attr' is\n0: normal mapping\n1: force coherent\n2: force non-cohernet\n3: use system cache\n");
 	return retval;
 
 invalid_addr:
@@ -1984,6 +1987,8 @@ static ssize_t iommu_debug_dma_unmap_write(struct file *file,
 		dma_attrs = DMA_ATTR_FORCE_COHERENT;
 	else if (attr == 2)
 		dma_attrs = DMA_ATTR_FORCE_NON_COHERENT;
+	else if (attr == 3)
+		dma_attrs = DMA_ATTR_IOMMU_USE_UPSTREAM_HINT;
 	else
 		goto invalid_format;
 
