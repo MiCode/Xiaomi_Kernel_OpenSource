@@ -2342,7 +2342,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_EOS)
 			vbuf->flags |= V4L2_QCOM_BUF_FLAG_EOS;
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_CODECCONFIG)
-			vbuf->flags &= ~V4L2_QCOM_BUF_FLAG_CODECCONFIG;
+			vbuf->flags |= V4L2_QCOM_BUF_FLAG_CODECCONFIG;
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_SYNCFRAME)
 			vbuf->flags |= V4L2_QCOM_BUF_FLAG_IDRFRAME;
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_EOSEQ)
