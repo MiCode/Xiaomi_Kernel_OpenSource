@@ -36,25 +36,17 @@
 	};
 
 	usb_detect {
-		compatible = "qcom,gpio-usbdetect";
-		interrupt-names = "vbus_det_irq";
-		interrupt-parent = <&tlmm>;
-		interrupts = <130 0>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&vbus_low_as_host>;
-		qcom,gpio-mode-sel = <&tlmm 130 0>;
-		qcom,notify-host-mode;
+		status = "ok";
 	};
 };
 
 &usb_otg {
-	qcom,vbus-low-as-hostmode;
 	vbus_otg-supply = <0>;
 };
 
-&i2c_2 {
-	pericom-type-c@1d {
-		status = "disabled";
+&i2c_4 {
+	usb2533@2c {
+		status = "ok";
 	};
 };
 
@@ -75,6 +67,10 @@
 					"pmx_adv7533_suspend";
 		pinctrl-0 = <&adv7533_int_active>;
 		pinctrl-1 = <&adv7533_int_suspend>;
+	};
+
+	pericom-type-c@1d {
+		status = "disabled";
 	};
 };
 

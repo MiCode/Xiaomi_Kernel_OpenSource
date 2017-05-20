@@ -1159,6 +1159,7 @@ static struct rcg_clk camss_gp1_clk_src = {
 static struct clk_freq_tbl ftbl_mclk0_clk_src[] = {
 	F(  24000000, gpll6_main_div2,    1,    2,    45),
 	F(  33330000, gpll0_main_div2,   12,    0,     0),
+	F(  36610000, gpll6,		  1,    2,    59),
 	F(  66667000,           gpll0,   12,    0,     0),
 	F_END
 };
@@ -1180,6 +1181,7 @@ static struct rcg_clk mclk0_clk_src = {
 static struct clk_freq_tbl ftbl_mclk1_clk_src[] = {
 	F(  24000000, gpll6_main_div2,    1,    2,    45),
 	F(  33330000, gpll0_main_div2,   12,    0,     0),
+	F(  36610000, gpll6,		  1,    2,    59),
 	F(  66667000,           gpll0,   12,    0,     0),
 	F_END
 };
@@ -1201,6 +1203,7 @@ static struct rcg_clk mclk1_clk_src = {
 static struct clk_freq_tbl ftbl_mclk2_clk_src[] = {
 	F(  24000000, gpll6_main_div2,    1,    2,    45),
 	F(  33330000, gpll0_main_div2,   12,    0,     0),
+	F(  36610000, gpll6,		  1,    2,    59),
 	F(  66667000,           gpll0,   12,    0,     0),
 	F_END
 };
@@ -1222,6 +1225,7 @@ static struct rcg_clk mclk2_clk_src = {
 static struct clk_freq_tbl ftbl_mclk3_clk_src[] = {
 	F(  24000000, gpll6_main_div2,    1,    2,    45),
 	F(  33330000, gpll0_main_div2,   12,    0,     0),
+	F(  36610000, gpll6,		  1,    2,    59),
 	F(  66667000,           gpll0,   12,    0,     0),
 	F_END
 };

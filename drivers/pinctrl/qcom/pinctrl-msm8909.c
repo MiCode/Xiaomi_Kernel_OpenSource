@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -192,6 +192,7 @@ static const struct pinctrl_pin_desc msm8909_pins[] = {
 	PINCTRL_PIN(98, "GPIO_98"),
 	PINCTRL_PIN(99, "GPIO_99"),
 	PINCTRL_PIN(100, "GPIO_100"),
+	PINCTRL_PIN(101, "GPIO_101"),
 	PINCTRL_PIN(102, "GPIO_102"),
 	PINCTRL_PIN(103, "GPIO_103"),
 	PINCTRL_PIN(104, "GPIO_104"),
@@ -320,6 +321,7 @@ DECLARE_MSM_GPIO_PINS(97);
 DECLARE_MSM_GPIO_PINS(98);
 DECLARE_MSM_GPIO_PINS(99);
 DECLARE_MSM_GPIO_PINS(100);
+DECLARE_MSM_GPIO_PINS(101);
 DECLARE_MSM_GPIO_PINS(102);
 DECLARE_MSM_GPIO_PINS(103);
 DECLARE_MSM_GPIO_PINS(104);
@@ -508,8 +510,8 @@ static const char * const gpio_groups[] = {
 	"gpio85", "gpio86", "gpio87", "gpio88", "gpio89", "gpio90", "gpio91",
 	"gpio92", "gpio93", "gpio94", "gpio95", "gpio96", "gpio97", "gpio98",
 	"gpio99", "gpio100", "gpio101", "gpio102", "gpio103", "gpio104",
-	"gpio105", "gpio106", "gpio107", "gpio108", "gpio109", "gpio111",
-	"gpio112",
+	"gpio105", "gpio106", "gpio107", "gpio108", "gpio109", "gpio110",
+	"gpio111", "gpio112",
 };
 static const char * const sec_mi2s_groups[] = {
 	"gpio0", "gpio1", "gpio2", "gpio3", "gpio98",
@@ -1223,6 +1225,7 @@ static const struct msm_pingroup msm8909_groups[] = {
 		 NA, NA, NA),
 	PINGROUP(99, ebi2_a, sd_write, ldo_en, NA, NA, NA, NA, NA, NA),
 	PINGROUP(100, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	PINGROUP(101, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(102, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(103, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(104, NA, NA, NA, NA, NA, NA, NA, NA, NA),
