@@ -7669,6 +7669,7 @@ SYSCALL_DEFINE5(perf_event_open,
 		 * the old lists, before installing it on new lists.
 		 */
 		synchronize_rcu();
+
 		perf_install_in_context(ctx, group_leader, group_leader->cpu);
 		get_ctx(ctx);
 		list_for_each_entry(sibling, &group_leader->sibling_list,

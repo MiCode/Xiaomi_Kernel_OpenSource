@@ -2067,6 +2067,8 @@ static void sync_request_write(struct mddev *mddev, struct r1bio *r1_bio)
 		     (i == r1_bio->read_disk ||
 		      !test_bit(MD_RECOVERY_SYNC, &mddev->recovery))))
 			continue;
+		if (test_bit(Faulty, &conf->mirrors[i].rdev->flags))
+			continue;
 
 		wbio->bi_rw = WRITE;
 		wbio->bi_end_io = end_sync_write;
