@@ -3007,7 +3007,7 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 						SDE_PIPE_SC_OP_MODE_OFFLINE;
 				pstate->sc_cfg.rd_en = false;
 				pstate->sc_cfg.rd_scid = 0;
-				pstate->sc_cfg.rd_noallocate = false;
+				pstate->sc_cfg.rd_noallocate = true;
 				pstate->sc_cfg.rd_op_type =
 					SDE_PIPE_SC_RD_OP_TYPE_CACHEABLE;
 			}
