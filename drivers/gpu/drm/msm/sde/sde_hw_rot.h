@@ -24,11 +24,13 @@ struct sde_hw_rot;
  * enum sde_hw_rot_cmd_type - type of rotator hardware command
  * @SDE_HW_ROT_CMD_VALDIATE: validate rotator command; do not commit
  * @SDE_HW_ROT_CMD_COMMIT: commit/execute rotator command
+ * @SDE_HW_ROT_CMD_START: mdp is ready to start
  * @SDE_HW_ROT_CMD_CLEANUP: cleanup rotator command after it is done
  */
 enum sde_hw_rot_cmd_type {
 	SDE_HW_ROT_CMD_VALIDATE,
 	SDE_HW_ROT_CMD_COMMIT,
+	SDE_HW_ROT_CMD_START,
 	SDE_HW_ROT_CMD_CLEANUP,
 };
 

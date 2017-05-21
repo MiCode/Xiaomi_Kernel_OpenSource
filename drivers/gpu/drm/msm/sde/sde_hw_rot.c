@@ -563,6 +563,10 @@ static int sde_hw_rot_commit(struct sde_hw_rot *hw, struct sde_hw_rot_cmd *data,
 	case SDE_HW_ROT_CMD_COMMIT:
 		cmd_type = SDE_ROTATOR_INLINE_CMD_COMMIT;
 		break;
+	case SDE_HW_ROT_CMD_START:
+		cmd_type = SDE_ROTATOR_INLINE_CMD_START;
+		priv_handle = data->priv_handle;
+		break;
 	case SDE_HW_ROT_CMD_CLEANUP:
 		cmd_type = SDE_ROTATOR_INLINE_CMD_CLEANUP;
 		priv_handle = data->priv_handle;
