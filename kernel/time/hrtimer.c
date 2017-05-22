@@ -1638,12 +1638,14 @@ static void migrate_hrtimer_list(struct hrtimer_clock_base *old_base,
 	struct timerqueue_node *node;
 	struct timerqueue_head pinned;
 	int is_pinned;
+	bool is_hotplug = !cpu_online(old_base->cpu_base->cpu);
 
 	timerqueue_init_head(&pinned);
 
 	while ((node = timerqueue_getnext(&old_base->active))) {
 		timer = container_of(node, struct hrtimer, node);
-		BUG_ON(hrtimer_callback_running(timer));
+		if (is_hotplug)
+			BUG_ON(hrtimer_callback_running(timer));
 		debug_deactivate(timer);
 
 		/*
