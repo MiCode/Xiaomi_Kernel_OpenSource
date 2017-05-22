@@ -25,9 +25,16 @@
 
 /* Task priorities, lower the number higher the priority*/
 enum crm_task_priority {
-	CRM_TASK_PRIORITY_0 = 0,
-	CRM_TASK_PRIORITY_1 = 1,
-	CRM_TASK_PRIORITY_MAX = 2,
+	CRM_TASK_PRIORITY_0,
+	CRM_TASK_PRIORITY_1,
+	CRM_TASK_PRIORITY_MAX,
+};
+
+/* workqueue will be used from irq context or not */
+enum crm_workq_context {
+	CRM_WORKQ_USAGE_NON_IRQ,
+	CRM_WORKQ_USAGE_IRQ,
+	CRM_WORKQ_USAGE_INVALID,
 };
 
 /** struct crm_workq_task
@@ -58,8 +65,9 @@ struct crm_workq_task {
  * @work       : work token used by workqueue
  * @job        : workqueue internal job struct
  * task -
- * @lock       : lock for task structs
- * @free_cnt   :  num of free/available tasks
+ * @lock_bh    : lock for task structs
+ * @in_irq     : set true if workque can be used in irq context
+ * @free_cnt   : num of free/available tasks
  * @empty_head : list  head of available taska which can be used
  *               or acquired in order to enqueue a task to workq
  * @pool       : pool of tasks used for handling events in workq context
@@ -70,6 +78,7 @@ struct cam_req_mgr_core_workq {
 	struct work_struct         work;
 	struct workqueue_struct   *job;
 	spinlock_t                 lock_bh;
+	uint32_t                   in_irq;
 
 	/* tasks */
 	struct {
@@ -91,11 +100,12 @@ struct cam_req_mgr_core_workq {
  *             of session handle and link handle
  * @num_task : Num_tasks to be allocated for workq
  * @workq    : Double pointer worker
+ * @in_irq   : Set to one if workq might be used in irq context
  * This function will allocate and create workqueue and pass
  * the workq pointer to caller.
  */
 int cam_req_mgr_workq_create(char *name, int32_t num_tasks,
-	struct cam_req_mgr_core_workq **workq);
+	struct cam_req_mgr_core_workq **workq, enum crm_workq_context in_irq);
 
 /**
  * cam_req_mgr_workq_destroy()

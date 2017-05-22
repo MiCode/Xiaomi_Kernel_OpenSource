@@ -12,16 +12,30 @@
 
 #include "cam_req_mgr_workq.h"
 
+#define WORKQ_ACQUIRE_LOCK(workq, flags) {\
+	if ((workq)->in_irq) \
+		spin_lock_irqsave(&(workq)->lock_bh, (flags)); \
+	else \
+		spin_lock_bh(&(workq)->lock_bh); \
+}
+
+#define WORKQ_RELEASE_LOCK(workq, flags) {\
+	if ((workq)->in_irq) \
+		spin_unlock_irqrestore(&(workq)->lock_bh, (flags)); \
+	else	\
+		spin_unlock_bh(&(workq)->lock_bh); \
+}
 
 struct crm_workq_task *cam_req_mgr_workq_get_task(
 	struct cam_req_mgr_core_workq *workq)
 {
 	struct crm_workq_task *task = NULL;
+	unsigned long flags = 0;
 
 	if (!workq)
 		return NULL;
 
-	spin_lock_bh(&workq->lock_bh);
+	WORKQ_ACQUIRE_LOCK(workq, flags);
 	if (list_empty(&workq->task.empty_head))
 		goto end;
 
@@ -33,7 +47,8 @@ struct crm_workq_task *cam_req_mgr_workq_get_task(
 	}
 
 end:
-	spin_unlock_bh(&workq->lock_bh);
+	WORKQ_RELEASE_LOCK(workq, flags);
+
 	return task;
 }
 
@@ -41,8 +56,9 @@ static void cam_req_mgr_workq_put_task(struct crm_workq_task *task)
 {
 	struct cam_req_mgr_core_workq *workq =
 		(struct cam_req_mgr_core_workq *)task->parent;
+	unsigned long flags = 0;
 
-	spin_lock_bh(&workq->lock_bh);
+	WORKQ_ACQUIRE_LOCK(workq, flags);
 	list_del_init(&task->entry);
 	task->cancel = 0;
 	task->process_cb = NULL;
@@ -50,7 +66,7 @@ static void cam_req_mgr_workq_put_task(struct crm_workq_task *task)
 	list_add_tail(&task->entry,
 		&workq->task.empty_head);
 	atomic_add(1, &workq->task.free_cnt);
-	spin_unlock_bh(&workq->lock_bh);
+	WORKQ_RELEASE_LOCK(workq, flags);
 }
 
 /**
@@ -131,6 +147,7 @@ int cam_req_mgr_workq_enqueue_task(struct crm_workq_task *task,
 {
 	int rc = 0;
 	struct cam_req_mgr_core_workq *workq = NULL;
+	unsigned long flags = 0;
 
 	if (!task) {
 		CRM_WARN("NULL task pointer can not schedule");
@@ -159,10 +176,10 @@ int cam_req_mgr_workq_enqueue_task(struct crm_workq_task *task,
 		(prio < CRM_TASK_PRIORITY_MAX && prio >= CRM_TASK_PRIORITY_0)
 		? prio : CRM_TASK_PRIORITY_0;
 
-	spin_lock_bh(&workq->lock_bh);
+	WORKQ_ACQUIRE_LOCK(workq, flags);
 	list_add_tail(&task->entry,
 		&workq->task.process_head[task->priority]);
-	spin_unlock_bh(&workq->lock_bh);
+	WORKQ_RELEASE_LOCK(workq, flags);
 
 	atomic_add(1, &workq->task.pending_cnt);
 	CRM_DBG("enq task %pK pending_cnt %d",
@@ -175,7 +192,7 @@ end:
 }
 
 int cam_req_mgr_workq_create(char *name, int32_t num_tasks,
-	struct cam_req_mgr_core_workq **workq)
+	struct cam_req_mgr_core_workq **workq, enum crm_workq_context in_irq)
 {
 	int32_t i;
 	struct crm_workq_task  *task;
@@ -210,6 +227,7 @@ int cam_req_mgr_workq_create(char *name, int32_t num_tasks,
 		for (i = CRM_TASK_PRIORITY_0; i < CRM_TASK_PRIORITY_MAX; i++)
 			INIT_LIST_HEAD(&crm_workq->task.process_head[i]);
 		INIT_LIST_HEAD(&crm_workq->task.empty_head);
+		crm_workq->in_irq = in_irq;
 		crm_workq->task.num_task = num_tasks;
 		crm_workq->task.pool = (struct crm_workq_task *)
 			kzalloc(sizeof(struct crm_workq_task) *
