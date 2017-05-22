@@ -291,6 +291,8 @@ struct kgsl_device {
 
 	/* Use CP Crash dumper to get GPU snapshot*/
 	bool snapshot_crashdumper;
+	/* Use HOST side register reads to get GPU snapshot*/
+	bool snapshot_legacy;
 
 	struct kobject snapshot_kobj;
 
