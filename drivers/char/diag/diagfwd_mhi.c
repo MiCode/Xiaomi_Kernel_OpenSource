@@ -197,7 +197,7 @@ static void mhi_buf_tbl_clear(struct diag_mhi_info *mhi_info)
 	struct diag_mhi_buf_tbl_t *item = NULL;
 	struct diag_mhi_ch_t *ch = NULL;
 
-	if (!mhi_info || !mhi_info->enabled)
+	if (!mhi_info)
 		return;
 
 	/* Clear all the pending reads */
