@@ -952,7 +952,7 @@ static int a6xx_oob_set(struct adreno_device *adreno_dev,
 	int ret = 0;
 
 	if (!kgsl_gmu_isenabled(device))
-		return -ENODEV;
+		return 0;
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_HOST2GMU_INTR_SET, set_mask);
 
