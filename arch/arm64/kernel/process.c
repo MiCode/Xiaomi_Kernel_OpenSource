@@ -277,12 +277,10 @@ void __show_regs(struct pt_regs *regs)
 	}
 	if (!user_mode(regs))
 		show_extra_register_data(regs, 64);
-	printk("\n");
 }
 
 void show_regs(struct pt_regs * regs)
 {
-	printk("\n");
 	__show_regs(regs);
 }
 
