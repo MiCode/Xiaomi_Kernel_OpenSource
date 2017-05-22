@@ -1466,6 +1466,8 @@ void diag_dci_notify_client(int peripheral_mask, int data, int proc)
 	struct siginfo info;
 	struct list_head *start, *temp;
 	struct diag_dci_client_tbl *entry = NULL;
+	struct pid *pid_struct = NULL;
+	struct task_struct *dci_task = NULL;
 
 	memset(&info, 0, sizeof(struct siginfo));
 	info.si_code = SI_QUEUE;
@@ -1483,20 +1485,32 @@ void diag_dci_notify_client(int peripheral_mask, int data, int proc)
 			continue;
 		if (entry->client_info.notification_list & peripheral_mask) {
 			info.si_signo = entry->client_info.signal_type;
-			if (entry->client &&
-				entry->tgid == entry->client->tgid) {
-				DIAG_LOG(DIAG_DEBUG_DCI,
-					"entry tgid = %d, dci client tgid = %d\n",
-					entry->tgid, entry->client->tgid);
-				stat = send_sig_info(
-					entry->client_info.signal_type,
-					&info, entry->client);
-				if (stat)
-					pr_err("diag: Err sending dci signal to client, signal data: 0x%x, stat: %d\n",
+			pid_struct = find_get_pid(entry->tgid);
+			if (pid_struct) {
+				dci_task = get_pid_task(pid_struct,
+						PIDTYPE_PID);
+				if (!dci_task) {
+					DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+						"diag: dci client with pid = %d Exited..\n",
+						entry->tgid);
+					mutex_unlock(&driver->dci_mutex);
+					return;
+				}
+				if (entry->client &&
+					entry->tgid == dci_task->tgid) {
+					DIAG_LOG(DIAG_DEBUG_DCI,
+						"entry tgid = %d, dci client tgid = %d\n",
+						entry->tgid, dci_task->tgid);
+					stat = send_sig_info(
+						entry->client_info.signal_type,
+						&info, dci_task);
+					if (stat)
+						pr_err("diag: Err sending dci signal to client, signal data: 0x%x, stat: %d\n",
 							info.si_int, stat);
-			} else
-				pr_err("diag: client data is corrupted, signal data: 0x%x, stat: %d\n",
+				} else
+					pr_err("diag: client data is corrupted, signal data: 0x%x, stat: %d\n",
 						info.si_int, stat);
+			}
 		}
 	}
 	mutex_unlock(&driver->dci_mutex);
