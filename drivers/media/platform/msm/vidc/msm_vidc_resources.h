@@ -112,6 +112,7 @@ struct bus_info {
 	struct devfreq_dev_profile devfreq_prof;
 	struct devfreq *devfreq;
 	struct msm_bus_client_handle *client;
+	bool is_prfm_gov_used;
 };
 
 struct bus_set {

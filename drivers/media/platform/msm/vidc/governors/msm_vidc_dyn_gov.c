@@ -871,6 +871,7 @@ static int __event_handler(struct devfreq *devfreq, unsigned int event,
 	switch (event) {
 	case DEVFREQ_GOV_START:
 	case DEVFREQ_GOV_RESUME:
+	case DEVFREQ_GOV_SUSPEND:
 		mutex_lock(&devfreq->lock);
 		rc = update_devfreq(devfreq);
 		mutex_unlock(&devfreq->lock);

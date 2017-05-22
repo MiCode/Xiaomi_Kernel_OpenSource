@@ -809,20 +809,21 @@ static int __unvote_buses(struct venus_hfi_device *device)
 	int rc = 0;
 	struct bus_info *bus = NULL;
 
+	kfree(device->bus_vote.data);
+	device->bus_vote.data = NULL;
+	device->bus_vote.data_count = 0;
+
 	venus_hfi_for_each_bus(device, bus) {
-		int local_rc = 0;
 		unsigned long zero = 0;
 
-		rc = devfreq_suspend_device(bus->devfreq);
+		if (!bus->is_prfm_gov_used)
+			rc = devfreq_suspend_device(bus->devfreq);
+		else
+			rc = __devfreq_target(bus->dev, &zero, 0);
+
 		if (rc)
 			goto err_unknown_device;
-
-		local_rc = __devfreq_target(bus->dev, &zero, 0);
-		rc = rc ?: local_rc;
 	}
-
-	if (rc)
-		dprintk(VIDC_WARN, "Failed to unvote some buses\n");
 
 err_unknown_device:
 	return rc;
@@ -857,15 +858,14 @@ no_data_count:
 
 	venus_hfi_for_each_bus(device, bus) {
 		if (bus && bus->devfreq) {
-			/* NOP if already resume */
-			rc = devfreq_resume_device(bus->devfreq);
-			if (rc)
-				goto err_no_mem;
-
-			/* Kick devfreq awake incase _resume() didn't do it */
-
-			bus->devfreq->nb.notifier_call(
-				&bus->devfreq->nb, 0, NULL);
+			if (!bus->is_prfm_gov_used) {
+				rc = devfreq_resume_device(bus->devfreq);
+				if (rc)
+					goto err_no_mem;
+			} else {
+				bus->devfreq->nb.notifier_call(
+					&bus->devfreq->nb, 0, NULL);
+			}
 		}
 	}
 
