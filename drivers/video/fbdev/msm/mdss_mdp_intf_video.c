@@ -74,6 +74,7 @@ struct mdss_mdp_video_ctx {
 	u8 ref_cnt;
 
 	u8 timegen_en;
+	bool timegen_flush_pending;
 	bool polling_en;
 	u32 poll_cnt;
 	struct completion vsync_comp;
@@ -453,13 +454,32 @@ static int mdss_mdp_video_intf_recovery(void *data, int event)
 	}
 }
 
+static int mdss_mdp_video_wait_one_frame(struct mdss_mdp_ctl *ctl)
+{
+	u32 frame_time, frame_rate;
+	int ret = 0;
+	struct mdss_panel_data *pdata = ctl->panel_data;
+
+	if (pdata == NULL) {
+		frame_rate = DEFAULT_FRAME_RATE;
+	} else {
+		frame_rate = mdss_panel_get_framerate(&pdata->panel_info);
+		if (!(frame_rate >= 24 && frame_rate <= 240))
+			frame_rate = 24;
+	}
+
+	frame_time = ((1000/frame_rate) + 1);
+
+	msleep(frame_time);
+
+	return ret;
+}
+
 static void mdss_mdp_video_avr_vtotal_setup(struct mdss_mdp_ctl *ctl,
 					struct intf_timing_params *p,
 					struct mdss_mdp_video_ctx *ctx)
 {
 	struct mdss_data_type *mdata = ctl->mdata;
-	struct mdss_mdp_ctl *sctl = NULL;
-	struct mdss_mdp_video_ctx *sctx = NULL;
 
 	if (test_bit(MDSS_CAPS_AVR_SUPPORTED, mdata->mdss_caps_map)) {
 		struct mdss_panel_data *pdata = ctl->panel_data;
@@ -486,14 +506,11 @@ static void mdss_mdp_video_avr_vtotal_setup(struct mdss_mdp_ctl *ctl,
 
 		/*
 		 * Make sure config goes through
+		 * and queue timegen flush
 		 */
 		wmb();
 
-		sctl = mdss_mdp_get_split_ctl(ctl);
-		if (sctl)
-			sctx = (struct mdss_mdp_video_ctx *)
-				sctl->intf_ctx[MASTER_CTX];
-		mdss_mdp_video_timegen_flush(ctl, sctx);
+		ctx->timegen_flush_pending = true;
 
 		MDSS_XLOG(pinfo->min_fps, pinfo->default_fps, avr_vtotal);
 	}
@@ -2464,24 +2481,40 @@ static int mdss_mdp_video_early_wake_up(struct mdss_mdp_ctl *ctl)
 static int mdss_mdp_video_avr_ctrl(struct mdss_mdp_ctl *ctl, bool enable)
 {
 	struct mdss_mdp_video_ctx *ctx = NULL, *sctx = NULL;
+	struct mdss_mdp_ctl *sctl;
 
 	ctx = (struct mdss_mdp_video_ctx *) ctl->intf_ctx[MASTER_CTX];
 	if (!ctx || !ctx->ref_cnt) {
 		pr_err("invalid master ctx\n");
 		return -EINVAL;
 	}
-	mdss_mdp_video_avr_ctrl_setup(ctx, ctl, ctl->is_master,
-			enable);
 
-	if (is_pingpong_split(ctl->mfd)) {
+	sctl = mdss_mdp_get_split_ctl(ctl);
+	if (sctl) {
+		sctx = (struct mdss_mdp_video_ctx *) sctl->intf_ctx[MASTER_CTX];
+	} else if (is_pingpong_split(ctl->mfd)) {
 		sctx = (struct mdss_mdp_video_ctx *) ctl->intf_ctx[SLAVE_CTX];
 		if (!sctx || !sctx->ref_cnt) {
 			pr_err("invalid slave ctx\n");
 			return -EINVAL;
 		}
-		mdss_mdp_video_avr_ctrl_setup(sctx, ctl, false,
-				enable);
 	}
+
+	if (ctx->timegen_flush_pending) {
+		mdss_mdp_video_timegen_flush(ctl, sctx);
+
+		/* wait a frame for flush to be completed */
+		mdss_mdp_video_wait_one_frame(ctl);
+
+		ctx->timegen_flush_pending = false;
+		if (sctx)
+			sctx->timegen_flush_pending = false;
+	}
+
+	mdss_mdp_video_avr_ctrl_setup(ctx, ctl, ctl->is_master, enable);
+
+	if (sctx)
+		mdss_mdp_video_avr_ctrl_setup(sctx, ctl, false, enable);
 
 	return 0;
 }

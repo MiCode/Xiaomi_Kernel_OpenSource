@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1173,6 +1173,8 @@ static void dcc_allocate_dump_mem(struct dcc_drvdata *drvdata)
 	/* Allocate memory for dcc reg dump */
 	drvdata->reg_buf = devm_kzalloc(dev, drvdata->reg_size, GFP_KERNEL);
 	if (drvdata->reg_buf) {
+		strlcpy(drvdata->reg_data.name, "KDCC_REG",
+				 sizeof(drvdata->reg_data.name));
 		drvdata->reg_data.addr = virt_to_phys(drvdata->reg_buf);
 		drvdata->reg_data.len = drvdata->reg_size;
 		reg_dump_entry.id = MSM_DUMP_DATA_DCC_REG;
@@ -1190,6 +1192,8 @@ static void dcc_allocate_dump_mem(struct dcc_drvdata *drvdata)
 	/* Allocate memory for dcc sram dump */
 	drvdata->sram_buf = devm_kzalloc(dev, drvdata->ram_size, GFP_KERNEL);
 	if (drvdata->sram_buf) {
+		strlcpy(drvdata->sram_data.name, "KDCC_SRAM",
+				 sizeof(drvdata->sram_data.name));
 		drvdata->sram_data.addr = virt_to_phys(drvdata->sram_buf);
 		drvdata->sram_data.len = drvdata->ram_size;
 		sram_dump_entry.id = MSM_DUMP_DATA_DCC_SRAM;

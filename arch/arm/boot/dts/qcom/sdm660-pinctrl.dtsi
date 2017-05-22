@@ -36,16 +36,28 @@
 		led_enable: led_enable {
 			mux {
 				pins = "gpio40";
-				drive_strength = <16>;
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio40";
+				drive_strength = <2>;
 				output-high;
+				bias-disable;
 			};
 		};
 
 		led_disable: led_disable {
 			mux {
 				pins = "gpio40";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio40";
 				drive_strength = <2>;
 				output-low;
+				bias-disable;
 			};
 		};
 
@@ -1092,7 +1104,7 @@
 		cam_sensor_mclk0_active: cam_sensor_mclk0_active {
 			/* MCLK0 */
 			mux {
-				/* CLK, DATA */
+				/* CLK */
 				pins = "gpio32";
 				function = "cam_mclk";
 			};
@@ -1107,7 +1119,7 @@
 		cam_sensor_mclk0_suspend: cam_sensor_mclk0_suspend {
 			/* MCLK0 */
 			mux {
-				/* CLK, DATA */
+				/* CLK */
 				pins = "gpio32";
 				function = "cam_mclk";
 			};
@@ -1150,7 +1162,7 @@
 		cam_sensor_mclk1_active: cam_sensor_mclk1_active {
 			/* MCLK1 */
 			mux {
-				/* CLK, DATA */
+				/* CLK */
 				pins = "gpio33";
 				function = "cam_mclk";
 			};
@@ -1165,7 +1177,7 @@
 		cam_sensor_mclk1_suspend: cam_sensor_mclk1_suspend {
 			/* MCLK1 */
 			mux {
-				/* CLK, DATA */
+				/* CLK */
 				pins = "gpio33";
 				function = "cam_mclk";
 			};
@@ -1207,7 +1219,7 @@
 		cam_sensor_mclk2_active: cam_sensor_mclk2_active {
 			/* MCLK1 */
 			mux {
-				/* CLK, DATA */
+				/* CLK */
 				pins = "gpio34";
 				function = "cam_mclk";
 			};
@@ -1222,7 +1234,7 @@
 		cam_sensor_mclk2_suspend: cam_sensor_mclk2_suspend {
 			/* MCLK1 */
 			mux {
-				/* CLK, DATA */
+				/* CLK */
 				pins = "gpio34";
 				function = "cam_mclk";
 			};
@@ -1257,6 +1269,64 @@
 
 			config {
 				pins = "gpio47";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_mclk3_active: cam_sensor_mclk3_active {
+			/* MCLK3 */
+			mux {
+				/* CLK */
+				pins = "gpio35";
+				function = "cam_mclk";
+			};
+
+			config {
+				pins = "gpio35";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_mclk3_suspend: cam_sensor_mclk3_suspend {
+			/* MCLK3 */
+			mux {
+				/* CLK */
+				pins = "gpio35";
+				function = "cam_mclk";
+			};
+
+			config {
+				pins = "gpio35";
+				bias-pull-down; /* PULL DOWN */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_front_iris_active: cam_sensor_front_iris_active {
+			/* RESET */
+			mux {
+				pins = "gpio52";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio52";
+				bias-disable; /* No PULL */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cam_sensor_front_iris_suspend: cam_sensor_front_iris_suspend {
+			/* RESET */
+			mux {
+				pins = "gpio52";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio52";
 				bias-disable; /* No PULL */
 				drive-strength = <2>; /* 2 MA */
 			};

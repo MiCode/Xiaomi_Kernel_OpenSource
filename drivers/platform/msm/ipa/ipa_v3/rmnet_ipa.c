@@ -2368,32 +2368,41 @@ static int rmnet_ipa_ap_suspend(struct device *dev)
 {
 	struct net_device *netdev = IPA_NETDEV();
 	struct ipa3_wwan_private *wwan_ptr;
+	int ret;
 
-	IPAWANDBG_LOW("Enter...\n");
+	IPAWANDBG("Enter...\n");
+
 	if (netdev == NULL) {
 		IPAWANERR("netdev is NULL.\n");
-		return 0;
+		ret = 0;
+		goto bail;
 	}
 
+	netif_tx_lock_bh(netdev);
 	wwan_ptr = netdev_priv(netdev);
 	if (wwan_ptr == NULL) {
 		IPAWANERR("wwan_ptr is NULL.\n");
-		return 0;
+		ret = 0;
+		goto unlock_and_bail;
 	}
 
 	/* Do not allow A7 to suspend in case there are oustanding packets */
 	if (atomic_read(&wwan_ptr->outstanding_pkts) != 0) {
 		IPAWANDBG("Outstanding packets, postponing AP suspend.\n");
-		return -EAGAIN;
+		ret = -EAGAIN;
+		goto unlock_and_bail;
 	}
 
 	/* Make sure that there is no Tx operation ongoing */
-	netif_tx_lock_bh(netdev);
+	netif_stop_queue(netdev);
 	ipa_rm_release_resource(IPA_RM_RESOURCE_WWAN_0_PROD);
-	netif_tx_unlock_bh(netdev);
-	IPAWANDBG_LOW("Exit\n");
+	ret = 0;
 
-	return 0;
+unlock_and_bail:
+	netif_tx_unlock_bh(netdev);
+bail:
+	IPAWANDBG("Exit with %d\n", ret);
+	return ret;
 }
 
 /**
@@ -2410,10 +2419,10 @@ static int rmnet_ipa_ap_resume(struct device *dev)
 {
 	struct net_device *netdev = IPA_NETDEV();
 
-	IPAWANDBG_LOW("Enter...\n");
+	IPAWANDBG("Enter...\n");
 	if (netdev)
 		netif_wake_queue(netdev);
-	IPAWANDBG_LOW("Exit\n");
+	IPAWANDBG("Exit\n");
 
 	return 0;
 }
@@ -3205,6 +3214,9 @@ static int __init ipa3_wwan_init(void)
 	mutex_init(&rmnet_ipa3_ctx->pipe_handle_guard);
 	rmnet_ipa3_ctx->ipa3_to_apps_hdl = -1;
 	rmnet_ipa3_ctx->apps_to_ipa3_hdl = -1;
+
+	ipa3_qmi_init();
+
 	/* Register for Modem SSR */
 	rmnet_ipa3_ctx->subsys_notify_handle = subsys_notif_register_notifier(
 			SUBSYS_MODEM,
@@ -3218,6 +3230,7 @@ static int __init ipa3_wwan_init(void)
 static void __exit ipa3_wwan_cleanup(void)
 {
 	int ret;
+	ipa3_qmi_cleanup();
 	mutex_destroy(&rmnet_ipa3_ctx->pipe_handle_guard);
 	ret = subsys_notif_unregister_notifier(
 		rmnet_ipa3_ctx->subsys_notify_handle, &ipa3_ssr_notifier);

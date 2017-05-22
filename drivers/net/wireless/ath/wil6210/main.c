@@ -576,6 +576,9 @@ int wil_priv_init(struct wil6210_priv *wil)
 
 	if (rx_ring_overflow_thrsh == WIL6210_RX_HIGH_TRSH_INIT)
 		rx_ring_overflow_thrsh = WIL6210_RX_HIGH_TRSH_DEFAULT;
+
+	wil->ps_profile =  WMI_PS_PROFILE_TYPE_DEFAULT;
+
 	return 0;
 
 out_wmi_wq:
@@ -901,6 +904,24 @@ void wil_abort_scan(struct wil6210_priv *wil, bool sync)
 	}
 }
 
+int wil_ps_update(struct wil6210_priv *wil, enum wmi_ps_profile_type ps_profile)
+{
+	int rc;
+
+	if (!test_bit(WMI_FW_CAPABILITY_PS_CONFIG, wil->fw_capabilities)) {
+		wil_err(wil, "set_power_mgmt not supported\n");
+		return -EOPNOTSUPP;
+	}
+
+	rc  = wmi_ps_dev_profile_cfg(wil, ps_profile);
+	if (rc)
+		wil_err(wil, "wmi_ps_dev_profile_cfg failed (%d)\n", rc);
+	else
+		wil->ps_profile = ps_profile;
+
+	return rc;
+}
+
 /*
  * We reset all the structures, and we reset the UMAC.
  * After calling this routine, you're expected to reload
@@ -950,14 +971,14 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 	/* Disable device led before reset*/
 	wmi_led_cfg(wil, false);
 
+	mutex_lock(&wil->p2p_wdev_mutex);
+	wil_abort_scan(wil, false);
+	mutex_unlock(&wil->p2p_wdev_mutex);
+
 	/* prevent NAPI from being scheduled and prevent wmi commands */
 	mutex_lock(&wil->wmi_mutex);
 	bitmap_zero(wil->status, wil_status_last);
 	mutex_unlock(&wil->wmi_mutex);
-
-	mutex_lock(&wil->p2p_wdev_mutex);
-	wil_abort_scan(wil, false);
-	mutex_unlock(&wil->p2p_wdev_mutex);
 
 	wil_mask_irq(wil);
 
@@ -1034,6 +1055,9 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 			wil_err(wil, "wmi_echo failed, rc %d\n", rc);
 			return rc;
 		}
+
+		if (wil->ps_profile != WMI_PS_PROFILE_TYPE_DEFAULT)
+			wil_ps_update(wil, wil->ps_profile);
 
 		if (wil->tt_data_set)
 			wmi_set_tt_cfg(wil, &wil->tt_data);

@@ -53,6 +53,8 @@ struct ipa3_qmi_context *ipa3_qmi_ctx;
 static bool workqueues_stopped;
 static bool ipa3_modem_init_cmplt;
 static bool first_time_handshake;
+struct mutex ipa3_qmi_lock;
+
 /* QMI A5 service */
 
 static struct msg_desc ipa3_indication_reg_req_desc = {
@@ -610,12 +612,17 @@ int ipa3_qmi_filter_request_send(struct ipa_install_fltr_rule_req_msg_v01 *req)
 		req->filter_spec_ex_list_len);
 	}
 
-	/* cache the qmi_filter_request */
-	memcpy(&(ipa3_qmi_ctx->ipa_install_fltr_rule_req_msg_cache[
-		ipa3_qmi_ctx->num_ipa_install_fltr_rule_req_msg]),
-			req, sizeof(struct ipa_install_fltr_rule_req_msg_v01));
-	ipa3_qmi_ctx->num_ipa_install_fltr_rule_req_msg++;
-	ipa3_qmi_ctx->num_ipa_install_fltr_rule_req_msg %= 10;
+	mutex_lock(&ipa3_qmi_lock);
+	if (ipa3_qmi_ctx != NULL) {
+		/* cache the qmi_filter_request */
+		memcpy(&(ipa3_qmi_ctx->ipa_install_fltr_rule_req_msg_cache[
+			ipa3_qmi_ctx->num_ipa_install_fltr_rule_req_msg]),
+			req,
+			sizeof(struct ipa_install_fltr_rule_req_msg_v01));
+		ipa3_qmi_ctx->num_ipa_install_fltr_rule_req_msg++;
+		ipa3_qmi_ctx->num_ipa_install_fltr_rule_req_msg %= 10;
+	}
+	mutex_unlock(&ipa3_qmi_lock);
 
 	req_desc.max_msg_len = QMI_IPA_INSTALL_FILTER_RULE_REQ_MAX_MSG_LEN_V01;
 	req_desc.msg_id = QMI_IPA_INSTALL_FILTER_RULE_REQ_V01;
@@ -655,12 +662,17 @@ int ipa3_qmi_filter_request_ex_send(
 		req->filter_spec_ex_list_len);
 	}
 
-	/* cache the qmi_filter_request */
-	memcpy(&(ipa3_qmi_ctx->ipa_install_fltr_rule_req_ex_msg_cache[
-		ipa3_qmi_ctx->num_ipa_install_fltr_rule_req_ex_msg]),
-		req, sizeof(struct ipa_install_fltr_rule_req_ex_msg_v01));
-	ipa3_qmi_ctx->num_ipa_install_fltr_rule_req_ex_msg++;
-	ipa3_qmi_ctx->num_ipa_install_fltr_rule_req_ex_msg %= 10;
+	mutex_lock(&ipa3_qmi_lock);
+	if (ipa3_qmi_ctx != NULL) {
+		/* cache the qmi_filter_request */
+		memcpy(&(ipa3_qmi_ctx->ipa_install_fltr_rule_req_ex_msg_cache[
+			ipa3_qmi_ctx->num_ipa_install_fltr_rule_req_ex_msg]),
+			req,
+			sizeof(struct ipa_install_fltr_rule_req_ex_msg_v01));
+		ipa3_qmi_ctx->num_ipa_install_fltr_rule_req_ex_msg++;
+		ipa3_qmi_ctx->num_ipa_install_fltr_rule_req_ex_msg %= 10;
+	}
+	mutex_unlock(&ipa3_qmi_lock);
 
 	req_desc.max_msg_len =
 		QMI_IPA_INSTALL_FILTER_RULE_EX_REQ_MAX_MSG_LEN_V01;
@@ -795,12 +807,17 @@ int ipa3_qmi_filter_notify_send(
 		return -EINVAL;
 	}
 
-	/* cache the qmi_filter_request */
-	memcpy(&(ipa3_qmi_ctx->ipa_fltr_installed_notif_req_msg_cache[
-		ipa3_qmi_ctx->num_ipa_fltr_installed_notif_req_msg]),
-		req, sizeof(struct ipa_fltr_installed_notif_req_msg_v01));
-	ipa3_qmi_ctx->num_ipa_fltr_installed_notif_req_msg++;
-	ipa3_qmi_ctx->num_ipa_fltr_installed_notif_req_msg %= 10;
+	mutex_lock(&ipa3_qmi_lock);
+	if (ipa3_qmi_ctx != NULL) {
+		/* cache the qmi_filter_request */
+		memcpy(&(ipa3_qmi_ctx->ipa_fltr_installed_notif_req_msg_cache[
+			ipa3_qmi_ctx->num_ipa_fltr_installed_notif_req_msg]),
+			req,
+			sizeof(struct ipa_fltr_installed_notif_req_msg_v01));
+		ipa3_qmi_ctx->num_ipa_fltr_installed_notif_req_msg++;
+		ipa3_qmi_ctx->num_ipa_fltr_installed_notif_req_msg %= 10;
+	}
+	mutex_unlock(&ipa3_qmi_lock);
 
 	req_desc.max_msg_len =
 	QMI_IPA_FILTER_INSTALLED_NOTIF_REQ_MAX_MSG_LEN_V01;
@@ -1336,5 +1353,15 @@ int ipa3_qmi_stop_data_qouta(void)
 	return ipa3_check_qmi_response(rc,
 		QMI_IPA_STOP_DATA_USAGE_QUOTA_REQ_V01, resp.resp.result,
 		resp.resp.error, "ipa_stop_data_usage_quota_req_msg_v01");
+}
+
+void ipa3_qmi_init(void)
+{
+	mutex_init(&ipa3_qmi_lock);
+}
+
+void ipa3_qmi_cleanup(void)
+{
+	mutex_destroy(&ipa3_qmi_lock);
 }
 
