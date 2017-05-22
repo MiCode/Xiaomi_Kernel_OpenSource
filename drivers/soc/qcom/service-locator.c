@@ -266,7 +266,6 @@ static int service_locator_send_msg(struct pd_qmi_client_data *pd)
 			pd->total_domains = resp->total_domains;
 			if (!resp->total_domains) {
 				pr_err("No matching domains found\n");
-				rc = -EIO;
 				goto out;
 			}
 
