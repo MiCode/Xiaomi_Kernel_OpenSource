@@ -27,8 +27,8 @@ struct spi_master;
 struct spi_transfer;
 
 /*
- * INTERFACES between SPI master-side drivers and SPI infrastructure.
- * (There's no SPI slave support for Linux yet...)
+ * INTERFACES between SPI master-side drivers and SPI slave protocol handlers,
+ * and SPI infrastructure.
  */
 extern struct bus_type spi_bus_type;
 
@@ -303,6 +303,7 @@ static inline void spi_unregister_driver(struct spi_driver *sdrv)
  * @min_speed_hz: Lowest supported transfer speed
  * @max_speed_hz: Highest supported transfer speed
  * @flags: other constraints relevant to this driver
+ * @slave: indicates that this is an SPI slave controller
  * @bus_lock_spinlock: spinlock for SPI bus locking
  * @bus_lock_mutex: mutex for SPI bus locking
  * @bus_lock_flag: indicates that the SPI bus is locked for exclusive use
@@ -361,6 +362,7 @@ static inline void spi_unregister_driver(struct spi_driver *sdrv)
  * @handle_err: the subsystem calls the driver to handle an error that occurs
  *		in the generic implementation of transfer_one_message().
  * @unprepare_message: undo any work done by prepare_message().
+ * @slave_abort: abort the ongoing transfer request on an SPI slave controller
  * @cs_gpios: Array of GPIOs to use as chip select lines; one per CS
  *	number. Any individual value may be -ENOENT for CS lines that
  *	are not GPIOs (driven by the SPI controller itself).
@@ -424,6 +426,9 @@ struct spi_master {
 #define SPI_MASTER_NO_TX	BIT(2)		/* can't do buffer write */
 #define SPI_MASTER_MUST_RX      BIT(3)		/* requires rx */
 #define SPI_MASTER_MUST_TX      BIT(4)		/* requires tx */
+
+	/* flag indicating this is an SPI slave controller */
+	bool			slave;
 
 	/* lock and mutex for SPI bus locking */
 	spinlock_t		bus_lock_spinlock;
@@ -507,6 +512,7 @@ struct spi_master {
 			       struct spi_message *message);
 	int (*unprepare_message)(struct spi_master *master,
 				 struct spi_message *message);
+	int (*slave_abort)(struct spi_master *spi);
 
 	/*
 	 * These hooks are for drivers that use a generic implementation
@@ -556,6 +562,11 @@ static inline void spi_master_put(struct spi_master *master)
 		put_device(&master->dev);
 }
 
+static inline bool spi_controller_is_slave(struct spi_master *ctlr)
+{
+	return IS_ENABLED(CONFIG_SPI_SLAVE) && ctlr->slave;
+}
+
 /* PM calls that need to be issued by the driver */
 extern int spi_master_suspend(struct spi_master *master);
 extern int spi_master_resume(struct spi_master *master);
@@ -566,8 +577,23 @@ extern void spi_finalize_current_message(struct spi_master *master);
 extern void spi_finalize_current_transfer(struct spi_master *master);
 
 /* the spi driver core manages memory for the spi_master classdev */
-extern struct spi_master *
-spi_alloc_master(struct device *host, unsigned size);
+extern struct spi_master *__spi_alloc_controller(struct device *host,
+						 unsigned int size, bool slave);
+
+static inline struct spi_master *spi_alloc_master(struct device *host,
+						  unsigned int size)
+{
+	return __spi_alloc_controller(host, size, false);
+}
+
+static inline struct spi_master *spi_alloc_slave(struct device *host,
+						 unsigned int size)
+{
+	if (!IS_ENABLED(CONFIG_SPI_SLAVE))
+		return NULL;
+
+	return __spi_alloc_controller(host, size, true);
+}
 
 extern int spi_register_master(struct spi_master *master);
 extern int devm_spi_register_master(struct device *dev,
@@ -831,6 +857,7 @@ extern int spi_setup(struct spi_device *spi);
 extern int spi_async(struct spi_device *spi, struct spi_message *message);
 extern int spi_async_locked(struct spi_device *spi,
 			    struct spi_message *message);
+extern int spi_slave_abort(struct spi_device *spi);
 
 /*---------------------------------------------------------------------------*/
 
