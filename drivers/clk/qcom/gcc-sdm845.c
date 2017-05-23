@@ -3509,6 +3509,31 @@ static const struct qcom_reset_map gcc_sdm845_resets[] = {
 	[GCC_PCIE_1_PHY_BCR] = { 0x8e01c },
 };
 
+/* List of RCG clocks and corresponding flags requested for DFS Mode */
+static struct clk_dfs gcc_dfs_clocks[] = {
+	{ &gcc_qupv3_wrap0_s0_clk_src, DFS_ENABLE_RCG },
+	{ &gcc_qupv3_wrap0_s1_clk_src, DFS_ENABLE_RCG },
+	{ &gcc_qupv3_wrap0_s2_clk_src, DFS_ENABLE_RCG },
+	{ &gcc_qupv3_wrap0_s3_clk_src, DFS_ENABLE_RCG },
+	{ &gcc_qupv3_wrap0_s4_clk_src, DFS_ENABLE_RCG },
+	{ &gcc_qupv3_wrap0_s5_clk_src, DFS_ENABLE_RCG },
+	{ &gcc_qupv3_wrap0_s6_clk_src, DFS_ENABLE_RCG },
+	{ &gcc_qupv3_wrap0_s7_clk_src, DFS_ENABLE_RCG },
+	{ &gcc_qupv3_wrap1_s0_clk_src, DFS_ENABLE_RCG },
+	{ &gcc_qupv3_wrap1_s1_clk_src, DFS_ENABLE_RCG },
+	{ &gcc_qupv3_wrap1_s2_clk_src, DFS_ENABLE_RCG },
+	{ &gcc_qupv3_wrap1_s3_clk_src, DFS_ENABLE_RCG },
+	{ &gcc_qupv3_wrap1_s4_clk_src, DFS_ENABLE_RCG },
+	{ &gcc_qupv3_wrap1_s5_clk_src, DFS_ENABLE_RCG },
+	{ &gcc_qupv3_wrap1_s6_clk_src, DFS_ENABLE_RCG },
+	{ &gcc_qupv3_wrap1_s7_clk_src, DFS_ENABLE_RCG },
+};
+
+static const struct qcom_cc_dfs_desc gcc_sdm845_dfs_desc = {
+	.clks = gcc_dfs_clocks,
+	.num_clks = ARRAY_SIZE(gcc_dfs_clocks),
+};
+
 static const struct regmap_config gcc_sdm845_regmap_config = {
 	.reg_bits	= 32,
 	.reg_stride	= 4,
@@ -3599,10 +3624,10 @@ static int gcc_sdm845_probe(struct platform_device *pdev)
 	clk_prepare_enable(gcc_camera_ahb_clk.clkr.hw.clk);
 	clk_prepare_enable(gcc_video_ahb_clk.clkr.hw.clk);
 
-	/*
-	 * TODO:
-	 * 1. QUPv3 support
-	 */
+	/* DFS clock registration */
+	ret = qcom_cc_register_rcg_dfs(pdev, &gcc_sdm845_dfs_desc);
+	if (ret)
+		dev_err(&pdev->dev, "Failed to register with DFS!\n");
 
 	dev_info(&pdev->dev, "Registered GCC clocks\n");
 	return ret;
