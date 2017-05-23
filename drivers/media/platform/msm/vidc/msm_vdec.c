@@ -1781,8 +1781,10 @@ static int msm_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 
 	if (inst->state == MSM_VIDC_CORE_INVALID ||
 		inst->core->state == VIDC_CORE_INVALID ||
-		inst->core->state == VIDC_CORE_UNINIT)
-		return -EINVAL;
+		inst->core->state == VIDC_CORE_UNINIT) {
+		rc = -EINVAL;
+		goto stream_start_failed;
+	}
 
 	hdev = inst->core->device;
 	dprintk(VIDC_DBG, "Streamon called on: %d capability for inst: %pK\n",
