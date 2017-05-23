@@ -238,11 +238,9 @@ static struct smb_params pm660_params = {
 
 #define STEP_CHARGING_MAX_STEPS	5
 struct smb_dt_props {
-	int	fcc_ua;
 	int	usb_icl_ua;
 	int	dc_icl_ua;
 	int	boost_threshold_ua;
-	int	fv_uv;
 	int	wipower_max_uw;
 	int	min_freq_khz;
 	int	max_freq_khz;
@@ -310,14 +308,14 @@ static int smb2_parse_dt(struct smb2 *chip)
 						"qcom,external-vconn");
 
 	rc = of_property_read_u32(node,
-				"qcom,fcc-max-ua", &chip->dt.fcc_ua);
+				"qcom,fcc-max-ua", &chg->batt_profile_fcc_ua);
 	if (rc < 0)
-		chip->dt.fcc_ua = -EINVAL;
+		chg->batt_profile_fcc_ua = -EINVAL;
 
 	rc = of_property_read_u32(node,
-				"qcom,fv-max-uv", &chip->dt.fv_uv);
+				"qcom,fv-max-uv", &chg->batt_profile_fv_uv);
 	if (rc < 0)
-		chip->dt.fv_uv = -EINVAL;
+		chg->batt_profile_fv_uv = -EINVAL;
 
 	rc = of_property_read_u32(node,
 				"qcom,usb-icl-ua", &chip->dt.usb_icl_ua);
@@ -946,13 +944,15 @@ static int smb2_batt_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_charge_qnovo_enable(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_QNOVO:
-		val->intval = chg->qnovo_fv_uv;
+		val->intval = get_client_vote_locked(chg->fv_votable,
+				QNOVO_VOTER);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		rc = smblib_get_prop_batt_current_now(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_QNOVO:
-		val->intval = chg->qnovo_fcc_ua;
+		val->intval = get_client_vote_locked(chg->fcc_votable,
+				QNOVO_VOTER);
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		val->intval = get_client_vote(chg->fcc_votable,
@@ -1018,23 +1018,37 @@ static int smb2_batt_set_prop(struct power_supply *psy,
 		vote(chg->pl_disable_votable, USER_VOTER, (bool)val->intval, 0);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
-		vote(chg->fv_votable, DEFAULT_VOTER, true, val->intval);
+		chg->batt_profile_fv_uv = val->intval;
+		vote(chg->fv_votable, BATT_PROFILE_VOTER, true, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_QNOVO_ENABLE:
 		rc = smblib_set_prop_charge_qnovo_enable(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_QNOVO:
-		chg->qnovo_fv_uv = val->intval;
-		rc = rerun_election(chg->fv_votable);
+		if (val->intval == -EINVAL) {
+			vote(chg->fv_votable, BATT_PROFILE_VOTER,
+					true, chg->batt_profile_fv_uv);
+			vote(chg->fv_votable, QNOVO_VOTER, false, 0);
+		} else {
+			vote(chg->fv_votable, QNOVO_VOTER, true, val->intval);
+			vote(chg->fv_votable, BATT_PROFILE_VOTER, false, 0);
+		}
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_QNOVO:
-		chg->qnovo_fcc_ua = val->intval;
 		vote(chg->pl_disable_votable, PL_QNOVO_VOTER,
 			val->intval != -EINVAL && val->intval < 2000000, 0);
-		rc = rerun_election(chg->fcc_votable);
+		if (val->intval == -EINVAL) {
+			vote(chg->fcc_votable, BATT_PROFILE_VOTER,
+					true, chg->batt_profile_fcc_ua);
+			vote(chg->fcc_votable, QNOVO_VOTER, false, 0);
+		} else {
+			vote(chg->fcc_votable, QNOVO_VOTER, true, val->intval);
+			vote(chg->fcc_votable, BATT_PROFILE_VOTER, false, 0);
+		}
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
-		vote(chg->fcc_votable, DEFAULT_VOTER, true, val->intval);
+		chg->batt_profile_fcc_ua = val->intval;
+		vote(chg->fcc_votable, BATT_PROFILE_VOTER, true, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_SET_SHIP_MODE:
 		/* Not in ship mode as long as the device is active */
@@ -1451,11 +1465,13 @@ static int smb2_init_hw(struct smb2 *chip)
 	if (chip->dt.no_battery)
 		chg->fake_capacity = 50;
 
-	if (chip->dt.fcc_ua < 0)
-		smblib_get_charge_param(chg, &chg->param.fcc, &chip->dt.fcc_ua);
+	if (chg->batt_profile_fcc_ua < 0)
+		smblib_get_charge_param(chg, &chg->param.fcc,
+				&chg->batt_profile_fcc_ua);
 
-	if (chip->dt.fv_uv < 0)
-		smblib_get_charge_param(chg, &chg->param.fv, &chip->dt.fv_uv);
+	if (chg->batt_profile_fv_uv < 0)
+		smblib_get_charge_param(chg, &chg->param.fv,
+				&chg->batt_profile_fv_uv);
 
 	smblib_get_charge_param(chg, &chg->param.usb_icl,
 				&chg->default_icl_ua);
@@ -1516,9 +1532,9 @@ static int smb2_init_hw(struct smb2 *chip)
 	vote(chg->dc_suspend_votable,
 		DEFAULT_VOTER, chip->dt.no_battery, 0);
 	vote(chg->fcc_votable,
-		DEFAULT_VOTER, true, chip->dt.fcc_ua);
+		BATT_PROFILE_VOTER, true, chg->batt_profile_fcc_ua);
 	vote(chg->fv_votable,
-		DEFAULT_VOTER, true, chip->dt.fv_uv);
+		BATT_PROFILE_VOTER, true, chg->batt_profile_fv_uv);
 	vote(chg->dc_icl_votable,
 		DEFAULT_VOTER, true, chip->dt.dc_icl_ua);
 	vote(chg->hvdcp_disable_votable_indirect, PD_INACTIVE_VOTER,
