@@ -77,6 +77,9 @@
 #define DCC_READ_IND			0x00
 #define DCC_WRITE_IND			(BIT(28))
 
+#define DCC_AHB_IND			0x00
+#define DCC_APB_IND			BIT(29)
+
 #define DCC_MAX_LINK_LIST		5
 #define DCC_INVALID_LINK_LIST		0xFF
 
@@ -120,6 +123,7 @@ struct dcc_config_entry {
 	uint32_t			loop_cnt;
 	uint32_t			write_val;
 	uint32_t			mask;
+	bool				apb_bus;
 	enum dcc_descriptor_type	desc_type;
 	struct list_head		list;
 };
@@ -332,7 +336,12 @@ static int __dcc_ll_cfg(struct dcc_drvdata *drvdata, int curr_list)
 
 			/* Address type */
 			addr = (entry->base >> 4) & BM(0, 27);
-			addr |= DCC_ADDR_DESCRIPTOR | DCC_WRITE_IND;
+			if (entry->apb_bus)
+				addr |= DCC_ADDR_DESCRIPTOR | DCC_WRITE_IND
+					| DCC_APB_IND;
+			else
+				addr |= DCC_ADDR_DESCRIPTOR | DCC_WRITE_IND
+					| DCC_AHB_IND;
 
 			dcc_sram_writel(drvdata, addr, sram_offset);
 				sram_offset += 4;
@@ -351,7 +360,12 @@ static int __dcc_ll_cfg(struct dcc_drvdata *drvdata, int curr_list)
 		{
 			/* Address type */
 			addr = (entry->base >> 4) & BM(0, 27);
-			addr |= DCC_ADDR_DESCRIPTOR | DCC_READ_IND;
+			if (entry->apb_bus)
+				addr |= DCC_ADDR_DESCRIPTOR | DCC_READ_IND
+					| DCC_APB_IND;
+			else
+				addr |= DCC_ADDR_DESCRIPTOR | DCC_READ_IND
+					| DCC_AHB_IND;
 
 			off = entry->offset/4;
 			total_len += entry->len * 4;
@@ -857,15 +871,17 @@ static ssize_t dcc_show_config(struct device *dev,
 			break;
 		case DCC_WRITE_TYPE:
 			len = snprintf(local_buf, 64,
-				       "Write Index: 0x%x, Base: 0x%x, Offset: 0x%x, len: 0x%x\n",
+				       "Write Index: 0x%x, Base: 0x%x, Offset: 0x%x, len: 0x%x APB: %d\n",
 				       entry->index, entry->base,
-				       entry->offset, entry->len);
+				       entry->offset, entry->len,
+				       entry->apb_bus);
 			break;
 		default:
 			len = snprintf(local_buf, 64,
-				       "Read Index: 0x%x, Base: 0x%x, Offset: 0x%x, len: 0x%x\n",
+				       "Read Index: 0x%x, Base: 0x%x, Offset: 0x%x, len: 0x%x APB: %d\n",
 				       entry->index, entry->base,
-				       entry->offset, entry->len);
+				       entry->offset, entry->len,
+				       entry->apb_bus);
 		}
 
 		if ((count + len) > PAGE_SIZE) {
@@ -882,7 +898,7 @@ static ssize_t dcc_show_config(struct device *dev,
 }
 
 static int dcc_config_add(struct dcc_drvdata *drvdata, unsigned int addr,
-			  unsigned int len)
+			  unsigned int len, int apb_bus)
 {
 	int ret;
 	struct dcc_config_entry *entry, *pentry;
@@ -954,6 +970,7 @@ static int dcc_config_add(struct dcc_drvdata *drvdata, unsigned int addr,
 		entry->len = min_t(uint32_t, len, MAX_DCC_LEN);
 		entry->index = drvdata->nr_config[drvdata->curr_list]++;
 		entry->desc_type = DCC_ADDR_TYPE;
+		entry->apb_bus = apb_bus;
 		INIT_LIST_HEAD(&entry->list);
 		list_add_tail(&entry->list,
 			      &drvdata->cfg_head[drvdata->curr_list]);
@@ -973,24 +990,30 @@ static ssize_t dcc_store_config(struct device *dev,
 				struct device_attribute *attr,
 				const char *buf, size_t size)
 {
-	int ret, len;
+	int ret, len, apb_bus;
 	unsigned int base;
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
 	int nval;
 
-	nval = sscanf(buf, "%x %i", &base, &len);
-	if (nval <= 0 || nval > 2)
+	nval = sscanf(buf, "%x %i %d", &base, &len, &apb_bus);
+	if (nval <= 0 || nval > 3)
 		return -EINVAL;
-
-	if (nval == 1)
-		len = 1;
 
 	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
 		dev_err(dev, "Select link list to program using curr_list\n");
 		return -EINVAL;
 	}
 
-	ret = dcc_config_add(drvdata, base, len);
+	if (nval == 1) {
+		len = 1;
+		apb_bus = 0;
+	} else if (nval == 2) {
+		apb_bus = 0;
+	} else {
+		apb_bus = 1;
+	}
+
+	ret = dcc_config_add(drvdata, base, len, apb_bus);
 	if (ret)
 		return ret;
 
@@ -1188,19 +1211,20 @@ static ssize_t dcc_write(struct device *dev,
 	int ret = size;
 	int nval;
 	unsigned int addr, write_val;
+	int apb_bus;
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
 	struct dcc_config_entry *entry;
 
 	mutex_lock(&drvdata->mutex);
 
-	nval = sscanf(buf, "%x %x", &addr, &write_val);
+	nval = sscanf(buf, "%x %x %d", &addr, &write_val, &apb_bus);
 
 	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
 		dev_err(dev, "Select link list to program using curr_list\n");
 		return -EINVAL;
 	}
 
-	if (nval <= 1 || nval > 2) {
+	if (nval <= 1 || nval > 3) {
 		ret = -EINVAL;
 		goto err;
 	}
@@ -1210,6 +1234,9 @@ static ssize_t dcc_write(struct device *dev,
 		ret = -ENOMEM;
 		goto err;
 	}
+
+	if (nval == 3)
+		entry->apb_bus = true;
 
 	entry->desc_type = DCC_WRITE_TYPE;
 	entry->base = addr & BM(4, 31);
