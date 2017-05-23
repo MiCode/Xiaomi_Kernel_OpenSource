@@ -1438,7 +1438,7 @@ void gmu_remove(struct kgsl_device *device)
 
 	if (hfi->hfi_interrupt_num) {
 		devm_free_irq(&gmu->pdev->dev,
-				hfi->hfi_interrupt_num, gmu);
+				hfi->hfi_interrupt_num, hfi);
 		hfi->hfi_interrupt_num = 0;
 	}
 
