@@ -1509,8 +1509,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 			PERFCOUNTER_FLAG_KERNEL);
 
 		if (ret) {
-			KGSL_DRV_ERR(device,
-				"Unable to get the perf counters for DCVS\n");
+			WARN_ONCE(1, "Unable to get perf counters for DCVS\n");
 			adreno_dev->perfctr_pwr_lo = 0;
 		}
 	}
