@@ -1816,6 +1816,7 @@ cpu_util_freq(int cpu, struct sched_walt_cpu_load *walt_load)
 
 			walt_load->prev_window_util = util;
 			walt_load->nl = nl;
+			walt_load->pl = 0;
 		}
 	}
 #endif
