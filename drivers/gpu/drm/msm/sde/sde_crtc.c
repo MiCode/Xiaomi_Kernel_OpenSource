@@ -2902,19 +2902,19 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 			CRTC_PROP_CORE_CLK);
 	msm_property_install_range(&sde_crtc->property_info,
 			"core_ab", 0x0, 0, U64_MAX,
-			SDE_PERF_DEFAULT_MAX_BUS_AB_QUOTA,
+			catalog->perf.max_bw_high * 1000ULL,
 			CRTC_PROP_CORE_AB);
 	msm_property_install_range(&sde_crtc->property_info,
 			"core_ib", 0x0, 0, U64_MAX,
-			SDE_PERF_DEFAULT_MAX_BUS_IB_QUOTA,
+			catalog->perf.max_bw_high * 1000ULL,
 			CRTC_PROP_CORE_IB);
 	msm_property_install_range(&sde_crtc->property_info,
 			"mem_ab", 0x0, 0, U64_MAX,
-			SDE_PERF_DEFAULT_MAX_BUS_AB_QUOTA,
+			catalog->perf.max_bw_high * 1000ULL,
 			CRTC_PROP_MEM_AB);
 	msm_property_install_range(&sde_crtc->property_info,
 			"mem_ib", 0x0, 0, U64_MAX,
-			SDE_PERF_DEFAULT_MAX_BUS_IB_QUOTA,
+			catalog->perf.max_bw_high * 1000ULL,
 			CRTC_PROP_MEM_IB);
 	msm_property_install_range(&sde_crtc->property_info,
 			"rot_prefill_bw", 0, 0, U64_MAX,
@@ -3039,6 +3039,12 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 				break;
 			case CRTC_PROP_ROI_V1:
 				ret = _sde_crtc_set_roi_v1(state, (void *)val);
+				break;
+			case CRTC_PROP_CORE_AB:
+			case CRTC_PROP_CORE_IB:
+			case CRTC_PROP_MEM_AB:
+			case CRTC_PROP_MEM_IB:
+				cstate->bw_control = true;
 				break;
 			default:
 				/* nothing to do */

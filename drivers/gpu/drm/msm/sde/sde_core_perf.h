@@ -22,8 +22,6 @@
 #include "sde_power_handle.h"
 
 #define	SDE_PERF_DEFAULT_MAX_CORE_CLK_RATE	320000000
-#define	SDE_PERF_DEFAULT_MAX_BUS_AB_QUOTA	2000000000
-#define	SDE_PERF_DEFAULT_MAX_BUS_IB_QUOTA	2000000000
 
 /**
  * struct sde_core_perf_params - definition of performance parameters

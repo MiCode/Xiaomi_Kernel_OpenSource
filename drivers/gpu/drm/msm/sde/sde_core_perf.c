@@ -169,7 +169,9 @@ int sde_core_perf_crtc_check(struct drm_crtc *crtc,
 
 	SDE_DEBUG("final threshold bw limit = %d\n", threshold);
 
-	if (!threshold) {
+	if (!sde_cstate->bw_control) {
+		SDE_DEBUG("bypass bandwidth check\n");
+	} else if (!threshold) {
 		sde_cstate->new_perf = sde_cstate->cur_perf;
 		SDE_ERROR("no bandwidth limits specified\n");
 		return -E2BIG;
