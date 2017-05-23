@@ -1482,7 +1482,7 @@ static int ops_notify(void *handle, enum wil_platform_event evt)
 	return rc;
 }
 
-bool ops_keep_radio_on_during_sleep(void *handle)
+static bool ops_keep_radio_on_during_sleep(void *handle)
 {
 	struct msm11ad_ctx *ctx = (struct msm11ad_ctx *)handle;
 
