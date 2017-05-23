@@ -1713,6 +1713,11 @@ int smblib_get_prop_input_current_limited(struct smb_charger *chg,
 	u8 stat;
 	int rc;
 
+	if (chg->fake_input_current_limited >= 0) {
+		val->intval = chg->fake_input_current_limited;
+		return 0;
+	}
+
 	rc = smblib_read(chg, AICL_STATUS_REG, &stat);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read AICL_STATUS rc=%d\n", rc);
@@ -1902,6 +1907,13 @@ int smblib_set_prop_charge_qnovo_enable(struct smb_charger *chg,
 	}
 
 	return rc;
+}
+
+int smblib_set_prop_input_current_limited(struct smb_charger *chg,
+				const union power_supply_propval *val)
+{
+	chg->fake_input_current_limited = val->intval;
+	return 0;
 }
 
 int smblib_rerun_aicl(struct smb_charger *chg)
@@ -4481,6 +4493,7 @@ int smblib_init(struct smb_charger *chg)
 	INIT_DELAYED_WORK(&chg->pl_enable_work, smblib_pl_enable_work);
 	INIT_WORK(&chg->legacy_detection_work, smblib_legacy_detection_work);
 	chg->fake_capacity = -EINVAL;
+	chg->fake_input_current_limited = -EINVAL;
 
 	switch (chg->mode) {
 	case PARALLEL_MASTER:
