@@ -2481,6 +2481,12 @@ int msm_isp_ab_ib_update_lpm_mode(struct vfe_device *vfe_dev, void *arg)
 		rc = -1;
 		return rc;
 	}
+	if (ab_ib_vote->num_src >= VFE_AXI_SRC_MAX) {
+		pr_err("%s: ab_ib_vote num_src is exceeding limit\n",
+			__func__);
+		rc = -1;
+		return rc;
+	}
 	if (ab_ib_vote->lpm_mode) {
 		for (i = 0; i < ab_ib_vote->num_src; i++) {
 			stream_info =
