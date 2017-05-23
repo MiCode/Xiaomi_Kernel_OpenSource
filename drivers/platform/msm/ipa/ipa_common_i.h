@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -108,8 +108,10 @@ do {\
 		ipa_assert();\
 } while (0)
 
-#define IPA_CLIENT_IS_PROD(x) (x >= IPA_CLIENT_PROD && x < IPA_CLIENT_CONS)
-#define IPA_CLIENT_IS_CONS(x) (x >= IPA_CLIENT_CONS && x < IPA_CLIENT_MAX)
+#define IPA_CLIENT_IS_PROD(x) \
+	(x < IPA_CLIENT_MAX && (x & 0x1) == 0)
+#define IPA_CLIENT_IS_CONS(x) \
+	(x < IPA_CLIENT_MAX && (x & 0x1) == 1)
 
 #define IPA_GSI_CHANNEL_STOP_SLEEP_MIN_USEC (1000)
 #define IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC (2000)

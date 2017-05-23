@@ -953,7 +953,7 @@ void ipa_sps_irq_control_all(bool enable)
 
 	IPADBG("\n");
 
-	for (client_num = IPA_CLIENT_CONS;
+	for (client_num = 0;
 		client_num < IPA_CLIENT_MAX; client_num++) {
 		if (!IPA_CLIENT_IS_APPS_CONS(client_num))
 			continue;

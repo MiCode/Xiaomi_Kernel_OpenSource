@@ -19,32 +19,33 @@
 
 static const char *resource_name_to_str[IPA_RM_RESOURCE_MAX] = {
 	__stringify(IPA_RM_RESOURCE_Q6_PROD),
-	__stringify(IPA_RM_RESOURCE_USB_PROD),
-	__stringify(IPA_RM_RESOURCE_USB_DPL_DUMMY_PROD),
-	__stringify(IPA_RM_RESOURCE_HSIC_PROD),
-	__stringify(IPA_RM_RESOURCE_STD_ECM_PROD),
-	__stringify(IPA_RM_RESOURCE_RNDIS_PROD),
-	__stringify(IPA_RM_RESOURCE_WWAN_0_PROD),
-	__stringify(IPA_RM_RESOURCE_WLAN_PROD),
-	__stringify(IPA_RM_RESOURCE_ODU_ADAPT_PROD),
-	__stringify(IPA_RM_RESOURCE_MHI_PROD),
-	__stringify(IPA_RM_RESOURCE_ETHERNET_PROD),
 	__stringify(IPA_RM_RESOURCE_Q6_CONS),
+	__stringify(IPA_RM_RESOURCE_USB_PROD),
 	__stringify(IPA_RM_RESOURCE_USB_CONS),
+	__stringify(IPA_RM_RESOURCE_USB_DPL_DUMMY_PROD),
 	__stringify(IPA_RM_RESOURCE_USB_DPL_CONS),
+	__stringify(IPA_RM_RESOURCE_HSIC_PROD),
 	__stringify(IPA_RM_RESOURCE_HSIC_CONS),
-	__stringify(IPA_RM_RESOURCE_WLAN_CONS),
+	__stringify(IPA_RM_RESOURCE_STD_ECM_PROD),
 	__stringify(IPA_RM_RESOURCE_APPS_CONS),
+	__stringify(IPA_RM_RESOURCE_RNDIS_PROD),
+	__stringify(RESERVED_CONS_11),
+	__stringify(IPA_RM_RESOURCE_WWAN_0_PROD),
+	__stringify(RESERVED_CONS_13),
+	__stringify(IPA_RM_RESOURCE_WLAN_PROD),
+	__stringify(IPA_RM_RESOURCE_WLAN_CONS),
+	__stringify(IPA_RM_RESOURCE_ODU_ADAPT_PROD),
 	__stringify(IPA_RM_RESOURCE_ODU_ADAPT_CONS),
+	__stringify(IPA_RM_RESOURCE_MHI_PROD),
 	__stringify(IPA_RM_RESOURCE_MHI_CONS),
+	__stringify(IPA_RM_RESOURCE_ETHERNET_PROD),
 	__stringify(IPA_RM_RESOURCE_ETHERNET_CONS),
 };
 
 struct ipa_rm_profile_vote_type {
 	enum ipa_voltage_level volt[IPA_RM_RESOURCE_MAX];
 	enum ipa_voltage_level curr_volt;
-	u32 bw_prods[IPA_RM_RESOURCE_PROD_MAX];
-	u32 bw_cons[IPA_RM_RESOURCE_CONS_MAX];
+	u32 bw_resources[IPA_RM_RESOURCE_MAX];
 	u32 curr_bw;
 };
 
@@ -999,7 +1000,9 @@ int ipa_rm_stat(char *buf, int size)
 		return result;
 
 	spin_lock_irqsave(&ipa_rm_ctx->ipa_rm_lock, flags);
-	for (i = 0; i < IPA_RM_RESOURCE_PROD_MAX; ++i) {
+	for (i = 0; i < IPA_RM_RESOURCE_MAX; ++i) {
+		if (!IPA_RM_RESORCE_IS_PROD(i))
+			continue;
 		result = ipa_rm_dep_graph_get_resource(
 				ipa_rm_ctx->dep_graph,
 				i,
@@ -1014,11 +1017,12 @@ int ipa_rm_stat(char *buf, int size)
 		}
 	}
 
-	for (i = 0; i < IPA_RM_RESOURCE_PROD_MAX; i++)
-		sum_bw_prod += ipa_rm_ctx->prof_vote.bw_prods[i];
-
-	for (i = 0; i < IPA_RM_RESOURCE_CONS_MAX; i++)
-		sum_bw_cons += ipa_rm_ctx->prof_vote.bw_cons[i];
+	for (i = 0; i < IPA_RM_RESOURCE_MAX; i++) {
+		if (IPA_RM_RESORCE_IS_PROD(i))
+			sum_bw_prod += ipa_rm_ctx->prof_vote.bw_resources[i];
+		else
+			sum_bw_cons += ipa_rm_ctx->prof_vote.bw_resources[i];
+	}
 
 	result = scnprintf(buf + cnt, size - cnt,
 		"All prod bandwidth: %d, All cons bandwidth: %d\n",
@@ -1118,15 +1122,7 @@ void ipa_rm_perf_profile_change(enum ipa_rm_resource_name resource_name)
 	old_volt = ipa_rm_ctx->prof_vote.curr_volt;
 	old_bw = ipa_rm_ctx->prof_vote.curr_bw;
 
-	if (IPA_RM_RESORCE_IS_PROD(resource_name)) {
-		bw_ptr = &ipa_rm_ctx->prof_vote.bw_prods[resource_name];
-	} else if (IPA_RM_RESORCE_IS_CONS(resource_name)) {
-		bw_ptr = &ipa_rm_ctx->prof_vote.bw_cons[
-				resource_name - IPA_RM_RESOURCE_PROD_MAX];
-	} else {
-		IPA_RM_ERR("Invalid resource_name\n");
-		return;
-	}
+	bw_ptr = &ipa_rm_ctx->prof_vote.bw_resources[resource_name];
 
 	switch (resource->state) {
 	case IPA_RM_GRANTED:
@@ -1161,11 +1157,12 @@ void ipa_rm_perf_profile_change(enum ipa_rm_resource_name resource_name)
 		}
 	}
 
-	for (i = 0; i < IPA_RM_RESOURCE_PROD_MAX; i++)
-		sum_bw_prod += ipa_rm_ctx->prof_vote.bw_prods[i];
-
-	for (i = 0; i < IPA_RM_RESOURCE_CONS_MAX; i++)
-		sum_bw_cons += ipa_rm_ctx->prof_vote.bw_cons[i];
+	for (i = 0; i < IPA_RM_RESOURCE_MAX; i++) {
+		if (IPA_RM_RESORCE_IS_PROD(i))
+			sum_bw_prod += ipa_rm_ctx->prof_vote.bw_resources[i];
+		else
+			sum_bw_cons += ipa_rm_ctx->prof_vote.bw_resources[i];
+	}
 
 	IPA_RM_DBG_LOW("all prod bandwidth: %d all cons bandwidth: %d\n",
 		sum_bw_prod, sum_bw_cons);
