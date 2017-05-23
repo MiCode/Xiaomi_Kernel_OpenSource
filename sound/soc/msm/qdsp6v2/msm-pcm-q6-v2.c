@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -641,8 +641,15 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct msm_audio *prtd;
+	struct msm_plat_data *pdata;
 	int ret = 0;
 
+	pdata = (struct msm_plat_data *)
+		dev_get_drvdata(soc_prtd->platform->dev);
+	if (!pdata) {
+		pr_err("%s: platform data not populated\n", __func__);
+		return -EINVAL;
+	}
 	prtd = kzalloc(sizeof(struct msm_audio), GFP_KERNEL);
 	if (prtd == NULL) {
 		pr_err("Failed to allocate memory for msm_audio\n");
@@ -722,6 +729,10 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	prtd->reset_event = false;
 	runtime->private_data = prtd;
 	msm_adsp_init_mixer_ctl_pp_event_queue(soc_prtd);
+	/* Vote to update the Rx thread priority to RT Thread for playback */
+	if ((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) &&
+	    (pdata->perf_mode == LOW_LATENCY_PCM_MODE))
+		apr_start_rx_rt(prtd->audio_client->apr);
 
 	return 0;
 }
@@ -829,6 +840,7 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct msm_audio *prtd = runtime->private_data;
+	struct msm_plat_data *pdata;
 	uint32_t timeout;
 	int dir = 0;
 	int ret = 0;
@@ -838,6 +850,16 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 	if (prtd->audio_client) {
 		dir = IN;
 
+		/*
+		 * Unvote to downgrade the Rx thread priority from
+		 * RT Thread for Low-Latency use case.
+		 */
+		pdata = (struct msm_plat_data *)
+			dev_get_drvdata(soc_prtd->platform->dev);
+		if (pdata) {
+			if (pdata->perf_mode == LOW_LATENCY_PCM_MODE)
+				apr_end_rx_rt(prtd->audio_client->apr);
+		}
 		/* determine timeout length */
 		if (runtime->frame_bits == 0 || runtime->rate == 0) {
 			timeout = CMD_EOS_MIN_TIMEOUT_LENGTH;
