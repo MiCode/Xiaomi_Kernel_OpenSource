@@ -710,13 +710,14 @@ enum msm_dsi_encoder_id {
 };
 
 /* *
- * msm_send_crtc_notification - notify user-space clients of crtc events.
- * @crtc: crtc that is generating the event.
+ * msm_mode_object_event_notify - notify user-space clients of drm object
+ *                                events.
+ * @obj: mode object (crtc/connector) that is generating the event.
  * @event: event that needs to be notified.
  * @payload: payload for the event.
  */
-void msm_send_crtc_notification(struct drm_crtc *crtc,
-		struct drm_event *event, u8 *payload);
+void msm_mode_object_event_nofity(struct drm_mode_object *obj,
+		struct drm_device *dev, struct drm_event *event, u8 *payload);
 #ifdef CONFIG_DRM_MSM_DSI
 void __init msm_dsi_register(void);
 void __exit msm_dsi_unregister(void);

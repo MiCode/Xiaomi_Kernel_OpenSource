@@ -51,8 +51,12 @@ struct sde_crtc_custom_events {
 			struct sde_irq_callback *irq);
 };
 
+static int sde_crtc_power_interrupt_handler(struct drm_crtc *crtc_drm,
+	bool en, struct sde_irq_callback *ad_irq);
+
 static struct sde_crtc_custom_events custom_events[] = {
-	{DRM_EVENT_AD_BACKLIGHT, sde_cp_ad_interrupt}
+	{DRM_EVENT_AD_BACKLIGHT, sde_cp_ad_interrupt},
+	{DRM_EVENT_CRTC_POWER, sde_crtc_power_interrupt_handler}
 };
 
 /* default input fence timeout, in ms */
@@ -2022,6 +2026,8 @@ static void _sde_crtc_set_suspend(struct drm_crtc *crtc, bool enable)
 	struct sde_crtc *sde_crtc;
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
+	struct drm_event event;
+	u32 power_on;
 
 	if (!crtc || !crtc->dev || !crtc->dev->dev_private) {
 		SDE_ERROR("invalid crtc\n");
@@ -2040,13 +2046,18 @@ static void _sde_crtc_set_suspend(struct drm_crtc *crtc, bool enable)
 
 	mutex_lock(&sde_crtc->crtc_lock);
 
+	event.type = DRM_EVENT_CRTC_POWER;
+	event.length = sizeof(u32);
 	/*
 	 * Update CP on suspend/resume transitions
 	 */
-	if (enable && !sde_crtc->suspend)
+	if (enable && !sde_crtc->suspend) {
 		sde_cp_crtc_suspend(crtc);
-	else if (!enable && sde_crtc->suspend)
+		power_on = 0;
+	} else if (!enable && sde_crtc->suspend) {
 		sde_cp_crtc_resume(crtc);
+		power_on = 1;
+	}
 
 	/*
 	 * If the vblank refcount != 0, release a power reference on suspend
@@ -2059,7 +2070,8 @@ static void _sde_crtc_set_suspend(struct drm_crtc *crtc, bool enable)
 		_sde_crtc_vblank_enable_nolock(sde_crtc, !enable);
 
 	sde_crtc->suspend = enable;
-
+	msm_mode_object_event_nofity(&crtc->base, crtc->dev, &event,
+			(u8 *)&power_on);
 	mutex_unlock(&sde_crtc->crtc_lock);
 }
 
@@ -3619,4 +3631,10 @@ int sde_crtc_register_custom_event(struct sde_kms *kms,
 		ret = _sde_crtc_event_disable(kms, crtc_drm, event);
 
 	return ret;
+}
+
+static int sde_crtc_power_interrupt_handler(struct drm_crtc *crtc_drm,
+	bool en, struct sde_irq_callback *irq)
+{
+	return 0;
 }

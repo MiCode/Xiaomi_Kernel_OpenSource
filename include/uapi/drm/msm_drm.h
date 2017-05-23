@@ -321,6 +321,8 @@ struct drm_msm_event_resp {
 /* sde custom events */
 #define DRM_EVENT_HISTOGRAM 0x80000000
 #define DRM_EVENT_AD_BACKLIGHT 0x80000001
+#define DRM_EVENT_CRTC_POWER 0x80000002
+#define DRM_EVENT_SYS_BACKLIGHT 0x80000003
 
 #define DRM_IOCTL_MSM_GET_PARAM        DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GET_PARAM, struct drm_msm_param)
 #define DRM_IOCTL_MSM_GEM_NEW          DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_NEW, struct drm_msm_gem_new)
