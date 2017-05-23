@@ -137,6 +137,7 @@
 #define IPA_FLT_MAC_SRC_ADDR_802_3	(1ul << 19)
 #define IPA_FLT_MAC_DST_ADDR_802_3	(1ul << 20)
 #define IPA_FLT_MAC_ETHER_TYPE		(1ul << 21)
+#define IPA_FLT_MAC_DST_ADDR_L2TP	(1ul << 22)
 
 /**
  * enum ipa_client_type - names for the various IPA "clients"
