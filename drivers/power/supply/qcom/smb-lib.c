@@ -549,9 +549,9 @@ static const struct apsd_result *smblib_update_usb_type(struct smb_charger *chg)
 
 	/* if PD is active, APSD is disabled so won't have a valid result */
 	if (chg->pd_active)
-		chg->usb_psy_desc.type = POWER_SUPPLY_TYPE_USB_PD;
+		chg->real_charger_type = POWER_SUPPLY_TYPE_USB_PD;
 	else
-		chg->usb_psy_desc.type = apsd_result->pst;
+		chg->real_charger_type = apsd_result->pst;
 
 	smblib_dbg(chg, PR_MISC, "APSD=%s PD=%d\n",
 					apsd_result->name, chg->pd_active);
@@ -857,7 +857,7 @@ int smblib_set_icl_current(struct smb_charger *chg, int icl_ua)
 
 	/* configure current */
 	if (pval.intval == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT
-		&& (chg->usb_psy_desc.type == POWER_SUPPLY_TYPE_USB)) {
+		&& (chg->real_charger_type == POWER_SUPPLY_TYPE_USB)) {
 		rc = set_sdp_current(chg, icl_ua);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't set SDP ICL rc=%d\n", rc);
@@ -878,10 +878,10 @@ override_suspend_config:
 		/* remove override if no voters - hw defaults is desired */
 		override = false;
 	} else if (pval.intval == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT) {
-		if (chg->usb_psy_desc.type == POWER_SUPPLY_TYPE_USB)
+		if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB)
 			/* For std cable with type = SDP never override */
 			override = false;
-		else if (chg->usb_psy_desc.type == POWER_SUPPLY_TYPE_USB_CDP
+		else if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_CDP
 			&& icl_ua == 1500000)
 			/*
 			 * For std cable with type = CDP override only if
@@ -3320,7 +3320,7 @@ static void smblib_hvdcp_adaptive_voltage_change(struct smb_charger *chg)
 	int pulses;
 
 	power_supply_changed(chg->usb_main_psy);
-	if (chg->usb_psy_desc.type == POWER_SUPPLY_TYPE_USB_HVDCP) {
+	if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP) {
 		rc = smblib_read(chg, QC_CHANGE_STATUS_REG, &stat);
 		if (rc < 0) {
 			smblib_err(chg,
@@ -3348,7 +3348,7 @@ static void smblib_hvdcp_adaptive_voltage_change(struct smb_charger *chg)
 		}
 	}
 
-	if (chg->usb_psy_desc.type == POWER_SUPPLY_TYPE_USB_HVDCP_3) {
+	if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP_3) {
 		rc = smblib_read(chg, QC_PULSE_COUNT_STATUS_REG, &stat);
 		if (rc < 0) {
 			smblib_err(chg,
