@@ -672,6 +672,20 @@ static int diag_mhi_register_ch(int id, struct diag_mhi_ch_t *ch)
 	return mhi_register_channel(&ch->hdl, &ch->client_info);
 }
 
+static void diag_mhi_dev_exit(int dev)
+{
+	struct diag_mhi_info *mhi_info = NULL;
+
+	mhi_info = &diag_mhi[dev];
+	if (!mhi_info)
+		return;
+	if (mhi_info->mhi_wq)
+		destroy_workqueue(mhi_info->mhi_wq);
+	mhi_close(mhi_info->id);
+	if (mhi_info->mempool_init)
+		diagmem_exit(driver, mhi_info->mempool);
+}
+
 int diag_mhi_init()
 {
 	int i;
@@ -717,22 +731,16 @@ int diag_mhi_init()
 
 	return 0;
 fail:
-	diag_mhi_exit();
+	diag_mhi_dev_exit(i);
 	return -ENOMEM;
 }
 
 void diag_mhi_exit()
 {
 	int i;
-	struct diag_mhi_info *mhi_info = NULL;
 
 	for (i = 0; i < NUM_MHI_DEV; i++) {
-		mhi_info = &diag_mhi[i];
-		if (mhi_info->mhi_wq)
-			destroy_workqueue(mhi_info->mhi_wq);
-		mhi_close(mhi_info->id);
-		if (mhi_info->mempool_init)
-			diagmem_exit(driver, mhi_info->mempool);
+		diag_mhi_dev_exit(i);
 	}
 }
 
