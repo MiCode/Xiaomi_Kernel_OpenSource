@@ -1143,8 +1143,16 @@ static ssize_t dcc_store_loop(struct device *dev,
 
 	mutex_lock(&drvdata->mutex);
 
-	if (kstrtoul(buf, 16, &loop_cnt))
+	if (kstrtoul(buf, 16, &loop_cnt)) {
 		ret = -EINVAL;
+		goto err;
+	}
+
+	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
+		dev_err(dev, "Select link list to program using curr_list\n");
+		ret = -EINVAL;
+		goto err;
+	}
 
 	entry = devm_kzalloc(drvdata->dev, sizeof(*entry), GFP_KERNEL);
 	if (!entry) {
@@ -1154,6 +1162,7 @@ static ssize_t dcc_store_loop(struct device *dev,
 
 	entry->loop_cnt = min_t(uint32_t, loop_cnt, MAX_LOOP_CNT);
 	entry->index = drvdata->nr_config[drvdata->curr_list]++;
+	entry->desc_type = DCC_LOOP_TYPE;
 	INIT_LIST_HEAD(&entry->list);
 	list_add_tail(&entry->list, &drvdata->cfg_head[drvdata->curr_list]);
 
@@ -1221,12 +1230,13 @@ static ssize_t dcc_write(struct device *dev,
 
 	nval = sscanf(buf, "%x %x %d", &addr, &write_val, &apb_bus);
 
-	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
-		dev_err(dev, "Select link list to program using curr_list\n");
-		return -EINVAL;
+	if (nval <= 1 || nval > 3) {
+		ret = -EINVAL;
+		goto err;
 	}
 
-	if (nval <= 1 || nval > 3) {
+	if (drvdata->curr_list >= DCC_MAX_LINK_LIST) {
+		dev_err(dev, "Select link list to program using curr_list\n");
 		ret = -EINVAL;
 		goto err;
 	}
