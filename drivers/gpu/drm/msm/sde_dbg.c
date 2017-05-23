@@ -2723,6 +2723,9 @@ static ssize_t sde_dbg_reg_base_offset_write(struct file *file,
 	if (off > dbg->max_offset)
 		return -EINVAL;
 
+	if (off % sizeof(u32))
+		return -EINVAL;
+
 	if (cnt > (dbg->max_offset - off))
 		cnt = dbg->max_offset - off;
 
@@ -2753,6 +2756,9 @@ static ssize_t sde_dbg_reg_base_offset_read(struct file *file,
 
 	if (*ppos)
 		return 0;	/* the end */
+
+	if (dbg->off % sizeof(u32))
+		return -EFAULT;
 
 	len = snprintf(buf, sizeof(buf), "0x%08zx %zx\n", dbg->off, dbg->cnt);
 	if (len < 0 || len >= sizeof(buf))
@@ -2795,6 +2801,9 @@ static ssize_t sde_dbg_reg_base_reg_write(struct file *file,
 	cnt = sscanf(buf, "%zx %x", &off, &data);
 
 	if (cnt < 2)
+		return -EFAULT;
+
+	if (off % sizeof(u32))
 		return -EFAULT;
 
 	if (off >= dbg->max_offset)
@@ -2840,6 +2849,9 @@ static ssize_t sde_dbg_reg_base_reg_read(struct file *file,
 
 		if (!dbg->buf)
 			return -ENOMEM;
+
+		if (dbg->off % sizeof(u32))
+			return -EFAULT;
 
 		ptr = dbg->base + dbg->off;
 		tot = 0;
