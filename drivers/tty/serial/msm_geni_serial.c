@@ -145,6 +145,7 @@ struct msm_geni_serial_port {
 	void *ipc_log_pwr;
 	void *ipc_log_misc;
 	unsigned int cur_baud;
+	int ioctl_count;
 };
 
 static const struct uart_ops msm_geni_serial_pops;
@@ -161,6 +162,8 @@ static int handle_rx_hs(struct uart_port *uport,
 static unsigned int msm_geni_serial_tx_empty(struct uart_port *port);
 static int msm_geni_serial_power_on(struct uart_port *uport);
 static void msm_geni_serial_power_off(struct uart_port *uport);
+static int msm_geni_serial_poll_bit(struct uart_port *uport,
+				int offset, int bit_field, bool set);
 
 static atomic_t uart_line_id = ATOMIC_INIT(0);
 
@@ -218,22 +221,22 @@ static void dump_ipc(void *ipc_ctx, char *prefix, char *string,
 					(unsigned int)addr, size, buf);
 }
 
-static void check_tx_active(struct uart_port *uport)
+static bool check_tx_active(struct uart_port *uport)
 {
-	u32 geni_status = geni_read_reg_nolog(uport->membase,
-					SE_GENI_STATUS);
-
-	while ((geni_status & M_GENI_CMD_ACTIVE)) {
-		cpu_relax();
-		geni_status = geni_read_reg_nolog(uport->membase,
-					SE_GENI_STATUS);
-	}
+	/*
+	 * Poll if the GENI STATUS bit for TX is cleared. If the bit is
+	 * clear (poll condition met), return false, meaning tx isn't active
+	 * else return true. So return not of the poll return.
+	 */
+	return !msm_geni_serial_poll_bit(uport, SE_GENI_STATUS,
+					M_GENI_CMD_ACTIVE, false);
 }
 
 static int vote_clock_on(struct uart_port *uport)
 {
 	int ret = 0;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
+	int usage_count = atomic_read(&uport->dev->power.usage_count);
 
 	if (!pm_runtime_enabled(uport->dev)) {
 		dev_err(uport->dev, "RPM not available.Can't enable clocks\n");
@@ -245,8 +248,10 @@ static int vote_clock_on(struct uart_port *uport)
 		dev_err(uport->dev, "Failed to vote clock on\n");
 		return ret;
 	}
+	port->ioctl_count++;
 	__pm_relax(&port->geni_wake);
-	IPC_LOG_MSG(port->ipc_log_pwr, "%s\n", __func__);
+	IPC_LOG_MSG(port->ipc_log_pwr, "%s rpm %d ioctl %d\n",
+				__func__, usage_count, port->ioctl_count);
 	return 0;
 }
 
@@ -254,16 +259,29 @@ static int vote_clock_off(struct uart_port *uport)
 {
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 	int ret = 0;
+	int usage_count = atomic_read(&uport->dev->power.usage_count);
 
 	if (!pm_runtime_enabled(uport->dev)) {
 		dev_err(uport->dev, "RPM not available.Can't enable clocks\n");
 		ret = -EPERM;
 		return ret;
 	}
-	/* Block till any on going Tx goes out.*/
-	check_tx_active(uport);
+	/* Check on going Tx. Don't block on this for now. */
+	if (check_tx_active(uport))
+		dev_warn(uport->dev, "%s: Vote off called during active Tx",
+								__func__);
+	if (!port->ioctl_count) {
+		dev_warn(uport->dev, "%s:Imbalanced vote off ioctl %d\n",
+						 __func__, usage_count);
+		IPC_LOG_MSG(port->ipc_log_pwr,
+				"%s:Imbalanced vote_off from userspace rpm%d",
+				__func__, usage_count);
+		return 0;
+	}
+	port->ioctl_count--;
 	msm_geni_serial_power_off(uport);
-	IPC_LOG_MSG(port->ipc_log_pwr, "%s\n", __func__);
+	IPC_LOG_MSG(port->ipc_log_pwr, "%s rpm %d ioctl %d\n",
+				__func__, usage_count, port->ioctl_count);
 	return 0;
 };
 
@@ -398,20 +416,20 @@ static int msm_geni_serial_poll_bit(struct uart_port *uport,
 	bool cond = false;
 	unsigned int baud = 115200;
 	unsigned int fifo_bits = DEF_FIFO_DEPTH_WORDS * DEF_FIFO_WIDTH_BITS;
-	unsigned long total_iter = 0;
+	unsigned long total_iter = 1000;
 
 
-	if (uport->private_data) {
+	if (uport->private_data && !uart_console(uport)) {
 		port = GET_DEV_PORT(uport);
 		baud = (port->cur_baud ? port->cur_baud : 115200);
 		fifo_bits = port->tx_fifo_depth * port->tx_fifo_width;
+		/*
+		 * Total polling iterations based on FIFO worth of bytes to be
+		 * sent at current baud .Add a little fluff to the wait.
+		 */
+		total_iter = ((fifo_bits * USEC_PER_SEC) / baud);
+		total_iter += 50;
 	}
-	/*
-	 * Total polling iterations based on FIFO worth of bytes to be
-	 * sent at current baud .Add a little fluff to the wait.
-	 */
-	total_iter = ((fifo_bits * USEC_PER_SEC) / baud);
-	total_iter += 50;
 
 	while (iter < total_iter) {
 		reg = geni_read_reg_nolog(uport->membase, offset);
@@ -449,17 +467,11 @@ static void msm_geni_serial_poll_cancel_tx(struct uart_port *uport)
 	done = msm_geni_serial_poll_bit(uport, SE_GENI_M_IRQ_STATUS,
 						M_CMD_DONE_EN, true);
 	if (!done) {
-		geni_write_reg_nolog(M_GENI_CMD_CANCEL, uport->membase,
-						SE_GENI_S_CMD_CTRL_REG);
-		irq_clear |= M_CMD_CANCEL_EN;
-		if (!msm_geni_serial_poll_bit(uport, SE_GENI_M_IRQ_STATUS,
-						M_CMD_CANCEL_EN, true)) {
-			geni_write_reg_nolog(M_GENI_CMD_ABORT, uport->membase,
-						SE_GENI_M_CMD_CTRL_REG);
-			irq_clear |= M_CMD_ABORT_EN;
-			msm_geni_serial_poll_bit(uport, SE_GENI_M_IRQ_STATUS,
+		geni_write_reg_nolog(M_GENI_CMD_ABORT, uport->membase,
+					SE_GENI_M_CMD_CTRL_REG);
+		irq_clear |= M_CMD_ABORT_EN;
+		msm_geni_serial_poll_bit(uport, SE_GENI_M_IRQ_STATUS,
 							M_CMD_ABORT_EN, true);
-		}
 	}
 	geni_write_reg_nolog(irq_clear, uport->membase, SE_GENI_M_IRQ_CLEAR);
 }
@@ -678,7 +690,6 @@ static void msm_geni_serial_start_tx(struct uart_port *uport)
 	geni_write_reg_nolog(geni_m_irq_en, uport->membase, SE_GENI_M_IRQ_EN);
 	/* Geni command setup/irq enables should complete before returning.*/
 	mb();
-	IPC_LOG_MSG(msm_port->ipc_log_misc, "%s\n", __func__);
 }
 
 static void msm_geni_serial_stop_tx(struct uart_port *uport)
@@ -1032,23 +1043,33 @@ static int msm_geni_serial_port_setup(struct uart_port *uport)
 	if (!uart_console(uport)) {
 		/* For now only assume FIFO mode. */
 		msm_port->xfer_mode = FIFO_MODE;
-		ret = geni_se_init(uport->membase,
-					msm_port->rx_wm, msm_port->rx_rfr);
-		if (ret) {
-			dev_err(uport->dev, "%s: Fail\n", __func__);
-			goto exit_portsetup;
-		}
-
-		ret = geni_se_select_mode(uport->membase, msm_port->xfer_mode);
-		if (ret)
-			goto exit_portsetup;
-
 		se_get_packing_config(8, 4, false, &cfg0, &cfg1);
 		geni_write_reg_nolog(cfg0, uport->membase,
 						SE_GENI_TX_PACKING_CFG0);
 		geni_write_reg_nolog(cfg1, uport->membase,
 						SE_GENI_TX_PACKING_CFG1);
+	} else {
+		/*
+		 * Make an unconditional cancel on the main sequencer to reset
+		 * it else we could end up in data loss scenarios.
+		 */
+		msm_port->xfer_mode = FIFO_MODE;
+		msm_geni_serial_poll_cancel_tx(uport);
+		se_get_packing_config(8, 1, false, &cfg0, &cfg1);
+		geni_write_reg_nolog(cfg0, uport->membase,
+						SE_GENI_TX_PACKING_CFG0);
+		geni_write_reg_nolog(cfg1, uport->membase,
+						SE_GENI_TX_PACKING_CFG1);
 	}
+	ret = geni_se_init(uport->membase, msm_port->rx_wm, msm_port->rx_rfr);
+	if (ret) {
+		dev_err(uport->dev, "%s: Fail\n", __func__);
+		goto exit_portsetup;
+	}
+
+	ret = geni_se_select_mode(uport->membase, msm_port->xfer_mode);
+	if (ret)
+		goto exit_portsetup;
 
 	msm_port->port_setup = true;
 	/*
@@ -1118,12 +1139,10 @@ static int msm_geni_serial_startup(struct uart_port *uport)
 	if (unlikely(get_se_proto(uport->membase) != UART)) {
 		dev_err(uport->dev, "%s: Invalid FW %d loaded.\n",
 				 __func__, get_se_proto(uport->membase));
-		if (unlikely(get_se_proto(uport->membase) != UART)) {
-			ret = -ENXIO;
-			disable_irq(uport->irq);
-			free_irq(uport->irq, msm_port);
-			goto exit_startup;
-		}
+		ret = -ENXIO;
+		disable_irq(uport->irq);
+		free_irq(uport->irq, msm_port);
+		goto exit_startup;
 	}
 
 	if (!msm_port->port_setup) {
@@ -1358,7 +1377,6 @@ static int __init msm_geni_console_setup(struct console *co, char *options)
 	int parity = 'n';
 	int flow = 'n';
 	int ret = 0;
-	unsigned long cfg0, cfg1;
 
 	if (unlikely(co->index >= GENI_UART_NR_PORTS  || co->index < 0))
 		return -ENXIO;
@@ -1386,14 +1404,6 @@ static int __init msm_geni_console_setup(struct console *co, char *options)
 	if (!dev_port->port_setup)
 		msm_geni_serial_port_setup(uport);
 
-	/*
-	 * Make an unconditional cancel on the main sequencer to reset
-	 * it else we could end up in data loss scenarios.
-	 */
-	msm_geni_serial_poll_cancel_tx(uport);
-	se_get_packing_config(8, 1, false, &cfg0, &cfg1);
-	geni_write_reg_nolog(cfg0, uport->membase, SE_GENI_TX_PACKING_CFG0);
-	geni_write_reg_nolog(cfg1, uport->membase, SE_GENI_TX_PACKING_CFG1);
 	if (options)
 		uart_parse_options(options, &baud, &parity, &bits, &flow);
 
@@ -1438,9 +1448,6 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 		goto exit_geni_serial_earlyconsetup;
 	}
 
-	geni_se_init(uport->membase, (DEF_FIFO_DEPTH_WORDS >> 1),
-					(DEF_FIFO_DEPTH_WORDS - 2));
-	geni_se_select_mode(uport->membase, FIFO_MODE);
 	/*
 	 * Ignore Flow control.
 	 * Disable Tx Parity.
@@ -1471,7 +1478,11 @@ msm_geni_serial_earlycon_setup(struct earlycon_device *dev,
 	 * it else we could end up in data loss scenarios.
 	 */
 	msm_geni_serial_poll_cancel_tx(uport);
+	msm_geni_serial_abort_rx(uport);
 	se_get_packing_config(8, 1, false, &cfg0, &cfg1);
+	geni_se_init(uport->membase, (DEF_FIFO_DEPTH_WORDS >> 1),
+					(DEF_FIFO_DEPTH_WORDS - 2));
+	geni_se_select_mode(uport->membase, FIFO_MODE);
 	geni_write_reg_nolog(cfg0, uport->membase, SE_GENI_TX_PACKING_CFG0);
 	geni_write_reg_nolog(cfg1, uport->membase, SE_GENI_TX_PACKING_CFG1);
 	geni_write_reg_nolog(tx_trans_cfg, uport->membase,
@@ -1802,8 +1813,7 @@ static int msm_geni_serial_runtime_suspend(struct device *dev)
 	}
 	if (port->wakeup_irq > 0)
 		enable_irq(port->wakeup_irq);
-	IPC_LOG_MSG(port->ipc_log_pwr, "%s: Current usage count %d\n", __func__,
-				atomic_read(&dev->power.usage_count));
+	IPC_LOG_MSG(port->ipc_log_pwr, "%s:\n", __func__);
 exit_runtime_suspend:
 	return ret;
 }
@@ -1821,8 +1831,7 @@ static int msm_geni_serial_runtime_resume(struct device *dev)
 		dev_err(dev, "%s: Error ret %d\n", __func__, ret);
 		goto exit_runtime_resume;
 	}
-	IPC_LOG_MSG(port->ipc_log_pwr, "%s: Current usage count %d\n", __func__,
-				atomic_read(&dev->power.usage_count));
+	IPC_LOG_MSG(port->ipc_log_pwr, "%s:\n", __func__);
 exit_runtime_resume:
 	return ret;
 }
