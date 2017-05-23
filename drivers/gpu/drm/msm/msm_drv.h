@@ -148,6 +148,7 @@ enum msm_mdp_conn_property {
 	CONNECTOR_PROP_DST_Y,
 	CONNECTOR_PROP_DST_W,
 	CONNECTOR_PROP_DST_H,
+	CONNECTOR_PROP_PLL_DELTA,
 
 	/* enum/bitmask properties */
 	CONNECTOR_PROP_TOPOLOGY_NAME,
@@ -412,7 +413,7 @@ void msm_gem_address_space_put(struct msm_gem_address_space *aspace);
 /* For GPU and legacy display */
 struct msm_gem_address_space *
 msm_gem_address_space_create(struct device *dev, struct iommu_domain *domain,
-		const char *name);
+		int type, const char *name);
 struct msm_gem_address_space *
 msm_gem_address_space_create_instance(struct msm_mmu *parent, const char *name,
 		uint64_t start, uint64_t end);
@@ -468,7 +469,8 @@ int msm_gem_new_handle(struct drm_device *dev, struct drm_file *file,
 struct drm_gem_object *msm_gem_new(struct drm_device *dev,
 		uint32_t size, uint32_t flags);
 struct drm_gem_object *msm_gem_import(struct drm_device *dev,
-		uint32_t size, struct sg_table *sgt);
+		uint32_t size, struct sg_table *sgt, u32 flags);
+void msm_gem_sync(struct drm_gem_object *obj, u32 op);
 
 int msm_framebuffer_prepare(struct drm_framebuffer *fb,
 		struct msm_gem_address_space *aspace);

@@ -2601,6 +2601,18 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	mdss_mdp_splash_cleanup(mfd, true);
 
 	/*
+	 * Wait for pingpong done only during resume for
+	 * command mode panels. Ensure that one commit is
+	 * sent before kickoff completes so that backlight
+	 * update happens after it.
+	 */
+	if (mdss_fb_is_power_off(mfd) &&
+		mfd->panel_info->type == MIPI_CMD_PANEL) {
+		pr_debug("wait for pp done after resume for cmd mode\n");
+		mdss_mdp_display_wait4pingpong(ctl, true);
+	}
+
+	/*
 	 * Configure Timing Engine, if new fps was set.
 	 * We need to do this after the wait for vsync
 	 * to guarantee that mdp flush bit and dsi flush
@@ -3041,6 +3053,13 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 		goto pipe_release;
 	}
 
+	if (l_pipe_allocated &&
+			(l_pipe->multirect.num == MDSS_MDP_PIPE_RECT1)) {
+		pr_err("Invalid: L_Pipe-%d is assigned for RECT-%d\n",
+				l_pipe->num, l_pipe->multirect.num);
+		goto pipe_release;
+	}
+
 	if (mdss_mdp_pipe_map(l_pipe)) {
 		pr_err("unable to map base pipe\n");
 		goto pipe_release;
@@ -3085,6 +3104,16 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 			MDSS_MDP_MIXER_MUX_RIGHT, &r_pipe_allocated);
 		if (ret) {
 			pr_err("unable to allocate right base pipe\n");
+			goto iommu_disable;
+		}
+
+		if (l_pipe_allocated && r_pipe_allocated &&
+				(l_pipe->num != r_pipe->num) &&
+				(r_pipe->multirect.num ==
+				 MDSS_MDP_PIPE_RECT1)) {
+			pr_err("Invalid: L_Pipe-%d,RECT-%d R_Pipe-%d,RECT-%d\n",
+					l_pipe->num, l_pipe->multirect.num,
+					r_pipe->num, l_pipe->multirect.num);
 			goto iommu_disable;
 		}
 
@@ -6279,6 +6308,13 @@ int mdss_mdp_input_event_handler(struct msm_fb_data_type *mfd)
 	return rc;
 }
 
+void mdss_mdp_footswitch_ctrl_handler(bool on)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	mdss_mdp_footswitch_ctrl(mdata, on);
+}
+
 int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 {
 	struct device *dev = mfd->fbi->dev;
@@ -6320,6 +6356,14 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mdp5_interface->splash_init_fnc = mdss_mdp_splash_init;
 	mdp5_interface->configure_panel = mdss_mdp_update_panel_info;
 	mdp5_interface->input_event_handler = mdss_mdp_input_event_handler;
+
+	/*
+	 * Register footswitch control only for primary fb pm
+	 * suspend/resume calls.
+	 */
+	if (mfd->panel_info->is_prim_panel)
+		mdp5_interface->footswitch_ctrl =
+			mdss_mdp_footswitch_ctrl_handler;
 
 	if (mfd->panel_info->type == WRITEBACK_PANEL) {
 		mdp5_interface->atomic_validate =

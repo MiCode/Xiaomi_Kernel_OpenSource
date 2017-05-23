@@ -133,6 +133,9 @@ struct av8l_fast_io_pgtable {
 #define AV8L_FAST_TCR_EPD1_SHIFT	23
 #define AV8L_FAST_TCR_EPD1_FAULT	1
 
+#define AV8L_FAST_TCR_SEP_SHIFT		(15 + 32)
+#define AV8L_FAST_TCR_SEP_UPSTREAM	7ULL
+
 #define AV8L_FAST_MAIR_ATTR_SHIFT(n)	((n) << 3)
 #define AV8L_FAST_MAIR_ATTR_MASK	0xff
 #define AV8L_FAST_MAIR_ATTR_DEVICE	0x04
@@ -173,12 +176,12 @@ static void __av8l_check_for_stale_tlb(av8l_fast_iopte *ptep)
 }
 
 void av8l_fast_clear_stale_ptes(av8l_fast_iopte *pmds, u64 base,
-		u64 end, bool skip_sync)
+		u64 start, u64 end, bool skip_sync)
 {
 	int i;
-	av8l_fast_iopte *pmdp = pmds;
+	av8l_fast_iopte *pmdp = iopte_pmd_offset(pmds, base, start);
 
-	for (i = base >> AV8L_FAST_PAGE_SHIFT;
+	for (i = start >> AV8L_FAST_PAGE_SHIFT;
 			i <= (end >> AV8L_FAST_PAGE_SHIFT); ++i) {
 		if (!(*pmdp & AV8L_FAST_PTE_VALID)) {
 			*pmdp = 0;
@@ -256,16 +259,17 @@ void av8l_fast_unmap_public(av8l_fast_iopte *ptep, size_t size)
 	__av8l_fast_unmap(ptep, size, true);
 }
 
-/* upper layer must take care of TLB invalidation */
 static size_t av8l_fast_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 			      size_t size)
 {
 	struct av8l_fast_io_pgtable *data = iof_pgtable_ops_to_data(ops);
+	struct io_pgtable *iop = &data->iop;
 	av8l_fast_iopte *ptep = iopte_pmd_offset(data->pmds, data->base, iova);
 	unsigned long nptes = size >> AV8L_FAST_PAGE_SHIFT;
 
 	__av8l_fast_unmap(ptep, size, false);
 	dmac_clean_range(ptep, ptep + nptes);
+	iop->cfg.tlb->tlb_flush_all(iop->cookie);
 
 	return size;
 }
@@ -522,6 +526,7 @@ av8l_fast_alloc_pgtable(struct io_pgtable_cfg *cfg, void *cookie)
 #if defined(CONFIG_ARM)
 	reg |= ARM_32_LPAE_TCR_EAE;
 #endif
+	reg |= AV8L_FAST_TCR_SEP_UPSTREAM << AV8L_FAST_TCR_SEP_SHIFT;
 	cfg->av8l_fast_cfg.tcr = reg;
 
 	/* MAIRs */
@@ -668,7 +673,7 @@ static int __init av8l_fast_positive_testing(void)
 	}
 
 	/* sweep up TLB proving PTEs */
-	av8l_fast_clear_stale_ptes(pmds, base, max, false);
+	av8l_fast_clear_stale_ptes(pmds, base, base, max, false);
 
 	/* map the entire 4GB VA space with 8K map calls */
 	for (iova = base; iova < max; iova += SZ_8K) {
@@ -689,7 +694,7 @@ static int __init av8l_fast_positive_testing(void)
 	}
 
 	/* sweep up TLB proving PTEs */
-	av8l_fast_clear_stale_ptes(pmds, base, max, false);
+	av8l_fast_clear_stale_ptes(pmds, base, base, max, false);
 
 	/* map the entire 4GB VA space with 16K map calls */
 	for (iova = base; iova < max; iova += SZ_16K) {
@@ -710,7 +715,7 @@ static int __init av8l_fast_positive_testing(void)
 	}
 
 	/* sweep up TLB proving PTEs */
-	av8l_fast_clear_stale_ptes(pmds, base, max, false);
+	av8l_fast_clear_stale_ptes(pmds, base, base, max, false);
 
 	/* map the entire 4GB VA space with 64K map calls */
 	for (iova = base; iova < max; iova += SZ_64K) {

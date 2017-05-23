@@ -87,6 +87,12 @@
 #define MISC_LOGIC_RST_STB                 BIT(1)
 #define STROBED_RST_EN                     BIT(0)
 
+#define VFE_PIX_INTF_SEL_3D                      0x3
+#define PIX_OUTPUT_0_MISR_RST_STB                BIT(16)
+#define L_R_SOF_MISMATCH_ERR_IRQ                 BIT(16)
+#define L_R_EOF_MISMATCH_ERR_IRQ                 BIT(17)
+#define L_R_SOL_MISMATCH_ERR_IRQ                 BIT(18)
+
 #define ISPIF_RST_CMD_MASK              0xFE1C77FF
 #define ISPIF_RST_CMD_1_MASK            0xFFFFFFFF /* undefined */
 

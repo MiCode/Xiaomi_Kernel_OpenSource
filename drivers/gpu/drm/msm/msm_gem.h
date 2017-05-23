@@ -24,22 +24,14 @@
 
 /* Additional internal-use only BO flags: */
 #define MSM_BO_STOLEN        0x10000000    /* try to use stolen/splash memory */
-
-struct msm_gem_aspace_ops {
-	int (*map)(struct msm_gem_address_space *, struct msm_gem_vma *,
-		struct sg_table *sgt, void *priv, unsigned int flags);
-
-	void (*unmap)(struct msm_gem_address_space *, struct msm_gem_vma *,
-		struct sg_table *sgt, void *priv);
-
-	void (*destroy)(struct msm_gem_address_space *);
-};
+#define MSM_BO_LOCKED        0x20000000    /* Pages have been securely locked */
 
 struct msm_gem_address_space {
 	const char *name;
 	struct msm_mmu *mmu;
-	const struct msm_gem_aspace_ops *ops;
 	struct kref kref;
+	struct drm_mm mm;
+	u64 va_len;
 };
 
 struct msm_gem_vma {
@@ -125,6 +117,9 @@ struct msm_gem_submit {
 	uint32_t fence;
 	int ring;
 	bool valid;
+	uint64_t profile_buf_iova;
+	void *profile_buf_vaddr;
+	bool secure;
 	unsigned int nr_cmds;
 	unsigned int nr_bos;
 	struct {

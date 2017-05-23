@@ -8,6 +8,7 @@ PLL FMAXes etc.
 Required properties:
 - compatible:		Must be either "qcom,cpu-clock-8996" or
 			"qcom,cpu-clock-8996-v3" or "qcom,cpu-clock-8996-pro"
+			or "qcom,cpu-clock-8996-auto"
 - reg:			Pairs of physical base addresses and region sizes of
 			memory mapped registers.
 - reg-names:		Names of the bases for the above registers. Expected
@@ -39,6 +40,11 @@ Required properties:
 			clock for the CBF.
 - cbf-dev:		The CBF cache device to which the OPP table for the
 			CBF clock domain will be added.
+
+Optional properties:
+- qcom,pwrcl-early-boot-freq:	Power cluster early boot up frequency in HZ.
+- qcom,perfcl-early-boot-freq:	Perf cluster early boot up frequency in HZ.
+
 Example:
 	clock_cpu: qcom,cpu-clock-8996@ {
 		compatible = "qcom,cpu-clock-8996";

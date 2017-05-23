@@ -158,9 +158,6 @@ size_t get_cal_info_size(int32_t cal_type)
 	case ULP_LSM_CAL_TYPE:
 		size = sizeof(struct audio_cal_info_lsm);
 		break;
-	case DTS_EAGLE_CAL_TYPE:
-		size = 0;
-		break;
 	case AUDIO_CORE_METAINFO_CAL_TYPE:
 		size = sizeof(struct audio_cal_info_metainfo);
 		break;
@@ -306,9 +303,6 @@ size_t get_user_cal_type_size(int32_t cal_type)
 		break;
 	case ULP_LSM_CAL_TYPE:
 		size = sizeof(struct audio_cal_type_lsm);
-		break;
-	case DTS_EAGLE_CAL_TYPE:
-		size = 0;
 		break;
 	case AUDIO_CORE_METAINFO_CAL_TYPE:
 		size = sizeof(struct audio_cal_type_metainfo);
@@ -649,7 +643,9 @@ done:
 	return cal_block;
 err:
 	kfree(cal_block->cal_info);
+	cal_block->cal_info = NULL;
 	kfree(cal_block->client_info);
+	cal_block->client_info = NULL;
 	kfree(cal_block);
 	cal_block = NULL;
 	return cal_block;

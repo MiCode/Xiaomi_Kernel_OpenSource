@@ -90,6 +90,11 @@ static u64 parse_audio_format_i_type(struct snd_usb_audio *chip,
 			sample_bytes = SUBSLOTSIZE_24_BIT;
 			break;
 		}
+
+		default:
+			usb_audio_err(chip, "%u:%d : Invalid wMaxPacketSize\n",
+				      fp->iface, fp->altsetting);
+			return pcm_formats;
 		}
 		format = 1 << format;
 		break;

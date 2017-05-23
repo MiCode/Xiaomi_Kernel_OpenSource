@@ -202,3 +202,7 @@
 		qcom,parallel-en-pin-polarity = <1>;
 	};
 };
+
+&dsi_rm67195_amoled_fhd_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+};

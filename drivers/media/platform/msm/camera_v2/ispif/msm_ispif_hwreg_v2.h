@@ -22,6 +22,7 @@
 #define ISPIF_VFE(m)                             ((m) * 0x200)
 
 #define ISPIF_VFE_m_CTRL_0(m)                    (0x200 + ISPIF_VFE(m))
+#define ISPIF_VFE_m_CTRL_1(m)                    (0x204 + ISPIF_VFE(m))
 #define ISPIF_VFE_m_IRQ_MASK_0(m)                (0x208 + ISPIF_VFE(m))
 #define ISPIF_VFE_m_IRQ_MASK_1(m)                (0x20C + ISPIF_VFE(m))
 #define ISPIF_VFE_m_IRQ_MASK_2(m)                (0x210 + ISPIF_VFE(m))
@@ -71,6 +72,12 @@
 #define MISC_LOGIC_RST_STB                       BIT(1)
 #define STROBED_RST_EN                           BIT(0)
 
+#define VFE_PIX_INTF_SEL_3D                      0x3
+#define PIX_OUTPUT_0_MISR_RST_STB                BIT(16)
+#define L_R_SOF_MISMATCH_ERR_IRQ                 BIT(16)
+#define L_R_EOF_MISMATCH_ERR_IRQ                 BIT(17)
+#define L_R_SOL_MISMATCH_ERR_IRQ                 BIT(18)
+
 #define ISPIF_RST_CMD_MASK                       0xFE0F1FFF
 #define ISPIF_RST_CMD_1_MASK                     0xFC0F1FF9
 
@@ -78,6 +85,7 @@
 #define ISPIF_RST_CMD_1_MASK_RESTART             0x00001FF9
 
 #define PIX_INTF_0_OVERFLOW_IRQ                  BIT(12)
+#define PIX_INTF_1_OVERFLOW_IRQ                  BIT(12)
 #define RAW_INTF_0_OVERFLOW_IRQ                  BIT(25)
 #define RAW_INTF_1_OVERFLOW_IRQ                  BIT(25)
 #define RAW_INTF_2_OVERFLOW_IRQ                  BIT(12)

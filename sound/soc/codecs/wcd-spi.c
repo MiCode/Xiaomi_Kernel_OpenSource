@@ -553,7 +553,7 @@ static int wcd_spi_clk_enable(struct spi_device *spi)
 {
 	struct wcd_spi_priv *wcd_spi = spi_get_drvdata(spi);
 	int ret;
-	u32 rd_status;
+	u32 rd_status = 0;
 
 	ret = wcd_spi_cmd_nop(spi);
 	if (IS_ERR_VALUE(ret)) {

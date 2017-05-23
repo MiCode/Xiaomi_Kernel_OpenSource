@@ -118,4 +118,17 @@ struct msm_snapshot_shader {
 	__u32 size;
 } __packed;
 
+#define SNAPSHOT_GPU_OBJECT_SHADER  1
+#define SNAPSHOT_GPU_OBJECT_IB      2
+#define SNAPSHOT_GPU_OBJECT_GENERIC 3
+#define SNAPSHOT_GPU_OBJECT_DRAW    4
+#define SNAPSHOT_GPU_OBJECT_GLOBAL  5
+
+struct msm_snapshot_gpu_object {
+	struct msm_snapshot_section_header header;
+	__u32 type;
+	__u64 gpuaddr;
+	__u64 pt_base;
+	__u64 size;
+} __packed;
 #endif

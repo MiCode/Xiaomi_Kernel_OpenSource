@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,6 +96,7 @@ static int msm_rpm_master_copy_stats(
 	int count, j = 0;
 	char *buf;
 	static DEFINE_MUTEX(msm_rpm_master_stats_mutex);
+	unsigned long active_cores;
 
 	mutex_lock(&msm_rpm_master_stats_mutex);
 
@@ -247,12 +248,11 @@ static int msm_rpm_master_copy_stats(
 			record.active_cores);
 	}
 
-	j = find_first_bit((unsigned long *)&record.active_cores,
-							BITS_PER_LONG);
+	active_cores = record.active_cores;
+	j = find_first_bit(&active_cores, BITS_PER_LONG);
 	while (j < BITS_PER_LONG) {
 		SNPRINTF(buf, count, "\t\tcore%d\n", j);
-		j = find_next_bit((unsigned long *)&record.active_cores,
-				BITS_PER_LONG, j + 1);
+		j = find_next_bit(&active_cores, BITS_PER_LONG, j + 1);
 	}
 
 	master_cnt++;

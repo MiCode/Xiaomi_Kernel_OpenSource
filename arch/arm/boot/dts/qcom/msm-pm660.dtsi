@@ -41,6 +41,7 @@
 			interrupt-names = "kpdpwr", "resin",
 					"resin-bark", "kpdpwr-resin-bark";
 			qcom,pon-dbc-delay = <15625>;
+			qcom,kpdpwr-sw-debounce;
 			qcom,system-reset;
 			qcom,store-hard-reset-reason;
 
@@ -546,6 +547,7 @@
 			qcom,rradc-base = <0x4500>;
 			qcom,fg-esr-timer-awake = <96>;
 			qcom,fg-esr-timer-asleep = <256>;
+			qcom,fg-esr-timer-charging = <96>;
 			qcom,cycle-counter-en;
 			status = "okay";
 

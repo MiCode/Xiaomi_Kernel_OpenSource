@@ -59,8 +59,10 @@ struct ext4_encryption_context {
 #define EXT4_XTS_TWEAK_SIZE 16
 #define EXT4_AES_128_ECB_KEY_SIZE 16
 #define EXT4_AES_256_GCM_KEY_SIZE 32
+#define EXT4_AES_256_ECB_KEY_SIZE 32
 #define EXT4_AES_256_CBC_KEY_SIZE 32
 #define EXT4_AES_256_CTS_KEY_SIZE 32
+#define EXT4_AES_256_HEH_KEY_SIZE 32
 #define EXT4_AES_256_XTS_KEY_SIZE 64
 #define EXT4_PRIVATE_KEY_SIZE 64
 #define EXT4_MAX_KEY_SIZE 64
@@ -127,6 +129,8 @@ static inline int ext4_encryption_key_size(int mode)
 		return EXT4_AES_256_CBC_KEY_SIZE;
 	case EXT4_ENCRYPTION_MODE_AES_256_CTS:
 		return EXT4_AES_256_CTS_KEY_SIZE;
+	case EXT4_ENCRYPTION_MODE_AES_256_HEH:
+		return EXT4_AES_256_HEH_KEY_SIZE;
 	default:
 		BUG();
 	}

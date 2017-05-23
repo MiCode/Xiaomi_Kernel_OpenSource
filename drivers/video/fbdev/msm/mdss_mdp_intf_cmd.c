@@ -2148,12 +2148,14 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 			MDSS_XLOG(0xbad);
 			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
 				"dsi1_ctrl", "dsi1_phy", "vbif", "vbif_nrt",
-				"dbg_bus", "vbif_dbg_bus", "panic");
+				"dbg_bus", "vbif_dbg_bus",
+				"dsi_dbg_bus", "panic");
 		} else if (ctx->pp_timeout_report_cnt == MAX_RECOVERY_TRIALS) {
 			MDSS_XLOG(0xbad2);
 			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
 				"dsi1_ctrl", "dsi1_phy", "vbif", "vbif_nrt",
-				"dbg_bus", "vbif_dbg_bus", "panic");
+				"dbg_bus", "vbif_dbg_bus",
+				"dsi_dbg_bus", "panic");
 			mdss_fb_report_panel_dead(ctl->mfd);
 		}
 		ctx->pp_timeout_report_cnt++;
@@ -3352,8 +3354,18 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 		 * mode.
 		 */
 		send_panel_events = true;
-		if (mdss_panel_is_power_on_ulp(panel_power_state))
+		if (mdss_panel_is_power_on_ulp(panel_power_state)) {
 			turn_off_clocks = true;
+		} else if (atomic_read(&ctx->koff_cnt)) {
+			/*
+			 * Transition from interactive to low power
+			 * Wait for kickoffs to finish
+			 */
+			MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt));
+			mdss_mdp_cmd_wait4pingpong(ctl, NULL);
+			if (sctl)
+				mdss_mdp_cmd_wait4pingpong(sctl, NULL);
+		}
 	} else {
 		/* Transitions between low power and ultra low power */
 		if (mdss_panel_is_power_on_ulp(panel_power_state)) {

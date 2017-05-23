@@ -1632,6 +1632,10 @@ static int parse_audio_feature_unit(struct mixer_build *state, int unitid,
 				break;
 			}
 			break;
+
+		default:
+			usb_audio_err(state->chip, "Invalid unit %u\n", unitid);
+			return -EINVAL;
 		}
 	}
 

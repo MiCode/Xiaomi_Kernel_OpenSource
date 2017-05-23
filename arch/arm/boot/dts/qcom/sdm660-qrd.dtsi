@@ -119,6 +119,19 @@
 	};
 };
 
+&qusb_phy0 {
+	qcom,qusb-phy-init-seq = <0xf8 0x80
+				0x80 0x84
+				0x83 0x88
+				0xc7 0x8c
+				0x30 0x08
+				0x79 0x0c
+				0x21 0x10
+				0x14 0x9c
+				0x9f 0x1c
+				0x00 0x18>;
+};
+
 &pm660_gpios {
 	/* GPIO 4 (NFC_CLK_REQ) */
 	gpio@c300 {
@@ -230,11 +243,12 @@
 &pm660_fg {
 	qcom,battery-data = <&qrd_batterydata>;
 	qcom,fg-jeita-thresholds = <0 5 55 55>;
+	qcom,battery-thermal-coefficients = [9d 50 ff];
 };
 
 &i2c_2 {
 	status = "ok";
-	smb1351-charger@1d {
+	smb1351_charger: smb1351-charger@1d {
 		compatible = "qcom,smb1351-charger";
 		reg = <0x1d>;
 		qcom,parallel-charger;

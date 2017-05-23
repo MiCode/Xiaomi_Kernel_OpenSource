@@ -510,7 +510,7 @@ int audio_notifier_deregister(char *client_name)
 	int ret = 0;
 	int ret2;
 	struct list_head *ptr, *next;
-	struct client_data *client_data;
+	struct client_data *client_data = NULL;
 
 	if (client_name == NULL) {
 		pr_err("%s: client_name is NULL\n", __func__);

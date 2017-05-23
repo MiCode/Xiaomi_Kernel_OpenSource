@@ -466,6 +466,7 @@
 		interrupts = <GIC_SPI 326 IRQ_TYPE_NONE>;
 		qcom,ee = <0>;
 		qcom,channel = <0>;
+		qcom,reserved-chan = <511>;
 		#address-cells = <2>;
 		#size-cells = <0>;
 		interrupt-controller;

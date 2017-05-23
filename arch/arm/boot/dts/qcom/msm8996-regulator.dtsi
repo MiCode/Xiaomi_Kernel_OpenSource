@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1950,4 +1950,21 @@
 		regulator-ramp-delay = <500>;
 		status = "disabled";
 	};
+
+	ncp6335d_vreg: ncp6335d-regulator@68 {
+		compatible = "onnn,ncp6335d-regulator";
+		reg = <0x68>;
+		vin-supply = <&hl7509_en_vreg>;
+		onnn,vsel = <0>;
+		onnn,slew-ns = <2666>;
+		onnn,step-size = <6250>;
+		onnn,min-slew-ns = <333>;
+		onnn,max-slew-ns = <2666>;
+		regulator-min-microvolt = <600000>;
+		regulator-max-microvolt = <1143750>;
+		onnn,min-setpoint = <600000>;
+		onnn,discharge-enable;
+		onnn,restore-reg;
+		status = "disabled";
+	  };
 };

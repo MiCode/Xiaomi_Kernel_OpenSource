@@ -15,6 +15,9 @@
 #include "msm_iommu.h"
 #include "a5xx_gpu.h"
 
+#define SECURE_VA_START 0xc0000000
+#define SECURE_VA_SIZE  SZ_256M
+
 static void a5xx_flush(struct msm_gpu *gpu, struct msm_ringbuffer *ring)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
@@ -100,7 +103,7 @@ static void a5xx_set_pagetable(struct msm_gpu *gpu, struct msm_ringbuffer *ring,
 	OUT_RING(ring, 1);
 }
 
-static int a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
+static void a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	struct a5xx_gpu *a5xx_gpu = to_a5xx_gpu(adreno_gpu);
@@ -133,10 +136,36 @@ static int a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 	OUT_PKT7(ring, CP_YIELD_ENABLE, 1);
 	OUT_RING(ring, 0x02);
 
+	/* Turn on secure mode if the submission is secure */
+	if (submit->secure) {
+		OUT_PKT7(ring, CP_SET_SECURE_MODE, 1);
+		OUT_RING(ring, 1);
+	}
+
+	/* Record the always on counter before command execution */
+	if (submit->profile_buf_iova) {
+		uint64_t gpuaddr = submit->profile_buf_iova +
+			offsetof(struct drm_msm_gem_submit_profile_buffer,
+					ticks_submitted);
+
+		/*
+		 * Set bit[30] to make this command a 64 bit write operation.
+		 * bits[18-29] is to specify number of consecutive registers
+		 * to copy, so set this space with 2, since we want to copy
+		 * data from REG_A5XX_RBBM_ALWAYSON_COUNTER_LO and [HI].
+		 */
+		OUT_PKT7(ring, CP_REG_TO_MEM, 3);
+		OUT_RING(ring, REG_A5XX_RBBM_ALWAYSON_COUNTER_LO |
+				(1 << 30) | (2 << 18));
+		OUT_RING(ring, lower_32_bits(gpuaddr));
+		OUT_RING(ring, upper_32_bits(gpuaddr));
+	}
+
 	/* Submit the commands */
 	for (i = 0; i < submit->nr_cmds; i++) {
 		switch (submit->cmd[i].type) {
 		case MSM_SUBMIT_CMD_IB_TARGET_BUF:
+		case MSM_SUBMIT_CMD_PROFILE_BUF:
 			break;
 		case MSM_SUBMIT_CMD_BUF:
 			OUT_PKT7(ring, CP_INDIRECT_BUFFER_PFE, 3);
@@ -164,6 +193,19 @@ static int a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 	OUT_PKT7(ring, CP_YIELD_ENABLE, 1);
 	OUT_RING(ring, 0x01);
 
+	/* Record the always on counter after command execution */
+	if (submit->profile_buf_iova) {
+		uint64_t gpuaddr = submit->profile_buf_iova +
+			offsetof(struct drm_msm_gem_submit_profile_buffer,
+					ticks_retired);
+
+		OUT_PKT7(ring, CP_REG_TO_MEM, 3);
+		OUT_RING(ring, REG_A5XX_RBBM_ALWAYSON_COUNTER_LO |
+				(1 << 30) | (2 << 18));
+		OUT_RING(ring, lower_32_bits(gpuaddr));
+		OUT_RING(ring, upper_32_bits(gpuaddr));
+	}
+
 	/* Write the fence to the scratch register */
 	OUT_PKT4(ring, REG_A5XX_CP_SCRATCH_REG(2), 1);
 	OUT_RING(ring, submit->fence);
@@ -179,6 +221,11 @@ static int a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 	OUT_RING(ring, upper_32_bits(rbmemptr(adreno_gpu, ring->id, fence)));
 	OUT_RING(ring, submit->fence);
 
+	if (submit->secure) {
+		OUT_PKT7(ring, CP_SET_SECURE_MODE, 1);
+		OUT_RING(ring, 0);
+	}
+
 	/* Yield the floor on command completion */
 	OUT_PKT7(ring, CP_CONTEXT_SWITCH_YIELD, 4);
 	/*
@@ -193,12 +240,39 @@ static int a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 	/* Set bit 0 to trigger an interrupt on preempt complete */
 	OUT_RING(ring, 0x01);
 
+	if (submit->profile_buf_iova) {
+		unsigned long flags;
+		uint64_t ktime;
+		struct drm_msm_gem_submit_profile_buffer *profile_buf =
+			submit->profile_buf_vaddr;
+
+		/*
+		 * With this profiling, we are trying to create closest
+		 * possible mapping between the CPU time domain(monotonic clock)
+		 * and the GPU time domain(ticks). In order to make this
+		 * happen, we need to briefly turn off interrupts to make sure
+		 * interrupts do not run between collecting these two samples.
+		 */
+		local_irq_save(flags);
+
+		profile_buf->ticks_queued = gpu_read64(gpu,
+			REG_A5XX_RBBM_ALWAYSON_COUNTER_LO,
+			REG_A5XX_RBBM_ALWAYSON_COUNTER_HI);
+
+		ktime = ktime_get_raw_ns();
+
+		local_irq_restore(flags);
+
+		do_div(ktime, NSEC_PER_SEC);
+
+		profile_buf->queue_time = ktime;
+		profile_buf->submit_time = ktime;
+	}
+
 	a5xx_flush(gpu, ring);
 
 	/* Check to see if we need to start preemption */
 	a5xx_preempt_trigger(gpu);
-
-	return 0;
 }
 
 static const struct {
@@ -700,14 +774,10 @@ static int a5xx_hw_init(struct msm_gpu *gpu)
 			ADRENO_PROTECT_RW(0x10000, 0x8000));
 
 	gpu_write(gpu, REG_A5XX_RBBM_SECVID_TSB_CNTL, 0);
-	/*
-	 * Disable the trusted memory range - we don't actually supported secure
-	 * memory rendering at this point in time and we don't want to block off
-	 * part of the virtual memory space.
-	 */
+
 	gpu_write64(gpu, REG_A5XX_RBBM_SECVID_TSB_TRUSTED_BASE_LO,
-		REG_A5XX_RBBM_SECVID_TSB_TRUSTED_BASE_HI, 0x00000000);
-	gpu_write(gpu, REG_A5XX_RBBM_SECVID_TSB_TRUSTED_SIZE, 0x00000000);
+		REG_A5XX_RBBM_SECVID_TSB_TRUSTED_BASE_HI, SECURE_VA_START);
+	gpu_write(gpu, REG_A5XX_RBBM_SECVID_TSB_TRUSTED_SIZE, SECURE_VA_SIZE);
 
 	/* Put the GPU into 64 bit by default */
 	gpu_write(gpu, REG_A5XX_CP_ADDR_MODE_CNTL, 0x1);
@@ -1101,7 +1171,7 @@ static const u32 a5xx_registers[] = {
 	0xe9c0, 0xe9c7, 0xe9d0, 0xe9d1, 0xea00, 0xea01, 0xea10, 0xea1c,
 	0xea40, 0xea68, 0xea80, 0xea80, 0xea82, 0xeaa3, 0xeaa5, 0xeac2,
 	0xeb80, 0xeb8f, 0xebb0, 0xebb0, 0xec00, 0xec05, 0xec08, 0xece9,
-	0xecf0, 0xecf0, 0xf400, 0xf400, 0xf800, 0xf807,
+	0xecf0, 0xecf0, 0xf800, 0xf807,
 	~0
 };
 
@@ -1306,6 +1376,7 @@ struct msm_gpu *a5xx_gpu_init(struct drm_device *dev)
 	struct a5xx_gpu *a5xx_gpu = NULL;
 	struct adreno_gpu *adreno_gpu;
 	struct msm_gpu *gpu;
+	struct msm_gpu_config a5xx_config = { 0 };
 	int ret;
 
 	if (!pdev) {
@@ -1329,7 +1400,23 @@ struct msm_gpu *a5xx_gpu_init(struct drm_device *dev)
 	/* Check the efuses for some configuration */
 	a5xx_efuses_read(pdev, adreno_gpu);
 
-	ret = adreno_gpu_init(dev, pdev, adreno_gpu, &funcs, 4);
+	a5xx_config.ioname = MSM_GPU_DEFAULT_IONAME;
+	a5xx_config.irqname = MSM_GPU_DEFAULT_IRQNAME;
+
+	/* Set the number of rings to 4 - yay preemption */
+	a5xx_config.nr_rings = 4;
+
+	/*
+	 * Set the user domain range to fall into the TTBR1 region for global
+	 * objects
+	 */
+	a5xx_config.va_start = 0x800000000;
+	a5xx_config.va_end = 0x8ffffffff;
+
+	a5xx_config.secure_va_start = SECURE_VA_START;
+	a5xx_config.secure_va_end = SECURE_VA_START + SECURE_VA_SIZE - 1;
+
+	ret = adreno_gpu_init(dev, pdev, adreno_gpu, &funcs, &a5xx_config);
 	if (ret) {
 		a5xx_destroy(&(a5xx_gpu->base.base));
 		return ERR_PTR(ret);

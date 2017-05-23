@@ -1134,12 +1134,12 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 
 	 /* get plane state for all drm planes associated with crtc state */
 	drm_atomic_crtc_state_for_each_plane(plane, state) {
-		pstate = drm_atomic_get_plane_state(state->state, plane);
+		pstate = drm_atomic_get_existing_plane_state(
+				state->state, plane);
 		if (IS_ERR_OR_NULL(pstate)) {
-			rc = PTR_ERR(pstate);
-			SDE_ERROR("%s: failed to get plane%d state, %d\n",
+			SDE_DEBUG("%s: failed to get plane%d state, %d\n",
 					sde_crtc->name, plane->base.id, rc);
-			goto end;
+			continue;
 		}
 		if (cnt >= ARRAY_SIZE(pstates))
 			continue;

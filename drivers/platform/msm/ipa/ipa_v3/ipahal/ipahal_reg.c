@@ -646,6 +646,21 @@ static void ipareg_construct_endp_init_ctrl_n(enum ipahal_reg_name reg,
 		IPA_ENDP_INIT_CTRL_n_ENDP_DELAY_BMSK);
 }
 
+static void ipareg_parse_endp_init_ctrl_n(enum ipahal_reg_name reg,
+	void *fields, u32 val)
+{
+	struct ipa_ep_cfg_ctrl *ep_ctrl =
+		(struct ipa_ep_cfg_ctrl *)fields;
+
+	ep_ctrl->ipa_ep_suspend =
+		((val & IPA_ENDP_INIT_CTRL_n_ENDP_SUSPEND_BMSK) >>
+			IPA_ENDP_INIT_CTRL_n_ENDP_SUSPEND_SHFT);
+
+	ep_ctrl->ipa_ep_delay =
+		((val & IPA_ENDP_INIT_CTRL_n_ENDP_DELAY_BMSK) >>
+		IPA_ENDP_INIT_CTRL_n_ENDP_DELAY_SHFT);
+}
+
 static void ipareg_construct_endp_init_ctrl_scnd_n(enum ipahal_reg_name reg,
 	const void *fields, u32 *val)
 {
@@ -1018,7 +1033,8 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 		ipareg_construct_endp_init_nat_n, ipareg_parse_dummy,
 		0x0000080C, 0x70},
 	[IPA_HW_v3_0][IPA_ENDP_INIT_CTRL_n] = {
-		ipareg_construct_endp_init_ctrl_n, ipareg_parse_dummy,
+		ipareg_construct_endp_init_ctrl_n,
+		ipareg_parse_endp_init_ctrl_n,
 		0x00000800, 0x70},
 	[IPA_HW_v3_0][IPA_ENDP_INIT_CTRL_SCND_n] = {
 		ipareg_construct_endp_init_ctrl_scnd_n, ipareg_parse_dummy,

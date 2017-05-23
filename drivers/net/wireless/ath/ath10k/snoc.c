@@ -650,6 +650,9 @@ static int ath10k_snoc_hif_tx_sg(struct ath10k *ar, u8 pipe_id,
 	if (!ar_snoc)
 		return  -EINVAL;
 
+	if (atomic_read(&ar_snoc->fw_crashed))
+		return -ESHUTDOWN;
+
 	snoc_pipe = &ar_snoc->pipe_info[pipe_id];
 	ce_pipe = snoc_pipe->ce_hdl;
 	src_ring = ce_pipe->src_ring;
@@ -966,7 +969,7 @@ int ath10k_snoc_get_ce_id(struct ath10k *ar, int irq)
 	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
 
 	for (i = 0; i < CE_COUNT_MAX; i++) {
-		if (ar_snoc->ce_irqs[i] == irq)
+		if (ar_snoc->ce_irqs[i].irq_line == irq)
 		return i;
 	}
 	ath10k_err(ar, "No matching CE id for irq %d\n", irq);
@@ -999,15 +1002,17 @@ static int ath10k_snoc_request_irq(struct ath10k *ar)
 	int irqflags = IRQF_TRIGGER_RISING;
 
 	for (id = 0; id < CE_COUNT_MAX; id++) {
-		ret = request_irq(ar_snoc->ce_irqs[id],
+		ret = request_irq(ar_snoc->ce_irqs[id].irq_line,
 				  ath10k_snoc_per_engine_handler,
 				  irqflags, ce_name[id], ar);
 		if (ret) {
 			ath10k_err(ar,
 				   "%s: cannot register CE %d irq handler, ret = %d",
 				   __func__, id, ret);
-			free_irq(ar_snoc->ce_irqs[id], ar);
+			atomic_set(&ar_snoc->ce_irqs[id].irq_req_stat, 0);
 			return ret;
+		} else {
+			 atomic_set(&ar_snoc->ce_irqs[id].irq_req_stat, 1);
 		}
 	}
 
@@ -1019,10 +1024,13 @@ static void ath10k_snoc_free_irq(struct ath10k *ar)
 	int id;
 	struct ath10k_snoc *ar_snoc = ath10k_snoc_priv(ar);
 
-	for (id = 0; id < CE_COUNT_MAX; id++)
-		free_irq(ar_snoc->ce_irqs[id], ar);
+	for (id = 0; id < CE_COUNT_MAX; id++) {
+		if (atomic_read(&ar_snoc->ce_irqs[id].irq_req_stat)) {
+			free_irq(ar_snoc->ce_irqs[id].irq_line, ar);
+			atomic_set(&ar_snoc->ce_irqs[id].irq_req_stat, 0);
+		}
+	}
 }
-
 
 static int ath10k_snoc_get_soc_info(struct ath10k *ar)
 {
@@ -1143,8 +1151,10 @@ static int ath10k_snoc_hif_power_up(struct ath10k *ar)
 	if (ar->state == ATH10K_STATE_ON ||
 	    test_bit(ATH10K_FLAG_CRASH_FLUSH, &ar->dev_flags)) {
 		ret = ath10k_snoc_bus_configure(ar);
-		if (ret)
+		if (ret) {
 			ath10k_err(ar, "failed to configure bus: %d\n", ret);
+			return ret;
+		}
 	}
 	ret = ath10k_snoc_init_pipes(ar);
 	if (ret) {
@@ -1193,7 +1203,7 @@ static int ath10k_snoc_resource_init(struct ath10k *ar)
 			ret = -ENODEV;
 			goto out;
 		} else {
-			ar_snoc->ce_irqs[i] = res->start;
+			ar_snoc->ce_irqs[i].irq_line = res->start;
 		}
 	}
 
@@ -1326,6 +1336,8 @@ static int ath10k_snoc_remove(struct platform_device *pdev)
 	if (!ar_snoc)
 		return -EINVAL;
 
+	ath10k_dbg(ar, ATH10K_DBG_SNOC, "%s:WCN3990 removed\n", __func__);
+
 	ath10k_core_unregister(ar);
 	ath10k_snoc_pdr_unregister_notifier(ar);
 	ath10k_snoc_modem_ssr_unregister_notifier(ar);
@@ -1334,8 +1346,6 @@ static int ath10k_snoc_remove(struct platform_device *pdev)
 	ath10k_snoc_free_pipes(ar);
 	ath10k_snoc_stop_qmi_service(ar);
 	ath10k_core_destroy(ar);
-
-	ath10k_dbg(ar, ATH10K_DBG_SNOC, "%s:WCN3990 removed\n", __func__);
 
 	return 0;
 }

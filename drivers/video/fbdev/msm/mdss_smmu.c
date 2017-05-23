@@ -600,24 +600,30 @@ int mdss_smmu_fault_handler(struct iommu_domain *domain, struct device *dev,
 		(struct mdss_smmu_client *)user_data;
 	u32 fsynr1, mid, i;
 
-	if (!mdss_smmu || !mdss_smmu->mmu_base)
+	if (!mdss_smmu)
 		goto end;
 
-	fsynr1 = readl_relaxed(mdss_smmu->mmu_base + SMMU_CBN_FSYNR1);
-	mid = fsynr1 & 0xff;
-	pr_err("mdss_smmu: iova:0x%lx flags:0x%x fsynr1: 0x%x mid: 0x%x\n",
-		iova, flags, fsynr1, mid);
+	if (mdss_smmu->mmu_base) {
+		fsynr1 = readl_relaxed(mdss_smmu->mmu_base + SMMU_CBN_FSYNR1);
+		mid = fsynr1 & 0xff;
+		pr_err("mdss_smmu: iova:0x%lx flags:0x%x fsynr1: 0x%x mid: 0x%x\n",
+			iova, flags, fsynr1, mid);
 
-	/* get domain id information */
-	for (i = 0; i < MDSS_IOMMU_MAX_DOMAIN; i++) {
-		if (mdss_smmu == mdss_smmu_get_cb(i))
-			break;
+		/* get domain id information */
+		for (i = 0; i < MDSS_IOMMU_MAX_DOMAIN; i++) {
+			if (mdss_smmu == mdss_smmu_get_cb(i))
+				break;
+		}
+
+		if (i == MDSS_IOMMU_MAX_DOMAIN)
+			goto end;
+
+		mdss_mdp_debug_mid(mid);
+	} else {
+		pr_err("mdss_smmu: iova:0x%lx flags:0x%x\n",
+			iova, flags);
+		MDSS_XLOG_TOUT_HANDLER("mdp");
 	}
-
-	if (i == MDSS_IOMMU_MAX_DOMAIN)
-		goto end;
-
-	mdss_mdp_debug_mid(mid);
 end:
 	return -ENOSYS;
 }
@@ -694,13 +700,13 @@ int mdss_smmu_init(struct mdss_data_type *mdata, struct device *dev)
 }
 
 static struct mdss_smmu_domain mdss_mdp_unsec = {
-	"mdp_0", MDSS_IOMMU_DOMAIN_UNSECURE, SZ_128K, (SZ_4G - SZ_128K)};
+	"mdp_0", MDSS_IOMMU_DOMAIN_UNSECURE, SZ_128K, (SZ_4G - SZ_128M)};
 static struct mdss_smmu_domain mdss_rot_unsec = {
-	NULL, MDSS_IOMMU_DOMAIN_ROT_UNSECURE, SZ_128K, (SZ_4G - SZ_128K)};
+	NULL, MDSS_IOMMU_DOMAIN_ROT_UNSECURE, SZ_128K, (SZ_4G - SZ_128M)};
 static struct mdss_smmu_domain mdss_mdp_sec = {
-	"mdp_1", MDSS_IOMMU_DOMAIN_SECURE, SZ_128K, (SZ_4G - SZ_128K)};
+	"mdp_1", MDSS_IOMMU_DOMAIN_SECURE, SZ_128K, (SZ_4G - SZ_128M)};
 static struct mdss_smmu_domain mdss_rot_sec = {
-	NULL, MDSS_IOMMU_DOMAIN_ROT_SECURE, SZ_128K, (SZ_4G - SZ_128K)};
+	NULL, MDSS_IOMMU_DOMAIN_ROT_SECURE, SZ_128K, (SZ_4G - SZ_128M)};
 
 static const struct of_device_id mdss_smmu_dt_match[] = {
 	{ .compatible = "qcom,smmu_mdp_unsec", .data = &mdss_mdp_unsec},
@@ -844,14 +850,13 @@ int mdss_smmu_probe(struct platform_device *pdev)
 
 	mdss_smmu->base.dev = dev;
 
+	iommu_set_fault_handler(mdss_smmu->mmu_mapping->domain,
+			mdss_smmu_fault_handler, mdss_smmu);
 	address = of_get_address_by_name(pdev->dev.of_node, "mmu_cb", 0, 0);
 	if (address) {
 		size = address + 1;
 		mdss_smmu->mmu_base = ioremap(be32_to_cpu(*address),
 			be32_to_cpu(*size));
-		if (mdss_smmu->mmu_base)
-			iommu_set_fault_handler(mdss_smmu->mmu_mapping->domain,
-				mdss_smmu_fault_handler, mdss_smmu);
 	} else {
 		pr_debug("unable to map context bank base\n");
 	}

@@ -50,6 +50,8 @@ Optional properties:
 					-- qcom,supply-post-on-sleep: time to sleep (ms) after turning on
 					-- qcom,supply-pre-off-sleep: time to sleep (ms) before turning off
 					-- qcom,supply-post-off-sleep: time to sleep (ms) after turning off
+					-- qcom,supply-lp-mode-disable-allowed: supply can be turned off in
+					low power state.
 - pll-src-config			Specified the source PLL for the DSI
 					link clocks:
 					"PLL0" - Clocks sourced out of DSI PLL0

@@ -51,6 +51,8 @@
 		#interrupt-cells = <1>;
 		iommus = <&mdp_smmu 0>;
 
+		gpus = <&msm_gpu>;
+
 		/* hw blocks */
 		qcom,sde-off = <0x1000>;
 		qcom,sde-ctl-off = <0x2000 0x2200 0x2400
@@ -181,21 +183,6 @@
 		smmu_mdp_unsec: qcom,smmu_mdp_unsec_cb {
 			compatible = "qcom,smmu_mdp_unsec";
 			iommus = <&mdp_smmu 0>;
-		};
-
-		smmu_rot_unsec: qcom,smmu_rot_unsec_cb {
-			compatible = "qcom,smmu_rot_unsec";
-			iommus = <&rot_smmu 0>;
-		};
-
-		smmu_mdp_sec: qcom,smmu_mdp_sec_cb {
-			compatible = "qcom,smmu_mdp_sec";
-			iommus = <&mdp_smmu 1>;
-		};
-
-		smmu_rot_sec: qcom,smmu_rot_sec_cb {
-			compatible = "qcom,smmu_rot_sec";
-			iommus = <&rot_smmu 1>;
 		};
 
 		/* data and reg bus scale settings */

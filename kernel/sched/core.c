@@ -26,6 +26,7 @@
  *              Thomas Gleixner, Mike Kravetz
  */
 
+#include <linux/kasan.h>
 #include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/nmi.h>
@@ -83,6 +84,9 @@
 #include <asm/mutex.h>
 #ifdef CONFIG_PARAVIRT
 #include <asm/paravirt.h>
+#endif
+#ifdef CONFIG_MSM_APP_SETTINGS
+#include <asm/app_api.h>
 #endif
 
 #include "sched.h"
@@ -2749,6 +2753,14 @@ prepare_task_switch(struct rq *rq, struct task_struct *prev,
 	fire_sched_out_preempt_notifiers(prev, next);
 	prepare_lock_switch(rq, next);
 	prepare_arch_switch(next);
+
+#ifdef CONFIG_MSM_APP_SETTINGS
+	if (use_app_setting)
+		switch_app_setting_bit(prev, next);
+
+	if (use_32bit_app_setting || use_32bit_app_setting_pro)
+		switch_32bit_app_setting_bit(prev, next);
+#endif
 }
 
 /**
@@ -5412,6 +5424,8 @@ void init_idle(struct task_struct *idle, int cpu, bool cpu_up)
 
 	idle->state = TASK_RUNNING;
 	idle->se.exec_start = sched_clock();
+
+	kasan_unpoison_task_stack(idle);
 
 #ifdef CONFIG_SMP
 	/*

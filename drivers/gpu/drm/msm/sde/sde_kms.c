@@ -41,10 +41,6 @@
 #define CREATE_TRACE_POINTS
 #include "sde_trace.h"
 
-static const char * const iommu_ports[] = {
-		"mdp_0",
-};
-
 /**
  * Controls size of event log buffer. Specified as a power of 2.
  */
@@ -416,6 +412,10 @@ static void sde_kms_wait_for_commit_done(struct msm_kms *kms,
 		return;
 	}
 
+	ret = drm_crtc_vblank_get(crtc);
+	if (ret)
+		return;
+
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		if (encoder->crtc != crtc)
 			continue;
@@ -431,6 +431,8 @@ static void sde_kms_wait_for_commit_done(struct msm_kms *kms,
 			break;
 		}
 	}
+
+	drm_crtc_vblank_put(crtc);
 }
 
 static void sde_kms_prepare_fence(struct msm_kms *kms,
@@ -598,6 +600,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.get_modes =  sde_hdmi_connector_get_modes,
 		.mode_valid = sde_hdmi_mode_valid,
 		.get_info =   sde_hdmi_get_info,
+		.set_property = sde_hdmi_set_property,
 	};
 	struct msm_display_info info = {0};
 	struct drm_encoder *encoder;
@@ -1076,8 +1079,7 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 
 		sde_kms->aspace[i] = aspace;
 
-		ret = mmu->funcs->attach(mmu, (const char **)iommu_ports,
-				ARRAY_SIZE(iommu_ports));
+		ret = mmu->funcs->attach(mmu, NULL, 0);
 		if (ret) {
 			SDE_ERROR("failed to attach iommu %d: %d\n", i, ret);
 			msm_gem_address_space_put(aspace);

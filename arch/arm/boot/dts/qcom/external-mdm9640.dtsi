@@ -1,0 +1,52 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	mdm0: qcom,mdm0 {
+		compatible = "qcom,ext-mdm9x45";
+		cell-index = <0>;
+		#address-cells = <0>;
+		interrupt-parent = <&mdm0>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-names =
+			"err_fatal_irq",
+			"status_irq";
+		status = "disabled";
+	};
+
+	mdm1: qcom,mdm1 {
+		compatible = "qcom,ext-mdm9x45";
+		cell-index = <0>;
+		#address-cells = <0>;
+		interrupt-parent = <&mdm1>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-names =
+			"err_fatal_irq",
+			"status_irq";
+		status = "disabled";
+	};
+
+	mdm2: qcom,mdm2 {
+		compatible = "qcom,ext-mdm9x45";
+		cell-index = <0>;
+		#address-cells = <0>;
+		interrupt-parent = <&mdm2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-names =
+			"err_fatal_irq",
+			"status_irq";
+		status = "disabled";
+	};
+};

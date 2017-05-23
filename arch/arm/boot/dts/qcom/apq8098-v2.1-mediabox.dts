@@ -13,6 +13,7 @@
 /dts-v1/;
 
 #include "apq8098-v2.1.dtsi"
+#include "msm8998-mdss-panels.dtsi"
 #include "msm8998-cdp.dtsi"
 
 / {
@@ -32,10 +33,6 @@
 &mdss_mdp {
 	status = "disabled";
 	qcom,mdss-pref-prim-intf = "hdmi";
-};
-
-&msm_gpu {
-	dma-coherent;
 };
 
 &sde_hdmi {

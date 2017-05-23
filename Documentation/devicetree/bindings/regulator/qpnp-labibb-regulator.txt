@@ -151,6 +151,10 @@ LAB subnode optional properties:
 					any value in the allowed limit.
 - qcom,notify-lab-vreg-ok-sts:		A boolean property which upon set will
 					poll and notify the lab_vreg_ok status.
+- qcom,qpnp-lab-sc-wait-time-ms:	This property is used to specify the time
+					(in ms) to poll for the short circuit
+					detection. If not specified the default time
+					is 5 sec.
 
 Following properties are available only for PM660A:
 

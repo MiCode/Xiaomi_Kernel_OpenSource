@@ -58,6 +58,10 @@ typedef unsigned long drm_handle_t;
 
 #endif
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 #define DRM_NAME	"drm"	  /**< Name in kernel, /dev, and /proc */
 #define DRM_MIN_ORDER	5	  /**< At least 2^5 bytes = 32 bytes */
 #define DRM_MAX_ORDER	22	  /**< Up to 2^22 bytes = 4MB */
@@ -372,7 +376,11 @@ struct drm_buf_pub {
  */
 struct drm_buf_map {
 	int count;		/**< Length of the buffer list */
+#ifdef __cplusplus
+	void __user *virt;
+#else
 	void __user *virtual;		/**< Mmap'd area in user-virtual */
+#endif
 	struct drm_buf_pub __user *list;	/**< Buffer information */
 };
 
@@ -679,7 +687,15 @@ struct drm_prime_handle {
 	__s32 fd;
 };
 
-#include <drm/drm_mode.h>
+#if defined(__cplusplus)
+}
+#endif
+
+#include "drm_mode.h"
+
+#if defined(__cplusplus)
+extern "C" {
+#endif
 
 #define DRM_IOCTL_BASE			'd'
 #define DRM_IO(nr)			_IO(DRM_IOCTL_BASE,nr)
@@ -872,6 +888,10 @@ typedef struct drm_agp_binding drm_agp_binding_t;
 typedef struct drm_agp_info drm_agp_info_t;
 typedef struct drm_scatter_gather drm_scatter_gather_t;
 typedef struct drm_set_version drm_set_version_t;
+#endif
+
+#if defined(__cplusplus)
+}
 #endif
 
 #endif

@@ -55,6 +55,7 @@
 #define FORMAT_DSD          0x001d
 #define FORMAT_APTX         0x001e
 #define FORMAT_GEN_COMPR    0x001f
+#define FORMAT_TRUEHD       0x0020
 
 #define ENCDEC_SBCBITRATE   0x0001
 #define ENCDEC_IMMEDIATE_DECODE 0x0002
@@ -618,8 +619,13 @@ int q6asm_get_session_time_legacy(struct audio_client *ac, uint64_t *tstamp);
 int q6asm_send_audio_effects_params(struct audio_client *ac, char *params,
 				    uint32_t params_length);
 
-int q6asm_send_stream_cmd(struct audio_client *ac, uint32_t opcode,
-			void *param, uint32_t params_length);
+int q6asm_send_stream_cmd(struct audio_client *ac,
+			  struct msm_adsp_event_data *data);
+
+int q6asm_send_ion_fd(struct audio_client *ac, int fd);
+
+int q6asm_send_rtic_event_ack(struct audio_client *ac,
+			      void *param, uint32_t params_length);
 
 /* Client can set the IO mode to either AIO/SIO mode */
 int q6asm_set_io_mode(struct audio_client *ac, uint32_t mode);
@@ -654,6 +660,10 @@ int q6asm_send_mtmx_strtr_render_mode(struct audio_client *ac,
 int q6asm_send_mtmx_strtr_clk_rec_mode(struct audio_client *ac,
 		uint32_t clk_rec_mode);
 
+/* Enable adjust session clock in DSP */
+int q6asm_send_mtmx_strtr_enable_adjust_session_clock(struct audio_client *ac,
+		bool enable);
+
 /* Retrieve the current DSP path delay */
 int q6asm_get_path_delay(struct audio_client *ac);
 
@@ -661,4 +671,8 @@ int q6asm_get_path_delay(struct audio_client *ac);
 uint8_t q6asm_get_buf_index_from_token(uint32_t token);
 uint8_t q6asm_get_stream_id_from_token(uint32_t token);
 
+/* Adjust session clock in DSP */
+int q6asm_adjust_session_clock(struct audio_client *ac,
+		uint32_t adjust_time_lsw,
+		uint32_t adjust_time_msw);
 #endif /* __Q6_ASM_H__ */

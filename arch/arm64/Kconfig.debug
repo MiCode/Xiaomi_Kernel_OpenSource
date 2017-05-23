@@ -87,7 +87,6 @@ config DEBUG_ALIGN_RODATA
 
 config FORCE_PAGES
         bool "Force lowmem to be mapped with 4K pages"
-        depends on !DEBUG_RODATA
         help
           There are some advanced debug features that can only be done when
           memory is mapped with pages instead of sections. Enable this option
@@ -112,6 +111,7 @@ config FREE_PAGES_RDONLY
 config KERNEL_TEXT_RDONLY
         bool "Set kernel text section pages as read only"
 	depends on FREE_PAGES_RDONLY
+        depends on !DEBUG_RODATA
         help
           The kernel text pages are always mapped in the kernel.
 	  This means that anyone can write to the page if they have

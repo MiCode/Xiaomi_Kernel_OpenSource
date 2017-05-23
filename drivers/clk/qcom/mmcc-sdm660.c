@@ -2053,6 +2053,19 @@ static struct clk_branch mmss_camss_jpeg_axi_clk = {
 	},
 };
 
+static struct clk_branch mmss_throttle_camss_axi_clk = {
+	.halt_reg = 0x3c3c,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x3c3c,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "mmss_throttle_camss_axi_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch mmss_camss_mclk0_clk = {
 	.halt_reg = 0x3384,
 	.halt_check = BRANCH_HALT,
@@ -2336,6 +2349,19 @@ static struct clk_branch mmss_mdss_axi_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "mmss_mdss_axi_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch mmss_throttle_mdss_axi_clk = {
+	.halt_reg = 0x246c,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x246c,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "mmss_throttle_mdss_axi_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -2801,6 +2827,19 @@ static struct clk_branch mmss_video_axi_clk = {
 	},
 };
 
+static struct clk_branch mmss_throttle_video_axi_clk = {
+	.halt_reg = 0x118c,
+	.halt_check = BRANCH_HALT,
+	.clkr = {
+		.enable_reg = 0x118c,
+		.enable_mask = BIT(0),
+		.hw.init = &(struct clk_init_data){
+			.name = "mmss_throttle_video_axi_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch mmss_video_core_clk = {
 	.halt_reg = 0x1028,
 	.halt_check = BRANCH_HALT,
@@ -2962,6 +3001,9 @@ static struct clk_regmap *mmcc_660_clocks[] = {
 	[MMSS_MISC_CXO_CLK] = &mmss_misc_cxo_clk.clkr,
 	[MMSS_MNOC_AHB_CLK] = &mmss_mnoc_ahb_clk.clkr,
 	[MMSS_SNOC_DVM_AXI_CLK] = &mmss_snoc_dvm_axi_clk.clkr,
+	[MMSS_THROTTLE_CAMSS_AXI_CLK] = &mmss_throttle_camss_axi_clk.clkr,
+	[MMSS_THROTTLE_MDSS_AXI_CLK] = &mmss_throttle_mdss_axi_clk.clkr,
+	[MMSS_THROTTLE_VIDEO_AXI_CLK] = &mmss_throttle_video_axi_clk.clkr,
 	[MMSS_VIDEO_AHB_CLK] = &mmss_video_ahb_clk.clkr,
 	[MMSS_VIDEO_AXI_CLK] = &mmss_video_axi_clk.clkr,
 	[MMSS_VIDEO_CORE_CLK] = &mmss_video_core_clk.clkr,

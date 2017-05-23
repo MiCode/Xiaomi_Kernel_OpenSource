@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -507,10 +507,15 @@ struct sde_mdp_format_params *sde_get_format_params(u32 format)
 	if (!fmt_found) {
 		for (i = 0; i < ARRAY_SIZE(sde_mdp_format_ubwc_map); i++) {
 			fmt = &sde_mdp_format_ubwc_map[i].mdp_format;
-			if (format == fmt->format)
+			if (format == fmt->format) {
+				fmt_found = true;
 				break;
+			}
 		}
 	}
+	/* If format not supported than return NULL */
+	if (!fmt_found)
+		fmt = NULL;
 
 	return fmt;
 }

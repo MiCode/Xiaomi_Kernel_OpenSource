@@ -533,6 +533,8 @@ struct mipi_panel_info {
 	char lp11_init;
 	u32  init_delay;
 	u32  post_init_delay;
+	u32  num_of_sublinks;
+	u32  lanes_per_sublink;
 };
 
 struct edp_panel_info {
@@ -847,6 +849,7 @@ struct mdss_panel_info {
 	bool is_lpm_mode;
 	bool is_split_display; /* two DSIs in one display, pp split or not */
 	bool use_pingpong_split;
+	bool split_link_enabled;
 
 	/*
 	 * index[0] = left layer mixer, value of 0 not valid

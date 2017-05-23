@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -654,7 +654,7 @@ int scm_call2(u32 fn_id, struct scm_desc *desc)
 	if (unlikely(!is_scm_armv8()))
 		return -ENODEV;
 
-	ret = allocate_extra_arg_buffer(desc, GFP_KERNEL);
+	ret = allocate_extra_arg_buffer(desc, GFP_NOIO);
 	if (ret)
 		return ret;
 

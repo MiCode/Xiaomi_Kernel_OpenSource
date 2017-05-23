@@ -110,6 +110,8 @@ void diag_notify_md_client(uint8_t peripheral, int data)
 {
 	int stat = 0;
 	struct siginfo info;
+	struct pid *pid_struct;
+	struct task_struct *result;
 
 	if (peripheral > NUM_PERIPHERALS)
 		return;
@@ -122,20 +124,38 @@ void diag_notify_md_client(uint8_t peripheral, int data)
 	info.si_code = SI_QUEUE;
 	info.si_int = (PERIPHERAL_MASK(peripheral) | data);
 	info.si_signo = SIGCONT;
-	if (driver->md_session_map[peripheral] &&
-		driver->md_session_map[peripheral]->task) {
-		if (driver->md_session_map[peripheral]->
-			md_client_thread_info->task != NULL
-			&& driver->md_session_map[peripheral]->pid ==
-			driver->md_session_map[peripheral]->task->tgid) {
+
+	if (!driver->md_session_map[peripheral] ||
+		driver->md_session_map[peripheral]->pid <= 0) {
+		pr_err("diag: md_session_map[%d] is invalid\n", peripheral);
+		mutex_unlock(&driver->md_session_lock);
+		return;
+	}
+
+	pid_struct = find_get_pid(
+			driver->md_session_map[peripheral]->pid);
+	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"md_session_map[%d] pid = %d task = %pK\n",
+		peripheral,
+		driver->md_session_map[peripheral]->pid,
+		driver->md_session_map[peripheral]->task);
+
+	if (pid_struct) {
+		result = get_pid_task(pid_struct, PIDTYPE_PID);
+
+		if (!result) {
 			DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
-				"md_session %d pid = %d, md_session %d task tgid = %d\n",
+				"diag: md_session_map[%d] with pid = %d Exited..\n",
 				peripheral,
-				driver->md_session_map[peripheral]->pid,
-				peripheral,
-				driver->md_session_map[peripheral]->task->tgid);
-			stat = send_sig_info(info.si_signo, &info,
-				driver->md_session_map[peripheral]->task);
+				driver->md_session_map[peripheral]->pid);
+			mutex_unlock(&driver->md_session_lock);
+			return;
+		}
+
+		if (driver->md_session_map[peripheral] &&
+			driver->md_session_map[peripheral]->task == result) {
+			stat = send_sig_info(info.si_signo,
+					&info, result);
 			if (stat)
 				pr_err("diag: Err sending signal to memory device client, signal data: 0x%x, stat: %d\n",
 					info.si_int, stat);
@@ -528,6 +548,7 @@ static void process_ssid_range_report(uint8_t *buf, uint32_t len,
 	/* Don't account for pkt_id and length */
 	read_len += header_len - (2 * sizeof(uint32_t));
 
+	mutex_lock(&driver->msg_mask_lock);
 	driver->max_ssid_count[peripheral] = header->count;
 	for (i = 0; i < header->count && read_len < len; i++) {
 		ssid_range = (struct diag_ssid_range_t *)ptr;
@@ -571,6 +592,7 @@ static void process_ssid_range_report(uint8_t *buf, uint32_t len,
 		}
 		driver->msg_mask_tbl_count += 1;
 	}
+	mutex_unlock(&driver->msg_mask_lock);
 }
 
 static void diag_build_time_mask_update(uint8_t *buf,
@@ -595,11 +617,11 @@ static void diag_build_time_mask_update(uint8_t *buf,
 		       __func__, range->ssid_first, range->ssid_last);
 		return;
 	}
-
+	mutex_lock(&driver->msg_mask_lock);
 	build_mask = (struct diag_msg_mask_t *)(driver->build_time_mask->ptr);
 	num_items = range->ssid_last - range->ssid_first + 1;
 
-	for (i = 0; i < driver->msg_mask_tbl_count; i++, build_mask++) {
+	for (i = 0; i < driver->bt_msg_mask_tbl_count; i++, build_mask++) {
 		if (build_mask->ssid_first != range->ssid_first)
 			continue;
 		found = 1;
@@ -618,7 +640,7 @@ static void diag_build_time_mask_update(uint8_t *buf,
 
 	if (found)
 		goto end;
-	new_size = (driver->msg_mask_tbl_count + 1) *
+	new_size = (driver->bt_msg_mask_tbl_count + 1) *
 		   sizeof(struct diag_msg_mask_t);
 	temp = krealloc(driver->build_time_mask->ptr, new_size, GFP_KERNEL);
 	if (!temp) {
@@ -633,8 +655,9 @@ static void diag_build_time_mask_update(uint8_t *buf,
 		       __func__, err);
 		goto end;
 	}
-	driver->msg_mask_tbl_count += 1;
+	driver->bt_msg_mask_tbl_count += 1;
 end:
+	mutex_unlock(&driver->msg_mask_lock);
 	return;
 }
 

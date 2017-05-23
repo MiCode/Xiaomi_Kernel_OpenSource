@@ -528,6 +528,19 @@
 };
 
 &soc {
+	qcom,ntn_avb {
+		compatible = "qcom,ntn_avb";
+
+		ntn-rst-gpio = <&pm8994_gpios 13 0>;
+
+		vdd-ntn-hsic-supply = <&pm8994_l25>;
+		vdd-ntn-pci-supply = <&pm8994_s4>;
+		vdd-ntn-io-supply = <&pm8994_s4>;
+
+		qcom,ntn-rst-delay-msec = <100>;
+		qcom,ntn-rc-num = <1>;
+	};
+
 	qcom,cnss {
 		wlan-bootstrap-gpio = <&tlmm 46 0>;
 		wlan-en-gpio = <&pm8994_gpios 8 0>;
@@ -692,22 +705,9 @@
 	};
 
 	qcom,msm-dai-tdm-tert-rx {
-		qcom,msm-cpudai-tdm-group-num-ports = <5>;
-		qcom,msm-cpudai-tdm-group-port-id = <36896 36898 36900
-							36902 36904>;
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&tert_tdm_dout_active>;
 		pinctrl-1 = <&tert_tdm_dout_sleep>;
-		dai_tert_tdm_rx_4: qcom,msm-dai-q6-tdm-tert-rx-4 {
-			compatible = "qcom,msm-dai-q6-tdm";
-			qcom,msm-cpudai-tdm-dev-id = <36904>;
-			qcom,msm-cpudai-tdm-sync-mode = <1>;
-			qcom,msm-cpudai-tdm-sync-src = <0>;
-			qcom,msm-cpudai-tdm-data-out = <0>;
-			qcom,msm-cpudai-tdm-invert-sync = <0>;
-			qcom,msm-cpudai-tdm-data-delay = <0>;
-			qcom,msm-cpudai-tdm-data-align = <0>;
-		};
 	};
 
 	qcom,msm-dai-tdm-quat-rx {
@@ -789,11 +789,14 @@
 		status = "okay";
 	};
 
-	gpio@cc00 { /* GPIO 13 */
-		qcom,mode = <1>;	/* DIGITAL OUT */
-		qcom,vin-sel = <2>;	/* 1.8 */
-		qcom,src-sel = <0>;	/* GPIO */
-		qcom,master-en = <1>;	/* Enable GPIO */
+	gpio@cc00 { /* GPIO 13 - NTN_RST */
+		qcom,mode = <1>; /* DIGITAL OUT */
+		qcom,output-type = <0>; /* CMOS logic */
+		qcom,pull = <5>;
+		qcom,vin-sel = <2>; /* 1.8 */
+		qcom,out-strength = <1>;
+		qcom,src-sel = <0>; /* GPIO */
+		qcom,master-en = <1>; /* Enable GPIO */
 		status = "okay";
 	};
 

@@ -84,6 +84,8 @@
 		pm8998_s5: regulator-s5 {
 			regulator-min-microvolt = <1904000>;
 			regulator-max-microvolt = <2040000>;
+			qcom,init-pin-ctrl-mode = <8>;		/* PMIC_AWAKE */
+			qcom,send-defaults;
 			status = "okay";
 		};
 	};
@@ -93,6 +95,8 @@
 		pm8998_s7: regulator-s7 {
 			regulator-min-microvolt = <900000>;
 			regulator-max-microvolt = <1028000>;
+			qcom,init-pin-ctrl-mode = <8>;		/* PMIC_AWAKE */
+			qcom,send-defaults;
 			status = "okay";
 		};
 	};
@@ -407,7 +411,7 @@
 	rpm-regulator-ldoa24 {
 		status = "okay";
 		pm8998_l24: regulator-l24 {
-			regulator-min-microvolt = <3088000>;
+			regulator-min-microvolt = <1848000>;
 			regulator-max-microvolt = <3088000>;
 			parent-supply = <&pm8998_l12>;
 			status = "okay";

@@ -466,6 +466,7 @@ struct msm_gpu *a3xx_gpu_init(struct drm_device *dev)
 	struct msm_gpu *gpu;
 	struct msm_drm_private *priv = dev->dev_private;
 	struct platform_device *pdev = priv->gpu_pdev;
+	struct msm_gpu_config a3xx_config = { 0 };
 	int ret;
 
 	if (!pdev) {
@@ -491,7 +492,13 @@ struct msm_gpu *a3xx_gpu_init(struct drm_device *dev)
 	adreno_gpu->registers = a3xx_registers;
 	adreno_gpu->reg_offsets = a3xx_register_offsets;
 
-	ret = adreno_gpu_init(dev, pdev, adreno_gpu, &funcs, 1);
+	a3xx_config.ioname = MSM_GPU_DEFAULT_IONAME;
+	a3xx_config.irqname = MSM_GPU_DEFAULT_IRQNAME;
+	a3xx_config.nr_rings = 1;
+	a3xx_config.va_start = 0x300000;
+	a3xx_config.va_end = 0xffffffff;
+
+	ret = adreno_gpu_init(dev, pdev, adreno_gpu, &funcs, &a3xx_config);
 	if (ret)
 		goto fail;
 

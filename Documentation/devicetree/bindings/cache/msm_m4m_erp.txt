@@ -1,0 +1,15 @@
+* MSM M4M error reporting driver
+
+Required properties:
+- compatible: Should be "qcom,m4m_erp".
+- reg: I/O address M4M hardware block.
+- interrupts: Should contain the M4M error interrupt number.
+- interrupt-names: Should contain the interrupt names "m4m_irq".
+
+Example:
+	qcom,m4m_erp64@9A40000 {
+		compatible = "qcom,m4m_erp";
+		reg = <0x9A40000 0x40000>;
+		interrupts = <0 22 0>;
+		interrupt-names = "m4m_irq";
+	};

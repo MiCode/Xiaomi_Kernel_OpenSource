@@ -380,9 +380,6 @@
 				qcom,led-name = "led:switch_1";
 				qcom,led-mask = <4>;
 				qcom,default-led-trigger = "switch1_trigger";
-				pinctrl-names = "led_enable","led_disable";
-				pinctrl-0 = <&led_enable>;
-				pinctrl-1 = <&led_disable>;
 			};
 		};
 
@@ -415,7 +412,9 @@
 		       compatible = "qcom,qpnp-oledb-regulator";
 		       #address-cells = <1>;
 		       #size-cells = <1>;
+		       qcom,pmic-revid = <&pm660l_revid>;
 		       reg = <0xe000 0x100>;
+		       qcom,pbs-client = <&pm660l_pbs>;
 
 		       label = "oledb";
 		       regulator-name = "regulator-oledb";
@@ -463,6 +462,8 @@
 				qcom,qpnp-lab-slew-rate = <5000>;
 				qcom,qpnp-lab-init-voltage = <4600000>;
 				qcom,qpnp-lab-init-amoled-voltage = <4600000>;
+
+				qcom,notify-lab-vreg-ok-sts;
 			};
 		};
 	};

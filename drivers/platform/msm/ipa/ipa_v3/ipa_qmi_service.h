@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -190,6 +190,9 @@ int rmnet_ipa3_set_tether_client_pipe(struct wan_ioctl_set_tether_client_pipe
 int rmnet_ipa3_query_tethering_stats(struct wan_ioctl_query_tether_stats *data,
 	bool reset);
 
+int rmnet_ipa3_query_tethering_stats_all(
+	struct wan_ioctl_query_tether_stats_all *data);
+
 int rmnet_ipa3_reset_tethering_stats(struct wan_ioctl_reset_tether_stats *data);
 
 int ipa3_qmi_get_data_stats(struct ipa_get_data_stats_req_msg_v01 *req,
@@ -203,6 +206,10 @@ int ipa3_qmi_set_data_quota(struct ipa_set_data_usage_quota_req_msg_v01 *req);
 int ipa3_qmi_stop_data_qouta(void);
 
 void ipa3_q6_handshake_complete(bool ssr_bootup);
+
+void ipa3_qmi_init(void);
+
+void ipa3_qmi_cleanup(void);
 
 #else /* CONFIG_RMNET_IPA3 */
 
@@ -315,6 +322,14 @@ static inline int ipa3_qmi_stop_data_qouta(void)
 }
 
 static inline void ipa3_q6_handshake_complete(bool ssr_bootup) { }
+
+static inline void ipa3_qmi_init(void)
+{
+}
+
+static inline void ipa3_qmi_cleanup(void)
+{
+}
 
 #endif /* CONFIG_RMNET_IPA3 */
 

@@ -30,6 +30,7 @@
 #include "msm-digital-cdc.h"
 #include "msm-cdc-common.h"
 #include "../../msm/sdm660-common.h"
+#include "../../../../drivers/base/regmap/internal.h"
 
 #define DRV_NAME "msm_digital_codec"
 #define MCLK_RATE_9P6MHZ        9600000
@@ -71,6 +72,8 @@ static int msm_digcdc_clock_control(bool flag)
 {
 	int ret = -EINVAL;
 	struct msm_asoc_mach_data *pdata = NULL;
+	struct msm_dig_priv *msm_dig_cdc =
+				snd_soc_codec_get_drvdata(registered_digcodec);
 
 	pdata = snd_soc_card_get_drvdata(registered_digcodec->component.card);
 
@@ -84,6 +87,12 @@ static int msm_digcdc_clock_control(bool flag)
 			if (ret < 0) {
 				pr_err("%s:failed to enable the MCLK\n",
 				       __func__);
+				/*
+				 * Avoid access to lpass register
+				 * as clock enable failed during SSR.
+				 */
+				if (ret == -ENODEV)
+					msm_dig_cdc->regmap->cache_only = true;
 				mutex_unlock(&pdata->cdc_int_mclk0_mutex);
 				return ret;
 			}

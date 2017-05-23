@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -928,7 +928,8 @@ static unsigned long branch_clk_get_rate(struct clk *c)
 {
 	struct branch_clk *branch = to_branch_clk(c);
 
-	if (branch->max_div)
+	if (branch->max_div ||
+			(branch->aggr_sibling_rates && !branch->is_prepared))
 		return branch->c.rate;
 
 	return clk_get_rate(c->parent);

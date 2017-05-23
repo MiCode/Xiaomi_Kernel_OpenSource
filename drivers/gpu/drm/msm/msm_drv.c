@@ -251,17 +251,12 @@ static int msm_unload(struct drm_device *dev)
 }
 
 #define KMS_MDP4 0
-#define KMS_MDP5 1
-#define KMS_SDE  2
+#define KMS_SDE  1
 
 static int get_mdp_ver(struct platform_device *pdev)
 {
 #ifdef CONFIG_OF
 	static const struct of_device_id match_types[] = { {
-		.compatible = "qcom,mdss_mdp",
-		.data	= (void	*)KMS_MDP5,
-	},
-	{
 		.compatible = "qcom,sde-kms",
 		.data	= (void	*)KMS_SDE,
 		/* end node */
@@ -431,9 +426,6 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 	switch (get_mdp_ver(pdev)) {
 	case KMS_MDP4:
 		kms = mdp4_kms_init(dev);
-		break;
-	case KMS_MDP5:
-		kms = mdp5_kms_init(dev);
 		break;
 	case KMS_SDE:
 		kms = sde_kms_init(dev);
@@ -1208,23 +1200,34 @@ static int msm_ioctl_gem_info(struct drm_device *dev, void *data,
 	if (args->flags & ~MSM_INFO_FLAGS)
 		return -EINVAL;
 
-	if (!ctx || !ctx->aspace)
-		return -EINVAL;
-
 	obj = drm_gem_object_lookup(dev, file, args->handle);
 	if (!obj)
 		return -ENOENT;
 
 	if (args->flags & MSM_INFO_IOVA) {
+		struct msm_gem_address_space *aspace = NULL;
+		struct msm_drm_private *priv = dev->dev_private;
+		struct msm_gem_object *msm_obj = to_msm_bo(obj);
 		uint64_t iova;
 
-		ret = msm_gem_get_iova(obj, ctx->aspace, &iova);
+		if (msm_obj->flags & MSM_BO_SECURE && priv->gpu)
+			aspace = priv->gpu->secure_aspace;
+		else if (ctx)
+			aspace = ctx->aspace;
+
+		if (!aspace) {
+			ret = -EINVAL;
+			goto out;
+		}
+
+		ret = msm_gem_get_iova(obj, aspace, &iova);
 		if (!ret)
 			args->offset = iova;
 	} else {
 		args->offset = msm_gem_mmap_offset(obj);
 	}
 
+out:
 	drm_gem_object_unreference_unlocked(obj);
 
 	return ret;
@@ -1537,6 +1540,37 @@ static int msm_ioctl_deregister_event(struct drm_device *dev, void *data,
 	return 0;
 }
 
+static int msm_ioctl_gem_sync(struct drm_device *dev, void *data,
+			     struct drm_file *file)
+{
+
+	struct drm_msm_gem_sync *arg = data;
+	int i;
+
+	for (i = 0; i < arg->nr_ops; i++) {
+		struct drm_msm_gem_syncop syncop;
+		struct drm_gem_object *obj;
+		int ret;
+		void __user *ptr =
+			(void __user *)(uintptr_t)
+				(arg->ops + (i * sizeof(syncop)));
+
+		ret = copy_from_user(&syncop, ptr, sizeof(syncop));
+		if (ret)
+			return -EFAULT;
+
+		obj = drm_gem_object_lookup(dev, file, syncop.handle);
+		if (!obj)
+			return -ENOENT;
+
+		msm_gem_sync(obj, syncop.op);
+
+		drm_gem_object_unreference_unlocked(obj);
+	}
+
+	return 0;
+}
+
 void msm_send_crtc_notification(struct drm_crtc *crtc,
 				struct drm_event *event, u8 *payload)
 {
@@ -1664,6 +1698,8 @@ static const struct drm_ioctl_desc msm_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MSM_COUNTER_PUT, msm_ioctl_counter_put,
 			  DRM_AUTH|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MSM_COUNTER_READ, msm_ioctl_counter_read,
+			  DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_GEM_SYNC, msm_ioctl_gem_sync,
 			  DRM_AUTH|DRM_RENDER_ALLOW),
 };
 
@@ -1904,7 +1940,6 @@ static const struct platform_device_id msm_id[] = {
 
 static const struct of_device_id dt_match[] = {
 	{ .compatible = "qcom,mdp" },      /* mdp4 */
-	{ .compatible = "qcom,mdss_mdp" }, /* mdp5 */
 	{ .compatible = "qcom,sde-kms" },  /* sde  */
 	{}
 };
