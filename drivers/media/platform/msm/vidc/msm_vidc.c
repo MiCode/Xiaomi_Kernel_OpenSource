@@ -1267,10 +1267,9 @@ static int msm_vidc_queue_setup(struct vb2_queue *q,
 			return -EINVAL;
 		}
 		if (*num_buffers < bufreq->buffer_count_min_host) {
-			dprintk(VIDC_ERR,
-				"Invalid parameters : Req = %d Act = %d\n",
+			dprintk(VIDC_DBG,
+				"Client passed num buffers %d less than the min_host count %d\n",
 				*num_buffers, bufreq->buffer_count_min_host);
-			return -EINVAL;
 		}
 		*num_planes = inst->bufq[OUTPUT_PORT].num_planes;
 		if (*num_buffers < MIN_NUM_OUTPUT_BUFFERS ||
@@ -1299,11 +1298,10 @@ static int msm_vidc_queue_setup(struct vb2_queue *q,
 		if (inst->session_type != MSM_VIDC_DECODER &&
 			inst->state > MSM_VIDC_LOAD_RESOURCES_DONE) {
 			if (*num_buffers < bufreq->buffer_count_min_host) {
-				dprintk(VIDC_ERR,
-					"Invalid parameters : Req = %d Act = %d\n",
+				dprintk(VIDC_DBG,
+					"Client passed num buffers %d less than the min_host count %d\n",
 						*num_buffers,
 						bufreq->buffer_count_min_host);
-				return -EINVAL;
 			}
 		}
 		*num_planes = inst->bufq[CAPTURE_PORT].num_planes;
