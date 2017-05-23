@@ -26,8 +26,10 @@
 #define to_dp_bridge(x)     container_of((x), struct dp_bridge, base)
 
 static void convert_to_dp_mode(const struct drm_display_mode *drm_mode,
-				struct dp_display_mode *dp_mode)
+			struct dp_display_mode *dp_mode, struct dp_display *dp)
 {
+	const u32 num_components = 3;
+
 	memset(dp_mode, 0, sizeof(*dp_mode));
 
 	dp_mode->timing.h_active = drm_mode->hdisplay;
@@ -45,6 +47,7 @@ static void convert_to_dp_mode(const struct drm_display_mode *drm_mode,
 
 	dp_mode->timing.v_front_porch = drm_mode->vsync_start -
 					 drm_mode->vdisplay;
+	dp_mode->timing.bpp = dp->connector->display_info.bpc * num_components;
 
 	dp_mode->timing.refresh_rate = drm_mode->vrefresh;
 
@@ -235,7 +238,7 @@ static void dp_bridge_mode_set(struct drm_bridge *drm_bridge,
 	dp = bridge->display;
 
 	memset(&bridge->dp_mode, 0x0, sizeof(struct dp_display_mode));
-	convert_to_dp_mode(adjusted_mode, &bridge->dp_mode);
+	convert_to_dp_mode(adjusted_mode, &bridge->dp_mode, dp);
 }
 
 static bool dp_bridge_mode_fixup(struct drm_bridge *drm_bridge,
@@ -257,7 +260,7 @@ static bool dp_bridge_mode_fixup(struct drm_bridge *drm_bridge,
 	bridge = to_dp_bridge(drm_bridge);
 	dp = bridge->display;
 
-	convert_to_dp_mode(mode, &dp_mode);
+	convert_to_dp_mode(mode, &dp_mode, dp);
 
 	rc = dp->validate_mode(dp, &dp_mode);
 	if (rc) {
