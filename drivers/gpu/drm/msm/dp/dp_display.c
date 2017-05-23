@@ -618,9 +618,25 @@ static int dp_display_probe(struct platform_device *pdev)
 	return rc;
 }
 
-struct dp_display *dp_display_get(void)
+int dp_display_get_displays(void **displays, int count)
 {
-	return g_dp_display;
+	if (!displays) {
+		pr_err("invalid data\n");
+		return -EINVAL;
+	}
+
+	if (count != 1) {
+		pr_err("invalid number of displays\n");
+		return -EINVAL;
+	}
+
+	displays[0] = g_dp_display;
+	return count;
+}
+
+int dp_display_get_num_of_displays(void)
+{
+	return 1;
 }
 
 static void dp_display_deinit_sub_modules(struct dp_display_private *dp)

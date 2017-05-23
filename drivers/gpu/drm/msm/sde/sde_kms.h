@@ -188,6 +188,8 @@ struct sde_kms {
 	void **dsi_displays;
 	int wb_display_count;
 	void **wb_displays;
+	int dp_display_count;
+	void **dp_displays;
 
 	bool has_danger_ctrl;
 };

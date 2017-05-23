@@ -116,7 +116,7 @@ static void sde_hw_intf_setup_timing_engine(struct sde_hw_intf *ctx,
 	display_v_end = ((vsync_period - p->v_front_porch) * hsync_period) +
 	p->hsync_skew - 1;
 
-	if (ctx->cap->type == INTF_EDP) {
+	if (ctx->cap->type == INTF_EDP || ctx->cap->type == INTF_DP) {
 		display_v_start += p->hsync_pulse_width + p->h_back_porch;
 		display_v_end -= p->h_front_porch;
 	}
