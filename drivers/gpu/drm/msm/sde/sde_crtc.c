@@ -3471,14 +3471,14 @@ static int _sde_crtc_init_debugfs(struct drm_crtc *crtc)
 		return -ENOMEM;
 
 	/* don't error check these */
-	debugfs_create_file("status", 0444,
+	debugfs_create_file("status", 0400,
 			sde_crtc->debugfs_root,
 			sde_crtc, &debugfs_status_fops);
-	debugfs_create_file("state", 0644,
+	debugfs_create_file("state", 0600,
 			sde_crtc->debugfs_root,
 			&sde_crtc->base,
 			&sde_crtc_debugfs_state_fops);
-	debugfs_create_file("misr_data", 0644, sde_crtc->debugfs_root,
+	debugfs_create_file("misr_data", 0600, sde_crtc->debugfs_root,
 					sde_crtc, &debugfs_misr_fops);
 
 	return 0;

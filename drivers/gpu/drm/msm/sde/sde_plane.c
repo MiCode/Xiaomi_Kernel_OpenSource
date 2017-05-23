@@ -4013,7 +4013,7 @@ static int _sde_plane_init_debugfs(struct drm_plane *plane)
 		return -ENOMEM;
 
 	/* don't error check these */
-	debugfs_create_x32("features", 0644,
+	debugfs_create_x32("features", 0600,
 			psde->debugfs_root, &psde->features);
 
 	/* add register dump support */
@@ -4021,7 +4021,7 @@ static int _sde_plane_init_debugfs(struct drm_plane *plane)
 			sblk->src_blk.base + cfg->base,
 			sblk->src_blk.len,
 			kms);
-	sde_debugfs_create_regset32("src_blk", 0444,
+	sde_debugfs_create_regset32("src_blk", 0400,
 			psde->debugfs_root, &psde->debugfs_src);
 
 	if (cfg->features & BIT(SDE_SSPP_SCALER_QSEED3) ||
@@ -4030,11 +4030,11 @@ static int _sde_plane_init_debugfs(struct drm_plane *plane)
 				sblk->scaler_blk.base + cfg->base,
 				sblk->scaler_blk.len,
 				kms);
-		sde_debugfs_create_regset32("scaler_blk", 0444,
+		sde_debugfs_create_regset32("scaler_blk", 0400,
 				psde->debugfs_root,
 				&psde->debugfs_scaler);
 		debugfs_create_bool("default_scaling",
-				0644,
+				0600,
 				psde->debugfs_root,
 				&psde->debugfs_default_scale);
 	}
@@ -4045,36 +4045,36 @@ static int _sde_plane_init_debugfs(struct drm_plane *plane)
 				sblk->csc_blk.base + cfg->base,
 				sblk->csc_blk.len,
 				kms);
-		sde_debugfs_create_regset32("csc_blk", 0444,
+		sde_debugfs_create_regset32("csc_blk", 0400,
 				psde->debugfs_root, &psde->debugfs_csc);
 	}
 
 	debugfs_create_u32("xin_id",
-			0444,
+			0400,
 			psde->debugfs_root,
 			(u32 *) &cfg->xin_id);
 	debugfs_create_u32("clk_ctrl",
-			0444,
+			0400,
 			psde->debugfs_root,
 			(u32 *) &cfg->clk_ctrl);
 	debugfs_create_x32("creq_vblank",
-			0644,
+			0600,
 			psde->debugfs_root,
 			(u32 *) &sblk->creq_vblank);
 	debugfs_create_x32("danger_vblank",
-			0644,
+			0600,
 			psde->debugfs_root,
 			(u32 *) &sblk->danger_vblank);
 
 	debugfs_create_file("disable_danger",
-			0644,
+			0600,
 			psde->debugfs_root,
 			kms, &sde_plane_danger_enable);
 	debugfs_create_u32("sbuf_mode",
-			0644,
+			0600,
 			psde->debugfs_root, &psde->sbuf_mode);
 	debugfs_create_u32("sbuf_writeback",
-			0644,
+			0600,
 			psde->debugfs_root,
 			&psde->sbuf_writeback);
 

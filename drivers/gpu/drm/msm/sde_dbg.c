@@ -2904,16 +2904,16 @@ int sde_dbg_debugfs_register(struct dentry *debugfs_root)
 	if (!debugfs_root)
 		return -EINVAL;
 
-	debugfs_create_file("dump", 0644, debugfs_root, NULL,
+	debugfs_create_file("dump", 0600, debugfs_root, NULL,
 			&sde_evtlog_fops);
-	debugfs_create_u32("enable", 0644, debugfs_root,
+	debugfs_create_u32("enable", 0600, debugfs_root,
 			&(sde_dbg_base.evtlog->enable));
-	debugfs_create_file("filter", 0644, debugfs_root,
+	debugfs_create_file("filter", 0600, debugfs_root,
 			sde_dbg_base.evtlog,
 			&sde_evtlog_filter_fops);
-	debugfs_create_u32("panic", 0644, debugfs_root,
+	debugfs_create_u32("panic", 0600, debugfs_root,
 			&sde_dbg_base.panic_on_err);
-	debugfs_create_u32("reg_dump", 0644, debugfs_root,
+	debugfs_create_u32("reg_dump", 0600, debugfs_root,
 			&sde_dbg_base.enable_reg_dump);
 
 	if (dbg->dbgbus_sde.entries) {
@@ -2921,7 +2921,7 @@ int sde_dbg_debugfs_register(struct dentry *debugfs_root)
 		snprintf(debug_name, sizeof(debug_name), "%s_dbgbus",
 				dbg->dbgbus_sde.cmn.name);
 		dbg->dbgbus_sde.cmn.enable_mask = DEFAULT_DBGBUS_SDE;
-		debugfs_create_u32(debug_name, 0644, debugfs_root,
+		debugfs_create_u32(debug_name, 0600, debugfs_root,
 				&dbg->dbgbus_sde.cmn.enable_mask);
 	}
 
@@ -2930,19 +2930,19 @@ int sde_dbg_debugfs_register(struct dentry *debugfs_root)
 		snprintf(debug_name, sizeof(debug_name), "%s_dbgbus",
 				dbg->dbgbus_vbif_rt.cmn.name);
 		dbg->dbgbus_vbif_rt.cmn.enable_mask = DEFAULT_DBGBUS_VBIFRT;
-		debugfs_create_u32(debug_name, 0644, debugfs_root,
+		debugfs_create_u32(debug_name, 0600, debugfs_root,
 				&dbg->dbgbus_vbif_rt.cmn.enable_mask);
 	}
 
 	list_for_each_entry(blk_base, &dbg->reg_base_list, reg_base_head) {
 		snprintf(debug_name, sizeof(debug_name), "%s_off",
 				blk_base->name);
-		debugfs_create_file(debug_name, 0644, debugfs_root, blk_base,
+		debugfs_create_file(debug_name, 0600, debugfs_root, blk_base,
 				&sde_off_fops);
 
 		snprintf(debug_name, sizeof(debug_name), "%s_reg",
 				blk_base->name);
-		debugfs_create_file(debug_name, 0644, debugfs_root, blk_base,
+		debugfs_create_file(debug_name, 0600, debugfs_root, blk_base,
 				&sde_reg_fops);
 	}
 

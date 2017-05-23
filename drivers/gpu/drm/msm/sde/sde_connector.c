@@ -856,7 +856,7 @@ static int sde_connector_init_debugfs(struct drm_connector *connector)
 
 	sde_connector = to_sde_connector(connector);
 
-	if (!debugfs_create_bool("fb_kmap", 0644, connector->debugfs_entry,
+	if (!debugfs_create_bool("fb_kmap", 0600, connector->debugfs_entry,
 			&sde_connector->fb_kmap)) {
 		SDE_ERROR("failed to create connector fb_kmap\n");
 		return -ENOMEM;

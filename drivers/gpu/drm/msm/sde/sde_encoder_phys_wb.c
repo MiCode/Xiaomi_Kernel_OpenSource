@@ -1121,13 +1121,13 @@ static int sde_encoder_phys_wb_init_debugfs(
 	if (!phys_enc || !wb_enc->hw_wb || !debugfs_root)
 		return -EINVAL;
 
-	if (!debugfs_create_u32("wbdone_timeout", 0644,
+	if (!debugfs_create_u32("wbdone_timeout", 0600,
 			debugfs_root, &wb_enc->wbdone_timeout)) {
 		SDE_ERROR("failed to create debugfs/wbdone_timeout\n");
 		return -ENOMEM;
 	}
 
-	if (!debugfs_create_u32("bypass_irqreg", 0644,
+	if (!debugfs_create_u32("bypass_irqreg", 0600,
 			debugfs_root, &wb_enc->bypass_irqreg)) {
 		SDE_ERROR("failed to create debugfs/bypass_irqreg\n");
 		return -ENOMEM;

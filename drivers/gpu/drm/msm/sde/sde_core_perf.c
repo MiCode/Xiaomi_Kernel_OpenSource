@@ -618,27 +618,27 @@ int sde_core_perf_debugfs_init(struct sde_core_perf *perf,
 		return -EINVAL;
 	}
 
-	debugfs_create_u64("max_core_clk_rate", 0644, perf->debugfs_root,
+	debugfs_create_u64("max_core_clk_rate", 0600, perf->debugfs_root,
 			&perf->max_core_clk_rate);
-	debugfs_create_u64("core_clk_rate", 0644, perf->debugfs_root,
+	debugfs_create_u64("core_clk_rate", 0600, perf->debugfs_root,
 			&perf->core_clk_rate);
-	debugfs_create_u32("enable_bw_release", 0644, perf->debugfs_root,
+	debugfs_create_u32("enable_bw_release", 0600, perf->debugfs_root,
 			(u32 *)&perf->enable_bw_release);
-	debugfs_create_u32("threshold_low", 0644, perf->debugfs_root,
+	debugfs_create_u32("threshold_low", 0600, perf->debugfs_root,
 			(u32 *)&catalog->perf.max_bw_low);
-	debugfs_create_u32("threshold_high", 0644, perf->debugfs_root,
+	debugfs_create_u32("threshold_high", 0600, perf->debugfs_root,
 			(u32 *)&catalog->perf.max_bw_high);
-	debugfs_create_file("perf_mode", 0644, perf->debugfs_root,
+	debugfs_create_file("perf_mode", 0600, perf->debugfs_root,
 			(u32 *)perf, &sde_core_perf_mode_fops);
 	debugfs_create_u32("bw_vote_mode", 0600, perf->debugfs_root,
 			&perf->bw_vote_mode);
 	debugfs_create_bool("bw_vote_mode_updated", 0600, perf->debugfs_root,
 			&perf->bw_vote_mode_updated);
-	debugfs_create_u64("fix_core_clk_rate", 0644, perf->debugfs_root,
+	debugfs_create_u64("fix_core_clk_rate", 0600, perf->debugfs_root,
 			&perf->fix_core_clk_rate);
-	debugfs_create_u64("fix_core_ib_vote", 0644, perf->debugfs_root,
+	debugfs_create_u64("fix_core_ib_vote", 0600, perf->debugfs_root,
 			&perf->fix_core_ib_vote);
-	debugfs_create_u64("fix_core_ab_vote", 0644, perf->debugfs_root,
+	debugfs_create_u64("fix_core_ab_vote", 0600, perf->debugfs_root,
 			&perf->fix_core_ab_vote);
 
 	return 0;
