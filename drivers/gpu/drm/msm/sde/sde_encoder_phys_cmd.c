@@ -700,6 +700,8 @@ static void sde_encoder_phys_cmd_disable(struct sde_encoder_phys *phys_enc)
 		}
 	}
 
+	if (phys_enc->hw_pp->ops.enable_tearcheck)
+		phys_enc->hw_pp->ops.enable_tearcheck(phys_enc->hw_pp, false);
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 }
 
