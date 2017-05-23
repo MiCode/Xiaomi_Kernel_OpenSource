@@ -53,6 +53,13 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl, int64_t req_id);
 int cam_sensor_apply_request(struct cam_req_mgr_apply_request *apply);
 
 /**
+ * @flush: Req mgr structure for flushing request
+ *
+ * This API flushes the request that is mentioned
+ */
+int cam_sensor_flush_request(struct cam_req_mgr_flush_request *flush);
+
+/**
  * @info: Sub device info to req mgr
  *
  * Publish the subdevice info
