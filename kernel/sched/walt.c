@@ -917,11 +917,11 @@ void set_window_start(struct rq *rq)
 {
 	static int sync_cpu_available;
 
-	if (rq->window_start)
+	if (likely(rq->window_start))
 		return;
 
 	if (!sync_cpu_available) {
-		rq->window_start = sched_ktime_clock();
+		rq->window_start = 1;
 		sync_cpu_available = 1;
 		atomic_set(&walt_irq_work_lastq_ws, rq->window_start);
 	} else {
