@@ -26,6 +26,7 @@
 #include <linux/pm_wakeup.h>
 #include <linux/slab.h>
 #include <linux/pmic-voter.h>
+#include "battery.h"
 
 #define DRV_MAJOR_VERSION	1
 #define DRV_MINOR_VERSION	0
@@ -930,10 +931,16 @@ static int pl_determine_initial_status(struct pl_data *chip)
 }
 
 #define DEFAULT_RESTRICTED_CURRENT_UA	1000000
-static int pl_init(void)
+int qcom_batt_init(void)
 {
 	struct pl_data *chip;
 	int rc = 0;
+
+	/* initialize just once */
+	if (the_chip) {
+		pr_err("was initialized earlier. Failing now\n");
+		return -EINVAL;
+	}
 
 	chip = kzalloc(sizeof(*chip), GFP_KERNEL);
 	if (!chip)
@@ -1014,7 +1021,9 @@ static int pl_init(void)
 		goto unreg_notifier;
 	}
 
-	return rc;
+	the_chip = chip;
+
+	return 0;
 
 unreg_notifier:
 	power_supply_unreg_notifier(&chip->nb);
@@ -1031,9 +1040,16 @@ cleanup:
 	return rc;
 }
 
-static void pl_deinit(void)
+void qcom_batt_deinit(void)
 {
 	struct pl_data *chip = the_chip;
+
+	if (chip == NULL)
+		return;
+
+	cancel_work_sync(&chip->status_change_work);
+	cancel_delayed_work_sync(&chip->pl_taper_work);
+	cancel_work_sync(&chip->pl_disable_forever_work);
 
 	power_supply_unreg_notifier(&chip->nb);
 	destroy_votable(chip->pl_awake_votable);
@@ -1041,11 +1057,6 @@ static void pl_deinit(void)
 	destroy_votable(chip->fv_votable);
 	destroy_votable(chip->fcc_votable);
 	wakeup_source_unregister(chip->pl_ws);
+	the_chip = NULL;
 	kfree(chip);
 }
-
-module_init(pl_init);
-module_exit(pl_deinit)
-
-MODULE_DESCRIPTION("");
-MODULE_LICENSE("GPL v2");
