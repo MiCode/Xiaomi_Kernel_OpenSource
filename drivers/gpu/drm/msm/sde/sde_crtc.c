@@ -1117,7 +1117,6 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	bool bg_alpha_enable[CRTC_DUAL_MIXERS] = {false};
 	int zpos_cnt[CRTC_DUAL_MIXERS][SDE_STAGE_MAX + 1] = { {0} };
 	int i;
-	bool sbuf_mode = false;
 	u32 prefill = 0;
 
 	if (!sde_crtc || !mixer) {
@@ -1130,6 +1129,9 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	stage_cfg = &sde_crtc->stage_cfg;
 	cstate = to_sde_crtc_state(crtc->state);
 	flush_sbuf = 0x0;
+
+	cstate->sbuf_cfg.rot_op_mode = SDE_CTL_ROT_OP_MODE_OFFLINE;
+	cstate->sbuf_prefill_line = 0;
 
 	drm_atomic_crtc_for_each_plane(plane, crtc) {
 		state = plane->state;
@@ -1145,7 +1147,10 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 		fb = state->fb;
 
 		if (sde_plane_is_sbuf_mode(plane, &prefill))
-			sbuf_mode = true;
+			cstate->sbuf_cfg.rot_op_mode =
+					SDE_CTL_ROT_OP_MODE_INLINE_SYNC;
+		if (prefill > cstate->sbuf_prefill_line)
+			cstate->sbuf_prefill_line = prefill;
 
 		sde_plane_get_ctl_flush(plane, ctl, &flush_mask, &flush_tmp);
 
@@ -1167,7 +1172,8 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 				state->src_x >> 16, state->src_y >> 16,
 				state->src_w >> 16, state->src_h >> 16,
 				state->crtc_x, state->crtc_y,
-				state->crtc_w, state->crtc_h);
+				state->crtc_w, state->crtc_h,
+				cstate->sbuf_cfg.rot_op_mode);
 
 		for (lm_idx = 0; lm_idx < sde_crtc->num_mixers; lm_idx++) {
 			struct sde_rect intersect;
@@ -1221,20 +1227,8 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 					mixer, &cstate->dim_layer[i]);
 	}
 
-	if (ctl->ops.setup_sbuf_cfg) {
-		cstate = to_sde_crtc_state(crtc->state);
-		if (!sbuf_mode) {
-			cstate->sbuf_cfg.rot_op_mode =
-					SDE_CTL_ROT_OP_MODE_OFFLINE;
-			cstate->sbuf_prefill_line = 0;
-		} else {
-			cstate->sbuf_cfg.rot_op_mode =
-					SDE_CTL_ROT_OP_MODE_INLINE_SYNC;
-			cstate->sbuf_prefill_line = prefill;
-		}
-
+	if (ctl->ops.setup_sbuf_cfg)
 		ctl->ops.setup_sbuf_cfg(ctl, &cstate->sbuf_cfg);
-	}
 
 	_sde_crtc_program_lm_output_roi(crtc);
 }

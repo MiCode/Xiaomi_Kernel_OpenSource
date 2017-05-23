@@ -222,7 +222,7 @@ static void programmable_fetch_config(struct sde_encoder_phys *phys_enc,
  * @rot_fetch_lines: number of line to prefill, or 0 to disable
  */
 static void programmable_rot_fetch_config(struct sde_encoder_phys *phys_enc,
-		u64 rot_fetch_lines)
+		u32 rot_fetch_lines)
 {
 	struct sde_encoder_phys_vid *vid_enc =
 		to_sde_encoder_phys_vid(phys_enc);
@@ -232,9 +232,12 @@ static void programmable_rot_fetch_config(struct sde_encoder_phys *phys_enc,
 	u32 horiz_total = 0;
 	u32 vert_total = 0;
 	u32 rot_fetch_start_vsync_counter = 0;
+	u32 flush_mask = 0;
 	unsigned long lock_flags;
 
-	if (!phys_enc || !vid_enc->hw_intf ||
+	if (!phys_enc || !vid_enc->hw_intf || !phys_enc->hw_ctl ||
+			!phys_enc->hw_ctl->ops.get_bitmask_intf ||
+			!phys_enc->hw_ctl->ops.update_pending_flush ||
 			!vid_enc->hw_intf->ops.setup_rot_start)
 		return;
 
@@ -253,8 +256,13 @@ static void programmable_rot_fetch_config(struct sde_encoder_phys *phys_enc,
 	}
 
 	SDE_DEBUG_VIDENC(vid_enc,
-		"rot_fetch_lines %llu rot_fetch_start_vsync_counter %u\n",
+		"rot_fetch_lines %u rot_fetch_start_vsync_counter %u\n",
 		rot_fetch_lines, rot_fetch_start_vsync_counter);
+
+	phys_enc->hw_ctl->ops.get_bitmask_intf(
+			phys_enc->hw_ctl, &flush_mask, vid_enc->hw_intf->idx);
+	phys_enc->hw_ctl->ops.update_pending_flush(
+			phys_enc->hw_ctl, flush_mask);
 
 	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
 	vid_enc->hw_intf->ops.setup_rot_start(vid_enc->hw_intf, &f);

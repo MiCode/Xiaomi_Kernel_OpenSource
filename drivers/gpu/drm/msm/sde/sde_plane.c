@@ -1368,33 +1368,31 @@ static struct sde_crtc_res_ops fbo_res_ops = {
 static u32 sde_plane_rot_calc_prefill(struct drm_plane *plane)
 {
 	struct drm_plane_state *state;
-	struct drm_crtc_state *cstate;
 	struct sde_plane_state *pstate;
 	struct sde_plane_rot_state *rstate;
 	struct sde_kms *sde_kms;
 	u32 blocksize = 128;
 	u32 prefill_line = 0;
 
-	if (!plane || !plane->state || !plane->state->fb ||
-			!plane->state->crtc || !plane->state->crtc->state) {
+	if (!plane || !plane->state || !plane->state->fb) {
 		SDE_ERROR("invalid parameters\n");
 		return 0;
 	}
 
 	sde_kms = _sde_plane_get_kms(plane);
 	state = plane->state;
-	cstate = state->crtc->state;
 	pstate = to_sde_plane_state(state);
 	rstate = &pstate->rot;
 
-	if (!rstate->rot_hw || !rstate->rot_hw->caps || !rstate->out_src_h ||
-			!sde_kms || !sde_kms->catalog) {
-		SDE_ERROR("invalid parameters\n");
+	if (!sde_kms || !sde_kms->catalog) {
+		SDE_ERROR("invalid kms\n");
 		return 0;
 	}
 
-	sde_format_get_block_size(rstate->out_fb_format, &blocksize,
-			&blocksize);
+	if (rstate->out_fb_format)
+		sde_format_get_block_size(rstate->out_fb_format,
+				&blocksize, &blocksize);
+
 	prefill_line = blocksize + sde_kms->catalog->sbuf_headroom;
 
 	SDE_DEBUG("plane%d prefill:%u\n", plane->base.id, prefill_line);
@@ -1416,7 +1414,7 @@ bool sde_plane_is_sbuf_mode(struct drm_plane *plane, u32 *prefill)
 	struct sde_plane_rot_state *rstate = pstate ? &pstate->rot : NULL;
 	bool sbuf_mode = rstate ? rstate->out_sbuf : false;
 
-	if (prefill && sbuf_mode)
+	if (prefill)
 		*prefill = sde_plane_rot_calc_prefill(plane);
 
 	return sbuf_mode;
