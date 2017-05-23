@@ -92,6 +92,11 @@ static int cnss_stats_show_state(struct seq_file *s,
 		case CNSS_DRIVER_RECOVERY:
 			seq_puts(s, "DRIVER_RECOVERY");
 			continue;
+		case CNSS_FW_BOOT_RECOVERY:
+			seq_puts(s, "FW_BOOT_RECOVERY");
+			continue;
+		case CNSS_DEV_ERR_NOTIFY:
+			seq_puts(s, "DEV_ERR");
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);

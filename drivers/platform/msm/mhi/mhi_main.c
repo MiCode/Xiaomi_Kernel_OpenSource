@@ -90,8 +90,9 @@ dma_pool_error:
 }
 
 static void mhi_write_db(struct mhi_device_ctxt *mhi_dev_ctxt,
-		  void __iomem *io_addr_lower,
-		  uintptr_t chan, u64 val)
+			 void __iomem *io_addr_lower,
+			 unsigned int chan,
+			 dma_addr_t val)
 {
 	uintptr_t io_offset = chan * sizeof(u64);
 	void __iomem *io_addr_upper =
@@ -1919,8 +1920,8 @@ EXPORT_SYMBOL(mhi_xfer_rddm);
 
 void mhi_process_db_brstmode(struct mhi_device_ctxt *mhi_dev_ctxt,
 			     void __iomem *io_addr,
-			     uintptr_t chan,
-			     u32 val)
+			     unsigned int chan,
+			     dma_addr_t val)
 {
 	struct mhi_ring *ring_ctxt =
 		&mhi_dev_ctxt->mhi_local_chan_ctxt[chan];
@@ -1933,7 +1934,7 @@ void mhi_process_db_brstmode(struct mhi_device_ctxt *mhi_dev_ctxt,
 			mhi_local_event_ctxt[chan];
 
 	mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE,
-		"db.set addr: %p io_offset 0x%lx val:0x%x\n",
+		"db.set addr: %p io_offset %u val:0x%llx\n",
 		io_addr, chan, val);
 
 	mhi_update_ctxt(mhi_dev_ctxt, io_addr, chan, val);
@@ -1943,7 +1944,7 @@ void mhi_process_db_brstmode(struct mhi_device_ctxt *mhi_dev_ctxt,
 		ring_ctxt->db_mode.db_mode = 0;
 	} else {
 		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-			"Not ringing xfer db, chan %ld, brstmode %d db_mode %d\n",
+			"Not ringing xfer db, chan %u, brstmode %d db_mode %d\n",
 			chan, ring_ctxt->db_mode.brstmode,
 			ring_ctxt->db_mode.db_mode);
 	}
@@ -1951,23 +1952,24 @@ void mhi_process_db_brstmode(struct mhi_device_ctxt *mhi_dev_ctxt,
 
 void mhi_process_db_brstmode_disable(struct mhi_device_ctxt *mhi_dev_ctxt,
 			     void __iomem *io_addr,
-			     uintptr_t chan,
-			     u32 val)
+			     unsigned int chan,
+			     dma_addr_t val)
 {
 	mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE,
-		"db.set addr: %p io_offset 0x%lx val:0x%x\n",
+		"db.set addr: %p io_offset %u val:0x%llx\n",
 		io_addr, chan, val);
 	mhi_update_ctxt(mhi_dev_ctxt, io_addr, chan, val);
 	mhi_write_db(mhi_dev_ctxt, io_addr, chan, val);
 }
 
 void mhi_process_db(struct mhi_device_ctxt *mhi_dev_ctxt,
-		  void __iomem *io_addr,
-		  uintptr_t chan, u32 val)
+		    void __iomem *io_addr,
+		    unsigned int chan,
+		    dma_addr_t val)
 {
 
 	mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE,
-		"db.set addr: %p io_offset 0x%lx val:0x%x\n",
+		"db.set addr: %p io_offset %u val:0x%llx\n",
 		io_addr, chan, val);
 
 	mhi_update_ctxt(mhi_dev_ctxt, io_addr, chan, val);
@@ -1982,7 +1984,7 @@ void mhi_process_db(struct mhi_device_ctxt *mhi_dev_ctxt,
 			chan_ctxt->db_mode.db_mode = 0;
 		} else {
 			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-				"Not ringing xfer db, chan %ld, brstmode %d db_mode %d\n",
+				"Not ringing xfer db, chan %u, brstmode %d db_mode %d\n",
 				chan, chan_ctxt->db_mode.brstmode,
 				chan_ctxt->db_mode.db_mode);
 		}

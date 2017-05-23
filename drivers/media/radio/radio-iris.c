@@ -3745,6 +3745,7 @@ static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 	struct hci_fm_set_cal_req_proc proc_cal_req;
 	struct hci_fm_set_spur_table_req spur_tbl_req;
 	char *spur_data;
+	char tmp_buf[2];
 
 	struct iris_device *radio = video_get_drvdata(video_devdata(file));
 	char *data = NULL;
@@ -3881,9 +3882,18 @@ static int iris_vidioc_s_ext_ctrls(struct file *file, void *priv,
 	case V4L2_CID_PRIVATE_IRIS_SET_SPURTABLE:
 		memset(&spur_tbl_req, 0, sizeof(spur_tbl_req));
 		data = (ctrl->controls[0]).string;
-		bytes_to_copy = (ctrl->controls[0]).size;
-		spur_tbl_req.mode = data[0];
-		spur_tbl_req.no_of_freqs_entries = data[1];
+		if (copy_from_user(&bytes_to_copy, &((ctrl->controls[0]).size),
+					sizeof(bytes_to_copy))) {
+			retval = -EFAULT;
+			goto END;
+		}
+		if (copy_from_user(&tmp_buf[0], &data[0],
+					sizeof(tmp_buf))) {
+			retval = -EFAULT;
+			goto END;
+		}
+		spur_tbl_req.mode = tmp_buf[0];
+		spur_tbl_req.no_of_freqs_entries = tmp_buf[1];
 
 		if (((spur_tbl_req.no_of_freqs_entries * SPUR_DATA_LEN) !=
 					bytes_to_copy - 2) ||

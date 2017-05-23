@@ -24,9 +24,10 @@
 	};
 
 	qcom,gcc@1800000 {
-		/delete-property/ vdd_dig-supply;
-		/delete-property/ vdd_sr2_dig-supply;
-		/delete-property/ vdd_sr2_pll-supply;
+		vdd_dig-supply = <&pm660_s2_corner>;
+		vdd_sr2_dig-supply = <&pm660_s2_corner_ao>;
+		vdd_sr2_pll-supply = <&pm660_l12_ao>;
+
 	};
 
 	qcom,wcnss-wlan@a000000 {
@@ -41,9 +42,11 @@
 	};
 
 	usb@78d9000 {
-		/delete-property/ hsusb_vdd_dig-supply;
-		/delete-property/ HSUSB_1p8-supply;
-		/delete-property/ HSUSB_3p3-supply;
+		hsusb_vdd_dig-supply = <&pm660_l5>;
+		HSUSB_1p8-supply = <&pm660_l12>;
+		HSUSB_3p3-supply = <&pm660_l16>;
+		qcom,hsusb-otg-mode = <1>; /* DEVICE only */
+		qcom,hsusb-otg-otg-control = <3>; /* USER */
 	};
 
 	qcom,pronto@a21b000 {
@@ -84,7 +87,7 @@
 	};
 
 	qcom,clock-a7@0b011050 {
-		/delete-property/ cpu-vdd-supply;
+		cpu-vdd-supply = <&apc_vreg_corner>;
 	};
 
 	vadc@3400 {
@@ -106,8 +109,8 @@
 };
 
 &sdhc_1 {
-	/delete-property/ vdd-supply;
-	/delete-property/ vdd-io-supply;
+	vdd-supply = <&pm660_l19>;
+	vdd-io-supply = <&pm660_l13>;
 };
 
 &sdhc_2 {

@@ -249,6 +249,15 @@ config USB_HSIC_USB3503
        help
          This option enables support for SMSC USB3503 HSIC to USB 2.0 Driver.
 
+config MICROCHIP_USB2533
+	tristate "Microchip USB2533 HUB Driver"
+	depends on I2C
+	help
+	  This option enables support for Microchip USB2533 HUB Driver.
+	  It supports swapping of upstream and downstream HUB ports by
+	  enabling flexmode in usb hub using I2C. Also supply VBUS and
+	  do reset the peripherals which are connect to the USB2533 HUB.
+
 config USB_LINK_LAYER_TEST
 	tristate "USB Link Layer Test driver"
 	help

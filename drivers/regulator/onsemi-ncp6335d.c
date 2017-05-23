@@ -153,6 +153,20 @@ static void ncp633d_slew_delay(struct ncp6335d_info *dd,
 	udelay(delay);
 }
 
+static int ncp6335d_is_enabled(struct regulator_dev *rdev)
+{
+	int rc, val = 0;
+	struct ncp6335d_info *dd = rdev_get_drvdata(rdev);
+
+	rc = ncp6335x_read(dd, dd->vsel_reg, &val);
+	if (rc)
+		dev_err(dd->dev, "Unable to read enable register rc(%d)", rc);
+
+	dump_registers(dd, dd->vsel_reg, __func__);
+
+	return ((val & NCP6335D_ENABLE) ? 1 : 0);
+}
+
 static int ncp6335d_enable(struct regulator_dev *rdev)
 {
 	int rc;
@@ -297,6 +311,7 @@ static struct regulator_ops ncp6335d_ops = {
 	.set_voltage = ncp6335d_set_voltage,
 	.get_voltage = ncp6335d_get_voltage,
 	.list_voltage = ncp6335d_list_voltage,
+	.is_enabled = ncp6335d_is_enabled,
 	.enable = ncp6335d_enable,
 	.disable = ncp6335d_disable,
 	.set_mode = ncp6335d_set_mode,
@@ -305,6 +320,7 @@ static struct regulator_ops ncp6335d_ops = {
 
 static struct regulator_desc rdesc = {
 	.name = "ncp6335d",
+	.supply_name = "vin",
 	.owner = THIS_MODULE,
 	.n_voltages = NCP6335D_VOLTAGE_STEPS,
 	.ops = &ncp6335d_ops,
@@ -748,7 +764,7 @@ int __init ncp6335d_regulator_init(void)
 	return i2c_add_driver(&ncp6335d_regulator_driver);
 }
 EXPORT_SYMBOL(ncp6335d_regulator_init);
-arch_initcall(ncp6335d_regulator_init);
+subsys_initcall(ncp6335d_regulator_init);
 
 static void __exit ncp6335d_regulator_exit(void)
 {

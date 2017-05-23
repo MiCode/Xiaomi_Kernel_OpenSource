@@ -136,6 +136,8 @@ enum cnss_driver_state {
 	CNSS_DRIVER_UNLOADING,
 	CNSS_DRIVER_PROBED,
 	CNSS_DRIVER_RECOVERY,
+	CNSS_FW_BOOT_RECOVERY,
+	CNSS_DEV_ERR_NOTIFY,
 };
 
 struct cnss_recovery_data {
@@ -196,7 +198,7 @@ struct cnss_plat_data {
 	struct cnss_pin_connect_result pin_result;
 	struct dentry *root_dentry;
 	atomic_t pm_count;
-	struct timer_list fw_ready_timer;
+	struct timer_list fw_boot_timer;
 };
 
 void *cnss_bus_dev_to_bus_priv(struct device *dev);

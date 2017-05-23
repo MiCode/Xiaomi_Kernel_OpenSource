@@ -36,6 +36,8 @@
 #define KSZ8851_TX_SPACE (6144 * 3)
 #define TX_DMA_BUFFER_SIZE (8192 * 3)
 #define RX_DMA_BUFFER_SIZE (2048 * 2)
+#define CIDER_READ_MAX_ITER 20
+#define CIDER_READ_MAX_DELAY 20
 
 /**
  * struct ks8851_rxctrl - KS8851 driver rx control
@@ -1512,6 +1514,7 @@ static int ks8851_probe(struct spi_device *spi)
 	int ret;
 	unsigned cider;
 	int gpio;
+	int iter;
 
 	pr_info("eth: spi KS8851 Probe\n");
 	ndev = alloc_etherdev(sizeof(struct ks8851_net));
@@ -1573,13 +1576,7 @@ static int ks8851_probe(struct spi_device *spi)
 
 	if (gpio_is_valid(gpio)) {
 		pr_debug("eth: spi reset GPIO set to 1\n");
-		usleep_range(10000, 11000);
 		ret = gpio_direction_output(gpio, 0x1);
-		/**
-		*To sustain the normal proble behavior after hard reset
-		*delay needed to be introduced (depends on device conf)
-		*/
-		msleep(2000);
 		pr_debug("ks8851:return value for reset is %d\n", ret);
 	} else {
 		pr_debug("[%s:]eth: spi reset GPIO is invalid\n", __func__);
@@ -1642,7 +1639,14 @@ static int ks8851_probe(struct spi_device *spi)
 	/* Set SCLK for falling edge MISO (Chip Rev A3 only) */
 	/*ks8851_wrreg16(ks, KS_OBCR, 0x08);*/
 	/* simple check for a valid chip being connected to the bus */
-	cider = ks8851_32bitrdreg16(ks, KS_CIDER);
+	for (iter = 0; iter <= CIDER_READ_MAX_ITER; iter++) {
+		cider = ks8851_32bitrdreg16(ks, KS_CIDER);
+		if ((cider & ~CIDER_REV_MASK) == CIDER_ID) {
+			pr_debug("value for cider received as %08X\n", cider);
+			break;
+		}
+		msleep(CIDER_READ_MAX_DELAY);
+	}
 	pr_debug("###################################\n");
 	pr_debug("## eth: spi Chip ID Ox:%08X  ##\n", cider);
 	pr_debug("###################################\n");
