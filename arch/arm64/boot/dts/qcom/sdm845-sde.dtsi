@@ -130,6 +130,8 @@
 		qcom,sde-max-bw-high-kbps = <9600000>;
 		qcom,sde-dram-channels = <2>;
 		qcom,sde-num-nrt-paths = <0>;
+		qcom,sde-dspp-ad-version = <0x00040000>;
+		qcom,sde-dspp-ad-off = <0x28000 0x27000>;
 
 		qcom,sde-vbif-off = <0>;
 		qcom,sde-vbif-size = <0x1040>;
