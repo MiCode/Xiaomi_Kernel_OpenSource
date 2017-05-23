@@ -245,28 +245,6 @@ static struct clk_alpha_pll_postdiv gpll0_out_even = {
 	},
 };
 
-static struct clk_alpha_pll gpll1 = {
-	.offset = 0x1000,
-	.vco_table = fabia_vco,
-	.num_vco = ARRAY_SIZE(fabia_vco),
-	.type = FABIA_PLL,
-	.clkr = {
-		.enable_reg = 0x52000,
-		.enable_mask = BIT(1),
-		.hw.init = &(struct clk_init_data){
-			.name = "gpll1",
-			.parent_names = (const char *[]){ "bi_tcxo" },
-			.num_parents = 1,
-			.ops = &clk_fabia_fixed_pll_ops,
-			VDD_CX_FMAX_MAP4(
-				MIN, 615000000,
-				LOW, 1066000000,
-				LOW_L1, 1600000000,
-				NOMINAL, 2000000000),
-		},
-	},
-};
-
 static const struct freq_tbl ftbl_gcc_cpuss_ahb_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	{ }
@@ -314,6 +292,7 @@ static struct clk_rcg2 gcc_cpuss_rbcpr_clk_src = {
 };
 
 static const struct freq_tbl ftbl_gcc_gp1_clk_src[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(25000000, P_GPLL0_OUT_EVEN, 12, 0, 0),
 	F(50000000, P_GPLL0_OUT_EVEN, 6, 0, 0),
 	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
@@ -448,6 +427,7 @@ static struct clk_rcg2 gcc_pcie_phy_refgen_clk_src = {
 };
 
 static const struct freq_tbl ftbl_gcc_pdm2_clk_src[] = {
+	F(9600000, P_BI_TCXO, 2, 0, 0),
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(60000000, P_GPLL0_OUT_MAIN, 10, 0, 0),
 	{ }
@@ -808,6 +788,7 @@ static struct clk_rcg2 gcc_qupv3_wrap1_s7_clk_src = {
 
 static const struct freq_tbl ftbl_gcc_sdcc2_apps_clk_src[] = {
 	F(400000, P_BI_TCXO, 12, 1, 4),
+	F(9600000, P_BI_TCXO, 2, 0, 0),
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(25000000, P_GPLL0_OUT_MAIN, 12, 1, 2),
 	F(50000000, P_GPLL0_OUT_MAIN, 12, 0, 0),
@@ -839,6 +820,7 @@ static struct clk_rcg2 gcc_sdcc2_apps_clk_src = {
 
 static const struct freq_tbl ftbl_gcc_sdcc4_apps_clk_src[] = {
 	F(400000, P_BI_TCXO, 12, 1, 4),
+	F(9600000, P_BI_TCXO, 2, 0, 0),
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(25000000, P_GPLL0_OUT_MAIN, 12, 1, 2),
 	F(50000000, P_GPLL0_OUT_MAIN, 12, 0, 0),
@@ -889,12 +871,20 @@ static struct clk_rcg2 gcc_tsif_ref_clk_src = {
 	},
 };
 
+static const struct freq_tbl ftbl_gcc_ufs_card_axi_clk_src[] = {
+	F(25000000, P_GPLL0_OUT_EVEN, 12, 0, 0),
+	F(50000000, P_GPLL0_OUT_EVEN, 6, 0, 0),
+	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
+	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 gcc_ufs_card_axi_clk_src = {
 	.cmd_rcgr = 0x7501c,
 	.mnd_width = 8,
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_0,
-	.freq_tbl = ftbl_gcc_gp1_clk_src,
+	.freq_tbl = ftbl_gcc_ufs_card_axi_clk_src,
 	.flags = FORCE_ENABLE_RCG,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_ufs_card_axi_clk_src",
@@ -1102,6 +1092,7 @@ static struct clk_rcg2 gcc_usb30_prim_master_clk_src = {
 };
 
 static const struct freq_tbl ftbl_gcc_usb30_prim_mock_utmi_clk_src[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(20000000, P_GPLL0_OUT_EVEN, 15, 0, 0),
 	F(40000000, P_GPLL0_OUT_EVEN, 7.5, 0, 0),
 	F(60000000, P_GPLL0_OUT_MAIN, 10, 0, 0),
@@ -3476,7 +3467,6 @@ static struct clk_regmap *gcc_sdm845_clocks[] = {
 	[GCC_VIDEO_XO_CLK] = &gcc_video_xo_clk.clkr,
 	[GPLL0] = &gpll0.clkr,
 	[GPLL0_OUT_EVEN] = &gpll0_out_even.clkr,
-	[GPLL1] = &gpll1.clkr,
 };
 
 static const struct qcom_reset_map gcc_sdm845_resets[] = {
