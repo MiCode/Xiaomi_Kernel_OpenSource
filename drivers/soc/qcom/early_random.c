@@ -13,7 +13,7 @@
  */
 
 #include <linux/kernel.h>
-#include <linux/random.h>
+#include <linux/hw_random.h>
 #include <linux/io.h>
 
 #include <soc/qcom/scm.h>
@@ -50,7 +50,7 @@ void __init init_random_pool(void)
 	if (!ret) {
 		dmac_inv_range(random_buffer, random_buffer +
 						RANDOM_BUFFER_SIZE);
-		add_device_randomness(random_buffer, SZ_512);
+		add_hwgenerator_randomness(random_buffer, SZ_512, SZ_512 << 3);
 	}
 }
 
