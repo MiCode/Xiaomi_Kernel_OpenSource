@@ -21,6 +21,7 @@
 #define GAMUT_MAP_EN BIT(1)
 #define GAMUT_EN BIT(0)
 #define GAMUT_MODE_13B_OFF 640
+#define GAMUT_MODE_5_OFF 1248
 
 enum {
 	gamut_mode_17 = 0,
