@@ -3671,7 +3671,6 @@ int ipa3_rx_poll(u32 clnt_hdl, int weight)
 	struct ipa_mem_buffer mem_info = {0};
 	static int total_cnt;
 
-	IPADBG("\n");
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 		ipa3_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR("bad parm 0x%x\n", clnt_hdl);
