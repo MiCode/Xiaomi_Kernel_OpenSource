@@ -153,8 +153,13 @@ int diag_mux_write(int proc, unsigned char *buf, int len, int ctx)
 			upd = PERIPHERAL_CDSP;
 			break;
 		case UPD_WLAN:
+			if (!driver->num_pd_session)
+				upd = PERIPHERAL_MODEM;
+			break;
 		case UPD_AUDIO:
 		case UPD_SENSORS:
+			if (!driver->num_pd_session)
+				upd = PERIPHERAL_LPASS;
 			break;
 		default:
 			pr_err("diag: invalid pd ctxt= %d\n", upd);
