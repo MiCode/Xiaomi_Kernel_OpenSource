@@ -20,6 +20,7 @@
 #include <media/ais/msm_ais_sensor.h>
 #include "msm_sd.h"
 #include "msm_camera_io_util.h"
+#include "msm_camera_dt_util.h"
 #include "cam_soc_api.h"
 
 #define MAX_CSIPHY 3
@@ -169,6 +170,9 @@ struct csiphy_device {
 	uint32_t csiphy_sof_debug;
 	uint32_t csiphy_sof_debug_count;
 	uint32_t is_combo_mode;
+	struct camera_vreg_t *csiphy_vreg;
+	struct regulator *csiphy_reg_ptr[MAX_REGULATOR];
+	int32_t regulator_count;
 	struct msm_camera_csiphy_params csiphy_params;
 };
 
