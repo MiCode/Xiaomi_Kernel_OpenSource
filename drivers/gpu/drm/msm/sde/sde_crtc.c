@@ -3054,6 +3054,11 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 			state->crtc_h);
 		seq_printf(s, "\tmultirect: mode: %d index: %d\n",
 			pstate->multirect_mode, pstate->multirect_index);
+
+		seq_printf(s, "\texcl_rect: x:%4d y:%4d w:%4d h:%4d\n",
+			pstate->excl_rect.x, pstate->excl_rect.y,
+			pstate->excl_rect.w, pstate->excl_rect.h);
+
 		seq_puts(s, "\n");
 	}
 
