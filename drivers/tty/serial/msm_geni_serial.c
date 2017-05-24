@@ -469,6 +469,9 @@ static void msm_geni_serial_poll_cancel_tx(struct uart_port *uport)
 	int done = 0;
 	unsigned int irq_clear = M_CMD_DONE_EN;
 
+	if (!uart_console(uport))
+		return;
+
 	done = msm_geni_serial_poll_bit(uport, SE_GENI_M_IRQ_STATUS,
 						M_CMD_DONE_EN, true);
 	if (!done) {
@@ -686,17 +689,22 @@ static void msm_geni_serial_start_tx(struct uart_port *uport)
 {
 	unsigned int geni_m_irq_en;
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
-
-	if (!msm_geni_serial_tx_empty(uport))
-		return;
+	unsigned int geni_status;
 
 	if (!uart_console(uport) && pm_runtime_status_suspended(uport->dev)) {
 		dev_err(uport->dev, "%s.Device is suspended.\n", __func__);
 		return;
 	}
 
+	geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
+	if (geni_status & M_GENI_CMD_ACTIVE)
+		return;
+
+	if (!msm_geni_serial_tx_empty(uport))
+		return;
+
 	geni_m_irq_en = geni_read_reg_nolog(uport->membase, SE_GENI_M_IRQ_EN);
-	geni_m_irq_en |= M_TX_FIFO_WATERMARK_EN;
+	geni_m_irq_en |= (M_TX_FIFO_WATERMARK_EN | M_CMD_DONE_EN);
 
 	geni_write_reg_nolog(msm_port->tx_wm, uport->membase,
 						SE_GENI_TX_WATERMARK_REG);
@@ -868,12 +876,23 @@ static int msm_geni_serial_handle_tx(struct uart_port *uport)
 	unsigned int xmit_size;
 	unsigned int fifo_width_bytes =
 		(uart_console(uport) ? 1 : (msm_port->tx_fifo_width >> 3));
+	unsigned int geni_m_irq_en;
 
 	tx_fifo_status = geni_read_reg_nolog(uport->membase,
 					SE_GENI_TX_FIFO_STATUS);
 	if (uart_circ_empty(xmit) && !tx_fifo_status) {
 		msm_geni_serial_stop_tx(uport);
 		goto exit_handle_tx;
+	}
+
+	if (!uart_console(uport)) {
+		geni_m_irq_en = geni_read_reg_nolog(uport->membase,
+							SE_GENI_M_IRQ_EN);
+		geni_m_irq_en &= ~(M_TX_FIFO_WATERMARK_EN);
+		geni_write_reg_nolog(0, uport->membase,
+						SE_GENI_TX_WATERMARK_REG);
+		geni_write_reg_nolog(geni_m_irq_en, uport->membase,
+							SE_GENI_M_IRQ_EN);
 	}
 
 	avail_fifo_bytes = (msm_port->tx_fifo_depth - msm_port->tx_wm) *
@@ -923,6 +942,7 @@ static irqreturn_t msm_geni_serial_isr(int isr, void *dev)
 	unsigned int s_irq_status;
 	struct uart_port *uport = dev;
 	unsigned long flags;
+	unsigned int m_irq_en;
 
 	spin_lock_irqsave(&uport->lock, flags);
 	if (uart_console(uport) && uport->suspended)
@@ -937,6 +957,7 @@ static irqreturn_t msm_geni_serial_isr(int isr, void *dev)
 						SE_GENI_M_IRQ_CLEAR);
 	geni_write_reg_nolog(s_irq_status, uport->membase,
 						SE_GENI_S_IRQ_CLEAR);
+	m_irq_en = geni_read_reg_nolog(uport->membase, SE_GENI_M_IRQ_EN);
 
 	if ((m_irq_status & M_ILLEGAL_CMD_EN)) {
 		WARN_ON(1);
@@ -948,7 +969,8 @@ static irqreturn_t msm_geni_serial_isr(int isr, void *dev)
 		msm_geni_serial_handle_rx(uport);
 	}
 
-	if ((m_irq_status & M_TX_FIFO_WATERMARK_EN))
+	if ((m_irq_status & m_irq_en) &
+	    (M_TX_FIFO_WATERMARK_EN | M_CMD_DONE_EN))
 		msm_geni_serial_handle_tx(uport);
 
 exit_geni_serial_isr:
@@ -1367,6 +1389,9 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	else
 		tx_trans_cfg |= UART_CTS_MASK;
 	/* status bits to ignore */
+
+	if (likely(baud))
+		uart_update_timeout(uport, termios->c_cflag, baud);
 
 	geni_serial_write_term_regs(uport, port->loopback, tx_trans_cfg,
 		tx_parity_cfg, rx_trans_cfg, rx_parity_cfg, bits_per_char,
