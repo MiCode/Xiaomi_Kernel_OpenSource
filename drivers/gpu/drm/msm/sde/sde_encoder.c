@@ -155,6 +155,8 @@ enum sde_enc_rc_states {
  * @topology:                   topology of the display
  * @mode_set_complete:          flag to indicate modeset completion
  * @rsc_cfg:			rsc configuration
+ * @cur_conn_roi:		current connector roi
+ * @prv_conn_roi:		previous connector roi to optimize if unchanged
  */
 struct sde_encoder_virt {
 	struct drm_encoder base;
@@ -195,6 +197,8 @@ struct sde_encoder_virt {
 	bool mode_set_complete;
 
 	struct sde_encoder_rsc_config rsc_cfg;
+	struct sde_rect cur_conn_roi;
+	struct sde_rect prv_conn_roi;
 };
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
@@ -555,8 +559,14 @@ static bool _sde_encoder_dsc_ich_reset_override_needed(bool pu_en,
 
 static void _sde_encoder_dsc_pipe_cfg(struct sde_hw_dsc *hw_dsc,
 		struct sde_hw_pingpong *hw_pp, struct msm_display_dsc_info *dsc,
-		u32 common_mode, bool ich_reset)
+		u32 common_mode, bool ich_reset, bool enable)
 {
+	if (!enable) {
+		if (hw_pp->ops.disable_dsc)
+			hw_pp->ops.disable_dsc(hw_pp);
+		return;
+	}
+
 	if (hw_dsc->ops.dsc_config)
 		hw_dsc->ops.dsc_config(hw_dsc, dsc, common_mode, ich_reset);
 
@@ -570,9 +580,27 @@ static void _sde_encoder_dsc_pipe_cfg(struct sde_hw_dsc *hw_dsc,
 		hw_pp->ops.enable_dsc(hw_pp);
 }
 
+static void _sde_encoder_get_connector_roi(
+		struct sde_encoder_virt *sde_enc,
+		struct sde_rect *merged_conn_roi)
+{
+	struct drm_connector *drm_conn;
+	struct sde_connector_state *c_state;
+
+	if (!sde_enc || !merged_conn_roi)
+		return;
+
+	drm_conn = sde_enc->phys_encs[0]->connector;
+
+	if (!drm_conn || !drm_conn->state)
+		return;
+
+	c_state = to_sde_connector_state(drm_conn->state);
+	sde_kms_rect_merge_rectangles(&c_state->rois, merged_conn_roi);
+}
+
 static int _sde_encoder_dsc_1_lm_1_enc_1_intf(struct sde_encoder_virt *sde_enc)
 {
-	int pic_width, pic_height;
 	int this_frame_slices;
 	int intf_ip_w, enc_ip_w;
 	int ich_res, dsc_common_mode = 0;
@@ -580,22 +608,18 @@ static int _sde_encoder_dsc_1_lm_1_enc_1_intf(struct sde_encoder_virt *sde_enc)
 	struct sde_hw_pingpong *hw_pp = sde_enc->hw_pp[0];
 	struct sde_hw_dsc *hw_dsc = sde_enc->hw_dsc[0];
 	struct sde_encoder_phys *enc_master = sde_enc->cur_master;
-	struct sde_hw_mdp *hw_mdp_top  = enc_master->hw_mdptop;
+	const struct sde_rect *roi = &sde_enc->cur_conn_roi;
 	struct msm_display_dsc_info *dsc =
 		&sde_enc->disp_info.comp_info.dsc_info;
 
-	if (dsc == NULL || hw_dsc == NULL || hw_pp == NULL ||
-						hw_mdp_top == NULL) {
+	if (dsc == NULL || hw_dsc == NULL || hw_pp == NULL || !enc_master) {
 		SDE_ERROR_ENC(sde_enc, "invalid params for DSC\n");
 		return -EINVAL;
 	}
 
-	pic_width = dsc->pic_width;
-	pic_height = dsc->pic_height;
+	_sde_encoder_dsc_update_pic_dim(dsc, roi->w, roi->h);
 
-	_sde_encoder_dsc_update_pic_dim(dsc, pic_width, pic_height);
-
-	this_frame_slices = pic_width / dsc->slice_width;
+	this_frame_slices = roi->w / dsc->slice_width;
 	intf_ip_w = this_frame_slices * dsc->slice_width;
 	_sde_encoder_dsc_pclk_param_calc(dsc, intf_ip_w);
 
@@ -608,97 +632,125 @@ static int _sde_encoder_dsc_1_lm_1_enc_1_intf(struct sde_encoder_virt *sde_enc)
 		dsc_common_mode = DSC_MODE_VIDEO;
 
 	SDE_DEBUG_ENC(sde_enc, "pic_w: %d pic_h: %d mode:%d\n",
-		pic_width, pic_height, dsc_common_mode);
-	SDE_EVT32(DRMID(&sde_enc->base), pic_width, pic_height,
-			dsc_common_mode);
+		roi->w, roi->h, dsc_common_mode);
+	SDE_EVT32(DRMID(&sde_enc->base), roi->w, roi->h, dsc_common_mode);
 
 	_sde_encoder_dsc_pipe_cfg(hw_dsc, hw_pp, dsc, dsc_common_mode,
-			ich_res);
+			ich_res, true);
 
 	return 0;
 }
-static int _sde_encoder_dsc_2_lm_2_enc_2_intf(struct sde_encoder_virt *sde_enc)
+static int _sde_encoder_dsc_2_lm_2_enc_2_intf(struct sde_encoder_virt *sde_enc,
+		struct sde_encoder_kickoff_params *params)
 {
-	int pic_width, pic_height;
 	int this_frame_slices;
 	int intf_ip_w, enc_ip_w;
 	int ich_res, dsc_common_mode;
 
 	struct sde_encoder_phys *enc_master = sde_enc->cur_master;
-	struct sde_hw_dsc *l_hw_dsc = sde_enc->hw_dsc[0];
-	struct sde_hw_dsc *r_hw_dsc = sde_enc->hw_dsc[1];
-	struct sde_hw_pingpong *l_hw_pp = sde_enc->hw_pp[0];
-	struct sde_hw_pingpong *r_hw_pp = sde_enc->hw_pp[1];
-	struct sde_hw_mdp *hw_mdp_top  = enc_master->hw_mdptop;
-	struct msm_display_dsc_info *dsc =
-		&sde_enc->disp_info.comp_info.dsc_info;
+	const struct sde_rect *roi = &sde_enc->cur_conn_roi;
+	struct sde_hw_dsc *hw_dsc[MAX_CHANNELS_PER_ENC];
+	struct sde_hw_pingpong *hw_pp[MAX_CHANNELS_PER_ENC];
+	struct msm_display_dsc_info dsc[MAX_CHANNELS_PER_ENC];
+	bool half_panel_partial_update;
+	int i;
 
-	if (l_hw_dsc == NULL || r_hw_dsc == NULL || hw_mdp_top == NULL ||
-		l_hw_pp == NULL || r_hw_pp == NULL) {
-		SDE_ERROR_ENC(sde_enc, "invalid params for DSC\n");
-		return -EINVAL;
+	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
+		hw_pp[i] = sde_enc->hw_pp[i];
+		hw_dsc[i] = sde_enc->hw_dsc[i];
+
+		if (!hw_pp[i] || !hw_dsc[i]) {
+			SDE_ERROR_ENC(sde_enc, "invalid params for DSC\n");
+			return -EINVAL;
+		}
 	}
 
-	pic_width = dsc->pic_width * sde_enc->display_num_of_h_tiles;
-	pic_height = dsc->pic_height;
+	half_panel_partial_update =
+			hweight_long(params->affected_displays) == 1;
 
-	_sde_encoder_dsc_update_pic_dim(dsc, pic_width, pic_height);
-
-	this_frame_slices = pic_width / dsc->slice_width;
-	intf_ip_w = this_frame_slices * dsc->slice_width;
-
-	intf_ip_w /= 2;
-	_sde_encoder_dsc_pclk_param_calc(dsc, intf_ip_w);
-
-	enc_ip_w = intf_ip_w;
-	_sde_encoder_dsc_initial_line_calc(dsc, enc_ip_w);
-
-	ich_res = _sde_encoder_dsc_ich_reset_override_needed(false, dsc);
-
-	dsc_common_mode = DSC_MODE_SPLIT_PANEL;
+	dsc_common_mode = 0;
+	if (!half_panel_partial_update)
+		dsc_common_mode |= DSC_MODE_SPLIT_PANEL;
 	if (enc_master->intf_mode == INTF_MODE_VIDEO)
 		dsc_common_mode |= DSC_MODE_VIDEO;
 
-	SDE_DEBUG_ENC(sde_enc, "pic_w: %d pic_h: %d mode:%d\n",
-		pic_width, pic_height, dsc_common_mode);
-	SDE_EVT32(DRMID(&sde_enc->base), pic_width, pic_height,
-			dsc_common_mode);
+	memcpy(&dsc[0], &sde_enc->disp_info.comp_info.dsc_info, sizeof(dsc[0]));
+	memcpy(&dsc[1], &sde_enc->disp_info.comp_info.dsc_info, sizeof(dsc[1]));
 
-	_sde_encoder_dsc_pipe_cfg(l_hw_dsc, l_hw_pp, dsc, dsc_common_mode,
-			ich_res);
-	_sde_encoder_dsc_pipe_cfg(r_hw_dsc, r_hw_pp, dsc, dsc_common_mode,
-			ich_res);
+	/*
+	 * Since both DSC use same pic dimension, set same pic dimension
+	 * to both DSC structures.
+	 */
+	_sde_encoder_dsc_update_pic_dim(&dsc[0], roi->w, roi->h);
+	_sde_encoder_dsc_update_pic_dim(&dsc[1], roi->w, roi->h);
+
+	this_frame_slices = roi->w / dsc[0].slice_width;
+	intf_ip_w = this_frame_slices * dsc[0].slice_width;
+
+	if (!half_panel_partial_update)
+		intf_ip_w /= 2;
+
+	/*
+	 * In this topology when both interfaces are active, they have same
+	 * load so intf_ip_w will be same.
+	 */
+	_sde_encoder_dsc_pclk_param_calc(&dsc[0], intf_ip_w);
+	_sde_encoder_dsc_pclk_param_calc(&dsc[1], intf_ip_w);
+
+	/*
+	 * In this topology, since there is no dsc_merge, uncompressed input
+	 * to encoder and interface is same.
+	 */
+	enc_ip_w = intf_ip_w;
+	_sde_encoder_dsc_initial_line_calc(&dsc[0], enc_ip_w);
+	_sde_encoder_dsc_initial_line_calc(&dsc[1], enc_ip_w);
+
+	/*
+	 * __is_ich_reset_override_needed should be called only after
+	 * updating pic dimension, mdss_panel_dsc_update_pic_dim.
+	 */
+	ich_res = _sde_encoder_dsc_ich_reset_override_needed(
+			half_panel_partial_update, &dsc[0]);
+
+	SDE_DEBUG_ENC(sde_enc, "pic_w: %d pic_h: %d mode:%d\n",
+			roi->w, roi->h, dsc_common_mode);
+
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		bool active = !!((1 << i) & params->affected_displays);
+
+		SDE_EVT32(DRMID(&sde_enc->base), roi->w, roi->h,
+				dsc_common_mode, i, active);
+		_sde_encoder_dsc_pipe_cfg(hw_dsc[i], hw_pp[i], &dsc[i],
+				dsc_common_mode, ich_res, active);
+	}
 
 	return 0;
 }
 
 static int _sde_encoder_dsc_2_lm_2_enc_1_intf(struct sde_encoder_virt *sde_enc)
 {
-	int pic_width, pic_height;
 	int this_frame_slices;
 	int intf_ip_w, enc_ip_w;
 	int ich_res, dsc_common_mode;
 
 	struct sde_encoder_phys *enc_master = sde_enc->cur_master;
+	const struct sde_rect *roi = &sde_enc->cur_conn_roi;
 	struct sde_hw_dsc *l_hw_dsc = sde_enc->hw_dsc[0];
 	struct sde_hw_dsc *r_hw_dsc = sde_enc->hw_dsc[1];
 	struct sde_hw_pingpong *l_hw_pp = sde_enc->hw_pp[0];
 	struct sde_hw_pingpong *r_hw_pp = sde_enc->hw_pp[1];
-	struct sde_hw_mdp *hw_mdp_top  = enc_master->hw_mdptop;
 	struct msm_display_dsc_info *dsc =
 		&sde_enc->disp_info.comp_info.dsc_info;
 
-	if (l_hw_dsc == NULL || r_hw_dsc == NULL || hw_mdp_top == NULL ||
-					l_hw_pp == NULL || r_hw_pp == NULL) {
+	if (l_hw_dsc == NULL || r_hw_dsc == NULL || l_hw_pp == NULL ||
+			r_hw_pp == NULL) {
 		SDE_ERROR_ENC(sde_enc, "invalid params for DSC\n");
 		return -EINVAL;
 	}
 
-	pic_width = dsc->pic_width;
-	pic_height = dsc->pic_height;
-	_sde_encoder_dsc_update_pic_dim(dsc, pic_width, pic_height);
+	_sde_encoder_dsc_update_pic_dim(dsc, roi->w, roi->h);
 
-	this_frame_slices = pic_width / dsc->slice_width;
+	this_frame_slices = roi->w / dsc->slice_width;
 	intf_ip_w = this_frame_slices * dsc->slice_width;
 	_sde_encoder_dsc_pclk_param_calc(dsc, intf_ip_w);
 
@@ -716,23 +768,59 @@ static int _sde_encoder_dsc_2_lm_2_enc_1_intf(struct sde_encoder_virt *sde_enc)
 		dsc_common_mode |= DSC_MODE_VIDEO;
 
 	SDE_DEBUG_ENC(sde_enc, "pic_w: %d pic_h: %d mode:%d\n",
-		pic_width, pic_height, dsc_common_mode);
-	SDE_EVT32(DRMID(&sde_enc->base), pic_width, pic_height,
-			dsc_common_mode);
+			roi->w, roi->h, dsc_common_mode);
+	SDE_EVT32(DRMID(&sde_enc->base), roi->w, roi->h, dsc_common_mode);
 
 	_sde_encoder_dsc_pipe_cfg(l_hw_dsc, l_hw_pp, dsc, dsc_common_mode,
-			ich_res);
+			ich_res, true);
 	_sde_encoder_dsc_pipe_cfg(r_hw_dsc, r_hw_pp, dsc, dsc_common_mode,
-			ich_res);
+			ich_res, true);
 
 	return 0;
 }
 
-static int _sde_encoder_dsc_setup(struct sde_encoder_virt *sde_enc)
+static int _sde_encoder_update_roi(struct drm_encoder *drm_enc)
+{
+	struct sde_encoder_virt *sde_enc;
+	struct drm_connector *drm_conn;
+	struct drm_display_mode *adj_mode;
+	struct sde_rect roi;
+
+	if (!drm_enc || !drm_enc->crtc || !drm_enc->crtc->state)
+		return -EINVAL;
+	sde_enc = to_sde_encoder_virt(drm_enc);
+
+	if (!sde_enc->cur_master)
+		return -EINVAL;
+
+	adj_mode = &sde_enc->base.crtc->state->adjusted_mode;
+	drm_conn = sde_enc->cur_master->connector;
+
+	_sde_encoder_get_connector_roi(sde_enc, &roi);
+	if (sde_kms_rect_is_null(&roi)) {
+		roi.w = adj_mode->hdisplay;
+		roi.h = adj_mode->vdisplay;
+	}
+
+	memcpy(&sde_enc->prv_conn_roi, &sde_enc->cur_conn_roi,
+			sizeof(sde_enc->prv_conn_roi));
+	memcpy(&sde_enc->cur_conn_roi, &roi, sizeof(sde_enc->cur_conn_roi));
+
+	return 0;
+}
+
+static int _sde_encoder_dsc_setup(struct sde_encoder_virt *sde_enc,
+		struct sde_encoder_kickoff_params *params)
 {
 	enum sde_rm_topology_name topology;
-	struct drm_connector *drm_conn = sde_enc->phys_encs[0]->connector;
+	struct drm_connector *drm_conn;
 	int ret = 0;
+
+	if (!sde_enc || !params || !sde_enc->phys_encs[0] ||
+			!sde_enc->phys_encs[0]->connector)
+		return -EINVAL;
+
+	drm_conn = sde_enc->phys_encs[0]->connector;
 
 	topology = sde_connector_get_topology_name(drm_conn);
 	if (topology == SDE_RM_TOPOLOGY_NONE) {
@@ -743,6 +831,10 @@ static int _sde_encoder_dsc_setup(struct sde_encoder_virt *sde_enc)
 	SDE_DEBUG_ENC(sde_enc, "\n");
 	SDE_EVT32(DRMID(&sde_enc->base));
 
+	if (sde_kms_rect_is_equal(&sde_enc->cur_conn_roi,
+			&sde_enc->prv_conn_roi))
+		return ret;
+
 	switch (topology) {
 	case SDE_RM_TOPOLOGY_SINGLEPIPE_DSC:
 		ret = _sde_encoder_dsc_1_lm_1_enc_1_intf(sde_enc);
@@ -751,7 +843,7 @@ static int _sde_encoder_dsc_setup(struct sde_encoder_virt *sde_enc)
 		ret = _sde_encoder_dsc_2_lm_2_enc_1_intf(sde_enc);
 		break;
 	case SDE_RM_TOPOLOGY_DUALPIPE_DSC:
-		ret = _sde_encoder_dsc_2_lm_2_enc_2_intf(sde_enc);
+		ret = _sde_encoder_dsc_2_lm_2_enc_2_intf(sde_enc, params);
 		break;
 	default:
 		SDE_ERROR_ENC(sde_enc, "No DSC support for topology %d",
@@ -1217,7 +1309,6 @@ static void _sde_encoder_virt_enable_helper(struct drm_encoder *drm_enc)
 	struct sde_kms *sde_kms;
 	struct sde_hw_mdp *hw_mdptop;
 	int i = 0;
-	int ret = 0;
 	struct sde_watchdog_te_status te_cfg = { 0 };
 
 	if (!drm_enc || !drm_enc->dev || !drm_enc->dev->dev_private) {
@@ -1251,12 +1342,6 @@ static void _sde_encoder_virt_enable_helper(struct drm_encoder *drm_enc)
 		sde_enc->cur_master->hw_mdptop->ops.reset_ubwc(
 				sde_enc->cur_master->hw_mdptop,
 				sde_kms->catalog);
-
-	if (_sde_is_dsc_enabled(sde_enc)) {
-		ret = _sde_encoder_dsc_setup(sde_enc);
-		if (ret)
-			SDE_ERROR_ENC(sde_enc, "failed to setup DSC:%d\n", ret);
-	}
 
 	if (hw_mdptop->ops.setup_vsync_sel) {
 		for (i = 0; i < sde_enc->num_phys_encs; i++)
@@ -1892,12 +1977,20 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 
 	_sde_encoder_update_master(drm_enc, params);
 
+	_sde_encoder_update_roi(drm_enc);
+
 	if (sde_enc->cur_master && sde_enc->cur_master->connector) {
 		rc = sde_connector_pre_kickoff(sde_enc->cur_master->connector);
 		if (rc)
 			SDE_ERROR_ENC(sde_enc, "kickoff conn%d failed rc %d\n",
 					sde_enc->cur_master->connector->base.id,
 					rc);
+	}
+
+	if (_sde_is_dsc_enabled(sde_enc)) {
+		rc = _sde_encoder_dsc_setup(sde_enc, params);
+		if (rc)
+			SDE_ERROR_ENC(sde_enc, "failed to setup DSC: %d\n", rc);
 	}
 }
 
