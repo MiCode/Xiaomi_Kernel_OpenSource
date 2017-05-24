@@ -3248,8 +3248,33 @@ int q6asm_open_transcode_loopback(struct audio_client *ac,
 	open.mode_flags = 0;
 	open.src_endpoint_type = 0;
 	open.sink_endpoint_type = 0;
-	open.src_format_id = source_format;
-	open.sink_format_id = sink_format;
+	switch (source_format) {
+	case FORMAT_LINEAR_PCM:
+	case FORMAT_MULTI_CHANNEL_LINEAR_PCM:
+		open.src_format_id = ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V3;
+		break;
+	case FORMAT_AC3:
+		open.src_format_id = ASM_MEDIA_FMT_AC3;
+		break;
+	case FORMAT_EAC3:
+		open.src_format_id = ASM_MEDIA_FMT_EAC3;
+		break;
+	default:
+		pr_err("%s: Unsupported src fmt [%d]\n",
+		       __func__, source_format);
+		return -EINVAL;
+	}
+	switch (sink_format) {
+	case FORMAT_LINEAR_PCM:
+	case FORMAT_MULTI_CHANNEL_LINEAR_PCM:
+		open.sink_format_id = ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V3;
+		break;
+	default:
+		pr_err("%s: Unsupported sink fmt [%d]\n",
+		       __func__, sink_format);
+		return -EINVAL;
+	}
+
 	/* source endpoint : matrix */
 	open.audproc_topo_id = q6asm_get_asm_topology_cal();
 
