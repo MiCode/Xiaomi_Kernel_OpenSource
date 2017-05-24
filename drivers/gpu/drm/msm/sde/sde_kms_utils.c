@@ -166,7 +166,7 @@ void sde_kms_rect_intersect(const struct sde_rect *r1,
 	r = min((r1->x + r1->w), (r2->x + r2->w));
 	b = min((r1->y + r1->h), (r2->y + r2->h));
 
-	if (r < l || b < t) {
+	if (r <= l || b <= t) {
 		memset(result, 0, sizeof(*result));
 	} else {
 		result->x = l;
