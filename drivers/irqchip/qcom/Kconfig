@@ -6,3 +6,10 @@ config QTI_PDC
         help
           QTI Power Domain Controller driver to manage and configure wakeup
           IRQs
+
+config QTI_PDC_SDM845
+        bool "QTI PDC SDM845"
+        select QTI_PDC
+        default y if ARCH_SDM845
+        help
+          QTI Power Domain Controller for SDM845
