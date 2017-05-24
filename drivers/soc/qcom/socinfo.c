@@ -36,6 +36,7 @@
 #include <soc/qcom/boot_stats.h>
 
 #define BUILD_ID_LENGTH 32
+#define CHIP_ID_LENGTH 32
 #define SMEM_IMAGE_VERSION_BLOCKS_COUNT 32
 #define SMEM_IMAGE_VERSION_SINGLE_BLOCK_SIZE 128
 #define SMEM_IMAGE_VERSION_SIZE 4096
@@ -199,6 +200,7 @@ struct socinfo_v0_12 {
 struct socinfo_v0_13 {
 	struct socinfo_v0_12 v0_12;
 	uint32_t nproduct_id;
+	char chip_name[CHIP_ID_LENGTH];
 };
 
 static union {
@@ -705,6 +707,14 @@ static uint32_t socinfo_get_raw_device_number(void)
 		: 0;
 }
 
+static char *socinfo_get_chip_name(void)
+{
+	return socinfo ?
+		(socinfo_format >= SOCINFO_VERSION(0, 13) ?
+			socinfo->v0_13.chip_name : "N/A")
+		: "N/A";
+}
+
 static uint32_t socinfo_get_nproduct_id(void)
 {
 	return socinfo ?
@@ -887,6 +897,15 @@ msm_get_raw_device_number(struct device *dev,
 {
 	return snprintf(buf, PAGE_SIZE, "0x%x\n",
 		socinfo_get_raw_device_number());
+}
+
+static ssize_t
+msm_get_chip_name(struct device *dev,
+		   struct device_attribute *attr,
+		   char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%-.32s\n",
+			socinfo_get_chip_name());
 }
 
 static ssize_t
@@ -1146,6 +1165,10 @@ static struct device_attribute msm_soc_attr_raw_device_number =
 	__ATTR(raw_device_number, S_IRUGO,
 			msm_get_raw_device_number, NULL);
 
+static struct device_attribute msm_soc_attr_chip_name =
+	__ATTR(chip_name, 0444,
+			msm_get_chip_name, NULL);
+
 static struct device_attribute msm_soc_attr_nproduct_id =
 	__ATTR(nproduct_id, 0444,
 			msm_get_nproduct_id, NULL);
@@ -1283,6 +1306,8 @@ static void __init populate_soc_sysfs_files(struct device *msm_soc_device)
 	case SOCINFO_VERSION(0, 13):
 		 device_create_file(msm_soc_device,
 					&msm_soc_attr_nproduct_id);
+		 device_create_file(msm_soc_device,
+					&msm_soc_attr_chip_name);
 	case SOCINFO_VERSION(0, 12):
 		device_create_file(msm_soc_device,
 					&msm_soc_attr_chip_family);
