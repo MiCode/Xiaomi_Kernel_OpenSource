@@ -1133,7 +1133,7 @@ static int cam_ife_csid_init_config_ipp_path(
 	if (rc)
 		return rc;
 
-	/**
+	/*
 	 * configure the IPP and enable the time stamp capture.
 	 * enable the HW measrurement blocks
 	 */
@@ -1417,7 +1417,7 @@ static int cam_ife_csid_init_config_rdi_path(
 	if (rc)
 		return rc;
 
-	/**
+	/*
 	 * RDI path config and enable the time stamp capture
 	 * Enable the measurement blocks
 	 */

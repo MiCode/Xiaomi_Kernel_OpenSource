@@ -1493,19 +1493,6 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 	if (i == ctx->num_base)
 		master_base_idx = ctx->base[0].idx;
 
-	/* Stop the master CIDs first */
-	cam_ife_mgr_csid_stop_hw(ctx, &ctx->res_list_ife_cid,
-			master_base_idx, CAM_CSID_HALT_AT_FRAME_BOUNDARY);
-
-	/* stop rest of the CIDs  */
-	for (i = 0; i < ctx->num_base; i++) {
-		if (i == master_base_idx)
-			continue;
-		cam_ife_mgr_csid_stop_hw(ctx, &ctx->res_list_ife_cid,
-			ctx->base[i].idx, CAM_CSID_HALT_AT_FRAME_BOUNDARY);
-	}
-
-
 	/* Stop the master CSID path first */
 	cam_ife_mgr_csid_stop_hw(ctx, &ctx->res_list_ife_csid,
 			master_base_idx, CAM_CSID_HALT_AT_FRAME_BOUNDARY);
@@ -1516,6 +1503,18 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 			continue;
 
 		cam_ife_mgr_csid_stop_hw(ctx, &ctx->res_list_ife_csid,
+			ctx->base[i].idx, CAM_CSID_HALT_AT_FRAME_BOUNDARY);
+	}
+
+	/* Stop the master CIDs first */
+	cam_ife_mgr_csid_stop_hw(ctx, &ctx->res_list_ife_cid,
+			master_base_idx, CAM_CSID_HALT_AT_FRAME_BOUNDARY);
+
+	/* stop rest of the CIDs  */
+	for (i = 0; i < ctx->num_base; i++) {
+		if (i == master_base_idx)
+			continue;
+		cam_ife_mgr_csid_stop_hw(ctx, &ctx->res_list_ife_cid,
 			ctx->base[i].idx, CAM_CSID_HALT_AT_FRAME_BOUNDARY);
 	}
 
@@ -2884,7 +2883,7 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf)
 	int i, j;
 	struct cam_iommu_handle cdm_handles;
 
-	pr_info("%s: Enter\n", __func__);
+	CDBG("%s: Enter\n", __func__);
 
 	memset(&g_ife_hw_mgr, 0, sizeof(g_ife_hw_mgr));
 
@@ -3037,7 +3036,7 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf)
 	hw_mgr_intf->hw_prepare_update = cam_ife_mgr_prepare_hw_update;
 	hw_mgr_intf->hw_config = cam_ife_mgr_config_hw;
 
-	pr_info("%s: Exit\n", __func__);
+	CDBG("%s: Exit\n", __func__);
 	return 0;
 end:
 	if (rc) {

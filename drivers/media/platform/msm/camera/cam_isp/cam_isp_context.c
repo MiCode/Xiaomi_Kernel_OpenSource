@@ -59,15 +59,22 @@ static int __cam_isp_ctx_handle_buf_done_in_activated_state(
 		}
 
 		if (!bubble_state) {
-			CDBG("%s: Sync success: fd 0x%x\n", __func__,
+			CDBG("%s: Sync with success: fd 0x%x\n", __func__,
 				   req_isp->fence_map_out[j].sync_id);
-			cam_sync_signal(req_isp->fence_map_out[j].sync_id,
+			rc = cam_sync_signal(req_isp->fence_map_out[j].sync_id,
 				CAM_SYNC_STATE_SIGNALED_SUCCESS);
+			if (rc)
+				pr_err("%s: Sync failed with rc = %d\n",
+					__func__, rc);
+
 		} else if (!req_isp->bubble_report) {
-			CDBG("%s: Sync failure: fd 0x%x\n", __func__,
+			CDBG("%s: Sync with failure: fd 0x%x\n", __func__,
 				   req_isp->fence_map_out[j].sync_id);
-			cam_sync_signal(req_isp->fence_map_out[j].sync_id,
+			rc = cam_sync_signal(req_isp->fence_map_out[j].sync_id,
 				CAM_SYNC_STATE_SIGNALED_ERROR);
+			if (rc)
+				pr_err("%s: Sync failed with rc = %d\n",
+					__func__, rc);
 		} else {
 			/*
 			 * Ignore the buffer done if bubble detect is on
@@ -277,7 +284,7 @@ static int __cam_isp_ctx_sof_in_epoch(struct cam_isp_context *ctx_isp,
 
 	ctx_isp->frame_id++;
 	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
-	pr_err("%s: next substate %d\n", __func__,
+	CDBG("%s: next substate %d\n", __func__,
 		ctx_isp->substate_activated);
 
 	return rc;
