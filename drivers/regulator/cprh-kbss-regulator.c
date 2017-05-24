@@ -86,7 +86,7 @@ struct cprh_kbss_fuses {
  */
 #define CPRH_MSM8998_KBSS_FUSE_COMBO_COUNT	32
 #define CPRH_SDM660_KBSS_FUSE_COMBO_COUNT	16
-#define CPRH_SDM845_KBSS_FUSE_COMBO_COUNT	16
+#define CPRH_SDM845_KBSS_FUSE_COMBO_COUNT	24
 
 /*
  * Constants which define the name of each fuse corner.
