@@ -277,7 +277,7 @@ static struct snd_soc_dai_link msm8952_tasha_be_dai[] = {
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.be_id = MSM_BACKEND_DAI_SLIMBUS_4_RX,
-		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
+		.be_hw_params_fixup = msm_slim_4_rx_be_hw_params_fixup,
 		.ops = &msm8952_slimbus_be_ops,
 		/* dai link has playback support */
 		.ignore_pmdown_time = 1,
