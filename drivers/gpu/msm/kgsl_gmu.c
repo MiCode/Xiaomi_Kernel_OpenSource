@@ -850,14 +850,6 @@ static int gmu_reg_probe(struct gmu_device *gmu, const char *name, bool is_gmu)
 	}
 
 	if (is_gmu) {
-		if (!devm_request_mem_region(&gmu->pdev->dev, res->start,
-					resource_size(res),
-					res->name)) {
-			dev_err(&gmu->pdev->dev,
-				"GMU regs request mem region failed\n");
-			return -ENOMEM;
-		}
-
 		gmu->reg_phys = res->start;
 		gmu->reg_len = resource_size(res);
 		gmu->reg_virt = devm_ioremap(&gmu->pdev->dev, res->start,
