@@ -1369,13 +1369,13 @@ int create_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32) * 2;
 		break;
 	}
-	case HAL_CONFIG_VPE_OPERATIONS:
+	case HAL_PARAM_VPE_ROTATION:
 	{
-		struct hfi_operations_type *hfi;
-		struct hal_operations *prop =
-			(struct hal_operations *) pdata;
-		pkt->rg_property_data[0] = HFI_PROPERTY_CONFIG_VPE_OPERATIONS;
-		hfi = (struct hfi_operations_type *) &pkt->rg_property_data[1];
+		struct hfi_vpe_rotation_type *hfi;
+		struct hal_vpe_rotation *prop =
+			(struct hal_vpe_rotation *) pdata;
+		pkt->rg_property_data[0] = HFI_PROPERTY_PARAM_VPE_ROTATION;
+		hfi = (struct hfi_vpe_rotation_type *)&pkt->rg_property_data[1];
 		switch (prop->rotate) {
 		case HAL_ROTATE_NONE:
 			hfi->rotation = HFI_ROTATE_NONE;
@@ -1411,7 +1411,7 @@ int create_pkt_cmd_session_set_property(
 			rc = -EINVAL;
 			break;
 		}
-		pkt->size += sizeof(u32) + sizeof(struct hfi_operations_type);
+		pkt->size += sizeof(u32) + sizeof(struct hfi_vpe_rotation_type);
 		break;
 	}
 	case HAL_PARAM_VENC_INTRA_REFRESH:

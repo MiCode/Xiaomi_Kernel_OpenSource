@@ -1117,7 +1117,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hal_h264_entropy_control h264_entropy_control;
 	struct hal_intra_period intra_period;
 	struct hal_idr_period idr_period;
-	struct hal_operations operations;
+	struct hal_vpe_rotation vpe_rotation;
 	struct hal_intra_refresh intra_refresh;
 	struct hal_multi_slice_control multi_slice_control;
 	struct hal_h264_db_control h264_db_control;
@@ -1345,19 +1345,12 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION:
 	{
-		if (!(inst->capability.pixelprocess_capabilities &
-			HAL_VIDEO_ENCODER_ROTATION_CAPABILITY)) {
-			dprintk(VIDC_ERR, "Rotation not supported: %#x\n",
-				ctrl->id);
-			rc = -ENOTSUPP;
-			break;
-		}
-		property_id = HAL_CONFIG_VPE_OPERATIONS;
-		operations.rotate = msm_comm_v4l2_to_hal(
+		property_id = HAL_PARAM_VPE_ROTATION;
+		vpe_rotation.rotate = msm_comm_v4l2_to_hal(
 				V4L2_CID_MPEG_VIDC_VIDEO_ROTATION,
 				ctrl->val);
-		operations.flip = HAL_FLIP_NONE;
-		pdata = &operations;
+		vpe_rotation.flip = HAL_FLIP_NONE;
+		pdata = &vpe_rotation;
 		break;
 	}
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE: {

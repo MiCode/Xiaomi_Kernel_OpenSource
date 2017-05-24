@@ -154,7 +154,7 @@ enum hal_property {
 	HAL_PARAM_VENC_SESSION_QP_RANGE,
 	HAL_CONFIG_VENC_INTRA_PERIOD,
 	HAL_CONFIG_VENC_IDR_PERIOD,
-	HAL_CONFIG_VPE_OPERATIONS,
+	HAL_PARAM_VPE_ROTATION,
 	HAL_PARAM_VENC_INTRA_REFRESH,
 	HAL_PARAM_VENC_MULTI_SLICE_CONTROL,
 	HAL_SYS_DEBUG_CONFIG,
@@ -634,7 +634,7 @@ enum hal_flip {
 	HAL_UNUSED_FLIP = 0x10000000,
 };
 
-struct hal_operations {
+struct hal_vpe_rotation {
 	enum hal_rotate rotate;
 	enum hal_flip flip;
 };
@@ -1019,7 +1019,7 @@ union hal_get_property {
 	struct hal_quantization_range quantization_range;
 	struct hal_intra_period intra_period;
 	struct hal_idr_period idr_period;
-	struct hal_operations operations;
+	struct hal_vpe_rotation vpe_rotation;
 	struct hal_intra_refresh intra_refresh;
 	struct hal_multi_slice_control multi_slice_control;
 	struct hal_debug_config debug_config;
