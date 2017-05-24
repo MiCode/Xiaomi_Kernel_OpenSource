@@ -195,6 +195,18 @@ static int dp_display_bind(struct device *dev, struct device *master,
 		goto end;
 	}
 
+	rc = dp->aux->drm_aux_register(dp->aux);
+	if (rc) {
+		pr_err("DRM DP AUX register failed\n");
+		goto end;
+	}
+
+	rc = dp->panel->sde_edid_register(dp->panel);
+	if (rc) {
+		pr_err("DRM DP EDID register failed\n");
+		goto end;
+	}
+
 	rc = dp->power->power_client_init(dp->power, &priv->phandle);
 	if (rc) {
 		pr_err("Power client create failed\n");
@@ -227,6 +239,10 @@ static void dp_display_unbind(struct device *dev, struct device *master,
 
 	(void)dp->power->power_client_deinit(dp->power);
 
+	(void) dp->panel->sde_edid_deregister(dp->panel);
+
+	(void) dp->aux->drm_aux_deregister(dp->aux);
+
 	(void)dp_display_debugfs_deinit(dp);
 
 	mutex_unlock(&dp->lock);
@@ -245,9 +261,8 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	if (rc)
 		goto end;
 
-	rc = dp->panel->read_edid(dp->panel);
-	if (rc)
-		goto end;
+	sde_get_edid(dp->dp_display.connector, &dp->aux->drm_aux->ddc,
+		(void **)&dp->panel->edid_ctrl);
 
 	return 0;
 end:
@@ -256,6 +271,7 @@ end:
 
 static int dp_display_process_hpd_low(struct dp_display_private *dp)
 {
+	dp->dp_display.is_connected = false;
 	return 0;
 }
 
@@ -290,6 +306,7 @@ static int dp_display_usbpd_configure_cb(struct device *dev)
 
 	if (dp->usbpd->hpd_high)
 		dp_display_process_hpd_high(dp);
+	dp->dp_display.is_connected = true;
 
 	mutex_unlock(&dp->lock);
 end:
@@ -315,6 +332,7 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 	}
 
 	mutex_lock(&dp->lock);
+	dp->dp_display.is_connected = false;
 	disable_irq(dp->irq);
 	mutex_unlock(&dp->lock);
 
@@ -573,33 +591,17 @@ static int dp_display_validate_mode(struct dp_display *dp,
 	return 0;
 }
 
-static int dp_display_get_modes(struct dp_display *dp,
-	struct dp_display_mode *modes, u32 *count)
+static int dp_display_get_modes(struct dp_display *dp)
 {
-	*count = 1;
+	int ret = 0;
+	struct dp_display_private *dp_display;
 
-	if (modes) {
-		modes->timing.h_active = 1920;
-		modes->timing.v_active = 1080;
-		modes->timing.h_back_porch = 148;
-		modes->timing.h_front_porch = 88;
-		modes->timing.h_sync_width = 44;
-		modes->timing.h_active_low = 0;
-		modes->timing.v_back_porch = 36;
-		modes->timing.v_front_porch = 4;
-		modes->timing.v_sync_width = 5;
-		modes->timing.v_active_low = 0;
-		modes->timing.h_skew = 0;
-		modes->timing.refresh_rate = 60;
-		modes->timing.pixel_clk_khz = 148500;
-	}
+	dp_display = container_of(dp, struct dp_display_private, dp_display);
 
-	return 0;
-}
+	ret = _sde_edid_update_modes(dp->connector,
+		dp_display->panel->edid_ctrl);
 
-static int dp_display_detect(struct dp_display *dp)
-{
-	return 0;
+	return ret;
 }
 
 static int dp_display_probe(struct platform_device *pdev)
@@ -637,7 +639,6 @@ static int dp_display_probe(struct platform_device *pdev)
 	g_dp_display->set_mode      = dp_display_set_mode;
 	g_dp_display->validate_mode = dp_display_validate_mode;
 	g_dp_display->get_modes     = dp_display_get_modes;
-	g_dp_display->detect        = dp_display_detect;
 	g_dp_display->prepare       = dp_display_prepare;
 	g_dp_display->unprepare     = dp_display_unprepare;
 	g_dp_display->request_irq   = dp_request_irq;

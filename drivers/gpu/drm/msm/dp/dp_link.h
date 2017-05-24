@@ -54,15 +54,11 @@ struct dp_link {
 	u32 v_level;
 	u32 p_level;
 
-	u8 *(*get_voltage_swing)(struct dp_link *dp_link);
-	u8 *(*get_pre_emphasis)(struct dp_link *dp_link);
 	u32 (*get_test_bits_depth)(struct dp_link *dp_link, u32 bpp);
 	int (*process_request)(struct dp_link *dp_link);
 	int (*get_colorimetry_config)(struct dp_link *dp_link);
-	int (*adjust_levels)(struct dp_link *dp_link);
+	int (*adjust_levels)(struct dp_link *dp_link, u8 *link_status);
 	int (*send_psm_request)(struct dp_link *dp_link, bool req);
-	bool (*clock_recovery)(struct dp_link *dp_link);
-	bool (*channel_equalization)(struct dp_link *dp_link);
 	bool (*phy_pattern_requested)(struct dp_link *dp_link);
 };
 

@@ -289,6 +289,7 @@ int dp_connector_post_init(struct drm_connector *connector,
 	if (!info || !dp_display)
 		return -EINVAL;
 
+	dp_display->connector = connector;
 	return 0;
 }
 
@@ -315,7 +316,7 @@ int dp_connector_get_topology(const struct drm_display_mode *drm_mode,
 
 int dp_connector_get_info(struct msm_display_info *info, void *data)
 {
-	struct dsi_display *display = data;
+	struct dp_display *display = data;
 
 	if (!info || !display) {
 		pr_err("invalid params\n");
@@ -326,17 +327,10 @@ int dp_connector_get_info(struct msm_display_info *info, void *data)
 
 	info->num_of_h_tiles = 1;
 	info->h_tile_instance[0] = 0;
-
-	info->is_connected = true;
-	info->frame_rate = 60;
-	info->width_mm = 160;
-	info->height_mm = 90;
-	info->max_width = 1920;
-	info->max_height = 1080;
-	info->vtotal = 1125;
-	info->is_primary = true;
+	info->is_connected = display->is_connected;
 	info->comp_info.comp_type = MSM_DISPLAY_COMPRESSION_NONE;
-	info->capabilities |= MSM_DISPLAY_CAP_VID_MODE;
+	info->capabilities = MSM_DISPLAY_CAP_VID_MODE | MSM_DISPLAY_CAP_EDID |
+		MSM_DISPLAY_CAP_HOT_PLUG;
 
 	return 0;
 }
@@ -375,60 +369,23 @@ enum drm_connector_status dp_connector_detect(struct drm_connector *conn,
 int dp_connector_get_modes(struct drm_connector *connector,
 		void *display)
 {
-	u32 count = 0;
-	u32 size = 0;
-	struct dp_display_mode *modes;
-	struct drm_display_mode drm_mode;
+	int rc = 0;
 	struct dp_display *dp;
-	int rc, i;
 
-	if (!connector || !display || sde_connector_get_panel(connector))
-		goto end;
+	if (!connector || !display)
+		return -EINVAL;
 
 	dp = display;
-
-	rc = dp->get_modes(dp, NULL, &count);
-	if (rc) {
-		pr_err("failed to get num of modes, rc=%d\n", rc);
-		goto end;
+	/* pluggable case assumes EDID is read when HPD */
+	if (dp->is_connected) {
+		rc = dp->get_modes(dp);
+		if (!rc)
+			pr_err("failed to get DP sink modes, rc=%d\n", rc);
+	} else {
+		pr_err("No sink connected\n");
 	}
 
-	size = count * sizeof(*modes);
-	modes = kzalloc(size,  GFP_KERNEL);
-	if (!modes) {
-		count = 0;
-		goto end;
-	}
-
-	rc = dp->get_modes(dp, modes, &count);
-	if (rc) {
-		pr_err("failed to get modes, rc=%d\n", rc);
-		count = 0;
-		goto error;
-	}
-
-	for (i = 0; i < count; i++) {
-		struct drm_display_mode *m;
-
-		memset(&drm_mode, 0x0, sizeof(drm_mode));
-		convert_to_drm_mode(&modes[i], &drm_mode);
-		m = drm_mode_duplicate(connector->dev, &drm_mode);
-		if (!m) {
-			pr_err("failed to add mode %ux%u\n",
-			       drm_mode.hdisplay,
-			       drm_mode.vdisplay);
-			count = -ENOMEM;
-			goto error;
-		}
-		m->width_mm = connector->display_info.width_mm;
-		m->height_mm = connector->display_info.height_mm;
-		drm_mode_probed_add(connector, m);
-	}
-error:
-	kfree(modes);
-end:
-	pr_debug("MODE COUNT =%d\n\n", count);
-	return count;
+	return 0;
 }
 
 int dp_drm_bridge_init(void *data, struct drm_encoder *encoder)

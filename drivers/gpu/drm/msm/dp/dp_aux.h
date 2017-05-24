@@ -16,6 +16,7 @@
 #define _DP_AUX_H_
 
 #include "dp_catalog.h"
+#include "drm_dp_helper.h"
 
 enum dp_aux_error {
 	DP_AUX_ERR_NONE	= 0,
@@ -26,32 +27,10 @@ enum dp_aux_error {
 	DP_AUX_ERR_NACK_DEFER	= -5,
 };
 
-enum aux_tx_mode {
-	AUX_NATIVE,
-	AUX_I2C,
-};
-
-enum aux_exe_mode {
-	AUX_WRITE,
-	AUX_READ,
-};
-
-struct aux_cmd {
-	enum aux_exe_mode ex_mode;
-	enum aux_tx_mode tx_mode;
-	u32 addr;
-	u32 len;
-	u8 *buf;
-	bool next;
-};
-
 struct dp_aux {
-	int (*process)(struct dp_aux *aux, struct aux_cmd *cmd);
-	int (*write)(struct dp_aux *aux, u32 addr, u32 len,
-			enum aux_tx_mode mode, u8 *buf);
-	int (*read)(struct dp_aux *aux, u32 addr, u32 len,
-			enum aux_tx_mode mode, u8 **buf);
-	bool (*ready)(struct dp_aux *aux);
+	struct drm_dp_aux *drm_aux;
+	int (*drm_aux_register)(struct dp_aux *aux);
+	void (*drm_aux_deregister)(struct dp_aux *aux);
 	void (*isr)(struct dp_aux *aux);
 	void (*init)(struct dp_aux *aux, u32 *aux_cfg);
 	void (*deinit)(struct dp_aux *aux);

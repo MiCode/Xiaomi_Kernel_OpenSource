@@ -114,18 +114,6 @@ struct dp_link_sink_count {
 	bool cp_ready;
 };
 
-struct dp_link_status {
-	u8 lane_01_status;
-	u8 lane_23_status;
-	u8 interlane_align_done;
-	u8 downstream_port_status_changed;
-	u8 link_status_updated;
-	u8 port_0_in_sync;
-	u8 port_1_in_sync;
-	u8 req_voltage_swing[4];
-	u8 req_pre_emphasis[4];
-};
-
 struct dp_link_private {
 	struct device *dev;
 	struct dp_aux *aux;
@@ -133,7 +121,7 @@ struct dp_link_private {
 
 	struct dp_link_request request;
 	struct dp_link_sink_count sink_count;
-	struct dp_link_status link_status;
+	u8 link_status[DP_LINK_STATUS_SIZE];
 };
 
 /**
@@ -232,13 +220,12 @@ static int dp_link_get_period(struct dp_link_private *link, int const addr)
 	int ret = 0;
 	u8 *bp;
 	u8 data;
-	int rlen;
 	u32 const param_len = 0x1;
 	u32 const max_audio_period = 0xA;
 
 	/* TEST_AUDIO_PERIOD_CH_XX */
-	rlen = link->aux->read(link->aux, addr, param_len, AUX_NATIVE, &bp);
-	if (rlen < param_len) {
+	if (drm_dp_dpcd_read(link->aux->drm_aux, addr, &bp,
+		param_len) < param_len) {
 		pr_err("failed to read test_audio_period (0x%x)\n", addr);
 		ret = -EINVAL;
 		goto exit;
@@ -350,8 +337,8 @@ static int dp_link_parse_audio_pattern_type(struct dp_link_private *link)
 	int const max_audio_pattern_type = 0x1;
 
 	/* Read the requested audio pattern type (Byte 0x272). */
-	rlen = link->aux->read(link->aux, test_audio_pattern_type_addr,
-			param_len, AUX_NATIVE, &bp);
+	rlen = drm_dp_dpcd_read(link->aux->drm_aux,
+		test_audio_pattern_type_addr, &bp, param_len);
 	if (rlen < param_len) {
 		pr_err("failed to read link audio mode data\n");
 		ret = -EINVAL;
@@ -387,8 +374,8 @@ static int dp_link_parse_audio_mode(struct dp_link_private *link)
 	int channel_count = 0x0;
 
 	/* Read the requested audio mode (Byte 0x271). */
-	rlen = link->aux->read(link->aux, test_audio_mode_addr,
-			param_len, AUX_NATIVE, &bp);
+	rlen = drm_dp_dpcd_read(link->aux->drm_aux, test_audio_mode_addr,
+			&bp, param_len);
 	if (rlen < param_len) {
 		pr_err("failed to read link audio mode data\n");
 		ret = -EINVAL;
@@ -555,7 +542,7 @@ static int dp_link_parse_timing_params1(struct dp_link_private *link,
 		return -EINVAL;
 
 	/* Read the requested video link pattern (Byte 0x221). */
-	rlen = link->aux->read(link->aux, addr, len, AUX_NATIVE, &bp);
+	rlen = drm_dp_dpcd_read(link->aux->drm_aux, addr, &bp, len);
 	if (rlen < len) {
 		pr_err("failed to read 0x%x\n", addr);
 		return -EINVAL;
@@ -576,7 +563,7 @@ static int dp_link_parse_timing_params2(struct dp_link_private *link,
 		return -EINVAL;
 
 	/* Read the requested video link pattern (Byte 0x221). */
-	rlen = link->aux->read(link->aux, addr, len, AUX_NATIVE, &bp);
+	rlen = drm_dp_dpcd_read(link->aux->drm_aux, addr, &bp, len);
 	if (rlen < len) {
 		pr_err("failed to read 0x%x\n", addr);
 		return -EINVAL;
@@ -596,7 +583,7 @@ static int dp_link_parse_timing_params3(struct dp_link_private *link,
 	int rlen;
 
 	/* Read the requested video link pattern (Byte 0x221). */
-	rlen = link->aux->read(link->aux, addr, len, AUX_NATIVE, &bp);
+	rlen = drm_dp_dpcd_read(link->aux->drm_aux, addr, &bp, len);
 	if (rlen < 1) {
 		pr_err("failed to read 0x%x\n", addr);
 		return -EINVAL;
@@ -625,8 +612,8 @@ static int dp_link_parse_video_pattern_params(struct dp_link_private *link)
 	int const test_misc_addr = 0x232;
 
 	/* Read the requested video link pattern (Byte 0x221). */
-	rlen = link->aux->read(link->aux, test_video_pattern_addr,
-			param_len, AUX_NATIVE, &bp);
+	rlen = drm_dp_dpcd_read(link->aux->drm_aux, test_video_pattern_addr,
+			&bp, param_len);
 	if (rlen < param_len) {
 		pr_err("failed to read link video pattern\n");
 		ret = -EINVAL;
@@ -647,8 +634,8 @@ static int dp_link_parse_video_pattern_params(struct dp_link_private *link)
 			link->request.test_video_pattern));
 
 	/* Read the requested color bit depth and dynamic range (Byte 0x232) */
-	rlen = link->aux->read(link->aux, test_misc_addr,
-			param_len, AUX_NATIVE, &bp);
+	rlen = drm_dp_dpcd_read(link->aux->drm_aux, test_misc_addr,
+			&bp, param_len);
 	if (rlen < param_len) {
 		pr_err("failed to read link bit depth\n");
 		ret = -EINVAL;
@@ -780,9 +767,9 @@ exit:
  */
 static bool dp_link_is_link_rate_valid(u32 link_rate)
 {
-	return ((link_rate == DP_LINK_RATE_162) ||
-		(link_rate == DP_LINK_RATE_270) ||
-		(link_rate == DP_LINK_RATE_540) ||
+	return ((link_rate == DP_LINK_BW_1_62) ||
+		(link_rate == DP_LINK_BW_2_7) ||
+		(link_rate == DP_LINK_BW_5_4) ||
 		(link_rate == DP_LINK_RATE_810));
 }
 
@@ -814,12 +801,10 @@ static int dp_link_parse_link_training_params(struct dp_link_private *link)
 	int ret = 0;
 	int rlen;
 	int const param_len = 0x1;
-	int const test_link_rate_addr = 0x219;
-	int const test_lane_count_addr = 0x220;
 
 	/* Read the requested link rate (Byte 0x219). */
-	rlen = link->aux->read(link->aux, test_link_rate_addr,
-			param_len, AUX_NATIVE, &bp);
+	rlen = drm_dp_dpcd_read(link->aux->drm_aux, DP_TEST_LINK_RATE,
+			&bp, param_len);
 	if (rlen < param_len) {
 		pr_err("failed to read link rate\n");
 		ret = -EINVAL;
@@ -837,8 +822,8 @@ static int dp_link_parse_link_training_params(struct dp_link_private *link)
 	pr_debug("link rate = 0x%x\n", link->request.test_link_rate);
 
 	/* Read the requested lane count (Byte 0x220). */
-	rlen = link->aux->read(link->aux, test_lane_count_addr,
-			param_len, AUX_NATIVE, &bp);
+	rlen = drm_dp_dpcd_read(link->aux->drm_aux, DP_TEST_LANE_COUNT,
+			&bp, param_len);
 	if (rlen < param_len) {
 		pr_err("failed to read lane count\n");
 		ret = -EINVAL;
@@ -890,8 +875,8 @@ static int dp_link_parse_phy_test_params(struct dp_link_private *link)
 	int const phy_test_pattern_addr = 0x248;
 	int ret = 0;
 
-	rlen = link->aux->read(link->aux, phy_test_pattern_addr,
-				param_len, AUX_NATIVE, &bp);
+	rlen = drm_dp_dpcd_read(link->aux->drm_aux, phy_test_pattern_addr,
+			&bp, param_len);
 	if (rlen < param_len) {
 		pr_err("failed to read phy link pattern\n");
 		ret = -EINVAL;
@@ -965,16 +950,14 @@ static int dp_link_parse_request(struct dp_link_private *link)
 	u8 data;
 	int rlen;
 	u32 const param_len = 0x1;
-	u32 const device_service_irq_addr = 0x201;
-	u32 const test_request_addr = 0x218;
 	u8 buf[4];
 
 	/**
 	 * Read the device service IRQ vector (Byte 0x201) to determine
 	 * whether an automated link has been requested by the sink.
 	 */
-	rlen = link->aux->read(link->aux, device_service_irq_addr,
-				param_len, AUX_NATIVE, &bp);
+	rlen = drm_dp_dpcd_read(link->aux->drm_aux,
+		DP_DEVICE_SERVICE_IRQ_VECTOR, &bp, param_len);
 	if (rlen < param_len) {
 		pr_err("aux read failed\n");
 		ret = -EINVAL;
@@ -994,8 +977,8 @@ static int dp_link_parse_request(struct dp_link_private *link)
 	 * Read the link request byte (Byte 0x218) to determine what type
 	 * of automated link has been requested by the sink.
 	 */
-	rlen = link->aux->read(link->aux, test_request_addr,
-				param_len, AUX_NATIVE, &bp);
+	rlen = drm_dp_dpcd_read(link->aux->drm_aux, DP_TEST_REQUEST,
+			&bp, param_len);
 	if (rlen < param_len) {
 		pr_err("aux read failed\n");
 		ret = -EINVAL;
@@ -1033,7 +1016,7 @@ static int dp_link_parse_request(struct dp_link_private *link)
 end:
 	/* clear the link request IRQ */
 	buf[0] = 1;
-	link->aux->write(link->aux, test_request_addr, 1, AUX_NATIVE, buf);
+	drm_dp_dpcd_write(link->aux->drm_aux, DP_TEST_REQUEST, buf, 1);
 
 	/**
 	 * Send a TEST_ACK if all link parameters are valid, otherwise send
@@ -1060,10 +1043,9 @@ static void dp_link_parse_sink_count(struct dp_link_private *link)
 	u8 data;
 	int rlen;
 	int const param_len = 0x1;
-	int const sink_count_addr = 0x200;
 
-	rlen = link->aux->read(link->aux, sink_count_addr,
-				param_len, AUX_NATIVE, &bp);
+	rlen = drm_dp_dpcd_read(link->aux->drm_aux, DP_SINK_COUNT,
+			&bp, param_len);
 	if (rlen < param_len) {
 		pr_err("failed to read sink count\n");
 		return;
@@ -1080,67 +1062,16 @@ static void dp_link_parse_sink_count(struct dp_link_private *link)
 		link->sink_count.count, link->sink_count.cp_ready);
 }
 
-static int dp_link_link_status_read(struct dp_link_private *link)
-{
-	u8 *bp;
-	u8 data;
-	int rlen, ret = 0;
-	int const addr = 0x202;
-	int const len = 6;
-	struct dp_link_status *sp;
-
-	rlen = link->aux->read(link->aux, addr, len, AUX_NATIVE, &bp);
-	if (rlen < len) {
-		pr_err("edp aux read failed\n");
-		ret = -EINVAL;
-		goto error;
-	}
-
-	sp = &link->link_status;
-
-	data = *bp++; /* byte 0x202 */
-	sp->lane_01_status = data; /* lane 0, 1 */
-
-	data = *bp++; /* byte 0x203 */
-	sp->lane_23_status = data; /* lane 2, 3 */
-
-	data = *bp++; /* byte 0x204 */
-	sp->interlane_align_done = (data & BIT(0));
-	sp->downstream_port_status_changed = (data & BIT(6));
-	sp->link_status_updated = (data & BIT(7));
-
-	data = *bp++; /* byte 0x205 */
-	sp->port_0_in_sync = (data & BIT(0));
-	sp->port_1_in_sync = (data & BIT(1));
-
-	data = *bp++; /* byte 0x206 */
-	sp->req_voltage_swing[0] = data & 0x03;
-	data >>= 2;
-	sp->req_pre_emphasis[0] = data & 0x03;
-	data >>= 2;
-	sp->req_voltage_swing[1] = data & 0x03;
-	data >>= 2;
-	sp->req_pre_emphasis[1] = data & 0x03;
-
-	data = *bp++; /* byte 0x207 */
-	sp->req_voltage_swing[2] = data & 0x03;
-	data >>= 2;
-	sp->req_pre_emphasis[2] = data & 0x03;
-	data >>= 2;
-	sp->req_voltage_swing[3] = data & 0x03;
-	data >>= 2;
-	sp->req_pre_emphasis[3] = data & 0x03;
-
-	return 0;
-error:
-	return ret;
-}
-
 static void dp_link_parse_sink_status_field(struct dp_link_private *link)
 {
+	int len = 0;
+
 	dp_link_parse_sink_count(link);
 	dp_link_parse_request(link);
-	dp_link_link_status_read(link);
+	len = drm_dp_dpcd_read_link_status(link->aux->drm_aux,
+		link->link_status);
+	if (len < DP_LINK_STATUS_SIZE)
+		pr_err("DP link status read failed\n");
 }
 
 static bool dp_link_is_link_training_requested(struct dp_link_private *link)
@@ -1196,7 +1127,7 @@ static int dp_link_parse_vx_px(struct dp_link_private *link)
 
 	pr_debug("\n");
 
-	rlen = link->aux->read(link->aux, addr1, param_len, AUX_NATIVE, &bp);
+	rlen = drm_dp_dpcd_read(link->aux->drm_aux, addr1, &bp, param_len);
 	if (rlen < param_len) {
 		pr_err("failed reading lanes 0/1\n");
 		ret = -EINVAL;
@@ -1217,7 +1148,7 @@ static int dp_link_parse_vx_px(struct dp_link_private *link)
 	p1 = data & 0x3;
 	data = data >> 2;
 
-	rlen = link->aux->read(link->aux, addr2, param_len, AUX_NATIVE, &bp);
+	rlen = drm_dp_dpcd_read(link->aux->drm_aux, addr2, &bp, param_len);
 	if (rlen < param_len) {
 		pr_err("failed reading lanes 2/3\n");
 		ret = -EINVAL;
@@ -1294,76 +1225,6 @@ static int dp_link_process_phy_test_pattern_request(
 	return 0;
 }
 
-static bool dp_link_is_link_status_updated(struct dp_link_private *link)
-{
-	return link->link_status.link_status_updated;
-}
-
-static bool dp_link_channel_eq_done(struct dp_link_private *link)
-{
-	u32 mask, data;
-	struct dp_link *dp_link = &link->dp_link;
-
-	pr_debug("\n");
-
-	dp_link_link_status_read(link);
-
-	if (!link->link_status.interlane_align_done) { /* not align */
-		pr_err("interlane align failed\n");
-		return 0;
-	}
-
-	if (dp_link->lane_count == 1) {
-		mask = 0x7;
-		data = link->link_status.lane_01_status;
-	} else if (dp_link->lane_count == 2) {
-		mask = 0x77;
-		data = link->link_status.lane_01_status;
-	} else {
-		mask = 0x7777;
-		data = link->link_status.lane_23_status;
-		data <<= 8;
-		data |= link->link_status.lane_01_status;
-	}
-
-	data &= mask;
-	pr_debug("data=%x mask=%x\n", data, mask);
-
-	if (data == mask)/* all done */
-		return true;
-
-	return false;
-}
-
-static bool dp_link_clock_recovery_done(struct dp_link_private *link)
-{
-	u32 mask, data;
-	struct dp_link *dp_link = &link->dp_link;
-
-	dp_link_link_status_read(link);
-
-	if (dp_link->lane_count == 1) {
-		mask = 0x01;	/* lane 0 */
-		data = link->link_status.lane_01_status;
-	} else if (dp_link->lane_count == 2) {
-		mask = 0x011; /*B lane 0, 1 */
-		data = link->link_status.lane_01_status;
-	} else {
-		mask = 0x01111; /*B lane 0, 1 */
-		data = link->link_status.lane_23_status;
-		data <<= 8;
-		data |= link->link_status.lane_01_status;
-	}
-
-	data &= mask;
-	pr_debug("data=%x mask=%x\n", data, mask);
-
-	if (data == mask) /* all done */
-		return true;
-
-	return false;
-}
-
 /**
  * dp_link_process_link_status_update() - processes link status updates
  * @link: Display Port link module data
@@ -1377,21 +1238,25 @@ static bool dp_link_clock_recovery_done(struct dp_link_private *link)
  */
 static int dp_link_process_link_status_update(struct dp_link_private *link)
 {
-	if (!dp_link_is_link_status_updated(link) ||
-	    (dp_link_channel_eq_done(link) &&
-	     dp_link_clock_recovery_done(link)))
+	if (!(link->link_status[2] & BIT(7)) || /* link status updated */
+		(drm_dp_clock_recovery_ok(link->link_status,
+			link->dp_link.lane_count) &&
+	     drm_dp_channel_eq_ok(link->link_status,
+			link->dp_link.lane_count)))
 		return -EINVAL;
 
 	pr_debug("channel_eq_done = %d, clock_recovery_done = %d\n",
-			dp_link_channel_eq_done(link),
-			dp_link_clock_recovery_done(link));
+			drm_dp_clock_recovery_ok(link->link_status,
+			link->dp_link.lane_count),
+			drm_dp_clock_recovery_ok(link->link_status,
+			link->dp_link.lane_count));
 
 	return 0;
 }
 
 static bool dp_link_is_ds_port_status_changed(struct dp_link_private *link)
 {
-	return link->link_status.downstream_port_status_changed;
+	return (link->link_status[2] & BIT(6)); /* port status changed */
 }
 
 /**
@@ -1562,37 +1427,6 @@ exit:
 	return ret;
 }
 
-static u8 *dp_link_get_voltage_swing(struct dp_link *dp_link)
-
-{
-	struct dp_link_private *link;
-
-	if (!dp_link) {
-		pr_err("invalid input\n");
-		return ERR_PTR(-EINVAL);
-	}
-
-	link = container_of(dp_link, struct dp_link_private, dp_link);
-
-	return link->link_status.req_voltage_swing;
-}
-
-static u8 *dp_link_get_pre_emphasis(struct dp_link *dp_link)
-
-{
-	struct dp_link_private *link;
-
-
-	if (!dp_link) {
-		pr_err("invalid input\n");
-		return ERR_PTR(-EINVAL);
-	}
-
-	link = container_of(dp_link, struct dp_link_private, dp_link);
-
-	return link->link_status.req_pre_emphasis;
-}
-
 static int dp_link_get_colorimetry_config(struct dp_link *dp_link)
 {
 	u32 cc;
@@ -1625,38 +1459,11 @@ static int dp_link_get_colorimetry_config(struct dp_link *dp_link)
 	return cc;
 }
 
-static bool dp_link_clock_recovery(struct dp_link *dp_link)
-{
-	struct dp_link_private *link;
-
-	if (!dp_link) {
-		pr_err("invalid input\n");
-		return -EINVAL;
-	}
-
-	link = container_of(dp_link, struct dp_link_private, dp_link);
-
-	return dp_link_clock_recovery_done(link);
-}
-
-static bool dp_link_channel_equalization(struct dp_link *dp_link)
-{
-	struct dp_link_private *link;
-
-	if (!dp_link) {
-		pr_err("invalid input\n");
-		return -EINVAL;
-	}
-
-	link = container_of(dp_link, struct dp_link_private, dp_link);
-
-	return dp_link_channel_eq_done(link);
-}
-
-static int dp_link_adjust_levels(struct dp_link *dp_link)
+static int dp_link_adjust_levels(struct dp_link *dp_link, u8 *link_status)
 {
 	int i;
 	int max = 0;
+	u8 data;
 	struct dp_link_private *link;
 
 	if (!dp_link) {
@@ -1668,24 +1475,24 @@ static int dp_link_adjust_levels(struct dp_link *dp_link)
 
 	/* use the max level across lanes */
 	for (i = 0; i < dp_link->lane_count; i++) {
-		pr_debug("lane=%d req_voltage_swing=%d\n",
-			i, link->link_status.req_voltage_swing[i]);
-		if (max < link->link_status.req_voltage_swing[i])
-			max = link->link_status.req_voltage_swing[i];
+		data = drm_dp_get_adjust_request_voltage(link_status, i);
+		pr_debug("lane=%d req_voltage_swing=%d\n", i, data);
+		if (max < data)
+			max = data;
 	}
 
-	dp_link->v_level = max;
+	dp_link->v_level = max >> DP_TRAIN_VOLTAGE_SWING_SHIFT;
 
 	/* use the max level across lanes */
 	max = 0;
 	for (i = 0; i < dp_link->lane_count; i++) {
-		pr_debug("lane=%d req_pre_emphasis=%d\n",
-			i, link->link_status.req_pre_emphasis[i]);
-		if (max < link->link_status.req_pre_emphasis[i])
-			max = link->link_status.req_pre_emphasis[i];
+		data = drm_dp_get_adjust_request_pre_emphasis(link_status, i);
+		pr_debug("lane=%d req_pre_emphasis=%d\n", i, data);
+		if (max < data)
+			max = data;
 	}
 
-	dp_link->p_level = max;
+	dp_link->p_level = max >> DP_TRAIN_PRE_EMPHASIS_SHIFT;
 
 	/**
 	 * Adjust the voltage swing and pre-emphasis level combination to within
@@ -1781,12 +1588,8 @@ struct dp_link *dp_link_get(struct device *dev, struct dp_aux *aux)
 	dp_link = &link->dp_link;
 
 	dp_link->process_request        = dp_link_process_request;
-	dp_link->get_voltage_swing      = dp_link_get_voltage_swing;
 	dp_link->get_test_bits_depth    = dp_link_get_test_bits_depth;
-	dp_link->get_pre_emphasis       = dp_link_get_pre_emphasis;
 	dp_link->get_colorimetry_config = dp_link_get_colorimetry_config;
-	dp_link->clock_recovery         = dp_link_clock_recovery;
-	dp_link->channel_equalization   = dp_link_channel_equalization;
 	dp_link->adjust_levels          = dp_link_adjust_levels;
 	dp_link->send_psm_request       = dp_link_send_psm_request;
 	dp_link->phy_pattern_requested  = dp_link_phy_pattern_requested;
