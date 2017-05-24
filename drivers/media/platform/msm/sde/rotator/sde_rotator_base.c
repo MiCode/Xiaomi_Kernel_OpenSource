@@ -227,9 +227,10 @@ void sde_mdp_set_ot_limit(struct sde_mdp_set_ot_params *params)
 {
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	u32 ot_lim;
-	u32 reg_off_vbif_lim_conf = (params->xin_id / 4) * 4 +
-		params->reg_off_vbif_lim_conf;
-	u32 bit_off_vbif_lim_conf = (params->xin_id % 4) * 8;
+	u32 reg_off_vbif_lim_conf = ((params->xin_id / mdata->npriority_lvl)
+					* mdata->npriority_lvl)
+					+ params->reg_off_vbif_lim_conf;
+	u32 bit_off_vbif_lim_conf = (params->xin_id % mdata->npriority_lvl) * 8;
 	u32 reg_val;
 	u32 sts;
 	bool forced_on;
