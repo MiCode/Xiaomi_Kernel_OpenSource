@@ -3969,6 +3969,9 @@ static ssize_t icnss_regread_write(struct file *fp, const char __user *user_buf,
 	    data_len > QMI_WLFW_MAX_DATA_SIZE_V01)
 		return -EINVAL;
 
+	kfree(priv->diag_reg_read_buf);
+	priv->diag_reg_read_buf = NULL;
+
 	reg_buf = kzalloc(data_len, GFP_KERNEL);
 	if (!reg_buf)
 		return -ENOMEM;
