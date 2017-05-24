@@ -2136,7 +2136,13 @@ static void _sde_crtc_vblank_enable_nolock(
 	dev = crtc->dev;
 
 	if (enable) {
-		if (_sde_crtc_power_enable(sde_crtc, true))
+		int ret;
+
+		/* drop lock since power crtc cb may try to re-acquire lock */
+		mutex_unlock(&sde_crtc->crtc_lock);
+		ret = _sde_crtc_power_enable(sde_crtc, true);
+		mutex_lock(&sde_crtc->crtc_lock);
+		if (ret)
 			return;
 
 		list_for_each_entry(enc, &dev->mode_config.encoder_list, head) {
@@ -2157,7 +2163,11 @@ static void _sde_crtc_vblank_enable_nolock(
 
 			sde_encoder_register_vblank_callback(enc, NULL, NULL);
 		}
+
+		/* drop lock since power crtc cb may try to re-acquire lock */
+		mutex_unlock(&sde_crtc->crtc_lock);
 		_sde_crtc_power_enable(sde_crtc, false);
+		mutex_lock(&sde_crtc->crtc_lock);
 	}
 }
 
