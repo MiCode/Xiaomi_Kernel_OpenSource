@@ -1007,6 +1007,7 @@ static inline void a6xx_gpu_keepalive(struct adreno_device *adreno_dev,
 #define SPTPRAC_POWEROFF_STATUS_MASK	BIT(2)
 #define SPTPRAC_POWERON_STATUS_MASK	BIT(3)
 #define SPTPRAC_CTRL_TIMEOUT		10 /* ms */
+#define A6XX_RETAIN_FF_ENABLE_ENABLE_MASK BIT(11)
 
 /*
  * a6xx_sptprac_enable() - Power on SPTPRAC
@@ -1046,6 +1047,10 @@ static void a6xx_sptprac_disable(struct adreno_device *adreno_dev)
 
 	if (!gmu->pdev)
 		return;
+
+	/* Ensure that retention is on */
+	kgsl_gmu_regrmw(device, A6XX_GPU_CC_GX_GDSCR, 0,
+			A6XX_RETAIN_FF_ENABLE_ENABLE_MASK);
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_GX_SPTPRAC_POWER_CONTROL,
 			SPTPRAC_POWEROFF_CTRL_MASK);
@@ -1100,6 +1105,10 @@ static int a6xx_hm_disable(struct adreno_device *adreno_dev)
 
 	if (!regulator_is_enabled(gmu->gx_gdsc))
 		return 0;
+
+	/* Ensure that retention is on */
+	kgsl_gmu_regrmw(device, A6XX_GPU_CC_GX_GDSCR, 0,
+			A6XX_RETAIN_FF_ENABLE_ENABLE_MASK);
 
 	clk_disable_unprepare(pwr->grp_clks[0]);
 

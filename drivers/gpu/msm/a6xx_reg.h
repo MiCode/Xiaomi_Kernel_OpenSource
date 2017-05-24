@@ -860,6 +860,9 @@
 #define A6XX_GMU_AHB_FENCE_RANGE_0		0x23B11
 #define A6XX_GMU_AHB_FENCE_RANGE_1		0x23B12
 
+/* GPUCC registers */
+#define A6XX_GPU_CC_GX_GDSCR                   0x24403
+
 /* GPU RSC sequencer registers */
 #define	A6XX_RSCC_PDC_SEQ_START_ADDR			0x23408
 #define A6XX_RSCC_PDC_MATCH_VALUE_LO			0x23409
