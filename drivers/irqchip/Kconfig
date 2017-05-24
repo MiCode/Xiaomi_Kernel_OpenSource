@@ -299,3 +299,5 @@ config EZNPS_GIC
 config STM32_EXTI
 	bool
 	select IRQ_DOMAIN
+
+source "drivers/irqchip/qcom/Kconfig"
