@@ -35,6 +35,7 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&ntn_rst_gpio_default>;
 		ntn-rst-gpio = <&tlmm_pinmux 30 1>;
+		ntn-phy-id = <7>;
 	};
 
 };
