@@ -360,10 +360,6 @@ drop_data:
 		err = copy_to_user(buf + sizeof(int),
 				(void *)&num_data,
 				sizeof(int));
-	} else {
-		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
-			"diag: md_session_map[%d] with pid = %d Exited..\n",
-			peripheral, driver->md_session_map[peripheral]->pid);
 	}
 	diag_ws_on_copy_complete(DIAG_WS_MUX);
 	if (drain_again)
