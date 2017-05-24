@@ -80,7 +80,17 @@ enum sde_qos_settings {
 	SDE_QOS_PER_PIPE_LUT,
 	SDE_QOS_SIMPLIFIED_PREFILL,
 	SDE_QOS_VBLANK_PANIC_CTRL,
+	SDE_QOS_LUT,
+	SDE_QOS_DANGER_LUT,
+	SDE_QOS_SAFE_LUT,
 	SDE_QOS_MAX,
+};
+
+enum sde_inline_qos_settings {
+	SDE_INLINE_QOS_LUT,
+	SDE_INLINE_QOS_DANGER_LUT,
+	SDE_INLINE_QOS_SAFE_LUT,
+	SDE_INLINE_QOS_MAX,
 };
 
 /**
@@ -174,6 +184,13 @@ struct sde_rot_regdump {
 	enum sde_rot_regdump_access access;
 };
 
+struct sde_rot_lut_cfg {
+	u32 creq_lut_0;
+	u32 creq_lut_1;
+	u32 danger_lut;
+	u32 safe_lut;
+};
+
 struct sde_rot_data_type {
 	u32 mdss_version;
 
@@ -186,6 +203,7 @@ struct sde_rot_data_type {
 
 	/* bitmap to track qos applicable settings */
 	DECLARE_BITMAP(sde_qos_map, SDE_QOS_MAX);
+	DECLARE_BITMAP(sde_inline_qos_map, SDE_QOS_MAX);
 
 	/* bitmap to track capability settings */
 	DECLARE_BITMAP(sde_caps_map, SDE_CAPS_MAX);
@@ -220,6 +238,9 @@ struct sde_rot_data_type {
 	int sec_cam_en;
 
 	u32 enable_cdp[SDE_ROT_OP_MAX];
+
+	struct sde_rot_lut_cfg lut_cfg[SDE_ROT_OP_MAX];
+	struct sde_rot_lut_cfg inline_lut_cfg[SDE_ROT_OP_MAX];
 
 	struct ion_client *iclient;
 

@@ -445,6 +445,111 @@ end:
 	clear_bit(SDE_QOS_CDP, mdata->sde_qos_map);
 }
 
+static void sde_mdp_parse_rot_lut_setting(struct platform_device *pdev,
+		struct sde_rot_data_type *mdata)
+{
+	int rc;
+	u32 len, data[4];
+
+	len = sde_mdp_parse_dt_prop_len(pdev, "qcom,mdss-rot-qos-lut");
+	if (len == 4) {
+		rc = sde_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-rot-qos-lut", data, len);
+		if (!rc) {
+			mdata->lut_cfg[SDE_ROT_RD].creq_lut_0 = data[0];
+			mdata->lut_cfg[SDE_ROT_RD].creq_lut_1 = data[1];
+			mdata->lut_cfg[SDE_ROT_WR].creq_lut_0 = data[2];
+			mdata->lut_cfg[SDE_ROT_WR].creq_lut_1 = data[3];
+			set_bit(SDE_QOS_LUT, mdata->sde_qos_map);
+		} else {
+			SDEROT_DBG("qos lut setting not found\n");
+		}
+	}
+
+	len = sde_mdp_parse_dt_prop_len(pdev, "qcom,mdss-rot-danger-lut");
+	if (len == SDE_ROT_OP_MAX) {
+		rc = sde_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-rot-danger-lut", data, len);
+		if (!rc) {
+			mdata->lut_cfg[SDE_ROT_RD].danger_lut
+							= data[SDE_ROT_RD];
+			mdata->lut_cfg[SDE_ROT_WR].danger_lut
+							= data[SDE_ROT_WR];
+			set_bit(SDE_QOS_DANGER_LUT, mdata->sde_qos_map);
+		} else {
+			SDEROT_DBG("danger lut setting not found\n");
+		}
+	}
+
+	len = sde_mdp_parse_dt_prop_len(pdev, "qcom,mdss-rot-safe-lut");
+	if (len == SDE_ROT_OP_MAX) {
+		rc = sde_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-rot-safe-lut", data, len);
+		if (!rc) {
+			mdata->lut_cfg[SDE_ROT_RD].safe_lut = data[SDE_ROT_RD];
+			mdata->lut_cfg[SDE_ROT_WR].safe_lut = data[SDE_ROT_WR];
+			set_bit(SDE_QOS_SAFE_LUT, mdata->sde_qos_map);
+		} else {
+			SDEROT_DBG("safe lut setting not found\n");
+		}
+	}
+}
+
+static void sde_mdp_parse_inline_rot_lut_setting(struct platform_device *pdev,
+		struct sde_rot_data_type *mdata)
+{
+	int rc;
+	u32 len, data[4];
+
+	len = sde_mdp_parse_dt_prop_len(pdev, "qcom,mdss-inline-rot-qos-lut");
+	if (len == 4) {
+		rc = sde_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-inline-rot-qos-lut", data, len);
+		if (!rc) {
+			mdata->inline_lut_cfg[SDE_ROT_RD].creq_lut_0 = data[0];
+			mdata->inline_lut_cfg[SDE_ROT_RD].creq_lut_1 = data[1];
+			mdata->inline_lut_cfg[SDE_ROT_WR].creq_lut_0 = data[2];
+			mdata->inline_lut_cfg[SDE_ROT_WR].creq_lut_1 = data[3];
+			set_bit(SDE_INLINE_QOS_LUT, mdata->sde_inline_qos_map);
+		} else {
+			SDEROT_DBG("inline qos lut setting not found\n");
+		}
+	}
+
+	len = sde_mdp_parse_dt_prop_len(pdev,
+				"qcom,mdss-inline-rot-danger-lut");
+	if (len == SDE_ROT_OP_MAX) {
+		rc = sde_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-inline-rot-danger-lut", data, len);
+		if (!rc) {
+			mdata->inline_lut_cfg[SDE_ROT_RD].danger_lut
+							= data[SDE_ROT_RD];
+			mdata->inline_lut_cfg[SDE_ROT_WR].danger_lut
+							= data[SDE_ROT_WR];
+			set_bit(SDE_INLINE_QOS_DANGER_LUT,
+					mdata->sde_inline_qos_map);
+		} else {
+			SDEROT_DBG("inline danger lut setting not found\n");
+		}
+	}
+
+	len = sde_mdp_parse_dt_prop_len(pdev, "qcom,mdss-inline-rot-safe-lut");
+	if (len == SDE_ROT_OP_MAX) {
+		rc = sde_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-inline-rot-safe-lut", data, len);
+		if (!rc) {
+			mdata->inline_lut_cfg[SDE_ROT_RD].safe_lut
+							= data[SDE_ROT_RD];
+			mdata->inline_lut_cfg[SDE_ROT_WR].safe_lut
+							= data[SDE_ROT_WR];
+			set_bit(SDE_INLINE_QOS_SAFE_LUT,
+					mdata->sde_inline_qos_map);
+		} else {
+			SDEROT_DBG("inline safe lut setting not found\n");
+		}
+	}
+}
+
 static int sde_mdp_parse_dt_misc(struct platform_device *pdev,
 		struct sde_rot_data_type *mdata)
 {
@@ -472,6 +577,10 @@ static int sde_mdp_parse_dt_misc(struct platform_device *pdev,
 	sde_mdp_parse_cdp_setting(pdev, mdata);
 
 	sde_mdp_parse_vbif_qos(pdev, mdata);
+
+	sde_mdp_parse_rot_lut_setting(pdev, mdata);
+
+	sde_mdp_parse_inline_rot_lut_setting(pdev, mdata);
 
 	mdata->mdp_base = mdata->sde_io.base + SDE_MDP_OFFSET;
 

@@ -85,6 +85,28 @@ Optional properties
 				prefetch is available or not. Index 0 represents
 				if CDP is enabled for read and index 1, if CDP
 				is enabled for write operation.
+- qcom,mdss-rot-qos-lut		A 4 cell property with the format of <rd_lut_0,
+				rd_lut_1, wr_lut_0, wr_lut_1> indicating the qos
+				lut settings for the rotator sspp and writeback
+				client.
+- qcom,mdss-rot-danger-lut	A two cell property with the format of <rd_lut,
+				wr_lut> indicating the danger lut settings for
+				the rotator sspp and writeback client.
+- qcom,mdss-rot-safe-lut	A two cell property with the format of <rd_lut,
+				wr_lut> indicating the safe lut settings for the
+				rotator sspp and writeback client.
+- qcom,mdss-inline-rot-qos-lut:	A 4 cell property with the format of <rd_lut_0,
+				rd_lut_1, wr_lut_0, wr_lut_1> indicating the qos
+				lut settings for the inline rotator sspp and
+				writeback client.
+- qcom,mdss-inline-rot-danger-lut: A two cell property with the format of
+				<rd_lut, wr_lut> indicating the danger lut
+				settings for the inline rotator sspp and
+				writeback client.
+- qcom,mdss-inline-rot-safe-lut: A two cell property with the format of
+				<rd_lut, wr_lut> indicating the safe lut
+				settings for the inline rotator sspp and
+				writeback client.
 - qcom,mdss-rot-mode:		This is integer value indicates operation mode
 				of the rotator device
 - qcom,mdss-sbuf-headroom:	This integer value indicates stream buffer headroom in lines.
@@ -154,6 +176,14 @@ Example:
 
 		qcom,mdss-default-ot-rd-limit = <8>;
 		qcom,mdss-default-ot-wr-limit = <16>;
+
+		qcom,mdss-rot-qos-lut = <0x0 0x0 0x0 0x0>;
+		qcom,mdss-rot-danger-lut = <0x0 0x0>;
+		qcom,mdss-rot-safe-lut = <0x0000ffff 0x0>;
+
+		qcom,mdss-inline-rot-qos-lut = <0x0 0x0 0x00112233 0x44556677>;
+		qcom,mdss-inline-rot-danger-lut = <0x0 0x0000ffff>;
+		qcom,mdss-inline-rot-safe-lut = <0x0 0x0000ff00>;
 
 		qcom,mdss-sbuf-headroom = <20>;
 		cache-slice-names = "rotator";

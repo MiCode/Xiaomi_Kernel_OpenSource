@@ -906,6 +906,122 @@ end:
 }
 
 /*
+ * sde_hw_rotator_setup_qos_lut_wr - Set QoS LUT/Danger LUT/Safe LUT configs
+ * for the WRITEBACK rotator for inline and offline rotation.
+ *
+ * @ctx: Pointer to rotator context
+ */
+static void sde_hw_rotator_setup_qos_lut_wr(struct sde_hw_rotator_context *ctx)
+{
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+	u32 *wrptr = sde_hw_rotator_get_regdma_segment(ctx);
+
+	/* Offline rotation setting */
+	if (!ctx->sbuf_mode) {
+		/* QOS LUT WR setting */
+		if (test_bit(SDE_QOS_LUT, mdata->sde_qos_map)) {
+			SDE_REGDMA_WRITE(wrptr, ROT_WB_CREQ_LUT_0,
+					mdata->lut_cfg[SDE_ROT_WR].creq_lut_0);
+			SDE_REGDMA_WRITE(wrptr, ROT_WB_CREQ_LUT_1,
+					mdata->lut_cfg[SDE_ROT_WR].creq_lut_1);
+		}
+
+		/* Danger LUT WR setting */
+		if (test_bit(SDE_QOS_DANGER_LUT, mdata->sde_qos_map))
+			SDE_REGDMA_WRITE(wrptr, ROT_WB_DANGER_LUT,
+					mdata->lut_cfg[SDE_ROT_WR].danger_lut);
+
+		/* Safe LUT WR setting */
+		if (test_bit(SDE_QOS_SAFE_LUT, mdata->sde_qos_map))
+			SDE_REGDMA_WRITE(wrptr, ROT_WB_SAFE_LUT,
+					mdata->lut_cfg[SDE_ROT_WR].safe_lut);
+
+	/* Inline rotation setting */
+	} else {
+		/* QOS LUT WR setting */
+		if (test_bit(SDE_INLINE_QOS_LUT, mdata->sde_inline_qos_map)) {
+			SDE_REGDMA_WRITE(wrptr, ROT_WB_CREQ_LUT_0,
+				mdata->inline_lut_cfg[SDE_ROT_WR].creq_lut_0);
+			SDE_REGDMA_WRITE(wrptr, ROT_WB_CREQ_LUT_1,
+				mdata->inline_lut_cfg[SDE_ROT_WR].creq_lut_1);
+		}
+
+		/* Danger LUT WR setting */
+		if (test_bit(SDE_INLINE_QOS_DANGER_LUT,
+					mdata->sde_inline_qos_map))
+			SDE_REGDMA_WRITE(wrptr, ROT_WB_DANGER_LUT,
+				mdata->inline_lut_cfg[SDE_ROT_WR].danger_lut);
+
+		/* Safe LUT WR setting */
+		if (test_bit(SDE_INLINE_QOS_SAFE_LUT,
+					mdata->sde_inline_qos_map))
+			SDE_REGDMA_WRITE(wrptr, ROT_WB_SAFE_LUT,
+				mdata->inline_lut_cfg[SDE_ROT_WR].safe_lut);
+	}
+
+	/* Update command queue write ptr */
+	sde_hw_rotator_put_regdma_segment(ctx, wrptr);
+}
+
+/*
+ * sde_hw_rotator_setup_qos_lut_rd - Set QoS LUT/Danger LUT/Safe LUT configs
+ * for the SSPP rotator for inline and offline rotation.
+ *
+ * @ctx: Pointer to rotator context
+ */
+static void sde_hw_rotator_setup_qos_lut_rd(struct sde_hw_rotator_context *ctx)
+{
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+	u32 *wrptr = sde_hw_rotator_get_regdma_segment(ctx);
+
+	/* Offline rotation setting */
+	if (!ctx->sbuf_mode) {
+		/* QOS LUT RD setting */
+		if (test_bit(SDE_QOS_LUT, mdata->sde_qos_map)) {
+			SDE_REGDMA_WRITE(wrptr, ROT_SSPP_CREQ_LUT_0,
+					mdata->lut_cfg[SDE_ROT_RD].creq_lut_0);
+			SDE_REGDMA_WRITE(wrptr, ROT_SSPP_CREQ_LUT_1,
+					mdata->lut_cfg[SDE_ROT_RD].creq_lut_1);
+		}
+
+		/* Danger LUT RD setting */
+		if (test_bit(SDE_QOS_DANGER_LUT, mdata->sde_qos_map))
+			SDE_REGDMA_WRITE(wrptr, ROT_SSPP_DANGER_LUT,
+					mdata->lut_cfg[SDE_ROT_RD].danger_lut);
+
+		/* Safe LUT RD setting */
+		if (test_bit(SDE_QOS_SAFE_LUT, mdata->sde_qos_map))
+			SDE_REGDMA_WRITE(wrptr, ROT_SSPP_SAFE_LUT,
+					mdata->lut_cfg[SDE_ROT_RD].safe_lut);
+
+	/* inline rotation setting */
+	} else {
+		/* QOS LUT RD setting */
+		if (test_bit(SDE_INLINE_QOS_LUT, mdata->sde_inline_qos_map)) {
+			SDE_REGDMA_WRITE(wrptr, ROT_SSPP_CREQ_LUT_0,
+				mdata->inline_lut_cfg[SDE_ROT_RD].creq_lut_0);
+			SDE_REGDMA_WRITE(wrptr, ROT_SSPP_CREQ_LUT_1,
+				mdata->inline_lut_cfg[SDE_ROT_RD].creq_lut_1);
+		}
+
+		/* Danger LUT RD setting */
+		if (test_bit(SDE_INLINE_QOS_DANGER_LUT,
+					mdata->sde_inline_qos_map))
+			SDE_REGDMA_WRITE(wrptr, ROT_SSPP_DANGER_LUT,
+				mdata->inline_lut_cfg[SDE_ROT_RD].danger_lut);
+
+		/* Safe LUT RD setting */
+		if (test_bit(SDE_INLINE_QOS_SAFE_LUT,
+					mdata->sde_inline_qos_map))
+			SDE_REGDMA_WRITE(wrptr, ROT_SSPP_SAFE_LUT,
+				mdata->inline_lut_cfg[SDE_ROT_RD].safe_lut);
+	}
+
+	/* Update command queue write ptr */
+	sde_hw_rotator_put_regdma_segment(ctx, wrptr);
+}
+
+/*
  * sde_hw_rotator_setup_fetchengine - setup fetch engine
  * @ctx: Pointer to rotator context
  * @queue_id: Priority queue identifier
@@ -1096,6 +1212,7 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 		ctx->is_secure = false;
 	}
 
+	/* Update command queue write ptr */
 	sde_hw_rotator_put_regdma_segment(ctx, wrptr);
 
 	/* CDP register RD setting */
@@ -1105,6 +1222,9 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 	cdp_params.offset = ROT_SSPP_CDP_CNTL;
 	sde_hw_rotator_cdp_configs(ctx, &cdp_params);
 
+	/* QOS LUT/ Danger LUT/ Safe Lut WR setting */
+	sde_hw_rotator_setup_qos_lut_rd(ctx);
+
 	wrptr = sde_hw_rotator_get_regdma_segment(ctx);
 
 	/*
@@ -1112,8 +1232,9 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 	 * shaping when content is 4k@30fps. The actual traffic shaping
 	 * bandwidth calculation is done in output setup.
 	 */
-	if (((cfg->src_rect->w * cfg->src_rect->h) >= RES_UHD) &&
-			(cfg->fps <= 30)) {
+	if (((!ctx->sbuf_mode)
+			&& (cfg->src_rect->w * cfg->src_rect->h) >= RES_UHD)
+			&& (cfg->fps <= 30)) {
 		SDEROT_DBG("Enable Traffic Shaper\n");
 		ctx->is_traffic_shaping = true;
 	} else {
@@ -1252,10 +1373,14 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 	cdp_params.offset = ROT_WB_CDP_CNTL;
 	sde_hw_rotator_cdp_configs(ctx, &cdp_params);
 
+	/* QOS LUT/ Danger LUT/ Safe LUT WR setting */
+	sde_hw_rotator_setup_qos_lut_wr(ctx);
+
 	wrptr = sde_hw_rotator_get_regdma_segment(ctx);
 
 	/* setup traffic shaper for 4k 30fps content or if prefill_bw is set */
-	if (ctx->is_traffic_shaping || cfg->prefill_bw) {
+	if (!ctx->sbuf_mode &&
+			(ctx->is_traffic_shaping || cfg->prefill_bw)) {
 		u32 bw;
 
 		/*
