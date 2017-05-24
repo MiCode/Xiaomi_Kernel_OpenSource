@@ -54,21 +54,10 @@ static void adreno_get_submit_time(struct adreno_device *adreno_dev,
 
 	/* Read always on registers */
 	if (!adreno_is_a3xx(adreno_dev)) {
-		if (kgsl_gmu_isenabled(KGSL_DEVICE(adreno_dev))) {
-			uint32_t val_lo, val_hi;
-
-			adreno_read_gmureg(adreno_dev,
-				ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO, &val_lo);
-			adreno_read_gmureg(adreno_dev,
-				ADRENO_REG_RBBM_ALWAYSON_COUNTER_HI, &val_hi);
-
-			time->ticks = (val_lo | ((uint64_t)val_hi << 32));
-		} else {
-			adreno_readreg64(adreno_dev,
-				ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO,
-				ADRENO_REG_RBBM_ALWAYSON_COUNTER_HI,
-				&time->ticks);
-		}
+		adreno_readreg64(adreno_dev,
+			ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO,
+			ADRENO_REG_RBBM_ALWAYSON_COUNTER_HI,
+			&time->ticks);
 
 		/* Mask hi bits as they may be incorrect on some targets */
 		if (ADRENO_GPUREV(adreno_dev) >= 400 &&

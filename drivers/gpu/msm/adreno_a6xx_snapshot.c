@@ -1264,59 +1264,14 @@ static void a6xx_snapshot_debugbus(struct kgsl_device *device,
 	}
 }
 
-static size_t a6xx_snapshot_dump_gmu_registers(struct kgsl_device *device,
-		u8 *buf, size_t remain, void *priv)
-{
-	struct kgsl_snapshot_regs *header = (struct kgsl_snapshot_regs *)buf;
-	struct kgsl_snapshot_registers *regs = priv;
-	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
-	int count = 0, j, k;
-
-	/* Figure out how many registers we are going to dump */
-	for (j = 0; j < regs->count; j++) {
-		int start = regs->regs[j * 2];
-		int end = regs->regs[j * 2 + 1];
-
-		count += (end - start + 1);
-	}
-
-	if (remain < (count * 8) + sizeof(*header)) {
-		SNAPSHOT_ERR_NOMEM(device, "REGISTERS");
-		return 0;
-	}
-
-	for (j = 0; j < regs->count; j++) {
-		unsigned int start = regs->regs[j * 2];
-		unsigned int end = regs->regs[j * 2 + 1];
-
-		for (k = start; k <= end; k++) {
-			unsigned int val;
-
-			kgsl_gmu_regread(device, k, &val);
-			*data++ = k;
-			*data++ = val;
-		}
-	}
-
-	header->count = count;
-
-	/* Return the size of the section */
-	return (count * 8) + sizeof(*header);
-}
-
 static void a6xx_snapshot_gmu(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot)
 {
-	struct kgsl_snapshot_registers gmu_regs = {
-		.regs = a6xx_gmu_registers,
-		.count = ARRAY_SIZE(a6xx_gmu_registers) / 2,
-	};
-
 	if (!kgsl_gmu_isenabled(device))
 		return;
 
-	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
-			snapshot, a6xx_snapshot_dump_gmu_registers, &gmu_regs);
+	adreno_snapshot_registers(device, snapshot, a6xx_gmu_registers,
+					ARRAY_SIZE(a6xx_gmu_registers) / 2);
 }
 
 /* a6xx_snapshot_sqe() - Dump SQE data in snapshot */
