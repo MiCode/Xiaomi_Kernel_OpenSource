@@ -437,6 +437,12 @@ int dp_drm_bridge_init(void *data, struct drm_encoder *encoder)
 		goto error_free_bridge;
 	}
 
+	rc = display->request_irq(display);
+	if (rc) {
+		pr_err("request_irq failed, rc=%d\n", rc);
+		goto error_free_bridge;
+	}
+
 	encoder->bridge = &bridge->base;
 	priv->bridges[priv->num_bridges++] = &bridge->base;
 	display->bridge = bridge;

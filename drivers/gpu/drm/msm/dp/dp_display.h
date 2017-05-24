@@ -45,6 +45,7 @@ struct dp_display {
 
 	int (*prepare)(struct dp_display *dp_display);
 	int (*unprepare)(struct dp_display *dp_display);
+	int (*request_irq)(struct dp_display *dp_display);
 };
 
 int dp_display_get_num_of_displays(void);

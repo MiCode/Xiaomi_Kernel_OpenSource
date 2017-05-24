@@ -1318,9 +1318,8 @@ end:
 	return rc;
 }
 
-static void dp_ctrl_isr(struct dp_ctrl *dp_ctrl, u32 irq)
+static void dp_ctrl_isr(struct dp_ctrl *dp_ctrl)
 {
-	u32 isr;
 	struct dp_ctrl_private *ctrl;
 
 	if (!dp_ctrl)
@@ -1328,12 +1327,12 @@ static void dp_ctrl_isr(struct dp_ctrl *dp_ctrl, u32 irq)
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
-	isr = ctrl->catalog->get_interrupt(ctrl->catalog);
+	ctrl->catalog->get_interrupt(ctrl->catalog);
 
-	if (isr & DP_CTRL_INTR_READY_FOR_VIDEO)
+	if (ctrl->catalog->isr & DP_CTRL_INTR_READY_FOR_VIDEO)
 		dp_ctrl_video_ready(ctrl);
 
-	if (isr & DP_CTRL_INTR_IDLE_PATTERN_SENT)
+	if (ctrl->catalog->isr & DP_CTRL_INTR_IDLE_PATTERN_SENT)
 		dp_ctrl_idle_patterns_sent(ctrl);
 }
 

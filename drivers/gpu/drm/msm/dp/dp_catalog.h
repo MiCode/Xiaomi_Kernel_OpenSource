@@ -36,8 +36,7 @@
 
 struct dp_catalog_aux {
 	u32 data;
-	u32 isr1;
-	u32 isr2;
+	u32 isr;
 
 	u32 (*read_data)(struct dp_catalog_aux *aux);
 	int (*write_data)(struct dp_catalog_aux *aux);
@@ -45,13 +44,14 @@ struct dp_catalog_aux {
 	void (*reset)(struct dp_catalog_aux *aux);
 	void (*enable)(struct dp_catalog_aux *aux, bool enable);
 	void (*setup)(struct dp_catalog_aux *aux, u32 *aux_cfg);
-	void (*get_irq)(struct dp_catalog_aux *aux);
+	void (*get_irq)(struct dp_catalog_aux *aux, bool cmd_busy);
 };
 
 struct dp_catalog_ctrl {
 	u32 dp_tu;
 	u32 valid_boundary;
 	u32 valid_boundary2;
+	u32 isr;
 
 	void (*state_ctrl)(struct dp_catalog_ctrl *ctrl, u32 state);
 	void (*config_ctrl)(struct dp_catalog_ctrl *ctrl, u32 config);
@@ -69,7 +69,7 @@ struct dp_catalog_ctrl {
 				u8 lane_cnt);
 	void (*update_vx_px)(struct dp_catalog_ctrl *ctrl, u8 v_level,
 				u8 p_level);
-	u32 (*get_interrupt)(struct dp_catalog_ctrl *ctrl);
+	void (*get_interrupt)(struct dp_catalog_ctrl *ctrl);
 	void (*update_transfer_unit)(struct dp_catalog_ctrl *ctrl);
 };
 
