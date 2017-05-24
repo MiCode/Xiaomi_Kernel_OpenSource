@@ -203,11 +203,43 @@ struct sde_encoder_virt {
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
 
-inline bool _sde_is_dsc_enabled(struct sde_encoder_virt *sde_enc)
+bool sde_encoder_is_dsc_enabled(struct drm_encoder *drm_enc)
+
 {
-	struct msm_compression_info *comp_info = &sde_enc->disp_info.comp_info;
+	struct sde_encoder_virt *sde_enc;
+	struct msm_compression_info *comp_info;
+
+	if (!drm_enc)
+		return false;
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	comp_info = &sde_enc->disp_info.comp_info;
 
 	return (comp_info->comp_type == MSM_DISPLAY_COMPRESSION_DSC);
+}
+
+bool sde_encoder_is_dsc_merge(struct drm_encoder *drm_enc)
+{
+	enum sde_rm_topology_name topology;
+	struct sde_encoder_virt *sde_enc;
+	struct drm_connector *drm_conn;
+
+	if (!drm_enc)
+		return false;
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	if (!sde_enc->cur_master)
+		return false;
+
+	drm_conn = sde_enc->cur_master->connector;
+	if (!drm_conn)
+		return false;
+
+	topology = sde_connector_get_topology_name(drm_conn);
+	if (topology == SDE_RM_TOPOLOGY_DUALPIPE_DSCMERGE)
+		return true;
+
+	return false;
 }
 
 static inline int _sde_encoder_power_enable(struct sde_encoder_virt *sde_enc,
@@ -727,7 +759,8 @@ static int _sde_encoder_dsc_2_lm_2_enc_2_intf(struct sde_encoder_virt *sde_enc,
 	return 0;
 }
 
-static int _sde_encoder_dsc_2_lm_2_enc_1_intf(struct sde_encoder_virt *sde_enc)
+static int _sde_encoder_dsc_2_lm_2_enc_1_intf(struct sde_encoder_virt *sde_enc,
+		struct sde_encoder_kickoff_params *params)
 {
 	int this_frame_slices;
 	int intf_ip_w, enc_ip_w;
@@ -735,18 +768,31 @@ static int _sde_encoder_dsc_2_lm_2_enc_1_intf(struct sde_encoder_virt *sde_enc)
 
 	struct sde_encoder_phys *enc_master = sde_enc->cur_master;
 	const struct sde_rect *roi = &sde_enc->cur_conn_roi;
-	struct sde_hw_dsc *l_hw_dsc = sde_enc->hw_dsc[0];
-	struct sde_hw_dsc *r_hw_dsc = sde_enc->hw_dsc[1];
-	struct sde_hw_pingpong *l_hw_pp = sde_enc->hw_pp[0];
-	struct sde_hw_pingpong *r_hw_pp = sde_enc->hw_pp[1];
+	struct sde_hw_dsc *hw_dsc[MAX_CHANNELS_PER_ENC];
+	struct sde_hw_pingpong *hw_pp[MAX_CHANNELS_PER_ENC];
 	struct msm_display_dsc_info *dsc =
 		&sde_enc->disp_info.comp_info.dsc_info;
+	bool half_panel_partial_update;
+	int i;
 
-	if (l_hw_dsc == NULL || r_hw_dsc == NULL || l_hw_pp == NULL ||
-			r_hw_pp == NULL) {
-		SDE_ERROR_ENC(sde_enc, "invalid params for DSC\n");
-		return -EINVAL;
+	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
+		hw_pp[i] = sde_enc->hw_pp[i];
+		hw_dsc[i] = sde_enc->hw_dsc[i];
+
+		if (!hw_pp[i] || !hw_dsc[i]) {
+			SDE_ERROR_ENC(sde_enc, "invalid params for DSC\n");
+			return -EINVAL;
+		}
 	}
+
+	half_panel_partial_update =
+			hweight_long(params->affected_displays) == 1;
+
+	dsc_common_mode = 0;
+	if (!half_panel_partial_update)
+		dsc_common_mode |= DSC_MODE_SPLIT_PANEL | DSC_MODE_MULTIPLEX;
+	if (enc_master->intf_mode == INTF_MODE_VIDEO)
+		dsc_common_mode |= DSC_MODE_VIDEO;
 
 	_sde_encoder_dsc_update_pic_dim(dsc, roi->w, roi->h);
 
@@ -755,26 +801,24 @@ static int _sde_encoder_dsc_2_lm_2_enc_1_intf(struct sde_encoder_virt *sde_enc)
 	_sde_encoder_dsc_pclk_param_calc(dsc, intf_ip_w);
 
 	/*
-	 * when using 2 encoders for the same stream, no. of slices
-	 * need to be same on both the encoders.
+	 * dsc merge case: when using 2 encoders for the same stream,
+	 * no. of slices need to be same on both the encoders.
 	 */
 	enc_ip_w = intf_ip_w / 2;
 	_sde_encoder_dsc_initial_line_calc(dsc, enc_ip_w);
 
-	ich_res = _sde_encoder_dsc_ich_reset_override_needed(false, dsc);
-
-	dsc_common_mode = DSC_MODE_MULTIPLEX | DSC_MODE_SPLIT_PANEL;
-	if (enc_master->intf_mode == INTF_MODE_VIDEO)
-		dsc_common_mode |= DSC_MODE_VIDEO;
+	ich_res = _sde_encoder_dsc_ich_reset_override_needed(
+			half_panel_partial_update, dsc);
 
 	SDE_DEBUG_ENC(sde_enc, "pic_w: %d pic_h: %d mode:%d\n",
 			roi->w, roi->h, dsc_common_mode);
-	SDE_EVT32(DRMID(&sde_enc->base), roi->w, roi->h, dsc_common_mode);
+	SDE_EVT32(DRMID(&sde_enc->base), roi->w, roi->h,
+			dsc_common_mode, i, params->affected_displays);
 
-	_sde_encoder_dsc_pipe_cfg(l_hw_dsc, l_hw_pp, dsc, dsc_common_mode,
+	_sde_encoder_dsc_pipe_cfg(hw_dsc[0], hw_pp[0], dsc, dsc_common_mode,
 			ich_res, true);
-	_sde_encoder_dsc_pipe_cfg(r_hw_dsc, r_hw_pp, dsc, dsc_common_mode,
-			ich_res, true);
+	_sde_encoder_dsc_pipe_cfg(hw_dsc[1], hw_pp[1], dsc, dsc_common_mode,
+			ich_res, !half_panel_partial_update);
 
 	return 0;
 }
@@ -840,7 +884,7 @@ static int _sde_encoder_dsc_setup(struct sde_encoder_virt *sde_enc,
 		ret = _sde_encoder_dsc_1_lm_1_enc_1_intf(sde_enc);
 		break;
 	case SDE_RM_TOPOLOGY_DUALPIPE_DSCMERGE:
-		ret = _sde_encoder_dsc_2_lm_2_enc_1_intf(sde_enc);
+		ret = _sde_encoder_dsc_2_lm_2_enc_1_intf(sde_enc, params);
 		break;
 	case SDE_RM_TOPOLOGY_DUALPIPE_DSC:
 		ret = _sde_encoder_dsc_2_lm_2_enc_2_intf(sde_enc, params);
@@ -1987,7 +2031,7 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 					rc);
 	}
 
-	if (_sde_is_dsc_enabled(sde_enc)) {
+	if (sde_encoder_is_dsc_enabled(drm_enc)) {
 		rc = _sde_encoder_dsc_setup(sde_enc, params);
 		if (rc)
 			SDE_ERROR_ENC(sde_enc, "failed to setup DSC: %d\n", rc);
