@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -179,6 +179,36 @@ TRACE_EVENT(sde_evtlog,
 	TP_printk("%d|%s:%d|%llu|%llu", __entry->pid, __get_str(evtlog_tag),
 			__entry->tag_id, __entry->value1, __entry->value2)
 )
+
+TRACE_EVENT(sde_perf_crtc_update,
+	TP_PROTO(u32 crtc, u64 bw_ctl, u32 core_clk_rate,
+		bool stop_req, u32 update_bus, u32 update_clk),
+	TP_ARGS(crtc, bw_ctl, core_clk_rate,
+		stop_req, update_bus, update_clk),
+	TP_STRUCT__entry(
+			__field(u32, crtc)
+			__field(u64, bw_ctl)
+			__field(u32, core_clk_rate)
+			__field(bool, stop_req)
+			__field(u32, update_bus)
+			__field(u32, update_clk)
+	),
+	TP_fast_assign(
+			__entry->crtc = crtc;
+			__entry->bw_ctl = bw_ctl;
+			__entry->core_clk_rate = core_clk_rate;
+			__entry->stop_req = stop_req;
+			__entry->update_bus = update_bus;
+			__entry->update_clk = update_clk;
+	),
+	 TP_printk("crtc=%d bw=%llu clk_rate=%u stop_req=%d u_bus=%d u_clk=%d",
+			 __entry->crtc,
+			 __entry->bw_ctl,
+			 __entry->core_clk_rate,
+			 __entry->stop_req,
+			 __entry->update_bus,
+			 __entry->update_clk)
+);
 
 #define SDE_ATRACE_END(name) trace_sde_mark_write(current->tgid, name, 0)
 #define SDE_ATRACE_BEGIN(name) trace_sde_mark_write(current->tgid, name, 1)
