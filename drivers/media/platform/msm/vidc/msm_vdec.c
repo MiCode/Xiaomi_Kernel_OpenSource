@@ -2235,6 +2235,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hal_enable_picture enable_picture;
 	struct hal_enable hal_property;
 	enum hal_property property_id = 0;
+	enum hal_video_codec codec;
 	u32 property_val = 0;
 	void *pdata = NULL;
 	struct hfi_device *hdev;
@@ -2289,12 +2290,23 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_PICTYPE_DEC_MODE:
 		property_id = HAL_PARAM_VDEC_PICTURE_TYPE_DECODE;
 		if (ctrl->val ==
-			V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_ON)
+			V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_ON) {
 			enable_picture.picture_type = HAL_PICTURE_I;
-		else
-			enable_picture.picture_type = HAL_PICTURE_I |
-				HAL_PICTURE_P | HAL_PICTURE_B |
-				HAL_PICTURE_IDR;
+		} else {
+			codec = get_hal_codec(inst->fmts[OUTPUT_PORT].fourcc);
+			if (codec == HAL_VIDEO_CODEC_H264) {
+				enable_picture.picture_type = HAL_PICTURE_I |
+					HAL_PICTURE_P | HAL_PICTURE_B |
+					HAL_PICTURE_IDR;
+			} else if (codec == HAL_VIDEO_CODEC_HEVC) {
+				enable_picture.picture_type = HAL_PICTURE_I |
+					HAL_PICTURE_P | HAL_PICTURE_B |
+					HAL_PICTURE_IDR | HAL_PICTURE_CRA;
+			} else {
+				enable_picture.picture_type = HAL_PICTURE_I |
+					HAL_PICTURE_P | HAL_PICTURE_B;
+			}
+		}
 		pdata = &enable_picture;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_KEEP_ASPECT_RATIO:
