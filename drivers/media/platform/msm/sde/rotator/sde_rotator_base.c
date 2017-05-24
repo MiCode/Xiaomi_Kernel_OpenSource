@@ -420,6 +420,31 @@ static void sde_mdp_parse_vbif_qos(struct platform_device *pdev,
 	}
 }
 
+static void sde_mdp_parse_cdp_setting(struct platform_device *pdev,
+		struct sde_rot_data_type *mdata)
+{
+	int rc;
+	u32 len, data[SDE_ROT_OP_MAX] = {0};
+
+	len = sde_mdp_parse_dt_prop_len(pdev,
+			"qcom,mdss-rot-cdp-setting");
+	if (len == SDE_ROT_OP_MAX) {
+		rc = sde_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-rot-cdp-setting", data, len);
+		if (rc) {
+			SDEROT_ERR("invalid CDP setting\n");
+			goto end;
+		}
+
+		set_bit(SDE_QOS_CDP, mdata->sde_qos_map);
+		mdata->enable_cdp[SDE_ROT_RD] = data[SDE_ROT_RD];
+		mdata->enable_cdp[SDE_ROT_WR] = data[SDE_ROT_WR];
+		return;
+	}
+end:
+	clear_bit(SDE_QOS_CDP, mdata->sde_qos_map);
+}
+
 static int sde_mdp_parse_dt_misc(struct platform_device *pdev,
 		struct sde_rot_data_type *mdata)
 {
@@ -443,6 +468,8 @@ static int sde_mdp_parse_dt_misc(struct platform_device *pdev,
 	if (rc)
 		SDEROT_DBG(
 			"Could not read optional property: highest bank bit\n");
+
+	sde_mdp_parse_cdp_setting(pdev, mdata);
 
 	sde_mdp_parse_vbif_qos(pdev, mdata);
 

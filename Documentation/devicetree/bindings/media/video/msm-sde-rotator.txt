@@ -81,6 +81,10 @@ Optional properties
 				limits.
 - qcom,mdss-rot-vbif-qos-setting: This array is used to program vbif qos remapper register
 				  priority for rotator clients.
+- qcom,mdss-rot-cdp-setting:	Integer array of size two, to indicate client driven
+				prefetch is available or not. Index 0 represents
+				if CDP is enabled for read and index 1, if CDP
+				is enabled for write operation.
 - qcom,mdss-rot-mode:		This is integer value indicates operation mode
 				of the rotator device
 - qcom,mdss-sbuf-headroom:	This integer value indicates stream buffer headroom in lines.
@@ -145,6 +149,8 @@ Example:
 
 		/* VBIF QoS remapper settings*/
 		qcom,mdss-rot-vbif-qos-setting = <1 1 1 1>;
+
+		com,mdss-rot-cdp-setting = <1 1>;
 
 		qcom,mdss-default-ot-rd-limit = <8>;
 		qcom,mdss-default-ot-wr-limit = <16>;

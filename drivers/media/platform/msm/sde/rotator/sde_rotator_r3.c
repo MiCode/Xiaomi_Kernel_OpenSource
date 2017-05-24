@@ -493,6 +493,12 @@ static struct sde_rot_regdump sde_rot_r3_regdump[] = {
 		SDE_ROT_REGDUMP_VBIF },
 };
 
+struct sde_rot_cdp_params {
+	bool enable;
+	struct sde_mdp_format_params *fmt;
+	u32 offset;
+};
+
 /* Invalid software timestamp value for initialization */
 #define SDE_REGDMA_SWTS_INVALID	(~0)
 
@@ -866,6 +872,40 @@ static void sde_hw_rotator_setup_timestamp_packet(
 }
 
 /*
+ * sde_hw_rotator_cdp_configs - configures the CDP registers
+ * @ctx: Pointer to rotator context
+ * @params: Pointer to parameters needed for CDP configs
+ */
+static void sde_hw_rotator_cdp_configs(struct sde_hw_rotator_context *ctx,
+		struct sde_rot_cdp_params *params)
+{
+	int reg_val;
+	u32 *wrptr = sde_hw_rotator_get_regdma_segment(ctx);
+
+	if (!params->enable) {
+		SDE_REGDMA_WRITE(wrptr, params->offset, 0x0);
+		goto end;
+	}
+
+	reg_val = BIT(0); /* enable cdp */
+
+	if (sde_mdp_is_ubwc_format(params->fmt))
+		reg_val |= BIT(1); /* enable UBWC meta cdp */
+
+	if (sde_mdp_is_ubwc_format(params->fmt)
+			|| sde_mdp_is_tilea4x_format(params->fmt)
+			|| sde_mdp_is_tilea5x_format(params->fmt))
+		reg_val |= BIT(2); /* enable tile amortize */
+
+	reg_val |= BIT(3); /* enable preload addr ahead cnt 64 */
+
+	SDE_REGDMA_WRITE(wrptr, params->offset, reg_val);
+
+end:
+	sde_hw_rotator_put_regdma_segment(ctx, wrptr);
+}
+
+/*
  * sde_hw_rotator_setup_fetchengine - setup fetch engine
  * @ctx: Pointer to rotator context
  * @queue_id: Priority queue identifier
@@ -884,6 +924,7 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 	struct sde_hw_rotator *rot = ctx->rot;
 	struct sde_mdp_format_params *fmt;
 	struct sde_mdp_data *data;
+	struct sde_rot_cdp_params cdp_params = {0};
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	u32 *wrptr;
 	u32 opmode = 0;
@@ -1055,6 +1096,17 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 		ctx->is_secure = false;
 	}
 
+	sde_hw_rotator_put_regdma_segment(ctx, wrptr);
+
+	/* CDP register RD setting */
+	cdp_params.enable = test_bit(SDE_QOS_CDP, mdata->sde_qos_map) ?
+					 mdata->enable_cdp[SDE_ROT_RD] : false;
+	cdp_params.fmt = fmt;
+	cdp_params.offset = ROT_SSPP_CDP_CNTL;
+	sde_hw_rotator_cdp_configs(ctx, &cdp_params);
+
+	wrptr = sde_hw_rotator_get_regdma_segment(ctx);
+
 	/*
 	 * Determine if traffic shaping is required. Only enable traffic
 	 * shaping when content is 4k@30fps. The actual traffic shaping
@@ -1087,6 +1139,7 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 {
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	struct sde_mdp_format_params *fmt;
+	struct sde_rot_cdp_params cdp_params = {0};
 	u32 *wrptr;
 	u32 pack = 0;
 	u32 dst_format = 0;
@@ -1189,6 +1242,17 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 
 	SDE_REGDMA_WRITE(wrptr, ROTTOP_OP_MODE, ctx->op_mode |
 			(flags & SDE_ROT_FLAG_ROT_90 ? BIT(1) : 0) | BIT(0));
+
+	sde_hw_rotator_put_regdma_segment(ctx, wrptr);
+
+	/* CDP register WR setting */
+	cdp_params.enable = test_bit(SDE_QOS_CDP, mdata->sde_qos_map) ?
+					mdata->enable_cdp[SDE_ROT_WR] : false;
+	cdp_params.fmt = fmt;
+	cdp_params.offset = ROT_WB_CDP_CNTL;
+	sde_hw_rotator_cdp_configs(ctx, &cdp_params);
+
+	wrptr = sde_hw_rotator_get_regdma_segment(ctx);
 
 	/* setup traffic shaper for 4k 30fps content or if prefill_bw is set */
 	if (ctx->is_traffic_shaping || cfg->prefill_bw) {
@@ -2259,12 +2323,6 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 		SDE_ROTREG_WRITE(rot->mdss_base, ROT_SSPP_CREQ_LUT, qos_lut);
 	}
 
-	/* Set CDP control registers to 0 if CDP is disabled */
-	if (!test_bit(SDE_QOS_CDP, mdata->sde_qos_map)) {
-		SDE_ROTREG_WRITE(rot->mdss_base, ROT_SSPP_CDP_CNTL, 0x0);
-		SDE_ROTREG_WRITE(rot->mdss_base, ROT_WB_CDP_CNTL, 0x0);
-	}
-
 	/* VBIF QoS and other settings */
 	sde_hw_rotator_vbif_setting(rot);
 
@@ -2375,7 +2433,6 @@ static int sde_rotator_hw_rev_init(struct sde_hw_rotator *rot)
 
 	clear_bit(SDE_QOS_PER_PIPE_IB, mdata->sde_qos_map);
 	set_bit(SDE_QOS_OVERHEAD_FACTOR, mdata->sde_qos_map);
-	clear_bit(SDE_QOS_CDP, mdata->sde_qos_map);
 	set_bit(SDE_QOS_OTLIM, mdata->sde_qos_map);
 	set_bit(SDE_QOS_PER_PIPE_LUT, mdata->sde_qos_map);
 	clear_bit(SDE_QOS_SIMPLIFIED_PREFILL, mdata->sde_qos_map);
