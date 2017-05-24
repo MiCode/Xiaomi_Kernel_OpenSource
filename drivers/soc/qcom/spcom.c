@@ -2150,6 +2150,10 @@ static int spcom_device_open(struct inode *inode, struct file *filp)
 	struct spcom_channel *ch;
 	const char *name = file_to_filename(filp);
 
+	/* silent error message until spss link is up */
+	if (!spcom_is_sp_subsystem_link_up())
+		return -ENODEV;
+
 	pr_debug("Open file [%s].\n", name);
 
 	if (strcmp(name, DEVICE_NAME) == 0) {
