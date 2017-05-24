@@ -29,10 +29,10 @@ Optional properties:
 			   or approx 16.8 ms. For example, a value of 4 would
 			   mean a timestamp valid window of approximately 67
 			   ms.
-  - qcom,ntn-rmii-mode: Use to force RMII mode for RMII PHYs. The interface
+  - qcom,ntn-rmii-mode: Use to select if RMII mode is enabled. The interface
 			   selection pin is not brought out so it has to be
 			   forced. If this option is omitted then RGMII mode
-			   will be used.
+			   will be used. Use 0 to disable and 1 to enable.
 
 Example:
 	qcom,ntn_avb {
@@ -56,4 +56,5 @@ Example:
 		qcom,ntn-fw-load-delay-msec = <200>;
 		qcom,ntn-pcierst-resx;
 		qcom,ntn-timestamp-valid-window = <4>; /* 4 is approx 67 ms */
+		qcom,ntn-rmii-mode = <0>; /* RMII mode is disabled, use RGMII */
 	};
