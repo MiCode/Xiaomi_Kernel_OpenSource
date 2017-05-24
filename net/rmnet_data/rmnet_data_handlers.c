@@ -569,12 +569,9 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 	LOGD("headroom of %d bytes", required_headroom);
 
 	if (skb_headroom(skb) < required_headroom) {
-		if (pskb_expand_head(skb, required_headroom, 0, GFP_KERNEL)) {
-			LOGD("Failed to add headroom of %d bytes",
-			     required_headroom);
-			kfree_skb(skb);
-			return 1;
-		}
+		LOGE("Not enough headroom for %d bytes", required_headroom);
+		kfree_skb(skb);
+		return 1;
 	}
 
 	if ((config->egress_data_format & RMNET_EGRESS_FORMAT_MAP_CKSUMV3) ||
