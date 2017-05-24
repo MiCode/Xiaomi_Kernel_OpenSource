@@ -40,13 +40,10 @@
 #define GPU_CC_PLL1_OUT_ODD					22
 #define GPU_CC_PLL1_OUT_TEST					23
 #define GPU_CC_PLL_TEST_CLK					24
-#define GPU_CC_RBCPR_AHB_CLK					25
-#define GPU_CC_RBCPR_CLK					26
-#define GPU_CC_RBCPR_CLK_SRC					27
-#define GPU_CC_SLEEP_CLK					28
-#define GPU_CC_GMU_CLK_SRC					29
-#define GPU_CC_CX_GFX3D_CLK					30
-#define GPU_CC_CX_GFX3D_SLV_CLK					31
+#define GPU_CC_SLEEP_CLK					25
+#define GPU_CC_GMU_CLK_SRC					26
+#define GPU_CC_CX_GFX3D_CLK					27
+#define GPU_CC_CX_GFX3D_SLV_CLK					28
 
 /* GPUCC reset clock registers */
 #define GPUCC_GPU_CC_ACD_BCR					0
@@ -54,9 +51,8 @@
 #define GPUCC_GPU_CC_GFX3D_AON_BCR				2
 #define GPUCC_GPU_CC_GMU_BCR					3
 #define GPUCC_GPU_CC_GX_BCR					4
-#define GPUCC_GPU_CC_RBCPR_BCR					5
-#define GPUCC_GPU_CC_SPDM_BCR					6
-#define GPUCC_GPU_CC_XO_BCR					7
+#define GPUCC_GPU_CC_SPDM_BCR					5
+#define GPUCC_GPU_CC_XO_BCR					6
 
 /* GFX3D clock registers */
 #define GPU_CC_PLL0						0
