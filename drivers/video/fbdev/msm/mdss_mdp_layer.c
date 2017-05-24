@@ -1812,13 +1812,16 @@ static int __validate_secure_session(struct mdss_overlay_private *mdp5_data)
 
 	pr_debug("pipe count:: secure display:%d non-secure:%d secure-vid:%d,secure-cam:%d\n",
 		sd_pipes, nonsd_pipes, secure_vid_pipes, secure_cam_pipes);
+	MDSS_XLOG(mdss_get_sd_client_cnt(), sd_pipes, nonsd_pipes,
+			secure_vid_pipes, secure_cam_pipes);
 
 	if (mdss_get_sd_client_cnt() && !mdp5_data->sd_enabled) {
 		pr_err("Secure session already enabled for other client\n");
 		return -EINVAL;
 	}
 
-	if ((sd_pipes) &&
+	if (((sd_pipes) || (mdp5_data->ctl->is_video_mode &&
+		mdss_get_sd_client_cnt())) &&
 		(nonsd_pipes || secure_vid_pipes ||
 		secure_cam_pipes)) {
 		pr_err("non-secure layer validation request during secure display session\n");
