@@ -40,7 +40,7 @@
 #define ICP_PACKET_SIZE         0
 #define ICP_PACKET_TYPE         1
 #define ICP_PACKET_OPCODE       2
-#define ICP_IPE_MAX_OUTPUT_SUPPORTED 6
+#define ICP_MAX_OUTPUT_SUPPORTED 6
 
 /**
  * struct icp_hfi_mem_info
@@ -113,7 +113,6 @@ struct hfi_frame_process_info {
  * @scratch_mem_size: Scratch memory size
  * @acquire_dev_cmd: Acquire command
  * @icp_dev_acquire_info: Acquire device info
- * @icp_out_acquire_info: Acquire out resource info
  * @ctxt_event_cb: Context callback function
  * @in_use: Flag for context usage
  * @role: Role of a context in case of chaining
@@ -129,10 +128,9 @@ struct cam_icp_hw_ctx_data {
 	uint32_t fw_handle;
 	uint32_t scratch_mem_size;
 	struct cam_acquire_dev_cmd acquire_dev_cmd;
-	struct cam_icp_acquire_dev_info icp_dev_acquire_info;
-	struct cam_icp_res_info icp_out_acquire_info[CAM_MAX_OUT_RES];
+	struct cam_icp_acquire_dev_info *icp_dev_acquire_info;
 	cam_hw_event_cb_func ctxt_event_cb;
-	uint32_t in_use;
+	bool in_use;
 	uint32_t role;
 	struct cam_icp_hw_ctx_data *chain_ctx;
 	struct hfi_frame_process_info hfi_frame_process;
