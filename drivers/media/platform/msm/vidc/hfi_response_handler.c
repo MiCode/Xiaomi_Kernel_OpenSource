@@ -1082,19 +1082,19 @@ static void hfi_process_sess_get_prop_buf_req(
 			buffreq->buffer[5].buffer_type =
 				HAL_BUFFER_EXTRADATA_OUTPUT2;
 			break;
-		case HFI_BUFFER_INTERNAL_SCRATCH:
+		case HFI_BUFFER_COMMON_INTERNAL_SCRATCH:
 			memcpy(&buffreq->buffer[6], hfi_buf_req,
 			sizeof(struct hfi_buffer_requirements));
 			buffreq->buffer[6].buffer_type =
 				HAL_BUFFER_INTERNAL_SCRATCH;
 			break;
-		case HFI_BUFFER_INTERNAL_SCRATCH_1:
+		case HFI_BUFFER_COMMON_INTERNAL_SCRATCH_1:
 			memcpy(&buffreq->buffer[7], hfi_buf_req,
 				sizeof(struct hfi_buffer_requirements));
 			buffreq->buffer[7].buffer_type =
 				HAL_BUFFER_INTERNAL_SCRATCH_1;
 			break;
-		case HFI_BUFFER_INTERNAL_SCRATCH_2:
+		case HFI_BUFFER_COMMON_INTERNAL_SCRATCH_2:
 			memcpy(&buffreq->buffer[8], hfi_buf_req,
 				sizeof(struct hfi_buffer_requirements));
 			buffreq->buffer[8].buffer_type =
