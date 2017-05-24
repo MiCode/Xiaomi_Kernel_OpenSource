@@ -211,6 +211,11 @@ struct socinfo_v0_14 {
 	uint32_t ndefective_parts_array_offset;
 };
 
+struct socinfo_v0_15 {
+	struct socinfo_v0_14 v0_14;
+	uint32_t nmodem_supported;
+};
+
 static union {
 	struct socinfo_v0_1 v0_1;
 	struct socinfo_v0_2 v0_2;
@@ -226,10 +231,11 @@ static union {
 	struct socinfo_v0_12 v0_12;
 	struct socinfo_v0_13 v0_13;
 	struct socinfo_v0_14 v0_14;
+	struct socinfo_v0_15 v0_15;
 } *socinfo;
 
 /* max socinfo format version supported */
-#define MAX_SOCINFO_FORMAT SOCINFO_VERSION(0, 14)
+#define MAX_SOCINFO_FORMAT SOCINFO_VERSION(0, 15)
 
 static struct msm_soc_info cpu_of_id[] = {
 
@@ -764,6 +770,14 @@ static uint32_t socinfo_get_ndefective_parts_array_offset(void)
 		: 0;
 }
 
+static uint32_t socinfo_get_nmodem_supported(void)
+{
+	return socinfo ?
+		(socinfo_format >= SOCINFO_VERSION(0, 15) ?
+			socinfo->v0_15.nmodem_supported : 0)
+		: 0;
+}
+
 enum pmic_model socinfo_get_pmic_model(void)
 {
 	return socinfo ?
@@ -992,6 +1006,15 @@ msm_get_ndefective_parts_array_offset(struct device *dev,
 {
 	return snprintf(buf, PAGE_SIZE, "0x%x\n",
 		socinfo_get_ndefective_parts_array_offset());
+}
+
+static ssize_t
+msm_get_nmodem_supported(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "0x%x\n",
+		socinfo_get_nmodem_supported());
 }
 
 static ssize_t
@@ -1266,6 +1289,10 @@ static struct device_attribute msm_soc_attr_ndefective_parts_array_offset =
 	__ATTR(ndefective_parts_array_offset, 0444,
 			msm_get_ndefective_parts_array_offset, NULL);
 
+static struct device_attribute msm_soc_attr_nmodem_supported =
+	__ATTR(nmodem_supported, 0444,
+			msm_get_nmodem_supported, NULL);
+
 static struct device_attribute msm_soc_attr_pmic_model =
 	__ATTR(pmic_model, S_IRUGO,
 			msm_get_pmic_model, NULL);
@@ -1396,6 +1423,9 @@ static void __init populate_soc_sysfs_files(struct device *msm_soc_device)
 	device_create_file(msm_soc_device, &images);
 
 	switch (socinfo_format) {
+	case SOCINFO_VERSION(0, 15):
+		device_create_file(msm_soc_device,
+					&msm_soc_attr_nmodem_supported);
 	case SOCINFO_VERSION(0, 14):
 		device_create_file(msm_soc_device,
 					&msm_soc_attr_num_clusters);
@@ -1670,6 +1700,30 @@ static void socinfo_print(void)
 			socinfo->v0_14.ncluster_array_offset,
 			socinfo->v0_14.num_defective_parts,
 			socinfo->v0_14.ndefective_parts_array_offset);
+		break;
+
+	case SOCINFO_VERSION(0, 15):
+		pr_info("v%u.%u, id=%u, ver=%u.%u, raw_id=%u, raw_ver=%u, hw_plat=%u, hw_plat_ver=%u\n accessory_chip=%u, hw_plat_subtype=%u, pmic_model=%u, pmic_die_revision=%u foundry_id=%u serial_number=%u num_pmics=%u chip_family=0x%x raw_device_family=0x%x raw_device_number=0x%x nproduct_id=0x%x num_clusters=0x%x ncluster_array_offset=0x%x num_defective_parts=0x%x ndefective_parts_array_offset=0x%x nmodem_supported=0x%x\n",
+			f_maj, f_min, socinfo->v0_1.id, v_maj, v_min,
+			socinfo->v0_2.raw_id, socinfo->v0_2.raw_version,
+			socinfo->v0_3.hw_platform,
+			socinfo->v0_4.platform_version,
+			socinfo->v0_5.accessory_chip,
+			socinfo->v0_6.hw_platform_subtype,
+			socinfo->v0_7.pmic_model,
+			socinfo->v0_7.pmic_die_revision,
+			socinfo->v0_9.foundry_id,
+			socinfo->v0_10.serial_number,
+			socinfo->v0_11.num_pmics,
+			socinfo->v0_12.chip_family,
+			socinfo->v0_12.raw_device_family,
+			socinfo->v0_12.raw_device_number,
+			socinfo->v0_13.nproduct_id,
+			socinfo->v0_14.num_clusters,
+			socinfo->v0_14.ncluster_array_offset,
+			socinfo->v0_14.num_defective_parts,
+			socinfo->v0_14.ndefective_parts_array_offset,
+			socinfo->v0_15.nmodem_supported);
 		break;
 
 	default:
