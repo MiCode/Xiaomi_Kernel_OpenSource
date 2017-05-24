@@ -19,6 +19,7 @@
 #include "dsi_ctrl_hw.h"
 #include "dsi_ctrl_reg.h"
 #include "dsi_hw.h"
+#include "dsi_panel.h"
 
 #define MMSS_MISC_CLAMP_REG_OFF           0x0014
 #define DSI_CTRL_DYNAMIC_FORCE_ON         (0x23F|BIT(8)|BIT(9)|BIT(11)|BIT(21))
@@ -234,21 +235,36 @@ void dsi_ctrl_hw_cmn_set_video_timing(struct dsi_ctrl_hw *ctrl,
 void dsi_ctrl_hw_cmn_setup_cmd_stream(struct dsi_ctrl_hw *ctrl,
 				     struct dsi_mode_info *mode,
 				     u32 h_stride,
-				     u32 vc_id)
+				     u32 vc_id,
+				     struct dsi_rect *roi)
 {
-	u32 reg = 0;
 	u32 width_final, stride_final;
+	u32 height_final;
+	u32 stream_total = 0, stream_ctrl = 0;
+	u32 reg_ctrl = 0, reg_ctrl2 = 0;
+
+	if (roi && (!roi->w || !roi->h))
+		return;
 
 	if (mode->dsc_enabled && mode->dsc) {
+		u32 reg = 0;
 		u32 offset = 0;
-		u32 reg_ctrl, reg_ctrl2;
+		int pic_width, this_frame_slices, intf_ip_w;
+		struct msm_display_dsc_info dsc;
+
+		memcpy(&dsc, mode->dsc, sizeof(dsc));
+		pic_width = roi ? roi->w : mode->h_active;
+		this_frame_slices = pic_width / dsc.slice_width;
+		intf_ip_w = this_frame_slices * dsc.slice_width;
+		dsi_dsc_pclk_param_calc(&dsc, intf_ip_w);
 
 		if (vc_id != 0)
 			offset = 16;
 		reg_ctrl = DSI_R32(ctrl, DSI_COMMAND_COMPRESSION_MODE_CTRL);
 		reg_ctrl2 = DSI_R32(ctrl, DSI_COMMAND_COMPRESSION_MODE_CTRL2);
-		width_final = mode->dsc->pclk_per_line;
-		stride_final = mode->dsc->bytes_per_pkt;
+		width_final = dsc.pclk_per_line;
+		stride_final = dsc.bytes_per_pkt;
+		height_final = roi ? roi->h : mode->v_active;
 
 		reg = 0x39 << 8;
 		/*
@@ -258,34 +274,45 @@ void dsi_ctrl_hw_cmn_setup_cmd_stream(struct dsi_ctrl_hw *ctrl,
 		 * 2 == 4 pkt
 		 * 3 pkt is not support
 		 */
-		if (mode->dsc->pkt_per_line == 4)
-			reg |= (mode->dsc->pkt_per_line - 2) << 6;
+		if (dsc.pkt_per_line == 4)
+			reg |= (dsc.pkt_per_line - 2) << 6;
 		else
-			reg |= (mode->dsc->pkt_per_line - 1) << 6;
-		reg |= mode->dsc->eol_byte_num << 4;
+			reg |= (dsc.pkt_per_line - 1) << 6;
+		reg |= dsc.eol_byte_num << 4;
 		reg |= 1;
 
 		reg_ctrl &= ~(0xFFFF << offset);
 		reg_ctrl |= (reg << offset);
 		reg_ctrl2 &= ~(0xFFFF << offset);
-		reg_ctrl2 |= (mode->dsc->bytes_in_slice << offset);
+		reg_ctrl2 |= (dsc.bytes_in_slice << offset);
 		DSI_W32(ctrl, DSI_COMMAND_COMPRESSION_MODE_CTRL, reg_ctrl);
 		DSI_W32(ctrl, DSI_COMMAND_COMPRESSION_MODE_CTRL2, reg_ctrl2);
+
+		pr_debug("ctrl %d reg_ctrl 0x%x reg_ctrl2 0x%x\n", ctrl->index,
+				reg_ctrl, reg_ctrl2);
+	} else if (roi) {
+		width_final = roi->w;
+		stride_final = roi->w * 3;
+		height_final = roi->h;
 	} else {
 		width_final = mode->h_active;
 		stride_final = h_stride;
+		height_final = mode->v_active;
 	}
 
-	reg = (stride_final + 1) << 16;
-	reg |= (vc_id & 0x3) << 8;
-	reg |= 0x39; /* packet data type */
+	stream_ctrl = (stride_final + 1) << 16;
+	stream_ctrl |= (vc_id & 0x3) << 8;
+	stream_ctrl |= 0x39; /* packet data type */
 
-	DSI_W32(ctrl, DSI_COMMAND_MODE_MDP_STREAM0_CTRL, reg);
-	DSI_W32(ctrl, DSI_COMMAND_MODE_MDP_STREAM1_CTRL, reg);
+	DSI_W32(ctrl, DSI_COMMAND_MODE_MDP_STREAM0_CTRL, stream_ctrl);
+	DSI_W32(ctrl, DSI_COMMAND_MODE_MDP_STREAM1_CTRL, stream_ctrl);
 
-	reg = (mode->v_active << 16) | width_final;
-	DSI_W32(ctrl, DSI_COMMAND_MODE_MDP_STREAM0_TOTAL, reg);
-	DSI_W32(ctrl, DSI_COMMAND_MODE_MDP_STREAM1_TOTAL, reg);
+	stream_total = (height_final << 16) | width_final;
+	DSI_W32(ctrl, DSI_COMMAND_MODE_MDP_STREAM0_TOTAL, stream_total);
+	DSI_W32(ctrl, DSI_COMMAND_MODE_MDP_STREAM1_TOTAL, stream_total);
+
+	pr_debug("ctrl %d stream_ctrl 0x%x stream_total 0x%x\n", ctrl->index,
+			stream_ctrl, stream_total);
 }
 
 /**

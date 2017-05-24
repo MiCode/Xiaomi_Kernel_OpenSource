@@ -249,4 +249,6 @@ int dsi_panel_update_pps(struct dsi_panel *panel);
 int dsi_panel_send_roi_dcs(struct dsi_panel *panel, int ctrl_idx,
 		struct dsi_rect *roi);
 
+void dsi_dsc_pclk_param_calc(struct msm_display_dsc_info *dsc, int intf_width);
+
 #endif /* _DSI_PANEL_H_ */
