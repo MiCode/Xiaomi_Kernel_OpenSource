@@ -1073,6 +1073,15 @@
 			qcom,bcms = <&bcm_sn4>;
 		};
 
+		mas_alc: mas-alc {
+			cell-id = <MSM_BUS_MASTER_ALC>;
+			label = "mas-alc";
+			qcom,buswidth = <1>;
+			qcom,agg-ports = <1>;
+			qcom,bus-dev = <&fab_mc_virt>;
+			qcom,bcms = <&bcm_alc>;
+		};
+
 		mas_llcc_mc_display: mas-llcc-mc_display {
 			cell-id = <MSM_BUS_MASTER_LLCC_DISPLAY>;
 			label = "mas-llcc-mc_display";
