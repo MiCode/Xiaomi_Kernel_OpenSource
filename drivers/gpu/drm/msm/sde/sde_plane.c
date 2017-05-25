@@ -2041,6 +2041,23 @@ static void sde_plane_rot_atomic_update(struct drm_plane *plane,
 }
 
 /**
+ * sde_plane_rot_flush - perform final flush related rotator options
+ * @plane: Pointer to drm plane
+ * @pstate: Pointer to sde plane state
+ */
+static void sde_plane_rot_flush(struct drm_plane *plane,
+		struct sde_plane_state *pstate)
+{
+	if (!plane || !pstate || !pstate->rot.rot_hw ||
+			!pstate->rot.rot_hw->ops.commit)
+		return;
+
+	pstate->rot.rot_hw->ops.commit(pstate->rot.rot_hw,
+			&pstate->rot.rot_cmd,
+			SDE_HW_ROT_CMD_START);
+}
+
+/**
  * sde_plane_rot_destroy_state - destroy state for rotator stage
  * @plane: Pointer to drm plane
  * @state: Pointer to state to be destroyed
@@ -2709,13 +2726,15 @@ exit:
 void sde_plane_flush(struct drm_plane *plane)
 {
 	struct sde_plane *psde;
+	struct sde_plane_state *pstate;
 
-	if (!plane) {
+	if (!plane || !plane->state) {
 		SDE_ERROR("invalid plane\n");
 		return;
 	}
 
 	psde = to_sde_plane(plane);
+	pstate = to_sde_plane_state(plane->state);
 
 	/*
 	 * These updates have to be done immediately before the plane flush
@@ -2736,7 +2755,10 @@ void sde_plane_flush(struct drm_plane *plane)
 
 	/* flag h/w flush complete */
 	if (plane->state)
-		to_sde_plane_state(plane->state)->pending = false;
+		pstate->pending = false;
+
+	/* signal inline rotator start */
+	sde_plane_rot_flush(plane, pstate);
 }
 
 static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
