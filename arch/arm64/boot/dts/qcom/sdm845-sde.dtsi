@@ -171,6 +171,11 @@
 		qcom,sde-cdp-setting = <1 1>, <1 0>;
 
 		qcom,sde-inline-rotator = <&mdss_rotator 0>;
+		qcom,sde-inline-rot-xin = <10 11>;
+		qcom,sde-inline-rot-xin-type = "sspp", "wb";
+
+		/* offsets are relative to "mdp_phys + qcom,sde-off */
+		qcom,sde-inline-rot-clk-ctrl = <0x2bc 0x8>, <0x2bc 0xc>;
 
 		qcom,sde-reg-dma-off = <0>;
 		qcom,sde-reg-dma-version = <0x1>;
