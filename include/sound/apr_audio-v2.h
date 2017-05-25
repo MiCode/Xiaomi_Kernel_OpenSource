@@ -4006,6 +4006,32 @@ struct asm_generic_compressed_fmt_blk_t {
 
 } __packed;
 
+
+/* Command to send sample rate & channels for IEC61937 (compressed) or IEC60958
+ * (pcm) streams. Both audio standards use the same format and are used for
+ * HDMI or SPDIF.
+ */
+#define ASM_DATA_CMD_IEC_60958_MEDIA_FMT        0x0001321E
+
+struct asm_iec_compressed_fmt_blk_t {
+	struct apr_hdr hdr;
+
+	/*
+	 * Nominal sampling rate of the incoming bitstream.
+	 * Supported values: 8000, 11025, 16000, 22050, 24000, 32000,
+	 *                   44100, 48000, 88200, 96000, 176400, 192000,
+	 *                   352800, 384000
+	 */
+	uint32_t sampling_rate;
+
+	/*
+	 * Number of channels of the incoming bitstream.
+	 * Supported values: 1,2,3,4,5,6,7,8
+	 */
+	uint32_t num_channels;
+
+} __packed;
+
 struct asm_multi_channel_pcm_fmt_blk_v2 {
 	struct apr_hdr hdr;
 	struct asm_data_cmd_media_fmt_update_v2 fmt_blk;
@@ -5071,6 +5097,11 @@ struct asm_amrwbplus_fmt_blk_v2 {
 #define ASM_MEDIA_FMT_APE                    0x00012F32
 #define ASM_MEDIA_FMT_DSD                    0x00012F3E
 #define ASM_MEDIA_FMT_TRUEHD                 0x00013215
+/* 0x0 is used for fomat ID since ADSP dynamically determines the
+ * format encapsulated in the IEC61937 (compressed) or IEC60958
+ * (pcm) packets.
+ */
+#define ASM_MEDIA_FMT_IEC                    0x00000000
 
 /* Media format ID for adaptive transform acoustic coding. This
  * ID is used by the #ASM_STREAM_CMD_OPEN_WRITE_COMPRESSED command
@@ -10544,6 +10575,7 @@ enum {
 	COMPRESSED_PASSTHROUGH_DSD,
 	LISTEN,
 	COMPRESSED_PASSTHROUGH_GEN,
+	COMPRESSED_PASSTHROUGH_IEC61937
 };
 
 #define AUDPROC_MODULE_ID_COMPRESSED_MUTE                0x00010770
