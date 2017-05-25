@@ -1585,6 +1585,43 @@ static int a6xx_microcode_read(struct adreno_device *adreno_dev)
 			ADRENO_FW(adreno_dev, ADRENO_FW_SQE));
 }
 
+#define VBIF_RESET_ACK_TIMEOUT	100
+#define VBIF_RESET_ACK_MASK	0x00f0
+
+static int a6xx_soft_reset(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	unsigned int reg;
+
+	/*
+	 * For the soft reset case with GMU enabled this part is done
+	 * by the GMU firmware
+	 */
+	if (kgsl_gmu_isenabled(device))
+		return 0;
+
+
+	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 1);
+	/*
+	 * Do a dummy read to get a brief read cycle delay for the
+	 * reset to take effect
+	 */
+	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, &reg);
+	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 0);
+
+	/* Check VBIF status after reset */
+	if (timed_poll_check(device,
+			A6XX_RBBM_VBIF_GX_RESET_STATUS,
+			VBIF_RESET_ACK_MASK,
+			VBIF_RESET_ACK_TIMEOUT,
+			VBIF_RESET_ACK_MASK))
+		return -ETIMEDOUT;
+
+	a6xx_sptprac_enable(adreno_dev);
+
+	return 0;
+}
+
 static void a6xx_cp_hw_err_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -2337,4 +2374,5 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.hw_isidle = a6xx_hw_isidle, /* Replaced by NULL if GMU is disabled */
 	.wait_for_gmu_idle = a6xx_wait_for_gmu_idle,
 	.iommu_fault_block = a6xx_iommu_fault_block,
+	.soft_reset = a6xx_soft_reset,
 };

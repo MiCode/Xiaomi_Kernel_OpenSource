@@ -526,7 +526,7 @@ static int adreno_soft_reset(struct kgsl_device *device);
  * all the HW logic, restores GPU registers to default state and
  * flushes out pending VBIF transactions.
  */
-static void _soft_reset(struct adreno_device *adreno_dev)
+static int _soft_reset(struct adreno_device *adreno_dev)
 {
 	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned int reg;
@@ -555,6 +555,8 @@ static void _soft_reset(struct adreno_device *adreno_dev)
 
 	if (gpudev->regulator_enable)
 		gpudev->regulator_enable(adreno_dev);
+
+	return 0;
 }
 
 
@@ -2346,6 +2348,14 @@ static int adreno_soft_reset(struct kgsl_device *device)
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int ret;
 
+	if (gpudev->oob_set) {
+		ret = gpudev->oob_set(adreno_dev, OOB_CPINIT_SET_MASK,
+				OOB_CPINIT_CHECK_MASK,
+				OOB_CPINIT_CLEAR_MASK);
+		if (ret)
+			return ret;
+	}
+
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_AWARE);
 	adreno_set_active_ctxs_null(adreno_dev);
 
@@ -2359,7 +2369,15 @@ static int adreno_soft_reset(struct kgsl_device *device)
 	adreno_perfcounter_save(adreno_dev);
 
 	/* Reset the GPU */
-	_soft_reset(adreno_dev);
+	if (gpudev->soft_reset)
+		ret = gpudev->soft_reset(adreno_dev);
+	else
+		ret = _soft_reset(adreno_dev);
+	if (ret) {
+		if (gpudev->oob_clear)
+			gpudev->oob_clear(adreno_dev, OOB_CPINIT_CLEAR_MASK);
+		return ret;
+	}
 
 	/* Set the page table back to the default page table */
 	adreno_ringbuffer_set_global(adreno_dev, 0);
@@ -2400,6 +2418,9 @@ static int adreno_soft_reset(struct kgsl_device *device)
 
 	/* Restore physical performance counter values after soft reset */
 	adreno_perfcounter_restore(adreno_dev);
+
+	if (gpudev->oob_clear)
+		gpudev->oob_clear(adreno_dev, OOB_CPINIT_CLEAR_MASK);
 
 	return ret;
 }
