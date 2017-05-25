@@ -377,6 +377,13 @@ struct adreno_gpu_core {
 	unsigned int max_power;
 };
 
+
+enum gpu_coresight_sources {
+	GPU_CORESIGHT_GX = 0,
+	GPU_CORESIGHT_CX = 1,
+	GPU_CORESIGHT_MAX,
+};
+
 /**
  * struct adreno_device - The mothership structure for all adreno related info
  * @dev: Reference to struct kgsl_device
@@ -511,7 +518,7 @@ struct adreno_device {
 	unsigned int speed_bin;
 	unsigned int quirks;
 
-	struct coresight_device *csdev;
+	struct coresight_device *csdev[GPU_CORESIGHT_MAX];
 	uint32_t gpmu_throttle_counters[ADRENO_GPMU_THROTTLE_COUNTERS];
 	struct work_struct irq_storm_work;
 
@@ -565,6 +572,7 @@ enum adreno_device_flags {
 	ADRENO_DEVICE_CACHE_FLUSH_TS_SUSPENDED = 13,
 	ADRENO_DEVICE_HARD_RESET = 14,
 	ADRENO_DEVICE_PREEMPTION_EXECUTION = 15,
+	ADRENO_DEVICE_CORESIGHT_CX = 16,
 };
 
 /**
@@ -878,7 +886,7 @@ struct adreno_gpudev {
 	const struct adreno_invalid_countables *invalid_countables;
 	struct adreno_snapshot_data *snapshot_data;
 
-	struct adreno_coresight *coresight;
+	struct adreno_coresight *coresight[GPU_CORESIGHT_MAX];
 
 	struct adreno_irq *irq;
 	int num_prio_levels;
