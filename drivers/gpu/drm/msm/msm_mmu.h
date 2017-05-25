@@ -43,7 +43,7 @@ struct msm_mmu_funcs {
 	void (*unmap_sg)(struct msm_mmu *mmu, struct sg_table *sgt,
 		enum dma_data_direction dir);
 	int (*map_dma_buf)(struct msm_mmu *mmu, struct sg_table *sgt,
-			struct dma_buf *dma_buf, int dir);
+			struct dma_buf *dma_buf, int dir, u32 flags);
 	void (*unmap_dma_buf)(struct msm_mmu *mmu, struct sg_table *sgt,
 			struct dma_buf *dma_buf, int dir);
 	void (*destroy)(struct msm_mmu *mmu);

@@ -23,6 +23,7 @@
 
 /* Additional internal-use only BO flags: */
 #define MSM_BO_STOLEN        0x10000000    /* try to use stolen/splash memory */
+#define MSM_BO_KEEPATTRS     0x20000000     /* keep h/w bus attributes */
 
 struct msm_gem_object {
 	struct drm_gem_object base;

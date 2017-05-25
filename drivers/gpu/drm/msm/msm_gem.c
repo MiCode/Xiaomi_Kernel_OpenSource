@@ -341,7 +341,8 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
 			if (obj->import_attach && mmu->funcs->map_dma_buf) {
 				ret = mmu->funcs->map_dma_buf(mmu, msm_obj->sgt,
 						obj->import_attach->dmabuf,
-						DMA_BIDIRECTIONAL);
+						DMA_BIDIRECTIONAL,
+						msm_obj->flags);
 				if (ret) {
 					DRM_ERROR("Unable to map dma buf\n");
 					return ret;
