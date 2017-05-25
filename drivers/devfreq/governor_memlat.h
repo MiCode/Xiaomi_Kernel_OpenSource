@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _GOVERNOR_BW_HWMON_H
-#define _GOVERNOR_BW_HWMON_H
+#ifndef _GOVERNOR_MEMLAT_H
+#define _GOVERNOR_MEMLAT_H
 
 #include <linux/kernel.h>
 #include <linux/devfreq.h>
