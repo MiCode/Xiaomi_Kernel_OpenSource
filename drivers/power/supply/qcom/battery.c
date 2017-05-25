@@ -552,7 +552,7 @@ static int usb_icl_vote_callback(struct votable *votable, void *data,
 				POWER_SUPPLY_PROP_CURRENT_MAX,
 				&pval);
 		/* wait for ICL change */
-		msleep(100);
+		msleep(20);
 	}
 
 	/* set the effective ICL */
@@ -560,9 +560,6 @@ static int usb_icl_vote_callback(struct votable *votable, void *data,
 	power_supply_set_property(chip->main_psy,
 			POWER_SUPPLY_PROP_CURRENT_MAX,
 			&pval);
-	if (rerun_aicl)
-		/* wait for ICL change */
-		msleep(100);
 
 	vote(chip->pl_disable_votable, ICL_CHANGE_VOTER, false, 0);
 
