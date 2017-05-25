@@ -148,24 +148,25 @@ int cam_req_mgr_workq_enqueue_task(struct crm_workq_task *task,
 		goto end;
 	}
 
-	spin_lock_bh(&workq->lock_bh);
 	if (task->cancel == 1) {
 		cam_req_mgr_workq_put_task(task);
 		CRM_WARN("task aborted and queued back to pool");
 		rc = 0;
-		spin_unlock_bh(&workq->lock_bh);
 		goto end;
 	}
 	task->priv = priv;
 	task->priority =
 		(prio < CRM_TASK_PRIORITY_MAX && prio >= CRM_TASK_PRIORITY_0)
 		? prio : CRM_TASK_PRIORITY_0;
+
+	spin_lock_bh(&workq->lock_bh);
 	list_add_tail(&task->entry,
 		&workq->task.process_head[task->priority]);
+	spin_unlock_bh(&workq->lock_bh);
+
 	atomic_add(1, &workq->task.pending_cnt);
 	CRM_DBG("enq task %pK pending_cnt %d",
 		task, atomic_read(&workq->task.pending_cnt));
-	spin_unlock_bh(&workq->lock_bh);
 
 	queue_work(workq->job, &workq->work);
 

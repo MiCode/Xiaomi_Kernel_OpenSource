@@ -1092,10 +1092,9 @@ int cam_req_mgr_process_sched_req(void *priv, void *data)
 	slot = &in_q->slot[in_q->wr_idx];
 
 	if (slot->status != CRM_SLOT_STATUS_NO_REQ &&
-		slot->status != CRM_SLOT_STATUS_REQ_APPLIED) {
-		CRM_ERR("in_q overwrite %d", slot->status);
-		/* @TODO: error handling */
-	}
+		slot->status != CRM_SLOT_STATUS_REQ_APPLIED)
+		CRM_WARN("in_q overwrite %d", slot->status);
+
 	CRM_DBG("sched_req %lld at slot %d",
 		sched_req->req_id, in_q->wr_idx);
 
@@ -1106,7 +1105,6 @@ int cam_req_mgr_process_sched_req(void *priv, void *data)
 	__cam_req_mgr_inc_idx(&in_q->wr_idx, 1, in_q->num_slots);
 	mutex_unlock(&link->req.lock);
 
-	complete(&link->workq_comp);
 end:
 	return rc;
 }
@@ -1371,6 +1369,7 @@ static int cam_req_mgr_cb_add_req(struct cam_req_mgr_add_request *add_req)
 		goto end;
 	}
 
+	CRM_DBG("E: dev %x dev req %lld", add_req->dev_hdl, add_req->req_id);
 	link = (struct cam_req_mgr_core_link *)
 		cam_get_device_priv(add_req->link_hdl);
 
@@ -1404,6 +1403,7 @@ static int cam_req_mgr_cb_add_req(struct cam_req_mgr_add_request *add_req)
 	dev_req->dev_hdl = add_req->dev_hdl;
 	task->process_cb = &cam_req_mgr_process_add_req;
 	rc = cam_req_mgr_workq_enqueue_task(task, link, CRM_TASK_PRIORITY_0);
+	CRM_DBG("X: dev %x dev req %lld", add_req->dev_hdl, add_req->req_id);
 
 end:
 	return rc;
@@ -1919,11 +1919,10 @@ int cam_req_mgr_schedule_request(
 			struct cam_req_mgr_sched_request *sched_req)
 {
 	int                               rc = 0;
-	struct crm_workq_task            *task = NULL;
 	struct cam_req_mgr_core_link     *link = NULL;
 	struct cam_req_mgr_core_session  *session = NULL;
 	struct cam_req_mgr_sched_request *sched;
-	struct crm_task_payload          *task_data;
+	struct crm_task_payload           task_data;
 
 	if (!sched_req) {
 		CRM_ERR("csl_req is NULL");
@@ -1942,14 +1941,10 @@ int cam_req_mgr_schedule_request(
 		CRM_WARN("session ptr NULL %x", sched_req->link_hdl);
 		return -EINVAL;
 	}
+	CRM_DBG("link %x req %lld", sched_req->link_hdl, sched_req->req_id);
 
-	task = cam_req_mgr_workq_get_task(link->workq);
-	if (!task)
-		return -ENOMEM;
-
-	task_data = (struct crm_task_payload *)task->payload;
-	task_data->type = CRM_WORKQ_TASK_SCHED_REQ;
-	sched = (struct cam_req_mgr_sched_request *)&task_data->u;
+	task_data.type = CRM_WORKQ_TASK_SCHED_REQ;
+	sched = (struct cam_req_mgr_sched_request *)&task_data.u;
 	sched->req_id = sched_req->req_id;
 	sched->link_hdl = sched_req->link_hdl;
 	if (session->force_err_recovery == AUTO_RECOVERY) {
@@ -1958,14 +1953,10 @@ int cam_req_mgr_schedule_request(
 		sched->bubble_enable =
 		(session->force_err_recovery == FORCE_ENABLE_RECOVERY) ? 1 : 0;
 	}
-	task->process_cb = &cam_req_mgr_process_sched_req;
-	rc = cam_req_mgr_workq_enqueue_task(task, link, CRM_TASK_PRIORITY_0);
 
-	/* Blocking call */
-	init_completion(&link->workq_comp);
-	rc = wait_for_completion_timeout(
-		&link->workq_comp,
-		msecs_to_jiffies(CAM_REQ_MGR_SCHED_REQ_TIMEOUT));
+	rc = cam_req_mgr_process_sched_req(link, &task_data);
+
+	CRM_DBG("DONE dev %x req %lld", sched_req->link_hdl, sched_req->req_id);
 end:
 	return rc;
 }
