@@ -3769,7 +3769,7 @@ static int __enable_subcaches(struct venus_hfi_device *device)
 	struct hfi_resource_subcache_type *sc_res;
 	struct vidc_resource_hdr rhdr;
 
-	if (!is_sys_cache_present(device))
+	if (msm_vidc_syscache_disable || !is_sys_cache_present(device))
 		return 0;
 
 	memset((void *)resource, 0x0, (sizeof(u32) * VIDC_MAX_SUBCACHE_SIZE));
@@ -3837,7 +3837,7 @@ static int __disable_subcaches(struct venus_hfi_device *device)
 	struct hfi_resource_subcache_type *sc_res;
 	struct vidc_resource_hdr rhdr;
 
-	if (!is_sys_cache_present(device))
+	if (msm_vidc_syscache_disable || !is_sys_cache_present(device))
 		return 0;
 
 	dprintk(VIDC_DBG, "Disabling Subcaches\n");
