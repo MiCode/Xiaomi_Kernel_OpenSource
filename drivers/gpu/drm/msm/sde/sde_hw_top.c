@@ -42,6 +42,10 @@ static void sde_hw_setup_split_pipe(struct sde_hw_mdp *mdp,
 	if (!mdp || !cfg)
 		return;
 
+	/* The SPLIT registers are only for DSI interfaces */
+	if ((cfg->intf != INTF_1) && (cfg->intf != INTF_2))
+		return;
+
 	if (cfg->en) {
 		if (cfg->mode == INTF_MODE_CMD) {
 			lower_pipe = FLD_SPLIT_DISPLAY_CMD;
