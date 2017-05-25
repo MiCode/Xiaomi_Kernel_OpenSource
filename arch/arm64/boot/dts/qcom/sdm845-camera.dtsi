@@ -761,24 +761,18 @@
 			"cpas_ahb_clk",
 			"camnoc_axi_clk",
 			"icp_apb_clk",
-			"icp_atb_clk",
 			"icp_clk",
-			"icp_clk_src",
-			"icp_cti_clk",
-			"icp_ts_clk";
+			"icp_clk_src";
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>,
 				<&clock_gcc GCC_CAMERA_AXI_CLK>,
 				<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 				<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
 				<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
 				<&clock_camcc CAM_CC_ICP_APB_CLK>,
-				<&clock_camcc CAM_CC_ICP_ATB_CLK>,
 				<&clock_camcc CAM_CC_ICP_CLK>,
-				<&clock_camcc CAM_CC_ICP_CLK_SRC>,
-				<&clock_camcc CAM_CC_ICP_CTI_CLK>,
-				<&clock_camcc CAM_CC_ICP_TS_CLK>;
+				<&clock_camcc CAM_CC_ICP_CLK_SRC>;
 
-		clock-rates = <0 0 0 80000000 0 0 0 0 600000000 0 0>;
+		clock-rates = <0 0 0 80000000 0 0 0 600000000>;
 		fw_name = "CAMERA_ICP.elf";
 		status = "ok";
 	};
