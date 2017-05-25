@@ -95,6 +95,16 @@ struct msm_pingroup {
 	unsigned intr_polarity_bit:5;
 	unsigned intr_detection_bit:5;
 	unsigned intr_detection_width:5;
+}
+
+/**
+ * struct msm_dir_conn - Direct GPIO connect configuration
+ * @gpio:	GPIO pin number
+ * @hwirq:	The GIC interrupt that the pin is connected to
+ */;
+struct msm_dir_conn {
+	unsigned int gpio;
+	irq_hw_number_t hwirq;
 };
 
 /**
@@ -106,6 +116,8 @@ struct msm_pingroup {
  * @groups:     An array describing all pin groups the pin SoC supports.
  * @ngroups:    The numbmer of entries in @groups.
  * @ngpio:      The number of pingroups the driver should expose as GPIOs.
+ * @dir_conn:   An array describing all the pins directly connected to GIC.
+ * @ndirconns:  The number of pins directly connected to GIC
  */
 struct msm_pinctrl_soc_data {
 	const struct pinctrl_pin_desc *pins;
@@ -115,6 +127,8 @@ struct msm_pinctrl_soc_data {
 	const struct msm_pingroup *groups;
 	unsigned ngroups;
 	unsigned ngpios;
+	const struct msm_dir_conn *dir_conn;
+	unsigned int n_dir_conns;
 };
 
 int msm_pinctrl_probe(struct platform_device *pdev,

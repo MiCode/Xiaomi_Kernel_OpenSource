@@ -17,6 +17,7 @@
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/pinctrl/machine.h>
 #include <linux/pinctrl/pinctrl.h>
@@ -31,7 +32,7 @@
 #include <linux/reboot.h>
 #include <linux/pm.h>
 #include <linux/log2.h>
-
+#include <linux/irq.h>
 #include "../core.h"
 #include "../pinconf.h"
 #include "pinctrl-msm.h"
@@ -749,6 +750,91 @@ static struct irq_chip msm_gpio_irq_chip = {
 	.irq_set_wake   = msm_gpio_irq_set_wake,
 };
 
+static void msm_dirconn_irq_mask(struct irq_data *d)
+{
+	struct irq_desc *desc = irq_data_to_desc(d);
+	struct irq_data *parent_data = irq_get_irq_data(desc->parent_irq);
+
+	if (parent_data->chip->irq_mask)
+		parent_data->chip->irq_mask(parent_data);
+}
+
+static void msm_dirconn_irq_unmask(struct irq_data *d)
+{
+	struct irq_desc *desc = irq_data_to_desc(d);
+	struct irq_data *parent_data = irq_get_irq_data(desc->parent_irq);
+
+	if (parent_data->chip->irq_unmask)
+		parent_data->chip->irq_unmask(parent_data);
+}
+
+static void msm_dirconn_irq_ack(struct irq_data *d)
+{
+	struct irq_desc *desc = irq_data_to_desc(d);
+	struct irq_data *parent_data = irq_get_irq_data(desc->parent_irq);
+
+	if (parent_data->chip->irq_ack)
+		parent_data->chip->irq_ack(parent_data);
+}
+
+static void msm_dirconn_irq_eoi(struct irq_data *d)
+{
+	struct irq_desc *desc = irq_data_to_desc(d);
+	struct irq_data *parent_data = irq_get_irq_data(desc->parent_irq);
+
+	if (parent_data->chip->irq_eoi)
+		parent_data->chip->irq_eoi(parent_data);
+}
+
+static int msm_dirconn_irq_set_affinity(struct irq_data *d,
+		const struct cpumask *maskval, bool force)
+{
+	struct irq_desc *desc = irq_data_to_desc(d);
+	struct irq_data *parent_data = irq_get_irq_data(desc->parent_irq);
+
+	if (parent_data->chip->irq_set_affinity)
+		return parent_data->chip->irq_set_affinity(parent_data,
+				maskval, force);
+	return 0;
+}
+
+static int msm_dirconn_irq_set_vcpu_affinity(struct irq_data *d,
+		void *vcpu_info)
+{
+	struct irq_desc *desc = irq_data_to_desc(d);
+	struct irq_data *parent_data = irq_get_irq_data(desc->parent_irq);
+
+	if (parent_data->chip->irq_set_vcpu_affinity)
+		return parent_data->chip->irq_set_vcpu_affinity(parent_data,
+				vcpu_info);
+	return 0;
+}
+
+static int msm_dirconn_irq_set_type(struct irq_data *d, unsigned int type)
+{
+	struct irq_desc *desc = irq_data_to_desc(d);
+	struct irq_data *parent_data = irq_get_irq_data(desc->parent_irq);
+
+	if (parent_data->chip->irq_set_type)
+		return parent_data->chip->irq_set_type(parent_data, type);
+
+	return 0;
+}
+
+static struct irq_chip msm_dirconn_irq_chip = {
+	.name			= "msmgpio-dc",
+	.irq_mask		= msm_dirconn_irq_mask,
+	.irq_unmask		= msm_dirconn_irq_unmask,
+	.irq_eoi		= msm_dirconn_irq_eoi,
+	.irq_ack		= msm_dirconn_irq_ack,
+	.irq_set_type		= msm_dirconn_irq_set_type,
+	.irq_set_affinity	= msm_dirconn_irq_set_affinity,
+	.irq_set_vcpu_affinity	= msm_dirconn_irq_set_vcpu_affinity,
+	.flags			= IRQCHIP_SKIP_SET_WAKE
+					| IRQCHIP_MASK_ON_SUSPEND
+					| IRQCHIP_SET_TYPE_MASKED,
+};
+
 static void msm_gpio_irq_handler(struct irq_desc *desc)
 {
 	struct gpio_chip *gc = irq_desc_get_handler_data(desc);
@@ -781,6 +867,55 @@ static void msm_gpio_irq_handler(struct irq_desc *desc)
 		handle_bad_irq(desc);
 
 	chained_irq_exit(chip, desc);
+}
+
+static void msm_gpio_dirconn_handler(struct irq_desc *desc)
+{
+	struct irq_data *irqd = irq_desc_get_handler_data(desc);
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+
+	chained_irq_enter(chip, desc);
+	generic_handle_irq(irqd->irq);
+	chained_irq_exit(chip, desc);
+}
+
+static void msm_gpio_setup_dir_connects(struct msm_pinctrl *pctrl)
+{
+	struct device_node *parent_node;
+	struct irq_domain *parent_domain;
+	struct irq_fwspec fwspec;
+	unsigned int i;
+
+	parent_node = of_irq_find_parent(pctrl->dev->of_node);
+
+	if (!parent_node)
+		return;
+
+	parent_domain = irq_find_host(parent_node);
+	if (!parent_domain)
+		return;
+
+	fwspec.fwnode = parent_domain->fwnode;
+	for (i = 0; i < pctrl->soc->n_dir_conns; i++) {
+		const struct msm_dir_conn *dirconn = &pctrl->soc->dir_conn[i];
+		unsigned int parent_irq;
+		int irq;
+
+		fwspec.param[0] = 0; /* SPI */
+		fwspec.param[1] = dirconn->hwirq;
+		fwspec.param[2] = IRQ_TYPE_NONE;
+		fwspec.param_count = 3;
+		parent_irq = irq_create_fwspec_mapping(&fwspec);
+
+		irq = irq_find_mapping(pctrl->chip.irqdomain, dirconn->gpio);
+
+		irq_set_parent(irq, parent_irq);
+		irq_set_chip(irq, &msm_dirconn_irq_chip);
+		irq_set_chip_data(irq, irq_get_irq_data(parent_irq));
+		__irq_set_handler(parent_irq, msm_gpio_dirconn_handler,
+				false, NULL);
+		irq_set_handler_data(parent_irq, irq_get_irq_data(irq));
+	}
 }
 
 static int msm_gpio_init(struct msm_pinctrl *pctrl)
@@ -827,6 +962,7 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 	gpiochip_set_chained_irqchip(chip, &msm_gpio_irq_chip, pctrl->irq,
 				     msm_gpio_irq_handler);
 
+	msm_gpio_setup_dir_connects(pctrl);
 	return 0;
 }
 
