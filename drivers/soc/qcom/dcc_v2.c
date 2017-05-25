@@ -154,6 +154,7 @@ struct dcc_drvdata {
 	void			*sram_buf;
 	struct msm_dump_data	sram_data;
 	uint8_t			curr_list;
+	uint8_t			cti_trig;
 };
 
 static bool dcc_ready(struct dcc_drvdata *drvdata)
@@ -601,7 +602,8 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 		}
 
 		/* 4. Configure trigger, data sink and function type */
-		dcc_writel(drvdata, BIT(9) | ((drvdata->data_sink << 4) |
+		dcc_writel(drvdata, BIT(9) | ((drvdata->cti_trig << 8) |
+			   (drvdata->data_sink << 4) |
 			   (drvdata->func_type[list])), DCC_LL_CFG(list));
 
 		/* 5. Clears interrupt status register */
@@ -1252,6 +1254,43 @@ err:
 }
 static DEVICE_ATTR(config_write, 0200, NULL, dcc_write);
 
+static ssize_t dcc_show_cti_trig(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", drvdata->cti_trig);
+}
+
+static ssize_t dcc_store_cti_trig(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf, size_t size)
+{
+	unsigned long val;
+	int ret = 0;
+	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
+
+	if (kstrtoul(buf, 16, &val))
+		return -EINVAL;
+
+	mutex_lock(&drvdata->mutex);
+
+	if (drvdata->enable[drvdata->curr_list]) {
+		ret = -EBUSY;
+		goto out;
+	}
+
+	if (val)
+		drvdata->cti_trig = 1;
+	else
+		drvdata->cti_trig = 0;
+out:
+	mutex_unlock(&drvdata->mutex);
+	return ret;
+}
+static DEVICE_ATTR(cti_trig, 0644,
+		   dcc_show_cti_trig, dcc_store_cti_trig);
+
 static const struct device_attribute *dcc_attrs[] = {
 	&dev_attr_func_type,
 	&dev_attr_data_sink,
@@ -1266,6 +1305,7 @@ static const struct device_attribute *dcc_attrs[] = {
 	&dev_attr_rd_mod_wr,
 	&dev_attr_curr_list,
 	&dev_attr_config_write,
+	&dev_attr_cti_trig,
 	NULL,
 };
 
