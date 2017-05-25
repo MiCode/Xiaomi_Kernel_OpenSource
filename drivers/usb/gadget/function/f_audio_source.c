@@ -1018,8 +1018,14 @@ static struct usb_function_instance *audio_source_alloc_inst(void)
 	config_group_init_type_name(&fi_audio->func_inst.group, "",
 						&audio_source_func_type);
 
-	snprintf(device_name, AUDIO_SOURCE_DEV_NAME_LENGTH,
+	if (!count) {
+		snprintf(device_name, AUDIO_SOURCE_DEV_NAME_LENGTH,
+					"f_audio_source");
+		count++;
+	} else {
+		snprintf(device_name, AUDIO_SOURCE_DEV_NAME_LENGTH,
 					"f_audio_source%d", count++);
+	}
 
 	dev = create_function_device(device_name);
 
