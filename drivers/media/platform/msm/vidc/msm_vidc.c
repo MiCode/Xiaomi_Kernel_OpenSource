@@ -1447,8 +1447,6 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		}
 	}
 
-	msm_comm_set_use_sys_cache(inst);
-
 	/*
 	 * For seq_changed_insufficient, driver should set session_continue
 	 * to firmware after the following sequence

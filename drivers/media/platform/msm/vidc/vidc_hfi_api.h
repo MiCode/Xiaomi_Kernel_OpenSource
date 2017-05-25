@@ -224,7 +224,6 @@ enum hal_property {
 	HAL_PARAM_VIDEO_CORES_USAGE,
 	HAL_PARAM_VIDEO_WORK_MODE,
 	HAL_PARAM_SECURE,
-	HAL_PARAM_USE_SYS_CACHE,
 };
 
 enum hal_domain {

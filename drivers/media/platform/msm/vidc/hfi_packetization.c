@@ -1863,14 +1863,6 @@ int create_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32) + sizeof(*work_mode);
 		break;
 	}
-	case HAL_PARAM_USE_SYS_CACHE:
-	{
-		create_pkt_enable(pkt->rg_property_data,
-			HFI_PROPERTY_PARAM_USE_SYS_CACHE,
-			(((struct hal_enable *) pdata)->enable));
-		pkt->size += sizeof(u32) * 2;
-		break;
-	}
 	/* FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET */
 	case HAL_CONFIG_BUFFER_REQUIREMENTS:
 	case HAL_CONFIG_PRIORITY:
