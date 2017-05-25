@@ -3679,6 +3679,17 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	if (rc < 0)
 		smblib_err(chg, "Couldn't restore crude sensor rc=%d\n", rc);
 
+	mutex_lock(&chg->vconn_oc_lock);
+	if (!chg->vconn_en)
+		goto unlock;
+
+	smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
+				 VCONN_EN_VALUE_BIT, 0);
+	chg->vconn_en = false;
+
+unlock:
+	mutex_unlock(&chg->vconn_oc_lock);
+
 	typec_sink_removal(chg);
 	smblib_update_usb_type(chg);
 }
@@ -3709,15 +3720,15 @@ static void smblib_handle_typec_debounce_done(struct smb_charger *chg,
 	union power_supply_propval pval = {0, };
 
 	if (rising) {
-		if (!chg->typec_present) {
+		if (!chg->typec_present && !chg->pr_swap_in_progress) {
 			chg->typec_present = true;
-			smblib_dbg(chg, PR_MISC,  "TypeC insertion\n");
+			smblib_dbg(chg, PR_MISC, "TypeC insertion\n");
 			smblib_handle_typec_insertion(chg, sink_attached);
 		}
 	} else {
-		if (chg->typec_present) {
+		if (chg->typec_present && !chg->pr_swap_in_progress) {
 			chg->typec_present = false;
-			smblib_dbg(chg, PR_MISC,  "TypeC removal\n");
+			smblib_dbg(chg, PR_MISC, "TypeC removal\n");
 			smblib_handle_typec_removal(chg);
 		}
 	}
@@ -3849,6 +3860,30 @@ irqreturn_t smblib_handle_wdog_bark(int irq, void *data)
 		smblib_err(chg, "Couldn't pet the dog rc=%d\n", rc);
 
 	return IRQ_HANDLED;
+}
+
+/**************
+ * Additional USB PSY getters/setters
+ * that call interrupt functions
+ ***************/
+
+int smblib_get_prop_pr_swap_in_progress(struct smb_charger *chg,
+				union power_supply_propval *val)
+{
+	val->intval = chg->pr_swap_in_progress;
+	return 0;
+}
+
+int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
+				const union power_supply_propval *val)
+{
+	chg->pr_swap_in_progress = val->intval;
+	/*
+	 * call the cc changed irq to handle real removals while
+	 * PR_SWAP was in progress
+	 */
+	smblib_usb_typec_change(chg);
+	return 0;
 }
 
 /***************
