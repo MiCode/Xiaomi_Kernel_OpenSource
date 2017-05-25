@@ -486,6 +486,8 @@ enum sde_clk_ctrl_type {
 	SDE_CLK_CTRL_WB0,
 	SDE_CLK_CTRL_WB1,
 	SDE_CLK_CTRL_WB2,
+	SDE_CLK_CTRL_INLINE_ROT0_SSPP,
+	SDE_CLK_CTRL_INLINE_ROT0_WB,
 	SDE_CLK_CTRL_MAX,
 };
 
@@ -646,6 +648,20 @@ struct sde_wb_cfg {
 };
 
 /**
+ * struct sde_rot_vbif_cfg - inline rotator vbif configs
+ * @xin_id             xin client id
+ * @num                enum identifying this block
+ * @is_read            indicates read/write client
+ * @clk_ctrl           index to clk control
+ */
+struct sde_rot_vbif_cfg {
+	u32 xin_id;
+	u32 num;
+	bool is_read;
+	enum sde_clk_ctrl_type clk_ctrl;
+};
+
+/**
  * struct sde_rot_cfg - information of rotator blocks
  * @id                 enum identifying this block
  * @base               register offset of this block
@@ -654,12 +670,19 @@ struct sde_wb_cfg {
  * @pdev               private device handle
  * @scid               subcache identifier
  * @slice_size         subcache slice size
+ * @vbif_idx           vbif identifier
+ * @xin_count          number of xin clients
+ * @vbif_cfg           vbif settings related to rotator
  */
 struct sde_rot_cfg {
 	SDE_HW_BLK_INFO;
 	void *pdev;
 	int scid;
 	size_t slice_size;
+	u32 vbif_idx;
+
+	u32 xin_count;
+	struct sde_rot_vbif_cfg vbif_cfg[MAX_BLOCKS];
 };
 
 /**

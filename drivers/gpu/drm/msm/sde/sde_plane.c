@@ -627,10 +627,11 @@ static void _sde_plane_set_qos_remap(struct drm_plane *plane)
 	qos_params.num = psde->pipe_hw->idx - SSPP_VIG0;
 	qos_params.is_rt = psde->is_rt_pipe;
 
-	SDE_DEBUG("plane%d pipe:%d vbif:%d xin:%d rt:%d\n",
+	SDE_DEBUG("plane%d pipe:%d vbif:%d xin:%d rt:%d, clk_ctrl:%d\n",
 			plane->base.id, qos_params.num,
 			qos_params.vbif_idx,
-			qos_params.xin_id, qos_params.is_rt);
+			qos_params.xin_id, qos_params.is_rt,
+			qos_params.clk_ctrl);
 
 	sde_vbif_set_qos_remap(sde_kms, &qos_params);
 }
@@ -702,6 +703,90 @@ static void _sde_plane_set_input_fence(struct sde_plane *psde,
 	pstate->input_fence = sde_sync_get(fd);
 
 	SDE_DEBUG_PLANE(psde, "0x%llX\n", fd);
+}
+
+/**
+ * _sde_plane_inline_rot_set_ot_limit - set OT limit for the given inline
+ * rotation xin client
+ * @plane: pointer to drm plane
+ * @crtc: pointer to drm crtc
+ * @cfg: pointer to rotator vbif config
+ * @rect_w: rotator frame width
+ * @rect_h: rotator frame height
+ */
+static void _sde_plane_inline_rot_set_ot_limit(struct drm_plane *plane,
+		struct drm_crtc *crtc, const struct sde_rot_vbif_cfg *cfg,
+		u32 rect_w, u32 rect_h)
+{
+	struct sde_vbif_set_ot_params ot_params;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+
+	if (!plane || !plane->dev) {
+		SDE_ERROR("invalid arguments\n");
+		return;
+	}
+
+	priv = plane->dev->dev_private;
+	if (!priv || !priv->kms) {
+		SDE_ERROR("invalid KMS reference\n");
+		return;
+	}
+
+	sde_kms = to_sde_kms(priv->kms);
+
+	memset(&ot_params, 0, sizeof(ot_params));
+	ot_params.xin_id = cfg->xin_id;
+	ot_params.num = cfg->num;
+	ot_params.width = rect_w;
+	ot_params.height = rect_h;
+	ot_params.is_wfd = false;
+	ot_params.frame_rate = crtc->mode.vrefresh;
+	ot_params.vbif_idx = VBIF_RT;
+	ot_params.clk_ctrl = cfg->clk_ctrl;
+	ot_params.rd = cfg->is_read;
+
+	sde_vbif_set_ot_limit(sde_kms, &ot_params);
+}
+
+/**
+ * _sde_plane_inline_rot_set_qos_remap - set vbif QoS for the given inline
+ * rotation xin client
+ * @plane: Pointer to drm plane
+ * @cfg: Pointer to rotator vbif cfg
+ */
+static void _sde_plane_inline_rot_set_qos_remap(struct drm_plane *plane,
+		const struct sde_rot_vbif_cfg *cfg)
+{
+	struct sde_vbif_set_qos_params qos_params;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+
+	if (!plane || !plane->dev) {
+		SDE_ERROR("invalid arguments\n");
+		return;
+	}
+
+	priv = plane->dev->dev_private;
+	if (!priv || !priv->kms) {
+		SDE_ERROR("invalid KMS reference\n");
+		return;
+	}
+
+	sde_kms = to_sde_kms(priv->kms);
+
+	memset(&qos_params, 0, sizeof(qos_params));
+	qos_params.vbif_idx = VBIF_RT;
+	qos_params.xin_id = cfg->xin_id;
+	qos_params.clk_ctrl = cfg->clk_ctrl;
+	qos_params.num = cfg->num;
+	qos_params.is_rt = true;
+
+	SDE_DEBUG("vbif:%d xin:%d num:%d rt:%d clk_ctrl:%d\n",
+			qos_params.vbif_idx, qos_params.xin_id,
+			qos_params.num, qos_params.is_rt, qos_params.clk_ctrl);
+
+	sde_vbif_set_qos_remap(sde_kms, &qos_params);
 }
 
 int sde_plane_wait_input_fence(struct drm_plane *plane, uint32_t wait_ms)
@@ -1695,6 +1780,24 @@ static int sde_plane_rot_submit_command(struct drm_plane *plane,
 			rot_cmd->dst_len[i] = layout.plane_size[i];
 		}
 		rot_cmd->dst_planes = layout.num_planes;
+
+		/* VBIF remapper settings */
+		for (i = 0; rstate->rot_hw->caps->xin_count; i++) {
+			const struct sde_rot_vbif_cfg *cfg =
+					&rstate->rot_hw->caps->vbif_cfg[i];
+
+			_sde_plane_inline_rot_set_qos_remap(plane, cfg);
+
+			if (cfg->is_read) {
+				_sde_plane_inline_rot_set_ot_limit(plane,
+					state->crtc, cfg, rot_cmd->src_rect_w,
+					rot_cmd->src_rect_h);
+			} else {
+				_sde_plane_inline_rot_set_ot_limit(plane,
+					state->crtc, cfg, rot_cmd->dst_rect_w,
+					rot_cmd->dst_rect_h);
+			}
+		}
 	}
 
 	ret = rstate->rot_hw->ops.commit(rstate->rot_hw, rot_cmd, hw_cmd);

@@ -283,6 +283,13 @@ enum sde_rot {
 	ROT_MAX
 };
 
+enum sde_inline_rot {
+	INLINE_ROT_NONE,
+	INLINE_ROT0_SSPP,
+	INLINE_ROT0_WB,
+	INLINE_ROT_MAX
+};
+
 /**
  * SDE HW,Component order color map
  */
