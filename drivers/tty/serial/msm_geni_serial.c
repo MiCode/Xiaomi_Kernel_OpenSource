@@ -1845,7 +1845,6 @@ static int msm_geni_serial_sys_suspend_noirq(struct device *dev)
 	if (uart_console(uport)) {
 		uart_suspend_port((struct uart_driver *)uport->private_data,
 					uport);
-		se_geni_resources_off(&port->serial_rsc);
 	} else {
 		if (!pm_runtime_status_suspended(dev)) {
 			dev_info(dev, "%s: Is still active\n", __func__);
