@@ -20,6 +20,7 @@
 		reg = <0x5040000 0x10000>;
 		#iommu-cells = <1>;
 		qcom,dynamic;
+		qcom,use-3-lvl-tables;
 		#global-interrupts = <2>;
 		qcom,regulator-names = "vdd";
 		vdd-supply = <&gpu_cx_gdsc>;
@@ -63,6 +64,7 @@
 		reg-names = "base", "tcu-base";
 		#iommu-cells = <2>;
 		qcom,skip-init;
+		qcom,use-3-lvl-tables;
 		#global-interrupts = <1>;
 		#size-cells = <1>;
 		#address-cells = <1>;
