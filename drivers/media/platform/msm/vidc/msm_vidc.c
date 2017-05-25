@@ -171,6 +171,12 @@ int msm_vidc_query_ctrl(void *instance, struct v4l2_queryctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES:
 		msm_vidc_ctrl_get_range(ctrl, &inst->capability.bframe);
 		break;
+	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB:
+		msm_vidc_ctrl_get_range(ctrl, &inst->capability.slice_mbs);
+		break;
+	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES:
+		msm_vidc_ctrl_get_range(ctrl, &inst->capability.slice_bytes);
+		break;
 	default:
 		rc = -EINVAL;
 	}
