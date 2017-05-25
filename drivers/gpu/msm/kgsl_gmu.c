@@ -1543,8 +1543,6 @@ void gmu_remove(struct kgsl_device *device)
 
 	if (gmu->reg_virt) {
 		devm_iounmap(&gmu->pdev->dev, gmu->reg_virt);
-		devm_release_mem_region(&gmu->pdev->dev,
-				gmu->reg_phys, gmu->reg_len);
 		gmu->reg_virt = NULL;
 	}
 
