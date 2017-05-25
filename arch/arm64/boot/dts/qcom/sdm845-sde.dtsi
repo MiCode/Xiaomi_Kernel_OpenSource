@@ -35,7 +35,7 @@
 		sde-vdd-supply = <&mdss_core_gdsc>;
 
 		/* interrupt config */
-		interrupt-parent = <&intc>;
+		interrupt-parent = <&pdc>;
 		interrupts = <0 83 0>;
 		interrupt-controller;
 		#interrupt-cells = <1>;
