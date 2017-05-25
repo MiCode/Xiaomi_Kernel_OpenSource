@@ -123,6 +123,7 @@ EXPORT_SYMBOL(sde_rsc_client_create);
 void sde_rsc_client_destroy(struct sde_rsc_client *client)
 {
 	struct sde_rsc_priv *rsc;
+	enum sde_rsc_state state;
 
 	if (!client) {
 		pr_debug("invalid client\n");
@@ -138,9 +139,13 @@ void sde_rsc_client_destroy(struct sde_rsc_client *client)
 		goto end;
 
 	mutex_lock(&rsc->client_lock);
-	if (client->current_state != SDE_RSC_IDLE_STATE)
+	state = client->current_state;
+	mutex_unlock(&rsc->client_lock);
+
+	if (state != SDE_RSC_IDLE_STATE)
 		sde_rsc_client_state_update(client, SDE_RSC_IDLE_STATE,
 								NULL, -1);
+	mutex_lock(&rsc->client_lock);
 	list_del_init(&client->list);
 	mutex_unlock(&rsc->client_lock);
 
