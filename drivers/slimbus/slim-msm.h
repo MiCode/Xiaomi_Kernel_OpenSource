@@ -228,6 +228,10 @@ struct msm_slim_qmi {
 	struct kthread_worker		kworker;
 	struct completion		qmi_comp;
 	struct notifier_block		nb;
+	bool				deferred_resp;
+	struct qmi_response_type_v01	resp;
+	struct msg_desc			resp_desc;
+	struct completion		defer_comp;
 };
 
 enum msm_slim_dom {
@@ -437,4 +441,5 @@ void msm_slim_qmi_exit(struct msm_slim_ctrl *dev);
 int msm_slim_qmi_init(struct msm_slim_ctrl *dev, bool apps_is_master);
 int msm_slim_qmi_power_request(struct msm_slim_ctrl *dev, bool active);
 int msm_slim_qmi_check_framer_request(struct msm_slim_ctrl *dev);
+int msm_slim_qmi_deferred_status_req(struct msm_slim_ctrl *dev);
 #endif
