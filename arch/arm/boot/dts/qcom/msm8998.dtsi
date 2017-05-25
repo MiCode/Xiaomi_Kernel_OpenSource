@@ -1827,6 +1827,7 @@
 		vdda18-supply = <&pm8998_l12>;
 		vdda33-supply = <&pm8998_l24>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
+		qcom,vdda33-voltage-level = <2400000 3088000 3088000>;
 		qcom,qusb-phy-init-seq =
 				/* <value reg_offset> */
 					<0x80 0x0
