@@ -71,12 +71,16 @@ struct nodebw {
 struct nodevector {
 	uint64_t vec_a;
 	uint64_t vec_b;
+	uint64_t query_vec_a;
+	uint64_t query_vec_b;
 };
 
 struct msm_bus_rsc_device_type {
 	struct rpmh_client *mbox;
 	struct list_head bcm_clist[VCD_MAX_CNT];
 	int req_state;
+	uint32_t acv[NUM_CTX];
+	uint32_t query_acv[NUM_CTX];
 };
 
 struct msm_bus_bcm_device_type {
@@ -157,7 +161,7 @@ struct msm_bus_node_info_type {
 	struct device **black_connections;
 	struct device **bcm_devs;
 	struct device **rsc_devs;
-	int bcm_req_idx;
+	int *bcm_req_idx;
 	unsigned int bus_device_id;
 	struct device *bus_device;
 	struct rule_update_path_info rule;

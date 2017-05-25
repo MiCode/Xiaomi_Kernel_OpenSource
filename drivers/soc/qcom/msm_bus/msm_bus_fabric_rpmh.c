@@ -418,8 +418,8 @@ static int tcs_cmd_query_list_gen(struct tcs_cmd *cmdlist_active)
 				commit = true;
 			}
 			tcs_cmd_gen(cur_bcm, &cmdlist_active[k],
-				cur_bcm->node_bw[ACTIVE_CTX].max_query_ib,
-				cur_bcm->node_bw[ACTIVE_CTX].max_query_ab,
+				cur_bcm->node_vec[ACTIVE_CTX].query_vec_a,
+				cur_bcm->node_vec[ACTIVE_CTX].query_vec_b,
 								commit);
 			k++;
 		}
@@ -433,26 +433,30 @@ static int bcm_clist_add(struct msm_bus_node_device_type *cur_dev)
 {
 	int ret = 0;
 	int cur_vcd = 0;
+	int i = 0;
 	struct msm_bus_node_device_type *cur_bcm = NULL;
 
 	if (!cur_dev->node_info->num_bcm_devs)
 		goto exit_bcm_clist_add;
 
-	cur_bcm = to_msm_bus_node(cur_dev->node_info->bcm_devs[0]);
-	cur_vcd = cur_bcm->bcmdev->clk_domain;
+	for (i = 0; i < cur_dev->node_info->num_bcm_devs; i++) {
+		cur_bcm = to_msm_bus_node(cur_dev->node_info->bcm_devs[i]);
+		cur_vcd = cur_bcm->bcmdev->clk_domain;
 
-	if (!cur_bcm->node_info->num_rsc_devs)
-		goto exit_bcm_clist_add;
+		if (!cur_bcm->node_info->num_rsc_devs)
+			goto exit_bcm_clist_add;
 
-	if (!cur_rsc)
-		cur_rsc = to_msm_bus_node(cur_bcm->node_info->rsc_devs[0]);
+		if (!cur_rsc)
+			cur_rsc = to_msm_bus_node(cur_bcm->node_info->
+								rsc_devs[0]);
 
-	if (!cur_bcm->dirty) {
-		list_add_tail(&cur_bcm->link,
+		if (!cur_bcm->dirty) {
+			list_add_tail(&cur_bcm->link,
 					&cur_rsc->rscdev->bcm_clist[cur_vcd]);
-		cur_bcm->dirty = true;
+			cur_bcm->dirty = true;
+		}
+		cur_bcm->updated = false;
 	}
-	cur_bcm->updated = false;
 
 exit_bcm_clist_add:
 	return ret;
@@ -462,17 +466,20 @@ static int bcm_query_list_add(struct msm_bus_node_device_type *cur_dev)
 {
 	int ret = 0;
 	int cur_vcd = 0;
+	int i = 0;
 	struct msm_bus_node_device_type *cur_bcm = NULL;
 
 	if (!cur_dev->node_info->num_bcm_devs)
 		goto exit_bcm_query_list_add;
 
-	cur_bcm = to_msm_bus_node(cur_dev->node_info->bcm_devs[0]);
-	cur_vcd = cur_bcm->bcmdev->clk_domain;
+	for (i = 0; i < cur_dev->node_info->num_bcm_devs; i++) {
+		cur_bcm = to_msm_bus_node(cur_dev->node_info->bcm_devs[i]);
+		cur_vcd = cur_bcm->bcmdev->clk_domain;
 
-	if (!cur_bcm->query_dirty)
-		list_add_tail(&cur_bcm->query_link,
+		if (!cur_bcm->query_dirty)
+			list_add_tail(&cur_bcm->query_link,
 					&bcm_query_list_inorder[cur_vcd]);
+	}
 
 exit_bcm_query_list_add:
 	return ret;
@@ -481,20 +488,23 @@ exit_bcm_query_list_add:
 static int bcm_clist_clean(struct msm_bus_node_device_type *cur_dev)
 {
 	int ret = 0;
+	int i = 0;
 	struct msm_bus_node_device_type *cur_bcm = NULL;
 
 	if (!cur_dev->node_info->num_bcm_devs)
 		goto exit_bcm_clist_clean;
 
-	cur_bcm = to_msm_bus_node(cur_dev->node_info->bcm_devs[0]);
+	for (i = 0; i < cur_dev->node_info->num_bcm_devs; i++) {
+		cur_bcm = to_msm_bus_node(cur_dev->node_info->bcm_devs[i]);
 
-	if (cur_bcm->node_vec[DUAL_CTX].vec_a == 0 &&
+		if (cur_bcm->node_vec[DUAL_CTX].vec_a == 0 &&
 			cur_bcm->node_vec[ACTIVE_CTX].vec_a == 0 &&
 			cur_bcm->node_vec[DUAL_CTX].vec_b == 0 &&
 			cur_bcm->node_vec[ACTIVE_CTX].vec_b == 0 &&
 			init_time == false) {
-		cur_bcm->dirty = false;
-		list_del_init(&cur_bcm->link);
+			cur_bcm->dirty = false;
+			list_del_init(&cur_bcm->link);
+		}
 	}
 
 exit_bcm_clist_clean:
@@ -504,15 +514,18 @@ exit_bcm_clist_clean:
 static int bcm_query_list_clean(struct msm_bus_node_device_type *cur_dev)
 {
 	int ret = 0;
+	int i = 0;
 	struct msm_bus_node_device_type *cur_bcm = NULL;
 
 	if (!cur_dev->node_info->num_bcm_devs)
 		goto exit_bcm_clist_add;
 
-	cur_bcm = to_msm_bus_node(cur_dev->node_info->bcm_devs[0]);
+	for (i = 0; i < cur_dev->node_info->num_bcm_devs; i++) {
+		cur_bcm = to_msm_bus_node(cur_dev->node_info->bcm_devs[i]);
 
-	cur_bcm->query_dirty = false;
-	list_del_init(&cur_bcm->query_link);
+		cur_bcm->query_dirty = false;
+		list_del_init(&cur_bcm->query_link);
+	}
 
 exit_bcm_clist_add:
 	return ret;
@@ -1081,7 +1094,7 @@ static int msm_bus_init_clk(struct device *bus_dev,
 static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 				struct device *bus_dev)
 {
-	int ret = 0;
+	int ret = 0, i = 0;
 	struct msm_bus_node_info_type *node_info = NULL;
 	struct msm_bus_node_info_type *pdata_node_info = NULL;
 	struct msm_bus_node_device_type *bus_node = NULL;
@@ -1100,7 +1113,17 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 
 	node_info->name = pdata_node_info->name;
 	node_info->id =  pdata_node_info->id;
-	node_info->bcm_req_idx = -1;
+	node_info->bcm_req_idx = devm_kzalloc(bus_dev,
+			sizeof(int) * pdata_node_info->num_bcm_devs,
+			GFP_KERNEL);
+	if (!node_info->bcm_req_idx) {
+		ret = -ENOMEM;
+		goto exit_copy_node_info;
+	}
+
+	for (i = 0; i < pdata_node_info->num_bcm_devs; i++)
+		node_info->bcm_req_idx[i] = -1;
+
 	node_info->bus_device_id = pdata_node_info->bus_device_id;
 	node_info->mas_rpm_id = pdata_node_info->mas_rpm_id;
 	node_info->slv_rpm_id = pdata_node_info->slv_rpm_id;
