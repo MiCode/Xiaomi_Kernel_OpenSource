@@ -28,6 +28,9 @@
 /* Backport support for DFS offload */
 #define CFG80211_DFS_OFFLOAD_BACKPORT 1
 
+/* Indicate support for including KEK length in rekey data */
+#define CFG80211_REKEY_DATA_KEK_LEN 1
+
 /**
  * DOC: Introduction
  *
@@ -2565,12 +2568,14 @@ struct cfg80211_wowlan_wakeup {
 
 /**
  * struct cfg80211_gtk_rekey_data - rekey data
- * @kek: key encryption key (NL80211_KEK_LEN bytes)
+ * @kek: key encryption key
  * @kck: key confirmation key (NL80211_KCK_LEN bytes)
  * @replay_ctr: replay counter (NL80211_REPLAY_CTR_LEN bytes)
+ * @kek_len: Length of @kek in octets
  */
 struct cfg80211_gtk_rekey_data {
 	const u8 *kek, *kck, *replay_ctr;
+	size_t kek_len;
 };
 
 /**
