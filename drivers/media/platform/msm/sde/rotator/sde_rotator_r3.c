@@ -1264,6 +1264,7 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 	u32 *wrptr;
 	u32 pack = 0;
 	u32 dst_format = 0;
+	u32 partial_write = 0;
 	int i;
 
 	wrptr = sde_hw_rotator_get_regdma_segment(ctx);
@@ -1347,8 +1348,13 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 			cfg->v_downscale_factor |
 			(cfg->h_downscale_factor << 16));
 
+	/* partial write check */
+	if (test_bit(SDE_CAPS_PARTIALWR, mdata->sde_caps_map) &&
+			!sde_mdp_is_ubwc_format(fmt))
+		partial_write = BIT(10);
+
 	/* write config setup for bank configuration */
-	SDE_REGDMA_WRITE(wrptr, ROT_WB_DST_WRITE_CONFIG,
+	SDE_REGDMA_WRITE(wrptr, ROT_WB_DST_WRITE_CONFIG, partial_write |
 			(ctx->rot->highest_bank & 0x3) << 8);
 
 	if (test_bit(SDE_CAPS_UBWC_2, mdata->sde_caps_map))
@@ -2589,6 +2595,7 @@ static int sde_rotator_hw_rev_init(struct sde_hw_rotator *rot)
 		SDEROT_DBG("Supporting sys cache inline rotation\n");
 		set_bit(SDE_CAPS_SBUF_1,  mdata->sde_caps_map);
 		set_bit(SDE_CAPS_UBWC_2,  mdata->sde_caps_map);
+		set_bit(SDE_CAPS_PARTIALWR,  mdata->sde_caps_map);
 		rot->inpixfmts = sde_hw_rotator_v4_inpixfmts;
 		rot->num_inpixfmt = ARRAY_SIZE(sde_hw_rotator_v4_inpixfmts);
 		rot->outpixfmts = sde_hw_rotator_v4_outpixfmts;

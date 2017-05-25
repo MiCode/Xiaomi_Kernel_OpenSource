@@ -111,6 +111,7 @@ enum sde_rot_type {
  * @SDE_CAPS_R3_1P5_DOWNSCALE: 1.5x downscale rotator support
  * @SDE_CAPS_SBUF_1: stream buffer support for inline rotation
  * @SDE_CAPS_UBWC_2: universal bandwidth compression version 2
+ * @SDE_CAPS_PARTIALWR: partial write override
  */
 enum sde_caps_settings {
 	SDE_CAPS_R1_WB,
@@ -119,6 +120,7 @@ enum sde_caps_settings {
 	SDE_CAPS_SEC_ATTACH_DETACH_SMMU,
 	SDE_CAPS_SBUF_1,
 	SDE_CAPS_UBWC_2,
+	SDE_CAPS_PARTIALWR,
 	SDE_CAPS_MAX,
 };
 
