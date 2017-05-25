@@ -1973,8 +1973,6 @@ static int qpnp_adc_tm_probe(struct platform_device *pdev)
 			chip->sensor[sen_idx].thermal_node = true;
 			snprintf(name, sizeof(name), "%s",
 				chip->adc->adc_channels[sen_idx].name);
-			chip->sensor[sen_idx].meas_interval =
-				QPNP_ADC_TM_MEAS_INTERVAL;
 			chip->sensor[sen_idx].low_thr =
 						QPNP_ADC_TM_M0_LOW_THR;
 			chip->sensor[sen_idx].high_thr =
@@ -2027,7 +2025,7 @@ static int qpnp_adc_tm_probe(struct platform_device *pdev)
 
 	rc = devm_request_irq(&pdev->dev, chip->adc->adc_irq_eoc,
 			qpnp_adc_tm_rc_thr_isr,
-		IRQF_TRIGGER_RISING, "qpnp_adc_tm_interrupt", chip);
+		IRQF_TRIGGER_HIGH, "qpnp_adc_tm_interrupt", chip);
 	if (rc)
 		dev_err(&pdev->dev, "failed to request adc irq\n");
 	else
