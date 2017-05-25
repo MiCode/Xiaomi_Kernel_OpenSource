@@ -2313,6 +2313,14 @@ static void usbpd_sm(struct work_struct *w)
 sm_done:
 	kfree(rx_msg);
 
+	spin_lock_irqsave(&pd->rx_lock, flags);
+	ret = list_empty(&pd->rx_q);
+	spin_unlock_irqrestore(&pd->rx_lock, flags);
+
+	/* requeue if there are any new/pending RX messages */
+	if (!ret)
+		kick_sm(pd, 0);
+
 	if (!pd->sm_queued)
 		pm_relax(&pd->dev);
 }
