@@ -1639,6 +1639,8 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 			goto error_handle_request;
 		}
 
+		sde_rotator_req_reset_start(req);
+
 		sde_rotator_commit_request(rot_dev->mgr, ctx->private, req);
 
 		request->committed = true;
