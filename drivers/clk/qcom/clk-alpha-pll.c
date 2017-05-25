@@ -59,7 +59,6 @@
 
 #define FABIA_USER_CTL_LO	0xc
 #define FABIA_USER_CTL_HI	0x10
-#define FABIA_CAL_L_VAL		0x8
 #define FABIA_FRAC_VAL		0x38
 #define FABIA_OPMODE		0x2c
 #define FABIA_PLL_STANDBY	0x0
@@ -463,12 +462,9 @@ void clk_fabia_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 {
 	u32 val, mask;
 
-	if (config->l) {
+	if (config->l)
 		regmap_write(regmap, pll->offset + PLL_L_VAL,
 						config->l);
-		regmap_write(regmap, pll->offset + FABIA_CAL_L_VAL,
-						config->l);
-	}
 
 	if (config->frac)
 		regmap_write(regmap, pll->offset + FABIA_FRAC_VAL,
@@ -627,12 +623,6 @@ static int clk_fabia_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	}
 
 	regmap_write(pll->clkr.regmap, off + PLL_L_VAL, l);
-	/*
-	 * pll_cal_l_val is set to pll_l_val on MOST targets. Set it
-	 * explicitly here for PLL out-of-reset calibration to work
-	 * without a glitch on ALL of them.
-	 */
-	regmap_write(pll->clkr.regmap, off + FABIA_CAL_L_VAL, l);
 	regmap_write(pll->clkr.regmap, off + FABIA_FRAC_VAL, a);
 
 	/* Latch the PLL input */
