@@ -40,6 +40,8 @@
  * that the KGSL module believes a device is idle (has been inactive	*
  * past its timer) and all system resources are released.  SUSPEND is	*
  * requested by the kernel and will be enforced upon all open devices.	*
+ * RESET indicates that GPU or GMU hang happens. KGSL is handling	*
+ * snapshot or recover GPU from hang.					*
  */
 
 #define KGSL_STATE_NONE		0x00000000
@@ -49,6 +51,7 @@
 #define KGSL_STATE_SUSPEND	0x00000010
 #define KGSL_STATE_AWARE	0x00000020
 #define KGSL_STATE_SLUMBER	0x00000080
+#define KGSL_STATE_RESET	0x00000100
 
 /**
  * enum kgsl_event_results - result codes passed to an event callback when the
