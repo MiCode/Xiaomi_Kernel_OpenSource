@@ -1520,6 +1520,9 @@ struct reclaim_param reclaim_task_anon(struct task_struct *task,
 		if (vma->vm_file)
 			continue;
 
+		if (vma->vm_flags & VM_LOCKED)
+			continue;
+
 		if (!rp.nr_to_reclaim)
 			break;
 
