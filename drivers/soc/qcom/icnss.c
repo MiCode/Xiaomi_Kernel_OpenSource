@@ -4018,12 +4018,13 @@ static const struct file_operations icnss_regread_fops = {
 	.llseek         = seq_lseek,
 };
 
+#ifdef CONFIG_ICNSS_DEBUG
 static int icnss_debugfs_create(struct icnss_priv *priv)
 {
 	int ret = 0;
 	struct dentry *root_dentry;
 
-	root_dentry = debugfs_create_dir("icnss", 0);
+	root_dentry = debugfs_create_dir("icnss", NULL);
 
 	if (IS_ERR(root_dentry)) {
 		ret = PTR_ERR(root_dentry);
@@ -4033,19 +4034,40 @@ static int icnss_debugfs_create(struct icnss_priv *priv)
 
 	priv->root_dentry = root_dentry;
 
-	debugfs_create_file("fw_debug", 0644, root_dentry, priv,
+	debugfs_create_file("fw_debug", 0600, root_dentry, priv,
 			    &icnss_fw_debug_fops);
 
-	debugfs_create_file("stats", 0644, root_dentry, priv,
+	debugfs_create_file("stats", 0600, root_dentry, priv,
 			    &icnss_stats_fops);
 	debugfs_create_file("reg_read", 0600, root_dentry, priv,
 			    &icnss_regread_fops);
-	debugfs_create_file("reg_write", 0644, root_dentry, priv,
+	debugfs_create_file("reg_write", 0600, root_dentry, priv,
 			    &icnss_regwrite_fops);
 
 out:
 	return ret;
 }
+#else
+static int icnss_debugfs_create(struct icnss_priv *priv)
+{
+	int ret = 0;
+	struct dentry *root_dentry;
+
+	root_dentry = debugfs_create_dir("icnss", NULL);
+
+	if (IS_ERR(root_dentry)) {
+		ret = PTR_ERR(root_dentry);
+		icnss_pr_err("Unable to create debugfs %d\n", ret);
+		return ret;
+	}
+
+	priv->root_dentry = root_dentry;
+
+	debugfs_create_file("stats", 0600, root_dentry, priv,
+			    &icnss_stats_fops);
+	return 0;
+}
+#endif
 
 static void icnss_debugfs_destroy(struct icnss_priv *priv)
 {
