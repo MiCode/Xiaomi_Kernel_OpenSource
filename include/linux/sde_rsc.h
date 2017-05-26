@@ -206,6 +206,23 @@ struct sde_rsc_event *sde_rsc_register_event(int rsc_index, uint32_t event_type,
  */
 void sde_rsc_unregister_event(struct sde_rsc_event *event);
 
+/**
+ * is_sde_rsc_available - check if display rsc available.
+ * @rsc_index:   A client will be created on this RSC. As of now only
+ *               SDE_RSC_INDEX is valid rsc index.
+ * Returns: true if rsc is available; false in all other cases
+ */
+bool is_sde_rsc_available(int rsc_index);
+
+/**
+ * get_sde_rsc_current_state - gets the current state of sde rsc.
+ * @rsc_index:   A client will be created on this RSC. As of now only
+ *               SDE_RSC_INDEX is valid rsc index.
+ * Returns: current state if rsc available; SDE_RSC_IDLE_STATE for
+ *          all other cases
+ */
+enum sde_rsc_state get_sde_rsc_current_state(int rsc_index);
+
 #else
 
 static inline struct sde_rsc_client *sde_rsc_client_create(u32 rsc_index,
@@ -242,6 +259,15 @@ static inline void sde_rsc_unregister_event(struct sde_rsc_event *event)
 {
 }
 
+static inline bool is_sde_rsc_available(int rsc_index)
+{
+	return false;
+}
+
+static inline enum sde_rsc_state get_sde_rsc_current_state(int rsc_index)
+{
+	return SDE_RSC_IDLE_STATE;
+}
 #endif /* CONFIG_DRM_SDE_RSC */
 
 #endif /* _SDE_RSC_H_ */
