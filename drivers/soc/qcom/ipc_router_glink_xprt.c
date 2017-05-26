@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -70,6 +70,7 @@ if (ipc_router_glink_xprt_debug_mask) \
  * @xprt_version: IPC Router header version supported by this XPRT.
  * @xprt_option: XPRT specific options to be handled by IPC Router.
  * @disable_pil_loading: Disable PIL Loading of the subsystem.
+ * @dynamic_wakeup_source: Dynamic wakeup source for this subsystem.
  */
 struct ipc_router_glink_xprt {
 	struct list_head list;
@@ -91,6 +92,7 @@ struct ipc_router_glink_xprt {
 	uint32_t cur_lo_intents_cnt;
 	uint32_t cur_md_intents_cnt;
 	uint32_t cur_hi_intents_cnt;
+	bool dynamic_wakeup_source;
 };
 
 struct ipc_router_glink_xprt_work {
@@ -127,6 +129,7 @@ static void glink_xprt_close_event(struct work_struct *work);
  * @link_id:		Network Cluster ID to which this XPRT belongs to.
  * @xprt_version:	IPC Router header version supported by this XPRT.
  * @disable_pil_loading:Disable PIL Loading of the subsystem.
+ * @dynamic_wakeup_source: Dynamic wakeup source for this subsystem.
  */
 struct ipc_router_glink_xprt_config {
 	char ch_name[GLINK_NAME_SIZE];
@@ -138,6 +141,7 @@ struct ipc_router_glink_xprt_config {
 	unsigned xprt_version;
 	unsigned xprt_option;
 	bool disable_pil_loading;
+	bool dynamic_wakeup_source;
 };
 
 #define MODULE_NAME "ipc_router_glink_xprt"
@@ -290,6 +294,14 @@ static void glink_xprt_sft_close_done(struct msm_ipc_router_xprt *xprt)
 		container_of(xprt, struct ipc_router_glink_xprt, xprt);
 
 	complete_all(&glink_xprtp->sft_close_complete);
+}
+
+static bool ipc_router_glink_xprt_get_ws_info(struct msm_ipc_router_xprt *xprt)
+{
+	struct ipc_router_glink_xprt *glink_xprtp =
+		container_of(xprt, struct ipc_router_glink_xprt, xprt);
+
+	return glink_xprtp->dynamic_wakeup_source;
 }
 
 static struct rr_packet *glink_xprt_copy_data(struct read_work *rx_work)
@@ -705,6 +717,8 @@ static int ipc_router_glink_config_init(
 	glink_xprtp->xprt_option = glink_xprt_config->xprt_option;
 	glink_xprtp->disable_pil_loading =
 				glink_xprt_config->disable_pil_loading;
+	glink_xprtp->dynamic_wakeup_source =
+				glink_xprt_config->dynamic_wakeup_source;
 
 	if (!glink_xprtp->disable_pil_loading)
 		strlcpy(glink_xprtp->pil_edge, glink_xprt_config->pil_edge,
@@ -727,6 +741,7 @@ static int ipc_router_glink_config_init(
 	glink_xprtp->xprt.write = ipc_router_glink_xprt_write;
 	glink_xprtp->xprt.close = ipc_router_glink_xprt_close;
 	glink_xprtp->xprt.sft_close_done = glink_xprt_sft_close_done;
+	glink_xprtp->xprt.get_ws_info = ipc_router_glink_xprt_get_ws_info;
 	glink_xprtp->xprt.priv = NULL;
 
 	init_rwsem(&glink_xprtp->ss_reset_rwlock);
@@ -820,6 +835,10 @@ static int parse_devicetree(struct device_node *node,
 	}
 	scnprintf(glink_xprt_config->ipc_rtr_xprt_name, IPC_RTR_XPRT_NAME_LEN,
 		  "%s_%s", edge, ch_name);
+
+	key = "qcom,dynamic-wakeup-source";
+	glink_xprt_config->dynamic_wakeup_source =
+					of_property_read_bool(node, key);
 
 	return 0;
 
