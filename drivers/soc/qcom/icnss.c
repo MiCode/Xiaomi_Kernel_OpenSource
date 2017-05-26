@@ -4017,14 +4017,14 @@ static int icnss_debugfs_create(struct icnss_priv *priv)
 
 	priv->root_dentry = root_dentry;
 
-	debugfs_create_file("fw_debug", 0644, root_dentry, priv,
+	debugfs_create_file("fw_debug", 0600, root_dentry, priv,
 			    &icnss_fw_debug_fops);
 
-	debugfs_create_file("stats", 0644, root_dentry, priv,
+	debugfs_create_file("stats", 0600, root_dentry, priv,
 			    &icnss_stats_fops);
 	debugfs_create_file("reg_read", 0600, root_dentry, priv,
 			    &icnss_regread_fops);
-	debugfs_create_file("reg_write", 0644, root_dentry, priv,
+	debugfs_create_file("reg_write", 0600, root_dentry, priv,
 			    &icnss_regwrite_fops);
 
 out:
