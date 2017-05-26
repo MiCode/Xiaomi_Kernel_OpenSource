@@ -1735,7 +1735,8 @@ static bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev)
 
 static int msm_pcie_restore_sec_config(struct msm_pcie_dev_t *dev)
 {
-	int ret, scm_ret;
+	int ret;
+	u64 scm_ret;
 
 	if (!dev) {
 		pr_err("PCIe: the input pcie dev is NULL.\n");
@@ -1745,7 +1746,7 @@ static int msm_pcie_restore_sec_config(struct msm_pcie_dev_t *dev)
 	ret = scm_restore_sec_cfg(dev->scm_dev_id, 0, &scm_ret);
 	if (ret || scm_ret) {
 		PCIE_ERR(dev,
-			"PCIe: RC%d failed(%d) to restore sec config, scm_ret=%d\n",
+			"PCIe: RC%d failed(%d) to restore sec config, scm_ret=%llu\n",
 			dev->rc_idx, ret, scm_ret);
 		return ret ? ret : -EINVAL;
 	}

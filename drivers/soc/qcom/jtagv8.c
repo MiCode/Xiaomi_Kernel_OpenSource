@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -974,7 +974,7 @@ static struct notifier_block jtag_cpu_pm_notifier = {
 static int __init msm_jtag_dbg_init(void)
 {
 	int ret;
-
+	u64 version = 0;
 	if (msm_jtag_fuse_apps_access_disabled())
 		return -EPERM;
 
@@ -982,7 +982,8 @@ static int __init msm_jtag_dbg_init(void)
 	dbg_init_arch_data();
 
 	if (dbg_arch_supported(dbg.arch)) {
-		if (scm_get_feat_version(TZ_DBG_ETM_FEAT_ID) < TZ_DBG_ETM_VER) {
+		if (!scm_get_feat_version(TZ_DBG_ETM_FEAT_ID, &version)  &&
+			version < TZ_DBG_ETM_VER) {
 			dbg.save_restore_enabled = true;
 		} else {
 			pr_info("dbg save-restore supported by TZ\n");
