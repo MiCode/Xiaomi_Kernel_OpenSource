@@ -333,6 +333,31 @@ static int _sde_power_data_bus_set_quota(
 		return -EINVAL;
 	}
 
+	pdbus->ab_rt = ab_quota_rt;
+	pdbus->ib_rt = ib_quota_rt;
+	pdbus->ab_nrt = ab_quota_nrt;
+	pdbus->ib_nrt = ib_quota_nrt;
+
+	if (pdbus->enable) {
+		ab_quota_rt = max_t(u64, ab_quota_rt,
+				SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA);
+		ib_quota_rt = max_t(u64, ib_quota_rt,
+				SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA);
+		ab_quota_nrt = max_t(u64, ab_quota_nrt,
+				SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA);
+		ib_quota_nrt = max_t(u64, ib_quota_nrt,
+				SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA);
+	} else {
+		ab_quota_rt = max_t(u64, ab_quota_rt,
+				SDE_POWER_HANDLE_DISABLE_BUS_AB_QUOTA);
+		ib_quota_rt = max_t(u64, ib_quota_rt,
+				SDE_POWER_HANDLE_DISABLE_BUS_IB_QUOTA);
+		ab_quota_nrt = max_t(u64, ab_quota_nrt,
+				SDE_POWER_HANDLE_DISABLE_BUS_AB_QUOTA);
+		ib_quota_nrt = max_t(u64, ib_quota_nrt,
+				SDE_POWER_HANDLE_DISABLE_BUS_IB_QUOTA);
+	}
+
 	if (!ab_quota_rt && !ab_quota_nrt && !ib_quota_rt && !ib_quota_nrt)  {
 		new_uc_idx = 0;
 	} else {
@@ -571,19 +596,12 @@ static int sde_power_data_bus_update(struct sde_power_data_bus_handle *pdbus,
 							bool enable)
 {
 	int rc = 0;
-	u64 ab_quota_rt, ab_quota_nrt;
-	u64 ib_quota_rt, ib_quota_nrt;
 
-	ab_quota_rt = ab_quota_nrt = enable ?
-			SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA :
-			SDE_POWER_HANDLE_DISABLE_BUS_AB_QUOTA;
-	ib_quota_rt = ib_quota_nrt = enable ?
-			SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA :
-			SDE_POWER_HANDLE_DISABLE_BUS_IB_QUOTA;
+	pdbus->enable = enable;
 
 	if (pdbus->data_bus_hdl)
-		rc = _sde_power_data_bus_set_quota(pdbus, ab_quota_rt,
-				ab_quota_nrt, ib_quota_rt, ib_quota_nrt);
+		rc = _sde_power_data_bus_set_quota(pdbus, pdbus->ab_rt,
+				pdbus->ab_nrt, pdbus->ib_rt, pdbus->ib_nrt);
 
 	if (rc)
 		pr_err("failed to set data bus vote rc=%d enable:%d\n",

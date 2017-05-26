@@ -16,9 +16,9 @@
 
 #define MAX_CLIENT_NAME_LEN 128
 
-#define SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA	6000000000
+#define SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA	2000000
 #define SDE_POWER_HANDLE_DISABLE_BUS_AB_QUOTA	0
-#define SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA	6000000000
+#define SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA	2000000
 #define SDE_POWER_HANDLE_DISABLE_BUS_IB_QUOTA	0
 
 #include <linux/sde_io_util.h>
@@ -93,6 +93,11 @@ struct sde_power_client {
  * @bus_channels: number of memory bus channels
  * @curr_bw_uc_idx: current use case index of data bus
  * @ao_bw_uc_idx: active only use case index of data bus
+ * @ab_rt: realtime ab quota
+ * @ib_rt: realtime ib quota
+ * @ab_nrt: non-realtime ab quota
+ * @ib_nrt: non-realtime ib quota
+ * @enable: true if bus is enabled
  */
 struct sde_power_data_bus_handle {
 	struct msm_bus_scale_pdata *data_bus_scale_table;
@@ -102,6 +107,11 @@ struct sde_power_data_bus_handle {
 	u32 bus_channels;
 	u32 curr_bw_uc_idx;
 	u32 ao_bw_uc_idx;
+	u64 ab_rt;
+	u64 ib_rt;
+	u64 ab_nrt;
+	u64 ib_nrt;
+	bool enable;
 };
 
 /*
