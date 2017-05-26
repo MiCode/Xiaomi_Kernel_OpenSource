@@ -1544,6 +1544,7 @@
 		qcom,xprt-linkid = <1>;
 		qcom,xprt-version = <1>;
 		qcom,fragmented-data;
+		qcom,dynamic-wakeup-source;
 	};
 
 	qcom,spcom {
