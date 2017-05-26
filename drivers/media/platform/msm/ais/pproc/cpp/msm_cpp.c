@@ -2868,6 +2868,8 @@ static int msm_cpp_validate_input(unsigned int cmd, void *arg,
 	case MSM_SD_SHUTDOWN:
 	case MSM_SD_NOTIFY_FREEZE:
 	case MSM_SD_UNNOTIFY_FREEZE:
+	case VIDIOC_MSM_CPP_IOMMU_ATTACH:
+	case VIDIOC_MSM_CPP_IOMMU_DETACH:
 		break;
 	default: {
 		if (ioctl_ptr == NULL) {
@@ -2876,8 +2878,9 @@ static int msm_cpp_validate_input(unsigned int cmd, void *arg,
 		}
 
 		*ioctl_ptr = arg;
-		if ((*ioctl_ptr == NULL) ||
-			(*ioctl_ptr)->ioctl_ptr == NULL) {
+		if (((*ioctl_ptr) == NULL) ||
+			((*ioctl_ptr)->ioctl_ptr == NULL) ||
+			((*ioctl_ptr)->len == 0)) {
 			pr_err("Error invalid ioctl argument cmd %u", cmd);
 			return -EINVAL;
 		}
