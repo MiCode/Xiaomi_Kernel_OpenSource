@@ -30,17 +30,17 @@
 #include "sde_rsc_priv.h"
 #include "sde_dbg.h"
 
-/* worst case time to execute the one tcs vote(sleep/wake) - ~1ms */
-#define TCS_CASE_EXECUTION_TIME				1064000
+/* worst case time to execute the one tcs vote(sleep/wake) - ~0.2ms */
+#define SINGLE_TCS_EXECUTION_TIME				200000
 
 /* this time is ~1ms - only wake tcs in any mode */
-#define RSC_BACKOFF_TIME_NS		 (TCS_CASE_EXECUTION_TIME + 100)
+#define RSC_BACKOFF_TIME_NS		 (SINGLE_TCS_EXECUTION_TIME + 100)
 
 /* this time is ~1ms - only wake TCS in mode-0 */
-#define RSC_MODE_THRESHOLD_TIME_IN_NS	((TCS_CASE_EXECUTION_TIME >> 1) + 100)
+#define RSC_MODE_THRESHOLD_TIME_IN_NS	((SINGLE_TCS_EXECUTION_TIME >> 1) + 100)
 
 /* this time is ~2ms - sleep+ wake TCS in mode-1 */
-#define RSC_TIME_SLOT_0_NS		((TCS_CASE_EXECUTION_TIME * 2) + 100)
+#define RSC_TIME_SLOT_0_NS		((SINGLE_TCS_EXECUTION_TIME * 2) + 100)
 
 #define DEFAULT_PANEL_FPS		60
 #define DEFAULT_PANEL_JITTER		5
