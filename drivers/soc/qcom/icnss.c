@@ -366,6 +366,8 @@ static struct icnss_priv {
 	bool bypass_s1_smmu;
 } *penv;
 
+static enum cnss_cc_src cnss_cc_source = CNSS_SOURCE_CORE;
+
 #ifdef CONFIG_ICNSS_DEBUG
 static void icnss_ignore_qmi_timeout(bool ignore)
 {
@@ -938,6 +940,18 @@ static int icnss_hw_power_off(struct icnss_priv *priv)
 
 	return ret;
 }
+
+void cnss_set_cc_source(enum cnss_cc_src cc_source)
+{
+	cnss_cc_source = cc_source;
+}
+EXPORT_SYMBOL(cnss_set_cc_source);
+
+enum cnss_cc_src cnss_get_cc_source(void)
+{
+	return cnss_cc_source;
+}
+EXPORT_SYMBOL(cnss_get_cc_source);
 
 int icnss_power_on(struct device *dev)
 {
