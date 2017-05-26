@@ -96,6 +96,18 @@
 		} \
 	} while (0)
 
+#define IPAERR_RL(fmt, args...) \
+	do { \
+		pr_err_ratelimited(DRV_NAME " %s:%d " fmt, __func__,\
+		__LINE__, ## args);\
+		if (ipa3_ctx) { \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf, \
+				DRV_NAME " %s:%d " fmt, ## args); \
+			IPA_IPC_LOGGING(ipa3_ctx->logbuf_low, \
+				DRV_NAME " %s:%d " fmt, ## args); \
+		} \
+	} while (0)
+
 #define WLAN_AMPDU_TX_EP 15
 #define WLAN_PROD_TX_EP  19
 #define WLAN1_CONS_RX_EP  14
