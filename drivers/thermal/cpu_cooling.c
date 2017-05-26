@@ -620,6 +620,7 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 	if (cpufreq_device->cpufreq_state == state)
 		return 0;
 
+	cpufreq_device->cpufreq_state = state;
 	/* If state is the last, isolate the CPU */
 	if (state == cpufreq_device->max_level)
 		return sched_isolate_cpu(cpu);
@@ -627,7 +628,6 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 		sched_unisolate_cpu(cpu);
 
 	clip_freq = cpufreq_device->freq_table[state];
-	cpufreq_device->cpufreq_state = state;
 	cpufreq_device->clipped_freq = clip_freq;
 
 	/* Check if the device has a platform mitigation function that
