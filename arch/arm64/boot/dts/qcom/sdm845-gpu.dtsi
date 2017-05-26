@@ -237,7 +237,7 @@
 		label = "kgsl-gmu";
 		compatible = "qcom,gpu-gmu";
 
-		reg = <0x506a000 0x26000>, <0xb200000 0x300000>;
+		reg = <0x506a000 0x30000>, <0xb200000 0x300000>;
 		reg-names = "kgsl_gmu_reg", "kgsl_gmu_pdc_reg";
 
 		interrupts = <0 304 0>, <0 305 0>;
