@@ -1146,6 +1146,9 @@
 		vdd-pwrcl-supply = <&apc0_pwrcl_vreg>;
 		vdd-perfcl-supply = <&apc1_perfcl_vreg>;
 
+		l3-dev0 = <&l3_cpu0>;
+		l3-dev4 = <&l3_cpu4>;
+
 		qcom,l3-speedbin0-v0 =
 			<   300000000 0x000c000f 0x00002020 0x1 1 >,
 			<   422400000 0x50140116 0x00002020 0x1 2 >,
