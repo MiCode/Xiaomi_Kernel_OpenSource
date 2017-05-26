@@ -464,7 +464,7 @@
 		cell-index = <0>;
 		label = "cam-cdm-intf";
 		num-hw-cdm = <1>;
-		cdm-client-names = "ife",
+		cdm-client-names = "vfe",
 			"jpeg-dma",
 			"jpeg",
 			"fd";
@@ -493,7 +493,7 @@
 			<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
 			<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>;
 		clock-rates = <0 0 0 0 0>;
-		cdm-client-names = "vfe";
+		cdm-client-names = "ife";
 		status = "ok";
 	};
 
