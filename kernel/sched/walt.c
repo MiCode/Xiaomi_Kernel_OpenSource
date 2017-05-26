@@ -152,6 +152,8 @@ __read_mostly unsigned int sysctl_sched_cpu_high_irqload = (10 * NSEC_PER_MSEC);
  * IMPORTANT: Initialize both copies to same value!!
  */
 
+static __read_mostly bool sched_predl;
+
 __read_mostly unsigned int sched_ravg_hist_size = 5;
 __read_mostly unsigned int sysctl_sched_ravg_hist_size = 5;
 
@@ -230,6 +232,16 @@ static int __init set_sched_ravg_window(char *str)
 }
 
 early_param("sched_ravg_window", set_sched_ravg_window);
+
+static int __init set_sched_predl(char *str)
+{
+	unsigned int predl;
+
+	get_option(&str, &predl);
+	sched_predl = !!predl;
+	return 0;
+}
+early_param("sched_predl", set_sched_predl);
 
 void inc_rq_hmp_stats(struct rq *rq, struct task_struct *p, int change_cra)
 {
@@ -1096,6 +1108,9 @@ void update_task_pred_demand(struct rq *rq, struct task_struct *p, int event)
 {
 	u32 new, old;
 
+	if (!sched_predl)
+		return;
+
 	if (is_idle_task(p) || exiting_task(p))
 		return;
 
@@ -1617,6 +1632,9 @@ static inline u32 predict_and_update_buckets(struct rq *rq,
 
 	int bidx;
 	u32 pred_demand;
+
+	if (!sched_predl)
+		return 0;
 
 	bidx = busy_to_bucket(runtime);
 	pred_demand = get_pred_busy(rq, p, bidx, runtime);
