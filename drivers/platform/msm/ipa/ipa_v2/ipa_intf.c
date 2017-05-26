@@ -380,13 +380,13 @@ int ipa2_send_msg(struct ipa_msg_meta *meta, void *buff,
 
 	if (meta == NULL || (buff == NULL && callback != NULL) ||
 	    (buff != NULL && callback == NULL)) {
-		IPAERR("invalid param meta=%p buff=%p, callback=%p\n",
+		IPAERR_RL("invalid param meta=%p buff=%p, callback=%p\n",
 		       meta, buff, callback);
 		return -EINVAL;
 	}
 
 	if (meta->msg_type >= IPA_EVENT_MAX_NUM) {
-		IPAERR("unsupported message type %d\n", meta->msg_type);
+		IPAERR_RL("unsupported message type %d\n", meta->msg_type);
 		return -EINVAL;
 	}
 
@@ -609,7 +609,7 @@ int ipa_pull_msg(struct ipa_msg_meta *meta, char *buff, size_t count)
 	int result = -EINVAL;
 
 	if (meta == NULL || buff == NULL || !count) {
-		IPAERR("invalid param name=%p buff=%p count=%zu\n",
+		IPAERR_RL("invalid param name=%p buff=%p count=%zu\n",
 				meta, buff, count);
 		return result;
 	}
