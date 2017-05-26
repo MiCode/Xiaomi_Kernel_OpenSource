@@ -66,6 +66,41 @@
 		qcom,wsa-max-devs = <1>;
 		qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0213>;
 		qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrRight";
+
+		qcom,msm-mbhc-usbc-audio-supported = <1>;
+
+		qcom,usbc-analog-en2-gpio = <&tlmm 51 0>;
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&wcd_usbc_analog_en2_active>;
+		pinctrl-1 = <&wcd_usbc_analog_en2_idle>;
+	};
+};
+
+&wcd934x_cdc {
+	wcd: wcd_pinctrl@5 {
+		us_euro_sw_wcd_active: us_euro_sw_wcd_active {
+			mux {
+				pins = "gpio1";
+			};
+
+			config {
+				pins = "gpio1";
+				/delete-property/ output-high;
+				bias-high-impedance;
+			};
+		};
+
+		us_euro_sw_wcd_sleep: us_euro_sw_wcd_sleep {
+			mux {
+				pins = "gpio1";
+			};
+
+			config {
+				pins = "gpio1";
+				/delete-property/ output-low;
+				bias-high-impedance;
+			};
+		};
 	};
 };
 
