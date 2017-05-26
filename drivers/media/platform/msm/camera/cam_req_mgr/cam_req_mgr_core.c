@@ -1813,7 +1813,8 @@ int cam_req_mgr_link(struct cam_req_mgr_link_info *link_info)
 	/* Create worker for current link */
 	snprintf(buf, sizeof(buf), "%x-%x",
 		link_info->session_hdl, link->link_hdl);
-	rc = cam_req_mgr_workq_create(buf, CRM_WORKQ_NUM_TASKS, &link->workq);
+	rc = cam_req_mgr_workq_create(buf, CRM_WORKQ_NUM_TASKS,
+		&link->workq, CRM_WORKQ_USAGE_NON_IRQ);
 	if (rc < 0) {
 		CRM_ERR("FATAL: unable to create worker");
 		__cam_req_mgr_destroy_link_info(link);

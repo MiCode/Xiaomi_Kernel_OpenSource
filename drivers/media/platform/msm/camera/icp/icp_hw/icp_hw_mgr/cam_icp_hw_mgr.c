@@ -1904,14 +1904,14 @@ int cam_icp_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl)
 	}
 
 	rc = cam_req_mgr_workq_create("icp_command_queue", ICP_WORKQ_NUM_TASK,
-					&icp_hw_mgr.cmd_work);
+		&icp_hw_mgr.cmd_work, CRM_WORKQ_USAGE_NON_IRQ);
 	if (rc < 0) {
 		pr_err("unable to create a worker\n");
 		goto cmd_work_failed;
 	}
 
 	rc = cam_req_mgr_workq_create("icp_message_queue", ICP_WORKQ_NUM_TASK,
-					&icp_hw_mgr.msg_work);
+		&icp_hw_mgr.msg_work, CRM_WORKQ_USAGE_IRQ);
 	if (rc < 0) {
 		pr_err("unable to create a worker\n");
 		goto msg_work_failed;
