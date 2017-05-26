@@ -80,12 +80,12 @@ struct sde_danger_safe_status {
  * struct sde_watchdog_te_status - configure watchdog timer to generate TE
  * @pp_count: number of ping pongs active
  * @frame_rate: Display frame rate
- * @ppnumber: base address of ping pong info
+ * @ppnumber: ping pong index array
  */
 struct sde_watchdog_te_status {
 	u32 pp_count;
 	u32 frame_rate;
-	u32 ppnumber[];
+	u32 ppnumber[PINGPONG_MAX];
 };
 
 /**
