@@ -261,7 +261,7 @@
 		interrupt-parent = <&mdss_mdp>;
 		interrupts = <2 0>;
 
-		qcom,mdss-rot-vbif-qos-setting = <1 1 1 1>;
+		qcom,mdss-rot-vbif-qos-setting = <3 3 3 3 3 3 3 3>;
 
 		qcom,mdss-default-ot-rd-limit = <32>;
 		qcom,mdss-default-ot-wr-limit = <32>;
