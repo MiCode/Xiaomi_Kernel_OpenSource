@@ -428,6 +428,103 @@ void sde_core_irq_uninstall(struct sde_kms *sde_kms)
 	sde_kms->irq_obj.total_irqs = 0;
 }
 
+static void sde_core_irq_mask(struct irq_data *irqd)
+{
+	struct sde_kms *sde_kms;
+
+	if (!irqd || !irq_data_get_irq_chip_data(irqd)) {
+		SDE_ERROR("invalid parameters irqd %d\n", irqd != NULL);
+		return;
+	}
+	sde_kms = irq_data_get_irq_chip_data(irqd);
+
+	/* memory barrier */
+	smp_mb__before_atomic();
+	clear_bit(irqd->hwirq, &sde_kms->irq_controller.enabled_mask);
+	/* memory barrier */
+	smp_mb__after_atomic();
+}
+
+static void sde_core_irq_unmask(struct irq_data *irqd)
+{
+	struct sde_kms *sde_kms;
+
+	if (!irqd || !irq_data_get_irq_chip_data(irqd)) {
+		SDE_ERROR("invalid parameters irqd %d\n", irqd != NULL);
+		return;
+	}
+	sde_kms = irq_data_get_irq_chip_data(irqd);
+
+	/* memory barrier */
+	smp_mb__before_atomic();
+	set_bit(irqd->hwirq, &sde_kms->irq_controller.enabled_mask);
+	/* memory barrier */
+	smp_mb__after_atomic();
+}
+
+static struct irq_chip sde_core_irq_chip = {
+	.name = "sde",
+	.irq_mask = sde_core_irq_mask,
+	.irq_unmask = sde_core_irq_unmask,
+};
+
+static int sde_core_irqdomain_map(struct irq_domain *domain,
+		unsigned int irq, irq_hw_number_t hwirq)
+{
+	struct sde_kms *sde_kms;
+	int rc;
+
+	if (!domain || !domain->host_data) {
+		SDE_ERROR("invalid parameters domain %d\n", domain != NULL);
+		return -EINVAL;
+	}
+	sde_kms = domain->host_data;
+
+	irq_set_chip_and_handler(irq, &sde_core_irq_chip, handle_level_irq);
+	rc = irq_set_chip_data(irq, sde_kms);
+
+	return rc;
+}
+
+static const struct irq_domain_ops sde_core_irqdomain_ops = {
+	.map = sde_core_irqdomain_map,
+	.xlate = irq_domain_xlate_onecell,
+};
+
+int sde_core_irq_domain_add(struct sde_kms *sde_kms)
+{
+	struct device *dev;
+	struct irq_domain *domain;
+
+	if (!sde_kms->dev || !sde_kms->dev->dev) {
+		pr_err("invalid device handles\n");
+		return -EINVAL;
+	}
+
+	dev = sde_kms->dev->dev;
+
+	domain = irq_domain_add_linear(dev->of_node, 32,
+			&sde_core_irqdomain_ops, sde_kms);
+	if (!domain) {
+		pr_err("failed to add irq_domain\n");
+		return -EINVAL;
+	}
+
+	sde_kms->irq_controller.enabled_mask = 0;
+	sde_kms->irq_controller.domain = domain;
+
+	return 0;
+}
+
+int sde_core_irq_domain_fini(struct sde_kms *sde_kms)
+{
+	if (sde_kms->irq_controller.domain) {
+		irq_domain_remove(sde_kms->irq_controller.domain);
+		sde_kms->irq_controller.domain = NULL;
+	}
+	return 0;
+}
+
 irqreturn_t sde_core_irq(struct sde_kms *sde_kms)
 {
 	/*
