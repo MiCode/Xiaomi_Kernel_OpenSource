@@ -78,6 +78,9 @@
 		qcom,hph-en0-gpio = <&tavil_hph_en0>;
 		qcom,hph-en1-gpio = <&tavil_hph_en1>;
 		qcom,tavil-mclk-clk-freq = <9600000>;
+
+		qcom,usbc-analog-en1-gpio = <&wcd_usbc_analog_en1_gpio>;
+
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&compr>,
@@ -136,6 +139,18 @@
 				<&wsa881x_0213>, <&wsa881x_0214>;
 		qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
 					  "SpkrLeft", "SpkrRight";
+
+		qcom,usbc-analog-en2-gpio = <&tlmm 51 0>;
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&wcd_usbc_analog_en2_active>;
+		pinctrl-1 = <&wcd_usbc_analog_en2_idle>;
+	};
+
+	wcd_usbc_analog_en1_gpio: msm_cdc_pinctrl@49 {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&wcd_usbc_analog_en1_active>;
+		pinctrl-1 = <&wcd_usbc_analog_en1_idle>;
 	};
 
 	wcd9xxx_intc: wcd9xxx-irq {
