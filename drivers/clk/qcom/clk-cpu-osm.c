@@ -1737,6 +1737,8 @@ static void populate_opp_table(struct platform_device *pdev)
 	struct device *cpu_dev;
 	struct clk_osm *c, *parent;
 	struct clk_hw *hw_parent;
+	struct device_node *l3_node_0, *l3_node_4;
+	struct platform_device *l3_dev_0, *l3_dev_4;
 
 	for_each_possible_cpu(cpu) {
 		c = logical_cpu_to_clk(cpu);
@@ -1754,7 +1756,35 @@ static void populate_opp_table(struct platform_device *pdev)
 					dev_name(cpu_dev));
 	}
 
-	/*TODO: Figure out which device to tag the L3 table to */
+	l3_node_0 = of_parse_phandle(pdev->dev.of_node, "l3-dev0", 0);
+	if (!l3_node_0) {
+		pr_err("can't find the L3 cluster 0 dt node\n");
+		return;
+	}
+
+	l3_dev_0 = of_find_device_by_node(l3_node_0);
+	if (!l3_dev_0) {
+		pr_err("can't find the L3 cluster 0 dt device\n");
+		return;
+	}
+
+	if (add_opp(&l3_clk, &l3_dev_0->dev))
+		pr_err("Failed to add OPP levels for L3 cluster 0\n");
+
+	l3_node_4 = of_parse_phandle(pdev->dev.of_node, "l3-dev4", 0);
+	if (!l3_node_4) {
+		pr_err("can't find the L3 cluster 1 dt node\n");
+		return;
+	}
+
+	l3_dev_4 = of_find_device_by_node(l3_node_4);
+	if (!l3_dev_4) {
+		pr_err("can't find the L3 cluster 1 dt device\n");
+		return;
+	}
+
+	if (add_opp(&l3_clk, &l3_dev_4->dev))
+		pr_err("Failed to add OPP levels for L3 cluster 1\n");
 }
 
 static u64 clk_osm_get_cpu_cycle_counter(int cpu)
