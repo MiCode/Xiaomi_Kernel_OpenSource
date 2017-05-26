@@ -1885,6 +1885,7 @@ static u64 clk_osm_get_cpu_cycle_counter(int cpu)
 	u32 val;
 	int core_num;
 	unsigned long flags;
+	u64 cycle_counter_ret;
 	struct clk_osm *parent, *c = logical_cpu_to_clk(cpu);
 
 	if (IS_ERR_OR_NULL(c)) {
@@ -1912,9 +1913,10 @@ static u64 clk_osm_get_cpu_cycle_counter(int cpu)
 		c->total_cycle_counter += val - c->prev_cycle_counter;
 		c->prev_cycle_counter = val;
 	}
+	cycle_counter_ret = c->total_cycle_counter;
 	spin_unlock_irqrestore(&parent->lock, flags);
 
-	return c->total_cycle_counter;
+	return cycle_counter_ret;
 }
 
 static void clk_osm_setup_cycle_counters(struct clk_osm *c)
