@@ -548,10 +548,6 @@ static int tz_handler(struct devfreq *devfreq, unsigned int event, void *data)
 					(devfreq->profile),
 					struct msm_adreno_extended_profile,
 					profile);
-	if (devfreq == NULL) {
-		pr_err(TAG "NULL defvreq passed to tz_handler\n");
-		return -EFAULT;
-	}
 
 	switch (event) {
 	case DEVFREQ_GOV_START:
