@@ -1523,14 +1523,6 @@ int create_pkt_cmd_session_set_property(
 			sizeof(struct hfi_vui_timing_info);
 		break;
 	}
-	case HAL_CONFIG_VPE_DEINTERLACE:
-	{
-		create_pkt_enable(pkt->rg_property_data,
-				HFI_PROPERTY_CONFIG_VPE_DEINTERLACE,
-				((struct hal_enable *)pdata)->enable);
-		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
-		break;
-	}
 	case HAL_PARAM_VENC_GENERATE_AUDNAL:
 	{
 		create_pkt_enable(pkt->rg_property_data,
