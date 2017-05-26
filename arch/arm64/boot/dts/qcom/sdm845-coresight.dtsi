@@ -780,7 +780,8 @@
 	};
 
 	tpdm_lpass: tpdm@6844000 {
-		compatible = "qcom,coresight-tpdm";
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b968>;
 		reg = <0x6844000 0x1000>;
 		reg-names = "tpdm-base";
 
