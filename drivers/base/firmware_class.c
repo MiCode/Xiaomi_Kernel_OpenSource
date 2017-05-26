@@ -206,6 +206,7 @@ static struct firmware_buf *__allocate_fw_buf(const char *fw_name,
 	buf->data = dbuf;
 	buf->allocated_size = size;
 	init_completion(&buf->completion);
+	INIT_LIST_HEAD(&buf->list);
 #ifdef CONFIG_FW_LOADER_USER_HELPER
 	INIT_LIST_HEAD(&buf->pending_list);
 #endif
