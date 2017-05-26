@@ -420,6 +420,10 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 	}
 	priv = kms->dev->dev_private;
 
+	/* wake vote update is not required with display rsc */
+	if (kms->perf.bw_vote_mode == DISP_RSC_MODE && stop_req)
+		return;
+
 	sde_crtc = to_sde_crtc(crtc);
 	sde_cstate = to_sde_crtc_state(crtc->state);
 
@@ -445,6 +449,21 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 			old->bw_ctl = new->bw_ctl;
 			old->max_per_pipe_ib = new->max_per_pipe_ib;
 			update_bus = 1;
+		}
+
+		/* display rsc override during solver mode */
+		if (kms->perf.bw_vote_mode == DISP_RSC_MODE &&
+				get_sde_rsc_current_state(SDE_RSC_INDEX) ==
+							    SDE_RSC_CMD_STATE) {
+			/* update new bandwdith in all cases */
+			if (params_changed && new->bw_ctl != old->bw_ctl) {
+				old->bw_ctl = new->bw_ctl;
+				old->max_per_pipe_ib = new->max_per_pipe_ib;
+				update_bus = 1;
+			/* reduce bw vote is not required in solver mode */
+			} else if (!params_changed) {
+				update_bus = 0;
+			}
 		}
 
 		if ((params_changed &&
