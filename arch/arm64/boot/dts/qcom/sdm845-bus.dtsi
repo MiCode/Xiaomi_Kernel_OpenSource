@@ -1644,7 +1644,7 @@
 			qcom,buswidth = <4>;
 			qcom,agg-ports = <4>;
 			qcom,bus-dev = <&fab_mc_virt>;
-			qcom,bcms = <&bcm_mc0>;
+			qcom,bcms = <&bcm_mc0>, <&bcm_acv>;
 		};
 
 		slv_qhs_mdsp_ms_mpu_cfg:slv-qhs-mdsp-ms-mpu-cfg {
