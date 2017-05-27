@@ -3433,7 +3433,7 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	}
 	if ((vfe_dev->axi_data.src_info[frame_src].active && (frame_id !=
 		vfe_dev->axi_data.src_info[frame_src].frame_id + vfe_dev->
-		axi_data.src_info[VFE_PIX_0].sof_counter_step)) ||
+		axi_data.src_info[frame_src].sof_counter_step)) ||
 		((!vfe_dev->axi_data.src_info[frame_src].active))) {
 		pr_debug("%s:%d invalid frame id %d cur frame id %d pix %d\n",
 			__func__, __LINE__, frame_id,
