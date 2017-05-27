@@ -458,7 +458,7 @@ static void ep_pcie_bar_init(struct ep_pcie_dev_t *dev)
 	ep_pcie_write_mask(dev->dm_core + PCIE20_MISC_CONTROL_1, BIT(0), 0);
 }
 
-static void ep_pcie_core_init(struct ep_pcie_dev_t *dev)
+static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 {
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
 
@@ -466,27 +466,31 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev)
 	ep_pcie_write_mask(dev->parf + PCIE20_PARF_DEBUG_INT_EN,
 			0, BIT(3) | BIT(2) | BIT(1));
 
-	/* Configure PCIe to endpoint mode */
-	ep_pcie_write_reg(dev->parf, PCIE20_PARF_DEVICE_TYPE, 0x0);
+	if (!configured) {
+		/* Configure PCIe to endpoint mode */
+		ep_pcie_write_reg(dev->parf, PCIE20_PARF_DEVICE_TYPE, 0x0);
 
-	/* adjust DBI base address */
-	if (dev->dbi_base_reg)
-		writel_relaxed(0x3FFFE000, dev->parf + dev->dbi_base_reg);
-	else
-		writel_relaxed(0x3FFFE000,
-			dev->parf + PCIE20_PARF_DBI_BASE_ADDR);
+		/* adjust DBI base address */
+		if (dev->dbi_base_reg)
+			writel_relaxed(0x3FFFE000,
+				dev->parf + dev->dbi_base_reg);
+		else
+			writel_relaxed(0x3FFFE000,
+				dev->parf + PCIE20_PARF_DBI_BASE_ADDR);
 
-	/* Configure PCIe core to support 1GB aperture */
-	if (dev->slv_space_reg)
-		ep_pcie_write_reg(dev->parf, dev->slv_space_reg,
-			0x40000000);
-	else
-		ep_pcie_write_reg(dev->parf, PCIE20_PARF_SLV_ADDR_SPACE_SIZE,
-			0x40000000);
+		/* Configure PCIe core to support 1GB aperture */
+		if (dev->slv_space_reg)
+			ep_pcie_write_reg(dev->parf, dev->slv_space_reg,
+				0x40000000);
+		else
+			ep_pcie_write_reg(dev->parf,
+				PCIE20_PARF_SLV_ADDR_SPACE_SIZE, 0x40000000);
 
-	/* Configure link speed */
-	ep_pcie_write_mask(dev->dm_core + PCIE20_LINK_CONTROL2_LINK_STATUS2,
-			0xf, dev->link_speed);
+		/* Configure link speed */
+		ep_pcie_write_mask(dev->dm_core +
+				PCIE20_LINK_CONTROL2_LINK_STATUS2,
+				0xf, dev->link_speed);
+	}
 
 	/* Read halts write */
 	ep_pcie_write_mask(dev->parf + PCIE20_PARF_AXI_MSTR_RD_HALT_NO_WRITES,
@@ -516,65 +520,74 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev)
 		readl_relaxed(dev->dm_core + PCIE20_CLASS_CODE_REVISION_ID),
 		readl_relaxed(dev->dm_core + PCIE20_BIST_HDR_TYPE));
 
-	/* Enable CS for RO(CS) register writes */
-	ep_pcie_write_mask(dev->dm_core + PCIE20_MISC_CONTROL_1, 0, BIT(0));
+	if (!configured) {
+		/* Enable CS for RO(CS) register writes */
+		ep_pcie_write_mask(dev->dm_core + PCIE20_MISC_CONTROL_1, 0,
+			BIT(0));
 
-	/* Set class code and revision ID */
-	ep_pcie_write_reg(dev->dm_core, PCIE20_CLASS_CODE_REVISION_ID,
+		/* Set class code and revision ID */
+		ep_pcie_write_reg(dev->dm_core, PCIE20_CLASS_CODE_REVISION_ID,
 			0xff000000);
 
-	/* Set header type */
-	ep_pcie_write_reg(dev->dm_core, PCIE20_BIST_HDR_TYPE, 0x10);
+		/* Set header type */
+		ep_pcie_write_reg(dev->dm_core, PCIE20_BIST_HDR_TYPE, 0x10);
 
-	/* Set Subsystem ID and Subsystem Vendor ID */
-	ep_pcie_write_reg(dev->dm_core, PCIE20_SUBSYSTEM, 0xa01f17cb);
+		/* Set Subsystem ID and Subsystem Vendor ID */
+		ep_pcie_write_reg(dev->dm_core, PCIE20_SUBSYSTEM, 0xa01f17cb);
 
-	/* Set the PMC Register - to support PME in D0, D3hot and D3cold */
-	ep_pcie_write_mask(dev->dm_core + PCIE20_CAP_ID_NXT_PTR, 0,
+		/* Set the PMC Register - to support PME in D0/D3hot/D3cold */
+		ep_pcie_write_mask(dev->dm_core + PCIE20_CAP_ID_NXT_PTR, 0,
 						BIT(31)|BIT(30)|BIT(27));
 
-	/* Set the Endpoint L0s Acceptable Latency to 1us (max) */
-	ep_pcie_write_reg_field(dev->dm_core, PCIE20_DEVICE_CAPABILITIES,
-		PCIE20_MASK_EP_L0S_ACCPT_LATENCY, 0x7);
+		/* Set the Endpoint L0s Acceptable Latency to 1us (max) */
+		ep_pcie_write_reg_field(dev->dm_core,
+			PCIE20_DEVICE_CAPABILITIES,
+			PCIE20_MASK_EP_L0S_ACCPT_LATENCY, 0x7);
 
-	/* Set the Endpoint L1 Acceptable Latency to 2 us (max) */
-	ep_pcie_write_reg_field(dev->dm_core, PCIE20_DEVICE_CAPABILITIES,
-		PCIE20_MASK_EP_L1_ACCPT_LATENCY, 0x7);
+		/* Set the Endpoint L1 Acceptable Latency to 2 us (max) */
+		ep_pcie_write_reg_field(dev->dm_core,
+			PCIE20_DEVICE_CAPABILITIES,
+			PCIE20_MASK_EP_L1_ACCPT_LATENCY, 0x7);
 
-	/* Set the L0s Exit Latency to 2us-4us = 0x6 */
-	ep_pcie_write_reg_field(dev->dm_core, PCIE20_LINK_CAPABILITIES,
-		PCIE20_MASK_L1_EXIT_LATENCY, 0x6);
+		/* Set the L0s Exit Latency to 2us-4us = 0x6 */
+		ep_pcie_write_reg_field(dev->dm_core, PCIE20_LINK_CAPABILITIES,
+			PCIE20_MASK_L1_EXIT_LATENCY, 0x6);
 
-	/* Set the L1 Exit Latency to be 32us-64 us = 0x6 */
-	ep_pcie_write_reg_field(dev->dm_core, PCIE20_LINK_CAPABILITIES,
-		PCIE20_MASK_L0S_EXIT_LATENCY, 0x6);
+		/* Set the L1 Exit Latency to be 32us-64 us = 0x6 */
+		ep_pcie_write_reg_field(dev->dm_core, PCIE20_LINK_CAPABILITIES,
+			PCIE20_MASK_L0S_EXIT_LATENCY, 0x6);
 
-	/* L1ss is supported */
-	ep_pcie_write_mask(dev->dm_core + PCIE20_L1SUB_CAPABILITY, 0, 0x1f);
+		/* L1ss is supported */
+		ep_pcie_write_mask(dev->dm_core + PCIE20_L1SUB_CAPABILITY, 0,
+			0x1f);
 
-	/* Enable Clock Power Management */
-	ep_pcie_write_reg_field(dev->dm_core, PCIE20_LINK_CAPABILITIES,
-		PCIE20_MASK_CLOCK_POWER_MAN, 0x1);
+		/* Enable Clock Power Management */
+		ep_pcie_write_reg_field(dev->dm_core, PCIE20_LINK_CAPABILITIES,
+			PCIE20_MASK_CLOCK_POWER_MAN, 0x1);
 
-	/* Disable CS for RO(CS) register writes */
-	ep_pcie_write_mask(dev->dm_core + PCIE20_MISC_CONTROL_1, BIT(0), 0);
+		/* Disable CS for RO(CS) register writes */
+		ep_pcie_write_mask(dev->dm_core + PCIE20_MISC_CONTROL_1, BIT(0),
+			0);
 
-	/* Set FTS value to match the PHY setting */
-	ep_pcie_write_reg_field(dev->dm_core, PCIE20_ACK_F_ASPM_CTRL_REG,
-		PCIE20_MASK_ACK_N_FTS, 0x80);
+		/* Set FTS value to match the PHY setting */
+		ep_pcie_write_reg_field(dev->dm_core,
+			PCIE20_ACK_F_ASPM_CTRL_REG,
+			PCIE20_MASK_ACK_N_FTS, 0x80);
 
-	EP_PCIE_DBG(dev,
-		"After program: CLASS_CODE_REVISION_ID:0x%x; HDR_TYPE:0x%x; L1SUB_CAPABILITY:0x%x; PARF_SYS_CTRL:0x%x\n",
-		readl_relaxed(dev->dm_core + PCIE20_CLASS_CODE_REVISION_ID),
-		readl_relaxed(dev->dm_core + PCIE20_BIST_HDR_TYPE),
-		readl_relaxed(dev->dm_core + PCIE20_L1SUB_CAPABILITY),
-		readl_relaxed(dev->parf + PCIE20_PARF_SYS_CTRL));
+		EP_PCIE_DBG(dev,
+			"After program: CLASS_CODE_REVISION_ID:0x%x; HDR_TYPE:0x%x; L1SUB_CAPABILITY:0x%x; PARF_SYS_CTRL:0x%x\n",
+			readl_relaxed(dev->dm_core +
+				PCIE20_CLASS_CODE_REVISION_ID),
+			readl_relaxed(dev->dm_core + PCIE20_BIST_HDR_TYPE),
+			readl_relaxed(dev->dm_core + PCIE20_L1SUB_CAPABILITY),
+			readl_relaxed(dev->parf + PCIE20_PARF_SYS_CTRL));
 
-	/* Configure BARs */
-	ep_pcie_bar_init(dev);
+		/* Configure BARs */
+		ep_pcie_bar_init(dev);
 
-	ep_pcie_write_reg(dev->mmio, PCIE20_MHICFG, 0x02800880);
-	ep_pcie_write_reg(dev->mmio, PCIE20_BHI_EXECENV, 0x2);
+		ep_pcie_write_reg(dev->mmio, PCIE20_MHICFG, 0x02800880);
+		ep_pcie_write_reg(dev->mmio, PCIE20_BHI_EXECENV, 0x2);
+	}
 
 	/* Configure IRQ events */
 	if (dev->aggregated_irq) {
@@ -982,6 +995,7 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 	u32 val;
 	u32 retries;
 	u32 bme;
+	bool ltssm_en = false;
 	struct ep_pcie_dev_t *dev = &ep_pcie_dev;
 
 	EP_PCIE_DBG(dev, "PCIe V%d: options input are 0x%x.\n", dev->rev, opt);
@@ -995,13 +1009,10 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		goto out;
 	}
 
-	if (dev->link_status == EP_PCIE_LINK_UP) {
-		EP_PCIE_ERR(dev,
-			"PCIe V%d: link is up but not enabled; need to disable link first.\n",
+	if (dev->link_status == EP_PCIE_LINK_UP)
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: link is already up, let's proceed with the voting for the resources.\n",
 			dev->rev);
-		ret = EP_PCIE_ERROR;
-		goto out;
-	}
 
 	if (dev->power_on && (opt & EP_PCIE_OPT_POWER_ON)) {
 		EP_PCIE_ERR(dev,
@@ -1042,6 +1053,38 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 
 	if (!(opt & EP_PCIE_OPT_ENUM))
 		goto out;
+
+	/* check link status during initial bootup */
+	if (!dev->enumerated) {
+		val = readl_relaxed(dev->parf + PCIE20_PARF_PM_STTS);
+		val = val & PARF_XMLH_LINK_UP;
+		EP_PCIE_DBG(dev, "PCIe V%d: Link status is 0x%x.\n", dev->rev,
+				val);
+		if (val) {
+			EP_PCIE_INFO(dev,
+				"PCIe V%d: link initialized by bootloader for LE PCIe endpoint; skip link training in HLOS.\n",
+				dev->rev);
+			ep_pcie_core_init(dev, true);
+			dev->link_status = EP_PCIE_LINK_UP;
+			dev->l23_ready = false;
+			goto checkbme;
+		} else {
+			ltssm_en = readl_relaxed(dev->parf
+					+ PCIE20_PARF_LTSSM) & BIT(8);
+
+			if (ltssm_en) {
+				EP_PCIE_ERR(dev,
+					"PCIe V%d: link is not up when LTSSM has already enabled by bootloader.\n",
+					dev->rev);
+				ret = EP_PCIE_ERROR;
+				goto link_fail;
+			} else {
+				EP_PCIE_DBG(dev,
+					"PCIe V%d: Proceed with regular link training.\n",
+					dev->rev);
+			}
+		}
+	}
 
 	if (opt & EP_PCIE_OPT_AST_WAKE) {
 		/* assert PCIe WAKE# */
@@ -1124,7 +1167,7 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		EP_PCIE_INFO(dev, "PCIe V%d: PCIe  PHY is ready!\n", dev->rev);
 	}
 
-	ep_pcie_core_init(dev);
+	ep_pcie_core_init(dev, false);
 	ep_pcie_config_inbound_iatu(dev);
 
 	/* enable link training */
@@ -1165,6 +1208,7 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 			dev->rev);
 	}
 
+checkbme:
 	if (dev->active_config) {
 		ep_pcie_write_mask(dev->parf + PCIE20_PARF_SLV_ADDR_MSB_CTRL,
 					0, BIT(0));
@@ -2193,7 +2237,8 @@ static int ep_pcie_probe(struct platform_device *pdev)
 		goto irq_failure;
 	}
 
-	if (ep_pcie_dev.perst_enum) {
+	if (ep_pcie_dev.perst_enum &&
+		!gpio_get_value(ep_pcie_dev.gpio[EP_PCIE_GPIO_PERST].num)) {
 		EP_PCIE_DBG2(&ep_pcie_dev,
 			"PCIe V%d: %s probe is done; link will be trained when PERST is deasserted.\n",
 		ep_pcie_dev.rev, dev_name(&(pdev->dev)));
