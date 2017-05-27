@@ -591,6 +591,11 @@ static void __pmic_arb_chained_irq(struct spmi_pmic_arb *pa, bool show)
 			id = ffs(status) - 1;
 			status &= ~BIT(id);
 			apid = id + i * 32;
+			if (apid < pa->min_apid || apid > pa->max_apid) {
+				WARN_ONCE(true, "spurious spmi irq received for apid=%d\n",
+					apid);
+				continue;
+			}
 			enable = readl_relaxed(pa->intr +
 					pa->ver_ops->acc_enable(apid));
 			if (enable & SPMI_PIC_ACC_ENABLE_BIT)
