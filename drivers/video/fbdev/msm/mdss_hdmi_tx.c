@@ -3211,8 +3211,7 @@ static int hdmi_tx_power_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	hdmi_tx_core_on(hdmi_ctrl);
 
-	if (hdmi_ctrl->panel.infoframe &&
-	    !hdmi_tx_is_encryption_set(hdmi_ctrl) &&
+	if (!hdmi_tx_is_encryption_set(hdmi_ctrl) &&
 	    hdmi_tx_is_stream_shareable(hdmi_ctrl)) {
 		hdmi_tx_config_avmute(hdmi_ctrl, false);
 	}
