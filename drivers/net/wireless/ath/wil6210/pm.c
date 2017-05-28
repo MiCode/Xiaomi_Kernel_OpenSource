@@ -175,24 +175,21 @@ static int wil_suspend_keep_radio_on(struct wil6210_priv *wil)
 	/* Disable device reset on PERST */
 	wil_s(wil, RGF_USER_CLKS_CTL_0, BIT_USER_CLKS_RST_PWGD);
 
-	/* Save the current bus request to return to the same in resume */
-	wil->bus_request_kbps_pre_suspend = wil->bus_request_kbps;
-	wil6210_bus_request(wil, 0);
-
 	if (wil->platform_ops.suspend) {
 		rc = wil->platform_ops.suspend(wil->platform_handle, true);
 		if (rc) {
 			wil_err(wil, "platform device failed to suspend (%d)\n",
 				rc);
 			wil->suspend_stats.failed_suspends++;
-			clear_bit(wil_status_suspending, wil->status);
-			rc = wil_resume_keep_radio_on(wil);
-			/* if resume succeeded, reject the suspend */
-			if (!rc)
-				rc = -EBUSY;
-			goto out;
+			wil_c(wil, RGF_USER_CLKS_CTL_0, BIT_USER_CLKS_RST_PWGD);
+			wil_unmask_irq(wil);
+			goto resume_after_fail;
 		}
 	}
+
+	/* Save the current bus request to return to the same in resume */
+	wil->bus_request_kbps_pre_suspend = wil->bus_request_kbps;
+	wil6210_bus_request(wil, 0);
 
 	set_bit(wil_status_suspended, wil->status);
 	clear_bit(wil_status_suspending, wil->status);
@@ -200,13 +197,13 @@ static int wil_suspend_keep_radio_on(struct wil6210_priv *wil)
 	return rc;
 
 resume_after_fail:
+	set_bit(wil_status_resuming, wil->status);
 	clear_bit(wil_status_suspending, wil->status);
 	rc = wmi_resume(wil);
 	/* if resume succeeded, reject the suspend */
 	if (!rc)
 		rc = -EBUSY;
 
-out:
 	return rc;
 
 reject_suspend:
