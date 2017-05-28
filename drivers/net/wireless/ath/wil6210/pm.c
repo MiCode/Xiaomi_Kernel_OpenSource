@@ -80,6 +80,8 @@ static int wil_resume_keep_radio_on(struct wil6210_priv *wil)
 	wil_c(wil, RGF_USER_CLKS_CTL_0, BIT_USER_CLKS_RST_PWGD);
 	wil_unmask_irq(wil);
 
+	wil6210_bus_request(wil, wil->bus_request_kbps_pre_suspend);
+
 	/* Send WMI resume request to the device */
 	rc = wmi_resume(wil);
 	if (rc) {
@@ -95,8 +97,6 @@ static int wil_resume_keep_radio_on(struct wil6210_priv *wil)
 			goto out;
 		}
 	}
-
-	wil6210_bus_request(wil, wil->bus_request_kbps_pre_suspend);
 
 out:
 	if (rc)
