@@ -3395,6 +3395,7 @@ static int __init diagchar_init(void)
 	mutex_init(&driver->diag_file_mutex);
 	mutex_init(&driver->delayed_rsp_mutex);
 	mutex_init(&apps_data_mutex);
+	mutex_init(&driver->msg_mask_lock);
 	for (i = 0; i < NUM_PERIPHERALS; i++)
 		mutex_init(&driver->diagfwd_channel_mutex[i]);
 	init_waitqueue_head(&driver->wait_q);
