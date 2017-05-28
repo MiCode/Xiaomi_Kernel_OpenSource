@@ -20,6 +20,10 @@
 #include "msm_isp_stats_util_32.h"
 #include "msm_camera_io_util.h"
 
+#ifndef UINT16_MAX
+#define UINT16_MAX             (65535U)
+#endif
+
 #define MAX_ISP_V4l2_EVENTS 100
 #define MAX_ISP_REG_LIST 100
 static DEFINE_MUTEX(bandwidth_mgr_mutex);
@@ -868,36 +872,6 @@ static long msm_isp_ioctl_compat(struct v4l2_subdev *sd,
 		mutex_unlock(&vfe_dev->realtime_mutex);
 		break;
 	}
-	case VIDIOC_MSM_ISP_BUF_DONE: {
-		struct msm_isp32_event_data buf_event;
-		struct msm_isp32_event_data32 *buf_event32;
-
-		memset(&buf_event, 0, sizeof(buf_event));
-		buf_event32 =
-		  (struct msm_isp32_event_data32 *)arg;
-		buf_event.input_intf = buf_event32->input_intf;
-		buf_event.frame_id = buf_event32->frame_id;
-		buf_event.timestamp.tv_sec =
-				buf_event32->timestamp.tv_sec;
-		buf_event.timestamp.tv_usec =
-				buf_event32->timestamp.tv_usec;
-		buf_event.mono_timestamp.tv_sec =
-				buf_event32->mono_timestamp.tv_sec;
-		buf_event.mono_timestamp.tv_usec =
-				buf_event32->mono_timestamp.tv_usec;
-		buf_event.u.buf_done.session_id =
-		  buf_event32->u.buf_done.session_id;
-		buf_event.u.buf_done.stream_id =
-		  buf_event32->u.buf_done.stream_id;
-		buf_event.u.buf_done.output_format =
-			buf_event32->u.buf_done.output_format;
-		buf_event.u.buf_done.buf_idx =
-			buf_event32->u.buf_done.buf_idx;
-		buf_event.u.buf_done.handle =
-			buf_event32->u.buf_done.handle;
-		cmd = VIDIOC_MSM_ISP_BUF_DONE;
-		return msm_isp_ioctl_unlocked(sd, cmd, &buf_event);
-	}
 	default:
 		return msm_isp_ioctl_unlocked(sd, cmd, arg);
 	}
@@ -1252,7 +1226,7 @@ int msm_isp_proc_cmd(struct vfe_device *vfe_dev, void *arg)
 	}
 
 	if (proc_cmd->cmd_len > 0 &&
-		proc_cmd->cmd_len < sizeof(uint16_t)) {
+		proc_cmd->cmd_len < UINT16_MAX) {
 		cfg_data = kzalloc(proc_cmd->cmd_len, GFP_KERNEL);
 		if (!cfg_data) {
 			pr_err("%s: cfg_data alloc failed\n", __func__);
