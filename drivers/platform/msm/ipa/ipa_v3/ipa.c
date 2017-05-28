@@ -239,6 +239,9 @@ static void ipa_gsi_release_resource(struct work_struct *work);
 static DECLARE_DELAYED_WORK(ipa_gsi_release_resource_work,
 	ipa_gsi_release_resource);
 
+static void ipa3_post_init_wq(struct work_struct *work);
+static DECLARE_WORK(ipa3_post_init_work, ipa3_post_init_wq);
+
 static struct ipa3_plat_drv_res ipa3_res = {0, };
 struct msm_bus_scale_pdata *ipa3_bus_scale_table;
 
@@ -4111,6 +4114,15 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	struct ipa3_flt_tbl *flt_tbl;
 	int i;
 
+	if (ipa3_ctx == NULL) {
+		IPADBG("IPA driver haven't initialized\n");
+		return -ENXIO;
+	}
+
+	/* Prevent consequent calls from trying to load the FW again. */
+	if (ipa3_ctx->ipa_initialization_complete)
+		return 0;
+
 	/*
 	 * indication whether working in MHI config or non MHI config is given
 	 * in ipa3_write which is launched before ipa3_post_init. i.e. from
@@ -4276,42 +4288,12 @@ fail_setup_apps_pipes:
 	else
 		sps_deregister_bam_device(ipa3_ctx->bam_handle);
 fail_register_device:
-	ipa_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
-	ipa_rm_exit();
-	cdev_del(&ipa3_ctx->cdev);
-	device_destroy(ipa3_ctx->class, ipa3_ctx->dev_num);
-	unregister_chrdev_region(ipa3_ctx->dev_num, 1);
-	if (ipa3_ctx->pipe_mem_pool)
-		gen_pool_destroy(ipa3_ctx->pipe_mem_pool);
-	dma_free_coherent(ipa3_ctx->pdev,
-		ipa3_ctx->empty_rt_tbl_mem.size,
-		ipa3_ctx->empty_rt_tbl_mem.base,
-		ipa3_ctx->empty_rt_tbl_mem.phys_base);
-	ipa3_free_dma_task_for_gsi();
-	ipa3_destroy_flt_tbl_idrs();
-	idr_destroy(&ipa3_ctx->ipa_idr);
-	kmem_cache_destroy(ipa3_ctx->rx_pkt_wrapper_cache);
-	kmem_cache_destroy(ipa3_ctx->tx_pkt_wrapper_cache);
-	kmem_cache_destroy(ipa3_ctx->rt_tbl_cache);
-	kmem_cache_destroy(ipa3_ctx->hdr_proc_ctx_offset_cache);
-	kmem_cache_destroy(ipa3_ctx->hdr_proc_ctx_cache);
-	kmem_cache_destroy(ipa3_ctx->hdr_offset_cache);
-	kmem_cache_destroy(ipa3_ctx->hdr_cache);
-	kmem_cache_destroy(ipa3_ctx->rt_rule_cache);
-	kmem_cache_destroy(ipa3_ctx->flt_rule_cache);
-	destroy_workqueue(ipa3_ctx->transport_power_mgmt_wq);
-	destroy_workqueue(ipa3_ctx->power_mgmt_wq);
-	iounmap(ipa3_ctx->mmio);
-	ipa3_disable_clks();
-	msm_bus_scale_unregister_client(ipa3_ctx->ipa_bus_hdl);
-	if (ipa3_bus_scale_table) {
-		msm_bus_cl_clear_pdata(ipa3_bus_scale_table);
-		ipa3_bus_scale_table = NULL;
-	}
-	kfree(ipa3_ctx->ctrl);
-	kfree(ipa3_ctx);
-	ipa3_ctx = NULL;
 	return result;
+}
+
+static void ipa3_post_init_wq(struct work_struct *work)
+{
+	ipa3_post_init(&ipa3_res, ipa3_ctx->dev);
 }
 
 static int ipa3_trigger_fw_loading_mdms(void)
@@ -4420,8 +4402,10 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 		if (result) {
 			IPAERR("FW loading process has failed\n");
 			return result;
-		} else
-			ipa3_post_init(&ipa3_res, ipa3_ctx->dev);
+		} else {
+			queue_work(ipa3_ctx->transport_power_mgmt_wq,
+				&ipa3_post_init_work);
+		}
 	}
 	return count;
 }
@@ -4951,20 +4935,6 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_device_create;
 	}
 
-	cdev_init(&ipa3_ctx->cdev, &ipa3_drv_fops);
-	ipa3_ctx->cdev.owner = THIS_MODULE;
-	ipa3_ctx->cdev.ops = &ipa3_drv_fops;  /* from LDD3 */
-
-	result = cdev_add(&ipa3_ctx->cdev, ipa3_ctx->dev_num, 1);
-	if (result) {
-		IPAERR(":cdev_add err=%d\n", -result);
-		result = -ENODEV;
-		goto fail_cdev_add;
-	}
-	IPADBG("ipa cdev added successful. major:%d minor:%d\n",
-			MAJOR(ipa3_ctx->dev_num),
-			MINOR(ipa3_ctx->dev_num));
-
 	if (ipa3_create_nat_device()) {
 		IPAERR("unable to create nat device\n");
 		result = -ENODEV;
@@ -5023,21 +4993,46 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 				goto fail_ipa_init_interrupts;
 			}
 		}
+	} else {
+		/*
+		 * For BAM (No other mode),
+		 * we can just carry on with initialization
+		 */
+		result = ipa3_post_init(resource_p, ipa_dev);
+		if (result) {
+			IPAERR("ipa3_post_init failed\n");
+			goto fail_ipa_post_init;
+		}
 	}
-	/* For BAM (No other mode), we can just carry on with initialization */
-	else
-		return ipa3_post_init(resource_p, ipa_dev);
+
+	cdev_init(&ipa3_ctx->cdev, &ipa3_drv_fops);
+	ipa3_ctx->cdev.owner = THIS_MODULE;
+	ipa3_ctx->cdev.ops = &ipa3_drv_fops;  /* from LDD3 */
+
+	result = cdev_add(&ipa3_ctx->cdev, ipa3_ctx->dev_num, 1);
+	if (result) {
+		IPAERR(":cdev_add err=%d\n", -result);
+		result = -ENODEV;
+		goto fail_cdev_add;
+	}
+	IPADBG("ipa cdev added successful. major:%d minor:%d\n",
+			MAJOR(ipa3_ctx->dev_num),
+			MINOR(ipa3_ctx->dev_num));
 
 	return 0;
 
+fail_cdev_add:
+fail_ipa_post_init:
+	if (ipa3_bus_scale_table) {
+		msm_bus_cl_clear_pdata(ipa3_bus_scale_table);
+		ipa3_bus_scale_table = NULL;
+	}
 fail_ipa_init_interrupts:
 	ipa_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
 fail_create_apps_resource:
 	ipa_rm_exit();
 fail_ipa_rm_init:
 fail_nat_dev_add:
-	cdev_del(&ipa3_ctx->cdev);
-fail_cdev_add:
 	device_destroy(ipa3_ctx->class, ipa3_ctx->dev_num);
 fail_device_create:
 	unregister_chrdev_region(ipa3_ctx->dev_num, 1);
@@ -5083,7 +5078,8 @@ fail_remap:
 fail_init_active_client:
 	ipa3_active_clients_log_destroy();
 fail_clk:
-	msm_bus_scale_unregister_client(ipa3_ctx->ipa_bus_hdl);
+	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_VIRTUAL)
+		msm_bus_scale_unregister_client(ipa3_ctx->ipa_bus_hdl);
 fail_ipahal:
 	ipa3_bus_scale_table = NULL;
 fail_bus_reg:

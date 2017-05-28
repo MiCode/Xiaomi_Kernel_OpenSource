@@ -38,6 +38,9 @@
 #define PMI_CHG_SCALE_1		-138890
 #define PMI_CHG_SCALE_2		391750000000
 #define QPNP_VADC_HC_VREF_CODE		0x4000
+#define QPNP_VADC_HC_VDD_REFERENCE_MV	1875
+/* Clamp negative ADC code to 0 */
+#define QPNP_VADC_HC_MAX_CODE		0x7FFF
 
 /* Units for temperature below (on x axis) is in 0.1DegC as
    required by the battery driver. Note the resolution used
@@ -859,6 +862,8 @@ int32_t qpnp_adc_scale_pmic_therm(struct qpnp_vadc_chip *vadc,
 
 	if (adc_properties->adc_hc) {
 		/* (ADC code * vref_vadc (1.875V)) / 0x4000 */
+		if (adc_code > QPNP_VADC_HC_MAX_CODE)
+			adc_code = 0;
 		pmic_voltage = (int64_t) adc_code;
 		pmic_voltage *= (int64_t) (adc_properties->adc_vdd_reference
 							* 1000);
@@ -959,6 +964,8 @@ int32_t qpnp_adc_tdkntcg_therm(struct qpnp_vadc_chip *chip,
 
 	if (adc_properties->adc_hc) {
 		/* (ADC code * vref_vadc (1.875V) * 1000) / (0x4000 * 1000) */
+		if (adc_code > QPNP_VADC_HC_MAX_CODE)
+			adc_code = 0;
 		xo_thm_voltage = (int64_t) adc_code;
 		xo_thm_voltage *= (int64_t) (adc_properties->adc_vdd_reference
 							* 1000);
@@ -1194,6 +1201,8 @@ int32_t qpnp_adc_scale_therm_pu2(struct qpnp_vadc_chip *chip,
 
 	if (adc_properties->adc_hc) {
 		/* (ADC code * vref_vadc (1.875V) * 1000) / (0x4000 * 1000) */
+		if (adc_code > QPNP_VADC_HC_MAX_CODE)
+			adc_code = 0;
 		therm_voltage = (int64_t) adc_code;
 		therm_voltage *= (int64_t) (adc_properties->adc_vdd_reference
 							* 1000);
@@ -1330,6 +1339,8 @@ int32_t qpnp_adc_scale_default(struct qpnp_vadc_chip *vadc,
 
 	if (adc_properties->adc_hc) {
 		/* (ADC code * vref_vadc (1.875V)) / 0x4000 */
+		if (adc_code > QPNP_VADC_HC_MAX_CODE)
+			adc_code = 0;
 		scale_voltage = (int64_t) adc_code;
 		scale_voltage *= (adc_properties->adc_vdd_reference * 1000);
 		scale_voltage = div64_s64(scale_voltage,

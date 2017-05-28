@@ -50,9 +50,12 @@ struct k61_can {
 	char *tx_buf, *rx_buf;
 	int xfer_length;
 	atomic_t msg_seq;
+	struct completion response_completion;
 
 	atomic_t netif_queue_stop;
 	int reset;
+	int wait_cmd;
+	int cmd_result;
 };
 
 struct k61_netdev_privdata {
@@ -215,6 +218,7 @@ static void k61_receive_frame(struct k61_can *priv_data,
 static void k61_process_response(struct k61_can *priv_data,
 				 struct spi_miso *resp)
 {
+	int ret = 0;
 	LOGDI("<%x %2d [%d]\n", resp->cmd, resp->len, resp->seq);
 	if (resp->cmd == CMD_CAN_RECEIVE_FRAME) {
 		struct can_receive_frame *frame =
@@ -225,6 +229,11 @@ static void k61_process_response(struct k61_can *priv_data,
 
 		dev_info(&priv_data->spidev->dev, "fw %d.%d.%d",
 			 fw_resp->maj, fw_resp->min, fw_resp->ver);
+	}
+
+	if (resp->cmd == priv_data->wait_cmd) {
+		priv_data->cmd_result = ret;
+		complete(&priv_data->response_completion);
 	}
 }
 
@@ -325,8 +334,18 @@ static int k61_query_firmware_version(struct k61_can *priv_data)
 	req->len = 0;
 	req->seq = atomic_inc_return(&priv_data->msg_seq);
 
+	priv_data->wait_cmd = CMD_GET_FW_VERSION;
+	priv_data->cmd_result = -1;
+	reinit_completion(&priv_data->response_completion);
+
 	ret = k61_do_spi_transaction(priv_data);
 	mutex_unlock(&priv_data->spi_lock);
+
+	if (ret == 0) {
+		wait_for_completion_interruptible_timeout(
+				&priv_data->response_completion, 0.1 * HZ);
+		ret = priv_data->cmd_result;
+	}
 
 	return ret;
 }
@@ -575,6 +594,7 @@ static struct k61_can *k61_create_priv_data(struct spi_device *spi)
 
 	mutex_init(&priv_data->spi_lock);
 	atomic_set(&priv_data->msg_seq, 0);
+	init_completion(&priv_data->response_completion);
 	return priv_data;
 
 cleanup_privdata:
@@ -649,9 +669,17 @@ static int k61_probe(struct spi_device *spi)
 	}
 	dev_dbg(dev, "Request irq %d ret %d\n", spi->irq, err);
 
-	k61_query_firmware_version(priv_data);
+	err = k61_query_firmware_version(priv_data);
+
+	if (err) {
+		dev_info(dev, "K61 probe failed\n");
+		err = -ENODEV;
+		goto free_irq;
+	}
 	return 0;
 
+free_irq:
+	free_irq(spi->irq, priv_data);
 unregister_candev:
 	unregister_candev(priv_data->netdev);
 cleanup_candev:
