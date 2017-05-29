@@ -31,6 +31,7 @@
 #define CNSS_DUMP_MAGIC_VER_V2		0x42445953
 #define CNSS_DUMP_NAME			"CNSS_WLAN"
 #define CNSS_DUMP_DESC_SIZE		0x1000
+#define CNSS_DUMP_SEG_VER		0x1
 #define WLAN_RECOVERY_DELAY		1000
 #define FILE_SYSTEM_READY		1
 #define FW_READY_TIMEOUT		20000
@@ -1223,7 +1224,7 @@ static int cnss_qca6290_ramdump(struct cnss_plat_data *plat_priv)
 {
 	struct cnss_ramdump_info_v2 *info_v2 = &plat_priv->ramdump_info_v2;
 	struct cnss_dump_data *dump_data = &info_v2->dump_data;
-	struct cnss_dump_seg *dump_seg = dump_data->vaddr;
+	struct cnss_dump_seg *dump_seg = info_v2->dump_data_vaddr;
 	struct ramdump_segment *ramdump_segs, *s;
 	int i, ret = 0;
 
@@ -1834,13 +1835,14 @@ static int cnss_qca6290_register_ramdump(struct cnss_plat_data *plat_priv)
 
 	cnss_pr_dbg("Ramdump size 0x%lx\n", info_v2->ramdump_size);
 
-	dump_data->vaddr = kzalloc(CNSS_DUMP_DESC_SIZE, GFP_KERNEL);
-	if (!dump_data->vaddr)
+	info_v2->dump_data_vaddr = kzalloc(CNSS_DUMP_DESC_SIZE, GFP_KERNEL);
+	if (!info_v2->dump_data_vaddr)
 		return -ENOMEM;
 
-	dump_data->paddr = virt_to_phys(dump_data->vaddr);
+	dump_data->paddr = virt_to_phys(info_v2->dump_data_vaddr);
 	dump_data->version = CNSS_DUMP_FORMAT_VER_V2;
 	dump_data->magic = CNSS_DUMP_MAGIC_VER_V2;
+	dump_data->seg_version = CNSS_DUMP_SEG_VER;
 	strlcpy(dump_data->name, CNSS_DUMP_NAME,
 		sizeof(dump_data->name));
 	dump_entry.id = MSM_DUMP_DATA_CNSS_WLAN;
@@ -1864,24 +1866,22 @@ static int cnss_qca6290_register_ramdump(struct cnss_plat_data *plat_priv)
 	return 0;
 
 free_ramdump:
-	kfree(dump_data->vaddr);
-	dump_data->vaddr = NULL;
+	kfree(info_v2->dump_data_vaddr);
+	info_v2->dump_data_vaddr = NULL;
 	return ret;
 }
 
 static void cnss_qca6290_unregister_ramdump(struct cnss_plat_data *plat_priv)
 {
 	struct cnss_ramdump_info_v2 *info_v2;
-	struct cnss_dump_data *dump_data;
 
 	info_v2 = &plat_priv->ramdump_info_v2;
-	dump_data = &info_v2->dump_data;
 
 	if (info_v2->ramdump_dev)
 		destroy_ramdump_device(info_v2->ramdump_dev);
 
-	kfree(dump_data->vaddr);
-	dump_data->vaddr = NULL;
+	kfree(info_v2->dump_data_vaddr);
+	info_v2->dump_data_vaddr = NULL;
 	info_v2->dump_data_valid = false;
 }
 
