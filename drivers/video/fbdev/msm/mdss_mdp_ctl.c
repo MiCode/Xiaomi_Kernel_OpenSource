@@ -815,7 +815,7 @@ static inline bool validate_comp_ratio(struct mult_factor *factor)
 	return factor->numer && factor->denom;
 }
 
-u32 apply_comp_ratio_factor(u32 quota,
+u64 apply_comp_ratio_factor(u64 quota,
 	struct mdss_mdp_format_params *fmt,
 	struct mult_factor *factor)
 {
@@ -2736,10 +2736,7 @@ int mdss_mdp_display_wakeup_time(struct mdss_mdp_ctl *ctl,
 	if (!clk_period)
 		return -EINVAL;
 
-	time_of_line = (pinfo->lcdc.h_back_porch +
-		 pinfo->lcdc.h_front_porch +
-		 pinfo->lcdc.h_pulse_width +
-		 pinfo->xres) * clk_period;
+	time_of_line = mdss_panel_get_htotal(pinfo, true) * clk_period;
 
 	time_of_line /= 1000;	/* in nano second */
 	if (!time_of_line)
@@ -2747,10 +2744,7 @@ int mdss_mdp_display_wakeup_time(struct mdss_mdp_ctl *ctl,
 
 	current_line = ctl->ops.read_line_cnt_fnc(ctl);
 
-	total_line = pinfo->lcdc.v_back_porch +
-		pinfo->lcdc.v_front_porch +
-		pinfo->lcdc.v_pulse_width +
-		pinfo->yres;
+	total_line = mdss_panel_get_vtotal(pinfo);
 
 	if (current_line >= total_line)
 		time_to_vsync = time_of_line * total_line;
@@ -5735,15 +5729,6 @@ static void mdss_mdp_force_border_color(struct mdss_mdp_ctl *ctl)
 		ctl->mixer_right->params_changed++;
 }
 
-static bool mdss_mdp_handle_backlight_extn(struct mdss_mdp_ctl *ctl)
-{
-	if (ctl->intf_type == MDSS_INTF_DSI && !ctl->is_video_mode &&
-	    ctl->mfd->bl_extn_level >= 0)
-		return true;
-	else
-		return false;
-}
-
 int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	struct mdss_mdp_commit_cb *commit_cb)
 {
@@ -5910,15 +5895,6 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	if (ctl->ops.wait_pingpong && !mdata->serialize_wait4pp)
 		mdss_mdp_display_wait4pingpong(ctl, false);
 
-	/*
-	 * If backlight needs to change, wait for 1 vsync before setting
-	 * PCC and kickoff
-	 */
-	if (mdss_mdp_handle_backlight_extn(ctl) &&
-	    ctl->ops.wait_for_vsync_fnc) {
-		ret = ctl->ops.wait_for_vsync_fnc(ctl);
-	}
-
 	/* Moved pp programming to post ping pong */
 	ATRACE_BEGIN("postproc_programming_deferred");
 	if (!ctl->is_video_mode && ctl->mfd &&
@@ -6077,10 +6053,10 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 		pr_warn("ctl %d error displaying frame\n", ctl->num);
 
 	/* update backlight in commit */
-	if (mdss_mdp_handle_backlight_extn(ctl)) {
-		if (ctl->mfd && !IS_CALIB_MODE_BL(ctl->mfd) &&
-			(!ctl->mfd->ext_bl_ctrl ||
-			 !ctl->mfd->bl_level)) {
+	if (ctl->intf_type == MDSS_INTF_DSI && !ctl->is_video_mode &&
+	    ctl->mfd && ctl->mfd->bl_extn_level >= 0) {
+		if (!IS_CALIB_MODE_BL(ctl->mfd) && (!ctl->mfd->ext_bl_ctrl ||
+						!ctl->mfd->bl_level)) {
 			mutex_lock(&ctl->mfd->bl_lock);
 			mdss_fb_set_backlight(ctl->mfd,
 					      ctl->mfd->bl_extn_level);

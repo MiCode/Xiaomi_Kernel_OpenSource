@@ -23,6 +23,7 @@
 #include <linux/gpio.h>
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
+#include <linux/irqdomain.h>
 
 #include "sde_kms.h"
 #include "sde_connector.h"
@@ -967,6 +968,18 @@ static void _sde_hdmi_connector_irq(struct sde_hdmi *sde_hdmi)
 	}
 }
 
+static void _sde_hdmi_cec_irq(struct sde_hdmi *sde_hdmi)
+{
+	struct hdmi *hdmi = sde_hdmi->ctrl.ctrl;
+	u32 cec_intr = hdmi_read(hdmi, REG_HDMI_CEC_INT);
+
+	/* Routing interrupt to external CEC drivers */
+	if (cec_intr)
+		generic_handle_irq(irq_find_mapping(
+				sde_hdmi->irq_domain, 1));
+}
+
+
 static irqreturn_t _sde_hdmi_irq(int irq, void *dev_id)
 {
 	struct sde_hdmi *sde_hdmi = dev_id;
@@ -987,7 +1000,8 @@ static irqreturn_t _sde_hdmi_irq(int irq, void *dev_id)
 	if (hdmi->hdcp_ctrl && hdmi->is_hdcp_supported)
 		hdmi_hdcp_ctrl_irq(hdmi->hdcp_ctrl);
 
-	/* TODO audio.. */
+	/* Process CEC: */
+	_sde_hdmi_cec_irq(sde_hdmi);
 
 	return IRQ_HANDLED;
 }
@@ -2017,6 +2031,29 @@ static struct platform_driver sde_hdmi_driver = {
 	},
 };
 
+static int sde_hdmi_irqdomain_map(struct irq_domain *domain,
+		unsigned int irq, irq_hw_number_t hwirq)
+{
+	struct sde_hdmi *display;
+	int rc;
+
+	if (!domain || !domain->host_data) {
+		pr_err("invalid parameters domain\n");
+		return -EINVAL;
+	}
+	display = domain->host_data;
+
+	irq_set_chip_and_handler(irq, &dummy_irq_chip, handle_level_irq);
+	rc = irq_set_chip_data(irq, display);
+
+	return rc;
+}
+
+static const struct irq_domain_ops sde_hdmi_irqdomain_ops = {
+	.map = sde_hdmi_irqdomain_map,
+	.xlate = irq_domain_xlate_onecell,
+};
+
 int sde_hdmi_drm_init(struct sde_hdmi *display, struct drm_encoder *enc)
 {
 	int rc = 0;
@@ -2071,6 +2108,13 @@ int sde_hdmi_drm_init(struct sde_hdmi *display, struct drm_encoder *enc)
 		goto error;
 	}
 
+	display->irq_domain = irq_domain_add_linear(pdev->dev.of_node, 8,
+				&sde_hdmi_irqdomain_ops, display);
+	if (!display->irq_domain) {
+		SDE_ERROR("failed to create IRQ domain\n");
+		goto error;
+	}
+
 	enc->bridge = hdmi->bridge;
 	priv->bridges[priv->num_bridges++] = hdmi->bridge;
 
@@ -2095,6 +2139,9 @@ int sde_hdmi_drm_deinit(struct sde_hdmi *display)
 		SDE_ERROR("Invalid params\n");
 		return -EINVAL;
 	}
+
+	if (display->irq_domain)
+		irq_domain_remove(display->irq_domain);
 
 	return rc;
 }

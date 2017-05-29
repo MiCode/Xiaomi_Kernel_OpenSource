@@ -1707,6 +1707,8 @@ static int mmc_blk_cmd_recovery(struct mmc_card *card, struct request *req,
 
 	/* We couldn't get a response from the card.  Give up. */
 	if (err) {
+		if (card->err_in_sdr104)
+			return ERR_RETRY;
 		/* Check if the card is removed */
 		if (mmc_detect_card_removed(card->host))
 			return ERR_NOMEDIUM;
@@ -2197,7 +2199,8 @@ static int mmc_blk_err_check(struct mmc_card *card,
 	     brq->data.error == -ETIMEDOUT ||
 	     brq->cmd.error == -EILSEQ ||
 	     brq->cmd.error == -EIO ||
-	     brq->cmd.error == -ETIMEDOUT))
+	     brq->cmd.error == -ETIMEDOUT ||
+	     brq->sbc.error))
 		card->err_in_sdr104 = true;
 
 	/*
@@ -4695,10 +4698,6 @@ static int _mmc_blk_suspend(struct mmc_card *card, bool wait)
 static void mmc_blk_shutdown(struct mmc_card *card)
 {
 	_mmc_blk_suspend(card, 1);
-
-	/* send power off notification */
-	if (mmc_card_mmc(card))
-		mmc_send_pon(card);
 }
 
 #ifdef CONFIG_PM_SLEEP

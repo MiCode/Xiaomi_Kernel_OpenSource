@@ -1539,6 +1539,11 @@ static void usbpd_sm(struct work_struct *w)
 		if (pd->current_state == PE_UNKNOWN)
 			goto sm_done;
 
+		if (pd->vconn_enabled) {
+			regulator_disable(pd->vconn);
+			pd->vconn_enabled = false;
+		}
+
 		usbpd_info(&pd->dev, "USB Type-C disconnect\n");
 
 		if (pd->pd_phy_opened) {
@@ -1572,11 +1577,6 @@ static void usbpd_sm(struct work_struct *w)
 		if (pd->vbus_enabled) {
 			regulator_disable(pd->vbus);
 			pd->vbus_enabled = false;
-		}
-
-		if (pd->vconn_enabled) {
-			regulator_disable(pd->vconn);
-			pd->vconn_enabled = false;
 		}
 
 		if (pd->current_dr == DR_UFP)
@@ -1927,6 +1927,9 @@ static void usbpd_sm(struct work_struct *w)
 			val.intval = 0;
 			power_supply_set_property(pd->usb_psy,
 					POWER_SUPPLY_PROP_PD_ACTIVE, &val);
+
+			pd_phy_close();
+			pd->pd_phy_opened = false;
 		}
 		break;
 
@@ -2518,6 +2521,11 @@ static int usbpd_dr_set_property(struct dual_role_phy_instance *dual_role,
 	switch (prop) {
 	case DUAL_ROLE_PROP_MODE:
 		usbpd_dbg(&pd->dev, "Setting mode to %d\n", *val);
+
+		if (pd->current_state == PE_UNKNOWN) {
+			usbpd_warn(&pd->dev, "No active connection. Don't allow MODE change\n");
+			return -EAGAIN;
+		}
 
 		/*
 		 * Forces disconnect on CC and re-establishes connection.
@@ -3179,7 +3187,7 @@ struct usbpd *usbpd_create(struct device *parent)
 	if (ret)
 		goto free_pd;
 
-	pd->wq = alloc_ordered_workqueue("usbpd_wq", WQ_FREEZABLE);
+	pd->wq = alloc_ordered_workqueue("usbpd_wq", WQ_FREEZABLE | WQ_HIGHPRI);
 	if (!pd->wq) {
 		ret = -ENOMEM;
 		goto del_pd;

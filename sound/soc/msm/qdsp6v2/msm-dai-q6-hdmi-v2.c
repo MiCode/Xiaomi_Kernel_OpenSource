@@ -174,7 +174,7 @@ static const struct snd_kcontrol_new hdmi_config_controls[] = {
 	{
 		.access = SNDRV_CTL_ELEM_ACCESS_READ,
 		.iface	= SNDRV_CTL_ELEM_IFACE_PCM,
-		.name	= "HDMI Drift",
+		.name	= "HDMI DRIFT",
 		.info	= msm_dai_q6_ext_disp_drift_info,
 		.get	= msm_dai_q6_ext_disp_drift_get,
 	},
@@ -191,7 +191,7 @@ static const struct snd_kcontrol_new display_port_config_controls[] = {
 	{
 		.access = SNDRV_CTL_ELEM_ACCESS_READ,
 		.iface	= SNDRV_CTL_ELEM_IFACE_PCM,
-		.name	= "DISPLAY_PORT Drift",
+		.name	= "DISPLAY_PORT DRIFT",
 		.info	= msm_dai_q6_ext_disp_drift_info,
 		.get	= msm_dai_q6_ext_disp_drift_get,
 	},

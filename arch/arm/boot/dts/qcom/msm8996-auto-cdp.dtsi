@@ -454,7 +454,7 @@
 };
 
 &soc {
-	qcom,ntn_avb {
+	ntn1: ntn_avb@1 { /* Neutrno device on RC1*/
 		compatible = "qcom,ntn_avb";
 
 		ntn-rst-gpio = <&pm8994_gpios 13 0>;
@@ -465,6 +465,14 @@
 
 		qcom,ntn-rst-delay-msec = <100>;
 		qcom,ntn-rc-num = <1>;
+		qcom,ntn-bus-num = <1>;
+	};
+
+	ntn2: ntn_avb@2 { /*Neutrino device on RC2*/
+		compatible = "qcom,ntn_avb";
+		qcom,ntn-rst-delay-msec = <100>;
+		qcom,ntn-rc-num = <2>;
+		qcom,ntn-bus-num = <1>;
 	};
 
 	i2c@75ba000 {

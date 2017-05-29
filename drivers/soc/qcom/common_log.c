@@ -17,6 +17,7 @@
 #include <linux/kallsyms.h>
 #include <linux/slab.h>
 #include <linux/kmemleak.h>
+#include <linux/async.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/minidump.h>
 #include <asm/sections.h>
@@ -255,7 +256,7 @@ static void __init register_kernel_sections(void)
 	}
 }
 
-static int __init msm_common_log_init(void)
+static void __init async_common_log_init(void *data, async_cookie_t cookie)
 {
 	register_kernel_sections();
 	common_log_register_log_buf();
@@ -263,6 +264,12 @@ static int __init msm_common_log_init(void)
 	register_pmic_dump();
 	register_vsense_dump();
 	register_rpm_dump();
+}
+
+static int __init msm_common_log_init(void)
+{
+	/* Initialize asynchronously to reduce boot time */
+	async_schedule(async_common_log_init, NULL);
 	return 0;
 }
 late_initcall(msm_common_log_init);

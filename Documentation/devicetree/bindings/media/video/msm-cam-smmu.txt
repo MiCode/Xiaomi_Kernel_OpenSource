@@ -14,8 +14,8 @@ Required properties:
 [Second level nodes]
 Required properties:
 - compatible : one of:
-    - "qcom,msm-cam-smmu-cb"
-    - "qcom,qsmmu-cam-cb"
+    - "qcom,msm-cam-smmu-cb" : For arm smmu iommu type.
+    - "qcom,qsmmu-cam-cb" : For qsmmu iommu type.
 - iommus : Handle parsed by smmu driver. Number of entries will vary
   across targets.
 - label - string describing iommu domain usage.
@@ -23,6 +23,7 @@ Required properties:
 Optional properties:
 - qcom,scratch-buf-support : Enables iommu scratch buffer support in
   that context bank.
+- qcom,secure-context : boolean type, to set the context domain type as secure.
 
 Example:
   qcom,cam_smmu@0 {

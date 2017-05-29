@@ -479,8 +479,10 @@ static void voc_set_error_state(uint16_t reset_proc)
 
 	for (i = 0; i < MAX_VOC_SESSIONS; i++) {
 		v = &common.voice[i];
-		if (v != NULL)
+		if (v != NULL) {
 			v->voc_state = VOC_ERROR;
+			v->rec_info.recording = 0;
+		}
 	}
 }
 

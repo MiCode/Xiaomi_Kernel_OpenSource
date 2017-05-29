@@ -2693,7 +2693,8 @@ int mdss_dsi_pre_clkon_cb(void *priv,
 		for (i = DSI_CORE_PM; i < DSI_MAX_PM; i++) {
 			if ((ctrl->ctrl_state & CTRL_STATE_DSI_ACTIVE) &&
 				(!pdata->panel_info.cont_splash_enabled) &&
-				(!sdata->power_data[i].vreg_config->disabled))
+				(!sdata->power_data[i].vreg_config
+						->lp_disable_allowed))
 				continue;
 			rc = msm_dss_enable_vreg(
 				sdata->power_data[i].vreg_config,

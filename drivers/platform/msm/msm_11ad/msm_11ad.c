@@ -1098,7 +1098,7 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	}
 	ctx->use_smmu = of_property_read_bool(of_node, "qcom,smmu-support");
 	ctx->keep_radio_on_during_sleep = of_property_read_bool(of_node,
-		"qcom,keep_radio_on_during_sleep");
+		"qcom,keep-radio-on-during-sleep");
 	ctx->bus_scale = msm_bus_cl_get_pdata(pdev);
 
 	ctx->smmu_s1_en = of_property_read_bool(of_node, "qcom,smmu-s1-en");
@@ -1336,6 +1336,17 @@ static void msm_11ad_set_boost_affinity(struct msm11ad_ctx *ctx)
 		dev_warn(ctx->dev, "failed to set CPU boost affinity\n");
 }
 
+static void msm_11ad_clear_boost_affinity(struct msm11ad_ctx *ctx)
+{
+	int rc;
+
+	irq_modify_status(ctx->pcidev->irq, IRQ_NO_BALANCING, 0);
+	rc = irq_set_affinity_hint(ctx->pcidev->irq, NULL);
+	if (rc)
+		dev_warn(ctx->dev,
+			 "Failed clear affinity, rc=%d\n", rc);
+}
+
 /* hooks for the wil6210 driver */
 static int ops_bus_request(void *handle, u32 kbps /* KBytes/Sec */)
 {
@@ -1385,8 +1396,7 @@ static int ops_bus_request(void *handle, u32 kbps /* KBytes/Sec */)
 					dev_err(ctx->dev,
 						"Failed disable boost rc=%d\n",
 						rc);
-				irq_modify_status(ctx->pcidev->irq,
-						  IRQ_NO_BALANCING, 0);
+				msm_11ad_clear_boost_affinity(ctx);
 				dev_dbg(ctx->dev, "CPU boost disabled\n");
 			}
 			ctx->is_cpu_boosted = needs_boost;
@@ -1472,7 +1482,7 @@ static int ops_notify(void *handle, enum wil_platform_event evt)
 	return rc;
 }
 
-bool ops_keep_radio_on_during_sleep(void *handle)
+static bool ops_keep_radio_on_during_sleep(void *handle)
 {
 	struct msm11ad_ctx *ctx = (struct msm11ad_ctx *)handle;
 

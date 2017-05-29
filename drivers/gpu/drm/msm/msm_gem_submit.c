@@ -34,10 +34,11 @@ static inline void __user *to_user_ptr(u64 address)
 }
 
 static struct msm_gem_submit *submit_create(struct drm_device *dev,
-		struct msm_gem_address_space *aspace, int nr)
+		struct msm_gem_address_space *aspace, int nr_bos, int nr_cmds)
 {
 	struct msm_gem_submit *submit;
-	int sz = sizeof(*submit) + (nr * sizeof(submit->bos[0]));
+	int sz = sizeof(*submit) + (nr_bos * sizeof(submit->bos[0])) +
+			(nr_cmds * sizeof(*submit->cmd));
 
 	submit = kmalloc(sz, GFP_TEMPORARY | __GFP_NOWARN | __GFP_NORETRY);
 	if (submit) {
@@ -50,6 +51,8 @@ static struct msm_gem_submit *submit_create(struct drm_device *dev,
 
 		submit->profile_buf_vaddr = NULL;
 		submit->profile_buf_iova = 0;
+		submit->cmd = (void *)&submit->bos[nr_bos];
+
 		submit->secure = false;
 
 		INIT_LIST_HEAD(&submit->bo_list);
@@ -393,12 +396,9 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 	if (!gpu)
 		return -ENXIO;
 
-	if (args->nr_cmds > MAX_CMDS)
-		return -EINVAL;
-
 	mutex_lock(&dev->struct_mutex);
 
-	submit = submit_create(dev, ctx->aspace, args->nr_bos);
+	submit = submit_create(dev, ctx->aspace, args->nr_bos, args->nr_cmds);
 	if (!submit) {
 		ret = -ENOMEM;
 		goto out;

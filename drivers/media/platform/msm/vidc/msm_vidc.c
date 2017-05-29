@@ -970,7 +970,7 @@ int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 		b->m.planes[i].m.userptr = buffer_info->uvaddr[i];
 		b->m.planes[i].reserved[0] = buffer_info->fd[i];
 		b->m.planes[i].reserved[1] = buffer_info->buff_off[i];
-		if (!b->m.planes[i].m.userptr) {
+		if (!(inst->flags & VIDC_SECURE) && !b->m.planes[i].m.userptr) {
 			dprintk(VIDC_ERR,
 			"%s: Failed to find user virtual address, %#lx, %d, %d\n",
 			__func__, b->m.planes[i].m.userptr, b->type, i);
