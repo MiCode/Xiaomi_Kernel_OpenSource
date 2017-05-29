@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -241,7 +241,10 @@ int mdss_mdp_splash_cleanup(struct msm_fb_data_type *mfd,
 {
 	struct mdss_overlay_private *mdp5_data;
 	struct mdss_mdp_ctl *ctl;
+	static u32 splash_mem_addr;
+	static u32 splash_mem_size;
 	int rc = 0;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	if (!mfd)
 		return -EINVAL;
@@ -307,8 +310,37 @@ int mdss_mdp_splash_cleanup(struct msm_fb_data_type *mfd,
 
 	mdss_mdp_ctl_splash_finish(ctl, mdp5_data->handoff);
 
+	/* If DSI-1 interface is enabled by LK, free cont_splash_mem for dsi
+	 * during the cleanup for DSI-1.
+	 */
+	if ((mdata->splash_intf_sel & MDSS_MDP_INTF_DSI1_SEL) &&
+		mfd->panel_info->pdest == DISPLAY_1) {
+		pr_debug("delay cleanup for display %d\n",
+						mfd->panel_info->pdest);
+		splash_mem_addr = mdp5_data->splash_mem_addr;
+		splash_mem_size = mdp5_data->splash_mem_size;
+
+		mdss_mdp_footswitch_ctrl_splash(0);
+		goto end;
+	}
+
+	if ((mdata->splash_intf_sel & MDSS_MDP_INTF_DSI1_SEL) &&
+		mfd->panel_info->pdest == DISPLAY_2 &&
+		!mfd->splash_info.iommu_dynamic_attached) {
+		pr_debug("free splash mem for display %d\n",
+						mfd->panel_info->pdest);
+		/* Give back the reserved memory to the system */
+		memblock_free(splash_mem_addr, splash_mem_size);
+		mdss_free_bootmem(splash_mem_addr, splash_mem_size);
+
+		mdss_mdp_footswitch_ctrl_splash(0);
+		goto end;
+	}
+
 	if (mdp5_data->splash_mem_addr &&
 		!mfd->splash_info.iommu_dynamic_attached) {
+		pr_debug("free splash mem for display %d\n",
+						mfd->panel_info->pdest);
 		/* Give back the reserved memory to the system */
 		memblock_free(mdp5_data->splash_mem_addr,
 					mdp5_data->splash_mem_size);
