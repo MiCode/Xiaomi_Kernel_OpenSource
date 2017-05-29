@@ -272,6 +272,7 @@ struct sde_crtc_respool {
  * @new_perf: new performance state
  * @sbuf_cfg: stream buffer configuration
  * @sbuf_prefill_line: number of line for inline rotator prefetch
+ * @sbuf_flush_mask: flush mask for inline rotator
  */
 struct sde_crtc_state {
 	struct drm_crtc_state base;
@@ -299,6 +300,7 @@ struct sde_crtc_state {
 	struct sde_core_perf_params new_perf;
 	struct sde_ctl_sbuf_cfg sbuf_cfg;
 	u64 sbuf_prefill_line;
+	u32 sbuf_flush_mask;
 
 	struct sde_crtc_respool rp;
 };

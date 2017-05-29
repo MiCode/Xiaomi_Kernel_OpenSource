@@ -2447,16 +2447,16 @@ done:
  * sde_plane_get_ctl_flush - get control flush for the given plane
  * @plane: Pointer to drm plane structure
  * @ctl: Pointer to hardware control driver
- * @flush: Pointer to flush control word
+ * @flush_sspp: Pointer to sspp flush control word
+ * @flush_rot: Pointer to rotator flush control word
  */
 void sde_plane_get_ctl_flush(struct drm_plane *plane, struct sde_hw_ctl *ctl,
-		u32 *flush)
+		u32 *flush_sspp, u32 *flush_rot)
 {
 	struct sde_plane_state *pstate;
 	struct sde_plane_rot_state *rstate;
-	u32 bitmask;
 
-	if (!plane || !flush) {
+	if (!plane || !flush_sspp) {
 		SDE_ERROR("invalid parameters\n");
 		return;
 	}
@@ -2464,13 +2464,15 @@ void sde_plane_get_ctl_flush(struct drm_plane *plane, struct sde_hw_ctl *ctl,
 	pstate = to_sde_plane_state(plane->state);
 	rstate = &pstate->rot;
 
-	bitmask = ctl->ops.get_bitmask_sspp(ctl, sde_plane_pipe(plane));
+	*flush_sspp = ctl->ops.get_bitmask_sspp(ctl, sde_plane_pipe(plane));
 
+	if (!flush_rot)
+		return;
+
+	*flush_rot = 0x0;
 	if (sde_plane_is_sbuf_mode(plane, NULL) && rstate->rot_hw &&
 			ctl->ops.get_bitmask_rot)
-		ctl->ops.get_bitmask_rot(ctl, &bitmask, rstate->rot_hw->idx);
-
-	*flush = bitmask;
+		ctl->ops.get_bitmask_rot(ctl, flush_rot, rstate->rot_hw->idx);
 }
 
 static int sde_plane_prepare_fb(struct drm_plane *plane,

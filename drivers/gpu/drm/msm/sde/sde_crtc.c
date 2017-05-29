@@ -1112,7 +1112,7 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	struct sde_hw_stage_cfg *stage_cfg;
 	struct sde_rect plane_crtc_roi;
 
-	u32 flush_mask = 0;
+	u32 flush_mask, flush_sbuf, flush_tmp;
 	uint32_t lm_idx = LEFT_MIXER, stage_idx;
 	bool bg_alpha_enable[CRTC_DUAL_MIXERS] = {false};
 	int zpos_cnt[CRTC_DUAL_MIXERS][SDE_STAGE_MAX + 1] = { {0} };
@@ -1129,6 +1129,7 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	lm = mixer->hw_lm;
 	stage_cfg = &sde_crtc->stage_cfg;
 	cstate = to_sde_crtc_state(crtc->state);
+	flush_sbuf = 0x0;
 
 	drm_atomic_crtc_for_each_plane(plane, crtc) {
 		state = plane->state;
@@ -1146,8 +1147,11 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 		if (sde_plane_is_sbuf_mode(plane, &prefill))
 			sbuf_mode = true;
 
-		sde_plane_get_ctl_flush(plane, ctl, &flush_mask);
+		sde_plane_get_ctl_flush(plane, ctl, &flush_mask, &flush_tmp);
 
+		/* persist rotator flush bit(s) for one more commit */
+		flush_mask |= cstate->sbuf_flush_mask | flush_tmp;
+		flush_sbuf |= flush_tmp;
 
 		SDE_DEBUG("crtc %d stage:%d - plane %d sspp %d fb %d\n",
 				crtc->base.id,
@@ -1207,6 +1211,8 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 			}
 		}
 	}
+
+	cstate->sbuf_flush_mask = flush_sbuf;
 
 	if (lm && lm->ops.setup_dim_layer) {
 		cstate = to_sde_crtc_state(crtc->state);

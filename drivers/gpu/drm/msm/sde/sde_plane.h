@@ -169,10 +169,11 @@ bool is_sde_plane_virtual(struct drm_plane *plane);
  * sde_plane_get_ctl_flush - get control flush mask
  * @plane:   Pointer to DRM plane object
  * @ctl: Pointer to control hardware
- * @flush: Pointer to updated flush mask
+ * @flush_sspp: Pointer to sspp flush control word
+ * @flush_rot: Pointer to rotator flush control word
  */
 void sde_plane_get_ctl_flush(struct drm_plane *plane, struct sde_hw_ctl *ctl,
-		u32 *flush);
+		u32 *flush_sspp, u32 *flush_rot);
 
 /**
  * sde_plane_is_sbuf_mode - return status of stream buffer mode
