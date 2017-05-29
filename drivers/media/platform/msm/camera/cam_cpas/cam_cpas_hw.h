@@ -17,6 +17,7 @@
 #include "cam_cpas_hw_intf.h"
 
 #define CPAS_MAX_CLIENTS 20
+#define CAM_CPAS_INFLIGHT_WORKS 5
 
 #define CAM_CPAS_GET_CLIENT_IDX(handle) (handle)
 #define CAM_CPAS_GET_CLIENT_HANDLE(indx) (indx)
@@ -167,6 +168,7 @@ struct cam_cpas_axi_port {
  * @ahb_bus_client: AHB Bus client info
  * @axi_ports_list_head: Head pointing to list of AXI ports
  * @internal_ops: CPAS HW internal ops
+ * @work_queue: Work queue handle
  *
  */
 struct cam_cpas {
@@ -180,6 +182,7 @@ struct cam_cpas {
 	struct cam_cpas_bus_client ahb_bus_client;
 	struct list_head axi_ports_list_head;
 	struct cam_cpas_internal_ops internal_ops;
+	struct workqueue_struct *work_queue;
 };
 
 int cam_camsstop_get_internal_ops(struct cam_cpas_internal_ops *internal_ops);

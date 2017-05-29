@@ -168,4 +168,20 @@ struct cam_camnoc_info {
 	int error_logger_size;
 };
 
+/**
+ * struct cam_cpas_work_payload : Struct for cpas work payload data
+ *
+ * @hw: Pointer to HW info
+ * @irq_status: IRQ status value
+ * @irq_data: IRQ data
+ * @work: Work handle
+ *
+ */
+struct cam_cpas_work_payload {
+	struct cam_hw_info *hw;
+	uint32_t irq_status;
+	uint32_t irq_data;
+	struct work_struct work;
+};
+
 #endif /* _CAM_CPASTOP_HW_H_ */
