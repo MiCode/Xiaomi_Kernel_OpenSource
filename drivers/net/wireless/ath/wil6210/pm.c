@@ -98,6 +98,10 @@ static int wil_resume_keep_radio_on(struct wil6210_priv *wil)
 		}
 	}
 
+	/* Wake all queues */
+	if (test_bit(wil_status_fwconnected, wil->status))
+		wil_update_net_queues_bh(wil, NULL, false);
+
 out:
 	if (rc)
 		set_bit(wil_status_suspended, wil->status);
@@ -113,6 +117,7 @@ static int wil_suspend_keep_radio_on(struct wil6210_priv *wil)
 
 	/* Prevent handling of new tx and wmi commands */
 	set_bit(wil_status_suspending, wil->status);
+	wil_update_net_queues_bh(wil, NULL, true);
 
 	if (!wil_is_tx_idle(wil)) {
 		wil_dbg_pm(wil, "Pending TX data, reject suspend\n");
@@ -201,13 +206,17 @@ resume_after_fail:
 	clear_bit(wil_status_suspending, wil->status);
 	rc = wmi_resume(wil);
 	/* if resume succeeded, reject the suspend */
-	if (!rc)
+	if (!rc) {
 		rc = -EBUSY;
-
+		if (test_bit(wil_status_fwconnected, wil->status))
+			wil_update_net_queues_bh(wil, NULL, false);
+	}
 	return rc;
 
 reject_suspend:
 	clear_bit(wil_status_suspending, wil->status);
+	if (test_bit(wil_status_fwconnected, wil->status))
+		wil_update_net_queues_bh(wil, NULL, false);
 	return -EBUSY;
 }
 
