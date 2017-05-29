@@ -279,17 +279,16 @@ static struct cam_camnoc_specific
 			.value = 3,
 		},
 		.danger_lut = {
-			.enable = false,
+			.enable = true,
 			.access_type = CAM_REG_TYPE_READ_WRITE,
-			.masked_value = 0,
 			.offset = 0x440, /* SPECIFIC_IFE02_DANGERLUT_LOW */
-			.value = 0x0,
+			.value = 0xFFFFFF00,
 		},
 		.safe_lut = {
-			.enable = false,
+			.enable = true,
 			.access_type = CAM_REG_TYPE_READ_WRITE,
 			.offset = 0x448, /* SPECIFIC_IFE02_SAFELUT_LOW */
-			.value = 0x0,
+			.value = 0x3,
 		},
 		.ubwc_ctl = {
 			.enable = true,
@@ -328,18 +327,16 @@ static struct cam_camnoc_specific
 			.value = 3,
 		},
 		.danger_lut = {
-			.enable = false,
+			.enable = true,
 			.access_type = CAM_REG_TYPE_READ_WRITE,
-			.masked_value = 0,
 			.offset = 0x840, /* SPECIFIC_IFE13_DANGERLUT_LOW */
-			.value = 0x0,
+			.value = 0xFFFFFF00,
 		},
 		.safe_lut = {
-			.enable = false,
+			.enable = true,
 			.access_type = CAM_REG_TYPE_READ_WRITE,
-			.masked_value = 0,
 			.offset = 0x848, /* SPECIFIC_IFE13_SAFELUT_LOW */
-			.value = 0x0,
+			.value = 0x3,
 		},
 		.ubwc_ctl = {
 			.enable = true,
