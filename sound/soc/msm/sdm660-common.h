@@ -96,6 +96,7 @@ struct msm_asoc_mach_data {
 	struct device_node *pdm_gpio_p; /* used by pinctrl API */
 	struct device_node *comp_gpio_p; /* used by pinctrl API */
 	struct device_node *dmic_gpio_p; /* used by pinctrl API */
+	struct device_node *tert_mi2s_gpio_p; /* used by pinctrl API */
 	struct device_node *ext_spk_gpio_p; /* used by pinctrl API */
 	struct snd_soc_codec *codec;
 	struct sdm660_codec sdm660_codec_fn;
