@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,7 +46,7 @@
 #include <linux/kthread.h>
 #include <linux/regmap.h>
 
-#define MIPI_480P
+#define MIPI_1080P
 #define device_name	"lt8912"
 
 /**
@@ -292,8 +292,70 @@ static int mipi_basic_set(struct lt8912_data *data)
 	return 0;
 }
 
+#ifdef MIPI_1080P
+static int mipi_dig_set_res(struct lt8912_data *data)
+{
+	int rc = 0;
+
+	data->lt8912_client->addr = 0x49;
+	rc = lt8912_i2c_write_byte(data, 0x18, 0x2c);
+	if (rc)
+		return rc;
+	rc = lt8912_i2c_write_byte(data, 0x19, 0x05);
+	if (rc)
+		return rc;
+	rc = lt8912_i2c_write_byte(data, 0x1c, 0x80);
+	if (rc)
+		return rc;
+	rc = lt8912_i2c_write_byte(data, 0x1d, 0x07);
+	if (rc)
+		return rc;
+	rc = lt8912_i2c_write_byte(data, 0x2f, 0x0c);
+	if (rc)
+		return rc;
+	rc = lt8912_i2c_write_byte(data, 0x34, 0x98);
+	if (rc)
+		return rc;
+	rc = lt8912_i2c_write_byte(data, 0x35, 0x08);
+	if (rc)
+		return rc;
+	rc = lt8912_i2c_write_byte(data, 0x36, 0x65);
+	if (rc)
+		return rc;
+	rc = lt8912_i2c_write_byte(data, 0x37, 0x04);
+	if (rc)
+		return rc;
+	rc = lt8912_i2c_write_byte(data, 0x38, 0x24);
+	if (rc)
+		return rc;
+	rc = lt8912_i2c_write_byte(data, 0x39, 0x00);
+	if (rc)
+		return rc;
+	rc = lt8912_i2c_write_byte(data, 0x3a, 0x04);
+	if (rc)
+		return rc;
+	rc = lt8912_i2c_write_byte(data, 0x3b, 0x00);
+	if (rc)
+		return rc;
+	rc = lt8912_i2c_write_byte(data, 0x3c, 0x94);
+	if (rc)
+		return rc;
+	rc = lt8912_i2c_write_byte(data, 0x3d, 0x00);
+	if (rc)
+		return rc;
+	rc = lt8912_i2c_write_byte(data, 0x3e, 0x58);
+	if (rc)
+		return rc;
+	rc = lt8912_i2c_write_byte(data, 0x3f, 0x00);
+	if (rc)
+		return rc;
+	return 0;
+}
+
+#endif
+
 #ifdef MIPI_720P
-static int mipi_dig_720p(struct lt8912_data *data)
+static int mipi_dig_set_res(struct lt8912_data *data)
 {
 	int rc = 0;
 
@@ -358,7 +420,7 @@ static int mipi_dig_720p(struct lt8912_data *data)
 #endif
 
 #ifdef MIPI_480P
-static int mipi_dig_480p(struct lt8912_data *data)
+static int mipi_dig_set_res(struct lt8912_data *data)
 {
 	int rc = 0;
 
@@ -773,17 +835,9 @@ static int lontium_i2c_probe(struct i2c_client *client,
 	if (ret)
 		goto free_reset_gpio;
 
-#ifdef MIPI_720P
-	ret = mipi_dig_720p(data);
+	ret = mipi_dig_set_res(data);
 	if (ret)
 		goto free_reset_gpio;
-#endif
-
-#ifdef MIPI_480P
-	ret = mipi_dig_480p(data);
-	if (ret)
-		goto free_reset_gpio;
-#endif
 
 	ret = dds_config(data);
 	if (ret)
