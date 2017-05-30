@@ -397,6 +397,8 @@ struct sched_cluster {
 	unsigned int static_cluster_pwr_cost;
 	int notifier_sent;
 	bool wake_up_idle;
+	atomic64_t last_cc_update;
+	atomic64_t cycles;
 };
 
 extern unsigned long all_cluster_ids[];
