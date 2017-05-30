@@ -45,7 +45,8 @@ enum cam_cpas_access_type {
  * @init_hw_version: Function pointer for hw init based on version
  * @handle_irq: Function poniter for irq handling
  * @setup_regbase: Function pointer for setup rebase indices
- * @power_on_settings: Function pointer for hw core specific power on settings
+ * @power_on: Function pointer for hw core specific power on settings
+ * @power_off: Function pointer for hw core specific power off settings
  *
  */
 struct cam_cpas_internal_ops {
@@ -56,7 +57,8 @@ struct cam_cpas_internal_ops {
 	irqreturn_t (*handle_irq)(int irq_num, void *data);
 	int (*setup_regbase)(struct cam_hw_soc_info *soc_info,
 		int32_t regbase_index[], int32_t num_reg_map);
-	int (*power_on_settings)(struct cam_hw_info *cpas_hw);
+	int (*power_on)(struct cam_hw_info *cpas_hw);
+	int (*power_off)(struct cam_hw_info *cpas_hw);
 };
 
 /**

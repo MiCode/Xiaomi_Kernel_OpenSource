@@ -147,6 +147,31 @@ struct cam_camnoc_irq_err {
 };
 
 /**
+ * struct cam_cpas_hw_errata_wa : Struct for HW errata workaround info
+ *
+ * @enable: Whether to enable this errata workround
+ * @data: HW Errata workaround data
+ *
+ */
+struct cam_cpas_hw_errata_wa {
+	bool enable;
+	union {
+		struct cam_cpas_reg reg_info;
+	} data;
+};
+
+/**
+ * struct cam_cpas_hw_errata_wa_list : List of HW Errata workaround info
+ *
+ * @camnoc_flush_slave_pending_trans: Errata workaround info for flushing
+ *         camnoc slave pending transactions before turning off CPAS_TOP gdsc
+ *
+ */
+struct cam_cpas_hw_errata_wa_list {
+	struct cam_cpas_hw_errata_wa camnoc_flush_slave_pending_trans;
+};
+
+/**
  * struct cam_camnoc_info : Overall CAMNOC settings info
  *
  * @specific: Pointer to CAMNOC SPECIFICTONTTPTR settings
@@ -156,6 +181,7 @@ struct cam_camnoc_irq_err {
  * @irq_err_size: Array size of IRQ Error settings
  * @error_logger: Pointer to CAMNOC IRQ Error logger read registers
  * @error_logger_size: Array size of IRQ Error logger
+ * @errata_wa_list: HW Errata workaround info
  *
  */
 struct cam_camnoc_info {
@@ -166,6 +192,7 @@ struct cam_camnoc_info {
 	int irq_err_size;
 	uint32_t *error_logger;
 	int error_logger_size;
+	struct cam_cpas_hw_errata_wa_list *errata_wa_list;
 };
 
 #endif /* _CAM_CPASTOP_HW_H_ */
