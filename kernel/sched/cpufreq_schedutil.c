@@ -24,6 +24,7 @@ struct sugov_tunables {
 	struct gov_attr_set attr_set;
 	unsigned int rate_limit_us;
 	unsigned int hispeed_freq;
+	bool pl;
 };
 
 struct sugov_policy {
@@ -224,7 +225,8 @@ static void sugov_walt_adjust(struct sugov_cpu *sg_cpu, unsigned long *util,
 	if (is_hiload && nl >= mult_frac(cpu_util, NL_RATIO, 100))
 		*util = *max;
 
-	*util = max(*util, sg_cpu->walt_load.pl);
+	if (sg_policy->tunables->pl)
+		*util = max(*util, sg_cpu->walt_load.pl);
 }
 
 static void sugov_update_single(struct update_util_data *hook, u64 time,
@@ -450,12 +452,32 @@ static ssize_t hispeed_freq_store(struct gov_attr_set *attr_set,
 	return count;
 }
 
+static ssize_t pl_show(struct gov_attr_set *attr_set, char *buf)
+{
+	struct sugov_tunables *tunables = to_sugov_tunables(attr_set);
+
+	return sprintf(buf, "%u\n", tunables->pl);
+}
+
+static ssize_t pl_store(struct gov_attr_set *attr_set, const char *buf,
+				   size_t count)
+{
+	struct sugov_tunables *tunables = to_sugov_tunables(attr_set);
+
+	if (kstrtobool(buf, &tunables->pl))
+		return -EINVAL;
+
+	return count;
+}
+
 static struct governor_attr rate_limit_us = __ATTR_RW(rate_limit_us);
 static struct governor_attr hispeed_freq = __ATTR_RW(hispeed_freq);
+static struct governor_attr pl = __ATTR_RW(pl);
 
 static struct attribute *sugov_attributes[] = {
 	&rate_limit_us.attr,
 	&hispeed_freq.attr,
+	&pl.attr,
 	NULL
 };
 
