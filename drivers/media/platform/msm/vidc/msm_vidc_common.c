@@ -492,6 +492,26 @@ int msm_comm_v4l2_to_hal(int id, int value)
 		default:
 			goto unknown_value;
 		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_TME_PROFILE:
+		switch (value) {
+		case V4L2_MPEG_VIDC_VIDEO_TME_PROFILE_0:
+			return HAL_TME_PROFILE_0;
+		case V4L2_MPEG_VIDC_VIDEO_TME_PROFILE_1:
+			return HAL_TME_PROFILE_1;
+		case V4L2_MPEG_VIDC_VIDEO_TME_PROFILE_2:
+			return HAL_TME_PROFILE_2;
+		case V4L2_MPEG_VIDC_VIDEO_TME_PROFILE_3:
+			return HAL_TME_PROFILE_3;
+		default:
+			goto unknown_value;
+		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_TME_LEVEL:
+		switch (value) {
+		case V4L2_MPEG_VIDC_VIDEO_TME_LEVEL_INTEGER:
+			return HAL_TME_LEVEL_INTEGER;
+		default:
+			goto unknown_value;
+		}
 	case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION:
 		switch (value) {
 		case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_NONE:
@@ -795,7 +815,6 @@ enum hal_video_codec get_hal_codec(int fourcc)
 	case V4L2_PIX_FMT_H264_MVC:
 		codec = HAL_VIDEO_CODEC_MVC;
 		break;
-
 	case V4L2_PIX_FMT_MPEG1:
 		codec = HAL_VIDEO_CODEC_MPEG1;
 		break;
@@ -810,6 +829,9 @@ enum hal_video_codec get_hal_codec(int fourcc)
 		break;
 	case V4L2_PIX_FMT_HEVC:
 		codec = HAL_VIDEO_CODEC_HEVC;
+		break;
+	case V4L2_PIX_FMT_TME:
+		codec = HAL_VIDEO_CODEC_TME;
 		break;
 	default:
 		dprintk(VIDC_ERR, "Wrong codec: %d\n", fourcc);
@@ -1260,6 +1282,9 @@ static int msm_vidc_comm_update_ctrl(struct msm_vidc_inst *inst,
 static void msm_vidc_comm_update_ctrl_limits(struct msm_vidc_inst *inst)
 {
 	if (inst->session_type == MSM_VIDC_ENCODER) {
+		if (get_hal_codec(inst->fmts[CAPTURE_PORT].fourcc) ==
+			HAL_VIDEO_CODEC_TME)
+			return;
 		msm_vidc_comm_update_ctrl(inst,
 				V4L2_CID_MPEG_VIDC_VIDEO_HYBRID_HIERP_MODE,
 				&inst->capability.hier_p_hybrid);
@@ -5520,7 +5545,9 @@ int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 	dprintk(VIDC_PROF, "reported fps changed for %pK: %d->%d\n",
 			inst, inst->prop.fps, fps);
 	inst->prop.fps = fps;
-	if (inst->session_type == MSM_VIDC_ENCODER) {
+	if (inst->session_type == MSM_VIDC_ENCODER &&
+		get_hal_codec(inst->fmts[CAPTURE_PORT].fourcc) !=
+			HAL_VIDEO_CODEC_TME) {
 		frame_rate.frame_rate = inst->prop.fps * BIT(16);
 		frame_rate.buffer_type = HAL_BUFFER_OUTPUT;
 		pdata = &frame_rate;
