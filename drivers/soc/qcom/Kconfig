@@ -676,7 +676,7 @@ config QCOM_DCC_V2
 
 config QTI_RPM_STATS_LOG
 	bool "Qualcomm Technologies RPM Stats Driver"
-	depends on DEBUG_FS
+	depends on SYSFS
 	default n
 	help
 	  This option enables a driver which reads RPM messages from a shared
