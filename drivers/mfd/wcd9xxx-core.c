@@ -228,7 +228,7 @@ static int wcd9xxx_slim_read_device(struct wcd9xxx *wcd9xxx, unsigned short reg,
 
 	if (!wcd9xxx->dev_up) {
 		dev_dbg_ratelimited(
-			wcd9xxx->dev, "%s: No read allowed. dev_up = %d\n",
+			wcd9xxx->dev, "%s: No read allowed. dev_up = %lu\n",
 			__func__, wcd9xxx->dev_up);
 		return 0;
 	}
@@ -268,7 +268,7 @@ static int wcd9xxx_slim_write_device(struct wcd9xxx *wcd9xxx,
 
 	if (!wcd9xxx->dev_up) {
 		dev_dbg_ratelimited(
-			wcd9xxx->dev, "%s: No write allowed. dev_up = %d\n",
+			wcd9xxx->dev, "%s: No write allowed. dev_up = %lu\n",
 			__func__, wcd9xxx->dev_up);
 		return 0;
 	}
@@ -345,7 +345,7 @@ int wcd9xxx_slim_write_repeat(struct wcd9xxx *wcd9xxx, unsigned short reg,
 
 	if (!wcd9xxx->dev_up) {
 		dev_dbg_ratelimited(
-			wcd9xxx->dev, "%s: No write allowed. dev_up = %d\n",
+			wcd9xxx->dev, "%s: No write allowed. dev_up = %lu\n",
 			__func__, wcd9xxx->dev_up);
 		ret = 0;
 		goto done;
@@ -426,7 +426,7 @@ int wcd9xxx_slim_bulk_write(struct wcd9xxx *wcd9xxx,
 
 	if (!wcd9xxx->dev_up) {
 		dev_dbg_ratelimited(
-			wcd9xxx->dev, "%s: No write allowed. dev_up = %d\n",
+			wcd9xxx->dev, "%s: No write allowed. dev_up = %lu\n",
 			__func__, wcd9xxx->dev_up);
 		return 0;
 	}
@@ -1478,12 +1478,27 @@ static int wcd9xxx_slim_device_reset(struct slim_device *sldev)
 		return -EINVAL;
 	}
 
-	dev_info(wcd9xxx->dev, "%s: device reset, dev_up = %d\n",
-		__func__, wcd9xxx->dev_up);
-	if (wcd9xxx->dev_up)
-		return 0;
+	/*
+	 * Wait for 500 ms for device down to complete. Observed delay
+	 *  of ~200ms for device down to complete after being called,
+	 * due to context switch issue.
+	 */
+	ret = wait_on_bit_timeout(&wcd9xxx->dev_up, 0,
+				  TASK_INTERRUPTIBLE,
+				  msecs_to_jiffies(500));
+	if (ret)
+		pr_err("%s: slim device down not complete in 500 msec\n",
+				__func__);
 
 	mutex_lock(&wcd9xxx->reset_lock);
+
+	dev_info(wcd9xxx->dev, "%s: device reset, dev_up = %lu\n",
+			__func__, wcd9xxx->dev_up);
+	if (wcd9xxx->dev_up) {
+		mutex_unlock(&wcd9xxx->reset_lock);
+		return 0;
+	}
+
 	ret = wcd9xxx_reset(wcd9xxx->dev);
 	if (ret)
 		dev_err(wcd9xxx->dev, "%s: Resetting Codec failed\n", __func__);
@@ -1501,8 +1516,8 @@ static int wcd9xxx_slim_device_up(struct slim_device *sldev)
 		pr_err("%s: wcd9xxx is NULL\n", __func__);
 		return -EINVAL;
 	}
-	dev_info(wcd9xxx->dev, "%s: slim device up, dev_up = %d\n",
-		__func__, wcd9xxx->dev_up);
+	dev_info(wcd9xxx->dev, "%s: slim device up, dev_up = %lu\n",
+			__func__, wcd9xxx->dev_up);
 	if (wcd9xxx->dev_up)
 		return 0;
 
@@ -1524,18 +1539,20 @@ static int wcd9xxx_slim_device_down(struct slim_device *sldev)
 		return -EINVAL;
 	}
 
-	dev_info(wcd9xxx->dev, "%s: device down, dev_up = %d\n",
-		__func__, wcd9xxx->dev_up);
-	if (!wcd9xxx->dev_up)
-		return 0;
-
-	wcd9xxx->dev_up = false;
-
 	mutex_lock(&wcd9xxx->reset_lock);
+
+	dev_info(wcd9xxx->dev, "%s: device down, dev_up = %lu\n",
+			__func__, wcd9xxx->dev_up);
+	if (!wcd9xxx->dev_up) {
+		mutex_unlock(&wcd9xxx->reset_lock);
+		return 0;
+	}
+
 	if (wcd9xxx->dev_down)
 		wcd9xxx->dev_down(wcd9xxx);
 	wcd9xxx_irq_exit(&wcd9xxx->core_res);
 	wcd9xxx_reset_low(wcd9xxx->dev);
+	wcd9xxx->dev_up = false;
 	mutex_unlock(&wcd9xxx->reset_lock);
 
 	return 0;
