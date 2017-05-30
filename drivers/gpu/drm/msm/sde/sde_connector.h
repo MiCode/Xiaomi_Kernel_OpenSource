@@ -282,7 +282,7 @@ struct sde_connector {
  * Returns: Pointer to associated private display structure
  */
 #define sde_connector_get_panel(C) \
-	((C) ? to_sde_connector((C))->panel : 0)
+	((C) ? to_sde_connector((C))->panel : NULL)
 
 /**
  * sde_connector_get_encoder - get sde connector's private encoder pointer
