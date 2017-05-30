@@ -385,6 +385,8 @@
 			qcom,mdss-mdp = <&mdss_mdp>;
 			qcom,mdss-fb-map = <&mdss_fb0>;
 
+			qcom,null-insertion-enabled;
+
 			clocks = <&clock_mmss clk_mmss_mdss_byte0_clk>,
 				 <&clock_mmss clk_mmss_mdss_pclk0_clk>,
 				 <&clock_mmss clk_mmss_mdss_esc0_clk>,
@@ -422,6 +424,8 @@
 			ibb-supply = <&ibb_regulator>;
 			qcom,mdss-mdp = <&mdss_mdp>;
 			qcom,mdss-fb-map = <&mdss_fb0>;
+
+			qcom,null-insertion-enabled;
 
 			clocks = <&clock_mmss clk_mmss_mdss_byte1_clk>,
 				 <&clock_mmss clk_mmss_mdss_pclk1_clk>,
