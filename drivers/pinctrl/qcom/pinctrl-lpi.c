@@ -414,8 +414,10 @@ static int lpi_notifier_service_cb(struct notifier_block *this,
 
 	switch (opcode) {
 	case AUDIO_NOTIFIER_SERVICE_DOWN:
-		if (initial_boot)
+		if (initial_boot) {
+			initial_boot = false;
 			break;
+		}
 		lpi_dev_up = false;
 		break;
 	case AUDIO_NOTIFIER_SERVICE_UP:
