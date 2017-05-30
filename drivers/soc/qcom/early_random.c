@@ -1,4 +1,5 @@
-/* Copyright (c) 2013-2014, 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2016-2017, The Linux Foundation. All rights
+ * reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,7 +13,7 @@
  */
 
 #include <linux/kernel.h>
-#include <linux/random.h>
+#include <linux/hw_random.h>
 #include <linux/io.h>
 
 #include <soc/qcom/scm.h>
@@ -57,7 +58,7 @@ void __init init_random_pool(void)
 	if (!ret) {
 		dmac_inv_range(random_buffer, random_buffer +
 						RANDOM_BUFFER_SIZE);
-		add_device_randomness(random_buffer, SZ_512);
+		add_hwgenerator_randomness(random_buffer, SZ_512, SZ_512 << 3);
 	}
 }
 
