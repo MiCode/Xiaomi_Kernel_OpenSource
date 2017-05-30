@@ -916,20 +916,6 @@
 		clocks = <&clock_cpucc L3_CLUSTER0_VOTE_CLK>;
 		governor = "performance";
 		qcom,prepare-clk;
-		freq-tbl-khz =
-			< 300000 >,
-			< 422400 >,
-			< 499200 >,
-			< 576000 >,
-			< 652800 >,
-			< 729600 >,
-			< 806400 >,
-			< 883200 >,
-			< 960000 >,
-			< 1036800 >,
-			< 1094400 >,
-			< 1209600 >,
-			< 1305600 >;
 	};
 
 	l3_cpu4: qcom,l3-cpu4 {
@@ -938,20 +924,6 @@
 		clocks = <&clock_cpucc L3_CLUSTER1_VOTE_CLK>;
 		governor = "performance";
 		qcom,prepare-clk;
-		freq-tbl-khz =
-			< 300000 >,
-			< 422400 >,
-			< 499200 >,
-			< 576000 >,
-			< 652800 >,
-			< 729600 >,
-			< 806400 >,
-			< 883200 >,
-			< 960000 >,
-			< 1036800 >,
-			< 1094400 >,
-			< 1209600 >,
-			< 1305600 >;
 	};
 
 	devfreq_l3lat_0: qcom,cpu0-l3lat-mon {
