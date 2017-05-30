@@ -310,8 +310,6 @@ static int dp_catalog_aux_write_trans(struct dp_catalog_aux *aux)
 	dp_catalog_get_priv(aux);
 	base = catalog->io->ctrl_io.base;
 
-	dp_write(base + DP_AUX_TRANS_CTRL, 0x0);
-	msleep(20); /* h/w recommended delay */
 	dp_write(base + DP_AUX_TRANS_CTRL, aux->data);
 end:
 	return rc;
@@ -402,7 +400,7 @@ static void dp_catalog_aux_setup(struct dp_catalog_aux *aux, u32 *aux_cfg)
 	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_INTERRUPT_MASK, 0x1F);
 }
 
-static void dp_catalog_aux_get_irq(struct dp_catalog_aux *aux)
+static void dp_catalog_aux_get_irq(struct dp_catalog_aux *aux, bool cmd_busy)
 {
 	u32 ack;
 	struct dp_catalog_private *catalog;
@@ -416,20 +414,15 @@ static void dp_catalog_aux_get_irq(struct dp_catalog_aux *aux)
 	dp_catalog_get_priv(aux);
 	base = catalog->io->ctrl_io.base;
 
-	aux->isr1 = dp_read(base + DP_INTR_STATUS);
-	aux->isr2 = dp_read(base + DP_INTR_STATUS2);
+	if (cmd_busy)
+		dp_write(base + DP_AUX_TRANS_CTRL, 0x0);
 
-	aux->isr1 &= ~DP_INTR_MASK1;
-	ack = aux->isr1 & DP_INTERRUPT_STATUS1;
+	aux->isr = dp_read(base + DP_INTR_STATUS);
+	aux->isr &= ~DP_INTR_MASK1;
+	ack = aux->isr & DP_INTERRUPT_STATUS1;
 	ack <<= 1;
 	ack |= DP_INTR_MASK1;
 	dp_write(base + DP_INTR_STATUS, ack);
-
-	aux->isr2 &= ~DP_INTR_MASK2;
-	ack = aux->isr2 & DP_INTERRUPT_STATUS2;
-	ack <<= 1;
-	ack |= DP_INTR_MASK2;
-	dp_write(base + DP_INTR_STATUS2, ack);
 }
 
 /* controller related catalog functions */
@@ -683,6 +676,14 @@ static void dp_catalog_ctrl_enable_irq(struct dp_catalog_ctrl *ctrl,
 
 	dp_catalog_get_priv(ctrl);
 	base = catalog->io->ctrl_io.base;
+
+	if (enable) {
+		dp_write(base + DP_INTR_STATUS, DP_INTR_MASK1);
+		dp_write(base + DP_INTR_STATUS2, DP_INTR_MASK2);
+	} else {
+		dp_write(base + DP_INTR_STATUS, 0x00);
+		dp_write(base + DP_INTR_STATUS2, 0x00);
+	}
 }
 
 static void dp_catalog_ctrl_hpd_config(struct dp_catalog_ctrl *ctrl, bool en)
@@ -715,20 +716,26 @@ static void dp_catalog_ctrl_hpd_config(struct dp_catalog_ctrl *ctrl, bool en)
 	}
 }
 
-static u32 dp_catalog_ctrl_get_interrupt(struct dp_catalog_ctrl *ctrl)
+static void dp_catalog_ctrl_get_interrupt(struct dp_catalog_ctrl *ctrl)
 {
+	u32 ack = 0;
 	struct dp_catalog_private *catalog;
 	void __iomem *base;
 
 	if (!ctrl) {
 		pr_err("invalid input\n");
-		return 0;
+		return;
 	}
 
 	dp_catalog_get_priv(ctrl);
 	base = catalog->io->ctrl_io.base;
 
-	return dp_read(base + DP_INTR_STATUS2);
+	ctrl->isr = dp_read(base + DP_INTR_STATUS2);
+	ctrl->isr &= ~DP_INTR_MASK2;
+	ack = ctrl->isr & DP_INTERRUPT_STATUS2;
+	ack <<= 1;
+	ack |= DP_INTR_MASK2;
+	dp_write(base + DP_INTR_STATUS2, ack);
 }
 
 static void dp_catalog_ctrl_phy_reset(struct dp_catalog_ctrl *ctrl)

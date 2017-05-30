@@ -61,6 +61,24 @@ static const struct of_device_id dp_dt_match[] = {
 	{}
 };
 
+static irqreturn_t dp_display_irq(int irq, void *dev_id)
+{
+	struct dp_display_private *dp = dev_id;
+
+	if (!dp) {
+		pr_err("invalid data\n");
+		return IRQ_NONE;
+	}
+
+	/* DP controller isr */
+	dp->ctrl->isr(dp->ctrl);
+
+	/* DP aux isr */
+	dp->aux->isr(dp->aux);
+
+	return IRQ_HANDLED;
+}
+
 static ssize_t debugfs_dp_info_read(struct file *file, char __user *buff,
 		size_t count, loff_t *ppos)
 {
@@ -241,20 +259,6 @@ static int dp_display_process_hpd_low(struct dp_display_private *dp)
 	return 0;
 }
 
-static irqreturn_t dp_display_irq(int irq, void *dev_id)
-{
-	struct dp_display_private *dp = dev_id;
-
-	if (!dp) {
-		pr_err("invalid data\n");
-		return IRQ_NONE;
-	}
-
-	dp->aux->isr(dp->aux);
-
-	return IRQ_HANDLED;
-}
-
 static int dp_display_usbpd_configure_cb(struct device *dev)
 {
 	int rc = 0;
@@ -274,24 +278,6 @@ static int dp_display_usbpd_configure_cb(struct device *dev)
 		goto end;
 	}
 
-	if (!dp->irq) {
-		dp->irq = irq_of_parse_and_map(dev->of_node, 0);
-		if (dp->irq < 0) {
-			rc = dp->irq;
-			pr_err("failed to get irq: %d\n", rc);
-			goto end;
-		}
-
-		rc = devm_request_irq(dev, dp->irq,
-				dp_display_irq, IRQF_TRIGGER_HIGH,
-				"dp_display_isr", dp);
-		if (rc < 0) {
-			pr_err("failed to request IRQ%u: %d\n",
-					dp->irq, rc);
-			goto end;
-		}
-	}
-
 	mutex_lock(&dp->lock);
 
 	if (dp->usbpd->orientation == ORIENTATION_CC2)
@@ -300,6 +286,7 @@ static int dp_display_usbpd_configure_cb(struct device *dev)
 	dp->power->init(dp->power, flip);
 	dp->ctrl->init(dp->ctrl, flip);
 	dp->aux->init(dp->aux, dp->parser->aux_cfg);
+	enable_irq(dp->irq);
 
 	if (dp->usbpd->hpd_high)
 		dp_display_process_hpd_high(dp);
@@ -328,6 +315,7 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 	}
 
 	mutex_lock(&dp->lock);
+	disable_irq(dp->irq);
 	mutex_unlock(&dp->lock);
 
 end:
@@ -543,6 +531,37 @@ error:
 	return rc;
 }
 
+static int dp_request_irq(struct dp_display *dp_display)
+{
+	int rc = 0;
+	struct dp_display_private *dp;
+
+	if (!dp_display) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	dp = container_of(dp_display, struct dp_display_private, dp_display);
+
+	dp->irq = irq_of_parse_and_map(dp->pdev->dev.of_node, 0);
+	if (dp->irq < 0) {
+		rc = dp->irq;
+		pr_err("failed to get irq: %d\n", rc);
+		return rc;
+	}
+
+	rc = devm_request_irq(&dp->pdev->dev, dp->irq, dp_display_irq,
+		IRQF_TRIGGER_HIGH, "dp_display_isr", dp);
+	if (rc < 0) {
+		pr_err("failed to request IRQ%u: %d\n",
+				dp->irq, rc);
+		return rc;
+	}
+	disable_irq(dp->irq);
+
+	return 0;
+}
+
 static int dp_display_unprepare(struct dp_display *dp)
 {
 	return 0;
@@ -621,6 +640,7 @@ static int dp_display_probe(struct platform_device *pdev)
 	g_dp_display->detect        = dp_display_detect;
 	g_dp_display->prepare       = dp_display_prepare;
 	g_dp_display->unprepare     = dp_display_unprepare;
+	g_dp_display->request_irq   = dp_request_irq;
 
 	rc = component_add(&pdev->dev, &dp_display_comp_ops);
 	if (rc)

@@ -43,6 +43,7 @@ struct dp_aux_private {
 	struct aux_buf rxp;
 
 	u32 aux_error_num;
+	bool cmd_busy;
 
 	u8 txbuf[256];
 	u8 rxbuf[256];
@@ -82,6 +83,7 @@ static void dp_aux_buf_init(struct aux_buf *buf, u8 *data, u32 size)
 static void dp_aux_buf_set(struct dp_aux_private *aux)
 {
 	init_completion(&aux->comp);
+	aux->cmd_busy = false;
 	mutex_init(&aux->mutex);
 
 	dp_aux_buf_init(&aux->txp, aux->txbuf, sizeof(aux->txbuf));
@@ -235,7 +237,7 @@ static u32 dp_cmd_fifo_rx(struct dp_aux_private *aux, u32 len)
 
 static void dp_aux_native_handler(struct dp_aux_private *aux)
 {
-	u32 isr = aux->catalog->isr1;
+	u32 isr = aux->catalog->isr;
 
 	if (isr & DP_INTR_AUX_I2C_DONE)
 		aux->aux_error_num = DP_AUX_ERR_NONE;
@@ -251,7 +253,7 @@ static void dp_aux_native_handler(struct dp_aux_private *aux)
 
 static void dp_aux_i2c_handler(struct dp_aux_private *aux)
 {
-	u32 isr = aux->catalog->isr1;
+	u32 isr = aux->catalog->isr;
 
 	if (isr & DP_INTR_AUX_I2C_DONE) {
 		if (isr & (DP_INTR_I2C_NACK | DP_INTR_I2C_DEFER))
@@ -285,7 +287,10 @@ static void dp_aux_isr(struct dp_aux *dp_aux)
 
 	aux = container_of(dp_aux, struct dp_aux_private, dp_aux);
 
-	aux->catalog->get_irq(aux->catalog);
+	aux->catalog->get_irq(aux->catalog, aux->cmd_busy);
+
+	if (!aux->cmd_busy)
+		return;
 
 	if (aux->cmds->tx_mode == AUX_NATIVE)
 		dp_aux_native_handler(aux);
@@ -318,6 +323,7 @@ static int dp_aux_write(struct dp_aux_private *aux)
 	}
 
 	reinit_completion(&aux->comp);
+	aux->cmd_busy = true;
 
 	len = dp_aux_cmd_fifo_tx(aux);
 
@@ -333,6 +339,7 @@ static int dp_aux_write(struct dp_aux_private *aux)
 	else
 		ret = aux->aux_error_num;
 
+	aux->cmd_busy = false;
 	mutex_unlock(&aux->mutex);
 	return  ret;
 }
@@ -367,6 +374,7 @@ static int dp_aux_read(struct dp_aux_private *aux)
 	}
 
 	reinit_completion(&aux->comp);
+	aux->cmd_busy = true;
 
 	dp_aux_cmd_fifo_tx(aux);
 
@@ -383,6 +391,7 @@ static int dp_aux_read(struct dp_aux_private *aux)
 		ret = aux->aux_error_num;
 
 	aux->cmds->buf = rp->data;
+	aux->cmd_busy = false;
 
 	mutex_unlock(&aux->mutex);
 
