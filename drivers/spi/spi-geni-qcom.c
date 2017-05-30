@@ -73,11 +73,11 @@
 #define SPI_CS_DEASSERT		(9)
 #define SPI_SCK_ONLY		(10)
 /* M_CMD params for SPI */
-#define SPI_PRE_CMD_DELAY	(0)
-#define TIMESTAMP_BEFORE	(1)
-#define FRAGMENTATION		(2)
-#define TIMESTAMP_AFTER		(3)
-#define POST_CMD_DELAY		(4)
+#define SPI_PRE_CMD_DELAY	BIT(0)
+#define TIMESTAMP_BEFORE	BIT(1)
+#define FRAGMENTATION		BIT(2)
+#define TIMESTAMP_AFTER		BIT(3)
+#define POST_CMD_DELAY		BIT(4)
 
 #define SPI_CORE2X_VOTE		(10000)
 
@@ -172,15 +172,13 @@ static int spi_geni_prepare_message(struct spi_master *spi_mas,
 	u32 loopback_cfg = geni_read_reg(mas->base, SE_SPI_LOOPBACK);
 	u32 cpol = geni_read_reg(mas->base, SE_SPI_CPOL);
 	u32 cpha = geni_read_reg(mas->base, SE_SPI_CPHA);
-	u32 demux_sel = geni_read_reg(mas->base, SE_SPI_DEMUX_SEL);
-	u32 demux_output_inv =
-			geni_read_reg(mas->base, SE_SPI_DEMUX_OUTPUT_INV);
+	u32 demux_sel = 0;
+	u32 demux_output_inv = 0;
 	int ret = 0;
 
 	loopback_cfg &= ~LOOPBACK_MSK;
 	cpol &= ~CPOL;
 	cpha &= ~CPHA;
-	demux_output_inv &= ~BIT(spi_slv->chip_select);
 
 	if (mode & SPI_LOOP)
 		loopback_cfg |= LOOPBACK_ENABLE;
@@ -194,7 +192,7 @@ static int spi_geni_prepare_message(struct spi_master *spi_mas,
 	if (spi_slv->mode & SPI_CS_HIGH)
 		demux_output_inv |= BIT(spi_slv->chip_select);
 
-	demux_sel |= BIT(spi_slv->chip_select);
+	demux_sel = spi_slv->chip_select;
 	mas->cur_speed_hz = spi_slv->max_speed_hz;
 	mas->cur_word_len = spi_slv->bits_per_word;
 
