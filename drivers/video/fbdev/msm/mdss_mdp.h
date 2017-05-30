@@ -1107,9 +1107,9 @@ static inline enum mdss_mdp_pu_type mdss_mdp_get_pu_type(
 
 	if (!is_split_lm(mctl->mfd) || mdss_mdp_is_both_lm_valid(mctl))
 		pu_type = MDSS_MDP_DEFAULT_UPDATE;
-	else if (mctl->mixer_left->valid_roi)
+	else if (mctl->mixer_left && mctl->mixer_left->valid_roi)
 		pu_type = MDSS_MDP_LEFT_ONLY_UPDATE;
-	else if (mctl->mixer_right->valid_roi)
+	else if (mctl->mixer_right && mctl->mixer_right->valid_roi)
 		pu_type = MDSS_MDP_RIGHT_ONLY_UPDATE;
 	else
 		pr_err("%s: invalid pu_type\n", __func__);
