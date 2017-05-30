@@ -585,6 +585,50 @@ static void _sde_plane_set_ot_limit(struct drm_plane *plane,
 	sde_vbif_set_ot_limit(sde_kms, &ot_params);
 }
 
+/**
+ * _sde_plane_set_vbif_qos - set vbif QoS for the given plane
+ * @plane:		Pointer to drm plane
+ */
+static void _sde_plane_set_qos_remap(struct drm_plane *plane)
+{
+	struct sde_plane *psde;
+	struct sde_vbif_set_qos_params qos_params;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+
+	if (!plane || !plane->dev) {
+		SDE_ERROR("invalid arguments\n");
+		return;
+	}
+
+	priv = plane->dev->dev_private;
+	if (!priv || !priv->kms) {
+		SDE_ERROR("invalid KMS reference\n");
+		return;
+	}
+
+	sde_kms = to_sde_kms(priv->kms);
+	psde = to_sde_plane(plane);
+	if (!psde->pipe_hw) {
+		SDE_ERROR("invalid pipe reference\n");
+		return;
+	}
+
+	memset(&qos_params, 0, sizeof(qos_params));
+	qos_params.vbif_idx = VBIF_RT;
+	qos_params.clk_ctrl = psde->pipe_hw->cap->clk_ctrl;
+	qos_params.xin_id = psde->pipe_hw->cap->xin_id;
+	qos_params.num = psde->pipe_hw->idx - SSPP_VIG0;
+	qos_params.is_rt = psde->is_rt_pipe;
+
+	SDE_DEBUG("plane%d pipe:%d vbif:%d xin:%d rt:%d\n",
+			plane->base.id, qos_params.num,
+			qos_params.vbif_idx,
+			qos_params.xin_id, qos_params.is_rt);
+
+	sde_vbif_set_qos_remap(sde_kms, &qos_params);
+}
+
 /* helper to update a state's input fence pointer from the property */
 static void _sde_plane_set_input_fence(struct sde_plane *psde,
 		struct sde_plane_state *pstate, uint64_t fd)
@@ -3047,6 +3091,8 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 		_sde_plane_set_qos_ctrl(plane, true, SDE_PLANE_QOS_PANIC_CTRL);
 		_sde_plane_set_ot_limit(plane, crtc);
 	}
+
+	_sde_plane_set_qos_remap(plane);
 
 	/* clear dirty */
 	pstate->dirty = 0x0;

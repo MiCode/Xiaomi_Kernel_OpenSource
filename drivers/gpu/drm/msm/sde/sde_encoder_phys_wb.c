@@ -21,6 +21,7 @@
 #include "sde_core_irq.h"
 #include "sde_wb.h"
 #include "sde_vbif.h"
+#include "sde_crtc.h"
 
 #define to_sde_encoder_phys_wb(x) \
 	container_of(x, struct sde_encoder_phys_wb, base)
@@ -101,6 +102,48 @@ static void sde_encoder_phys_wb_set_traffic_shaper(
 
 	/* traffic shaper is only enabled for rotator */
 	wb_cfg->ts_cfg.en = false;
+}
+
+/**
+ * sde_encoder_phys_wb_set_qos_remap - set QoS remapper for writeback
+ * @phys_enc:	Pointer to physical encoder
+ */
+static void sde_encoder_phys_wb_set_qos_remap(
+		struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_phys_wb *wb_enc;
+	struct sde_hw_wb *hw_wb;
+	struct drm_crtc *crtc;
+	struct sde_vbif_set_qos_params qos_params;
+
+	if (!phys_enc || !phys_enc->parent || !phys_enc->parent->crtc) {
+		SDE_ERROR("invalid arguments\n");
+		return;
+	}
+
+	wb_enc = to_sde_encoder_phys_wb(phys_enc);
+	crtc = phys_enc->parent->crtc;
+
+	if (!wb_enc->hw_wb || !wb_enc->hw_wb->caps) {
+		SDE_ERROR("invalid writeback hardware\n");
+		return;
+	}
+
+	hw_wb = wb_enc->hw_wb;
+
+	memset(&qos_params, 0, sizeof(qos_params));
+	qos_params.vbif_idx = hw_wb->caps->vbif_idx;
+	qos_params.xin_id = hw_wb->caps->xin_id;
+	qos_params.clk_ctrl = hw_wb->caps->clk_ctrl;
+	qos_params.num = hw_wb->idx - WB_0;
+	qos_params.is_rt = sde_crtc_get_client_type(crtc) != NRT_CLIENT;
+
+	SDE_DEBUG("[qos_remap] wb:%d vbif:%d xin:%d rt:%d\n",
+			qos_params.num,
+			qos_params.vbif_idx,
+			qos_params.xin_id, qos_params.is_rt);
+
+	sde_vbif_set_qos_remap(phys_enc->sde_kms, &qos_params);
 }
 
 /**
@@ -527,6 +570,8 @@ static void sde_encoder_phys_wb_setup(
 	sde_encoder_phys_wb_set_ot_limit(phys_enc);
 
 	sde_encoder_phys_wb_set_traffic_shaper(phys_enc);
+
+	sde_encoder_phys_wb_set_qos_remap(phys_enc);
 
 	sde_encoder_phys_setup_cdm(phys_enc, fb, wb_enc->wb_fmt, wb_roi);
 

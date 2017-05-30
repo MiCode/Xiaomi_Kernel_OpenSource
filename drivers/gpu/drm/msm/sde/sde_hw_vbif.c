@@ -33,6 +33,8 @@
 #define VBIF_OUT_WR_LIM_CONF0		0x00D4
 #define VBIF_XIN_HALT_CTRL0		0x0200
 #define VBIF_XIN_HALT_CTRL1		0x0204
+#define VBIF_XINL_QOS_RP_REMAP_000	0x0550
+#define VBIF_XINL_QOS_LVL_REMAP_000	0x0590
 
 static void sde_hw_set_limit_conf(struct sde_hw_vbif *vbif,
 		u32 xin_id, bool rd, u32 limit)
@@ -104,6 +106,35 @@ static bool sde_hw_get_halt_ctrl(struct sde_hw_vbif *vbif,
 	return (reg_val & BIT(xin_id)) ? true : false;
 }
 
+static void sde_hw_set_qos_remap(struct sde_hw_vbif *vbif,
+		u32 xin_id, u32 level, u32 remap_level)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 reg_val, reg_val_lvl, mask, reg_high, reg_shift;
+
+	if (!vbif)
+		return;
+
+	c = &vbif->hw;
+
+	reg_high = ((xin_id & 0x8) >> 3) * 4 + (level * 8);
+	reg_shift = (xin_id & 0x7) * 4;
+
+	reg_val = SDE_REG_READ(c, VBIF_XINL_QOS_RP_REMAP_000 + reg_high);
+	reg_val_lvl = SDE_REG_READ(c, VBIF_XINL_QOS_LVL_REMAP_000 + reg_high);
+
+	mask = 0x7 << reg_shift;
+
+	reg_val &= ~mask;
+	reg_val |= (remap_level << reg_shift) & mask;
+
+	reg_val_lvl &= ~mask;
+	reg_val_lvl |= (remap_level << reg_shift) & mask;
+
+	SDE_REG_WRITE(c, VBIF_XINL_QOS_RP_REMAP_000 + reg_high, reg_val);
+	SDE_REG_WRITE(c, VBIF_XINL_QOS_LVL_REMAP_000 + reg_high, reg_val_lvl);
+}
+
 static void _setup_vbif_ops(struct sde_hw_vbif_ops *ops,
 		unsigned long cap)
 {
@@ -111,6 +142,8 @@ static void _setup_vbif_ops(struct sde_hw_vbif_ops *ops,
 	ops->get_limit_conf = sde_hw_get_limit_conf;
 	ops->set_halt_ctrl = sde_hw_set_halt_ctrl;
 	ops->get_halt_ctrl = sde_hw_get_halt_ctrl;
+	if (test_bit(SDE_VBIF_QOS_REMAP, &cap))
+		ops->set_qos_remap = sde_hw_set_qos_remap;
 }
 
 static const struct sde_vbif_cfg *_top_offset(enum sde_vbif vbif,

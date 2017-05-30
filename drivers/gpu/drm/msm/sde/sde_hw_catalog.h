@@ -258,10 +258,12 @@ enum {
 /**
  * VBIF sub-blocks and features
  * @SDE_VBIF_QOS_OTLIM        VBIF supports OT Limit
+ * @SDE_VBIF_QOS_REMAP        VBIF supports QoS priority remap
  * @SDE_VBIF_MAX              maximum value
  */
 enum {
 	SDE_VBIF_QOS_OTLIM = 0x1,
+	SDE_VBIF_QOS_REMAP,
 	SDE_VBIF_MAX
 };
 
@@ -653,6 +655,16 @@ struct sde_vbif_dynamic_ot_tbl {
 };
 
 /**
+ * struct sde_vbif_qos_tbl - QoS priority table
+ * @npriority_lvl      num of priority level
+ * @priority_lvl       pointer to array of priority level in ascending order
+ */
+struct sde_vbif_qos_tbl {
+	u32 npriority_lvl;
+	u32 *priority_lvl;
+};
+
+/**
  * struct sde_vbif_cfg - information of VBIF blocks
  * @id                 enum identifying this block
  * @base               register offset of this block
@@ -662,6 +674,8 @@ struct sde_vbif_dynamic_ot_tbl {
  * @xin_halt_timeout   maximum time (in usec) for xin to halt
  * @dynamic_ot_rd_tbl  dynamic OT read configuration table
  * @dynamic_ot_wr_tbl  dynamic OT write configuration table
+ * @qos_rt_tbl         real-time QoS priority table
+ * @qos_nrt_tbl        non-real-time QoS priority table
  */
 struct sde_vbif_cfg {
 	SDE_HW_BLK_INFO;
@@ -670,6 +684,8 @@ struct sde_vbif_cfg {
 	u32 xin_halt_timeout;
 	struct sde_vbif_dynamic_ot_tbl dynamic_ot_rd_tbl;
 	struct sde_vbif_dynamic_ot_tbl dynamic_ot_wr_tbl;
+	struct sde_vbif_qos_tbl qos_rt_tbl;
+	struct sde_vbif_qos_tbl qos_nrt_tbl;
 };
 /**
  * struct sde_reg_dma_cfg - information of lut dma blocks
@@ -746,6 +762,7 @@ struct sde_perf_cfg {
  * @cursor_formats     Supported formats for cursor pipe
  * @vig_formats        Supported formats for vig pipe
  * @wb_formats         Supported formats for wb
+ * @vbif_qos_nlvl      number of vbif QoS priority level
  */
 struct sde_mdss_cfg {
 	u32 hwversion;
@@ -765,6 +782,7 @@ struct sde_mdss_cfg {
 	bool has_sbuf;
 	u32 sbuf_headroom;
 	bool has_idle_pc;
+	u32 vbif_qos_nlvl;
 
 	u32 mdss_count;
 	struct sde_mdss_base_cfg mdss[MAX_BLOCKS];

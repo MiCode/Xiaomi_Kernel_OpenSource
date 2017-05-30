@@ -28,12 +28,36 @@ struct sde_vbif_set_ot_params {
 };
 
 /**
+ * struct sde_vbif_set_qos_params - QoS remapper parameter
+ * @vbif_idx: vbif identifier
+ * @xin_id: client interface identifier
+ * @clk_ctrl: clock control identifier of the xin
+ * @num: pipe identifier (debug only)
+ * @is_rt: true if pipe is used in real-time use case
+ */
+struct sde_vbif_set_qos_params {
+	u32 vbif_idx;
+	u32 xin_id;
+	u32 clk_ctrl;
+	u32 num;
+	bool is_rt;
+};
+
+/**
  * sde_vbif_set_ot_limit - set OT limit for vbif client
  * @sde_kms:	SDE handler
  * @params:	Pointer to OT configuration parameters
  */
 void sde_vbif_set_ot_limit(struct sde_kms *sde_kms,
 		struct sde_vbif_set_ot_params *params);
+
+/**
+ * sde_vbif_set_qos_remap - set QoS priority level remap
+ * @sde_kms:	SDE handler
+ * @params:	Pointer to QoS configuration parameters
+ */
+void sde_vbif_set_qos_remap(struct sde_kms *sde_kms,
+		struct sde_vbif_set_qos_params *params);
 
 #ifdef CONFIG_DEBUG_FS
 int sde_debugfs_vbif_init(struct sde_kms *sde_kms, struct dentry *debugfs_root);
