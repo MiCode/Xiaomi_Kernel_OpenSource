@@ -25,6 +25,7 @@
 
 #include "msm_drv.h"
 #include "msm_mmu.h"
+#include "msm_gem.h"
 
 #include "dsi_display.h"
 #include "dsi_drm.h"
@@ -955,6 +956,13 @@ static void sde_kms_fbo_destroy(struct sde_kms_fbo *fbo)
 	}
 }
 
+static void sde_kms_set_gem_flags(struct msm_gem_object *msm_obj,
+		uint32_t flags)
+{
+	if (msm_obj)
+		msm_obj->flags |= flags;
+}
+
 struct sde_kms_fbo *sde_kms_fbo_alloc(struct drm_device *dev, u32 width,
 		u32 height, u32 pixel_format, u64 modifier[4], u32 flags)
 {
@@ -1041,10 +1049,13 @@ struct sde_kms_fbo *sde_kms_fbo_alloc(struct drm_device *dev, u32 width,
 			fbo->bo[0] = NULL;
 			goto done;
 		}
+
+		/* insert extra bo flags */
+		sde_kms_set_gem_flags(to_msm_bo(fbo->bo[0]), MSM_BO_KEEPATTRS);
 	} else {
 		mutex_lock(&dev->struct_mutex);
 		fbo->bo[0] = msm_gem_new(dev, fbo->layout.total_size,
-				MSM_BO_SCANOUT | MSM_BO_WC);
+				MSM_BO_SCANOUT | MSM_BO_WC | MSM_BO_KEEPATTRS);
 		if (IS_ERR(fbo->bo[0])) {
 			mutex_unlock(&dev->struct_mutex);
 			SDE_ERROR("failed to new gem buffer\n");
