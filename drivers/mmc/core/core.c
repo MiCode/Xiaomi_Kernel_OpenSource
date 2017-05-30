@@ -613,17 +613,39 @@ static int mmc_devfreq_create_freq_table(struct mmc_host *host)
 		host->card->clk_scaling_lowest,
 		host->card->clk_scaling_highest);
 
+	/*
+	 * Create the frequency table and initialize it with default values.
+	 * Initialize it with platform specific frequencies if the frequency
+	 * table supplied by platform driver is present, otherwise initialize
+	 * it with min and max frequencies supported by the card.
+	 */
 	if (!clk_scaling->freq_table) {
-		pr_debug("%s: no frequency table defined -  setting default\n",
-			mmc_hostname(host));
+		if (clk_scaling->pltfm_freq_table_sz)
+			clk_scaling->freq_table_sz =
+				clk_scaling->pltfm_freq_table_sz;
+		else
+			clk_scaling->freq_table_sz = 2;
+
 		clk_scaling->freq_table = kzalloc(
-			2*sizeof(*(clk_scaling->freq_table)), GFP_KERNEL);
+			(clk_scaling->freq_table_sz *
+			sizeof(*(clk_scaling->freq_table))), GFP_KERNEL);
 		if (!clk_scaling->freq_table)
 			return -ENOMEM;
-		clk_scaling->freq_table[0] = host->card->clk_scaling_lowest;
-		clk_scaling->freq_table[1] = host->card->clk_scaling_highest;
-		clk_scaling->freq_table_sz = 2;
-		goto out;
+
+		if (clk_scaling->pltfm_freq_table) {
+			memcpy(clk_scaling->freq_table,
+				clk_scaling->pltfm_freq_table,
+				(clk_scaling->pltfm_freq_table_sz *
+				sizeof(*(clk_scaling->pltfm_freq_table))));
+		} else {
+			pr_debug("%s: no frequency table defined -  setting default\n",
+				mmc_hostname(host));
+			clk_scaling->freq_table[0] =
+				host->card->clk_scaling_lowest;
+			clk_scaling->freq_table[1] =
+				host->card->clk_scaling_highest;
+			goto out;
+		}
 	}
 
 	if (host->card->clk_scaling_lowest >
@@ -902,6 +924,10 @@ int mmc_exit_clk_scaling(struct mmc_host *host)
 
 	host->clk_scaling.devfreq = NULL;
 	atomic_set(&host->clk_scaling.devfreq_abort, 1);
+
+	kfree(host->clk_scaling.freq_table);
+	host->clk_scaling.freq_table = NULL;
+
 	pr_debug("%s: devfreq was removed\n", mmc_hostname(host));
 
 	return 0;
