@@ -129,6 +129,7 @@ config ARCH_QCOM
 config ARCH_SDM855
 	bool "Enable Support for Qualcomm SDM855"
 	depends on ARCH_QCOM
+	select COMMON_CLK_QCOM
 	help
 	  This enables support for the SDM855 chipset. If you do not
 	  wish to build a kernel that runs on this chipset, say 'N' here.
