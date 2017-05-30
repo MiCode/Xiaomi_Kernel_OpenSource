@@ -137,6 +137,9 @@
 		qcom,sde-vbif-size = <0x1040>;
 		qcom,sde-vbif-id = <0>;
 
+		qcom,sde-vbif-qos-rt-remap = <3 3 4 4 5 5 6 6>;
+		qcom,sde-vbif-qos-nrt-remap = <3 3 3 3 3 3 3 3>;
+
 		qcom,sde-inline-rotator = <&mdss_rotator 0>;
 
 		qcom,sde-reg-dma-off = <0>;
