@@ -23,6 +23,8 @@
 #include "hfi_session_defs.h"
 #include "cam_req_mgr_workq.h"
 #include "cam_mem_mgr.h"
+#include "cam_smmu_api.h"
+
 
 #define CAM_ICP_ROLE_PARENT     1
 #define CAM_ICP_ROLE_CHILD      2
@@ -56,6 +58,7 @@ struct icp_hfi_mem_info {
 	struct cam_mem_mgr_memory_desc dbg_q;
 	struct cam_mem_mgr_memory_desc sec_heap;
 	struct cam_mem_mgr_memory_desc fw_buf;
+	struct cam_smmu_region_info shmem;
 };
 
 /**
@@ -176,6 +179,8 @@ struct cam_icp_hw_mgr {
 	struct hfi_cmd_work_data *cmd_work_data;
 	struct hfi_msg_work_data *msg_work_data;
 	uint32_t ctxt_cnt;
+	struct dentry *dentry;
+	bool a5_debug;
 };
 
 #endif /* CAM_ICP_HW_MGR_H */
