@@ -216,14 +216,15 @@ static void audio_ext_lpass_mclk_unprepare(struct clk_hw *hw)
 		}
 	}
 
+	if (pnctrl_info->base)
+		iowrite32(0, pnctrl_info->base);
+
 	lpass_mclk.enable = 0;
 	ret = afe_set_lpass_clock_v2(AFE_PORT_ID_PRIMARY_MI2S_RX,
 			&lpass_mclk);
 	if (ret < 0)
 		pr_err("%s: afe_set_digital_codec_core_clock failed, ret = %d\n",
 			__func__, ret);
-	if (pnctrl_info->base)
-		iowrite32(0, pnctrl_info->base);
 }
 
 static int audio_ext_lpass_mclk2_prepare(struct clk_hw *hw)
