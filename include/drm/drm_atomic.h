@@ -144,6 +144,7 @@ struct __drm_crtcs_state {
 	struct drm_crtc *ptr;
 	struct drm_crtc_state *state;
 	struct drm_crtc_commit *commit;
+	s32 __user *out_fence_ptr;
 };
 
 struct __drm_connnectors_state {
@@ -316,6 +317,8 @@ drm_atomic_set_crtc_for_plane(struct drm_plane_state *plane_state,
 			      struct drm_crtc *crtc);
 void drm_atomic_set_fb_for_plane(struct drm_plane_state *plane_state,
 				 struct drm_framebuffer *fb);
+void drm_atomic_set_fence_for_plane(struct drm_plane_state *plane_state,
+				    struct fence *fence);
 int __must_check
 drm_atomic_set_crtc_for_connector(struct drm_connector_state *conn_state,
 				  struct drm_crtc *crtc);
