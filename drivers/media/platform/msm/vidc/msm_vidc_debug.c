@@ -186,7 +186,7 @@ struct dentry *msm_vidc_debugfs_init_drv(void)
 	__debugfs_create(bool, "clock_scaling",
 			&msm_vidc_clock_scaling) &&
 	__debugfs_create(bool, "debug_timeout",
-			&msm_vidc_debug_timeout);
+			&msm_vidc_debug_timeout) &&
 	__debugfs_create(bool, "disable_video_syscache",
 			&msm_vidc_syscache_disable);
 
