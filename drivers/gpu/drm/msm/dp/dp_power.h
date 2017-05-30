@@ -16,6 +16,7 @@
 #define _DP_POWER_H_
 
 #include "dp_parser.h"
+#include "sde_power_handle.h"
 
 /**
  * sruct dp_power - DisplayPort's power related data
@@ -31,6 +32,9 @@ struct dp_power {
 	int (*clk_enable)(struct dp_power *power, enum dp_pm_type pm_type,
 				bool enable);
 	int (*set_pixel_clk_parent)(struct dp_power *power);
+	int (*power_client_init)(struct dp_power *power,
+				struct sde_power_handle *phandle);
+	void (*power_client_deinit)(struct dp_power *power);
 };
 
 /**

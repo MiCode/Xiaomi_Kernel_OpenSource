@@ -17,6 +17,8 @@
 #include <linux/clk.h>
 #include "dp_power.h"
 
+#define DP_CLIENT_NAME_SIZE	20
+
 struct dp_power_private {
 	struct dp_parser *parser;
 	struct platform_device *pdev;
@@ -24,6 +26,8 @@ struct dp_power_private {
 	struct clk *pixel_parent;
 
 	struct dp_power dp_power;
+	struct sde_power_client *dp_core_client;
+	struct sde_power_handle *phandle;
 
 	bool core_clks_on;
 	bool link_clks_on;
@@ -56,6 +60,25 @@ static int dp_power_regulator_init(struct dp_power_private *power)
 	}
 error:
 	return rc;
+}
+
+static void dp_power_regulator_deinit(struct dp_power_private *power)
+{
+	int rc = 0, i = 0;
+	struct platform_device *pdev;
+	struct dp_parser *parser;
+
+	parser = power->parser;
+	pdev = power->pdev;
+
+	for (i = DP_CORE_PM; (i < DP_MAX_PM); i++) {
+		rc = msm_dss_config_vreg(&pdev->dev,
+			parser->mp[i].vreg_config,
+			parser->mp[i].num_vreg, 0);
+		if (rc)
+			pr_err("failed to deinit vregs for %s\n",
+				dp_parser_pm_name(i));
+	}
 }
 
 static int dp_power_regulator_ctrl(struct dp_power_private *power, bool enable)
@@ -387,6 +410,67 @@ static int dp_power_config_gpios(struct dp_power_private *power, bool flip,
 	return 0;
 }
 
+static int dp_power_client_init(struct dp_power *dp_power,
+		struct sde_power_handle *phandle)
+{
+	int rc = 0;
+	struct dp_power_private *power;
+	char dp_client_name[DP_CLIENT_NAME_SIZE];
+
+	if (!dp_power) {
+		pr_err("invalid power data\n");
+		return -EINVAL;
+	}
+
+	power = container_of(dp_power, struct dp_power_private, dp_power);
+
+	rc = dp_power_regulator_init(power);
+	if (rc) {
+		pr_err("failed to init regulators\n");
+		goto error_power;
+	}
+
+	rc = dp_power_clk_init(power, true);
+	if (rc) {
+		pr_err("failed to init clocks\n");
+		goto error_clk;
+	}
+
+	power->phandle = phandle;
+	snprintf(dp_client_name, DP_CLIENT_NAME_SIZE, "dp_core_client");
+	power->dp_core_client = sde_power_client_create(phandle,
+			dp_client_name);
+	if (IS_ERR_OR_NULL(power->dp_core_client)) {
+		pr_err("[%s] client creation failed for DP", dp_client_name);
+		rc = -EINVAL;
+		goto error_client;
+	}
+	return 0;
+
+error_client:
+	dp_power_clk_init(power, false);
+error_clk:
+	dp_power_regulator_deinit(power);
+error_power:
+	return rc;
+}
+
+static void dp_power_client_deinit(struct dp_power *dp_power)
+{
+	struct dp_power_private *power;
+
+	if (!dp_power) {
+		pr_err("invalid power data\n");
+		return;
+	}
+
+	power = container_of(dp_power, struct dp_power_private, dp_power);
+
+	sde_power_client_destroy(power->phandle, power->dp_core_client);
+	dp_power_clk_init(power, false);
+	dp_power_regulator_deinit(power);
+}
+
 static int dp_power_set_pixel_clk_parent(struct dp_power *dp_power)
 {
 	int rc = 0;
@@ -437,6 +521,13 @@ static int dp_power_init(struct dp_power *dp_power, bool flip)
 		goto err_gpio;
 	}
 
+	rc = sde_power_resource_enable(power->phandle,
+		power->dp_core_client, true);
+	if (rc) {
+		pr_err("Power resource enable failed\n");
+		goto err_sde_power;
+	}
+
 	rc = dp_power_clk_enable(dp_power, DP_CORE_PM, true);
 	if (rc) {
 		pr_err("failed to enable DP core clocks\n");
@@ -446,6 +537,8 @@ static int dp_power_init(struct dp_power *dp_power, bool flip)
 	return 0;
 
 err_clk:
+	sde_power_resource_enable(power->phandle, power->dp_core_client, false);
+err_sde_power:
 	dp_power_config_gpios(power, flip, false);
 err_gpio:
 	dp_power_pinctrl_set(power, false);
@@ -469,6 +562,12 @@ static int dp_power_deinit(struct dp_power *dp_power)
 	power = container_of(dp_power, struct dp_power_private, dp_power);
 
 	dp_power_clk_enable(dp_power, DP_CORE_PM, false);
+	rc = sde_power_resource_enable(power->phandle,
+			power->dp_core_client, false);
+	if (rc) {
+		pr_err("Power resource enable failed, rc=%d\n", rc);
+		goto exit;
+	}
 	dp_power_config_gpios(power, false, false);
 	dp_power_pinctrl_set(power, false);
 	dp_power_regulator_ctrl(power, false);
@@ -503,18 +602,8 @@ struct dp_power *dp_power_get(struct dp_parser *parser)
 	dp_power->deinit = dp_power_deinit;
 	dp_power->clk_enable = dp_power_clk_enable;
 	dp_power->set_pixel_clk_parent = dp_power_set_pixel_clk_parent;
-
-	rc = dp_power_regulator_init(power);
-	if (rc) {
-		pr_err("failed to init regulators\n");
-		goto error;
-	}
-
-	rc = dp_power_clk_init(power, true);
-	if (rc) {
-		pr_err("failed to init clocks\n");
-		goto error;
-	}
+	dp_power->power_client_init = dp_power_client_init;
+	dp_power->power_client_deinit = dp_power_client_deinit;
 
 	return dp_power;
 error:
@@ -526,6 +615,5 @@ void dp_power_put(struct dp_power *dp_power)
 	struct dp_power_private *power = container_of(dp_power,
 			struct dp_power_private, dp_power);
 
-	(void)dp_power_clk_init(power, false);
 	devm_kfree(&power->pdev->dev, power);
 }

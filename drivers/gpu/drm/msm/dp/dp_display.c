@@ -21,6 +21,7 @@
 #include <linux/component.h>
 #include <linux/of_irq.h>
 
+#include "msm_drv.h"
 #include "dp_usbpd.h"
 #include "dp_parser.h"
 #include "dp_power.h"
@@ -140,6 +141,7 @@ static int dp_display_bind(struct device *dev, struct device *master,
 	int rc = 0;
 	struct dp_display_private *dp;
 	struct drm_device *drm;
+	struct msm_drm_private *priv;
 	struct platform_device *pdev = to_platform_device(dev);
 
 	if (!dev || !pdev || !master) {
@@ -159,6 +161,7 @@ static int dp_display_bind(struct device *dev, struct device *master,
 	}
 
 	dp->dp_display.drm_dev = drm;
+	priv = drm->dev_private;
 
 	mutex_lock(&dp->lock);
 
@@ -171,6 +174,12 @@ static int dp_display_bind(struct device *dev, struct device *master,
 	rc = dp->parser->parse(dp->parser);
 	if (rc) {
 		pr_err("device tree parsing failed\n");
+		goto end;
+	}
+
+	rc = dp->power->power_client_init(dp->power, &priv->phandle);
+	if (rc) {
+		pr_err("Power client create failed\n");
 		goto end;
 	}
 end:
@@ -197,6 +206,8 @@ static void dp_display_unbind(struct device *dev, struct device *master,
 	}
 
 	mutex_lock(&dp->lock);
+
+	(void)dp->power->power_client_deinit(dp->power);
 
 	(void)dp_display_debugfs_deinit(dp);
 
