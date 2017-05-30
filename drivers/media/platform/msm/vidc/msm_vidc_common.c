@@ -1162,7 +1162,8 @@ static int wait_for_sess_signal_receipt(struct msm_vidc_inst *inst,
 	hdev = (struct hfi_device *)(inst->core->device);
 	rc = wait_for_completion_timeout(
 		&inst->completions[SESSION_MSG_INDEX(cmd)],
-		msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
+		msecs_to_jiffies(
+			inst->core->resources.msm_vidc_hw_rsp_timeout));
 	if (!rc) {
 		dprintk(VIDC_ERR, "Wait interrupted or timed out: %d\n",
 				SESSION_MSG_INDEX(cmd));
@@ -2647,7 +2648,8 @@ static int msm_comm_session_abort(struct msm_vidc_inst *inst)
 	}
 	rc = wait_for_completion_timeout(
 			&inst->completions[abort_completion],
-			msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
+			msecs_to_jiffies(
+				inst->core->resources.msm_vidc_hw_rsp_timeout));
 	if (!rc) {
 		dprintk(VIDC_ERR,
 				"%s: Wait interrupted or timed out [%pK]: %d\n",
@@ -2739,7 +2741,7 @@ int msm_comm_check_core_init(struct msm_vidc_core *core)
 	hdev = (struct hfi_device *)core->device;
 	rc = wait_for_completion_timeout(
 		&core->completions[SYS_MSG_INDEX(HAL_SYS_INIT_DONE)],
-		msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
+		msecs_to_jiffies(core->resources.msm_vidc_hw_rsp_timeout));
 	if (!rc) {
 		dprintk(VIDC_ERR, "%s: Wait interrupted or timed out: %d\n",
 				__func__, SYS_MSG_INDEX(HAL_SYS_INIT_DONE));
@@ -2878,11 +2880,12 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 		 */
 		schedule_delayed_work(&core->fw_unload_work,
 			msecs_to_jiffies(core->state == VIDC_CORE_INVALID ?
-					0 : msm_vidc_firmware_unload_delay));
+					0 :
+			core->resources.msm_vidc_firmware_unload_delay));
 
 		dprintk(VIDC_DBG, "firmware unload delayed by %u ms\n",
 			core->state == VIDC_CORE_INVALID ?
-			0 : msm_vidc_firmware_unload_delay);
+			0 : core->resources.msm_vidc_firmware_unload_delay);
 	}
 
 core_already_uninited:
@@ -4257,7 +4260,8 @@ int msm_comm_try_get_prop(struct msm_vidc_inst *inst, enum hal_property ptype,
 
 	rc = wait_for_completion_timeout(&inst->completions[
 			SESSION_MSG_INDEX(HAL_SESSION_PROPERTY_INFO)],
-		msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
+		msecs_to_jiffies(
+			inst->core->resources.msm_vidc_hw_rsp_timeout));
 	if (!rc) {
 		dprintk(VIDC_ERR,
 			"%s: Wait interrupted or timed out [%pK]: %d\n",

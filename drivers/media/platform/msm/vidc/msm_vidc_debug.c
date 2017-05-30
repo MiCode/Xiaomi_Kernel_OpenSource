@@ -25,10 +25,8 @@ EXPORT_SYMBOL(msm_vidc_debug_out);
 int msm_vidc_fw_debug = 0x18;
 int msm_vidc_fw_debug_mode = 1;
 int msm_vidc_fw_low_power_mode = 1;
-int msm_vidc_hw_rsp_timeout = 2000;
 bool msm_vidc_fw_coverage = !true;
 bool msm_vidc_sys_idle_indicator = !true;
-int msm_vidc_firmware_unload_delay = 15000;
 bool msm_vidc_thermal_mitigation_disabled = !true;
 bool msm_vidc_clock_scaling = true;
 bool msm_vidc_debug_timeout = !true;
@@ -204,11 +202,8 @@ struct dentry *msm_vidc_debugfs_init_drv(void)
 	__debugfs_create(u32, "fw_low_power_mode",
 			&msm_vidc_fw_low_power_mode) &&
 	__debugfs_create(u32, "debug_output", &msm_vidc_debug_out) &&
-	__debugfs_create(u32, "hw_rsp_timeout", &msm_vidc_hw_rsp_timeout) &&
 	__debugfs_create(bool, "sys_idle_indicator",
 			&msm_vidc_sys_idle_indicator) &&
-	__debugfs_create(u32, "firmware_unload_delay",
-			&msm_vidc_firmware_unload_delay) &&
 	__debugfs_create(bool, "disable_thermal_mitigation",
 			&msm_vidc_thermal_mitigation_disabled) &&
 	__debugfs_create(bool, "clock_scaling",
