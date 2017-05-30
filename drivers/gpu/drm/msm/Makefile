@@ -1,10 +1,20 @@
-ccflags-y := -Iinclude/drm -Idrivers/gpu/drm/msm -Idrivers/gpu/drm/msm/dsi-staging
+ccflags-y := -Iinclude/drm -Idrivers/gpu/drm/msm -Idrivers/gpu/drm/msm/dsi-staging -Idrivers/gpu/drm/msm/dp
 ccflags-$(CONFIG_DRM_MSM_DSI) += -Idrivers/gpu/drm/msm/dsi
 ccflags-$(CONFIG_DRM_MSM_DSI_PLL) += -Idrivers/gpu/drm/msm/dsi
 ccflags-y += -Idrivers/gpu/drm/msm/sde
 ccflags-y += -Idrivers/media/platform/msm/sde/rotator
 
 msm_drm-y := \
+	dp/dp_usbpd.o \
+	dp/dp_parser.o \
+	dp/dp_power.o \
+	dp/dp_catalog.o \
+	dp/dp_aux.o \
+	dp/dp_panel.o \
+	dp/dp_link.o \
+	dp/dp_ctrl.o \
+	dp/dp_display.o \
+	dp/dp_drm.o \
 	hdmi/hdmi.o \
 	hdmi/hdmi_audio.o \
 	hdmi/hdmi_bridge.o \
