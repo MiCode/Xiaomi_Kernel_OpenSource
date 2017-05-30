@@ -265,6 +265,29 @@ int msm_vidc_s_ctrl(void *instance, struct v4l2_control *control)
 }
 EXPORT_SYMBOL(msm_vidc_s_ctrl);
 
+int msm_vidc_g_crop(void *instance, struct v4l2_crop *crop)
+{
+	struct msm_vidc_inst *inst = instance;
+
+	if (!inst || !crop)
+		return -EINVAL;
+
+	if (inst->session_type == MSM_VIDC_ENCODER) {
+		dprintk(VIDC_ERR,
+			"Session = %pK : Encoder Crop is not implemented yet\n",
+				inst);
+		return -EPERM;
+	}
+
+	crop->c.left = inst->prop.crop_info.left;
+	crop->c.top = inst->prop.crop_info.top;
+	crop->c.width = inst->prop.crop_info.width;
+	crop->c.height = inst->prop.crop_info.height;
+
+	return 0;
+}
+EXPORT_SYMBOL(msm_vidc_g_crop);
+
 int msm_vidc_g_ctrl(void *instance, struct v4l2_control *control)
 {
 	struct msm_vidc_inst *inst = instance;

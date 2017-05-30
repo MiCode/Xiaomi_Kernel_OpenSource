@@ -1569,6 +1569,10 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	ptr[2] = event_notify->bit_depth;
 	ptr[3] = event_notify->pic_struct;
 	ptr[4] = event_notify->colour_space;
+	ptr[5] = event_notify->crop_data.top;
+	ptr[6] = event_notify->crop_data.left;
+	ptr[7] = event_notify->crop_data.height;
+	ptr[8] = event_notify->crop_data.width;
 
 	dprintk(VIDC_DBG,
 		"Event payload: height = %d width = %d\n",
