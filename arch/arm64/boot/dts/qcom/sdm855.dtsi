@@ -11,6 +11,14 @@
  */
 
 #include "skeleton64.dtsi"
+#include <dt-bindings/clock/qcom,gcc-sdm855.h>
+#include <dt-bindings/clock/qcom,camcc-sdm855.h>
+#include <dt-bindings/clock/qcom,dispcc-sdm855.h>
+#include <dt-bindings/clock/qcom,gpucc-sdm855.h>
+#include <dt-bindings/clock/qcom,videocc-sdm855.h>
+#include <dt-bindings/clock/qcom,cpucc-sdm855.h>
+#include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/clock/qcom,aop-qmp.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM855";
@@ -281,5 +289,61 @@
 			reg = <0x17c90000 0x1000>;
 			status = "disabled";
 		};
+	};
+
+	clock_rpmh: qcom,rpmhclk {
+		compatible = "qcom,dummycc";
+		clock-output-names = "rpm_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_aop: qcom,aopclk {
+		compatible = "qcom,dummycc";
+		clock-output-names = "aop_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_gcc: qcom,gcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_videocc: qcom,videocc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "videocc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_camcc: qcom,camcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "camcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_dispcc: qcom,dispcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "dispcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_gpucc: qcom,dispcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gpucc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_cpucc: qcom,cpucc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "cpucc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
 	};
 };
