@@ -1055,6 +1055,13 @@ static int sde_sspp_parse_dt(struct device_node *np,
 
 		set_bit(SDE_SSPP_SRC, &sspp->features);
 
+		if (sde_cfg->ts_prefill_rev == 1) {
+			set_bit(SDE_SSPP_TS_PREFILL, &sspp->features);
+		} else if (sde_cfg->ts_prefill_rev == 2) {
+			set_bit(SDE_SSPP_TS_PREFILL, &sspp->features);
+			set_bit(SDE_SSPP_TS_PREFILL_REC1, &sspp->features);
+		}
+
 		sblk->smart_dma_priority =
 			PROP_VALUE_ACCESS(prop_value, SSPP_SMART_DMA, i);
 
@@ -2584,12 +2591,16 @@ static int _sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 25;
 		sde_cfg->vbif_qos_nlvl = 4;
+		sde_cfg->ts_prefill_rev = 1;
+		sde_cfg->perf.min_prefill_lines = 25;
 		break;
 	case SDE_HW_VER_400:
 		/* update sdm845 target here */
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 24;
 		sde_cfg->vbif_qos_nlvl = 8;
+		sde_cfg->ts_prefill_rev = 2;
+		sde_cfg->perf.min_prefill_lines = 24;
 		break;
 	default:
 		sde_cfg->perf.min_prefill_lines = 0xffff;

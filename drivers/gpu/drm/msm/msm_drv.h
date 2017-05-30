@@ -110,6 +110,8 @@ enum msm_mdp_plane_property {
 	PLANE_PROP_ROT_DST_Y,
 	PLANE_PROP_ROT_DST_W,
 	PLANE_PROP_ROT_DST_H,
+	PLANE_PROP_PREFILL_SIZE,
+	PLANE_PROP_PREFILL_TIME,
 
 	/* enum/bitmask properties */
 	PLANE_PROP_ROTATION,

@@ -79,11 +79,16 @@
 #define SSPP_SW_PIX_EXT_C3_LR              0x120
 #define SSPP_SW_PIX_EXT_C3_TB              0x124
 #define SSPP_SW_PIX_EXT_C3_REQ_PIXELS      0x128
+#define SSPP_TRAFFIC_SHAPER                0x130
 #define SSPP_UBWC_ERROR_STATUS             0x138
+#define SSPP_TRAFFIC_SHAPER_PREFILL        0x150
+#define SSPP_TRAFFIC_SHAPER_REC1_PREFILL   0x154
+#define SSPP_TRAFFIC_SHAPER_REC1           0x158
 #define SSPP_EXCL_REC_SIZE                 0x1B4
 #define SSPP_EXCL_REC_XY                   0x1B8
 #define SSPP_VIG_OP_MODE                   0x0
 #define SSPP_VIG_CSC_10_OP_MODE            0x0
+#define SSPP_TRAFFIC_SHAPER_BPC_MAX        0xFF
 
 /* SSPP_QOS_CTRL */
 #define SSPP_QOS_CTRL_VBLANK_EN            BIT(16)
@@ -185,6 +190,9 @@
 #define VIG_CSC_10_SRC_DATAFMT BIT(1)
 #define VIG_CSC_10_EN          BIT(0)
 #define CSC_10BIT_OFFSET       4
+
+/* traffic shaper clock in Hz */
+#define TS_CLK			19200000
 
 static inline int _sspp_subblk_offset(struct sde_hw_pipe *ctx,
 		int s_id,
@@ -1041,6 +1049,51 @@ static void sde_hw_sspp_get_sbuf_status(struct sde_hw_pipe *ctx,
 	status->rd_ptr[1] = val & 0xffff;
 }
 
+static void sde_hw_sspp_setup_ts_prefill(struct sde_hw_pipe *ctx,
+		struct sde_hw_pipe_ts_cfg *cfg,
+		enum sde_sspp_multirect_index index)
+{
+	u32 idx;
+	u32 ts_offset, ts_prefill_offset;
+	u32 ts_count = 0, ts_bytes = 0;
+	const struct sde_sspp_cfg *cap;
+
+	if (!ctx || !cfg || !ctx->cap)
+		return;
+
+	if (_sspp_subblk_offset(ctx, SDE_SSPP_SRC, &idx))
+		return;
+
+	cap = ctx->cap;
+
+	if (index == SDE_SSPP_RECT_0 &&
+			test_bit(SDE_SSPP_TS_PREFILL, &cap->features)) {
+		ts_offset = SSPP_TRAFFIC_SHAPER;
+		ts_prefill_offset = SSPP_TRAFFIC_SHAPER_PREFILL;
+	} else if (index == SDE_SSPP_RECT_1 &&
+			test_bit(SDE_SSPP_TS_PREFILL_REC1, &cap->features)) {
+		ts_offset = SSPP_TRAFFIC_SHAPER_REC1;
+		ts_prefill_offset = SSPP_TRAFFIC_SHAPER_REC1_PREFILL;
+	} else {
+		return;
+	}
+
+	if (cfg->time) {
+		ts_bytes = mult_frac(TS_CLK * 1000000ULL, cfg->size,
+				cfg->time);
+		if (ts_bytes > SSPP_TRAFFIC_SHAPER_BPC_MAX)
+			ts_bytes = SSPP_TRAFFIC_SHAPER_BPC_MAX;
+	}
+
+	if (ts_bytes) {
+		ts_count = DIV_ROUND_UP_ULL(cfg->size, ts_bytes);
+		ts_bytes |= BIT(31) | BIT(27);
+	}
+
+	SDE_REG_WRITE(&ctx->hw, ts_offset, ts_bytes);
+	SDE_REG_WRITE(&ctx->hw, ts_prefill_offset, ts_count);
+}
+
 static void _setup_layer_ops(struct sde_hw_pipe *c,
 		unsigned long features)
 {
@@ -1061,6 +1114,9 @@ static void _setup_layer_ops(struct sde_hw_pipe *c,
 		c->ops.setup_creq_lut = sde_hw_sspp_setup_creq_lut;
 		c->ops.setup_qos_ctrl = sde_hw_sspp_setup_qos_ctrl;
 	}
+
+	if (test_bit(SDE_SSPP_TS_PREFILL, &features))
+		c->ops.setup_ts_prefill = sde_hw_sspp_setup_ts_prefill;
 
 	if (test_bit(SDE_SSPP_CSC, &features) ||
 		test_bit(SDE_SSPP_CSC_10BIT, &features))

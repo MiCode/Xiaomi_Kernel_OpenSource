@@ -111,6 +111,8 @@ enum {
  * @SDE_SSPP_SMART_DMA_V1,   SmartDMA 1.0 support
  * @SDE_SSPP_SMART_DMA_V2,   SmartDMA 2.0 support
  * @SDE_SSPP_SBUF,           SSPP support inline stream buffer
+ * @SDE_SSPP_TS_PREFILL      Supports prefill with traffic shaper
+ * @SDE_SSPP_TS_PREFILL_REC1 Supports prefill with traffic shaper multirec
  * @SDE_SSPP_MAX             maximum value
  */
 enum {
@@ -130,6 +132,8 @@ enum {
 	SDE_SSPP_SMART_DMA_V1,
 	SDE_SSPP_SMART_DMA_V2,
 	SDE_SSPP_SBUF,
+	SDE_SSPP_TS_PREFILL,
+	SDE_SSPP_TS_PREFILL_REC1,
 	SDE_SSPP_MAX
 };
 
@@ -763,6 +767,7 @@ struct sde_perf_cfg {
  * @vig_formats        Supported formats for vig pipe
  * @wb_formats         Supported formats for wb
  * @vbif_qos_nlvl      number of vbif QoS priority level
+ * @ts_prefill_rev     prefill traffic shaper feature revision
  */
 struct sde_mdss_cfg {
 	u32 hwversion;
@@ -783,6 +788,7 @@ struct sde_mdss_cfg {
 	u32 sbuf_headroom;
 	bool has_idle_pc;
 	u32 vbif_qos_nlvl;
+	u32 ts_prefill_rev;
 
 	u32 mdss_count;
 	struct sde_mdss_base_cfg mdss[MAX_BLOCKS];

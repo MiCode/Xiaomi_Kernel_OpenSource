@@ -343,6 +343,16 @@ struct sde_hw_pipe_sc_cfg {
 };
 
 /**
+ * struct sde_hw_pipe_ts_cfg - traffic shaper configuration
+ * @size: size to prefill in bytes, or zero to disable
+ * @time: time to prefill in usec, or zero to disable
+ */
+struct sde_hw_pipe_ts_cfg {
+	u64 size;
+	u64 time;
+};
+
+/**
  * Maximum number of stream buffer plane
  */
 #define SDE_PIPE_SBUF_PLANE_NUM	2
@@ -554,6 +564,16 @@ struct sde_hw_sspp_ops {
 	 */
 	void (*get_sbuf_status)(struct sde_hw_pipe *ctx,
 			struct sde_hw_pipe_sbuf_status *status);
+
+	/**
+	 * setup_ts_prefill - setup prefill traffic shaper
+	 * @ctx: Pointer to pipe context
+	 * @cfg: Pointer to traffic shaper configuration
+	 * @index: rectangle index in multirect
+	 */
+	void (*setup_ts_prefill)(struct sde_hw_pipe *ctx,
+			struct sde_hw_pipe_ts_cfg *cfg,
+			enum sde_sspp_multirect_index index);
 };
 
 /**
