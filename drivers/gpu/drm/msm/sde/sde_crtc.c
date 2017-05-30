@@ -1490,6 +1490,7 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 	struct sde_crtc_state *cstate;
 	struct sde_kms *sde_kms;
 	unsigned long flags;
+	bool disable_inprogress = false;
 
 	if (!work) {
 		SDE_ERROR("invalid work handle\n");
@@ -1515,6 +1516,9 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 
 	SDE_DEBUG("crtc%d event:%u ts:%lld\n", crtc->base.id, fevent->event,
 			ktime_to_ns(fevent->ts));
+	disable_inprogress = fevent->event &
+					SDE_ENCODER_FRAME_EVENT_DURING_DISABLE;
+	fevent->event &= ~SDE_ENCODER_FRAME_EVENT_DURING_DISABLE;
 
 	if (fevent->event == SDE_ENCODER_FRAME_EVENT_DONE ||
 			(fevent->event & SDE_ENCODER_FRAME_EVENT_ERROR) ||
@@ -1528,9 +1532,6 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 					atomic_read(&sde_crtc->frame_pending));
 			SDE_EVT32(DRMID(crtc), fevent->event,
 							SDE_EVTLOG_FUNC_CASE1);
-
-			/* don't propagate unexpected frame done events */
-			return;
 		} else if (atomic_dec_return(&sde_crtc->frame_pending) == 0) {
 			/* release bandwidth and other resources */
 			SDE_DEBUG("crtc%d ts:%lld last pending\n",
@@ -1538,13 +1539,15 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 					ktime_to_ns(fevent->ts));
 			SDE_EVT32(DRMID(crtc), fevent->event,
 							SDE_EVTLOG_FUNC_CASE2);
-			sde_core_perf_crtc_release_bw(crtc);
+			if (!disable_inprogress)
+				sde_core_perf_crtc_release_bw(crtc);
 		} else {
 			SDE_EVT32_VERBOSE(DRMID(crtc), fevent->event,
 							SDE_EVTLOG_FUNC_CASE3);
 		}
 
-		if (fevent->event == SDE_ENCODER_FRAME_EVENT_DONE)
+		if (fevent->event == SDE_ENCODER_FRAME_EVENT_DONE &&
+							!disable_inprogress)
 			sde_core_perf_crtc_update(crtc, 0, false);
 	} else {
 		SDE_ERROR("crtc%d ts:%lld unknown event %u\n", crtc->base.id,
@@ -1580,7 +1583,7 @@ static void sde_crtc_frame_event_cb(void *data, u32 event)
 	pipe_id = drm_crtc_index(crtc);
 
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
-	SDE_EVT32_VERBOSE(DRMID(crtc));
+	SDE_EVT32_VERBOSE(DRMID(crtc), event);
 
 	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
 	fevent = list_first_entry_or_null(&sde_crtc->frame_event_list,
@@ -1599,7 +1602,11 @@ static void sde_crtc_frame_event_cb(void *data, u32 event)
 	fevent->event = event;
 	fevent->crtc = crtc;
 	fevent->ts = ktime_get();
-	kthread_queue_work(&priv->disp_thread[pipe_id].worker, &fevent->work);
+	if (event & SDE_ENCODER_FRAME_EVENT_DURING_DISABLE)
+		sde_crtc_frame_event_work(&fevent->work);
+	else
+		kthread_queue_work(&priv->disp_thread[pipe_id].worker,
+								&fevent->work);
 }
 
 void sde_crtc_complete_commit(struct drm_crtc *crtc,
@@ -2415,8 +2422,7 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 
 	if (atomic_read(&sde_crtc->frame_pending)) {
 		/* release bandwidth and other resources */
-		SDE_ERROR("crtc%d invalid frame pending\n",
-				crtc->base.id);
+		SDE_ERROR("crtc%d invalid frame pending\n", crtc->base.id);
 		SDE_EVT32(DRMID(crtc), atomic_read(&sde_crtc->frame_pending),
 							SDE_EVTLOG_FUNC_CASE2);
 		sde_core_perf_crtc_release_bw(crtc);
