@@ -1734,14 +1734,8 @@ static void usbpd_sm(struct work_struct *w)
 
 	case PE_SRC_READY:
 		if (IS_CTRL(rx_msg, MSG_GET_SOURCE_CAP)) {
-			ret = pd_send_msg(pd, MSG_SOURCE_CAPABILITIES,
-					default_src_caps,
-					ARRAY_SIZE(default_src_caps), SOP_MSG);
-			if (ret) {
-				usbpd_err(&pd->dev, "Error sending SRC CAPs\n");
-				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
-				break;
-			}
+			pd->current_state = PE_SRC_SEND_CAPABILITIES;
+			kick_sm(pd, 0);
 		} else if (IS_CTRL(rx_msg, MSG_GET_SINK_CAP)) {
 			ret = pd_send_msg(pd, MSG_SINK_CAPABILITIES,
 					pd->sink_caps, pd->num_sink_caps,
