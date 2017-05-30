@@ -187,6 +187,8 @@ static void *usbpd_ipc_log;
 
 #define PD_MAX_MSG_ID		7
 
+#define PD_MAX_DATA_OBJ		7
+
 #define PD_MSG_HDR(type, dr, pr, id, cnt, rev) \
 	(((type) & 0xF) | ((dr) << 5) | (rev << 6) | \
 	 ((pr) << 8) | ((id) << 9) | ((cnt) << 12))
@@ -308,7 +310,7 @@ struct usbpd {
 	struct list_head	rx_q;
 	spinlock_t		rx_lock;
 
-	u32			received_pdos[7];
+	u32			received_pdos[PD_MAX_DATA_OBJ];
 	u16			src_cap_id;
 	u8			selected_pdo;
 	u8			requested_pdo;
@@ -555,6 +557,7 @@ static int pd_select_pdo(struct usbpd *pd, int pdo_pos, int uv, int ua)
 
 static int pd_eval_src_caps(struct usbpd *pd)
 {
+	int obj_cnt;
 	union power_supply_propval val;
 	u32 first_pdo = pd->received_pdos[0];
 
@@ -570,6 +573,13 @@ static int pd_eval_src_caps(struct usbpd *pd)
 	val.intval = PD_SRC_PDO_FIXED_USB_SUSP(first_pdo);
 	power_supply_set_property(pd->usb_psy,
 			POWER_SUPPLY_PROP_PD_USB_SUSPEND_SUPPORTED, &val);
+
+	for (obj_cnt = 1; obj_cnt < PD_MAX_DATA_OBJ; obj_cnt++) {
+		if ((PD_SRC_PDO_TYPE(pd->received_pdos[obj_cnt]) ==
+					PD_SRC_PDO_TYPE_AUGMENTED) &&
+				!PD_APDO_PPS(pd->received_pdos[obj_cnt]))
+			pd->spec_rev = USBPD_REV_30;
+	}
 
 	/* Select the first PDO (vSafe5V) immediately. */
 	pd_select_pdo(pd, 1, 0, 0);
@@ -666,12 +676,6 @@ static void phy_msg_received(struct usbpd *pd, enum pd_msg_type type,
 		return;
 	}
 
-	/* if spec rev differs (i.e. is older), update PHY */
-	if (PD_MSG_HDR_REV(header) < pd->spec_rev) {
-		pd->spec_rev = PD_MSG_HDR_REV(header);
-		pd_phy_update_spec_rev(pd->spec_rev);
-	}
-
 	rx_msg = kzalloc(sizeof(*rx_msg), GFP_KERNEL);
 	if (!rx_msg)
 		return;
@@ -714,7 +718,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		.shutdown_cb		= phy_shutdown,
 		.frame_filter_val	= FRAME_FILTER_EN_SOP |
 					  FRAME_FILTER_EN_HARD_RESET,
-		.spec_rev		= USBPD_REV_20,
 	};
 	union power_supply_propval val = {0};
 	unsigned long flags;
@@ -752,8 +755,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_TYPEC_POWER_ROLE, &val);
 
-		/* support only PD 2.0 as a source */
-		pd->spec_rev = USBPD_REV_20;
 		pd_reset_protocol(pd);
 
 		if (!pd->in_pr_swap) {
@@ -764,7 +765,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 			phy_params.data_role = pd->current_dr;
 			phy_params.power_role = pd->current_pr;
-			phy_params.spec_rev = pd->spec_rev;
 
 			ret = pd_phy_open(&phy_params);
 			if (ret) {
@@ -776,8 +776,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			}
 
 			pd->pd_phy_opened = true;
-		} else {
-			pd_phy_update_spec_rev(pd->spec_rev);
 		}
 
 		pd->current_state = PE_SRC_SEND_CAPABILITIES;
@@ -909,11 +907,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		if (!val.intval)
 			break;
 
-		/*
-		 * support up to PD 3.0 as a sink; if source is 2.0,
-		 * phy_msg_received() will handle the downgrade.
-		 */
-		pd->spec_rev = USBPD_REV_30;
 		pd_reset_protocol(pd);
 
 		if (!pd->in_pr_swap) {
@@ -924,7 +917,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 			phy_params.data_role = pd->current_dr;
 			phy_params.power_role = pd->current_pr;
-			phy_params.spec_rev = pd->spec_rev;
 
 			ret = pd_phy_open(&phy_params);
 			if (ret) {
@@ -936,8 +928,6 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			}
 
 			pd->pd_phy_opened = true;
-		} else {
-			pd_phy_update_spec_rev(pd->spec_rev);
 		}
 
 		pd->current_voltage = pd->requested_voltage = 5000000;
@@ -3328,6 +3318,8 @@ struct usbpd *usbpd_create(struct device *parent)
 		pd->dual_role->drv_data = pd;
 	}
 
+	/* default support as PD 2.0 source or sink */
+	pd->spec_rev = USBPD_REV_20;
 	pd->current_pr = PR_NONE;
 	pd->current_dr = DR_NONE;
 	list_add_tail(&pd->instance, &_usbpd);

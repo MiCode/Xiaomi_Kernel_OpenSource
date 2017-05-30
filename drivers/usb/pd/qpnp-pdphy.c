@@ -335,15 +335,6 @@ int pd_phy_update_roles(enum data_role dr, enum power_role pr)
 }
 EXPORT_SYMBOL(pd_phy_update_roles);
 
-int pd_phy_update_spec_rev(enum pd_spec_rev rev)
-{
-	struct usb_pdphy *pdphy = __pdphy;
-
-	return pdphy_masked_write(pdphy, USB_PDPHY_MSG_CONFIG,
-			MSG_CONFIG_SPEC_REV_MASK, rev);
-}
-EXPORT_SYMBOL(pd_phy_update_spec_rev);
-
 int pd_phy_open(struct pd_phy_params *params)
 {
 	int ret;
@@ -378,7 +369,9 @@ int pd_phy_open(struct pd_phy_params *params)
 	if (ret)
 		return ret;
 
-	ret = pd_phy_update_spec_rev(params->spec_rev);
+	/* PD 2.0  phy */
+	ret = pdphy_masked_write(pdphy, USB_PDPHY_MSG_CONFIG,
+			MSG_CONFIG_SPEC_REV_MASK, USBPD_REV_20);
 	if (ret)
 		return ret;
 
