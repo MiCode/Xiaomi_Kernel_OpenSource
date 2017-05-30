@@ -3424,13 +3424,13 @@ static void dwc3_process_event_entry(struct dwc3 *dwc,
 	trace_dwc3_event(event->raw);
 	/* skip event processing in absence of vbus */
 	if (!dwc->vbus_active) {
-		dev_err(dwc->dev, "SKIP EVT:%x", event->raw);
+		dbg_event(0xFF, "SKIP_EVT", event->raw);
 		return;
 	}
 
 	/* If run/stop is cleared don't process any more events */
 	if (!dwc->pullups_connected) {
-		dev_err(dwc->dev, "SKIP_EVT_PULLUP:%x", event->raw);
+		dbg_event(0xFF, "SKIP_EVT_PULLUP", event->raw);
 		return;
 	}
 
