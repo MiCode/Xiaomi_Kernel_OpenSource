@@ -81,6 +81,10 @@ Optional Properties:
 -qcom,fg-cnt : The value of fine grained counter of activity monitor
 	        block.
 
+compatible devices:
+		qcom,sdm845-llcc,
+		qcom,sdm670-llcc
+
 Example:
 
 	qcom,llcc@01300000 {
