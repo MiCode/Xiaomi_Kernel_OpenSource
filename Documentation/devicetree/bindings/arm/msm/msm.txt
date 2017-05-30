@@ -101,6 +101,9 @@ SoCs:
 - MSM8953
   compatible = "qcom,msm8953"
 
+- SDM450
+  compatible = "qcom,sdm450"
+
 - MSM8937
   compatible = "qcom,msm8937"
 
@@ -291,6 +294,8 @@ compatible = "qcom,msm8953-cdp"
 compatible = "qcom,msm8953-mtp"
 compatible = "qcom,msm8953-qrd"
 compatible = "qcom,msm8953-qrd-sku3"
+compatible = "qcom,sdm450-cdp"
+compatible = "qcom,sdm450-mtp"
 compatible = "qcom,mdm9640-cdp"
 compatible = "qcom,mdm9640-mtp"
 compatible = "qcom,mdm9640-rumi"

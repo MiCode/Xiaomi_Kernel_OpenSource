@@ -1349,6 +1349,10 @@ int ipa2_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup)
 	mutex_lock(&ipa_ctx->lock);
 	entry = __ipa_find_rt_tbl(lookup->ip, lookup->name);
 	if (entry && entry->cookie == IPA_COOKIE) {
+		if (entry->ref_cnt == U32_MAX) {
+			IPAERR("fail: ref count crossed limit\n");
+			goto ret;
+		}
 		entry->ref_cnt++;
 		lookup->hdl = entry->id;
 
@@ -1358,6 +1362,8 @@ int ipa2_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup)
 
 		result = 0;
 	}
+
+ret:
 	mutex_unlock(&ipa_ctx->lock);
 
 	return result;
