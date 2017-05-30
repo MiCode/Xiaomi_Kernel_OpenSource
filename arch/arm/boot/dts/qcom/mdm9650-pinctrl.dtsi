@@ -1045,5 +1045,17 @@
 			};
 		};
 
+		pinctrl_pps: ppsgrp{
+			mux {
+				pins = "gpio39";
+				function = "nav_dr";
+			};
+
+			config {
+				pins = "gpio39";
+				bias-pull-down;
+			};
+		};
+
 	};
 };
