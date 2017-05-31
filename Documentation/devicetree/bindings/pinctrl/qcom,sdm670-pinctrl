@@ -1,12 +1,12 @@
-Qualcomm Technologies, Inc. SDM830 TLMM block
+Qualcomm Technologies, Inc. SDM670 TLMM block
 
 This binding describes the Top Level Mode Multiplexer block found in the
-SDM830 platform.
+SDM670 platform.
 
 - compatible:
 	Usage: required
 	Value type: <string>
-	Definition: must be "qcom,sdm830-pinctrl"
+	Definition: must be "qcom,sdm670-pinctrl"
 
 - reg:
 	Usage: required
@@ -135,9 +135,9 @@ to specify in a pin configuration subnode:
 
 Example:
 
-	tlmm: pinctrl@03800000 {
-		compatible = "qcom,sdm830-pinctrl";
-		reg = <0x03800000 0xc00000>;
+	tlmm: pinctrl@03400000 {
+		compatible = "qcom,sdm670-pinctrl";
+		reg = <0x03400000 0xc00000>;
 		interrupts = <0 208 0>;
 		gpio-controller;
 		#gpio-cells = <2>;

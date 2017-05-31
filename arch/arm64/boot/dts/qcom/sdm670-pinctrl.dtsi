@@ -1,5 +1,4 @@
-/*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,15 +10,14 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-/memreserve/ 0x90000000 0x00000100;
-
-#include "sdm830.dtsi"
-#include "sdm830-rumi.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. SDM830 RUMI";
-	compatible = "qcom,sdm830-rumi", "qcom,sdm830", "qcom,rumi";
-	qcom,board-id = <15 0>;
+&soc {
+	tlmm: pinctrl@03400000 {
+		compatible = "qcom,sdm670-pinctrl";
+		reg = <0x03400000 0xc00000>;
+		interrupts = <0 208 0>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
 };
-
