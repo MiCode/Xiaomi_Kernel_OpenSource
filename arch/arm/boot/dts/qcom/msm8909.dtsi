@@ -125,7 +125,7 @@
 		};
 
 		peripheral_mem: pheripheral_region@0 {
-			reg = <0x0 0x8d500000 0x0 0x0500000>;
+			reg = <0x0 0x8d500000 0x0 0x0700000>;
 			compatible = "removed-dma-pool";
 			no-map;
 		};
