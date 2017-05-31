@@ -142,6 +142,7 @@
 		compatible = "qcom,dummycc";
 		clock-output-names = "gcc_clocks";
 		#clock-cells = <1>;
+		#reset-cells = <1>;
 	};
 
 	clock_cpu: qcom,clock-a7@17810008 {
