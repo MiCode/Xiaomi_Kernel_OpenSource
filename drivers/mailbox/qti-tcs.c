@@ -241,11 +241,11 @@ static void print_response(struct tcs_drv *drv, int m)
 		return;
 
 	msg = resp->msg;
-	pr_info("Response object idx=%d:\n\tfor-tcs=%d\tin-use=%d\n",
+	pr_debug("Response object idx=%d:\n\tfor-tcs=%d\tin-use=%d\n",
 			resp->idx, resp->m, resp->in_use);
-	pr_info("Msg: state=%d\n", msg->state);
+	pr_debug("Msg: state=%d\n", msg->state);
 	for (i = 0; i < msg->num_payload; i++)
-		pr_info("addr=0x%x data=0x%x complete=0x%x\n",
+		pr_debug("addr=0x%x data=0x%x complete=0x%x\n",
 				msg->payload[i].addr,
 				msg->payload[i].data,
 				msg->payload[i].complete);
@@ -791,6 +791,32 @@ static int tcs_mbox_invalidate(struct mbox_chan *chan)
 	return 0;
 }
 
+static void print_tcs_regs(struct tcs_drv *drv, int m)
+{
+	int n;
+	struct tcs_mbox *tcs = get_tcs_from_index(drv, m);
+	void __iomem *base = drv->reg_base;
+	u32 enable, addr, data, msgid;
+
+	if (!tcs || tcs_is_free(drv, m))
+		return;
+
+	enable = read_tcs_reg(base, TCS_DRV_CMD_ENABLE, m, 0);
+	if (!enable)
+		return;
+
+	pr_debug("TCS-%d contents:\n", m);
+	for (n = 0; n < tcs->ncpt; n++) {
+		if (!(enable & BIT(n)))
+			continue;
+		addr = read_tcs_reg(base, TCS_DRV_CMD_ADDR, m, n);
+		data = read_tcs_reg(base, TCS_DRV_CMD_DATA, m, n);
+		msgid = read_tcs_reg(base, TCS_DRV_CMD_MSGID, m, n);
+		pr_debug("\tn=%d addr=0x%x data=0x%x hdr=0x%x\n",
+						n, addr, data, msgid);
+	}
+}
+
 static void dump_tcs_stats(struct tcs_drv *drv)
 {
 	int i;
@@ -799,12 +825,13 @@ static void dump_tcs_stats(struct tcs_drv *drv)
 	for (i = 0; i < drv->num_tcs; i++) {
 		if (!atomic_read(&drv->tcs_in_use[i]))
 			continue;
-		pr_info("Time: %llu: TCS-%d:\n\tReq Sent:%d Last Sent:%llu\n\tResp Recv:%d Last Recvd:%llu\n",
+		pr_debug("Time: %llu: TCS-%d:\n\tReq Sent:%d Last Sent:%llu\n\tResp Recv:%d Last Recvd:%llu\n",
 				curr, i,
 				atomic_read(&drv->tcs_send_count[i]),
 				drv->tcs_last_sent_ts[i],
 				atomic_read(&drv->tcs_irq_count[i]),
 				drv->tcs_last_recv_ts[i]);
+		print_tcs_regs(drv, i);
 		print_response(drv, i);
 	}
 }
