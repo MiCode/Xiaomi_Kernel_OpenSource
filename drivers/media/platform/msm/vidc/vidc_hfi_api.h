@@ -1212,6 +1212,16 @@ struct msm_vidc_cb_cmd_done {
 	} data;
 };
 
+struct hal_index_extradata_input_crop_payload {
+	u32 size;
+	u32 version;
+	u32 port_index;
+	u32 left;
+	u32 top;
+	u32 width;
+	u32 height;
+};
+
 struct msm_vidc_cb_event {
 	u32 device_id;
 	void *session_id;
@@ -1227,6 +1237,8 @@ struct msm_vidc_cb_event {
 	u32 profile;
 	u32 level;
 	u32 entropy_mode;
+	u32 capture_buf_count;
+	struct hal_index_extradata_input_crop_payload crop_data;
 };
 
 struct msm_vidc_cb_data_done {
@@ -1312,16 +1324,6 @@ struct vidc_clk_scale_data {
 	enum msm_vidc_power_mode power_mode[VIDC_MAX_SESSIONS];
 	u32 load[VIDC_MAX_SESSIONS];
 	int num_sessions;
-};
-
-struct hal_index_extradata_input_crop_payload {
-	u32 size;
-	u32 version;
-	u32 port_index;
-	u32 left;
-	u32 top;
-	u32 width;
-	u32 height;
 };
 
 struct hal_cmd_sys_get_property_packet {

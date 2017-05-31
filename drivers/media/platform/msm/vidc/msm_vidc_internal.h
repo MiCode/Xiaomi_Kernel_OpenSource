@@ -175,9 +175,17 @@ struct msm_video_device {
 	struct video_device vdev;
 };
 
+struct session_crop {
+	u32 left;
+	u32 top;
+	u32 width;
+	u32 height;
+};
+
 struct session_prop {
 	u32 width[MAX_PORT_NUM];
 	u32 height[MAX_PORT_NUM];
+	struct session_crop crop_info;
 	u32 fps;
 	u32 bitrate;
 };

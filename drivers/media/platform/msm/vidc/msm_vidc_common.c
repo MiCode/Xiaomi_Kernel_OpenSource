@@ -1554,6 +1554,14 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	inst->entropy_mode = event_notify->entropy_mode;
 	inst->profile = event_notify->profile;
 	inst->level = event_notify->level;
+	inst->prop.crop_info.left =
+		event_notify->crop_data.left;
+	inst->prop.crop_info.top =
+		event_notify->crop_data.top;
+	inst->prop.crop_info.height =
+		event_notify->crop_data.height;
+	inst->prop.crop_info.width =
+		event_notify->crop_data.width;
 
 	ptr = (u32 *)seq_changed_event.u.data;
 	ptr[0] = event_notify->height;
@@ -1570,6 +1578,13 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 		"Event payload: bit_depth = %d pic_struct = %d colour_space = %d\n",
 		event_notify->bit_depth, event_notify->pic_struct,
 			event_notify->colour_space);
+
+	dprintk(VIDC_DBG,
+		"Event payload: CROP top = %d left = %d Height = %d Width = %d\n",
+			event_notify->crop_data.top,
+			event_notify->crop_data.left,
+			event_notify->crop_data.height,
+			event_notify->crop_data.width);
 
 	mutex_lock(&inst->lock);
 	inst->in_reconfig = true;
