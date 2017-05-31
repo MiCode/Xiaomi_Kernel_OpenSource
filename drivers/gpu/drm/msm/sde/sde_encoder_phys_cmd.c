@@ -644,9 +644,20 @@ static void sde_encoder_phys_cmd_enable_helper(
 
 	_sde_encoder_phys_cmd_pingpong_config(phys_enc);
 
+	/*
+	 * For pp-split, skip setting the flush bit for the slave intf, since
+	 * both intfs use same ctl and HW will only flush the master.
+	 */
+	if (_sde_encoder_phys_is_ppsplit(phys_enc) &&
+		!sde_encoder_phys_cmd_is_master(phys_enc))
+		goto skip_flush;
+
 	ctl = phys_enc->hw_ctl;
 	ctl->ops.get_bitmask_intf(ctl, &flush_mask, phys_enc->intf_idx);
 	ctl->ops.update_pending_flush(ctl, flush_mask);
+
+skip_flush:
+	return;
 }
 
 static void sde_encoder_phys_cmd_enable(struct sde_encoder_phys *phys_enc)

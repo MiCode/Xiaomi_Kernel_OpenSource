@@ -609,9 +609,18 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 		goto end;
 	}
 
+	/*
+	 * For pp-split, skip setting the flush bit for the slave intf, since
+	 * both intfs use same ctl and HW will only flush the master.
+	 */
+	if (_sde_encoder_phys_is_ppsplit(phys_enc) &&
+		!sde_encoder_phys_vid_is_master(phys_enc))
+		goto skip_flush;
+
 	ctl->ops.get_bitmask_intf(ctl, &flush_mask, intf->idx);
 	ctl->ops.update_pending_flush(ctl, flush_mask);
 
+skip_flush:
 	SDE_DEBUG_VIDENC(vid_enc, "update pending flush ctl %d flush_mask %x\n",
 		ctl->idx - CTL_0, flush_mask);
 
@@ -669,8 +678,9 @@ static int sde_encoder_phys_vid_wait_for_vblank(
 	int ret;
 
 	if (!sde_encoder_phys_vid_is_master(phys_enc)) {
-		/* always signal done for slave video encoder */
-		if (notify && phys_enc->parent_ops.handle_frame_done)
+		/* signal done for slave video encoder, unless it is pp-split */
+		if (!_sde_encoder_phys_is_ppsplit(phys_enc) &&
+			notify && phys_enc->parent_ops.handle_frame_done)
 			phys_enc->parent_ops.handle_frame_done(
 					phys_enc->parent, phys_enc,
 					SDE_ENCODER_FRAME_EVENT_DONE);
