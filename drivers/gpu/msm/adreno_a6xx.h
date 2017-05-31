@@ -23,10 +23,87 @@
 #define CP_CLUSTER_SP_PS	0x4
 #define CP_CLUSTER_PS		0x5
 
+/**
+ * struct a6xx_cp_preemption_record - CP context record for
+ * preemption.
+ * @magic: (00) Value at this offset must be equal to
+ * A6XX_CP_CTXRECORD_MAGIC_REF.
+ * @info: (04) Type of record. Written non-zero (usually) by CP.
+ * we must set to zero for all ringbuffers.
+ * @errno: (08) Error code. Initialize this to A6XX_CP_CTXRECORD_ERROR_NONE.
+ * CP will update to another value if a preemption error occurs.
+ * @data: (12) DATA field in YIELD and SET_MARKER packets.
+ * Written by CP when switching out. Not used on switch-in. Initialized to 0.
+ * @cntl: (16) RB_CNTL, saved and restored by CP. We must initialize this.
+ * @rptr: (20) RB_RPTR, saved and restored by CP. We must initialize this.
+ * @wptr: (24) RB_WPTR, saved and restored by CP. We must initialize this.
+ * @_pad28: (28) Reserved/padding.
+ * @rptr_addr: (32) RB_RPTR_ADDR_LO|HI saved and restored. We must initialize.
+ * rbase: (40) RB_BASE_LO|HI saved and restored.
+ * counter: (48) Pointer to preemption counter.
+ */
+struct a6xx_cp_preemption_record {
+	uint32_t  magic;
+	uint32_t  info;
+	uint32_t  errno;
+	uint32_t  data;
+	uint32_t  cntl;
+	uint32_t  rptr;
+	uint32_t  wptr;
+	uint32_t  _pad28;
+	uint64_t  rptr_addr;
+	uint64_t  rbase;
+	uint64_t  counter;
+};
+
+/**
+ * struct a6xx_cp_smmu_info - CP preemption SMMU info.
+ * @magic: (00) The value at this offset must be equal to
+ * A6XX_CP_SMMU_INFO_MAGIC_REF.
+ * @_pad4: (04) Reserved/padding
+ * @ttbr0: (08) Base address of the page table for the
+ * incoming context.
+ * @context_idr: (16) Context Identification Register value.
+ */
+struct a6xx_cp_smmu_info {
+	uint32_t  magic;
+	uint32_t  _pad4;
+	uint64_t  ttbr0;
+	uint32_t  asid;
+	uint32_t  context_idr;
+};
+
+#define A6XX_CP_SMMU_INFO_MAGIC_REF     0x3618CDA3UL
+
+#define A6XX_CP_CTXRECORD_MAGIC_REF     0xAE399D6EUL
+/* Size of each CP preemption record */
+#define A6XX_CP_CTXRECORD_SIZE_IN_BYTES     (2112 * 1024)
+/* Size of the preemption counter block (in bytes) */
+#define A6XX_CP_CTXRECORD_PREEMPTION_COUNTER_SIZE   (16 * 4)
+/* Size of the performance counter save/restore block (in bytes) */
+#define A6XX_CP_PERFCOUNTER_SAVE_RESTORE_SIZE   (4 * 1024)
+
+#define A6XX_CP_RB_CNTL_DEFAULT (((ilog2(4) << 8) & 0x1F00) | \
+		(ilog2(KGSL_RB_DWORDS >> 1) & 0x3F))
+
+/* Preemption functions */
+void a6xx_preemption_trigger(struct adreno_device *adreno_dev);
+void a6xx_preemption_schedule(struct adreno_device *adreno_dev);
+void a6xx_preemption_start(struct adreno_device *adreno_dev);
+int a6xx_preemption_init(struct adreno_device *adreno_dev);
+
+unsigned int a6xx_preemption_post_ibsubmit(struct adreno_device *adreno_dev,
+		unsigned int *cmds);
+unsigned int a6xx_preemption_pre_ibsubmit(struct adreno_device *adreno_dev,
+		struct adreno_ringbuffer *rb,
+		unsigned int *cmds, struct kgsl_context *context);
+
+unsigned int a6xx_preemption_set_marker(unsigned int *cmds, int start);
+
+void a6xx_preemption_callback(struct adreno_device *adreno_dev, int bit);
 
 void a6xx_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot);
 
 void a6xx_crashdump_init(struct adreno_device *adreno_dev);
-
 #endif

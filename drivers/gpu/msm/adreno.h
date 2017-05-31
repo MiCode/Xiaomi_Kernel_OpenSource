@@ -845,6 +845,7 @@ struct adreno_gpudev {
 				unsigned int *cmds,
 				struct kgsl_context *context);
 	int (*preemption_yield_enable)(unsigned int *);
+	unsigned int (*preemption_set_marker)(unsigned int *cmds, int start);
 	unsigned int (*preemption_post_ibsubmit)(
 				struct adreno_device *adreno_dev,
 				unsigned int *cmds);
