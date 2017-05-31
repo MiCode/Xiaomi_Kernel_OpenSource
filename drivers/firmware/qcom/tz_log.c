@@ -931,6 +931,12 @@ static int  tzdbgfs_init(struct platform_device *pdev)
 
 	for (i = 0; i < TZDBG_STATS_MAX; i++) {
 		tzdbg.debug_tz[i] = i;
+		/* Do not create hyp entries in debugfs when hyplog flag is not
+		   enabled in dtsi. */
+		if (!tzdbg.is_hyplog_enabled &&
+		    ((TZDBG_HYP_LOG == tzdbg.debug_tz[i]) ||
+		     (TZDBG_HYP_GENERAL == tzdbg.debug_tz[i])))
+			continue;
 		dent = debugfs_create_file(tzdbg.stat[i].name,
 				S_IRUGO, dent_dir,
 				&tzdbg.debug_tz[i], &tzdbg_fops);
