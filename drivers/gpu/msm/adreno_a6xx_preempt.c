@@ -277,6 +277,18 @@ void a6xx_preemption_trigger(struct adreno_device *adreno_dev)
 		A6XX_CP_CONTEXT_SWITCH_PRIV_NON_SECURE_RESTORE_ADDR_HI,
 		upper_32_bits(next->preemption_desc.gpuaddr));
 
+	if (next->drawctxt_active) {
+		struct kgsl_context *context = &next->drawctxt_active->base;
+		uint64_t gpuaddr = context->user_ctxt_record->memdesc.gpuaddr;
+
+		kgsl_regwrite(device,
+			A6XX_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_LO,
+			lower_32_bits(gpuaddr));
+		kgsl_regwrite(device,
+			A6XX_CP_CONTEXT_SWITCH_NON_PRIV_RESTORE_ADDR_HI,
+			upper_32_bits(gpuaddr));
+	}
+
 	adreno_dev->next_rb = next;
 
 	/* Start the timer to detect a stuck preemption */
@@ -381,7 +393,10 @@ unsigned int a6xx_preemption_pre_ibsubmit(
 {
 	unsigned int *cmds_orig = cmds;
 
-	*cmds++ = cp_type7_packet(CP_SET_PSEUDO_REGISTER, 12);
+	if (context)
+		*cmds++ = cp_type7_packet(CP_SET_PSEUDO_REGISTER, 15);
+	else
+		*cmds++ = cp_type7_packet(CP_SET_PSEUDO_REGISTER, 12);
 
 	/* NULL SMMU_INFO buffer - we track in KMD */
 	*cmds++ = SET_PSEUDO_REGISTER_SAVE_REGISTER_SMMU_INFO;
@@ -393,6 +408,12 @@ unsigned int a6xx_preemption_pre_ibsubmit(
 	*cmds++ = SET_PSEUDO_REGISTER_SAVE_REGISTER_PRIV_SECURE_SAVE_ADDR;
 	cmds += cp_gpuaddr(adreno_dev, cmds, 0);
 
+	if (context) {
+		uint64_t gpuaddr = context->user_ctxt_record->memdesc.gpuaddr;
+
+		*cmds++ = SET_PSEUDO_REGISTER_SAVE_REGISTER_NON_PRIV_SAVE_ADDR;
+		cmds += cp_gpuaddr(adreno_dev, cmds, gpuaddr);
+	}
 
 	/*
 	 * There is no need to specify this address when we are about to
@@ -599,4 +620,35 @@ err:
 		a6xx_preemption_close(device);
 
 	return ret;
+}
+
+void a6xx_preemption_context_destroy(struct kgsl_context *context)
+{
+	struct kgsl_device *device = context->device;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	if (!adreno_is_preemption_enabled(adreno_dev))
+		return;
+
+	gpumem_free_entry(context->user_ctxt_record);
+}
+
+int a6xx_preemption_context_init(struct kgsl_context *context)
+{
+	struct kgsl_device *device = context->device;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	if (!adreno_is_preemption_enabled(adreno_dev))
+		return 0;
+
+	context->user_ctxt_record = gpumem_alloc_entry(context->dev_priv,
+			A6XX_CP_CTXRECORD_USER_RESTORE_SIZE, 0);
+	if (IS_ERR(context->user_ctxt_record)) {
+		int ret = PTR_ERR(context->user_ctxt_record);
+
+		context->user_ctxt_record = NULL;
+		return ret;
+	}
+
+	return 0;
 }

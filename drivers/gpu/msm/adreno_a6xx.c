@@ -2774,4 +2774,6 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.preemption_init = a6xx_preemption_init,
 	.preemption_schedule = a6xx_preemption_schedule,
 	.preemption_set_marker = a6xx_preemption_set_marker,
+	.preemption_context_init = a6xx_preemption_context_init,
+	.preemption_context_destroy = a6xx_preemption_context_destroy,
 };

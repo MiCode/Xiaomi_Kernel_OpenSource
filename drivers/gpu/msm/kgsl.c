@@ -245,8 +245,6 @@ int kgsl_readtimestamp(struct kgsl_device *device, void *priv,
 }
 EXPORT_SYMBOL(kgsl_readtimestamp);
 
-static long gpumem_free_entry(struct kgsl_mem_entry *entry);
-
 /* Scheduled by kgsl_mem_entry_put_deferred() */
 static void _deferred_put(struct work_struct *work)
 {
@@ -608,7 +606,7 @@ EXPORT_SYMBOL(kgsl_context_init);
  * detached by checking the KGSL_CONTEXT_PRIV_DETACHED bit in
  * context->priv.
  */
-static void kgsl_context_detach(struct kgsl_context *context)
+void kgsl_context_detach(struct kgsl_context *context)
 {
 	struct kgsl_device *device;
 
@@ -1812,7 +1810,7 @@ long kgsl_ioctl_drawctxt_destroy(struct kgsl_device_private *dev_priv,
 	return 0;
 }
 
-static long gpumem_free_entry(struct kgsl_mem_entry *entry)
+long gpumem_free_entry(struct kgsl_mem_entry *entry)
 {
 	pid_t ptname = 0;
 
@@ -3054,7 +3052,7 @@ static uint64_t kgsl_filter_cachemode(uint64_t flags)
 /* The largest allowable alignment for a GPU object is 32MB */
 #define KGSL_MAX_ALIGN (32 * SZ_1M)
 
-static struct kgsl_mem_entry *gpumem_alloc_entry(
+struct kgsl_mem_entry *gpumem_alloc_entry(
 		struct kgsl_device_private *dev_priv,
 		uint64_t size, uint64_t flags)
 {

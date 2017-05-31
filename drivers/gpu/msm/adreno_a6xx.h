@@ -80,6 +80,8 @@ struct a6xx_cp_smmu_info {
 #define A6XX_CP_CTXRECORD_SIZE_IN_BYTES     (2112 * 1024)
 /* Size of the preemption counter block (in bytes) */
 #define A6XX_CP_CTXRECORD_PREEMPTION_COUNTER_SIZE   (16 * 4)
+/* Size of the user context record block (in bytes) */
+#define A6XX_CP_CTXRECORD_USER_RESTORE_SIZE (192 * 1024)
 /* Size of the performance counter save/restore block (in bytes) */
 #define A6XX_CP_PERFCOUNTER_SAVE_RESTORE_SIZE   (4 * 1024)
 
@@ -101,6 +103,10 @@ unsigned int a6xx_preemption_pre_ibsubmit(struct adreno_device *adreno_dev,
 unsigned int a6xx_preemption_set_marker(unsigned int *cmds, int start);
 
 void a6xx_preemption_callback(struct adreno_device *adreno_dev, int bit);
+
+int a6xx_preemption_context_init(struct kgsl_context *context);
+
+void a6xx_preemption_context_destroy(struct kgsl_context *context);
 
 void a6xx_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot);
