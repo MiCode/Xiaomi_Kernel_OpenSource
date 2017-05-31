@@ -31,10 +31,42 @@
 #define VBIF_IN_WR_LIM_CONF2		0x00C8
 #define VBIF_OUT_RD_LIM_CONF0		0x00D0
 #define VBIF_OUT_WR_LIM_CONF0		0x00D4
+#define VBIF_OUT_AXI_AMEMTYPE_CONF0	0x0160
+#define VBIF_OUT_AXI_AMEMTYPE_CONF1	0x0164
 #define VBIF_XIN_HALT_CTRL0		0x0200
 #define VBIF_XIN_HALT_CTRL1		0x0204
 #define VBIF_XINL_QOS_RP_REMAP_000	0x0550
 #define VBIF_XINL_QOS_LVL_REMAP_000	0x0590
+
+static void sde_hw_set_mem_type(struct sde_hw_vbif *vbif,
+		u32 xin_id, u32 value)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 reg_off;
+	u32 bit_off;
+	u32 reg_val;
+
+	/*
+	 * Assume 4 bits per bit field, 8 fields per 32-bit register so
+	 * 16 bit fields maximum across two registers
+	 */
+	if (!vbif || xin_id >= MAX_XIN_COUNT || xin_id >= 16)
+		return;
+
+	c = &vbif->hw;
+
+	if (xin_id >= 8) {
+		xin_id -= 8;
+		reg_off = VBIF_OUT_AXI_AMEMTYPE_CONF1;
+	} else {
+		reg_off = VBIF_OUT_AXI_AMEMTYPE_CONF0;
+	}
+	bit_off = (xin_id & 0x7) * 4;
+	reg_val = SDE_REG_READ(c, reg_off);
+	reg_val &= ~(0x7 << bit_off);
+	reg_val |= (value & 0x7) << bit_off;
+	SDE_REG_WRITE(c, reg_off, reg_val);
+}
 
 static void sde_hw_set_limit_conf(struct sde_hw_vbif *vbif,
 		u32 xin_id, bool rd, u32 limit)
@@ -144,6 +176,7 @@ static void _setup_vbif_ops(struct sde_hw_vbif_ops *ops,
 	ops->get_halt_ctrl = sde_hw_get_halt_ctrl;
 	if (test_bit(SDE_VBIF_QOS_REMAP, &cap))
 		ops->set_qos_remap = sde_hw_set_qos_remap;
+	ops->set_mem_type = sde_hw_set_mem_type;
 }
 
 static const struct sde_vbif_cfg *_top_offset(enum sde_vbif vbif,

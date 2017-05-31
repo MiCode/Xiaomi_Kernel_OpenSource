@@ -290,6 +290,8 @@ enum {
 	VBIF_DYNAMIC_OT_WR_LIMIT,
 	VBIF_QOS_RT_REMAP,
 	VBIF_QOS_NRT_REMAP,
+	VBIF_MEMTYPE_0,
+	VBIF_MEMTYPE_1,
 	VBIF_PROP_MAX,
 };
 
@@ -529,6 +531,8 @@ static struct sde_prop_type vbif_prop[] = {
 		PROP_TYPE_U32_ARRAY},
 	{VBIF_QOS_NRT_REMAP, "qcom,sde-vbif-qos-nrt-remap", false,
 		PROP_TYPE_U32_ARRAY},
+	{VBIF_MEMTYPE_0, "qcom,sde-vbif-memtype-0", false, PROP_TYPE_U32_ARRAY},
+	{VBIF_MEMTYPE_1, "qcom,sde-vbif-memtype-1", false, PROP_TYPE_U32_ARRAY},
 };
 
 static struct sde_prop_type reg_dma_prop[REG_DMA_PROP_MAX] = {
@@ -1970,6 +1974,16 @@ static int sde_vbif_parse_dt(struct device_node *np,
 	if (rc)
 		goto end;
 
+	rc = _validate_dt_entry(np, &vbif_prop[VBIF_MEMTYPE_0], 1,
+			&prop_count[VBIF_MEMTYPE_0], NULL);
+	if (rc)
+		goto end;
+
+	rc = _validate_dt_entry(np, &vbif_prop[VBIF_MEMTYPE_1], 1,
+			&prop_count[VBIF_MEMTYPE_1], NULL);
+	if (rc)
+		goto end;
+
 	sde_cfg->vbif_count = off_count;
 
 	rc = _read_dt_entry(np, vbif_prop, ARRAY_SIZE(vbif_prop), prop_count,
@@ -2118,6 +2132,19 @@ static int sde_vbif_parse_dt(struct device_node *np,
 		if (vbif->qos_rt_tbl.npriority_lvl ||
 				vbif->qos_nrt_tbl.npriority_lvl)
 			set_bit(SDE_VBIF_QOS_REMAP, &vbif->features);
+
+		vbif->memtype_count = prop_count[VBIF_MEMTYPE_0] +
+					prop_count[VBIF_MEMTYPE_1];
+		if (vbif->memtype_count > MAX_XIN_COUNT) {
+			vbif->memtype_count = 0;
+			SDE_ERROR("too many memtype defs, ignoring entries\n");
+		}
+		for (j = 0, k = 0; j < prop_count[VBIF_MEMTYPE_0]; j++)
+			vbif->memtype[k++] = PROP_VALUE_ACCESS(
+					prop_value, VBIF_MEMTYPE_0, j);
+		for (j = 0; j < prop_count[VBIF_MEMTYPE_1]; j++)
+			vbif->memtype[k++] = PROP_VALUE_ACCESS(
+					prop_value, VBIF_MEMTYPE_1, j);
 	}
 
 end:

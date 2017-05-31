@@ -265,6 +265,26 @@ void sde_vbif_set_qos_remap(struct sde_kms *sde_kms,
 		mdp->ops.setup_clk_force_ctrl(mdp, params->clk_ctrl, false);
 }
 
+void sde_vbif_init_memtypes(struct sde_kms *sde_kms)
+{
+	struct sde_hw_vbif *vbif;
+	int i, j;
+
+	if (!sde_kms) {
+		SDE_ERROR("invalid argument\n");
+		return;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(sde_kms->hw_vbif); i++) {
+		vbif = sde_kms->hw_vbif[i];
+		if (vbif && vbif->cap && vbif->ops.set_mem_type) {
+			for (j = 0; j < vbif->cap->memtype_count; j++)
+				vbif->ops.set_mem_type(
+						vbif, j, vbif->cap->memtype[j]);
+		}
+	}
+}
+
 #ifdef CONFIG_DEBUG_FS
 void sde_debugfs_vbif_destroy(struct sde_kms *sde_kms)
 {

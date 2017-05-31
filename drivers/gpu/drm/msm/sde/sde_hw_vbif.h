@@ -71,6 +71,15 @@ struct sde_hw_vbif_ops {
 	 */
 	void (*set_qos_remap)(struct sde_hw_vbif *vbif,
 			u32 xin_id, u32 level, u32 remap_level);
+
+	/**
+	 * set_mem_type - set memory type
+	 * @vbif: vbif context driver
+	 * @xin_id: client interface identifier
+	 * @value: memory type value
+	 */
+	void (*set_mem_type)(struct sde_hw_vbif *vbif,
+			u32 xin_id, u32 value);
 };
 
 struct sde_hw_vbif {

@@ -27,6 +27,13 @@ struct sde_vbif_set_ot_params {
 	u32 clk_ctrl;
 };
 
+struct sde_vbif_set_memtype_params {
+	u32 xin_id;
+	u32 vbif_idx;
+	u32 clk_ctrl;
+	bool is_cacheable;
+};
+
 /**
  * struct sde_vbif_set_qos_params - QoS remapper parameter
  * @vbif_idx: vbif identifier
@@ -58,6 +65,12 @@ void sde_vbif_set_ot_limit(struct sde_kms *sde_kms,
  */
 void sde_vbif_set_qos_remap(struct sde_kms *sde_kms,
 		struct sde_vbif_set_qos_params *params);
+
+/**
+ * sde_vbif_init_memtypes - initialize xin memory types for vbif
+ * @sde_kms:	SDE handler
+ */
+void sde_vbif_init_memtypes(struct sde_kms *sde_kms);
 
 #ifdef CONFIG_DEBUG_FS
 int sde_debugfs_vbif_init(struct sde_kms *sde_kms, struct dentry *debugfs_root);
