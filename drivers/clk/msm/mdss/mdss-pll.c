@@ -44,7 +44,6 @@ int mdss_pll_resource_enable(struct mdss_pll_resources *pll_res, bool enable)
 		return rc;
 	}
 
-	mutex_lock(&pll_res->mutex);
 	if (enable) {
 		if (pll_res->resource_ref_cnt == 0)
 			changed++;
@@ -66,7 +65,6 @@ int mdss_pll_resource_enable(struct mdss_pll_resources *pll_res, bool enable)
 		else
 			pll_res->resource_enable = enable;
 	}
-	mutex_unlock(&pll_res->mutex);
 
 	return rc;
 }
@@ -336,7 +334,6 @@ static int mdss_pll_probe(struct platform_device *pdev)
 		goto gdsc_io_error;
 	}
 
-	mutex_init(&pll_res->mutex);
 	rc = mdss_pll_resource_init(pdev, pll_res);
 	if (rc) {
 		pr_err("Pll ndx=%d resource init failed rc=%d\n",
