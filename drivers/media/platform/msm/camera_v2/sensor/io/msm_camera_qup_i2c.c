@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011, 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -269,6 +269,7 @@ int32_t msm_camera_qup_i2c_write_table(struct msm_camera_i2c_client *client,
 	int32_t rc = -EFAULT;
 	struct msm_camera_i2c_reg_array *reg_setting;
 	uint16_t client_addr_type;
+	int retry = 0;
 
 	if (!client || !write_setting)
 		return rc;
@@ -286,11 +287,20 @@ int32_t msm_camera_qup_i2c_write_table(struct msm_camera_i2c_client *client,
 	for (i = 0; i < write_setting->size; i++) {
 		CDBG("%s addr 0x%x data 0x%x\n", __func__,
 			reg_setting->reg_addr, reg_setting->reg_data);
+		do {
+			rc = msm_camera_qup_i2c_write(client,
+				reg_setting->reg_addr, reg_setting->reg_data,
+				write_setting->data_type);
+			if (rc >= 0)
+				break;
+		} while (retry++ < 2);
 
-		rc = msm_camera_qup_i2c_write(client, reg_setting->reg_addr,
-			reg_setting->reg_data, write_setting->data_type);
-		if (rc < 0)
+		if (rc < 0) {
+			pr_err("FAILED: %s addr 0x%x data 0x%x\n", __func__,
+				reg_setting->reg_addr, reg_setting->reg_data);
 			break;
+		}
+		retry = 0;
 		reg_setting++;
 	}
 	if (write_setting->delay > 20)
