@@ -46,6 +46,7 @@ struct dsi_clk_mngr {
 	post_clockon_cb post_clkon_cb;
 	pre_clockon_cb pre_clkon_cb;
 
+	bool is_cont_splash_enabled;
 	void *priv_data;
 };
 
@@ -287,7 +288,18 @@ int dsi_core_clk_stop(struct dsi_core_clks *c_clks)
 static int dsi_link_clk_set_rate(struct dsi_link_clks *l_clks)
 {
 	int rc = 0;
+	struct dsi_clk_mngr *mngr;
 
+	mngr = container_of(l_clks, struct dsi_clk_mngr, link_clks[0]);
+
+	if (mngr->is_cont_splash_enabled)
+		return 0;
+	/*
+	 * In an ideal world, cont_splash_enabled should not be required inside
+	 * the clock manager. But, in the current driver cont_splash_enabled
+	 * flag is set inside mdp driver and there is no interface event
+	 * associated with this flag setting.
+	 */
 	rc = clk_set_rate(l_clks->clks.esc_clk, l_clks->freq.esc_clk_rate);
 	if (rc) {
 		pr_err("clk_set_rate failed for esc_clk rc = %d\n", rc);
@@ -1141,6 +1153,19 @@ error:
 	mutex_unlock(&mngr->clk_mutex);
 	pr_debug("%s: EXIT, rc = %d\n", mngr->name, rc);
 	return rc;
+}
+
+void dsi_display_clk_mngr_update_splash_status(void *clk_mgr, bool status)
+{
+	struct dsi_clk_mngr *mngr;
+
+	if (!clk_mgr) {
+		pr_err("Invalid params\n");
+		return;
+	}
+
+	mngr = (struct dsi_clk_mngr *)clk_mgr;
+	mngr->is_cont_splash_enabled = status;
 }
 
 void *dsi_display_clk_mngr_register(struct dsi_clk_info *info)

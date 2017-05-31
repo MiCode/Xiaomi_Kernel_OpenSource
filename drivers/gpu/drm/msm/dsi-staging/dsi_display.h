@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation.All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -128,6 +128,7 @@ struct dsi_display_clk_info {
  * @display_type:     Display type as defined in device tree.
  * @list:             List pointer.
  * @is_active:        Is display active.
+ * @is_cont_splash_enabled:  Is continuous splash enabled
  * @display_lock:     Mutex for dsi_display interface.
  * @ctrl_count:       Number of DSI interfaces required by panel.
  * @ctrl:             Controller information for DSI display.
@@ -165,6 +166,7 @@ struct dsi_display {
 	const char *display_type;
 	struct list_head list;
 	bool is_active;
+	bool is_cont_splash_enabled;
 	struct mutex display_lock;
 
 	u32 ctrl_count;
@@ -196,6 +198,9 @@ struct dsi_display {
 	struct mipi_dsi_host host;
 	struct dsi_bridge    *bridge;
 	u32 cmd_engine_refcount;
+
+	struct sde_power_handle *phandle;
+	struct sde_power_client *cont_splash_client;
 
 	void *clk_mngr;
 	void *dsi_clk_handle;
@@ -357,6 +362,22 @@ int dsi_display_set_mode(struct dsi_display *display,
  * Return: error code.
  */
 int dsi_display_prepare(struct dsi_display *display);
+
+/**
+ * dsi_display_splash_res_cleanup() - cleanup for continuous splash
+ * @display:    Pointer to dsi display
+ * Returns:     Zero on success
+ */
+int dsi_display_splash_res_cleanup(struct  dsi_display *display);
+
+/**
+ * dsi_display_config_ctrl_for_cont_splash()- Enable engine modes for DSI
+ *                                     controller during continuous splash
+ * @display: Handle to DSI display
+ *
+ * Return:        returns error code
+ */
+int dsi_display_config_ctrl_for_cont_splash(struct dsi_display *display);
 
 /**
  * dsi_display_enable() - enable display
