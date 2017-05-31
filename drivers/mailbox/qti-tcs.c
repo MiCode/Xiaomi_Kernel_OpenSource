@@ -918,6 +918,7 @@ tx_fail:
 	if (ret == -EBUSY) {
 		dev_err(dev, "TCS Busy, retrying RPMH message send\n");
 		dump_tcs_stats(drv);
+		ret = -EAGAIN;
 	}
 
 	return ret;
