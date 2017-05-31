@@ -3610,6 +3610,11 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	chg->pd_hard_reset = 0;
 	chg->typec_legacy_valid = false;
 
+	/* reset back to 120mS tCC debounce */
+	rc = smblib_masked_write(chg, MISC_CFG_REG, TCC_DEBOUNCE_20MS_BIT, 0);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't set 120mS tCC debounce rc=%d\n", rc);
+
 	/* enable APSD CC trigger for next insertion */
 	rc = smblib_masked_write(chg, TYPE_C_CFG_REG,
 				APSD_START_ON_CC_BIT, APSD_START_ON_CC_BIT);
@@ -3834,12 +3839,18 @@ int smblib_get_prop_pr_swap_in_progress(struct smb_charger *chg,
 int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
 				const union power_supply_propval *val)
 {
+	int rc;
+
 	chg->pr_swap_in_progress = val->intval;
 	/*
 	 * call the cc changed irq to handle real removals while
 	 * PR_SWAP was in progress
 	 */
 	smblib_usb_typec_change(chg);
+	rc = smblib_masked_write(chg, MISC_CFG_REG, TCC_DEBOUNCE_20MS_BIT,
+			val->intval ? TCC_DEBOUNCE_20MS_BIT : 0);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't set tCC debounce rc=%d\n", rc);
 	return 0;
 }
 
