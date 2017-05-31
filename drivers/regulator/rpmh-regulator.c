@@ -393,10 +393,15 @@ static void rpmh_regulator_handle_arc_enable(struct rpmh_aggr_vreg *aggr_vreg,
 	 * Mask the voltage level if "off" level is supported and the regulator
 	 * has not been enabled.
 	 */
-	if (aggr_vreg->level[0] == RPMH_REGULATOR_LEVEL_OFF &&
-	    (!(req->valid & BIT(RPMH_REGULATOR_REG_ARC_PSEUDO_ENABLE)) ||
-	     !req->reg[RPMH_REGULATOR_REG_ARC_PSEUDO_ENABLE]))
-		req->reg[RPMH_REGULATOR_REG_ARC_LEVEL] = 0;
+	if (aggr_vreg->level[0] == RPMH_REGULATOR_LEVEL_OFF) {
+		if (req->valid & BIT(RPMH_REGULATOR_REG_ARC_PSEUDO_ENABLE)) {
+			if (!req->reg[RPMH_REGULATOR_REG_ARC_PSEUDO_ENABLE])
+				req->reg[RPMH_REGULATOR_REG_ARC_LEVEL] = 0;
+		} else {
+			/* Invalidate voltage level if enable is invalid. */
+			req->valid &= ~BIT(RPMH_REGULATOR_REG_ARC_LEVEL);
+		}
+	}
 
 	/*
 	 * Mark the pseudo enable bit as invalid so that it is not accidentally
