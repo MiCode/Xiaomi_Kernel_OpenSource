@@ -608,6 +608,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.get_modes  = dp_connector_get_modes,
 		.mode_valid = dp_connector_mode_valid,
 		.get_info   = dp_connector_get_info,
+		.get_topology   = dp_connector_get_topology,
 	};
 	struct msm_display_info info;
 	struct drm_encoder *encoder;
