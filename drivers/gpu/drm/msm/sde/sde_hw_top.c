@@ -216,10 +216,12 @@ static void sde_hw_setup_vsync_sel(struct sde_hw_mdp *mdp,
 
 	reg = SDE_REG_READ(c, MDP_VSYNC_SEL);
 	for (i = 0; i < cfg->pp_count; i++) {
+		int pp_idx = cfg->ppnumber[i] - PINGPONG_0;
+
 		if (watchdog_te)
-			reg |= 0xF << pp_offset[cfg->ppnumber[i] - 1];
+			reg |= 0xF << pp_offset[pp_idx];
 		else
-			reg &= ~(0xF << pp_offset[cfg->ppnumber[i] - 1]);
+			reg &= ~(0xF << pp_offset[pp_idx]);
 	}
 
 	SDE_REG_WRITE(c, MDP_VSYNC_SEL, reg);
