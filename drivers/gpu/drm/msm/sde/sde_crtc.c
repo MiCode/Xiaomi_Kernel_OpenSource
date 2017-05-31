@@ -3020,7 +3020,7 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 			catalog->perf.min_prefill_lines);
 
 	msm_property_set_blob(&sde_crtc->property_info, &sde_crtc->blob_info,
-			info->data, info->len, CRTC_PROP_INFO);
+			info->data, SDE_KMS_INFO_DATALEN(info), CRTC_PROP_INFO);
 
 	kfree(info);
 }

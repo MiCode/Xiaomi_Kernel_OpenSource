@@ -2272,7 +2272,8 @@ static void sde_plane_rot_install_caps(struct drm_plane *plane)
 				rot_hw->ops.get_maxlinewidth(rot_hw));
 
 	msm_property_set_blob(&psde->property_info, &psde->blob_rot_caps,
-			info->data, info->len, PLANE_PROP_ROT_CAPS_V1);
+			info->data, SDE_KMS_INFO_DATALEN(info),
+			PLANE_PROP_ROT_CAPS_V1);
 
 	sde_hw_rot_put(rot_hw);
 error_rot:
@@ -3424,7 +3425,8 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	sde_kms_info_add_keyint(info, "max_per_pipe_bw",
 			psde->pipe_sblk->max_per_pipe_bw * 1000LL);
 	msm_property_set_blob(&psde->property_info, &psde->blob_info,
-			info->data, info->len, PLANE_PROP_INFO);
+			info->data, SDE_KMS_INFO_DATALEN(info),
+			PLANE_PROP_INFO);
 
 	kfree(info);
 	kfree(virt_format_list);
