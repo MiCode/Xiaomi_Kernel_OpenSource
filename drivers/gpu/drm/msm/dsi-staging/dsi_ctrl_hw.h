@@ -533,6 +533,12 @@ struct dsi_ctrl_hw_ops {
 				 u32 *hw_read_cnt);
 
 	/**
+	 * get_cont_splash_status() - get continuous splash status
+	 * @ctrl:           Pointer to the controller host hardware.
+	 */
+	bool (*get_cont_splash_status)(struct dsi_ctrl_hw *ctrl);
+
+	/**
 	 * wait_for_lane_idle() - wait for DSI lanes to go to idle state
 	 * @ctrl:          Pointer to the controller host hardware.
 	 * @lanes:         ORed list of lanes (enum dsi_data_lanes) which need

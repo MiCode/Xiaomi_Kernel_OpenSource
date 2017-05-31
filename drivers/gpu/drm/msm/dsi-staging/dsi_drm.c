@@ -129,6 +129,9 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 		return;
 	}
 
+	if (!c_bridge || !c_bridge->display)
+		pr_err("Incorrect bridge details\n");
+
 	/* By this point mode should have been validated through mode_fixup */
 	rc = dsi_display_set_mode(c_bridge->display,
 			&(c_bridge->dsi_mode), 0x0);
@@ -157,11 +160,16 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 	rc = dsi_display_enable(c_bridge->display);
 	if (rc) {
 		pr_err("[%d] DSI display enable failed, rc=%d\n",
-		       c_bridge->id, rc);
+				c_bridge->id, rc);
 		(void)dsi_display_unprepare(c_bridge->display);
 	}
 	SDE_ATRACE_END("dsi_display_enable");
 	SDE_ATRACE_END("dsi_bridge_pre_enable");
+
+	rc = dsi_display_splash_res_cleanup(c_bridge->display);
+	if (rc)
+		pr_err("Continuous splash pipeline cleanup failed, rc=%d\n",
+									rc);
 }
 
 static void dsi_bridge_enable(struct drm_bridge *bridge)

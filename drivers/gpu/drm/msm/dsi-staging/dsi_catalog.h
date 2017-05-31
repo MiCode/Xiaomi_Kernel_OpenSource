@@ -206,4 +206,7 @@ ssize_t dsi_ctrl_hw_20_reg_dump_to_buffer(struct dsi_ctrl_hw *ctrl,
 					  char *buf,
 					  u32 size);
 
+/* Definitions specific to 2.2 DSI controller hardware */
+bool dsi_ctrl_hw_22_get_cont_splash_status(struct dsi_ctrl_hw *ctrl);
+
 #endif /* _DSI_CATALOG_H_ */

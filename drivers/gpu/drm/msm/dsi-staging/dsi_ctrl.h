@@ -395,6 +395,7 @@ int dsi_ctrl_host_timing_update(struct dsi_ctrl *dsi_ctrl);
 /**
  * dsi_ctrl_host_init() - Initialize DSI host hardware.
  * @dsi_ctrl:        DSI controller handle.
+ * @is_splash_enabled:       boolean signifying splash status.
  *
  * Initializes DSI controller hardware with host configuration provided by
  * dsi_ctrl_update_host_config(). Initialization can be performed only during
@@ -403,7 +404,7 @@ int dsi_ctrl_host_timing_update(struct dsi_ctrl *dsi_ctrl);
  *
  * Return: error code.
  */
-int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl);
+int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl, bool is_splash_enabled);
 
 /**
  * dsi_ctrl_host_deinit() - De-Initialize DSI host hardware.
@@ -491,6 +492,17 @@ int dsi_ctrl_cmd_transfer(struct dsi_ctrl *dsi_ctrl,
  * Return: error code.
  */
 int dsi_ctrl_cmd_tx_trigger(struct dsi_ctrl *dsi_ctrl, u32 flags);
+
+/**
+ * dsi_ctrl_update_host_engine_state_for_cont_splash() - update engine
+ *                                 states for cont splash usecase
+ * @dsi_ctrl:              DSI controller handle.
+ * @state:                 DSI engine state
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_update_host_engine_state_for_cont_splash(struct dsi_ctrl *dsi_ctrl,
+				enum dsi_engine_state state);
 
 /**
  * dsi_ctrl_set_power_state() - set power state for dsi controller

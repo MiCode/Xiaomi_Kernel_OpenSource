@@ -2256,6 +2256,7 @@ int dsi_ctrl_host_timing_update(struct dsi_ctrl *dsi_ctrl)
 /**
  * dsi_ctrl_host_init() - Initialize DSI host hardware.
  * @dsi_ctrl:        DSI controller handle.
+ * @is_splash_enabled:        boolean signifying splash status.
  *
  * Initializes DSI controller hardware with host configuration provided by
  * dsi_ctrl_update_host_config(). Initialization can be performed only during
@@ -2264,7 +2265,7 @@ int dsi_ctrl_host_timing_update(struct dsi_ctrl *dsi_ctrl)
  *
  * Return: error code.
  */
-int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl)
+int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl, bool is_splash_enabled)
 {
 	int rc = 0;
 
@@ -2281,28 +2282,33 @@ int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl)
 		goto error;
 	}
 
-	dsi_ctrl->hw.ops.setup_lane_map(&dsi_ctrl->hw,
+	/* For Splash usecases we omit hw operations as bootloader
+	 * already takes care of them
+	 */
+	if (!is_splash_enabled) {
+		dsi_ctrl->hw.ops.setup_lane_map(&dsi_ctrl->hw,
 					&dsi_ctrl->host_config.lane_map);
 
-	dsi_ctrl->hw.ops.host_setup(&dsi_ctrl->hw,
+		dsi_ctrl->hw.ops.host_setup(&dsi_ctrl->hw,
 				    &dsi_ctrl->host_config.common_config);
 
-	if (dsi_ctrl->host_config.panel_mode == DSI_OP_CMD_MODE) {
-		dsi_ctrl->hw.ops.cmd_engine_setup(&dsi_ctrl->hw,
+		if (dsi_ctrl->host_config.panel_mode == DSI_OP_CMD_MODE) {
+			dsi_ctrl->hw.ops.cmd_engine_setup(&dsi_ctrl->hw,
 					&dsi_ctrl->host_config.common_config,
 					&dsi_ctrl->host_config.u.cmd_engine);
 
-		dsi_ctrl->hw.ops.setup_cmd_stream(&dsi_ctrl->hw,
+			dsi_ctrl->hw.ops.setup_cmd_stream(&dsi_ctrl->hw,
 				&dsi_ctrl->host_config.video_timing,
 				dsi_ctrl->host_config.video_timing.h_active * 3,
 				0x0,
 				NULL);
-	} else {
-		dsi_ctrl->hw.ops.video_engine_setup(&dsi_ctrl->hw,
+		} else {
+			dsi_ctrl->hw.ops.video_engine_setup(&dsi_ctrl->hw,
 					&dsi_ctrl->host_config.common_config,
 					&dsi_ctrl->host_config.u.video_engine);
-		dsi_ctrl->hw.ops.set_video_timing(&dsi_ctrl->hw,
+			dsi_ctrl->hw.ops.set_video_timing(&dsi_ctrl->hw,
 					  &dsi_ctrl->host_config.video_timing);
+		}
 	}
 
 	dsi_ctrl_setup_isr(dsi_ctrl);
@@ -2310,8 +2316,8 @@ int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl)
 	dsi_ctrl->hw.ops.enable_status_interrupts(&dsi_ctrl->hw, 0x0);
 	dsi_ctrl->hw.ops.enable_error_interrupts(&dsi_ctrl->hw, 0x0);
 
-	pr_debug("[DSI_%d]Host initialization complete\n",
-		dsi_ctrl->cell_index);
+	pr_debug("[DSI_%d]Host initialization complete, continuous splash status:%d\n",
+		dsi_ctrl->cell_index, is_splash_enabled);
 	dsi_ctrl_update_state(dsi_ctrl, DSI_CTRL_OP_HOST_INIT, 0x1);
 error:
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
@@ -2588,6 +2594,43 @@ static void _dsi_ctrl_cache_misr(struct dsi_ctrl *dsi_ctrl)
 	pr_debug("DSI_%d misr_cache = %x\n", dsi_ctrl->cell_index,
 		dsi_ctrl->misr_cache);
 
+}
+
+/**
+ * dsi_ctrl_update_host_engine_state_for_cont_splash() -
+ *            set engine state for dsi controller during continuous splash
+ * @dsi_ctrl:          DSI controller handle.
+ * @state:             Engine state.
+ *
+ * Set host engine state for DSI controller during continuous splash.
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_update_host_engine_state_for_cont_splash(struct dsi_ctrl *dsi_ctrl,
+					enum dsi_engine_state state)
+{
+	int rc = 0;
+
+	if (!dsi_ctrl || (state >= DSI_CTRL_ENGINE_MAX)) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+
+	rc = dsi_ctrl_check_state(dsi_ctrl, DSI_CTRL_OP_HOST_ENGINE, state);
+	if (rc) {
+		pr_err("[DSI_%d] Controller state check failed, rc=%d\n",
+		       dsi_ctrl->cell_index, rc);
+		goto error;
+	}
+
+	pr_debug("[DSI_%d] Set host engine state = %d\n", dsi_ctrl->cell_index,
+		 state);
+	dsi_ctrl_update_state(dsi_ctrl, DSI_CTRL_OP_HOST_ENGINE, state);
+error:
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+	return rc;
 }
 
 /**
