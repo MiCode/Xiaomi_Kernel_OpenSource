@@ -461,6 +461,27 @@ video_fail:
 	return rc;
 }
 
+int cam_req_mgr_notify_frame_message(struct cam_req_mgr_message *msg,
+	uint32_t id,
+	uint32_t type)
+{
+	struct v4l2_event event;
+	struct cam_req_mgr_message *ev_header;
+
+	if (!msg)
+		return -EINVAL;
+
+	event.id = id;
+	event.type = type;
+	ev_header = CAM_REQ_MGR_GET_PAYLOAD_PTR(event,
+		struct cam_req_mgr_message);
+	memcpy(ev_header, msg, sizeof(struct cam_req_mgr_message));
+	v4l2_event_queue(g_dev.video, &event);
+
+	return 0;
+}
+EXPORT_SYMBOL(cam_req_mgr_notify_frame_message);
+
 void cam_video_device_cleanup(void)
 {
 	video_unregister_device(g_dev.video);
