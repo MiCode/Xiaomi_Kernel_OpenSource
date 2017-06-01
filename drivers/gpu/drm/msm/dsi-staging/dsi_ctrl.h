@@ -33,12 +33,15 @@
  * @DSI_CTRL_CMD_DEFER_TRIGGER:    Defer the command trigger to later.
  * @DSI_CTRL_CMD_FIFO_STORE:       Use FIFO for command transfer in place of
  *				   reading data from memory.
+ * @DSI_CTRL_CMD_FETCH_MEMORY:     Fetch command from memory through AXI bus
+ *				   and transfer it.
  */
 #define DSI_CTRL_CMD_READ             0x1
 #define DSI_CTRL_CMD_BROADCAST        0x2
 #define DSI_CTRL_CMD_BROADCAST_MASTER 0x4
 #define DSI_CTRL_CMD_DEFER_TRIGGER    0x8
 #define DSI_CTRL_CMD_FIFO_STORE       0x10
+#define DSI_CTRL_CMD_FETCH_MEMORY     0x20
 
 /**
  * enum dsi_power_state - defines power states for dsi controller.
@@ -188,6 +191,8 @@ struct dsi_ctrl_interrupts {
  * @roi:                 Partial update region of interest.
  *                       Origin is top left of this CTRL.
  * @tx_cmd_buf:          Tx command buffer.
+ * @cmd_buffer_iova:     cmd buffer mapped address.
+ * @vaddr:		 CPU virtual address of cmd buffer.
  * @cmd_buffer_size:     Size of command buffer.
  * @debugfs_root:        Root for debugfs entries.
  */
@@ -221,6 +226,8 @@ struct dsi_ctrl {
 	/* Command tx and rx */
 	struct drm_gem_object *tx_cmd_buf;
 	u32 cmd_buffer_size;
+	u32 cmd_buffer_iova;
+	void *vaddr;
 
 	/* Debug Information */
 	struct dentry *debugfs_root;
@@ -377,14 +384,14 @@ int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl);
 int dsi_ctrl_host_deinit(struct dsi_ctrl *dsi_ctrl);
 
 /**
-  * dsi_ctrl_set_ulps() - set ULPS state for DSI lanes.
-  * @dsi_ctrl:		DSI controller handle.
-  * @enable:		enable/disable ULPS.
-  *
-  * ULPS can be enabled/disabled after DSI host engine is turned on.
-  *
-  * Return: error code.
-  */
+ * dsi_ctrl_set_ulps() - set ULPS state for DSI lanes.
+ * @dsi_ctrl:		DSI controller handle.
+ * @enable:		enable/disable ULPS.
+ *
+ * ULPS can be enabled/disabled after DSI host engine is turned on.
+ *
+ * Return: error code.
+ */
 int dsi_ctrl_set_ulps(struct dsi_ctrl *dsi_ctrl, bool enable);
 
 /**

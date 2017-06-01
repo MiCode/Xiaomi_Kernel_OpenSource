@@ -879,14 +879,12 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 	int rc = 0;
 	struct mipi_dsi_packet packet;
 	struct dsi_ctrl_cmd_dma_fifo_info cmd;
+	struct dsi_ctrl_cmd_dma_info cmd_mem;
 	u32 hw_flags = 0;
 	u32 length = 0;
 	u8 *buffer = NULL;
-
-	if (!(flags & DSI_CTRL_CMD_FIFO_STORE)) {
-		pr_err("Memory DMA is not supported, use FIFO\n");
-		goto error;
-	}
+	u32 cnt = 0;
+	u8 *cmdbuf;
 
 	rc = mipi_dsi_create_packet(&packet, msg);
 	if (rc) {
@@ -894,7 +892,32 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 		goto error;
 	}
 
-	if (flags & DSI_CTRL_CMD_FIFO_STORE) {
+	if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
+		rc = dsi_ctrl_copy_and_pad_cmd(dsi_ctrl,
+				&packet,
+				&buffer,
+				&length);
+
+		if (rc) {
+			pr_err("[%s] failed to copy message, rc=%d\n",
+					dsi_ctrl->name, rc);
+			goto error;
+		}
+
+		cmd_mem.offset = dsi_ctrl->cmd_buffer_iova;
+		cmd_mem.length = length;
+		cmd_mem.en_broadcast = (flags & DSI_CTRL_CMD_BROADCAST) ?
+			true : false;
+		cmd_mem.is_master = (flags & DSI_CTRL_CMD_BROADCAST_MASTER) ?
+			true : false;
+		cmd_mem.use_lpm = (msg->flags & MIPI_DSI_MSG_USE_LPM) ?
+			true : false;
+
+		cmdbuf = (u8 *)(dsi_ctrl->vaddr);
+		for (cnt = 0; cnt < length; cnt++)
+			cmdbuf[cnt] = buffer[cnt];
+
+	} else if (flags & DSI_CTRL_CMD_FIFO_STORE) {
 		rc = dsi_ctrl_copy_and_pad_cmd(dsi_ctrl,
 					       &packet,
 					       &buffer,
@@ -920,10 +943,15 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 	if (!(flags & DSI_CTRL_CMD_DEFER_TRIGGER))
 		reinit_completion(&dsi_ctrl->int_info.cmd_dma_done);
 
-	if (flags & DSI_CTRL_CMD_FIFO_STORE)
+	if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
+		dsi_ctrl->hw.ops.kickoff_command(&dsi_ctrl->hw,
+						&cmd_mem,
+						hw_flags);
+	} else if (flags & DSI_CTRL_CMD_FIFO_STORE) {
 		dsi_ctrl->hw.ops.kickoff_fifo_command(&dsi_ctrl->hw,
 						      &cmd,
 						      hw_flags);
+	}
 
 	if (!(flags & DSI_CTRL_CMD_DEFER_TRIGGER)) {
 		u32 retry = 10;
@@ -2171,14 +2199,14 @@ error:
 }
 
 /**
-  * dsi_ctrl_set_ulps() - set ULPS state for DSI lanes.
-  * @dsi_ctrl:		DSI controller handle.
-  * @enable:		enable/disable ULPS.
-  *
-  * ULPS can be enabled/disabled after DSI host engine is turned on.
-  *
-  * Return: error code.
-  */
+ * dsi_ctrl_set_ulps() - set ULPS state for DSI lanes.
+ * @dsi_ctrl:		DSI controller handle.
+ * @enable:		enable/disable ULPS.
+ *
+ * ULPS can be enabled/disabled after DSI host engine is turned on.
+ *
+ * Return: error code.
+ */
 int dsi_ctrl_set_ulps(struct dsi_ctrl *dsi_ctrl, bool enable)
 {
 	int rc = 0;
