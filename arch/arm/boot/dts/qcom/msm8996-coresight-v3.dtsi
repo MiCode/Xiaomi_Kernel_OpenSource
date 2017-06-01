@@ -86,7 +86,7 @@
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
-		clock-names = "apb_clk", "core_a_clk";
+		clock-names = "apb_pclk", "core_a_clk";
 
 		ports{
 			#address-cells = <1>;
