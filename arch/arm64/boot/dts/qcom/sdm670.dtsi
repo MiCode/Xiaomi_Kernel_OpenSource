@@ -12,6 +12,13 @@
 
 #include "skeleton64.dtsi"
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/qcom,gcc-sdm845.h>
+#include <dt-bindings/clock/qcom,camcc-sdm845.h>
+#include <dt-bindings/clock/qcom,dispcc-sdm845.h>
+#include <dt-bindings/clock/qcom,gpucc-sdm845.h>
+#include <dt-bindings/clock/qcom,videocc-sdm845.h>
+#include <dt-bindings/clock/qcom,cpucc-sdm845.h>
+#include <dt-bindings/clock/qcom,rpmh.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM670";
@@ -483,6 +490,54 @@
 		reg-names = "pshold-base", "tcsr-boot-misc-detect";
 	};
 
+	clock_rpmh: qcom,rpmhclk {
+		compatible = "qcom,dummycc";
+		clock-output-names = "rpmh_clocks";
+		#clock-cells = <1>;
+	};
+
+	clock_gcc: qcom,gcc@100000 {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_videocc: qcom,videocc@ab00000 {
+		compatible = "qcom,dummycc";
+		clock-output-names = "videocc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_camcc: qcom,camcc@ad00000 {
+		compatible = "qcom,dummycc";
+		clock-output-names = "camcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_dispcc: qcom,dispcc@af00000 {
+		compatible = "qcom,dummycc";
+		clock-output-names = "dispcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_gpucc: qcom,gpucc@5090000 {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gpucc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_gfx: qcom,gfxcc@5090000  {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gfxcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
 	clock_cpucc: qcom,cpucc {
 		compatible = "qcom,dummycc";
 		clock-output-names = "cpucc_clocks";
@@ -654,3 +709,77 @@
 };
 
 #include "sdm670-pinctrl.dtsi"
+#include "msm-gdsc-sdm845.dtsi"
+
+&usb30_prim_gdsc {
+	status = "ok";
+};
+
+&ufs_phy_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_aggre_noc_mmu_audio_tbu_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_aggre_noc_mmu_tbu1_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_aggre_noc_mmu_tbu2_gdsc {
+	status = "ok";
+};
+
+&bps_gdsc {
+	status = "ok";
+};
+
+&ife_0_gdsc {
+	status = "ok";
+};
+
+&ife_1_gdsc {
+	status = "ok";
+};
+
+&ipe_0_gdsc {
+	status = "ok";
+};
+
+&ipe_1_gdsc {
+	status = "ok";
+};
+
+&titan_top_gdsc {
+	status = "ok";
+};
+
+&mdss_core_gdsc {
+	status = "ok";
+};
+
+&gpu_cx_gdsc {
+	status = "ok";
+};
+
+&gpu_gx_gdsc {
+	clock-names = "core_root_clk";
+	clocks = <&clock_gfx GPU_CC_GX_GFX3D_CLK_SRC>;
+	qcom,force-enable-root-clk;
+	status = "ok";
+};
+
+&vcodec0_gdsc {
+	qcom,support-hw-trigger;
+	status = "ok";
+};
+
+&vcodec1_gdsc {
+	qcom,support-hw-trigger;
+	status = "ok";
+};
+
+&venus_gdsc {
+	status = "ok";
+};
