@@ -23,7 +23,7 @@
  * These defines control the address range for allocations that
  * are mapped into all pagetables.
  */
-#define KGSL_IOMMU_GLOBAL_MEM_SIZE	SZ_8M
+#define KGSL_IOMMU_GLOBAL_MEM_SIZE	(20 * SZ_1M)
 #define KGSL_IOMMU_GLOBAL_MEM_BASE	0xf8000000
 
 #define KGSL_IOMMU_SECURE_SIZE SZ_256M
