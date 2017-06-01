@@ -1077,7 +1077,10 @@ int msm_pcm_routing_reg_phy_compr_stream(int fe_id, int perf_mode,
 		port_type = MSM_AFE_PORT_TYPE_RX;
 	} else if (stream_type == SNDRV_PCM_STREAM_CAPTURE) {
 		session_type = SESSION_TYPE_TX;
-		path_type = ADM_PATH_LIVE_REC;
+		if (passthr_mode != LEGACY_PCM)
+			path_type = ADM_PATH_COMPRESSED_TX;
+		else
+			path_type = ADM_PATH_LIVE_REC;
 		port_type = MSM_AFE_PORT_TYPE_TX;
 	} else {
 		pr_err("%s: invalid stream type %d\n", __func__, stream_type);
@@ -1514,7 +1517,10 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 			path_type = ADM_PATH_PLAYBACK;
 	} else {
 		session_type = SESSION_TYPE_TX;
-		path_type = ADM_PATH_LIVE_REC;
+		if (passthr_mode != LEGACY_PCM)
+			path_type = ADM_PATH_COMPRESSED_TX;
+		else
+			path_type = ADM_PATH_LIVE_REC;
 	}
 	is_lsm = (val >= MSM_FRONTEND_DAI_LSM1) &&
 			 (val <= MSM_FRONTEND_DAI_LSM8);
@@ -6447,6 +6453,9 @@ static const struct snd_kcontrol_new mmul18_mixer_controls[] = {
 	MSM_FRONTEND_DAI_MULTIMEDIA18, 1, 0, msm_routing_get_audio_mixer,
 	msm_routing_put_audio_mixer),
 	SOC_SINGLE_EXT("PRI_MI2S_TX", MSM_BACKEND_DAI_PRI_MI2S_TX,
+	MSM_FRONTEND_DAI_MULTIMEDIA18, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+	SOC_SINGLE_EXT("QUAT_MI2S_TX", MSM_BACKEND_DAI_QUATERNARY_MI2S_TX,
 	MSM_FRONTEND_DAI_MULTIMEDIA18, 1, 0, msm_routing_get_audio_mixer,
 	msm_routing_put_audio_mixer),
 	SOC_SINGLE_EXT("INTERNAL_FM_TX", MSM_BACKEND_DAI_INT_FM_TX,
@@ -11913,6 +11922,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"MultiMedia18 Mixer", "PRI_MI2S_TX", "PRI_MI2S_TX"},
 	{"MultiMedia19 Mixer", "PRI_MI2S_TX", "PRI_MI2S_TX"},
 	{"MultiMedia8 Mixer", "PRI_MI2S_TX", "PRI_MI2S_TX"},
+	{"MultiMedia18 Mixer", "QUAT_MI2S_TX", "QUAT_MI2S_TX"},
 	{"MultiMedia8 Mixer", "INT3_MI2S_TX", "INT3_MI2S_TX"},
 	{"MultiMedia3 Mixer", "SLIM_0_TX", "SLIMBUS_0_TX"},
 	{"MultiMedia5 Mixer", "SLIM_0_TX", "SLIMBUS_0_TX"},
