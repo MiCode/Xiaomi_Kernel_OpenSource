@@ -16,11 +16,17 @@
 #include "msm_sensor_driver.h"
 #include "msm_sensor.h"
 #include "msm_sd.h"
+#include "msm_camera_io_util.h"
+#include "msm_early_cam.h"
 
 /* Logging macro */
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
+#define EARLY_CAMERA_SIGNAL_DONE 0xa5a5a5a5
+#define EARLY_CAMERA_SIGNAL_DISABLED 0
+
+static bool early_camera_clock_off;
 static struct msm_sensor_init_t *s_init;
 
 static int msm_sensor_wait_for_probe_done(struct msm_sensor_init_t *s_init)
@@ -42,10 +48,14 @@ static int msm_sensor_wait_for_probe_done(struct msm_sensor_init_t *s_init)
 	return rc;
 }
 
+#define MMSS_A_VFE_0_SPARE 0xC84
+
 /* Static function definition */
 int32_t msm_sensor_driver_cmd(struct msm_sensor_init_t *s_init, void *arg)
 {
 	int32_t                      rc = 0;
+	u32 val = 0;
+	void __iomem *base;
 	struct sensor_init_cfg_data *cfg = (struct sensor_init_cfg_data *)arg;
 
 	/* Validate input parameters */
@@ -68,6 +78,28 @@ int32_t msm_sensor_driver_cmd(struct msm_sensor_init_t *s_init, void *arg)
 		break;
 
 	case CFG_SINIT_PROBE_DONE:
+		if (early_camera_clock_off == false) {
+			base = ioremap(0x00A10000, 0x1000);
+			val = msm_camera_io_r_mb(base + MMSS_A_VFE_0_SPARE);
+			while (val != EARLY_CAMERA_SIGNAL_DONE) {
+				if (val == EARLY_CAMERA_SIGNAL_DISABLED)
+					break;
+				msleep(1000);
+				val = msm_camera_io_r_mb(
+					base + MMSS_A_VFE_0_SPARE);
+				pr_err("Waiting for signal from LK val = %u\n",
+					val);
+			}
+			rc = msm_early_cam_disable_clocks();
+			if (rc < 0) {
+				pr_err("Failed to disable early camera :%d\n",
+					rc);
+			} else {
+				early_camera_clock_off = true;
+				pr_debug("Voted OFF early camera clocks\n");
+			}
+		}
+
 		s_init->module_init_status = 1;
 		wake_up(&s_init->state_wait);
 		break;
@@ -99,6 +131,7 @@ static int __init msm_sensor_init_module(void)
 	mutex_init(&s_init->imutex);
 
 	init_waitqueue_head(&s_init->state_wait);
+	early_camera_clock_off = false;
 	return ret;
 }
 
