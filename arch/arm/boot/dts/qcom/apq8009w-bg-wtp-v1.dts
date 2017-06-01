@@ -60,6 +60,18 @@
 		};
 	};
 
+	qcom,blackghost {
+		compatible = "qcom,pil-blackghost";
+
+		qcom,firmware-name = "bgelf";
+		/* GPIO inputs from blackghost */
+		qcom,bg2ap-status-gpio = <&msm_gpio 97 0>;
+		qcom,bg2ap-errfatal-gpio = <&msm_gpio 95 0>;
+		/* GPIO output to blackghost */
+		qcom,ap2bg-status-gpio = <&msm_gpio 17 0>;
+		qcom,ap2bg-errfatal-gpio = <&msm_gpio 23 0>;
+	};
+
 	qcom,msm-ssc-sensors {
 		compatible = "qcom,msm-ssc-sensors";
 	};
