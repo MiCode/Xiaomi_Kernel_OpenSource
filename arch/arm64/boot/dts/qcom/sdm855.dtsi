@@ -206,6 +206,8 @@
 	soc: soc { };
 };
 
+#include "sdm855-gdsc.dtsi"
+
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
@@ -346,4 +348,112 @@
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
+};
+
+&emac_gdsc {
+	status = "ok";
+};
+
+&pcie_0_gdsc {
+	status = "ok";
+};
+
+&pcie_1_gdsc {
+	status = "ok";
+};
+
+&ufs_card_gdsc {
+	status = "ok";
+};
+
+&ufs_phy_gdsc {
+	status = "ok";
+};
+
+&usb30_prim_gdsc {
+	status = "ok";
+};
+
+&usb30_sec_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_aggre_noc_mmu_audio_tbu_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_aggre_noc_mmu_tbu1_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_aggre_noc_mmu_tbu2_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_aggre_noc_mmu_pcie_tbu_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_mmnoc_mmu_tbu_sf_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_turing_mmu_tbu_gdsc {
+	status = "ok";
+};
+
+&bps_gdsc {
+	status = "ok";
+};
+
+&ipe_0_gdsc {
+	status = "ok";
+};
+
+&ipe_1_gdsc {
+	status = "ok";
+};
+
+&ife_0_gdsc {
+	status = "ok";
+};
+
+&ife_1_gdsc {
+	status = "ok";
+};
+
+&titan_top_gdsc {
+	status = "ok";
+};
+
+&mdss_core_gdsc {
+	status = "ok";
+};
+
+&gpu_cx_gdsc {
+	status = "ok";
+};
+
+&gpu_gx_gdsc {
+	status = "ok";
+};
+
+&mvsc_gdsc {
+	status = "ok";
+};
+
+&mvs0_gdsc {
+	status = "ok";
+};
+
+&mvs1_gdsc {
+	status = "ok";
 };
