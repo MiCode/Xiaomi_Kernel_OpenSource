@@ -55,7 +55,7 @@ static const struct adreno_vbif_platform a5xx_vbif_platforms[] = {
 	{ adreno_is_a530, a530_vbif },
 	{ adreno_is_a512, a540_vbif },
 	{ adreno_is_a510, a530_vbif },
-	{ adreno_is_a508, a530_vbif },
+	{ adreno_is_a508, a540_vbif },
 	{ adreno_is_a505, a530_vbif },
 	{ adreno_is_a506, a530_vbif },
 };
