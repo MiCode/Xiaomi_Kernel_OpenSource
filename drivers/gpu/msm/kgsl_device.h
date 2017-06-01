@@ -532,18 +532,49 @@ static inline void kgsl_process_add_stats(struct kgsl_process_private *priv,
 		priv->stats[type].max = priv->stats[type].cur;
 }
 
+static inline bool kgsl_is_register_offset(struct kgsl_device *device,
+				unsigned int offsetwords)
+{
+	return ((offsetwords * sizeof(uint32_t)) < device->reg_len);
+}
+
+static inline bool kgsl_is_gmu_offset(struct kgsl_device *device,
+				unsigned int offsetwords)
+{
+	struct gmu_device *gmu = &device->gmu;
+
+	return (gmu->pdev &&
+		(offsetwords >= gmu->gmu2gpu_offset) &&
+		((offsetwords - gmu->gmu2gpu_offset) * sizeof(uint32_t) <
+			gmu->reg_len));
+}
+
 static inline void kgsl_regread(struct kgsl_device *device,
 				unsigned int offsetwords,
 				unsigned int *value)
 {
-	device->ftbl->regread(device, offsetwords, value);
+	if (kgsl_is_register_offset(device, offsetwords))
+		device->ftbl->regread(device, offsetwords, value);
+	else if (device->ftbl->gmu_regread &&
+			kgsl_is_gmu_offset(device, offsetwords))
+		device->ftbl->gmu_regread(device, offsetwords, value);
+	else {
+		WARN(1, "Out of bounds register read: 0x%x\n", offsetwords);
+		*value = 0;
+	}
 }
 
 static inline void kgsl_regwrite(struct kgsl_device *device,
 				 unsigned int offsetwords,
 				 unsigned int value)
 {
-	device->ftbl->regwrite(device, offsetwords, value);
+	if (kgsl_is_register_offset(device, offsetwords))
+		device->ftbl->regwrite(device, offsetwords, value);
+	else if (device->ftbl->gmu_regwrite &&
+			kgsl_is_gmu_offset(device, offsetwords))
+		device->ftbl->gmu_regwrite(device, offsetwords, value);
+	else
+		WARN(1, "Out of bounds register write: 0x%x\n", offsetwords);
 }
 
 static inline void kgsl_gmu_regread(struct kgsl_device *device,
@@ -570,9 +601,9 @@ static inline void kgsl_regrmw(struct kgsl_device *device,
 {
 	unsigned int val = 0;
 
-	device->ftbl->regread(device, offsetwords, &val);
+	kgsl_regread(device, offsetwords, &val);
 	val &= ~mask;
-	device->ftbl->regwrite(device, offsetwords, val | bits);
+	kgsl_regwrite(device, offsetwords, val | bits);
 }
 
 static inline void kgsl_gmu_regrmw(struct kgsl_device *device,
