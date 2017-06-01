@@ -2419,6 +2419,13 @@ static struct adreno_perfcount_register a6xx_perfcounters_vbif_pwr[] = {
 		A6XX_VBIF_PERF_PWR_CNT_HIGH2, -1, A6XX_VBIF_PERF_PWR_CNT_EN2 },
 };
 
+static struct adreno_perfcount_register a6xx_perfcounters_pwr[] = {
+	{ KGSL_PERFCOUNTER_BROKEN, 0, 0, 0, 0, -1, 0 },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_L,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_H, -1, 0 },
+};
+
 static struct adreno_perfcount_register a6xx_perfcounters_alwayson[] = {
 	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A6XX_CP_ALWAYS_ON_COUNTER_LO,
 		A6XX_CP_ALWAYS_ON_COUNTER_HI, -1 },
@@ -2451,6 +2458,8 @@ static struct adreno_perfcount_group a6xx_perfcounter_groups
 	A6XX_PERFCOUNTER_GROUP(VBIF, vbif),
 	A6XX_PERFCOUNTER_GROUP_FLAGS(VBIF_PWR, vbif_pwr,
 		ADRENO_PERFCOUNTER_GROUP_FIXED),
+	A6XX_PERFCOUNTER_GROUP_FLAGS(PWR, pwr,
+		ADRENO_PERFCOUNTER_GROUP_FIXED),
 	A6XX_PERFCOUNTER_GROUP_FLAGS(ALWAYSON, alwayson,
 		ADRENO_PERFCOUNTER_GROUP_FIXED),
 };
@@ -2459,6 +2468,30 @@ static struct adreno_perfcounters a6xx_perfcounters = {
 	a6xx_perfcounter_groups,
 	ARRAY_SIZE(a6xx_perfcounter_groups),
 };
+
+/* Program the GMU power counter to count GPU busy cycles */
+static int a6xx_enable_pwr_counters(struct adreno_device *adreno_dev,
+		unsigned int counter)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	/*
+	 * We have a limited number of power counters. Since we're not using
+	 * total GPU cycle count, return error if requested.
+	 */
+	if (counter == 0)
+		return -EINVAL;
+
+	if (!device->gmu.pdev)
+		return -ENODEV;
+
+	kgsl_regwrite(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_MASK, 0);
+	kgsl_regrmw(device,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0, 0xFF, 0x20);
+	kgsl_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0x1);
+
+	return 0;
+}
 
 /* Register offset defines for A6XX, in order of enum adreno_regs */
 static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
@@ -2581,6 +2614,7 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.regulator_enable = a6xx_sptprac_enable,
 	.regulator_disable = a6xx_sptprac_disable,
 	.perfcounters = &a6xx_perfcounters,
+	.enable_pwr_counters = a6xx_enable_pwr_counters,
 	.microcode_read = a6xx_microcode_read,
 	.enable_64bit = a6xx_enable_64bit,
 	.llc_configure_gpu_scid = a6xx_llc_configure_gpu_scid,
