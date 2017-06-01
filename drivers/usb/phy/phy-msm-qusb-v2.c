@@ -76,7 +76,6 @@ MODULE_PARM_DESC(phy_tune1, "QUSB PHY v2 TUNE1");
 
 struct qusb_phy {
 	struct usb_phy		phy;
-	struct mutex		lock;
 	void __iomem		*base;
 	void __iomem		*efuse_reg;
 	void __iomem		*tcsr_clamp_dig_n;
@@ -101,7 +100,7 @@ struct qusb_phy {
 	int			efuse_bit_pos;
 	int			efuse_num_of_bits;
 
-	int			power_enabled_ref;
+	bool			power_enabled;
 	bool			clocks_enabled;
 	bool			cable_connected;
 	bool			suspended;
@@ -165,31 +164,16 @@ static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on)
 {
 	int ret = 0;
 
-	mutex_lock(&qphy->lock);
+	dev_dbg(qphy->phy.dev, "%s turn %s regulators. power_enabled:%d\n",
+			__func__, on ? "on" : "off", qphy->power_enabled);
 
-	dev_dbg(qphy->phy.dev,
-		"%s:req to turn %s regulators. power_enabled_ref:%d\n",
-			__func__, on ? "on" : "off", qphy->power_enabled_ref);
-
-	if (on && ++qphy->power_enabled_ref > 1) {
-		dev_dbg(qphy->phy.dev, "PHYs' regulators are already on\n");
-		goto done;
+	if (qphy->power_enabled == on) {
+		dev_dbg(qphy->phy.dev, "PHYs' regulators are already ON.\n");
+		return 0;
 	}
 
-	if (!on) {
-		if (on == qphy->power_enabled_ref) {
-			dev_dbg(qphy->phy.dev,
-				"PHYs' regulators are already off\n");
-			goto done;
-		}
-
-		qphy->power_enabled_ref--;
-		if (!qphy->power_enabled_ref)
-			goto disable_vdda33;
-
-		dev_dbg(qphy->phy.dev, "Skip turning off PHYs' regulators\n");
-		goto done;
-	}
+	if (!on)
+		goto disable_vdda33;
 
 	ret = qusb_phy_config_vdd(qphy, true);
 	if (ret) {
@@ -264,9 +248,9 @@ static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on)
 		goto unset_vdd33;
 	}
 
-	pr_debug("%s(): QUSB PHY's regulators are turned ON.\n", __func__);
+	qphy->power_enabled = true;
 
-	mutex_unlock(&qphy->lock);
+	pr_debug("%s(): QUSB PHY's regulators are turned ON.\n", __func__);
 	return ret;
 
 disable_vdda33:
@@ -327,13 +311,8 @@ unconfig_vdd:
 		dev_err(qphy->phy.dev, "Unable unconfig VDD:%d\n",
 							ret);
 err_vdd:
+	qphy->power_enabled = false;
 	dev_dbg(qphy->phy.dev, "QUSB PHY's regulators are turned OFF.\n");
-
-	/* in case of error in turning on regulators */
-	if (qphy->power_enabled_ref)
-		qphy->power_enabled_ref--;
-done:
-	mutex_unlock(&qphy->lock);
 	return ret;
 }
 
@@ -465,6 +444,10 @@ static int qusb_phy_init(struct usb_phy *phy)
 	u8 reg;
 
 	dev_dbg(phy->dev, "%s\n", __func__);
+
+	ret = qusb_phy_enable_power(qphy, true);
+	if (ret)
+		return ret;
 
 	/* bump up vdda33 voltage to operating level*/
 	ret = regulator_set_voltage(qphy->vdda33, qphy->vdda33_levels[1],
@@ -1072,8 +1055,6 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		dev_err(dev, "unable to get vdda12 supply\n");
 		return PTR_ERR(qphy->vdda12);
 	}
-
-	mutex_init(&qphy->lock);
 
 	platform_set_drvdata(pdev, qphy);
 
