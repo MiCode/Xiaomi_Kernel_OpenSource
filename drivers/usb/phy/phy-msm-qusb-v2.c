@@ -90,7 +90,6 @@ struct qusb_phy {
 	struct regulator	*vdda18;
 	struct regulator	*vdda12;
 	int			vdd_levels[3]; /* none, low, high */
-	int			vdda33_levels[3];
 	int			init_seq_len;
 	int			*qusb_phy_init_seq;
 	int			host_init_seq_len;
@@ -237,8 +236,8 @@ static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on,
 		goto disable_vdda18;
 	}
 
-	ret = regulator_set_voltage(qphy->vdda33, qphy->vdda33_levels[0],
-						qphy->vdda33_levels[2]);
+	ret = regulator_set_voltage(qphy->vdda33, QUSB2PHY_3P3_VOL_MIN,
+						QUSB2PHY_3P3_VOL_MAX);
 	if (ret) {
 		dev_err(qphy->phy.dev,
 				"Unable to set voltage for vdda33:%d\n", ret);
@@ -263,7 +262,7 @@ disable_vdda33:
 		dev_err(qphy->phy.dev, "Unable to disable vdda33:%d\n", ret);
 
 unset_vdd33:
-	ret = regulator_set_voltage(qphy->vdda33, 0, qphy->vdda33_levels[2]);
+	ret = regulator_set_voltage(qphy->vdda33, 0, QUSB2PHY_3P3_VOL_MAX);
 	if (ret)
 		dev_err(qphy->phy.dev,
 			"Unable to set (0) voltage for vdda33:%d\n", ret);
@@ -455,15 +454,6 @@ static int qusb_phy_init(struct usb_phy *phy)
 	ret = qusb_phy_enable_power(qphy, true, true);
 	if (ret)
 		return ret;
-
-	/* bump up vdda33 voltage to operating level*/
-	ret = regulator_set_voltage(qphy->vdda33, qphy->vdda33_levels[1],
-						qphy->vdda33_levels[2]);
-	if (ret) {
-		dev_err(qphy->phy.dev,
-				"Unable to set voltage for vdda33:%d\n", ret);
-		return ret;
-	}
 
 	qusb_phy_enable_clocks(qphy, true);
 
@@ -1023,19 +1013,6 @@ static int qusb_phy_probe(struct platform_device *pdev)
 					 ARRAY_SIZE(qphy->vdd_levels));
 	if (ret) {
 		dev_err(dev, "error reading qcom,vdd-voltage-level property\n");
-		return ret;
-	}
-
-	ret = of_property_read_u32_array(dev->of_node,
-					"qcom,vdda33-voltage-level",
-					 (u32 *) qphy->vdda33_levels,
-					 ARRAY_SIZE(qphy->vdda33_levels));
-	if (ret == -EINVAL) {
-		qphy->vdda33_levels[0] = QUSB2PHY_3P3_VOL_MIN;
-		qphy->vdda33_levels[1] = QUSB2PHY_3P3_VOL_MIN;
-		qphy->vdda33_levels[2] = QUSB2PHY_3P3_VOL_MAX;
-	} else if (ret) {
-		dev_err(dev, "error reading qcom,vdda33-voltage-level property\n");
 		return ret;
 	}
 
