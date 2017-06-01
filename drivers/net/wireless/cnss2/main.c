@@ -743,6 +743,15 @@ int cnss_power_up(struct device *dev)
 	void *bus_priv = cnss_bus_dev_to_bus_priv(dev);
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 
+	if (!bus_priv || !plat_priv)
+		return -ENODEV;
+
+	if (plat_priv->device_id != QCA6174_DEVICE_ID) {
+		cnss_pr_dbg("Power up is not supported for device ID 0x%lx\n",
+			    plat_priv->device_id);
+		return 0;
+	}
+
 	ret = cnss_power_on_device(plat_priv);
 	if (ret) {
 		cnss_pr_err("Failed to power on device, err = %d\n", ret);
@@ -771,6 +780,12 @@ int cnss_power_down(struct device *dev)
 
 	if (!bus_priv || !plat_priv)
 		return -ENODEV;
+
+	if (plat_priv->device_id != QCA6174_DEVICE_ID) {
+		cnss_pr_dbg("Power down is not supported for device ID 0x%lx\n",
+			    plat_priv->device_id);
+		return 0;
+	}
 
 	cnss_request_bus_bandwidth(CNSS_BUS_WIDTH_NONE);
 	cnss_pci_set_monitor_wake_intr(bus_priv, false);
