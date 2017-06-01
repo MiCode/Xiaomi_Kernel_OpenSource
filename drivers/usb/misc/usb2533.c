@@ -174,6 +174,12 @@ static int flex_hub_usbdev_notify(struct notifier_block *self,
 			gpio_direction_output(
 				usb_hub->hub_reset_gpio, 1);
 		}
+
+		/*
+		 * After HUB reset, 300ms delay is required in
+		 * SOC config stage before doing any i2c access.
+		 */
+		msleep(300);
 		if (gpio_is_valid(usb_hub->usbeth_reset_gpio)) {
 			gpio_direction_output(
 				usb_hub->usbeth_reset_gpio, 0);
@@ -182,13 +188,6 @@ static int flex_hub_usbdev_notify(struct notifier_block *self,
 			gpio_direction_output(
 				usb_hub->usbeth_reset_gpio, 1);
 		}
-
-		/*
-		 * After HUB Reset, We need to wait for 300ms in
-		 * SOC config stage before doing read/write of
-		 * USB2533 HUB's configuration register
-		 */
-		msleep(300);
 		i2c_hub_flex_enable(usb_hub);
 		flex_enabled = true;
 		break;
