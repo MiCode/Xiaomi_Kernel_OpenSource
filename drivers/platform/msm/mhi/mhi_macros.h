@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,7 +45,7 @@
 #define MHI_PCIE_DEVICE_ID_ZIRC 0x0301
 #define MHI_PCIE_DEVICE_ID_9x55 0x0302
 
-#define MHI_M2_DEBOUNCE_TMR_MS 10
+#define MHI_M2_DEBOUNCE_TMR_US 10000
 
 #define MHI_EV_DB_INTERVAL 1
 
