@@ -923,7 +923,7 @@ void set_window_start(struct rq *rq)
 	if (!sync_cpu_available) {
 		rq->window_start = 1;
 		sync_cpu_available = 1;
-		atomic_set(&walt_irq_work_lastq_ws, rq->window_start);
+		atomic64_set(&walt_irq_work_lastq_ws, rq->window_start);
 	} else {
 		struct rq *sync_rq = cpu_rq(cpumask_any(cpu_online_mask));
 
@@ -1916,7 +1916,7 @@ static inline void run_walt_irq_work(u64 old_window_start, struct rq *rq)
 	if (old_window_start == rq->window_start)
 		return;
 
-	result = atomic_cmpxchg(&walt_irq_work_lastq_ws, old_window_start,
+	result = atomic64_cmpxchg(&walt_irq_work_lastq_ws, old_window_start,
 				   rq->window_start);
 	if (result == old_window_start)
 		irq_work_queue(&rq->irq_work);
