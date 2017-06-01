@@ -659,12 +659,6 @@ static void fast_smmu_dma_unmap_resource(
 	spin_unlock_irqrestore(&mapping->lock, flags);
 }
 
-
-static int fast_smmu_dma_supported(struct device *dev, u64 mask)
-{
-	return mask <= 0xffffffff;
-}
-
 static int fast_smmu_mapping_error(struct device *dev,
 				   dma_addr_t dma_addr)
 {
@@ -718,7 +712,6 @@ static const struct dma_map_ops fast_smmu_dma_ops = {
 	.sync_sg_for_device = fast_smmu_sync_sg_for_device,
 	.map_resource = fast_smmu_dma_map_resource,
 	.unmap_resource = fast_smmu_dma_unmap_resource,
-	.dma_supported = fast_smmu_dma_supported,
 	.mapping_error = fast_smmu_mapping_error,
 };
 
