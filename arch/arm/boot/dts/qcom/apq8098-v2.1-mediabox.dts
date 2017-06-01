@@ -31,7 +31,6 @@
 };
 
 &mdss_mdp {
-	status = "disabled";
 	qcom,mdss-pref-prim-intf = "hdmi";
 };
 
@@ -87,4 +86,35 @@
 
 &tspp {
 	qcom,lpass-timer-tts = <1>;
+};
+
+&snd_9335 {
+	qcom,msm-mi2s-master = <1>, <1>, <1>, <0>;
+};
+
+&wcd_usbc_analog_en1_gpio {
+	status = "disabled";
+};
+
+&wcd_usbc_analog_en2n_gpio {
+	status = "disabled";
+};
+
+&soc {
+	qcom,msm-dai-mi2s {
+		dai_mi2s3: qcom,msm-dai-q6-mi2s-quat {
+			/* SD0 (1 << 0) | SD1 (1 << 1) | SD2 (1 << 2) */
+			qcom,msm-mi2s-rx-lines = <0>;
+			qcom,msm-mi2s-tx-lines = <15>; /* SD3 (1 << 3) */
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&quat_mi2s_active &quat_mi2s_sd0_active
+					&quat_mi2s_sd1_active
+					&quat_mi2s_sd2_active
+					&quat_mi2s_sd3_active>;
+			pinctrl-1 = <&quat_mi2s_sleep &quat_mi2s_sd0_sleep
+					&quat_mi2s_sd1_sleep
+					&quat_mi2s_sd2_sleep
+					&quat_mi2s_sd3_sleep>;
+		};
+	};
 };

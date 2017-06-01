@@ -56,6 +56,7 @@
 #define FORMAT_APTX         0x001e
 #define FORMAT_GEN_COMPR    0x001f
 #define FORMAT_TRUEHD       0x0020
+#define FORMAT_IEC61937     0x0021
 
 #define ENCDEC_SBCBITRATE   0x0001
 #define ENCDEC_IMMEDIATE_DECODE 0x0002
@@ -318,6 +319,10 @@ int q6asm_open_read_write_v2(struct audio_client *ac, uint32_t rd_format,
 int q6asm_open_loopback_v2(struct audio_client *ac,
 			   uint16_t bits_per_sample);
 
+int q6asm_open_transcode_loopback(struct audio_client *ac,
+			   uint16_t bits_per_sample, uint32_t source_format,
+			   uint32_t sink_format);
+
 int q6asm_write(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
 				uint32_t lsw_ts, uint32_t flags);
 int q6asm_write_nolock(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
@@ -508,6 +513,10 @@ int q6asm_media_format_block_gen_compr(
 			uint32_t rate, uint32_t channels,
 			bool use_default_chmap, char *channel_map,
 			uint16_t bits_per_sample);
+
+int q6asm_media_format_block_iec(
+			struct audio_client *ac,
+			uint32_t rate, uint32_t channels);
 
 int q6asm_media_format_block_multi_ch_pcm_v3(struct audio_client *ac,
 					     uint32_t rate, uint32_t channels,

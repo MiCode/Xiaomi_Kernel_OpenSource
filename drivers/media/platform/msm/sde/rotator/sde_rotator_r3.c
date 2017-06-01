@@ -1771,6 +1771,10 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 	wb_cfg.fps = entry->perf->config.frame_rate;
 	wb_cfg.bw = entry->perf->bw;
 	wb_cfg.fmt = sde_get_format_params(item->output.format);
+	if (!wb_cfg.fmt) {
+		SDEROT_ERR("Output format is NULL\n");
+		return -EINVAL;
+	}
 	wb_cfg.dst_rect = &item->dst_rect;
 	wb_cfg.data = &entry->dst_buf;
 	sde_mdp_get_plane_sizes(wb_cfg.fmt, item->output.width,

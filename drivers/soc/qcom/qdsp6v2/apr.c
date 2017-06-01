@@ -745,13 +745,14 @@ int apr_deregister(void *handle)
 	if (!handle)
 		return -EINVAL;
 
+	mutex_lock(&svc->m_lock);
 	if (!svc->svc_cnt) {
 		pr_err("%s: svc already deregistered. svc = %pK\n",
 			__func__, svc);
+		mutex_unlock(&svc->m_lock);
 		return -EINVAL;
 	}
 
-	mutex_lock(&svc->m_lock);
 	dest_id = svc->dest_id;
 	client_id = svc->client_id;
 	clnt = &client[dest_id][client_id];

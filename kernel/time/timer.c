@@ -500,38 +500,6 @@ static void internal_add_timer(struct tvec_base *base, struct timer_list *timer)
 	}
 }
 
-#ifdef CONFIG_TIMER_STATS
-void __timer_stats_timer_set_start_info(struct timer_list *timer, void *addr)
-{
-	if (timer->start_site)
-		return;
-
-	timer->start_site = addr;
-	memcpy(timer->start_comm, current->comm, TASK_COMM_LEN);
-	timer->start_pid = current->pid;
-}
-
-static void timer_stats_account_timer(struct timer_list *timer)
-{
-	void *site;
-
-	/*
-	 * start_site can be concurrently reset by
-	 * timer_stats_timer_clear_start_info()
-	 */
-	site = READ_ONCE(timer->start_site);
-	if (likely(!site))
-		return;
-
-	timer_stats_update_stats(timer, timer->start_pid, site,
-				 timer->function, timer->start_comm,
-				 timer->flags);
-}
-
-#else
-static void timer_stats_account_timer(struct timer_list *timer) {}
-#endif
-
 #ifdef CONFIG_DEBUG_OBJECTS_TIMERS
 
 static struct debug_obj_descr timer_debug_descr;
@@ -734,11 +702,6 @@ static void do_init_timer(struct timer_list *timer, unsigned int flags,
 	timer->entry.pprev = NULL;
 	timer->flags = flags | raw_smp_processor_id();
 	timer->slack = -1;
-#ifdef CONFIG_TIMER_STATS
-	timer->start_site = NULL;
-	timer->start_pid = -1;
-	memset(timer->start_comm, 0, TASK_COMM_LEN);
-#endif
 	lockdep_init_map(&timer->lockdep_map, name, key, 0);
 }
 
@@ -845,7 +808,6 @@ __mod_timer(struct timer_list *timer, unsigned long expires,
 	unsigned long flags;
 	int ret = 0;
 
-	timer_stats_timer_set_start_info(timer);
 	BUG_ON(!timer->function);
 
 	base = lock_timer_base(timer, &flags);
@@ -1044,7 +1006,6 @@ void add_timer_on(struct timer_list *timer, int cpu)
 	struct tvec_base *base;
 	unsigned long flags;
 
-	timer_stats_timer_set_start_info(timer);
 	BUG_ON(timer_pending(timer) || !timer->function);
 
 	/*
@@ -1089,7 +1050,6 @@ int del_timer(struct timer_list *timer)
 
 	debug_assert_init(timer);
 
-	timer_stats_timer_clear_start_info(timer);
 	if (timer_pending(timer)) {
 		base = lock_timer_base(timer, &flags);
 		ret = detach_if_pending(timer, base, true);
@@ -1117,10 +1077,9 @@ int try_to_del_timer_sync(struct timer_list *timer)
 
 	base = lock_timer_base(timer, &flags);
 
-	if (base->running_timer != timer) {
-		timer_stats_timer_clear_start_info(timer);
+	if (base->running_timer != timer)
 		ret = detach_if_pending(timer, base, true);
-	}
+
 	spin_unlock_irqrestore(&base->lock, flags);
 
 	return ret;
@@ -1303,8 +1262,6 @@ static inline void __run_timers(struct tvec_base *base)
 			fn = timer->function;
 			data = timer->data;
 			irqsafe = timer->flags & TIMER_IRQSAFE;
-
-			timer_stats_account_timer(timer);
 
 			base->running_timer = timer;
 			detach_expired_timer(timer, base);
@@ -1782,7 +1739,6 @@ static void __init init_timer_cpus(void)
 void __init init_timers(void)
 {
 	init_timer_cpus();
-	init_timer_stats();
 	timer_register_cpu_notifier();
 	open_softirq(TIMER_SOFTIRQ, run_timer_softirq);
 }

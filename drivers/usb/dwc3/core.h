@@ -840,6 +840,7 @@ struct dwc3_scratchpad_array {
  * @irq: irq number
  * @bh: tasklet which handles the interrupt
  * @irq_cnt: total irq count
+ * @last_irq_cnt: last irq count
  * @bh_completion_time: time taken for taklet completion
  * @bh_handled_evt_cnt: no. of events handled by tasklet per interrupt
  * @bh_dbg_index: index for capturing bh_completion_time and bh_handled_evt_cnt
@@ -1028,6 +1029,7 @@ struct dwc3 {
 	/* IRQ timing statistics */
 	int			irq;
 	unsigned long		irq_cnt;
+	unsigned long		last_irq_cnt;
 	unsigned long		ep_cmd_timeout_cnt;
 	unsigned                bh_completion_time[MAX_INTR_STATS];
 	unsigned                bh_handled_evt_cnt[MAX_INTR_STATS];

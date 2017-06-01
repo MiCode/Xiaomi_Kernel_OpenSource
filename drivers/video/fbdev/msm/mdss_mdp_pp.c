@@ -2567,6 +2567,8 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer,
 				ad_hw->base + MDSS_MDP_REG_AD_TFILT_CTRL);
 			writel_relaxed(ad->cfg.mode | MDSS_AD_AUTO_TRIGGER,
 				ad_hw->base + MDSS_MDP_REG_AD_MODE_SEL);
+			ad->last_str = 0xFF & readl_relaxed(ad_hw->base +
+				MDSS_MDP_REG_AD_STR_OUT);
 		}
 
 		pp_ad_bypass_config(ad, ctl, ad_hw->num, &ad_bypass);

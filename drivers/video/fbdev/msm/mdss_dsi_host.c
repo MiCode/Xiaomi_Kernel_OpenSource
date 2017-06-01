@@ -165,7 +165,14 @@ void mdss_dsi_clk_req(struct mdss_dsi_ctrl_pdata *ctrl,
 
 	MDSS_XLOG(ctrl->ndx, enable, ctrl->mdp_busy, current->pid,
 		client);
-	if (enable == 0) {
+	/*
+	 * ensure that before going into ecg or turning
+	 * off the clocks, cmd_mdp_busy is not true. During a
+	 * race condition, clocks are turned off and so the
+	 * isr for cmd_mdp_busy does not get cleared in hw.
+	 */
+	if (enable == MDSS_DSI_CLK_OFF ||
+		enable == MDSS_DSI_CLK_EARLY_GATE) {
 		/* need wait before disable */
 		mutex_lock(&ctrl->cmd_mutex);
 		mdss_dsi_cmd_mdp_busy(ctrl);
@@ -2558,15 +2565,8 @@ void mdss_dsi_cmd_mdp_busy(struct mdss_dsi_ctrl_pdata *ctrl)
 		if (!ctrl->mdp_busy)
 			rc = 1;
 		spin_unlock_irqrestore(&ctrl->mdp_lock, flags);
-		if (!rc) {
-			if (mdss_dsi_mdp_busy_tout_check(ctrl)) {
-				pr_err("%s: timeout error\n", __func__);
-				MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl",
-					"dsi0_phy", "dsi1_ctrl", "dsi1_phy",
-					"vbif", "vbif_nrt", "dbg_bus",
-					"vbif_dbg_bus", "dsi_dbg_bus", "panic");
-			}
-		}
+		if (!rc && mdss_dsi_mdp_busy_tout_check(ctrl))
+			pr_err("%s: timeout error\n", __func__);
 	}
 	pr_debug("%s: done pid=%d\n", __func__, current->pid);
 	MDSS_XLOG(ctrl->ndx, ctrl->mdp_busy, current->pid, XLOG_FUNC_EXIT);

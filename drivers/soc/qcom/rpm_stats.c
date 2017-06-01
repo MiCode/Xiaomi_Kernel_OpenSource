@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -462,8 +462,10 @@ static int msm_rpmstats_probe(struct platform_device *pdev)
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 							"phys_addr_base");
-	if (!res)
+	if (!res) {
+		kfree(pdata);
 		return -EINVAL;
+	}
 
 	offset = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 							"offset_addr");
@@ -471,8 +473,9 @@ static int msm_rpmstats_probe(struct platform_device *pdev)
 		/* Remap the rpm-stats pointer */
 		phys_ptr = ioremap_nocache(offset->start, SZ_4);
 		if (!phys_ptr) {
-			pr_err("%s: Failed to ioremap address: %x\n",
-					__func__, offset_addr);
+			pr_err("%s: Failed to ioremap address: %pa\n",
+					__func__, &offset->start);
+			kfree(pdata);
 			return -ENODEV;
 		}
 		offset_addr = readl_relaxed(phys_ptr);

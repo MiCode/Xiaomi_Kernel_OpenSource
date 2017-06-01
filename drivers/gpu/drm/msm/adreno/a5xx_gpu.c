@@ -263,8 +263,6 @@ static void a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 
 		local_irq_restore(flags);
 
-		do_div(ktime, NSEC_PER_SEC);
-
 		profile_buf->queue_time = ktime;
 		profile_buf->submit_time = ktime;
 	}

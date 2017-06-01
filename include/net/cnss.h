@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -187,6 +187,12 @@ extern int cnss_pcie_set_wlan_mac_address(const u8 *in, uint32_t len);
 extern u8 *cnss_get_wlan_mac_address(struct device *dev, uint32_t *num);
 extern int cnss_sdio_set_wlan_mac_address(const u8 *in, uint32_t len);
 
+enum cnss_cc_src {
+	CNSS_SOURCE_CORE,
+	CNSS_SOURCE_11D,
+	CNSS_SOURCE_USER
+};
+
 enum {
 	CNSS_RESET_SOC = 0,
 	CNSS_RESET_SUBSYS_COUPLED,
@@ -250,4 +256,6 @@ extern u8 *cnss_common_get_wlan_mac_address(struct device *dev, uint32_t *num);
 extern int cnss_power_up(struct device *dev);
 extern int cnss_power_down(struct device *dev);
 extern int cnss_sdio_configure_spdt(bool state);
+extern void cnss_set_cc_source(enum cnss_cc_src cc_source);
+extern enum cnss_cc_src cnss_get_cc_source(void);
 #endif /* _NET_CNSS_H_ */

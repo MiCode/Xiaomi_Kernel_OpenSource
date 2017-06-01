@@ -3421,6 +3421,10 @@ int mdss_fb_atomic_commit(struct fb_info *info,
 				MSMFB_ATOMIC_COMMIT, true, false);
 			if (mfd->panel.type == WRITEBACK_PANEL) {
 				output_layer = commit_v1->output_layer;
+				if (!output_layer) {
+					pr_err("Output layer is null\n");
+					goto end;
+				}
 				wb_change = !mdss_fb_is_wb_config_same(mfd,
 						commit_v1->output_layer);
 				if (wb_change) {
@@ -4630,11 +4634,22 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 	struct mdp_output_layer __user *output_layer_user;
 	struct mdp_destination_scaler_data *ds_data = NULL;
 	struct mdp_destination_scaler_data __user *ds_data_user;
+	struct msm_fb_data_type *mfd;
 
 	ret = copy_from_user(&commit, argp, sizeof(struct mdp_layer_commit));
 	if (ret) {
 		pr_err("%s:copy_from_user failed\n", __func__);
 		return ret;
+	}
+
+	mfd = (struct msm_fb_data_type *)info->par;
+	if (!mfd)
+		return -EINVAL;
+
+	if (mfd->panel_info->panel_dead) {
+		pr_debug("early commit return\n");
+		MDSS_XLOG(mfd->panel_info->panel_dead);
+		return 0;
 	}
 
 	output_layer_user = commit.commit_v1.output_layer;

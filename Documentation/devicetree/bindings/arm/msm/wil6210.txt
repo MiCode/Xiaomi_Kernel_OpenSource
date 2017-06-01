@@ -32,6 +32,8 @@ Optional properties:
 - clocks	    : List of phandle and clock specifier pairs
 - clock-names       : List of clock input name strings sorted in the same
 		      order as the clocks property.
+- qcom,keep-radio-on-during-sleep: Boolean flag to indicate if to suspend to d3hot
+				   instead of turning off the device
 
 Example:
 	wil6210: qcom,wil6210 {
@@ -56,5 +58,6 @@ Example:
 		clocks = <&clock_gcc clk_rf_clk3>,
 			 <&clock_gcc clk_rf_clk3_pin>;
 		clock-names = "rf_clk3_clk", "rf_clk3_pin_clk";
+		qcom,keep-radio-on-during-sleep;
 	};
 

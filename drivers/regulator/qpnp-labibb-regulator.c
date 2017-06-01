@@ -17,6 +17,7 @@
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
+#include <linux/ktime.h>
 #include <linux/regmap.h>
 #include <linux/module.h>
 #include <linux/notifier.h>
@@ -37,6 +38,7 @@
 
 #define REG_REVISION_2			0x01
 #define REG_PERPH_TYPE			0x04
+#define REG_INT_RT_STS			0x10
 
 #define QPNP_LAB_TYPE			0x24
 #define QPNP_IBB_TYPE			0x20
@@ -76,8 +78,8 @@
 /* LAB register bits definitions */
 
 /* REG_LAB_STATUS1 */
-#define LAB_STATUS1_VREG_OK_MASK	BIT(7)
-#define LAB_STATUS1_VREG_OK		BIT(7)
+#define LAB_STATUS1_VREG_OK_BIT		BIT(7)
+#define LAB_STATUS1_SC_DETECT_BIT	BIT(6)
 
 /* REG_LAB_SWIRE_PGM_CTL */
 #define LAB_EN_SWIRE_PGM_VOUT		BIT(7)
@@ -184,8 +186,8 @@
 /* IBB register bits definition */
 
 /* REG_IBB_STATUS1 */
-#define IBB_STATUS1_VREG_OK_MASK	BIT(7)
-#define IBB_STATUS1_VREG_OK		BIT(7)
+#define IBB_STATUS1_VREG_OK_BIT		BIT(7)
+#define IBB_STATUS1_SC_DETECT_BIT	BIT(6)
 
 /* REG_IBB_VOLTAGE */
 #define IBB_VOLTAGE_OVERRIDE_EN		BIT(7)
@@ -553,6 +555,8 @@ struct lab_regulator {
 	struct mutex			lab_mutex;
 
 	int				lab_vreg_ok_irq;
+	int				lab_sc_irq;
+
 	int				curr_volt;
 	int				min_volt;
 
@@ -568,6 +572,8 @@ struct ibb_regulator {
 	struct regulator_desc		rdesc;
 	struct regulator_dev		*rdev;
 	struct mutex			ibb_mutex;
+
+	int				ibb_sc_irq;
 
 	int				curr_volt;
 	int				min_volt;
@@ -599,6 +605,9 @@ struct qpnp_labibb {
 	struct mutex			bus_mutex;
 	enum qpnp_labibb_mode		mode;
 	struct work_struct		lab_vreg_ok_work;
+	struct delayed_work		sc_err_recovery_work;
+	struct hrtimer			sc_err_check_timer;
+	int				sc_err_count;
 	bool				standalone;
 	bool				ttw_en;
 	bool				in_ttw_mode;
@@ -2153,7 +2162,7 @@ static void qpnp_lab_vreg_notifier_work(struct work_struct *work)
 			return;
 		}
 
-		if (val & LAB_STATUS1_VREG_OK) {
+		if (val & LAB_STATUS1_VREG_OK_BIT) {
 			raw_notifier_call_chain(&labibb_notifier,
 						LAB_VREG_OK, NULL);
 			break;
@@ -2184,6 +2193,74 @@ static void qpnp_lab_vreg_notifier_work(struct work_struct *work)
 			pr_err("LAB_VREG_OK not set, failed to notify\n");
 		}
 	}
+}
+
+static int qpnp_lab_enable_standalone(struct qpnp_labibb *labibb)
+{
+	int rc;
+	u8 val;
+
+	val = LAB_ENABLE_CTL_EN;
+	rc = qpnp_labibb_write(labibb,
+		labibb->lab_base + REG_LAB_ENABLE_CTL, &val, 1);
+	if (rc < 0) {
+		pr_err("Write register %x failed rc = %d\n",
+					REG_LAB_ENABLE_CTL, rc);
+		return rc;
+	}
+
+	udelay(labibb->lab_vreg.soft_start);
+
+	rc = qpnp_labibb_read(labibb, labibb->lab_base +
+				REG_LAB_STATUS1, &val, 1);
+	if (rc < 0) {
+		pr_err("Read register %x failed rc = %d\n",
+					REG_LAB_STATUS1, rc);
+		return rc;
+	}
+
+	if (!(val & LAB_STATUS1_VREG_OK_BIT)) {
+		pr_err("Can't enable LAB standalone\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int qpnp_ibb_enable_standalone(struct qpnp_labibb *labibb)
+{
+	int rc, delay, retries = 10;
+	u8 val;
+
+	rc = qpnp_ibb_set_mode(labibb, IBB_SW_CONTROL_EN);
+	if (rc < 0) {
+		pr_err("Unable to set IBB_MODULE_EN rc = %d\n", rc);
+		return rc;
+	}
+
+	delay = labibb->ibb_vreg.soft_start;
+	while (retries--) {
+		/* Wait for a small period before reading IBB_STATUS1 */
+		usleep_range(delay, delay + 100);
+
+		rc = qpnp_labibb_read(labibb, labibb->ibb_base +
+				REG_IBB_STATUS1, &val, 1);
+		if (rc < 0) {
+			pr_err("Read register %x failed rc = %d\n",
+				REG_IBB_STATUS1, rc);
+			return rc;
+		}
+
+		if (val & IBB_STATUS1_VREG_OK_BIT)
+			break;
+	}
+
+	if (!(val & IBB_STATUS1_VREG_OK_BIT)) {
+		pr_err("Can't enable IBB standalone\n");
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 static int qpnp_labibb_regulator_enable(struct qpnp_labibb *labibb)
@@ -2227,7 +2304,7 @@ static int qpnp_labibb_regulator_enable(struct qpnp_labibb *labibb)
 		labibb->lab_vreg.soft_start, labibb->ibb_vreg.soft_start,
 				labibb->ibb_vreg.pwrup_dly, dly);
 
-	if (!(val & LAB_STATUS1_VREG_OK)) {
+	if (!(val & LAB_STATUS1_VREG_OK_BIT)) {
 		pr_err("failed for LAB %x\n", val);
 		goto err_out;
 	}
@@ -2244,7 +2321,7 @@ static int qpnp_labibb_regulator_enable(struct qpnp_labibb *labibb)
 			goto err_out;
 		}
 
-		if (val & IBB_STATUS1_VREG_OK) {
+		if (val & IBB_STATUS1_VREG_OK_BIT) {
 			enabled = true;
 			break;
 		}
@@ -2315,7 +2392,7 @@ static int qpnp_labibb_regulator_disable(struct qpnp_labibb *labibb)
 			return rc;
 		}
 
-		if (!(val & IBB_STATUS1_VREG_OK)) {
+		if (!(val & IBB_STATUS1_VREG_OK_BIT)) {
 			disabled = true;
 			break;
 		}
@@ -2344,8 +2421,6 @@ static int qpnp_labibb_regulator_disable(struct qpnp_labibb *labibb)
 static int qpnp_lab_regulator_enable(struct regulator_dev *rdev)
 {
 	int rc;
-	u8 val;
-
 	struct qpnp_labibb *labibb  = rdev_get_drvdata(rdev);
 
 	if (labibb->sc_detected) {
@@ -2362,34 +2437,14 @@ static int qpnp_lab_regulator_enable(struct regulator_dev *rdev)
 	}
 
 	if (!labibb->lab_vreg.vreg_enabled && !labibb->swire_control) {
-
 		if (!labibb->standalone)
 			return qpnp_labibb_regulator_enable(labibb);
 
-		val = LAB_ENABLE_CTL_EN;
-		rc = qpnp_labibb_write(labibb,
-			labibb->lab_base + REG_LAB_ENABLE_CTL, &val, 1);
-		if (rc < 0) {
-			pr_err("qpnp_lab_regulator_enable write register %x failed rc = %d\n",
-				REG_LAB_ENABLE_CTL, rc);
+		rc = qpnp_lab_enable_standalone(labibb);
+		if (rc) {
+			pr_err("enable lab standalone failed, rc=%d\n", rc);
 			return rc;
 		}
-
-		udelay(labibb->lab_vreg.soft_start);
-
-		rc = qpnp_labibb_read(labibb, labibb->lab_base +
-					REG_LAB_STATUS1, &val, 1);
-		if (rc < 0) {
-			pr_err("qpnp_lab_regulator_enable read register %x failed rc = %d\n",
-				REG_LAB_STATUS1, rc);
-			return rc;
-		}
-
-		if ((val & LAB_STATUS1_VREG_OK_MASK) != LAB_STATUS1_VREG_OK) {
-			pr_err("qpnp_lab_regulator_enable failed\n");
-			return -EINVAL;
-		}
-
 		labibb->lab_vreg.vreg_enabled = 1;
 	}
 
@@ -2432,6 +2487,163 @@ static int qpnp_lab_regulator_is_enabled(struct regulator_dev *rdev)
 		return 0;
 
 	return labibb->lab_vreg.vreg_enabled;
+}
+
+static int qpnp_labibb_force_enable(struct qpnp_labibb *labibb)
+{
+	int rc;
+
+	if (labibb->skip_2nd_swire_cmd) {
+		rc = qpnp_ibb_ps_config(labibb, false);
+		if (rc < 0) {
+			pr_err("Failed to disable IBB PS rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	if (!labibb->swire_control) {
+		if (!labibb->standalone)
+			return qpnp_labibb_regulator_enable(labibb);
+
+		rc = qpnp_ibb_enable_standalone(labibb);
+		if (rc < 0) {
+			pr_err("enable ibb standalone failed, rc=%d\n", rc);
+			return rc;
+		}
+		labibb->ibb_vreg.vreg_enabled = 1;
+
+		rc = qpnp_lab_enable_standalone(labibb);
+		if (rc < 0) {
+			pr_err("enable lab standalone failed, rc=%d\n", rc);
+			return rc;
+		}
+		labibb->lab_vreg.vreg_enabled = 1;
+	}
+
+	return 0;
+}
+
+#define SC_ERR_RECOVERY_DELAY_MS	250
+#define SC_ERR_COUNT_INTERVAL_SEC	1
+#define POLLING_SCP_DONE_COUNT		2
+#define POLLING_SCP_DONE_INTERVAL_MS	5
+static irqreturn_t labibb_sc_err_handler(int irq, void *_labibb)
+{
+	int rc;
+	u16 reg;
+	u8 sc_err_mask, val;
+	char *str;
+	struct qpnp_labibb *labibb = (struct qpnp_labibb *)_labibb;
+	bool in_sc_err, lab_en, ibb_en, scp_done = false;
+	int count;
+
+	if (irq == labibb->lab_vreg.lab_sc_irq) {
+		reg = labibb->lab_base + REG_LAB_STATUS1;
+		sc_err_mask = LAB_STATUS1_SC_DETECT_BIT;
+		str = "LAB";
+	} else if (irq == labibb->ibb_vreg.ibb_sc_irq) {
+		reg = labibb->ibb_base + REG_IBB_STATUS1;
+		sc_err_mask = IBB_STATUS1_SC_DETECT_BIT;
+		str = "IBB";
+	} else {
+		return IRQ_HANDLED;
+	}
+
+	rc = qpnp_labibb_read(labibb, reg, &val, 1);
+	if (rc < 0) {
+		pr_err("Read 0x%x failed, rc=%d\n", reg, rc);
+		return IRQ_HANDLED;
+	}
+	pr_debug("%s SC error triggered! %s_STATUS1 = %d\n", str, str, val);
+
+	in_sc_err = !!(val & sc_err_mask);
+
+	/*
+	 * The SC fault would trigger PBS to disable regulators
+	 * for protection. This would cause the SC_DETECT status being
+	 * cleared so that it's not able to get the SC fault status.
+	 * Check if LAB/IBB regulators are enabled in the driver but
+	 * disabled in hardware, this means a SC fault had happened
+	 * and SCP handling is completed by PBS.
+	 */
+	if (!in_sc_err) {
+		count = POLLING_SCP_DONE_COUNT;
+		do {
+			reg = labibb->lab_base + REG_LAB_ENABLE_CTL;
+			rc = qpnp_labibb_read(labibb, reg, &val, 1);
+			if (rc < 0) {
+				pr_err("Read 0x%x failed, rc=%d\n", reg, rc);
+				return IRQ_HANDLED;
+			}
+			lab_en = !!(val & LAB_ENABLE_CTL_EN);
+
+			reg = labibb->ibb_base + REG_IBB_ENABLE_CTL;
+			rc = qpnp_labibb_read(labibb, reg, &val, 1);
+			if (rc < 0) {
+				pr_err("Read 0x%x failed, rc=%d\n", reg, rc);
+				return IRQ_HANDLED;
+			}
+			ibb_en = !!(val & IBB_ENABLE_CTL_MODULE_EN);
+			if (lab_en || ibb_en)
+				msleep(POLLING_SCP_DONE_INTERVAL_MS);
+			else
+				break;
+		} while ((lab_en || ibb_en) && count--);
+
+		if (labibb->lab_vreg.vreg_enabled
+				&& labibb->ibb_vreg.vreg_enabled
+				&& !lab_en && !ibb_en) {
+			pr_debug("LAB/IBB has been disabled by SCP\n");
+			scp_done = true;
+		}
+	}
+
+	if (in_sc_err || scp_done) {
+		if (hrtimer_active(&labibb->sc_err_check_timer) ||
+			hrtimer_callback_running(&labibb->sc_err_check_timer)) {
+			labibb->sc_err_count++;
+		} else {
+			labibb->sc_err_count = 1;
+			hrtimer_start(&labibb->sc_err_check_timer,
+					ktime_set(SC_ERR_COUNT_INTERVAL_SEC, 0),
+					HRTIMER_MODE_REL);
+		}
+		schedule_delayed_work(&labibb->sc_err_recovery_work,
+				msecs_to_jiffies(SC_ERR_RECOVERY_DELAY_MS));
+	}
+
+	return IRQ_HANDLED;
+}
+
+#define SC_FAULT_COUNT_MAX		4
+static enum hrtimer_restart labibb_check_sc_err_count(struct hrtimer *timer)
+{
+	struct qpnp_labibb *labibb = container_of(timer,
+			struct qpnp_labibb, sc_err_check_timer);
+	/*
+	 * if SC fault triggers more than 4 times in 1 second,
+	 * then disable the IRQs and leave as it.
+	 */
+	if (labibb->sc_err_count > SC_FAULT_COUNT_MAX) {
+		disable_irq(labibb->lab_vreg.lab_sc_irq);
+		disable_irq(labibb->ibb_vreg.ibb_sc_irq);
+	}
+
+	return HRTIMER_NORESTART;
+}
+
+static void labibb_sc_err_recovery_work(struct work_struct *work)
+{
+	struct qpnp_labibb *labibb = container_of(work, struct qpnp_labibb,
+					sc_err_recovery_work.work);
+	int rc;
+
+	labibb->ibb_vreg.vreg_enabled = 0;
+	labibb->lab_vreg.vreg_enabled = 0;
+	rc = qpnp_labibb_force_enable(labibb);
+	if (rc < 0)
+		pr_err("force enable labibb failed, rc=%d\n", rc);
+
 }
 
 static int qpnp_lab_regulator_set_voltage(struct regulator_dev *rdev,
@@ -2495,7 +2707,7 @@ static int qpnp_skip_swire_command(struct qpnp_labibb *labibb)
 			pr_err("Failed to read ibb_status1 reg rc=%d\n", rc);
 			return rc;
 		}
-		if ((reg & IBB_STATUS1_VREG_OK_MASK) == IBB_STATUS1_VREG_OK)
+		if (reg & IBB_STATUS1_VREG_OK_BIT)
 			break;
 
 		/* poll delay */
@@ -2829,6 +3041,18 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 		}
 	}
 
+	if (labibb->lab_vreg.lab_sc_irq != -EINVAL) {
+		rc = devm_request_threaded_irq(labibb->dev,
+				labibb->lab_vreg.lab_sc_irq, NULL,
+				labibb_sc_err_handler,
+				IRQF_ONESHOT | IRQF_TRIGGER_RISING,
+				"lab-sc-err", labibb);
+		if (rc) {
+			pr_err("Failed to register 'lab-sc-err' irq rc=%d\n",
+						rc);
+			return rc;
+		}
+	}
 	rc = qpnp_labibb_read(labibb, labibb->lab_base + REG_LAB_MODULE_RDY,
 				&val, 1);
 	if (rc < 0) {
@@ -3287,8 +3511,7 @@ static int qpnp_ibb_dt_init(struct qpnp_labibb *labibb,
 
 static int qpnp_ibb_regulator_enable(struct regulator_dev *rdev)
 {
-	int rc, delay, retries = 10;
-	u8 val;
+	int rc = 0;
 	struct qpnp_labibb *labibb  = rdev_get_drvdata(rdev);
 
 	if (labibb->sc_detected) {
@@ -3297,40 +3520,17 @@ static int qpnp_ibb_regulator_enable(struct regulator_dev *rdev)
 	}
 
 	if (!labibb->ibb_vreg.vreg_enabled && !labibb->swire_control) {
-
 		if (!labibb->standalone)
 			return qpnp_labibb_regulator_enable(labibb);
 
-		rc = qpnp_ibb_set_mode(labibb, IBB_SW_CONTROL_EN);
+		rc = qpnp_ibb_enable_standalone(labibb);
 		if (rc < 0) {
-			pr_err("Unable to set IBB_MODULE_EN rc = %d\n", rc);
+			pr_err("enable ibb standalone failed, rc=%d\n", rc);
 			return rc;
 		}
-
-		delay = labibb->ibb_vreg.soft_start;
-		while (retries--) {
-			/* Wait for a small period before reading IBB_STATUS1 */
-			usleep_range(delay, delay + 100);
-
-			rc = qpnp_labibb_read(labibb, labibb->ibb_base +
-					REG_IBB_STATUS1, &val, 1);
-			if (rc < 0) {
-				pr_err("qpnp_ibb_regulator_enable read register %x failed rc = %d\n",
-					REG_IBB_STATUS1, rc);
-				return rc;
-			}
-
-			if (val & IBB_STATUS1_VREG_OK)
-				break;
-		}
-
-		if (!(val & IBB_STATUS1_VREG_OK)) {
-			pr_err("qpnp_ibb_regulator_enable failed\n");
-			return -EINVAL;
-		}
-
 		labibb->ibb_vreg.vreg_enabled = 1;
 	}
+
 	return 0;
 }
 
@@ -3378,7 +3578,6 @@ static int qpnp_ibb_regulator_set_voltage(struct regulator_dev *rdev,
 	rc = labibb->ibb_ver_ops->set_voltage(labibb, min_uV, max_uV);
 	return rc;
 }
-
 
 static int qpnp_ibb_regulator_get_voltage(struct regulator_dev *rdev)
 {
@@ -3601,6 +3800,19 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 		labibb->ibb_vreg.pwrdn_dly = 0;
 	}
 
+	if (labibb->ibb_vreg.ibb_sc_irq != -EINVAL) {
+		rc = devm_request_threaded_irq(labibb->dev,
+				labibb->ibb_vreg.ibb_sc_irq, NULL,
+				labibb_sc_err_handler,
+				IRQF_ONESHOT | IRQF_TRIGGER_RISING,
+				"ibb-sc-err", labibb);
+		if (rc) {
+			pr_err("Failed to register 'ibb-sc-err' irq rc=%d\n",
+						rc);
+			return rc;
+		}
+	}
+
 	rc = qpnp_labibb_read(labibb, labibb->ibb_base + REG_IBB_MODULE_RDY,
 				&val, 1);
 	if (rc < 0) {
@@ -3674,14 +3886,38 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 static int qpnp_lab_register_irq(struct device_node *child,
 				struct qpnp_labibb *labibb)
 {
+	int rc = 0;
+
 	if (is_lab_vreg_ok_irq_available(labibb)) {
-		labibb->lab_vreg.lab_vreg_ok_irq =
-					of_irq_get_byname(child, "lab-vreg-ok");
-		if (labibb->lab_vreg.lab_vreg_ok_irq < 0) {
+		rc = of_irq_get_byname(child, "lab-vreg-ok");
+		if (rc < 0) {
 			pr_err("Invalid lab-vreg-ok irq\n");
-			return -EINVAL;
+			return rc;
 		}
+		labibb->lab_vreg.lab_vreg_ok_irq = rc;
 	}
+
+	labibb->lab_vreg.lab_sc_irq = -EINVAL;
+	rc = of_irq_get_byname(child, "lab-sc-err");
+	if (rc < 0)
+		pr_debug("Unable to get lab-sc-err, rc = %d\n", rc);
+	else
+		labibb->lab_vreg.lab_sc_irq = rc;
+
+	return 0;
+}
+
+static int qpnp_ibb_register_irq(struct device_node *child,
+				struct qpnp_labibb *labibb)
+{
+	int rc;
+
+	labibb->ibb_vreg.ibb_sc_irq = -EINVAL;
+	rc = of_irq_get_byname(child, "ibb-sc-err");
+	if (rc < 0)
+		pr_debug("Unable to get ibb-sc-err, rc = %d\n", rc);
+	else
+		labibb->ibb_vreg.ibb_sc_irq = rc;
 
 	return 0;
 }
@@ -3882,6 +4118,7 @@ static int qpnp_labibb_regulator_probe(struct platform_device *pdev)
 		case QPNP_IBB_TYPE:
 			labibb->ibb_base = base;
 			labibb->ibb_dig_major = revision;
+			qpnp_ibb_register_irq(child, labibb);
 			rc = register_qpnp_ibb_regulator(labibb, child);
 			if (rc < 0)
 				goto fail_registration;
@@ -3905,6 +4142,11 @@ static int qpnp_labibb_regulator_probe(struct platform_device *pdev)
 	}
 
 	INIT_WORK(&labibb->lab_vreg_ok_work, qpnp_lab_vreg_notifier_work);
+	INIT_DELAYED_WORK(&labibb->sc_err_recovery_work,
+			labibb_sc_err_recovery_work);
+	hrtimer_init(&labibb->sc_err_check_timer,
+			CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	labibb->sc_err_check_timer.function = labibb_check_sc_err_count;
 	dev_set_drvdata(&pdev->dev, labibb);
 	pr_info("LAB/IBB registered successfully, lab_vreg enable=%d ibb_vreg enable=%d swire_control=%d\n",
 						labibb->lab_vreg.vreg_enabled,

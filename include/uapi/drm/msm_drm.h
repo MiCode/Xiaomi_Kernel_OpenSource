@@ -221,8 +221,8 @@ struct drm_msm_gem_submit {
 };
 
 struct drm_msm_gem_submit_profile_buffer {
-	__s64 queue_time;      /* out, Ringbuffer queue time (seconds) */
-	__s64 submit_time;     /* out, Ringbuffer submission time (seconds) */
+	__s64 queue_time;      /* out, Ringbuffer queue time (nsecs) */
+	__s64 submit_time;     /* out, Ringbuffer submission time (nsecs) */
 	__u64 ticks_queued;    /* out, GPU ticks at ringbuffer submission */
 	__u64 ticks_submitted; /* out, GPU ticks before cmdstream execution*/
 	__u64 ticks_retired;   /* out, GPU ticks after cmdstream execution */

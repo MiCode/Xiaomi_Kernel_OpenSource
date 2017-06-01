@@ -817,10 +817,15 @@ int mmc_resume_clk_scaling(struct mmc_host *host)
 	if (!mmc_can_scale_clk(host))
 		return 0;
 
+	/*
+	 * If clock scaling is already exited when resume is called, like
+	 * during mmc shutdown, it is not an error and should not fail the
+	 * API calling this.
+	 */
 	if (!host->clk_scaling.devfreq) {
-		pr_err("%s: %s: no devfreq is assosiated with this device\n",
+		pr_warn("%s: %s: no devfreq is assosiated with this device\n",
 			mmc_hostname(host), __func__);
-		return -EPERM;
+		return 0;
 	}
 
 	atomic_set(&host->clk_scaling.devfreq_abort, 0);

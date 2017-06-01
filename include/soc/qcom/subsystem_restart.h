@@ -133,6 +133,7 @@ extern void subsys_default_online(struct subsys_device *dev);
 extern void subsys_set_crash_status(struct subsys_device *dev,
 					enum crash_status crashed);
 extern enum crash_status subsys_get_crash_status(struct subsys_device *dev);
+extern void subsys_set_error(struct subsys_device *dev, const char *error_msg);
 void notify_proxy_vote(struct device *device);
 void notify_proxy_unvote(struct device *device);
 void complete_err_ready(struct subsys_device *subsys);

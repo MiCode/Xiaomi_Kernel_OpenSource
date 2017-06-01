@@ -795,6 +795,7 @@ struct vfe_device {
 	struct mutex core_mutex;
 	spinlock_t shared_data_lock;
 	spinlock_t reg_update_lock;
+	spinlock_t completion_lock;
 
 	/* Tasklet info */
 	atomic_t irq_cnt;

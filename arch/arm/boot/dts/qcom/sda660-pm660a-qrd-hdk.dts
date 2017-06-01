@@ -157,7 +157,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. SDA 660 PM660 + PM660A QRD HDK660";
 	compatible = "qcom,sda660-qrd", "qcom,sda660", "qcom,qrd";
-	qcom,board-id = <0x0006000b 0>;
+	qcom,board-id = <0x0016000b 0>;
 	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>;
 };
 
@@ -190,4 +190,21 @@
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <255>;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+};
+
+&tasha_snd {
+	qcom,audio-routing =
+		"AIF4 VI", "MCLK",
+		"RX_BIAS", "MCLK",
+		"MADINPUT", "MCLK",
+		"AMIC2", "MIC BIAS2",
+		"MIC BIAS2", "Headset Mic",
+		"DMIC0", "MIC BIAS1",
+		"MIC BIAS1", "Digital Mic0",
+		"DMIC3", "MIC BIAS3",
+		"MIC BIAS3", "Digital Mic3",
+		"DMIC5", "MIC BIAS4",
+		"MIC BIAS4", "Digital Mic5",
+		"SpkrLeft IN", "SPK1 OUT";
+	qcom,msm-mbhc-hphl-swh = <0>;
 };

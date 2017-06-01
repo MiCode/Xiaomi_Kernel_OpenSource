@@ -366,6 +366,8 @@ static struct icnss_priv {
 	bool bypass_s1_smmu;
 } *penv;
 
+static enum cnss_cc_src cnss_cc_source = CNSS_SOURCE_CORE;
+
 #ifdef CONFIG_ICNSS_DEBUG
 static void icnss_ignore_qmi_timeout(bool ignore)
 {
@@ -938,6 +940,18 @@ static int icnss_hw_power_off(struct icnss_priv *priv)
 
 	return ret;
 }
+
+void cnss_set_cc_source(enum cnss_cc_src cc_source)
+{
+	cnss_cc_source = cc_source;
+}
+EXPORT_SYMBOL(cnss_set_cc_source);
+
+enum cnss_cc_src cnss_get_cc_source(void)
+{
+	return cnss_cc_source;
+}
+EXPORT_SYMBOL(cnss_get_cc_source);
 
 int icnss_power_on(struct device *dev)
 {
@@ -3971,6 +3985,9 @@ static ssize_t icnss_regread_write(struct file *fp, const char __user *user_buf,
 	    data_len > QMI_WLFW_MAX_DATA_SIZE_V01)
 		return -EINVAL;
 
+	kfree(priv->diag_reg_read_buf);
+	priv->diag_reg_read_buf = NULL;
+
 	reg_buf = kzalloc(data_len, GFP_KERNEL);
 	if (!reg_buf)
 		return -ENOMEM;
@@ -4004,12 +4021,13 @@ static const struct file_operations icnss_regread_fops = {
 	.llseek         = seq_lseek,
 };
 
+#ifdef CONFIG_ICNSS_DEBUG
 static int icnss_debugfs_create(struct icnss_priv *priv)
 {
 	int ret = 0;
 	struct dentry *root_dentry;
 
-	root_dentry = debugfs_create_dir("icnss", 0);
+	root_dentry = debugfs_create_dir("icnss", NULL);
 
 	if (IS_ERR(root_dentry)) {
 		ret = PTR_ERR(root_dentry);
@@ -4019,19 +4037,40 @@ static int icnss_debugfs_create(struct icnss_priv *priv)
 
 	priv->root_dentry = root_dentry;
 
-	debugfs_create_file("fw_debug", 0644, root_dentry, priv,
+	debugfs_create_file("fw_debug", 0600, root_dentry, priv,
 			    &icnss_fw_debug_fops);
 
-	debugfs_create_file("stats", 0644, root_dentry, priv,
+	debugfs_create_file("stats", 0600, root_dentry, priv,
 			    &icnss_stats_fops);
 	debugfs_create_file("reg_read", 0600, root_dentry, priv,
 			    &icnss_regread_fops);
-	debugfs_create_file("reg_write", 0644, root_dentry, priv,
+	debugfs_create_file("reg_write", 0600, root_dentry, priv,
 			    &icnss_regwrite_fops);
 
 out:
 	return ret;
 }
+#else
+static int icnss_debugfs_create(struct icnss_priv *priv)
+{
+	int ret = 0;
+	struct dentry *root_dentry;
+
+	root_dentry = debugfs_create_dir("icnss", NULL);
+
+	if (IS_ERR(root_dentry)) {
+		ret = PTR_ERR(root_dentry);
+		icnss_pr_err("Unable to create debugfs %d\n", ret);
+		return ret;
+	}
+
+	priv->root_dentry = root_dentry;
+
+	debugfs_create_file("stats", 0600, root_dentry, priv,
+			    &icnss_stats_fops);
+	return 0;
+}
+#endif
 
 static void icnss_debugfs_destroy(struct icnss_priv *priv)
 {

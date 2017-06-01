@@ -2933,6 +2933,22 @@ static int mmc_reset(struct mmc_host *host)
 	return ret;
 }
 
+static int mmc_shutdown(struct mmc_host *host)
+{
+	struct mmc_card *card = host->card;
+
+	/*
+	 * Exit clock scaling so that it doesn't kick in after
+	 * power off notification is sent
+	 */
+	if (host->caps2 & MMC_CAP2_CLK_SCALE)
+		mmc_exit_clk_scaling(card->host);
+	/* send power off notification */
+	if (mmc_card_mmc(card))
+		mmc_send_pon(card);
+	return 0;
+}
+
 static const struct mmc_bus_ops mmc_ops = {
 	.remove = mmc_remove,
 	.detect = mmc_detect,
@@ -2943,6 +2959,7 @@ static const struct mmc_bus_ops mmc_ops = {
 	.alive = mmc_alive,
 	.change_bus_speed = mmc_change_bus_speed,
 	.reset = mmc_reset,
+	.shutdown = mmc_shutdown,
 };
 
 /*
