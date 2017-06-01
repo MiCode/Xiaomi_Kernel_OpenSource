@@ -264,8 +264,19 @@
 		interrupt-parent = <&mdss_mdp>;
 		interrupts = <2 0>;
 
+		/* Offline rotator QoS setting */
 		qcom,mdss-rot-vbif-qos-setting = <3 3 3 3 3 3 3 3>;
 		qcom,mdss-rot-cdp-setting = <1 1>;
+		qcom,mdss-rot-qos-lut = <0x0 0x0 0x0 0x0>;
+		qcom,mdss-rot-danger-lut = <0x0 0x0>;
+		qcom,mdss-rot-safe-lut = <0x0000ffff 0x0000ffff>;
+
+		/* Inline rotator QoS Setting */
+		/* setting default register values for RD - qos/danger/safe */
+		qcom,mdss-inline-rot-qos-lut = <0x44556677 0x00112233
+							0x44556677 0x00112233>;
+		qcom,mdss-inline-rot-danger-lut = <0x0055aaff 0x0000ffff>;
+		qcom,mdss-inline-rot-safe-lut = <0x0000f000 0x0000ff00>;
 
 		qcom,mdss-default-ot-rd-limit = <32>;
 		qcom,mdss-default-ot-wr-limit = <32>;
