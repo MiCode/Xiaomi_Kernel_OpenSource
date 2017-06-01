@@ -24,6 +24,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/msm_dma_iommu_mapping.h>
 #include <linux/workqueue.h>
+#include <linux/sizes.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
 #include <msm_camera_tz_util.h>
@@ -2292,7 +2293,7 @@ static int cam_smmu_setup_cb(struct cam_context_bank_info *cb,
 		}
 	} else {
 		cb->va_start = SZ_128K;
-		cb->va_len = VA_SPACE_END - SZ_128K;
+		cb->va_len = VA_SPACE_END - SZ_128M;
 	}
 
 	/* create a virtual mapping */
