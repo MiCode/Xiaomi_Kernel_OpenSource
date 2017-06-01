@@ -486,11 +486,8 @@ int sde_smmu_secure_ctrl(int enable)
 			mdata->iommu_attached = true;
 	} else {
 		rc = sde_smmu_detach(mdata);
-		/*
-		 * keep iommu_attached equal to true,
-		 * so that driver does not attemp to attach
-		 * while in secure state
-		 */
+		if (!rc)
+			mdata->iommu_attached = false;
 	}
 
 	mutex_unlock(&sde_smmu_ref_cnt_lock);
