@@ -61,6 +61,15 @@
 #define CHGR_BATTOV_CFG_REG			(CHGR_BASE + 0x70)
 #define BATTOV_SETTING_MASK			GENMASK(7, 0)
 
+#define TEMP_COMP_STATUS_REG			(MISC_BASE + 0x07)
+#define SKIN_TEMP_RST_HOT_BIT			BIT(6)
+#define SKIN_TEMP_UB_HOT_BIT			BIT(5)
+#define SKIN_TEMP_LB_HOT_BIT			BIT(4)
+#define DIE_TEMP_TSD_HOT_BIT			BIT(3)
+#define DIE_TEMP_RST_HOT_BIT			BIT(2)
+#define DIE_TEMP_UB_HOT_BIT			BIT(1)
+#define DIE_TEMP_LB_HOT_BIT			BIT(0)
+
 #define BARK_BITE_WDOG_PET_REG			(MISC_BASE + 0x43)
 #define BARK_BITE_WDOG_PET_BIT			BIT(0)
 
@@ -260,6 +269,7 @@ static enum power_supply_property smb1355_parallel_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_MODEL_NAME,
+	POWER_SUPPLY_PROP_CONNECTOR_HEALTH,
 };
 
 static int smb1355_get_prop_batt_charge_type(struct smb1355 *chip,
@@ -305,6 +315,29 @@ static int smb1355_get_parallel_charging(struct smb1355 *chip, int *disabled)
 	return 0;
 }
 
+static int smb1355_get_prop_connector_health(struct smb1355 *chip)
+{
+	u8 temp;
+	int rc;
+
+	rc = smb1355_read(chip, TEMP_COMP_STATUS_REG, &temp);
+	if (rc < 0) {
+		pr_err("Couldn't read comp stat reg rc = %d\n", rc);
+		return POWER_SUPPLY_HEALTH_UNKNOWN;
+	}
+
+	if (temp & SKIN_TEMP_RST_HOT_BIT)
+		return POWER_SUPPLY_HEALTH_OVERHEAT;
+
+	if (temp & SKIN_TEMP_UB_HOT_BIT)
+		return POWER_SUPPLY_HEALTH_HOT;
+
+	if (temp & SKIN_TEMP_LB_HOT_BIT)
+		return POWER_SUPPLY_HEALTH_WARM;
+
+	return POWER_SUPPLY_HEALTH_COOL;
+}
+
 static int smb1355_parallel_get_prop(struct power_supply *psy,
 				     enum power_supply_property prop,
 				     union power_supply_propval *val)
@@ -343,6 +376,9 @@ static int smb1355_parallel_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_PARALLEL_MODE:
 		val->intval = POWER_SUPPLY_PL_USBMID_USBMID;
+		break;
+	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
+		val->intval = smb1355_get_prop_connector_health(chip);
 		break;
 	default:
 		pr_err_ratelimited("parallel psy get prop %d not supported\n",
