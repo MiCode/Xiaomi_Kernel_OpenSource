@@ -1425,6 +1425,74 @@ int ipa3_qmi_stop_data_qouta(void)
 		resp.resp.error, "ipa_stop_data_usage_quota_req_msg_v01");
 }
 
+int ipa3_qmi_enable_per_client_stats(
+	struct ipa_enable_per_client_stats_req_msg_v01 *req,
+	struct ipa_enable_per_client_stats_resp_msg_v01 *resp)
+{
+	struct msg_desc req_desc, resp_desc;
+	int rc;
+
+	req_desc.max_msg_len =
+		QMI_IPA_ENABLE_PER_CLIENT_STATS_REQ_MAX_MSG_LEN_V01;
+	req_desc.msg_id =
+		QMI_IPA_ENABLE_PER_CLIENT_STATS_REQ_V01;
+	req_desc.ei_array =
+		ipa3_enable_per_client_stats_req_msg_data_v01_ei;
+
+	resp_desc.max_msg_len =
+		QMI_IPA_ENABLE_PER_CLIENT_STATS_RESP_MAX_MSG_LEN_V01;
+	resp_desc.msg_id =
+		QMI_IPA_ENABLE_PER_CLIENT_STATS_RESP_V01;
+	resp_desc.ei_array =
+		ipa3_enable_per_client_stats_resp_msg_data_v01_ei;
+
+	IPAWANDBG("Sending QMI_IPA_ENABLE_PER_CLIENT_STATS_REQ_V01\n");
+
+	rc = qmi_send_req_wait(ipa_q6_clnt, &req_desc, req,
+		sizeof(struct ipa_enable_per_client_stats_req_msg_v01),
+		&resp_desc, resp,
+		sizeof(struct ipa_enable_per_client_stats_resp_msg_v01),
+		QMI_SEND_STATS_REQ_TIMEOUT_MS);
+
+	IPAWANDBG("QMI_IPA_ENABLE_PER_CLIENT_STATS_RESP_V01 received\n");
+
+	return ipa3_check_qmi_response(rc,
+		QMI_IPA_ENABLE_PER_CLIENT_STATS_REQ_V01, resp->resp.result,
+		resp->resp.error, "ipa3_qmi_enable_per_client_stats");
+}
+
+int ipa3_qmi_get_per_client_packet_stats(
+	struct ipa_get_stats_per_client_req_msg_v01 *req,
+	struct ipa_get_stats_per_client_resp_msg_v01 *resp)
+{
+	struct msg_desc req_desc, resp_desc;
+	int rc;
+
+	req_desc.max_msg_len = QMI_IPA_GET_STATS_PER_CLIENT_REQ_MAX_MSG_LEN_V01;
+	req_desc.msg_id = QMI_IPA_GET_STATS_PER_CLIENT_REQ_V01;
+	req_desc.ei_array = ipa3_get_stats_per_client_req_msg_data_v01_ei;
+
+	resp_desc.max_msg_len =
+		QMI_IPA_GET_STATS_PER_CLIENT_RESP_MAX_MSG_LEN_V01;
+	resp_desc.msg_id = QMI_IPA_GET_STATS_PER_CLIENT_RESP_V01;
+	resp_desc.ei_array = ipa3_get_stats_per_client_resp_msg_data_v01_ei;
+
+	IPAWANDBG("Sending QMI_IPA_GET_STATS_PER_CLIENT_REQ_V01\n");
+
+	rc = qmi_send_req_wait(ipa_q6_clnt, &req_desc, req,
+			sizeof(struct ipa_get_stats_per_client_req_msg_v01),
+			&resp_desc, resp,
+			sizeof(struct ipa_get_stats_per_client_resp_msg_v01),
+			QMI_SEND_STATS_REQ_TIMEOUT_MS);
+
+	IPAWANDBG("QMI_IPA_GET_STATS_PER_CLIENT_RESP_V01 received\n");
+
+	return ipa3_check_qmi_response(rc,
+		QMI_IPA_GET_STATS_PER_CLIENT_REQ_V01, resp->resp.result,
+		resp->resp.error,
+		"struct ipa_get_stats_per_client_req_msg_v01");
+}
+
 void ipa3_qmi_init(void)
 {
 	mutex_init(&ipa3_qmi_lock);

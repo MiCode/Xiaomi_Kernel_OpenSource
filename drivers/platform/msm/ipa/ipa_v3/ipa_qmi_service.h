@@ -125,6 +125,11 @@ extern struct elem_info ipa3_install_fltr_rule_req_ex_msg_data_v01_ei[];
 extern struct elem_info ipa3_install_fltr_rule_resp_ex_msg_data_v01_ei[];
 extern struct elem_info ipa3_ul_firewall_rule_type_data_v01_ei[];
 extern struct elem_info ipa3_ul_firewall_config_result_type_data_v01_ei[];
+extern struct elem_info ipa3_per_client_stats_info_type_data_v01_ei[];
+extern struct elem_info ipa3_enable_per_client_stats_req_msg_data_v01_ei[];
+extern struct elem_info ipa3_enable_per_client_stats_resp_msg_data_v01_ei[];
+extern struct elem_info ipa3_get_stats_per_client_req_msg_data_v01_ei[];
+extern struct elem_info ipa3_get_stats_per_client_resp_msg_data_v01_ei[];
 extern struct elem_info ipa3_configure_ul_firewall_rules_req_msg_data_v01_ei[];
 extern struct elem_info ipa3_configure_ul_firewall_rules_resp_msg_data_v01_ei[];
 extern struct elem_info ipa3_configure_ul_firewall_rules_ind_msg_data_v01_ei[];
@@ -200,6 +205,17 @@ int rmnet_ipa3_set_tether_client_pipe(struct wan_ioctl_set_tether_client_pipe
 int rmnet_ipa3_query_tethering_stats(struct wan_ioctl_query_tether_stats *data,
 	bool reset);
 
+int rmnet_ipa3_set_lan_client_info(struct wan_ioctl_lan_client_info *data);
+
+int rmnet_ipa3_clear_lan_client_info(struct wan_ioctl_lan_client_info *data);
+
+int rmnet_ipa3_send_lan_client_msg(struct wan_ioctl_send_lan_client_msg *data);
+
+int rmnet_ipa3_enable_per_client_stats(bool *data);
+
+int rmnet_ipa3_query_per_client_stats(
+	struct wan_ioctl_query_per_client_stats *data);
+
 int ipa3_qmi_get_data_stats(struct ipa_get_data_stats_req_msg_v01 *req,
 	struct ipa_get_data_stats_resp_msg_v01 *resp);
 
@@ -211,6 +227,14 @@ int ipa3_qmi_set_data_quota(struct ipa_set_data_usage_quota_req_msg_v01 *req);
 int ipa3_qmi_stop_data_qouta(void);
 
 void ipa3_q6_handshake_complete(bool ssr_bootup);
+
+int ipa3_qmi_enable_per_client_stats(
+	struct ipa_enable_per_client_stats_req_msg_v01 *req,
+	struct ipa_enable_per_client_stats_resp_msg_v01 *resp);
+
+int ipa3_qmi_get_per_client_packet_stats(
+	struct ipa_get_stats_per_client_req_msg_v01 *req,
+	struct ipa_get_stats_per_client_resp_msg_v01 *resp);
 
 void ipa3_qmi_init(void);
 
@@ -333,12 +357,28 @@ static inline int ipa3_qmi_stop_data_qouta(void)
 
 static inline void ipa3_q6_handshake_complete(bool ssr_bootup) { }
 
+static inline int ipa3_qmi_enable_per_client_stats(
+	struct ipa_enable_per_client_stats_req_msg_v01 *req,
+	struct ipa_enable_per_client_stats_resp_msg_v01 *resp)
+{
+	return -EPERM;
+}
+
+static inline int ipa3_qmi_get_per_client_packet_stats(
+	struct ipa_get_stats_per_client_req_msg_v01 *req,
+	struct ipa_get_stats_per_client_resp_msg_v01 *resp)
+{
+	return -EPERM;
+}
+
 static inline void ipa3_qmi_init(void)
 {
+
 }
 
 static inline void ipa3_qmi_cleanup(void)
 {
+
 }
 
 #endif /* CONFIG_RMNET_IPA3 */
