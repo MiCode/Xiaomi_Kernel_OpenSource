@@ -104,6 +104,17 @@ First Level Node - CAM CPAS device
   Please refer Documentation/devicetree/bindings/arm/msm/msm_bus.txt
   for the properties above.
 
+- vdd-corners
+  Usage: required
+  Value type: <u32>
+  Definition: List of vdd corners to map for ahb level.
+
+- vdd-corner-ahb-mapping
+  Usage: required
+  Value type: <string>
+  Definition: List of ahb level strings corresponds to vdd-corners.
+  Supported strings: suspend, svs, nominal, turbo
+
 - client-id-based
   Usage: required
   Value type: <empty>
