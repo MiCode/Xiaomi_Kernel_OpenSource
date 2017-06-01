@@ -570,13 +570,15 @@ again:
 
 	for_each_cpu(cpu, &tmp_mask) {
 		struct interactive_cpu *icpu = &per_cpu(interactive_cpu, cpu);
-		struct cpufreq_policy *policy = icpu->ipolicy->policy;
+		struct cpufreq_policy *policy;
 
 		if (unlikely(!down_read_trylock(&icpu->enable_sem)))
 			continue;
 
-		if (likely(icpu->ipolicy))
+		if (likely(icpu->ipolicy)) {
+			policy = icpu->ipolicy->policy;
 			cpufreq_interactive_adjust_cpu(cpu, policy);
+		}
 
 		up_read(&icpu->enable_sem);
 	}
