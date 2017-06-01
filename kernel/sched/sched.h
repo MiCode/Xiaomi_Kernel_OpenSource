@@ -1225,6 +1225,11 @@ static inline bool hmp_capable(void)
 	return max_possible_capacity != min_max_possible_capacity;
 }
 
+static inline bool is_max_capacity_cpu(int cpu)
+{
+	return cpu_max_possible_capacity(cpu) == max_possible_capacity;
+}
+
 /*
  * 'load' is in reference to "best cpu" at its best frequency.
  * Scale that in reference to a given cpu, accounting for how bad it is
@@ -1600,6 +1605,8 @@ static inline unsigned int nr_eligible_big_tasks(int cpu)
 {
 	return 0;
 }
+
+static inline bool is_max_capacity_cpu(int cpu) { return true; }
 
 static inline int pct_task_load(struct task_struct *p) { return 0; }
 
