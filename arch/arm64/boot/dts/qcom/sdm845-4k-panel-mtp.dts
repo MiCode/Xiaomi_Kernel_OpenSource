@@ -22,7 +22,7 @@
 	qcom,board-id = <8 1>;
 };
 
-&dsi_dual_nt35597_truly_cmd_display {
+&dsi_nt35597_truly_dsc_cmd_display {
 	/delete-property/ qcom,dsi-display-active;
 };
 

@@ -371,7 +371,7 @@
 };
 
 &mdss_mdp {
-	connectors = <&sde_rscc &sde_wb &dsi_dual_nt35597_truly_cmd_display>;
+	connectors = <&sde_rscc &sde_wb &dsi_nt35597_truly_dsc_cmd_display>;
 };
 
 &dsi_dual_nt35597_truly_video {
