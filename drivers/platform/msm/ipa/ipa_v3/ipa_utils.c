@@ -1110,7 +1110,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			true,
 			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
 			QMB_MASTER_SELECT_DDR,
-			{ 0, 1, 8, 16, IPA_EE_AP } },
+			{ 1, 0, 8, 16, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_ETHERNET_PROD]	  = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			true,
