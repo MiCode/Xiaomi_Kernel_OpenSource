@@ -389,10 +389,10 @@
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
 					qcom,msm-bus,vectors-KBps =
-						<MSM_BUS_MASTER_CAMNOC_HF
-						MSM_BUS_SLAVE_EBI_CH0 0 0>,
-						<MSM_BUS_MASTER_CAMNOC_HF
-						MSM_BUS_SLAVE_EBI_CH0 0 0>;
+					<MSM_BUS_MASTER_CAMNOC_HF0
+					MSM_BUS_SLAVE_EBI_CH0 0 0>,
+					<MSM_BUS_MASTER_CAMNOC_HF0
+					MSM_BUS_SLAVE_EBI_CH0 0 0>;
 				};
 				qcom,axi-port-camnoc {
 					qcom,msm-bus,name = "cam_hf_1_camnoc";
@@ -400,10 +400,10 @@
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
 					qcom,msm-bus,vectors-KBps =
-						<MSM_BUS_MASTER_CAMNOC_HF
-						MSM_BUS_SLAVE_EBI_CH0 0 0>,
-						<MSM_BUS_MASTER_CAMNOC_HF
-						MSM_BUS_SLAVE_EBI_CH0 0 0>;
+					<MSM_BUS_MASTER_CAMNOC_HF0_UNCOMP
+					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>,
+					<MSM_BUS_MASTER_CAMNOC_HF0_UNCOMP
+					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>;
 				};
 			};
 			qcom,axi-port2 {
@@ -414,21 +414,21 @@
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
 					qcom,msm-bus,vectors-KBps =
-						<MSM_BUS_MASTER_CAMNOC_HF
-						MSM_BUS_SLAVE_EBI_CH0 0 0>,
-						<MSM_BUS_MASTER_CAMNOC_HF
-						MSM_BUS_SLAVE_EBI_CH0 0 0>;
+					<MSM_BUS_MASTER_CAMNOC_HF1
+					MSM_BUS_SLAVE_EBI_CH0 0 0>,
+					<MSM_BUS_MASTER_CAMNOC_HF1
+					MSM_BUS_SLAVE_EBI_CH0 0 0>;
 				};
 				qcom,axi-port-camnoc {
-					qcom,msm-bus,name = "cam_hf_1_camnoc";
+					qcom,msm-bus,name = "cam_hf_2_camnoc";
 					qcom,msm-bus-vector-dyn-vote;
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
 					qcom,msm-bus,vectors-KBps =
-						<MSM_BUS_MASTER_CAMNOC_HF
-						MSM_BUS_SLAVE_EBI_CH0 0 0>,
-						<MSM_BUS_MASTER_CAMNOC_HF
-						MSM_BUS_SLAVE_EBI_CH0 0 0>;
+					<MSM_BUS_MASTER_CAMNOC_HF1_UNCOMP
+					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>,
+					<MSM_BUS_MASTER_CAMNOC_HF1_UNCOMP
+					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>;
 				};
 			};
 			qcom,axi-port3 {
@@ -439,10 +439,10 @@
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
 					qcom,msm-bus,vectors-KBps =
-						<MSM_BUS_MASTER_CAMNOC_SF
-						MSM_BUS_SLAVE_EBI_CH0 0 0>,
-						<MSM_BUS_MASTER_CAMNOC_SF
-						MSM_BUS_SLAVE_EBI_CH0 0 0>;
+					<MSM_BUS_MASTER_CAMNOC_SF
+					MSM_BUS_SLAVE_EBI_CH0 0 0>,
+					<MSM_BUS_MASTER_CAMNOC_SF
+					MSM_BUS_SLAVE_EBI_CH0 0 0>;
 				};
 				qcom,axi-port-camnoc {
 					qcom,msm-bus,name = "cam_sf_1_camnoc";
@@ -450,10 +450,10 @@
 					qcom,msm-bus,num-cases = <2>;
 					qcom,msm-bus,num-paths = <1>;
 					qcom,msm-bus,vectors-KBps =
-						<MSM_BUS_MASTER_CAMNOC_SF
-						MSM_BUS_SLAVE_EBI_CH0 0 0>,
-						<MSM_BUS_MASTER_CAMNOC_SF
-						MSM_BUS_SLAVE_EBI_CH0 0 0>;
+					<MSM_BUS_MASTER_CAMNOC_SF_UNCOMP
+					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>,
+					<MSM_BUS_MASTER_CAMNOC_SF_UNCOMP
+					MSM_BUS_SLAVE_CAMNOC_UNCOMP 0 0>;
 				};
 			};
 		};
