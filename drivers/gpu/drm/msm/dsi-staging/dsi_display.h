@@ -30,7 +30,7 @@
 
 #define MAX_DSI_CTRLS_PER_DISPLAY             2
 #define DSI_CLIENT_NAME_SIZE		20
-#define DSI_DISPLAY_MAX_LEN	 512
+#define MAX_CMDLINE_PARAM_LEN	 512
 /*
  * DSI Validate Mode modifiers
  * @DSI_VALIDATE_FLAG_ALLOW_ADJUST:	Allow mode validation to also do fixup
@@ -97,14 +97,15 @@ struct dsi_display_ctrl {
  * @boot_disp_en:bool to indicate dtsi availability of display node
  * @is_primary:bool to indicate whether current display is primary display
  * @length:length of DSI display.
+ * @cmdline_topology: Display topology shared from kernel command line.
  */
 struct dsi_display_boot_param {
-	char name[DSI_DISPLAY_MAX_LEN];
+	char name[MAX_CMDLINE_PARAM_LEN];
 	bool boot_disp_en;
 	bool is_primary;
 	int length;
 	struct device_node *node;
-
+	int cmdline_topology;
 };
 
 /**
@@ -141,6 +142,7 @@ struct dsi_display_clk_info {
  * @config:           DSI host configuration information.
  * @lane_map:         Lane mapping between DSI host and Panel.
  * @num_of_modes:     Number of modes supported by display.
+ * @cmdline_topology: Display topology shared from kernel command line.
  * @is_tpg_enabled:   TPG state.
  * @ulps_enabled:     ulps state.
  * @clamp_enabled:    clamp state.
@@ -179,6 +181,7 @@ struct dsi_display {
 	struct dsi_host_config config;
 	struct dsi_lane_map lane_map;
 	u32 num_of_modes;
+	int cmdline_topology;
 	bool is_tpg_enabled;
 	bool ulps_enabled;
 	bool clamp_enabled;

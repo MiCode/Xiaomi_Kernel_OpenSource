@@ -28,11 +28,12 @@
 #include "dsi_pwr.h"
 
 #define to_dsi_display(x) container_of(x, struct dsi_display, host)
+#define INT_BASE_10 10
 
 static DEFINE_MUTEX(dsi_display_list_lock);
 static LIST_HEAD(dsi_display_list);
-static char dsi_display_primary[DSI_DISPLAY_MAX_LEN];
-static char dsi_display_secondary[DSI_DISPLAY_MAX_LEN];
+static char dsi_display_primary[MAX_CMDLINE_PARAM_LEN];
+static char dsi_display_secondary[MAX_CMDLINE_PARAM_LEN];
 static struct dsi_display_boot_param boot_displays[MAX_DSI_ACTIVE_DISPLAY];
 static struct device_node *default_active_node;
 static const struct of_device_id dsi_display_dt_match[] = {
@@ -557,6 +558,31 @@ error:
 	return rc;
 }
 
+static int dsi_display_parse_cmdline_topology(unsigned int display_type)
+{
+	char *str = NULL;
+	int top_index = -1;
+
+	if (display_type >= MAX_DSI_ACTIVE_DISPLAY) {
+		pr_err("display_type=%d not supported\n", display_type);
+		return -EINVAL;
+	}
+	if (display_type == DSI_PRIMARY)
+		str = strnstr(dsi_display_primary,
+			":config", strlen(dsi_display_primary));
+	else
+		str = strnstr(dsi_display_secondary,
+			":config", strlen(dsi_display_secondary));
+	if (!str)
+		return -EINVAL;
+
+	if (kstrtol(str + strlen(":config"), INT_BASE_10,
+				(unsigned long *)&top_index))
+		return -EINVAL;
+
+	return top_index;
+}
+
 /**
  * dsi_display_name_compare()- compare whether DSI display name matches.
  * @node:	Pointer to device node structure
@@ -589,7 +615,7 @@ static bool dsi_display_name_compare(struct device_node *node,
 static int dsi_display_parse_boot_display_selection(void)
 {
 	char *pos = NULL;
-	char disp_buf[DSI_DISPLAY_MAX_LEN] = {'\0'};
+	char disp_buf[MAX_CMDLINE_PARAM_LEN] = {'\0'};
 	int i, j, num_displays;
 
 	if (strlen(dsi_display_primary) == 0)
@@ -1955,7 +1981,8 @@ static int dsi_display_res_init(struct dsi_display *display)
 		}
 	}
 
-	display->panel = dsi_panel_get(&display->pdev->dev, display->panel_of);
+	display->panel = dsi_panel_get(&display->pdev->dev, display->panel_of,
+						display->cmdline_topology);
 	if (IS_ERR_OR_NULL(display->panel)) {
 		rc = PTR_ERR(display->panel);
 		pr_err("failed to get panel, rc=%d\n", rc);
@@ -2742,7 +2769,8 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 		boot_displays_parsed = true;
 	}
 
-
+	/* Initialize cmdline_topology to use default topology */
+	display->cmdline_topology = -1;
 	if ((!display_from_cmdline) &&
 			(boot_displays[DSI_PRIMARY].boot_disp_en)) {
 		display->is_active = dsi_display_name_compare(pdev->dev.of_node,
@@ -2765,6 +2793,8 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 			pr_debug("cmdline primary dsi: %s\n",
 						display->name);
 			display_from_cmdline = true;
+			display->cmdline_topology =
+				dsi_display_parse_cmdline_topology(DSI_PRIMARY);
 			primary_np = pdev->dev.of_node;
 		}
 	}
@@ -2777,11 +2807,15 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 							display->name);
 				secondary_np = pdev->dev.of_node;
 				if (primary_np) {
-					if (validate_dsi_display_selection())
-						display->is_active = true;
-					else
+					if (validate_dsi_display_selection()) {
+					display->is_active = true;
+					display->cmdline_topology =
+					dsi_display_parse_cmdline_topology
+							(DSI_SECONDARY);
+					} else {
 						boot_displays[DSI_SECONDARY]
 							.boot_disp_en = false;
+					}
 				}
 			}
 		}
@@ -3669,13 +3703,13 @@ static void __exit dsi_display_unregister(void)
 	dsi_ctrl_drv_unregister();
 	dsi_phy_drv_unregister();
 }
-module_param_string(dsi_display0, dsi_display_primary, DSI_DISPLAY_MAX_LEN,
+module_param_string(dsi_display0, dsi_display_primary, MAX_CMDLINE_PARAM_LEN,
 								0600);
 MODULE_PARM_DESC(dsi_display0,
-	"msm_drm.dsi_display0=<display node>: where <display node> is 'primary dsi display node name'");
-module_param_string(dsi_display1, dsi_display_secondary, DSI_DISPLAY_MAX_LEN,
+	"msm_drm.dsi_display0=<display node>:<configX> where <display node> is 'primary dsi display node name' and <configX> where x represents index in the topology list");
+module_param_string(dsi_display1, dsi_display_secondary, MAX_CMDLINE_PARAM_LEN,
 								0600);
 MODULE_PARM_DESC(dsi_display1,
-	"msm_drm.dsi_display1=<display node>: where <display node> is 'Secondary dsi display node name'");
+	"msm_drm.dsi_display1=<display node>:<configX> where <display node> is 'secondary dsi display node name' and <configX> where x represents index in the topology list");
 module_init(dsi_display_register);
 module_exit(dsi_display_unregister);

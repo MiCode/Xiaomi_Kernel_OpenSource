@@ -205,7 +205,8 @@ static inline bool dsi_panel_initialized(struct dsi_panel *panel)
 }
 
 struct dsi_panel *dsi_panel_get(struct device *parent,
-				struct device_node *of_node);
+				struct device_node *of_node,
+				int topology_override);
 void dsi_panel_put(struct dsi_panel *panel);
 
 int dsi_panel_drv_init(struct dsi_panel *panel, struct mipi_dsi_host *host);

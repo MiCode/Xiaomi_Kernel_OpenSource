@@ -22,9 +22,6 @@
 #include "dsi_panel.h"
 #include "dsi_ctrl_hw.h"
 
-#define MAX_CMDLINE_PARAM_LEN 256
-static char display_config[MAX_CMDLINE_PARAM_LEN];
-
 /**
  * topology is currently defined by a set of following 3 values:
  * 1. num of layer mixers
@@ -32,7 +29,6 @@ static char display_config[MAX_CMDLINE_PARAM_LEN];
  * 3. num of interfaces
  */
 #define TOPOLOGY_SET_LEN 3
-#define INT_BASE_10 10
 #define MAX_TOPOLOGY 5
 
 #define DSI_PANEL_DEFAULT_LABEL  "Default dsi panel"
@@ -2078,31 +2074,9 @@ static int dsi_panel_parse_hdr_config(struct dsi_panel *panel,
 	return 0;
 }
 
-static int dsi_get_cmdline_top_override(void)
-{
-	char *str = display_config;
-	int top_index = -1;
-
-	/*
-	 * This module need to be updated with needed cmd line argument parsing
-	 * for other dsi parameters.
-	 */
-	if (strlcat(str, "\0", sizeof(str)) > sizeof(str))
-		return -EINVAL;
-
-	str = strnstr(display_config, "config", strlen(display_config));
-	if (!str)
-		return -EINVAL;
-
-	if (kstrtol(str + strlen("config"), INT_BASE_10,
-				(unsigned long *)&top_index))
-		return -EINVAL;
-
-	return top_index;
-}
-
 static int dsi_panel_parse_topology(struct dsi_panel *panel,
-		struct device_node *of_node)
+				struct device_node *of_node,
+				int topology_override)
 {
 	struct msm_display_topology *topology;
 	u32 top_count, top_sel, *array = NULL;
@@ -2143,12 +2117,13 @@ static int dsi_panel_parse_topology(struct dsi_panel *panel,
 		top->num_intf = array[i * TOPOLOGY_SET_LEN + 2];
 	};
 
-	top_sel = dsi_get_cmdline_top_override();
-	if (top_sel >= 0 && top_sel < top_count) {
-		pr_info("overidden topology: lm: %d comp_enc:%d intf: %d\n",
-			topology[top_sel].num_lm,
-			topology[top_sel].num_enc,
-			topology[top_sel].num_intf);
+	if (topology_override >= 0 && topology_override < top_count) {
+		pr_info("override topology: cfg:%d lm:%d comp_enc:%d intf:%d\n",
+			topology_override,
+			topology[topology_override].num_lm,
+			topology[topology_override].num_enc,
+			topology[topology_override].num_intf);
+		top_sel = topology_override;
 		goto parse_done;
 	}
 
@@ -2266,7 +2241,8 @@ static int dsi_panel_parse_partial_update_caps(struct dsi_panel *panel,
 }
 
 struct dsi_panel *dsi_panel_get(struct device *parent,
-				struct device_node *of_node)
+				struct device_node *of_node,
+				int topology_override)
 {
 	struct dsi_panel *panel;
 	const char *data;
@@ -2323,7 +2299,7 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 				    DSI_V_TOTAL(&panel->mode.timing) *
 				    panel->mode.timing.refresh_rate) / 1000;
 
-	rc = dsi_panel_parse_topology(panel, of_node);
+	rc = dsi_panel_parse_topology(panel, of_node, topology_override);
 	if (rc) {
 		pr_err("failed to parse panel topology, rc=%d\n", rc);
 		goto error;
@@ -2970,6 +2946,3 @@ error:
 	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
-
-module_param_string(display_param, display_config, MAX_CMDLINE_PARAM_LEN, 0600);
-MODULE_PARM_DESC(display_param, "format: configx - x indexes the selected topology from the display topology list. Index 0 corresponds to the first topology in the list");
