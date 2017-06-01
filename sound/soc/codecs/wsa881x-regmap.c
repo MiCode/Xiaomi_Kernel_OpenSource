@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -154,30 +154,6 @@ static struct reg_default wsa881x_defaults[] = {
 	{WSA881X_SPKR_STATUS3, 0x00},
 };
 
-/* Default register reset values for WSA881x rev 1.0 or 1.1 */
-static struct reg_default wsa881x_rev_1_x[] = {
-	{WSA881X_INTR_MASK, 0x1F},
-	{WSA881X_OTP_REG_28, 0xFF},
-	{WSA881X_OTP_REG_29, 0xFF},
-	{WSA881X_OTP_REG_30, 0xFF},
-	{WSA881X_OTP_REG_31, 0xFF},
-	{WSA881X_TEMP_ADC_CTRL, 0x00},
-	{WSA881X_ADC_SEL_IBIAS, 0x25},
-	{WSA881X_SPKR_DRV_GAIN, 0x01},
-	{WSA881X_SPKR_DAC_CTL, 0x40},
-	{WSA881X_SPKR_BBM_CTL, 0x00},
-	{WSA881X_SPKR_MISC_CTL1, 0x80},
-	{WSA881X_SPKR_MISC_CTL2, 0x00},
-	{WSA881X_SPKR_BIAS_INT, 0x56},
-	{WSA881X_SPKR_BIAS_PSRR, 0x54},
-	{WSA881X_BOOST_PS_CTL, 0xC0},
-	{WSA881X_BOOST_PRESET_OUT1, 0x77},
-	{WSA881X_BOOST_LOOP_STABILITY, 0xAD},
-	{WSA881X_SPKR_PROT_ATEST2, 0x00},
-	{WSA881X_BONGO_RESRV_REG1, 0x00},
-	{WSA881X_BONGO_RESRV_REG2, 0x00},
-};
-
 /* Default register reset values for WSA881x rev 2.0 */
 static struct reg_default wsa881x_rev_2_0[] = {
 	{WSA881X_RESET_CTL, 0x00},
@@ -222,26 +198,10 @@ void wsa881x_regmap_defaults(struct regmap *regmap, u8 version)
 		return;
 	}
 
-	switch (version) {
-	case WSA881X_1_X:
-		regcache_cache_only(regmap, true);
-		ret = regmap_multi_reg_write(regmap,
-					     wsa881x_rev_1_x,
-					     ARRAY_SIZE(wsa881x_rev_1_x));
-		regcache_cache_only(regmap, false);
-		break;
-	case WSA881X_2_0:
-		regcache_cache_only(regmap, true);
-		ret = regmap_multi_reg_write(regmap,
-					     wsa881x_rev_2_0,
-					     ARRAY_SIZE(wsa881x_rev_2_0));
-		regcache_cache_only(regmap, false);
-		break;
-	default:
-		pr_debug("%s: unknown version", __func__);
-		ret = -EINVAL;
-		break;
-	}
+	regcache_cache_only(regmap, true);
+	ret = regmap_multi_reg_write(regmap, wsa881x_rev_2_0,
+				     ARRAY_SIZE(wsa881x_rev_2_0));
+	regcache_cache_only(regmap, false);
 
 	if (ret)
 		pr_debug("%s: Failed to update regmap defaults ret= %d\n",
