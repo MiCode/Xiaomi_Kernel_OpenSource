@@ -986,7 +986,7 @@ static u32 sde_hw_intr_get_interrupt_status(struct sde_hw_intr *intr,
 			sde_intr_set[reg_idx].status_off) &
 					sde_irq_map[irq_idx].irq_mask;
 	if (intr_status && clear)
-		SDE_REG_WRITE(&intr->hw, sde_intr_set[irq_idx].clr_off,
+		SDE_REG_WRITE(&intr->hw, sde_intr_set[reg_idx].clr_off,
 				intr_status);
 
 	spin_unlock_irqrestore(&intr->mask_lock, irq_flags);
