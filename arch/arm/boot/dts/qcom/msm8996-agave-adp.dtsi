@@ -797,6 +797,13 @@
 
 		qcom,ntn-rst-delay-msec = <100>;
 		qcom,ntn-rc-num = <1>;
+
+		qcom,msm-bus,name = "ntn";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<100 512 0 0>,
+				<100 512 207108 14432000>;
 	};
 
 	i2c@75ba000 {

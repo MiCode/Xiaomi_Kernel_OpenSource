@@ -379,13 +379,13 @@ int msm_camera_clk_enable(struct device *dev,
 							  clk_info[i].clk_name);
 						goto cam_clk_set_err;
 					}
-					rc = clk_set_rate(clk_ptr[i],
-								clk_rate);
-					if (rc < 0) {
-						pr_err("%s set rate failed\n",
-							  clk_info[i].clk_name);
-						goto cam_clk_set_err;
-					}
+				}
+				rc = clk_set_rate(clk_ptr[i],
+							clk_rate);
+				if (rc < 0) {
+					pr_err("%s set rate failed\n",
+						  clk_info[i].clk_name);
+					goto cam_clk_set_err;
 				}
 			}
 			rc = clk_prepare_enable(clk_ptr[i]);
