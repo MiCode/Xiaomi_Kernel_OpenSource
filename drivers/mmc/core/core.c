@@ -862,7 +862,7 @@ int mmc_resume_clk_scaling(struct mmc_host *host)
 	devfreq_min_clk = host->clk_scaling.freq_table[0];
 
 	host->clk_scaling.curr_freq = devfreq_max_clk;
-	if (host->ios.clock < host->card->clk_scaling_highest)
+	if (host->ios.clock < host->clk_scaling.freq_table[max_clk_idx])
 		host->clk_scaling.curr_freq = devfreq_min_clk;
 
 	host->clk_scaling.clk_scaling_in_progress = false;
