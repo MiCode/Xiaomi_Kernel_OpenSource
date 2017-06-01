@@ -4558,6 +4558,7 @@ int ipa_tag_process(struct ipa_desc desc[],
 	int res;
 	struct ipa_tag_completion *comp;
 	int ep_idx;
+	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 
 	/* Not enough room for the required descriptors for the tag process */
 	if (IPA_TAG_MAX_DESC - descs_num < REQUIRED_TAG_PROCESS_DESCRIPTORS) {
@@ -4575,7 +4576,7 @@ int ipa_tag_process(struct ipa_desc desc[],
 	}
 	sys = ipa_ctx->ep[ep_idx].sys;
 
-	tag_desc = kzalloc(sizeof(*tag_desc) * IPA_TAG_MAX_DESC, GFP_KERNEL);
+	tag_desc = kzalloc(sizeof(*tag_desc) * IPA_TAG_MAX_DESC, flag);
 	if (!tag_desc) {
 		IPAERR("failed to allocate memory\n");
 		res = -ENOMEM;

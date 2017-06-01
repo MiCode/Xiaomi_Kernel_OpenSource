@@ -176,6 +176,7 @@ int __ipa_commit_hdr_v1_1(void)
 	struct ipa_mem_buffer *mem;
 	struct ipa_hdr_init_local *cmd;
 	u16 len;
+	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 
 	mem = kmalloc(sizeof(struct ipa_mem_buffer), GFP_KERNEL);
 	if (!mem) {
@@ -190,7 +191,7 @@ int __ipa_commit_hdr_v1_1(void)
 	 * we can use init_local ptr for init_system due to layout of the
 	 * struct
 	 */
-	cmd = kmalloc(len, GFP_KERNEL);
+	cmd = kmalloc(len, flag);
 	if (!cmd) {
 		IPAERR("failed to alloc immediate command object\n");
 		goto fail_alloc_cmd;
@@ -663,6 +664,7 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr)
 	struct ipa_hdr_tbl *htbl = &ipa_ctx->hdr_tbl;
 	int id;
 	int mem_size;
+	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 
 	if (hdr->hdr_len == 0 || hdr->hdr_len > IPA_HDR_MAX_SIZE) {
 		IPAERR("bad parm\n");
@@ -674,7 +676,7 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr)
 		goto error;
 	}
 
-	entry = kmem_cache_zalloc(ipa_ctx->hdr_cache, GFP_KERNEL);
+	entry = kmem_cache_zalloc(ipa_ctx->hdr_cache, flag);
 	if (!entry) {
 		IPAERR("failed to alloc hdr object\n");
 		goto error;
