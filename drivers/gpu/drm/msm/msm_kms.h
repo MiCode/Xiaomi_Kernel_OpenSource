@@ -34,6 +34,8 @@
 #define MSM_MODE_FLAG_SEAMLESS_DYNAMIC_FPS	(1<<0)
 /* Transition to new mode requires a wait-for-vblank before the modeset */
 #define MSM_MODE_FLAG_VBLANK_PRE_MODESET	(1<<1)
+/* Request to switch the connector mode */
+#define MSM_MODE_FLAG_SEAMLESS_DMS			(1<<2)
 
 /* As there are different display controller blocks depending on the
  * snapdragon version, the kms support is split out and the appropriate
@@ -144,6 +146,12 @@ struct msm_kms *sde_kms_init(struct drm_device *dev);
 static inline bool msm_is_mode_seamless(const struct drm_display_mode *mode)
 {
 	return (mode->flags & DRM_MODE_FLAG_SEAMLESS);
+}
+
+static inline bool msm_is_mode_seamless_dms(const struct drm_display_mode *mode)
+{
+	return mode ? (mode->private_flags & MSM_MODE_FLAG_SEAMLESS_DMS)
+		: false;
 }
 
 static inline bool msm_is_mode_dynamic_fps(const struct drm_display_mode *mode)

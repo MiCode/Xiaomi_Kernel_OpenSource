@@ -1107,6 +1107,32 @@ static int dsi_display_phy_reset_config(struct dsi_display *display,
 	return 0;
 }
 
+static int dsi_display_ctrl_update(struct dsi_display *display)
+{
+	int rc = 0;
+	int i;
+	struct dsi_display_ctrl *ctrl;
+
+	for (i = 0 ; i < display->ctrl_count; i++) {
+		ctrl = &display->ctrl[i];
+		rc = dsi_ctrl_host_timing_update(ctrl->ctrl);
+		if (rc) {
+			pr_err("[%s] failed to update host_%d, rc=%d\n",
+				   display->name, i, rc);
+			goto error_host_deinit;
+		}
+	}
+
+	return 0;
+error_host_deinit:
+	for (i = i - 1; i >= 0; i--) {
+		ctrl = &display->ctrl[i];
+		(void)dsi_ctrl_host_deinit(ctrl->ctrl);
+	}
+
+	return rc;
+}
+
 static int dsi_display_ctrl_init(struct dsi_display *display)
 {
 	int rc = 0;
@@ -3588,16 +3614,79 @@ error:
 	return rc;
 }
 
+static int dsi_display_pre_switch(struct dsi_display *display)
+{
+	int rc = 0;
+
+	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_CORE_CLK, DSI_CLK_ON);
+	if (rc) {
+		pr_err("[%s] failed to enable DSI core clocks, rc=%d\n",
+		       display->name, rc);
+		goto error;
+	}
+
+	rc = dsi_display_ctrl_update(display);
+	if (rc) {
+		pr_err("[%s] failed to update DSI controller, rc=%d\n",
+			   display->name, rc);
+		goto error_ctrl_clk_off;
+	}
+
+	rc = dsi_display_set_clk_src(display);
+	if (rc) {
+		pr_err("[%s] failed to set DSI link clock source, rc=%d\n",
+			display->name, rc);
+		goto error_ctrl_deinit;
+	}
+
+	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_LINK_CLK, DSI_CLK_ON);
+	if (rc) {
+		pr_err("[%s] failed to enable DSI link clocks, rc=%d\n",
+			   display->name, rc);
+		goto error_ctrl_deinit;
+	}
+
+	goto error;
+
+error_ctrl_deinit:
+	(void)dsi_display_ctrl_deinit(display);
+error_ctrl_clk_off:
+	(void)dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_CORE_CLK, DSI_CLK_OFF);
+error:
+	return rc;
+}
+
 int dsi_display_prepare(struct dsi_display *display)
 {
 	int rc = 0;
+	struct dsi_display_mode *mode;
 
 	if (!display) {
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
 
+	if (!display->panel->cur_mode) {
+		pr_err("no valid mode set for the display");
+		return -EINVAL;
+	}
+
 	mutex_lock(&display->display_lock);
+
+	mode = display->panel->cur_mode;
+
+	if (mode->dsi_mode_flags & DSI_MODE_FLAG_DMS) {
+		/* update dsi ctrl for new mode */
+		rc = dsi_display_pre_switch(display);
+		if (rc)
+			pr_err("[%s] panel pre-prepare-res-switch failed, rc=%d\n",
+				   display->name, rc);
+
+		goto error;
+	}
 
 	rc = dsi_panel_pre_prepare(display->panel);
 	if (rc) {
@@ -3812,11 +3901,20 @@ int dsi_display_enable(struct dsi_display *display)
 
 	mode = display->panel->cur_mode;
 
-	rc = dsi_panel_enable(display->panel);
-	if (rc) {
-		pr_err("[%s] failed to enable DSI panel, rc=%d\n",
-		       display->name, rc);
-		goto error;
+	if (mode->dsi_mode_flags & DSI_MODE_FLAG_DMS) {
+		rc = dsi_panel_post_switch(display->panel);
+		if (rc) {
+			pr_err("[%s] failed to switch DSI panel mode, rc=%d\n",
+				   display->name, rc);
+			goto error;
+		}
+	} else {
+		rc = dsi_panel_enable(display->panel);
+		if (rc) {
+			pr_err("[%s] failed to enable DSI panel, rc=%d\n",
+			       display->name, rc);
+			goto error;
+		}
 	}
 
 	if (mode->priv_info->dsc_enabled) {
@@ -3827,6 +3925,15 @@ int dsi_display_enable(struct dsi_display *display)
 				display->name, rc);
 			goto error;
 		}
+	}
+
+	if (mode->dsi_mode_flags & DSI_MODE_FLAG_DMS) {
+		rc = dsi_panel_switch(display->panel);
+		if (rc)
+			pr_err("[%s] failed to switch DSI panel mode, rc=%d\n",
+				   display->name, rc);
+
+		goto error_disable_panel;
 	}
 
 	if (display->config.panel_mode == DSI_OP_VIDEO_MODE) {

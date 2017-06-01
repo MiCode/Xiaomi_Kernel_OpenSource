@@ -76,11 +76,13 @@ enum dsi_op_mode {
  * @DSI_MODE_FLAG_SEAMLESS:	Seamless transition requested by user
  * @DSI_MODE_FLAG_DFPS:		Seamless transition is DynamicFPS
  * @DSI_MODE_FLAG_VBLANK_PRE_MODESET:	Transition needs VBLANK before Modeset
+ * @DSI_MODE_FLAG_DMS: Seamless transition is dynamic mode switch
  */
 enum dsi_mode_flags {
 	DSI_MODE_FLAG_SEAMLESS			= BIT(0),
 	DSI_MODE_FLAG_DFPS			= BIT(1),
-	DSI_MODE_FLAG_VBLANK_PRE_MODESET	= BIT(2)
+	DSI_MODE_FLAG_VBLANK_PRE_MODESET	= BIT(2),
+	DSI_MODE_FLAG_DMS			= BIT(3),
 };
 
 /**

@@ -1945,6 +1945,36 @@ void dsi_ctrl_disable_status_interrupt(struct dsi_ctrl *dsi_ctrl,
 	spin_unlock_irqrestore(&dsi_ctrl->irq_info.irq_lock, flags);
 }
 
+int dsi_ctrl_host_timing_update(struct dsi_ctrl *dsi_ctrl)
+{
+	if (!dsi_ctrl) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	if (dsi_ctrl->hw.ops.host_setup)
+		dsi_ctrl->hw.ops.host_setup(&dsi_ctrl->hw,
+				&dsi_ctrl->host_config.common_config);
+
+	if (dsi_ctrl->host_config.panel_mode == DSI_OP_CMD_MODE) {
+		if (dsi_ctrl->hw.ops.cmd_engine_setup)
+			dsi_ctrl->hw.ops.cmd_engine_setup(&dsi_ctrl->hw,
+					&dsi_ctrl->host_config.common_config,
+					&dsi_ctrl->host_config.u.cmd_engine);
+
+		if (dsi_ctrl->hw.ops.setup_cmd_stream)
+			dsi_ctrl->hw.ops.setup_cmd_stream(&dsi_ctrl->hw,
+				&dsi_ctrl->host_config.video_timing,
+				dsi_ctrl->host_config.video_timing.h_active * 3,
+				0x0, NULL);
+	} else {
+		pr_err("invalid panel mode for resolution switch\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 /**
  * dsi_ctrl_host_init() - Initialize DSI host hardware.
  * @dsi_ctrl:        DSI controller handle.

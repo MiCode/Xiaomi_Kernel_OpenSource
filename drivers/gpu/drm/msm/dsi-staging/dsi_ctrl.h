@@ -360,6 +360,17 @@ int dsi_ctrl_phy_reset_config(struct dsi_ctrl *dsi_ctrl, bool enable);
 int dsi_ctrl_soft_reset(struct dsi_ctrl *dsi_ctrl);
 
 /**
+ * dsi_ctrl_host_timing_update - reinitialize host with new timing values
+ * @dsi_ctrl:         DSI controller handle.
+ *
+ * Reinitialize DSI controller hardware with new display timing values
+ * when resolution is switched dynamically.
+ *
+ * Return: error code
+ */
+int dsi_ctrl_host_timing_update(struct dsi_ctrl *dsi_ctrl);
+
+/**
  * dsi_ctrl_host_init() - Initialize DSI host hardware.
  * @dsi_ctrl:        DSI controller handle.
  *
