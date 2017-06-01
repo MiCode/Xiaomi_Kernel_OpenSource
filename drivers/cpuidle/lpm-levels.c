@@ -363,6 +363,24 @@ static int lpm_cpu_callback(struct notifier_block *cpu_nb,
 	return NOTIFY_OK;
 }
 
+#ifdef CONFIG_ARM_PSCI
+
+static int __init set_cpuidle_ops(void)
+{
+	int ret = 0, cpu;
+
+	for_each_possible_cpu(cpu) {
+		ret = arm_cpuidle_init(cpu);
+		if (ret)
+			goto exit;
+	}
+
+exit:
+	return ret;
+}
+
+#endif
+
 static enum hrtimer_restart lpm_hrtimer_cb(struct hrtimer *h)
 {
 	return HRTIMER_NORESTART;
@@ -1953,6 +1971,14 @@ static int __init lpm_levels_module_init(void)
 		pr_info("Error registering %s\n", lpm_driver.driver.name);
 		goto fail;
 	}
+
+#ifdef CONFIG_ARM_PSCI
+	rc = set_cpuidle_ops();
+	if (rc) {
+		pr_err("%s(): Failed to set cpuidle ops\n", __func__);
+		goto fail;
+	}
+#endif
 
 fail:
 	return rc;
