@@ -789,6 +789,7 @@ static int msm_gem_obj_init(struct drm_device *dev,
 	msm_obj->resv = &msm_obj->_resv;
 	reservation_object_init(msm_obj->resv);
 
+	INIT_LIST_HEAD(&msm_obj->mm_list);
 	INIT_LIST_HEAD(&msm_obj->submit_entry);
 	INIT_LIST_HEAD(&msm_obj->domains);
 
@@ -803,29 +804,29 @@ static int msm_gem_obj_init(struct drm_device *dev,
 	return 0;
 }
 
-static int msm_gem_new_impl(struct drm_device *dev, uint32_t size,
-		uint32_t flags, struct drm_gem_object **obj,
-		bool struct_mutex_locked)
+static struct drm_gem_object *msm_gem_new_impl(struct drm_device *dev,
+		uint32_t size, uint32_t flags, bool struct_mutex_locked)
 {
 	struct msm_gem_object *msm_obj;
 	int ret;
 
 	msm_obj = kzalloc(sizeof(*msm_obj), GFP_KERNEL);
 	if (!msm_obj)
-		return -ENOMEM;
+		return ERR_PTR(-ENOMEM);
 
 	ret = msm_gem_obj_init(dev, size, flags, msm_obj, struct_mutex_locked);
-	if (ret)
-		return ret;
+	if (ret) {
+		kfree(msm_obj);
+		return ERR_PTR(ret);
+	}
 
-	*obj = &msm_obj->base;
-	return 0;
+	return &msm_obj->base;
 }
 
 static struct drm_gem_object *_msm_gem_new(struct drm_device *dev,
 		uint32_t size, uint32_t flags, bool struct_mutex_locked)
 {
-	struct drm_gem_object *obj = NULL;
+	struct drm_gem_object *obj;
 	int ret;
 
 	size = PAGE_ALIGN(size);
@@ -837,9 +838,9 @@ static struct drm_gem_object *_msm_gem_new(struct drm_device *dev,
 	if (!size)
 		return ERR_PTR(-EINVAL);
 
-	ret = msm_gem_new_impl(dev, size, flags, &obj, struct_mutex_locked);
-	if (ret)
-		goto fail;
+	obj = msm_gem_new_impl(dev, size, flags, struct_mutex_locked);
+	if (IS_ERR(obj))
+		return obj;
 
 	if (use_pages(obj)) {
 		ret = drm_gem_object_init(dev, obj, size);
@@ -852,8 +853,7 @@ static struct drm_gem_object *_msm_gem_new(struct drm_device *dev,
 	return obj;
 
 fail:
-	if (obj)
-		drm_gem_object_unreference_unlocked(obj);
+	drm_gem_object_unreference_unlocked(obj);
 
 	return ERR_PTR(ret);
 }
@@ -1017,10 +1017,9 @@ struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 
 	size = PAGE_ALIGN(size);
 
-	ret = msm_gem_new_impl(dev, size, MSM_BO_WC, &obj, false);
-
-	if (ret)
-		goto fail;
+	obj = msm_gem_new_impl(dev, size, MSM_BO_WC, false);
+	if (IS_ERR(obj))
+		return obj;
 
 	drm_gem_private_object_init(dev, obj, size);
 
@@ -1050,8 +1049,7 @@ struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 	return obj;
 
 fail:
-	if (obj)
-		drm_gem_object_unreference_unlocked(obj);
+	drm_gem_object_unreference_unlocked(obj);
 
 	return ERR_PTR(ret);
 }
