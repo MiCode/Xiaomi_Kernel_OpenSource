@@ -662,6 +662,9 @@ static void _power_counter_enable_gpmu(struct adreno_device *adreno_dev,
 	} else if (adreno_is_a540(adreno_dev)) {
 		if (countable > 47)
 			return;
+	} else if (adreno_is_a6xx(adreno_dev)) {
+		if (countable > 34)
+			return;
 	} else
 		/* return on platforms that have no GPMU */
 		return;

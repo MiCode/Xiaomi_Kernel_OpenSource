@@ -2431,11 +2431,46 @@ static struct adreno_perfcount_register a6xx_perfcounters_alwayson[] = {
 		A6XX_CP_ALWAYS_ON_COUNTER_HI, -1 },
 };
 
+static struct adreno_perfcount_register a6xx_pwrcounters_gpmu[] = {
+	/*
+	 * A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0 is used for the GPU
+	 * busy count (see the PWR group above). Mark it as broken
+	 * so it's not re-used.
+	 */
+	{ KGSL_PERFCOUNTER_BROKEN, 0, 0,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_L,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_0_H, -1,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0, },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_1_L,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_1_H, -1,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0, },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_2_L,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_2_H, -1,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0, },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_3_L,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_3_H, -1,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_0, },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4_L,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_4_H, -1,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_1, },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_5_L,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_XOCLK_5_H, -1,
+		A6XX_GMU_CX_GMU_POWER_COUNTER_SELECT_1, },
+};
+
 #define A6XX_PERFCOUNTER_GROUP(offset, name) \
 	ADRENO_PERFCOUNTER_GROUP(a6xx, offset, name)
 
 #define A6XX_PERFCOUNTER_GROUP_FLAGS(offset, name, flags) \
 	ADRENO_PERFCOUNTER_GROUP_FLAGS(a6xx, offset, name, flags)
+
+#define A6XX_POWER_COUNTER_GROUP(offset, name) \
+	ADRENO_POWER_COUNTER_GROUP(a6xx, offset, name)
 
 static struct adreno_perfcount_group a6xx_perfcounter_groups
 				[KGSL_PERFCOUNTER_GROUP_MAX] = {
@@ -2462,6 +2497,7 @@ static struct adreno_perfcount_group a6xx_perfcounter_groups
 		ADRENO_PERFCOUNTER_GROUP_FIXED),
 	A6XX_PERFCOUNTER_GROUP_FLAGS(ALWAYSON, alwayson,
 		ADRENO_PERFCOUNTER_GROUP_FIXED),
+	A6XX_POWER_COUNTER_GROUP(GPMU, gpmu),
 };
 
 static struct adreno_perfcounters a6xx_perfcounters = {
