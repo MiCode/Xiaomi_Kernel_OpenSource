@@ -73,7 +73,7 @@
 	};
 };
 
-&cci {
+&cam_cci {
 	actuator_rear: qcom,actuator@0 {
 		cell-index = <0>;
 		reg = <0x0>;
