@@ -169,6 +169,14 @@
 	qocm,wcd-dsp-glink {
 		compatible = "qcom,wcd-dsp-glink";
 	};
+
+	qcom,wcd-dsp-mgr {
+		compatible = "qcom,wcd-dsp-mgr";
+		qcom,wdsp-components = <&wcd934x_cdc 0>,
+				       <&wcd_spi_0 1>,
+				       <&glink_spi_xprt_wdsp 2>;
+		qcom,img-filename = "cpe_9340";
+	};
 };
 
 &slim_aud {
@@ -229,5 +237,13 @@
 		qcom,cdc-mad-dmic-rate = <600000>;
 
 		qcom,wdsp-cmpnt-dev-name = "tavil_codec";
+
+		wcd_spi_0: wcd_spi {
+			compatible = "qcom,wcd-spi-v2";
+			qcom,master-bus-num = <0>;
+			qcom,chip-select = <0>;
+			qcom,max-frequency = <9600000>;
+			qcom,mem-base-addr = <0x100000>;
+		};
 	};
 };
