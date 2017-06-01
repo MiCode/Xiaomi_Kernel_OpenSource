@@ -31,7 +31,7 @@ int msm_vidc_firmware_unload_delay = 15000;
 bool msm_vidc_thermal_mitigation_disabled = !true;
 bool msm_vidc_clock_scaling = true;
 bool msm_vidc_debug_timeout = !true;
-bool msm_vidc_syscache_disable = true;
+bool msm_vidc_syscache_disable = !true;
 
 #define MAX_DBG_BUF_SIZE 4096
 
