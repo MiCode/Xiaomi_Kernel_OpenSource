@@ -829,6 +829,14 @@ config MSM_KERNEL_PROTECT_TEST
           read-only.  This test is FATAL whether it passes or fails!
           Success is signaled by a stage-2 fault.
 
+config MSM_BGCOM
+	bool "Provide APIs to communicate with Blackghost chipset"
+	help
+		BGCOM is a thin layer above SPI. It is used whithin a SoC for
+		communication between G-Link/bg_com_dev and BG processor over SPI.
+		This handle the interrupts raised by BG and notify the G-link with
+		interrupt event and event data.
+
 config MSM_REMOTEQDSS
 	bool "Allow debug tools to enable events on other processors"
 	depends on MSM_SCM && DEBUG_FS
