@@ -638,7 +638,7 @@ static void _sde_encoder_adjust_mode(struct drm_connector *connector,
 			cur_mode->hdisplay == adj_mode->hdisplay &&
 			cur_mode->vrefresh == adj_mode->vrefresh) {
 			adj_mode->private = cur_mode->private;
-			adj_mode->private_flags = cur_mode->private_flags;
+			adj_mode->private_flags |= cur_mode->private_flags;
 		}
 	}
 }
@@ -1776,6 +1776,7 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 	struct sde_encoder_virt *sde_enc = NULL;
 	int i, ret = 0;
 	struct msm_compression_info *comp_info = NULL;
+	struct drm_display_mode *cur_mode = NULL;
 
 	if (!drm_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -1786,6 +1787,8 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 
 	SDE_DEBUG_ENC(sde_enc, "\n");
 	SDE_EVT32(DRMID(drm_enc));
+
+	cur_mode = &sde_enc->base.crtc->state->adjusted_mode;
 
 	sde_enc->cur_master = NULL;
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
@@ -1813,14 +1816,28 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-		if (phys) {
-			phys->comp_type = comp_info->comp_type;
-			if ((phys != sde_enc->cur_master) && phys->ops.enable)
+		if (!phys)
+			continue;
+
+		phys->comp_type = comp_info->comp_type;
+		if (phys != sde_enc->cur_master) {
+			/**
+			 * on DMS request, the encoder will be enabled
+			 * already. Invoke restore to reconfigure the
+			 * new mode.
+			 */
+			if (msm_is_mode_seamless_dms(cur_mode) &&
+					phys->ops.restore)
+				phys->ops.restore(phys);
+			else if (phys->ops.enable)
 				phys->ops.enable(phys);
 		}
 	}
 
-	if (sde_enc->cur_master->ops.enable)
+	if (msm_is_mode_seamless_dms(cur_mode) &&
+			sde_enc->cur_master->ops.restore)
+		sde_enc->cur_master->ops.restore(sde_enc->cur_master);
+	else if (sde_enc->cur_master->ops.enable)
 		sde_enc->cur_master->ops.enable(sde_enc->cur_master);
 
 	_sde_encoder_virt_enable_helper(drm_enc);

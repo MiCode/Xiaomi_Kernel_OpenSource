@@ -131,6 +131,10 @@ msm_disable_outputs(struct drm_device *dev, struct drm_atomic_state *old_state)
 				&connector->encoder->crtc->state->mode))
 			continue;
 
+		if (msm_is_mode_seamless_dms(
+			       &connector->encoder->crtc->state->adjusted_mode))
+			continue;
+
 		funcs = encoder->helper_private;
 
 		DRM_DEBUG_ATOMIC("disabling [ENCODER:%d:%s]\n",
@@ -164,6 +168,9 @@ msm_disable_outputs(struct drm_device *dev, struct drm_atomic_state *old_state)
 			continue;
 
 		if (msm_is_mode_seamless(&crtc->state->mode))
+			continue;
+
+		if (msm_is_mode_seamless_dms(&crtc->state->adjusted_mode))
 			continue;
 
 		funcs = crtc->helper_private;
@@ -302,6 +309,13 @@ static void msm_atomic_helper_commit_modeset_enables(struct drm_device *dev,
 
 		if (msm_is_mode_seamless(&crtc->state->mode))
 			continue;
+
+		/**
+		 * On DMS switch, wait for ping pong done to ensure the current
+		 * frame transfer is complete.
+		 */
+		if (msm_is_mode_seamless_dms(&crtc->state->adjusted_mode))
+			kms->funcs->wait_for_tx_complete(kms, crtc);
 
 		funcs = crtc->helper_private;
 
