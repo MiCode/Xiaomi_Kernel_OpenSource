@@ -1153,16 +1153,6 @@ static void __dma_page_dev_to_cpu(struct page *page, unsigned long off,
 		set_bit(PG_dcache_clean, &page->flags);
 }
 
-static int arm_dma_set_mask(struct device *dev, u64 dma_mask)
-{
-	if (!dev->dma_mask || !dma_supported(dev, dma_mask))
-		return -EIO;
-
-	*dev->dma_mask = dma_mask;
-
-	return 0;
-}
-
 /* IOMMU */
 
 static void __dma_clear_buffer(struct page *page, size_t size,
@@ -1913,7 +1903,6 @@ const struct dma_map_ops iommu_ops = {
 	.map_resource		= arm_iommu_dma_map_resource,
 	.unmap_resource		= arm_iommu_dma_unmap_resource,
 
-	.set_dma_mask		= arm_dma_set_mask,
 	.mapping_error		= arm_iommu_mapping_error,
 };
 
