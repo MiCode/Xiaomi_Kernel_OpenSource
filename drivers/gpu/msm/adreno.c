@@ -2855,8 +2855,14 @@ static void adreno_power_stats(struct kgsl_device *device,
 			gpu_busy += adj;
 		}
 
-		stats->busy_time = adreno_ticks_to_us(gpu_busy,
-			kgsl_pwrctrl_active_freq(pwr));
+		if (kgsl_gmu_isenabled(device)) {
+			/* clock sourced from XO */
+			stats->busy_time = gpu_busy * 10 / 192;
+		} else {
+			/* clock sourced from GFX3D */
+			stats->busy_time = adreno_ticks_to_us(gpu_busy,
+				kgsl_pwrctrl_active_freq(pwr));
+		}
 	}
 
 	if (device->pwrctrl.bus_control) {
