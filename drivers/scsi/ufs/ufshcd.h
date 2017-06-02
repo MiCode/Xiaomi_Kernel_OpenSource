@@ -1289,8 +1289,8 @@ static inline int ufshcd_vops_apply_dev_quirks(struct ufs_hba *hba)
 
 static inline int ufshcd_vops_suspend(struct ufs_hba *hba, enum ufs_pm_op op)
 {
-	if (hba->var && hba->var->vops && hba->var->vops->apply_dev_quirks)
-		return hba->var->vops->apply_dev_quirks(hba);
+	if (hba->var && hba->var->vops && hba->var->vops->suspend)
+		return hba->var->vops->suspend(hba, op);
 	return 0;
 }
 
