@@ -204,6 +204,7 @@ struct sde_dbg_buf {
  * ram segment size allocation. Each rotator context can be any priority. A
  * incremental timestamp is used to identify and assigned to each context.
  * @list: list of pending context
+ * @sequence_id: unique sequence identifier for rotation request
  * @sbuf_mode: true if stream buffer is requested
  * @start_ctrl: start control register update value
  * @sys_cache_mode: sys cache mode register update value
@@ -216,6 +217,7 @@ struct sde_hw_rotator_context {
 	struct sde_rot_hw_resource *hwres;
 	enum   sde_rot_queue_prio q_id;
 	u32    session_id;
+	u32    sequence_id;
 	u32    *regdma_base;
 	u32    *regdma_wrptr;
 	u32    timestamp;
@@ -402,7 +404,7 @@ static inline void sde_hw_rotator_put_ctx(struct sde_hw_rotator_context *ctx)
 	spin_lock_irqsave(&rot->rotisr_lock, flags);
 	rot->rotCtx[ctx->q_id][idx] = ctx;
 	if (ctx->sbuf_mode)
-		list_add_tail(&rot->sbuf_ctx[ctx->q_id], &ctx->list);
+		list_add_tail(&ctx->list, &rot->sbuf_ctx[ctx->q_id]);
 	spin_unlock_irqrestore(&rot->rotisr_lock, flags);
 
 	SDEROT_DBG("rotCtx[%d][%d] <== ctx:%p | session-id:%d\n",

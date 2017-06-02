@@ -681,9 +681,13 @@ static void sde_hw_rotator_dump_status(struct sde_hw_rotator *rot)
 /**
  * sde_hw_rotator_get_ctx(): Retrieve rotator context from rotator HW based
  * on provided session_id. Each rotator has a different session_id.
+ * @rot: Pointer to rotator hw
+ * @session_id: Identifier for rotator session
+ * @sequence_id: Identifier for rotation request within the session
+ * @q_id: Rotator queue identifier
  */
 static struct sde_hw_rotator_context *sde_hw_rotator_get_ctx(
-		struct sde_hw_rotator *rot, u32 session_id,
+		struct sde_hw_rotator *rot, u32 session_id, u32 sequence_id,
 		enum sde_rot_queue_prio q_id)
 {
 	int i;
@@ -692,10 +696,12 @@ static struct sde_hw_rotator_context *sde_hw_rotator_get_ctx(
 	for (i = 0; i < SDE_HW_ROT_REGDMA_TOTAL_CTX; i++) {
 		ctx = rot->rotCtx[q_id][i];
 
-		if (ctx && (ctx->session_id == session_id)) {
+		if (ctx && (ctx->session_id == session_id) &&
+				(ctx->sequence_id == sequence_id)) {
 			SDEROT_DBG(
-				"rotCtx sloti[%d][%d] ==> ctx:%p | session-id:%d\n",
-				q_id, i, ctx, ctx->session_id);
+				"rotCtx sloti[%d][%d] ==> ctx:%p | session-id:%d | sequence-id:%d\n",
+				q_id, i, ctx, ctx->session_id,
+				ctx->sequence_id);
 			return ctx;
 		}
 	}
@@ -2114,6 +2120,7 @@ static void sde_hw_rotator_free_ext(struct sde_rot_mgr *mgr,
  * @rot: Pointer to rotator hw
  * @hw: Pointer to rotator resource
  * @session_id: Session identifier of this context
+ * @sequence_id: Sequence identifier of this request
  * @sbuf_mode: true if stream buffer is requested
  *
  * This function allocates a new rotator context for the given session id.
@@ -2122,6 +2129,7 @@ static struct sde_hw_rotator_context *sde_hw_rotator_alloc_rotctx(
 		struct sde_hw_rotator *rot,
 		struct sde_rot_hw_resource *hw,
 		u32    session_id,
+		u32    sequence_id,
 		bool   sbuf_mode)
 {
 	struct sde_hw_rotator_context *ctx;
@@ -2136,6 +2144,7 @@ static struct sde_hw_rotator_context *sde_hw_rotator_alloc_rotctx(
 	ctx->rot        = rot;
 	ctx->q_id       = hw->wb_id;
 	ctx->session_id = session_id;
+	ctx->sequence_id = sequence_id;
 	ctx->hwres      = hw;
 	ctx->timestamp  = atomic_add_return(1, &rot->timestamp[ctx->q_id]);
 	ctx->timestamp &= SDE_REGDMA_SWTS_MASK;
@@ -2226,7 +2235,7 @@ static int sde_hw_rotator_config(struct sde_rot_hw_resource *hw,
 	item = &entry->item;
 
 	ctx = sde_hw_rotator_alloc_rotctx(rot, hw, item->session_id,
-			item->output.sbuf);
+			item->sequence_id, item->output.sbuf);
 	if (!ctx) {
 		SDEROT_ERR("Failed allocating rotator context!!\n");
 		return -EINVAL;
@@ -2486,7 +2495,8 @@ static int sde_hw_rotator_kickoff(struct sde_rot_hw_resource *hw,
 	rot = resinfo->rot;
 
 	/* Lookup rotator context from session-id */
-	ctx = sde_hw_rotator_get_ctx(rot, entry->item.session_id, hw->wb_id);
+	ctx = sde_hw_rotator_get_ctx(rot, entry->item.session_id,
+			entry->item.sequence_id, hw->wb_id);
 	if (!ctx) {
 		SDEROT_ERR("Cannot locate rotator ctx from sesison id:%d\n",
 				entry->item.session_id);
@@ -2523,7 +2533,8 @@ static int sde_hw_rotator_wait4done(struct sde_rot_hw_resource *hw,
 	rot = resinfo->rot;
 
 	/* Lookup rotator context from session-id */
-	ctx = sde_hw_rotator_get_ctx(rot, entry->item.session_id, hw->wb_id);
+	ctx = sde_hw_rotator_get_ctx(rot, entry->item.session_id,
+			entry->item.sequence_id, hw->wb_id);
 	if (!ctx) {
 		SDEROT_ERR("Cannot locate rotator ctx from sesison id:%d\n",
 				entry->item.session_id);
