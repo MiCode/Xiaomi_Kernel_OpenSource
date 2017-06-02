@@ -321,6 +321,10 @@ aliases {
 	status = "okay";
 };
 
+&ext_5v_boost {
+	status = "ok";
+};
+
 &usb_qmp_phy {
 	status = "okay";
 };
