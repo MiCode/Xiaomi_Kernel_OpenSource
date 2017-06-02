@@ -17,8 +17,6 @@
 #define MAXSAMPLES 5
 #define CLUST_SMPL_INVLD_TIME 40000
 
-extern bool use_psci;
-
 struct lpm_lookup_table {
 	uint32_t modes;
 	const char *mode_name;
@@ -74,19 +72,11 @@ struct lpm_cluster_level {
 	struct cpumask num_cpu_votes;
 	struct power_params pwr;
 	bool notify_rpm;
-	bool disable_dynamic_routing;
 	bool sync_level;
-	bool last_core_only;
 	struct lpm_level_avail available;
 	unsigned int psci_id;
 	bool is_reset;
 	int reset_level;
-};
-
-struct low_power_ops {
-	struct msm_spm_device *spm;
-	int (*set_mode)(struct low_power_ops *ops, int mode, bool notify_rpm);
-	enum msm_pm_l2_scm_flag tz_flag;
 };
 
 struct cluster_history {
@@ -108,11 +98,9 @@ struct lpm_cluster {
 	const char *cluster_name;
 	const char **name;
 	unsigned long aff_level; /* Affinity level of the node */
-	struct low_power_ops *lpm_dev;
 	int ndevices;
 	struct lpm_cluster_level levels[NR_LPM_LEVELS];
 	int nlevels;
-	enum msm_pm_l2_scm_flag l2_flag;
 	int min_child_level;
 	int default_level;
 	int last_level;
@@ -125,14 +113,10 @@ struct lpm_cluster {
 	struct lpm_stats *stats;
 	unsigned int psci_mode_shift;
 	unsigned int psci_mode_mask;
-	bool no_saw_devices;
 	struct cluster_history history;
 	struct hrtimer histtimer;
 };
 
-int set_l2_mode(struct low_power_ops *ops, int mode, bool notify_rpm);
-int set_system_mode(struct low_power_ops *ops, int mode, bool notify_rpm);
-int set_l3_mode(struct low_power_ops *ops, int mode, bool notify_rpm);
 void lpm_suspend_wake_time(uint64_t wakeup_time);
 
 struct lpm_cluster *lpm_of_parse_cluster(struct platform_device *pdev);

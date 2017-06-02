@@ -21,7 +21,6 @@
 #include <linux/moduleparam.h>
 #include "lpm-levels.h"
 
-bool use_psci;
 enum lpm_type {
 	IDLE = 0,
 	SUSPEND,
@@ -431,30 +430,27 @@ static int parse_cluster_params(struct device_node *node,
 		return ret;
 	}
 
-	if (use_psci) {
-		key = "qcom,psci-mode-shift";
-		ret = of_property_read_u32(node, key,
-				&c->psci_mode_shift);
-		if (ret) {
-			pr_err("%s(): Failed to read param: %s\n",
-							__func__, key);
-			return ret;
-		}
+	key = "qcom,psci-mode-shift";
+	ret = of_property_read_u32(node, key,
+			&c->psci_mode_shift);
+	if (ret) {
+		pr_err("%s(): Failed to read param: %s\n",
+				__func__, key);
+		return ret;
+	}
 
-		key = "qcom,psci-mode-mask";
-		ret = of_property_read_u32(node, key,
-				&c->psci_mode_mask);
-		if (ret) {
-			pr_err("%s(): Failed to read param: %s\n",
-							__func__, key);
-			return ret;
-		}
+	key = "qcom,psci-mode-mask";
+	ret = of_property_read_u32(node, key,
+			&c->psci_mode_mask);
+	if (ret) {
+		pr_err("%s(): Failed to read param: %s\n",
+				__func__, key);
+		return ret;
+	}
 
-		/* Set ndevice to 1 as default */
-		c->ndevices = 1;
+	/* Set ndevice to 1 as default */
+	c->ndevices = 1;
 
-	} else
-		pr_warn("Target supports PSCI only\n");
 	return 0;
 }
 
@@ -503,21 +499,13 @@ static int parse_cluster_level(struct device_node *node,
 	if (ret)
 		goto failed;
 
-	if (use_psci) {
-		char *k = "qcom,psci-mode";
+	key = "qcom,psci-mode";
 
-		ret = of_property_read_u32(node, k, &level->psci_id);
-		if (ret)
-			goto failed;
-
-		level->is_reset = of_property_read_bool(node, "qcom,is-reset");
-	} else
-		pr_warn("Build supports PSCI targets only");
-
-	key = "label";
-	ret = of_property_read_string(node, key, &level->level_name);
+	ret = of_property_read_u32(node, key, &level->psci_id);
 	if (ret)
 		goto failed;
+
+	level->is_reset = of_property_read_bool(node, "qcom,is-reset");
 
 	if (cluster->nlevels != cluster->default_level) {
 		key = "min child idx";
@@ -531,10 +519,6 @@ static int parse_cluster_level(struct device_node *node,
 	}
 
 	level->notify_rpm = of_property_read_bool(node, "qcom,notify-rpm");
-	level->disable_dynamic_routing = of_property_read_bool(node,
-					"qcom,disable-dynamic-int-routing");
-	level->last_core_only = of_property_read_bool(node,
-					"qcom,last-core-only");
 
 	key = "parse_power_params";
 	ret = parse_power_params(node, &level->pwr);
@@ -569,20 +553,16 @@ static int parse_cpu_mode(struct device_node *n, struct lpm_cpu_level *l)
 		return ret;
 	}
 
-	if (use_psci) {
-		key = "qcom,psci-cpu-mode";
+	key = "qcom,psci-cpu-mode";
+	ret = of_property_read_u32(n, key, &l->psci_id);
+	if (ret) {
+		pr_err("Failed reading %s on device %s\n", key,
+				n->name);
+		return ret;
+	}
+	key = "qcom,hyp-psci";
 
-		ret = of_property_read_u32(n, key, &l->psci_id);
-		if (ret) {
-			pr_err("Failed reading %s on device %s\n", key,
-					n->name);
-			return ret;
-		}
-		key = "qcom,hyp-psci";
-
-		l->hyp_psci = of_property_read_bool(n, key);
-	} else
-		pr_warn("Build supports PSCI targets only");
+	l->hyp_psci = of_property_read_bool(n, key);
 	return 0;
 
 }
@@ -651,24 +631,22 @@ static int parse_cpu_levels(struct device_node *node, struct lpm_cluster *c)
 		return ret;
 
 	c->cpu->parent = c;
-	if (use_psci) {
 
-		key = "qcom,psci-mode-shift";
+	key = "qcom,psci-mode-shift";
 
-		ret = of_property_read_u32(node, key, &c->cpu->psci_mode_shift);
-		if (ret) {
-			pr_err("Failed reading %s on device %s\n", key,
-					node->name);
-			return ret;
-		}
-		key = "qcom,psci-mode-mask";
+	ret = of_property_read_u32(node, key, &c->cpu->psci_mode_shift);
+	if (ret) {
+		pr_err("Failed reading %s on device %s\n", key,
+				node->name);
+		return ret;
+	}
+	key = "qcom,psci-mode-mask";
 
-		ret = of_property_read_u32(node, key, &c->cpu->psci_mode_mask);
-		if (ret) {
-			pr_err("Failed reading %s on device %s\n", key,
-					node->name);
-			return ret;
-		}
+	ret = of_property_read_u32(node, key, &c->cpu->psci_mode_mask);
+	if (ret) {
+		pr_err("Failed reading %s on device %s\n", key,
+				node->name);
+		return ret;
 	}
 	for_each_child_of_node(node, n) {
 		struct lpm_cpu_level *l = &c->cpu->levels[c->cpu->nlevels];
@@ -709,7 +687,7 @@ static int parse_cpu_levels(struct device_node *node, struct lpm_cluster *c)
 
 			c->cpu->levels[i].pwr.residencies[j] =
 				calculate_residency(&c->cpu->levels[i].pwr,
-					&c->cpu->levels[j].pwr);
+						&c->cpu->levels[j].pwr);
 
 			pr_err("%s: idx %d %u\n", __func__, j,
 					c->cpu->levels[i].pwr.residencies[j]);
@@ -753,10 +731,8 @@ void free_cluster_node(struct lpm_cluster *cluster)
 	}
 	kfree(cluster->cpu);
 	kfree(cluster->name);
-	kfree(cluster->lpm_dev);
 	cluster->cpu = NULL;
 	cluster->name = NULL;
-	cluster->lpm_dev = NULL;
 	cluster->ndevices = 0;
 }
 
@@ -795,7 +771,6 @@ struct lpm_cluster *parse_cluster(struct device_node *node,
 			continue;
 		key = "qcom,pm-cluster-level";
 		if (!of_node_cmp(n->name, key)) {
-			WARN_ON(!use_psci && c->no_saw_devices);
 			if (parse_cluster_level(n, c))
 				goto failed_parse_cluster;
 			continue;
@@ -805,7 +780,6 @@ struct lpm_cluster *parse_cluster(struct device_node *node,
 		if (!of_node_cmp(n->name, key)) {
 			struct lpm_cluster *child;
 
-			WARN_ON(!use_psci && c->no_saw_devices);
 			child = parse_cluster(n, c);
 			if (!child)
 				goto failed_parse_cluster;
@@ -882,8 +856,6 @@ failed_parse_params:
 struct lpm_cluster *lpm_of_parse_cluster(struct platform_device *pdev)
 {
 	struct device_node *top = NULL;
-
-	use_psci = of_property_read_bool(pdev->dev.of_node, "qcom,use-psci");
 
 	top = of_find_node_by_name(pdev->dev.of_node, "qcom,pm-cluster");
 	if (!top) {

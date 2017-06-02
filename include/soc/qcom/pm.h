@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
  * Author: San Mehat <san@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -68,16 +68,6 @@ struct latency_level {
 	int reset_level;
 	const char *level_name;
 };
-
-/**
- * lpm_cpu_pre_pc_cb(): API to get the L2 flag to pass to TZ
- *
- * @cpu: cpuid of the CPU going down.
- *
- * Returns the l2 flush flag enum that is passed down to TZ during power
- * collaps
- */
-enum msm_pm_l2_scm_flag lpm_cpu_pre_pc_cb(unsigned int cpu);
 
 /**
  * msm_pm_sleep_mode_allow() - API to determine if sleep mode is allowed.
