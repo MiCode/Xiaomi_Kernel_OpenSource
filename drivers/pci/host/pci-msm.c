@@ -5851,7 +5851,7 @@ static int msm_pcie_map_qgic_addr(struct msm_pcie_dev_t *dev,
 	}
 
 	ret = iommu_map(domain, iova, rounddown(dev->msi_gicm_addr, PAGE_SIZE),
-			PAGE_SIZE, IOMMU_READ | IOMMU_WRITE);
+			PAGE_SIZE, IOMMU_READ | IOMMU_WRITE | IOMMU_DEVICE);
 	if (ret < 0) {
 		PCIE_ERR(dev,
 			"PCIe: RC%d: ret: %d: Could not do iommu map for QGIC address\n",
