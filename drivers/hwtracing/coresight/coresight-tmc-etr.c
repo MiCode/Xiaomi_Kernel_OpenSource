@@ -371,7 +371,7 @@ int tmc_read_unprepare_etr(struct tmc_drvdata *drvdata)
 	/* config types are set a boot time and never change */
 	if (WARN_ON_ONCE(drvdata->config_type != TMC_CONFIG_TYPE_ETR))
 		return -EINVAL;
-
+	mutex_lock(&drvdata->mem_lock);
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 
 	/* RE-enable the TMC if need be */
@@ -400,5 +400,7 @@ int tmc_read_unprepare_etr(struct tmc_drvdata *drvdata)
 	if (vaddr)
 		dma_free_coherent(drvdata->dev, drvdata->size, vaddr, paddr);
 
+
+	mutex_unlock(&drvdata->mem_lock);
 	return 0;
 }
