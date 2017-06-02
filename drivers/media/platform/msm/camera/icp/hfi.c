@@ -336,7 +336,7 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 		icp_base + HFI_REG_A5_CSR_A5_CONTROL);
 	} else {
 		cam_io_w((uint32_t)ICP_FLAG_CSR_A5_EN |
-			ICP_FLAG_CSR_WAKE_UP_EN,
+			ICP_FLAG_CSR_WAKE_UP_EN | ICP_CSR_EN_CLKGATE_WFI,
 			icp_base + HFI_REG_A5_CSR_A5_CONTROL);
 	}
 
