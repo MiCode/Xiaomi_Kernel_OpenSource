@@ -1738,14 +1738,8 @@ static void usbpd_sm(struct work_struct *w)
 
 	case PE_SRC_READY:
 		if (IS_CTRL(rx_msg, MSG_GET_SOURCE_CAP)) {
-			ret = pd_send_msg(pd, MSG_SOURCE_CAPABILITIES,
-					default_src_caps,
-					ARRAY_SIZE(default_src_caps), SOP_MSG);
-			if (ret) {
-				usbpd_err(&pd->dev, "Error sending SRC CAPs\n");
-				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
-				break;
-			}
+			pd->current_state = PE_SRC_SEND_CAPABILITIES;
+			kick_sm(pd, 0);
 		} else if (IS_CTRL(rx_msg, MSG_GET_SINK_CAP)) {
 			ret = pd_send_msg(pd, MSG_SINK_CAPABILITIES,
 					pd->sink_caps, pd->num_sink_caps,
@@ -2320,6 +2314,14 @@ static void usbpd_sm(struct work_struct *w)
 
 sm_done:
 	kfree(rx_msg);
+
+	spin_lock_irqsave(&pd->rx_lock, flags);
+	ret = list_empty(&pd->rx_q);
+	spin_unlock_irqrestore(&pd->rx_lock, flags);
+
+	/* requeue if there are any new/pending RX messages */
+	if (!ret)
+		kick_sm(pd, 0);
 
 	if (!pd->sm_queued)
 		pm_relax(&pd->dev);
