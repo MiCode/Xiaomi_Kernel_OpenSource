@@ -27,7 +27,7 @@
 };
 
 &mdss_mdp {
-	connectors = <&sde_rscc &sde_wb &dsi_sharp_4k_dsc_video_display>;
+	connectors = <&sde_rscc &sde_wb>;
 };
 
 &dsi_sharp_4k_dsc_video {

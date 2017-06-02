@@ -45,6 +45,7 @@
 #include "msm_gpu.h"
 #include "msm_kms.h"
 #include "sde_wb.h"
+#include "dsi_display.h"
 
 /*
  * MSM driver version:
@@ -1764,15 +1765,26 @@ static int add_display_components(struct device *dev,
 				  struct component_match **matchptr)
 {
 	struct device *mdp_dev = NULL;
+	struct device_node *node;
+	const char *name;
 	int ret;
 
 	if (of_device_is_compatible(dev->of_node, "qcom,sde-kms")) {
 		struct device_node *np = dev->of_node;
 		unsigned int i;
 
-		for (i = 0; ; i++) {
-			struct device_node *node;
+		for (i = 0; i < MAX_DSI_ACTIVE_DISPLAY; i++) {
+			node = dsi_display_get_boot_display(i);
 
+			if (node != NULL) {
+				name = of_get_property(node, "label", NULL);
+				component_match_add(dev, matchptr, compare_of,
+						node);
+				pr_debug("Added component = %s\n", name);
+			}
+		}
+
+		for (i = 0; ; i++) {
 			node = of_parse_phandle(np, "connectors", i);
 			if (!node)
 				break;

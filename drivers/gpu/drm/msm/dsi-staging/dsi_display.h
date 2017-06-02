@@ -30,11 +30,24 @@
 
 #define MAX_DSI_CTRLS_PER_DISPLAY             2
 #define DSI_CLIENT_NAME_SIZE		20
+#define MAX_CMDLINE_PARAM_LEN	 512
 /*
  * DSI Validate Mode modifiers
  * @DSI_VALIDATE_FLAG_ALLOW_ADJUST:	Allow mode validation to also do fixup
  */
 #define DSI_VALIDATE_FLAG_ALLOW_ADJUST	0x1
+
+/**
+ * enum dsi_display_selection_type - enumerates DSI display selection types
+ * @DSI_PRIMARY:    primary DSI display selected from module parameter
+ * @DSI_SECONDARY:  Secondary DSI display selected from module parameter
+ * @MAX_DSI_ACTIVE_DISPLAY: Maximum acive displays that can be selected
+ */
+enum dsi_display_selection_type {
+	DSI_PRIMARY = 0,
+	DSI_SECONDARY,
+	MAX_DSI_ACTIVE_DISPLAY,
+};
 
 /**
  * enum dsi_display_type - enumerates DSI display types
@@ -78,6 +91,22 @@ struct dsi_display_ctrl {
 
 	bool phy_enabled;
 };
+/**
+ * struct dsi_display_boot_param - defines DSI boot display selection
+ * @name:Name of DSI display selected as a boot param.
+ * @boot_disp_en:bool to indicate dtsi availability of display node
+ * @is_primary:bool to indicate whether current display is primary display
+ * @length:length of DSI display.
+ * @cmdline_topology: Display topology shared from kernel command line.
+ */
+struct dsi_display_boot_param {
+	char name[MAX_CMDLINE_PARAM_LEN];
+	bool boot_disp_en;
+	bool is_primary;
+	int length;
+	struct device_node *node;
+	int cmdline_topology;
+};
 
 /**
  * struct dsi_display_clk_info - dsi display clock source information
@@ -113,6 +142,7 @@ struct dsi_display_clk_info {
  * @config:           DSI host configuration information.
  * @lane_map:         Lane mapping between DSI host and Panel.
  * @num_of_modes:     Number of modes supported by display.
+ * @cmdline_topology: Display topology shared from kernel command line.
  * @is_tpg_enabled:   TPG state.
  * @ulps_enabled:     ulps state.
  * @clamp_enabled:    clamp state.
@@ -151,6 +181,7 @@ struct dsi_display {
 	struct dsi_host_config config;
 	struct dsi_lane_map lane_map;
 	u32 num_of_modes;
+	int cmdline_topology;
 	bool is_tpg_enabled;
 	bool ulps_enabled;
 	bool clamp_enabled;
@@ -193,8 +224,16 @@ int dsi_display_get_active_displays(void **display_array,
 		u32 max_display_count);
 
 /**
+  * dsi_display_get_boot_display()- get DSI boot display name
+  * @index:	index of display selection
+  *
+  * Return:	returns the display node pointer
+  */
+struct device_node *dsi_display_get_boot_display(int index);
+
+/**
  * dsi_display_get_display_by_name()- finds display by name
- * @index:      name of the display.
+ * @name:	name of the display.
  *
  * Return: handle to the display or error code.
  */
