@@ -397,7 +397,8 @@
 	qcom,mdss-dsi-t-clk-post = <0x0b>;
 	qcom,mdss-dsi-t-clk-pre = <0x23>;
 	qcom,display-topology = <1 1 1>,
-				<2 2 1>;
+				<2 2 1>, /* dsc merge */
+				<2 1 1>; /* 3d mux */
 	qcom,default-topology-index = <0>;
 };
 
@@ -406,7 +407,8 @@
 	qcom,mdss-dsi-t-clk-post = <0x0b>;
 	qcom,mdss-dsi-t-clk-pre = <0x23>;
 	qcom,display-topology = <1 1 1>,
-				<2 2 1>;
+				<2 2 1>, /* dsc merge */
+				<2 1 1>; /* 3d mux */
 	qcom,default-topology-index = <0>;
 };
 
