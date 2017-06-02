@@ -1371,21 +1371,21 @@ static ssize_t dsi_host_transfer(struct mipi_dsi_host *host,
 			goto error_disable_cmd_engine;
 		}
 	}
-	return rc;
 
-put_iova:
-	msm_gem_put_iova(display->tx_cmd_buf, 0);
-free_gem:
-	msm_gem_free_object(display->tx_cmd_buf);
 error_disable_cmd_engine:
 	(void)dsi_display_cmd_engine_disable(display);
 error_disable_clks:
 	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
 			DSI_ALL_CLKS, DSI_CLK_OFF);
 	if (rc) {
-		pr_err("[%s] failed to enable all DSI clocks, rc=%d\n",
+		pr_err("[%s] failed to disable all DSI clocks, rc=%d\n",
 		       display->name, rc);
 	}
+	return rc;
+put_iova:
+	msm_gem_put_iova(display->tx_cmd_buf, 0);
+free_gem:
+	msm_gem_free_object(display->tx_cmd_buf);
 error:
 	return rc;
 }
