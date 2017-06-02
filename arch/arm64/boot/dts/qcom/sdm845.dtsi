@@ -2160,19 +2160,19 @@
 		};
 		qcom,llcc1_d_cache {
 			qcom,dump-node = <&LLCC_1>;
-			qcom,dump-id = <0x121>;
+			qcom,dump-id = <0x140>;
 		};
 		qcom,llcc2_d_cache {
 			qcom,dump-node = <&LLCC_2>;
-			qcom,dump-id = <0x122>;
+			qcom,dump-id = <0x141>;
 		};
 		qcom,llcc3_d_cache {
 			qcom,dump-node = <&LLCC_3>;
-			qcom,dump-id = <0x123>;
+			qcom,dump-id = <0x142>;
 		};
 		qcom,llcc4_d_cache {
 			qcom,dump-node = <&LLCC_4>;
-			qcom,dump-id = <0x124>;
+			qcom,dump-id = <0x143>;
 		};
 		qcom,l1_tlb_dump0 {
 			qcom,dump-node = <&L1_TLB_0>;
