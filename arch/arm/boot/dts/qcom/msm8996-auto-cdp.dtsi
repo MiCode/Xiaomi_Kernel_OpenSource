@@ -302,7 +302,7 @@
 						&mdss_hdmi_cec_suspend>;
 };
 
-#include "msm8996-mdss-panels.dtsi"
+#include "msm8996-sde-display.dtsi"
 
 &pmx_mdss {
 	mdss_dsi_active: mdss_dsi_active {
@@ -337,30 +337,128 @@
 	qcom,mdss-pref-prim-intf = "dsi";
 };
 
+&dsi_adv_7533_1 {
+	qcom,dsi-display-active;
+	qcom,dsi-panel = <&dsi_adv7533_1080p>;
+
+	qcom,panel-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vdd";
+			qcom,supply-min-voltage = <3300000>;
+			qcom,supply-max-voltage = <3300000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+	};
+};
+
+&dsi_adv_7533_2 {
+	qcom,dsi-display-active;
+	qcom,dsi-panel = <&dsi_adv7533_1080p>;
+
+	qcom,panel-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vdd";
+			qcom,supply-min-voltage = <3300000>;
+			qcom,supply-max-voltage = <3300000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+	};
+};
+
 &mdss_dsi {
-	hw-config = "split_dsi";
+	hw-config = "dual_dsi";
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_dual_nt35597_video>;
+	qcom,dsi-pref-prim-pan = <&dsi_adv7533_1080p>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
-	qcom,platform-enable-gpio = <&tlmm 70 0>;
-	qcom,platform-te-gpio = <&tlmm 10 0>;
-	qcom,platform-reset-gpio = <&tlmm 8 0>;
-	qcom,platform-bklight-en-gpio = <&pm8994_gpios 10 0>;
+	qcom,display-id = "primary";
+	qcom,bridge-index = <0>;
+
+	qcom,panel-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vdd";
+			qcom,supply-min-voltage = <3300000>;
+			qcom,supply-max-voltage = <3300000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+	};
 };
 
 &mdss_dsi1 {
-	qcom,dsi-pref-prim-pan = <&dsi_dual_nt35597_video>;
+	qcom,dsi-pref-prim-pan = <&dsi_adv7533_1080p>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
-	qcom,platform-enable-gpio = <&tlmm 70 0>;
-	qcom,platform-te-gpio = <&tlmm 10 0>;
-	qcom,platform-reset-gpio = <&tlmm 8 0>;
-	qcom,platform-bklight-en-gpio = <&pm8994_gpios 10 0>;
+	qcom,display-id = "tertiary";
+	qcom,bridge-index = <1>;
+
+	qcom,panel-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vdd";
+			qcom,supply-min-voltage = <3300000>;
+			qcom,supply-max-voltage = <3300000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+	};
 };
 
 &dsi_dual_sharp_video {
@@ -531,9 +629,8 @@
 			pinctrl-1 = <&adv7533_0_int_suspend
 				&adv7533_0_hpd_int_suspend
 				&adv7533_0_switch_suspend>;
-			adi,irq-gpio = <&tlmm 106 0x2002>;
-			adi,hpd-irq-gpio = <&tlmm 106 0x2003>;
-			adi,switch-gpio = <&tlmm 105 0x1>;
+			adi,irq-gpio = <&tlmm 71 0x2002>;
+			adi,switch-gpio = <&tlmm 72 0x1>;
 		};
 
 		adv7533@39 {
@@ -552,9 +649,8 @@
 			pinctrl-1 = <&adv7533_1_int_suspend
 				&adv7533_1_hpd_int_suspend
 				&adv7533_1_switch_suspend>;
-			adi,irq-gpio = <&tlmm 108 0x2002>;
-			adi,hpd-irq-gpio = <&tlmm 106 0x2003>;
-			adi,switch-gpio = <&tlmm 107 0x0>;
+			adi,irq-gpio = <&tlmm 73 0x2002>;
+			adi,switch-gpio = <&tlmm 74 0x0>;
 		};
 	};
 
