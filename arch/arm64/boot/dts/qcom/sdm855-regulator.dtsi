@@ -1,0 +1,368 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
+
+/* Stub regulators */
+/ {
+	/* PM855 S1 = VDD_MODEM supply */
+	pm855_s1_level: regulator-pm855-s1-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_s1_level";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_OFF>;
+		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
+	pm855_s2: regulator-pm855-s2 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_s2";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <600000>;
+		regulator-max-microvolt = <600000>;
+	};
+
+	/* PM855 S3 = VDD_EBI supply */
+	pm855_s3_level: regulator-pm855-s3-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_s3_level";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_OFF>;
+		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
+	pm855_s4: regulator-pm855-s4 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_s4";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pm855_s5: regulator-pm855-s5 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_s5";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1952000>;
+		regulator-max-microvolt = <2040000>;
+	};
+
+	pm855_s6: regulator-pm855-s6 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_s6";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <920000>;
+		regulator-max-microvolt = <920000>;
+	};
+
+	pm855_l1: regulator-pm855-l1 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_l1";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <800000>;
+	};
+
+	pm855_l2: regulator-pm855-l2 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_l2";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <3072000>;
+		regulator-max-microvolt = <3072000>;
+	};
+
+	pm855_l3: regulator-pm855-l3 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_l3";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <800000>;
+	};
+
+	/* PM855 L4 = VDD_SSC_MX supply */
+	pm855_l4_level: regulator-pm855-l4-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_l4_level";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_OFF>;
+		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
+	pm855_l5: regulator-pm855-l5 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_l5";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <880000>;
+		regulator-max-microvolt = <880000>;
+	};
+
+	pm855_l6: regulator-pm855-l6 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_l6";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+	};
+
+	pm855_l7: regulator-pm855-l7 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_l7";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	/* PM855 L8 = VDD_SSC_CX supply */
+	pm855_l8_level: regulator-pm855-l8-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_l8_level";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_OFF>;
+		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
+	pm855_l9: regulator-pm855-l9 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_l9";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+	};
+
+	pm855_l10: regulator-pm855-l10 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_l10";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <2504000>;
+		regulator-max-microvolt = <2504000>;
+	};
+
+	pm855_l11: regulator-pm855-l11 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_l11";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <800000>;
+	};
+
+	pm855_l12: regulator-pm855-l12 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_l12";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pm855_l13: regulator-pm855-l13 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_l13";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <2704000>;
+		regulator-max-microvolt = <2704000>;
+	};
+
+	pm855_l14: regulator-pm855-l14 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_l14";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pm855_l15: regulator-pm855-l15 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_l15";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1704000>;
+		regulator-max-microvolt = <1704000>;
+	};
+
+	pm855_l16: regulator-pm855-l16 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_l16";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <2704000>;
+		regulator-max-microvolt = <2704000>;
+	};
+
+	pm855_l17: regulator-pm855-l17 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855_l17";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <3008000>;
+		regulator-max-microvolt = <3008000>;
+	};
+
+	pm855l_s1: regulator-pm855l-s1 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855l_s1";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1100000>;
+		regulator-max-microvolt = <1128000>;
+	};
+
+	/* PM855L S2 + S3 = 2 phase VDD_GFX supply */
+	pm855l_s2_level: regulator-pm855l-s2-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855l_s2_level";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_OFF>;
+		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
+	/* PM855L S4 = VDD_MX supply */
+	pm855l_s4_level: regulator-pm855l-s4-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855l_s4_level";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_OFF>;
+		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
+	pm855l_s4_level_ao: regulator-pm855l-s4-level-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855l_s4_level_ao";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_OFF>;
+		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
+	/* PM855L S5 = VDD_MM_CX supply */
+	pm855l_s5_level: regulator-pm855l-s5-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855l_s5_level";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_OFF>;
+		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
+	/* PM855L S6 + S7 = VDD_CX supply */
+	pm855l_s6_level: regulator-pm855l-s6-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855l_s6_level";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_OFF>;
+		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
+	pm855l_s6_level_ao: regulator-pm855l-s6-level-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855l_s6_level_ao";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_OFF>;
+		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
+	pm855l_s8: regulator-pm855l-s8 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855l_s8";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <1352000>;
+		regulator-max-microvolt = <1352000>;
+	};
+
+	pm855l_l1: regulator-pm855l-l1 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855l_l1";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pm855l_l2: regulator-pm855l-l2 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855l_l2";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1304000>;
+		regulator-max-microvolt = <1304000>;
+	};
+
+	pm855l_l3: regulator-pm855l-l3 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855l_l3";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+	};
+
+	pm855l_l4: regulator-pm855l-l4 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855l_l4";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1808000>;
+		regulator-max-microvolt = <2950000>;
+	};
+
+	pm855l_l5: regulator-pm855l-l5 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855l_l5";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1808000>;
+		regulator-max-microvolt = <2950000>;
+	};
+
+	pm855l_l6: regulator-pm855l-l6 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855l_l6";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <2960000>;
+	};
+
+	pm855l_l7: regulator-pm855l-l7 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855l_l7";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <3008000>;
+		regulator-max-microvolt = <3008000>;
+	};
+
+	pm855l_l8: regulator-pm855l-l8 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855l_l8";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pm855l_l9: regulator-pm855l-l9 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855l_l9";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <2960000>;
+		regulator-max-microvolt = <2960000>;
+	};
+
+	pm855l_l10: regulator-pm855l-l10 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855l_l10";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <3312000>;
+		regulator-max-microvolt = <3312000>;
+	};
+
+	pm855l_l11: regulator-pm855l-l11 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855l_l11";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <3104000>;
+		regulator-max-microvolt = <3104000>;
+	};
+
+	pm855l_bob: regulator-pm855l-bob {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm855l_bob";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <3312000>;
+		regulator-max-microvolt = <3600000>;
+	};
+};

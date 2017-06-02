@@ -458,3 +458,4 @@
 	status = "ok";
 };
 #include "sdm855-pinctrl.dtsi"
+#include "sdm855-regulator.dtsi"
