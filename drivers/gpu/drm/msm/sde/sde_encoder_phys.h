@@ -432,7 +432,8 @@ static inline enum sde_3d_blend_mode sde_encoder_helper_get_3d_blend_mode(
 
 	topology = sde_connector_get_topology_name(phys_enc->connector);
 	if (phys_enc->split_role == ENC_ROLE_SOLO &&
-			topology == SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE)
+			(topology == SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE ||
+			 topology == SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE_DSC))
 		return BLEND_3D_H_ROW_INT;
 
 	return BLEND_3D_NONE;

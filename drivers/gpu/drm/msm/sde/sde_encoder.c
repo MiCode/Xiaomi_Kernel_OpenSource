@@ -651,7 +651,7 @@ static void _sde_encoder_get_connector_roi(
 	sde_kms_rect_merge_rectangles(&c_state->rois, merged_conn_roi);
 }
 
-static int _sde_encoder_dsc_1_lm_1_enc_1_intf(struct sde_encoder_virt *sde_enc)
+static int _sde_encoder_dsc_n_lm_1_enc_1_intf(struct sde_encoder_virt *sde_enc)
 {
 	int this_frame_slices;
 	int intf_ip_w, enc_ip_w;
@@ -692,6 +692,7 @@ static int _sde_encoder_dsc_1_lm_1_enc_1_intf(struct sde_encoder_virt *sde_enc)
 
 	return 0;
 }
+
 static int _sde_encoder_dsc_2_lm_2_enc_2_intf(struct sde_encoder_virt *sde_enc,
 		struct sde_encoder_kickoff_params *params)
 {
@@ -892,7 +893,7 @@ static int _sde_encoder_dsc_setup(struct sde_encoder_virt *sde_enc,
 		return -EINVAL;
 	}
 
-	SDE_DEBUG_ENC(sde_enc, "\n");
+	SDE_DEBUG_ENC(sde_enc, "topology:%d\n", topology);
 	SDE_EVT32(DRMID(&sde_enc->base));
 
 	if (sde_kms_rect_is_equal(&sde_enc->cur_conn_roi,
@@ -901,7 +902,8 @@ static int _sde_encoder_dsc_setup(struct sde_encoder_virt *sde_enc,
 
 	switch (topology) {
 	case SDE_RM_TOPOLOGY_SINGLEPIPE_DSC:
-		ret = _sde_encoder_dsc_1_lm_1_enc_1_intf(sde_enc);
+	case SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE_DSC:
+		ret = _sde_encoder_dsc_n_lm_1_enc_1_intf(sde_enc);
 		break;
 	case SDE_RM_TOPOLOGY_DUALPIPE_DSCMERGE:
 		ret = _sde_encoder_dsc_2_lm_2_enc_1_intf(sde_enc, params);
