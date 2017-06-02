@@ -244,50 +244,50 @@
 
 		frame@0x17c10000 {
 			frame-number = <0>;
-			interrupts = <0 7 0x4>,
-				     <0 6 0x4>;
+			interrupts = <0 20 0x4>,
+				     <0 19 0x4>;
 			reg = <0x17c10000 0x1000>,
 			      <0x17c20000 0x1000>;
 		};
 
 		frame@17c30000 {
 			frame-number = <1>;
-			interrupts = <0 8 0x4>;
+			interrupts = <0 21 0x4>;
 			reg = <0x17c30000 0x1000>;
 			status = "disabled";
 		};
 
 		frame@17c40000 {
 			frame-number = <2>;
-			interrupts = <0 9 0x4>;
+			interrupts = <0 22 0x4>;
 			reg = <0x17c40000 0x1000>;
 			status = "disabled";
 		};
 
 		frame@17c60000 {
 			frame-number = <3>;
-			interrupts = <0 10 0x4>;
+			interrupts = <0 23 0x4>;
 			reg = <0x17c60000 0x1000>;
 			status = "disabled";
 		};
 
 		frame@17c70000 {
 			frame-number = <4>;
-			interrupts = <0 11 0x4>;
+			interrupts = <0 24 0x4>;
 			reg = <0x17c70000 0x1000>;
 			status = "disabled";
 		};
 
 		frame@17c800000 {
 			frame-number = <5>;
-			interrupts = <0 12 0x4>;
+			interrupts = <0 25 0x4>;
 			reg = <0x17c80000 0x1000>;
 			status = "disabled";
 		};
 
 		frame@17c90000 {
 			frame-number = <6>;
-			interrupts = <0 13 0x4>;
+			interrupts = <0 26 0x4>;
 			reg = <0x17c90000 0x1000>;
 			status = "disabled";
 		};
