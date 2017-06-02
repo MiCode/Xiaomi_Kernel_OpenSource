@@ -230,14 +230,38 @@ struct dp_alt_mode {
 #define DP_LINK_RATE_MULTIPLIER	27000000
 #define DP_KHZ_TO_HZ            1000
 #define DP_MAX_PIXEL_CLK_KHZ	675000
+
+enum downstream_port_type {
+	DSP_TYPE_DP = 0x00,
+	DSP_TYPE_VGA,
+	DSP_TYPE_DVI_HDMI_DPPP,
+	DSP_TYPE_OTHER,
+};
+
+static inline char *mdss_dp_dsp_type_to_string(u32 dsp_type)
+{
+	switch (dsp_type) {
+	case DSP_TYPE_DP:
+		return DP_ENUM_STR(DSP_TYPE_DP);
+	case DSP_TYPE_VGA:
+		return DP_ENUM_STR(DSP_TYPE_VGA);
+	case DSP_TYPE_DVI_HDMI_DPPP:
+		return DP_ENUM_STR(DSP_TYPE_DVI_HDMI_DPPP);
+	case DSP_TYPE_OTHER:
+		return DP_ENUM_STR(DSP_TYPE_OTHER);
+	default:
+		return "unknown";
+	}
+}
+
 struct downstream_port_config {
 	/* Byte 02205h */
-	bool dfp_present;
-	u32 dfp_type;
+	bool dsp_present;
+	enum downstream_port_type dsp_type;
 	bool format_conversion;
 	bool detailed_cap_info_available;
 	/* Byte 02207h */
-	u32 dfp_count;
+	u32 dsp_count;
 	bool msa_timing_par_ignored;
 	bool oui_support;
 };
@@ -1137,6 +1161,12 @@ static inline void mdss_dp_reset_frame_crc_data(struct mdss_dp_crc_data *crc)
 	crc->g_y = 0;
 	crc->b_cb = 0;
 	crc->en = false;
+}
+
+static inline bool mdss_dp_is_dsp_type_vga(struct mdss_dp_drv_pdata *dp)
+{
+	return (dp->dpcd.downstream_port.dsp_present &&
+		(dp->dpcd.downstream_port.dsp_type == DSP_TYPE_VGA));
 }
 
 void mdss_dp_phy_initialize(struct mdss_dp_drv_pdata *dp);
