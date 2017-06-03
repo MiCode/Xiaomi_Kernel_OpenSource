@@ -120,6 +120,7 @@ struct hfi_frame_process_info {
  * @chain_ctx: Peer context
  * @hfi_frame_process: Frame process command
  * @wait_complete: Completion info
+ * @ctx_id: Context Id
  * @temp_payload: Payload for destroy handle data
  */
 struct cam_icp_hw_ctx_data {
@@ -137,6 +138,7 @@ struct cam_icp_hw_ctx_data {
 	struct hfi_frame_process_info hfi_frame_process;
 	struct completion wait_complete;
 	struct ipe_bps_destroy temp_payload;
+	uint32_t ctx_id;
 };
 
 /**

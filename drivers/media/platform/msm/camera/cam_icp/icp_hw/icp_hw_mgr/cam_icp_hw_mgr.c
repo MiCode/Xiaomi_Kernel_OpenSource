@@ -579,14 +579,18 @@ static int cam_icp_mgr_get_free_ctx(struct cam_icp_hw_mgr *hw_mgr)
 }
 
 static int cam_icp_mgr_destroy_handle(
-		struct cam_icp_hw_ctx_data *ctx_data,
-		struct crm_workq_task *task)
+		struct cam_icp_hw_ctx_data *ctx_data)
 {
 	int rc = 0;
 	int timeout = 5000;
 	struct hfi_cmd_work_data *task_data;
 	struct hfi_cmd_ipebps_async destroy_cmd;
+	struct crm_workq_task *task;
 	unsigned long rem_jiffies;
+
+	task = cam_req_mgr_workq_get_task(icp_hw_mgr.cmd_work);
+	if (!task)
+		return -ENOMEM;
 
 	destroy_cmd.size =
 		sizeof(struct hfi_cmd_ipebps_async) +
@@ -626,7 +630,6 @@ static int cam_icp_mgr_destroy_handle(
 
 static int cam_icp_mgr_release_ctx(struct cam_icp_hw_mgr *hw_mgr, int ctx_id)
 {
-	struct crm_workq_task *task;
 	int i = 0;
 
 	if (ctx_id >= CAM_ICP_CTX_MAX) {
@@ -642,9 +645,7 @@ static int cam_icp_mgr_release_ctx(struct cam_icp_hw_mgr *hw_mgr, int ctx_id)
 	}
 	mutex_unlock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
 
-	task = cam_req_mgr_workq_get_task(icp_hw_mgr.cmd_work);
-	if (task)
-		cam_icp_mgr_destroy_handle(&hw_mgr->ctx_data[ctx_id], task);
+	cam_icp_mgr_destroy_handle(&hw_mgr->ctx_data[ctx_id]);
 
 	mutex_lock(&hw_mgr->hw_mgr_mutex);
 	mutex_lock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
@@ -664,27 +665,6 @@ static int cam_icp_mgr_release_ctx(struct cam_icp_hw_mgr *hw_mgr, int ctx_id)
 		cam_icp_mgr_hw_close(hw_mgr, NULL);
 
 	return 0;
-}
-
-static int cam_icp_mgr_get_ctx_from_fw_handle(struct cam_icp_hw_mgr *hw_mgr,
-							uint32_t fw_handle)
-{
-	int ctx_id;
-
-	for (ctx_id = 0; ctx_id < CAM_ICP_CTX_MAX; ctx_id++) {
-		mutex_lock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
-		if (hw_mgr->ctx_data[ctx_id].in_use) {
-			if (hw_mgr->ctx_data[ctx_id].fw_handle == fw_handle) {
-				mutex_unlock(
-					&hw_mgr->ctx_data[ctx_id].ctx_mutex);
-				return ctx_id;
-			}
-		}
-		mutex_unlock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
-	}
-	ICP_DBG("Invalid fw handle to get ctx\n");
-
-	return -EINVAL;
 }
 
 static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args)
@@ -967,8 +947,6 @@ static int cam_icp_mgr_config_hw(void *hw_mgr_priv, void *config_hw_args)
 	int rc = 0;
 	struct cam_icp_hw_mgr *hw_mgr = hw_mgr_priv;
 	struct cam_hw_config_args *config_args = config_hw_args;
-	uint32_t fw_handle;
-	int ctx_id = 0;
 	struct cam_icp_hw_ctx_data *ctx_data = NULL;
 	int32_t request_id = 0;
 	struct cam_hw_update_entry *hw_update_entries;
@@ -988,15 +966,7 @@ static int cam_icp_mgr_config_hw(void *hw_mgr_priv, void *config_hw_args)
 	}
 
 	mutex_lock(&hw_mgr->hw_mgr_mutex);
-	fw_handle = *(uint32_t *)config_args->ctxt_to_hw_map;
-	ctx_id = cam_icp_mgr_get_ctx_from_fw_handle(hw_mgr, fw_handle);
-	if (ctx_id < 0) {
-		pr_err("Fw handle to ctx mapping is failed\n");
-		mutex_unlock(&hw_mgr->hw_mgr_mutex);
-		return -EINVAL;
-	}
-
-	ctx_data = &hw_mgr->ctx_data[ctx_id];
+	ctx_data = config_args->ctxt_to_hw_map;
 	if (!ctx_data->in_use) {
 		pr_err("ctx is not in use\n");
 		mutex_unlock(&hw_mgr->hw_mgr_mutex);
@@ -1006,8 +976,7 @@ static int cam_icp_mgr_config_hw(void *hw_mgr_priv, void *config_hw_args)
 	request_id = *(uint32_t *)config_args->priv;
 	hw_update_entries = config_args->hw_update_entries;
 	ICP_DBG("req_id = %d\n", request_id);
-	ICP_DBG("fw_handle = %x req_id = %d %pK\n",
-		fw_handle, request_id, config_args->priv);
+	ICP_DBG("req_id = %d %pK\n", request_id, config_args->priv);
 	task = cam_req_mgr_workq_get_task(icp_hw_mgr.cmd_work);
 	if (!task) {
 		pr_err("no empty task\n");
@@ -1018,11 +987,6 @@ static int cam_icp_mgr_config_hw(void *hw_mgr_priv, void *config_hw_args)
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
 	task_data = (struct hfi_cmd_work_data *)task->payload;
-	if (!task_data) {
-		pr_err("task_data is NULL\n");
-		return -EINVAL;
-	}
-
 	task_data->data = (void *)hw_update_entries->addr;
 	hfi_cmd = (struct hfi_cmd_ipebps_async *)hw_update_entries->addr;
 	ICP_DBG("request from hfi_cmd :%llu, hfi_cmd: %pK\n",
@@ -1036,10 +1000,10 @@ static int cam_icp_mgr_config_hw(void *hw_mgr_priv, void *config_hw_args)
 }
 
 static int cam_icp_mgr_prepare_frame_process_cmd(
-			struct cam_icp_hw_ctx_data *ctx_data,
-			struct hfi_cmd_ipebps_async *hfi_cmd,
-			uint32_t request_id,
-			uint32_t fw_cmd_buf_iova_addr)
+	struct cam_icp_hw_ctx_data *ctx_data,
+	struct hfi_cmd_ipebps_async *hfi_cmd,
+	uint32_t request_id,
+	uint32_t fw_cmd_buf_iova_addr)
 {
 	hfi_cmd->size = sizeof(struct hfi_cmd_ipebps_async);
 	hfi_cmd->pkt_type = HFI_CMD_IPEBPS_ASYNC_COMMAND_INDIRECT;
@@ -1061,11 +1025,9 @@ static int cam_icp_mgr_prepare_frame_process_cmd(
 }
 
 static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
-				void *prepare_hw_update_args)
+	void *prepare_hw_update_args)
 {
 	int        rc = 0, i, j;
-	int        ctx_id = 0;
-	uint32_t   fw_handle;
 	int32_t    idx;
 	uint64_t   iova_addr;
 	uint32_t   fw_cmd_buf_iova_addr;
@@ -1088,17 +1050,7 @@ static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
 		return -EINVAL;
 	}
 
-	mutex_lock(&hw_mgr->hw_mgr_mutex);
-	fw_handle = *(uint32_t *)prepare_args->ctxt_to_hw_map;
-	ctx_id = cam_icp_mgr_get_ctx_from_fw_handle(hw_mgr, fw_handle);
-	if (ctx_id < 0) {
-		pr_err("Fw handle to ctx mapping is failed\n");
-		mutex_unlock(&hw_mgr->hw_mgr_mutex);
-		return -EINVAL;
-	}
-	mutex_unlock(&hw_mgr->hw_mgr_mutex);
-
-	ctx_data = &hw_mgr->ctx_data[ctx_id];
+	ctx_data = prepare_args->ctxt_to_hw_map;
 	if (!ctx_data->in_use) {
 		pr_err("ctx is not in use\n");
 		return -EINVAL;
@@ -1209,8 +1161,7 @@ static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
 	else if (j > 1) {
 		rc = cam_sync_merge(&sync_in_obj[0], j, &merged_sync_in_obj);
 		if (rc < 0) {
-			pr_err("unable to create in merged object: %d\n",
-								rc);
+			pr_err("unable to create in merged object: %d\n", rc);
 			return rc;
 		}
 	} else {
@@ -1263,7 +1214,6 @@ static int cam_icp_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 	int rc = 0;
 	int ctx_id = 0;
 	int i;
-	uint32_t fw_handle;
 	struct cam_hw_release_args *release_hw = release_hw_args;
 	struct cam_icp_hw_mgr *hw_mgr = hw_mgr_priv;
 	struct cam_icp_hw_ctx_data *ctx_data = NULL;
@@ -1280,8 +1230,8 @@ static int cam_icp_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 	}
 
 	mutex_lock(&hw_mgr->hw_mgr_mutex);
-	fw_handle = *(uint32_t *)release_hw->ctxt_to_hw_map;
-	ctx_id = cam_icp_mgr_get_ctx_from_fw_handle(hw_mgr, fw_handle);
+	ctx_data = release_hw->ctxt_to_hw_map;
+	ctx_id = ctx_data->ctx_id;
 	if (ctx_id < 0) {
 		pr_err("Invalid ctx id\n");
 		mutex_unlock(&hw_mgr->hw_mgr_mutex);
@@ -1290,21 +1240,23 @@ static int cam_icp_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
 	rc = cam_icp_mgr_release_ctx(hw_mgr, ctx_id);
-	if (rc)
-		return -EINVAL;
 
-	ICP_DBG("fw handle %d\n", fw_handle);
 	return rc;
 }
 
 static int cam_icp_mgr_send_config_io(struct cam_icp_hw_ctx_data *ctx_data,
-			struct crm_workq_task *task, uint32_t io_buf_addr)
+	uint32_t io_buf_addr)
 {
 	int rc = 0;
 	struct hfi_cmd_work_data *task_data;
 	struct hfi_cmd_ipebps_async ioconfig_cmd;
 	unsigned long rem_jiffies;
 	int timeout = 5000;
+	struct crm_workq_task *task;
+
+	task = cam_req_mgr_workq_get_task(icp_hw_mgr.cmd_work);
+	if (!task)
+		return -ENOMEM;
 
 	ioconfig_cmd.size = sizeof(struct hfi_cmd_ipebps_async);
 	ioconfig_cmd.pkt_type = HFI_CMD_IPEBPS_ASYNC_COMMAND_INDIRECT;
@@ -1340,14 +1292,18 @@ static int cam_icp_mgr_send_config_io(struct cam_icp_hw_ctx_data *ctx_data,
 }
 
 static int cam_icp_mgr_create_handle(uint32_t dev_type,
-	struct cam_icp_hw_ctx_data *ctx_data,
-	struct crm_workq_task *task)
+	struct cam_icp_hw_ctx_data *ctx_data)
 {
 	struct hfi_cmd_create_handle create_handle;
 	struct hfi_cmd_work_data *task_data;
 	unsigned long rem_jiffies;
 	int timeout = 5000;
+	struct crm_workq_task *task;
 	int rc = 0;
+
+	task = cam_req_mgr_workq_get_task(icp_hw_mgr.cmd_work);
+	if (!task)
+		return -ENOMEM;
 
 	create_handle.size = sizeof(struct hfi_cmd_create_handle);
 	create_handle.pkt_type = HFI_CMD_IPEBPS_CREATE_HANDLE;
@@ -1375,14 +1331,20 @@ static int cam_icp_mgr_create_handle(uint32_t dev_type,
 	return rc;
 }
 
-static int cam_icp_mgr_send_ping(struct cam_icp_hw_ctx_data *ctx_data,
-	struct crm_workq_task *task)
+static int cam_icp_mgr_send_ping(struct cam_icp_hw_ctx_data *ctx_data)
 {
 	struct hfi_cmd_ping_pkt ping_pkt;
 	struct hfi_cmd_work_data *task_data;
 	unsigned long rem_jiffies;
 	int timeout = 5000;
+	struct crm_workq_task *task;
 	int rc = 0;
+
+	task = cam_req_mgr_workq_get_task(icp_hw_mgr.cmd_work);
+	if (!task) {
+		pr_err("No free task to send ping command\n");
+		return -ENOMEM;
+	}
 
 	ping_pkt.size = sizeof(struct hfi_cmd_ping_pkt);
 	ping_pkt.pkt_type = HFI_CMD_SYS_PING;
@@ -1421,7 +1383,6 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 	struct cam_hw_acquire_args *args = acquire_hw_args;
 	struct cam_icp_acquire_dev_info icp_dev_acquire_info;
 	struct cam_icp_res_info *p_icp_out = NULL;
-	struct crm_workq_task *task;
 	uint8_t *tmp_acquire;
 
 	if ((!hw_mgr_priv) || (!acquire_hw_args)) {
@@ -1436,8 +1397,8 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 	}
 
 	if (copy_from_user(&icp_dev_acquire_info,
-			(void __user *)args->acquire_info,
-			sizeof(icp_dev_acquire_info)))
+		(void __user *)args->acquire_info,
+		sizeof(icp_dev_acquire_info)))
 		return -EFAULT;
 
 	if (icp_dev_acquire_info.num_out_res > ICP_IPE_MAX_OUTPUT_SUPPORTED) {
@@ -1464,8 +1425,7 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 		return -EINVAL;
 
 	if (copy_from_user(tmp_acquire,
-			(void __user *)args->acquire_info,
-			tmp_size)) {
+		(void __user *)args->acquire_info, tmp_size)) {
 		kfree(tmp_acquire);
 		return -EFAULT;
 	}
@@ -1497,6 +1457,7 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 
 	/* Fill ctx with acquire info */
 	ctx_data = &hw_mgr->ctx_data[ctx_id];
+	ctx_data->ctx_id = ctx_id;
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
 	/* Fill ctx with acquire info */
@@ -1532,48 +1493,23 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 		if (rc < 0)
 			goto cmd_cpu_buf_failed;
 	}
-	mutex_lock(&icp_hw_mgr.hw_mgr_mutex);
-	task = cam_req_mgr_workq_get_task(icp_hw_mgr.cmd_work);
-	if (!task) {
-		pr_err("no free task\n");
-		mutex_unlock(&icp_hw_mgr.hw_mgr_mutex);
-		goto get_create_task_failed;
-	}
-	mutex_unlock(&icp_hw_mgr.hw_mgr_mutex);
 
-	rc = cam_icp_mgr_send_ping(ctx_data, task);
+	rc = cam_icp_mgr_send_ping(ctx_data);
 	if (rc) {
 		pr_err("ping ack not received\n");
 		goto create_handle_failed;
 	}
-	mutex_lock(&icp_hw_mgr.hw_mgr_mutex);
-	task = cam_req_mgr_workq_get_task(icp_hw_mgr.cmd_work);
-	if (!task) {
-		pr_err("no free task\n");
-		mutex_unlock(&icp_hw_mgr.hw_mgr_mutex);
-		goto get_create_task_failed;
-	}
-	mutex_unlock(&icp_hw_mgr.hw_mgr_mutex);
 
 	/* Send create fw handle command */
 	rc = cam_icp_mgr_create_handle(icp_dev_acquire_info.dev_type,
-			ctx_data, task);
+		ctx_data);
 	if (rc) {
 		pr_err("create handle failed\n");
 		goto create_handle_failed;
 	}
 
 	/* Send IOCONFIG command */
-	mutex_lock(&icp_hw_mgr.hw_mgr_mutex);
-	task = cam_req_mgr_workq_get_task(icp_hw_mgr.cmd_work);
-	if (!task) {
-		pr_err("no empty task\n");
-		mutex_unlock(&icp_hw_mgr.hw_mgr_mutex);
-		goto get_ioconfig_task_failed;
-	}
-	mutex_unlock(&icp_hw_mgr.hw_mgr_mutex);
-
-	rc = cam_icp_mgr_send_config_io(ctx_data, task, io_buf_addr);
+	rc = cam_icp_mgr_send_config_io(ctx_data, io_buf_addr);
 	if (rc) {
 		pr_err("IO Config command failed\n");
 		goto ioconfig_failed;
@@ -1581,7 +1517,7 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 
 	mutex_lock(&ctx_data->ctx_mutex);
 	ctx_data->context_priv = args->context_data;
-	args->ctxt_to_hw_map = &ctx_data->fw_handle;
+	args->ctxt_to_hw_map = ctx_data;
 
 	bitmap_size = BITS_TO_LONGS(CAM_FRAME_CMD_MAX) * sizeof(long);
 	ctx_data->hfi_frame_process.bitmap =
@@ -1594,8 +1530,7 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 
 	icp_dev_acquire_info.scratch_mem_size = ctx_data->scratch_mem_size;
 	if (copy_to_user((void __user *)args->acquire_info,
-				&icp_dev_acquire_info,
-			sizeof(icp_dev_acquire_info)))
+		&icp_dev_acquire_info, sizeof(icp_dev_acquire_info)))
 		goto copy_to_user_failed;
 
 	ICP_DBG("scratch mem size = %x fw_handle = %x\n",
@@ -1607,14 +1542,8 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 
 copy_to_user_failed:
 ioconfig_failed:
-get_ioconfig_task_failed:
-	mutex_lock(&icp_hw_mgr.hw_mgr_mutex);
-	task = cam_req_mgr_workq_get_task(icp_hw_mgr.cmd_work);
-	mutex_unlock(&icp_hw_mgr.hw_mgr_mutex);
-	if (task)
-		cam_icp_mgr_destroy_handle(ctx_data, task);
+	cam_icp_mgr_destroy_handle(ctx_data);
 create_handle_failed:
-get_create_task_failed:
 	if (!hw_mgr->ctxt_cnt)
 		cam_icp_mgr_hw_close(hw_mgr, NULL);
 cmd_cpu_buf_failed:
@@ -1635,8 +1564,8 @@ static int cam_icp_mgr_get_hw_caps(void *hw_mgr_priv, void *hw_caps_args)
 	}
 
 	if (copy_from_user(&icp_hw_mgr.icp_caps,
-			(void __user *)query_cap->caps_handle,
-			sizeof(struct cam_icp_query_cap_cmd))) {
+		(void __user *)query_cap->caps_handle,
+		sizeof(struct cam_icp_query_cap_cmd))) {
 		pr_err("copy_from_user failed\n");
 		return -EFAULT;
 	}
@@ -1652,8 +1581,7 @@ static int cam_icp_mgr_get_hw_caps(void *hw_mgr_priv, void *hw_caps_args)
 	icp_hw_mgr.icp_caps.dev_iommu_handle.secure = hw_mgr->iommu_sec_hdl;
 
 	if (copy_to_user((void __user *)query_cap->caps_handle,
-			&icp_hw_mgr.icp_caps,
-			sizeof(struct cam_icp_query_cap_cmd))) {
+		&icp_hw_mgr.icp_caps, sizeof(struct cam_icp_query_cap_cmd))) {
 		pr_err("copy_to_user failed\n");
 		rc = -EFAULT;
 		goto hfi_get_caps_fail;
@@ -1749,7 +1677,7 @@ int cam_icp_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl)
 
 	for (i = 0; i < count; i++) {
 		rc = of_property_read_string_index(of_node, "compat-hw-name",
-								i, &name);
+			i, &name);
 		if (rc < 0) {
 			pr_err("getting dev object name failed\n");
 			goto compat_hw_name_failed;
@@ -1772,7 +1700,7 @@ int cam_icp_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl)
 		}
 
 		child_dev_intf = (struct cam_hw_intf *)platform_get_drvdata(
-								child_pdev);
+			child_pdev);
 		if (!child_dev_intf) {
 			pr_err("no child device\n");
 			of_node_put(child_node);
@@ -1794,7 +1722,6 @@ int cam_icp_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl)
 		goto compat_hw_name_failed;
 	}
 
-	pr_err("mmu handle :%d\n", icp_hw_mgr.iommu_hdl);
 	rc = cam_smmu_ops(icp_hw_mgr.iommu_hdl, CAM_SMMU_ATTACH);
 	if (rc < 0) {
 		pr_err("icp attach failed: %d\n", rc);

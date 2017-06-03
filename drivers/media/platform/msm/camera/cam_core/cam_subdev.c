@@ -129,16 +129,12 @@ int cam_subdev_probe(struct cam_subdev *sd, struct platform_device *pdev,
 	int rc;
 	struct cam_node *node = NULL;
 
-	if (!sd || !pdev || !name) {
-		rc = -EINVAL;
-		goto err;
-	}
+	if (!sd || !pdev || !name)
+		return -EINVAL;
 
 	node = kzalloc(sizeof(*node), GFP_KERNEL);
-	if (!node) {
-		rc = -ENOMEM;
-		goto err;
-	}
+	if (!node)
+		return -ENOMEM;
 
 	/* Setup camera v4l2 subdevice */
 	sd->pdev = pdev;
