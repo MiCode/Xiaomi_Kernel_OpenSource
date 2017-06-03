@@ -428,6 +428,7 @@ static long cam_cpas_subdev_ioctl(struct v4l2_subdev *sd,
 static long cam_cpas_subdev_compat_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, unsigned long arg)
 {
+	struct cam_control cmd_data;
 	int32_t rc;
 	struct cam_cpas_intf *cpas_intf = v4l2_get_subdevdata(sd);
 
@@ -436,14 +437,30 @@ static long cam_cpas_subdev_compat_ioctl(struct v4l2_subdev *sd,
 		return -ENODEV;
 	}
 
+	if (copy_from_user(&cmd_data, (void __user *)arg,
+		sizeof(cmd_data))) {
+		pr_err("Failed to copy from user_ptr=%pK size=%zu\n",
+			(void __user *)arg, sizeof(cmd_data));
+		return -EFAULT;
+	}
+
 	switch (cmd) {
 	case VIDIOC_CAM_CONTROL:
-		rc = cam_cpas_subdev_cmd(cpas_intf, (struct cam_control *) arg);
+		rc = cam_cpas_subdev_cmd(cpas_intf, &cmd_data);
 		break;
 	default:
 		pr_err("Invalid command %d for CPAS!\n", cmd);
 		rc = -EINVAL;
 		break;
+	}
+
+	if (!rc) {
+		if (copy_to_user((void __user *)arg, &cmd_data,
+			sizeof(cmd_data))) {
+			pr_err("Failed to copy to user_ptr=%pK size=%zu\n",
+				(void __user *)arg, sizeof(cmd_data));
+			rc = -EFAULT;
+		}
 	}
 
 	return rc;
