@@ -837,6 +837,49 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 		}
 		break;
+
+	case IPA_IOC_ADD_RT_RULE_EXT:
+		if (copy_from_user(header,
+				(u8 *)arg,
+				sizeof(struct ipa_ioc_add_rt_rule_ext))) {
+			retval = -EFAULT;
+			break;
+		}
+		pre_entry =
+			((struct ipa_ioc_add_rt_rule_ext *)header)->num_rules;
+		pyld_sz =
+		   sizeof(struct ipa_ioc_add_rt_rule_ext) +
+		   pre_entry * sizeof(struct ipa_rt_rule_add_ext);
+		param = kzalloc(pyld_sz, GFP_KERNEL);
+		if (!param) {
+			retval = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(param, (u8 *)arg, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		/* add check in case user-space module compromised */
+		if (unlikely(
+			((struct ipa_ioc_add_rt_rule_ext *)param)->num_rules
+			!= pre_entry)) {
+			IPAERR(" prevent memory corruption(%d not match %d)\n",
+				((struct ipa_ioc_add_rt_rule_ext *)param)->
+				num_rules,
+				pre_entry);
+			retval = -EINVAL;
+			break;
+		}
+		if (ipa3_add_rt_rule_ext(
+			(struct ipa_ioc_add_rt_rule_ext *)param)) {
+			retval = -EFAULT;
+			break;
+		}
+		if (copy_to_user((u8 *)arg, param, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
 	case IPA_IOC_ADD_RT_RULE_AFTER:
 		if (copy_from_user(header, (u8 *)arg,
 			sizeof(struct ipa_ioc_add_rt_rule_after))) {
