@@ -45,6 +45,7 @@ struct cluster_data {
 	bool pending;
 	spinlock_t pending_lock;
 	bool is_big_cluster;
+	bool enable;
 	int nrrun;
 	bool nrrun_changed;
 	struct task_struct *core_ctl_thread;
@@ -246,6 +247,29 @@ static ssize_t show_is_big_cluster(const struct cluster_data *state, char *buf)
 	return snprintf(buf, PAGE_SIZE, "%u\n", state->is_big_cluster);
 }
 
+static ssize_t store_enable(struct cluster_data *state,
+				const char *buf, size_t count)
+{
+	unsigned int val;
+	bool bval;
+
+	if (sscanf(buf, "%u\n", &val) != 1)
+		return -EINVAL;
+
+	bval = !!val;
+	if (bval != state->enable) {
+		state->enable = bval;
+		apply_need(state);
+	}
+
+	return count;
+}
+
+static ssize_t show_enable(const struct cluster_data *state, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%u\n", state->enable);
+}
+
 static ssize_t show_need_cpus(const struct cluster_data *state, char *buf)
 {
 	return snprintf(buf, PAGE_SIZE, "%u\n", state->need_cpus);
@@ -374,6 +398,7 @@ core_ctl_attr_ro(need_cpus);
 core_ctl_attr_ro(active_cpus);
 core_ctl_attr_ro(global_state);
 core_ctl_attr_rw(not_preferred);
+core_ctl_attr_rw(enable);
 
 static struct attribute *default_attrs[] = {
 	&min_cpus.attr,
@@ -383,6 +408,7 @@ static struct attribute *default_attrs[] = {
 	&busy_down_thres.attr,
 	&task_thres.attr,
 	&is_big_cluster.attr,
+	&enable.attr,
 	&need_cpus.attr,
 	&active_cpus.attr,
 	&global_state.attr,
@@ -543,7 +569,7 @@ static bool eval_need(struct cluster_data *cluster)
 
 	spin_lock_irqsave(&state_lock, flags);
 
-	if (cluster->boost) {
+	if (cluster->boost || !cluster->enable) {
 		need_cpus = cluster->max_cpus;
 	} else {
 		cluster->active_cpus = get_active_cpu_count(cluster);
@@ -1040,6 +1066,7 @@ static int cluster_init(const struct cpumask *mask)
 	cluster->offline_delay_ms = 100;
 	cluster->task_thres = UINT_MAX;
 	cluster->nrrun = cluster->num_cpus;
+	cluster->enable = true;
 	INIT_LIST_HEAD(&cluster->lru);
 	spin_lock_init(&cluster->pending_lock);
 

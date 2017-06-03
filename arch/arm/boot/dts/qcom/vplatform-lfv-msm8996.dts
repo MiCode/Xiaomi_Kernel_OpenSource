@@ -78,14 +78,17 @@
 			<&afe_proxy_rx>, <&afe_proxy_tx>,
 			<&incall_record_rx>, <&incall_record_tx>,
 			<&incall_music_rx>, <&incall_music2_rx>,
+			<&dai_sec_tdm_tx_0>, <&dai_sec_tdm_tx_1>,
+			<&dai_sec_tdm_tx_2>, <&dai_sec_tdm_tx_3>,
 			<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_rx_1>,
 			<&dai_tert_tdm_rx_2>, <&dai_tert_tdm_rx_3>,
-			<&dai_tert_tdm_tx_0>, <&dai_tert_tdm_tx_1>,
-			<&dai_tert_tdm_tx_2>, <&dai_tert_tdm_tx_3>,
-			<&dai_quat_tdm_rx_0>, <&dai_quat_tdm_rx_1>,
-			<&dai_quat_tdm_rx_2>, <&dai_quat_tdm_rx_3>,
-			<&dai_quat_tdm_tx_0>, <&dai_quat_tdm_tx_1>,
-			<&dai_quat_tdm_tx_2>, <&dai_quat_tdm_tx_3>;
+			<&dai_tert_tdm_rx_4>, <&dai_tert_tdm_tx_0>,
+			<&dai_tert_tdm_tx_1>, <&dai_tert_tdm_tx_2>,
+			<&dai_tert_tdm_tx_3>, <&dai_quat_tdm_rx_0>,
+			<&dai_quat_tdm_rx_1>, <&dai_quat_tdm_rx_2>,
+			<&dai_quat_tdm_rx_3>, <&dai_quat_tdm_tx_0>,
+			<&dai_quat_tdm_tx_1>, <&dai_quat_tdm_tx_2>,
+			<&dai_quat_tdm_tx_3>;
 		asoc-cpu-names = "msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
 			"msm-dai-q6-hdmi.8", "msm-dai-q6-mi2s.1",
 			"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
@@ -93,14 +96,17 @@
 			"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
 			"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
 			"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770",
+			"msm-dai-q6-tdm.36881", "msm-dai-q6-tdm.36883",
+			"msm-dai-q6-tdm.36885", "msm-dai-q6-tdm.36887",
 			"msm-dai-q6-tdm.36896", "msm-dai-q6-tdm.36898",
 			"msm-dai-q6-tdm.36900", "msm-dai-q6-tdm.36902",
-			"msm-dai-q6-tdm.36897", "msm-dai-q6-tdm.36899",
-			"msm-dai-q6-tdm.36901", "msm-dai-q6-tdm.36903",
-			"msm-dai-q6-tdm.36912", "msm-dai-q6-tdm.36914",
-			"msm-dai-q6-tdm.36916", "msm-dai-q6-tdm.36918",
-			"msm-dai-q6-tdm.36913", "msm-dai-q6-tdm.36915",
-			"msm-dai-q6-tdm.36917", "msm-dai-q6-tdm.36919";
+			"msm-dai-q6-tdm.36904", "msm-dai-q6-tdm.36897",
+			"msm-dai-q6-tdm.36899", "msm-dai-q6-tdm.36901",
+			"msm-dai-q6-tdm.36903", "msm-dai-q6-tdm.36912",
+			"msm-dai-q6-tdm.36914", "msm-dai-q6-tdm.36916",
+			"msm-dai-q6-tdm.36918", "msm-dai-q6-tdm.36913",
+			"msm-dai-q6-tdm.36915", "msm-dai-q6-tdm.36917",
+			"msm-dai-q6-tdm.36919";
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
 	};
@@ -282,8 +288,9 @@
 	qcom,msm-dai-tdm-tert-rx {
 		compatible = "qcom,msm-dai-tdm";
 		qcom,msm-cpudai-tdm-group-id = <37152>;
-		qcom,msm-cpudai-tdm-group-num-ports = <4>;
-		qcom,msm-cpudai-tdm-group-port-id = <36896 36898 36900 36902>;
+		qcom,msm-cpudai-tdm-group-num-ports = <5>;
+		qcom,msm-cpudai-tdm-group-port-id =
+			<36896 36898 36900 36902 36904>;
 		qcom,msm-cpudai-tdm-clk-rate = <0>;
 		dai_tert_tdm_rx_0: qcom,msm-dai-q6-tdm-tert-rx-0 {
 			compatible = "qcom,msm-dai-q6-tdm";
@@ -321,6 +328,16 @@
 		dai_tert_tdm_rx_3: qcom,msm-dai-q6-tdm-tert-rx-3 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36902>;
+			qcom,msm-cpudai-tdm-sync-mode = <1>;
+			qcom,msm-cpudai-tdm-sync-src = <0>;
+			qcom,msm-cpudai-tdm-data-out = <0>;
+			qcom,msm-cpudai-tdm-invert-sync = <0>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+		dai_tert_tdm_rx_4: qcom,msm-dai-q6-tdm-tert-rx-4 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36904>;
 			qcom,msm-cpudai-tdm-sync-mode = <1>;
 			qcom,msm-cpudai-tdm-sync-src = <0>;
 			qcom,msm-cpudai-tdm-data-out = <0>;
@@ -474,6 +491,54 @@
 		dai_quat_tdm_tx_3: qcom,msm-dai-q6-tdm-quat-tx-3 {
 			compatible = "qcom,msm-dai-q6-tdm";
 			qcom,msm-cpudai-tdm-dev-id = <36919>;
+			qcom,msm-cpudai-tdm-sync-mode = <1>;
+			qcom,msm-cpudai-tdm-sync-src = <0>;
+			qcom,msm-cpudai-tdm-data-out = <0>;
+			qcom,msm-cpudai-tdm-invert-sync = <0>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+	};
+
+	qcom,msm-dai-tdm-sec-tx {
+		compatible = "qcom,msm-dai-tdm";
+		qcom,msm-cpudai-tdm-group-id = <37137>;
+		qcom,msm-cpudai-tdm-group-num-ports = <4>;
+		qcom,msm-cpudai-tdm-group-port-id = <36881 36883 36885 36887>;
+		qcom,msm-cpudai-tdm-clk-rate = <0>;
+		dai_sec_tdm_tx_0: qcom,msm-dai-q6-tdm-sec-tx-0 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36881>;
+			qcom,msm-cpudai-tdm-sync-mode = <1>;
+			qcom,msm-cpudai-tdm-sync-src = <0>;
+			qcom,msm-cpudai-tdm-data-out = <0>;
+			qcom,msm-cpudai-tdm-invert-sync = <0>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+		dai_sec_tdm_tx_1: qcom,msm-dai-q6-tdm-sec-tx-1 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36883>;
+			qcom,msm-cpudai-tdm-sync-mode = <1>;
+			qcom,msm-cpudai-tdm-sync-src = <0>;
+			qcom,msm-cpudai-tdm-data-out = <0>;
+			qcom,msm-cpudai-tdm-invert-sync = <0>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+		dai_sec_tdm_tx_2: qcom,msm-dai-q6-tdm-sec-tx-2 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36885>;
+			qcom,msm-cpudai-tdm-sync-mode = <1>;
+			qcom,msm-cpudai-tdm-sync-src = <0>;
+			qcom,msm-cpudai-tdm-data-out = <0>;
+			qcom,msm-cpudai-tdm-invert-sync = <0>;
+			qcom,msm-cpudai-tdm-data-delay = <0>;
+			qcom,msm-cpudai-tdm-data-align = <0>;
+		};
+		dai_sec_tdm_tx_3: qcom,msm-dai-q6-tdm-sec-tx-3 {
+			compatible = "qcom,msm-dai-q6-tdm";
+			qcom,msm-cpudai-tdm-dev-id = <36887>;
 			qcom,msm-cpudai-tdm-sync-mode = <1>;
 			qcom,msm-cpudai-tdm-sync-src = <0>;
 			qcom,msm-cpudai-tdm-data-out = <0>;
