@@ -142,7 +142,6 @@ enum sde_enc_rc_states {
  *				Bit0 = phys_encs[0] etc.
  * @crtc_frame_event_cb:	callback handler for frame event
  * @crtc_frame_event_cb_data:	callback handler private data
- * @crtc_frame_event:		callback event
  * @frame_done_timeout:		frame done timeout in Hz
  * @frame_done_timer:		watchdog timer for frame done event
  * @rsc_client:			rsc client pointer
@@ -160,6 +159,7 @@ enum sde_enc_rc_states {
  * @rsc_cfg:			rsc configuration
  * @cur_conn_roi:		current connector roi
  * @prv_conn_roi:		previous connector roi to optimize if unchanged
+ * @disable_inprogress:		sde encoder disable is in progress.
  */
 struct sde_encoder_virt {
 	struct drm_encoder base;
@@ -184,7 +184,6 @@ struct sde_encoder_virt {
 	DECLARE_BITMAP(frame_busy_mask, MAX_PHYS_ENCODERS_PER_VIRTUAL);
 	void (*crtc_frame_event_cb)(void *, u32 event);
 	void *crtc_frame_event_cb_data;
-	u32 crtc_frame_event;
 
 	atomic_t frame_done_timeout;
 	struct timer_list frame_done_timer;
@@ -204,6 +203,7 @@ struct sde_encoder_virt {
 	struct sde_encoder_rsc_config rsc_cfg;
 	struct sde_rect cur_conn_roi;
 	struct sde_rect prv_conn_roi;
+	bool disable_inprogress;
 };
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
@@ -1456,6 +1456,7 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 	SDE_EVT32(DRMID(drm_enc));
 
 	sde_enc->cur_master = NULL;
+	sde_enc->disable_inprogress = false;
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
@@ -1514,6 +1515,7 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 
 	priv = drm_enc->dev->dev_private;
 	sde_kms = to_sde_kms(priv->kms);
+	sde_enc->disable_inprogress = true;
 
 	SDE_EVT32(DRMID(drm_enc));
 
@@ -1664,7 +1666,6 @@ static void sde_encoder_frame_done_callback(
 	for (i = 0; i < sde_enc->num_phys_encs; i++)
 		if (sde_enc->phys_encs[i] == ready_phys) {
 			clear_bit(i, sde_enc->frame_busy_mask);
-			sde_enc->crtc_frame_event |= event;
 			SDE_EVT32_VERBOSE(DRMID(drm_enc), i,
 					sde_enc->frame_busy_mask[0]);
 		}
@@ -1676,10 +1677,12 @@ static void sde_encoder_frame_done_callback(
 		sde_encoder_resource_control(drm_enc,
 				SDE_ENC_RC_EVENT_FRAME_DONE);
 
+		if (sde_enc->disable_inprogress)
+			event |= SDE_ENCODER_FRAME_EVENT_DURING_DISABLE;
+
 		if (sde_enc->crtc_frame_event_cb)
 			sde_enc->crtc_frame_event_cb(
-					sde_enc->crtc_frame_event_cb_data,
-					sde_enc->crtc_frame_event);
+				sde_enc->crtc_frame_event_cb_data, event);
 	}
 }
 
@@ -1861,7 +1864,6 @@ static void _sde_encoder_kickoff_phys(struct sde_encoder_virt *sde_enc)
 	}
 
 	pending_flush = 0x0;
-	sde_enc->crtc_frame_event = 0;
 
 	/* update pending counts and trigger kickoff ctl flush atomically */
 	spin_lock_irqsave(&sde_enc->enc_spinlock, lock_flags);
@@ -2679,6 +2681,7 @@ static void sde_encoder_frame_done_timeout(unsigned long data)
 	struct drm_encoder *drm_enc = (struct drm_encoder *) data;
 	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
 	struct msm_drm_private *priv;
+	u32 event;
 
 	if (!drm_enc || !drm_enc->dev || !drm_enc->dev->dev_private) {
 		SDE_ERROR("invalid parameters\n");
@@ -2696,13 +2699,14 @@ static void sde_encoder_frame_done_timeout(unsigned long data)
 		return;
 	}
 
-	SDE_EVT32(DRMID(drm_enc), 2, sde_enc->crtc_frame_event);
-	SDE_ERROR_ENC(sde_enc, "frame done timeout, frame_event %d\n",
-			sde_enc->crtc_frame_event);
+	SDE_ERROR_ENC(sde_enc, "frame done timeout\n");
 
-	sde_enc->crtc_frame_event_cb(sde_enc->crtc_frame_event_cb_data,
-			sde_enc->crtc_frame_event |
-			SDE_ENCODER_FRAME_EVENT_ERROR);
+	event =	SDE_ENCODER_FRAME_EVENT_ERROR;
+	if (sde_enc->disable_inprogress)
+		event |= SDE_ENCODER_FRAME_EVENT_DURING_DISABLE;
+
+	SDE_EVT32(DRMID(drm_enc), event);
+	sde_enc->crtc_frame_event_cb(sde_enc->crtc_frame_event_cb_data, event);
 }
 
 static const struct drm_encoder_helper_funcs sde_encoder_helper_funcs = {
