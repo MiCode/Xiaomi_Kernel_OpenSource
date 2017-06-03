@@ -482,6 +482,9 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 		update_bus = 1;
 		update_clk = 1;
 	}
+	trace_sde_perf_crtc_update(crtc->base.id, new->bw_ctl,
+				new->core_clk_rate, stop_req,
+				update_bus, update_clk);
 
 	if (update_bus)
 		_sde_core_perf_crtc_update_bus(kms, crtc);
