@@ -121,12 +121,12 @@ struct tcs_mbox {
 
 /* One per MBOX controller */
 struct tcs_drv {
+	struct mbox_controller mbox;
 	const char *name;
 	void __iomem *base; /* start address of the RSC's registers */
 	void __iomem *reg_base; /* start address for DRV specific register */
 	int drv_id;
 	struct platform_device *pdev;
-	struct mbox_controller mbox;
 	struct tcs_mbox tcs[TCS_TYPE_NR];
 	int num_assigned;
 	int num_tcs;
@@ -717,7 +717,13 @@ static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 		return slot;
 	}
 
+	/* Figure out the TCS-m and CMD-n to write to */
+	offset = slot / tcs->ncpt;
+	m = offset + tcs->tcs_offset;
+	n = slot % tcs->ncpt;
+
 	if (trigger) {
+		/* Block, if we have an address from the msg in flight */
 		ret = check_for_req_inflight(drv, tcs, msg);
 		if (ret) {
 			spin_unlock_irqrestore(&tcs->tcs_lock, flags);
@@ -725,22 +731,7 @@ static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 				free_response(resp);
 			return ret;
 		}
-	}
 
-	/* Mark the slots as in-use, before we unlock */
-	if (tcs->type == SLEEP_TCS || tcs->type == WAKE_TCS)
-		bitmap_set(tcs->slots, slot, msg->num_payload);
-
-	/* Copy the addresses of the resources over to the slots */
-	for (i = 0; tcs->cmd_addr && i < msg->num_payload; i++)
-		tcs->cmd_addr[slot + i] = msg->payload[i].addr;
-
-	offset = slot / tcs->ncpt;
-	m = offset + tcs->tcs_offset;
-	n = slot % tcs->ncpt;
-
-	/* Block, if we have an address from the msg in flight */
-	if (trigger) {
 		resp->m = m;
 		/* Mark the TCS as busy */
 		atomic_set(&drv->tcs_in_use[m], 1);
@@ -749,6 +740,14 @@ static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 		if (tcs->type != ACTIVE_TCS)
 			enable_tcs_irq(drv, m, true);
 		drv->tcs_last_sent_ts[m] = arch_counter_get_cntvct();
+	} else {
+		/* Mark the slots as in-use, before we unlock */
+		if (tcs->type == SLEEP_TCS || tcs->type == WAKE_TCS)
+			bitmap_set(tcs->slots, slot, msg->num_payload);
+
+		/* Copy the addresses of the resources over to the slots */
+		for (i = 0; tcs->cmd_addr && i < msg->num_payload; i++)
+			tcs->cmd_addr[slot + i] = msg->payload[i].addr;
 	}
 
 	/* Write to the TCS or AMC */
@@ -1029,6 +1028,7 @@ static struct mbox_chan *of_tcs_mbox_xlate(struct mbox_controller *mbox,
 	}
 
 	chan = &mbox->chans[drv->num_assigned++];
+	chan->con_priv = drv;
 
 	return chan;
 }
