@@ -236,7 +236,6 @@ struct clk_osm {
 	unsigned long pbases[NUM_BASES];
 	spinlock_t lock;
 
-	u32 cpu_reg_mask;
 	u32 num_entries;
 	u32 cluster_num;
 	u32 core_num;
@@ -738,7 +737,6 @@ static struct clk_init_data osm_clks_init[] = {
 
 static struct clk_osm l3_clk = {
 	.cluster_num = 0,
-	.cpu_reg_mask = 0x0,
 	.hw.init = &osm_clks_init[0],
 };
 
@@ -747,7 +745,6 @@ static DEFINE_CLK_VOTER(l3_cluster1_vote_clk, l3_clk, 0);
 
 static struct clk_osm pwrcl_clk = {
 	.cluster_num = 1,
-	.cpu_reg_mask = 0x300,
 	.hw.init = &osm_clks_init[1],
 };
 
@@ -804,7 +801,6 @@ static struct clk_osm cpu3_pwrcl_clk = {
 
 static struct clk_osm perfcl_clk = {
 	.cluster_num = 2,
-	.cpu_reg_mask = 0x700,
 	.hw.init = &osm_clks_init[2],
 };
 
@@ -888,65 +884,43 @@ static struct clk_osm *logical_cpu_to_clk(int cpu)
 	const u32 *cell;
 	u64 hwid;
 	static struct clk_osm *cpu_clk_map[NR_CPUS];
+	struct clk_osm *clk_cpu_map[] = {
+		&cpu0_pwrcl_clk,
+		&cpu1_pwrcl_clk,
+		&cpu2_pwrcl_clk,
+		&cpu3_pwrcl_clk,
+		&cpu4_perfcl_clk,
+		&cpu5_perfcl_clk,
+		&cpu6_perfcl_clk,
+		&cpu7_perfcl_clk,
+	};
 
-	if (cpu_clk_map[cpu])
-		return cpu_clk_map[cpu];
+	if (!cpu_clk_map[cpu]) {
+		cpu_node = of_get_cpu_node(cpu, NULL);
+		if (!cpu_node)
+			return NULL;
 
-	cpu_node = of_get_cpu_node(cpu, NULL);
-	if (!cpu_node)
-		goto fail;
-
-	cell = of_get_property(cpu_node, "reg", NULL);
-	if (!cell) {
-		pr_err("%s: missing reg property\n", cpu_node->full_name);
-		goto fail;
-	}
-
-	hwid = of_read_number(cell, of_n_addr_cells(cpu_node));
-	if ((hwid | pwrcl_clk.cpu_reg_mask) == pwrcl_clk.cpu_reg_mask) {
-		switch (cpu) {
-		case 0:
-			cpu_clk_map[cpu] = &cpu0_pwrcl_clk;
-			break;
-		case 1:
-			cpu_clk_map[cpu] = &cpu1_pwrcl_clk;
-			break;
-		case 2:
-			cpu_clk_map[cpu] = &cpu2_pwrcl_clk;
-			break;
-		case 3:
-			cpu_clk_map[cpu] = &cpu3_pwrcl_clk;
-			break;
-		default:
-			pr_err("unsupported CPU number for power cluster\n");
+		cell = of_get_property(cpu_node, "reg", NULL);
+		if (!cell) {
+			pr_err("%s: missing reg property\n",
+			       cpu_node->full_name);
+			of_node_put(cpu_node);
 			return NULL;
 		}
-		return cpu_clk_map[cpu];
-	}
 
-	if ((hwid | perfcl_clk.cpu_reg_mask) == perfcl_clk.cpu_reg_mask) {
-		switch (cpu) {
-		case 4:
-			cpu_clk_map[cpu] = &cpu4_perfcl_clk;
-			break;
-		case 5:
-			cpu_clk_map[cpu] = &cpu5_perfcl_clk;
-			break;
-		case 6:
-			cpu_clk_map[cpu] = &cpu6_perfcl_clk;
-			break;
-		case 7:
-			cpu_clk_map[cpu] = &cpu7_perfcl_clk;
-			break;
-		default:
-			pr_err("unsupported CPU number for perf cluster\n");
+		hwid = of_read_number(cell, of_n_addr_cells(cpu_node));
+		hwid = (hwid >> 8) & 0xff;
+		of_node_put(cpu_node);
+		if (hwid >= ARRAY_SIZE(clk_cpu_map)) {
+			pr_err("unsupported CPU number - %d (hw_id - %llu)\n",
+			       cpu, hwid);
 			return NULL;
 		}
-		return cpu_clk_map[cpu];
+
+		cpu_clk_map[cpu] = clk_cpu_map[hwid];
 	}
 
-fail:
-	return NULL;
+	return cpu_clk_map[cpu];
 }
 
 static inline int clk_osm_count_ns(struct clk_osm *c, u64 nsec)
