@@ -26,6 +26,7 @@
 #include <linux/serial_core.h>
 #include <linux/serial.h>
 #include <linux/workqueue.h>
+#include <linux/power_supply.h>
 
 #define EUD_ENABLE_CMD 1
 #define EUD_DISABLE_CMD 0
@@ -87,15 +88,52 @@ static struct platform_device *eud_private;
 static void enable_eud(struct platform_device *pdev)
 {
 	struct eud_chip *priv = platform_get_drvdata(pdev);
+	struct power_supply *usb_psy = NULL;
+	union power_supply_propval pval = {0};
+	union power_supply_propval tval = {0};
+	int ret;
 
-	/* write into CSR to enable EUD */
-	writel_relaxed(BIT(0), priv->eud_reg_base + EUD_REG_CSR_EUD_EN);
-	/* Enable vbus, chgr & safe mode warning interrupts */
-	writel_relaxed(EUD_INT_VBUS | EUD_INT_CHGR | EUD_INT_SAFE_MODE,
-			priv->eud_reg_base + EUD_REG_INT1_EN_MASK);
+	usb_psy = power_supply_get_by_name("usb");
+	if (!usb_psy) {
+		dev_warn(&pdev->dev, "Could not get usb power_supply\n");
+		return;
+	}
 
-	/* Ensure Register Writes Complete */
-	wmb();
+	ret = power_supply_get_property(usb_psy,
+			POWER_SUPPLY_PROP_PRESENT, &pval);
+	if (ret) {
+		dev_err(&pdev->dev, "Unable to read USB PRESENT: %x\n", ret);
+		return;
+	}
+
+	ret = power_supply_get_property(usb_psy,
+			POWER_SUPPLY_PROP_REAL_TYPE, &tval);
+	if (ret) {
+		dev_err(&pdev->dev, "Unable to read USB TYPE: %x\n", ret);
+		return;
+	}
+
+	if (pval.intval && (tval.intval == POWER_SUPPLY_TYPE_USB ||
+	    tval.intval == POWER_SUPPLY_TYPE_USB_CDP)) {
+		/* write into CSR to enable EUD */
+		writel_relaxed(BIT(0), priv->eud_reg_base + EUD_REG_CSR_EUD_EN);
+		/* Enable vbus, chgr & safe mode warning interrupts */
+		writel_relaxed(EUD_INT_VBUS | EUD_INT_CHGR | EUD_INT_SAFE_MODE,
+				priv->eud_reg_base + EUD_REG_INT1_EN_MASK);
+
+		/* Ensure Register Writes Complete */
+		wmb();
+
+		/*
+		 * Set the default cable state to usb connect and charger
+		 * enable
+		 */
+		extcon_set_state_sync(priv->extcon, EXTCON_USB, true);
+		extcon_set_state_sync(priv->extcon, EXTCON_CHG_USB_SDP, true);
+	} else {
+		dev_warn(&pdev->dev, "Connect USB cable before enabling EUD\n");
+		return;
+	}
 
 	dev_dbg(&pdev->dev, "%s: EUD Enabled!\n", __func__);
 }
