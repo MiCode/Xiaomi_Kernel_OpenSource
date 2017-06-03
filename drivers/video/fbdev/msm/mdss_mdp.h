@@ -586,6 +586,7 @@ struct mdss_mdp_ctl {
 	struct mdss_mdp_avr_info avr_info;
 	bool commit_in_progress;
 	struct mutex ds_lock;
+	bool need_vsync_on;
 };
 
 struct mdss_mdp_mixer {
