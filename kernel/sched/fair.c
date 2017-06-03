@@ -5406,28 +5406,12 @@ static inline int task_util(struct task_struct *p)
 	return p->se.avg.util_avg;
 }
 
-#define SCHED_ENABLE_WAKER_WAKEE	0
-
-static unsigned int sched_small_wakee_task_util = 102; /* ~10% of max cap */
-static unsigned int sched_big_waker_task_util = 256;  /* 25% of max cap */
-
-static inline bool
-wake_on_waker_sibling(struct task_struct *p)
-{
-	return SCHED_ENABLE_WAKER_WAKEE &&
-	       task_util(current) > sched_big_waker_task_util &&
-	       task_util(p) < sched_small_wakee_task_util;
-}
-
-#define sysctl_sched_prefer_sync_wakee_to_waker 0
-
 static inline bool
 bias_to_waker_cpu(struct task_struct *p, int cpu)
 {
-	return sysctl_sched_prefer_sync_wakee_to_waker &&
-	       cpu_rq(cpu)->nr_running == 1 &&
-	       cpumask_test_cpu(cpu, tsk_cpus_allowed(p)) &&
-	       cpu_active(cpu) && !cpu_isolated(cpu);
+	return cpumask_test_cpu(cpu, tsk_cpus_allowed(p)) &&
+	       cpu_active(cpu) && !cpu_isolated(cpu) &&
+	       task_fits_max(p, cpu);
 }
 
 static int calc_util_delta(struct energy_env *eenv, int cpu)
@@ -6735,10 +6719,8 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	unsigned int target_cpu_util = UINT_MAX;
 	long target_cpu_new_util_cum = LONG_MAX;
 	struct cpumask *rtg_target = NULL;
-	bool wake_on_sibling = false;
 	int isolated_candidate = -1;
 	bool need_idle;
-	bool skip_ediff = false;
 	enum sched_boost_policy placement_boost = task_sched_boost(p) ?
 				sched_boost_policy() : SCHED_BOOST_NONE;
 
@@ -6751,9 +6733,16 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	sg_target = sg;
 
 	sync = sync && sysctl_sched_sync_hint_enable;
+
 	curr_util = boosted_task_util(cpu_rq(cpu)->curr);
 
 	need_idle = wake_to_idle(p);
+
+	if (sync && bias_to_waker_cpu(p, cpu)) {
+		trace_sched_task_util_bias_to_waker(p, task_cpu(p),
+					task_util(p), cpu, cpu, 0, need_idle);
+		return cpu;
+	}
 
 	if (sysctl_sched_is_big_little) {
 		struct related_thread_group *grp;
@@ -6762,17 +6751,8 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 		grp = task_related_thread_group(p);
 		rcu_read_unlock();
 
-		if (grp && grp->preferred_cluster) {
+		if (grp && grp->preferred_cluster)
 			rtg_target = &grp->preferred_cluster->cpus;
-		} else if (sync && wake_on_waker_sibling(p)) {
-			if (bias_to_waker_cpu(p, cpu)) {
-				trace_sched_task_util_bias_to_waker(p,
-						task_cpu(p), task_util(p), cpu,
-						cpu, 0, need_idle);
-				return cpu;
-			}
-			wake_on_sibling = true;
-		}
 
 		task_util_boosted = boosted_task_util(p);
 
@@ -6822,21 +6802,6 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 					if (cpumask_test_cpu(max_cap_cpu,
 							     rtg_target))
 						break;
-					continue;
-				} else if (wake_on_sibling) {
-					/* Skip non-sibling CPUs */
-					if (!cpumask_test_cpu(cpu,
-							sched_group_cpus(sg)))
-						continue;
-				} else if (sync && curr_util >=
-						   task_util_boosted) {
-					if (cpumask_test_cpu(cpu,
-							sched_group_cpus(sg))) {
-						if (!cpumask_test_cpu(task_cpu(p),
-								      sched_group_cpus(sg)))
-							skip_ediff = true;
-						break;
-					}
 					continue;
 				}
 
@@ -6906,8 +6871,6 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 				       idle_get_state_idx(cpu_rq(i));
 
 			if (!need_idle &&
-			    (!wake_on_sibling ||
-			     (wake_on_sibling && i != cpu)) &&
 			    add_capacity_margin(new_util_cum) <
 			    capacity_curr_of(i)) {
 				if (sysctl_sched_cstate_aware) {
@@ -6941,9 +6904,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 					target_cpu = i;
 					break;
 				}
-			} else if (!need_idle &&
-				   (!wake_on_sibling ||
-				    (wake_on_sibling && i != cpu))) {
+			} else if (!need_idle) {
 				/*
 				 * At least one CPU other than target_cpu is
 				 * going to raise CPU's OPP higher than current
@@ -7014,13 +6975,6 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 		}
 	}
 
-	if (wake_on_sibling && target_cpu != -1) {
-		trace_sched_task_util_bias_to_waker(p, task_cpu(p),
-						task_util(p), target_cpu,
-						target_cpu, 0, need_idle);
-		return target_cpu;
-	}
-
 	if (target_cpu != task_cpu(p) && !cpu_isolated(task_cpu(p))) {
 		struct energy_env eenv = {
 			.util_delta	= task_util(p),
@@ -7056,8 +7010,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			return target_cpu;
 		}
 
-		if (!skip_ediff)
-			ediff = energy_diff(&eenv);
+		ediff = energy_diff(&eenv);
 
 		if (!sysctl_sched_cstate_aware) {
 			if (ediff >= 0) {
