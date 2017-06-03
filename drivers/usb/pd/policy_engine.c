@@ -1588,6 +1588,7 @@ static void usbpd_sm(struct work_struct *w)
 			pd->vconn_enabled = false;
 		}
 
+		reset_vdm_state(pd);
 		if (pd->current_dr == DR_UFP)
 			stop_usb_peripheral(pd);
 		else if (pd->current_dr == DR_DFP)
@@ -1595,8 +1596,6 @@ static void usbpd_sm(struct work_struct *w)
 
 		pd->current_pr = PR_NONE;
 		pd->current_dr = DR_NONE;
-
-		reset_vdm_state(pd);
 
 		if (pd->current_state == PE_ERROR_RECOVERY)
 			/* forced disconnect, wait before resetting to DRP */
