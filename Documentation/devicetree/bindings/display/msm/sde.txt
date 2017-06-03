@@ -148,10 +148,6 @@ Optional properties:
 				control register. Number of offsets defined should
 				match the number of offsets defined in
 				property: qcom,sde-sspp-off.
-- qcom,sde-sspp-danger-lut:	A 3 cell property, with a format of <linear, tile, nrt>,
-				indicating the danger luts on sspp.
-- qcom,sde-sspp-safe-lut:	A 3 cell property, with a format of <linear, tile, nrt>,
-				indicating the safe luts on sspp.
 - qcom,sde-sspp-excl-rect:	Array of u32 values indicating exclusion rectangle
 				support on each sspp.
 - qcom,sde-sspp-smart-dma-priority:	Array of u32 values indicating hw pipe
@@ -301,6 +297,28 @@ Optional properties:
 				priority for realtime clients.
 - qcom,sde-vbif-qos-nrt-remap:	This array is used to program vbif qos remapper register
 				priority for non-realtime clients.
+- qcom,sde-danger-lut:		A 4 cell property, with a format of <linear,
+				tile, nrt, cwb>,
+				indicating the danger luts on sspp.
+- qcom,sde-safe-lut:		A 4 cell property, with a format of <linear,
+				tile, nrt, cwb>,
+				indicating the safe luts on sspp.
+- qcom,sde-qos-lut-linear:	Array of 3 cell property, with a format of
+				<fill level, lut hi, lut lo> in ascending fill level
+				indicating the qos luts for linear format on sspp.
+				Zero fill level on the last entry identifies the default lut.
+- qcom,sde-qos-lut-macrotile:	Array of 3 cell property, with a format of
+				<fill level, lut hi, lut lo> in ascending fill level
+				indicating the qos luts for macrotile format on sspp.
+				Zero fill level on the last entry identifies the default lut.
+- qcom,sde-qos-lut-nrt:		Array of 3 cell property, with a format of
+				<fill level, lut hi, lut lo> in ascending fill level
+				indicating the qos luts for nrt (e.g wfd) on sspp.
+				Zero fill level on the last entry identifies the default lut.
+- qcom,sde-qos-lut-cwb:		Array of 3 cell property, with a format of
+				<fill level, lut hi, lut lo> in ascending fill level
+				indicating the qos luts for cwb on sspp.
+				Zero fill level on the last entry identifies the default lut.
 
 Bus Scaling Subnodes:
 - qcom,sde-reg-bus:		Property to provide Bus scaling for register access for
@@ -471,8 +489,33 @@ Example:
     qcom,sde-wb-id = <2>;
     qcom,sde-wb-clk-ctrl = <0x2bc 16>;
 
-    qcom,sde-sspp-danger-lut = <0x000f 0xffff 0x0000>;
-    qcom,sde-sspp-safe-lut = <0xfffc 0xff00 0xffff>;
+    qcom,sde-danger-lut = <0x0000000f 0x0000ffff 0x00000000
+            0x00000000>;
+    qcom,sde-safe-lut = <0xfffc 0xff00 0xffff 0xffff>;
+    qcom,sde-qos-lut-linear =
+            <4 0x00000000 0x00000357>,
+            <5 0x00000000 0x00003357>,
+            <6 0x00000000 0x00023357>,
+            <7 0x00000000 0x00223357>,
+            <8 0x00000000 0x02223357>,
+            <9 0x00000000 0x22223357>,
+            <10 0x00000002 0x22223357>,
+            <11 0x00000022 0x22223357>,
+            <12 0x00000222 0x22223357>,
+            <13 0x00002222 0x22223357>,
+            <14 0x00012222 0x22223357>,
+            <0 0x00112222 0x22223357>;
+    qcom,sde-qos-lut-macrotile =
+            <10 0x00000003 0x44556677>,
+            <11 0x00000033 0x44556677>,
+            <12 0x00000233 0x44556677>,
+            <13 0x00002233 0x44556677>,
+            <14 0x00012233 0x44556677>,
+            <0 0x00112233 0x44556677>;
+    qcom,sde-qos-lut-nrt =
+            <0 0x00000000 0x00000000>;
+    qcom,sde-qos-lut-cwb =
+            <0 0x75300000 0x00000000>;
 
     qcom,sde-vbif-off = <0 0>;
     qcom,sde-vbif-id = <0 1>;

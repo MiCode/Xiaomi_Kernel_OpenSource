@@ -300,7 +300,7 @@ struct sde_hw_pipe_cfg {
 struct sde_hw_pipe_qos_cfg {
 	u32 danger_lut;
 	u32 safe_lut;
-	u32 creq_lut;
+	u64 creq_lut;
 	u32 creq_vblank;
 	u32 danger_vblank;
 	bool vblank_en;
