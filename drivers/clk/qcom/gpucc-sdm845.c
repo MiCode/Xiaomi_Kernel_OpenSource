@@ -564,6 +564,9 @@ static int gpu_cc_gfx_sdm845_probe(struct platform_device *pdev)
 		return PTR_ERR(vdd_gfx.regulator[0]);
 	}
 
+	/* Avoid turning on the rail during clock registration */
+	vdd_gfx.skip_handoff = true;
+
 	clk_fabia_pll_configure(&gpu_cc_pll0, regmap, &gpu_cc_pll0_config);
 
 	ret = qcom_cc_really_probe(pdev, &gpu_cc_gfx_sdm845_desc, regmap);
