@@ -483,7 +483,7 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 		return rc;
 	}
 
-	clk_rate = (csiphy_params->csiphy_clk > 0)
+	clk_rate = ((int)csiphy_params->csiphy_clk > 0)
 			? csiphy_params->csiphy_clk :
 			csiphy_dev->csiphy_max_clk;
 	clk_rate = msm_camera_clk_set_rate(&csiphy_dev->pdev->dev,

@@ -520,6 +520,15 @@ config MSM_SMP2P
 	  32-bit values by specifying a unique string and
 	  remote processor ID.
 
+config MSM_BGCOM_INTERFACE
+	bool "Driver support for Blackghost Communication"
+	depends on MSM_BGCOM
+	help
+	 Create a bg_com_dev device node for user space communication.
+	 Single user space client can open device node for communication
+	 from hardware. Hardware will provide access to read
+	 registers and read/write AHB memory in the device.
+
 config MSM_SMP2P_TEST
 	bool "SMSM Point-to-Point Test"
 	depends on MSM_SMP2P

@@ -529,6 +529,9 @@ int cnss_set_fw_log_mode(struct device *dev, uint8_t fw_log_mode)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 
+	if (plat_priv->device_id == QCA6174_DEVICE_ID)
+		return 0;
+
 	return cnss_wlfw_ini_send_sync(plat_priv, fw_log_mode);
 }
 EXPORT_SYMBOL(cnss_set_fw_log_mode);
