@@ -171,6 +171,7 @@
 #include "msm8909-bus.dtsi"
 #include "msm8909-mdss.dtsi"
 #include "msm8909-mdss-pll.dtsi"
+#include "msm8909-camera.dtsi"
 
 &soc {
 	#address-cells = <1>;

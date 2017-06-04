@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,6 +44,32 @@
 &sdhc_2 {
 	vdd-supply = <&pm8916_l11>;
 	vdd-io-supply = <&pm8916_l12>;
+};
+
+&i2c_3 {
+	qcom,actuator@0 {
+		cam_vaf-supply = <&pm8916_l8>;
+	};
+
+
+	qcom,eeprom@6c{
+		cam_vdig-supply = <&pm8916_l2>;
+		cam_vana-supply = <&pm8916_l10>;
+		cam_vio-supply = <&pm8916_l6>;
+		cam_vaf-supply = <&pm8916_l8>;
+	};
+
+	qcom,camera@0 {
+		cam_vdig-supply = <&pm8916_l2>;
+		cam_vana-supply = <&pm8916_l10>;
+		cam_vio-supply = <&pm8916_l6>;
+		cam_vaf-supply = <&pm8916_l8>;
+	};
+
+	qcom,camera@1 {
+		cam_vana-supply = <&pm8916_l10>;
+		cam_vio-supply = <&pm8916_l6>;
+	};
 };
 
 &dsi_auo_qvga_cmd {
