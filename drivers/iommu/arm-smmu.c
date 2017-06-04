@@ -548,6 +548,9 @@ static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain);
 static int arm_smmu_arch_init(struct arm_smmu_device *smmu);
 static void arm_smmu_arch_device_reset(struct arm_smmu_device *smmu);
 
+static uint64_t arm_smmu_iova_to_pte(struct iommu_domain *domain,
+				    dma_addr_t iova);
+
 static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain);
 
 static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
@@ -2189,6 +2192,23 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 	return ret;
 }
 
+static uint64_t arm_smmu_iova_to_pte(struct iommu_domain *domain,
+	      dma_addr_t iova)
+{
+	uint64_t ret;
+	unsigned long flags;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
+
+	if (!ops)
+		return 0;
+
+	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
+	ret = ops->iova_to_pte(ops, iova);
+	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
+	return ret;
+}
+
 static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 			     size_t size)
 {
@@ -2976,6 +2996,7 @@ static struct iommu_ops arm_smmu_ops = {
 	.enable_config_clocks	= arm_smmu_enable_config_clocks,
 	.disable_config_clocks	= arm_smmu_disable_config_clocks,
 	.is_iova_coherent	= arm_smmu_is_iova_coherent,
+	.iova_to_pte = arm_smmu_iova_to_pte,
 };
 
 #define IMPL_DEF1_MICRO_MMU_CTRL	0

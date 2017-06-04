@@ -244,6 +244,8 @@ struct iommu_ops {
 	void (*tlbi_domain)(struct iommu_domain *domain);
 	int (*enable_config_clocks)(struct iommu_domain *domain);
 	void (*disable_config_clocks)(struct iommu_domain *domain);
+	uint64_t (*iova_to_pte)(struct iommu_domain *domain,
+			 dma_addr_t iova);
 
 	int (*of_xlate)(struct device *dev, struct of_phandle_args *args);
 
@@ -331,6 +333,9 @@ extern int iommu_domain_window_enable(struct iommu_domain *domain, u32 wnd_nr,
 				      phys_addr_t offset, u64 size,
 				      int prot);
 extern void iommu_domain_window_disable(struct iommu_domain *domain, u32 wnd_nr);
+
+extern uint64_t iommu_iova_to_pte(struct iommu_domain *domain,
+	    dma_addr_t iova);
 /**
  * report_iommu_fault() - report about an IOMMU fault to the IOMMU framework
  * @domain: the iommu domain where the fault has happened

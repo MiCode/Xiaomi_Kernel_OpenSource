@@ -854,6 +854,19 @@ found_translation:
 	return 0;
 }
 
+static uint64_t arm_lpae_iova_get_pte(struct io_pgtable_ops *ops,
+					 unsigned long iova)
+{
+	struct arm_lpae_io_pgtable *data = io_pgtable_ops_to_data(ops);
+	arm_lpae_iopte pte;
+	int lvl;
+
+	if (!arm_lpae_iova_to_pte(data, iova, &lvl, &pte))
+		return pte;
+
+	return 0;
+}
+
 static phys_addr_t arm_lpae_iova_to_phys(struct io_pgtable_ops *ops,
 					 unsigned long iova)
 {
@@ -983,6 +996,7 @@ arm_lpae_alloc_pgtable(struct io_pgtable_cfg *cfg)
 		.unmap		= arm_lpae_unmap,
 		.iova_to_phys	= arm_lpae_iova_to_phys,
 		.is_iova_coherent = arm_lpae_is_iova_coherent,
+		.iova_to_pte	= arm_lpae_iova_get_pte,
 	};
 
 	return data;

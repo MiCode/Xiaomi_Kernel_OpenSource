@@ -1282,6 +1282,15 @@ phys_addr_t iommu_iova_to_phys_hard(struct iommu_domain *domain,
 	return domain->ops->iova_to_phys_hard(domain, iova);
 }
 
+uint64_t iommu_iova_to_pte(struct iommu_domain *domain,
+				    dma_addr_t iova)
+{
+	if (unlikely(domain->ops->iova_to_pte == NULL))
+		return 0;
+
+	return domain->ops->iova_to_pte(domain, iova);
+}
+
 bool iommu_is_iova_coherent(struct iommu_domain *domain, dma_addr_t iova)
 {
 	if (unlikely(domain->ops->is_iova_coherent == NULL))
