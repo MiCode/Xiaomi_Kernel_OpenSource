@@ -20,6 +20,7 @@
 #include "msm_kms.h"
 #include "sde_connector.h"
 #include "dsi_drm.h"
+#include "sde_trace.h"
 
 #define to_dsi_bridge(x)     container_of((x), struct dsi_bridge, base)
 #define to_dsi_state(x)      container_of((x), struct dsi_connector_state, base)
@@ -134,19 +135,24 @@ static void dsi_bridge_pre_enable(struct drm_bridge *bridge)
 		return;
 	}
 
+	SDE_ATRACE_BEGIN("dsi_bridge_pre_enable");
 	rc = dsi_display_prepare(c_bridge->display);
 	if (rc) {
 		pr_err("[%d] DSI display prepare failed, rc=%d\n",
 		       c_bridge->id, rc);
+		SDE_ATRACE_END("dsi_bridge_pre_enable");
 		return;
 	}
 
+	SDE_ATRACE_BEGIN("dsi_display_enable");
 	rc = dsi_display_enable(c_bridge->display);
 	if (rc) {
 		pr_err("[%d] DSI display enable failed, rc=%d\n",
 		       c_bridge->id, rc);
 		(void)dsi_display_unprepare(c_bridge->display);
 	}
+	SDE_ATRACE_END("dsi_display_enable");
+	SDE_ATRACE_END("dsi_bridge_pre_enable");
 }
 
 static void dsi_bridge_enable(struct drm_bridge *bridge)
@@ -197,19 +203,25 @@ static void dsi_bridge_post_disable(struct drm_bridge *bridge)
 		return;
 	}
 
+	SDE_ATRACE_BEGIN("dsi_bridge_post_disable");
+	SDE_ATRACE_BEGIN("dsi_display_disable");
 	rc = dsi_display_disable(c_bridge->display);
 	if (rc) {
 		pr_err("[%d] DSI display disable failed, rc=%d\n",
 		       c_bridge->id, rc);
+		SDE_ATRACE_END("dsi_display_disable");
 		return;
 	}
+	SDE_ATRACE_END("dsi_display_disable");
 
 	rc = dsi_display_unprepare(c_bridge->display);
 	if (rc) {
 		pr_err("[%d] DSI display unprepare failed, rc=%d\n",
 		       c_bridge->id, rc);
+		SDE_ATRACE_END("dsi_bridge_post_disable");
 		return;
 	}
+	SDE_ATRACE_END("dsi_bridge_post_disable");
 }
 
 static void dsi_bridge_mode_set(struct drm_bridge *bridge,

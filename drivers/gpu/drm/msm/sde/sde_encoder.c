@@ -35,6 +35,7 @@
 #include "sde_power_handle.h"
 #include "sde_hw_dsc.h"
 #include "sde_crtc.h"
+#include "sde_trace.h"
 
 #define SDE_DEBUG_ENC(e, fmt, ...) SDE_DEBUG("enc%d " fmt,\
 		(e) ? (e)->base.base.id : -1, ##__VA_ARGS__)
@@ -1582,6 +1583,7 @@ static void sde_encoder_vblank_callback(struct drm_encoder *drm_enc,
 	if (!drm_enc || !phy_enc)
 		return;
 
+	SDE_ATRACE_BEGIN("encoder_vblank_callback");
 	sde_enc = to_sde_encoder_virt(drm_enc);
 
 	spin_lock_irqsave(&sde_enc->enc_spinlock, lock_flags);
@@ -1590,6 +1592,7 @@ static void sde_encoder_vblank_callback(struct drm_encoder *drm_enc,
 	spin_unlock_irqrestore(&sde_enc->enc_spinlock, lock_flags);
 
 	atomic_inc(&phy_enc->vsync_cnt);
+	SDE_ATRACE_END("encoder_vblank_callback");
 }
 
 static void sde_encoder_underrun_callback(struct drm_encoder *drm_enc,
@@ -1598,8 +1601,10 @@ static void sde_encoder_underrun_callback(struct drm_encoder *drm_enc,
 	if (!phy_enc)
 		return;
 
+	SDE_ATRACE_BEGIN("encoder_underrun_callback");
 	atomic_inc(&phy_enc->underrun_cnt);
 	SDE_EVT32(DRMID(drm_enc), atomic_read(&phy_enc->underrun_cnt));
+	SDE_ATRACE_END("encoder_underrun_callback");
 }
 
 void sde_encoder_register_vblank_callback(struct drm_encoder *drm_enc,
@@ -2135,6 +2140,7 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc)
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
+	SDE_ATRACE_BEGIN("encoder_kickoff");
 	sde_enc = to_sde_encoder_virt(drm_enc);
 
 	SDE_DEBUG_ENC(sde_enc, "\n");
@@ -2154,6 +2160,7 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc)
 		if (phys && phys->ops.handle_post_kickoff)
 			phys->ops.handle_post_kickoff(phys);
 	}
+	SDE_ATRACE_END("encoder_kickoff");
 }
 
 int sde_encoder_helper_hw_release(struct sde_encoder_phys *phys_enc,
