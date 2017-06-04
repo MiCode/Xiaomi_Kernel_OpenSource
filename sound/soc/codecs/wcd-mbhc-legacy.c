@@ -633,7 +633,8 @@ correct_plug_type:
 				 * otherwise report unsupported plug
 				 */
 				if (mbhc->mbhc_cfg->swap_gnd_mic &&
-					mbhc->mbhc_cfg->swap_gnd_mic(codec)) {
+					mbhc->mbhc_cfg->swap_gnd_mic(codec,
+					true)) {
 					pr_debug("%s: US_EU gpio present,flip switch\n"
 						, __func__);
 					continue;

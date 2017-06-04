@@ -299,6 +299,63 @@
 			};
 		};
 
+		/* USB C analog configuration */
+		wcd_usbc_analog_en1 {
+			wcd_usbc_analog_en1_idle: wcd_usbc_ana_en1_idle {
+				mux {
+					pins = "gpio49";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio49";
+					drive-strength = <2>;
+					bias-pull-down;
+					output-low;
+				};
+			};
+
+			wcd_usbc_analog_en1_active: wcd_usbc_ana_en1_active {
+				mux {
+					pins = "gpio49";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio49";
+					drive-strength = <2>;
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
+		wcd_usbc_analog_en2 {
+			wcd_usbc_analog_en2_idle: wcd_usbc_ana_en2_idle {
+				mux {
+					pins = "gpio51";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio51";
+					drive-strength = <2>;
+					bias-pull-down;
+					output-low;
+				};
+			};
+
+			wcd_usbc_analog_en2_active: wcd_usbc_ana_en2_active {
+				mux {
+					pins = "gpio51";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio51";
+					drive-strength = <2>;
+					bias-disable;
+					output-high;
+				};
+			};
+		};
+
 		pri_aux_pcm_clk {
 			pri_aux_pcm_clk_sleep: pri_aux_pcm_clk_sleep {
 				mux {

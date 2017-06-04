@@ -404,10 +404,10 @@ enum mbhc_moisture_rref {
 
 struct usbc_ana_audio_config {
 	int usbc_en1_gpio;
-	int usbc_en2n_gpio;
+	int usbc_en2_gpio;
 	int usbc_force_gpio;
 	struct device_node *usbc_en1_gpio_p; /* used by pinctrl API */
-	struct device_node *usbc_en2n_gpio_p; /* used by pinctrl API */
+	struct device_node *usbc_en2_gpio_p; /* used by pinctrl API */
 	struct device_node *usbc_force_gpio_p; /* used by pinctrl API */
 };
 
@@ -416,7 +416,7 @@ struct wcd_mbhc_config {
 	void *calibration;
 	bool detect_extn_cable;
 	bool mono_stero_detection;
-	bool (*swap_gnd_mic)(struct snd_soc_codec *codec);
+	bool (*swap_gnd_mic)(struct snd_soc_codec *codec, bool active);
 	bool hs_ext_micbias;
 	bool gnd_det_en;
 	int key_code[WCD_MBHC_KEYCODE_NUM];
