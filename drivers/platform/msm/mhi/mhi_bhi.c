@@ -439,7 +439,6 @@ void bhi_firmware_download(struct work_struct *work)
 	struct bhi_ctxt_t *bhi_ctxt;
 	struct bhie_mem_info mem_info;
 	int ret;
-	long timeout;
 
 	mhi_dev_ctxt = container_of(work, struct mhi_device_ctxt,
 				    bhi_ctxt.fw_load_work);
@@ -448,7 +447,14 @@ void bhi_firmware_download(struct work_struct *work)
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Enter\n");
 
 	wait_event_interruptible(*mhi_dev_ctxt->mhi_ev_wq.bhi_event,
-			mhi_dev_ctxt->mhi_state == MHI_STATE_BHI);
+		mhi_dev_ctxt->mhi_state == MHI_STATE_BHI ||
+		mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT);
+	if (mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT ||
+	    mhi_dev_ctxt->mhi_state != MHI_STATE_BHI) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"MHI is not in valid state for firmware download\n");
+		return;
+	}
 
 	/* PBL image is the first segment in firmware vector table */
 	mem_info = *bhi_ctxt->fw_table.bhie_mem_info;
@@ -462,10 +468,12 @@ void bhi_firmware_download(struct work_struct *work)
 	mhi_init_state_transition(mhi_dev_ctxt,
 				  STATE_TRANSITION_RESET);
 
-	timeout = wait_event_timeout(*mhi_dev_ctxt->mhi_ev_wq.bhi_event,
-				mhi_dev_ctxt->dev_exec_env == MHI_EXEC_ENV_BHIE,
-				msecs_to_jiffies(bhi_ctxt->poll_timeout));
-	if (!timeout) {
+	wait_event_timeout(*mhi_dev_ctxt->mhi_ev_wq.bhi_event,
+		mhi_dev_ctxt->dev_exec_env == MHI_EXEC_ENV_BHIE ||
+		mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT,
+		msecs_to_jiffies(bhi_ctxt->poll_timeout));
+	if (mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT ||
+	    mhi_dev_ctxt->dev_exec_env != MHI_EXEC_ENV_BHIE) {
 		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
 			"Failed to Enter EXEC_ENV_BHIE\n");
 		return;

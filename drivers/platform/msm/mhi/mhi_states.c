@@ -147,7 +147,8 @@ void mhi_set_m_state(struct mhi_device_ctxt *mhi_dev_ctxt,
  *     M1 -> M3_ENTER --> M3
  * L1: SYS_ERR_DETECT -> SYS_ERR_PROCESS --> POR
  * L2: SHUTDOWN_PROCESS -> DISABLE -> SSR_PENDING (via SSR Notification only)
- * L3: LD_ERR_FATAL_DETECT -> SHUTDOWN_PROCESS
+ * L3: LD_ERR_FATAL_DETECT <--> LD_ERR_FATAL_DETECT
+ *     LD_ERR_FATAL_DETECT -> SHUTDOWN_PROCESS
  */
 static const struct mhi_pm_transitions const mhi_state_transitions[] = {
 	/* L0 States */
@@ -216,7 +217,7 @@ static const struct mhi_pm_transitions const mhi_state_transitions[] = {
 	/* L3 States */
 	{
 		MHI_PM_LD_ERR_FATAL_DETECT,
-		MHI_PM_SHUTDOWN_PROCESS
+		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_PROCESS
 	},
 	/* From SSR notification only */
 	{
