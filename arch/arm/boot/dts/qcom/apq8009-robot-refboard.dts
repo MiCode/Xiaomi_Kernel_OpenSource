@@ -77,12 +77,6 @@
 	vbus_otg-supply = <&smb1360_otg_supply>;
 };
 
-&mdss_fb0 {
-	/delete-node/ qcom,cont-splash-memory;
-};
-
-/delete-node/ &cont_splash_mem;
-
 &msm_gpio{
 	hsuart_active: default {
 		mux {
@@ -245,3 +239,22 @@
 	qcom,nonremovable;
 	status = "ok";
 };
+
+&mdss_fb0 {
+	status = "disabled";
+	/delete-node/ qcom,cont-splash-memory;
+};
+
+&mdss_mdp {
+	status = "disabled";
+};
+
+&mdss_dsi0_pll {
+	status = "disabled";
+};
+
+&mdss_dsi0 {
+	status = "disabled";
+};
+
+/delete-node/ &cont_splash_mem;
