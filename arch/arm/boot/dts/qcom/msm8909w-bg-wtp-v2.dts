@@ -104,3 +104,17 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart_console_sleep>;
 };
+
+&soc
+{
+	spi@78b6000 { /* BLSP1 QUP2 */
+		status = "ok";
+		qcom,bg-spi {
+			compatible = "qcom,bg-spi";
+			reg = <0>;
+			spi-max-frequency = <19200000>;
+			interrupt-parent = <&msm_gpio>;
+			qcom,irq-gpio = <&msm_gpio 110 1>;
+		};
+	};
+};
