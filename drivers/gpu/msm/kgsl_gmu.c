@@ -1477,8 +1477,7 @@ void gmu_stop(struct kgsl_device *device)
 
 	if (!idle || (gpudev->wait_for_gmu_idle &&
 			gpudev->wait_for_gmu_idle(adreno_dev))) {
-		dev_err(&gmu->pdev->dev, "Failure to stop GMU");
-		return;
+		dev_err(&gmu->pdev->dev, "Stopping GMU before it is idle\n");
 	}
 
 	/* Pending message in all queues are abandoned */
