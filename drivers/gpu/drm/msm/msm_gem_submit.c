@@ -482,7 +482,8 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 		if (submit_cmd.type == MSM_SUBMIT_CMD_PROFILE_BUF) {
 			submit->profile_buf_iova = submit->cmd[i].iova;
 			submit->profile_buf_vaddr =
-				msm_gem_vaddr(&msm_obj->base);
+				msm_gem_vaddr(&msm_obj->base) +
+				submit_cmd.submit_offset;
 		}
 
 		if (submit->valid)
