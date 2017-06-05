@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013, 2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -122,15 +122,62 @@ static int clk_branch_enable(struct clk_hw *hw)
 	return clk_branch_toggle(hw, true, clk_branch_check_halt);
 }
 
+static int clk_cbcr_set_flags(struct regmap *regmap, unsigned int reg,
+				unsigned long flags)
+{
+	u32 cbcr_val;
+
+	regmap_read(regmap, reg, &cbcr_val);
+
+	switch (flags) {
+	case CLKFLAG_PERIPH_OFF_SET:
+		cbcr_val |= BIT(12);
+		break;
+	case CLKFLAG_PERIPH_OFF_CLEAR:
+		cbcr_val &= ~BIT(12);
+		break;
+	case CLKFLAG_RETAIN_PERIPH:
+		cbcr_val |= BIT(13);
+		break;
+	case CLKFLAG_NORETAIN_PERIPH:
+		cbcr_val &= ~BIT(13);
+		break;
+	case CLKFLAG_RETAIN_MEM:
+		cbcr_val |= BIT(14);
+		break;
+	case CLKFLAG_NORETAIN_MEM:
+		cbcr_val &= ~BIT(14);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	regmap_write(regmap, reg, cbcr_val);
+
+	/* Make sure power is enabled/disabled before returning. */
+	mb();
+	udelay(1);
+
+	return 0;
+}
+
 static void clk_branch_disable(struct clk_hw *hw)
 {
 	clk_branch_toggle(hw, false, clk_branch_check_halt);
+}
+
+static int clk_branch_set_flags(struct clk_hw *hw, unsigned int flags)
+{
+	struct clk_branch *br = to_clk_branch(hw);
+
+	return clk_cbcr_set_flags(br->clkr.regmap, br->halt_reg, flags);
 }
 
 const struct clk_ops clk_branch_ops = {
 	.enable = clk_branch_enable,
 	.disable = clk_branch_disable,
 	.is_enabled = clk_is_enabled_regmap,
+	.set_flags = clk_branch_set_flags,
 };
 EXPORT_SYMBOL_GPL(clk_branch_ops);
 
@@ -148,6 +195,7 @@ const struct clk_ops clk_branch2_ops = {
 	.enable = clk_branch2_enable,
 	.disable = clk_branch2_disable,
 	.is_enabled = clk_is_enabled_regmap,
+	.set_flags = clk_branch_set_flags,
 };
 EXPORT_SYMBOL_GPL(clk_branch2_ops);
 

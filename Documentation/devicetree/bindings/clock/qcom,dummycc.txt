@@ -1,0 +1,26 @@
+Qualcomm Technologies, Inc. Dummy Clock controller
+
+Qualcomm Technologies, Inc. dummy clock controller devices provide
+clock API support for driver development during pre-silicon stage.
+The clock driver always returns a dummy clock that has no effect on
+hardware.
+
+Required properties:
+- compatible:		Must be "qcom,dummycc"
+- #clock-cells:		Must be <1>. This will allow the common clock device
+			tree framework to recognize _this_ device node as a
+			clock provider.
+
+Optional properties:
+- clock-output-names:	Name of the clock or the clock type.
+- #reset-cells:		Must be <1>. This will allow the common reset device
+			tree framework to recognize _this_ device node as a
+			reset controller provider.
+
+Example:
+	clock_gcc: qcom,gcc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "gcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
