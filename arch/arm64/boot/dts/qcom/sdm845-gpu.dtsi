@@ -277,7 +277,7 @@
 
 			qcom,gmu-pwrlevel@1 {
 				reg = <1>;
-				qcom,gmu-freq = <19200000>;
+				qcom,gmu-freq = <200000000>;
 			};
 
 			qcom,gmu-pwrlevel@2 {
