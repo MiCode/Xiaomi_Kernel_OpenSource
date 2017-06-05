@@ -96,8 +96,6 @@
 /* SPCOM driver name */
 #define DEVICE_NAME	"spcom"
 
-#define SPCOM_MAX_CHANNELS	0x20
-
 /* maximum ION buffers should be >= SPCOM_MAX_CHANNELS  */
 #define SPCOM_MAX_ION_BUF_PER_CH (SPCOM_MAX_CHANNELS + 4)
 
