@@ -276,6 +276,10 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 	if (!res) {
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 							"restart_reg_sec");
+		if (!res) {
+			dev_err(&pdev->dev, "No restart register defined\n");
+			return -ENOMEM;
+		}
 		q6->restart_reg_sec = true;
 	}
 
