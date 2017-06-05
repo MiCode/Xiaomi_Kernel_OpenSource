@@ -153,16 +153,19 @@ static int mhi_pci_probe(struct pci_dev *pcie_device,
 	u32 slot = PCI_SLOT(pcie_device->devfn);
 	unsigned long msi_requested, msi_required;
 	struct msm_pcie_register_event *mhi_pci_link_event;
+	struct pcie_core_info *core;
+	int i;
+	char node[32];
 
 	/* Find correct device context based on bdf & dev_id */
 	mutex_lock(&mhi_device_drv->lock);
 	list_for_each_entry(itr, &mhi_device_drv->head, node) {
-		struct pcie_core_info *core = &itr->core;
-
-		if (core->domain == domain &&
-		    core->bus == bus &&
-		    core->dev_id == dev_id &&
+		core = &itr->core;
+		if (core->domain == domain && core->bus == bus &&
+		    (core->dev_id == PCI_ANY_ID || (core->dev_id == dev_id)) &&
 		    core->slot == slot) {
+			/* change default dev_id to actual dev_id */
+			core->dev_id = dev_id;
 			mhi_dev_ctxt = itr;
 			break;
 		}
@@ -170,6 +173,11 @@ static int mhi_pci_probe(struct pci_dev *pcie_device,
 	mutex_unlock(&mhi_device_drv->lock);
 	if (!mhi_dev_ctxt)
 		return -EPROBE_DEFER;
+
+	snprintf(node, sizeof(node), "mhi_%04x_%02u.%02u.%02u",
+		 core->dev_id, core->domain, core->bus, core->slot);
+	mhi_dev_ctxt->mhi_ipc_log =
+		ipc_log_context_create(MHI_IPC_LOG_PAGES, node, 0);
 
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
 		"Processing Domain:%02u Bus:%04u dev:0x%04x slot:%04u\n",
@@ -280,9 +288,22 @@ static int mhi_pci_probe(struct pci_dev *pcie_device,
 	mutex_lock(&mhi_dev_ctxt->pm_lock);
 	write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
 	mhi_dev_ctxt->mhi_pm_state = MHI_PM_POR;
-	ret_val = set_mhi_base_state(mhi_dev_ctxt);
-
 	write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+
+	/* notify all registered clients we probed */
+	for (i = 0; i < MHI_MAX_CHANNELS; i++) {
+		struct mhi_client_handle *client_handle =
+			mhi_dev_ctxt->client_handle_list[i];
+
+		if (!client_handle)
+			continue;
+		client_handle->dev_id = core->dev_id;
+		mhi_notify_client(client_handle, MHI_CB_MHI_PROBED);
+	}
+	write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+	ret_val = set_mhi_base_state(mhi_dev_ctxt);
+	write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+
 	if (ret_val) {
 		mhi_log(mhi_dev_ctxt,
 			MHI_MSG_ERROR,
@@ -344,7 +365,6 @@ static int mhi_plat_probe(struct platform_device *pdev)
 	int r = 0, len;
 	struct mhi_device_ctxt *mhi_dev_ctxt;
 	struct pcie_core_info *core;
-	char node[32];
 	struct device_node *of_node = pdev->dev.of_node;
 	u64 address_window[2];
 
@@ -377,7 +397,7 @@ static int mhi_plat_probe(struct platform_device *pdev)
 	core = &mhi_dev_ctxt->core;
 	r = of_property_read_u32(of_node, "qcom,pci-dev_id", &core->dev_id);
 	if (r)
-		return r;
+		core->dev_id = PCI_ANY_ID;
 
 	r = of_property_read_u32(of_node, "qcom,pci-slot", &core->slot);
 	if (r)
@@ -391,14 +411,6 @@ static int mhi_plat_probe(struct platform_device *pdev)
 	if (r)
 		return r;
 
-	snprintf(node, sizeof(node),
-		 "mhi_%04x_%02u.%02u.%02u",
-		 core->dev_id, core->domain, core->bus, core->slot);
-	mhi_dev_ctxt->mhi_ipc_log =
-		ipc_log_context_create(MHI_IPC_LOG_PAGES, node, 0);
-	if (!mhi_dev_ctxt->mhi_ipc_log)
-		pr_err("%s: Error creating ipc_log buffer\n", __func__);
-
 	r = of_property_read_u32(of_node, "qcom,mhi-ready-timeout",
 				 &mhi_dev_ctxt->poll_reset_timeout_ms);
 	if (r)
@@ -407,10 +419,6 @@ static int mhi_plat_probe(struct platform_device *pdev)
 
 	mhi_dev_ctxt->dev_space.start_win_addr = address_window[0];
 	mhi_dev_ctxt->dev_space.end_win_addr = address_window[1];
-	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-		"Start Addr:0x%llx End_Addr:0x%llx\n",
-		mhi_dev_ctxt->dev_space.start_win_addr,
-		mhi_dev_ctxt->dev_space.end_win_addr);
 
 	r = of_property_read_u32(of_node, "qcom,bhi-alignment",
 				 &mhi_dev_ctxt->bhi_ctxt.alignment);
@@ -471,7 +479,6 @@ static int mhi_plat_probe(struct platform_device *pdev)
 	mutex_lock(&mhi_device_drv->lock);
 	list_add_tail(&mhi_dev_ctxt->node, &mhi_device_drv->head);
 	mutex_unlock(&mhi_device_drv->lock);
-	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Exited\n");
 
 	return 0;
 }

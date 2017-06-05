@@ -562,6 +562,7 @@ int mhi_register_channel(struct mhi_client_handle **client_handle,
 	(*client_handle)->domain = mhi_dev_ctxt->core.domain;
 	(*client_handle)->bus = mhi_dev_ctxt->core.bus;
 	(*client_handle)->slot = mhi_dev_ctxt->core.slot;
+	(*client_handle)->enabled = false;
 	client_config = (*client_handle)->client_config;
 	client_config->mhi_dev_ctxt = mhi_dev_ctxt;
 	client_config->user_data = client_info->user_data;
@@ -588,11 +589,8 @@ int mhi_register_channel(struct mhi_client_handle **client_handle,
 	}
 
 	if (mhi_dev_ctxt->dev_exec_env == MHI_EXEC_ENV_AMSS &&
-	    mhi_dev_ctxt->flags.mhi_initialized) {
-		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-			"Exec env is AMSS notify client now chan:%u\n", chan);
-		mhi_notify_client(*client_handle, MHI_CB_MHI_ENABLED);
-	}
+	    mhi_dev_ctxt->flags.mhi_initialized)
+		(*client_handle)->enabled = true;
 
 	mhi_log(mhi_dev_ctxt, MHI_MSG_VERBOSE,
 		"Successfuly registered chan:%u\n", chan);
@@ -1789,6 +1787,8 @@ int mhi_register_device(struct mhi_device *mhi_device,
 	u32 dev_id = pci_dev->device;
 	u32 slot = PCI_SLOT(pci_dev->devfn);
 	int ret, i;
+	char node[32];
+	struct pcie_core_info *core;
 
 	of_node = of_parse_phandle(mhi_device->dev->of_node, node_name, 0);
 	if (!of_node)
@@ -1801,13 +1801,13 @@ int mhi_register_device(struct mhi_device *mhi_device,
 	mutex_lock(&mhi_device_drv->lock);
 	list_for_each_entry(itr, &mhi_device_drv->head, node) {
 		struct platform_device *pdev = itr->plat_dev;
-		struct pcie_core_info *core = &itr->core;
 
-		if (pdev->dev.of_node == of_node &&
-		    core->domain == domain &&
-		    core->bus == bus &&
-		    core->dev_id == dev_id &&
-		    core->slot == slot) {
+		core = &itr->core;
+		if (pdev->dev.of_node == of_node && core->domain == domain &&
+		    core->bus == bus && core->slot == slot &&
+		    (core->dev_id == PCI_ANY_ID || (core->dev_id == dev_id))) {
+			/* change default dev_id to current dev_id */
+			core->dev_id = dev_id;
 			mhi_dev_ctxt = itr;
 			break;
 		}
@@ -1817,6 +1817,11 @@ int mhi_register_device(struct mhi_device *mhi_device,
 	/* perhaps we've not probed yet */
 	if (!mhi_dev_ctxt)
 		return -EPROBE_DEFER;
+
+	snprintf(node, sizeof(node), "mhi_%04x_%02u.%02u.%02u",
+		 core->dev_id, core->domain, core->bus, core->slot);
+	mhi_dev_ctxt->mhi_ipc_log =
+		ipc_log_context_create(MHI_IPC_LOG_PAGES, node, 0);
 
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
 		"Registering Domain:%02u Bus:%04u dev:0x%04x slot:%04u\n",
@@ -1897,6 +1902,17 @@ int mhi_register_device(struct mhi_device *mhi_device,
 		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
 			"Device support rddm of size:0x%lx bytes\n",
 			mhi_dev_ctxt->bhi_ctxt.rddm_size);
+	}
+
+	/* notify all the registered clients we probed */
+	for (i = 0; i < MHI_MAX_CHANNELS; i++) {
+		struct mhi_client_handle *client_handle =
+			mhi_dev_ctxt->client_handle_list[i];
+
+		if (!client_handle)
+			continue;
+		client_handle->dev_id = core->dev_id;
+		mhi_notify_client(client_handle, MHI_CB_MHI_PROBED);
 	}
 
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Exit success\n");

@@ -81,6 +81,7 @@ enum MHI_CB_REASON {
 	MHI_CB_MHI_SHUTDOWN,
 	MHI_CB_SYS_ERROR,
 	MHI_CB_RDDM,
+	MHI_CB_MHI_PROBED,
 };
 
 enum MHI_FLAGS {
@@ -119,6 +120,7 @@ struct mhi_client_handle {
 	u32 domain;
 	u32 bus;
 	u32 slot;
+	bool enabled;
 	struct mhi_client_config *client_config;
 };
 
