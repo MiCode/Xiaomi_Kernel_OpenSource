@@ -157,7 +157,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. SDA 660 PM660 + PM660A QRD HDK660";
 	compatible = "qcom,sda660-qrd", "qcom,sda660", "qcom,qrd";
-	qcom,board-id = <0x0006000b 0>;
+	qcom,board-id = <0x0016000b 0>;
 	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>;
 };
 
