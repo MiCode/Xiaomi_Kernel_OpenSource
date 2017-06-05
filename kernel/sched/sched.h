@@ -1779,6 +1779,7 @@ struct sched_walt_cpu_load {
 	unsigned long prev_window_util;
 	unsigned long nl;
 	unsigned long pl;
+	u64 ws;
 };
 
 static inline unsigned long cpu_util_cum(int cpu, int delta)
@@ -1828,6 +1829,7 @@ cpu_util_freq(int cpu, struct sched_walt_cpu_load *walt_load)
 			walt_load->prev_window_util = util;
 			walt_load->nl = nl;
 			walt_load->pl = 0;
+			walt_load->ws = rq->window_start;
 		}
 	}
 #endif
@@ -2207,6 +2209,15 @@ static inline u64 irq_time_read(int cpu)
 }
 #endif /* CONFIG_IRQ_TIME_ACCOUNTING */
 
+#ifdef CONFIG_SCHED_WALT
+u64 sched_ktime_clock(void);
+#else /* CONFIG_SCHED_WALT */
+static inline u64 sched_ktime_clock(void)
+{
+	return 0;
+}
+#endif /* CONFIG_SCHED_WALT */
+
 #ifdef CONFIG_CPU_FREQ
 DECLARE_PER_CPU(struct update_util_data *, cpufreq_update_util_data);
 
@@ -2251,7 +2262,7 @@ static inline void cpufreq_update_util(struct rq *rq, unsigned int flags)
 	data = rcu_dereference_sched(*per_cpu_ptr(&cpufreq_update_util_data,
 					cpu_of(rq)));
 	if (data)
-		data->func(data, sched_clock(), flags);
+		data->func(data, sched_ktime_clock(), flags);
 }
 
 static inline void cpufreq_update_this_cpu(struct rq *rq, unsigned int flags)
@@ -2336,7 +2347,6 @@ extern unsigned int  __read_mostly sched_downmigrate;
 extern unsigned int  __read_mostly sysctl_sched_spill_nr_run;
 extern unsigned int  __read_mostly sched_load_granule;
 
-extern u64 sched_ktime_clock(void);
 extern int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb);
 extern void reset_cpu_hmp_stats(int cpu, int reset_cra);
 extern int update_preferred_cluster(struct related_thread_group *grp,

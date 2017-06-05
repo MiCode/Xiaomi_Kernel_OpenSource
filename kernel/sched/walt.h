@@ -194,8 +194,6 @@ static inline int exiting_task(struct task_struct *p)
 	return (p->ravg.sum_history[0] == EXITING_TASK_MARKER);
 }
 
-extern u64 sched_ktime_clock(void);
-
 static inline struct sched_cluster *cpu_cluster(int cpu)
 {
 	return cpu_rq(cpu)->cluster;
@@ -334,11 +332,6 @@ static inline void init_new_task_load(struct task_struct *p, bool idle_task)
 static inline void mark_task_starting(struct task_struct *p) { }
 static inline void set_window_start(struct rq *rq) { }
 static inline int sched_cpu_high_irqload(int cpu) { return 0; }
-
-static inline u64 sched_ktime_clock(void)
-{
-	return 0;
-}
 
 static inline void sched_account_irqstart(int cpu, struct task_struct *curr,
 					  u64 wallclock)
