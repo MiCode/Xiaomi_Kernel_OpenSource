@@ -99,8 +99,7 @@ void sde_evtlog_log(struct sde_dbg_evtlog *evtlog, const char *name, int line,
 	evtlog->curr = (evtlog->curr + 1) % SDE_EVTLOG_ENTRY;
 	evtlog->last++;
 
-	trace_sde_evtlog(name, line, i > 0 ? log->data[0] : 0,
-			i > 1 ? log->data[1] : 0);
+	trace_sde_evtlog(name, line, log->data_cnt, log->data);
 exit:
 	spin_unlock_irqrestore(&evtlog->spin_lock, flags);
 }
