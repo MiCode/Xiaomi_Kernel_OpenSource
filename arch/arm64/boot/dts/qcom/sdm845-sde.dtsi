@@ -86,8 +86,6 @@
 		qcom,sde-dither-version = <0x00010000>;
 		qcom,sde-dither-size = <0x20>;
 
-		qcom,sde-intf-max-prefetch-lines = <0x15 0x15 0x15 0x15>;
-
 		qcom,sde-sspp-type = "vig", "vig", "vig", "vig",
 					"dma", "dma", "dma", "dma";
 
