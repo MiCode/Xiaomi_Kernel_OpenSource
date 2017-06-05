@@ -77,3 +77,24 @@
 	spm-level = <0>;
 	status = "ok";
 };
+
+&sdhc_1 {
+	vdd-supply = <&pm660l_l4>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <200 570000>;
+
+	vdd-io-supply = <&pm660_l8>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <200 325000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on  &sdc1_cmd_on &sdc1_data_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000>;
+	qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
+
+	status = "ok";
+};

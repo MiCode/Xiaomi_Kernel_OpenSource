@@ -30,6 +30,7 @@
 
 	aliases {
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
+		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
 	};
 
 	aliases {
@@ -1791,6 +1792,27 @@
 		/* GPIO output to turing*/
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_5_out 0 0>;
 		status = "ok";
+	};
+
+	sdhc_1: sdhci@7c4000 {
+		compatible = "qcom,sdhci-msm-v5";
+		reg = <0x7C4000 0x1000>, <0x7C5000 0x1000>;
+		reg-names = "hc_mem", "cmdq_mem";
+
+		interrupts = <0 641 0>, <0 644 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		qcom,bus-width = <8>;
+		qcom,large-address-bus;
+
+		clocks = <&clock_gcc GCC_SDCC1_AHB_CLK>,
+			<&clock_gcc GCC_SDCC1_APPS_CLK>;
+		clock-names = "iface_clk", "core_clk";
+
+		qcom,nonremovable;
+
+		qcom,scaling-lower-bus-speed-mode = "DDR52";
+		status = "disabled";
 	};
 };
 
