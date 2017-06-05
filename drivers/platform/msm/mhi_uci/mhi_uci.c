@@ -122,6 +122,7 @@ struct uci_client {
 	atomic_t out_pkt_pend_ack;
 	atomic_t completion_ack;
 	struct mhi_uci_ctxt_t *uci_ctxt;
+	struct cdev cdev;
 	bool enabled;
 	void *uci_ipc_log;
 };
@@ -132,7 +133,6 @@ struct mhi_uci_ctxt_t {
 	struct uci_client client_handles[MHI_SOFTWARE_CLIENT_LIMIT];
 	dev_t dev_t;
 	struct mutex ctrl_mutex;
-	struct cdev cdev[MHI_SOFTWARE_CLIENT_LIMIT];
 	struct uci_client *ctrl_client;
 };
 
@@ -246,6 +246,7 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 static unsigned int mhi_uci_client_poll(struct file *file, poll_table *wait);
 static long mhi_uci_ctl_ioctl(struct file *file, unsigned int cmd,
 					unsigned long arg);
+static int mhi_uci_create_device(struct uci_client *uci_client);
 
 static struct mhi_uci_drv_ctxt mhi_uci_drv_ctxt;
 
@@ -1174,6 +1175,14 @@ static void uci_xfer_cb(struct mhi_cb_info *cb_info)
 
 	uci_handle = cb_info->result->user_data;
 	switch (cb_info->cb_reason) {
+	case MHI_CB_MHI_PROBED:
+		/* If it's outbound channel create the node */
+		mutex_lock(&uci_handle->client_lock);
+		if (!uci_handle->dev &&
+		    cb_info->chan == uci_handle->out_attr.chan_id)
+			mhi_uci_create_device(uci_handle);
+		mutex_unlock(&uci_handle->client_lock);
+		break;
 	case MHI_CB_MHI_ENABLED:
 		uci_log(uci_handle->uci_ipc_log, UCI_DBG_INFO,
 			"MHI enabled CB received for chan %d\n",
@@ -1295,17 +1304,65 @@ static const struct file_operations mhi_uci_client_fops = {
 	.unlocked_ioctl = mhi_uci_ctl_ioctl,
 };
 
+static int mhi_uci_create_device(struct uci_client *uci_client)
+{
+	struct mhi_uci_ctxt_t *uci_ctxt = uci_client->uci_ctxt;
+	char node_name[32];
+	int index = uci_client - uci_ctxt->client_handles;
+	int ret;
+
+	uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log, UCI_DBG_INFO,
+		"Creating dev node %04x_%02u.%02u.%02u_pipe%d\n",
+		uci_client->out_attr.mhi_handle->dev_id,
+		uci_client->out_attr.mhi_handle->domain,
+		uci_client->out_attr.mhi_handle->bus,
+		uci_client->out_attr.mhi_handle->slot,
+		uci_client->out_attr.chan_id);
+
+	cdev_init(&uci_client->cdev, &mhi_uci_client_fops);
+	uci_client->cdev.owner = THIS_MODULE;
+	ret = cdev_add(&uci_client->cdev, uci_ctxt->dev_t + index, 1);
+	if (ret) {
+		uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log, UCI_DBG_ERROR,
+			"Failed to add cdev %d, ret:%d\n", index, ret);
+		return ret;
+	}
+	uci_client->dev = device_create(mhi_uci_drv_ctxt.mhi_uci_class, NULL,
+					uci_ctxt->dev_t + index, NULL,
+					DEVICE_NAME "_%04x_%02u.%02u.%02u%s%d",
+					uci_client->out_attr.mhi_handle->dev_id,
+					uci_client->out_attr.mhi_handle->domain,
+					uci_client->out_attr.mhi_handle->bus,
+					uci_client->out_attr.mhi_handle->slot,
+					"_pipe_",
+					uci_client->out_attr.chan_id);
+	if (IS_ERR(uci_client->dev)) {
+		uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log, UCI_DBG_ERROR,
+			"Failed to add cdev %d\n", IS_ERR(uci_client->dev));
+		cdev_del(&uci_client->cdev);
+		return -EIO;
+	}
+
+	/* dev node created successfully, create logging buffer */
+	snprintf(node_name, sizeof(node_name), "mhi_uci_%04x_%02u.%02u.%02u_%d",
+		 uci_client->out_attr.mhi_handle->dev_id,
+		 uci_client->out_attr.mhi_handle->domain,
+		 uci_client->out_attr.mhi_handle->bus,
+		 uci_client->out_attr.mhi_handle->slot,
+		 uci_client->out_attr.chan_id);
+	uci_client->uci_ipc_log = ipc_log_context_create(MHI_UCI_IPC_LOG_PAGES,
+							 node_name, 0);
+
+	return 0;
+}
+
 static int mhi_uci_probe(struct platform_device *pdev)
 {
 	struct mhi_uci_ctxt_t *uci_ctxt;
 	int ret_val;
 	int i;
-	char node_name[32];
 
-	uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log,
-		UCI_DBG_INFO,
-		"Entered with pdev:%p\n",
-		pdev);
+	uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log, UCI_DBG_INFO, "Entered\n");
 
 	if (mhi_is_device_ready(&pdev->dev, "qcom,mhi") == false)
 		return -EPROBE_DEFER;
@@ -1326,128 +1383,67 @@ static int mhi_uci_probe(struct platform_device *pdev)
 	uci_ctxt->pdev = pdev;
 	mutex_init(&uci_ctxt->ctrl_mutex);
 
-	uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log,
-		UCI_DBG_INFO,
+	uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log, UCI_DBG_INFO,
 		"Setting up channel attributes\n");
 	ret_val = uci_init_client_attributes(uci_ctxt,
 					     pdev->dev.of_node);
 	if (ret_val) {
-		uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log,
-			UCI_DBG_ERROR,
+		uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log, UCI_DBG_ERROR,
 			"Failed to init client attributes\n");
 		return -EIO;
 	}
 
-	uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log,
-		UCI_DBG_INFO,
+	uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log, UCI_DBG_INFO,
+		"Allocating char devices\n");
+	ret_val = alloc_chrdev_region(&uci_ctxt->dev_t, 0,
+				      MHI_SOFTWARE_CLIENT_LIMIT,
+				      DEVICE_NAME);
+	if (IS_ERR_VALUE(ret_val)) {
+		uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log, UCI_DBG_ERROR,
+			"Failed to alloc char devs, ret 0x%x\n", ret_val);
+		return ret_val;
+	}
+
+	uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log, UCI_DBG_INFO,
 		"Registering for MHI events\n");
 	for (i = 0; i < MHI_SOFTWARE_CLIENT_LIMIT; ++i) {
 		struct uci_client *uci_client = &uci_ctxt->client_handles[i];
 
 		uci_client->uci_ctxt = uci_ctxt;
 		mutex_init(&uci_client->client_lock);
-		if (uci_client->in_attr.uci_ownership) {
-			ret_val = mhi_register_client(uci_client,
-						      &pdev->dev);
+		if (!uci_client->in_attr.uci_ownership)
+			continue;
+		ret_val = mhi_register_client(uci_client, &pdev->dev);
+		if (ret_val) {
+			uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log,
+				UCI_DBG_CRITICAL,
+				"Failed to reg client %d ret %d\n",
+				ret_val, i);
+				return -EIO;
+		}
+
+		mutex_lock(&uci_client->client_lock);
+		/* If we have device id, create the node now */
+		if (uci_client->out_attr.mhi_handle->dev_id != PCI_ANY_ID) {
+			ret_val = mhi_uci_create_device(uci_client);
 			if (ret_val) {
 				uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log,
 					UCI_DBG_CRITICAL,
-					"Failed to reg client %d ret %d\n",
-					ret_val,
-					i);
-
+					"Failed to create device node, ret:%d\n",
+					ret_val);
+				mutex_unlock(&uci_client->client_lock);
 				return -EIO;
 			}
-			snprintf(node_name,
-				 sizeof(node_name),
-				 "mhi_uci_%04x_%02u.%02u.%02u_%d",
-				 uci_client->out_attr.mhi_handle->dev_id,
-				 uci_client->out_attr.mhi_handle->domain,
-				 uci_client->out_attr.mhi_handle->bus,
-				 uci_client->out_attr.mhi_handle->slot,
-				 uci_client->out_attr.chan_id);
-			uci_client->uci_ipc_log = ipc_log_context_create
-				(MHI_UCI_IPC_LOG_PAGES,
-				 node_name,
-				 0);
 		}
+		mutex_unlock(&uci_client->client_lock);
 	}
 
-	uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log,
-		UCI_DBG_INFO,
-		"Allocating char devices\n");
-	ret_val = alloc_chrdev_region(&uci_ctxt->dev_t,
-				      0,
-				      MHI_SOFTWARE_CLIENT_LIMIT,
-				      DEVICE_NAME);
-	if (IS_ERR_VALUE(ret_val)) {
-		uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log,
-			UCI_DBG_ERROR,
-			"Failed to alloc char devs, ret 0x%x\n", ret_val);
-		goto failed_char_alloc;
-	}
-
-	uci_log(mhi_uci_drv_ctxt.mhi_uci_ipc_log,
-		UCI_DBG_INFO,
-		"Setting up device nodes. for dev_t: 0x%x major:0x%x\n",
-		uci_ctxt->dev_t,
-		MAJOR(uci_ctxt->dev_t));
-	for (i = 0; i < MHI_SOFTWARE_CLIENT_LIMIT; ++i) {
-		struct uci_client *uci_client = &uci_ctxt->client_handles[i];
-
-		if (uci_client->in_attr.uci_ownership) {
-			cdev_init(&uci_ctxt->cdev[i], &mhi_uci_client_fops);
-			uci_ctxt->cdev[i].owner = THIS_MODULE;
-			ret_val = cdev_add(&uci_ctxt->cdev[i],
-					   uci_ctxt->dev_t + i, 1);
-			if (IS_ERR_VALUE(ret_val)) {
-				uci_log(uci_client->uci_ipc_log,
-					UCI_DBG_ERROR,
-					"Failed to add cdev %d, ret 0x%x\n",
-					i, ret_val);
-				goto failed_char_add;
-			}
-			uci_client->dev =
-				device_create(mhi_uci_drv_ctxt.mhi_uci_class,
-					NULL,
-					uci_ctxt->dev_t + i,
-					NULL,
-					DEVICE_NAME "_%04x_%02u.%02u.%02u%s%d",
-					uci_client->out_attr.mhi_handle->dev_id,
-					uci_client->out_attr.mhi_handle->domain,
-					uci_client->out_attr.mhi_handle->bus,
-					uci_client->out_attr.mhi_handle->slot,
-					"_pipe_",
-					uci_client->out_attr.chan_id);
-			if (IS_ERR(uci_client->dev)) {
-				uci_log(uci_client->uci_ipc_log,
-					UCI_DBG_ERROR,
-					"Failed to add cdev %d\n", i);
-				cdev_del(&uci_ctxt->cdev[i]);
-				ret_val = -EIO;
-				goto failed_device_create;
-			}
-		}
-	}
 	platform_set_drvdata(pdev, uci_ctxt);
 	mutex_lock(&mhi_uci_drv_ctxt.list_lock);
 	list_add_tail(&uci_ctxt->node, &mhi_uci_drv_ctxt.head);
 	mutex_unlock(&mhi_uci_drv_ctxt.list_lock);
+
 	return 0;
-
-failed_char_add:
-failed_device_create:
-	while (--i >= 0) {
-		cdev_del(&uci_ctxt->cdev[i]);
-		device_destroy(mhi_uci_drv_ctxt.mhi_uci_class,
-			       MKDEV(MAJOR(uci_ctxt->dev_t), i));
-	};
-
-	unregister_chrdev_region(MAJOR(uci_ctxt->dev_t),
-				 MHI_SOFTWARE_CLIENT_LIMIT);
-failed_char_alloc:
-
-	return ret_val;
 };
 
 static int mhi_uci_remove(struct platform_device *pdev)
@@ -1462,7 +1458,7 @@ static int mhi_uci_remove(struct platform_device *pdev)
 		if (uci_client->in_attr.uci_ownership) {
 			mhi_deregister_channel(uci_client->out_attr.mhi_handle);
 			mhi_deregister_channel(uci_client->in_attr.mhi_handle);
-			cdev_del(&uci_ctxt->cdev[i]);
+			cdev_del(&uci_client->cdev);
 			device_destroy(mhi_uci_drv_ctxt.mhi_uci_class,
 				       MKDEV(MAJOR(uci_ctxt->dev_t), i));
 		}
