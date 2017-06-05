@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -268,8 +268,10 @@ static ssize_t diag_dbgfs_read_table(struct file *file, char __user *ubuf,
 	struct list_head *temp;
 	struct diag_cmd_reg_t *item = NULL;
 
+	mutex_lock(&driver->cmd_reg_mutex);
 	if (diag_dbgfs_table_index == driver->cmd_reg_count) {
 		diag_dbgfs_table_index = 0;
+		mutex_unlock(&driver->cmd_reg_mutex);
 		return 0;
 	}
 
@@ -278,6 +280,7 @@ static ssize_t diag_dbgfs_read_table(struct file *file, char __user *ubuf,
 	buf = kzalloc(sizeof(char) * buf_size, GFP_KERNEL);
 	if (ZERO_OR_NULL_PTR(buf)) {
 		pr_err("diag: %s, Error allocating memory\n", __func__);
+		mutex_unlock(&driver->cmd_reg_mutex);
 		return -ENOMEM;
 	}
 	buf_size = ksize(buf);
@@ -322,6 +325,7 @@ static ssize_t diag_dbgfs_read_table(struct file *file, char __user *ubuf,
 			break;
 	}
 	diag_dbgfs_table_index = i;
+	mutex_unlock(&driver->cmd_reg_mutex);
 
 	*ppos = 0;
 	ret = simple_read_from_buffer(ubuf, count, ppos, buf, bytes_in_buffer);
