@@ -38,6 +38,7 @@ int32_t camera_io_dev_poll(struct camera_io_master *io_master_info,
 
 int32_t camera_io_dev_read(struct camera_io_master *io_master_info,
 	uint32_t addr, uint32_t *data,
+	enum camera_sensor_i2c_type addr_type,
 	enum camera_sensor_i2c_type data_type)
 {
 	if (!io_master_info) {
@@ -47,7 +48,7 @@ int32_t camera_io_dev_read(struct camera_io_master *io_master_info,
 
 	if (io_master_info->master_type == CCI_MASTER) {
 		return cam_cci_i2c_read(io_master_info->cci_client,
-			addr, data, data_type, data_type);
+			addr, data, addr_type, data_type);
 	} else {
 		pr_err("%s:%d Invalid Comm. Master:%d\n", __func__,
 			__LINE__, io_master_info->master_type);
