@@ -1416,6 +1416,9 @@ static void _sde_encoder_virt_enable_helper(struct drm_encoder *drm_enc)
 		hw_mdptop->ops.setup_vsync_sel(hw_mdptop, &te_cfg,
 				sde_enc->disp_info.is_te_using_watchdog_timer);
 	}
+
+	memset(&sde_enc->prv_conn_roi, 0, sizeof(sde_enc->prv_conn_roi));
+	memset(&sde_enc->cur_conn_roi, 0, sizeof(sde_enc->cur_conn_roi));
 }
 
 void sde_encoder_virt_restore(struct drm_encoder *drm_enc)
