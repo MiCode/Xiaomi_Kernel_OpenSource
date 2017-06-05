@@ -34,6 +34,10 @@ static bool usb_compliance_mode;
 module_param(usb_compliance_mode, bool, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(usb_compliance_mode, "Start USB stack for USB3.1 compliance testing");
 
+static bool disable_usb_pd;
+module_param(disable_usb_pd, bool, S_IRUGO|S_IWUSR);
+MODULE_PARM_DESC(disable_usb_pd, "Disable USB PD for USB3.1 compliance testing");
+
 enum usbpd_state {
 	PE_UNKNOWN,
 	PE_ERROR_RECOVERY,
@@ -920,7 +924,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			break;
 		}
 
-		if (!val.intval)
+		if (!val.intval || disable_usb_pd)
 			break;
 
 		pd_reset_protocol(pd);
