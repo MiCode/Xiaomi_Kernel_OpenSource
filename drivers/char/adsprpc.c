@@ -1790,11 +1790,9 @@ void fastrpc_glink_notify_state(void *handle, const void *priv,
 		link->port_state = FASTRPC_LINK_DISCONNECTED;
 		break;
 	case GLINK_REMOTE_DISCONNECTED:
-		if (me->channel[cid].chan &&
-			link->link_state == FASTRPC_LINK_STATE_UP) {
+		if (me->channel[cid].chan) {
 			fastrpc_glink_close(me->channel[cid].chan, cid);
 			me->channel[cid].chan = 0;
-			link->port_state = FASTRPC_LINK_DISCONNECTED;
 		}
 		break;
 	default:
@@ -1960,10 +1958,9 @@ static int fastrpc_glink_open(int cid)
 	if (err)
 		goto bail;
 
-	if (link->port_state == FASTRPC_LINK_CONNECTED ||
-		link->port_state == FASTRPC_LINK_CONNECTING) {
+	VERIFY(err, (link->port_state == FASTRPC_LINK_DISCONNECTED));
+	if (err)
 		goto bail;
-	}
 
 	link->port_state = FASTRPC_LINK_CONNECTING;
 	cfg->priv = (void *)(uintptr_t)cid;
@@ -2113,7 +2110,9 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 	fl->ssrcount = me->channel[cid].ssrcount;
 	if ((kref_get_unless_zero(&me->channel[cid].kref) == 0) ||
 	    (me->channel[cid].chan == 0)) {
-		fastrpc_glink_register(cid, me);
+		VERIFY(err, 0 == fastrpc_glink_register(cid, me));
+		if (err)
+			goto bail;
 		VERIFY(err, 0 == fastrpc_glink_open(cid));
 		if (err)
 			goto bail;
