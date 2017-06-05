@@ -706,8 +706,6 @@ int bcm_remove_handoff_req(struct device *dev, void *data)
 	struct msm_bus_node_device_type *cur_rsc = NULL;
 	int ret = 0;
 
-	rt_mutex_lock(&msm_bus_adhoc_lock);
-
 	bus_dev = to_msm_bus_node(dev);
 	if (bus_dev->node_info->is_bcm_dev ||
 		bus_dev->node_info->is_fab_dev ||
@@ -730,7 +728,6 @@ int bcm_remove_handoff_req(struct device *dev, void *data)
 	}
 
 exit_bcm_remove_handoff_req:
-	rt_mutex_unlock(&msm_bus_adhoc_lock);
 	return ret;
 }
 
@@ -857,14 +854,18 @@ static void commit_data(void)
 	INIT_LIST_HEAD(&commit_list);
 }
 
-void commit_late_init_data(void)
+int commit_late_init_data(void)
 {
+	int rc;
 	rt_mutex_lock(&msm_bus_adhoc_lock);
+	rc = bus_for_each_dev(&msm_bus_type, NULL, NULL,
+						bcm_remove_handoff_req);
 
 	msm_bus_commit_data(&late_init_clist);
 	INIT_LIST_HEAD(&late_init_clist);
 
 	rt_mutex_unlock(&msm_bus_adhoc_lock);
+	return rc;
 }
 
 

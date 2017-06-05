@@ -205,7 +205,7 @@ int msm_bus_enable_limiter(struct msm_bus_node_device_type *nodedev,
 				int throttle_en, uint64_t lim_bw);
 int msm_bus_commit_data(struct list_head *clist);
 int bcm_remove_handoff_req(struct device *dev, void *data);
-void commit_late_init_data(void);
+int commit_late_init_data(void);
 int msm_bus_query_gen(struct list_head *qlist,
 				struct msm_bus_tcs_usecase *tcs_usecase);
 void *msm_bus_realloc_devmem(struct device *dev, void *p, size_t old_size,
