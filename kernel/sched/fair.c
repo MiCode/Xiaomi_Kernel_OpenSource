@@ -5553,6 +5553,9 @@ static int group_idle_state(struct sched_group *sg)
 	for_each_cpu(i, sched_group_cpus(sg))
 		state = min(state, idle_get_state_idx(cpu_rq(i)));
 
+	if (unlikely(state == INT_MAX))
+		return -EINVAL;
+
 	/* Take non-cpuidle idling into account (active idle/arch_cpu_idle()) */
 	state++;
 
@@ -5638,6 +5641,9 @@ static int sched_group_energy(struct energy_env *eenv)
 				}
 
 				idle_idx = group_idle_state(sg);
+				if (unlikely(idle_idx < 0))
+					return idle_idx;
+
 				group_util = group_norm_util(eenv, sg);
 				sg_busy_energy = (group_util * sg->sge->cap_states[cap_idx].power);
 
