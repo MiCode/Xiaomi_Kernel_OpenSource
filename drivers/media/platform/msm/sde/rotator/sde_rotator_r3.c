@@ -1257,6 +1257,7 @@ err_put:
 	data->srcp_dma_buf = NULL;
 imap_err:
 	ion_free(rot->iclient, handle);
+	sde_smmu_ctrl(0);
 
 	return rc;
 }
@@ -1270,8 +1271,19 @@ static int sde_hw_rotator_swts_map(struct sde_hw_rotator *rot)
 {
 	int rc = 0;
 	struct sde_mdp_img_data *data = &rot->swts_buf;
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 
 	sde_smmu_ctrl(1);
+	if (mdata->wait_for_transition) {
+		rc = mdata->wait_for_transition(0, 0);
+		if (rc < 0) {
+			SDEROT_ERR("failed Secure wait for transition %d\n",
+					rc);
+			rc = -EPERM;
+			goto error;
+		}
+	}
+
 	rc = sde_smmu_map_dma_buf(data->srcp_dma_buf, data->srcp_table,
 			SDE_IOMMU_DOMAIN_ROT_UNSECURE, &data->addr,
 			&data->len, DMA_BIDIRECTIONAL);
@@ -1291,7 +1303,7 @@ static int sde_hw_rotator_swts_map(struct sde_hw_rotator *rot)
 
 	data->mapped = true;
 	SDEROT_DBG("swts buffer mapped: %pad/%lx va:%p\n", &data->addr,
-		data->len, rot->swts_buffer);
+			data->len, rot->swts_buffer);
 	sde_smmu_ctrl(0);
 	return rc;
 
@@ -1301,6 +1313,8 @@ kmap_err:
 err_unmap:
 	dma_buf_unmap_attachment(data->srcp_attachment, data->srcp_table,
 			DMA_FROM_DEVICE);
+error:
+	sde_smmu_ctrl(0);
 
 	return rc;
 }
