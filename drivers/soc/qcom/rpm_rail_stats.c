@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,8 @@
 
 #define NAMELEN (sizeof(uint32_t)+1)
 
+static DEFINE_MUTEX(msm_rpm_rail_stats_mutex);
+
 struct msm_rpm_rail_stats_platform_data {
 	phys_addr_t phys_addr_base;
 	u32 phys_size;
@@ -80,9 +82,11 @@ int msm_rpm_rail_stats_file_close(struct inode *inode, struct file *file)
 {
 	struct msm_rpm_rail_stats_private_data *private = file->private_data;
 
+	mutex_lock(&msm_rpm_rail_stats_mutex);
 	if (private->reg_base)
 		iounmap(private->reg_base);
 	kfree(file->private_data);
+	mutex_unlock(&msm_rpm_rail_stats_mutex);
 
 	return 0;
 }
@@ -154,18 +158,26 @@ static int msm_rpm_rail_stats_copy(
 static ssize_t msm_rpm_rail_stats_file_read(struct file *file,
 				char __user *bufu, size_t count, loff_t *ppos)
 {
-	struct msm_rpm_rail_stats_private_data *prvdata =
-		file->private_data;
+	struct msm_rpm_rail_stats_private_data *prvdata;
 	struct msm_rpm_rail_stats_platform_data *pdata;
+	ssize_t ret;
 
-	if (!prvdata)
-		return -EINVAL;
+	mutex_lock(&msm_rpm_rail_stats_mutex);
+	prvdata = file->private_data;
+	if (!prvdata) {
+		ret = -EINVAL;
+		goto exit;
+	}
 
-	if (!prvdata->platform_data)
-		return -EINVAL;
+	if (!prvdata->platform_data) {
+		ret = -EINVAL;
+		goto exit;
+	}
 
-	if (!bufu || count == 0)
-		return -EINVAL;
+	if (!bufu || count == 0) {
+		ret = -EINVAL;
+		goto exit;
+	}
 
 	pdata = prvdata->platform_data;
 
@@ -174,22 +186,32 @@ static ssize_t msm_rpm_rail_stats_file_read(struct file *file,
 		*ppos = 0;
 	}
 
-	return simple_read_from_buffer(bufu, count, ppos,
+	ret = simple_read_from_buffer(bufu, count, ppos,
 			prvdata->buf, prvdata->len);
+exit:
+	mutex_unlock(&msm_rpm_rail_stats_mutex);
+	return ret;
 }
 
 static int msm_rpm_rail_stats_file_open(struct inode *inode,
 		struct file *file)
 {
 	struct msm_rpm_rail_stats_private_data *prvdata;
-	struct msm_rpm_rail_stats_platform_data *pdata = inode->i_private;
+	struct msm_rpm_rail_stats_platform_data *pdata;
+	int ret = 0;
+
+	mutex_lock(&msm_rpm_rail_stats_mutex);
+	pdata = inode->i_private;
 
 	file->private_data =
 		kzalloc(sizeof(struct msm_rpm_rail_stats_private_data),
 			GFP_KERNEL);
 
-	if (!file->private_data)
-		return -ENOMEM;
+	if (!file->private_data) {
+		ret = -ENOMEM;
+		goto exit;
+	}
+
 	prvdata = file->private_data;
 
 	prvdata->reg_base = ioremap(pdata->phys_addr_base,
@@ -200,12 +222,15 @@ static int msm_rpm_rail_stats_file_open(struct inode *inode,
 		pr_err("%s: ERROR could not ioremap start=%pa, len=%u\n",
 			__func__, &pdata->phys_addr_base,
 			pdata->phys_size);
-		return -EBUSY;
+		ret = -EBUSY;
+		goto exit;
 	}
 
 	prvdata->len = 0;
 	prvdata->platform_data = pdata;
-	return 0;
+exit:
+	mutex_unlock(&msm_rpm_rail_stats_mutex);
+	return ret;
 }
 
 
