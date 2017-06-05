@@ -15,3 +15,14 @@ config MSM_SDE_ROTATOR_EVTLOG_DEBUG
 	features to: Dump rotator registers during driver errors, panic
 	driver during fatal errors and enable some rotator driver logging
 	into an internal buffer (this avoids logging overhead).
+
+config MSM_SDE_HDMI_CEC
+	bool "QTI SDE HDMI CEC Driver"
+	depends on DRM_SDE_HDMI
+	select MEDIA_CEC_SUPPORT
+	select MEDIA_CEC_EDID
+	---help---
+	  The HDMI CEC driver provides support to enable HDMI CEC features
+	  which allows various audiovisual products to communicate using HDMI
+	  CEC links. CEC is a protocol defined in HDMI spec which consists of
+	  both low-level and high-level protocol definition.
