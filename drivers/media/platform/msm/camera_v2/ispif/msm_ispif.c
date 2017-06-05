@@ -1021,6 +1021,11 @@ static void msm_ispif_config_stereo(struct ispif_device *ispif,
 
 	for (i = 0; i < params->num; i++) {
 		vfe_intf = params->entries[i].vfe_intf;
+		if (!msm_ispif_is_intf_valid(ispif->csid_version, vfe_intf)) {
+			pr_err("%s: invalid interface type %d\n", __func__,
+				vfe_intf);
+			return;
+		}
 		if (params->entries[i].intftype == PIX0 &&
 			params->stereo_enable &&
 			params->right_entries[i].csid < CSID_MAX &&
