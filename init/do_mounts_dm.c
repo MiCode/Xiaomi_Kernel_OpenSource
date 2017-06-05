@@ -349,7 +349,7 @@ static void __init dm_setup_drives(void)
 	struct dm_table *table = NULL;
 	struct dm_setup_target *target;
 	struct dm_device *dev;
-	char *uuid;
+	char *uuid = NULL;
 	fmode_t fmode = FMODE_READ;
 	struct dm_device *devices;
 
