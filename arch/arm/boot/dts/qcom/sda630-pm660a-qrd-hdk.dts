@@ -19,9 +19,9 @@
 #include "sdm660-external-codec.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDM 630 PM660 + PM660A QRD HDK630";
+	model = "Qualcomm Technologies, Inc. SDA 630 PM660 + PM660A QRD HDK630";
 	compatible = "qcom,sda630-qrd", "qcom,sda630", "qcom,qrd";
-	qcom,board-id = <0x0006000b 0x00>;
+	qcom,board-id = <0x0016000b 0x00>;
 	qcom,pmic-id = <0x0001001b 0x0001011a 0x0 0x0>;
 };
 
