@@ -4983,9 +4983,10 @@ static int mdss_fb_get_metadata(struct msm_fb_data_type *mfd,
 		ret = mdss_fb_get_hw_caps(mfd, &metadata->data.caps);
 		break;
 	case metadata_op_get_ion_fd:
-		if (mfd->fb_ion_handle) {
+		if (mfd->fb_ion_handle && mfd->fb_ion_client) {
 			metadata->data.fbmem_ionfd =
-				dma_buf_fd(mfd->fbmem_buf, 0);
+				ion_share_dma_buf_fd(mfd->fb_ion_client,
+					mfd->fb_ion_handle);
 			if (metadata->data.fbmem_ionfd < 0)
 				pr_err("fd allocation failed. fd = %d\n",
 						metadata->data.fbmem_ionfd);
