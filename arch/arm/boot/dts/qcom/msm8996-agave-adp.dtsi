@@ -1238,9 +1238,6 @@
 
 &usb2s {
 	status = "ok";
-	dwc3@7600000 {
-		dr_mode = "host";
-	};
 };
 
 &usb3 {
