@@ -2453,6 +2453,9 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	memset(sde_crtc->mixers, 0, sizeof(sde_crtc->mixers));
 	sde_crtc->num_mixers = 0;
 
+	/* disable clk & bw control until clk & bw properties are set */
+	cstate->bw_control = false;
+
 	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
 	list_for_each_entry(node, &sde_crtc->user_event_list, list) {
 		ret = 0;
@@ -3063,6 +3066,7 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 			case CRTC_PROP_ROI_V1:
 				ret = _sde_crtc_set_roi_v1(state, (void *)val);
 				break;
+			case CRTC_PROP_CORE_CLK:
 			case CRTC_PROP_CORE_AB:
 			case CRTC_PROP_CORE_IB:
 			case CRTC_PROP_MEM_AB:

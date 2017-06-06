@@ -104,13 +104,14 @@ end:
 	return intf_connected;
 }
 
-static void _sde_core_perf_calc_crtc(struct drm_crtc *crtc,
+static void _sde_core_perf_calc_crtc(struct sde_kms *kms,
+		struct drm_crtc *crtc,
 		struct drm_crtc_state *state,
 		struct sde_core_perf_params *perf)
 {
 	struct sde_crtc_state *sde_cstate;
 
-	if (!crtc || !state || !perf) {
+	if (!kms || !kms->catalog || !crtc || !state || !perf) {
 		SDE_ERROR("invalid parameters\n");
 		return;
 	}
@@ -123,6 +124,20 @@ static void _sde_core_perf_calc_crtc(struct drm_crtc *crtc,
 			sde_crtc_get_property(sde_cstate, CRTC_PROP_CORE_IB);
 	perf->core_clk_rate =
 			sde_crtc_get_property(sde_cstate, CRTC_PROP_CORE_CLK);
+
+	if (!sde_cstate->bw_control) {
+		perf->bw_ctl = kms->catalog->perf.max_bw_high * 1000ULL;
+		perf->max_per_pipe_ib = perf->bw_ctl;
+		perf->core_clk_rate = kms->perf.max_core_clk_rate;
+	} else if (kms->perf.perf_tune.mode == SDE_PERF_MODE_MINIMUM) {
+		perf->bw_ctl = 0;
+		perf->max_per_pipe_ib = 0;
+		perf->core_clk_rate = 0;
+	} else if (kms->perf.perf_tune.mode == SDE_PERF_MODE_FIXED) {
+		perf->bw_ctl = kms->perf.fix_core_ab_vote;
+		perf->max_per_pipe_ib = kms->perf.fix_core_ib_vote;
+		perf->core_clk_rate = kms->perf.fix_core_clk_rate;
+	}
 
 	SDE_DEBUG("crtc=%d clk_rate=%llu ib=%llu ab=%llu\n",
 			crtc->base.id, perf->core_clk_rate,
@@ -159,7 +174,7 @@ int sde_core_perf_crtc_check(struct drm_crtc *crtc,
 
 	/* swap state and obtain new values */
 	sde_cstate->cur_perf = sde_cstate->new_perf;
-	_sde_core_perf_calc_crtc(crtc, state, &sde_cstate->new_perf);
+	_sde_core_perf_calc_crtc(kms, crtc, state, &sde_cstate->new_perf);
 
 	bw_sum_of_intfs = sde_cstate->new_perf.bw_ctl;
 	curr_client_type = sde_crtc_get_client_type(crtc);
