@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4176,7 +4176,6 @@ static void glink_core_channel_cleanup(struct glink_core_xprt_ctx *xprt_ptr)
 		if (ctx->local_open_state == GLINK_CHANNEL_OPENED ||
 			ctx->local_open_state == GLINK_CHANNEL_OPENING) {
 			ctx->transport_ptr = dummy_xprt_ctx;
-			rwref_write_put(&ctx->ch_state_lhb2);
 			glink_core_move_ch_node(xprt_ptr, dummy_xprt_ctx, ctx);
 		} else {
 			/* local state is in either CLOSED or CLOSING */
@@ -4186,9 +4185,9 @@ static void glink_core_channel_cleanup(struct glink_core_xprt_ctx *xprt_ptr)
 			/* Channel should be fully closed now. Delete here */
 			if (ch_is_fully_closed(ctx))
 				glink_delete_ch_from_list(ctx, false);
-			rwref_write_put(&ctx->ch_state_lhb2);
 		}
 		rwref_put(&ctx->ch_state_lhb2);
+		rwref_write_put(&ctx->ch_state_lhb2);
 		ctx = get_first_ch_ctx(xprt_ptr);
 	}
 	spin_lock_irqsave(&xprt_ptr->xprt_ctx_lock_lhb1, flags);
