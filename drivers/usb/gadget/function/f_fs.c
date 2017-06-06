@@ -2015,6 +2015,12 @@ static int ffs_func_eps_enable(struct ffs_function *func)
 			break;
 		}
 
+		/*
+		 * userspace setting maxburst > 1 results more fifo
+		 * allocation than without maxburst. Change maxburst to 1
+		 * only to allocate fifo size of max packet size.
+		 */
+		ep->ep->maxburst = 1;
 		ret = usb_ep_enable(ep->ep);
 		if (likely(!ret)) {
 			epfile->ep = ep;
