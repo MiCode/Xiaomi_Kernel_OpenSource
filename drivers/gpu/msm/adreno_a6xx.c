@@ -175,7 +175,8 @@ static const struct {
 	const struct kgsl_hwcg_reg *regs;
 	unsigned int count;
 } a6xx_hwcg_registers[] = {
-	{adreno_is_a630, a630_hwcg_regs, ARRAY_SIZE(a630_hwcg_regs)}
+	{adreno_is_a630, a630_hwcg_regs, ARRAY_SIZE(a630_hwcg_regs)},
+	{adreno_is_a615, a630_hwcg_regs, ARRAY_SIZE(a630_hwcg_regs)},
 };
 
 static struct a6xx_protected_regs {
