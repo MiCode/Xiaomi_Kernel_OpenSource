@@ -424,7 +424,17 @@ static unsigned long msm_cpp_queue_buffer_info(struct cpp_device *cpp_dev,
 
 	list_for_each_entry_safe(buff, save, buff_head, entry) {
 		if (buff->map_info.buff_info.index == buffer_info->index) {
-			pr_err("error buffer index already queued\n");
+			pr_err("error buf index already queued\n");
+			pr_err("error buf, fd %d idx %d native %d ssid %d %d\n",
+				buffer_info->fd, buffer_info->index,
+				buffer_info->native_buff,
+				buff_queue->session_id,
+				buff_queue->stream_id);
+			pr_err("existing buf,fd %d idx %d native %d id %x\n",
+				buff->map_info.buff_info.fd,
+				buff->map_info.buff_info.index,
+				buff->map_info.buff_info.native_buff,
+				buff->map_info.buff_info.identity);
 			goto error;
 		}
 	}
@@ -438,6 +448,11 @@ static unsigned long msm_cpp_queue_buffer_info(struct cpp_device *cpp_dev,
 
 	buff->map_info.buff_info = *buffer_info;
 	buff->map_info.buf_fd = buffer_info->fd;
+
+	trace_printk("fd %d index %d native_buff %d ssid %d %d\n",
+		buffer_info->fd, buffer_info->index,
+		buffer_info->native_buff, buff_queue->session_id,
+		buff_queue->stream_id);
 
 	if (buff_queue->security_mode == SECURE_MODE)
 		rc = cam_smmu_get_stage2_phy_addr(cpp_dev->iommu_hdl,
@@ -468,6 +483,11 @@ static void msm_cpp_dequeue_buffer_info(struct cpp_device *cpp_dev,
 	struct msm_cpp_buffer_map_list_t *buff)
 {
 	int ret = -1;
+
+	trace_printk("fd %d index %d native_buf %d ssid %d %d\n",
+		buff->map_info.buf_fd, buff->map_info.buff_info.index,
+		buff->map_info.buff_info.native_buff, buff_queue->session_id,
+		buff_queue->stream_id);
 
 	if (buff_queue->security_mode == SECURE_MODE)
 		ret = cam_smmu_put_stage2_phy_addr(cpp_dev->iommu_hdl,
@@ -770,6 +790,36 @@ static int msm_cpp_dump_addr(struct cpp_device *cpp_dev,
 	return 0;
 }
 
+static void msm_cpp_iommu_fault_reset_handler(
+	struct iommu_domain *domain, struct device *dev,
+	void *token)
+{
+	struct cpp_device *cpp_dev = NULL;
+
+	if (!token) {
+		pr_err("Invalid token\n");
+		return;
+	}
+
+	cpp_dev = token;
+
+	if (cpp_dev->fault_status != CPP_IOMMU_FAULT_NONE) {
+		pr_err("fault already detected %d\n", cpp_dev->fault_status);
+		return;
+	}
+
+	cpp_dev->fault_status = CPP_IOMMU_FAULT_DETECTED;
+
+	/* mask IRQ status */
+	msm_camera_io_w(0xB, cpp_dev->cpp_hw_base + 0xC);
+
+	pr_err("Issue CPP HALT %d\n", cpp_dev->fault_status);
+
+	/* MMSS_A_CPP_AXI_CMD = 0x16C, reset 0x1*/
+	msm_camera_io_w(0x1, cpp_dev->cpp_hw_base + 0x16C);
+
+}
+
 static void msm_cpp_iommu_fault_handler(struct iommu_domain *domain,
 	struct device *dev, unsigned long iova, int flags, void *token)
 {
@@ -777,50 +827,94 @@ static void msm_cpp_iommu_fault_handler(struct iommu_domain *domain,
 	struct msm_cpp_frame_info_t *processed_frame[MAX_CPP_PROCESSING_FRAME];
 	int32_t i = 0, queue_len = 0;
 	struct msm_device_queue *queue = NULL;
-	int32_t rc = 0;
+	int32_t ifd, ofd, dfd, t0fd, t1fd;
+	int counter = 0;
+	u32 result;
 
 	if (token) {
 		cpp_dev = token;
+
+		if (cpp_dev->fault_status != CPP_IOMMU_FAULT_DETECTED) {
+			pr_err("fault recovery already done %d\n",
+				cpp_dev->fault_status);
+			return;
+		}
+
 		disable_irq(cpp_dev->irq->start);
 		if (atomic_read(&cpp_timer.used)) {
 			atomic_set(&cpp_timer.used, 0);
 			del_timer_sync(&cpp_timer.cpp_timer);
 		}
-		mutex_lock(&cpp_dev->mutex);
 		tasklet_kill(&cpp_dev->cpp_tasklet);
-		rc = cpp_load_fw(cpp_dev, cpp_dev->fw_name_bin);
-		if (rc < 0) {
-			pr_err("load fw failure %d-retry\n", rc);
-			rc = msm_cpp_reset_vbif_and_load_fw(cpp_dev);
-			if (rc < 0) {
-				msm_cpp_set_micro_irq_mask(cpp_dev, 1, 0x8);
-				mutex_unlock(&cpp_dev->mutex);
-				return;
-			}
+
+		pr_err("in recovery, HALT status = 0x%x\n",
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x10));
+
+		while (counter < MSM_CPP_POLL_RETRIES) {
+			result = msm_camera_io_r(cpp_dev->cpp_hw_base + 0x10);
+			if (result & 0x2)
+				break;
+			usleep_range(100, 200);
+			counter++;
 		}
+		/* MMSS_A_CPP_IRQ_STATUS_0 = 0x10 */
+		pr_err("counter %d HALT status later = 0x%x\n",
+			counter,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x10));
+
+		/* MMSS_A_CPP_RST_CMD_0 = 0x8 firmware reset = 0x3FFFF */
+		msm_camera_io_w(0x3FFFF, cpp_dev->cpp_hw_base + 0x8);
+
+		counter = 0;
+		while (counter < MSM_CPP_POLL_RETRIES) {
+			result = msm_camera_io_r(cpp_dev->cpp_hw_base + 0x10);
+			if (result & 0x1)
+				break;
+			usleep_range(100, 200);
+			counter++;
+		}
+
+		/* MMSS_A_CPP_IRQ_STATUS_0 = 0x10 */
+		pr_err("counter %d after reset IRQ_STATUS_0 = 0x%x\n",
+			counter,
+			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x10));
+
+		/* MMSS_A_CPP_AXI_CMD = 0x16C, reset 0x1*/
+		msm_camera_io_w(0x0, cpp_dev->cpp_hw_base + 0x16C);
+
 		queue = &cpp_timer.data.cpp_dev->processing_q;
 		queue_len = queue->len;
 		if (!queue_len) {
 			pr_err("%s:%d: Invalid queuelen\n", __func__, __LINE__);
-			msm_cpp_set_micro_irq_mask(cpp_dev, 1, 0x8);
-			mutex_unlock(&cpp_dev->mutex);
-			return;
 		}
+
 		for (i = 0; i < queue_len; i++) {
 			if (cpp_timer.data.processed_frame[i]) {
 				processed_frame[i] =
 					cpp_timer.data.processed_frame[i];
-				pr_err("Fault on  identity=0x%x, frame_id=%03d\n",
+				ifd = processed_frame[i]->input_buffer_info.fd;
+				ofd = processed_frame[i]->
+					output_buffer_info[0].fd;
+				dfd = processed_frame[i]->
+					duplicate_buffer_info.fd;
+				t0fd = processed_frame[i]->
+					tnr_scratch_buffer_info[0].fd;
+				t1fd = processed_frame[i]->
+					tnr_scratch_buffer_info[1].fd;
+				pr_err("Fault on identity=0x%x, frame_id=%03d\n",
 					processed_frame[i]->identity,
 					processed_frame[i]->frame_id);
+				pr_err("ifd %d ofd %d dfd %d t0fd %d t1fd %d\n",
+					ifd, ofd, dfd, t0fd, t1fd);
 				msm_cpp_dump_addr(cpp_dev, processed_frame[i]);
 				msm_cpp_dump_frame_cmd(processed_frame[i]);
 			}
 		}
 		msm_cpp_flush_queue_and_release_buffer(cpp_dev, queue_len);
-		msm_cpp_set_micro_irq_mask(cpp_dev, 1, 0x8);
-		mutex_unlock(&cpp_dev->mutex);
+		cpp_dev->fault_status = CPP_IOMMU_FAULT_RECOVERED;
+		pr_err("fault recovery successful\n");
 	}
+	return;
 }
 
 static int cpp_init_mem(struct cpp_device *cpp_dev)
@@ -842,7 +936,9 @@ static int cpp_init_mem(struct cpp_device *cpp_dev)
 	cpp_dev->iommu_hdl = iommu_hdl;
 	cam_smmu_reg_client_page_fault_handler(
 			cpp_dev->iommu_hdl,
-			msm_cpp_iommu_fault_handler, cpp_dev);
+			msm_cpp_iommu_fault_handler,
+			msm_cpp_iommu_fault_reset_handler,
+			cpp_dev);
 	return 0;
 }
 
@@ -981,6 +1077,7 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 	int rc = 0;
 	uint32_t vbif_version;
 	cpp_dev->turbo_vote = 0;
+	cpp_dev->fault_status = CPP_IOMMU_FAULT_NONE;
 
 	rc = msm_camera_regulator_enable(cpp_dev->cpp_vdd,
 		cpp_dev->num_reg, true);
@@ -1115,7 +1212,7 @@ static void cpp_release_hardware(struct cpp_device *cpp_dev)
 		rc = msm_cpp_update_bandwidth_setting(cpp_dev, 0, 0);
 	}
 	cpp_dev->stream_cnt = 0;
-
+	pr_info("cpp hw release done\n");
 }
 
 static int32_t cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
@@ -2536,6 +2633,16 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 		return -EINVAL;
 	}
 
+	if (cpp_dev->fault_status == CPP_IOMMU_FAULT_RECOVERED) {
+		pr_err("Error, page fault occurred %d\n",
+			cpp_dev->fault_status);
+		return -EINVAL;
+	} else if (cpp_dev->fault_status == CPP_IOMMU_FAULT_DETECTED) {
+		pr_err("drop frame, page fault occurred %d\n",
+			cpp_dev->fault_status);
+		return -EFAULT;
+	}
+
 	if (cpp_frame_msg[new_frame->msg_len - 1] !=
 		MSM_CPP_MSG_ID_TRAILER) {
 		pr_err("Invalid frame message\n");
@@ -3530,6 +3637,7 @@ STREAM_BUFF_END:
 		break;
 	case VIDIOC_MSM_CPP_IOMMU_ATTACH: {
 		if (cpp_dev->iommu_state == CPP_IOMMU_STATE_DETACHED) {
+			int32_t stall_disable;
 			struct msm_camera_smmu_attach_type cpp_attach_info;
 
 			if (ioctl_ptr->len !=
@@ -3547,7 +3655,10 @@ STREAM_BUFF_END:
 			}
 
 			cpp_dev->security_mode = cpp_attach_info.attach;
-
+			stall_disable = 1;
+			/* disable smmu stall on fault */
+			cam_smmu_set_attr(cpp_dev->iommu_hdl,
+				DOMAIN_ATTR_CB_STALL_DISABLE, &stall_disable);
 			if (cpp_dev->security_mode == SECURE_MODE) {
 				rc = cam_smmu_ops(cpp_dev->iommu_hdl,
 					CAM_SMMU_ATTACH_SEC_CPP);
