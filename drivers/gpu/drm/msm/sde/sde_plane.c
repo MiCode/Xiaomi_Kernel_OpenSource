@@ -94,6 +94,25 @@ enum sde_plane_qos {
 	SDE_PLANE_QOS_PANIC_CTRL = BIT(2),
 };
 
+/**
+ * enum sde_plane_sclcheck_state - User scaler data status
+ *
+ * @SDE_PLANE_SCLCHECK_NONE: No user data provided
+ * @SDE_PLANE_SCLCHECK_INVALID: Invalid user data provided
+ * @SDE_PLANE_SCLCHECK_SCALER_V1: Valid scaler v1 data
+ * @SDE_PLANE_SCLCHECK_SCALER_V1_CHECK: Unchecked scaler v1 data
+ * @SDE_PLANE_SCLCHECK_SCALER_V2: Valid scaler v2 data
+ * @SDE_PLANE_SCLCHECK_SCALER_V2_CHECK: Unchecked scaler v2 data
+ */
+enum sde_plane_sclcheck_state {
+	SDE_PLANE_SCLCHECK_NONE,
+	SDE_PLANE_SCLCHECK_INVALID,
+	SDE_PLANE_SCLCHECK_SCALER_V1,
+	SDE_PLANE_SCLCHECK_SCALER_V1_CHECK,
+	SDE_PLANE_SCLCHECK_SCALER_V2,
+	SDE_PLANE_SCLCHECK_SCALER_V2_CHECK,
+};
+
 /*
  * struct sde_plane - local sde plane structure
  * @csc_cfg: Decoded user configuration for csc
@@ -104,6 +123,7 @@ enum sde_plane_qos {
  * @sbuf_mode: force stream buffer mode if set
  * @sbuf_writeback: force stream buffer writeback if set
  * @revalidate: force revalidation of all the plane properties
+ * @scaler_check_state: Indicates status of user provided pixle extension data
  * @blob_rot_caps: Pointer to rotator capability blob
  */
 struct sde_plane {
@@ -134,7 +154,7 @@ struct sde_plane {
 	bool revalidate;
 
 	struct sde_hw_pixel_ext pixel_ext;
-	bool pixel_ext_usr;
+	enum sde_plane_sclcheck_state scaler_check_state;
 
 	struct sde_csc_cfg csc_cfg;
 	struct sde_csc_cfg *csc_usr_ptr;
@@ -1184,8 +1204,9 @@ static void _sde_plane_setup_scaler(struct sde_plane *psde,
 		int error;
 
 		error = _sde_plane_setup_scaler3_lut(psde, pstate);
-		if (error || !psde->pixel_ext_usr ||
-				psde->debugfs_default_scale) {
+		if (error || psde->debugfs_default_scale ||
+			psde->scaler_check_state !=
+				SDE_PLANE_SCLCHECK_SCALER_V2) {
 			/* calculate default config for QSEED3 */
 			_sde_plane_setup_scaler3(psde,
 					psde->pipe_cfg.src_rect.w,
@@ -1195,8 +1216,8 @@ static void _sde_plane_setup_scaler(struct sde_plane *psde,
 					psde->scaler3_cfg, fmt,
 					chroma_subsmpl_h, chroma_subsmpl_v);
 		}
-	} else if (!psde->pixel_ext_usr || !pstate ||
-			psde->debugfs_default_scale) {
+	} else if (psde->scaler_check_state != SDE_PLANE_SCLCHECK_SCALER_V1 ||
+			!pstate || psde->debugfs_default_scale) {
 		uint32_t deci_dim, i;
 
 		/* calculate default configuration for QSEED2 */
@@ -2619,6 +2640,101 @@ static void _sde_plane_sspp_atomic_check_mode_changed(struct sde_plane *psde,
 	}
 }
 
+static int _sde_plane_validate_scaler_v2(struct sde_plane *psde,
+		const struct sde_format *fmt,
+		uint32_t img_w, uint32_t img_h,
+		uint32_t src_w, uint32_t src_h,
+		uint32_t deci_w, uint32_t deci_h)
+{
+	int i;
+
+	if (!psde || !fmt) {
+		SDE_ERROR_PLANE(psde, "invalid arguments\n");
+		return -EINVAL;
+	}
+
+	/* don't run checks unless scaler data was changed */
+	if (psde->scaler_check_state != SDE_PLANE_SCLCHECK_SCALER_V2_CHECK ||
+			!psde->scaler3_cfg)
+		return 0;
+
+	psde->scaler_check_state = SDE_PLANE_SCLCHECK_INVALID;
+
+	for (i = 0; i < SDE_MAX_PLANES; i++) {
+		uint32_t hor_req_pixels, hor_fetch_pixels;
+		uint32_t vert_req_pixels, vert_fetch_pixels;
+		uint32_t src_w_tmp, src_h_tmp;
+
+		/* re-use color plane 1's config for plane 2 */
+		if (i == 2)
+			continue;
+
+		src_w_tmp = src_w;
+		src_h_tmp = src_h;
+
+		/*
+		 * For chroma plane, width is half for the following sub sampled
+		 * formats. Except in case of decimation, where hardware avoids
+		 * 1 line of decimation instead of downsampling.
+		 */
+		if (i == 1) {
+			if (!deci_w &&
+					(fmt->chroma_sample == SDE_CHROMA_420 ||
+					 fmt->chroma_sample == SDE_CHROMA_H2V1))
+				src_w_tmp >>= 1;
+			if (!deci_h &&
+					(fmt->chroma_sample == SDE_CHROMA_420 ||
+					 fmt->chroma_sample == SDE_CHROMA_H1V2))
+				src_h_tmp >>= 1;
+		}
+
+		hor_req_pixels = psde->pixel_ext.roi_w[i];
+		vert_req_pixels = psde->pixel_ext.roi_h[i];
+
+		hor_fetch_pixels = DECIMATED_DIMENSION(src_w_tmp +
+				(int8_t)(psde->pixel_ext.left_ftch[i] & 0xFF) +
+				(int8_t)(psde->pixel_ext.right_ftch[i] & 0xFF),
+				deci_w);
+		vert_fetch_pixels = DECIMATED_DIMENSION(src_h_tmp +
+				(int8_t)(psde->pixel_ext.top_ftch[i] & 0xFF) +
+				(int8_t)(psde->pixel_ext.btm_ftch[i] & 0xFF),
+				deci_h);
+
+		if ((hor_req_pixels != hor_fetch_pixels) ||
+			(hor_fetch_pixels > img_w) ||
+			(vert_req_pixels != vert_fetch_pixels) ||
+			(vert_fetch_pixels > img_h)) {
+			SDE_ERROR_PLANE(psde,
+					"req %d/%d, fetch %d/%d, src %dx%d\n",
+					hor_req_pixels, vert_req_pixels,
+					hor_fetch_pixels, vert_fetch_pixels,
+					src_w, src_h);
+			return -EINVAL;
+		}
+
+		/*
+		 * Alpha plane can only be scaled using bilinear or pixel
+		 * repeat/drop, src_width and src_height are only specified
+		 * for Y and UV plane
+		 */
+		if (i != 3 &&
+			(hor_req_pixels != psde->scaler3_cfg->src_width[i] ||
+			vert_req_pixels != psde->scaler3_cfg->src_height[i])) {
+			SDE_ERROR_PLANE(psde,
+				"roi[%d] %d/%d, scaler src %dx%d, src %dx%d\n",
+				i, psde->pixel_ext.roi_w[i],
+				psde->pixel_ext.roi_h[i],
+				psde->scaler3_cfg->src_width[i],
+				psde->scaler3_cfg->src_height[i],
+				src_w, src_h);
+			return -EINVAL;
+		}
+	}
+
+	psde->scaler_check_state = SDE_PLANE_SCLCHECK_SCALER_V2;
+	return 0;
+}
+
 static int sde_plane_sspp_atomic_check(struct drm_plane *plane,
 		struct drm_plane_state *state)
 {
@@ -2754,10 +2870,15 @@ static int sde_plane_sspp_atomic_check(struct drm_plane *plane,
 			"too much scaling requested %ux%u->%ux%u\n",
 			src_deci_w, src_deci_h, dst.w, dst.h);
 		ret = -E2BIG;
+	} else if (_sde_plane_validate_scaler_v2(psde, fmt,
+				rstate->out_fb_width,
+				rstate->out_fb_height,
+				src.w, src.h, deci_w, deci_h)) {
+		ret = -EINVAL;
 	}
 
 	/* check excl rect configs */
-	if (pstate->excl_rect.w && pstate->excl_rect.h) {
+	if (!ret && pstate->excl_rect.w && pstate->excl_rect.h) {
 		struct sde_rect intersect;
 
 		/*
@@ -2931,6 +3052,9 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 		switch (idx) {
 		case PLANE_PROP_SCALER_V1:
 		case PLANE_PROP_SCALER_V2:
+		case PLANE_PROP_SCALER_LUT_ED:
+		case PLANE_PROP_SCALER_LUT_CIR:
+		case PLANE_PROP_SCALER_LUT_SEP:
 		case PLANE_PROP_H_DECIMATE:
 		case PLANE_PROP_V_DECIMATE:
 		case PLANE_PROP_SRC_CONFIG:
@@ -3494,7 +3618,7 @@ static inline void _sde_plane_set_scaler_v1(struct sde_plane *psde, void *usr)
 		return;
 	}
 
-	psde->pixel_ext_usr = false;
+	psde->scaler_check_state = SDE_PLANE_SCLCHECK_NONE;
 	if (!usr) {
 		SDE_DEBUG_PLANE(psde, "scale data removed\n");
 		return;
@@ -3531,8 +3655,9 @@ static inline void _sde_plane_set_scaler_v1(struct sde_plane *psde, void *usr)
 		pe->roi_h[i] = scale_v1.pe.num_ext_pxls_tb[i];
 	}
 
-	psde->pixel_ext_usr = true;
+	psde->scaler_check_state = SDE_PLANE_SCLCHECK_SCALER_V1;
 
+	SDE_EVT32_VERBOSE(DRMID(&psde->base));
 	SDE_DEBUG_PLANE(psde, "user property data copied\n");
 }
 
@@ -3544,13 +3669,13 @@ static inline void _sde_plane_set_scaler_v2(struct sde_plane *psde,
 	int i;
 	struct sde_hw_scaler3_cfg *cfg;
 
-	if (!psde) {
+	if (!psde || !psde->scaler3_cfg) {
 		SDE_ERROR("invalid plane\n");
 		return;
 	}
 
 	cfg = psde->scaler3_cfg;
-	psde->pixel_ext_usr = false;
+	psde->scaler_check_state = SDE_PLANE_SCLCHECK_NONE;
 	if (!usr) {
 		SDE_DEBUG_PLANE(psde, "scale data removed\n");
 		return;
@@ -3620,8 +3745,11 @@ static inline void _sde_plane_set_scaler_v2(struct sde_plane *psde,
 		pe->btm_rpt[i] = scale_v2.pe.btm_rpt[i];
 		pe->roi_h[i] = scale_v2.pe.num_ext_pxls_tb[i];
 	}
-	psde->pixel_ext_usr = true;
+	psde->scaler_check_state = SDE_PLANE_SCLCHECK_SCALER_V2_CHECK;
 
+	SDE_EVT32_VERBOSE(DRMID(&psde->base), cfg->enable, cfg->de.enable,
+			cfg->src_width[0], cfg->src_height[0],
+			cfg->dst_width, cfg->dst_height);
 	SDE_DEBUG_PLANE(psde, "user property data copied\n");
 }
 
@@ -4191,6 +4319,7 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 	psde->pipe = pipe;
 	psde->mmu_id = kms->mmu_id[MSM_SMMU_DOMAIN_UNSECURE];
 	psde->is_virtual = (master_plane_id != 0);
+	psde->scaler_check_state = SDE_PLANE_SCLCHECK_NONE;
 	INIT_LIST_HEAD(&psde->mplane_list);
 	master_plane = drm_plane_find(dev, master_plane_id);
 	if (master_plane) {
