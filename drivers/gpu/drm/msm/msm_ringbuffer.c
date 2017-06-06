@@ -34,14 +34,15 @@ struct msm_ringbuffer *msm_ringbuffer_new(struct msm_gpu *gpu, int id)
 
 	ring->gpu = gpu;
 	ring->id = id;
-	ring->bo = msm_gem_new(gpu->dev, MSM_GPU_RINGBUFFER_SZ, MSM_BO_WC);
+	ring->bo = msm_gem_new(gpu->dev, MSM_GPU_RINGBUFFER_SZ,
+			MSM_BO_WC);
 	if (IS_ERR(ring->bo)) {
 		ret = PTR_ERR(ring->bo);
 		ring->bo = NULL;
 		goto fail;
 	}
 
-	ring->start = msm_gem_vaddr_locked(ring->bo);
+	ring->start = msm_gem_vaddr(ring->bo);
 	ring->end   = ring->start + (MSM_GPU_RINGBUFFER_SZ >> 2);
 	ring->next  = ring->start;
 	ring->cur   = ring->start;
