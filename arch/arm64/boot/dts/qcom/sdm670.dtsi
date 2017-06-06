@@ -681,6 +681,12 @@
 				  "l3-scu-faultirq";
 	};
 
+	qcom,ipc-spinlock@1f40000 {
+		compatible = "qcom,ipc-spinlock-sfpb";
+		reg = <0x1f40000 0x8000>;
+		qcom,num-locks = <8>;
+	};
+
 	qcom,chd_sliver {
 		compatible = "qcom,core-hang-detect";
 		label = "silver";
