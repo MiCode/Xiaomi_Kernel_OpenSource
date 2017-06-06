@@ -495,63 +495,6 @@ static int ipa3_open(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-/**
-* ipa3_flow_control() - Enable/Disable flow control on a particular client.
-* Return codes:
-* None
-*/
-void ipa3_flow_control(enum ipa_client_type ipa_client,
-		bool enable, uint32_t qmap_id)
-{
-	struct ipa_ep_cfg_ctrl ep_ctrl = {0};
-	int ep_idx;
-	struct ipa3_ep_context *ep;
-
-	/* Check if tethered flow control is needed or not.*/
-	if (!ipa3_ctx->tethered_flow_control) {
-		IPADBG("Apps flow control is not needed\n");
-		return;
-	}
-
-	/* Check if ep is valid. */
-	ep_idx = ipa3_get_ep_mapping(ipa_client);
-	if (ep_idx == -1) {
-		IPADBG("Invalid IPA client\n");
-		return;
-	}
-
-	ep = &ipa3_ctx->ep[ep_idx];
-	if (!ep->valid || (ep->client != IPA_CLIENT_USB_PROD)) {
-		IPADBG("EP not valid/Not applicable for client.\n");
-		return;
-	}
-
-	spin_lock(&ipa3_ctx->disconnect_lock);
-	/* Check if the QMAP_ID matches. */
-	if (ep->cfg.meta.qmap_id != qmap_id) {
-		IPADBG("Flow control ind not for same flow: %u %u\n",
-			ep->cfg.meta.qmap_id, qmap_id);
-		spin_unlock(&ipa3_ctx->disconnect_lock);
-		return;
-	}
-	if (!ep->disconnect_in_progress) {
-		if (enable) {
-			IPADBG("Enabling Flow\n");
-			ep_ctrl.ipa_ep_delay = false;
-			IPA_STATS_INC_CNT(ipa3_ctx->stats.flow_enable);
-		} else {
-			IPADBG("Disabling Flow\n");
-			ep_ctrl.ipa_ep_delay = true;
-			IPA_STATS_INC_CNT(ipa3_ctx->stats.flow_disable);
-		}
-		ep_ctrl.ipa_ep_suspend = false;
-		ipa3_cfg_ep_ctrl(ep_idx, &ep_ctrl);
-	} else {
-		IPADBG("EP disconnect is in progress\n");
-	}
-	spin_unlock(&ipa3_ctx->disconnect_lock);
-}
-
 static void ipa3_wan_msg_free_cb(void *buff, u32 len, u32 type)
 {
 	if (!buff) {
@@ -1863,9 +1806,11 @@ static void ipa3_q6_avoid_holb(void)
 				IPA_ENDP_INIT_HOL_BLOCK_EN_n,
 				ep_idx, &ep_holb);
 
-			ipahal_write_reg_n_fields(
-				IPA_ENDP_INIT_CTRL_n,
-				ep_idx, &ep_suspend);
+			/* from IPA 4.0 pipe suspend is not supported */
+			if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0)
+				ipahal_write_reg_n_fields(
+					IPA_ENDP_INIT_CTRL_n,
+					ep_idx, &ep_suspend);
 		}
 	}
 }
