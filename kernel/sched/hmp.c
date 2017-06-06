@@ -2579,7 +2579,8 @@ update_task_rq_cpu_cycles(struct task_struct *p, struct rq *rq, int event,
 	trace_sched_get_task_cpu_cycles(cpu, event, rq->cc.cycles, rq->cc.time);
 }
 
-static int account_busy_for_task_demand(struct task_struct *p, int event)
+static int
+account_busy_for_task_demand(struct rq *rq, struct task_struct *p, int event)
 {
 	/*
 	 * No need to bother updating task demand for exiting tasks
@@ -2597,6 +2598,17 @@ static int account_busy_for_task_demand(struct task_struct *p, int event)
 	if (event == TASK_WAKE || (!SCHED_ACCOUNT_WAIT_TIME &&
 			 (event == PICK_NEXT_TASK || event == TASK_MIGRATE)))
 		return 0;
+
+	/*
+	 * TASK_UPDATE can be called on sleeping task, when its moved between
+	 * related groups
+	 */
+	if (event == TASK_UPDATE) {
+		if (rq->curr == p)
+			return 1;
+
+		return p->on_rq ? SCHED_ACCOUNT_WAIT_TIME : 0;
+	}
 
 	return 1;
 }
@@ -2738,7 +2750,7 @@ static u64 update_task_demand(struct task_struct *p, struct rq *rq,
 	u64 runtime;
 
 	new_window = mark_start < window_start;
-	if (!account_busy_for_task_demand(p, event)) {
+	if (!account_busy_for_task_demand(rq, p, event)) {
 		if (new_window)
 			/*
 			 * If the time accounted isn't being accounted as
