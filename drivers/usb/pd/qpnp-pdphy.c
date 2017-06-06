@@ -76,8 +76,8 @@
 #define USB_PDPHY_TRIM_3		0xF3
 
 /* VDD regulator */
-#define VDD_PDPHY_VOL_MIN		2800000 /* uV */
-#define VDD_PDPHY_VOL_MAX		3300000 /* uV */
+#define VDD_PDPHY_VOL_MIN		3088000 /* uV */
+#define VDD_PDPHY_VOL_MAX		3088000 /* uV */
 #define VDD_PDPHY_HPM_LOAD		3000 /* uA */
 
 struct usb_pdphy {

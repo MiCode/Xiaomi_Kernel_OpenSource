@@ -411,7 +411,7 @@
 	rpm-regulator-ldoa24 {
 		status = "okay";
 		pm8998_l24: regulator-l24 {
-			regulator-min-microvolt = <1848000>;
+			regulator-min-microvolt = <3088000>;
 			regulator-max-microvolt = <3088000>;
 			status = "okay";
 		};
