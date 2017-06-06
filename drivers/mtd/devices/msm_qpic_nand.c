@@ -3260,7 +3260,6 @@ out:
 
 }
 
-#ifdef CONFIG_MSM_SMD
 static int msm_nand_parse_smem_ptable(int *nr_parts)
 {
 
@@ -3345,12 +3344,6 @@ static int msm_nand_parse_smem_ptable(int *nr_parts)
 out:
 	return -EINVAL;
 }
-#else
-static int msm_nand_parse_smem_ptable(int *nr_parts)
-{
-	return -ENODEV;
-}
-#endif
 
 #define BOOT_DEV_MASK 0x1E
 #define BOOT_DEV_NAND 0x4

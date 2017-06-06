@@ -52,7 +52,7 @@ config MTD_MS02NV
 
 config MTD_MSM_QPIC_NAND
 	tristate "MSM QPIC NAND Device Support"
-	depends on MTD && ARCH_MSM && !MTD_MSM_NAND
+	depends on MTD && (ARCH_QCOM || ARCH_MSM) && !MTD_MSM_NAND
 	select CRC16
 	select BITREVERSE
 	select MTD_NAND_IDS

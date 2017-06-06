@@ -392,9 +392,7 @@ struct flash_partition_table {
 	struct flash_partition_entry part_entry[FLASH_PTABLE_MAX_PARTS_V4];
 };
 
-#ifdef CONFIG_MSM_SMD
 static struct flash_partition_table ptable;
-#endif
 
 static struct mtd_partition mtd_part[FLASH_PTABLE_MAX_PARTS_V4];
 
