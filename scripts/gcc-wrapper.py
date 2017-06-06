@@ -389,7 +389,7 @@ allowed_warnings = set([
     "sd.h:187",
     "sd.h:182",
     "sd.h:172",
-    "page_alloc.c:7235",
+    "page_alloc.c:7248",
     "atomic.h:156",
     "atomic.h:176",
     "atomic.h:181",
