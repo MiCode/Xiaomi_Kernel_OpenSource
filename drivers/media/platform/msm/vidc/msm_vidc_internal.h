@@ -355,7 +355,7 @@ struct buffer_info *device_to_uvaddr(struct msm_vidc_list *buf_list,
 int buf_ref_get(struct msm_vidc_inst *inst, struct buffer_info *binfo);
 int buf_ref_put(struct msm_vidc_inst *inst, struct buffer_info *binfo);
 int output_buffer_cache_invalidate(struct msm_vidc_inst *inst,
-				struct buffer_info *binfo);
+		struct buffer_info *binfo, struct v4l2_buffer *b);
 int qbuf_dynamic_buf(struct msm_vidc_inst *inst,
 			struct buffer_info *binfo);
 int unmap_and_deregister_buf(struct msm_vidc_inst *inst,
@@ -369,7 +369,7 @@ struct msm_smem *msm_smem_alloc(void *clt, size_t size, u32 align, u32 flags,
 void msm_smem_free(void *clt, struct msm_smem *mem);
 void msm_smem_delete_client(void *clt);
 int msm_smem_cache_operations(void *clt, struct msm_smem *mem,
-		enum smem_cache_ops);
+		enum smem_cache_ops, int size);
 struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 offset,
 				enum hal_buffer buffer_type);
 struct context_bank_info *msm_smem_get_context_bank(void *clt,
