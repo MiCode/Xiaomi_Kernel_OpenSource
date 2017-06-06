@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,7 @@ enum buf_type {
 
 enum xprt_ids {
 	SMEM_XPRT_ID = 100,
+	SPIV2_XPRT_ID = SMEM_XPRT_ID,
 	SMD_TRANS_XPRT_ID = 200,
 	LLOOP_XPRT_ID = 300,
 	MOCK_XPRT_HIGH_ID = 390,

@@ -487,6 +487,17 @@ config MSM_GLINK_SMEM_NATIVE_XPRT
 	  transport to only connecting with entities internal to the
 	  System-on-Chip.
 
+config MSM_GLINK_BGCOM_XPRT
+	depends on MSM_GLINK
+	depends on MSM_BGCOM
+	tristate "Generic Link (G-Link) BGCOM Transport"
+	help
+	  G-Link BGCOM Transport is a Transport plug-in developed over BGCOM.
+	  This transport plug-in performs marshaling of G-Link
+	  commands & data to the appropriate BGCOM format and
+	  allows for G-Link communication with remote subsystems that are
+	  external to the System-on-Chip.
+
 config MSM_SPCOM
 	depends on MSM_GLINK
 	bool "Secure Processor Communication over GLINK"

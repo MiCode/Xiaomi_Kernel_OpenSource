@@ -3676,6 +3676,10 @@ int glink_xprt_name_to_id(const char *name, uint16_t *id)
 		*id = SMEM_XPRT_ID;
 		return 0;
 	}
+	if (!strcmp(name, "bgcom")) {
+		*id = SPIV2_XPRT_ID;
+		return 0;
+	}
 	if (!strcmp(name, "mailbox")) {
 		*id = SMEM_XPRT_ID;
 		return 0;
