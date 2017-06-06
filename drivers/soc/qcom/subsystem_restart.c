@@ -204,6 +204,7 @@ static ssize_t name_show(struct device *dev, struct device_attribute *attr,
 {
 	return snprintf(buf, PAGE_SIZE, "%s\n", to_subsys(dev)->desc->name);
 }
+static DEVICE_ATTR_RO(name);
 
 static ssize_t state_show(struct device *dev, struct device_attribute *attr,
 		char *buf)
@@ -212,12 +213,14 @@ static ssize_t state_show(struct device *dev, struct device_attribute *attr,
 
 	return snprintf(buf, PAGE_SIZE, "%s\n", subsys_states[state]);
 }
+static DEVICE_ATTR_RO(state);
 
 static ssize_t crash_count_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
 	return snprintf(buf, PAGE_SIZE, "%d\n", to_subsys(dev)->crash_count);
 }
+static DEVICE_ATTR_RO(crash_count);
 
 static ssize_t
 restart_level_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -245,6 +248,7 @@ static ssize_t restart_level_store(struct device *dev,
 		}
 	return -EPERM;
 }
+static DEVICE_ATTR_RW(restart_level);
 
 static ssize_t firmware_name_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
@@ -271,6 +275,7 @@ static ssize_t firmware_name_store(struct device *dev,
 	mutex_unlock(&track->lock);
 	return orig_count;
 }
+static DEVICE_ATTR_RW(firmware_name);
 
 static ssize_t system_debug_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
@@ -304,6 +309,7 @@ static ssize_t system_debug_store(struct device *dev,
 		return -EPERM;
 	return orig_count;
 }
+static DEVICE_ATTR_RW(system_debug);
 
 int subsys_get_restart_level(struct subsys_device *dev)
 {
@@ -340,19 +346,21 @@ void subsys_default_online(struct subsys_device *dev)
 }
 EXPORT_SYMBOL(subsys_default_online);
 
-static struct device_attribute subsys_attrs[] = {
-	__ATTR_RO(name),
-	__ATTR_RO(state),
-	__ATTR_RO(crash_count),
-	__ATTR(restart_level, 0644, restart_level_show, restart_level_store),
-	__ATTR(firmware_name, 0644, firmware_name_show, firmware_name_store),
-	__ATTR(system_debug, 0644, system_debug_show, system_debug_store),
-	__ATTR_NULL,
+static struct attribute *subsys_attrs[] = {
+	&dev_attr_name.attr,
+	&dev_attr_state.attr,
+	&dev_attr_crash_count.attr,
+	&dev_attr_restart_level.attr,
+	&dev_attr_firmware_name.attr,
+	&dev_attr_system_debug.attr,
+	NULL,
 };
+
+ATTRIBUTE_GROUPS(subsys);
 
 struct bus_type subsys_bus_type = {
 	.name		= "msm_subsys",
-	.dev_attrs	= subsys_attrs,
+	.dev_groups	= subsys_groups,
 };
 EXPORT_SYMBOL(subsys_bus_type);
 
