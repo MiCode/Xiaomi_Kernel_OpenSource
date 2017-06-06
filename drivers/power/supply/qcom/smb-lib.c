@@ -4228,6 +4228,7 @@ static void smblib_legacy_detection_work(struct work_struct *work)
 
 unlock:
 	chg->typec_en_dis_active = 0;
+	smblib_usb_typec_change(chg);
 	mutex_unlock(&chg->lock);
 }
 
