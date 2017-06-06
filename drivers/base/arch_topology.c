@@ -67,6 +67,7 @@ static ssize_t cpu_capacity_store(struct device *dev,
 	int i;
 	unsigned long new_capacity;
 	ssize_t ret;
+	cpumask_var_t mask;
 
 	if (!count)
 		return 0;
@@ -78,7 +79,35 @@ static ssize_t cpu_capacity_store(struct device *dev,
 		return -EINVAL;
 
 	mutex_lock(&cpu_scale_mutex);
-	for_each_cpu(i, &cpu_topology[this_cpu].core_sibling)
+
+	if (new_capacity < SCHED_CAPACITY_SCALE) {
+		int highest_score_cpu = 0;
+
+		if (!alloc_cpumask_var(&mask, GFP_KERNEL)) {
+			mutex_unlock(&cpu_scale_mutex);
+			return -ENOMEM;
+		}
+
+		cpumask_andnot(mask, cpu_online_mask,
+				topology_core_cpumask(this_cpu));
+
+		for_each_cpu(i, mask) {
+			if (topology_get_cpu_scale(NULL, i) ==
+					SCHED_CAPACITY_SCALE) {
+				highest_score_cpu = 1;
+				break;
+			}
+		}
+
+		free_cpumask_var(mask);
+
+		if (!highest_score_cpu) {
+			mutex_unlock(&cpu_scale_mutex);
+			return -EINVAL;
+		}
+	}
+
+	for_each_cpu(i, topology_core_cpumask(this_cpu))
 		topology_set_cpu_scale(i, new_capacity);
 	mutex_unlock(&cpu_scale_mutex);
 
