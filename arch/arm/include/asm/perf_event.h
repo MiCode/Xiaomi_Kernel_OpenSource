@@ -26,4 +26,91 @@ extern unsigned long perf_misc_flags(struct pt_regs *regs);
 	(regs)->ARM_cpsr = SVC_MODE; \
 }
 
+static inline u32 armv8pmu_pmcr_read_reg(void)
+{
+	u32 val;
+
+	asm volatile("mrc p15, 0, %0, c9, c12, 0" : "=r" (val));
+	return val;
+}
+
+static inline u32 armv8pmu_pmccntr_read_reg(void)
+{
+	u32 val;
+
+	asm volatile("mrc p15, 0, %0, c9, c13, 0" : "=r" (val));
+	return val;
+}
+
+static inline u32 armv8pmu_pmxevcntr_read_reg(void)
+{
+	u32 val;
+
+	asm volatile("mrc p15, 0, %0, c9, c13, 2" : "=r" (val));
+	return val;
+}
+
+static inline u32 armv8pmu_pmovsclr_read_reg(void)
+{
+	u32 val;
+
+	asm volatile("mrc p15, 0, %0, c9, c12, 3" : "=r" (val));
+	return val;
+}
+
+static inline void armv8pmu_pmcr_write_reg(u32 val)
+{
+	asm volatile("mcr p15, 0, %0, c9, c12, 0" : : "r" (val));
+}
+
+static inline void armv8pmu_pmselr_write_reg(u32 val)
+{
+	asm volatile("mcr p15, 0, %0, c9, c12, 5" : : "r" (val));
+}
+
+static inline void armv8pmu_pmccntr_write_reg(u32 val)
+{
+	asm volatile("mcr p15, 0, %0, c9, c13, 0" : : "r" (val));
+}
+
+static inline void armv8pmu_pmxevcntr_write_reg(u32 val)
+{
+	asm volatile("mcr p15, 0, %0, c9, c13, 2" : : "r" (val));
+}
+
+static inline void armv8pmu_pmxevtyper_write_reg(u32 val)
+{
+	asm volatile("mcr p15, 0, %0, c9, c13, 1" : : "r" (val));
+}
+
+static inline void armv8pmu_pmcntenset_write_reg(u32 val)
+{
+	asm volatile("mcr p15, 0, %0, c9, c12, 1" : : "r" (val));
+}
+
+static inline void armv8pmu_pmcntenclr_write_reg(u32 val)
+{
+	asm volatile("mcr p15, 0, %0, c9, c12, 2" : : "r" (val));
+}
+
+static inline void armv8pmu_pmintenset_write_reg(u32 val)
+{
+	asm volatile("mcr p15, 0, %0, c9, c14, 1" : : "r" (val));
+}
+
+static inline void armv8pmu_pmintenclr_write_reg(u32 val)
+{
+	asm volatile("mcr p15, 0, %0, c9, c14, 2" : : "r" (val));
+}
+
+static inline void armv8pmu_pmovsclr_write_reg(u32 val)
+{
+	asm volatile("mcr p15, 0, %0, c9, c12, 3" : : "r" (val));
+}
+
+static inline void armv8pmu_pmuserenr_write_reg(u32 val)
+{
+	asm volatile("mcr p15, 0, %0, c9, c14, 0" : : "r" (val));
+}
+
 #endif /* __ARM_PERF_EVENT_H__ */
