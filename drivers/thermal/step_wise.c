@@ -76,6 +76,14 @@ static unsigned long get_target_state(struct thermal_instance *instance,
 		return next_target;
 	}
 
+	/*
+	 * If there is no new throttle request and if the thermal zone
+	 * wasn't requesting any previous mitigation, then skip the
+	 * evaluation.
+	 */
+	if (instance->target == THERMAL_NO_TARGET && !throttle)
+		return next_target;
+
 	switch (trend) {
 	case THERMAL_TREND_RAISING:
 		if (throttle) {
