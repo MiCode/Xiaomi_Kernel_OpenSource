@@ -62,6 +62,9 @@ struct msm_kms_funcs {
 	/* functions to wait for atomic commit completed on each CRTC */
 	void (*wait_for_crtc_commit_done)(struct msm_kms *kms,
 					struct drm_crtc *crtc);
+	/* function pointer to wait for pixel transfer to panel to complete*/
+	void (*wait_for_tx_complete)(struct msm_kms *kms,
+					struct drm_crtc *crtc);
 	/* get msm_format w/ optional format modifiers from drm_mode_fb_cmd2 */
 	const struct msm_format *(*get_format)(struct msm_kms *kms,
 					const uint32_t format,

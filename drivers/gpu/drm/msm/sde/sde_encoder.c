@@ -2812,8 +2812,10 @@ fail:
 	return ERR_PTR(ret);
 }
 
-int sde_encoder_wait_for_commit_done(struct drm_encoder *drm_enc)
+int sde_encoder_wait_for_event(struct drm_encoder *drm_enc,
+	enum msm_event_wait event)
 {
+	int (*fn_wait)(struct sde_encoder_phys *phys_enc) = NULL;
 	struct sde_encoder_virt *sde_enc = NULL;
 	int i, ret = 0;
 
@@ -2827,8 +2829,17 @@ int sde_encoder_wait_for_commit_done(struct drm_encoder *drm_enc)
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-		if (phys && phys->ops.wait_for_commit_done) {
-			ret = phys->ops.wait_for_commit_done(phys);
+		switch (event) {
+		case MSM_ENC_COMMIT_DONE:
+			fn_wait = phys->ops.wait_for_commit_done;
+			break;
+		case MSM_ENC_TX_COMPLETE:
+			fn_wait = phys->ops.wait_for_tx_complete;
+			break;
+		};
+
+		if (phys && fn_wait) {
+			ret = fn_wait(phys);
 			if (ret)
 				return ret;
 		}
