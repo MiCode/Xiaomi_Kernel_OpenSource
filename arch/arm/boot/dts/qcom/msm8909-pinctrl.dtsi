@@ -396,7 +396,7 @@
 				config {
 					pins = "gpio111";
 					drive-strength = <2>;
-					bias-disable;
+					bias-pull-up;
 				};
 			};
 			spi2_cs0_sleep: spi2_cs0_sleep {
@@ -407,7 +407,7 @@
 				config {
 					pins = "gpio111";
 					drive-strength = <2>;
-					bias-disable;
+					bias-pull-up;
 				};
 			};
 		};
