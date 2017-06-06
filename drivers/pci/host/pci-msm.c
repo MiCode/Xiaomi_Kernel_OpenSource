@@ -4926,9 +4926,8 @@ static int msm_pcie_map_qgic_addr(struct msm_pcie_dev_t *dev,
 {
 	struct iommu_domain *domain = iommu_get_domain_for_dev(&pdev->dev);
 	struct iommu_domain_geometry geometry;
-	int ret, fastmap_en = 0, bypass_en = 0;
-	dma_addr_t iova;
-	phys_addr_t gicm_db_offset;
+	int fastmap_en = 0, bypass_en = 0;
+	dma_addr_t iova, addr;
 
 	msg->address_hi = 0;
 	msg->address_lo = dev->msi_gicm_addr;
@@ -4970,18 +4969,15 @@ static int msm_pcie_map_qgic_addr(struct msm_pcie_dev_t *dev,
 		iova = rounddown(pcie_base_addr, PAGE_SIZE);
 	}
 
-	ret = iommu_map(domain, iova, rounddown(dev->msi_gicm_addr, PAGE_SIZE),
-			PAGE_SIZE, IOMMU_READ | IOMMU_WRITE);
-	if (ret < 0) {
-		PCIE_ERR(dev,
-			"PCIe: RC%d: ret: %d: Could not do iommu map for QGIC address\n",
-			dev->rc_idx, ret);
-		return -ENOMEM;
+	addr = dma_map_resource(&pdev->dev, dev->msi_gicm_addr, PAGE_SIZE,
+				DMA_BIDIRECTIONAL, 0);
+	if (dma_mapping_error(&pdev->dev, addr)) {
+		PCIE_ERR(dev, "PCIe: RC%d: failed to map QGIC address",
+			dev->rc_idx);
+		return -EIO;
 	}
 
-	gicm_db_offset = dev->msi_gicm_addr -
-		rounddown(dev->msi_gicm_addr, PAGE_SIZE);
-	msg->address_lo = iova + gicm_db_offset;
+	msg->address_lo = iova + addr;
 
 	return 0;
 }
