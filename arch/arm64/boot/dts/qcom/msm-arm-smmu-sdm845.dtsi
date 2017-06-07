@@ -329,10 +329,10 @@
 	apps_iommu_test_device {
 		compatible = "iommu-debug-test";
 		/*
-		 * This SID belongs to QUP1-GSI. We can't use a fake SID for
+		 * This SID belongs to TSIF. We can't use a fake SID for
 		 * the apps_smmu device.
 		 */
-		iommus = <&apps_smmu 0x16 0>;
+		iommus = <&apps_smmu 0x20 0>;
 	};
 
 	apps_iommu_coherent_test_device {
