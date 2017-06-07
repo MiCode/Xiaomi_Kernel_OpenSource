@@ -363,7 +363,6 @@ static void diagfwd_data_read_untag_done(struct diagfwd_info *fwd_info,
 	if (driver->feature[peripheral].encode_hdlc &&
 		driver->feature[peripheral].untag_header &&
 		driver->peripheral_untag[peripheral]) {
-		mutex_lock(&driver->diagfwd_untag_mutex);
 		temp_buf_cpd = buf;
 		temp_buf_main = buf;
 		if (fwd_info->buf_1 &&
@@ -463,10 +462,10 @@ static void diagfwd_data_read_untag_done(struct diagfwd_info *fwd_info,
 		if (peripheral == PERIPHERAL_LPASS &&
 			fwd_info->type == TYPE_DATA && len_upd_2) {
 			if (flag_buf_1) {
-				driver->upd_len_2_a = len_upd_2;
+				fwd_info->upd_len_2_a = len_upd_2;
 				temp_ptr_upd = fwd_info->buf_upd_2_a;
 			} else {
-				driver->upd_len_2_b = len_upd_2;
+				fwd_info->upd_len_2_b = len_upd_2;
 				temp_ptr_upd = fwd_info->buf_upd_2_b;
 			}
 			temp_ptr_upd->ctxt &= 0x00FFFFFF;
@@ -477,17 +476,17 @@ static void diagfwd_data_read_untag_done(struct diagfwd_info *fwd_info,
 				temp_ptr_upd, len_upd_2);
 		} else {
 			if (flag_buf_1)
-				driver->upd_len_2_a = 0;
+				fwd_info->upd_len_2_a = 0;
 			if (flag_buf_2)
-				driver->upd_len_2_b = 0;
+				fwd_info->upd_len_2_b = 0;
 		}
 		if (fwd_info->type == TYPE_DATA && len_upd_1) {
 			if (flag_buf_1) {
-				driver->upd_len_1_a[peripheral] =
+				fwd_info->upd_len_1_a =
 					len_upd_1;
 				temp_ptr_upd = fwd_info->buf_upd_1_a;
 			} else {
-				driver->upd_len_1_b[peripheral] =
+				fwd_info->upd_len_1_b =
 					len_upd_1;
 				temp_ptr_upd = fwd_info->buf_upd_1_b;
 			}
@@ -499,15 +498,15 @@ static void diagfwd_data_read_untag_done(struct diagfwd_info *fwd_info,
 				temp_ptr_upd, len_upd_1);
 		} else {
 			if (flag_buf_1)
-				driver->upd_len_1_a[peripheral] = 0;
+				fwd_info->upd_len_1_a = 0;
 			if (flag_buf_2)
-				driver->upd_len_1_b[peripheral] = 0;
+				fwd_info->upd_len_1_b = 0;
 		}
 		if (len_cpd) {
 			if (flag_buf_1)
-				driver->cpd_len_1[peripheral] = len_cpd;
+				fwd_info->cpd_len_1 = len_cpd;
 			else
-				driver->cpd_len_2[peripheral] = len_cpd;
+				fwd_info->cpd_len_2 = len_cpd;
 			temp_ptr_cpd->ctxt &= 0x00FFFFFF;
 			temp_ptr_cpd->ctxt |=
 				(SET_PD_CTXT(ctxt_cpd));
@@ -515,11 +514,10 @@ static void diagfwd_data_read_untag_done(struct diagfwd_info *fwd_info,
 				temp_ptr_cpd, len_cpd);
 		} else {
 			if (flag_buf_1)
-				driver->cpd_len_1[peripheral] = 0;
+				fwd_info->cpd_len_1 = 0;
 			if (flag_buf_2)
-				driver->cpd_len_2[peripheral] = 0;
+				fwd_info->cpd_len_2 = 0;
 		}
-		mutex_unlock(&driver->diagfwd_untag_mutex);
 		return;
 	} else {
 		diagfwd_data_read_done(fwd_info, buf, len);
@@ -527,7 +525,6 @@ static void diagfwd_data_read_untag_done(struct diagfwd_info *fwd_info,
 	}
 end:
 	diag_ws_release();
-	mutex_unlock(&driver->diagfwd_untag_mutex);
 	if (temp_ptr_cpd) {
 		diagfwd_write_done(fwd_info->peripheral, fwd_info->type,
 				   GET_BUF_NUM(temp_ptr_cpd->ctxt));
@@ -759,6 +756,12 @@ int diagfwd_peripheral_init(void)
 			fwd_info->inited = 1;
 			fwd_info->read_bytes = 0;
 			fwd_info->write_bytes = 0;
+			fwd_info->cpd_len_1 = 0;
+			fwd_info->cpd_len_2 = 0;
+			fwd_info->upd_len_1_a = 0;
+			fwd_info->upd_len_1_b = 0;
+			fwd_info->upd_len_2_a = 0;
+			fwd_info->upd_len_2_a = 0;
 			mutex_init(&fwd_info->buf_mutex);
 			mutex_init(&fwd_info->data_mutex);
 			spin_lock_init(&fwd_info->write_buf_lock);
@@ -775,6 +778,12 @@ int diagfwd_peripheral_init(void)
 			fwd_info->ch_open = 0;
 			fwd_info->read_bytes = 0;
 			fwd_info->write_bytes = 0;
+			fwd_info->cpd_len_1 = 0;
+			fwd_info->cpd_len_2 = 0;
+			fwd_info->upd_len_1_a = 0;
+			fwd_info->upd_len_1_b = 0;
+			fwd_info->upd_len_2_a = 0;
+			fwd_info->upd_len_2_a = 0;
 			spin_lock_init(&fwd_info->write_buf_lock);
 			mutex_init(&fwd_info->buf_mutex);
 			mutex_init(&fwd_info->data_mutex);
@@ -1273,11 +1282,11 @@ void diagfwd_write_done(uint8_t peripheral, uint8_t type, int ctxt)
 	if (ctxt == 1 && fwd_info->buf_1) {
 		/* Buffer 1 for core PD is freed */
 		atomic_set(&fwd_info->buf_1->in_busy, 0);
-		driver->cpd_len_1[peripheral] = 0;
+		fwd_info->cpd_len_1 = 0;
 	} else if (ctxt == 2 && fwd_info->buf_2) {
 		/* Buffer 2 for core PD is freed */
 		atomic_set(&fwd_info->buf_2->in_busy, 0);
-		driver->cpd_len_2[peripheral] = 0;
+		fwd_info->cpd_len_2 = 0;
 	} else if (ctxt == 3 && fwd_info->buf_upd_1_a) {
 		/* Buffer 1 for user pd 1  is freed */
 		atomic_set(&fwd_info->buf_upd_1_a->in_busy, 0);
@@ -1286,17 +1295,17 @@ void diagfwd_write_done(uint8_t peripheral, uint8_t type, int ctxt)
 			/* if not data in cpd and other user pd
 			 * free the core pd buffer for LPASS
 			 */
-			if (!driver->cpd_len_1[PERIPHERAL_LPASS] &&
-				!driver->upd_len_2_a)
+			if (!fwd_info->cpd_len_1 &&
+				!fwd_info->upd_len_2_a)
 				atomic_set(&fwd_info->buf_1->in_busy, 0);
 		} else {
 			/* if not data in cpd
 			 * free the core pd buffer for MPSS
 			 */
-			if (!driver->cpd_len_1[PERIPHERAL_MODEM])
+			if (!fwd_info->cpd_len_1)
 				atomic_set(&fwd_info->buf_1->in_busy, 0);
 		}
-		driver->upd_len_1_a[peripheral] = 0;
+		fwd_info->upd_len_1_a = 0;
 
 	} else if (ctxt == 4 && fwd_info->buf_upd_1_b) {
 		/* Buffer 2 for user pd 1  is freed */
@@ -1305,17 +1314,17 @@ void diagfwd_write_done(uint8_t peripheral, uint8_t type, int ctxt)
 			/* if not data in cpd and other user pd
 			 * free the core pd buffer for LPASS
 			 */
-			if (!driver->cpd_len_2[peripheral] &&
-				!driver->upd_len_2_b)
+			if (!fwd_info->cpd_len_2 &&
+				!fwd_info->upd_len_2_b)
 				atomic_set(&fwd_info->buf_2->in_busy, 0);
 		} else {
 			/* if not data in cpd
 			 * free the core pd buffer for MPSS
 			 */
-			if (!driver->cpd_len_2[PERIPHERAL_MODEM])
+			if (!fwd_info->cpd_len_2)
 				atomic_set(&fwd_info->buf_2->in_busy, 0);
 		}
-		driver->upd_len_1_b[peripheral] = 0;
+		fwd_info->upd_len_1_b = 0;
 
 	} else if (ctxt == 5 && fwd_info->buf_upd_2_a) {
 		/* Buffer 1 for user pd 2  is freed */
@@ -1323,11 +1332,11 @@ void diagfwd_write_done(uint8_t peripheral, uint8_t type, int ctxt)
 		/* if not data in cpd and other user pd
 		 * free the core pd buffer for LPASS
 		 */
-		if (!driver->cpd_len_1[PERIPHERAL_LPASS] &&
-			!driver->upd_len_1_a[PERIPHERAL_LPASS])
+		if (!fwd_info->cpd_len_1 &&
+			!fwd_info->upd_len_1_a)
 			atomic_set(&fwd_info->buf_1->in_busy, 0);
 
-		driver->upd_len_2_a = 0;
+		fwd_info->upd_len_2_a = 0;
 
 	} else if (ctxt == 6 && fwd_info->buf_upd_2_b) {
 		/* Buffer 2 for user pd 2  is freed */
@@ -1335,11 +1344,11 @@ void diagfwd_write_done(uint8_t peripheral, uint8_t type, int ctxt)
 		/* if not data in cpd and other user pd
 		 * free the core pd buffer for LPASS
 		 */
-		if (!driver->cpd_len_2[PERIPHERAL_LPASS] &&
-			!driver->upd_len_1_b[PERIPHERAL_LPASS])
+		if (!fwd_info->cpd_len_2 &&
+			!fwd_info->upd_len_1_b)
 			atomic_set(&fwd_info->buf_2->in_busy, 0);
 
-		driver->upd_len_2_b = 0;
+		fwd_info->upd_len_2_b = 0;
 
 	} else
 		pr_err("diag: In %s, invalid ctxt %d\n", __func__, ctxt);
