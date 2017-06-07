@@ -5,6 +5,7 @@ various audiovisual products in a user environment.
 
 Required properties:
 - compatible: Must be "qcom,hdmi-cec".
+- qcom,hdmi-dev: Phandle for the hdmi device node.
 - interrupt-parent: Must be the hdmi interrupt controller.
 - interrupts: Interrupt associated with cec.
 - reg: Physical base address and length of the controller's registers.
@@ -41,6 +42,7 @@ Example:
 sde_hdmi_cec: qcom,hdmi-cec@c9a0000 {
 	compatible = "qcom,hdmi-cec";
 	label = "sde_hdmi_cec";
+	qcom,hdmi-dev = <&sde_hdmi>;
 	interrupt-parent = <&sde_hdmi_tx>;
 	interrupts = <1 0>;
 

@@ -10,6 +10,10 @@ ifeq ($(CONFIG_MEDIA_CEC_SUPPORT),y)
   obj-$(CONFIG_MEDIA_SUPPORT) += cec/
 endif
 
+ifeq ($(CONFIG_MEDIA_CEC_NOTIFIER),y)
+  obj-$(CONFIG_MEDIA_SUPPORT) += cec-notifier.o
+endif
+
 media-objs	:= media-device.o media-devnode.o media-entity.o
 
 #

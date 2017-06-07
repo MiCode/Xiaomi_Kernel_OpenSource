@@ -18,11 +18,14 @@
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_platform.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/cec.h>
 #include <media/cec.h>
+#include <media/cec-edid.h>
+#include <media/cec-notifier.h>
 
 #include "sde_hdmi_cec_util.h"
 
@@ -63,6 +66,7 @@ struct sde_hdmi_cec {
 	struct cec_hw_resource hw_res;
 	int irq;
 	enum cec_irq_status irq_status;
+	struct cec_notifier *notifier;
 };
 
 static int sde_hdmi_cec_adap_enable(struct cec_adapter *adap, bool enable)
@@ -287,6 +291,8 @@ static int sde_hdmi_cec_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct sde_hdmi_cec *cec;
+	struct device_node *np;
+	struct platform_device *hdmi_dev;
 	int ret;
 
 	cec = devm_kzalloc(dev, sizeof(*cec), GFP_KERNEL);
@@ -294,6 +300,15 @@ static int sde_hdmi_cec_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	cec->dev = dev;
+
+	np = of_parse_phandle(pdev->dev.of_node, "qcom,hdmi-dev", 0);
+	if (!np) {
+		pr_err("failed to find hdmi node in device tree\n");
+		return -ENODEV;
+	}
+	hdmi_dev = of_find_device_by_node(np);
+	if (hdmi_dev == NULL)
+		return -EPROBE_DEFER;
 
 	cec->irq = of_irq_get(dev->of_node, 0);
 	if (cec->irq < 0) {
@@ -314,24 +329,38 @@ static int sde_hdmi_cec_probe(struct platform_device *pdev)
 	cec->adap = cec_allocate_adapter(&sde_hdmi_cec_adap_ops, cec,
 			CEC_NAME,
 			CEC_CAP_LOG_ADDRS | CEC_CAP_PASSTHROUGH |
-			CEC_CAP_PHYS_ADDR | CEC_CAP_TRANSMIT, 1);
+			CEC_CAP_TRANSMIT, 1);
 	ret = PTR_ERR_OR_ZERO(cec->adap);
 	if (ret)
 		return ret;
 
 	ret = cec_register_adapter(cec->adap, &pdev->dev);
-	if (ret) {
-		cec_delete_adapter(cec->adap);
-		return ret;
+	if (ret)
+		goto err_del_adap;
+
+	cec->notifier = cec_notifier_get(&hdmi_dev->dev);
+	if (!cec->notifier) {
+		pr_err("failed to get cec notifier\n");
+		goto err_del_adap;
 	}
 
 	platform_set_drvdata(pdev, cec);
 
 	pm_runtime_enable(dev);
 
+	/*
+	 * cec_register_cec_notifier has to be later than pm_runtime_enable
+	 * because it calls adap_enable.
+	 */
+	cec_register_cec_notifier(cec->adap, cec->notifier);
+
 	pr_debug("probe done\n");
 
-	return 0;
+	return ret;
+
+err_del_adap:
+	cec_delete_adapter(cec->adap);
+	return ret;
 }
 
 static int sde_hdmi_cec_remove(struct platform_device *pdev)
@@ -341,6 +370,7 @@ static int sde_hdmi_cec_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 
 	cec_unregister_adapter(cec->adap);
+	cec_notifier_put(cec->notifier);
 
 	devm_free_irq(&pdev->dev, cec->irq, cec);
 	sde_hdmi_cec_deinit_resource(pdev, &cec->hw_res);
