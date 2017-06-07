@@ -1565,6 +1565,7 @@ static int cam_vfe_bus_ver2_handle_irq(uint32_t    evt_id,
 	struct cam_vfe_bus_ver2_priv          *bus_priv;
 	struct cam_irq_controller_reg_info    *reg_info;
 	uint32_t                               irq_mask;
+	int                                    found = 0;
 
 	handler_priv = th_payload->handler_priv;
 	core_info    = handler_priv->core_info;
@@ -1597,6 +1598,8 @@ static int cam_vfe_bus_ver2_handle_irq(uint32_t    evt_id,
 			irq_reg_offset[i] - (0xC * 2));
 		evt_payload->irq_reg_val[i] = irq_mask &
 			cam_io_r(handler_priv->mem_base + irq_reg_offset[i]);
+		if (evt_payload->irq_reg_val[i])
+			found = 1;
 		CDBG("irq_status%d = 0x%x\n", i, evt_payload->irq_reg_val[i]);
 	}
 	for (i = 0; i <= CAM_IFE_IRQ_BUS_REG_STATUS2; i++) {
@@ -1612,7 +1615,13 @@ static int cam_vfe_bus_ver2_handle_irq(uint32_t    evt_id,
 			reg_info->global_clear_bitmask,
 			reg_info->global_clear_offset);
 
-	th_payload->evt_payload_priv = evt_payload;
+	if (found)
+		th_payload->evt_payload_priv = evt_payload;
+	else {
+		cam_vfe_bus_put_evt_payload(evt_payload->core_info,
+			&evt_payload);
+		rc = -ENOMSG;
+	}
 
 	return rc;
 }
