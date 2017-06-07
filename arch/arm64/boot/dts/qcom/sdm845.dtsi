@@ -815,19 +815,16 @@
 	cpubw: qcom,cpubw {
 		compatible = "qcom,devbw";
 		governor = "performance";
-		qcom,src-dst-ports = <1 512>;
+		qcom,src-dst-ports =
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_LLCC>;
 		qcom,active-only;
 		qcom,bw-tbl =
-			<  762 /*  200 MHz */ >,
-			< 1144 /*  300 MHz */ >,
-			< 1720 /*  451 MHz */ >,
-			< 2086 /*  547 MHz */ >,
-			< 2597 /*  681 MHz */ >,
-			< 2929 /*  768 MHz */ >,
-			< 3879 /* 1017 MHz */ >,
-			< 4943 /* 1296 MHz */ >,
-			< 5931 /* 1555 MHz */ >,
-			< 6881 /* 1804 MHz */ >;
+			<  2288 /* 150 MHz */ >,
+			<  4577 /* 300 MHz */ >,
+			<  6500 /* 426 MHz */ >,
+			<  8132 /* 533 MHz */ >,
+			<  9155 /* 600 MHz */ >,
+			< 10681 /* 700 MHz */ >;
 	};
 
 	bwmon: qcom,cpu-bwmon {
@@ -844,7 +841,7 @@
 		compatible = "qcom,devbw";
 		governor = "powersave";
 		qcom,src-dst-ports =
-			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_EBI_CH0>;
+			<MSM_BUS_MASTER_LLCC MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,active-only;
 		qcom,bw-tbl =
 			<  762 /*  200 MHz */ >,
