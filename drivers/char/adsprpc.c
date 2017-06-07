@@ -1381,24 +1381,14 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 			goto bail;
 	}
 
-	PERF(fl->profile, fl->perf.invargs,
-	if (!fl->sctx->smmu.coherent) {
+	if (!fl->sctx->smmu.coherent)
 		inv_args_pre(ctx);
-		if (mode == FASTRPC_MODE_SERIAL)
-			inv_args(ctx);
-	}
-	PERF_END);
-
 	PERF(fl->profile, fl->perf.link,
 	VERIFY(err, 0 == fastrpc_invoke_send(ctx, kernel, invoke->handle));
 	PERF_END);
 
 	if (err)
 		goto bail;
-	PERF(fl->profile, fl->perf.invargs,
-	if (mode == FASTRPC_MODE_PARALLEL && !fl->sctx->smmu.coherent)
-		inv_args(ctx);
-	PERF_END);
  wait:
 	if (kernel)
 		wait_for_completion(&ctx->work);
@@ -1408,6 +1398,12 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 		if (err)
 			goto bail;
 	}
+
+	PERF(fl->profile, fl->perf.invargs,
+	if (!fl->sctx->smmu.coherent)
+		inv_args(ctx);
+	PERF_END);
+
 	VERIFY(err, 0 == (err = ctx->retval));
 	if (err)
 		goto bail;
