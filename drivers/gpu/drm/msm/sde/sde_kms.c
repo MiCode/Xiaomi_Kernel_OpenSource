@@ -1238,6 +1238,10 @@ static void _sde_kms_hw_destroy(struct sde_kms *sde_kms,
 		sde_hw_intr_destroy(sde_kms->hw_intr);
 	sde_kms->hw_intr = NULL;
 
+	if (sde_kms->power_event)
+		sde_power_handle_unregister_event(
+				&priv->phandle, sde_kms->power_event);
+
 	_sde_kms_release_displays(sde_kms);
 
 	/* safe to call these more than once during shutdown */
@@ -1443,6 +1447,16 @@ static void __iomem *_sde_kms_ioremap(struct platform_device *pdev,
 	return ptr;
 }
 
+static void sde_kms_handle_power_event(u32 event_type, void *usr)
+{
+	struct sde_kms *sde_kms = usr;
+
+	if (!sde_kms)
+		return;
+
+	if (event_type == SDE_POWER_EVENT_POST_ENABLE)
+		sde_vbif_init_memtypes(sde_kms);
+}
 
 static int sde_kms_hw_init(struct msm_kms *kms)
 {
@@ -1659,6 +1673,14 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	 * Support format modifiers for compression etc.
 	 */
 	dev->mode_config.allow_fb_modifiers = true;
+
+	/*
+	 * Handle (re)initializations during power enable
+	 */
+	sde_kms_handle_power_event(SDE_POWER_EVENT_POST_ENABLE, sde_kms);
+	sde_kms->power_event = sde_power_handle_register_event(&priv->phandle,
+			SDE_POWER_EVENT_POST_ENABLE,
+			sde_kms_handle_power_event, sde_kms, "kms");
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 	return 0;

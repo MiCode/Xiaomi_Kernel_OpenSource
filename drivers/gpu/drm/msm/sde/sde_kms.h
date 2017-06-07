@@ -159,6 +159,7 @@ struct sde_kms {
 	struct sde_power_client *core_client;
 
 	struct ion_client *iclient;
+	struct sde_power_event *power_event;
 
 	/* directory entry for debugfs */
 	struct dentry *debugfs_danger;

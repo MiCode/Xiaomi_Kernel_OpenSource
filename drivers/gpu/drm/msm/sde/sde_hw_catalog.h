@@ -60,6 +60,8 @@
 #define SDE_COLOR_PROCESS_MAJOR(version) (((version) & 0xFFFF0000) >> 16)
 #define SDE_COLOR_PROCESS_MINOR(version) ((version) & 0xFFFF)
 
+#define MAX_XIN_COUNT 16
+
 /**
  * Supported UBWC feature versions
  */
@@ -705,6 +707,8 @@ struct sde_vbif_qos_tbl {
  * @dynamic_ot_wr_tbl  dynamic OT write configuration table
  * @qos_rt_tbl         real-time QoS priority table
  * @qos_nrt_tbl        non-real-time QoS priority table
+ * @memtype_count      number of defined memtypes
+ * @memtype            array of xin memtype definitions
  */
 struct sde_vbif_cfg {
 	SDE_HW_BLK_INFO;
@@ -715,6 +719,8 @@ struct sde_vbif_cfg {
 	struct sde_vbif_dynamic_ot_tbl dynamic_ot_wr_tbl;
 	struct sde_vbif_qos_tbl qos_rt_tbl;
 	struct sde_vbif_qos_tbl qos_nrt_tbl;
+	u32 memtype_count;
+	u32 memtype[MAX_XIN_COUNT];
 };
 /**
  * struct sde_reg_dma_cfg - information of lut dma blocks

@@ -234,6 +234,8 @@ Optional properties:
 				of (pps, OT limit), where pps is pixel per second and
 				OT limit is the write limit to apply if the given
 				pps is not exceeded.
+- qcom,sde-vbif-memtype-0:	Array of u32 vbif memory type settings, group 0
+- qcom,sde-vbif-memtype-1:	Array of u32 vbif memory type settings, group 1
 - qcom,sde-wb-id:		Array of writeback ids corresponding to the
 				offsets defined in property: qcom,sde-wb-off.
 - qcom,sde-wb-clk-ctrl:		Array of 2 cell property describing clk control
@@ -527,6 +529,8 @@ Example:
         <124416000 4>, <248832000 16>;
     qcom,sde-vbif-dynamic-ot-wr-limit = <62208000 2>,
         <124416000 4>, <248832000 16>;
+    qcom,sde-vbif-memtype-0 = <3 3 3 3 3 3 3 3>;
+    qcom,sde-vbif-memtype-1 = <3 3 3 3 3 3>;
 
     qcom,sde-dram-channels = <2>;
     qcom,sde-num-nrt-paths = <1>;
