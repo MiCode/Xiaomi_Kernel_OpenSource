@@ -29,6 +29,30 @@ struct sde_hw_wb_cfg {
 };
 
 /**
+ * enum CDP preload ahead address size
+ */
+enum {
+	SDE_WB_CDP_PRELOAD_AHEAD_32,
+	SDE_WB_CDP_PRELOAD_AHEAD_64
+};
+
+/**
+ * struct sde_hw_wb_cdp_cfg : CDP configuration
+ * @enable: true to enable CDP
+ * @ubwc_meta_enable: true to enable ubwc metadata preload
+ * @tile_amortize_enable: true to enable amortization control for tile format
+ * @preload_ahead: number of request to preload ahead
+ *	SDE_WB_CDP_PRELOAD_AHEAD_32,
+ *	SDE_WB_CDP_PRELOAD_AHEAD_64
+ */
+struct sde_hw_wb_cdp_cfg {
+	bool enable;
+	bool ubwc_meta_enable;
+	bool tile_amortize_enable;
+	u32 preload_ahead;
+};
+
+/**
  * struct sde_hw_wb_qos_cfg : Writeback pipe QoS configuration
  * @danger_lut: LUT for generate danger level based on fill level
  * @safe_lut: LUT for generate safe level based on fill level
@@ -95,6 +119,14 @@ struct sde_hw_wb_ops {
 	 */
 	void (*setup_qos_ctrl)(struct sde_hw_wb *ctx,
 			struct sde_hw_wb_qos_cfg *cfg);
+
+	/**
+	 * setup_cdp - setup CDP
+	 * @ctx: Pointer to pipe context
+	 * @cfg: Pointer to pipe CDP configuration
+	 */
+	void (*setup_cdp)(struct sde_hw_wb *ctx,
+			struct sde_hw_wb_cdp_cfg *cfg);
 };
 
 /**

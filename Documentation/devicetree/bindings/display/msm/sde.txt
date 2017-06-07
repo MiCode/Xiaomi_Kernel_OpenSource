@@ -132,8 +132,6 @@ Optional properties:
 				power collapse feature available or not.
 - qcom,sde-has-mixer-gc:	Boolean property to indicate if mixer has gamma correction
 				feature available or not.
-- qcom,sde-has-cdp:		Boolean property to indicate if cdp feature is
-				available or not.
 - qcom,sde-sspp-clk-ctrl:	Array of offsets describing clk control
 				offsets for dynamic clock gating. 1st value
 				in the array represents offset of the control
@@ -319,6 +317,9 @@ Optional properties:
 				<fill level, lut hi, lut lo> in ascending fill level
 				indicating the qos luts for cwb on sspp.
 				Zero fill level on the last entry identifies the default lut.
+- qcom,sde-cdp-setting:		Array of 2 cell property, with a format of
+				<read enable, write enable> for cdp use cases in
+				order of <real_time>, and <non_real_time>.
 
 Bus Scaling Subnodes:
 - qcom,sde-reg-bus:		Property to provide Bus scaling for register access for
@@ -447,7 +448,6 @@ Example:
     qcom,sde-ubwc-static = <0x100>;
     qcom,sde-ubwc-swizzle = <0>;
     qcom,sde-panic-per-pipe;
-    qcom,sde-has-cdp;
     qcom,sde-has-src-split;
     qcom,sde-has-dim-layer;
     qcom,sde-sspp-src-size = <0x100>;
@@ -516,6 +516,8 @@ Example:
             <0 0x00000000 0x00000000>;
     qcom,sde-qos-lut-cwb =
             <0 0x75300000 0x00000000>;
+
+    qcom,sde-cdp-setting = <1 1>, <1 0>;
 
     qcom,sde-vbif-off = <0 0>;
     qcom,sde-vbif-id = <0 1>;

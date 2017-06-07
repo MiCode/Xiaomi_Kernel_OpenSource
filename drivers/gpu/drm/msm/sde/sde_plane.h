@@ -110,6 +110,7 @@ struct sde_plane_rot_state {
  * @multirect_index: index of the rectangle of SSPP
  * @multirect_mode: parallel or time multiplex multirect mode
  * @pending:	whether the current update is still pending
+ * @cdp_cfg:	CDP configuration
  */
 struct sde_plane_state {
 	struct drm_plane_state base;
@@ -126,6 +127,8 @@ struct sde_plane_state {
 	/* @sc_cfg: system_cache configuration */
 	struct sde_hw_pipe_sc_cfg sc_cfg;
 	struct sde_plane_rot_state rot;
+
+	struct sde_hw_pipe_cdp_cfg cdp_cfg;
 };
 
 /**

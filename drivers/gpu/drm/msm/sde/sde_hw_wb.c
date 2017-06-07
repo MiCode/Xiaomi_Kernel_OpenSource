@@ -49,7 +49,7 @@
 #define WB_UBWC_STATIC_CTRL		0x144
 #define WB_CSC_BASE			0x260
 #define WB_DST_ADDR_SW_STATUS		0x2B0
-#define WB_CDP_CTRL			0x2B4
+#define WB_CDP_CNTL			0x2B4
 #define WB_OUT_IMAGE_SIZE		0x2C0
 #define WB_OUT_XY			0x2C4
 
@@ -96,7 +96,6 @@ static void sde_hw_wb_setup_format(struct sde_hw_wb *ctx,
 	u32 write_config = 0;
 	u32 opmode = 0;
 	u32 dst_addr_sw = 0;
-	u32 cdp_settings = 0x0;
 
 	chroma_samp = fmt->chroma_sample;
 
@@ -165,18 +164,6 @@ static void sde_hw_wb_setup_format(struct sde_hw_wb *ctx,
 	SDE_REG_WRITE(c, WB_OUT_SIZE, outsize);
 	SDE_REG_WRITE(c, WB_DST_WRITE_CONFIG, write_config);
 	SDE_REG_WRITE(c, WB_DST_ADDR_SW_STATUS, dst_addr_sw);
-
-	/* Enable CDP */
-	cdp_settings = BIT(0);
-
-	if (!SDE_FORMAT_IS_LINEAR(fmt))
-		cdp_settings |= BIT(1);
-
-	/* Enable 64 transactions if line mode*/
-	if (data->intf_mode == INTF_MODE_WB_LINE)
-		cdp_settings |= BIT(3);
-
-	SDE_REG_WRITE(c, WB_CDP_CTRL, cdp_settings);
 }
 
 static void sde_hw_wb_roi(struct sde_hw_wb *ctx, struct sde_hw_wb_cfg *wb)
@@ -234,6 +221,27 @@ static void sde_hw_wb_setup_qos_ctrl(struct sde_hw_wb *ctx,
 	SDE_REG_WRITE(c, WB_QOS_CTRL, qos_ctrl);
 }
 
+static void sde_hw_wb_setup_cdp(struct sde_hw_wb *ctx,
+		struct sde_hw_wb_cdp_cfg *cfg)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 cdp_cntl = 0;
+
+	if (!ctx || !cfg)
+		return;
+
+	c = &ctx->hw;
+
+	if (cfg->enable)
+		cdp_cntl |= BIT(0);
+	if (cfg->ubwc_meta_enable)
+		cdp_cntl |= BIT(1);
+	if (cfg->preload_ahead == SDE_WB_CDP_PRELOAD_AHEAD_64)
+		cdp_cntl |= BIT(3);
+
+	SDE_REG_WRITE(c, WB_CDP_CNTL, cdp_cntl);
+}
+
 static void _setup_wb_ops(struct sde_hw_wb_ops *ops,
 	unsigned long features)
 {
@@ -249,6 +257,9 @@ static void _setup_wb_ops(struct sde_hw_wb_ops *ops,
 		ops->setup_creq_lut = sde_hw_wb_setup_creq_lut;
 		ops->setup_qos_ctrl = sde_hw_wb_setup_qos_ctrl;
 	}
+
+	if (test_bit(SDE_WB_CDP, &features))
+		ops->setup_cdp = sde_hw_wb_setup_cdp;
 }
 
 struct sde_hw_wb *sde_hw_wb_init(enum sde_wb idx,

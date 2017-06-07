@@ -136,7 +136,6 @@ enum sde_prop {
 	QSEED_TYPE,
 	CSC_TYPE,
 	PANIC_PER_PIPE,
-	CDP,
 	SRC_SPLIT,
 	DIM_LAYER,
 	SMART_DMA_REV,
@@ -165,6 +164,7 @@ enum {
 	PERF_QOS_LUT_MACROTILE,
 	PERF_QOS_LUT_NRT,
 	PERF_QOS_LUT_CWB,
+	PERF_CDP_SETTING,
 	PERF_PROP_MAX,
 };
 
@@ -349,7 +349,6 @@ static struct sde_prop_type sde_prop[] = {
 	{QSEED_TYPE, "qcom,sde-qseed-type", false, PROP_TYPE_STRING},
 	{CSC_TYPE, "qcom,sde-csc-type", false, PROP_TYPE_STRING},
 	{PANIC_PER_PIPE, "qcom,sde-panic-per-pipe", false, PROP_TYPE_BOOL},
-	{CDP, "qcom,sde-has-cdp", false, PROP_TYPE_BOOL},
 	{SRC_SPLIT, "qcom,sde-has-src-split", false, PROP_TYPE_BOOL},
 	{DIM_LAYER, "qcom,sde-has-dim-layer", false, PROP_TYPE_BOOL},
 	{SMART_DMA_REV, "qcom,sde-smart-dma-rev", false, PROP_TYPE_STRING},
@@ -390,6 +389,8 @@ static struct sde_prop_type sde_perf_prop[] = {
 	{PERF_QOS_LUT_NRT, "qcom,sde-qos-lut-nrt", false,
 			PROP_TYPE_U32_ARRAY},
 	{PERF_QOS_LUT_CWB, "qcom,sde-qos-lut-cwb", false,
+			PROP_TYPE_U32_ARRAY},
+	{PERF_CDP_SETTING, "qcom,sde-cdp-setting", false,
 			PROP_TYPE_U32_ARRAY},
 };
 
@@ -1061,6 +1062,9 @@ static int sde_sspp_parse_dt(struct device_node *np,
 
 		set_bit(SDE_SSPP_SRC, &sspp->features);
 
+		if (sde_cfg->has_cdp)
+			set_bit(SDE_SSPP_CDP, &sspp->features);
+
 		if (sde_cfg->ts_prefill_rev == 1) {
 			set_bit(SDE_SSPP_TS_PREFILL, &sspp->features);
 		} else if (sde_cfg->ts_prefill_rev == 2) {
@@ -1499,6 +1503,9 @@ static int sde_wb_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 			set_bit(SDE_WB_BLOCK_MODE, &wb->features);
 		set_bit(SDE_WB_TRAFFIC_SHAPER, &wb->features);
 		set_bit(SDE_WB_YUV_CONFIG, &wb->features);
+
+		if (sde_cfg->has_cdp)
+			set_bit(SDE_WB_CDP, &wb->features);
 
 		set_bit(SDE_WB_QOS, &wb->features);
 		if (sde_cfg->vbif_qos_nlvl == 8)
@@ -2420,6 +2427,11 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	if (rc)
 		goto freeprop;
 
+	rc = _validate_dt_entry(np, &sde_perf_prop[PERF_CDP_SETTING], 1,
+			&prop_count[PERF_CDP_SETTING], NULL);
+	if (rc)
+		goto freeprop;
+
 	rc = _read_dt_entry(np, sde_perf_prop, ARRAY_SIZE(sde_perf_prop),
 			prop_count, prop_exists, prop_value);
 	if (rc)
@@ -2557,6 +2569,27 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 				cfg->perf.qos_lut_tbl[j].entries[k].lut);
 		}
 		cfg->perf.qos_lut_tbl[j].nentry = count;
+	}
+
+	if (prop_exists[PERF_CDP_SETTING]) {
+		const u32 prop_size = 2;
+		u32 count = prop_count[PERF_CDP_SETTING] / prop_size;
+
+		count = min_t(u32, count, SDE_PERF_CDP_USAGE_MAX);
+
+		for (j = 0; j < count; j++) {
+			cfg->perf.cdp_cfg[j].rd_enable =
+					PROP_VALUE_ACCESS(prop_value,
+					PERF_CDP_SETTING, j * prop_size);
+			cfg->perf.cdp_cfg[j].wr_enable =
+					PROP_VALUE_ACCESS(prop_value,
+					PERF_CDP_SETTING, j * prop_size + 1);
+			SDE_DEBUG("cdp usage:%d rd:%d wr:%d\n",
+				j, cfg->perf.cdp_cfg[j].rd_enable,
+				cfg->perf.cdp_cfg[j].wr_enable);
+		}
+
+		cfg->has_cdp = true;
 	}
 
 freeprop:
@@ -2760,6 +2793,10 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev)
 	if (rc)
 		goto end;
 
+	rc = sde_perf_parse_dt(np, sde_cfg);
+	if (rc)
+		goto end;
+
 	rc = sde_rot_parse_dt(np, sde_cfg);
 	if (rc)
 		goto end;
@@ -2807,10 +2844,6 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev)
 		goto end;
 
 	rc = sde_parse_reg_dma_dt(np, sde_cfg);
-	if (rc)
-		goto end;
-
-	rc = sde_perf_parse_dt(np, sde_cfg);
 	if (rc)
 		goto end;
 

@@ -248,16 +248,18 @@ static void sde_encoder_phys_wb_setup_fb(struct sde_encoder_phys *phys_enc,
 	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
 	struct sde_hw_wb *hw_wb;
 	struct sde_hw_wb_cfg *wb_cfg;
+	struct sde_hw_wb_cdp_cfg *cdp_cfg;
 	const struct msm_format *format;
 	int ret, mmu_id;
 
-	if (!phys_enc) {
+	if (!phys_enc || !phys_enc->sde_kms || !phys_enc->sde_kms->catalog) {
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
 
 	hw_wb = wb_enc->hw_wb;
 	wb_cfg = &wb_enc->wb_cfg;
+	cdp_cfg = &wb_enc->cdp_cfg;
 	memset(wb_cfg, 0, sizeof(struct sde_hw_wb_cfg));
 
 	wb_cfg->intf_mode = phys_enc->intf_mode;
@@ -324,6 +326,21 @@ static void sde_encoder_phys_wb_setup_fb(struct sde_encoder_phys *phys_enc,
 
 	if (hw_wb->ops.setup_outformat)
 		hw_wb->ops.setup_outformat(hw_wb, wb_cfg);
+
+	if (hw_wb->ops.setup_cdp) {
+		memset(cdp_cfg, 0, sizeof(struct sde_hw_wb_cdp_cfg));
+
+		cdp_cfg->enable = phys_enc->sde_kms->catalog->perf.cdp_cfg
+				[SDE_PERF_CDP_USAGE_NRT].wr_enable;
+		cdp_cfg->ubwc_meta_enable =
+				SDE_FORMAT_IS_UBWC(wb_cfg->dest.format);
+		cdp_cfg->tile_amortize_enable =
+				SDE_FORMAT_IS_UBWC(wb_cfg->dest.format) ||
+				SDE_FORMAT_IS_TILE(wb_cfg->dest.format);
+		cdp_cfg->preload_ahead = SDE_WB_CDP_PRELOAD_AHEAD_64;
+
+		hw_wb->ops.setup_cdp(hw_wb, cdp_cfg);
+	}
 
 	if (hw_wb->ops.setup_outaddress)
 		hw_wb->ops.setup_outaddress(hw_wb, wb_cfg);
