@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,6 +49,7 @@ enum qpnp_regulator_uniq_type {
 	QPNP_TYPE_HF,
 	QPNP_TYPE_FTS2,
 	QPNP_TYPE_FTS2p5,
+	QPNP_TYPE_FTS426,
 	QPNP_TYPE_ULT_HF,
 };
 
@@ -56,6 +57,7 @@ enum qpnp_regulator_type {
 	QPNP_HF_TYPE		= 0x03,
 	QPNP_FTS2_TYPE		= 0x1C,
 	QPNP_FTS2p5_TYPE	= 0x1C,
+	QPNP_FTS426_TYPE	= 0x1C,
 	QPNP_ULT_HF_TYPE	= 0x22,
 };
 
@@ -63,7 +65,13 @@ enum qpnp_regulator_subtype {
 	QPNP_FTS2_SUBTYPE	= 0x08,
 	QPNP_HF_SUBTYPE		= 0x08,
 	QPNP_FTS2p5_SUBTYPE	= 0x09,
+	QPNP_FTS426_SUBTYPE	= 0x0A,
 	QPNP_ULT_HF_SUBTYPE	= 0x0D,
+};
+
+enum qpnp_logical_mode {
+	QPNP_LOGICAL_MODE_AUTO,
+	QPNP_LOGICAL_MODE_PWM,
 };
 
 static const struct voltage_range fts2_range0 = {0, 350000, 1275000,  5000};
@@ -72,6 +80,7 @@ static const struct voltage_range fts2p5_range0
 					 = { 80000, 350000, 1355000,  5000};
 static const struct voltage_range fts2p5_range1
 					 = {160000, 700000, 2200000, 10000};
+static const struct voltage_range fts426_range = {0, 320000, 1352000, 4000};
 static const struct voltage_range ult_hf_range0 = {375000, 375000, 1562500,
 								12500};
 static const struct voltage_range ult_hf_range1 = {750000, 750000, 1525000,
@@ -87,16 +96,27 @@ static const struct voltage_range hf_range1 = {1550000, 1550000, 3125000,
 #define QPNP_SMPS_REG_MODE		0x45
 #define QPNP_SMPS_REG_STEP_CTRL		0x61
 
+/* FTS426 voltage control registers */
+#define QPNP_FTS426_REG_VOLTAGE_LB		0x40
+#define QPNP_FTS426_REG_VOLTAGE_UB		0x41
+#define QPNP_FTS426_REG_VOLTAGE_VALID_LB	0x42
+#define QPNP_FTS426_REG_VOLTAGE_VALID_UB	0x43
+
 #define QPNP_SMPS_MODE_PWM		0x80
 #define QPNP_SMPS_MODE_AUTO		0x40
+#define QPNP_FTS426_MODE_PWM		0x07
+#define QPNP_FTS426_MODE_AUTO		0x06
 
 #define QPNP_SMPS_STEP_CTRL_STEP_MASK	0x18
 #define QPNP_SMPS_STEP_CTRL_STEP_SHIFT	3
 #define QPNP_SMPS_STEP_CTRL_DELAY_MASK	0x07
 #define QPNP_SMPS_STEP_CTRL_DELAY_SHIFT	0
+#define QPNP_FTS426_STEP_CTRL_DELAY_MASK	0x03
+#define QPNP_FTS426_STEP_CTRL_DELAY_SHIFT	0
 
 /* Clock rate in kHz of the FTS2 regulator reference clock. */
 #define QPNP_SMPS_CLOCK_RATE		19200
+#define QPNP_FTS426_CLOCK_RATE		4800
 
 /* Time to delay in us to ensure that a mode change has completed. */
 #define QPNP_FTS2_MODE_CHANGE_DELAY	50
@@ -107,6 +127,7 @@ static const struct voltage_range hf_range1 = {1550000, 1550000, 3125000,
 /* Minimum voltage stepper delay for each step. */
 #define QPNP_FTS2_STEP_DELAY		8
 #define QPNP_HF_STEP_DELAY		20
+#define QPNP_FTS426_STEP_DELAY		2
 
 /* Arbitrarily large max step size used to avoid possible numerical overflow */
 #define SPM_REGULATOR_MAX_STEP_UV	10000000
@@ -117,6 +138,8 @@ static const struct voltage_range hf_range1 = {1550000, 1550000, 3125000,
  */
 #define QPNP_FTS2_STEP_MARGIN_NUM	4
 #define QPNP_FTS2_STEP_MARGIN_DEN	5
+#define QPNP_FTS426_STEP_MARGIN_NUM	10
+#define QPNP_FTS426_STEP_MARGIN_DEN	11
 
 /*
  * Settling delay for FTS2.5
@@ -140,8 +163,8 @@ struct spm_vreg {
 	u32				max_step_uV;
 	bool				online;
 	u16				spmi_base_addr;
-	u8				init_mode;
-	u8				mode;
+	enum qpnp_logical_mode		init_mode;
+	enum qpnp_logical_mode		mode;
 	int				step_rate;
 	enum qpnp_regulator_uniq_type	regulator_type;
 	u32				cpu_num;
@@ -163,6 +186,9 @@ static int spm_regulator_uv_to_vlevel(struct spm_vreg *vreg, int uV)
 {
 	int vlevel;
 
+	if (vreg->regulator_type == QPNP_TYPE_FTS426)
+		return roundup(uV, vreg->range->step_uV) / 1000;
+
 	vlevel = DIV_ROUND_UP(uV - vreg->range->min_uV, vreg->range->step_uV);
 
 	/* Fix VSET for ULT HF Buck */
@@ -177,6 +203,8 @@ static int spm_regulator_uv_to_vlevel(struct spm_vreg *vreg, int uV)
 
 static int spm_regulator_vlevel_to_uv(struct spm_vreg *vreg, int vlevel)
 {
+	if (vreg->regulator_type == QPNP_TYPE_FTS426)
+		return vlevel * 1000;
 	/*
 	 * Calculate ULT HF buck VSET based on range:
 	 * In case of range 0: VSET is a 7 bit value.
@@ -204,24 +232,82 @@ static unsigned spm_regulator_vlevel_to_selector(struct spm_vreg *vreg,
 static int qpnp_smps_read_voltage(struct spm_vreg *vreg)
 {
 	int rc;
-	u8 reg = 0;
-	uint val;
+	u8 val[2] = {0};
 
-	rc = regmap_read(vreg->regmap,
-			 vreg->spmi_base_addr + QPNP_SMPS_REG_VOLTAGE_SETPOINT,
-			 &val);
-	if (rc) {
-		dev_err(&vreg->pdev->dev,
-			"%s: could not read voltage setpoint register, rc=%d\n",
-			__func__, rc);
-		return rc;
+	if (vreg->regulator_type == QPNP_TYPE_FTS426) {
+		rc = regmap_bulk_read(vreg->regmap,
+			vreg->spmi_base_addr + QPNP_FTS426_REG_VOLTAGE_VALID_LB,
+				 val, 2);
+		if (rc) {
+			dev_err(&vreg->pdev->dev, "%s: could not read voltage setpoint registers, rc=%d\n",
+				__func__, rc);
+			return rc;
+		}
+
+		vreg->last_set_vlevel = ((unsigned)val[1] << 8) | val[0];
+	} else {
+		rc = regmap_bulk_read(vreg->regmap,
+			vreg->spmi_base_addr + QPNP_SMPS_REG_VOLTAGE_SETPOINT,
+				val, 1);
+		if (rc) {
+			dev_err(&vreg->pdev->dev, "%s: could not read voltage setpoint register, rc=%d\n",
+				__func__, rc);
+			return rc;
+		}
+		vreg->last_set_vlevel = val[0];
 	}
-	reg = (u8)val;
 
-	vreg->last_set_vlevel = reg;
-	vreg->last_set_uV = spm_regulator_vlevel_to_uv(vreg, reg);
+	vreg->last_set_uV = spm_regulator_vlevel_to_uv(vreg,
+						vreg->last_set_vlevel);
+	return rc;
+}
+
+static int qpnp_smps_write_voltage(struct spm_vreg *vreg, unsigned vlevel)
+{
+	int rc = 0;
+	u8 reg[2];
+
+	/* Set voltage control registers via SPMI. */
+	reg[0] = vlevel & 0xFF;
+	reg[1] = (vlevel >> 8) & 0xFF;
+
+	if (vreg->regulator_type == QPNP_TYPE_FTS426) {
+		rc = regmap_bulk_write(vreg->regmap,
+			  vreg->spmi_base_addr + QPNP_FTS426_REG_VOLTAGE_LB,
+			  reg, 2);
+	} else {
+		rc = regmap_write(vreg->regmap,
+			  vreg->spmi_base_addr + QPNP_SMPS_REG_VOLTAGE_SETPOINT,
+			  reg[0]);
+	}
+
+	if (rc)
+		pr_err("%s: regmap_write failed, rc=%d\n",
+			vreg->rdesc.name, rc);
 
 	return rc;
+}
+
+static inline enum qpnp_logical_mode qpnp_regval_to_mode(struct spm_vreg *vreg,
+							u8 regval)
+{
+	if (vreg->regulator_type == QPNP_TYPE_FTS426)
+		return (regval == QPNP_FTS426_MODE_PWM)
+			? QPNP_LOGICAL_MODE_PWM : QPNP_LOGICAL_MODE_AUTO;
+	else
+		return (regval & QPNP_SMPS_MODE_PWM)
+			? QPNP_LOGICAL_MODE_PWM : QPNP_LOGICAL_MODE_AUTO;
+}
+
+static inline u8 qpnp_mode_to_regval(struct spm_vreg *vreg,
+					enum qpnp_logical_mode mode)
+{
+	if (vreg->regulator_type == QPNP_TYPE_FTS426)
+		return (mode == QPNP_LOGICAL_MODE_PWM)
+			? QPNP_FTS426_MODE_PWM : QPNP_FTS426_MODE_AUTO;
+	else
+		return (mode == QPNP_LOGICAL_MODE_PWM)
+			? QPNP_SMPS_MODE_PWM : QPNP_SMPS_MODE_AUTO;
 }
 
 static int qpnp_smps_set_mode(struct spm_vreg *vreg, u8 mode)
@@ -229,7 +315,8 @@ static int qpnp_smps_set_mode(struct spm_vreg *vreg, u8 mode)
 	int rc;
 
 	rc = regmap_write(vreg->regmap,
-			  vreg->spmi_base_addr + QPNP_SMPS_REG_MODE, mode);
+			  vreg->spmi_base_addr + QPNP_SMPS_REG_MODE,
+			  qpnp_mode_to_regval(vreg, mode));
 	if (rc)
 		dev_err(&vreg->pdev->dev,
 			"%s: could not write to mode register, rc=%d\n",
@@ -275,7 +362,6 @@ static int spm_regulator_write_voltage(struct spm_vreg *vreg, int uV)
 	bool spm_failed = false;
 	int rc = 0;
 	u32 slew_delay;
-	u8 reg;
 
 	if (likely(!vreg->bypass_spm)) {
 		/* Set voltage control register via SPM. */
@@ -288,13 +374,9 @@ static int spm_regulator_write_voltage(struct spm_vreg *vreg, int uV)
 	}
 
 	if (unlikely(vreg->bypass_spm || spm_failed)) {
-		/* Set voltage control register via SPMI. */
-		reg = vlevel;
-		rc = regmap_write(vreg->regmap,
-			  vreg->spmi_base_addr + QPNP_SMPS_REG_VOLTAGE_SETPOINT,
-			  reg);
+		rc = qpnp_smps_write_voltage(vreg, vlevel);
 		if (rc) {
-			pr_err("%s: regmap_write failed, rc=%d\n",
+			pr_err("%s: voltage write failed, rc=%d\n",
 				vreg->rdesc.name, rc);
 			return rc;
 		}
@@ -351,12 +433,12 @@ static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
 		return 0;
 
 	pwm_required = (vreg->regulator_type == QPNP_TYPE_FTS2)
-			&& !(vreg->init_mode & QPNP_SMPS_MODE_PWM)
+			&& (vreg->init_mode != QPNP_LOGICAL_MODE_PWM)
 			&& vreg->uV > vreg->last_set_uV;
 
 	if (pwm_required) {
 		/* Switch to PWM mode so that voltage ramping is fast. */
-		rc = qpnp_smps_set_mode(vreg, QPNP_SMPS_MODE_PWM);
+		rc = qpnp_smps_set_mode(vreg, QPNP_LOGICAL_MODE_PWM);
 		if (rc)
 			return rc;
 	}
@@ -375,7 +457,7 @@ static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
 		/* Wait for mode transition to complete. */
 		udelay(QPNP_FTS2_MODE_CHANGE_DELAY - QPNP_SPMI_WRITE_MIN_DELAY);
 		/* Switch to AUTO mode so that power consumption is lowered. */
-		rc = qpnp_smps_set_mode(vreg, QPNP_SMPS_MODE_AUTO);
+		rc = qpnp_smps_set_mode(vreg, QPNP_LOGICAL_MODE_AUTO);
 		if (rc)
 			return rc;
 	}
@@ -466,7 +548,7 @@ static unsigned int spm_regulator_get_mode(struct regulator_dev *rdev)
 {
 	struct spm_vreg *vreg = rdev_get_drvdata(rdev);
 
-	return vreg->mode == QPNP_SMPS_MODE_PWM
+	return vreg->mode == QPNP_LOGICAL_MODE_PWM
 			? REGULATOR_MODE_NORMAL : REGULATOR_MODE_IDLE;
 }
 
@@ -480,8 +562,8 @@ static int spm_regulator_set_mode(struct regulator_dev *rdev, unsigned int mode)
 	 * in the case that qcom,mode has been specified as "pwm" in device
 	 * tree.
 	 */
-	vreg->mode
-	 = mode == REGULATOR_MODE_NORMAL ? QPNP_SMPS_MODE_PWM : vreg->init_mode;
+	vreg->mode = (mode == REGULATOR_MODE_NORMAL) ? QPNP_LOGICAL_MODE_PWM
+						     : vreg->init_mode;
 
 	return qpnp_smps_set_mode(vreg, vreg->mode);
 }
@@ -538,7 +620,7 @@ static int spm_regulator_avs_set_voltage(struct regulator_dev *rdev, int min_uV,
 		return -EINVAL;
 	}
 
-	vlevel_max = (uV - range->min_uV) / range->step_uV;
+	vlevel_max = spm_regulator_uv_to_vlevel(vreg, uV);
 	avs_max_uV = spm_regulator_vlevel_to_uv(vreg, vlevel_max);
 
 	if (avs_max_uV < min_uV) {
@@ -646,6 +728,9 @@ static int qpnp_smps_check_type(struct spm_vreg *vreg)
 	} else if (type[0] == QPNP_FTS2p5_TYPE
 					&& type[1] == QPNP_FTS2p5_SUBTYPE) {
 		vreg->regulator_type = QPNP_TYPE_FTS2p5;
+	} else if (type[0] == QPNP_FTS426_TYPE
+					&& type[1] == QPNP_FTS426_SUBTYPE) {
+		vreg->regulator_type = QPNP_TYPE_FTS426;
 	} else if (type[0] == QPNP_ULT_HF_TYPE
 					&& type[1] == QPNP_ULT_HF_SUBTYPE) {
 		vreg->regulator_type = QPNP_TYPE_ULT_HF;
@@ -750,10 +835,10 @@ static int qpnp_smps_init_mode(struct spm_vreg *vreg)
 					&mode_name);
 	if (!rc) {
 		if (strcmp("pwm", mode_name) == 0) {
-			vreg->init_mode = QPNP_SMPS_MODE_PWM;
+			vreg->init_mode = QPNP_LOGICAL_MODE_PWM;
 		} else if ((strcmp("auto", mode_name) == 0) &&
 				(vreg->regulator_type != QPNP_TYPE_ULT_HF)) {
-			vreg->init_mode = QPNP_SMPS_MODE_AUTO;
+			vreg->init_mode = QPNP_LOGICAL_MODE_AUTO;
 		} else {
 			dev_err(&vreg->pdev->dev,
 				"%s: unknown regulator mode: %s\n",
@@ -761,13 +846,9 @@ static int qpnp_smps_init_mode(struct spm_vreg *vreg)
 			return -EINVAL;
 		}
 
-		rc = regmap_write(vreg->regmap,
-				  vreg->spmi_base_addr + QPNP_SMPS_REG_MODE,
-				  *&vreg->init_mode);
+		rc = qpnp_smps_set_mode(vreg, vreg->init_mode);
 		if (rc)
-			dev_err(&vreg->pdev->dev,
-				"%s: could not write mode register, rc=%d\n",
-				__func__, rc);
+			return rc;
 	} else {
 		rc = regmap_read(vreg->regmap,
 				 vreg->spmi_base_addr + QPNP_SMPS_REG_MODE,
@@ -776,7 +857,7 @@ static int qpnp_smps_init_mode(struct spm_vreg *vreg)
 			dev_err(&vreg->pdev->dev,
 				"%s: could not read mode register, rc=%d\n",
 				__func__, rc);
-		 vreg->init_mode = (u8)val;
+		 vreg->init_mode = qpnp_regval_to_mode(vreg, val);
 	}
 
 	vreg->mode = vreg->init_mode;
@@ -801,26 +882,41 @@ static int qpnp_smps_init_step_rate(struct spm_vreg *vreg)
 	}
 	reg = (u8)val;
 
-	/* ULT buck does not support steps */
-	if (vreg->regulator_type != QPNP_TYPE_ULT_HF)
+	/* ULT and FTS426 bucks do not support steps */
+	if (vreg->regulator_type != QPNP_TYPE_ULT_HF && vreg->regulator_type !=
+			QPNP_TYPE_FTS426)
 		step = (reg & QPNP_SMPS_STEP_CTRL_STEP_MASK)
 			>> QPNP_SMPS_STEP_CTRL_STEP_SHIFT;
 
-	delay = (reg & QPNP_SMPS_STEP_CTRL_DELAY_MASK)
-		>> QPNP_SMPS_STEP_CTRL_DELAY_SHIFT;
+	if (vreg->regulator_type == QPNP_TYPE_FTS426) {
+		delay = (reg & QPNP_FTS426_STEP_CTRL_DELAY_MASK)
+			>> QPNP_FTS426_STEP_CTRL_DELAY_SHIFT;
 
-	/* step_rate has units of uV/us. */
-	vreg->step_rate = QPNP_SMPS_CLOCK_RATE * vreg->range->step_uV
-				* (1 << step);
+		/* step_rate has units of uV/us. */
+		vreg->step_rate = QPNP_FTS426_CLOCK_RATE * vreg->range->step_uV;
+	} else {
+		delay = (reg & QPNP_SMPS_STEP_CTRL_DELAY_MASK)
+			>> QPNP_SMPS_STEP_CTRL_DELAY_SHIFT;
+
+		/* step_rate has units of uV/us. */
+		vreg->step_rate = QPNP_SMPS_CLOCK_RATE * vreg->range->step_uV
+					* (1 << step);
+	}
 
 	if ((vreg->regulator_type == QPNP_TYPE_ULT_HF)
 			|| (vreg->regulator_type == QPNP_TYPE_HF))
 		vreg->step_rate /= 1000 * (QPNP_HF_STEP_DELAY << delay);
+	else if (vreg->regulator_type == QPNP_TYPE_FTS426)
+		vreg->step_rate /= 1000 * (QPNP_FTS426_STEP_DELAY << delay);
 	else
 		vreg->step_rate /= 1000 * (QPNP_FTS2_STEP_DELAY << delay);
 
-	vreg->step_rate = vreg->step_rate * QPNP_FTS2_STEP_MARGIN_NUM
-				/ QPNP_FTS2_STEP_MARGIN_DEN;
+	if (vreg->regulator_type == QPNP_TYPE_FTS426)
+		vreg->step_rate = vreg->step_rate * QPNP_FTS426_STEP_MARGIN_NUM
+					/ QPNP_FTS426_STEP_MARGIN_DEN;
+	else
+		vreg->step_rate = vreg->step_rate * QPNP_FTS2_STEP_MARGIN_NUM
+					/ QPNP_FTS2_STEP_MARGIN_DEN;
 
 	/* Ensure that the stepping rate is greater than 0. */
 	vreg->step_rate = max(vreg->step_rate, 1);
@@ -831,7 +927,8 @@ static int qpnp_smps_init_step_rate(struct spm_vreg *vreg)
 static bool spm_regulator_using_range0(struct spm_vreg *vreg)
 {
 	return vreg->range == &fts2_range0 || vreg->range == &fts2p5_range0
-		|| vreg->range == &ult_hf_range0 || vreg->range == &hf_range0;
+		|| vreg->range == &ult_hf_range0 || vreg->range == &hf_range0
+		|| vreg->range == &fts426_range;
 }
 
 /* Register a regulator to enable/disable AVS and set AVS min/max limits. */
@@ -969,6 +1066,8 @@ static int spm_regulator_probe(struct platform_device *pdev)
 		rc = qpnp_smps_init_range(vreg, &fts2_range0, &fts2_range1);
 	else if (vreg->regulator_type == QPNP_TYPE_FTS2p5)
 		rc = qpnp_smps_init_range(vreg, &fts2p5_range0, &fts2p5_range1);
+	else if (vreg->regulator_type == QPNP_TYPE_FTS426)
+		vreg->range = &fts426_range;
 	else if (vreg->regulator_type == QPNP_TYPE_HF)
 		rc = qpnp_smps_init_range(vreg, &hf_range0, &hf_range1);
 	else if (vreg->regulator_type == QPNP_TYPE_ULT_HF)
@@ -1050,8 +1149,8 @@ static int spm_regulator_probe(struct platform_device *pdev)
 		vreg->rdesc.name,
 		spm_regulator_using_range0(vreg) ? "LV" : "MV",
 		vreg->uV,
-		vreg->init_mode & QPNP_SMPS_MODE_PWM ? "PWM" :
-		    (vreg->init_mode & QPNP_SMPS_MODE_AUTO ? "AUTO" : "PFM"),
+		vreg->init_mode == QPNP_LOGICAL_MODE_PWM ? "PWM" :
+		   (vreg->init_mode == QPNP_LOGICAL_MODE_AUTO ? "AUTO" : "PFM"),
 		vreg->step_rate);
 
 	return rc;
