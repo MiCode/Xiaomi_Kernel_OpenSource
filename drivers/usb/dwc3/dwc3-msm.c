@@ -2158,10 +2158,9 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	 * with DCP or during cable disconnect, we dont require wakeup
 	 * using HS_PHY_IRQ or SS_PHY_IRQ. Hence enable wakeup only in
 	 * case of host bus suspend and device bus suspend.
-	 * In host mode if wakeup_sources are not used then don't enable.
 	 */
 	if ((mdwc->vbus_active && mdwc->otg_state == OTG_STATE_B_SUSPEND)
-		  || (mdwc->in_host_mode && !mdwc->no_wakeup_src_in_hostmode)) {
+			|| mdwc->in_host_mode) {
 		enable_irq_wake(mdwc->hs_phy_irq);
 		enable_irq(mdwc->hs_phy_irq);
 		if (mdwc->ss_phy_irq) {
