@@ -197,7 +197,7 @@ static struct clk_dummy measure_only_ipa_2x_clk = {
 };
 
 static struct pll_vco fabia_vco[] = {
-	{ 250000000, 2000000000, 0 },
+	{ 249600000, 2000000000, 0 },
 	{ 125000000, 1000000000, 1 },
 };
 
@@ -790,8 +790,8 @@ static const struct freq_tbl ftbl_gcc_sdcc2_apps_clk_src[] = {
 	F(400000, P_BI_TCXO, 12, 1, 4),
 	F(9600000, P_BI_TCXO, 2, 0, 0),
 	F(19200000, P_BI_TCXO, 1, 0, 0),
-	F(25000000, P_GPLL0_OUT_MAIN, 12, 1, 2),
-	F(50000000, P_GPLL0_OUT_MAIN, 12, 0, 0),
+	F(25000000, P_GPLL0_OUT_EVEN, 12, 0, 0),
+	F(50000000, P_GPLL0_OUT_EVEN, 6, 0, 0),
 	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
 	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
 	{ }
