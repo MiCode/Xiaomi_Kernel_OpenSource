@@ -1566,6 +1566,8 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int reg;
+	unsigned long time;
+	bool vbif_acked = false;
 
 	/*
 	 * For the soft reset case with GMU enabled this part is done
@@ -1584,12 +1586,19 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, &reg);
 	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 0);
 
-	/* Check VBIF status after reset */
-	if (timed_poll_check(device,
-			A6XX_RBBM_VBIF_GX_RESET_STATUS,
-			VBIF_RESET_ACK_MASK,
-			VBIF_RESET_ACK_TIMEOUT,
-			VBIF_RESET_ACK_MASK))
+	/* Wait for the VBIF reset ack to complete */
+	time = jiffies + msecs_to_jiffies(VBIF_RESET_ACK_TIMEOUT);
+
+	do {
+		kgsl_regread(device, A6XX_RBBM_VBIF_GX_RESET_STATUS, &reg);
+		if ((reg & VBIF_RESET_ACK_MASK) == VBIF_RESET_ACK_MASK) {
+			vbif_acked = true;
+			break;
+		}
+		cpu_relax();
+	} while (!time_after(jiffies, time));
+
+	if (!vbif_acked)
 		return -ETIMEDOUT;
 
 	a6xx_sptprac_enable(adreno_dev);
