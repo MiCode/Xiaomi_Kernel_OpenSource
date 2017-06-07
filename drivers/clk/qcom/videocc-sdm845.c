@@ -63,7 +63,7 @@ static const char * const video_cc_parent_names_0[] = {
 };
 
 static struct pll_vco fabia_vco[] = {
-	{ 250000000, 2000000000, 0 },
+	{ 249600000, 2000000000, 0 },
 	{ 125000000, 1000000000, 1 },
 };
 
@@ -97,6 +97,16 @@ static const struct freq_tbl ftbl_video_cc_venus_clk_src[] = {
 	F(200000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
 	F(320000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
 	F(380000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
+	F(444000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
+	F(533000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_video_cc_venus_clk_src_sdm845_v2[] = {
+	F(100000000, P_VIDEO_PLL0_OUT_MAIN, 4, 0, 0),
+	F(200000000, P_VIDEO_PLL0_OUT_MAIN, 2, 0, 0),
+	F(330000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
+	F(404000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
 	F(444000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
 	F(533000000, P_VIDEO_PLL0_OUT_MAIN, 1, 0, 0),
 	{ }
@@ -324,9 +334,33 @@ static const struct qcom_cc_desc video_cc_sdm845_desc = {
 
 static const struct of_device_id video_cc_sdm845_match_table[] = {
 	{ .compatible = "qcom,video_cc-sdm845" },
+	{ .compatible = "qcom,video_cc-sdm845-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, video_cc_sdm845_match_table);
+
+static void video_cc_sdm845_fixup_sdm845v2(void)
+{
+	video_cc_venus_clk_src.freq_tbl = ftbl_video_cc_venus_clk_src_sdm845_v2;
+	video_cc_venus_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] = 330000000;
+	video_cc_venus_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+		404000000;
+}
+
+static int video_cc_sdm845_fixup(struct platform_device *pdev)
+{
+	const char *compat = NULL;
+	int compatlen = 0;
+
+	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
+	if (!compat || (compatlen <= 0))
+		return -EINVAL;
+
+	if (!strcmp(compat, "qcom,video_cc-sdm845-v2"))
+		video_cc_sdm845_fixup_sdm845v2();
+
+	return 0;
+}
 
 static int video_cc_sdm845_probe(struct platform_device *pdev)
 {
@@ -346,6 +380,10 @@ static int video_cc_sdm845_probe(struct platform_device *pdev)
 				"Unable to get vdd_cx regulator\n");
 		return PTR_ERR(vdd_cx.regulator[0]);
 	}
+
+	ret = video_cc_sdm845_fixup(pdev);
+	if (ret)
+		return ret;
 
 	clk_fabia_pll_configure(&video_pll0, regmap, &video_pll0_config);
 

@@ -466,6 +466,25 @@ static const struct freq_tbl ftbl_gcc_qupv3_wrap0_s0_clk_src[] = {
 	{ }
 };
 
+static const struct freq_tbl ftbl_gcc_qupv3_wrap0_s0_clk_src_sdm845_v2[] = {
+	F(7372800, P_GPLL0_OUT_EVEN, 1, 384, 15625),
+	F(14745600, P_GPLL0_OUT_EVEN, 1, 768, 15625),
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(29491200, P_GPLL0_OUT_EVEN, 1, 1536, 15625),
+	F(32000000, P_GPLL0_OUT_EVEN, 1, 8, 75),
+	F(48000000, P_GPLL0_OUT_EVEN, 1, 4, 25),
+	F(64000000, P_GPLL0_OUT_EVEN, 1, 16, 75),
+	F(80000000, P_GPLL0_OUT_EVEN, 1, 4, 15),
+	F(96000000, P_GPLL0_OUT_EVEN, 1, 8, 25),
+	F(100000000, P_GPLL0_OUT_EVEN, 3, 0, 0),
+	F(102400000, P_GPLL0_OUT_EVEN, 1, 128, 375),
+	F(112000000, P_GPLL0_OUT_EVEN, 1, 28, 75),
+	F(117964800, P_GPLL0_OUT_EVEN, 1, 6144, 15625),
+	F(120000000, P_GPLL0_OUT_EVEN, 2.5, 0, 0),
+	F(128000000, P_GPLL0_OUT_MAIN, 1, 16, 75),
+	{ }
+};
+
 static struct clk_rcg2 gcc_qupv3_wrap0_s0_clk_src = {
 	.cmd_rcgr = 0x17034,
 	.mnd_width = 16,
@@ -876,6 +895,15 @@ static const struct freq_tbl ftbl_gcc_ufs_card_axi_clk_src[] = {
 	F(50000000, P_GPLL0_OUT_EVEN, 6, 0, 0),
 	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
 	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_gcc_ufs_card_axi_clk_src_sdm845_v2[] = {
+	F(25000000, P_GPLL0_OUT_EVEN, 12, 0, 0),
+	F(50000000, P_GPLL0_OUT_EVEN, 6, 0, 0),
+	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
+	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
+	F(240000000, P_GPLL0_OUT_MAIN, 2.5, 0, 0),
 	{ }
 };
 
@@ -3542,9 +3570,131 @@ static const struct qcom_cc_desc gcc_sdm845_desc = {
 
 static const struct of_device_id gcc_sdm845_match_table[] = {
 	{ .compatible = "qcom,gcc-sdm845" },
+	{ .compatible = "qcom,gcc-sdm845-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gcc_sdm845_match_table);
+
+static void gcc_sdm845_fixup_sdm845v2(void)
+{
+	gcc_qupv3_wrap0_s0_clk_src.freq_tbl =
+		ftbl_gcc_qupv3_wrap0_s0_clk_src_sdm845_v2;
+	gcc_qupv3_wrap0_s0_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] =
+		50000000;
+	gcc_qupv3_wrap0_s0_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
+		128000000;
+	gcc_qupv3_wrap0_s1_clk_src.freq_tbl =
+		ftbl_gcc_qupv3_wrap0_s0_clk_src_sdm845_v2;
+	gcc_qupv3_wrap0_s1_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] =
+		50000000;
+	gcc_qupv3_wrap0_s1_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
+		128000000;
+	gcc_qupv3_wrap0_s2_clk_src.freq_tbl =
+		ftbl_gcc_qupv3_wrap0_s0_clk_src_sdm845_v2;
+	gcc_qupv3_wrap0_s2_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] =
+		50000000;
+	gcc_qupv3_wrap0_s2_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
+		128000000;
+	gcc_qupv3_wrap0_s3_clk_src.freq_tbl =
+		ftbl_gcc_qupv3_wrap0_s0_clk_src_sdm845_v2;
+	gcc_qupv3_wrap0_s3_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] =
+		50000000;
+	gcc_qupv3_wrap0_s3_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
+		128000000;
+	gcc_qupv3_wrap0_s4_clk_src.freq_tbl =
+		ftbl_gcc_qupv3_wrap0_s0_clk_src_sdm845_v2;
+	gcc_qupv3_wrap0_s4_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] =
+		50000000;
+	gcc_qupv3_wrap0_s4_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
+		128000000;
+	gcc_qupv3_wrap0_s5_clk_src.freq_tbl =
+		ftbl_gcc_qupv3_wrap0_s0_clk_src_sdm845_v2;
+	gcc_qupv3_wrap0_s5_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] =
+		50000000;
+	gcc_qupv3_wrap0_s5_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
+		128000000;
+	gcc_qupv3_wrap0_s6_clk_src.freq_tbl =
+		ftbl_gcc_qupv3_wrap0_s0_clk_src_sdm845_v2;
+	gcc_qupv3_wrap0_s6_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] =
+		50000000;
+	gcc_qupv3_wrap0_s6_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
+		128000000;
+	gcc_qupv3_wrap0_s7_clk_src.freq_tbl =
+		ftbl_gcc_qupv3_wrap0_s0_clk_src_sdm845_v2;
+	gcc_qupv3_wrap0_s7_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] =
+		50000000;
+	gcc_qupv3_wrap0_s7_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
+		128000000;
+	gcc_qupv3_wrap1_s0_clk_src.freq_tbl =
+		ftbl_gcc_qupv3_wrap0_s0_clk_src_sdm845_v2;
+	gcc_qupv3_wrap1_s0_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] =
+		50000000;
+	gcc_qupv3_wrap1_s0_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
+		128000000;
+	gcc_qupv3_wrap1_s1_clk_src.freq_tbl =
+		ftbl_gcc_qupv3_wrap0_s0_clk_src_sdm845_v2;
+	gcc_qupv3_wrap1_s1_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] =
+		50000000;
+	gcc_qupv3_wrap1_s1_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
+		128000000;
+	gcc_qupv3_wrap1_s2_clk_src.freq_tbl =
+		ftbl_gcc_qupv3_wrap0_s0_clk_src_sdm845_v2;
+	gcc_qupv3_wrap1_s2_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] =
+		50000000;
+	gcc_qupv3_wrap1_s2_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
+		128000000;
+	gcc_qupv3_wrap1_s3_clk_src.freq_tbl =
+		ftbl_gcc_qupv3_wrap0_s0_clk_src_sdm845_v2;
+	gcc_qupv3_wrap1_s3_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] =
+		50000000;
+	gcc_qupv3_wrap1_s3_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
+		128000000;
+	gcc_qupv3_wrap1_s4_clk_src.freq_tbl =
+		ftbl_gcc_qupv3_wrap0_s0_clk_src_sdm845_v2;
+	gcc_qupv3_wrap1_s4_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] =
+		50000000;
+	gcc_qupv3_wrap1_s4_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
+		128000000;
+	gcc_qupv3_wrap1_s5_clk_src.freq_tbl =
+		ftbl_gcc_qupv3_wrap0_s0_clk_src_sdm845_v2;
+	gcc_qupv3_wrap1_s5_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] =
+		50000000;
+	gcc_qupv3_wrap1_s5_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
+		128000000;
+	gcc_qupv3_wrap1_s6_clk_src.freq_tbl =
+		ftbl_gcc_qupv3_wrap0_s0_clk_src_sdm845_v2;
+	gcc_qupv3_wrap1_s6_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] =
+		50000000;
+	gcc_qupv3_wrap1_s6_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
+		128000000;
+	gcc_qupv3_wrap1_s7_clk_src.freq_tbl =
+		ftbl_gcc_qupv3_wrap0_s0_clk_src_sdm845_v2;
+	gcc_qupv3_wrap1_s7_clk_src.clkr.hw.init->rate_max[VDD_CX_MIN] =
+		50000000;
+	gcc_qupv3_wrap1_s7_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
+		128000000;
+	gcc_ufs_card_axi_clk_src.freq_tbl =
+		ftbl_gcc_ufs_card_axi_clk_src_sdm845_v2;
+	gcc_ufs_card_axi_clk_src.clkr.hw.init->rate_max[VDD_CX_HIGH] =
+		240000000;
+	gcc_ufs_phy_axi_clk_src.freq_tbl =
+		ftbl_gcc_ufs_card_axi_clk_src_sdm845_v2;
+}
+
+static int gcc_sdm845_fixup(struct platform_device *pdev)
+{
+	const char *compat = NULL;
+	int compatlen = 0;
+
+	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
+	if (!compat || (compatlen <= 0))
+		return -EINVAL;
+
+	if (!strcmp(compat, "qcom,gcc-sdm845-v2"))
+		gcc_sdm845_fixup_sdm845v2();
+
+	return 0;
+}
 
 static int gcc_sdm845_probe(struct platform_device *pdev)
 {
@@ -3579,6 +3729,10 @@ static int gcc_sdm845_probe(struct platform_device *pdev)
 				"Unable to get vdd_cx_ao regulator\n");
 		return PTR_ERR(vdd_cx_ao.regulator[0]);
 	}
+
+	ret = gcc_sdm845_fixup(pdev);
+	if (ret)
+		return ret;
 
 	/* Register the dummy measurement clocks */
 	for (i = 0; i < ARRAY_SIZE(gcc_sdm845_hws); i++) {

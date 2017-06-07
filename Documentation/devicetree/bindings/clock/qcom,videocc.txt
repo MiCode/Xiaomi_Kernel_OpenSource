@@ -2,12 +2,13 @@ Qualcomm Technologies Video Clock & Reset Controller Binding
 ----------------------------------------------------
 
 Required properties :
-- compatible : shall contain "qcom,video_cc-sdm845"
-- reg : shall contain base register location and length
+- compatible : shall contain "qcom,video_cc-sdm845" or
+	       "qcom,video_cc-sdm845-v2".
+- reg : shall contain base register location and length.
 - reg-names: names of registers listed in the same order as in
 	     the reg property.
-- #clock-cells : shall contain 1
-- #reset-cells : shall contain 1
+- #clock-cells : shall contain 1.
+- #reset-cells : shall contain 1.
 
 Optional properties :
 - vdd_<rail>-supply: The logic rail supply.

@@ -17,6 +17,7 @@ Required properties :
 			"qcom,gcc-msm8996"
 			"qcom,gcc-mdm9615"
 			"qcom,gcc-sdm845"
+			"qcom,gcc-sdm845-v2"
 			"qcom,debugcc-sdm845"
 
 - reg : shall contain base register location and length

@@ -2,7 +2,7 @@ Qualcomm Technologies, Inc. Display Clock & Reset Controller Binding
 ----------------------------------------------------
 
 Required properties :
-- compatible : shall contain "qcom,dispcc-sdm845".
+- compatible : shall contain "qcom,dispcc-sdm845" or "qcom,dispcc-sdm845-v2".
 - reg : shall contain base register location and length.
 - reg-names: names of registers listed in the same order as in
 	     the reg property.

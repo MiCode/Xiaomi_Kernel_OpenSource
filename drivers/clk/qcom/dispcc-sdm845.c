@@ -126,13 +126,18 @@ static const char * const disp_cc_parent_names_4[] = {
 };
 
 static struct pll_vco fabia_vco[] = {
-	{ 250000000, 2000000000, 0 },
+	{ 249600000, 2000000000, 0 },
 	{ 125000000, 1000000000, 1 },
 };
 
 static const struct pll_config disp_cc_pll0_config = {
+	.l = 0x15,
+	.frac = 0x7c00,
+};
+
+static const struct pll_config disp_cc_pll0_config_v2 = {
 	.l = 0x2c,
-	.frac = 0xcaab,
+	.frac = 0xcaaa,
 };
 
 static struct clk_alpha_pll disp_cc_pll0 = {
@@ -365,6 +370,19 @@ static const struct freq_tbl ftbl_disp_cc_mdss_mdp_clk_src[] = {
 	{ }
 };
 
+static const struct freq_tbl ftbl_disp_cc_mdss_mdp_clk_src_sdm845_v2[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(85714286, P_GPLL0_OUT_MAIN, 7, 0, 0),
+	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
+	F(150000000, P_GPLL0_OUT_MAIN, 4, 0, 0),
+	F(171428571, P_GPLL0_OUT_MAIN, 3.5, 0, 0),
+	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
+	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
+	F(344000000, P_DISP_CC_PLL0_OUT_MAIN, 2.5, 0, 0),
+	F(430000000, P_DISP_CC_PLL0_OUT_MAIN, 2, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 disp_cc_mdss_mdp_clk_src = {
 	.cmd_rcgr = 0x2088,
 	.mnd_width = 0,
@@ -431,6 +449,15 @@ static const struct freq_tbl ftbl_disp_cc_mdss_rot_clk_src[] = {
 	F(165000000, P_DISP_CC_PLL0_OUT_MAIN, 2.5, 0, 0),
 	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
 	F(412500000, P_DISP_CC_PLL0_OUT_MAIN, 1, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_disp_cc_mdss_rot_clk_src_sdm845_v2[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(171428571, P_GPLL0_OUT_MAIN, 3.5, 0, 0),
+	F(300000000, P_GPLL0_OUT_MAIN, 2, 0, 0),
+	F(344000000, P_DISP_CC_PLL0_OUT_MAIN, 2.5, 0, 0),
+	F(430000000, P_DISP_CC_PLL0_OUT_MAIN, 2, 0, 0),
 	{ }
 };
 
@@ -986,9 +1013,72 @@ static const struct qcom_cc_desc disp_cc_sdm845_desc = {
 
 static const struct of_device_id disp_cc_sdm845_match_table[] = {
 	{ .compatible = "qcom,dispcc-sdm845" },
+	{ .compatible = "qcom,dispcc-sdm845-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, disp_cc_sdm845_match_table);
+
+static void disp_cc_sdm845_fixup_sdm845v2(struct regmap *regmap)
+{
+	clk_fabia_pll_configure(&disp_cc_pll0, regmap,
+					&disp_cc_pll0_config_v2);
+	disp_cc_mdss_byte0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] =
+		180000000;
+	disp_cc_mdss_byte0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
+		275000000;
+	disp_cc_mdss_byte0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+		358000000;
+	disp_cc_mdss_byte1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] =
+		180000000;
+	disp_cc_mdss_byte1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
+		275000000;
+	disp_cc_mdss_byte1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+		358000000;
+	disp_cc_mdss_dp_pixel1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
+		337500000;
+	disp_cc_mdss_dp_pixel_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
+		337500000;
+	disp_cc_mdss_mdp_clk_src.freq_tbl =
+		ftbl_disp_cc_mdss_mdp_clk_src_sdm845_v2;
+	disp_cc_mdss_mdp_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] =
+		171428571;
+	disp_cc_mdss_mdp_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+		344000000;
+	disp_cc_mdss_mdp_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
+		430000000;
+	disp_cc_mdss_pclk0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] =
+		280000000;
+	disp_cc_mdss_pclk0_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
+		430000000;
+	disp_cc_mdss_pclk1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] =
+		280000000;
+	disp_cc_mdss_pclk1_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW] =
+		430000000;
+	disp_cc_mdss_rot_clk_src.freq_tbl =
+		ftbl_disp_cc_mdss_rot_clk_src_sdm845_v2;
+	disp_cc_mdss_rot_clk_src.clkr.hw.init->rate_max[VDD_CX_LOWER] =
+		171428571;
+	disp_cc_mdss_rot_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+		344000000;
+	disp_cc_mdss_rot_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
+		430000000;
+}
+
+static int disp_cc_sdm845_fixup(struct platform_device *pdev,
+						struct regmap *regmap)
+{
+	const char *compat = NULL;
+	int compatlen = 0;
+
+	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
+	if (!compat || (compatlen <= 0))
+		return -EINVAL;
+
+	if (!strcmp(compat, "qcom,dispcc-sdm845-v2"))
+		disp_cc_sdm845_fixup_sdm845v2(regmap);
+
+	return 0;
+}
 
 static int disp_cc_sdm845_probe(struct platform_device *pdev)
 {
@@ -1013,6 +1103,10 @@ static int disp_cc_sdm845_probe(struct platform_device *pdev)
 
 	/* Enable clock gating for DSI and MDP clocks */
 	regmap_update_bits(regmap, DISP_CC_MISC_CMD, 0x7f0, 0x7f0);
+
+	ret = disp_cc_sdm845_fixup(pdev, regmap);
+	if (ret)
+		return ret;
 
 	ret = qcom_cc_really_probe(pdev, &disp_cc_sdm845_desc, regmap);
 	if (ret) {
