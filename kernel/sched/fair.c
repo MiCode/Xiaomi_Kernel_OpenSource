@@ -5917,6 +5917,9 @@ static int calc_sg_energy(struct energy_env *eenv)
 		if (unlikely(idle_idx < 0))
 			return idle_idx;
 
+		if (idle_idx > sg->sge->nr_idle_states - 1)
+			idle_idx = sg->sge->nr_idle_states - 1;
+
 		idle_power = sg->sge->idle_states[idle_idx].power;
 		idle_energy   = SCHED_CAPACITY_SCALE - sg_util;
 		idle_energy  *= idle_power;
