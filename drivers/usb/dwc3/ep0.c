@@ -815,7 +815,13 @@ static void dwc3_ep0_inspect_setup(struct dwc3 *dwc,
 		dwc->delayed_status = true;
 
 out:
-	if (ret < 0) {
+	/*
+	 * Don't try to halt ep0 if ret is -ESHUTDOWN.
+	 * ret as -ESHUTDOWN suggests that setup packet related response
+	 * is available but queueing of ep0 is failed. Possibly ep0 is
+	 * already disabled.
+	 */
+	if (ret < 0 && ret != -ESHUTDOWN) {
 		dbg_event(0x0, "ERRSTAL", ret);
 		dwc3_ep0_stall_and_restart(dwc);
 	}
