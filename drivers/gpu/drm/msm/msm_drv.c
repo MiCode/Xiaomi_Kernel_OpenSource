@@ -59,12 +59,68 @@
 
 #define TEARDOWN_DEADLOCK_RETRY_MAX 5
 
+static void msm_drm_helper_hotplug_event(struct drm_device *dev)
+{
+	struct drm_connector *connector;
+	char *event_string;
+	char const *connector_name;
+	char *envp[2];
+
+	if (!dev) {
+		DRM_ERROR("hotplug_event failed, invalid input\n");
+		return;
+	}
+
+	if (!dev->mode_config.poll_enabled)
+		return;
+
+	event_string = kzalloc(SZ_4K, GFP_KERNEL);
+	if (!event_string) {
+		DRM_ERROR("failed to allocate event string\n");
+		return;
+	}
+
+	mutex_lock(&dev->mode_config.mutex);
+	drm_for_each_connector(connector, dev) {
+		/* Only handle HPD capable connectors. */
+		if (!(connector->polled & DRM_CONNECTOR_POLL_HPD))
+			continue;
+
+		connector->status = connector->funcs->detect(connector, false);
+
+		if (connector->name)
+			connector_name = connector->name;
+		else
+			connector_name = "unknown";
+
+		snprintf(event_string, SZ_4K, "name=%s status=%s\n",
+			connector_name,
+			drm_get_connector_status_name(connector->status));
+		DRM_DEBUG("generating hotplug event [%s]\n", event_string);
+		envp[0] = event_string;
+		envp[1] = NULL;
+		kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE,
+				envp);
+	}
+	mutex_unlock(&dev->mode_config.mutex);
+	kfree(event_string);
+}
+
 static void msm_fb_output_poll_changed(struct drm_device *dev)
 {
-	struct msm_drm_private *priv = dev->dev_private;
+	struct msm_drm_private *priv = NULL;
+
+	if (!dev) {
+		DRM_ERROR("output_poll_changed failed, invalid input\n");
+		return;
+	}
+
+	priv = dev->dev_private;
 
 	if (priv->fbdev)
 		drm_fb_helper_hotplug_event(priv->fbdev);
+	else
+		msm_drm_helper_hotplug_event(dev);
 }
 
 int msm_atomic_check(struct drm_device *dev,
