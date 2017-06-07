@@ -14,10 +14,10 @@
 /dts-v1/;
 
 #include "sdm450.dtsi"
-#include "msm8953-qrd.dtsi"
+#include "msm8953-qrd-sku3.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM450 QRD";
-	compatible = "qcom,sdm450-qrd", "qcom,sdm450", "qcom,mtp";
+	compatible = "qcom,sdm450-qrd", "qcom,sdm450", "qcom,qrd";
 	qcom,board-id = <0x0005000b 0>;
 };
