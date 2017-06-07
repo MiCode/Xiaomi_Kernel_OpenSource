@@ -255,6 +255,11 @@ struct kgsl_device {
 	struct kgsl_pwrctrl pwrctrl;
 	int open_count;
 
+	/* For GPU inline submission */
+	uint32_t submit_now;
+	spinlock_t submit_lock;
+	bool slumber;
+
 	struct mutex mutex;
 	uint32_t state;
 	uint32_t requested_state;
