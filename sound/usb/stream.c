@@ -20,6 +20,7 @@
 #include <linux/usb.h>
 #include <linux/usb/audio.h>
 #include <linux/usb/audio-v2.h>
+#include <linux/usb/audio-v3.h>
 
 #include <sound/core.h>
 #include <sound/pcm.h>
@@ -282,8 +283,6 @@ static struct snd_pcm_chmap_elem *convert_chmap(int channels, unsigned int bits,
 		0 /* terminator */
 	};
 	struct snd_pcm_chmap_elem *chmap;
-	const unsigned int *maps;
-	int c;
 
 	if (channels > ARRAY_SIZE(chmap->map))
 		return NULL;
@@ -292,26 +291,41 @@ static struct snd_pcm_chmap_elem *convert_chmap(int channels, unsigned int bits,
 	if (!chmap)
 		return NULL;
 
-	maps = protocol == UAC_VERSION_2 ? uac2_maps : uac1_maps;
 	chmap->channels = channels;
-	c = 0;
 
-	if (bits) {
-		for (; bits && *maps; maps++, bits >>= 1)
-			if (bits & 1)
-				chmap->map[c++] = *maps;
+	if (protocol == UAC_VERSION_3) {
+		switch (channels) {
+		case 1:
+			chmap->map[0] = SNDRV_CHMAP_MONO;
+			break;
+		case 2:
+			chmap->map[0] = SNDRV_CHMAP_FL;
+			chmap->map[1] = SNDRV_CHMAP_FR;
+			break;
+		}
 	} else {
-		/* If we're missing wChannelConfig, then guess something
-		    to make sure the channel map is not skipped entirely */
-		if (channels == 1)
-			chmap->map[c++] = SNDRV_CHMAP_MONO;
-		else
-			for (; c < channels && *maps; maps++)
-				chmap->map[c++] = *maps;
-	}
+		int c = 0;
+		const unsigned int *maps =
+			protocol == UAC_VERSION_2 ? uac2_maps : uac1_maps;
 
-	for (; c < channels; c++)
-		chmap->map[c] = SNDRV_CHMAP_UNKNOWN;
+		if (bits) {
+			for (; bits && *maps; maps++, bits >>= 1)
+				if (bits & 1)
+					chmap->map[c++] = *maps;
+		} else {
+			/*
+			 * If we're missing wChannelConfig, then guess something
+			 * to make sure the channel map is not skipped entirely
+			 */
+			if (channels == 1)
+				chmap->map[c++] = SNDRV_CHMAP_MONO;
+			else
+				for (; c < channels && *maps; maps++)
+					chmap->map[c++] = *maps;
+		}
+		for (; c < channels; c++)
+			chmap->map[c] = SNDRV_CHMAP_UNKNOWN;
+	}
 
 	return chmap;
 }
@@ -409,6 +423,9 @@ static int parse_uac_endpoint_attributes(struct snd_usb_audio *chip,
 	struct usb_interface_descriptor *altsd = get_iface_desc(alts);
 	int attributes = 0;
 
+	if (protocol == UAC_VERSION_3)
+		return 0;
+
 	csep = snd_usb_find_desc(alts->endpoint[0].extra, alts->endpoint[0].extralen, NULL, USB_DT_CS_ENDPOINT);
 
 	/* Creamware Noah has this descriptor after the 2nd endpoint */
@@ -492,7 +509,7 @@ int snd_usb_parse_audio_interface(struct snd_usb_audio *chip, int iface_no)
 	unsigned int format = 0, num_channels = 0;
 	struct audioformat *fp = NULL;
 	int num, protocol, clock = 0;
-	struct uac_format_type_i_continuous_descriptor *fmt;
+	struct uac_format_type_i_continuous_descriptor *fmt = NULL;
 	unsigned int chconfig;
 
 	dev = chip->dev;
@@ -629,38 +646,78 @@ int snd_usb_parse_audio_interface(struct snd_usb_audio *chip, int iface_no)
 				iface_no, altno, as->bTerminalLink);
 			continue;
 		}
+
+		case UAC_VERSION_3: {
+			int wMaxPacketSize;
+
+			format = UAC_FORMAT_TYPE_I_PCM;
+			clock = BADD_CLOCK_SOURCE;
+			wMaxPacketSize = le16_to_cpu(get_endpoint(alts, 0)
+							->wMaxPacketSize);
+			switch (wMaxPacketSize) {
+			case BADD_MAXPSIZE_SYNC_MONO_16:
+			case BADD_MAXPSIZE_SYNC_MONO_24:
+			case BADD_MAXPSIZE_ASYNC_MONO_16:
+			case BADD_MAXPSIZE_ASYNC_MONO_24: {
+				num_channels = NUM_CHANNELS_MONO;
+				chconfig = BADD_CH_CONFIG_MONO;
+				break;
+			}
+
+			case BADD_MAXPSIZE_SYNC_STEREO_16:
+			case BADD_MAXPSIZE_SYNC_STEREO_24:
+			case BADD_MAXPSIZE_ASYNC_STEREO_16:
+			case BADD_MAXPSIZE_ASYNC_STEREO_24: {
+				num_channels = NUM_CHANNELS_STEREO;
+				chconfig = BADD_CH_CONFIG_STEREO;
+				break;
+			}
+			default:
+				dev_err(&dev->dev,
+					"%u:%d: invalid wMaxPacketSize\n",
+					iface_no, altno);
+				continue;
+			}
+		}
 		}
 
-		/* get format type */
-		fmt = snd_usb_find_csint_desc(alts->extra, alts->extralen, NULL, UAC_FORMAT_TYPE);
-		if (!fmt) {
-			dev_err(&dev->dev,
-				"%u:%d : no UAC_FORMAT_TYPE desc\n",
-				iface_no, altno);
-			continue;
-		}
-		if (((protocol == UAC_VERSION_1) && (fmt->bLength < 8)) ||
-		    ((protocol == UAC_VERSION_2) && (fmt->bLength < 6))) {
-			dev_err(&dev->dev,
-				"%u:%d : invalid UAC_FORMAT_TYPE desc\n",
-				iface_no, altno);
-			continue;
-		}
+		if ((protocol == UAC_VERSION_1) ||
+			(protocol == UAC_VERSION_2)) {
+			/* get format type */
+			fmt = snd_usb_find_csint_desc(alts->extra,
+					alts->extralen, NULL, UAC_FORMAT_TYPE);
+			if (!fmt) {
+				dev_err(&dev->dev,
+					"%u:%d : no UAC_FORMAT_TYPE desc\n",
+					iface_no, altno);
+				continue;
+			}
+			if (((protocol == UAC_VERSION_1) && (fmt->bLength < 8))
+			|| ((protocol == UAC_VERSION_2) &&
+				(fmt->bLength < 6))) {
+				dev_err(&dev->dev,
+					"%u:%d :invalid UAC_FORMAT_TYPE desc\n",
+					iface_no, altno);
+				continue;
+			}
 
-		/*
-		 * Blue Microphones workaround: The last altsetting is identical
-		 * with the previous one, except for a larger packet size, but
-		 * is actually a mislabeled two-channel setting; ignore it.
-		 */
-		if (fmt->bNrChannels == 1 &&
-		    fmt->bSubframeSize == 2 &&
-		    altno == 2 && num == 3 &&
-		    fp && fp->altsetting == 1 && fp->channels == 1 &&
-		    fp->formats == SNDRV_PCM_FMTBIT_S16_LE &&
-		    protocol == UAC_VERSION_1 &&
-		    le16_to_cpu(get_endpoint(alts, 0)->wMaxPacketSize) ==
+			/*
+			 * Blue Microphones workaround: The last altsetting is
+			 * identical with the previous one, except for a larger
+			 * packet size, but is actually a mislabeled two-channel
+			 * setting; ignore it.
+			 */
+			if (fmt->bNrChannels == 1 &&
+			    fmt->bSubframeSize == 2 &&
+			    altno == 2 && num == 3 &&
+			    fp && fp->altsetting == 1 && fp->channels == 1 &&
+			    fp->formats == SNDRV_PCM_FMTBIT_S16_LE &&
+			    protocol == UAC_VERSION_1 &&
+			    le16_to_cpu(
+				get_endpoint(alts, 0)->wMaxPacketSize) ==
 							fp->maxpacksize * 2)
-			continue;
+				continue;
+		}
 
 		fp = kzalloc(sizeof(*fp), GFP_KERNEL);
 		if (! fp) {
