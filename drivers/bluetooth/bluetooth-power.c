@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, 2013-2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2010, 2013-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -682,7 +682,7 @@ int bt_register_slimdev(struct device *dev)
 
 static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	int ret, pwr_cntrl = 0;
+	int ret = 0, pwr_cntrl = 0;
 
 	switch (cmd) {
 	case BT_CMD_SLIM_TEST:

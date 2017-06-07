@@ -296,9 +296,9 @@ static int btfm_slim_dai_get_channel_map(struct snd_soc_dai *dai,
 				 unsigned int *tx_num, unsigned int *tx_slot,
 				 unsigned int *rx_num, unsigned int *rx_slot)
 {
-	int i, ret = -EINVAL, *slot, j = 0, num = 1;
+	int i, ret = -EINVAL, *slot = NULL, j = 0, num = 1;
 	struct btfmslim *btfmslim = dai->dev->platform_data;
-	struct btfmslim_ch *ch;
+	struct btfmslim_ch *ch = NULL;
 
 	if (!btfmslim)
 		return ret;

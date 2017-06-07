@@ -721,7 +721,8 @@ static int qpnp_flash_led_get_voltage_headroom(struct qpnp_flash_led *led)
 #define VIN_FLASH_MIN_UV	3300000LL
 static int qpnp_flash_led_calc_max_current(struct qpnp_flash_led *led)
 {
-	int ocv_uv, rbatt_uohm, ibat_now, voltage_hdrm_mv, rc;
+	int ocv_uv = 0, rbatt_uohm = 0, ibat_now = 0, voltage_hdrm_mv = 0;
+	int rc = 0;
 	int64_t ibat_flash_ua, avail_flash_ua, avail_flash_power_fw;
 	int64_t ibat_safe_ua, vin_flash_uv, vph_flash_uv, vph_flash_vdip;
 
