@@ -765,6 +765,51 @@ err:
 	return ERR_PTR(-ENOMEM);
 }
 
+/*
+ * Based off of similar code from dma-iommu.c, but modified to use a different
+ * iova allocator
+ */
+static void fast_smmu_reserve_pci_windows(struct device *dev,
+			    struct dma_fast_smmu_mapping *mapping)
+{
+	struct pci_host_bridge *bridge;
+	struct resource_entry *window;
+	phys_addr_t start, end;
+	struct pci_dev *pci_dev;
+	unsigned long flags;
+
+	if (!dev_is_pci(dev))
+		return;
+
+	pci_dev = to_pci_dev(dev);
+	bridge = pci_find_host_bridge(pci_dev->bus);
+
+	spin_lock_irqsave(&mapping->lock, flags);
+	resource_list_for_each_entry(window, &bridge->windows) {
+		if (resource_type(window->res) != IORESOURCE_MEM &&
+		    resource_type(window->res) != IORESOURCE_IO)
+			continue;
+
+		start = round_down(window->res->start - window->offset,
+				FAST_PAGE_SIZE);
+		end = round_up(window->res->end - window->offset,
+				FAST_PAGE_SIZE);
+		start = max_t(unsigned long, mapping->base, start);
+		end = min_t(unsigned long, mapping->base + mapping->size, end);
+		if (start >= end)
+			continue;
+
+		dev_dbg(dev, "iova allocator reserved 0x%pa-0x%pa\n",
+				&start, &end);
+
+		start = (start - mapping->base) >> FAST_PAGE_SHIFT;
+		end = (end - mapping->base) >> FAST_PAGE_SHIFT;
+		bitmap_set(mapping->bitmap, start, end - start);
+	}
+	spin_unlock_irqrestore(&mapping->lock, flags);
+}
+
+
 /**
  * fast_smmu_attach_device
  * @dev: valid struct device pointer
@@ -797,6 +842,8 @@ int fast_smmu_attach_device(struct device *dev,
 		return -ENOMEM;
 	mapping->fast->domain = domain;
 	mapping->fast->dev = dev;
+
+	fast_smmu_reserve_pci_windows(dev, mapping->fast);
 
 	group = dev->iommu_group;
 	if (!group) {

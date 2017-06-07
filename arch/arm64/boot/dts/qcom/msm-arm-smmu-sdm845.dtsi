@@ -63,7 +63,6 @@
 			<0x150c2000 0x20>;
 		reg-names = "base", "tcu-base";
 		#iommu-cells = <2>;
-		qcom,skip-init;
 		qcom,use-3-lvl-tables;
 		#global-interrupts = <1>;
 		#size-cells = <1>;

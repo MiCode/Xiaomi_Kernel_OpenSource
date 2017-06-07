@@ -74,14 +74,6 @@ conditions.
                   address size faults are due to a fundamental programming
                   error from which we don't care about recovering anyways.
 
-- qcom,skip-init : Disable resetting configuration for all context banks
-                  during device reset.  This is useful for targets where
-                  some context banks are dedicated to other execution
-                  environments outside of Linux and those other EEs are
-                  programming their own stream match tables, SCTLR, etc.
-                  Without setting this option we will trample on their
-                  configuration.
-
 - qcom,dynamic  : Allow dynamic domains to be attached. This is only
 		  useful if the upstream hardware is capable of switching
 		  between multiple domains within a single context bank.

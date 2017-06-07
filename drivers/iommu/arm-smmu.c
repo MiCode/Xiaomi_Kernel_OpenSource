@@ -166,6 +166,7 @@
 #define ARM_SMMU_GR0_SMR(n)		(0x800 + ((n) << 2))
 #define SMR_VALID			(1 << 31)
 #define SMR_MASK_SHIFT			16
+#define SMR_MASK_MASK			0x7FFF
 #define SMR_ID_SHIFT			0
 
 #define ARM_SMMU_GR0_S2CR(n)		(0xc00 + ((n) << 2))
@@ -335,10 +336,12 @@ struct arm_smmu_s2cr {
 	enum arm_smmu_s2cr_type		type;
 	enum arm_smmu_s2cr_privcfg	privcfg;
 	u8				cbndx;
+	bool				cb_handoff;
 };
 
 #define s2cr_init_val (struct arm_smmu_s2cr){				\
 	.type = disable_bypass ? S2CR_TYPE_FAULT : S2CR_TYPE_BYPASS,	\
+	.cb_handoff = false,						\
 }
 
 struct arm_smmu_smr {
@@ -409,7 +412,6 @@ struct arm_smmu_device {
 
 #define ARM_SMMU_OPT_SECURE_CFG_ACCESS (1 << 0)
 #define ARM_SMMU_OPT_FATAL_ASF		(1 << 1)
-#define ARM_SMMU_OPT_SKIP_INIT		(1 << 2)
 #define ARM_SMMU_OPT_DYNAMIC		(1 << 3)
 #define ARM_SMMU_OPT_3LVL_TABLES	(1 << 4)
 	u32				options;
@@ -528,7 +530,6 @@ static bool using_legacy_binding, using_generic_binding;
 static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_SECURE_CFG_ACCESS, "calxeda,smmu-secure-config-access" },
 	{ ARM_SMMU_OPT_FATAL_ASF, "qcom,fatal-asf" },
-	{ ARM_SMMU_OPT_SKIP_INIT, "qcom,skip-init" },
 	{ ARM_SMMU_OPT_DYNAMIC, "qcom,dynamic" },
 	{ ARM_SMMU_OPT_3LVL_TABLES, "qcom,use-3-lvl-tables" },
 	{ 0, NULL},
@@ -552,6 +553,10 @@ static uint64_t arm_smmu_iova_to_pte(struct iommu_domain *domain,
 				    dma_addr_t iova);
 
 static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain);
+
+static int arm_smmu_alloc_cb(struct iommu_domain *domain,
+				struct arm_smmu_device *smmu,
+				struct device *dev);
 
 static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
 {
@@ -1615,14 +1620,11 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	if (is_iommu_pt_coherent(smmu_domain))
 		quirks |= IO_PGTABLE_QUIRK_PAGE_TABLE_COHERENT;
 
-	/* Dynamic domains must set cbndx through domain attribute */
-	if (!dynamic) {
-		ret = __arm_smmu_alloc_bitmap(smmu->context_map, start,
-				      smmu->num_context_banks);
-		if (ret < 0)
-			goto out_unlock;
-		cfg->cbndx = ret;
-	}
+	ret = arm_smmu_alloc_cb(domain, smmu, dev);
+	if (ret < 0)
+		goto out_unlock;
+	cfg->cbndx = ret;
+
 	if (smmu->version < ARM_SMMU_V2) {
 		cfg->irptndx = atomic_inc_return(&smmu->irptndx);
 		cfg->irptndx %= smmu->num_context_irqs;
@@ -3219,12 +3221,10 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 	 * Reset stream mapping groups: Initial values mark all SMRn as
 	 * invalid and all S2CRn as bypass unless overridden.
 	 */
-	if (!(smmu->options & ARM_SMMU_OPT_SKIP_INIT)) {
-		for (i = 0; i < smmu->num_mapping_groups; ++i)
-			arm_smmu_write_sme(smmu, i);
+	for (i = 0; i < smmu->num_mapping_groups; ++i)
+		arm_smmu_write_sme(smmu, i);
 
-		arm_smmu_context_bank_reset(smmu);
-	}
+	arm_smmu_context_bank_reset(smmu);
 
 	/* Invalidate the TLB, just in case */
 	writel_relaxed(0, gr0_base + ARM_SMMU_GR0_TLBIALLH);
@@ -3279,6 +3279,92 @@ static int arm_smmu_id_size_to_bits(int size)
 	default:
 		return 48;
 	}
+}
+
+
+/*
+ * Some context banks needs to be transferred from bootloader to HLOS in a way
+ * that allows ongoing traffic. The current expectation is that these context
+ * banks operate in bypass mode.
+ * Additionally, there must be exactly one device in devicetree with stream-ids
+ * overlapping those used by the bootloader.
+ */
+static int arm_smmu_alloc_cb(struct iommu_domain *domain,
+				struct arm_smmu_device *smmu,
+				struct device *dev)
+{
+	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+	u32 i, idx;
+	int cb = -EINVAL;
+	bool dynamic;
+
+	/* Dynamic domains must set cbndx through domain attribute */
+	dynamic = is_dynamic_domain(domain);
+	if (dynamic)
+		return INVALID_CBNDX;
+
+	mutex_lock(&smmu->stream_map_mutex);
+	for_each_cfg_sme(fwspec, i, idx) {
+		if (smmu->s2crs[idx].cb_handoff)
+			cb = smmu->s2crs[idx].cbndx;
+	}
+
+	if (cb < 0) {
+		mutex_unlock(&smmu->stream_map_mutex);
+		return __arm_smmu_alloc_bitmap(smmu->context_map,
+						smmu->num_s2_context_banks,
+						smmu->num_context_banks);
+	}
+
+	for (i = 0; i < smmu->num_mapping_groups; i++) {
+		if (smmu->s2crs[i].cbndx == cb) {
+			smmu->s2crs[i].cbndx = 0;
+			smmu->s2crs[i].cb_handoff = false;
+			smmu->s2crs[i].count -= 1;
+		}
+	}
+	mutex_unlock(&smmu->stream_map_mutex);
+
+	return cb;
+}
+
+static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
+{
+	u32 i, raw_smr, raw_s2cr;
+	struct arm_smmu_smr smr;
+	struct arm_smmu_s2cr s2cr;
+
+	for (i = 0; i < smmu->num_mapping_groups; i++) {
+		raw_smr = readl_relaxed(ARM_SMMU_GR0(smmu) +
+					ARM_SMMU_GR0_SMR(i));
+		if (!(raw_smr & SMR_VALID))
+			continue;
+
+		smr.mask = (raw_smr >> SMR_MASK_SHIFT) & SMR_MASK_MASK;
+		smr.id = (u16)raw_smr;
+		smr.valid = true;
+
+		raw_s2cr = readl_relaxed(ARM_SMMU_GR0(smmu) +
+					ARM_SMMU_GR0_S2CR(i));
+		s2cr.group = NULL;
+		s2cr.count = 1;
+		s2cr.type = (raw_s2cr >> S2CR_TYPE_SHIFT) & S2CR_TYPE_MASK;
+		s2cr.privcfg = (raw_s2cr >> S2CR_PRIVCFG_SHIFT) &
+				S2CR_PRIVCFG_MASK;
+		s2cr.cbndx = (u8)raw_s2cr;
+		s2cr.cb_handoff = true;
+
+		if (s2cr.type != S2CR_TYPE_TRANS)
+			continue;
+
+		smmu->smrs[i] = smr;
+		smmu->s2crs[i] = s2cr;
+		bitmap_set(smmu->context_map, s2cr.cbndx, 1);
+		dev_dbg(smmu->dev, "Handoff smr: %x s2cr: %x cb: %d\n",
+			raw_smr, raw_s2cr, s2cr.cbndx);
+	}
+
+	return 0;
 }
 
 static int arm_smmu_parse_impl_def_registers(struct arm_smmu_device *smmu)
@@ -3540,6 +3626,7 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	smmu->streamid_mask = size - 1;
 	if (id & ID0_SMS) {
 		u32 smr;
+		int i;
 
 		smmu->features |= ARM_SMMU_FEAT_STREAM_MATCH;
 		size = (id >> ID0_NUMSMRG_SHIFT) & ID0_NUMSMRG_MASK;
@@ -3554,14 +3641,25 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 		 * bits are set, so check each one separately. We can reject
 		 * masters later if they try to claim IDs outside these masks.
 		 */
+		for (i = 0; i < size; i++) {
+			smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(i));
+			if (!(smr & SMR_VALID))
+				break;
+		}
+		if (i == size) {
+			dev_err(smmu->dev,
+				"Unable to compute streamid_masks\n");
+			return -ENODEV;
+		}
+
 		smr = smmu->streamid_mask << SMR_ID_SHIFT;
-		writel_relaxed(smr, gr0_base + ARM_SMMU_GR0_SMR(0));
-		smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(0));
+		writel_relaxed(smr, gr0_base + ARM_SMMU_GR0_SMR(i));
+		smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(i));
 		smmu->streamid_mask = smr >> SMR_ID_SHIFT;
 
 		smr = smmu->streamid_mask << SMR_MASK_SHIFT;
-		writel_relaxed(smr, gr0_base + ARM_SMMU_GR0_SMR(0));
-		smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(0));
+		writel_relaxed(smr, gr0_base + ARM_SMMU_GR0_SMR(i));
+		smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(i));
 		smmu->smr_mask_mask = smr >> SMR_MASK_SHIFT;
 
 		/* Zero-initialised to mark as invalid */
@@ -3850,6 +3948,10 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 		goto out_exit_power_resources;
 
 	err = arm_smmu_device_cfg_probe(smmu);
+	if (err)
+		goto out_power_off;
+
+	err = arm_smmu_handoff_cbs(smmu);
 	if (err)
 		goto out_power_off;
 
