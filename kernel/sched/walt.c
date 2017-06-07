@@ -402,7 +402,7 @@ unsigned int nr_eligible_big_tasks(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 
-	if (cpu_max_possible_capacity(cpu) != max_possible_capacity)
+	if (!is_max_capacity_cpu(cpu))
 		return rq->hmp_stats.nr_big_tasks;
 
 	return rq->nr_running;
