@@ -595,6 +595,14 @@
 			qcom,dump-node = <&L1_D_700>;
 			qcom,dump-id = <0x87>;
 		};
+		qcom,llcc1_d_cache {
+			qcom,dump-node = <&LLCC_1>;
+			qcom,dump-id = <0x140>;
+		};
+		qcom,llcc2_d_cache {
+			qcom,dump-node = <&LLCC_2>;
+			qcom,dump-id = <0x141>;
+		};
 	};
 
 	kryo3xx-erp {
@@ -637,6 +645,39 @@
 		reg = <0x17900000 0xd080>;
 		reg-names = "gladiator_base";
 		interrupts = <0 17 0>;
+	};
+
+	qcom,llcc@1100000 {
+		compatible = "qcom,llcc-core", "syscon", "simple-mfd";
+		reg = <0x1100000 0x250000>;
+		reg-names = "llcc_base";
+		qcom,llcc-banks-off = <0x0 0x80000 >;
+		qcom,llcc-broadcast-off = <0x200000>;
+
+		llcc: qcom,sdm670-llcc {
+			compatible = "qcom,sdm670-llcc";
+			#cache-cells = <1>;
+			max-slices = <32>;
+			qcom,dump-size = <0x80000>;
+		};
+
+		qcom,llcc-erp {
+			compatible = "qcom,llcc-erp";
+			interrupt-names = "ecc_irq";
+			interrupts = <GIC_SPI 582 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		qcom,llcc-amon {
+			compatible = "qcom,llcc-amon";
+		};
+
+		LLCC_1: llcc_1_dcache {
+			qcom,dump-size = <0xd8000>;
+		};
+
+		LLCC_2: llcc_2_dcache {
+			qcom,dump-size = <0xd8000>;
+		};
 	};
 
 	dcc: dcc_v2@10a2000 {
