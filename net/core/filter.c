@@ -2208,6 +2208,7 @@ bool bpf_helper_changes_skb_data(void *func)
 	    func == bpf_skb_change_proto ||
 	    func == bpf_skb_change_tail ||
 	    func == bpf_skb_pull_data ||
+	    func == bpf_clone_redirect ||
 	    func == bpf_l3_csum_replace ||
 	    func == bpf_l4_csum_replace)
 		return true;
