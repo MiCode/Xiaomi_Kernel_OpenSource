@@ -1312,24 +1312,30 @@ TRACE_EVENT(sched_wake_idle_without_ipi,
 
 TRACE_EVENT(sched_get_nr_running_avg,
 
-	TP_PROTO(int avg, int big_avg, int iowait_avg),
+	TP_PROTO(int avg, int big_avg, int iowait_avg,
+		 unsigned int max_nr, unsigned int big_max_nr),
 
-	TP_ARGS(avg, big_avg, iowait_avg),
+	TP_ARGS(avg, big_avg, iowait_avg, max_nr, big_max_nr),
 
 	TP_STRUCT__entry(
 		__field( int,	avg			)
 		__field( int,	big_avg			)
 		__field( int,	iowait_avg		)
+		__field( unsigned int,	max_nr		)
+		__field( unsigned int,	big_max_nr	)
 	),
 
 	TP_fast_assign(
 		__entry->avg		= avg;
 		__entry->big_avg	= big_avg;
 		__entry->iowait_avg	= iowait_avg;
+		__entry->max_nr		= max_nr;
+		__entry->big_max_nr	= big_max_nr;
 	),
 
-	TP_printk("avg=%d big_avg=%d iowait_avg=%d",
-		__entry->avg, __entry->big_avg, __entry->iowait_avg)
+	TP_printk("avg=%d big_avg=%d iowait_avg=%d max_nr=%u big_max_nr=%u",
+		__entry->avg, __entry->big_avg, __entry->iowait_avg,
+		__entry->max_nr, __entry->big_max_nr)
 );
 
 TRACE_EVENT(core_ctl_eval_need,
