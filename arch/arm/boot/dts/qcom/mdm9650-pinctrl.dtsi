@@ -1057,5 +1057,34 @@
 			};
 		};
 
+		can_reset {
+			can_rst_on: rst_on {
+				mux {
+					pins = "gpio68";
+					function = "gpio";
+				};
+
+
+				config {
+					pins = "gpio68";
+					drive-strength = <2>; /* 2 mA */
+					bias-pull-up;
+				};
+			};
+
+			can_rst_off: rst_off {
+				mux {
+					pins = "gpio68";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio68";
+					drive-strength = <2>; /* 2 mA */
+					bias-pull-up;
+					output-high;
+				};
+			};
+		};
 	};
 };

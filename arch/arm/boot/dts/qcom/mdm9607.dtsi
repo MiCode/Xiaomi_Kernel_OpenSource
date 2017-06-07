@@ -1224,6 +1224,7 @@
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
 		vdd-dig-supply = <&mdm9607_s3_floor_level>;
+		qcom,therm-ddr-lm-info = <2 78 70>;
 
 		qcom,vdd-dig-rstr{
 			qcom,vdd-rstr-reg = "vdd-dig";

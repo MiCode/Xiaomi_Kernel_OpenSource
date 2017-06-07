@@ -958,6 +958,9 @@ int cnss_wlfw_server_exit(struct cnss_plat_data *plat_priv)
 	if (!plat_priv)
 		return -ENODEV;
 
+	qmi_handle_destroy(plat_priv->qmi_wlfw_clnt);
+	plat_priv->qmi_wlfw_clnt = NULL;
+
 	clear_bit(CNSS_FW_READY, &plat_priv->driver_state);
 	clear_bit(CNSS_FW_MEM_READY, &plat_priv->driver_state);
 	clear_bit(CNSS_QMI_WLFW_CONNECTED, &plat_priv->driver_state);
