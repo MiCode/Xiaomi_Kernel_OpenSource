@@ -28,7 +28,6 @@
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
-#include <linux/workqueue.h>
 
 #include <asm-generic/io.h>
 
@@ -95,10 +94,10 @@ struct tcs_response {
 	struct mbox_chan *chan;
 	struct tcs_mbox_msg *msg;
 	u32 m; /* m-th TCS */
-	struct tasklet_struct tasklet;
 	int err;
 	int idx;
 	bool in_use;
+	struct list_head list;
 };
 
 struct tcs_response_pool {
@@ -122,16 +121,18 @@ struct tcs_mbox {
 
 /* One per MBOX controller */
 struct tcs_drv {
+	struct mbox_controller mbox;
 	const char *name;
-	void *base; /* start address of the RSC's registers */
-	void *reg_base; /* start address for DRV specific register */
+	void __iomem *base; /* start address of the RSC's registers */
+	void __iomem *reg_base; /* start address for DRV specific register */
 	int drv_id;
 	struct platform_device *pdev;
-	struct mbox_controller mbox;
 	struct tcs_mbox tcs[TCS_TYPE_NR];
 	int num_assigned;
 	int num_tcs;
-	struct workqueue_struct *wq;
+	struct tasklet_struct tasklet;
+	struct list_head response_pending;
+	spinlock_t drv_lock;
 	struct tcs_response_pool *resp_pool;
 	atomic_t tcs_in_use[MAX_POOL_SIZE];
 	/* Debug info */
@@ -140,8 +141,6 @@ struct tcs_drv {
 	atomic_t tcs_send_count[MAX_POOL_SIZE];
 	atomic_t tcs_irq_count[MAX_POOL_SIZE];
 };
-
-static void tcs_notify_tx_done(unsigned long data);
 
 static int tcs_response_pool_init(struct tcs_drv *drv)
 {
@@ -153,11 +152,10 @@ static int tcs_response_pool_init(struct tcs_drv *drv)
 		return -ENOMEM;
 
 	for (i = 0; i < MAX_POOL_SIZE; i++) {
-		tasklet_init(&pool->resp[i].tasklet, tcs_notify_tx_done,
-						(unsigned long) &pool->resp[i]);
 		pool->resp[i].drv = drv;
 		pool->resp[i].idx = i;
 		pool->resp[i].m = TCS_M_INIT;
+		INIT_LIST_HEAD(&pool->resp[i].list);
 	}
 
 	spin_lock_init(&pool->lock);
@@ -187,6 +185,9 @@ static struct tcs_response *setup_response(struct tcs_drv *drv,
 		resp->in_use = false;
 	}
 	spin_unlock_irqrestore(&pool->lock, flags);
+
+	if (pos == MAX_POOL_SIZE)
+		pr_err("response pool is full\n");
 
 	return resp;
 }
@@ -240,11 +241,11 @@ static void print_response(struct tcs_drv *drv, int m)
 		return;
 
 	msg = resp->msg;
-	pr_info("Response object idx=%d:\n\tfor-tcs=%d\tin-use=%d\n",
+	pr_debug("Response object idx=%d:\n\tfor-tcs=%d\tin-use=%d\n",
 			resp->idx, resp->m, resp->in_use);
-	pr_info("Msg: state=%d\n", msg->state);
+	pr_debug("Msg: state=%d\n", msg->state);
 	for (i = 0; i < msg->num_payload; i++)
-		pr_info("addr=0x%x data=0x%x complete=0x%x\n",
+		pr_debug("addr=0x%x data=0x%x complete=0x%x\n",
 				msg->payload[i].addr,
 				msg->payload[i].data,
 				msg->payload[i].complete);
@@ -364,7 +365,15 @@ static inline struct tcs_mbox *get_tcs_for_msg(struct tcs_drv *drv,
 
 static inline void send_tcs_response(struct tcs_response *resp)
 {
-	tasklet_schedule(&resp->tasklet);
+	struct tcs_drv *drv = resp->drv;
+	unsigned long flags;
+
+	spin_lock_irqsave(&drv->drv_lock, flags);
+	INIT_LIST_HEAD(&resp->list);
+	list_add_tail(&resp->list, &drv->response_pending);
+	spin_unlock_irqrestore(&drv->drv_lock, flags);
+
+	tasklet_schedule(&drv->tasklet);
 }
 
 static inline void enable_tcs_irq(struct tcs_drv *drv, int m, bool enable)
@@ -455,12 +464,12 @@ no_resp:
 		/* Clear the TCS IRQ status */
 		write_tcs_reg(base, TCS_DRV_IRQ_CLEAR, 0, 0, BIT(m));
 
+		/* Notify the client that this request is completed. */
+		atomic_set(&drv->tcs_in_use[m], 0);
+
 		/* Clean up response object and notify mbox in tasklet */
 		if (resp)
 			send_tcs_response(resp);
-
-		/* Notify the client that this request is completed. */
-		atomic_set(&drv->tcs_in_use[m], 0);
 	}
 
 	return IRQ_HANDLED;
@@ -475,19 +484,38 @@ static inline void mbox_notify_tx_done(struct mbox_chan *chan,
 	mbox_chan_txdone(chan, err);
 }
 
-/**
- * tcs_notify_tx_done: TX Done for requests that do not trigger TCS
- */
-static void tcs_notify_tx_done(unsigned long data)
+static void respond_tx_done(struct tcs_response *resp)
 {
-	struct tcs_response *resp = (struct tcs_response *) data;
 	struct mbox_chan *chan = resp->chan;
 	struct tcs_mbox_msg *msg = resp->msg;
 	int err = resp->err;
 	int m = resp->m;
 
-	mbox_notify_tx_done(chan, msg, m, err);
 	free_response(resp);
+	mbox_notify_tx_done(chan, msg, m, err);
+}
+
+/**
+ * tcs_notify_tx_done: TX Done for requests that do not trigger TCS
+ */
+static void tcs_notify_tx_done(unsigned long data)
+{
+	struct tcs_drv *drv = (struct tcs_drv *)data;
+	struct tcs_response *resp;
+	unsigned long flags;
+
+	do {
+		spin_lock_irqsave(&drv->drv_lock, flags);
+		if (list_empty(&drv->response_pending)) {
+			spin_unlock_irqrestore(&drv->drv_lock, flags);
+			break;
+		}
+		resp = list_first_entry(&drv->response_pending,
+					struct tcs_response, list);
+		list_del(&resp->list);
+		spin_unlock_irqrestore(&drv->drv_lock, flags);
+		respond_tx_done(resp);
+	} while (1);
 }
 
 static void __tcs_buffer_write(struct tcs_drv *drv, int d, int m, int n,
@@ -673,8 +701,11 @@ static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 	if (IS_ERR(tcs))
 		return PTR_ERR(tcs);
 
-	if (trigger)
+	if (trigger) {
 		resp = setup_response(drv, msg, chan, TCS_M_INIT, 0);
+		if (IS_ERR_OR_NULL(resp))
+			return -EBUSY;
+	}
 
 	/* Identify the sequential slots that we can write to */
 	spin_lock_irqsave(&tcs->tcs_lock, flags);
@@ -686,28 +717,21 @@ static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 		return slot;
 	}
 
-	if (trigger) {
-		ret = check_for_req_inflight(drv, tcs, msg);
-		if (ret) {
-			spin_unlock_irqrestore(&tcs->tcs_lock, flags);
-			return ret;
-		}
-	}
-
-	/* Mark the slots as in-use, before we unlock */
-	if (tcs->type == SLEEP_TCS || tcs->type == WAKE_TCS)
-		bitmap_set(tcs->slots, slot, msg->num_payload);
-
-	/* Copy the addresses of the resources over to the slots */
-	for (i = 0; tcs->cmd_addr && i < msg->num_payload; i++)
-		tcs->cmd_addr[slot + i] = msg->payload[i].addr;
-
+	/* Figure out the TCS-m and CMD-n to write to */
 	offset = slot / tcs->ncpt;
 	m = offset + tcs->tcs_offset;
 	n = slot % tcs->ncpt;
 
-	/* Block, if we have an address from the msg in flight */
 	if (trigger) {
+		/* Block, if we have an address from the msg in flight */
+		ret = check_for_req_inflight(drv, tcs, msg);
+		if (ret) {
+			spin_unlock_irqrestore(&tcs->tcs_lock, flags);
+			if (resp)
+				free_response(resp);
+			return ret;
+		}
+
 		resp->m = m;
 		/* Mark the TCS as busy */
 		atomic_set(&drv->tcs_in_use[m], 1);
@@ -716,6 +740,14 @@ static int tcs_mbox_write(struct mbox_chan *chan, struct tcs_mbox_msg *msg,
 		if (tcs->type != ACTIVE_TCS)
 			enable_tcs_irq(drv, m, true);
 		drv->tcs_last_sent_ts[m] = arch_counter_get_cntvct();
+	} else {
+		/* Mark the slots as in-use, before we unlock */
+		if (tcs->type == SLEEP_TCS || tcs->type == WAKE_TCS)
+			bitmap_set(tcs->slots, slot, msg->num_payload);
+
+		/* Copy the addresses of the resources over to the slots */
+		for (i = 0; tcs->cmd_addr && i < msg->num_payload; i++)
+			tcs->cmd_addr[slot + i] = msg->payload[i].addr;
 	}
 
 	/* Write to the TCS or AMC */
@@ -758,6 +790,32 @@ static int tcs_mbox_invalidate(struct mbox_chan *chan)
 	return 0;
 }
 
+static void print_tcs_regs(struct tcs_drv *drv, int m)
+{
+	int n;
+	struct tcs_mbox *tcs = get_tcs_from_index(drv, m);
+	void __iomem *base = drv->reg_base;
+	u32 enable, addr, data, msgid;
+
+	if (!tcs || tcs_is_free(drv, m))
+		return;
+
+	enable = read_tcs_reg(base, TCS_DRV_CMD_ENABLE, m, 0);
+	if (!enable)
+		return;
+
+	pr_debug("TCS-%d contents:\n", m);
+	for (n = 0; n < tcs->ncpt; n++) {
+		if (!(enable & BIT(n)))
+			continue;
+		addr = read_tcs_reg(base, TCS_DRV_CMD_ADDR, m, n);
+		data = read_tcs_reg(base, TCS_DRV_CMD_DATA, m, n);
+		msgid = read_tcs_reg(base, TCS_DRV_CMD_MSGID, m, n);
+		pr_debug("\tn=%d addr=0x%x data=0x%x hdr=0x%x\n",
+						n, addr, data, msgid);
+	}
+}
+
 static void dump_tcs_stats(struct tcs_drv *drv)
 {
 	int i;
@@ -766,12 +824,13 @@ static void dump_tcs_stats(struct tcs_drv *drv)
 	for (i = 0; i < drv->num_tcs; i++) {
 		if (!atomic_read(&drv->tcs_in_use[i]))
 			continue;
-		pr_info("Time: %llu: TCS-%d:\n\tReq Sent:%d Last Sent:%llu\n\tResp Recv:%d Last Recvd:%llu\n",
+		pr_debug("Time: %llu: TCS-%d:\n\tReq Sent:%d Last Sent:%llu\n\tResp Recv:%d Last Recvd:%llu\n",
 				curr, i,
 				atomic_read(&drv->tcs_send_count[i]),
 				drv->tcs_last_sent_ts[i],
 				atomic_read(&drv->tcs_irq_count[i]),
 				drv->tcs_last_recv_ts[i]);
+		print_tcs_regs(drv, i);
 		print_response(drv, i);
 	}
 }
@@ -840,7 +899,7 @@ static int chan_tcs_write(struct mbox_chan *chan, void *data)
 		if (ret != -EBUSY)
 			break;
 		udelay(100);
-	} while (++count < 10);
+	} while (++count < 100);
 
 tx_fail:
 	/* If there was an error in the request, schedule a response */
@@ -849,7 +908,8 @@ tx_fail:
 				drv, msg, chan, TCS_M_INIT, ret);
 
 		dev_err(dev, "Error sending RPMH message %d\n", ret);
-		send_tcs_response(resp);
+		if (resp)
+			send_tcs_response(resp);
 		ret = 0;
 	}
 
@@ -857,6 +917,7 @@ tx_fail:
 	if (ret == -EBUSY) {
 		dev_err(dev, "TCS Busy, retrying RPMH message send\n");
 		dump_tcs_stats(drv);
+		ret = -EAGAIN;
 	}
 
 	return ret;
@@ -967,6 +1028,7 @@ static struct mbox_chan *of_tcs_mbox_xlate(struct mbox_controller *mbox,
 	}
 
 	chan = &mbox->chans[drv->num_assigned++];
+	chan->con_priv = drv;
 
 	return chan;
 }
@@ -1108,6 +1170,9 @@ static int tcs_drv_probe(struct platform_device *pdev)
 	drv->mbox.is_idle = tcs_drv_is_idle;
 	drv->num_tcs = st;
 	drv->pdev = pdev;
+	INIT_LIST_HEAD(&drv->response_pending);
+	spin_lock_init(&drv->drv_lock);
+	tasklet_init(&drv->tasklet, tcs_notify_tx_done, (unsigned long)drv);
 
 	drv->name = of_get_property(pdev->dev.of_node, "label", NULL);
 	if (!drv->name)
