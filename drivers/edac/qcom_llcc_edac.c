@@ -103,7 +103,7 @@ struct errors_edac {
 
 struct erp_drvdata {
 	struct regmap *llcc_map;
-	phys_addr_t *llcc_banks;
+	u32 *llcc_banks;
 	u32 ecc_irq;
 	u32 num_banks;
 	u32 b_off;
@@ -353,12 +353,13 @@ static int qcom_llcc_erp_probe(struct platform_device *pdev)
 	struct erp_drvdata *drv;
 	struct edac_device_ctl_info *edev_ctl;
 	struct device *dev = &pdev->dev;
-	u32 *banks;
-	u32 i;
 
 	/* Allocate edac control info */
 	edev_ctl = edac_device_alloc_ctl_info(sizeof(*drv), "qcom-llcc", 1,
-			NULL, 1, 1, NULL, 0, edac_device_alloc_index());
+			NULL, 0, 1, NULL, 0, edac_device_alloc_index());
+
+	if (!edev_ctl)
+		return -ENOMEM;
 
 	edev_ctl->dev = dev;
 	edev_ctl->mod_name = dev_name(dev);
@@ -404,20 +405,15 @@ static int qcom_llcc_erp_probe(struct platform_device *pdev)
 	drv->num_banks >>= LLCC_LB_CNT_SHIFT;
 
 	drv->llcc_banks = devm_kzalloc(&pdev->dev,
-		sizeof(phys_addr_t) * drv->num_banks, GFP_KERNEL);
+		sizeof(u32) * drv->num_banks, GFP_KERNEL);
 
-	if (!drv->num_banks) {
+	if (!drv->llcc_banks) {
 		dev_err(dev, "Cannot allocate memory for llcc_banks\n");
 		return -ENOMEM;
 	}
 
-	banks = devm_kzalloc(&pdev->dev,
-		sizeof(u32) * drv->num_banks, GFP_KERNEL);
-	if (!banks)
-		return -ENOMEM;
-
 	rc = of_property_read_u32_array(dev->parent->of_node,
-			"qcom,llcc-banks-off", banks, drv->num_banks);
+			"qcom,llcc-banks-off", drv->llcc_banks, drv->num_banks);
 	if (rc) {
 		dev_err(dev, "Cannot read llcc-banks-off property\n");
 		return -EINVAL;
@@ -429,9 +425,6 @@ static int qcom_llcc_erp_probe(struct platform_device *pdev)
 		dev_err(dev, "Cannot read llcc-broadcast-off property\n");
 		return -EINVAL;
 	}
-
-	for (i = 0; i < drv->num_banks; i++)
-		drv->llcc_banks[i] = banks[i];
 
 	platform_set_drvdata(pdev, edev_ctl);
 
