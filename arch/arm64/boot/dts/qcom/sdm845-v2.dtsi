@@ -17,10 +17,6 @@
 	qcom,msm-id = <321 0x20000>;
 };
 
-&spmi_debug_bus {
-	status = "ok";
-};
-
 &clock_gcc {
 	compatible = "qcom,gcc-sdm845-v2";
 };
