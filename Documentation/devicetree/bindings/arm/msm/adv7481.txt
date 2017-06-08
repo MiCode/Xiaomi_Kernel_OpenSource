@@ -1,0 +1,54 @@
+ADV7481 chip driver (VIDEO_ADV7481)
+
+VIDEO_ADV7481 is a kernel platform driver that is used for video decoder
+and dual mode HDMI/MHL receiver.
+
+The devicetree representation of the VIDEO_ADV7481 block should be:
+
+Required properties
+
+- compatible: "qcom,adv7481"
+- reg: The i2c slave address of adv7481 device.
+- qcom,cci-master: The i2c master id to be used for adv7481 driver.
+- gpios: The GPIOs required to be configured for the driver. It should
+	be in the order I2C data line, i2c clock line, reset line,
+	interrupt 1, interrupt 2 and interrupt 3.
+- cam_vdig-supply: Should contain regulator to be used for the digital
+	vdd.
+- cam_vio-supply: Should contain regulator to be used for the IO vdd.
+- cam_vana-supply: Should contain regulator from which analog voltage
+	is supplied.
+- qcom,cam-vreg-name: Should specify array of regulator names required
+	for the device.
+- qcom,cam-vreg-min-voltage: Should specify array of minimum voltage
+	level in uV for the regulators specified in the property
+	"qcom,cam-vreg-name".
+- qcom,cam-vreg-max-voltage: Should specify array of maximum voltage
+	level in uV for the regulators specified in the property
+	"qcom,cam-vreg-name".
+- qcom,cam-vreg-op-mode: Should specify array of current level in uA
+	for the regulators specified in the property "qcom,cam-vreg-name".
+
+Example:
+
+	qcom,adv7481@70 {
+		compatible = "qcom,adv7481";
+		reg = <0x70 0xff>;
+		cam_vdig-supply = <&vph_pwr_vreg>;
+		/* Cameras powered by PMIC: */
+		cam_vio-supply = <&pm8994_lvs1>;
+		cam_vana-supply = <&pm8994_l17>;
+		/* Self-powered cameras: */
+		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
+		qcom,cam-vreg-min-voltage = <1300000 0 2500000>;
+		qcom,cam-vreg-max-voltage = <1300000 0 2500000>;
+		qcom,cam-vreg-op-mode = <105000 0 80000>;
+		qcom,cci-master = <0>;
+		qcom,slave-addr = <0x70>;
+		gpios = <&tlmm 17 0>,          /* I2C SDA */
+			<&tlmm 18 0>,          /* I2C SCL */
+			<&pm8994_gpios 4 0>,   /* RST     */
+			<&pm8994_gpios 5 0>,   /* INT1    */
+			<&pm8994_gpios 6 0>,   /* INT2    */
+			<&pm8994_gpios 7 0>;   /* INT3    */
+	};
