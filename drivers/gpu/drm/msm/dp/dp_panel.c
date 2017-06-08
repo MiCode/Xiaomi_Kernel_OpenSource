@@ -201,8 +201,6 @@ static u32 dp_panel_get_link_rate(struct dp_panel *dp_panel)
 	max_rate = drm_dp_link_rate_to_bw_code(dp_panel->dp_link.rate);
 	pinfo = &dp_panel->pinfo;
 
-	pinfo->bpp = 24;
-
 	/*
 	 * The max pixel clock supported is 675Mhz. The
 	 * current calculations below will make sure
