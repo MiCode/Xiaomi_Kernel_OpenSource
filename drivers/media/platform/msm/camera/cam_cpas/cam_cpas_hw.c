@@ -800,8 +800,8 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 			goto done;
 		}
 
-		if (cpas_core->internal_ops.power_on_settings) {
-			rc = cpas_core->internal_ops.power_on_settings(cpas_hw);
+		if (cpas_core->internal_ops.power_on) {
+			rc = cpas_core->internal_ops.power_on(cpas_hw);
 			if (rc) {
 				cam_cpas_soc_disable_resources(
 					&cpas_hw->soc_info);
@@ -873,6 +873,15 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 	cpas_core->streamon_clients--;
 
 	if (cpas_core->streamon_clients == 0) {
+		if (cpas_core->internal_ops.power_off) {
+			rc = cpas_core->internal_ops.power_off(cpas_hw);
+			if (rc) {
+				pr_err("failed in power_off settings rc=%d\n",
+					rc);
+				/* Do not return error, passthrough */
+			}
+		}
+
 		rc = cam_cpas_soc_disable_resources(&cpas_hw->soc_info);
 		if (rc) {
 			pr_err("disable_resorce failed, rc=%d\n", rc);

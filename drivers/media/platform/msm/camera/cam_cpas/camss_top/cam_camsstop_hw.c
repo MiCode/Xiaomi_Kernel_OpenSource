@@ -81,7 +81,8 @@ int cam_camsstop_get_internal_ops(struct cam_cpas_internal_ops *internal_ops)
 	internal_ops->init_hw_version = NULL;
 	internal_ops->handle_irq = NULL;
 	internal_ops->setup_regbase = cam_camsstop_setup_regbase_indices;
-	internal_ops->power_on_settings = NULL;
+	internal_ops->power_on = NULL;
+	internal_ops->power_off = NULL;
 
 	return 0;
 }

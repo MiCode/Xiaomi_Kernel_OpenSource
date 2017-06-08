@@ -513,6 +513,18 @@ uint32_t slave_error_logger[] = {
 	0x273c, /* ERRLOGGER_ERRLOG3_HIGH */
 };
 
+static struct cam_cpas_hw_errata_wa_list cam170_cpas100_errata_wa_list = {
+	.camnoc_flush_slave_pending_trans = {
+		.enable = true,
+		.data.reg_info = {
+			.access_type = CAM_REG_TYPE_READ,
+			.offset = 0x2100, /* SidebandManager_SenseIn0_Low */
+			.mask = 0xE0000, /* Bits 17, 18, 19 */
+			.value = 0, /* expected to be 0 */
+		},
+	},
+};
+
 struct cam_camnoc_info cam170_cpas100_camnoc_info = {
 	.specific = &cam_cpas100_camnoc_specific[0],
 	.specific_size = sizeof(cam_cpas100_camnoc_specific) /
@@ -524,6 +536,7 @@ struct cam_camnoc_info cam170_cpas100_camnoc_info = {
 	.error_logger = &slave_error_logger[0],
 	.error_logger_size = sizeof(slave_error_logger) /
 		sizeof(slave_error_logger[0]),
+	.errata_wa_list = &cam170_cpas100_errata_wa_list,
 };
 
 #endif /* _CPASTOP100_H_ */

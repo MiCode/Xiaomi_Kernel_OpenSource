@@ -230,7 +230,7 @@ irqreturn_t cam_cpastop_handle_irq(int irq_num, void *data)
 	return IRQ_HANDLED;
 }
 
-static int cam_cpastop_static_settings(struct cam_hw_info *cpas_hw)
+static int cam_cpastop_poweron(struct cam_hw_info *cpas_hw)
 {
 	int i;
 
@@ -254,6 +254,38 @@ static int cam_cpastop_static_settings(struct cam_hw_info *cpas_hw)
 	}
 
 	return 0;
+}
+
+static int cam_cpastop_poweroff(struct cam_hw_info *cpas_hw)
+{
+	struct cam_cpas *cpas_core = (struct cam_cpas *) cpas_hw->core_info;
+	struct cam_hw_soc_info *soc_info = &cpas_hw->soc_info;
+	int camnoc_index = cpas_core->regbase_index[CAM_CPAS_REG_CAMNOC];
+	int rc = 0;
+	struct cam_cpas_hw_errata_wa_list *errata_wa_list =
+		camnoc_info->errata_wa_list;
+
+	if (!errata_wa_list)
+		return 0;
+
+	if (errata_wa_list->camnoc_flush_slave_pending_trans.enable) {
+		struct cam_cpas_hw_errata_wa *errata_wa =
+			&errata_wa_list->camnoc_flush_slave_pending_trans;
+
+		rc = cam_io_poll_value_wmask(
+			soc_info->reg_map[camnoc_index].mem_base +
+			errata_wa->data.reg_info.offset,
+			errata_wa->data.reg_info.value,
+			errata_wa->data.reg_info.mask,
+			CAM_CPAS_POLL_RETRY_CNT,
+			CAM_CPAS_POLL_MIN_USECS, CAM_CPAS_POLL_MAX_USECS);
+		if (rc) {
+			pr_err("camnoc flush slave pending trans failed\n");
+			/* Do not return error, passthrough */
+		}
+	}
+
+	return rc;
 }
 
 static int cam_cpastop_init_hw_version(struct cam_hw_info *cpas_hw,
@@ -295,7 +327,8 @@ int cam_cpastop_get_internal_ops(struct cam_cpas_internal_ops *internal_ops)
 	internal_ops->init_hw_version = cam_cpastop_init_hw_version;
 	internal_ops->handle_irq = cam_cpastop_handle_irq;
 	internal_ops->setup_regbase = cam_cpastop_setup_regbase_indices;
-	internal_ops->power_on_settings = cam_cpastop_static_settings;
+	internal_ops->power_on = cam_cpastop_poweron;
+	internal_ops->power_off = cam_cpastop_poweroff;
 
 	return 0;
 }

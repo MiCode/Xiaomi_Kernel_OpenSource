@@ -29,6 +29,13 @@
 
 #define BITS_MASK_SHIFT(x, mask, shift) (((x) & (mask)) >> shift)
 
+/* Number of times to retry while polling */
+#define CAM_CPAS_POLL_RETRY_CNT 5
+/* Minimum usecs to sleep while polling */
+#define CAM_CPAS_POLL_MIN_USECS 200
+/* Maximum usecs to sleep while polling */
+#define CAM_CPAS_POLL_MAX_USECS 250
+
 /**
  * enum cam_cpas_hw_type - Enum for CPAS HW type
  */
