@@ -49,6 +49,7 @@ enum drm_mm_search_flags {
 	DRM_MM_SEARCH_DEFAULT =		0,
 	DRM_MM_SEARCH_BEST =		1 << 0,
 	DRM_MM_SEARCH_BELOW =		1 << 1,
+	DRM_MM_SEARCH_BOTTOM_UP =	1 << 2,
 };
 
 enum drm_mm_allocator_flags {
@@ -63,6 +64,7 @@ struct drm_mm_node {
 	struct list_head node_list;
 	struct list_head hole_stack;
 	struct rb_node rb;
+	struct rb_node hole_node;
 	unsigned hole_follows : 1;
 	unsigned scanned_block : 1;
 	unsigned scanned_prev_free : 1;
@@ -84,6 +86,7 @@ struct drm_mm {
 	struct drm_mm_node head_node;
 	/* Keep an interval_tree for fast lookup of drm_mm_nodes by address. */
 	struct rb_root interval_tree;
+	struct rb_root holes_tree;
 
 	unsigned int scan_check_range : 1;
 	unsigned scan_alignment;
