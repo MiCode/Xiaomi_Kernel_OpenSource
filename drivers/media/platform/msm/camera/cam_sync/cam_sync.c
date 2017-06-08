@@ -82,7 +82,7 @@ int cam_sync_register_callback(sync_callback cb_func,
 		sync_cb->sync_obj = sync_obj;
 		INIT_WORK(&sync_cb->cb_dispatch_work,
 			cam_sync_util_cb_dispatch);
-
+		list_add_tail(&sync_cb->list, &row->callback_list);
 		sync_cb->status = row->state;
 		queue_work(sync_dev->work_queue,
 			&sync_cb->cb_dispatch_work);
