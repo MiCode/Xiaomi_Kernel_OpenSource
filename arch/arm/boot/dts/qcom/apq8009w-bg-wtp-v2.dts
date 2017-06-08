@@ -75,7 +75,7 @@
 	qcom,blackghost {
 		compatible = "qcom,pil-blackghost";
 
-		qcom,firmware-name = "bgelf";
+		qcom,firmware-name = "bg-wear";
 		/* GPIO inputs from blackghost */
 		qcom,bg2ap-status-gpio = <&msm_gpio 97 0>;
 		qcom,bg2ap-errfatal-gpio = <&msm_gpio 95 0>;
