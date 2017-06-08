@@ -188,6 +188,17 @@
 	status = "ok";
 };
 
+&extcon_storage_cd {
+	gpio = <&tlmm 126 GPIO_ACTIVE_LOW>;
+	debounce-ms = <200>;
+	irq-flags = <IRQ_TYPE_EDGE_BOTH>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&storage_cd>;
+
+	status = "ok";
+};
+
 &ufsphy_card {
 	compatible = "qcom,ufs-phy-qmp-v3";
 
@@ -229,6 +240,8 @@
 	qcom,clk-rates = <400000 20000000 25000000
 				50000000 100000000 200000000>;
 	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
+
+	extcon = <&extcon_storage_cd>;
 
 	status = "ok";
 };
