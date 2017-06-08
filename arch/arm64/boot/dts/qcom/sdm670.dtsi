@@ -19,6 +19,7 @@
 #include <dt-bindings/clock/qcom,videocc-sdm845.h>
 #include <dt-bindings/clock/qcom,cpucc-sdm845.h>
 #include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM670";
@@ -825,3 +826,5 @@
 &venus_gdsc {
 	status = "ok";
 };
+
+#include "sdm670-regulator.dtsi"
