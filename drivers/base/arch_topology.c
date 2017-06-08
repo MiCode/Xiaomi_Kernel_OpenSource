@@ -238,13 +238,12 @@ void topology_normalize_cpu_scale(void)
 	pr_debug("cpu_capacity: capacity_scale=%u\n", capacity_scale);
 	mutex_lock(&cpu_scale_mutex);
 	for_each_possible_cpu(cpu) {
-		pr_debug("cpu_capacity: cpu=%d raw_capacity=%u\n",
-			 cpu, raw_capacity[cpu]);
 		capacity = (raw_capacity[cpu] << SCHED_CAPACITY_SHIFT)
 			/ capacity_scale;
 		topology_set_cpu_scale(cpu, capacity);
-		pr_debug("cpu_capacity: CPU%d cpu_capacity=%lu\n",
-			cpu, topology_get_cpu_scale(NULL, cpu));
+		pr_debug("cpu_capacity: CPU%d cpu_capacity=%lu raw_capacity=%u\n",
+			cpu, topology_get_cpu_scale(NULL, cpu),
+			raw_capacity[cpu]);
 	}
 	mutex_unlock(&cpu_scale_mutex);
 }
