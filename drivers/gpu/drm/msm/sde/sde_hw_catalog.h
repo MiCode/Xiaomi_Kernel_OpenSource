@@ -568,6 +568,17 @@ struct sde_lm_cfg {
 };
 
 /**
+ * struct sde_dspp_cfg - information of DSPP top block
+ * @id                 enum identifying this block
+ * @base               register offset of this block
+ * @features           bit mask identifying sub-blocks/features
+ *                     supported by this block
+ */
+struct sde_dspp_top_cfg  {
+	SDE_HW_BLK_INFO;
+};
+
+/**
  * struct sde_dspp_cfg - information of DSPP blocks
  * @id                 enum identifying this block
  * @base               register offset of this block
@@ -890,6 +901,8 @@ struct sde_mdss_cfg {
 
 	u32 mixer_count;
 	struct sde_lm_cfg mixer[MAX_BLOCKS];
+
+	struct sde_dspp_top_cfg dspp_top;
 
 	u32 dspp_count;
 	struct sde_dspp_cfg dspp[MAX_BLOCKS];

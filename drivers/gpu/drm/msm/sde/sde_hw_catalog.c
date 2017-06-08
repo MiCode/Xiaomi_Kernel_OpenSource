@@ -230,6 +230,12 @@ enum {
 };
 
 enum {
+	DSPP_TOP_OFF,
+	DSPP_TOP_SIZE,
+	DSPP_TOP_PROP_MAX,
+};
+
+enum {
 	DSPP_OFF,
 	DSPP_SIZE,
 	DSPP_BLOCKS,
@@ -461,6 +467,11 @@ static struct sde_prop_type mixer_prop[] = {
 
 static struct sde_prop_type mixer_blocks_prop[] = {
 	{MIXER_GC_PROP, "qcom,sde-mixer-gc", false, PROP_TYPE_U32_ARRAY},
+};
+
+static struct sde_prop_type dspp_top_prop[] = {
+	{DSPP_TOP_OFF, "qcom,sde-dspp-top-off", true, PROP_TYPE_U32},
+	{DSPP_TOP_SIZE, "qcom,sde-dspp-top-size", false, PROP_TYPE_U32},
 };
 
 static struct sde_prop_type dspp_prop[] = {
@@ -1859,6 +1870,54 @@ end:
 	return rc;
 }
 
+static int sde_dspp_top_parse_dt(struct device_node *np,
+		struct sde_mdss_cfg *sde_cfg)
+{
+	int rc, prop_count[DSPP_TOP_PROP_MAX];
+	bool prop_exists[DSPP_TOP_PROP_MAX];
+	struct sde_prop_value *prop_value = NULL;
+	u32 off_count;
+
+	if (!sde_cfg) {
+		SDE_ERROR("invalid argument\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	prop_value = kzalloc(DSPP_TOP_PROP_MAX *
+			sizeof(struct sde_prop_value), GFP_KERNEL);
+	if (!prop_value) {
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	rc = _validate_dt_entry(np, dspp_top_prop, ARRAY_SIZE(dspp_top_prop),
+		prop_count, &off_count);
+	if (rc)
+		goto end;
+
+	rc = _read_dt_entry(np, dspp_top_prop, ARRAY_SIZE(dspp_top_prop),
+		prop_count, prop_exists, prop_value);
+	if (rc)
+		goto end;
+
+	if (off_count != 1) {
+		SDE_ERROR("invalid dspp_top off_count:%d\n", off_count);
+		rc = -EINVAL;
+		goto end;
+	}
+
+	sde_cfg->dspp_top.base =
+		PROP_VALUE_ACCESS(prop_value, DSPP_TOP_OFF, 0);
+	sde_cfg->dspp_top.len =
+		PROP_VALUE_ACCESS(prop_value, DSPP_TOP_SIZE, 0);
+	snprintf(sde_cfg->dspp_top.name, SDE_HW_BLK_NAME_LEN, "dspp_top");
+
+end:
+	kfree(prop_value);
+	return rc;
+}
+
 static int sde_dspp_parse_dt(struct device_node *np,
 						struct sde_mdss_cfg *sde_cfg)
 {
@@ -2989,6 +3048,10 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev)
 		goto end;
 
 	rc = sde_sspp_parse_dt(np, sde_cfg);
+	if (rc)
+		goto end;
+
+	rc = sde_dspp_top_parse_dt(np, sde_cfg);
 	if (rc)
 		goto end;
 
