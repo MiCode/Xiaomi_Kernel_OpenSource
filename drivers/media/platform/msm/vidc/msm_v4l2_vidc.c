@@ -225,6 +225,14 @@ static int msm_v4l2_g_parm(struct file *file, void *fh,
 	return 0;
 }
 
+static int msm_v4l2_g_crop(struct file *file, void *fh,
+			struct v4l2_crop *a)
+{
+	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
+
+	return msm_vidc_g_crop(vidc_inst, a);
+}
+
 static int msm_v4l2_enum_framesizes(struct file *file, void *fh,
 				struct v4l2_frmsizeenum *fsize)
 {
@@ -265,6 +273,7 @@ static const struct v4l2_ioctl_ops msm_v4l2_ioctl_ops = {
 	.vidioc_encoder_cmd = msm_v4l2_encoder_cmd,
 	.vidioc_s_parm = msm_v4l2_s_parm,
 	.vidioc_g_parm = msm_v4l2_g_parm,
+	.vidioc_g_crop = msm_v4l2_g_crop,
 	.vidioc_enum_framesizes = msm_v4l2_enum_framesizes,
 };
 
