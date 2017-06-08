@@ -488,13 +488,12 @@ static int pd_send_msg(struct usbpd *pd, u8 hdr_type, const u32 *data,
 	ret = pd_phy_write(hdr, (u8 *)data, num_data * sizeof(u32), type, 15);
 	/* TODO figure out timeout. based on tReceive=1.1ms x nRetryCount? */
 
-	/* MessageID incremented regardless of Tx error */
-	pd->tx_msgid = (pd->tx_msgid + 1) & PD_MAX_MSG_ID;
-
 	if (ret < 0)
 		return ret;
 	else if (ret != num_data * sizeof(u32))
 		return -EIO;
+
+	pd->tx_msgid = (pd->tx_msgid + 1) & PD_MAX_MSG_ID;
 	return 0;
 }
 
@@ -586,6 +585,8 @@ static int pd_eval_src_caps(struct usbpd *pd)
 
 static void pd_send_hard_reset(struct usbpd *pd)
 {
+	union power_supply_propval val = {0};
+
 	usbpd_dbg(&pd->dev, "send hard reset");
 
 	/* Force CC logic to source/sink to keep Rp/Rd unchanged */
@@ -593,6 +594,7 @@ static void pd_send_hard_reset(struct usbpd *pd)
 	pd->hard_reset_count++;
 	pd_phy_signal(HARD_RESET_SIG, 5); /* tHardResetComplete */
 	pd->in_pr_swap = false;
+	power_supply_set_property(pd->usb_psy, POWER_SUPPLY_PROP_PR_SWAP, &val);
 }
 
 static void kick_sm(struct usbpd *pd, int ms)
@@ -608,6 +610,8 @@ static void kick_sm(struct usbpd *pd, int ms)
 
 static void phy_sig_received(struct usbpd *pd, enum pd_sig_type type)
 {
+	union power_supply_propval val = {1};
+
 	if (type != HARD_RESET_SIG) {
 		usbpd_err(&pd->dev, "invalid signal (%d) received\n", type);
 		return;
@@ -618,6 +622,9 @@ static void phy_sig_received(struct usbpd *pd, enum pd_sig_type type)
 	/* Force CC logic to source/sink to keep Rp/Rd unchanged */
 	set_power_role(pd, pd->current_pr);
 	pd->hard_reset_recvd = true;
+	power_supply_set_property(pd->usb_psy,
+			POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
+
 	kick_sm(pd, 0);
 }
 
@@ -783,6 +790,9 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		if (pd->in_pr_swap) {
 			kick_sm(pd, SWAP_SOURCE_START_TIME);
 			pd->in_pr_swap = false;
+			val.intval = 0;
+			power_supply_set_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_PR_SWAP, &val);
 			break;
 		}
 
@@ -1572,7 +1582,6 @@ static void usbpd_sm(struct work_struct *w)
 		memset(&pd->received_pdos, 0, sizeof(pd->received_pdos));
 		rx_msg_cleanup(pd);
 
-		val.intval = 0;
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
 
@@ -1603,6 +1612,10 @@ static void usbpd_sm(struct work_struct *w)
 			usleep_range(ERROR_RECOVERY_TIME * USEC_PER_MSEC,
 				(ERROR_RECOVERY_TIME + 5) * USEC_PER_MSEC);
 
+		val.intval = 0;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PR_SWAP, &val);
+
 		/* set due to dual_role class "mode" change */
 		if (pd->forced_pr != POWER_SUPPLY_TYPEC_PR_NONE)
 			val.intval = pd->forced_pr;
@@ -1626,11 +1639,22 @@ static void usbpd_sm(struct work_struct *w)
 	if (pd->hard_reset_recvd) {
 		pd->hard_reset_recvd = false;
 
-		val.intval = 1;
+		if (pd->requested_current) {
+			val.intval = pd->requested_current = 0;
+			power_supply_set_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_PD_CURRENT_MAX, &val);
+		}
+
+		pd->requested_voltage = 5000000;
+		val.intval = pd->requested_voltage;
 		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
+				POWER_SUPPLY_PROP_VOLTAGE_MIN, &val);
 
 		pd->in_pr_swap = false;
+		val.intval = 0;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PR_SWAP, &val);
+
 		pd->in_explicit_contract = false;
 		pd->selected_pdo = pd->requested_pdo = 0;
 		pd->rdo = 0;
@@ -1891,6 +1915,9 @@ static void usbpd_sm(struct work_struct *w)
 
 	case PE_SNK_WAIT_FOR_CAPABILITIES:
 		pd->in_pr_swap = false;
+		val.intval = 0;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PR_SWAP, &val);
 
 		if (IS_DATA(rx_msg, MSG_SOURCE_CAPABILITIES)) {
 			val.intval = 0;
@@ -1910,15 +1937,6 @@ static void usbpd_sm(struct work_struct *w)
 					POWER_SUPPLY_PROP_PD_ACTIVE, &val);
 		} else if (pd->hard_reset_count < 3) {
 			usbpd_set_state(pd, PE_SNK_HARD_RESET);
-		} else if (pd->pd_connected) {
-			usbpd_info(&pd->dev, "Sink hard reset count exceeded, forcing reconnect\n");
-
-			val.intval = 0;
-			power_supply_set_property(pd->usb_psy,
-					POWER_SUPPLY_PROP_PD_IN_HARD_RESET,
-					&val);
-
-			usbpd_set_state(pd, PE_ERROR_RECOVERY);
 		} else {
 			usbpd_dbg(&pd->dev, "Sink hard reset count exceeded, disabling PD\n");
 
@@ -2069,6 +2087,9 @@ static void usbpd_sm(struct work_struct *w)
 			}
 
 			pd->in_pr_swap = true;
+			val.intval = 1;
+			power_supply_set_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_PR_SWAP, &val);
 			usbpd_set_state(pd, PE_PRS_SNK_SRC_TRANSITION_TO_OFF);
 			break;
 		} else if (IS_CTRL(rx_msg, MSG_VCONN_SWAP)) {
@@ -2212,6 +2233,9 @@ static void usbpd_sm(struct work_struct *w)
 
 	case PE_PRS_SRC_SNK_TRANSITION_TO_OFF:
 		pd->in_pr_swap = true;
+		val.intval = 1;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PR_SWAP, &val);
 		pd->in_explicit_contract = false;
 
 		if (pd->vbus_enabled) {
@@ -2252,6 +2276,9 @@ static void usbpd_sm(struct work_struct *w)
 		}
 
 		pd->in_pr_swap = true;
+		val.intval = 1;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_PR_SWAP, &val);
 		usbpd_set_state(pd, PE_PRS_SNK_SRC_TRANSITION_TO_OFF);
 		break;
 
