@@ -58,6 +58,7 @@ static int msm_quat_mi2s_rx_ch = 2;
 static int msm_sec_mi2s_tx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int msm_tert_mi2s_tx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int msm_quat_mi2s_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
+static int msm_sec_mi2s_rate = SAMPLING_RATE_48KHZ;
 
 /* TDM default channels */
 static int msm_sec_tdm_tx_0_ch = 2; /* STEREO MIC */
@@ -386,6 +387,8 @@ static char const *ec_ref_bit_format_text[] = {"0", "S16_LE", "S24_LE"};
 static const char *const ec_ref_rate_text[] = {"0", "8000", "16000",
 	"32000", "44100", "48000", "96000", "192000", "384000"};
 
+static const char *const mi2s_rate_text[] = {"32000", "44100", "48000"};
+
 static struct afe_clk_set sec_mi2s_tx_clk = {
 	AFE_API_VERSION_I2S_CONFIG,
 	Q6AFE_LPASS_CLK_ID_SEC_MI2S_EBIT,
@@ -694,6 +697,37 @@ static int msm_sec_mi2s_tx_bit_format_put(struct snd_kcontrol *kcontrol,
 		 __func__, msm_sec_mi2s_tx_bit_format);
 	return 0;
 }
+
+static int msm_sec_mi2s_rate_get(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = msm_sec_mi2s_rate;
+	pr_debug("%s: msm_sec_mi2s_rate = %d\n", __func__, msm_sec_mi2s_rate);
+	return 0;
+}
+
+static int msm_sec_mi2s_rate_put(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		msm_sec_mi2s_rate = SAMPLING_RATE_32KHZ;
+		break;
+	case 1:
+		msm_sec_mi2s_rate = SAMPLING_RATE_44P1KHZ;
+		break;
+	case 2:
+		msm_sec_mi2s_rate = SAMPLING_RATE_48KHZ;
+		break;
+	default:
+		msm_sec_mi2s_rate = SAMPLING_RATE_48KHZ;
+		break;
+	}
+	pr_debug("%s: msm_sec_mi2s_rate = %d\n",
+		__func__, msm_sec_mi2s_rate);
+	return 0;
+}
+
 
 static int msm_sec_tdm_tx_0_ch_get(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
@@ -1983,11 +2017,14 @@ static int msm_mi2s_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	struct snd_interval *channels = hw_param_interval(params,
 					SNDRV_PCM_HW_PARAM_CHANNELS);
 
+	rate->min = rate->max = SAMPLING_RATE_48KHZ;
+
 	switch (cpu_dai->id) {
 	case 0:	/*MSM_PRIM_MI2S*/
 		break;
 	case 1:	/*MSM_SEC_MI2S*/
 		pr_debug("%s: channel:%d\n", __func__, msm_sec_mi2s_tx_ch);
+		rate->min = rate->max = msm_sec_mi2s_rate;
 		channels->min = channels->max = msm_sec_mi2s_tx_ch;
 		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
 			msm_sec_mi2s_tx_bit_format);
@@ -2005,7 +2042,6 @@ static int msm_mi2s_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 			__func__, cpu_dai->id);
 		return -EINVAL;
 	}
-	rate->min = rate->max = SAMPLING_RATE_48KHZ;
 
 	pr_debug("%s: dai id = 0x%x channels = %d rate = %d format = 0x%x\n",
 		__func__, cpu_dai->id, channels->max, rate->max,
@@ -2631,6 +2667,7 @@ static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(9, ec_ref_ch_text),
 	SOC_ENUM_SINGLE_EXT(3, ec_ref_bit_format_text),
 	SOC_ENUM_SINGLE_EXT(9, ec_ref_rate_text),
+	SOC_ENUM_SINGLE_EXT(3, mi2s_rate_text),
 };
 
 static const struct snd_kcontrol_new msm_snd_controls[] = {
@@ -2758,6 +2795,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 	SOC_ENUM_EXT("SEC_MI2S_TX Bit Format", msm_snd_enum[7],
 			msm_sec_mi2s_tx_bit_format_get,
 			msm_sec_mi2s_tx_bit_format_put),
+	SOC_ENUM_EXT("SEC_MI2S_TX SampleRate", msm_snd_enum[11],
+			msm_sec_mi2s_rate_get, msm_sec_mi2s_rate_put),
 	SOC_ENUM_EXT("EC Reference Channels", msm_snd_enum[8],
 			msm_ec_ref_ch_get, msm_ec_ref_ch_put),
 	SOC_ENUM_EXT("EC Reference Bit Format", msm_snd_enum[9],
@@ -3059,20 +3098,22 @@ static struct snd_soc_dai_link apq8096_common_dai_links[] = {
 		.ops = &apq8096_ll_ops,
 	},
 	{
-		.name = "Listen 1 Audio Service",
-		.stream_name = "Listen 1 Audio Service",
-		.cpu_dai_name = "LSM1",
-		.platform_name = "msm-lsm-client",
+		.name = "MSM8996 Media20",
+		.stream_name = "MultiMedia20",
+		.cpu_dai_name = "MultiMedia20",
+		.platform_name = "msm-pcm-loopback",
 		.dynamic = 1,
+		.dpcm_playback = 1,
 		.dpcm_capture = 1,
-		.trigger = { SND_SOC_DPCM_TRIGGER_POST,
-			     SND_SOC_DPCM_TRIGGER_POST },
-		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
-		.ignore_suspend = 1,
-		.ignore_pmdown_time = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
-		.be_id = MSM_FRONTEND_DAI_LSM1,
+		.ignore_suspend = 1,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
+		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA20,
 	},
 	/* Multiple Tunnel instances */
 	{
