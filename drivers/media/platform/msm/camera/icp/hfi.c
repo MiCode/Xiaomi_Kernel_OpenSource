@@ -19,6 +19,8 @@
 #include <asm/errno.h>
 #include <linux/timer.h>
 #include <media/cam_icp.h>
+#include <linux/iopoll.h>
+
 #include "cam_io_util.h"
 #include "hfi_reg.h"
 #include "hfi_sys_defs.h"
@@ -460,8 +462,10 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 	}
 
 	cam_io_w((uint32_t)hfi_mem->qtbl.iova, icp_base + HFI_REG_QTBL_PTR);
-	cam_io_w((uint32_t)0x7400000, icp_base + HFI_REG_SHARED_MEM_PTR);
-	cam_io_w((uint32_t)0x6400000, icp_base + HFI_REG_SHARED_MEM_SIZE);
+	cam_io_w((uint32_t)hfi_mem->shmem.iova,
+		icp_base + HFI_REG_SHARED_MEM_PTR);
+	cam_io_w((uint32_t)hfi_mem->shmem.len,
+		icp_base + HFI_REG_SHARED_MEM_SIZE);
 	cam_io_w((uint32_t)hfi_mem->sec_heap.iova,
 		icp_base + HFI_REG_UNCACHED_HEAP_PTR);
 	cam_io_w((uint32_t)hfi_mem->sec_heap.len,
@@ -472,25 +476,17 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 	hw_version = cam_io_r(icp_base + HFI_REG_A5_HW_VERSION);
 	pr_debug("hw version : %u[%x]\n", hw_version, hw_version);
 
-	do {
-		msleep(500);
-		status = cam_io_r(icp_base + HFI_REG_ICP_HOST_INIT_RESPONSE);
-	} while (status != ICP_INIT_RESP_SUCCESS);
-
-	if (status == ICP_INIT_RESP_SUCCESS) {
-		g_hfi->hfi_state = FW_RESP_DONE;
-		rc = 0;
-	} else {
-		rc = -ENODEV;
-		pr_err("FW initialization failed");
+	rc = readw_poll_timeout((icp_base + HFI_REG_ICP_HOST_INIT_RESPONSE),
+		status, status != ICP_INIT_RESP_SUCCESS, 15, 200);
+	if (rc) {
+		pr_err("timed out , status = %u\n", status);
 		goto regions_fail;
 	}
 
 	fw_version = cam_io_r(icp_base + HFI_REG_FW_VERSION);
 	g_hfi->hfi_state = FW_START_SENT;
 
-	pr_debug("fw version : %u[%x]\n", fw_version, fw_version);
-	pr_debug("hfi init is successful\n");
+	HFI_DBG("fw version : %u[%x]\n", fw_version, fw_version);
 	cam_io_w((uint32_t)INTR_ENABLE, icp_base + HFI_REG_A5_CSR_A2HOSTINTEN);
 
 	return rc;

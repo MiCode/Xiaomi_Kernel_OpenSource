@@ -44,6 +44,7 @@ struct hfi_mem_info {
 	struct hfi_mem msg_q;
 	struct hfi_mem dbg_q;
 	struct hfi_mem sec_heap;
+	struct hfi_mem shmem;
 	void __iomem *icp_base;
 };
 

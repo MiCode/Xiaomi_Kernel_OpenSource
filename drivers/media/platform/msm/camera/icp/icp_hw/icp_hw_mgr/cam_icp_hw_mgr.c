@@ -26,6 +26,8 @@
 #include <linux/debugfs.h>
 #include <media/cam_defs.h>
 #include <media/cam_icp.h>
+#include <linux/debugfs.h>
+
 #include "cam_sync_api.h"
 #include "cam_packet_util.h"
 #include "cam_hw.h"
@@ -54,6 +56,23 @@
 #define ICP_WORKQ_TASK_MSG_TYPE 2
 
 static struct cam_icp_hw_mgr icp_hw_mgr;
+
+static int cam_icp_hw_mgr_create_debugfs_entry(void)
+{
+	icp_hw_mgr.dentry = debugfs_create_dir("camera_icp", NULL);
+	if (!icp_hw_mgr.dentry)
+		return -ENOMEM;
+
+	if (!debugfs_create_bool("a5_debug",
+		0644,
+		icp_hw_mgr.dentry,
+		&icp_hw_mgr.a5_debug)) {
+		debugfs_remove_recursive(icp_hw_mgr.dentry);
+		return -ENOMEM;
+	}
+
+	return 0;
+}
 
 static int cam_icp_stop_cpas(struct cam_icp_hw_mgr *hw_mgr_priv)
 {
@@ -568,7 +587,12 @@ static int cam_icp_allocate_hfi_mem(void)
 	uint64_t kvaddr;
 	size_t len;
 
-	pr_err("Allocating FW for iommu handle: %x\n", icp_hw_mgr.iommu_hdl);
+	rc = cam_smmu_get_region_info(icp_hw_mgr.iommu_hdl,
+		CAM_MEM_MGR_REGION_SHARED,
+		&icp_hw_mgr.hfi_mem.shmem);
+	if (rc)
+		return -ENOMEM;
+
 	rc = cam_smmu_alloc_firmware(icp_hw_mgr.iommu_hdl,
 		&iova, &kvaddr, &len);
 	if (rc < 0) {
@@ -764,7 +788,7 @@ static int cam_icp_mgr_destroy_handle(
 			msecs_to_jiffies((timeout)));
 	if (!rem_jiffies) {
 		rc = -ETIMEDOUT;
-		pr_err("timeout/err in iconfig command: %d\n", rc);
+		pr_err("FW response timeout: %d\n", rc);
 	}
 
 	return rc;
@@ -870,6 +894,7 @@ static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args)
 
 	cam_icp_free_hfi_mem();
 	hw_mgr->fw_download = false;
+	debugfs_remove_recursive(icp_hw_mgr.dentry);
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
 	return 0;
@@ -886,6 +911,8 @@ static int cam_icp_mgr_download_fw(void *hw_mgr_priv, void *download_fw_args)
 	struct cam_icp_a5_set_irq_cb irq_cb;
 	struct cam_icp_a5_set_fw_buf_info fw_buf_info;
 	struct hfi_mem_info hfi_mem;
+	unsigned long rem_jiffies;
+	int timeout = 5000;
 	int rc = 0;
 
 	if (!hw_mgr) {
@@ -1014,9 +1041,12 @@ static int cam_icp_mgr_download_fw(void *hw_mgr_priv, void *download_fw_args)
 	hfi_mem.sec_heap.iova = icp_hw_mgr.hfi_mem.sec_heap.iova;
 	hfi_mem.sec_heap.len = icp_hw_mgr.hfi_mem.sec_heap.len;
 
+	hfi_mem.shmem.iova = icp_hw_mgr.hfi_mem.shmem.iova_start;
+	hfi_mem.shmem.len = icp_hw_mgr.hfi_mem.shmem.iova_len;
+
 	rc = cam_hfi_init(0, &hfi_mem,
 		a5_dev->soc_info.reg_map[A5_SIERRA_BASE].mem_base,
-		false);
+		hw_mgr->a5_debug);
 	if (rc < 0) {
 		pr_err("hfi_init is failed\n");
 		goto set_irq_failed;
@@ -1033,7 +1063,13 @@ static int cam_icp_mgr_download_fw(void *hw_mgr_priv, void *download_fw_args)
 		NULL, 0);
 
 	ICP_DBG("Wait for INIT DONE Message\n");
-	wait_for_completion(&hw_mgr->a5_complete);
+	rem_jiffies = wait_for_completion_timeout(&icp_hw_mgr.a5_complete,
+			msecs_to_jiffies((timeout)));
+	if (!rem_jiffies) {
+		rc = -ETIMEDOUT;
+		pr_err("FW response timed out %d\n", rc);
+		goto set_irq_failed;
+	}
 
 	ICP_DBG("Done Waiting for INIT DONE Message\n");
 
@@ -1041,6 +1077,10 @@ static int cam_icp_mgr_download_fw(void *hw_mgr_priv, void *download_fw_args)
 		a5_dev_intf->hw_priv,
 		CAM_ICP_A5_CMD_POWER_COLLAPSE,
 		NULL, 0);
+	if (rc) {
+		pr_err("icp power collapse failed\n");
+		goto set_irq_failed;
+	}
 
 	hw_mgr->fw_download = true;
 
@@ -1428,6 +1468,8 @@ static int cam_icp_mgr_send_config_io(struct cam_icp_hw_ctx_data *ctx_data,
 	int rc = 0;
 	struct hfi_cmd_work_data *task_data;
 	struct hfi_cmd_ipebps_async ioconfig_cmd;
+	unsigned long rem_jiffies;
+	int timeout = 5000;
 
 	ioconfig_cmd.size = sizeof(struct hfi_cmd_ipebps_async);
 	ioconfig_cmd.pkt_type = HFI_CMD_IPEBPS_ASYNC_COMMAND_INDIRECT;
@@ -1451,7 +1493,13 @@ static int cam_icp_mgr_send_config_io(struct cam_icp_hw_ctx_data *ctx_data,
 	task->process_cb = cam_icp_mgr_process_cmd;
 	cam_req_mgr_workq_enqueue_task(task, &icp_hw_mgr, CRM_TASK_PRIORITY_0);
 	ICP_DBG("fw_hdl = %x ctx_data = %pK\n", ctx_data->fw_handle, ctx_data);
-	wait_for_completion(&ctx_data->wait_complete);
+
+	rem_jiffies = wait_for_completion_timeout(&ctx_data->wait_complete,
+			msecs_to_jiffies((timeout)));
+	if (!rem_jiffies) {
+		rc = -ETIMEDOUT;
+		pr_err("FW response timed out %d\n", rc);
+	}
 
 	return rc;
 }
@@ -1462,6 +1510,8 @@ static int cam_icp_mgr_create_handle(uint32_t dev_type,
 {
 	struct hfi_cmd_create_handle create_handle;
 	struct hfi_cmd_work_data *task_data;
+	unsigned long rem_jiffies;
+	int timeout = 5000;
 	int rc = 0;
 
 	create_handle.size = sizeof(struct hfi_cmd_create_handle);
@@ -1479,7 +1529,13 @@ static int cam_icp_mgr_create_handle(uint32_t dev_type,
 	task_data->type = ICP_WORKQ_TASK_CMD_TYPE;
 	task->process_cb = cam_icp_mgr_process_cmd;
 	cam_req_mgr_workq_enqueue_task(task, &icp_hw_mgr, CRM_TASK_PRIORITY_0);
-	wait_for_completion(&ctx_data->wait_complete);
+
+	rem_jiffies = wait_for_completion_timeout(&ctx_data->wait_complete,
+			msecs_to_jiffies((timeout)));
+	if (!rem_jiffies) {
+		rc = -ETIMEDOUT;
+		pr_err("FW response timed out %d\n", rc);
+	}
 
 	return rc;
 }
@@ -1489,6 +1545,8 @@ static int cam_icp_mgr_send_ping(struct cam_icp_hw_ctx_data *ctx_data,
 {
 	struct hfi_cmd_ping_pkt ping_pkt;
 	struct hfi_cmd_work_data *task_data;
+	unsigned long rem_jiffies;
+	int timeout = 5000;
 	int rc = 0;
 
 	ping_pkt.size = sizeof(struct hfi_cmd_ping_pkt);
@@ -1505,7 +1563,14 @@ static int cam_icp_mgr_send_ping(struct cam_icp_hw_ctx_data *ctx_data,
 	task_data->type = ICP_WORKQ_TASK_CMD_TYPE;
 	task->process_cb = cam_icp_mgr_process_cmd;
 	cam_req_mgr_workq_enqueue_task(task, &icp_hw_mgr, CRM_TASK_PRIORITY_0);
-	wait_for_completion(&ctx_data->wait_complete);
+
+	rem_jiffies = wait_for_completion_timeout(&ctx_data->wait_complete,
+			msecs_to_jiffies((timeout)));
+	if (!rem_jiffies) {
+		rc = -ETIMEDOUT;
+		pr_err("FW response timed out %d\n", rc);
+	}
+
 
 	return rc;
 }
@@ -1929,6 +1994,9 @@ int cam_icp_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl)
 	if (!icp_hw_mgr.msg_work_data)
 		goto msg_work_data_failed;
 
+	rc = cam_icp_hw_mgr_create_debugfs_entry();
+	if (rc)
+		goto msg_work_data_failed;
 
 	for (i = 0; i < ICP_WORKQ_NUM_TASK; i++)
 		icp_hw_mgr.msg_work->task.pool[i].payload =
@@ -1940,7 +2008,6 @@ int cam_icp_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl)
 
 	init_completion(&icp_hw_mgr.a5_complete);
 
-	pr_err("Exit\n");
 	return rc;
 
 msg_work_data_failed:
