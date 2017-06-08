@@ -72,6 +72,7 @@ enum sde_rm_topology_control {
  * @hw_mdp: hardware object for mdp_top
  * @lm_max_width: cached layer mixer maximum width
  * @rsvp_next_seq: sequence number for next reservation for debugging purposes
+ * @rm_lock: resource manager mutex
  */
 struct sde_rm {
 	struct drm_device *dev;
@@ -80,6 +81,7 @@ struct sde_rm {
 	struct sde_hw_mdp *hw_mdp;
 	uint32_t lm_max_width;
 	uint32_t rsvp_next_seq;
+	struct mutex rm_lock;
 };
 
 /**
