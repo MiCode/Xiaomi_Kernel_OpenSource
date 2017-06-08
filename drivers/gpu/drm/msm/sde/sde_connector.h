@@ -298,6 +298,7 @@ struct sde_connector {
 	struct msm_property_data property_data[CONNECTOR_PROP_COUNT];
 	struct drm_property_blob *blob_caps;
 	struct drm_property_blob *blob_hdr;
+	struct drm_property_blob *blob_ext_hdr;
 	struct drm_property_blob *blob_dither;
 
 	bool fb_kmap;

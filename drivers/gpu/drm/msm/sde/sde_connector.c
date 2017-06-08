@@ -1039,6 +1039,29 @@ void sde_connector_commit_reset(struct drm_connector *connector, ktime_t ts)
 	sde_fence_signal(&to_sde_connector(connector)->retire_fence, ts, true);
 }
 
+static void sde_connector_update_hdr_props(struct drm_connector *connector)
+{
+	struct sde_connector *c_conn = to_sde_connector(connector);
+	struct drm_msm_ext_hdr_properties hdr = {};
+
+	hdr.hdr_supported = connector->hdr_supported;
+
+	if (hdr.hdr_supported) {
+		hdr.hdr_eotf = connector->hdr_eotf;
+		hdr.hdr_metadata_type_one = connector->hdr_metadata_type_one;
+		hdr.hdr_max_luminance = connector->hdr_max_luminance;
+		hdr.hdr_avg_luminance = connector->hdr_avg_luminance;
+		hdr.hdr_min_luminance = connector->hdr_min_luminance;
+
+		msm_property_set_blob(&c_conn->property_info,
+			      &c_conn->blob_ext_hdr,
+			      &hdr,
+			      sizeof(hdr),
+			      CONNECTOR_PROP_EXT_HDR_INFO);
+
+	}
+}
+
 static enum drm_connector_status
 sde_connector_detect(struct drm_connector *connector, bool force)
 {
@@ -1265,6 +1288,7 @@ static const struct drm_connector_funcs sde_connector_ops = {
 static int sde_connector_get_modes(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn;
+	int ret = 0;
 
 	if (!connector) {
 		SDE_ERROR("invalid connector\n");
@@ -1276,8 +1300,11 @@ static int sde_connector_get_modes(struct drm_connector *connector)
 		SDE_DEBUG("missing get_modes callback\n");
 		return 0;
 	}
+	ret = c_conn->ops.get_modes(connector, c_conn->display);
+	if (ret)
+		sde_connector_update_hdr_props(connector);
 
-	return c_conn->ops.get_modes(connector, c_conn->display);
+	return ret;
 }
 
 static enum drm_mode_status
@@ -1573,6 +1600,13 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 
 	/* install PP_DITHER properties */
 	_sde_connector_install_dither_property(dev, sde_kms, c_conn);
+
+	if (connector_type == DRM_MODE_CONNECTOR_DisplayPort) {
+		msm_property_install_blob(&c_conn->property_info,
+				"ext_hdr_properties",
+				DRM_MODE_PROP_IMMUTABLE,
+				CONNECTOR_PROP_EXT_HDR_INFO);
+	}
 
 	msm_property_install_range(&c_conn->property_info, "RETIRE_FENCE",
 			0x0, 0, INR_OPEN_MAX, 0, CONNECTOR_PROP_RETIRE_FENCE);

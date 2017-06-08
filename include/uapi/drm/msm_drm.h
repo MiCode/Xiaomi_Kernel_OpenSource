@@ -68,6 +68,21 @@ struct drm_msm_timespec {
 	__s64 tv_nsec;         /* nanoseconds */
 };
 
+/**
+ * HDR sink properties
+ * These are defined as per EDID spec and shall be used by the userspace
+ * to determine the HDR properties to be set to the sink.
+ */
+#define DRM_MSM_EXT_HDR_PROPERTIES
+struct drm_msm_ext_hdr_properties {
+	__u8 hdr_metadata_type_one;   /* static metadata type one */
+	__u32 hdr_supported;          /* HDR supported */
+	__u32 hdr_eotf;               /* electro optical transfer function */
+	__u32 hdr_max_luminance;      /* Max luminance */
+	__u32 hdr_avg_luminance;      /* Avg luminance */
+	__u32 hdr_min_luminance;      /* Min Luminance */
+};
+
 #define MSM_PARAM_GPU_ID     0x01
 #define MSM_PARAM_GMEM_SIZE  0x02
 #define MSM_PARAM_CHIP_ID    0x03
