@@ -172,8 +172,7 @@ int sde_core_perf_crtc_check(struct drm_crtc *crtc,
 
 	sde_cstate = to_sde_crtc_state(state);
 
-	/* swap state and obtain new values */
-	sde_cstate->cur_perf = sde_cstate->new_perf;
+	/* obtain new values */
 	_sde_core_perf_calc_crtc(kms, crtc, state, &sde_cstate->new_perf);
 
 	bw_sum_of_intfs = sde_cstate->new_perf.bw_ctl;
@@ -204,11 +203,9 @@ int sde_core_perf_crtc_check(struct drm_crtc *crtc,
 	if (!sde_cstate->bw_control) {
 		SDE_DEBUG("bypass bandwidth check\n");
 	} else if (!threshold) {
-		sde_cstate->new_perf = sde_cstate->cur_perf;
 		SDE_ERROR("no bandwidth limits specified\n");
 		return -E2BIG;
 	} else if (bw > threshold) {
-		sde_cstate->new_perf = sde_cstate->cur_perf;
 		SDE_ERROR("exceeds bandwidth: %ukb > %ukb\n", bw, threshold);
 		return -E2BIG;
 	}
@@ -347,6 +344,7 @@ static void _sde_core_perf_crtc_update_bus(struct sde_kms *kms,
 void sde_core_perf_crtc_release_bw(struct drm_crtc *crtc)
 {
 	struct drm_crtc *tmp_crtc;
+	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *sde_cstate;
 	struct sde_kms *kms;
 
@@ -361,6 +359,7 @@ void sde_core_perf_crtc_release_bw(struct drm_crtc *crtc)
 		return;
 	}
 
+	sde_crtc = to_sde_crtc(crtc);
 	sde_cstate = to_sde_crtc_state(crtc->state);
 
 	/* only do this for command mode rt client (non-rsc client) */
@@ -383,8 +382,7 @@ void sde_core_perf_crtc_release_bw(struct drm_crtc *crtc)
 	/* Release the bandwidth */
 	if (kms->perf.enable_bw_release) {
 		trace_sde_cmd_release_bw(crtc->base.id);
-		sde_cstate->cur_perf.bw_ctl = 0;
-		sde_cstate->new_perf.bw_ctl = 0;
+		sde_crtc->cur_perf.bw_ctl = 0;
 		SDE_DEBUG("Release BW crtc=%d\n", crtc->base.id);
 		_sde_core_perf_crtc_update_bus(kms, crtc);
 	}
@@ -447,7 +445,7 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 	SDE_DEBUG("crtc:%d stop_req:%d core_clk:%llu\n",
 			crtc->base.id, stop_req, kms->perf.core_clk_rate);
 
-	old = &sde_cstate->cur_perf;
+	old = &sde_crtc->cur_perf;
 	new = &sde_cstate->new_perf;
 
 	if (_sde_core_perf_crtc_is_power_on(crtc) && !stop_req) {
