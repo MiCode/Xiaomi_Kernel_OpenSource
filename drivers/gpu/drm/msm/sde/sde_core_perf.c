@@ -127,8 +127,6 @@ int sde_core_perf_crtc_check(struct drm_crtc *crtc,
 
 	sde_cstate = to_sde_crtc_state(state);
 
-	/* swap state and obtain new values */
-	sde_cstate->cur_perf = sde_cstate->new_perf;
 	_sde_core_perf_calc_crtc(crtc, state, &sde_cstate->new_perf);
 
 	bw_sum_of_intfs = sde_cstate->new_perf.bw_ctl;
@@ -155,11 +153,9 @@ int sde_core_perf_crtc_check(struct drm_crtc *crtc,
 	SDE_DEBUG("final threshold bw limit = %d\n", threshold);
 
 	if (!threshold) {
-		sde_cstate->new_perf = sde_cstate->cur_perf;
 		SDE_ERROR("no bandwidth limits specified\n");
 		return -E2BIG;
 	} else if (bw > threshold) {
-		sde_cstate->new_perf = sde_cstate->cur_perf;
 		SDE_DEBUG("exceeds bandwidth: %ukb > %ukb\n", bw, threshold);
 		return -E2BIG;
 	}
@@ -258,6 +254,7 @@ static void _sde_core_perf_crtc_update_bus(struct sde_kms *kms,
 void sde_core_perf_crtc_release_bw(struct drm_crtc *crtc)
 {
 	struct drm_crtc *tmp_crtc;
+	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *sde_cstate;
 	struct sde_kms *kms;
 
@@ -272,6 +269,7 @@ void sde_core_perf_crtc_release_bw(struct drm_crtc *crtc)
 		return;
 	}
 
+	sde_crtc = to_sde_crtc(crtc);
 	sde_cstate = to_sde_crtc_state(crtc->state);
 
 	/* only do this for command panel or writeback */
@@ -294,8 +292,7 @@ void sde_core_perf_crtc_release_bw(struct drm_crtc *crtc)
 	/* Release the bandwidth */
 	if (kms->perf.enable_bw_release) {
 		trace_sde_cmd_release_bw(crtc->base.id);
-		sde_cstate->cur_perf.bw_ctl = 0;
-		sde_cstate->new_perf.bw_ctl = 0;
+		sde_crtc->cur_perf.bw_ctl = 0;
 		SDE_DEBUG("Release BW crtc=%d\n", crtc->base.id);
 		_sde_core_perf_crtc_update_bus(kms, crtc, 0);
 	}
@@ -362,7 +359,7 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 
 	SDE_ATRACE_BEGIN(__func__);
 
-	old = &sde_cstate->cur_perf;
+	old = &sde_crtc->cur_perf;
 	new = &sde_cstate->new_perf;
 
 	if (_sde_core_perf_crtc_is_power_on(crtc) && !stop_req) {

@@ -1851,15 +1851,18 @@ static const struct file_operations __prefix ## _fops = {		\
 static int sde_crtc_debugfs_state_show(struct seq_file *s, void *v)
 {
 	struct drm_crtc *crtc = (struct drm_crtc *) s->private;
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 	struct sde_crtc_state *cstate = to_sde_crtc_state(crtc->state);
 
 	seq_printf(s, "num_connectors: %d\n", cstate->num_connectors);
 	seq_printf(s, "is_rt: %d\n", cstate->is_rt);
 	seq_printf(s, "intf_mode: %d\n", sde_crtc_get_intf_mode(crtc));
-	seq_printf(s, "bw_ctl: %llu\n", cstate->cur_perf.bw_ctl);
-	seq_printf(s, "core_clk_rate: %u\n", cstate->cur_perf.core_clk_rate);
+
+	seq_printf(s, "bw_ctl: %llu\n", sde_crtc->cur_perf.bw_ctl);
+	seq_printf(s, "core_clk_rate: %u\n",
+			sde_crtc->cur_perf.core_clk_rate);
 	seq_printf(s, "max_per_pipe_ib: %llu\n",
-			cstate->cur_perf.max_per_pipe_ib);
+			sde_crtc->cur_perf.max_per_pipe_ib);
 
 	return 0;
 }
