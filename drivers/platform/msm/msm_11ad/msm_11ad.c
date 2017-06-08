@@ -747,9 +747,6 @@ static int msm_11ad_smmu_init(struct msm11ad_ctx *ctx)
 	int rc;
 	int force_pt_coherent = 1;
 	int smmu_bypass = !ctx->smmu_s1_en;
-	dma_addr_t iova_base = 0;
-	dma_addr_t iova_end =  ctx->smmu_base + ctx->smmu_size - 1;
-	struct iommu_domain_geometry geometry;
 
 	if (!ctx->use_smmu)
 		return 0;
@@ -804,17 +801,6 @@ static int msm_11ad_smmu_init(struct msm11ad_ctx *ctx)
 						   &ctx->smmu_fast_map);
 			if (rc) {
 				dev_err(ctx->dev, "Set fast attribute to SMMU failed (%d)\n",
-					rc);
-				goto release_mapping;
-			}
-			memset(&geometry, 0, sizeof(geometry));
-			geometry.aperture_start = iova_base;
-			geometry.aperture_end = iova_end;
-			rc = iommu_domain_set_attr(ctx->mapping->domain,
-						   DOMAIN_ATTR_GEOMETRY,
-						   &geometry);
-			if (rc) {
-				dev_err(ctx->dev, "Set geometry attribute to SMMU failed (%d)\n",
 					rc);
 				goto release_mapping;
 			}
