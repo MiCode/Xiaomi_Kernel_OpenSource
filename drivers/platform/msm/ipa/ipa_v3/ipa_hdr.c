@@ -373,12 +373,12 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 	mem_size = (ipa3_ctx->hdr_proc_ctx_tbl_lcl) ?
 		IPA_MEM_PART(apps_hdr_proc_ctx_size) :
 		IPA_MEM_PART(apps_hdr_proc_ctx_size_ddr);
-	if (htbl->end + ipa_hdr_proc_ctx_bin_sz[bin] > mem_size) {
-		IPAERR("hdr proc ctx table overflow\n");
-		goto bad_len;
-	}
-
 	if (list_empty(&htbl->head_free_offset_list[bin])) {
+		if (htbl->end + ipa_hdr_proc_ctx_bin_sz[bin] > mem_size) {
+			IPAERR("hdr proc ctx table overflow\n");
+			goto bad_len;
+		}
+
 		offset = kmem_cache_zalloc(ipa3_ctx->hdr_proc_ctx_offset_cache,
 					   GFP_KERNEL);
 		if (!offset) {
@@ -483,20 +483,21 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr)
 	mem_size = (ipa3_ctx->hdr_tbl_lcl) ? IPA_MEM_PART(apps_hdr_size) :
 		IPA_MEM_PART(apps_hdr_size_ddr);
 
-	/* if header does not fit to table, place it in DDR */
-	if (htbl->end + ipa_hdr_bin_sz[bin] > mem_size) {
-		entry->is_hdr_proc_ctx = true;
-		entry->phys_base = dma_map_single(ipa3_ctx->pdev,
-			entry->hdr,
-			entry->hdr_len,
-			DMA_TO_DEVICE);
-		if (dma_mapping_error(ipa3_ctx->pdev, entry->phys_base)) {
-			IPAERR("dma_map_single failure for entry\n");
-			goto fail_dma_mapping;
-		}
-	} else {
-		entry->is_hdr_proc_ctx = false;
-		if (list_empty(&htbl->head_free_offset_list[bin])) {
+	if (list_empty(&htbl->head_free_offset_list[bin])) {
+		/* if header does not fit to table, place it in DDR */
+		if (htbl->end + ipa_hdr_bin_sz[bin] > mem_size) {
+			entry->is_hdr_proc_ctx = true;
+			entry->phys_base = dma_map_single(ipa3_ctx->pdev,
+				entry->hdr,
+				entry->hdr_len,
+				DMA_TO_DEVICE);
+			if (dma_mapping_error(ipa3_ctx->pdev,
+				entry->phys_base)) {
+				IPAERR("dma_map_single failure for entry\n");
+				goto fail_dma_mapping;
+			}
+		} else {
+			entry->is_hdr_proc_ctx = false;
 			offset = kmem_cache_zalloc(ipa3_ctx->hdr_offset_cache,
 						   GFP_KERNEL);
 			if (!offset) {
@@ -513,14 +514,14 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr)
 			htbl->end += ipa_hdr_bin_sz[bin];
 			list_add(&offset->link,
 					&htbl->head_offset_list[bin]);
-		} else {
-			/* get the first free slot */
-			offset =
-			list_first_entry(&htbl->head_free_offset_list[bin],
-					struct ipa_hdr_offset_entry, link);
-			list_move(&offset->link, &htbl->head_offset_list[bin]);
+			entry->offset_entry = offset;
 		}
-
+	} else {
+		entry->is_hdr_proc_ctx = false;
+		/* get the first free slot */
+		offset = list_first_entry(&htbl->head_free_offset_list[bin],
+			struct ipa_hdr_offset_entry, link);
+		list_move(&offset->link, &htbl->head_offset_list[bin]);
 		entry->offset_entry = offset;
 	}
 
