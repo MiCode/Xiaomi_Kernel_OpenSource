@@ -969,7 +969,7 @@ int read_platform_resources_from_dt(
 	res->debug_timeout = of_property_read_bool(pdev->dev.of_node,
 			"qcom,debug-timeout");
 
-	res->debug_timeout |= msm_vidc_debug_timeout;
+	msm_vidc_debug_timeout |= res->debug_timeout;
 
 	of_property_read_u32(pdev->dev.of_node,
 			"qcom,pm-qos-latency-us", &res->pm_qos_latency_us);

@@ -534,7 +534,7 @@ static struct msm_smem *map_buffer(struct msm_vidc_inst *inst,
 
 	handle = msm_comm_smem_user_to_kernel(inst,
 				p->reserved[0],
-				p->reserved[1],
+				p->length,
 				buffer_type);
 	if (!handle) {
 		dprintk(VIDC_ERR,
@@ -605,8 +605,10 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 		goto exit;
 	}
 
-	dprintk(VIDC_DBG, "[MAP] Create binfo = %pK fd = %d type = %d\n",
-			binfo, b->m.planes[0].reserved[0], b->type);
+	dprintk(VIDC_DBG,
+		"[MAP] Create binfo = %pK fd = %d size = %d type = %d\n",
+		binfo, b->m.planes[0].reserved[0],
+		b->m.planes[0].length, b->type);
 
 	for (i = 0; i < b->length; ++i) {
 		rc = 0;

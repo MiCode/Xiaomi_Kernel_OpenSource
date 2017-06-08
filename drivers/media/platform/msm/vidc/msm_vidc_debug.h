@@ -186,7 +186,7 @@ static inline void msm_vidc_handle_hw_error(struct msm_vidc_core *core)
 {
 	bool enable_fatal;
 
-	enable_fatal = core->resources.debug_timeout;
+	enable_fatal = msm_vidc_debug_timeout;
 
 	/* Video driver can decide FATAL handling of HW errors
 	 * based on multiple factors. This condition check will
