@@ -391,6 +391,8 @@ static int msm_load(struct drm_device *dev, unsigned long flags)
 	INIT_LIST_HEAD(&priv->vblank_ctrl.event_list);
 	init_kthread_work(&priv->vblank_ctrl.work, vblank_ctrl_worker);
 	spin_lock_init(&priv->vblank_ctrl.lock);
+	hash_init(priv->mn_hash);
+	mutex_init(&priv->mn_lock);
 
 	drm_mode_config_init(dev);
 
@@ -559,7 +561,8 @@ static struct msm_file_private *setup_pagetable(struct msm_drm_private *priv)
 		return ERR_PTR(-ENOMEM);
 
 	ctx->aspace = msm_gem_address_space_create_instance(
-		priv->gpu->aspace->mmu, "gpu", 0x100000000, 0x1ffffffff);
+		priv->gpu->aspace->mmu, "gpu", 0x100000000ULL,
+		TASK_SIZE_64 - 1);
 
 	if (IS_ERR(ctx->aspace)) {
 		int ret = PTR_ERR(ctx->aspace);
@@ -1141,6 +1144,20 @@ static int msm_ioctl_gem_new(struct drm_device *dev, void *data,
 			args->flags, &args->handle);
 }
 
+static int msm_ioctl_gem_svm_new(struct drm_device *dev, void *data,
+		struct drm_file *file)
+{
+	struct drm_msm_gem_svm_new *args = data;
+
+	if (args->flags & ~MSM_BO_FLAGS) {
+		DRM_ERROR("invalid flags: %08x\n", args->flags);
+		return -EINVAL;
+	}
+
+	return msm_gem_svm_new_handle(dev, file, args->hostptr, args->size,
+			args->flags, &args->handle);
+}
+
 static inline ktime_t to_ktime(struct drm_msm_timespec timeout)
 {
 	return ktime_set(timeout.tv_sec, timeout.tv_nsec);
@@ -1193,6 +1210,7 @@ static int msm_ioctl_gem_info(struct drm_device *dev, void *data,
 {
 	struct drm_msm_gem_info *args = data;
 	struct drm_gem_object *obj;
+	struct msm_gem_object *msm_obj;
 	struct msm_file_private *ctx = file->driver_priv;
 	int ret = 0;
 
@@ -1203,10 +1221,10 @@ static int msm_ioctl_gem_info(struct drm_device *dev, void *data,
 	if (!obj)
 		return -ENOENT;
 
+	msm_obj = to_msm_bo(obj);
 	if (args->flags & MSM_INFO_IOVA) {
 		struct msm_gem_address_space *aspace = NULL;
 		struct msm_drm_private *priv = dev->dev_private;
-		struct msm_gem_object *msm_obj = to_msm_bo(obj);
 		uint64_t iova;
 
 		if (msm_obj->flags & MSM_BO_SECURE && priv->gpu)
@@ -1223,6 +1241,14 @@ static int msm_ioctl_gem_info(struct drm_device *dev, void *data,
 		if (!ret)
 			args->offset = iova;
 	} else {
+		if (msm_obj->flags & MSM_BO_SVM) {
+			/*
+			 * Offset for an SVM object is not needed as they are
+			 * already mmap'ed before the SVM ioctl is invoked.
+			 */
+			ret = -EACCES;
+			goto out;
+		}
 		args->offset = msm_gem_mmap_offset(obj);
 	}
 
@@ -1699,6 +1725,8 @@ static const struct drm_ioctl_desc msm_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MSM_COUNTER_READ, msm_ioctl_counter_read,
 			  DRM_AUTH|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MSM_GEM_SYNC, msm_ioctl_gem_sync,
+			  DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_GEM_SVM_NEW, msm_ioctl_gem_svm_new,
 			  DRM_AUTH|DRM_RENDER_ALLOW),
 };
 

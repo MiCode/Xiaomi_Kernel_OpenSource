@@ -34,6 +34,7 @@
 #include <linux/of_graph.h>
 #include <linux/of_device.h>
 #include <linux/sde_io_util.h>
+#include <linux/hashtable.h>
 #include <asm/sizes.h>
 #include <linux/kthread.h>
 
@@ -325,6 +326,11 @@ struct msm_drm_private {
 	unsigned int num_connectors;
 	struct drm_connector *connectors[MAX_CONNECTORS];
 
+	/* hash to store mm_struct to msm_mmu_notifier mappings */
+	DECLARE_HASHTABLE(mn_hash, 7);
+	/* protects mn_hash and the msm_mmu_notifier for the process */
+	struct mutex mn_lock;
+
 	/* Properties */
 	struct drm_property *plane_property[PLANE_PROP_COUNT];
 	struct drm_property *crtc_property[CRTC_PROP_COUNT];
@@ -404,10 +410,15 @@ void msm_update_fence(struct drm_device *dev, uint32_t fence);
 
 void msm_gem_unmap_vma(struct msm_gem_address_space *aspace,
 		struct msm_gem_vma *vma, struct sg_table *sgt,
-		void *priv);
+		void *priv, bool invalidated);
 int msm_gem_map_vma(struct msm_gem_address_space *aspace,
 		struct msm_gem_vma *vma, struct sg_table *sgt,
 		void *priv, unsigned int flags);
+int msm_gem_reserve_iova(struct msm_gem_address_space *aspace,
+		struct msm_gem_vma *domain,
+		uint64_t hostptr, uint64_t size);
+void msm_gem_release_iova(struct msm_gem_address_space *aspace,
+		struct msm_gem_vma *vma);
 
 void msm_gem_address_space_put(struct msm_gem_address_space *aspace);
 
@@ -471,6 +482,12 @@ struct drm_gem_object *msm_gem_new_locked(struct drm_device *dev,
 struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 		uint32_t size, struct sg_table *sgt, u32 flags);
 void msm_gem_sync(struct drm_gem_object *obj, u32 op);
+int msm_gem_svm_new_handle(struct drm_device *dev, struct drm_file *file,
+		uint64_t hostptr, uint64_t size,
+		uint32_t flags, uint32_t *handle);
+struct drm_gem_object *msm_gem_svm_new(struct drm_device *dev,
+		struct drm_file *file, uint64_t hostptr,
+		uint64_t size, uint32_t flags);
 
 int msm_framebuffer_prepare(struct drm_framebuffer *fb,
 		struct msm_gem_address_space *aspace);

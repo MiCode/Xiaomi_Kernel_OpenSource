@@ -217,6 +217,18 @@ retry:
 			submit->bos[i].flags |= BO_LOCKED;
 		}
 
+		/*
+		 * An invalid SVM object is part of
+		 * this submit's buffer list, fail.
+		 */
+		if (msm_obj->flags & MSM_BO_SVM) {
+			struct msm_gem_svm_object *msm_svm_obj =
+				to_msm_svm_obj(msm_obj);
+			if (msm_svm_obj->invalid) {
+				ret = -EINVAL;
+				goto fail;
+			}
+		}
 
 		/* if locking succeeded, pin bo: */
 		ret = msm_gem_get_iova(&msm_obj->base, aspace, &iova);
