@@ -480,9 +480,14 @@
 		#size-cells = <2>;
 		ranges;
 
-		removed_regions: removed_regions@85800000 {
+		removed_region1: removed_region1@85700000 {
 			no-map;
-			reg = <0 0x85800000 0 0x3700000>;
+			reg = <0 0x85700000 0 0x800000>;
+		};
+
+		removed_region2: removed_region2@85fc0000 {
+			no-map;
+			reg = <0 0x85fc0000 0 0x2f40000>;
 		};
 
 		pil_camera_mem: camera_region@8ab00000 {
