@@ -34,4 +34,12 @@
 #define PCLK_SRC_MUX_1_CLK	15
 #define PCLK_SRC_1_CLK		16
 #define PCLK_MUX_1_CLK		17
+
+/* DP PLL clocks */
+#define	DP_VCO_CLK	0
+#define	DP_LINK_CLK_DIVSEL_TEN	1
+#define	DP_VCO_DIVIDED_TWO_CLK_SRC	2
+#define	DP_VCO_DIVIDED_FOUR_CLK_SRC	3
+#define	DP_VCO_DIVIDED_SIX_CLK_SRC	4
+#define	DP_VCO_DIVIDED_CLK_SRC_MUX	5
 #endif

@@ -21,6 +21,7 @@
 #include <linux/iopoll.h>
 #include "mdss-pll.h"
 #include "mdss-dsi-pll.h"
+#include "mdss-dp-pll.h"
 
 int mdss_pll_resource_enable(struct mdss_pll_resources *pll_res, bool enable)
 {
@@ -126,6 +127,8 @@ static int mdss_pll_resource_parse(struct platform_device *pdev,
 
 	if (!strcmp(compatible_stream, "qcom,mdss_dsi_pll_10nm"))
 		pll_res->pll_interface_type = MDSS_DSI_PLL_10NM;
+	if (!strcmp(compatible_stream, "qcom,mdss_dp_pll_10nm"))
+		pll_res->pll_interface_type = MDSS_DP_PLL_10NM;
 	else
 		goto err;
 
@@ -151,6 +154,9 @@ static int mdss_pll_clock_register(struct platform_device *pdev,
 	case MDSS_DSI_PLL_10NM:
 		rc = dsi_pll_clock_register_10nm(pdev, pll_res);
 		break;
+	case MDSS_DP_PLL_10NM:
+		rc = dp_pll_clock_register_10nm(pdev, pll_res);
+		break;
 	case MDSS_UNKNOWN_PLL:
 	default:
 		rc = -EINVAL;
@@ -171,6 +177,7 @@ static int mdss_pll_probe(struct platform_device *pdev)
 	const char *label;
 	struct resource *pll_base_reg;
 	struct resource *phy_base_reg;
+	struct resource *tx0_base_reg, *tx1_base_reg;
 	struct resource *dynamic_pll_base_reg;
 	struct resource *gdsc_base_reg;
 	struct mdss_pll_resources *pll_res;
@@ -272,6 +279,30 @@ static int mdss_pll_probe(struct platform_device *pdev)
 		}
 	}
 
+	tx0_base_reg = platform_get_resource_byname(pdev,
+					IORESOURCE_MEM, "ln_tx0_base");
+	if (tx0_base_reg) {
+		pll_res->ln_tx0_base = ioremap(tx0_base_reg->start,
+				resource_size(tx0_base_reg));
+		if (!pll_res->ln_tx0_base) {
+			pr_err("Unable to remap Lane TX0 base resources\n");
+			rc = -ENOMEM;
+			goto tx0_io_error;
+		}
+	}
+
+	tx1_base_reg = platform_get_resource_byname(pdev,
+					IORESOURCE_MEM, "ln_tx1_base");
+	if (tx1_base_reg) {
+		pll_res->ln_tx1_base = ioremap(tx1_base_reg->start,
+				resource_size(tx1_base_reg));
+		if (!pll_res->ln_tx1_base) {
+			pr_err("Unable to remap Lane TX1 base resources\n");
+			rc = -ENOMEM;
+			goto tx1_io_error;
+		}
+	}
+
 	gdsc_base_reg = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "gdsc_base");
 	if (!gdsc_base_reg) {
@@ -309,6 +340,12 @@ res_init_error:
 	if (pll_res->gdsc_base)
 		iounmap(pll_res->gdsc_base);
 gdsc_io_error:
+	if (pll_res->ln_tx1_base)
+		iounmap(pll_res->ln_tx1_base);
+tx1_io_error:
+	if (pll_res->ln_tx0_base)
+		iounmap(pll_res->ln_tx0_base);
+tx0_io_error:
 	if (pll_res->dyn_pll_base)
 		iounmap(pll_res->dyn_pll_base);
 dyn_pll_io_error:
@@ -347,6 +384,7 @@ static int mdss_pll_remove(struct platform_device *pdev)
 
 static const struct of_device_id mdss_pll_dt_match[] = {
 	{.compatible = "qcom,mdss_dsi_pll_10nm"},
+	{.compatible = "qcom,mdss_dp_pll_10nm"},
 	{}
 };
 

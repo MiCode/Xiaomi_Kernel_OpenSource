@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,21 +15,19 @@
 #define __MDSS_DP_PLL_H
 
 struct dp_pll_vco_clk {
+	struct clk_hw hw;
 	unsigned long	rate;		/* current vco rate */
 	u64		min_rate;	/* min vco rate */
 	u64		max_rate;	/* max vco rate */
 	void		*priv;
-
-	struct clk	c;
 };
 
-static inline struct dp_pll_vco_clk *mdss_dp_to_vco_clk(struct clk *clk)
+static inline struct dp_pll_vco_clk *to_dp_vco_hw(struct clk_hw *hw)
 {
-	return container_of(clk, struct dp_pll_vco_clk, c);
+	return container_of(hw, struct dp_pll_vco_clk, hw);
 }
 
-int dp_pll_clock_register_8998(struct platform_device *pdev,
+int dp_pll_clock_register_10nm(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res);
-
 
 #endif /* __MDSS_DP_PLL_H */
