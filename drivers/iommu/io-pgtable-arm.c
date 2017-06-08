@@ -735,7 +735,8 @@ static int __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 		arm_lpae_iopte *table_base = table;
 		int tl_offset = ARM_LPAE_LVL_IDX(iova, lvl + 1, data);
 		int entry_size = ARM_LPAE_GRANULE(data);
-		int max_entries = ARM_LPAE_BLOCK_SIZE(lvl, data) / entry_size;
+		int max_entries = ARM_LPAE_BLOCK_SIZE(lvl, data) >>
+				data->pg_shift;
 		int entries = min_t(int, size / entry_size,
 			max_entries - tl_offset);
 		int table_len = entries * sizeof(*table);
