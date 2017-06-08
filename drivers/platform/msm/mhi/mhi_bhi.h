@@ -87,6 +87,7 @@
 
 #define BHI_POLL_SLEEP_TIME_MS 100
 #define BHI_POLL_TIMEOUT_MS 2000
+#define BHIE_RDDM_DELAY_TIME_US (1000)
 
 int bhi_probe(struct mhi_device_ctxt *mhi_dev_ctxt);
 void bhi_firmware_download(struct work_struct *work);
