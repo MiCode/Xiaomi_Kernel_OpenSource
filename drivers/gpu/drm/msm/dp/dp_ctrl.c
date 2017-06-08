@@ -20,13 +20,8 @@
 
 #include "dp_ctrl.h"
 
-#define DP_LINK_RATE_MULTIPLIER	27000000
 #define DP_KHZ_TO_HZ 1000
 #define DP_CRYPTO_CLK_RATE_KHZ 180000
-
-/* sink power state  */
-#define SINK_POWER_ON		1
-#define SINK_POWER_OFF		2
 
 #define DP_CTRL_INTR_READY_FOR_VIDEO     BIT(0)
 #define DP_CTRL_INTR_IDLE_PATTERN_SENT  BIT(3)
@@ -103,14 +98,6 @@ static void dp_ctrl_video_ready(struct dp_ctrl_private *ctrl)
 	complete(&ctrl->video_comp);
 }
 
-static void dp_ctrl_set_sink_power_state(struct dp_ctrl_private *ctrl,
-		u8 power_state)
-{
-	const int len = 1;
-
-	ctrl->aux->write(ctrl->aux, 0x600, len, AUX_NATIVE, &power_state);
-}
-
 static void dp_ctrl_state_ctrl(struct dp_ctrl_private *ctrl, u32 state)
 {
 	ctrl->catalog->state_ctrl(ctrl->catalog, state);
@@ -128,7 +115,7 @@ static void dp_ctrl_push_idle(struct dp_ctrl *dp_ctrl)
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
-	dp_ctrl_set_sink_power_state(ctrl, SINK_POWER_OFF);
+	drm_dp_link_power_down(ctrl->aux->drm_aux, &ctrl->panel->dp_link);
 
 	reinit_completion(&ctrl->idle_comp);
 	dp_ctrl_state_ctrl(ctrl, ST_PUSH_IDLE);
@@ -143,12 +130,13 @@ static void dp_ctrl_push_idle(struct dp_ctrl *dp_ctrl)
 static void dp_ctrl_config_ctrl(struct dp_ctrl_private *ctrl)
 {
 	u32 config = 0, tbd;
+	u8 *dpcd = ctrl->panel->dpcd;
 
 	config |= (2 << 13); /* Default-> LSCLK DIV: 1/4 LCLK  */
 	config |= (0 << 11); /* RGB */
 
 	/* Scrambler reset enable */
-	if (ctrl->panel->dpcd.scrambler_reset)
+	if (dpcd[DP_EDP_CONFIGURATION_CAP] & DP_ALTERNATE_SCRAMBLER_RESET_CAP)
 		config |= (1 << 10);
 
 	tbd = ctrl->link->get_test_bits_depth(ctrl->link,
@@ -158,7 +146,7 @@ static void dp_ctrl_config_ctrl(struct dp_ctrl_private *ctrl)
 	/* Num of Lanes */
 	config |= ((ctrl->link->lane_count - 1) << 4);
 
-	if (ctrl->panel->dpcd.enhanced_frame)
+	if (drm_dp_enhanced_frame_cap(dpcd))
 		config |= 0x40;
 
 	config |= 0x04; /* progressive video */
@@ -327,7 +315,7 @@ static void dp_ctrl_calc_tu_parameters(struct dp_ctrl_private *ctrl,
 	even_distribution = 0;
 	min_hblank = 0;
 
-	lclk = link_rate * DP_LINK_RATE_MULTIPLIER;
+	lclk = drm_dp_bw_code_to_link_rate(link_rate) * DP_KHZ_TO_HZ;
 
 	pr_debug("pclk=%lld, active_width=%d, h_blank=%d\n",
 						pclk, lwidth, h_blank);
@@ -763,7 +751,7 @@ static int dp_ctrl_update_sink_vx_px(struct dp_ctrl_private *ctrl,
 		buf[i] = voltage_level | pre_emphasis_level | max_level_reached;
 
 	pr_debug("p|v=0x%x\n", voltage_level | pre_emphasis_level);
-	return ctrl->aux->write(ctrl->aux, 0x103, 4, AUX_NATIVE, buf);
+	return drm_dp_dpcd_write(ctrl->aux->drm_aux, 0x103, buf, 4);
 }
 
 static void dp_ctrl_update_vx_px(struct dp_ctrl_private *ctrl)
@@ -778,25 +766,6 @@ static void dp_ctrl_update_vx_px(struct dp_ctrl_private *ctrl)
 	dp_ctrl_update_sink_vx_px(ctrl, link->v_level, link->p_level);
 }
 
-static void dp_ctrl_cap_lane_rate_set(struct dp_ctrl_private *ctrl)
-{
-	u8 buf[4];
-	struct dp_panel_dpcd *cap;
-
-	cap = &ctrl->panel->dpcd;
-
-	pr_debug("bw=%x lane=%d\n", ctrl->link->link_rate,
-		ctrl->link->lane_count);
-
-	buf[0] = ctrl->link->link_rate;
-	buf[1] = ctrl->link->lane_count;
-
-	if (cap->enhanced_frame)
-		buf[1] |= 0x80;
-
-	ctrl->aux->write(ctrl->aux, 0x100, 2, AUX_NATIVE, buf);
-}
-
 static void dp_ctrl_train_pattern_set(struct dp_ctrl_private *ctrl,
 		u8 pattern)
 {
@@ -805,33 +774,39 @@ static void dp_ctrl_train_pattern_set(struct dp_ctrl_private *ctrl,
 	pr_debug("pattern=%x\n", pattern);
 
 	buf[0] = pattern;
-	ctrl->aux->write(ctrl->aux, 0x102, 1, AUX_NATIVE, buf);
+	drm_dp_dpcd_write(ctrl->aux->drm_aux, DP_TRAINING_PATTERN_SET, buf, 1);
 }
 
 static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 {
-	int tries, old_v_level;
-	int ret = 0;
-	int usleep_time;
+	int tries, old_v_level, ret = 0, len = 0;
+	u8 link_status[DP_LINK_STATUS_SIZE];
 	int const maximum_retries = 5;
 
 	dp_ctrl_state_ctrl(ctrl, 0);
-
 	/* Make sure to clear the current pattern before starting a new one */
 	wmb();
 
 	ctrl->catalog->set_pattern(ctrl->catalog, 0x01);
-	dp_ctrl_cap_lane_rate_set(ctrl);
-	dp_ctrl_train_pattern_set(ctrl, 0x21); /* train_1 */
+	dp_ctrl_train_pattern_set(ctrl, DP_TRAINING_PATTERN_1 |
+		DP_RECOVERED_CLOCK_OUT_EN); /* train_1 */
 	dp_ctrl_update_vx_px(ctrl);
 
 	tries = 0;
 	old_v_level = ctrl->link->v_level;
 	while (1) {
-		usleep_time = ctrl->panel->dpcd.training_read_interval;
-		usleep_range(usleep_time, usleep_time * 2);
+		drm_dp_link_train_clock_recovery_delay(ctrl->panel->dpcd);
 
-		if (ctrl->link->clock_recovery(ctrl->link)) {
+		len = drm_dp_dpcd_read_link_status(ctrl->aux->drm_aux,
+			link_status);
+		if (len < DP_LINK_STATUS_SIZE) {
+			pr_err("[%s]: DP link status read failed\n", __func__);
+			ret = -1;
+			break;
+		}
+
+		if (drm_dp_clock_recovery_ok(link_status,
+			ctrl->link->lane_count)) {
 			ret = 0;
 			break;
 		}
@@ -852,8 +827,7 @@ static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 			old_v_level = ctrl->link->v_level;
 		}
 
-		ctrl->link->adjust_levels(ctrl->link);
-
+		ctrl->link->adjust_levels(ctrl->link, link_status);
 		dp_ctrl_update_vx_px(ctrl);
 	}
 
@@ -869,15 +843,15 @@ static int dp_ctrl_link_rate_down_shift(struct dp_ctrl_private *ctrl)
 
 	switch (ctrl->link->link_rate) {
 	case DP_LINK_RATE_810:
-		ctrl->link->link_rate = DP_LINK_RATE_540;
+		ctrl->link->link_rate = DP_LINK_BW_5_4;
 		break;
-	case DP_LINK_RATE_540:
-		ctrl->link->link_rate = DP_LINK_RATE_270;
+	case DP_LINK_BW_5_4:
+		ctrl->link->link_rate = DP_LINK_BW_2_7;
 		break;
-	case DP_LINK_RATE_270:
-		ctrl->link->link_rate = DP_LINK_RATE_162;
+	case DP_LINK_BW_2_7:
+		ctrl->link->link_rate = DP_LINK_BW_1_62;
 		break;
-	case DP_LINK_RATE_162:
+	case DP_LINK_BW_1_62:
 	default:
 		ret = -EINVAL;
 		break;
@@ -890,36 +864,38 @@ static int dp_ctrl_link_rate_down_shift(struct dp_ctrl_private *ctrl)
 
 static void dp_ctrl_clear_training_pattern(struct dp_ctrl_private *ctrl)
 {
-	int usleep_time;
-
 	dp_ctrl_train_pattern_set(ctrl, 0);
-
-	usleep_time = ctrl->panel->dpcd.training_read_interval;
-	usleep_range(usleep_time, usleep_time * 2);
+	drm_dp_link_train_channel_eq_delay(ctrl->panel->dpcd);
 }
 
 static int dp_ctrl_link_training_2(struct dp_ctrl_private *ctrl)
 {
-	int tries = 0;
-	int ret = 0;
-	int usleep_time;
+	int tries = 0, ret = 0, len = 0;
 	char pattern;
 	int const maximum_retries = 5;
+	u8 link_status[DP_LINK_STATUS_SIZE];
 
-	if (ctrl->panel->dpcd.flags & DPCD_TPS3)
-		pattern = 0x03;
+	if (drm_dp_tps3_supported(ctrl->panel->dpcd))
+		pattern = DP_TRAINING_PATTERN_3;
 	else
-		pattern = 0x02;
+		pattern = DP_TRAINING_PATTERN_2;
 
 	dp_ctrl_update_vx_px(ctrl);
 	ctrl->catalog->set_pattern(ctrl->catalog, pattern);
-	dp_ctrl_train_pattern_set(ctrl, pattern | 0x20);
+	dp_ctrl_train_pattern_set(ctrl, pattern | DP_RECOVERED_CLOCK_OUT_EN);
 
 	do  {
-		usleep_time = ctrl->panel->dpcd.training_read_interval;
-		usleep_range(usleep_time, usleep_time * 2);
+		drm_dp_link_train_channel_eq_delay(ctrl->panel->dpcd);
 
-		if (ctrl->link->channel_equalization(ctrl->link)) {
+		len = drm_dp_dpcd_read_link_status(ctrl->aux->drm_aux,
+			link_status);
+		if (len < DP_LINK_STATUS_SIZE) {
+			pr_err("[%s]: DP link status read failed\n", __func__);
+			ret = -1;
+			break;
+		}
+
+		if (drm_dp_channel_eq_ok(link_status, ctrl->link->lane_count)) {
 			ret = 0;
 			break;
 		}
@@ -930,8 +906,7 @@ static int dp_ctrl_link_training_2(struct dp_ctrl_private *ctrl)
 		}
 		tries++;
 
-		ctrl->link->adjust_levels(ctrl->link);
-
+		ctrl->link->adjust_levels(ctrl->link, link_status);
 		dp_ctrl_update_vx_px(ctrl);
 	} while (1);
 
@@ -941,18 +916,18 @@ static int dp_ctrl_link_training_2(struct dp_ctrl_private *ctrl)
 static int dp_ctrl_link_train(struct dp_ctrl_private *ctrl)
 {
 	int ret = 0;
-
-	ret = ctrl->aux->ready(ctrl->aux);
-	if (!ret) {
-		pr_err("aux chan NOT ready\n");
-		return ret;
-	}
+	struct drm_dp_link dp_link;
 
 	ctrl->link->p_level = 0;
 	ctrl->link->v_level = 0;
 
 	dp_ctrl_config_ctrl(ctrl);
 	dp_ctrl_state_ctrl(ctrl, 0);
+
+	dp_link.num_lanes = ctrl->link->lane_count;
+	dp_link.rate = ctrl->link->link_rate;
+	dp_link.capabilities = ctrl->panel->dp_link.capabilities;
+	drm_dp_link_configure(ctrl->aux->drm_aux, &dp_link);
 
 	ret = dp_ctrl_link_train_1(ctrl);
 	if (ret < 0) {
@@ -1007,7 +982,7 @@ static int dp_ctrl_setup_main_link(struct dp_ctrl_private *ctrl, bool train)
 
 	ctrl->catalog->mainlink_ctrl(ctrl->catalog, true);
 
-	dp_ctrl_set_sink_power_state(ctrl, SINK_POWER_ON);
+	drm_dp_link_power_up(ctrl->aux->drm_aux, &ctrl->panel->dp_link);
 
 	if (ctrl->link->phy_pattern_requested(ctrl->link))
 		goto end;
@@ -1065,8 +1040,7 @@ static int dp_ctrl_enable_mainlink_clocks(struct dp_ctrl_private *ctrl)
 	ctrl->power->set_pixel_clk_parent(ctrl->power);
 
 	dp_ctrl_set_clock_rate(ctrl, "ctrl_link_clk",
-		(ctrl->link->link_rate * DP_LINK_RATE_MULTIPLIER) /
-			DP_KHZ_TO_HZ);
+		drm_dp_bw_code_to_link_rate(ctrl->link->link_rate));
 
 	dp_ctrl_set_clock_rate(ctrl, "ctrl_crypto_clk", DP_CRYPTO_CLK_RATE_KHZ);
 
@@ -1208,7 +1182,7 @@ static int dp_ctrl_on_hpd(struct dp_ctrl_private *ctrl)
 	ctrl->catalog->hpd_config(ctrl->catalog, true);
 
 	ctrl->link->link_rate  = ctrl->panel->get_link_rate(ctrl->panel);
-	ctrl->link->lane_count = ctrl->panel->dpcd.max_lane_count;
+	ctrl->link->lane_count = ctrl->panel->dp_link.num_lanes;
 	ctrl->pixel_rate = ctrl->panel->pinfo.pixel_clk_khz;
 
 	pr_debug("link_rate=%d, lane_count=%d, pixel_rate=%d\n",

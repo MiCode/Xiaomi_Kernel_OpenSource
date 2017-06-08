@@ -27,6 +27,8 @@ struct dp_display_mode {
 struct dp_display {
 	struct drm_device *drm_dev;
 	struct dp_bridge *bridge;
+	struct drm_connector *connector;
+	bool is_connected;
 
 	int (*enable)(struct dp_display *dp_display);
 	int (*post_enable)(struct dp_display *dp_display);
@@ -38,11 +40,7 @@ struct dp_display {
 			struct dp_display_mode *mode);
 	int (*validate_mode)(struct dp_display *dp_display,
 			struct dp_display_mode *mode);
-	int (*get_modes)(struct dp_display *dp_display,
-		struct dp_display_mode *modes, u32 *count);
-
-	int (*detect)(struct dp_display *dp_display);
-
+	int (*get_modes)(struct dp_display *dp_display);
 	int (*prepare)(struct dp_display *dp_display);
 	int (*unprepare)(struct dp_display *dp_display);
 	int (*request_irq)(struct dp_display *dp_display);

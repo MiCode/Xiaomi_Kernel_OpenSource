@@ -177,8 +177,6 @@
 
 #define QSERDES_COM_BIAS_EN_CLKBUFLR_EN		(0x004)
 
-#define EDID_START_ADDRESS			0x50
-
 /* DP MMSS_CC registers */
 #define MMSS_DP_LINK_CMD_RCGR			(0x0138)
 #define MMSS_DP_LINK_CFG_RCGR			(0x013C)
