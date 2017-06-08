@@ -104,6 +104,12 @@ Optional properties:
 				parameter. Only one pin may be specified per
 				regulator. This property only applies to BoB
 				type regulators.
+- qcom,pwm-threshold-current:  Minimum current in mA which requires regulator
+				to be in PWM mode.  Load currents below this
+				threshold use AUTO mode.  This property only
+				applies to BoB and SMPS type regulators.
+				If this property is not specified, then the
+				hardware default mode will be used all the time.
 - qcom,always-send-voltage:    Flag which indicates that updates to the
 				voltage, voltage corner or voltage level set
 				point should always be sent immediately to the

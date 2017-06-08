@@ -3536,6 +3536,16 @@ kick_active_balance(struct rq *rq, struct task_struct *p, int new_cpu)
 
 static DEFINE_RAW_SPINLOCK(migration_lock);
 
+static bool do_migration(int reason, int new_cpu, int cpu)
+{
+	if ((reason == UP_MIGRATION || reason == DOWN_MIGRATION)
+				&& same_cluster(new_cpu, cpu))
+		return false;
+
+	/* Inter cluster high irqload migrations are OK */
+	return new_cpu != cpu;
+}
+
 /*
  * Check if currently running task should be migrated to a better cpu.
  *
@@ -3553,7 +3563,7 @@ void check_for_migration(struct rq *rq, struct task_struct *p)
 	raw_spin_lock(&migration_lock);
 	new_cpu = select_best_cpu(p, cpu, reason, 0);
 
-	if (new_cpu != cpu) {
+	if (do_migration(reason, new_cpu, cpu)) {
 		active_balance = kick_active_balance(rq, p, new_cpu);
 		if (active_balance)
 			mark_reserved(new_cpu);

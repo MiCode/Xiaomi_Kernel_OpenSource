@@ -152,6 +152,10 @@
 	qcom,mdss-dsi-panel-timings = [00 35 0a 0c 15 1b 09 0d 0a 03 04 00];
 	qcom,mdss-dsi-t-clk-post = <0x0d>;
 	qcom,mdss-dsi-t-clk-pre = <0x26>;
+	qcom,mdss-dsi-min-refresh-rate = <55>;
+	qcom,mdss-dsi-max-refresh-rate = <60>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
 };
 
 &dsi_sharp_4k_dsc_cmd {

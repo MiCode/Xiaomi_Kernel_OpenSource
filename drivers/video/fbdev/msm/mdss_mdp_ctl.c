@@ -571,6 +571,9 @@ static u32 __calc_qseed3_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
 	u64 ver_dwnscale;
 	u64 active_line;
 	u64 backfill_line;
+	struct mdss_mdp_ctl *ctl = pipe->mixer_left->ctl;
+	u64 pclk_rate;
+	struct mdss_panel_info *pinfo = &ctl->panel_data->panel_info;
 
 	ver_dwnscale = (u64)src_h << PHASE_STEP_SHIFT;
 	do_div(ver_dwnscale, dst.h);
@@ -596,12 +599,26 @@ static u32 __calc_qseed3_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
 
 	total_cycle = active_line_cycle + backfill_cycle;
 
+	/*
+	 * MDP clkrate = total_cycle * PixelClock / Dest-width
+	 * if pixelClock not available:
+	 *             = total_cycle * fps * v_total
+	 */
+	if ((pinfo->type == MIPI_CMD_PANEL) && dst.w) {
+		pclk_rate = (u64)mdss_panel_get_htotal(pinfo, false) *
+			v_total * fps;
+		do_div(pclk_rate, pinfo->xres);
+		total_cycle *= pclk_rate;
+	} else {
+		total_cycle *= (fps * v_total);
+	}
+
 	pr_debug("line: active=%lld backfill=%lld vds=%lld\n",
 		active_line, backfill_line, ver_dwnscale);
 	pr_debug("cycle: total=%lld active=%lld backfill=%lld\n",
 		total_cycle, active_line_cycle, backfill_cycle);
 
-	return (u32)total_cycle * (fps * v_total);
+	return (u32)total_cycle;
 }
 
 static inline bool __is_vert_downscaling(u32 src_h,
@@ -659,6 +676,7 @@ static u32 get_pipe_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
 	if (flags & PERF_CALC_PIPE_APPLY_CLK_FUDGE)
 		rate = mdss_mdp_clk_fudge_factor(mixer, rate);
 
+	rate = min(mdata->max_mdp_clk_rate, rate);
 	return rate;
 }
 

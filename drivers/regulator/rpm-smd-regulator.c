@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -207,6 +207,7 @@ struct rpm_regulator {
 	bool			use_pin_ctrl_for_enable;
 	struct rpm_vreg_request	req;
 	int			system_load;
+	int			hpm_threshold_current;
 	int			min_uV;
 	int			max_uV;
 	u32			pin_ctrl_mask[RPM_VREG_PIN_CTRL_STATE_COUNT];
@@ -1030,6 +1031,34 @@ static unsigned int rpm_vreg_get_bob_mode(struct regulator_dev *rdev)
 	return mode;
 }
 
+static unsigned int rpm_vreg_get_optimum_mode(struct regulator_dev *rdev,
+				int input_uV, int output_uV, int load_uA)
+{
+	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
+	u32 mode = REGULATOR_MODE_NORMAL;
+
+	if (reg->hpm_threshold_current > 0) {
+		if (load_uA >= reg->hpm_threshold_current) {
+			/* PWM mode */
+			mode = (reg->rpm_vreg->regulator_type
+				== RPM_REGULATOR_TYPE_BOB)
+					? REGULATOR_MODE_FAST
+					: REGULATOR_MODE_NORMAL;
+		} else {
+			/* AUTO mode */
+			mode = (reg->rpm_vreg->regulator_type
+				== RPM_REGULATOR_TYPE_BOB)
+					? REGULATOR_MODE_NORMAL
+					: REGULATOR_MODE_IDLE;
+		}
+	} else {
+		/* Default to the current mode if no threshold is present. */
+		mode = reg->rdesc.ops->get_mode(rdev);
+	}
+
+	return mode;
+}
+
 static int rpm_vreg_enable_time(struct regulator_dev *rdev)
 {
 	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
@@ -1402,6 +1431,18 @@ static struct regulator_ops smps_ops = {
 	.enable_time		= rpm_vreg_enable_time,
 };
 
+static struct regulator_ops smps_optimum_mode_ops = {
+	.enable			= rpm_vreg_enable,
+	.disable		= rpm_vreg_disable,
+	.is_enabled		= rpm_vreg_is_enabled,
+	.set_voltage		= rpm_vreg_set_voltage,
+	.get_voltage		= rpm_vreg_get_voltage,
+	.set_mode		= rpm_vreg_set_mode,
+	.get_mode		= rpm_vreg_get_mode,
+	.get_optimum_mode	= rpm_vreg_get_optimum_mode,
+	.enable_time		= rpm_vreg_enable_time,
+};
+
 static struct regulator_ops switch_ops = {
 	.enable			= rpm_vreg_enable,
 	.disable		= rpm_vreg_disable,
@@ -1426,6 +1467,7 @@ static struct regulator_ops bob_ops = {
 	.get_voltage		= rpm_vreg_get_voltage,
 	.set_mode		= rpm_vreg_set_bob_mode,
 	.get_mode		= rpm_vreg_get_bob_mode,
+	.get_optimum_mode	= rpm_vreg_get_optimum_mode,
 	.enable_time		= rpm_vreg_enable_time,
 };
 
@@ -1676,6 +1718,12 @@ static int rpm_vreg_device_probe(struct platform_device *pdev)
 	if (of_get_property(node, "parent-supply", NULL))
 		init_data->supply_regulator = "parent";
 
+	of_property_read_u32(node, "qcom,pwm-threshold-current",
+					&reg->hpm_threshold_current);
+	if (reg->hpm_threshold_current > 0
+	    && regulator_type == RPM_REGULATOR_TYPE_SMPS)
+		reg->rdesc.ops = &smps_optimum_mode_ops;
+
 	/*
 	 * Fill in ops and mode masks based on callbacks specified for
 	 * this type of regulator.
@@ -1689,8 +1737,13 @@ static int rpm_vreg_device_probe(struct platform_device *pdev)
 	if (reg->rdesc.ops->get_mode) {
 		init_data->constraints.valid_ops_mask
 			|= REGULATOR_CHANGE_MODE | REGULATOR_CHANGE_DRMS;
-		init_data->constraints.valid_modes_mask
-			|= REGULATOR_MODE_NORMAL | REGULATOR_MODE_IDLE;
+
+		if (regulator_type == RPM_REGULATOR_TYPE_BOB)
+			init_data->constraints.valid_modes_mask
+				= REGULATOR_MODE_FAST | REGULATOR_MODE_NORMAL;
+		else
+			init_data->constraints.valid_modes_mask
+				|= REGULATOR_MODE_NORMAL | REGULATOR_MODE_IDLE;
 	}
 
 	reg->rdesc.name		= init_data->constraints.name;

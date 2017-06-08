@@ -385,6 +385,7 @@ enum {
 #define INVALID_SESSION -1
 #define SESSION_TYPE_RX 0
 #define SESSION_TYPE_TX 1
+#define MAX_SESSION_TYPES 2
 #define INT_RX_VOL_MAX_STEPS 0x2000
 #define INT_RX_VOL_GAIN 0x2000
 
@@ -476,10 +477,10 @@ void msm_pcm_routing_get_fedai_info(int fe_idx, int sess_type,
 void msm_pcm_routing_acquire_lock(void);
 void msm_pcm_routing_release_lock(void);
 
-int msm_pcm_routing_reg_stream_app_type_cfg(int fedai_id, int session_type,
-					     int be_id, int app_type,
-					     int acdb_dev_id, int sample_rate);
-int msm_pcm_routing_get_stream_app_type_cfg(int fedai_id, int session_type,
-					    int be_id, int *app_type,
-					    int *acdb_dev_id, int *sample_rate);
+int msm_pcm_routing_reg_stream_app_type_cfg(
+	int fedai_id, int session_type, int be_id,
+	struct msm_pcm_stream_app_type_cfg *cfg_data);
+int msm_pcm_routing_get_stream_app_type_cfg(
+	int fedai_id, int session_type, int *be_id,
+	struct msm_pcm_stream_app_type_cfg *cfg_data);
 #endif /*_MSM_PCM_H*/

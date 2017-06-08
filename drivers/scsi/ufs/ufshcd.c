@@ -3285,8 +3285,10 @@ static int ufshcd_exec_dev_cmd(struct ufs_hba *hba,
 	/*
 	 * May get invoked from shutdown and IOCTL contexts.
 	 * In shutdown context, it comes in with lock acquired.
+	 * In error recovery context, it may come with lock acquired.
 	 */
-	if (!ufshcd_is_shutdown_ongoing(hba))
+
+	if (!ufshcd_is_shutdown_ongoing(hba) && !ufshcd_eh_in_progress(hba))
 		down_read(&hba->lock);
 
 	/*
@@ -3320,7 +3322,7 @@ static int ufshcd_exec_dev_cmd(struct ufs_hba *hba,
 out_put_tag:
 	ufshcd_put_dev_cmd_tag(hba, tag);
 	wake_up(&hba->dev_cmd.tag_wq);
-	if (!ufshcd_is_shutdown_ongoing(hba))
+	if (!ufshcd_is_shutdown_ongoing(hba) && !ufshcd_eh_in_progress(hba))
 		up_read(&hba->lock);
 	return err;
 }

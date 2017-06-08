@@ -675,6 +675,8 @@ static struct msm_pcm_routing_app_type_data lsm_app_type_cfg[MAX_APP_TYPES];
 static struct msm_pcm_stream_app_type_cfg
 	fe_dai_app_type_cfg[MSM_FRONTEND_DAI_MAX][2][MSM_BACKEND_DAI_MAX];
 
+static int last_be_id_configured[MSM_FRONTEND_DAI_MAX][MAX_SESSION_TYPES];
+
 /* The caller of this should aqcuire routing lock */
 void msm_pcm_routing_get_bedai_info(int be_idx,
 				    struct msm_pcm_routing_bdai_data *be_dai)
@@ -741,15 +743,22 @@ static bool is_mm_lsm_fe_id(int fe_id)
 	return rc;
 }
 
-int msm_pcm_routing_reg_stream_app_type_cfg(int fedai_id, int session_type,
-					    int be_id, int app_type,
-					    int acdb_dev_id, int sample_rate)
+int msm_pcm_routing_reg_stream_app_type_cfg(
+	int fedai_id, int session_type, int be_id,
+	struct msm_pcm_stream_app_type_cfg *cfg_data)
 {
 	int ret = 0;
 
+	if (cfg_data == NULL) {
+		pr_err("%s: Received NULL pointer for cfg_data\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
 	pr_debug("%s: fedai_id %d, session_type %d, be_id %d, app_type %d, acdb_dev_id %d, sample_rate %d\n",
 		__func__, fedai_id, session_type, be_id,
-		app_type, acdb_dev_id, sample_rate);
+		cfg_data->app_type, cfg_data->acdb_dev_id,
+		cfg_data->sample_rate);
 
 	if (!is_mm_lsm_fe_id(fedai_id)) {
 		pr_err("%s: Invalid machine driver ID %d\n",
@@ -771,15 +780,18 @@ int msm_pcm_routing_reg_stream_app_type_cfg(int fedai_id, int session_type,
 		goto done;
 	}
 
-	fe_dai_app_type_cfg[fedai_id][session_type][be_id].app_type = app_type;
-	fe_dai_app_type_cfg[fedai_id][session_type][be_id].acdb_dev_id =
-		acdb_dev_id;
-	fe_dai_app_type_cfg[fedai_id][session_type][be_id].sample_rate =
-		sample_rate;
+	fe_dai_app_type_cfg[fedai_id][session_type][be_id] = *cfg_data;
+
+	/*
+	 * Store the BE ID of the configuration information set as the latest so
+	 * the get mixer control knows what to return.
+	 */
+	last_be_id_configured[fedai_id][session_type] = be_id;
 
 done:
 	return ret;
 }
+EXPORT_SYMBOL(msm_pcm_routing_reg_stream_app_type_cfg);
 
 /**
  * msm_pcm_routing_get_stream_app_type_cfg
@@ -791,55 +803,48 @@ done:
  * fedai_id - Passed value, front end ID for which app type config is wanted
  * session_type - Passed value, session type for which app type config
  *                is wanted
- * be_id - Passed value, back end device id for which app type config is wanted
- * app_type - Returned value, app type used by app type config
- * acdb_dev_id - Returned value, ACDB device ID used by app type config
- * sample_rate - Returned value, sample rate used by app type config
+ * be_id - Returned value, back end device id the app type config data is for
+ * cfg_data - Returned value, configuration data used by app type config
  */
-int msm_pcm_routing_get_stream_app_type_cfg(int fedai_id, int session_type,
-					    int be_id, int *app_type,
-					    int *acdb_dev_id, int *sample_rate)
+int msm_pcm_routing_get_stream_app_type_cfg(
+	int fedai_id, int session_type, int *bedai_id,
+	struct msm_pcm_stream_app_type_cfg *cfg_data)
 {
+	int be_id;
 	int ret = 0;
 
-	if (app_type == NULL) {
-		pr_err("%s: NULL pointer sent for app_type\n", __func__);
+	if (bedai_id == NULL) {
+		pr_err("%s: Received NULL pointer for backend ID\n", __func__);
 		ret = -EINVAL;
 		goto done;
-	} else if (acdb_dev_id == NULL) {
-		pr_err("%s: NULL pointer sent for acdb_dev_id\n", __func__);
-		ret = -EINVAL;
-		goto done;
-	} else if (sample_rate == NULL) {
-		pr_err("%s: NULL pointer sent for sample rate\n", __func__);
+	} else if (cfg_data == NULL) {
+		pr_err("%s: NULL pointer sent for cfg_data\n", __func__);
 		ret = -EINVAL;
 		goto done;
 	} else if (!is_mm_lsm_fe_id(fedai_id)) {
-		pr_err("%s: Invalid FE ID %d\n",
-			__func__, fedai_id);
+		pr_err("%s: Invalid FE ID %d\n", __func__, fedai_id);
 		ret = -EINVAL;
 		goto done;
 	} else if (session_type != SESSION_TYPE_RX &&
 		   session_type != SESSION_TYPE_TX) {
-		pr_err("%s: Invalid session type %d\n",
-			__func__, session_type);
+		pr_err("%s: Invalid session type %d\n", __func__, session_type);
 		ret = -EINVAL;
 		goto done;
-	} else if (be_id < 0 || be_id >= MSM_BACKEND_DAI_MAX) {
-		pr_err("%s: Received out of bounds be_id %d\n",
-			__func__, be_id);
-		return -EINVAL;
 	}
 
-	*app_type = fe_dai_app_type_cfg[fedai_id][session_type][be_id].app_type;
-	*acdb_dev_id =
-		fe_dai_app_type_cfg[fedai_id][session_type][be_id].acdb_dev_id;
-	*sample_rate =
-		fe_dai_app_type_cfg[fedai_id][session_type][be_id].sample_rate;
+	be_id = last_be_id_configured[fedai_id][session_type];
+	if (be_id < 0 || be_id >= MSM_BACKEND_DAI_MAX) {
+		pr_err("%s: Invalid BE ID %d\n", __func__, be_id);
+		ret = -EINVAL;
+		goto done;
+	}
 
+	*bedai_id = be_id;
+	*cfg_data = fe_dai_app_type_cfg[fedai_id][session_type][be_id];
 	pr_debug("%s: fedai_id %d, session_type %d, be_id %d, app_type %d, acdb_dev_id %d, sample_rate %d\n",
-		__func__, fedai_id, session_type, be_id,
-		*app_type, *acdb_dev_id, *sample_rate);
+		__func__, fedai_id, session_type, *bedai_id,
+		cfg_data->app_type, cfg_data->acdb_dev_id,
+		cfg_data->sample_rate);
 done:
 	return ret;
 }
@@ -14958,6 +14963,7 @@ static int __init msm_soc_routing_platform_init(void)
 		(routing_cb)msm_pcm_get_dev_acdb_id_by_port_id);
 
 	memset(&be_dai_name_table, 0, sizeof(be_dai_name_table));
+	memset(&last_be_id_configured, 0, sizeof(last_be_id_configured));
 
 	return platform_driver_register(&msm_routing_pcm_driver);
 }

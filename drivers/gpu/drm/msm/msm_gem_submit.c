@@ -217,9 +217,21 @@ retry:
 			submit->bos[i].flags |= BO_LOCKED;
 		}
 
+		/*
+		 * An invalid SVM object is part of
+		 * this submit's buffer list, fail.
+		 */
+		if (msm_obj->flags & MSM_BO_SVM) {
+			struct msm_gem_svm_object *msm_svm_obj =
+				to_msm_svm_obj(msm_obj);
+			if (msm_svm_obj->invalid) {
+				ret = -EINVAL;
+				goto fail;
+			}
+		}
 
 		/* if locking succeeded, pin bo: */
-		ret = msm_gem_get_iova_locked(&msm_obj->base, aspace, &iova);
+		ret = msm_gem_get_iova(&msm_obj->base, aspace, &iova);
 
 		/* this would break the logic in the fail path.. there is no
 		 * reason for this to happen, but just to be on the safe side
@@ -307,7 +319,7 @@ static int submit_reloc(struct msm_gem_submit *submit, struct msm_gem_object *ob
 	/* For now, just map the entire thing.  Eventually we probably
 	 * to do it page-by-page, w/ kmap() if not vmap()d..
 	 */
-	ptr = msm_gem_vaddr_locked(&obj->base);
+	ptr = msm_gem_vaddr(&obj->base);
 
 	if (IS_ERR(ptr)) {
 		ret = PTR_ERR(ptr);
@@ -470,7 +482,7 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 		if (submit_cmd.type == MSM_SUBMIT_CMD_PROFILE_BUF) {
 			submit->profile_buf_iova = submit->cmd[i].iova;
 			submit->profile_buf_vaddr =
-				msm_gem_vaddr_locked(&msm_obj->base);
+				msm_gem_vaddr(&msm_obj->base);
 		}
 
 		if (submit->valid)

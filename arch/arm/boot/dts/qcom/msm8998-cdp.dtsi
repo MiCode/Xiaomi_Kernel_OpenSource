@@ -258,7 +258,7 @@
 	qcom,mdss-dsi-mode-sel-gpio-state = "dual_port";
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,partial-update-enabled = "single_roi";
-	qcom,panel-roi-alignment = <720 128 720 128 1440 128>;
+	qcom,panel-roi-alignment = <720 256 720 256 1440 256>;
 };
 
 &dsi_dual_nt35597_truly_video {

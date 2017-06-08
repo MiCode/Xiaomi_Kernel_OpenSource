@@ -175,6 +175,8 @@
 		reg-names = "core_physical", "qfprom_physical", "hdcp_physical";
 		interrupt-parent = <&sde_kms>;
 		interrupts = <8 0>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
 		qcom,hdmi-tx-ddc-clk-gpio = <&tlmm 32 0>;
 		qcom,hdmi-tx-ddc-data-gpio = <&tlmm 33 0>;
 		qcom,hdmi-tx-hpd-gpio = <&tlmm 34 0>;
@@ -182,11 +184,9 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&mdss_hdmi_hpd_active
 			&mdss_hdmi_ddc_active
-			&mdss_hdmi_cec_active
 			&mdss_hdmi_5v_active>;
 		pinctrl-1 = <&mdss_hdmi_hpd_suspend
 			&mdss_hdmi_ddc_suspend
-			&mdss_hdmi_cec_suspend
 			&mdss_hdmi_5v_suspend>;
 		hpd-gdsc-supply = <&gdsc_mdss>;
 		qcom,supply-names = "hpd-gdsc";

@@ -267,8 +267,10 @@
 	qusb_phy0: qusb@c012000 {
 		compatible = "qcom,qusb2phy";
 		reg = <0x0c012000 0x180>,
+			<0x01fcb24c 0x4>,
 			<0x00188018 0x4>;
 		reg-names = "qusb_phy_base",
+			"tcsr_clamp_dig_n_1p8",
 			"ref_clk_addr";
 		vdd-supply = <&pm660l_l1>;
 		vdda18-supply = <&pm660_l10>;

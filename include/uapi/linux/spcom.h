@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,12 @@
  * Getting the next request size by read() file operation,
  * with special size SPCOM_GET_NEXT_REQUEST_SIZE.
  */
+
+/*
+ * Maximum number of channel between Secure Processor and HLOS.
+ * including predefined channels, like "sp_kernel".
+ */
+#define SPCOM_MAX_CHANNELS	0x20
 
 /* Maximum size (including null) for channel names */
 #define SPCOM_CHANNEL_NAME_SIZE		32

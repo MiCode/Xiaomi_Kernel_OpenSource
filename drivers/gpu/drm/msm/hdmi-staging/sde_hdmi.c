@@ -907,6 +907,17 @@ static void _sde_hdmi_hdp_disable(struct sde_hdmi *sde_hdmi)
 	}
 }
 
+static void _sde_hdmi_cec_update_phys_addr(struct sde_hdmi *display)
+{
+	struct edid *edid = display->edid_ctrl->edid;
+
+	if (edid)
+		cec_notifier_set_phys_addr_from_edid(display->notifier, edid);
+	else
+		cec_notifier_set_phys_addr(display->notifier,
+			CEC_PHYS_ADDR_INVALID);
+}
+
 static void _sde_hdmi_hotplug_work(struct work_struct *work)
 {
 	struct sde_hdmi *sde_hdmi =
@@ -936,6 +947,7 @@ static void _sde_hdmi_hotplug_work(struct work_struct *work)
 		sde_free_edid((void **)&sde_hdmi->edid_ctrl);
 
 	drm_helper_hpd_irq_event(connector->dev);
+	_sde_hdmi_cec_update_phys_addr(sde_hdmi);
 }
 
 static void _sde_hdmi_connector_irq(struct sde_hdmi *sde_hdmi)
@@ -1673,8 +1685,26 @@ int sde_hdmi_dev_deinit(struct sde_hdmi *display)
 		SDE_ERROR("Invalid params\n");
 		return -EINVAL;
 	}
+	return 0;
+}
+
+static int _sde_hdmi_cec_init(struct sde_hdmi *display)
+{
+	struct platform_device *pdev = display->pdev;
+
+	display->notifier = cec_notifier_get(&pdev->dev);
+	if (!display->notifier) {
+		SDE_ERROR("CEC notifier get failed\n");
+		return -ENOMEM;
+	}
 
 	return 0;
+}
+
+static void _sde_hdmi_cec_deinit(struct sde_hdmi *display)
+{
+	cec_notifier_set_phys_addr(display->notifier, CEC_PHYS_ADDR_INVALID);
+	cec_notifier_put(display->notifier);
 }
 
 static int sde_hdmi_bind(struct device *dev, struct device *master, void *data)
@@ -1715,7 +1745,14 @@ static int sde_hdmi_bind(struct device *dev, struct device *master, void *data)
 	if (rc) {
 		SDE_ERROR("[%s]Ext Disp init failed, rc=%d\n",
 				display->name, rc);
-		goto error;
+		goto ext_error;
+	}
+
+	rc = _sde_hdmi_cec_init(display);
+	if (rc) {
+		SDE_ERROR("[%s]CEC init failed, rc=%d\n",
+				display->name, rc);
+		goto ext_error;
 	}
 
 	display->edid_ctrl = sde_edid_init();
@@ -1723,7 +1760,7 @@ static int sde_hdmi_bind(struct device *dev, struct device *master, void *data)
 		SDE_ERROR("[%s]sde edid init failed\n",
 				display->name);
 		rc = -ENOMEM;
-		goto error;
+		goto cec_error;
 	}
 
 	display_ctrl = &display->ctrl;
@@ -1732,7 +1769,10 @@ static int sde_hdmi_bind(struct device *dev, struct device *master, void *data)
 
 	mutex_unlock(&display->display_lock);
 	return rc;
-error:
+
+cec_error:
+	(void)_sde_hdmi_cec_deinit(display);
+ext_error:
 	(void)_sde_hdmi_debugfs_deinit(display);
 debug_error:
 	mutex_unlock(&display->display_lock);
@@ -1758,6 +1798,7 @@ static void sde_hdmi_unbind(struct device *dev, struct device *master,
 	mutex_lock(&display->display_lock);
 	(void)_sde_hdmi_debugfs_deinit(display);
 	(void)sde_edid_deinit((void **)&display->edid_ctrl);
+	(void)_sde_hdmi_cec_deinit(display);
 	display->drm_dev = NULL;
 	mutex_unlock(&display->display_lock);
 }

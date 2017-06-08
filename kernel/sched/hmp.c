@@ -2521,10 +2521,42 @@ static inline u32 predict_and_update_buckets(struct rq *rq,
 	return pred_demand;
 }
 
-static void update_task_cpu_cycles(struct task_struct *p, int cpu)
+#define THRESH_CC_UPDATE (2 * NSEC_PER_USEC)
+
+/*
+ * Assumes rq_lock is held and wallclock was recorded in the same critical
+ * section as this function's invocation.
+ */
+static inline u64 read_cycle_counter(int cpu, u64 wallclock)
+{
+	struct sched_cluster *cluster = cpu_rq(cpu)->cluster;
+	u64 delta;
+
+	if (unlikely(!cluster))
+		return cpu_cycle_counter_cb.get_cpu_cycle_counter(cpu);
+
+	/*
+	 * Why don't we need locking here? Let's say that delta is negative
+	 * because some other CPU happened to update last_cc_update with a
+	 * more recent timestamp. We simply read the conter again in that case
+	 * with no harmful side effects. This can happen if there is an FIQ
+	 * between when we read the wallclock and when we use it here.
+	 */
+	delta = wallclock - atomic64_read(&cluster->last_cc_update);
+	if (delta > THRESH_CC_UPDATE) {
+		atomic64_set(&cluster->cycles,
+			     cpu_cycle_counter_cb.get_cpu_cycle_counter(cpu));
+		atomic64_set(&cluster->last_cc_update, wallclock);
+	}
+
+	return atomic64_read(&cluster->cycles);
+}
+
+static void update_task_cpu_cycles(struct task_struct *p, int cpu,
+				   u64 wallclock)
 {
 	if (use_cycle_counter)
-		p->cpu_cycles = cpu_cycle_counter_cb.get_cpu_cycle_counter(cpu);
+		p->cpu_cycles = read_cycle_counter(cpu, wallclock);
 }
 
 static void
@@ -2542,7 +2574,7 @@ update_task_rq_cpu_cycles(struct task_struct *p, struct rq *rq, int event,
 		return;
 	}
 
-	cur_cycles = cpu_cycle_counter_cb.get_cpu_cycle_counter(cpu);
+	cur_cycles = read_cycle_counter(cpu, wallclock);
 
 	/*
 	 * If current task is idle task and irqtime == 0 CPU was
@@ -2579,7 +2611,8 @@ update_task_rq_cpu_cycles(struct task_struct *p, struct rq *rq, int event,
 	trace_sched_get_task_cpu_cycles(cpu, event, rq->cc.cycles, rq->cc.time);
 }
 
-static int account_busy_for_task_demand(struct task_struct *p, int event)
+static int
+account_busy_for_task_demand(struct rq *rq, struct task_struct *p, int event)
 {
 	/*
 	 * No need to bother updating task demand for exiting tasks
@@ -2597,6 +2630,17 @@ static int account_busy_for_task_demand(struct task_struct *p, int event)
 	if (event == TASK_WAKE || (!SCHED_ACCOUNT_WAIT_TIME &&
 			 (event == PICK_NEXT_TASK || event == TASK_MIGRATE)))
 		return 0;
+
+	/*
+	 * TASK_UPDATE can be called on sleeping task, when its moved between
+	 * related groups
+	 */
+	if (event == TASK_UPDATE) {
+		if (rq->curr == p)
+			return 1;
+
+		return p->on_rq ? SCHED_ACCOUNT_WAIT_TIME : 0;
+	}
 
 	return 1;
 }
@@ -2738,7 +2782,7 @@ static u64 update_task_demand(struct task_struct *p, struct rq *rq,
 	u64 runtime;
 
 	new_window = mark_start < window_start;
-	if (!account_busy_for_task_demand(p, event)) {
+	if (!account_busy_for_task_demand(rq, p, event)) {
 		if (new_window)
 			/*
 			 * If the time accounted isn't being accounted as
@@ -2822,7 +2866,7 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 	update_window_start(rq, wallclock);
 
 	if (!p->ravg.mark_start) {
-		update_task_cpu_cycles(p, cpu_of(rq));
+		update_task_cpu_cycles(p, cpu_of(rq), wallclock);
 		goto done;
 	}
 
@@ -2890,7 +2934,7 @@ void sched_account_irqstart(int cpu, struct task_struct *curr, u64 wallclock)
 	if (is_idle_task(curr)) {
 		/* We're here without rq->lock held, IRQ disabled */
 		raw_spin_lock(&rq->lock);
-		update_task_cpu_cycles(curr, cpu);
+		update_task_cpu_cycles(curr, cpu, sched_ktime_clock());
 		raw_spin_unlock(&rq->lock);
 	}
 }
@@ -2935,7 +2979,7 @@ void mark_task_starting(struct task_struct *p)
 	p->ravg.mark_start = p->last_wake_ts = wallclock;
 	p->last_cpu_selected_ts = wallclock;
 	p->last_switch_out_ts = 0;
-	update_task_cpu_cycles(p, cpu_of(rq));
+	update_task_cpu_cycles(p, cpu_of(rq), wallclock);
 }
 
 void set_window_start(struct rq *rq)
@@ -3548,7 +3592,7 @@ void fixup_busy_time(struct task_struct *p, int new_cpu)
 	update_task_ravg(p, task_rq(p), TASK_MIGRATE,
 			 wallclock, 0);
 
-	update_task_cpu_cycles(p, new_cpu);
+	update_task_cpu_cycles(p, new_cpu, wallclock);
 
 	new_task = is_new_task(p);
 	/* Protected by rq_lock */
