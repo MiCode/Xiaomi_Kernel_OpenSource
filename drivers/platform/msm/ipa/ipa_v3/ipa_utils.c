@@ -1631,6 +1631,16 @@ bool ipa3_should_pipe_be_suspended(enum ipa_client_type client)
 
 	ep = &ipa3_ctx->ep[ipa_ep_idx];
 
+	/*
+	 * starting IPA 4.0 pipe no longer can be suspended. Instead,
+	 * the corresponding GSI channel should be stopped. Usually client
+	 * driver will take care of stopping the channel. For client drivers
+	 * that are not stopping the channel, IPA RM will do that based on
+	 * ipa3_should_pipe_channel_be_stopped().
+	 */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
+		return false;
+
 	if (ep->keep_ipa_awake)
 		return false;
 
@@ -1645,6 +1655,41 @@ bool ipa3_should_pipe_be_suspended(enum ipa_client_type client)
 	    client == IPA_CLIENT_ODU_EMB_CONS ||
 	    client == IPA_CLIENT_ODU_TETH_CONS ||
 	    client == IPA_CLIENT_ETHERNET_CONS)
+		return true;
+
+	return false;
+}
+
+/**
+ * ipa3_should_pipe_channel_be_stopped() - returns true when the client's
+ * channel should be stopped during a power save scenario. False otherwise.
+ * Most client already stops the GSI channel on suspend, and are not included
+ * in the list below.
+ *
+ * @client: [IN] IPA client
+ */
+static bool ipa3_should_pipe_channel_be_stopped(enum ipa_client_type client)
+{
+	struct ipa3_ep_context *ep;
+	int ipa_ep_idx;
+
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0)
+		return false;
+
+	ipa_ep_idx = ipa3_get_ep_mapping(client);
+	if (ipa_ep_idx == -1) {
+		IPAERR("Invalid client.\n");
+		WARN_ON(1);
+		return false;
+	}
+
+	ep = &ipa3_ctx->ep[ipa_ep_idx];
+
+	if (ep->keep_ipa_awake)
+		return false;
+
+	if (client == IPA_CLIENT_ODU_EMB_CONS ||
+	    client == IPA_CLIENT_ODU_TETH_CONS)
 		return true;
 
 	return false;
@@ -1693,6 +1738,19 @@ int ipa3_suspend_resource_sync(enum ipa_rm_resource_name resource)
 				suspend.ipa_ep_suspend = true;
 				ipa3_cfg_ep_ctrl(ipa_ep_idx, &suspend);
 				pipe_suspended = true;
+			}
+		}
+
+		if (ipa3_ctx->ep[ipa_ep_idx].client == client &&
+			ipa3_should_pipe_channel_be_stopped(client)) {
+			if (ipa3_ctx->ep[ipa_ep_idx].valid) {
+				/* Stop GSI channel */
+				res = ipa3_stop_gsi_channel(ipa_ep_idx);
+				if (res) {
+					IPAERR("failed stop gsi ch %lu\n",
+					ipa3_ctx->ep[ipa_ep_idx].gsi_chan_hdl);
+					return res;
+				}
 			}
 		}
 	}
@@ -1761,6 +1819,12 @@ int ipa3_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 				ipa3_cfg_ep_ctrl(ipa_ep_idx, &suspend);
 			}
 		}
+
+		if (ipa3_ctx->ep[ipa_ep_idx].client == client &&
+			ipa3_should_pipe_channel_be_stopped(client)) {
+			res = -EPERM;
+			goto bail;
+		}
 	}
 
 	if (res == 0) {
@@ -1822,6 +1886,19 @@ int ipa3_resume_resource(enum ipa_rm_resource_name resource)
 				memset(&suspend, 0, sizeof(suspend));
 				suspend.ipa_ep_suspend = false;
 				ipa3_cfg_ep_ctrl(ipa_ep_idx, &suspend);
+			}
+		}
+
+		if (ipa3_ctx->ep[ipa_ep_idx].client == client &&
+			ipa3_should_pipe_channel_be_stopped(client)) {
+			if (ipa3_ctx->ep[ipa_ep_idx].valid) {
+				res = gsi_start_channel(
+					ipa3_ctx->ep[ipa_ep_idx].gsi_chan_hdl);
+				if (res) {
+					IPAERR("failed to start gsi ch %lu\n",
+					ipa3_ctx->ep[ipa_ep_idx].gsi_chan_hdl);
+					return res;
+				}
 			}
 		}
 	}
@@ -2712,6 +2789,12 @@ int ipa3_cfg_ep_ctrl(u32 clnt_hdl, const struct ipa_ep_cfg_ctrl *ep_ctrl)
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes || ep_ctrl == NULL) {
 		IPAERR("bad parm, clnt_hdl = %d\n", clnt_hdl);
 		return -EINVAL;
+	}
+
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0 && ep_ctrl->ipa_ep_suspend) {
+		IPAERR("pipe suspend is not supported\n");
+		WARN_ON(1);
+		return -EPERM;
 	}
 
 	IPADBG("pipe=%d ep_suspend=%d, ep_delay=%d\n",
@@ -4674,6 +4757,7 @@ void ipa3_suspend_apps_pipes(bool suspend)
 	struct ipa_ep_cfg_ctrl cfg;
 	int ipa_ep_idx;
 	struct ipa3_ep_context *ep;
+	int res;
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.ipa_ep_suspend = suspend;
@@ -4688,7 +4772,23 @@ void ipa3_suspend_apps_pipes(bool suspend)
 	if (ep->valid) {
 		IPADBG("%s pipe %d\n", suspend ? "suspend" : "unsuspend",
 			ipa_ep_idx);
-		ipa3_cfg_ep_ctrl(ipa_ep_idx, &cfg);
+		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+			if (suspend) {
+				res = ipa3_stop_gsi_channel(ipa_ep_idx);
+				if (res) {
+					IPAERR("failed to stop LAN channel\n");
+					ipa_assert();
+				}
+			} else {
+				res = gsi_start_channel(ep->gsi_chan_hdl);
+				if (res) {
+					IPAERR("failed to start LAN channel\n");
+					ipa_assert();
+				}
+			}
+		} else {
+			ipa3_cfg_ep_ctrl(ipa_ep_idx, &cfg);
+		}
 		if (suspend)
 			ipa3_gsi_poll_after_suspend(ep);
 		else if (!atomic_read(&ep->sys->curr_polling_state))
@@ -4706,7 +4806,23 @@ void ipa3_suspend_apps_pipes(bool suspend)
 	if (ep->valid) {
 		IPADBG("%s pipe %d\n", suspend ? "suspend" : "unsuspend",
 			ipa_ep_idx);
-		ipa3_cfg_ep_ctrl(ipa_ep_idx, &cfg);
+		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+			if (suspend) {
+				res = ipa3_stop_gsi_channel(ipa_ep_idx);
+				if (res) {
+					IPAERR("failed to stop WAN channel\n");
+					ipa_assert();
+				}
+			} else {
+				res = gsi_start_channel(ep->gsi_chan_hdl);
+				if (res) {
+					IPAERR("failed to start WAN channel\n");
+					ipa_assert();
+				}
+			}
+		} else {
+			ipa3_cfg_ep_ctrl(ipa_ep_idx, &cfg);
+		}
 		if (suspend)
 			ipa3_gsi_poll_after_suspend(ep);
 		else if (!atomic_read(&ep->sys->curr_polling_state))

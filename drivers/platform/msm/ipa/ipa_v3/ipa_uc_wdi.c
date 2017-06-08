@@ -1600,13 +1600,15 @@ int ipa3_suspend_wdi_pipe(u32 clnt_hdl)
 
 	memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
 	if (IPA_CLIENT_IS_CONS(ep->client)) {
-		ep_cfg_ctrl.ipa_ep_suspend = true;
-		result = ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
-		if (result)
-			IPAERR("client (ep: %d) failed to suspend result=%d\n",
-					clnt_hdl, result);
-		else
-			IPADBG("client (ep: %d) suspended\n", clnt_hdl);
+		if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) {
+			ep_cfg_ctrl.ipa_ep_suspend = true;
+			result = ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
+			if (result)
+				IPAERR("(ep: %d) failed to suspend result=%d\n",
+						clnt_hdl, result);
+			else
+				IPADBG("(ep: %d) suspended\n", clnt_hdl);
+		}
 	} else {
 		ep_cfg_ctrl.ipa_ep_delay = true;
 		result = ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);

@@ -69,13 +69,15 @@ int ipa3_enable_data_path(u32 clnt_hdl)
 	}
 
 	/* Enable the pipe */
-	if (IPA_CLIENT_IS_CONS(ep->client) &&
-	    (ep->keep_ipa_awake ||
-	     ipa3_ctx->resume_on_connect[ep->client] ||
-	     !ipa3_should_pipe_be_suspended(ep->client))) {
-		memset(&ep_cfg_ctrl, 0, sizeof(ep_cfg_ctrl));
-		ep_cfg_ctrl.ipa_ep_suspend = false;
-		res = ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) {
+		if (IPA_CLIENT_IS_CONS(ep->client) &&
+		    (ep->keep_ipa_awake ||
+		    ipa3_ctx->resume_on_connect[ep->client] ||
+		    !ipa3_should_pipe_be_suspended(ep->client))) {
+			memset(&ep_cfg_ctrl, 0, sizeof(ep_cfg_ctrl));
+			ep_cfg_ctrl.ipa_ep_suspend = false;
+			res = ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
+		}
 	}
 
 	return res;
@@ -97,33 +99,41 @@ int ipa3_disable_data_path(u32 clnt_hdl)
 		res = ipa3_cfg_ep_holb(clnt_hdl, &holb_cfg);
 	}
 
-	/* Suspend the pipe */
-	if (IPA_CLIENT_IS_CONS(ep->client)) {
-		/*
-		 * for RG10 workaround uC needs to be loaded before pipe can
-		 * be suspended in this case.
-		 */
-		if (ipa3_ctx->apply_rg10_wa && ipa3_uc_state_check()) {
-			IPADBG("uC is not loaded yet, waiting...\n");
-			res = wait_for_completion_timeout(
-				&ipa3_ctx->uc_loaded_completion_obj, 60 * HZ);
-			if (res == 0)
-				IPADBG("timeout waiting for uC to load\n");
+	/*
+	 * for IPA 4.0 and above aggregation frame is closed together with
+	 * channel STOP
+	 */
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) {
+		/* Suspend the pipe */
+		if (IPA_CLIENT_IS_CONS(ep->client)) {
+			/*
+			 * for RG10 workaround uC needs to be loaded before
+			 * pipe can be suspended in this case.
+			 */
+			if (ipa3_ctx->apply_rg10_wa && ipa3_uc_state_check()) {
+				IPADBG("uC is not loaded yet, waiting...\n");
+				res = wait_for_completion_timeout(
+					&ipa3_ctx->uc_loaded_completion_obj,
+					60 * HZ);
+				if (res == 0)
+					IPADBG("timeout waiting for uC load\n");
+			}
+
+			memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
+			ep_cfg_ctrl.ipa_ep_suspend = true;
+			res = ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 		}
 
-		memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
-		ep_cfg_ctrl.ipa_ep_suspend = true;
-		res = ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
-	}
-
-	udelay(IPA_PKT_FLUSH_TO_US);
-	ipahal_read_reg_n_fields(IPA_ENDP_INIT_AGGR_n, clnt_hdl, &ep_aggr);
-	if (ep_aggr.aggr_en) {
-		res = ipa3_tag_aggr_force_close(clnt_hdl);
-		if (res) {
-			IPAERR("tag process timeout, client:%d err:%d\n",
-				   clnt_hdl, res);
-			BUG();
+		udelay(IPA_PKT_FLUSH_TO_US);
+		ipahal_read_reg_n_fields(IPA_ENDP_INIT_AGGR_n, clnt_hdl,
+			&ep_aggr);
+		if (ep_aggr.aggr_en) {
+			res = ipa3_tag_aggr_force_close(clnt_hdl);
+			if (res) {
+				IPAERR("tag process timeout client:%d err:%d\n",
+					clnt_hdl, res);
+				ipa_assert();
+			}
 		}
 	}
 
@@ -1257,10 +1267,12 @@ int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 		goto disable_clk_and_exit;
 	}
 
-	/* Suspend the DL/DPL EP */
-	memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
-	ep_cfg_ctrl.ipa_ep_suspend = true;
-	ipa3_cfg_ep_ctrl(dl_clnt_hdl, &ep_cfg_ctrl);
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) {
+		/* Suspend the DL/DPL EP */
+		memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
+		ep_cfg_ctrl.ipa_ep_suspend = true;
+		ipa3_cfg_ep_ctrl(dl_clnt_hdl, &ep_cfg_ctrl);
+	}
 
 	/*
 	 * Check if DL/DPL channel is empty again, data could enter the channel
@@ -1275,6 +1287,14 @@ int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 		goto unsuspend_dl_and_exit;
 	}
 
+	/* Stop DL channel */
+	result = ipa3_stop_gsi_channel(dl_clnt_hdl);
+	if (result) {
+		IPAERR("Error stopping DL/DPL channel: %d\n", result);
+		result = -EFAULT;
+		goto unsuspend_dl_and_exit;
+	}
+
 	/* STOP UL channel */
 	if (!is_dpl) {
 		source_pipe_bitmask = 1 << ipa3_get_ep_mapping(ul_ep->client);
@@ -1283,7 +1303,7 @@ int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 		if (result) {
 			IPAERR("Error stopping UL channel: result = %d\n",
 				result);
-			goto unsuspend_dl_and_exit;
+			goto start_dl_and_exit;
 		}
 	}
 
@@ -1292,11 +1312,15 @@ int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	IPADBG("exit\n");
 	return 0;
 
+start_dl_and_exit:
+	gsi_start_channel(dl_ep->gsi_chan_hdl);
 unsuspend_dl_and_exit:
-	/* Unsuspend the DL EP */
-	memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
-	ep_cfg_ctrl.ipa_ep_suspend = false;
-	ipa3_cfg_ep_ctrl(dl_clnt_hdl, &ep_cfg_ctrl);
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) {
+		/* Unsuspend the DL EP */
+		memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
+		ep_cfg_ctrl.ipa_ep_suspend = false;
+		ipa3_cfg_ep_ctrl(dl_clnt_hdl, &ep_cfg_ctrl);
+	}
 disable_clk_and_exit:
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(dl_clnt_hdl));
 	return result;
@@ -1340,7 +1364,8 @@ start_chan_fail:
 
 int ipa3_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl, bool is_dpl)
 {
-	struct ipa3_ep_context *ul_ep, *dl_ep;
+	struct ipa3_ep_context *ul_ep = NULL;
+	struct ipa3_ep_context *dl_ep = NULL;
 	enum gsi_status gsi_res;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 
@@ -1360,10 +1385,17 @@ int ipa3_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl, bool is_dpl)
 		ul_ep = &ipa3_ctx->ep[ul_clnt_hdl];
 	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(dl_clnt_hdl));
 
-	/* Unsuspend the DL/DPL EP */
-	memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
-	ep_cfg_ctrl.ipa_ep_suspend = false;
-	ipa3_cfg_ep_ctrl(dl_clnt_hdl, &ep_cfg_ctrl);
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) {
+		/* Unsuspend the DL/DPL EP */
+		memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
+		ep_cfg_ctrl.ipa_ep_suspend = false;
+		ipa3_cfg_ep_ctrl(dl_clnt_hdl, &ep_cfg_ctrl);
+	}
+
+	/* Start DL channel */
+	gsi_res = gsi_start_channel(dl_ep->gsi_chan_hdl);
+	if (gsi_res != GSI_STATUS_SUCCESS)
+		IPAERR("Error starting DL channel: %d\n", gsi_res);
 
 	/* Start UL channel */
 	if (!is_dpl) {
