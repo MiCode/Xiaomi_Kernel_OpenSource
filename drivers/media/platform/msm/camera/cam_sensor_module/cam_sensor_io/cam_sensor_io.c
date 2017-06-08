@@ -29,6 +29,10 @@ int32_t camera_io_dev_poll(struct camera_io_master *io_master_info,
 	if (io_master_info->master_type == CCI_MASTER) {
 		return cam_cci_i2c_poll(io_master_info->cci_client,
 			addr, data, mask, data_type, addr_type, delay_ms);
+	} else if (io_master_info->master_type == I2C_MASTER) {
+		return cam_qup_i2c_poll(io_master_info->client,
+			addr, data, data_mask, addr_type, data_type,
+			delay_ms);
 	} else {
 		pr_err("%s:%d Invalid Comm. Master:%d\n", __func__,
 			__LINE__, io_master_info->master_type);
@@ -49,6 +53,9 @@ int32_t camera_io_dev_read(struct camera_io_master *io_master_info,
 	if (io_master_info->master_type == CCI_MASTER) {
 		return cam_cci_i2c_read(io_master_info->cci_client,
 			addr, data, addr_type, data_type);
+	} else if (io_master_info->master_type == I2C_MASTER) {
+		return cam_qup_i2c_read(io_master_info->client,
+			addr, data, addr_type, data_type);
 	} else {
 		pr_err("%s:%d Invalid Comm. Master:%d\n", __func__,
 			__LINE__, io_master_info->master_type);
@@ -67,6 +74,9 @@ int32_t camera_io_dev_write(struct camera_io_master *io_master_info,
 
 	if (io_master_info->master_type == CCI_MASTER) {
 		return cam_cci_i2c_write_table(io_master_info,
+			write_setting);
+	} else if (io_master_info->master_type == I2C_MASTER) {
+		return cam_qup_i2c_write_table(io_master_info,
 			write_setting);
 	} else {
 		pr_err("%s:%d Invalid Comm. Master:%d\n", __func__,
