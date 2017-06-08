@@ -168,6 +168,76 @@ enum icnss_driver_event_type {
 	ICNSS_DRIVER_EVENT_MAX,
 };
 
+enum icnss_msa_perm {
+	ICNSS_MSA_PERM_HLOS_ALL = 0,
+	ICNSS_MSA_PERM_WLAN_HW_RW = 1,
+	ICNSS_MSA_PERM_DUMP_COLLECT = 2,
+	ICNSS_MSA_PERM_MAX,
+};
+
+#define ICNSS_MAX_VMIDS     4
+
+struct icnss_mem_region_info {
+	uint64_t reg_addr;
+	uint32_t size;
+	uint8_t secure_flag;
+	enum icnss_msa_perm perm;
+};
+
+struct icnss_msa_perm_list_t {
+	int vmids[ICNSS_MAX_VMIDS];
+	int perms[ICNSS_MAX_VMIDS];
+	int nelems;
+};
+
+struct icnss_msa_perm_list_t msa_perm_secure_list[ICNSS_MSA_PERM_MAX] = {
+	[ICNSS_MSA_PERM_HLOS_ALL] = {
+		.vmids = {VMID_HLOS},
+		.perms = {PERM_READ | PERM_WRITE | PERM_EXEC},
+		.nelems = 1,
+	},
+
+	[ICNSS_MSA_PERM_WLAN_HW_RW] = {
+		.vmids = {VMID_MSS_MSA, VMID_WLAN},
+		.perms = {PERM_READ | PERM_WRITE,
+			PERM_READ | PERM_WRITE},
+		.nelems = 2,
+	},
+
+	[ICNSS_MSA_PERM_DUMP_COLLECT] = {
+		.vmids = {VMID_MSS_MSA, VMID_WLAN, VMID_HLOS},
+		.perms = {PERM_READ | PERM_WRITE,
+			PERM_READ | PERM_WRITE,
+			PERM_READ},
+		.nelems = 3,
+	},
+};
+
+struct icnss_msa_perm_list_t msa_perm_list[ICNSS_MSA_PERM_MAX] = {
+	[ICNSS_MSA_PERM_HLOS_ALL] = {
+		.vmids = {VMID_HLOS},
+		.perms = {PERM_READ | PERM_WRITE | PERM_EXEC},
+		.nelems = 1,
+	},
+
+	[ICNSS_MSA_PERM_WLAN_HW_RW] = {
+		.vmids = {VMID_MSS_MSA, VMID_WLAN, VMID_WLAN_CE},
+		.perms = {PERM_READ | PERM_WRITE,
+			PERM_READ | PERM_WRITE,
+			PERM_READ | PERM_WRITE},
+		.nelems = 3,
+	},
+
+	[ICNSS_MSA_PERM_DUMP_COLLECT] = {
+		.vmids = {VMID_MSS_MSA, VMID_WLAN, VMID_WLAN_CE, VMID_HLOS},
+		.perms = {PERM_READ | PERM_WRITE,
+			PERM_READ | PERM_WRITE,
+			PERM_READ | PERM_WRITE,
+			PERM_READ},
+		.nelems = 4,
+	},
+};
+
 struct icnss_event_pd_service_down_data {
 	bool crashed;
 	bool fw_rejuvenate;
@@ -374,6 +444,84 @@ static void icnss_ignore_qmi_timeout(bool ignore)
 #else
 static void icnss_ignore_qmi_timeout(bool ignore) { }
 #endif
+
+static int icnss_assign_msa_perm(struct icnss_mem_region_info
+				 *mem_region, enum icnss_msa_perm new_perm)
+{
+	int ret = 0;
+	phys_addr_t addr;
+	u32 size;
+	u32 i = 0;
+	u32 source_vmids[ICNSS_MAX_VMIDS];
+	u32 source_nelems;
+	u32 dest_vmids[ICNSS_MAX_VMIDS];
+	u32 dest_perms[ICNSS_MAX_VMIDS];
+	u32 dest_nelems;
+	enum icnss_msa_perm cur_perm = mem_region->perm;
+	struct icnss_msa_perm_list_t *new_perm_list, *old_perm_list;
+
+	addr = mem_region->reg_addr;
+	size = mem_region->size;
+
+	if (mem_region->secure_flag) {
+		new_perm_list = &msa_perm_secure_list[new_perm];
+		old_perm_list = &msa_perm_secure_list[cur_perm];
+	} else {
+		new_perm_list = &msa_perm_list[new_perm];
+		old_perm_list = &msa_perm_list[cur_perm];
+	}
+
+	source_nelems = old_perm_list->nelems;
+	dest_nelems = new_perm_list->nelems;
+
+	for (i = 0; i < source_nelems; ++i)
+		source_vmids[i] = old_perm_list->vmids[i];
+
+	for (i = 0; i < dest_nelems; ++i) {
+		dest_vmids[i] = new_perm_list->vmids[i];
+		dest_perms[i] = new_perm_list->perms[i];
+	}
+
+	ret = hyp_assign_phys(addr, size, source_vmids, source_nelems,
+			      dest_vmids, dest_perms, dest_nelems);
+	if (ret) {
+		icnss_pr_err("Hyperviser map failed for PA=%pa size=%u err=%d\n",
+			     &addr, size, ret);
+		goto out;
+	}
+
+	icnss_pr_dbg("Hypervisor map for source_nelems=%d, source[0]=%x, source[1]=%x, source[2]=%x,"
+		     "source[3]=%x, dest_nelems=%d, dest[0]=%x, dest[1]=%x, dest[2]=%x, dest[3]=%x\n",
+		     source_nelems, source_vmids[0], source_vmids[1],
+		     source_vmids[2], source_vmids[3], dest_nelems,
+		     dest_vmids[0], dest_vmids[1], dest_vmids[2],
+		     dest_vmids[3]);
+out:
+	return ret;
+}
+
+static int icnss_assign_msa_perm_all(struct icnss_priv *priv,
+				     enum icnss_msa_perm new_perm)
+{
+	int ret;
+	int i;
+	enum icnss_msa_perm old_perm;
+
+	for (i = 0; i < priv->nr_mem_region; i++) {
+		old_perm = priv->mem_region[i].perm;
+		ret = icnss_assign_msa_perm(&priv->mem_region[i], new_perm);
+		if (ret)
+			goto err_unmap;
+		priv->mem_region[i].perm = new_perm;
+	}
+	return 0;
+
+err_unmap:
+	for (i--; i >= 0; i--) {
+		icnss_assign_msa_perm(&priv->mem_region[i], old_perm);
+	}
+	return ret;
+}
 
 static void icnss_pm_stay_awake(struct icnss_priv *priv)
 {
@@ -979,119 +1127,6 @@ int icnss_power_off(struct device *dev)
 	return icnss_hw_power_off(priv);
 }
 EXPORT_SYMBOL(icnss_power_off);
-
-static int icnss_map_msa_permissions(struct icnss_mem_region_info *mem_region)
-{
-	int ret = 0;
-	phys_addr_t addr;
-	u32 size;
-	u32 source_vmlist[1] = {VMID_HLOS};
-	int dest_vmids[3] = {VMID_MSS_MSA, VMID_WLAN, 0};
-	int dest_perms[3] = {PERM_READ|PERM_WRITE,
-			     PERM_READ|PERM_WRITE,
-			     PERM_READ|PERM_WRITE};
-	int source_nelems = sizeof(source_vmlist)/sizeof(u32);
-	int dest_nelems = 0;
-
-	addr = mem_region->reg_addr;
-	size = mem_region->size;
-
-	if (!mem_region->secure_flag) {
-		dest_vmids[2] = VMID_WLAN_CE;
-		dest_nelems = 3;
-	} else {
-		dest_vmids[2] = 0;
-		dest_nelems = 2;
-	}
-	ret = hyp_assign_phys(addr, size, source_vmlist, source_nelems,
-			      dest_vmids, dest_perms, dest_nelems);
-	if (ret) {
-		icnss_pr_err("Hyperviser map failed for PA=%pa size=%u err=%d\n",
-			     &addr, size, ret);
-		goto out;
-	}
-
-	icnss_pr_dbg("Hypervisor map for source=%x, dest_nelems=%d, dest[0]=%x, dest[1]=%x, dest[2]=%x\n",
-		     source_vmlist[0], dest_nelems, dest_vmids[0],
-		     dest_vmids[1], dest_vmids[2]);
-out:
-	return ret;
-
-}
-
-static int icnss_unmap_msa_permissions(struct icnss_mem_region_info *mem_region)
-{
-	int ret = 0;
-	phys_addr_t addr;
-	u32 size;
-	u32 dest_vmids[1] = {VMID_HLOS};
-	int source_vmlist[3] = {VMID_MSS_MSA, VMID_WLAN, 0};
-	int dest_perms[1] = {PERM_READ|PERM_WRITE|PERM_EXEC};
-	int source_nelems = 0;
-	int dest_nelems = sizeof(dest_vmids)/sizeof(u32);
-
-	addr = mem_region->reg_addr;
-	size = mem_region->size;
-
-	if (!mem_region->secure_flag) {
-		source_vmlist[2] = VMID_WLAN_CE;
-		source_nelems = 3;
-	} else {
-		source_vmlist[2] = 0;
-		source_nelems = 2;
-	}
-
-	ret = hyp_assign_phys(addr, size, source_vmlist, source_nelems,
-			      dest_vmids, dest_perms, dest_nelems);
-	if (ret) {
-		icnss_pr_err("Hyperviser unmap failed for PA=%pa size=%u err=%d\n",
-			     &addr, size, ret);
-		goto out;
-	}
-	icnss_pr_dbg("Hypervisor unmap for source_nelems=%d, source[0]=%x, source[1]=%x, source[2]=%x, dest=%x\n",
-		     source_nelems, source_vmlist[0], source_vmlist[1],
-		     source_vmlist[2], dest_vmids[0]);
-out:
-	return ret;
-}
-
-static int icnss_setup_msa_permissions(struct icnss_priv *priv)
-{
-	int ret;
-	int i;
-
-	if (test_bit(ICNSS_MSA0_ASSIGNED, &priv->state))
-		return 0;
-
-	for (i = 0; i < priv->nr_mem_region; i++) {
-
-		ret = icnss_map_msa_permissions(&priv->mem_region[i]);
-		if (ret)
-			goto err_unmap;
-	}
-
-	set_bit(ICNSS_MSA0_ASSIGNED, &priv->state);
-
-	return 0;
-
-err_unmap:
-	for (i--; i >= 0; i--)
-		icnss_unmap_msa_permissions(&priv->mem_region[i]);
-	return ret;
-}
-
-static void icnss_remove_msa_permissions(struct icnss_priv *priv)
-{
-	int i;
-
-	if (!test_bit(ICNSS_MSA0_ASSIGNED, &priv->state))
-		return;
-
-	for (i = 0; i < priv->nr_mem_region; i++)
-		icnss_unmap_msa_permissions(&priv->mem_region[i]);
-
-	clear_bit(ICNSS_MSA0_ASSIGNED, &priv->state);
-}
 
 static int wlfw_msa_mem_info_send_sync_msg(void)
 {
@@ -1898,9 +1933,12 @@ static int icnss_driver_event_server_arrive(void *data)
 	if (ret < 0)
 		goto err_power_on;
 
-	ret = icnss_setup_msa_permissions(penv);
-	if (ret < 0)
-		goto err_power_on;
+	if (!test_bit(ICNSS_MSA0_ASSIGNED, &penv->state)) {
+		ret = icnss_assign_msa_perm_all(penv, ICNSS_MSA_PERM_WLAN_HW_RW);
+		if (ret < 0)
+			goto err_power_on;
+		set_bit(ICNSS_MSA0_ASSIGNED, &penv->state);
+	}
 
 	ret = wlfw_msa_ready_send_sync_msg();
 	if (ret < 0)
@@ -1918,7 +1956,7 @@ static int icnss_driver_event_server_arrive(void *data)
 	return ret;
 
 err_setup_msa:
-	icnss_remove_msa_permissions(penv);
+	icnss_assign_msa_perm_all(penv, ICNSS_MSA_PERM_HLOS_ALL);
 err_power_on:
 	icnss_hw_power_off(penv);
 fail:
@@ -2333,14 +2371,22 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	struct icnss_priv *priv = container_of(nb, struct icnss_priv,
 					       modem_ssr_nb);
 	struct icnss_uevent_fw_down_data fw_down_data;
+	int ret = 0;
 
 	icnss_pr_vdbg("Modem-Notify: event %lu\n", code);
 
-	if (code == SUBSYS_AFTER_SHUTDOWN &&
-		notif->crashed == CRASH_STATUS_ERR_FATAL) {
-		icnss_remove_msa_permissions(priv);
-		icnss_pr_info("Collecting msa0 segment dump\n");
-		icnss_msa0_ramdump(priv);
+	if (code == SUBSYS_AFTER_SHUTDOWN) {
+		ret = icnss_assign_msa_perm_all(priv,
+						ICNSS_MSA_PERM_DUMP_COLLECT);
+		if (!ret) {
+			icnss_pr_info("Collecting msa0 segment dump\n");
+			icnss_msa0_ramdump(priv);
+			icnss_assign_msa_perm_all(priv,
+						  ICNSS_MSA_PERM_WLAN_HW_RW);
+		} else {
+			icnss_pr_err("Not able to Collect msa0 segment dump"
+				     "Apps permissions not assigned %d\n", ret);
+		}
 		return NOTIFY_OK;
 	}
 
@@ -4307,7 +4353,8 @@ static int icnss_remove(struct platform_device *pdev)
 
 	icnss_hw_power_off(penv);
 
-	icnss_remove_msa_permissions(penv);
+	icnss_assign_msa_perm_all(penv, ICNSS_MSA_PERM_HLOS_ALL);
+	clear_bit(ICNSS_MSA0_ASSIGNED, &penv->state);
 
 	dev_set_drvdata(&pdev->dev, NULL);
 

@@ -77,13 +77,6 @@ struct icnss_wlan_enable_cfg {
 	struct icnss_shadow_reg_cfg *shadow_reg_cfg;
 };
 
-/* MSA Memory Regions Information */
-struct icnss_mem_region_info {
-	uint64_t reg_addr;
-	uint32_t size;
-	uint8_t secure_flag;
-};
-
 /* driver modes */
 enum icnss_driver_mode {
 	ICNSS_MISSION,
