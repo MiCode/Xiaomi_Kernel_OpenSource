@@ -327,6 +327,11 @@ static void msm_geni_serial_break_ctl(struct uart_port *uport, int ctl)
 	mb();
 }
 
+static unsigned int msm_geni_cons_get_mctrl(struct uart_port *uport)
+{
+	return TIOCM_DSR | TIOCM_CAR | TIOCM_CTS;
+}
+
 static unsigned int msm_geni_serial_get_mctrl(struct uart_port *uport)
 {
 	u32 geni_ios = 0;
@@ -610,6 +615,8 @@ static void msm_geni_serial_console_write(struct console *co, const char *s,
 {
 	struct uart_port *uport;
 	struct msm_geni_serial_port *port;
+	int locked = 1;
+	unsigned long flags;
 
 	WARN_ON(co->index < 0 || co->index >= GENI_UART_NR_PORTS);
 
@@ -618,9 +625,15 @@ static void msm_geni_serial_console_write(struct console *co, const char *s,
 		return;
 
 	uport = &port->uport;
-	spin_lock(&uport->lock);
-	__msm_geni_serial_console_write(uport, s, count);
-	spin_unlock(&uport->lock);
+	if (oops_in_progress)
+		locked = spin_trylock_irqsave(&uport->lock, flags);
+	else
+		spin_lock_irqsave(&uport->lock, flags);
+
+	if (locked) {
+		__msm_geni_serial_console_write(uport, s, count);
+		spin_unlock_irqrestore(&uport->lock, flags);
+	}
 }
 
 static int handle_rx_console(struct uart_port *uport,
@@ -1014,13 +1027,20 @@ static void set_rfr_wm(struct msm_geni_serial_port *port)
 static void msm_geni_serial_shutdown(struct uart_port *uport)
 {
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
+	unsigned long flags;
 
+	/* Stop the console before stopping the current tx */
+	if (uart_console(uport))
+		console_stop(uport->cons);
+
+	spin_lock_irqsave(&uport->lock, flags);
 	msm_geni_serial_stop_tx(uport);
 	msm_geni_serial_stop_rx(uport);
+	spin_unlock_irqrestore(&uport->lock, flags);
+
 	disable_irq(uport->irq);
 	free_irq(uport->irq, msm_port);
 	if (uart_console(uport)) {
-		console_stop(uport->cons);
 		se_geni_resources_off(&msm_port->serial_rsc);
 	} else {
 		if (msm_port->wakeup_irq > 0) {
@@ -1572,6 +1592,7 @@ static const struct uart_ops msm_geni_console_pops = {
 	.shutdown = msm_geni_serial_shutdown,
 	.type = msm_geni_serial_get_type,
 	.set_mctrl = msm_geni_cons_set_mctrl,
+	.get_mctrl = msm_geni_cons_get_mctrl,
 #ifdef CONFIG_CONSOLE_POLL
 	.poll_get_char	= msm_geni_serial_get_char,
 	.poll_put_char	= msm_geni_serial_poll_put_char,
