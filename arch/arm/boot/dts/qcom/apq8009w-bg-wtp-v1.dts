@@ -63,6 +63,26 @@
 	qcom,msm-ssc-sensors {
 		compatible = "qcom,msm-ssc-sensors";
 	};
+
+	qcom,glink-bgcom-xprt-bg {
+		compatible = "qcom,glink-bgcom-xprt";
+		label = "bg";
+		qcom,qos-config = <&glink_qos_bg>;
+		qcom,ramp-time = <0x10>,
+				     <0x20>,
+				     <0x30>,
+				     <0x40>;
+	};
+
+	glink_qos_bg: qcom,glink-qos-config-bg {
+		compatible = "qcom,glink-qos-config";
+		qcom,flow-info = <0x80 0x0>,
+				 <0x70 0x1>,
+				 <0x60 0x2>,
+				 <0x50 0x3>;
+		qcom,mtu-size = <0x800>;
+		qcom,tput-stats-cycle = <0xa>;
+	};
 };
 
 &i2c_1 {
