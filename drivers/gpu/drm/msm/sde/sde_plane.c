@@ -1368,33 +1368,31 @@ static struct sde_crtc_res_ops fbo_res_ops = {
 static u32 sde_plane_rot_calc_prefill(struct drm_plane *plane)
 {
 	struct drm_plane_state *state;
-	struct drm_crtc_state *cstate;
 	struct sde_plane_state *pstate;
 	struct sde_plane_rot_state *rstate;
 	struct sde_kms *sde_kms;
 	u32 blocksize = 128;
 	u32 prefill_line = 0;
 
-	if (!plane || !plane->state || !plane->state->fb ||
-			!plane->state->crtc || !plane->state->crtc->state) {
+	if (!plane || !plane->state || !plane->state->fb) {
 		SDE_ERROR("invalid parameters\n");
 		return 0;
 	}
 
 	sde_kms = _sde_plane_get_kms(plane);
 	state = plane->state;
-	cstate = state->crtc->state;
 	pstate = to_sde_plane_state(state);
 	rstate = &pstate->rot;
 
-	if (!rstate->rot_hw || !rstate->rot_hw->caps || !rstate->out_src_h ||
-			!sde_kms || !sde_kms->catalog) {
-		SDE_ERROR("invalid parameters\n");
+	if (!sde_kms || !sde_kms->catalog) {
+		SDE_ERROR("invalid kms\n");
 		return 0;
 	}
 
-	sde_format_get_block_size(rstate->out_fb_format, &blocksize,
-			&blocksize);
+	if (rstate->out_fb_format)
+		sde_format_get_block_size(rstate->out_fb_format,
+				&blocksize, &blocksize);
+
 	prefill_line = blocksize + sde_kms->catalog->sbuf_headroom;
 
 	SDE_DEBUG("plane%d prefill:%u\n", plane->base.id, prefill_line);
@@ -1416,7 +1414,7 @@ bool sde_plane_is_sbuf_mode(struct drm_plane *plane, u32 *prefill)
 	struct sde_plane_rot_state *rstate = pstate ? &pstate->rot : NULL;
 	bool sbuf_mode = rstate ? rstate->out_sbuf : false;
 
-	if (prefill && sbuf_mode)
+	if (prefill)
 		*prefill = sde_plane_rot_calc_prefill(plane);
 
 	return sbuf_mode;
@@ -2447,16 +2445,16 @@ done:
  * sde_plane_get_ctl_flush - get control flush for the given plane
  * @plane: Pointer to drm plane structure
  * @ctl: Pointer to hardware control driver
- * @flush: Pointer to flush control word
+ * @flush_sspp: Pointer to sspp flush control word
+ * @flush_rot: Pointer to rotator flush control word
  */
 void sde_plane_get_ctl_flush(struct drm_plane *plane, struct sde_hw_ctl *ctl,
-		u32 *flush)
+		u32 *flush_sspp, u32 *flush_rot)
 {
 	struct sde_plane_state *pstate;
 	struct sde_plane_rot_state *rstate;
-	u32 bitmask;
 
-	if (!plane || !flush) {
+	if (!plane || !flush_sspp) {
 		SDE_ERROR("invalid parameters\n");
 		return;
 	}
@@ -2464,13 +2462,15 @@ void sde_plane_get_ctl_flush(struct drm_plane *plane, struct sde_hw_ctl *ctl,
 	pstate = to_sde_plane_state(plane->state);
 	rstate = &pstate->rot;
 
-	bitmask = ctl->ops.get_bitmask_sspp(ctl, sde_plane_pipe(plane));
+	*flush_sspp = ctl->ops.get_bitmask_sspp(ctl, sde_plane_pipe(plane));
 
+	if (!flush_rot)
+		return;
+
+	*flush_rot = 0x0;
 	if (sde_plane_is_sbuf_mode(plane, NULL) && rstate->rot_hw &&
 			ctl->ops.get_bitmask_rot)
-		ctl->ops.get_bitmask_rot(ctl, &bitmask, rstate->rot_hw->idx);
-
-	*flush = bitmask;
+		ctl->ops.get_bitmask_rot(ctl, flush_rot, rstate->rot_hw->idx);
 }
 
 static int sde_plane_prepare_fb(struct drm_plane *plane,

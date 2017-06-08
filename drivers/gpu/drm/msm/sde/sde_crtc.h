@@ -272,6 +272,7 @@ struct sde_crtc_respool {
  * @new_perf: new performance state
  * @sbuf_cfg: stream buffer configuration
  * @sbuf_prefill_line: number of line for inline rotator prefetch
+ * @sbuf_flush_mask: flush mask for inline rotator
  */
 struct sde_crtc_state {
 	struct drm_crtc_state base;
@@ -298,7 +299,8 @@ struct sde_crtc_state {
 	struct sde_core_perf_params cur_perf;
 	struct sde_core_perf_params new_perf;
 	struct sde_ctl_sbuf_cfg sbuf_cfg;
-	u64 sbuf_prefill_line;
+	u32 sbuf_prefill_line;
+	u32 sbuf_flush_mask;
 
 	struct sde_crtc_respool rp;
 };
@@ -433,10 +435,14 @@ static inline bool sde_crtc_is_enabled(struct drm_crtc *crtc)
  */
 static inline u32 sde_crtc_get_inline_prefill(struct drm_crtc *crtc)
 {
+	struct sde_crtc_state *cstate;
+
 	if (!crtc || !crtc->state)
 		return 0;
 
-	return to_sde_crtc_state(crtc->state)->sbuf_prefill_line;
+	cstate = to_sde_crtc_state(crtc->state);
+	return cstate->sbuf_cfg.rot_op_mode != SDE_CTL_ROT_OP_MODE_OFFLINE ?
+		cstate->sbuf_prefill_line : 0;
 }
 
 /**
