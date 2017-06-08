@@ -1083,7 +1083,7 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	}
 	ctx->use_smmu = of_property_read_bool(of_node, "qcom,smmu-support");
 	ctx->keep_radio_on_during_sleep = of_property_read_bool(of_node,
-		"qcom,keep_radio_on_during_sleep");
+		"qcom,keep-radio-on-during-sleep");
 	ctx->bus_scale = msm_bus_cl_get_pdata(pdev);
 
 	ctx->smmu_s1_en = of_property_read_bool(of_node, "qcom,smmu-s1-en");
