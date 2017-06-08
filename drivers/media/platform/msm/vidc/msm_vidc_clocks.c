@@ -371,7 +371,7 @@ int msm_vidc_update_operating_rate(struct msm_vidc_inst *inst)
 	struct msm_vidc_inst *temp;
 	struct msm_vidc_core *core;
 	unsigned long max_freq, freq_left, ops_left, load, cycles, freq = 0;
-	unsigned long mbs_per_frame;
+	unsigned long mbs_per_second;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s Invalid args\n", __func__);
@@ -394,14 +394,21 @@ int msm_vidc_update_operating_rate(struct msm_vidc_inst *inst)
 
 	list_for_each_entry(temp, &core->instances, list) {
 
-		mbs_per_frame = msm_dcvs_get_mbs_per_frame(inst);
+		if (!temp ||
+				temp->state < MSM_VIDC_START_DONE ||
+				temp->state >= MSM_VIDC_RELEASE_RESOURCES_DONE)
+			continue;
+
+		mbs_per_second = msm_comm_get_inst_load(temp,
+		LOAD_CALC_NO_QUIRKS);
+
 		cycles = temp->clk_data.entry->vpp_cycles;
-		if (inst->session_type == MSM_VIDC_ENCODER)
+		if (temp->session_type == MSM_VIDC_ENCODER)
 			cycles = temp->flags & VIDC_LOW_POWER ?
-				inst->clk_data.entry->low_power_cycles :
+				temp->clk_data.entry->low_power_cycles :
 				cycles;
 
-		load = cycles * mbs_per_frame;
+		load = cycles * mbs_per_second;
 
 		ops_left = load ? (freq_left / load) : 0;
 		/* Convert remaining operating rate to Q16 format */
@@ -418,7 +425,7 @@ int msm_vidc_update_operating_rate(struct msm_vidc_inst *inst)
 				ctrl->name, ctrl->default_value, ctrl->val);
 			v4l2_ctrl_modify_range(ctrl, ctrl->minimum,
 				ctrl->val + ops_left, ctrl->step,
-				ctrl->minimum);
+				ctrl->default_value);
 			dprintk(VIDC_DBG,
 				"%s: Updated Range = %lld --> %lld\n",
 				ctrl->name, ctrl->minimum, ctrl->maximum);
