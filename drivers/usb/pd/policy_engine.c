@@ -490,13 +490,12 @@ static int pd_send_msg(struct usbpd *pd, u8 hdr_type, const u32 *data,
 	ret = pd_phy_write(hdr, (u8 *)data, num_data * sizeof(u32), type, 15);
 	/* TODO figure out timeout. based on tReceive=1.1ms x nRetryCount? */
 
-	/* MessageID incremented regardless of Tx error */
-	pd->tx_msgid = (pd->tx_msgid + 1) & PD_MAX_MSG_ID;
-
 	if (ret < 0)
 		return ret;
 	else if (ret != num_data * sizeof(u32))
 		return -EIO;
+
+	pd->tx_msgid = (pd->tx_msgid + 1) & PD_MAX_MSG_ID;
 	return 0;
 }
 
