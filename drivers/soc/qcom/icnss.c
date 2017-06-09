@@ -4262,6 +4262,11 @@ static int icnss_probe(struct platform_device *pdev)
 
 	icnss_debugfs_create(priv);
 
+	ret = device_init_wakeup(&priv->pdev->dev, true);
+	if (ret)
+		icnss_pr_err("Failed to init platform device wakeup source, err = %d\n",
+			     ret);
+
 	penv = priv;
 
 	icnss_pr_info("Platform driver probed successfully\n");
@@ -4281,6 +4286,8 @@ out:
 static int icnss_remove(struct platform_device *pdev)
 {
 	icnss_pr_info("Removing driver: state: 0x%lx\n", penv->state);
+
+	device_init_wakeup(&penv->pdev->dev, false);
 
 	icnss_debugfs_destroy(penv);
 
