@@ -149,14 +149,16 @@ struct cam_isp_hw_get_cdm_args {
  * @Brief:         Get cdm commands for buffer updates.
  *
  * @ cdm:          Command buffer information
- * @ image_buf:    Contain the image buffer information
+ * @ image_buf:    image buffer address array
  * @ num_buf:      Number of buffers in the image_buf array
+ * @ io_cfg:       IO buffer config information sent from UMD
  *
  */
 struct cam_isp_hw_get_buf_update {
 	struct cam_isp_hw_get_cdm_args  cdm;
 	uint64_t                       *image_buf;
 	uint32_t                        num_buf;
+	struct cam_buf_io_cfg          *io_cfg;
 };
 
 #endif /* _CAM_ISP_HW_H_ */
