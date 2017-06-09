@@ -449,6 +449,12 @@ static void update_cpu_capacity(unsigned int cpu)
 		cpu, arch_scale_cpu_capacity(NULL, cpu));
 }
 
+void update_cpu_power_capacity(int cpu)
+{
+	update_cpu_power(cpu);
+	update_cpu_capacity(cpu);
+}
+
 static void update_siblings_masks(unsigned int cpuid)
 {
 	struct cpu_topology *cpu_topo, *cpuid_topo = &cpu_topology[cpuid];
@@ -510,8 +516,6 @@ void store_cpu_topology(unsigned int cpuid)
 
 topology_populated:
 	update_siblings_masks(cpuid);
-	update_cpu_power(cpuid);
-	update_cpu_capacity(cpuid);
 }
 
 static void __init reset_cpu_topology(void)
