@@ -2479,6 +2479,7 @@ static int sde_plane_prepare_fb(struct drm_plane *plane,
 	struct drm_framebuffer *fb = new_state->fb;
 	struct sde_plane *psde = to_sde_plane(plane);
 	struct sde_plane_rot_state *new_rstate;
+	struct sde_hw_fmt_layout layout;
 	int ret;
 
 	if (!new_state->fb)
@@ -2497,6 +2498,14 @@ static int sde_plane_prepare_fb(struct drm_plane *plane,
 	ret = msm_framebuffer_prepare(new_rstate->out_fb, new_rstate->mmu_id);
 	if (ret) {
 		SDE_ERROR("failed to prepare framebuffer\n");
+		return ret;
+	}
+
+	/* validate framebuffer layout before commit */
+	ret = sde_format_populate_layout(new_rstate->mmu_id,
+			new_rstate->out_fb, &layout);
+	if (ret) {
+		SDE_ERROR_PLANE(psde, "failed to get format layout, %d\n", ret);
 		return ret;
 	}
 
