@@ -3008,8 +3008,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		ret = devm_request_threaded_irq(&pdev->dev, mdwc->ss_phy_irq,
 					msm_dwc3_pwr_irq,
 					msm_dwc3_pwr_irq_thread,
-					IRQF_TRIGGER_RISING | IRQF_EARLY_RESUME
-					| IRQF_ONESHOT, "ss_phy_irq", mdwc);
+					IRQF_TRIGGER_HIGH | IRQ_TYPE_LEVEL_HIGH
+					| IRQF_EARLY_RESUME | IRQF_ONESHOT,
+					"ss_phy_irq", mdwc);
 		if (ret) {
 			dev_err(&pdev->dev, "irqreq ss_phy_irq failed: %d\n",
 					ret);
@@ -3519,13 +3520,16 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		dev_dbg(mdwc->dev, "%s: turn on host\n", __func__);
 
 		mdwc->hs_phy->flags |= PHY_HOST_MODE;
-		if (dwc->maximum_speed == USB_SPEED_SUPER)
+		if (dwc->maximum_speed == USB_SPEED_SUPER) {
 			mdwc->ss_phy->flags |= PHY_HOST_MODE;
+			usb_phy_notify_connect(mdwc->ss_phy,
+						USB_SPEED_SUPER);
+		}
 
+		usb_phy_notify_connect(mdwc->hs_phy, USB_SPEED_HIGH);
 		pm_runtime_get_sync(mdwc->dev);
 		dbg_event(0xFF, "StrtHost gync",
 			atomic_read(&mdwc->dev->power.usage_count));
-		usb_phy_notify_connect(mdwc->hs_phy, USB_SPEED_HIGH);
 		if (!IS_ERR(mdwc->vbus_reg))
 			ret = regulator_enable(mdwc->vbus_reg);
 		if (ret) {
@@ -3614,8 +3618,13 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		dbg_event(0xFF, "StopHost gsync",
 			atomic_read(&mdwc->dev->power.usage_count));
 		usb_phy_notify_disconnect(mdwc->hs_phy, USB_SPEED_HIGH);
+		if (mdwc->ss_phy->flags & PHY_HOST_MODE) {
+			usb_phy_notify_disconnect(mdwc->ss_phy,
+					USB_SPEED_SUPER);
+			mdwc->ss_phy->flags &= ~PHY_HOST_MODE;
+		}
+
 		mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
-		mdwc->ss_phy->flags &= ~PHY_HOST_MODE;
 		platform_device_del(dwc->xhci);
 		usb_unregister_notify(&mdwc->host_nb);
 
