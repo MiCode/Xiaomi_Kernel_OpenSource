@@ -698,6 +698,18 @@
 		qcom,mpu-enabled;
 	};
 
+	qmp_aop: mailbox@1799000c {
+		compatible = "qcom,qmp-mbox";
+		label = "aop";
+		reg = <0xc300000 0x100000>,
+			<0x1799000c 0x4>;
+		reg-names = "msgram", "irq-reg-base";
+		qcom,irq-mask = <0x1>;
+		interrupts = <0 389 1>;
+		mbox-desc-offset = <0x0>;
+		#mbox-cells = <1>;
+	};
+
 	qcom,glink-smem-native-xprt-modem@86000000 {
 		compatible = "qcom,glink-smem-native-xprt";
 		reg = <0x86000000 0x200000>,
