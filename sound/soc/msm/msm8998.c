@@ -7266,10 +7266,12 @@ static int msm_asoc_machine_remove(struct platform_device *pdev)
 	struct msm_asoc_mach_data *pdata =
 				snd_soc_card_get_drvdata(card);
 
-	gpio_free(pdata->us_euro_gpio);
+	if (gpio_is_valid(pdata->us_euro_gpio))
+		gpio_free(pdata->us_euro_gpio);
 	i2s_auxpcm_deinit();
 
 	snd_soc_unregister_card(card);
+	audio_notifier_deregister("msm8998");
 	return 0;
 }
 
