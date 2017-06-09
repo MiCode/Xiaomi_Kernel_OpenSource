@@ -366,6 +366,21 @@
 			MSM_BUS_SLAVE_CAMERA_CFG 0 640000>,
 			<MSM_BUS_MASTER_AMPSS_M0
 			MSM_BUS_SLAVE_CAMERA_CFG 0 640000>;
+		vdd-corners = <RPMH_REGULATOR_LEVEL_OFF
+			RPMH_REGULATOR_LEVEL_RETENTION
+			RPMH_REGULATOR_LEVEL_MIN_SVS
+			RPMH_REGULATOR_LEVEL_LOW_SVS
+			RPMH_REGULATOR_LEVEL_SVS
+			RPMH_REGULATOR_LEVEL_SVS_L1
+			RPMH_REGULATOR_LEVEL_NOM
+			RPMH_REGULATOR_LEVEL_NOM_L1
+			RPMH_REGULATOR_LEVEL_NOM_L2
+			RPMH_REGULATOR_LEVEL_TURBO
+			RPMH_REGULATOR_LEVEL_TURBO_L1>;
+		vdd-corner-ahb-mapping = "suspend", "suspend",
+			"svs", "svs", "svs", "svs",
+			"nominal", "nominal", "nominal",
+			"turbo", "turbo";
 		client-id-based;
 		client-names =
 			"csiphy0", "csiphy1", "csiphy2", "cci0",
