@@ -191,8 +191,8 @@ enum icnss_driver_state {
 	ICNSS_FW_TEST_MODE,
 	ICNSS_PM_SUSPEND,
 	ICNSS_PM_SUSPEND_NOIRQ,
-	ICNSS_SSR_ENABLED,
-	ICNSS_PDR_ENABLED,
+	ICNSS_SSR_REGISTERED,
+	ICNSS_PDR_REGISTERED,
 	ICNSS_PD_RESTART,
 	ICNSS_MSA0_ASSIGNED,
 	ICNSS_WLFW_EXISTS,
@@ -2361,7 +2361,7 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 	if (code != SUBSYS_BEFORE_SHUTDOWN)
 		return NOTIFY_OK;
 
-	if (test_bit(ICNSS_PDR_ENABLED, &priv->state))
+	if (test_bit(ICNSS_PDR_REGISTERED, &priv->state))
 		return NOTIFY_OK;
 
 	icnss_pr_info("Modem went down, state: 0x%lx, crashed: %d\n",
@@ -2402,14 +2402,14 @@ static int icnss_modem_ssr_register_notifier(struct icnss_priv *priv)
 		icnss_pr_err("Modem register notifier failed: %d\n", ret);
 	}
 
-	set_bit(ICNSS_SSR_ENABLED, &priv->state);
+	set_bit(ICNSS_SSR_REGISTERED, &priv->state);
 
 	return ret;
 }
 
 static int icnss_modem_ssr_unregister_notifier(struct icnss_priv *priv)
 {
-	if (!test_and_clear_bit(ICNSS_SSR_ENABLED, &priv->state))
+	if (!test_and_clear_bit(ICNSS_SSR_REGISTERED, &priv->state))
 		return 0;
 
 	subsys_notif_unregister_notifier(priv->modem_notify_handler,
@@ -2423,7 +2423,7 @@ static int icnss_pdr_unregister_notifier(struct icnss_priv *priv)
 {
 	int i;
 
-	if (!test_and_clear_bit(ICNSS_PDR_ENABLED, &priv->state))
+	if (!test_and_clear_bit(ICNSS_PDR_REGISTERED, &priv->state))
 		return 0;
 
 	for (i = 0; i < priv->total_domains; i++)
@@ -2547,9 +2547,10 @@ static int icnss_get_service_location_notify(struct notifier_block *nb,
 	priv->service_notifier = notifier;
 	priv->total_domains = pd->total_domains;
 
-	set_bit(ICNSS_PDR_ENABLED, &priv->state);
+	set_bit(ICNSS_PDR_REGISTERED, &priv->state);
 
-	icnss_pr_dbg("PD restart enabled, state: 0x%lx\n", priv->state);
+	icnss_pr_dbg("PD notification registration happened, state: 0x%lx\n",
+		     priv->state);
 
 	return NOTIFY_OK;
 
@@ -3204,7 +3205,7 @@ int icnss_trigger_recovery(struct device *dev)
 		goto out;
 	}
 
-	if (!test_bit(ICNSS_PDR_ENABLED, &priv->state)) {
+	if (!test_bit(ICNSS_PDR_REGISTERED, &priv->state)) {
 		icnss_pr_err("PD restart not enabled to trigger recovery: state: 0x%lx\n",
 			     priv->state);
 		ret = -EOPNOTSUPP;
@@ -3658,11 +3659,11 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 		case ICNSS_PM_SUSPEND_NOIRQ:
 			seq_puts(s, "PM SUSPEND NOIRQ");
 			continue;
-		case ICNSS_SSR_ENABLED:
-			seq_puts(s, "SSR ENABLED");
+		case ICNSS_SSR_REGISTERED:
+			seq_puts(s, "SSR REGISTERED");
 			continue;
-		case ICNSS_PDR_ENABLED:
-			seq_puts(s, "PDR ENABLED");
+		case ICNSS_PDR_REGISTERED:
+			seq_puts(s, "PDR REGISTERED");
 			continue;
 		case ICNSS_PD_RESTART:
 			seq_puts(s, "PD RESTART");
