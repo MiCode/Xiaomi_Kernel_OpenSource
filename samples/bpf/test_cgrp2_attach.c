@@ -124,7 +124,7 @@ int main(int argc, char **argv)
 	ret = bpf_prog_detach(cg_fd, type);
 	printf("bpf_prog_detach() returned '%s' (%d)\n", strerror(errno), errno);
 
-	ret = bpf_prog_attach(prog_fd, cg_fd, type);
+	ret = bpf_prog_attach(prog_fd, cg_fd, type, 0);
 	if (ret < 0) {
 		printf("Failed to attach prog to cgroup: '%s'\n",
 		       strerror(errno));
