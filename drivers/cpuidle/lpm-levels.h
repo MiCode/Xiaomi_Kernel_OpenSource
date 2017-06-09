@@ -45,10 +45,13 @@ struct lpm_cpu_level {
 };
 
 struct lpm_cpu {
+	struct list_head list;
+	struct cpumask related_cpus;
 	struct lpm_cpu_level levels[NR_LPM_LEVELS];
 	int nlevels;
 	unsigned int psci_mode_shift;
 	unsigned int psci_mode_mask;
+	struct cpuidle_driver *drv;
 	struct lpm_cluster *parent;
 };
 
@@ -104,8 +107,7 @@ struct lpm_cluster {
 	int min_child_level;
 	int default_level;
 	int last_level;
-	struct lpm_cpu *cpu;
-	struct cpuidle_driver *drv;
+	struct list_head cpu;
 	spinlock_t sync_lock;
 	struct cpumask child_cpus;
 	struct cpumask num_children_in_sync;
