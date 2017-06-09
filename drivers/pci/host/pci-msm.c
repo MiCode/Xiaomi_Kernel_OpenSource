@@ -4675,6 +4675,8 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 		goto link_fail;
 	}
 
+	msleep(500);
+
 	msm_pcie_config_controller(dev);
 
 	if (!dev->msi_gicm_addr)
