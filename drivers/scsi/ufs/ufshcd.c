@@ -532,7 +532,7 @@ static inline void ufshcd_remove_non_printable(char *val)
 		*val = ' ';
 }
 
-#define UFSHCD_MAX_CMD_LOGGING	100
+#define UFSHCD_MAX_CMD_LOGGING	200
 
 #ifdef CONFIG_TRACEPOINTS
 static inline void ufshcd_add_command_trace(struct ufs_hba *hba,
@@ -608,7 +608,7 @@ static void ufshcd_dme_cmd_log(struct ufs_hba *hba, char *str, u8 cmd_id)
 	ufshcd_cmd_log(hba, str, "dme", 0xff, cmd_id, 0xff);
 }
 
-static void ufshcd_cmd_log_print(struct ufs_hba *hba)
+static void ufshcd_print_cmd_log(struct ufs_hba *hba)
 {
 	int i;
 	int pos;
@@ -657,7 +657,7 @@ static void ufshcd_dme_cmd_log(struct ufs_hba *hba, char *str, u8 cmd_id)
 {
 }
 
-static void ufshcd_cmd_log_print(struct ufs_hba *hba)
+static void ufshcd_print_cmd_log(struct ufs_hba *hba)
 {
 }
 #endif
@@ -4303,6 +4303,7 @@ out:
 		ufshcd_print_host_state(hba);
 		ufshcd_print_pwr_info(hba);
 		ufshcd_print_host_regs(hba);
+		ufshcd_print_cmd_log(hba);
 	}
 
 	ufshcd_save_tstamp_of_last_dme_cmd(hba);
@@ -6150,7 +6151,7 @@ static void ufshcd_err_handler(struct work_struct *work)
 			ufshcd_print_host_state(hba);
 			ufshcd_print_pwr_info(hba);
 			ufshcd_print_tmrs(hba, hba->outstanding_tasks);
-			ufshcd_cmd_log_print(hba);
+			ufshcd_print_cmd_log(hba);
 			spin_lock_irqsave(hba->host->host_lock, flags);
 		}
 	}
@@ -6662,7 +6663,7 @@ static int ufshcd_eh_device_reset_handler(struct scsi_cmnd *cmd)
 	hba = shost_priv(host);
 	tag = cmd->request->tag;
 
-	ufshcd_cmd_log_print(hba);
+	ufshcd_print_cmd_log(hba);
 	lrbp = &hba->lrb[tag];
 	err = ufshcd_issue_tm_cmd(hba, lrbp->lun, 0, UFS_LOGICAL_RESET, &resp);
 	if (err || resp != UPIU_TASK_MANAGEMENT_FUNC_COMPL) {
