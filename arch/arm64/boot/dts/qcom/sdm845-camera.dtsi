@@ -17,7 +17,7 @@
 		status = "ok";
 	};
 
-	qcom,csiphy@ac65000 {
+	cam_csiphy0: qcom,csiphy@ac65000 {
 		cell-index = <0>;
 		compatible = "qcom,csiphy-v1.0", "qcom,csiphy";
 		reg = <0x0ac65000 0x1000>;
@@ -53,7 +53,7 @@
 		status = "ok";
 	};
 
-	qcom,csiphy@ac66000{
+	cam_csiphy1: qcom,csiphy@ac66000{
 		cell-index = <1>;
 		compatible = "qcom,csiphy-v1.0", "qcom,csiphy";
 		reg = <0xac66000 0x1000>;
@@ -90,7 +90,7 @@
 		status = "ok";
 	};
 
-	qcom,csiphy@ac67000 {
+	cam_csiphy2: qcom,csiphy@ac67000 {
 		cell-index = <2>;
 		compatible = "qcom,csiphy-v1.0", "qcom,csiphy";
 		reg = <0xac67000 0x1000>;
@@ -126,7 +126,7 @@
 		status = "ok";
 	};
 
-	cci: qcom,cci@ac4a000 {
+	cam_cci: qcom,cci@ac4a000 {
 		cell-index = <0>;
 		compatible = "qcom,cci";
 		reg = <0xac4a000 0x4000>;
@@ -518,7 +518,7 @@
 		status = "ok";
 	};
 
-	qcom,csid0@acb3000 {
+	cam_csid0: qcom,csid0@acb3000 {
 		cell-index = <0>;
 		compatible = "qcom,csid170";
 		reg-names = "csid";
@@ -560,7 +560,7 @@
 		status = "ok";
 	};
 
-	qcom,vfe0@acaf000 {
+	cam_vfe0: qcom,vfe0@acaf000 {
 		cell-index = <0>;
 		compatible = "qcom,vfe170";
 		reg-names = "ife";
@@ -597,7 +597,7 @@
 		status = "ok";
 	};
 
-	qcom,csid1@acba000 {
+	cam_csid1: qcom,csid1@acba000 {
 		cell-index = <1>;
 		compatible = "qcom,csid170";
 		reg-names = "csid";
@@ -639,7 +639,7 @@
 		status = "ok";
 	};
 
-	qcom,vfe1@acb6000 {
+	cam_vfe1: qcom,vfe1@acb6000 {
 		cell-index = <1>;
 		compatible = "qcom,vfe170";
 		reg-names = "ife";
@@ -676,7 +676,7 @@
 		status = "ok";
 	};
 
-	qcom,csid-lite@acc8000 {
+	cam_csid_lite: qcom,csid-lite@acc8000 {
 		cell-index = <2>;
 		compatible = "qcom,csid-lite170";
 		reg-names = "csid-lite";
@@ -715,7 +715,7 @@
 		status = "ok";
 	};
 
-	qcom,vfe-lite@acc4000 {
+	cam_vfe_lite: qcom,vfe-lite@acc4000 {
 		cell-index = <2>;
 		compatible = "qcom,vfe-lite170";
 		reg-names = "ife-lite";
@@ -758,7 +758,7 @@
 		status = "ok";
 	};
 
-	qcom,a5@ac00000 {
+	cam_a5: qcom,a5@ac00000 {
 		cell-index = <0>;
 		compatible = "qcom,cam_a5";
 		reg = <0xac00000 0x6000>,
@@ -792,7 +792,7 @@
 		status = "ok";
 	};
 
-	qcom,ipe0 {
+	cam_ipe0: qcom,ipe0 {
 		cell-index = <0>;
 		compatible = "qcom,cam_ipe";
 		regulator-names = "ipe0-vdd";
@@ -812,7 +812,7 @@
 		status = "ok";
 	};
 
-	qcom,ipe1 {
+	cam_ipe1: qcom,ipe1 {
 		cell-index = <1>;
 		compatible = "qcom,cam_ipe";
 		regulator-names = "ipe1-vdd";
@@ -832,7 +832,7 @@
 		status = "ok";
 	};
 
-	qcom,bps {
+	cam_bps: qcom,bps {
 		cell-index = <0>;
 		compatible = "qcom,cam_bps";
 		regulator-names = "bps-vdd";
