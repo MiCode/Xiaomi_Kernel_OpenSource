@@ -724,7 +724,7 @@ int cnss_wlfw_athdiag_read_send_sync(struct cnss_plat_data *plat_priv,
 		goto out;
 	}
 
-	if (!resp->data_valid || resp->data_len <= data_len) {
+	if (!resp->data_valid || resp->data_len != data_len) {
 		cnss_pr_err("athdiag read data is invalid, data_valid = %u, data_len = %u\n",
 			    resp->data_valid, resp->data_len);
 		ret = -EINVAL;
