@@ -288,13 +288,6 @@ static int _sde_hdmi_hpd_enable(struct sde_hdmi *sde_hdmi)
 	uint32_t hpd_ctrl;
 	int i, ret;
 	unsigned long flags;
-	struct drm_connector *connector;
-	struct msm_drm_private *priv;
-	struct sde_kms *sde_kms;
-
-	connector = hdmi->connector;
-	priv = connector->dev->dev_private;
-	sde_kms = to_sde_kms(priv->kms);
 
 	for (i = 0; i < config->hpd_reg_cnt; i++) {
 		ret = regulator_enable(hdmi->hpd_regs[i]);
@@ -334,11 +327,9 @@ static int _sde_hdmi_hpd_enable(struct sde_hdmi *sde_hdmi)
 		}
 	}
 
-	if (!sde_kms->splash_info.handoff) {
-		sde_hdmi_set_mode(hdmi, false);
-		_sde_hdmi_phy_reset(hdmi);
-		sde_hdmi_set_mode(hdmi, true);
-	}
+	sde_hdmi_set_mode(hdmi, false);
+	_sde_hdmi_phy_reset(hdmi);
+	sde_hdmi_set_mode(hdmi, true);
 
 	hdmi_write(hdmi, REG_HDMI_USEC_REFTIMER, 0x0001001b);
 
@@ -1267,7 +1258,6 @@ int sde_hdmi_drm_init(struct sde_hdmi *display, struct drm_encoder *enc)
 	struct msm_drm_private *priv = NULL;
 	struct hdmi *hdmi;
 	struct platform_device *pdev;
-	struct sde_kms *sde_kms;
 
 	DBG("");
 	if (!display || !display->drm_dev || !enc) {
@@ -1318,17 +1308,6 @@ int sde_hdmi_drm_init(struct sde_hdmi *display, struct drm_encoder *enc)
 
 	enc->bridge = hdmi->bridge;
 	priv->bridges[priv->num_bridges++] = hdmi->bridge;
-
-	/*
-	 * After initialising HDMI bridge, we need to check
-	 * whether the early display is enabled for HDMI.
-	 * If yes, we need to increase refcount of hdmi power
-	 * clocks. This can skip the clock disabling operation in
-	 * clock_late_init when finding clk.count == 1.
-	 */
-	sde_kms = to_sde_kms(priv->kms);
-	if (sde_kms->splash_info.handoff)
-		sde_hdmi_bridge_power_on(hdmi->bridge);
 
 	mutex_unlock(&display->display_lock);
 	return 0;

@@ -34,7 +34,6 @@
 #include "sde_power_handle.h"
 #include "sde_irq.h"
 #include "sde_core_perf.h"
-#include "sde_splash.h"
 
 #define DRMID(x) ((x) ? (x)->base.id : -1)
 
@@ -158,9 +157,6 @@ struct sde_kms {
 	bool has_danger_ctrl;
 	void **hdmi_displays;
 	int hdmi_display_count;
-
-	/* splash handoff structure */
-	struct sde_splash_info splash_info;
 };
 
 struct vsync_info {

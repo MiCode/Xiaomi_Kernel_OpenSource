@@ -242,14 +242,6 @@ int sde_hdmi_get_info(struct msm_display_info *info,
 				void *display);
 
 /**
- * sde_hdmi_bridge_power_on -- A wrapper of _sde_hdmi_bridge_power_on.
- * @bridge:          Handle to the drm bridge.
- *
- * Return: void.
- */
-void sde_hdmi_bridge_power_on(struct drm_bridge *bridge);
-
-/**
  * sde_hdmi_bridge_init() - init sde hdmi bridge
  * @hdmi:          Handle to the hdmi.
  *

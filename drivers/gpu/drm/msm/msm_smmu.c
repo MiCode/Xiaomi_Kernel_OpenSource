@@ -255,28 +255,6 @@ static void msm_smmu_unmap_dma_buf(struct msm_mmu *mmu, struct sg_table *sgt,
 	msm_dma_unmap_sg(client->dev, sgt->sgl, sgt->nents, dir, dma_buf);
 }
 
-/* user can call this API to set the attribute of smmu*/
-int msm_smmu_set_property(struct msm_mmu *mmu, enum iommu_attr attr, void *data)
-{
-	struct msm_smmu *smmu = to_msm_smmu(mmu);
-	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
-	struct iommu_domain *domain;
-	int ret = 0;
-
-	if (!client)
-		return -EINVAL;
-
-	domain = client->mmu_mapping->domain;
-	if (!domain)
-		return -EINVAL;
-
-	ret = iommu_domain_set_attr(domain, attr, data);
-	if (ret)
-		DRM_ERROR("set domain attribute failed\n");
-
-	return ret;
-}
-
 static const struct msm_mmu_funcs funcs = {
 	.attach = msm_smmu_attach,
 	.detach = msm_smmu_detach,
@@ -287,7 +265,6 @@ static const struct msm_mmu_funcs funcs = {
 	.map_dma_buf = msm_smmu_map_dma_buf,
 	.unmap_dma_buf = msm_smmu_unmap_dma_buf,
 	.destroy = msm_smmu_destroy,
-	.set_property = msm_smmu_set_property,
 };
 
 static struct msm_smmu_domain msm_smmu_domains[MSM_SMMU_DOMAIN_MAX] = {
