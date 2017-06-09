@@ -2,6 +2,7 @@
  * drivers/staging/android/ion/ion_chunk_heap.c
  *
  * Copyright (C) 2012 Google, Inc.
+ * Copyright (c) 2016, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -55,7 +56,7 @@ static int ion_chunk_heap_allocate(struct ion_heap *heap,
 	if (allocated_size > chunk_heap->size - chunk_heap->allocated)
 		return -ENOMEM;
 
-	table = kmalloc(sizeof(struct sg_table), GFP_KERNEL);
+	table = kmalloc(sizeof(*table), GFP_KERNEL);
 	if (!table)
 		return -ENOMEM;
 	ret = sg_alloc_table(table, num_chunks, GFP_KERNEL);
@@ -81,7 +82,7 @@ static int ion_chunk_heap_allocate(struct ion_heap *heap,
 err:
 	sg = table->sgl;
 	for (i -= 1; i >= 0; i--) {
-		gen_pool_free(chunk_heap->pool, sg_phys(sg) & PAGE_MASK,
+		gen_pool_free(chunk_heap->pool, page_to_phys(sg_page(sg)),
 			      sg->length);
 		sg = sg_next(sg);
 	}
@@ -99,17 +100,18 @@ static void ion_chunk_heap_free(struct ion_buffer *buffer)
 	struct scatterlist *sg;
 	int i;
 	unsigned long allocated_size;
+	struct device *dev = heap->priv;
 
 	allocated_size = ALIGN(buffer->size, chunk_heap->chunk_size);
 
 	ion_heap_buffer_zero(buffer);
 
 	if (ion_buffer_cached(buffer))
-		dma_sync_sg_for_device(NULL, table->sgl, table->nents,
-							DMA_BIDIRECTIONAL);
+		dma_sync_sg_for_device(dev, table->sgl, table->nents,
+				       DMA_BIDIRECTIONAL);
 
 	for_each_sg(table->sgl, sg, table->nents, i) {
-		gen_pool_free(chunk_heap->pool, sg_phys(sg) & PAGE_MASK,
+		gen_pool_free(chunk_heap->pool, page_to_phys(sg_page(sg)),
 			      sg->length);
 	}
 	chunk_heap->allocated -= allocated_size;
@@ -144,17 +146,18 @@ struct ion_heap *ion_chunk_heap_create(struct ion_platform_heap *heap_data)
 	int ret;
 	struct page *page;
 	size_t size;
+	struct device *dev = heap_data->priv;
 
 	page = pfn_to_page(PFN_DOWN(heap_data->base));
 	size = heap_data->size;
 
-	ion_pages_sync_for_device(NULL, page, size, DMA_BIDIRECTIONAL);
+	ion_pages_sync_for_device(dev, page, size, DMA_BIDIRECTIONAL);
 
 	ret = ion_heap_pages_zero(page, size, pgprot_writecombine(PAGE_KERNEL));
 	if (ret)
 		return ERR_PTR(ret);
 
-	chunk_heap = kzalloc(sizeof(struct ion_chunk_heap), GFP_KERNEL);
+	chunk_heap = kzalloc(sizeof(*chunk_heap), GFP_KERNEL);
 	if (!chunk_heap)
 		return ERR_PTR(-ENOMEM);
 
@@ -173,8 +176,8 @@ struct ion_heap *ion_chunk_heap_create(struct ion_platform_heap *heap_data)
 	chunk_heap->heap.ops = &chunk_heap_ops;
 	chunk_heap->heap.type = ION_HEAP_TYPE_CHUNK;
 	chunk_heap->heap.flags = ION_HEAP_FLAG_DEFER_FREE;
-	pr_debug("%s: base %lu size %zu align %ld\n", __func__,
-		chunk_heap->base, heap_data->size, heap_data->align);
+	pr_debug("%s: base %pad size %zu align %pad\n", __func__,
+		 &chunk_heap->base, heap_data->size, &heap_data->align);
 
 	return &chunk_heap->heap;
 
