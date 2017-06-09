@@ -2492,7 +2492,8 @@ int msm_isp_ab_ib_update_lpm_mode(struct vfe_device *vfe_dev, void *arg)
 			intf = SRC_TO_INTF(stream_info->stream_src);
 			vfe_dev->axi_data.src_info[intf].lpm =
 				ab_ib_vote->lpm_mode;
-			if (stream_info->lpm_mode) {
+			if (stream_info->lpm_mode ||
+				stream_info->state == INACTIVE) {
 				spin_unlock_irqrestore(&stream_info->lock,
 							flags);
 				continue;
@@ -2512,7 +2513,8 @@ int msm_isp_ab_ib_update_lpm_mode(struct vfe_device *vfe_dev, void *arg)
 			intf = SRC_TO_INTF(stream_info->stream_src);
 			vfe_dev->axi_data.src_info[intf].lpm =
 				ab_ib_vote->lpm_mode;
-			if (stream_info->lpm_mode == 0) {
+			if (stream_info->lpm_mode == 0 ||
+				stream_info->state == INACTIVE) {
 				spin_unlock_irqrestore(&stream_info->lock,
 							flags);
 				continue;
