@@ -343,17 +343,17 @@
 		clock-names = "gcc_ahb_clk",
 			"gcc_axi_clk",
 			"soc_ahb_clk",
-			"cpas_ahb_clk",
 			"slow_ahb_clk_src",
+			"cpas_ahb_clk",
 			"camnoc_axi_clk";
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>,
 			<&clock_gcc GCC_CAMERA_AXI_CLK>,
 			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
-			<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
 			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
+			<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
 			<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>;
 		src-clock-name = "slow_ahb_clk_src";
-		clock-rates = <0 0 0 0 80000000 0>;
+		clock-rates = <0 0 0 80000000 0 0>;
 		qcom,msm-bus,name = "cam_ahb";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <1>;
@@ -772,6 +772,7 @@
 		camss-vdd-supply = <&titan_top_gdsc>;
 		clock-names = "gcc_cam_ahb_clk",
 			"gcc_cam_axi_clk",
+			"soc_fast_ahb",
 			"soc_ahb_clk",
 			"cpas_ahb_clk",
 			"camnoc_axi_clk",
@@ -780,6 +781,7 @@
 			"icp_clk_src";
 		clocks = <&clock_gcc GCC_CAMERA_AHB_CLK>,
 				<&clock_gcc GCC_CAMERA_AXI_CLK>,
+				<&clock_camcc CAM_CC_FAST_AHB_CLK_SRC>,
 				<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 				<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
 				<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
@@ -787,7 +789,7 @@
 				<&clock_camcc CAM_CC_ICP_CLK>,
 				<&clock_camcc CAM_CC_ICP_CLK_SRC>;
 
-		clock-rates = <0 0 0 80000000 0 0 0 600000000>;
+		clock-rates = <0 0 400000000 0 0 0 0 0 600000000>;
 		fw_name = "CAMERA_ICP.elf";
 		status = "ok";
 	};
@@ -808,7 +810,7 @@
 				<&clock_camcc CAM_CC_IPE_0_CLK>,
 				<&clock_camcc CAM_CC_IPE_0_CLK_SRC>;
 
-		clock-rates = <80000000 400000000 0 0 600000000>;
+		clock-rates = <0 0 0 0 600000000>;
 		status = "ok";
 	};
 
@@ -828,7 +830,7 @@
 				<&clock_camcc CAM_CC_IPE_1_CLK>,
 				<&clock_camcc CAM_CC_IPE_1_CLK_SRC>;
 
-		clock-rates = <80000000 400000000 0 0 600000000>;
+		clock-rates = <0 0 0 0 600000000>;
 		status = "ok";
 	};
 
@@ -848,7 +850,7 @@
 				<&clock_camcc CAM_CC_BPS_CLK>,
 				<&clock_camcc CAM_CC_BPS_CLK_SRC>;
 
-		clock-rates = <80000000 400000000 0 0 600000000>;
+		clock-rates = <0 0 0 0 600000000>;
 		status = "ok";
 	};
 };
