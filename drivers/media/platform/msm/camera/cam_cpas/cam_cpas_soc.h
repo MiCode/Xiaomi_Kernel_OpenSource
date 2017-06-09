@@ -16,6 +16,19 @@
 #include "cam_soc_util.h"
 
 #define CAM_CPAS_MAX_CLIENTS 20
+#define CAM_REGULATOR_LEVEL_MAX 16
+
+/**
+ * struct cam_cpas_vdd_ahb_mapping : Voltage to ahb level mapping
+ *
+ * @vdd_corner : Voltage corner value
+ * @ahb_level : AHB vote level corresponds to this vdd_corner
+ *
+ */
+struct cam_cpas_vdd_ahb_mapping {
+	unsigned int vdd_corner;
+	enum cam_vote_level ahb_level;
+};
 
 /**
  * struct cam_cpas_private_soc : CPAS private DT info
@@ -27,6 +40,8 @@
  * @axi_camnoc_based: Whether AXi access is camnoc based
  * @client_axi_port_name: AXI Port name for each client
  * @axi_port_list_node : Node representing AXI Ports list
+ * @num_vdd_ahb_mapping : Number of vdd to ahb level mapping supported
+ * @vdd_ahb : AHB level mapping info for the supported vdd levels
  *
  */
 struct cam_cpas_private_soc {
@@ -37,6 +52,8 @@ struct cam_cpas_private_soc {
 	bool axi_camnoc_based;
 	const char *client_axi_port_name[CAM_CPAS_MAX_CLIENTS];
 	struct device_node *axi_port_list_node;
+	uint32_t num_vdd_ahb_mapping;
+	struct cam_cpas_vdd_ahb_mapping vdd_ahb[CAM_REGULATOR_LEVEL_MAX];
 };
 
 int cam_cpas_soc_init_resources(struct cam_hw_soc_info *soc_info,

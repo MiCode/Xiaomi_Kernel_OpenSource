@@ -22,6 +22,26 @@
 #include "cam_cpas_hw.h"
 #include "cam_cpas_soc.h"
 
+static int cam_cpas_get_vote_level_from_string(const char *string,
+	enum cam_vote_level *vote_level)
+{
+	if (!vote_level || !string)
+		return -EINVAL;
+
+	if (strnstr("suspend", string, strlen(string)))
+		*vote_level = CAM_SUSPEND_VOTE;
+	else if (strnstr("svs", string, strlen(string)))
+		*vote_level = CAM_SVS_VOTE;
+	else if (strnstr("nominal", string, strlen(string)))
+		*vote_level = CAM_NOMINAL_VOTE;
+	else if (strnstr("turbo", string, strlen(string)))
+		*vote_level = CAM_TURBO_VOTE;
+	else
+		*vote_level = CAM_SVS_VOTE;
+
+	return 0;
+}
+
 int cam_cpas_get_custom_dt_info(struct platform_device *pdev,
 	struct cam_cpas_private_soc *soc_private)
 {
@@ -88,6 +108,42 @@ int cam_cpas_get_custom_dt_info(struct platform_device *pdev,
 
 	soc_private->axi_camnoc_based = of_property_read_bool(of_node,
 		"client-bus-camnoc-based");
+
+	count = of_property_count_u32_elems(of_node, "vdd-corners");
+	if ((count > 0) && (count <= CAM_REGULATOR_LEVEL_MAX) &&
+		(of_property_count_strings(of_node, "vdd-corner-ahb-mapping") ==
+		count)) {
+		const char *ahb_string;
+
+		for (i = 0; i < count; i++) {
+			rc = of_property_read_u32_index(of_node, "vdd-corners",
+				i, &soc_private->vdd_ahb[i].vdd_corner);
+			if (rc) {
+				pr_err("vdd-corners failed at index=%d\n", i);
+				return -ENODEV;
+			}
+
+			rc = of_property_read_string_index(of_node,
+				"vdd-corner-ahb-mapping", i, &ahb_string);
+			if (rc) {
+				pr_err("no ahb-mapping at index=%d\n", i);
+				return -ENODEV;
+			}
+
+			rc = cam_cpas_get_vote_level_from_string(ahb_string,
+				&soc_private->vdd_ahb[i].ahb_level);
+			if (rc) {
+				pr_err("invalid ahb-string at index=%d\n", i);
+				return -EINVAL;
+			}
+
+			CPAS_CDBG("Vdd-AHB mapping [%d] : [%d] [%s] [%d]\n", i,
+				soc_private->vdd_ahb[i].vdd_corner,
+				ahb_string, soc_private->vdd_ahb[i].ahb_level);
+		}
+
+		soc_private->num_vdd_ahb_mapping = count;
+	}
 
 	return 0;
 }

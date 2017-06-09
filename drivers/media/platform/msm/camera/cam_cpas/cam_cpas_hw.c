@@ -628,9 +628,46 @@ unlock_client:
 	return rc;
 }
 
-static int cam_cpas_util_apply_client_ahb_vote(struct cam_cpas *cpas_core,
+static int cam_cpas_util_get_ahb_level(struct cam_hw_info *cpas_hw,
+	struct device *dev, unsigned long freq, enum cam_vote_level *req_level)
+{
+	struct cam_cpas_private_soc *soc_private =
+		(struct cam_cpas_private_soc *) cpas_hw->soc_info.soc_private;
+	struct dev_pm_opp *opp;
+	unsigned int corner;
+	enum cam_vote_level level = CAM_SVS_VOTE;
+	unsigned long corner_freq = freq;
+	int i;
+
+	if (!dev || !req_level) {
+		pr_err("Invalid params %pK, %pK\n", dev, req_level);
+		return -EINVAL;
+	}
+
+	opp = dev_pm_opp_find_freq_ceil(dev, &corner_freq);
+	if (IS_ERR(opp)) {
+		pr_err("Error on OPP freq :%ld, %pK\n", corner_freq, opp);
+		return -EINVAL;
+	}
+
+	corner = dev_pm_opp_get_voltage(opp);
+
+	for (i = 0; i < soc_private->num_vdd_ahb_mapping; i++)
+		if (corner == soc_private->vdd_ahb[i].vdd_corner)
+			level = soc_private->vdd_ahb[i].ahb_level;
+
+	CPAS_CDBG("From OPP table : freq=[%ld][%ld], corner=%d, level=%d\n",
+		freq, corner_freq, corner, level);
+
+	*req_level = level;
+
+	return 0;
+}
+
+static int cam_cpas_util_apply_client_ahb_vote(struct cam_hw_info *cpas_hw,
 	struct cam_cpas_client *cpas_client, struct cam_ahb_vote *ahb_vote)
 {
+	struct cam_cpas *cpas_core = (struct cam_cpas *) cpas_hw->core_info;
 	struct cam_cpas_bus_client *ahb_bus_client = &cpas_core->ahb_bus_client;
 	enum cam_vote_level required_level;
 	enum cam_vote_level highest_level;
@@ -642,11 +679,13 @@ static int cam_cpas_util_apply_client_ahb_vote(struct cam_cpas *cpas_core,
 	}
 
 	if (ahb_vote->type == CAM_VOTE_DYNAMIC) {
-		pr_err("Dynamic AHB vote not supported\n");
-		return -EINVAL;
+		rc = cam_cpas_util_get_ahb_level(cpas_hw, cpas_client->data.dev,
+			ahb_vote->vote.freq, &required_level);
+		if (rc)
+			return rc;
+	} else {
+		required_level = ahb_vote->vote.level;
 	}
-
-	required_level = ahb_vote->vote.level;
 
 	if (cpas_client->ahb_level == required_level)
 		return 0;
@@ -708,7 +747,7 @@ static int cam_cpas_hw_update_ahb_vote(struct cam_hw_info *cpas_hw,
 		ahb_vote->vote.freq,
 		cpas_core->cpas_client[client_indx]->ahb_level);
 
-	rc = cam_cpas_util_apply_client_ahb_vote(cpas_core,
+	rc = cam_cpas_util_apply_client_ahb_vote(cpas_hw,
 		cpas_core->cpas_client[client_indx], ahb_vote);
 
 unlock_client:
@@ -780,7 +819,7 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 	CPAS_CDBG("AHB :client[%d] type[%d], level[%d], applied[%d]\n",
 		client_indx, ahb_vote->type, ahb_vote->vote.level,
 		cpas_client->ahb_level);
-	rc = cam_cpas_util_apply_client_ahb_vote(cpas_core, cpas_client,
+	rc = cam_cpas_util_apply_client_ahb_vote(cpas_hw, cpas_client,
 		ahb_vote);
 	if (rc)
 		goto done;
@@ -892,7 +931,7 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 
 	ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	ahb_vote.vote.level = CAM_SUSPEND_VOTE;
-	rc = cam_cpas_util_apply_client_ahb_vote(cpas_core, cpas_client,
+	rc = cam_cpas_util_apply_client_ahb_vote(cpas_hw, cpas_client,
 		&ahb_vote);
 	if (rc)
 		goto done;
