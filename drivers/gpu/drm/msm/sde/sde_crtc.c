@@ -1275,6 +1275,10 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 	struct drm_device *dev;
 	struct sde_kms_info *info;
 	struct sde_kms *sde_kms;
+	static const struct drm_prop_enum_list e_secure_level[] = {
+		{SDE_DRM_SEC_NON_SEC, "sec_and_non_sec"},
+		{SDE_DRM_SEC_ONLY, "sec_only"},
+	};
 
 	SDE_DEBUG("\n");
 
@@ -1320,6 +1324,12 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 
 	msm_property_install_blob(&sde_crtc->property_info, "capabilities",
 		DRM_MODE_PROP_IMMUTABLE, CRTC_PROP_INFO);
+
+	msm_property_install_enum(&sde_crtc->property_info, "security_level",
+			0x0, 0, e_secure_level,
+			ARRAY_SIZE(e_secure_level),
+			CRTC_PROP_SECURITY_LEVEL);
+
 	sde_kms_info_reset(info);
 
 	sde_kms_info_add_keyint(info, "hw_version", catalog->hwversion);
