@@ -1629,6 +1629,17 @@ static void usbpd_sm(struct work_struct *w)
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
 
+		if (pd->requested_current) {
+			val.intval = pd->requested_current = 0;
+			power_supply_set_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_PD_CURRENT_MAX, &val);
+		}
+
+		pd->requested_voltage = 5000000;
+		val.intval = pd->requested_voltage;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_VOLTAGE_MIN, &val);
+
 		pd->in_pr_swap = false;
 		pd->in_explicit_contract = false;
 		pd->selected_pdo = pd->requested_pdo = 0;
@@ -2312,6 +2323,14 @@ static void usbpd_sm(struct work_struct *w)
 
 sm_done:
 	kfree(rx_msg);
+
+	spin_lock_irqsave(&pd->rx_lock, flags);
+	ret = list_empty(&pd->rx_q);
+	spin_unlock_irqrestore(&pd->rx_lock, flags);
+
+	/* requeue if there are any new/pending RX messages */
+	if (!ret)
+		kick_sm(pd, 0);
 
 	if (!pd->sm_queued)
 		pm_relax(&pd->dev);
