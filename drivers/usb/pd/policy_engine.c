@@ -1542,6 +1542,11 @@ static void usbpd_sm(struct work_struct *w)
 		if (pd->current_state == PE_UNKNOWN)
 			goto sm_done;
 
+		if (pd->vconn_enabled) {
+			regulator_disable(pd->vconn);
+			pd->vconn_enabled = false;
+		}
+
 		usbpd_info(&pd->dev, "USB Type-C disconnect\n");
 
 		if (pd->pd_phy_opened) {
@@ -1575,11 +1580,6 @@ static void usbpd_sm(struct work_struct *w)
 		if (pd->vbus_enabled) {
 			regulator_disable(pd->vbus);
 			pd->vbus_enabled = false;
-		}
-
-		if (pd->vconn_enabled) {
-			regulator_disable(pd->vconn);
-			pd->vconn_enabled = false;
 		}
 
 		reset_vdm_state(pd);
@@ -3190,7 +3190,7 @@ struct usbpd *usbpd_create(struct device *parent)
 	if (ret)
 		goto free_pd;
 
-	pd->wq = alloc_ordered_workqueue("usbpd_wq", WQ_FREEZABLE);
+	pd->wq = alloc_ordered_workqueue("usbpd_wq", WQ_FREEZABLE | WQ_HIGHPRI);
 	if (!pd->wq) {
 		ret = -ENOMEM;
 		goto del_pd;
