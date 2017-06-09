@@ -330,7 +330,9 @@
 					   "usbin_v";
 
 			qcom,wipower-max-uw = <5000000>;
-			dpdm-supply = <&qusb_phy0>;
+
+			/* Enable after the qusb_phy0 device node is added */
+			/* dpdm-supply = <&qusb_phy0>; */
 
 			qcom,thermal-mitigation
 					= <3000000 2500000 2000000 1500000
