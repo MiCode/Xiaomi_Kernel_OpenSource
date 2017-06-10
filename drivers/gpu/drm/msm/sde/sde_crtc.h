@@ -255,7 +255,7 @@ struct sde_crtc_respool {
  * @intf_mode     : Interface mode of the primary connector
  * @rsc_client    : sde rsc client when mode is valid
  * @is_ppsplit    : Whether current topology requires PPSplit special handling
- * @bw_control    : true if bw controlled by bw properties
+ * @bw_control    : true if bw/clk controlled by bw/clk properties
  * @crtc_roi      : Current CRTC ROI. Possibly sub-rectangle of mode.
  *                  Origin top left of CRTC.
  * @lm_bounds     : LM boundaries based on current mode full resolution, no ROI.
