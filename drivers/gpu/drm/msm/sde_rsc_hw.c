@@ -206,7 +206,7 @@ static int rsc_hw_seq_memory_init(struct sde_rsc_priv *rsc)
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x30,
 						0xa7e9a920, rsc->debug_mode);
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_MEM_0_DRV0 + 0x34,
-						0x002079e7, rsc->debug_mode);
+						0x002089e7, rsc->debug_mode);
 
 	/* branch address */
 	dss_reg_w(&rsc->drv_io, SDE_RSCC_SEQ_CFG_BR_ADDR_0_DRV0,
