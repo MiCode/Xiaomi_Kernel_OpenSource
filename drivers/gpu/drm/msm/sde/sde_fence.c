@@ -156,7 +156,7 @@ static void sde_fence_release(struct fence *fence)
 	/* keep kput outside spin_lock because it may release ctx */
 	if (release_kref)
 		kref_put(&ctx->kref, sde_fence_destroy);
-	kfree_rcu(f, base.rcu);
+	kfree(f);
 }
 
 static void sde_fence_value_str(struct fence *fence,
