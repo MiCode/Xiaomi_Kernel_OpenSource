@@ -438,13 +438,15 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 	if (_sde_core_perf_crtc_is_power_on(crtc) && !stop_req) {
 		/*
 		 * cases for bus bandwidth update.
-		 * 1. new bandwidth vote or writeback output vote
-		 *    are higher than current vote for update request.
-		 * 2. new bandwidth vote or writeback output vote are
-		 *    lower than current vote at end of commit or stop.
+		 * 1. new bandwidth vote - "ab or ib vote" is higher
+		 *    than current vote for update request.
+		 * 2. new bandwidth vote - "ab or ib vote" is lower
+		 *    than current vote at end of commit or stop.
 		 */
-		if ((params_changed && ((new->bw_ctl > old->bw_ctl))) ||
-		    (!params_changed && ((new->bw_ctl < old->bw_ctl)))) {
+		if ((params_changed && ((new->bw_ctl > old->bw_ctl) ||
+			  (new->max_per_pipe_ib > old->max_per_pipe_ib))) ||
+		    (!params_changed && ((new->bw_ctl < old->bw_ctl) ||
+			  (new->max_per_pipe_ib < old->max_per_pipe_ib)))) {
 			SDE_DEBUG("crtc=%d p=%d new_bw=%llu,old_bw=%llu\n",
 				crtc->base.id, params_changed, new->bw_ctl,
 				old->bw_ctl);
@@ -458,7 +460,8 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 				get_sde_rsc_current_state(SDE_RSC_INDEX) ==
 							    SDE_RSC_CMD_STATE) {
 			/* update new bandwdith in all cases */
-			if (params_changed && new->bw_ctl != old->bw_ctl) {
+			if (params_changed && ((new->bw_ctl != old->bw_ctl) ||
+			      (new->max_per_pipe_ib != old->max_per_pipe_ib))) {
 				old->bw_ctl = new->bw_ctl;
 				old->max_per_pipe_ib = new->max_per_pipe_ib;
 				update_bus = 1;
