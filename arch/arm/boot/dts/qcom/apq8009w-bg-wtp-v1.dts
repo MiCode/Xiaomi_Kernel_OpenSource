@@ -83,6 +83,24 @@
 		qcom,mtu-size = <0x800>;
 		qcom,tput-stats-cycle = <0xa>;
 	};
+
+	qcom,glink_pkt {
+		compatible = "qcom,glinkpkt";
+
+		qcom,glinkpkt-bg-daemon {
+			qcom,glinkpkt-transport = "bgcom";
+			qcom,glinkpkt-edge = "bg";
+			qcom,glinkpkt-ch-name = "bg-daemon";
+			qcom,glinkpkt-dev-name = "glink_pkt_bg_daemon";
+		};
+
+		qcom,glinkpkt-bg-display-ctrl {
+			qcom,glinkpkt-transport = "bgcom";
+			qcom,glinkpkt-edge = "bg";
+			qcom,glinkpkt-ch-name = "display-ctrl";
+			qcom,glinkpkt-dev-name = "glink_pkt_bg_display_ctrl";
+		};
+	};
 };
 
 &i2c_1 {
