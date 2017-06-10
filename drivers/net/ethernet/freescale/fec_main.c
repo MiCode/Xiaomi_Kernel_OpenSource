@@ -2371,6 +2371,10 @@ static int fec_enet_get_sset_count(struct net_device *dev, int sset)
 static inline void fec_enet_update_ethtool_stats(struct net_device *dev)
 {
 }
+
+static inline void fec_enet_clear_ethtool_stats(struct net_device *dev)
+{
+}
 #endif /* !defined(CONFIG_M5272) */
 
 static int fec_enet_nway_reset(struct net_device *dev)
