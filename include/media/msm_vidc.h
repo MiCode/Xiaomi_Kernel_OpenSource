@@ -61,15 +61,17 @@ struct dma_mapping_info {
 };
 
 struct msm_smem {
-	int mem_type;
-	size_t size;
+	u32 refcount;
+	int fd;
+	void *dma_buf;
+	void *handle;
 	void *kvaddr;
-	ion_phys_addr_t device_addr;
+	u32 device_addr;
+	unsigned int offset;
+	unsigned int size;
 	unsigned long flags;
-	void *smem_priv;
 	enum hal_buffer buffer_type;
 	struct dma_mapping_info mapping_info;
-	unsigned int offset;
 };
 
 enum smem_cache_ops {

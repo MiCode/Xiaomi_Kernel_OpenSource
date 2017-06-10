@@ -190,7 +190,7 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 
 static inline int get_pending_bufs_fw(struct msm_vidc_inst *inst)
 {
-	int fw_out_qsize = 0, buffers_in_driver = 0;
+	int fw_out_qsize = 0;
 
 	/*
 	 * DCVS always operates on Uncompressed buffers.
@@ -203,11 +203,9 @@ static inline int get_pending_bufs_fw(struct msm_vidc_inst *inst)
 			fw_out_qsize = inst->count.ftb - inst->count.fbd;
 		else
 			fw_out_qsize = inst->count.etb - inst->count.ebd;
-
-		buffers_in_driver = inst->buffers_held_in_driver;
 	}
 
-	return fw_out_qsize + buffers_in_driver;
+	return fw_out_qsize;
 }
 
 static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst)
@@ -266,7 +264,7 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst)
 }
 
 static void msm_vidc_update_freq_entry(struct msm_vidc_inst *inst,
-	unsigned long freq, ion_phys_addr_t device_addr)
+	unsigned long freq, u32 device_addr)
 {
 	struct vidc_freq_data *temp, *next;
 	bool found = false;
@@ -292,7 +290,7 @@ static void msm_vidc_update_freq_entry(struct msm_vidc_inst *inst,
 // TODO this needs to be removed later and use queued_list
 
 void msm_vidc_clear_freq_entry(struct msm_vidc_inst *inst,
-	ion_phys_addr_t device_addr)
+	u32 device_addr)
 {
 	struct vidc_freq_data *temp, *next;
 
@@ -515,10 +513,10 @@ int msm_vidc_update_operating_rate(struct msm_vidc_inst *inst)
 
 int msm_comm_scale_clocks(struct msm_vidc_inst *inst)
 {
-	struct vb2_buf_entry *temp, *next;
+	struct msm_vidc_buffer *temp, *next;
 	unsigned long freq = 0;
 	u32 filled_len = 0;
-	ion_phys_addr_t device_addr = 0;
+	u32 device_addr = 0;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s Invalid args: Inst = %pK\n",
@@ -526,15 +524,17 @@ int msm_comm_scale_clocks(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 
-	mutex_lock(&inst->pendingq.lock);
-	list_for_each_entry_safe(temp, next, &inst->pendingq.list, list) {
-		if (temp->vb->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+	mutex_lock(&inst->registeredbufs.lock);
+	list_for_each_entry_safe(temp, next, &inst->registeredbufs.list, list) {
+		if (temp->vvb.vb2_buf.type ==
+				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
+				temp->deferred) {
 			filled_len = max(filled_len,
-				temp->vb->planes[0].bytesused);
-			device_addr = temp->vb->planes[0].m.userptr;
+				temp->vvb.vb2_buf.planes[0].bytesused);
+			device_addr = temp->smem[0].device_addr;
 		}
 	}
-	mutex_unlock(&inst->pendingq.lock);
+	mutex_unlock(&inst->registeredbufs.lock);
 
 	if (!filled_len || !device_addr) {
 		dprintk(VIDC_PROF, "No Change in frequency\n");
