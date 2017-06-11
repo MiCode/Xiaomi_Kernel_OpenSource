@@ -320,6 +320,7 @@ struct smb_charger {
 	bool			typec_present;
 	u8			typec_status[5];
 	bool			typec_legacy_valid;
+	int			fake_input_current_limited;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -422,6 +423,8 @@ int smblib_set_prop_input_suspend(struct smb_charger *chg,
 int smblib_set_prop_batt_capacity(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_system_temp_level(struct smb_charger *chg,
+				const union power_supply_propval *val);
+int smblib_set_prop_input_current_limited(struct smb_charger *chg,
 				const union power_supply_propval *val);
 
 int smblib_get_prop_dc_present(struct smb_charger *chg,
