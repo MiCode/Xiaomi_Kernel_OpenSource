@@ -108,15 +108,16 @@ static int get_cmd_rsp_buffers(struct qseecom_handle *hdl,
 	uint32_t *rsp_len)
 {
 	/* 64 bytes alignment for QSEECOM */
-	*cmd_len = ALIGN(*cmd_len, 64);
-	*rsp_len = ALIGN(*rsp_len, 64);
+	uint64_t aligned_cmd_len = ALIGN((uint64_t)*cmd_len, 64);
+	uint64_t aligned_rsp_len = ALIGN((uint64_t)*rsp_len, 64);
 
-	if (((uint64_t)*rsp_len + (uint64_t)*cmd_len)
-	  > (uint64_t)g_app_buf_size)
+	if ((aligned_rsp_len + aligned_cmd_len) > (uint64_t)g_app_buf_size)
 		return -ENOMEM;
 
 	*cmd = hdl->sbuf;
+	*cmd_len = aligned_cmd_len;
 	*rsp = hdl->sbuf + *cmd_len;
+	*rsp_len = aligned_rsp_len;
 
 	return 0;
 }
