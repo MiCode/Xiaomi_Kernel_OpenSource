@@ -62,6 +62,7 @@ struct cam_a5_device_hw_info {
  * @a5_acquire: Acquire information of A5
  * @irq_cb: IRQ callback
  * @cpas_handle: CPAS handle for A5
+ * @cpast_start: state variable for cpas
  */
 struct cam_a5_device_core_info {
 	struct cam_a5_device_hw_info *a5_hw_info;
@@ -74,6 +75,7 @@ struct cam_a5_device_core_info {
 	struct cam_icp_a5_acquire_dev a5_acquire[8];
 	struct cam_icp_a5_set_irq_cb irq_cb;
 	uint32_t cpas_handle;
+	bool cpas_start;
 };
 
 int cam_a5_init_hw(void *device_priv,

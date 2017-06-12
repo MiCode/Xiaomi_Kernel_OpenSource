@@ -16,6 +16,13 @@
 
 #include "cam_node.h"
 
+static void  __cam_node_handle_shutdown(struct cam_node *node)
+{
+	if (node->hw_mgr_intf.hw_close)
+		node->hw_mgr_intf.hw_close(node->hw_mgr_intf.hw_mgr_priv,
+			NULL);
+}
+
 static int __cam_node_handle_query_cap(struct cam_node *node,
 	struct cam_query_cap_cmd *query)
 {
@@ -408,6 +415,9 @@ int cam_node_handle_ioctl(struct cam_node *node, struct cam_control *cmd)
 		}
 		break;
 	}
+	case CAM_SD_SHUTDOWN:
+		__cam_node_handle_shutdown(node);
+		break;
 	default:
 		pr_err("Unknown op code %d\n", cmd->op_code);
 		rc = -EINVAL;

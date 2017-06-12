@@ -34,6 +34,8 @@ static long cam_cci_subdev_ioctl(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_CCI_CFG:
 		rc = cam_cci_core_cfg(sd, arg);
 		break;
+	case VIDIOC_CAM_CONTROL:
+		break;
 	default:
 		pr_err("%s:%d Invalid ioctl cmd: %d\n",
 			__func__, __LINE__, cmd);

@@ -72,6 +72,7 @@ static int cam_isp_dev_probe(struct platform_device *pdev)
 	}
 	node = (struct cam_node *) g_isp_dev.sd.token;
 
+	memset(&hw_mgr_intf, 0, sizeof(hw_mgr_intf));
 	rc = cam_isp_hw_mgr_init(pdev->dev.of_node, &hw_mgr_intf);
 	if (rc != 0) {
 		pr_err("%s: Can not initialized ISP HW manager!\n", __func__);
