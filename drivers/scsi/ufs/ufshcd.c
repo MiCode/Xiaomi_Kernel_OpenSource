@@ -6965,6 +6965,23 @@ out:
 	return err;
 }
 
+static int ufshcd_detect_device(struct ufs_hba *hba)
+{
+	int err = 0;
+
+	err = ufshcd_vops_full_reset(hba);
+	if (err)
+		dev_warn(hba->dev, "%s: full reset returned %d\n",
+			 __func__, err);
+
+	err = ufshcd_reset_device(hba);
+	if (err)
+		dev_warn(hba->dev, "%s: device reset failed. err %d\n",
+			 __func__, err);
+
+	return ufshcd_host_reset_and_restore(hba);
+}
+
 /**
  * ufshcd_reset_and_restore - reset and re-initialize host/device
  * @hba: per-adapter instance
@@ -6981,25 +6998,9 @@ static int ufshcd_reset_and_restore(struct ufs_hba *hba)
 	int retries = MAX_HOST_RESET_RETRIES;
 
 	do {
-		err = ufshcd_vops_full_reset(hba);
-		if (err)
-			dev_warn(hba->dev, "%s: full reset returned %d\n",
-				 __func__, err);
-
-		err = ufshcd_reset_device(hba);
-		if (err)
-			dev_warn(hba->dev, "%s: device reset failed. err %d\n",
-				 __func__, err);
-
-		err = ufshcd_host_reset_and_restore(hba);
+		err = ufshcd_detect_device(hba);
 	} while (err && --retries);
 
-	/*
-	 * There is no point proceeding even after failing
-	 * to recover after multiple retries.
-	 */
-	if (err)
-		BUG();
 	/*
 	 * After reset the door-bell might be cleared, complete
 	 * outstanding requests in s/w here.
@@ -7703,14 +7704,76 @@ out:
 	 * If we failed to initialize the device or the device is not
 	 * present, turn off the power/clocks etc.
 	 */
-	if (ret && !ufshcd_eh_in_progress(hba) && !hba->pm_op_in_progress) {
+	if (ret && !ufshcd_eh_in_progress(hba) && !hba->pm_op_in_progress)
 		pm_runtime_put_sync(hba->dev);
-		ufshcd_hba_exit(hba);
-	}
 
 	trace_ufshcd_init(dev_name(hba->dev), ret,
 		ktime_to_us(ktime_sub(ktime_get(), start)),
 		hba->curr_dev_pwr_mode, hba->uic_link_state);
+	return ret;
+}
+
+static void ufshcd_card_detect_handler(struct work_struct *work)
+{
+	struct ufs_hba *hba;
+
+	hba = container_of(work, struct ufs_hba, card_detect_work);
+	if (hba->card_detect_event &&
+	    (hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL)) {
+		dev_dbg(hba->dev, "%s: card detect notification received\n",
+			 __func__);
+		pm_runtime_get_sync(hba->dev);
+		ufshcd_detect_device(hba);
+		pm_runtime_put_sync(hba->dev);
+	} else {
+		dev_dbg(hba->dev, "%s: card removed notification received\n",
+			 __func__);
+		/* TODO: remove the scsi device instances */
+	}
+}
+
+static int ufshcd_card_detect_notifier(struct notifier_block *nb,
+				       unsigned long event, void *ptr)
+{
+	struct ufs_hba *hba = container_of(nb, struct ufs_hba, card_detect_nb);
+
+	hba->card_detect_event = event;
+	schedule_work(&hba->card_detect_work);
+
+	return NOTIFY_DONE;
+}
+
+static int ufshcd_extcon_register(struct ufs_hba *hba)
+{
+	int ret;
+
+	if (!hba->extcon)
+		return 0;
+
+	hba->card_detect_nb.notifier_call = ufshcd_card_detect_notifier;
+	ret = extcon_register_notifier(hba->extcon,
+				       EXTCON_MECHANICAL,
+				       &hba->card_detect_nb);
+	if (ret)
+		dev_err(hba->dev, "%s: extcon_register_notifier() failed, ret %d\n",
+			__func__, ret);
+
+	return ret;
+}
+
+static int ufshcd_extcon_unregister(struct ufs_hba *hba)
+{
+	int ret;
+
+	if (!hba->extcon)
+		return 0;
+
+	ret = extcon_unregister_notifier(hba->extcon, EXTCON_MECHANICAL,
+					 &hba->card_detect_nb);
+	if (ret)
+		dev_err(hba->dev, "%s: extcon_unregister_notifier() failed, ret %d\n",
+			__func__, ret);
+
 	return ret;
 }
 
@@ -7730,6 +7793,8 @@ static void ufshcd_async_scan(void *data, async_cookie_t cookie)
 	ufshcd_hold_all(hba);
 	ufshcd_probe_hba(hba);
 	ufshcd_release_all(hba);
+
+	ufshcd_extcon_register(hba);
 }
 
 /**
@@ -8439,20 +8504,9 @@ static int ufshcd_variant_hba_init(struct ufs_hba *hba)
 
 	err = ufshcd_vops_init(hba);
 	if (err)
-		goto out;
-
-	err = ufshcd_vops_setup_regulators(hba, true);
-	if (err)
-		goto out_exit;
-
-	goto out;
-
-out_exit:
-	ufshcd_vops_exit(hba);
-out:
-	if (err)
 		dev_err(hba->dev, "%s: variant %s init failed err %d\n",
 			__func__, ufshcd_get_var_name(hba), err);
+out:
 	return err;
 }
 
@@ -8460,8 +8514,6 @@ static void ufshcd_variant_hba_exit(struct ufs_hba *hba)
 {
 	if (!hba->var || !hba->var->vops)
 		return;
-
-	ufshcd_vops_setup_regulators(hba, false);
 
 	ufshcd_vops_exit(hba);
 }
@@ -8521,6 +8573,7 @@ out:
 static void ufshcd_hba_exit(struct ufs_hba *hba)
 {
 	if (hba->is_powered) {
+		ufshcd_extcon_unregister(hba);
 		ufshcd_variant_hba_exit(hba);
 		ufshcd_setup_vreg(hba, false);
 		if (ufshcd_is_clkscaling_supported(hba)) {
@@ -8825,10 +8878,8 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		goto enable_gating;
 
 	/* UFS device & link must be active before we enter in this function */
-	if (!ufshcd_is_ufs_dev_active(hba) || !ufshcd_is_link_active(hba)) {
-		ret = -EINVAL;
-		goto enable_gating;
-	}
+	if (!ufshcd_is_ufs_dev_active(hba) || !ufshcd_is_link_active(hba))
+		goto set_vreg_lpm;
 
 	if (ufshcd_is_runtime_pm(pm_op)) {
 		if (ufshcd_can_autobkops_during_suspend(hba)) {
@@ -8864,6 +8915,7 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	    ufshcd_is_hibern8_on_idle_allowed(hba))
 		hba->hibern8_on_idle.state = HIBERN8_ENTERED;
 
+set_vreg_lpm:
 	ufshcd_vreg_set_lpm(hba);
 
 disable_clks:
@@ -8966,6 +9018,9 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	if (ret)
 		goto disable_vreg;
 
+	if (ufshcd_is_link_off(hba))
+		goto skip_dev_ops;
+
 	if (ufshcd_is_link_hibern8(hba)) {
 		ret = ufshcd_uic_hibern8_exit(hba);
 		if (!ret) {
@@ -9013,6 +9068,7 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	if (hba->clk_scaling.is_allowed)
 		ufshcd_resume_clkscaling(hba);
 
+skip_dev_ops:
 	/* Schedule clock gating in case of no access to UFS device yet */
 	ufshcd_release_all(hba);
 	goto out;
@@ -10074,6 +10130,7 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	/* Initialize work queues */
 	INIT_WORK(&hba->eh_work, ufshcd_err_handler);
 	INIT_WORK(&hba->eeh_work, ufshcd_exception_event_handler);
+	INIT_WORK(&hba->card_detect_work, ufshcd_card_detect_handler);
 
 	/* Initialize UIC command mutex */
 	mutex_init(&hba->uic_cmd_mutex);
