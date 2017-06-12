@@ -331,8 +331,8 @@ static int rradc_post_process_therm(struct rradc_chip *chip,
 	int64_t temp;
 
 	/* K = code/4 */
-	temp = div64_s64(adc_code, FG_ADC_RR_BATT_THERM_LSB_K);
-	temp *= FG_ADC_SCALE_MILLI_FACTOR;
+	temp = ((int64_t)adc_code * FG_ADC_SCALE_MILLI_FACTOR);
+	temp = div64_s64(temp, FG_ADC_RR_BATT_THERM_LSB_K);
 	*result_millidegc = temp - FG_ADC_KELVINMIL_CELSIUSMIL;
 
 	return 0;
