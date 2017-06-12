@@ -1636,6 +1636,9 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 			int namelen;
 			int pageslen;
 		} inbuf;
+
+		if (!init->filelen)
+			goto bail;
 		VERIFY(err, proc_name = kzalloc(init->filelen, GFP_KERNEL));
 		if (err)
 			goto bail;
@@ -1644,7 +1647,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		if (err)
 			goto bail;
 		inbuf.pgid = current->tgid;
-		inbuf.namelen = strlen(proc_name)+1;
+		inbuf.namelen = init->filelen;
 		inbuf.pageslen = 0;
 		if (!me->staticpd_flags) {
 			inbuf.pageslen = 1;
