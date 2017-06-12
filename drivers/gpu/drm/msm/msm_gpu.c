@@ -935,10 +935,8 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	return 0;
 
 fail:
-	for (i = 0; i < ARRAY_SIZE(gpu->rb); i++) {
-		if (gpu->rb[i])
-			msm_ringbuffer_destroy(gpu->rb[i]);
-	}
+	for (i = 0; i < ARRAY_SIZE(gpu->rb); i++)
+		msm_ringbuffer_destroy(gpu->rb[i]);
 
 	pm_runtime_disable(&pdev->dev);
 	return ret;
@@ -957,15 +955,8 @@ void msm_gpu_cleanup(struct msm_gpu *gpu)
 
 	bs_fini(gpu);
 
-	for (i = 0; i < ARRAY_SIZE(gpu->rb); i++) {
-		if (!gpu->rb[i])
-			continue;
-
-		if (gpu->rb[i]->iova)
-			msm_gem_put_iova(gpu->rb[i]->bo, gpu->aspace);
-
+	for (i = 0; i < ARRAY_SIZE(gpu->rb); i++)
 		msm_ringbuffer_destroy(gpu->rb[i]);
-	}
 
 	msm_snapshot_destroy(gpu, gpu->snapshot);
 	pm_runtime_disable(&pdev->dev);

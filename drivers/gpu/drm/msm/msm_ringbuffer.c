@@ -60,7 +60,10 @@ fail:
 
 void msm_ringbuffer_destroy(struct msm_ringbuffer *ring)
 {
-	if (ring->bo)
+	if (ring && ring->bo) {
+		msm_gem_put_iova(ring->bo, ring->gpu->aspace);
 		drm_gem_object_unreference_unlocked(ring->bo);
+	}
+
 	kfree(ring);
 }
