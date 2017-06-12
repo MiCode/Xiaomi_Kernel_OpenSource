@@ -297,4 +297,8 @@
 #define REGDMA_TIMESTAMP_REG            ROT_SSPP_TPG_PATTERN_GEN_INIT_VAL
 #define REGDMA_RESET_STATUS_REG         ROT_SSPP_TPG_RGB_MAPPING
 
+#define REGDMA_INT_0_MASK               0x101
+#define REGDMA_INT_1_MASK               0x202
+#define REGDMA_INT_2_MASK               0x404
+
 #endif /*_SDE_ROTATOR_R3_HWIO_H */
