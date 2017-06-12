@@ -783,20 +783,6 @@ unsigned int cpu_temp(int cpu)
 		return 0;
 }
 
-void free_task_load_ptrs(struct task_struct *p)
-{
-	kfree(p->ravg.curr_window_cpu);
-	kfree(p->ravg.prev_window_cpu);
-
-	/*
-	 * update_task_ravg() can be called for exiting tasks. While the
-	 * function itself ensures correct behavior, the corresponding
-	 * trace event requires that these pointers be NULL.
-	 */
-	p->ravg.curr_window_cpu = NULL;
-	p->ravg.prev_window_cpu = NULL;
-}
-
 /* Return task demand in percentage scale */
 unsigned int pct_task_load(struct task_struct *p)
 {
