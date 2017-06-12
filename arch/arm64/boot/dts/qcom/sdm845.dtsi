@@ -3301,10 +3301,29 @@
 				};
 			};
 			cooling-maps {
-				pop_cdev {
+				pop_cdev4 {
 					trip = <&pop_trip>;
 					cooling-device =
-						<&CPU4 1 THERMAL_NO_LIMIT>;
+						<&CPU4 THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT-1)>;
+				};
+				pop_cdev5 {
+					trip = <&pop_trip>;
+					cooling-device =
+						<&CPU5 THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT-1)>;
+				};
+				pop_cdev6 {
+					trip = <&pop_trip>;
+					cooling-device =
+						<&CPU6 THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT-1)>;
+				};
+				pop_cdev7 {
+					trip = <&pop_trip>;
+					cooling-device =
+						<&CPU7 THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT-1)>;
 				};
 			};
 		};
@@ -4220,39 +4239,86 @@
 	cooling-maps {
 		trip0_cpu0 {
 			trip = <&pm8998_trip0>;
-			cooling-device = <&CPU0 21 21>;
+			cooling-device =
+				<&CPU0 (THERMAL_MAX_LIMIT-1)
+					(THERMAL_MAX_LIMIT-1)>;
+		};
+		trip0_cpu1 {
+			trip = <&pm8998_trip0>;
+			cooling-device =
+				<&CPU1 (THERMAL_MAX_LIMIT-1)
+					(THERMAL_MAX_LIMIT-1)>;
+		};
+		trip0_cpu2 {
+			trip = <&pm8998_trip0>;
+			cooling-device =
+				<&CPU2 (THERMAL_MAX_LIMIT-1)
+					(THERMAL_MAX_LIMIT-1)>;
+		};
+		trip0_cpu3 {
+			trip = <&pm8998_trip0>;
+			cooling-device =
+				<&CPU3 (THERMAL_MAX_LIMIT-1)
+					(THERMAL_MAX_LIMIT-1)>;
 		};
 		trip0_cpu4 {
 			trip = <&pm8998_trip0>;
-			cooling-device = <&CPU4 21 21>;
+			cooling-device =
+				<&CPU4 (THERMAL_MAX_LIMIT-1)
+					(THERMAL_MAX_LIMIT-1)>;
+		};
+		trip0_cpu5 {
+			trip = <&pm8998_trip0>;
+			cooling-device =
+				<&CPU5 (THERMAL_MAX_LIMIT-1)
+					(THERMAL_MAX_LIMIT-1)>;
+		};
+		trip0_cpu6 {
+			trip = <&pm8998_trip0>;
+			cooling-device =
+				<&CPU6 (THERMAL_MAX_LIMIT-1)
+					(THERMAL_MAX_LIMIT-1)>;
+		};
+		trip0_cpu7 {
+			trip = <&pm8998_trip0>;
+			cooling-device =
+				<&CPU7 (THERMAL_MAX_LIMIT-1)
+					(THERMAL_MAX_LIMIT-1)>;
 		};
 		trip1_cpu1 {
 			trip = <&pm8998_trip1>;
-			cooling-device = <&CPU1 22 22>;
+			cooling-device =
+				<&CPU1 THERMAL_MAX_LIMIT THERMAL_MAX_LIMIT>;
 		};
 		trip1_cpu2 {
 			trip = <&pm8998_trip1>;
-			cooling-device = <&CPU2 22 22>;
+			cooling-device =
+				<&CPU2 THERMAL_MAX_LIMIT THERMAL_MAX_LIMIT>;
 		};
 		trip1_cpu3 {
 			trip = <&pm8998_trip1>;
-			cooling-device = <&CPU3 22 22>;
+			cooling-device =
+				<&CPU3 THERMAL_MAX_LIMIT THERMAL_MAX_LIMIT>;
 		};
 		trip1_cpu4 {
 			trip = <&pm8998_trip1>;
-			cooling-device = <&CPU4 22 22>;
+			cooling-device =
+				<&CPU4 THERMAL_MAX_LIMIT THERMAL_MAX_LIMIT>;
 		};
 		trip1_cpu5 {
 			trip = <&pm8998_trip1>;
-			cooling-device = <&CPU5 22 22>;
+			cooling-device =
+				<&CPU5 THERMAL_MAX_LIMIT THERMAL_MAX_LIMIT>;
 		};
 		trip1_cpu6 {
 			trip = <&pm8998_trip1>;
-			cooling-device = <&CPU6 22 22>;
+			cooling-device =
+				<&CPU6 THERMAL_MAX_LIMIT THERMAL_MAX_LIMIT>;
 		};
 		trip1_cpu7 {
 			trip = <&pm8998_trip1>;
-			cooling-device = <&CPU7 22 22>;
+			cooling-device =
+				<&CPU7 THERMAL_MAX_LIMIT THERMAL_MAX_LIMIT>;
 		};
 	};
 };

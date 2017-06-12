@@ -721,19 +721,27 @@
 		cooling-maps {
 			vbat_cpu4 {
 				trip = <&low_vbat>;
-				cooling-device = <&CPU4 22 22>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
 			};
 			vbat_cpu5 {
 				trip = <&low_vbat>;
-				cooling-device = <&CPU5 22 22>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
 			};
 			vbat_map6 {
 				trip = <&low_vbat>;
-				cooling-device = <&CPU6 22 22>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
 			};
 			vbat_map7 {
 				trip = <&low_vbat>;
-				cooling-device = <&CPU7 22 22>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
 			};
 		};
 	};
@@ -784,19 +792,27 @@
 		cooling-maps {
 			soc_cpu4 {
 				trip = <&low_soc>;
-				cooling-device = <&CPU4 22 22>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
 			};
 			soc_cpu5 {
 				trip = <&low_soc>;
-				cooling-device = <&CPU5 22 22>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
 			};
 			soc_map6 {
 				trip = <&low_soc>;
-				cooling-device = <&CPU6 22 22>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
 			};
 			soc_map7 {
 				trip = <&low_soc>;
-				cooling-device = <&CPU7 22 22>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
 			};
 		};
 	};
