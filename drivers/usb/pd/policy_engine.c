@@ -612,6 +612,8 @@ static void kick_sm(struct usbpd *pd, int ms)
 
 static void phy_sig_received(struct usbpd *pd, enum pd_sig_type type)
 {
+	union power_supply_propval val = {1};
+
 	if (type != HARD_RESET_SIG) {
 		usbpd_err(&pd->dev, "invalid signal (%d) received\n", type);
 		return;
@@ -622,6 +624,9 @@ static void phy_sig_received(struct usbpd *pd, enum pd_sig_type type)
 	/* Force CC logic to source/sink to keep Rp/Rd unchanged */
 	set_power_role(pd, pd->current_pr);
 	pd->hard_reset_recvd = true;
+	power_supply_set_property(pd->usb_psy,
+			POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
+
 	kick_sm(pd, 0);
 }
 
@@ -1629,10 +1634,6 @@ static void usbpd_sm(struct work_struct *w)
 	/* Hard reset? */
 	if (pd->hard_reset_recvd) {
 		pd->hard_reset_recvd = false;
-
-		val.intval = 1;
-		power_supply_set_property(pd->usb_psy,
-				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
 
 		if (pd->requested_current) {
 			val.intval = pd->requested_current = 0;
