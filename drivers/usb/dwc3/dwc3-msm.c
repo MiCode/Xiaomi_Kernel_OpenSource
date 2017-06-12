@@ -3763,20 +3763,9 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		platform_device_del(dwc->xhci);
 		usb_unregister_notify(&mdwc->host_nb);
 
-		/*
-		 * Perform USB hardware RESET (both core reset and DBM reset)
-		 * when moving from host to peripheral. This is required for
-		 * peripheral mode to work.
-		 */
-		dwc3_msm_block_reset(mdwc, true);
-
 		dwc3_usb3_phy_suspend(dwc, false);
-		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
-
 		mdwc->in_host_mode = false;
 
-		/* re-init core and OTG registers as block reset clears these */
-		dwc3_post_host_reset_core_init(dwc);
 		pm_runtime_mark_last_busy(mdwc->dev);
 		pm_runtime_put_sync_autosuspend(mdwc->dev);
 		dbg_event(0xFF, "StopHost psync",
