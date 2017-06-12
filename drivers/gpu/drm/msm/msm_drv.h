@@ -494,7 +494,12 @@ int msm_gem_svm_new_handle(struct drm_device *dev, struct drm_file *file,
 struct drm_gem_object *msm_gem_svm_new(struct drm_device *dev,
 		struct drm_file *file, uint64_t hostptr,
 		uint64_t size, uint32_t flags);
-
+void *msm_gem_kernel_new(struct drm_device *dev, uint32_t size,
+		uint32_t flags, struct msm_gem_address_space *aspace,
+		struct drm_gem_object **bo, uint64_t *iova);
+void *msm_gem_kernel_new_locked(struct drm_device *dev, uint32_t size,
+		uint32_t flags, struct msm_gem_address_space *aspace,
+		struct drm_gem_object **bo, uint64_t *iova);
 int msm_framebuffer_prepare(struct drm_framebuffer *fb,
 		struct msm_gem_address_space *aspace);
 void msm_framebuffer_cleanup(struct drm_framebuffer *fb,
