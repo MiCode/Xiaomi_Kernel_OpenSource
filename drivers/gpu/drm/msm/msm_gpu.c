@@ -841,6 +841,8 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		const char *name, struct msm_gpu_config *config)
 {
 	int i, ret, nr_rings;
+	void *memptrs;
+	uint64_t memptrs_iova;
 
 	if (WARN_ON(gpu->num_perfcntrs > ARRAY_SIZE(gpu->last_cntrs)))
 		gpu->num_perfcntrs = ARRAY_SIZE(gpu->last_cntrs);
@@ -923,10 +925,18 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		nr_rings = ARRAY_SIZE(gpu->rb);
 	}
 
+	/* Allocate one buffer to hold all the memptr records for the rings */
+	memptrs = msm_gem_kernel_new(drm, sizeof(struct msm_memptrs) * nr_rings,
+		MSM_BO_UNCACHED, gpu->aspace, &gpu->memptrs_bo, &memptrs_iova);
+
+	if (IS_ERR(memptrs)) {
+		ret = PTR_ERR(memptrs);
+		goto fail;
+	}
+
 	/* Create ringbuffer(s): */
 	for (i = 0; i < nr_rings; i++) {
-
-		gpu->rb[i] = msm_ringbuffer_new(gpu, i);
+		gpu->rb[i] = msm_ringbuffer_new(gpu, i, memptrs, memptrs_iova);
 		if (IS_ERR(gpu->rb[i])) {
 			ret = PTR_ERR(gpu->rb[i]);
 			gpu->rb[i] = NULL;
@@ -934,6 +944,9 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 				"could not create ringbuffer %d: %d\n", i, ret);
 			goto fail;
 		}
+
+		memptrs += sizeof(struct msm_memptrs);
+		memptrs_iova += sizeof(struct msm_memptrs);
 	}
 
 	gpu->nr_rings = nr_rings;
@@ -958,6 +971,11 @@ fail:
 	for (i = 0; i < ARRAY_SIZE(gpu->rb); i++)
 		msm_ringbuffer_destroy(gpu->rb[i]);
 
+	if (gpu->memptrs_bo) {
+		msm_gem_put_iova(gpu->memptrs_bo, gpu->aspace);
+		drm_gem_object_unreference_unlocked(gpu->memptrs_bo);
+	}
+
 	msm_gpu_destroy_address_space(gpu->aspace);
 	msm_gpu_destroy_address_space(gpu->secure_aspace);
 
@@ -980,6 +998,11 @@ void msm_gpu_cleanup(struct msm_gpu *gpu)
 
 	for (i = 0; i < ARRAY_SIZE(gpu->rb); i++)
 		msm_ringbuffer_destroy(gpu->rb[i]);
+
+	if (gpu->memptrs_bo) {
+		msm_gem_put_iova(gpu->memptrs_bo, gpu->aspace);
+		drm_gem_object_unreference_unlocked(gpu->memptrs_bo);
+	}
 
 	msm_snapshot_destroy(gpu, gpu->snapshot);
 	pm_runtime_disable(&pdev->dev);

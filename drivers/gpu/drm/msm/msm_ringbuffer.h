@@ -20,6 +20,16 @@
 
 #include "msm_drv.h"
 
+#define rbmemptr(ring, member) \
+	((ring)->memptrs_iova + offsetof(struct msm_memptrs, member))
+
+struct msm_memptrs {
+	volatile uint32_t rptr;
+	volatile uint32_t fence;
+	volatile uint64_t ttbr0;
+	volatile unsigned int contextidr;
+};
+
 struct msm_ringbuffer {
 	struct msm_gpu *gpu;
 	int id;
@@ -29,9 +39,13 @@ struct msm_ringbuffer {
 	uint32_t submitted_fence;
 	spinlock_t lock;
 	struct list_head submits;
+
+	struct msm_memptrs *memptrs;
+	uint64_t memptrs_iova;
 };
 
-struct msm_ringbuffer *msm_ringbuffer_new(struct msm_gpu *gpu, int id);
+struct msm_ringbuffer *msm_ringbuffer_new(struct msm_gpu *gpu, int id,
+		struct msm_memptrs *memptrs, uint64_t memptrs_iova);
 void msm_ringbuffer_destroy(struct msm_ringbuffer *ring);
 
 /* ringbuffer helpers (the parts that are same for a3xx/a2xx/z180..) */

@@ -65,7 +65,6 @@ static inline void update_wptr(struct msm_gpu *gpu, struct msm_ringbuffer *ring)
 /* Return the highest priority ringbuffer with something in it */
 static struct msm_ringbuffer *get_next_ring(struct msm_gpu *gpu)
 {
-	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	unsigned long flags;
 	int i;
 
@@ -74,7 +73,7 @@ static struct msm_ringbuffer *get_next_ring(struct msm_gpu *gpu)
 		struct msm_ringbuffer *ring = gpu->rb[i];
 
 		spin_lock_irqsave(&ring->lock, flags);
-		empty = (get_wptr(ring) == adreno_gpu->memptrs->rptr[ring->id]);
+		empty = (get_wptr(ring) == ring->memptrs->rptr);
 		spin_unlock_irqrestore(&ring->lock, flags);
 
 		if (!empty)
@@ -141,10 +140,8 @@ void a5xx_preempt_trigger(struct msm_gpu *gpu)
 
 	/* Set the SMMU info for the preemption */
 	if (a5xx_gpu->smmu_info) {
-		a5xx_gpu->smmu_info->ttbr0 =
-			adreno_gpu->memptrs->ttbr0[ring->id];
-		a5xx_gpu->smmu_info->contextidr =
-			adreno_gpu->memptrs->contextidr[ring->id];
+		a5xx_gpu->smmu_info->ttbr0 = ring->memptrs->ttbr0;
+		a5xx_gpu->smmu_info->contextidr = ring->memptrs->contextidr;
 	}
 
 	/* Set the address of the incoming preemption record */
@@ -261,7 +258,7 @@ static int preempt_init_ring(struct a5xx_gpu *a5xx_gpu,
 	ptr->info = 0;
 	ptr->data = 0;
 	ptr->cntl = MSM_GPU_RB_CNTL_DEFAULT;
-	ptr->rptr_addr = rbmemptr(adreno_gpu, ring->id, rptr);
+	ptr->rptr_addr = rbmemptr(ring, rptr);
 	ptr->counter = iova + A5XX_PREEMPT_RECORD_SIZE;
 
 	return 0;

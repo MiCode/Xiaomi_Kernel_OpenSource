@@ -18,7 +18,8 @@
 #include "msm_ringbuffer.h"
 #include "msm_gpu.h"
 
-struct msm_ringbuffer *msm_ringbuffer_new(struct msm_gpu *gpu, int id)
+struct msm_ringbuffer *msm_ringbuffer_new(struct msm_gpu *gpu, int id,
+		struct msm_memptrs *memptrs, uint64_t memptrs_iova)
 {
 	struct msm_ringbuffer *ring;
 	int ret;
@@ -41,6 +42,10 @@ struct msm_ringbuffer *msm_ringbuffer_new(struct msm_gpu *gpu, int id)
 		ring->bo = NULL;
 		goto fail;
 	}
+
+	ring->memptrs = memptrs;
+	ring->memptrs_iova = memptrs_iova;
+
 
 	ring->start = msm_gem_vaddr(ring->bo);
 	ring->end   = ring->start + (MSM_GPU_RINGBUFFER_SZ >> 2);

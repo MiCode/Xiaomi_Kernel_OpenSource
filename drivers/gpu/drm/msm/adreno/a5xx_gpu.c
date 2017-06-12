@@ -46,7 +46,6 @@ static void a5xx_flush(struct msm_gpu *gpu, struct msm_ringbuffer *ring)
 static void a5xx_set_pagetable(struct msm_gpu *gpu, struct msm_ringbuffer *ring,
 	struct msm_gem_address_space *aspace)
 {
-	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	struct msm_mmu *mmu = aspace->mmu;
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
 
@@ -75,17 +74,15 @@ static void a5xx_set_pagetable(struct msm_gpu *gpu, struct msm_ringbuffer *ring,
 	 * reload the pagetable if the current ring gets preempted out.
 	 */
 	OUT_PKT7(ring, CP_MEM_WRITE, 4);
-	OUT_RING(ring, lower_32_bits(rbmemptr(adreno_gpu, ring->id, ttbr0)));
-	OUT_RING(ring, upper_32_bits(rbmemptr(adreno_gpu, ring->id, ttbr0)));
+	OUT_RING(ring, lower_32_bits(rbmemptr(ring, ttbr0)));
+	OUT_RING(ring, upper_32_bits(rbmemptr(ring, ttbr0)));
 	OUT_RING(ring, lower_32_bits(iommu->ttbr0));
 	OUT_RING(ring, upper_32_bits(iommu->ttbr0));
 
 	/* Also write the current contextidr (ASID) */
 	OUT_PKT7(ring, CP_MEM_WRITE, 3);
-	OUT_RING(ring, lower_32_bits(rbmemptr(adreno_gpu, ring->id,
-		contextidr)));
-	OUT_RING(ring, upper_32_bits(rbmemptr(adreno_gpu, ring->id,
-		contextidr)));
+	OUT_RING(ring, lower_32_bits(rbmemptr(ring, contextidr)));
+	OUT_RING(ring, upper_32_bits(rbmemptr(ring, contextidr)));
 	OUT_RING(ring, iommu->contextidr);
 
 	/* Invalidate the draw state so we start off fresh */
@@ -217,8 +214,8 @@ static void a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 	OUT_PKT7(ring, CP_EVENT_WRITE, 4);
 	OUT_RING(ring, CACHE_FLUSH_TS | (1 << 31));
 
-	OUT_RING(ring, lower_32_bits(rbmemptr(adreno_gpu, ring->id, fence)));
-	OUT_RING(ring, upper_32_bits(rbmemptr(adreno_gpu, ring->id, fence)));
+	OUT_RING(ring, lower_32_bits(rbmemptr(ring, fence)));
+	OUT_RING(ring, upper_32_bits(rbmemptr(ring, fence)));
 	OUT_RING(ring, submit->fence);
 
 	if (submit->secure) {
