@@ -2681,6 +2681,15 @@ extern void sched_boost_parse_dt(void);
 extern void clear_ed_task(struct task_struct *p, struct rq *rq);
 extern bool early_detection_notify(struct rq *rq, u64 wallclock);
 
+#ifdef CONFIG_SCHED_HMP
+extern unsigned int power_cost(int cpu, u64 demand);
+#else
+static inline unsigned int power_cost(int cpu, u64 demand)
+{
+	return cpu_max_possible_capacity(cpu);
+}
+#endif
+
 #else	/* CONFIG_SCHED_WALT */
 
 struct hmp_sched_stats;
@@ -2835,6 +2844,11 @@ static inline bool early_detection_notify(struct rq *rq, u64 wallclock)
 	return 0;
 }
 
+static inline unsigned int power_cost(int cpu, u64 demand)
+{
+	return SCHED_CAPACITY_SCALE;
+}
+
 #endif	/* CONFIG_SCHED_WALT */
 
 #ifdef CONFIG_SCHED_HMP
@@ -2849,7 +2863,6 @@ extern void
 check_for_freq_change(struct rq *rq, bool check_pred, bool check_groups);
 extern void fixup_nr_big_tasks(struct hmp_sched_stats *stats,
 					struct task_struct *p, s64 delta);
-extern unsigned int power_cost(int cpu, u64 demand);
 extern unsigned int cpu_temp(int cpu);
 extern void pre_big_task_count_change(const struct cpumask *cpus);
 extern void post_big_task_count_change(const struct cpumask *cpus);
@@ -2905,11 +2918,6 @@ check_for_freq_change(struct rq *rq, bool check_pred, bool check_groups) { }
 
 static inline void fixup_nr_big_tasks(struct hmp_sched_stats *stats,
 				      struct task_struct *p, s64 delta) { }
-
-static inline unsigned int power_cost(int cpu, u64 demand)
-{
-	return SCHED_CAPACITY_SCALE;
-}
 
 static inline unsigned int cpu_temp(int cpu)
 {
