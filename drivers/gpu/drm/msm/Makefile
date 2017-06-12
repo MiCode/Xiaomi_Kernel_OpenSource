@@ -144,6 +144,7 @@ msm_drm-$(CONFIG_DRM_MSM) += \
 	msm_rd.o \
 	msm_ringbuffer.o \
 	msm_prop.o \
-	msm_snapshot.o
+	msm_snapshot.o \
+	msm_submitqueue.o
 
 obj-$(CONFIG_DRM_MSM)	+= msm_drm.o

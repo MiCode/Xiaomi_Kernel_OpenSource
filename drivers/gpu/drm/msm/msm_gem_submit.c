@@ -35,7 +35,8 @@ static inline void __user *to_user_ptr(u64 address)
 
 static struct msm_gem_submit *submit_create(struct drm_device *dev,
 		struct msm_gem_address_space *aspace,
-		uint32_t nr_bos, uint32_t nr_cmds)
+		uint32_t nr_bos, uint32_t nr_cmds,
+		struct msm_gpu_submitqueue *queue)
 {
 	struct msm_gem_submit *submit;
 	uint64_t sz = sizeof(*submit) + (nr_bos * sizeof(submit->bos[0])) +
@@ -48,6 +49,7 @@ static struct msm_gem_submit *submit_create(struct drm_device *dev,
 	if (submit) {
 		submit->dev = dev;
 		submit->aspace = aspace;
+		submit->queue = queue;
 
 		/* initially, until copy_from_user() and bo lookup succeeds: */
 		submit->nr_bos = 0;
@@ -84,6 +86,7 @@ void msm_gem_submit_free(struct msm_gem_submit *submit)
 	if (!submit)
 		return;
 
+	msm_submitqueue_put(submit->queue);
 	list_del(&submit->node);
 	kfree(submit);
 }
@@ -415,6 +418,7 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 	struct drm_msm_gem_submit *args = data;
 	struct msm_file_private *ctx = file->driver_priv;
 	struct msm_gem_submit *submit;
+	struct msm_gpu_submitqueue *queue;
 	struct msm_gpu *gpu;
 	unsigned i;
 	int ret;
@@ -429,9 +433,14 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 	if (!gpu)
 		return -ENXIO;
 
+	queue = msm_submitqueue_get(ctx, args->queueid);
+	if (!queue)
+		return -ENOENT;
+
 	mutex_lock(&dev->struct_mutex);
 
-	submit = submit_create(dev, ctx->aspace, args->nr_bos, args->nr_cmds);
+	submit = submit_create(dev, ctx->aspace, args->nr_bos, args->nr_cmds,
+		queue);
 	if (!submit) {
 		ret = -ENOMEM;
 		goto out;
@@ -514,9 +523,7 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 	submit->nr_cmds = i;
 
 	/* Clamp the user submitted ring to the range of available rings */
-	submit->ring = clamp_t(uint32_t,
-		(args->flags & MSM_SUBMIT_RING_MASK) >> MSM_SUBMIT_RING_SHIFT,
-		0, gpu->nr_rings - 1);
+	submit->ring = clamp_t(uint32_t, queue->prio, 0, gpu->nr_rings - 1);
 
 	ret = msm_gpu_submit(gpu, submit);
 

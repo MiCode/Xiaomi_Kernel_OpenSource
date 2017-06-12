@@ -78,6 +78,9 @@ struct msm_gem_vma;
 struct msm_file_private {
 	struct msm_gem_address_space *aspace;
 	struct list_head counters;
+	rwlock_t queuelock;
+	struct list_head submitqueues;
+	int queueid;
 };
 
 enum msm_mdp_plane_property {
@@ -506,6 +509,16 @@ struct drm_framebuffer *msm_framebuffer_create(struct drm_device *dev,
 		struct drm_file *file, struct drm_mode_fb_cmd2 *mode_cmd);
 
 struct drm_fb_helper *msm_fbdev_init(struct drm_device *dev);
+
+struct msm_gpu_submitqueue;
+int msm_submitqueue_init(struct msm_file_private *ctx);
+struct msm_gpu_submitqueue *msm_submitqueue_get(struct msm_file_private *ctx,
+		u32 id);
+int msm_submitqueue_create(struct msm_file_private *ctx, u32 prio,
+		u32 flags, u32 *id);
+int msm_submitqueue_remove(struct msm_file_private *ctx, u32 id);
+void msm_submitqueue_close(struct msm_file_private *ctx);
+void msm_submitqueue_destroy(struct kref *kref);
 
 struct hdmi;
 int hdmi_modeset_init(struct hdmi *hdmi, struct drm_device *dev,
