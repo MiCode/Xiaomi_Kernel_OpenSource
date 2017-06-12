@@ -3656,6 +3656,13 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 unlock:
 	mutex_unlock(&chg->vconn_oc_lock);
 
+	/* clear exit sink based on cc */
+	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
+						EXIT_SNK_BASED_ON_CC_BIT, 0);
+	if (rc < 0)
+		smblib_err(chg, "Couldn't clear exit_sink_based_on_cc rc=%d\n",
+				rc);
+
 	typec_sink_removal(chg);
 	smblib_update_usb_type(chg);
 }
@@ -4239,6 +4246,7 @@ static void smblib_legacy_detection_work(struct work_struct *work)
 
 unlock:
 	chg->typec_en_dis_active = 0;
+	smblib_usb_typec_change(chg);
 	mutex_unlock(&chg->lock);
 }
 
