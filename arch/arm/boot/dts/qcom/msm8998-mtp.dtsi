@@ -11,9 +11,8 @@
  */
 
 #include <dt-bindings/interrupt-controller/irq.h>
-#include "msm8998-pinctrl.dtsi"
 #include "msm8998-camera-sensor-mtp.dtsi"
-/ {
+&vendor {
 	bluetooth: bt_wcn3990 {
 		compatible = "qca,wcn3990";
 		qca,bt-vdd-io-supply = <&pm8998_s3>;
@@ -319,6 +318,8 @@
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,mdss-dsi-mode-sel-gpio-state = "dual_port";
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,partial-update-enabled = "single_roi";
+	qcom,panel-roi-alignment = <720 256 720 256 1440 256>;
 };
 
 &dsi_dual_nt35597_truly_video {
@@ -586,7 +587,7 @@
 	};
 };
 
-/{
+&vendor {
 	mtp_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
 		#include "fg-gen3-batterydata-itech-3000mah.dtsi"

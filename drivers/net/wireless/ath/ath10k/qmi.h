@@ -18,7 +18,7 @@
 #define ATH10K_SNOC_WLAN_FW_READY_TIMEOUT	8000
 
 #define WLFW_SERVICE_INS_ID_V01		0
-#define WLFW_CLIENT_ID			0x4b4e454c
+#define WLFW_CLIENT_ID			0x41544851
 #define WLFW_TIMEOUT_MS			20000
 
 enum ath10k_snoc_driver_event_type {

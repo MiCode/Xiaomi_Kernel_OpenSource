@@ -2,6 +2,11 @@
 This driver implements Ethernet driver for Neutrino ethernet controller
 Required properties:
   - compatible: Should be "qcom,ntn_avb"
+  - ntn-rst-delay-msec: delay (msec) required after PCIe reset for stabilization
+  - ntn-rc-num: PCIe root complex number on which Neutrino is connected
+
+Optional properties:
+  - ntn-bus-num: PCIe bus number on which Neutrino is connected
   - ntn-rst-gpio: Neutrino reset GPIO
   - vdd-ntn-hsic-supply: neutrino HSIC power supply
   - vdd-ntn-pci-supply: PCIe core power supply
@@ -25,4 +30,5 @@ Example:
 		pinctrl-0 = <&ntn_default>;
 		qcom,ntn-rst-delay-msec = <100>;
 		qcom,ntn-rc-num = <1>;
+		qcom,ntn-bus-num = <1>;
 	};

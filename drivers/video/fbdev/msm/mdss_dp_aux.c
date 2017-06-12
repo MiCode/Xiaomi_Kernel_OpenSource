@@ -73,6 +73,21 @@ static int dp_buf_trailing(struct edp_buf *eb)
 	return (int)(eb->end - eb->data);
 }
 
+static void mdss_dp_aux_clear_hw_interrupts(void __iomem *phy_base)
+{
+	u32 data;
+
+	data = dp_read(phy_base + DP_PHY_AUX_INTERRUPT_STATUS);
+	pr_debug("PHY_AUX_INTERRUPT_STATUS=0x%08x\n", data);
+
+	dp_write(phy_base + DP_PHY_AUX_INTERRUPT_CLEAR, 0x1f);
+	dp_write(phy_base + DP_PHY_AUX_INTERRUPT_CLEAR, 0x9f);
+	dp_write(phy_base + DP_PHY_AUX_INTERRUPT_CLEAR, 0);
+
+	/* Ensure that all interrupts are cleared and acked */
+	wmb();
+}
+
 /*
  * edp aux dp_buf_add_cmd:
  * NO native and i2c command mix allowed
@@ -123,35 +138,46 @@ static int dp_buf_add_cmd(struct edp_buf *eb, struct edp_cmd *cmd)
 	return cmd->len - 1;
 }
 
-static int dp_cmd_fifo_tx(struct edp_buf *tp, unsigned char *base)
+static int dp_cmd_fifo_tx(struct mdss_dp_drv_pdata *dp)
 {
 	u32 data;
-	char *dp;
+	char *datap;
 	int len, cnt;
+	struct edp_buf *tp = &dp->txp;
+	void __iomem *base = dp->base;
+
 
 	len = tp->len;	/* total byte to cmd fifo */
 	if (len == 0)
 		return 0;
 
 	cnt = 0;
-	dp = tp->start;
+	datap = tp->start;
 
 	while (cnt < len) {
-		data = *dp; /* data byte */
+		data = *datap; /* data byte */
 		data <<= 8;
 		data &= 0x00ff00; /* index = 0, write */
 		if (cnt == 0)
 			data |= BIT(31);  /* INDEX_WRITE */
 		dp_write(base + DP_AUX_DATA, data);
 		cnt++;
-		dp++;
+		datap++;
 	}
+
+	/* clear the current tx request before queuing a new one */
+	dp_write(base + DP_AUX_TRANS_CTRL, 0);
+
+	/* clear any previous PHY AUX interrupts */
+	mdss_dp_aux_clear_hw_interrupts(dp->phy_io.base);
 
 	data = (tp->trans_num - 1);
 	if (tp->i2c) {
 		data |= BIT(8); /* I2C */
-		data |= BIT(10); /* NO SEND ADDR */
-		data |= BIT(11); /* NO SEND STOP */
+		if (tp->no_send_addr)
+			data |= BIT(10); /* NO SEND ADDR */
+		if (tp->no_send_stop)
+			data |= BIT(11); /* NO SEND STOP */
 	}
 
 	data |= BIT(9); /* GO */
@@ -164,7 +190,7 @@ static int dp_cmd_fifo_rx(struct edp_buf *rp, int len, unsigned char *base)
 {
 	u32 data;
 	char *dp;
-	int i;
+	int i, actual_i;
 
 	data = 0; /* index = 0 */
 	data |= BIT(31);  /* INDEX_WRITE */
@@ -177,7 +203,12 @@ static int dp_cmd_fifo_rx(struct edp_buf *rp, int len, unsigned char *base)
 	data = dp_read(base + DP_AUX_DATA);
 	for (i = 0; i < len; i++) {
 		data = dp_read(base + DP_AUX_DATA);
-		*dp++ = (char)((data >> 8) & 0xff);
+		*dp++ = (char)((data >> 8) & 0xFF);
+
+		actual_i = (data >> 16) & 0xFF;
+		if (i != actual_i)
+			pr_warn("Index mismatch: expected %d, found %d\n",
+				i, actual_i);
 	}
 
 	rp->len = len;
@@ -214,9 +245,16 @@ static int dp_aux_write_cmds(struct mdss_dp_drv_pdata *ep,
 
 	reinit_completion(&ep->aux_comp);
 
-	len = dp_cmd_fifo_tx(&ep->txp, ep->base);
+	tp->no_send_addr = true;
+	tp->no_send_stop = true;
+	len = dp_cmd_fifo_tx(ep);
 
-	wait_for_completion_timeout(&ep->aux_comp, HZ/4);
+	if (!wait_for_completion_timeout(&ep->aux_comp, HZ/4)) {
+		pr_err("aux write timeout\n");
+		ep->aux_error_num = EDP_AUX_ERR_TOUT;
+		/* Reset the AUX controller state machine */
+		mdss_dp_aux_reset(&ep->ctrl_io);
+	}
 
 	if (ep->aux_error_num == EDP_AUX_ERR_NONE)
 		ret = len;
@@ -228,13 +266,6 @@ static int dp_aux_write_cmds(struct mdss_dp_drv_pdata *ep,
 	return  ret;
 }
 
-int dp_aux_write(void *ep, struct edp_cmd *cmd)
-{
-	int rc = dp_aux_write_cmds(ep, cmd);
-
-	return rc < 0 ? -EINVAL : 0;
-}
-
 static int dp_aux_read_cmds(struct mdss_dp_drv_pdata *ep,
 				struct edp_cmd *cmds)
 {
@@ -242,6 +273,7 @@ static int dp_aux_read_cmds(struct mdss_dp_drv_pdata *ep,
 	struct edp_buf *tp;
 	struct edp_buf *rp;
 	int len, ret;
+	u32 data;
 
 	mutex_lock(&ep->aux_mutex);
 	ep->aux_cmd_busy = 1;
@@ -270,10 +302,23 @@ static int dp_aux_read_cmds(struct mdss_dp_drv_pdata *ep,
 
 	reinit_completion(&ep->aux_comp);
 
-	dp_cmd_fifo_tx(tp, ep->base);
+	tp->no_send_addr = true;
+	tp->no_send_stop = false;
+	dp_cmd_fifo_tx(ep);
 
-	wait_for_completion_timeout(&ep->aux_comp, HZ/4);
+	if (!wait_for_completion_timeout(&ep->aux_comp, HZ/4)) {
+		pr_err("aux read timeout\n");
+		ep->aux_error_num = EDP_AUX_ERR_TOUT;
+		/* Reset the AUX controller state machine */
+		mdss_dp_aux_reset(&ep->ctrl_io);
+		ret = ep->aux_error_num;
+		goto end;
+	}
 
+	/* clear the current rx request before queuing a new one */
+	data = dp_read(ep->base + DP_AUX_TRANS_CTRL);
+	data &= (~BIT(9));
+	dp_write(ep->base + DP_AUX_TRANS_CTRL, data);
 	if (ep->aux_error_num == EDP_AUX_ERR_NONE) {
 		ret = dp_cmd_fifo_rx(rp, len, ep->base);
 
@@ -284,58 +329,128 @@ static int dp_aux_read_cmds(struct mdss_dp_drv_pdata *ep,
 		ret = ep->aux_error_num;
 	}
 
+end:
 	ep->aux_cmd_busy = 0;
 	mutex_unlock(&ep->aux_mutex);
 
 	return ret;
 }
 
-int dp_aux_read(void *ep, struct edp_cmd *cmds)
-{
-	int rc = dp_aux_read_cmds(ep, cmds);
-
-	return rc  < 0 ? -EINVAL : 0;
-}
-
 void dp_aux_native_handler(struct mdss_dp_drv_pdata *ep, u32 isr)
 {
-	if (isr & EDP_INTR_AUX_I2C_DONE)
+	pr_debug("isr=0x%08x\n", isr);
+	if (isr & EDP_INTR_AUX_I2C_DONE) {
 		ep->aux_error_num = EDP_AUX_ERR_NONE;
-	else if (isr & EDP_INTR_WRONG_ADDR)
+	} else if (isr & EDP_INTR_WRONG_ADDR) {
 		ep->aux_error_num = EDP_AUX_ERR_ADDR;
-	else if (isr & EDP_INTR_TIMEOUT)
+	} else if (isr & EDP_INTR_TIMEOUT) {
 		ep->aux_error_num = EDP_AUX_ERR_TOUT;
-	if (isr & EDP_INTR_NACK_DEFER)
+	} else if (isr & EDP_INTR_NACK_DEFER) {
 		ep->aux_error_num = EDP_AUX_ERR_NACK;
+	} else if (isr & EDP_INTR_PHY_AUX_ERR) {
+		ep->aux_error_num = EDP_AUX_ERR_PHY;
+		mdss_dp_aux_clear_hw_interrupts(ep->phy_io.base);
+	} else {
+		ep->aux_error_num = EDP_AUX_ERR_NONE;
+	}
 
 	complete(&ep->aux_comp);
 }
 
 void dp_aux_i2c_handler(struct mdss_dp_drv_pdata *ep, u32 isr)
 {
+	pr_debug("isr=0x%08x\n", isr);
 	if (isr & EDP_INTR_AUX_I2C_DONE) {
 		if (isr & (EDP_INTR_I2C_NACK | EDP_INTR_I2C_DEFER))
 			ep->aux_error_num = EDP_AUX_ERR_NACK;
 		else
 			ep->aux_error_num = EDP_AUX_ERR_NONE;
 	} else {
-		if (isr & EDP_INTR_WRONG_ADDR)
+		if (isr & EDP_INTR_WRONG_ADDR) {
 			ep->aux_error_num = EDP_AUX_ERR_ADDR;
-		else if (isr & EDP_INTR_TIMEOUT)
+		} else if (isr & EDP_INTR_TIMEOUT) {
 			ep->aux_error_num = EDP_AUX_ERR_TOUT;
-		if (isr & EDP_INTR_NACK_DEFER)
+		} else if (isr & EDP_INTR_NACK_DEFER) {
 			ep->aux_error_num = EDP_AUX_ERR_NACK_DEFER;
-		if (isr & EDP_INTR_I2C_NACK)
+		} else if (isr & EDP_INTR_I2C_NACK) {
 			ep->aux_error_num = EDP_AUX_ERR_NACK;
-		if (isr & EDP_INTR_I2C_DEFER)
+		} else if (isr & EDP_INTR_I2C_DEFER) {
 			ep->aux_error_num = EDP_AUX_ERR_DEFER;
+		} else if (isr & EDP_INTR_PHY_AUX_ERR) {
+			ep->aux_error_num = EDP_AUX_ERR_PHY;
+			mdss_dp_aux_clear_hw_interrupts(ep->phy_io.base);
+		} else {
+			ep->aux_error_num = EDP_AUX_ERR_NONE;
+		}
 	}
 
 	complete(&ep->aux_comp);
 }
 
-static int dp_aux_write_buf(struct mdss_dp_drv_pdata *ep, u32 addr,
-				char *buf, int len, int i2c)
+static int dp_aux_rw_cmds_retry(struct mdss_dp_drv_pdata *dp,
+	struct edp_cmd *cmd, enum dp_aux_transaction transaction)
+{
+	int const retry_count = 5;
+	int adjust_count = 0;
+	int i;
+	u32 aux_cfg1_config_count;
+	int ret;
+
+	aux_cfg1_config_count = mdss_dp_phy_aux_get_config_cnt(dp,
+			PHY_AUX_CFG1);
+retry:
+	i = 0;
+	ret = 0;
+	do {
+		struct edp_cmd cmd1 = *cmd;
+
+		dp->aux_error_num = EDP_AUX_ERR_NONE;
+		pr_debug("Trying %s, iteration count: %d\n",
+			mdss_dp_aux_transaction_to_string(transaction),
+			i + 1);
+		if (transaction == DP_AUX_READ)
+			ret = dp_aux_read_cmds(dp, &cmd1);
+		else if (transaction == DP_AUX_WRITE)
+			ret = dp_aux_write_cmds(dp, &cmd1);
+
+		i++;
+	} while ((i < retry_count) && (ret < 0));
+
+	if (ret >= 0) /* rw success */
+		goto end;
+
+	if (adjust_count >= aux_cfg1_config_count) {
+		pr_err("PHY_AUX_CONFIG1 calibration failed\n");
+		goto end;
+	}
+
+	/* Adjust AUX configuration and retry */
+	pr_debug("AUX failure (%d), adjust AUX settings\n", ret);
+	mdss_dp_phy_aux_update_config(dp, PHY_AUX_CFG1);
+	adjust_count++;
+	goto retry;
+
+end:
+	return ret;
+}
+
+/**
+ * dp_aux_write_buf_retry() - send a AUX write command
+ * @dp: display port driver data
+ * @addr: AUX address (in hex) to write the command to
+ * @buf: the buffer containing the actual payload
+ * @len: the length of the buffer @buf
+ * @i2c: indicates if it is an i2c-over-aux transaction
+ * @retry: specifies if retries should be attempted upon failures
+ *
+ * Send an AUX write command with the specified payload over the AUX
+ * channel. This function can send both native AUX command or an
+ * i2c-over-AUX command. In addition, if specified, it can also retry
+ * when failures are detected. The retry logic would adjust AUX PHY
+ * parameters on the fly.
+ */
+static int dp_aux_write_buf_retry(struct mdss_dp_drv_pdata *dp, u32 addr,
+	char *buf, int len, int i2c, bool retry)
 {
 	struct edp_cmd	cmd;
 
@@ -346,11 +461,42 @@ static int dp_aux_write_buf(struct mdss_dp_drv_pdata *ep, u32 addr,
 	cmd.len = len & 0x0ff;
 	cmd.next = 0;
 
-	return dp_aux_write_cmds(ep, &cmd);
+	if (retry)
+		return dp_aux_rw_cmds_retry(dp, &cmd, DP_AUX_WRITE);
+	else
+		return dp_aux_write_cmds(dp, &cmd);
 }
 
-static int dp_aux_read_buf(struct mdss_dp_drv_pdata *ep, u32 addr,
-				int len, int i2c)
+static int dp_aux_write_buf(struct mdss_dp_drv_pdata *dp, u32 addr,
+	char *buf, int len, int i2c)
+{
+	return dp_aux_write_buf_retry(dp, addr, buf, len, i2c, true);
+}
+
+int dp_aux_write(void *dp, struct edp_cmd *cmd)
+{
+	int rc = dp_aux_write_cmds(dp, cmd);
+
+	return rc < 0 ? -EINVAL : 0;
+}
+
+/**
+ * dp_aux_read_buf_retry() - send a AUX read command
+ * @dp: display port driver data
+ * @addr: AUX address (in hex) to write the command to
+ * @buf: the buffer containing the actual payload
+ * @len: the length of the buffer @buf
+ * @i2c: indicates if it is an i2c-over-aux transaction
+ * @retry: specifies if retries should be attempted upon failures
+ *
+ * Send an AUX write command with the specified payload over the AUX
+ * channel. This function can send both native AUX command or an
+ * i2c-over-AUX command. In addition, if specified, it can also retry
+ * when failures are detected. The retry logic would adjust AUX PHY
+ * parameters on the fly.
+ */
+static int dp_aux_read_buf_retry(struct mdss_dp_drv_pdata *dp, u32 addr,
+		int len, int i2c, bool retry)
 {
 	struct edp_cmd cmd = {0};
 
@@ -361,7 +507,23 @@ static int dp_aux_read_buf(struct mdss_dp_drv_pdata *ep, u32 addr,
 	cmd.len = len & 0x0ff;
 	cmd.next = 0;
 
-	return dp_aux_read_cmds(ep, &cmd);
+	if (retry)
+		return dp_aux_rw_cmds_retry(dp, &cmd, DP_AUX_READ);
+	else
+		return dp_aux_read_cmds(dp, &cmd);
+}
+
+static int dp_aux_read_buf(struct mdss_dp_drv_pdata *dp, u32 addr,
+				int len, int i2c)
+{
+	return dp_aux_read_buf_retry(dp, addr, len, i2c, true);
+}
+
+int dp_aux_read(void *dp, struct edp_cmd *cmds)
+{
+	int rc = dp_aux_read_cmds(dp, cmds);
+
+	return rc  < 0 ? -EINVAL : 0;
 }
 
 /*
@@ -733,16 +895,68 @@ static void dp_aux_send_checksum(struct mdss_dp_drv_pdata *dp, u32 checksum)
 	dp_aux_write_buf(dp, 0x260, data, 1, 0);
 }
 
+int mdss_dp_aux_read_edid(struct mdss_dp_drv_pdata *dp,
+	u8 *buf, int size, int blk_num)
+{
+	int max_size_bytes = 16;
+	int rc, read_size;
+	int ret = 0;
+	u8 offset_lut[] = {0x0, 0x80};
+	u8 offset;
+
+	if (dp->test_data.test_requested == TEST_EDID_READ)
+		max_size_bytes = 128;
+
+	/*
+	 * Calculate the offset of the desired EDID block to be read.
+	 * For even blocks, offset starts at 0x0
+	 * For odd blocks, offset starts at 0x80
+	 */
+	if (blk_num % 2)
+		offset = offset_lut[1];
+	else
+		offset = offset_lut[0];
+
+	do {
+		struct edp_cmd cmd = {0};
+
+		read_size = min(size, max_size_bytes);
+		cmd.read = 1;
+		cmd.addr = EDID_START_ADDRESS;
+		cmd.len = read_size;
+		cmd.out_buf = buf;
+		cmd.i2c = 1;
+
+		/* Write the offset first prior to reading the data */
+		pr_debug("offset=0x%x, size=%d\n", offset, size);
+		dp_aux_write_buf_retry(dp, EDID_START_ADDRESS, &offset, 1, 1,
+			false);
+		rc = dp_aux_read(dp, &cmd);
+		if (rc < 0) {
+			pr_err("aux read failed\n");
+			return rc;
+		}
+
+		print_hex_dump(KERN_DEBUG, "DP:EDID: ", DUMP_PREFIX_NONE, 16, 1,
+				buf, read_size, false);
+		buf += read_size;
+		offset += read_size;
+		size -= read_size;
+		ret += read_size;
+	} while (size > 0);
+
+	return ret;
+}
+
 int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 {
-	struct edp_buf *rp = &dp->rxp;
 	int rlen, ret = 0;
 	int edid_blk = 0, blk_num = 0, retries = 10;
 	bool edid_parsing_done = false;
-	const u8 cea_tag = 0x02, start_ext_blk = 0x1;
 	u32 const segment_addr = 0x30;
 	u32 checksum = 0;
-	char segment = 0x1;
+	bool phy_aux_update_requested = false;
+	bool ext_block_parsing_done = false;
 
 	ret = dp_aux_chan_ready(dp);
 	if (ret) {
@@ -750,77 +964,108 @@ int mdss_dp_edid_read(struct mdss_dp_drv_pdata *dp)
 		return ret;
 	}
 
+	memset(dp->edid_buf, 0, dp->edid_buf_size);
+
 	/**
 	 * Parse the test request vector to see whether there is a
 	 * TEST_EDID_READ test request.
 	 */
 	dp_sink_parse_test_request(dp);
 
-	do {
-		rlen = dp_aux_read_buf(dp, EDID_START_ADDRESS +
-				(blk_num * EDID_BLOCK_SIZE),
-				EDID_BLOCK_SIZE, 1);
+	while (retries) {
+		u8 segment;
+		u8 edid_buf[EDID_BLOCK_SIZE] = {0};
+
+		/*
+		 * Write the segment first.
+		 * Segment = 0, for blocks 0 and 1
+		 * Segment = 1, for blocks 2 and 3
+		 * Segment = 2, for blocks 3 and 4
+		 * and so on ...
+		 */
+		segment = blk_num >> 1;
+		dp_aux_write_buf_retry(dp, segment_addr, &segment, 1, 1, false);
+
+		rlen = mdss_dp_aux_read_edid(dp, edid_buf, EDID_BLOCK_SIZE,
+			blk_num);
 		if (rlen != EDID_BLOCK_SIZE) {
-			pr_err("Read failed. rlen=%d\n", rlen);
+			pr_err("Read failed. rlen=%s\n",
+				mdss_dp_get_aux_error(rlen));
+			mdss_dp_phy_aux_update_config(dp, PHY_AUX_CFG1);
+			phy_aux_update_requested = true;
+			retries--;
 			continue;
 		}
-
 		pr_debug("blk_num=%d, rlen=%d\n", blk_num, rlen);
-
-		if (dp_edid_is_valid_header(rp->data)) {
-			ret = dp_edid_buf_error(rp->data, rp->len);
+		print_hex_dump(KERN_DEBUG, "DP:EDID: ", DUMP_PREFIX_NONE, 16, 1,
+				edid_buf, EDID_BLOCK_SIZE, false);
+		if (dp_edid_is_valid_header(edid_buf)) {
+			ret = dp_edid_buf_error(edid_buf, rlen);
 			if (ret) {
 				pr_err("corrupt edid block detected\n");
+				mdss_dp_phy_aux_update_config(dp, PHY_AUX_CFG1);
+				phy_aux_update_requested = true;
+				retries--;
 				continue;
 			}
 
 			if (edid_parsing_done) {
+				pr_debug("block 0 parsed already\n");
 				blk_num++;
+				retries--;
 				continue;
 			}
 
-			dp_extract_edid_manufacturer(&dp->edid, rp->data);
-			dp_extract_edid_product(&dp->edid, rp->data);
-			dp_extract_edid_version(&dp->edid, rp->data);
-			dp_extract_edid_ext_block_cnt(&dp->edid, rp->data);
-			dp_extract_edid_video_support(&dp->edid, rp->data);
-			dp_extract_edid_feature(&dp->edid, rp->data);
+			dp_extract_edid_manufacturer(&dp->edid, edid_buf);
+			dp_extract_edid_product(&dp->edid, edid_buf);
+			dp_extract_edid_version(&dp->edid, edid_buf);
+			dp_extract_edid_ext_block_cnt(&dp->edid, edid_buf);
+			dp_extract_edid_video_support(&dp->edid, edid_buf);
+			dp_extract_edid_feature(&dp->edid, edid_buf);
 			dp_extract_edid_detailed_timing_description(&dp->edid,
-				rp->data);
+				edid_buf);
 
 			edid_parsing_done = true;
+		} else if (!edid_parsing_done) {
+			pr_debug("Invalid edid block 0 header\n");
+			/* Retry block 0 with adjusted phy aux settings */
+			mdss_dp_phy_aux_update_config(dp, PHY_AUX_CFG1);
+			phy_aux_update_requested = true;
+			retries--;
+			continue;
 		} else {
 			edid_blk++;
 			blk_num++;
-
-			/* fix dongle byte shift issue */
-			if (edid_blk == 1 && rp->data[0] != cea_tag) {
-				u8 tmp[EDID_BLOCK_SIZE - 1];
-
-				memcpy(tmp, rp->data, EDID_BLOCK_SIZE - 1);
-				rp->data[0] = cea_tag;
-				memcpy(rp->data + 1, tmp, EDID_BLOCK_SIZE - 1);
-			}
 		}
 
 		memcpy(dp->edid_buf + (edid_blk * EDID_BLOCK_SIZE),
-			rp->data, EDID_BLOCK_SIZE);
+			edid_buf, EDID_BLOCK_SIZE);
 
-		checksum = rp->data[rp->len - 1];
+		checksum = edid_buf[rlen - 1];
 
 		/* break if no more extension blocks present */
-		if (edid_blk == dp->edid.ext_block_cnt)
+		if (edid_blk >= dp->edid.ext_block_cnt) {
+			ext_block_parsing_done = true;
 			break;
-
-		/* write segment number to read block 3 onwards */
-		if (edid_blk == start_ext_blk)
-			dp_aux_write_buf(dp, segment_addr, &segment, 1, 1);
-	} while (retries--);
+		}
+	}
 
 	if (dp->test_data.test_requested == TEST_EDID_READ) {
 		pr_debug("sending checksum %d\n", checksum);
 		dp_aux_send_checksum(dp, checksum);
 		dp->test_data = (const struct dpcd_test_request){ 0 };
+	}
+
+	/*
+	 * Trigger the reading of DPCD if there was a change in the AUX
+	 * configuration caused by a failure while reading the EDID.
+	 * This is required to ensure the integrity and validity
+	 * of the sink capabilities read that will subsequently be used
+	 * to establish the mainlink.
+	 */
+	if (edid_parsing_done && ext_block_parsing_done
+			&& phy_aux_update_requested) {
+		dp->dpcd_read_required = true;
 	}
 
 	return ret;
@@ -834,6 +1079,10 @@ int mdss_dp_dpcd_cap_read(struct mdss_dp_drv_pdata *ep)
 	struct dpcd_cap *cap;
 	struct edp_buf *rp;
 	int rlen;
+	int i;
+
+	cap = &ep->dpcd;
+	memset(cap, 0, sizeof(*cap));
 
 	rlen = dp_aux_read_buf(ep, 0, len, 0);
 	if (rlen <= 0) {
@@ -848,10 +1097,7 @@ int mdss_dp_dpcd_cap_read(struct mdss_dp_drv_pdata *ep)
 	}
 
 	rp = &ep->rxp;
-	cap = &ep->dpcd;
 	bp = rp->data;
-
-	memset(cap, 0, sizeof(*cap));
 
 	data = *bp++; /* byte 0 */
 	cap->major = (data >> 4) & 0x0f;
@@ -909,6 +1155,11 @@ int mdss_dp_dpcd_cap_read(struct mdss_dp_drv_pdata *ep)
 
 	data = *bp++; /* Byte 7: DOWN_STREAM_PORT_COUNT */
 	cap->downstream_port.dfp_count = data & 0x7;
+	if (cap->downstream_port.dfp_count > DP_MAX_DS_PORT_COUNT) {
+		pr_debug("DS port count %d greater that max (%d) supported\n",
+			cap->downstream_port.dfp_count, DP_MAX_DS_PORT_COUNT);
+		cap->downstream_port.dfp_count = DP_MAX_DS_PORT_COUNT;
+	}
 	cap->downstream_port.msa_timing_par_ignored = data & BIT(6);
 	cap->downstream_port.oui_support = data & BIT(7);
 	pr_debug("dfp_count = %d, msa_timing_par_ignored = %d\n",
@@ -916,17 +1167,23 @@ int mdss_dp_dpcd_cap_read(struct mdss_dp_drv_pdata *ep)
 			cap->downstream_port.msa_timing_par_ignored);
 	pr_debug("oui_support = %d\n", cap->downstream_port.oui_support);
 
-	data = *bp++; /* byte 8 */
-	if (data & BIT(1)) {
-		cap->flags |= DPCD_PORT_0_EDID_PRESENTED;
-		pr_debug("edid presented\n");
+	for (i = 0; i < DP_MAX_DS_PORT_COUNT; i++) {
+		data = *bp++; /* byte 8 + i*2 */
+		pr_debug("parsing capabilities for DS port %d\n", i);
+		if (data & BIT(1)) {
+			if (i == 0)
+				cap->flags |= DPCD_PORT_0_EDID_PRESENTED;
+			else
+				cap->flags |= DPCD_PORT_1_EDID_PRESENTED;
+			pr_debug("local edid present\n");
+		} else {
+			pr_debug("local edid absent\n");
+		}
+
+		data = *bp++; /* byte 9 + i*2 */
+		cap->rx_port_buf_size[i] = (data + 1) * 32;
+		pr_debug("lane_buf_size=%d\n", cap->rx_port_buf_size[i]);
 	}
-
-	data = *bp++; /* byte 9 */
-	cap->rx_port0_buf_size = (data + 1) * 32;
-	pr_debug("lane_buf_size=%d\n", cap->rx_port0_buf_size);
-
-	bp += 2; /* skip 10, 11 port1 capability */
 
 	data = *bp++;	/* byte 12 */
 	cap->i2c_speed_ctrl = data;
@@ -1257,6 +1514,8 @@ static void dp_sink_parse_sink_count(struct mdss_dp_drv_pdata *ep)
 	int rlen;
 	int const param_len = 0x1;
 	int const sink_count_addr = 0x200;
+
+	ep->prev_sink_count = ep->sink_count;
 
 	rlen = dp_aux_read_buf(ep, sink_count_addr, param_len, 0);
 	if (rlen < param_len) {
@@ -2363,8 +2622,8 @@ clear:
 void mdss_dp_aux_parse_sink_status_field(struct mdss_dp_drv_pdata *ep)
 {
 	dp_sink_parse_sink_count(ep);
-	dp_sink_parse_test_request(ep);
 	mdss_dp_aux_link_status_read(ep, 6);
+	dp_sink_parse_test_request(ep);
 }
 
 int mdss_dp_dpcd_status_read(struct mdss_dp_drv_pdata *ep)

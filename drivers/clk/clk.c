@@ -1751,6 +1751,15 @@ static int clk_change_rate(struct clk_core *core)
 	else if (core->parent)
 		best_parent_rate = core->parent->rate;
 
+	trace_clk_set_rate(core, core->new_rate);
+
+	/* Enforce vdd requirements for new frequency. */
+	if (core->prepare_count) {
+		rc = clk_vote_rate_vdd(core, core->new_rate);
+		if (rc)
+			goto out;
+	}
+
 	if (core->new_parent && core->new_parent != core->parent) {
 		old_parent = __clk_set_parent_before(core, core->new_parent);
 		trace_clk_set_parent(core, core->new_parent);
@@ -1766,15 +1775,6 @@ static int clk_change_rate(struct clk_core *core)
 
 		trace_clk_set_parent_complete(core, core->new_parent);
 		__clk_set_parent_after(core, core->new_parent, old_parent);
-	}
-
-	trace_clk_set_rate(core, core->new_rate);
-
-	/* Enforce vdd requirements for new frequency. */
-	if (core->prepare_count) {
-		rc = clk_vote_rate_vdd(core, core->new_rate);
-		if (rc)
-			goto out;
 	}
 
 	if (!skip_set_rate && core->ops->set_rate) {
@@ -2324,6 +2324,56 @@ static struct hlist_head *all_lists[] = {
 static struct hlist_head *orphan_list[] = {
 	&clk_orphan_list,
 	NULL,
+};
+
+static void clk_state_subtree(struct clk_core *c)
+{
+	int vdd_level = 0;
+	struct clk_core *child;
+
+	if (!c)
+		return;
+
+	if (c->vdd_class) {
+		vdd_level = clk_find_vdd_level(c, c->rate);
+		if (vdd_level < 0)
+			vdd_level = 0;
+	}
+
+	trace_clk_state(c->name, c->prepare_count, c->enable_count,
+						c->rate, vdd_level);
+
+	hlist_for_each_entry(child, &c->children, child_node)
+		clk_state_subtree(child);
+}
+
+static int clk_state_show(struct seq_file *s, void *data)
+{
+	struct clk_core *c;
+	struct hlist_head **lists = (struct hlist_head **)s->private;
+
+	clk_prepare_lock();
+
+	for (; *lists; lists++)
+		hlist_for_each_entry(c, *lists, child_node)
+			clk_state_subtree(c);
+
+	clk_prepare_unlock();
+
+	return 0;
+}
+
+
+static int clk_state_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, clk_state_show, inode->i_private);
+}
+
+static const struct file_operations clk_state_fops = {
+	.open		= clk_state_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
 };
 
 static void clk_summary_show_one(struct seq_file *s, struct clk_core *c,
@@ -2999,6 +3049,11 @@ static int __init clk_debug_init(void)
 
 	d = debugfs_create_u32("debug_suspend", S_IRUGO | S_IWUSR,
 						rootdir, &debug_suspend);
+	if (!d)
+		return -ENOMEM;
+
+	d = debugfs_create_file("trace_clocks", S_IRUGO, rootdir, &all_lists,
+				&clk_state_fops);
 	if (!d)
 		return -ENOMEM;
 

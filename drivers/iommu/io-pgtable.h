@@ -67,6 +67,7 @@ struct io_pgtable_cfg {
 	unsigned long			pgsize_bitmap;
 	unsigned int			ias;
 	unsigned int			oas;
+	int				sep;
 	const struct iommu_gather_ops	*tlb;
 	struct device			*iommu_dev;
 	dma_addr_t			iova_base;
@@ -124,6 +125,8 @@ struct io_pgtable_ops {
 				    unsigned long iova);
 	bool (*is_iova_coherent)(struct io_pgtable_ops *ops,
 				unsigned long iova);
+	uint64_t (*iova_to_pte)(struct io_pgtable_ops *ops,
+		    unsigned long iova);
 
 };
 

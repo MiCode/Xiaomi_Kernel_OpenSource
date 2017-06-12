@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -928,7 +928,8 @@ static unsigned long branch_clk_get_rate(struct clk *c)
 {
 	struct branch_clk *branch = to_branch_clk(c);
 
-	if (branch->max_div)
+	if (branch->max_div ||
+			(branch->aggr_sibling_rates && !branch->is_prepared))
 		return branch->c.rate;
 
 	return clk_get_rate(c->parent);
@@ -1338,34 +1339,6 @@ static struct frac_entry frac_table_810m[] = { /* Link rate of 162M */
 	{0, 0},
 };
 
-static bool is_same_rcg_config(struct rcg_clk *rcg, struct clk_freq_tbl *freq,
-			       bool has_mnd)
-{
-	u32 cfg;
-
-	/* RCG update pending */
-	if (readl_relaxed(CMD_RCGR_REG(rcg)) & CMD_RCGR_CONFIG_DIRTY_MASK)
-		return false;
-	if (has_mnd)
-		if (readl_relaxed(M_REG(rcg)) != freq->m_val ||
-		    readl_relaxed(N_REG(rcg)) != freq->n_val ||
-		    readl_relaxed(D_REG(rcg)) != freq->d_val)
-			return false;
-	/*
-	 * Both 0 and 1 represent same divider value in HW.
-	 * Always use 0 to simplify comparison.
-	 */
-	if ((freq->div_src_val & CFG_RCGR_DIV_MASK) == 1)
-		freq->div_src_val &= ~CFG_RCGR_DIV_MASK;
-	cfg = readl_relaxed(CFG_RCGR_REG(rcg));
-	if ((cfg & CFG_RCGR_DIV_MASK) == 1)
-		cfg &= ~CFG_RCGR_DIV_MASK;
-	if (cfg != freq->div_src_val)
-		return false;
-
-	return true;
-}
-
 static int set_rate_edp_pixel(struct clk *clk, unsigned long rate)
 {
 	struct rcg_clk *rcg = to_rcg_clk(clk);
@@ -1403,8 +1376,7 @@ static int set_rate_edp_pixel(struct clk *clk, unsigned long rate)
 			pixel_freq->d_val = ~frac->den;
 		}
 		spin_lock_irqsave(&local_clock_reg_lock, flags);
-		if (!is_same_rcg_config(rcg, pixel_freq, true))
-			__set_rate_mnd(rcg, pixel_freq);
+		__set_rate_mnd(rcg, pixel_freq);
 		spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 		return 0;
 	}
@@ -1465,8 +1437,7 @@ static int set_rate_byte(struct clk *clk, unsigned long rate)
 	byte_freq->div_src_val |= BVAL(4, 0, div);
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	if (!is_same_rcg_config(rcg, byte_freq, false))
-		__set_rate_hid(rcg, byte_freq);
+	__set_rate_hid(rcg, byte_freq);
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 
 	return 0;
@@ -1787,8 +1758,7 @@ static int rcg_clk_set_rate_dp(struct clk *clk, unsigned long rate)
 	}
 
 	spin_lock_irqsave(&local_clock_reg_lock, flags);
-	if (!is_same_rcg_config(rcg, freq_tbl, true))
-		__set_rate_mnd(rcg, freq_tbl);
+	__set_rate_mnd(rcg, freq_tbl);
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 	return 0;
 }

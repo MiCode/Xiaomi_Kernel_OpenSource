@@ -145,18 +145,17 @@ static int get_cmd_rsp_buffers(struct qseecom_handle *hdl,
 	uint32_t *rsp_len)
 {
 	/* 64 bytes alignment for QSEECOM */
-	*cmd_len = ALIGN(*cmd_len, 64);
-	*rsp_len = ALIGN(*rsp_len, 64);
+	uint64_t aligned_cmd_len = ALIGN((uint64_t)*cmd_len, 64);
+	uint64_t aligned_rsp_len = ALIGN((uint64_t)*rsp_len, 64);
 
-	if (((uint64_t)*rsp_len + (uint64_t)*cmd_len)
-			> (uint64_t)g_app_buf_size) {
-		pr_err("buffer too small to hold cmd=%d and rsp=%d\n",
-			*cmd_len, *rsp_len);
+	if ((aligned_rsp_len + aligned_cmd_len) > (uint64_t)g_app_buf_size)
 		return -ENOMEM;
-	}
 
 	*cmd = hdl->sbuf;
+	*cmd_len = aligned_cmd_len;
 	*rsp = hdl->sbuf + *cmd_len;
+	*rsp_len = aligned_rsp_len;
+
 	return 0;
 }
 
@@ -377,6 +376,12 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 
 	drvdata = file->private_data;
 
+	if (IS_ERR(priv_arg)) {
+		dev_err(drvdata->dev, "%s: invalid user space pointer %lu\n",
+			__func__, arg);
+		return -EINVAL;
+	}
+
 	mutex_lock(&drvdata->mutex);
 
 	pr_debug("qbt1000_ioctl %d\n", cmd);
@@ -401,6 +406,13 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			goto end;
 		}
 
+		if (strcmp(app.name, FP_APP_NAME)) {
+			dev_err(drvdata->dev, "%s: Invalid app name\n",
+				__func__);
+			rc = -EINVAL;
+			goto end;
+		}
+
 		if (drvdata->app_handle) {
 			dev_err(drvdata->dev, "%s: LOAD app already loaded, unloading first\n",
 				__func__);
@@ -414,6 +426,7 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 		}
 
 		pr_debug("app %s load before\n", app.name);
+		app.name[MAX_NAME_SIZE - 1] = '\0';
 
 		/* start the TZ app */
 		rc = qseecom_start_app(
@@ -427,7 +440,8 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 				pr_err("App %s failed to set bw\n", app.name);
 			}
 		} else {
-			pr_err("app %s failed to load\n", app.name);
+			dev_err(drvdata->dev, "%s: Fingerprint Trusted App failed to load\n",
+				__func__);
 			goto end;
 		}
 
@@ -447,9 +461,7 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 
 		pr_debug("app %s load after\n", app.name);
 
-		if (!strcmp(app.name, FP_APP_NAME))
-			drvdata->fp_app_handle = drvdata->app_handle;
-
+		drvdata->fp_app_handle = drvdata->app_handle;
 		break;
 	}
 	case QBT1000_UNLOAD_APP:

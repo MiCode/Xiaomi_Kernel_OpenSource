@@ -1381,7 +1381,8 @@ int hdcp_1x_authenticate(void *input)
 
 	flush_delayed_work(&hdcp->hdcp_auth_work);
 
-	if (!hdcp_1x_state(HDCP_STATE_INACTIVE)) {
+	if (!hdcp_1x_state(HDCP_STATE_INACTIVE) &&
+			!hdcp_1x_state(HDCP_STATE_AUTH_FAIL)) {
 		pr_err("invalid state\n");
 		return -EINVAL;
 	}
@@ -1443,7 +1444,6 @@ int hdcp_1x_reauthenticate(void *input)
 
 	DSS_REG_W(io, reg_set->reset, reg & ~reg_set->reset_bit);
 
-	hdcp->hdcp_state = HDCP_STATE_INACTIVE;
 	hdcp_1x_authenticate(hdcp);
 
 	return ret;

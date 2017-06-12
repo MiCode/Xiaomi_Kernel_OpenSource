@@ -517,13 +517,25 @@ static void adv7533_parse_vreg_dt(struct device *dev,
 		}
 		mp->vreg_config[i].disable_load = val_array[i];
 
-		pr_debug("%s: %s min=%d, max=%d, enable=%d disable=%d\n",
+		/* post-on-sleep */
+		memset(val_array, 0, sizeof(u32) * dt_vreg_total);
+		rc = of_property_read_u32_array(of_node,
+				"qcom,post-on-sleep", val_array,
+						dt_vreg_total);
+		if (rc)
+			pr_warn("%s: error read post on sleep. rc=%d\n",
+					__func__, rc);
+		else
+			mp->vreg_config[i].post_on_sleep = val_array[i];
+
+		pr_debug("%s: %s min=%d, max=%d, enable=%d disable=%d post-on-sleep=%d\n",
 			__func__,
 			mp->vreg_config[i].vreg_name,
 			mp->vreg_config[i].min_voltage,
 			mp->vreg_config[i].max_voltage,
 			mp->vreg_config[i].enable_load,
-			mp->vreg_config[i].disable_load);
+			mp->vreg_config[i].disable_load,
+			mp->vreg_config[i].post_on_sleep);
 	}
 
 	devm_kfree(dev, val_array);

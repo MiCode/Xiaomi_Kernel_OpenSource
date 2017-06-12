@@ -238,7 +238,7 @@ void ion_cma_heap_destroy(struct ion_heap *heap)
 static void ion_secure_cma_free(struct ion_buffer *buffer)
 {
 	int ret = 0;
-	u32 source_vm;
+	int source_vm;
 	int dest_vmid;
 	int dest_perms;
 	struct ion_cma_buffer_info *info = buffer->priv_virt;

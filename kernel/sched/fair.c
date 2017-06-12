@@ -3240,7 +3240,8 @@ retry:
 			sbc_flag |= SBC_FLAG_IDLE_LEAST_LOADED;
 		}
 	} else if (stats.best_cpu >= 0) {
-		if (stats.best_cpu != task_cpu(p) &&
+		if (stats.best_sibling_cpu >= 0 &&
+				stats.best_cpu != task_cpu(p) &&
 				stats.min_cost == stats.best_sibling_cpu_cost) {
 			stats.best_cpu = stats.best_sibling_cpu;
 			sbc_flag |= SBC_FLAG_BEST_SIBLING;
@@ -3536,6 +3537,16 @@ kick_active_balance(struct rq *rq, struct task_struct *p, int new_cpu)
 
 static DEFINE_RAW_SPINLOCK(migration_lock);
 
+static bool do_migration(int reason, int new_cpu, int cpu)
+{
+	if ((reason == UP_MIGRATION || reason == DOWN_MIGRATION)
+				&& same_cluster(new_cpu, cpu))
+		return false;
+
+	/* Inter cluster high irqload migrations are OK */
+	return new_cpu != cpu;
+}
+
 /*
  * Check if currently running task should be migrated to a better cpu.
  *
@@ -3553,7 +3564,7 @@ void check_for_migration(struct rq *rq, struct task_struct *p)
 	raw_spin_lock(&migration_lock);
 	new_cpu = select_best_cpu(p, cpu, reason, 0);
 
-	if (new_cpu != cpu) {
+	if (do_migration(reason, new_cpu, cpu)) {
 		active_balance = kick_active_balance(rq, p, new_cpu);
 		if (active_balance)
 			mark_reserved(new_cpu);
@@ -5102,6 +5113,26 @@ static void check_enqueue_throttle(struct cfs_rq *cfs_rq)
 	if (!cfs_bandwidth_used())
 		return;
 
+	/* Synchronize hierarchical throttle counter: */
+	if (unlikely(!cfs_rq->throttle_uptodate)) {
+		struct rq *rq = rq_of(cfs_rq);
+		struct cfs_rq *pcfs_rq;
+		struct task_group *tg;
+
+		cfs_rq->throttle_uptodate = 1;
+
+		/* Get closest up-to-date node, because leaves go first: */
+		for (tg = cfs_rq->tg->parent; tg; tg = tg->parent) {
+			pcfs_rq = tg->cfs_rq[cpu_of(rq)];
+			if (pcfs_rq->throttle_uptodate)
+				break;
+		}
+		if (tg) {
+			cfs_rq->throttle_count = pcfs_rq->throttle_count;
+			cfs_rq->throttled_clock_task = rq_clock_task(rq);
+		}
+	}
+
 	/* an active group must be handled by the update_curr()->put() path */
 	if (!cfs_rq->runtime_enabled || cfs_rq->curr)
 		return;
@@ -5492,15 +5523,14 @@ static void dequeue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 
 		/* Don't dequeue parent if it has other entities besides us */
 		if (cfs_rq->load.weight) {
+			/* Avoid re-evaluating load for this entity: */
+			se = parent_entity(se);
 			/*
 			 * Bias pick_next to pick a task from this cfs_rq, as
 			 * p is sleeping when it is within its sched_slice.
 			 */
-			if (task_sleep && parent_entity(se))
-				set_next_buddy(parent_entity(se));
-
-			/* avoid re-evaluating load for this entity */
-			se = parent_entity(se);
+			if (task_sleep && se && !throttled_hierarchy(cfs_rq))
+				set_next_buddy(se);
 			break;
 		}
 		flags |= DEQUEUE_SLEEP;
@@ -6060,7 +6090,7 @@ long group_norm_util(struct energy_env *eenv, struct sched_group *sg)
 }
 
 static int find_new_capacity(struct energy_env *eenv,
-	const struct sched_group_energy const *sge)
+	const struct sched_group_energy * const sge)
 {
 	int idx;
 	unsigned long util = group_max_util(eenv);

@@ -82,12 +82,6 @@ struct bhie_vec_table {
 
 struct bhi_ctxt_t {
 	void __iomem *bhi_base;
-	void *unaligned_image_loc;
-	dma_addr_t dma_handle;
-	size_t alloc_size;
-	void *image_loc;
-	dma_addr_t phy_image_loc;
-	size_t image_size;
 	dev_t bhi_dev;
 	struct cdev cdev;
 	struct device *dev;
@@ -338,9 +332,8 @@ struct db_mode {
 	u32 db_mode : 1;
 	enum MHI_BRSTMODE brstmode;
 	void (*process_db)(struct mhi_device_ctxt *mhi_dev_ctxt,
-			   void __iomem *io_addr,
-			   uintptr_t chan,
-			   u32 val);
+			   void __iomem *io_addr, unsigned int chan,
+			   dma_addr_t val);
 };
 
 struct mhi_ring {
@@ -728,15 +721,13 @@ int mhi_set_bus_request(struct mhi_device_ctxt *mhi_dev_ctxt,
 					int index);
 int start_chan_sync(struct mhi_client_handle *client_handle);
 void mhi_process_db_brstmode(struct mhi_device_ctxt *mhi_dev_ctxt,
-			     void __iomem *io_addr,
-			     uintptr_t chan,
-			     u32 val);
+			     void __iomem *io_addr, unsigned int chan,
+			     dma_addr_t val);
 void mhi_process_db_brstmode_disable(struct mhi_device_ctxt *mhi_dev_ctxt,
-				     void __iomem *io_addr,
-				     uintptr_t chan,
-				     u32 val);
+				     void __iomem *io_addr, unsigned int chan,
+				     dma_addr_t val);
 void mhi_process_db(struct mhi_device_ctxt *mhi_dev_ctxt, void __iomem *io_addr,
-		  uintptr_t io_offset, u32 val);
+		    unsigned int chan, dma_addr_t val);
 void mhi_reg_write_field(struct mhi_device_ctxt *mhi_dev_ctxt,
 			 void __iomem *io_addr,
 			 uintptr_t io_offset,

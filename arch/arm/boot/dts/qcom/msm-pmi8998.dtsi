@@ -337,8 +337,9 @@
 			io-channels = <&pmi8998_rradc 0>;
 			io-channel-names = "rradc_batt_id";
 			qcom,rradc-base = <0x4500>;
-			qcom,fg-esr-timer-awake = <96>;
-			qcom,fg-esr-timer-asleep = <256>;
+			qcom,fg-esr-timer-awake = <96 96>;
+			qcom,fg-esr-timer-asleep = <256 256>;
+			qcom,fg-esr-timer-charging = <0 96>;
 			qcom,cycle-counter-en;
 			status = "okay";
 
@@ -540,6 +541,10 @@
 				regulator-min-microvolt = <4600000>;
 				regulator-max-microvolt = <6000000>;
 
+				interrupts = <0x3 0xdc 0x2
+						IRQ_TYPE_EDGE_RISING>;
+				interrupt-names = "ibb-sc-err";
+
 				qcom,qpnp-ibb-min-voltage = <1400000>;
 				qcom,qpnp-ibb-step-size = <100000>;
 				qcom,qpnp-ibb-slew-rate = <2000000>;
@@ -573,8 +578,11 @@
 				regulator-max-microvolt = <6000000>;
 
 				interrupts = <0x3 0xde 0x0
+						IRQ_TYPE_EDGE_RISING>,
+					     <0x3 0xde 0x1
 						IRQ_TYPE_EDGE_RISING>;
-				interrupt-names = "lab-vreg-ok";
+				interrupt-names = "lab-vreg-ok", "lab-sc-err";
+
 				qcom,qpnp-lab-min-voltage = <4600000>;
 				qcom,qpnp-lab-step-size = <100000>;
 				qcom,qpnp-lab-slew-rate = <5000>;
@@ -712,9 +720,6 @@
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <325>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
-				pinctrl-names = "led_enable","led_disable";
-				pinctrl-0 = <&led_enable>;
-				pinctrl-1 = <&led_disable>;
 			};
 
 			pmi8998_torch0: qcom,torch_0 {
@@ -751,9 +756,6 @@
 				qcom,ires-ua = <12500>;
 				qcom,hdrm-voltage-mv = <325>;
 				qcom,hdrm-vol-hi-lo-win-mv = <100>;
-				pinctrl-names = "led_enable","led_disable";
-				pinctrl-0 = <&led_enable>;
-				pinctrl-1 = <&led_disable>;
 			};
 
 			pmi8998_switch0: qcom,led_switch_0 {

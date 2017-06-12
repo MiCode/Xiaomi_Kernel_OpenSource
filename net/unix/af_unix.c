@@ -991,7 +991,7 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 	struct sockaddr_un *sunaddr = (struct sockaddr_un *)uaddr;
 	char *sun_path = sunaddr->sun_path;
 	int err;
-	unsigned int hash;
+	unsigned int hash = 0;
 	struct unix_address *addr;
 	struct hlist_head *list;
 	struct path path = { NULL, NULL };

@@ -22,6 +22,10 @@
 #include <drm/drm.h>
 #include <drm/sde_drm.h>
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 /* Please note that modifications to all structs defined here are
  * subject to backwards-compatibility constraints:
  *  1) Do not use pointers, use __u64 instead for 32 bit / 64 bit
@@ -78,6 +82,7 @@ struct drm_msm_param {
 #define MSM_BO_SCANOUT       0x00000001     /* scanout capable */
 #define MSM_BO_GPU_READONLY  0x00000002
 #define MSM_BO_PRIVILEGED    0x00000004
+#define MSM_BO_SECURE        0x00000008	    /* Allocate and map as secure */
 #define MSM_BO_CACHE_MASK    0x000f0000
 /* cache modes */
 #define MSM_BO_CACHED        0x00010000
@@ -86,12 +91,20 @@ struct drm_msm_param {
 
 #define MSM_BO_FLAGS         (MSM_BO_SCANOUT | \
                               MSM_BO_GPU_READONLY | \
+                              MSM_BO_SECURE | \
                               MSM_BO_CACHED | \
                               MSM_BO_WC | \
                               MSM_BO_UNCACHED)
 
 struct drm_msm_gem_new {
 	__u64 size;           /* in */
+	__u32 flags;          /* in, mask of MSM_BO_x */
+	__u32 handle;         /* out */
+};
+
+struct drm_msm_gem_svm_new {
+	__u64 hostptr;        /* in, must be page-aligned */
+	__u64 size;           /* in, must be page-aligned */
 	__u32 flags;          /* in, mask of MSM_BO_x */
 	__u32 handle;         /* out */
 };
@@ -139,7 +152,11 @@ struct drm_msm_gem_cpu_fini {
  */
 struct drm_msm_gem_submit_reloc {
 	__u32 submit_offset;  /* in, offset from submit_bo */
-	__u32 or;             /* in, value OR'd with result */
+#ifdef __cplusplus
+	__u32 or_val;
+#else
+	__u32 or; /* in, value OR'd with result */
+#endif
 	__s32  shift;          /* in, amount of left shift (can be negative) */
 	__u32 reloc_idx;      /* in, index of reloc_bo buffer */
 	__u64 reloc_offset;   /* in, offset from start of reloc_bo */
@@ -152,10 +169,13 @@ struct drm_msm_gem_submit_reloc {
  *      this buffer in the first-level ringbuffer
  *   CTX_RESTORE_BUF - only executed if there has been a GPU context
  *      switch since the last SUBMIT ioctl
+ *   PROFILE_BUF - A profiling buffer written to by both GPU and CPU.
  */
 #define MSM_SUBMIT_CMD_BUF             0x0001
 #define MSM_SUBMIT_CMD_IB_TARGET_BUF   0x0002
 #define MSM_SUBMIT_CMD_CTX_RESTORE_BUF 0x0003
+#define MSM_SUBMIT_CMD_PROFILE_BUF     0x0004
+
 struct drm_msm_gem_submit_cmd {
 	__u32 type;           /* in, one of MSM_SUBMIT_CMD_x */
 	__u32 submit_idx;     /* in, index of submit_bo cmdstream buffer */
@@ -205,6 +225,14 @@ struct drm_msm_gem_submit {
 	__u32 nr_cmds;        /* in, number of submit_cmd's */
 	__u64 __user bos;     /* in, ptr to array of submit_bo's */
 	__u64 __user cmds;    /* in, ptr to array of submit_cmd's */
+};
+
+struct drm_msm_gem_submit_profile_buffer {
+	__s64 queue_time;      /* out, Ringbuffer queue time (nsecs) */
+	__s64 submit_time;     /* out, Ringbuffer submission time (nsecs) */
+	__u64 ticks_queued;    /* out, GPU ticks at ringbuffer submission */
+	__u64 ticks_submitted; /* out, GPU ticks before cmdstream execution*/
+	__u64 ticks_retired;   /* out, GPU ticks after cmdstream execution */
 };
 
 /* The normal way to synchronize with the GPU is just to CPU_PREP on
@@ -312,6 +340,18 @@ struct drm_msm_counter_read {
 	__u32 nr_ops;
 };
 
+#define MSM_GEM_SYNC_TO_DEV 0
+#define MSM_GEM_SYNC_TO_CPU 1
+
+struct drm_msm_gem_syncop {
+	__u32 handle;
+	__u32 op;
+};
+
+struct drm_msm_gem_sync {
+	__u32 nr_ops;
+	__u64 __user ops;
+};
 
 #define DRM_MSM_GET_PARAM              0x00
 /* placeholder:
@@ -323,6 +363,8 @@ struct drm_msm_counter_read {
 #define DRM_MSM_GEM_CPU_FINI           0x05
 #define DRM_MSM_GEM_SUBMIT             0x06
 #define DRM_MSM_WAIT_FENCE             0x07
+/* Gap for upstream DRM_MSM_GEM_MADVISE */
+#define DRM_MSM_GEM_SVM_NEW            0x09
 
 #define DRM_SDE_WB_CONFIG              0x40
 #define DRM_MSM_REGISTER_EVENT         0x41
@@ -330,6 +372,7 @@ struct drm_msm_counter_read {
 #define DRM_MSM_COUNTER_GET            0x43
 #define DRM_MSM_COUNTER_PUT            0x44
 #define DRM_MSM_COUNTER_READ           0x45
+#define DRM_MSM_GEM_SYNC               0x46
 
 /**
  * Currently DRM framework supports only VSYNC event.
@@ -359,5 +402,14 @@ struct drm_msm_counter_read {
 #define DRM_IOCTL_MSM_COUNTER_READ \
 	DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_COUNTER_READ, \
 		struct drm_msm_counter_read)
+#define DRM_IOCTL_MSM_GEM_SYNC DRM_IOW(DRM_COMMAND_BASE + DRM_MSM_GEM_SYNC,\
+		struct drm_msm_gem_sync)
+#define DRM_IOCTL_MSM_GEM_SVM_NEW \
+	DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_SVM_NEW, \
+		struct drm_msm_gem_svm_new)
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif /* __MSM_DRM_H__ */

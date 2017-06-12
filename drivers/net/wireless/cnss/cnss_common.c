@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,6 +67,8 @@ static struct cnss_dfs_nol_info {
 	void *dfs_nol_info;
 	u16 dfs_nol_info_len;
 } dfs_nol_info;
+
+static enum cnss_cc_src cnss_cc_source = CNSS_SOURCE_CORE;
 
 int cnss_set_wlan_unsafe_channel(u16 *unsafe_ch_list, u16 ch_count)
 {
@@ -490,6 +492,18 @@ int cnss_get_fw_files_for_target(struct cnss_fw_files *pfw_files,
 	return 0;
 }
 EXPORT_SYMBOL(cnss_get_fw_files_for_target);
+
+void cnss_set_cc_source(enum cnss_cc_src cc_source)
+{
+	cnss_cc_source = cc_source;
+}
+EXPORT_SYMBOL(cnss_set_cc_source);
+
+enum cnss_cc_src cnss_get_cc_source(void)
+{
+	return cnss_cc_source;
+}
+EXPORT_SYMBOL(cnss_get_cc_source);
 
 const char *cnss_wlan_get_evicted_data_file(void)
 {

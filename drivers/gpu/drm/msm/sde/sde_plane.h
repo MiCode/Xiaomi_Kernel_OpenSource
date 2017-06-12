@@ -59,9 +59,10 @@ struct sde_plane_state {
 /**
  * sde_plane_pipe - return sspp identifier for the given plane
  * @plane:   Pointer to DRM plane object
+ * @index:   Plane index
  * Returns: sspp identifier of the given plane
  */
-enum sde_sspp sde_plane_pipe(struct drm_plane *plane);
+enum sde_sspp sde_plane_pipe(struct drm_plane *plane, uint32_t index);
 
 /**
  * sde_plane_flush - final plane operations before commit flush
@@ -75,10 +76,11 @@ void sde_plane_flush(struct drm_plane *plane);
  * @pipe:  sde hardware pipe identifier
  * @primary_plane: true if this pipe is primary plane for crtc
  * @possible_crtcs: bitmask of crtc that can be attached to the given pipe
+ * @vp_enabled:  Flag indicating if virtual planes enabled
  */
 struct drm_plane *sde_plane_init(struct drm_device *dev,
 		uint32_t pipe, bool primary_plane,
-		unsigned long possible_crtcs);
+		unsigned long possible_crtcs, bool vp_enabled);
 
 /**
  * sde_plane_wait_input_fence - wait for input fence object

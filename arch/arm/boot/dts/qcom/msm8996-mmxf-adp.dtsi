@@ -523,14 +523,14 @@
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
-				<&afe>, <&lsm>, <&routing>, <&compr>,
+				<&afe>, <&lsm>, <&routing>, <&pcmnoirq>,
 				<&loopback1>;
 		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
 				"msm-pcm-dsp.2", "msm-voip-dsp",
 				"msm-pcm-voice", "msm-pcm-loopback",
 				"msm-compress-dsp", "msm-pcm-hostless",
 				"msm-pcm-afe", "msm-lsm-client",
-				"msm-pcm-routing", "msm-compr-dsp",
+				"msm-pcm-routing", "msm-pcm-dsp-noirq",
 				"msm-pcm-loopback.1";
 		asoc-cpu = <&dai_pri_auxpcm>, <&dai_sec_auxpcm>, <&dai_hdmi>,
 				<&dai_mi2s_sec>, <&dai_mi2s>, <&dai_mi2s_quat>,
@@ -595,22 +595,9 @@
 	};
 
 	qcom,msm-dai-tdm-tert-rx {
-		qcom,msm-cpudai-tdm-group-num-ports = <5>;
-		qcom,msm-cpudai-tdm-group-port-id = <36896 36898 36900
-							36902 36904>;
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&tert_tdm_dout_active>;
 		pinctrl-1 = <&tert_tdm_dout_sleep>;
-		dai_tert_tdm_rx_4: qcom,msm-dai-q6-tdm-tert-rx-4 {
-			compatible = "qcom,msm-dai-q6-tdm";
-			qcom,msm-cpudai-tdm-dev-id = <36904>;
-			qcom,msm-cpudai-tdm-sync-mode = <1>;
-			qcom,msm-cpudai-tdm-sync-src = <0>;
-			qcom,msm-cpudai-tdm-data-out = <0>;
-			qcom,msm-cpudai-tdm-invert-sync = <0>;
-			qcom,msm-cpudai-tdm-data-delay = <0>;
-			qcom,msm-cpudai-tdm-data-align = <0>;
-		};
 	};
 
 	qcom,msm-dai-tdm-quat-rx {

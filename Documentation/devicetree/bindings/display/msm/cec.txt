@@ -1,0 +1,75 @@
+Qualcomm Technologies, Inc. CEC device
+
+CEC is a protocol that provides high-level control functions between all of the
+various audiovisual products in a user environment.
+
+Required properties:
+- compatible: Must be "qcom,hdmi-cec".
+- qcom,hdmi-dev: Phandle for the hdmi device node.
+- interrupt-parent: Must be the hdmi interrupt controller.
+- interrupts: Interrupt associated with cec.
+- reg: Physical base address and length of the controller's registers.
+- reg-names: "hdmi_cec".
+- clocks: List of Phandles for clock device nodes needed by the device.
+- clock-names: List of clock names needed by the device.
+- pinctrl-names: Should contain only two values: "cec_active" and "cec_sleep" which stands for the
+		active and sleep state of pinctrl used in this CEC driver.
+- pinctrl-0: The active pinctrl state which is a list of phandles pointing to a pin configuration node.
+- pinctrl-1: The sleep pinctrl state which is a list of phandles pointing to a pin configuration node.
+- cec-gdsc-supply: Phandle for cec gdsc supply regulator device node.
+- qcom,platform-supply-entries: A sub node that lists the elements of the supply. There can be more
+				than one instance of this binding, in which case the entry would be
+				appended with the supply entry index. e.g. qcom,platform-supply-entry@0.
+				-- reg: offset and length of the register set for the device.
+				-- qcom,supply-name: name of the supply (vdd/vdda/vddio).
+				-- qcom,supply-min-voltage: minimum voltage level (uV).
+				-- qcom,supply-max-voltage: maximum voltage level (uV).
+				-- qcom,supply-enable-load: load drawn (uA) from enabled supply.
+				-- qcom,supply-disable-load: load drawn (uA) from disabled supply.
+
+
+Optional properties:
+- qcom,platform-supply-entries: A sub node that lists the elements of the supply. There can be more
+				than one instance of this binding, in which case the entry would be
+				appended with the supply entry index. e.g. qcom,platform-supply-entry@0.
+				-- qcom,supply-pre-on-sleep: time to sleep (ms) before turning on.
+				-- qcom,supply-post-on-sleep: time to sleep (ms) after turning on.
+				-- qcom,supply-pre-off-sleep: time to sleep (ms) before turning off.
+				-- qcom,supply-post-off-sleep: time to sleep (ms) after turning off.
+
+Example:
+
+sde_hdmi_cec: qcom,hdmi-cec@c9a0000 {
+	compatible = "qcom,hdmi-cec";
+	label = "sde_hdmi_cec";
+	qcom,hdmi-dev = <&sde_hdmi>;
+	interrupt-parent = <&sde_hdmi_tx>;
+	interrupts = <1 0>;
+
+	reg = <0xc9a0000 0x50c>;
+	reg-names = "hdmi_cec";
+
+	clocks = <&clock_mmss clk_mmss_mnoc_ahb_clk>,
+	       <&clock_mmss clk_mmss_mdss_ahb_clk>,
+	       <&clock_mmss clk_mmss_mdss_hdmi_clk>;
+	clock-names = "cec_mnoc_clk", "cec_iface_clk", "cec_core_clk";
+
+	pinctrl-names = "cec_active", "cec_sleep";
+	pinctrl-0 = <&mdss_hdmi_cec_active>;
+	pinctrl-1 = <&mdss_hdmi_cec_suspend>;
+
+	cec-gdsc-supply = <&gdsc_mdss>;
+	qcom,platform-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,platform-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "cec-gdsc";
+			qcom,supply-min-voltage = <0>;
+			qcom,supply-max-voltage = <0>;
+			qcom,supply-enable-load = <0>;
+			qcom,supply-disable-load = <0>;
+		};
+	};
+};

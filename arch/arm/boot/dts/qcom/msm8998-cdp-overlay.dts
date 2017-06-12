@@ -1,0 +1,29 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/msm-clocks-8998.h>
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+#include "msm8998-mdss-panels.dtsi"
+#include "msm8998-cdp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM 8998 v1 CDP";
+	compatible = "qcom,msm8998-cdp", "qcom,msm8998", "qcom,cdp";
+	qcom,msm-id = <292 0x0>;
+	qcom,board-id = <1 0>;
+};

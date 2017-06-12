@@ -41,8 +41,8 @@
 	vccq2-supply = <&pm660_l8>;
 	vcc-max-microamp = <500000>;
 	vccq2-max-microamp = <600000>;
-	vddp-ref-clk-supply = <&pm660_l1>;
-	vddp-ref-clk-max-microamp = <100>;
+	qcom,vddp-ref-clk-supply = <&pm660_l1>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
 
 	status = "ok";
 };
@@ -168,6 +168,10 @@
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_rm67195_amoled_fhd_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
 };
 
 &sdhc_1 {

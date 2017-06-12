@@ -35,11 +35,6 @@ Charger specific properties:
 		addition battery properties will be faked such that the device
 		assumes normal operation.
 
-- qcom,external-vconn
-  Usage:      optional
-  Value type: <empty>
-  Definition: Boolean flag which indicates VCONN is sourced externally.
-
 - qcom,fcc-max-ua
   Usage:      optional
   Value type: <u32>
@@ -168,6 +163,24 @@ Charger specific properties:
   Value type: <empty>
   Definition: Boolean flag which when present enables intput suspend for
 		debug battery.
+
+- qcom,min-freq-khz
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the minimum charger buck/boost switching frequency
+		in KHz. It overrides the min frequency defined for the charger.
+
+- qcom,max-freq-khz
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the maximum charger buck/boost switching frequency in
+		 KHz. It overrides the max frequency defined for the charger.
+
+- qcom,otg-deglitch-time-ms
+  Usage:      optional
+  Value type: <u32>
+  Definition: Specifies the deglitch interval for OTG detection.
+		If the value is not present, 50 msec is used as default.
 
 =============================================
 Second Level Nodes - SMB2 Charger Peripherals

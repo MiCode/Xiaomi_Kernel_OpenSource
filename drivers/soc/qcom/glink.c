@@ -232,7 +232,9 @@ static DEFINE_MUTEX(edge_list_lock_lhd0);
  * @req_rate_kBps:			Current QoS request by the channel.
  * @tx_intent_cnt:			Intent count to transmit soon in future.
  * @tx_cnt:				Packets to be picked by tx scheduler.
- */
+ * @rt_vote_on:				Number of times RT vote on is called.
+ * @rt_vote_off:			Number of times RT vote off is called.
+*/
 struct channel_ctx {
 	struct rwref_lock ch_state_lhb2;
 	struct list_head port_list_node;
@@ -311,6 +313,9 @@ struct channel_ctx {
 	unsigned long req_rate_kBps;
 	uint32_t tx_intent_cnt;
 	uint32_t tx_cnt;
+
+	uint32_t rt_vote_on;
+	uint32_t rt_vote_off;
 	uint32_t magic_number;
 };
 
@@ -1845,7 +1850,7 @@ static void glink_ch_ctx_release(struct rwref_lock *ch_st_lock)
 
 /**
  * ch_name_to_ch_ctx_create() - lookup a channel by name, create the channel if
- *                              it is not found.
+ *                              it is not found and get reference of context.
  * @xprt_ctx:	Transport to search for a matching channel.
  * @name:	Name of the desired channel.
  *
@@ -1901,6 +1906,7 @@ check_ctx:
 			spin_unlock_irqrestore(&xprt_ctx->xprt_ctx_lock_lhb1,
 					flags);
 			kfree(ctx);
+			rwref_get(&entry->ch_state_lhb2);
 			rwref_write_put(&xprt_ctx->xprt_state_lhb0);
 			return entry;
 		}
@@ -1935,6 +1941,7 @@ check_ctx:
 			"%s: local:GLINK_CHANNEL_CLOSED\n",
 			__func__);
 	}
+	rwref_get(&ctx->ch_state_lhb2);
 	spin_unlock_irqrestore(&xprt_ctx->xprt_ctx_lock_lhb1, flags);
 	rwref_write_put(&xprt_ctx->xprt_state_lhb0);
 	mutex_lock(&xprt_ctx->xprt_dbgfs_lock_lhb4);
@@ -2416,6 +2423,25 @@ static int dummy_power_unvote(struct glink_transport_if *if_ptr)
 }
 
 /**
+ * dummy_rx_rt_vote() - Dummy RX Realtime thread vote
+ * @if_ptr:	The transport to transmit on.
+
+ */
+static int dummy_rx_rt_vote(struct glink_transport_if *if_ptr)
+{
+	return -EOPNOTSUPP;
+}
+
+/**
+ * dummy_rx_rt_unvote() - Dummy RX Realtime thread unvote
+ * @if_ptr:	The transport to transmit on.
+ */
+static int dummy_rx_rt_unvote(struct glink_transport_if *if_ptr)
+{
+	return -EOPNOTSUPP;
+}
+
+/**
  * notif_if_up_all_xprts() - Check and notify existing transport state if up
  * @notif_info:	Data structure containing transport information to be notified.
  *
@@ -2579,6 +2605,7 @@ void *glink_open(const struct glink_open_config *cfg)
 		GLINK_INFO_CH_XPRT(ctx, transport_ptr,
 		"%s: Channel not ready to be re-opened. State: %u\n",
 		__func__, ctx->local_open_state);
+		rwref_put(&ctx->ch_state_lhb2);
 		return ERR_PTR(-EBUSY);
 	}
 
@@ -2627,11 +2654,13 @@ void *glink_open(const struct glink_open_config *cfg)
 		ctx->local_open_state = GLINK_CHANNEL_CLOSED;
 		GLINK_ERR_CH(ctx, "%s: Unable to send open command %d\n",
 			__func__, ret);
+		rwref_put(&ctx->ch_state_lhb2);
 		return ERR_PTR(ret);
 	}
 
 	GLINK_INFO_CH(ctx, "%s: Created channel, sent OPEN command. ctx %p\n",
 			__func__, ctx);
+	rwref_put(&ctx->ch_state_lhb2);
 	return ctx;
 }
 EXPORT_SYMBOL(glink_open);
@@ -3538,6 +3567,61 @@ unsigned long glink_qos_get_ramp_time(void *handle, size_t pkt_size)
 }
 EXPORT_SYMBOL(glink_qos_get_ramp_time);
 
+
+/**
+ * glink_start_rx_rt() - Vote for RT thread priority on RX.
+ * @handle:	Channel handle for which transaction are occurring.
+ *
+ * Return: 0 on success, standard Linux error codes on failure
+ */
+int glink_start_rx_rt(void *handle)
+{
+	struct channel_ctx *ctx = (struct channel_ctx *)handle;
+	int ret;
+
+	ret = glink_get_ch_ctx(ctx);
+	if (ret)
+		return ret;
+	if (!ch_is_fully_opened(ctx)) {
+		GLINK_ERR_CH(ctx, "%s: Channel is not fully opened\n",
+			__func__);
+		glink_put_ch_ctx(ctx, false);
+		return -EBUSY;
+	}
+	ret = ctx->transport_ptr->ops->rx_rt_vote(ctx->transport_ptr->ops);
+	ctx->rt_vote_on++;
+	GLINK_INFO_CH(ctx, "%s: Voting RX Realtime Thread %d", __func__, ret);
+	glink_put_ch_ctx(ctx, false);
+	return ret;
+}
+
+/**
+ * glink_end_rx_rt() - Vote for RT thread priority on RX.
+ * @handle:	Channel handle for which transaction are occurring.
+ *
+ * Return: 0 on success, standard Linux error codes on failure
+ */
+int glink_end_rx_rt(void *handle)
+{
+	struct channel_ctx *ctx = (struct channel_ctx *)handle;
+	int ret;
+
+	ret = glink_get_ch_ctx(ctx);
+	if (ret)
+		return ret;
+	if (!ch_is_fully_opened(ctx)) {
+		GLINK_ERR_CH(ctx, "%s: Channel is not fully opened\n",
+			__func__);
+		glink_put_ch_ctx(ctx, false);
+		return -EBUSY;
+	}
+	ret = ctx->transport_ptr->ops->rx_rt_unvote(ctx->transport_ptr->ops);
+	ctx->rt_vote_off++;
+	GLINK_INFO_CH(ctx, "%s: Unvoting RX Realtime Thread %d", __func__, ret);
+	glink_put_ch_ctx(ctx, false);
+	return ret;
+}
+
 /**
  * glink_rpm_rx_poll() - Poll and receive any available events
  * @handle:	Channel handle in which this operation is performed.
@@ -3945,6 +4029,10 @@ int glink_core_register_transport(struct glink_transport_if *if_ptr,
 		if_ptr->power_vote = dummy_power_vote;
 	if (!if_ptr->power_unvote)
 		if_ptr->power_unvote = dummy_power_unvote;
+	if (!if_ptr->rx_rt_vote)
+		if_ptr->rx_rt_vote = dummy_rx_rt_vote;
+	if (!if_ptr->rx_rt_unvote)
+		if_ptr->rx_rt_unvote = dummy_rx_rt_unvote;
 	xprt_ptr->capabilities = 0;
 	xprt_ptr->ops = if_ptr;
 	spin_lock_init(&xprt_ptr->xprt_ctx_lock_lhb1);
@@ -4804,6 +4892,7 @@ static void glink_core_rx_cmd_ch_remote_open(struct glink_transport_if *if_ptr,
 		GLINK_ERR_CH(ctx,
 		       "%s: Duplicate remote open for rcid %u, name '%s'\n",
 		       __func__, rcid, name);
+		rwref_put(&ctx->ch_state_lhb2);
 		glink_core_migration_edge_unlock(if_ptr->glink_core_priv);
 		return;
 	}
@@ -4826,6 +4915,7 @@ static void glink_core_rx_cmd_ch_remote_open(struct glink_transport_if *if_ptr,
 
 	if (do_migrate)
 		ch_migrate(NULL, ctx);
+	rwref_put(&ctx->ch_state_lhb2);
 	glink_core_migration_edge_unlock(if_ptr->glink_core_priv);
 }
 

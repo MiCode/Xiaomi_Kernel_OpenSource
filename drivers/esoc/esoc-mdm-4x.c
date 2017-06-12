@@ -179,26 +179,48 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 	struct device *dev = mdm->dev;
 	int ret;
 	bool graceful_shutdown = false;
+	u32 status, err_fatal;
 
 	switch (cmd) {
 	case ESOC_PWR_ON:
+		if (esoc->auto_boot) {
+			/*
+			 * If esoc has already booted, we would have missed
+			 * status change interrupt. Read status and err_fatal
+			 * signals to arrive at the state of esoc.
+			 */
+			esoc->clink_ops->get_status(&status, esoc);
+			esoc->clink_ops->get_err_fatal(&err_fatal, esoc);
+			if (err_fatal)
+				return -EIO;
+			if (status && !mdm->ready) {
+				mdm->ready = true;
+				esoc->clink_ops->notify(ESOC_BOOT_DONE, esoc);
+			}
+		}
 		gpio_set_value(MDM_GPIO(mdm, AP2MDM_ERRFATAL), 0);
-		mdm_enable_irqs(mdm);
 		mdm->init = 1;
 		mdm_do_first_power_on(mdm);
+		mdm_enable_irqs(mdm);
 		break;
 	case ESOC_PWR_OFF:
 		mdm_disable_irqs(mdm);
 		mdm->debug = 0;
 		mdm->ready = false;
 		mdm->trig_cnt = 0;
+		if (esoc->primary)
+			break;
 		graceful_shutdown = true;
-		ret = sysmon_send_shutdown(&esoc->subsys);
-		if (ret) {
-			dev_err(mdm->dev, "sysmon shutdown fail, ret = %d\n",
-									ret);
-			graceful_shutdown = false;
-			goto force_poff;
+		if (!esoc->userspace_handle_shutdown) {
+			ret = sysmon_send_shutdown(&esoc->subsys);
+			if (ret) {
+				dev_err(mdm->dev,
+				 "sysmon shutdown fail, ret = %d\n", ret);
+				graceful_shutdown = false;
+				goto force_poff;
+			}
+		} else {
+			esoc_clink_queue_request(ESOC_REQ_SEND_SHUTDOWN, esoc);
 		}
 		dev_dbg(mdm->dev, "Waiting for status gpio go low\n");
 		status_down = false;
@@ -228,12 +250,17 @@ force_poff:
 				esoc->subsys.sysmon_shutdown_ret);
 		}
 
+		if (esoc->primary)
+			break;
 		/*
 		 * Force a shutdown of the mdm. This is required in order
 		 * to prevent the mdm from immediately powering back on
-		 * after the shutdown
+		 * after the shutdown. Avoid setting status to 0, if line is
+		 * monitored by multiple mdms(might be wrongly interpreted as
+		 * a primary crash).
 		 */
-		gpio_set_value(MDM_GPIO(mdm, AP2MDM_STATUS), 0);
+		if (esoc->statusline_not_a_powersource == false)
+			gpio_set_value(MDM_GPIO(mdm, AP2MDM_STATUS), 0);
 		esoc_clink_queue_request(ESOC_REQ_SHUTDOWN, esoc);
 		mdm_power_down(mdm);
 		mdm_update_gpio_configs(mdm, GPIO_UPDATE_BOOTING_CONFIG);
@@ -249,9 +276,12 @@ force_poff:
 		 */
 		mdm->ready = false;
 		cancel_delayed_work(&mdm->mdm2ap_status_check_work);
-		gpio_set_value(MDM_GPIO(mdm, AP2MDM_ERRFATAL), 1);
-		dev_dbg(mdm->dev, "set ap2mdm errfatal to force reset\n");
-		msleep(mdm->ramdump_delay_ms);
+		if (!mdm->esoc->auto_boot) {
+			gpio_set_value(MDM_GPIO(mdm, AP2MDM_ERRFATAL), 1);
+			dev_dbg(mdm->dev,
+				"set ap2mdm errfatal to force reset\n");
+			msleep(mdm->ramdump_delay_ms);
+		}
 		break;
 	case ESOC_EXE_DEBUG:
 		mdm->debug = 1;
@@ -378,6 +408,8 @@ static void mdm_notify(enum esoc_notify notify, struct esoc_clink *esoc)
 		status_down = false;
 		dev_dbg(dev, "signal apq err fatal for graceful restart\n");
 		gpio_set_value(MDM_GPIO(mdm, AP2MDM_ERRFATAL), 1);
+		if (esoc->primary)
+			break;
 		timeout = local_clock();
 		do_div(timeout, NSEC_PER_MSEC);
 		timeout += MDM_MODEM_TIMEOUT;
@@ -420,7 +452,8 @@ static irqreturn_t mdm_errfatal(int irq, void *dev_id)
 		goto mdm_pwroff_irq;
 	esoc = mdm->esoc;
 	dev_err(dev, "%s: mdm sent errfatal interrupt\n",
-					 __func__);
+					__func__);
+	subsys_set_crash_status(esoc->subsys_dev, true);
 	/* disable irq ?*/
 	esoc_clink_evt_notify(ESOC_ERR_FATAL, esoc);
 	return IRQ_HANDLED;
@@ -441,11 +474,26 @@ static irqreturn_t mdm_status_change(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	dev = mdm->dev;
 	esoc = mdm->esoc;
+	/*
+	 * On auto boot devices, there is a possibility of receiving
+	 * status change interrupt before esoc_clink structure is
+	 * initialized. Ignore them.
+	 */
+	if (!esoc)
+		return IRQ_HANDLED;
 	value = gpio_get_value(MDM_GPIO(mdm, MDM2AP_STATUS));
 	if (value == 0 && mdm->ready) {
 		dev_err(dev, "unexpected reset external modem\n");
+		subsys_set_crash_status(esoc->subsys_dev, true);
 		esoc_clink_evt_notify(ESOC_UNEXPECTED_RESET, esoc);
 	} else if (value == 1) {
+		/*
+		 * In auto_boot cases, bailout early if mdm
+		 * is up already.
+		 */
+		if (esoc->auto_boot && mdm->ready)
+			return IRQ_HANDLED;
+
 		cancel_delayed_work(&mdm->mdm2ap_status_check_work);
 		dev_dbg(dev, "status = 1: mdm is now ready\n");
 		mdm->ready = true;
@@ -453,6 +501,8 @@ static irqreturn_t mdm_status_change(int irq, void *dev_id)
 		queue_work(mdm->mdm_queue, &mdm->mdm_status_work);
 		if (mdm->get_restart_reason)
 			queue_work(mdm->mdm_queue, &mdm->restart_reason_work);
+		if (esoc->auto_boot)
+			esoc->clink_ops->notify(ESOC_BOOT_DONE, esoc);
 	}
 	return IRQ_HANDLED;
 }
@@ -582,13 +632,21 @@ static int mdm_configure_ipc(struct mdm_ctrl *mdm, struct platform_device *pdev)
 						&mdm->ramdump_delay_ms);
 	if (ret)
 		mdm->ramdump_delay_ms = DEF_RAMDUMP_DELAY;
-	/* Multilple gpio_request calls are allowed */
+	/*
+	 * In certain scenarios, multiple esoc devices are monitoring
+	 * same AP2MDM_STATUS line. But only one of them will have a
+	 * successful gpio_request call. Initialize gpio only if request
+	 * succeeds.
+	 */
 	if (gpio_request(MDM_GPIO(mdm, AP2MDM_STATUS), "AP2MDM_STATUS"))
 		dev_err(dev, "Failed to configure AP2MDM_STATUS gpio\n");
-	/* Multilple gpio_request calls are allowed */
+	else
+		gpio_direction_output(MDM_GPIO(mdm, AP2MDM_STATUS), 0);
 	if (gpio_request(MDM_GPIO(mdm, AP2MDM_ERRFATAL), "AP2MDM_ERRFATAL"))
 		dev_err(dev, "%s Failed to configure AP2MDM_ERRFATAL gpio\n",
 			   __func__);
+	else
+		gpio_direction_output(MDM_GPIO(mdm, AP2MDM_ERRFATAL), 0);
 	if (gpio_request(MDM_GPIO(mdm, MDM2AP_STATUS), "MDM2AP_STATUS")) {
 		dev_err(dev, "%s Failed to configure MDM2AP_STATUS gpio\n",
 			   __func__);
@@ -620,9 +678,6 @@ static int mdm_configure_ipc(struct mdm_ctrl *mdm, struct platform_device *pdev)
 			goto fatal_err;
 		}
 	}
-
-	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_STATUS), 0);
-	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_ERRFATAL), 0);
 
 	if (gpio_is_valid(MDM_GPIO(mdm, AP2MDM_CHNLRDY)))
 		gpio_direction_output(MDM_GPIO(mdm, AP2MDM_CHNLRDY), 0);
@@ -757,6 +812,7 @@ static int mdm9x25_setup_hw(struct mdm_ctrl *mdm,
 		dev_err(mdm->dev, "cannot allocate esoc device\n");
 		return PTR_ERR(esoc);
 	}
+	esoc->pdev = pdev;
 	mdm->mdm_queue = alloc_workqueue("mdm_queue", 0, 0);
 	if (!mdm->mdm_queue) {
 		dev_err(mdm->dev, "could not create mdm_queue\n");
@@ -827,6 +883,7 @@ static int mdm9x35_setup_hw(struct mdm_ctrl *mdm,
 		dev_err(mdm->dev, "cannot allocate esoc device\n");
 		return PTR_ERR(esoc);
 	}
+	esoc->pdev = pdev;
 	mdm->mdm_queue = alloc_workqueue("mdm_queue", 0, 0);
 	if (!mdm->mdm_queue) {
 		dev_err(mdm->dev, "could not create mdm_queue\n");
@@ -897,6 +954,84 @@ static int mdm9x35_setup_hw(struct mdm_ctrl *mdm,
 	return 0;
 }
 
+static int mdm9x45_setup_hw(struct mdm_ctrl *mdm,
+					const struct mdm_ops *ops,
+					struct platform_device *pdev)
+{
+	int ret;
+	struct esoc_clink *esoc;
+	const struct esoc_clink_ops *const clink_ops = ops->clink_ops;
+	const struct mdm_pon_ops *pon_ops = ops->pon_ops;
+
+	mdm->dev = &pdev->dev;
+	mdm->pon_ops = pon_ops;
+	esoc = devm_kzalloc(mdm->dev, sizeof(*esoc), GFP_KERNEL);
+	if (IS_ERR_OR_NULL(esoc)) {
+		dev_err(mdm->dev, "cannot allocate esoc device\n");
+		return PTR_ERR(esoc);
+	}
+	esoc->pdev = pdev;
+	mdm->mdm_queue = alloc_workqueue("mdm_queue", 0, 0);
+	if (!mdm->mdm_queue) {
+		dev_err(mdm->dev, "could not create mdm_queue\n");
+		return -ENOMEM;
+	}
+	mdm->irq_mask = 0;
+	mdm->ready = false;
+	ret = mdm_dt_parse_gpios(mdm);
+	if (ret)
+		return ret;
+	dev_err(mdm->dev, "parsing gpio done\n");
+	ret = mdm_pon_dt_init(mdm);
+	if (ret)
+		return ret;
+	dev_dbg(mdm->dev, "pon dt init done\n");
+	ret = mdm_pinctrl_init(mdm);
+	if (ret)
+		return ret;
+	dev_err(mdm->dev, "pinctrl init done\n");
+	ret = mdm_pon_setup(mdm);
+	if (ret)
+		return ret;
+	dev_dbg(mdm->dev, "pon setup done\n");
+	ret = mdm_configure_ipc(mdm, pdev);
+	if (ret)
+		return ret;
+	mdm_configure_debug(mdm);
+	dev_err(mdm->dev, "ipc configure done\n");
+	esoc->name = MDM9x45_LABEL;
+	esoc->link_name = MDM9x45_PCIE;
+	esoc->clink_ops = clink_ops;
+	esoc->parent = mdm->dev;
+	esoc->owner = THIS_MODULE;
+	esoc->np = pdev->dev.of_node;
+
+	esoc->auto_boot = of_property_read_bool(esoc->np,
+						"qcom,mdm-auto-boot");
+	esoc->statusline_not_a_powersource = of_property_read_bool(esoc->np,
+				"qcom,mdm-statusline-not-a-powersource");
+	esoc->userspace_handle_shutdown = of_property_read_bool(esoc->np,
+				"qcom,mdm-userspace-handle-shutdown");
+	set_esoc_clink_data(esoc, mdm);
+	ret = esoc_clink_register(esoc);
+	if (ret) {
+		dev_err(mdm->dev, "esoc registration failed\n");
+		return ret;
+	}
+	dev_dbg(mdm->dev, "esoc registration done\n");
+	init_completion(&mdm->debug_done);
+	INIT_WORK(&mdm->mdm_status_work, mdm_status_fn);
+	INIT_WORK(&mdm->restart_reason_work, mdm_get_restart_reason);
+	INIT_DELAYED_WORK(&mdm->mdm2ap_status_check_work, mdm2ap_status_check);
+	mdm->get_restart_reason = false;
+	mdm->debug_fail = false;
+	mdm->esoc = esoc;
+	mdm->init = 0;
+	if (esoc->auto_boot)
+		gpio_direction_output(MDM_GPIO(mdm, AP2MDM_STATUS), 1);
+	return 0;
+}
+
 static int mdm9x55_setup_hw(struct mdm_ctrl *mdm,
 					const struct mdm_ops *ops,
 					struct platform_device *pdev)
@@ -915,6 +1050,7 @@ static int mdm9x55_setup_hw(struct mdm_ctrl *mdm,
 		dev_err(mdm->dev, "cannot allocate esoc device\n");
 		return PTR_ERR(esoc);
 	}
+	esoc->pdev = pdev;
 	mdm->mdm_queue = alloc_workqueue("mdm_queue", 0, 0);
 	if (!mdm->mdm_queue) {
 		dev_err(mdm->dev, "could not create mdm_queue\n");
@@ -972,6 +1108,82 @@ static int mdm9x55_setup_hw(struct mdm_ctrl *mdm,
 	return 0;
 }
 
+static int apq8096_setup_hw(struct mdm_ctrl *mdm,
+					const struct mdm_ops *ops,
+					struct platform_device *pdev)
+{
+	int ret;
+	struct device_node *node;
+	struct esoc_clink *esoc;
+	const struct esoc_clink_ops *const clink_ops = ops->clink_ops;
+	const struct mdm_pon_ops *pon_ops = ops->pon_ops;
+
+	mdm->dev = &pdev->dev;
+	mdm->pon_ops = pon_ops;
+	node = pdev->dev.of_node;
+	esoc = devm_kzalloc(mdm->dev, sizeof(*esoc), GFP_KERNEL);
+	if (IS_ERR_OR_NULL(esoc)) {
+		dev_err(mdm->dev, "cannot allocate esoc device\n");
+		return PTR_ERR(esoc);
+	}
+	esoc->pdev = pdev;
+	mdm->mdm_queue = alloc_workqueue("mdm_queue", 0, 0);
+	if (!mdm->mdm_queue) {
+		dev_err(mdm->dev, "could not create mdm_queue\n");
+		return -ENOMEM;
+	}
+	mdm->irq_mask = 0;
+	mdm->ready = false;
+	ret = mdm_dt_parse_gpios(mdm);
+	if (ret)
+		return ret;
+	dev_dbg(mdm->dev, "parsing gpio done\n");
+	ret = mdm_pon_dt_init(mdm);
+	if (ret)
+		return ret;
+	dev_dbg(mdm->dev, "pon dt init done\n");
+	ret = mdm_pinctrl_init(mdm);
+	if (ret)
+		return ret;
+	dev_dbg(mdm->dev, "pinctrl init done\n");
+	ret = mdm_pon_setup(mdm);
+	if (ret)
+		return ret;
+	dev_dbg(mdm->dev, "pon setup done\n");
+	ret = mdm_configure_ipc(mdm, pdev);
+	if (ret)
+		return ret;
+	dev_dbg(mdm->dev, "ipc configure done\n");
+	esoc->name = APQ8096_LABEL;
+	esoc->link_name = APQ8096_PCIE;
+	esoc->clink_ops = clink_ops;
+	esoc->parent = mdm->dev;
+	esoc->owner = THIS_MODULE;
+	esoc->np = pdev->dev.of_node;
+	esoc->auto_boot = of_property_read_bool(esoc->np,
+				"qcom,mdm-auto-boot");
+	esoc->primary = of_property_read_bool(esoc->np,
+				"qcom,mdm-primary");
+	set_esoc_clink_data(esoc, mdm);
+	ret = esoc_clink_register(esoc);
+	if (ret) {
+		dev_err(mdm->dev, "esoc registration failed\n");
+		return ret;
+	}
+	dev_dbg(mdm->dev, "esoc registration done\n");
+	init_completion(&mdm->debug_done);
+	INIT_WORK(&mdm->mdm_status_work, mdm_status_fn);
+	INIT_WORK(&mdm->restart_reason_work, mdm_get_restart_reason);
+	INIT_DELAYED_WORK(&mdm->mdm2ap_status_check_work, mdm2ap_status_check);
+	mdm->get_restart_reason = false;
+	mdm->debug_fail = false;
+	mdm->esoc = esoc;
+	mdm->init = 0;
+	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_STATUS), 1);
+	gpio_direction_output(MDM_GPIO(mdm, AP2MDM_ERRFATAL), 0);
+	return 0;
+}
+
 static struct esoc_clink_ops mdm_cops = {
 	.cmd_exe = mdm_cmd_exe,
 	.get_status = mdm_get_status,
@@ -991,6 +1203,18 @@ static struct mdm_ops mdm9x35_ops = {
 	.pon_ops = &mdm9x35_pon_ops,
 };
 
+static struct mdm_ops mdm9x45_ops = {
+	.clink_ops = &mdm_cops,
+	.config_hw = mdm9x45_setup_hw,
+	.pon_ops = &mdm9x45_pon_ops,
+};
+
+static struct mdm_ops apq8096_ops = {
+	.clink_ops = &mdm_cops,
+	.config_hw = apq8096_setup_hw,
+	.pon_ops = &apq8096_pon_ops,
+};
+
 static struct mdm_ops mdm9x55_ops = {
 	.clink_ops = &mdm_cops,
 	.config_hw = mdm9x55_setup_hw,
@@ -1002,8 +1226,12 @@ static const struct of_device_id mdm_dt_match[] = {
 		.data = &mdm9x25_ops, },
 	{ .compatible = "qcom,ext-mdm9x35",
 		.data = &mdm9x35_ops, },
+	{ .compatible = "qcom,ext-mdm9x45",
+		.data = &mdm9x45_ops, },
 	{ .compatible = "qcom,ext-mdm9x55",
 		.data = &mdm9x55_ops, },
+	{ .compatible = "qcom,ext-apq8096",
+		.data = &apq8096_ops, },
 	{},
 };
 MODULE_DEVICE_TABLE(of, mdm_dt_match);

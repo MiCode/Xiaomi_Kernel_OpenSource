@@ -1465,6 +1465,7 @@ static void fastrpc_init(struct fastrpc_apps *me)
 {
 	int i;
 	INIT_HLIST_HEAD(&me->drivers);
+	INIT_HLIST_HEAD(&me->maps);
 	spin_lock_init(&me->hlock);
 	mutex_init(&me->smd_mutex);
 	me->channel = &gcinfo[0];
@@ -1487,14 +1488,15 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 	int err = 0;
 	struct timespec invoket;
 
+	if (fl->profile)
+		getnstimeofday(&invoket);
+
 	VERIFY(err, fl->sctx);
 	if (err)
 		goto bail;
 	VERIFY(err, fl->cid >= 0 && fl->cid < NUM_CHANNELS);
 	if (err)
 		goto bail;
-	if (fl->profile)
-		getnstimeofday(&invoket);
 	if (!kernel) {
 		VERIFY(err, 0 == context_restore_interrupted(fl, inv,
 								&ctx));
@@ -1583,6 +1585,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 	struct fastrpc_ioctl_init *init = &uproc->init;
 	struct smq_phy_page pages[1];
 	struct fastrpc_mmap *file = 0, *mem = 0;
+	char *proc_name = NULL;
 	int srcVM[1] = {VMID_HLOS};
 	int destVM[1] = {VMID_ADSP_Q6};
 	int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
@@ -1678,12 +1681,18 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		uint64_t phys = 0;
 		ssize_t size = 0;
 		int fds[3];
-		char *proc_name = (unsigned char *)init->file;
 		struct {
 			int pgid;
 			int namelen;
 			int pageslen;
 		} inbuf;
+		VERIFY(err, proc_name = kzalloc(init->filelen, GFP_KERNEL));
+		if (err)
+			goto bail;
+		VERIFY(err, 0 == copy_from_user(proc_name,
+			(unsigned char *)init->file, init->filelen));
+		if (err)
+			goto bail;
 		inbuf.pgid = current->tgid;
 		inbuf.namelen = strlen(proc_name)+1;
 		inbuf.pageslen = 0;
@@ -1736,6 +1745,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		err = -ENOTTY;
 	}
 bail:
+	kfree(proc_name);
 	if (err && (init->flags == FASTRPC_INIT_CREATE_STATIC))
 		me->staticpd_flags = 0;
 	if (mem && err) {
@@ -2125,11 +2135,9 @@ void fastrpc_glink_notify_state(void *handle, const void *priv, unsigned event)
 		link->port_state = FASTRPC_LINK_DISCONNECTED;
 		break;
 	case GLINK_REMOTE_DISCONNECTED:
-		if (me->channel[cid].chan &&
-			link->link_state == FASTRPC_LINK_STATE_UP) {
+		if (me->channel[cid].chan) {
 			fastrpc_glink_close(me->channel[cid].chan, cid);
 			me->channel[cid].chan = 0;
-			link->port_state = FASTRPC_LINK_DISCONNECTED;
 		}
 		break;
 	default:
@@ -2295,10 +2303,9 @@ static int fastrpc_glink_open(int cid)
 	if (err)
 		goto bail;
 
-	if (link->port_state == FASTRPC_LINK_CONNECTED ||
-		link->port_state == FASTRPC_LINK_CONNECTING) {
+	VERIFY(err, (link->port_state == FASTRPC_LINK_DISCONNECTED));
+	if (err)
 		goto bail;
-	}
 
 	link->port_state = FASTRPC_LINK_CONNECTING;
 	cfg->priv = (void *)(uintptr_t)cid;
@@ -2442,6 +2449,9 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 	if (err)
 		goto bail;
 	cid = fl->cid;
+	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
+	if (err)
+		goto bail;
 	if (me->channel[cid].ssrcount !=
 				 me->channel[cid].prevssrcount) {
 		if (!me->channel[cid].issubsystemup) {
@@ -2450,14 +2460,13 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 				goto bail;
 		}
 	}
-	VERIFY(err, cid >= 0 && cid < NUM_CHANNELS);
-	if (err)
-		goto bail;
 	fl->ssrcount = me->channel[cid].ssrcount;
 	if ((kref_get_unless_zero(&me->channel[cid].kref) == 0) ||
 	    (me->channel[cid].chan == 0)) {
 		if (me->glink) {
-			fastrpc_glink_register(cid, me);
+			VERIFY(err, 0 == fastrpc_glink_register(cid, me));
+			if (err)
+				goto bail;
 			VERIFY(err, 0 == fastrpc_glink_open(cid));
 		} else {
 			VERIFY(err, !smd_named_open_on_edge(FASTRPC_SMD_GUID,
@@ -2543,7 +2552,8 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 		if (err)
 			goto bail;
 	}
-	*info = (fl->sctx->smmu.enabled ? 1 : 0);
+	if (fl->sctx)
+		*info = (fl->sctx->smmu.enabled ? 1 : 0);
 bail:
 	return err;
 }
@@ -2791,7 +2801,7 @@ static int fastrpc_cb_probe(struct device *dev)
 		start = 0x60000000;
 	VERIFY(err, !IS_ERR_OR_NULL(sess->smmu.mapping =
 				arm_iommu_create_mapping(&platform_bus_type,
-						start, 0x7fffffff)));
+						start, 0x70000000)));
 	if (err)
 		goto bail;
 	iommu_set_fault_handler(sess->smmu.mapping->domain,

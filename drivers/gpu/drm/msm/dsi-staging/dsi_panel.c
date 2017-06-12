@@ -1522,7 +1522,7 @@ static int dsi_panel_parse_dba_config(struct dsi_panel *panel,
 			"qcom,bridge-name", &len);
 		if (!panel->dba_config.bridge_name || len <= 0) {
 			SDE_ERROR(
-			"%s:%d Unable to read bridge_name, data=%p,len=%d\n",
+			"%s:%d Unable to read bridge_name, data=%pK,len=%d\n",
 			__func__, __LINE__, panel->dba_config.bridge_name, len);
 			rc = -EINVAL;
 			goto error;

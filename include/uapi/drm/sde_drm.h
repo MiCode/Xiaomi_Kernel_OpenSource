@@ -65,6 +65,48 @@
 #define SDE_DRM_BITMASK_COUNT       64
 
 /**
+ * Framebuffer modes for "fb_translation_mode" PLANE property
+ *
+ * @SDE_DRM_FB_NON_SEC:          IOMMU configuration for this framebuffer mode
+ *                               is non-secure domain and requires
+ *                               both stage I and stage II translations when
+ *                               this buffer is accessed by the display HW.
+ *                               This is the default mode of all frambuffers.
+ * @SDE_DRM_FB_SEC:              IOMMU configuration for this framebuffer mode
+ *                               is secure domain and requires
+ *                               both stage I and stage II translations when
+ *                               this buffer is accessed by the display HW.
+ * @SDE_DRM_FB_NON_SEC_DIR_TRANS: IOMMU configuration for this framebuffer mode
+ *                               is non-secure domain and requires
+ *                               only stage II translation when
+ *                               this buffer is accessed by the display HW.
+ * @SDE_DRM_FB_SEC_DIR_TRANS:    IOMMU configuration for this framebuffer mode
+ *                               is secure domain and requires
+ *                               only stage II translation when
+ *                               this buffer is accessed by the display HW.
+*/
+
+#define SDE_DRM_FB_NON_SEC              0
+#define SDE_DRM_FB_SEC                  1
+#define SDE_DRM_FB_NON_SEC_DIR_TRANS    2
+#define SDE_DRM_FB_SEC_DIR_TRANS        3
+
+/**
+ * Secure levels for "security_level" CRTC property.
+ *                        CRTC property which specifies what plane types
+ *                        can be attached to this CRTC. Plane component
+ *                        derives the plane type based on the FB_MODE.
+ * @ SDE_DRM_SEC_NON_SEC: Both Secure and non-secure plane types can be
+ *                        attached to this CRTC. This is the default state of
+ *                        the CRTC.
+ * @ SDE_DRM_SEC_ONLY:    Only secure planes can be added to this CRTC. If a
+ *                        CRTC is instructed to be in this mode it follows the
+ *                        platform dependent restrictions.
+ */
+#define SDE_DRM_SEC_NON_SEC            0
+#define SDE_DRM_SEC_ONLY               1
+
+/**
  * struct sde_drm_pix_ext_v1 - version 1 of pixel ext structure
  * @num_ext_pxls_lr: Number of total horizontal pixels
  * @num_ext_pxls_tb: Number of total vertical lines

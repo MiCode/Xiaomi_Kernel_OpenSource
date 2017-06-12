@@ -397,6 +397,8 @@ struct sched_cluster {
 	unsigned int static_cluster_pwr_cost;
 	int notifier_sent;
 	bool wake_up_idle;
+	atomic64_t last_cc_update;
+	atomic64_t cycles;
 };
 
 extern unsigned long all_cluster_ids[];
@@ -509,7 +511,7 @@ struct cfs_rq {
 
 	u64 throttled_clock, throttled_clock_task;
 	u64 throttled_clock_task_time;
-	int throttled, throttle_count;
+	int throttled, throttle_count, throttle_uptodate;
 	struct list_head throttled_list;
 #endif /* CONFIG_CFS_BANDWIDTH */
 #endif /* CONFIG_FAIR_GROUP_SCHED */
@@ -1011,7 +1013,7 @@ struct sched_group {
 
 	unsigned int group_weight;
 	struct sched_group_capacity *sgc;
-	const struct sched_group_energy const *sge;
+	const struct sched_group_energy *sge;
 
 	/*
 	 * The CPUs this group covers.
@@ -1223,6 +1225,11 @@ static inline u32 cpu_cycles_to_freq(u64 cycles, u32 period)
 static inline bool hmp_capable(void)
 {
 	return max_possible_capacity != min_max_possible_capacity;
+}
+
+static inline bool is_max_capacity_cpu(int cpu)
+{
+	return cpu_max_possible_capacity(cpu) == max_possible_capacity;
 }
 
 /*
@@ -1600,6 +1607,8 @@ static inline unsigned int nr_eligible_big_tasks(int cpu)
 {
 	return 0;
 }
+
+static inline bool is_max_capacity_cpu(int cpu) { return true; }
 
 static inline int pct_task_load(struct task_struct *p) { return 0; }
 

@@ -339,6 +339,77 @@
 
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
+	qcom,sde-plane-id-map {
+		qcom,sde-plane-id@0 {
+			reg = <0x0>;
+			qcom,display-type = "primary";
+			qcom,plane-name = "rgb0", "rgb1";
+			qcom,plane-type = "primary";
+		};
+
+		qcom,sde-plane-id@1 {
+			reg = <0x1>;
+			qcom,display-type = "primary";
+			qcom,plane-name = "vig0", "vig1";
+			qcom,plane-type = "overlay";
+		};
+
+		qcom,sde-plane-id@2 {
+			reg = <0x2>;
+			qcom,display-type = "primary";
+			qcom,plane-name = "cursor0";
+			qcom,plane-type = "cursor";
+		};
+
+		qcom,sde-plane-id@3 {
+			reg = <0x3>;
+			qcom,display-type = "secondary";
+			qcom,plane-name = "rgb2";
+			qcom,plane-type = "primary";
+		};
+
+		qcom,sde-plane-id@4 {
+			reg = <0x4>;
+			qcom,display-type = "secondary";
+			qcom,plane-name = "vig2";
+			qcom,plane-type = "overlay";
+		};
+
+		qcom,sde-plane-id@5 {
+			reg = <0x5>;
+			qcom,display-type = "secondary";
+			qcom,plane-name = "dma0";
+			qcom,plane-type = "overlay";
+		};
+
+		qcom,sde-plane-id@6 {
+			reg = <0x6>;
+			qcom,display-type = "secondary";
+			qcom,plane-name = "cursor1";
+			qcom,plane-type = "cursor";
+		};
+
+		qcom,sde-plane-id@7 {
+			reg = <0x7>;
+			qcom,display-type = "tertiary";
+			qcom,plane-name = "rgb3";
+			qcom,plane-type = "primary";
+		};
+
+		qcom,sde-plane-id@8 {
+			reg = <0x8>;
+			qcom,display-type = "tertiary";
+			qcom,plane-name = "vig3";
+			qcom,plane-type = "overlay";
+		};
+
+		qcom,sde-plane-id@9 {
+			reg = <0x9>;
+			qcom,display-type = "tertiary";
+			qcom,plane-name = "dma1";
+			qcom,plane-type = "overlay";
+		};
+	};
 };
 
 &mdss_dsi {
@@ -627,14 +698,14 @@
 
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
-				<&afe>, <&lsm>, <&routing>, <&compr>,
+				<&afe>, <&lsm>, <&routing>, <&pcmnoirq>,
 				<&loopback1>;
 		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
 				"msm-pcm-dsp.2", "msm-voip-dsp",
 				"msm-pcm-voice", "msm-pcm-loopback",
 				"msm-compress-dsp", "msm-pcm-hostless",
 				"msm-pcm-afe", "msm-lsm-client",
-				"msm-pcm-routing", "msm-compr-dsp",
+				"msm-pcm-routing", "msm-pcm-dsp-noirq",
 				"msm-pcm-loopback.1";
 		asoc-cpu = <&dai_pri_auxpcm>, <&dai_sec_auxpcm>, <&dai_hdmi>,
 				<&dai_mi2s_sec>, <&dai_mi2s>, <&dai_mi2s_quat>,
@@ -705,22 +776,9 @@
 	};
 
 	qcom,msm-dai-tdm-tert-rx {
-		qcom,msm-cpudai-tdm-group-num-ports = <5>;
-		qcom,msm-cpudai-tdm-group-port-id = <36896 36898 36900
-							36902 36904>;
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&tert_tdm_dout_active>;
 		pinctrl-1 = <&tert_tdm_dout_sleep>;
-		dai_tert_tdm_rx_4: qcom,msm-dai-q6-tdm-tert-rx-4 {
-			compatible = "qcom,msm-dai-q6-tdm";
-			qcom,msm-cpudai-tdm-dev-id = <36904>;
-			qcom,msm-cpudai-tdm-sync-mode = <1>;
-			qcom,msm-cpudai-tdm-sync-src = <0>;
-			qcom,msm-cpudai-tdm-data-out = <0>;
-			qcom,msm-cpudai-tdm-invert-sync = <0>;
-			qcom,msm-cpudai-tdm-data-delay = <0>;
-			qcom,msm-cpudai-tdm-data-align = <0>;
-		};
 	};
 
 	qcom,msm-dai-tdm-quat-rx {
@@ -809,7 +867,7 @@
 		qcom,vin-sel = <2>; /* 1.8 */
 		qcom,out-strength = <1>;
 		qcom,src-sel = <0>; /* GPIO */
-		qcom,master-en = <1>; /* Enable GPIO */
+		qcom,master-en = <0>; /* Disable GPIO */
 		status = "okay";
 	};
 

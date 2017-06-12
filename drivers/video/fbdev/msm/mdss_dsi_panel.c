@@ -260,16 +260,15 @@ static int mdss_dsi_request_gpios(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 			rc);
 		goto rst_gpio_err;
 	}
-	if (gpio_is_valid(ctrl_pdata->bklt_en_gpio)) {
-		rc = gpio_request(ctrl_pdata->bklt_en_gpio,
-						"bklt_enable");
+	if (gpio_is_valid(ctrl_pdata->avdd_en_gpio)) {
+		rc = gpio_request(ctrl_pdata->avdd_en_gpio,
+						"avdd_enable");
 		if (rc) {
-			pr_err("request bklt gpio failed, rc=%d\n",
+			pr_err("request avdd_en gpio failed, rc=%d\n",
 				       rc);
-			goto bklt_en_gpio_err;
+			goto avdd_en_gpio_err;
 		}
 	}
-
 	if (gpio_is_valid(ctrl_pdata->lcd_mode_sel_gpio)) {
 		rc = gpio_request(ctrl_pdata->lcd_mode_sel_gpio, "mode_sel");
 		if (rc) {
@@ -282,14 +281,89 @@ static int mdss_dsi_request_gpios(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	return rc;
 
 lcd_mode_sel_gpio_err:
-	if (gpio_is_valid(ctrl_pdata->bklt_en_gpio))
-		gpio_free(ctrl_pdata->bklt_en_gpio);
-bklt_en_gpio_err:
+	if (gpio_is_valid(ctrl_pdata->avdd_en_gpio))
+		gpio_free(ctrl_pdata->avdd_en_gpio);
+avdd_en_gpio_err:
 	gpio_free(ctrl_pdata->rst_gpio);
 rst_gpio_err:
 	if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
 		gpio_free(ctrl_pdata->disp_en_gpio);
 disp_en_gpio_err:
+	return rc;
+}
+
+int mdss_dsi_bl_gpio_ctrl(struct mdss_panel_data *pdata, int enable)
+{
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	int rc = 0, val = 0;
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+	if (ctrl_pdata == NULL) {
+		pr_err("%s: Invalid ctrl data\n", __func__);
+		return -EINVAL;
+	}
+
+	/* if gpio is not valid */
+	if (!gpio_is_valid(ctrl_pdata->bklt_en_gpio))
+		return rc;
+
+	pr_debug("%s: enable = %d\n", __func__, enable);
+
+	/*
+	 * if gpio state is false and enable (bl level) is
+	 * non zero then toggle the gpio
+	 */
+	if (!ctrl_pdata->bklt_en_gpio_state && enable) {
+		rc = gpio_request(ctrl_pdata->bklt_en_gpio, "bklt_enable");
+		if (rc) {
+			pr_err("request bklt gpio failed, rc=%d\n", rc);
+			goto free;
+		}
+
+		if (ctrl_pdata->bklt_en_gpio_invert)
+			val = 0;
+		 else
+			val = 1;
+
+		rc = gpio_direction_output(ctrl_pdata->bklt_en_gpio, val);
+		if (rc) {
+			pr_err("%s: unable to set dir for bklt gpio val %d\n",
+						__func__, val);
+			goto free;
+		}
+		ctrl_pdata->bklt_en_gpio_state = true;
+		goto ret;
+	} else if (ctrl_pdata->bklt_en_gpio_state && !enable) {
+		/*
+		 * if gpio state is true and enable (bl level) is
+		 * zero then toggle the gpio
+		 */
+		if (ctrl_pdata->bklt_en_gpio_invert)
+			val = 1;
+		 else
+			val = 0;
+
+		rc = gpio_direction_output(ctrl_pdata->bklt_en_gpio, val);
+		if (rc)
+			pr_err("%s: unable to set dir for bklt gpio val %d\n",
+						__func__, val);
+		goto free;
+	}
+
+	/* gpio state is true and bl level is non zero */
+	goto ret;
+
+free:
+	pr_debug("%s: free bklt gpio\n", __func__);
+	ctrl_pdata->bklt_en_gpio_state = false;
+	gpio_free(ctrl_pdata->bklt_en_gpio);
+ret:
 	return rc;
 }
 
@@ -363,21 +437,16 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 					usleep_range(pinfo->rst_seq[i] * 1000, pinfo->rst_seq[i] * 1000);
 			}
 
-			if (gpio_is_valid(ctrl_pdata->bklt_en_gpio)) {
-
-				if (ctrl_pdata->bklt_en_gpio_invert) {
+			if (gpio_is_valid(ctrl_pdata->avdd_en_gpio)) {
+				if (ctrl_pdata->avdd_en_gpio_invert) {
 					rc = gpio_direction_output(
-						ctrl_pdata->bklt_en_gpio, 0);
-					gpio_set_value(
-						(ctrl_pdata->bklt_en_gpio), 0);
+						ctrl_pdata->avdd_en_gpio, 0);
 				} else {
 					rc = gpio_direction_output(
-						ctrl_pdata->bklt_en_gpio, 1);
-					gpio_set_value(
-						(ctrl_pdata->bklt_en_gpio), 1);
+						ctrl_pdata->avdd_en_gpio, 1);
 				}
 				if (rc) {
-					pr_err("%s: unable to set dir for bklt gpio\n",
+					pr_err("%s: unable to set dir for avdd_en gpio\n",
 						__func__);
 					goto exit;
 				}
@@ -410,14 +479,13 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			pr_debug("%s: Reset panel done\n", __func__);
 		}
 	} else {
-		if (gpio_is_valid(ctrl_pdata->bklt_en_gpio)) {
-
-			if (ctrl_pdata->bklt_en_gpio_invert)
-				gpio_set_value((ctrl_pdata->bklt_en_gpio), 1);
+		if (gpio_is_valid(ctrl_pdata->avdd_en_gpio)) {
+			if (ctrl_pdata->avdd_en_gpio_invert)
+				gpio_set_value((ctrl_pdata->avdd_en_gpio), 1);
 			else
-				gpio_set_value((ctrl_pdata->bklt_en_gpio), 0);
+				gpio_set_value((ctrl_pdata->avdd_en_gpio), 0);
 
-			gpio_free(ctrl_pdata->bklt_en_gpio);
+			gpio_free(ctrl_pdata->avdd_en_gpio);
 		}
 		if (gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
 			gpio_set_value((ctrl_pdata->disp_en_gpio), 0);
@@ -800,6 +868,9 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 
 	if ((bl_level < pdata->panel_info.bl_min) && (bl_level != 0))
 		bl_level = pdata->panel_info.bl_min;
+
+	/* enable the backlight gpio if present */
+	mdss_dsi_bl_gpio_ctrl(pdata, bl_level);
 
 	switch (ctrl_pdata->bklt_ctrl) {
 	case BL_WLED:
@@ -1347,6 +1418,44 @@ static int mdss_dsi_parse_hdr_settings(struct device_node *np,
 			hdr_prop->hdr_enabled = false;
 		}
 	}
+	return 0;
+}
+
+static int mdss_dsi_parse_split_link_settings(struct device_node *np,
+		struct mdss_panel_info *pinfo)
+{
+	u32 tmp;
+	int rc = 0;
+
+	if (!np) {
+		pr_err("%s: device node pointer is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!pinfo) {
+		pr_err("%s: panel info is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	pinfo->split_link_enabled = of_property_read_bool(np,
+		"qcom,split-link-enabled");
+
+	if (pinfo->split_link_enabled) {
+		rc = of_property_read_u32(np,
+			"qcom,sublinks-count", &tmp);
+		/* default num of sublink is 1*/
+		pinfo->mipi.num_of_sublinks = (!rc ? tmp : 1);
+
+		rc = of_property_read_u32(np,
+			"qcom,lanes-per-sublink", &tmp);
+		/* default num of lanes per sublink is 1 */
+		pinfo->mipi.lanes_per_sublink = (!rc ? tmp : 1);
+	}
+
+	pr_info("%s: enable %d sublinks-count %d lanes per sublink %d\n",
+		__func__, pinfo->split_link_enabled,
+		pinfo->mipi.num_of_sublinks,
+		pinfo->mipi.lanes_per_sublink);
 	return 0;
 }
 
@@ -2734,9 +2843,15 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	pinfo->mipi.data_lane3 = of_property_read_bool(np,
 		"qcom,mdss-dsi-lane-3-state");
 
+	/* parse split link properties */
+	rc = mdss_dsi_parse_split_link_settings(np, pinfo);
+	if (rc)
+		return rc;
+
 	rc = mdss_panel_parse_display_timings(np, &ctrl_pdata->panel_data);
 	if (rc)
 		return rc;
+
 	rc = mdss_dsi_parse_hdr_settings(np, pinfo);
 	if (rc)
 		return rc;

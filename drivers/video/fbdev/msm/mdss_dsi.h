@@ -315,6 +315,8 @@ struct mdss_dsi_data {
 	 * mutex, clocks, regulator information, setup information
 	 */
 	struct dsi_shared_data *shared_data;
+	u32 *dbg_bus;
+	int dbg_bus_size;
 };
 
 /*
@@ -452,6 +454,9 @@ struct mdss_dsi_ctrl_pdata {
 	int disp_en_gpio;
 	int bklt_en_gpio;
 	bool bklt_en_gpio_invert;
+	bool bklt_en_gpio_state;
+	int avdd_en_gpio;
+	bool avdd_en_gpio_invert;
 	int lcd_mode_sel_gpio;
 	int bklt_ctrl;	/* backlight ctrl */
 	bool pwm_pmi;
@@ -704,6 +709,9 @@ void mdss_dsi_cfg_lane_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 void mdss_dsi_set_reg(struct mdss_dsi_ctrl_pdata *ctrl, int off,
 	u32 mask, u32 val);
 int mdss_dsi_phy_pll_reset_status(struct mdss_dsi_ctrl_pdata *ctrl);
+int mdss_dsi_check_panel_status(struct mdss_dsi_ctrl_pdata *ctrl, void *arg);
+
+void mdss_dsi_debug_bus_init(struct mdss_dsi_data *sdata);
 
 static inline const char *__mdss_dsi_pm_name(enum dsi_pm_type module)
 {

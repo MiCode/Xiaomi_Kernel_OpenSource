@@ -32,6 +32,7 @@
 #include <asm/dma.h>
 #include <linux/dma-mapping.h>
 #include <linux/msm_audio_ion.h>
+#include <linux/msm_audio.h>
 
 #include <sound/timer.h>
 #include <sound/tlv.h>
@@ -42,8 +43,6 @@
 #include <sound/compress_offload.h>
 #include <sound/compress_driver.h>
 #include <sound/msm-audio-effects-q6-v2.h>
-#include <sound/msm-dts-eagle.h>
-
 #include "msm-pcm-routing-v2.h"
 #include "msm-qti-pp-config.h"
 
@@ -80,15 +79,6 @@ const DECLARE_TLV_DB_LINEAR(msm_compr_vol_gain, 0,
 
 #define MAX_NUMBER_OF_STREAMS 2
 
-/*
- * Max size for getting DTS EAGLE Param through kcontrol
- * Safe for both 32 and 64 bit platforms
- * 64 = size of kcontrol value array on 64 bit platform
- * 4 = size of parameters Eagle expects before cast to 64 bits
- * 40 = size of dts_eagle_param_desc + module_id cast to 64 bits
- */
-#define DTS_EAGLE_MAX_PARAM_SIZE_FOR_ALSA ((64 * 4) - 40)
-
 struct msm_compr_gapless_state {
 	bool set_next_stream_id;
 	int32_t stream_opened[MAX_NUMBER_OF_STREAMS];
@@ -101,7 +91,8 @@ struct msm_compr_gapless_state {
 
 static unsigned int supported_sample_rates[] = {
 	8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000, 64000,
-	88200, 96000, 128000, 176400, 192000, 352800, 384000, 2822400, 5644800
+	88200, 96000, 128000, 144000, 176400, 192000, 352800, 384000, 2822400,
+	5644800
 };
 
 struct msm_compr_pdata {
@@ -187,7 +178,7 @@ struct msm_compr_audio {
 
 const u32 compr_codecs[] = {
 	SND_AUDIOCODEC_AC3, SND_AUDIOCODEC_EAC3, SND_AUDIOCODEC_DTS,
-	SND_AUDIOCODEC_DSD};
+	SND_AUDIOCODEC_DSD, SND_AUDIOCODEC_TRUEHD, SND_AUDIOCODEC_IEC61937};
 
 struct query_audio_effect {
 	uint32_t mod_id;
@@ -313,6 +304,39 @@ exit:
 	return ret;
 }
 
+static int msm_compr_enable_adjust_session_clock(struct audio_client *ac,
+		bool enable)
+{
+	int ret;
+
+	pr_debug("%s, enable adjust_session %d\n", __func__, enable);
+
+	ret = q6asm_send_mtmx_strtr_enable_adjust_session_clock(ac, enable);
+	if (ret)
+		pr_err("%s, adjust session clock can't be set error %d\n",
+			__func__, ret);
+
+	return ret;
+}
+
+static int msm_compr_adjust_session_clock(struct audio_client *ac,
+		uint32_t adjust_session_lsw, uint32_t adjust_session_msw)
+{
+	int ret;
+
+	pr_debug("%s, adjust_session_time_msw 0x%x adjust_session_time_lsw 0x%x\n",
+		 __func__, adjust_session_msw, adjust_session_lsw);
+
+	ret = q6asm_adjust_session_clock(ac,
+			adjust_session_lsw,
+			adjust_session_msw);
+	if (ret)
+		pr_err("%s, adjust session clock can't be set error %d\n",
+			__func__, ret);
+
+	return ret;
+}
+
 static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 				uint32_t volume_l, uint32_t volume_r)
 {
@@ -378,11 +402,6 @@ static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 	if (rc < 0)
 		pr_err("%s: Send vol gain command failed rc=%d\n",
 		       __func__, rc);
-	else
-		if (msm_dts_eagle_set_stream_gain(prtd->audio_client,
-						volume_l, volume_r))
-			pr_debug("%s: DTS_EAGLE send stream gain failed\n",
-				__func__);
 
 	return rc;
 }
@@ -725,21 +744,20 @@ static void compr_event_handler(uint32_t opcode,
 		spin_unlock_irqrestore(&prtd->lock, flags);
 		break;
 	case ASM_STREAM_PP_EVENT:
-		pr_debug("%s: ASM_STREAM_PP_EVENT\n", __func__);
+	case ASM_STREAM_CMD_ENCDEC_EVENTS:
+		pr_debug("%s: ASM_STREAM_EVENT(0x%x)\n", __func__, opcode);
 		rtd = cstream->private_data;
 		if (!rtd) {
 			pr_err("%s: rtd is NULL\n", __func__);
 			return;
 		}
 
-		ret = msm_adsp_inform_mixer_ctl(rtd, DSP_STREAM_CALLBACK,
-					payload);
+		ret = msm_adsp_inform_mixer_ctl(rtd, payload);
 		if (ret) {
 			pr_err("%s: failed to inform mixer ctrl. err = %d\n",
 				__func__, ret);
 			return;
 		}
-
 		break;
 	case ASM_DATA_EVENT_SR_CM_CHANGE_NOTIFY:
 	case ASM_DATA_EVENT_ENC_SR_CM_CHANGE_NOTIFY: {
@@ -904,7 +922,7 @@ static void populate_codec_list(struct msm_compr_audio *prtd)
 			COMPR_PLAYBACK_MIN_NUM_FRAGMENTS;
 	prtd->compr_cap.max_fragments =
 			COMPR_PLAYBACK_MAX_NUM_FRAGMENTS;
-	prtd->compr_cap.num_codecs = 15;
+	prtd->compr_cap.num_codecs = 17;
 	prtd->compr_cap.codecs[0] = SND_AUDIOCODEC_MP3;
 	prtd->compr_cap.codecs[1] = SND_AUDIOCODEC_AAC;
 	prtd->compr_cap.codecs[2] = SND_AUDIOCODEC_AC3;
@@ -920,6 +938,8 @@ static void populate_codec_list(struct msm_compr_audio *prtd)
 	prtd->compr_cap.codecs[12] = SND_AUDIOCODEC_DTS;
 	prtd->compr_cap.codecs[13] = SND_AUDIOCODEC_DSD;
 	prtd->compr_cap.codecs[14] = SND_AUDIOCODEC_APTX;
+	prtd->compr_cap.codecs[15] = SND_AUDIOCODEC_TRUEHD;
+	prtd->compr_cap.codecs[16] = SND_AUDIOCODEC_IEC61937;
 }
 
 static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
@@ -1174,6 +1194,19 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 			pr_err("%s: CMD DSD Format block failed ret %d\n",
 				__func__, ret);
 		break;
+	case FORMAT_TRUEHD:
+		pr_debug("SND_AUDIOCODEC_TRUEHD\n");
+		/* no media format block needed */
+		break;
+	case FORMAT_IEC61937:
+		pr_debug("SND_AUDIOCODEC_IEC61937\n");
+		ret = q6asm_media_format_block_iec(prtd->audio_client,
+						   prtd->sample_rate,
+						   prtd->num_channels);
+		if (ret < 0)
+			pr_err("%s: CMD IEC61937 Format block failed ret %d\n",
+				__func__, ret);
+		break;
 	case FORMAT_APTX:
 		pr_debug("SND_AUDIOCODEC_APTX\n");
 		memset(&aptx_cfg, 0x0, sizeof(struct aptx_dec_bt_addr_cfg));
@@ -1210,26 +1243,6 @@ static int msm_compr_init_pp_params(struct snd_compr_stream *cstream,
 	};
 
 	switch (ac->topology) {
-	case ASM_STREAM_POSTPROC_TOPO_ID_HPX_PLUS: /* HPX + SA+ topology */
-
-		ret = q6asm_set_softvolume_v2(ac, &softvol,
-					      SOFT_VOLUME_INSTANCE_1);
-		if (ret < 0)
-			pr_err("%s: Send SoftVolume Param failed ret=%d\n",
-			__func__, ret);
-
-		ret = q6asm_set_softvolume_v2(ac, &softvol,
-					      SOFT_VOLUME_INSTANCE_2);
-		if (ret < 0)
-			pr_err("%s: Send SoftVolume2 Param failed ret=%d\n",
-			__func__, ret);
-		/*
-		 * HPX module init is trigerred from HAL using ioctl
-		 * DTS_EAGLE_MODULE_ENABLE when stream starts
-		 */
-		break;
-	case ASM_STREAM_POSTPROC_TOPO_ID_DTS_HPX: /* HPX topology */
-		break;
 	default:
 		ret = q6asm_set_softvolume_v2(ac, &softvol,
 					      SOFT_VOLUME_INSTANCE_1);
@@ -1581,6 +1594,7 @@ static int msm_compr_playback_open(struct snd_compr_stream *cstream)
 	pr_debug("%s: session ID %d\n", __func__, prtd->audio_client->session);
 	prtd->audio_client->perf_mode = false;
 	prtd->session_id = prtd->audio_client->session;
+	msm_adsp_init_mixer_ctl_pp_event_queue(rtd);
 
 	return 0;
 }
@@ -1736,7 +1750,7 @@ static int msm_compr_playback_free(struct snd_compr_stream *cstream)
 	q6asm_audio_client_buf_free_contiguous(dir, ac);
 
 	q6asm_audio_client_free(ac);
-
+	msm_adsp_clean_mixer_ctl_pp_event_queue(soc_prtd);
 	kfree(pdata->audio_effects[soc_prtd->dai_link->be_id]);
 	pdata->audio_effects[soc_prtd->dai_link->be_id] = NULL;
 	kfree(pdata->dec_params[soc_prtd->dai_link->be_id]);
@@ -1854,8 +1868,11 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 	prtd->sample_rate = prtd->codec_param.codec.sample_rate;
 	pr_debug("%s: sample_rate %d\n", __func__, prtd->sample_rate);
 
-	if (prtd->codec_param.codec.compr_passthr >= LEGACY_PCM &&
-	    prtd->codec_param.codec.compr_passthr <= COMPRESSED_PASSTHROUGH_DSD)
+	if ((prtd->codec_param.codec.compr_passthr >= LEGACY_PCM &&
+	    prtd->codec_param.
+	    codec.compr_passthr <= COMPRESSED_PASSTHROUGH_DSD) ||
+	    (prtd->codec_param.
+	    codec.compr_passthr == COMPRESSED_PASSTHROUGH_IEC61937))
 		prtd->compr_passthr = prtd->codec_param.codec.compr_passthr;
 	else
 		prtd->compr_passthr = LEGACY_PCM;
@@ -1969,6 +1986,18 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 	case SND_AUDIOCODEC_DSD: {
 		pr_debug("%s: SND_AUDIOCODEC_DSD\n", __func__);
 		prtd->codec = FORMAT_DSD;
+		break;
+	}
+
+	case SND_AUDIOCODEC_TRUEHD: {
+		pr_debug("%s: SND_AUDIOCODEC_TRUEHD\n", __func__);
+		prtd->codec = FORMAT_TRUEHD;
+		break;
+	}
+
+	case SND_AUDIOCODEC_IEC61937: {
+		pr_debug("%s: SND_AUDIOCODEC_IEC61937\n", __func__);
+		prtd->codec = FORMAT_IEC61937;
 		break;
 	}
 
@@ -2836,20 +2865,15 @@ static int msm_compr_get_codec_caps(struct snd_compr_stream *cstream,
 				SND_AUDIOSTREAMFORMAT_RAW);
 		break;
 	case SND_AUDIOCODEC_AC3:
-		break;
 	case SND_AUDIOCODEC_EAC3:
-		break;
 	case SND_AUDIOCODEC_FLAC:
-		break;
 	case SND_AUDIOCODEC_VORBIS:
-		break;
 	case SND_AUDIOCODEC_ALAC:
-		break;
 	case SND_AUDIOCODEC_APE:
-		break;
 	case SND_AUDIOCODEC_DTS:
-		break;
 	case SND_AUDIOCODEC_DSD:
+	case SND_AUDIOCODEC_TRUEHD:
+	case SND_AUDIOCODEC_IEC61937:
 	case SND_AUDIOCODEC_APTX:
 		break;
 	default:
@@ -2906,6 +2930,14 @@ static int msm_compr_set_metadata(struct snd_compr_stream *cstream,
 	} else if (metadata->key == SNDRV_COMPRESS_START_DELAY) {
 		prtd->start_delay_lsw = metadata->value[0];
 		prtd->start_delay_msw = metadata->value[1];
+	} else if (metadata->key ==
+				SNDRV_COMPRESS_ENABLE_ADJUST_SESSION_CLOCK) {
+		return msm_compr_enable_adjust_session_clock(ac,
+				metadata->value[0]);
+	} else if (metadata->key == SNDRV_COMPRESS_ADJUST_SESSION_CLOCK) {
+		return msm_compr_adjust_session_clock(ac,
+				metadata->value[0],
+				metadata->value[1]);
 	}
 
 	return 0;
@@ -3128,23 +3160,6 @@ static int msm_compr_audio_effects_config_put(struct snd_kcontrol *kcontrol,
 						    &(audio_effects->equalizer),
 						     values);
 		break;
-	case DTS_EAGLE_MODULE:
-		pr_debug("%s: DTS_EAGLE_MODULE\n", __func__);
-		if (!msm_audio_effects_is_effmodule_supp_in_top(effects_module,
-						prtd->audio_client->topology))
-			return 0;
-		msm_dts_eagle_handle_asm(NULL, (void *)values, true,
-					 false, prtd->audio_client, NULL);
-		break;
-	case DTS_EAGLE_MODULE_ENABLE:
-		pr_debug("%s: DTS_EAGLE_MODULE_ENABLE\n", __func__);
-		if (msm_audio_effects_is_effmodule_supp_in_top(effects_module,
-						prtd->audio_client->topology))
-			msm_dts_eagle_enable_asm(prtd->audio_client,
-					(bool)values[0],
-					AUDPROC_MODULE_ID_DTS_HPX_PREMIX);
-
-		break;
 	case SOFT_VOLUME_MODULE:
 		pr_debug("%s: SOFT_VOLUME_MODULE\n", __func__);
 		break;
@@ -3173,7 +3188,6 @@ static int msm_compr_audio_effects_config_get(struct snd_kcontrol *kcontrol,
 	struct msm_compr_audio_effects *audio_effects = NULL;
 	struct snd_compr_stream *cstream = NULL;
 	struct msm_compr_audio *prtd = NULL;
-	long *values = &(ucontrol->value.integer.value[0]);
 
 	pr_debug("%s\n", __func__);
 	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
@@ -3193,28 +3207,6 @@ static int msm_compr_audio_effects_config_get(struct snd_kcontrol *kcontrol,
 		return -EINVAL;
 	}
 
-	switch (audio_effects->query.mod_id) {
-	case DTS_EAGLE_MODULE:
-		pr_debug("%s: DTS_EAGLE_MODULE handling queued get\n",
-			 __func__);
-		values[0] = (long)audio_effects->query.mod_id;
-		values[1] = (long)audio_effects->query.parm_id;
-		values[2] = (long)audio_effects->query.size;
-		values[3] = (long)audio_effects->query.offset;
-		values[4] = (long)audio_effects->query.device;
-		if (values[2] > DTS_EAGLE_MAX_PARAM_SIZE_FOR_ALSA) {
-			pr_err("%s: DTS_EAGLE_MODULE parameter's requested size (%li) too large (max size is %i)\n",
-				__func__, values[2],
-				DTS_EAGLE_MAX_PARAM_SIZE_FOR_ALSA);
-			return -EINVAL;
-		}
-		msm_dts_eagle_handle_asm(NULL, (void *)&values[1],
-					 true, true, prtd->audio_client, NULL);
-		break;
-	default:
-		pr_err("%s: Invalid effects config module\n", __func__);
-		return -EINVAL;
-	}
 	return 0;
 }
 
@@ -3318,6 +3310,8 @@ static int msm_compr_send_dec_params(struct snd_compr_stream *cstream,
 	switch (prtd->codec) {
 	case FORMAT_MP3:
 	case FORMAT_MPEG4_AAC:
+	case FORMAT_TRUEHD:
+	case FORMAT_IEC61937:
 	case FORMAT_APTX:
 		pr_debug("%s: no runtime parameters for codec: %d\n", __func__,
 			 prtd->codec);
@@ -3385,6 +3379,8 @@ static int msm_compr_dec_params_put(struct snd_kcontrol *kcontrol,
 	case FORMAT_APE:
 	case FORMAT_DTS:
 	case FORMAT_DSD:
+	case FORMAT_TRUEHD:
+	case FORMAT_IEC61937:
 	case FORMAT_APTX:
 		pr_debug("%s: no runtime parameters for codec: %d\n", __func__,
 			 prtd->codec);
@@ -3437,21 +3433,18 @@ static int msm_compr_playback_app_type_cfg_put(struct snd_kcontrol *kcontrol,
 	u64 fe_id = kcontrol->private_value;
 	int session_type = SESSION_TYPE_RX;
 	int be_id = ucontrol->value.integer.value[3];
+	struct msm_pcm_stream_app_type_cfg cfg_data = {0, 0, 48000};
 	int ret = 0;
-	int app_type;
-	int acdb_dev_id;
-	int sample_rate = 48000;
 
-	app_type = ucontrol->value.integer.value[0];
-	acdb_dev_id = ucontrol->value.integer.value[1];
+	cfg_data.app_type = ucontrol->value.integer.value[0];
+	cfg_data.acdb_dev_id = ucontrol->value.integer.value[1];
 	if (ucontrol->value.integer.value[2] != 0)
-		sample_rate = ucontrol->value.integer.value[2];
+		cfg_data.sample_rate = ucontrol->value.integer.value[2];
 	pr_debug("%s: fe_id- %llu session_type- %d be_id- %d app_type- %d acdb_dev_id- %d sample_rate- %d\n",
 		__func__, fe_id, session_type, be_id,
-		app_type, acdb_dev_id, sample_rate);
+		cfg_data.app_type, cfg_data.acdb_dev_id, cfg_data.sample_rate);
 	ret = msm_pcm_routing_reg_stream_app_type_cfg(fe_id, session_type,
-						      be_id, app_type,
-						      acdb_dev_id, sample_rate);
+						      be_id, &cfg_data);
 	if (ret < 0)
 		pr_err("%s: msm_pcm_routing_reg_stream_app_type_cfg failed returned %d\n",
 			__func__, ret);
@@ -3464,28 +3457,25 @@ static int msm_compr_playback_app_type_cfg_get(struct snd_kcontrol *kcontrol,
 {
 	u64 fe_id = kcontrol->private_value;
 	int session_type = SESSION_TYPE_RX;
-	int be_id = ucontrol->value.integer.value[3];
+	int be_id = 0;
+	struct msm_pcm_stream_app_type_cfg cfg_data = {0};
 	int ret = 0;
-	int app_type;
-	int acdb_dev_id;
-	int sample_rate;
 
 	ret = msm_pcm_routing_get_stream_app_type_cfg(fe_id, session_type,
-						      be_id, &app_type,
-						      &acdb_dev_id,
-						      &sample_rate);
+						      &be_id, &cfg_data);
 	if (ret < 0) {
 		pr_err("%s: msm_pcm_routing_get_stream_app_type_cfg failed returned %d\n",
 			__func__, ret);
 		goto done;
 	}
 
-	ucontrol->value.integer.value[0] = app_type;
-	ucontrol->value.integer.value[1] = acdb_dev_id;
-	ucontrol->value.integer.value[2] = sample_rate;
+	ucontrol->value.integer.value[0] = cfg_data.app_type;
+	ucontrol->value.integer.value[1] = cfg_data.acdb_dev_id;
+	ucontrol->value.integer.value[2] = cfg_data.sample_rate;
+	ucontrol->value.integer.value[3] = be_id;
 	pr_debug("%s: fedai_id %llu, session_type %d, be_id %d, app_type %d, acdb_dev_id %d, sample_rate %d\n",
 		__func__, fe_id, session_type, be_id,
-		app_type, acdb_dev_id, sample_rate);
+		cfg_data.app_type, cfg_data.acdb_dev_id, cfg_data.sample_rate);
 done:
 	return ret;
 }
@@ -3496,21 +3486,18 @@ static int msm_compr_capture_app_type_cfg_put(struct snd_kcontrol *kcontrol,
 	u64 fe_id = kcontrol->private_value;
 	int session_type = SESSION_TYPE_TX;
 	int be_id = ucontrol->value.integer.value[3];
+	struct msm_pcm_stream_app_type_cfg cfg_data = {0, 0, 48000};
 	int ret = 0;
-	int app_type;
-	int acdb_dev_id;
-	int sample_rate = 48000;
 
-	app_type = ucontrol->value.integer.value[0];
-	acdb_dev_id = ucontrol->value.integer.value[1];
+	cfg_data.app_type = ucontrol->value.integer.value[0];
+	cfg_data.acdb_dev_id = ucontrol->value.integer.value[1];
 	if (ucontrol->value.integer.value[2] != 0)
-		sample_rate = ucontrol->value.integer.value[2];
+		cfg_data.sample_rate = ucontrol->value.integer.value[2];
 	pr_debug("%s: fe_id- %llu session_type- %d be_id- %d app_type- %d acdb_dev_id- %d sample_rate- %d\n",
 		__func__, fe_id, session_type, be_id,
-		app_type, acdb_dev_id, sample_rate);
+		cfg_data.app_type, cfg_data.acdb_dev_id, cfg_data.sample_rate);
 	ret = msm_pcm_routing_reg_stream_app_type_cfg(fe_id, session_type,
-						      be_id, app_type,
-						      acdb_dev_id, sample_rate);
+						      be_id, &cfg_data);
 	if (ret < 0)
 		pr_err("%s: msm_pcm_routing_reg_stream_app_type_cfg failed returned %d\n",
 			__func__, ret);
@@ -3523,28 +3510,25 @@ static int msm_compr_capture_app_type_cfg_get(struct snd_kcontrol *kcontrol,
 {
 	u64 fe_id = kcontrol->private_value;
 	int session_type = SESSION_TYPE_TX;
-	int be_id = ucontrol->value.integer.value[3];
+	int be_id = 0;
+	struct msm_pcm_stream_app_type_cfg cfg_data = {0};
 	int ret = 0;
-	int app_type;
-	int acdb_dev_id;
-	int sample_rate;
 
 	ret = msm_pcm_routing_get_stream_app_type_cfg(fe_id, session_type,
-						      be_id, &app_type,
-						      &acdb_dev_id,
-						      &sample_rate);
+						      &be_id, &cfg_data);
 	if (ret < 0) {
 		pr_err("%s: msm_pcm_routing_get_stream_app_type_cfg failed returned %d\n",
 			__func__, ret);
 		goto done;
 	}
 
-	ucontrol->value.integer.value[0] = app_type;
-	ucontrol->value.integer.value[1] = acdb_dev_id;
-	ucontrol->value.integer.value[2] = sample_rate;
+	ucontrol->value.integer.value[0] = cfg_data.app_type;
+	ucontrol->value.integer.value[1] = cfg_data.acdb_dev_id;
+	ucontrol->value.integer.value[2] = cfg_data.sample_rate;
+	ucontrol->value.integer.value[3] = be_id;
 	pr_debug("%s: fedai_id %llu, session_type %d, be_id %d, app_type %d, acdb_dev_id %d, sample_rate %d\n",
 		__func__, fe_id, session_type, be_id,
-		app_type, acdb_dev_id, sample_rate);
+		cfg_data.app_type, cfg_data.acdb_dev_id, cfg_data.sample_rate);
 done:
 	return ret;
 }
@@ -3616,7 +3600,8 @@ static int msm_compr_adsp_stream_cmd_put(struct snd_kcontrol *kcontrol,
 				snd_soc_component_get_drvdata(comp);
 	struct snd_compr_stream *cstream = NULL;
 	struct msm_compr_audio *prtd;
-	int ret = 0, param_length = 0;
+	int ret = 0;
+	struct msm_adsp_event_data *event_data = NULL;
 
 	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
 		pr_err("%s Received invalid fe_id %lu\n",
@@ -3627,20 +3612,131 @@ static int msm_compr_adsp_stream_cmd_put(struct snd_kcontrol *kcontrol,
 
 	cstream = pdata->cstream[fe_id];
 	if (cstream == NULL) {
-		pr_err("%s cstream is null.\n", __func__);
+		pr_err("%s cstream is null\n", __func__);
 		ret = -EINVAL;
 		goto done;
 	}
 
 	prtd = cstream->runtime->private_data;
 	if (!prtd) {
-		pr_err("%s: prtd is null.\n", __func__);
+		pr_err("%s: prtd is null\n", __func__);
 		ret = -EINVAL;
 		goto done;
 	}
 
 	if (prtd->audio_client == NULL) {
-		pr_err("%s: audio_client is null.\n", __func__);
+		pr_err("%s: audio_client is null\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	event_data = (struct msm_adsp_event_data *)ucontrol->value.bytes.data;
+	if ((event_data->event_type < ADSP_STREAM_PP_EVENT) ||
+	    (event_data->event_type >= ADSP_STREAM_EVENT_MAX)) {
+		pr_err("%s: invalid event_type=%d",
+			__func__, event_data->event_type);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	if ((sizeof(struct msm_adsp_event_data) + event_data->payload_len) >=
+					sizeof(ucontrol->value.bytes.data)) {
+		pr_err("%s param length=%d  exceeds limit",
+			__func__, event_data->payload_len);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = q6asm_send_stream_cmd(prtd->audio_client, event_data);
+	if (ret < 0)
+		pr_err("%s: failed to send stream event cmd, err = %d\n",
+			__func__, ret);
+done:
+	return ret;
+}
+
+static int msm_compr_ion_fd_map_put(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	unsigned long fe_id = kcontrol->private_value;
+	struct msm_compr_pdata *pdata = (struct msm_compr_pdata *)
+				snd_soc_component_get_drvdata(comp);
+	struct snd_compr_stream *cstream = NULL;
+	struct msm_compr_audio *prtd;
+	int fd;
+	int ret = 0;
+
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s Received out of bounds invalid fe_id %lu\n",
+			__func__, fe_id);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	cstream = pdata->cstream[fe_id];
+	if (cstream == NULL) {
+		pr_err("%s cstream is null\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	prtd = cstream->runtime->private_data;
+	if (!prtd) {
+		pr_err("%s: prtd is null\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	if (prtd->audio_client == NULL) {
+		pr_err("%s: audio_client is null\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	memcpy(&fd, ucontrol->value.bytes.data, sizeof(fd));
+	ret = q6asm_send_ion_fd(prtd->audio_client, fd);
+	if (ret < 0)
+		pr_err("%s: failed to register ion fd\n", __func__);
+done:
+	return ret;
+}
+
+static int msm_compr_rtic_event_ack_put(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	unsigned long fe_id = kcontrol->private_value;
+	struct msm_compr_pdata *pdata = (struct msm_compr_pdata *)
+					snd_soc_component_get_drvdata(comp);
+	struct snd_compr_stream *cstream = NULL;
+	struct msm_compr_audio *prtd;
+	int ret = 0;
+	int param_length = 0;
+
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s Received invalid fe_id %lu\n",
+			__func__, fe_id);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	cstream = pdata->cstream[fe_id];
+	if (cstream == NULL) {
+		pr_err("%s cstream is null\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	prtd = cstream->runtime->private_data;
+	if (!prtd) {
+		pr_err("%s: prtd is null\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	if (prtd->audio_client == NULL) {
+		pr_err("%s: audio_client is null\n", __func__);
 		ret = -EINVAL;
 		goto done;
 	}
@@ -3655,12 +3751,11 @@ static int msm_compr_adsp_stream_cmd_put(struct snd_kcontrol *kcontrol,
 		goto done;
 	}
 
-	ret = q6asm_send_stream_cmd(prtd->audio_client,
-			ASM_STREAM_CMD_REGISTER_PP_EVENTS,
+	ret = q6asm_send_rtic_event_ack(prtd->audio_client,
 			ucontrol->value.bytes.data + sizeof(param_length),
 			param_length);
 	if (ret < 0)
-		pr_err("%s: failed to register pp event. err = %d\n",
+		pr_err("%s: failed to send rtic event ack, err = %d\n",
 			__func__, ret);
 done:
 	return ret;
@@ -4006,7 +4101,6 @@ static int msm_compr_add_audio_adsp_stream_callback_control(
 		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
 		.info = msm_adsp_stream_callback_info,
 		.get = msm_adsp_stream_callback_get,
-		.put = msm_adsp_stream_callback_put,
 		.private_value = 0,
 		}
 	};
@@ -4047,6 +4141,7 @@ static int msm_compr_add_audio_adsp_stream_callback_control(
 	}
 
 	kctl->private_data = NULL;
+
 free_mixer_str:
 	kfree(mixer_str);
 done:
@@ -4234,6 +4329,96 @@ static int msm_compr_add_channel_map_control(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
+static int msm_compr_add_io_fd_cmd_control(struct snd_soc_pcm_runtime *rtd)
+{
+	const char *mixer_ctl_name = "Playback ION FD";
+	const char *deviceNo = "NN";
+	char *mixer_str = NULL;
+	int ctl_len = 0, ret = 0;
+	struct snd_kcontrol_new fe_ion_fd_config_control[1] = {
+		{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "?",
+		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.info = msm_adsp_stream_cmd_info,
+		.put = msm_compr_ion_fd_map_put,
+		.private_value = 0,
+		}
+	};
+
+	if (!rtd) {
+		pr_err("%s NULL rtd\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ctl_len = strlen(mixer_ctl_name) + 1 + strlen(deviceNo) + 1;
+	mixer_str = kzalloc(ctl_len, GFP_KERNEL);
+	if (!mixer_str) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	snprintf(mixer_str, ctl_len, "%s %d", mixer_ctl_name, rtd->pcm->device);
+	fe_ion_fd_config_control[0].name = mixer_str;
+	fe_ion_fd_config_control[0].private_value = rtd->dai_link->be_id;
+	pr_debug("%s: Registering new mixer ctl %s\n", __func__, mixer_str);
+	ret = snd_soc_add_platform_controls(rtd->platform,
+				fe_ion_fd_config_control,
+				ARRAY_SIZE(fe_ion_fd_config_control));
+	if (ret < 0)
+		pr_err("%s: failed to add ctl %s\n", __func__, mixer_str);
+
+	kfree(mixer_str);
+done:
+	return ret;
+}
+
+static int msm_compr_add_event_ack_cmd_control(struct snd_soc_pcm_runtime *rtd)
+{
+	const char *mixer_ctl_name = "Playback Event Ack";
+	const char *deviceNo = "NN";
+	char *mixer_str = NULL;
+	int ctl_len = 0, ret = 0;
+	struct snd_kcontrol_new fe_event_ack_config_control[1] = {
+		{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "?",
+		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.info = msm_adsp_stream_cmd_info,
+		.put = msm_compr_rtic_event_ack_put,
+		.private_value = 0,
+		}
+	};
+
+	if (!rtd) {
+		pr_err("%s NULL rtd\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ctl_len = strlen(mixer_ctl_name) + 1 + strlen(deviceNo) + 1;
+	mixer_str = kzalloc(ctl_len, GFP_KERNEL);
+	if (!mixer_str) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	snprintf(mixer_str, ctl_len, "%s %d", mixer_ctl_name, rtd->pcm->device);
+	fe_event_ack_config_control[0].name = mixer_str;
+	fe_event_ack_config_control[0].private_value = rtd->dai_link->be_id;
+	pr_debug("%s: Registering new mixer ctl %s\n", __func__, mixer_str);
+	ret = snd_soc_add_platform_controls(rtd->platform,
+				fe_event_ack_config_control,
+				ARRAY_SIZE(fe_event_ack_config_control));
+	if (ret < 0)
+		pr_err("%s: failed to add ctl %s\n", __func__, mixer_str);
+
+	kfree(mixer_str);
+done:
+	return ret;
+}
+
 static int msm_compr_new(struct snd_soc_pcm_runtime *rtd)
 {
 	int rc;
@@ -4255,6 +4440,16 @@ static int msm_compr_new(struct snd_soc_pcm_runtime *rtd)
 	rc = msm_compr_add_audio_adsp_stream_callback_control(rtd);
 	if (rc)
 		pr_err("%s: Could not add Compr ADSP Stream Callback Control\n",
+			__func__);
+
+	rc = msm_compr_add_io_fd_cmd_control(rtd);
+	if (rc)
+		pr_err("%s: Could not add Compr ion fd Control\n",
+			__func__);
+
+	rc = msm_compr_add_event_ack_cmd_control(rtd);
+	if (rc)
+		pr_err("%s: Could not add Compr event ack Control\n",
 			__func__);
 
 	rc = msm_compr_add_query_audio_effect_control(rtd);

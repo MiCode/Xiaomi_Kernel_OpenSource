@@ -428,8 +428,8 @@ static int mdss_mdp_get_ubwc_plane_size(struct mdss_mdp_format_params *fmt,
 
 	if (fmt->format == MDP_Y_CBCR_H2V2_UBWC ||
 		fmt->format == MDP_Y_CBCR_H2V2_TP10_UBWC) {
-		uint32_t y_stride_alignment, uv_stride_alignment;
-		uint32_t y_height_alignment, uv_height_alignment;
+		uint32_t y_stride_alignment = 0, uv_stride_alignment = 0;
+		uint32_t y_height_alignment = 0, uv_height_alignment = 0;
 		uint32_t y_tile_width = fmt_ubwc->micro.tile_width;
 		uint32_t y_tile_height = fmt_ubwc->micro.tile_height;
 		uint32_t uv_tile_width = y_tile_width / 2;
@@ -1095,7 +1095,7 @@ static int mdss_mdp_get_img(struct msmfb_data *img,
 			return ret;
 		}
 	}
-	if (!*start) {
+	if (start && !*start) {
 		pr_err("start address is zero!\n");
 		mdss_mdp_put_img(data, rotator, dir);
 		return -ENOMEM;

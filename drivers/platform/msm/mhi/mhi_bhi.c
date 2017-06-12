@@ -109,30 +109,29 @@ alloc_bhi_mem_info_error:
 }
 
 static int bhi_alloc_pbl_xfer(struct mhi_device_ctxt *mhi_dev_ctxt,
+			      struct bhie_mem_info *const mem_info,
 			      size_t size)
 {
 	struct bhi_ctxt_t *bhi_ctxt = &mhi_dev_ctxt->bhi_ctxt;
 	const phys_addr_t align_len = bhi_ctxt->alignment;
-	size_t alloc_size = size + (align_len - 1);
 	struct device *dev = &mhi_dev_ctxt->plat_dev->dev;
 
-	bhi_ctxt->unaligned_image_loc =
-		dma_alloc_coherent(dev, alloc_size, &bhi_ctxt->dma_handle,
-				   GFP_KERNEL);
-	if (bhi_ctxt->unaligned_image_loc == NULL)
+	mem_info->size = size;
+	mem_info->alloc_size = size + (align_len - 1);
+	mem_info->pre_aligned =
+		dma_alloc_coherent(dev, mem_info->alloc_size,
+				   &mem_info->dma_handle, GFP_KERNEL);
+	if (mem_info->pre_aligned == NULL)
 		return -ENOMEM;
 
-	bhi_ctxt->alloc_size = alloc_size;
-	bhi_ctxt->phy_image_loc = (bhi_ctxt->dma_handle + (align_len - 1)) &
+	mem_info->phys_addr = (mem_info->dma_handle + (align_len - 1)) &
 		~(align_len - 1);
-	bhi_ctxt->image_loc = bhi_ctxt->unaligned_image_loc +
-		(bhi_ctxt->phy_image_loc - bhi_ctxt->dma_handle);
-	bhi_ctxt->image_size = size;
-
+	mem_info->aligned = mem_info->pre_aligned + (mem_info->phys_addr -
+						     mem_info->dma_handle);
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
 		"alloc_size:%lu image_size:%lu unal_addr:0x%llx0x al_addr:0x%llx\n",
-		bhi_ctxt->alloc_size, bhi_ctxt->image_size,
-		bhi_ctxt->dma_handle, bhi_ctxt->phy_image_loc);
+		mem_info->alloc_size, mem_info->size,
+		mem_info->dma_handle, mem_info->phys_addr);
 
 	return 0;
 }
@@ -250,6 +249,13 @@ int bhi_rddm(struct mhi_device_ctxt *mhi_dev_ctxt, bool in_panic)
 {
 	struct bhi_ctxt_t *bhi_ctxt = &mhi_dev_ctxt->bhi_ctxt;
 	struct bhie_vec_table *rddm_table = &bhi_ctxt->rddm_table;
+	struct bhie_mem_info *bhie_mem_info;
+	u32 rx_sequence, val, current_seq;
+	u32 timeout = (bhi_ctxt->poll_timeout * 1000) / BHIE_RDDM_DELAY_TIME_US;
+	int i;
+	u32 cur_exec, prev_exec = 0;
+	u32 state, prev_state = 0;
+	u32 rx_status, prev_status = 0;
 
 	if (!rddm_table->bhie_mem_info) {
 		mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "RDDM table == NULL\n");
@@ -259,12 +265,97 @@ int bhi_rddm(struct mhi_device_ctxt *mhi_dev_ctxt, bool in_panic)
 	if (!in_panic)
 		return bhi_rddm_graceful(mhi_dev_ctxt);
 
-	mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
-		"RDDM collection in panic not yet supported\n");
-	return -EINVAL;
+	/*
+	 * Below code should only be executed during kernel panic,
+	 * we expect other cores to be shutting down while we're
+	 * executing rddm transfer. After returning from this function,
+	 * we expect device to reset.
+	 */
+
+	/* Trigger device into RDDM */
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "pm_state:0x%x mhi_state:%s\n",
+		mhi_dev_ctxt->mhi_pm_state,
+		TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state));
+	if (!MHI_REG_ACCESS_VALID(mhi_dev_ctxt->mhi_pm_state)) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"Register access not allowed\n");
+		return -EIO;
+	}
+
+	/*
+	 * Normally we only set mhi_pm_state after grabbing pm_xfer_lock as a
+	 * write, by function mhi_tryset_pm_state. Since we're in a kernel
+	 * panic, we will set pm state w/o grabbing xfer lock. We're setting
+	 * pm_state to LD as a safety precautions. If another core in middle
+	 * of register access this should deter it. However, there is no
+	 * no gurantee change will take effect.
+	 */
+	mhi_dev_ctxt->mhi_pm_state = MHI_PM_LD_ERR_FATAL_DETECT;
+	/* change should take effect immediately */
+	smp_wmb();
+
+	bhie_mem_info = &rddm_table->
+		bhie_mem_info[rddm_table->segment_count - 1];
+	rx_sequence = rddm_table->sequence++;
+
+	/* program the vector table */
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Programming RXVEC table\n");
+	val = HIGH_WORD(bhie_mem_info->phys_addr);
+	mhi_reg_write(mhi_dev_ctxt, bhi_ctxt->bhi_base,
+		      BHIE_RXVECADDR_HIGH_OFFS, val);
+	val = LOW_WORD(bhie_mem_info->phys_addr);
+	mhi_reg_write(mhi_dev_ctxt, bhi_ctxt->bhi_base, BHIE_RXVECADDR_LOW_OFFS,
+		      val);
+	val = (u32)bhie_mem_info->size;
+	mhi_reg_write(mhi_dev_ctxt, bhi_ctxt->bhi_base, BHIE_RXVECSIZE_OFFS,
+		      val);
+	mhi_reg_write_field(mhi_dev_ctxt, bhi_ctxt->bhi_base, BHIE_RXVECDB_OFFS,
+			    BHIE_TXVECDB_SEQNUM_BMSK, BHIE_TXVECDB_SEQNUM_SHFT,
+			    rx_sequence);
+
+	/* trigger device into rddm */
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+		"Triggering Device into RDDM mode\n");
+	mhi_set_m_state(mhi_dev_ctxt, MHI_STATE_SYS_ERR);
+	i = 0;
+
+	while (timeout--) {
+		cur_exec = mhi_reg_read(bhi_ctxt->bhi_base, BHI_EXECENV);
+		state = mhi_get_m_state(mhi_dev_ctxt);
+		rx_status = mhi_reg_read(bhi_ctxt->bhi_base,
+					 BHIE_RXVECSTATUS_OFFS);
+		/* if reg. values changed or each sec (udelay(1000)) log it */
+		if (cur_exec != prev_exec || state != prev_state ||
+		    rx_status != prev_status || !(i & (SZ_1K - 1))) {
+			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+				"EXECENV:0x%x MHISTATE:0x%x RXSTATUS:0x%x\n",
+				cur_exec, state, rx_status);
+			prev_exec = cur_exec;
+			prev_state = state;
+			prev_status = rx_status;
+		};
+		current_seq = (rx_status & BHIE_TXVECSTATUS_SEQNUM_BMSK) >>
+			BHIE_TXVECSTATUS_SEQNUM_SHFT;
+		rx_status = (rx_status & BHIE_TXVECSTATUS_STATUS_BMSK) >>
+			BHIE_TXVECSTATUS_STATUS_SHFT;
+
+		if ((rx_status == BHIE_TXVECSTATUS_STATUS_XFER_COMPL) &&
+		    (current_seq == rx_sequence)) {
+			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+				"rddm transfer completed\n");
+			return 0;
+		}
+		udelay(BHIE_RDDM_DELAY_TIME_US);
+		i++;
+	}
+
+	mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR, "rddm transfer timeout\n");
+
+	return -EIO;
 }
 
-static int bhi_load_firmware(struct mhi_device_ctxt *mhi_dev_ctxt)
+static int bhi_load_firmware(struct mhi_device_ctxt *mhi_dev_ctxt,
+			     const struct bhie_mem_info  *const mem_info)
 {
 	struct bhi_ctxt_t *bhi_ctxt = &mhi_dev_ctxt->bhi_ctxt;
 	u32 pcie_word_val = 0;
@@ -278,28 +369,21 @@ static int bhi_load_firmware(struct mhi_device_ctxt *mhi_dev_ctxt)
 		read_unlock_bh(pm_xfer_lock);
 		return -EIO;
 	}
-	pcie_word_val = HIGH_WORD(bhi_ctxt->phy_image_loc);
-	mhi_reg_write_field(mhi_dev_ctxt, bhi_ctxt->bhi_base,
-				BHI_IMGADDR_HIGH,
-				0xFFFFFFFF,
-				0,
-				pcie_word_val);
+	pcie_word_val = HIGH_WORD(mem_info->phys_addr);
+	mhi_reg_write_field(mhi_dev_ctxt, bhi_ctxt->bhi_base, BHI_IMGADDR_HIGH,
+			    0xFFFFFFFF, 0, pcie_word_val);
 
-	pcie_word_val = LOW_WORD(bhi_ctxt->phy_image_loc);
+	pcie_word_val = LOW_WORD(mem_info->phys_addr);
+	mhi_reg_write_field(mhi_dev_ctxt, bhi_ctxt->bhi_base, BHI_IMGADDR_LOW,
+			    0xFFFFFFFF, 0, pcie_word_val);
 
-	mhi_reg_write_field(mhi_dev_ctxt, bhi_ctxt->bhi_base,
-				BHI_IMGADDR_LOW,
-				0xFFFFFFFF,
-				0,
-				pcie_word_val);
-
-	pcie_word_val = bhi_ctxt->image_size;
+	pcie_word_val = mem_info->size;
 	mhi_reg_write_field(mhi_dev_ctxt, bhi_ctxt->bhi_base, BHI_IMGSIZE,
-			0xFFFFFFFF, 0, pcie_word_val);
+			    0xFFFFFFFF, 0, pcie_word_val);
 
 	pcie_word_val = mhi_reg_read(bhi_ctxt->bhi_base, BHI_IMGTXDB);
 	mhi_reg_write_field(mhi_dev_ctxt, bhi_ctxt->bhi_base,
-			BHI_IMGTXDB, 0xFFFFFFFF, 0, ++pcie_word_val);
+			    BHI_IMGTXDB, 0xFFFFFFFF, 0, ++pcie_word_val);
 	read_unlock_bh(pm_xfer_lock);
 	timeout = jiffies + msecs_to_jiffies(bhi_ctxt->poll_timeout);
 	while (time_before(jiffies, timeout)) {
@@ -342,6 +426,7 @@ static ssize_t bhi_write(struct file *file,
 	int ret_val = 0;
 	struct mhi_device_ctxt *mhi_dev_ctxt = file->private_data;
 	struct bhi_ctxt_t *bhi_ctxt = &mhi_dev_ctxt->bhi_ctxt;
+	struct bhie_mem_info mem_info;
 	long timeout;
 
 	if (buf == NULL || 0 == count)
@@ -350,11 +435,11 @@ static ssize_t bhi_write(struct file *file,
 	if (count > BHI_MAX_IMAGE_SIZE)
 		return -ENOMEM;
 
-	ret_val = bhi_alloc_pbl_xfer(mhi_dev_ctxt, count);
+	ret_val = bhi_alloc_pbl_xfer(mhi_dev_ctxt, &mem_info, count);
 	if (ret_val)
 		return -ENOMEM;
 
-	if (copy_from_user(bhi_ctxt->image_loc, buf, count)) {
+	if (copy_from_user(mem_info.aligned, buf, count)) {
 		ret_val = -ENOMEM;
 		goto bhi_copy_error;
 	}
@@ -370,15 +455,13 @@ static ssize_t bhi_write(struct file *file,
 		goto bhi_copy_error;
 	}
 
-	ret_val = bhi_load_firmware(mhi_dev_ctxt);
+	ret_val = bhi_load_firmware(mhi_dev_ctxt, &mem_info);
 	if (ret_val) {
 		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
 			"Failed to load bhi image\n");
 	}
-	dma_free_coherent(&mhi_dev_ctxt->plat_dev->dev,
-			  bhi_ctxt->alloc_size,
-			  bhi_ctxt->unaligned_image_loc,
-			  bhi_ctxt->dma_handle);
+	dma_free_coherent(&mhi_dev_ctxt->plat_dev->dev, mem_info.alloc_size,
+			  mem_info.pre_aligned, mem_info.dma_handle);
 
 	/* Regardless of failure set to RESET state */
 	ret_val = mhi_init_state_transition(mhi_dev_ctxt,
@@ -390,10 +473,8 @@ static ssize_t bhi_write(struct file *file,
 	return count;
 
 bhi_copy_error:
-	dma_free_coherent(&mhi_dev_ctxt->plat_dev->dev,
-			  bhi_ctxt->alloc_size,
-			  bhi_ctxt->unaligned_image_loc,
-			  bhi_ctxt->dma_handle);
+	dma_free_coherent(&mhi_dev_ctxt->plat_dev->dev, mem_info.alloc_size,
+			  mem_info.pre_aligned, mem_info.dma_handle);
 
 	return ret_val;
 }
@@ -447,8 +528,8 @@ void bhi_firmware_download(struct work_struct *work)
 {
 	struct mhi_device_ctxt *mhi_dev_ctxt;
 	struct bhi_ctxt_t *bhi_ctxt;
+	struct bhie_mem_info mem_info;
 	int ret;
-	long timeout;
 
 	mhi_dev_ctxt = container_of(work, struct mhi_device_ctxt,
 				    bhi_ctxt.fw_load_work);
@@ -457,9 +538,19 @@ void bhi_firmware_download(struct work_struct *work)
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Enter\n");
 
 	wait_event_interruptible(*mhi_dev_ctxt->mhi_ev_wq.bhi_event,
-			mhi_dev_ctxt->mhi_state == MHI_STATE_BHI);
+		mhi_dev_ctxt->mhi_state == MHI_STATE_BHI ||
+		mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT);
+	if (mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT ||
+	    mhi_dev_ctxt->mhi_state != MHI_STATE_BHI) {
+		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+			"MHI is not in valid state for firmware download\n");
+		return;
+	}
 
-	ret = bhi_load_firmware(mhi_dev_ctxt);
+	/* PBL image is the first segment in firmware vector table */
+	mem_info = *bhi_ctxt->fw_table.bhie_mem_info;
+	mem_info.size = bhi_ctxt->firmware_info.max_sbl_len;
+	ret = bhi_load_firmware(mhi_dev_ctxt, &mem_info);
 	if (ret) {
 		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
 			"Failed to Load sbl firmware\n");
@@ -468,10 +559,12 @@ void bhi_firmware_download(struct work_struct *work)
 	mhi_init_state_transition(mhi_dev_ctxt,
 				  STATE_TRANSITION_RESET);
 
-	timeout = wait_event_timeout(*mhi_dev_ctxt->mhi_ev_wq.bhi_event,
-				mhi_dev_ctxt->dev_exec_env == MHI_EXEC_ENV_BHIE,
-				msecs_to_jiffies(bhi_ctxt->poll_timeout));
-	if (!timeout) {
+	wait_event_timeout(*mhi_dev_ctxt->mhi_ev_wq.bhi_event,
+		mhi_dev_ctxt->dev_exec_env == MHI_EXEC_ENV_BHIE ||
+		mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT,
+		msecs_to_jiffies(bhi_ctxt->poll_timeout));
+	if (mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT ||
+	    mhi_dev_ctxt->dev_exec_env != MHI_EXEC_ENV_BHIE) {
 		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
 			"Failed to Enter EXEC_ENV_BHIE\n");
 		return;
@@ -547,13 +640,6 @@ int bhi_probe(struct mhi_device_ctxt *mhi_dev_ctxt)
 		image += to_copy;
 	}
 
-	/*
-	 * Re-use BHI/E pointer for BHI since we guranteed BHI/E segment
-	 * is >= to SBL image.
-	 */
-	bhi_ctxt->phy_image_loc = sg_dma_address(&fw_table->sg_list[1]);
-	bhi_ctxt->image_size = fw_info->max_sbl_len;
-
 	fw_table->sequence++;
 	release_firmware(firmware);
 
@@ -611,6 +697,7 @@ void bhi_exit(struct mhi_device_ctxt *mhi_dev_ctxt)
 		dma_free_coherent(dev, bhie_mem_info->alloc_size,
 				  bhie_mem_info->pre_aligned,
 				  bhie_mem_info->dma_handle);
+	kfree(fw_table->bhie_mem_info);
 	fw_table->bhie_mem_info = NULL;
 	/* vector table is the last entry in bhie_mem_info */
 	fw_table->bhi_vec_entry = NULL;
@@ -626,6 +713,7 @@ void bhi_exit(struct mhi_device_ctxt *mhi_dev_ctxt)
 		dma_free_coherent(dev, bhie_mem_info->alloc_size,
 				  bhie_mem_info->pre_aligned,
 				  bhie_mem_info->dma_handle);
+	kfree(rddm_table->bhie_mem_info);
 	rddm_table->bhie_mem_info = NULL;
 	rddm_table->bhi_vec_entry = NULL;
 }

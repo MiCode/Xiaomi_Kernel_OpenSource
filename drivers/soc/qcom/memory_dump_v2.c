@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,7 @@
 #include <linux/kmemleak.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/scm.h>
+#include <soc/qcom/minidump.h>
 
 #define MSM_DUMP_TABLE_VERSION		MSM_DUMP_MAKE_VERSION(2, 0)
 
@@ -87,6 +88,29 @@ static struct msm_dump_table *msm_dump_get_table(enum msm_dump_table_ids id)
 	return table;
 }
 
+int msm_dump_data_add_minidump(struct msm_dump_entry *entry)
+{
+	struct msm_dump_data *data;
+	struct md_region md_entry;
+
+	data = (struct msm_dump_data *)(phys_to_virt(entry->addr));
+	if (!strcmp(data->name, "")) {
+		pr_debug("Entry name is NULL, Use ID %d for minidump\n",
+			 entry->id);
+		snprintf(md_entry.name, sizeof(md_entry.name), "KMDT0x%X",
+			 entry->id);
+	} else {
+		strlcpy(md_entry.name, data->name, sizeof(md_entry.name));
+	}
+
+	md_entry.phys_addr = data->addr;
+	md_entry.virt_addr = (uintptr_t)phys_to_virt(data->addr);
+	md_entry.size = data->len;
+	md_entry.id = entry->id;
+
+	return msm_minidump_add_region(&md_entry);
+}
+
 int msm_dump_data_register(enum msm_dump_table_ids id,
 			   struct msm_dump_entry *entry)
 {
@@ -107,6 +131,10 @@ int msm_dump_data_register(enum msm_dump_table_ids id,
 	table->num_entries++;
 
 	dmac_flush_range(table, (void *)table + sizeof(struct msm_dump_table));
+
+	if (msm_dump_data_add_minidump(entry))
+		pr_err("Failed to add entry in Minidump table\n");
+
 	return 0;
 }
 EXPORT_SYMBOL(msm_dump_data_register);

@@ -1118,8 +1118,6 @@ static struct iommu_domain *__iommu_domain_alloc(struct bus_type *bus,
 	domain->ops  = bus->iommu_ops;
 	domain->type = type;
 
-	iommu_debug_domain_add(domain);
-
 	return domain;
 }
 
@@ -1186,7 +1184,6 @@ static void __iommu_detach_device(struct iommu_domain *domain,
 	if (unlikely(domain->ops->detach_dev == NULL))
 		return;
 
-	iommu_debug_detach_device(domain, dev);
 	domain->ops->detach_dev(domain, dev);
 	trace_detach_device_from_domain(dev);
 }
@@ -1334,6 +1331,15 @@ phys_addr_t iommu_iova_to_phys_hard(struct iommu_domain *domain,
 		return 0;
 
 	return domain->ops->iova_to_phys_hard(domain, iova);
+}
+
+uint64_t iommu_iova_to_pte(struct iommu_domain *domain,
+				    dma_addr_t iova)
+{
+	if (unlikely(domain->ops->iova_to_pte == NULL))
+		return 0;
+
+	return domain->ops->iova_to_pte(domain, iova);
 }
 
 bool iommu_is_iova_coherent(struct iommu_domain *domain, dma_addr_t iova)

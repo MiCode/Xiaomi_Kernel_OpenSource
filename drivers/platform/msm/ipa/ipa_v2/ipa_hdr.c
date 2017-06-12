@@ -176,6 +176,7 @@ int __ipa_commit_hdr_v1_1(void)
 	struct ipa_mem_buffer *mem;
 	struct ipa_hdr_init_local *cmd;
 	u16 len;
+	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 
 	mem = kmalloc(sizeof(struct ipa_mem_buffer), GFP_KERNEL);
 	if (!mem) {
@@ -190,7 +191,7 @@ int __ipa_commit_hdr_v1_1(void)
 	 * we can use init_local ptr for init_system due to layout of the
 	 * struct
 	 */
-	cmd = kmalloc(len, GFP_KERNEL);
+	cmd = kmalloc(len, flag);
 	if (!cmd) {
 		IPAERR("failed to alloc immediate command object\n");
 		goto fail_alloc_cmd;
@@ -268,6 +269,7 @@ int __ipa_commit_hdr_v2(void)
 	struct ipa_mem_buffer mem;
 	struct ipa_hdr_init_system *cmd = NULL;
 	struct ipa_hw_imm_cmd_dma_shared_mem *dma_cmd = NULL;
+	gfp_t flag = GFP_ATOMIC | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 	int rc = -EFAULT;
 
 	if (ipa_generate_hdr_hw_tbl(&mem)) {
@@ -281,7 +283,7 @@ int __ipa_commit_hdr_v2(void)
 				IPA_MEM_PART(apps_hdr_size));
 			goto fail_send_cmd;
 		} else {
-			dma_cmd = kzalloc(sizeof(*dma_cmd), GFP_ATOMIC);
+			dma_cmd = kzalloc(sizeof(*dma_cmd), flag);
 			if (dma_cmd == NULL) {
 				IPAERR("fail to alloc immediate cmd\n");
 				rc = -ENOMEM;
@@ -303,7 +305,7 @@ int __ipa_commit_hdr_v2(void)
 				IPA_MEM_PART(apps_hdr_size_ddr));
 			goto fail_send_cmd;
 		} else {
-			cmd = kzalloc(sizeof(*cmd), GFP_ATOMIC);
+			cmd = kzalloc(sizeof(*cmd), flag);
 			if (cmd == NULL) {
 				IPAERR("fail to alloc hdr init cmd\n");
 				rc = -ENOMEM;
@@ -359,6 +361,7 @@ int __ipa_commit_hdr_v2_5(void)
 	struct ipa_hw_imm_cmd_dma_shared_mem *dma_cmd_hdr = NULL;
 	struct ipa_hw_imm_cmd_dma_shared_mem *dma_cmd_ctx = NULL;
 	struct ipa_register_write *reg_write_cmd = NULL;
+	gfp_t flag = GFP_ATOMIC | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 	int rc = -EFAULT;
 	u32 proc_ctx_size;
 	u32 proc_ctx_ofst;
@@ -383,7 +386,7 @@ int __ipa_commit_hdr_v2_5(void)
 				IPA_MEM_PART(apps_hdr_size));
 			goto fail_send_cmd1;
 		} else {
-			dma_cmd_hdr = kzalloc(sizeof(*dma_cmd_hdr), GFP_ATOMIC);
+			dma_cmd_hdr = kzalloc(sizeof(*dma_cmd_hdr), flag);
 			if (dma_cmd_hdr == NULL) {
 				IPAERR("fail to alloc immediate cmd\n");
 				rc = -ENOMEM;
@@ -406,7 +409,7 @@ int __ipa_commit_hdr_v2_5(void)
 			goto fail_send_cmd1;
 		} else {
 			hdr_init_cmd = kzalloc(sizeof(*hdr_init_cmd),
-				GFP_ATOMIC);
+				flag);
 			if (hdr_init_cmd == NULL) {
 				IPAERR("fail to alloc immediate cmd\n");
 				rc = -ENOMEM;
@@ -431,7 +434,7 @@ int __ipa_commit_hdr_v2_5(void)
 			goto fail_send_cmd1;
 		} else {
 			dma_cmd_ctx = kzalloc(sizeof(*dma_cmd_ctx),
-				GFP_ATOMIC);
+				flag);
 			if (dma_cmd_ctx == NULL) {
 				IPAERR("fail to alloc immediate cmd\n");
 				rc = -ENOMEM;
@@ -456,7 +459,7 @@ int __ipa_commit_hdr_v2_5(void)
 			goto fail_send_cmd1;
 		} else {
 			reg_write_cmd = kzalloc(sizeof(*reg_write_cmd),
-				GFP_ATOMIC);
+				flag);
 			if (reg_write_cmd == NULL) {
 				IPAERR("fail to alloc immediate cmd\n");
 				rc = -ENOMEM;
@@ -661,6 +664,7 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr)
 	struct ipa_hdr_tbl *htbl = &ipa_ctx->hdr_tbl;
 	int id;
 	int mem_size;
+	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 
 	if (hdr->hdr_len == 0 || hdr->hdr_len > IPA_HDR_MAX_SIZE) {
 		IPAERR("bad parm\n");
@@ -672,7 +676,7 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr)
 		goto error;
 	}
 
-	entry = kmem_cache_zalloc(ipa_ctx->hdr_cache, GFP_KERNEL);
+	entry = kmem_cache_zalloc(ipa_ctx->hdr_cache, flag);
 	if (!entry) {
 		IPAERR("failed to alloc hdr object\n");
 		goto error;
@@ -722,6 +726,11 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr)
 				entry->hdr,
 				entry->hdr_len,
 				DMA_TO_DEVICE);
+			if (dma_mapping_error(ipa_ctx->pdev,
+				entry->phys_base)) {
+				IPAERR("dma_map_single failure for entry\n");
+				goto fail_dma_mapping;
+			}
 		}
 	} else {
 		entry->is_hdr_proc_ctx = false;
@@ -798,6 +807,8 @@ fail_add_proc_ctx:
 	list_del(&entry->link);
 	dma_unmap_single(ipa_ctx->pdev, entry->phys_base,
 			entry->hdr_len, DMA_TO_DEVICE);
+fail_dma_mapping:
+	entry->is_hdr_proc_ctx = false;
 bad_hdr_len:
 	entry->cookie = 0;
 	kmem_cache_free(ipa_ctx->hdr_cache, entry);

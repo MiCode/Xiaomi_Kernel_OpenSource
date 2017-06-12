@@ -340,7 +340,6 @@ int esoc_clink_del_device(struct device *dev, void *dummy)
 	esoc_udev = esoc_udev_get_by_minor(esoc_clink->id);
 	if (!esoc_udev)
 		return 0;
-	return_esoc_udev(esoc_udev);
 	device_destroy(esoc_class, MKDEV(esoc_major, esoc_clink->id));
 	return_esoc_udev(esoc_udev);
 	return 0;

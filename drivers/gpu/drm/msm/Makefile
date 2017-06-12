@@ -50,6 +50,7 @@ msm_drm-y := \
 	sde_dbg_evtlog.o \
 	sde_io_util.o \
 	dba_bridge.o \
+	sde_edid_parser.o
 
 # use drm gpu driver only if qcom_kgsl driver not available
 ifneq ($(CONFIG_QCOM_KGSL),y)
@@ -103,7 +104,6 @@ msm_drm-$(CONFIG_DRM_SDE_HDMI) += \
 	hdmi-staging/sde_hdmi.o \
 	hdmi-staging/sde_hdmi_bridge.o \
 	hdmi-staging/sde_hdmi_audio.o \
-	hdmi-staging/sde_hdmi_edid.o
 
 msm_drm-$(CONFIG_DRM_MSM_DSI_PLL) += dsi/pll/dsi_pll.o \
 				dsi/pll/dsi_pll_28nm.o

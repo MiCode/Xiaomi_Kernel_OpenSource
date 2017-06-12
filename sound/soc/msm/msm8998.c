@@ -4078,7 +4078,6 @@ static void msm_aux_pcm_snd_shutdown(struct snd_pcm_substream *substream)
 			dev_err(rtd->card->dev,
 				"%s lpaif_tert_muxsel_virt_addr is NULL\n",
 				__func__);
-			auxpcm_intf_conf[index].ref_cnt++;
 		}
 	}
 	mutex_unlock(&auxpcm_intf_conf[index].lock);
@@ -4155,9 +4154,6 @@ static void update_mi2s_clk_val(int dai_id, int stream)
 		mi2s_clk[dai_id].clk_freq_in_hz =
 		    mi2s_tx_cfg[dai_id].sample_rate * 2 * bit_per_sample;
 	}
-
-	if (!mi2s_intf_conf[dai_id].msm_is_mi2s_master)
-		mi2s_clk[dai_id].clk_freq_in_hz = 0;
 }
 
 static int msm_mi2s_set_sclk(struct snd_pcm_substream *substream, bool enable)
@@ -4206,6 +4202,13 @@ static int msm_set_pinctrl(struct msm_pinctrl_info *pinctrl_info,
 		ret = -EINVAL;
 		goto err;
 	}
+
+	if (pinctrl_info->pinctrl == NULL) {
+		pr_err("%s: pinctrl_info->pinctrl is NULL\n", __func__);
+		ret = -EINVAL;
+		goto err;
+	}
+
 	curr_state = pinctrl_info->curr_state;
 	pinctrl_info->curr_state = new_state;
 	pr_debug("%s: curr_state = %s new_state = %s\n", __func__,
@@ -4474,6 +4477,7 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	struct snd_soc_card *card = rtd->card;
 	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 	struct msm_pinctrl_info *pinctrl_info = &pdata->pinctrl_info;
+	int ret_pinctrl = 0;
 
 	dev_dbg(rtd->card->dev,
 		"%s: substream = %s  stream = %d, dai name %s, dai ID %d\n",
@@ -4488,11 +4492,10 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 		goto done;
 	}
 	if (index == QUAT_MI2S) {
-		ret = msm_set_pinctrl(pinctrl_info, STATE_MI2S_ACTIVE);
-		if (ret) {
+		ret_pinctrl = msm_set_pinctrl(pinctrl_info, STATE_MI2S_ACTIVE);
+		if (ret_pinctrl) {
 			pr_err("%s: MI2S TLMM pinctrl set failed with %d\n",
-				__func__, ret);
-			goto done;
+				__func__, ret_pinctrl);
 		}
 	}
 
@@ -4551,6 +4554,7 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 	struct snd_soc_card *card = rtd->card;
 	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 	struct msm_pinctrl_info *pinctrl_info = &pdata->pinctrl_info;
+	int ret_pinctrl = 0;
 
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
@@ -4562,19 +4566,17 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 	mutex_lock(&mi2s_intf_conf[index].lock);
 	if (--mi2s_intf_conf[index].ref_cnt == 0) {
 		ret = msm_mi2s_set_sclk(substream, false);
-		if (ret < 0) {
+		if (ret < 0)
 			pr_err("%s:clock disable failed for MI2S (%d); ret=%d\n",
 				__func__, index, ret);
-			mi2s_intf_conf[index].ref_cnt++;
-		}
 	}
 	mutex_unlock(&mi2s_intf_conf[index].lock);
 
 	if (index == QUAT_MI2S) {
-		ret = msm_set_pinctrl(pinctrl_info, STATE_DISABLE);
-		if (ret)
+		ret_pinctrl = msm_set_pinctrl(pinctrl_info, STATE_DISABLE);
+		if (ret_pinctrl)
 			pr_err("%s: MI2S TLMM pinctrl set failed with %d\n",
-				__func__, ret);
+				__func__, ret_pinctrl);
 	}
 }
 
@@ -5492,6 +5494,37 @@ static struct snd_soc_dai_link msm_common_misc_fe_dai_links[] = {
 		.ignore_pmdown_time = 1,
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
+	},
+	{
+		.name = MSM_DAILINK_NAME(Transcode Loopback Playback),
+		.stream_name = "Transcode Loopback Playback",
+		.cpu_dai_name = "MultiMedia14",
+		.platform_name = "msm-transcode-loopback",
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			 SND_SOC_DPCM_TRIGGER_POST},
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		 /* this dainlink has playback support */
+		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA14,
+	},
+	{
+		.name = MSM_DAILINK_NAME(Transcode Loopback Capture),
+		.stream_name = "Transcode Loopback Capture",
+		.cpu_dai_name = "MultiMedia18",
+		.platform_name = "msm-transcode-loopback",
+		.dynamic = 1,
+		.dpcm_capture = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			 SND_SOC_DPCM_TRIGGER_POST},
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA18,
 	},
 };
 

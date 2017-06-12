@@ -465,6 +465,10 @@ static void sde_rotator_stop_streaming(struct vb2_queue *q)
 		sde_rot_mgr_lock(rot_dev->mgr);
 		sde_rotator_cancel_all_requests(rot_dev->mgr, ctx->private);
 		sde_rot_mgr_unlock(rot_dev->mgr);
+		mutex_unlock(q->lock);
+		cancel_work_sync(&ctx->submit_work);
+		cancel_work_sync(&ctx->retire_work);
+		mutex_lock(q->lock);
 	}
 
 	sde_rotator_return_all_buffers(q, VB2_BUF_STATE_ERROR);

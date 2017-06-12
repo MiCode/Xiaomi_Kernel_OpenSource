@@ -2292,6 +2292,9 @@ static int mdss_mdp_src_addr_setup(struct mdss_mdp_pipe *pipe,
 		mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC3_ADDR, addr[2]);
 	}
 
+	MDSS_XLOG(pipe->num, pipe->multirect.num, pipe->mixer_left->num,
+		pipe->play_cnt, addr[0], addr[1], addr[2], addr[3]);
+
 	return 0;
 }
 
@@ -2411,9 +2414,9 @@ bool mdss_mdp_is_amortizable_pipe(struct mdss_mdp_pipe *pipe,
 		(mixer->type == MDSS_MDP_MIXER_TYPE_INTF)))
 		return false;
 
-	/* do not apply for sdm660 & sdm630 in command mode */
-	if ((IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_320) ||
-		IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_330))
+	/* do not apply for msm8998, sdm660 & sdm630 in command mode */
+	if (MDSS_GET_MAJOR(mdata->mdp_rev) ==
+		MDSS_GET_MAJOR(MDSS_MDP_HW_REV_300)
 		 && !mixer->ctl->is_video_mode)
 		return false;
 
@@ -2733,9 +2736,6 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 
 		goto update_nobuf;
 	}
-
-	MDSS_XLOG(pipe->num, pipe->multirect.num, pipe->mixer_left->num,
-		pipe->play_cnt, 0x222);
 
 	if (params_changed) {
 		pipe->params_changed = 0;

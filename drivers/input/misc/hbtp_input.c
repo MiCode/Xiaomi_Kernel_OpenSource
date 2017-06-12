@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,6 +47,8 @@ struct hbtp_data {
 	struct input_dev *input_dev;
 	s32 count;
 	struct mutex mutex;
+	struct mutex sensormutex;
+	struct hbtp_sensor_data *sensor_data;
 	bool touch_status[HBTP_MAX_FINGER];
 #if defined(CONFIG_FB)
 	struct notifier_block fb_notif;
@@ -60,7 +62,7 @@ struct hbtp_data {
 	u32 ts_pinctrl_seq_delay;
 	u32 ddic_pinctrl_seq_delay[HBTP_PINCTRL_DDIC_SEQ_NUM];
 	u32 fb_resume_seq_delay;
-	bool lcd_on;
+	int lcd_state;
 	bool power_suspended;
 	bool power_sync_enabled;
 	bool power_sig_enabled;
@@ -87,9 +89,13 @@ struct hbtp_data {
 	u32 power_on_delay;
 	u32 power_off_delay;
 	bool manage_pin_ctrl;
+	s16 ROI[MAX_ROI_SIZE];
+	s16 accelBuffer[MAX_ACCEL_SIZE];
 };
 
 static struct hbtp_data *hbtp;
+
+static struct kobject *sensor_kobject;
 
 #if defined(CONFIG_FB)
 static int hbtp_fb_suspend(struct hbtp_data *ts);
@@ -102,53 +108,123 @@ static int fb_notifier_callback(struct notifier_block *self,
 				 unsigned long event, void *data)
 {
 	int blank;
+	int lcd_state;
 	struct fb_event *evdata = data;
+	struct fb_info *fbi = NULL;
 	struct hbtp_data *hbtp_data =
 	container_of(self, struct hbtp_data, fb_notif);
 
-	if (evdata && evdata->data && hbtp_data &&
+	if (!evdata) {
+		pr_debug("evdata is NULL");
+		return 0;
+	}
+	fbi = evdata->info;
+
+	/*
+	 * Node 0 is the primary display and others are
+	 * external displays such as HDMI/DP.
+	 * We need to handle only fb event for the primary display.
+	 */
+	if (!fbi || fbi->node != 0) {
+		pr_debug("%s: no need to handle the fb event", __func__);
+		return 0;
+	}
+
+	if (evdata->data && hbtp_data &&
 		(event == FB_EARLY_EVENT_BLANK ||
 		event == FB_R_EARLY_EVENT_BLANK)) {
 		blank = *(int *)(evdata->data);
+		lcd_state = hbtp->lcd_state;
 		if (event == FB_EARLY_EVENT_BLANK) {
-			if (blank == FB_BLANK_UNBLANK) {
+			if (blank <= FB_BLANK_NORMAL &&
+				lcd_state == FB_BLANK_POWERDOWN) {
 				pr_debug("%s: receives EARLY_BLANK:UNBLANK\n",
 					__func__);
-				hbtp_data->lcd_on = true;
 				hbtp_fb_early_resume(hbtp_data);
-			} else if (blank == FB_BLANK_POWERDOWN) {
+			} else if (blank == FB_BLANK_POWERDOWN &&
+					lcd_state <= FB_BLANK_NORMAL) {
 				pr_debug("%s: receives EARLY_BLANK:POWERDOWN\n",
 					__func__);
-				hbtp_data->lcd_on = false;
+			} else {
+				pr_debug("%s: receives EARLY_BLANK:%d in %d state\n",
+					__func__, blank, lcd_state);
 			}
 		} else if (event == FB_R_EARLY_EVENT_BLANK) {
-			if (blank == FB_BLANK_UNBLANK) {
+			if (blank <= FB_BLANK_NORMAL) {
 				pr_debug("%s: receives R_EARLY_BALNK:UNBLANK\n",
 					__func__);
-				hbtp_data->lcd_on = false;
 				hbtp_fb_suspend(hbtp_data);
 			} else if (blank == FB_BLANK_POWERDOWN) {
 				pr_debug("%s: receives R_EARLY_BALNK:POWERDOWN\n",
 					__func__);
-				hbtp_data->lcd_on = true;
+			} else {
+				pr_debug("%s: receives R_EARLY_BALNK:%d in %d state\n",
+					__func__, blank, lcd_state);
 			}
 		}
 	}
 
-	if (evdata && evdata->data && hbtp_data &&
+	if (evdata->data && hbtp_data &&
 		event == FB_EVENT_BLANK) {
 		blank = *(int *)(evdata->data);
-		if (blank == FB_BLANK_POWERDOWN) {
+		lcd_state = hbtp->lcd_state;
+		if (blank == FB_BLANK_POWERDOWN &&
+			lcd_state <= FB_BLANK_NORMAL) {
 			pr_debug("%s: receives BLANK:POWERDOWN\n", __func__);
 			hbtp_fb_suspend(hbtp_data);
-		} else if (blank == FB_BLANK_UNBLANK) {
+		} else if (blank <= FB_BLANK_NORMAL &&
+				lcd_state == FB_BLANK_POWERDOWN) {
 			pr_debug("%s: receives BLANK:UNBLANK\n", __func__);
 			hbtp_fb_resume(hbtp_data);
+		} else {
+			pr_debug("%s: receives BLANK:%d in %d state\n",
+				__func__, blank, lcd_state);
 		}
+		hbtp_data->lcd_state = blank;
 	}
 	return 0;
 }
 #endif
+
+static ssize_t hbtp_sensor_roi_show(struct file *dev, struct kobject *kobj,
+		struct bin_attribute *attr, char *buf, loff_t pos,
+			size_t size) {
+	mutex_lock(&hbtp->sensormutex);
+	memcpy(buf, hbtp->ROI, size);
+	mutex_unlock(&hbtp->sensormutex);
+
+	return size;
+}
+
+static ssize_t hbtp_sensor_vib_show(struct file *dev, struct kobject *kobj,
+		struct bin_attribute *attr, char *buf, loff_t pos,
+			size_t size) {
+	mutex_lock(&hbtp->sensormutex);
+	memcpy(buf, hbtp->accelBuffer, size);
+	mutex_unlock(&hbtp->sensormutex);
+
+	return size;
+}
+
+static struct bin_attribute capdata_attr = {
+	.attr = {
+		.name = "capdata",
+		.mode = S_IRUGO,
+		},
+	.size = 1024,
+	.read = hbtp_sensor_roi_show,
+	.write = NULL,
+};
+
+static struct bin_attribute vibdata_attr = {
+	.attr = {
+		.name = "vib_data",
+		.mode = S_IRUGO,
+		},
+	.size = MAX_ACCEL_SIZE*sizeof(int16_t),
+	.read = hbtp_sensor_vib_show,
+	.write = NULL,
+};
 
 static int hbtp_input_open(struct inode *inode, struct file *file)
 {
@@ -748,6 +824,22 @@ static long hbtp_input_ioctl_handler(struct file *file, unsigned int cmd,
 			return -EINVAL;
 		}
 		break;
+
+	case HBTP_SET_SENSORDATA:
+		if (copy_from_user(hbtp->sensor_data, (void *)arg,
+					sizeof(struct hbtp_sensor_data))) {
+			pr_err("%s: Error copying data\n", __func__);
+			return -EFAULT;
+		}
+		mutex_lock(&hbtp->sensormutex);
+		memcpy(hbtp->ROI, hbtp->sensor_data->ROI, sizeof(hbtp->ROI));
+		memcpy(hbtp->accelBuffer, hbtp->sensor_data->accelBuffer,
+			sizeof(hbtp->accelBuffer));
+		mutex_unlock(&hbtp->sensormutex);
+
+		error = 0;
+		break;
+
 	default:
 		pr_err("%s: Unsupported ioctl command %u\n", __func__, cmd);
 		error = -EINVAL;
@@ -1358,7 +1450,15 @@ static int __init hbtp_init(void)
 	if (!hbtp)
 		return -ENOMEM;
 
+	hbtp->sensor_data = kzalloc(sizeof(struct hbtp_sensor_data),
+			GFP_KERNEL);
+	if (!hbtp->sensor_data) {
+		error = -ENOMEM;
+		goto err_sensordata;
+	}
+
 	mutex_init(&hbtp->mutex);
+	mutex_init(&hbtp->sensormutex);
 
 	error = misc_register(&hbtp_input_misc);
 	if (error) {
@@ -1376,6 +1476,29 @@ static int __init hbtp_init(void)
 	}
 #endif
 
+	sensor_kobject = kobject_create_and_add("hbtpsensor", kernel_kobj);
+	if (!sensor_kobject) {
+		pr_err("%s: Could not create hbtpsensor kobject\n", __func__);
+		error = -ENOMEM;
+		goto err_kobject_create;
+	}
+
+	error = sysfs_create_bin_file(sensor_kobject, &capdata_attr);
+	if (error < 0) {
+		pr_err("%s: hbtp capdata sysfs creation failed: %d\n", __func__,
+			error);
+		goto err_sysfs_create_capdata;
+	}
+	pr_debug("capdata sysfs creation success\n");
+
+	error = sysfs_create_bin_file(sensor_kobject, &vibdata_attr);
+	if (error < 0) {
+		pr_err("%s: vibdata sysfs creation failed: %d\n", __func__,
+			error);
+		goto err_sysfs_create_vibdata;
+	}
+	pr_debug("vibdata sysfs creation success\n");
+
 	error = platform_driver_register(&hbtp_pdev_driver);
 	if (error) {
 		pr_err("Failed to register platform driver: %d\n", error);
@@ -1385,12 +1508,20 @@ static int __init hbtp_init(void)
 	return 0;
 
 err_platform_drv_reg:
+	sysfs_remove_bin_file(sensor_kobject, &vibdata_attr);
+err_sysfs_create_vibdata:
+	sysfs_remove_bin_file(sensor_kobject, &capdata_attr);
+err_sysfs_create_capdata:
+	kobject_put(sensor_kobject);
+err_kobject_create:
 #if defined(CONFIG_FB)
 	fb_unregister_client(&hbtp->fb_notif);
 err_fb_reg:
 #endif
 	misc_deregister(&hbtp_input_misc);
 err_misc_reg:
+	kfree(hbtp->sensor_data);
+err_sensordata:
 	kfree(hbtp);
 
 	return error;
@@ -1398,6 +1529,9 @@ err_misc_reg:
 
 static void __exit hbtp_exit(void)
 {
+	sysfs_remove_bin_file(sensor_kobject, &vibdata_attr);
+	sysfs_remove_bin_file(sensor_kobject, &capdata_attr);
+	kobject_put(sensor_kobject);
 	misc_deregister(&hbtp_input_misc);
 	if (hbtp->input_dev)
 		input_unregister_device(hbtp->input_dev);
@@ -1408,6 +1542,7 @@ static void __exit hbtp_exit(void)
 
 	platform_driver_unregister(&hbtp_pdev_driver);
 
+	kfree(hbtp->sensor_data);
 	kfree(hbtp);
 }
 

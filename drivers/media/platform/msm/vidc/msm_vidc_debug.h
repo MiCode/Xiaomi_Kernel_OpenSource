@@ -126,6 +126,7 @@ struct dentry *msm_vidc_debugfs_init_inst(struct msm_vidc_inst *inst,
 		struct dentry *parent);
 void msm_vidc_debugfs_update(struct msm_vidc_inst *inst,
 		enum msm_vidc_debugfs_event e);
+void msm_vidc_debugfs_deinit_drv(void);
 
 static inline void tic(struct msm_vidc_inst *i, enum profiling_points p,
 				 char *b)

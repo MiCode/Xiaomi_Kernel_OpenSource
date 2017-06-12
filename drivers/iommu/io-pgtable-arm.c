@@ -550,9 +550,18 @@ static inline arm_lpae_iopte *arm_lpae_get_table(
 {
 	struct io_pgtable_cfg *cfg = &data->iop.cfg;
 
-	return ((cfg->quirks & IO_PGTABLE_QUIRK_ARM_TTBR1) &&
-		(iova & (1UL << (cfg->ias - 1)))) ?
-		data->pgd[1] : data->pgd[0];
+	/*
+	 * iovas for TTBR1 will have all the bits set between the input address
+	 * region and the sign extension bit
+	 */
+	if (unlikely(cfg->quirks & IO_PGTABLE_QUIRK_ARM_TTBR1)) {
+		unsigned long mask = GENMASK(cfg->sep, cfg->ias);
+
+		if ((iova & mask) == mask)
+			return data->pgd[1];
+	}
+
+	return data->pgd[0];
 }
 
 static int arm_lpae_map(struct io_pgtable_ops *ops, unsigned long iova,
@@ -903,6 +912,19 @@ found_translation:
 	return 0;
 }
 
+static uint64_t arm_lpae_iova_get_pte(struct io_pgtable_ops *ops,
+					 unsigned long iova)
+{
+	struct arm_lpae_io_pgtable *data = io_pgtable_ops_to_data(ops);
+	arm_lpae_iopte pte;
+	int lvl;
+
+	if (!arm_lpae_iova_to_pte(data, iova, &lvl, &pte))
+		return pte;
+
+	return 0;
+}
+
 static phys_addr_t arm_lpae_iova_to_phys(struct io_pgtable_ops *ops,
 					 unsigned long iova)
 {
@@ -1033,6 +1055,7 @@ arm_lpae_alloc_pgtable(struct io_pgtable_cfg *cfg)
 		.unmap		= arm_lpae_unmap,
 		.iova_to_phys	= arm_lpae_iova_to_phys,
 		.is_iova_coherent = arm_lpae_is_iova_coherent,
+		.iova_to_pte	= arm_lpae_iova_get_pte,
 	};
 
 	return data;
@@ -1075,26 +1098,26 @@ static u64 arm64_lpae_setup_ttbr1(struct io_pgtable_cfg *cfg,
 	/* Set T1SZ */
 	reg |= (64ULL - cfg->ias) << ARM_LPAE_TCR_T1SZ_SHIFT;
 
-	/* Set the SEP bit based on the size */
-	switch (cfg->ias) {
-	case 32:
+	switch (cfg->sep) {
+	case 31:
 		reg |= (ARM_LPAE_TCR_SEP_31 << ARM_LPAE_TCR_SEP_SHIFT);
 		break;
-	case 36:
+	case 35:
 		reg |= (ARM_LPAE_TCR_SEP_35 << ARM_LPAE_TCR_SEP_SHIFT);
 		break;
-	case 40:
+	case 39:
 		reg |= (ARM_LPAE_TCR_SEP_39 << ARM_LPAE_TCR_SEP_SHIFT);
 		break;
-	case 42:
+	case 41:
 		reg |= (ARM_LPAE_TCR_SEP_41 << ARM_LPAE_TCR_SEP_SHIFT);
 		break;
-	case 44:
+	case 43:
 		reg |= (ARM_LPAE_TCR_SEP_43 << ARM_LPAE_TCR_SEP_SHIFT);
 		break;
-	case 48:
+	case 47:
 		reg |= (ARM_LPAE_TCR_SEP_47 << ARM_LPAE_TCR_SEP_SHIFT);
 		break;
+	case 48:
 	default:
 		reg |= (ARM_LPAE_TCR_SEP_UPSTREAM << ARM_LPAE_TCR_SEP_SHIFT);
 		break;

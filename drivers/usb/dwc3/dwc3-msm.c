@@ -764,6 +764,7 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	return 0;
 
 err:
+	list_del(&req_complete->list_item);
 	spin_unlock_irqrestore(&dwc->lock, flags);
 	kfree(req_complete);
 	return ret;
@@ -2670,12 +2671,16 @@ static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc)
 {
 	struct device_node *node = mdwc->dev->of_node;
 	struct extcon_dev *edev;
+	struct dwc3 *dwc;
 	int ret = 0;
 
+	dwc = platform_get_drvdata(mdwc->dwc3);
 	if (!of_property_read_bool(node, "extcon")) {
-		if (usb_get_dr_mode(&mdwc->dwc3->dev) == USB_DR_MODE_HOST)
+		dev_dbg(mdwc->dev, "extcon property doesn't exist\n");
+		if (usb_get_dr_mode(&mdwc->dwc3->dev) == USB_DR_MODE_HOST
+							|| dwc->is_drd)
 			return 0;
-		dev_err(mdwc->dev, "extcon property doesn't exist\n");
+		dev_err(mdwc->dev, "Neither host nor DRD, fail probe\n");
 		return -EINVAL;
 	}
 
@@ -3136,8 +3141,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	device_create_file(&pdev->dev, &dev_attr_speed);
 
 	host_mode = usb_get_dr_mode(&mdwc->dwc3->dev) == USB_DR_MODE_HOST;
-	if (!dwc->is_drd && host_mode) {
-		dev_dbg(&pdev->dev, "DWC3 in host only mode\n");
+	if (host_mode ||
+		(dwc->is_drd && !of_property_read_bool(node, "extcon"))) {
+		dev_dbg(&pdev->dev, "DWC3 in default host mode\n");
 		mdwc->id_state = DWC3_ID_GROUND;
 		dwc3_ext_event_notify(mdwc);
 	}
@@ -3320,16 +3326,19 @@ static void msm_dwc3_perf_vote_work(struct work_struct *w)
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
 						perf_vote_work.work);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-	static unsigned long	last_irq_cnt;
 	bool in_perf_mode = false;
+	int latency = mdwc->pm_qos_latency;
 
-	if (dwc->irq_cnt - last_irq_cnt >= PM_QOS_THRESHOLD)
+	if (!latency)
+		return;
+
+	if (dwc->irq_cnt - dwc->last_irq_cnt >= PM_QOS_THRESHOLD)
 		in_perf_mode = true;
 
 	pr_debug("%s: in_perf_mode:%u, interrupts in last sample:%lu\n",
-		 __func__, in_perf_mode, (dwc->irq_cnt - last_irq_cnt));
+		 __func__, in_perf_mode, (dwc->irq_cnt - dwc->last_irq_cnt));
 
-	last_irq_cnt = dwc->irq_cnt;
+	dwc->last_irq_cnt = dwc->irq_cnt;
 	msm_dwc3_perf_vote_update(mdwc, in_perf_mode);
 	schedule_delayed_work(&mdwc->perf_vote_work,
 			msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
@@ -3596,7 +3605,8 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned mA)
 		}
 	}
 
-	power_supply_get_property(mdwc->usb_psy, POWER_SUPPLY_PROP_TYPE, &pval);
+	power_supply_get_property(mdwc->usb_psy,
+			POWER_SUPPLY_PROP_REAL_TYPE, &pval);
 	if (pval.intval != POWER_SUPPLY_TYPE_USB)
 		return 0;
 

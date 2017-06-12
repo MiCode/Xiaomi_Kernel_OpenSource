@@ -29,6 +29,7 @@
 #include "sync.h"
 
 #define CREATE_TRACE_POINTS
+#define SYNC_DUMP_TIME_LIMIT 7000
 #include "trace/sync.h"
 
 static const struct fence_ops android_fence_ops;
@@ -392,7 +393,9 @@ int sync_fence_wait(struct sync_fence *fence, long timeout)
 		if (timeout) {
 			pr_info("fence timeout on [%pK] after %dms\n", fence,
 				jiffies_to_msecs(timeout));
-			sync_dump();
+			if (jiffies_to_msecs(timeout) >=
+				SYNC_DUMP_TIME_LIMIT)
+				sync_dump();
 		}
 		return -ETIME;
 	}

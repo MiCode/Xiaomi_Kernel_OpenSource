@@ -28,6 +28,7 @@
 #include <linux/iommu.h>
 #include <linux/qcom_iommu.h>
 #include <linux/platform_device.h>
+#include <linux/usb/audio-v3.h>
 
 #include "usbaudio.h"
 #include "card.h"
@@ -428,12 +429,14 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 	protocol = altsd->bInterfaceProtocol;
 
 	/* get format type */
-	fmt = snd_usb_find_csint_desc(alts->extra, alts->extralen, NULL,
-			UAC_FORMAT_TYPE);
-	if (!fmt) {
-		pr_err("%s: %u:%d : no UAC_FORMAT_TYPE desc\n", __func__,
-			subs->interface, subs->altset_idx);
-		goto err;
+	if (protocol != UAC_VERSION_3) {
+		fmt = snd_usb_find_csint_desc(alts->extra, alts->extralen, NULL,
+				UAC_FORMAT_TYPE);
+		if (!fmt) {
+			pr_err("%s: %u:%d : no UAC_FORMAT_TYPE desc\n",
+				__func__, subs->interface, subs->altset_idx);
+			goto err;
+		}
 	}
 
 	if (!uadev[card_num].ctrl_intf) {
@@ -441,12 +444,15 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 		goto err;
 	}
 
-	hdr_ptr = snd_usb_find_csint_desc(uadev[card_num].ctrl_intf->extra,
-					uadev[card_num].ctrl_intf->extralen,
-					NULL, UAC_HEADER);
-	if (!hdr_ptr) {
-		pr_err("%s: no UAC_HEADER desc\n", __func__);
-		goto err;
+	if (protocol != UAC_VERSION_3) {
+		hdr_ptr = snd_usb_find_csint_desc(
+				uadev[card_num].ctrl_intf->extra,
+				uadev[card_num].ctrl_intf->extralen,
+				NULL, UAC_HEADER);
+		if (!hdr_ptr) {
+			pr_err("%s: no UAC_HEADER desc\n", __func__);
+			goto err;
+		}
 	}
 
 	if (protocol == UAC_VERSION_1) {
@@ -474,6 +480,31 @@ static int prepare_qmi_response(struct snd_usb_substream *subs,
 		resp->usb_audio_spec_revision =
 			((struct uac2_ac_header_descriptor *)hdr_ptr)->bcdADC;
 		resp->usb_audio_spec_revision_valid = 1;
+	} else if (protocol == UAC_VERSION_3) {
+		switch (le16_to_cpu(get_endpoint(alts, 0)->wMaxPacketSize)) {
+		case BADD_MAXPSIZE_SYNC_MONO_16:
+		case BADD_MAXPSIZE_SYNC_STEREO_16:
+		case BADD_MAXPSIZE_ASYNC_MONO_16:
+		case BADD_MAXPSIZE_ASYNC_STEREO_16: {
+			resp->usb_audio_subslot_size = SUBSLOTSIZE_16_BIT;
+			break;
+		}
+
+		case BADD_MAXPSIZE_SYNC_MONO_24:
+		case BADD_MAXPSIZE_SYNC_STEREO_24:
+		case BADD_MAXPSIZE_ASYNC_MONO_24:
+		case BADD_MAXPSIZE_ASYNC_STEREO_24: {
+			resp->usb_audio_subslot_size = SUBSLOTSIZE_24_BIT;
+			break;
+		}
+
+		default:
+			pr_err("%d: %u: Invalid wMaxPacketSize\n",
+				subs->interface, subs->altset_idx);
+			ret = -EINVAL;
+			goto err;
+		}
+		resp->usb_audio_subslot_size_valid = 1;
 	} else {
 		pr_err("%s: unknown protocol version %x\n", __func__, protocol);
 		goto err;

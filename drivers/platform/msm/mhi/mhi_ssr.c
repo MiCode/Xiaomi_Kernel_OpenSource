@@ -29,11 +29,9 @@ static int mhi_ssr_notify_cb(struct notifier_block *nb,
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
 		"Received ESOC notifcation:%lu crashed:%d\n", action, crashed);
 	switch (action) {
-	case SUBSYS_BEFORE_SHUTDOWN:
-		/*
-		 * update internal states only, we'll clean up MHI context
-		 * after device shutdown completely.
-		 */
+	case SUBSYS_AFTER_SHUTDOWN:
+
+		/* Disable internal state, no more communication */
 		write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
 		cur_state = mhi_tryset_pm_state(mhi_dev_ctxt,
 						MHI_PM_LD_ERR_FATAL_DETECT);
@@ -42,8 +40,6 @@ static int mhi_ssr_notify_cb(struct notifier_block *nb,
 			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
 				"Failed to transition to state 0x%x from 0x%x\n",
 				MHI_PM_LD_ERR_FATAL_DETECT, cur_state);
-		break;
-	case SUBSYS_AFTER_SHUTDOWN:
 		if (mhi_dev_ctxt->mhi_pm_state != MHI_PM_DISABLE)
 			process_disable_transition(MHI_PM_SHUTDOWN_PROCESS,
 						   mhi_dev_ctxt);

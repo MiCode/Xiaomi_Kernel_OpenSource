@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,7 +22,7 @@
 #include <linux/sched.h>
 #include <linux/skbuff.h>
 #include <linux/types.h>
-
+#include <linux/spinlock.h>
 
 static int ipc_router_mhi_xprt_debug_mask;
 module_param_named(debug_mask, ipc_router_mhi_xprt_debug_mask,
@@ -123,9 +123,9 @@ struct ipc_router_mhi_xprt {
 	struct completion sft_close_complete;
 	unsigned xprt_version;
 	unsigned xprt_option;
-	struct mutex tx_addr_map_list_lock;
+	spinlock_t tx_addr_map_list_lock;
 	struct list_head tx_addr_map_list;
-	struct mutex rx_addr_map_list_lock;
+	spinlock_t rx_addr_map_list_lock;
 	struct list_head rx_addr_map_list;
 };
 
@@ -179,16 +179,16 @@ void ipc_router_mhi_release_pkt(struct kref *ref)
  * Return: The mapped virtual Address if found, NULL otherwise.
  */
 void *ipc_router_mhi_xprt_find_addr_map(struct list_head *addr_map_list,
-				struct mutex *addr_map_list_lock,
-				void *addr)
+				spinlock_t *addr_map_list_lock, void *addr)
 {
 	struct ipc_router_mhi_addr_map *addr_mapping;
 	struct ipc_router_mhi_addr_map *tmp_addr_mapping;
+	unsigned long flags;
 	void *virt_addr;
 
 	if (!addr_map_list || !addr_map_list_lock)
 		return NULL;
-	mutex_lock(addr_map_list_lock);
+	spin_lock_irqsave(addr_map_list_lock, flags);
 	list_for_each_entry_safe(addr_mapping, tmp_addr_mapping,
 				addr_map_list, list_node) {
 		if (addr_mapping->virt_addr == addr) {
@@ -198,11 +198,11 @@ void *ipc_router_mhi_xprt_find_addr_map(struct list_head *addr_map_list,
 				kref_put(&addr_mapping->pkt->ref,
 					ipc_router_mhi_release_pkt);
 			kfree(addr_mapping);
-			mutex_unlock(addr_map_list_lock);
+			spin_unlock_irqrestore(addr_map_list_lock, flags);
 			return virt_addr;
 		}
 	}
-	mutex_unlock(addr_map_list_lock);
+	spin_unlock_irqrestore(addr_map_list_lock, flags);
 	IPC_RTR_ERR(
 		"%s: Virtual address mapping [%p] not found\n",
 		__func__, (void *)addr);
@@ -219,10 +219,11 @@ void *ipc_router_mhi_xprt_find_addr_map(struct list_head *addr_map_list,
  * Return: 0 on success, standard Linux error code otherwise.
  */
 int ipc_router_mhi_xprt_add_addr_map(struct list_head *addr_map_list,
-				struct mutex *addr_map_list_lock,
+				spinlock_t *addr_map_list_lock,
 				struct rr_packet *pkt, void *virt_addr)
 {
 	struct ipc_router_mhi_addr_map *addr_mapping;
+	unsigned long flags;
 
 	if (!addr_map_list || !addr_map_list_lock)
 		return -EINVAL;
@@ -231,11 +232,11 @@ int ipc_router_mhi_xprt_add_addr_map(struct list_head *addr_map_list,
 		return -ENOMEM;
 	addr_mapping->virt_addr = virt_addr;
 	addr_mapping->pkt = pkt;
-	mutex_lock(addr_map_list_lock);
+	spin_lock_irqsave(addr_map_list_lock, flags);
 	if (addr_mapping->pkt)
 		kref_get(&addr_mapping->pkt->ref);
 	list_add_tail(&addr_mapping->list_node, addr_map_list);
-	mutex_unlock(addr_map_list_lock);
+	spin_unlock_irqrestore(addr_map_list_lock, flags);
 	return 0;
 }
 
@@ -719,12 +720,11 @@ static void mhi_xprt_xfer_event(struct mhi_cb_info *cb_info)
 	mhi_xprtp = (struct ipc_router_mhi_xprt *)(cb_info->result->user_data);
 	if (cb_info->chan == mhi_xprtp->ch_hndl.out_chan_id) {
 		out_addr = cb_info->result->buf_addr;
-		mutex_lock(&mhi_xprtp->ch_hndl.state_lock);
-		ipc_router_mhi_xprt_find_addr_map(&mhi_xprtp->tx_addr_map_list,
+		ipc_router_mhi_xprt_find_addr_map(
+					&mhi_xprtp->tx_addr_map_list,
 					&mhi_xprtp->tx_addr_map_list_lock,
 					out_addr);
 		wake_up(&mhi_xprtp->write_wait_q);
-		mutex_unlock(&mhi_xprtp->ch_hndl.state_lock);
 	} else if (cb_info->chan == mhi_xprtp->ch_hndl.in_chan_id) {
 		queue_work(mhi_xprtp->wq, &mhi_xprtp->read_work);
 	} else {
@@ -875,9 +875,9 @@ static int ipc_router_mhi_config_init(
 	mhi_xprtp->ch_hndl.num_trbs = IPC_ROUTER_MHI_XPRT_NUM_TRBS;
 	mhi_xprtp->ch_hndl.mhi_xprtp = mhi_xprtp;
 	INIT_LIST_HEAD(&mhi_xprtp->tx_addr_map_list);
-	mutex_init(&mhi_xprtp->tx_addr_map_list_lock);
+	spin_lock_init(&mhi_xprtp->tx_addr_map_list_lock);
 	INIT_LIST_HEAD(&mhi_xprtp->rx_addr_map_list);
-	mutex_init(&mhi_xprtp->rx_addr_map_list_lock);
+	spin_lock_init(&mhi_xprtp->rx_addr_map_list_lock);
 
 	rc = ipc_router_mhi_driver_register(mhi_xprtp);
 	return rc;

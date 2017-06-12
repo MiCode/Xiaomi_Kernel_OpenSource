@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,7 @@
 #include "sde_hw_wb.h"
 #include "sde_encoder.h"
 #include "sde_connector.h"
+#include "sde_hw_sspp.h"
 
 #define RESERVED_BY_OTHER(h, r) \
 	((h)->rsvp && ((h)->rsvp->enc_id != (r)->enc_id))
@@ -197,6 +198,33 @@ bool sde_rm_get_hw(struct sde_rm *rm, struct sde_rm_hw_iter *i)
 	return false;
 }
 
+void *sde_rm_get_hw_by_id(struct sde_rm *rm, enum sde_hw_blk_type type, int id)
+{
+	struct list_head *blk_list;
+	struct sde_rm_hw_blk *blk;
+	void *hw = NULL;
+
+	if (!rm || type >= SDE_HW_BLK_MAX) {
+		SDE_ERROR("invalid rm\n");
+		return hw;
+	}
+
+	blk_list = &rm->hw_blks[type];
+
+	list_for_each_entry(blk, blk_list, list) {
+		if (blk->id == id) {
+			hw = blk->hw;
+			SDE_DEBUG("found type %d %s id %d\n",
+					type, blk->type_name, blk->id);
+			return hw;
+		}
+	}
+
+	SDE_DEBUG("no match, type %d id=%d\n", type, id);
+
+	return hw;
+}
+
 static void _sde_rm_hw_destroy(enum sde_hw_blk_type type, void *hw)
 {
 	switch (type) {
@@ -222,7 +250,8 @@ static void _sde_rm_hw_destroy(enum sde_hw_blk_type type, void *hw)
 		sde_hw_wb_destroy(hw);
 		break;
 	case SDE_HW_BLK_SSPP:
-		/* SSPPs are not managed by the resource manager */
+		sde_hw_sspp_destroy(hw);
+		break;
 	case SDE_HW_BLK_TOP:
 		/* Top is a singleton, not managed in hw_blks list */
 	case SDE_HW_BLK_MAX:
@@ -310,7 +339,9 @@ static int _sde_rm_hw_blk_create(
 		name = "wb";
 		break;
 	case SDE_HW_BLK_SSPP:
-		/* SSPPs are not managed by the resource manager */
+		hw = sde_hw_sspp_init(id, (void __iomem *)mmio, cat);
+		name = "sspp";
+		break;
 	case SDE_HW_BLK_TOP:
 		/* Top is a singleton, not managed in hw_blks list */
 	case SDE_HW_BLK_MAX:
@@ -367,6 +398,13 @@ int sde_rm_init(struct sde_rm *rm,
 		rm->hw_mdp = NULL;
 		SDE_ERROR("failed: mdp hw not available\n");
 		goto fail;
+	}
+
+	for (i = 0; i < cat->sspp_count; i++) {
+		rc = _sde_rm_hw_blk_create(rm, cat, mmio, SDE_HW_BLK_SSPP,
+				cat->sspp[i].id, &cat->sspp[i]);
+		if (rc)
+			goto fail;
 	}
 
 	/* Interrogate HW catalog and create tracking items for hw blocks */
@@ -1074,12 +1112,6 @@ void _sde_rm_release_rsvp(
 	}
 
 	kfree(rsvp);
-
-	(void) msm_property_set_property(
-			sde_connector_get_propinfo(conn),
-			sde_connector_get_property_values(conn->state),
-			CONNECTOR_PROP_TOPOLOGY_NAME,
-			SDE_RM_TOPOLOGY_UNKNOWN);
 }
 
 void sde_rm_release(struct sde_rm *rm, struct drm_encoder *enc)
@@ -1115,6 +1147,12 @@ void sde_rm_release(struct sde_rm *rm, struct drm_encoder *enc)
 		SDE_DEBUG("release rsvp[s%de%d]\n", rsvp->seq,
 				rsvp->enc_id);
 		_sde_rm_release_rsvp(rm, rsvp, conn);
+
+		(void) msm_property_set_property(
+				sde_connector_get_propinfo(conn),
+				sde_connector_get_property_values(conn->state),
+				CONNECTOR_PROP_TOPOLOGY_NAME,
+				SDE_RM_TOPOLOGY_UNKNOWN);
 	}
 }
 
@@ -1132,8 +1170,12 @@ static int _sde_rm_commit_rsvp(
 			sde_connector_get_property_values(conn_state),
 			CONNECTOR_PROP_TOPOLOGY_NAME,
 			rsvp->topology);
-	if (ret)
+	if (ret) {
+		SDE_ERROR("failed to set topology name property, ret %d\n",
+				ret);
 		_sde_rm_release_rsvp(rm, rsvp, conn_state->connector);
+		return ret;
+	}
 
 	/* Swap next rsvp to be the active */
 	for (type = 0; type < SDE_HW_BLK_MAX; type++) {
@@ -1226,6 +1268,12 @@ int sde_rm_reserve(
 		_sde_rm_release_rsvp(rm, rsvp_cur, conn_state->connector);
 		rsvp_cur = NULL;
 		_sde_rm_print_rsvps(rm, SDE_RM_STAGE_AFTER_CLEAR);
+		(void) msm_property_set_property(
+				sde_connector_get_propinfo(
+						conn_state->connector),
+				sde_connector_get_property_values(conn_state),
+				CONNECTOR_PROP_TOPOLOGY_NAME,
+				SDE_RM_TOPOLOGY_UNKNOWN);
 	}
 
 	/* Check the proposed reservation, store it in hw's "next" field */

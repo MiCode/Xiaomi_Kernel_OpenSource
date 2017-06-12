@@ -147,7 +147,8 @@ void mhi_set_m_state(struct mhi_device_ctxt *mhi_dev_ctxt,
  *     M1 -> M3_ENTER --> M3
  * L1: SYS_ERR_DETECT -> SYS_ERR_PROCESS --> POR
  * L2: SHUTDOWN_PROCESS -> DISABLE -> SSR_PENDING (via SSR Notification only)
- * L3: LD_ERR_FATAL_DETECT -> SHUTDOWN_PROCESS
+ * L3: LD_ERR_FATAL_DETECT <--> LD_ERR_FATAL_DETECT
+ *     LD_ERR_FATAL_DETECT -> SHUTDOWN_PROCESS
  */
 static const struct mhi_pm_transitions const mhi_state_transitions[] = {
 	/* L0 States */
@@ -216,7 +217,7 @@ static const struct mhi_pm_transitions const mhi_state_transitions[] = {
 	/* L3 States */
 	{
 		MHI_PM_LD_ERR_FATAL_DETECT,
-		MHI_PM_SHUTDOWN_PROCESS
+		MHI_PM_LD_ERR_FATAL_DETECT | MHI_PM_SHUTDOWN_PROCESS
 	},
 	/* From SSR notification only */
 	{
@@ -430,7 +431,7 @@ void process_m1_transition(struct work_struct *work)
 	mhi_set_m_state(mhi_dev_ctxt, MHI_STATE_M2);
 	write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
 
-	msleep(MHI_M2_DEBOUNCE_TMR_MS);
+	usleep_range(MHI_M2_DEBOUNCE_TMR_US, MHI_M2_DEBOUNCE_TMR_US + 50);
 	write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
 
 	/* During DEBOUNCE Time We could be receiving M0 Event */
@@ -590,26 +591,26 @@ static int process_reset_transition(
 }
 
 static void enable_clients(struct mhi_device_ctxt *mhi_dev_ctxt,
-					enum MHI_EXEC_ENV exec_env)
+			   enum MHI_EXEC_ENV exec_env)
 {
 	struct mhi_client_handle *client_handle = NULL;
-	struct mhi_cb_info cb_info;
-	int i = 0, r = 0;
-	struct mhi_chan_info chan_info;
-
-	cb_info.cb_reason = MHI_CB_MHI_ENABLED;
+	struct mhi_chan_info *chan_info;
+	int i = 0;
 
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
 		"Enabling Clients, exec env %d.\n", exec_env);
+
 	for (i = 0; i < MHI_MAX_CHANNELS; ++i) {
-		if (!VALID_CHAN_NR(i))
+		if (!mhi_dev_ctxt->client_handle_list[i])
 			continue;
+
 		client_handle = mhi_dev_ctxt->client_handle_list[i];
-		r = get_chan_props(mhi_dev_ctxt, i, &chan_info);
-		if (!r && client_handle &&
-		    exec_env == GET_CHAN_PROPS(CHAN_BRINGUP_STAGE,
-						chan_info.flags))
+		chan_info = &client_handle->client_config->chan_info;
+		if (exec_env == GET_CHAN_PROPS(CHAN_BRINGUP_STAGE,
+					       chan_info->flags)) {
+			client_handle->enabled = true;
 			mhi_notify_client(client_handle, MHI_CB_MHI_ENABLED);
+		}
 	}
 
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Done.\n");

@@ -44,6 +44,7 @@ struct pil_desc {
 	const char *name;
 	const char *fw_name;
 	struct device *dev;
+	struct subsys_device *subsys_dev;
 	const struct pil_reset_ops *ops;
 	struct module *owner;
 	unsigned long proxy_timeout;

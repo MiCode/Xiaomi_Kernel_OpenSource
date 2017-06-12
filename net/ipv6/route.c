@@ -1756,6 +1756,10 @@ static struct rt6_info *ip6_route_info_create(struct fib6_config *cfg)
 	int addr_type;
 	int err = -EINVAL;
 
+	/* RTF_PCPU is an internal flag; can not be set by userspace */
+	if (cfg->fc_flags & RTF_PCPU)
+		goto out;
+
 	if (cfg->fc_dst_len > 128 || cfg->fc_src_len > 128)
 		goto out;
 #ifndef CONFIG_IPV6_SUBTREES
@@ -2081,6 +2085,8 @@ static int ip6_route_del(struct fib6_config *cfg)
 			    !ipv6_addr_equal(&cfg->fc_gateway, &rt->rt6i_gateway))
 				continue;
 			if (cfg->fc_metric && cfg->fc_metric != rt->rt6i_metric)
+				continue;
+			if (cfg->fc_protocol && cfg->fc_protocol != rt->rt6i_protocol)
 				continue;
 			dst_hold(&rt->dst);
 			read_unlock_bh(&table->tb6_lock);
@@ -3200,6 +3206,10 @@ int rt6_dump_route(struct rt6_info *rt, void *p_arg)
 {
 	struct rt6_rtnl_dump_arg *arg = (struct rt6_rtnl_dump_arg *) p_arg;
 	int prefix;
+	struct net *net = arg->net;
+
+	if (rt == net->ipv6.ip6_null_entry)
+		return 0;
 
 	if (nlmsg_len(arg->cb->nlh) >= sizeof(struct rtmsg)) {
 		struct rtmsg *rtm = nlmsg_data(arg->cb->nlh);
@@ -3207,7 +3217,7 @@ int rt6_dump_route(struct rt6_info *rt, void *p_arg)
 	} else
 		prefix = 0;
 
-	return rt6_fill_node(arg->net,
+	return rt6_fill_node(net,
 		     arg->skb, rt, NULL, NULL, 0, RTM_NEWROUTE,
 		     NETLINK_CB(arg->cb->skb).portid, arg->cb->nlh->nlmsg_seq,
 		     prefix, 0, NLM_F_MULTI);
@@ -3352,7 +3362,10 @@ static int ip6_route_dev_notify(struct notifier_block *this,
 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
 	struct net *net = dev_net(dev);
 
-	if (event == NETDEV_REGISTER && (dev->flags & IFF_LOOPBACK)) {
+	if (!(dev->flags & IFF_LOOPBACK))
+		return NOTIFY_OK;
+
+	if (event == NETDEV_REGISTER) {
 		net->ipv6.ip6_null_entry->dst.dev = dev;
 		net->ipv6.ip6_null_entry->rt6i_idev = in6_dev_get(dev);
 #ifdef CONFIG_IPV6_MULTIPLE_TABLES
@@ -3360,6 +3373,12 @@ static int ip6_route_dev_notify(struct notifier_block *this,
 		net->ipv6.ip6_prohibit_entry->rt6i_idev = in6_dev_get(dev);
 		net->ipv6.ip6_blk_hole_entry->dst.dev = dev;
 		net->ipv6.ip6_blk_hole_entry->rt6i_idev = in6_dev_get(dev);
+#endif
+	 } else if (event == NETDEV_UNREGISTER) {
+		in6_dev_put(net->ipv6.ip6_null_entry->rt6i_idev);
+#ifdef CONFIG_IPV6_MULTIPLE_TABLES
+		in6_dev_put(net->ipv6.ip6_prohibit_entry->rt6i_idev);
+		in6_dev_put(net->ipv6.ip6_blk_hole_entry->rt6i_idev);
 #endif
 	}
 
@@ -3667,8 +3686,23 @@ static struct pernet_operations ip6_route_net_late_ops = {
 
 static struct notifier_block ip6_route_dev_notifier = {
 	.notifier_call = ip6_route_dev_notify,
-	.priority = 0,
+	.priority = ADDRCONF_NOTIFY_PRIORITY - 10,
 };
+
+void __init ip6_route_init_special_entries(void)
+{
+	/* Registering of the loopback is done before this portion of code,
+	 * the loopback reference in rt6_info will not be taken, do it
+	 * manually for init_net */
+	init_net.ipv6.ip6_null_entry->dst.dev = init_net.loopback_dev;
+	init_net.ipv6.ip6_null_entry->rt6i_idev = in6_dev_get(init_net.loopback_dev);
+  #ifdef CONFIG_IPV6_MULTIPLE_TABLES
+	init_net.ipv6.ip6_prohibit_entry->dst.dev = init_net.loopback_dev;
+	init_net.ipv6.ip6_prohibit_entry->rt6i_idev = in6_dev_get(init_net.loopback_dev);
+	init_net.ipv6.ip6_blk_hole_entry->dst.dev = init_net.loopback_dev;
+	init_net.ipv6.ip6_blk_hole_entry->rt6i_idev = in6_dev_get(init_net.loopback_dev);
+  #endif
+}
 
 int __init ip6_route_init(void)
 {
@@ -3696,17 +3730,6 @@ int __init ip6_route_init(void)
 
 	ip6_dst_blackhole_ops.kmem_cachep = ip6_dst_ops_template.kmem_cachep;
 
-	/* Registering of the loopback is done before this portion of code,
-	 * the loopback reference in rt6_info will not be taken, do it
-	 * manually for init_net */
-	init_net.ipv6.ip6_null_entry->dst.dev = init_net.loopback_dev;
-	init_net.ipv6.ip6_null_entry->rt6i_idev = in6_dev_get(init_net.loopback_dev);
-  #ifdef CONFIG_IPV6_MULTIPLE_TABLES
-	init_net.ipv6.ip6_prohibit_entry->dst.dev = init_net.loopback_dev;
-	init_net.ipv6.ip6_prohibit_entry->rt6i_idev = in6_dev_get(init_net.loopback_dev);
-	init_net.ipv6.ip6_blk_hole_entry->dst.dev = init_net.loopback_dev;
-	init_net.ipv6.ip6_blk_hole_entry->rt6i_idev = in6_dev_get(init_net.loopback_dev);
-  #endif
 	ret = fib6_init();
 	if (ret)
 		goto out_register_subsys;

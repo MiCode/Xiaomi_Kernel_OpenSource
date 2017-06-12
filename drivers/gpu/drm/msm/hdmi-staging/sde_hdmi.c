@@ -23,6 +23,7 @@
 #include <linux/gpio.h>
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
+#include <linux/irqdomain.h>
 
 #include "sde_kms.h"
 #include "sde_connector.h"
@@ -31,6 +32,25 @@
 
 static DEFINE_MUTEX(sde_hdmi_list_lock);
 static LIST_HEAD(sde_hdmi_list);
+
+/* HDMI SCDC register offsets */
+#define HDMI_SCDC_UPDATE_0              0x10
+#define HDMI_SCDC_UPDATE_1              0x11
+#define HDMI_SCDC_TMDS_CONFIG           0x20
+#define HDMI_SCDC_SCRAMBLER_STATUS      0x21
+#define HDMI_SCDC_CONFIG_0              0x30
+#define HDMI_SCDC_STATUS_FLAGS_0        0x40
+#define HDMI_SCDC_STATUS_FLAGS_1        0x41
+#define HDMI_SCDC_ERR_DET_0_L           0x50
+#define HDMI_SCDC_ERR_DET_0_H           0x51
+#define HDMI_SCDC_ERR_DET_1_L           0x52
+#define HDMI_SCDC_ERR_DET_1_H           0x53
+#define HDMI_SCDC_ERR_DET_2_L           0x54
+#define HDMI_SCDC_ERR_DET_2_H           0x55
+#define HDMI_SCDC_ERR_DET_CHECKSUM      0x56
+
+#define HDMI_DISPLAY_MAX_WIDTH          4096
+#define HDMI_DISPLAY_MAX_HEIGHT         2160
 
 static const struct of_device_id sde_hdmi_dt_match[] = {
 	{.compatible = "qcom,hdmi-display"},
@@ -69,16 +89,427 @@ static ssize_t _sde_hdmi_debugfs_dump_info_read(struct file *file,
 	return len;
 }
 
+static ssize_t _sde_hdmi_debugfs_edid_modes_read(struct file *file,
+						char __user *buff,
+						size_t count,
+						loff_t *ppos)
+{
+	struct sde_hdmi *display = file->private_data;
+	char *buf;
+	u32 len = 0;
+	struct drm_connector *connector;
+	u32 mode_count = 0;
+	struct drm_display_mode *mode;
+
+	if (!display)
+		return -ENODEV;
+
+	if (!display->ctrl.ctrl ||
+		!display->ctrl.ctrl->connector) {
+		SDE_ERROR("sde_hdmi=%p or hdmi or connector is NULL\n",
+				  display);
+		return -ENOMEM;
+	}
+
+	if (*ppos)
+		return 0;
+
+	connector = display->ctrl.ctrl->connector;
+
+	list_for_each_entry(mode, &connector->modes, head) {
+		mode_count++;
+	}
+
+	/* Adding one more to store title */
+	mode_count++;
+
+	buf = kzalloc((mode_count * sizeof(*mode)), GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	len += snprintf(buf + len, PAGE_SIZE - len,
+					"name refresh (Hz) hdisp hss hse htot vdisp");
+
+	len += snprintf(buf + len, PAGE_SIZE - len,
+					" vss vse vtot flags\n");
+
+	list_for_each_entry(mode, &connector->modes, head) {
+		len += snprintf(buf + len, SZ_4K - len,
+		"%s %d %d %d %d %d %d %d %d %d 0x%x\n",
+		mode->name, mode->vrefresh, mode->hdisplay,
+		mode->hsync_start, mode->hsync_end, mode->htotal,
+		mode->vdisplay, mode->vsync_start, mode->vsync_end,
+		mode->vtotal, mode->flags);
+	}
+
+	if (copy_to_user(buff, buf, len)) {
+		kfree(buf);
+		return -EFAULT;
+	}
+
+	*ppos += len;
+
+	kfree(buf);
+	return len;
+}
+
+static ssize_t _sde_hdmi_debugfs_edid_vsdb_info_read(struct file *file,
+						char __user *buff,
+						size_t count,
+						loff_t *ppos)
+{
+	struct sde_hdmi *display = file->private_data;
+	char buf[200];
+	u32 len = 0;
+	struct drm_connector *connector;
+
+	if (!display)
+		return -ENODEV;
+
+	if (!display->ctrl.ctrl ||
+		!display->ctrl.ctrl->connector) {
+		SDE_ERROR("sde_hdmi=%p or hdmi or connector is NULL\n",
+				  display);
+		return -ENOMEM;
+	}
+
+	SDE_HDMI_DEBUG("%s +", __func__);
+	if (*ppos)
+		return 0;
+
+	connector = display->ctrl.ctrl->connector;
+	len += snprintf(buf + len, sizeof(buf) - len,
+					"max_tmds_clock = %d\n",
+					connector->max_tmds_clock);
+	len += snprintf(buf + len, sizeof(buf) - len,
+					"latency_present %d %d\n",
+					connector->latency_present[0],
+					connector->latency_present[1]);
+	len += snprintf(buf + len, sizeof(buf) - len,
+					"video_latency %d %d\n",
+					connector->video_latency[0],
+					connector->video_latency[1]);
+	len += snprintf(buf + len, sizeof(buf) - len,
+					"audio_latency %d %d\n",
+					connector->audio_latency[0],
+					connector->audio_latency[1]);
+	len += snprintf(buf + len, sizeof(buf) - len,
+					"dvi_dual %d\n",
+					(int)connector->dvi_dual);
+
+	if (copy_to_user(buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;
+	SDE_HDMI_DEBUG("%s - ", __func__);
+	return len;
+}
+
+static ssize_t _sde_hdmi_debugfs_edid_hdr_info_read(struct file *file,
+						char __user *buff,
+						size_t count,
+						loff_t *ppos)
+{
+	struct sde_hdmi *display = file->private_data;
+	char buf[200];
+	u32 len = 0;
+	struct drm_connector *connector;
+
+	if (!display)
+		return -ENODEV;
+
+	if (!display->ctrl.ctrl ||
+		!display->ctrl.ctrl->connector) {
+		SDE_ERROR("sde_hdmi=%p or hdmi or connector is NULL\n",
+				  display);
+		return -ENOMEM;
+	}
+
+	SDE_HDMI_DEBUG("%s +", __func__);
+	if (*ppos)
+		return 0;
+
+	connector = display->ctrl.ctrl->connector;
+	len += snprintf(buf, sizeof(buf), "hdr_eotf = %d\n"
+					"hdr_metadata_type_one %d\n"
+					"hdr_max_luminance %d\n"
+					"hdr_avg_luminance %d\n"
+					"hdr_min_luminance %d\n"
+					"hdr_supported %d\n",
+					connector->hdr_eotf,
+					connector->hdr_metadata_type_one,
+					connector->hdr_max_luminance,
+					connector->hdr_avg_luminance,
+					connector->hdr_min_luminance,
+					(int)connector->hdr_supported);
+
+	if (copy_to_user(buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;
+	SDE_HDMI_DEBUG("%s - ", __func__);
+	return len;
+}
+
+static ssize_t _sde_hdmi_debugfs_edid_hfvsdb_info_read(struct file *file,
+						char __user *buff,
+						size_t count,
+						loff_t *ppos)
+{
+	struct sde_hdmi *display = file->private_data;
+	char buf[200];
+	u32 len = 0;
+	struct drm_connector *connector;
+
+	if (!display)
+		return -ENODEV;
+
+	if (!display->ctrl.ctrl ||
+		!display->ctrl.ctrl->connector) {
+		SDE_ERROR("sde_hdmi=%p or hdmi or connector is NULL\n",
+				  display);
+		return -ENOMEM;
+	}
+
+	SDE_HDMI_DEBUG("%s +", __func__);
+	if (*ppos)
+		return 0;
+
+	connector = display->ctrl.ctrl->connector;
+	len += snprintf(buf, PAGE_SIZE - len, "max_tmds_char = %d\n"
+					"scdc_present %d\n"
+					"rr_capable %d\n"
+					"supports_scramble %d\n"
+					"flags_3d %d\n",
+					connector->max_tmds_char,
+					(int)connector->scdc_present,
+					(int)connector->rr_capable,
+					(int)connector->supports_scramble,
+					connector->flags_3d);
+
+	if (copy_to_user(buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;
+	return len;
+}
+
+static ssize_t _sde_hdmi_debugfs_edid_vcdb_info_read(struct file *file,
+						char __user *buff,
+						size_t count,
+						loff_t *ppos)
+{
+	struct sde_hdmi *display = file->private_data;
+	char buf[100];
+	u32 len = 0;
+	struct drm_connector *connector;
+
+	if (!display)
+		return -ENODEV;
+
+	if (!display->ctrl.ctrl ||
+		!display->ctrl.ctrl->connector) {
+		SDE_ERROR("sde_hdmi=%p or hdmi or connector is NULL\n",
+				  display);
+		return -ENOMEM;
+	}
+
+	SDE_HDMI_DEBUG("%s +", __func__);
+	if (*ppos)
+		return 0;
+
+	connector = display->ctrl.ctrl->connector;
+	len += snprintf(buf, PAGE_SIZE - len, "pt_scan_info = %d\n"
+					"it_scan_info = %d\n"
+					"ce_scan_info = %d\n",
+					(int)connector->pt_scan_info,
+					(int)connector->it_scan_info,
+					(int)connector->ce_scan_info);
+
+	if (copy_to_user(buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;
+	SDE_HDMI_DEBUG("%s - ", __func__);
+	return len;
+}
+
+static ssize_t _sde_hdmi_edid_vendor_name_read(struct file *file,
+						char __user *buff,
+						size_t count,
+						loff_t *ppos)
+{
+	struct sde_hdmi *display = file->private_data;
+	char buf[100];
+	u32 len = 0;
+	struct drm_connector *connector;
+
+	if (!display)
+		return -ENODEV;
+
+	if (!display->ctrl.ctrl ||
+		!display->ctrl.ctrl->connector) {
+		SDE_ERROR("sde_hdmi=%p or hdmi or connector is NULL\n",
+				  display);
+		return -ENOMEM;
+	}
+
+	SDE_HDMI_DEBUG("%s +", __func__);
+	if (*ppos)
+		return 0;
+
+	connector = display->ctrl.ctrl->connector;
+	len += snprintf(buf, PAGE_SIZE - len, "Vendor ID is %s\n",
+					display->edid_ctrl->vendor_id);
+
+	if (copy_to_user(buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;
+	SDE_HDMI_DEBUG("%s - ", __func__);
+	return len;
+}
 
 static const struct file_operations dump_info_fops = {
 	.open = simple_open,
 	.read = _sde_hdmi_debugfs_dump_info_read,
 };
 
+static const struct file_operations edid_modes_fops = {
+	.open = simple_open,
+	.read = _sde_hdmi_debugfs_edid_modes_read,
+};
+
+static const struct file_operations edid_vsdb_info_fops = {
+	.open = simple_open,
+	.read = _sde_hdmi_debugfs_edid_vsdb_info_read,
+};
+
+static const struct file_operations edid_hdr_info_fops = {
+	.open = simple_open,
+	.read = _sde_hdmi_debugfs_edid_hdr_info_read,
+};
+
+static const struct file_operations edid_hfvsdb_info_fops = {
+	.open = simple_open,
+	.read = _sde_hdmi_debugfs_edid_hfvsdb_info_read,
+};
+
+static const struct file_operations edid_vcdb_info_fops = {
+	.open = simple_open,
+	.read = _sde_hdmi_debugfs_edid_vcdb_info_read,
+};
+
+static const struct file_operations edid_vendor_name_fops = {
+	.open = simple_open,
+	.read = _sde_hdmi_edid_vendor_name_read,
+};
+
+static u64 _sde_hdmi_clip_valid_pclk(struct drm_display_mode *mode, u64 pclk_in)
+{
+	u32 pclk_delta, pclk;
+	u64 pclk_clip = pclk_in;
+
+	/* as per standard, 0.5% of deviation is allowed */
+	pclk = mode->clock * HDMI_KHZ_TO_HZ;
+	pclk_delta = pclk * 5 / 1000;
+
+	if (pclk_in < (pclk - pclk_delta))
+		pclk_clip = pclk - pclk_delta;
+	else if (pclk_in > (pclk + pclk_delta))
+		pclk_clip = pclk + pclk_delta;
+
+	if (pclk_in != pclk_clip)
+		pr_warn("clip pclk from %lld to %lld\n", pclk_in, pclk_clip);
+
+	return pclk_clip;
+}
+
+/**
+ * _sde_hdmi_update_pll_delta() - Update the HDMI pixel clock as per input ppm
+ *
+ * @ppm: ppm is parts per million multiplied by 1000.
+ * return: 0 on success, non-zero in case of failure.
+ *
+ * The input ppm will be clipped if it's more than or less than 5% of the TMDS
+ * clock rate defined by HDMI spec.
+ */
+static int _sde_hdmi_update_pll_delta(struct sde_hdmi *display, s32 ppm)
+{
+	struct hdmi *hdmi = display->ctrl.ctrl;
+	struct drm_display_mode *current_mode = &display->mode;
+	u64 cur_pclk, dst_pclk;
+	u64 clip_pclk;
+	int rc = 0;
+
+	if (!hdmi->power_on || !display->connected) {
+		SDE_ERROR("HDMI display is not ready\n");
+		return -EINVAL;
+	}
+
+	/* get current pclk */
+	cur_pclk = hdmi->pixclock;
+	/* get desired pclk */
+	dst_pclk = cur_pclk * (1000000000 + ppm);
+	do_div(dst_pclk, 1000000000);
+
+	clip_pclk = _sde_hdmi_clip_valid_pclk(current_mode, dst_pclk);
+
+	/* update pclk */
+	if (clip_pclk != cur_pclk) {
+		SDE_DEBUG("PCLK changes from %llu to %llu when delta is %d\n",
+				cur_pclk, clip_pclk, ppm);
+
+		rc = clk_set_rate(hdmi->pwr_clks[0], clip_pclk);
+		if (rc < 0) {
+			SDE_ERROR("PLL update failed, reset clock rate\n");
+			return rc;
+		}
+
+		hdmi->pixclock = clip_pclk;
+	}
+
+	return rc;
+}
+
+static ssize_t _sde_hdmi_debugfs_pll_delta_write(struct file *file,
+		    const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	struct sde_hdmi *display = file->private_data;
+	char buf[10];
+	int ppm = 0;
+
+	if (!display)
+		return -ENODEV;
+
+	if (count >= sizeof(buf))
+		return -EFAULT;
+
+	if (copy_from_user(buf, user_buf, count))
+		return -EFAULT;
+
+	buf[count] = 0;	/* end of string */
+
+	if (kstrtoint(buf, 0, &ppm))
+		return -EFAULT;
+
+	if (ppm)
+		_sde_hdmi_update_pll_delta(display, ppm);
+
+	return count;
+}
+
+static const struct file_operations pll_delta_fops = {
+	.open = simple_open,
+	.write = _sde_hdmi_debugfs_pll_delta_write,
+};
+
 static int _sde_hdmi_debugfs_init(struct sde_hdmi *display)
 {
 	int rc = 0;
-	struct dentry *dir, *dump_file;
+	struct dentry *dir, *dump_file, *edid_modes;
+	struct dentry *edid_vsdb_info, *edid_hdr_info, *edid_hfvsdb_info;
+	struct dentry *edid_vcdb_info, *edid_vendor_name, *pll_file;
 
 	dir = debugfs_create_dir(display->name, NULL);
 	if (!dir) {
@@ -95,6 +526,95 @@ static int _sde_hdmi_debugfs_init(struct sde_hdmi *display)
 					&dump_info_fops);
 	if (IS_ERR_OR_NULL(dump_file)) {
 		rc = PTR_ERR(dump_file);
+		SDE_ERROR("[%s]debugfs create dump_info file failed, rc=%d\n",
+		       display->name, rc);
+		goto error_remove_dir;
+	}
+
+	pll_file = debugfs_create_file("pll_delta",
+					0644,
+					dir,
+					display,
+					&pll_delta_fops);
+	if (IS_ERR_OR_NULL(pll_file)) {
+		rc = PTR_ERR(pll_file);
+		SDE_ERROR("[%s]debugfs create pll_delta file failed, rc=%d\n",
+		       display->name, rc);
+		goto error_remove_dir;
+	}
+
+	edid_modes = debugfs_create_file("edid_modes",
+					0444,
+					dir,
+					display,
+					&edid_modes_fops);
+
+	if (IS_ERR_OR_NULL(edid_modes)) {
+		rc = PTR_ERR(edid_modes);
+		SDE_ERROR("[%s]debugfs create file failed, rc=%d\n",
+		       display->name, rc);
+		goto error_remove_dir;
+	}
+
+	edid_vsdb_info = debugfs_create_file("edid_vsdb_info",
+						0444,
+						dir,
+						display,
+						&edid_vsdb_info_fops);
+
+	if (IS_ERR_OR_NULL(edid_vsdb_info)) {
+		rc = PTR_ERR(edid_vsdb_info);
+		SDE_ERROR("[%s]debugfs create file failed, rc=%d\n",
+		       display->name, rc);
+		goto error_remove_dir;
+	}
+
+	edid_hdr_info = debugfs_create_file("edid_hdr_info",
+						0444,
+						dir,
+						display,
+						&edid_hdr_info_fops);
+	if (IS_ERR_OR_NULL(edid_hdr_info)) {
+		rc = PTR_ERR(edid_hdr_info);
+		SDE_ERROR("[%s]debugfs create file failed, rc=%d\n",
+		       display->name, rc);
+		goto error_remove_dir;
+	}
+
+	edid_hfvsdb_info = debugfs_create_file("edid_hfvsdb_info",
+						0444,
+						dir,
+						display,
+						&edid_hfvsdb_info_fops);
+
+	if (IS_ERR_OR_NULL(edid_hfvsdb_info)) {
+		rc = PTR_ERR(edid_hfvsdb_info);
+		SDE_ERROR("[%s]debugfs create file failed, rc=%d\n",
+		       display->name, rc);
+		goto error_remove_dir;
+	}
+
+	edid_vcdb_info = debugfs_create_file("edid_vcdb_info",
+						0444,
+						dir,
+						display,
+						&edid_vcdb_info_fops);
+
+	if (IS_ERR_OR_NULL(edid_vcdb_info)) {
+		rc = PTR_ERR(edid_vcdb_info);
+		SDE_ERROR("[%s]debugfs create file failed, rc=%d\n",
+		       display->name, rc);
+		goto error_remove_dir;
+	}
+
+	edid_vendor_name = debugfs_create_file("edid_vendor_name",
+						0444,
+						dir,
+						display,
+						&edid_vendor_name_fops);
+
+	if (IS_ERR_OR_NULL(edid_vendor_name)) {
+		rc = PTR_ERR(edid_vendor_name);
 		SDE_ERROR("[%s]debugfs create file failed, rc=%d\n",
 		       display->name, rc);
 		goto error_remove_dir;
@@ -390,28 +910,47 @@ static void _sde_hdmi_hdp_disable(struct sde_hdmi *sde_hdmi)
 	}
 }
 
+static void _sde_hdmi_cec_update_phys_addr(struct sde_hdmi *display)
+{
+	struct edid *edid = display->edid_ctrl->edid;
+
+	if (edid)
+		cec_notifier_set_phys_addr_from_edid(display->notifier, edid);
+	else
+		cec_notifier_set_phys_addr(display->notifier,
+			CEC_PHYS_ADDR_INVALID);
+}
+
 static void _sde_hdmi_hotplug_work(struct work_struct *work)
 {
 	struct sde_hdmi *sde_hdmi =
 		container_of(work, struct sde_hdmi, hpd_work);
 	struct drm_connector *connector;
+	struct hdmi *hdmi = NULL;
+	u32 hdmi_ctrl;
 
 	if (!sde_hdmi || !sde_hdmi->ctrl.ctrl ||
-		!sde_hdmi->ctrl.ctrl->connector) {
+		!sde_hdmi->ctrl.ctrl->connector ||
+		!sde_hdmi->edid_ctrl) {
 		SDE_ERROR("sde_hdmi=%p or hdmi or connector is NULL\n",
 				sde_hdmi);
 		return;
 	}
-
+	hdmi = sde_hdmi->ctrl.ctrl;
 	connector = sde_hdmi->ctrl.ctrl->connector;
 
-	if (sde_hdmi->connected)
-		sde_hdmi_get_edid(connector, sde_hdmi);
-	else
-		sde_hdmi_free_edid(sde_hdmi);
+	if (sde_hdmi->connected) {
+		hdmi_ctrl = hdmi_read(hdmi, REG_HDMI_CTRL);
+		hdmi_write(hdmi, REG_HDMI_CTRL, hdmi_ctrl | HDMI_CTRL_ENABLE);
+		sde_get_edid(connector, hdmi->i2c,
+		(void **)&sde_hdmi->edid_ctrl);
+		hdmi_write(hdmi, REG_HDMI_CTRL, hdmi_ctrl);
+		hdmi->hdmi_mode = sde_detect_hdmi_monitor(sde_hdmi->edid_ctrl);
+	} else
+		sde_free_edid((void **)&sde_hdmi->edid_ctrl);
 
-	sde_hdmi_notify_clients(connector, sde_hdmi->connected);
 	drm_helper_hpd_irq_event(connector->dev);
+	_sde_hdmi_cec_update_phys_addr(sde_hdmi);
 }
 
 static void _sde_hdmi_connector_irq(struct sde_hdmi *sde_hdmi)
@@ -431,7 +970,7 @@ static void _sde_hdmi_connector_irq(struct sde_hdmi *sde_hdmi)
 		hdmi_write(hdmi, REG_HDMI_HPD_INT_CTRL,
 			HDMI_HPD_INT_CTRL_INT_ACK);
 
-		DRM_DEBUG("status=%04x, ctrl=%04x", hpd_int_status,
+		SDE_HDMI_DEBUG("status=%04x, ctrl=%04x", hpd_int_status,
 				hpd_int_ctrl);
 
 		/* detect disconnect if we are connected or visa versa: */
@@ -440,10 +979,21 @@ static void _sde_hdmi_connector_irq(struct sde_hdmi *sde_hdmi)
 			hpd_int_ctrl |= HDMI_HPD_INT_CTRL_INT_CONNECT;
 		hdmi_write(hdmi, REG_HDMI_HPD_INT_CTRL, hpd_int_ctrl);
 
-		if (!sde_hdmi->non_pluggable)
-			queue_work(hdmi->workq, &sde_hdmi->hpd_work);
+		queue_work(hdmi->workq, &sde_hdmi->hpd_work);
 	}
 }
+
+static void _sde_hdmi_cec_irq(struct sde_hdmi *sde_hdmi)
+{
+	struct hdmi *hdmi = sde_hdmi->ctrl.ctrl;
+	u32 cec_intr = hdmi_read(hdmi, REG_HDMI_CEC_INT);
+
+	/* Routing interrupt to external CEC drivers */
+	if (cec_intr)
+		generic_handle_irq(irq_find_mapping(
+				sde_hdmi->irq_domain, 1));
+}
+
 
 static irqreturn_t _sde_hdmi_irq(int irq, void *dev_id)
 {
@@ -465,7 +1015,8 @@ static irqreturn_t _sde_hdmi_irq(int irq, void *dev_id)
 	if (hdmi->hdcp_ctrl && hdmi->is_hdcp_supported)
 		hdmi_hdcp_ctrl_irq(hdmi->hdcp_ctrl);
 
-	/* TODO audio.. */
+	/* Process CEC: */
+	_sde_hdmi_cec_irq(sde_hdmi);
 
 	return IRQ_HANDLED;
 }
@@ -504,11 +1055,11 @@ static int _sde_hdmi_get_audio_edid_blk(struct platform_device *pdev,
 		return -ENODEV;
 	}
 
-	blk->audio_data_blk = display->edid.audio_data_block;
-	blk->audio_data_blk_size = display->edid.adb_size;
+	blk->audio_data_blk = display->edid_ctrl->audio_data_block;
+	blk->audio_data_blk_size = display->edid_ctrl->adb_size;
 
-	blk->spk_alloc_data_blk = display->edid.spkr_alloc_data_block;
-	blk->spk_alloc_data_blk_size = display->edid.sadb_size;
+	blk->spk_alloc_data_blk = display->edid_ctrl->spkr_alloc_data_block;
+	blk->spk_alloc_data_blk_size = display->edid_ctrl->sadb_size;
 
 	return 0;
 }
@@ -530,6 +1081,25 @@ static int _sde_hdmi_get_cable_status(struct platform_device *pdev, u32 vote)
 	return hdmi->power_on && display->connected;
 }
 
+static void _sde_hdmi_audio_codec_ready(struct platform_device *pdev)
+{
+	struct sde_hdmi *display = platform_get_drvdata(pdev);
+
+	if (!display) {
+		SDE_ERROR("invalid param(s), display %pK\n", display);
+		return;
+	}
+
+	mutex_lock(&display->display_lock);
+	if (!display->codec_ready) {
+		display->codec_ready = true;
+
+		if (display->client_notify_pending)
+			sde_hdmi_notify_clients(display, display->connected);
+	}
+	mutex_unlock(&display->display_lock);
+}
+
 static int _sde_hdmi_ext_disp_init(struct sde_hdmi *display)
 {
 	int rc = 0;
@@ -549,6 +1119,8 @@ static int _sde_hdmi_ext_disp_init(struct sde_hdmi *display)
 		_sde_hdmi_get_audio_edid_blk;
 	display->ext_audio_data.codec_ops.cable_status =
 		_sde_hdmi_get_cable_status;
+	display->ext_audio_data.codec_ops.codec_ready =
+		_sde_hdmi_audio_codec_ready;
 
 	if (!display->pdev->dev.of_node) {
 		SDE_ERROR("[%s]cannot find sde_hdmi of_node\n", display->name);
@@ -577,38 +1149,20 @@ static int _sde_hdmi_ext_disp_init(struct sde_hdmi *display)
 	return rc;
 }
 
-void sde_hdmi_notify_clients(struct drm_connector *connector,
-	bool connected)
+void sde_hdmi_notify_clients(struct sde_hdmi *display, bool connected)
 {
-	struct sde_connector *c_conn = to_sde_connector(connector);
-	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
 	int state = connected ?
 		EXT_DISPLAY_CABLE_CONNECT : EXT_DISPLAY_CABLE_DISCONNECT;
 
 	if (display && display->ext_audio_data.intf_ops.hpd) {
 		struct hdmi *hdmi = display->ctrl.ctrl;
-		u32 flags = MSM_EXT_DISP_HPD_VIDEO;
+		u32 flags = MSM_EXT_DISP_HPD_ASYNC_VIDEO;
 
 		if (hdmi->hdmi_mode)
 			flags |= MSM_EXT_DISP_HPD_AUDIO;
 
 		display->ext_audio_data.intf_ops.hpd(display->ext_pdev,
 				display->ext_audio_data.type, state, flags);
-	}
-}
-
-void sde_hdmi_ack_state(struct drm_connector *connector,
-	enum drm_connector_status status)
-{
-	struct sde_connector *c_conn = to_sde_connector(connector);
-	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
-
-	if (display) {
-		struct hdmi *hdmi = display->ctrl.ctrl;
-
-		if (hdmi->hdmi_mode && display->ext_audio_data.intf_ops.notify)
-			display->ext_audio_data.intf_ops.notify(
-				display->ext_pdev, status);
 	}
 }
 
@@ -634,8 +1188,247 @@ void sde_hdmi_set_mode(struct hdmi *hdmi, bool power_on)
 
 	hdmi_write(hdmi, REG_HDMI_CTRL, ctrl);
 	spin_unlock_irqrestore(&hdmi->reg_lock, flags);
-	DRM_DEBUG("HDMI Core: %s, HDMI_CTRL=0x%08x\n",
+	SDE_HDMI_DEBUG("HDMI Core: %s, HDMI_CTRL=0x%08x\n",
 			power_on ? "Enable" : "Disable", ctrl);
+}
+
+int sde_hdmi_ddc_read(struct hdmi *hdmi, u16 addr, u8 offset,
+					  u8 *data, u16 data_len)
+{
+	int rc;
+	int retry = 5;
+	struct i2c_msg msgs[] = {
+		{
+			.addr   = addr >> 1,
+			.flags  = 0,
+			.len    = 1,
+			.buf    = &offset,
+		}, {
+			.addr   = addr >> 1,
+			.flags  = I2C_M_RD,
+			.len    = data_len,
+			.buf    = data,
+		}
+	};
+
+	SDE_HDMI_DEBUG("Start DDC read");
+ retry:
+	rc = i2c_transfer(hdmi->i2c, msgs, 2);
+
+	retry--;
+	if (rc == 2)
+		rc = 0;
+	else if (retry > 0)
+		goto retry;
+	else
+		rc = -EIO;
+
+	SDE_HDMI_DEBUG("End DDC read %d", rc);
+
+	return rc;
+}
+
+#define DDC_WRITE_MAX_BYTE_NUM 32
+
+int sde_hdmi_ddc_write(struct hdmi *hdmi, u16 addr, u8 offset,
+					   u8 *data, u16 data_len)
+{
+	int rc;
+	int retry = 10;
+	u8 buf[DDC_WRITE_MAX_BYTE_NUM];
+	struct i2c_msg msgs[] = {
+		{
+			.addr   = addr >> 1,
+			.flags  = 0,
+			.len    = 1,
+		}
+	};
+
+	SDE_HDMI_DEBUG("Start DDC write");
+	if (data_len > (DDC_WRITE_MAX_BYTE_NUM - 1)) {
+		SDE_ERROR("%s: write size too big\n", __func__);
+		return -ERANGE;
+	}
+
+	buf[0] = offset;
+	memcpy(&buf[1], data, data_len);
+	msgs[0].buf = buf;
+	msgs[0].len = data_len + 1;
+ retry:
+	rc = i2c_transfer(hdmi->i2c, msgs, 1);
+
+	retry--;
+	if (rc == 1)
+		rc = 0;
+	else if (retry > 0)
+		goto retry;
+	else
+		rc = -EIO;
+
+	SDE_HDMI_DEBUG("End DDC write %d", rc);
+
+	return rc;
+}
+
+int sde_hdmi_scdc_read(struct hdmi *hdmi, u32 data_type, u32 *val)
+{
+	int rc = 0;
+	u8 data_buf[2] = {0};
+	u16 dev_addr, data_len;
+	u8 offset;
+
+	if (!hdmi || !hdmi->i2c || !val) {
+		SDE_ERROR("Bad Parameters\n");
+		return -EINVAL;
+	}
+
+	if (data_type >= HDMI_TX_SCDC_MAX) {
+		SDE_ERROR("Unsupported data type\n");
+		return -EINVAL;
+	}
+
+	dev_addr = 0xA8;
+
+	switch (data_type) {
+	case HDMI_TX_SCDC_SCRAMBLING_STATUS:
+		data_len = 1;
+		offset = HDMI_SCDC_SCRAMBLER_STATUS;
+		break;
+	case HDMI_TX_SCDC_SCRAMBLING_ENABLE:
+	case HDMI_TX_SCDC_TMDS_BIT_CLOCK_RATIO_UPDATE:
+		data_len = 1;
+		offset = HDMI_SCDC_TMDS_CONFIG;
+		break;
+	case HDMI_TX_SCDC_CLOCK_DET_STATUS:
+	case HDMI_TX_SCDC_CH0_LOCK_STATUS:
+	case HDMI_TX_SCDC_CH1_LOCK_STATUS:
+	case HDMI_TX_SCDC_CH2_LOCK_STATUS:
+		data_len = 1;
+		offset = HDMI_SCDC_STATUS_FLAGS_0;
+		break;
+	case HDMI_TX_SCDC_CH0_ERROR_COUNT:
+		data_len = 2;
+		offset = HDMI_SCDC_ERR_DET_0_L;
+		break;
+	case HDMI_TX_SCDC_CH1_ERROR_COUNT:
+		data_len = 2;
+		offset = HDMI_SCDC_ERR_DET_1_L;
+		break;
+	case HDMI_TX_SCDC_CH2_ERROR_COUNT:
+		data_len = 2;
+		offset = HDMI_SCDC_ERR_DET_2_L;
+		break;
+	case HDMI_TX_SCDC_READ_ENABLE:
+		data_len = 1;
+		offset = HDMI_SCDC_CONFIG_0;
+		break;
+	default:
+		break;
+	}
+
+	rc = sde_hdmi_ddc_read(hdmi, dev_addr, offset, data_buf, data_len);
+	if (rc) {
+		SDE_ERROR("DDC Read failed for %d\n", data_type);
+		return rc;
+	}
+
+	switch (data_type) {
+	case HDMI_TX_SCDC_SCRAMBLING_STATUS:
+		*val = (data_buf[0] & BIT(0)) ? 1 : 0;
+		break;
+	case HDMI_TX_SCDC_SCRAMBLING_ENABLE:
+		*val = (data_buf[0] & BIT(0)) ? 1 : 0;
+		break;
+	case HDMI_TX_SCDC_TMDS_BIT_CLOCK_RATIO_UPDATE:
+		*val = (data_buf[0] & BIT(1)) ? 1 : 0;
+		break;
+	case HDMI_TX_SCDC_CLOCK_DET_STATUS:
+		*val = (data_buf[0] & BIT(0)) ? 1 : 0;
+		break;
+	case HDMI_TX_SCDC_CH0_LOCK_STATUS:
+		*val = (data_buf[0] & BIT(1)) ? 1 : 0;
+		break;
+	case HDMI_TX_SCDC_CH1_LOCK_STATUS:
+		*val = (data_buf[0] & BIT(2)) ? 1 : 0;
+		break;
+	case HDMI_TX_SCDC_CH2_LOCK_STATUS:
+		*val = (data_buf[0] & BIT(3)) ? 1 : 0;
+		break;
+	case HDMI_TX_SCDC_CH0_ERROR_COUNT:
+	case HDMI_TX_SCDC_CH1_ERROR_COUNT:
+	case HDMI_TX_SCDC_CH2_ERROR_COUNT:
+		if (data_buf[1] & BIT(7))
+			*val = (data_buf[0] | ((data_buf[1] & 0x7F) << 8));
+		else
+			*val = 0;
+		break;
+	case HDMI_TX_SCDC_READ_ENABLE:
+		*val = (data_buf[0] & BIT(0)) ? 1 : 0;
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+int sde_hdmi_scdc_write(struct hdmi *hdmi, u32 data_type, u32 val)
+{
+	int rc = 0;
+	u8 data_buf[2] = {0};
+	u8 read_val = 0;
+	u16 dev_addr, data_len;
+	u8 offset;
+
+	if (!hdmi || !hdmi->i2c) {
+		SDE_ERROR("Bad Parameters\n");
+		return -EINVAL;
+	}
+
+	if (data_type >= HDMI_TX_SCDC_MAX) {
+		SDE_ERROR("Unsupported data type\n");
+		return -EINVAL;
+	}
+
+	dev_addr = 0xA8;
+
+	switch (data_type) {
+	case HDMI_TX_SCDC_SCRAMBLING_ENABLE:
+	case HDMI_TX_SCDC_TMDS_BIT_CLOCK_RATIO_UPDATE:
+		dev_addr = 0xA8;
+		data_len = 1;
+		offset = HDMI_SCDC_TMDS_CONFIG;
+		rc = sde_hdmi_ddc_read(hdmi, dev_addr, offset, &read_val,
+							   data_len);
+		if (rc) {
+			SDE_ERROR("scdc read failed\n");
+			return rc;
+		}
+		if (data_type == HDMI_TX_SCDC_SCRAMBLING_ENABLE) {
+			data_buf[0] = ((((u8)(read_val & 0xFF)) & (~BIT(0))) |
+						   ((u8)(val & BIT(0))));
+		} else {
+			data_buf[0] = ((((u8)(read_val & 0xFF)) & (~BIT(1))) |
+						   (((u8)(val & BIT(0))) << 1));
+		}
+		break;
+	case HDMI_TX_SCDC_READ_ENABLE:
+		data_len = 1;
+		offset = HDMI_SCDC_CONFIG_0;
+		data_buf[0] = (u8)(val & 0x1);
+		break;
+	default:
+		SDE_ERROR("Cannot write to read only reg (%d)\n",
+				  data_type);
+		return -EINVAL;
+	}
+
+	rc = sde_hdmi_ddc_write(hdmi, dev_addr, offset, data_buf, data_len);
+	if (rc) {
+		SDE_ERROR("DDC Read failed for %d\n", data_type);
+		return rc;
+	}
+	return 0;
 }
 
 int sde_hdmi_get_info(struct msm_display_info *info,
@@ -664,11 +1457,33 @@ int sde_hdmi_get_info(struct msm_display_info *info,
 				MSM_DISPLAY_CAP_EDID | MSM_DISPLAY_CAP_VID_MODE;
 	}
 	info->is_connected = hdmi_display->connected;
-	info->max_width = 1920;
-	info->max_height = 1080;
+	info->max_width = HDMI_DISPLAY_MAX_WIDTH;
+	info->max_height = HDMI_DISPLAY_MAX_HEIGHT;
 	info->compression = MSM_DISPLAY_COMPRESS_NONE;
 
 	mutex_unlock(&hdmi_display->display_lock);
+	return rc;
+}
+
+int sde_hdmi_set_property(struct drm_connector *connector,
+			struct drm_connector_state *state,
+			int property_index,
+			uint64_t value,
+			void *display)
+{
+	int rc = 0;
+
+	if (!connector || !display) {
+		SDE_ERROR("connector=%pK or display=%pK is NULL\n",
+			connector, display);
+		return 0;
+	}
+
+	SDE_DEBUG("\n");
+
+	if (property_index == CONNECTOR_PROP_PLL_DELTA)
+		rc = _sde_hdmi_update_pll_delta(display, value);
+
 	return rc;
 }
 
@@ -746,7 +1561,7 @@ int sde_hdmi_connector_post_init(struct drm_connector *connector,
 
 	if (info)
 		sde_kms_info_add_keystr(info,
-				"DISPLAY_TYPE",
+				"display type",
 				sde_hdmi->display_type);
 
 	hdmi->connector = connector;
@@ -775,8 +1590,6 @@ sde_hdmi_connector_detect(struct drm_connector *connector,
 		return status;
 	}
 
-	SDE_DEBUG("\n");
-
 	/* get display dsi_info */
 	memset(&info, 0x0, sizeof(info));
 	rc = sde_hdmi_get_info(&info, display);
@@ -797,25 +1610,6 @@ sde_hdmi_connector_detect(struct drm_connector *connector,
 	return status;
 }
 
-int _sde_hdmi_update_modes(struct drm_connector *connector,
-	struct sde_hdmi *display)
-{
-	int rc = 0;
-	struct hdmi_edid_ctrl *edid_ctrl = &display->edid;
-
-	if (edid_ctrl->edid) {
-		drm_mode_connector_update_edid_property(connector,
-			edid_ctrl->edid);
-
-		rc = drm_add_edid_modes(connector, edid_ctrl->edid);
-		return rc;
-	}
-
-	drm_mode_connector_update_edid_property(connector, NULL);
-
-	return rc;
-}
-
 int sde_hdmi_connector_get_modes(struct drm_connector *connector, void *display)
 {
 	struct sde_hdmi *hdmi_display = (struct sde_hdmi *)display;
@@ -827,8 +1621,6 @@ int sde_hdmi_connector_get_modes(struct drm_connector *connector, void *display)
 			connector, display);
 		return 0;
 	}
-
-	SDE_DEBUG("\n");
 
 	if (hdmi_display->non_pluggable) {
 		list_for_each_entry(mode, &hdmi_display->mode_list, head) {
@@ -842,7 +1634,9 @@ int sde_hdmi_connector_get_modes(struct drm_connector *connector, void *display)
 		}
 		ret = hdmi_display->num_of_modes;
 	} else {
-		ret = _sde_hdmi_update_modes(connector, display);
+		/* pluggable case assumes EDID is read when HPD */
+		ret = _sde_edid_update_modes(connector,
+			hdmi_display->edid_ctrl);
 	}
 
 	return ret;
@@ -864,8 +1658,6 @@ enum drm_mode_status sde_hdmi_mode_valid(struct drm_connector *connector,
 		return 0;
 	}
 
-	SDE_DEBUG("\n");
-
 	hdmi = hdmi_display->ctrl.ctrl;
 	priv = connector->dev->dev_private;
 	kms = priv->kms;
@@ -873,7 +1665,7 @@ enum drm_mode_status sde_hdmi_mode_valid(struct drm_connector *connector,
 	actual = kms->funcs->round_pixclk(kms,
 			requested, hdmi->encoder);
 
-	SDE_DEBUG("requested=%ld, actual=%ld", requested, actual);
+	SDE_HDMI_DEBUG("requested=%ld, actual=%ld", requested, actual);
 
 	if (actual != requested)
 		return MODE_CLOCK_RANGE;
@@ -896,8 +1688,26 @@ int sde_hdmi_dev_deinit(struct sde_hdmi *display)
 		SDE_ERROR("Invalid params\n");
 		return -EINVAL;
 	}
+	return 0;
+}
+
+static int _sde_hdmi_cec_init(struct sde_hdmi *display)
+{
+	struct platform_device *pdev = display->pdev;
+
+	display->notifier = cec_notifier_get(&pdev->dev);
+	if (!display->notifier) {
+		SDE_ERROR("CEC notifier get failed\n");
+		return -ENOMEM;
+	}
 
 	return 0;
+}
+
+static void _sde_hdmi_cec_deinit(struct sde_hdmi *display)
+{
+	cec_notifier_set_phys_addr(display->notifier, CEC_PHYS_ADDR_INVALID);
+	cec_notifier_put(display->notifier);
 }
 
 static int sde_hdmi_bind(struct device *dev, struct device *master, void *data)
@@ -909,7 +1719,7 @@ static int sde_hdmi_bind(struct device *dev, struct device *master, void *data)
 	struct msm_drm_private *priv = NULL;
 	struct platform_device *pdev = to_platform_device(dev);
 
-	SDE_ERROR("E\n");
+	SDE_HDMI_DEBUG(" %s +\n", __func__);
 	if (!dev || !pdev || !master) {
 		pr_err("invalid param(s), dev %pK, pdev %pK, master %pK\n",
 			dev, pdev, master);
@@ -938,22 +1748,34 @@ static int sde_hdmi_bind(struct device *dev, struct device *master, void *data)
 	if (rc) {
 		SDE_ERROR("[%s]Ext Disp init failed, rc=%d\n",
 				display->name, rc);
-		goto error;
+		goto ext_error;
 	}
 
-	rc = sde_hdmi_edid_init(display);
+	rc = _sde_hdmi_cec_init(display);
 	if (rc) {
-		SDE_ERROR("[%s]Ext Disp init failed, rc=%d\n",
+		SDE_ERROR("[%s]CEC init failed, rc=%d\n",
 				display->name, rc);
-		goto error;
+		goto ext_error;
+	}
+
+	display->edid_ctrl = sde_edid_init();
+	if (!display->edid_ctrl) {
+		SDE_ERROR("[%s]sde edid init failed\n",
+				display->name);
+		rc = -ENOMEM;
+		goto cec_error;
 	}
 
 	display_ctrl = &display->ctrl;
 	display_ctrl->ctrl = priv->hdmi;
-	SDE_ERROR("display_ctrl->ctrl=%p\n", display_ctrl->ctrl);
 	display->drm_dev = drm;
 
-error:
+	mutex_unlock(&display->display_lock);
+	return rc;
+
+cec_error:
+	(void)_sde_hdmi_cec_deinit(display);
+ext_error:
 	(void)_sde_hdmi_debugfs_deinit(display);
 debug_error:
 	mutex_unlock(&display->display_lock);
@@ -978,7 +1800,8 @@ static void sde_hdmi_unbind(struct device *dev, struct device *master,
 	}
 	mutex_lock(&display->display_lock);
 	(void)_sde_hdmi_debugfs_deinit(display);
-	(void)sde_hdmi_edid_deinit(display);
+	(void)sde_edid_deinit((void **)&display->edid_ctrl);
+	(void)_sde_hdmi_cec_deinit(display);
 	display->drm_dev = NULL;
 	mutex_unlock(&display->display_lock);
 }
@@ -1252,6 +2075,29 @@ static struct platform_driver sde_hdmi_driver = {
 	},
 };
 
+static int sde_hdmi_irqdomain_map(struct irq_domain *domain,
+		unsigned int irq, irq_hw_number_t hwirq)
+{
+	struct sde_hdmi *display;
+	int rc;
+
+	if (!domain || !domain->host_data) {
+		pr_err("invalid parameters domain\n");
+		return -EINVAL;
+	}
+	display = domain->host_data;
+
+	irq_set_chip_and_handler(irq, &dummy_irq_chip, handle_level_irq);
+	rc = irq_set_chip_data(irq, display);
+
+	return rc;
+}
+
+static const struct irq_domain_ops sde_hdmi_irqdomain_ops = {
+	.map = sde_hdmi_irqdomain_map,
+	.xlate = irq_domain_xlate_onecell,
+};
+
 int sde_hdmi_drm_init(struct sde_hdmi *display, struct drm_encoder *enc)
 {
 	int rc = 0;
@@ -1306,6 +2152,13 @@ int sde_hdmi_drm_init(struct sde_hdmi *display, struct drm_encoder *enc)
 		goto error;
 	}
 
+	display->irq_domain = irq_domain_add_linear(pdev->dev.of_node, 8,
+				&sde_hdmi_irqdomain_ops, display);
+	if (!display->irq_domain) {
+		SDE_ERROR("failed to create IRQ domain\n");
+		goto error;
+	}
+
 	enc->bridge = hdmi->bridge;
 	priv->bridges[priv->num_bridges++] = hdmi->bridge;
 
@@ -1330,6 +2183,9 @@ int sde_hdmi_drm_deinit(struct sde_hdmi *display)
 		SDE_ERROR("Invalid params\n");
 		return -EINVAL;
 	}
+
+	if (display->irq_domain)
+		irq_domain_remove(display->irq_domain);
 
 	return rc;
 }

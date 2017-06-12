@@ -1547,6 +1547,8 @@ static int _setup_user_context(struct kgsl_mmu *mmu)
 			ret = PTR_ERR(mmu->defaultpagetable);
 			mmu->defaultpagetable = NULL;
 			return ret;
+		} else if (mmu->defaultpagetable == NULL) {
+			return -ENOMEM;
 		}
 	}
 

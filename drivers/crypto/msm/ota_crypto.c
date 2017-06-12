@@ -239,6 +239,9 @@ static void req_done(unsigned long data)
 		if (!list_empty(&podev->ready_commands)) {
 			new_req = container_of(podev->ready_commands.next,
 						struct ota_async_req, rlist);
+			if (!new_req)
+				break;
+
 			list_del(&new_req->rlist);
 			pqce->active_command = new_req;
 			spin_unlock_irqrestore(&podev->lock, flags);

@@ -872,7 +872,7 @@ int msm_vdec_prepare_buf(struct msm_vidc_inst *inst,
 		dprintk(VIDC_ERR,
 			"Core %pK in bad state, ignoring prepare buf\n",
 				inst->core);
-		goto exit;
+		return -EINVAL;
 	}
 
 	switch (b->type) {
@@ -925,7 +925,7 @@ int msm_vdec_prepare_buf(struct msm_vidc_inst *inst,
 		dprintk(VIDC_ERR, "Buffer type not recognized: %d\n", b->type);
 		break;
 	}
-exit:
+
 	return rc;
 }
 
@@ -1767,6 +1767,7 @@ static int msm_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 	struct msm_vidc_inst *inst;
 	int rc = 0;
 	struct hfi_device *hdev;
+	struct vb2_buffer *vb;
 	struct vb2_buf_entry *temp, *next;
 	if (!q || !q->drv_priv) {
 		dprintk(VIDC_ERR, "Invalid input, q = %pK\n", q);
@@ -1777,6 +1778,12 @@ static int msm_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
 		return -EINVAL;
 	}
+
+	if (inst->state == MSM_VIDC_CORE_INVALID ||
+		inst->core->state == VIDC_CORE_INVALID ||
+		inst->core->state == VIDC_CORE_UNINIT)
+		return -EINVAL;
+
 	hdev = inst->core->device;
 	dprintk(VIDC_DBG, "Streamon called on: %d capability for inst: %pK\n",
 		q->type, inst);
@@ -1791,8 +1798,7 @@ static int msm_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 		break;
 	default:
 		dprintk(VIDC_ERR, "Queue type is not supported: %d\n", q->type);
-		rc = -EINVAL;
-		goto stream_start_failed;
+		return -EINVAL;
 	}
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -1811,12 +1817,15 @@ static int msm_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 
 stream_start_failed:
 	if (rc) {
+		list_for_each_entry(vb, &q->queued_list, queued_entry) {
+			if (vb->type == q->type &&
+					vb->state == VB2_BUF_STATE_ACTIVE)
+				vb2_buffer_done(vb, VB2_BUF_STATE_QUEUED);
+		}
 		mutex_lock(&inst->pendingq.lock);
-		list_for_each_entry_safe(temp, next, &inst->pendingq.list,
-			list) {
+		list_for_each_entry_safe(temp, next,
+				&inst->pendingq.list, list) {
 			if (temp->vb->type == q->type) {
-				vb2_buffer_done(temp->vb,
-					VB2_BUF_STATE_QUEUED);
 				list_del(&temp->list);
 				kfree(temp);
 			}
@@ -2587,6 +2596,12 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 	int rc = 0, i = 0, fourcc = 0;
 	struct v4l2_ext_control *ext_control;
 	struct v4l2_control control;
+	u32 old_mode = 0;
+	bool mode_changed = false;
+	enum mode {
+		PRIMARY = V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_PRIMARY,
+		SECONDARY = V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_SECONDARY
+	};
 
 	if (!inst || !inst->core || !ctrl) {
 		dprintk(VIDC_ERR,
@@ -2595,19 +2610,21 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 	}
 
 	ext_control = ctrl->controls;
-	control.id =
-		V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_MODE;
+	control.id = V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_MODE;
+	old_mode = msm_comm_g_ctrl_for_id(inst, control.id);
 
 	for (i = 0; i < ctrl->count; i++) {
 		switch (ext_control[i].id) {
 		case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_MODE:
 			control.value = ext_control[i].value;
-
 			rc = msm_comm_s_ctrl(inst, &control);
 			if (rc)
 				dprintk(VIDC_ERR,
 					"%s Failed setting stream output mode : %d\n",
 					__func__, rc);
+
+			if (old_mode == SECONDARY && control.value == PRIMARY)
+				mode_changed = true;
 			break;
 		case V4L2_CID_MPEG_VIDC_VIDEO_DPB_COLOR_FORMAT:
 			switch (ext_control[i].value) {
@@ -2619,6 +2636,24 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 						dprintk(VIDC_ERR,
 							"%s Release output buffers failed\n",
 							__func__);
+				}
+				/* Update buffer reqmt for split to comb mode */
+				if (mode_changed) {
+					fourcc =
+						inst->fmts[CAPTURE_PORT].fourcc;
+					msm_comm_set_color_format(inst,
+						HAL_BUFFER_OUTPUT, fourcc);
+					if (rc) {
+						dprintk(VIDC_ERR,
+							"%s Failed setting output color format : %d\n",
+							__func__, rc);
+						break;
+					}
+					rc = msm_comm_try_get_bufreqs(inst);
+					if (rc)
+						dprintk(VIDC_ERR,
+							"%s Failed to get buffer requirements : %d\n",
+							__func__, rc);
 				}
 				break;
 			case V4L2_MPEG_VIDC_VIDEO_DPB_COLOR_FMT_UBWC:

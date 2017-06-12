@@ -322,8 +322,8 @@ int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 		dma_address = desc->dma_address;
 		tx_pkt->no_unmap_dma = true;
 	}
-	if (!dma_address) {
-		IPAERR("failed to DMA wrap\n");
+	if (dma_mapping_error(ipa_ctx->pdev, dma_address)) {
+		IPAERR("dma_map_single failed\n");
 		goto fail_dma_map;
 	}
 
@@ -420,14 +420,16 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 	int i = 0;
 	int j;
 	int result;
-	int fail_dma_wrap = 0;
 	uint size = num_desc * sizeof(struct sps_iovec);
-	u32 mem_flag = GFP_ATOMIC;
+	gfp_t mem_flag = GFP_ATOMIC;
 	struct sps_iovec iov;
 	int ret;
+	gfp_t flag;
 
 	if (unlikely(!in_atomic))
 		mem_flag = GFP_KERNEL;
+
+	flag = mem_flag | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 
 	if (num_desc == IPA_NUM_DESC_PER_SW_TX) {
 		transfer.iovec = dma_pool_alloc(ipa_ctx->dma_pool, mem_flag,
@@ -437,7 +439,7 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 			return -EFAULT;
 		}
 	} else {
-		transfer.iovec = kmalloc(size, mem_flag);
+		transfer.iovec = kmalloc(size, flag);
 		if (!transfer.iovec) {
 			IPAERR("fail to alloc mem for sps xfr buff ");
 			IPAERR("num_desc = %d size = %d\n", num_desc, size);
@@ -445,7 +447,7 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 		}
 		dma_addr  = dma_map_single(ipa_ctx->pdev,
 				transfer.iovec, size, DMA_TO_DEVICE);
-		if (!dma_addr) {
+		if (dma_mapping_error(ipa_ctx->pdev, dma_addr)) {
 			IPAERR("dma_map_single failed for sps xfr buff\n");
 			kfree(transfer.iovec);
 			return -EFAULT;
@@ -457,7 +459,6 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 	spin_lock_bh(&sys->spinlock);
 
 	for (i = 0; i < num_desc; i++) {
-		fail_dma_wrap = 0;
 		tx_pkt = kmem_cache_zalloc(ipa_ctx->tx_pkt_wrapper_cache,
 					   mem_flag);
 		if (!tx_pkt) {
@@ -513,10 +514,9 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 			}
 		}
 
-		if (!tx_pkt->mem.phys_base) {
-			IPAERR("failed to alloc tx wrapper\n");
-			fail_dma_wrap = 1;
-			goto failure;
+		if (dma_mapping_error(ipa_ctx->pdev, tx_pkt->mem.phys_base)) {
+			IPAERR("dma_map_single failed\n");
+			goto failure_dma_map;
 		}
 
 		tx_pkt->sys = sys;
@@ -571,27 +571,30 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 	spin_unlock_bh(&sys->spinlock);
 	return 0;
 
+failure_dma_map:
+	kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt);
+
 failure:
 	tx_pkt = transfer.user;
 	for (j = 0; j < i; j++) {
 		next_pkt = list_next_entry(tx_pkt, link);
 		list_del(&tx_pkt->link);
-		if (desc[j].type != IPA_DATA_DESC_SKB_PAGED) {
-			dma_unmap_single(ipa_ctx->pdev, tx_pkt->mem.phys_base,
-				tx_pkt->mem.size,
-				DMA_TO_DEVICE);
-		} else {
-			dma_unmap_page(ipa_ctx->pdev, tx_pkt->mem.phys_base,
-				tx_pkt->mem.size,
-				DMA_TO_DEVICE);
+		if (!tx_pkt->no_unmap_dma) {
+			if (desc[j].type != IPA_DATA_DESC_SKB_PAGED) {
+				dma_unmap_single(ipa_ctx->pdev,
+					tx_pkt->mem.phys_base,
+					tx_pkt->mem.size,
+					DMA_TO_DEVICE);
+			} else {
+				dma_unmap_page(ipa_ctx->pdev,
+					tx_pkt->mem.phys_base,
+					tx_pkt->mem.size,
+					DMA_TO_DEVICE);
+			}
 		}
 		kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt);
 		tx_pkt = next_pkt;
 	}
-	if (j < num_desc)
-		/* last desc failed */
-		if (fail_dma_wrap)
-			kmem_cache_free(ipa_ctx->tx_pkt_wrapper_cache, tx_pkt);
 	if (transfer.iovec_phys) {
 		if (num_desc == IPA_NUM_DESC_PER_SW_TX) {
 			dma_pool_free(ipa_ctx->dma_pool, transfer.iovec,
@@ -1650,6 +1653,7 @@ int ipa2_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	struct ipa_sys_context *sys;
 	int src_ep_idx;
 	int num_frags, f;
+	gfp_t flag = GFP_ATOMIC | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 
 	if (unlikely(!ipa_ctx)) {
 		IPAERR("IPA driver was not initialized\n");
@@ -1715,7 +1719,7 @@ int ipa2_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 
 	if (dst_ep_idx != -1) {
 		/* SW data path */
-		cmd = kzalloc(sizeof(struct ipa_ip_packet_init), GFP_ATOMIC);
+		cmd = kzalloc(sizeof(struct ipa_ip_packet_init), flag);
 		if (!cmd) {
 			IPAERR("failed to alloc immediate command object\n");
 			goto fail_gen;
@@ -1874,8 +1878,8 @@ begin:
 		rx_pkt->data.dma_addr = dma_map_single(ipa_ctx->pdev, ptr,
 						     sys->rx_buff_sz,
 						     DMA_FROM_DEVICE);
-		if (rx_pkt->data.dma_addr == 0 ||
-				rx_pkt->data.dma_addr == ~0) {
+		if (dma_mapping_error(ipa_ctx->pdev,
+				rx_pkt->data.dma_addr)) {
 			pr_err_ratelimited("%s dma map fail %p for %p sys=%p\n",
 			       __func__, (void *)rx_pkt->data.dma_addr,
 			       ptr, sys);
@@ -2030,18 +2034,20 @@ static void ipa_alloc_wlan_rx_common_cache(u32 size)
 		ptr = skb_put(rx_pkt->data.skb, IPA_WLAN_RX_BUFF_SZ);
 		rx_pkt->data.dma_addr = dma_map_single(ipa_ctx->pdev, ptr,
 				IPA_WLAN_RX_BUFF_SZ, DMA_FROM_DEVICE);
-		if (rx_pkt->data.dma_addr == 0 ||
-				rx_pkt->data.dma_addr == ~0) {
+		if (dma_mapping_error(ipa_ctx->pdev,
+				rx_pkt->data.dma_addr)) {
 			IPAERR("dma_map_single failure %p for %p\n",
 			       (void *)rx_pkt->data.dma_addr, ptr);
 			goto fail_dma_mapping;
 		}
 
+		spin_lock_bh(&ipa_ctx->wc_memb.wlan_spinlock);
 		list_add_tail(&rx_pkt->link,
 			&ipa_ctx->wc_memb.wlan_comm_desc_list);
 		rx_len_cached = ++ipa_ctx->wc_memb.wlan_comm_total_cnt;
 
 		ipa_ctx->wc_memb.wlan_comm_free_cnt++;
+		spin_unlock_bh(&ipa_ctx->wc_memb.wlan_spinlock);
 
 	}
 
@@ -2102,8 +2108,8 @@ static void ipa_replenish_rx_cache(struct ipa_sys_context *sys)
 		rx_pkt->data.dma_addr = dma_map_single(ipa_ctx->pdev, ptr,
 						     sys->rx_buff_sz,
 						     DMA_FROM_DEVICE);
-		if (rx_pkt->data.dma_addr == 0 ||
-				rx_pkt->data.dma_addr == ~0) {
+		if (dma_mapping_error(ipa_ctx->pdev,
+				rx_pkt->data.dma_addr)) {
 			IPAERR("dma_map_single failure %p for %p\n",
 			       (void *)rx_pkt->data.dma_addr, ptr);
 			goto fail_dma_mapping;
@@ -2160,9 +2166,10 @@ static void ipa_replenish_rx_cache_recycle(struct ipa_sys_context *sys)
 		ptr = skb_put(rx_pkt->data.skb, sys->rx_buff_sz);
 		rx_pkt->data.dma_addr = dma_map_single(ipa_ctx->pdev,
 			ptr, sys->rx_buff_sz, DMA_FROM_DEVICE);
-		if (rx_pkt->data.dma_addr == 0 ||
-			rx_pkt->data.dma_addr == ~0)
+		if (dma_mapping_error(ipa_ctx->pdev, rx_pkt->data.dma_addr)) {
+			IPAERR("dma_map_single failure for rx_pkt\n");
 			goto fail_dma_mapping;
+		}
 
 		list_add_tail(&rx_pkt->link, &sys->head_desc_list);
 		rx_len_cached = ++sys->len;

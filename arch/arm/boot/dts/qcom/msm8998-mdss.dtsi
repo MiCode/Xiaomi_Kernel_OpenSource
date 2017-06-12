@@ -212,7 +212,7 @@
 
 		qcom,mdss-pp-offsets {
 			qcom,mdss-sspp-mdss-igc-lut-off = <0x2000>;
-			qcom,mdss-sspp-vig-pcc-off = <0x1780>;
+			qcom,mdss-sspp-vig-pcc-off = <0x1b00>;
 			qcom,mdss-sspp-rgb-pcc-off = <0x380>;
 			qcom,mdss-sspp-dma-pcc-off = <0x380>;
 			qcom,mdss-lm-pgc-off = <0x3c0>;
@@ -335,6 +335,7 @@
 				qcom,supply-max-voltage = <0>;
 				qcom,supply-enable-load = <0>;
 				qcom,supply-disable-load = <0>;
+				qcom,supply-lp-mode-disable-allowed;
 			};
 		};
 
@@ -363,6 +364,7 @@
 				qcom,supply-max-voltage = <880000>;
 				qcom,supply-enable-load = <73400>;
 				qcom,supply-disable-load = <32>;
+				qcom,supply-lp-mode-disable-allowed;
 			};
 		};
 
@@ -384,6 +386,8 @@
 			ibb-supply = <&ibb_regulator>;
 			qcom,mdss-mdp = <&mdss_mdp>;
 			qcom,mdss-fb-map = <&mdss_fb0>;
+
+			qcom,null-insertion-enabled;
 
 			clocks = <&clock_mmss clk_mmss_mdss_byte0_clk>,
 				 <&clock_mmss clk_mmss_mdss_pclk0_clk>,
@@ -422,6 +426,8 @@
 			ibb-supply = <&ibb_regulator>;
 			qcom,mdss-mdp = <&mdss_mdp>;
 			qcom,mdss-fb-map = <&mdss_fb0>;
+
+			qcom,null-insertion-enabled;
 
 			clocks = <&clock_mmss clk_mmss_mdss_byte1_clk>,
 				 <&clock_mmss clk_mmss_mdss_pclk1_clk>,
@@ -502,7 +508,16 @@
 
 		qcom,msm_ext_disp = <&msm_ext_disp>;
 
-		qcom,aux-cfg-settings = [00 13 00 10 0a 26 0a 03 8b 03];
+		qcom,aux-cfg0-settings = [1c 00];
+		qcom,aux-cfg1-settings = [20 13 23 1d];
+		qcom,aux-cfg2-settings = [24 00];
+		qcom,aux-cfg3-settings = [28 00];
+		qcom,aux-cfg4-settings = [2c 0a];
+		qcom,aux-cfg5-settings = [30 26];
+		qcom,aux-cfg6-settings = [34 0a];
+		qcom,aux-cfg7-settings = [38 03];
+		qcom,aux-cfg8-settings = [3c bb];
+		qcom,aux-cfg9-settings = [40 03];
 		qcom,logical2physical-lane-map = [02 03 01 00];
 
 		qcom,core-supply-entries {
@@ -651,5 +666,3 @@
 		qcom,pluggable;
 	};
 };
-
-#include "msm8998-mdss-panels.dtsi"

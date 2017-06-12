@@ -1584,6 +1584,7 @@ static int ipa_init_smem_region(int memory_region_size,
 	struct ipa_hw_imm_cmd_dma_shared_mem *cmd = NULL;
 	struct ipa_desc desc;
 	struct ipa_mem_buffer mem;
+	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 	int rc;
 
 	if (memory_region_size == 0)
@@ -1603,7 +1604,7 @@ static int ipa_init_smem_region(int memory_region_size,
 	memset(mem.base, 0, mem.size);
 
 	cmd = kzalloc(sizeof(*cmd),
-		GFP_KERNEL);
+		flag);
 	if (cmd == NULL) {
 		IPAERR("Failed to alloc immediate command object\n");
 		rc = -ENOMEM;
@@ -1835,6 +1836,7 @@ static int ipa_q6_clean_q6_tables(void)
 	struct ipa_mem_buffer mem = { 0 };
 	u32 *entry;
 	u32 max_cmds = ipa_get_max_flt_rt_cmds(ipa_ctx->ipa_num_pipes);
+	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 
 	mem.base = dma_alloc_coherent(ipa_ctx->pdev, 4, &mem.phys_base,
 		GFP_ATOMIC);
@@ -1855,7 +1857,7 @@ static int ipa_q6_clean_q6_tables(void)
 	}
 
 	cmd = kcalloc(max_cmds, sizeof(struct ipa_hw_imm_cmd_dma_shared_mem),
-		GFP_KERNEL);
+		flag);
 	if (!cmd) {
 		IPAERR("failed to allocate memory\n");
 		retval = -ENOMEM;
@@ -2166,6 +2168,7 @@ int _ipa_init_sram_v2(void)
 	struct ipa_hw_imm_cmd_dma_shared_mem *cmd = NULL;
 	struct ipa_desc desc = {0};
 	struct ipa_mem_buffer mem;
+	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 	int rc = 0;
 
 	phys_addr = ipa_ctx->ipa_wrapper_base +
@@ -2203,7 +2206,7 @@ int _ipa_init_sram_v2(void)
 	}
 	memset(mem.base, 0, mem.size);
 
-	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
+	cmd = kzalloc(sizeof(*cmd), flag);
 	if (cmd == NULL) {
 		IPAERR("Failed to alloc immediate command object\n");
 		rc = -ENOMEM;
@@ -2314,6 +2317,7 @@ int _ipa_init_hdr_v2(void)
 	struct ipa_desc desc = { 0 };
 	struct ipa_mem_buffer mem;
 	struct ipa_hdr_init_local *cmd = NULL;
+	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 	int rc = 0;
 
 	mem.size = IPA_MEM_PART(modem_hdr_size) + IPA_MEM_PART(apps_hdr_size);
@@ -2325,7 +2329,7 @@ int _ipa_init_hdr_v2(void)
 	}
 	memset(mem.base, 0, mem.size);
 
-	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
+	cmd = kzalloc(sizeof(*cmd), flag);
 	if (cmd == NULL) {
 		IPAERR("Failed to alloc header init command object\n");
 		rc = -ENOMEM;
@@ -2360,6 +2364,7 @@ int _ipa_init_hdr_v2_5(void)
 	struct ipa_mem_buffer mem;
 	struct ipa_hdr_init_local *cmd = NULL;
 	struct ipa_hw_imm_cmd_dma_shared_mem *dma_cmd = NULL;
+	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 
 	mem.size = IPA_MEM_PART(modem_hdr_size) + IPA_MEM_PART(apps_hdr_size);
 	mem.base = dma_alloc_coherent(ipa_ctx->pdev, mem.size, &mem.phys_base,
@@ -2370,7 +2375,7 @@ int _ipa_init_hdr_v2_5(void)
 	}
 	memset(mem.base, 0, mem.size);
 
-	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
+	cmd = kzalloc(sizeof(*cmd), flag);
 	if (cmd == NULL) {
 		IPAERR("Failed to alloc header init command object\n");
 		dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base,
@@ -2411,7 +2416,7 @@ int _ipa_init_hdr_v2_5(void)
 	memset(mem.base, 0, mem.size);
 	memset(&desc, 0, sizeof(desc));
 
-	dma_cmd = kzalloc(sizeof(*dma_cmd), GFP_KERNEL);
+	dma_cmd = kzalloc(sizeof(*dma_cmd), flag);
 	if (dma_cmd == NULL) {
 		IPAERR("Failed to alloc immediate command object\n");
 		dma_free_coherent(ipa_ctx->pdev,
@@ -2462,6 +2467,7 @@ int _ipa_init_rt4_v2(void)
 	struct ipa_desc desc = { 0 };
 	struct ipa_mem_buffer mem;
 	struct ipa_ip_v4_routing_init *v4_cmd = NULL;
+	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 	u32 *entry;
 	int i;
 	int rc = 0;
@@ -2486,7 +2492,7 @@ int _ipa_init_rt4_v2(void)
 		entry++;
 	}
 
-	v4_cmd = kzalloc(sizeof(*v4_cmd), GFP_KERNEL);
+	v4_cmd = kzalloc(sizeof(*v4_cmd), flag);
 	if (v4_cmd == NULL) {
 		IPAERR("Failed to alloc v4 routing init command object\n");
 		rc = -ENOMEM;
@@ -2522,6 +2528,7 @@ int _ipa_init_rt6_v2(void)
 	struct ipa_desc desc = { 0 };
 	struct ipa_mem_buffer mem;
 	struct ipa_ip_v6_routing_init *v6_cmd = NULL;
+	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 	u32 *entry;
 	int i;
 	int rc = 0;
@@ -2546,7 +2553,7 @@ int _ipa_init_rt6_v2(void)
 		entry++;
 	}
 
-	v6_cmd = kzalloc(sizeof(*v6_cmd), GFP_KERNEL);
+	v6_cmd = kzalloc(sizeof(*v6_cmd), flag);
 	if (v6_cmd == NULL) {
 		IPAERR("Failed to alloc v6 routing init command object\n");
 		rc = -ENOMEM;
@@ -2582,6 +2589,7 @@ int _ipa_init_flt4_v2(void)
 	struct ipa_desc desc = { 0 };
 	struct ipa_mem_buffer mem;
 	struct ipa_ip_v4_filter_init *v4_cmd = NULL;
+	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 	u32 *entry;
 	int i;
 	int rc = 0;
@@ -2604,7 +2612,7 @@ int _ipa_init_flt4_v2(void)
 		entry++;
 	}
 
-	v4_cmd = kzalloc(sizeof(*v4_cmd), GFP_KERNEL);
+	v4_cmd = kzalloc(sizeof(*v4_cmd), flag);
 	if (v4_cmd == NULL) {
 		IPAERR("Failed to alloc v4 fliter init command object\n");
 		rc = -ENOMEM;
@@ -2640,6 +2648,7 @@ int _ipa_init_flt6_v2(void)
 	struct ipa_desc desc = { 0 };
 	struct ipa_mem_buffer mem;
 	struct ipa_ip_v6_filter_init *v6_cmd = NULL;
+	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 	u32 *entry;
 	int i;
 	int rc = 0;
@@ -2662,7 +2671,7 @@ int _ipa_init_flt6_v2(void)
 		entry++;
 	}
 
-	v6_cmd = kzalloc(sizeof(*v6_cmd), GFP_KERNEL);
+	v6_cmd = kzalloc(sizeof(*v6_cmd), flag);
 	if (v6_cmd == NULL) {
 		IPAERR("Failed to alloc v6 fliter init command object\n");
 		rc = -ENOMEM;
@@ -3677,6 +3686,7 @@ void ipa_suspend_handler(enum ipa_irq_type interrupt,
 				 * pipe will be unsuspended as part of
 				 * enabling IPA clocks
 				 */
+				mutex_lock(&ipa_ctx->sps_pm.sps_pm_lock);
 				if (!atomic_read(
 					&ipa_ctx->sps_pm.dec_clients)
 					) {
@@ -3689,6 +3699,7 @@ void ipa_suspend_handler(enum ipa_irq_type interrupt,
 						1);
 					ipa_sps_process_irq_schedule_rel();
 				}
+				mutex_unlock(&ipa_ctx->sps_pm.sps_pm_lock);
 			} else {
 				resource = ipa2_get_rm_resource_from_ep(i);
 				res = ipa_rm_request_resource_with_timer(
@@ -3848,11 +3859,8 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	}
 
 	ipa_ctx->logbuf = ipc_log_context_create(IPA_IPC_LOG_PAGES, "ipa", 0);
-	if (ipa_ctx->logbuf == NULL) {
-		IPAERR("failed to get logbuf\n");
-		result = -ENOMEM;
-		goto fail_logbuf;
-	}
+	if (ipa_ctx->logbuf == NULL)
+		IPAERR("failed to create IPC log, continue...\n");
 
 	ipa_ctx->pdev = ipa_dev;
 	ipa_ctx->uc_pdev = ipa_dev;
@@ -4390,8 +4398,8 @@ fail_bus_reg:
 fail_bind:
 	kfree(ipa_ctx->ctrl);
 fail_mem_ctrl:
-	ipc_log_context_destroy(ipa_ctx->logbuf);
-fail_logbuf:
+	if (ipa_ctx->logbuf)
+		ipc_log_context_destroy(ipa_ctx->logbuf);
 	kfree(ipa_ctx);
 	ipa_ctx = NULL;
 fail_mem_ctx:

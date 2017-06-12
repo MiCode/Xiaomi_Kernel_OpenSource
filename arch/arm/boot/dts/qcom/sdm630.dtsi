@@ -304,10 +304,16 @@
 		#size-cells = <2>;
 		ranges;
 
-		removed_region: removed_region0@85800000 {
+		removed_region0: removed_region0@85800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x85800000 0x0 0x3700000>;
+			reg = <0x0 0x85800000 0x0 0x700000>;
+		};
+
+		removed_region1: removed_region1@86000000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x86000000 0x0 0x2f00000>;
 		};
 
 		modem_fw_mem: modem_fw_region@8ac00000 {
@@ -1317,7 +1323,7 @@
 			<  1670400000 0x04040057 0x08450045 0x2 6 >,
 			<  1881600000 0x04040062 0x094e004e 0x2 7 >,
 			<  2016000000 0x04040069 0x0a540054 0x2 8 >,
-			<  2150400000 0x04040070 0x0b590059 0x2 8 >,
+			<  2150400000 0x04040070 0x0b590059 0x2 9 >,
 			<  2208000000 0x04040073 0x0b5c005c 0x3 10 >;
 
 		qcom,perfcl-speedbin2-v0 =
@@ -1982,12 +1988,12 @@
 		interrupts = <GIC_SPI 326 IRQ_TYPE_NONE>;
 		qcom,ee = <0>;
 		qcom,channel = <0>;
+		qcom,reserved-chan = <511>;
 		#address-cells = <2>;
 		#size-cells = <0>;
 		interrupt-controller;
 		#interrupt-cells = <4>;
 		cell-index = <0>;
-		qcom,not-wakeup; /* Needed until Full-boot-chain enabled */
 		status = "ok";
 	};
 

@@ -14,6 +14,7 @@
 #include <linux/slab.h>
 #include <linux/stringify.h>
 #include <linux/of.h>
+#include <linux/debugfs.h>
 #include <linux/component.h>
 #include <linux/dma-mapping.h>
 #include <soc/qcom/ramdump.h>
@@ -181,6 +182,10 @@ struct wdsp_mgr_priv {
 	struct work_struct ssr_work;
 	u16 ready_status;
 	struct completion ready_compl;
+
+	/* Debugfs related */
+	struct dentry *entry;
+	bool panic_on_error;
 };
 
 static char *wdsp_get_ssr_type_string(enum wdsp_ssr_type type)
@@ -655,6 +660,12 @@ static void wdsp_collect_ramdumps(struct wdsp_mgr_priv *wdsp)
 		goto err_read_dumps;
 	}
 
+	/*
+	 * If panic_on_error flag is explicitly set through the debugfs,
+	 * then cause a BUG here to aid debugging.
+	 */
+	BUG_ON(wdsp->panic_on_error);
+
 	rd_seg.address = (unsigned long) wdsp->dump_data.rd_v_addr;
 	rd_seg.size = img_section.size;
 	rd_seg.v_address = wdsp->dump_data.rd_v_addr;
@@ -948,6 +959,22 @@ static int wdsp_mgr_compare_of(struct device *dev, void *data)
 		 !strcmp(dev_name(dev), cmpnt->cdev_name)));
 }
 
+static void wdsp_mgr_debugfs_init(struct wdsp_mgr_priv *wdsp)
+{
+	wdsp->entry = debugfs_create_dir("wdsp_mgr", NULL);
+	if (IS_ERR_OR_NULL(wdsp->entry))
+		return;
+
+	debugfs_create_bool("panic_on_error", S_IRUGO | S_IWUSR,
+			    wdsp->entry, &wdsp->panic_on_error);
+}
+
+static void wdsp_mgr_debugfs_remove(struct wdsp_mgr_priv *wdsp)
+{
+	debugfs_remove_recursive(wdsp->entry);
+	wdsp->entry = NULL;
+}
+
 static int wdsp_mgr_bind(struct device *dev)
 {
 	struct wdsp_mgr_priv *wdsp = dev_get_drvdata(dev);
@@ -977,6 +1004,8 @@ static int wdsp_mgr_bind(struct device *dev)
 		}
 	}
 
+	wdsp_mgr_debugfs_init(wdsp);
+
 	/* Schedule the work to download image if binding was successful. */
 	if (!ret)
 		schedule_work(&wdsp->load_fw_work);
@@ -991,6 +1020,8 @@ static void wdsp_mgr_unbind(struct device *dev)
 	int idx;
 
 	component_unbind_all(dev, wdsp->ops);
+
+	wdsp_mgr_debugfs_remove(wdsp);
 
 	if (wdsp->dump_data.rd_dev) {
 		destroy_ramdump_device(wdsp->dump_data.rd_dev);

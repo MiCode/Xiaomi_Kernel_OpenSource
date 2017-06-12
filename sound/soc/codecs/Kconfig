@@ -775,7 +775,7 @@ config SND_SOC_WCD_DSP_MGR
 	tristate
 
 config SND_SOC_WCD_SPI
-	depends on CONFIG_SPI
+	depends on SPI
 	tristate
 
 config SND_SOC_WL1273

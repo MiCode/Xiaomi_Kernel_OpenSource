@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -183,6 +183,55 @@ static void _msm_property_install_integer(struct msm_property_info *info,
 	}
 }
 
+/**
+ * _msm_property_install_integer - install signed drm range property
+ * @info: Pointer to property info container struct
+ * @name: Property name
+ * @flags: Other property type flags, e.g. DRM_MODE_PROP_IMMUTABLE
+ * @min: Min property value
+ * @max: Max property value
+ * @init: Default Property value
+ * @property_idx: Property index
+ * @force_dirty: Whether or not to filter 'dirty' status on unchanged values
+ */
+static void _msm_property_install_signed_integer(struct msm_property_info *info,
+		const char *name, int flags, int64_t min, int64_t max,
+		int64_t init, uint32_t property_idx, bool force_dirty)
+{
+	struct drm_property **prop;
+
+	if (!info)
+		return;
+
+	++info->install_request;
+
+	if (!name || (property_idx >= info->property_count)) {
+		DRM_ERROR("invalid argument(s), %s\n", name ? name : "null");
+	} else {
+		prop = &info->property_array[property_idx];
+		/*
+		 * Properties need to be attached to each drm object that
+		 * uses them, but only need to be created once
+		 */
+		if (*prop == 0) {
+			*prop = drm_property_create_signed_range(info->dev,
+					flags, name, min, max);
+			if (*prop == 0)
+				DRM_ERROR("create %s property failed\n", name);
+		}
+
+		/* save init value for later */
+		info->property_data[property_idx].default_value = I642U64(init);
+		info->property_data[property_idx].force_dirty = force_dirty;
+
+		/* always attach property, if created */
+		if (*prop) {
+			drm_object_attach_property(info->base, *prop, init);
+			++info->install_count;
+		}
+	}
+}
+
 void msm_property_install_range(struct msm_property_info *info,
 		const char *name, int flags, uint64_t min, uint64_t max,
 		uint64_t init, uint32_t property_idx)
@@ -196,6 +245,22 @@ void msm_property_install_volatile_range(struct msm_property_info *info,
 		uint64_t init, uint32_t property_idx)
 {
 	_msm_property_install_integer(info, name, flags,
+			min, max, init, property_idx, true);
+}
+
+void msm_property_install_signed_range(struct msm_property_info *info,
+		const char *name, int flags, int64_t min, int64_t max,
+		int64_t init, uint32_t property_idx)
+{
+	_msm_property_install_signed_integer(info, name, flags,
+			min, max, init, property_idx, false);
+}
+
+void msm_property_install_volatile_signed_range(struct msm_property_info *info,
+		const char *name, int flags, int64_t min, int64_t max,
+		int64_t init, uint32_t property_idx)
+{
+	_msm_property_install_signed_integer(info, name, flags,
 			min, max, init, property_idx, true);
 }
 

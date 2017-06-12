@@ -248,7 +248,7 @@ static int smb138x_usb_get_prop(struct power_supply *psy,
 		val->intval = chg->usb_psy_desc.type;
 		break;
 	case POWER_SUPPLY_PROP_TYPEC_MODE:
-		rc = smblib_get_prop_typec_mode(chg, val);
+		val->intval = chg->typec_mode;
 		break;
 	case POWER_SUPPLY_PROP_TYPEC_POWER_ROLE:
 		rc = smblib_get_prop_typec_power_role(chg, val);
@@ -577,13 +577,15 @@ static int smb138x_parallel_get_prop(struct power_supply *psy,
 		rc = smblib_get_usb_suspend(chg, &val->intval);
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
-		if (chip->dt.pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
+		if ((chip->dt.pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
+		|| (chip->dt.pl_mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT))
 			rc = smblib_get_prop_input_current_limited(chg, val);
 		else
 			val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		if (chip->dt.pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
+		if ((chip->dt.pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
+		|| (chip->dt.pl_mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT))
 			rc = smblib_get_charge_param(chg, &chg->param.usb_icl,
 				&val->intval);
 		else
@@ -669,7 +671,8 @@ static int smb138x_parallel_set_prop(struct power_supply *psy,
 		rc = smb138x_set_parallel_suspend(chip, (bool)val->intval);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		if (chip->dt.pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
+		if ((chip->dt.pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
+		|| (chip->dt.pl_mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT))
 			rc = smblib_set_charge_param(chg, &chg->param.usb_icl,
 				val->intval);
 		break;
@@ -935,13 +938,6 @@ static int smb138x_init_slave_hw(struct smb138x *chip)
 				chip->dt.connector_temp_max_mdegc + MDEGC_15);
 	if (rc < 0) {
 		pr_err("Couldn't set connector temp threshold3 rc=%d\n", rc);
-		return rc;
-	}
-
-	rc = smblib_write(chg, THERMREG_SRC_CFG_REG,
-						THERMREG_SKIN_ADC_SRC_EN_BIT);
-	if (rc < 0) {
-		pr_err("Couldn't enable connector thermreg source rc=%d\n", rc);
 		return rc;
 	}
 
@@ -1484,7 +1480,8 @@ static int smb138x_slave_probe(struct smb138x *chip)
 		goto cleanup;
 	}
 
-	if (chip->dt.pl_mode == POWER_SUPPLY_PL_USBIN_USBIN) {
+	if ((chip->dt.pl_mode == POWER_SUPPLY_PL_USBIN_USBIN)
+		|| (chip->dt.pl_mode == POWER_SUPPLY_PL_USBIN_USBIN_EXT)) {
 		rc = smb138x_init_vbus_regulator(chip);
 		if (rc < 0) {
 			pr_err("Couldn't initialize vbus regulator rc=%d\n",

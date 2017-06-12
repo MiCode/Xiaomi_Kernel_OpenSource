@@ -29,12 +29,17 @@
 struct msm_gem_submit;
 struct msm_gpu_perfcntr;
 
+#define MSM_GPU_DEFAULT_IONAME  "kgsl_3d0_reg_memory"
+#define MSM_GPU_DEFAULT_IRQNAME "kgsl_3d0_irq"
+
 struct msm_gpu_config {
 	const char *ioname;
 	const char *irqname;
 	int nr_rings;
 	uint64_t va_start;
 	uint64_t va_end;
+	uint64_t secure_va_start;
+	uint64_t secure_va_end;
 };
 
 /* So far, with hardware that I've seen to date, we can have:
@@ -56,7 +61,7 @@ struct msm_gpu_funcs {
 	int (*hw_init)(struct msm_gpu *gpu);
 	int (*pm_suspend)(struct msm_gpu *gpu);
 	int (*pm_resume)(struct msm_gpu *gpu);
-	int (*submit)(struct msm_gpu *gpu, struct msm_gem_submit *submit);
+	void (*submit)(struct msm_gpu *gpu, struct msm_gem_submit *submit);
 	void (*flush)(struct msm_gpu *gpu, struct msm_ringbuffer *ring);
 	irqreturn_t (*irq)(struct msm_gpu *irq);
 	uint32_t (*last_fence)(struct msm_gpu *gpu,
@@ -111,6 +116,7 @@ struct msm_gpu {
 	int irq;
 
 	struct msm_gem_address_space *aspace;
+	struct msm_gem_address_space *secure_aspace;
 
 	/* Power Control: */
 	struct regulator *gpu_reg, *gpu_cx;

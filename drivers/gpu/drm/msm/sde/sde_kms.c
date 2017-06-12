@@ -41,10 +41,6 @@
 #define CREATE_TRACE_POINTS
 #include "sde_trace.h"
 
-static const char * const iommu_ports[] = {
-		"mdp_0",
-};
-
 /**
  * Controls size of event log buffer. Specified as a power of 2.
  */
@@ -604,6 +600,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.get_modes =  sde_hdmi_connector_get_modes,
 		.mode_valid = sde_hdmi_mode_valid,
 		.get_info =   sde_hdmi_get_info,
+		.set_property = sde_hdmi_set_property,
 	};
 	struct msm_display_info info = {0};
 	struct drm_encoder *encoder;
@@ -800,6 +797,16 @@ static void _sde_kms_drm_obj_destroy(struct sde_kms *sde_kms)
 	_sde_kms_release_displays(sde_kms);
 }
 
+static inline int sde_get_crtc_id(const char *display_type)
+{
+	if (!strcmp(display_type, "primary"))
+		return 0;
+	else if (!strcmp(display_type, "secondary"))
+		return 1;
+	else
+		return 2;
+}
+
 static int _sde_kms_drm_obj_init(struct sde_kms *sde_kms)
 {
 	struct drm_device *dev;
@@ -832,28 +839,57 @@ static int _sde_kms_drm_obj_init(struct sde_kms *sde_kms)
 		(void)_sde_kms_setup_displays(dev, priv, sde_kms);
 
 	max_crtc_count = min(catalog->mixer_count, priv->num_encoders);
-	max_plane_count = min_t(u32, catalog->sspp_count, MAX_PLANES);
 
 	/* Create the planes */
 	primary_planes_idx = 0;
-	for (i = 0; i < max_plane_count; i++) {
-		bool primary = true;
+	if (catalog->vp_count) {
+		max_plane_count = min_t(u32, catalog->vp_count, MAX_PLANES);
 
-		if (catalog->sspp[i].features & BIT(SDE_SSPP_CURSOR)
-			|| primary_planes_idx >= max_crtc_count)
-			primary = false;
+		for (i = 0; i < max_plane_count; i++) {
+			bool primary = true;
+			int crtc_id =
+				sde_get_crtc_id(catalog->vp[i].display_type);
 
-		plane = sde_plane_init(dev, catalog->sspp[i].id, primary,
-				(1UL << max_crtc_count) - 1);
-		if (IS_ERR(plane)) {
-			SDE_ERROR("sde_plane_init failed\n");
-			ret = PTR_ERR(plane);
-			goto fail;
+			if (strcmp(catalog->vp[i].plane_type, "primary"))
+				primary = false;
+
+			plane = sde_plane_init(dev, catalog->vp[i].id,
+					primary, 1UL << crtc_id, true);
+			if (IS_ERR(plane)) {
+				SDE_ERROR("sde_plane_init failed\n");
+				ret = PTR_ERR(plane);
+				goto fail;
+			}
+			priv->planes[priv->num_planes++] = plane;
+
+			if (primary) {
+				primary_planes[crtc_id] = plane;
+				primary_planes_idx++;
+			}
 		}
-		priv->planes[priv->num_planes++] = plane;
+	} else {
+		max_plane_count = min_t(u32, catalog->sspp_count, MAX_PLANES);
 
-		if (primary)
-			primary_planes[primary_planes_idx++] = plane;
+		for (i = 0; i < max_plane_count; i++) {
+			bool primary = true;
+
+			if (catalog->sspp[i].features & BIT(SDE_SSPP_CURSOR)
+				|| primary_planes_idx >= max_crtc_count)
+				primary = false;
+
+			plane = sde_plane_init(dev, catalog->sspp[i].id,
+					primary, (1UL << max_crtc_count) - 1,
+					false);
+			if (IS_ERR(plane)) {
+				SDE_ERROR("sde_plane_init failed\n");
+				ret = PTR_ERR(plane);
+				goto fail;
+			}
+			priv->planes[priv->num_planes++] = plane;
+
+			if (primary)
+				primary_planes[primary_planes_idx++] = plane;
+		}
 	}
 
 	max_crtc_count = min(max_crtc_count, primary_planes_idx);
@@ -1082,8 +1118,7 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 
 		sde_kms->aspace[i] = aspace;
 
-		ret = mmu->funcs->attach(mmu, (const char **)iommu_ports,
-				ARRAY_SIZE(iommu_ports));
+		ret = mmu->funcs->attach(mmu, NULL, 0);
 		if (ret) {
 			SDE_ERROR("failed to attach iommu %d: %d\n", i, ret);
 			msm_gem_address_space_put(aspace);

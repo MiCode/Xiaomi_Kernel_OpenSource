@@ -27,6 +27,7 @@
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/qpnp-labibb-regulator.h>
 #include <linux/qpnp/qpnp-pbs.h>
+#include <linux/qpnp/qpnp-revid.h>
 
 #define QPNP_OLEDB_REGULATOR_DRIVER_NAME	"qcom,qpnp-oledb-regulator"
 #define OLEDB_VOUT_STEP_MV				100
@@ -162,6 +163,7 @@ struct qpnp_oledb {
 	struct notifier_block			oledb_nb;
 	struct mutex				bus_lock;
 	struct device_node			*pbs_dev_node;
+	struct pmic_revid_data			*pmic_rev_id;
 
 	u32					base;
 	u8					mod_enable;
@@ -181,6 +183,8 @@ struct qpnp_oledb {
 	bool					dynamic_ext_pinctl_config;
 	bool					pbs_control;
 	bool					force_pd_control;
+	bool					handle_lab_sc_notification;
+	bool					lab_sc_detected;
 };
 
 static const u16 oledb_warmup_dly_ns[] = {6700, 13300, 26700, 53400};
@@ -275,6 +279,11 @@ static int qpnp_oledb_regulator_enable(struct regulator_dev *rdev)
 
 	struct qpnp_oledb *oledb  = rdev_get_drvdata(rdev);
 
+	if (oledb->lab_sc_detected == true) {
+		pr_info("Short circuit detected: Disabled OLEDB rail\n");
+		return 0;
+	}
+
 	if (oledb->ext_pin_control) {
 		rc = qpnp_oledb_read(oledb, oledb->base + OLEDB_EXT_PIN_CTL,
 								 &val, 1);
@@ -368,12 +377,19 @@ static int qpnp_oledb_regulator_disable(struct regulator_dev *rdev)
 		}
 
 		if (val & OLEDB_FORCE_PD_CTL_SPARE_BIT) {
-			rc = qpnp_pbs_trigger_event(oledb->pbs_dev_node,
-							trigger_bitmap);
+			rc = qpnp_oledb_sec_masked_write(oledb, oledb->base +
+					OLEDB_SPARE_CTL,
+					OLEDB_FORCE_PD_CTL_SPARE_BIT, 0);
 			if (rc < 0) {
-				pr_err("Failed to trigger the PBS sequence\n");
+				pr_err("Failed to write SPARE_CTL rc=%d\n", rc);
 				return rc;
 			}
+
+			rc = qpnp_pbs_trigger_event(oledb->pbs_dev_node,
+							trigger_bitmap);
+			if (rc < 0)
+				pr_err("Failed to trigger the PBS sequence\n");
+
 			pr_debug("PBS event triggered\n");
 		} else {
 			pr_debug("OLEDB_SPARE_CTL register bit not set\n");
@@ -1085,7 +1101,21 @@ static int qpnp_oledb_parse_fast_precharge(struct qpnp_oledb *oledb)
 static int qpnp_oledb_parse_dt(struct qpnp_oledb *oledb)
 {
 	int rc = 0;
+	struct device_node *revid_dev_node;
 	struct device_node *of_node = oledb->dev->of_node;
+
+	revid_dev_node = of_parse_phandle(oledb->dev->of_node,
+					"qcom,pmic-revid", 0);
+	if (!revid_dev_node) {
+		pr_err("Missing qcom,pmic-revid property - driver failed\n");
+		return -EINVAL;
+	}
+
+	oledb->pmic_rev_id = get_revid_data(revid_dev_node);
+	if (IS_ERR(oledb->pmic_rev_id)) {
+		pr_debug("Unable to get revid data\n");
+		return -EPROBE_DEFER;
+	}
 
 	oledb->swire_control =
 			of_property_read_bool(of_node, "qcom,swire-control");
@@ -1100,8 +1130,14 @@ static int qpnp_oledb_parse_dt(struct qpnp_oledb *oledb)
 	oledb->pbs_control =
 			of_property_read_bool(of_node, "qcom,pbs-control");
 
-	oledb->force_pd_control =
-			of_property_read_bool(of_node, "qcom,force-pd-control");
+	/* Use the force_pd_control only for PM660A versions <= v2.0 */
+	if (oledb->pmic_rev_id->pmic_subtype == PM660L_SUBTYPE &&
+				oledb->pmic_rev_id->rev4 <= PM660L_V2P0_REV4) {
+		if (!(oledb->pmic_rev_id->rev4 == PM660L_V2P0_REV4 &&
+			oledb->pmic_rev_id->rev2 > PM660L_V2P0_REV2)) {
+			oledb->force_pd_control = true;
+		}
+	}
 
 	if (oledb->force_pd_control) {
 		oledb->pbs_dev_node = of_parse_phandle(of_node,
@@ -1199,13 +1235,6 @@ static int qpnp_oledb_force_pulldown_config(struct qpnp_oledb *oledb)
 	int rc = 0;
 	u8 val;
 
-	rc = qpnp_oledb_sec_masked_write(oledb, oledb->base +
-		    OLEDB_SPARE_CTL, OLEDB_FORCE_PD_CTL_SPARE_BIT, 0);
-	if (rc < 0) {
-		pr_err("Failed to write SPARE_CTL rc=%d\n", rc);
-		return rc;
-	}
-
 	val = 1;
 	rc = qpnp_oledb_write(oledb, oledb->base + OLEDB_PD_CTL,
 							&val, 1);
@@ -1227,14 +1256,31 @@ static int qpnp_labibb_notifier_cb(struct notifier_block *nb,
 					unsigned long action, void *data)
 {
 	int rc = 0;
+	u8 val;
 	struct qpnp_oledb *oledb = container_of(nb, struct qpnp_oledb,
 								oledb_nb);
+
+	if (action == LAB_VREG_NOT_OK) {
+		/* short circuit detected. Disable OLEDB module */
+		val = 0;
+		rc = qpnp_oledb_write(oledb, oledb->base + OLEDB_MODULE_RDY,
+					&val, 1);
+		if (rc < 0) {
+			pr_err("Failed to write MODULE_RDY rc=%d\n", rc);
+			return NOTIFY_STOP;
+		}
+		oledb->lab_sc_detected = true;
+		oledb->mod_enable = false;
+		pr_crit("LAB SC detected, disabling OLEDB forever!\n");
+	}
 
 	if (action == LAB_VREG_OK) {
 		/* Disable SWIRE pull down control and enable via spmi mode */
 		rc = qpnp_oledb_force_pulldown_config(oledb);
-		if (rc < 0)
+		if (rc < 0) {
+			pr_err("Failed to config force pull down\n");
 			return NOTIFY_STOP;
+		}
 	}
 
 	return NOTIFY_OK;
@@ -1281,7 +1327,11 @@ static int qpnp_oledb_regulator_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	if (oledb->force_pd_control) {
+	/* Enable LAB short circuit notification support */
+	if (oledb->pmic_rev_id->pmic_subtype == PM660L_SUBTYPE)
+		oledb->handle_lab_sc_notification = true;
+
+	if (oledb->force_pd_control || oledb->handle_lab_sc_notification) {
 		oledb->oledb_nb.notifier_call = qpnp_labibb_notifier_cb;
 		rc = qpnp_labibb_notifier_register(&oledb->oledb_nb);
 		if (rc < 0) {

@@ -2210,7 +2210,13 @@ int tspp_remove_filter(u32 dev, u32 channel_id,
 	channel = &pdev->channels[channel_id];
 
 	src = channel->src;
-	tspp_filter = &(pdev->filters[src]->filter[filter->priority]);
+	if ((src == TSPP_SOURCE_TSIF0) || (src == TSPP_SOURCE_TSIF1))
+		tspp_filter = &(pdev->filters[src]->filter[filter->priority]);
+	else {
+		pr_err("tspp_remove: wrong source type %d", src);
+		return -EINVAL;
+	}
+
 
 	/* disable pipe (channel) */
 	val = readl_relaxed(pdev->base + TSPP_PS_DISABLE);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1018,6 +1018,7 @@ static void tmc_disable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 {
 	unsigned long flags;
 
+	mutex_lock(&drvdata->mem_lock);
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 	if (drvdata->reading)
 		goto out;
@@ -1054,7 +1055,7 @@ out:
 	}
 
 	pm_runtime_put(drvdata->dev);
-
+	mutex_unlock(&drvdata->mem_lock);
 	dev_info(drvdata->dev, "TMC disabled\n");
 }
 
@@ -1726,6 +1727,9 @@ static int tmc_etf_set_buf_dump(struct tmc_drvdata *drvdata)
 
 	drvdata->buf_data.addr = virt_to_phys(drvdata->buf);
 	drvdata->buf_data.len = drvdata->size;
+	scnprintf(drvdata->buf_data.name, sizeof(drvdata->buf_data.name),
+		"KTMC_ETF%d", count);
+
 	dump_entry.id = MSM_DUMP_DATA_TMC_ETF + count;
 	dump_entry.addr = virt_to_phys(&drvdata->buf_data);
 
@@ -1817,6 +1821,8 @@ static int tmc_set_reg_dump(struct tmc_drvdata *drvdata)
 
 	drvdata->reg_data.addr = virt_to_phys(drvdata->reg_buf);
 	drvdata->reg_data.len = size;
+	scnprintf(drvdata->reg_data.name, sizeof(drvdata->reg_data.name),
+		"KTMC_REG%d", count);
 
 	dump_entry.id = MSM_DUMP_DATA_TMC_REG + count;
 	dump_entry.addr = virt_to_phys(&drvdata->reg_data);

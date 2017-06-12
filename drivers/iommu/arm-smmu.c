@@ -234,6 +234,7 @@
 
 #define SCTLR_S1_ASIDPNE		(1 << 12)
 #define SCTLR_CFCFG			(1 << 7)
+#define SCTLR_HUPCF			(1 << 8)
 #define SCTLR_CFIE			(1 << 6)
 #define SCTLR_CFRE			(1 << 5)
 #define SCTLR_E				(1 << 4)
@@ -366,6 +367,8 @@ struct arm_smmu_device {
 	u32				num_mapping_groups;
 	DECLARE_BITMAP(smr_map, ARM_SMMU_MAX_SMRS);
 
+	u32				ubs;
+
 	unsigned long			va_size;
 	unsigned long			ipa_size;
 	unsigned long			pa_size;
@@ -403,6 +406,7 @@ struct arm_smmu_device {
 	struct msm_bus_scale_pdata	*bus_pdata;
 
 	enum tz_smmu_device_id		sec_id;
+	int				regulator_defer;
 };
 
 struct arm_smmu_cfg {
@@ -496,6 +500,19 @@ struct static_cbndx_entry {
 	u8 type;
 };
 
+struct arm_iommus_node {
+	struct device_node	*master;
+	struct list_head	list;
+	struct list_head	iommuspec_list;
+};
+
+struct arm_iommus_spec {
+	struct of_phandle_args	iommu_spec;
+	struct list_head	list;
+};
+
+static LIST_HEAD(iommus_nodes);
+
 static int arm_smmu_enable_clocks_atomic(struct arm_smmu_device *smmu);
 static void arm_smmu_disable_clocks_atomic(struct arm_smmu_device *smmu);
 static void arm_smmu_prepare_pgtable(void *addr, void *cookie);
@@ -521,6 +538,8 @@ static bool arm_smmu_is_slave_side_secure(struct arm_smmu_domain *smmu_domain);
 static bool arm_smmu_has_secure_vmid(struct arm_smmu_domain *smmu_domain);
 static bool arm_smmu_is_iova_coherent(struct iommu_domain *domain,
 					dma_addr_t iova);
+static uint64_t arm_smmu_iova_to_pte(struct iommu_domain *domain,
+					      dma_addr_t iova);
 
 static int arm_smmu_enable_s1_translations(struct arm_smmu_domain *smmu_domain);
 
@@ -680,39 +699,40 @@ static int register_smmu_master(struct arm_smmu_device *smmu,
 	return insert_smmu_master(smmu, master);
 }
 
-static int arm_smmu_parse_iommus_properties(struct arm_smmu_device *smmu,
-					int *num_masters)
+static int arm_smmu_parse_iommus_properties(struct arm_smmu_device *smmu)
 {
-	struct of_phandle_args iommuspec;
-	struct device_node *master;
+	struct arm_iommus_node *node, *nex;
 
-	*num_masters = 0;
-
-	for_each_node_with_property(master, "iommus") {
-		int arg_ind = 0;
-		struct iommus_entry *entry, *n;
+	list_for_each_entry_safe(node, nex, &iommus_nodes, list) {
+		struct iommus_entry *entry, *next;
+		struct arm_iommus_spec *iommuspec_node, *n;
 		LIST_HEAD(iommus);
+		int node_found = 0;
 
-		while (!of_parse_phandle_with_args(
-				master, "iommus", "#iommu-cells",
-				arg_ind, &iommuspec)) {
-			if (iommuspec.np != smmu->dev->of_node) {
-				arg_ind++;
+		list_for_each_entry_safe(iommuspec_node, n,
+				&node->iommuspec_list, list) {
+			if (iommuspec_node->iommu_spec.np != smmu->dev->of_node)
 				continue;
-			}
+
+			/*
+			 * Since each master node will have iommu spec(s) of the
+			 * same device, we can delete this master node after
+			 * the devices are registered.
+			 */
+			node_found = 1;
 
 			list_for_each_entry(entry, &iommus, list)
-				if (entry->node == master)
+				if (entry->node == node->master)
 					break;
 			if (&entry->list == &iommus) {
 				entry = devm_kzalloc(smmu->dev, sizeof(*entry),
 						GFP_KERNEL);
 				if (!entry)
 					return -ENOMEM;
-				entry->node = master;
+				entry->node = node->master;
 				list_add(&entry->list, &iommus);
 			}
-			switch (iommuspec.args_count) {
+			switch (iommuspec_node->iommu_spec.args_count) {
 			case 0:
 				/*
 				 * For pci-e devices the SIDs are provided
@@ -722,24 +742,28 @@ static int arm_smmu_parse_iommus_properties(struct arm_smmu_device *smmu,
 			case 1:
 				entry->num_sids++;
 				entry->streamids[entry->num_sids - 1]
-					= iommuspec.args[0];
+					= iommuspec_node->iommu_spec.args[0];
 				break;
 			default:
 				BUG();
 			}
-			arg_ind++;
+			list_del(&iommuspec_node->list);
+			kfree(iommuspec_node);
 		}
 
-		list_for_each_entry_safe(entry, n, &iommus, list) {
+		list_for_each_entry_safe(entry, next, &iommus, list) {
 			int rc = register_smmu_master(smmu, entry);
-			if (rc) {
+
+			if (rc)
 				dev_err(smmu->dev, "Couldn't register %s\n",
-					entry->node->name);
-			} else {
-				(*num_masters)++;
-			}
+						entry->node->name);
 			list_del(&entry->list);
 			devm_kfree(smmu->dev, entry);
+		}
+
+		if (node_found) {
+			list_del(&node->list);
+			kfree(node);
 		}
 	}
 
@@ -929,7 +953,8 @@ static int arm_smmu_disable_regulators(struct arm_smmu_device *smmu)
 	arm_smmu_unprepare_clocks(smmu);
 	arm_smmu_unrequest_bus(smmu);
 	if (smmu->gdsc) {
-		ret = regulator_disable(smmu->gdsc);
+		ret = regulator_disable_deferred(smmu->gdsc,
+						 smmu->regulator_defer);
 		WARN(ret, "%s: Regulator disable failed\n",
 			dev_name(smmu->dev));
 	}
@@ -1628,6 +1653,11 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 	/* SCTLR */
 	reg = SCTLR_CFCFG | SCTLR_CFIE | SCTLR_CFRE | SCTLR_EAE_SBOP;
 
+	if (smmu_domain->attributes & (1 << DOMAIN_ATTR_CB_STALL_DISABLE)) {
+		reg &= ~SCTLR_CFCFG;
+		reg |= SCTLR_HUPCF;
+	}
+
 	if ((!(smmu_domain->attributes & (1 << DOMAIN_ATTR_S1_BYPASS)) &&
 	     !(smmu_domain->attributes & (1 << DOMAIN_ATTR_EARLY_MAP))) ||
 								!stage1)
@@ -1728,6 +1758,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 {
 	int irq, start, ret = 0;
 	unsigned long ias, oas;
+	int sep = 0;
 	struct io_pgtable_ops *pgtbl_ops;
 	enum io_pgtable_fmt fmt;
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
@@ -1769,9 +1800,27 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		start = smmu->num_s2_context_banks;
 		ias = smmu->va_size;
 		oas = smmu->ipa_size;
-		if (IS_ENABLED(CONFIG_64BIT))
+		if (IS_ENABLED(CONFIG_64BIT)) {
 			fmt = ARM_64_LPAE_S1;
-		else
+
+			if (quirks & IO_PGTABLE_QUIRK_ARM_TTBR1) {
+
+				/*
+				 * When the UBS id is 5 we know that the bus
+				 * size is 49 bits and that bit 48 is the fixed
+				 * sign extension bit.  For any other bus size
+				 * we need to specify the sign extension bit
+				 * and adjust the input size accordingly
+				 */
+
+				if (smmu->ubs == 5) {
+					sep = 48;
+				} else {
+					sep = ias - 1;
+					ias--;
+				}
+			}
+		} else
 			fmt = ARM_32_LPAE_S1;
 		break;
 	case ARM_SMMU_DOMAIN_NESTED:
@@ -1833,6 +1882,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 			.pgsize_bitmap	= arm_smmu_ops.pgsize_bitmap,
 			.ias		= ias,
 			.oas		= oas,
+			.sep		= sep,
 			.tlb		= &arm_smmu_gather_ops,
 			.iommu_dev	= smmu->dev,
 			.iova_base	= domain->geometry.aperture_start,
@@ -2530,6 +2580,23 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 	return ret;
 }
 
+static uint64_t arm_smmu_iova_to_pte(struct iommu_domain *domain,
+	      dma_addr_t iova)
+{
+	uint64_t ret;
+	unsigned long flags;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
+
+	if (!ops)
+		return 0;
+
+	flags = arm_smmu_pgtbl_lock(smmu_domain);
+	ret = ops->iova_to_pte(ops, iova);
+	arm_smmu_pgtbl_unlock(smmu_domain, flags);
+	return ret;
+}
+
 static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 			   struct scatterlist *sg, unsigned int nents, int prot)
 {
@@ -3138,7 +3205,11 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 					& (1 << DOMAIN_ATTR_ENABLE_TTBR1));
 		ret = 0;
 		break;
-
+	case DOMAIN_ATTR_CB_STALL_DISABLE:
+		*((int *)data) = !!(smmu_domain->attributes
+			& (1 << DOMAIN_ATTR_CB_STALL_DISABLE));
+		ret = 0;
+		break;
 	default:
 		ret = -ENODEV;
 		break;
@@ -3288,6 +3359,49 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 				1 << DOMAIN_ATTR_ENABLE_TTBR1;
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_GEOMETRY: {
+		struct iommu_domain_geometry *geometry =
+				(struct iommu_domain_geometry *)data;
+
+		if (smmu_domain->smmu != NULL) {
+			dev_err(smmu_domain->smmu->dev,
+			  "cannot set geometry attribute while attached\n");
+			ret = -EBUSY;
+			break;
+		}
+
+		if (geometry->aperture_start >= SZ_1G * 4ULL ||
+		    geometry->aperture_end >= SZ_1G * 4ULL) {
+			pr_err("fastmap does not support IOVAs >= 4GB\n");
+			ret = -EINVAL;
+			break;
+		}
+		if (smmu_domain->attributes
+			  & (1 << DOMAIN_ATTR_GEOMETRY)) {
+			if (geometry->aperture_start
+					< domain->geometry.aperture_start)
+				domain->geometry.aperture_start =
+					geometry->aperture_start;
+
+			if (geometry->aperture_end
+					> domain->geometry.aperture_end)
+				domain->geometry.aperture_end =
+					geometry->aperture_end;
+		} else {
+			smmu_domain->attributes |= 1 << DOMAIN_ATTR_GEOMETRY;
+			domain->geometry.aperture_start =
+						geometry->aperture_start;
+			domain->geometry.aperture_end = geometry->aperture_end;
+		}
+		ret = 0;
+		break;
+	}
+	case DOMAIN_ATTR_CB_STALL_DISABLE:
+		if (*((int *)data))
+			smmu_domain->attributes |=
+				1 << DOMAIN_ATTR_CB_STALL_DISABLE;
+		ret = 0;
+		break;
 	default:
 		ret = -ENODEV;
 		break;
@@ -3384,6 +3498,7 @@ static struct iommu_ops arm_smmu_ops = {
 	.enable_config_clocks	= arm_smmu_enable_config_clocks,
 	.disable_config_clocks	= arm_smmu_disable_config_clocks,
 	.is_iova_coherent	= arm_smmu_is_iova_coherent,
+	.iova_to_pte = arm_smmu_iova_to_pte,
 };
 
 static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
@@ -3518,6 +3633,12 @@ static int arm_smmu_init_regulators(struct arm_smmu_device *smmu)
 
 	if (!of_get_property(dev->of_node, "vdd-supply", NULL))
 		return 0;
+
+	if (!of_property_read_u32(dev->of_node,
+				  "qcom,deferred-regulator-disable-delay",
+				  &(smmu->regulator_defer)))
+		dev_info(dev, "regulator defer delay %d\n",
+			smmu->regulator_defer);
 
 	smmu->gdsc = devm_regulator_get(dev, "vdd");
 	if (IS_ERR(smmu->gdsc))
@@ -3797,12 +3918,13 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 		smmu->va_size = smmu->ipa_size;
 		size = SZ_4K | SZ_2M | SZ_1G;
 	} else {
-		size = (id >> ID2_UBS_SHIFT) & ID2_UBS_MASK;
-		smmu->va_size = arm_smmu_id_size_to_bits(size);
+		smmu->ubs = (id >> ID2_UBS_SHIFT) & ID2_UBS_MASK;
+
+		smmu->va_size = arm_smmu_id_size_to_bits(smmu->ubs);
 #ifndef CONFIG_64BIT
 		smmu->va_size = min(32UL, smmu->va_size);
 #endif
-		smmu->va_size = min(36UL, smmu->va_size);
+		smmu->va_size = min(39UL, smmu->va_size);
 		size = 0;
 		if (id & ID2_PTFS_4K)
 			size |= SZ_4K | SZ_2M | SZ_1G;
@@ -3900,7 +4022,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	struct arm_smmu_device *smmu;
 	struct device *dev = &pdev->dev;
 	struct rb_node *node;
-	int num_irqs, i, err, num_masters;
+	int num_irqs, i, err;
 
 	smmu = devm_kzalloc(dev, sizeof(*smmu), GFP_KERNEL);
 	if (!smmu) {
@@ -3963,32 +4085,32 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	}
 
 	i = 0;
-	smmu->masters = RB_ROOT;
-	err = arm_smmu_parse_iommus_properties(smmu, &num_masters);
-	if (err)
-		goto out_put_masters;
-
-	dev_dbg(dev, "registered %d master devices\n", num_masters);
 
 	err = arm_smmu_parse_impl_def_registers(smmu);
 	if (err)
-		goto out_put_masters;
+		goto out;
 
 	err = arm_smmu_init_regulators(smmu);
 	if (err)
-		goto out_put_masters;
+		goto out;
 
 	err = arm_smmu_init_clocks(smmu);
 	if (err)
-		goto out_put_masters;
+		goto out;
 
 	err = arm_smmu_init_bus_scaling(pdev, smmu);
 	if (err)
-		goto out_put_masters;
+		goto out;
 
 	parse_driver_options(smmu);
 
 	err = arm_smmu_enable_clocks(smmu);
+	if (err)
+		goto out;
+
+	/* No probe deferral occurred! Proceed with iommu property parsing. */
+	smmu->masters = RB_ROOT;
+	err = arm_smmu_parse_iommus_properties(smmu);
 	if (err)
 		goto out_put_masters;
 
@@ -4049,7 +4171,7 @@ out_put_masters:
 			= container_of(node, struct arm_smmu_master, node);
 		of_node_put(master->of_node);
 	}
-
+out:
 	return err;
 }
 
@@ -4100,6 +4222,58 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void arm_smmu_free_master_nodes(void)
+{
+	struct arm_iommus_node *node, *nex;
+	struct arm_iommus_spec *entry, *n;
+
+	list_for_each_entry_safe(node, nex, &iommus_nodes, list) {
+		list_for_each_entry_safe(entry, n,
+				&node->iommuspec_list, list) {
+			list_del(&entry->list);
+			kfree(entry);
+		}
+		list_del(&node->list);
+		kfree(node);
+	}
+}
+
+static int arm_smmu_get_master_nodes(void)
+{
+	struct arm_iommus_node *node;
+	struct device_node *master;
+	struct of_phandle_args iommuspec;
+	struct arm_iommus_spec *entry;
+
+	for_each_node_with_property(master, "iommus") {
+		int arg_ind = 0;
+
+		node = kzalloc(sizeof(*node), GFP_KERNEL);
+		if (!node)
+			goto release_memory;
+		node->master = master;
+		list_add(&node->list, &iommus_nodes);
+
+		INIT_LIST_HEAD(&node->iommuspec_list);
+
+		while (!of_parse_phandle_with_args(master, "iommus",
+				"#iommu-cells", arg_ind, &iommuspec)) {
+			entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+			if (!entry)
+				goto release_memory;
+			entry->iommu_spec = iommuspec;
+			list_add(&entry->list, &node->iommuspec_list);
+			arg_ind++;
+		}
+	}
+
+	return 0;
+
+release_memory:
+	arm_smmu_free_master_nodes();
+	return -ENOMEM;
+}
+
 static struct platform_driver arm_smmu_driver = {
 	.driver	= {
 		.name		= "arm-smmu",
@@ -4125,10 +4299,15 @@ static int __init arm_smmu_init(void)
 
 	of_node_put(np);
 
-	ret = platform_driver_register(&arm_smmu_driver);
+	ret = arm_smmu_get_master_nodes();
 	if (ret)
 		return ret;
 
+	ret = platform_driver_register(&arm_smmu_driver);
+	if (ret) {
+		arm_smmu_free_master_nodes();
+		return ret;
+	}
 	/* Oh, for a proper bus abstraction */
 	if (!iommu_present(&platform_bus_type))
 		bus_set_iommu(&platform_bus_type, &arm_smmu_ops);

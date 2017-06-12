@@ -48,7 +48,7 @@
 
 #define DEVICE_NAME "at_usb"
 #define MODULE_NAME "msm_usb_bridge"
-#define NUM_INSTANCE 2
+#define NUM_INSTANCE 3
 
 #define MAX_CDEV_INST_NAME	15
 #define MAX_CDEV_FUNC_NAME	5
@@ -823,8 +823,10 @@ static void cser_free_inst(struct usb_function_instance *fi)
 
 	opts = container_of(fi, struct f_cdev_opts, func_inst);
 
-	device_destroy(fcdev_classp, MKDEV(major, opts->port->minor));
-	cdev_del(&opts->port->fcdev_cdev);
+	if (opts->port) {
+		device_destroy(fcdev_classp, MKDEV(major, opts->port->minor));
+		cdev_del(&opts->port->fcdev_cdev);
+	}
 	usb_cser_chardev_deinit();
 	kfree(opts->func_name);
 	kfree(opts->port);

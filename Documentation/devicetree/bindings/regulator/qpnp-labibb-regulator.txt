@@ -86,11 +86,11 @@ LAB subnode required properties:
 					40 and 50.
 - interrupts:				Specify the interrupts as per the interrupt
 					encoding.
-					Currently "lab-vreg-ok" is required for
-					LCD mode in pmi8998. For AMOLED mode,
-					"lab-vreg-ok" is required only when SWIRE
-					control is enabled and skipping 2nd SWIRE
-					pulse is required in pmi8952/8996.
+					Currently "lab-vreg-ok" is required and "lab-sc_err"
+					is optional for LCD mode in pmi8998.
+					For AMOLED mode, "lab-vreg-ok" is required
+					only when SWIRE control is enabled and skipping
+					2nd SWIRE pulse is required in pmi8952/8996.
 - interrupt-names:			Interrupt names to match up 1-to-1 with
 					the interrupts specified in 'interrupts'
 					property.
@@ -151,6 +151,10 @@ LAB subnode optional properties:
 					any value in the allowed limit.
 - qcom,notify-lab-vreg-ok-sts:		A boolean property which upon set will
 					poll and notify the lab_vreg_ok status.
+- qcom,qpnp-lab-sc-wait-time-ms:	This property is used to specify the time
+					(in ms) to poll for the short circuit
+					detection. If not specified the default time
+					is 5 sec.
 
 Following properties are available only for PM660A:
 
@@ -206,6 +210,14 @@ IBB subnode required properties:
 					is configured in lcd mode.
 
 IBB subnode optional properties:
+
+- interrupts:				Specify the interrupts as per the interrupt
+					encoding.
+					Currently "ibb-sc-err" could be used for LCD mode
+					in pmi8998 to detect the short circuit fault.
+- interrupt-names:			Interrupt names to match up 1-to-1 with
+					the interrupts specified in 'interrupts'
+					property.
 
 - qcom,qpnp-ibb-discharge-resistor:	The discharge resistor in Kilo Ohms which
 					controls the soft start time. Supported values

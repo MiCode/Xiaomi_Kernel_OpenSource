@@ -222,6 +222,7 @@ static int pil_subsys_init(struct modem_data *drv,
 		goto err_subsys;
 	}
 
+	drv->q6->desc.subsys_dev = drv->subsys;
 	drv->ramdump_dev = create_ramdump_device("modem", &pdev->dev);
 	if (!drv->ramdump_dev) {
 		pr_err("%s: Unable to create a modem ramdump device.\n",

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -525,6 +525,7 @@ int __ipa_commit_rt_v1_1(enum ipa_ip_type ip)
 	struct ipa_ip_v6_routing_init *v6;
 	u16 avail;
 	u16 size;
+	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 
 	mem = kmalloc(sizeof(struct ipa_mem_buffer), GFP_KERNEL);
 	if (!mem) {
@@ -541,7 +542,7 @@ int __ipa_commit_rt_v1_1(enum ipa_ip_type ip)
 			IPA_MEM_PART(v6_rt_size_ddr);
 		size = sizeof(struct ipa_ip_v6_routing_init);
 	}
-	cmd = kmalloc(size, GFP_KERNEL);
+	cmd = kmalloc(size, flag);
 	if (!cmd) {
 		IPAERR("failed to alloc immediate command object\n");
 		goto fail_alloc_cmd;
@@ -698,6 +699,7 @@ int __ipa_commit_rt_v2(enum ipa_ip_type ip)
 	struct ipa_mem_buffer head;
 	struct ipa_hw_imm_cmd_dma_shared_mem *cmd1 = NULL;
 	struct ipa_hw_imm_cmd_dma_shared_mem *cmd2 = NULL;
+	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 	u16 avail;
 	u32 num_modem_rt_index;
 	int rc = 0;
@@ -748,7 +750,7 @@ int __ipa_commit_rt_v2(enum ipa_ip_type ip)
 	}
 
 	cmd1 = kzalloc(sizeof(struct ipa_hw_imm_cmd_dma_shared_mem),
-		GFP_KERNEL);
+		flag);
 	if (cmd1 == NULL) {
 		IPAERR("Failed to alloc immediate command object\n");
 		rc = -ENOMEM;
@@ -765,7 +767,7 @@ int __ipa_commit_rt_v2(enum ipa_ip_type ip)
 
 	if (lcl) {
 		cmd2 = kzalloc(sizeof(struct ipa_hw_imm_cmd_dma_shared_mem),
-			GFP_KERNEL);
+			flag);
 		if (cmd2 == NULL) {
 			IPAERR("Failed to alloc immediate command object\n");
 			rc = -ENOMEM;
@@ -1353,6 +1355,10 @@ int ipa2_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup)
 	mutex_lock(&ipa_ctx->lock);
 	entry = __ipa_find_rt_tbl(lookup->ip, lookup->name);
 	if (entry && entry->cookie == IPA_COOKIE) {
+		if (entry->ref_cnt == U32_MAX) {
+			IPAERR("fail: ref count crossed limit\n");
+			goto ret;
+		}
 		entry->ref_cnt++;
 		lookup->hdl = entry->id;
 
@@ -1362,6 +1368,8 @@ int ipa2_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup)
 
 		result = 0;
 	}
+
+ret:
 	mutex_unlock(&ipa_ctx->lock);
 
 	return result;

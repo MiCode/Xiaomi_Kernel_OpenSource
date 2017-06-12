@@ -30,6 +30,7 @@
 #include "msm-digital-cdc.h"
 #include "msm-cdc-common.h"
 #include "../../msm/sdm660-common.h"
+#include "../../../../drivers/base/regmap/internal.h"
 
 #define DRV_NAME "msm_digital_codec"
 #define MCLK_RATE_9P6MHZ        9600000
@@ -71,11 +72,13 @@ static int msm_digcdc_clock_control(bool flag)
 {
 	int ret = -EINVAL;
 	struct msm_asoc_mach_data *pdata = NULL;
+	struct msm_dig_priv *msm_dig_cdc =
+				snd_soc_codec_get_drvdata(registered_digcodec);
 
 	pdata = snd_soc_card_get_drvdata(registered_digcodec->component.card);
 
-	mutex_lock(&pdata->cdc_int_mclk0_mutex);
 	if (flag) {
+		mutex_lock(&pdata->cdc_int_mclk0_mutex);
 		if (atomic_read(&pdata->int_mclk0_enabled) == false) {
 			pdata->digital_cdc_core_clk.enable = 1;
 			ret = afe_set_lpass_clock_v2(
@@ -84,7 +87,12 @@ static int msm_digcdc_clock_control(bool flag)
 			if (ret < 0) {
 				pr_err("%s:failed to enable the MCLK\n",
 				       __func__);
-				mutex_unlock(&pdata->cdc_int_mclk0_mutex);
+				/*
+				 * Avoid access to lpass register
+				 * as clock enable failed during SSR.
+				 */
+				if (ret == -ENODEV)
+					msm_dig_cdc->regmap->cache_only = true;
 				return ret;
 			}
 			pr_debug("enabled digital codec core clk\n");
@@ -93,10 +101,10 @@ static int msm_digcdc_clock_control(bool flag)
 					      50);
 		}
 	} else {
+		mutex_unlock(&pdata->cdc_int_mclk0_mutex);
 		dev_dbg(registered_digcodec->dev,
 			"disable MCLK, workq to disable set already\n");
 	}
-	mutex_unlock(&pdata->cdc_int_mclk0_mutex);
 	return 0;
 }
 
@@ -107,6 +115,7 @@ static void enable_digital_callback(void *flag)
 
 static void disable_digital_callback(void *flag)
 {
+	msm_digcdc_clock_control(false);
 	pr_debug("disable mclk happens in workq\n");
 }
 
@@ -973,6 +982,7 @@ static int msm_dig_cdc_event_notify(struct notifier_block *block,
 	struct snd_soc_codec *codec = registered_digcodec;
 	struct msm_dig_priv *msm_dig_cdc = snd_soc_codec_get_drvdata(codec);
 	struct msm_asoc_mach_data *pdata = NULL;
+	int ret = -EINVAL;
 
 	pdata = snd_soc_card_get_drvdata(codec->component.card);
 
@@ -1064,7 +1074,28 @@ static int msm_dig_cdc_event_notify(struct notifier_block *block,
 	case DIG_CDC_EVENT_SSR_UP:
 		regcache_cache_only(msm_dig_cdc->regmap, false);
 		regcache_mark_dirty(msm_dig_cdc->regmap);
+
+		mutex_lock(&pdata->cdc_int_mclk0_mutex);
+		pdata->digital_cdc_core_clk.enable = 1;
+		ret = afe_set_lpass_clock_v2(
+					AFE_PORT_ID_INT0_MI2S_RX,
+					&pdata->digital_cdc_core_clk);
+		if (ret < 0) {
+			pr_err("%s:failed to enable the MCLK\n",
+			       __func__);
+			mutex_unlock(&pdata->cdc_int_mclk0_mutex);
+			break;
+		}
+		mutex_unlock(&pdata->cdc_int_mclk0_mutex);
+
 		regcache_sync(msm_dig_cdc->regmap);
+
+		mutex_lock(&pdata->cdc_int_mclk0_mutex);
+		pdata->digital_cdc_core_clk.enable = 0;
+		afe_set_lpass_clock_v2(
+				AFE_PORT_ID_INT0_MI2S_RX,
+				&pdata->digital_cdc_core_clk);
+		mutex_unlock(&pdata->cdc_int_mclk0_mutex);
 		break;
 	case DIG_CDC_EVENT_INVALID:
 	default:
@@ -2024,6 +2055,7 @@ const struct regmap_config msm_digital_regmap_config = {
 	.cache_type = REGCACHE_FLAT,
 	.reg_defaults = msm89xx_cdc_core_defaults,
 	.num_reg_defaults = MSM89XX_CDC_CORE_MAX_REGISTER,
+	.writeable_reg = msm89xx_cdc_core_writeable_reg,
 	.readable_reg = msm89xx_cdc_core_readable_reg,
 	.volatile_reg = msm89xx_cdc_core_volatile_reg,
 	.reg_format_endian = REGMAP_ENDIAN_NATIVE,

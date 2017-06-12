@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -184,6 +184,8 @@ static int seemp_logk_usr_record(const char __user *buf, size_t count)
 		if (copy_from_user(&usr_blk.payload, &local_blk->payload,
 					sizeof(struct blk_payload)) != 0)
 			return -EFAULT;
+	} else {
+		return -EFAULT;
 	}
 	idx = ret = 0;
 	now = current_kernel_time();
@@ -283,7 +285,12 @@ static bool seemp_logk_get_bit_from_vector(__u8 *pVec, __u32 index)
 {
 	unsigned int byte_num = index/8;
 	unsigned int bit_num = index%8;
-	unsigned char byte = pVec[byte_num];
+	unsigned char byte;
+
+	if (byte_num >= MASK_BUFFER_SIZE)
+		return false;
+
+	byte = pVec[byte_num];
 
 	return !(byte & (1 << bit_num));
 }

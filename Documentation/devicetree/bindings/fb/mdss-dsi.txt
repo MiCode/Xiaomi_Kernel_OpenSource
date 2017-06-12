@@ -50,6 +50,8 @@ Optional properties:
 					-- qcom,supply-post-on-sleep: time to sleep (ms) after turning on
 					-- qcom,supply-pre-off-sleep: time to sleep (ms) before turning off
 					-- qcom,supply-post-off-sleep: time to sleep (ms) after turning off
+					-- qcom,supply-lp-mode-disable-allowed: supply can be turned off in
+					low power state.
 - pll-src-config			Specified the source PLL for the DSI
 					link clocks:
 					"PLL0" - Clocks sourced out of DSI PLL0
@@ -103,7 +105,9 @@ Optional properties:
 - qcom,platform-reset-gpio:		Specifies the panel reset gpio.
 - qcom,platform-te-gpio:		Specifies the gpio used for TE.
 - qcom,platform-bklight-en-gpio:	Specifies the gpio used to enable display back-light
-- qcom,platform-bklight-en-gpio-invert:	Invert the gpio used to enable display back-light
+- qcom,platform-bklight-en-gpio-invert:	Boolean to invert the gpio used to enable display back-light
+- qcom,platform-avdd-en-gpio:	Specifies the gpio used to enable AMOLED AVDD
+- qcom,platform-avdd-en-gpio-invert:	Boolean to invert the gpio used to enable AMOLED AVDD
 - qcom,panel-mode-gpio:			Specifies the GPIO to select video/command/single-port/dual-port
 					mode of panel through gpio when it supports these modes.
 - pinctrl-names:			List of names to assign mdss pin states defined in pinctrl device node

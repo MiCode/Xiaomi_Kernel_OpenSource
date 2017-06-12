@@ -22,6 +22,22 @@
 #include "mhi_hwio.h"
 #include "mhi_bhi.h"
 
+static const char *const mhi_dev_ctrl_str[MHI_DEV_CTRL_MAXCMD] = {
+	[MHI_DEV_CTRL_INIT] = "INIT",
+	[MHI_DEV_CTRL_DE_INIT] = "DE-INIT",
+	[MHI_DEV_CTRL_SUSPEND] = "SUSPEND",
+	[MHI_DEV_CTRL_RESUME] = "RESUME",
+	[MHI_DEV_CTRL_POWER_OFF] = "OFF",
+	[MHI_DEV_CTRL_POWER_ON] = "ON",
+	[MHI_DEV_CTRL_TRIGGER_RDDM] = "TRIGGER RDDM",
+	[MHI_DEV_CTRL_RDDM] = "RDDM",
+	[MHI_DEV_CTRL_RDDM_KERNEL_PANIC] = "RDDM IN PANIC",
+	[MHI_DEV_CTRL_NOTIFY_LINK_ERROR] = "LD",
+};
+
+#define TO_MHI_DEV_CTRL_STR(cmd) ((cmd >= MHI_DEV_CTRL_MAXCMD) ? "INVALID" : \
+				  mhi_dev_ctrl_str[cmd])
+
 /* Write only sysfs attributes */
 static DEVICE_ATTR(MHI_M0, S_IWUSR, NULL, sysfs_init_m0);
 static DEVICE_ATTR(MHI_M3, S_IWUSR, NULL, sysfs_init_m3);
@@ -97,12 +113,14 @@ static int mhi_pm_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt,
 	mhi_dev_ctxt->assert_wake(mhi_dev_ctxt, false);
 	read_unlock_bh(&mhi_dev_ctxt->pm_xfer_lock);
 	r = wait_event_timeout(*mhi_dev_ctxt->mhi_ev_wq.m0_event,
-			       mhi_dev_ctxt->mhi_state == MHI_STATE_M0 ||
-			       mhi_dev_ctxt->mhi_state == MHI_STATE_M1,
-			       msecs_to_jiffies(MHI_MAX_RESUME_TIMEOUT));
-	if (!r) {
+		mhi_dev_ctxt->mhi_state == MHI_STATE_M0 ||
+		mhi_dev_ctxt->mhi_state == MHI_STATE_M1 ||
+		mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT,
+		msecs_to_jiffies(MHI_MAX_RESUME_TIMEOUT));
+	if (!r || mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT) {
 		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
-			"Failed to get M0||M1 event, timeout, current state:%s\n",
+			"Failed to get M0||M1 event or LD pm_state:0x%x state:%s\n",
+			mhi_dev_ctxt->mhi_pm_state,
 			TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state));
 		return -EIO;
 	}
@@ -122,9 +140,10 @@ static int mhi_pm_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt,
 	write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Waiting for M3 completion.\n");
 	r = wait_event_timeout(*mhi_dev_ctxt->mhi_ev_wq.m3_event,
-			       mhi_dev_ctxt->mhi_state == MHI_STATE_M3,
-			       msecs_to_jiffies(MHI_MAX_SUSPEND_TIMEOUT));
-	if (!r) {
+		mhi_dev_ctxt->mhi_state == MHI_STATE_M3 ||
+		mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT,
+		msecs_to_jiffies(MHI_MAX_SUSPEND_TIMEOUT));
+	if (!r || mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT) {
 		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
 			"Failed to get M3 event, timeout, current state:%s\n",
 			TO_MHI_STATE_STR(mhi_dev_ctxt->mhi_state));
@@ -158,12 +177,13 @@ static int mhi_pm_initiate_m0(struct mhi_device_ctxt *mhi_dev_ctxt)
 	mhi_set_m_state(mhi_dev_ctxt, MHI_STATE_M0);
 	write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
 	r = wait_event_timeout(*mhi_dev_ctxt->mhi_ev_wq.m0_event,
-			       mhi_dev_ctxt->mhi_state == MHI_STATE_M0 ||
-			       mhi_dev_ctxt->mhi_state == MHI_STATE_M1,
-			       msecs_to_jiffies(MHI_MAX_RESUME_TIMEOUT));
-	if (!r) {
+		mhi_dev_ctxt->mhi_state == MHI_STATE_M0 ||
+		mhi_dev_ctxt->mhi_state == MHI_STATE_M1 ||
+		mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT,
+		msecs_to_jiffies(MHI_MAX_RESUME_TIMEOUT));
+	if (!r || mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT) {
 		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
-			"Failed to get M0 event, timeout\n");
+			"Failed to get M0 event, timeout or LD\n");
 		r = -EIO;
 	} else
 		r = 0;
@@ -295,12 +315,15 @@ static int mhi_pm_slave_mode_power_on(struct mhi_device_ctxt *mhi_dev_ctxt)
 	mhi_dev_ctxt->assert_wake(mhi_dev_ctxt, false);
 	read_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
 
-	ret_val = wait_for_completion_timeout(&mhi_dev_ctxt->cmd_complete,
-					      msecs_to_jiffies(timeout));
-	if (!ret_val || mhi_dev_ctxt->dev_exec_env != MHI_EXEC_ENV_AMSS)
+	wait_for_completion_timeout(&mhi_dev_ctxt->cmd_complete,
+				    msecs_to_jiffies(timeout));
+	if (mhi_dev_ctxt->dev_exec_env != MHI_EXEC_ENV_AMSS)
 		ret_val = -EIO;
 	else
 		ret_val = 0;
+
+	/* wait for firmware download to complete */
+	flush_work(&mhi_dev_ctxt->bhi_ctxt.fw_load_work);
 
 	if (ret_val) {
 		read_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
@@ -537,16 +560,16 @@ void mhi_link_state_cb(struct msm_pcie_notify *notify)
 	}
 }
 
-int mhi_pm_control_device(struct mhi_device *mhi_device,
-		       enum mhi_dev_ctrl ctrl)
+int mhi_pm_control_device(struct mhi_device *mhi_device, enum mhi_dev_ctrl ctrl)
 {
 	struct mhi_device_ctxt *mhi_dev_ctxt = mhi_device->mhi_dev_ctxt;
+	unsigned long flags;
 
 	if (!mhi_dev_ctxt)
 		return -EINVAL;
 
-	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
-		"Entered with cmd:%d\n", ctrl);
+	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Entered with cmd:%s\n",
+		TO_MHI_DEV_CTRL_STR(ctrl));
 
 	switch (ctrl) {
 	case MHI_DEV_CTRL_INIT:
@@ -560,12 +583,46 @@ int mhi_pm_control_device(struct mhi_device *mhi_device,
 	case MHI_DEV_CTRL_POWER_OFF:
 		mhi_pm_slave_mode_power_off(mhi_dev_ctxt);
 		break;
+	case MHI_DEV_CTRL_TRIGGER_RDDM:
+		write_lock_irqsave(&mhi_dev_ctxt->pm_xfer_lock, flags);
+		if (!MHI_REG_ACCESS_VALID(mhi_dev_ctxt->mhi_pm_state)) {
+			write_unlock_irqrestore(&mhi_dev_ctxt->pm_xfer_lock,
+						flags);
+			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
+				"failed to trigger rddm, no register access in state:0x%x\n",
+				mhi_dev_ctxt->mhi_pm_state);
+			return -EIO;
+		}
+		mhi_set_m_state(mhi_dev_ctxt, MHI_STATE_SYS_ERR);
+		write_unlock_irqrestore(&mhi_dev_ctxt->pm_xfer_lock, flags);
+		break;
 	case MHI_DEV_CTRL_RDDM:
 		return bhi_rddm(mhi_dev_ctxt, false);
+	case MHI_DEV_CTRL_RDDM_KERNEL_PANIC:
+		return bhi_rddm(mhi_dev_ctxt, true);
 	case MHI_DEV_CTRL_DE_INIT:
-		if (mhi_dev_ctxt->mhi_pm_state != MHI_PM_DISABLE)
+		if (mhi_dev_ctxt->mhi_pm_state != MHI_PM_DISABLE) {
+			enum MHI_PM_STATE cur_state;
+			/*
+			 * If bus master calls DE_INIT before calling POWER_OFF
+			 * means a critical failure occurred during POWER_ON
+			 * state transition and external PCIe device may not
+			 * respond to host.  Force PM state to PCIe linkdown
+			 * state prior to starting shutdown process to avoid
+			 * accessing PCIe link.
+			 */
+			write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+			cur_state = mhi_tryset_pm_state(mhi_dev_ctxt,
+						MHI_PM_LD_ERR_FATAL_DETECT);
+			write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
+			if (unlikely(cur_state != MHI_PM_LD_ERR_FATAL_DETECT)) {
+				mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
+					"Failed to transition to state 0x%x from 0x%x\n",
+					MHI_PM_LD_ERR_FATAL_DETECT, cur_state);
+			}
 			process_disable_transition(MHI_PM_SHUTDOWN_PROCESS,
 						   mhi_dev_ctxt);
+		}
 		bhi_exit(mhi_dev_ctxt);
 		break;
 	case MHI_DEV_CTRL_NOTIFY_LINK_ERROR:
@@ -580,6 +637,12 @@ int mhi_pm_control_device(struct mhi_device *mhi_device,
 			mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
 				"Failed to transition to state 0x%x from 0x%x\n",
 				MHI_PM_LD_ERR_FATAL_DETECT, cur_state);
+
+		/* wake up all threads that's waiting for state change events */
+		complete(&mhi_dev_ctxt->cmd_complete);
+		wake_up_interruptible(mhi_dev_ctxt->mhi_ev_wq.bhi_event);
+		wake_up(mhi_dev_ctxt->mhi_ev_wq.m0_event);
+		wake_up(mhi_dev_ctxt->mhi_ev_wq.m3_event);
 		break;
 	}
 	default:

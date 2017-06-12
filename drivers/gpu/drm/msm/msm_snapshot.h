@@ -71,8 +71,8 @@ static inline bool _snapshot_header(struct msm_snapshot *snapshot,
  */
 #define SNAPSHOT_HEADER(_snapshot, _header, _id, _dwords) \
 	_snapshot_header((_snapshot), \
-		(struct msm_snapshot_section_header *) &(header), \
-		sizeof(header), (_dwords) << 2, (_id))
+		(struct msm_snapshot_section_header *) &(_header), \
+		sizeof(_header), (_dwords) << 2, (_id))
 
 struct msm_gpu;
 

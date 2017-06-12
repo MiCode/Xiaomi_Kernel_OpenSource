@@ -275,7 +275,7 @@ struct drm_bridge *dba_bridge_init(struct drm_device *dev,
 	struct msm_drm_private *priv = NULL;
 
 	if (!dev || !encoder || !data) {
-		SDE_ERROR("dev=%p or encoder=%p or data=%p is NULL\n",
+		SDE_ERROR("dev=%pK or encoder=%pK or data=%pK is NULL\n",
 				dev, encoder, data);
 		rc = -EINVAL;
 		goto error;

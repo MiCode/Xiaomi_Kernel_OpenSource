@@ -38,6 +38,7 @@
 #include "diag_masks.h"
 #include "diag_usb.h"
 #include "diag_mux.h"
+#include "diag_ipc_logging.h"
 
 #define STM_CMD_VERSION_OFFSET	4
 #define STM_CMD_MASK_OFFSET	5
@@ -259,11 +260,17 @@ static void pack_rsp_and_send(unsigned char *buf, int len,
 	}
 
 	if (info && info->peripheral_mask) {
-		for (i = 0; i <= NUM_PERIPHERALS; i++) {
-			if (info->peripheral_mask & (1 << i))
-				break;
+		if (info->peripheral_mask == DIAG_CON_ALL ||
+			(info->peripheral_mask & (1 << APPS_DATA)) ||
+			(info->peripheral_mask & (1 << PERIPHERAL_MODEM))) {
+			rsp_ctxt = SET_BUF_CTXT(APPS_DATA, TYPE_CMD, 1);
+		} else {
+			for (i = 0; i <= NUM_PERIPHERALS; i++) {
+				if (info->peripheral_mask & (1 << i))
+					break;
+			}
+			rsp_ctxt = SET_BUF_CTXT(i, TYPE_CMD, 1);
 		}
-		rsp_ctxt = SET_BUF_CTXT(i, TYPE_CMD, 1);
 	} else
 		rsp_ctxt = driver->rsp_buf_ctxt;
 
@@ -337,11 +344,17 @@ static void encode_rsp_and_send(unsigned char *buf, int len,
 	}
 
 	if (info && info->peripheral_mask) {
-		for (i = 0; i <= NUM_PERIPHERALS; i++) {
-			if (info->peripheral_mask & (1 << i))
-				break;
+		if (info->peripheral_mask == DIAG_CON_ALL ||
+			(info->peripheral_mask & (1 << APPS_DATA)) ||
+			(info->peripheral_mask & (1 << PERIPHERAL_MODEM))) {
+			rsp_ctxt = SET_BUF_CTXT(APPS_DATA, TYPE_CMD, 1);
+		} else {
+			for (i = 0; i <= NUM_PERIPHERALS; i++) {
+				if (info->peripheral_mask & (1 << i))
+					break;
+			}
+			rsp_ctxt = SET_BUF_CTXT(i, TYPE_CMD, 1);
 		}
-		rsp_ctxt = SET_BUF_CTXT(i, TYPE_CMD, 1);
 	} else
 		rsp_ctxt = driver->rsp_buf_ctxt;
 
@@ -1588,6 +1601,9 @@ int diagfwd_init(void)
 	driver->supports_separate_cmdrsp = 1;
 	driver->supports_apps_hdlc_encoding = 1;
 	driver->supports_apps_header_untagging = 1;
+	driver->supports_pd_buffering = 1;
+	for (i = 0; i < NUM_PERIPHERALS; i++)
+		driver->peripheral_untag[i] = 0;
 	mutex_init(&driver->diag_hdlc_mutex);
 	mutex_init(&driver->diag_cntl_mutex);
 	mutex_init(&driver->mode_lock);
@@ -1616,12 +1632,16 @@ int diagfwd_init(void)
 		driver->feature[i].stm_support = DISABLE_STM;
 		driver->feature[i].rcvd_feature_mask = 0;
 		driver->feature[i].peripheral_buffering = 0;
+		driver->feature[i].pd_buffering = 0;
 		driver->feature[i].encode_hdlc = 0;
 		driver->feature[i].untag_header =
 			DISABLE_PKT_HEADER_UNTAGGING;
 		driver->feature[i].mask_centralization = 0;
 		driver->feature[i].log_on_demand = 0;
 		driver->feature[i].sent_feature_mask = 0;
+	}
+
+	for (i = 0; i < NUM_MD_SESSIONS; i++) {
 		driver->buffering_mode[i].peripheral = i;
 		driver->buffering_mode[i].mode = DIAG_BUFFERING_MODE_STREAMING;
 		driver->buffering_mode[i].high_wm_val = DEFAULT_HIGH_WM_VAL;

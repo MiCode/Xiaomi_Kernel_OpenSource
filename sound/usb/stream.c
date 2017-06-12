@@ -20,6 +20,7 @@
 #include <linux/usb.h>
 #include <linux/usb/audio.h>
 #include <linux/usb/audio-v2.h>
+#include <linux/usb/audio-v3.h>
 
 #include <sound/core.h>
 #include <sound/pcm.h>
@@ -284,8 +285,6 @@ static struct snd_pcm_chmap_elem *convert_chmap(int channels, unsigned int bits,
 		0 /* terminator */
 	};
 	struct snd_pcm_chmap_elem *chmap;
-	const unsigned int *maps;
-	int c;
 
 	if (channels > ARRAY_SIZE(chmap->map))
 		return NULL;
@@ -294,26 +293,41 @@ static struct snd_pcm_chmap_elem *convert_chmap(int channels, unsigned int bits,
 	if (!chmap)
 		return NULL;
 
-	maps = protocol == UAC_VERSION_2 ? uac2_maps : uac1_maps;
 	chmap->channels = channels;
-	c = 0;
 
-	if (bits) {
-		for (; bits && *maps; maps++, bits >>= 1)
-			if (bits & 1)
-				chmap->map[c++] = *maps;
+	if (protocol == UAC_VERSION_3) {
+		switch (channels) {
+		case 1:
+			chmap->map[0] = SNDRV_CHMAP_MONO;
+			break;
+		case 2:
+			chmap->map[0] = SNDRV_CHMAP_FL;
+			chmap->map[1] = SNDRV_CHMAP_FR;
+			break;
+		}
 	} else {
-		/* If we're missing wChannelConfig, then guess something
-		    to make sure the channel map is not skipped entirely */
-		if (channels == 1)
-			chmap->map[c++] = SNDRV_CHMAP_MONO;
-		else
-			for (; c < channels && *maps; maps++)
-				chmap->map[c++] = *maps;
-	}
+		int c = 0;
+		const unsigned int *maps =
+			protocol == UAC_VERSION_2 ? uac2_maps : uac1_maps;
 
-	for (; c < channels; c++)
-		chmap->map[c] = SNDRV_CHMAP_UNKNOWN;
+		if (bits) {
+			for (; bits && *maps; maps++, bits >>= 1)
+				if (bits & 1)
+					chmap->map[c++] = *maps;
+		} else {
+			/*
+			 * If we're missing wChannelConfig, then guess something
+			 * to make sure the channel map is not skipped entirely
+			 */
+			if (channels == 1)
+				chmap->map[c++] = SNDRV_CHMAP_MONO;
+			else
+				for (; c < channels && *maps; maps++)
+					chmap->map[c++] = *maps;
+		}
+		for (; c < channels; c++)
+			chmap->map[c] = SNDRV_CHMAP_UNKNOWN;
+	}
 
 	return chmap;
 }
@@ -410,6 +424,9 @@ static int parse_uac_endpoint_attributes(struct snd_usb_audio *chip,
 	struct uac_iso_endpoint_descriptor *csep;
 	struct usb_interface_descriptor *altsd = get_iface_desc(alts);
 	int attributes = 0;
+
+	if (protocol == UAC_VERSION_3)
+		return 0;
 
 	csep = snd_usb_find_desc(alts->endpoint[0].extra, alts->endpoint[0].extralen, NULL, USB_DT_CS_ENDPOINT);
 
@@ -631,6 +648,50 @@ int snd_usb_parse_audio_interface(struct snd_usb_audio *chip, int iface_no)
 				iface_no, altno, as->bTerminalLink);
 			continue;
 		}
+
+		case UAC_VERSION_3: {
+			int wMaxPacketSize;
+
+			/*
+			 * Allocate a dummy instance of fmt and set format type
+			 * to UAC_FORMAT_TYPE_I for BADD support; free fmt
+			 * after its last usage
+			 */
+			fmt = kzalloc(sizeof(*fmt), GFP_KERNEL);
+			if (!fmt)
+				return -ENOMEM;
+
+			fmt->bFormatType = UAC_FORMAT_TYPE_I;
+			format = UAC_FORMAT_TYPE_I_PCM;
+			clock = BADD_CLOCK_SOURCE;
+			wMaxPacketSize = le16_to_cpu(get_endpoint(alts, 0)
+							->wMaxPacketSize);
+			switch (wMaxPacketSize) {
+			case BADD_MAXPSIZE_SYNC_MONO_16:
+			case BADD_MAXPSIZE_SYNC_MONO_24:
+			case BADD_MAXPSIZE_ASYNC_MONO_16:
+			case BADD_MAXPSIZE_ASYNC_MONO_24: {
+				num_channels = NUM_CHANNELS_MONO;
+				chconfig = BADD_CH_CONFIG_MONO;
+				goto populate_fp;
+			}
+
+			case BADD_MAXPSIZE_SYNC_STEREO_16:
+			case BADD_MAXPSIZE_SYNC_STEREO_24:
+			case BADD_MAXPSIZE_ASYNC_STEREO_16:
+			case BADD_MAXPSIZE_ASYNC_STEREO_24: {
+				num_channels = NUM_CHANNELS_STEREO;
+				chconfig = BADD_CH_CONFIG_STEREO;
+				goto populate_fp;
+			}
+			default:
+				dev_err(&dev->dev,
+					"%u:%d: invalid wMaxPacketSize\n",
+					iface_no, altno);
+				kfree(fmt);
+				continue;
+			}
+		}
 		}
 
 		/* get format type */
@@ -664,6 +725,7 @@ int snd_usb_parse_audio_interface(struct snd_usb_audio *chip, int iface_no)
 							fp->maxpacksize * 2)
 			continue;
 
+populate_fp:
 		fp = kzalloc(sizeof(*fp), GFP_KERNEL);
 		if (! fp) {
 			dev_err(&dev->dev, "cannot malloc\n");
@@ -725,6 +787,8 @@ int snd_usb_parse_audio_interface(struct snd_usb_audio *chip, int iface_no)
 			continue;
 		}
 
+		if (protocol == UAC_VERSION_3)
+			kfree(fmt);
 		/* Create chmap */
 		if (fp->channels != num_channels)
 			chconfig = 0;

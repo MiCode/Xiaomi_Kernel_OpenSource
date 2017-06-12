@@ -183,6 +183,9 @@ int msm_gpu_pm_resume(struct msm_gpu *gpu)
 	if (ret)
 		return ret;
 
+	if (gpu->aspace && gpu->aspace->mmu)
+		msm_mmu_enable(gpu->aspace->mmu);
+
 	return 0;
 }
 
@@ -202,6 +205,9 @@ int msm_gpu_pm_suspend(struct msm_gpu *gpu)
 
 	if (WARN_ON(gpu->active_cnt < 0))
 		return -EINVAL;
+
+	if (gpu->aspace && gpu->aspace->mmu)
+		msm_mmu_disable(gpu->aspace->mmu);
 
 	ret = disable_axi(gpu);
 	if (ret)
@@ -541,7 +547,7 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 	struct drm_device *dev = gpu->dev;
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_ringbuffer *ring = gpu->rb[submit->ring];
-	int i, ret;
+	int i;
 
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 
@@ -566,12 +572,15 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 		WARN_ON(is_active(msm_obj) && (msm_obj->gpu != gpu));
 
 		if (!is_active(msm_obj)) {
+			struct msm_gem_address_space *aspace;
 			uint64_t iova;
+
+			aspace = (msm_obj->flags & MSM_BO_SECURE) ?
+				gpu->secure_aspace : submit->aspace;
 
 			/* ring takes a reference to the bo and iova: */
 			drm_gem_object_reference(&msm_obj->base);
-			msm_gem_get_iova_locked(&msm_obj->base,
-					submit->aspace, &iova);
+			msm_gem_get_iova(&msm_obj->base, aspace, &iova);
 		}
 
 		if (submit->bos[i].flags & MSM_SUBMIT_BO_READ)
@@ -580,11 +589,11 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 			msm_gem_move_to_active(&msm_obj->base, gpu, true, submit->fence);
 	}
 
-	ret = gpu->funcs->submit(gpu, submit);
+	gpu->funcs->submit(gpu, submit);
 
 	hangcheck_timer_reset(gpu);
 
-	return ret;
+	return 0;
 }
 
 struct msm_context_counter {
@@ -751,11 +760,49 @@ static int get_clocks(struct platform_device *pdev, struct msm_gpu *gpu)
 	return 0;
 }
 
+static struct msm_gem_address_space *
+msm_gpu_create_address_space(struct msm_gpu *gpu, struct device *dev,
+		int type, u64 start, u64 end, const char *name)
+{
+	struct msm_gem_address_space *aspace;
+	struct iommu_domain *iommu;
+
+	/*
+	 * If start == end then assume we don't want an address space; this is
+	 * mainly for targets to opt out of secure
+	 */
+	if (start == end)
+		return NULL;
+
+	iommu = iommu_domain_alloc(&platform_bus_type);
+	if (!iommu) {
+		dev_info(gpu->dev->dev,
+			"%s: no IOMMU, fallback to VRAM carveout!\n",
+			gpu->name);
+		return NULL;
+	}
+
+	iommu->geometry.aperture_start = start;
+	iommu->geometry.aperture_end = end;
+
+	dev_info(gpu->dev->dev, "%s: using IOMMU '%s'\n", gpu->name, name);
+
+	aspace = msm_gem_address_space_create(dev, iommu, type, name);
+	if (IS_ERR(aspace)) {
+		dev_err(gpu->dev->dev, "%s: failed to init IOMMU '%s': %ld\n",
+			gpu->name, name, PTR_ERR(aspace));
+
+		iommu_domain_free(iommu);
+		aspace = NULL;
+	}
+
+	return aspace;
+}
+
 int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		struct msm_gpu *gpu, const struct msm_gpu_funcs *funcs,
 		const char *name, struct msm_gpu_config *config)
 {
-	struct iommu_domain *iommu;
 	int i, ret, nr_rings;
 
 	if (WARN_ON(gpu->num_perfcntrs > ARRAY_SIZE(gpu->last_cntrs)))
@@ -825,30 +872,13 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	if (IS_ERR(gpu->gpu_cx))
 		gpu->gpu_cx = NULL;
 
-	/* Setup IOMMU.. eventually we will (I think) do this once per context
-	 * and have separate page tables per context.  For now, to keep things
-	 * simple and to get something working, just use a single address space:
-	 */
-	iommu = iommu_domain_alloc(&platform_bus_type);
-	if (iommu) {
-		/* TODO 32b vs 64b address space.. */
-		iommu->geometry.aperture_start = config->va_start;
-		iommu->geometry.aperture_end = config->va_end;
+	gpu->aspace = msm_gpu_create_address_space(gpu, &pdev->dev,
+		MSM_IOMMU_DOMAIN_USER, config->va_start, config->va_end,
+		"gpu");
 
-		dev_info(drm->dev, "%s: using IOMMU\n", name);
-		gpu->aspace = msm_gem_address_space_create(&pdev->dev,
-				iommu, "gpu");
-		if (IS_ERR(gpu->aspace)) {
-			ret = PTR_ERR(gpu->aspace);
-			dev_err(drm->dev, "failed to init iommu: %d\n", ret);
-			gpu->aspace = NULL;
-			iommu_domain_free(iommu);
-			goto fail;
-		}
-
-	} else {
-		dev_info(drm->dev, "%s: no IOMMU, fallback to VRAM carveout!\n", name);
-	}
+	gpu->secure_aspace = msm_gpu_create_address_space(gpu, &pdev->dev,
+		MSM_IOMMU_DOMAIN_SECURE, config->secure_va_start,
+		config->secure_va_end, "gpu_secure");
 
 	nr_rings = config->nr_rings;
 
@@ -859,10 +889,8 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 
 	/* Create ringbuffer(s): */
 	for (i = 0; i < nr_rings; i++) {
-		mutex_lock(&drm->struct_mutex);
-		gpu->rb[i] = msm_ringbuffer_new(gpu, i);
-		mutex_unlock(&drm->struct_mutex);
 
+		gpu->rb[i] = msm_ringbuffer_new(gpu, i);
 		if (IS_ERR(gpu->rb[i])) {
 			ret = PTR_ERR(gpu->rb[i]);
 			gpu->rb[i] = NULL;

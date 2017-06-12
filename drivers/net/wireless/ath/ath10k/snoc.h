@@ -103,6 +103,15 @@ struct ath10k_service_notifier_context {
 	char name[QMI_SERVREG_LOC_NAME_LENGTH_V01 + 1];
 };
 
+/* struct ath10k_snoc_ce_irq: copy engine irq struct
+ * @irq_req_stat: irq request status
+ * @irq_line: irq line
+ */
+struct ath10k_snoc_ce_irq {
+	atomic_t irq_req_stat;
+	u32 irq_line;
+};
+
 /* struct ath10k_snoc: SNOC info struct
  * @dev: device structure
  * @ar:ath10k base structure
@@ -111,6 +120,7 @@ struct ath10k_service_notifier_context {
  * @target_info: snoc target info
  * @mem_len: mempry map length
  * @pipe_info: pipe info struct
+ * @ce_irqs: copy engine irq list
  * @ce_lock: protect ce structures
  * @ce_states: maps ce id to ce state
  * @rx_post_retry: rx buffer post processing timer
@@ -134,7 +144,7 @@ struct ath10k_snoc {
 	size_t mem_len;
 	struct ath10k_snoc_pipe pipe_info[CE_COUNT_MAX];
 	struct timer_list rx_post_retry;
-	u32 ce_irqs[CE_COUNT_MAX];
+	struct ath10k_snoc_ce_irq ce_irqs[CE_COUNT_MAX];
 	u32 *vaddr_rri_on_ddr;
 	bool is_driver_probed;
 	struct notifier_block modem_ssr_nb;

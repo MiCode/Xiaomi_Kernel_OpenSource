@@ -15,6 +15,7 @@
 #define _APR_AUDIO_V2_H_
 
 #include <linux/qdsp6v2/apr.h>
+#include <linux/msm_audio.h>
 
 /* size of header needed for passing data out of band */
 #define APR_CMD_OB_HDR_SZ  12
@@ -42,6 +43,8 @@ struct param_outband {
 #define ADM_MATRIX_ID_AUDIO_TX              1
 
 #define ADM_MATRIX_ID_COMPRESSED_AUDIO_RX   2
+
+#define ADM_MATRIX_ID_COMPRESSED_AUDIO_TX   3
 
 #define ADM_MATRIX_ID_LISTEN_TX             4
 /* Enumeration for an audio Tx matrix ID.*/
@@ -445,8 +448,23 @@ struct adm_param_data_v5 {
 
 #define ASM_STREAM_CMD_REGISTER_PP_EVENTS 0x00013213
 #define ASM_STREAM_PP_EVENT 0x00013214
+#define ASM_STREAM_CMD_REGISTER_IEC_61937_FMT_UPDATE 0x13333
+#define ASM_IEC_61937_MEDIA_FMT_EVENT 0x13334
+
 #define DSP_STREAM_CMD "ADSP Stream Cmd"
 #define DSP_STREAM_CALLBACK "ADSP Stream Callback Event"
+#define DSP_STREAM_CALLBACK_QUEUE_SIZE 1024
+
+struct dsp_stream_callback_list {
+	struct list_head list;
+	struct msm_adsp_event_data event;
+};
+
+struct dsp_stream_callback_prtd {
+	uint16_t event_count;
+	struct list_head event_queue;
+	spinlock_t prtd_spin_lock;
+};
 
 /* set customized mixing on matrix mixer */
 #define ADM_CMD_SET_PSPD_MTMX_STRTR_PARAMS_V5                        0x00010344
@@ -3993,6 +4011,32 @@ struct asm_generic_compressed_fmt_blk_t {
 
 } __packed;
 
+
+/* Command to send sample rate & channels for IEC61937 (compressed) or IEC60958
+ * (pcm) streams. Both audio standards use the same format and are used for
+ * HDMI or SPDIF.
+ */
+#define ASM_DATA_CMD_IEC_60958_MEDIA_FMT        0x0001321E
+
+struct asm_iec_compressed_fmt_blk_t {
+	struct apr_hdr hdr;
+
+	/*
+	 * Nominal sampling rate of the incoming bitstream.
+	 * Supported values: 8000, 11025, 16000, 22050, 24000, 32000,
+	 *                   44100, 48000, 88200, 96000, 176400, 192000,
+	 *                   352800, 384000
+	 */
+	uint32_t sampling_rate;
+
+	/*
+	 * Number of channels of the incoming bitstream.
+	 * Supported values: 1,2,3,4,5,6,7,8
+	 */
+	uint32_t num_channels;
+
+} __packed;
+
 struct asm_multi_channel_pcm_fmt_blk_v2 {
 	struct apr_hdr hdr;
 	struct asm_data_cmd_media_fmt_update_v2 fmt_blk;
@@ -5057,6 +5101,12 @@ struct asm_amrwbplus_fmt_blk_v2 {
 #define ASM_MEDIA_FMT_VORBIS                 0x00010C15
 #define ASM_MEDIA_FMT_APE                    0x00012F32
 #define ASM_MEDIA_FMT_DSD                    0x00012F3E
+#define ASM_MEDIA_FMT_TRUEHD                 0x00013215
+/* 0x0 is used for fomat ID since ADSP dynamically determines the
+ * format encapsulated in the IEC61937 (compressed) or IEC60958
+ * (pcm) packets.
+ */
+#define ASM_MEDIA_FMT_IEC                    0x00000000
 
 /* Media format ID for adaptive transform acoustic coding. This
  * ID is used by the #ASM_STREAM_CMD_OPEN_WRITE_COMPRESSED command
@@ -6319,6 +6369,62 @@ struct asm_stream_cmd_get_pp_params_v2 {
 } __packed;
 
 #define ASM_STREAM_CMD_SET_ENCDEC_PARAM 0x00010C10
+
+#define ASM_STREAM_CMD_SET_ENCDEC_PARAM_V2     0x00013218
+
+struct asm_stream_cmd_set_encdec_param_v2 {
+	u16                  service_id;
+	/* 0 - ASM_ENCODER_SVC; 1 - ASM_DECODER_SVC */
+
+	u16                  reserved;
+
+	u32                  param_id;
+	/* ID of the parameter. */
+
+	u32                  param_size;
+	/*
+	 * Data size of this parameter, in bytes. The size is a multiple
+	 * of 4 bytes.
+	 */
+} __packed;
+
+#define ASM_STREAM_CMD_REGISTER_ENCDEC_EVENTS  0x00013219
+
+#define ASM_STREAM_CMD_ENCDEC_EVENTS           0x0001321A
+
+#define AVS_PARAM_ID_RTIC_SHARED_MEMORY_ADDR   0x00013237
+
+struct avs_rtic_shared_mem_addr {
+	struct apr_hdr hdr;
+	struct asm_stream_cmd_set_encdec_param_v2  encdec;
+	u32                 shm_buf_addr_lsw;
+	/* Lower 32 bit of the RTIC shared memory */
+
+	u32                 shm_buf_addr_msw;
+	/* Upper 32 bit of the RTIC shared memory */
+
+	u32                 buf_size;
+	/* Size of buffer */
+
+	u16                 shm_buf_mem_pool_id;
+	/* ADSP_MEMORY_MAP_SHMEM8_4K_POOL */
+
+	u16                 shm_buf_num_regions;
+	/* number of regions to map */
+
+	u32                 shm_buf_flag;
+	/* buffer property flag */
+
+	struct avs_shared_map_region_payload map_region;
+	/* memory map region*/
+} __packed;
+
+#define AVS_PARAM_ID_RTIC_EVENT_ACK           0x00013238
+
+struct avs_param_rtic_event_ack {
+	struct apr_hdr hdr;
+	struct asm_stream_cmd_set_encdec_param_v2  encdec;
+} __packed;
 
 #define ASM_PARAM_ID_ENCDEC_BITRATE     0x00010C13
 
@@ -10319,10 +10425,33 @@ struct asm_session_mtmx_strtr_param_clk_rec_t {
 	u32                  flags;
 } __packed;
 
+
+/* Parameter used by #ASM_SESSION_MTMX_STRTR_MODULE_ID_AVSYNC to
+ * realize smoother adjustment of audio session clock for a specified session.
+ * The desired audio session clock adjustment(in micro seconds) is specified
+ * using the command #ASM_SESSION_CMD_ADJUST_SESSION_CLOCK_V2.
+ * Delaying/Advancing the session clock would be implemented by inserting
+ * interpolated/dropping audio samples in the playback path respectively.
+ * Also, this parameter has to be configured before the Audio Session is put
+ * to RUN state to avoid cold start latency/glitches in the playback.
+ */
+
+#define ASM_SESSION_MTMX_PARAM_ADJUST_SESSION_TIME_CTL         0x00013217
+
+struct asm_session_mtmx_param_adjust_session_time_ctl_t {
+	/* Specifies whether the module is enabled or not
+	 * @values
+	 * 0 -- disabled
+	 * 1 -- enabled
+	 */
+	u32                 enable;
+};
+
 union asm_session_mtmx_strtr_param_config {
 	struct asm_session_mtmx_strtr_param_window_v2_t window_param;
 	struct asm_session_mtmx_strtr_param_render_mode_t render_param;
 	struct asm_session_mtmx_strtr_param_clk_rec_t clk_rec_param;
+	struct asm_session_mtmx_param_adjust_session_time_ctl_t adj_time_param;
 } __packed;
 
 struct asm_mtmx_strtr_params {
@@ -10451,6 +10580,7 @@ enum {
 	COMPRESSED_PASSTHROUGH_DSD,
 	LISTEN,
 	COMPRESSED_PASSTHROUGH_GEN,
+	COMPRESSED_PASSTHROUGH_IEC61937
 };
 
 #define AUDPROC_MODULE_ID_COMPRESSED_MUTE                0x00010770

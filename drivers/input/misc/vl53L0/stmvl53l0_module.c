@@ -39,7 +39,6 @@
 #include "vl53l010_api.h"
 
 #define USE_INT
-
 /* #define DEBUG_TIME_LOG */
 #ifdef DEBUG_TIME_LOG
 struct timeval start_tv, stop_tv;
@@ -55,6 +54,7 @@ static struct stmvl53l0_module_fn_t stmvl53l0_module_func_tbl = {
 	.deinit = stmvl53l0_exit_cci,
 	.power_up = stmvl53l0_power_up_cci,
 	.power_down = stmvl53l0_power_down_cci,
+	.query_power_status = stmvl53l0_cci_power_status,
 };
 #else
 static struct stmvl53l0_module_fn_t stmvl53l0_module_func_tbl = {
@@ -62,6 +62,7 @@ static struct stmvl53l0_module_fn_t stmvl53l0_module_func_tbl = {
 	.deinit = stmvl53l0_exit_i2c,
 	.power_up = stmvl53l0_power_up_i2c,
 	.power_down = stmvl53l0_power_down_i2c,
+	.stmv53l0_cci_power_status = NULL;
 };
 #endif
 struct stmvl53l0_module_fn_t *pmodule_func_tbl;
@@ -956,6 +957,12 @@ static void stmvl53l0_work_handler(struct work_struct *work)
 	mutex_lock(&data->work_mutex);
 	/* vl53l0_dbgmsg("Enter\n"); */
 
+	if (pmodule_func_tbl->query_power_status(data->client_object) == 0) {
+		if (data->enable_ps_sensor == 1) {
+			stmvl53l0_stop(data);
+			data->enable_ps_sensor = 0;
+		}
+	}
 
 	if (vl53l0_dev->enable_ps_sensor == 1) {
 #ifdef DEBUG_TIME_LOG
@@ -2108,10 +2115,10 @@ static int stmvl53l0_init_client(struct stmvl53l0_data *data)
 	VL53L0_Error Status = VL53L0_ERROR_NONE;
 	VL53L0_DeviceInfo_t DeviceInfo;
 	VL53L0_DEV vl53l0_dev = data;
-	uint32_t refSpadCount;
-	uint8_t isApertureSpads;
-	uint8_t VhvSettings;
-	uint8_t PhaseCal;
+	uint32_t refSpadCount = 0;
+	uint8_t isApertureSpads = 0;
+	uint8_t VhvSettings = 0;
+	uint8_t PhaseCal = 0;
 
 
 	vl53l0_dbgmsg("Enter\n");
@@ -2373,17 +2380,17 @@ static int stmvl53l0_config_use_case(struct stmvl53l0_data *data)
 			vl53l0_dev,
 			VL53L0_CHECKENABLE_SIGMA_FINAL_RANGE,
 			 1);
-	}
 
-	if (Status == VL53L0_ERROR_NONE) {
-		Status = papi_func_tbl->SetLimitCheckEnable(
-			vl53l0_dev,
-			VL53L0_CHECKENABLE_SIGNAL_RATE_FINAL_RANGE,
-			 1);
-	} else {
-		vl53l0_errmsg(
-		"SetLimitCheckEnable(SIGMA_FINAL_RANGE) failed with errcode = %d\n",
-		 Status);
+		if (Status == VL53L0_ERROR_NONE) {
+			Status = papi_func_tbl->SetLimitCheckEnable(
+				vl53l0_dev,
+				VL53L0_CHECKENABLE_SIGNAL_RATE_FINAL_RANGE,
+				 1);
+		} else {
+			vl53l0_errmsg(
+			"SetLimitCheckEnable(SIGMA_FINAL_RANGE) failed with errcode = %d\n",
+			 Status);
+		}
 	}
 
 

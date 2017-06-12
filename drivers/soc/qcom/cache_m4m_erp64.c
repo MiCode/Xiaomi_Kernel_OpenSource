@@ -471,7 +471,7 @@ static int msm_cache_erp_probe(struct platform_device *pdev)
 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	hml3_base = devm_ioremap_resource(&pdev->dev, r);
 	if (IS_ERR(hml3_base)) {
-		dev_err(&pdev->dev, "failed to ioremap (0x%p)\n", hml3_base);
+		dev_err(&pdev->dev, "failed to ioremap (0x%pK)\n", hml3_base);
 		return PTR_ERR(hml3_base);
 	}
 
@@ -560,7 +560,7 @@ static int msm_m4m_erp_m4m_probe(struct platform_device *pdev)
 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	m4m_base = devm_ioremap_resource(&pdev->dev, r);
 	if (IS_ERR(m4m_base)) {
-		dev_err(&pdev->dev, "failed to ioremap (0x%p)\n", m4m_base);
+		dev_err(&pdev->dev, "failed to ioremap (0x%pK)\n", m4m_base);
 		return PTR_ERR(m4m_base);
 	}
 

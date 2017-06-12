@@ -96,6 +96,14 @@ First Level Node - FG Gen3 device
 		    This value has to be specified in negative values for
 		    the charging current.
 
+- qcom,fg-chg-term-base-current
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery current (in mA) upper boundary at which the fuel
+		    gauge will issue an end of charge during discharging. If
+		    this property is not specified, then the default value used
+		    will be 75mA.
+
 - qcom,fg-delta-soc-thr
 	Usage:      optional
 	Value type: <u32>
@@ -137,22 +145,44 @@ First Level Node - FG Gen3 device
 
 - qcom,fg-esr-timer-charging
 	Usage:      optional
-	Value type: <u32>
+	Value type: <prop-encoded-array>
 	Definition: Number of cycles between ESR pulses while the battery is
-		    charging.
+		    charging. Array of 2 elements if specified.
+		    Element 0 - Retry value for timer
+		    Element 1 - Maximum value for timer
 
 - qcom,fg-esr-timer-awake
 	Usage:      optional
-	Value type: <u32>
+	Value type: <prop-encoded-array>
 	Definition: Number of cycles between ESR pulses while the system is
-		    awake and the battery is discharging.
+		    awake and the battery is discharging. Array of 2 elements
+		    if specified.
+		    Element 0 - Retry value for timer
+		    Element 1 - Maximum value for timer
 
 - qcom,fg-esr-timer-asleep
 	Usage:      optional
-	Value type: <u32>
+	Value type: <prop-encoded-array>
 	Definition: Number of cycles between ESR pulses while the system is
 		    asleep and the battery is discharging. This option requires
-		    qcom,fg-esr-timer-awake to be defined.
+		    qcom,fg-esr-timer-awake to be defined. Array of 2 elements
+		    if specified.
+		    Element 0 - Retry value for timer
+		    Element 1 - Maximum value for timer
+
+- qcom,fg-esr-pulse-thresh-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: ESR pulse qualification threshold in mA. If this is not
+		    specified, a default value of 110 mA will be configured.
+		    Allowed values are from 1 to 997.
+
+- qcom,fg-esr-meas-curr-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: ESR measurement current in mA. If this is not specified,
+		    a default value of 120 mA will be configured. Allowed
+		    values are 60, 120, 180 and 240.
 
 - qcom,cycle-counter-en
 	Usage:      optional

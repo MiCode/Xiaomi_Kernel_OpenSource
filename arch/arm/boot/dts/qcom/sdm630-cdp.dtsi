@@ -192,3 +192,30 @@
 	qcom,partial-update-enabled = "single_roi";
 	qcom,panel-roi-alignment = <2 2 4 2 1080 2>;
 };
+
+&pm660l_pwm_4 {
+	qcom,dtest-line = <2>;   /* DTEST2 */
+	qcom,dtest-output = <2>; /* OUTPUT PWM */
+};
+
+&pm660l_gpios {
+	gpio@c500 {
+		qcom,mode = <1>;        /* DIG_OUT */
+		qcom,output-type = <0>; /* CMOS */
+		qcom,src-sel = <7>;     /* DTEST2 */
+		qcom,master-en = <1>;   /* Enable MPP */
+		qcom,invert = <0>;      /* Enable MPP */
+	};
+};
+
+&dsi_sharp_split_link_wuxga_video {
+	pwms = <&pm660l_pwm_4 0 0>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	qcom,mdss-dsi-bl-pwm-pmi;
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
+	qcom,panel-supply-entries = <&dsi_panel_split_link_pwr_supply>;
+};
+
+&dsi_rm67195_amoled_fhd_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_labibb_amoled>;
+};

@@ -172,17 +172,18 @@ void adreno_recover(struct msm_gpu *gpu)
 	enable_irq(gpu->irq);
 }
 
-int adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
+void adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	struct msm_ringbuffer *ring = gpu->rb[submit->ring];
-	unsigned i, ibs = 0;
+	unsigned i;
 
 	for (i = 0; i < submit->nr_cmds; i++) {
 		switch (submit->cmd[i].type) {
 		case MSM_SUBMIT_CMD_IB_TARGET_BUF:
 			/* ignore IB-targets */
 			break;
+		case MSM_SUBMIT_CMD_PROFILE_BUF:
 		case MSM_SUBMIT_CMD_CTX_RESTORE_BUF:
 				break;
 		case MSM_SUBMIT_CMD_BUF:
@@ -190,17 +191,10 @@ int adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 				CP_INDIRECT_BUFFER_PFE : CP_INDIRECT_BUFFER_PFD, 2);
 			OUT_RING(ring, lower_32_bits(submit->cmd[i].iova));
 			OUT_RING(ring, submit->cmd[i].size);
-			ibs++;
+			OUT_PKT2(ring);
 			break;
 		}
 	}
-
-	/* on a320, at least, we seem to need to pad things out to an
-	 * even number of qwords to avoid issue w/ CP hanging on wrap-
-	 * around:
-	 */
-	if (ibs % 2)
-		OUT_PKT2(ring);
 
 	OUT_PKT0(ring, REG_AXXX_CP_SCRATCH_REG2, 1);
 	OUT_RING(ring, submit->fence);
@@ -247,8 +241,6 @@ int adreno_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 #endif
 
 	gpu->funcs->flush(gpu, ring);
-
-	return 0;
 }
 
 void adreno_flush(struct msm_gpu *gpu, struct msm_ringbuffer *ring)
@@ -404,10 +396,6 @@ void adreno_wait_ring(struct msm_ringbuffer *ring, uint32_t ndwords)
 			ring->gpu->name, ring->id);
 }
 
-static const char *iommu_ports[] = {
-		"gfx3d_user",
-};
-
 /* Read the set of powerlevels */
 static int _adreno_get_pwrlevels(struct msm_gpu *gpu, struct device_node *node)
 {
@@ -523,10 +511,10 @@ static int adreno_of_parse(struct platform_device *pdev, struct msm_gpu *gpu)
 
 int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		struct adreno_gpu *adreno_gpu,
-		const struct adreno_gpu_funcs *funcs, int nr_rings)
+		const struct adreno_gpu_funcs *funcs,
+		struct msm_gpu_config *gpu_config)
 {
 	struct adreno_platform_config *config = pdev->dev.platform_data;
-	struct msm_gpu_config adreno_gpu_config  = { 0 };
 	struct msm_gpu *gpu = &adreno_gpu->base;
 	struct msm_mmu *mmu;
 	int ret;
@@ -540,26 +528,8 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	/* Get the rest of the target configuration from the device tree */
 	adreno_of_parse(pdev, gpu);
 
-	adreno_gpu_config.ioname = "kgsl_3d0_reg_memory";
-	adreno_gpu_config.irqname = "kgsl_3d0_irq";
-	adreno_gpu_config.nr_rings = nr_rings;
-
-	adreno_gpu_config.va_start = SZ_16M;
-	adreno_gpu_config.va_end = 0xffffffff;
-
-	if (adreno_gpu->revn >= 500) {
-		/* 5XX targets use a 64 bit region */
-		adreno_gpu_config.va_start = 0x800000000;
-		adreno_gpu_config.va_end = 0x8ffffffff;
-	} else {
-		adreno_gpu_config.va_start = 0x300000;
-		adreno_gpu_config.va_end = 0xffffffff;
-	}
-
-	adreno_gpu_config.nr_rings = nr_rings;
-
 	ret = msm_gpu_init(drm, pdev, &adreno_gpu->base, &funcs->base,
-			adreno_gpu->info->name, &adreno_gpu_config);
+			adreno_gpu->info->name, gpu_config);
 	if (ret)
 		return ret;
 
@@ -579,16 +549,22 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 
 	mmu = gpu->aspace->mmu;
 	if (mmu) {
-		ret = mmu->funcs->attach(mmu, iommu_ports,
-				ARRAY_SIZE(iommu_ports));
+		ret = mmu->funcs->attach(mmu, NULL, 0);
 		if (ret)
 			return ret;
 	}
 
-	mutex_lock(&drm->struct_mutex);
+	if (gpu->secure_aspace) {
+		mmu = gpu->secure_aspace->mmu;
+		if (mmu) {
+			ret = mmu->funcs->attach(mmu, NULL, 0);
+			if (ret)
+				return ret;
+		}
+	}
+
 	adreno_gpu->memptrs_bo = msm_gem_new(drm, sizeof(*adreno_gpu->memptrs),
 			MSM_BO_UNCACHED);
-	mutex_unlock(&drm->struct_mutex);
 	if (IS_ERR(adreno_gpu->memptrs_bo)) {
 		ret = PTR_ERR(adreno_gpu->memptrs_bo);
 		adreno_gpu->memptrs_bo = NULL;
@@ -627,6 +603,12 @@ void adreno_gpu_cleanup(struct adreno_gpu *gpu)
 	msm_gpu_cleanup(&gpu->base);
 
 	if (aspace) {
+		aspace->mmu->funcs->detach(aspace->mmu);
+		msm_gem_address_space_put(aspace);
+	}
+
+	if (gpu->base.secure_aspace) {
+		aspace = gpu->base.secure_aspace;
 		aspace->mmu->funcs->detach(aspace->mmu);
 		msm_gem_address_space_put(aspace);
 	}
@@ -721,7 +703,7 @@ static struct adreno_counter_group *get_counter_group(struct msm_gpu *gpu,
 		return ERR_PTR(-ENODEV);
 
 	if (groupid >= adreno_gpu->nr_counter_groups)
-		return ERR_PTR(-EINVAL);
+		return ERR_PTR(-ENODEV);
 
 	return (struct adreno_counter_group *)
 		adreno_gpu->counter_groups[groupid];
@@ -744,7 +726,7 @@ u64 adreno_read_counter(struct msm_gpu *gpu, u32 groupid, int counterid)
 	struct adreno_counter_group *group =
 		get_counter_group(gpu, groupid);
 
-	if (!IS_ERR(group) && group->funcs.read)
+	if (!IS_ERR_OR_NULL(group) && group->funcs.read)
 		return group->funcs.read(gpu, group, counterid);
 
 	return 0;
@@ -755,6 +737,6 @@ void adreno_put_counter(struct msm_gpu *gpu, u32 groupid, int counterid)
 	struct adreno_counter_group *group =
 		get_counter_group(gpu, groupid);
 
-	if (!IS_ERR(group) && group->funcs.put)
+	if (!IS_ERR_OR_NULL(group) && group->funcs.put)
 		group->funcs.put(gpu, group, counterid);
 }

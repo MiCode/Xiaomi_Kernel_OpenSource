@@ -271,7 +271,7 @@ static int ext4_page_crypto(struct inode *inode,
 	struct crypto_ablkcipher *tfm = ci->ci_ctfm;
 	int res = 0;
 
-	req = ablkcipher_request_alloc(tfm, GFP_NOFS);
+	req = ablkcipher_request_alloc(tfm, gfp_flags);
 	if (!req) {
 		printk_ratelimited(KERN_ERR
 				   "%s: crypto_request_alloc() failed\n",
@@ -497,11 +497,6 @@ static int ext4_d_revalidate(struct dentry *dentry, unsigned int flags)
 		return 0;
 	}
 	ci = EXT4_I(d_inode(dir))->i_crypt_info;
-	if (ci && ci->ci_keyring_key &&
-	    (ci->ci_keyring_key->flags & ((1 << KEY_FLAG_INVALIDATED) |
-					  (1 << KEY_FLAG_REVOKED) |
-					  (1 << KEY_FLAG_DEAD))))
-		ci = NULL;
 
 	/* this should eventually be an flag in d_flags */
 	cached_with_key = dentry->d_fsdata != NULL;

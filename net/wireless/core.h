@@ -208,16 +208,7 @@ struct cfg80211_event {
 	enum cfg80211_event_type type;
 
 	union {
-		struct {
-			u8 bssid[ETH_ALEN];
-			const u8 *req_ie;
-			const u8 *resp_ie;
-			size_t req_ie_len;
-			size_t resp_ie_len;
-			struct cfg80211_bss *bss;
-			int status; /* -1 = failed; 0..65535 = status code */
-			enum nl80211_timeout_reason timeout_reason;
-		} cr;
+		struct cfg80211_connect_resp_params cr;
 		struct {
 			const u8 *req_ie;
 			const u8 *resp_ie;
@@ -335,7 +326,7 @@ int cfg80211_mlme_auth(struct cfg80211_registered_device *rdev,
 		       const u8 *ssid, int ssid_len,
 		       const u8 *ie, int ie_len,
 		       const u8 *key, int key_len, int key_idx,
-		       const u8 *sae_data, int sae_data_len);
+		       const u8 *auth_data, int auth_data_len);
 int cfg80211_mlme_assoc(struct cfg80211_registered_device *rdev,
 			struct net_device *dev,
 			struct ieee80211_channel *chan,
@@ -373,12 +364,9 @@ int cfg80211_connect(struct cfg80211_registered_device *rdev,
 		     struct cfg80211_connect_params *connect,
 		     struct cfg80211_cached_keys *connkeys,
 		     const u8 *prev_bssid);
-void __cfg80211_connect_result(struct net_device *dev, const u8 *bssid,
-			       const u8 *req_ie, size_t req_ie_len,
-			       const u8 *resp_ie, size_t resp_ie_len,
-			       int status, bool wextev,
-			       struct cfg80211_bss *bss,
-			       enum nl80211_timeout_reason timeout_reason);
+void __cfg80211_connect_result(struct net_device *dev,
+			       struct cfg80211_connect_resp_params *params,
+			       bool wextev);
 void __cfg80211_disconnected(struct net_device *dev, const u8 *ie,
 			     size_t ie_len, u16 reason, bool from_ap);
 int cfg80211_disconnect(struct cfg80211_registered_device *rdev,

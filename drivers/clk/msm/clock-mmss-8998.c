@@ -359,6 +359,7 @@ static struct rcg_clk mdp_clk_src = {
 	.set_rate = set_rate_hid,
 	.freq_tbl = ftbl_mdp_clk_src,
 	.current_freq = &rcg_dummy_freq,
+	.non_local_children = true,
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "mdp_clk_src",

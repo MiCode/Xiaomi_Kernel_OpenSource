@@ -10,9 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#include "msm8998-pinctrl.dtsi"
 #include "msm8998-camera-sensor-cdp.dtsi"
-/ {
+&vendor {
 	bluetooth: bt_wcn3990 {
 		compatible = "qca,wcn3990";
 		qca,bt-vdd-io-supply = <&pm8998_s3>;
@@ -258,6 +257,8 @@
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,mdss-dsi-mode-sel-gpio-state = "dual_port";
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,partial-update-enabled = "single_roi";
+	qcom,panel-roi-alignment = <720 256 720 256 1440 256>;
 };
 
 &dsi_dual_nt35597_truly_video {

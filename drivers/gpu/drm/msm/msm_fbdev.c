@@ -104,10 +104,8 @@ static int msm_fbdev_create(struct drm_fb_helper *helper,
 	/* allocate backing bo */
 	size = mode_cmd.pitches[0] * mode_cmd.height;
 	DBG("allocating %d bytes for fb %d", size, dev->primary->index);
-	mutex_lock(&dev->struct_mutex);
 	fbdev->bo = msm_gem_new(dev, size, MSM_BO_SCANOUT |
 			MSM_BO_WC | MSM_BO_STOLEN);
-	mutex_unlock(&dev->struct_mutex);
 	if (IS_ERR(fbdev->bo)) {
 		ret = PTR_ERR(fbdev->bo);
 		fbdev->bo = NULL;
@@ -133,7 +131,7 @@ static int msm_fbdev_create(struct drm_fb_helper *helper,
 	 * in panic (ie. lock-safe, etc) we could avoid pinning the
 	 * buffer now:
 	 */
-	ret = msm_gem_get_iova_locked(fbdev->bo, 0, &paddr);
+	ret = msm_gem_get_iova(fbdev->bo, 0, &paddr);
 	if (ret) {
 		dev_err(dev->dev, "failed to get buffer obj iova: %d\n", ret);
 		goto fail_unlock;
@@ -163,7 +161,7 @@ static int msm_fbdev_create(struct drm_fb_helper *helper,
 	/* FIXME: Verify paddr < 32 bits? */
 	dev->mode_config.fb_base = lower_32_bits(paddr);
 
-	fbi->screen_base = msm_gem_vaddr_locked(fbdev->bo);
+	fbi->screen_base = msm_gem_vaddr(fbdev->bo);
 	fbi->screen_size = fbdev->bo->size;
 	fbi->fix.smem_start = lower_32_bits(paddr);
 	fbi->fix.smem_len = fbdev->bo->size;

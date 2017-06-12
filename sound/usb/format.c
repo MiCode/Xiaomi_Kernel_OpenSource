@@ -20,6 +20,7 @@
 #include <linux/usb.h>
 #include <linux/usb/audio.h>
 #include <linux/usb/audio-v2.h>
+#include <linux/usb/audio-v3.h>
 
 #include <sound/core.h>
 #include <sound/pcm.h>
@@ -67,6 +68,35 @@ static u64 parse_audio_format_i_type(struct snd_usb_audio *chip,
 			pcm_formats |= SNDRV_PCM_FMTBIT_SPECIAL;
 
 		format <<= 1;
+		break;
+	}
+
+	case UAC_VERSION_3: {
+		switch (fp->maxpacksize) {
+		case BADD_MAXPSIZE_SYNC_MONO_16:
+		case BADD_MAXPSIZE_SYNC_STEREO_16:
+		case BADD_MAXPSIZE_ASYNC_MONO_16:
+		case BADD_MAXPSIZE_ASYNC_STEREO_16: {
+			sample_width = BIT_RES_16_BIT;
+			sample_bytes = SUBSLOTSIZE_16_BIT;
+			break;
+		}
+
+		case BADD_MAXPSIZE_SYNC_MONO_24:
+		case BADD_MAXPSIZE_SYNC_STEREO_24:
+		case BADD_MAXPSIZE_ASYNC_MONO_24:
+		case BADD_MAXPSIZE_ASYNC_STEREO_24: {
+			sample_width = BIT_RES_24_BIT;
+			sample_bytes = SUBSLOTSIZE_24_BIT;
+			break;
+		}
+
+		default:
+			usb_audio_err(chip, "%u:%d : Invalid wMaxPacketSize\n",
+				      fp->iface, fp->altsetting);
+			return pcm_formats;
+		}
+		format = 1 << format;
 		break;
 	}
 	}
@@ -366,6 +396,22 @@ err:
 	return ret;
 }
 
+static int badd_set_audio_rate_v3(struct snd_usb_audio *chip,
+		   struct audioformat *fp)
+{
+	unsigned int rate;
+
+	fp->rate_table = kmalloc(sizeof(int), GFP_KERNEL);
+	if (fp->rate_table == NULL)
+		return -ENOMEM;
+
+	fp->nr_rates = 1;
+	rate = BADD_SAMPLING_RATE;
+	fp->rate_min = fp->rate_max = fp->rate_table[0] = rate;
+	fp->rates |= snd_pcm_rate_to_rate_bit(rate);
+	return 0;
+}
+
 /*
  * parse the format type I and III descriptors
  */
@@ -414,6 +460,9 @@ static int parse_audio_format_i(struct snd_usb_audio *chip,
 	case UAC_VERSION_2:
 		/* fp->channels is already set in this case */
 		ret = parse_audio_format_rates_v2(chip, fp);
+		break;
+	case UAC_VERSION_3:
+		ret = badd_set_audio_rate_v3(chip, fp);
 		break;
 	}
 
@@ -502,7 +551,10 @@ int snd_usb_parse_audio_format(struct snd_usb_audio *chip,
 			 fmt->bFormatType);
 		return -ENOTSUPP;
 	}
-	fp->fmt_type = fmt->bFormatType;
+	if (fp->protocol == UAC_VERSION_3)
+		fp->fmt_type = UAC_FORMAT_TYPE_I;
+	else
+		fp->fmt_type = fmt->bFormatType;
 	if (err < 0)
 		return err;
 #if 1

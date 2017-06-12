@@ -13,7 +13,7 @@
 #define BTFM_SLIM_H
 #include <linux/slimbus/slimbus.h>
 
-#define BTFMSLIM_DBG(fmt, arg...)  pr_debug(fmt "\n", ## arg)
+#define BTFMSLIM_DBG(fmt, arg...)  pr_debug("%s: " fmt "\n", __func__, ## arg)
 #define BTFMSLIM_INFO(fmt, arg...) pr_info("%s: " fmt "\n", __func__, ## arg)
 #define BTFMSLIM_ERR(fmt, arg...)  pr_err("%s: " fmt "\n", __func__, ## arg)
 
@@ -68,6 +68,7 @@ struct btfmslim {
 
 	uint32_t num_rx_port;
 	uint32_t num_tx_port;
+	uint32_t sample_rate;
 
 	struct btfmslim_ch *rx_chs;
 	struct btfmslim_ch *tx_chs;

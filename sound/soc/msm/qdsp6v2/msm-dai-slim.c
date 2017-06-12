@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -314,7 +314,7 @@ static int msm_dai_slim_prepare(struct snd_pcm_substream *substream,
 	struct msm_slim_dai_data *dai_data = NULL;
 	struct slim_ch prop;
 	int rc;
-	u8 i;
+	u8 i, j;
 
 	dai_data = msm_slim_get_dai_data(drv_data, dai);
 	if (!dai_data) {
@@ -351,10 +351,6 @@ static int msm_dai_slim_prepare(struct snd_pcm_substream *substream,
 		}
 	}
 
-	/* To decrement the channel ref count*/
-	for (i = 0; i < dai_data->ch_cnt; i++)
-		slim_dealloc_ch(drv_data->sdev, dai_data->chan_h[i]);
-
 	prop.prot = SLIM_AUTO_ISO;
 	prop.baser = SLIM_RATE_4000HZ;
 	prop.dataf = SLIM_CH_DATAF_NOT_DEFINED;
@@ -378,6 +374,8 @@ static int msm_dai_slim_prepare(struct snd_pcm_substream *substream,
 
 error_define_chan:
 error_chan_query:
+	for (j = 0; j < i; j++)
+		slim_dealloc_ch(drv_data->sdev, dai_data->chan_h[j]);
 	return rc;
 }
 
@@ -387,6 +385,7 @@ static void msm_dai_slim_shutdown(struct snd_pcm_substream *stream,
 	struct msm_dai_slim_drv_data *drv_data = dev_get_drvdata(dai->dev);
 	struct msm_slim_dma_data *dma_data = NULL;
 	struct msm_slim_dai_data *dai_data;
+	int i, rc = 0;
 
 	dai_data = msm_slim_get_dai_data(drv_data, dai);
 	dma_data = snd_soc_dai_get_dma_data(dai, stream);
@@ -403,6 +402,15 @@ static void msm_dai_slim_shutdown(struct snd_pcm_substream *stream,
 			"%s: dai id (%d) has invalid state 0x%x\n",
 			__func__, dai->id, dai_data->status);
 		return;
+	}
+
+	for (i = 0; i < dai_data->ch_cnt; i++) {
+		rc = slim_dealloc_ch(drv_data->sdev, dai_data->chan_h[i]);
+		if (rc) {
+			dev_err(dai->dev,
+				"%s: dealloc_ch failed, err = %d\n",
+				__func__, rc);
+		}
 	}
 
 	snd_soc_dai_set_dma_data(dai, stream, NULL);

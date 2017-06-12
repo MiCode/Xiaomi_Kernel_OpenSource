@@ -118,12 +118,7 @@ static void kryo_write_pmresr(int reg, int l_h, u32 val)
 
 static u32 kryo_read_pmresr(int reg, int l_h)
 {
-	u32 val;
-
-	if (reg > KRYO_MAX_L1_REG) {
-		pr_err("Invalid read of RESR reg %d\n", reg);
-		return 0;
-	}
+	u32 val = 0;
 
 	if (l_h == RESR_L) {
 		switch (reg) {
@@ -136,6 +131,9 @@ static u32 kryo_read_pmresr(int reg, int l_h)
 		case 2:
 			asm volatile("mrs %0, " pmresr2l_el0 : "=r" (val));
 			break;
+		default:
+			WARN_ONCE(1, "Invalid read of RESR reg %d\n", reg);
+			break;
 		}
 	} else {
 		switch (reg) {
@@ -147,6 +145,9 @@ static u32 kryo_read_pmresr(int reg, int l_h)
 			break;
 		case 2:
 			asm volatile("mrs %0," pmresr2h_el0 : "=r" (val));
+			break;
+		default:
+			WARN_ONCE(1, "Invalid read of RESR reg %d\n", reg);
 			break;
 		}
 	}

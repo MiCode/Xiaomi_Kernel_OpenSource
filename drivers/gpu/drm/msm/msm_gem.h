@@ -20,26 +20,22 @@
 
 #include <linux/kref.h>
 #include <linux/reservation.h>
+#include <linux/mmu_notifier.h>
+#include <linux/interval_tree.h>
 #include "msm_drv.h"
 
 /* Additional internal-use only BO flags: */
 #define MSM_BO_STOLEN        0x10000000    /* try to use stolen/splash memory */
-
-struct msm_gem_aspace_ops {
-	int (*map)(struct msm_gem_address_space *, struct msm_gem_vma *,
-		struct sg_table *sgt, void *priv, unsigned int flags);
-
-	void (*unmap)(struct msm_gem_address_space *, struct msm_gem_vma *,
-		struct sg_table *sgt, void *priv);
-
-	void (*destroy)(struct msm_gem_address_space *);
-};
+#define MSM_BO_LOCKED        0x20000000    /* Pages have been securely locked */
+#define MSM_BO_SVM           0x40000000    /* bo is SVM */
 
 struct msm_gem_address_space {
 	const char *name;
 	struct msm_mmu *mmu;
-	const struct msm_gem_aspace_ops *ops;
 	struct kref kref;
+	struct drm_mm mm;
+	spinlock_t lock; /* Protects drm_mm node allocation/removal */
+	u64 va_len;
 };
 
 struct msm_gem_vma {
@@ -88,8 +84,35 @@ struct msm_gem_object {
 	 * an IOMMU.  Also used for stolen/splashscreen buffer.
 	 */
 	struct drm_mm_node *vram_node;
+	struct mutex lock; /* Protects resources associated with bo */
 };
 #define to_msm_bo(x) container_of(x, struct msm_gem_object, base)
+
+struct msm_mmu_notifier {
+	struct mmu_notifier mn;
+	struct mm_struct *mm; /* mm_struct owning the mmu notifier mn */
+	struct hlist_node node;
+	struct rb_root svm_tree; /* interval tree holding all svm bos */
+	spinlock_t svm_tree_lock; /* Protects svm_tree*/
+	struct msm_drm_private *msm_dev;
+	struct kref refcount;
+};
+
+struct msm_gem_svm_object {
+	struct msm_gem_object msm_obj_base;
+	uint64_t hostptr;
+	struct mm_struct *mm; /* mm_struct the svm bo belongs to */
+	struct interval_tree_node svm_node;
+	struct msm_mmu_notifier *msm_mn;
+	struct list_head lnode;
+	/* bo has been unmapped on CPU, cannot be part of GPU submits */
+	bool invalid;
+};
+
+#define to_msm_svm_obj(x) \
+	((struct msm_gem_svm_object *) \
+	 container_of(x, struct msm_gem_svm_object, msm_obj_base))
+
 
 static inline bool is_active(struct msm_gem_object *msm_obj)
 {
@@ -109,8 +132,6 @@ static inline uint32_t msm_gem_fence(struct msm_gem_object *msm_obj,
 	return fence;
 }
 
-#define MAX_CMDS 4
-
 /* Created per submit-ioctl, to track bo's and cmdstream bufs, etc,
  * associated with the cmdstream submission for synchronization (and
  * make it easier to unwind when things go wrong, etc).  This only
@@ -125,6 +146,9 @@ struct msm_gem_submit {
 	uint32_t fence;
 	int ring;
 	bool valid;
+	uint64_t profile_buf_iova;
+	void *profile_buf_vaddr;
+	bool secure;
 	unsigned int nr_cmds;
 	unsigned int nr_bos;
 	struct {
@@ -132,7 +156,7 @@ struct msm_gem_submit {
 		uint32_t size;  /* in dwords */
 		uint64_t iova;
 		uint32_t idx;   /* cmdstream buffer idx in bos[] */
-	} cmd[MAX_CMDS];
+	} *cmd;  /* array of size nr_cmds */
 	struct {
 		uint32_t flags;
 		struct msm_gem_object *obj;

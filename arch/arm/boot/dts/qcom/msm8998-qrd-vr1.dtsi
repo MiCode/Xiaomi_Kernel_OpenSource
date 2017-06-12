@@ -219,7 +219,7 @@
 	};
 };
 
-/{
+&vendor {
 	qrd_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
 		#include "fg-gen3-batterydata-qrd-skuk-4v4-3000mah.dtsi"
@@ -420,8 +420,8 @@
 	qcom,platform-te-gpio = <&tlmm 10 0>;
 	qcom,platform-enable-gpio = <&tlmm 52 0>;
 	qcom,platform-reset-gpio = <&tlmm 94 0>;
-	qcom,platform-bklight-en-gpio = <&pmi8998_gpios 1 0>;
-	qcom,platform-bklight-en-gpio-invert;
+	qcom,platform-avdd-en-gpio = <&pmi8998_gpios 1 0>;
+	qcom,platform-avdd-en-gpio-invert;
 };
 
 &mdss_dsi1 {
@@ -432,8 +432,8 @@
 	qcom,platform-te-gpio = <&tlmm 10 0>;
 	qcom,platform-enable-gpio = <&tlmm 52 0>;
 	qcom,platform-reset-gpio = <&tlmm 94 0>;
-	qcom,platform-bklight-en-gpio = <&pmi8998_gpios 1 0>;
-	qcom,platform-bklight-en-gpio-invert;
+	qcom,platform-avdd-en-gpio = <&pmi8998_gpios 1 0>;
+	qcom,platform-avdd-en-gpio-invert;
 };
 
 &pmi8998_wled {
@@ -447,7 +447,7 @@
 };
 
 &pmi8998_gpios {
-	/* GPIO 1 for WLED power enable */
+	/* GPIO 1 for AVDD power enable */
 	gpio@c000 {
 		qcom,mode = <1>;
 		qcom,output-type = <0>;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,11 +12,13 @@
 
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <soc/qcom/icnss.h>
 
 #define ICNSS_MAX_CH_NUM 45
 
 static DEFINE_MUTEX(unsafe_channel_list_lock);
-static DEFINE_MUTEX(dfs_nol_info_lock);
+static DEFINE_SPINLOCK(dfs_nol_info_lock);
+static int driver_load_cnt;
 
 static struct icnss_unsafe_channel_list {
 	u16 unsafe_ch_count;
@@ -77,27 +79,24 @@ EXPORT_SYMBOL(icnss_get_wlan_unsafe_channel);
 int icnss_wlan_set_dfs_nol(const void *info, u16 info_len)
 {
 	void *temp;
+	void *old_nol_info;
 	struct icnss_dfs_nol_info *dfs_info;
 
-	mutex_lock(&dfs_nol_info_lock);
-	if (!info || !info_len) {
-		mutex_unlock(&dfs_nol_info_lock);
+	if (!info || !info_len)
 		return -EINVAL;
-	}
 
-	temp = kmalloc(info_len, GFP_KERNEL);
-	if (!temp) {
-		mutex_unlock(&dfs_nol_info_lock);
+	temp = kmalloc(info_len, GFP_ATOMIC);
+	if (!temp)
 		return -ENOMEM;
-	}
 
 	memcpy(temp, info, info_len);
+	spin_lock_bh(&dfs_nol_info_lock);
 	dfs_info = &dfs_nol_info;
-	kfree(dfs_info->dfs_nol_info);
-
+	old_nol_info = dfs_info->dfs_nol_info;
 	dfs_info->dfs_nol_info = temp;
 	dfs_info->dfs_nol_info_len = info_len;
-	mutex_unlock(&dfs_nol_info_lock);
+	spin_unlock_bh(&dfs_nol_info_lock);
+	kfree(old_nol_info);
 
 	return 0;
 }
@@ -108,25 +107,34 @@ int icnss_wlan_get_dfs_nol(void *info, u16 info_len)
 	int len;
 	struct icnss_dfs_nol_info *dfs_info;
 
-	mutex_lock(&dfs_nol_info_lock);
-	if (!info || !info_len) {
-		mutex_unlock(&dfs_nol_info_lock);
+	if (!info || !info_len)
 		return -EINVAL;
-	}
+
+	spin_lock_bh(&dfs_nol_info_lock);
 
 	dfs_info = &dfs_nol_info;
-
 	if (dfs_info->dfs_nol_info == NULL ||
 	    dfs_info->dfs_nol_info_len == 0) {
-		mutex_unlock(&dfs_nol_info_lock);
+		spin_unlock_bh(&dfs_nol_info_lock);
 		return -ENOENT;
 	}
 
 	len = min(info_len, dfs_info->dfs_nol_info_len);
-
 	memcpy(info, dfs_info->dfs_nol_info, len);
-	mutex_unlock(&dfs_nol_info_lock);
+	spin_unlock_bh(&dfs_nol_info_lock);
 
 	return len;
 }
 EXPORT_SYMBOL(icnss_wlan_get_dfs_nol);
+
+void icnss_increment_driver_load_cnt(void)
+{
+	++driver_load_cnt;
+}
+EXPORT_SYMBOL(icnss_increment_driver_load_cnt);
+
+int icnss_get_driver_load_cnt(void)
+{
+	return driver_load_cnt;
+}
+EXPORT_SYMBOL(icnss_get_driver_load_cnt);

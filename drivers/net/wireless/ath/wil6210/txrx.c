@@ -37,6 +37,10 @@ bool rx_align_2;
 module_param(rx_align_2, bool, 0444);
 MODULE_PARM_DESC(rx_align_2, " align Rx buffers on 4*n+2, default - no");
 
+bool rx_large_buf;
+module_param(rx_large_buf, bool, 0444);
+MODULE_PARM_DESC(rx_large_buf, " allocate 8KB RX buffers, default - no");
+
 static inline uint wil_rx_snaplen(void)
 {
 	return rx_align_2 ? 6 : 0;
@@ -98,6 +102,51 @@ static inline int wil_vring_avail_low(struct vring *vring)
 static inline int wil_vring_avail_high(struct vring *vring)
 {
 	return wil_vring_avail_tx(vring) > wil_vring_wmark_high(vring);
+}
+
+/* returns true when all tx vrings are empty */
+bool wil_is_tx_idle(struct wil6210_priv *wil)
+{
+	int i;
+	unsigned long data_comp_to;
+
+	for (i = 0; i < WIL6210_MAX_TX_RINGS; i++) {
+		struct vring *vring = &wil->vring_tx[i];
+		int vring_index = vring - wil->vring_tx;
+		struct vring_tx_data *txdata = &wil->vring_tx_data[vring_index];
+
+		spin_lock(&txdata->lock);
+
+		if (!vring->va || !txdata->enabled) {
+			spin_unlock(&txdata->lock);
+			continue;
+		}
+
+		data_comp_to = jiffies + msecs_to_jiffies(
+					WIL_DATA_COMPLETION_TO_MS);
+		if (test_bit(wil_status_napi_en, wil->status)) {
+			while (!wil_vring_is_empty(vring)) {
+				if (time_after(jiffies, data_comp_to)) {
+					wil_dbg_pm(wil,
+						   "TO waiting for idle tx\n");
+					spin_unlock(&txdata->lock);
+					return false;
+				}
+				wil_dbg_ratelimited(wil,
+						    "tx vring is not empty -> NAPI\n");
+				spin_unlock(&txdata->lock);
+				napi_synchronize(&wil->napi_tx);
+				msleep(20);
+				spin_lock(&txdata->lock);
+				if (!vring->va || !txdata->enabled)
+					break;
+			}
+		}
+
+		spin_unlock(&txdata->lock);
+	}
+
+	return true;
 }
 
 /* wil_val_in_range - check if value in [min,max) */
@@ -255,7 +304,7 @@ static int wil_vring_alloc_skb(struct wil6210_priv *wil, struct vring *vring,
 			       u32 i, int headroom)
 {
 	struct device *dev = wil_to_dev(wil);
-	unsigned int sz = mtu_max + ETH_HLEN + wil_rx_snaplen();
+	unsigned int sz = wil->rx_buf_len + ETH_HLEN + wil_rx_snaplen();
 	struct vring_rx_desc dd, *d = &dd;
 	volatile struct vring_rx_desc *_d = &vring->va[i].rx;
 	dma_addr_t pa;
@@ -402,6 +451,18 @@ static inline int wil_is_back_req(u8 fc)
 	       (IEEE80211_FTYPE_CTL | IEEE80211_STYPE_BACK_REQ);
 }
 
+bool wil_is_rx_idle(struct wil6210_priv *wil)
+{
+	struct vring_rx_desc *_d;
+	struct vring *vring = &wil->vring_rx;
+
+	_d = (struct vring_rx_desc *)&vring->va[vring->swhead].rx;
+	if (_d->dma.status & RX_DMA_STATUS_DU)
+		return false;
+
+	return true;
+}
+
 /**
  * reap 1 frame from @swhead
  *
@@ -419,7 +480,7 @@ static struct sk_buff *wil_vring_reap_rx(struct wil6210_priv *wil,
 	struct sk_buff *skb;
 	dma_addr_t pa;
 	unsigned int snaplen = wil_rx_snaplen();
-	unsigned int sz = mtu_max + ETH_HLEN + snaplen;
+	unsigned int sz = wil->rx_buf_len + ETH_HLEN + snaplen;
 	u16 dmalen;
 	u8 ftype;
 	int cid;
@@ -780,6 +841,20 @@ void wil_rx_handle(struct wil6210_priv *wil, int *quota)
 	wil_rx_refill(wil, v->size);
 }
 
+static void wil_rx_buf_len_init(struct wil6210_priv *wil)
+{
+	wil->rx_buf_len = rx_large_buf ?
+		WIL_MAX_ETH_MTU : TXRX_BUF_LEN_DEFAULT - WIL_MAX_MPDU_OVERHEAD;
+	if (mtu_max > wil->rx_buf_len) {
+		/* do not allow RX buffers to be smaller than mtu_max, for
+		 * backward compatibility (mtu_max parameter was also used
+		 * to support receiving large packets)
+		 */
+		wil_info(wil, "Override RX buffer to mtu_max(%d)\n", mtu_max);
+		wil->rx_buf_len = mtu_max;
+	}
+}
+
 int wil_rx_init(struct wil6210_priv *wil, u16 size)
 {
 	struct vring *vring = &wil->vring_rx;
@@ -791,6 +866,8 @@ int wil_rx_init(struct wil6210_priv *wil, u16 size)
 		wil_err(wil, "Rx ring already allocated\n");
 		return -EINVAL;
 	}
+
+	wil_rx_buf_len_init(wil);
 
 	vring->size = size;
 	rc = wil_vring_alloc(wil, vring);
@@ -1792,6 +1869,15 @@ static int wil_tx_vring(struct wil6210_priv *wil, struct vring *vring,
 
 	spin_lock(&txdata->lock);
 
+	if (test_bit(wil_status_suspending, wil->status) ||
+	    test_bit(wil_status_suspended, wil->status) ||
+	    test_bit(wil_status_resuming, wil->status)) {
+		wil_dbg_txrx(wil,
+			     "suspend/resume in progress. drop packet\n");
+		spin_unlock(&txdata->lock);
+		return -EINVAL;
+	}
+
 	rc = (skb_is_gso(skb) ? __wil_tx_vring_tso : __wil_tx_vring)
 	     (wil, vring, skb);
 
@@ -1843,6 +1929,11 @@ static inline void __wil_update_net_queues(struct wil6210_priv *wil,
 		}
 		return;
 	}
+
+	/* Do not wake the queues in suspend flow */
+	if (test_bit(wil_status_suspending, wil->status) ||
+	    test_bit(wil_status_suspended, wil->status))
+		return;
 
 	/* check wake */
 	for (i = 0; i < WIL6210_MAX_TX_RINGS; i++) {

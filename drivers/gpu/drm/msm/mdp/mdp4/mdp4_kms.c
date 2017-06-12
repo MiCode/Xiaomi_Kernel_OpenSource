@@ -184,8 +184,7 @@ static void mdp4_preclose(struct msm_kms *kms, struct drm_file *file)
 		mdp4_crtc_cancel_pending_flip(priv->crtcs[i], file);
 
 	if (aspace) {
-		aspace->mmu->funcs->detach(aspace->mmu,
-				iommu_ports, ARRAY_SIZE(iommu_ports));
+		aspace->mmu->funcs->detach(aspace->mmu);
 		msm_gem_address_space_destroy(aspace);
 	}
 }
@@ -202,8 +201,7 @@ static void mdp4_destroy(struct msm_kms *kms)
 		drm_gem_object_unreference_unlocked(mdp4_kms->blank_cursor_bo);
 
 	if (aspace) {
-		aspace->mmu->funcs->detach(aspace->mmu,
-				iommu_ports, ARRAY_SIZE(iommu_ports));
+		aspace->mmu->funcs->detach(aspace->mmu);
 		msm_gem_address_space_put(aspace);
 	}
 
@@ -416,10 +414,6 @@ fail:
 	return ret;
 }
 
-static const char *iommu_ports[] = {
-		"mdp_port0_cb0", "mdp_port1_cb0",
-};
-
 struct msm_kms *mdp4_kms_init(struct drm_device *dev)
 {
 	struct platform_device *pdev = dev->platformdev;
@@ -515,15 +509,11 @@ struct msm_kms *mdp4_kms_init(struct drm_device *dev)
 	mdelay(16);
 
 	if (config->iommu) {
-		struct msm_mmu *mmu = msm_iommu_new(&pdev->dev, config->iommu);
-
-		if (IS_ERR(mmu)) {
-			ret = PTR_ERR(mmu);
-			goto fail;
-		}
+		config->iommu->geometry.aperture_start = 0x1000;
+		config->iommu->geometry.aperture_end = 0xffffffff;
 
 		aspace = msm_gem_address_space_create(&pdev->dev,
-				mmu, "mdp4", 0x1000, 0xffffffff);
+			config->iommu, MSM_IOMMU_DOMAIN_DEFAULT, "mdp4");
 		if (IS_ERR(aspace)) {
 			ret = PTR_ERR(aspace);
 			goto fail;
@@ -531,8 +521,7 @@ struct msm_kms *mdp4_kms_init(struct drm_device *dev)
 
 		mdp4_kms->aspace = aspace;
 
-		ret = aspace->mmu->funcs->attach(aspace->mmu, iommu_ports,
-				ARRAY_SIZE(iommu_ports));
+		ret = aspace->mmu->funcs->attach(aspace->mmu, NULL, 0);
 		if (ret)
 			goto fail;
 	} else {
@@ -547,9 +536,7 @@ struct msm_kms *mdp4_kms_init(struct drm_device *dev)
 		goto fail;
 	}
 
-	mutex_lock(&dev->struct_mutex);
 	mdp4_kms->blank_cursor_bo = msm_gem_new(dev, SZ_16K, MSM_BO_WC);
-	mutex_unlock(&dev->struct_mutex);
 	if (IS_ERR(mdp4_kms->blank_cursor_bo)) {
 		ret = PTR_ERR(mdp4_kms->blank_cursor_bo);
 		dev_err(dev->dev, "could not allocate blank-cursor bo: %d\n", ret);

@@ -1416,6 +1416,7 @@ static enum power_supply_property smb1351_parallel_properties[] = {
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
 	POWER_SUPPLY_PROP_PARALLEL_MODE,
+	POWER_SUPPLY_PROP_INPUT_SUSPEND,
 };
 
 static int smb1351_parallel_set_chg_suspend(struct smb1351_charger *chip,
@@ -1701,6 +1702,9 @@ static int smb1351_parallel_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_PARALLEL_MODE:
 		val->intval = chip->parallel_mode;
+		break;
+	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+		val->intval = chip->parallel_charger_suspended;
 		break;
 	default:
 		return -EINVAL;

@@ -117,13 +117,14 @@
 		clocks = <&clock_mmss MMSS_MNOC_AHB_CLK>,
 			 <&clock_mmss MMSS_MDSS_AHB_CLK>,
 			 <&clock_mmss MMSS_MDSS_AXI_CLK>,
+			 <&clock_mmss MMSS_THROTTLE_MDSS_AXI_CLK>,
 			 <&clock_mmss MDP_CLK_SRC>,
 			 <&clock_mmss MMSS_MDSS_MDP_CLK>,
 			 <&clock_mmss MMSS_MDSS_VSYNC_CLK>,
 			 <&clock_mmss MDP_CLK_SRC>;
 		clock-names = "mnoc_clk", "iface_clk", "bus_clk",
-				"core_clk_src", "core_clk", "vsync_clk",
-				"lut_clk";
+				"throttle_bus_clk", "core_clk_src",
+				"core_clk", "vsync_clk", "lut_clk";
 
 		qcom,mdp-settings = <0x01190 0x00000000>,
 				    <0x012ac 0xc0000ccc>,
@@ -505,7 +506,16 @@
 
 		qcom,msm_ext_disp = <&msm_ext_disp>;
 
-		qcom,aux-cfg-settings = [00 13 00 00 0a 28 0a 03 b7 03];
+		qcom,aux-cfg0-settings = [20 00];
+		qcom,aux-cfg1-settings = [24 13 23 1d];
+		qcom,aux-cfg2-settings = [28 00];
+		qcom,aux-cfg3-settings = [2c 00];
+		qcom,aux-cfg4-settings = [30 0a];
+		qcom,aux-cfg5-settings = [34 28];
+		qcom,aux-cfg6-settings = [38 0a];
+		qcom,aux-cfg7-settings = [3c 03];
+		qcom,aux-cfg8-settings = [40 b7];
+		qcom,aux-cfg9-settings = [44 03];
 		qcom,logical2physical-lane-map = [00 01 02 03];
 		qcom,phy-register-offset = <0x4>;
 		qcom,max-pclk-frequency-khz = <300000>;

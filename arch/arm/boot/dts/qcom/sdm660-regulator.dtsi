@@ -28,7 +28,7 @@
 	rpm-regulator-smpa5 {
 		status = "okay";
 		pm660_s5: regulator-s5 {
-			regulator-min-microvolt = <1350000>;
+			regulator-min-microvolt = <1224000>;
 			regulator-max-microvolt = <1350000>;
 			status = "okay";
 		};
@@ -237,6 +237,9 @@
 	rpm-regulator-ldoa10 {
 		status = "okay";
 		pm660_l10: regulator-l10 {
+			proxy-supply = <&pm660_l10>;
+			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <14000>;
 			regulator-min-microvolt = <1780000>;
 			regulator-max-microvolt = <1950000>;
 			status = "okay";

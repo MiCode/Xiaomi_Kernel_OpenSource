@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,11 +26,13 @@ static DEFINE_PER_CPU(u64, nr_prod_sum);
 static DEFINE_PER_CPU(u64, last_time);
 static DEFINE_PER_CPU(u64, nr_big_prod_sum);
 static DEFINE_PER_CPU(u64, nr);
+static DEFINE_PER_CPU(u64, nr_max);
 
 static DEFINE_PER_CPU(unsigned long, iowait_prod_sum);
 static DEFINE_PER_CPU(spinlock_t, nr_lock) = __SPIN_LOCK_UNLOCKED(nr_lock);
 static s64 last_get_time;
 
+#define DIV64_U64_ROUNDUP(X, Y) div64_u64((X) + (Y - 1), Y)
 /**
  * sched_get_nr_running_avg
  * @return: Average nr_running, iowait and nr_big_tasks value since last poll.
@@ -40,7 +42,8 @@ static s64 last_get_time;
  * Obtains the average nr_running value since the last poll.
  * This function may not be called concurrently with itself
  */
-void sched_get_nr_running_avg(int *avg, int *iowait_avg, int *big_avg)
+void sched_get_nr_running_avg(int *avg, int *iowait_avg, int *big_avg,
+			      unsigned int *max_nr, unsigned int *big_max_nr)
 {
 	int cpu;
 	u64 curr_time = sched_clock();
@@ -50,6 +53,8 @@ void sched_get_nr_running_avg(int *avg, int *iowait_avg, int *big_avg)
 	*avg = 0;
 	*iowait_avg = 0;
 	*big_avg = 0;
+	*max_nr = 0;
+	*big_max_nr = 0;
 
 	if (!diff)
 		return;
@@ -78,17 +83,35 @@ void sched_get_nr_running_avg(int *avg, int *iowait_avg, int *big_avg)
 		per_cpu(nr_big_prod_sum, cpu) = 0;
 		per_cpu(iowait_prod_sum, cpu) = 0;
 
+		if (*max_nr < per_cpu(nr_max, cpu))
+			*max_nr = per_cpu(nr_max, cpu);
+
+		if (is_max_capacity_cpu(cpu)) {
+			if (*big_max_nr < per_cpu(nr_max, cpu))
+				*big_max_nr = per_cpu(nr_max, cpu);
+		}
+
+		per_cpu(nr_max, cpu) = per_cpu(nr, cpu);
 		spin_unlock_irqrestore(&per_cpu(nr_lock, cpu), flags);
 	}
 
 	diff = curr_time - last_get_time;
 	last_get_time = curr_time;
 
-	*avg = (int)div64_u64(tmp_avg * 100, diff);
-	*big_avg = (int)div64_u64(tmp_big_avg * 100, diff);
-	*iowait_avg = (int)div64_u64(tmp_iowait * 100, diff);
+	/*
+	 * Any task running on BIG cluster and BIG tasks running on little
+	 * cluster contributes to big_avg. Small or medium tasks can also
+	 * run on BIG cluster when co-location and scheduler boost features
+	 * are activated. We don't want these tasks to downmigrate to little
+	 * cluster when BIG CPUs are available but isolated. Round up the
+	 * average values so that core_ctl aggressively unisolate BIG CPUs.
+	 */
+	*avg = (int)DIV64_U64_ROUNDUP(tmp_avg, diff);
+	*big_avg = (int)DIV64_U64_ROUNDUP(tmp_big_avg, diff);
+	*iowait_avg = (int)DIV64_U64_ROUNDUP(tmp_iowait, diff);
 
-	trace_sched_get_nr_running_avg(*avg, *big_avg, *iowait_avg);
+	trace_sched_get_nr_running_avg(*avg, *big_avg, *iowait_avg,
+				       *max_nr, *big_max_nr);
 
 	BUG_ON(*avg < 0 || *big_avg < 0 || *iowait_avg < 0);
 	pr_debug("%s - avg:%d big_avg:%d iowait_avg:%d\n",
@@ -120,6 +143,9 @@ void sched_update_nr_prod(int cpu, long delta, bool inc)
 	per_cpu(nr, cpu) = nr_running + (inc ? delta : -delta);
 
 	BUG_ON((s64)per_cpu(nr, cpu) < 0);
+
+	if (per_cpu(nr, cpu) > per_cpu(nr_max, cpu))
+		per_cpu(nr_max, cpu) = per_cpu(nr, cpu);
 
 	per_cpu(nr_prod_sum, cpu) += nr_running * diff;
 	per_cpu(nr_big_prod_sum, cpu) += nr_eligible_big_tasks(cpu) * diff;

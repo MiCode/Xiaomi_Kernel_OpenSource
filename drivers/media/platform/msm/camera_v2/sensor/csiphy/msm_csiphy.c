@@ -684,14 +684,20 @@ static int msm_csiphy_2phase_lane_config_v50(
 				csiphybase + csiphy_dev->ctrl_reg->
 				csiphy_3ph_reg.
 				mipi_csiphy_2ph_lnn_ctrl15.addr + offset);
-			if (mask == CLOCK_LANE)
+			if (mask == CLOCK_LANE) {
 				msm_camera_io_w(csiphy_dev->ctrl_reg->
 					csiphy_3ph_reg.
 					mipi_csiphy_2ph_lnck_ctrl0.data,
 					csiphybase + csiphy_dev->ctrl_reg->
 					csiphy_3ph_reg.
 					mipi_csiphy_2ph_lnck_ctrl0.addr);
-			else
+				msm_camera_io_w(csiphy_dev->ctrl_reg->
+					csiphy_3ph_reg.
+					mipi_csiphy_2ph_lnck_ctrl9.data,
+					csiphybase + csiphy_dev->ctrl_reg->
+					csiphy_3ph_reg.
+					mipi_csiphy_2ph_lnck_ctrl9.addr);
+			} else {
 				msm_camera_io_w(csiphy_dev->ctrl_reg->
 					csiphy_3ph_reg.
 					mipi_csiphy_2ph_lnn_ctrl0.data,
@@ -699,6 +705,14 @@ static int msm_csiphy_2phase_lane_config_v50(
 					csiphy_3ph_reg.
 					mipi_csiphy_2ph_lnn_ctrl0.addr +
 					offset);
+				msm_camera_io_w(csiphy_dev->ctrl_reg->
+					csiphy_3ph_reg.
+					mipi_csiphy_2ph_lnn_ctrl9.data,
+					csiphybase + csiphy_dev->ctrl_reg->
+					csiphy_3ph_reg.
+					mipi_csiphy_2ph_lnn_ctrl9.addr +
+					offset);
+			}
 			msm_camera_io_w(csiphy_dev->ctrl_reg->
 				csiphy_3ph_reg.
 				mipi_csiphy_2ph_lnn_cfg1.data,

@@ -4671,7 +4671,8 @@ static int ath10k_mac_txpower_recalc(struct ath10k *ar)
 	lockdep_assert_held(&ar->conf_mutex);
 
 	list_for_each_entry(arvif, &ar->arvifs, list) {
-		WARN_ON(arvif->txpower < 0);
+		if (arvif->txpower <= 0)
+			continue;
 
 		if (txpower == -1)
 			txpower = arvif->txpower;
@@ -4679,8 +4680,8 @@ static int ath10k_mac_txpower_recalc(struct ath10k *ar)
 			txpower = min(txpower, arvif->txpower);
 	}
 
-	if (WARN_ON(txpower == -1))
-		return -EINVAL;
+	if (txpower == -1)
+		return 0;
 
 	ret = ath10k_mac_txpower_setup(ar, txpower);
 	if (ret) {
@@ -5189,6 +5190,10 @@ static void ath10k_remove_interface(struct ieee80211_hw *hw,
 		if (ret)
 			ath10k_warn(ar, "failed to recalc monitor: %d\n", ret);
 	}
+
+	ret = ath10k_mac_txpower_recalc(ar);
+	if (ret)
+		ath10k_warn(ar, "failed to recalc tx power: %d\n", ret);
 
 	spin_lock_bh(&ar->htt.tx_lock);
 	ath10k_mac_vif_tx_unlock_all(arvif);
@@ -7993,10 +7998,8 @@ int ath10k_mac_register(struct ath10k *ar)
 		goto err_free;
 	}
 
-	if (!QCA_REV_WCN3990(ar)) {
-		if (!test_bit(ATH10K_FLAG_RAW_MODE, &ar->dev_flags))
-			ar->hw->netdev_features = NETIF_F_HW_CSUM;
-	}
+	if (!test_bit(ATH10K_FLAG_RAW_MODE, &ar->dev_flags))
+		ar->hw->netdev_features = NETIF_F_HW_CSUM;
 
 	if (IS_ENABLED(CONFIG_ATH10K_DFS_CERTIFIED)) {
 		/* Init ath dfs pattern detector */

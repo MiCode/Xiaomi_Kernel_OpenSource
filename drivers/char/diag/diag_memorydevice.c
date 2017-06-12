@@ -129,6 +129,37 @@ void diag_md_close_all()
 	diag_ws_reset(DIAG_WS_MUX);
 }
 
+static int diag_md_get_peripheral(int ctxt)
+{
+	int peripheral;
+
+	if (driver->num_pd_session) {
+		peripheral = GET_PD_CTXT(ctxt);
+		switch (peripheral) {
+		case UPD_WLAN:
+		case UPD_AUDIO:
+		case UPD_SENSORS:
+			break;
+		case DIAG_ID_MPSS:
+		case DIAG_ID_LPASS:
+		case DIAG_ID_CDSP:
+		default:
+			peripheral =
+				GET_BUF_PERIPHERAL(ctxt);
+			if (peripheral > NUM_PERIPHERALS)
+				peripheral = -EINVAL;
+			break;
+		}
+	} else {
+		/* Account for Apps data as well */
+		peripheral = GET_BUF_PERIPHERAL(ctxt);
+		if (peripheral > NUM_PERIPHERALS)
+			peripheral = -EINVAL;
+	}
+
+	return peripheral;
+}
+
 int diag_md_write(int id, unsigned char *buf, int len, int ctx)
 {
 	int i;
@@ -144,26 +175,13 @@ int diag_md_write(int id, unsigned char *buf, int len, int ctx)
 	if (!buf || len < 0)
 		return -EINVAL;
 
-	if (driver->pd_logging_mode) {
-		peripheral = GET_PD_CTXT(ctx);
-		switch (peripheral) {
-		case UPD_WLAN:
-			break;
-		case DIAG_ID_MPSS:
-		default:
-			peripheral = GET_BUF_PERIPHERAL(ctx);
-			if (peripheral > NUM_PERIPHERALS)
-				return -EINVAL;
-			break;
-		}
-	} else {
-		/* Account for Apps data as well */
-		peripheral = GET_BUF_PERIPHERAL(ctx);
-		if (peripheral > NUM_PERIPHERALS)
-			return -EINVAL;
-	}
+	peripheral =
+		diag_md_get_peripheral(ctx);
+	if (peripheral < 0)
+		return -EINVAL;
 
-	session_info = diag_md_session_get_peripheral(peripheral);
+	session_info =
+		diag_md_session_get_peripheral(peripheral);
 	if (!session_info)
 		return -EIO;
 
@@ -234,6 +252,7 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 	uint8_t drain_again = 0;
 	uint8_t peripheral = 0;
 	struct diag_md_session_t *session_info = NULL;
+	struct pid *pid_struct = NULL;
 
 	mutex_lock(&driver->diagfwd_untag_mutex);
 
@@ -243,31 +262,15 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 			entry = &ch->tbl[j];
 			if (entry->len <= 0)
 				continue;
-			if (driver->pd_logging_mode) {
-				peripheral = GET_PD_CTXT(entry->ctx);
-				switch (peripheral) {
-				case UPD_WLAN:
-					break;
-				case DIAG_ID_MPSS:
-				default:
-					peripheral =
-						GET_BUF_PERIPHERAL(entry->ctx);
-					if (peripheral > NUM_PERIPHERALS)
-						goto drop_data;
-					break;
-				}
-			} else {
-				/* Account for Apps data as well */
-				peripheral = GET_BUF_PERIPHERAL(entry->ctx);
-				if (peripheral > NUM_PERIPHERALS)
-					goto drop_data;
-			}
+
+			peripheral = diag_md_get_peripheral(entry->ctx);
+			if (peripheral < 0)
+				goto drop_data;
 
 			session_info =
 			diag_md_session_get_peripheral(peripheral);
 			if (!session_info) {
-				mutex_unlock(&driver->diagfwd_untag_mutex);
-				return -EIO;
+				goto drop_data;
 			}
 
 			if (session_info && info &&
@@ -276,6 +279,14 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 			if ((info && (info->peripheral_mask &
 			    MD_PERIPHERAL_MASK(peripheral)) == 0))
 				goto drop_data;
+			pid_struct = find_get_pid(session_info->pid);
+			if (!pid_struct) {
+				err = -ESRCH;
+				DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+					"diag: No such md_session_map[%d] with pid = %d err=%d exists..\n",
+					peripheral, session_info->pid, err);
+				goto drop_data;
+			}
 			/*
 			 * If the data is from remote processor, copy the remote
 			 * token first
@@ -295,27 +306,35 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 			}
 			if (i > 0) {
 				remote_token = diag_get_remote(i);
-				err = copy_to_user(buf + ret, &remote_token,
-						   sizeof(int));
+				if (get_pid_task(pid_struct, PIDTYPE_PID)) {
+					err = copy_to_user(buf + ret,
+							&remote_token,
+							sizeof(int));
+					if (err)
+						goto drop_data;
+					ret += sizeof(int);
+				}
+			}
+
+			/* Copy the length of data being passed */
+			if (get_pid_task(pid_struct, PIDTYPE_PID)) {
+				err = copy_to_user(buf + ret,
+						(void *)&(entry->len),
+						sizeof(int));
 				if (err)
 					goto drop_data;
 				ret += sizeof(int);
 			}
 
-			/* Copy the length of data being passed */
-			err = copy_to_user(buf + ret, (void *)&(entry->len),
-					   sizeof(int));
-			if (err)
-				goto drop_data;
-			ret += sizeof(int);
-
 			/* Copy the actual data being passed */
-			err = copy_to_user(buf + ret, (void *)entry->buf,
-					   entry->len);
-			if (err)
-				goto drop_data;
-			ret += entry->len;
-
+			if (get_pid_task(pid_struct, PIDTYPE_PID)) {
+				err = copy_to_user(buf + ret,
+						(void *)entry->buf,
+						entry->len);
+				if (err)
+					goto drop_data;
+				ret += entry->len;
+			}
 			/*
 			 * The data is now copied to the user space client,
 			 * Notify that the write is complete and delete its
@@ -337,7 +356,11 @@ drop_data:
 	}
 
 	*pret = ret;
-	err = copy_to_user(buf + sizeof(int), (void *)&num_data, sizeof(int));
+	if (pid_struct && get_pid_task(pid_struct, PIDTYPE_PID)) {
+		err = copy_to_user(buf + sizeof(int),
+				(void *)&num_data,
+				sizeof(int));
+	}
 	diag_ws_on_copy_complete(DIAG_WS_MUX);
 	if (drain_again)
 		chk_logging_wakeup();
@@ -363,9 +386,15 @@ int diag_md_close_peripheral(int id, uint8_t peripheral)
 	spin_lock_irqsave(&ch->lock, flags);
 	for (i = 0; i < ch->num_tbl_entries && !found; i++) {
 		entry = &ch->tbl[i];
-		if ((GET_BUF_PERIPHERAL(entry->ctx) != peripheral) ||
-			(GET_PD_CTXT(entry->ctx) != peripheral))
-			continue;
+
+		if (peripheral > NUM_PERIPHERALS) {
+			if (GET_PD_CTXT(entry->ctx) != peripheral)
+				continue;
+		} else {
+			if (GET_BUF_PERIPHERAL(entry->ctx) !=
+					peripheral)
+				continue;
+		}
 		found = 1;
 		if (ch->ops && ch->ops->write_done) {
 			ch->ops->write_done(entry->buf, entry->len,

@@ -192,6 +192,7 @@ enum {
 	MSM_FRONTEND_DAI_MULTIMEDIA17,
 	MSM_FRONTEND_DAI_MULTIMEDIA18,
 	MSM_FRONTEND_DAI_MULTIMEDIA19,
+	MSM_FRONTEND_DAI_MULTIMEDIA20,
 	MSM_FRONTEND_DAI_CS_VOICE,
 	MSM_FRONTEND_DAI_VOIP,
 	MSM_FRONTEND_DAI_AFE_RX,
@@ -217,8 +218,8 @@ enum {
 	MSM_FRONTEND_DAI_MAX,
 };
 
-#define MSM_FRONTEND_DAI_MM_SIZE (MSM_FRONTEND_DAI_MULTIMEDIA19 + 1)
-#define MSM_FRONTEND_DAI_MM_MAX_ID MSM_FRONTEND_DAI_MULTIMEDIA19
+#define MSM_FRONTEND_DAI_MM_SIZE (MSM_FRONTEND_DAI_MULTIMEDIA20 + 1)
+#define MSM_FRONTEND_DAI_MM_MAX_ID MSM_FRONTEND_DAI_MULTIMEDIA20
 
 enum {
 	MSM_BACKEND_DAI_PRI_I2S_RX = 0,
@@ -384,6 +385,7 @@ enum {
 #define INVALID_SESSION -1
 #define SESSION_TYPE_RX 0
 #define SESSION_TYPE_TX 1
+#define MAX_SESSION_TYPES 2
 #define INT_RX_VOL_MAX_STEPS 0x2000
 #define INT_RX_VOL_GAIN 0x2000
 
@@ -423,7 +425,7 @@ struct msm_pcm_routing_bdai_data {
 	unsigned int  channel;
 	unsigned int  format;
 	unsigned int  adm_override_ch;
-	u32 passthr_mode;
+	u32 passthr_mode[MSM_FRONTEND_DAI_MAX];
 	char *name;
 };
 
@@ -475,10 +477,10 @@ void msm_pcm_routing_get_fedai_info(int fe_idx, int sess_type,
 void msm_pcm_routing_acquire_lock(void);
 void msm_pcm_routing_release_lock(void);
 
-int msm_pcm_routing_reg_stream_app_type_cfg(int fedai_id, int session_type,
-					     int be_id, int app_type,
-					     int acdb_dev_id, int sample_rate);
-int msm_pcm_routing_get_stream_app_type_cfg(int fedai_id, int session_type,
-					    int be_id, int *app_type,
-					    int *acdb_dev_id, int *sample_rate);
+int msm_pcm_routing_reg_stream_app_type_cfg(
+	int fedai_id, int session_type, int be_id,
+	struct msm_pcm_stream_app_type_cfg *cfg_data);
+int msm_pcm_routing_get_stream_app_type_cfg(
+	int fedai_id, int session_type, int *be_id,
+	struct msm_pcm_stream_app_type_cfg *cfg_data);
 #endif /*_MSM_PCM_H*/

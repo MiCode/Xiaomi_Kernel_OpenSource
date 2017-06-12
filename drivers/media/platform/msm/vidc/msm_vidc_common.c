@@ -902,7 +902,7 @@ static int wait_for_sess_signal_receipt(struct msm_vidc_inst *inst,
 		dprintk(VIDC_ERR,
 			"sess resp timeout can potentially crash the system\n");
 		msm_comm_print_debug_info(inst);
-		BUG_ON(inst->core->resources.debug_timeout);
+		BUG_ON(msm_vidc_debug_timeout);
 		msm_comm_kill_session(inst);
 		rc = -EIO;
 	} else {
@@ -1748,7 +1748,7 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 		msm_comm_print_inst_info(inst);
 	mutex_unlock(&core->lock);
 
-	BUG_ON(core->resources.debug_timeout);
+	BUG_ON(msm_vidc_debug_timeout);
 }
 
 void msm_comm_session_clean(struct msm_vidc_inst *inst)
@@ -2543,7 +2543,7 @@ static int msm_comm_session_abort(struct msm_vidc_inst *inst)
 			"ABORT timeout can potentially crash the system\n");
 		msm_comm_print_debug_info(inst);
 
-		BUG_ON(inst->core->resources.debug_timeout);
+		BUG_ON(msm_vidc_debug_timeout);
 		rc = -EBUSY;
 	} else {
 		rc = 0;
@@ -2645,7 +2645,7 @@ int msm_comm_check_core_init(struct msm_vidc_core *core)
 		msm_comm_print_debug_info(inst);
 		mutex_lock(&core->lock);
 
-		BUG_ON(core->resources.debug_timeout);
+		BUG_ON(msm_vidc_debug_timeout);
 		rc = -EIO;
 		goto exit;
 	} else {
@@ -4110,10 +4110,9 @@ int msm_comm_try_get_prop(struct msm_vidc_inst *inst, enum hal_property ptype,
 		call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
 		dprintk(VIDC_ERR,
 			"SESS_PROP timeout can potentially crash the system\n");
-		if (inst->core->resources.debug_timeout)
-			msm_comm_print_debug_info(inst);
+		msm_comm_print_debug_info(inst);
 
-		BUG_ON(inst->core->resources.debug_timeout);
+		BUG_ON(msm_vidc_debug_timeout);
 		msm_comm_kill_session(inst);
 		rc = -ETIMEDOUT;
 		goto exit;
