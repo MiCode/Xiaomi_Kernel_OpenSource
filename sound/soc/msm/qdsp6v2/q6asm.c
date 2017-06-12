@@ -1952,13 +1952,13 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 			port->buf[buf_index].used = 1;
 			spin_unlock_irqrestore(&port->dsp_lock, dsp_flags);
 
-			config_debug_fs_write_cb();
 
 			for (i = 0; i < port->max_buf_cnt; i++)
 				dev_vdbg(ac->dev, "%s %d\n",
 					__func__, port->buf[i].used);
 
 		}
+		config_debug_fs_write_cb();
 		break;
 	}
 	case ASM_STREAM_CMDRSP_GET_PP_PARAMS_V2:
@@ -7749,6 +7749,8 @@ int q6asm_async_write(struct audio_client *ac,
 			break;
 		}
 	}
+
+	config_debug_fs_write(ab);
 
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &write);
 	if (rc < 0) {
