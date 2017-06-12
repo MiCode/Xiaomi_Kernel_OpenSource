@@ -291,22 +291,29 @@ static void snapshot_buf(struct msm_rd_state *rd,
 		uint64_t iova, uint32_t size)
 {
 	struct msm_gem_object *obj = submit->bos[idx].obj;
-	const char *buf;
-
-	buf = msm_gem_vaddr(&obj->base);
-	if (IS_ERR(buf))
-		return;
+	uint64_t offset = 0;
 
 	if (iova) {
-		buf += iova - submit->bos[idx].iova;
+		offset = iova - submit->bos[idx].iova;
 	} else {
 		iova = submit->bos[idx].iova;
 		size = obj->base.size;
 	}
 
+	/* Always write the RD_GPUADDR so we know how big the buffer is */
 	rd_write_section(rd, RD_GPUADDR,
 			(uint64_t[2]) { iova, size }, 16);
-	rd_write_section(rd, RD_BUFFER_CONTENTS, buf, size);
+
+	/* But only dump contents for buffers marked as read and not secure */
+	if (submit->bos[idx].flags & MSM_SUBMIT_BO_READ &&
+		!(obj->flags & MSM_BO_SECURE)) {
+		const char *buf = msm_gem_vaddr(&obj->base);
+
+		if (IS_ERR_OR_NULL(buf))
+			return;
+
+		rd_write_section(rd, RD_BUFFER_CONTENTS, buf + offset, size);
+	}
 }
 
 /* called under struct_mutex */
@@ -333,15 +340,8 @@ void msm_rd_dump_submit(struct msm_gem_submit *submit)
 	rd_write_section(rd, RD_CMD, msg, ALIGN(n, 4));
 
 	if (rd_full) {
-		for (i = 0; i < submit->nr_bos; i++) {
-			/* buffers that are written to probably don't start out
-			 * with anything interesting:
-			 */
-			if (submit->bos[i].flags & MSM_SUBMIT_BO_WRITE)
-				continue;
-
+		for (i = 0; i < submit->nr_bos; i++)
 			snapshot_buf(rd, submit, i, 0, 0);
-		}
 	}
 
 	for (i = 0; i < submit->nr_cmds; i++) {
