@@ -1634,6 +1634,17 @@ static void usbpd_sm(struct work_struct *w)
 		power_supply_set_property(pd->usb_psy,
 				POWER_SUPPLY_PROP_PD_IN_HARD_RESET, &val);
 
+		if (pd->requested_current) {
+			val.intval = pd->requested_current = 0;
+			power_supply_set_property(pd->usb_psy,
+					POWER_SUPPLY_PROP_PD_CURRENT_MAX, &val);
+		}
+
+		pd->requested_voltage = 5000000;
+		val.intval = pd->requested_voltage;
+		power_supply_set_property(pd->usb_psy,
+				POWER_SUPPLY_PROP_VOLTAGE_MIN, &val);
+
 		pd->in_pr_swap = false;
 		pd->in_explicit_contract = false;
 		pd->selected_pdo = pd->requested_pdo = 0;
