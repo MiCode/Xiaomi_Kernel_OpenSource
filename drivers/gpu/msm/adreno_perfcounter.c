@@ -654,7 +654,7 @@ static void _power_counter_enable_gpmu(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_perfcount_register *reg;
-	unsigned int shift = counter << 3;
+	unsigned int shift = (counter << 3) % (sizeof(unsigned int) * 8);
 
 	if (adreno_is_a530(adreno_dev)) {
 		if (countable > 43)
@@ -662,13 +662,16 @@ static void _power_counter_enable_gpmu(struct adreno_device *adreno_dev,
 	} else if (adreno_is_a540(adreno_dev)) {
 		if (countable > 47)
 			return;
+	} else if (adreno_is_a6xx(adreno_dev)) {
+		if (countable > 34)
+			return;
 	} else
 		/* return on platforms that have no GPMU */
 		return;
 
 	reg = &counters->groups[group].regs[counter];
 	kgsl_regrmw(device, reg->select, 0xff << shift, countable << shift);
-	kgsl_regwrite(device, A5XX_GPMU_POWER_COUNTER_ENABLE, 1);
+	adreno_writereg(adreno_dev, ADRENO_REG_GPMU_POWER_COUNTER_ENABLE, 1);
 	reg->value = 0;
 }
 
@@ -684,7 +687,7 @@ static void _power_counter_enable_default(struct adreno_device *adreno_dev,
 
 	reg = &counters->groups[group].regs[counter];
 	kgsl_regwrite(device, reg->select, countable);
-	kgsl_regwrite(device, A5XX_GPMU_POWER_COUNTER_ENABLE, 1);
+	adreno_writereg(adreno_dev, ADRENO_REG_GPMU_POWER_COUNTER_ENABLE, 1);
 	reg->value = 0;
 }
 

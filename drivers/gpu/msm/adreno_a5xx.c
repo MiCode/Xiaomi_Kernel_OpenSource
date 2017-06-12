@@ -3017,6 +3017,8 @@ static unsigned int a5xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A5XX_VBIF_XIN_HALT_CTRL1),
 	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_VERSION,
 				A5XX_VBIF_VERSION),
+	ADRENO_REG_DEFINE(ADRENO_REG_GPMU_POWER_COUNTER_ENABLE,
+				A5XX_GPMU_POWER_COUNTER_ENABLE),
 };
 
 static const struct adreno_reg_offsets a5xx_reg_offsets = {
