@@ -516,7 +516,6 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 {
 	struct adreno_platform_config *config = pdev->dev.platform_data;
 	struct msm_gpu *gpu = &adreno_gpu->base;
-	struct msm_mmu *mmu;
 	int ret;
 
 	adreno_gpu->funcs = funcs;
@@ -547,22 +546,6 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		return ret;
 	}
 
-	mmu = gpu->aspace->mmu;
-	if (mmu) {
-		ret = mmu->funcs->attach(mmu, NULL, 0);
-		if (ret)
-			return ret;
-	}
-
-	if (gpu->secure_aspace) {
-		mmu = gpu->secure_aspace->mmu;
-		if (mmu) {
-			ret = mmu->funcs->attach(mmu, NULL, 0);
-			if (ret)
-				return ret;
-		}
-	}
-
 	adreno_gpu->memptrs = msm_gem_kernel_new(drm,
 		sizeof(*adreno_gpu->memptrs), MSM_BO_UNCACHED, gpu->aspace,
 		&adreno_gpu->memptrs_bo, &adreno_gpu->memptrs_iova);
@@ -577,28 +560,14 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 
 void adreno_gpu_cleanup(struct adreno_gpu *gpu)
 {
-	struct msm_gem_address_space *aspace = gpu->base.aspace;
-
 	if (gpu->memptrs_bo) {
-		if (gpu->memptrs_iova)
-			msm_gem_put_iova(gpu->memptrs_bo, aspace);
+		msm_gem_put_iova(gpu->memptrs_bo, gpu->base.aspace);
 		drm_gem_object_unreference_unlocked(gpu->memptrs_bo);
 	}
 	release_firmware(gpu->pm4);
 	release_firmware(gpu->pfp);
 
 	msm_gpu_cleanup(&gpu->base);
-
-	if (aspace) {
-		aspace->mmu->funcs->detach(aspace->mmu);
-		msm_gem_address_space_put(aspace);
-	}
-
-	if (gpu->base.secure_aspace) {
-		aspace = gpu->base.secure_aspace;
-		aspace->mmu->funcs->detach(aspace->mmu);
-		msm_gem_address_space_put(aspace);
-	}
 }
 
 static void adreno_snapshot_os(struct msm_gpu *gpu,

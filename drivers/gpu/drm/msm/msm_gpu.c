@@ -810,10 +810,30 @@ msm_gpu_create_address_space(struct msm_gpu *gpu, struct device *dev,
 			gpu->name, name, PTR_ERR(aspace));
 
 		iommu_domain_free(iommu);
-		aspace = NULL;
+		return NULL;
+	}
+
+	if (aspace->mmu) {
+		int ret = aspace->mmu->funcs->attach(aspace->mmu, NULL, 0);
+
+		if (ret) {
+			dev_err(gpu->dev->dev,
+				"%s: failed to atach IOMMU '%s': %d\n",
+				gpu->name, name, ret);
+			msm_gem_address_space_put(aspace);
+			aspace = ERR_PTR(ret);
+		}
 	}
 
 	return aspace;
+}
+
+static void msm_gpu_destroy_address_space(struct msm_gem_address_space *aspace)
+{
+	if (!IS_ERR_OR_NULL(aspace) && aspace->mmu)
+		aspace->mmu->funcs->detach(aspace->mmu);
+
+	msm_gem_address_space_put(aspace);
 }
 
 int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
@@ -938,6 +958,9 @@ fail:
 	for (i = 0; i < ARRAY_SIZE(gpu->rb); i++)
 		msm_ringbuffer_destroy(gpu->rb[i]);
 
+	msm_gpu_destroy_address_space(gpu->aspace);
+	msm_gpu_destroy_address_space(gpu->secure_aspace);
+
 	pm_runtime_disable(&pdev->dev);
 	return ret;
 }
@@ -960,4 +983,7 @@ void msm_gpu_cleanup(struct msm_gpu *gpu)
 
 	msm_snapshot_destroy(gpu, gpu->snapshot);
 	pm_runtime_disable(&pdev->dev);
+
+	msm_gpu_destroy_address_space(gpu->aspace);
+	msm_gpu_destroy_address_space(gpu->secure_aspace);
 }
