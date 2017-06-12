@@ -2133,8 +2133,11 @@ static void dm_request_fn(struct request_queue *q)
 		tio = tio_from_request(rq);
 		/* Establish tio->ti before queuing work (map_tio_request) */
 		tio->ti = ti;
-		queue_kthread_work(&md->kworker, &tio->work);
+		spin_unlock(q->queue_lock);
+		if (map_request(tio, rq, md) == DM_MAPIO_REQUEUE)
+			dm_requeue_original_request(md, rq);
 		BUG_ON(!irqs_disabled());
+		spin_lock(q->queue_lock);
 	}
 
 	goto out;
