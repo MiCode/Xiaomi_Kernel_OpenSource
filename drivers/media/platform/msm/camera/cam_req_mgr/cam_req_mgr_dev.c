@@ -20,6 +20,7 @@
 #include <media/v4l2-event.h>
 #include <media/v4l2-ioctl.h>
 #include <media/cam_req_mgr.h>
+#include <media/cam_defs.h>
 #include "cam_req_mgr_dev.h"
 #include "cam_req_mgr_util.h"
 #include "cam_req_mgr_core.h"
@@ -151,11 +152,22 @@ static unsigned int cam_req_mgr_poll(struct file *f,
 
 static int cam_req_mgr_close(struct file *filep)
 {
+	struct v4l2_subdev *sd;
+	struct cam_control cam_ctrl;
+
 	mutex_lock(&g_dev.cam_lock);
 
 	if (g_dev.open_cnt <= 0) {
 		mutex_unlock(&g_dev.cam_lock);
 		return -EINVAL;
+	}
+
+	cam_ctrl.op_code = CAM_SD_SHUTDOWN;
+	list_for_each_entry(sd, &g_dev.v4l2_dev->subdevs, list) {
+		if (!(sd->flags & V4L2_SUBDEV_FL_HAS_DEVNODE))
+			continue;
+		v4l2_subdev_call(sd, core, ioctl, VIDIOC_CAM_CONTROL,
+			&cam_ctrl);
 	}
 
 	g_dev.open_cnt--;

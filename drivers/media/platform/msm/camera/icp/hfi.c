@@ -42,7 +42,7 @@
 #undef  HFI_DBG
 #define HFI_DBG(fmt, args...) pr_debug(fmt, ##args)
 
-struct hfi_info *g_hfi;
+static struct hfi_info *g_hfi;
 unsigned int g_icp_mmu_hdl;
 
 int hfi_write_cmd(void *cmd_ptr)
@@ -59,12 +59,17 @@ int hfi_write_cmd(void *cmd_ptr)
 		return -EINVAL;
 	}
 
-	if (!g_hfi || g_hfi->hfi_state < FW_START_SENT) {
-		pr_err("FW not ready yet\n");
+	if (!g_hfi || (g_hfi->hfi_state != HFI_READY)) {
+		pr_err("HFI interface not ready yet\n");
 		return -EIO;
 	}
 
 	mutex_lock(&g_hfi->cmd_q_lock);
+	if (!g_hfi->cmd_q_state) {
+		pr_err("HFI command interface not ready yet\n");
+		mutex_unlock(&g_hfi->cmd_q_lock);
+		return -EIO;
+	}
 
 	q_tbl = (struct hfi_qtbl *)g_hfi->map.qtbl.kva;
 	q = &q_tbl->q_hdr[Q_CMD];
@@ -78,11 +83,10 @@ int hfi_write_cmd(void *cmd_ptr)
 		goto err;
 	}
 
-	HFI_DBG("size_in_words : %u\n", size_in_words);
-	HFI_DBG("q->qhdr_write_idx %x\n", q->qhdr_write_idx);
+	HFI_DBG("size_in_words : %u, q->qhdr_write_idx %x\n", size_in_words,
+		q->qhdr_write_idx);
 
 	read_idx = q->qhdr_read_idx;
-
 	empty_space = (q->qhdr_write_idx >= read_idx) ?
 		(q->qhdr_q_size - (q->qhdr_write_idx - read_idx)) :
 		(read_idx - q->qhdr_write_idx);
@@ -115,7 +119,7 @@ int hfi_write_cmd(void *cmd_ptr)
 		g_hfi->csr_base + HFI_REG_A5_CSR_HOST2ICPINT);
 err:
 	mutex_unlock(&g_hfi->cmd_q_lock);
-	return 0;
+	return rc;
 }
 
 int hfi_read_message(uint32_t *pmsg, uint8_t q_id)
@@ -132,21 +136,28 @@ int hfi_read_message(uint32_t *pmsg, uint8_t q_id)
 		return -EINVAL;
 	}
 
+	if (!g_hfi || (g_hfi->hfi_state != HFI_READY)) {
+		pr_err("HFI interface not ready yet\n");
+		return -EIO;
+	}
+
 	q_tbl_ptr = (struct hfi_qtbl *)g_hfi->map.qtbl.kva;
 	q = &q_tbl_ptr->q_hdr[q_id];
 
-	if ((g_hfi->hfi_state < FW_START_SENT) ||
-		(q->qhdr_read_idx == q->qhdr_write_idx)) {
+	if (q->qhdr_read_idx == q->qhdr_write_idx) {
 		pr_debug("FW or Q not ready, hfi state : %u, r idx : %u, w idx : %u\n",
 			g_hfi->hfi_state, q->qhdr_read_idx, q->qhdr_write_idx);
 		return -EIO;
 	}
 
 	mutex_lock(&g_hfi->msg_q_lock);
+	if (!g_hfi->msg_q_state) {
+		pr_err("HFI message interface not ready yet\n");
+		mutex_unlock(&g_hfi->msg_q_lock);
+		return -EIO;
+	}
 
-	if (q_id == Q_CMD)
-		read_q = (uint32_t *)g_hfi->map.cmd_q.kva;
-	else if (q_id == Q_MSG)
+	if (q_id == Q_MSG)
 		read_q = (uint32_t *)g_hfi->map.msg_q.kva;
 	else
 		read_q = (uint32_t *)g_hfi->map.dbg_q.kva;
@@ -154,8 +165,8 @@ int hfi_read_message(uint32_t *pmsg, uint8_t q_id)
 	read_ptr = (uint32_t *)(read_q + q->qhdr_read_idx);
 	size_in_words = (*read_ptr) >> BYTE_WORD_SHIFT;
 
-	HFI_DBG("size_in_words : %u\n", size_in_words);
-	HFI_DBG("read_ptr : %pK\n", (void *)read_ptr);
+	HFI_DBG("size_in_words : %u, read_ptr : %pK\n", size_in_words,
+		(void *)read_ptr);
 
 	if ((size_in_words == 0) ||
 		(size_in_words > ICP_HFI_MAX_MSG_SIZE_IN_WORDS)) {
@@ -180,13 +191,12 @@ int hfi_read_message(uint32_t *pmsg, uint8_t q_id)
 	}
 
 	for (i = 0; i < size_in_words; i++)
-		pr_debug("%x\n", read_ptr[i]);
+		HFI_DBG("%x\n", read_ptr[i]);
 
 	q->qhdr_read_idx = new_read_idx;
 err:
 	mutex_unlock(&g_hfi->msg_q_lock);
-	HFI_DBG("Exit\n");
-	return 0;
+	return rc;
 }
 
 void hfi_send_system_cmd(uint32_t type, uint64_t data, uint32_t size)
@@ -307,8 +317,7 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 	struct hfi_qtbl *qtbl;
 	struct hfi_qtbl_hdr *qtbl_hdr;
 	struct hfi_q_hdr *cmd_q_hdr, *msg_q_hdr, *dbg_q_hdr;
-	uint32_t hw_version, fw_version;
-	uint32_t status;
+	uint32_t hw_version, fw_version, status = 0;
 
 	if (!g_hfi) {
 		g_hfi = kzalloc(sizeof(struct hfi_info), GFP_KERNEL);
@@ -318,13 +327,12 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 		}
 	}
 
-	pr_debug("g_hfi: %pK\n", (void *)g_hfi);
-	if (g_hfi->hfi_state != INVALID) {
+	HFI_DBG("g_hfi: %pK\n", (void *)g_hfi);
+	if (g_hfi->hfi_state != HFI_DEINIT) {
 		pr_err("hfi_init: invalid state\n");
 		return -EINVAL;
 	}
 
-	g_hfi->hfi_state = FW_LOAD_DONE;
 	memcpy(&g_hfi->map, hfi_mem, sizeof(g_hfi->map));
 
 	if (debug) {
@@ -341,11 +349,6 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 			ICP_FLAG_CSR_WAKE_UP_EN | ICP_CSR_EN_CLKGATE_WFI,
 			icp_base + HFI_REG_A5_CSR_A5_CONTROL);
 	}
-
-	mutex_init(&g_hfi->cmd_q_lock);
-	mutex_init(&g_hfi->msg_q_lock);
-
-	g_hfi->csr_base = icp_base;
 
 	qtbl = (struct hfi_qtbl *)hfi_mem->qtbl.kva;
 	qtbl_hdr = &qtbl->q_tbl_hdr;
@@ -474,7 +477,7 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 		icp_base + HFI_REG_HOST_ICP_INIT_REQUEST);
 
 	hw_version = cam_io_r(icp_base + HFI_REG_A5_HW_VERSION);
-	pr_debug("hw version : %u[%x]\n", hw_version, hw_version);
+	HFI_DBG("hw version : [%x]\n", hw_version);
 
 	rc = readw_poll_timeout((icp_base + HFI_REG_ICP_HOST_INIT_RESPONSE),
 		status, status != ICP_INIT_RESP_SUCCESS, 15, 200);
@@ -484,14 +487,19 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 	}
 
 	fw_version = cam_io_r(icp_base + HFI_REG_FW_VERSION);
-	g_hfi->hfi_state = FW_START_SENT;
-
 	HFI_DBG("fw version : %u[%x]\n", fw_version, fw_version);
+
+	g_hfi->csr_base = icp_base;
+	g_hfi->hfi_state = HFI_READY;
+	g_hfi->cmd_q_state = true;
+	g_hfi->msg_q_state = true;
+	mutex_init(&g_hfi->cmd_q_lock);
+	mutex_init(&g_hfi->msg_q_lock);
 	cam_io_w((uint32_t)INTR_ENABLE, icp_base + HFI_REG_A5_CSR_A2HOSTINTEN);
 
 	return rc;
 regions_fail:
-	kzfree(g_hfi);
+	kfree(g_hfi);
 alloc_fail:
 	return rc;
 }
@@ -499,6 +507,24 @@ alloc_fail:
 
 void cam_hfi_deinit(void)
 {
+	if (!g_hfi) {
+		pr_err("hfi path not established yet\n");
+		return;
+	}
+	cam_io_w((uint32_t)INTR_DISABLE,
+		g_hfi->csr_base + HFI_REG_A5_CSR_A2HOSTINTEN);
+
+	mutex_lock(&g_hfi->cmd_q_lock);
+	g_hfi->cmd_q_state = false;
+	mutex_unlock(&g_hfi->cmd_q_lock);
+
+	mutex_lock(&g_hfi->msg_q_lock);
+	g_hfi->msg_q_state = false;
+	mutex_unlock(&g_hfi->msg_q_lock);
+
+	mutex_destroy(&g_hfi->cmd_q_lock);
+	mutex_destroy(&g_hfi->msg_q_lock);
+
 	kfree(g_hfi);
 	g_hfi = NULL;
 }

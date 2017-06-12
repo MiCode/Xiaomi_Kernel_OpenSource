@@ -26,6 +26,7 @@ struct cam_ipe_device_hw_info {
 struct cam_ipe_device_core_info {
 	struct cam_ipe_device_hw_info *ipe_hw_info;
 	uint32_t cpas_handle;
+	bool cpas_start;
 };
 
 int cam_ipe_init_hw(void *device_priv,

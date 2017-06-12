@@ -773,6 +773,8 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		}
 	}
 		break;
+	case CAM_SD_SHUTDOWN:
+		break;
 	default:
 		pr_err("%s:%d :Error: Invalid Opcode: %d\n",
 			__func__, __LINE__, cmd->op_code);
