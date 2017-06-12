@@ -69,6 +69,11 @@ static int cpu_to_affin;
 module_param(cpu_to_affin, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(cpu_to_affin, "affin usb irq to this cpu");
 
+/* override for USB speed */
+static int override_usb_speed;
+module_param(override_usb_speed, int, 0644);
+MODULE_PARM_DESC(override_usb_speed, "override for USB speed");
+
 /* XHCI registers */
 #define USB3_HCSPARAMS1		(0x4)
 #define USB3_PORTSC		(0x420)
@@ -255,6 +260,15 @@ struct dwc3_msm {
 static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc);
 static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA);
 static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event);
+
+static inline bool is_valid_usb_speed(struct dwc3 *dwc, int speed)
+{
+
+	return (((speed == USB_SPEED_FULL) || (speed == USB_SPEED_HIGH) ||
+		(speed == USB_SPEED_SUPER) || (speed == USB_SPEED_SUPER_PLUS))
+		&& (speed <= dwc->maximum_speed));
+}
+
 /**
  *
  * Read register with debug info.
@@ -2394,6 +2408,12 @@ static void dwc3_resume_work(struct work_struct *w)
 
 		if (dwc->maximum_speed > dwc->max_hw_supp_speed)
 			dwc->maximum_speed = dwc->max_hw_supp_speed;
+
+		if (override_usb_speed &&
+				is_valid_usb_speed(dwc, override_usb_speed)) {
+			dwc->maximum_speed = override_usb_speed;
+			dbg_event(0xFF, "override_speed", override_usb_speed);
+		}
 
 		dbg_event(0xFF, "speed", dwc->maximum_speed);
 
