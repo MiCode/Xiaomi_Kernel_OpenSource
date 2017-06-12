@@ -1922,6 +1922,7 @@ try_onemore:
 	if (f2fs_sb_mounted_blkzoned(sb)) {
 		f2fs_msg(sb, KERN_ERR,
 			 "Zoned block device support is not enabled\n");
+		err = -EOPNOTSUPP;
 		goto free_sb_buf;
 	}
 #endif
@@ -1995,8 +1996,10 @@ try_onemore:
 	if (F2FS_IO_SIZE(sbi) > 1) {
 		sbi->write_io_dummy =
 			mempool_create_page_pool(2 * (F2FS_IO_SIZE(sbi) - 1), 0);
-		if (!sbi->write_io_dummy)
+		if (!sbi->write_io_dummy) {
+			err = -ENOMEM;
 			goto free_options;
+		}
 	}
 
 	/* get an inode for meta space */
