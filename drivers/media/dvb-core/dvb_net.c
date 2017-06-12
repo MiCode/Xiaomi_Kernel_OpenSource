@@ -997,7 +997,7 @@ static int dvb_net_feed_start(struct net_device *dev)
 		netdev_dbg(dev, "start filtering\n");
 		priv->secfeed->start_filtering(priv->secfeed);
 	} else if (priv->feedtype == DVB_NET_FEEDTYPE_ULE) {
-		ktime_t timeout = ns_to_ktime(10 * NSEC_PER_MSEC);
+		ktime_t timeout = ktime_set(0, 10*NSEC_PER_MSEC); // 10 msec
 
 		/* we have payloads encapsulated in TS */
 		netdev_dbg(dev, "alloc tsfeed\n");
