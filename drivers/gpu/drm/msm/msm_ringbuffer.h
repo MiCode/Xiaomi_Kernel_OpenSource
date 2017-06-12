@@ -28,6 +28,7 @@ struct msm_ringbuffer {
 	uint64_t iova;
 	uint32_t submitted_fence;
 	spinlock_t lock;
+	struct list_head submits;
 };
 
 struct msm_ringbuffer *msm_ringbuffer_new(struct msm_gpu *gpu, int id);

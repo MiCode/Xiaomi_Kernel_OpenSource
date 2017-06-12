@@ -278,7 +278,8 @@ static void inactive_start(struct msm_gpu *gpu)
  * Hangcheck detection for locked gpu:
  */
 
-static void retire_submits(struct msm_gpu *gpu, uint32_t fence);
+static void retire_submits(struct msm_gpu *gpu, struct msm_ringbuffer *ring,
+		uint32_t fence);
 
 static void recover_worker(struct work_struct *work)
 {
@@ -296,29 +297,22 @@ static void recover_worker(struct work_struct *work)
 		inactive_cancel(gpu);
 
 		FOR_EACH_RING(gpu, ring, i) {
-			uint32_t fence;
+			uint32_t fence = gpu->funcs->last_fence(gpu, ring);
 
-			if (!ring)
-				continue;
-
-			fence = gpu->funcs->last_fence(gpu, ring);
-
-			/*
-			 * Retire the faulting command on the active ring and
-			 * make sure the other rings are cleaned up
-			 */
-			if (ring == gpu->funcs->active_ring(gpu))
-				retire_submits(gpu, fence + 1);
-			else
-				retire_submits(gpu, fence);
+			retire_submits(gpu, ring,
+				gpu->funcs->active_ring(gpu) == ring ?
+					fence + 1 : fence);
 		}
 
 		/* Recover the GPU */
 		gpu->funcs->recover(gpu);
 
-		/* replay the remaining submits for all rings: */
-		list_for_each_entry(submit, &gpu->submit_list, node) {
-			gpu->funcs->submit(gpu, submit);
+		/* Replay the remaining on all rings, highest priority first */
+		for (i = gpu->nr_rings - 1; i >= 0; i--) {
+			struct msm_ringbuffer *ring = gpu->rb[i];
+
+			list_for_each_entry(submit, &ring->submits, node)
+				gpu->funcs->submit(gpu, submit);
 		}
 	}
 	mutex_unlock(&dev->struct_mutex);
@@ -465,22 +459,19 @@ out:
  * Cmdstream submission/retirement:
  */
 
-static void retire_submits(struct msm_gpu *gpu, uint32_t fence)
+static void retire_submits(struct msm_gpu *gpu, struct msm_ringbuffer *ring,
+		uint32_t fence)
 {
 	struct drm_device *dev = gpu->dev;
 	struct msm_gem_submit *submit, *tmp;
 
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 
-	/*
-	 * Find and retire all the submits in the same ring that are older than
-	 * or equal to 'fence'
-	 */
+	list_for_each_entry_safe(submit, tmp, &ring->submits, node) {
+		if (submit->fence > fence)
+			break;
 
-	list_for_each_entry_safe(submit, tmp, &gpu->submit_list, node) {
-		if (COMPARE_FENCE_LTE(submit->fence, fence)) {
-			msm_gem_submit_free(submit);
-		}
+		msm_gem_submit_free(submit);
 	}
 }
 
@@ -492,11 +483,12 @@ static bool _fence_signaled(struct msm_gem_object *obj, uint32_t fence)
 	return COMPARE_FENCE_LTE(obj->read_fence, fence);
 }
 
-static void _retire_ring(struct msm_gpu *gpu, uint32_t fence)
+static void _retire_ring(struct msm_gpu *gpu, struct msm_ringbuffer *ring,
+		uint32_t fence)
 {
 	struct msm_gem_object *obj, *tmp;
 
-	retire_submits(gpu, fence);
+	retire_submits(gpu, ring, fence);
 
 	list_for_each_entry_safe(obj, tmp, &gpu->active_list, mm_list) {
 		if (_fence_signaled(obj, fence)) {
@@ -524,7 +516,7 @@ static void retire_worker(struct work_struct *work)
 		msm_update_fence(gpu->dev, fence);
 
 		mutex_lock(&dev->struct_mutex);
-		_retire_ring(gpu, fence);
+		_retire_ring(gpu, ring, fence);
 		mutex_unlock(&dev->struct_mutex);
 	}
 
@@ -554,7 +546,7 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 
 	inactive_cancel(gpu);
 
-	list_add_tail(&submit->node, &gpu->submit_list);
+	list_add_tail(&submit->node, &ring->submits);
 
 	msm_rd_dump_submit(submit);
 
@@ -817,7 +809,6 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	INIT_WORK(&gpu->inactive_work, inactive_worker);
 	INIT_WORK(&gpu->recover_work, recover_worker);
 
-	INIT_LIST_HEAD(&gpu->submit_list);
 
 	setup_timer(&gpu->inactive_timer, inactive_handler,
 			(unsigned long)gpu);
