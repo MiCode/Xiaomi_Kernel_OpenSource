@@ -119,6 +119,29 @@
 		qcom,disable-device-mode;
 		qcom,gpio-mode-sel = <&tlmm 61 0>;
 	};
+
+	dsi_panel_lt_pwr_supply: dsi_panel_lt_pwr_supply {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vdd";
+			qcom,supply-min-voltage = <2850000>;
+			qcom,supply-max-voltage = <2850000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+	};
 };
 
 &spmi_bus {
@@ -159,8 +182,14 @@
 	};
 };
 
-&dsi_lt8912_480_vid {
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+&dsi_lt8912_1080_vid {
+	qcom,mdss-dsi-panel-timings-phy-v2 = [23 1e 08 09 05 03 04 a0
+		23 1e 08 09 05 03 04 a0
+		23 1e 08 09 05 03 04 a0
+		23 1e 08 09 05 03 04 a0
+		23 1a 08 09 05 03 04 a0];
+
+	qcom,panel-supply-entries = <&dsi_panel_lt_pwr_supply>;
 };
 
 &mdss_mdp {
@@ -172,10 +201,12 @@
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_lt8912_480_vid>;
+	qcom,dsi-pref-prim-pan = <&dsi_lt8912_1080_vid>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+
+	qcom,pluggable;
 
 	qcom,platform-te-gpio = <&tlmm 24 0>;
 	qcom,platform-bklight-en-gpio = <&tlmm 59 0>;
@@ -199,12 +230,14 @@
 };
 
 &dsi_truly_1080_vid {
+	status = "disabled";
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,mdss-dsi-pan-enable-dynamic-fps;
 	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_clk_mode";
 };
 
 &dsi_truly_1080_cmd {
+	status = "disabled";
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,ulps-enabled;
 	qcom,partial-update-enabled;
