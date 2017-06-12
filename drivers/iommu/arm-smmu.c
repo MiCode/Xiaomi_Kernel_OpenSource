@@ -412,6 +412,7 @@ struct arm_smmu_device {
 
 #define ARM_SMMU_OPT_SECURE_CFG_ACCESS (1 << 0)
 #define ARM_SMMU_OPT_FATAL_ASF		(1 << 1)
+#define ARM_SMMU_OPT_SKIP_INIT		(1 << 2)
 #define ARM_SMMU_OPT_DYNAMIC		(1 << 3)
 #define ARM_SMMU_OPT_3LVL_TABLES	(1 << 4)
 	u32				options;
@@ -530,6 +531,7 @@ static bool using_legacy_binding, using_generic_binding;
 static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_SECURE_CFG_ACCESS, "calxeda,smmu-secure-config-access" },
 	{ ARM_SMMU_OPT_FATAL_ASF, "qcom,fatal-asf" },
+	{ ARM_SMMU_OPT_SKIP_INIT, "qcom,skip-init" },
 	{ ARM_SMMU_OPT_DYNAMIC, "qcom,dynamic" },
 	{ ARM_SMMU_OPT_3LVL_TABLES, "qcom,use-3-lvl-tables" },
 	{ 0, NULL},
@@ -3221,10 +3223,12 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 	 * Reset stream mapping groups: Initial values mark all SMRn as
 	 * invalid and all S2CRn as bypass unless overridden.
 	 */
-	for (i = 0; i < smmu->num_mapping_groups; ++i)
-		arm_smmu_write_sme(smmu, i);
+	if (!(smmu->options & ARM_SMMU_OPT_SKIP_INIT)) {
+		for (i = 0; i < smmu->num_mapping_groups; ++i)
+			arm_smmu_write_sme(smmu, i);
 
-	arm_smmu_context_bank_reset(smmu);
+		arm_smmu_context_bank_reset(smmu);
+	}
 
 	/* Invalidate the TLB, just in case */
 	writel_relaxed(0, gr0_base + ARM_SMMU_GR0_TLBIALLH);
