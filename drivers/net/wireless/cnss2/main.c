@@ -2151,6 +2151,11 @@ static int cnss_probe(struct platform_device *plat_dev)
 
 	register_pm_notifier(&cnss_pm_notifier);
 
+	ret = device_init_wakeup(&plat_dev->dev, true);
+	if (ret)
+		cnss_pr_err("Failed to init platform device wakeup source, err = %d\n",
+			    ret);
+
 	cnss_pr_info("Platform driver probed successfully.\n");
 
 	return 0;
@@ -2182,6 +2187,7 @@ static int cnss_remove(struct platform_device *plat_dev)
 {
 	struct cnss_plat_data *plat_priv = platform_get_drvdata(plat_dev);
 
+	device_init_wakeup(&plat_dev->dev, false);
 	unregister_pm_notifier(&cnss_pm_notifier);
 	del_timer(&plat_priv->fw_boot_timer);
 	cnss_debugfs_destroy(plat_priv);
