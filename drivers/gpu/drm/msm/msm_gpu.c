@@ -479,8 +479,7 @@ static void retire_submits(struct msm_gpu *gpu, uint32_t fence)
 
 	list_for_each_entry_safe(submit, tmp, &gpu->submit_list, node) {
 		if (COMPARE_FENCE_LTE(submit->fence, fence)) {
-			list_del(&submit->node);
-			kfree(submit);
+			msm_gem_submit_free(submit);
 		}
 	}
 }

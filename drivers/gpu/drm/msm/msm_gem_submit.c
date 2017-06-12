@@ -59,6 +59,11 @@ static struct msm_gem_submit *submit_create(struct drm_device *dev,
 
 		submit->secure = false;
 
+		/*
+		 * Initalize node so we can safely list_del() on it if
+		 * we fail in the submit path
+		 */
+		INIT_LIST_HEAD(&submit->node);
 		INIT_LIST_HEAD(&submit->bo_list);
 		ww_acquire_init(&submit->ticket, &reservation_ww_class);
 	}
@@ -72,6 +77,15 @@ copy_from_user_inatomic(void *to, const void __user *from, unsigned long n)
 	if (access_ok(VERIFY_READ, from, n))
 		return __copy_from_user_inatomic(to, from, n);
 	return -EFAULT;
+}
+
+void msm_gem_submit_free(struct msm_gem_submit *submit)
+{
+	if (!submit)
+		return;
+
+	list_del(&submit->node);
+	kfree(submit);
 }
 
 static int submit_lookup_objects(struct msm_gpu *gpu,
@@ -381,6 +395,9 @@ static void submit_cleanup(struct msm_gpu *gpu, struct msm_gem_submit *submit,
 {
 	unsigned i;
 
+	if (!submit)
+		return;
+
 	for (i = 0; i < submit->nr_bos; i++) {
 		struct msm_gem_object *msm_obj = submit->bos[i].obj;
 		submit_unlock_unpin_bo(gpu, submit, i);
@@ -506,8 +523,9 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 	args->fence = submit->fence;
 
 out:
-	if (submit)
-		submit_cleanup(gpu, submit, !!ret);
+	submit_cleanup(gpu, submit, !!ret);
+	if (ret)
+		msm_gem_submit_free(submit);
 	mutex_unlock(&dev->struct_mutex);
 	return ret;
 }
