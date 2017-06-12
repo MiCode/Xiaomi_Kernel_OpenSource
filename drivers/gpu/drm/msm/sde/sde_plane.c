@@ -2402,16 +2402,9 @@ int sde_plane_validate_multirect_v2(struct sde_multirect_plane_states *plane)
 
 	/* Prefer PARALLEL FETCH Mode over TIME_MX Mode */
 	if (parallel_fetch_qualified) {
-		if (dst[R0].x <= dst[R1].x) {
-			pstate[R0]->multirect_index = SDE_SSPP_RECT_0;
-			pstate[R1]->multirect_index = SDE_SSPP_RECT_1;
-		} else {
-			pstate[R0]->multirect_index = SDE_SSPP_RECT_1;
-			pstate[R1]->multirect_index = SDE_SSPP_RECT_0;
-		}
-
 		pstate[R0]->multirect_mode = SDE_SSPP_MULTIRECT_PARALLEL;
 		pstate[R1]->multirect_mode = SDE_SSPP_MULTIRECT_PARALLEL;
+
 		goto done;
 	}
 
@@ -2419,12 +2412,10 @@ int sde_plane_validate_multirect_v2(struct sde_multirect_plane_states *plane)
 	if (SDE_FORMAT_IS_UBWC(fmt[R0]))
 		buffer_lines = 2 * fmt[R0]->tile_height;
 
-	if (dst[R1].y >= dst[R0].y + dst[R0].h + buffer_lines) {
-		pstate[R0]->multirect_index = SDE_SSPP_RECT_0;
-		pstate[R1]->multirect_index = SDE_SSPP_RECT_1;
-	} else if (dst[R0].y >= dst[R1].y + dst[R1].h + buffer_lines) {
-		pstate[R0]->multirect_index = SDE_SSPP_RECT_1;
-		pstate[R1]->multirect_index = SDE_SSPP_RECT_0;
+	if ((dst[R1].y >= dst[R0].y + dst[R0].h + buffer_lines) ||
+		(dst[R0].y >= dst[R1].y + dst[R1].h + buffer_lines)) {
+		pstate[R0]->multirect_mode = SDE_SSPP_MULTIRECT_TIME_MX;
+		pstate[R1]->multirect_mode = SDE_SSPP_MULTIRECT_TIME_MX;
 	} else {
 		SDE_ERROR(
 			"No multirect mode possible for the planes (%d - %d)\n",
@@ -2433,9 +2424,15 @@ int sde_plane_validate_multirect_v2(struct sde_multirect_plane_states *plane)
 		return -EINVAL;
 	}
 
-	pstate[R0]->multirect_mode = SDE_SSPP_MULTIRECT_TIME_MX;
-	pstate[R1]->multirect_mode = SDE_SSPP_MULTIRECT_TIME_MX;
 done:
+	if (sde_plane[R0]->is_virtual) {
+		pstate[R0]->multirect_index = SDE_SSPP_RECT_1;
+		pstate[R1]->multirect_index = SDE_SSPP_RECT_0;
+	} else {
+		pstate[R0]->multirect_index = SDE_SSPP_RECT_0;
+		pstate[R1]->multirect_index = SDE_SSPP_RECT_1;
+	};
+
 	SDE_DEBUG_PLANE(sde_plane[R0], "R0: %d - %d\n",
 		pstate[R0]->multirect_mode, pstate[R0]->multirect_index);
 	SDE_DEBUG_PLANE(sde_plane[R1], "R1: %d - %d\n",
