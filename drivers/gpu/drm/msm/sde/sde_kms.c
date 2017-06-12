@@ -797,6 +797,16 @@ static void _sde_kms_drm_obj_destroy(struct sde_kms *sde_kms)
 	_sde_kms_release_displays(sde_kms);
 }
 
+static inline int sde_get_crtc_id(const char *display_type)
+{
+	if (!strcmp(display_type, "primary"))
+		return 0;
+	else if (!strcmp(display_type, "secondary"))
+		return 1;
+	else
+		return 2;
+}
+
 static int _sde_kms_drm_obj_init(struct sde_kms *sde_kms)
 {
 	struct drm_device *dev;
@@ -829,28 +839,57 @@ static int _sde_kms_drm_obj_init(struct sde_kms *sde_kms)
 		(void)_sde_kms_setup_displays(dev, priv, sde_kms);
 
 	max_crtc_count = min(catalog->mixer_count, priv->num_encoders);
-	max_plane_count = min_t(u32, catalog->sspp_count, MAX_PLANES);
 
 	/* Create the planes */
 	primary_planes_idx = 0;
-	for (i = 0; i < max_plane_count; i++) {
-		bool primary = true;
+	if (catalog->vp_count) {
+		max_plane_count = min_t(u32, catalog->vp_count, MAX_PLANES);
 
-		if (catalog->sspp[i].features & BIT(SDE_SSPP_CURSOR)
-			|| primary_planes_idx >= max_crtc_count)
-			primary = false;
+		for (i = 0; i < max_plane_count; i++) {
+			bool primary = true;
+			int crtc_id =
+				sde_get_crtc_id(catalog->vp[i].display_type);
 
-		plane = sde_plane_init(dev, catalog->sspp[i].id, primary,
-				(1UL << max_crtc_count) - 1);
-		if (IS_ERR(plane)) {
-			SDE_ERROR("sde_plane_init failed\n");
-			ret = PTR_ERR(plane);
-			goto fail;
+			if (strcmp(catalog->vp[i].plane_type, "primary"))
+				primary = false;
+
+			plane = sde_plane_init(dev, catalog->vp[i].id,
+					primary, 1UL << crtc_id, true);
+			if (IS_ERR(plane)) {
+				SDE_ERROR("sde_plane_init failed\n");
+				ret = PTR_ERR(plane);
+				goto fail;
+			}
+			priv->planes[priv->num_planes++] = plane;
+
+			if (primary) {
+				primary_planes[crtc_id] = plane;
+				primary_planes_idx++;
+			}
 		}
-		priv->planes[priv->num_planes++] = plane;
+	} else {
+		max_plane_count = min_t(u32, catalog->sspp_count, MAX_PLANES);
 
-		if (primary)
-			primary_planes[primary_planes_idx++] = plane;
+		for (i = 0; i < max_plane_count; i++) {
+			bool primary = true;
+
+			if (catalog->sspp[i].features & BIT(SDE_SSPP_CURSOR)
+				|| primary_planes_idx >= max_crtc_count)
+				primary = false;
+
+			plane = sde_plane_init(dev, catalog->sspp[i].id,
+					primary, (1UL << max_crtc_count) - 1,
+					false);
+			if (IS_ERR(plane)) {
+				SDE_ERROR("sde_plane_init failed\n");
+				ret = PTR_ERR(plane);
+				goto fail;
+			}
+			priv->planes[priv->num_planes++] = plane;
+
+			if (primary)
+				primary_planes[primary_planes_idx++] = plane;
+		}
 	}
 
 	max_crtc_count = min(max_crtc_count, primary_planes_idx);

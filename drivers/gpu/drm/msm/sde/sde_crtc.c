@@ -57,6 +57,7 @@
 static inline struct sde_kms *_sde_crtc_get_kms(struct drm_crtc *crtc)
 {
 	struct msm_drm_private *priv = crtc->dev->dev_private;
+
 	return to_sde_kms(priv->kms);
 }
 
@@ -183,9 +184,6 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 
 		pstate = to_sde_plane_state(plane->state);
 
-		flush_mask = ctl->ops.get_bitmask_sspp(ctl,
-							sde_plane_pipe(plane));
-
 		/* always stage plane on either left or right lm */
 		if (plane->state->crtc_x >= crtc_split_width) {
 			lm_idx = RIGHT_MIXER;
@@ -195,20 +193,36 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 			idx = left_crtc_zpos_cnt[pstate->stage]++;
 		}
 
+		/*
+		 * program each mixer with two hw pipes in dual mixer mode,
+		 */
+		if (sde_crtc->num_mixers == CRTC_DUAL_MIXERS) {
+			stage_cfg->stage[LEFT_MIXER][pstate->stage][1] =
+				sde_plane_pipe(plane, 1);
+
+			flush_mask = ctl->ops.get_bitmask_sspp(ctl,
+				sde_plane_pipe(plane, 1));
+		}
+
+		flush_mask |= ctl->ops.get_bitmask_sspp(ctl,
+				sde_plane_pipe(plane, lm_idx ? 1 : 0));
+
 		/* stage plane on right LM if it crosses the boundary */
 		lm_right = (lm_idx == LEFT_MIXER) &&
 		   (plane->state->crtc_x + plane->state->crtc_w >
 							crtc_split_width);
 
 		stage_cfg->stage[lm_idx][pstate->stage][idx] =
-							sde_plane_pipe(plane);
+					sde_plane_pipe(plane, lm_idx ? 1 : 0);
+
 		mixer[lm_idx].flush_mask |= flush_mask;
 
 		SDE_DEBUG("crtc %d stage:%d - plane %d sspp %d fb %d\n",
 				crtc->base.id,
 				pstate->stage,
 				plane->base.id,
-				sde_plane_pipe(plane) - SSPP_VIG0,
+				sde_plane_pipe(plane,
+					lm_idx ? 1 : 0) - SSPP_VIG0,
 				plane->state->fb ?
 				plane->state->fb->base.id : -1);
 
@@ -230,8 +244,19 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 
 		if (lm_right) {
 			idx = right_crtc_zpos_cnt[pstate->stage]++;
-			stage_cfg->stage[RIGHT_MIXER][pstate->stage][idx] =
-							sde_plane_pipe(plane);
+
+			/*
+			 * program each mixer with two hw pipes
+			   in dual mixer mode,
+			 */
+			if (sde_crtc->num_mixers == CRTC_DUAL_MIXERS) {
+				stage_cfg->stage[RIGHT_MIXER][pstate->stage][1]
+					= sde_plane_pipe(plane, 0);
+			}
+
+			stage_cfg->stage[RIGHT_MIXER][pstate->stage][idx]
+				= sde_plane_pipe(plane, 1);
+
 			mixer[RIGHT_MIXER].flush_mask |= flush_mask;
 
 			/* blend config update */
@@ -1256,7 +1281,8 @@ int sde_crtc_vblank(struct drm_crtc *crtc, bool en)
 	return 0;
 }
 
-void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc, struct drm_file *file)
+void sde_crtc_cancel_pending_flip(struct drm_crtc *crtc,
+	struct drm_file *file)
 {
 	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 
@@ -1275,6 +1301,10 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 	struct drm_device *dev;
 	struct sde_kms_info *info;
 	struct sde_kms *sde_kms;
+	static const struct drm_prop_enum_list e_secure_level[] = {
+		{SDE_DRM_SEC_NON_SEC, "sec_and_non_sec"},
+		{SDE_DRM_SEC_ONLY, "sec_only"},
+	};
 
 	SDE_DEBUG("\n");
 
@@ -1320,6 +1350,12 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 
 	msm_property_install_blob(&sde_crtc->property_info, "capabilities",
 		DRM_MODE_PROP_IMMUTABLE, CRTC_PROP_INFO);
+
+	msm_property_install_enum(&sde_crtc->property_info, "security_level",
+			0x0, 0, e_secure_level,
+			ARRAY_SIZE(e_secure_level),
+			CRTC_PROP_SECURITY_LEVEL);
+
 	sde_kms_info_reset(info);
 
 	sde_kms_info_add_keyint(info, "hw_version", catalog->hwversion);
@@ -1665,7 +1701,8 @@ static void _sde_crtc_init_debugfs(struct sde_crtc *sde_crtc,
 #endif
 
 /* initialize crtc */
-struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
+struct drm_crtc *sde_crtc_init(struct drm_device *dev,
+	struct drm_plane *plane)
 {
 	struct drm_crtc *crtc = NULL;
 	struct sde_crtc *sde_crtc = NULL;

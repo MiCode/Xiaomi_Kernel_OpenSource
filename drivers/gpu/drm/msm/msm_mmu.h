@@ -83,4 +83,8 @@ static inline void msm_mmu_disable(struct msm_mmu *mmu)
 		mmu->funcs->disable(mmu);
 }
 
+/* SDE smmu driver initialize and cleanup functions */
+int __init msm_smmu_driver_init(void);
+void __exit msm_smmu_driver_cleanup(void);
+
 #endif /* __MSM_MMU_H__ */

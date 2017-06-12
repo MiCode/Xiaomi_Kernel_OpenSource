@@ -120,30 +120,16 @@ static int msm_smmu_map(struct msm_mmu *mmu, uint64_t iova,
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
-	struct iommu_domain *domain;
 	int ret;
 
-	if (!client || !sgt)
-		return -EINVAL;
+	if (priv)
+		ret = msm_dma_map_sg_lazy(client->dev, sgt->sgl, sgt->nents,
+			DMA_BIDIRECTIONAL, priv);
+	else
+		ret = dma_map_sg(client->dev, sgt->sgl, sgt->nents,
+			DMA_BIDIRECTIONAL);
 
-	if (iova != 0) {
-		if (!client->mmu_mapping || !client->mmu_mapping->domain)
-			return -EINVAL;
-
-		domain = client->mmu_mapping->domain;
-
-		return iommu_map_sg(domain, iova, sgt->sgl,
-					sgt->nents, flags);
-	} else {
-		if (priv)
-			ret = msm_dma_map_sg_lazy(client->dev, sgt->sgl,
-					sgt->nents, DMA_BIDIRECTIONAL, priv);
-		else
-			ret = dma_map_sg(client->dev, sgt->sgl, sgt->nents,
-				DMA_BIDIRECTIONAL);
-
-		return (ret != sgt->nents) ? -ENOMEM : 0;
-	}
+	return (ret != sgt->nents) ? -ENOMEM : 0;
 }
 
 static void msm_smmu_unmap(struct msm_mmu *mmu, uint64_t iova,
@@ -151,27 +137,13 @@ static void msm_smmu_unmap(struct msm_mmu *mmu, uint64_t iova,
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
-	struct iommu_domain *domain = client->mmu_mapping->domain;
-	struct scatterlist *sg;
-	size_t len = 0;
-	int unmapped, i = 0;
 
-	if (iova != 0) {
-		for_each_sg(sgt->sgl, sg, sgt->nents, i)
-			len += sg->length;
-
-		unmapped = iommu_unmap(domain, iova, len);
-		if (unmapped < len)
-			dev_warn(mmu->dev,
-				"could not unmap iova@%llx\n", iova);
-	} else {
-		if (priv)
-			msm_dma_unmap_sg(client->dev, sgt->sgl,
-				sgt->nents, DMA_BIDIRECTIONAL, priv);
-		else
-			dma_unmap_sg(client->dev, sgt->sgl, sgt->nents,
-				DMA_BIDIRECTIONAL);
-	}
+	if (priv)
+		msm_dma_unmap_sg(client->dev, sgt->sgl, sgt->nents,
+			DMA_BIDIRECTIONAL, priv);
+	else
+		dma_unmap_sg(client->dev, sgt->sgl, sgt->nents,
+			DMA_BIDIRECTIONAL);
 }
 
 static void msm_smmu_destroy(struct msm_mmu *mmu)
@@ -220,13 +192,13 @@ static struct msm_smmu_domain msm_smmu_domains[MSM_SMMU_DOMAIN_MAX] = {
 };
 
 static const struct of_device_id msm_smmu_dt_match[] = {
-	{ .compatible = "qcom,smmu_mdp_unsec",
+	{ .compatible = "qcom,smmu_sde_unsec",
 		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_UNSECURE] },
-	{ .compatible = "qcom,smmu_mdp_sec",
+	{ .compatible = "qcom,smmu_sde_sec",
 		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_SECURE] },
-	{ .compatible = "qcom,smmu_rot_unsec",
+	{ .compatible = "qcom,smmu_sde_nrt_unsec",
 		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_NRT_UNSECURE] },
-	{ .compatible = "qcom,smmu_rot_sec",
+	{ .compatible = "qcom,smmu_sde_nrt_sec",
 		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_NRT_SECURE] },
 	{}
 };
@@ -422,7 +394,7 @@ static struct platform_driver msm_smmu_driver = {
 	},
 };
 
-static int __init msm_smmu_driver_init(void)
+int __init msm_smmu_driver_init(void)
 {
 	int ret;
 
@@ -432,13 +404,11 @@ static int __init msm_smmu_driver_init(void)
 
 	return ret;
 }
-module_init(msm_smmu_driver_init);
 
-static void __exit msm_smmu_driver_cleanup(void)
+void __exit msm_smmu_driver_cleanup(void)
 {
 	platform_driver_unregister(&msm_smmu_driver);
 }
-module_exit(msm_smmu_driver_cleanup);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MSM SMMU driver");

@@ -14,6 +14,8 @@
 #include <linux/slab.h>
 #include <linux/of_address.h>
 
+#include <linux/of_platform.h>
+
 #include "sde_hw_mdss.h"
 #include "sde_hw_catalog.h"
 #include "sde_hw_catalog_format.h"
@@ -715,6 +717,7 @@ static void _sde_sspp_setup_vig(struct sde_mdss_cfg *sde_cfg,
 		sblk->pcc_blk.len = 0;
 		set_bit(SDE_SSPP_PCC, &sspp->features);
 	}
+	snprintf(sspp->name, sizeof(sspp->name), "vig%d", *vig_count-1);
 }
 
 static void _sde_sspp_setup_rgb(struct sde_mdss_cfg *sde_cfg,
@@ -753,6 +756,7 @@ static void _sde_sspp_setup_rgb(struct sde_mdss_cfg *sde_cfg,
 		sblk->pcc_blk.len = 0;
 		set_bit(SDE_SSPP_PCC, &sspp->features);
 	}
+	snprintf(sspp->name, sizeof(sspp->name), "rgb%d", *rgb_count-1);
 }
 
 static void _sde_sspp_setup_cursor(struct sde_mdss_cfg *sde_cfg,
@@ -766,6 +770,7 @@ static void _sde_sspp_setup_cursor(struct sde_mdss_cfg *sde_cfg,
 	sspp->clk_ctrl = SDE_CLK_CTRL_CURSOR0 + *cursor_count;
 	sblk->format_list = plane_formats;
 	(*cursor_count)++;
+	snprintf(sspp->name, sizeof(sspp->name), "cursor%d", *cursor_count-1);
 }
 
 static void _sde_sspp_setup_dma(struct sde_mdss_cfg *sde_cfg,
@@ -779,6 +784,7 @@ static void _sde_sspp_setup_dma(struct sde_mdss_cfg *sde_cfg,
 	sblk->format_list = plane_formats;
 	set_bit(SDE_SSPP_QOS, &sspp->features);
 	(*dma_count)++;
+	snprintf(sspp->name, sizeof(sspp->name), "dma%d", *dma_count-1);
 }
 
 static int sde_sspp_parse_dt(struct device_node *np,
@@ -1200,7 +1206,8 @@ end:
 	return rc;
 }
 
-static int sde_wb_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
+static int sde_wb_parse_dt(struct device_node *np,
+	struct sde_mdss_cfg *sde_cfg)
 {
 	int rc, prop_count[WB_PROP_MAX], i, j;
 	struct sde_prop_value *prop_value = NULL;
@@ -1686,7 +1693,8 @@ end:
 	return rc;
 }
 
-static int sde_pp_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
+static int sde_pp_parse_dt(struct device_node *np,
+	struct sde_mdss_cfg *sde_cfg)
 {
 	int rc, prop_count[PP_PROP_MAX], i;
 	struct sde_prop_value *prop_value = NULL;
@@ -1757,6 +1765,94 @@ static int sde_pp_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 
 end:
 	kfree(prop_value);
+	return rc;
+}
+
+static inline u32 _sde_parse_sspp_id(struct sde_mdss_cfg *cfg,
+	const char *name)
+{
+	int i;
+
+	for (i = 0; i < cfg->sspp_count; i++) {
+		if (!strcmp(cfg->sspp[i].name, name))
+			return cfg->sspp[i].id;
+	}
+
+	return SSPP_NONE;
+}
+
+static int _sde_vp_parse_dt(struct device_node *np,
+	struct sde_mdss_cfg *cfg)
+{
+	int rc = 0, i = 0;
+	struct device_node *node = NULL;
+	struct device_node *root_node = NULL;
+	struct sde_vp_cfg *vp;
+	struct sde_vp_sub_blks *vp_sub, *vp_sub_next;
+	struct property *prop;
+	const char *cname;
+
+	root_node = of_get_child_by_name(np, "qcom,sde-plane-id-map");
+	if (!root_node) {
+		root_node = of_parse_phandle(np, "qcom,sde-plane-id-map", 0);
+		if (!root_node) {
+			SDE_ERROR("No entry present for qcom,sde-plane-id-map");
+			rc = -EINVAL;
+			goto end;
+		}
+	}
+
+	for_each_child_of_node(root_node, node) {
+		if (i >= MAX_BLOCKS) {
+			SDE_ERROR("num of nodes(%d) is bigger than max(%d)\n",
+					i, MAX_BLOCKS);
+			rc = -EINVAL;
+			goto end;
+		}
+		cfg->vp_count++;
+		vp = &(cfg->vp[i]);
+		vp->id = i;
+		rc = of_property_read_string(node, "qcom,display-type",
+						&(vp->display_type));
+		if (rc) {
+			SDE_ERROR("failed to read display-type, rc = %d\n", rc);
+			goto end;
+		}
+
+		rc = of_property_read_string(node, "qcom,plane-type",
+						&(vp->plane_type));
+		if (rc) {
+			SDE_ERROR("failed to read plane-type, rc = %d\n", rc);
+			goto end;
+		}
+
+		INIT_LIST_HEAD(&vp->sub_blks);
+		of_property_for_each_string(node, "qcom,plane-name",
+						prop, cname) {
+			vp_sub = kzalloc(sizeof(*vp_sub), GFP_KERNEL);
+			if (!vp_sub) {
+				rc = -ENOMEM;
+				goto end;
+			}
+			vp_sub->sspp_id = _sde_parse_sspp_id(cfg, cname);
+			list_add_tail(&vp_sub->pipeid_list, &vp->sub_blks);
+		}
+		i++;
+	}
+
+end:
+	if (rc && cfg->vp_count) {
+		vp = &(cfg->vp[i]);
+		for (i = 0; i < cfg->vp_count; i++) {
+			list_for_each_entry_safe(vp_sub, vp_sub_next,
+				&vp->sub_blks, pipeid_list) {
+				list_del(&vp_sub->pipeid_list);
+				kfree(vp_sub);
+			}
+		}
+		memset(&(cfg->vp[0]), 0, sizeof(cfg->vp));
+		cfg->vp_count = 0;
+	}
 	return rc;
 }
 
@@ -1851,7 +1947,8 @@ end:
 	return rc;
 }
 
-static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
+static int sde_perf_parse_dt(struct device_node *np,
+	struct sde_mdss_cfg *cfg)
 {
 	int rc, len, prop_count[PERF_PROP_MAX];
 	struct sde_prop_value *prop_value = NULL;
@@ -1891,7 +1988,8 @@ end:
 	return rc;
 }
 
-static void sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
+static void sde_hardware_caps(struct sde_mdss_cfg *sde_cfg,
+	uint32_t hw_rev)
 {
 	switch (hw_rev) {
 	case SDE_HW_VER_170:
@@ -1909,6 +2007,7 @@ static void sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 void sde_hw_catalog_deinit(struct sde_mdss_cfg *sde_cfg)
 {
 	int i;
+	struct sde_vp_sub_blks *vp_sub, *vp_sub_next;
 
 	if (!sde_cfg)
 		return;
@@ -1932,13 +2031,23 @@ void sde_hw_catalog_deinit(struct sde_mdss_cfg *sde_cfg)
 		kfree(sde_cfg->vbif[i].dynamic_ot_rd_tbl.cfg);
 		kfree(sde_cfg->vbif[i].dynamic_ot_wr_tbl.cfg);
 	}
+
+	for (i = 0; i < sde_cfg->vp_count; i++) {
+		list_for_each_entry_safe(vp_sub, vp_sub_next,
+			&sde_cfg->vp[i].sub_blks, pipeid_list) {
+			list_del(&vp_sub->pipeid_list);
+			kfree(vp_sub);
+		}
+	}
+
 	kfree(sde_cfg);
 }
 
 /*************************************************************
  * hardware catalog init
  *************************************************************/
-struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev)
+struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev,
+	u32 hw_rev)
 {
 	int rc;
 	struct sde_mdss_cfg *sde_cfg;
@@ -1995,6 +2104,10 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev)
 	rc = sde_perf_parse_dt(np, sde_cfg);
 	if (rc)
 		goto end;
+
+	rc = _sde_vp_parse_dt(np, sde_cfg);
+	if (rc)
+		SDE_DEBUG("virtual plane is not supported.\n");
 
 	sde_hardware_caps(sde_cfg, hw_rev);
 
