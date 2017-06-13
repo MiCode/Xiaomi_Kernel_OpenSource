@@ -1202,7 +1202,7 @@ static int a6xx_gfx_rail_on(struct kgsl_device *device)
 			OOB_BOOT_SLUMBER_CLEAR_MASK);
 
 	if (ret)
-		dev_err(&gmu->pdev->dev, "OOB set after GMU booted timed out\n");
+		dev_err(&gmu->pdev->dev, "Boot OOB timed out\n");
 
 	return ret;
 }
@@ -1222,6 +1222,9 @@ static int a6xx_notify_slumber(struct kgsl_device *device)
 	int perf_idx = gmu->num_gpupwrlevels - pwr->default_pwrlevel - 1;
 	int ret, state;
 
+	/* Disable the power counter so that the GMU is not busy */
+	kgsl_gmu_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0);
+
 	if (!ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
 		ret = hfi_notify_slumber(gmu, perf_idx, bus_level);
 		return ret;
@@ -1238,7 +1241,7 @@ static int a6xx_notify_slumber(struct kgsl_device *device)
 	a6xx_oob_clear(adreno_dev, OOB_BOOT_SLUMBER_CLEAR_MASK);
 
 	if (ret)
-		dev_err(&gmu->pdev->dev, "OOB set for slumber timed out\n");
+		dev_err(&gmu->pdev->dev, "Notify slumber OOB timed out\n");
 	else {
 		kgsl_gmu_regread(device,
 			A6XX_GPU_GMU_CX_GMU_RPMH_POWER_STATE, &state);
@@ -1285,6 +1288,9 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 
 	/* Turn on the HM and SPTP head switches */
 	ret = a6xx_hm_sptprac_enable(device);
+
+	/* Enable the power counter because it was disabled before slumber */
+	kgsl_gmu_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 1);
 
 	return ret;
 error_rsc:
@@ -1466,7 +1472,7 @@ static int a6xx_gmu_dcvs_nohfi(struct kgsl_device *device,
 		OOB_DCVS_CLEAR_MASK);
 
 	if (ret) {
-		dev_err(&gmu->pdev->dev, "OOB set after GMU booted timed out\n");
+		dev_err(&gmu->pdev->dev, "DCVS OOB timed out\n");
 		goto done;
 	}
 
@@ -1495,10 +1501,17 @@ static int a6xx_wait_for_gmu_idle(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_device *gmu = &device->gmu;
+	unsigned int status, status2;
 
 	if (timed_poll_check(device, A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS,
 			0, GMU_START_TIMEOUT, CXGXCPUBUSYIGNAHB)) {
-		dev_err(&gmu->pdev->dev, "GMU is not idling\n");
+		kgsl_gmu_regread(device,
+				A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS, &status);
+		kgsl_gmu_regread(device,
+				A6XX_GPU_GMU_AO_GPU_CX_BUSY_STATUS2, &status2);
+		dev_err(&gmu->pdev->dev,
+				"GMU not idling: status=0x%x, status2=0x%x\n",
+				status, status2);
 		return -ETIMEDOUT;
 	}
 
