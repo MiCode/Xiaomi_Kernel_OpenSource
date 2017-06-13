@@ -900,8 +900,7 @@ struct sde_hw_rot *sde_hw_rot_init(enum sde_rot idx,
 	c->caps = cfg;
 	_setup_rot_ops(&c->ops, c->caps->features);
 
-	rc = sde_hw_blk_init(&c->base, SDE_HW_BLK_ROT, idx,
-			&sde_hw_rot_ops);
+	rc = sde_hw_blk_init(&c->base, SDE_HW_BLK_ROT, idx, &sde_hw_rot_ops);
 	if (rc) {
 		SDE_ERROR("failed to init hw blk %d\n", rc);
 		goto blk_init_error;
@@ -922,9 +921,11 @@ blk_init_error:
  */
 void sde_hw_rot_destroy(struct sde_hw_rot *hw_rot)
 {
-	sde_hw_blk_destroy(&hw_rot->base);
-	kfree(hw_rot->downscale_caps);
-	kfree(hw_rot->format_caps);
+	if (hw_rot) {
+		sde_hw_blk_destroy(&hw_rot->base);
+		kfree(hw_rot->downscale_caps);
+		kfree(hw_rot->format_caps);
+	}
 	kfree(hw_rot);
 }
 

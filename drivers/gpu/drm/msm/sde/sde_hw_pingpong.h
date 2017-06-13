@@ -13,6 +13,11 @@
 #ifndef _SDE_HW_PINGPONG_H
 #define _SDE_HW_PINGPONG_H
 
+#include "sde_hw_catalog.h"
+#include "sde_hw_mdss.h"
+#include "sde_hw_util.h"
+#include "sde_hw_blk.h"
+
 struct sde_hw_pingpong;
 
 struct sde_hw_tear_check {
@@ -101,7 +106,7 @@ struct sde_hw_pingpong_ops {
 };
 
 struct sde_hw_pingpong {
-	/* base */
+	struct sde_hw_blk base;
 	struct sde_hw_blk_reg_map hw;
 
 	/* pingpong */

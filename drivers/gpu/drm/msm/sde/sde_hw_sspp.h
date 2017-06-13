@@ -16,6 +16,7 @@
 #include "sde_hw_catalog.h"
 #include "sde_hw_mdss.h"
 #include "sde_hw_util.h"
+#include "sde_hw_blk.h"
 #include "sde_formats.h"
 #include "sde_color_processing.h"
 
@@ -610,20 +611,16 @@ struct sde_hw_sspp_ops {
 
 /**
  * struct sde_hw_pipe - pipe description
- * @base_off:     mdp register mapped offset
- * @blk_off:      pipe offset relative to mdss offset
- * @length        length of register block offset
- * @hwversion     mdss hw version number
- * @catalog:      back pointer to catalog
- * @mdp:          pointer to associated mdp portion of the catalog
- * @idx:          pipe index
- * @type :        pipe type, VIG/DMA/RGB/CURSOR, certain operations are not
- *                supported for each pipe type
- * @pipe_hw_cap:  pointer to layer_cfg
- * @ops:          pointer to operations possible for this pipe
+ * @base: hardware block base structure
+ * @hw: block hardware details
+ * @catalog: back pointer to catalog
+ * @mdp: pointer to associated mdp portion of the catalog
+ * @idx: pipe index
+ * @cap: pointer to layer_cfg
+ * @ops: pointer to operations possible for this pipe
  */
 struct sde_hw_pipe {
-	/* base */
+	struct sde_hw_blk base;
 	struct sde_hw_blk_reg_map hw;
 	struct sde_mdss_cfg *catalog;
 	struct sde_mdp_cfg *mdp;

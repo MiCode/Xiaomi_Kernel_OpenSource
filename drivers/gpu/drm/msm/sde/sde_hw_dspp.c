@@ -17,6 +17,7 @@
 #include "sde_hw_color_processing.h"
 #include "sde_dbg.h"
 #include "sde_ad4.h"
+#include "sde_kms.h"
 
 static struct sde_dspp_cfg *_dspp_offset(enum sde_dspp dspp,
 		struct sde_mdss_cfg *m,
@@ -118,12 +119,18 @@ static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 	}
 }
 
+static struct sde_hw_blk_ops sde_hw_ops = {
+	.start = NULL,
+	.stop = NULL,
+};
+
 struct sde_hw_dspp *sde_hw_dspp_init(enum sde_dspp idx,
 			void __iomem *addr,
 			struct sde_mdss_cfg *m)
 {
 	struct sde_hw_dspp *c;
 	struct sde_dspp_cfg *cfg;
+	int rc;
 
 	if (!addr || !m)
 		return ERR_PTR(-EINVAL);
@@ -143,15 +150,28 @@ struct sde_hw_dspp *sde_hw_dspp_init(enum sde_dspp idx,
 	c->cap = cfg;
 	_setup_dspp_ops(c, c->cap->features);
 
+	rc = sde_hw_blk_init(&c->base, SDE_HW_BLK_DSPP, idx, &sde_hw_ops);
+	if (rc) {
+		SDE_ERROR("failed to init hw blk %d\n", rc);
+		goto blk_init_error;
+	}
+
 	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,
 			c->hw.blk_off + c->hw.length, c->hw.xin_id);
 
 	return c;
+
+blk_init_error:
+	kzfree(c);
+
+	return ERR_PTR(rc);
 }
 
 void sde_hw_dspp_destroy(struct sde_hw_dspp *dspp)
 {
-	if (dspp)
+	if (dspp) {
 		reg_dmav1_deinit_dspp_ops(dspp->idx);
+		sde_hw_blk_destroy(&dspp->base);
+	}
 	kfree(dspp);
 }

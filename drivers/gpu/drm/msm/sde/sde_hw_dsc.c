@@ -16,6 +16,7 @@
 #include "sde_hw_dsc.h"
 #include "sde_hw_pingpong.h"
 #include "sde_dbg.h"
+#include "sde_kms.h"
 
 #define DSC_COMMON_MODE	                0x000
 #define DSC_ENC                         0X004
@@ -200,12 +201,18 @@ static void _setup_dsc_ops(struct sde_hw_dsc_ops *ops,
 	ops->dsc_config_thresh = sde_hw_dsc_config_thresh;
 };
 
+static struct sde_hw_blk_ops sde_hw_ops = {
+	.start = NULL,
+	.stop = NULL,
+};
+
 struct sde_hw_dsc *sde_hw_dsc_init(enum sde_dsc idx,
 		void __iomem *addr,
 		struct sde_mdss_cfg *m)
 {
 	struct sde_hw_dsc *c;
 	struct sde_dsc_cfg *cfg;
+	int rc;
 
 	c = kzalloc(sizeof(*c), GFP_KERNEL);
 	if (!c)
@@ -221,13 +228,26 @@ struct sde_hw_dsc *sde_hw_dsc_init(enum sde_dsc idx,
 	c->dsc_hw_cap = cfg;
 	_setup_dsc_ops(&c->ops, c->dsc_hw_cap->features);
 
+	rc = sde_hw_blk_init(&c->base, SDE_HW_BLK_DSC, idx, &sde_hw_ops);
+	if (rc) {
+		SDE_ERROR("failed to init hw blk %d\n", rc);
+		goto blk_init_error;
+	}
+
 	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,
 		c->hw.blk_off + c->hw.length, c->hw.xin_id);
 
 	return c;
+
+blk_init_error:
+	kzfree(c);
+
+	return ERR_PTR(rc);
 }
 
 void sde_hw_dsc_destroy(struct sde_hw_dsc *dsc)
 {
+	if (dsc)
+		sde_hw_blk_destroy(&dsc->base);
 	kfree(dsc);
 }

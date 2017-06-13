@@ -14,6 +14,7 @@
 #include "sde_hw_catalog.h"
 #include "sde_hw_top.h"
 #include "sde_dbg.h"
+#include "sde_kms.h"
 
 #define SSPP_SPARE                        0x28
 #define UBWC_STATIC                       0x144
@@ -337,12 +338,18 @@ static const struct sde_mdp_cfg *_top_offset(enum sde_mdp mdp,
 	return ERR_PTR(-EINVAL);
 }
 
+static struct sde_hw_blk_ops sde_hw_ops = {
+	.start = NULL,
+	.stop = NULL,
+};
+
 struct sde_hw_mdp *sde_hw_mdptop_init(enum sde_mdp idx,
 		void __iomem *addr,
 		const struct sde_mdss_cfg *m)
 {
 	struct sde_hw_mdp *mdp;
 	const struct sde_mdp_cfg *cfg;
+	int rc;
 
 	if (!addr || !m)
 		return ERR_PTR(-EINVAL);
@@ -364,16 +371,29 @@ struct sde_hw_mdp *sde_hw_mdptop_init(enum sde_mdp idx,
 	mdp->cap = cfg;
 	_setup_mdp_ops(&mdp->ops, mdp->cap->features);
 
+	rc = sde_hw_blk_init(&mdp->base, SDE_HW_BLK_TOP, idx, &sde_hw_ops);
+	if (rc) {
+		SDE_ERROR("failed to init hw blk %d\n", rc);
+		goto blk_init_error;
+	}
+
 	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name,
 			mdp->hw.blk_off, mdp->hw.blk_off + mdp->hw.length,
 			mdp->hw.xin_id);
 	sde_dbg_set_sde_top_offset(mdp->hw.blk_off);
 
 	return mdp;
+
+blk_init_error:
+	kzfree(mdp);
+
+	return ERR_PTR(rc);
 }
 
 void sde_hw_mdp_destroy(struct sde_hw_mdp *mdp)
 {
+	if (mdp)
+		sde_hw_blk_destroy(&mdp->base);
 	kfree(mdp);
 }
 

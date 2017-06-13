@@ -13,6 +13,11 @@
 #ifndef _SDE_HW_DSC_H
 #define _SDE_HW_DSC_H
 
+#include "sde_hw_catalog.h"
+#include "sde_hw_mdss.h"
+#include "sde_hw_util.h"
+#include "sde_hw_blk.h"
+
 struct sde_hw_dsc;
 struct msm_display_dsc_info;
 
@@ -52,7 +57,7 @@ struct sde_hw_dsc_ops {
 };
 
 struct sde_hw_dsc {
-	/* base */
+	struct sde_hw_blk base;
 	struct sde_hw_blk_reg_map hw;
 
 	/* dsc */

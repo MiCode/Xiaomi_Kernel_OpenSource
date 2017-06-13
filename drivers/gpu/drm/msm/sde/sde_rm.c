@@ -106,7 +106,6 @@ struct sde_rm_hw_blk {
 	struct sde_rm_rsvp *rsvp;
 	struct sde_rm_rsvp *rsvp_nxt;
 	enum sde_hw_blk_type type;
-	const char *type_name;
 	uint32_t id;
 	void *catalog;
 	void *hw;
@@ -143,12 +142,12 @@ static void _sde_rm_print_rsvps(
 			if (!blk->rsvp && !blk->rsvp_nxt)
 				continue;
 
-			SDE_DEBUG("%d rsvp[s%ue%u->s%ue%u] %s %d\n", stage,
+			SDE_DEBUG("%d rsvp[s%ue%u->s%ue%u] %d %d\n", stage,
 				(blk->rsvp) ? blk->rsvp->seq : 0,
 				(blk->rsvp) ? blk->rsvp->enc_id : 0,
 				(blk->rsvp_nxt) ? blk->rsvp_nxt->seq : 0,
 				(blk->rsvp_nxt) ? blk->rsvp_nxt->enc_id : 0,
-				blk->type_name, blk->id);
+				blk->type, blk->id);
 
 			SDE_EVT32(stage,
 				(blk->rsvp) ? blk->rsvp->seq : 0,
@@ -205,9 +204,8 @@ static bool _sde_rm_get_hw_locked(struct sde_rm *rm, struct sde_rm_hw_iter *i)
 
 		if ((i->enc_id == 0) || (rsvp && rsvp->enc_id == i->enc_id)) {
 			i->hw = i->blk->hw;
-			SDE_DEBUG("found type %d %s id %d for enc %d\n",
-					i->type, i->blk->type_name, i->blk->id,
-					i->enc_id);
+			SDE_DEBUG("found type %d id %d for enc %d\n",
+					i->type, i->blk->id, i->enc_id);
 			return true;
 		}
 	}
@@ -314,7 +312,6 @@ static int _sde_rm_hw_blk_create(
 {
 	struct sde_rm_hw_blk *blk;
 	struct sde_hw_mdp *hw_mdp;
-	const char *name;
 	void *hw;
 
 	hw_mdp = rm->hw_mdp;
@@ -322,39 +319,30 @@ static int _sde_rm_hw_blk_create(
 	switch (type) {
 	case SDE_HW_BLK_LM:
 		hw = sde_hw_lm_init(id, mmio, cat);
-		name = "lm";
 		break;
 	case SDE_HW_BLK_DSPP:
 		hw = sde_hw_dspp_init(id, mmio, cat);
-		name = "dspp";
 		break;
 	case SDE_HW_BLK_CTL:
 		hw = sde_hw_ctl_init(id, mmio, cat);
-		name = "ctl";
 		break;
 	case SDE_HW_BLK_CDM:
 		hw = sde_hw_cdm_init(id, mmio, cat, hw_mdp);
-		name = "cdm";
 		break;
 	case SDE_HW_BLK_PINGPONG:
 		hw = sde_hw_pingpong_init(id, mmio, cat);
-		name = "pp";
 		break;
 	case SDE_HW_BLK_INTF:
 		hw = sde_hw_intf_init(id, mmio, cat);
-		name = "intf";
 		break;
 	case SDE_HW_BLK_WB:
 		hw = sde_hw_wb_init(id, mmio, cat, hw_mdp);
-		name = "wb";
 		break;
 	case SDE_HW_BLK_DSC:
 		hw = sde_hw_dsc_init(id, mmio, cat);
-		name = "dsc";
 		break;
 	case SDE_HW_BLK_ROT:
 		hw = sde_hw_rot_init(id, mmio, cat);
-		name = "rot";
 		break;
 	case SDE_HW_BLK_SSPP:
 		/* SSPPs are not managed by the resource manager */
@@ -378,7 +366,6 @@ static int _sde_rm_hw_blk_create(
 		return -ENOMEM;
 	}
 
-	blk->type_name = name;
 	blk->type = type;
 	blk->id = id;
 	blk->catalog = hw_catalog_info;
@@ -1112,15 +1099,15 @@ static void _sde_rm_release_rsvp(
 		list_for_each_entry(blk, &rm->hw_blks[type], list) {
 			if (blk->rsvp == rsvp) {
 				blk->rsvp = NULL;
-				SDE_DEBUG("rel rsvp %d enc %d %s %d\n",
+				SDE_DEBUG("rel rsvp %d enc %d %d %d\n",
 						rsvp->seq, rsvp->enc_id,
-						blk->type_name, blk->id);
+						blk->type, blk->id);
 			}
 			if (blk->rsvp_nxt == rsvp) {
 				blk->rsvp_nxt = NULL;
-				SDE_DEBUG("rel rsvp_nxt %d enc %d %s %d\n",
+				SDE_DEBUG("rel rsvp_nxt %d enc %d %d %d\n",
 						rsvp->seq, rsvp->enc_id,
-						blk->type_name, blk->id);
+						blk->type, blk->id);
 			}
 		}
 	}

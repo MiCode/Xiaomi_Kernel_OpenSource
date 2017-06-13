@@ -14,6 +14,7 @@
 #include "sde_hwio.h"
 #include "sde_hw_ctl.h"
 #include "sde_dbg.h"
+#include "sde_kms.h"
 
 #define   CTL_LAYER(lm)                 \
 	(((lm) == LM_5) ? (0x024) : (((lm) - LM_0) * 0x004))
@@ -562,12 +563,18 @@ static void _setup_ctl_ops(struct sde_hw_ctl_ops *ops,
 	}
 };
 
+static struct sde_hw_blk_ops sde_hw_ops = {
+	.start = NULL,
+	.stop = NULL,
+};
+
 struct sde_hw_ctl *sde_hw_ctl_init(enum sde_ctl idx,
 		void __iomem *addr,
 		struct sde_mdss_cfg *m)
 {
 	struct sde_hw_ctl *c;
 	struct sde_ctl_cfg *cfg;
+	int rc;
 
 	c = kzalloc(sizeof(*c), GFP_KERNEL);
 	if (!c)
@@ -586,13 +593,26 @@ struct sde_hw_ctl *sde_hw_ctl_init(enum sde_ctl idx,
 	c->mixer_count = m->mixer_count;
 	c->mixer_hw_caps = m->mixer;
 
+	rc = sde_hw_blk_init(&c->base, SDE_HW_BLK_CTL, idx, &sde_hw_ops);
+	if (rc) {
+		SDE_ERROR("failed to init hw blk %d\n", rc);
+		goto blk_init_error;
+	}
+
 	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,
 			c->hw.blk_off + c->hw.length, c->hw.xin_id);
 
 	return c;
+
+blk_init_error:
+	kzfree(c);
+
+	return ERR_PTR(rc);
 }
 
 void sde_hw_ctl_destroy(struct sde_hw_ctl *ctx)
 {
+	if (ctx)
+		sde_hw_blk_destroy(&ctx->base);
 	kfree(ctx);
 }

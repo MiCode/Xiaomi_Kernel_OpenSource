@@ -16,6 +16,7 @@
 #include "sde_hw_catalog.h"
 #include "sde_hw_mdss.h"
 #include "sde_hw_util.h"
+#include "sde_hw_blk.h"
 
 struct sde_hw_mdp;
 
@@ -179,7 +180,7 @@ struct sde_hw_mdp_ops {
 };
 
 struct sde_hw_mdp {
-	/* base */
+	struct sde_hw_blk base;
 	struct sde_hw_blk_reg_map hw;
 
 	/* intf */

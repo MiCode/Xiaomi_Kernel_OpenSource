@@ -17,6 +17,7 @@
 #include "sde_hw_util.h"
 #include "sde_hw_catalog.h"
 #include "sde_hw_sspp.h"
+#include "sde_hw_blk.h"
 
 /**
  * sde_ctl_mode_sel: Interface mode selection
@@ -209,16 +210,17 @@ struct sde_hw_ctl_ops {
 
 /**
  * struct sde_hw_ctl : CTL PATH driver object
+ * @base: hardware block base structure
  * @hw: block register map object
  * @idx: control path index
- * @ctl_hw_caps: control path capabilities
+ * @caps: control path capabilities
  * @mixer_count: number of mixers
  * @mixer_hw_caps: mixer hardware capabilities
  * @pending_flush_mask: storage for pending ctl_flush managed via ops
  * @ops: operation list
  */
 struct sde_hw_ctl {
-	/* base */
+	struct sde_hw_blk base;
 	struct sde_hw_blk_reg_map hw;
 
 	/* ctl path */

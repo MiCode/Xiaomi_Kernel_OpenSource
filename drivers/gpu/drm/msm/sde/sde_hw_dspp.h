@@ -13,6 +13,8 @@
 #ifndef _SDE_HW_DSPP_H
 #define _SDE_HW_DSPP_H
 
+#include "sde_hw_blk.h"
+
 struct sde_hw_dspp;
 
 /**
@@ -166,17 +168,14 @@ struct sde_hw_dspp_ops {
 
 /**
  * struct sde_hw_dspp - dspp description
- * @base_off:     MDP register mapped offset
- * @blk_off:      DSPP offset relative to mdss offset
- * @length        Length of register block offset
- * @hwversion     Mdss hw version number
- * @idx:          DSPP index
- * @dspp_hw_cap:  Pointer to layer_cfg
- * @highest_bank_bit:
- * @ops:          Pointer to operations possible for this dspp
+ * @base: Hardware block base structure
+ * @hw: Block hardware details
+ * @idx: DSPP index
+ * @cap: Pointer to layer_cfg
+ * @ops: Pointer to operations possible for this DSPP
  */
 struct sde_hw_dspp {
-	/* base */
+	struct sde_hw_blk base;
 	 struct sde_hw_blk_reg_map hw;
 
 	/* dspp */
