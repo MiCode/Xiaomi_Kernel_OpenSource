@@ -22,6 +22,7 @@
 #include "vidc_hfi_api.h"
 #include "msm_vidc_debug.h"
 #include "msm_vidc_dcvs.h"
+#include "msm_vdec.h"
 
 #define IS_ALREADY_IN_STATE(__p, __d) ({\
 	int __rc = (__p >= __d);\
@@ -5432,4 +5433,8 @@ static void msm_comm_print_debug_info(struct msm_vidc_inst *inst)
 		msm_comm_print_inst_info(temp);
 	}
 	mutex_unlock(&core->lock);
+}
+void msm_comm_sort_ctrl(void)
+{
+	msm_vdec_ctrl_sort();
 }
