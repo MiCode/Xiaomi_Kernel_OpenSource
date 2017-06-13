@@ -602,7 +602,8 @@ static int msm_open(struct drm_device *dev, struct drm_file *file)
 	if (IS_ERR(ctx))
 		return PTR_ERR(ctx);
 
-	INIT_LIST_HEAD(&ctx->counters);
+	if (ctx)
+		INIT_LIST_HEAD(&ctx->counters);
 
 	file->driver_priv = ctx;
 

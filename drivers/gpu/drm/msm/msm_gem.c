@@ -1038,7 +1038,7 @@ struct drm_gem_object *msm_gem_svm_new(struct drm_device *dev,
 {
 	struct drm_gem_object *obj;
 	struct msm_file_private *ctx = file->driver_priv;
-	struct msm_gem_address_space *aspace = ctx->aspace;
+	struct msm_gem_address_space *aspace;
 	struct msm_gem_object *msm_obj;
 	struct msm_gem_svm_object *msm_svm_obj;
 	struct msm_gem_vma *domain = NULL;
@@ -1047,6 +1047,9 @@ struct drm_gem_object *msm_gem_svm_new(struct drm_device *dev,
 	int num_pinned = 0;
 	int write;
 	int ret;
+
+	if (!ctx)
+		return ERR_PTR(-ENODEV);
 
 	/* if we don't have IOMMU, don't bother pretending we can import: */
 	if (!iommu_present(&platform_bus_type)) {
@@ -1070,6 +1073,7 @@ struct drm_gem_object *msm_gem_svm_new(struct drm_device *dev,
 	drm_gem_private_object_init(dev, obj, size);
 
 	msm_obj = to_msm_bo(obj);
+	aspace = ctx->aspace;
 	domain = obj_add_domain(&msm_obj->base, aspace);
 	if (IS_ERR(domain)) {
 		drm_gem_object_unreference_unlocked(obj);

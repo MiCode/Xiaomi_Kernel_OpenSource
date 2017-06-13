@@ -652,6 +652,9 @@ int msm_gpu_counter_put(struct msm_gpu *gpu, struct drm_msm_counter *data,
 {
 	struct msm_context_counter *entry;
 
+	if (!gpu || !ctx)
+		return -ENODEV;
+
 	list_for_each_entry(entry, &ctx->counters, node) {
 		if (entry->groupid == data->groupid &&
 			entry->counterid == data->counterid) {
