@@ -1,5 +1,6 @@
 config CNSS2
 	tristate "CNSS2 Platform Driver for Wi-Fi Module"
+	select CNSS_UTILS
 	depends on !CNSS && PCI_MSM
 	---help---
 	  This module adds the support for Connectivity Subsystem (CNSS) used
