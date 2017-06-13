@@ -142,6 +142,9 @@ struct sde_hdmi {
 	u8 hdcp_status;
 	u32 enc_lvl;
 	bool auth_state;
+	bool sink_hdcp22_support;
+	bool src_hdcp22_support;
+
 	/*hold final data
 	 *based on hdcp support
 	 */
