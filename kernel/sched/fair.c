@@ -5644,6 +5644,9 @@ static int sched_group_energy(struct energy_env *eenv)
 				if (unlikely(idle_idx < 0))
 					return idle_idx;
 
+				if (idle_idx > sg->sge->nr_idle_states - 1)
+					idle_idx = sg->sge->nr_idle_states - 1;
+
 				group_util = group_norm_util(eenv, sg);
 				sg_busy_energy = (group_util * sg->sge->cap_states[cap_idx].power);
 
