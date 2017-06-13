@@ -141,6 +141,7 @@ struct sde_crtc_event {
  * @event_lock    : Spinlock around event handling code
  * @misr_enable   : boolean entry indicates misr enable/disable status.
  * @power_event   : registered power event handle
+ * @cur_perf      : current performance committed to clock/bandwidth driver
  */
 struct sde_crtc {
 	struct drm_crtc base;
@@ -193,6 +194,8 @@ struct sde_crtc {
 	bool misr_enable;
 
 	struct sde_power_event *power_event;
+
+	struct sde_core_perf_params cur_perf;
 };
 
 #define to_sde_crtc(x) container_of(x, struct sde_crtc, base)
@@ -268,8 +271,7 @@ struct sde_crtc_respool {
  * @property_blobs: Reference pointers for blob properties
  * @num_dim_layers: Number of dim layers
  * @dim_layer: Dim layer configs
- * @cur_perf: current performance state
- * @new_perf: new performance state
+ * @new_perf: new performance state being requested
  * @sbuf_cfg: stream buffer configuration
  * @sbuf_prefill_line: number of line for inline rotator prefetch
  * @sbuf_flush_mask: flush mask for inline rotator
@@ -296,7 +298,6 @@ struct sde_crtc_state {
 	uint32_t num_dim_layers;
 	struct sde_hw_dim_layer dim_layer[SDE_MAX_DIM_LAYERS];
 
-	struct sde_core_perf_params cur_perf;
 	struct sde_core_perf_params new_perf;
 	struct sde_ctl_sbuf_cfg sbuf_cfg;
 	u32 sbuf_prefill_line;

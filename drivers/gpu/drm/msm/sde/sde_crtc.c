@@ -3422,16 +3422,18 @@ static const struct file_operations __prefix ## _fops = {		\
 static int sde_crtc_debugfs_state_show(struct seq_file *s, void *v)
 {
 	struct drm_crtc *crtc = (struct drm_crtc *) s->private;
+	struct sde_crtc *sde_crtc = to_sde_crtc(crtc);
 	struct sde_crtc_state *cstate = to_sde_crtc_state(crtc->state);
 	struct sde_crtc_res *res;
 
 	seq_printf(s, "num_connectors: %d\n", cstate->num_connectors);
 	seq_printf(s, "client type: %d\n", sde_crtc_get_client_type(crtc));
 	seq_printf(s, "intf_mode: %d\n", sde_crtc_get_intf_mode(crtc));
-	seq_printf(s, "bw_ctl: %llu\n", cstate->cur_perf.bw_ctl);
-	seq_printf(s, "core_clk_rate: %llu\n", cstate->cur_perf.core_clk_rate);
+	seq_printf(s, "bw_ctl: %llu\n", sde_crtc->cur_perf.bw_ctl);
+	seq_printf(s, "core_clk_rate: %llu\n",
+			sde_crtc->cur_perf.core_clk_rate);
 	seq_printf(s, "max_per_pipe_ib: %llu\n",
-			cstate->cur_perf.max_per_pipe_ib);
+			sde_crtc->cur_perf.max_per_pipe_ib);
 
 	seq_printf(s, "rp.%d: ", cstate->rp.sequence_id);
 	list_for_each_entry(res, &cstate->rp.res_list, list)
