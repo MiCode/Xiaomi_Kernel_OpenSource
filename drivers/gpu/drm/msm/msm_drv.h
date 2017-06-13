@@ -437,6 +437,7 @@ struct msm_gem_address_space *
 msm_gem_smmu_address_space_create(struct device *dev, struct msm_mmu *mmu,
 		const char *name);
 
+void msm_gem_submit_free(struct msm_gem_submit *submit);
 int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 		struct drm_file *file);
 
