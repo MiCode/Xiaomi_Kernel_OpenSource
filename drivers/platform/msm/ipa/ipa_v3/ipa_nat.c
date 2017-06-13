@@ -34,7 +34,6 @@ enum nat_table_type {
 #define NAT_TABLE_ENTRY_SIZE_BYTE 32
 #define NAT_INTEX_TABLE_ENTRY_SIZE_BYTE 4
 
-
 static int ipa3_nat_vma_fault_remap(
 	 struct vm_area_struct *vma, struct vm_fault *vmf)
 {
@@ -247,7 +246,7 @@ bail:
 int ipa3_allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
 {
 	struct ipa3_nat_mem *nat_ctx = &(ipa3_ctx->nat_mem);
-	int gfp_flags = GFP_KERNEL | __GFP_ZERO;
+	gfp_t gfp_flags = GFP_KERNEL | __GFP_ZERO;
 	int result;
 
 	IPADBG("passed memory size %zu\n", mem->size);
@@ -295,11 +294,44 @@ int ipa3_allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
 		IPADBG("using shared(local) memory\n");
 		nat_ctx->is_sys_mem = false;
 	}
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+		struct ipa_pdn_entry *pdn_entries;
+		struct ipa_mem_buffer *pdn_mem = &ipa3_ctx->nat_mem.pdn_mem;
+
+		pdn_mem->size = sizeof(struct ipa_pdn_entry) * IPA_MAX_PDN_NUM;
+		if (IPA_MEM_PART(pdn_config_size) < pdn_mem->size) {
+			IPAERR(
+				"number of PDN entries exceeds SRAM available space\n");
+			result = -ENOMEM;
+			goto fail_alloc_pdn;
+		}
+
+		pdn_mem->base = dma_alloc_coherent(ipa3_ctx->pdev,
+			pdn_mem->size,
+			&pdn_mem->phys_base,
+			gfp_flags);
+		if (!pdn_mem->base) {
+			IPAERR("fail to allocate PDN memory\n");
+			result = -ENOMEM;
+			goto fail_alloc_pdn;
+		}
+		pdn_entries = pdn_mem->base;
+		memset(pdn_entries, 0, pdn_mem->size);
+		IPADBG("IPA NAT dev allocated PDN memory successfully\n");
+	}
 
 	nat_ctx->is_dev_init = true;
 	IPADBG("IPA NAT dev init successfully\n");
-	result = 0;
+	mutex_unlock(&nat_ctx->lock);
 
+	return 0;
+
+fail_alloc_pdn:
+	if (nat_ctx->vaddr) {
+		dma_free_coherent(ipa3_ctx->pdev, mem->size, nat_ctx->vaddr,
+			nat_ctx->dma_handle);
+		nat_ctx->vaddr = NULL;
+	}
 bail:
 	mutex_unlock(&nat_ctx->lock);
 
@@ -320,11 +352,13 @@ int ipa3_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 #define TBL_ENTRY_SIZE 32
 #define INDX_TBL_ENTRY_SIZE 4
 
-	struct ipahal_imm_cmd_pyld *nop_cmd_pyld = NULL;
-	struct ipa3_desc desc[2];
+	struct ipa3_desc desc[3];
 	struct ipahal_imm_cmd_ip_v4_nat_init cmd;
-	struct ipahal_imm_cmd_pyld *cmd_pyld = NULL;
-	int result;
+	int num_cmd = 0;
+	int i = 0;
+	struct ipahal_imm_cmd_pyld *cmd_pyld[3];
+	struct ipahal_imm_cmd_dma_shared_mem mem_cmd = { 0 };
+	int result = 0;
 	u32 offset = 0;
 	size_t tmp;
 
@@ -412,21 +446,22 @@ int ipa3_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 
 	memset(&desc, 0, sizeof(desc));
 	/* NO-OP IC for ensuring that IPA pipeline is empty */
-	nop_cmd_pyld =
+	cmd_pyld[num_cmd] =
 		ipahal_construct_nop_imm_cmd(false, IPAHAL_HPS_CLEAR, false);
-	if (!nop_cmd_pyld) {
+	if (!cmd_pyld[num_cmd]) {
 		IPAERR("failed to construct NOP imm cmd\n");
 		result = -ENOMEM;
 		goto bail;
 	}
 
-	desc[0].opcode = nop_cmd_pyld->opcode;
-	desc[0].type = IPA_IMM_CMD_DESC;
-	desc[0].callback = NULL;
-	desc[0].user1 = NULL;
-	desc[0].user2 = 0;
-	desc[0].pyld = nop_cmd_pyld->data;
-	desc[0].len = nop_cmd_pyld->len;
+	desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
+	desc[num_cmd].type = IPA_IMM_CMD_DESC;
+	desc[num_cmd].callback = NULL;
+	desc[num_cmd].user1 = NULL;
+	desc[num_cmd].user2 = 0;
+	desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
+	desc[num_cmd].len = cmd_pyld[num_cmd]->len;
+	num_cmd++;
 
 	if (ipa3_ctx->nat_mem.vaddr) {
 		IPADBG("using system memory for nat table\n");
@@ -453,7 +488,7 @@ int ipa3_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 			IPAERR("index_expn_offset: 0x%x\n",
 				init->index_expn_offset);
 			result = -EPERM;
-			goto free_nop;
+			goto destroy_imm_cmd;
 		}
 		cmd.ipv4_rules_addr =
 			ipa3_ctx->nat_mem.dma_handle + init->ipv4_rules_offset;
@@ -495,25 +530,75 @@ int ipa3_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 	IPADBG("Base Table size:0x%x\n", cmd.size_base_tables);
 	cmd.size_expansion_tables = init->expn_table_entries;
 	IPADBG("Expansion Table size:0x%x\n", cmd.size_expansion_tables);
-	cmd.public_ip_addr = init->ip_addr;
-	IPADBG("Public ip address:0x%x\n", cmd.public_ip_addr);
-	cmd_pyld = ipahal_construct_imm_cmd(
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+		/*
+		 * public ip field changed to store the PDN config base
+		 * address in IPAv4
+		 */
+		cmd.public_ip_addr = IPA_MEM_PART(pdn_config_ofst);
+		IPADBG("pdn config base:0x%x\n", cmd.public_ip_addr);
+	} else {
+		cmd.public_ip_addr = init->ip_addr;
+		IPADBG("Public ip address:0x%x\n", cmd.public_ip_addr);
+	}
+	cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
 		IPA_IMM_CMD_IP_V4_NAT_INIT, &cmd, false);
-	if (!cmd_pyld) {
+	if (!cmd_pyld[num_cmd]) {
 		IPAERR("Fail to construct ip_v4_nat_init imm cmd\n");
 		result = -EPERM;
-		goto free_nop;
+		goto destroy_imm_cmd;
 	}
 
-	desc[1].opcode = cmd_pyld->opcode;
-	desc[1].type = IPA_IMM_CMD_DESC;
-	desc[1].callback = NULL;
-	desc[1].user1 = NULL;
-	desc[1].user2 = 0;
-	desc[1].pyld = cmd_pyld->data;
-	desc[1].len = cmd_pyld->len;
+	desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
+	desc[num_cmd].type = IPA_IMM_CMD_DESC;
+	desc[num_cmd].callback = NULL;
+	desc[num_cmd].user1 = NULL;
+	desc[num_cmd].user2 = 0;
+	desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
+	desc[num_cmd].len = cmd_pyld[num_cmd]->len;
+	num_cmd++;
+
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+		struct ipa_pdn_entry *pdn_entries;
+
+		/* store ip in pdn entries cache array */
+		pdn_entries = ipa3_ctx->nat_mem.pdn_mem.base;
+		pdn_entries[0].public_ip = init->ip_addr;
+		pdn_entries[0].dst_metadata = 0;
+		pdn_entries[0].src_metadata = 0;
+		pdn_entries[0].resrvd = 0;
+
+		IPADBG("Public ip address:0x%x\n", init->ip_addr);
+
+		/* Copy the PDN config table to SRAM */
+		mem_cmd.is_read = false;
+		mem_cmd.skip_pipeline_clear = false;
+		mem_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+		mem_cmd.size = sizeof(struct ipa_pdn_entry) * IPA_MAX_PDN_NUM;
+		mem_cmd.system_addr = ipa3_ctx->nat_mem.pdn_mem.phys_base;
+		mem_cmd.local_addr = ipa3_ctx->smem_restricted_bytes +
+			IPA_MEM_PART(pdn_config_ofst);
+		cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
+			IPA_IMM_CMD_DMA_SHARED_MEM, &mem_cmd, false);
+		if (!cmd_pyld[num_cmd]) {
+			IPAERR(
+			"fail construct dma_shared_mem cmd: for pdn table");
+			result = -ENOMEM;
+			goto destroy_imm_cmd;
+		}
+		desc[num_cmd].opcode = cmd_pyld[num_cmd]->opcode;
+		desc[num_cmd].type = IPA_IMM_CMD_DESC;
+		desc[num_cmd].callback = NULL;
+		desc[num_cmd].user1 = NULL;
+		desc[num_cmd].user2 = 0;
+		desc[num_cmd].pyld = cmd_pyld[num_cmd]->data;
+		desc[num_cmd].len = cmd_pyld[num_cmd]->len;
+		num_cmd++;
+		IPADBG("added PDN table copy cmd\n");
+	}
+
 	IPADBG("posting v4 init command\n");
-	if (ipa3_send_cmd(2, desc)) {
+	if (ipa3_send_cmd(num_cmd, desc)) {
 		IPAERR("Fail to send immediate command\n");
 		result = -EPERM;
 		goto destroy_imm_cmd;
@@ -550,15 +635,96 @@ int ipa3_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 	ipa3_ctx->nat_mem.size_expansion_tables = init->expn_table_entries;
 
 	IPADBG("return\n");
-	result = 0;
 destroy_imm_cmd:
-	ipahal_destroy_imm_cmd(cmd_pyld);
-free_nop:
-	ipahal_destroy_imm_cmd(nop_cmd_pyld);
+	for (i = 0; i < num_cmd; i++)
+		ipahal_destroy_imm_cmd(cmd_pyld[i]);
 bail:
 	return result;
 }
 
+/**
+* ipa4_nat_mdfy_pdn() - Modify a PDN entry in PDN config table in IPA SRAM
+* @mdfy_pdn:	[in] PDN info to be written to SRAM
+*
+* Called by NAT client driver to modify an entry in the PDN config table
+*
+* Returns:	0 on success, negative on failure
+*/
+int ipa4_nat_mdfy_pdn(struct ipa_ioc_nat_pdn_entry *mdfy_pdn)
+{
+	struct ipahal_imm_cmd_dma_shared_mem mem_cmd = { 0 };
+	struct ipa3_desc desc;
+	struct ipahal_imm_cmd_pyld *cmd_pyld;
+	int result = 0;
+	struct ipa3_nat_mem *nat_ctx = &(ipa3_ctx->nat_mem);
+	struct ipa_pdn_entry *pdn_entries = nat_ctx->pdn_mem.base;
+
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) {
+		IPAERR("IPA HW does not support multi PDN\n");
+		return -EPERM;
+	}
+	if (!nat_ctx->is_dev_init) {
+		IPAERR("attempt to modify a PDN entry before dev init\n");
+		return -EPERM;
+	}
+
+	if (mdfy_pdn->pdn_index > (IPA_MAX_PDN_NUM - 1)) {
+		IPAERR("pdn index out of range %d\n", mdfy_pdn->pdn_index);
+		return -EPERM;
+	}
+
+	mutex_lock(&nat_ctx->lock);
+
+	/* store ip in pdn entries cache array */
+	pdn_entries[mdfy_pdn->pdn_index].public_ip =
+		mdfy_pdn->public_ip;
+	pdn_entries[mdfy_pdn->pdn_index].dst_metadata =
+		mdfy_pdn->dst_metadata;
+	pdn_entries[mdfy_pdn->pdn_index].src_metadata =
+		mdfy_pdn->src_metadata;
+
+	IPADBG("Modify PDN in index %d: ", mdfy_pdn->pdn_index);
+	IPADBG("Public ip address:0x%x, ", mdfy_pdn->public_ip);
+	IPADBG("dst metadata:0x%x, ", mdfy_pdn->dst_metadata);
+	IPADBG("src metadata:0x%x\n", mdfy_pdn->src_metadata);
+
+	memset(&desc, 0, sizeof(desc));
+
+	/* Copy the PDN config table to SRAM */
+	mem_cmd.is_read = false;
+	mem_cmd.skip_pipeline_clear = false;
+	mem_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+	mem_cmd.size = sizeof(struct ipa_pdn_entry) * IPA_MAX_PDN_NUM;
+	mem_cmd.system_addr = nat_ctx->pdn_mem.phys_base;
+	mem_cmd.local_addr = ipa3_ctx->smem_restricted_bytes +
+		IPA_MEM_PART(pdn_config_ofst);
+	cmd_pyld = ipahal_construct_imm_cmd(
+		IPA_IMM_CMD_DMA_SHARED_MEM, &mem_cmd, false);
+	if (!cmd_pyld) {
+		IPAERR(
+			"fail construct dma_shared_mem cmd: for pdn table");
+		result = -ENOMEM;
+		goto bail;
+	}
+	desc.opcode = cmd_pyld->opcode;
+	desc.type = IPA_IMM_CMD_DESC;
+	desc.callback = NULL;
+	desc.user1 = NULL;
+	desc.user2 = 0;
+	desc.pyld = cmd_pyld->data;
+	desc.len = cmd_pyld->len;
+
+	IPADBG("sending PDN table copy cmd");
+	if (ipa3_send_cmd(1, &desc)) {
+		IPAERR("Fail to send immediate command\n");
+		result = -EPERM;
+	}
+
+	ipahal_destroy_imm_cmd(cmd_pyld);
+bail:
+	mutex_unlock(&nat_ctx->lock);
+	return result;
+}
 /**
  * ipa3_nat_dma_cmd() - Post NAT_DMA command to IPA HW
  * @dma:	[in] initialization command attributes
@@ -573,6 +739,7 @@ int ipa3_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
 
 	struct ipahal_imm_cmd_pyld *nop_cmd_pyld = NULL;
 	struct ipahal_imm_cmd_nat_dma cmd;
+	enum ipahal_imm_cmd_name cmd_name = IPA_IMM_CMD_NAT_DMA;
 	struct ipahal_imm_cmd_pyld *cmd_pyld = NULL;
 	struct ipa3_desc *desc = NULL;
 	u16 size = 0, cnt = 0;
@@ -675,13 +842,16 @@ int ipa3_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
 	desc[0].pyld = nop_cmd_pyld->data;
 	desc[0].len = nop_cmd_pyld->len;
 
+	/* NAT_DMA was renamed to TABLE_DMA starting from IPAv4 */
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
+		cmd_name = IPA_IMM_CMD_TABLE_DMA;
+
 	for (cnt = 0; cnt < dma->entries; cnt++) {
 		cmd.table_index = dma->dma[cnt].table_index;
 		cmd.base_addr = dma->dma[cnt].base_addr;
 		cmd.offset = dma->dma[cnt].offset;
 		cmd.data = dma->dma[cnt].data;
-		cmd_pyld = ipahal_construct_imm_cmd(
-			IPA_IMM_CMD_NAT_DMA, &cmd, false);
+		cmd_pyld = ipahal_construct_imm_cmd(cmd_name, &cmd, false);
 		if (!cmd_pyld) {
 			IPAERR("Fail to construct nat_dma imm cmd\n");
 			continue;
@@ -718,6 +888,10 @@ bail:
  */
 void ipa3_nat_free_mem_and_device(struct ipa3_nat_mem *nat_ctx)
 {
+	struct ipahal_imm_cmd_dma_shared_mem mem_cmd = { 0 };
+	struct ipa3_desc desc;
+	struct ipahal_imm_cmd_pyld *cmd_pyld;
+
 	IPADBG("\n");
 	mutex_lock(&nat_ctx->lock);
 
@@ -728,6 +902,47 @@ void ipa3_nat_free_mem_and_device(struct ipa3_nat_mem *nat_ctx)
 			 nat_ctx->vaddr, nat_ctx->dma_handle);
 		nat_ctx->size = 0;
 		nat_ctx->vaddr = NULL;
+	}
+
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+		struct ipa_pdn_entry *pdn_entries =
+			nat_ctx->pdn_mem.base;
+
+		/* zero the PDN table and copy the PDN config table to SRAM */
+		IPADBG("zeroing the PDN config table\n");
+		memset(pdn_entries, 0, sizeof(struct ipa_pdn_entry) *
+			IPA_MAX_PDN_NUM);
+		mem_cmd.is_read = false;
+		mem_cmd.skip_pipeline_clear = false;
+		mem_cmd.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+		mem_cmd.size = sizeof(struct ipa_pdn_entry) * IPA_MAX_PDN_NUM;
+		mem_cmd.system_addr = nat_ctx->pdn_mem.phys_base;
+		mem_cmd.local_addr = ipa3_ctx->smem_restricted_bytes +
+			IPA_MEM_PART(pdn_config_ofst);
+		cmd_pyld = ipahal_construct_imm_cmd(
+			IPA_IMM_CMD_DMA_SHARED_MEM, &mem_cmd, false);
+		if (!cmd_pyld) {
+			IPAERR(
+				"fail construct dma_shared_mem cmd: for pdn table");
+			goto lbl_free_pdn;
+		}
+		memset(&desc, 0, sizeof(desc));
+		desc.opcode = cmd_pyld->opcode;
+		desc.pyld = cmd_pyld->data;
+		desc.len = cmd_pyld->len;
+		desc.type = IPA_IMM_CMD_DESC;
+
+		IPADBG("sending PDN table copy cmd\n");
+		if (ipa3_send_cmd(1, &desc))
+			IPAERR("Fail to send immediate command\n");
+
+		ipahal_destroy_imm_cmd(cmd_pyld);
+lbl_free_pdn:
+		IPADBG("freeing the PDN memory\n");
+		dma_free_coherent(ipa3_ctx->pdev,
+			nat_ctx->pdn_mem.size,
+			nat_ctx->pdn_mem.base,
+			nat_ctx->pdn_mem.phys_base);
 	}
 	nat_ctx->is_mapped = false;
 	nat_ctx->is_sys_mem = false;
@@ -762,7 +977,8 @@ int ipa3_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
 		base_addr = ipa3_ctx->nat_mem.tmp_dma_handle;
 	}
 
-	if (del->public_ip_addr == 0) {
+	if ((ipa3_ctx->ipa_hw_type < IPA_HW_v4_0) &&
+		(del->public_ip_addr == 0)) {
 		IPADBG("Bad Parameter\n");
 		result = -EPERM;
 		goto bail;

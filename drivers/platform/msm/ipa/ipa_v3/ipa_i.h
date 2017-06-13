@@ -739,6 +739,19 @@ struct ipa3_rx_pkt_wrapper {
 };
 
 /**
+* struct ipa_pdn_entry - IPA PDN config table entry
+* @public_ip: the PDN's public ip
+* @src_metadata: the PDN's metadata to be replaced for source NAT
+* @dst_metadata: the PDN's metadata to be replaced for destination NAT
+* @resrvd: reserved field
+*/
+struct ipa_pdn_entry {
+	u32 public_ip;
+	u32 src_metadata;
+	u32 dst_metadata;
+	u32 resrvd;
+};
+/**
  * struct ipa3_nat_mem - IPA NAT memory description
  * @class: pointer to the struct class
  * @dev: the dev_t of the device
@@ -759,6 +772,7 @@ struct ipa3_rx_pkt_wrapper {
  * @size_base_tables: base table size
  * @size_expansion_tables: expansion table size
  * @public_ip_addr: ip address of nat table
+ * @pdn_mem: pdn config table SW cache memory structure
  */
 struct ipa3_nat_mem {
 	struct class *class;
@@ -784,6 +798,7 @@ struct ipa3_nat_mem {
 	void *tmp_vaddr;
 	dma_addr_t tmp_dma_handle;
 	bool is_tmp_mem;
+	struct ipa_mem_buffer pdn_mem;
 };
 
 /**
@@ -1579,6 +1594,8 @@ int ipa3_nat_init_cmd(struct ipa_ioc_v4_nat_init *init);
 int ipa3_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma);
 
 int ipa3_nat_del_cmd(struct ipa_ioc_v4_nat_del *del);
+
+int ipa4_nat_mdfy_pdn(struct ipa_ioc_nat_pdn_entry *mdfy_pdn);
 
 /*
  * Messaging

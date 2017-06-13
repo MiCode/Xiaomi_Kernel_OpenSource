@@ -143,7 +143,8 @@ struct ipa_imm_cmd_hw_ip_v6_filter_init {
  * @size_expansion_tables: Num of entries in NAT expantion tbl and expantion
  *  idx tbl (each)
  * @rsvd2: reserved
- * @public_ip_addr: public IP address
+ * @public_ip_addr: public IP address. for IPAv4 this is the PDN config table
+ *  offset in SMEM
  */
 struct ipa_imm_cmd_hw_ip_v4_nat_init {
 	u64 ipv4_rules_addr:64;
@@ -247,6 +248,30 @@ struct ipa_imm_cmd_hw_nat_dma {
 	u64 offset:32;
 	u64 data:16;
 	u64 rsvd3:8;
+};
+
+/*
+ * struct ipa_imm_cmd_hw_table_dma_ipav4 - TABLE_DMA command payload
+ *  in H/W format
+ * Perform DMA operation on NAT and ipv6 connection tracking related mem
+ * addresses. Copy data into different locations within NAT associated tbls
+ * (For add/remove NAT rules)
+ * @table_index: NAT tbl index. Defines the NAT tbl on which to perform DMA op.
+ * @rsvd1: reserved
+ * @base_addr: Base addr to which the DMA operation should be performed.
+ * @rsvd2: reserved
+ * @offset: offset in bytes from base addr to write 'data' to
+ * @data: data to be written
+ * @rsvd3: reserved
+ */
+struct ipa_imm_cmd_hw_table_dma_ipav4 {
+	u64 table_index : 3;
+	u64 rsvd1 : 1;
+	u64 base_addr : 3;
+	u64 rsvd2 : 1;
+	u64 offset : 32;
+	u64 data : 16;
+	u64 rsvd3 : 8;
 };
 
 /*
