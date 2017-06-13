@@ -1929,8 +1929,12 @@ static struct snd_soc_dai_driver msm_codec_dais[] = {
 			.stream_name = "AIF1 Playback",
 			.channels_min = 1,
 			.channels_max = 2,
-			.rates = SNDRV_PCM_RATE_8000_48000,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.rates = SNDRV_PCM_RATE_8000_192000,
+			.rate_max = 192000,
+			.rate_min = 8000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE |
+				SNDRV_PCM_FMTBIT_S24_LE |
+				SNDRV_PCM_FMTBIT_S24_3LE,
 		},
 		 .ops = &msm_dig_dai_ops,
 	},
@@ -2012,7 +2016,7 @@ static struct snd_soc_codec_driver soc_msm_dig_codec = {
 const struct regmap_config msm_digital_regmap_config = {
 	.reg_bits = 32,
 	.reg_stride = 4,
-	.val_bits = 32,
+	.val_bits = 8,
 	.lock = enable_digital_callback,
 	.unlock = disable_digital_callback,
 	.cache_type = REGCACHE_FLAT,

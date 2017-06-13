@@ -82,8 +82,15 @@
 #define WCD_SPI_WORD_BYTE_CNT (4)
 #define WCD_SPI_RW_MULTI_MIN_LEN (16)
 
-/* Max size is closest multiple of 16 less than 64Kbytes */
-#define WCD_SPI_RW_MULTI_MAX_LEN ((64 * 1024) - 16)
+/* Max size is 32 bytes less than 64Kbytes */
+#define WCD_SPI_RW_MULTI_MAX_LEN ((64 * 1024) - 32)
+
+/*
+ * Max size for the pre-allocated buffers is the max
+ * possible read/write length + 32 bytes for the SPI
+ * read/write command header itself.
+ */
+#define WCD_SPI_RW_MAX_BUF_SIZE (WCD_SPI_RW_MULTI_MAX_LEN + 32)
 
 /* Alignment requirements */
 #define WCD_SPI_RW_MIN_ALIGN    WCD_SPI_WORD_BYTE_CNT
@@ -149,6 +156,10 @@ struct wcd_spi_priv {
 
 	/* Completion object to indicate system resume completion */
 	struct completion resume_comp;
+
+	/* Buffers to hold memory used for transfers */
+	void *tx_buf;
+	void *rx_buf;
 };
 
 enum xfer_request {
@@ -230,17 +241,18 @@ static int wcd_spi_read_single(struct spi_device *spi,
 	struct wcd_spi_priv *wcd_spi = spi_get_drvdata(spi);
 	struct spi_transfer *tx_xfer = &wcd_spi->xfer2[0];
 	struct spi_transfer *rx_xfer = &wcd_spi->xfer2[1];
-	u8 *tx_buf;
+	u8 *tx_buf = wcd_spi->tx_buf;
 	u32 frame = 0;
 	int ret;
 
 	dev_dbg(&spi->dev, "%s: remote_addr = 0x%x\n",
 		__func__, remote_addr);
 
-	tx_buf = kzalloc(WCD_SPI_READ_SINGLE_LEN,
-			 GFP_KERNEL | GFP_DMA);
-	if (!tx_buf)
+	if (!tx_buf) {
+		dev_err(&spi->dev, "%s: tx_buf not allocated\n",
+			__func__);
 		return -ENOMEM;
+	}
 
 	frame |= WCD_SPI_READ_FRAME_OPCODE;
 	frame |= remote_addr & WCD_CMD_ADDR_MASK;
@@ -256,7 +268,6 @@ static int wcd_spi_read_single(struct spi_device *spi,
 	rx_xfer->len = sizeof(*val);
 
 	ret = spi_sync(spi, &wcd_spi->msg2);
-	kfree(tx_buf);
 
 	return ret;
 }
@@ -267,8 +278,8 @@ static int wcd_spi_read_multi(struct spi_device *spi,
 {
 	struct wcd_spi_priv *wcd_spi = spi_get_drvdata(spi);
 	struct spi_transfer *xfer = &wcd_spi->xfer1;
-	u8 *tx_buf;
-	u8 *rx_buf;
+	u8 *tx_buf = wcd_spi->tx_buf;
+	u8 *rx_buf = wcd_spi->rx_buf;
 	u32 frame = 0;
 	int ret;
 
@@ -278,15 +289,9 @@ static int wcd_spi_read_multi(struct spi_device *spi,
 	frame |= WCD_SPI_FREAD_FRAME_OPCODE;
 	frame |= remote_addr & WCD_CMD_ADDR_MASK;
 
-	tx_buf = kzalloc(WCD_SPI_CMD_FREAD_LEN + len,
-			 GFP_KERNEL | GFP_DMA);
-	if (!tx_buf)
-		return -ENOMEM;
-
-	rx_buf = kzalloc(WCD_SPI_CMD_FREAD_LEN + len,
-			 GFP_KERNEL | GFP_DMA);
-	if (!rx_buf) {
-		kfree(tx_buf);
+	if (!tx_buf || !rx_buf) {
+		dev_err(&spi->dev, "%s: %s not allocated\n", __func__,
+			(!tx_buf) ? "tx_buf" : "rx_buf");
 		return -ENOMEM;
 	}
 
@@ -306,8 +311,6 @@ static int wcd_spi_read_multi(struct spi_device *spi,
 
 	memcpy(data, rx_buf + WCD_SPI_CMD_FREAD_LEN, len);
 done:
-	kfree(tx_buf);
-	kfree(rx_buf);
 	return ret;
 }
 
@@ -344,7 +347,7 @@ static int wcd_spi_write_multi(struct spi_device *spi,
 	struct wcd_spi_priv *wcd_spi = spi_get_drvdata(spi);
 	struct spi_transfer *xfer = &wcd_spi->xfer1;
 	u32 frame = 0;
-	u8 *tx_buf;
+	u8 *tx_buf = wcd_spi->tx_buf;
 	int xfer_len, ret;
 
 	dev_dbg(&spi->dev, "%s: addr = 0x%x len = %zd\n",
@@ -356,9 +359,11 @@ static int wcd_spi_write_multi(struct spi_device *spi,
 	frame = cpu_to_be32(frame);
 	xfer_len = len + sizeof(frame);
 
-	tx_buf = kzalloc(xfer_len, GFP_KERNEL);
-	if (!tx_buf)
+	if (!tx_buf) {
+		dev_err(&spi->dev, "%s: tx_buf not allocated\n",
+			__func__);
 		return -ENOMEM;
+	}
 
 	memcpy(tx_buf, &frame, sizeof(frame));
 	memcpy(tx_buf + sizeof(frame), data, len);
@@ -372,8 +377,6 @@ static int wcd_spi_write_multi(struct spi_device *spi,
 		dev_err(&spi->dev,
 			"%s: Failed, addr = 0x%x, len = %zd\n",
 			__func__, remote_addr, len);
-	kfree(tx_buf);
-
 	return ret;
 }
 
@@ -1331,6 +1334,23 @@ static int wcd_spi_component_bind(struct device *dev,
 	spi_message_init(&wcd_spi->msg2);
 	spi_message_add_tail(&wcd_spi->xfer2[0], &wcd_spi->msg2);
 	spi_message_add_tail(&wcd_spi->xfer2[1], &wcd_spi->msg2);
+
+	/* Pre-allocate the buffers */
+	wcd_spi->tx_buf = kzalloc(WCD_SPI_RW_MAX_BUF_SIZE,
+				  GFP_KERNEL | GFP_DMA);
+	if (!wcd_spi->tx_buf) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	wcd_spi->rx_buf = kzalloc(WCD_SPI_RW_MAX_BUF_SIZE,
+				  GFP_KERNEL | GFP_DMA);
+	if (!wcd_spi->rx_buf) {
+		kfree(wcd_spi->tx_buf);
+		wcd_spi->tx_buf = NULL;
+		ret = -ENOMEM;
+		goto done;
+	}
 done:
 	return ret;
 }
@@ -1348,6 +1368,11 @@ static void wcd_spi_component_unbind(struct device *dev,
 	spi_transfer_del(&wcd_spi->xfer1);
 	spi_transfer_del(&wcd_spi->xfer2[0]);
 	spi_transfer_del(&wcd_spi->xfer2[1]);
+
+	kfree(wcd_spi->tx_buf);
+	kfree(wcd_spi->rx_buf);
+	wcd_spi->tx_buf = NULL;
+	wcd_spi->rx_buf = NULL;
 }
 
 static const struct component_ops wcd_spi_component_ops = {

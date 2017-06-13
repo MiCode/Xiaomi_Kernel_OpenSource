@@ -37,9 +37,10 @@
 #define DRV_NAME "pmic_analog_codec"
 #define SDM660_CDC_RATES (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |\
 			SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_44100 |\
-			SNDRV_PCM_RATE_48000)
+			SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |\
+			SNDRV_PCM_RATE_192000)
 #define SDM660_CDC_FORMATS (SNDRV_PCM_FMTBIT_S16_LE |\
-		SNDRV_PCM_FMTBIT_S24_LE)
+		SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S24_3LE)
 #define MSM_DIG_CDC_STRING_LEN 80
 #define MSM_ANLG_CDC_VERSION_ENTRY_SIZE 32
 
@@ -3796,6 +3797,9 @@ static int msm_anlg_cdc_device_up(struct snd_soc_codec *codec)
 	msm_anlg_cdc_configure_cap(codec, false, false);
 	wcd_mbhc_stop(&sdm660_cdc_priv->mbhc);
 	wcd_mbhc_deinit(&sdm660_cdc_priv->mbhc);
+	/* Disable mechanical detection and set type to insertion */
+	snd_soc_update_bits(codec, MSM89XX_PMIC_ANALOG_MBHC_DET_CTL_1,
+			    0xA0, 0x20);
 	ret = wcd_mbhc_init(&sdm660_cdc_priv->mbhc, codec, &mbhc_cb,
 			    &intr_ids, wcd_mbhc_registers, true);
 	if (ret)
