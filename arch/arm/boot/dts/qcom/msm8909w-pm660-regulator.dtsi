@@ -227,6 +227,7 @@
 		};
 
 		pm660_l12_ao: regulator-l12-ao {
+			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "pm660_l12_ao";
 			qcom,set = <1>;
 			regulator-min-microvolt = <1800000>;
