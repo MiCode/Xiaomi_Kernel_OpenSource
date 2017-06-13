@@ -248,7 +248,7 @@ static int smb138x_usb_get_prop(struct power_supply *psy,
 		val->intval = chg->usb_psy_desc.type;
 		break;
 	case POWER_SUPPLY_PROP_TYPEC_MODE:
-		rc = smblib_get_prop_typec_mode(chg, val);
+		val->intval = chg->typec_mode;
 		break;
 	case POWER_SUPPLY_PROP_TYPEC_POWER_ROLE:
 		rc = smblib_get_prop_typec_power_role(chg, val);
@@ -938,13 +938,6 @@ static int smb138x_init_slave_hw(struct smb138x *chip)
 				chip->dt.connector_temp_max_mdegc + MDEGC_15);
 	if (rc < 0) {
 		pr_err("Couldn't set connector temp threshold3 rc=%d\n", rc);
-		return rc;
-	}
-
-	rc = smblib_write(chg, THERMREG_SRC_CFG_REG,
-						THERMREG_SKIN_ADC_SRC_EN_BIT);
-	if (rc < 0) {
-		pr_err("Couldn't enable connector thermreg source rc=%d\n", rc);
 		return rc;
 	}
 
