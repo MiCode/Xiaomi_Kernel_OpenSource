@@ -1995,6 +1995,7 @@ int arm_iommu_attach_device(struct device *dev,
 	int err;
 	int s1_bypass = 0, is_fast = 0;
 	struct iommu_group *group;
+	dma_addr_t iova_end;
 
 	group = dev->iommu_group;
 	if (!group) {
@@ -2004,6 +2005,13 @@ int arm_iommu_attach_device(struct device *dev,
 
 	if (iommu_get_domain_for_dev(dev)) {
 		dev_err(dev, "Device already attached to other iommu_domain\n");
+		return -EINVAL;
+	}
+
+	iova_end = mapping->base + (mapping->bits << PAGE_SHIFT) - 1;
+	if (iova_end > dma_get_mask(dev)) {
+		dev_err(dev, "dma mask %llx too small for requested iova range %pad to %pad\n",
+			dma_get_mask(dev), &mapping->base, &iova_end);
 		return -EINVAL;
 	}
 
