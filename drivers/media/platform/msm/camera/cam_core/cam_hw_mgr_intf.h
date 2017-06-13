@@ -97,10 +97,12 @@ struct cam_hw_acquire_args {
  * struct cam_hw_release_args - Payload for release command
  *
  * @ctxt_to_hw_map:        HW context from the acquire
+ * @active_req:            Active request flag
  *
  */
 struct cam_hw_release_args {
 	void              *ctxt_to_hw_map;
+	bool               active_req;
 };
 
 /**

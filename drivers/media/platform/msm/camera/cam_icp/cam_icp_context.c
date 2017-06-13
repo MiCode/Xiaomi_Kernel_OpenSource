@@ -107,7 +107,7 @@ static int __cam_icp_release_dev_in_ready(struct cam_context *ctx,
 static int __cam_icp_handle_buf_done_in_ready(void *ctx,
 	uint32_t evt_id, void *done)
 {
-	return cam_context_buf_done_from_hw(ctx, done, 0);
+	return cam_context_buf_done_from_hw(ctx, done, evt_id);
 }
 
 static struct cam_ctx_ops
