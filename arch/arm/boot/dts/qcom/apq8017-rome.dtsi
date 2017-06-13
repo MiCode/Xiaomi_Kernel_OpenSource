@@ -1,5 +1,5 @@
 /*
- * copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,5 +17,17 @@
 		qcom,wlan-ramdump-dynamic = <0x200000>;
 		subsys-name = "AR6320";
 		qcom,cap-tsf-gpio = <&tlmm 126 1>;
+	};
+};
+
+&pm8937_gpios {
+	gpio@c100 { /* GPIO 2 - Rome Sleep Clock */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,vin-sel = <3>;		/* VIN 3 */
+		qcom,src-sel = <2>;		/* Function 2 */
+		qcom,out-strength = <2>;	/* Medium */
+		qcom,pull = <4>;
+		qcom,master-en = <1>;		/* Enable GPIO */
+		status = "okay";
 	};
 };
