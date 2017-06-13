@@ -350,7 +350,7 @@ struct wcd9xxx {
 	int (*post_reset)(struct wcd9xxx *wcd9xxx);
 
 	void *ssr_priv;
-	bool dev_up;
+	unsigned long dev_up;
 
 	u32 num_of_supplies;
 	struct regulator_bulk_data *supplies;

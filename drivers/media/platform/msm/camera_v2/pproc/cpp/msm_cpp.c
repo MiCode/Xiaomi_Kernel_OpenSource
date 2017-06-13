@@ -845,7 +845,6 @@ static void msm_cpp_iommu_fault_handler(struct iommu_domain *domain,
 			atomic_set(&cpp_timer.used, 0);
 			del_timer_sync(&cpp_timer.cpp_timer);
 		}
-		mutex_lock(&cpp_dev->mutex);
 		tasklet_kill(&cpp_dev->cpp_tasklet);
 
 		pr_err("in recovery, HALT status = 0x%x\n",
@@ -912,10 +911,8 @@ static void msm_cpp_iommu_fault_handler(struct iommu_domain *domain,
 			}
 		}
 		msm_cpp_flush_queue_and_release_buffer(cpp_dev, queue_len);
-		msm_cpp_set_micro_irq_mask(cpp_dev, 1, 0x8);
 		cpp_dev->fault_status = CPP_IOMMU_FAULT_RECOVERED;
 		pr_err("fault recovery successful\n");
-		mutex_unlock(&cpp_dev->mutex);
 	}
 	return;
 }

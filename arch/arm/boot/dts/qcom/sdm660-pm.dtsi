@@ -341,8 +341,10 @@
 		qcom,gic-map =
 			<0x02 216>, /* tsens1_tsens_upper_lower_int */
 			<0x34 275>, /* qmp_usb3_lfps_rxterm_irq_cx */
-			<0x4f 379>, /* qusb2phy_intr */
-			<0x51 379>, /* qusb2phy_intr */
+			<0x4f 379>, /* qusb2phy_intr for Dm */
+			<0x50 380>, /* qusb2phy_intr for Dm for secondary PHY */
+			<0x51 379>, /* qusb2phy_intr for Dp */
+			<0x52 380>, /* qusb2phy_intr for Dp for secondary PHY */
 			<0x57 358>, /* ee0_apps_hlos_spmi_periph_irq */
 			<0x5b 519>, /* lpass_pmu_tmr_timeout_irq_cx */
 			<0xff 16>,  /* APC[0-7]_qgicQTmrHypPhysIrptReq */
@@ -484,6 +486,7 @@
 			<0xff 208>, /* lpi_dir_conn_irq_apps[0] */
 			<0xff 209>, /* lpi_dir_conn_irq_apps[1] */
 			<0xff 210>, /* lpi_dir_conn_irq_apps[2] */
+			<0xff 212>, /* usb30s_power_event_irq */
 			<0xff 213>, /* secure_wdog_bark_irq */
 			<0xff 214>, /* tsens1_tsens_max_min_int */
 			<0xff 215>, /* o_bimc_intr[0] */
@@ -610,7 +613,6 @@
 			<0xff 364>, /* osmmu_CIrpt[3] */
 			<0xff 365>, /* ipa_irq[0] */
 			<0xff 366>, /* osmmu_PMIrpt */
-			<0xff 380>, /* qusb2phy_intr */
 			<0xff 381>, /* osmmu_CIrpt[6] */
 			<0xff 382>, /* osmmu_CIrpt[7] */
 			<0xff 385>, /* osmmu_CIrpt[12] */

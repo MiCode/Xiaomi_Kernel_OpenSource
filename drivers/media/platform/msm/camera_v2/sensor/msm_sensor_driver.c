@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1341,18 +1341,20 @@ static int32_t msm_sensor_driver_i2c_probe(struct i2c_client *client,
 	if (s_ctrl->sensor_i2c_client != NULL) {
 		s_ctrl->sensor_i2c_client->client = client;
 		s_ctrl->sensordata->power_info.dev = &client->dev;
+
+		/* Get clocks information */
+		rc = msm_camera_i2c_dev_get_clk_info(
+			&s_ctrl->sensor_i2c_client->client->dev,
+			&s_ctrl->sensordata->power_info.clk_info,
+			&s_ctrl->sensordata->power_info.clk_ptr,
+			&s_ctrl->sensordata->power_info.clk_info_size);
+		if (rc < 0) {
+			pr_err("failed: msm_camera_i2c_dev_get_clk_info rc %d",
+				rc);
+			goto FREE_S_CTRL;
+		}
+		return rc;
 	}
-	/* Get clocks information */
-	rc = msm_camera_i2c_dev_get_clk_info(
-		&s_ctrl->sensor_i2c_client->client->dev,
-		&s_ctrl->sensordata->power_info.clk_info,
-		&s_ctrl->sensordata->power_info.clk_ptr,
-		&s_ctrl->sensordata->power_info.clk_info_size);
-	if (rc < 0) {
-		pr_err("failed: msm_camera_i2c_dev_get_clk_info rc %d", rc);
-		goto FREE_S_CTRL;
-	}
-	return rc;
 FREE_S_CTRL:
 	kfree(s_ctrl);
 	return rc;

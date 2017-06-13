@@ -1602,7 +1602,7 @@ unsigned int nr_eligible_big_tasks(int cpu)
 	int nr_big = rq->hmp_stats.nr_big_tasks;
 	int nr = rq->nr_running;
 
-	if (cpu_max_possible_capacity(cpu) != max_possible_capacity)
+	if (!is_max_capacity_cpu(cpu))
 		return nr_big;
 
 	return nr;
@@ -4303,8 +4303,20 @@ void note_task_waking(struct task_struct *p, u64 wallclock)
 {
 	u64 sleep_time = wallclock - p->last_switch_out_ts;
 
-	p->last_wake_ts = wallclock;
+	/*
+	 * When a short burst and short sleeping task goes for a long
+	 * sleep, the task's avg_sleep_time gets boosted. It will not
+	 * come below short_sleep threshold for a lot of time and it
+	 * results in incorrect packing. The idead behind tracking
+	 * avg_sleep_time is to detect if a task is short sleeping
+	 * or not. So limit the sleep time to twice the short sleep
+	 * threshold. For regular long sleeping tasks, the avg_sleep_time
+	 * would be higher than threshold, and packing happens correctly.
+	 */
+	sleep_time = min_t(u64, sleep_time, 2 * sysctl_sched_short_sleep);
 	update_avg(&p->ravg.avg_sleep_time, sleep_time);
+
+	p->last_wake_ts = wallclock;
 }
 
 #ifdef CONFIG_CGROUP_SCHED

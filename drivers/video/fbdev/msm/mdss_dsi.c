@@ -1811,7 +1811,7 @@ static int mdss_dsi_post_panel_on(struct mdss_panel_data *pdata)
 	return 0;
 }
 
-irqreturn_t test_hw_vsync_handler(int irq, void *data)
+static irqreturn_t test_hw_vsync_handler(int irq, void *data)
 {
 	struct mdss_panel_data *pdata = (struct mdss_panel_data *)data;
 

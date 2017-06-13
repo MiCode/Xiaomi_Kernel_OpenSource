@@ -434,6 +434,7 @@ static enum power_supply_property smb2_usb_props[] = {
 	POWER_SUPPLY_PROP_PE_START,
 	POWER_SUPPLY_PROP_CTM_CURRENT_MAX,
 	POWER_SUPPLY_PROP_HW_CURRENT_MAX,
+	POWER_SUPPLY_PROP_REAL_TYPE,
 };
 
 static int smb2_usb_get_prop(struct power_supply *psy,
@@ -453,6 +454,16 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
 		rc = smblib_get_prop_usb_online(chg, val);
+		if (!val->intval)
+			break;
+
+		rc = smblib_get_prop_typec_mode(chg, val);
+		if ((val->intval == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT ||
+			chg->micro_usb_mode) &&
+			chg->real_charger_type == POWER_SUPPLY_TYPE_USB)
+			val->intval = 0;
+		else
+			val->intval = 1;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN:
 		val->intval = chg->voltage_min_uv;
@@ -470,10 +481,13 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 		rc = smblib_get_prop_usb_current_max(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
+		val->intval = POWER_SUPPLY_TYPE_USB_PD;
+		break;
+	case POWER_SUPPLY_PROP_REAL_TYPE:
 		if (chip->bad_part)
-			val->intval = POWER_SUPPLY_TYPE_USB;
+			val->intval = POWER_SUPPLY_TYPE_USB_PD;
 		else
-			val->intval = chg->usb_psy_desc.type;
+			val->intval = chg->real_charger_type;
 		break;
 	case POWER_SUPPLY_PROP_TYPEC_MODE:
 		if (chg->micro_usb_mode)
@@ -615,7 +629,7 @@ static int smb2_init_usb_psy(struct smb2 *chip)
 	struct smb_charger *chg = &chip->chg;
 
 	chg->usb_psy_desc.name			= "usb";
-	chg->usb_psy_desc.type			= POWER_SUPPLY_TYPE_UNKNOWN;
+	chg->usb_psy_desc.type			= POWER_SUPPLY_TYPE_USB_PD;
 	chg->usb_psy_desc.properties		= smb2_usb_props;
 	chg->usb_psy_desc.num_properties	= ARRAY_SIZE(smb2_usb_props);
 	chg->usb_psy_desc.get_property		= smb2_usb_get_prop;
@@ -630,6 +644,97 @@ static int smb2_init_usb_psy(struct smb2 *chip)
 	if (IS_ERR(chg->usb_psy)) {
 		pr_err("Couldn't register USB power supply\n");
 		return PTR_ERR(chg->usb_psy);
+	}
+
+	return 0;
+}
+
+/********************************
+ * USB PC_PORT PSY REGISTRATION *
+ ********************************/
+static enum power_supply_property smb2_usb_port_props[] = {
+	POWER_SUPPLY_PROP_TYPE,
+	POWER_SUPPLY_PROP_ONLINE,
+};
+
+static int smb2_usb_port_get_prop(struct power_supply *psy,
+		enum power_supply_property psp,
+		union power_supply_propval *val)
+{
+	struct smb2 *chip = power_supply_get_drvdata(psy);
+	struct smb_charger *chg = &chip->chg;
+	int rc = 0;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_TYPE:
+		val->intval = POWER_SUPPLY_TYPE_USB;
+		break;
+	case POWER_SUPPLY_PROP_ONLINE:
+		rc = smblib_get_prop_usb_online(chg, val);
+		if (!val->intval)
+			break;
+
+		rc = smblib_get_prop_typec_mode(chg, val);
+		if ((val->intval == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT ||
+			chg->micro_usb_mode) &&
+			chg->real_charger_type == POWER_SUPPLY_TYPE_USB)
+			val->intval = 1;
+		else
+			val->intval = 0;
+		break;
+	default:
+		pr_err_ratelimited("Get prop %d is not supported in pc_port\n",
+				psp);
+		return -EINVAL;
+	}
+
+	if (rc < 0) {
+		pr_debug("Couldn't get prop %d rc = %d\n", psp, rc);
+		return -ENODATA;
+	}
+
+	return 0;
+}
+
+static int smb2_usb_port_set_prop(struct power_supply *psy,
+		enum power_supply_property psp,
+		const union power_supply_propval *val)
+{
+	int rc = 0;
+
+	switch (psp) {
+	default:
+		pr_err_ratelimited("Set prop %d is not supported in pc_port\n",
+				psp);
+		rc = -EINVAL;
+		break;
+	}
+
+	return rc;
+}
+
+static const struct power_supply_desc usb_port_psy_desc = {
+	.name		= "pc_port",
+	.type		= POWER_SUPPLY_TYPE_USB,
+	.properties	= smb2_usb_port_props,
+	.num_properties	= ARRAY_SIZE(smb2_usb_port_props),
+	.get_property	= smb2_usb_port_get_prop,
+	.set_property	= smb2_usb_port_set_prop,
+};
+
+static int smb2_init_usb_port_psy(struct smb2 *chip)
+{
+	struct power_supply_config usb_port_cfg = {};
+	struct smb_charger *chg = &chip->chg;
+
+	usb_port_cfg.drv_data = chip;
+	usb_port_cfg.of_node = chg->dev->of_node;
+	chg->usb_port_psy = power_supply_register(chg->dev,
+						  &usb_port_psy_desc,
+						  &usb_port_cfg);
+	if (IS_ERR(chg->usb_port_psy)) {
+		pr_err("Couldn't register USB pc_port power supply\n");
+		return PTR_ERR(chg->usb_port_psy);
 	}
 
 	return 0;
@@ -2273,7 +2378,13 @@ static int smb2_probe(struct platform_device *pdev)
 
 	rc = smb2_init_usb_main_psy(chip);
 	if (rc < 0) {
-		pr_err("Couldn't initialize usb psy rc=%d\n", rc);
+		pr_err("Couldn't initialize usb main psy rc=%d\n", rc);
+		goto cleanup;
+	}
+
+	rc = smb2_init_usb_port_psy(chip);
+	if (rc < 0) {
+		pr_err("Couldn't initialize usb pc_port psy rc=%d\n", rc);
 		goto cleanup;
 	}
 
@@ -2331,7 +2442,7 @@ static int smb2_probe(struct platform_device *pdev)
 	device_init_wakeup(chg->dev, true);
 
 	pr_info("QPNP SMB2 probed successfully usb:present=%d type=%d batt:present = %d health = %d charge = %d\n",
-		usb_present, chg->usb_psy_desc.type,
+		usb_present, chg->real_charger_type,
 		batt_present, batt_health, batt_charge_type);
 	return rc;
 
@@ -2343,6 +2454,8 @@ cleanup:
 		power_supply_unregister(chg->usb_main_psy);
 	if (chg->usb_psy)
 		power_supply_unregister(chg->usb_psy);
+	if (chg->usb_port_psy)
+		power_supply_unregister(chg->usb_port_psy);
 	if (chg->dc_psy)
 		power_supply_unregister(chg->dc_psy);
 	if (chg->vconn_vreg && chg->vconn_vreg->rdev)
@@ -2363,6 +2476,7 @@ static int smb2_remove(struct platform_device *pdev)
 
 	power_supply_unregister(chg->batt_psy);
 	power_supply_unregister(chg->usb_psy);
+	power_supply_unregister(chg->usb_port_psy);
 	regulator_unregister(chg->vconn_vreg->rdev);
 	regulator_unregister(chg->vbus_vreg->rdev);
 

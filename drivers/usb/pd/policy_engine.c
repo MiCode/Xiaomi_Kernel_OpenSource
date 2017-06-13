@@ -723,6 +723,15 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		break;
 
 	/* Source states */
+	case PE_SRC_DISABLED:
+		/* are we still connected? */
+		if (pd->typec_mode == POWER_SUPPLY_TYPEC_NONE) {
+			pd->current_pr = PR_NONE;
+			kick_sm(pd, 0);
+		}
+
+		break;
+
 	case PE_SRC_STARTUP:
 		if (pd->current_dr == DR_NONE) {
 			pd->current_dr = DR_DFP;
@@ -853,6 +862,10 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 	case PE_SRC_HARD_RESET:
 	case PE_SNK_HARD_RESET:
+		/* are we still connected? */
+		if (pd->typec_mode == POWER_SUPPLY_TYPEC_NONE)
+			pd->current_pr = PR_NONE;
+
 		/* hard reset may sleep; handle it in the workqueue */
 		kick_sm(pd, 0);
 		break;
@@ -1927,6 +1940,9 @@ static void usbpd_sm(struct work_struct *w)
 			val.intval = 0;
 			power_supply_set_property(pd->usb_psy,
 					POWER_SUPPLY_PROP_PD_ACTIVE, &val);
+
+			pd_phy_close();
+			pd->pd_phy_opened = false;
 		}
 		break;
 
@@ -2365,7 +2381,7 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 	pd->vbus_present = val.intval;
 
 	ret = power_supply_get_property(pd->usb_psy,
-			POWER_SUPPLY_PROP_TYPE, &val);
+			POWER_SUPPLY_PROP_REAL_TYPE, &val);
 	if (ret) {
 		usbpd_err(&pd->dev, "Unable to read USB TYPE: %d\n", ret);
 		return ret;

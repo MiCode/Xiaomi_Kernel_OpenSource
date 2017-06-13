@@ -550,9 +550,9 @@ static const struct apsd_result *smblib_update_usb_type(struct smb_charger *chg)
 
 	/* if PD is active, APSD is disabled so won't have a valid result */
 	if (chg->pd_active)
-		chg->usb_psy_desc.type = POWER_SUPPLY_TYPE_USB_PD;
+		chg->real_charger_type = POWER_SUPPLY_TYPE_USB_PD;
 	else
-		chg->usb_psy_desc.type = apsd_result->pst;
+		chg->real_charger_type = apsd_result->pst;
 
 	smblib_dbg(chg, PR_MISC, "APSD=%s PD=%d\n",
 					apsd_result->name, chg->pd_active);
@@ -859,7 +859,7 @@ int smblib_set_icl_current(struct smb_charger *chg, int icl_ua)
 
 	/* configure current */
 	if (pval.intval == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT
-		&& (chg->usb_psy_desc.type == POWER_SUPPLY_TYPE_USB)) {
+		&& (chg->real_charger_type == POWER_SUPPLY_TYPE_USB)) {
 		rc = set_sdp_current(chg, icl_ua);
 		if (rc < 0) {
 			smblib_err(chg, "Couldn't set SDP ICL rc=%d\n", rc);
@@ -880,10 +880,10 @@ override_suspend_config:
 		/* remove override if no voters - hw defaults is desired */
 		override = false;
 	} else if (pval.intval == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT) {
-		if (chg->usb_psy_desc.type == POWER_SUPPLY_TYPE_USB)
+		if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB)
 			/* For std cable with type = SDP never override */
 			override = false;
-		else if (chg->usb_psy_desc.type == POWER_SUPPLY_TYPE_USB_CDP
+		else if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_CDP
 			&& icl_ua == 1500000)
 			/*
 			 * For std cable with type = CDP override only if
@@ -1044,16 +1044,6 @@ static int smblib_chg_disable_vote_callback(struct votable *votable, void *data,
 			chg_disable ? "disable" : "enable", rc);
 		return rc;
 	}
-
-	return 0;
-}
-
-static int smblib_pl_enable_indirect_vote_callback(struct votable *votable,
-			void *data, int chg_enable, const char *client)
-{
-	struct smb_charger *chg = data;
-
-	vote(chg->pl_disable_votable, PL_INDIRECT_VOTER, !chg_enable, 0);
 
 	return 0;
 }
@@ -3341,7 +3331,7 @@ static void smblib_hvdcp_adaptive_voltage_change(struct smb_charger *chg)
 	int pulses;
 
 	power_supply_changed(chg->usb_main_psy);
-	if (chg->usb_psy_desc.type == POWER_SUPPLY_TYPE_USB_HVDCP) {
+	if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP) {
 		rc = smblib_read(chg, QC_CHANGE_STATUS_REG, &stat);
 		if (rc < 0) {
 			smblib_err(chg,
@@ -3369,7 +3359,7 @@ static void smblib_hvdcp_adaptive_voltage_change(struct smb_charger *chg)
 		}
 	}
 
-	if (chg->usb_psy_desc.type == POWER_SUPPLY_TYPE_USB_HVDCP_3) {
+	if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP_3) {
 		rc = smblib_read(chg, QC_PULSE_COUNT_STATUS_REG, &stat);
 		if (rc < 0) {
 			smblib_err(chg,
@@ -4234,8 +4224,6 @@ static void smblib_icl_change_work(struct work_struct *work)
 	}
 
 	power_supply_changed(chg->usb_main_psy);
-	vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER,
-				settled_ua >= USB_WEAK_INPUT_UA, 0);
 
 	smblib_dbg(chg, PR_INTERRUPT, "icl_settled=%d\n", settled_ua);
 }
@@ -4331,7 +4319,16 @@ static int smblib_create_votables(struct smb_charger *chg)
 		smblib_err(chg, "Couldn't find votable PL_DISABLE rc=%d\n", rc);
 		return rc;
 	}
-	vote(chg->pl_disable_votable, PL_INDIRECT_VOTER, true, 0);
+
+	chg->pl_enable_votable_indirect = find_votable("PL_ENABLE_INDIRECT");
+	if (chg->pl_enable_votable_indirect == NULL) {
+		rc = -EINVAL;
+		smblib_err(chg,
+			"Couldn't find votable PL_ENABLE_INDIRECT rc=%d\n",
+			rc);
+		return rc;
+	}
+
 	vote(chg->pl_disable_votable, PL_DELAY_VOTER, true, 0);
 
 	chg->dc_suspend_votable = create_votable("DC_SUSPEND", VOTE_SET_ANY,
@@ -4381,14 +4378,6 @@ static int smblib_create_votables(struct smb_charger *chg)
 		return rc;
 	}
 
-	chg->pl_enable_votable_indirect = create_votable("PL_ENABLE_INDIRECT",
-					VOTE_SET_ANY,
-					smblib_pl_enable_indirect_vote_callback,
-					chg);
-	if (IS_ERR(chg->pl_enable_votable_indirect)) {
-		rc = PTR_ERR(chg->pl_enable_votable_indirect);
-		return rc;
-	}
 
 	chg->hvdcp_disable_votable_indirect = create_votable(
 				"HVDCP_DISABLE_INDIRECT",
@@ -4464,8 +4453,6 @@ static void smblib_destroy_votables(struct smb_charger *chg)
 		destroy_votable(chg->awake_votable);
 	if (chg->chg_disable_votable)
 		destroy_votable(chg->chg_disable_votable);
-	if (chg->pl_enable_votable_indirect)
-		destroy_votable(chg->pl_enable_votable_indirect);
 	if (chg->apsd_disable_votable)
 		destroy_votable(chg->apsd_disable_votable);
 	if (chg->hvdcp_hw_inov_dis_votable)

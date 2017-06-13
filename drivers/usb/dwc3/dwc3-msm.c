@@ -3321,16 +3321,19 @@ static void msm_dwc3_perf_vote_work(struct work_struct *w)
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
 						perf_vote_work.work);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-	static unsigned long	last_irq_cnt;
 	bool in_perf_mode = false;
+	int latency = mdwc->pm_qos_latency;
 
-	if (dwc->irq_cnt - last_irq_cnt >= PM_QOS_THRESHOLD)
+	if (!latency)
+		return;
+
+	if (dwc->irq_cnt - dwc->last_irq_cnt >= PM_QOS_THRESHOLD)
 		in_perf_mode = true;
 
 	pr_debug("%s: in_perf_mode:%u, interrupts in last sample:%lu\n",
-		 __func__, in_perf_mode, (dwc->irq_cnt - last_irq_cnt));
+		 __func__, in_perf_mode, (dwc->irq_cnt - dwc->last_irq_cnt));
 
-	last_irq_cnt = dwc->irq_cnt;
+	dwc->last_irq_cnt = dwc->irq_cnt;
 	msm_dwc3_perf_vote_update(mdwc, in_perf_mode);
 	schedule_delayed_work(&mdwc->perf_vote_work,
 			msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
@@ -3597,7 +3600,8 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned mA)
 		}
 	}
 
-	power_supply_get_property(mdwc->usb_psy, POWER_SUPPLY_PROP_TYPE, &pval);
+	power_supply_get_property(mdwc->usb_psy,
+			POWER_SUPPLY_PROP_REAL_TYPE, &pval);
 	if (pval.intval != POWER_SUPPLY_TYPE_USB)
 		return 0;
 

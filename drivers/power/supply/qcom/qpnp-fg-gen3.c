@@ -1025,11 +1025,14 @@ static inline void get_esr_meas_current(int curr_ma, u8 *val)
 	*val <<= ESR_PULL_DOWN_IVAL_SHIFT;
 }
 
-static int fg_set_esr_timer(struct fg_chip *chip, int cycles, bool charging,
-				int flags)
+static int fg_set_esr_timer(struct fg_chip *chip, int cycles_init,
+				int cycles_max, bool charging, int flags)
 {
 	u8 buf[2];
 	int rc, timer_max, timer_init;
+
+	if (cycles_init < 0 || cycles_max < 0)
+		return 0;
 
 	if (charging) {
 		timer_max = FG_SRAM_ESR_TIMER_CHG_MAX;
@@ -1039,7 +1042,7 @@ static int fg_set_esr_timer(struct fg_chip *chip, int cycles, bool charging,
 		timer_init = FG_SRAM_ESR_TIMER_DISCHG_INIT;
 	}
 
-	fg_encode(chip->sp, timer_max, cycles, buf);
+	fg_encode(chip->sp, timer_max, cycles_max, buf);
 	rc = fg_sram_write(chip,
 			chip->sp[timer_max].addr_word,
 			chip->sp[timer_max].addr_byte, buf,
@@ -1050,7 +1053,7 @@ static int fg_set_esr_timer(struct fg_chip *chip, int cycles, bool charging,
 		return rc;
 	}
 
-	fg_encode(chip->sp, timer_init, cycles, buf);
+	fg_encode(chip->sp, timer_init, cycles_init, buf);
 	rc = fg_sram_write(chip,
 			chip->sp[timer_init].addr_word,
 			chip->sp[timer_init].addr_byte, buf,
@@ -1061,6 +1064,8 @@ static int fg_set_esr_timer(struct fg_chip *chip, int cycles, bool charging,
 		return rc;
 	}
 
+	fg_dbg(chip, FG_STATUS, "esr_%s_timer set to %d/%d\n",
+		charging ? "charging" : "discharging", cycles_init, cycles_max);
 	return 0;
 }
 
@@ -1970,7 +1975,7 @@ static int fg_esr_fcc_config(struct fg_chip *chip)
 {
 	union power_supply_propval prop = {0, };
 	int rc;
-	bool parallel_en = false;
+	bool parallel_en = false, qnovo_en = false;
 
 	if (is_parallel_charger_available(chip)) {
 		rc = power_supply_get_property(chip->parallel_psy,
@@ -1983,19 +1988,25 @@ static int fg_esr_fcc_config(struct fg_chip *chip)
 		parallel_en = prop.intval;
 	}
 
-	fg_dbg(chip, FG_POWER_SUPPLY, "charge_status: %d parallel_en: %d esr_fcc_ctrl_en: %d\n",
-		chip->charge_status, parallel_en, chip->esr_fcc_ctrl_en);
+	rc = power_supply_get_property(chip->batt_psy,
+			POWER_SUPPLY_PROP_CHARGE_QNOVO_ENABLE, &prop);
+	if (!rc)
+		qnovo_en = prop.intval;
+
+	fg_dbg(chip, FG_POWER_SUPPLY, "chg_sts: %d par_en: %d qnov_en: %d esr_fcc_ctrl_en: %d\n",
+		chip->charge_status, parallel_en, qnovo_en,
+		chip->esr_fcc_ctrl_en);
 
 	if (chip->charge_status == POWER_SUPPLY_STATUS_CHARGING &&
-								parallel_en) {
+			(parallel_en || qnovo_en)) {
 		if (chip->esr_fcc_ctrl_en)
 			return 0;
 
 		/*
-		 * When parallel charging is enabled, configure ESR FCC to
-		 * 300mA to trigger an ESR pulse. Without this, FG can ask
-		 * the main charger to increase FCC when it is supposed to
-		 * decrease it.
+		 * When parallel charging or Qnovo is enabled, configure ESR
+		 * FCC to 300mA to trigger an ESR pulse. Without this, FG can
+		 * request the main charger to increase FCC when it is supposed
+		 * to decrease it.
 		 */
 		rc = fg_masked_write(chip, BATT_INFO_ESR_FAST_CRG_CFG(chip),
 				ESR_FAST_CRG_IVAL_MASK |
@@ -2014,8 +2025,8 @@ static int fg_esr_fcc_config(struct fg_chip *chip)
 
 		/*
 		 * If we're here, then it means either the device is not in
-		 * charging state or parallel charging is disabled. Disable
-		 * ESR fast charge current control in SW.
+		 * charging state or parallel charging / Qnovo is disabled.
+		 * Disable ESR fast charge current control in SW.
 		 */
 		rc = fg_masked_write(chip, BATT_INFO_ESR_FAST_CRG_CFG(chip),
 				ESR_FAST_CRG_CTL_EN_BIT, 0);
@@ -2030,6 +2041,50 @@ static int fg_esr_fcc_config(struct fg_chip *chip)
 
 	fg_dbg(chip, FG_STATUS, "esr_fcc_ctrl_en set to %d\n",
 		chip->esr_fcc_ctrl_en);
+	return 0;
+}
+
+static int fg_esr_timer_config(struct fg_chip *chip, bool sleep)
+{
+	int rc, cycles_init, cycles_max;
+	bool end_of_charge = false;
+
+	end_of_charge = is_input_present(chip) && chip->charge_done;
+	fg_dbg(chip, FG_STATUS, "sleep: %d eoc: %d\n", sleep, end_of_charge);
+
+	/* ESR discharging timer configuration */
+	cycles_init = sleep ? chip->dt.esr_timer_asleep[TIMER_RETRY] :
+			chip->dt.esr_timer_awake[TIMER_RETRY];
+	if (end_of_charge)
+		cycles_init = 0;
+
+	cycles_max = sleep ? chip->dt.esr_timer_asleep[TIMER_MAX] :
+			chip->dt.esr_timer_awake[TIMER_MAX];
+
+	rc = fg_set_esr_timer(chip, cycles_init, cycles_max, false,
+		sleep ? FG_IMA_NO_WLOCK : FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in setting ESR timer, rc=%d\n", rc);
+		return rc;
+	}
+
+	/* ESR charging timer configuration */
+	cycles_init = cycles_max = -EINVAL;
+	if (end_of_charge || sleep) {
+		cycles_init = chip->dt.esr_timer_charging[TIMER_RETRY];
+		cycles_max = chip->dt.esr_timer_charging[TIMER_MAX];
+	} else if (is_input_present(chip)) {
+		cycles_init = chip->esr_timer_charging_default[TIMER_RETRY];
+		cycles_max = chip->esr_timer_charging_default[TIMER_MAX];
+	}
+
+	rc = fg_set_esr_timer(chip, cycles_init, cycles_max, true,
+		sleep ? FG_IMA_NO_WLOCK : FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in setting ESR timer, rc=%d\n", rc);
+		return rc;
+	}
+
 	return 0;
 }
 
@@ -2105,6 +2160,10 @@ static void status_change_work(struct work_struct *work)
 	rc = fg_esr_fcc_config(chip);
 	if (rc < 0)
 		pr_err("Error in adjusting FCC for ESR, rc=%d\n", rc);
+
+	rc = fg_esr_timer_config(chip, false);
+	if (rc < 0)
+		pr_err("Error in configuring ESR timer, rc=%d\n", rc);
 
 	rc = fg_get_battery_temp(chip, &batt_temp);
 	if (!rc) {
@@ -3109,6 +3168,8 @@ static const struct power_supply_desc fg_psy_desc = {
 
 /* INIT FUNCTIONS STAY HERE */
 
+#define DEFAULT_ESR_CHG_TIMER_RETRY	8
+#define DEFAULT_ESR_CHG_TIMER_MAX	16
 static int fg_hw_init(struct fg_chip *chip)
 {
 	int rc;
@@ -3277,22 +3338,29 @@ static int fg_hw_init(struct fg_chip *chip)
 		return rc;
 	}
 
-	if (chip->dt.esr_timer_charging > 0) {
-		rc = fg_set_esr_timer(chip, chip->dt.esr_timer_charging, true,
-				      FG_IMA_DEFAULT);
-		if (rc < 0) {
-			pr_err("Error in setting ESR timer, rc=%d\n", rc);
-			return rc;
-		}
+	if (chip->pmic_rev_id->pmic_subtype == PMI8998_SUBTYPE) {
+		chip->esr_timer_charging_default[TIMER_RETRY] =
+			DEFAULT_ESR_CHG_TIMER_RETRY;
+		chip->esr_timer_charging_default[TIMER_MAX] =
+			DEFAULT_ESR_CHG_TIMER_MAX;
+	} else {
+		/* We don't need this for pm660 at present */
+		chip->esr_timer_charging_default[TIMER_RETRY] = -EINVAL;
+		chip->esr_timer_charging_default[TIMER_MAX] = -EINVAL;
 	}
 
-	if (chip->dt.esr_timer_awake > 0) {
-		rc = fg_set_esr_timer(chip, chip->dt.esr_timer_awake, false,
-				      FG_IMA_DEFAULT);
-		if (rc < 0) {
-			pr_err("Error in setting ESR timer, rc=%d\n", rc);
-			return rc;
-		}
+	rc = fg_set_esr_timer(chip, chip->dt.esr_timer_charging[TIMER_RETRY],
+		chip->dt.esr_timer_charging[TIMER_MAX], true, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in setting ESR timer, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = fg_set_esr_timer(chip, chip->dt.esr_timer_awake[TIMER_RETRY],
+		chip->dt.esr_timer_awake[TIMER_MAX], false, FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("Error in setting ESR timer, rc=%d\n", rc);
+		return rc;
 	}
 
 	if (chip->cyc_ctr.en)
@@ -3772,6 +3840,32 @@ static int fg_register_interrupts(struct fg_chip *chip)
 	return 0;
 }
 
+static int fg_parse_dt_property_u32_array(struct device_node *node,
+				const char *prop_name, int *buf, int len)
+{
+	int rc;
+
+	rc = of_property_count_elems_of_size(node, prop_name, sizeof(u32));
+	if (rc < 0) {
+		if (rc == -EINVAL)
+			return 0;
+		else
+			return rc;
+	} else if (rc != len) {
+		pr_err("Incorrect length %d for %s, rc=%d\n", len, prop_name,
+			rc);
+		return -EINVAL;
+	}
+
+	rc = of_property_read_u32_array(node, prop_name, buf, len);
+	if (rc < 0) {
+		pr_err("Error in reading %s, rc=%d\n", prop_name, rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 static int fg_parse_slope_limit_coefficients(struct fg_chip *chip)
 {
 	struct device_node *node = chip->dev->of_node;
@@ -3782,17 +3876,10 @@ static int fg_parse_slope_limit_coefficients(struct fg_chip *chip)
 	if (rc < 0)
 		return 0;
 
-	rc = of_property_count_elems_of_size(node, "qcom,slope-limit-coeffs",
-			sizeof(u32));
-	if (rc != SLOPE_LIMIT_NUM_COEFFS)
-		return -EINVAL;
-
-	rc = of_property_read_u32_array(node, "qcom,slope-limit-coeffs",
-			chip->dt.slope_limit_coeffs, SLOPE_LIMIT_NUM_COEFFS);
-	if (rc < 0) {
-		pr_err("Error in reading qcom,slope-limit-coeffs, rc=%d\n", rc);
+	rc = fg_parse_dt_property_u32_array(node, "qcom,slope-limit-coeffs",
+		chip->dt.slope_limit_coeffs, SLOPE_LIMIT_NUM_COEFFS);
+	if (rc < 0)
 		return rc;
-	}
 
 	for (i = 0; i < SLOPE_LIMIT_NUM_COEFFS; i++) {
 		if (chip->dt.slope_limit_coeffs[i] > SLOPE_LIMIT_COEFF_MAX ||
@@ -3811,44 +3898,20 @@ static int fg_parse_ki_coefficients(struct fg_chip *chip)
 	struct device_node *node = chip->dev->of_node;
 	int rc, i;
 
-	rc = of_property_count_elems_of_size(node, "qcom,ki-coeff-soc-dischg",
-		sizeof(u32));
-	if (rc != KI_COEFF_SOC_LEVELS)
-		return 0;
-
-	rc = of_property_read_u32_array(node, "qcom,ki-coeff-soc-dischg",
-			chip->dt.ki_coeff_soc, KI_COEFF_SOC_LEVELS);
-	if (rc < 0) {
-		pr_err("Error in reading ki-coeff-soc-dischg, rc=%d\n",
-			rc);
+	rc = fg_parse_dt_property_u32_array(node, "qcom,ki-coeff-soc-dischg",
+		chip->dt.ki_coeff_soc, KI_COEFF_SOC_LEVELS);
+	if (rc < 0)
 		return rc;
-	}
 
-	rc = of_property_count_elems_of_size(node, "qcom,ki-coeff-med-dischg",
-		sizeof(u32));
-	if (rc != KI_COEFF_SOC_LEVELS)
-		return 0;
-
-	rc = of_property_read_u32_array(node, "qcom,ki-coeff-med-dischg",
-			chip->dt.ki_coeff_med_dischg, KI_COEFF_SOC_LEVELS);
-	if (rc < 0) {
-		pr_err("Error in reading ki-coeff-med-dischg, rc=%d\n",
-			rc);
+	rc = fg_parse_dt_property_u32_array(node, "qcom,ki-coeff-med-dischg",
+		chip->dt.ki_coeff_med_dischg, KI_COEFF_SOC_LEVELS);
+	if (rc < 0)
 		return rc;
-	}
 
-	rc = of_property_count_elems_of_size(node, "qcom,ki-coeff-hi-dischg",
-		sizeof(u32));
-	if (rc != KI_COEFF_SOC_LEVELS)
-		return 0;
-
-	rc = of_property_read_u32_array(node, "qcom,ki-coeff-hi-dischg",
-			chip->dt.ki_coeff_hi_dischg, KI_COEFF_SOC_LEVELS);
-	if (rc < 0) {
-		pr_err("Error in reading ki-coeff-hi-dischg, rc=%d\n",
-			rc);
+	rc = fg_parse_dt_property_u32_array(node, "qcom,ki-coeff-hi-dischg",
+		chip->dt.ki_coeff_hi_dischg, KI_COEFF_SOC_LEVELS);
+	if (rc < 0)
 		return rc;
-	}
 
 	for (i = 0; i < KI_COEFF_SOC_LEVELS; i++) {
 		if (chip->dt.ki_coeff_soc[i] < 0 ||
@@ -3874,7 +3937,7 @@ static int fg_parse_ki_coefficients(struct fg_chip *chip)
 }
 
 #define DEFAULT_CUTOFF_VOLT_MV		3200
-#define DEFAULT_EMPTY_VOLT_MV		2800
+#define DEFAULT_EMPTY_VOLT_MV		2850
 #define DEFAULT_RECHARGE_VOLT_MV	4250
 #define DEFAULT_CHG_TERM_CURR_MA	100
 #define DEFAULT_CHG_TERM_BASE_CURR_MA	75
@@ -4093,23 +4156,26 @@ static int fg_parse_dt(struct fg_chip *chip)
 				rc);
 	}
 
-	rc = of_property_read_u32(node, "qcom,fg-esr-timer-charging", &temp);
-	if (rc < 0)
-		chip->dt.esr_timer_charging = -EINVAL;
-	else
-		chip->dt.esr_timer_charging = temp;
+	rc = fg_parse_dt_property_u32_array(node, "qcom,fg-esr-timer-charging",
+		chip->dt.esr_timer_charging, NUM_ESR_TIMERS);
+	if (rc < 0) {
+		chip->dt.esr_timer_charging[TIMER_RETRY] = -EINVAL;
+		chip->dt.esr_timer_charging[TIMER_MAX] = -EINVAL;
+	}
 
-	rc = of_property_read_u32(node, "qcom,fg-esr-timer-awake", &temp);
-	if (rc < 0)
-		chip->dt.esr_timer_awake = -EINVAL;
-	else
-		chip->dt.esr_timer_awake = temp;
+	rc = fg_parse_dt_property_u32_array(node, "qcom,fg-esr-timer-awake",
+		chip->dt.esr_timer_awake, NUM_ESR_TIMERS);
+	if (rc < 0) {
+		chip->dt.esr_timer_awake[TIMER_RETRY] = -EINVAL;
+		chip->dt.esr_timer_awake[TIMER_MAX] = -EINVAL;
+	}
 
-	rc = of_property_read_u32(node, "qcom,fg-esr-timer-asleep", &temp);
-	if (rc < 0)
-		chip->dt.esr_timer_asleep = -EINVAL;
-	else
-		chip->dt.esr_timer_asleep = temp;
+	rc = fg_parse_dt_property_u32_array(node, "qcom,fg-esr-timer-asleep",
+		chip->dt.esr_timer_asleep, NUM_ESR_TIMERS);
+	if (rc < 0) {
+		chip->dt.esr_timer_asleep[TIMER_RETRY] = -EINVAL;
+		chip->dt.esr_timer_asleep[TIMER_MAX] = -EINVAL;
+	}
 
 	chip->cyc_ctr.en = of_property_read_bool(node, "qcom,cycle-counter-en");
 	if (chip->cyc_ctr.en)
@@ -4447,15 +4513,9 @@ static int fg_gen3_suspend(struct device *dev)
 	struct fg_chip *chip = dev_get_drvdata(dev);
 	int rc;
 
-	if (chip->dt.esr_timer_awake > 0 && chip->dt.esr_timer_asleep > 0) {
-		rc = fg_set_esr_timer(chip, chip->dt.esr_timer_asleep, false,
-				      FG_IMA_NO_WLOCK);
-		if (rc < 0) {
-			pr_err("Error in setting ESR timer during suspend, rc=%d\n",
-			       rc);
-			return rc;
-		}
-	}
+	rc = fg_esr_timer_config(chip, true);
+	if (rc < 0)
+		pr_err("Error in configuring ESR timer, rc=%d\n", rc);
 
 	cancel_delayed_work_sync(&chip->batt_avg_work);
 	if (fg_sram_dump)
@@ -4468,15 +4528,9 @@ static int fg_gen3_resume(struct device *dev)
 	struct fg_chip *chip = dev_get_drvdata(dev);
 	int rc;
 
-	if (chip->dt.esr_timer_awake > 0 && chip->dt.esr_timer_asleep > 0) {
-		rc = fg_set_esr_timer(chip, chip->dt.esr_timer_awake, false,
-				      FG_IMA_DEFAULT);
-		if (rc < 0) {
-			pr_err("Error in setting ESR timer during resume, rc=%d\n",
-			       rc);
-			return rc;
-		}
-	}
+	rc = fg_esr_timer_config(chip, false);
+	if (rc < 0)
+		pr_err("Error in configuring ESR timer, rc=%d\n", rc);
 
 	fg_circ_buf_clr(&chip->ibatt_circ_buf);
 	fg_circ_buf_clr(&chip->vbatt_circ_buf);
