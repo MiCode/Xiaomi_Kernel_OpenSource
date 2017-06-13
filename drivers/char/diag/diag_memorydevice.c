@@ -254,8 +254,6 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 	struct diag_md_session_t *session_info = NULL;
 	struct pid *pid_struct = NULL;
 
-	mutex_lock(&driver->diagfwd_untag_mutex);
-
 	for (i = 0; i < NUM_DIAG_MD_DEV && !err; i++) {
 		ch = &diag_md[i];
 		for (j = 0; j < ch->num_tbl_entries && !err; j++) {
@@ -364,8 +362,6 @@ drop_data:
 	diag_ws_on_copy_complete(DIAG_WS_MUX);
 	if (drain_again)
 		chk_logging_wakeup();
-
-	mutex_unlock(&driver->diagfwd_untag_mutex);
 
 	return err;
 }
