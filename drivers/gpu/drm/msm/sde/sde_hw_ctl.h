@@ -235,6 +235,16 @@ struct sde_hw_ctl {
 };
 
 /**
+ * sde_hw_ctl - convert base object sde_hw_base to container
+ * @hw: Pointer to base hardware block
+ * return: Pointer to hardware block container
+ */
+static inline struct sde_hw_ctl *to_sde_hw_ctl(struct sde_hw_blk *hw)
+{
+	return container_of(hw, struct sde_hw_ctl, base);
+}
+
+/**
  * sde_hw_ctl_init(): Initializes the ctl_path hw driver object.
  * should be called before accessing every ctl path registers.
  * @idx:  ctl_path index for which driver object is required

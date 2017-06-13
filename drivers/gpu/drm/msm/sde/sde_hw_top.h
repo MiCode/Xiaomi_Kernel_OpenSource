@@ -192,6 +192,16 @@ struct sde_hw_mdp {
 };
 
 /**
+ * to_sde_hw_mdp - convert base object sde_hw_base to container
+ * @hw: Pointer to base hardware block
+ * return: Pointer to hardware block container
+ */
+static inline struct sde_hw_mdp *to_sde_hw_mdp(struct sde_hw_blk *hw)
+{
+	return container_of(hw, struct sde_hw_mdp, base);
+}
+
+/**
  * sde_hw_mdptop_init - initializes the top driver for the passed idx
  * @idx:  Interface index for which driver object is required
  * @addr: Mapped register io address of MDP

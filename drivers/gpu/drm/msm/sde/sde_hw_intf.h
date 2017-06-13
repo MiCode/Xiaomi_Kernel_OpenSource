@@ -100,6 +100,16 @@ struct sde_hw_intf {
 };
 
 /**
+ * to_sde_hw_intf - convert base object sde_hw_base to container
+ * @hw: Pointer to base hardware block
+ * return: Pointer to hardware block container
+ */
+static inline struct sde_hw_intf *to_sde_hw_intf(struct sde_hw_blk *hw)
+{
+	return container_of(hw, struct sde_hw_intf, base);
+}
+
+/**
  * sde_hw_intf_init(): Initializes the intf driver for the passed
  * interface idx.
  * @idx:  interface index for which driver object is required
