@@ -1853,6 +1853,8 @@ struct usb_function_instance *alloc_inst_mtp_ptp(bool mtp_config)
 	config_group_init_type_name(&fi_mtp->func_inst.group,
 					"", &mtp_func_type);
 
+	mutex_init(&fi_mtp->dev->read_mutex);
+
 	return  &fi_mtp->func_inst;
 }
 EXPORT_SYMBOL_GPL(alloc_inst_mtp_ptp);
@@ -1914,7 +1916,6 @@ struct usb_function *function_alloc_mtp_ptp(struct usb_function_instance *fi,
 	dev->function.free_func = mtp_free;
 	dev->is_ptp = !mtp_config;
 
-	mutex_init(&dev->read_mutex);
 	return &dev->function;
 }
 EXPORT_SYMBOL_GPL(function_alloc_mtp_ptp);
