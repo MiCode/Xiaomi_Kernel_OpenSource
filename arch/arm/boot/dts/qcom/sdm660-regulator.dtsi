@@ -453,6 +453,8 @@
 		pm660l_bob: regulator-bob {
 			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3600000>;
+			qcom,pwm-threshold-current = <2000000>;
+			qcom,init-bob-mode = <2>;
 			status = "okay";
 		};
 
@@ -462,6 +464,8 @@
 			qcom,set = <3>;
 			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3600000>;
+			qcom,pwm-threshold-current = <2000000>;
+			qcom,init-bob-mode = <2>;
 			qcom,use-pin-ctrl-voltage1;
 		};
 
@@ -471,6 +475,8 @@
 			qcom,set = <3>;
 			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3600000>;
+			qcom,pwm-threshold-current = <2000000>;
+			qcom,init-bob-mode = <2>;
 			qcom,use-pin-ctrl-voltage2;
 		};
 
@@ -480,6 +486,8 @@
 			qcom,set = <3>;
 			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3600000>;
+			qcom,pwm-threshold-current = <2000000>;
+			qcom,init-bob-mode = <2>;
 			qcom,use-pin-ctrl-voltage3;
 		};
 	};
