@@ -611,6 +611,21 @@ static int fast_smmu_mmap_attrs(struct device *dev, struct vm_area_struct *vma,
 	return ret;
 }
 
+static int fast_smmu_get_sgtable(struct device *dev, struct sg_table *sgt,
+				void *cpu_addr, dma_addr_t dma_addr,
+				size_t size, unsigned long attrs)
+{
+	unsigned int n_pages = PAGE_ALIGN(size) >> PAGE_SHIFT;
+	struct vm_struct *area;
+
+	area = find_vm_area(cpu_addr);
+	if (!area || !area->pages)
+		return -EINVAL;
+
+	return sg_alloc_table_from_pages(sgt, area->pages, n_pages, 0, size,
+					GFP_KERNEL);
+}
+
 static dma_addr_t fast_smmu_dma_map_resource(
 			struct device *dev, phys_addr_t phys_addr,
 			size_t size, enum dma_data_direction dir,
@@ -702,6 +717,7 @@ static const struct dma_map_ops fast_smmu_dma_ops = {
 	.alloc = fast_smmu_alloc,
 	.free = fast_smmu_free,
 	.mmap = fast_smmu_mmap_attrs,
+	.get_sgtable = fast_smmu_get_sgtable,
 	.map_page = fast_smmu_map_page,
 	.unmap_page = fast_smmu_unmap_page,
 	.sync_single_for_cpu = fast_smmu_sync_single_for_cpu,
