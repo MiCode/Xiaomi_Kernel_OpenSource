@@ -670,10 +670,11 @@ int qbuf_dynamic_buf(struct msm_vidc_inst *inst,
 }
 
 int output_buffer_cache_invalidate(struct msm_vidc_inst *inst,
-				struct buffer_info *binfo)
+			struct buffer_info *binfo, struct v4l2_buffer *b)
 {
 	int i = 0;
 	int rc = 0;
+	int size = -1;
 
 	if (!inst) {
 		dprintk(VIDC_ERR, "%s: invalid inst: %pK\n", __func__, inst);
@@ -686,23 +687,34 @@ int output_buffer_cache_invalidate(struct msm_vidc_inst *inst,
 		return -EINVAL;
 	}
 
-	for (i = 0; i < binfo->num_planes; i++) {
-		if (binfo->handle[i]) {
-			struct msm_smem smem = *binfo->handle[i];
+	if (b->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		for (i = 0; i < binfo->num_planes; i++) {
+			if (binfo->handle[i]) {
+				struct msm_smem smem = *binfo->handle[i];
 
-			smem.offset = (unsigned int)(binfo->buff_off[i]);
-			smem.size   = binfo->size[i];
-			rc = msm_comm_smem_cache_operations(inst,
-				&smem, SMEM_CACHE_INVALIDATE);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"%s: Failed to clean caches: %d\n",
-					__func__, rc);
-				return -EINVAL;
-			}
-		} else
-			dprintk(VIDC_DBG, "%s: NULL handle for plane %d\n",
+				if (inst->session_type == MSM_VIDC_ENCODER &&
+					!i)
+					size = b->m.planes[i].bytesused;
+				else
+					size = -1;
+
+				smem.offset =
+					(unsigned int)(binfo->buff_off[i]);
+				smem.size   = binfo->size[i];
+				rc = msm_comm_smem_cache_operations(inst,
+					&smem, SMEM_CACHE_INVALIDATE,
+					size);
+				if (rc) {
+					dprintk(VIDC_ERR,
+						"%s: Failed to clean caches: %d\n",
+						__func__, rc);
+					return -EINVAL;
+				}
+			} else
+				dprintk(VIDC_DBG,
+					"%s: NULL handle for plane %d\n",
 					__func__, i);
+		}
 	}
 	return 0;
 }
@@ -858,6 +870,7 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 	int plane = 0;
 	int rc = 0;
 	int i;
+	int size = -1;
 
 	if (!inst || !inst->core || !b || !valid_v4l2_buffer(b, inst))
 		return -EINVAL;
@@ -905,7 +918,7 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 			V4L2_PIX_FMT_HEVC_HYBRID && binfo->handle[i] &&
 			b->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 			rc = msm_comm_smem_cache_operations(inst,
-				binfo->handle[i], SMEM_CACHE_INVALIDATE);
+				binfo->handle[i], SMEM_CACHE_INVALIDATE, -1);
 			if (rc) {
 				dprintk(VIDC_ERR,
 					"Failed to inv caches: %d\n", rc);
@@ -915,8 +928,13 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 
 		if (binfo->handle[i] &&
 			(b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)) {
+			if (inst->session_type == MSM_VIDC_DECODER && !i)
+				size = b->m.planes[i].bytesused;
+			else
+				size = -1;
 			rc = msm_comm_smem_cache_operations(inst,
-					binfo->handle[i], SMEM_CACHE_CLEAN);
+					binfo->handle[i], SMEM_CACHE_CLEAN,
+					size);
 			if (rc) {
 				dprintk(VIDC_ERR,
 					"Failed to clean caches: %d\n", rc);
@@ -985,7 +1003,7 @@ int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 		return -EINVAL;
 	}
 
-	rc = output_buffer_cache_invalidate(inst, buffer_info);
+	rc = output_buffer_cache_invalidate(inst, buffer_info, b);
 	if (rc)
 		return rc;
 
