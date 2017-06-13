@@ -4163,9 +4163,6 @@ static void update_mi2s_clk_val(int dai_id, int stream)
 		mi2s_clk[dai_id].clk_freq_in_hz =
 		    mi2s_tx_cfg[dai_id].sample_rate * 2 * bit_per_sample;
 	}
-
-	if (!mi2s_intf_conf[dai_id].msm_is_mi2s_master)
-		mi2s_clk[dai_id].clk_freq_in_hz = 0;
 }
 
 static int msm_mi2s_set_sclk(struct snd_pcm_substream *substream, bool enable)
