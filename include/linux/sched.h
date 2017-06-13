@@ -2637,7 +2637,6 @@ struct cpu_cycle_counter_cb {
 #define MAX_NUM_CGROUP_COLOC_ID	20
 
 #ifdef CONFIG_SCHED_HMP
-extern void free_task_load_ptrs(struct task_struct *p);
 extern int sched_set_window(u64 window_start, unsigned int window_size);
 extern unsigned long sched_get_busy(int cpu);
 extern void sched_get_cpus_busy(struct sched_load *busy,
@@ -2661,8 +2660,6 @@ extern int sched_set_group_id(struct task_struct *p, unsigned int group_id);
 extern unsigned int sched_get_group_id(struct task_struct *p);
 
 #else /* CONFIG_SCHED_HMP */
-static inline void free_task_load_ptrs(struct task_struct *p) { }
-
 static inline int sched_set_window(u64 window_start, unsigned int window_size)
 {
 	return -EINVAL;
@@ -2700,6 +2697,7 @@ extern u32 sched_get_init_task_load(struct task_struct *p);
 extern void sched_update_cpu_freq_min_max(const cpumask_t *cpus, u32 fmin,
 					  u32 fmax);
 extern int sched_set_boost(int enable);
+extern void free_task_load_ptrs(struct task_struct *p);
 #else
 static inline int
 register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb)
@@ -2712,6 +2710,7 @@ static inline int sched_set_boost(int enable)
 {
 	return -EINVAL;
 }
+static inline void free_task_load_ptrs(struct task_struct *p) { }
 #endif /* CONFIG_SCHED_WALT */
 
 #ifndef CONFIG_SCHED_WALT
