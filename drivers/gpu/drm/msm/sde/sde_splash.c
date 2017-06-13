@@ -529,7 +529,8 @@ int sde_splash_clean_up_free_resource(struct msm_kms *kms,
 
 	/* When both hdmi's and dsi's resource are freed,
 	 * 1. Destroy splash node objects.
-	 * 2. Decrease ref count in bandwidth voting function.
+	 * 2. Release the memory which LK's stack is running on.
+	 * 3. Withdraw AHB data bus bandwidth voting.
 	 */
 	if (sinfo->hdmi_connector_cnt == 0 &&
 			sinfo->dsi_connector_cnt == 0) {
@@ -539,8 +540,12 @@ int sde_splash_clean_up_free_resource(struct msm_kms *kms,
 
 		_sde_splash_destroy_splash_node(sinfo);
 
+		_sde_splash_free_bootup_memory_to_system(sinfo->lk_pool_paddr,
+							sinfo->lk_pool_size);
+
 		sde_power_data_bus_bandwidth_ctrl(phandle,
 				sde_kms->core_client, false);
+
 		return 0;
 	}
 
