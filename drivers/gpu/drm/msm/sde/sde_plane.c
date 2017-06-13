@@ -3686,6 +3686,12 @@ static inline void _sde_plane_set_scaler_v2(struct sde_plane *psde,
 		return;
 	}
 
+	/* detach/ignore user data if 'disabled' */
+	if (!scale_v2.enable) {
+		SDE_DEBUG_PLANE(psde, "scale data removed\n");
+		return;
+	}
+
 	/* populate from user space */
 	pe = &(psde->pixel_ext);
 	memset(pe, 0, sizeof(struct sde_hw_pixel_ext));
