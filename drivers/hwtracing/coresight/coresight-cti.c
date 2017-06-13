@@ -64,7 +64,7 @@ do {									\
 #define ITCHIN			(0xEF4)
 #define ITTRIGIN		(0xEF8)
 
-#define CTI_MAX_TRIGGERS	(8)
+#define CTI_MAX_TRIGGERS	(32)
 #define CTI_MAX_CHANNELS	(4)
 #define AFFINITY_LEVEL_L2	1
 
