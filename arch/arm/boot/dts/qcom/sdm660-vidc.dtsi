@@ -209,7 +209,7 @@
 				<&mmss_bimc_smmu 0x411>,
 				<&mmss_bimc_smmu 0x431>;
 			buffer-types = <0xfff>;
-			virtual-addr-pool = <0x70800000 0x6f800000>;
+			virtual-addr-pool = <0x79000000 0x60000000>;
 		};
 
 		firmware_cb {
@@ -231,7 +231,7 @@
 				<&mmss_bimc_smmu 0x529>,
 				<&mmss_bimc_smmu 0x52b>;
 			buffer-types = <0x241>;
-			virtual-addr-pool = <0x4b000000 0x25800000>;
+			virtual-addr-pool = <0x51000000 0x28000000>;
 			qcom,secure-context-bank;
 		};
 
@@ -243,7 +243,7 @@
 				<&mmss_bimc_smmu 0x510>,
 				<&mmss_bimc_smmu 0x52c>;
 			buffer-types = <0x106>;
-			virtual-addr-pool = <0x25800000 0x25800000>;
+			virtual-addr-pool = <0x29000000 0x28000000>;
 			qcom,secure-context-bank;
 		};
 
@@ -260,7 +260,7 @@
 				<&mmss_bimc_smmu 0x52d>,
 				<&mmss_bimc_smmu 0x540>;
 			buffer-types = <0x480>;
-			virtual-addr-pool = <0x1000000 0x24800000>;
+			virtual-addr-pool = <0x1000000 0x28000000>;
 			qcom,secure-context-bank;
 		};
 	};
