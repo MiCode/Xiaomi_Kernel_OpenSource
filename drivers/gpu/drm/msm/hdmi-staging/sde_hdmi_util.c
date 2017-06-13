@@ -68,6 +68,59 @@ static void sde_hdmi_hdcp2p2_ddc_clear_status(struct sde_hdmi *display)
 	hdmi_write(hdmi, HDMI_HDCP2P2_DDC_STATUS, reg_val);
 }
 
+/**
+ * sde_hdmi_dump_regs - utility to dump HDMI regs
+ * @hdmi_display: Pointer to private display handle
+ * Return : void
+ */
+
+void sde_hdmi_dump_regs(void *hdmi_display)
+{
+	struct sde_hdmi *display = (struct sde_hdmi *)hdmi_display;
+	struct hdmi *hdmi;
+	int i;
+	u32 addr_off = 0;
+	u32 len = 0;
+
+	if (!display) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	hdmi = display->ctrl.ctrl;
+
+	if (!hdmi) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	if (!hdmi->power_on || !display->connected) {
+		SDE_ERROR("HDMI display is not ready\n");
+		return;
+	}
+
+	len = hdmi->mmio_len;
+
+	if (len % 16)
+		len += 16;
+	len /= 16;
+
+	pr_info("HDMI CORE regs\n");
+	for (i = 0; i < len; i++) {
+		u32 x0, x4, x8, xc;
+
+		x0 = hdmi_read(hdmi, addr_off+0x0);
+		x4 = hdmi_read(hdmi, addr_off+0x4);
+		x8 = hdmi_read(hdmi, addr_off+0x8);
+		xc = hdmi_read(hdmi, addr_off+0xc);
+
+		pr_info("%08x : %08x %08x %08x %08x\n", addr_off, x0, x4, x8,
+				xc);
+
+		addr_off += 16;
+	}
+}
+
 int sde_hdmi_ddc_hdcp2p2_isr(void *hdmi_display)
 {
 	struct sde_hdmi_tx_hdcp2p2_ddc_data *data;
