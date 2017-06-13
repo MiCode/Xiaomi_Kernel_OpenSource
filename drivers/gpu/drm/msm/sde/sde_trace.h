@@ -159,25 +159,37 @@ TRACE_EVENT(sde_trace_counter,
 			__get_str(counter_name), __entry->value)
 )
 
+#define SDE_TRACE_EVTLOG_SIZE	15
 TRACE_EVENT(sde_evtlog,
-	TP_PROTO(const char *tag, u32 tag_id, u64 value1, u64 value2),
-	TP_ARGS(tag, tag_id, value1, value2),
+	TP_PROTO(const char *tag, u32 tag_id, u32 cnt, u32 data[]),
+	TP_ARGS(tag, tag_id, cnt, data),
 	TP_STRUCT__entry(
 			__field(int, pid)
 			__string(evtlog_tag, tag)
 			__field(u32, tag_id)
-			__field(u64, value1)
-			__field(u64, value2)
+			__array(u32, data, SDE_TRACE_EVTLOG_SIZE)
 	),
 	TP_fast_assign(
 			__entry->pid = current->tgid;
 			__assign_str(evtlog_tag, tag);
 			__entry->tag_id = tag_id;
-			__entry->value1 = value1;
-			__entry->value2 = value2;
+			if (cnt > SDE_TRACE_EVTLOG_SIZE)
+				cnt = SDE_TRACE_EVTLOG_SIZE;
+			memcpy(__entry->data, data, cnt * sizeof(u32));
+			memset(&__entry->data[cnt], 0,
+				(SDE_TRACE_EVTLOG_SIZE - cnt) * sizeof(u32));
 	),
-	TP_printk("%d|%s:%d|%llu|%llu", __entry->pid, __get_str(evtlog_tag),
-			__entry->tag_id, __entry->value1, __entry->value2)
+	TP_printk("%d|%s:%d|%u|%u|%u|%u|%u|%u|%u|%u|%u|%u|%u|%u|%u|%u|%u",
+			__entry->pid, __get_str(evtlog_tag),
+			__entry->tag_id,
+			__entry->data[0], __entry->data[1],
+			__entry->data[2], __entry->data[3],
+			__entry->data[4], __entry->data[5],
+			__entry->data[6], __entry->data[7],
+			__entry->data[8], __entry->data[9],
+			__entry->data[10], __entry->data[11],
+			__entry->data[12], __entry->data[13],
+			__entry->data[14])
 )
 
 TRACE_EVENT(sde_perf_crtc_update,
