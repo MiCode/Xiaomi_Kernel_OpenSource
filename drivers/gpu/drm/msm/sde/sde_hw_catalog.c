@@ -1407,6 +1407,8 @@ static int sde_intf_parse_dt(struct device_node *np,
 			intf->len = DEFAULT_SDE_HW_BLOCK_LEN;
 
 		intf->prog_fetch_lines_worst_case =
+				!prop_exists[INTF_PREFETCH] ?
+				sde_cfg->perf.min_prefill_lines :
 				PROP_VALUE_ACCESS(prop_value, INTF_PREFETCH, i);
 
 		of_property_read_string_index(np,
