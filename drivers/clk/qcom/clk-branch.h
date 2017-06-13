@@ -53,13 +53,4 @@ extern const struct clk_ops clk_branch_simple_ops;
 #define to_clk_branch(_hw) \
 	container_of(to_clk_regmap(_hw), struct clk_branch, clkr)
 
-enum branch_mem_flags {
-	CLKFLAG_RETAIN_PERIPH,
-	CLKFLAG_NORETAIN_PERIPH,
-	CLKFLAG_RETAIN_MEM,
-	CLKFLAG_NORETAIN_MEM,
-	CLKFLAG_PERIPH_OFF_SET,
-	CLKFLAG_PERIPH_OFF_CLEAR,
-};
-
 #endif
