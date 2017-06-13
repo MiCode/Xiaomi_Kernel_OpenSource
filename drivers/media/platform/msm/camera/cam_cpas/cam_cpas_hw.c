@@ -1330,15 +1330,22 @@ int cam_cpas_hw_probe(struct platform_device *pdev,
 	cpas_hw_intf->hw_ops.write = NULL;
 	cpas_hw_intf->hw_ops.process_cmd = cam_cpas_hw_process_cmd;
 
+	cpas_core->work_queue = alloc_workqueue("cam-cpas",
+		WQ_UNBOUND | WQ_MEM_RECLAIM, CAM_CPAS_INFLIGHT_WORKS);
+	if (!cpas_core->work_queue) {
+		rc = -ENOMEM;
+		goto release_mem;
+	}
+
 	internal_ops = &cpas_core->internal_ops;
 	rc = cam_cpas_util_get_internal_ops(pdev, cpas_hw_intf, internal_ops);
-	if (rc != 0)
-		goto release_mem;
+	if (rc)
+		goto release_workq;
 
 	rc = cam_cpas_soc_init_resources(&cpas_hw->soc_info,
 		internal_ops->handle_irq, cpas_hw);
 	if (rc)
-		goto release_mem;
+		goto release_workq;
 
 	soc_private = (struct cam_cpas_private_soc *)
 		cpas_hw->soc_info.soc_private;
@@ -1423,6 +1430,9 @@ client_cleanup:
 	cam_cpas_util_client_cleanup(cpas_hw);
 deinit_platform_res:
 	cam_cpas_soc_deinit_resources(&cpas_hw->soc_info);
+release_workq:
+	flush_workqueue(cpas_core->work_queue);
+	destroy_workqueue(cpas_core->work_queue);
 release_mem:
 	mutex_destroy(&cpas_hw->hw_mutex);
 	kfree(cpas_core);
@@ -1454,6 +1464,8 @@ int cam_cpas_hw_remove(struct cam_hw_intf *cpas_hw_intf)
 	cam_cpas_util_unregister_bus_client(&cpas_core->ahb_bus_client);
 	cam_cpas_util_client_cleanup(cpas_hw);
 	cam_cpas_soc_deinit_resources(&cpas_hw->soc_info);
+	flush_workqueue(cpas_core->work_queue);
+	destroy_workqueue(cpas_core->work_queue);
 	mutex_destroy(&cpas_hw->hw_mutex);
 	kfree(cpas_core);
 	kfree(cpas_hw);
