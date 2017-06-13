@@ -153,8 +153,8 @@ static bool sde_hw_setup_clk_force_ctrl(struct sde_hw_mdp *mdp,
 	if (clk_ctrl <= SDE_CLK_CTRL_NONE || clk_ctrl >= SDE_CLK_CTRL_MAX)
 		return false;
 
-	reg_off = mdp->cap->clk_ctrls[clk_ctrl].reg_off;
-	bit_off = mdp->cap->clk_ctrls[clk_ctrl].bit_off;
+	reg_off = mdp->caps->clk_ctrls[clk_ctrl].reg_off;
+	bit_off = mdp->caps->clk_ctrls[clk_ctrl].bit_off;
 
 	reg_val = SDE_REG_READ(c, reg_off);
 
@@ -368,8 +368,8 @@ struct sde_hw_mdp *sde_hw_mdptop_init(enum sde_mdp idx,
 	 * Assign ops
 	 */
 	mdp->idx = idx;
-	mdp->cap = cfg;
-	_setup_mdp_ops(&mdp->ops, mdp->cap->features);
+	mdp->caps = cfg;
+	_setup_mdp_ops(&mdp->ops, mdp->caps->features);
 
 	rc = sde_hw_blk_init(&mdp->base, SDE_HW_BLK_TOP, idx, &sde_hw_ops);
 	if (rc) {

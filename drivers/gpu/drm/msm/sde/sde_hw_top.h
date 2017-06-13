@@ -183,16 +183,16 @@ struct sde_hw_mdp {
 	struct sde_hw_blk base;
 	struct sde_hw_blk_reg_map hw;
 
-	/* intf */
+	/* top */
 	enum sde_mdp idx;
-	const struct sde_mdp_cfg *cap;
+	const struct sde_mdp_cfg *caps;
 
 	/* ops */
 	struct sde_hw_mdp_ops ops;
 };
 
 /**
- * sde_hw_intf_init - initializes the intf driver for the passed interface idx
+ * sde_hw_mdptop_init - initializes the top driver for the passed idx
  * @idx:  Interface index for which driver object is required
  * @addr: Mapped register io address of MDP
  * @m:    Pointer to mdss catalog data

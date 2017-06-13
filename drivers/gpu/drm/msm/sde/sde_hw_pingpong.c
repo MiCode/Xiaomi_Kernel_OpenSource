@@ -187,8 +187,8 @@ struct sde_hw_pingpong *sde_hw_pingpong_init(enum sde_pingpong idx,
 	}
 
 	c->idx = idx;
-	c->pingpong_hw_cap = cfg;
-	_setup_pingpong_ops(&c->ops, c->pingpong_hw_cap->features);
+	c->caps = cfg;
+	_setup_pingpong_ops(&c->ops, c->caps->features);
 
 	rc = sde_hw_blk_init(&c->base, SDE_HW_BLK_PINGPONG, idx, &sde_hw_ops);
 	if (rc) {

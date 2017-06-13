@@ -293,8 +293,8 @@ struct sde_hw_cdm *sde_hw_cdm_init(enum sde_cdm idx,
 	}
 
 	c->idx = idx;
-	c->cdm_hw_cap = cfg;
-	_setup_cdm_ops(&c->ops, c->cdm_hw_cap->features);
+	c->caps = cfg;
+	_setup_cdm_ops(&c->ops, c->caps->features);
 	c->hw_mdp = hw_mdp;
 
 	rc = sde_hw_blk_init(&c->base, SDE_HW_BLK_CDM, idx, &sde_hw_ops);

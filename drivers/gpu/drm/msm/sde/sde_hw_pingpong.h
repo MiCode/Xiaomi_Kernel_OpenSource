@@ -111,7 +111,7 @@ struct sde_hw_pingpong {
 
 	/* pingpong */
 	enum sde_pingpong idx;
-	const struct sde_pingpong_cfg *pingpong_hw_cap;
+	const struct sde_pingpong_cfg *caps;
 
 	/* ops */
 	struct sde_hw_pingpong_ops ops;

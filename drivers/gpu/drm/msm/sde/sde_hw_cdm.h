@@ -97,7 +97,7 @@ struct sde_hw_cdm {
 	struct sde_hw_blk_reg_map hw;
 
 	/* chroma down */
-	const struct sde_cdm_cfg   *cdm_hw_cap;
+	const struct sde_cdm_cfg *caps;
 	enum  sde_cdm  idx;
 
 	/* mdp top hw driver */

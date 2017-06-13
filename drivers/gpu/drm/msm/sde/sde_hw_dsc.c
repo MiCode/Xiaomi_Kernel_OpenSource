@@ -225,8 +225,8 @@ struct sde_hw_dsc *sde_hw_dsc_init(enum sde_dsc idx,
 	}
 
 	c->idx = idx;
-	c->dsc_hw_cap = cfg;
-	_setup_dsc_ops(&c->ops, c->dsc_hw_cap->features);
+	c->caps = cfg;
+	_setup_dsc_ops(&c->ops, c->caps->features);
 
 	rc = sde_hw_blk_init(&c->base, SDE_HW_BLK_DSC, idx, &sde_hw_ops);
 	if (rc) {
