@@ -854,8 +854,8 @@ static int msm_sdw_config_compander(struct snd_soc_codec *codec, int comp,
 	if (!msm_sdw->comp_enabled[comp])
 		return 0;
 
-	comp_ctl0_reg = MSM_SDW_COMPANDER7_CTL0 + (comp * 8);
-	rx_path_cfg0_reg = MSM_SDW_RX7_RX_PATH_CFG0 + (comp * 20);
+	comp_ctl0_reg = MSM_SDW_COMPANDER7_CTL0 + (comp * 0x20);
+	rx_path_cfg0_reg = MSM_SDW_RX7_RX_PATH_CFG0 + (comp * 0x1E0);
 
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
 		/* Enable Compander Clock */
@@ -1044,7 +1044,7 @@ static int msm_sdw_swrm_read(void *handle, int reg)
 	 * Add sleep as SWR slave access read takes time.
 	 * Allow for RD_DONE to complete for previous register if any.
 	 */
-	usleep_range(50, 55);
+	usleep_range(100, 105);
 
 	/* read_lock */
 	mutex_lock(&msm_sdw->sdw_read_lock);
@@ -1079,6 +1079,11 @@ static int msm_sdw_bulk_write(struct msm_sdw_priv *msm_sdw,
 	sdw_wr_addr_base = MSM_SDW_AHB_BRIDGE_WR_ADDR_0;
 	sdw_wr_data_base = MSM_SDW_AHB_BRIDGE_WR_DATA_0;
 
+	/*
+	 * Add sleep as SWR slave write takes time.
+	 * Allow for any previous pending write to complete.
+	 */
+	usleep_range(50, 55);
 	for (i = 0; i < len; i += 2) {
 		/* First Write the Data to register */
 		ret = regmap_bulk_write(msm_sdw->regmap,
@@ -1656,12 +1661,15 @@ static int msm_sdw_notifier_service_cb(struct notifier_block *nb,
 						    service_nb);
 	bool adsp_ready = false;
 	unsigned long timeout;
+	static bool initial_boot = true;
 
 	pr_debug("%s: Service opcode 0x%lx\n", __func__, opcode);
 
 	mutex_lock(&msm_sdw->codec_mutex);
 	switch (opcode) {
 	case AUDIO_NOTIFIER_SERVICE_DOWN:
+		if (initial_boot)
+			break;
 		msm_sdw->int_mclk1_enabled = false;
 		msm_sdw->dev_up = false;
 		for (i = 0; i < msm_sdw->nr; i++)
@@ -1669,6 +1677,8 @@ static int msm_sdw_notifier_service_cb(struct notifier_block *nb,
 					SWR_DEVICE_DOWN, NULL);
 		break;
 	case AUDIO_NOTIFIER_SERVICE_UP:
+		if (initial_boot)
+			initial_boot = false;
 		if (!q6core_is_adsp_ready()) {
 			dev_dbg(msm_sdw->dev, "ADSP isn't ready\n");
 			timeout = jiffies +

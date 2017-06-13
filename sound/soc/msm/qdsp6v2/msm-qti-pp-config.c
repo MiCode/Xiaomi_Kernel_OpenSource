@@ -821,6 +821,136 @@ static int msm_qti_pp_asphere_set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+
+int msm_adsp_inform_mixer_ctl(struct snd_soc_pcm_runtime *rtd,
+			const char *mixer_ctl_name,
+			uint32_t *payload)
+{
+	/* adsp pp event notifier */
+	struct snd_kcontrol *kctl;
+	struct snd_ctl_elem_value control;
+	uint32_t payload_size = 0;
+	const char *deviceNo = "NN";
+	char *mixer_str = NULL;
+	int ctl_len = 0, ret = 0;
+
+	if (!rtd || !payload) {
+		pr_err("%s: %s is NULL\n", __func__,
+			(!rtd) ? "rtd" : "payload");
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ctl_len = strlen(mixer_ctl_name) + 1 + strlen(deviceNo) + 1;
+	mixer_str = kzalloc(ctl_len, GFP_ATOMIC);
+	if (!mixer_str) {
+		ret = -EINVAL;
+		goto done;
+	}
+
+	snprintf(mixer_str, ctl_len, "%s %d", mixer_ctl_name,
+		rtd->pcm->device);
+	kctl = snd_soc_card_get_kcontrol(rtd->card, mixer_str);
+	kfree(mixer_str);
+	if (!kctl) {
+		pr_err("%s: failed to get kctl.\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	control.id = kctl->id;
+	payload_size = payload[0];
+	/* Copy complete payload */
+	memcpy(control.value.bytes.data, (void *)payload,
+		sizeof(payload_size) + payload_size);
+	kctl->put(kctl, &control);
+	if (rtd->card->snd_card == NULL) {
+		pr_err("%s: snd_card is null.\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	snd_ctl_notify(rtd->card->snd_card,
+			SNDRV_CTL_EVENT_MASK_INFO,
+			&control.id);
+done:
+	return ret;
+}
+
+int msm_adsp_stream_cmd_info(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_BYTES;
+	uinfo->count = 512;
+
+	return 0;
+}
+
+int msm_adsp_stream_callback_put(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	uint32_t payload_size = 0, last_payload_size = 0;
+
+	/* fetch payload size in first four bytes */
+	memcpy(&payload_size, ucontrol->value.bytes.data, sizeof(uint32_t));
+
+	if (kcontrol->private_data == NULL) {
+		/* buffer is empty */
+		kcontrol->private_data =
+			kzalloc(payload_size + sizeof(payload_size),
+				GFP_ATOMIC);
+		if (kcontrol->private_data == NULL)
+			return -ENOMEM;
+	} else {
+		memcpy(&last_payload_size, kcontrol->private_data,
+			sizeof(uint32_t));
+		if (last_payload_size < payload_size) {
+			/* new payload size exceeds old one.
+			 * reallocate buffer
+			 */
+			kfree(kcontrol->private_data);
+			kcontrol->private_data =
+				kzalloc(payload_size + sizeof(payload_size),
+					GFP_ATOMIC);
+			if (kcontrol->private_data == NULL)
+				return -ENOMEM;
+		}
+	}
+
+	memcpy(kcontrol->private_data, ucontrol->value.bytes.data,
+			sizeof(uint32_t) + payload_size);
+
+	return 0;
+}
+
+int msm_adsp_stream_callback_get(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	uint32_t payload_size = 0;
+
+	if (kcontrol->private_data == NULL) {
+		pr_err("%s: ASM Stream PP Event Data Unavailable\n", __func__);
+		return -EINVAL;
+	}
+
+	memcpy(&payload_size, kcontrol->private_data, sizeof(uint32_t));
+	memcpy(ucontrol->value.bytes.data, kcontrol->private_data,
+		sizeof(uint32_t) + payload_size);
+	kfree(kcontrol->private_data);
+	kcontrol->private_data = NULL;
+
+	return 0;
+}
+
+int msm_adsp_stream_callback_info(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_BYTES;
+	uinfo->count = 512;
+
+	return 0;
+}
+
 static int msm_multichannel_ec_primary_mic_ch_put(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *ucontrol)
 {

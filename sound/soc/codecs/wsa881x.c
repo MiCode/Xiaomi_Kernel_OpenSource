@@ -104,6 +104,7 @@ struct wsa881x_priv {
 	int state;
 	struct delayed_work ocp_ctl_work;
 	struct device_node *wsa_rst_np;
+	int pa_mute;
 };
 
 #define SWR_SLV_MAX_REG_ADDR	0x390
@@ -170,9 +171,41 @@ static int wsa_pa_gain_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static const struct snd_kcontrol_new wsa_analog_gain_controls[] = {
+static int wsa881x_get_mute(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
+
+	ucontrol->value.integer.value[0] = wsa881x->pa_mute;
+
+	return 0;
+}
+
+static int wsa881x_set_mute(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
+	int value = ucontrol->value.integer.value[0];
+
+	dev_dbg(codec->dev, "%s: mute current %d, new %d\n",
+		__func__, wsa881x->pa_mute, value);
+
+	if (value)
+		snd_soc_update_bits(codec, WSA881X_SPKR_DRV_EN, 0x80, 0x00);
+	wsa881x->pa_mute = value;
+
+	return 0;
+}
+
+
+static const struct snd_kcontrol_new wsa_snd_controls[] = {
 	SOC_ENUM_EXT("WSA PA Gain", wsa_pa_gain_enum,
 		     wsa_pa_gain_get, wsa_pa_gain_put),
+	SOC_SINGLE_EXT("WSA PA Mute", SND_SOC_NOPM, 0, 1, 0,
+		wsa881x_get_mute, wsa881x_set_mute),
 };
 
 static int codec_debug_open(struct inode *inode, struct file *file)
@@ -1050,8 +1083,8 @@ static int wsa881x_probe(struct snd_soc_codec *codec)
 	wsa881x->tz_pdata.codec = codec;
 	wsa881x->tz_pdata.wsa_temp_reg_read = wsa881x_temp_reg_read;
 	wsa881x_init_thermal(&wsa881x->tz_pdata);
-	snd_soc_add_codec_controls(codec, wsa_analog_gain_controls,
-				   ARRAY_SIZE(wsa_analog_gain_controls));
+	snd_soc_add_codec_controls(codec, wsa_snd_controls,
+				   ARRAY_SIZE(wsa_snd_controls));
 	INIT_DELAYED_WORK(&wsa881x->ocp_ctl_work, wsa881x_ocp_ctl_work);
 	return 0;
 }

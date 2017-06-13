@@ -37,6 +37,7 @@
 
 #include "msm-pcm-q6-v2.h"
 #include "msm-pcm-routing-v2.h"
+#include "msm-qti-pp-config.h"
 
 enum stream_state {
 	IDLE = 0,
@@ -148,6 +149,8 @@ static void event_handler(uint32_t opcode,
 	uint32_t idx = 0;
 	uint32_t size = 0;
 	uint8_t buf_index;
+	struct snd_soc_pcm_runtime *rtd;
+	int ret = 0;
 
 	switch (opcode) {
 	case ASM_DATA_EVENT_WRITE_DONE_V2: {
@@ -224,6 +227,29 @@ static void event_handler(uint32_t opcode,
 		}
 		break;
 	}
+	case ASM_STREAM_PP_EVENT: {
+		pr_debug("%s: ASM_STREAM_PP_EVENT\n", __func__);
+		if (!substream) {
+			pr_err("%s: substream is NULL.\n", __func__);
+			return;
+		}
+
+		rtd = substream->private_data;
+		if (!rtd) {
+			pr_err("%s: rtd is NULL\n", __func__);
+			return;
+		}
+
+		ret = msm_adsp_inform_mixer_ctl(rtd, DSP_STREAM_CALLBACK,
+					payload);
+		if (ret) {
+			pr_err("%s: failed to inform mixer ctl. err = %d\n",
+				__func__, ret);
+			return;
+		}
+
+		break;
+	}
 	case APR_BASIC_RSP_RESULT: {
 		switch (payload[0]) {
 		case ASM_SESSION_CMD_RUN_V2:
@@ -252,6 +278,10 @@ static void event_handler(uint32_t opcode,
 				};
 			}
 			atomic_set(&prtd->start, 1);
+			break;
+		case ASM_STREAM_CMD_REGISTER_PP_EVENTS:
+			pr_debug("%s: ASM_STREAM_CMD_REGISTER_PP_EVENTS:",
+				__func__);
 			break;
 		default:
 			pr_debug("%s:Payload = [0x%x]stat[0x%x]\n",
@@ -1036,6 +1066,177 @@ static const struct snd_pcm_ops msm_pcm_ops = {
 	.mmap		= msm_pcm_mmap,
 };
 
+static int msm_pcm_adsp_stream_cmd_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *pcm = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_platform *platform = snd_soc_component_to_platform(pcm);
+	struct msm_plat_data *pdata = dev_get_drvdata(platform->dev);
+	struct snd_pcm_substream *substream;
+	struct msm_audio *prtd;
+	int ret = 0, param_length = 0;
+
+	if (!pdata) {
+		pr_err("%s pdata is NULL\n", __func__);
+		ret = -ENODEV;
+		goto done;
+	}
+
+	substream = pdata->pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
+	if (!substream) {
+		pr_err("%s substream not found\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	if (!substream->runtime) {
+		pr_err("%s substream runtime not found\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	prtd = substream->runtime->private_data;
+	if (prtd->audio_client == NULL) {
+		pr_err("%s prtd is null.\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	memcpy(&param_length, ucontrol->value.bytes.data,
+		sizeof(param_length));
+	if ((param_length + sizeof(param_length))
+		>= sizeof(ucontrol->value.bytes.data)) {
+		pr_err("%s param length=%d  exceeds limit",
+			__func__, param_length);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = q6asm_send_stream_cmd(prtd->audio_client,
+			ASM_STREAM_CMD_REGISTER_PP_EVENTS,
+			ucontrol->value.bytes.data + sizeof(param_length),
+			param_length);
+	if (ret < 0)
+		pr_err("%s: failed to register pp event. err = %d\n",
+			__func__, ret);
+done:
+	return ret;
+}
+
+static int msm_pcm_add_audio_adsp_stream_cmd_control(
+			struct snd_soc_pcm_runtime *rtd)
+{
+	const char *mixer_ctl_name = DSP_STREAM_CMD;
+	const char *deviceNo = "NN";
+	char *mixer_str = NULL;
+	int ctl_len = 0, ret = 0;
+	struct snd_kcontrol_new fe_audio_adsp_stream_cmd_config_control[1] = {
+		{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "?",
+		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.info = msm_adsp_stream_cmd_info,
+		.put = msm_pcm_adsp_stream_cmd_put,
+		.private_value = 0,
+		}
+	};
+
+	if (!rtd) {
+		pr_err("%s rtd is NULL\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ctl_len = strlen(mixer_ctl_name) + 1 + strlen(deviceNo) + 1;
+	mixer_str = kzalloc(ctl_len, GFP_KERNEL);
+	if (!mixer_str) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	snprintf(mixer_str, ctl_len, "%s %d", mixer_ctl_name, rtd->pcm->device);
+	fe_audio_adsp_stream_cmd_config_control[0].name = mixer_str;
+	fe_audio_adsp_stream_cmd_config_control[0].private_value =
+		rtd->dai_link->id;
+	pr_debug("Registering new mixer ctl %s\n", mixer_str);
+	ret = snd_soc_add_platform_controls(rtd->platform,
+		fe_audio_adsp_stream_cmd_config_control,
+		ARRAY_SIZE(fe_audio_adsp_stream_cmd_config_control));
+	if (ret < 0)
+		pr_err("%s: failed add ctl %s. err = %d\n",
+			__func__, mixer_str, ret);
+
+	kfree(mixer_str);
+done:
+	return ret;
+}
+
+static int msm_pcm_add_audio_adsp_stream_callback_control(
+			struct snd_soc_pcm_runtime *rtd)
+{
+	const char *mixer_ctl_name = DSP_STREAM_CALLBACK;
+	const char *deviceNo = "NN";
+	char *mixer_str = NULL;
+	int ctl_len = 0, ret = 0;
+	struct snd_kcontrol *kctl;
+
+	struct snd_kcontrol_new fe_audio_adsp_callback_config_control[1] = {
+		{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "?",
+		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.info = msm_adsp_stream_callback_info,
+		.get = msm_adsp_stream_callback_get,
+		.put = msm_adsp_stream_callback_put,
+		.private_value = 0,
+		}
+	};
+
+	if (!rtd) {
+		pr_err("%s NULL rtd\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	pr_debug("%s: added new pcm FE with name %s, id %d, cpu dai %s, device no %d\n",
+		 __func__, rtd->dai_link->name, rtd->dai_link->id,
+		 rtd->dai_link->cpu_dai_name, rtd->pcm->device);
+	ctl_len = strlen(mixer_ctl_name) + 1 + strlen(deviceNo) + 1;
+	mixer_str = kzalloc(ctl_len, GFP_KERNEL);
+	if (!mixer_str) {
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	snprintf(mixer_str, ctl_len, "%s %d", mixer_ctl_name, rtd->pcm->device);
+	fe_audio_adsp_callback_config_control[0].name = mixer_str;
+	fe_audio_adsp_callback_config_control[0].private_value =
+		rtd->dai_link->id;
+	pr_debug("%s: Registering new mixer ctl %s\n", __func__, mixer_str);
+	ret = snd_soc_add_platform_controls(rtd->platform,
+			fe_audio_adsp_callback_config_control,
+			ARRAY_SIZE(fe_audio_adsp_callback_config_control));
+	if (ret < 0) {
+		pr_err("%s: failed to add ctl %s. err = %d\n",
+			__func__, mixer_str, ret);
+		ret = -EINVAL;
+		goto free_mixer_str;
+	}
+
+	kctl = snd_soc_card_get_kcontrol(rtd->card, mixer_str);
+	if (!kctl) {
+		pr_err("%s: failed to get kctl %s.\n", __func__, mixer_str);
+		ret = -EINVAL;
+		goto free_mixer_str;
+	}
+
+	kctl->private_data = NULL;
+free_mixer_str:
+	kfree(mixer_str);
+done:
+	return ret;
+}
+
 static int msm_pcm_set_volume(struct msm_audio *prtd, uint32_t volume)
 {
 	int rc = 0;
@@ -1549,6 +1750,16 @@ static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
 	if (ret)
 		pr_err("%s: Could not add pcm Compress Control %d\n",
 			__func__, ret);
+
+	ret = msm_pcm_add_audio_adsp_stream_cmd_control(rtd);
+	if (ret)
+		pr_err("%s: Could not add pcm ADSP Stream Cmd Control\n",
+			__func__);
+
+	ret = msm_pcm_add_audio_adsp_stream_callback_control(rtd);
+	if (ret)
+		pr_err("%s: Could not add pcm ADSP Stream Callback Control\n",
+			__func__);
 
 	return ret;
 }
