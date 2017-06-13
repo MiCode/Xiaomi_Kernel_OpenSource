@@ -196,6 +196,12 @@
 #define GCC_UFS_CARD_PHY_AUX_HW_CTL_CLK				178
 #define GCC_UFS_PHY_PHY_AUX_HW_CTL_CLK				179
 #define GCC_GPU_IREF_CLK					180
+#define GCC_SDCC1_AHB_CLK					181
+#define GCC_SDCC1_APPS_CLK					182
+#define GCC_SDCC1_ICE_CORE_CLK					183
+#define GCC_SDCC1_APPS_CLK_SRC					184
+#define GCC_SDCC1_ICE_CORE_CLK_SRC				185
+
 
 /* GCC reset clocks */
 #define GCC_GPU_BCR						0
@@ -225,6 +231,7 @@
 #define GCC_USB_PHY_CFG_AHB2PHY_BCR				24
 #define GCC_PCIE_0_PHY_BCR					25
 #define GCC_PCIE_1_PHY_BCR					26
+#define GCC_SDCC1_BCR						27
 
 /* Dummy clocks for rate measurement */
 #define MEASURE_ONLY_SNOC_CLK					0
