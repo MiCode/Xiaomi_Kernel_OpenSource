@@ -430,7 +430,7 @@ void process_m1_transition(struct work_struct *work)
 	mhi_set_m_state(mhi_dev_ctxt, MHI_STATE_M2);
 	write_unlock_irq(&mhi_dev_ctxt->pm_xfer_lock);
 
-	msleep(MHI_M2_DEBOUNCE_TMR_MS);
+	usleep_range(MHI_M2_DEBOUNCE_TMR_US, MHI_M2_DEBOUNCE_TMR_US + 50);
 	write_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
 
 	/* During DEBOUNCE Time We could be receiving M0 Event */
