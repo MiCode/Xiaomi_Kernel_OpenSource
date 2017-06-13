@@ -1182,8 +1182,14 @@ static void cnss_qca6290_crash_shutdown(struct cnss_plat_data *plat_priv)
 static int cnss_powerup(const struct subsys_desc *subsys_desc)
 {
 	int ret = 0;
-	struct cnss_plat_data *plat_priv = dev_get_drvdata(subsys_desc->dev);
+	struct cnss_plat_data *plat_priv;
 
+	if (!subsys_desc->dev) {
+		cnss_pr_err("dev from subsys_desc is NULL\n");
+		return -ENODEV;
+	}
+
+	plat_priv = dev_get_drvdata(subsys_desc->dev);
 	if (!plat_priv) {
 		cnss_pr_err("plat_priv is NULL!\n");
 		return -ENODEV;
@@ -1214,8 +1220,14 @@ static int cnss_powerup(const struct subsys_desc *subsys_desc)
 static int cnss_shutdown(const struct subsys_desc *subsys_desc, bool force_stop)
 {
 	int ret = 0;
-	struct cnss_plat_data *plat_priv = dev_get_drvdata(subsys_desc->dev);
+	struct cnss_plat_data *plat_priv;
 
+	if (!subsys_desc->dev) {
+		cnss_pr_err("dev from subsys_desc is NULL\n");
+		return -ENODEV;
+	}
+
+	plat_priv = dev_get_drvdata(subsys_desc->dev);
 	if (!plat_priv) {
 		cnss_pr_err("plat_priv is NULL!\n");
 		return -ENODEV;
