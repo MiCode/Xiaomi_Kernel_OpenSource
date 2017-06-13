@@ -109,6 +109,7 @@ enum hdmi_tx_feature_type {
  * @codec_ready:      If audio codec is ready.
  * @client_notify_pending: If there is client notification pending.
  * @irq_domain:       IRQ domain structure.
+ * @pll_update_enable: if it's allowed to update HDMI PLL ppm.
  * @notifier:         CEC notifider to convey physical address information.
  * @root:             Debug fs root entry.
  */
@@ -159,6 +160,7 @@ struct sde_hdmi {
 
 	struct irq_domain *irq_domain;
 	struct cec_notifier *notifier;
+	bool pll_update_enable;
 
 	struct delayed_work hdcp_cb_work;
 	struct dss_io_data io[HDMI_TX_MAX_IO];
@@ -342,6 +344,22 @@ int sde_hdmi_set_property(struct drm_connector *connector,
 			struct drm_connector_state *state,
 			int property_index,
 			uint64_t value,
+			void *display);
+
+/**
+ * sde_hdmi_get_property() - get the connector properties
+ * @connector:        Handle to the connector.
+ * @state:            Handle to the connector state.
+ * @property_index:   property index.
+ * @value:            property value.
+ * @display:          Handle to the display.
+ *
+ * Return: error code.
+ */
+int sde_hdmi_get_property(struct drm_connector *connector,
+			struct drm_connector_state *state,
+			int property_index,
+			uint64_t *value,
 			void *display);
 
 /**

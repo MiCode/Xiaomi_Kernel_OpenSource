@@ -56,6 +56,7 @@ struct hdmi {
 	/* video state: */
 	bool power_on;
 	unsigned long int pixclock;
+	unsigned long int actual_pixclock;
 
 	void __iomem *mmio;
 	void __iomem *qfprom_mmio;

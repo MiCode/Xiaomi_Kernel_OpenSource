@@ -155,6 +155,7 @@ enum msm_mdp_conn_property {
 	CONNECTOR_PROP_DST_W,
 	CONNECTOR_PROP_DST_H,
 	CONNECTOR_PROP_PLL_DELTA,
+	CONNECTOR_PROP_PLL_ENABLE,
 
 	/* enum/bitmask properties */
 	CONNECTOR_PROP_TOPOLOGY_NAME,

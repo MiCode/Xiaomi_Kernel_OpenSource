@@ -705,13 +705,22 @@ static int _sde_hdmi_update_pll_delta(struct sde_hdmi *display, s32 ppm)
 	u64 clip_pclk;
 	int rc = 0;
 
+	mutex_lock(&display->display_lock);
+
 	if (!hdmi->power_on || !display->connected) {
 		SDE_ERROR("HDMI display is not ready\n");
+		mutex_unlock(&display->display_lock);
+		return -EINVAL;
+	}
+
+	if (!display->pll_update_enable) {
+		SDE_ERROR("PLL update function is not enabled\n");
+		mutex_unlock(&display->display_lock);
 		return -EINVAL;
 	}
 
 	/* get current pclk */
-	cur_pclk = hdmi->pixclock;
+	cur_pclk = hdmi->actual_pixclock;
 	/* get desired pclk */
 	dst_pclk = cur_pclk * (1000000000 + ppm);
 	do_div(dst_pclk, 1000000000);
@@ -725,12 +734,15 @@ static int _sde_hdmi_update_pll_delta(struct sde_hdmi *display, s32 ppm)
 
 		rc = clk_set_rate(hdmi->pwr_clks[0], clip_pclk);
 		if (rc < 0) {
-			SDE_ERROR("PLL update failed, reset clock rate\n");
+			SDE_ERROR("HDMI PLL update failed\n");
+			mutex_unlock(&display->display_lock);
 			return rc;
 		}
 
-		hdmi->pixclock = clip_pclk;
+		hdmi->actual_pixclock = clip_pclk;
 	}
+
+	mutex_unlock(&display->display_lock);
 
 	return rc;
 }
@@ -767,14 +779,119 @@ static const struct file_operations pll_delta_fops = {
 	.write = _sde_hdmi_debugfs_pll_delta_write,
 };
 
+/**
+ * _sde_hdmi_enable_pll_update() - Enable the HDMI PLL update function
+ *
+ * @enable: non-zero to enable PLL update function, 0 to disable.
+ * return: 0 on success, non-zero in case of failure.
+ *
+ */
+static int _sde_hdmi_enable_pll_update(struct sde_hdmi *display, s32 enable)
+{
+	struct hdmi *hdmi = display->ctrl.ctrl;
+	int rc = 0;
+
+	mutex_lock(&display->display_lock);
+
+	if (!hdmi->power_on || !display->connected) {
+		SDE_ERROR("HDMI display is not ready\n");
+		mutex_unlock(&display->display_lock);
+		return -EINVAL;
+	}
+
+	if (!enable && hdmi->actual_pixclock != hdmi->pixclock) {
+		/* reset pixel clock when disable */
+		rc = clk_set_rate(hdmi->pwr_clks[0], hdmi->pixclock);
+		if (rc < 0) {
+			SDE_ERROR("reset clock rate failed\n");
+			mutex_unlock(&display->display_lock);
+			return rc;
+		}
+	}
+	hdmi->actual_pixclock = hdmi->pixclock;
+
+	display->pll_update_enable = !!enable;
+
+	mutex_unlock(&display->display_lock);
+
+	SDE_DEBUG("HDMI PLL update: %s\n",
+			display->pll_update_enable ? "enable" : "disable");
+
+	return rc;
+}
+
+static ssize_t _sde_hdmi_debugfs_pll_enable_read(struct file *file,
+		char __user *buff, size_t count, loff_t *ppos)
+{
+	struct sde_hdmi *display = file->private_data;
+	char *buf;
+	u32 len = 0;
+
+	if (!display)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	buf = kzalloc(SZ_1K, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	len += snprintf(buf, SZ_4K, "%s\n",
+			display->pll_update_enable ? "enable" : "disable");
+
+	if (copy_to_user(buff, buf, len)) {
+		kfree(buf);
+		return -EFAULT;
+	}
+
+	*ppos += len;
+
+	kfree(buf);
+	return len;
+}
+
+static ssize_t _sde_hdmi_debugfs_pll_enable_write(struct file *file,
+		const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	struct sde_hdmi *display = file->private_data;
+	char buf[10];
+	int enable = 0;
+
+	if (!display)
+		return -ENODEV;
+
+	if (count >= sizeof(buf))
+		return -EFAULT;
+
+	if (copy_from_user(buf, user_buf, count))
+		return -EFAULT;
+
+	buf[count] = 0; /* end of string */
+
+	if (kstrtoint(buf, 0, &enable))
+		return -EFAULT;
+
+	_sde_hdmi_enable_pll_update(display, enable);
+
+	return count;
+}
+
+static const struct file_operations pll_enable_fops = {
+	.open = simple_open,
+	.read = _sde_hdmi_debugfs_pll_enable_read,
+	.write = _sde_hdmi_debugfs_pll_enable_write,
+};
+
 static int _sde_hdmi_debugfs_init(struct sde_hdmi *display)
 {
 	int rc = 0;
 	struct dentry *dir, *dump_file, *edid_modes;
 	struct dentry *edid_vsdb_info, *edid_hdr_info, *edid_hfvsdb_info;
-	struct dentry *edid_vcdb_info, *edid_vendor_name, *pll_file;
+	struct dentry *edid_vcdb_info, *edid_vendor_name;
 	struct dentry *src_hdcp14_support, *src_hdcp22_support;
 	struct dentry *sink_hdcp22_support, *hdmi_hdcp_state;
+	struct dentry *pll_delta_file, *pll_enable_file;
 
 	dir = debugfs_create_dir(display->name, NULL);
 	if (!dir) {
@@ -796,14 +913,26 @@ static int _sde_hdmi_debugfs_init(struct sde_hdmi *display)
 		goto error_remove_dir;
 	}
 
-	pll_file = debugfs_create_file("pll_delta",
+	pll_delta_file = debugfs_create_file("pll_delta",
 					0644,
 					dir,
 					display,
 					&pll_delta_fops);
-	if (IS_ERR_OR_NULL(pll_file)) {
-		rc = PTR_ERR(pll_file);
+	if (IS_ERR_OR_NULL(pll_delta_file)) {
+		rc = PTR_ERR(pll_delta_file);
 		SDE_ERROR("[%s]debugfs create pll_delta file failed, rc=%d\n",
+		       display->name, rc);
+		goto error_remove_dir;
+	}
+
+	pll_enable_file = debugfs_create_file("pll_enable",
+					0644,
+					dir,
+					display,
+					&pll_enable_fops);
+	if (IS_ERR_OR_NULL(pll_enable_file)) {
+		rc = PTR_ERR(pll_enable_file);
+		SDE_ERROR("[%s]debugfs create pll_enable file failed, rc=%d\n",
 		       display->name, rc);
 		goto error_remove_dir;
 	}
@@ -1749,13 +1878,38 @@ int sde_hdmi_set_property(struct drm_connector *connector,
 	if (!connector || !display) {
 		SDE_ERROR("connector=%pK or display=%pK is NULL\n",
 			connector, display);
-		return 0;
+		return -EINVAL;
 	}
 
 	SDE_DEBUG("\n");
 
-	if (property_index == CONNECTOR_PROP_PLL_DELTA)
+	if (property_index == CONNECTOR_PROP_PLL_ENABLE)
+		rc = _sde_hdmi_enable_pll_update(display, value);
+	else if (property_index == CONNECTOR_PROP_PLL_DELTA)
 		rc = _sde_hdmi_update_pll_delta(display, value);
+
+	return rc;
+}
+
+int sde_hdmi_get_property(struct drm_connector *connector,
+	struct drm_connector_state *state,
+	int property_index,
+	uint64_t *value,
+	void *display)
+{
+	struct sde_hdmi *hdmi_display = display;
+	int rc = 0;
+
+	if (!connector || !hdmi_display) {
+		SDE_ERROR("connector=%pK or display=%pK is NULL\n",
+			connector, hdmi_display);
+		return -EINVAL;
+	}
+
+	mutex_lock(&hdmi_display->display_lock);
+	if (property_index == CONNECTOR_PROP_PLL_ENABLE)
+		*value = hdmi_display->pll_update_enable ? 1 : 0;
+	mutex_unlock(&hdmi_display->display_lock);
 
 	return rc;
 }

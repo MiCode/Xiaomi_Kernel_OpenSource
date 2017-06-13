@@ -494,6 +494,16 @@ static void _sde_hdmi_bridge_enable(struct drm_bridge *bridge)
 
 static void _sde_hdmi_bridge_disable(struct drm_bridge *bridge)
 {
+	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
+	struct hdmi *hdmi = sde_hdmi_bridge->hdmi;
+	struct sde_connector *c_conn = to_sde_connector(hdmi->connector);
+	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
+
+	mutex_lock(&display->display_lock);
+
+	display->pll_update_enable = false;
+
+	mutex_unlock(&display->display_lock);
 }
 
 static void _sde_hdmi_bridge_post_disable(struct drm_bridge *bridge)
