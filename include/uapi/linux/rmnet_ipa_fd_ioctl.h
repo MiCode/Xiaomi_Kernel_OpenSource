@@ -215,6 +215,7 @@ struct wan_ioctl_query_per_client_stats {
 #define WAN_IOC_ADD_UL_FLT_RULE _IOWR(WAN_IOC_MAGIC, \
 		WAN_IOCTL_ADD_UL_FLT_RULE, \
 		struct ipa_configure_ul_firewall_rules_req_msg_v01 *)
+
 #define WAN_IOC_ENABLE_PER_CLIENT_STATS _IOWR(WAN_IOC_MAGIC, \
 		WAN_IOCTL_ENABLE_PER_CLIENT_STATS, \
 		bool *)
