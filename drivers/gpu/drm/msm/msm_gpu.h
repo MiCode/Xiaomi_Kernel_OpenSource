@@ -147,9 +147,6 @@ struct msm_gpu {
 	struct timer_list hangcheck_timer;
 	uint32_t hangcheck_fence[MSM_GPU_MAX_RINGS];
 	struct work_struct recover_work;
-
-	struct list_head submit_list;
-
 	struct msm_snapshot *snapshot;
 };
 
