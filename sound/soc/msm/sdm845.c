@@ -5429,6 +5429,22 @@ static struct snd_soc_dai_link msm_tavil_be_dai_links[] = {
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
 	},
+	/* Slimbus VI Recording */
+	{
+		.name = LPASS_BE_SLIMBUS_TX_VI,
+		.stream_name = "Slimbus4 Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.16393",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tavil_codec",
+		.codec_dai_name = "tavil_vifeedback",
+		.id = MSM_BACKEND_DAI_SLIMBUS_4_TX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm_be_ops,
+		.ignore_suspend = 1,
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.ignore_pmdown_time = 1,
+	},
 };
 
 static struct snd_soc_dai_link msm_wcn_be_dai_links[] = {
