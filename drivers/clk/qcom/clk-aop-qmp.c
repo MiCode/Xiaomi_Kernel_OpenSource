@@ -11,7 +11,7 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "%s: " fmt, __func__
+#define pr_fmt(fmt) "clk: %s: " fmt, __func__
 
 #include <linux/clk-provider.h>
 #include <linux/clk.h>

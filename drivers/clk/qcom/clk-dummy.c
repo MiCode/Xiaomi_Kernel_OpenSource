@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "clk: %s: " fmt, __func__
+
 #include <linux/clk-provider.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
@@ -68,14 +70,14 @@ EXPORT_SYMBOL_GPL(clk_dummy_ops);
 static int dummy_reset_assert(struct reset_controller_dev *rcdev,
 				unsigned long id)
 {
-	pr_debug("%s\n", __func__);
+	pr_debug("\n");
 	return 0;
 }
 
 static int dummy_reset_deassert(struct reset_controller_dev *rcdev,
 				unsigned long id)
 {
-	pr_debug("%s\n", __func__);
+	pr_debug("\n");
 	return 0;
 }
 
