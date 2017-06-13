@@ -2217,8 +2217,7 @@ int sde_encoder_helper_hw_release(struct sde_encoder_phys *phys_enc,
 		/* only enable border color on LM */
 		if (phys_enc->hw_ctl->ops.setup_blendstage)
 			phys_enc->hw_ctl->ops.setup_blendstage(
-					phys_enc->hw_ctl,
-					hw_lm->idx, 0, 0);
+					phys_enc->hw_ctl, hw_lm->idx, NULL);
 	}
 
 	if (!lm_valid) {

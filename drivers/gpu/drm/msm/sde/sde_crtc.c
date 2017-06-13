@@ -1113,10 +1113,10 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 	struct sde_rect plane_crtc_roi;
 
 	u32 flush_mask, flush_sbuf, flush_tmp;
-	uint32_t lm_idx = LEFT_MIXER, stage_idx;
-	bool bg_alpha_enable[CRTC_DUAL_MIXERS] = {false};
-	int zpos_cnt[CRTC_DUAL_MIXERS][SDE_STAGE_MAX + 1] = { {0} };
+	uint32_t stage_idx, lm_idx;
+	int zpos_cnt[SDE_STAGE_MAX + 1] = { 0 };
 	int i;
+	bool bg_alpha_enable = false;
 	u32 prefill = 0;
 
 	if (!sde_crtc || !mixer) {
@@ -1166,6 +1166,8 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 				state->fb ? state->fb->base.id : -1);
 
 		format = to_sde_format(msm_framebuffer_format(pstate->base.fb));
+		if (pstate->stage == SDE_STAGE_BASE && format->alpha_enable)
+			bg_alpha_enable = true;
 
 		SDE_EVT32(DRMID(crtc), DRMID(plane),
 				state->fb ? state->fb->base.id : -1,
@@ -1175,46 +1177,28 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 				state->crtc_w, state->crtc_h,
 				cstate->sbuf_cfg.rot_op_mode);
 
-		for (lm_idx = 0; lm_idx < sde_crtc->num_mixers; lm_idx++) {
-			struct sde_rect intersect;
-
-			/* skip if the roi doesn't fall within LM's bounds */
-			sde_kms_rect_intersect(&plane_crtc_roi,
-					&cstate->lm_bounds[lm_idx],
-					&intersect);
-			if (sde_kms_rect_is_null(&intersect))
-				continue;
-
-			stage_idx = zpos_cnt[lm_idx][pstate->stage]++;
-			stage_cfg->stage[lm_idx][pstate->stage][stage_idx] =
+		stage_idx = zpos_cnt[pstate->stage]++;
+		stage_cfg->stage[pstate->stage][stage_idx] =
 					sde_plane_pipe(plane);
-			stage_cfg->multirect_index
-					[lm_idx][pstate->stage][stage_idx] =
+		stage_cfg->multirect_index[pstate->stage][stage_idx] =
 					pstate->multirect_index;
 
+		SDE_EVT32(DRMID(crtc), DRMID(plane), stage_idx,
+			sde_plane_pipe(plane) - SSPP_VIG0, pstate->stage,
+			pstate->multirect_index, pstate->multirect_mode,
+			format->base.pixel_format, fb ? fb->modifier[0] : 0);
+
+		/* blend config update */
+		for (lm_idx = 0; lm_idx < sde_crtc->num_mixers; lm_idx++) {
+			_sde_crtc_setup_blend_cfg(mixer + lm_idx, pstate,
+								format);
 			mixer[lm_idx].flush_mask |= flush_mask;
 
-
-			SDE_EVT32(DRMID(plane), DRMID(crtc), lm_idx, stage_idx,
-				pstate->stage, pstate->multirect_index,
-				pstate->multirect_mode,
-				format->base.pixel_format,
-				fb ? fb->modifier[0] : 0);
-
-			/* blend config update */
-			if (pstate->stage != SDE_STAGE_BASE) {
-				_sde_crtc_setup_blend_cfg(mixer + lm_idx,
-						pstate, format);
-
-				if (bg_alpha_enable[lm_idx] &&
-						!format->alpha_enable)
-					mixer[lm_idx].mixer_op_mode = 0;
-				else
-					mixer[lm_idx].mixer_op_mode |=
+			if (bg_alpha_enable && !format->alpha_enable)
+				mixer[lm_idx].mixer_op_mode = 0;
+			else
+				mixer[lm_idx].mixer_op_mode |=
 						1 << pstate->stage;
-			} else if (format->alpha_enable) {
-				bg_alpha_enable[lm_idx] = true;
-			}
 		}
 	}
 
@@ -1377,7 +1361,7 @@ static void _sde_crtc_blend_setup(struct drm_crtc *crtc)
 			mixer[i].flush_mask);
 
 		ctl->ops.setup_blendstage(ctl, mixer[i].hw_lm->idx,
-			&sde_crtc->stage_cfg, i);
+			&sde_crtc->stage_cfg);
 	}
 
 	_sde_crtc_program_lm_output_roi(crtc);

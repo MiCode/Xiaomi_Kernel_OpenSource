@@ -354,7 +354,7 @@ static void sde_hw_ctl_clear_all_blendstages(struct sde_hw_ctl *ctx)
 }
 
 static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
-	enum sde_lm lm, struct sde_hw_stage_cfg *stage_cfg, u32 index)
+	enum sde_lm lm, struct sde_hw_stage_cfg *stage_cfg)
 {
 	struct sde_hw_blk_reg_map *c = &ctx->hw;
 	u32 mixercfg = 0, mixercfg_ext = 0, mix, ext;
@@ -362,9 +362,6 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 	int i, j;
 	u8 stages;
 	int pipes_per_stage;
-
-	if (index >= CRTC_DUAL_MIXERS)
-		return;
 
 	stages = _mixer_stages(ctx->mixer_hw_caps, ctx->mixer_count, lm);
 	if (stages < 0)
@@ -388,9 +385,9 @@ static void sde_hw_ctl_setup_blendstage(struct sde_hw_ctl *ctx,
 
 		for (j = 0 ; j < pipes_per_stage; j++) {
 			enum sde_sspp_multirect_index rect_index =
-				stage_cfg->multirect_index[index][i][j];
+				stage_cfg->multirect_index[i][j];
 
-			switch (stage_cfg->stage[index][i][j]) {
+			switch (stage_cfg->stage[i][j]) {
 			case SSPP_VIG0:
 				if (rect_index == SDE_SSPP_RECT_1) {
 					mixercfg_ext3 |= ((i + 1) & 0xF) << 0;

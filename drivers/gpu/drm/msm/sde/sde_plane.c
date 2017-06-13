@@ -4291,7 +4291,8 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 
 	mutex_init(&psde->lock);
 
-	SDE_DEBUG("%s created for pipe %u\n", psde->pipe_name, pipe);
+	SDE_DEBUG("%s created for pipe:%u id:%u virtual:%u\n", psde->pipe_name,
+					pipe, plane->base.id, master_plane_id);
 	return plane;
 
 clean_sspp:

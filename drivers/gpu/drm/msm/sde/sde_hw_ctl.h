@@ -49,8 +49,8 @@ struct sde_hw_ctl;
  * @multirect_index: index of the rectangle of SSPP.
  */
 struct sde_hw_stage_cfg {
-	enum sde_sspp stage[CRTC_DUAL_MIXERS][SDE_STAGE_MAX][PIPES_PER_STAGE];
-	enum sde_sspp_multirect_index multirect_index[CRTC_DUAL_MIXERS]
+	enum sde_sspp stage[SDE_STAGE_MAX][PIPES_PER_STAGE];
+	enum sde_sspp_multirect_index multirect_index
 					[SDE_STAGE_MAX][PIPES_PER_STAGE];
 };
 
@@ -201,7 +201,7 @@ struct sde_hw_ctl_ops {
 	 * @cfg       : blend stage configuration
 	 */
 	void (*setup_blendstage)(struct sde_hw_ctl *ctx,
-		enum sde_lm lm, struct sde_hw_stage_cfg *cfg, u32 index);
+		enum sde_lm lm, struct sde_hw_stage_cfg *cfg);
 
 	void (*setup_sbuf_cfg)(struct sde_hw_ctl *ctx,
 		struct sde_ctl_sbuf_cfg *cfg);
