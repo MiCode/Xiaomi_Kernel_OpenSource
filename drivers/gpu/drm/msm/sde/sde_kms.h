@@ -88,6 +88,10 @@
 
 #define SDE_NAME_SIZE  12
 
+
+/* timeout in frames waiting for frame done */
+#define SDE_FRAME_DONE_TIMEOUT	60
+
 /*
  * struct sde_irq_callback - IRQ callback handlers
  * @list: list to callback
