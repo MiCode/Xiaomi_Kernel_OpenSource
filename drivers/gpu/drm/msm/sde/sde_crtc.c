@@ -494,12 +494,6 @@ static void _sde_crtc_deinit_events(struct sde_crtc *sde_crtc)
 {
 	if (!sde_crtc)
 		return;
-
-	if (sde_crtc->event_thread) {
-		kthread_flush_worker(&sde_crtc->event_worker);
-		kthread_stop(sde_crtc->event_thread);
-		sde_crtc->event_thread = NULL;
-	}
 }
 
 static void sde_crtc_destroy(struct drm_crtc *crtc)
@@ -1616,7 +1610,7 @@ static void sde_crtc_frame_event_cb(void *data, u32 event)
 	struct msm_drm_private *priv;
 	struct sde_crtc_frame_event *fevent;
 	unsigned long flags;
-	int pipe_id;
+	u32 crtc_id;
 
 	if (!crtc || !crtc->dev || !crtc->dev->dev_private) {
 		SDE_ERROR("invalid parameters\n");
@@ -1624,7 +1618,7 @@ static void sde_crtc_frame_event_cb(void *data, u32 event)
 	}
 	sde_crtc = to_sde_crtc(crtc);
 	priv = crtc->dev->dev_private;
-	pipe_id = drm_crtc_index(crtc);
+	crtc_id = drm_crtc_index(crtc);
 
 	SDE_DEBUG("crtc%d\n", crtc->base.id);
 	SDE_EVT32_VERBOSE(DRMID(crtc), event);
@@ -1646,7 +1640,7 @@ static void sde_crtc_frame_event_cb(void *data, u32 event)
 	fevent->event = event;
 	fevent->crtc = crtc;
 	fevent->ts = ktime_get();
-	kthread_queue_work(&sde_crtc->event_worker, &fevent->work);
+	kthread_queue_work(&priv->event_thread[crtc_id].worker, &fevent->work);
 }
 
 void sde_crtc_complete_commit(struct drm_crtc *crtc,
@@ -3687,14 +3681,18 @@ int sde_crtc_event_queue(struct drm_crtc *crtc,
 {
 	unsigned long irq_flags;
 	struct sde_crtc *sde_crtc;
+	struct msm_drm_private *priv;
 	struct sde_crtc_event *event = NULL;
+	u32 crtc_id;
 
-	if (!crtc || !func)
+	if (!crtc || !crtc->dev || !crtc->dev->dev_private || !func) {
+		SDE_ERROR("invalid parameters\n");
 		return -EINVAL;
+	}
 	sde_crtc = to_sde_crtc(crtc);
+	priv = crtc->dev->dev_private;
+	crtc_id = drm_crtc_index(crtc);
 
-	if (!sde_crtc->event_thread)
-		return -EINVAL;
 	/*
 	 * Obtain an event struct from the private cache. This event
 	 * queue may be called from ISR contexts, so use a private
@@ -3718,7 +3716,8 @@ int sde_crtc_event_queue(struct drm_crtc *crtc,
 
 	/* queue new event request */
 	kthread_init_work(&event->kt_work, _sde_crtc_event_cb);
-	kthread_queue_work(&sde_crtc->event_worker, &event->kt_work);
+	kthread_queue_work(&priv->event_thread[crtc_id].worker,
+			&event->kt_work);
 
 	return 0;
 }
@@ -3738,17 +3737,6 @@ static int _sde_crtc_init_events(struct sde_crtc *sde_crtc)
 	for (i = 0; i < SDE_CRTC_MAX_EVENT_COUNT; ++i)
 		list_add_tail(&sde_crtc->event_cache[i].list,
 				&sde_crtc->event_free_list);
-
-	kthread_init_worker(&sde_crtc->event_worker);
-	sde_crtc->event_thread = kthread_run(kthread_worker_fn,
-			&sde_crtc->event_worker, "crtc_event:%d",
-			sde_crtc->base.base.id);
-
-	if (IS_ERR_OR_NULL(sde_crtc->event_thread)) {
-		SDE_ERROR("failed to create event thread\n");
-		rc = PTR_ERR(sde_crtc->event_thread);
-		sde_crtc->event_thread = NULL;
-	}
 
 	return rc;
 }

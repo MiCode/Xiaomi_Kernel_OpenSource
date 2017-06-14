@@ -304,7 +304,8 @@ static int vblank_ctrl_queue_work(struct msm_drm_private *priv,
 	list_add_tail(&vbl_ev->node, &vbl_ctrl->event_list);
 	spin_unlock_irqrestore(&vbl_ctrl->lock, flags);
 
-	kthread_queue_work(&priv->disp_thread[crtc_id].worker, &vbl_ctrl->work);
+	kthread_queue_work(&priv->event_thread[crtc_id].worker,
+			&vbl_ctrl->work);
 
 	return 0;
 }
@@ -330,12 +331,18 @@ static int msm_drm_uninit(struct device *dev)
 		kfree(vbl_ev);
 	}
 
-	/* clean up display commit worker threads */
+	/* clean up display commit/event worker threads */
 	for (i = 0; i < priv->num_crtcs; i++) {
 		if (priv->disp_thread[i].thread) {
 			kthread_flush_worker(&priv->disp_thread[i].worker);
 			kthread_stop(priv->disp_thread[i].thread);
 			priv->disp_thread[i].thread = NULL;
+		}
+
+		if (priv->event_thread[i].thread) {
+			kthread_flush_worker(&priv->event_thread[i].worker);
+			kthread_stop(priv->event_thread[i].thread);
+			priv->event_thread[i].thread = NULL;
 		}
 	}
 
@@ -637,22 +644,50 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	ddev->mode_config.funcs = &mode_config_funcs;
 
 	for (i = 0; i < priv->num_crtcs; i++) {
+
+		/* initialize display thread */
 		priv->disp_thread[i].crtc_id = priv->crtcs[i]->base.id;
 		kthread_init_worker(&priv->disp_thread[i].worker);
 		priv->disp_thread[i].dev = ddev;
 		priv->disp_thread[i].thread =
 			kthread_run(kthread_worker_fn,
 				&priv->disp_thread[i].worker,
-				"crtc_commit:%d",
-				priv->disp_thread[i].crtc_id);
+				"crtc_commit:%d", priv->disp_thread[i].crtc_id);
 
 		if (IS_ERR(priv->disp_thread[i].thread)) {
-			dev_err(dev, "failed to create kthread\n");
+			dev_err(dev, "failed to create crtc_commit kthread\n");
 			priv->disp_thread[i].thread = NULL;
+		}
+
+		/* initialize event thread */
+		priv->event_thread[i].crtc_id = priv->crtcs[i]->base.id;
+		kthread_init_worker(&priv->event_thread[i].worker);
+		priv->event_thread[i].dev = ddev;
+		priv->event_thread[i].thread =
+			kthread_run(kthread_worker_fn,
+				&priv->event_thread[i].worker,
+				"crtc_event:%d", priv->event_thread[i].crtc_id);
+
+		if (IS_ERR(priv->event_thread[i].thread)) {
+			dev_err(dev, "failed to create crtc_event kthread\n");
+			priv->event_thread[i].thread = NULL;
+		}
+
+		if ((!priv->disp_thread[i].thread) ||
+				!priv->event_thread[i].thread) {
 			/* clean up previously created threads if any */
-			for (i -= 1; i >= 0; i--) {
-				kthread_stop(priv->disp_thread[i].thread);
-				priv->disp_thread[i].thread = NULL;
+			for ( ; i >= 0; i--) {
+				if (priv->disp_thread[i].thread) {
+					kthread_stop(
+						priv->disp_thread[i].thread);
+					priv->disp_thread[i].thread = NULL;
+				}
+
+				if (priv->event_thread[i].thread) {
+					kthread_stop(
+						priv->event_thread[i].thread);
+					priv->event_thread[i].thread = NULL;
+				}
 			}
 			goto fail;
 		}
