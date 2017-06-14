@@ -34,7 +34,6 @@ enum {
 	ADM_AUDVOL_CAL,
 	ADM_RTAC_INFO_CAL,
 	ADM_RTAC_APR_CAL,
-	ADM_DTS_EAGLE,
 	ADM_SRS_TRUMEDIA,
 	ADM_RTAC_AUDVOL_CAL,
 	ADM_MAX_CAL_TYPES
@@ -164,4 +163,6 @@ int adm_get_sound_focus(int port_id, int copp_idx,
 			struct sound_focus_param *soundFocusData);
 int adm_get_source_tracking(int port_id, int copp_idx,
 			    struct source_tracking_param *sourceTrackingData);
+int adm_swap_speaker_channels(int port_id, int copp_idx, int sample_rate,
+				bool spk_swap);
 #endif /* __Q6_ADM_V2_H__ */

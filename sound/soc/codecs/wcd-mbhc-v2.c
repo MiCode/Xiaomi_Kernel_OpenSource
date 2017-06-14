@@ -1292,7 +1292,7 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 	wcd_program_btn_threshold(mbhc, false);
 
 
-	init_completion(&mbhc->btn_press_compl);
+	reinit_completion(&mbhc->btn_press_compl);
 
 	WCD_MBHC_RSC_UNLOCK(mbhc);
 	pr_debug("%s: leave\n", __func__);
@@ -1905,6 +1905,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 	}
 	mutex_init(&mbhc->hphl_pa_lock);
 	mutex_init(&mbhc->hphr_pa_lock);
+	init_completion(&mbhc->btn_press_compl);
 
 	/* Register event notifier */
 	mbhc->nblock.notifier_call = wcd_event_notify;

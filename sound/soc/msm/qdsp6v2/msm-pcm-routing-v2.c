@@ -33,7 +33,6 @@
 #include <sound/pcm_params.h>
 #include <sound/q6core.h>
 #include <sound/audio_cal_utils.h>
-#include <sound/msm-dts-eagle.h>
 #include <sound/audio_effects.h>
 #include <sound/hwdep.h>
 
@@ -80,6 +79,7 @@ static uint32_t voc_session_id = ALL_SESSION_VSID;
 static int msm_route_ext_ec_ref;
 static bool is_custom_stereo_on;
 static bool is_ds2_on;
+static bool swap_ch;
 
 enum {
 	MADNONE,
@@ -208,10 +208,6 @@ static void msm_pcm_routing_cfg_pp(int port_id, int copp_idx, int topology,
 					__func__, topology, port_id, rc);
 		}
 		break;
-	case ADM_CMD_COPP_OPEN_TOPOLOGY_ID_DTS_HPX:
-		pr_debug("%s: DTS_EAGLE_COPP_TOPOLOGY_ID\n", __func__);
-		msm_dts_eagle_init_post(port_id, copp_idx);
-		break;
 	case ADM_CMD_COPP_OPEN_TOPOLOGY_ID_AUDIOSPHERE:
 		pr_debug("%s: TOPOLOGY_ID_AUDIOSPHERE\n", __func__);
 		rc = msm_qti_pp_asphere_init(port_id, copp_idx);
@@ -245,10 +241,6 @@ static void msm_pcm_routing_deinit_pp(int port_id, int topology)
 			pr_debug("%s: DOLBY_ADM_COPP_TOPOLOGY_ID\n", __func__);
 			msm_dolby_dap_deinit(port_id);
 		}
-		break;
-	case ADM_CMD_COPP_OPEN_TOPOLOGY_ID_DTS_HPX:
-		pr_debug("%s: DTS_EAGLE_COPP_TOPOLOGY_ID\n", __func__);
-		msm_dts_eagle_deinit_post(port_id, topology);
 		break;
 	case ADM_CMD_COPP_OPEN_TOPOLOGY_ID_AUDIOSPHERE:
 		pr_debug("%s: TOPOLOGY_ID_AUDIOSPHERE\n", __func__);
@@ -14587,6 +14579,67 @@ static const struct snd_kcontrol_new
 	},
 };
 
+static int msm_routing_stereo_channel_reverse_control_get(
+			struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = swap_ch;
+	pr_debug("%s: Swap channel value: %ld\n", __func__,
+				ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int msm_routing_stereo_channel_reverse_control_put(
+			struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	int i, idx, be_index, port_id;
+	int ret = 0;
+	unsigned long copp;
+
+	pr_debug("%s Swap channel value:%ld\n", __func__,
+				ucontrol->value.integer.value[0]);
+
+	swap_ch = ucontrol->value.integer.value[0];
+
+	mutex_lock(&routing_lock);
+	for (be_index = 0; be_index < MSM_BACKEND_DAI_MAX; be_index++) {
+		port_id = msm_bedais[be_index].port_id;
+		if (!msm_bedais[be_index].active)
+			continue;
+
+		for_each_set_bit(i, &msm_bedais[be_index].fe_sessions[0],
+				MSM_FRONTEND_DAI_MM_SIZE) {
+			copp = session_copp_map[i][SESSION_TYPE_RX][be_index];
+			for (idx = 0; idx < MAX_COPPS_PER_PORT; idx++) {
+				if (!test_bit(idx, &copp))
+					continue;
+
+				pr_debug("%s: swap channel control of portid:%d, coppid:%d\n",
+					 __func__, port_id, idx);
+				ret = adm_swap_speaker_channels(
+					port_id, idx,
+					msm_bedais[be_index].sample_rate,
+					swap_ch);
+				if (ret) {
+					pr_err("%s:Swap_channel failed, err=%d\n",
+						 __func__, ret);
+					goto done;
+				}
+			}
+		}
+	}
+done:
+	mutex_unlock(&routing_lock);
+	return ret;
+}
+
+static const struct snd_kcontrol_new stereo_channel_reverse_control[] = {
+	SOC_SINGLE_EXT("Swap channel", SND_SOC_NOPM, 0,
+	1, 0, msm_routing_stereo_channel_reverse_control_get,
+	msm_routing_stereo_channel_reverse_control_put),
+};
+
 static const struct snd_pcm_ops msm_routing_pcm_ops = {
 	.hw_params	= msm_pcm_routing_hw_params,
 	.close          = msm_pcm_routing_close,
@@ -14643,8 +14696,6 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 		msm_routing_be_dai_name_table_mixer_controls,
 		ARRAY_SIZE(msm_routing_be_dai_name_table_mixer_controls));
 
-	msm_dts_eagle_add_controls(platform);
-
 	snd_soc_add_platform_controls(platform, msm_source_tracking_controls,
 				ARRAY_SIZE(msm_source_tracking_controls));
 	snd_soc_add_platform_controls(platform, adm_channel_config_controls,
@@ -14652,6 +14703,8 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 
 	snd_soc_add_platform_controls(platform, aptx_dec_license_controls,
 					ARRAY_SIZE(aptx_dec_license_controls));
+	snd_soc_add_platform_controls(platform, stereo_channel_reverse_control,
+				ARRAY_SIZE(stereo_channel_reverse_control));
 	return 0;
 }
 
