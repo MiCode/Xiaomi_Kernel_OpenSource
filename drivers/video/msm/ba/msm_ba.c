@@ -618,7 +618,7 @@ int msm_ba_save_restore_input(void *instance, enum msm_ba_save_restore_ip sr)
 }
 EXPORT_SYMBOL(msm_ba_save_restore_input);
 
-void msm_ba_release_subdev_node(struct video_device *vdev)
+static void msm_ba_release_subdev_node(struct video_device *vdev)
 {
 	struct v4l2_subdev *sd = video_get_drvdata(vdev);
 
