@@ -328,7 +328,6 @@ static int _sde_hdmi_bridge_setup_scrambler(struct hdmi *hdmi,
 		}
 
 		reg_val = hdmi_read(hdmi, REG_HDMI_CTRL);
-		reg_val |= BIT(31); /* Enable Update DATAPATH_MODE */
 		reg_val |= BIT(28); /* Set SCRAMBLER_EN bit */
 
 		hdmi_write(hdmi, REG_HDMI_CTRL, reg_val);
@@ -360,7 +359,6 @@ static int _sde_hdmi_bridge_setup_scrambler(struct hdmi *hdmi,
 	} else {
 		sde_hdmi_scdc_write(hdmi, HDMI_TX_SCDC_SCRAMBLING_ENABLE, 0x0);
 		reg_val = hdmi_read(hdmi, REG_HDMI_CTRL);
-		reg_val &= ~BIT(31); /* Disable Update DATAPATH_MODE */
 		reg_val &= ~BIT(28); /* Unset SCRAMBLER_EN bit */
 		hdmi_write(hdmi, REG_HDMI_CTRL, reg_val);
 	}

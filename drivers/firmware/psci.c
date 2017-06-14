@@ -230,6 +230,13 @@ static int __init psci_features(u32 psci_func_id)
 #ifdef CONFIG_CPU_IDLE
 static DEFINE_PER_CPU_READ_MOSTLY(u32 *, psci_power_state);
 
+#ifdef CONFIG_ARM_PSCI
+static int psci_cpu_init(struct device_node *cpu_node, int cpu)
+{
+	return 0;
+}
+#endif
+
 static int psci_dt_cpu_init_idle(struct device_node *cpu_node, int cpu)
 {
 	int i, ret, count = 0;
@@ -333,10 +340,14 @@ int psci_cpu_suspend_enter(unsigned long state_id)
 #ifdef CONFIG_ARM
 static struct cpuidle_ops psci_cpuidle_ops __initdata = {
 	.suspend = psci_cpu_suspend_enter,
+#ifdef CONFIG_ARM_PSCI
+	.init = psci_cpu_init,
+#else
 	.init = psci_dt_cpu_init_idle,
+#endif
 };
 
-CPUIDLE_METHOD_OF_DECLARE(psci, "arm,psci", &psci_cpuidle_ops);
+CPUIDLE_METHOD_OF_DECLARE(psci, "psci", &psci_cpuidle_ops);
 #endif
 #endif
 

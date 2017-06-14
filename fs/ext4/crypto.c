@@ -271,7 +271,7 @@ static int ext4_page_crypto(struct inode *inode,
 	struct crypto_ablkcipher *tfm = ci->ci_ctfm;
 	int res = 0;
 
-	req = ablkcipher_request_alloc(tfm, GFP_NOFS);
+	req = ablkcipher_request_alloc(tfm, gfp_flags);
 	if (!req) {
 		printk_ratelimited(KERN_ERR
 				   "%s: crypto_request_alloc() failed\n",

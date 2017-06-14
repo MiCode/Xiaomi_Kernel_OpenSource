@@ -44,6 +44,8 @@ struct param_outband {
 
 #define ADM_MATRIX_ID_COMPRESSED_AUDIO_RX   2
 
+#define ADM_MATRIX_ID_COMPRESSED_AUDIO_TX   3
+
 #define ADM_MATRIX_ID_LISTEN_TX             4
 /* Enumeration for an audio Tx matrix ID.*/
 #define ADM_MATRIX_ID_AUDIOX              1
@@ -446,6 +448,9 @@ struct adm_param_data_v5 {
 
 #define ASM_STREAM_CMD_REGISTER_PP_EVENTS 0x00013213
 #define ASM_STREAM_PP_EVENT 0x00013214
+#define ASM_STREAM_CMD_REGISTER_IEC_61937_FMT_UPDATE 0x13333
+#define ASM_IEC_61937_MEDIA_FMT_EVENT 0x13334
+
 #define DSP_STREAM_CMD "ADSP Stream Cmd"
 #define DSP_STREAM_CALLBACK "ADSP Stream Callback Event"
 #define DSP_STREAM_CALLBACK_QUEUE_SIZE 1024

@@ -282,6 +282,23 @@
 		compatible = "simple-bus";
 	};
 
+	firmware: firmware {
+		android {
+			compatible = "android,firmware";
+			fstab {
+				compatible = "android,fstab";
+				vendor {
+					compatible = "android,vendor";
+					dev = "/dev/block/platform/soc/1da4000.ufshc/by-name/vendor";
+					type = "ext4";
+					mnt_flags = "ro,barrier=1,discard";
+					fsmgr_flags = "wait,slotselect";
+					status = "ok";
+				};
+			};
+		};
+	};
+
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -1527,6 +1544,7 @@
 		qcom,xprt-linkid = <1>;
 		qcom,xprt-version = <1>;
 		qcom,fragmented-data;
+		qcom,dynamic-wakeup-source;
 	};
 
 	qcom,spcom {
@@ -2635,7 +2653,7 @@
 					0x260 0x10 0x00
 					0x28c 0x06 0x00
 					0x504 0x03 0x00
-					0x500 0x1c 0x00
+					0x500 0x10 0x00
 					0x50c 0x14 0x00
 					0x4d4 0x0a 0x00
 					0x4d8 0x04 0x00
@@ -2657,7 +2675,7 @@
 					0x9a8 0x00 0x00
 					0x8a4 0x01 0x00
 					0x8a8 0x73 0x00
-					0x9d8 0x99 0x00
+					0x9d8 0xaa 0x00
 					0x9b0 0x03 0x00
 					0x804 0x03 0x00
 					0x800 0x00 0x00
@@ -3205,6 +3223,7 @@
 		qcom,smmu-fast-map;
 		qcom,smmu-coherent;
 		qcom,smmu-mapping = <0x20000000 0xe0000000>;
+		qcom,keep-radio-on-during-sleep;
 		status = "disabled";
 	};
 

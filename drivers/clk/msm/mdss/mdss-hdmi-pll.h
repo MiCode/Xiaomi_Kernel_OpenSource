@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,17 +45,19 @@ int hdmi_20nm_pll_clock_register(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res);
 
 int hdmi_8996_v1_pll_clock_register(struct platform_device *pdev,
-				 struct mdss_pll_resources *pll_res);
+				struct mdss_pll_resources *pll_res);
 
 int hdmi_8996_v2_pll_clock_register(struct platform_device *pdev,
-				 struct mdss_pll_resources *pll_res);
+				struct mdss_pll_resources *pll_res);
 
 int hdmi_8996_v3_pll_clock_register(struct platform_device *pdev,
-				 struct mdss_pll_resources *pll_res);
+				struct mdss_pll_resources *pll_res);
 
 int hdmi_8996_v3_1p8_pll_clock_register(struct platform_device *pdev,
-				 struct mdss_pll_resources *pll_res);
+				struct mdss_pll_resources *pll_res);
 
-int hdmi_8998_pll_clock_register(struct platform_device *pdev,
-				   struct mdss_pll_resources *pll_res);
+int hdmi_8998_3p3_pll_clock_register(struct platform_device *pdev,
+				struct mdss_pll_resources *pll_res);
+int hdmi_8998_1p8_pll_clock_register(struct platform_device *pdev,
+				struct mdss_pll_resources *pll_res);
 #endif

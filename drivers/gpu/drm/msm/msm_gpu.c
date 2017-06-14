@@ -580,8 +580,7 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 
 			/* ring takes a reference to the bo and iova: */
 			drm_gem_object_reference(&msm_obj->base);
-			msm_gem_get_iova_locked(&msm_obj->base,
-					aspace, &iova);
+			msm_gem_get_iova(&msm_obj->base, aspace, &iova);
 		}
 
 		if (submit->bos[i].flags & MSM_SUBMIT_BO_READ)
@@ -890,10 +889,8 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 
 	/* Create ringbuffer(s): */
 	for (i = 0; i < nr_rings; i++) {
-		mutex_lock(&drm->struct_mutex);
-		gpu->rb[i] = msm_ringbuffer_new(gpu, i);
-		mutex_unlock(&drm->struct_mutex);
 
+		gpu->rb[i] = msm_ringbuffer_new(gpu, i);
 		if (IS_ERR(gpu->rb[i])) {
 			ret = PTR_ERR(gpu->rb[i]);
 			gpu->rb[i] = NULL;

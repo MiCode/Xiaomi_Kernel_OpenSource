@@ -975,7 +975,7 @@
 
 			config {
 				pins = "gpio26", "gpio126";
-				bias-disable;
+				bias-pull-up;
 				drive-strength = <2>; /* 2 MA */
 			};
 		};

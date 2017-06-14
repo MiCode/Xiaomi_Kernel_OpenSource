@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,10 @@
 
 #define _W(x, y, z) MDSS_PLL_REG_W(x, y, z)
 #define _R(x, y)    MDSS_PLL_REG_R(x, y)
+
+/* CONSTANTS */
+#define HDMI_VERSION_8998_3_3		1
+#define HDMI_VERSION_8998_1_8		2
 
 /* PLL REGISTERS */
 #define FREQ_UPDATE                  (0x008)
@@ -277,7 +281,7 @@ find_optimal_index:
 }
 
 static int hdmi_8998_config_phy(unsigned long rate,
-		struct hdmi_8998_reg_cfg *cfg)
+		struct hdmi_8998_reg_cfg *cfg, u32 ver)
 {
 	u64 const high_freq_bit_clk_threshold = 3400000000UL;
 	u64 const dig_freq_bit_clk_threshold = 1500000000UL;
@@ -359,6 +363,7 @@ static int hdmi_8998_config_phy(unsigned long rate,
 	pr_debug("INTEGLOOP_GAIN = %llu\n", integloop_gain);
 	pr_debug("CMP_RNG = %llu\n", cmp_rng);
 	pr_debug("PLL_CMP = %llu\n", pll_cmp);
+	pr_debug("VER=%d\n", ver);
 
 	cfg->svs_mode_clk_sel = (digclk_divsel & 0xFF);
 	cfg->hsclk_sel = (0x20 | hsclk_sel);
@@ -382,82 +387,105 @@ static int hdmi_8998_config_phy(unsigned long rate,
 	cfg->core_clk_en = 0x2C;
 	cfg->coreclk_div_mode0 = 0x5;
 	cfg->phy_mode = (tmds_bclk_ratio ? 0x5 : 0x4);
+	/* V1P8_SEL */
+	if (ver == HDMI_VERSION_8998_1_8)
+		cfg->phy_mode |= 1 << 4;
 	cfg->ssc_en_center = 0x0;
 
-	if (bclk > high_freq_bit_clk_threshold) {
-		cfg->l0_tx_drv_lvl = 0xA;
-		cfg->l0_tx_emp_post1_lvl = 0x3;
-		cfg->l1_tx_drv_lvl = 0xA;
-		cfg->l1_tx_emp_post1_lvl = 0x3;
-		cfg->l2_tx_drv_lvl = 0xA;
-		cfg->l2_tx_emp_post1_lvl = 0x3;
-		cfg->l3_tx_drv_lvl = 0x8;
-		cfg->l3_tx_emp_post1_lvl = 0x3;
-		cfg->l0_pre_driver_1 = 0x0;
-		cfg->l0_pre_driver_2 = 0x1C;
-		cfg->l1_pre_driver_1 = 0x0;
-		cfg->l1_pre_driver_2 = 0x1C;
-		cfg->l2_pre_driver_1 = 0x0;
-		cfg->l2_pre_driver_2 = 0x1C;
-		cfg->l3_pre_driver_1 = 0x0;
-		cfg->l3_pre_driver_2 = 0x0;
-	} else if (bclk > dig_freq_bit_clk_threshold) {
-		cfg->l0_tx_drv_lvl = 0x9;
-		cfg->l0_tx_emp_post1_lvl = 0x3;
-		cfg->l1_tx_drv_lvl = 0x9;
-		cfg->l1_tx_emp_post1_lvl = 0x3;
-		cfg->l2_tx_drv_lvl = 0x9;
-		cfg->l2_tx_emp_post1_lvl = 0x3;
-		cfg->l3_tx_drv_lvl = 0x8;
-		cfg->l3_tx_emp_post1_lvl = 0x3;
-		cfg->l0_pre_driver_1 = 0x0;
-		cfg->l0_pre_driver_2 = 0x16;
-		cfg->l1_pre_driver_1 = 0x0;
-		cfg->l1_pre_driver_2 = 0x16;
-		cfg->l2_pre_driver_1 = 0x0;
-		cfg->l2_pre_driver_2 = 0x16;
-		cfg->l3_pre_driver_1 = 0x0;
-		cfg->l3_pre_driver_2 = 0x0;
-	} else if (bclk > mid_freq_bit_clk_threshold) {
-		cfg->l0_tx_drv_lvl = 0x9;
-		cfg->l0_tx_emp_post1_lvl = 0x3;
-		cfg->l1_tx_drv_lvl = 0x9;
-		cfg->l1_tx_emp_post1_lvl = 0x3;
-		cfg->l2_tx_drv_lvl = 0x9;
-		cfg->l2_tx_emp_post1_lvl = 0x3;
-		cfg->l3_tx_drv_lvl = 0x8;
-		cfg->l3_tx_emp_post1_lvl = 0x3;
-		cfg->l0_pre_driver_1 = 0x0;
-		cfg->l0_pre_driver_2 = 0x0E;
-		cfg->l1_pre_driver_1 = 0x0;
-		cfg->l1_pre_driver_2 = 0x0E;
-		cfg->l2_pre_driver_1 = 0x0;
-		cfg->l2_pre_driver_2 = 0x0E;
-		cfg->l3_pre_driver_1 = 0x0;
-		cfg->l3_pre_driver_2 = 0x0;
+	if (ver == HDMI_VERSION_8998_3_3) {
+		if (bclk > high_freq_bit_clk_threshold) {
+			cfg->l0_tx_drv_lvl = 0xA;
+			cfg->l0_tx_emp_post1_lvl = 0x3;
+			cfg->l1_tx_drv_lvl = 0xA;
+			cfg->l1_tx_emp_post1_lvl = 0x3;
+			cfg->l2_tx_drv_lvl = 0xA;
+			cfg->l2_tx_emp_post1_lvl = 0x3;
+			cfg->l3_tx_drv_lvl = 0x8;
+			cfg->l3_tx_emp_post1_lvl = 0x3;
+			cfg->l0_pre_driver_1 = 0x0;
+			cfg->l0_pre_driver_2 = 0x1C;
+			cfg->l1_pre_driver_1 = 0x0;
+			cfg->l1_pre_driver_2 = 0x1C;
+			cfg->l2_pre_driver_1 = 0x0;
+			cfg->l2_pre_driver_2 = 0x1C;
+			cfg->l3_pre_driver_1 = 0x0;
+			cfg->l3_pre_driver_2 = 0x0;
+		} else if (bclk > dig_freq_bit_clk_threshold) {
+			cfg->l0_tx_drv_lvl = 0x9;
+			cfg->l0_tx_emp_post1_lvl = 0x3;
+			cfg->l1_tx_drv_lvl = 0x9;
+			cfg->l1_tx_emp_post1_lvl = 0x3;
+			cfg->l2_tx_drv_lvl = 0x9;
+			cfg->l2_tx_emp_post1_lvl = 0x3;
+			cfg->l3_tx_drv_lvl = 0x8;
+			cfg->l3_tx_emp_post1_lvl = 0x3;
+			cfg->l0_pre_driver_1 = 0x0;
+			cfg->l0_pre_driver_2 = 0x16;
+			cfg->l1_pre_driver_1 = 0x0;
+			cfg->l1_pre_driver_2 = 0x16;
+			cfg->l2_pre_driver_1 = 0x0;
+			cfg->l2_pre_driver_2 = 0x16;
+			cfg->l3_pre_driver_1 = 0x0;
+			cfg->l3_pre_driver_2 = 0x0;
+		} else if (bclk > mid_freq_bit_clk_threshold) {
+			cfg->l0_tx_drv_lvl = 0x9;
+			cfg->l0_tx_emp_post1_lvl = 0x3;
+			cfg->l1_tx_drv_lvl = 0x9;
+			cfg->l1_tx_emp_post1_lvl = 0x3;
+			cfg->l2_tx_drv_lvl = 0x9;
+			cfg->l2_tx_emp_post1_lvl = 0x3;
+			cfg->l3_tx_drv_lvl = 0x8;
+			cfg->l3_tx_emp_post1_lvl = 0x3;
+			cfg->l0_pre_driver_1 = 0x0;
+			cfg->l0_pre_driver_2 = 0x0E;
+			cfg->l1_pre_driver_1 = 0x0;
+			cfg->l1_pre_driver_2 = 0x0E;
+			cfg->l2_pre_driver_1 = 0x0;
+			cfg->l2_pre_driver_2 = 0x0E;
+			cfg->l3_pre_driver_1 = 0x0;
+			cfg->l3_pre_driver_2 = 0x0;
+		} else {
+			cfg->l0_tx_drv_lvl = 0x0;
+			cfg->l0_tx_emp_post1_lvl = 0x0;
+			cfg->l1_tx_drv_lvl = 0x0;
+			cfg->l1_tx_emp_post1_lvl = 0x0;
+			cfg->l2_tx_drv_lvl = 0x0;
+			cfg->l2_tx_emp_post1_lvl = 0x0;
+			cfg->l3_tx_drv_lvl = 0x0;
+			cfg->l3_tx_emp_post1_lvl = 0x0;
+			cfg->l0_pre_driver_1 = 0x0;
+			cfg->l0_pre_driver_2 = 0x01;
+			cfg->l1_pre_driver_1 = 0x0;
+			cfg->l1_pre_driver_2 = 0x01;
+			cfg->l2_pre_driver_1 = 0x0;
+			cfg->l2_pre_driver_2 = 0x01;
+			cfg->l3_pre_driver_1 = 0x0;
+			cfg->l3_pre_driver_2 = 0x0;
+		}
 	} else {
-		cfg->l0_tx_drv_lvl = 0x0;
-		cfg->l0_tx_emp_post1_lvl = 0x0;
-		cfg->l1_tx_drv_lvl = 0x0;
-		cfg->l1_tx_emp_post1_lvl = 0x0;
-		cfg->l2_tx_drv_lvl = 0x0;
-		cfg->l2_tx_emp_post1_lvl = 0x0;
-		cfg->l3_tx_drv_lvl = 0x0;
+		cfg->l0_tx_drv_lvl = 0xF;
+		cfg->l0_tx_emp_post1_lvl = 0x5;
+		cfg->l1_tx_drv_lvl = 0xF;
+		cfg->l1_tx_emp_post1_lvl = 0x2;
+		cfg->l2_tx_drv_lvl = 0xF;
+		cfg->l2_tx_emp_post1_lvl = 0x2;
+		cfg->l3_tx_drv_lvl = 0xF;
 		cfg->l3_tx_emp_post1_lvl = 0x0;
 		cfg->l0_pre_driver_1 = 0x0;
-		cfg->l0_pre_driver_2 = 0x01;
+		cfg->l0_pre_driver_2 = 0x1E;
 		cfg->l1_pre_driver_1 = 0x0;
-		cfg->l1_pre_driver_2 = 0x01;
+		cfg->l1_pre_driver_2 = 0x1E;
 		cfg->l2_pre_driver_1 = 0x0;
-		cfg->l2_pre_driver_2 = 0x01;
+		cfg->l2_pre_driver_2 = 0x1E;
 		cfg->l3_pre_driver_1 = 0x0;
-		cfg->l3_pre_driver_2 = 0x0;
+		cfg->l3_pre_driver_2 = 0x10;
 	}
 
 	return rc;
 }
 
-static int hdmi_8998_pll_set_clk_rate(struct clk *c, unsigned long rate)
+static int hdmi_8998_pll_set_clk_rate(struct clk *c, unsigned long rate,
+					u32 ver)
 {
 	int rc = 0;
 	struct hdmi_pll_vco_clk *vco = to_hdmi_vco_clk(c);
@@ -465,7 +493,7 @@ static int hdmi_8998_pll_set_clk_rate(struct clk *c, unsigned long rate)
 	struct hdmi_8998_reg_cfg cfg = {0};
 	void __iomem *phy = io->phy_base, *pll = io->pll_base;
 
-	rc = hdmi_8998_config_phy(rate, &cfg);
+	rc = hdmi_8998_config_phy(rate, &cfg, ver);
 	if (rc) {
 		pr_err("rate calculation failed\n, rc=%d", rc);
 		return rc;
@@ -699,7 +727,7 @@ static int hdmi_8998_vco_get_lock_range(struct clk *c,
 }
 
 static int hdmi_8998_vco_rate_atomic_update(struct clk *c,
-	unsigned long rate)
+	unsigned long rate, u32 ver)
 {
 	struct hdmi_pll_vco_clk *vco = to_hdmi_vco_clk(c);
 	struct mdss_pll_resources *io = vco->priv;
@@ -707,7 +735,7 @@ static int hdmi_8998_vco_rate_atomic_update(struct clk *c,
 	struct hdmi_8998_reg_cfg cfg = {0};
 	int rc = 0;
 
-	rc = hdmi_8998_config_phy(rate, &cfg);
+	rc = hdmi_8998_config_phy(rate, &cfg, ver);
 	if (rc) {
 		pr_err("rate calculation failed\n, rc=%d", rc);
 		goto end;
@@ -728,7 +756,7 @@ end:
 	return rc;
 }
 
-static int hdmi_8998_vco_set_rate(struct clk *c, unsigned long rate)
+static int hdmi_8998_vco_set_rate(struct clk *c, unsigned long rate, u32 ver)
 {
 	struct hdmi_pll_vco_clk *vco = to_hdmi_vco_clk(c);
 	struct mdss_pll_resources *io = vco->priv;
@@ -767,9 +795,9 @@ static int hdmi_8998_vco_set_rate(struct clk *c, unsigned long rate)
 		set_power_dwn = 1;
 
 	if (atomic_update)
-		rc = hdmi_8998_vco_rate_atomic_update(c, rate);
+		rc = hdmi_8998_vco_rate_atomic_update(c, rate, ver);
 	else
-		rc = hdmi_8998_pll_set_clk_rate(c, rate);
+		rc = hdmi_8998_pll_set_clk_rate(c, rate, ver);
 
 	if (rc) {
 		pr_err("failed to set clk rate\n");
@@ -806,7 +834,7 @@ static long hdmi_8998_vco_round_rate(struct clk *c, unsigned long rate)
 	return rrate;
 }
 
-static int hdmi_8998_vco_prepare(struct clk *c)
+static int hdmi_8998_vco_prepare(struct clk *c, u32 ver)
 {
 	struct hdmi_pll_vco_clk *vco = to_hdmi_vco_clk(c);
 	struct mdss_pll_resources *io = vco->priv;
@@ -824,7 +852,7 @@ static int hdmi_8998_vco_prepare(struct clk *c)
 	}
 
 	if (!vco->rate_set && vco->rate) {
-		rc = hdmi_8998_pll_set_clk_rate(c, vco->rate);
+		rc = hdmi_8998_pll_set_clk_rate(c, vco->rate, ver);
 		if (rc) {
 			pr_err("set rate failed, rc=%d\n", rc);
 			goto error;
@@ -902,10 +930,38 @@ static enum handoff hdmi_8998_vco_handoff(struct clk *c)
 	return ret;
 }
 
-static struct clk_ops hdmi_8998_vco_clk_ops = {
-	.set_rate = hdmi_8998_vco_set_rate,
+static int hdmi_8998_3p3_vco_set_rate(struct clk *c, unsigned long rate)
+{
+	return hdmi_8998_vco_set_rate(c, rate, HDMI_VERSION_8998_3_3);
+}
+
+static int hdmi_8998_1p8_vco_set_rate(struct clk *c, unsigned long rate)
+{
+	return hdmi_8998_vco_set_rate(c, rate, HDMI_VERSION_8998_1_8);
+}
+
+static int hdmi_8998_3p3_vco_prepare(struct clk *c)
+{
+	return hdmi_8998_vco_prepare(c, HDMI_VERSION_8998_3_3);
+}
+
+static int hdmi_8998_1p8_vco_prepare(struct clk *c)
+{
+	return hdmi_8998_vco_prepare(c, HDMI_VERSION_8998_1_8);
+}
+
+static struct clk_ops hdmi_8998_3p3_vco_clk_ops = {
+	.set_rate = hdmi_8998_3p3_vco_set_rate,
 	.round_rate = hdmi_8998_vco_round_rate,
-	.prepare = hdmi_8998_vco_prepare,
+	.prepare = hdmi_8998_3p3_vco_prepare,
+	.unprepare = hdmi_8998_vco_unprepare,
+	.handoff = hdmi_8998_vco_handoff,
+};
+
+static struct clk_ops hdmi_8998_1p8_vco_clk_ops = {
+	.set_rate = hdmi_8998_1p8_vco_set_rate,
+	.round_rate = hdmi_8998_vco_round_rate,
+	.prepare = hdmi_8998_1p8_vco_prepare,
 	.unprepare = hdmi_8998_vco_unprepare,
 	.handoff = hdmi_8998_vco_handoff,
 };
@@ -915,7 +971,7 @@ static struct hdmi_pll_vco_clk hdmi_vco_clk = {
 	.max_rate = HDMI_VCO_MAX_RATE_HZ,
 	.c = {
 		.dbg_name = "hdmi_8998_vco_clk",
-		.ops = &hdmi_8998_vco_clk_ops,
+		.ops = &hdmi_8998_3p3_vco_clk_ops,
 		CLK_INIT(hdmi_vco_clk.c),
 	},
 };
@@ -925,7 +981,7 @@ static struct clk_lookup hdmipllcc_8998[] = {
 };
 
 int hdmi_8998_pll_clock_register(struct platform_device *pdev,
-				   struct mdss_pll_resources *pll_res)
+				struct mdss_pll_resources *pll_res, u32 ver)
 {
 	int rc = 0;
 
@@ -936,12 +992,38 @@ int hdmi_8998_pll_clock_register(struct platform_device *pdev,
 
 	hdmi_vco_clk.priv = pll_res;
 
+	switch (ver) {
+	case HDMI_VERSION_8998_3_3:
+		hdmi_vco_clk.c.ops = &hdmi_8998_3p3_vco_clk_ops;
+		break;
+	case HDMI_VERSION_8998_1_8:
+		hdmi_vco_clk.c.ops = &hdmi_8998_1p8_vco_clk_ops;
+		break;
+	default:
+		hdmi_vco_clk.c.ops = &hdmi_8998_3p3_vco_clk_ops;
+		break;
+	};
+
 	rc = of_msm_clock_register(pdev->dev.of_node, hdmipllcc_8998,
-				   ARRAY_SIZE(hdmipllcc_8998));
+				ARRAY_SIZE(hdmipllcc_8998));
 	if (rc) {
 		pr_err("clock register failed, rc=%d\n", rc);
 		return rc;
 	}
 
 	return rc;
+}
+
+int hdmi_8998_3p3_pll_clock_register(struct platform_device *pdev,
+				struct mdss_pll_resources *pll_res)
+{
+	return hdmi_8998_pll_clock_register(pdev, pll_res,
+				HDMI_VERSION_8998_3_3);
+}
+
+int hdmi_8998_1p8_pll_clock_register(struct platform_device *pdev,
+				struct mdss_pll_resources *pll_res)
+{
+	return hdmi_8998_pll_clock_register(pdev, pll_res,
+				HDMI_VERSION_8998_1_8);
 }

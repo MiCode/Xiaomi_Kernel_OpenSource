@@ -23,6 +23,7 @@
 #include "sde_hw_wb.h"
 #include "sde_encoder.h"
 #include "sde_connector.h"
+#include "sde_hw_sspp.h"
 
 #define RESERVED_BY_OTHER(h, r) \
 	((h)->rsvp && ((h)->rsvp->enc_id != (r)->enc_id))
@@ -197,6 +198,33 @@ bool sde_rm_get_hw(struct sde_rm *rm, struct sde_rm_hw_iter *i)
 	return false;
 }
 
+void *sde_rm_get_hw_by_id(struct sde_rm *rm, enum sde_hw_blk_type type, int id)
+{
+	struct list_head *blk_list;
+	struct sde_rm_hw_blk *blk;
+	void *hw = NULL;
+
+	if (!rm || type >= SDE_HW_BLK_MAX) {
+		SDE_ERROR("invalid rm\n");
+		return hw;
+	}
+
+	blk_list = &rm->hw_blks[type];
+
+	list_for_each_entry(blk, blk_list, list) {
+		if (blk->id == id) {
+			hw = blk->hw;
+			SDE_DEBUG("found type %d %s id %d\n",
+					type, blk->type_name, blk->id);
+			return hw;
+		}
+	}
+
+	SDE_DEBUG("no match, type %d id=%d\n", type, id);
+
+	return hw;
+}
+
 static void _sde_rm_hw_destroy(enum sde_hw_blk_type type, void *hw)
 {
 	switch (type) {
@@ -222,7 +250,8 @@ static void _sde_rm_hw_destroy(enum sde_hw_blk_type type, void *hw)
 		sde_hw_wb_destroy(hw);
 		break;
 	case SDE_HW_BLK_SSPP:
-		/* SSPPs are not managed by the resource manager */
+		sde_hw_sspp_destroy(hw);
+		break;
 	case SDE_HW_BLK_TOP:
 		/* Top is a singleton, not managed in hw_blks list */
 	case SDE_HW_BLK_MAX:
@@ -310,7 +339,9 @@ static int _sde_rm_hw_blk_create(
 		name = "wb";
 		break;
 	case SDE_HW_BLK_SSPP:
-		/* SSPPs are not managed by the resource manager */
+		hw = sde_hw_sspp_init(id, (void __iomem *)mmio, cat);
+		name = "sspp";
+		break;
 	case SDE_HW_BLK_TOP:
 		/* Top is a singleton, not managed in hw_blks list */
 	case SDE_HW_BLK_MAX:
@@ -367,6 +398,13 @@ int sde_rm_init(struct sde_rm *rm,
 		rm->hw_mdp = NULL;
 		SDE_ERROR("failed: mdp hw not available\n");
 		goto fail;
+	}
+
+	for (i = 0; i < cat->sspp_count; i++) {
+		rc = _sde_rm_hw_blk_create(rm, cat, mmio, SDE_HW_BLK_SSPP,
+				cat->sspp[i].id, &cat->sspp[i]);
+		if (rc)
+			goto fail;
 	}
 
 	/* Interrogate HW catalog and create tracking items for hw blocks */

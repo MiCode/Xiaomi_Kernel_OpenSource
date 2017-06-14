@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015,2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -269,6 +269,14 @@ int register_ipcrtr_af_init_notifier(struct notifier_block *nb);
  */
 int unregister_ipcrtr_af_init_notifier(struct notifier_block *nb);
 
+/**
+ * msm_ipc_router_set_ws_allowed() - To Enable/disable the wakeup source allowed
+ *					flag
+ * @flag: Flag to set/clear the wakeup soruce allowed
+ *
+ */
+void msm_ipc_router_set_ws_allowed(bool flag);
+
 #else
 
 struct msm_ipc_port *msm_ipc_router_create_port(
@@ -340,6 +348,8 @@ int unregister_ipcrtr_af_init_notifier(struct notifier_block *nb)
 {
 	return -ENODEV;
 }
+
+void msm_ipc_router_set_ws_allowed(bool flag) { }
 
 #endif
 

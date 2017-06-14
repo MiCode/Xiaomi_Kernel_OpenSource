@@ -466,13 +466,13 @@ static inline uint32_t HDMI_DDC_REF_REFTIMER(uint32_t val)
 #define REG_HDMI_CEC_RD_FILTER					0x000002b0
 
 #define REG_HDMI_ACTIVE_HSYNC					0x000002b4
-#define HDMI_ACTIVE_HSYNC_START__MASK				0x00000fff
+#define HDMI_ACTIVE_HSYNC_START__MASK				0x00001fff
 #define HDMI_ACTIVE_HSYNC_START__SHIFT				0
 static inline uint32_t HDMI_ACTIVE_HSYNC_START(uint32_t val)
 {
 	return ((val) << HDMI_ACTIVE_HSYNC_START__SHIFT) & HDMI_ACTIVE_HSYNC_START__MASK;
 }
-#define HDMI_ACTIVE_HSYNC_END__MASK				0x0fff0000
+#define HDMI_ACTIVE_HSYNC_END__MASK				0x1fff0000
 #define HDMI_ACTIVE_HSYNC_END__SHIFT				16
 static inline uint32_t HDMI_ACTIVE_HSYNC_END(uint32_t val)
 {
@@ -480,13 +480,13 @@ static inline uint32_t HDMI_ACTIVE_HSYNC_END(uint32_t val)
 }
 
 #define REG_HDMI_ACTIVE_VSYNC					0x000002b8
-#define HDMI_ACTIVE_VSYNC_START__MASK				0x00000fff
+#define HDMI_ACTIVE_VSYNC_START__MASK				0x00001fff
 #define HDMI_ACTIVE_VSYNC_START__SHIFT				0
 static inline uint32_t HDMI_ACTIVE_VSYNC_START(uint32_t val)
 {
 	return ((val) << HDMI_ACTIVE_VSYNC_START__SHIFT) & HDMI_ACTIVE_VSYNC_START__MASK;
 }
-#define HDMI_ACTIVE_VSYNC_END__MASK				0x0fff0000
+#define HDMI_ACTIVE_VSYNC_END__MASK				0x1fff0000
 #define HDMI_ACTIVE_VSYNC_END__SHIFT				16
 static inline uint32_t HDMI_ACTIVE_VSYNC_END(uint32_t val)
 {
@@ -494,13 +494,13 @@ static inline uint32_t HDMI_ACTIVE_VSYNC_END(uint32_t val)
 }
 
 #define REG_HDMI_VSYNC_ACTIVE_F2				0x000002bc
-#define HDMI_VSYNC_ACTIVE_F2_START__MASK			0x00000fff
+#define HDMI_VSYNC_ACTIVE_F2_START__MASK			0x00001fff
 #define HDMI_VSYNC_ACTIVE_F2_START__SHIFT			0
 static inline uint32_t HDMI_VSYNC_ACTIVE_F2_START(uint32_t val)
 {
 	return ((val) << HDMI_VSYNC_ACTIVE_F2_START__SHIFT) & HDMI_VSYNC_ACTIVE_F2_START__MASK;
 }
-#define HDMI_VSYNC_ACTIVE_F2_END__MASK				0x0fff0000
+#define HDMI_VSYNC_ACTIVE_F2_END__MASK				0x1fff0000
 #define HDMI_VSYNC_ACTIVE_F2_END__SHIFT				16
 static inline uint32_t HDMI_VSYNC_ACTIVE_F2_END(uint32_t val)
 {
@@ -508,13 +508,13 @@ static inline uint32_t HDMI_VSYNC_ACTIVE_F2_END(uint32_t val)
 }
 
 #define REG_HDMI_TOTAL						0x000002c0
-#define HDMI_TOTAL_H_TOTAL__MASK				0x00000fff
+#define HDMI_TOTAL_H_TOTAL__MASK				0x00001fff
 #define HDMI_TOTAL_H_TOTAL__SHIFT				0
 static inline uint32_t HDMI_TOTAL_H_TOTAL(uint32_t val)
 {
 	return ((val) << HDMI_TOTAL_H_TOTAL__SHIFT) & HDMI_TOTAL_H_TOTAL__MASK;
 }
-#define HDMI_TOTAL_V_TOTAL__MASK				0x0fff0000
+#define HDMI_TOTAL_V_TOTAL__MASK				0x1fff0000
 #define HDMI_TOTAL_V_TOTAL__SHIFT				16
 static inline uint32_t HDMI_TOTAL_V_TOTAL(uint32_t val)
 {
@@ -522,7 +522,7 @@ static inline uint32_t HDMI_TOTAL_V_TOTAL(uint32_t val)
 }
 
 #define REG_HDMI_VSYNC_TOTAL_F2					0x000002c4
-#define HDMI_VSYNC_TOTAL_F2_V_TOTAL__MASK			0x00000fff
+#define HDMI_VSYNC_TOTAL_F2_V_TOTAL__MASK			0x00001fff
 #define HDMI_VSYNC_TOTAL_F2_V_TOTAL__SHIFT			0
 static inline uint32_t HDMI_VSYNC_TOTAL_F2_V_TOTAL(uint32_t val)
 {

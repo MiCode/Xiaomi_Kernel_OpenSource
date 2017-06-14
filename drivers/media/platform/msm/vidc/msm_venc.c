@@ -54,12 +54,12 @@
  * 3x3 transformation matrix coefficients in s4.9 fixed point format
  */
 static u32 vpe_csc_601_to_709_matrix_coeff[HAL_MAX_MATRIX_COEFFS] = {
-	470, 8170, 8148, 0, 490, 50, 0, 34, 483
+	440, 8140, 8098, 0, 460, 52, 0, 34, 463
 };
 
 /* offset coefficients in s9 fixed point format */
 static u32 vpe_csc_601_to_709_bias_coeff[HAL_MAX_BIAS_COEFFS] = {
-	34, 0, 4
+	53, 0, 4
 };
 
 /* clamping value for Y/U/V([min,max] for Y/U/V) */
@@ -1897,12 +1897,20 @@ static int msm_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct msm_vidc_inst *inst;
 	int rc = 0;
+	struct vb2_buffer *vb;
 	struct vb2_buf_entry *temp, *next;
+
 	if (!q || !q->drv_priv) {
 		dprintk(VIDC_ERR, "Invalid input, q = %pK\n", q);
 		return -EINVAL;
 	}
 	inst = q->drv_priv;
+
+	if (inst->state == MSM_VIDC_CORE_INVALID ||
+		inst->core->state == VIDC_CORE_INVALID ||
+		inst->core->state == VIDC_CORE_UNINIT)
+		return -EINVAL;
+
 	dprintk(VIDC_DBG, "Streamon called on: %d capability for inst: %pK\n",
 		q->type, inst);
 	switch (q->type) {
@@ -1916,8 +1924,7 @@ static int msm_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 		break;
 	default:
 		dprintk(VIDC_ERR, "Queue type is not supported: %d\n", q->type);
-		rc = -EINVAL;
-		goto stream_start_failed;
+		return  -EINVAL;
 	}
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -1936,12 +1943,15 @@ static int msm_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 
 stream_start_failed:
 	if (rc) {
+		list_for_each_entry(vb, &q->queued_list, queued_entry) {
+			if (vb->type == q->type &&
+					vb->state == VB2_BUF_STATE_ACTIVE)
+				vb2_buffer_done(vb, VB2_BUF_STATE_QUEUED);
+		}
 		mutex_lock(&inst->pendingq.lock);
-		list_for_each_entry_safe(temp, next, &inst->pendingq.list,
-			list) {
+		list_for_each_entry_safe(temp, next,
+				&inst->pendingq.list, list) {
 			if (temp->vb->type == q->type) {
-				vb2_buffer_done(temp->vb,
-					VB2_BUF_STATE_QUEUED);
 				list_del(&temp->list);
 				kfree(temp);
 			}
@@ -4425,7 +4435,7 @@ int msm_venc_prepare_buf(struct msm_vidc_inst *inst,
 		dprintk(VIDC_ERR,
 			"Core %pK in bad state, ignoring prepare buf\n",
 				inst->core);
-		goto exit;
+		return -EINVAL;
 	}
 
 	switch (b->type) {
@@ -4473,7 +4483,7 @@ int msm_venc_prepare_buf(struct msm_vidc_inst *inst,
 			"Buffer type not recognized: %d\n", b->type);
 		break;
 	}
-exit:
+
 	return rc;
 }
 

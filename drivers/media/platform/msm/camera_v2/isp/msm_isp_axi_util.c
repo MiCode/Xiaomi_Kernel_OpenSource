@@ -1259,7 +1259,7 @@ void msm_isp_get_avtimer_ts(
 
 int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 {
-	int rc = 0, i;
+	int rc = 0, i = 0;
 	uint32_t io_format = 0;
 	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd = arg;
 	struct msm_vfe_axi_stream *stream_info;
@@ -1395,7 +1395,7 @@ done:
 
 int msm_isp_release_axi_stream(struct vfe_device *vfe_dev, void *arg)
 {
-	int rc = 0, i;
+	int rc = 0, i = 0;
 	struct msm_vfe_axi_stream_release_cmd *stream_release_cmd = arg;
 	struct msm_vfe_axi_stream *stream_info;
 	struct msm_vfe_axi_stream_cfg_cmd stream_cfg;
@@ -2477,6 +2477,12 @@ int msm_isp_ab_ib_update_lpm_mode(struct vfe_device *vfe_dev, void *arg)
 	ab_ib_vote = (struct msm_vfe_dual_lpm_mode *)arg;
 	if (!ab_ib_vote) {
 		pr_err("%s: ab_ib_vote is NULL !!!\n", __func__);
+		rc = -1;
+		return rc;
+	}
+	if (ab_ib_vote->num_src >= VFE_AXI_SRC_MAX) {
+		pr_err("%s: ab_ib_vote num_src is exceeding limit\n",
+			__func__);
 		rc = -1;
 		return rc;
 	}

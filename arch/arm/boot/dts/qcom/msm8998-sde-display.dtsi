@@ -34,6 +34,40 @@
 		qcom,msm_ext_disp = <&msm_ext_disp>;
 	};
 
+	sde_hdmi_cec: qcom,hdmi-cec@c9a0000 {
+		compatible = "qcom,hdmi-cec";
+		label = "sde_hdmi_cec";
+		qcom,hdmi-dev = <&sde_hdmi>;
+		interrupt-parent = <&sde_hdmi_tx>;
+		interrupts = <1 0>;
+
+		reg = <0xc9a0000 0x50c>;
+		reg-names = "hdmi_cec";
+
+		clocks = <&clock_mmss clk_mmss_mnoc_ahb_clk>,
+		       <&clock_mmss clk_mmss_mdss_ahb_clk>,
+		       <&clock_mmss clk_mmss_mdss_hdmi_clk>;
+		clock-names = "cec_mnoc_clk", "cec_iface_clk", "cec_core_clk";
+
+		pinctrl-names = "cec_active", "cec_sleep";
+		pinctrl-0 = <&mdss_hdmi_cec_active>;
+		pinctrl-1 = <&mdss_hdmi_cec_suspend>;
+
+		cec-gdsc-supply = <&gdsc_mdss>;
+		qcom,platform-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,platform-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "cec-gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
+	};
 };
 
 &sde_kms {

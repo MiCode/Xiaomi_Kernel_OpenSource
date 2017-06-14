@@ -337,10 +337,15 @@ static int mmc_force_err_set(void *data, u64 val)
 {
 	struct mmc_host *host = data;
 
-	if (host && host->ops && host->ops->force_err_irq) {
-		mmc_host_clk_hold(host);
+	if (host && host->card && host->ops &&
+			host->ops->force_err_irq) {
+		/*
+		 * To access the force error irq reg, we need to make
+		 * sure the host is powered up and host clock is ticking.
+		 */
+		mmc_get_card(host->card);
 		host->ops->force_err_irq(host, val);
-		mmc_host_clk_release(host);
+		mmc_put_card(host->card);
 	}
 
 	return 0;

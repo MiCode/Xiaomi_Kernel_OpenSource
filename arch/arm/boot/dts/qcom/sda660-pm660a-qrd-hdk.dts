@@ -208,3 +208,14 @@
 		"SpkrLeft IN", "SPK1 OUT";
 	qcom,msm-mbhc-hphl-swh = <0>;
 };
+
+&usb2s {
+	status = "okay";
+};
+
+&qusb_phy0 {
+	reg = <0x0c012000 0x180>,
+		<0x00188018 0x4>;
+	reg-names = "qusb_phy_base",
+		"ref_clk_addr";
+};

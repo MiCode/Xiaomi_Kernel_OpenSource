@@ -22,6 +22,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/rpm-smd-regulator.h>
 #include <linux/clk/msm-clk.h>
+#include <trace/events/trace_msm_pil_event.h>
 
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
@@ -360,6 +361,7 @@ static int __pil_q6v55_reset(struct pil_desc *pil)
 	u32 val;
 	int i;
 
+	trace_pil_func(__func__);
 	/* Override the ACC value if required */
 	if (drv->override_acc)
 		writel_relaxed(QDSP6SS_ACC_OVERRIDE_VAL,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -145,7 +145,7 @@ static struct sde_mdp_hw_resource *sde_rotator_hw_alloc(
 	struct sde_mdp_hw_resource *mdp_hw;
 	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
 	int pipe_ndx, offset = ctl_id;
-	int ret;
+	int ret = 0;
 
 	mdp_hw = devm_kzalloc(&mgr->pdev->dev,
 			sizeof(struct sde_mdp_hw_resource), GFP_KERNEL);

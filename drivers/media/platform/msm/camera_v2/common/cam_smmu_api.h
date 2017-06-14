@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,6 +49,13 @@ enum cam_smmu_map_dir {
 	CAM_SMMU_MAP_INVALID
 };
 
+typedef void (*client_handler)(struct iommu_domain *,
+		struct device *, unsigned long,
+		int, void*);
+
+typedef void (*client_reset_handler)(struct iommu_domain *,
+		struct device *, void*);
+
 /**
  * @param identifier: Unique identifier to be used by clients which they
  *                    should get from device tree. CAM SMMU driver will
@@ -60,6 +67,16 @@ enum cam_smmu_map_dir {
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 int cam_smmu_get_handle(char *identifier, int *handle_ptr);
+
+
+/**
+ * @param handle: Handle to identify the CAM SMMU client (VFE, CPP, FD etc.)
+ * @param flags   : SMMU attribute type
+ * @data             : Value of attribute
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_smmu_set_attr(int handle, uint32_t flags, int32_t *data);
+
 
 /**
  * @param handle: Handle to identify the CAM SMMU client (VFE, CPP, FD etc.)
@@ -215,11 +232,12 @@ int cam_smmu_find_index_by_handle(int hdl);
 /**
  * @param handle: Handle to identify the CAM SMMU client (VFE, CPP, FD etc.)
  * @param client_page_fault_handler: It is triggered in IOMMU page fault
+ * @param client_hw_reset_handler: It is triggered in IOMMU page fault
  * @param token: It is input param when trigger page fault handler
  */
 void cam_smmu_reg_client_page_fault_handler(int handle,
-		void (*client_page_fault_handler)(struct iommu_domain *,
-		struct device *, unsigned long,
-		int, void*), void *token);
+	client_handler page_fault_handler,
+	client_reset_handler hw_reset_handler,
+	void *token);
 
 #endif /* _CAM_SMMU_API_H_ */

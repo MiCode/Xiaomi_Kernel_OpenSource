@@ -85,6 +85,10 @@
 		compatible = "qcom,msm-pcm-loopback";
 	};
 
+	trans_loopback: qcom,msm-transcode-loopback {
+		compatible = "qcom,msm-transcode-loopback";
+	};
+
 	qcom,msm-dai-mi2s {
 		compatible = "qcom,msm-dai-mi2s";
 		dai_mi2s0: qcom,msm-dai-q6-mi2s-prim {

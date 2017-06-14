@@ -130,6 +130,12 @@ enum cpp_iommu_state {
 	CPP_IOMMU_STATE_ATTACHED,
 };
 
+enum cpp_iommu_fault_state {
+	CPP_IOMMU_FAULT_NONE,
+	CPP_IOMMU_FAULT_DETECTED,
+	CPP_IOMMU_FAULT_RECOVERED,
+};
+
 enum msm_queue {
 	MSM_CAM_Q_CTRL,     /* control command or control command status */
 	MSM_CAM_Q_VFE_EVT,  /* adsp event */
@@ -287,6 +293,7 @@ struct cpp_device {
 	struct msm_cpp_vbif_data *vbif_data;
 	bool turbo_vote;
 	struct cx_ipeak_client *cpp_cx_ipeak;
+	enum cpp_iommu_fault_state fault_status;
 };
 
 int msm_cpp_set_micro_clk(struct cpp_device *cpp_dev);

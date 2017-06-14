@@ -432,6 +432,7 @@ static enum power_supply_property smb2_usb_props[] = {
 	POWER_SUPPLY_PROP_CTM_CURRENT_MAX,
 	POWER_SUPPLY_PROP_HW_CURRENT_MAX,
 	POWER_SUPPLY_PROP_REAL_TYPE,
+	POWER_SUPPLY_PROP_PR_SWAP,
 };
 
 static int smb2_usb_get_prop(struct power_supply *psy,
@@ -454,8 +455,7 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 		if (!val->intval)
 			break;
 
-		rc = smblib_get_prop_typec_mode(chg, val);
-		if ((val->intval == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT ||
+		if ((chg->typec_mode == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT ||
 			chg->micro_usb_mode) &&
 			chg->real_charger_type == POWER_SUPPLY_TYPE_USB)
 			val->intval = 0;
@@ -492,7 +492,7 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 		else if (chip->bad_part)
 			val->intval = POWER_SUPPLY_TYPEC_SOURCE_DEFAULT;
 		else
-			rc = smblib_get_prop_typec_mode(chg, val);
+			val->intval = chg->typec_mode;
 		break;
 	case POWER_SUPPLY_PROP_TYPEC_POWER_ROLE:
 		if (chg->micro_usb_mode)
@@ -535,6 +535,9 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_HW_CURRENT_MAX:
 		rc = smblib_get_charge_current(chg, &val->intval);
+		break;
+	case POWER_SUPPLY_PROP_PR_SWAP:
+		rc = smblib_get_prop_pr_swap_in_progress(chg, val);
 		break;
 	default:
 		pr_err("get prop %d is not supported in usb\n", psp);
@@ -593,6 +596,9 @@ static int smb2_usb_set_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CTM_CURRENT_MAX:
 		rc = vote(chg->usb_icl_votable, CTM_VOTER,
 						val->intval >= 0, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_PR_SWAP:
+		rc = smblib_set_prop_pr_swap_in_progress(chg, val);
 		break;
 	default:
 		pr_err("set prop %d is not supported\n", psp);
@@ -671,8 +677,7 @@ static int smb2_usb_port_get_prop(struct power_supply *psy,
 		if (!val->intval)
 			break;
 
-		rc = smblib_get_prop_typec_mode(chg, val);
-		if ((val->intval == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT ||
+		if ((chg->typec_mode == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT ||
 			chg->micro_usb_mode) &&
 			chg->real_charger_type == POWER_SUPPLY_TYPE_USB)
 			val->intval = 1;

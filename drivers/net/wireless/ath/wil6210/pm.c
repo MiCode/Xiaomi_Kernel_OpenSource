@@ -80,6 +80,8 @@ static int wil_resume_keep_radio_on(struct wil6210_priv *wil)
 	wil_c(wil, RGF_USER_CLKS_CTL_0, BIT_USER_CLKS_RST_PWGD);
 	wil_unmask_irq(wil);
 
+	wil6210_bus_request(wil, wil->bus_request_kbps_pre_suspend);
+
 	/* Send WMI resume request to the device */
 	rc = wmi_resume(wil);
 	if (rc) {
@@ -96,7 +98,9 @@ static int wil_resume_keep_radio_on(struct wil6210_priv *wil)
 		}
 	}
 
-	wil6210_bus_request(wil, wil->bus_request_kbps_pre_suspend);
+	/* Wake all queues */
+	if (test_bit(wil_status_fwconnected, wil->status))
+		wil_update_net_queues_bh(wil, NULL, false);
 
 out:
 	if (rc)
@@ -113,6 +117,7 @@ static int wil_suspend_keep_radio_on(struct wil6210_priv *wil)
 
 	/* Prevent handling of new tx and wmi commands */
 	set_bit(wil_status_suspending, wil->status);
+	wil_update_net_queues_bh(wil, NULL, true);
 
 	if (!wil_is_tx_idle(wil)) {
 		wil_dbg_pm(wil, "Pending TX data, reject suspend\n");
@@ -175,24 +180,21 @@ static int wil_suspend_keep_radio_on(struct wil6210_priv *wil)
 	/* Disable device reset on PERST */
 	wil_s(wil, RGF_USER_CLKS_CTL_0, BIT_USER_CLKS_RST_PWGD);
 
-	/* Save the current bus request to return to the same in resume */
-	wil->bus_request_kbps_pre_suspend = wil->bus_request_kbps;
-	wil6210_bus_request(wil, 0);
-
 	if (wil->platform_ops.suspend) {
 		rc = wil->platform_ops.suspend(wil->platform_handle, true);
 		if (rc) {
 			wil_err(wil, "platform device failed to suspend (%d)\n",
 				rc);
 			wil->suspend_stats.failed_suspends++;
-			clear_bit(wil_status_suspending, wil->status);
-			rc = wil_resume_keep_radio_on(wil);
-			/* if resume succeeded, reject the suspend */
-			if (!rc)
-				rc = -EBUSY;
-			goto out;
+			wil_c(wil, RGF_USER_CLKS_CTL_0, BIT_USER_CLKS_RST_PWGD);
+			wil_unmask_irq(wil);
+			goto resume_after_fail;
 		}
 	}
+
+	/* Save the current bus request to return to the same in resume */
+	wil->bus_request_kbps_pre_suspend = wil->bus_request_kbps;
+	wil6210_bus_request(wil, 0);
 
 	set_bit(wil_status_suspended, wil->status);
 	clear_bit(wil_status_suspending, wil->status);
@@ -200,17 +202,21 @@ static int wil_suspend_keep_radio_on(struct wil6210_priv *wil)
 	return rc;
 
 resume_after_fail:
+	set_bit(wil_status_resuming, wil->status);
 	clear_bit(wil_status_suspending, wil->status);
 	rc = wmi_resume(wil);
 	/* if resume succeeded, reject the suspend */
-	if (!rc)
+	if (!rc) {
 		rc = -EBUSY;
-
-out:
+		if (test_bit(wil_status_fwconnected, wil->status))
+			wil_update_net_queues_bh(wil, NULL, false);
+	}
 	return rc;
 
 reject_suspend:
 	clear_bit(wil_status_suspending, wil->status);
+	if (test_bit(wil_status_fwconnected, wil->status))
+		wil_update_net_queues_bh(wil, NULL, false);
 	return -EBUSY;
 }
 

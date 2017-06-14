@@ -142,6 +142,8 @@ struct csiphy_reg_3ph_parms_t {
 	struct csiphy_reg_t mipi_csiphy_2ph_lnn_ctrl14;
 	struct csiphy_reg_t mipi_csiphy_3ph_cmn_ctrl7_cphy;
 	struct csiphy_reg_t mipi_csiphy_2ph_lnck_ctrl0;
+	struct csiphy_reg_t mipi_csiphy_2ph_lnck_ctrl9;
+	struct csiphy_reg_t mipi_csiphy_2ph_lnn_ctrl9;
 };
 
 struct csiphy_ctrl_t {

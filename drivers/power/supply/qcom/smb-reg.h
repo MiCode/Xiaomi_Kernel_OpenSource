@@ -486,11 +486,11 @@ enum {
 #define UFP_TYPEC_OPEN_OPEN_BIT			BIT(0)
 
 #define TYPE_C_STATUS_2_REG			(USBIN_BASE + 0x0C)
-#define DFP_TYPEC_MASK				0x8F
 #define DFP_RA_OPEN_BIT				BIT(7)
 #define TIMER_STAGE_BIT				BIT(6)
 #define EXIT_UFP_MODE_BIT			BIT(5)
 #define EXIT_DFP_MODE_BIT			BIT(4)
+#define DFP_TYPEC_MASK				GENMASK(3, 0)
 #define DFP_RD_OPEN_BIT				BIT(3)
 #define DFP_RD_RA_VCONN_BIT			BIT(2)
 #define DFP_RD_RD_BIT				BIT(1)

@@ -157,6 +157,7 @@
 			     <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 349 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 350 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,deferred-regulator-disable-delay = <80>;
 		vdd-supply = <&gdsc_gpu_cx>;
 		clocks = <&clock_gcc GCC_GPU_CFG_AHB_CLK>,
 			 <&clock_gcc GCC_BIMC_GFX_CLK>,

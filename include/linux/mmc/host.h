@@ -330,7 +330,9 @@ struct mmc_devfeq_clk_scaling {
 	atomic_t	devfreq_abort;
 	bool		skip_clk_scale_freq_update;
 	int		freq_table_sz;
+	int		pltfm_freq_table_sz;
 	u32		*freq_table;
+	u32		*pltfm_freq_table;
 	unsigned long	total_busy_time_us;
 	unsigned long	target_freq;
 	unsigned long	curr_freq;

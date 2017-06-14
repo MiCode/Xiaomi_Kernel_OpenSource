@@ -2671,12 +2671,16 @@ static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc)
 {
 	struct device_node *node = mdwc->dev->of_node;
 	struct extcon_dev *edev;
+	struct dwc3 *dwc;
 	int ret = 0;
 
+	dwc = platform_get_drvdata(mdwc->dwc3);
 	if (!of_property_read_bool(node, "extcon")) {
-		if (usb_get_dr_mode(&mdwc->dwc3->dev) == USB_DR_MODE_HOST)
+		dev_dbg(mdwc->dev, "extcon property doesn't exist\n");
+		if (usb_get_dr_mode(&mdwc->dwc3->dev) == USB_DR_MODE_HOST
+							|| dwc->is_drd)
 			return 0;
-		dev_err(mdwc->dev, "extcon property doesn't exist\n");
+		dev_err(mdwc->dev, "Neither host nor DRD, fail probe\n");
 		return -EINVAL;
 	}
 
@@ -3137,8 +3141,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	device_create_file(&pdev->dev, &dev_attr_speed);
 
 	host_mode = usb_get_dr_mode(&mdwc->dwc3->dev) == USB_DR_MODE_HOST;
-	if (!dwc->is_drd && host_mode) {
-		dev_dbg(&pdev->dev, "DWC3 in host only mode\n");
+	if (host_mode ||
+		(dwc->is_drd && !of_property_read_bool(node, "extcon"))) {
+		dev_dbg(&pdev->dev, "DWC3 in default host mode\n");
 		mdwc->id_state = DWC3_ID_GROUND;
 		dwc3_ext_event_notify(mdwc);
 	}

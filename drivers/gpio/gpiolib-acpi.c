@@ -597,7 +597,7 @@ int acpi_dev_gpio_irq_get(struct acpi_device *adev, int index)
 	int idx, i;
 
 	for (i = 0, idx = 0; idx <= index; i++) {
-		struct acpi_gpio_info info;
+		struct acpi_gpio_info info = {0, 0};
 		struct gpio_desc *desc;
 
 		desc = acpi_get_gpiod_by_index(adev, NULL, i, &info);

@@ -1012,6 +1012,10 @@ static void receive_file_work(struct work_struct *data)
 					usb_ep_dequeue(dev->ep_out, read_req);
 				break;
 			}
+			if (read_req->status) {
+				r = read_req->status;
+				break;
+			}
 
 			mutex_lock(&dev->read_mutex);
 			if (dev->state == STATE_OFFLINE) {

@@ -1723,7 +1723,8 @@ void f2fs_msg(struct super_block *, const char *, const char *, ...);
 /*
  * hash.c
  */
-f2fs_hash_t f2fs_dentry_hash(const struct qstr *);
+f2fs_hash_t f2fs_dentry_hash(const struct qstr *name_info,
+				struct f2fs_filename *fname);
 
 /*
  * node.c

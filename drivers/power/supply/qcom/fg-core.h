@@ -219,6 +219,12 @@ enum slope_limit_status {
 	SLOPE_LIMIT_NUM_COEFFS,
 };
 
+enum esr_timer_config {
+	TIMER_RETRY = 0,
+	TIMER_MAX,
+	NUM_ESR_TIMERS,
+};
+
 /* DT parameters for FG device */
 struct fg_dt_props {
 	bool	force_load_profile;
@@ -234,9 +240,9 @@ struct fg_dt_props {
 	int	recharge_soc_thr;
 	int	recharge_volt_thr_mv;
 	int	rsense_sel;
-	int	esr_timer_charging;
-	int	esr_timer_awake;
-	int	esr_timer_asleep;
+	int	esr_timer_charging[NUM_ESR_TIMERS];
+	int	esr_timer_awake[NUM_ESR_TIMERS];
+	int	esr_timer_asleep[NUM_ESR_TIMERS];
 	int	rconn_mohms;
 	int	esr_clamp_mohms;
 	int	cl_start_soc;
@@ -385,6 +391,7 @@ struct fg_chip {
 	int			maint_soc;
 	int			delta_soc;
 	int			last_msoc;
+	int			esr_timer_charging_default[NUM_ESR_TIMERS];
 	enum slope_limit_status	slope_limit_sts;
 	bool			profile_available;
 	bool			profile_loaded;

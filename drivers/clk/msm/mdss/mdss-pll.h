@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,7 +37,8 @@ enum {
 	MDSS_HDMI_PLL_8996_V2,
 	MDSS_HDMI_PLL_8996_V3,
 	MDSS_HDMI_PLL_8996_V3_1_8,
-	MDSS_HDMI_PLL_8998,
+	MDSS_HDMI_PLL_8998_3_3,
+	MDSS_HDMI_PLL_8998_1_8,
 	MDSS_UNKNOWN_PLL,
 };
 

@@ -96,8 +96,6 @@
 /* SPCOM driver name */
 #define DEVICE_NAME	"spcom"
 
-#define SPCOM_MAX_CHANNELS	0x20
-
 /* maximum ION buffers should be >= SPCOM_MAX_CHANNELS  */
 #define SPCOM_MAX_ION_BUF_PER_CH (SPCOM_MAX_CHANNELS + 4)
 
@@ -718,8 +716,10 @@ static int spcom_open(struct spcom_channel *ch, unsigned int timeout_msec)
 
 	/* only one client/server may use the channel */
 	if (ch->ref_count) {
-		pr_err("channel [%s] already in use.\n", name);
-		goto exit_err;
+		pr_err("channel [%s] is BUSY, already in use by pid [%d].\n",
+			name, ch->pid);
+		mutex_unlock(&ch->lock);
+		return -EBUSY;
 	}
 
 	pr_debug("ch [%s] opened by PID [%d], count [%d]\n",

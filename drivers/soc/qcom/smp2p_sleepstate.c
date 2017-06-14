@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,7 @@ static int sleepstate_pm_notifier(struct notifier_block *nb,
 
 static struct notifier_block sleepstate_pm_nb = {
 	.notifier_call = sleepstate_pm_notifier,
+	.priority = INT_MAX,
 };
 
 static int smp2p_sleepstate_probe(struct platform_device *pdev)

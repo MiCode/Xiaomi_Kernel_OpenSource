@@ -687,7 +687,7 @@ static struct mdss_rot_hw_resource *mdss_rotator_hw_alloc(
 	struct mdss_rot_hw_resource *hw;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	u32 pipe_ndx, offset = mdss_mdp_get_wb_ctl_support(mdata, true);
-	int ret;
+	int ret = 0;
 
 	hw = devm_kzalloc(&mgr->pdev->dev, sizeof(struct mdss_rot_hw_resource),
 		GFP_KERNEL);

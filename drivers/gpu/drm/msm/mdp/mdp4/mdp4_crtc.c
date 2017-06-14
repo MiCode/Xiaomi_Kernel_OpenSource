@@ -392,7 +392,7 @@ static void update_cursor(struct drm_crtc *crtc)
 		if (next_bo) {
 			/* take a obj ref + iova ref when we start scanning out: */
 			drm_gem_object_reference(next_bo);
-			msm_gem_get_iova_locked(next_bo, mdp4_kms->aspace,
+			msm_gem_get_iova(next_bo, mdp4_kms->aspace,
 				&iova);
 
 			/* enable cursor: */

@@ -57,6 +57,8 @@
 #define SDE_COLOR_PROCESS_MAJOR(version) (((version) & 0xFFFF0000) >> 16)
 #define SDE_COLOR_PROCESS_MINOR(version) ((version) & 0xFFFF)
 
+#define SSPP_NAME_SIZE 12
+
 /**
  * MDP TOP BLOCK features
  * @SDE_MDP_PANIC_PER_PIPE Panic configuration needs to be be done per pipe
@@ -455,12 +457,14 @@ struct sde_ctl_cfg {
  * @sblk:              SSPP sub-blocks information
  * @xin_id:            bus client identifier
  * @clk_ctrl           clock control identifier
+  *@name               source pipe name
  */
 struct sde_sspp_cfg {
 	SDE_HW_BLK_INFO;
 	const struct sde_sspp_sub_blks *sblk;
 	u32 xin_id;
 	enum sde_clk_ctrl_type clk_ctrl;
+	char name[SSPP_NAME_SIZE];
 };
 
 /**
@@ -608,6 +612,31 @@ struct sde_perf_cfg {
 };
 
 /**
+* struct sde_vp_sub_blks - Virtual Plane sub-blocks
+* @pipeid_list             list for hw pipe id
+* @sspp_id                 SSPP ID, refer to enum sde_sspp.
+*/
+struct sde_vp_sub_blks {
+	struct list_head pipeid_list;
+	u32 sspp_id;
+};
+
+/**
+* struct sde_vp_cfg - information of Virtual Plane SW blocks
+* @id                 enum identifying this block
+* @sub_blks           list head for virtual plane sub blocks
+* @plane_type         plane type, such as primary, overlay or cursor
+* @display_type       which display the plane bound to, such as primary,
+*                     secondary or tertiary
+*/
+struct sde_vp_cfg {
+	u32 id;
+	struct list_head sub_blks;
+	const char *plane_type;
+	const char *display_type;
+};
+
+/**
  * struct sde_mdss_cfg - information of MDSS HW
  * This is the main catalog data structure representing
  * this HW version. Contains number of instances,
@@ -672,6 +701,9 @@ struct sde_mdss_cfg {
 	/* Add additional block data structures here */
 
 	struct sde_perf_cfg perf;
+
+	u32 vp_count;
+	struct sde_vp_cfg vp[MAX_BLOCKS];
 };
 
 struct sde_mdss_hw_cfg_handler {

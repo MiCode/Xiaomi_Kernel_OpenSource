@@ -24,9 +24,7 @@ static void *alloc_kernel_bo(struct drm_device *drm, struct msm_gpu *gpu,
 	void *ptr;
 	int ret;
 
-	mutex_lock(&drm->struct_mutex);
 	_bo = msm_gem_new(drm, size, flags);
-	mutex_unlock(&drm->struct_mutex);
 
 	if (IS_ERR(_bo))
 		return _bo;

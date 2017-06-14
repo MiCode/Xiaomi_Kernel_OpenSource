@@ -403,6 +403,30 @@ static uint32_t diag_translate_kernel_to_user_mask(uint32_t peripheral_mask)
 		ret |= DIAG_CON_UPD_SENSORS;
 	return ret;
 }
+
+uint8_t diag_mask_to_pd_value(uint32_t peripheral_mask)
+{
+	uint8_t upd = 0;
+	uint32_t pd_mask = 0;
+
+	pd_mask = diag_translate_kernel_to_user_mask(peripheral_mask);
+	switch (pd_mask) {
+	case DIAG_CON_UPD_WLAN:
+		upd = UPD_WLAN;
+		break;
+	case DIAG_CON_UPD_AUDIO:
+		upd = UPD_AUDIO;
+		break;
+	case DIAG_CON_UPD_SENSORS:
+		upd = UPD_SENSORS;
+		break;
+	default:
+		DIAG_LOG(DIAG_DEBUG_MASKS,
+		"asking for mask update with no pd mask set\n");
+	}
+	return upd;
+}
+
 int diag_mask_param(void)
 {
 	return diag_mask_clear_param;
@@ -1908,12 +1932,33 @@ static int diag_ioctl_get_real_time(unsigned long ioarg)
 static int diag_ioctl_set_buffering_mode(unsigned long ioarg)
 {
 	struct diag_buffering_mode_t params;
+	int peripheral = 0;
+	uint8_t diag_id = 0;
 
 	if (copy_from_user(&params, (void __user *)ioarg, sizeof(params)))
 		return -EFAULT;
 
-	if (params.peripheral >= NUM_PERIPHERALS)
-		return -EINVAL;
+	diag_map_pd_to_diagid(params.peripheral, &diag_id, &peripheral);
+
+	if ((peripheral < 0) ||
+		peripheral >= NUM_PERIPHERALS) {
+		pr_err("diag: In %s, invalid peripheral %d\n", __func__,
+		       peripheral);
+		return -EIO;
+	}
+
+	if (params.peripheral > NUM_PERIPHERALS &&
+		!driver->feature[peripheral].pd_buffering) {
+		pr_err("diag: In %s, pd buffering not supported for peripheral:%d\n",
+			__func__, peripheral);
+		return -EIO;
+	}
+
+	if (!driver->feature[peripheral].peripheral_buffering) {
+		pr_err("diag: In %s, peripheral %d doesn't support buffering\n",
+		       __func__, peripheral);
+		return -EIO;
+	}
 
 	mutex_lock(&driver->mode_lock);
 	driver->buffering_flag[params.peripheral] = 1;
@@ -1924,24 +1969,29 @@ static int diag_ioctl_set_buffering_mode(unsigned long ioarg)
 
 static int diag_ioctl_peripheral_drain_immediate(unsigned long ioarg)
 {
-	uint8_t peripheral;
+	uint8_t pd, diag_id = 0;
+	int peripheral = 0;
 
-	if (copy_from_user(&peripheral, (void __user *)ioarg, sizeof(uint8_t)))
+	if (copy_from_user(&pd, (void __user *)ioarg, sizeof(uint8_t)))
 		return -EFAULT;
 
-	if (peripheral >= NUM_PERIPHERALS) {
+	diag_map_pd_to_diagid(pd, &diag_id, &peripheral);
+
+	if ((peripheral < 0) ||
+		peripheral >= NUM_PERIPHERALS) {
 		pr_err("diag: In %s, invalid peripheral %d\n", __func__,
 		       peripheral);
 		return -EINVAL;
 	}
 
-	if (!driver->feature[peripheral].peripheral_buffering) {
-		pr_err("diag: In %s, peripheral %d doesn't support buffering\n",
-		       __func__, peripheral);
+	if (pd > NUM_PERIPHERALS &&
+		!driver->feature[peripheral].pd_buffering) {
+		pr_err("diag: In %s, pd buffering not supported for peripheral:%d\n",
+			__func__, peripheral);
 		return -EIO;
 	}
 
-	return diag_send_peripheral_drain_immediate(peripheral);
+	return diag_send_peripheral_drain_immediate(pd, diag_id, peripheral);
 }
 
 static int diag_ioctl_dci_support(unsigned long ioarg)

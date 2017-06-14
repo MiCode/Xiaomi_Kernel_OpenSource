@@ -534,8 +534,6 @@ static int tz_handler(struct devfreq *devfreq, unsigned int event, void *data)
 					(devfreq->profile),
 					struct msm_adreno_extended_profile,
 					profile);
-	BUG_ON(devfreq == NULL);
-
 	switch (event) {
 	case DEVFREQ_GOV_START:
 		result = tz_start(devfreq);

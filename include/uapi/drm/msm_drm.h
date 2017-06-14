@@ -102,6 +102,13 @@ struct drm_msm_gem_new {
 	__u32 handle;         /* out */
 };
 
+struct drm_msm_gem_svm_new {
+	__u64 hostptr;        /* in, must be page-aligned */
+	__u64 size;           /* in, must be page-aligned */
+	__u32 flags;          /* in, mask of MSM_BO_x */
+	__u32 handle;         /* out */
+};
+
 #define MSM_INFO_IOVA	0x01
 
 #define MSM_INFO_FLAGS (MSM_INFO_IOVA)
@@ -356,6 +363,8 @@ struct drm_msm_gem_sync {
 #define DRM_MSM_GEM_CPU_FINI           0x05
 #define DRM_MSM_GEM_SUBMIT             0x06
 #define DRM_MSM_WAIT_FENCE             0x07
+/* Gap for upstream DRM_MSM_GEM_MADVISE */
+#define DRM_MSM_GEM_SVM_NEW            0x09
 
 #define DRM_SDE_WB_CONFIG              0x40
 #define DRM_MSM_REGISTER_EVENT         0x41
@@ -395,6 +404,9 @@ struct drm_msm_gem_sync {
 		struct drm_msm_counter_read)
 #define DRM_IOCTL_MSM_GEM_SYNC DRM_IOW(DRM_COMMAND_BASE + DRM_MSM_GEM_SYNC,\
 		struct drm_msm_gem_sync)
+#define DRM_IOCTL_MSM_GEM_SVM_NEW \
+	DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_SVM_NEW, \
+		struct drm_msm_gem_svm_new)
 
 #if defined(__cplusplus)
 }

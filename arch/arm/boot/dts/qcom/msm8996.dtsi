@@ -1737,6 +1737,7 @@
 
 	mhi: qcom,mhi {
 		compatible = "qcom,mhi";
+		status = "disabled";
 	};
 
         qcom,ipc-spinlock@740000 {
