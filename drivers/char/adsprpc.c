@@ -664,7 +664,8 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, unsigned attr,
 			init_dma_attrs(&attrs);
 			dma_set_attr(DMA_ATTR_EXEC_MAPPING, &attrs);
 
-			if (map->attr & FASTRPC_ATTR_NON_COHERENT)
+			if ((map->attr & FASTRPC_ATTR_NON_COHERENT) ||
+				(sess->smmu.coherent && map->uncached))
 				dma_set_attr(DMA_ATTR_FORCE_NON_COHERENT,
 								 &attrs);
 			else if (map->attr & FASTRPC_ATTR_COHERENT)
