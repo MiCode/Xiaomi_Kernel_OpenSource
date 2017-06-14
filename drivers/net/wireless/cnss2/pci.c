@@ -791,10 +791,11 @@ static void __iomem *cnss_pci_iomap(struct pci_dev *dev, int bar,
 
 static struct cnss_msi_config msi_config = {
 	.total_vectors = 32,
-	.total_users = 3,
+	.total_users = 4,
 	.users = (struct cnss_msi_user[]) {
 		{ .name = "MHI", .num_vectors = 2, .base_vector = 0 },
-		{ .name = "CE", .num_vectors = 12, .base_vector = 2 },
+		{ .name = "CE", .num_vectors = 11, .base_vector = 2 },
+		{ .name = "WAKE", .num_vectors = 1, .base_vector = 13 },
 		{ .name = "DP", .num_vectors = 18, .base_vector = 14 },
 	},
 };
