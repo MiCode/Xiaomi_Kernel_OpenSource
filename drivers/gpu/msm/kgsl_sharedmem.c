@@ -560,16 +560,71 @@ static inline unsigned int _fixup_cache_range_op(unsigned int op)
 }
 #endif
 
+static inline void _cache_op(unsigned int op,
+			const void *start, const void *end)
+{
+	/*
+	 * The dmac_xxx_range functions handle addresses and sizes that
+	 * are not aligned to the cacheline size correctly.
+	 */
+	switch (_fixup_cache_range_op(op)) {
+	case KGSL_CACHE_OP_FLUSH:
+		dmac_flush_range(start, end);
+		break;
+	case KGSL_CACHE_OP_CLEAN:
+		dmac_clean_range(start, end);
+		break;
+	case KGSL_CACHE_OP_INV:
+		dmac_inv_range(start, end);
+		break;
+	}
+}
+
+static int kgsl_do_cache_op(struct page *page, void *addr,
+		uint64_t offset, uint64_t size, unsigned int op)
+{
+	if (page != NULL) {
+		unsigned long pfn = page_to_pfn(page) + offset / PAGE_SIZE;
+		/*
+		 *  page_address() returns the kernel virtual address of page.
+		 *  For high memory kernel virtual address exists only if page
+		 *  has been mapped. So use a version of kmap rather than
+		 *  page_address() for high memory.
+		 */
+		if (PageHighMem(page)) {
+			offset &= ~PAGE_MASK;
+
+			do {
+				unsigned int len = size;
+
+				if (len + offset > PAGE_SIZE)
+					len = PAGE_SIZE - offset;
+
+				page = pfn_to_page(pfn++);
+				addr = kmap_atomic(page);
+				_cache_op(op, addr + offset,
+						addr + offset + len);
+				kunmap_atomic(addr);
+
+				size -= len;
+				offset = 0;
+			} while (size);
+
+			return 0;
+		}
+
+		addr = page_address(page);
+	}
+
+	_cache_op(op, addr + offset, addr + offset + (size_t) size);
+	return 0;
+}
+
 int kgsl_cache_range_op(struct kgsl_memdesc *memdesc, uint64_t offset,
 		uint64_t size, unsigned int op)
 {
-	/*
-	 * If the buffer is mapped in the kernel operate on that address
-	 * otherwise use the user address
-	 */
-
-	void *addr = (memdesc->hostptr) ?
-		memdesc->hostptr : (void *) memdesc->useraddr;
+	void *addr = NULL;
+	int ret = 0;
 
 	if (size == 0 || size > UINT_MAX)
 		return -EINVAL;
@@ -578,38 +633,59 @@ int kgsl_cache_range_op(struct kgsl_memdesc *memdesc, uint64_t offset,
 	if ((offset + size < offset) || (offset + size < size))
 		return -ERANGE;
 
-	/* Make sure the offset + size do not overflow the address */
-	if (addr + ((size_t) offset + (size_t) size) < addr)
-		return -ERANGE;
-
 	/* Check that offset+length does not exceed memdesc->size */
 	if (offset + size > memdesc->size)
 		return -ERANGE;
 
-	/* Return quietly if the buffer isn't mapped on the CPU */
-	if (addr == NULL)
-		return 0;
+	if (memdesc->hostptr) {
+		addr = memdesc->hostptr;
+		/* Make sure the offset + size do not overflow the address */
+		if (addr + ((size_t) offset + (size_t) size) < addr)
+			return -ERANGE;
 
-	addr = addr + offset;
-
-	/*
-	 * The dmac_xxx_range functions handle addresses and sizes that
-	 * are not aligned to the cacheline size correctly.
-	 */
-
-	switch (_fixup_cache_range_op(op)) {
-	case KGSL_CACHE_OP_FLUSH:
-		dmac_flush_range(addr, addr + (size_t) size);
-		break;
-	case KGSL_CACHE_OP_CLEAN:
-		dmac_clean_range(addr, addr + (size_t) size);
-		break;
-	case KGSL_CACHE_OP_INV:
-		dmac_inv_range(addr, addr + (size_t) size);
-		break;
+		ret = kgsl_do_cache_op(NULL, addr, offset, size, op);
+		return ret;
 	}
 
-	return 0;
+	/*
+	 * If the buffer is not to mapped to kernel, perform cache
+	 * operations after mapping to kernel.
+	 */
+	if (memdesc->sgt != NULL) {
+		struct scatterlist *sg;
+		unsigned int i, pos = 0;
+
+		for_each_sg(memdesc->sgt->sgl, sg, memdesc->sgt->nents, i) {
+			uint64_t sg_offset, sg_left;
+
+			if (offset >= (pos + sg->length)) {
+				pos += sg->length;
+				continue;
+			}
+			sg_offset = offset > pos ? offset - pos : 0;
+			sg_left = (sg->length - sg_offset > size) ? size :
+						sg->length - sg_offset;
+			ret = kgsl_do_cache_op(sg_page(sg), NULL, sg_offset,
+								sg_left, op);
+			size -= sg_left;
+			if (size == 0)
+				break;
+			pos += sg->length;
+		}
+	} else if (memdesc->pages != NULL) {
+		addr = vmap(memdesc->pages, memdesc->page_count,
+				VM_IOREMAP, pgprot_writecombine(PAGE_KERNEL));
+		if (addr == NULL)
+			return -ENOMEM;
+
+		/* Make sure the offset + size do not overflow the address */
+		if (addr + ((size_t) offset + (size_t) size) < addr)
+			return -ERANGE;
+
+		ret = kgsl_do_cache_op(NULL, addr, offset, size, op);
+		vunmap(addr);
+	}
+	return ret;
 }
 EXPORT_SYMBOL(kgsl_cache_range_op);
 
