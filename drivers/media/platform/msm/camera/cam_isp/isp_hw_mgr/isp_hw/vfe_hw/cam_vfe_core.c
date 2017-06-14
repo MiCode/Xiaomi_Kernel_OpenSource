@@ -449,14 +449,14 @@ int cam_vfe_start(void *hw_priv, void *start_args, uint32_t arg_size)
 		if (isp_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF)
 			isp_res->irq_handle = cam_irq_controller_subscribe_irq(
 				core_info->vfe_irq_controller,
-				CAM_IRQ_PRIORITY_2,
+				CAM_IRQ_PRIORITY_1,
 				camif_irq_reg_mask, &core_info->irq_payload,
 				cam_vfe_irq_top_half, cam_ife_mgr_do_tasklet,
 				isp_res->tasklet_info, cam_tasklet_enqueue_cmd);
 		else
 			isp_res->irq_handle = cam_irq_controller_subscribe_irq(
 				core_info->vfe_irq_controller,
-				CAM_IRQ_PRIORITY_2,
+				CAM_IRQ_PRIORITY_1,
 				rdi_irq_reg_mask, &core_info->irq_payload,
 				cam_vfe_irq_top_half, cam_ife_mgr_do_tasklet,
 				isp_res->tasklet_info, cam_tasklet_enqueue_cmd);
@@ -469,7 +469,7 @@ int cam_vfe_start(void *hw_priv, void *start_args, uint32_t arg_size)
 			pr_err("Error! subscribe irq controller failed\n");
 	} else if (isp_res->res_type == CAM_ISP_RESOURCE_VFE_OUT) {
 		isp_res->irq_handle = cam_irq_controller_subscribe_irq(
-			core_info->vfe_irq_controller, CAM_IRQ_PRIORITY_1,
+			core_info->vfe_irq_controller, CAM_IRQ_PRIORITY_2,
 			bus_irq_reg_mask, &core_info->irq_payload,
 			core_info->vfe_bus->top_half_handler,
 			cam_ife_mgr_do_tasklet_buf_done,
