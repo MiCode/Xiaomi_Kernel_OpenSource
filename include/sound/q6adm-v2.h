@@ -51,6 +51,13 @@ enum {
 	ADM_CLIENT_ID_MAX,
 };
 
+/* ENUM for adm_status & route_status */
+enum adm_status_flags {
+	ADM_STATUS_CALIBRATION_REQUIRED = 0,
+	ADM_STATUS_LIMITER,
+	ADM_STATUS_MAX,
+};
+
 #define MAX_COPPS_PER_PORT 0x8
 #define ADM_MAX_CHANNELS 8
 
@@ -61,6 +68,7 @@ struct route_payload {
 	int app_type[MAX_COPPS_PER_PORT];
 	int acdb_dev_id[MAX_COPPS_PER_PORT];
 	int sample_rate[MAX_COPPS_PER_PORT];
+	unsigned long route_status[MAX_COPPS_PER_PORT];
 	unsigned short num_copps;
 	unsigned int session_id;
 };
