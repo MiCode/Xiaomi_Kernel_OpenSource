@@ -629,6 +629,8 @@ int smblib_mapping_cc_delta_from_field_value(struct smb_chg_param *param,
 static void smblib_uusb_removal(struct smb_charger *chg)
 {
 	int rc;
+	struct smb_irq_data *data;
+	struct storm_watch *wdata;
 
 	cancel_delayed_work_sync(&chg->pl_enable_work);
 
@@ -640,8 +642,16 @@ static void smblib_uusb_removal(struct smb_charger *chg)
 				rc);
 	}
 
-	if (chg->wa_flags & BOOST_BACK_WA)
-		vote(chg->usb_icl_votable, BOOST_BACK_VOTER, false, 0);
+	if (chg->wa_flags & BOOST_BACK_WA) {
+		data = chg->irq_info[SWITCH_POWER_OK_IRQ].irq_data;
+		if (data) {
+			wdata = &data->storm_data;
+			update_storm_count(wdata, WEAK_CHG_STORM_COUNT);
+			vote(chg->usb_icl_votable, BOOST_BACK_VOTER, false, 0);
+			vote(chg->usb_icl_votable, WEAK_CHARGER_VOTER,
+					false, 0);
+		}
+	}
 	vote(chg->pl_disable_votable, PL_DELAY_VOTER, true, 0);
 	vote(chg->awake_votable, PL_DELAY_VOTER, false, 0);
 
@@ -3144,6 +3154,8 @@ void smblib_usb_plugin_hard_reset_locked(struct smb_charger *chg)
 	int rc;
 	u8 stat;
 	bool vbus_rising;
+	struct smb_irq_data *data;
+	struct storm_watch *wdata;
 
 	rc = smblib_read(chg, USBIN_BASE + INT_RT_STS_OFFSET, &stat);
 	if (rc < 0) {
@@ -3157,8 +3169,18 @@ void smblib_usb_plugin_hard_reset_locked(struct smb_charger *chg)
 		smblib_cc2_sink_removal_exit(chg);
 	} else {
 		smblib_cc2_sink_removal_enter(chg);
-		if (chg->wa_flags & BOOST_BACK_WA)
-			vote(chg->usb_icl_votable, BOOST_BACK_VOTER, false, 0);
+		if (chg->wa_flags & BOOST_BACK_WA) {
+			data = chg->irq_info[SWITCH_POWER_OK_IRQ].irq_data;
+			if (data) {
+				wdata = &data->storm_data;
+				update_storm_count(wdata,
+						WEAK_CHG_STORM_COUNT);
+				vote(chg->usb_icl_votable, BOOST_BACK_VOTER,
+						false, 0);
+				vote(chg->usb_icl_votable, WEAK_CHARGER_VOTER,
+						false, 0);
+			}
+		}
 	}
 
 	power_supply_changed(chg->usb_psy);
@@ -3172,6 +3194,8 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 	int rc;
 	u8 stat;
 	bool vbus_rising;
+	struct smb_irq_data *data;
+	struct storm_watch *wdata;
 
 	rc = smblib_read(chg, USBIN_BASE + INT_RT_STS_OFFSET, &stat);
 	if (rc < 0) {
@@ -3208,8 +3232,18 @@ void smblib_usb_plugin_locked(struct smb_charger *chg)
 		schedule_delayed_work(&chg->pl_enable_work,
 					msecs_to_jiffies(PL_DELAY_MS));
 	} else {
-		if (chg->wa_flags & BOOST_BACK_WA)
-			vote(chg->usb_icl_votable, BOOST_BACK_VOTER, false, 0);
+		if (chg->wa_flags & BOOST_BACK_WA) {
+			data = chg->irq_info[SWITCH_POWER_OK_IRQ].irq_data;
+			if (data) {
+				wdata = &data->storm_data;
+				update_storm_count(wdata,
+						WEAK_CHG_STORM_COUNT);
+				vote(chg->usb_icl_votable, BOOST_BACK_VOTER,
+						false, 0);
+				vote(chg->usb_icl_votable, WEAK_CHARGER_VOTER,
+						false, 0);
+			}
+		}
 
 		if (chg->dpdm_reg && regulator_is_enabled(chg->dpdm_reg)) {
 			smblib_dbg(chg, PR_MISC, "disabling DPDM regulator\n");
@@ -3593,6 +3627,8 @@ static void typec_sink_removal(struct smb_charger *chg)
 static void smblib_handle_typec_removal(struct smb_charger *chg)
 {
 	int rc;
+	struct smb_irq_data *data;
+	struct storm_watch *wdata;
 
 	chg->cc2_detach_wa_active = false;
 
@@ -3604,8 +3640,16 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 				rc);
 	}
 
-	if (chg->wa_flags & BOOST_BACK_WA)
-		vote(chg->usb_icl_votable, BOOST_BACK_VOTER, false, 0);
+	if (chg->wa_flags & BOOST_BACK_WA) {
+		data = chg->irq_info[SWITCH_POWER_OK_IRQ].irq_data;
+		if (data) {
+			wdata = &data->storm_data;
+			update_storm_count(wdata, WEAK_CHG_STORM_COUNT);
+			vote(chg->usb_icl_votable, BOOST_BACK_VOTER, false, 0);
+			vote(chg->usb_icl_votable, WEAK_CHARGER_VOTER,
+					false, 0);
+		}
+	}
 
 	/* reset APSD voters */
 	vote(chg->apsd_disable_votable, PD_HARD_RESET_VOTER, false, 0);
@@ -3837,10 +3881,13 @@ static void smblib_bb_removal_work(struct work_struct *work)
 }
 
 #define BOOST_BACK_UNVOTE_DELAY_MS		750
+#define BOOST_BACK_STORM_COUNT			3
+#define WEAK_CHG_STORM_COUNT			8
 irqreturn_t smblib_handle_switcher_power_ok(int irq, void *data)
 {
 	struct smb_irq_data *irq_data = data;
 	struct smb_charger *chg = irq_data->parent_data;
+	struct storm_watch *wdata = &irq_data->storm_data;
 	int rc, usb_icl;
 	u8 stat;
 
@@ -3862,16 +3909,32 @@ irqreturn_t smblib_handle_switcher_power_ok(int irq, void *data)
 		return IRQ_HANDLED;
 
 	if (is_storming(&irq_data->storm_data)) {
-		smblib_err(chg, "Reverse boost detected: voting 0mA to suspend input\n");
-		vote(chg->usb_icl_votable, BOOST_BACK_VOTER, true, 0);
-		vote(chg->awake_votable, BOOST_BACK_VOTER, true, 0);
-		/*
-		 * Remove the boost-back vote after a delay, to avoid
-		 * permanently suspending the input if the boost-back condition
-		 * is unintentionally hit.
-		 */
-		schedule_delayed_work(&chg->bb_removal_work,
-			msecs_to_jiffies(BOOST_BACK_UNVOTE_DELAY_MS));
+		/* This could be a weak charger reduce ICL */
+		if (!is_client_vote_enabled(chg->usb_icl_votable,
+						WEAK_CHARGER_VOTER)) {
+			smblib_err(chg,
+				"Weak charger detected: voting %dmA ICL\n",
+				*chg->weak_chg_icl_ua / 1000);
+			vote(chg->usb_icl_votable, WEAK_CHARGER_VOTER,
+					true, *chg->weak_chg_icl_ua);
+			/*
+			 * reset storm data and set the storm threshold
+			 * to 3 for reverse boost detection.
+			 */
+			update_storm_count(wdata, BOOST_BACK_STORM_COUNT);
+		} else {
+			smblib_err(chg,
+				"Reverse boost detected: voting 0mA to suspend input\n");
+			vote(chg->usb_icl_votable, BOOST_BACK_VOTER, true, 0);
+			vote(chg->awake_votable, BOOST_BACK_VOTER, true, 0);
+			/*
+			 * Remove the boost-back vote after a delay, to avoid
+			 * permanently suspending the input if the boost-back
+			 * condition is unintentionally hit.
+			 */
+			schedule_delayed_work(&chg->bb_removal_work,
+				msecs_to_jiffies(BOOST_BACK_UNVOTE_DELAY_MS));
+		}
 	}
 
 	return IRQ_HANDLED;

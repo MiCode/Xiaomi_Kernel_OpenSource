@@ -64,9 +64,12 @@ enum print_reason {
 #define BATT_PROFILE_VOTER		"BATT_PROFILE_VOTER"
 #define OTG_DELAY_VOTER			"OTG_DELAY_VOTER"
 #define USBIN_I_VOTER			"USBIN_I_VOTER"
+#define WEAK_CHARGER_VOTER		"WEAK_CHARGER_VOTER"
 
 #define VCONN_MAX_ATTEMPTS	3
 #define OTG_MAX_ATTEMPTS	3
+#define BOOST_BACK_STORM_COUNT	3
+#define WEAK_CHG_STORM_COUNT	8
 
 enum smb_mode {
 	PARALLEL_MASTER = 0,
@@ -230,6 +233,7 @@ struct smb_charger {
 	struct smb_chg_freq	chg_freq;
 	int			smb_version;
 	int			otg_delay_ms;
+	int			*weak_chg_icl_ua;
 
 	/* locks */
 	struct mutex		lock;
