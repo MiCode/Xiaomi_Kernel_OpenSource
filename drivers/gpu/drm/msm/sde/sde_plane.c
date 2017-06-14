@@ -1623,7 +1623,12 @@ static void sde_plane_rot_calc_cfg(struct drm_plane *plane,
 		attached_pstate = to_sde_plane_state(attached_state);
 		attached_rstate = &attached_pstate->rot;
 
-		if (attached_rstate->rot_hw != rstate->rot_hw)
+		if (attached_state->fb != state->fb)
+			continue;
+
+		if (sde_plane_get_property(pstate, PLANE_PROP_ROTATION) !=
+			sde_plane_get_property(attached_pstate,
+				PLANE_PROP_ROTATION))
 			continue;
 
 		found++;
@@ -1892,6 +1897,46 @@ static int sde_plane_rot_submit_command(struct drm_plane *plane,
 }
 
 /**
+ * _sde_plane_rot_get_fb - attempt to get previously allocated fb/fbo
+ *	If an fb/fbo was already created, either from a previous frame or
+ *	from another plane in the current commit cycle, attempt to reuse
+ *	it for this commit cycle as well.
+ * @plane: Pointer to drm plane
+ * @cstate: Pointer to crtc state
+ * @rstate: Pointer to rotator plane state
+ */
+static void _sde_plane_rot_get_fb(struct drm_plane *plane,
+		struct drm_crtc_state *cstate,
+		struct sde_plane_rot_state *rstate)
+{
+	struct sde_kms_fbo *fbo;
+	struct drm_framebuffer *fb;
+
+	if (!plane || !cstate || !rstate)
+		return;
+
+	fbo = sde_crtc_res_get(cstate, SDE_CRTC_RES_ROT_OUT_FBO,
+			(u64) &rstate->rot_hw->base);
+	fb = sde_crtc_res_get(cstate, SDE_CRTC_RES_ROT_OUT_FB,
+			(u64) &rstate->rot_hw->base);
+	if (fb && fbo) {
+		SDE_DEBUG("plane%d.%d get fb/fbo\n", plane->base.id,
+				rstate->sequence_id);
+	} else if (fbo) {
+		sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FBO,
+				(u64) &rstate->rot_hw->base);
+		fbo = NULL;
+	} else if (fb) {
+		sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FB,
+				(u64) &rstate->rot_hw->base);
+		fb = NULL;
+	}
+
+	rstate->out_fbo = fbo;
+	rstate->out_fb = fb;
+}
+
+/**
  * sde_plane_rot_prepare_fb - prepare framebuffer of the new state
  *	for rotator (pre-sspp) stage
  * @plane: Pointer to drm plane
@@ -1927,30 +1972,8 @@ static int sde_plane_rot_prepare_fb(struct drm_plane *plane,
 	sde_plane_rot_calc_cfg(plane, new_state);
 
 	/* check if stream buffer is already attached to rotator */
-	if (sde_plane_enabled(new_state)) {
-		struct sde_kms_fbo *fbo;
-		struct drm_framebuffer *fb;
-
-		fbo = sde_crtc_res_get(cstate, SDE_CRTC_RES_ROT_OUT_FBO,
-				(u64) &new_rstate->rot_hw->base);
-		fb = sde_crtc_res_get(cstate, SDE_CRTC_RES_ROT_OUT_FB,
-				(u64) &new_rstate->rot_hw->base);
-		if (fb && fbo) {
-			SDE_DEBUG("plane%d.%d get fb/fbo\n", plane->base.id,
-					new_rstate->sequence_id);
-		} else if (fbo) {
-			sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FBO,
-					(u64) &new_rstate->rot_hw->base);
-			fbo = NULL;
-		} else if (fb) {
-			sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FB,
-					(u64) &new_rstate->rot_hw->base);
-			fb = NULL;
-		}
-
-		new_rstate->out_fbo = fbo;
-		new_rstate->out_fb = fb;
-	}
+	if (sde_plane_enabled(new_state) && !new_rstate->out_fb)
+		_sde_plane_rot_get_fb(plane, cstate, new_rstate);
 
 	/* release buffer if output format configuration changes */
 	if (new_rstate->out_fb &&
@@ -2198,6 +2221,10 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 				plane->base.id, rstate->sequence_id);
 
 		sde_plane_rot_calc_cfg(plane, state);
+
+		/* attempt to reuse stream buffer if already available */
+		if (sde_plane_enabled(state))
+			_sde_plane_rot_get_fb(plane, cstate, rstate);
 
 		ret = sde_plane_rot_submit_command(plane, state,
 				SDE_HW_ROT_CMD_VALIDATE);
