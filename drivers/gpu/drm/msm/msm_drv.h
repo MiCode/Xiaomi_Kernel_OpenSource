@@ -471,8 +471,8 @@ struct msm_drm_event {
 	u8 data[];
 };
 
-/* Commit thread specific structure */
-struct msm_drm_commit {
+/* Commit/Event thread specific structure */
+struct msm_drm_thread {
 	struct drm_device *dev;
 	struct task_struct *thread;
 	unsigned int crtc_id;
@@ -536,7 +536,8 @@ struct msm_drm_private {
 	unsigned int num_crtcs;
 	struct drm_crtc *crtcs[MAX_CRTCS];
 
-	struct msm_drm_commit disp_thread[MAX_CRTCS];
+	struct msm_drm_thread disp_thread[MAX_CRTCS];
+	struct msm_drm_thread event_thread[MAX_CRTCS];
 
 	unsigned int num_encoders;
 	struct drm_encoder *encoders[MAX_ENCODERS];
