@@ -115,6 +115,11 @@ static bool msm_sdw_is_readable_register(struct device *dev, unsigned int reg)
 	return msm_sdw_reg_readable[reg];
 }
 
+static bool msm_sdw_is_writeable_register(struct device *dev, unsigned int reg)
+{
+	return msm_sdw_reg_writeable[reg];
+}
+
 static bool msm_sdw_is_volatile_register(struct device *dev, unsigned int reg)
 {
 	switch (reg) {
@@ -150,6 +155,7 @@ const struct regmap_config msm_sdw_regmap_config = {
 	.reg_defaults = msm_sdw_defaults,
 	.num_reg_defaults = ARRAY_SIZE(msm_sdw_defaults),
 	.max_register = MSM_SDW_MAX_REGISTER,
+	.writeable_reg = msm_sdw_is_writeable_register,
 	.volatile_reg = msm_sdw_is_volatile_register,
 	.readable_reg = msm_sdw_is_readable_register,
 };

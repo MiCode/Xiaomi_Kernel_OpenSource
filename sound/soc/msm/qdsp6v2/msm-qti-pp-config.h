@@ -14,12 +14,11 @@
 
 #include <sound/soc.h>
 int msm_adsp_inform_mixer_ctl(struct snd_soc_pcm_runtime *rtd,
-			const char *mixer_ctl_name,
 			uint32_t *payload);
+int msm_adsp_init_mixer_ctl_pp_event_queue(struct snd_soc_pcm_runtime *rtd);
+int msm_adsp_clean_mixer_ctl_pp_event_queue(struct snd_soc_pcm_runtime *rtd);
 int msm_adsp_stream_cmd_info(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_info *uinfo);
-int msm_adsp_stream_callback_put(struct snd_kcontrol *kcontrol,
-			struct snd_ctl_elem_value *ucontrol);
 int msm_adsp_stream_callback_get(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *ucontrol);
 int msm_adsp_stream_callback_info(struct snd_kcontrol *kcontrol,

@@ -1301,15 +1301,6 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	msm_anlg_cdc_spk_ext_pa_cb(enable_spk_ext_pa, ana_cdc);
 	msm_dig_cdc_hph_comp_cb(msm_config_hph_compander_gpio, dig_cdc);
 
-	mbhc_cfg_ptr->calibration = def_msm_int_wcd_mbhc_cal();
-	if (mbhc_cfg_ptr->calibration) {
-		ret = msm_anlg_cdc_hs_detect(ana_cdc, mbhc_cfg_ptr);
-		if (ret) {
-			pr_err("%s: msm_anlg_cdc_hs_detect failed\n", __func__);
-			kfree(mbhc_cfg_ptr->calibration);
-			return ret;
-		}
-	}
 	card = rtd->card->snd_card;
 	if (!codec_root)
 		codec_root = snd_register_module_info(card->module, "codecs",
@@ -1566,6 +1557,36 @@ static int msm_tdm_snd_hw_params(struct snd_pcm_substream *substream,
 		}
 	}
 end:
+	return ret;
+}
+
+static int msm_snd_card_late_probe(struct snd_soc_card *card)
+{
+	const char *be_dl_name = LPASS_BE_INT0_MI2S_RX;
+	struct snd_soc_codec *ana_cdc;
+	struct snd_soc_pcm_runtime *rtd;
+	int ret = 0;
+
+	rtd = snd_soc_get_pcm_runtime(card, be_dl_name);
+	if (!rtd) {
+		dev_err(card->dev,
+			"%s: snd_soc_get_pcm_runtime for %s failed!\n",
+			__func__, be_dl_name);
+		return -EINVAL;
+	}
+
+	ana_cdc = rtd->codec_dais[ANA_CDC]->codec;
+	mbhc_cfg_ptr->calibration = def_msm_int_wcd_mbhc_cal();
+	if (!mbhc_cfg_ptr->calibration)
+		return -ENOMEM;
+
+	ret = msm_anlg_cdc_hs_detect(ana_cdc, mbhc_cfg_ptr);
+	if (ret) {
+		dev_err(card->dev,
+			"%s: msm_anlg_cdc_hs_detect failed\n", __func__);
+		kfree(mbhc_cfg_ptr->calibration);
+	}
+
 	return ret;
 }
 
@@ -2930,6 +2951,7 @@ static struct snd_soc_card sdm660_card = {
 	.name		= "sdm660-snd-card",
 	.dai_link	= msm_int_dai,
 	.num_links	= ARRAY_SIZE(msm_int_dai),
+	.late_probe	= msm_snd_card_late_probe,
 };
 
 static void msm_disable_int_mclk0(struct work_struct *work)

@@ -30,6 +30,7 @@
 #include <asm/dma.h>
 #include <linux/dma-mapping.h>
 #include <linux/msm_audio_ion.h>
+#include <linux/msm_audio.h>
 
 #include <linux/of_device.h>
 #include <sound/tlv.h>
@@ -227,8 +228,9 @@ static void event_handler(uint32_t opcode,
 		}
 		break;
 	}
-	case ASM_STREAM_PP_EVENT: {
-		pr_debug("%s: ASM_STREAM_PP_EVENT\n", __func__);
+	case ASM_STREAM_PP_EVENT:
+	case ASM_STREAM_CMD_ENCDEC_EVENTS: {
+		pr_debug("%s: ASM_STREAM_EVENT (0x%x)\n", __func__, opcode);
 		if (!substream) {
 			pr_err("%s: substream is NULL.\n", __func__);
 			return;
@@ -240,8 +242,7 @@ static void event_handler(uint32_t opcode,
 			return;
 		}
 
-		ret = msm_adsp_inform_mixer_ctl(rtd, DSP_STREAM_CALLBACK,
-					payload);
+		ret = msm_adsp_inform_mixer_ctl(rtd, payload);
 		if (ret) {
 			pr_err("%s: failed to inform mixer ctl. err = %d\n",
 				__func__, ret);
@@ -691,6 +692,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	prtd->set_channel_map = false;
 	prtd->reset_event = false;
 	runtime->private_data = prtd;
+	msm_adsp_init_mixer_ctl_pp_event_queue(soc_prtd);
 
 	return 0;
 }
@@ -833,6 +835,7 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 	}
 	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->id,
 						SNDRV_PCM_STREAM_PLAYBACK);
+	msm_adsp_clean_mixer_ctl_pp_event_queue(soc_prtd);
 	kfree(prtd);
 	runtime->private_data = NULL;
 
@@ -1074,7 +1077,8 @@ static int msm_pcm_adsp_stream_cmd_put(struct snd_kcontrol *kcontrol,
 	struct msm_plat_data *pdata = dev_get_drvdata(platform->dev);
 	struct snd_pcm_substream *substream;
 	struct msm_audio *prtd;
-	int ret = 0, param_length = 0;
+	int ret = 0;
+	struct msm_adsp_event_data *event_data = NULL;
 
 	if (!pdata) {
 		pr_err("%s pdata is NULL\n", __func__);
@@ -1102,22 +1106,26 @@ static int msm_pcm_adsp_stream_cmd_put(struct snd_kcontrol *kcontrol,
 		goto done;
 	}
 
-	memcpy(&param_length, ucontrol->value.bytes.data,
-		sizeof(param_length));
-	if ((param_length + sizeof(param_length))
-		>= sizeof(ucontrol->value.bytes.data)) {
-		pr_err("%s param length=%d  exceeds limit",
-			__func__, param_length);
+	event_data = (struct msm_adsp_event_data *)ucontrol->value.bytes.data;
+	if ((event_data->event_type < ADSP_STREAM_PP_EVENT) ||
+	    (event_data->event_type >= ADSP_STREAM_EVENT_MAX)) {
+		pr_err("%s: invalid event_type=%d",
+			__func__, event_data->event_type);
 		ret = -EINVAL;
 		goto done;
 	}
 
-	ret = q6asm_send_stream_cmd(prtd->audio_client,
-			ASM_STREAM_CMD_REGISTER_PP_EVENTS,
-			ucontrol->value.bytes.data + sizeof(param_length),
-			param_length);
+	if ((sizeof(struct msm_adsp_event_data) + event_data->payload_len) >=
+					sizeof(ucontrol->value.bytes.data)) {
+		pr_err("%s param length=%d  exceeds limit",
+			__func__, event_data->payload_len);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = q6asm_send_stream_cmd(prtd->audio_client, event_data);
 	if (ret < 0)
-		pr_err("%s: failed to register pp event. err = %d\n",
+		pr_err("%s: failed to send stream event cmd, err = %d\n",
 			__func__, ret);
 done:
 	return ret;
@@ -1187,7 +1195,6 @@ static int msm_pcm_add_audio_adsp_stream_callback_control(
 		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
 		.info = msm_adsp_stream_callback_info,
 		.get = msm_adsp_stream_callback_get,
-		.put = msm_adsp_stream_callback_put,
 		.private_value = 0,
 		}
 	};
@@ -1231,6 +1238,7 @@ static int msm_pcm_add_audio_adsp_stream_callback_control(
 	}
 
 	kctl->private_data = NULL;
+
 free_mixer_str:
 	kfree(mixer_str);
 done:
