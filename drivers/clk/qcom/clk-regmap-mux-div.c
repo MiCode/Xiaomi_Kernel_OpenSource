@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2015, Linaro Limited
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -64,20 +64,26 @@ int __mux_div_set_src_div(struct clk_regmap_mux_div *md, u32 src, u32 div)
 	return -EBUSY;
 }
 
-static void __mux_div_get_src_div(struct clk_regmap_mux_div *md, u32 *src,
+int mux_div_get_src_div(struct clk_regmap_mux_div *md, u32 *src,
 				  u32 *div)
 {
+	int ret = 0;
 	u32 val, __div, __src;
 	const char *name = clk_hw_get_name(&md->clkr.hw);
 
-	regmap_read(md->clkr.regmap, CMD_RCGR + md->reg_offset, &val);
+	ret = regmap_read(md->clkr.regmap, CMD_RCGR + md->reg_offset, &val);
+	if (ret)
+		return ret;
 
 	if (val & CMD_RCGR_DIRTY_CFG) {
 		pr_err("%s: RCG configuration is pending\n", name);
-		return;
+		return -EBUSY;
 	}
 
-	regmap_read(md->clkr.regmap, CFG_RCGR + md->reg_offset, &val);
+	ret = regmap_read(md->clkr.regmap, CFG_RCGR + md->reg_offset, &val);
+	if (ret)
+		return ret;
+
 	__src = (val >> md->src_shift);
 	__src &= BIT(md->src_width) - 1;
 	*src = __src;
@@ -85,6 +91,8 @@ static void __mux_div_get_src_div(struct clk_regmap_mux_div *md, u32 *src,
 	__div = (val >> md->hid_shift);
 	__div &= BIT(md->hid_width) - 1;
 	*div = __div;
+
+	return ret;
 }
 
 static int mux_div_enable(struct clk_hw *hw)
@@ -181,7 +189,7 @@ static u8 mux_div_get_parent(struct clk_hw *hw)
 	const char *name = clk_hw_get_name(hw);
 	u32 i, div, src = 0;
 
-	__mux_div_get_src_div(md, &src, &div);
+	mux_div_get_src_div(md, &src, &div);
 
 	for (i = 0; i < clk_hw_get_num_parents(hw); i++)
 		if (src == md->parent_map[i].cfg)
@@ -222,7 +230,7 @@ static unsigned long mux_div_recalc_rate(struct clk_hw *hw, unsigned long prate)
 	int i, num_parents = clk_hw_get_num_parents(hw);
 	const char *name = clk_hw_get_name(hw);
 
-	__mux_div_get_src_div(md, &src, &div);
+	mux_div_get_src_div(md, &src, &div);
 	for (i = 0; i < num_parents; i++)
 		if (src == md->parent_map[i].cfg) {
 			struct clk_hw *p = clk_hw_get_parent_by_index(hw, i);
