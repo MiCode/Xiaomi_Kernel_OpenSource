@@ -43,6 +43,16 @@ config QCOM_SDM845_LLCC
 	  data required to configure LLCC so that clients can start using the
 	  LLCC slices.
 
+config QCOM_SDM670_LLCC
+	tristate "Qualcomm Technologies, Inc. SDM670 LLCC driver"
+	depends on QCOM_LLCC
+	help
+	  This provides Last level cache controller driver for SDM670.
+	  This driver provides data required to configure LLCC, so that clients
+	  can start using the LLCC slices.
+	  Say yes here to enable llcc driver for SDM670.
+
+
 config QCOM_LLCC_AMON
 	tristate "Qualcomm Technologies, Inc. LLCC Activity Monitor(AMON) driver"
 	depends on QCOM_LLCC
