@@ -293,23 +293,27 @@ static int update_userspace_power(struct sched_params __user *argp)
 	struct cpu_static_info *sp, *clear_sp;
 	int cpumask, cluster;
 	bool pdata_valid[NR_CPUS] = {0};
+	bool cpu_found = false;
 
 	get_user(cpumask, &argp->cpumask);
 	get_user(cluster, &argp->cluster);
 
 	pr_debug("%s: cpumask %d, cluster: %d\n", __func__, cpumask,
 					cluster);
-	for (i = 0; i < MAX_CORES_PER_CLUSTER; i++, cpumask >>= 1) {
+	for (i = 0; cpumask > 0; i++, cpumask >>= 1) {
 		if (!(cpumask & 0x01))
 			continue;
 
 		for_each_possible_cpu(cpu) {
-			if ((cpu_topology[cpu].core_id != i) &&
+			if ((cpu_topology[cpu].core_id != i) ||
 				(cpu_topology[cpu].cluster_id != cluster))
 				continue;
 
+			cpu_found = true;
 			break;
 		}
+		if (cpu_found)
+			break;
 	}
 
 	if ((cpu < 0) || (cpu >= num_possible_cpus()))
@@ -346,7 +350,7 @@ static int update_userspace_power(struct sched_params __user *argp)
 	 */
 	get_user(cpumask, &argp->cpumask);
 	spin_lock(&update_lock);
-	for (i = 0; i < MAX_CORES_PER_CLUSTER; i++, cpumask >>= 1) {
+	for (i = 0; cpumask > 0; i++, cpumask >>= 1) {
 		if (!(cpumask & 0x01))
 			continue;
 		for_each_possible_cpu(cpu) {
@@ -396,6 +400,7 @@ static long msm_core_ioctl(struct file *file, unsigned int cmd,
 	struct sched_params __user *argp = (struct sched_params __user *)arg;
 	int i, cpu = num_possible_cpus();
 	int cluster, cpumask;
+	bool cpu_found = false;
 
 	if (!argp)
 		return -EINVAL;
@@ -416,8 +421,11 @@ static long msm_core_ioctl(struct file *file, unsigned int cmd,
 				(cpu_topology[cpu].cluster_id != cluster)))
 					continue;
 
+				cpu_found = true;
 				break;
 			}
+			if (cpu_found)
+				break;
 		}
 		if (cpu >= num_possible_cpus())
 			break;
