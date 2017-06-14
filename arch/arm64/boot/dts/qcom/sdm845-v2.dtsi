@@ -20,3 +20,19 @@
 &spmi_debug_bus {
 	status = "ok";
 };
+
+&clock_gcc {
+	compatible = "qcom,gcc-sdm845-v2";
+};
+
+&clock_camcc {
+	compatible = "qcom,cam_cc-sdm845-v2";
+};
+
+&clock_dispcc {
+	compatible = "qcom,dispcc-sdm845-v2";
+};
+
+&clock_videocc {
+	compatible = "qcom,video_cc-sdm845-v2";
+};
