@@ -25,6 +25,7 @@ bool use_psci;
 enum lpm_type {
 	IDLE = 0,
 	SUSPEND,
+	LATENCY,
 	LPM_TYPE_NR
 };
 
@@ -36,6 +37,7 @@ struct lpm_type_str {
 static const struct lpm_type_str lpm_types[] = {
 	{IDLE, "idle_enabled"},
 	{SUSPEND, "suspend_enabled"},
+	{LATENCY, "latency_us"},
 };
 
 static DEFINE_PER_CPU(uint32_t *, max_residency);
@@ -67,6 +69,9 @@ static struct lpm_level_avail *get_avail_ptr(struct kobject *kobj,
 	else if (!strcmp(attr->attr.name, lpm_types[SUSPEND].str))
 		avail = container_of(attr, struct lpm_level_avail,
 					suspend_enabled_attr);
+	else if (!strcmp(attr->attr.name, lpm_types[LATENCY].str))
+		avail = container_of(attr, struct lpm_level_avail,
+					latency_attr);
 
 	return avail;
 }
@@ -163,6 +168,28 @@ uint32_t *get_per_cpu_min_residency(int cpu)
 {
 	return per_cpu(min_residency, cpu);
 }
+
+static ssize_t lpm_latency_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	int ret = 0;
+	struct kernel_param kp;
+	struct lpm_level_avail *avail = get_avail_ptr(kobj, attr);
+
+	if (!avail)
+		pr_info("Error\n");
+
+	kp.arg = &avail->latency_us;
+
+	ret = param_get_uint(buf, &kp);
+	if (ret > 0) {
+		strlcat(buf, "\n", PAGE_SIZE);
+		ret++;
+	}
+
+	return ret;
+}
+
 ssize_t lpm_enable_show(struct kobject *kobj, struct kobj_attribute *attr,
 				char *buf)
 {
@@ -239,9 +266,16 @@ static int create_lvl_avail_nodes(const char *name,
 	avail->suspend_enabled_attr.show = lpm_enable_show;
 	avail->suspend_enabled_attr.store = lpm_enable_store;
 
+	sysfs_attr_init(&avail->latency_attr.attr);
+	avail->latency_attr.attr.name = lpm_types[LATENCY].str;
+	avail->latency_attr.attr.mode = 0444;
+	avail->latency_attr.show = lpm_latency_show;
+	avail->latency_attr.store = NULL;
+
 	attr[0] = &avail->idle_enabled_attr.attr;
 	attr[1] = &avail->suspend_enabled_attr.attr;
-	attr[2] = NULL;
+	attr[2] = &avail->latency_attr.attr;
+	attr[3] = NULL;
 	attr_group->attrs = attr;
 
 	ret = sysfs_create_group(kobj, attr_group);
@@ -301,6 +335,7 @@ static int create_cpu_lvl_nodes(struct lpm_cluster *p, struct kobject *parent)
 		 */
 		for (i = 1; i < p->cpu->nlevels; i++) {
 
+			level_list[i].latency_us = p->levels[i].pwr.latency_us;
 			ret = create_lvl_avail_nodes(p->cpu->levels[i].name,
 					cpu_kobj[cpu_idx], &level_list[i],
 					(void *)p->cpu, cpu, true);
@@ -336,6 +371,7 @@ int create_cluster_lvl_nodes(struct lpm_cluster *p, struct kobject *kobj)
 		return -ENOMEM;
 
 	for (i = 0; i < p->nlevels; i++) {
+		p->levels[i].available.latency_us = p->levels[i].pwr.latency_us;
 		ret = create_lvl_avail_nodes(p->levels[i].level_name,
 				cluster_kobj, &p->levels[i].available,
 				(void *)p, 0, false);

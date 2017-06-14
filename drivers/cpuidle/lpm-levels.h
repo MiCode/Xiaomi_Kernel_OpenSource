@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -57,9 +57,11 @@ struct lpm_cpu {
 struct lpm_level_avail {
 	bool idle_enabled;
 	bool suspend_enabled;
+	uint32_t latency_us;
 	struct kobject *kobj;
 	struct kobj_attribute idle_enabled_attr;
 	struct kobj_attribute suspend_enabled_attr;
+	struct kobj_attribute latency_attr;
 	void *data;
 	int idx;
 	bool cpu_node;
