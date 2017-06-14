@@ -318,37 +318,6 @@ struct cam_cdm_utils_ops CDM170_ops = {
 	cdm_write_genirq,
 };
 
-void cam_cdm_data_alignement_check(void)
-{
-	BUILD_BUG_ON(sizeof(struct cdm_dmi_cmd) !=
-		(CAM_CDM_DWORD * cdm_get_cmd_header_size(CAM_CDM_CMD_DMI)));
-	BUILD_BUG_ON(sizeof(struct cdm_regcontinuous_cmd) !=
-		(CAM_CDM_DWORD *
-		cdm_get_cmd_header_size(CAM_CDM_CMD_REG_CONT)));
-	BUILD_BUG_ON(sizeof(struct cdm_regrandom_cmd) !=
-		(CAM_CDM_DWORD *
-		cdm_get_cmd_header_size(CAM_CDM_CMD_REG_RANDOM)));
-	BUILD_BUG_ON(sizeof(struct cdm_indirect_cmd) !=
-		(CAM_CDM_DWORD *
-		cdm_get_cmd_header_size(CAM_CDM_CMD_BUFF_INDIRECT)));
-	BUILD_BUG_ON(sizeof(struct cdm_genirq_cmd) !=
-		(CAM_CDM_DWORD *
-		cdm_get_cmd_header_size(CAM_CDM_CMD_GEN_IRQ)));
-	BUILD_BUG_ON(sizeof(struct cdm_wait_event_cmd) !=
-		(CAM_CDM_DWORD *
-		cdm_get_cmd_header_size(CAM_CDM_CMD_WAIT_EVENT)));
-	BUILD_BUG_ON(sizeof(struct cdm_changebase_cmd) !=
-		(CAM_CDM_DWORD *
-		cdm_get_cmd_header_size(CAM_CDM_CMD_CHANGE_BASE)));
-	BUILD_BUG_ON(sizeof(struct  cdm_perf_ctrl_cmd) !=
-		(CAM_CDM_DWORD *
-		cdm_get_cmd_header_size(CAM_CDM_CMD_PERF_CTRL)));
-	BUILD_BUG_ON(sizeof(struct cdm_dmi_cmd) !=
-		(CAM_CDM_DWORD * cdm_get_cmd_header_size(CAM_CDM_CMD_DMI_32)));
-	BUILD_BUG_ON(sizeof(struct cdm_dmi_cmd) !=
-		(CAM_CDM_DWORD * cdm_get_cmd_header_size(CAM_CDM_CMD_DMI_64)));
-}
-
 int cam_cdm_get_ioremap_from_base(uint32_t hw_base,
 	uint32_t base_array_size,
 	struct cam_soc_reg_map *base_table[CAM_SOC_MAX_BLOCK],
