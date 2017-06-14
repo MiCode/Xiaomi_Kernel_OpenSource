@@ -461,4 +461,14 @@ struct msm_hwacc_effects_config {
 	__s32 topology;
 };
 
+#define ADSP_STREAM_PP_EVENT     0
+#define ADSP_STREAM_ENCDEC_EVENT 1
+#define ADSP_STREAM_EVENT_MAX    2
+
+struct msm_adsp_event_data {
+	__u32 event_type;
+	__u32 payload_len;
+	__u8 payload[0];
+};
+
 #endif
