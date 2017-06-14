@@ -708,7 +708,7 @@ static int msm_csid_release(struct csid_device *csid_dev)
 	return 0;
 }
 
-static int32_t msm_csid_cmd(struct csid_device *csid_dev, void __user *arg)
+static int32_t msm_csid_cmd(struct csid_device *csid_dev, void *arg)
 {
 	int rc = 0;
 	struct csid_cfg_data *cdata = (struct csid_cfg_data *)arg;
@@ -728,7 +728,7 @@ static int32_t msm_csid_cmd(struct csid_device *csid_dev, void __user *arg)
 	case CSID_TESTMODE_CFG: {
 		csid_dev->is_testmode = 1;
 		if (copy_from_user(&csid_dev->testmode_params,
-			(void *)cdata->cfg.csid_testmode_params,
+			(void __user *)cdata->cfg.csid_testmode_params,
 			sizeof(struct msm_camera_csid_testmode_parms))) {
 			pr_err("%s: %d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
@@ -741,7 +741,7 @@ static int32_t msm_csid_cmd(struct csid_device *csid_dev, void __user *arg)
 		int i = 0;
 
 		if (copy_from_user(&csid_params,
-			(void *)cdata->cfg.csid_params,
+			(void __user *)cdata->cfg.csid_params,
 			sizeof(struct msm_camera_csid_params))) {
 			pr_err("%s: %d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
@@ -790,7 +790,7 @@ static int32_t msm_csid_cmd(struct csid_device *csid_dev, void __user *arg)
 		int i = 0;
 
 		if (copy_from_user(&csid_params,
-				(void *)cdata->cfg.csid_params,
+				(void __user *)cdata->cfg.csid_params,
 				sizeof(struct msm_camera_csid_params))) {
 			pr_err("%s: %d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
@@ -892,7 +892,7 @@ static long msm_csid_subdev_ioctl(struct v4l2_subdev *sd,
 
 
 #ifdef CONFIG_COMPAT
-static int32_t msm_csid_cmd32(struct csid_device *csid_dev, void __user *arg)
+static int32_t msm_csid_cmd32(struct csid_device *csid_dev, void *arg)
 {
 	int rc = 0;
 	struct csid_cfg_data32 *arg32 =  (struct csid_cfg_data32 *) (arg);
@@ -913,7 +913,8 @@ static int32_t msm_csid_cmd32(struct csid_device *csid_dev, void __user *arg)
 	case CSID_TESTMODE_CFG: {
 		csid_dev->is_testmode = 1;
 		if (copy_from_user(&csid_dev->testmode_params,
-			(void *)compat_ptr(arg32->cfg.csid_testmode_params),
+			(void __user *)
+			compat_ptr(arg32->cfg.csid_testmode_params),
 			sizeof(struct msm_camera_csid_testmode_parms))) {
 			pr_err("%s: %d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
@@ -926,7 +927,7 @@ static int32_t msm_csid_cmd32(struct csid_device *csid_dev, void __user *arg)
 		struct msm_camera_csid_params32 csid_params32;
 
 		if (copy_from_user(&csid_params32,
-			(void *)compat_ptr(arg32->cfg.csid_params),
+			(void __user *)compat_ptr(arg32->cfg.csid_params),
 			sizeof(struct msm_camera_csid_params32))) {
 			pr_err("%s: %d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
@@ -975,7 +976,7 @@ static int32_t msm_csid_cmd32(struct csid_device *csid_dev, void __user *arg)
 		struct msm_camera_csid_params32 csid_params32;
 
 		if (copy_from_user(&csid_params32,
-				(void *)compat_ptr(arg32->cfg.csid_params),
+			(void __user *)compat_ptr(arg32->cfg.csid_params),
 				sizeof(struct msm_camera_csid_params32))) {
 			pr_err("%s: %d failed\n", __func__, __LINE__);
 			rc = -EFAULT;

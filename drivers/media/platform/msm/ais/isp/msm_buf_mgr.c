@@ -76,7 +76,7 @@ static int msm_buf_check_head_sanity(struct msm_isp_bufq *bufq)
 	return rc;
 }
 
-struct msm_isp_bufq *msm_isp_get_bufq(
+static struct msm_isp_bufq *msm_isp_get_bufq(
 	struct msm_isp_buf_mgr *buf_mgr,
 	uint32_t bufq_handle)
 {
@@ -161,7 +161,7 @@ static int msm_isp_free_bufq_handle(struct msm_isp_buf_mgr *buf_mgr,
 
 	/* Set everything except lock to 0 */
 	bufq->bufq_handle = 0;
-	bufq->bufs = 0;
+	bufq->bufs = NULL;
 	bufq->vfe_id = 0;
 	bufq->output_id = 0;
 	bufq->num_bufs = 0;

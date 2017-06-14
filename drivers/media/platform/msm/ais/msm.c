@@ -48,10 +48,10 @@ bool is_daemon_status = true;
 
 /* config node envent queue */
 static struct v4l2_fh  *msm_eventq;
-spinlock_t msm_eventq_lock;
+static spinlock_t msm_eventq_lock;
 
 static struct pid *msm_pid;
-spinlock_t msm_pid_lock;
+static spinlock_t msm_pid_lock;
 
 /*
  * It takes 20 bytes + NULL character to write the
@@ -62,7 +62,7 @@ spinlock_t msm_pid_lock;
 #define msm_dequeue(queue, type, member) ({				\
 	unsigned long flags;					\
 	struct msm_queue_head *__q = (queue);			\
-	type *node = 0;				\
+	type *node = NULL;				\
 	spin_lock_irqsave(&__q->lock, flags);			\
 	if (!list_empty(&__q->list)) {				\
 		__q->len--;					\
@@ -78,7 +78,7 @@ spinlock_t msm_pid_lock;
 #define msm_delete_sd_entry(queue, type, member, q_node) ({		\
 	unsigned long flags;					\
 	struct msm_queue_head *__q = (queue);			\
-	type *node = 0;				\
+	type *node = NULL;				\
 	spin_lock_irqsave(&__q->lock, flags);			\
 	if (!list_empty(&__q->list)) {				\
 		list_for_each_entry(node, &__q->list, member)	\
@@ -95,7 +95,7 @@ spinlock_t msm_pid_lock;
 #define msm_delete_entry(queue, type, member, q_node) ({		\
 	unsigned long flags;					\
 	struct msm_queue_head *__q = (queue);			\
-	type *node = 0;				\
+	type *node = NULL;				\
 	spin_lock_irqsave(&__q->lock, flags);			\
 	if (!list_empty(&__q->list)) {				\
 		list_for_each_entry(node, &__q->list, member)	\
@@ -131,7 +131,7 @@ typedef int (*msm_queue_func)(void *d1, void *d2);
 #define msm_queue_traverse_action(queue, type, member, func, data) do {\
 	unsigned long flags;					\
 	struct msm_queue_head *__q = (queue);			\
-	type *node = 0; \
+	type *node = NULL; \
 	msm_queue_func __f = (func); \
 	spin_lock_irqsave(&__q->lock, flags);			\
 	if (!list_empty(&__q->list)) { \
@@ -147,7 +147,7 @@ typedef int (*msm_queue_find_func)(void *d1, void *d2);
 #define msm_queue_find(queue, type, member, func, data) ({\
 	unsigned long flags;					\
 	struct msm_queue_head *__q = (queue);			\
-	type *node = 0; \
+	type *node = NULL; \
 	typeof(node) __ret = NULL; \
 	msm_queue_find_func __f = (func); \
 	spin_lock_irqsave(&__q->lock, flags);			\
@@ -1119,7 +1119,7 @@ long msm_copy_camera_private_ioctl_args(unsigned long arg,
 		return -EIO;
 
 	if (copy_from_user(&up_ioctl,
-		(struct msm_camera_private_ioctl_arg *)arg,
+		(void __user *)arg,
 		sizeof(struct msm_camera_private_ioctl_arg)))
 		return -EFAULT;
 

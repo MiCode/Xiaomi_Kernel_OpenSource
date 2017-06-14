@@ -41,7 +41,7 @@ static int msm_vb2_queue_setup(struct vb2_queue *q,
 	return 0;
 }
 
-int msm_vb2_buf_init(struct vb2_buffer *vb)
+static int msm_vb2_buf_init(struct vb2_buffer *vb)
 {
 	struct msm_stream *stream;
 	struct msm_vb2_buffer *msm_vb2_buf;

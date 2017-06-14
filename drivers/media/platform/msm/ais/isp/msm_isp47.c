@@ -2708,7 +2708,6 @@ struct msm_vfe_hardware_info vfe47_hw_info = {
 			.process_camif_irq = msm_vfe47_process_input_irq,
 			.process_reset_irq = msm_vfe47_process_reset_irq,
 			.process_halt_irq = msm_vfe47_process_halt_irq,
-			.process_reset_irq = msm_vfe47_process_reset_irq,
 			.process_reg_update = msm_vfe47_process_reg_update,
 			.process_axi_irq = msm_isp_process_axi_irq,
 			.process_stats_irq = msm_isp_process_stats_irq,
