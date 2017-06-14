@@ -237,8 +237,8 @@ static void disable_unprepare_rcg_srcs(struct clk *curr, struct clk *new)
  *   rate = ----------- x  ---
  *            hid_div       n
  */
-static unsigned long
-calc_rate(unsigned long rate, u32 m, u32 n, u32 mode, u32 hid_div)
+unsigned long
+clk_rcg2_calc_rate(unsigned long rate, u32 m, u32 n, u32 mode, u32 hid_div)
 {
 	if (hid_div) {
 		rate *= 2;
@@ -254,6 +254,7 @@ calc_rate(unsigned long rate, u32 m, u32 n, u32 mode, u32 hid_div)
 
 	return rate;
 }
+EXPORT_SYMBOL(clk_rcg2_calc_rate);
 
 static unsigned long
 clk_rcg2_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
@@ -288,7 +289,7 @@ clk_rcg2_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 	hid_div = cfg >> CFG_SRC_DIV_SHIFT;
 	hid_div &= mask;
 
-	return calc_rate(parent_rate, m, n, mode, hid_div);
+	return clk_rcg2_calc_rate(parent_rate, m, n, mode, hid_div);
 }
 
 static int _freq_tbl_determine_rate(struct clk_hw *hw, const struct freq_tbl *f,
@@ -837,7 +838,7 @@ static int clk_edp_pixel_determine_rate(struct clk_hw *hw,
 		hid_div >>= CFG_SRC_DIV_SHIFT;
 		hid_div &= mask;
 
-		req->rate = calc_rate(req->best_parent_rate,
+		req->rate = clk_rcg2_calc_rate(req->best_parent_rate,
 				      frac->num, frac->den,
 				      !!frac->den, hid_div);
 		return 0;
@@ -877,7 +878,7 @@ static int clk_byte_determine_rate(struct clk_hw *hw,
 	div = DIV_ROUND_UP((2 * parent_rate), req->rate) - 1;
 	div = min_t(u32, div, mask);
 
-	req->rate = calc_rate(parent_rate, 0, 0, 0, div);
+	req->rate = clk_rcg2_calc_rate(parent_rate, 0, 0, 0, div);
 
 	return 0;
 }
@@ -935,7 +936,7 @@ static int clk_byte2_determine_rate(struct clk_hw *hw,
 	div = DIV_ROUND_UP((2 * parent_rate), rate) - 1;
 	div = min_t(u32, div, mask);
 
-	req->rate = calc_rate(parent_rate, 0, 0, 0, div);
+	req->rate = clk_rcg2_calc_rate(parent_rate, 0, 0, 0, div);
 
 	return 0;
 }
@@ -1394,7 +1395,7 @@ int clk_rcg2_get_dfs_clock_rate(struct clk_rcg2 *clk, struct device *dev,
 		dfs_freq_tbl[i].n = n;
 
 		/* calculate the final frequency */
-		calc_freq = calc_rate(prate, dfs_freq_tbl[i].m,
+		calc_freq = clk_rcg2_calc_rate(prate, dfs_freq_tbl[i].m,
 						dfs_freq_tbl[i].n, mode,
 						dfs_freq_tbl[i].pre_div);
 
