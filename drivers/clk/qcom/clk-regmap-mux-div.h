@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2015, Linaro Limited
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -61,5 +61,6 @@ struct clk_regmap_mux_div {
 
 extern const struct clk_ops clk_regmap_mux_div_ops;
 int __mux_div_set_src_div(struct clk_regmap_mux_div *md, u32 src, u32 div);
+int mux_div_get_src_div(struct clk_regmap_mux_div *md, u32 *src, u32 *div);
 
 #endif
