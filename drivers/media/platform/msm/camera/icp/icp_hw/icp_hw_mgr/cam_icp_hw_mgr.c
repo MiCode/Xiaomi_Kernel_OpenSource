@@ -1752,7 +1752,7 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 
 	bitmap_size = BITS_TO_LONGS(CAM_FRAME_CMD_MAX) * sizeof(long);
 	ctx_data->hfi_frame_process.bitmap =
-			kzalloc(sizeof(bitmap_size), GFP_KERNEL);
+			kzalloc(bitmap_size, GFP_KERNEL);
 	ctx_data->hfi_frame_process.bits = bitmap_size * BITS_PER_BYTE;
 	mutex_init(&ctx_data->hfi_frame_process.lock);
 	mutex_unlock(&ctx_data->ctx_mutex);
