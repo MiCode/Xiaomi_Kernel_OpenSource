@@ -58,7 +58,6 @@ enum ipa_uc_offload_state {
 	IPA_UC_OFFLOAD_STATE_INVALID,
 	IPA_UC_OFFLOAD_STATE_INITIALIZED,
 	IPA_UC_OFFLOAD_STATE_UP,
-	IPA_UC_OFFLOAD_STATE_DOWN,
 };
 
 struct ipa_uc_offload_ctx {
@@ -413,8 +412,7 @@ int ipa_uc_offload_conn_pipes(struct ipa_uc_offload_conn_in_params *inp,
 		return -EINVAL;
 	}
 
-	if (offload_ctx->state != IPA_UC_OFFLOAD_STATE_INITIALIZED &&
-		offload_ctx->state != IPA_UC_OFFLOAD_STATE_DOWN) {
+	if (offload_ctx->state != IPA_UC_OFFLOAD_STATE_INITIALIZED) {
 		IPA_UC_OFFLOAD_ERR("Invalid state %d\n", offload_ctx->state);
 		return -EPERM;
 	}
@@ -471,7 +469,7 @@ static int ipa_uc_ntn_disconn_pipes(struct ipa_uc_offload_ctx *ntn_ctx)
 	int ipa_ep_idx_ul, ipa_ep_idx_dl;
 	int ret = 0;
 
-	ntn_ctx->state = IPA_UC_OFFLOAD_STATE_DOWN;
+	ntn_ctx->state = IPA_UC_OFFLOAD_STATE_INITIALIZED;
 
 	ret = ipa_rm_release_resource(IPA_RM_RESOURCE_ETHERNET_PROD);
 	if (ret) {
@@ -597,7 +595,7 @@ int ipa_uc_offload_cleanup(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	if (offload_ctx->state != IPA_UC_OFFLOAD_STATE_DOWN) {
+	if (offload_ctx->state != IPA_UC_OFFLOAD_STATE_INITIALIZED) {
 		IPA_UC_OFFLOAD_ERR("Invalid State %d\n", offload_ctx->state);
 		return -EINVAL;
 	}
