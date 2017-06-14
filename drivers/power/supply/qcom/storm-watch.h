@@ -37,4 +37,5 @@ struct storm_watch {
 
 bool is_storming(struct storm_watch *data);
 void reset_storm_count(struct storm_watch *data);
+void update_storm_count(struct storm_watch *data, int max_count);
 #endif
