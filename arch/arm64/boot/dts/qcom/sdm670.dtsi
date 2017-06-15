@@ -1009,6 +1009,11 @@
 				<CONTROL_TCS   1>;
 	};
 
+	system_pm {
+		compatible = "qcom,system-pm";
+		mboxes = <&apps_rsc 0>;
+	};
+
 	dcc: dcc_v2@10a2000 {
 		compatible = "qcom,dcc_v2";
 		reg = <0x10a2000 0x1000>,
