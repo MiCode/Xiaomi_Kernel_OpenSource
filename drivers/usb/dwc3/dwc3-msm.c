@@ -278,7 +278,7 @@ static inline bool is_valid_usb_speed(struct dwc3 *dwc, int speed)
  *
  * @return u32
  */
-static inline u32 dwc3_msm_read_reg(void *base, u32 offset)
+static inline u32 dwc3_msm_read_reg(void __iomem *base, u32 offset)
 {
 	u32 val = ioread32(base + offset);
 	return val;
@@ -293,11 +293,11 @@ static inline u32 dwc3_msm_read_reg(void *base, u32 offset)
  *
  * @return u32
  */
-static inline u32 dwc3_msm_read_reg_field(void *base,
+static inline u32 dwc3_msm_read_reg_field(void __iomem *base,
 					  u32 offset,
 					  const u32 mask)
 {
-	u32 shift = find_first_bit((void *)&mask, 32);
+	u32 shift = ffs(mask);
 	u32 val = ioread32(base + offset);
 
 	val &= mask;		/* clear other bits */
@@ -314,7 +314,7 @@ static inline u32 dwc3_msm_read_reg_field(void *base,
  * @val - value to write.
  *
  */
-static inline void dwc3_msm_write_reg(void *base, u32 offset, u32 val)
+static inline void dwc3_msm_write_reg(void __iomem *base, u32 offset, u32 val)
 {
 	iowrite32(val, base + offset);
 }
@@ -328,7 +328,7 @@ static inline void dwc3_msm_write_reg(void *base, u32 offset, u32 val)
  * @val - value to write.
  *
  */
-static inline void dwc3_msm_write_reg_field(void *base, u32 offset,
+static inline void dwc3_msm_write_reg_field(void __iomem *base, u32 offset,
 					    const u32 mask, u32 val)
 {
 	u32 shift = find_first_bit((void *)&mask, 32);
@@ -348,7 +348,7 @@ static inline void dwc3_msm_write_reg_field(void *base, u32 offset,
  * @val - value to write.
  *
  */
-static inline void dwc3_msm_write_readback(void *base, u32 offset,
+static inline void dwc3_msm_write_readback(void __iomem *base, u32 offset,
 					    const u32 mask, u32 val)
 {
 	u32 write_val, tmp = ioread32(base + offset);
