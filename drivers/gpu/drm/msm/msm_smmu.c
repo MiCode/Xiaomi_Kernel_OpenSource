@@ -229,6 +229,11 @@ static int msm_smmu_map_dma_buf(struct msm_mmu *mmu, struct sg_table *sgt,
 	unsigned long attrs = 0x0;
 	int ret;
 
+	if (!sgt || !client) {
+		DRM_ERROR("sg table is invalid\n");
+		return -ENOMEM;
+	}
+
 	if (flags & MSM_BO_KEEPATTRS)
 		attrs |= DMA_ATTR_IOMMU_USE_UPSTREAM_HINT;
 
@@ -255,6 +260,11 @@ static void msm_smmu_unmap_dma_buf(struct msm_mmu *mmu, struct sg_table *sgt,
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
+
+	if (!sgt || !client) {
+		DRM_ERROR("sg table is invalid\n");
+		return;
+	}
 
 	if (sgt && sgt->sgl) {
 		DRM_DEBUG("%pad/0x%x/0x%x\n", &sgt->sgl->dma_address,

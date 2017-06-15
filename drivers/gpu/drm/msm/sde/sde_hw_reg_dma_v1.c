@@ -447,6 +447,7 @@ static int write_kick_off_v1(struct sde_reg_dma_kickoff_cfg *cfg)
 	u32 cmd1;
 	struct sde_hw_blk_reg_map hw;
 
+	memset(&hw, 0, sizeof(hw));
 	cmd1 = (cfg->op == REG_DMA_READ) ?
 		(dspp_read_sel[cfg->block_select] << 30) : 0;
 	cmd1 |= (cfg->last_command) ? BIT(24) : 0;
@@ -547,6 +548,7 @@ int reset_v1(struct sde_hw_ctl *ctl)
 		return -EINVAL;
 	}
 
+	memset(&hw, 0, sizeof(hw));
 	index = ctl->idx - CTL_0;
 	SET_UP_REG_DMA_REG(hw, reg_dma);
 	SDE_REG_WRITE(&hw, REG_DMA_OP_MODE_OFF, BIT(0));

@@ -367,7 +367,7 @@ static void _sde_plane_set_qos_lut(struct drm_plane *plane,
 		total_fl = _sde_plane_calc_fill_level(plane, fmt,
 				psde->pipe_cfg.src_rect.w);
 
-		if (SDE_FORMAT_IS_LINEAR(fmt))
+		if (fmt && SDE_FORMAT_IS_LINEAR(fmt))
 			lut_usage = SDE_QOS_LUT_USAGE_LINEAR;
 		else
 			lut_usage = SDE_QOS_LUT_USAGE_MACROTILE;
@@ -428,7 +428,7 @@ static void _sde_plane_set_danger_lut(struct drm_plane *plane,
 				fb->modifier,
 				drm_format_num_planes(fb->pixel_format));
 
-		if (SDE_FORMAT_IS_LINEAR(fmt)) {
+		if (fmt && SDE_FORMAT_IS_LINEAR(fmt)) {
 			danger_lut = psde->catalog->perf.danger_lut_tbl
 					[SDE_QOS_LUT_USAGE_LINEAR];
 			safe_lut = psde->catalog->perf.safe_lut_tbl

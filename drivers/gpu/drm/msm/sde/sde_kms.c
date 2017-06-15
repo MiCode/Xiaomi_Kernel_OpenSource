@@ -459,13 +459,15 @@ static void sde_kms_wait_for_commit_done(struct msm_kms *kms,
 		struct drm_crtc *crtc)
 {
 	struct drm_encoder *encoder;
-	struct drm_device *dev = crtc->dev;
+	struct drm_device *dev;
 	int ret;
 
 	if (!kms || !crtc || !crtc->state) {
 		SDE_ERROR("invalid params\n");
 		return;
 	}
+
+	dev = crtc->dev;
 
 	if (!crtc->state->enable) {
 		SDE_DEBUG("[crtc:%d] not enable\n", crtc->base.id);
