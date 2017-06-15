@@ -54,6 +54,10 @@ struct hdmi {
 
 	void __iomem *mmio;
 	void __iomem *qfprom_mmio;
+	void __iomem *hdcp_mmio;
+	u32 mmio_len;
+	u32 qfprom_mmio_len;
+	u32 hdcp_mmio_len;
 	phys_addr_t mmio_phy_addr;
 
 	struct regulator **hpd_regs;
@@ -91,7 +95,7 @@ struct hdmi_platform_config {
 	struct hdmi_phy *(*phy_init)(struct hdmi *hdmi);
 	const char *mmio_name;
 	const char *qfprom_mmio_name;
-
+	const char *hdcp_mmio_name;
 	/* regulators that need to be on for hpd: */
 	const char **hpd_reg_names;
 	int hpd_reg_cnt;
