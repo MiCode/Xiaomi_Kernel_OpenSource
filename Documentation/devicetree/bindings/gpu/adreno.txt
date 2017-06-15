@@ -134,6 +134,9 @@ Optional Properties:
 				rendering thread is running on masked CPUs.
 				Bit 0 is for CPU-0, bit 1 is for CPU-1...
 
+- qcom,l2pc-update-queue:
+				Disables L2PC on masked CPUs at queue time when it's true.
+
 - qcom,snapshot-size:
 				Specify the size of snapshot in bytes. This will override
 				snapshot size defined in the driver code.
