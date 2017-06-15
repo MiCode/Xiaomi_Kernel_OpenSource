@@ -23,3 +23,7 @@
 &hsic_host {
 	status = "ok";
 };
+
+&emac_lan_vreg{
+	regulator-always-on;
+};
