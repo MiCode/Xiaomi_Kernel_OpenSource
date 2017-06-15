@@ -65,7 +65,7 @@ static void convert_to_dsi_mode(const struct drm_display_mode *drm_mode,
 		dsi_mode->dsi_mode_flags |= DSI_MODE_FLAG_VRR;
 }
 
-static void convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
+void dsi_convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
 				struct drm_display_mode *drm_mode)
 {
 	memset(drm_mode, 0, sizeof(*drm_mode));
@@ -298,7 +298,7 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 			dsi_mode.dsi_mode_flags |= DSI_MODE_FLAG_DMS;
 	}
 
-	convert_to_drm_mode(&dsi_mode, adjusted_mode);
+	dsi_convert_to_drm_mode(&dsi_mode, adjusted_mode);
 
 	return true;
 }
@@ -566,7 +566,7 @@ int dsi_connector_get_modes(struct drm_connector *connector,
 		struct drm_display_mode *m;
 
 		memset(&drm_mode, 0x0, sizeof(drm_mode));
-		convert_to_drm_mode(&modes[i], &drm_mode);
+		dsi_convert_to_drm_mode(&modes[i], &drm_mode);
 		m = drm_mode_duplicate(connector->dev, &drm_mode);
 		if (!m) {
 			pr_err("failed to add mode %ux%u\n",

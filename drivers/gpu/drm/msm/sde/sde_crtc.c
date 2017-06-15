@@ -5856,3 +5856,15 @@ static int sde_crtc_idle_interrupt_handler(struct drm_crtc *crtc_drm,
 {
 	return 0;
 }
+
+/**
+ * sde_crtc_update_cont_splash_mixer_settings - update mixer settings
+ *	during device bootup for cont_splash use case
+ * @crtc: Pointer to drm crtc structure
+ */
+void sde_crtc_update_cont_splash_mixer_settings(
+		struct drm_crtc *crtc)
+{
+	_sde_crtc_setup_mixers(crtc);
+	crtc->enabled = true;
+}

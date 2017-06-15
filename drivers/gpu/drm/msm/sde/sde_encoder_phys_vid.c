@@ -501,6 +501,21 @@ static void _sde_encoder_phys_vid_setup_irq_hw_idx(
 		irq->hw_idx = phys_enc->intf_idx;
 }
 
+static void sde_encoder_phys_vid_cont_splash_mode_set(
+		struct sde_encoder_phys *phys_enc,
+		struct drm_display_mode *adj_mode)
+{
+	if (!phys_enc || !adj_mode) {
+		SDE_ERROR("invalid args\n");
+		return;
+	}
+
+	phys_enc->cached_mode = *adj_mode;
+	phys_enc->enable_state = SDE_ENC_ENABLED;
+
+	_sde_encoder_phys_vid_setup_irq_hw_idx(phys_enc);
+}
+
 static void sde_encoder_phys_vid_mode_set(
 		struct sde_encoder_phys *phys_enc,
 		struct drm_display_mode *mode,
@@ -992,6 +1007,7 @@ static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 {
 	ops->is_master = sde_encoder_phys_vid_is_master;
 	ops->mode_set = sde_encoder_phys_vid_mode_set;
+	ops->cont_splash_mode_set = sde_encoder_phys_vid_cont_splash_mode_set;
 	ops->mode_fixup = sde_encoder_phys_vid_mode_fixup;
 	ops->enable = sde_encoder_phys_vid_enable;
 	ops->disable = sde_encoder_phys_vid_disable;
