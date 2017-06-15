@@ -27,6 +27,7 @@
 #include "msm_drv.h"
 #include "msm_gem.h"
 #include "msm_mmu.h"
+#include "sde_dbg.h"
 
 #ifndef SZ_4G
 #define SZ_4G	(((size_t) SZ_1G) * 4)
@@ -238,6 +239,13 @@ static int msm_smmu_map_dma_buf(struct msm_mmu *mmu, struct sg_table *sgt,
 		return -ENOMEM;
 	}
 
+	if (sgt && sgt->sgl) {
+		DRM_DEBUG("%pad/0x%x/0x%x/0x%lx\n", &sgt->sgl->dma_address,
+				sgt->sgl->dma_length, dir, attrs);
+		SDE_EVT32(sgt->sgl->dma_address, sgt->sgl->dma_length,
+				dir, attrs);
+	}
+
 	return 0;
 }
 
@@ -247,6 +255,12 @@ static void msm_smmu_unmap_dma_buf(struct msm_mmu *mmu, struct sg_table *sgt,
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
+
+	if (sgt && sgt->sgl) {
+		DRM_DEBUG("%pad/0x%x/0x%x\n", &sgt->sgl->dma_address,
+				sgt->sgl->dma_length, dir);
+		SDE_EVT32(sgt->sgl->dma_address, sgt->sgl->dma_length, dir);
+	}
 
 	msm_dma_unmap_sg(client->dev, sgt->sgl, sgt->nents, dir, dma_buf);
 }
@@ -386,6 +400,37 @@ struct msm_mmu *msm_smmu_new(struct device *dev,
 	return &smmu->base;
 }
 
+static int msm_smmu_fault_handler(struct iommu_domain *domain,
+		struct device *dev, unsigned long iova,
+		int flags, void *token)
+{
+	struct msm_smmu_client *client;
+	int rc = -EINVAL;
+
+	if (!token) {
+		DRM_ERROR("Error: token is NULL\n");
+		return -EINVAL;
+	}
+
+	client = (struct msm_smmu_client *)token;
+
+	/* see iommu.h for fault flags definition */
+	SDE_EVT32(iova, flags);
+	DRM_ERROR("trigger dump, iova=0x%08lx, flags=0x%x\n", iova, flags);
+	DRM_ERROR("SMMU device:%s", client->dev ? client->dev->kobj.name : "");
+
+	/* generate dump, but no panic */
+	SDE_DBG_DUMP("sde", "dsi0_ctrl", "dsi0_phy", "dsi1_ctrl",
+			"dsi1_phy", "vbif", "dbg_bus",
+			"vbif_dbg_bus");
+
+	/*
+	 * return -ENOSYS to allow smmu driver to dump out useful
+	 * debug info.
+	 */
+	return rc;
+}
+
 static int _msm_smmu_create_mapping(struct msm_smmu_client *client,
 	const struct msm_smmu_domain *domain)
 {
@@ -410,6 +455,9 @@ static int _msm_smmu_create_mapping(struct msm_smmu_client *client,
 			goto error;
 		}
 	}
+
+	iommu_set_fault_handler(client->mmu_mapping->domain,
+			msm_smmu_fault_handler, (void *)client);
 
 	DRM_INFO("Created domain %s [%zx,%zx] secure=%d\n",
 			domain->label, domain->va_start, domain->va_size,
