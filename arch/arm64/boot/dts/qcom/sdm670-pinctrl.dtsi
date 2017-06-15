@@ -19,6 +19,7 @@
 		#gpio-cells = <2>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+		interrupt-parent = <&pdc>;
 
 		/* QUPv3 South SE mappings */
 		/* SE 0 pin mappings */

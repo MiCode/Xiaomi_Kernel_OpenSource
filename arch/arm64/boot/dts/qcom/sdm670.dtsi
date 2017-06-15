@@ -26,7 +26,7 @@
 	model = "Qualcomm Technologies, Inc. SDM670";
 	compatible = "qcom,sdm670";
 	qcom,msm-id = <336 0x0>;
-	interrupt-parent = <&intc>;
+	interrupt-parent = <&pdc>;
 
 	aliases {
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
@@ -416,6 +416,7 @@
 		reg = <0x17a00000 0x10000>,     /* GICD */
 		      <0x17a60000 0x100000>;    /* GICR * 8 */
 		interrupts = <1 9 4>;
+		interrupt-parent = <&intc>;
 	};
 
 	timer {
