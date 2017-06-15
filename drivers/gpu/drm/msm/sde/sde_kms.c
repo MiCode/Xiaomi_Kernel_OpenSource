@@ -2069,6 +2069,142 @@ static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
 
 }
 
+static int _sde_kms_gen_drm_mode(struct sde_kms *sde_kms,
+				void *display,
+				struct drm_display_mode *drm_mode)
+{
+	struct dsi_display_mode *modes = NULL;
+	u32 count = 0;
+	u32 size = 0;
+	int rc = 0;
+
+	rc = dsi_display_get_mode_count(display, &count);
+	if (rc) {
+		SDE_ERROR("failed to get num of modes, rc=%d\n", rc);
+		return rc;
+	}
+
+	SDE_DEBUG("num of modes = %d\n", count);
+	size = count * sizeof(*modes);
+	modes = kzalloc(size,  GFP_KERNEL);
+	if (!modes) {
+		count = 0;
+		goto end;
+	}
+
+	rc = dsi_display_get_modes(display, modes);
+	if (rc) {
+		SDE_ERROR("failed to get modes, rc=%d\n", rc);
+		count = 0;
+		goto error;
+	}
+
+	/* TODO; currently consider modes[0] as the preferred mode */
+	dsi_convert_to_drm_mode(&modes[0], drm_mode);
+
+	SDE_DEBUG("hdisplay = %d, vdisplay = %d\n",
+		drm_mode->hdisplay, drm_mode->vdisplay);
+	drm_mode_set_name(drm_mode);
+	drm_mode_set_crtcinfo(drm_mode, 0);
+error:
+	kfree(modes);
+end:
+	return rc;
+}
+
+static int sde_kms_cont_splash_config(struct msm_kms *kms)
+{
+	void *display;
+	struct dsi_display *dsi_display;
+	struct msm_display_info info;
+	struct drm_encoder *encoder = NULL;
+	struct drm_crtc *crtc = NULL;
+	int i, rc = 0;
+	struct drm_display_mode *drm_mode = NULL;
+	struct drm_device *dev;
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+
+	if (!kms) {
+		SDE_ERROR("invalid kms\n");
+		return -EINVAL;
+	}
+
+	sde_kms = to_sde_kms(kms);
+	dev = sde_kms->dev;
+	if (!dev || !dev->platformdev) {
+		SDE_ERROR("invalid device\n");
+		return -EINVAL;
+	}
+
+	if (!sde_kms->cont_splash_en) {
+		DRM_INFO("cont_splash feature not enabled\n");
+		return rc;
+	}
+
+	/* Currently, we only support one dsi display configuration */
+	/* dsi */
+	for (i = 0; i < sde_kms->dsi_display_count; ++i) {
+		display = sde_kms->dsi_displays[i];
+		dsi_display = (struct dsi_display *)display;
+		SDE_DEBUG("display->name = %s\n", dsi_display->name);
+
+		if (dsi_display->bridge->base.encoder) {
+			encoder = dsi_display->bridge->base.encoder;
+			SDE_DEBUG("encoder name = %s\n", encoder->name);
+		}
+		memset(&info, 0x0, sizeof(info));
+		rc = dsi_display_get_info(&info, display);
+		if (rc) {
+			SDE_ERROR("dsi get_info %d failed\n", i);
+			encoder = NULL;
+			continue;
+		}
+		SDE_DEBUG("info.is_connected = %s, info.is_primary = %s\n",
+			((info.is_connected) ? "true" : "false"),
+			((info.is_primary) ? "true" : "false"));
+		break;
+	}
+
+	if (!encoder) {
+		SDE_ERROR("encoder not initialized\n");
+		return -EINVAL;
+	}
+
+	priv = sde_kms->dev->dev_private;
+	encoder->crtc = priv->crtcs[0];
+	crtc = encoder->crtc;
+	SDE_DEBUG("crtc id = %d\n", crtc->base.id);
+
+	crtc->state->encoder_mask = (1 << drm_encoder_index(encoder));
+	drm_mode = drm_mode_create(encoder->dev);
+	if (!drm_mode) {
+		SDE_ERROR("drm_mode create failed\n");
+		return -EINVAL;
+	}
+	_sde_kms_gen_drm_mode(sde_kms, display, drm_mode);
+	SDE_DEBUG("drm_mode->name = %s, id=%d, type=0x%x, flags=0x%x\n",
+			drm_mode->name, drm_mode->base.id,
+			drm_mode->type, drm_mode->flags);
+
+	/* Update CRTC drm structure */
+	crtc->state->active = true;
+	rc = drm_atomic_set_mode_for_crtc(crtc->state, drm_mode);
+	if (rc) {
+		SDE_ERROR("Failed: set mode for crtc. rc = %d\n", rc);
+		return rc;
+	}
+	drm_mode_copy(&crtc->state->adjusted_mode, drm_mode);
+	drm_mode_copy(&crtc->mode, drm_mode);
+
+	/* Update encoder structure */
+	sde_encoder_update_caps_for_cont_splash(encoder);
+
+	sde_crtc_update_cont_splash_mixer_settings(crtc);
+
+	return rc;
+}
+
 static int sde_kms_pm_suspend(struct device *dev)
 {
 	struct drm_device *ddev;
@@ -2249,6 +2385,7 @@ static const struct msm_kms_funcs kms_funcs = {
 	.pm_suspend      = sde_kms_pm_suspend,
 	.pm_resume       = sde_kms_pm_resume,
 	.destroy         = sde_kms_destroy,
+	.cont_splash_config = sde_kms_cont_splash_config,
 	.register_events = _sde_kms_register_events,
 	.get_address_space = _sde_kms_get_address_space,
 	.postopen = _sde_kms_post_open,
