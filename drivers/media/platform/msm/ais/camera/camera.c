@@ -489,6 +489,9 @@ static long camera_v4l2_vidioc_private_ioctl(struct file *filep, void *fh,
 	if (WARN_ON(!k_ioctl || !pvdev))
 		return -EIO;
 
+	if (cmd != VIDIOC_MSM_CAMERA_PRIVATE_IOCTL_CMD)
+		return -EINVAL;
+
 	switch (k_ioctl->id) {
 	case MSM_CAMERA_PRIV_IOCTL_ID_RETURN_BUF: {
 		struct msm_camera_return_buf ptr, *tmp = NULL;
