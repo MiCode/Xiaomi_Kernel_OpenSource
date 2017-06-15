@@ -60,3 +60,4 @@ obj-$(CONFIG_MSM_EVENT_TIMER) += event_timer.o
 obj-$(CONFIG_MSM_IDLE_STATS)	+= lpm-stats.o
 obj-$(CONFIG_QTI_RPM_STATS_LOG) += rpm_stats.o
 obj-$(CONFIG_QCOM_FSA4480_I2C)	+= fsa4480-i2c.o
+obj-$(CONFIG_QMP_DEBUGFS_CLIENT) += qmp-debugfs-client.o
