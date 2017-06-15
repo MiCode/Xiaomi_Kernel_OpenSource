@@ -990,6 +990,11 @@
 		};
 	};
 
+	cmd_db: qcom,cmd-db@c3f000c {
+		compatible = "qcom,cmd-db";
+		reg = <0xc3f000c 0x8>;
+	};
+
 	dcc: dcc_v2@10a2000 {
 		compatible = "qcom,dcc_v2";
 		reg = <0x10a2000 0x1000>,
