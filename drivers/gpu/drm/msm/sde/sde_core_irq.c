@@ -323,7 +323,7 @@ DEFINE_SDE_DEBUGFS_SEQ_FOPS(sde_debugfs_core_irq);
 int sde_debugfs_core_irq_init(struct sde_kms *sde_kms,
 		struct dentry *parent)
 {
-	sde_kms->irq_obj.debugfs_file = debugfs_create_file("core_irq", 0644,
+	sde_kms->irq_obj.debugfs_file = debugfs_create_file("core_irq", 0600,
 			parent, &sde_kms->irq_obj,
 			&sde_debugfs_core_irq_fops);
 

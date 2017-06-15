@@ -996,13 +996,13 @@ static void _sde_rsc_init_debugfs(struct sde_rsc_priv *rsc, char *name)
 		return;
 
 	/* don't error check these */
-	debugfs_create_file("status", 0444, rsc->debugfs_root, rsc,
+	debugfs_create_file("status", 0400, rsc->debugfs_root, rsc,
 							&debugfs_status_fops);
-	debugfs_create_file("mode_control", 0644, rsc->debugfs_root, rsc,
+	debugfs_create_file("mode_control", 0600, rsc->debugfs_root, rsc,
 							&mode_control_fops);
-	debugfs_create_file("vsync_mode", 0644, rsc->debugfs_root, rsc,
+	debugfs_create_file("vsync_mode", 0600, rsc->debugfs_root, rsc,
 							&vsync_status_fops);
-	debugfs_create_x32("debug_mode", 0644, rsc->debugfs_root,
+	debugfs_create_x32("debug_mode", 0600, rsc->debugfs_root,
 							&rsc->debug_mode);
 }
 

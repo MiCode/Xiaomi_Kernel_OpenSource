@@ -312,16 +312,16 @@ int sde_debugfs_vbif_init(struct sde_kms *sde_kms, struct dentry *debugfs_root)
 		debugfs_vbif = debugfs_create_dir(vbif_name,
 				sde_kms->debugfs_vbif);
 
-		debugfs_create_u32("features", 0644, debugfs_vbif,
+		debugfs_create_u32("features", 0600, debugfs_vbif,
 			(u32 *)&vbif->features);
 
-		debugfs_create_u32("xin_halt_timeout", 0444, debugfs_vbif,
+		debugfs_create_u32("xin_halt_timeout", 0400, debugfs_vbif,
 			(u32 *)&vbif->xin_halt_timeout);
 
-		debugfs_create_u32("default_rd_ot_limit", 0444, debugfs_vbif,
+		debugfs_create_u32("default_rd_ot_limit", 0400, debugfs_vbif,
 			(u32 *)&vbif->default_ot_rd_limit);
 
-		debugfs_create_u32("default_wr_ot_limit", 0444, debugfs_vbif,
+		debugfs_create_u32("default_wr_ot_limit", 0400, debugfs_vbif,
 			(u32 *)&vbif->default_ot_wr_limit);
 
 		for (j = 0; j < vbif->dynamic_ot_rd_tbl.count; j++) {
@@ -330,11 +330,11 @@ int sde_debugfs_vbif_init(struct sde_kms *sde_kms, struct dentry *debugfs_root)
 
 			snprintf(vbif_name, sizeof(vbif_name),
 					"dynamic_ot_rd_%d_pps", j);
-			debugfs_create_u64(vbif_name, 0444, debugfs_vbif,
+			debugfs_create_u64(vbif_name, 0400, debugfs_vbif,
 					(u64 *)&cfg->pps);
 			snprintf(vbif_name, sizeof(vbif_name),
 					"dynamic_ot_rd_%d_ot_limit", j);
-			debugfs_create_u32(vbif_name, 0444, debugfs_vbif,
+			debugfs_create_u32(vbif_name, 0400, debugfs_vbif,
 					(u32 *)&cfg->ot_limit);
 		}
 
@@ -344,11 +344,11 @@ int sde_debugfs_vbif_init(struct sde_kms *sde_kms, struct dentry *debugfs_root)
 
 			snprintf(vbif_name, sizeof(vbif_name),
 					"dynamic_ot_wr_%d_pps", j);
-			debugfs_create_u64(vbif_name, 0444, debugfs_vbif,
+			debugfs_create_u64(vbif_name, 0400, debugfs_vbif,
 					(u64 *)&cfg->pps);
 			snprintf(vbif_name, sizeof(vbif_name),
 					"dynamic_ot_wr_%d_ot_limit", j);
-			debugfs_create_u32(vbif_name, 0444, debugfs_vbif,
+			debugfs_create_u32(vbif_name, 0400, debugfs_vbif,
 					(u32 *)&cfg->ot_limit);
 		}
 	}

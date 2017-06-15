@@ -178,9 +178,9 @@ static int sde_debugfs_danger_init(struct sde_kms *sde_kms,
 		return -EINVAL;
 	}
 
-	debugfs_create_file("danger_status", 0644, sde_kms->debugfs_danger,
+	debugfs_create_file("danger_status", 0600, sde_kms->debugfs_danger,
 			sde_kms, &sde_debugfs_danger_stats_fops);
-	debugfs_create_file("safe_status", 0644, sde_kms->debugfs_danger,
+	debugfs_create_file("safe_status", 0600, sde_kms->debugfs_danger,
 			sde_kms, &sde_debugfs_safe_stats_fops);
 
 	return 0;
@@ -303,7 +303,7 @@ static int _sde_debugfs_init(struct sde_kms *sde_kms)
 		return -EINVAL;
 
 	/* allow debugfs_root to be NULL */
-	debugfs_create_x32(SDE_DEBUGFS_HWMASKNAME, 0644, debugfs_root, p);
+	debugfs_create_x32(SDE_DEBUGFS_HWMASKNAME, 0600, debugfs_root, p);
 
 	(void) sde_debugfs_danger_init(sde_kms, debugfs_root);
 	(void) sde_debugfs_vbif_init(sde_kms, debugfs_root);
