@@ -743,4 +743,12 @@ config QCOM_FORCE_WDOG_BITE_ON_PANIC
 	  kernel panic. On certain MSM SoCs, this provides us
 	  additional debugging information.
 
+config QMP_DEBUGFS_CLIENT
+	bool "Debugfs Client to communicate with AOP using QMP protocol"
+	depends on DEBUG_FS
+	default n
+	help
+	  This options enables a driver which allows clients to send messages
+	  to Alway On processor using QMP transport.
+
 source "drivers/soc/qcom/memshare/Kconfig"
