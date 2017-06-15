@@ -353,16 +353,24 @@ static void sde_kms_prepare_commit(struct msm_kms *kms,
 {
 	struct sde_kms *sde_kms;
 	struct msm_drm_private *priv;
+	struct drm_device *dev;
+	struct drm_encoder *encoder;
 
 	if (!kms)
 		return;
 	sde_kms = to_sde_kms(kms);
+	dev = sde_kms->dev;
 
-	if (!sde_kms->dev || !sde_kms->dev->dev_private)
+	if (!dev || !dev->dev_private)
 		return;
-	priv = sde_kms->dev->dev_private;
+	priv = dev->dev_private;
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
+
+	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head)
+		if (encoder->crtc != NULL)
+			sde_encoder_prepare_commit(encoder);
+
 }
 
 static void sde_kms_commit(struct msm_kms *kms,

@@ -864,9 +864,15 @@ static void sde_encoder_phys_cmd_update_split_role(
 	_sde_encoder_phys_cmd_update_flush_mask(phys_enc);
 }
 
+static void sde_encoder_phys_cmd_prepare_commit(
+		struct sde_encoder_phys *phys_enc)
+{
+}
+
 static void sde_encoder_phys_cmd_init_ops(
 		struct sde_encoder_phys_ops *ops)
 {
+	ops->prepare_commit = sde_encoder_phys_cmd_prepare_commit;
 	ops->is_master = sde_encoder_phys_cmd_is_master;
 	ops->mode_set = sde_encoder_phys_cmd_mode_set;
 	ops->mode_fixup = sde_encoder_phys_cmd_mode_fixup;
