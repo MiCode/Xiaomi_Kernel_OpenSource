@@ -537,6 +537,7 @@ struct diagchar_dev {
 	unsigned char *buf_feature_mask_update;
 	uint8_t hdlc_disabled;
 	struct mutex hdlc_disable_mutex;
+	struct mutex hdlc_recovery_mutex;
 	struct timer_list hdlc_reset_timer;
 	struct mutex diag_hdlc_mutex;
 	unsigned char *hdlc_buf;
