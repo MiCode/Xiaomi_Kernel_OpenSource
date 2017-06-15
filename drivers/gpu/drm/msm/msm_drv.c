@@ -604,6 +604,8 @@ static int msm_open(struct drm_device *dev, struct drm_file *file)
 
 	INIT_LIST_HEAD(&ctx->counters);
 
+	msm_submitqueue_init(ctx);
+
 	file->driver_priv = ctx;
 
 	kms = priv->kms;
@@ -632,12 +634,18 @@ static void msm_postclose(struct drm_device *dev, struct drm_file *file)
 	if (kms && kms->funcs && kms->funcs->postclose)
 		kms->funcs->postclose(kms, file);
 
-	if (priv->gpu)
+	if (!ctx)
+		return;
+
+	msm_submitqueue_close(ctx);
+
+	if (priv->gpu) {
 		msm_gpu_cleanup_counters(priv->gpu, ctx);
 
-	if (ctx && ctx->aspace && ctx->aspace != priv->gpu->aspace) {
-		ctx->aspace->mmu->funcs->detach(ctx->aspace->mmu);
-		msm_gem_address_space_put(ctx->aspace);
+		if (ctx->aspace && ctx->aspace != priv->gpu->aspace) {
+			ctx->aspace->mmu->funcs->detach(ctx->aspace->mmu);
+			msm_gem_address_space_put(ctx->aspace);
+		}
 	}
 
 	kfree(ctx);
@@ -1683,6 +1691,34 @@ static int msm_ioctl_counter_read(struct drm_device *dev, void *data,
 	return -ENODEV;
 }
 
+
+static int msm_ioctl_submitqueue_new(struct drm_device *dev, void *data,
+		struct drm_file *file)
+{
+	struct drm_msm_submitqueue *args = data;
+	struct msm_drm_private *priv = dev->dev_private;
+	struct msm_gpu *gpu = priv->gpu;
+
+	if (args->flags & ~MSM_SUBMITQUEUE_FLAGS)
+		return -EINVAL;
+
+	if (!file->is_master && args->prio >= gpu->nr_rings - 1) {
+		DRM_ERROR("Only DRM master can set highest priority ringbuffer\n");
+		return -EPERM;
+	}
+
+	return msm_submitqueue_create(file->driver_priv, args->prio,
+		args->flags, &args->id);
+}
+
+static int msm_ioctl_submitqueue_close(struct drm_device *dev, void *data,
+		struct drm_file *file)
+{
+	struct drm_msm_submitqueue *args = data;
+
+	return msm_submitqueue_remove(file->driver_priv, args->id);
+}
+
 int msm_release(struct inode *inode, struct file *filp)
 {
 	struct drm_file *file_priv = filp->private_data;
@@ -1727,6 +1763,10 @@ static const struct drm_ioctl_desc msm_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MSM_GEM_SYNC, msm_ioctl_gem_sync,
 			  DRM_AUTH|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MSM_GEM_SVM_NEW, msm_ioctl_gem_svm_new,
+			  DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_SUBMITQUEUE_NEW,  msm_ioctl_submitqueue_new,
+			  DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_SUBMITQUEUE_CLOSE, msm_ioctl_submitqueue_close,
 			  DRM_AUTH|DRM_RENDER_ALLOW),
 };
 
