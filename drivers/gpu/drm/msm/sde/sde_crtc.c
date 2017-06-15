@@ -735,6 +735,25 @@ static int _sde_crtc_set_roi_v1(struct drm_crtc_state *state,
 	return 0;
 }
 
+static bool _sde_crtc_setup_is_3dmux_dsc(struct drm_crtc_state *state)
+{
+	int i;
+	struct sde_crtc_state *cstate;
+	bool is_3dmux_dsc = false;
+
+	cstate = to_sde_crtc_state(state);
+
+	for (i = 0; i < cstate->num_connectors; i++) {
+		struct drm_connector *conn = cstate->connectors[i];
+
+		if (sde_connector_get_topology_name(conn) ==
+				SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE_DSC)
+			is_3dmux_dsc = true;
+	}
+
+	return is_3dmux_dsc;
+}
+
 static int _sde_crtc_set_crtc_roi(struct drm_crtc *crtc,
 		struct drm_crtc_state *state)
 {
@@ -768,6 +787,12 @@ static int _sde_crtc_set_crtc_roi(struct drm_crtc *crtc,
 
 		sde_conn_state = to_sde_connector_state(conn_state);
 
+		/*
+		 * current driver only supports same connector and crtc size,
+		 * but if support for different sizes is added, driver needs
+		 * to check the connector roi here to make sure is full screen
+		 * for dsc 3d-mux topology that doesn't support partial update.
+		 */
 		if (memcmp(&sde_conn_state->rois, &crtc_state->user_roi_list,
 				sizeof(crtc_state->user_roi_list))) {
 			SDE_ERROR("%s: crtc -> conn roi scaling unsupported\n",
@@ -777,6 +802,23 @@ static int _sde_crtc_set_crtc_roi(struct drm_crtc *crtc,
 	}
 
 	sde_kms_rect_merge_rectangles(&crtc_state->user_roi_list, crtc_roi);
+
+	/*
+	 * for 3dmux dsc, make sure is full ROI, since current driver doesn't
+	 * support partial update for this configuration.
+	 */
+	if (!sde_kms_rect_is_null(crtc_roi) &&
+		_sde_crtc_setup_is_3dmux_dsc(state)) {
+		struct drm_display_mode *adj_mode = &state->adjusted_mode;
+
+		if (crtc_roi->w != adj_mode->hdisplay ||
+			crtc_roi->h != adj_mode->vdisplay) {
+			SDE_ERROR("%s: unsupported top roi[%d %d] wxh[%d %d]\n",
+				sde_crtc->name, crtc_roi->w, crtc_roi->h,
+				adj_mode->hdisplay, adj_mode->vdisplay);
+			return -EINVAL;
+		}
+	}
 
 	SDE_DEBUG("%s: crtc roi (%d,%d,%d,%d)\n", sde_crtc->name,
 			crtc_roi->x, crtc_roi->y, crtc_roi->w, crtc_roi->h);
