@@ -31,6 +31,8 @@
 #include "dsi_pwr.h"
 #include "dsi_catalog.h"
 
+#include "sde_dbg.h"
+
 #define DSI_CTRL_DEFAULT_LABEL "MDSS DSI CTRL"
 
 #define DSI_CTRL_TX_TO_MS     200
@@ -199,6 +201,7 @@ static int dsi_ctrl_debugfs_init(struct dsi_ctrl *dsi_ctrl,
 {
 	int rc = 0;
 	struct dentry *dir, *state_file, *reg_dump;
+	char dbg_name[DSI_DEBUG_NAME_LEN];
 
 	dir = debugfs_create_dir(dsi_ctrl->name, parent);
 	if (IS_ERR_OR_NULL(dir)) {
@@ -233,6 +236,11 @@ static int dsi_ctrl_debugfs_init(struct dsi_ctrl *dsi_ctrl,
 	}
 
 	dsi_ctrl->debugfs_root = dir;
+
+	snprintf(dbg_name, DSI_DEBUG_NAME_LEN, "dsi%d_ctrl",
+						dsi_ctrl->cell_index);
+	sde_dbg_reg_register_base(dbg_name, dsi_ctrl->hw.base,
+				msm_iomap_size(dsi_ctrl->pdev, "dsi_ctrl"));
 error_remove_dir:
 	debugfs_remove(dir);
 error:
@@ -1296,8 +1304,7 @@ static int dsi_ctrl_dev_probe(struct platform_device *pdev)
 
 	dsi_ctrl->pdev = pdev;
 	platform_set_drvdata(pdev, dsi_ctrl);
-
-	pr_debug("Probe successful for %s\n", dsi_ctrl->name);
+	pr_info("Probe successful for %s\n", dsi_ctrl->name);
 
 	return 0;
 

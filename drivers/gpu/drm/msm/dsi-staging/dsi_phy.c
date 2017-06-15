@@ -29,6 +29,8 @@
 #include "dsi_pwr.h"
 #include "dsi_catalog.h"
 
+#include "sde_dbg.h"
+
 #define DSI_PHY_DEFAULT_LABEL "MDSS PHY CTRL"
 
 struct dsi_phy_list_item {
@@ -547,6 +549,11 @@ void dsi_phy_put(struct msm_dsi_phy *dsi_phy)
  */
 int dsi_phy_drv_init(struct msm_dsi_phy *dsi_phy)
 {
+	char dbg_name[DSI_DEBUG_NAME_LEN];
+
+	snprintf(dbg_name, DSI_DEBUG_NAME_LEN, "dsi%d_phy", dsi_phy->index);
+	sde_dbg_reg_register_base(dbg_name, dsi_phy->hw.base,
+				msm_iomap_size(dsi_phy->pdev, "dsi_phy"));
 	return 0;
 }
 

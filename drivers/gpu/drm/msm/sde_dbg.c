@@ -160,6 +160,7 @@ struct sde_dbg_vbif_debug_bus {
  * @enable_reg_dump: whether to dump registers into memory, kernel log, or both
  * @dbgbus_sde: debug bus structure for the sde
  * @dbgbus_vbif_rt: debug bus structure for the realtime vbif
+ * @dump_all: dump all entries in register dump
  */
 static struct sde_dbg_base {
 	struct sde_dbg_evtlog *evtlog;
@@ -176,6 +177,7 @@ static struct sde_dbg_base {
 
 	struct sde_dbg_sde_debug_bus dbgbus_sde;
 	struct sde_dbg_vbif_debug_bus dbgbus_vbif_rt;
+	bool dump_all;
 } sde_dbg_base;
 
 /* sde_dbg_base_evtlog - global pointer to main sde event log for macro use */
@@ -2427,17 +2429,21 @@ static void _sde_dbg_dump_vbif_dbg_bus(struct sde_dbg_vbif_debug_bus *bus)
  */
 static void _sde_dump_array(struct sde_dbg_reg_base *blk_arr[],
 	u32 len, bool do_panic, const char *name, bool dump_dbgbus_sde,
-	bool dump_dbgbus_vbif_rt)
+	bool dump_dbgbus_vbif_rt, bool dump_all)
 {
 	int i;
 
-	for (i = 0; i < len; i++) {
-		if (blk_arr[i] != NULL)
-			_sde_dump_reg_by_ranges(blk_arr[i],
-				sde_dbg_base.enable_reg_dump);
-	}
-
 	sde_evtlog_dump_all(sde_dbg_base.evtlog);
+
+	if (dump_all || !blk_arr || !len) {
+		_sde_dump_reg_all();
+	} else {
+		for (i = 0; i < len; i++) {
+			if (blk_arr[i] != NULL)
+				_sde_dump_reg_by_ranges(blk_arr[i],
+					sde_dbg_base.enable_reg_dump);
+		}
+	}
 
 	if (dump_dbgbus_sde)
 		_sde_dbg_dump_sde_dbg_bus(&sde_dbg_base.dbgbus_sde);
@@ -2459,7 +2465,8 @@ static void _sde_dump_work(struct work_struct *work)
 		ARRAY_SIZE(sde_dbg_base.req_dump_blks),
 		sde_dbg_base.work_panic, "evtlog_workitem",
 		sde_dbg_base.dbgbus_sde.cmn.include_in_deferred_work,
-		sde_dbg_base.dbgbus_vbif_rt.cmn.include_in_deferred_work);
+		sde_dbg_base.dbgbus_vbif_rt.cmn.include_in_deferred_work,
+		sde_dbg_base.dump_all);
 }
 
 void sde_dbg_dump(bool queue_work, const char *name, ...)
@@ -2468,6 +2475,7 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 	bool do_panic = false;
 	bool dump_dbgbus_sde = false;
 	bool dump_dbgbus_vbif_rt = false;
+	bool dump_all = false;
 	va_list args;
 	char *blk_name = NULL;
 	struct sde_dbg_reg_base *blk_base = NULL;
@@ -2485,6 +2493,7 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 
 	memset(sde_dbg_base.req_dump_blks, 0,
 			sizeof(sde_dbg_base.req_dump_blks));
+	sde_dbg_base.dump_all = false;
 
 	va_start(args, name);
 	i = 0;
@@ -2507,6 +2516,9 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 			}
 		}
 
+		if (!strcmp(blk_name, "all"))
+			dump_all = true;
+
 		if (!strcmp(blk_name, "dbg_bus"))
 			dump_dbgbus_sde = true;
 
@@ -2528,7 +2540,7 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 		schedule_work(&sde_dbg_base.dump_work);
 	} else {
 		_sde_dump_array(blk_arr, blk_len, do_panic, name,
-				dump_dbgbus_sde, dump_dbgbus_vbif_rt);
+				dump_dbgbus_sde, dump_dbgbus_vbif_rt, dump_all);
 	}
 }
 
@@ -2577,15 +2589,8 @@ static ssize_t sde_evtlog_dump_read(struct file *file, char __user *buff,
 static ssize_t sde_evtlog_dump_write(struct file *file,
 	const char __user *user_buf, size_t count, loff_t *ppos)
 {
-	_sde_dump_reg_all();
-
-	sde_evtlog_dump_all(sde_dbg_base.evtlog);
-
-	_sde_dbg_dump_sde_dbg_bus(&sde_dbg_base.dbgbus_sde);
-	_sde_dbg_dump_vbif_dbg_bus(&sde_dbg_base.dbgbus_vbif_rt);
-
-	if (sde_dbg_base.panic_on_err)
-		panic("sde");
+	_sde_dump_array(NULL, 0, sde_dbg_base.panic_on_err, "dump_debugfs",
+		true, true, true);
 
 	return count;
 }
@@ -3030,6 +3035,26 @@ int sde_dbg_init(struct device *dev, struct sde_dbg_power_ctrl *power_ctrl)
 	return 0;
 }
 
+static void sde_dbg_reg_base_destroy(void)
+{
+	struct sde_dbg_reg_range *range_node, *range_tmp;
+	struct sde_dbg_reg_base *blk_base, *blk_tmp;
+	struct sde_dbg_base *dbg_base = &sde_dbg_base;
+
+	if (!dbg_base)
+		return;
+
+	list_for_each_entry_safe(blk_base, blk_tmp, &dbg_base->reg_base_list,
+							reg_base_head) {
+		list_for_each_entry_safe(range_node, range_tmp,
+				&blk_base->sub_range_list, head) {
+			list_del(&range_node->head);
+			kfree(range_node);
+		}
+		list_del(&blk_base->reg_base_head);
+		kfree(blk_base);
+	}
+}
 /**
  * sde_dbg_destroy - destroy sde debug facilities
  */
@@ -3039,6 +3064,7 @@ void sde_dbg_destroy(void)
 	sde_dbg_base_evtlog = NULL;
 	sde_evtlog_destroy(sde_dbg_base.evtlog);
 	sde_dbg_base.evtlog = NULL;
+	sde_dbg_reg_base_destroy();
 }
 
 int sde_dbg_reg_register_base(const char *name, void __iomem *base,

@@ -36,6 +36,7 @@
 		value;\
 	})
 
+#define DSI_DEBUG_NAME_LEN		32
 /**
  * enum dsi_pixel_format - DSI pixel formats
  * @DSI_PIXEL_FORMAT_RGB565:
