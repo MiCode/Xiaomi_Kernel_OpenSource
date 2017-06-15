@@ -448,6 +448,7 @@ static void lpi_gpio_dbg_show_one(struct seq_file *s,
 				  unsigned int offset,
 				  unsigned int gpio)
 {
+	struct lpi_gpio_state *state = gpiochip_get_data(chip);
 	struct pinctrl_pin_desc pindesc;
 	struct lpi_gpio_pad *pad;
 	unsigned int func;
@@ -463,7 +464,7 @@ static void lpi_gpio_dbg_show_one(struct seq_file *s,
 		"pull up"
 	};
 
-	pctldev = pctldev ? : to_gpio_state(chip)->ctrl;
+	pctldev = pctldev ? : state->ctrl;
 	pindesc = pctldev->desc->pins[offset];
 	pad = pctldev->desc->pins[offset].drv_data;
 	ctl_reg = lpi_gpio_read(pad, LPI_GPIO_REG_DIR_CTL);
