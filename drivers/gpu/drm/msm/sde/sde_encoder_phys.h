@@ -99,6 +99,8 @@ struct sde_encoder_virt_ops {
  *				encoder. Can be switched at enable time. Based
  *				on split_role and current mode (CMD/VID).
  * @mode_fixup:			DRM Call. Fixup a DRM mode.
+ * @cont_splash_mode_set:	mode set with specific HW resources during
+ *                              cont splash enabled state.
  * @mode_set:			DRM Call. Set a DRM mode.
  *				This likely caches the mode, for use at enable.
  * @enable:			DRM Call. Enable a DRM mode.
@@ -146,6 +148,8 @@ struct sde_encoder_phys_ops {
 			struct drm_display_mode *adjusted_mode);
 	void (*mode_set)(struct sde_encoder_phys *encoder,
 			struct drm_display_mode *mode,
+			struct drm_display_mode *adjusted_mode);
+	void (*cont_splash_mode_set)(struct sde_encoder_phys *encoder,
 			struct drm_display_mode *adjusted_mode);
 	void (*enable)(struct sde_encoder_phys *encoder);
 	void (*disable)(struct sde_encoder_phys *encoder);
