@@ -189,4 +189,10 @@
 			};
 		};
 	};
+
+	qcom,rpm-stats@c300000 {
+		compatible = "qcom,rpm-stats";
+		reg = <0xc300000 0x1000>, <0xc3f0004 0x4>;
+		reg-names = "phys_addr_base", "offset_addr";
+	};
 };
