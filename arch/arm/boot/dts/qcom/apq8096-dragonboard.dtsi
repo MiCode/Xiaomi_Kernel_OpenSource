@@ -12,6 +12,7 @@
 
 #include "msm8996-pinctrl.dtsi"
 #include "apq8096-camera-sensor-dragonboard.dtsi"
+#include "apq8096-ba.dtsi"
 
 / {
 	bluetooth: bt_qca6174 {

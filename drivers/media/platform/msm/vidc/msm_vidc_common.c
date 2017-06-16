@@ -3174,7 +3174,7 @@ static int set_output_buffers(struct msm_vidc_inst *inst,
 				goto err_no_mem;
 			}
 			rc = msm_comm_smem_cache_operations(inst,
-					handle, SMEM_CACHE_CLEAN);
+					handle, SMEM_CACHE_CLEAN, -1);
 			if (rc) {
 				dprintk(VIDC_WARN,
 					"Failed to clean cache may cause undefined behavior\n");
@@ -3265,7 +3265,7 @@ static int set_internal_buf_on_fw(struct msm_vidc_inst *inst,
 	hdev = inst->core->device;
 
 	rc = msm_comm_smem_cache_operations(inst,
-					handle, SMEM_CACHE_CLEAN);
+					handle, SMEM_CACHE_CLEAN, -1);
 	if (rc) {
 		dprintk(VIDC_WARN,
 			"Failed to clean cache. Undefined behavior\n");
@@ -4524,10 +4524,15 @@ static void msm_comm_flush_in_invalid_state(struct msm_vidc_inst *inst)
 			struct vb2_buffer *vb = container_of(ptr,
 					struct vb2_buffer, queued_entry);
 
-			vb->planes[0].bytesused = 0;
-			vb->planes[0].data_offset = 0;
-
-			vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
+			if (vb->state == VB2_BUF_STATE_ACTIVE) {
+				vb->planes[0].bytesused = 0;
+				vb->planes[0].data_offset = 0;
+				vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
+			} else {
+				dprintk(VIDC_WARN,
+					"%s VB is in state %d not in ACTIVE state\n"
+					, __func__, vb->state);
+			}
 		}
 		mutex_unlock(&inst->bufq[port].lock);
 	}
@@ -5154,14 +5159,16 @@ void msm_comm_smem_free(struct msm_vidc_inst *inst, struct msm_smem *mem)
 }
 
 int msm_comm_smem_cache_operations(struct msm_vidc_inst *inst,
-		struct msm_smem *mem, enum smem_cache_ops cache_ops)
+		struct msm_smem *mem, enum smem_cache_ops cache_ops,
+		int size)
 {
 	if (!inst || !mem) {
 		dprintk(VIDC_ERR,
 			"%s: invalid params: %pK %pK\n", __func__, inst, mem);
 		return -EINVAL;
 	}
-	return msm_smem_cache_operations(inst->mem_client, mem, cache_ops);
+	return msm_smem_cache_operations(inst->mem_client, mem,
+						cache_ops, size);
 }
 
 struct msm_smem *msm_comm_smem_user_to_kernel(struct msm_vidc_inst *inst,

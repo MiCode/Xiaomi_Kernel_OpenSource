@@ -95,7 +95,7 @@ static struct hdmi *hdmi_init(struct platform_device *pdev)
 	struct hdmi_platform_config *config = pdev->dev.platform_data;
 	struct hdmi *hdmi = NULL;
 	struct resource *res;
-	int i, ret;
+	int i, ret = 0;
 
 	hdmi = devm_kzalloc(&pdev->dev, sizeof(*hdmi), GFP_KERNEL);
 	if (!hdmi) {
@@ -119,9 +119,19 @@ static struct hdmi *hdmi_init(struct platform_device *pdev)
 		}
 	}
 
+	res = platform_get_resource_byname(pdev,
+			IORESOURCE_MEM, config->mmio_name);
+	if (!res) {
+		dev_err(&pdev->dev, "failed to find ctrl resource\n");
+		ret = -ENOMEM;
+		goto fail;
+	}
+	hdmi->mmio_len = (u32)resource_size(res);
 	hdmi->mmio = msm_ioremap(pdev, config->mmio_name, "HDMI");
 	if (IS_ERR(hdmi->mmio)) {
 		ret = PTR_ERR(hdmi->mmio);
+		dev_info(&pdev->dev, "can't map hdmi resource\n");
+		hdmi->mmio = NULL;
 		goto fail;
 	}
 
@@ -130,11 +140,37 @@ static struct hdmi *hdmi_init(struct platform_device *pdev)
 		config->mmio_name);
 	hdmi->mmio_phy_addr = res->start;
 
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+	config->qfprom_mmio_name);
+
+	if (!res) {
+		dev_err(&pdev->dev, "failed to find qfprom resource\n");
+		ret = -ENOMEM;
+		goto fail;
+	}
+	hdmi->qfprom_mmio_len = (u32)resource_size(res);
+
 	hdmi->qfprom_mmio = msm_ioremap(pdev,
 		config->qfprom_mmio_name, "HDMI_QFPROM");
+
 	if (IS_ERR(hdmi->qfprom_mmio)) {
-		dev_info(&pdev->dev, "can't find qfprom resource\n");
+		dev_info(&pdev->dev, "can't map qfprom resource\n");
 		hdmi->qfprom_mmio = NULL;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+			config->hdcp_mmio_name);
+	if (!res) {
+		dev_err(&pdev->dev, "failed to find hdcp resource: %d\n", ret);
+		ret = -ENOMEM;
+		goto fail;
+	}
+	hdmi->hdcp_mmio_len = (u32)resource_size(res);
+	hdmi->hdcp_mmio = msm_ioremap(pdev,
+		config->hdcp_mmio_name, "HDMI_HDCP");
+	if (IS_ERR(hdmi->hdcp_mmio)) {
+		dev_info(&pdev->dev, "can't map hdcp resource\n");
+		hdmi->hdcp_mmio = NULL;
 	}
 
 	hdmi->hpd_regs = devm_kzalloc(&pdev->dev, sizeof(hdmi->hpd_regs[0]) *
@@ -468,6 +504,7 @@ static int hdmi_bind(struct device *dev, struct device *master, void *data)
 
 	hdmi_cfg->mmio_name     = "core_physical";
 	hdmi_cfg->qfprom_mmio_name = "qfprom_physical";
+	hdmi_cfg->hdcp_mmio_name = "hdcp_physical";
 	hdmi_cfg->ddc_clk_gpio  = get_gpio(dev, of_node, "qcom,hdmi-tx-ddc-clk");
 	hdmi_cfg->ddc_data_gpio = get_gpio(dev, of_node, "qcom,hdmi-tx-ddc-data");
 	hdmi_cfg->hpd_gpio      = get_gpio(dev, of_node, "qcom,hdmi-tx-hpd");

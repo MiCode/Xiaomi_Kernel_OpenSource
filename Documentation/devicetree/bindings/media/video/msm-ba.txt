@@ -1,0 +1,41 @@
+* Qualcomm Technologies Inc MSM BA
+
+[Root level node]
+==================
+Required properties:
+- compatible: Must be "qcom,msm-ba".
+
+[Subnode]
+==========
+- qcom,ba-input-profile-#: Defines child nodes for the profiles supported
+              by BA driver. Each profile should have properties "qcom,type",
+              "qcom,name", "qcom,ba-input", "qcom,ba-output", "qcom,sd-name",
+              "qcom,ba-node" and "qcom,user-type".
+Required properties:
+- qcom,type: Input type such as CVBS(0), HDMI(4) etc as defined in BA driver.
+             This property is of type u32.
+- qcom,name: Name of the input type. This property is of type string.
+- qcom,ba-input: BA input id supported by a bridge chip for this profile.
+             This property is of type u32.
+- qcom,ba-output: BA output id for the profile. This property is of type u32.
+- qcom,sd-name: Name of the sub-device driver associated with this profile.
+              This property is of type string.
+- qcom,ba-node: Defines the ba node id. This is the avdevice node used by camera
+                for this profile. This property is of type u32.
+- qcom,user-type: This property defines how the profile is being used. If this
+             profile is used by kernel it is set to 0 and if used by userspace
+             it is set to 1. This property is of type u32.
+Example:
+
+	qcom,msm-ba {
+		compatible = "qcom,msm-ba";
+		qcom,ba-input-profile-0 {
+			qcom,type = <4>;          /* input type   */
+			qcom,name = "HDMI-1";     /* input name   */
+			qcom,ba-input = <13>;     /* ba input id  */
+			qcom,ba-output = <0>;     /* ba output id */
+			qcom,sd-name = "adv7481"; /* sd name      */
+			qcom,ba-node = <0>;       /* ba node      */
+			qcom,user-type = <1>;     /* user type    */
+		};
+	};

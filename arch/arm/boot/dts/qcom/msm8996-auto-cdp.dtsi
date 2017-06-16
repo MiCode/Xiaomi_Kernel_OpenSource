@@ -868,11 +868,12 @@
 		asoc-codec-names = "msm-stub-codec.1";
 	};
 
-	usb_detect {
+	usb_detect: usb_detect {
 		compatible = "qcom,gpio-usbdetect";
+		qcom,vbus-det-gpio = <&pm8994_gpios 17 0>;
 		interrupt-parent = <&spmi_bus>;
-		interrupts = <0x0 0xd0 0x0>;  /* PM8994 GPIO17 */
-		interrupt-names = "vbus_det_irq";
+		interrupts = <0x0 0x9 0x0 IRQ_TYPE_NONE>;
+		interrupt-names ="pmic_id_irq";
 	};
 
 	loopback1: qcom,msm-pcm-loopback-low-latency {
@@ -1071,18 +1072,10 @@
 };
 
 &usb3 {
-	interrupt-parent = <&usb3>;
-	interrupts = <0 1 2 3>;
-	#interrupt-cells = <1>;
-	interrupt-map-mask = <0x0 0xffffffff>;
-	interrupt-map = <0x0 0 &intc 0 0 347 0
-			 0x0 1 &intc 0 0 243 0
-			 0x0 2 &intc 0 0 180 0
-			 0x0 3 &spmi_bus 0x0 0x0 0x9 0x0>;
-	interrupt-names = "hs_phy_irq", "ss_phy_irq", "pwr_event_irq",
-				"pmic_id_irq";
-
+	extcon = <&usb_detect>;
 	vbus_dwc3-supply = <&usb_otg_switch>;
+	vdda33-supply = <&pm8994_l24>;
+	vdda18-supply = <&pm8994_l12>;
 };
 
 &blsp1_uart2 {

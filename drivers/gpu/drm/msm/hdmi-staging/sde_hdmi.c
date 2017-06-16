@@ -29,6 +29,7 @@
 #include "sde_connector.h"
 #include "msm_drv.h"
 #include "sde_hdmi.h"
+#include "sde_hdmi_regs.h"
 
 static DEFINE_MUTEX(sde_hdmi_list_lock);
 static LIST_HEAD(sde_hdmi_list);
@@ -921,6 +922,16 @@ static void _sde_hdmi_cec_update_phys_addr(struct sde_hdmi *display)
 			CEC_PHYS_ADDR_INVALID);
 }
 
+static void _sde_hdmi_map_regs(struct sde_hdmi *display, struct hdmi *hdmi)
+{
+	display->io[HDMI_TX_CORE_IO].base = hdmi->mmio;
+	display->io[HDMI_TX_CORE_IO].len = hdmi->mmio_len;
+	display->io[HDMI_TX_QFPROM_IO].base = hdmi->qfprom_mmio;
+	display->io[HDMI_TX_QFPROM_IO].len = hdmi->qfprom_mmio_len;
+	display->io[HDMI_TX_HDCP_IO].base = hdmi->hdcp_mmio;
+	display->io[HDMI_TX_HDCP_IO].len = hdmi->hdcp_mmio_len;
+}
+
 static void _sde_hdmi_hotplug_work(struct work_struct *work)
 {
 	struct sde_hdmi *sde_hdmi =
@@ -1540,6 +1551,86 @@ int sde_hdmi_connector_pre_deinit(struct drm_connector *connector,
 	return 0;
 }
 
+static void _sde_hdmi_get_tx_version(struct sde_hdmi *sde_hdmi)
+{
+	struct hdmi *hdmi = sde_hdmi->ctrl.ctrl;
+
+	sde_hdmi->hdmi_tx_version = hdmi_read(hdmi, REG_HDMI_VERSION);
+	sde_hdmi->hdmi_tx_major_version =
+		SDE_GET_MAJOR_VER(sde_hdmi->hdmi_tx_version);
+
+	switch (sde_hdmi->hdmi_tx_major_version) {
+	case (HDMI_TX_VERSION_3):
+		sde_hdmi->max_pclk_khz = HDMI_TX_3_MAX_PCLK_RATE;
+		break;
+	case (HDMI_TX_VERSION_4):
+		sde_hdmi->max_pclk_khz = HDMI_TX_4_MAX_PCLK_RATE;
+		break;
+	default:
+		sde_hdmi->max_pclk_khz = HDMI_DEFAULT_MAX_PCLK_RATE;
+		break;
+	}
+	SDE_DEBUG("sde_hdmi->hdmi_tx_version = 0x%x\n",
+		sde_hdmi->hdmi_tx_version);
+	SDE_DEBUG("sde_hdmi->hdmi_tx_major_version = 0x%x\n",
+		sde_hdmi->hdmi_tx_major_version);
+	SDE_DEBUG("sde_hdmi->max_pclk_khz = 0x%x\n",
+		sde_hdmi->max_pclk_khz);
+}
+
+static int sde_hdmi_tx_check_capability(struct sde_hdmi *sde_hdmi)
+{
+	u32 hdmi_disabled, hdcp_disabled, reg_val;
+	int ret = 0;
+	struct hdmi *hdmi = sde_hdmi->ctrl.ctrl;
+
+	/* check if hdmi and hdcp are disabled */
+	if (sde_hdmi->hdmi_tx_major_version < HDMI_TX_VERSION_4) {
+		hdcp_disabled = hdmi_qfprom_read(hdmi,
+		QFPROM_RAW_FEAT_CONFIG_ROW0_LSB) & BIT(31);
+
+		hdmi_disabled = hdmi_qfprom_read(hdmi,
+		QFPROM_RAW_FEAT_CONFIG_ROW0_MSB) & BIT(0);
+	} else {
+		reg_val = hdmi_qfprom_read(hdmi,
+		QFPROM_RAW_FEAT_CONFIG_ROW0_LSB + QFPROM_RAW_VERSION_4);
+		hdcp_disabled = reg_val & BIT(12);
+
+		hdmi_disabled = reg_val & BIT(13);
+
+		reg_val = hdmi_qfprom_read(hdmi, SEC_CTRL_HW_VERSION);
+
+		SDE_DEBUG("SEC_CTRL_HW_VERSION reg_val = 0x%x\n", reg_val);
+		/*
+		 * With HDCP enabled on capable hardware, check if HW
+		 * or SW keys should be used.
+		 */
+		if (!hdcp_disabled && (reg_val >= HDCP_SEL_MIN_SEC_VERSION)) {
+			reg_val = hdmi_qfprom_read(hdmi,
+			QFPROM_RAW_FEAT_CONFIG_ROW0_MSB +
+			QFPROM_RAW_VERSION_4);
+
+			if (!(reg_val & BIT(23)))
+				sde_hdmi->hdcp1_use_sw_keys = true;
+		}
+	}
+
+	SDE_DEBUG("%s: Features <HDMI:%s, HDCP:%s>\n", __func__,
+			hdmi_disabled ? "OFF" : "ON",
+			hdcp_disabled ? "OFF" : "ON");
+
+	if (hdmi_disabled) {
+		DEV_ERR("%s: HDMI disabled\n", __func__);
+		ret = -ENODEV;
+		goto end;
+	}
+
+	sde_hdmi->hdcp14_present = !hdcp_disabled;
+
+ end:
+	return ret;
+} /* hdmi_tx_check_capability */
+
 int sde_hdmi_connector_post_init(struct drm_connector *connector,
 		void *info,
 		void *display)
@@ -1572,6 +1663,8 @@ int sde_hdmi_connector_post_init(struct drm_connector *connector,
 	if (rc)
 		SDE_ERROR("failed to enable HPD: %d\n", rc);
 
+	_sde_hdmi_get_tx_version(sde_hdmi);
+	sde_hdmi_tx_check_capability(sde_hdmi);
 	return rc;
 }
 
@@ -1769,6 +1862,8 @@ static int sde_hdmi_bind(struct device *dev, struct device *master, void *data)
 	display_ctrl = &display->ctrl;
 	display_ctrl->ctrl = priv->hdmi;
 	display->drm_dev = drm;
+
+	_sde_hdmi_map_regs(display, priv->hdmi);
 
 	mutex_unlock(&display->display_lock);
 	return rc;

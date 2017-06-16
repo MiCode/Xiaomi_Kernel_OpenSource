@@ -147,10 +147,16 @@ struct msm_gpu {
 	struct timer_list hangcheck_timer;
 	uint32_t hangcheck_fence[MSM_GPU_MAX_RINGS];
 	struct work_struct recover_work;
-
-	struct list_head submit_list;
-
 	struct msm_snapshot *snapshot;
+};
+
+struct msm_gpu_submitqueue {
+	int id;
+	u32 flags;
+	u32 prio;
+	int faults;
+	struct list_head node;
+	struct kref ref;
 };
 
 /* It turns out that all targets use the same ringbuffer size. */
@@ -279,5 +285,11 @@ void msm_gpu_cleanup_counters(struct msm_gpu *gpu,
 
 u64 msm_gpu_counter_read(struct msm_gpu *gpu,
 		struct drm_msm_counter_read *data);
+
+static inline void msm_submitqueue_put(struct msm_gpu_submitqueue *queue)
+{
+	if (queue)
+		kref_put(&queue->ref, msm_submitqueue_destroy);
+}
 
 #endif /* __MSM_GPU_H__ */

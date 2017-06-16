@@ -226,6 +226,7 @@
 		clocks = <&clock_mmss clk_vmem_ahb_clk>,
 		       <&clock_mmss clk_vmem_maxi_clk>;
 		clock-names = "ahb", "maxi";
+		clock-config = <0x0 0x0 0x0 0x1>;
 
 		qcom,msm-bus,name = "vmem";
 		qcom,msm-bus,num-cases = <2>;
