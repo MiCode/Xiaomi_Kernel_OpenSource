@@ -181,6 +181,9 @@ unsigned int sysctl_sched_cfs_bandwidth_slice		= 5000UL;
  */
 unsigned int capacity_margin				= 1280;
 
+unsigned int sysctl_sched_capacity_margin_up = 1078; /* ~5% margin */
+unsigned int sysctl_sched_capacity_margin_down = 1205; /* ~15% margin */
+
 static inline void update_load_add(struct load_weight *lw, unsigned long inc)
 {
 	lw->weight += inc;
@@ -6904,9 +6907,18 @@ static int cpu_util_wake(int cpu, struct task_struct *p)
 	return (util >= capacity) ? capacity : util;
 }
 
-static inline int task_fits_capacity(struct task_struct *p, long capacity)
+static inline int task_fits_capacity(struct task_struct *p,
+					long capacity,
+					int cpu)
 {
-	return capacity * 1024 > boosted_task_util(p) * capacity_margin;
+	unsigned int margin;
+
+	if (capacity_orig_of(task_cpu(p)) > capacity_orig_of(cpu))
+		margin = sysctl_sched_capacity_margin_down;
+	else
+		margin = sysctl_sched_capacity_margin_up;
+
+	return capacity * 1024 > boosted_task_util(p) * margin;
 }
 
 static int start_cpu(bool boosted)
@@ -7210,7 +7222,7 @@ static int wake_cap(struct task_struct *p, int cpu, int prev_cpu)
 	/* Bring task utilization in sync with prev_cpu */
 	sync_entity_load_avg(&p->se);
 
-	return task_fits_capacity(p, min_cap);
+	return task_fits_capacity(p, min_cap, cpu);
 }
 
 static bool cpu_overutilized(int cpu)
@@ -7830,7 +7842,7 @@ preempt:
 static inline void update_misfit_task(struct rq *rq, struct task_struct *p)
 {
 #ifdef CONFIG_SMP
-	rq->misfit_task = !task_fits_capacity(p, capacity_of(rq->cpu));
+	rq->misfit_task = !task_fits_capacity(p, capacity_of(rq->cpu), rq->cpu);
 #endif
 }
 
