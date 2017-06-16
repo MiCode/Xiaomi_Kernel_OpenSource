@@ -2239,7 +2239,6 @@
 			compatible = "qcom,sdm845-llcc";
 			#cache-cells = <1>;
 			max-slices = <32>;
-			qcom,dump-size = <0x3c0000>;
 		};
 
 		qcom,llcc-erp {
@@ -2253,19 +2252,19 @@
 		};
 
 		LLCC_1: llcc_1_dcache {
-			qcom,dump-size = <0xd8000>;
+			qcom,dump-size = <0x114100>;
 		};
 
 		LLCC_2: llcc_2_dcache {
-			qcom,dump-size = <0xd8000>;
+			qcom,dump-size = <0x114100>;
 		};
 
 		LLCC_3: llcc_3_dcache {
-			qcom,dump-size = <0xd8000>;
+			qcom,dump-size = <0x114100>;
 		};
 
 		LLCC_4: llcc_4_dcache {
-			qcom,dump-size = <0xd8000>;
+			qcom,dump-size = <0x114100>;
 		};
 	};
 
