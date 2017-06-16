@@ -1153,16 +1153,6 @@ static void __dma_page_dev_to_cpu(struct page *page, unsigned long off,
 		set_bit(PG_dcache_clean, &page->flags);
 }
 
-static int arm_dma_set_mask(struct device *dev, u64 dma_mask)
-{
-	if (!dev->dma_mask || !dma_supported(dev, dma_mask))
-		return -EIO;
-
-	*dev->dma_mask = dma_mask;
-
-	return 0;
-}
-
 /* IOMMU */
 
 static void __dma_clear_buffer(struct page *page, size_t size,
@@ -1913,7 +1903,6 @@ const struct dma_map_ops iommu_ops = {
 	.map_resource		= arm_iommu_dma_map_resource,
 	.unmap_resource		= arm_iommu_dma_unmap_resource,
 
-	.set_dma_mask		= arm_dma_set_mask,
 	.mapping_error		= arm_iommu_mapping_error,
 };
 
@@ -2006,6 +1995,7 @@ int arm_iommu_attach_device(struct device *dev,
 	int err;
 	int s1_bypass = 0, is_fast = 0;
 	struct iommu_group *group;
+	dma_addr_t iova_end;
 
 	group = dev->iommu_group;
 	if (!group) {
@@ -2015,6 +2005,13 @@ int arm_iommu_attach_device(struct device *dev,
 
 	if (iommu_get_domain_for_dev(dev)) {
 		dev_err(dev, "Device already attached to other iommu_domain\n");
+		return -EINVAL;
+	}
+
+	iova_end = mapping->base + (mapping->bits << PAGE_SHIFT) - 1;
+	if (iova_end > dma_get_mask(dev)) {
+		dev_err(dev, "dma mask %llx too small for requested iova range %pad to %pad\n",
+			dma_get_mask(dev), &mapping->base, &iova_end);
 		return -EINVAL;
 	}
 
