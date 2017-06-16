@@ -782,6 +782,7 @@ static int ath10k_mac_set_rts(struct ath10k_vif *arvif, u32 value)
 static int ath10k_peer_delete(struct ath10k *ar, u32 vdev_id, const u8 *addr)
 {
 	int ret;
+	unsigned long time_left;
 
 	lockdep_assert_held(&ar->conf_mutex);
 
@@ -792,6 +793,16 @@ static int ath10k_peer_delete(struct ath10k *ar, u32 vdev_id, const u8 *addr)
 	ret = ath10k_wait_for_peer_deleted(ar, vdev_id, addr);
 	if (ret)
 		return ret;
+
+	if (QCA_REV_WCN3990(ar)) {
+		time_left = wait_for_completion_timeout(&ar->peer_delete_done,
+							5 * HZ);
+
+		if (time_left == 0) {
+			ath10k_warn(ar, "Timeout in receiving peer delete response\n");
+			return -ETIMEDOUT;
+		}
+	}
 
 	ar->num_peers--;
 
