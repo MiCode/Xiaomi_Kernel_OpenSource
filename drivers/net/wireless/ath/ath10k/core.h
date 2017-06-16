@@ -958,6 +958,7 @@ struct ath10k {
 	struct fw_flag *fw_flags;
 	/* set for bmi chip sets */
 	bool is_bmi;
+	enum ieee80211_sta_state sta_state;
 	/* must be last */
 	u8 drv_priv[0] __aligned(sizeof(void *));
 };

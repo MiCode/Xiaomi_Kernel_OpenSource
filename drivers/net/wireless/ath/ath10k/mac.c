@@ -5924,6 +5924,9 @@ static int ath10k_sta_state(struct ieee80211_hw *hw,
 	     new_state == IEEE80211_STA_NOTEXIST))
 		cancel_work_sync(&arsta->update_wk);
 
+	if (vif->type == NL80211_IFTYPE_STATION && new_state > ar->sta_state)
+		ar->sta_state = new_state;
+
 	mutex_lock(&ar->conf_mutex);
 
 	if (old_state == IEEE80211_STA_NOTEXIST &&
@@ -7392,8 +7395,9 @@ ath10k_mac_op_unassign_vif_chanctx(struct ieee80211_hw *hw,
 		   ctx, arvif->vdev_id);
 
 	WARN_ON(!arvif->is_started);
-
-	if (vif->type == NL80211_IFTYPE_MONITOR) {
+	if (vif->type == NL80211_IFTYPE_MONITOR ||
+	    (vif->type == NL80211_IFTYPE_STATION &&
+	     ar->sta_state < IEEE80211_STA_ASSOC)) {
 		WARN_ON(!arvif->is_up);
 
 		ret = ath10k_wmi_vdev_down(ar, arvif->vdev_id);
@@ -7409,6 +7413,7 @@ ath10k_mac_op_unassign_vif_chanctx(struct ieee80211_hw *hw,
 		ath10k_warn(ar, "failed to stop vdev %i: %d\n",
 			    arvif->vdev_id, ret);
 
+	ar->sta_state = IEEE80211_STA_NOTEXIST;
 	arvif->is_started = false;
 
 	mutex_unlock(&ar->conf_mutex);
