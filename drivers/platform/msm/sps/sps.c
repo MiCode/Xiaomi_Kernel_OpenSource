@@ -2088,7 +2088,7 @@ int sps_register_bam_device(const struct sps_bam_props *bam_props,
 				unsigned long *dev_handle)
 {
 	struct sps_bam *bam = NULL;
-	void *virt_addr = NULL;
+	void __iomem *virt_addr = NULL;
 	char bam_name[MAX_MSG_LEN];
 	u32 manage;
 	int ok;

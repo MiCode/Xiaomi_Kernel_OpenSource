@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -202,7 +202,7 @@ struct sps_bam {
 	/* BAM device state */
 	u32 state;
 	struct mutex lock;
-	void *base; /* BAM virtual base address */
+	void __iomem *base; /* BAM virtual base address */
 	u32 version;
 	spinlock_t isr_lock;
 	spinlock_t connection_lock;
