@@ -3047,7 +3047,8 @@ static void msm_otg_set_vbus_state(int online)
 	}
 
 	/* do not queue state m/c work if id is grounded */
-	if (!test_bit(ID, &motg->inputs)) {
+	if (!test_bit(ID, &motg->inputs) &&
+		!motg->pdata->vbus_low_as_hostmode) {
 		/*
 		 * state machine work waits for initial VBUS
 		 * completion in UNDEFINED state.  Process
@@ -3065,6 +3066,12 @@ static void msm_otg_set_vbus_state(int online)
 			msm_otg_dbg_log_event(&motg->phy, "PMIC: BSV CAME LATE",
 					init, motg->inputs);
 			goto out;
+		}
+
+		if (motg->pdata->vbus_low_as_hostmode &&
+			!test_bit(B_SESS_VLD, &motg->inputs)) {
+			motg->id_state = USB_ID_GROUND;
+			clear_bit(ID, &motg->inputs);
 		}
 		complete(&pmic_vbus_init);
 		pr_debug("PMIC: BSV init complete\n");
@@ -3094,7 +3101,6 @@ out:
 	if (motg->pdata->vbus_low_as_hostmode) {
 		if (!test_bit(B_SESS_VLD, &motg->inputs)) {
 			clear_bit(ID, &motg->inputs);
-			init = false;
 		} else {
 			set_bit(ID, &motg->inputs);
 		}

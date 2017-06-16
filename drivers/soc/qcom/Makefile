@@ -76,6 +76,7 @@ obj-$(CONFIG_MSM_GLINK_PKT) += msm_glink_pkt.o
 obj-$(CONFIG_MSM_TZ_SMMU) += msm_tz_smmu.o
 obj-$(CONFIG_MSM_PIL)   +=      peripheral-loader.o
 obj-$(CONFIG_MSM_PIL_SSR_GENERIC) += subsys-pil-tz.o
+obj-$(CONFIG_MSM_PIL_SSR_BG) += subsys-pil-bg.o
 obj-$(CONFIG_MSM_PIL_MSS_QDSP6V5) += pil-q6v5.o pil-msa.o pil-q6v5-mss.o
 obj-$(CONFIG_MSM_SCM_ERRATA) += scm-errata.o
 obj-$(CONFIG_MSM_PFE_WA) += pfe-wa.o

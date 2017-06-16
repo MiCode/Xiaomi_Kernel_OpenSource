@@ -99,7 +99,9 @@ struct ppp_status {
 	struct mutex config_ppp_mutex; /* Only one client configure register */
 	struct msm_fb_data_type *mfd;
 
-	struct work_struct blit_work;
+	struct kthread_work blit_work;
+	struct kthread_worker kworker;
+	struct task_struct *blit_thread;
 	struct blit_req_queue req_q;
 
 	struct sw_sync_timeline *timeline;
@@ -1487,7 +1489,7 @@ static bool is_blit_optimization_possible(struct blit_req_list *req, int indx)
 	return status;
 }
 
-static void mdp3_ppp_blit_wq_handler(struct work_struct *work)
+static void mdp3_ppp_blit_handler(struct kthread_work *work)
 {
 	struct msm_fb_data_type *mfd = ppp_stat->mfd;
 	struct blit_req_list *req;
@@ -1655,7 +1657,7 @@ int mdp3_ppp_parse_req(void __user *p,
 
 	mdp3_ppp_req_push(req_q, req);
 	mutex_unlock(&ppp_stat->req_mutex);
-	schedule_work(&ppp_stat->blit_work);
+	queue_kthread_work(&ppp_stat->kworker, &ppp_stat->blit_work);
 	if (!async) {
 		/* wait for release fence */
 		rc = sync_fence_wait(fence,
@@ -1682,7 +1684,10 @@ parse_err_1:
 
 int mdp3_ppp_res_init(struct msm_fb_data_type *mfd)
 {
+	int rc;
+	struct sched_param param = {.sched_priority = 16};
 	const char timeline_name[] = "mdp3_ppp";
+
 	ppp_stat = kzalloc(sizeof(struct ppp_status), GFP_KERNEL);
 	if (!ppp_stat) {
 		pr_err("%s: kzalloc failed\n", __func__);
@@ -1698,7 +1703,22 @@ int mdp3_ppp_res_init(struct msm_fb_data_type *mfd)
 		ppp_stat->timeline_value = 1;
 	}
 
-	INIT_WORK(&ppp_stat->blit_work, mdp3_ppp_blit_wq_handler);
+	init_kthread_worker(&ppp_stat->kworker);
+	init_kthread_work(&ppp_stat->blit_work, mdp3_ppp_blit_handler);
+	ppp_stat->blit_thread = kthread_run(kthread_worker_fn,
+					&ppp_stat->kworker,
+					"mdp3_ppp");
+
+	if (IS_ERR(ppp_stat->blit_thread)) {
+		rc = PTR_ERR(ppp_stat->blit_thread);
+		pr_err("ERROR: unable to start ppp blit thread,err = %d\n",
+							rc);
+		ppp_stat->blit_thread = NULL;
+		return rc;
+	}
+	if (sched_setscheduler(ppp_stat->blit_thread, SCHED_FIFO, &param))
+		pr_warn("set priority failed for mdp3 blit thread\n");
+
 	INIT_WORK(&ppp_stat->free_bw_work, mdp3_free_bw_wq_handler);
 	init_completion(&ppp_stat->pop_q_comp);
 	mutex_init(&ppp_stat->req_mutex);

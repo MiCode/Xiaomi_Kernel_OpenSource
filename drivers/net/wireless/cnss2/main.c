@@ -1149,6 +1149,9 @@ skip_driver_remove:
 
 	cnss_power_off_device(plat_priv);
 
+	clear_bit(CNSS_FW_READY, &plat_priv->driver_state);
+	clear_bit(CNSS_FW_MEM_READY, &plat_priv->driver_state);
+
 	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
 		clear_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state);
 		clear_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state);
