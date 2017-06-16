@@ -838,15 +838,13 @@ static int cam_vfe_bus_init_wm_resource(uint32_t index,
 	struct cam_vfe_bus_ver2_hw_info *ver2_hw_info,
 	struct cam_isp_resource_node    *wm_res)
 {
-	int rc = 0;
 	struct cam_vfe_bus_ver2_wm_resource_data *rsrc_data;
 
 	rsrc_data = kzalloc(sizeof(struct cam_vfe_bus_ver2_wm_resource_data),
 		GFP_KERNEL);
 	if (!rsrc_data) {
-		CDBG("Failed to alloc for wm res priv\n");
-		rc = -ENOMEM;
-		return rc;
+		CDBG("Failed to alloc for WM res priv\n");
+		return -ENOMEM;
 	}
 	wm_res->res_priv = rsrc_data;
 
@@ -863,7 +861,32 @@ static int cam_vfe_bus_init_wm_resource(uint32_t index,
 	wm_res->bottom_half_handler = cam_vfe_bus_handle_wm_done_bottom_half;
 	wm_res->hw_intf = ver2_bus_priv->common_data.hw_intf;
 
-	return rc;
+	return 0;
+}
+
+static int cam_vfe_bus_deinit_wm_resource(
+	struct cam_isp_resource_node    *wm_res)
+{
+	struct cam_vfe_bus_ver2_wm_resource_data *rsrc_data;
+
+	wm_res->res_state = CAM_ISP_RESOURCE_STATE_UNAVAILABLE;
+	INIT_LIST_HEAD(&wm_res->list);
+
+	wm_res->start = NULL;
+	wm_res->stop = NULL;
+	wm_res->top_half_handler = NULL;
+	wm_res->bottom_half_handler = NULL;
+	wm_res->hw_intf = NULL;
+
+	rsrc_data = wm_res->res_priv;
+	wm_res->res_priv = NULL;
+	if (!rsrc_data) {
+		pr_err("Error! WM res priv is NULL\n");
+		return -ENOMEM;
+	}
+	kfree(rsrc_data);
+
+	return 0;
 }
 
 static void cam_vfe_bus_add_wm_to_comp_grp(
@@ -1212,8 +1235,7 @@ static int cam_vfe_bus_init_comp_grp(uint32_t index,
 	struct cam_vfe_bus_ver2_hw_info *ver2_hw_info,
 	struct cam_isp_resource_node    *comp_grp)
 {
-	struct cam_vfe_bus_ver2_comp_grp_data *rsrc_data =
-		comp_grp->res_priv;
+	struct cam_vfe_bus_ver2_comp_grp_data *rsrc_data = NULL;
 
 	rsrc_data = kzalloc(sizeof(struct cam_vfe_bus_ver2_comp_grp_data),
 		GFP_KERNEL);
@@ -1231,7 +1253,6 @@ static int cam_vfe_bus_init_comp_grp(uint32_t index,
 	rsrc_data->hw_regs         = &ver2_hw_info->comp_grp_reg[index];
 	rsrc_data->dual_slave_core = CAM_VFE_BUS_VER2_VFE_CORE_MAX;
 
-
 	if (rsrc_data->comp_grp_type >= CAM_VFE_BUS_VER2_COMP_GRP_DUAL_0 &&
 		rsrc_data->comp_grp_type <= CAM_VFE_BUS_VER2_COMP_GRP_DUAL_5)
 		list_add_tail(&comp_grp->list,
@@ -1246,6 +1267,32 @@ static int cam_vfe_bus_init_comp_grp(uint32_t index,
 	comp_grp->bottom_half_handler =
 		cam_vfe_bus_handle_comp_done_bottom_half;
 	comp_grp->hw_intf = ver2_bus_priv->common_data.hw_intf;
+
+	return 0;
+}
+
+static int cam_vfe_bus_deinit_comp_grp(
+	struct cam_isp_resource_node    *comp_grp)
+{
+	struct cam_vfe_bus_ver2_comp_grp_data *rsrc_data =
+		comp_grp->res_priv;
+
+	comp_grp->start = NULL;
+	comp_grp->stop = NULL;
+	comp_grp->top_half_handler = NULL;
+	comp_grp->bottom_half_handler = NULL;
+	comp_grp->hw_intf = NULL;
+
+	list_del_init(&comp_grp->list);
+	comp_grp->res_state = CAM_ISP_RESOURCE_STATE_UNAVAILABLE;
+
+	comp_grp->res_priv = NULL;
+
+	if (!rsrc_data) {
+		pr_err("Error! comp_grp_priv is NULL\n");
+		return -ENODEV;
+	}
+	kfree(rsrc_data);
 
 	return 0;
 }
@@ -1529,6 +1576,30 @@ static int cam_vfe_bus_init_vfe_out_resource(uint32_t index,
 	vfe_out->bottom_half_handler =
 		cam_vfe_bus_handle_vfe_out_done_bottom_half;
 	vfe_out->hw_intf = ver2_bus_priv->common_data.hw_intf;
+
+	return 0;
+}
+
+static int cam_vfe_bus_deinit_vfe_out_resource(
+	struct cam_isp_resource_node    *vfe_out)
+{
+	struct cam_vfe_bus_ver2_vfe_out_data *rsrc_data = vfe_out->res_priv;
+
+	vfe_out->start = NULL;
+	vfe_out->stop = NULL;
+	vfe_out->top_half_handler = NULL;
+	vfe_out->bottom_half_handler = NULL;
+	vfe_out->hw_intf = NULL;
+
+	vfe_out->res_state = CAM_ISP_RESOURCE_STATE_UNAVAILABLE;
+	INIT_LIST_HEAD(&vfe_out->list);
+	vfe_out->res_priv = NULL;
+
+	if (!rsrc_data) {
+		pr_err("Error! vfe out priv is NULL\n");
+		return -ENOMEM;
+	}
+	kfree(rsrc_data);
 
 	return 0;
 }
@@ -1923,7 +1994,7 @@ int cam_vfe_bus_ver2_init(
 	if (!vfe_bus_local) {
 		CDBG("Failed to alloc for vfe_bus\n");
 		rc = -ENOMEM;
-		goto err_alloc_bus;
+		goto end;
 	}
 
 	bus_priv = kzalloc(sizeof(struct cam_vfe_bus_ver2_priv),
@@ -1931,7 +2002,7 @@ int cam_vfe_bus_ver2_init(
 	if (!bus_priv) {
 		CDBG("Failed to alloc for vfe_bus_priv\n");
 		rc = -ENOMEM;
-		goto err_alloc_priv;
+		goto free_bus_local;
 	}
 	vfe_bus_local->bus_priv = bus_priv;
 
@@ -1948,8 +2019,8 @@ int cam_vfe_bus_ver2_init(
 		rc = cam_vfe_bus_init_wm_resource(i, bus_priv, bus_hw_info,
 			&bus_priv->bus_client[i]);
 		if (rc < 0) {
-			pr_err("Error! Init WM failed\n");
-			goto err_init_wm;
+			pr_err("Error! Init WM failed rc=%d\n", rc);
+			goto deinit_wm;
 		}
 	}
 
@@ -1957,8 +2028,8 @@ int cam_vfe_bus_ver2_init(
 		rc = cam_vfe_bus_init_comp_grp(i, bus_priv, bus_hw_info,
 			&bus_priv->comp_grp[i]);
 		if (rc < 0) {
-			pr_err("Error! Init Comp Grp failed\n");
-			goto err_init_comp_grp;
+			pr_err("Error! Init Comp Grp failed rc=%d\n", rc);
+			goto deinit_comp_grp;
 		}
 	}
 
@@ -1966,8 +2037,8 @@ int cam_vfe_bus_ver2_init(
 		rc = cam_vfe_bus_init_vfe_out_resource(i, bus_priv, bus_hw_info,
 			&bus_priv->vfe_out[i]);
 		if (rc < 0) {
-			pr_err("Error! Init VFE Out failed\n");
-			goto err_init_vfe_out;
+			pr_err("Error! Init VFE Out failed rc=%d\n", rc);
+			goto deinit_vfe_out;
 		}
 	}
 
@@ -1988,14 +2059,89 @@ int cam_vfe_bus_ver2_init(
 
 	*vfe_bus = vfe_bus_local;
 
+	CDBG("Exit\n");
 	return rc;
 
-err_init_vfe_out:
-err_init_comp_grp:
-err_init_wm:
+deinit_vfe_out:
+	if (i < 0)
+		i = CAM_VFE_BUS_VER2_VFE_OUT_MAX;
+	for (--i; i >= 0; i--)
+		cam_vfe_bus_deinit_vfe_out_resource(&bus_priv->vfe_out[i]);
+
+deinit_comp_grp:
+	if (i < 0)
+		i = CAM_VFE_BUS_VER2_COMP_GRP_MAX;
+	for (--i; i >= 0; i--)
+		cam_vfe_bus_deinit_comp_grp(&bus_priv->comp_grp[i]);
+
+deinit_wm:
+	if (i < 0)
+		i = CAM_VFE_BUS_VER2_MAX_CLIENTS;
+	for (--i; i >= 0; i--)
+		cam_vfe_bus_deinit_wm_resource(&bus_priv->bus_client[i]);
+
 	kfree(vfe_bus_local->bus_priv);
-err_alloc_priv:
+
+free_bus_local:
 	kfree(vfe_bus_local);
-err_alloc_bus:
+
+end:
 	return rc;
 }
+
+int cam_vfe_bus_ver2_deinit(
+	struct cam_vfe_bus                  **vfe_bus)
+{
+	int i, rc = 0;
+	struct cam_vfe_bus_ver2_priv    *bus_priv = NULL;
+	struct cam_vfe_bus              *vfe_bus_local;
+
+	if (!vfe_bus || !*vfe_bus) {
+		pr_err("Error! Invalid input\n");
+		return -EINVAL;
+	}
+	vfe_bus_local = *vfe_bus;
+
+	bus_priv = vfe_bus_local->bus_priv;
+	if (!bus_priv) {
+		pr_err("Error! bus_priv is NULL\n");
+		rc = -ENODEV;
+		goto free_bus_local;
+	}
+
+	INIT_LIST_HEAD(&bus_priv->free_payload_list);
+	for (i = 0; i < 128; i++)
+		INIT_LIST_HEAD(&bus_priv->evt_payload[i].list);
+
+	for (i = 0; i < CAM_VFE_BUS_VER2_MAX_CLIENTS; i++) {
+		rc = cam_vfe_bus_deinit_wm_resource(&bus_priv->bus_client[i]);
+		if (rc < 0)
+			pr_err("Error! Deinit WM failed rc=%d\n", rc);
+	}
+
+	for (i = 0; i < CAM_VFE_BUS_VER2_COMP_GRP_MAX; i++) {
+		rc = cam_vfe_bus_deinit_comp_grp(&bus_priv->comp_grp[i]);
+		if (rc < 0)
+			pr_err("Error! Deinit Comp Grp failed rc=%d\n", rc);
+	}
+
+	for (i = 0; i < CAM_VFE_BUS_VER2_VFE_OUT_MAX; i++) {
+		rc = cam_vfe_bus_deinit_vfe_out_resource(&bus_priv->vfe_out[i]);
+		if (rc < 0)
+			pr_err("Error! Deinit VFE Out failed rc=%d\n", rc);
+	}
+
+	INIT_LIST_HEAD(&bus_priv->free_comp_grp);
+	INIT_LIST_HEAD(&bus_priv->free_dual_comp_grp);
+	INIT_LIST_HEAD(&bus_priv->used_comp_grp);
+
+	kfree(vfe_bus_local->bus_priv);
+
+free_bus_local:
+	kfree(vfe_bus_local);
+
+	*vfe_bus = NULL;
+
+	return rc;
+}
+

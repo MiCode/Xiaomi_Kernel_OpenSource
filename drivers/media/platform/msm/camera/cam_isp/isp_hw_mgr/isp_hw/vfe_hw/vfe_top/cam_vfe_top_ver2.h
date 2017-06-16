@@ -58,6 +58,8 @@ struct cam_vfe_top_ver2_hw_info {
 int cam_vfe_top_ver2_init(struct cam_hw_soc_info     *soc_info,
 	struct cam_hw_intf                           *hw_intf,
 	void                                         *top_hw_info,
-	struct cam_vfe_top                           **vfe_top);
+	struct cam_vfe_top                          **vfe_top);
+
+int cam_vfe_top_ver2_deinit(struct cam_vfe_top      **vfe_top);
 
 #endif /* _CAM_VFE_TOP_VER2_H_ */

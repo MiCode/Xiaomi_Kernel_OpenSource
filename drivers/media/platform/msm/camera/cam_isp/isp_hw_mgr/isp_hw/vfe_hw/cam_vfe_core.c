@@ -611,7 +611,7 @@ int cam_vfe_core_init(struct cam_vfe_hw_core_info  *core_info,
 		&core_info->vfe_top);
 	if (rc) {
 		pr_err("Error! cam_vfe_top_init failed\n");
-		return rc;
+		goto deinit_controller;
 	}
 
 	rc = cam_vfe_bus_init(vfe_hw_info->bus_version,
@@ -619,7 +619,7 @@ int cam_vfe_core_init(struct cam_vfe_hw_core_info  *core_info,
 		vfe_hw_info->bus_hw_info, NULL, &core_info->vfe_bus);
 	if (rc) {
 		pr_err("Error! cam_vfe_bus_init failed\n");
-		return rc;
+		goto deinit_top;
 	}
 
 	INIT_LIST_HEAD(&core_info->free_payload_list);
@@ -632,4 +632,46 @@ int cam_vfe_core_init(struct cam_vfe_hw_core_info  *core_info,
 	spin_lock_init(&core_info->spin_lock);
 
 	return rc;
+
+deinit_top:
+	cam_vfe_top_deinit(vfe_hw_info->top_version,
+		&core_info->vfe_top);
+
+deinit_controller:
+	cam_irq_controller_deinit(&core_info->vfe_irq_controller);
+
+	return rc;
 }
+
+int cam_vfe_core_deinit(struct cam_vfe_hw_core_info  *core_info,
+	struct cam_vfe_hw_info                       *vfe_hw_info)
+{
+	int                rc = -EINVAL;
+	int                i;
+	unsigned long      flags;
+
+	spin_lock_irqsave(&core_info->spin_lock, flags);
+
+	INIT_LIST_HEAD(&core_info->free_payload_list);
+	for (i = 0; i < CAM_VFE_EVT_MAX; i++)
+		INIT_LIST_HEAD(&core_info->evt_payload[i].list);
+
+	rc = cam_vfe_bus_deinit(vfe_hw_info->bus_version,
+		&core_info->vfe_bus);
+	if (rc)
+		pr_err("Error cam_vfe_bus_deinit failed rc=%d\n", rc);
+
+	rc = cam_vfe_top_deinit(vfe_hw_info->top_version,
+		&core_info->vfe_top);
+	if (rc)
+		pr_err("Error cam_vfe_top_deinit failed rc=%d\n", rc);
+
+	rc = cam_irq_controller_deinit(&core_info->vfe_irq_controller);
+	if (rc)
+		pr_err("Error cam_irq_controller_deinit failed rc=%d\n", rc);
+
+	spin_unlock_irqrestore(&core_info->spin_lock, flags);
+
+	return rc;
+}
+

@@ -67,6 +67,9 @@ struct cam_vfe_bus {
  *                           level IRQs
  * @vfe_bus:                 Pointer to vfe_bus structure which will be filled
  *                           and returned on successful initialize
+ *
+ * @Return:                  0: Success
+ *                           Non-zero: Failure
  */
 int cam_vfe_bus_init(uint32_t          bus_version,
 	void __iomem                  *mem_base,
@@ -74,5 +77,19 @@ int cam_vfe_bus_init(uint32_t          bus_version,
 	void                          *bus_hw_info,
 	void                          *vfe_irq_controller,
 	struct cam_vfe_bus            **vfe_bus);
+
+/*
+ * cam_vfe_bus_deinit()
+ *
+ * @Brief:                   Deinitialize Bus layer
+ *
+ * @bus_version:             Version of BUS to deinitialize
+ * @vfe_bus:                 Pointer to vfe_bus structure to deinitialize
+ *
+ * @Return:                  0: Success
+ *                           Non-zero: Failure
+ */
+int cam_vfe_bus_deinit(uint32_t        bus_version,
+	struct cam_vfe_bus           **vfe_bus);
 
 #endif /* _CAM_VFE_BUS_ */

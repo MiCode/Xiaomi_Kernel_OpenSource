@@ -88,14 +88,14 @@ int cam_vfe_probe(struct platform_device *pdev)
 	rc = cam_vfe_init_soc_resources(&vfe_hw->soc_info, cam_vfe_irq,
 		vfe_hw);
 	if (rc < 0) {
-		pr_err("Failed to init soc\n");
+		pr_err("Failed to init soc rc=%d\n", rc);
 		goto free_core_info;
 	}
 
 	rc = cam_vfe_core_init(core_info, &vfe_hw->soc_info,
 		vfe_hw_intf, hw_info);
 	if (rc < 0) {
-		pr_err("Failed to init core\n");
+		pr_err("Failed to init core rc=%d\n", rc);
 		goto deinit_soc;
 	}
 
@@ -115,6 +115,8 @@ int cam_vfe_probe(struct platform_device *pdev)
 	return rc;
 
 deinit_soc:
+	if (cam_vfe_deinit_soc_resources(&vfe_hw->soc_info))
+		pr_err("Failed to deinit soc\n");
 free_core_info:
 	kfree(vfe_hw->core_info);
 free_vfe_hw:
@@ -122,6 +124,60 @@ free_vfe_hw:
 free_vfe_hw_intf:
 	kfree(vfe_hw_intf);
 end:
+	return rc;
+}
+
+int cam_vfe_remove(struct platform_device *pdev)
+{
+	struct cam_hw_info                *vfe_hw = NULL;
+	struct cam_hw_intf                *vfe_hw_intf = NULL;
+	struct cam_vfe_hw_core_info       *core_info = NULL;
+	int                                rc = 0;
+
+	vfe_hw_intf = platform_get_drvdata(pdev);
+	if (!vfe_hw_intf) {
+		pr_err("Error! No data in pdev\n");
+		return -EINVAL;
+	}
+
+	CDBG("type %d index %d\n", vfe_hw_intf->hw_type, vfe_hw_intf->hw_idx);
+
+	if (vfe_hw_intf->hw_idx < CAM_VFE_HW_NUM_MAX)
+		cam_vfe_hw_list[vfe_hw_intf->hw_idx] = NULL;
+
+	vfe_hw = vfe_hw_intf->hw_priv;
+	if (!vfe_hw) {
+		pr_err("Error! HW data is NULL\n");
+		rc = -ENODEV;
+		goto free_vfe_hw_intf;
+	}
+
+	core_info = (struct cam_vfe_hw_core_info *)vfe_hw->core_info;
+	if (!core_info) {
+		pr_err("Error! core data NULL");
+		rc = -EINVAL;
+		goto deinit_soc;
+	}
+
+	rc = cam_vfe_core_deinit(core_info, core_info->vfe_hw_info);
+	if (rc < 0)
+		pr_err("Failed to deinit core rc=%d\n", rc);
+
+	kfree(vfe_hw->core_info);
+
+deinit_soc:
+	rc = cam_vfe_deinit_soc_resources(&vfe_hw->soc_info);
+	if (rc < 0)
+		pr_err("Failed to deinit soc rc=%d\n", rc);
+
+	mutex_destroy(&vfe_hw->hw_mutex);
+	kfree(vfe_hw);
+
+	CDBG("VFE%d remove successful\n", vfe_hw_intf->hw_idx);
+
+free_vfe_hw_intf:
+	kfree(vfe_hw_intf);
+
 	return rc;
 }
 

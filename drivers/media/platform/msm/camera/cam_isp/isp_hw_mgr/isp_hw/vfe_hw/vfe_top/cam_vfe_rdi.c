@@ -187,3 +187,23 @@ int cam_vfe_rdi_ver2_init(
 	return 0;
 }
 
+int cam_vfe_rdi_ver2_deinit(
+	struct cam_isp_resource_node  *rdi_node)
+{
+	struct cam_vfe_mux_rdi_data *rdi_priv = rdi_node->res_priv;
+
+	rdi_node->start = NULL;
+	rdi_node->stop  = NULL;
+	rdi_node->top_half_handler = NULL;
+	rdi_node->bottom_half_handler = NULL;
+
+	rdi_node->res_priv = NULL;
+
+	if (!rdi_priv) {
+		pr_err("Error! rdi_priv NULL\n");
+		return -ENODEV;
+	}
+	kfree(rdi_priv);
+
+	return 0;
+}
