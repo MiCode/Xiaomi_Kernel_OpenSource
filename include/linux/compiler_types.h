@@ -253,6 +253,10 @@ struct ftrace_likely_data {
 # define __nostackprotector
 #endif
 
+#ifndef __norecordmcount
+#define __norecordmcount
+#endif
+
 /*
  * Assume alignment of return value.
  */
