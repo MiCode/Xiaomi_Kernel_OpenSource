@@ -399,15 +399,15 @@
 			 <&clock_gcc GCC_USB3_PRIM_PHY_PIPE_CLK>,
 			 <&clock_dispcc DISP_CC_MDSS_DP_LINK_CLK>,
 			 <&clock_dispcc DISP_CC_MDSS_DP_LINK_INTF_CLK>,
-			 <&clock_dispcc DISP_CC_MDSS_DP_CRYPTO_CLK>,
 			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL_CLK>,
+			 <&clock_dispcc DISP_CC_MDSS_DP_CRYPTO_CLK>,
 			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL_CLK_SRC>,
 			 <&mdss_dp_pll DP_VCO_DIVIDED_CLK_SRC_MUX>;
 		clock-names = "core_aux_clk", "core_usb_ref_clk_src",
 			"core_usb_ref_clk", "core_usb_cfg_ahb_clk",
 			"core_usb_pipe_clk", "ctrl_link_clk",
-			"ctrl_link_iface_clk", "ctrl_crypto_clk",
-			"ctrl_pixel_clk", "pixel_clk_rcg", "pixel_parent";
+			"ctrl_link_iface_clk", "ctrl_pixel_clk",
+			"crypto_clk", "pixel_clk_rcg", "pixel_parent";
 
 		qcom,dp-usbpd-detection = <&pmi8998_pdphy>;
 
