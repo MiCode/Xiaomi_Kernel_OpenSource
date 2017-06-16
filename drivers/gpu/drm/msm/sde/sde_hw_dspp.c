@@ -113,7 +113,7 @@ static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 						reg_dmav1_setup_dspp_igcv31;
 				else
 					c->ops.setup_igc =
-						NULL; /* TBD: CPU programming */
+						sde_setup_dspp_igcv3;
 			}
 			break;
 		case SDE_DSPP_AD:
