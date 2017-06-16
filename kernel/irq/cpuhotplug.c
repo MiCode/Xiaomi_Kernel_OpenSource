@@ -124,10 +124,21 @@ static bool migrate_one_irq(struct irq_desc *desc)
 			irq_shutdown(desc);
 			return false;
 		}
+		/*
+		 * The order of preference for selecting a fallback CPU is
+		 *
+		 * (1) online and un-isolated CPU from default affinity
+		 * (2) online and un-isolated CPU
+		 * (3) online CPU
+		 */
 		cpumask_andnot(&available_cpus, cpu_online_mask,
 							cpu_isolated_mask);
-		if (cpumask_empty(affinity))
+		if (cpumask_intersects(&available_cpus, irq_default_affinity))
+			cpumask_and(&available_cpus, &available_cpus,
+							irq_default_affinity);
+		else if (cpumask_empty(&available_cpus))
 			affinity = cpu_online_mask;
+
 		/*
 		 * We are overriding the affinity with all online and
 		 * un-isolated cpus. irq_set_affinity_locked() call
