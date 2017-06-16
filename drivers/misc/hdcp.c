@@ -2288,7 +2288,7 @@ int hdcp1_set_enc(bool enable)
 	}
 
 	if (hdcp1_enc_enabled == enable) {
-		pr_debug("already %s\n", enable ? "enabled" : "disabled");
+		pr_info("already %s\n", enable ? "enabled" : "disabled");
 		goto end;
 	}
 
@@ -2318,7 +2318,7 @@ int hdcp1_set_enc(bool enable)
 	}
 
 	hdcp1_enc_enabled = enable;
-	pr_debug("%s success\n", enable ? "enable" : "disable");
+	pr_info("%s success\n", enable ? "enable" : "disable");
 end:
 	mutex_unlock(&hdcp1_ta_cmd_lock);
 	return rc;

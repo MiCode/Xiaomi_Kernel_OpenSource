@@ -396,8 +396,45 @@ static void _sde_hdmi_bridge_pre_enable(struct drm_bridge *bridge)
 	mutex_unlock(&display->display_lock);
 }
 
+static void sde_hdmi_update_hdcp_info(struct drm_connector *connector)
+{
+	void *fd = NULL;
+	struct sde_hdcp_ops *ops = NULL;
+	struct sde_connector *c_conn = to_sde_connector(connector);
+	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
+
+	if (!display) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+
+	if (!display->hdcp22_present) {
+		if (display->hdcp1_use_sw_keys) {
+			display->hdcp14_present =
+				hdcp1_check_if_supported_load_app();
+		}
+		if (display->hdcp14_present) {
+			fd = display->hdcp_feature_data[SDE_HDCP_1x];
+			if (fd)
+				ops = sde_hdcp_1x_start(fd);
+		}
+	}
+
+	/* update internal data about hdcp */
+	display->hdcp_data = fd;
+	display->hdcp_ops = ops;
+}
+
 static void _sde_hdmi_bridge_enable(struct drm_bridge *bridge)
 {
+	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
+	struct hdmi *hdmi = sde_hdmi_bridge->hdmi;
+
+	/* need to update hdcp info here to ensure right HDCP support*/
+	sde_hdmi_update_hdcp_info(hdmi->connector);
+
+	/* start HDCP authentication */
+	sde_hdmi_start_hdcp(hdmi->connector);
 }
 
 static void _sde_hdmi_bridge_disable(struct drm_bridge *bridge)
@@ -414,8 +451,8 @@ static void _sde_hdmi_bridge_post_disable(struct drm_bridge *bridge)
 
 	sde_hdmi_notify_clients(display, display->connected);
 
-	if (hdmi->hdcp_ctrl && hdmi->is_hdcp_supported)
-		hdmi_hdcp_ctrl_off(hdmi->hdcp_ctrl);
+	if (sde_hdmi_tx_is_hdcp_enabled(display))
+		sde_hdmi_hdcp_off(display);
 
 	sde_hdmi_audio_off(hdmi);
 
