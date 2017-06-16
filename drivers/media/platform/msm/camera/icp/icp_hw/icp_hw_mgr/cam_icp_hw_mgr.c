@@ -658,7 +658,10 @@ static int cam_icp_mgr_release_ctx(struct cam_icp_hw_mgr *hw_mgr, int ctx_id)
 	mutex_destroy(&hw_mgr->ctx_data[ctx_id].hfi_frame_process.lock);
 	mutex_unlock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
 	kfree(hw_mgr->ctx_data[ctx_id].hfi_frame_process.bitmap);
+	hw_mgr->ctxt_cnt--;
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
+	if (!hw_mgr->ctxt_cnt)
+		cam_icp_mgr_hw_close(hw_mgr, NULL);
 
 	return 0;
 }
@@ -697,7 +700,7 @@ static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args)
 	int i;
 
 	mutex_lock(&hw_mgr->hw_mgr_mutex);
-	if (hw_mgr->fw_download ==  false) {
+	if ((hw_mgr->fw_download ==  false) && (!hw_mgr->ctxt_cnt)) {
 		ICP_DBG("hw mgr is already closed\n");
 		mutex_unlock(&hw_mgr->hw_mgr_mutex);
 		return 0;
@@ -750,7 +753,6 @@ static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args)
 	cam_icp_free_hfi_mem();
 	hw_mgr->fw_download = false;
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
-
 	return 0;
 }
 
@@ -939,7 +941,8 @@ static int cam_icp_mgr_download_fw(void *hw_mgr_priv, void *download_fw_args)
 	hw_mgr->fw_download = true;
 	hw_mgr->ctxt_cnt = 0;
 	ICP_DBG("FW download done successfully\n");
-
+	if (!download_fw_args)
+		cam_icp_mgr_hw_close(hw_mgr, NULL);
 	return rc;
 
 set_irq_failed:
@@ -1524,6 +1527,11 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 		goto cmd_cpu_buf_failed;
 	}
 
+	if (!hw_mgr->ctxt_cnt) {
+		rc = cam_icp_mgr_download_fw(hw_mgr, ctx_data);
+		if (rc < 0)
+			goto cmd_cpu_buf_failed;
+	}
 	mutex_lock(&icp_hw_mgr.hw_mgr_mutex);
 	task = cam_req_mgr_workq_get_task(icp_hw_mgr.cmd_work);
 	if (!task) {
@@ -1594,6 +1602,7 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 			(unsigned int)icp_dev_acquire_info.scratch_mem_size,
 			(unsigned int)ctx_data->fw_handle);
 	kfree(tmp_acquire);
+	hw_mgr->ctxt_cnt++;
 	return 0;
 
 copy_to_user_failed:
@@ -1606,6 +1615,8 @@ get_ioconfig_task_failed:
 		cam_icp_mgr_destroy_handle(ctx_data, task);
 create_handle_failed:
 get_create_task_failed:
+	if (!hw_mgr->ctxt_cnt)
+		cam_icp_mgr_hw_close(hw_mgr, NULL);
 cmd_cpu_buf_failed:
 	cam_icp_mgr_release_ctx(hw_mgr, ctx_id);
 	kfree(tmp_acquire);
