@@ -22,7 +22,6 @@
 #include <linux/of_platform.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
-#include <stddef.h>
 #include <linux/compat.h>
 
 #include "kgsl.h"
