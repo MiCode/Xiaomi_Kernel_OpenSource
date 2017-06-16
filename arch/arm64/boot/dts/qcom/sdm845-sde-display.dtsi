@@ -545,22 +545,34 @@
 	qcom,mdss-dsi-panel-phy-timings = [00 1c 07 07 23 21 07 07 05 03 04 00];
 	qcom,mdss-dsi-t-clk-post = <0x0d>;
 	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,display-topology = <1 0 1>,
+				<2 0 1>;
+	qcom,default-topology-index = <0>;
 };
 
 &dsi_dual_sim_vid {
 	qcom,mdss-dsi-panel-phy-timings = [00 1c 07 07 23 21 07 07 05 03 04 00];
 	qcom,mdss-dsi-t-clk-post = <0x0d>;
 	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,display-topology = <2 0 2>,
+				<1 0 2>;
+	qcom,default-topology-index = <0>;
 };
 
 &dsi_sim_cmd {
 	qcom,mdss-dsi-panel-phy-timings = [00 1c 07 07 23 21 07 07 05 03 04 00];
 	qcom,mdss-dsi-t-clk-post = <0x0d>;
 	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,display-topology = <1 0 1>,
+				<2 0 1>;
+	qcom,default-topology-index = <0>;
 };
 
 &dsi_dual_sim_cmd {
 	qcom,mdss-dsi-panel-phy-timings = [00 1c 07 07 23 21 07 07 05 03 04 00];
 	qcom,mdss-dsi-t-clk-post = <0x0d>;
 	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,display-topology = <2 0 2>,
+				<1 0 2>;
+	qcom,default-topology-index = <0>;
 };
