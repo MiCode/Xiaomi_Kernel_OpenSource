@@ -39,16 +39,60 @@
 #define MAX_PANEL_JITTER		25
 #define DEFAULT_PANEL_PREFILL_LINES	16
 
+enum dsi_dsc_ratio_type {
+	DSC_8BPC_8BPP,
+	DSC_10BPC_8BPP,
+	DSC_12BPC_8BPP,
+	DSC_RATIO_TYPE_MAX
+};
+
 static u32 dsi_dsc_rc_buf_thresh[] = {0x0e, 0x1c, 0x2a, 0x38, 0x46, 0x54,
 		0x62, 0x69, 0x70, 0x77, 0x79, 0x7b, 0x7d, 0x7e};
-static char dsi_dsc_rc_range_min_qp_1_1[] = {0, 0, 1, 1, 3, 3, 3, 3, 3, 3, 5,
-		5, 5, 7, 13};
-static char dsi_dsc_rc_range_min_qp_1_1_scr1[] = {0, 0, 1, 1, 3, 3, 3, 3, 3, 3,
-		5, 5, 5, 9, 12};
-static char dsi_dsc_rc_range_max_qp_1_1[] = {4, 4, 5, 6, 7, 7, 7, 8, 9, 10, 11,
-		12, 13, 13, 15};
-static char dsi_dsc_rc_range_max_qp_1_1_scr1[] = {4, 4, 5, 6, 7, 7, 7, 8, 9, 10,
-		11, 11, 12, 13};
+
+/*
+ * DSC 1.1
+ * Rate control - Min QP values for each ratio type in dsi_dsc_ratio_type
+ */
+static char dsi_dsc_rc_range_min_qp_1_1[][15] = {
+	{0, 0, 1, 1, 3, 3, 3, 3, 3, 3, 5, 5, 5, 7, 13},
+	{0, 4, 5, 5, 7, 7, 7, 7, 7, 7, 9, 9, 9, 11, 17},
+	{0, 4, 9, 9, 11, 11, 11, 11, 11, 11, 13, 13, 13, 15, 21},
+	};
+
+/*
+ * DSC 1.1 SCR
+ * Rate control - Min QP values for each ratio type in dsi_dsc_ratio_type
+ */
+static char dsi_dsc_rc_range_min_qp_1_1_scr1[][15] = {
+	{0, 0, 1, 1, 3, 3, 3, 3, 3, 3, 5, 5, 5, 9, 12},
+	{0, 4, 5, 5, 7, 7, 7, 7, 7, 7, 9, 9, 9, 13, 16},
+	{0, 4, 9, 9, 11, 11, 11, 11, 11, 11, 13, 13, 13, 17, 20},
+	};
+
+/*
+ * DSC 1.1
+ * Rate control - Max QP values for each ratio type in dsi_dsc_ratio_type
+ */
+static char dsi_dsc_rc_range_max_qp_1_1[][15] = {
+	{4, 4, 5, 6, 7, 7, 7, 8, 9, 10, 11, 12, 13, 13, 15},
+	{8, 8, 9, 10, 11, 11, 11, 12, 13, 14, 15, 16, 17, 17, 19},
+	{12, 12, 13, 14, 15, 15, 15, 16, 17, 18, 19, 20, 21, 21, 23},
+	};
+
+/*
+ * DSC 1.1 SCR
+ * Rate control - Max QP values for each ratio type in dsi_dsc_ratio_type
+ */
+static char dsi_dsc_rc_range_max_qp_1_1_scr1[][15] = {
+	{4, 4, 5, 6, 7, 7, 7, 8, 9, 10, 10, 11, 11, 12, 13},
+	{8, 8, 9, 10, 11, 11, 11, 12, 13, 14, 14, 15, 15, 16, 17},
+	{12, 12, 13, 14, 15, 15, 15, 16, 17, 18, 18, 19, 19, 20, 21},
+	};
+
+/*
+ * DSC 1.1 and DSC 1.1 SCR
+ * Rate control - bpg offset values
+ */
 static char dsi_dsc_rc_range_bpg_offset[] = {2, 0, 0, -2, -4, -6, -8, -8,
 		-8, -10, -10, -12, -12, -12, -12};
 
@@ -1848,6 +1892,7 @@ int dsi_dsc_populate_static_param(struct msm_display_dsc_info *dsc)
 	int target_bpp_x16;
 	int data;
 	int final_value, final_scale;
+	int ratio_index;
 
 	dsc->version = 0x11;
 	dsc->scr_rev = 0;
@@ -1857,12 +1902,7 @@ int dsi_dsc_populate_static_param(struct msm_display_dsc_info *dsc)
 	else
 		dsc->first_line_bpg_offset = 12;
 
-	dsc->min_qp_flatness = 3;
-	dsc->max_qp_flatness = 12;
-	dsc->line_buf_depth = 9;
 	dsc->edge_factor = 6;
-	dsc->quant_incr_limit0 = 11;
-	dsc->quant_incr_limit1 = 11;
 	dsc->tgt_offset_hi = 3;
 	dsc->tgt_offset_lo = 3;
 	dsc->enable_422 = 0;
@@ -1870,27 +1910,60 @@ int dsi_dsc_populate_static_param(struct msm_display_dsc_info *dsc)
 	dsc->vbr_enable = 0;
 
 	dsc->buf_thresh = dsi_dsc_rc_buf_thresh;
-	if (dsc->version == 0x11 && dsc->scr_rev == 0x1) {
-		dsc->range_min_qp = dsi_dsc_rc_range_min_qp_1_1_scr1;
-		dsc->range_max_qp = dsi_dsc_rc_range_max_qp_1_1_scr1;
-	} else {
-		dsc->range_min_qp = dsi_dsc_rc_range_min_qp_1_1;
-		dsc->range_max_qp = dsi_dsc_rc_range_max_qp_1_1;
-	}
-	dsc->range_bpg_offset = dsi_dsc_rc_range_bpg_offset;
 
 	bpp = dsc->bpp;
 	bpc = dsc->bpc;
+
+	if (bpc == 12)
+		ratio_index = DSC_12BPC_8BPP;
+	else if (bpc == 10)
+		ratio_index = DSC_10BPC_8BPP;
+	else
+		ratio_index = DSC_8BPC_8BPP;
+
+	if (dsc->version == 0x11 && dsc->scr_rev == 0x1) {
+		dsc->range_min_qp =
+			dsi_dsc_rc_range_min_qp_1_1_scr1[ratio_index];
+		dsc->range_max_qp =
+			dsi_dsc_rc_range_max_qp_1_1_scr1[ratio_index];
+	} else {
+		dsc->range_min_qp = dsi_dsc_rc_range_min_qp_1_1[ratio_index];
+		dsc->range_max_qp = dsi_dsc_rc_range_max_qp_1_1[ratio_index];
+	}
+	dsc->range_bpg_offset = dsi_dsc_rc_range_bpg_offset;
 
 	if (bpp == 8)
 		dsc->initial_offset = 6144;
 	else
 		dsc->initial_offset = 2048;	/* bpp = 12 */
 
-	if (bpc <= 8)
-		mux_words_size = 48;
+	if (bpc == 12)
+		mux_words_size = 64;
 	else
-		mux_words_size = 64;	/* bpc == 12 */
+		mux_words_size = 48;		/* bpc == 8/10 */
+
+	if (bpc == 8) {
+		dsc->line_buf_depth = 9;
+		dsc->input_10_bits = 0;
+		dsc->min_qp_flatness = 3;
+		dsc->max_qp_flatness = 12;
+		dsc->quant_incr_limit0 = 11;
+		dsc->quant_incr_limit1 = 11;
+	} else if (bpc == 10) { /* 10bpc */
+		dsc->line_buf_depth = 11;
+		dsc->input_10_bits = 1;
+		dsc->min_qp_flatness = 7;
+		dsc->max_qp_flatness = 16;
+		dsc->quant_incr_limit0 = 15;
+		dsc->quant_incr_limit1 = 15;
+	} else { /* 12 bpc */
+		dsc->line_buf_depth = 9;
+		dsc->input_10_bits = 0;
+		dsc->min_qp_flatness = 11;
+		dsc->max_qp_flatness = 20;
+		dsc->quant_incr_limit0 = 19;
+		dsc->quant_incr_limit1 = 19;
+	}
 
 	dsc->slice_last_group_size = 3 - (dsc->slice_width % 3);
 
