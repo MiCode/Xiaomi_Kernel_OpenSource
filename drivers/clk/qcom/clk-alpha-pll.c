@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "clk: %s: " fmt, __func__
+
 #include <linux/kernel.h>
 #include <linux/export.h>
 #include <linux/clk-provider.h>
@@ -100,7 +102,7 @@ static int wait_for_pll(struct clk_alpha_pll *pll, u32 mask, bool inverse,
 		udelay(1);
 	}
 
-	WARN(1, "%s failed to %s!\n", name, action);
+	WARN(1, "clk: %s failed to %s!\n", name, action);
 	return -ETIMEDOUT;
 }
 
@@ -635,7 +637,7 @@ static int clk_fabia_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	udelay(1);
 	regmap_read(pll->clkr.regmap, off + PLL_MODE, &regval);
 	if (!(regval & FABIA_PLL_ACK_LATCH)) {
-		WARN(1, "PLL latch failed. Output may be unstable!\n");
+		WARN(1, "clk: PLL latch failed. Output may be unstable!\n");
 		return -EINVAL;
 	}
 
