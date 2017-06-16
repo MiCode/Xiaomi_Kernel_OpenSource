@@ -144,5 +144,6 @@ extern bool icnss_is_fw_ready(void);
 extern int icnss_set_wlan_mac_address(const u8 *in, const uint32_t len);
 extern u8 *icnss_get_wlan_mac_address(struct device *dev, uint32_t *num);
 extern int icnss_trigger_recovery(struct device *dev);
-
+extern int icnss_get_driver_load_cnt(void);
+extern void icnss_increment_driver_load_cnt(void);
 #endif /* _ICNSS_WLAN_H_ */
