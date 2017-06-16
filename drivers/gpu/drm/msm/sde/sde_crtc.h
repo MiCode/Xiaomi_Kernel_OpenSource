@@ -26,6 +26,7 @@
 #include "sde_kms.h"
 #include "sde_core_perf.h"
 #include "sde_hw_blk.h"
+#include "sde_hw_ds.h"
 
 #define SDE_CRTC_NAME_SIZE	12
 
@@ -106,14 +107,16 @@ struct sde_crtc_retire_event {
  * @hw_lm:	LM HW Driver context
  * @hw_ctl:	CTL Path HW driver context
  * @hw_dspp:	DSPP HW driver context
+ * @hw_ds:	DS HW driver context
  * @encoder:	Encoder attached to this lm & ctl
- * @mixer_op_mode: mixer blending operation mode
+ * @mixer_op_mode:	mixer blending operation mode
  * @flush_mask:	mixer flush mask for ctl, mixer and pipe
  */
 struct sde_crtc_mixer {
 	struct sde_hw_mixer *hw_lm;
 	struct sde_hw_ctl *hw_ctl;
-	struct sde_hw_dspp  *hw_dspp;
+	struct sde_hw_dspp *hw_dspp;
+	struct sde_hw_ds *hw_ds;
 	struct drm_encoder *encoder;
 	u32 mixer_op_mode;
 	u32 flush_mask;
@@ -208,6 +211,7 @@ struct sde_crtc_event {
  * @cur_perf      : current performance committed to clock/bandwidth driver
  * @rp_lock       : serialization lock for resource pool
  * @rp_head       : list of active resource pool
+ * @scl3_cfg_lut  : qseed3 lut config
  */
 struct sde_crtc {
 	struct drm_crtc base;
@@ -218,6 +222,7 @@ struct sde_crtc {
 	u32 num_mixers;
 	bool mixers_swapped;
 	struct sde_crtc_mixer mixers[CRTC_DUAL_MIXERS];
+	struct sde_hw_scaler3_lut_cfg *scl3_lut_cfg;
 
 	struct drm_pending_vblank_event *event;
 	u32 vsync_count;
@@ -354,6 +359,10 @@ struct sde_crtc_respool {
  * @input_fence_timeout_ns : Cached input fence timeout, in ns
  * @num_dim_layers: Number of dim layers
  * @dim_layer: Dim layer configs
+ * @num_ds: Number of destination scalers to be configured
+ * @num_ds_enabled: Number of destination scalers enabled
+ * @ds_dirty: Boolean to indicate if dirty or not
+ * @ds_cfg: Destination scaler config
  * @new_perf: new performance state being requested
  * @sbuf_cfg: stream buffer configuration
  * @sbuf_prefill_line: number of line for inline rotator prefetch
@@ -381,6 +390,10 @@ struct sde_crtc_state {
 	uint64_t input_fence_timeout_ns;
 	uint32_t num_dim_layers;
 	struct sde_hw_dim_layer dim_layer[SDE_MAX_DIM_LAYERS];
+	uint32_t num_ds;
+	uint32_t num_ds_enabled;
+	bool ds_dirty;
+	struct sde_hw_ds_cfg ds_cfg[SDE_MAX_DS_COUNT];
 
 	struct sde_core_perf_params new_perf;
 	struct sde_ctl_sbuf_cfg sbuf_cfg;
@@ -402,14 +415,41 @@ struct sde_crtc_state {
 #define sde_crtc_get_property(S, X) \
 	((S) && ((X) < CRTC_PROP_COUNT) ? ((S)->property_values[(X)].value) : 0)
 
-static inline int sde_crtc_mixer_width(struct sde_crtc *sde_crtc,
-	struct drm_display_mode *mode)
+/**
+ * sde_crtc_get_mixer_width - get the mixer width
+ * Mixer width will be same as panel width(/2 for split)
+ * unless destination scaler feature is enabled
+ */
+static inline int sde_crtc_get_mixer_width(struct sde_crtc *sde_crtc,
+	struct sde_crtc_state *cstate, struct drm_display_mode *mode)
 {
-	if (!sde_crtc || !mode)
+	u32 mixer_width;
+
+	if (!sde_crtc || !cstate || !mode)
 		return 0;
 
-	return  sde_crtc->num_mixers == CRTC_DUAL_MIXERS ?
-		mode->hdisplay / CRTC_DUAL_MIXERS : mode->hdisplay;
+	if (cstate->num_ds_enabled)
+		mixer_width = cstate->ds_cfg[0].lm_width;
+	else
+		mixer_width = (sde_crtc->num_mixers == CRTC_DUAL_MIXERS ?
+			mode->hdisplay / CRTC_DUAL_MIXERS : mode->hdisplay);
+
+	return mixer_width;
+}
+
+/**
+ * sde_crtc_get_mixer_height - get the mixer height
+ * Mixer height will be same as panel height unless
+ * destination scaler feature is enabled
+ */
+static inline int sde_crtc_get_mixer_height(struct sde_crtc *sde_crtc,
+		struct sde_crtc_state *cstate, struct drm_display_mode *mode)
+{
+	if (!sde_crtc || !cstate || !mode)
+		return 0;
+
+	return (cstate->num_ds_enabled ?
+			cstate->ds_cfg[0].lm_height : mode->vdisplay);
 }
 
 /**
