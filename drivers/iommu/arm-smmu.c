@@ -3321,8 +3321,7 @@ static int arm_smmu_alloc_cb(struct iommu_domain *domain,
 	}
 
 	for (i = 0; i < smmu->num_mapping_groups; i++) {
-		if (smmu->s2crs[i].cbndx == cb) {
-			smmu->s2crs[i].cbndx = 0;
+		if (smmu->s2crs[i].cb_handoff && smmu->s2crs[i].cbndx == cb) {
 			smmu->s2crs[i].cb_handoff = false;
 			smmu->s2crs[i].count -= 1;
 		}
