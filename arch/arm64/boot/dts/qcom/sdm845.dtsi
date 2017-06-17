@@ -39,6 +39,14 @@
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 	};
 
+	aliases {
+		serial0 = &qupv3_se9_2uart;
+		spi0 = &qupv3_se8_spi;
+		i2c0 = &qupv3_se10_i2c;
+		i2c1 = &qupv3_se3_i2c;
+		hsuart0 = &qupv3_se6_4uart;
+	};
+
 	cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
