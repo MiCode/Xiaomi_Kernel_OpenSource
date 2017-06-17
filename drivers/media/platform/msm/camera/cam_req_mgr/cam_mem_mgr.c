@@ -751,23 +751,17 @@ static int cam_mem_util_unmap(int32_t idx)
 	memset(tbl.bufq[idx].hdls, 0,
 		sizeof(int32_t) * CAM_MEM_MMU_MAX_HANDLE);
 
-	CDBG("Ion handle at idx = %d freeing = %pK, fd = %d\n",
-		idx, tbl.bufq[idx].i_hdl, tbl.bufq[idx].fd);
+	CDBG("Ion handle at idx = %d freeing = %pK, fd = %d, imported %d\n",
+		idx, tbl.bufq[idx].i_hdl, tbl.bufq[idx].fd,
+		tbl.bufq[idx].is_imported);
 
-	if (tbl.bufq[idx].i_hdl && !tbl.bufq[idx].is_imported) {
-		CDBG("Freeing up non-imported buffer at fd = %d, hdl = %pK",
-			tbl.bufq[idx].fd,
-			tbl.bufq[idx].i_hdl);
+	if (tbl.bufq[idx].i_hdl) {
 		ion_free(tbl.client, tbl.bufq[idx].i_hdl);
 		tbl.bufq[idx].i_hdl = NULL;
-	} else {
-		CDBG("Not freeing up imported buffer at fd = %d",
-			tbl.bufq[idx].fd);
 	}
 
 	tbl.bufq[idx].fd = -1;
 	tbl.bufq[idx].is_imported = false;
-	tbl.bufq[idx].i_hdl = NULL;
 	tbl.bufq[idx].len = 0;
 	tbl.bufq[idx].num_hdl = 0;
 	mutex_unlock(&tbl.bufq[idx].q_lock);
