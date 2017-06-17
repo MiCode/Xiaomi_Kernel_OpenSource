@@ -649,10 +649,11 @@ static inline struct sde_hw_pipe *to_sde_hw_pipe(struct sde_hw_blk *hw)
  * @idx:  Pipe index for which driver object is required
  * @addr: Mapped register io address of MDP
  * @catalog : Pointer to mdss catalog data
+ * @is_virtual_pipe: is this pipe virtual pipe
  */
 struct sde_hw_pipe *sde_hw_sspp_init(enum sde_sspp idx,
-			void __iomem *addr,
-			struct sde_mdss_cfg *catalog);
+		void __iomem *addr, struct sde_mdss_cfg *catalog,
+		bool is_virtual_pipe);
 
 /**
  * sde_hw_sspp_destroy(): Destroys SSPP driver context
