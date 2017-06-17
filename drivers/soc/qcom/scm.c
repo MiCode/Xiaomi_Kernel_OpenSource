@@ -382,6 +382,7 @@ int scm_call2(u32 fn_id, struct scm_desc *desc)
 
 	x0 = fn_id | scm_version_mask;
 
+	trace_scm_call_start(x0, desc);
 	do {
 		mutex_lock(&scm_lock);
 
@@ -389,8 +390,6 @@ int scm_call2(u32 fn_id, struct scm_desc *desc)
 			mutex_lock(&scm_lmh_lock);
 
 		desc->ret[0] = desc->ret[1] = desc->ret[2] = 0;
-
-		trace_scm_call_start(x0, desc);
 
 		if (scm_version == SCM_ARMV8_64)
 			ret = __scm_call_armv8_64(x0, desc->arginfo,
@@ -405,8 +404,6 @@ int scm_call2(u32 fn_id, struct scm_desc *desc)
 						  &desc->ret[0], &desc->ret[1],
 						  &desc->ret[2]);
 
-		trace_scm_call_end(desc);
-
 		if (SCM_SVC_ID(fn_id) == SCM_SVC_LMH)
 			mutex_unlock(&scm_lmh_lock);
 
@@ -418,6 +415,7 @@ int scm_call2(u32 fn_id, struct scm_desc *desc)
 			pr_warn("scm: secure world has been busy for 1 second!\n");
 	}  while (ret == SCM_V2_EBUSY && (retry_count++ < SCM_EBUSY_MAX_RETRY));
 
+	trace_scm_call_end(desc);
 	if (ret < 0)
 		pr_err("scm_call failed: func id %#llx, ret: %d, syscall returns: %#llx, %#llx, %#llx\n",
 			x0, ret, desc->ret[0], desc->ret[1], desc->ret[2]);
@@ -453,6 +451,7 @@ int scm_call2_atomic(u32 fn_id, struct scm_desc *desc)
 
 	x0 = fn_id | BIT(SMC_ATOMIC_SYSCALL) | scm_version_mask;
 
+	trace_scm_call_start(x0, desc);
 	if (scm_version == SCM_ARMV8_64)
 		ret = __scm_call_armv8_64(x0, desc->arginfo, desc->args[0],
 					  desc->args[1], desc->args[2],
@@ -463,6 +462,7 @@ int scm_call2_atomic(u32 fn_id, struct scm_desc *desc)
 					  desc->args[1], desc->args[2],
 					  desc->x5, &desc->ret[0],
 					  &desc->ret[1], &desc->ret[2]);
+	trace_scm_call_end(desc);
 	if (ret < 0)
 		pr_err("scm_call failed: func id %#llx, ret: %d, syscall returns: %#llx, %#llx, %#llx\n",
 			x0, ret, desc->ret[0],
