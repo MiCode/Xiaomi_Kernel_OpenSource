@@ -3296,7 +3296,8 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 					pstate->multirect_index);
 		}
 
-		if (psde->pipe_hw->ops.setup_pe)
+		if (psde->pipe_hw->ops.setup_pe &&
+				(pstate->multirect_index != SDE_SSPP_RECT_1))
 			psde->pipe_hw->ops.setup_pe(psde->pipe_hw,
 					&psde->pixel_ext);
 
