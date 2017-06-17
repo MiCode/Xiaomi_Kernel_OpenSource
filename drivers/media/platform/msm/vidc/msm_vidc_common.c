@@ -5117,30 +5117,30 @@ int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst)
 	if (input_height > output_height) {
 		if (input_height > x_min * output_height) {
 			dprintk(VIDC_ERR,
-				"Unsupported height downscale ratio %d vs %d\n",
-				input_height/output_height, x_min);
+				"Unsupported height min height %d vs %d\n",
+				input_height / x_min, output_height);
 			return -ENOTSUPP;
 		}
 	} else {
 		if (output_height > x_max * input_height) {
 			dprintk(VIDC_ERR,
-				"Unsupported height upscale ratio %d vs %d\n",
-				input_height/output_height, x_max);
+				"Unsupported height max height %d vs %d\n",
+				x_max * input_height, output_height);
 			return -ENOTSUPP;
 		}
 	}
 	if (input_width > output_width) {
 		if (input_width > y_min * output_width) {
 			dprintk(VIDC_ERR,
-				"Unsupported width downscale ratio %d vs %d\n",
-				input_width/output_width, y_min);
+				"Unsupported width min width %d vs %d\n",
+				input_width / y_min, output_width);
 			return -ENOTSUPP;
 		}
 	} else {
 		if (output_width > y_max * input_width) {
 			dprintk(VIDC_ERR,
-				"Unsupported width upscale ratio %d vs %d\n",
-				input_width/output_width, y_max);
+				"Unsupported width max width %d vs %d\n",
+				y_max * input_width, output_width);
 			return -ENOTSUPP;
 		}
 	}
@@ -5205,6 +5205,10 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 			inst->prop.width[CAPTURE_PORT],
 			inst->prop.height[CAPTURE_PORT],
 			capability->width.max, capability->height.max);
+			rc = -ENOTSUPP;
+		}
+
+		if (!rc && msm_vidc_check_scaling_supported(inst)) {
 			rc = -ENOTSUPP;
 		}
 	}
