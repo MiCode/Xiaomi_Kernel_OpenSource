@@ -159,6 +159,12 @@
 	qcom,led-strings-list = [01 02];
 };
 
+&pmi8998_haptics {
+	qcom,vmax-mv = <2400>;
+	qcom,lra-auto-mode;
+	status = "okay";
+};
+
 &mdss_mdp {
 	#cooling-cells = <2>;
 };
