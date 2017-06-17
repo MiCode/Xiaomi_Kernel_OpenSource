@@ -32,6 +32,7 @@ static const char *ipahal_imm_cmd_name_to_str[IPA_IMM_CMD_MAX] = {
 	__stringify(IPA_IMM_CMD_DMA_SHARED_MEM),
 	__stringify(IPA_IMM_CMD_IP_PACKET_TAG_STATUS),
 	__stringify(IPA_IMM_CMD_DMA_TASK_32B_ADDR),
+	__stringify(IPA_IMM_CMD_TABLE_DMA),
 };
 
 static const char *ipahal_pkt_status_exception_to_str
@@ -371,6 +372,31 @@ static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_nat_dma(
 	return pyld;
 }
 
+static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_table_dma_ipav4(
+	enum ipahal_imm_cmd_name cmd, const void *params, bool is_atomic_ctx)
+{
+	struct ipahal_imm_cmd_pyld *pyld;
+	struct ipa_imm_cmd_hw_table_dma_ipav4 *data;
+	struct ipahal_imm_cmd_table_dma *nat_params =
+		(struct ipahal_imm_cmd_table_dma *)params;
+
+	pyld = IPAHAL_MEM_ALLOC(sizeof(*pyld) + sizeof(*data), is_atomic_ctx);
+	if (unlikely(!pyld)) {
+		IPAHAL_ERR("kzalloc err\n");
+		return pyld;
+	}
+	pyld->opcode = ipahal_imm_cmd_get_opcode(cmd);
+	pyld->len = sizeof(*data);
+	data = (struct ipa_imm_cmd_hw_table_dma_ipav4 *)pyld->data;
+
+	data->table_index = nat_params->table_index;
+	data->base_addr = nat_params->base_addr;
+	data->offset = nat_params->offset;
+	data->data = nat_params->data;
+
+	return pyld;
+}
+
 static struct ipahal_imm_cmd_pyld *ipa_imm_cmd_construct_hdr_init_system(
 	enum ipahal_imm_cmd_name cmd, const void *params, bool is_atomic_ctx)
 {
@@ -640,6 +666,13 @@ static struct ipahal_imm_cmd_obj
 	[IPA_HW_v4_0][IPA_IMM_CMD_REGISTER_WRITE] = {
 		ipa_imm_cmd_construct_register_write_v_4_0,
 		12},
+	/* NAT_DMA was renamed to TABLE_DMA for IPAv4 */
+	[IPA_HW_v4_0][IPA_IMM_CMD_NAT_DMA] = {
+		NULL,
+		-1 },
+	[IPA_HW_v4_0][IPA_IMM_CMD_TABLE_DMA] = {
+		ipa_imm_cmd_construct_table_dma_ipav4,
+		14},
 	[IPA_HW_v4_0][IPA_IMM_CMD_DMA_SHARED_MEM] = {
 		ipa_imm_cmd_construct_dma_shared_mem_v_4_0,
 		19},

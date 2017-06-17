@@ -755,6 +755,23 @@ static int __ipa_validate_flt_rule(const struct ipa_flt_rule *rule,
 		}
 	}
 
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+		if (rule->pdn_idx) {
+			if (rule->action == IPA_PASS_TO_EXCEPTION ||
+				rule->action == IPA_PASS_TO_ROUTING) {
+				IPAERR(
+					"PDN index should be 0 when action is not pass to NAT\n");
+				goto error;
+			} else {
+				if (rule->pdn_idx >= IPA_MAX_PDN_NUM) {
+					IPAERR("PDN index %d is too large\n",
+						rule->pdn_idx);
+					goto error;
+				}
+			}
+		}
+	}
+
 	if (rule->rule_id) {
 		if (!(rule->rule_id & ipahal_get_rule_id_hi_bit())) {
 			IPAERR("invalid rule_id provided 0x%x\n"

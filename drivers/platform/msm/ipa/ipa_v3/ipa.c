@@ -556,6 +556,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct ipa_ioc_nat_alloc_mem nat_mem;
 	struct ipa_ioc_v4_nat_init nat_init;
 	struct ipa_ioc_v4_nat_del nat_del;
+	struct ipa_ioc_nat_pdn_entry mdfy_pdn;
 	struct ipa_ioc_rm_dependency rm_depend;
 	size_t sz;
 	int pre_entry;
@@ -649,6 +650,18 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 		}
 		if (ipa3_nat_del_cmd(&nat_del)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+
+	case IPA_IOC_NAT_MODIFY_PDN:
+		if (copy_from_user((u8 *)&mdfy_pdn, (const void __user *)arg,
+			sizeof(struct ipa_ioc_nat_pdn_entry))) {
+			retval = -EFAULT;
+			break;
+		}
+		if (ipa4_nat_mdfy_pdn(&mdfy_pdn)) {
 			retval = -EFAULT;
 			break;
 		}
