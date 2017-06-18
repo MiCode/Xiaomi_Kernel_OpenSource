@@ -73,7 +73,8 @@
 #define IPA_IOCTL_DEL_VLAN_IFACE 48
 #define IPA_IOCTL_ADD_L2TP_VLAN_MAPPING 49
 #define IPA_IOCTL_DEL_L2TP_VLAN_MAPPING 50
-#define IPA_IOCTL_MAX 51
+#define IPA_IOCTL_NAT_MODIFY_PDN 51
+#define IPA_IOCTL_MAX 52
 
 /**
  * max size of the header to be inserted
@@ -142,6 +143,11 @@
 #define IPA_FLT_MAC_DST_ADDR_802_3	(1ul << 20)
 #define IPA_FLT_MAC_ETHER_TYPE		(1ul << 21)
 #define IPA_FLT_MAC_DST_ADDR_L2TP	(1ul << 22)
+
+/**
+ * maximal number of NAT PDNs in the PDN config table
+ */
+#define IPA_MAX_PDN_NUM 5
 
 /**
  * enum ipa_client_type - names for the various IPA "clients"
@@ -481,6 +487,7 @@ enum ipa_rm_resource_name {
  * @IPA_HW_v3_1: IPA hardware version 3.1
  * @IPA_HW_v3_5: IPA hardware version 3.5
  * @IPA_HW_v3_5_1: IPA hardware version 3.5.1
+ * @IPA_HW_v4_0: IPA hardware version 4.0
  */
 enum ipa_hw_type {
 	IPA_HW_None = 0,
@@ -495,8 +502,11 @@ enum ipa_hw_type {
 	IPA_HW_v3_1 = 11,
 	IPA_HW_v3_5 = 12,
 	IPA_HW_v3_5_1 = 13,
-	IPA_HW_MAX
+	IPA_HW_v4_0 = 14,
 };
+#define IPA_HW_MAX (IPA_HW_v4_0 + 1)
+
+#define IPA_HW_v4_0 IPA_HW_v4_0
 
 /**
  * struct ipa_rule_attrib - attributes of a routing/filtering
@@ -697,6 +707,11 @@ struct ipa_ipfltri_rule_eq {
  *  consecutive packets
  * @rule_id: rule_id to be assigned to the filter rule. In case client specifies
  *  rule_id as 0 the driver will assign a new rule_id
+ * @set_metadata: bool switch. should metadata replacement at the NAT block
+ *  take place?
+ * @pdn_idx: if action is "pass to source\destination NAT" then a comparison
+ * against the PDN index in the matching PDN entry will take place as an
+ * additional condition for NAT hit.
  */
 struct ipa_flt_rule {
 	uint8_t retain_hdr;
@@ -710,6 +725,8 @@ struct ipa_flt_rule {
 	uint8_t max_prio;
 	uint8_t hashable;
 	uint16_t rule_id;
+	uint8_t set_metadata;
+	uint8_t pdn_idx;
 };
 
 /**
@@ -1492,6 +1509,19 @@ struct ipa_ioc_l2tp_vlan_mapping_info {
 };
 
 /**
+* struct ipa_ioc_nat_pdn_entry - PDN entry modification data
+* @pdn_index: index of the entry in the PDN config table to be changed
+* @public_ip: PDN's public ip
+* @src_metadata: PDN's source NAT metadata for metadata replacement
+* @dst_metadata: PDN's destination NAT metadata for metadata replacement
+*/
+struct ipa_ioc_nat_pdn_entry {
+	uint8_t pdn_index;
+	uint32_t public_ip;
+	uint32_t src_metadata;
+	uint32_t dst_metadata;
+};
+/**
  * struct ipa_msg_meta - Format of the message meta-data.
  * @msg_type: the type of the message
  * @rsvd: reserved bits for future use.
@@ -1762,6 +1792,9 @@ struct ipa_tether_device_info {
 #define IPA_IOC_GET_NAT_OFFSET _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_GET_NAT_OFFSET, \
 				uint32_t *)
+#define IPA_IOC_NAT_MODIFY_PDN _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_NAT_MODIFY_PDN, \
+				struct ipa_ioc_nat_pdn_entry *)
 #define IPA_IOC_SET_FLT _IOW(IPA_IOC_MAGIC, \
 			IPA_IOCTL_SET_FLT, \
 			uint32_t)
