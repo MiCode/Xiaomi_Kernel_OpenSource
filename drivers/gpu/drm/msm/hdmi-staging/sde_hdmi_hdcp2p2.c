@@ -284,6 +284,44 @@ static int sde_hdmi_hdcp2p2_reauthenticate(void *input)
 	return  sde_hdmi_hdcp2p2_authenticate(input);
 }
 
+static void sde_hdmi_hdcp2p2_min_level_change(void *client_ctx,
+int min_enc_lvl)
+{
+	struct sde_hdmi_hdcp2p2_ctrl *ctrl =
+		(struct sde_hdmi_hdcp2p2_ctrl *)client_ctx;
+	struct hdcp_lib_wakeup_data cdata = {
+		HDCP_LIB_WKUP_CMD_QUERY_STREAM_TYPE};
+	bool enc_notify = true;
+	enum sde_hdcp_states enc_lvl;
+
+	if (!ctrl) {
+		SDE_ERROR("invalid input\n");
+		return;
+	}
+
+	switch (min_enc_lvl) {
+	case 0:
+		enc_lvl = HDCP_STATE_AUTH_ENC_NONE;
+		break;
+	case 1:
+		enc_lvl = HDCP_STATE_AUTH_ENC_1X;
+		break;
+	case 2:
+		enc_lvl = HDCP_STATE_AUTH_ENC_2P2;
+		break;
+	default:
+		enc_notify = false;
+	}
+
+	SDE_HDCP_DEBUG("enc level changed %d\n", min_enc_lvl);
+
+	cdata.context = ctrl->lib_ctx;
+	sde_hdmi_hdcp2p2_wakeup_lib(ctrl, &cdata);
+
+	if (enc_notify && ctrl->init_data.notify_status)
+		ctrl->init_data.notify_status(ctrl->init_data.cb_data, enc_lvl);
+}
+
 static void sde_hdmi_hdcp2p2_auth_failed(struct sde_hdmi_hdcp2p2_ctrl *ctrl)
 {
 	if (!ctrl) {
@@ -849,6 +887,7 @@ void *sde_hdmi_hdcp2p2_init(struct sde_hdcp_init_data *init_data)
 
 	static struct hdcp_client_ops client_ops = {
 		.wakeup = sde_hdmi_hdcp2p2_wakeup,
+		.notify_lvl_change = sde_hdmi_hdcp2p2_min_level_change,
 	};
 
 	static struct hdcp_txmtr_ops txmtr_ops;

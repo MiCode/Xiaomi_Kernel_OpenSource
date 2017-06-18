@@ -125,6 +125,7 @@ struct hdcp_txmtr_ops {
 
 struct hdcp_client_ops {
 	int (*wakeup)(struct hdmi_hdcp_wakeup_data *data);
+	void (*notify_lvl_change)(void *client_ctx, int min_lvl);
 };
 
 enum hdcp_device_type {
