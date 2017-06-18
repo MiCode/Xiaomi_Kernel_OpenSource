@@ -190,7 +190,7 @@ config USB_F_MASS_STORAGE
 config USB_F_FS
 	tristate
 
-config USB_F_UAC1
+config USB_F_UAC1_LEGACY
 	tristate
 
 config USB_F_UAC2
@@ -459,13 +459,13 @@ config USB_CONFIGFS_UEVENT
 	  state changes. The gadget can be in any of the following
 	  three states: "CONNECTED/DISCONNECTED/CONFIGURED"
 
-config USB_CONFIGFS_F_UAC1
-	bool "Audio Class 1.0"
+config USB_CONFIGFS_F_UAC1_LEGACY
+	bool "Audio Class 1.0 (legacy implementation)"
 	depends on USB_CONFIGFS
 	depends on SND
 	select USB_LIBCOMPOSITE
 	select SND_PCM
-	select USB_F_UAC1
+	select USB_F_UAC1_LEGACY
 	help
 	  This Audio function implements 1 AudioControl interface,
 	  1 AudioStreaming Interface each for USB-OUT and USB-IN.
