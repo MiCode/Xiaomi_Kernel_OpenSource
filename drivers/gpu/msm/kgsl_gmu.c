@@ -1238,19 +1238,38 @@ static int gmu_enable_gdsc(struct gmu_device *gmu)
 	return ret;
 }
 
+#define CX_GDSC_TIMEOUT	10	/* ms */
 static int gmu_disable_gdsc(struct gmu_device *gmu)
 {
 	int ret;
+	unsigned long t;
 
 	if (IS_ERR_OR_NULL(gmu->cx_gdsc))
 		return 0;
 
 	ret = regulator_disable(gmu->cx_gdsc);
-	if (ret)
+	if (ret) {
 		dev_err(&gmu->pdev->dev,
 			"Failed to disable GMU CX gdsc, error %d\n", ret);
+		return ret;
+	}
 
-	return ret;
+	/*
+	 * After GX GDSC is off, CX GDSC must be off
+	 * Voting off alone from GPU driver cannot
+	 * Guarantee CX GDSC off. Polling with 10ms
+	 * timeout to ensure
+	 */
+	t = jiffies + msecs_to_jiffies(CX_GDSC_TIMEOUT);
+	do {
+		if (!regulator_is_enabled(gmu->cx_gdsc))
+			return 0;
+		udelay(100);
+
+	} while (!(time_after(jiffies, t)));
+
+	dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout");
+	return -ETIMEDOUT;
 }
 
 static int gmu_fast_boot(struct kgsl_device *device)
