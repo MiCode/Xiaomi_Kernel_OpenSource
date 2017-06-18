@@ -12,10 +12,13 @@
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
+#include <linux/platform_device.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/fs.h>
+#include <linux/file.h>
+#include <linux/uaccess.h>
 #include <linux/cdev.h>
 #include <linux/sched.h>
 #include <linux/list.h>
@@ -30,8 +33,25 @@
 #include <linux/errno.h>
 #include <linux/hdcp_qseecom.h>
 #include <linux/kthread.h>
+#include <linux/of.h>
+#include <video/msm_hdmi_hdcp_mgr.h>
 
 #include "qseecom_kernel.h"
+
+struct msm_hdcp_mgr {
+	struct platform_device *pdev;
+	dev_t dev_num;
+	struct cdev cdev;
+	struct class *class;
+	struct device *device;
+	struct HDCP_V2V1_MSG_TOPOLOGY cached_tp;
+	u32 tp_msgid;
+};
+
+#define CLASS_NAME "hdcp"
+#define DRIVER_NAME "msm_hdcp"
+
+static struct msm_hdcp_mgr *hdcp_drv_mgr;
 
 #define TZAPP_NAME            "hdcp2p2"
 #define HDCP1_APP_NAME        "hdcp1"
@@ -2433,3 +2453,240 @@ void hdcp_library_deregister(void *phdcpcontext)
 	kzfree(handle);
 }
 EXPORT_SYMBOL(hdcp_library_deregister);
+
+void hdcp1_notify_topology(void)
+{
+	char *envp[4];
+	char *a;
+	char *b;
+
+	a = kzalloc(SZ_16, GFP_KERNEL);
+
+	if (!a)
+		return;
+
+	b = kzalloc(SZ_16, GFP_KERNEL);
+
+	if (!b) {
+		kfree(a);
+		return;
+	}
+
+	envp[0] = "HDCP_MGR_EVENT=MSG_READY";
+	envp[1] = a;
+	envp[2] = b;
+	envp[3] = NULL;
+
+	snprintf(envp[1], 16, "%d", (int)DOWN_CHECK_TOPOLOGY);
+	snprintf(envp[2], 16, "%d", (int)HDCP_V1_TX);
+
+	kobject_uevent_env(&hdcp_drv_mgr->device->kobj, KOBJ_CHANGE, envp);
+	kfree(a);
+	kfree(b);
+}
+
+static ssize_t msm_hdcp_1x_sysfs_rda_tp(struct device *dev,
+struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+
+	if (!hdcp_drv_mgr) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	switch (hdcp_drv_mgr->tp_msgid) {
+	case DOWN_CHECK_TOPOLOGY:
+	case DOWN_REQUEST_TOPOLOGY:
+		buf[MSG_ID_IDX]   = hdcp_drv_mgr->tp_msgid;
+		buf[RET_CODE_IDX] = HDCP_AUTHED;
+		ret = HEADER_LEN;
+
+		memcpy(buf + HEADER_LEN, &hdcp_drv_mgr->cached_tp,
+			   sizeof(struct HDCP_V2V1_MSG_TOPOLOGY));
+
+		ret += sizeof(struct HDCP_V2V1_MSG_TOPOLOGY);
+
+		/* clear the flag once data is read back to user space*/
+		hdcp_drv_mgr->tp_msgid = -1;
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	return ret;
+} /* hdcp_1x_sysfs_rda_tp*/
+
+static ssize_t msm_hdcp_1x_sysfs_wta_tp(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int msgid = 0;
+	ssize_t ret = count;
+
+	if (!hdcp_drv_mgr || !buf) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	msgid = buf[0];
+
+	switch (msgid) {
+	case DOWN_CHECK_TOPOLOGY:
+	case DOWN_REQUEST_TOPOLOGY:
+		hdcp_drv_mgr->tp_msgid = msgid;
+		break;
+		/* more cases added here */
+	default:
+		ret = -EINVAL;
+	}
+
+	return ret;
+} /* hdmi_tx_sysfs_wta_hpd */
+
+static DEVICE_ATTR(tp, S_IRUGO | S_IWUSR, msm_hdcp_1x_sysfs_rda_tp,
+				   msm_hdcp_1x_sysfs_wta_tp);
+
+void hdcp1_cache_repeater_topology(void *hdcp1_cached_tp)
+{
+	memcpy((void *)&hdcp_drv_mgr->cached_tp,
+		   hdcp1_cached_tp,
+		   sizeof(struct HDCP_V2V1_MSG_TOPOLOGY));
+}
+
+static struct attribute *msm_hdcp_fs_attrs[] = {
+	&dev_attr_tp.attr,
+	NULL
+};
+
+static struct attribute_group msm_hdcp_fs_attr_group = {
+	.attrs = msm_hdcp_fs_attrs
+};
+
+static int msm_hdcp_open(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+
+static int msm_hdcp_close(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+
+static const struct file_operations msm_hdcp_fops = {
+	.owner = THIS_MODULE,
+	.open = msm_hdcp_open,
+	.release = msm_hdcp_close,
+};
+
+static const struct of_device_id msm_hdcp_dt_match[] = {
+	{ .compatible = "qcom,msm-hdcp",},
+	{}
+};
+
+MODULE_DEVICE_TABLE(of, msm_hdcp_dt_match);
+
+static int msm_hdcp_probe(struct platform_device *pdev)
+{
+	int ret;
+
+	hdcp_drv_mgr = devm_kzalloc(&pdev->dev, sizeof(struct msm_hdcp_mgr),
+						   GFP_KERNEL);
+	if (!hdcp_drv_mgr)
+		return -ENOMEM;
+
+	hdcp_drv_mgr->pdev = pdev;
+
+	platform_set_drvdata(pdev, hdcp_drv_mgr);
+
+	ret = alloc_chrdev_region(&hdcp_drv_mgr->dev_num, 0, 1, DRIVER_NAME);
+	if (ret  < 0) {
+		pr_err("alloc_chrdev_region failed ret = %d\n", ret);
+		goto error_get_dev_num;
+	}
+
+	hdcp_drv_mgr->class = class_create(THIS_MODULE, CLASS_NAME);
+	if (IS_ERR(hdcp_drv_mgr->class)) {
+		ret = PTR_ERR(hdcp_drv_mgr->class);
+		pr_err("couldn't create class rc = %d\n", ret);
+		goto error_class_create;
+	}
+
+	hdcp_drv_mgr->device = device_create(hdcp_drv_mgr->class, NULL,
+		hdcp_drv_mgr->dev_num, NULL, DRIVER_NAME);
+	if (IS_ERR(hdcp_drv_mgr->device)) {
+		ret = PTR_ERR(hdcp_drv_mgr->device);
+		pr_err("device_create failed %d\n", ret);
+		goto error_class_device_create;
+	}
+
+	cdev_init(&hdcp_drv_mgr->cdev, &msm_hdcp_fops);
+	ret = cdev_add(&hdcp_drv_mgr->cdev,
+			MKDEV(MAJOR(hdcp_drv_mgr->dev_num), 0), 1);
+	if (ret < 0) {
+		pr_err("cdev_add failed %d\n", ret);
+		goto error_cdev_add;
+	}
+
+	ret = sysfs_create_group(&hdcp_drv_mgr->device->kobj,
+			&msm_hdcp_fs_attr_group);
+	if (ret)
+		pr_err("unable to register rotator sysfs nodes\n");
+
+	return 0;
+error_cdev_add:
+	device_destroy(hdcp_drv_mgr->class, hdcp_drv_mgr->dev_num);
+error_class_device_create:
+	class_destroy(hdcp_drv_mgr->class);
+error_class_create:
+	unregister_chrdev_region(hdcp_drv_mgr->dev_num, 1);
+error_get_dev_num:
+	devm_kfree(&pdev->dev, hdcp_drv_mgr);
+	hdcp_drv_mgr = NULL;
+	return ret;
+}
+
+static int msm_hdcp_remove(struct platform_device *pdev)
+{
+	struct msm_hdcp_mgr *mgr;
+
+	mgr = (struct msm_hdcp_mgr *)platform_get_drvdata(pdev);
+	if (!mgr)
+		return -ENODEV;
+
+	sysfs_remove_group(&hdcp_drv_mgr->device->kobj,
+	&msm_hdcp_fs_attr_group);
+	cdev_del(&hdcp_drv_mgr->cdev);
+	device_destroy(hdcp_drv_mgr->class, hdcp_drv_mgr->dev_num);
+	class_destroy(hdcp_drv_mgr->class);
+	unregister_chrdev_region(hdcp_drv_mgr->dev_num, 1);
+
+	devm_kfree(&pdev->dev, hdcp_drv_mgr);
+	hdcp_drv_mgr = NULL;
+	return 0;
+}
+
+static struct platform_driver msm_hdcp_driver = {
+	.probe = msm_hdcp_probe,
+	.remove = msm_hdcp_remove,
+	.driver = {
+		.name = "msm_hdcp",
+		.of_match_table = msm_hdcp_dt_match,
+		.pm = NULL,
+	}
+};
+
+static int __init msm_hdcp_init(void)
+{
+	return platform_driver_register(&msm_hdcp_driver);
+}
+
+static void __exit msm_hdcp_exit(void)
+{
+	return platform_driver_unregister(&msm_hdcp_driver);
+}
+
+module_init(msm_hdcp_init);
+module_exit(msm_hdcp_exit);
+
+MODULE_DESCRIPTION("MSM HDCP driver");
+MODULE_LICENSE("GPL v2");

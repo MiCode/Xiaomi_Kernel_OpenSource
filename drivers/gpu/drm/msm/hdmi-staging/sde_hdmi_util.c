@@ -26,6 +26,237 @@
 #include "sde_hdmi_regs.h"
 #include "hdmi.h"
 
+#define HDMI_SEC_TO_MS 1000
+#define HDMI_MS_TO_US 1000
+#define HDMI_SEC_TO_US (HDMI_SEC_TO_MS * HDMI_MS_TO_US)
+#define HDMI_KHZ_TO_HZ 1000
+#define HDMI_BUSY_WAIT_DELAY_US 100
+
+static void sde_hdmi_hdcp2p2_ddc_clear_status(struct sde_hdmi *display)
+{
+	u32 reg_val;
+	struct hdmi *hdmi;
+
+	if (!display) {
+		pr_err("invalid ddc ctrl\n");
+		return;
+	}
+	hdmi = display->ctrl.ctrl;
+	/* check for errors and clear status */
+	reg_val = hdmi_read(hdmi, HDMI_HDCP2P2_DDC_STATUS);
+
+	if (reg_val & BIT(4)) {
+		pr_debug("ddc aborted\n");
+		reg_val |= BIT(5);
+	}
+
+	if (reg_val & BIT(8)) {
+		pr_debug("timed out\n");
+		reg_val |= BIT(9);
+	}
+
+	if (reg_val & BIT(12)) {
+		pr_debug("NACK0\n");
+		reg_val |= BIT(13);
+	}
+
+	if (reg_val & BIT(14)) {
+		pr_debug("NACK1\n");
+		reg_val |= BIT(15);
+	}
+
+	hdmi_write(hdmi, HDMI_HDCP2P2_DDC_STATUS, reg_val);
+}
+
+int sde_hdmi_ddc_hdcp2p2_isr(void *hdmi_display)
+{
+	struct sde_hdmi_tx_hdcp2p2_ddc_data *data;
+	u32 intr0, intr2, intr5;
+	u32 msg_size;
+	int rc = 0;
+	struct sde_hdmi_tx_ddc_ctrl *ddc_ctrl;
+	struct sde_hdmi *display = (struct sde_hdmi *)hdmi_display;
+	struct hdmi *hdmi;
+
+	ddc_ctrl = &display->ddc_ctrl;
+	data = &ddc_ctrl->sde_hdcp2p2_ddc_data;
+	hdmi = display->ctrl.ctrl;
+
+	if (!hdmi) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	intr0 = hdmi_read(hdmi, HDMI_DDC_INT_CTRL0);
+	intr2 = hdmi_read(hdmi, HDMI_HDCP_INT_CTRL2);
+	intr5 = hdmi_read(hdmi, HDMI_DDC_INT_CTRL5);
+
+	pr_debug("intr0: 0x%x, intr2: 0x%x, intr5: 0x%x\n",
+			 intr0, intr2, intr5);
+
+	/* check if encryption is enabled */
+	if (intr2 & BIT(0)) {
+		/*
+		 * ack encryption ready interrupt.
+		 * disable encryption ready interrupt.
+		 * enable encryption not ready interrupt.
+		 */
+		intr2 &= ~BIT(2);
+		intr2 |= BIT(1) | BIT(6);
+
+		pr_info("HDCP 2.2 Encryption enabled\n");
+		data->encryption_ready = true;
+	}
+
+	/* check if encryption is disabled */
+	if (intr2 & BIT(4)) {
+		/*
+		 * ack encryption not ready interrupt.
+		 * disable encryption not ready interrupt.
+		 * enable encryption ready interrupt.
+		 */
+		intr2  &= ~BIT(6);
+		intr2  |= BIT(5) | BIT(2);
+
+		pr_info("HDCP 2.2 Encryption disabled\n");
+		data->encryption_ready = false;
+	}
+
+	hdmi_write(hdmi, HDMI_HDCP_INT_CTRL2, intr2);
+
+	/* get the message size bits 29:20 */
+	msg_size = (intr0 & (0x3FF << 20)) >> 20;
+
+	if (msg_size) {
+		/* ack and disable message size interrupt */
+		intr0 |= BIT(30);
+		intr0 &= ~BIT(31);
+
+		data->message_size = msg_size;
+	}
+
+	/* check and disable ready interrupt */
+	if (intr0 & BIT(16)) {
+	/* ack ready/not ready interrupt */
+		intr0 |= BIT(17);
+		intr0 &= ~BIT(18);
+		pr_debug("got ready interrupt\n");
+		data->ready = true;
+	}
+
+	/* check for reauth req interrupt */
+	if (intr0 & BIT(12)) {
+		/* ack and disable reauth req interrupt */
+		intr0 |= BIT(13);
+		intr0 &= ~BIT(14);
+		pr_err("got reauth interrupt\n");
+		data->reauth_req = true;
+	}
+
+	/* check for ddc fail interrupt */
+	if (intr0 & BIT(8)) {
+		/* ack ddc fail interrupt */
+		intr0 |= BIT(9);
+		pr_err("got ddc fail interrupt\n");
+		data->ddc_max_retries_fail = true;
+	}
+
+	/* check for ddc done interrupt */
+	if (intr0 & BIT(4)) {
+		/* ack ddc done interrupt */
+		intr0 |= BIT(5);
+		pr_debug("got ddc done interrupt\n");
+		data->ddc_done = true;
+	}
+
+	/* check for ddc read req interrupt */
+	if (intr0 & BIT(0)) {
+		/* ack read req interrupt */
+		intr0 |= BIT(1);
+
+		data->ddc_read_req = true;
+	}
+
+	hdmi_write(hdmi, HDMI_DDC_INT_CTRL0, intr0);
+
+	if (intr5 & BIT(0)) {
+		pr_err("RXSTATUS_DDC_REQ_TIMEOUT\n");
+
+		/* ack and disable timeout interrupt */
+		intr5 |= BIT(1);
+		intr5 &= ~BIT(2);
+
+		data->ddc_timeout = true;
+	}
+	hdmi_write(hdmi, HDMI_DDC_INT_CTRL5, intr5);
+
+	if (data->message_size || data->ready || data->reauth_req) {
+		if (data->wait) {
+			complete(&ddc_ctrl->rx_status_done);
+		} else if (data->link_cb && data->link_data) {
+			data->link_cb(data->link_data);
+		} else {
+			pr_err("new msg/reauth not handled\n");
+			rc = -EINVAL;
+		}
+	}
+
+	sde_hdmi_hdcp2p2_ddc_clear_status(display);
+
+	return rc;
+}
+
+int sde_hdmi_ddc_scrambling_isr(void *hdmi_display)
+{
+
+	bool scrambler_timer_off = false;
+	u32 intr2, intr5;
+	struct sde_hdmi *display = (struct sde_hdmi *)hdmi_display;
+	struct hdmi *hdmi;
+
+
+	hdmi = display->ctrl.ctrl;
+
+	if (!hdmi) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	intr2 = hdmi_read(hdmi, HDMI_DDC_INT_CTRL2);
+	intr5 = hdmi_read(hdmi, HDMI_DDC_INT_CTRL5);
+
+	pr_debug("intr2: 0x%x, intr5: 0x%x\n", intr2, intr5);
+
+	if (intr2 & BIT(12)) {
+		pr_err("SCRAMBLER_STATUS_NOT\n");
+
+		intr2 |= BIT(14);
+		scrambler_timer_off = true;
+	}
+
+	if (intr2 & BIT(8)) {
+		pr_err("SCRAMBLER_STATUS_DDC_FAILED\n");
+
+		intr2 |= BIT(9);
+
+		scrambler_timer_off = true;
+	}
+	hdmi_write(hdmi, HDMI_DDC_INT_CTRL2, intr2);
+
+	if (intr5 & BIT(8)) {
+		pr_err("SCRAMBLER_STATUS_DDC_REQ_TIMEOUT\n");
+		intr5 |= BIT(9);
+		intr5 &= ~BIT(10);
+		scrambler_timer_off = true;
+	}
+	hdmi_write(hdmi, HDMI_DDC_INT_CTRL5, intr5);
+
+	if (scrambler_timer_off)
+		_sde_hdmi_scrambler_ddc_disable((void *)display);
+
+	return 0;
+}
+
 static int sde_hdmi_ddc_read_retry(struct sde_hdmi *display)
 {
 	int status;
@@ -310,4 +541,234 @@ int sde_hdmi_config_avmute(struct hdmi *hdmi, bool set)
 	pr_info("AVMUTE %s\n", set ? "set" : "cleared");
 
 	return 0;
+}
+
+int _sde_hdmi_get_timeout_in_hysnc(void *hdmi_display, u32 timeout_ms)
+{
+	struct sde_hdmi *display = (struct sde_hdmi *)hdmi_display;
+	struct drm_display_mode mode = display->mode;
+	/*
+	 * pixel clock  = h_total * v_total * fps
+	 * 1 sec = pixel clock number of pixels are transmitted.
+	 * time taken by one line (h_total) = 1s / (v_total * fps).
+	 * lines for give time = (time_ms * 1000) / (1000000 / (v_total * fps))
+	 *                     = (time_ms * clock) / h_total
+	 */
+
+	return (timeout_ms * mode.clock / mode.htotal);
+}
+
+static void sde_hdmi_hdcp2p2_ddc_reset(struct sde_hdmi *hdmi_ctrl)
+{
+	u32 reg_val;
+	struct hdmi *hdmi = hdmi_ctrl->ctrl.ctrl;
+
+	if (!hdmi) {
+		pr_err("Invalid parameters\n");
+		return;
+	}
+
+	/*
+	 * Clear acks for DDC_REQ, DDC_DONE, DDC_FAILED, RXSTATUS_READY,
+	 * RXSTATUS_MSG_SIZE
+	 */
+	reg_val = BIT(30) | BIT(17) | BIT(13) | BIT(9) | BIT(5) | BIT(1);
+	hdmi_write(hdmi, HDMI_DDC_INT_CTRL0, reg_val);
+	/* Reset DDC timers */
+	reg_val = BIT(0) | hdmi_read(hdmi, HDMI_HDCP2P2_DDC_CTRL);
+	hdmi_write(hdmi, HDMI_HDCP2P2_DDC_CTRL, reg_val);
+	reg_val = hdmi_read(hdmi, HDMI_HDCP2P2_DDC_CTRL);
+	reg_val &= ~BIT(0);
+	hdmi_write(hdmi, HDMI_HDCP2P2_DDC_CTRL, reg_val);
+}
+
+void sde_hdmi_hdcp2p2_ddc_disable(void *hdmi_display)
+{
+	struct sde_hdmi *display = (struct sde_hdmi *)hdmi_display;
+	u32 reg_val;
+	struct hdmi *hdmi = display->ctrl.ctrl;
+
+	if (!hdmi) {
+		pr_err("Invalid parameters\n");
+		return;
+	}
+
+	sde_hdmi_hdcp2p2_ddc_reset(display);
+
+	/* Disable HW DDC access to RxStatus register */
+	reg_val = hdmi_read(hdmi, HDMI_HW_DDC_CTRL);
+	reg_val &= ~(BIT(1) | BIT(0));
+
+	hdmi_write(hdmi, HDMI_HW_DDC_CTRL, reg_val);
+}
+
+static void _sde_hdmi_scrambler_ddc_reset(struct hdmi *hdmi)
+{
+	u32 reg_val;
+
+	/* clear ack and disable interrupts */
+	reg_val = BIT(14) | BIT(9) | BIT(5) | BIT(1);
+	hdmi_write(hdmi, REG_HDMI_DDC_INT_CTRL2, reg_val);
+
+	/* Reset DDC timers */
+	reg_val = BIT(0) | hdmi_read(hdmi, REG_HDMI_SCRAMBLER_STATUS_DDC_CTRL);
+	hdmi_write(hdmi, REG_HDMI_SCRAMBLER_STATUS_DDC_CTRL, reg_val);
+
+	reg_val = hdmi_read(hdmi, REG_HDMI_SCRAMBLER_STATUS_DDC_CTRL);
+	reg_val &= ~BIT(0);
+	hdmi_write(hdmi, REG_HDMI_SCRAMBLER_STATUS_DDC_CTRL, reg_val);
+}
+
+void _sde_hdmi_scrambler_ddc_disable(void *hdmi_display)
+{
+	struct sde_hdmi *display = (struct sde_hdmi *)hdmi_display;
+	u32 reg_val;
+
+	struct hdmi *hdmi = display->ctrl.ctrl;
+
+	if (!hdmi) {
+		pr_err("Invalid parameters\n");
+		return;
+	}
+
+	_sde_hdmi_scrambler_ddc_reset(hdmi);
+	/* Disable HW DDC access to RxStatus register */
+	reg_val = hdmi_read(hdmi, REG_HDMI_HW_DDC_CTRL);
+	reg_val &= ~(BIT(8) | BIT(9));
+	hdmi_write(hdmi, REG_HDMI_HW_DDC_CTRL, reg_val);
+}
+
+void sde_hdmi_ddc_config(void *hdmi_display)
+{
+	struct sde_hdmi *display = (struct sde_hdmi *)hdmi_display;
+	struct hdmi *hdmi = display->ctrl.ctrl;
+
+	if (!hdmi) {
+		pr_err("Invalid parameters\n");
+		return;
+	}
+	hdmi_write(hdmi, REG_HDMI_DDC_SPEED,
+			   HDMI_DDC_SPEED_THRESHOLD(2) |
+			   HDMI_DDC_SPEED_PRESCALE(10));
+
+	hdmi_write(hdmi, REG_HDMI_DDC_SETUP,
+			   HDMI_DDC_SETUP_TIMEOUT(0xff));
+
+	/* enable reference timer for 19us */
+	hdmi_write(hdmi, REG_HDMI_DDC_REF,
+			   HDMI_DDC_REF_REFTIMER_ENABLE |
+			   HDMI_DDC_REF_REFTIMER(19));
+}
+
+int sde_hdmi_hdcp2p2_read_rxstatus(void *hdmi_display)
+{
+	u32 reg_val;
+	u32 intr_en_mask;
+	u32 timeout;
+	u32 timer;
+	int rc = 0;
+	int busy_wait_us;
+	struct sde_hdmi_tx_hdcp2p2_ddc_data *data;
+	struct sde_hdmi *display = (struct sde_hdmi *)hdmi_display;
+	struct hdmi *hdmi = display->ctrl.ctrl;
+	struct sde_hdmi_tx_ddc_ctrl *ddc_ctrl;
+	u32 rem;
+
+	if (!hdmi) {
+		pr_err("Invalid ddc data\n");
+		return -EINVAL;
+	}
+
+	ddc_ctrl = &display->ddc_ctrl;
+	data = &ddc_ctrl->sde_hdcp2p2_ddc_data;
+	if (!data) {
+		pr_err("Invalid ddc data\n");
+		return -EINVAL;
+	}
+
+	rc = ddc_clear_irq(hdmi);
+	if (rc) {
+		pr_err("DDC clear irq failed\n");
+		return rc;
+	}
+	intr_en_mask = data->intr_mask;
+	intr_en_mask |= BIT(HDCP2P2_RXSTATUS_DDC_FAILED_INTR_MASK);
+
+	/* Disable short read for now, sinks don't support it */
+	reg_val = hdmi_read(hdmi, HDMI_HDCP2P2_DDC_CTRL);
+	reg_val |= BIT(4);
+	hdmi_write(hdmi, HDMI_HDCP2P2_DDC_CTRL, reg_val);
+	/*
+	 * Setup the DDC timers for HDMI_HDCP2P2_DDC_TIMER_CTRL1 and
+	 *  HDMI_HDCP2P2_DDC_TIMER_CTRL2.
+	 * Following are the timers:
+	 * 1. DDC_REQUEST_TIMER: Timeout in hsyncs in which to wait for the
+	 *    HDCP 2.2 sink to respond to an RxStatus request
+	 * 2. DDC_URGENT_TIMER: Time period in hsyncs to issue an urgent flag
+	 *    when an RxStatus DDC request is made but not accepted by I2C
+	 *    engine
+	 * 3. DDC_TIMEOUT_TIMER: Timeout in hsyncs which starts counting when
+	 *    a request is made and stops when it is accepted by DDC arbiter
+	*/
+
+	timeout = data->timeout_hsync;
+	timer = data->periodic_timer_hsync;
+
+	hdmi_write(hdmi, HDMI_HDCP2P2_DDC_TIMER_CTRL, timer);
+	/* Set both urgent and hw-timeout fields to the same value */
+	hdmi_write(hdmi, HDMI_HDCP2P2_DDC_TIMER_CTRL2,
+			   (timeout << 16 | timeout));
+	/* enable interrupts */
+	reg_val = intr_en_mask;
+	/* Clear interrupt status bits */
+	reg_val |= intr_en_mask >> 1;
+
+	hdmi_write(hdmi, HDMI_DDC_INT_CTRL0, reg_val);
+	reg_val = hdmi_read(hdmi, HDMI_DDC_INT_CTRL5);
+	/* clear and enable RxStatus read timeout */
+	reg_val |= BIT(2) | BIT(1);
+
+	hdmi_write(hdmi, HDMI_DDC_INT_CTRL5, reg_val);
+	/*
+	 * Enable hardware DDC access to RxStatus register
+	 *
+	 * HDMI_HW_DDC_CTRL:Bits 1:0 (RXSTATUS_DDC_ENABLE) read like this:
+	 *
+	 * 0 = disable HW controlled DDC access to RxStatus
+	 * 1 = automatic on when HDCP 2.2 is authenticated and loop based on
+	 * request timer (i.e. the hardware will loop automatically)
+	 * 2 = force on and loop based on request timer (hardware will loop)
+	 * 3 = enable by sw trigger and loop until interrupt is generated for
+	 * RxStatus.reauth_req, RxStatus.ready or RxStatus.message_Size.
+	 *
+	 * Depending on the value of ddc_data::poll_sink, we make the decision
+	 * to use either SW_TRIGGER(3) (poll_sink = false) which means that the
+	 * hardware will poll sink and generate interrupt when sink responds,
+	 * or use AUTOMATIC_LOOP(1) (poll_sink = true) which will poll the sink
+	 * based on request timer
+	 */
+
+	reg_val = hdmi_read(hdmi, HDMI_HW_DDC_CTRL);
+	reg_val &= ~(BIT(1) | BIT(0));
+
+	busy_wait_us = data->timeout_ms * HDMI_MS_TO_US;
+
+	/* read method: HDCP2P2_RXSTATUS_HW_DDC_SW_TRIGGER */
+	reg_val |= BIT(1) | BIT(0);
+	hdmi_write(hdmi, HDMI_HW_DDC_CTRL, reg_val);
+
+	hdmi_write(hdmi, HDMI_HDCP2P2_DDC_SW_TRIGGER, 1);
+	if (data->wait) {
+		reinit_completion(&ddc_ctrl->rx_status_done);
+		rem = wait_for_completion_timeout(&ddc_ctrl->rx_status_done,
+		HZ);
+		data->timeout_left = jiffies_to_msecs(rem);
+
+		if (!data->timeout_left) {
+			pr_err("sw ddc rxstatus timeout\n");
+			rc = -ETIMEDOUT;
+		}
+		sde_hdmi_hdcp2p2_ddc_disable((void *)display);
+	}
+	return rc;
 }

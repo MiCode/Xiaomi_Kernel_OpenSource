@@ -1039,6 +1039,7 @@ static void _sde_hdmi_cec_update_phys_addr(struct sde_hdmi *display)
 static void _sde_hdmi_init_ddc(struct sde_hdmi *display, struct hdmi *hdmi)
 {
 	display->ddc_ctrl.io = &display->io[HDMI_TX_CORE_IO];
+	init_completion(&display->ddc_ctrl.rx_status_done);
 }
 
 static void _sde_hdmi_map_regs(struct sde_hdmi *display, struct hdmi *hdmi)
@@ -1127,32 +1128,39 @@ static void _sde_hdmi_cec_irq(struct sde_hdmi *sde_hdmi)
 
 static irqreturn_t _sde_hdmi_irq(int irq, void *dev_id)
 {
-	struct sde_hdmi *sde_hdmi = dev_id;
+	struct sde_hdmi *display = dev_id;
 	struct hdmi *hdmi;
 
-	if (!sde_hdmi || !sde_hdmi->ctrl.ctrl) {
-		SDE_ERROR("sde_hdmi=%p or hdmi is NULL\n", sde_hdmi);
+	if (!display || !display->ctrl.ctrl) {
+		SDE_ERROR("sde_hdmi=%pK or hdmi is NULL\n", display);
 		return IRQ_NONE;
 	}
-	hdmi = sde_hdmi->ctrl.ctrl;
+
+	hdmi = display->ctrl.ctrl;
 	/* Process HPD: */
-	_sde_hdmi_connector_irq(sde_hdmi);
+	_sde_hdmi_connector_irq(display);
+
+	/* Process Scrambling ISR */
+	sde_hdmi_ddc_scrambling_isr((void *)display);
+
+	/* Process DDC2 */
+	sde_hdmi_ddc_hdcp2p2_isr((void *)display);
 
 	/* Process DDC: */
 	hdmi_i2c_irq(hdmi->i2c);
 
 	/* Process HDCP: */
-	if (sde_hdmi->hdcp_ops && sde_hdmi->hdcp_data) {
-		if (sde_hdmi->hdcp_ops->isr) {
-			if (sde_hdmi->hdcp_ops->isr(
-				sde_hdmi->hdcp_data))
+	if (display->hdcp_ops && display->hdcp_data) {
+		if (display->hdcp_ops->isr) {
+			if (display->hdcp_ops->isr(
+				display->hdcp_data))
 				DEV_ERR("%s: hdcp_1x_isr failed\n",
 						__func__);
 		}
 	}
 
 	/* Process CEC: */
-	_sde_hdmi_cec_irq(sde_hdmi);
+	_sde_hdmi_cec_irq(display);
 
 	return IRQ_HANDLED;
 }
@@ -1717,9 +1725,20 @@ static int _sde_hdmi_init_hdcp(struct sde_hdmi *hdmi_ctrl)
 			kfree(hdcp_data);
 			goto end;
 		} else {
-			hdmi_ctrl->hdcp_feature_data[SDE_HDCP_1x] = hdcp_data;
+			hdmi_ctrl->hdcp_feat_data[SDE_HDCP_1x] = hdcp_data;
 			SDE_HDMI_DEBUG("%s: HDCP 1.4 initialized\n", __func__);
 		}
+	}
+
+	hdcp_data = sde_hdmi_hdcp2p2_init(&hdcp_init_data);
+
+	if (IS_ERR_OR_NULL(hdcp_data)) {
+		DEV_ERR("%s: hdcp 2.2 init failed\n", __func__);
+		rc = -EINVAL;
+		goto end;
+	} else {
+		hdmi_ctrl->hdcp_feat_data[SDE_HDCP_2P2] = hdcp_data;
+		SDE_HDMI_DEBUG("%s: HDCP 2.2 initialized\n", __func__);
 	}
 
 end:
@@ -1905,8 +1924,11 @@ int sde_hdmi_dev_deinit(struct sde_hdmi *display)
 		SDE_ERROR("Invalid params\n");
 		return -EINVAL;
 	}
-	if (display->hdcp_feature_data[SDE_HDCP_1x])
-		sde_hdcp_1x_deinit(display->hdcp_feature_data[SDE_HDCP_1x]);
+	if (display->hdcp_feat_data[SDE_HDCP_1x])
+		sde_hdcp_1x_deinit(display->hdcp_feat_data[SDE_HDCP_1x]);
+
+	if (display->hdcp_feat_data[SDE_HDCP_2P2])
+		sde_hdmi_hdcp2p2_deinit(display->hdcp_feat_data[SDE_HDCP_2P2]);
 
 	return 0;
 }
@@ -1992,6 +2014,8 @@ static int sde_hdmi_bind(struct device *dev, struct device *master, void *data)
 
 	_sde_hdmi_map_regs(display, priv->hdmi);
 	_sde_hdmi_init_ddc(display, priv->hdmi);
+
+	display->enc_lvl = HDCP_STATE_AUTH_ENC_NONE;
 
 	INIT_DELAYED_WORK(&display->hdcp_cb_work,
 					  sde_hdmi_tx_hdcp_cb_work);

@@ -1,0 +1,14 @@
+MSM HDCP driver
+
+Standalone driver managing HDCP related communications
+between TZ and HLOS for MSM chipset.
+
+Required properties:
+
+compatible = "qcom,msm-hdcp";
+
+Example:
+
+qcom_msmhdcp: qcom,msm_hdcp {
+       compatible = "qcom,msm-hdcp";
+};

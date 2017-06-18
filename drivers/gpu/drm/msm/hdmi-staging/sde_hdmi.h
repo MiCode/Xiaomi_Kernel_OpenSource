@@ -147,7 +147,7 @@ struct sde_hdmi {
 	 */
 	void *hdcp_data;
 	/*hold hdcp init data*/
-	void *hdcp_feature_data[2];
+	void *hdcp_feat_data[2];
 	struct sde_hdcp_ops *hdcp_ops;
 	struct sde_hdmi_tx_ddc_ctrl ddc_ctrl;
 	struct work_struct hpd_work;

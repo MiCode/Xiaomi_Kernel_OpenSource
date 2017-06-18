@@ -1216,18 +1216,19 @@ static void sde_hdcp_1x_cache_topology(struct sde_hdcp_1x *hdcp)
 	memcpy((void *)&hdcp->cached_tp,
 		(void *) &hdcp->current_tp,
 		sizeof(hdcp->cached_tp));
+	hdcp1_cache_repeater_topology((void *)&hdcp->cached_tp);
 }
 
-static void sde_hdcp_1x_notify_topology(struct sde_hdcp_1x *hdcp)
+static void sde_hdcp_1x_notify_topology(void)
 {
-	/* TO DO : something here for HDCP 1x*/
+	hdcp1_notify_topology();
 }
 
 static void sde_hdcp_1x_update_auth_status(struct sde_hdcp_1x *hdcp)
 {
 	if (sde_hdcp_1x_state(HDCP_STATE_AUTHENTICATED)) {
 		sde_hdcp_1x_cache_topology(hdcp);
-		sde_hdcp_1x_notify_topology(hdcp);
+		sde_hdcp_1x_notify_topology();
 	}
 
 	if (hdcp->init_data.notify_status &&
