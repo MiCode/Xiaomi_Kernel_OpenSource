@@ -581,7 +581,8 @@ static ssize_t hdmi_tx_sysfs_wta_edid(struct device *dev,
 	}
 
 	mutex_lock(&hdmi_ctrl->tx_lock);
-	if (edid_size < EDID_BLOCK_SIZE) {
+	if ((edid_size < EDID_BLOCK_SIZE) ||
+		(edid_size > hdmi_ctrl->edid_buf_size)) {
 		DEV_DBG("%s: disabling custom edid\n", __func__);
 
 		ret = -EINVAL;
