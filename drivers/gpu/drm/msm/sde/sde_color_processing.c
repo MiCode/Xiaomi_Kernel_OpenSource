@@ -72,6 +72,9 @@ static int sde_cp_ad_validate_prop(struct sde_cp_node *prop_node,
 
 static void sde_cp_notify_ad_event(struct drm_crtc *crtc_drm, void *arg);
 
+static void sde_cp_ad_set_prop(struct sde_crtc *sde_crtc,
+		enum ad_property ad_prop);
+
 #define setup_dspp_prop_install_funcs(func) \
 do { \
 	func[SDE_DSPP_PCC] = dspp_pcc_install_property; \
@@ -750,6 +753,7 @@ void sde_cp_crtc_apply_properties(struct drm_crtc *crtc)
 			DRM_DEBUG_DRIVER("Dirty list is empty\n");
 			return;
 		}
+		sde_cp_ad_set_prop(sde_crtc, AD_IPC_RESET);
 		set_dspp_flush = true;
 	}
 
@@ -1428,4 +1432,62 @@ int sde_cp_ad_interrupt(struct drm_crtc *crtc_drm, bool en,
 	}
 exit:
 	return ret;
+}
+
+static void sde_cp_ad_set_prop(struct sde_crtc *sde_crtc,
+		enum ad_property ad_prop)
+{
+	struct sde_ad_hw_cfg ad_cfg;
+	struct sde_hw_cp_cfg hw_cfg;
+	struct sde_hw_dspp *hw_dspp = NULL;
+	struct sde_hw_mixer *hw_lm = NULL;
+	u32 num_mixers = sde_crtc->num_mixers;
+	int i = 0, ret = 0;
+
+	hw_cfg.num_of_mixers = sde_crtc->num_mixers;
+	hw_cfg.displayh = sde_crtc->base.mode.hdisplay;
+	hw_cfg.displayv = sde_crtc->base.mode.vdisplay;
+
+	for (i = 0; i < num_mixers && !ret; i++) {
+		hw_lm = sde_crtc->mixers[i].hw_lm;
+		hw_dspp = sde_crtc->mixers[i].hw_dspp;
+		if (!hw_lm || !hw_dspp || !hw_dspp->ops.validate_ad ||
+				!hw_dspp->ops.setup_ad) {
+			ret = -EINVAL;
+			continue;
+		}
+
+		hw_cfg.mixer_info = hw_lm;
+		ad_cfg.prop = ad_prop;
+		ad_cfg.hw_cfg = &hw_cfg;
+		ret = hw_dspp->ops.validate_ad(hw_dspp, (u32 *)&ad_prop);
+		if (!ret)
+			hw_dspp->ops.setup_ad(hw_dspp, &ad_cfg);
+	}
+}
+
+void sde_cp_crtc_pre_ipc(struct drm_crtc *drm_crtc)
+{
+	struct sde_crtc *sde_crtc;
+
+	sde_crtc = to_sde_crtc(drm_crtc);
+	if (!sde_crtc) {
+		DRM_ERROR("invalid sde_crtc %pK\n", sde_crtc);
+		return;
+	}
+
+	sde_cp_ad_set_prop(sde_crtc, AD_IPC_SUSPEND);
+}
+
+void sde_cp_crtc_post_ipc(struct drm_crtc *drm_crtc)
+{
+	struct sde_crtc *sde_crtc;
+
+	sde_crtc = to_sde_crtc(drm_crtc);
+	if (!sde_crtc) {
+		DRM_ERROR("invalid sde_crtc %pK\n", sde_crtc);
+		return;
+	}
+
+	sde_cp_ad_set_prop(sde_crtc, AD_IPC_RESUME);
 }

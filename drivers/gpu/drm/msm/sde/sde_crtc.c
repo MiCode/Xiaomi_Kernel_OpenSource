@@ -2454,6 +2454,7 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 
 			sde_encoder_virt_restore(encoder);
 		}
+		sde_cp_crtc_post_ipc(crtc);
 
 		event.type = DRM_EVENT_SDE_POWER;
 		event.length = sizeof(power_on);
@@ -2477,6 +2478,8 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 		power_on = 0;
 		msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
 				(u8 *)&power_on);
+	} else if (event_type == SDE_POWER_EVENT_PRE_DISABLE) {
+		sde_cp_crtc_pre_ipc(crtc);
 	}
 
 	mutex_unlock(&sde_crtc->crtc_lock);
@@ -2605,7 +2608,8 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 
 	sde_crtc->power_event = sde_power_handle_register_event(
 		&priv->phandle,
-		SDE_POWER_EVENT_POST_ENABLE | SDE_POWER_EVENT_POST_DISABLE,
+		SDE_POWER_EVENT_POST_ENABLE | SDE_POWER_EVENT_POST_DISABLE |
+		SDE_POWER_EVENT_PRE_DISABLE,
 		sde_crtc_handle_power_event, crtc, sde_crtc->name);
 }
 
