@@ -1271,6 +1271,7 @@ static void sde_encoder_phys_cmd_init_ops(
 	ops->is_autorefresh_enabled =
 			sde_encoder_phys_cmd_is_autorefresh_enabled;
 	ops->get_line_count = sde_encoder_phys_cmd_get_line_count;
+	ops->wait_for_active = NULL;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_cmd_init(

@@ -1041,6 +1041,9 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 		dsi_ctrl_wait_for_video_done(dsi_ctrl);
 		dsi_ctrl_enable_status_interrupt(dsi_ctrl,
 					DSI_SINT_CMD_MODE_DMA_DONE, NULL);
+		if (dsi_ctrl->hw.ops.mask_error_intr)
+			dsi_ctrl->hw.ops.mask_error_intr(&dsi_ctrl->hw,
+					BIT(DSI_FIFO_OVERFLOW), true);
 		reinit_completion(&dsi_ctrl->irq_info.cmd_dma_done);
 
 		if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
@@ -1081,6 +1084,9 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 			}
 		}
 
+		if (dsi_ctrl->hw.ops.mask_error_intr)
+			dsi_ctrl->hw.ops.mask_error_intr(&dsi_ctrl->hw,
+					BIT(DSI_FIFO_OVERFLOW), false);
 		dsi_ctrl->hw.ops.reset_cmd_fifo(&dsi_ctrl->hw);
 	}
 error:
@@ -1945,7 +1951,7 @@ int dsi_ctrl_setup(struct dsi_ctrl *dsi_ctrl)
 	}
 
 	dsi_ctrl->hw.ops.enable_status_interrupts(&dsi_ctrl->hw, 0x0);
-	dsi_ctrl->hw.ops.enable_error_interrupts(&dsi_ctrl->hw, 0x0);
+	dsi_ctrl->hw.ops.enable_error_interrupts(&dsi_ctrl->hw, 0xFF00E0);
 	dsi_ctrl->hw.ops.ctrl_en(&dsi_ctrl->hw, true);
 
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
@@ -1996,33 +2002,77 @@ int dsi_ctrl_phy_reset_config(struct dsi_ctrl *dsi_ctrl, bool enable)
 static void dsi_ctrl_handle_error_status(struct dsi_ctrl *dsi_ctrl,
 				unsigned long int error)
 {
-	pr_err("%s: %lu\n", __func__, error);
+	struct dsi_event_cb_info cb_info;
+
+	cb_info = dsi_ctrl->irq_info.irq_err_cb;
+
+	/* disable error interrupts */
+	if (dsi_ctrl->hw.ops.error_intr_ctrl)
+		dsi_ctrl->hw.ops.error_intr_ctrl(&dsi_ctrl->hw, false);
+
+	/* clear error interrupts first */
+	if (dsi_ctrl->hw.ops.clear_error_status)
+		dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
+					error);
 
 	/* DTLN PHY error */
-	if (error & 0x3000e00)
-		if (dsi_ctrl->hw.ops.clear_error_status)
-			dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
-					0x3000e00);
+	if (error & 0x3000E00)
+		pr_err("dsi PHY contention error: 0x%lx\n", error);
+
+	/* TX timeout error */
+	if (error & 0xE0) {
+		if (error & 0xA0) {
+			if (cb_info.event_cb) {
+				cb_info.event_idx = DSI_LP_Rx_TIMEOUT;
+				(void)cb_info.event_cb(cb_info.event_usr_ptr,
+							cb_info.event_idx,
+							dsi_ctrl->cell_index,
+							0, 0, 0, 0);
+			}
+		}
+		pr_err("tx timeout error: 0x%lx\n", error);
+	}
 
 	/* DSI FIFO OVERFLOW error */
-	if (error & 0xf0000) {
-		if (dsi_ctrl->hw.ops.clear_error_status)
-			dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
-					0xf0000);
+	if (error & 0xF0000) {
+		u32 mask = 0;
+
+		if (dsi_ctrl->hw.ops.get_error_mask)
+			mask = dsi_ctrl->hw.ops.get_error_mask(&dsi_ctrl->hw);
+		/* no need to report FIFO overflow if already masked */
+		if (cb_info.event_cb && !(mask & 0xf0000)) {
+			cb_info.event_idx = DSI_FIFO_OVERFLOW;
+			(void)cb_info.event_cb(cb_info.event_usr_ptr,
+						cb_info.event_idx,
+						dsi_ctrl->cell_index,
+						0, 0, 0, 0);
+			pr_err("dsi FIFO OVERFLOW error: 0x%lx\n", error);
+		}
 	}
 
 	/* DSI FIFO UNDERFLOW error */
-	if (error & 0xf00000) {
-		if (dsi_ctrl->hw.ops.clear_error_status)
-			dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
-					0xf00000);
+	if (error & 0xF00000) {
+		if (cb_info.event_cb) {
+			cb_info.event_idx = DSI_FIFO_UNDERFLOW;
+			(void)cb_info.event_cb(cb_info.event_usr_ptr,
+						cb_info.event_idx,
+						dsi_ctrl->cell_index,
+						0, 0, 0, 0);
+		}
+		pr_err("dsi FIFO UNDERFLOW error: 0x%lx\n", error);
 	}
 
 	/* DSI PLL UNLOCK error */
 	if (error & BIT(8))
-		if (dsi_ctrl->hw.ops.clear_error_status)
-			dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
-					BIT(8));
+		pr_err("dsi PLL unlock error: 0x%lx\n", error);
+
+	/* ACK error */
+	if (error & 0xF)
+		pr_err("ack error: 0x%lx\n", error);
+
+	/* enable back DSI interrupts */
+	if (dsi_ctrl->hw.ops.error_intr_ctrl)
+		dsi_ctrl->hw.ops.error_intr_ctrl(&dsi_ctrl->hw, true);
 }
 
 /**
@@ -2036,39 +2086,28 @@ static irqreturn_t dsi_ctrl_isr(int irq, void *ptr)
 	struct dsi_ctrl *dsi_ctrl;
 	struct dsi_event_cb_info cb_info;
 	unsigned long flags;
-	uint32_t cell_index, status, i;
-	uint64_t errors;
+	uint32_t status = 0x0, i;
+	uint64_t errors = 0x0;
 
 	if (!ptr)
 		return IRQ_NONE;
 	dsi_ctrl = ptr;
 
-	/* clear status interrupts */
+	/* check status interrupts */
 	if (dsi_ctrl->hw.ops.get_interrupt_status)
 		status = dsi_ctrl->hw.ops.get_interrupt_status(&dsi_ctrl->hw);
-	else
-		status = 0x0;
 
-	if (dsi_ctrl->hw.ops.clear_interrupt_status)
-		dsi_ctrl->hw.ops.clear_interrupt_status(&dsi_ctrl->hw, status);
-
-	spin_lock_irqsave(&dsi_ctrl->irq_info.irq_lock, flags);
-	cell_index = dsi_ctrl->cell_index;
-	spin_unlock_irqrestore(&dsi_ctrl->irq_info.irq_lock, flags);
-
-	/* clear error interrupts */
+	/* check error interrupts */
 	if (dsi_ctrl->hw.ops.get_error_status)
 		errors = dsi_ctrl->hw.ops.get_error_status(&dsi_ctrl->hw);
-	else
-		errors = 0x0;
 
-	if (errors) {
-		/* handle DSI error recovery */
+	/* clear interrupts */
+	if (dsi_ctrl->hw.ops.clear_interrupt_status)
+		dsi_ctrl->hw.ops.clear_interrupt_status(&dsi_ctrl->hw, 0x0);
+
+	/* handle DSI error recovery */
+	if (status & DSI_ERROR)
 		dsi_ctrl_handle_error_status(dsi_ctrl, errors);
-		if (dsi_ctrl->hw.ops.clear_error_status)
-			dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
-							errors);
-	}
 
 	if (status & DSI_CMD_MODE_DMA_DONE) {
 		dsi_ctrl_disable_status_interrupt(dsi_ctrl,
@@ -2089,9 +2128,16 @@ static irqreturn_t dsi_ctrl_isr(int irq, void *ptr)
 	}
 
 	if (status & DSI_BTA_DONE) {
+		u32 fifo_overflow_mask = (DSI_DLN0_HS_FIFO_OVERFLOW |
+					DSI_DLN1_HS_FIFO_OVERFLOW |
+					DSI_DLN2_HS_FIFO_OVERFLOW |
+					DSI_DLN3_HS_FIFO_OVERFLOW);
 		dsi_ctrl_disable_status_interrupt(dsi_ctrl,
 					DSI_SINT_BTA_DONE);
 		complete_all(&dsi_ctrl->irq_info.bta_done);
+		if (dsi_ctrl->hw.ops.clear_error_status)
+			dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
+					fifo_overflow_mask);
 	}
 
 	for (i = 0; status && i < DSI_STATUS_INTERRUPT_COUNT; ++i) {
@@ -2104,7 +2150,8 @@ static irqreturn_t dsi_ctrl_isr(int irq, void *ptr)
 			if (cb_info.event_cb)
 				(void)cb_info.event_cb(cb_info.event_usr_ptr,
 						cb_info.event_idx,
-						cell_index, irq, 0, 0, 0);
+						dsi_ctrl->cell_index,
+						irq, 0, 0, 0);
 		}
 		status >>= 1;
 	}
@@ -2314,7 +2361,7 @@ int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl, bool is_splash_enabled)
 	dsi_ctrl_setup_isr(dsi_ctrl);
 
 	dsi_ctrl->hw.ops.enable_status_interrupts(&dsi_ctrl->hw, 0x0);
-	dsi_ctrl->hw.ops.enable_error_interrupts(&dsi_ctrl->hw, 0x0);
+	dsi_ctrl->hw.ops.enable_error_interrupts(&dsi_ctrl->hw, 0xFF00E0);
 
 	pr_debug("[DSI_%d]Host initialization complete, continuous splash status:%d\n",
 		dsi_ctrl->cell_index, is_splash_enabled);
@@ -2335,6 +2382,48 @@ int dsi_ctrl_soft_reset(struct dsi_ctrl *dsi_ctrl)
 
 	pr_debug("[DSI_%d]Soft reset complete\n", dsi_ctrl->cell_index);
 	return 0;
+}
+
+int dsi_ctrl_reset(struct dsi_ctrl *dsi_ctrl, int mask)
+{
+	int rc = 0;
+
+	if (!dsi_ctrl)
+		return -EINVAL;
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	rc = dsi_ctrl->hw.ops.ctrl_reset(&dsi_ctrl->hw, mask);
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+
+	return rc;
+}
+
+int dsi_ctrl_get_hw_version(struct dsi_ctrl *dsi_ctrl)
+{
+	int rc = 0;
+
+	if (!dsi_ctrl)
+		return -EINVAL;
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	rc = dsi_ctrl->hw.ops.get_hw_version(&dsi_ctrl->hw);
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+
+	return rc;
+}
+
+int dsi_ctrl_vid_engine_en(struct dsi_ctrl *dsi_ctrl, bool on)
+{
+	int rc = 0;
+
+	if (!dsi_ctrl)
+		return -EINVAL;
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	dsi_ctrl->hw.ops.video_engine_en(&dsi_ctrl->hw, on);
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+
+	return rc;
 }
 
 /**
@@ -2538,6 +2627,9 @@ int dsi_ctrl_cmd_tx_trigger(struct dsi_ctrl *dsi_ctrl, u32 flags)
 		dsi_ctrl_wait_for_video_done(dsi_ctrl);
 		dsi_ctrl_enable_status_interrupt(dsi_ctrl,
 					DSI_SINT_CMD_MODE_DMA_DONE, NULL);
+		if (dsi_ctrl->hw.ops.mask_error_intr)
+			dsi_ctrl->hw.ops.mask_error_intr(&dsi_ctrl->hw,
+					BIT(DSI_FIFO_OVERFLOW), true);
 		reinit_completion(&dsi_ctrl->irq_info.cmd_dma_done);
 
 		/* trigger command */
@@ -2568,6 +2660,9 @@ int dsi_ctrl_cmd_tx_trigger(struct dsi_ctrl *dsi_ctrl, u32 flags)
 						dsi_ctrl->cell_index);
 			}
 		}
+		if (dsi_ctrl->hw.ops.mask_error_intr)
+			dsi_ctrl->hw.ops.mask_error_intr(&dsi_ctrl->hw,
+					BIT(DSI_FIFO_OVERFLOW), false);
 	}
 
 	mutex_unlock(&dsi_ctrl->ctrl_lock);

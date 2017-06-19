@@ -225,6 +225,14 @@ int dsi_phy_set_timing_params(struct msm_dsi_phy *phy,
 			      u32 *timing, u32 size);
 
 /**
+ * dsi_phy_lane_reset() - Reset DSI PHY lanes in case of error
+ * @phy:	DSI PHY handle
+ *
+ * Return: error code.
+ */
+int dsi_phy_lane_reset(struct msm_dsi_phy *phy);
+
+/**
  * dsi_phy_drv_register() - register platform driver for dsi phy
  */
 void dsi_phy_drv_register(void);

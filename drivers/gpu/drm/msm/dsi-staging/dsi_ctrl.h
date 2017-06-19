@@ -146,6 +146,7 @@ struct dsi_ctrl_state_info {
  * @irq_stat_mask:       Hardware mask of currently enabled interrupts.
  * @irq_stat_refcount:   Number of times each interrupt has been requested.
  * @irq_stat_cb:         Status IRQ callback definitions.
+ * @irq_err_cb:          IRQ callback definition to handle DSI ERRORs.
  * @cmd_dma_done:          Completion signal for DSI_CMD_MODE_DMA_DONE interrupt
  * @vid_frame_done:        Completion signal for DSI_VIDEO_MODE_FRAME_DONE int.
  * @cmd_frame_done:        Completion signal for DSI_CMD_FRAME_DONE interrupt.
@@ -156,6 +157,7 @@ struct dsi_ctrl_interrupts {
 	uint32_t irq_stat_mask;
 	int irq_stat_refcount[DSI_STATUS_INTERRUPT_COUNT];
 	struct dsi_event_cb_info irq_stat_cb[DSI_STATUS_INTERRUPT_COUNT];
+	struct dsi_event_cb_info irq_err_cb;
 
 	struct completion cmd_dma_done;
 	struct completion vid_frame_done;
@@ -177,6 +179,7 @@ struct dsi_ctrl_interrupts {
  * @current_state:       Current driver and hardware state.
  * @clk_cb:		 Callback for DSI clock control.
  * @irq_info:            Interrupt information.
+ * @recovery_cb:         Recovery call back to SDE.
  * @clk_info:            Clock information.
  * @clk_freq:            DSi Link clock frequency information.
  * @pwr_info:            Power information.
@@ -215,6 +218,7 @@ struct dsi_ctrl {
 	struct clk_ctrl_cb clk_cb;
 
 	struct dsi_ctrl_interrupts irq_info;
+	struct dsi_event_cb_info recovery_cb;
 
 	/* Clock and power states */
 	struct dsi_ctrl_clk_info clk_info;
@@ -650,5 +654,25 @@ void dsi_ctrl_drv_register(void);
  * dsi_ctrl_drv_unregister() - unregister platform driver
  */
 void dsi_ctrl_drv_unregister(void);
+
+/**
+ * dsi_ctrl_reset() - Reset DSI PHY CLK/DATA lane
+ * @dsi_ctrl:        DSI controller handle.
+ * @mask:	     Mask to indicate if CLK and/or DATA lane needs reset.
+ */
+int dsi_ctrl_reset(struct dsi_ctrl *dsi_ctrl, int mask);
+
+/**
+ * dsi_ctrl_get_hw_version() - read dsi controller hw revision
+ * @dsi_ctrl:        DSI controller handle.
+ */
+int dsi_ctrl_get_hw_version(struct dsi_ctrl *dsi_ctrl);
+
+/**
+ * dsi_ctrl_vid_engine_en() - Control DSI video engine HW state
+ * @dsi_ctrl:        DSI controller handle.
+ * @on:		variable to control video engine ON/OFF.
+ */
+int dsi_ctrl_vid_engine_en(struct dsi_ctrl *dsi_ctrl, bool on);
 
 #endif /* _DSI_CTRL_H_ */

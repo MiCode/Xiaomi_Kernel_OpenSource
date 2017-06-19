@@ -844,6 +844,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.get_dst_format = dsi_display_get_dst_format,
 		.post_kickoff = dsi_conn_post_kickoff,
 		.check_status = dsi_display_check_status,
+		.enable_event = dsi_conn_enable_event
 	};
 	static const struct sde_connector_ops wb_ops = {
 		.post_init =    sde_wb_connector_post_init,
@@ -3006,4 +3007,10 @@ static int _sde_kms_register_events(struct msm_kms *kms,
 	}
 
 	return ret;
+}
+
+int sde_kms_handle_recovery(struct drm_encoder *encoder)
+{
+	SDE_EVT32(DRMID(encoder), MSM_ENC_ACTIVE_REGION);
+	return sde_encoder_wait_for_event(encoder, MSM_ENC_ACTIVE_REGION);
 }
