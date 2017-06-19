@@ -99,6 +99,98 @@ static void _sde_encoder_phys_cmd_update_intf_cfg(
 	ctl->ops.setup_intf_cfg(ctl, &intf_cfg);
 }
 
+static void sde_encoder_phys_cmd_pp_tx_done_irq(void *arg, int irq_idx)
+{
+	struct sde_encoder_phys *phys_enc = arg;
+	unsigned long lock_flags;
+	int new_cnt;
+
+	if (!phys_enc)
+		return;
+
+	/* notify all synchronous clients first, then asynchronous clients */
+	if (phys_enc->parent_ops.handle_frame_done)
+		phys_enc->parent_ops.handle_frame_done(phys_enc->parent,
+				phys_enc, SDE_ENCODER_FRAME_EVENT_DONE);
+
+	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
+	new_cnt = atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
+	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
+
+	SDE_EVT32_IRQ(DRMID(phys_enc->parent),
+			phys_enc->hw_pp->idx - PINGPONG_0, new_cnt);
+
+	/* Signal any waiting atomic commit thread */
+	wake_up_all(&phys_enc->pending_kickoff_wq);
+}
+
+static void sde_encoder_phys_cmd_pp_rd_ptr_irq(void *arg, int irq_idx)
+{
+	struct sde_encoder_phys *phys_enc = arg;
+
+	if (!phys_enc)
+		return;
+
+	SDE_EVT32_IRQ(DRMID(phys_enc->parent),
+			phys_enc->hw_pp->idx - PINGPONG_0, 0xfff);
+
+	if (phys_enc->parent_ops.handle_vblank_virt)
+		phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent,
+			phys_enc);
+}
+
+static void sde_encoder_phys_cmd_ctl_start_irq(void *arg, int irq_idx)
+{
+	struct sde_encoder_phys *phys_enc = arg;
+	struct sde_hw_ctl *ctl;
+
+	if (!phys_enc)
+		return;
+
+	if (!phys_enc->hw_ctl)
+		return;
+
+	ctl = phys_enc->hw_ctl;
+	SDE_EVT32_IRQ(DRMID(phys_enc->parent), ctl->idx - CTL_0, 0xfff);
+	atomic_add_unless(&phys_enc->pending_ctlstart_cnt, -1, 0);
+
+	/* Signal any waiting ctl start interrupt */
+	wake_up_all(&phys_enc->pending_kickoff_wq);
+}
+
+static void sde_encoder_phys_cmd_underrun_irq(void *arg, int irq_idx)
+{
+	struct sde_encoder_phys *phys_enc = arg;
+
+	if (!phys_enc)
+		return;
+
+	if (phys_enc->parent_ops.handle_underrun_virt)
+		phys_enc->parent_ops.handle_underrun_virt(phys_enc->parent,
+			phys_enc);
+}
+
+static void _sde_encoder_phys_cmd_setup_irq_hw_idx(
+		struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_irq *irq;
+
+	irq = &phys_enc->irq[INTR_IDX_CTL_START];
+	irq->hw_idx = phys_enc->hw_ctl->idx;
+	irq->irq_idx = -EINVAL;
+
+	irq = &phys_enc->irq[INTR_IDX_PINGPONG];
+	irq->hw_idx = phys_enc->hw_pp->idx;
+	irq->irq_idx = -EINVAL;
+
+	irq = &phys_enc->irq[INTR_IDX_RDPTR];
+	irq->hw_idx = phys_enc->hw_pp->idx;
+	irq->irq_idx = -EINVAL;
+
+	irq = &phys_enc->irq[INTR_IDX_UNDERRUN];
+	irq->hw_idx = phys_enc->intf_idx;
+	irq->irq_idx = -EINVAL;
+}
 
 static void sde_encoder_phys_cmd_mode_set(
 		struct sde_encoder_phys *phys_enc,
@@ -112,8 +204,7 @@ static void sde_encoder_phys_cmd_mode_set(
 	int i, instance;
 
 	if (!phys_enc || !mode || !adj_mode) {
-		SDE_ERROR("invalid arg(s), enc %d mode %d adj_mode %d\n",
-				phys_enc != 0, mode != 0, adj_mode != 0);
+		SDE_ERROR("invalid args\n");
 		return;
 	}
 	phys_enc->cached_mode = *adj_mode;
@@ -135,71 +226,8 @@ static void sde_encoder_phys_cmd_mode_set(
 		phys_enc->hw_ctl = NULL;
 		return;
 	}
-}
 
-static void sde_encoder_phys_cmd_pp_tx_done_irq(void *arg, int irq_idx)
-{
-	struct sde_encoder_phys_cmd *cmd_enc = arg;
-	struct sde_encoder_phys *phys_enc;
-	unsigned long lock_flags;
-	int new_cnt;
-
-	if (!cmd_enc)
-		return;
-
-	phys_enc = &cmd_enc->base;
-
-	/* notify all synchronous clients first, then asynchronous clients */
-	if (phys_enc->parent_ops.handle_frame_done)
-		phys_enc->parent_ops.handle_frame_done(phys_enc->parent,
-				phys_enc, SDE_ENCODER_FRAME_EVENT_DONE);
-
-	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
-	new_cnt = atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
-	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
-
-	SDE_EVT32_IRQ(DRMID(phys_enc->parent),
-			phys_enc->hw_pp->idx - PINGPONG_0, new_cnt);
-
-	/* Signal any waiting atomic commit thread */
-	wake_up_all(&phys_enc->pending_kickoff_wq);
-}
-
-static void sde_encoder_phys_cmd_pp_rd_ptr_irq(void *arg, int irq_idx)
-{
-	struct sde_encoder_phys_cmd *cmd_enc = arg;
-	struct sde_encoder_phys *phys_enc = &cmd_enc->base;
-
-	if (!cmd_enc)
-		return;
-
-	SDE_EVT32_IRQ(DRMID(phys_enc->parent),
-			phys_enc->hw_pp->idx - PINGPONG_0, 0xfff);
-
-	if (phys_enc->parent_ops.handle_vblank_virt)
-		phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent,
-			phys_enc);
-}
-
-static void sde_encoder_phys_cmd_ctl_start_irq(void *arg, int irq_idx)
-{
-	struct sde_encoder_phys_cmd *cmd_enc = arg;
-	struct sde_encoder_phys *phys_enc;
-	struct sde_hw_ctl *ctl;
-
-	if (!cmd_enc)
-		return;
-
-	phys_enc = &cmd_enc->base;
-	if (!phys_enc->hw_ctl)
-		return;
-
-	ctl = phys_enc->hw_ctl;
-	SDE_EVT32_IRQ(DRMID(phys_enc->parent), ctl->idx - CTL_0, 0xfff);
-	atomic_add_unless(&phys_enc->pending_ctlstart_cnt, -1, 0);
-
-	/* Signal any waiting ctl start interrupt */
-	wake_up_all(&phys_enc->pending_kickoff_wq);
+	_sde_encoder_phys_cmd_setup_irq_hw_idx(phys_enc);
 }
 
 static bool _sde_encoder_phys_is_ppsplit(struct sde_encoder_phys *phys_enc)
@@ -279,7 +307,7 @@ static int _sde_encoder_phys_cmd_wait_for_idle(
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
-	u32 irq_status;
+	struct sde_encoder_wait_info wait_info;
 	int ret;
 
 	if (!phys_enc) {
@@ -287,152 +315,22 @@ static int _sde_encoder_phys_cmd_wait_for_idle(
 		return -EINVAL;
 	}
 
+	wait_info.wq = &phys_enc->pending_kickoff_wq;
+	wait_info.atomic_cnt = &phys_enc->pending_kickoff_cnt;
+	wait_info.timeout_ms = KICKOFF_TIMEOUT_MS;
+
 	/* slave encoder doesn't enable for ppsplit */
 	if (_sde_encoder_phys_is_ppsplit_slave(phys_enc))
 		return 0;
 
-	/* return EWOULDBLOCK since we know the wait isn't necessary */
-	if (phys_enc->enable_state == SDE_ENC_DISABLED) {
-		SDE_ERROR_CMDENC(cmd_enc, "encoder is disabled\n");
-		return -EWOULDBLOCK;
-	}
-
-	/* wait for previous kickoff to complete */
-	ret = sde_encoder_helper_wait_event_timeout(
-			DRMID(phys_enc->parent),
-			phys_enc->hw_pp->idx - PINGPONG_0,
-			&phys_enc->pending_kickoff_wq,
-			&phys_enc->pending_kickoff_cnt,
-			KICKOFF_TIMEOUT_MS);
-	if (ret <= 0) {
-		/* read and clear interrupt */
-		irq_status = sde_core_irq_read(phys_enc->sde_kms,
-				cmd_enc->irq_idx[INTR_IDX_PINGPONG], true);
-		if (irq_status) {
-			unsigned long flags;
-			SDE_EVT32(DRMID(phys_enc->parent),
-					phys_enc->hw_pp->idx - PINGPONG_0);
-			SDE_DEBUG_CMDENC(cmd_enc,
-					"pp:%d done but irq not triggered\n",
-					phys_enc->hw_pp->idx - PINGPONG_0);
-			local_irq_save(flags);
-			sde_encoder_phys_cmd_pp_tx_done_irq(cmd_enc,
-					INTR_IDX_PINGPONG);
-			local_irq_restore(flags);
-			ret = 0;
-		} else {
-			ret = _sde_encoder_phys_cmd_handle_ppdone_timeout(
-					phys_enc);
-		}
-	} else {
-		ret = 0;
-	}
-
-	if (!ret)
+	ret = sde_encoder_helper_wait_for_irq(phys_enc, INTR_IDX_PINGPONG,
+			&wait_info);
+	if (ret == -ETIMEDOUT)
+		_sde_encoder_phys_cmd_handle_ppdone_timeout(phys_enc);
+	else if (!ret)
 		cmd_enc->pp_timeout_report_cnt = 0;
 
 	return ret;
-}
-
-static void sde_encoder_phys_cmd_underrun_irq(void *arg, int irq_idx)
-{
-	struct sde_encoder_phys_cmd *cmd_enc = arg;
-	struct sde_encoder_phys *phys_enc;
-
-	if (!cmd_enc)
-		return;
-
-	phys_enc = &cmd_enc->base;
-	if (phys_enc->parent_ops.handle_underrun_virt)
-		phys_enc->parent_ops.handle_underrun_virt(phys_enc->parent,
-			phys_enc);
-}
-
-static int sde_encoder_phys_cmd_register_irq(struct sde_encoder_phys *phys_enc,
-	enum sde_intr_type intr_type, int idx,
-	void (*irq_func)(void *, int), const char *irq_name)
-{
-	struct sde_encoder_phys_cmd *cmd_enc =
-			to_sde_encoder_phys_cmd(phys_enc);
-	int idx_lookup = 0;
-	int ret = 0;
-
-	if (!phys_enc) {
-		SDE_ERROR("invalid encoder\n");
-		return -EINVAL;
-	}
-
-	if (intr_type == SDE_IRQ_TYPE_INTF_UNDER_RUN)
-		idx_lookup = phys_enc->intf_idx;
-	else if (intr_type == SDE_IRQ_TYPE_CTL_START)
-		idx_lookup = phys_enc->hw_ctl ? phys_enc->hw_ctl->idx : -1;
-	else
-		idx_lookup = phys_enc->hw_pp->idx;
-
-	cmd_enc->irq_idx[idx] = sde_core_irq_idx_lookup(phys_enc->sde_kms,
-			intr_type, idx_lookup);
-	if (cmd_enc->irq_idx[idx] < 0) {
-		SDE_ERROR_CMDENC(cmd_enc,
-			"failed to lookup IRQ index for %s with pp=%d\n",
-			irq_name,
-			phys_enc->hw_pp->idx - PINGPONG_0);
-		return -EINVAL;
-	}
-
-	cmd_enc->irq_cb[idx].func = irq_func;
-	cmd_enc->irq_cb[idx].arg = cmd_enc;
-	ret = sde_core_irq_register_callback(phys_enc->sde_kms,
-			cmd_enc->irq_idx[idx], &cmd_enc->irq_cb[idx]);
-	if (ret) {
-		SDE_ERROR_CMDENC(cmd_enc,
-				"failed to register IRQ callback %s\n",
-				irq_name);
-		return ret;
-	}
-
-	ret = sde_core_irq_enable(phys_enc->sde_kms, &cmd_enc->irq_idx[idx], 1);
-	if (ret) {
-		SDE_ERROR_CMDENC(cmd_enc,
-			"failed to enable IRQ for %s, pp %d, irq_idx %d\n",
-			irq_name,
-			phys_enc->hw_pp->idx - PINGPONG_0,
-			cmd_enc->irq_idx[idx]);
-		cmd_enc->irq_idx[idx] = -EINVAL;
-
-		/* Unregister callback on IRQ enable failure */
-		sde_core_irq_unregister_callback(phys_enc->sde_kms,
-				cmd_enc->irq_idx[idx], &cmd_enc->irq_cb[idx]);
-		return ret;
-	}
-
-	SDE_DEBUG_CMDENC(cmd_enc, "registered IRQ %s for pp %d, irq_idx %d\n",
-			irq_name,
-			phys_enc->hw_pp->idx - PINGPONG_0,
-			cmd_enc->irq_idx[idx]);
-
-	return ret;
-}
-
-static int sde_encoder_phys_cmd_unregister_irq(
-		struct sde_encoder_phys *phys_enc, int idx)
-{
-	struct sde_encoder_phys_cmd *cmd_enc =
-			to_sde_encoder_phys_cmd(phys_enc);
-
-	if (!phys_enc) {
-		SDE_ERROR("invalid encoder\n");
-		return -EINVAL;
-	}
-
-	sde_core_irq_disable(phys_enc->sde_kms, &cmd_enc->irq_idx[idx], 1);
-	sde_core_irq_unregister_callback(phys_enc->sde_kms,
-			cmd_enc->irq_idx[idx], &cmd_enc->irq_cb[idx]);
-
-	SDE_DEBUG_CMDENC(cmd_enc, "unregistered IRQ for pp %d, irq_idx %d\n",
-			phys_enc->hw_pp->idx - PINGPONG_0,
-			cmd_enc->irq_idx[idx]);
-
-	return 0;
 }
 
 static int sde_encoder_phys_cmd_control_vblank_irq(
@@ -460,13 +358,9 @@ static int sde_encoder_phys_cmd_control_vblank_irq(
 			enable, atomic_read(&phys_enc->vblank_refcount));
 
 	if (enable && atomic_inc_return(&phys_enc->vblank_refcount) == 1)
-		ret = sde_encoder_phys_cmd_register_irq(phys_enc,
-				SDE_IRQ_TYPE_PING_PONG_RD_PTR,
-				INTR_IDX_RDPTR,
-				sde_encoder_phys_cmd_pp_rd_ptr_irq,
-				"pp_rd_ptr");
+		ret = sde_encoder_helper_register_irq(phys_enc, INTR_IDX_RDPTR);
 	else if (!enable && atomic_dec_return(&phys_enc->vblank_refcount) == 0)
-		ret = sde_encoder_phys_cmd_unregister_irq(phys_enc,
+		ret = sde_encoder_helper_unregister_irq(phys_enc,
 				INTR_IDX_RDPTR);
 
 end:
@@ -489,35 +383,22 @@ void sde_encoder_phys_cmd_irq_control(struct sde_encoder_phys *phys_enc,
 	cmd_enc = to_sde_encoder_phys_cmd(phys_enc);
 
 	if (enable) {
-		sde_encoder_phys_cmd_register_irq(phys_enc,
-				SDE_IRQ_TYPE_PING_PONG_COMP,
-				INTR_IDX_PINGPONG,
-				sde_encoder_phys_cmd_pp_tx_done_irq,
-				"pp_tx_done");
-
+		sde_encoder_helper_register_irq(phys_enc, INTR_IDX_PINGPONG);
+		sde_encoder_helper_register_irq(phys_enc, INTR_IDX_UNDERRUN);
 		sde_encoder_phys_cmd_control_vblank_irq(phys_enc, true);
 
-		sde_encoder_phys_cmd_register_irq(phys_enc,
-				SDE_IRQ_TYPE_INTF_UNDER_RUN,
-				INTR_IDX_UNDERRUN,
-				sde_encoder_phys_cmd_underrun_irq,
-				"underrun");
+		if (sde_encoder_phys_cmd_is_master(phys_enc))
+			sde_encoder_helper_register_irq(phys_enc,
+					INTR_IDX_CTL_START);
+	} else {
 
 		if (sde_encoder_phys_cmd_is_master(phys_enc))
-			sde_encoder_phys_cmd_register_irq(phys_enc,
-				SDE_IRQ_TYPE_CTL_START,
-				INTR_IDX_CTL_START,
-				sde_encoder_phys_cmd_ctl_start_irq,
-				"ctl_start");
-	} else {
-		if (sde_encoder_phys_cmd_is_master(phys_enc))
-			sde_encoder_phys_cmd_unregister_irq(
-				phys_enc, INTR_IDX_CTL_START);
-		sde_encoder_phys_cmd_unregister_irq(
-				phys_enc, INTR_IDX_UNDERRUN);
+			sde_encoder_helper_unregister_irq(phys_enc,
+					INTR_IDX_CTL_START);
+
+		sde_encoder_helper_unregister_irq(phys_enc, INTR_IDX_UNDERRUN);
 		sde_encoder_phys_cmd_control_vblank_irq(phys_enc, false);
-		sde_encoder_phys_cmd_unregister_irq(
-				phys_enc, INTR_IDX_PINGPONG);
+		sde_encoder_helper_unregister_irq(phys_enc, INTR_IDX_PINGPONG);
 	}
 }
 
@@ -776,48 +657,33 @@ static void sde_encoder_phys_cmd_prepare_for_kickoff(
 static int _sde_encoder_phys_cmd_wait_for_ctl_start(
 		struct sde_encoder_phys *phys_enc)
 {
-	int rc = 0;
-	struct sde_hw_ctl *ctl;
-	u32 irq_status;
-	struct sde_encoder_phys_cmd *cmd_enc;
+	struct sde_encoder_phys_cmd *cmd_enc =
+			to_sde_encoder_phys_cmd(phys_enc);
+	struct sde_encoder_wait_info wait_info;
+	int ret;
 
-	if (!phys_enc->hw_ctl) {
-		SDE_ERROR("invalid ctl\n");
+	if (!phys_enc) {
+		SDE_ERROR("invalid encoder\n");
 		return -EINVAL;
 	}
 
-	ctl = phys_enc->hw_ctl;
-	cmd_enc = to_sde_encoder_phys_cmd(phys_enc);
-	rc = sde_encoder_helper_wait_event_timeout(DRMID(phys_enc->parent),
-			ctl->idx - CTL_0,
-			&phys_enc->pending_kickoff_wq,
-			&phys_enc->pending_ctlstart_cnt,
-			CTL_START_TIMEOUT_MS);
-	if (rc <= 0) {
-		/* read and clear interrupt */
-		irq_status = sde_core_irq_read(phys_enc->sde_kms,
-				cmd_enc->irq_idx[INTR_IDX_CTL_START], true);
-		if (irq_status) {
-			unsigned long flags;
+	wait_info.wq = &phys_enc->pending_kickoff_wq;
+	wait_info.atomic_cnt = &phys_enc->pending_ctlstart_cnt;
+	wait_info.timeout_ms = CTL_START_TIMEOUT_MS;
 
-			SDE_EVT32(DRMID(phys_enc->parent), ctl->idx - CTL_0);
-			SDE_DEBUG_CMDENC(cmd_enc,
-					"ctl:%d start done but irq not triggered\n",
-					ctl->idx - CTL_0);
-			local_irq_save(flags);
-			sde_encoder_phys_cmd_ctl_start_irq(cmd_enc,
-					INTR_IDX_CTL_START);
-			local_irq_restore(flags);
-			rc = 0;
-		} else {
-			SDE_ERROR("ctl start interrupt wait failed\n");
-			rc = -EINVAL;
-		}
-	} else {
-		rc = 0;
-	}
+	/* slave encoder doesn't enable for ppsplit */
+	if (_sde_encoder_phys_is_ppsplit_slave(phys_enc))
+		return 0;
 
-	return rc;
+	ret = sde_encoder_helper_wait_for_irq(phys_enc, INTR_IDX_CTL_START,
+			&wait_info);
+	if (ret == -ETIMEDOUT) {
+		SDE_ERROR_CMDENC(cmd_enc, "ctl start interrupt wait failed\n");
+		ret = -EINVAL;
+	} else if (!ret)
+		ret = 0;
+
+	return ret;
 }
 
 static int sde_encoder_phys_cmd_wait_for_tx_complete(
@@ -930,6 +796,7 @@ struct sde_encoder_phys *sde_encoder_phys_cmd_init(
 	struct sde_encoder_phys *phys_enc = NULL;
 	struct sde_encoder_phys_cmd *cmd_enc = NULL;
 	struct sde_hw_mdp *hw_mdp;
+	struct sde_encoder_irq *irq;
 	int i, ret = 0;
 
 	SDE_DEBUG("intf %d\n", p->intf_idx - INTF_0);
@@ -961,8 +828,38 @@ struct sde_encoder_phys *sde_encoder_phys_cmd_init(
 	cmd_enc->stream_sel = 0;
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 	phys_enc->comp_type = p->comp_type;
-	for (i = 0; i < INTR_IDX_MAX; i++)
-		INIT_LIST_HEAD(&cmd_enc->irq_cb[i].list);
+	for (i = 0; i < INTR_IDX_MAX; i++) {
+		irq = &phys_enc->irq[i];
+		INIT_LIST_HEAD(&irq->cb.list);
+		irq->irq_idx = -EINVAL;
+		irq->hw_idx = -EINVAL;
+		irq->cb.arg = phys_enc;
+	}
+
+	irq = &phys_enc->irq[INTR_IDX_CTL_START];
+	irq->name = "ctl_start";
+	irq->intr_type = SDE_IRQ_TYPE_CTL_START;
+	irq->intr_idx = INTR_IDX_CTL_START;
+	irq->cb.func = sde_encoder_phys_cmd_ctl_start_irq;
+
+	irq = &phys_enc->irq[INTR_IDX_PINGPONG];
+	irq->name = "pp_done";
+	irq->intr_type = SDE_IRQ_TYPE_PING_PONG_COMP;
+	irq->intr_idx = INTR_IDX_PINGPONG;
+	irq->cb.func = sde_encoder_phys_cmd_pp_tx_done_irq;
+
+	irq = &phys_enc->irq[INTR_IDX_RDPTR];
+	irq->name = "pp_rd_ptr";
+	irq->intr_type = SDE_IRQ_TYPE_PING_PONG_RD_PTR;
+	irq->intr_idx = INTR_IDX_RDPTR;
+	irq->cb.func = sde_encoder_phys_cmd_pp_rd_ptr_irq;
+
+	irq = &phys_enc->irq[INTR_IDX_UNDERRUN];
+	irq->name = "underrun";
+	irq->intr_type = SDE_IRQ_TYPE_INTF_UNDER_RUN;
+	irq->intr_idx = INTR_IDX_UNDERRUN;
+	irq->cb.func = sde_encoder_phys_cmd_underrun_irq;
+
 	atomic_set(&phys_enc->vblank_refcount, 0);
 	atomic_set(&phys_enc->pending_kickoff_cnt, 0);
 	atomic_set(&phys_enc->pending_ctlstart_cnt, 0);

@@ -183,6 +183,25 @@ enum sde_intr_idx {
 };
 
 /**
+ * sde_encoder_irq - tracking structure for interrupts
+ * @name:		string name of interrupt
+ * @intr_type:		Encoder interrupt type
+ * @intr_idx:		Encoder interrupt enumeration
+ * @hw_idx:		HW Block ID
+ * @irq_idx:		IRQ interface lookup index from SDE IRQ framework
+ *			will be -EINVAL if IRQ is not registered
+ * @irq_cb:		interrupt callback
+ */
+struct sde_encoder_irq {
+	const char *name;
+	enum sde_intr_type intr_type;
+	enum sde_intr_idx intr_idx;
+	int hw_idx;
+	int irq_idx;
+	struct sde_irq_callback cb;
+};
+
+/**
  * struct sde_encoder_phys - physical encoder that drives a single INTF block
  *	tied to a specific panel / sub-panel. Abstract type, sub-classed by
  *	phys_vid or phys_cmd for video mode or command mode encs respectively.
@@ -214,6 +233,7 @@ enum sde_intr_idx {
  * @pending_ctlstart_cnt:	Atomic counter tracking the number of ctl start
  *                              pending.
  * @pending_kickoff_wq:		Wait queue for blocking until kickoff completes
+ * @irq:			IRQ tracking structures
  */
 struct sde_encoder_phys {
 	struct drm_encoder *parent;
@@ -239,6 +259,7 @@ struct sde_encoder_phys {
 	atomic_t pending_ctlstart_cnt;
 	atomic_t pending_kickoff_cnt;
 	wait_queue_head_t pending_kickoff_wq;
+	struct sde_encoder_irq irq[INTR_IDX_MAX];
 };
 
 static inline int sde_encoder_phys_inc_pending(struct sde_encoder_phys *phys)
@@ -251,16 +272,12 @@ static inline int sde_encoder_phys_inc_pending(struct sde_encoder_phys *phys)
  * struct sde_encoder_phys_vid - sub-class of sde_encoder_phys to handle video
  *	mode specific operations
  * @base:	Baseclass physical encoder structure
- * @irq_idx:	IRQ interface lookup index
- * @irq_cb:	interrupt callback
  * @hw_intf:	Hardware interface to the intf registers
  * @timing_params: Current timing parameter
  * @rot_prefill_line: number of line to prefill for inline rotation; 0 disable
  */
 struct sde_encoder_phys_vid {
 	struct sde_encoder_phys base;
-	int irq_idx[INTR_IDX_MAX];
-	struct sde_irq_callback irq_cb[INTR_IDX_MAX];
 	struct sde_hw_intf *hw_intf;
 	struct intf_timing_params timing_params;
 	u64 rot_prefill_line;
@@ -272,10 +289,6 @@ struct sde_encoder_phys_vid {
  * @base:	Baseclass physical encoder structure
  * @intf_idx:	Intf Block index used by this phys encoder
  * @stream_sel:	Stream selection for multi-stream interfaces
- * @pp_rd_ptr_irq_idx:	IRQ signifying panel's frame read pointer
- *			For CMD encoders, VBLANK is driven by the PP RD Done IRQ
- * @pp_tx_done_irq_idx:	IRQ signifying frame transmission to panel complete
- * @irq_cb:		interrupt callback
  * @serialize_wait4pp:	serialize wait4pp feature waits for pp_done interrupt
  *			after ctl_start instead of before next frame kickoff
  * @pp_timeout_report_cnt: number of pingpong done irq timeout errors
@@ -283,8 +296,6 @@ struct sde_encoder_phys_vid {
 struct sde_encoder_phys_cmd {
 	struct sde_encoder_phys base;
 	int stream_sel;
-	int irq_idx[INTR_IDX_MAX];
-	struct sde_irq_callback irq_cb[INTR_IDX_MAX];
 	bool serialize_wait4pp;
 	int pp_timeout_report_cnt;
 };
@@ -358,6 +369,18 @@ struct sde_enc_phys_init_params {
 };
 
 /**
+ * sde_encoder_wait_info - container for passing arguments to irq wait functions
+ * @wq: wait queue structure
+ * @atomic_cnt: wait until atomic_cnt equals zero
+ * @timeout_ms: timeout value in milliseconds
+ */
+struct sde_encoder_wait_info {
+	wait_queue_head_t *wq;
+	atomic_t *atomic_cnt;
+	s64 timeout_ms;
+};
+
+/**
  * sde_encoder_phys_vid_init - Construct a new video mode physical encoder
  * @p:	Pointer to init params structure
  * Return: Error code or newly allocated encoder
@@ -409,16 +432,12 @@ void sde_encoder_helper_trigger_start(struct sde_encoder_phys *phys_enc);
  *	making sure that elapsed time during wait is valid.
  * @drm_id: drm object id for logging
  * @hw_id: hw instance id for logging
- * @wq: wait queue structure
- * @cnt: atomic counter to wait on
- * @timeout_ms: timeout value in milliseconds
+ * @info: wait info structure
  */
 int sde_encoder_helper_wait_event_timeout(
 		int32_t drm_id,
 		int32_t hw_id,
-		wait_queue_head_t *wq,
-		atomic_t *cnt,
-		s64 timeout_ms);
+		struct sde_encoder_wait_info *info);
 
 /**
  * sde_encoder_helper_hw_reset - issue ctl hw reset
@@ -465,5 +484,44 @@ void sde_encoder_helper_split_config(
  */
 int sde_encoder_helper_hw_release(struct sde_encoder_phys *phys_enc,
 		struct drm_framebuffer *fb);
+
+/**
+ * sde_encoder_helper_report_irq_timeout - utility to report error that irq has
+ *	timed out, including reporting frame error event to crtc and debug dump
+ * @phys_enc: Pointer to physical encoder structure
+ * @intr_idx: Failing interrupt index
+ */
+void sde_encoder_helper_report_irq_timeout(struct sde_encoder_phys *phys_enc,
+		enum sde_intr_idx intr_idx);
+
+/**
+ * sde_encoder_helper_wait_for_irq - utility to wait on an irq.
+ *	note: will call sde_encoder_helper_wait_for_irq on timeout
+ * @phys_enc: Pointer to physical encoder structure
+ * @intr_idx: encoder interrupt index
+ * @wait_info: wait info struct
+ * @Return: 0 or -ERROR
+ */
+int sde_encoder_helper_wait_for_irq(struct sde_encoder_phys *phys_enc,
+		enum sde_intr_idx intr_idx,
+		struct sde_encoder_wait_info *wait_info);
+
+/**
+ * sde_encoder_helper_register_irq - register and enable an irq
+ * @phys_enc: Pointer to physical encoder structure
+ * @intr_idx: encoder interrupt index
+ * @Return: 0 or -ERROR
+ */
+int sde_encoder_helper_register_irq(struct sde_encoder_phys *phys_enc,
+		enum sde_intr_idx intr_idx);
+
+/**
+ * sde_encoder_helper_unregister_irq - unregister and disable an irq
+ * @phys_enc: Pointer to physical encoder structure
+ * @intr_idx: encoder interrupt index
+ * @Return: 0 or -ERROR
+ */
+int sde_encoder_helper_unregister_irq(struct sde_encoder_phys *phys_enc,
+		enum sde_intr_idx intr_idx);
 
 #endif /* __sde_encoder_phys_H__ */

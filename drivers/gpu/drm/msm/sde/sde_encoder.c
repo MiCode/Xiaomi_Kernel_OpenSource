@@ -36,12 +36,25 @@
 #include "sde_hw_dsc.h"
 #include "sde_crtc.h"
 #include "sde_trace.h"
+#include "sde_core_irq.h"
 
 #define SDE_DEBUG_ENC(e, fmt, ...) SDE_DEBUG("enc%d " fmt,\
 		(e) ? (e)->base.base.id : -1, ##__VA_ARGS__)
 
 #define SDE_ERROR_ENC(e, fmt, ...) SDE_ERROR("enc%d " fmt,\
 		(e) ? (e)->base.base.id : -1, ##__VA_ARGS__)
+
+#define SDE_DEBUG_PHYS(p, fmt, ...) SDE_DEBUG("enc%d intf%d pp%d " fmt,\
+		(p) ? (p)->parent->base.id : -1, \
+		(p) ? (p)->intf_idx - INTF_0 : -1, \
+		(p) ? ((p)->hw_pp ? (p)->hw_pp->idx - PINGPONG_0 : -1) : -1, \
+		##__VA_ARGS__)
+
+#define SDE_ERROR_PHYS(p, fmt, ...) SDE_ERROR("enc%d intf%d pp%d " fmt,\
+		(p) ? (p)->parent->base.id : -1, \
+		(p) ? (p)->intf_idx - INTF_0 : -1, \
+		(p) ? ((p)->hw_pp ? (p)->hw_pp->idx - PINGPONG_0 : -1) : -1, \
+		##__VA_ARGS__)
 
 /* timeout in frames waiting for frame done */
 #define SDE_ENCODER_FRAME_DONE_TIMEOUT	60
@@ -276,6 +289,174 @@ static inline int _sde_encoder_power_enable(struct sde_encoder_virt *sde_enc,
 
 	return sde_power_resource_enable(&priv->phandle, sde_kms->core_client,
 									enable);
+}
+
+void sde_encoder_helper_report_irq_timeout(struct sde_encoder_phys *phys_enc,
+		enum sde_intr_idx intr_idx)
+{
+	SDE_EVT32(DRMID(phys_enc->parent),
+			phys_enc->intf_idx - INTF_0,
+			phys_enc->hw_pp->idx - PINGPONG_0,
+			intr_idx);
+	SDE_ERROR_PHYS(phys_enc, "irq %d timeout\n", intr_idx);
+
+	if (phys_enc->parent_ops.handle_frame_done)
+		phys_enc->parent_ops.handle_frame_done(
+				phys_enc->parent, phys_enc,
+				SDE_ENCODER_FRAME_EVENT_ERROR);
+}
+
+int sde_encoder_helper_wait_for_irq(struct sde_encoder_phys *phys_enc,
+		enum sde_intr_idx intr_idx,
+		struct sde_encoder_wait_info *wait_info)
+{
+	struct sde_encoder_irq *irq;
+	u32 irq_status;
+	int ret;
+
+	if (!phys_enc || !wait_info || intr_idx >= INTR_IDX_MAX) {
+		SDE_ERROR("invalid params\n");
+		return -EINVAL;
+	}
+	irq = &phys_enc->irq[intr_idx];
+
+	/* note: do master / slave checking outside */
+
+	/* return EWOULDBLOCK since we know the wait isn't necessary */
+	if (phys_enc->enable_state == SDE_ENC_DISABLED) {
+		SDE_ERROR_PHYS(phys_enc, "encoder is disabled\n");
+		return -EWOULDBLOCK;
+	}
+
+	if (irq->irq_idx < 0) {
+		SDE_DEBUG_PHYS(phys_enc, "irq %s hw %d disabled, skip wait\n",
+				irq->name, irq->hw_idx);
+		SDE_EVT32(DRMID(phys_enc->parent), intr_idx, irq->hw_idx,
+				irq->irq_idx);
+		return 0;
+	}
+
+	SDE_DEBUG_PHYS(phys_enc, "pending_cnt %d\n",
+			atomic_read(wait_info->atomic_cnt));
+	SDE_EVT32(DRMID(phys_enc->parent), irq->hw_idx,
+			atomic_read(wait_info->atomic_cnt),
+			SDE_EVTLOG_FUNC_ENTRY);
+
+	ret = sde_encoder_helper_wait_event_timeout(
+			DRMID(phys_enc->parent),
+			irq->hw_idx,
+			wait_info);
+
+	if (ret <= 0) {
+		irq_status = sde_core_irq_read(phys_enc->sde_kms,
+				irq->irq_idx, true);
+		if (irq_status) {
+			unsigned long flags;
+
+			SDE_EVT32(DRMID(phys_enc->parent),
+					irq->hw_idx,
+					atomic_read(wait_info->atomic_cnt));
+			SDE_DEBUG_PHYS(phys_enc,
+					"done but irq %d not triggered\n",
+					irq->irq_idx);
+			local_irq_save(flags);
+			irq->cb.func(phys_enc, irq->irq_idx);
+			local_irq_restore(flags);
+			ret = 0;
+		} else {
+			ret = -ETIMEDOUT;
+		}
+	} else {
+		ret = 0;
+	}
+
+	SDE_EVT32(DRMID(phys_enc->parent), irq->hw_idx, ret,
+			SDE_EVTLOG_FUNC_EXIT);
+
+	return ret;
+}
+
+int sde_encoder_helper_register_irq(struct sde_encoder_phys *phys_enc,
+		enum sde_intr_idx intr_idx)
+{
+	struct sde_encoder_irq *irq;
+	int ret = 0;
+
+	if (!phys_enc || intr_idx >= INTR_IDX_MAX) {
+		SDE_ERROR("invalid params\n");
+		return -EINVAL;
+	}
+	irq = &phys_enc->irq[intr_idx];
+
+	if (irq->irq_idx >= 0) {
+		SDE_ERROR_PHYS(phys_enc,
+				"skipping already registered irq %s type %d\n",
+				irq->name, irq->intr_type);
+		return 0;
+	}
+
+	irq->irq_idx = sde_core_irq_idx_lookup(phys_enc->sde_kms,
+			irq->intr_type, irq->hw_idx);
+	if (irq->irq_idx < 0) {
+		SDE_ERROR_PHYS(phys_enc,
+			"failed to lookup IRQ index for %s type:%d\n",
+			irq->name, irq->intr_type);
+		return -EINVAL;
+	}
+
+	ret = sde_core_irq_register_callback(phys_enc->sde_kms, irq->irq_idx,
+			&irq->cb);
+	if (ret) {
+		SDE_ERROR_PHYS(phys_enc,
+			"failed to register IRQ callback for %s\n",
+			irq->name);
+		irq->irq_idx = -EINVAL;
+		return ret;
+	}
+
+	ret = sde_core_irq_enable(phys_enc->sde_kms, &irq->irq_idx, 1);
+	if (ret) {
+		SDE_ERROR_PHYS(phys_enc,
+			"enable IRQ for intr:%s failed, irq_idx %d\n",
+			irq->name, irq->irq_idx);
+
+		sde_core_irq_unregister_callback(phys_enc->sde_kms,
+				irq->irq_idx, &irq->cb);
+		irq->irq_idx = -EINVAL;
+		return ret;
+	}
+
+	SDE_EVT32(DRMID(phys_enc->parent), intr_idx, irq->hw_idx, irq->irq_idx);
+	SDE_DEBUG_PHYS(phys_enc, "registered irq %s idx: %d\n",
+			irq->name, irq->irq_idx);
+
+	return ret;
+}
+
+int sde_encoder_helper_unregister_irq(struct sde_encoder_phys *phys_enc,
+		enum sde_intr_idx intr_idx)
+{
+	struct sde_encoder_irq *irq;
+
+	if (!phys_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return -EINVAL;
+	}
+	irq = &phys_enc->irq[intr_idx];
+
+	/* silently skip irqs that weren't registered */
+	if (irq->irq_idx < 0)
+		return 0;
+
+	sde_core_irq_disable(phys_enc->sde_kms, &irq->irq_idx, 1);
+	sde_core_irq_unregister_callback(phys_enc->sde_kms, irq->irq_idx,
+			&irq->cb);
+	irq->irq_idx = -EINVAL;
+
+	SDE_EVT32(DRMID(phys_enc->parent), intr_idx, irq->hw_idx, irq->irq_idx);
+	SDE_DEBUG_PHYS(phys_enc, "unregistered %d\n", irq->irq_idx);
+
+	return 0;
 }
 
 void sde_encoder_get_hw_resources(struct drm_encoder *drm_enc,
@@ -1787,23 +1968,23 @@ void sde_encoder_helper_trigger_start(struct sde_encoder_phys *phys_enc)
 int sde_encoder_helper_wait_event_timeout(
 		int32_t drm_id,
 		int32_t hw_id,
-		wait_queue_head_t *wq,
-		atomic_t *cnt,
-		s64 timeout_ms)
+		struct sde_encoder_wait_info *info)
 {
 	int rc = 0;
-	s64 expected_time = ktime_to_ms(ktime_get()) + timeout_ms;
-	s64 jiffies = msecs_to_jiffies(timeout_ms);
+	s64 expected_time = ktime_to_ms(ktime_get()) + info->timeout_ms;
+	s64 jiffies = msecs_to_jiffies(info->timeout_ms);
 	s64 time;
 
 	do {
-		rc = wait_event_timeout(*wq, atomic_read(cnt) == 0, jiffies);
+		rc = wait_event_timeout(*(info->wq),
+				atomic_read(info->atomic_cnt) == 0, jiffies);
 		time = ktime_to_ms(ktime_get());
 
 		SDE_EVT32(drm_id, hw_id, rc, time, expected_time,
-				atomic_read(cnt));
+				atomic_read(info->atomic_cnt));
 	/* If we timed out, counter is valid and time is less, wait again */
-	} while (atomic_read(cnt) && (rc == 0) && (time < expected_time));
+	} while (atomic_read(info->atomic_cnt) && (rc == 0) &&
+			(time < expected_time));
 
 	return rc;
 }
