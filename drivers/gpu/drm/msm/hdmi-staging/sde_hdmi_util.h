@@ -160,5 +160,5 @@ void sde_hdmi_hdcp2p2_ddc_disable(void *hdmi_display);
 int sde_hdmi_hdcp2p2_read_rxstatus(void *hdmi_display);
 void sde_hdmi_ddc_config(void *hdmi_display);
 int sde_hdmi_ddc_hdcp2p2_isr(void *hdmi_display);
-
+void sde_hdmi_dump_regs(void *hdmi_display);
 #endif /* _SDE_HDMI_UTIL_H_ */
