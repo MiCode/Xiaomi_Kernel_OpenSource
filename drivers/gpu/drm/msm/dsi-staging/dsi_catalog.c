@@ -28,6 +28,7 @@ static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
 	ctrl->ops.video_engine_en        = dsi_ctrl_hw_cmn_video_engine_en;
 	ctrl->ops.video_engine_setup     = dsi_ctrl_hw_cmn_video_engine_setup;
 	ctrl->ops.set_video_timing       = dsi_ctrl_hw_cmn_set_video_timing;
+	ctrl->ops.set_timing_db          = dsi_ctrl_hw_cmn_set_timing_db;
 	ctrl->ops.cmd_engine_setup       = dsi_ctrl_hw_cmn_cmd_engine_setup;
 	ctrl->ops.setup_cmd_stream       = dsi_ctrl_hw_cmn_setup_cmd_stream;
 	ctrl->ops.ctrl_en                = dsi_ctrl_hw_cmn_ctrl_en;

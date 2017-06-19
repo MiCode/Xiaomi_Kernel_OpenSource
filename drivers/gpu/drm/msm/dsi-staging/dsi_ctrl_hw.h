@@ -695,6 +695,15 @@ struct dsi_ctrl_hw_ops {
 	u32 (*collect_misr)(struct dsi_ctrl_hw *ctrl,
 			    enum dsi_op_mode panel_mode);
 
+	/**
+	 * set_timing_db() - enable/disable Timing DB register
+	 * @ctrl:          Pointer to controller host hardware.
+	 * @enable:        Enable/Disable flag.
+	 *
+	 * Enable or Disabe the Timing DB register.
+	 */
+	void (*set_timing_db)(struct dsi_ctrl_hw *ctrl,
+				 bool enable);
 };
 
 /*

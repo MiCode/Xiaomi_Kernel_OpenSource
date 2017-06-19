@@ -1645,8 +1645,55 @@ int dsi_ctrl_async_timing_update(struct dsi_ctrl *dsi_ctrl,
 
 	host_mode = &dsi_ctrl->host_config.video_timing;
 	memcpy(host_mode, timing, sizeof(*host_mode));
-
+	dsi_ctrl->hw.ops.set_timing_db(&dsi_ctrl->hw, true);
 	dsi_ctrl->hw.ops.set_video_timing(&dsi_ctrl->hw, host_mode);
+
+exit:
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+	return rc;
+}
+
+/**
+ * dsi_ctrl_timing_db_update() - update only controller Timing DB
+ * @dsi_ctrl:          DSI controller handle.
+ * @enable:            Enable/disable Timing DB register
+ *
+ *  Update timing db register value during dfps usecases
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_timing_db_update(struct dsi_ctrl *dsi_ctrl,
+		bool enable)
+{
+	int rc = 0;
+
+	if (!dsi_ctrl) {
+		pr_err("Invalid dsi_ctrl\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+
+	rc = dsi_ctrl_check_state(dsi_ctrl, DSI_CTRL_OP_ASYNC_TIMING,
+			DSI_CTRL_ENGINE_ON);
+	if (rc) {
+		pr_err("[DSI_%d] Controller state check failed, rc=%d\n",
+		       dsi_ctrl->cell_index, rc);
+		goto exit;
+	}
+
+	/*
+	 * Add HW recommended delay for dfps feature.
+	 * When prefetch is enabled, MDSS HW works on 2 vsync
+	 * boundaries i.e. mdp_vsync and panel_vsync.
+	 * In the current implementation we are only waiting
+	 * for mdp_vsync. We need to make sure that interface
+	 * flush is after panel_vsync. So, added the recommended
+	 * delays after dfps update.
+	 */
+	usleep_range(2000, 2010);
+
+	dsi_ctrl->hw.ops.set_timing_db(&dsi_ctrl->hw, enable);
 
 exit:
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
@@ -2146,7 +2193,7 @@ int dsi_ctrl_update_host_config(struct dsi_ctrl *ctrl,
 		goto error;
 	}
 
-	if (!(flags & DSI_MODE_FLAG_SEAMLESS)) {
+	if (!(flags & (DSI_MODE_FLAG_SEAMLESS | DSI_MODE_FLAG_VRR))) {
 		rc = dsi_ctrl_update_link_freqs(ctrl, config, clk_handle);
 		if (rc) {
 			pr_err("[%s] failed to update link frequencies, rc=%d\n",

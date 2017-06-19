@@ -132,7 +132,8 @@ void dsi_ctrl_hw_cmn_video_engine_setup(struct dsi_ctrl_hw *ctrl,
 				       struct dsi_video_engine_cfg *cfg);
 void dsi_ctrl_hw_cmn_set_video_timing(struct dsi_ctrl_hw *ctrl,
 			 struct dsi_mode_info *mode);
-
+void dsi_ctrl_hw_cmn_set_timing_db(struct dsi_ctrl_hw *ctrl,
+				     bool enable);
 void dsi_ctrl_hw_cmn_cmd_engine_setup(struct dsi_ctrl_hw *ctrl,
 				     struct dsi_host_common_cfg *common_cfg,
 				     struct dsi_cmd_engine_cfg *cfg);

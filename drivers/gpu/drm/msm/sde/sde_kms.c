@@ -545,7 +545,9 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 	struct msm_drm_private *priv;
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *old_crtc_state;
-	int i;
+	struct drm_connector *connector;
+	struct drm_connector_state *old_conn_state;
+	int i, rc = 0;
 
 	if (!kms || !old_state)
 		return;
@@ -557,6 +559,19 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 
 	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i)
 		sde_crtc_complete_commit(crtc, old_crtc_state);
+
+	for_each_connector_in_state(old_state, connector, old_conn_state, i) {
+		struct sde_connector *c_conn;
+
+		c_conn = to_sde_connector(connector);
+		if (!c_conn->ops.post_kickoff)
+			continue;
+		rc = c_conn->ops.post_kickoff(connector);
+		if (rc) {
+			pr_err("Connector Post kickoff failed rc=%d\n",
+					 rc);
+		}
+	}
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
@@ -758,6 +773,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.set_power = dsi_display_set_power,
 		.get_mode_info = dsi_conn_get_mode_info,
 		.get_dst_format = dsi_display_get_dst_format,
+		.post_kickoff = dsi_conn_post_kickoff
 	};
 	static const struct sde_connector_ops wb_ops = {
 		.post_init =    sde_wb_connector_post_init,

@@ -438,7 +438,7 @@ int sde_encoder_helper_register_irq(struct sde_encoder_phys *phys_enc,
 	irq = &phys_enc->irq[intr_idx];
 
 	if (irq->irq_idx >= 0) {
-		SDE_ERROR_PHYS(phys_enc,
+		SDE_DEBUG_PHYS(phys_enc,
 				"skipping already registered irq %s type %d\n",
 				irq->name, irq->intr_type);
 		return 0;

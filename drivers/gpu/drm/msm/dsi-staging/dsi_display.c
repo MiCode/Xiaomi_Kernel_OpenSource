@@ -28,6 +28,7 @@
 #include "dsi_drm.h"
 #include "dsi_clk.h"
 #include "dsi_pwr.h"
+#include "sde_dbg.h"
 
 #define to_dsi_display(x) container_of(x, struct dsi_display, host)
 #define INT_BASE_10 10
@@ -2533,7 +2534,7 @@ error:
 }
 
 static int dsi_display_dfps_calc_front_porch(
-		u64 clk_hz,
+		u32 old_fps,
 		u32 new_fps,
 		u32 a_total,
 		u32 b_total,
@@ -2541,6 +2542,7 @@ static int dsi_display_dfps_calc_front_porch(
 		u32 *b_fp_out)
 {
 	s32 b_fp_new;
+	int add_porches, diff;
 
 	if (!b_fp_out) {
 		pr_err("Invalid params");
@@ -2552,15 +2554,22 @@ static int dsi_display_dfps_calc_front_porch(
 		return -EINVAL;
 	}
 
-	/**
+	/*
 	 * Keep clock, other porches constant, use new fps, calc front porch
-	 * clk = (hor * ver * fps)
-	 * hfront = clk / (vtotal * fps)) - hactive - hback - hsync
+	 * new_vtotal = old_vtotal * (old_fps / new_fps )
+	 * new_vfp - old_vfp = new_vtotal - old_vtotal
+	 * new_vfp = old_vfp + old_vtotal * ((old_fps - new_fps)/ new_fps)
 	 */
-	b_fp_new = (clk_hz / (a_total * new_fps)) - (b_total - b_fp);
+	diff = abs(old_fps - new_fps);
+	add_porches = mult_frac(b_total, diff, new_fps);
 
-	pr_debug("clk %llu fps %u a %u b %u b_fp %u new_fp %d\n",
-			clk_hz, new_fps, a_total, b_total, b_fp, b_fp_new);
+	if (old_fps > new_fps)
+		b_fp_new = b_fp + add_porches;
+	else
+		b_fp_new = b_fp - add_porches;
+
+	pr_debug("fps %u a %u b %u b_fp %u new_fp %d\n",
+			new_fps, a_total, b_total, b_fp, b_fp_new);
 
 	if (b_fp_new < 0) {
 		pr_err("Invalid new_hfp calcluated%d\n", b_fp_new);
@@ -2576,14 +2585,25 @@ static int dsi_display_dfps_calc_front_porch(
 	return 0;
 }
 
+/**
+ * dsi_display_get_dfps_timing() - Get the new dfps values.
+ * @display:         DSI display handle.
+ * @adj_mode:        Mode value structure to be changed.
+ *                   It contains old timing values and latest fps value.
+ *                   New timing values are updated based on new fps.
+ * @curr_refresh_rate:  Current fps rate.
+ *                      If zero , current fps rate is taken from
+ *                      display->panel->cur_mode.
+ * Return: error code.
+ */
 static int dsi_display_get_dfps_timing(struct dsi_display *display,
-				       struct dsi_display_mode *adj_mode)
+			struct dsi_display_mode *adj_mode,
+				u32 curr_refresh_rate)
 {
 	struct dsi_dfps_capabilities dfps_caps;
 	struct dsi_display_mode per_ctrl_mode;
 	struct dsi_mode_info *timing;
 	struct dsi_ctrl *m_ctrl;
-	u64 clk_hz;
 
 	int rc = 0;
 
@@ -2602,20 +2622,27 @@ static int dsi_display_get_dfps_timing(struct dsi_display *display,
 	per_ctrl_mode = *adj_mode;
 	adjust_timing_by_ctrl_count(display, &per_ctrl_mode);
 
-	if (!dsi_display_is_seamless_dfps_possible(display,
-			&per_ctrl_mode, dfps_caps.type)) {
-		pr_err("seamless dynamic fps not supported for mode\n");
-		return -EINVAL;
+	if (!curr_refresh_rate) {
+		if (!dsi_display_is_seamless_dfps_possible(display,
+				&per_ctrl_mode, dfps_caps.type)) {
+			pr_err("seamless dynamic fps not supported for mode\n");
+			return -EINVAL;
+		}
+		if (display->panel->cur_mode) {
+			curr_refresh_rate =
+				display->panel->cur_mode->timing.refresh_rate;
+		} else {
+			pr_err("cur_mode is not initialized\n");
+			return -EINVAL;
+		}
 	}
-
 	/* TODO: Remove this direct reference to the dsi_ctrl */
-	clk_hz = m_ctrl->clk_freq.pix_clk_rate;
 	timing = &per_ctrl_mode.timing;
 
 	switch (dfps_caps.type) {
 	case DSI_DFPS_IMMEDIATE_VFP:
 		rc = dsi_display_dfps_calc_front_porch(
-				clk_hz,
+				curr_refresh_rate,
 				timing->refresh_rate,
 				DSI_H_TOTAL(timing),
 				DSI_V_TOTAL(timing),
@@ -2625,7 +2652,7 @@ static int dsi_display_get_dfps_timing(struct dsi_display *display,
 
 	case DSI_DFPS_IMMEDIATE_HFP:
 		rc = dsi_display_dfps_calc_front_porch(
-				clk_hz,
+				curr_refresh_rate,
 				timing->refresh_rate,
 				DSI_V_TOTAL(timing),
 				DSI_H_TOTAL(timing),
@@ -2654,7 +2681,7 @@ static bool dsi_display_validate_mode_seamless(struct dsi_display *display,
 	}
 
 	/* Currently the only seamless transition is dynamic fps */
-	rc = dsi_display_get_dfps_timing(display, adj_mode);
+	rc = dsi_display_get_dfps_timing(display, adj_mode, 0);
 	if (rc) {
 		pr_debug("Dynamic FPS not supported for seamless\n");
 	} else {
@@ -2694,7 +2721,8 @@ static int dsi_display_set_mode_sub(struct dsi_display *display,
 	memcpy(&display->config.lane_map, &display->lane_map,
 	       sizeof(display->lane_map));
 
-	if (mode->dsi_mode_flags & DSI_MODE_FLAG_DFPS) {
+	if (mode->dsi_mode_flags &
+			(DSI_MODE_FLAG_DFPS | DSI_MODE_FLAG_VRR)) {
 		rc = dsi_display_dfps_update(display, mode);
 		if (rc) {
 			pr_err("[%s]DSI dfps update failed, rc=%d\n",
@@ -3472,6 +3500,7 @@ int dsi_display_get_modes(struct dsi_display *display,
 
 		for (i = 0; i < num_dfps_rates; i++) {
 			struct dsi_display_mode *sub_mode = &modes[array_idx];
+			u32 curr_refresh_rate;
 
 			if (!sub_mode) {
 				pr_err("invalid mode data\n");
@@ -3481,9 +3510,15 @@ int dsi_display_get_modes(struct dsi_display *display,
 			memcpy(sub_mode, &panel_mode, sizeof(panel_mode));
 
 			if (dfps_caps.dfps_support) {
+				curr_refresh_rate =
+					sub_mode->timing.refresh_rate;
 				sub_mode->timing.refresh_rate =
 					dfps_caps.min_refresh_rate +
 					(i % num_dfps_rates);
+
+				dsi_display_get_dfps_timing(display,
+					sub_mode, curr_refresh_rate);
+
 				sub_mode->pixel_clk_khz =
 					(DSI_H_TOTAL(&sub_mode->timing) *
 					DSI_V_TOTAL(&sub_mode->timing) *
@@ -3491,6 +3526,102 @@ int dsi_display_get_modes(struct dsi_display *display,
 			}
 			array_idx++;
 		}
+	}
+
+error:
+	mutex_unlock(&display->display_lock);
+	return rc;
+}
+
+/**
+ * dsi_display_validate_mode_vrr() - Validate if varaible refresh case.
+ * @display:     DSI display handle.
+ * @cur_dsi_mode:   Current DSI mode.
+ * @mode:        Mode value structure to be validated.
+ *               MSM_MODE_FLAG_SEAMLESS_VRR flag is set if there
+ *               is change in fps but vactive and hactive are same.
+ * Return: error code.
+ */
+int dsi_display_validate_mode_vrr(struct dsi_display *display,
+			struct dsi_display_mode *cur_dsi_mode,
+			struct dsi_display_mode *mode)
+{
+	int rc = 0;
+	struct dsi_display_mode adj_mode, cur_mode;
+	struct dsi_dfps_capabilities dfps_caps;
+	u32 curr_refresh_rate;
+
+	if (!display || !mode) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	if (!display->panel || !display->panel->cur_mode) {
+		pr_debug("Current panel mode not set\n");
+		return rc;
+	}
+
+	mutex_lock(&display->display_lock);
+
+	adj_mode = *mode;
+	cur_mode = *cur_dsi_mode;
+
+	if ((cur_mode.timing.refresh_rate != adj_mode.timing.refresh_rate) &&
+		(cur_mode.timing.v_active == adj_mode.timing.v_active) &&
+		(cur_mode.timing.h_active == adj_mode.timing.h_active)) {
+
+		curr_refresh_rate = cur_mode.timing.refresh_rate;
+		rc = dsi_panel_get_dfps_caps(display->panel, &dfps_caps);
+		if (rc) {
+			pr_err("[%s] failed to get dfps caps from panel\n",
+					display->name);
+			goto error;
+		}
+
+		cur_mode.timing.refresh_rate =
+			adj_mode.timing.refresh_rate;
+
+		rc = dsi_display_get_dfps_timing(display,
+			&cur_mode, curr_refresh_rate);
+		if (rc) {
+			pr_err("[%s] seamless vrr not possible rc=%d\n",
+			display->name, rc);
+			goto error;
+		}
+		switch (dfps_caps.type) {
+		/*
+		 * Ignore any round off factors in porch calculation.
+		 * Worse case is set to 5.
+		 */
+		case DSI_DFPS_IMMEDIATE_VFP:
+			if (abs(DSI_V_TOTAL(&cur_mode.timing) -
+				DSI_V_TOTAL(&adj_mode.timing)) > 5)
+				pr_err("Mismatch vfp fps:%d new:%d given:%d\n",
+				adj_mode.timing.refresh_rate,
+				cur_mode.timing.v_front_porch,
+				adj_mode.timing.v_front_porch);
+			break;
+
+		case DSI_DFPS_IMMEDIATE_HFP:
+			if (abs(DSI_H_TOTAL(&cur_mode.timing) -
+				DSI_H_TOTAL(&adj_mode.timing)) > 5)
+				pr_err("Mismatch hfp fps:%d new:%d given:%d\n",
+				adj_mode.timing.refresh_rate,
+				cur_mode.timing.h_front_porch,
+				adj_mode.timing.h_front_porch);
+			break;
+
+		default:
+			pr_err("Unsupported DFPS mode %d\n",
+				dfps_caps.type);
+			rc = -ENOTSUPP;
+		}
+
+		pr_debug("Mode switch is seamless variable refresh\n");
+		mode->dsi_mode_flags |= DSI_MODE_FLAG_VRR;
+		SDE_EVT32(curr_refresh_rate, adj_mode.timing.refresh_rate,
+				cur_mode.timing.h_front_porch,
+				adj_mode.timing.h_front_porch);
 	}
 
 error:

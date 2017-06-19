@@ -475,13 +475,19 @@ static void _sde_encoder_phys_vid_setup_irq_hw_idx(
 {
 	struct sde_encoder_irq *irq;
 
+	/*
+	 * Initialize irq->hw_idx only when irq is not registered.
+	 * Prevent invalidating irq->irq_idx as modeset may be
+	 * called many times during dfps.
+	 */
+
 	irq = &phys_enc->irq[INTR_IDX_VSYNC];
-	irq->hw_idx = phys_enc->intf_idx;
-	irq->irq_idx = -EINVAL;
+	if (irq->irq_idx < 0)
+		irq->hw_idx = phys_enc->intf_idx;
 
 	irq = &phys_enc->irq[INTR_IDX_UNDERRUN];
-	irq->hw_idx = phys_enc->intf_idx;
-	irq->irq_idx = -EINVAL;
+	if (irq->irq_idx < 0)
+		irq->hw_idx = phys_enc->intf_idx;
 }
 
 static void sde_encoder_phys_vid_mode_set(
