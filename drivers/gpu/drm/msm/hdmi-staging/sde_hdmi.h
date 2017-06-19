@@ -20,6 +20,7 @@
 #include <linux/debugfs.h>
 #include <linux/of_device.h>
 #include <linux/msm_ext_display.h>
+#include <linux/hdcp_qseecom.h>
 
 #include <drm/drmP.h>
 #include <drm/drm_crtc.h>
@@ -29,6 +30,8 @@
 #include "sde_connector.h"
 #include "msm_drv.h"
 #include "sde_edid_parser.h"
+#include "sde_hdmi_util.h"
+#include "sde_hdcp.h"
 
 #ifdef HDMI_DEBUG_ENABLE
 #define SDE_HDMI_DEBUG(fmt, args...)   SDE_ERROR(fmt, ##args)
@@ -82,6 +85,11 @@ enum hdmi_tx_io_type {
 	HDMI_TX_MAX_IO
 };
 
+enum hdmi_tx_feature_type {
+	SDE_HDCP_1x,
+	SDE_HDCP_2P2
+};
+
 /**
  * struct sde_hdmi - hdmi display information
  * @pdev:             Pointer to platform device.
@@ -112,7 +120,7 @@ struct sde_hdmi {
 	const char *display_type;
 	struct list_head list;
 	struct mutex display_lock;
-
+	struct mutex hdcp_mutex;
 	struct sde_hdmi_ctrl ctrl;
 
 	struct platform_device *ext_pdev;
@@ -130,6 +138,18 @@ struct sde_hdmi {
 	u32 max_pclk_khz;
 	bool hdcp1_use_sw_keys;
 	u32 hdcp14_present;
+	u32 hdcp22_present;
+	u8 hdcp_status;
+	u32 enc_lvl;
+	bool auth_state;
+	/*hold final data
+	 *based on hdcp support
+	 */
+	void *hdcp_data;
+	/*hold hdcp init data*/
+	void *hdcp_feat_data[2];
+	struct sde_hdcp_ops *hdcp_ops;
+	struct sde_hdmi_tx_ddc_ctrl ddc_ctrl;
 	struct work_struct hpd_work;
 	bool codec_ready;
 	bool client_notify_pending;
@@ -137,6 +157,7 @@ struct sde_hdmi {
 	struct irq_domain *irq_domain;
 	struct cec_notifier *notifier;
 
+	struct delayed_work hdcp_cb_work;
 	struct dss_io_data io[HDMI_TX_MAX_IO];
 	/* DEBUG FS */
 	struct dentry *root;
@@ -338,32 +359,6 @@ struct drm_bridge *sde_hdmi_bridge_init(struct hdmi *hdmi);
 void sde_hdmi_set_mode(struct hdmi *hdmi, bool power_on);
 
 /**
- * sde_hdmi_ddc_read() - common hdmi ddc read API.
- * @hdmi:          Handle to the hdmi.
- * @addr:          Command address.
- * @offset:        Command offset.
- * @data:          Data buffer for read back.
- * @data_len:      Data buffer length.
- *
- * Return: error code.
- */
-int sde_hdmi_ddc_read(struct hdmi *hdmi, u16 addr, u8 offset,
-					  u8 *data, u16 data_len);
-
-/**
- * sde_hdmi_ddc_write() - common hdmi ddc write API.
- * @hdmi:          Handle to the hdmi.
- * @addr:          Command address.
- * @offset:        Command offset.
- * @data:          Data buffer for write.
- * @data_len:      Data buffer length.
- *
- * Return: error code.
- */
-int sde_hdmi_ddc_write(struct hdmi *hdmi, u16 addr, u8 offset,
-					   u8 *data, u16 data_len);
-
-/**
  * sde_hdmi_scdc_read() - hdmi 2.0 ddc read API.
  * @hdmi:          Handle to the hdmi.
  * @data_type:     DDC data type, refer to enum hdmi_tx_scdc_access_type.
@@ -429,6 +424,13 @@ void sde_hdmi_notify_clients(struct sde_hdmi *display, bool connected);
 void sde_hdmi_ack_state(struct drm_connector *connector,
 	enum drm_connector_status status);
 
+bool sde_hdmi_tx_is_hdcp_enabled(struct sde_hdmi *hdmi_ctrl);
+bool sde_hdmi_tx_is_encryption_set(struct sde_hdmi *hdmi_ctrl);
+bool sde_hdmi_tx_is_stream_shareable(struct sde_hdmi *hdmi_ctrl);
+bool sde_hdmi_tx_is_panel_on(struct sde_hdmi *hdmi_ctrl);
+int sde_hdmi_start_hdcp(struct drm_connector *connector);
+void sde_hdmi_hdcp_off(struct sde_hdmi *hdmi_ctrl);
+
 #else /*#ifdef CONFIG_DRM_SDE_HDMI*/
 
 static inline u32 sde_hdmi_get_num_of_displays(void)
@@ -487,10 +489,40 @@ static inline int sde_hdmi_dev_deinit(struct sde_hdmi *display)
 	return 0;
 }
 
+bool hdmi_tx_is_hdcp_enabled(struct sde_hdmi *hdmi_ctrl)
+{
+	return false;
+}
+
+bool sde_hdmi_tx_is_encryption_set(struct sde_hdmi *hdmi_ctrl)
+{
+	return false;
+}
+
+bool sde_hdmi_tx_is_stream_shareable(struct sde_hdmi *hdmi_ctrl)
+{
+	return false;
+}
+
+bool sde_hdmi_tx_is_panel_on(struct sde_hdmi *hdmi_ctrl)
+{
+	return false;
+}
+
 static inline int sde_hdmi_drm_init(struct sde_hdmi *display,
 				struct drm_encoder *enc)
 {
 	return 0;
+}
+
+int sde_hdmi_start_hdcp(struct drm_connector *connector)
+{
+	return 0;
+}
+
+void sde_hdmi_hdcp_off(struct sde_hdmi *hdmi_ctrl)
+{
+
 }
 
 static inline int sde_hdmi_drm_deinit(struct sde_hdmi *display)

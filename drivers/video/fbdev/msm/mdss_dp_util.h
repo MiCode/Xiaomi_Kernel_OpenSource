@@ -316,8 +316,7 @@ void mdss_dp_state_ctrl(struct dss_io_data *ctrl_io, u32 data);
 int mdss_dp_irq_setup(struct mdss_dp_drv_pdata *dp_drv);
 void mdss_dp_irq_enable(struct mdss_dp_drv_pdata *dp_drv);
 void mdss_dp_irq_disable(struct mdss_dp_drv_pdata *dp_drv);
-void mdss_dp_sw_config_msa(struct dss_io_data *ctrl_io,
-				char lrate, struct dss_io_data *dp_cc_io);
+void mdss_dp_sw_config_msa(struct mdss_dp_drv_pdata *dp);
 void mdss_dp_usbpd_ext_capabilities(struct usbpd_dp_capabilities *dp_cap);
 void mdss_dp_usbpd_ext_dp_status(struct usbpd_dp_status *dp_status);
 u32 mdss_dp_usbpd_gen_config_pkt(struct mdss_dp_drv_pdata *dp);

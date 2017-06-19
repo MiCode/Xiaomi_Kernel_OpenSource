@@ -355,37 +355,3 @@ void sde_hdmi_audio_off(struct hdmi *hdmi)
 	SDE_DEBUG("HDMI Audio: Disabled\n");
 }
 
-int sde_hdmi_config_avmute(struct hdmi *hdmi, bool set)
-{
-	u32 av_mute_status;
-	bool av_pkt_en = false;
-
-	if (!hdmi) {
-		SDE_ERROR("invalid HDMI Ctrl\n");
-		return -ENODEV;
-	}
-
-	av_mute_status = hdmi_read(hdmi, HDMI_GC);
-
-	if (set) {
-		if (!(av_mute_status & BIT(0))) {
-			hdmi_write(hdmi, HDMI_GC, av_mute_status | BIT(0));
-			av_pkt_en = true;
-		}
-	} else {
-		if (av_mute_status & BIT(0)) {
-			hdmi_write(hdmi, HDMI_GC, av_mute_status & ~BIT(0));
-			av_pkt_en = true;
-		}
-	}
-
-	/* Enable AV Mute tranmission here */
-	if (av_pkt_en)
-		hdmi_write(hdmi, HDMI_VBI_PKT_CTRL,
-			hdmi_read(hdmi, HDMI_VBI_PKT_CTRL) | (BIT(4) & BIT(5)));
-
-	SDE_DEBUG("AVMUTE %s\n", set ? "set" : "cleared");
-
-	return 0;
-}
-

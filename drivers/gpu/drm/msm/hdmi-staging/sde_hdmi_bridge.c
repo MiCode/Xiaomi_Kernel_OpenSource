@@ -32,8 +32,7 @@ struct sde_hdmi_bridge {
 #define HDMI_TX_SCRAMBLER_MIN_TX_VERSION 0x04
 #define HDMI_TX_SCRAMBLER_THRESHOLD_RATE_KHZ 340000
 #define HDMI_TX_SCRAMBLER_TIMEOUT_MSEC 200
-/* default hsyncs for 4k@60 for 200ms */
-#define HDMI_DEFAULT_TIMEOUT_HSYNC 28571
+
 
 /* for AVI program */
 #define HDMI_AVI_INFOFRAME_BUFFER_SIZE \
@@ -177,39 +176,22 @@ static int _sde_hdmi_bridge_scrambler_ddc_check_status(struct hdmi *hdmi)
 	return rc;
 }
 
-static void _sde_hdmi_bridge_scrambler_ddc_reset(struct hdmi *hdmi)
-{
-	u32 reg_val;
-
-	/* clear ack and disable interrupts */
-	reg_val = BIT(14) | BIT(9) | BIT(5) | BIT(1);
-	hdmi_write(hdmi, REG_HDMI_DDC_INT_CTRL2, reg_val);
-
-	/* Reset DDC timers */
-	reg_val = BIT(0) | hdmi_read(hdmi, REG_HDMI_SCRAMBLER_STATUS_DDC_CTRL);
-	hdmi_write(hdmi, REG_HDMI_SCRAMBLER_STATUS_DDC_CTRL, reg_val);
-
-	reg_val = hdmi_read(hdmi, REG_HDMI_SCRAMBLER_STATUS_DDC_CTRL);
-	reg_val &= ~BIT(0);
-	hdmi_write(hdmi, REG_HDMI_SCRAMBLER_STATUS_DDC_CTRL, reg_val);
-}
-
-static void _sde_hdmi_bridge_scrambler_ddc_disable(struct hdmi *hdmi)
-{
-	u32 reg_val;
-
-	_sde_hdmi_bridge_scrambler_ddc_reset(hdmi);
-	/* Disable HW DDC access to RxStatus register */
-	reg_val = hdmi_read(hdmi, REG_HDMI_HW_DDC_CTRL);
-	reg_val &= ~(BIT(8) | BIT(9));
-	hdmi_write(hdmi, REG_HDMI_HW_DDC_CTRL, reg_val);
-}
-
 static int _sde_hdmi_bridge_scrambler_status_timer_setup(struct hdmi *hdmi,
 			u32 timeout_hsync)
 {
 	u32 reg_val;
 	int rc;
+	struct sde_connector *c_conn;
+	struct drm_connector *connector = NULL;
+	struct sde_hdmi *display;
+
+	if (!hdmi) {
+		SDE_ERROR("invalid input\n");
+		return -EINVAL;
+	}
+	connector = hdmi->connector;
+	c_conn = to_sde_connector(hdmi->connector);
+	display = (struct sde_hdmi *)c_conn->display;
 
 	_sde_hdmi_bridge_ddc_clear_irq(hdmi, "scrambler");
 
@@ -243,7 +225,7 @@ static int _sde_hdmi_bridge_scrambler_status_timer_setup(struct hdmi *hdmi,
 	if (rc)
 		SDE_ERROR("scrambling ddc error %d\n", rc);
 
-	_sde_hdmi_bridge_scrambler_ddc_disable(hdmi);
+	_sde_hdmi_scrambler_ddc_disable((void *)display);
 
 	return rc;
 }
@@ -269,20 +251,6 @@ static int _sde_hdmi_bridge_setup_ddc_timers(struct hdmi *hdmi,
 	return 0;
 }
 
-static inline int _sde_hdmi_bridge_get_timeout_in_hysnc(
-		struct drm_display_mode *mode, u32 timeout_ms)
-{
-	/*
-	 * pixel clock  = h_total * v_total * fps
-	 * 1 sec = pixel clock number of pixels are transmitted.
-	 * time taken by one line (h_total) = 1s / (v_total * fps).
-	 * lines for give time = (time_ms * 1000) / (1000000 / (v_total * fps))
-	 *                     = (time_ms * clock) / h_total
-	 */
-
-	return (timeout_ms * mode->clock / mode->htotal);
-}
-
 static int _sde_hdmi_bridge_setup_scrambler(struct hdmi *hdmi,
 			struct drm_display_mode *mode)
 {
@@ -291,14 +259,17 @@ static int _sde_hdmi_bridge_setup_scrambler(struct hdmi *hdmi,
 	u32 reg_val = 0;
 	u32 tmds_clock_ratio = 0;
 	bool scrambler_on = false;
-
+	struct sde_connector *c_conn;
 	struct drm_connector *connector = NULL;
+	struct sde_hdmi *display;
 
 	if (!hdmi || !mode) {
 		SDE_ERROR("invalid input\n");
 		return -EINVAL;
 	}
 	connector = hdmi->connector;
+	c_conn = to_sde_connector(hdmi->connector);
+	display = (struct sde_hdmi *)c_conn->display;
 
 	/* Read HDMI version */
 	reg_val = hdmi_read(hdmi, REG_HDMI_VERSION);
@@ -344,9 +315,10 @@ static int _sde_hdmi_bridge_setup_scrambler(struct hdmi *hdmi,
 		 * status bit on the sink. Sink should set this bit
 		 * with in 200ms after scrambler is enabled.
 		 */
-		timeout_hsync = _sde_hdmi_bridge_get_timeout_in_hysnc(
-						mode,
+		timeout_hsync = _sde_hdmi_get_timeout_in_hysnc(
+						(void *)display,
 						HDMI_TX_SCRAMBLER_TIMEOUT_MSEC);
+
 		if (timeout_hsync <= 0) {
 			SDE_ERROR("err in timeout hsync calc\n");
 			timeout_hsync = HDMI_DEFAULT_TIMEOUT_HSYNC;
@@ -396,8 +368,55 @@ static void _sde_hdmi_bridge_pre_enable(struct drm_bridge *bridge)
 	mutex_unlock(&display->display_lock);
 }
 
+static void sde_hdmi_update_hdcp_info(struct drm_connector *connector)
+{
+	void *fd = NULL;
+	struct sde_hdcp_ops *ops = NULL;
+	struct sde_connector *c_conn = to_sde_connector(connector);
+	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
+
+	if (!display) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+
+	/* check first if hdcp2p2 is supported */
+	fd = display->hdcp_feat_data[SDE_HDCP_2P2];
+	if (fd)
+		ops = sde_hdmi_hdcp2p2_start(fd);
+
+	if (ops && ops->feature_supported)
+		display->hdcp22_present = ops->feature_supported(fd);
+	else
+		display->hdcp22_present = false;
+
+	if (!display->hdcp22_present) {
+		if (display->hdcp1_use_sw_keys) {
+			display->hdcp14_present =
+				hdcp1_check_if_supported_load_app();
+		}
+		if (display->hdcp14_present) {
+			fd = display->hdcp_feat_data[SDE_HDCP_1x];
+			if (fd)
+				ops = sde_hdcp_1x_start(fd);
+		}
+	}
+
+	/* update internal data about hdcp */
+	display->hdcp_data = fd;
+	display->hdcp_ops = ops;
+}
+
 static void _sde_hdmi_bridge_enable(struct drm_bridge *bridge)
 {
+	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
+	struct hdmi *hdmi = sde_hdmi_bridge->hdmi;
+
+	/* need to update hdcp info here to ensure right HDCP support*/
+	sde_hdmi_update_hdcp_info(hdmi->connector);
+
+	/* start HDCP authentication */
+	sde_hdmi_start_hdcp(hdmi->connector);
 }
 
 static void _sde_hdmi_bridge_disable(struct drm_bridge *bridge)
@@ -414,8 +433,8 @@ static void _sde_hdmi_bridge_post_disable(struct drm_bridge *bridge)
 
 	sde_hdmi_notify_clients(display, display->connected);
 
-	if (hdmi->hdcp_ctrl && hdmi->is_hdcp_supported)
-		hdmi_hdcp_ctrl_off(hdmi->hdcp_ctrl);
+	if (sde_hdmi_tx_is_hdcp_enabled(display))
+		sde_hdmi_hdcp_off(display);
 
 	sde_hdmi_audio_off(hdmi);
 
@@ -629,9 +648,9 @@ static void _sde_hdmi_bridge_mode_set(struct drm_bridge *bridge,
 		_sde_hdmi_bridge_set_spd_infoframe(hdmi, mode);
 		DRM_DEBUG("hdmi setup info frame\n");
 	}
-	_sde_hdmi_bridge_setup_scrambler(hdmi, mode);
 
 	_sde_hdmi_save_mode(hdmi, mode);
+	_sde_hdmi_bridge_setup_scrambler(hdmi, mode);
 }
 
 static const struct drm_bridge_funcs _sde_hdmi_bridge_funcs = {
