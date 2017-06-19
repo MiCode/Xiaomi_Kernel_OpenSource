@@ -1980,6 +1980,57 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 	return rc;
 }
 
+static int cam_ife_mgr_cmd_get_sof_timestamp(
+	struct cam_ife_hw_mgr_ctx      *ife_ctx,
+	uint64_t                       *time_stamp)
+{
+	int rc = -EINVAL;
+	uint32_t i;
+	struct cam_ife_hw_mgr_res            *hw_mgr_res;
+	struct cam_hw_intf                   *hw_intf;
+	struct cam_csid_get_time_stamp_args   csid_get_time;
+
+	list_for_each_entry(hw_mgr_res, &ife_ctx->res_list_ife_csid, list) {
+		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+			if (!hw_mgr_res->hw_res[i] ||
+				(i == CAM_ISP_HW_SPLIT_RIGHT))
+				continue;
+			/*
+			 * Get the SOF time stamp from left resource only.
+			 * Left resource is master for dual vfe case and
+			 * Rdi only context case left resource only hold
+			 * the RDI resource
+			 */
+			hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
+			if (hw_intf->hw_ops.process_cmd) {
+				csid_get_time.node_res =
+					hw_mgr_res->hw_res[i];
+				rc = hw_intf->hw_ops.process_cmd(
+					hw_intf->hw_priv,
+					CAM_IFE_CSID_CMD_GET_TIME_STAMP,
+					&csid_get_time,
+					sizeof(
+					struct cam_csid_get_time_stamp_args));
+				if (!rc)
+					*time_stamp =
+						csid_get_time.time_stamp_val;
+			/*
+			 * Single VFE case, Get the time stamp from available
+			 * one csid hw in the context
+			 * Dual VFE case, get the time stamp from master(left)
+			 * would be sufficient
+			 */
+				goto end;
+			}
+		}
+	}
+end:
+	if (rc)
+		pr_err("%s:error in getting sof time stamp\n", __func__);
+
+	return rc;
+}
+
 static int cam_ife_mgr_process_recovery_cb(void *priv, void *data)
 {
 	int32_t rc = 0;
@@ -2566,11 +2617,16 @@ static int cam_ife_hw_mgr_handle_sof_for_camif_hw_res(
 			if (core_idx == hw_res_l->hw_intf->hw_idx) {
 				sof_status = hw_res_l->bottom_half_handler(
 					hw_res_l, evt_payload);
-				if (!sof_status)
+				if (!sof_status) {
+					cam_ife_mgr_cmd_get_sof_timestamp(
+						ife_hwr_mgr_ctx,
+						&sof_done_event_data.timestamp);
+
 					ife_hwr_irq_sof_cb(
 						ife_hwr_mgr_ctx->common.cb_priv,
 						CAM_ISP_HW_EVENT_SOF,
 						&sof_done_event_data);
+				}
 			}
 
 			break;
@@ -2617,12 +2673,16 @@ static int cam_ife_hw_mgr_handle_sof_for_camif_hw_res(
 			rc = cam_ife_hw_mgr_check_sof_for_dual_vfe(
 				ife_hwr_mgr_ctx, core_index0, core_index1);
 
-			if (!rc)
+			if (!rc) {
+				cam_ife_mgr_cmd_get_sof_timestamp(
+					ife_hwr_mgr_ctx,
+					&sof_done_event_data.timestamp);
+
 				ife_hwr_irq_sof_cb(
 					ife_hwr_mgr_ctx->common.cb_priv,
 					CAM_ISP_HW_EVENT_SOF,
 					&sof_done_event_data);
-
+			}
 			break;
 
 		default:

@@ -1150,6 +1150,10 @@ static int cam_ife_csid_init_config_ipp_path(
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		csid_reg->ipp_reg->csid_ipp_cfg0_addr);
 
+	/* select the post irq sub sample strobe for time stamp capture */
+	cam_io_w_mb(CSID_TIMESTAMP_STB_POST_IRQ, soc_info->reg_map[0].mem_base +
+		csid_reg->ipp_reg->csid_ipp_cfg1_addr);
+
 	if (path_data->crop_enable) {
 		val = ((path_data->width +
 			path_data->start_pixel) & 0xFFFF <<
@@ -1434,6 +1438,10 @@ static int cam_ife_csid_init_config_rdi_path(
 
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 			csid_reg->rdi_reg[id]->csid_rdi_cfg0_addr);
+
+	/* select the post irq sub sample strobe for time stamp capture */
+	cam_io_w_mb(CSID_TIMESTAMP_STB_POST_IRQ, soc_info->reg_map[0].mem_base +
+			csid_reg->rdi_reg[id]->csid_rdi_cfg1_addr);
 
 	if (path_data->crop_enable) {
 		val = ((path_data->width +
@@ -2220,7 +2228,6 @@ static int cam_ife_csid_process_cmd(void *hw_priv,
 	csid_hw_info = (struct cam_hw_info  *)hw_priv;
 	csid_hw = (struct cam_ife_csid_hw   *)csid_hw_info->core_info;
 
-	mutex_lock(&csid_hw->hw_info->hw_mutex);
 	switch (cmd_type) {
 	case CAM_IFE_CSID_CMD_GET_TIME_STAMP:
 		rc = cam_ife_csid_get_time_stamp(csid_hw, cmd_args);
@@ -2231,7 +2238,6 @@ static int cam_ife_csid_process_cmd(void *hw_priv,
 		rc = -EINVAL;
 		break;
 	}
-	mutex_unlock(&csid_hw->hw_info->hw_mutex);
 
 	return rc;
 
