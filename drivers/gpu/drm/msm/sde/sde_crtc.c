@@ -2143,6 +2143,7 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 		SDE_DEBUG("crtc%d commit\n", crtc->base.id);
 		SDE_EVT32(DRMID(crtc), 2);
 	}
+	sde_crtc->play_count++;
 
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		if (encoder->crtc != crtc)
@@ -3332,10 +3333,9 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 				sde_crtc->vblank_cb_count * 1000, diff_ms) : 0;
 
 		seq_printf(s,
-			"vblank fps:%lld count:%u total:%llums\n",
-				fps,
-				sde_crtc->vblank_cb_count,
-				ktime_to_ms(diff));
+			"vblank fps:%lld count:%u total:%llums total_framecount:%llu\n",
+				fps, sde_crtc->vblank_cb_count,
+				ktime_to_ms(diff), sde_crtc->play_count);
 
 		/* reset time & count for next measurement */
 		sde_crtc->vblank_cb_count = 0;
