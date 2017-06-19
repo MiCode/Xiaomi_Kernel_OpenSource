@@ -7045,6 +7045,18 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			return target_cpu;
 		}
 
+		/*
+		 * We always want to migrate the task to the best CPU when
+		 * placement boost is active.
+		 */
+		if (placement_boost) {
+			trace_sched_task_util_boosted(p, task_cpu(p),
+						task_util(p),
+						target_cpu,
+						target_cpu, 0, need_idle);
+			return target_cpu;
+		}
+
 #ifdef CONFIG_SCHED_WALT
 		if (walt_disabled || !sysctl_sched_use_walt_cpu_util)
 			task_util_boosted = 0;
