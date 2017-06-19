@@ -385,10 +385,18 @@ static void sde_hdmi_update_hdcp_info(struct drm_connector *connector)
 	if (fd)
 		ops = sde_hdmi_hdcp2p2_start(fd);
 
+	/* If ops is true, sink supports hdcp */
+	if (ops)
+		display->sink_hdcp22_support = true;
+
 	if (ops && ops->feature_supported)
 		display->hdcp22_present = ops->feature_supported(fd);
 	else
 		display->hdcp22_present = false;
+
+	/* if hdcp22_present is true, src supports hdcp 2p2 */
+	if (display->hdcp22_present)
+		display->src_hdcp22_support = true;
 
 	if (!display->hdcp22_present) {
 		if (display->hdcp1_use_sw_keys) {

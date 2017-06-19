@@ -372,6 +372,135 @@ static ssize_t _sde_hdmi_edid_vendor_name_read(struct file *file,
 	return len;
 }
 
+static ssize_t _sde_hdmi_src_hdcp14_support_read(struct file *file,
+						char __user *buff,
+						size_t count,
+						loff_t *ppos)
+{
+	struct sde_hdmi *display = file->private_data;
+	char buf[SZ_128];
+	u32 len = 0;
+
+	if (!display)
+		return -ENODEV;
+
+	if (!display->ctrl.ctrl) {
+		SDE_ERROR("hdmi is NULL\n");
+		return -ENOMEM;
+	}
+
+	SDE_HDMI_DEBUG("%s +", __func__);
+	if (*ppos)
+		return 0;
+
+	if (display->hdcp14_present)
+		len += snprintf(buf, SZ_128 - len, "true\n");
+	else
+		len += snprintf(buf, SZ_128 - len, "false\n");
+
+	if (copy_to_user(buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;
+	SDE_HDMI_DEBUG("%s - ", __func__);
+	return len;
+}
+
+static ssize_t _sde_hdmi_src_hdcp22_support_read(struct file *file,
+						char __user *buff,
+						size_t count,
+						loff_t *ppos)
+{
+	struct sde_hdmi *display = file->private_data;
+	char buf[SZ_128];
+	u32 len = 0;
+
+	if (!display)
+		return -ENODEV;
+
+	if (!display->ctrl.ctrl) {
+		SDE_ERROR("hdmi is NULL\n");
+		return -ENOMEM;
+	}
+
+	SDE_HDMI_DEBUG("%s +", __func__);
+	if (*ppos)
+		return 0;
+
+	if (display->src_hdcp22_support)
+		len += snprintf(buf, SZ_128 - len, "true\n");
+	else
+		len += snprintf(buf, SZ_128 - len, "false\n");
+
+	if (copy_to_user(buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;
+	SDE_HDMI_DEBUG("%s - ", __func__);
+	return len;
+}
+
+static ssize_t _sde_hdmi_sink_hdcp22_support_read(struct file *file,
+						char __user *buff,
+						size_t count,
+						loff_t *ppos)
+{
+	struct sde_hdmi *display = file->private_data;
+	char buf[SZ_128];
+	u32 len = 0;
+
+	if (!display)
+		return -ENODEV;
+
+	if (!display->ctrl.ctrl) {
+		SDE_ERROR("hdmi is NULL\n");
+		return -ENOMEM;
+	}
+
+	SDE_HDMI_DEBUG("%s +", __func__);
+	if (*ppos)
+		return 0;
+
+	if (display->sink_hdcp22_support)
+		len += snprintf(buf, SZ_128 - len, "true\n");
+	else
+		len += snprintf(buf, SZ_128 - len, "false\n");
+
+	if (copy_to_user(buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;
+	SDE_HDMI_DEBUG("%s - ", __func__);
+	return len;
+}
+
+static ssize_t _sde_hdmi_hdcp_state_read(struct file *file,
+						char __user *buff,
+						size_t count,
+						loff_t *ppos)
+{
+	struct sde_hdmi *display = file->private_data;
+	char buf[SZ_128];
+	u32 len = 0;
+
+	if (!display)
+		return -ENODEV;
+
+	SDE_HDMI_DEBUG("%s +", __func__);
+	if (*ppos)
+		return 0;
+
+	len += snprintf(buf, SZ_128 - len, "HDCP state : %s\n",
+			sde_hdcp_state_name(display->hdcp_status));
+
+	if (copy_to_user(buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;
+	SDE_HDMI_DEBUG("%s - ", __func__);
+	return len;
+}
+
 static const struct file_operations dump_info_fops = {
 	.open = simple_open,
 	.read = _sde_hdmi_debugfs_dump_info_read,
@@ -405,6 +534,26 @@ static const struct file_operations edid_vcdb_info_fops = {
 static const struct file_operations edid_vendor_name_fops = {
 	.open = simple_open,
 	.read = _sde_hdmi_edid_vendor_name_read,
+};
+
+static const struct file_operations hdcp_src_14_support_fops = {
+	.open = simple_open,
+	.read = _sde_hdmi_src_hdcp14_support_read,
+};
+
+static const struct file_operations hdcp_src_22_support_fops = {
+	.open = simple_open,
+	.read = _sde_hdmi_src_hdcp22_support_read,
+};
+
+static const struct file_operations hdcp_sink_22_support_fops = {
+	.open = simple_open,
+	.read = _sde_hdmi_sink_hdcp22_support_read,
+};
+
+static const struct file_operations sde_hdmi_hdcp_state_fops = {
+	.open = simple_open,
+	.read = _sde_hdmi_hdcp_state_read,
 };
 
 static u64 _sde_hdmi_clip_valid_pclk(struct drm_display_mode *mode, u64 pclk_in)
@@ -624,6 +773,8 @@ static int _sde_hdmi_debugfs_init(struct sde_hdmi *display)
 	struct dentry *dir, *dump_file, *edid_modes;
 	struct dentry *edid_vsdb_info, *edid_hdr_info, *edid_hfvsdb_info;
 	struct dentry *edid_vcdb_info, *edid_vendor_name, *pll_file;
+	struct dentry *src_hdcp14_support, *src_hdcp22_support;
+	struct dentry *sink_hdcp22_support, *hdmi_hdcp_state;
 
 	dir = debugfs_create_dir(display->name, NULL);
 	if (!dir) {
@@ -729,6 +880,58 @@ static int _sde_hdmi_debugfs_init(struct sde_hdmi *display)
 
 	if (IS_ERR_OR_NULL(edid_vendor_name)) {
 		rc = PTR_ERR(edid_vendor_name);
+		SDE_ERROR("[%s]debugfs create file failed, rc=%d\n",
+		       display->name, rc);
+		goto error_remove_dir;
+	}
+
+	src_hdcp14_support = debugfs_create_file("src_hdcp14_support",
+						0444,
+						dir,
+						display,
+						&hdcp_src_14_support_fops);
+
+	if (IS_ERR_OR_NULL(src_hdcp14_support)) {
+		rc = PTR_ERR(src_hdcp14_support);
+		SDE_ERROR("[%s]debugfs create file failed, rc=%d\n",
+		       display->name, rc);
+		goto error_remove_dir;
+	}
+
+	src_hdcp22_support = debugfs_create_file("src_hdcp22_support",
+						0444,
+						dir,
+						display,
+						&hdcp_src_22_support_fops);
+
+	if (IS_ERR_OR_NULL(src_hdcp22_support)) {
+		rc = PTR_ERR(src_hdcp22_support);
+		SDE_ERROR("[%s]debugfs create file failed, rc=%d\n",
+		       display->name, rc);
+		goto error_remove_dir;
+	}
+
+	sink_hdcp22_support = debugfs_create_file("sink_hdcp22_support",
+						0444,
+						dir,
+						display,
+						&hdcp_sink_22_support_fops);
+
+	if (IS_ERR_OR_NULL(sink_hdcp22_support)) {
+		rc = PTR_ERR(sink_hdcp22_support);
+		SDE_ERROR("[%s]debugfs create file failed, rc=%d\n",
+		       display->name, rc);
+		goto error_remove_dir;
+	}
+
+	hdmi_hdcp_state = debugfs_create_file("hdmi_hdcp_state",
+						0444,
+						dir,
+						display,
+						&sde_hdmi_hdcp_state_fops);
+
+	if (IS_ERR_OR_NULL(hdmi_hdcp_state)) {
+		rc = PTR_ERR(hdmi_hdcp_state);
 		SDE_ERROR("[%s]debugfs create file failed, rc=%d\n",
 		       display->name, rc);
 		goto error_remove_dir;
