@@ -843,6 +843,21 @@ error:
 	return rc;
 }
 
+int dsi_phy_lane_reset(struct msm_dsi_phy *phy)
+{
+	int ret = 0;
+
+	if (!phy)
+		return ret;
+
+	mutex_lock(&phy->phy_lock);
+	if (phy->hw.ops.phy_lane_reset)
+		ret = phy->hw.ops.phy_lane_reset(&phy->hw);
+	mutex_unlock(&phy->phy_lock);
+
+	return ret;
+}
+
 /**
  * dsi_phy_disable() - disable DSI PHY hardware.
  * @phy:        DSI PHY handle.

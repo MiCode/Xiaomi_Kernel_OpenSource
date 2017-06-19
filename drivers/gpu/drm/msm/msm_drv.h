@@ -231,11 +231,13 @@ enum msm_display_caps {
  * @MSM_ENC_COMMIT_DONE - wait for the driver to flush the registers to HW
  * @MSM_ENC_TX_COMPLETE - wait for the HW to transfer the frame to panel
  * @MSM_ENC_VBLANK - wait for the HW VBLANK event (for driver-internal waiters)
+ * @MSM_ENC_ACTIVE_REGION - wait for the TG to be in active pixel region
  */
 enum msm_event_wait {
 	MSM_ENC_COMMIT_DONE = 0,
 	MSM_ENC_TX_COMPLETE,
 	MSM_ENC_VBLANK,
+	MSM_ENC_ACTIVE_REGION,
 };
 
 /**

@@ -230,6 +230,8 @@ struct sde_connector_ops {
 enum sde_connector_events {
 	SDE_CONN_EVENT_VID_DONE, /* video mode frame done */
 	SDE_CONN_EVENT_CMD_DONE, /* command mode frame done */
+	SDE_CONN_EVENT_VID_FIFO_OVERFLOW, /* dsi fifo overflow error */
+	SDE_CONN_EVENT_CMD_FIFO_UNDERFLOW, /* dsi fifo underflow error */
 	SDE_CONN_EVENT_COUNT,
 };
 
@@ -237,9 +239,10 @@ enum sde_connector_events {
  * struct sde_connector_evt - local event registration entry structure
  * @cb_func: Pointer to desired callback function
  * @usr: User pointer to pass to callback on event trigger
+ * Returns: Zero success, negetive for failure
  */
 struct sde_connector_evt {
-	void (*cb_func)(uint32_t event_idx,
+	int (*cb_func)(uint32_t event_idx,
 			uint32_t instance_idx, void *usr,
 			uint32_t data0, uint32_t data1,
 			uint32_t data2, uint32_t data3);
@@ -540,7 +543,7 @@ int sde_connector_trigger_event(void *drm_connector,
  */
 int sde_connector_register_event(struct drm_connector *connector,
 		uint32_t event_idx,
-		void (*cb_func)(uint32_t event_idx,
+		int (*cb_func)(uint32_t event_idx,
 			uint32_t instance_idx, void *usr,
 			uint32_t data0, uint32_t data1,
 			uint32_t data2, uint32_t data3),

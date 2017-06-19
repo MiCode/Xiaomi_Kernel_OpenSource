@@ -17,6 +17,7 @@
 #include <linux/iopoll.h>
 #include "dsi_hw.h"
 #include "dsi_phy_hw.h"
+#include "dsi_catalog.h"
 
 #define DSIPHY_CMN_CLK_CFG0						0x010
 #define DSIPHY_CMN_CLK_CFG1						0x014
@@ -371,6 +372,29 @@ void dsi_phy_hw_v3_0_ulps_request(struct dsi_phy_hw *phy,
 	DSI_W32(phy, DSIPHY_CMN_VREG_CTRL, 0x19);
 	pr_debug("[DSI_PHY%d] ULPS requested for lanes 0x%x\n", phy->index,
 		 lanes);
+}
+
+int dsi_phy_hw_v3_0_lane_reset(struct dsi_phy_hw *phy)
+{
+	int ret = 0, loop = 10, u_dly = 200;
+	u32 ln_status = 0;
+
+	while ((ln_status != 0x1f) && loop) {
+		DSI_W32(phy, DSIPHY_CMN_LANE_CTRL3, 0x1f);
+		wmb(); /* ensure register is committed */
+		loop--;
+		udelay(u_dly);
+		ln_status = DSI_R32(phy, DSIPHY_CMN_LANE_STATUS1);
+		pr_debug("trial no: %d\n", loop);
+	}
+
+	if (!loop)
+		pr_debug("could not reset phy lanes\n");
+
+	DSI_W32(phy, DSIPHY_CMN_LANE_CTRL3, 0x0);
+	wmb(); /* ensure register is committed */
+
+	return ret;
 }
 
 void dsi_phy_hw_v3_0_ulps_exit(struct dsi_phy_hw *phy,
