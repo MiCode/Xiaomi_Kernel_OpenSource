@@ -23,6 +23,7 @@
 #include <linux/msm-bus.h>
 #include <linux/platform_device.h>
 #include <linux/soc/qcom/llcc-qcom.h>
+#include <linux/kthread.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-fh.h>
 #include <media/v4l2-ctrls.h>
@@ -95,8 +96,8 @@ struct sde_rotator_vbinfo {
  */
 struct sde_rotator_request {
 	struct list_head list;
-	struct work_struct submit_work;
-	struct work_struct retire_work;
+	struct kthread_work submit_work;
+	struct kthread_work retire_work;
 	struct sde_rot_entry_container *req;
 	struct sde_rotator_ctx *ctx;
 	bool committed;
