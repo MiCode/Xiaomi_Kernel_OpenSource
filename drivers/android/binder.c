@@ -3778,7 +3778,9 @@ static void binder_deferred_release(struct binder_proc *proc)
 			page_count++;
 		}
 		kfree(proc->pages);
+		preempt_enable_no_resched();
 		vfree(proc->buffer);
+		preempt_disable();
 	}
 
 	put_task_struct(proc->tsk);
