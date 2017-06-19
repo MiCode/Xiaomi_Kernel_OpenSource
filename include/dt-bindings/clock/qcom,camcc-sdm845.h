@@ -102,26 +102,15 @@
 #define CAM_CC_SOC_AHB_CLK					85
 #define CAM_CC_SYS_TMR_CLK					86
 
-#define TITAN_CAM_CC_BPS_BCR					0
-#define TITAN_CAM_CC_CAMNOC_BCR					1
-#define TITAN_CAM_CC_CCI_BCR					2
-#define TITAN_CAM_CC_CPAS_BCR					3
-#define TITAN_CAM_CC_CSI0PHY_BCR				4
-#define TITAN_CAM_CC_CSI1PHY_BCR				5
-#define TITAN_CAM_CC_CSI2PHY_BCR				6
-#define TITAN_CAM_CC_FD_BCR					7
-#define TITAN_CAM_CC_ICP_BCR					8
-#define TITAN_CAM_CC_IFE_0_BCR					9
-#define TITAN_CAM_CC_IFE_1_BCR					10
-#define TITAN_CAM_CC_IFE_LITE_BCR				11
-#define TITAN_CAM_CC_IPE_0_BCR					12
-#define TITAN_CAM_CC_IPE_1_BCR					13
-#define TITAN_CAM_CC_JPEG_BCR					14
-#define TITAN_CAM_CC_LRME_BCR					15
-#define TITAN_CAM_CC_MCLK0_BCR					16
-#define TITAN_CAM_CC_MCLK1_BCR					17
-#define TITAN_CAM_CC_MCLK2_BCR					18
-#define TITAN_CAM_CC_MCLK3_BCR					19
-#define TITAN_CAM_CC_TITAN_TOP_BCR				20
+#define TITAN_CAM_CC_CCI_BCR					0
+#define TITAN_CAM_CC_CPAS_BCR					1
+#define TITAN_CAM_CC_CSI0PHY_BCR				2
+#define TITAN_CAM_CC_CSI1PHY_BCR				3
+#define TITAN_CAM_CC_CSI2PHY_BCR				4
+#define TITAN_CAM_CC_MCLK0_BCR					5
+#define TITAN_CAM_CC_MCLK1_BCR					6
+#define TITAN_CAM_CC_MCLK2_BCR					7
+#define TITAN_CAM_CC_MCLK3_BCR					8
+#define TITAN_CAM_CC_TITAN_TOP_BCR				9
 
 #endif
