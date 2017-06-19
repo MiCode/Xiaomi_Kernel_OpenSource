@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -543,6 +543,7 @@ static struct ion_platform_data *msm_ion_parse_dt(struct platform_device *pdev)
 			pr_err("Failed to create device %s\n", node->name);
 			goto free_heaps;
 		}
+		of_dma_configure(&new_dev->dev, node);
 
 		pdata->heaps[idx].priv = &new_dev->dev;
 		val = of_get_address(node, 0, NULL, NULL);
