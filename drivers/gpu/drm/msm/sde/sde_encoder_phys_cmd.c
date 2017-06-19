@@ -820,6 +820,27 @@ static int _sde_encoder_phys_cmd_wait_for_ctl_start(
 	return rc;
 }
 
+static int sde_encoder_phys_cmd_wait_for_tx_complete(
+		struct sde_encoder_phys *phys_enc)
+{
+	int rc;
+	struct sde_encoder_phys_cmd *cmd_enc;
+
+	if (!phys_enc)
+		return -EINVAL;
+
+	cmd_enc = to_sde_encoder_phys_cmd(phys_enc);
+
+	rc = _sde_encoder_phys_cmd_wait_for_idle(phys_enc);
+	if (rc) {
+		SDE_EVT32(DRMID(phys_enc->parent),
+				phys_enc->intf_idx - INTF_0);
+		SDE_ERROR("failed wait_for_idle: %d\n", rc);
+	}
+
+	return rc;
+}
+
 static int sde_encoder_phys_cmd_wait_for_commit_done(
 		struct sde_encoder_phys *phys_enc)
 {
@@ -894,6 +915,7 @@ static void sde_encoder_phys_cmd_init_ops(
 	ops->control_vblank_irq = sde_encoder_phys_cmd_control_vblank_irq;
 	ops->wait_for_commit_done = sde_encoder_phys_cmd_wait_for_commit_done;
 	ops->prepare_for_kickoff = sde_encoder_phys_cmd_prepare_for_kickoff;
+	ops->wait_for_tx_complete = sde_encoder_phys_cmd_wait_for_tx_complete;
 	ops->trigger_start = sde_encoder_helper_trigger_start;
 	ops->needs_single_flush = sde_encoder_phys_cmd_needs_single_flush;
 	ops->hw_reset = sde_encoder_helper_hw_reset;

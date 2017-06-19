@@ -206,6 +206,16 @@ enum msm_display_caps {
 };
 
 /**
+ * enum msm_event_wait - type of HW events to wait for
+ * @MSM_ENC_COMMIT_DONE - wait for the driver to flush the registers to HW
+ * @MSM_ENC_TX_COMPLETE - wait for the HW to transfer the frame to panel
+ */
+enum msm_event_wait {
+	MSM_ENC_COMMIT_DONE = 0,
+	MSM_ENC_TX_COMPLETE,
+};
+
+/**
  * struct msm_roi_alignment - region of interest alignment restrictions
  * @xstart_pix_align: left x offset alignment restriction
  * @width_pix_align: width alignment restriction

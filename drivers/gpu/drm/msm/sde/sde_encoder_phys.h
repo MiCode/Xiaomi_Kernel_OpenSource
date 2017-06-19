@@ -111,6 +111,8 @@ struct sde_encoder_virt_ops {
  * @control_vblank_irq		Register/Deregister for VBLANK IRQ
  * @wait_for_commit_done:	Wait for hardware to have flushed the
  *				current pending frames to hardware
+ * @wait_for_tx_complete:	Wait for hardware to transfer the pixels
+ *				to the panel
  * @prepare_for_kickoff:	Do any work necessary prior to a kickoff
  *				For CMD encoder, may wait for previous tx done
  * @handle_post_kickoff:	Do any work necessary post-kickoff work
@@ -147,6 +149,7 @@ struct sde_encoder_phys_ops {
 			struct drm_connector_state *conn_state);
 	int (*control_vblank_irq)(struct sde_encoder_phys *enc, bool enable);
 	int (*wait_for_commit_done)(struct sde_encoder_phys *phys_enc);
+	int (*wait_for_tx_complete)(struct sde_encoder_phys *phys_enc);
 	void (*prepare_for_kickoff)(struct sde_encoder_phys *phys_enc,
 			struct sde_encoder_kickoff_params *params);
 	void (*handle_post_kickoff)(struct sde_encoder_phys *phys_enc);
