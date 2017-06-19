@@ -1,0 +1,13 @@
+* Scheduler Energy Driver
+
+Scheduler Energy Driver updates capacities in the scheduler group energy array.
+The array contains power cost at each CPU operating points so energy aware
+scheduler (EAS) can utilize it for task placement.
+
+Required properties:
+- compatible:		Must be "sched-energy"
+
+Example:
+	energy-costs {
+		compatible = "sched-energy";
+	}
