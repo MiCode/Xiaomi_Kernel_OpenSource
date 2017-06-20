@@ -805,6 +805,8 @@ static void adreno_snapshot_iommu(struct kgsl_device *device,
 static void adreno_snapshot_ringbuffer(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot, struct adreno_ringbuffer *rb)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct snapshot_rb_params params = {
 		.snapshot = snapshot,
 		.rb = rb,
@@ -815,6 +817,16 @@ static void adreno_snapshot_ringbuffer(struct kgsl_device *device,
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_RB_V2, snapshot,
 		snapshot_rb, &params);
+
+	/* Add preemption context records for the ringbuffer */
+	if (adreno_is_preemption_enabled(adreno_dev)) {
+		if (gpudev->snapshot_preemption)
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2, snapshot,
+				gpudev->snapshot_preemption,
+				&rb->preemption_desc);
+	}
+
 }
 
 /* adreno_snapshot - Snapshot the Adreno GPU state
