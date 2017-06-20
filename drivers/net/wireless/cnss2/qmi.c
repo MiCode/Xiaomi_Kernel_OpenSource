@@ -724,7 +724,7 @@ int cnss_wlfw_athdiag_read_send_sync(struct cnss_plat_data *plat_priv,
 		goto out;
 	}
 
-	if (!resp->data_valid || resp->data_len <= data_len) {
+	if (!resp->data_valid || resp->data_len != data_len) {
 		cnss_pr_err("athdiag read data is invalid, data_valid = %u, data_len = %u\n",
 			    resp->data_valid, resp->data_len);
 		ret = -EINVAL;
@@ -958,8 +958,9 @@ int cnss_wlfw_server_exit(struct cnss_plat_data *plat_priv)
 	if (!plat_priv)
 		return -ENODEV;
 
-	clear_bit(CNSS_FW_READY, &plat_priv->driver_state);
-	clear_bit(CNSS_FW_MEM_READY, &plat_priv->driver_state);
+	qmi_handle_destroy(plat_priv->qmi_wlfw_clnt);
+	plat_priv->qmi_wlfw_clnt = NULL;
+
 	clear_bit(CNSS_QMI_WLFW_CONNECTED, &plat_priv->driver_state);
 
 	cnss_pr_info("QMI WLFW service disconnected, state: 0x%lx\n",

@@ -78,6 +78,12 @@ static int emac_mdio_read(struct mii_bus *bus, int addr, int regnum)
 	u32 reg = 0;
 	int ret = 0;
 
+	if (pm_runtime_enabled(adpt->netdev->dev.parent) &&
+	    pm_runtime_status_suspended(adpt->netdev->dev.parent)) {
+		emac_dbg(adpt, hw, "EMAC in suspended state\n");
+		return ret;
+	}
+
 	if (phy->external) {
 		ret = emac_phy_mdio_autopoll_disable(hw);
 		if (ret) {
@@ -127,6 +133,12 @@ static int emac_mdio_write(struct mii_bus *bus, int addr, int regnum, u16 val)
 	struct emac_phy *phy = &adpt->phy;
 	u32 reg = 0;
 	int ret = 0;
+
+	if (pm_runtime_enabled(adpt->netdev->dev.parent) &&
+	    pm_runtime_status_suspended(adpt->netdev->dev.parent)) {
+		emac_dbg(adpt, hw, "EMAC in suspended state\n");
+		return ret;
+	}
 
 	if (phy->external) {
 		ret = emac_phy_mdio_autopoll_disable(hw);

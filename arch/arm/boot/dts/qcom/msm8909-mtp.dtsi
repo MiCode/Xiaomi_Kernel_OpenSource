@@ -13,6 +13,8 @@
 #include "msm8909.dtsi"
 #include "msm8909-pinctrl.dtsi"
 #include "msm8909-regulator.dtsi"
+#include "msm8909-camera-sensor-mtp.dtsi"
+
 
 &soc {
 	/*

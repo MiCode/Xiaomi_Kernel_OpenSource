@@ -696,13 +696,18 @@
 
 };
 
-
 &spmi_bus {
 	qcom,pm8994@1 {
 		pwm@b100 { /* Enable for FAN_PWM */
 			qcom,dtest-line = <1>;
 			qcom,dtest-output = <1>; /* Output to DTEST1 enabled */
+			qcom,period = <500>;
+			qcom,mode-select = <0>;
 			status = "okay";
+			qcom,pwm {
+				qcom,duty = <500>;
+				label = "pwm";
+			};
 		};
 	};
 };

@@ -1019,6 +1019,118 @@ qcom,msm-dai-mi2s {
 		};
 };
 
+* prim-master-pinctrl
+
+Required properties:
+ - compatible : "qcom,wcd-gpio-ctrl"
+ - pinctrl-names: Pinctrl state names for each pin group
+					configuration.
+- pinctrl-x: Defines pinctrl state for each pin group
+
+Optional properties:
+ - qcom,mi2s-auxpcm-cdc-gpios: This boolean property is
+				added if GPIOs are under MI2S/AUXPCM TLMM
+
+Example:
+
+prim_master: prim_master_pinctrl {
+		compatible = "qcom,wcd-gpio-ctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&pri_ws_active_master
+				&pri_sck_active_master
+				&pri_dout_active
+				&pri_din_active>;
+		pinctrl-1 = <&pri_ws_sleep
+				&pri_sck_sleep
+				&pri_dout_sleep
+				&pri_din_sleep>;
+		qcom,mi2s-auxpcm-cdc-gpios;
+};
+
+* prim-slave-pinctrl
+
+Required properties:
+ - compatible : "qcom,wcd-gpio-ctrl"
+ - pinctrl-names: Pinctrl state names for each pin group
+					configuration.
+- pinctrl-x: Defines pinctrl state for each pin group
+
+Optional properties:
+ - qcom,mi2s-auxpcm-cdc-gpios: This boolean property is
+				added if GPIOs are under MI2S/AUXPCM TLMM
+
+Example:
+
+prim_slave: prim_slave_pinctrl {
+		compatible = "qcom,wcd-gpio-ctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&pri_ws_active_slave
+				&pri_sck_active_slave
+				&pri_dout_active
+				&pri_din_active>;
+		pinctrl-1 = <&pri_ws_sleep
+				&pri_sck_sleep
+				&pri_dout_sleep
+				&pri_din_sleep>;
+		qcom,mi2s-auxpcm-cdc-gpios;
+};
+
+* sec_master_pinctrl
+
+Required properties:
+ - compatible : "qcom,wcd-gpio-ctrl"
+ - pinctrl-names: Pinctrl state names for each pin group
+					configuration.
+- pinctrl-x: Defines pinctrl state for each pin group
+
+Optional properties:
+ - qcom,mi2s-auxpcm-cdc-gpios: This boolean property is
+				added if GPIOs are under MI2S/AUXPCM TLMM
+
+Example:
+
+sec_master: sec_master_pinctrl {
+		compatible = "qcom,wcd-gpio-ctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&sec_ws_active_master
+				&sec_sck_active_master
+				&sec_dout_active
+				&sec_din_active>;
+		pinctrl-1 = <&sec_ws_sleep
+				&sec_sck_sleep
+				&sec_dout_sleep
+				&sec_din_sleep>;
+		qcom,mi2s-auxpcm-cdc-gpios;
+};
+
+* sec_slave_pinctrl
+
+Required properties:
+ - compatible : "qcom,wcd-gpio-ctrl"
+ - pinctrl-names: Pinctrl state names for each pin group
+					configuration.
+- pinctrl-x: Defines pinctrl state for each pin group
+
+Optional properties:
+ - qcom,mi2s-auxpcm-cdc-gpios: This boolean property is
+				added if GPIOs are under MI2S/AUXPCM TLMM
+
+Example:
+
+sec_slave: sec_slave_pinctrl {
+		compatible = "qcom,wcd-gpio-ctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&sec_ws_active_slave
+				&sec_sck_active_slave
+				&sec_dout_active
+				&sec_din_active>;
+		pinctrl-1 = <&sec_ws_sleep
+				&sec_sck_sleep
+				&sec_dout_sleep
+				&sec_din_sleep>;
+		qcom,mi2s-auxpcm-cdc-gpios;
+	};
+
 * msm-adsp-loader
 
 Required properties:
@@ -1931,6 +2043,10 @@ Each entry is a pair of strings, the first being the connection's sink,
 the second being the connection's source.
 - qcom,codec-mclk-clk-freq : Master clock value given to codec. Some WCD9XXX
 codec can run at different mclk values. Mclk value can be 9.6MHz or 12.288MHz.
+- qcom,prim_mi2s_aux_master : Handle to prim_master pinctrl configurations
+- qcom,prim_mi2s_aux_slave : Handle to prim_slave pinctrl configurations
+- qcom,sec_mi2s_aux_master : Handle to sec_master pinctrl configurations
+- qcom,sec_mi2s_aux_slave : Handle to sec_slave pinctrl configurations
 - asoc-platform: This is phandle list containing the references to platform device
 		 nodes that are used as part of the sound card dai-links.
 - asoc-platform-names: This property contains list of platform names. The order of
@@ -1948,14 +2064,6 @@ codec can run at different mclk values. Mclk value can be 9.6MHz or 12.288MHz.
 - asoc-codec-names: This property contains list of codec dai names. The order of the
 		    codec dai names should match to that of the phandle order given
 		    in "asoc-codec".
-
-Optional Properties:
-- qcom,mi2s-interface-mode: This property contains mi2s interface modes master/ slave.
-			    Entry is a pair of strings, the first being for primary mi2s
-			    and the second for secondary mi2s and so on
-- qcom,auxpcm-interface-mode: This property contains auxpcm interface modes master/ slave.
-			      Entry is a pair of strings, the first being for primary auxpcm
-			      and the second for secondary auxpcm and so on
 
 Example:
 
@@ -1980,8 +2088,10 @@ sound-9330 {
 			"MIC BIAS3 External", "Digital Mic3";
 
 		qcom,tomtom-mclk-clk-freq = <12288000>;
-		qcom,mi2s-interface-mode = "pri_mi2s_master", "sec_mi2s_master";
-		qcom,auxpcm-interface-mode = "pri_pcm_master", "sec_pcm_master";
+		qcom,prim_mi2s_aux_master = <&prim_master>;
+		qcom,prim_mi2s_aux_slave = <&prim_slave>;
+		qcom,sec_mi2s_aux_master = <&sec_master>;
+		qcom,sec_mi2s_aux_slave = <&sec_slave>;
 		asoc-platform = <&pcm0>, <&pcm1>, <&voip>, <&voice>,
 				<&loopback>, <&hostless>, <&afe>, <&routing>,
 				<&pcm_dtmf>, <&host_pcm>;

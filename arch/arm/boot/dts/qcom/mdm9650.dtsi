@@ -1403,6 +1403,15 @@
 
 		status = "disabled";
 	};
+
+	pps {
+		compatible = "pps-gpio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_pps>;
+		gpios = <&tlmm_pinmux 39 0>;
+		status = "okay";
+	};
+
 };
 
 &gdsc_usb30 {

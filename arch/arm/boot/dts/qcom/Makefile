@@ -156,13 +156,15 @@ dtb-$(CONFIG_ARCH_MDM9650) += mdm9650-sim.dtb \
 	mdm9650-nand-cdp.dtb \
 	mdm9650-emmc-mtp.dtb \
 	mdm9650-nand-mtp.dtb \
+	mdm9650-ttp.dtb \
 	mdm9650-nand-dualwifi-mtp.dtb \
 	mdm9650-v1.1-emmc-cdp.dtb \
 	mdm9650-v1.1-nand-cdp.dtb \
 	mdm9650-v1.1-emmc-mtp.dtb \
 	mdm9650-v1.1-nand-mtp.dtb \
 	mdm9650-v1.1-nand-dualwifi-mtp.dtb \
-	mdm9650-v1.1-nand-ccard.dtb
+	mdm9650-v1.1-nand-ccard.dtb \
+	mdm9650-v1.1-nand-ccard-v2.dtb
 
 dtb-$(CONFIG_ARCH_SDX20) += sdx20-emmc-cdp.dtb \
 	sdx20-emmc-mtp.dtb \
@@ -262,13 +264,15 @@ dtb-$(CONFIG_ARCH_MSM8953) += msm8953-sim.dtb \
 
 dtb-$(CONFIG_ARCH_SDM450) += sdm450-rcm.dtb \
 	sdm450-cdp.dtb \
-	sdm450-mtp.dtb
+	sdm450-mtp.dtb \
+	sdm450-qrd.dtb
 
 dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-rumi.dtb \
 	mdm9607-cdp.dtb \
 	mdm9607-mtp.dtb \
 	mdm9607-rcm.dtb \
 	mdm9607-mtp-sdcard.dtb \
+	mdm9607-ttp.dtb \
 	mdm9206-mtp.dtb \
 	mdm9206-cdp.dtb \
 	mdm9206-mtp-sdcard.dtb \
@@ -305,6 +309,8 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
 	apq8009w-1gb-nowgr-swoctp-circpanel.dtb \
 	msm8909w-bg-wtp-v1.dtb \
 	msm8909w-bg-wtp-v2.dtb \
+	apq8009w-bg-wtp-v1.dtb \
+	apq8009w-bg-wtp-v2.dtb \
 	apq8009-mtp-wcd9326.dtb \
 	msm8909-mtp-wcd9326.dtb \
 	msm8909-mtp-wcd9326-refboard.dtb \

@@ -18,9 +18,17 @@
 	model = "Qualcomm Technologies, Inc. MDM 9650 v1.1 CCARD (NAND)";
 	compatible = "qcom,mdm9650-mtp", "qcom,mdm9650",
 		     "qcom,mtp";
-	qcom,board-id = <8 0x6>, <8 0x106>;
+	qcom,board-id = <0x10008 0x6>, <0x10008 0x106>;
 };
 
 &qnand_1 {
 	status = "ok";
+};
+
+&usb3 {
+	/* Disable pmic_id_irq due to HW glitch */
+	interrupt-map = <0x0 0 &intc 0 202 0
+			 0x0 1 &intc 0 203 0
+			 0x0 2 &intc 0 180 0>;
+	interrupt-names = "hs_phy_irq", "ss_phy_irq", "pwr_event_irq";
 };

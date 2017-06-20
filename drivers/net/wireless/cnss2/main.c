@@ -31,6 +31,7 @@
 #define CNSS_DUMP_MAGIC_VER_V2		0x42445953
 #define CNSS_DUMP_NAME			"CNSS_WLAN"
 #define CNSS_DUMP_DESC_SIZE		0x1000
+#define CNSS_DUMP_SEG_VER		0x1
 #define WLAN_RECOVERY_DELAY		1000
 #define FILE_SYSTEM_READY		1
 #define FW_READY_TIMEOUT		20000
@@ -528,6 +529,9 @@ int cnss_set_fw_log_mode(struct device *dev, uint8_t fw_log_mode)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 
+	if (plat_priv->device_id == QCA6174_DEVICE_ID)
+		return 0;
+
 	return cnss_wlfw_ini_send_sync(plat_priv, fw_log_mode);
 }
 EXPORT_SYMBOL(cnss_set_fw_log_mode);
@@ -742,6 +746,15 @@ int cnss_power_up(struct device *dev)
 	void *bus_priv = cnss_bus_dev_to_bus_priv(dev);
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 
+	if (!bus_priv || !plat_priv)
+		return -ENODEV;
+
+	if (plat_priv->device_id != QCA6174_DEVICE_ID) {
+		cnss_pr_dbg("Power up is not supported for device ID 0x%lx\n",
+			    plat_priv->device_id);
+		return 0;
+	}
+
 	ret = cnss_power_on_device(plat_priv);
 	if (ret) {
 		cnss_pr_err("Failed to power on device, err = %d\n", ret);
@@ -770,6 +783,12 @@ int cnss_power_down(struct device *dev)
 
 	if (!bus_priv || !plat_priv)
 		return -ENODEV;
+
+	if (plat_priv->device_id != QCA6174_DEVICE_ID) {
+		cnss_pr_dbg("Power down is not supported for device ID 0x%lx\n",
+			    plat_priv->device_id);
+		return 0;
+	}
 
 	cnss_request_bus_bandwidth(CNSS_BUS_WIDTH_NONE);
 	cnss_pci_set_monitor_wake_intr(bus_priv, false);
@@ -1130,6 +1149,9 @@ skip_driver_remove:
 
 	cnss_power_off_device(plat_priv);
 
+	clear_bit(CNSS_FW_READY, &plat_priv->driver_state);
+	clear_bit(CNSS_FW_MEM_READY, &plat_priv->driver_state);
+
 	if (test_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state)) {
 		clear_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state);
 		clear_bit(CNSS_DRIVER_PROBED, &plat_priv->driver_state);
@@ -1163,8 +1185,14 @@ static void cnss_qca6290_crash_shutdown(struct cnss_plat_data *plat_priv)
 static int cnss_powerup(const struct subsys_desc *subsys_desc)
 {
 	int ret = 0;
-	struct cnss_plat_data *plat_priv = dev_get_drvdata(subsys_desc->dev);
+	struct cnss_plat_data *plat_priv;
 
+	if (!subsys_desc->dev) {
+		cnss_pr_err("dev from subsys_desc is NULL\n");
+		return -ENODEV;
+	}
+
+	plat_priv = dev_get_drvdata(subsys_desc->dev);
 	if (!plat_priv) {
 		cnss_pr_err("plat_priv is NULL!\n");
 		return -ENODEV;
@@ -1195,8 +1223,14 @@ static int cnss_powerup(const struct subsys_desc *subsys_desc)
 static int cnss_shutdown(const struct subsys_desc *subsys_desc, bool force_stop)
 {
 	int ret = 0;
-	struct cnss_plat_data *plat_priv = dev_get_drvdata(subsys_desc->dev);
+	struct cnss_plat_data *plat_priv;
 
+	if (!subsys_desc->dev) {
+		cnss_pr_err("dev from subsys_desc is NULL\n");
+		return -ENODEV;
+	}
+
+	plat_priv = dev_get_drvdata(subsys_desc->dev);
 	if (!plat_priv) {
 		cnss_pr_err("plat_priv is NULL!\n");
 		return -ENODEV;
@@ -1223,7 +1257,7 @@ static int cnss_qca6290_ramdump(struct cnss_plat_data *plat_priv)
 {
 	struct cnss_ramdump_info_v2 *info_v2 = &plat_priv->ramdump_info_v2;
 	struct cnss_dump_data *dump_data = &info_v2->dump_data;
-	struct cnss_dump_seg *dump_seg = dump_data->vaddr;
+	struct cnss_dump_seg *dump_seg = info_v2->dump_data_vaddr;
 	struct ramdump_segment *ramdump_segs, *s;
 	int i, ret = 0;
 
@@ -1834,13 +1868,14 @@ static int cnss_qca6290_register_ramdump(struct cnss_plat_data *plat_priv)
 
 	cnss_pr_dbg("Ramdump size 0x%lx\n", info_v2->ramdump_size);
 
-	dump_data->vaddr = kzalloc(CNSS_DUMP_DESC_SIZE, GFP_KERNEL);
-	if (!dump_data->vaddr)
+	info_v2->dump_data_vaddr = kzalloc(CNSS_DUMP_DESC_SIZE, GFP_KERNEL);
+	if (!info_v2->dump_data_vaddr)
 		return -ENOMEM;
 
-	dump_data->paddr = virt_to_phys(dump_data->vaddr);
+	dump_data->paddr = virt_to_phys(info_v2->dump_data_vaddr);
 	dump_data->version = CNSS_DUMP_FORMAT_VER_V2;
 	dump_data->magic = CNSS_DUMP_MAGIC_VER_V2;
+	dump_data->seg_version = CNSS_DUMP_SEG_VER;
 	strlcpy(dump_data->name, CNSS_DUMP_NAME,
 		sizeof(dump_data->name));
 	dump_entry.id = MSM_DUMP_DATA_CNSS_WLAN;
@@ -1864,24 +1899,22 @@ static int cnss_qca6290_register_ramdump(struct cnss_plat_data *plat_priv)
 	return 0;
 
 free_ramdump:
-	kfree(dump_data->vaddr);
-	dump_data->vaddr = NULL;
+	kfree(info_v2->dump_data_vaddr);
+	info_v2->dump_data_vaddr = NULL;
 	return ret;
 }
 
 static void cnss_qca6290_unregister_ramdump(struct cnss_plat_data *plat_priv)
 {
 	struct cnss_ramdump_info_v2 *info_v2;
-	struct cnss_dump_data *dump_data;
 
 	info_v2 = &plat_priv->ramdump_info_v2;
-	dump_data = &info_v2->dump_data;
 
 	if (info_v2->ramdump_dev)
 		destroy_ramdump_device(info_v2->ramdump_dev);
 
-	kfree(dump_data->vaddr);
-	dump_data->vaddr = NULL;
+	kfree(info_v2->dump_data_vaddr);
+	info_v2->dump_data_vaddr = NULL;
 	info_v2->dump_data_valid = false;
 }
 
@@ -2133,6 +2166,11 @@ static int cnss_probe(struct platform_device *plat_dev)
 
 	register_pm_notifier(&cnss_pm_notifier);
 
+	ret = device_init_wakeup(&plat_dev->dev, true);
+	if (ret)
+		cnss_pr_err("Failed to init platform device wakeup source, err = %d\n",
+			    ret);
+
 	cnss_pr_info("Platform driver probed successfully.\n");
 
 	return 0;
@@ -2164,6 +2202,7 @@ static int cnss_remove(struct platform_device *plat_dev)
 {
 	struct cnss_plat_data *plat_priv = platform_get_drvdata(plat_dev);
 
+	device_init_wakeup(&plat_dev->dev, false);
 	unregister_pm_notifier(&cnss_pm_notifier);
 	del_timer(&plat_priv->fw_boot_timer);
 	cnss_debugfs_destroy(plat_priv);

@@ -72,13 +72,14 @@ struct cnss_dump_data {
 	uint32_t magic;
 	char name[32];
 	phys_addr_t paddr;
-	void *vaddr;
 	int nentries;
+	uint32_t seg_version;
 };
 
 struct cnss_ramdump_info_v2 {
 	struct ramdump_device *ramdump_dev;
 	unsigned long ramdump_size;
+	void *dump_data_vaddr;
 	bool dump_data_valid;
 	struct cnss_dump_data dump_data;
 };

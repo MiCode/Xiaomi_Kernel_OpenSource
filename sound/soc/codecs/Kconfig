@@ -628,7 +628,6 @@ config SND_SOC_WCD9320
 
 config SND_SOC_WCD9330
         tristate
-	depends on WCD9330_CODEC
 
 config SND_SOC_WCD9335
         tristate

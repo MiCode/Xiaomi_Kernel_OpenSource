@@ -977,8 +977,6 @@ struct iommu_domain *iommu_domain_alloc(struct bus_type *bus)
 	if (ret)
 		goto out_free;
 
-	iommu_debug_domain_add(domain);
-
 	return domain;
 
 out_free:
@@ -1019,7 +1017,6 @@ void iommu_detach_device(struct iommu_domain *domain, struct device *dev)
 	if (unlikely(domain->ops->detach_dev == NULL))
 		return;
 
-	iommu_debug_detach_device(domain, dev);
 	domain->ops->detach_dev(domain, dev);
 	trace_detach_device_from_domain(dev);
 }

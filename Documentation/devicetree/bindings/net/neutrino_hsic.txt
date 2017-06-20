@@ -6,6 +6,7 @@ Required properties:
   - compatible: Should be "qcom,ntn-hsic"
   - vdd-ntn-hsic-supply: Neutrino HSIC power supply
   - ntn-rst-gpio: Neutrino reset GPIO
+  - ntn-phy-id: Neutrino PHY ID
 
 Example:
 	qcom,ntn_hsic {
@@ -14,4 +15,5 @@ Example:
 		pinctrl-names = "default";
 		pinctrl-0 = <&ntn_rst_gpio_default>;
 		ntn-rst-gpio = <&tlmm_pinmux 30 1>;
+		ntn-phy-id = <7>;
 	};

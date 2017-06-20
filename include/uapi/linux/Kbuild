@@ -510,3 +510,4 @@ header-y += zorro.h
 header-y += zorro_ids.h
 header-y += android_pmem.h
 header-y += smcinvoke.h
+header-y += bgcom_interface.h

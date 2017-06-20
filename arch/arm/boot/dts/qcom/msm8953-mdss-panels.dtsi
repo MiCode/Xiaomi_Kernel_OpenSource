@@ -22,6 +22,7 @@
 #include "dsi-panel-r69006-1080p-cmd.dtsi"
 #include "dsi-panel-truly-wuxga-video.dtsi"
 #include "dsi-panel-lt8912-480p-video.dtsi"
+#include "dsi-panel-lt8912-1080p-video.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {

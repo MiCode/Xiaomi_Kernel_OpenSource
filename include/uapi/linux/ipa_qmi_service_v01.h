@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,6 +47,12 @@
 #define QMI_IPA_MAX_FILTERS_EX_V01 128
 #define QMI_IPA_MAX_PIPES_V01 20
 #define QMI_IPA_MAX_APN_V01 8
+#define QMI_IPA_MAX_PER_CLIENTS_V01 64
+/* Currently max we can use is only 1. But for scalability purpose
+ * we are having max value as 8.
+ */
+#define QMI_IPA_MAX_CLIENT_DST_PIPES_V01 8
+#define QMI_IPA_MAX_UL_FIREWALL_RULES_V01 64
 
 #define IPA_INT_MAX	((int)(~0U>>1))
 #define IPA_INT_MIN	(-IPA_INT_MAX - 1)
@@ -984,6 +990,16 @@ struct ipa_fltr_installed_notif_req_msg_v01 {
 	 *	failure, the Rule Ids in this list must be set to a reserved
 	 *	index (255).
 	 */
+
+	/* Optional */
+	/*	List of destination pipe IDs. */
+	uint8_t dst_pipe_id_valid;
+	/* Must be set to true if dst_pipe_id is being passed. */
+	uint32_t dst_pipe_id_len;
+	/* Must be set to # of elements in dst_pipe_id. */
+	uint32_t dst_pipe_id[QMI_IPA_MAX_CLIENT_DST_PIPES_V01];
+	/* Provides the list of destination pipe IDs for a source pipe. */
+
 };  /* Message */
 
 /* Response Message; This is the message that is exchanged between the
@@ -1622,6 +1638,271 @@ struct ipa_install_fltr_rule_resp_ex_msg_v01 {
 	*/
 };  /* Message */
 
+/*
+ * Request Message; Requests the modem IPA driver to enable or
+ * disable collection of per client statistics.
+ */
+struct ipa_enable_per_client_stats_req_msg_v01 {
+
+	/* Mandatory */
+	/* Collect statistics per client; */
+	uint8_t enable_per_client_stats;
+	/*
+	 * Indicates whether to start or stop collecting
+	 * per client statistics.
+	 */
+};  /* Message */
+
+/*
+ * Response Message; Requests the modem IPA driver to enable or disable
+ * collection of per client statistics.
+ */
+struct ipa_enable_per_client_stats_resp_msg_v01 {
+
+	/* Mandatory */
+	/*  Result Code */
+	struct ipa_qmi_response_type_v01 resp;
+	/* Standard response type. */
+};  /* Message */
+
+struct ipa_per_client_stats_info_type_v01 {
+
+	uint32_t client_id;
+	/*
+	 * Id of the client on APPS processor side for which Modem processor
+	 * needs to send uplink/downlink statistics.
+	 */
+
+	uint32_t src_pipe_id;
+	/*
+	 * IPA consumer pipe on which client on APPS side sent uplink
+	 * data to modem.
+	 */
+
+	uint64_t num_ul_ipv4_bytes;
+	/*
+	 * Accumulated number of uplink IPv4 bytes for a client.
+	 */
+
+	uint64_t num_ul_ipv6_bytes;
+	/*
+	 * Accumulated number of uplink IPv6 bytes for a client.
+	 */
+
+	uint64_t num_dl_ipv4_bytes;
+	/*
+	 * Accumulated number of downlink IPv4 bytes for a client.
+	 */
+
+	uint64_t num_dl_ipv6_bytes;
+	/*
+	 * Accumulated number of downlink IPv6 byes for a client.
+	 */
+
+
+	uint32_t num_ul_ipv4_pkts;
+	/*
+	 * Accumulated number of uplink IPv4 packets for a client.
+	 */
+
+	uint32_t num_ul_ipv6_pkts;
+	/*
+	 * Accumulated number of uplink IPv6 packets for a client.
+	 */
+
+	uint32_t num_dl_ipv4_pkts;
+	/*
+	 * Accumulated number of downlink IPv4 packets for a client.
+	 */
+
+	uint32_t num_dl_ipv6_pkts;
+	/*
+	 * Accumulated number of downlink IPv6 packets for a client.
+	 */
+};  /* Type */
+
+/*
+ * Request Message; Requests the modem IPA driver to provide statistics
+ * for a givenclient.
+ */
+struct ipa_get_stats_per_client_req_msg_v01 {
+
+	/* Mandatory */
+	/*  Client id */
+	uint32_t client_id;
+	/*
+	 * Id of the client on APPS processor side for which Modem processor
+	 * needs to send uplink/downlink statistics. if client id is specified
+	 * as 0xffffffff, then Q6 will send the stats for all the clients of
+	 * the specified source pipe.
+	 */
+
+	/* Mandatory */
+	/*  Source pipe id */
+	uint32_t src_pipe_id;
+	/*
+	 * IPA consumer pipe on which client on APPS side sent uplink
+	 * data to modem. In future, this implementation can be extended
+	 * to provide 0xffffffff as the source pipe id, where Q6 will send
+	 * the stats of all the clients across all different tethered-pipes.
+	 */
+
+	/* Optional */
+	/*  Reset client statistics. */
+	uint8_t reset_stats_valid;
+	/* Must be set to true if reset_stats is being passed. */
+	uint8_t reset_stats;
+	/*
+	 * Option to reset the statistics currently collected by modem for this
+	 * particular client.
+	 */
+};  /* Message */
+
+/*
+ * Response Message; Requests the modem IPA driver to provide statistics
+ * for a given client.
+ */
+struct ipa_get_stats_per_client_resp_msg_v01 {
+
+	/* Mandatory */
+	/*  Result Code */
+	struct ipa_qmi_response_type_v01 resp;
+	/* Standard response type. */
+
+	/* Optional */
+	/*  Per clients Statistics List */
+	uint8_t per_client_stats_list_valid;
+	/* Must be set to true if per_client_stats_list is being passed. */
+	uint32_t per_client_stats_list_len;
+	/* Must be set to # of elements in per_client_stats_list. */
+	struct ipa_per_client_stats_info_type_v01
+		per_client_stats_list[QMI_IPA_MAX_PER_CLIENTS_V01];
+	/*
+	 * List of all per client statistics that are retrieved.
+	 */
+};  /* Message */
+
+struct ipa_ul_firewall_rule_type_v01 {
+
+	enum ipa_ip_type_enum_v01 ip_type;
+	/*
+	 * IP type for which this rule is applicable.
+	 * The driver must identify the filter table (v6 or v4), and this
+	 * field is essential for that. Values:
+	 * - QMI_IPA_IP_TYPE_INVALID (0) --  Invalid IP type identifier
+	 * - QMI_IPA_IP_TYPE_V4 (1) --  IPv4 type
+	 * - QMI_IPA_IP_TYPE_V6 (2) --  IPv6 type
+	 */
+
+	struct ipa_filter_rule_type_v01 filter_rule;
+	/*
+	 * Rules in the filter specification. These rules are the
+	 * ones that are matched against fields in the packet.
+	 * Currently we only send IPv6 whitelist rules to Q6.
+	 */
+};  /* Type */
+
+/*
+ * Request Message; Requestes remote IPA driver to install uplink
+ * firewall rules.
+ */
+struct ipa_configure_ul_firewall_rules_req_msg_v01 {
+
+	/* Optional */
+	/*  Uplink Firewall Specification  */
+	uint32_t firewall_rules_list_len;
+	/* Must be set to # of elements in firewall_rules_list. */
+	struct ipa_ul_firewall_rule_type_v01
+		firewall_rules_list[QMI_IPA_MAX_UL_FIREWALL_RULES_V01];
+	/*
+	 * List of uplink firewall specifications of filters that must be
+	 * installed.
+	 */
+
+	uint32_t mux_id;
+	/*
+	 * QMAP Mux ID. As a part of the QMAP protocol,
+	 * several data calls may be multiplexed over the same physical
+	 * transport channel. This identifier is used to identify one
+	 * such data call. The maximum value for this identifier is 255.
+	 */
+
+	/* Optional */
+	uint8_t disable_valid;
+	/* Must be set to true if enable is being passed. */
+	uint8_t disable;
+	/*
+	 * Indicates whether uplink firewall needs to be enabled or disabled.
+	 */
+
+	/* Optional */
+	uint8_t are_blacklist_filters_valid;
+	/* Must be set to true if are_blacklist_filters is being passed. */
+	uint8_t are_blacklist_filters;
+	/*
+	 * Indicates whether the filters received as part of this message are
+	 * blacklist filters. i.e. drop uplink packets matching these rules.
+	 */
+};  /* Message */
+
+/*
+ * Response Message; Requestes remote IPA driver to install
+ * uplink firewall rules.
+ */
+struct ipa_configure_ul_firewall_rules_resp_msg_v01 {
+
+	/* Mandatory */
+	/* Result Code */
+	struct ipa_qmi_response_type_v01 resp;
+	/*
+	 * Standard response type.
+	 * Standard response type. Contains the following data members:
+	 * qmi_result_type -- QMI_RESULT_SUCCESS or QMI_RESULT_FAILURE
+	 * qmi_error_type  -- Error code. Possible error code values are
+	 * described in the error codes section of each message definition.
+    */
+};  /* Message */
+
+enum ipa_ul_firewall_status_enum_v01 {
+	IPA_UL_FIREWALL_STATUS_ENUM_MIN_ENUM_VAL_V01 = -2147483647,
+	/* To force a 32 bit signed enum.  Do not change or use*/
+	QMI_IPA_UL_FIREWALL_STATUS_SUCCESS_V01 = 0,
+	/* Indicates that the uplink firewall rules
+	are configured successfully.*/
+	QMI_IPA_UL_FIREWALL_STATUS_FAILURE_V01 = 1,
+	/* Indicates that the uplink firewall rules
+	are not configured successfully.*/
+	IPA_UL_FIREWALL_STATUS_ENUM_MAX_ENUM_VAL_V01 = 2147483647
+	/* To force a 32 bit signed enum.  Do not change or use*/
+};
+
+struct ipa_ul_firewall_config_result_type_v01 {
+
+	enum ipa_ul_firewall_status_enum_v01 is_success;
+	/*
+	 * Indicates whether the uplink firewall rules are configured
+	 * successfully.
+	 */
+
+	uint32_t mux_id;
+	/*
+	* QMAP Mux ID. As a part of the QMAP protocol,
+	* several data calls may be multiplexed over the same physical
+	* transport channel. This identifier is used to identify one
+	* such data call. The maximum value for this identifier is 255.
+	*/
+};
+
+/*
+ * Indication Message; Requestes remote IPA driver to install
+ * uplink firewall rules.
+ */
+struct ipa_configure_ul_firewall_rules_ind_msg_v01 {
+
+	 struct ipa_ul_firewall_config_result_type_v01 result;
+};  /* Message */
+
+
 /*Service Message Definition*/
 #define QMI_IPA_INDICATION_REGISTER_REQ_V01 0x0020
 #define QMI_IPA_INDICATION_REGISTER_RESP_V01 0x0020
@@ -1655,6 +1936,13 @@ struct ipa_install_fltr_rule_resp_ex_msg_v01 {
 #define QMI_IPA_INIT_MODEM_DRIVER_CMPLT_RESP_V01 0x0035
 #define QMI_IPA_INSTALL_FILTER_RULE_EX_REQ_V01 0x0037
 #define QMI_IPA_INSTALL_FILTER_RULE_EX_RESP_V01 0x0037
+#define QMI_IPA_ENABLE_PER_CLIENT_STATS_REQ_V01 0x0038
+#define QMI_IPA_ENABLE_PER_CLIENT_STATS_RESP_V01 0x0038
+#define QMI_IPA_GET_STATS_PER_CLIENT_REQ_V01 0x0039
+#define QMI_IPA_GET_STATS_PER_CLIENT_RESP_V01 0x0039
+#define QMI_IPA_INSTALL_UL_FIREWALL_RULES_REQ_V01 0x003A
+#define QMI_IPA_INSTALL_UL_FIREWALL_RULES_RESP_V01 0x003A
+#define QMI_IPA_INSTALL_UL_FIREWALL_RULES_IND_V01 0x003A
 
 /* add for max length*/
 #define QMI_IPA_INIT_MODEM_DRIVER_REQ_MAX_MSG_LEN_V01 134
@@ -1663,7 +1951,7 @@ struct ipa_install_fltr_rule_resp_ex_msg_v01 {
 #define QMI_IPA_INDICATION_REGISTER_RESP_MAX_MSG_LEN_V01 7
 #define QMI_IPA_INSTALL_FILTER_RULE_REQ_MAX_MSG_LEN_V01 22369
 #define QMI_IPA_INSTALL_FILTER_RULE_RESP_MAX_MSG_LEN_V01 783
-#define QMI_IPA_FILTER_INSTALLED_NOTIF_REQ_MAX_MSG_LEN_V01 834
+#define QMI_IPA_FILTER_INSTALLED_NOTIF_REQ_MAX_MSG_LEN_V01 870
 #define QMI_IPA_FILTER_INSTALLED_NOTIF_RESP_MAX_MSG_LEN_V01 7
 #define QMI_IPA_MASTER_DRIVER_INIT_COMPLETE_IND_MAX_MSG_LEN_V01 7
 #define QMI_IPA_DATA_USAGE_QUOTA_REACHED_IND_MAX_MSG_LEN_V01 15
@@ -1696,6 +1984,15 @@ struct ipa_install_fltr_rule_resp_ex_msg_v01 {
 #define QMI_IPA_INSTALL_FILTER_RULE_EX_REQ_MAX_MSG_LEN_V01 22685
 #define QMI_IPA_INSTALL_FILTER_RULE_EX_RESP_MAX_MSG_LEN_V01 523
 
+#define QMI_IPA_ENABLE_PER_CLIENT_STATS_REQ_MAX_MSG_LEN_V01 4
+#define QMI_IPA_ENABLE_PER_CLIENT_STATS_RESP_MAX_MSG_LEN_V01 7
+
+#define QMI_IPA_GET_STATS_PER_CLIENT_REQ_MAX_MSG_LEN_V01 18
+#define QMI_IPA_GET_STATS_PER_CLIENT_RESP_MAX_MSG_LEN_V01 3595
+
+#define QMI_IPA_INSTALL_UL_FIREWALL_RULES_REQ_MAX_MSG_LEN_V01 9875
+#define QMI_IPA_INSTALL_UL_FIREWALL_RULES_RESP_MAX_MSG_LEN_V01 7
+#define QMI_IPA_INSTALL_UL_FIREWALL_RULES_IND_MAX_MSG_LEN_V01 11
 /* Service Object Accessor */
 
 #endif/* IPA_QMI_SERVICE_V01_H */

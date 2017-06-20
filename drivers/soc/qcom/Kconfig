@@ -487,6 +487,17 @@ config MSM_GLINK_SMEM_NATIVE_XPRT
 	  transport to only connecting with entities internal to the
 	  System-on-Chip.
 
+config MSM_GLINK_BGCOM_XPRT
+	depends on MSM_GLINK
+	depends on MSM_BGCOM
+	tristate "Generic Link (G-Link) BGCOM Transport"
+	help
+	  G-Link BGCOM Transport is a Transport plug-in developed over BGCOM.
+	  This transport plug-in performs marshaling of G-Link
+	  commands & data to the appropriate BGCOM format and
+	  allows for G-Link communication with remote subsystems that are
+	  external to the System-on-Chip.
+
 config MSM_SPCOM
 	depends on MSM_GLINK
 	bool "Secure Processor Communication over GLINK"
@@ -519,6 +530,15 @@ config MSM_SMP2P
 	  memory and interrupts. A client can open multiple
 	  32-bit values by specifying a unique string and
 	  remote processor ID.
+
+config MSM_BGCOM_INTERFACE
+	bool "Driver support for Blackghost Communication"
+	depends on MSM_BGCOM
+	help
+	 Create a bg_com_dev device node for user space communication.
+	 Single user space client can open device node for communication
+	 from hardware. Hardware will provide access to read
+	 registers and read/write AHB memory in the device.
 
 config MSM_SMP2P_TEST
 	bool "SMSM Point-to-Point Test"
@@ -697,6 +717,15 @@ config MSM_PIL_SSR_GENERIC
 	  or a fatal error. Subsystems include LPASS, Venus, VPU, WCNSS and
 	  BCSS.
 
+config MSM_PIL_SSR_BG
+        tristate "MSM Subsystem Blackghost(BG) Support"
+        depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
+        help
+	  Support for booting and shutting down Blackghost(BG) SOC which is
+	  an external SOC. This driver communicates with Blackghost(BG) SOC
+	  via pair of IPC GPIOs for inward and outward signals between MSM
+	  and Blackghost(BG) SOC.
+
 config MSM_PIL_MSS_QDSP6V5
 	tristate "MSS QDSP6v5 (Hexagon) Boot Support"
 	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
@@ -828,6 +857,14 @@ config MSM_KERNEL_PROTECT_TEST
           Attempts to write to the kernel text after making the kernel text
           read-only.  This test is FATAL whether it passes or fails!
           Success is signaled by a stage-2 fault.
+
+config MSM_BGCOM
+	bool "Provide APIs to communicate with Blackghost chipset"
+	help
+		BGCOM is a thin layer above SPI. It is used whithin a SoC for
+		communication between G-Link/bg_com_dev and BG processor over SPI.
+		This handle the interrupts raised by BG and notify the G-link with
+		interrupt event and event data.
 
 config MSM_REMOTEQDSS
 	bool "Allow debug tools to enable events on other processors"

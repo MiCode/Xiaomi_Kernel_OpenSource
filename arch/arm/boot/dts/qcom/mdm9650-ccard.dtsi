@@ -61,7 +61,7 @@
 		asoc-codec-names = "tlv320aic3x-codec", "msm-stub-codec.1";
 	};
 
-	qcom,ntn_avb {
+	ethernet {
 		compatible = "qcom,ntn_avb";
 		qcom,ntn-rst-delay-msec = <100>;
 		qcom,ntn-rc-num = <0>;
@@ -80,18 +80,6 @@
 	bt_qca6174 {
 		qca,bt-vdd-core-supply = <&wlan_ext_vreg>;
 		/delete-property/ qca,bt-vdd-xtal-supply;
-	};
-
-	/* 1.1V/1.2V/1.8V/3.3V regulator for ethernet */
-	ntn_vreg: regulator-ntn-tps65051 {
-		compatible = "regulator-fixed";
-		regulator-name = "ntn_vreg";
-		startup-delay-us = <170>;
-		gpio = <&tlmm_pinmux 69 0>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&ntn_supply_gpio>;
-		enable-active-high;
-		regulator-always-on;
 	};
 
 	/* 4V regulator for peripherals */
@@ -162,7 +150,8 @@
 	/* Set these up as hogs */
 	pinctrl-names = "default";
 	pinctrl-0 = <&can_reset_gpio>, <&ant_switch_gpio1>, <&ant_switch_gpio2>,
-		<&ant_switch_gpio3>;
+		<&ant_switch_gpio3>, <&eth_can_supply_gpio>,
+		<&oabr_enable_gpio>;
 
 	periph_vreg_gpio: periph_vreg_gpio {
 		mux {
@@ -176,8 +165,8 @@
 		};
 	};
 
-
-	ntn_supply_gpio: ntn_supply_gpio {
+	/* This gpio controls ETH supply on v1 and CAN supply on v2 */
+	eth_can_supply_gpio: eth_can_supply_gpio {
 		mux {
 			pins = "gpio69";
 			function = "gpio";
@@ -186,7 +175,8 @@
 		config {
 			pins = "gpio69";
 			drive-strength = <2>;
-			bias-disable;
+			output-high;
+			bias-pull-up;
 		};
 	};
 
@@ -198,6 +188,20 @@
 
 		config {
 			pins = "gpio89";
+			drive-strength = <2>;
+			output-high;
+			bias-pull-up;
+		};
+	};
+
+	oabr_enable_gpio: oabr_enable_gpio {
+		mux {
+			pins = "gpio29";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio29";
 			drive-strength = <2>;
 			output-high;
 			bias-pull-up;
@@ -364,6 +368,58 @@
 			};
 		};
 	};
+
+	bmi160_int1_default: bmi160_int1_default {
+		mux {
+			pins = "gpio81";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio81";
+			drive-strength = <16>; /* 16 mA */
+			bias-pull-down; /* pull down */
+		};
+	};
+
+	bmi160_int2_default: bmi160_int2_default {
+		mux {
+			pins = "gpio94";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio94";
+			drive-strength = <16>; /* 16 mA */
+			bias-pull-down; /* pull down */
+		};
+	};
+
+	i2c_1b {
+		i2c_1b_active: i2c_1b_active {
+			mux {
+				pins = "gpio84", "gpio85";
+				function = "blsp_i2c1";
+			};
+
+			config {
+				pins = "gpio84", "gpio85";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		i2c_1b_sleep: i2c_1b_sleep {
+			mux {
+				pins = "gpio84", "gpio85";
+				function = "blsp_i2c1";
+			};
+
+			config {
+				pins = "gpio84", "gpio85";
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+	};
 };
 
 &cnss_pcie {
@@ -391,6 +447,12 @@
 	status = "ok";
 };
 
+&i2c_1 {
+	status = "ok";
+	pinctrl-0 = <&i2c_1b_active>;
+	pinctrl-1 = <&i2c_1b_sleep>;
+};
+
 &i2c_3 {
 	status = "ok";
 
@@ -415,6 +477,18 @@
 		compatible = "st,lsm330-accel";
 		reg = <0x1d>;
 	};
+
+	bmi160@68 {
+		compatible = "bosch-sensortec,bmi160";
+		reg = <0x68>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&bmi160_int1_default &bmi160_int2_default>;
+		interrupt-parent = <&tlmm_pinmux>;
+		interrupts = <81 0x2002>;
+		bmi,init-interval = <200>;
+		bmi,place = <1>;
+		bmi,gpio_irq = <&tlmm_pinmux 81 0x2002>;
+	};
 };
 
 &spi_4 {
@@ -423,11 +497,6 @@
 };
 
 &usb3 {
-	/* Disable pmic_id_irq due to HW glitch */
-	interrupt-map = <0x0 0 &intc 0 202 0
-			 0x0 1 &intc 0 203 0
-			 0x0 2 &intc 0 180 0>;
-	interrupt-names = "hs_phy_irq", "ss_phy_irq", "pwr_event_irq";
 	qcom,charging-disabled;
 };
 
@@ -456,7 +525,7 @@
 		qcom,master-en = <0>;		/* DISABLE GPIO */
 	};
 
-	gpio@c200 { /* GPIO 3 - CAN_EN */
+	gpio@c200 { /* GPIO 3 - CAN_ETH_EN, CAN on v1 and ETH on v2 */
 		status = "ok";
 		qcom,mode = <1>;		/* Digital output*/
 		qcom,output-type = <0>;		/* CMOS logic */

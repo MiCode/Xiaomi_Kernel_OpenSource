@@ -791,10 +791,11 @@ static void __iomem *cnss_pci_iomap(struct pci_dev *dev, int bar,
 
 static struct cnss_msi_config msi_config = {
 	.total_vectors = 32,
-	.total_users = 3,
+	.total_users = 4,
 	.users = (struct cnss_msi_user[]) {
 		{ .name = "MHI", .num_vectors = 2, .base_vector = 0 },
-		{ .name = "CE", .num_vectors = 12, .base_vector = 2 },
+		{ .name = "CE", .num_vectors = 11, .base_vector = 2 },
+		{ .name = "WAKE", .num_vectors = 1, .base_vector = 13 },
 		{ .name = "DP", .num_vectors = 18, .base_vector = 14 },
 	},
 };
@@ -1088,7 +1089,7 @@ void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv)
 
 	dump_data->nentries = 0;
 
-	start_addr = dump_data->vaddr;
+	start_addr = plat_priv->ramdump_info_v2.dump_data_vaddr;
 	end_addr = cnss_pci_collect_dump_seg(pci_priv,
 					     MHI_RDDM_FW_SEGMENT, start_addr);
 
@@ -1355,6 +1356,7 @@ void cnss_pci_stop_mhi(struct cnss_pci_data *pci_priv)
 
 	plat_priv = pci_priv->plat_priv;
 
+	cnss_pci_set_mhi_state_bit(pci_priv, CNSS_MHI_RESUME);
 	cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_POWER_OFF);
 	if (!plat_priv->ramdump_info_v2.dump_data_valid)
 		cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_DEINIT);

@@ -5913,8 +5913,6 @@ static int tasha_codec_enable_dec(struct snd_soc_dapm_widget *w,
 					    CF_MIN_3DB_150HZ << 5);
 		/* Enable TX PGA Mute */
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x10);
-		/* Enable APC */
-		snd_soc_update_bits(codec, dec_cfg_reg, 0x08, 0x08);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		snd_soc_update_bits(codec, hpf_gate_reg, 0x01, 0x00);
@@ -5941,7 +5939,6 @@ static int tasha_codec_enable_dec(struct snd_soc_dapm_widget *w,
 		hpf_cut_off_freq =
 			tasha->tx_hpf_work[decimator].hpf_cut_off_freq;
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x10);
-		snd_soc_update_bits(codec, dec_cfg_reg, 0x08, 0x00);
 		if (cancel_delayed_work_sync(
 		    &tasha->tx_hpf_work[decimator].dwork)) {
 			if (hpf_cut_off_freq != CF_MIN_3DB_150HZ) {
@@ -11753,7 +11750,10 @@ static int tasha_hw_params(struct snd_pcm_substream *substream,
 			return -EINVAL;
 		}
 		tasha->dai[dai->id].rate = params_rate(params);
-		if (tasha->intf_type == WCD9XXX_INTERFACE_TYPE_I2C) {
+
+		/* Set Bridge RX Sampling rate and Bit Width */
+		if (tasha->intf_type == WCD9XXX_INTERFACE_TYPE_I2C
+		    || dai->id == AIF5_PB) {
 			switch (params_rate(params)) {
 			case 8000:
 				rx_fs_rate = 0;
@@ -11786,38 +11786,6 @@ static int tasha_hw_params(struct snd_pcm_substream *substream,
 					WCD9335_DATA_HUB_DATA_HUB_RX_I2S_CTL,
 					0x1c, (rx_fs_rate << 2));
 		}
-		/* Set Bridge RX Sampling Rate */
-		if (dai->id == AIF5_PB) {
-			switch (params_rate(params)) {
-			case 8000:
-				rx_fs_rate = 0;
-				break;
-			case 16000:
-				rx_fs_rate = 1;
-				break;
-			case 32000:
-				rx_fs_rate = 2;
-				break;
-			case 48000:
-				rx_fs_rate = 3;
-				break;
-			case 96000:
-				rx_fs_rate = 4;
-				break;
-			case 192000:
-				rx_fs_rate = 5;
-				break;
-			default:
-				dev_err(tasha->dev,
-				"%s: Invalid RX sample rate: %d\n",
-				__func__, params_rate(params));
-				return -EINVAL;
-			};
-			snd_soc_update_bits(dai->codec,
-				WCD9335_DATA_HUB_DATA_HUB_RX_I2S_CTL,
-				0xC, (rx_fs_rate << 2));
-		};
-
 		break;
 	case SNDRV_PCM_STREAM_CAPTURE:
 		switch (params_rate(params)) {
@@ -11929,6 +11897,9 @@ static int tasha_hw_params(struct snd_pcm_substream *substream,
 				__func__, params_rate(params));
 				return -EINVAL;
 			};
+			snd_soc_update_bits(codec,
+					WCD9335_DATA_HUB_DATA_HUB_TX_I2S_CTL,
+					0x20, i2s_bit_mode << 5);
 			snd_soc_update_bits(dai->codec,
 					WCD9335_DATA_HUB_DATA_HUB_TX_I2S_CTL,
 					0x1C, (tx_fs_rate << 2));

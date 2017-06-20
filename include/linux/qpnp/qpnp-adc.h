@@ -242,6 +242,7 @@ enum qpnp_iadc_channels {
 #define QPNP_ADC_HWMON_NAME_LENGTH				64
 #define QPNP_MAX_PROP_NAME_LEN					32
 #define QPNP_THERMALNODE_NAME_LENGTH                            25
+#define QPNP_ADC_1P25_UV					1250000
 
 /* Structure device for qpnp vadc */
 struct qpnp_vadc_chip;
@@ -1069,7 +1070,7 @@ struct qpnp_vadc_chan_properties {
 	enum qpnp_adc_tm_channel_select		tm_channel_select;
 	enum qpnp_state_request			state_request;
 	enum qpnp_adc_calib_type		calib_type;
-	struct qpnp_vadc_linear_graph	adc_graph[2];
+	struct qpnp_vadc_linear_graph	adc_graph[ADC_HC_CAL_SEL_NONE];
 };
 
 /**
@@ -1249,6 +1250,10 @@ struct qpnp_adc_drv {
  * @fast_avg_setup - Ability to provide single result from the ADC
  *			that is an average of multiple measurements.
  * @trigger_channel - HW trigger channel for conversion sequencer.
+ * @calib_type - Used to store the calibration type for the channel
+ *		 absolute/ratiometric.
+ * @cal_val - Used to determine if fresh calibration value or timer
+ *	      updated calibration value is to be used.
  * @chan_prop - Represent the channel properties of the ADC.
  */
 struct qpnp_adc_amux_properties {
@@ -1258,6 +1263,8 @@ struct qpnp_adc_amux_properties {
 	uint32_t				hw_settle_time;
 	uint32_t				fast_avg_setup;
 	enum qpnp_vadc_trigger			trigger_channel;
+	enum qpnp_adc_calib_type		calib_type;
+	enum qpnp_adc_cal_val			cal_val;
 	struct qpnp_vadc_chan_properties	chan_prop[0];
 };
 

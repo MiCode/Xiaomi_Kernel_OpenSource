@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,14 +19,6 @@
 #include "wsa881x-registers.h"
 
 #define WSA881X_MAX_SWR_PORTS   4
-
-enum {
-	WSA881X_1_X = 0,
-	WSA881X_2_0,
-};
-
-#define WSA881X_IS_2_0(ver) \
-	((ver == WSA881X_2_0) ? 1 : 0)
 
 extern int wsa881x_set_channel_map(struct snd_soc_codec *codec, u8 *port,
 				u8 num_port, unsigned int *ch_mask,

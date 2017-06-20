@@ -442,7 +442,7 @@ static ssize_t dev_attribute_store(struct device *dev,
 			   struct device_attribute *attr,
 			   const char *buf, size_t count)
 {
-	int ret;
+	int ret = count;
 	struct ubi_device *ubi;
 	unsigned long long scrub_sqnum;
 

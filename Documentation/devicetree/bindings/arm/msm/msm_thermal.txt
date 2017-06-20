@@ -105,6 +105,10 @@ Optional properties
 - qcom,disable-cx-phase-ctrl: If this property is defined, the feature
 			cx phase control will be disabled. All other properties
 			corresponding to this feature will be ignored.
+- qcom,therm-ddr-lm-info: If this optional property is defined, it enables
+			DDR frequency restriction feature. It expects array of
+			sensor id to be monitored, high threshold  and low threshold
+			for that sensor respectively.
 
 Optional child nodes
 - qcom,pmic-opt-curr-temp: Threshold temperature for requesting optimum current (request
@@ -280,6 +284,7 @@ Example:
 		qcom,cx-retention-min = <RPM_SMD_REGULATOR_LEVEL_RETENTION_PLUS>;
 		vdd-cx-supply = <&pmd9635_s5_level>;
 		qcom,online-hotplug-core;
+		qcom,therm-ddr-lm-info = <1 90 75>;
 		qcom,synchronous-cluster-id = <0 1>; /* Indicates cluster 0 and 1 are synchronous */
 		qcom,synchronous-cluster-map =  <0 2 &CPU0 &CPU1>,
 						<1 2 &CPU2 &CPU3>;

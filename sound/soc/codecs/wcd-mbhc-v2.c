@@ -898,10 +898,11 @@ static int wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 		if (mbhc->mbhc_cb->hph_pa_on_status(mbhc->codec))
 			return false;
 
-	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_L_DET_EN, 0);
 
-	if (mbhc->mbhc_cb->hph_pull_down_ctrl)
+	if (mbhc->mbhc_cb->hph_pull_down_ctrl) {
+		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_L_DET_EN, 0);
 		mbhc->mbhc_cb->hph_pull_down_ctrl(mbhc->codec, false);
+	}
 
 	WCD_MBHC_REG_READ(WCD_MBHC_ELECT_SCHMT_ISRC, reg1);
 	/*
@@ -936,9 +937,10 @@ static int wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_SCHMT_ISRC, reg1);
 	pr_debug("%s: leave, plug type: %d\n", __func__,  plug_type);
 
-	if (mbhc->mbhc_cb->hph_pull_down_ctrl)
+	if (mbhc->mbhc_cb->hph_pull_down_ctrl) {
 		mbhc->mbhc_cb->hph_pull_down_ctrl(mbhc->codec, true);
-	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_L_DET_EN, 1);
+		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_L_DET_EN, 1);
+	}
 
 
 	return (plug_type == MBHC_PLUG_TYPE_GND_MIC_SWAP) ? true : false;
