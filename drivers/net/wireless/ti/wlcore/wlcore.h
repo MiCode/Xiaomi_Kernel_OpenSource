@@ -121,6 +121,8 @@ struct wlcore_ops {
 	int (*smart_config_stop)(struct wl1271 *wl);
 	int (*smart_config_set_group_key)(struct wl1271 *wl, u16 group_id,
 					  u8 key_len, u8 *key);
+	int (*set_cac)(struct wl1271 *wl, struct wl12xx_vif *wlvif,
+		       bool start);
 };
 
 enum wlcore_partitions {
@@ -191,6 +193,8 @@ struct wl1271 {
 	struct wl1271_if_operations *if_ops;
 
 	int irq;
+
+	int irq_flags;
 
 	spinlock_t wl_lock;
 
@@ -398,9 +402,6 @@ struct wl1271 {
 
 	/* Quirks of specific hardware revisions */
 	unsigned int quirks;
-
-	/* Platform limitations */
-	unsigned int platform_quirks;
 
 	/* number of currently active RX BA sessions */
 	int ba_rx_session_count;
