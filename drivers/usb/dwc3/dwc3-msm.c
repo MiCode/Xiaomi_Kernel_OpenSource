@@ -617,8 +617,8 @@ static int __dwc3_msm_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 	list_add_tail(&req->list, &dep->started_list);
 
 	/* First, prepare a normal TRB, point to the fake buffer */
-	trb = &dep->trb_pool[dep->trb_enqueue & DWC3_TRB_NUM];
-	dep->trb_enqueue++;
+	trb = &dep->trb_pool[dep->trb_enqueue];
+	dwc3_ep_inc_enq(dep);
 	memset(trb, 0, sizeof(*trb));
 
 	req->trb = trb;
@@ -629,8 +629,8 @@ static int __dwc3_msm_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 	req->trb_dma = dwc3_trb_dma_offset(dep, trb);
 
 	/* Second, prepare a Link TRB that points to the first TRB*/
-	trb_link = &dep->trb_pool[dep->trb_enqueue & DWC3_TRB_NUM];
-	dep->trb_enqueue++;
+	trb_link = &dep->trb_pool[dep->trb_enqueue];
+	dwc3_ep_inc_enq(dep);
 	memset(trb_link, 0, sizeof(*trb_link));
 
 	trb_link->bpl = lower_32_bits(req->trb_dma);
