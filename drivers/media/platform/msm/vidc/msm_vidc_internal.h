@@ -159,6 +159,26 @@ struct internal_buf {
 	enum buffer_owner buffer_ownership;
 };
 
+struct msm_vidc_common_data {
+	char key[128];
+	int value;
+};
+
+struct msm_vidc_codec_data {
+	u32 fourcc;
+	enum session_type session_type;
+	int vpp_cycles;
+	int vsp_cycles;
+	int low_power_cycles;
+};
+
+struct msm_vidc_platform_data {
+	struct msm_vidc_common_data *common_data;
+	unsigned int common_data_length;
+	struct msm_vidc_codec_data *codec_data;
+	unsigned int codec_data_length;
+};
+
 struct msm_vidc_format {
 	char name[MAX_NAME_LENGTH];
 	u8 description[32];
@@ -235,12 +255,13 @@ struct clock_data {
 	unsigned long min_freq;
 	unsigned long curr_freq;
 	u32 operating_rate;
-	struct clock_profile_entry *entry;
+	struct msm_vidc_codec_data *entry;
 	u32 core_id;
 	u32 dpb_fourcc;
 	u32 opb_fourcc;
 	enum hal_work_mode work_mode;
 	bool low_latency_mode;
+	bool use_sys_cache;
 };
 
 struct profile_data {
@@ -271,6 +292,7 @@ struct msm_vidc_core {
 	struct mutex lock;
 	int id;
 	struct hfi_device *device;
+	struct msm_vidc_platform_data *platform_data;
 	struct msm_video_device vdev[MSM_VIDC_MAX_DEVICES];
 	struct v4l2_device v4l2_dev;
 	struct list_head instances;
@@ -337,6 +359,7 @@ struct msm_vidc_inst {
 	u32 profile;
 	u32 level;
 	u32 entropy_mode;
+	struct msm_vidc_codec_data *codec_data;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
@@ -418,4 +441,5 @@ bool msm_smem_compare_buffers(void *clt, int fd, void *priv);
  * whereas this is private
  */
 int msm_vidc_destroy(struct msm_vidc_inst *inst);
+void *vidc_get_drv_data(struct device *dev);
 #endif

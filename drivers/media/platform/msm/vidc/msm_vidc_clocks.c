@@ -611,73 +611,31 @@ int msm_dcvs_try_enable(struct msm_vidc_inst *inst)
 	return true;
 }
 
-static bool msm_dcvs_check_codec_supported(int fourcc,
-		unsigned long codecs_supported, enum session_type type)
-{
-	int codec_bit, session_type_bit;
-	bool codec_type, session_type;
-	unsigned long session;
-
-	session = VIDC_VOTE_DATA_SESSION_VAL(get_hal_codec(fourcc),
-		get_hal_domain(type));
-
-	if (!codecs_supported || !session)
-		return false;
-
-	/* ffs returns a 1 indexed, test_bit takes a 0 indexed...index */
-	codec_bit = ffs(session) - 1;
-	session_type_bit = codec_bit + 1;
-
-	codec_type =
-		test_bit(codec_bit, &codecs_supported) ==
-		test_bit(codec_bit, &session);
-	session_type =
-		test_bit(session_type_bit, &codecs_supported) ==
-		test_bit(session_type_bit, &session);
-
-	return codec_type && session_type;
-}
-
 int msm_comm_init_clocks_and_bus_data(struct msm_vidc_inst *inst)
 {
 	int rc = 0, j = 0;
-	struct clock_freq_table *clk_freq_tbl = NULL;
-	struct clock_profile_entry *entry = NULL;
-	int fourcc;
+	int fourcc, count;
 
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s Invalid args: Inst = %pK\n",
-			__func__, inst);
+				__func__, inst);
 		return -EINVAL;
 	}
-
-	clk_freq_tbl = &inst->core->resources.clock_freq_tbl;
+	count = inst->core->resources.codec_data_count;
 	fourcc = inst->session_type == MSM_VIDC_DECODER ?
 		inst->fmts[OUTPUT_PORT].fourcc :
 		inst->fmts[CAPTURE_PORT].fourcc;
 
-	for (j = 0; j < clk_freq_tbl->count; j++) {
-		bool matched = false;
-
-		entry = &clk_freq_tbl->clk_prof_entries[j];
-
-		matched = msm_dcvs_check_codec_supported(
-				fourcc,
-				entry->codec_mask,
-				inst->session_type);
-
-		if (matched) {
-			inst->clk_data.entry = entry;
+	for (j = 0; j < count; j++) {
+		if (inst->core->resources.codec_data[j].session_type ==
+				inst->session_type &&
+				inst->core->resources.codec_data[j].fourcc ==
+				fourcc) {
+			inst->clk_data.entry =
+				&inst->core->resources.codec_data[j];
 			break;
 		}
 	}
-
-	if (j == clk_freq_tbl->count) {
-		dprintk(VIDC_ERR,
-			"Failed : No matching clock entry found\n");
-		rc = -EINVAL;
-	}
-
 	return rc;
 }
 

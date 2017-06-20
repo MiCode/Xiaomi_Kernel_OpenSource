@@ -723,35 +723,6 @@ static void __iommu_detach(struct venus_hfi_device *device)
 	}
 }
 
-static bool __is_session_supported(unsigned long sessions_supported,
-		enum vidc_vote_data_session session_type)
-{
-	bool same_codec, same_session_type;
-	int codec_bit, session_type_bit;
-	unsigned long session = session_type;
-
-	if (!sessions_supported || !session)
-		return false;
-
-	/* ffs returns a 1 indexed, test_bit takes a 0 indexed...index */
-	codec_bit = ffs(session) - 1;
-	session_type_bit = codec_bit + 1;
-
-	same_codec = test_bit(codec_bit, &sessions_supported) ==
-		test_bit(codec_bit, &session);
-	same_session_type = test_bit(session_type_bit, &sessions_supported) ==
-		test_bit(session_type_bit, &session);
-
-	return same_codec && same_session_type;
-}
-
-bool venus_hfi_is_session_supported(unsigned long sessions_supported,
-		enum vidc_vote_data_session session_type)
-{
-	return __is_session_supported(sessions_supported, session_type);
-}
-EXPORT_SYMBOL(venus_hfi_is_session_supported);
-
 static int __devfreq_target(struct device *devfreq_dev,
 		unsigned long *freq, u32 flags)
 {
@@ -1151,11 +1122,9 @@ exit:
 static int __scale_clocks(struct venus_hfi_device *device)
 {
 	int rc = 0;
-	struct clock_freq_table *clk_freq_tbl = NULL;
 	struct allowed_clock_rates_table *allowed_clks_tbl = NULL;
 	u32 rate = 0;
 
-	clk_freq_tbl = &device->res->clock_freq_tbl;
 	allowed_clks_tbl = device->res->allowed_clks_tbl;
 
 	dprintk(VIDC_DBG, "%s: NULL scale data\n", __func__);
@@ -1214,7 +1183,7 @@ static int __iface_cmdq_write_relaxed(struct venus_hfi_device *device,
 			if (!queue_delayed_work(device->venus_pm_workq,
 				&venus_hfi_pm_work,
 				msecs_to_jiffies(
-				msm_vidc_pwr_collapse_delay))) {
+				device->res->msm_vidc_pwr_collapse_delay))) {
 				dprintk(VIDC_DBG,
 				"PM work already scheduled\n");
 			}
@@ -2848,7 +2817,8 @@ skip_power_off:
 		device->skip_pc_count, wfi_status, idle_status, pc_ready);
 	queue_delayed_work(device->venus_pm_workq,
 			&venus_hfi_pm_work,
-			msecs_to_jiffies(msm_vidc_pwr_collapse_delay));
+			msecs_to_jiffies(
+			device->res->msm_vidc_pwr_collapse_delay));
 exit:
 	mutex_unlock(&device->lock);
 }
@@ -3097,7 +3067,8 @@ static int __response_handler(struct venus_hfi_device *device)
 		cancel_delayed_work(&venus_hfi_pm_work);
 		if (!queue_delayed_work(device->venus_pm_workq,
 			&venus_hfi_pm_work,
-			msecs_to_jiffies(msm_vidc_pwr_collapse_delay))) {
+			msecs_to_jiffies(
+				device->res->msm_vidc_pwr_collapse_delay))) {
 			dprintk(VIDC_ERR, "PM work already scheduled\n");
 		}
 	}

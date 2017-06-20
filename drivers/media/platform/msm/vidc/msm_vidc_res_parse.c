@@ -132,7 +132,6 @@ void msm_vidc_free_platform_resources(
 	msm_vidc_free_clock_table(res);
 	msm_vidc_free_regulator_table(res);
 	msm_vidc_free_platform_version_table(res);
-	msm_vidc_free_cycles_per_mb_table(res);
 	msm_vidc_free_allowed_clocks_table(res);
 	msm_vidc_free_reg_table(res);
 	msm_vidc_free_qdss_addr_table(res);
@@ -275,12 +274,12 @@ static int msm_vidc_load_subcache_info(struct msm_vidc_platform_resources *res)
 			"cache-slice-names", c, &vsc->name);
 	}
 
-	res->sys_cache_present = true;
+	res->sys_cache_enabled = true;
 
 	return 0;
 
 err_load_subcache_table_fail:
-	res->sys_cache_present = false;
+	res->sys_cache_enabled = false;
 	subcaches->count = 0;
 	subcaches->subcache_tbl = NULL;
 
@@ -405,118 +404,6 @@ static int msm_vidc_load_allowed_clocks_table(
 		 sizeof(*res->allowed_clks_tbl), cmp, NULL);
 
 	return 0;
-}
-
-static int msm_vidc_load_cycles_per_mb_table(
-		struct msm_vidc_platform_resources *res)
-{
-	int rc = 0, i = 0;
-	struct clock_freq_table *clock_freq_tbl = &res->clock_freq_tbl;
-	struct clock_profile_entry *entry = NULL;
-	struct device_node *parent_node = NULL;
-	struct device_node *child_node = NULL;
-	struct platform_device *pdev = res->pdev;
-
-	parent_node = of_find_node_by_name(pdev->dev.of_node,
-			"qcom,clock-freq-tbl");
-	if (!parent_node) {
-		dprintk(VIDC_DBG, "Node qcom,clock-freq-tbl not found.\n");
-		return 0;
-	}
-
-	clock_freq_tbl->count = 0;
-	for_each_child_of_node(parent_node, child_node)
-		clock_freq_tbl->count++;
-
-	if (!clock_freq_tbl->count) {
-		dprintk(VIDC_DBG, "No child nodes in qcom,clock-freq-tbl\n");
-		return 0;
-	}
-
-	clock_freq_tbl->clk_prof_entries = devm_kzalloc(&pdev->dev,
-		sizeof(*clock_freq_tbl->clk_prof_entries) *
-		clock_freq_tbl->count, GFP_KERNEL);
-	if (!clock_freq_tbl->clk_prof_entries) {
-		dprintk(VIDC_DBG, "no memory to allocate clk_prof_entries\n");
-		return -ENOMEM;
-	}
-
-	for_each_child_of_node(parent_node, child_node) {
-
-		if (i >= clock_freq_tbl->count) {
-			dprintk(VIDC_ERR,
-				"qcom,clock-freq-tbl: invalid child node %d, max is %d\n",
-				i, clock_freq_tbl->count);
-			break;
-		}
-
-		entry = &clock_freq_tbl->clk_prof_entries[i];
-		dprintk(VIDC_DBG, "qcom,clock-freq-tbl: profile[%d]\n", i);
-
-		if (of_find_property(child_node, "qcom,codec-mask", NULL)) {
-			rc = of_property_read_u32(child_node,
-					"qcom,codec-mask", &entry->codec_mask);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"qcom,codec-mask not found\n");
-				goto error;
-			}
-		} else {
-			entry->codec_mask = 0;
-		}
-		dprintk(VIDC_DBG, "codec_mask %#x\n", entry->codec_mask);
-
-		if (of_find_property(child_node,
-				"qcom,vsp-cycles-per-mb", NULL)) {
-			rc = of_property_read_u32(child_node,
-					"qcom,vsp-cycles-per-mb",
-					&entry->vsp_cycles);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"qcom,vsp-cycles-per-mb not found\n");
-				goto error;
-			}
-		} else {
-			entry->vsp_cycles = 0;
-		}
-		dprintk(VIDC_DBG, "vsp cycles_per_mb %d\n", entry->vsp_cycles);
-
-		if (of_find_property(child_node,
-				"qcom,vpp-cycles-per-mb", NULL)) {
-			rc = of_property_read_u32(child_node,
-					"qcom,vpp-cycles-per-mb",
-					&entry->vpp_cycles);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"qcom,vpp-cycles-per-mb not found\n");
-				goto error;
-			}
-		} else {
-			entry->vpp_cycles = 0;
-		}
-		dprintk(VIDC_DBG, "vpp cycles_per_mb %d\n", entry->vpp_cycles);
-
-		if (of_find_property(child_node,
-				"qcom,low-power-cycles-per-mb", NULL)) {
-			rc = of_property_read_u32(child_node,
-					"qcom,low-power-cycles-per-mb",
-					&entry->low_power_cycles);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"qcom,low-power-cycles-per-mb not found\n");
-				goto error;
-			}
-		} else {
-			entry->low_power_cycles = 0;
-		}
-		dprintk(VIDC_DBG, "low_power_factor %d\n",
-				entry->low_power_cycles);
-
-		i++;
-	}
-
-error:
-	return rc;
 }
 
 static int msm_vidc_populate_bus(struct device *dev,
@@ -818,6 +705,83 @@ err_load_clk_table_fail:
 	return rc;
 }
 
+static int find_key_value(struct msm_vidc_platform_data *platform_data,
+	const char *key)
+{
+	int i = 0;
+	struct msm_vidc_common_data *common_data = platform_data->common_data;
+	int size = platform_data->common_data_length;
+
+	for (i = 0; i < size; i++) {
+		if (!strcmp(common_data[i].key, key))
+			return common_data[i].value;
+	}
+	return 0;
+}
+
+int read_platform_resources_from_drv_data(
+		struct msm_vidc_core *core)
+{
+	struct msm_vidc_platform_data *platform_data;
+	struct msm_vidc_platform_resources *res;
+	int rc = 0;
+
+	if (!core || !core->platform_data) {
+		dprintk(VIDC_ERR, "%s Invalid data\n", __func__);
+		return -ENOENT;
+	}
+	platform_data = core->platform_data;
+	res = &core->resources;
+
+	res->codec_data_count = platform_data->codec_data_length;
+	res->codec_data = platform_data->codec_data;
+
+	res->fw_name = "venus";
+
+	dprintk(VIDC_DBG, "Firmware filename: %s\n", res->fw_name);
+
+	res->max_load = find_key_value(platform_data,
+			"qcom,max-hw-load");
+
+	res->max_hq_mbs_per_frame = find_key_value(platform_data,
+			"qcom,max-hq-mbs-per-frame");
+
+	res->max_hq_fps = find_key_value(platform_data,
+			"qcom,max-hq-frames-per-sec");
+
+	res->sw_power_collapsible = find_key_value(platform_data,
+			"qcom,sw-power-collapse");
+
+	res->never_unload_fw =  find_key_value(platform_data,
+			"qcom,never-unload-fw");
+
+	res->debug_timeout = find_key_value(platform_data,
+			"qcom,debug-timeout");
+
+	res->debug_timeout |= msm_vidc_debug_timeout;
+
+	res->pm_qos_latency_us = find_key_value(platform_data,
+			"qcom,pm-qos-latency-us");
+
+	res->max_secure_inst_count = find_key_value(platform_data,
+			"qcom,max-secure-instances");
+
+	res->slave_side_cp = find_key_value(platform_data,
+			"qcom,slave-side-cp");
+	res->sys_idle_indicator = find_key_value(platform_data,
+			"qcom,enable-idle-indicator");
+	res->thermal_mitigable = find_key_value(platform_data,
+			"qcom,enable-thermal-mitigation");
+	res->msm_vidc_pwr_collapse_delay = find_key_value(platform_data,
+			"qcom,power-collapse-delay");
+	res->msm_vidc_firmware_unload_delay = find_key_value(platform_data,
+			"qcom,fw-unload-delay");
+	res->msm_vidc_hw_rsp_timeout = find_key_value(platform_data,
+			"qcom,hw-resp-timeout");
+	return rc;
+
+}
+
 int read_platform_resources_from_dt(
 		struct msm_vidc_platform_resources *res)
 {
@@ -841,26 +805,6 @@ int read_platform_resources_from_dt(
 
 	kres = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	res->irq = kres ? kres->start : -1;
-
-	res->sys_idle_indicator = of_property_read_bool(pdev->dev.of_node,
-			"qcom,enable-idle-indicator");
-
-	res->thermal_mitigable =
-			of_property_read_bool(pdev->dev.of_node,
-			"qcom,enable-thermal-mitigation");
-
-	rc = of_property_read_string(pdev->dev.of_node, "qcom,firmware-name",
-			&res->fw_name);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to read firmware name: %d\n", rc);
-		goto err_load_reg_table;
-	}
-	dprintk(VIDC_DBG, "Firmware filename: %s\n", res->fw_name);
-
-	rc = of_property_read_string(pdev->dev.of_node, "qcom,hfi-version",
-			&res->hfi_version);
-	if (rc)
-		dprintk(VIDC_DBG, "HFI packetization will default to legacy\n");
 
 	rc = msm_vidc_load_platform_version_table(res);
 	if (rc)
@@ -900,44 +844,11 @@ int read_platform_resources_from_dt(
 		goto err_load_clock_table;
 	}
 
-	rc = msm_vidc_load_cycles_per_mb_table(res);
-	if (rc) {
-		dprintk(VIDC_ERR,
-			"Failed to load cycles per mb table: %d\n", rc);
-		goto err_load_cycles_per_mb_table;
-	}
-
 	rc = msm_vidc_load_allowed_clocks_table(res);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Failed to load allowed clocks table: %d\n", rc);
 		goto err_load_allowed_clocks_table;
-	}
-
-	rc = of_property_read_u32(pdev->dev.of_node, "qcom,max-hw-load",
-			&res->max_load);
-	if (rc) {
-		dprintk(VIDC_ERR,
-			"Failed to determine max load supported: %d\n", rc);
-		goto err_load_max_hw_load;
-	}
-
-	rc = of_property_read_u32(pdev->dev.of_node,
-		"qcom,max-hq-mbs-per-frame",
-			&res->max_hq_mbs_per_frame);
-	if (rc) {
-		dprintk(VIDC_ERR,
-			"Failed to determine Max HQ mbs per frame: %d\n", rc);
-		goto err_load_HQ_values;
-	}
-
-	rc = of_property_read_u32(pdev->dev.of_node,
-		"qcom,max-hq-frames-per-sec",
-			&res->max_hq_fps);
-	if (rc) {
-		dprintk(VIDC_ERR,
-			"Failed to determine Max HQ fps: %d\n", rc);
-		goto err_load_HQ_values;
 	}
 
 	rc = msm_vidc_populate_legacy_context_bank(res);
@@ -958,39 +869,11 @@ int read_platform_resources_from_dt(
 				"Using fw-bias : %pa", &res->firmware_base);
 	}
 
-	res->sw_power_collapsible = of_property_read_bool(pdev->dev.of_node,
-					"qcom,sw-power-collapse");
-	dprintk(VIDC_DBG, "Power collapse supported = %s\n",
-		res->sw_power_collapsible ? "yes" : "no");
-
-	res->never_unload_fw = of_property_read_bool(pdev->dev.of_node,
-			"qcom,never-unload-fw");
-
-	res->debug_timeout = of_property_read_bool(pdev->dev.of_node,
-			"qcom,debug-timeout");
-
-	msm_vidc_debug_timeout |= res->debug_timeout;
-
-	of_property_read_u32(pdev->dev.of_node,
-			"qcom,pm-qos-latency-us", &res->pm_qos_latency_us);
-
-	res->slave_side_cp = of_property_read_bool(pdev->dev.of_node,
-					"qcom,slave-side-cp");
-	dprintk(VIDC_DBG, "Slave side cp = %s\n",
-				res->slave_side_cp ? "yes" : "no");
-
-	of_property_read_u32(pdev->dev.of_node,
-			"qcom,max-secure-instances",
-			&res->max_secure_inst_count);
-	return rc;
+return rc;
 
 err_setup_legacy_cb:
-err_load_HQ_values:
-err_load_max_hw_load:
 	msm_vidc_free_allowed_clocks_table(res);
 err_load_allowed_clocks_table:
-	msm_vidc_free_cycles_per_mb_table(res);
-err_load_cycles_per_mb_table:
 	msm_vidc_free_clock_table(res);
 err_load_clock_table:
 	msm_vidc_free_regulator_table(res);

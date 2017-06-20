@@ -36,7 +36,6 @@
 
 struct msm_vidc_drv *vidc_driver;
 
-uint32_t msm_vidc_pwr_collapse_delay = 3000;
 
 static inline struct msm_vidc_inst *get_vidc_inst(struct file *filp, void *fh)
 {
@@ -315,6 +314,7 @@ static int read_platform_resources(struct msm_vidc_core *core,
 	core->resources.pdev = pdev;
 	if (pdev->dev.of_node) {
 		/* Target supports DT, parse from it */
+		rc = read_platform_resources_from_drv_data(core);
 		rc = read_platform_resources_from_dt(&core->resources);
 	} else {
 		dprintk(VIDC_ERR, "pdev node is NULL\n");
@@ -375,13 +375,18 @@ static ssize_t store_pwr_collapse_delay(struct device *dev,
 {
 	unsigned long val = 0;
 	int rc = 0;
+	struct msm_vidc_core *core = NULL;
 
 	rc = kstrtoul(buf, 0, &val);
 	if (rc)
 		return rc;
 	else if (!val)
 		return -EINVAL;
-	msm_vidc_pwr_collapse_delay = val;
+
+	core = get_vidc_core(MSM_VIDC_CORE_VENUS);
+	if (!core)
+		return -EINVAL;
+	core->resources.msm_vidc_pwr_collapse_delay = val;
 	return count;
 }
 
@@ -389,7 +394,14 @@ static ssize_t show_pwr_collapse_delay(struct device *dev,
 		struct device_attribute *attr,
 		char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%u\n", msm_vidc_pwr_collapse_delay);
+	struct msm_vidc_core *core = NULL;
+
+	core = get_vidc_core(MSM_VIDC_CORE_VENUS);
+	if (!core)
+		return -EINVAL;
+
+	return snprintf(buf, PAGE_SIZE, "%u\n",
+		core->resources.msm_vidc_pwr_collapse_delay);
 }
 
 static DEVICE_ATTR(pwr_collapse_delay, 0644, show_pwr_collapse_delay,
@@ -481,6 +493,7 @@ static int msm_vidc_probe_vidc_device(struct platform_device *pdev)
 		goto err_no_mem;
 	}
 
+	core->platform_data = vidc_get_drv_data(&pdev->dev);
 	dev_set_drvdata(&pdev->dev, core);
 	rc = msm_vidc_initialize_core(pdev, core);
 	if (rc) {
