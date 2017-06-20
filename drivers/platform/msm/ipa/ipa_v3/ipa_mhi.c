@@ -255,6 +255,24 @@ static int ipa_mhi_start_gsi_channel(enum ipa_client_type client,
 		ep->gsi_evt_ring_hdl = *params->cached_gsi_evt_ring_hdl;
 	}
 
+	if (params->ev_ctx_host->wp == params->ev_ctx_host->rbase) {
+		IPA_MHI_ERR("event ring wp is not updated. base=wp=0x%llx\n",
+			params->ev_ctx_host->wp);
+		goto fail_alloc_ch;
+		return res;
+	}
+
+	IPA_MHI_DBG("Ring event db: evt_ring_hdl=%lu host_wp=0x%llx\n",
+		ep->gsi_evt_ring_hdl, params->ev_ctx_host->wp);
+	res = gsi_ring_evt_ring_db(ep->gsi_evt_ring_hdl,
+		params->ev_ctx_host->wp);
+	if (res) {
+		IPA_MHI_ERR("fail to ring evt ring db %d. hdl=%lu wp=0x%llx\n",
+			res, ep->gsi_evt_ring_hdl, params->ev_ctx_host->wp);
+		goto fail_alloc_ch;
+		return res;
+	}
+
 	memset(&ch_props, 0, sizeof(ch_props));
 	ch_props.prot = GSI_CHAN_PROT_MHI;
 	ch_props.dir = IPA_CLIENT_IS_PROD(client) ?
