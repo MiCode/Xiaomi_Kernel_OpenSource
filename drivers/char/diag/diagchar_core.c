@@ -456,6 +456,7 @@ static void diag_close_logging_process(const int pid)
 {
 	int i, j;
 	int session_mask;
+	uint32_t p_mask;
 	struct diag_md_session_t *session_info = NULL;
 	struct diag_logging_mode_param_t params;
 
@@ -475,6 +476,9 @@ static void diag_close_logging_process(const int pid)
 	session_mask = session_info->peripheral_mask;
 	diag_md_session_close(session_info);
 
+	p_mask =
+	diag_translate_kernel_to_user_mask(session_mask);
+
 	for (i = 0; i < NUM_MD_SESSIONS; i++)
 		if (MD_PERIPHERAL_MASK(i) & session_mask)
 			diag_mux_close_peripheral(DIAG_LOCAL_PROC, i);
@@ -482,19 +486,17 @@ static void diag_close_logging_process(const int pid)
 	params.req_mode = USB_MODE;
 	params.mode_param = 0;
 	params.pd_mask = 0;
-	params.peripheral_mask =
-		diag_translate_kernel_to_user_mask(session_mask);
+	params.peripheral_mask = p_mask;
 
 	if (driver->num_pd_session > 0) {
-		for (i = UPD_WLAN; ((i < NUM_MD_SESSIONS) &&
-			(session_mask & MD_PERIPHERAL_MASK(i)));
-			i++) {
-			j = i - UPD_WLAN;
-			driver->pd_session_clear[j] = 1;
-			driver->pd_logging_mode[j] = 0;
-			driver->num_pd_session -= 1;
-			params.pd_mask =
-			diag_translate_kernel_to_user_mask(session_mask);
+		for (i = UPD_WLAN; (i < NUM_MD_SESSIONS); i++) {
+			if (session_mask & MD_PERIPHERAL_MASK(i)) {
+				j = i - UPD_WLAN;
+				driver->pd_session_clear[j] = 1;
+				driver->pd_logging_mode[j] = 0;
+				driver->num_pd_session -= 1;
+				params.pd_mask = p_mask;
+			}
 		}
 	}
 
