@@ -131,6 +131,9 @@
 
 &clock_gcc {
 	compatible = "qcom,gcc-sdx20";
+	reg = <0x1800000 0x80000>,
+		<0xb008018 0x44>;
+	reg-names = "cc_base", "apcs_base";
 };
 
 &clock_cpu  {
