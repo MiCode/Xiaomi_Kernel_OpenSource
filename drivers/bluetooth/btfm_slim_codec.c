@@ -118,9 +118,6 @@ static void btfm_slim_dai_shutdown(struct snd_pcm_substream *substream,
 		return;
 	}
 
-	if (dai->id == BTFM_FM_SLIM_TX)
-		goto out;
-
 	/* Search for dai->id matched port handler */
 	for (i = 0; (i < BTFM_SLIM_NUM_CODEC_DAIS) &&
 		(ch->id != BTFM_SLIM_NUM_CODEC_DAIS) &&
@@ -134,7 +131,6 @@ static void btfm_slim_dai_shutdown(struct snd_pcm_substream *substream,
 	}
 
 	btfm_slim_disable_ch(btfmslim, ch, rxport, grp, nchan);
-out:
 	btfm_slim_hw_deinit(btfmslim);
 }
 
@@ -202,61 +198,6 @@ int btfm_slim_dai_prepare(struct snd_pcm_substream *substream,
 	/* save the enable channel status */
 	if (ret == 0)
 		bt_soc_enable_status = 1;
-	return ret;
-}
-
-static int btfm_slim_dai_hw_free(struct snd_pcm_substream *substream,
-	struct snd_soc_dai *dai)
-{
-	int ret = -EINVAL, i;
-	struct btfmslim *btfmslim = dai->dev->platform_data;
-	struct btfmslim_ch *ch;
-	uint8_t rxport, grp = false, nchan = 1;
-
-	BTFMSLIM_DBG("dai->name: %s, dai->id: %d, dai->rate: %d", dai->name,
-		dai->id, dai->rate);
-
-	switch (dai->id) {
-	case BTFM_FM_SLIM_TX:
-		grp = true; nchan = 2;
-		ch = btfmslim->tx_chs;
-		rxport = 0;
-		break;
-	case BTFM_BT_SCO_SLIM_TX:
-		ch = btfmslim->tx_chs;
-		rxport = 0;
-		break;
-	case BTFM_BT_SCO_A2DP_SLIM_RX:
-	case BTFM_BT_SPLIT_A2DP_SLIM_RX:
-		ch = btfmslim->rx_chs;
-		rxport = 1;
-		break;
-	case BTFM_SLIM_NUM_CODEC_DAIS:
-	default:
-		BTFMSLIM_ERR("dai->id is invalid:%d", dai->id);
-		goto out;
-	}
-
-	if (dai->id != BTFM_FM_SLIM_TX) {
-		ret = 0;
-		goto out;
-	}
-
-	/* Search for dai->id matched port handler */
-	for (i = 0; (i < BTFM_SLIM_NUM_CODEC_DAIS) &&
-		(ch->id != BTFM_SLIM_NUM_CODEC_DAIS) &&
-		(ch->id != dai->id); ch++, i++)
-		;
-
-	if ((ch->port == BTFM_SLIM_PGD_PORT_LAST) ||
-		(ch->id == BTFM_SLIM_NUM_CODEC_DAIS)) {
-		BTFMSLIM_ERR("ch is invalid!!");
-		goto out;
-	}
-
-	btfm_slim_disable_ch(btfmslim, ch, rxport, grp, nchan);
-
-out:
 	return ret;
 }
 
@@ -399,7 +340,6 @@ static struct snd_soc_dai_ops btfmslim_dai_ops = {
 	.shutdown = btfm_slim_dai_shutdown,
 	.hw_params = btfm_slim_dai_hw_params,
 	.prepare = btfm_slim_dai_prepare,
-	.hw_free = btfm_slim_dai_hw_free,
 	.set_channel_map = btfm_slim_dai_set_channel_map,
 	.get_channel_map = btfm_slim_dai_get_channel_map,
 };
