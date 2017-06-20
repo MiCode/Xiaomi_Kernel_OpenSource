@@ -215,14 +215,6 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&usb2_vbus_boost_default>;
 	};
-
-aliases {
-		serial0 = &qupv3_se9_2uart;
-		spi0 = &qupv3_se8_spi;
-		i2c0 = &qupv3_se10_i2c;
-		i2c1 = &qupv3_se3_i2c;
-		hsuart0 = &qupv3_se6_4uart;
-	};
 };
 
 &qupv3_se9_2uart {
@@ -315,6 +307,12 @@ aliases {
 &pmi8998_wled {
 	status = "okay";
 	qcom,led-strings-list = [01 02];
+};
+
+&pmi8998_haptics {
+	qcom,vmax-mv = <2400>;
+	qcom,lra-auto-mode;
+	status = "okay";
 };
 
 &qupv3_se8_spi {

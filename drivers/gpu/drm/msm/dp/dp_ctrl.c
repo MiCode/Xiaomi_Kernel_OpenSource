@@ -66,12 +66,7 @@ struct dp_ctrl_private {
 	struct completion video_comp;
 	struct completion irq_comp;
 
-	bool hpd_irq_on;
-	bool power_on;
-	bool sink_info_read;
-	bool cont_splash;
 	bool psm_enabled;
-	bool initialized;
 	bool orientation;
 
 	u32 pixel_rate;
@@ -712,9 +707,6 @@ static int dp_ctrl_wait4video_ready(struct dp_ctrl_private *ctrl)
 {
 	int ret = 0;
 
-	if (ctrl->cont_splash)
-		return ret;
-
 	ret = wait_for_completion_timeout(&ctrl->video_comp, HZ / 2);
 	if (ret <= 0) {
 		pr_err("Link Train timedout\n");
@@ -1072,19 +1064,12 @@ static int dp_ctrl_host_init(struct dp_ctrl *dp_ctrl, bool flip)
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
-	if (ctrl->initialized) {
-		pr_debug("host init done already\n");
-		return 0;
-	}
-
 	ctrl->orientation = flip;
 	catalog = ctrl->catalog;
 
 	catalog->reset(ctrl->catalog);
 	catalog->phy_reset(ctrl->catalog);
 	catalog->enable_irq(ctrl->catalog, true);
-
-	ctrl->initialized = true;
 
 	return 0;
 }
@@ -1107,11 +1092,6 @@ static void dp_ctrl_host_deinit(struct dp_ctrl *dp_ctrl)
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
-	if (!ctrl->initialized) {
-		pr_debug("host deinit done already\n");
-		return;
-	}
-
 	ctrl->catalog->enable_irq(ctrl->catalog, false);
 	ctrl->catalog->reset(ctrl->catalog);
 
@@ -1120,7 +1100,6 @@ static void dp_ctrl_host_deinit(struct dp_ctrl *dp_ctrl)
 
 	dp_ctrl_disable_mainlink_clocks(ctrl);
 
-	ctrl->initialized = false;
 	pr_debug("Host deinitialized successfully\n");
 }
 
@@ -1154,8 +1133,6 @@ static int dp_ctrl_on_irq(struct dp_ctrl_private *ctrl, bool lt_needed)
 
 		reinit_completion(&ctrl->idle_comp);
 
-		ctrl->power_on = true;
-
 		if (ctrl->psm_enabled) {
 			ret = ctrl->link->send_psm_request(ctrl->link, false);
 			if (ret) {
@@ -1174,9 +1151,6 @@ static int dp_ctrl_on_irq(struct dp_ctrl_private *ctrl, bool lt_needed)
 static int dp_ctrl_on_hpd(struct dp_ctrl_private *ctrl)
 {
 	int ret = 0;
-
-	if (ctrl->cont_splash)
-		goto link_training;
 
 	ctrl->power->clk_enable(ctrl->power, DP_CORE_PM, true);
 	ctrl->catalog->hpd_config(ctrl->catalog, true);
@@ -1202,28 +1176,18 @@ static int dp_ctrl_on_hpd(struct dp_ctrl_private *ctrl)
 
 	if (ctrl->psm_enabled)
 		ret = ctrl->link->send_psm_request(ctrl->link, false);
-link_training:
-	ctrl->power_on = true;
 
 	while (-EAGAIN == dp_ctrl_setup_main_link(ctrl, true))
 		pr_debug("MAIN LINK TRAINING RETRY\n");
 
-	ctrl->cont_splash = 0;
-
-	ctrl->power_on = true;
 	pr_debug("End-\n");
 
 exit:
 	return ret;
 }
 
-static int dp_ctrl_off_irq(struct dp_ctrl_private *ctrl)
+static void dp_ctrl_off_irq(struct dp_ctrl_private *ctrl)
 {
-	if (!ctrl->power_on) {
-		pr_debug("ctrl already powered off\n");
-		return 0;
-	}
-
 	ctrl->catalog->mainlink_ctrl(ctrl->catalog, false);
 
 	/* Make sure DP mainlink and audio engines are disabled */
@@ -1231,28 +1195,15 @@ static int dp_ctrl_off_irq(struct dp_ctrl_private *ctrl)
 
 	complete_all(&ctrl->irq_comp);
 	pr_debug("end\n");
-
-	return 0;
 }
 
-static int dp_ctrl_off_hpd(struct dp_ctrl_private *ctrl)
+static void dp_ctrl_off_hpd(struct dp_ctrl_private *ctrl)
 {
-	if (!ctrl->power_on) {
-		pr_debug("panel already powered off\n");
-		return 0;
-	}
-
 	ctrl->catalog->mainlink_ctrl(ctrl->catalog, false);
-
-	ctrl->power_on = false;
-	ctrl->sink_info_read = false;
-
 	pr_debug("DP off done\n");
-
-	return 0;
 }
 
-static int dp_ctrl_on(struct dp_ctrl *dp_ctrl)
+static int dp_ctrl_on(struct dp_ctrl *dp_ctrl, bool hpd_irq)
 {
 	int rc = 0;
 	struct dp_ctrl_private *ctrl;
@@ -1264,7 +1215,7 @@ static int dp_ctrl_on(struct dp_ctrl *dp_ctrl)
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
-	if (ctrl->hpd_irq_on)
+	if (hpd_irq)
 		rc = dp_ctrl_on_irq(ctrl, false);
 	else
 		rc = dp_ctrl_on_hpd(ctrl);
@@ -1272,24 +1223,19 @@ end:
 	return rc;
 }
 
-static int dp_ctrl_off(struct dp_ctrl *dp_ctrl)
+static void dp_ctrl_off(struct dp_ctrl *dp_ctrl, bool hpd_irq)
 {
-	int rc = 0;
 	struct dp_ctrl_private *ctrl;
 
-	if (!dp_ctrl) {
-		rc = -EINVAL;
-		goto end;
-	}
+	if (!dp_ctrl)
+		return;
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
-	if (ctrl->hpd_irq_on)
-		rc = dp_ctrl_off_irq(ctrl);
+	if (hpd_irq)
+		dp_ctrl_off_irq(ctrl);
 	else
-		rc = dp_ctrl_off_hpd(ctrl);
-end:
-	return rc;
+		dp_ctrl_off_hpd(ctrl);
 }
 
 static void dp_ctrl_isr(struct dp_ctrl *dp_ctrl)

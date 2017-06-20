@@ -36,6 +36,7 @@ enum ipahal_imm_cmd_name {
 	IPA_IMM_CMD_DMA_SHARED_MEM,
 	IPA_IMM_CMD_IP_PACKET_TAG_STATUS,
 	IPA_IMM_CMD_DMA_TASK_32B_ADDR,
+	IPA_IMM_CMD_TABLE_DMA,
 	IPA_IMM_CMD_MAX,
 };
 
@@ -197,6 +198,23 @@ struct ipahal_imm_cmd_hdr_init_system {
  * @data: data to be written
  */
 struct ipahal_imm_cmd_nat_dma {
+	u8 table_index;
+	u8 base_addr;
+	u32 offset;
+	u16 data;
+};
+
+/*
+ * struct ipahal_imm_cmd_table_dma - TABLE_DMA cmd payload
+ * Perform DMA operation on NAT and IPV6 connection tracking related mem
+ * addresses. Copy data into different locations within IPV6CT and NAT
+ * associated tbls. (For add/remove NAT rules)
+ * @table_index: NAT tbl index. Defines the tbl on which to perform DMA op.
+ * @base_addr: Base addr to which the DMA operation should be performed.
+ * @offset: offset in bytes from base addr to write 'data' to
+ * @data: data to be written
+ */
+struct ipahal_imm_cmd_table_dma {
 	u8 table_index;
 	u8 base_addr;
 	u32 offset;

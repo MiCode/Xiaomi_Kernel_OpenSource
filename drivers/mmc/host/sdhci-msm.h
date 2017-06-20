@@ -150,7 +150,6 @@ struct sdhci_msm_pltfm_data {
 	u32 *sup_ice_clk_table;
 	unsigned char sup_ice_clk_cnt;
 	struct sdhci_msm_pm_qos_data pm_qos_data;
-	bool core_3_0v_support;
 	bool sdr104_wa;
 };
 
@@ -218,6 +217,7 @@ struct sdhci_msm_host {
 	bool tuning_in_progress;
 	bool mci_removed;
 	const struct sdhci_msm_offset *offset;
+	bool core_3_0v_support;
 };
 
 extern char *saved_command_line;

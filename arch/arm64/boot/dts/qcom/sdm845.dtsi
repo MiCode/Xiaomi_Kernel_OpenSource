@@ -39,6 +39,14 @@
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 	};
 
+	aliases {
+		serial0 = &qupv3_se9_2uart;
+		spi0 = &qupv3_se8_spi;
+		i2c0 = &qupv3_se10_i2c;
+		i2c1 = &qupv3_se3_i2c;
+		hsuart0 = &qupv3_se6_4uart;
+	};
+
 	cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
@@ -337,25 +345,31 @@
 	};
 
 	energy-costs {
+		compatible = "sched-energy";
+
 		CPU_COST_0: core-cost0 {
 			busy-cost-data = <
-				 92   34 /*  300000 */
-				129   40 /*  422400 */
-				153   43 /*  499200 */
-				177   48 /*  576000 */
-				200   52 /*  652800 */
-				230   58 /*  748800 */
-				253   64 /*  825600 */
-				277   70 /*  902400 */
-				301   76 /*  979200 */
-				324   83 /* 1056000 */
-				348   90 /* 1132800 */
-				371   98 /* 1209600 */
-				395  105 /* 1286400 */
-				419  114 /* 1363200 */
-				442  123 /* 1440000 */
-				466  135 /* 1516800 */
-				490  152 /* 1593600 */
+				 300000   31
+				 422400   38
+				 499200   42
+				 576000   46
+				 652800   51
+				 748800   58
+				 825600   64
+				 902400   70
+				 979200   76
+				1056000   83
+				1132800   90
+				1209600   97
+				1286400  105
+				1363200  114
+				1440000  124
+				1516800  136
+				1593600  152
+				1651200  167 /* speedbin 0,1 */
+				1670400  173 /* speedbin 2 */
+				1708800  186 /* speedbin 0,1 */
+				1747200  201 /* speedbin 2 */
 			>;
 			idle-cost-data = <
 				22 18 14 12
@@ -363,28 +377,32 @@
 		};
 		CPU_COST_1: core-cost1 {
 			busy-cost-data = <
-				156  240 /*  300000 */
-				220  247 /*  422400 */
-				261  252 /*  499200 */
-				301  257 /*  576000 */
-				341  264 /*  652800 */
-				381  272 /*  729600 */
-				421  281 /*  806400 */
-				461  292 /*  883200 */
-				501  306 /*  960000 */
-				542  324 /* 1036800 */
-				582  346 /* 1113600 */
-				622  373 /* 1190400 */
-				662  407 /* 1267200 */
-				702  450 /* 1344000 */
-				742  504 /* 1420800 */
-				783  570 /* 1497600 */
-				823  649 /* 1574400 */
-				863  743 /* 1651200 */
-				903  849 /* 1728000 */
-				943  960 /* 1804800 */
-				983 1062 /* 1881600 */
-			       1024 1131 /* 1958400 */
+				300000   258
+				422400   260
+				499200   261
+				576000   263
+				652800   267
+				729600   272
+				806400   280
+				883200   291
+				960000   305
+			       1036800   324
+			       1113600   348
+			       1190400   378
+			       1267200   415
+			       1344000   460
+			       1420800   513
+			       1497600   576
+			       1574400   649
+			       1651200   732
+			       1728000   824
+			       1804800   923
+			       1881600  1027
+			       1958400  1131
+			       2035000  1228 /* speedbin 1,2 */
+			       2092000  1290 /* speedbin 1 */
+			       2112000  1308 /* speedbin 2 */
+			       2208000  1363 /* speedbin 2 */
 			>;
 			idle-cost-data = <
 				100 80 60 40
@@ -392,23 +410,27 @@
 		};
 		CLUSTER_COST_0: cluster-cost0 {
 			busy-cost-data = <
-				 92   3 /*  300000 */
-				129   4 /*  422400 */
-				153   4 /*  499200 */
-				177   4 /*  576000 */
-				200   5 /*  652800 */
-				230   5 /*  748800 */
-				253   6 /*  825600 */
-				277   7 /*  902400 */
-				301   7 /*  979200 */
-				324   8 /* 1056000 */
-				348   9 /* 1132800 */
-				371   9 /* 1209600 */
-				395  10 /* 1286400 */
-				419  11 /* 1363200 */
-				442  12 /* 1440000 */
-				466  13 /* 1516800 */
-				490  15 /* 1593600 */
+				 300000   3
+				 422400   4
+				 499200   4
+				 576000   4
+				 652800   5
+				 748800   5
+				 825600   6
+				 902400   7
+				 979200   7
+				1056000   8
+				1132800   9
+				1209600   9
+				1286400  10
+				1363200  11
+				1440000  12
+				1516800  13
+				1593600  15
+				1651200  17 /* speedbin 0,1 */
+				1670400  19 /* speedbin 2 */
+				1708800  21 /* speedbin 0,1 */
+				1747200  23 /* speedbin 2 */
 			>;
 			idle-cost-data = <
 				4 3 2 1
@@ -416,28 +438,32 @@
 		};
 		CLUSTER_COST_1: cluster-cost1 {
 			busy-cost-data = <
-				156  24 /*  300000 */
-				220  24 /*  422400 */
-				261  25 /*  499200 */
-				301  25 /*  576000 */
-				341  26 /*  652800 */
-				381  27 /*  729600 */
-				421  28 /*  806400 */
-				461  29 /*  883200 */
-				501  30 /*  960000 */
-				542  32 /* 1036800 */
-				582  34 /* 1113600 */
-				622  37 /* 1190400 */
-				662  40 /* 1267200 */
-				702  45 /* 1344000 */
-				742  50 /* 1420800 */
-				783  57 /* 1497600 */
-				823  64 /* 1574400 */
-				863  74 /* 1651200 */
-				903  84 /* 1728000 */
-				943  96 /* 1804800 */
-				983 106 /* 1881600 */
-			       1024 113 /* 1958400 */
+				300000  24
+				422400  24
+				499200  25
+				576000  25
+				652800  26
+				729600  27
+				806400  28
+				883200  29
+				960000  30
+			       1036800  32
+			       1113600  34
+			       1190400  37
+			       1267200  40
+			       1344000  45
+			       1420800  50
+			       1497600  57
+			       1574400  64
+			       1651200  74
+			       1728000  84
+			       1804800  96
+			       1881600 106
+			       1958400 113
+			       2035000 120 /* speedbin 1,2 */
+			       2092000 125 /* speedbin 1 */
+			       2112000 127 /* speedbin 2 */
+			       2208000 130 /* speedbin 2 */
 			>;
 			idle-cost-data = <
 				4 3 2 1
@@ -779,19 +805,16 @@
 	cpubw: qcom,cpubw {
 		compatible = "qcom,devbw";
 		governor = "performance";
-		qcom,src-dst-ports = <1 512>;
+		qcom,src-dst-ports =
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_LLCC>;
 		qcom,active-only;
 		qcom,bw-tbl =
-			<  762 /*  200 MHz */ >,
-			< 1144 /*  300 MHz */ >,
-			< 1720 /*  451 MHz */ >,
-			< 2086 /*  547 MHz */ >,
-			< 2597 /*  681 MHz */ >,
-			< 2929 /*  768 MHz */ >,
-			< 3879 /* 1017 MHz */ >,
-			< 4943 /* 1296 MHz */ >,
-			< 5931 /* 1555 MHz */ >,
-			< 6881 /* 1804 MHz */ >;
+			<  2288 /* 150 MHz */ >,
+			<  4577 /* 300 MHz */ >,
+			<  6500 /* 426 MHz */ >,
+			<  8132 /* 533 MHz */ >,
+			<  9155 /* 600 MHz */ >,
+			< 10681 /* 700 MHz */ >;
 	};
 
 	bwmon: qcom,cpu-bwmon {
@@ -808,7 +831,7 @@
 		compatible = "qcom,devbw";
 		governor = "powersave";
 		qcom,src-dst-ports =
-			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_EBI_CH0>;
+			<MSM_BUS_MASTER_LLCC MSM_BUS_SLAVE_EBI_CH0>;
 		qcom,active-only;
 		qcom,bw-tbl =
 			<  762 /*  200 MHz */ >,
@@ -3301,10 +3324,29 @@
 				};
 			};
 			cooling-maps {
-				pop_cdev {
+				pop_cdev4 {
 					trip = <&pop_trip>;
 					cooling-device =
-						<&CPU4 1 THERMAL_NO_LIMIT>;
+						<&CPU4 THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT-1)>;
+				};
+				pop_cdev5 {
+					trip = <&pop_trip>;
+					cooling-device =
+						<&CPU5 THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT-1)>;
+				};
+				pop_cdev6 {
+					trip = <&pop_trip>;
+					cooling-device =
+						<&CPU6 THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT-1)>;
+				};
+				pop_cdev7 {
+					trip = <&pop_trip>;
+					cooling-device =
+						<&CPU7 THERMAL_NO_LIMIT
+							(THERMAL_MAX_LIMIT-1)>;
 				};
 			};
 		};
@@ -3325,15 +3367,15 @@
 			cooling-maps {
 				cpu0_vdd_cdev {
 					trip = <&aoss0_trip>;
-					cooling-device = <&CPU0 12 12>;
+					cooling-device = <&CPU0 4 4>;
 				};
 				cpu4_vdd_cdev {
 					trip = <&aoss0_trip>;
-					cooling-device = <&CPU4 12 12>;
+					cooling-device = <&CPU4 9 9>;
 				};
 				gpu_vdd_cdev {
 					trip = <&aoss0_trip>;
-					cooling-device = <&msm_gpu 4 4>;
+					cooling-device = <&msm_gpu 1 1>;
 				};
 			};
 		};
@@ -3354,15 +3396,15 @@
 			cooling-maps {
 				cpu0_vdd_cdev {
 					trip = <&cpu0_trip>;
-					cooling-device = <&CPU0 12 12>;
+					cooling-device = <&CPU0 4 4>;
 				};
 				cpu4_vdd_cdev {
 					trip = <&cpu0_trip>;
-					cooling-device = <&CPU4 12 12>;
+					cooling-device = <&CPU4 9 9>;
 				};
 				gpu_vdd_cdev {
 					trip = <&cpu0_trip>;
-					cooling-device = <&msm_gpu 4 4>;
+					cooling-device = <&msm_gpu 1 1>;
 				};
 			};
 		};
@@ -3383,15 +3425,15 @@
 			cooling-maps {
 				cpu0_vdd_cdev {
 					trip = <&cpu1_trip>;
-					cooling-device = <&CPU0 12 12>;
+					cooling-device = <&CPU0 4 4>;
 				};
 				cpu4_vdd_cdev {
 					trip = <&cpu1_trip>;
-					cooling-device = <&CPU4 12 12>;
+					cooling-device = <&CPU4 9 9>;
 				};
 				gpu_vdd_cdev {
 					trip = <&cpu1_trip>;
-					cooling-device = <&msm_gpu 4 4>;
+					cooling-device = <&msm_gpu 1 1>;
 				};
 			};
 		};
@@ -3412,15 +3454,15 @@
 			cooling-maps {
 				cpu0_vdd_cdev {
 					trip = <&cpu2_trip>;
-					cooling-device = <&CPU0 12 12>;
+					cooling-device = <&CPU0 4 4>;
 				};
 				cpu4_vdd_cdev {
 					trip = <&cpu2_trip>;
-					cooling-device = <&CPU4 12 12>;
+					cooling-device = <&CPU4 9 9>;
 				};
 				gpu_vdd_cdev {
 					trip = <&cpu2_trip>;
-					cooling-device = <&msm_gpu 4 4>;
+					cooling-device = <&msm_gpu 1 1>;
 				};
 			};
 		};
@@ -3441,15 +3483,15 @@
 			cooling-maps {
 				cpu0_vdd_cdev {
 					trip = <&cpu3_trip>;
-					cooling-device = <&CPU0 12 12>;
+					cooling-device = <&CPU0 4 4>;
 				};
 				cpu4_vdd_cdev {
 					trip = <&cpu3_trip>;
-					cooling-device = <&CPU4 12 12>;
+					cooling-device = <&CPU4 9 9>;
 				};
 				gpu_vdd_cdev {
 					trip = <&cpu3_trip>;
-					cooling-device = <&msm_gpu 4 4>;
+					cooling-device = <&msm_gpu 1 1>;
 				};
 			};
 		};
@@ -3470,15 +3512,15 @@
 			cooling-maps {
 				cpu0_vdd_cdev {
 					trip = <&l3_0_trip>;
-					cooling-device = <&CPU0 12 12>;
+					cooling-device = <&CPU0 4 4>;
 				};
 				cpu4_vdd_cdev {
 					trip = <&l3_0_trip>;
-					cooling-device = <&CPU4 12 12>;
+					cooling-device = <&CPU4 9 9>;
 				};
 				gpu_vdd_cdev {
 					trip = <&l3_0_trip>;
-					cooling-device = <&msm_gpu 4 4>;
+					cooling-device = <&msm_gpu 1 1>;
 				};
 			};
 		};
@@ -3499,15 +3541,15 @@
 			cooling-maps {
 				cpu0_vdd_cdev {
 					trip = <&l3_1_trip>;
-					cooling-device = <&CPU0 12 12>;
+					cooling-device = <&CPU0 4 4>;
 				};
 				cpu4_vdd_cdev {
 					trip = <&l3_1_trip>;
-					cooling-device = <&CPU4 12 12>;
+					cooling-device = <&CPU4 9 9>;
 				};
 				gpu_vdd_cdev {
 					trip = <&l3_1_trip>;
-					cooling-device = <&msm_gpu 4 4>;
+					cooling-device = <&msm_gpu 1 1>;
 				};
 			};
 		};
@@ -3528,15 +3570,15 @@
 			cooling-maps {
 				cpu0_vdd_cdev {
 					trip = <&cpug0_trip>;
-					cooling-device = <&CPU0 12 12>;
+					cooling-device = <&CPU0 4 4>;
 				};
 				cpu4_vdd_cdev {
 					trip = <&cpug0_trip>;
-					cooling-device = <&CPU4 12 12>;
+					cooling-device = <&CPU4 9 9>;
 				};
 				gpu_vdd_cdev {
 					trip = <&cpug0_trip>;
-					cooling-device = <&msm_gpu 4 4>;
+					cooling-device = <&msm_gpu 1 1>;
 				};
 			};
 		};
@@ -3557,15 +3599,15 @@
 			cooling-maps {
 				cpu0_vdd_cdev {
 					trip = <&cpug1_trip>;
-					cooling-device = <&CPU0 12 12>;
+					cooling-device = <&CPU0 4 4>;
 				};
 				cpu4_vdd_cdev {
 					trip = <&cpug1_trip>;
-					cooling-device = <&CPU4 12 12>;
+					cooling-device = <&CPU4 9 9>;
 				};
 				gpu_vdd_cdev {
 					trip = <&cpug1_trip>;
-					cooling-device = <&msm_gpu 4 4>;
+					cooling-device = <&msm_gpu 1 1>;
 				};
 			};
 		};
@@ -3586,15 +3628,15 @@
 			cooling-maps {
 				cpu0_vdd_cdev {
 					trip = <&cpug2_trip>;
-					cooling-device = <&CPU0 12 12>;
+					cooling-device = <&CPU0 4 4>;
 				};
 				cpu4_vdd_cdev {
 					trip = <&cpug2_trip>;
-					cooling-device = <&CPU4 12 12>;
+					cooling-device = <&CPU4 9 9>;
 				};
 				gpu_vdd_cdev {
 					trip = <&cpug2_trip>;
-					cooling-device = <&msm_gpu 4 4>;
+					cooling-device = <&msm_gpu 1 1>;
 				};
 			};
 		};
@@ -3615,15 +3657,15 @@
 			cooling-maps {
 				cpu0_vdd_cdev {
 					trip = <&cpug3_trip>;
-					cooling-device = <&CPU0 12 12>;
+					cooling-device = <&CPU0 4 4>;
 				};
 				cpu4_vdd_cdev {
 					trip = <&cpug3_trip>;
-					cooling-device = <&CPU4 12 12>;
+					cooling-device = <&CPU4 9 9>;
 				};
 				gpu_vdd_cdev {
 					trip = <&cpug3_trip>;
-					cooling-device = <&msm_gpu 4 4>;
+					cooling-device = <&msm_gpu 1 1>;
 				};
 			};
 		};
@@ -3644,15 +3686,15 @@
 			cooling-maps {
 				cpu0_vdd_cdev {
 					trip = <&gpu0_trip_l>;
-					cooling-device = <&CPU0 12 12>;
+					cooling-device = <&CPU0 4 4>;
 				};
 				cpu4_vdd_cdev {
 					trip = <&gpu0_trip_l>;
-					cooling-device = <&CPU4 12 12>;
+					cooling-device = <&CPU4 9 9>;
 				};
 				gpu_vdd_cdev {
 					trip = <&gpu0_trip_l>;
-					cooling-device = <&msm_gpu 4 4>;
+					cooling-device = <&msm_gpu 1 1>;
 				};
 			};
 		};
@@ -3673,15 +3715,15 @@
 			cooling-maps {
 				cpu0_vdd_cdev {
 					trip = <&gpu1_trip_l>;
-					cooling-device = <&CPU0 12 12>;
+					cooling-device = <&CPU0 4 4>;
 				};
 				cpu4_vdd_cdev {
 					trip = <&gpu1_trip_l>;
-					cooling-device = <&CPU4 12 12>;
+					cooling-device = <&CPU4 9 9>;
 				};
 				gpu_vdd_cdev {
 					trip = <&gpu1_trip_l>;
-					cooling-device = <&msm_gpu 4 4>;
+					cooling-device = <&msm_gpu 1 1>;
 				};
 			};
 		};
@@ -3702,15 +3744,15 @@
 			cooling-maps {
 				cpu0_vdd_cdev {
 					trip = <&aoss1_trip>;
-					cooling-device = <&CPU0 12 12>;
+					cooling-device = <&CPU0 4 4>;
 				};
 				cpu4_vdd_cdev {
 					trip = <&aoss1_trip>;
-					cooling-device = <&CPU4 12 12>;
+					cooling-device = <&CPU4 9 9>;
 				};
 				gpu_vdd_cdev {
 					trip = <&aoss1_trip>;
-					cooling-device = <&msm_gpu 4 4>;
+					cooling-device = <&msm_gpu 1 1>;
 				};
 			};
 		};
@@ -3731,15 +3773,15 @@
 			cooling-maps {
 				cpu0_vdd_cdev {
 					trip = <&dsp_trip>;
-					cooling-device = <&CPU0 12 12>;
+					cooling-device = <&CPU0 4 4>;
 				};
 				cpu4_vdd_cdev {
 					trip = <&dsp_trip>;
-					cooling-device = <&CPU4 12 12>;
+					cooling-device = <&CPU4 9 9>;
 				};
 				gpu_vdd_cdev {
 					trip = <&dsp_trip>;
-					cooling-device = <&msm_gpu 4 4>;
+					cooling-device = <&msm_gpu 1 1>;
 				};
 			};
 		};
@@ -3760,15 +3802,15 @@
 			cooling-maps {
 				cpu0_vdd_cdev {
 					trip = <&ddr_trip>;
-					cooling-device = <&CPU0 12 12>;
+					cooling-device = <&CPU0 4 4>;
 				};
 				cpu4_vdd_cdev {
 					trip = <&ddr_trip>;
-					cooling-device = <&CPU4 12 12>;
+					cooling-device = <&CPU4 9 9>;
 				};
 				gpu_vdd_cdev {
 					trip = <&ddr_trip>;
-					cooling-device = <&msm_gpu 4 4>;
+					cooling-device = <&msm_gpu 1 1>;
 				};
 			};
 		};
@@ -3789,15 +3831,15 @@
 			cooling-maps {
 				cpu0_vdd_cdev {
 					trip = <&wlan_trip>;
-					cooling-device = <&CPU0 12 12>;
+					cooling-device = <&CPU0 4 4>;
 				};
 				cpu4_vdd_cdev {
 					trip = <&wlan_trip>;
-					cooling-device = <&CPU4 12 12>;
+					cooling-device = <&CPU4 9 9>;
 				};
 				gpu_vdd_cdev {
 					trip = <&wlan_trip>;
-					cooling-device = <&msm_gpu 4 4>;
+					cooling-device = <&msm_gpu 1 1>;
 				};
 			};
 		};
@@ -3818,15 +3860,15 @@
 			cooling-maps {
 				cpu0_vdd_cdev {
 					trip = <&hvx_trip>;
-					cooling-device = <&CPU0 12 12>;
+					cooling-device = <&CPU0 4 4>;
 				};
 				cpu4_vdd_cdev {
 					trip = <&hvx_trip>;
-					cooling-device = <&CPU4 12 12>;
+					cooling-device = <&CPU4 9 9>;
 				};
 				gpu_vdd_cdev {
 					trip = <&hvx_trip>;
-					cooling-device = <&msm_gpu 4 4>;
+					cooling-device = <&msm_gpu 1 1>;
 				};
 			};
 		};
@@ -3847,15 +3889,15 @@
 			cooling-maps {
 				cpu0_vdd_cdev {
 					trip = <&camera_trip>;
-					cooling-device = <&CPU0 12 12>;
+					cooling-device = <&CPU0 4 4>;
 				};
 				cpu4_vdd_cdev {
 					trip = <&camera_trip>;
-					cooling-device = <&CPU4 12 12>;
+					cooling-device = <&CPU4 9 9>;
 				};
 				gpu_vdd_cdev {
 					trip = <&camera_trip>;
-					cooling-device = <&msm_gpu 4 4>;
+					cooling-device = <&msm_gpu 1 1>;
 				};
 			};
 		};
@@ -3876,15 +3918,15 @@
 			cooling-maps {
 				cpu0_vdd_cdev {
 					trip = <&mmss_trip>;
-					cooling-device = <&CPU0 12 12>;
+					cooling-device = <&CPU0 4 4>;
 				};
 				cpu4_vdd_cdev {
 					trip = <&mmss_trip>;
-					cooling-device = <&CPU4 12 12>;
+					cooling-device = <&CPU4 9 9>;
 				};
 				gpu_vdd_cdev {
 					trip = <&mmss_trip>;
-					cooling-device = <&msm_gpu 4 4>;
+					cooling-device = <&msm_gpu 1 1>;
 				};
 			};
 		};
@@ -3905,15 +3947,15 @@
 			cooling-maps {
 				cpu0_vdd_cdev {
 					trip = <&mdm_trip>;
-					cooling-device = <&CPU0 12 12>;
+					cooling-device = <&CPU0 4 4>;
 				};
 				cpu4_vdd_cdev {
 					trip = <&mdm_trip>;
-					cooling-device = <&CPU4 12 12>;
+					cooling-device = <&CPU4 9 9>;
 				};
 				gpu_vdd_cdev {
 					trip = <&mdm_trip>;
-					cooling-device = <&msm_gpu 4 4>;
+					cooling-device = <&msm_gpu 1 1>;
 				};
 			};
 		};
@@ -4220,39 +4262,86 @@
 	cooling-maps {
 		trip0_cpu0 {
 			trip = <&pm8998_trip0>;
-			cooling-device = <&CPU0 21 21>;
+			cooling-device =
+				<&CPU0 (THERMAL_MAX_LIMIT-1)
+					(THERMAL_MAX_LIMIT-1)>;
+		};
+		trip0_cpu1 {
+			trip = <&pm8998_trip0>;
+			cooling-device =
+				<&CPU1 (THERMAL_MAX_LIMIT-1)
+					(THERMAL_MAX_LIMIT-1)>;
+		};
+		trip0_cpu2 {
+			trip = <&pm8998_trip0>;
+			cooling-device =
+				<&CPU2 (THERMAL_MAX_LIMIT-1)
+					(THERMAL_MAX_LIMIT-1)>;
+		};
+		trip0_cpu3 {
+			trip = <&pm8998_trip0>;
+			cooling-device =
+				<&CPU3 (THERMAL_MAX_LIMIT-1)
+					(THERMAL_MAX_LIMIT-1)>;
 		};
 		trip0_cpu4 {
 			trip = <&pm8998_trip0>;
-			cooling-device = <&CPU4 21 21>;
+			cooling-device =
+				<&CPU4 (THERMAL_MAX_LIMIT-1)
+					(THERMAL_MAX_LIMIT-1)>;
+		};
+		trip0_cpu5 {
+			trip = <&pm8998_trip0>;
+			cooling-device =
+				<&CPU5 (THERMAL_MAX_LIMIT-1)
+					(THERMAL_MAX_LIMIT-1)>;
+		};
+		trip0_cpu6 {
+			trip = <&pm8998_trip0>;
+			cooling-device =
+				<&CPU6 (THERMAL_MAX_LIMIT-1)
+					(THERMAL_MAX_LIMIT-1)>;
+		};
+		trip0_cpu7 {
+			trip = <&pm8998_trip0>;
+			cooling-device =
+				<&CPU7 (THERMAL_MAX_LIMIT-1)
+					(THERMAL_MAX_LIMIT-1)>;
 		};
 		trip1_cpu1 {
 			trip = <&pm8998_trip1>;
-			cooling-device = <&CPU1 22 22>;
+			cooling-device =
+				<&CPU1 THERMAL_MAX_LIMIT THERMAL_MAX_LIMIT>;
 		};
 		trip1_cpu2 {
 			trip = <&pm8998_trip1>;
-			cooling-device = <&CPU2 22 22>;
+			cooling-device =
+				<&CPU2 THERMAL_MAX_LIMIT THERMAL_MAX_LIMIT>;
 		};
 		trip1_cpu3 {
 			trip = <&pm8998_trip1>;
-			cooling-device = <&CPU3 22 22>;
+			cooling-device =
+				<&CPU3 THERMAL_MAX_LIMIT THERMAL_MAX_LIMIT>;
 		};
 		trip1_cpu4 {
 			trip = <&pm8998_trip1>;
-			cooling-device = <&CPU4 22 22>;
+			cooling-device =
+				<&CPU4 THERMAL_MAX_LIMIT THERMAL_MAX_LIMIT>;
 		};
 		trip1_cpu5 {
 			trip = <&pm8998_trip1>;
-			cooling-device = <&CPU5 22 22>;
+			cooling-device =
+				<&CPU5 THERMAL_MAX_LIMIT THERMAL_MAX_LIMIT>;
 		};
 		trip1_cpu6 {
 			trip = <&pm8998_trip1>;
-			cooling-device = <&CPU6 22 22>;
+			cooling-device =
+				<&CPU6 THERMAL_MAX_LIMIT THERMAL_MAX_LIMIT>;
 		};
 		trip1_cpu7 {
 			trip = <&pm8998_trip1>;
-			cooling-device = <&CPU7 22 22>;
+			cooling-device =
+				<&CPU7 THERMAL_MAX_LIMIT THERMAL_MAX_LIMIT>;
 		};
 	};
 };

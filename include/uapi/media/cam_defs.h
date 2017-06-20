@@ -7,14 +7,15 @@
 
 
 /* camera op codes */
-#define CAM_COMMON_OPCODE_BASE                  0
-#define CAM_QUERY_CAP                           1
-#define CAM_ACQUIRE_DEV                         2
-#define CAM_START_DEV                           3
-#define CAM_STOP_DEV                            4
-#define CAM_CONFIG_DEV                          5
-#define CAM_RELEASE_DEV                         6
-#define CAM_COMMON_OPCODE_MAX                   7
+#define CAM_COMMON_OPCODE_BASE                  0x100
+#define CAM_QUERY_CAP                           (CAM_COMMON_OPCODE_BASE + 0x1)
+#define CAM_ACQUIRE_DEV                         (CAM_COMMON_OPCODE_BASE + 0x2)
+#define CAM_START_DEV                           (CAM_COMMON_OPCODE_BASE + 0x3)
+#define CAM_STOP_DEV                            (CAM_COMMON_OPCODE_BASE + 0x4)
+#define CAM_CONFIG_DEV                          (CAM_COMMON_OPCODE_BASE + 0x5)
+#define CAM_RELEASE_DEV                         (CAM_COMMON_OPCODE_BASE + 0x6)
+#define CAM_SD_SHUTDOWN                         (CAM_COMMON_OPCODE_BASE + 0x7)
+#define CAM_COMMON_OPCODE_MAX                   (CAM_COMMON_OPCODE_BASE + 0x8)
 
 /* camera handle type */
 #define CAM_HANDLE_USER_POINTER                 1

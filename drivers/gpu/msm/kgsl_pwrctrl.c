@@ -2740,7 +2740,8 @@ static int _suspend(struct kgsl_device *device)
 	int ret = 0;
 
 	if ((device->state == KGSL_STATE_NONE) ||
-			(device->state == KGSL_STATE_INIT))
+			(device->state == KGSL_STATE_INIT) ||
+			(device->state == KGSL_STATE_SUSPEND))
 		return ret;
 
 	/* drain to prevent from more commands being submitted */
@@ -2807,6 +2808,7 @@ int kgsl_pwrctrl_change_state(struct kgsl_device *device, int state)
 		break;
 	case KGSL_STATE_SUSPEND:
 		status = _suspend(device);
+		break;
 	case KGSL_STATE_RESET:
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_RESET);
 		break;

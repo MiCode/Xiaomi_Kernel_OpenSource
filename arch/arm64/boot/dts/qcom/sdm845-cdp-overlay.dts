@@ -19,7 +19,6 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include "sdm845-cdp.dtsi"
-#include "sdm845-qupv3.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM845 v1 CDP";

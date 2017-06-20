@@ -38,6 +38,11 @@ struct dp_display_private {
 	char *name;
 	int irq;
 
+	/* state variables */
+	bool core_initialized;
+	bool power_on;
+	bool hpd_irq_on;
+
 	struct platform_device *pdev;
 	struct dentry *root;
 	struct mutex lock;
@@ -255,30 +260,63 @@ static const struct component_ops dp_display_comp_ops = {
 
 static int dp_display_process_hpd_high(struct dp_display_private *dp)
 {
-	int rc;
+	int rc = 0;
 
 	rc = dp->panel->read_dpcd(dp->panel);
 	if (rc)
-		goto end;
+		return rc;
 
 	sde_get_edid(dp->dp_display.connector, &dp->aux->drm_aux->ddc,
 		(void **)&dp->panel->edid_ctrl);
 
-	return 0;
-end:
+	dp->dp_display.is_connected = true;
+	drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
+
 	return rc;
 }
 
-static int dp_display_process_hpd_low(struct dp_display_private *dp)
+static void dp_display_host_init(struct dp_display_private *dp)
+{
+	bool flip = false;
+
+	if (dp->core_initialized) {
+		pr_debug("DP core already initialized\n");
+		return;
+	}
+
+	if (dp->usbpd->orientation == ORIENTATION_CC2)
+		flip = true;
+
+	dp->power->init(dp->power, flip);
+	dp->ctrl->init(dp->ctrl, flip);
+	dp->aux->init(dp->aux, dp->parser->aux_cfg);
+	enable_irq(dp->irq);
+	dp->core_initialized = true;
+}
+
+static void dp_display_host_deinit(struct dp_display_private *dp)
+{
+	if (!dp->core_initialized) {
+		pr_debug("DP core already off\n");
+		return;
+	}
+
+	dp->aux->deinit(dp->aux);
+	dp->ctrl->deinit(dp->ctrl);
+	dp->power->deinit(dp->power);
+	disable_irq(dp->irq);
+	dp->core_initialized = false;
+}
+
+static void dp_display_process_hpd_low(struct dp_display_private *dp)
 {
 	dp->dp_display.is_connected = false;
-	return 0;
+	drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
 }
 
 static int dp_display_usbpd_configure_cb(struct device *dev)
 {
 	int rc = 0;
-	bool flip = false;
 	struct dp_display_private *dp;
 
 	if (!dev) {
@@ -295,19 +333,9 @@ static int dp_display_usbpd_configure_cb(struct device *dev)
 	}
 
 	mutex_lock(&dp->lock);
-
-	if (dp->usbpd->orientation == ORIENTATION_CC2)
-		flip = true;
-
-	dp->power->init(dp->power, flip);
-	dp->ctrl->init(dp->ctrl, flip);
-	dp->aux->init(dp->aux, dp->parser->aux_cfg);
-	enable_irq(dp->irq);
-
+	dp_display_host_init(dp);
 	if (dp->usbpd->hpd_high)
 		dp_display_process_hpd_high(dp);
-	dp->dp_display.is_connected = true;
-
 	mutex_unlock(&dp->lock);
 end:
 	return rc;
@@ -332,10 +360,23 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 	}
 
 	mutex_lock(&dp->lock);
-	dp->dp_display.is_connected = false;
-	disable_irq(dp->irq);
-	mutex_unlock(&dp->lock);
 
+	dp->dp_display.is_connected = false;
+	drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
+
+	/*
+	 * If a cable/dongle is connected to the TX device but
+	 * no sink device is connected, we call host
+	 * initialization where orientation settings are
+	 * configured. When the cable/dongle is disconnect,
+	 * call host de-initialization to make sure
+	 * we re-configure the orientation settings during
+	 * the next connect event.
+	 */
+	if (!dp->power_on && dp->core_initialized)
+		dp_display_host_deinit(dp);
+
+	mutex_unlock(&dp->lock);
 end:
 	return rc;
 }
@@ -347,31 +388,36 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 
 	if (!dev) {
 		pr_err("invalid dev\n");
-		rc = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
 	dp = dev_get_drvdata(dev);
 	if (!dp) {
 		pr_err("no driver data found\n");
-		rc = -ENODEV;
-		goto end;
+		return -ENODEV;
 	}
 
 	mutex_lock(&dp->lock);
 
 	if (dp->usbpd->hpd_irq) {
-		if (!dp->link->process_request(dp->link))
+		dp->hpd_irq_on = true;
+		rc = dp->link->process_request(dp->link);
+		dp->hpd_irq_on = false;
+		if (!rc)
 			goto end;
 	}
 
-	if (dp->usbpd->hpd_high)
-		dp_display_process_hpd_high(dp);
-	else
+	if (!dp->usbpd->hpd_high) {
 		dp_display_process_hpd_low(dp);
+		goto end;
+	}
 
-	mutex_unlock(&dp->lock);
+	if (dp->usbpd->alt_mode_cfg_done) {
+		dp_display_host_init(dp);
+		dp_display_process_hpd_high(dp);
+	}
 end:
+	mutex_unlock(&dp->lock);
 	return rc;
 }
 
@@ -492,7 +538,9 @@ static int dp_display_enable(struct dp_display *dp_display)
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
 	mutex_lock(&dp->lock);
-	dp->ctrl->on(dp->ctrl);
+	rc = dp->ctrl->on(dp->ctrl, dp->hpd_irq_on);
+	if (!rc)
+		dp->power_on = true;
 	mutex_unlock(&dp->lock);
 error:
 	return rc;
@@ -517,9 +565,7 @@ static int dp_display_pre_disable(struct dp_display *dp_display)
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
 	mutex_lock(&dp->lock);
-
-	dp->ctrl->off(dp->ctrl);
-
+	dp->ctrl->push_idle(dp->ctrl);
 	mutex_unlock(&dp->lock);
 error:
 	return rc;
@@ -539,11 +585,9 @@ static int dp_display_disable(struct dp_display *dp_display)
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
 	mutex_lock(&dp->lock);
-
-	dp->aux->deinit(dp->aux);
-	dp->ctrl->deinit(dp->ctrl);
-	dp->power->deinit(dp->power);
-
+	dp->ctrl->off(dp->ctrl, dp->hpd_irq_on);
+	dp_display_host_deinit(dp);
+	dp->power_on = false;
 	mutex_unlock(&dp->lock);
 error:
 	return rc;

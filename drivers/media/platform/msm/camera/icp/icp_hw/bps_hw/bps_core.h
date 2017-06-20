@@ -26,6 +26,7 @@ struct cam_bps_device_hw_info {
 struct cam_bps_device_core_info {
 	struct cam_bps_device_hw_info *bps_hw_info;
 	uint32_t cpas_handle;
+	bool cpas_start;
 };
 
 int cam_bps_init_hw(void *device_priv,

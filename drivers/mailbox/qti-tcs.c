@@ -852,7 +852,6 @@ static int chan_tcs_write(struct mbox_chan *chan, void *data)
 	struct tcs_mbox_msg *msg = data;
 	const struct device *dev = chan->cl->dev;
 	int ret = 0;
-	int count = 0;
 
 	if (!msg) {
 		dev_err(dev, "Payload error\n");
@@ -894,12 +893,7 @@ static int chan_tcs_write(struct mbox_chan *chan, void *data)
 		tcs_mbox_invalidate(chan);
 
 	/* Post the message to the TCS and trigger */
-	do {
-		ret = tcs_mbox_write(chan, msg, true);
-		if (ret != -EBUSY)
-			break;
-		udelay(100);
-	} while (++count < 100);
+	ret = tcs_mbox_write(chan, msg, true);
 
 tx_fail:
 	/* If there was an error in the request, schedule a response */
@@ -915,7 +909,7 @@ tx_fail:
 
 	/* If we were just busy waiting for TCS, dump the state and return */
 	if (ret == -EBUSY) {
-		dev_err(dev, "TCS Busy, retrying RPMH message send\n");
+		pr_info("TCS Busy, retrying RPMH message send\n");
 		dump_tcs_stats(drv);
 		ret = -EAGAIN;
 	}

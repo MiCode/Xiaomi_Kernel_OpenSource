@@ -974,6 +974,11 @@ static u32 sde_hw_intr_get_interrupt_status(struct sde_hw_intr *intr,
 	if (!intr)
 		return 0;
 
+	if (irq_idx >= ARRAY_SIZE(sde_irq_map) || irq_idx < 0) {
+		pr_err("invalid IRQ index: [%d]\n", irq_idx);
+		return 0;
+	}
+
 	spin_lock_irqsave(&intr->mask_lock, irq_flags);
 
 	reg_idx = sde_irq_map[irq_idx].reg_idx;

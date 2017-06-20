@@ -278,19 +278,22 @@ int cam_a5_init_hw(void *device_priv,
 
 	rc = cam_cpas_start(core_info->cpas_handle,
 		&cpas_vote.ahb_vote, &cpas_vote.axi_vote);
-	if (rc < 0) {
+	if (rc) {
 		pr_err("cpass start failed: %d\n", rc);
 		return rc;
 	}
+	core_info->cpas_start = true;
 
 	rc = cam_a5_enable_soc_resources(soc_info);
-	if (rc < 0) {
-		pr_err("soc enable is failed\n");
-		rc = cam_cpas_stop(core_info->cpas_handle);
-		return rc;
+	if (rc) {
+		pr_err("soc enable is failed: %d\n", rc);
+		if (cam_cpas_stop(core_info->cpas_handle))
+			pr_err("cpas stop is failed\n");
+		else
+			core_info->cpas_start = false;
 	}
 
-	return 0;
+	return rc;
 }
 
 int cam_a5_deinit_hw(void *device_priv,
@@ -314,14 +317,17 @@ int cam_a5_deinit_hw(void *device_priv,
 	}
 
 	rc = cam_a5_disable_soc_resources(soc_info);
-	if (rc < 0)
-		pr_err("soc enable is failed\n");
+	if (rc)
+		pr_err("soc disable is failed: %d\n", rc);
 
-	rc = cam_cpas_stop(core_info->cpas_handle);
-	if (rc < 0)
-		pr_err("cpas stop is failed: %d\n", rc);
+	if (core_info->cpas_start) {
+		if (cam_cpas_stop(core_info->cpas_handle))
+			pr_err("cpas stop is failed\n");
+		else
+			core_info->cpas_start = false;
+	}
 
-	return 0;
+	return rc;
 }
 
 irqreturn_t cam_a5_irq(int irq_num, void *data)
@@ -443,13 +449,20 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 			return -EINVAL;
 		}
 
-		rc = cam_cpas_start(core_info->cpas_handle,
-				&cpas_vote->ahb_vote, &cpas_vote->axi_vote);
+		if (!core_info->cpas_start) {
+			rc = cam_cpas_start(core_info->cpas_handle,
+					&cpas_vote->ahb_vote,
+					&cpas_vote->axi_vote);
+			core_info->cpas_start = true;
+		}
 		break;
 	}
 
 	case CAM_ICP_A5_CMD_CPAS_STOP:
-		cam_cpas_stop(core_info->cpas_handle);
+		if (core_info->cpas_start) {
+			cam_cpas_stop(core_info->cpas_handle);
+			core_info->cpas_start = false;
+		}
 		break;
 	default:
 		break;

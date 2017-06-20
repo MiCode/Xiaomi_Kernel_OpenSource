@@ -906,6 +906,10 @@ static ssize_t ipa3_read_flt(struct file *file, char __user *ubuf, size_t count,
 			pr_err("hashable:%u rule_id:%u max_prio:%u prio:%u ",
 				entry->rule.hashable, entry->rule_id,
 				entry->rule.max_prio, entry->prio);
+			if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
+				pr_err("pdn index %d, set metadata %d ",
+					entry->rule.pdn_idx,
+					entry->rule.set_metadata);
 			if (eq)
 				ipa3_attrib_dump_eq(
 					&entry->rule.eq_attrib);
@@ -968,6 +972,10 @@ static ssize_t ipa3_read_flt_hw(struct file *file, char __user *ubuf,
 				bitmap, rules[rl].rule.retain_hdr);
 			pr_err("rule_id:%u prio:%u ",
 				rules[rl].id, rules[rl].priority);
+			if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
+				pr_err("pdn: %u, set_metadata: %u ",
+					rules[rl].rule.pdn_idx,
+					rules[rl].rule.set_metadata);
 			ipa3_attrib_dump_eq(&rules[rl].rule.eq_attrib);
 		}
 
@@ -992,6 +1000,10 @@ static ssize_t ipa3_read_flt_hw(struct file *file, char __user *ubuf,
 				bitmap, rules[rl].rule.retain_hdr);
 			pr_err("rule_id:%u  prio:%u ",
 				rules[rl].id, rules[rl].priority);
+			if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
+				pr_err("pdn: %u, set_metadata: %u ",
+					rules[rl].rule.pdn_idx,
+					rules[rl].rule.set_metadata);
 			ipa3_attrib_dump_eq(&rules[rl].rule.eq_attrib);
 		}
 		pr_err("\n");
@@ -1502,6 +1514,7 @@ static ssize_t ipa3_read_nat4(struct file *file,
 	u32 value, i, j, rule_id;
 	u16 enable, tbl_entry, flag;
 	u32 no_entrys = 0;
+	struct ipa_pdn_entry *pdn_table = ipa3_ctx->nat_mem.pdn_mem.base;
 
 	mutex_lock(&ipa3_ctx->nat_mem.lock);
 	value = ipa3_ctx->nat_mem.public_ip_addr;
@@ -1511,6 +1524,15 @@ static ssize_t ipa3_read_nat4(struct file *file,
 				((value & 0x00FF0000) >> 16),
 				((value & 0x0000FF00) >> 8),
 				((value & 0x000000FF)));
+
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
+		for (i = 0; i < IPA_MAX_PDN_NUM; i++) {
+			pr_err(
+				"PDN %d: ip 0x%X, src_metadata 0x%X, dst_metadata 0x%X\n",
+				i, pdn_table[i].public_ip,
+				pdn_table[i].src_metadata,
+				pdn_table[i].dst_metadata);
+		}
 
 	pr_err("Table Size:%d\n",
 				ipa3_ctx->nat_mem.size_base_tables);

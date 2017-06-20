@@ -54,8 +54,8 @@
 #define SDE_ROTATOR_DEGREE_180		180
 #define SDE_ROTATOR_DEGREE_90		90
 
-static void sde_rotator_submit_handler(struct work_struct *work);
-static void sde_rotator_retire_handler(struct work_struct *work);
+static void sde_rotator_submit_handler(struct kthread_work *work);
+static void sde_rotator_retire_handler(struct kthread_work *work);
 #ifdef CONFIG_COMPAT
 static long sde_rotator_compat_ioctl32(struct file *file,
 	unsigned int cmd, unsigned long arg);
@@ -467,8 +467,8 @@ static void sde_rotator_stop_streaming(struct vb2_queue *q)
 			SDEDEV_DBG(rot_dev->dev, "cancel request s:%d\n",
 					ctx->session_id);
 			mutex_unlock(q->lock);
-			cancel_work_sync(&request->submit_work);
-			cancel_work_sync(&request->retire_work);
+			kthread_cancel_work_sync(&request->submit_work);
+			kthread_cancel_work_sync(&request->retire_work);
 			mutex_lock(q->lock);
 			spin_lock(&ctx->list_lock);
 			list_del_init(&request->list);
@@ -926,9 +926,9 @@ struct sde_rotator_ctx *sde_rotator_ctx_open(
 	for (i = 0 ; i < ARRAY_SIZE(ctx->requests); i++) {
 		struct sde_rotator_request *request = &ctx->requests[i];
 
-		INIT_WORK(&request->submit_work,
+		kthread_init_work(&request->submit_work,
 				sde_rotator_submit_handler);
-		INIT_WORK(&request->retire_work,
+		kthread_init_work(&request->retire_work,
 				sde_rotator_retire_handler);
 		request->ctx = ctx;
 		INIT_LIST_HEAD(&request->list);
@@ -965,14 +965,16 @@ struct sde_rotator_ctx *sde_rotator_ctx_open(
 
 	snprintf(name, sizeof(name), "rot_fenceq_%d_%d", rot_dev->dev->id,
 			ctx->session_id);
-	ctx->work_queue.rot_work_queue = alloc_ordered_workqueue("%s",
-			WQ_MEM_RECLAIM | WQ_HIGHPRI, name);
-	if (!ctx->work_queue.rot_work_queue) {
-		SDEDEV_ERR(ctx->rot_dev->dev, "fail allocate workqueue\n");
+	kthread_init_worker(&ctx->work_queue.rot_kw);
+	ctx->work_queue.rot_thread = kthread_run(kthread_worker_fn,
+			&ctx->work_queue.rot_kw, name);
+	if (IS_ERR(ctx->work_queue.rot_thread)) {
+		SDEDEV_ERR(ctx->rot_dev->dev, "fail allocate kthread\n");
 		ret = -EPERM;
+		ctx->work_queue.rot_thread = NULL;
 		goto error_alloc_workqueue;
 	}
-	SDEDEV_DBG(ctx->rot_dev->dev, "work queue name=%s\n", name);
+	SDEDEV_DBG(ctx->rot_dev->dev, "kthread name=%s\n", name);
 
 	snprintf(name, sizeof(name), "%d_%d", rot_dev->dev->id,
 			ctx->session_id);
@@ -1022,7 +1024,8 @@ error_ctrl_handler:
 error_open_session:
 	sde_rot_mgr_unlock(rot_dev->mgr);
 	sde_rotator_destroy_timeline(ctx->work_queue.timeline);
-	destroy_workqueue(ctx->work_queue.rot_work_queue);
+	kthread_flush_worker(&ctx->work_queue.rot_kw);
+	kthread_stop(ctx->work_queue.rot_thread);
 error_alloc_workqueue:
 	sysfs_remove_group(&ctx->kobj, &sde_rotator_fs_attr_group);
 error_create_sysfs:
@@ -1072,7 +1075,7 @@ static int sde_rotator_ctx_release(struct sde_rotator_ctx *ctx,
 
 		SDEDEV_DBG(rot_dev->dev, "release submit work s:%d\n",
 				session_id);
-		cancel_work_sync(&request->submit_work);
+		kthread_cancel_work_sync(&request->submit_work);
 	}
 	SDEDEV_DBG(rot_dev->dev, "release session s:%d\n", session_id);
 	sde_rot_mgr_lock(rot_dev->mgr);
@@ -1085,12 +1088,13 @@ static int sde_rotator_ctx_release(struct sde_rotator_ctx *ctx,
 
 		SDEDEV_DBG(rot_dev->dev, "release retire work s:%d\n",
 				session_id);
-		cancel_work_sync(&request->retire_work);
+		kthread_cancel_work_sync(&request->retire_work);
 	}
 	mutex_lock(&rot_dev->lock);
 	SDEDEV_DBG(rot_dev->dev, "release context s:%d\n", session_id);
 	sde_rotator_destroy_timeline(ctx->work_queue.timeline);
-	destroy_workqueue(ctx->work_queue.rot_work_queue);
+	kthread_flush_worker(&ctx->work_queue.rot_kw);
+	kthread_stop(ctx->work_queue.rot_thread);
 	sysfs_remove_group(&ctx->kobj, &sde_rotator_fs_attr_group);
 	kobject_put(&ctx->kobj);
 	if (ctx->file) {
@@ -1609,7 +1613,7 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 		} else {
 			SDEROT_ERR("invalid stats timestamp\n");
 		}
-		req->retireq = ctx->work_queue.rot_work_queue;
+		req->retire_kw = &ctx->work_queue.rot_kw;
 		req->retire_work = &request->retire_work;
 
 		trace_rot_entry_fence(
@@ -2719,7 +2723,7 @@ static const struct v4l2_ioctl_ops sde_rotator_ioctl_ops = {
  *
  * This function is scheduled in work queue context.
  */
-static void sde_rotator_retire_handler(struct work_struct *work)
+static void sde_rotator_retire_handler(struct kthread_work *work)
 {
 	struct vb2_v4l2_buffer *src_buf;
 	struct vb2_v4l2_buffer *dst_buf;
@@ -2909,7 +2913,7 @@ static int sde_rotator_process_buffers(struct sde_rotator_ctx *ctx,
 		goto error_init_request;
 	}
 
-	req->retireq = ctx->work_queue.rot_work_queue;
+	req->retire_kw = &ctx->work_queue.rot_kw;
 	req->retire_work = &request->retire_work;
 
 	ret = sde_rotator_handle_request_common(
@@ -2938,7 +2942,7 @@ error_null_buffer:
  *
  * This function is scheduled in work queue context.
  */
-static void sde_rotator_submit_handler(struct work_struct *work)
+static void sde_rotator_submit_handler(struct kthread_work *work)
 {
 	struct sde_rotator_ctx *ctx;
 	struct sde_rotator_device *rot_dev;
@@ -3203,7 +3207,7 @@ static int sde_rotator_job_ready(void *priv)
 			list_del_init(&request->list);
 			list_add_tail(&request->list, &ctx->pending_list);
 			spin_unlock(&ctx->list_lock);
-			queue_work(ctx->work_queue.rot_work_queue,
+			kthread_queue_work(&ctx->work_queue.rot_kw,
 					&request->submit_work);
 		}
 	} else if (request && !atomic_read(&request->req->pending_count)) {

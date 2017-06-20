@@ -25,8 +25,8 @@
 struct dp_ctrl {
 	int (*init)(struct dp_ctrl *dp_ctrl, bool flip);
 	void (*deinit)(struct dp_ctrl *dp_ctrl);
-	int (*on)(struct dp_ctrl *dp_ctrl);
-	int (*off)(struct dp_ctrl *dp_ctrl);
+	int (*on)(struct dp_ctrl *dp_ctrl, bool hpd_irq);
+	void (*off)(struct dp_ctrl *dp_ctrl, bool hpd_irq);
 	void (*push_idle)(struct dp_ctrl *dp_ctrl);
 	void (*isr)(struct dp_ctrl *dp_ctrl);
 };

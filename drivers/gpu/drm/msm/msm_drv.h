@@ -206,6 +206,16 @@ enum msm_display_caps {
 };
 
 /**
+ * enum msm_event_wait - type of HW events to wait for
+ * @MSM_ENC_COMMIT_DONE - wait for the driver to flush the registers to HW
+ * @MSM_ENC_TX_COMPLETE - wait for the HW to transfer the frame to panel
+ */
+enum msm_event_wait {
+	MSM_ENC_COMMIT_DONE = 0,
+	MSM_ENC_TX_COMPLETE,
+};
+
+/**
  * struct msm_roi_alignment - region of interest alignment restrictions
  * @xstart_pix_align: left x offset alignment restriction
  * @width_pix_align: width alignment restriction
@@ -652,6 +662,7 @@ struct sg_table *msm_gem_prime_get_sg_table(struct drm_gem_object *obj);
 void *msm_gem_prime_vmap(struct drm_gem_object *obj);
 void msm_gem_prime_vunmap(struct drm_gem_object *obj, void *vaddr);
 int msm_gem_prime_mmap(struct drm_gem_object *obj, struct vm_area_struct *vma);
+struct reservation_object *msm_gem_prime_res_obj(struct drm_gem_object *obj);
 struct drm_gem_object *msm_gem_prime_import_sg_table(struct drm_device *dev,
 		struct dma_buf_attachment *attach, struct sg_table *sg);
 int msm_gem_prime_pin(struct drm_gem_object *obj);

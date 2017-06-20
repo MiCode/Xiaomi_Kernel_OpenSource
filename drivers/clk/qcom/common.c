@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "clk: %s: " fmt, __func__
+
 #include <linux/export.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
@@ -181,7 +183,7 @@ static struct clk_hw *qcom_cc_clk_hw_get(struct of_phandle_args *clkspec,
 	unsigned int idx = clkspec->args[0];
 
 	if (idx >= cc->num_rclks) {
-		pr_err("%s: invalid index %u\n", __func__, idx);
+		pr_err("invalid index %u\n", idx);
 		return ERR_PTR(-EINVAL);
 	}
 

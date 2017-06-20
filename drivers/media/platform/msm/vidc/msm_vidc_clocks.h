@@ -43,5 +43,6 @@ int msm_vidc_decide_work_mode(struct msm_vidc_inst *inst);
 int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst);
 void msm_vidc_clear_freq_entry(struct msm_vidc_inst *inst,
 	ion_phys_addr_t device_addr);
-
+void update_recon_stats(struct msm_vidc_inst *inst,
+	struct recon_stats_type *recon_stats);
 #endif

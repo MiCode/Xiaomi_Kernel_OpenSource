@@ -123,9 +123,6 @@ static int __cam_isp_ctx_reg_upd_in_activated_state(
 	if (req_isp->num_fence_map_out != 0) {
 		CDBG("%s: move request %lld to active list\n", __func__,
 			req->request_id);
-		if (!list_empty(&ctx->active_req_list))
-			pr_err("%s: More than one entry in active list\n",
-				__func__);
 		list_add_tail(&req->list, &ctx->active_req_list);
 	} else {
 		/* no io config, so the request is completed. */
@@ -281,9 +278,14 @@ static int __cam_isp_ctx_sof_in_epoch(struct cam_isp_context *ctx_isp,
 	void *evt_data)
 {
 	int rc = 0;
+	struct cam_context        *ctx = ctx_isp->base;
+
 
 	ctx_isp->frame_id++;
-	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
+	if (list_empty(&ctx->active_req_list))
+		ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
+	else
+		CDBG("%s: Still need to wait for the buf done\n", __func__);
 	CDBG("%s: next substate %d\n", __func__,
 		ctx_isp->substate_activated);
 
@@ -568,10 +570,10 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 	if (rc) {
 		pr_err("%s: Can not apply the configuration\n", __func__);
 	} else {
-		spin_lock(&ctx->lock);
+		spin_lock_bh(&ctx->lock);
 		ctx_isp->substate_activated = next_state;
 		CDBG("%s: new state %d\n", __func__, next_state);
-		spin_unlock(&ctx->lock);
+		spin_unlock_bh(&ctx->lock);
 	}
 end:
 	return rc;
@@ -743,13 +745,13 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	CDBG("%s: get free request object......\n", __func__);
 
 	/* get free request */
-	spin_lock(&ctx->lock);
+	spin_lock_bh(&ctx->lock);
 	if (!list_empty(&ctx->free_req_list)) {
 		req = list_first_entry(&ctx->free_req_list,
 				struct cam_ctx_request, list);
 		list_del_init(&req->list);
 	}
-	spin_unlock(&ctx->lock);
+	spin_unlock_bh(&ctx->lock);
 
 	if (!req) {
 		pr_err("%s: No more request obj free\n", __func__);
@@ -827,9 +829,9 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	CDBG("%s: Packet request id 0x%llx\n", __func__,
 		packet->header.request_id);
 
-	spin_lock(&ctx->lock);
+	spin_lock_bh(&ctx->lock);
 	list_add_tail(&req->list, &ctx->pending_req_list);
-	spin_unlock(&ctx->lock);
+	spin_unlock_bh(&ctx->lock);
 
 	CDBG("%s: Preprocessing Config %lld successful\n", __func__,
 		req->request_id);
@@ -837,9 +839,9 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	return rc;
 
 free_req:
-	spin_lock(&ctx->lock);
+	spin_lock_bh(&ctx->lock);
 	list_add_tail(&req->list, &ctx->free_req_list);
-	spin_unlock(&ctx->lock);
+	spin_unlock_bh(&ctx->lock);
 end:
 	return rc;
 }
@@ -1084,9 +1086,9 @@ static int __cam_isp_ctx_stop_dev_in_activated_unlock(
 		(struct cam_isp_context *) ctx->ctx_priv;
 
 	/* Mask off all the incoming hardware events */
-	spin_lock(&ctx->lock);
+	spin_lock_bh(&ctx->lock);
 	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_HALT;
-	spin_unlock(&ctx->lock);
+	spin_unlock_bh(&ctx->lock);
 	CDBG("%s: next substate %d", __func__, ctx_isp->substate_activated);
 
 	/* stop hw first */
@@ -1206,7 +1208,7 @@ static int __cam_isp_ctx_handle_irq_in_activated(void *context,
 	struct cam_isp_context *ctx_isp =
 		(struct cam_isp_context *)ctx->ctx_priv;
 
-	spin_lock(&ctx->lock);
+	spin_lock_bh(&ctx->lock);
 	CDBG("%s: Enter: State %d, Substate %d, evt id %d\n",
 		__func__, ctx->state, ctx_isp->substate_activated, evt_id);
 	if (ctx_isp->substate_machine_irq[ctx_isp->substate_activated].
@@ -1219,7 +1221,7 @@ static int __cam_isp_ctx_handle_irq_in_activated(void *context,
 	}
 	CDBG("%s: Exit: State %d Substate %d\n",
 		__func__, ctx->state, ctx_isp->substate_activated);
-	spin_unlock(&ctx->lock);
+	spin_unlock_bh(&ctx->lock);
 	return rc;
 }
 

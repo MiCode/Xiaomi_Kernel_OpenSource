@@ -185,10 +185,8 @@ static void receive_ack_msg(struct gmu_device *gmu, struct hfi_msg_rsp *rsp)
 	spin_lock(&hfi->msglock);
 	list_for_each_entry_safe(msg, next, &hfi->msglist, node) {
 		if (msg->msg_id == rsp->ret_hdr.id &&
-				msg->seqnum == rsp->ret_hdr.seqnum) {
-			list_del(&msg->node);
+				msg->seqnum == rsp->ret_hdr.seqnum)
 			break;
-		}
 	}
 	spin_unlock(&hfi->msglock);
 
@@ -235,7 +233,7 @@ static int hfi_send_msg(struct gmu_device *gmu, struct hfi_msg_hdr *msg,
 
 	if (hfi_cmdq_write(gmu, HFI_CMD_QUEUE, msg) != size) {
 		rc = -EINVAL;
-		goto error;
+		goto done;
 	}
 
 	rc = wait_for_completion_timeout(
@@ -245,11 +243,12 @@ static int hfi_send_msg(struct gmu_device *gmu, struct hfi_msg_hdr *msg,
 		dev_err(&gmu->pdev->dev,
 				"Receiving GMU ack %d timed out\n", msg->id);
 		rc = -ETIMEDOUT;
-		goto error;
+		goto done;
 	}
 
-	return 0;
-error:
+	/* If we got here we succeeded */
+	rc = 0;
+done:
 	spin_lock(&hfi->msglock);
 	list_del(&ret_msg->node);
 	spin_unlock(&hfi->msglock);

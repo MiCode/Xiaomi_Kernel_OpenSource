@@ -41,6 +41,7 @@ int msm_comm_try_set_prop(struct msm_vidc_inst *inst,
 	enum hal_property ptype, void *pdata);
 int msm_comm_try_get_prop(struct msm_vidc_inst *inst,
 	enum hal_property ptype, union hal_get_property *hprop);
+int msm_comm_set_recon_buffers(struct msm_vidc_inst *inst);
 int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst);
 int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst);
 int msm_comm_set_output_buffers(struct msm_vidc_inst *inst);
@@ -51,6 +52,7 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags);
 int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst,
 					bool check_for_reuse);
 int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst);
+int msm_comm_release_recon_buffers(struct msm_vidc_inst *inst);
 int msm_comm_release_output_buffers(struct msm_vidc_inst *inst,
 	bool force_release);
 void msm_comm_validate_output_buffers(struct msm_vidc_inst *inst);
@@ -98,6 +100,7 @@ void msm_comm_print_inst_info(struct msm_vidc_inst *inst);
 int msm_comm_v4l2_to_hal(int id, int value);
 int msm_comm_hal_to_v4l2(int id, int value);
 int msm_comm_session_continue(void *instance);
+enum hal_uncompressed_format msm_comm_get_hal_uncompressed(int fourcc);
 u32 get_frame_size_nv12(int plane, u32 height, u32 width);
 u32 get_frame_size_nv12_ubwc(int plane, u32 height, u32 width);
 u32 get_frame_size_rgba(int plane, u32 height, u32 width);

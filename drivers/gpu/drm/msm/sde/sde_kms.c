@@ -412,6 +412,49 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 	SDE_EVT32(SDE_EVTLOG_FUNC_EXIT);
 }
 
+static void sde_kms_wait_for_tx_complete(struct msm_kms *kms,
+		struct drm_crtc *crtc)
+{
+	struct drm_encoder *encoder;
+	struct drm_device *dev;
+	int ret;
+
+	if (!kms || !crtc || !crtc->state || !crtc->dev) {
+		SDE_ERROR("invalid params\n");
+		return;
+	}
+
+	if (!crtc->state->enable) {
+		SDE_DEBUG("[crtc:%d] not enable\n", crtc->base.id);
+		return;
+	}
+
+	if (!crtc->state->active) {
+		SDE_DEBUG("[crtc:%d] not active\n", crtc->base.id);
+		return;
+	}
+
+	dev = crtc->dev;
+
+	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
+		if (encoder->crtc != crtc)
+			continue;
+		/*
+		 * Video Mode - Wait for VSYNC
+		 * Cmd Mode   - Wait for PP_DONE. Will be no-op if transfer is
+		 *              complete
+		 */
+		SDE_EVT32_VERBOSE(DRMID(crtc));
+		ret = sde_encoder_wait_for_event(encoder, MSM_ENC_TX_COMPLETE);
+		if (ret && ret != -EWOULDBLOCK) {
+			SDE_ERROR(
+			"[crtc: %d][enc: %d] wait for commit done returned %d\n",
+			crtc->base.id, encoder->base.id, ret);
+			break;
+		}
+	}
+}
+
 static void sde_kms_wait_for_commit_done(struct msm_kms *kms,
 		struct drm_crtc *crtc)
 {
@@ -443,7 +486,7 @@ static void sde_kms_wait_for_commit_done(struct msm_kms *kms,
 		 * mode panels. This may be a no-op for command mode panels.
 		 */
 		SDE_EVT32_VERBOSE(DRMID(crtc));
-		ret = sde_encoder_wait_for_commit_done(encoder);
+		ret = sde_encoder_wait_for_event(encoder, MSM_ENC_COMMIT_DONE);
 		if (ret && ret != -EWOULDBLOCK) {
 			SDE_ERROR("wait for commit done returned %d\n", ret);
 			break;
@@ -1340,6 +1383,7 @@ static const struct msm_kms_funcs kms_funcs = {
 	.commit          = sde_kms_commit,
 	.complete_commit = sde_kms_complete_commit,
 	.wait_for_crtc_commit_done = sde_kms_wait_for_commit_done,
+	.wait_for_tx_complete = sde_kms_wait_for_tx_complete,
 	.enable_vblank   = sde_kms_enable_vblank,
 	.disable_vblank  = sde_kms_disable_vblank,
 	.check_modified_format = sde_format_check_modified_format,

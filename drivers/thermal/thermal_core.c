@@ -1424,9 +1424,26 @@ int thermal_zone_bind_cooling_device(struct thermal_zone_device *tz,
 	if (ret)
 		return ret;
 
-	/* lower default 0, upper default max_state */
-	lower = lower == THERMAL_NO_LIMIT ? 0 : lower;
-	upper = upper == THERMAL_NO_LIMIT ? max_state : upper;
+	/*
+	 * If upper or lower has a MACRO to define the mitigation state,
+	 * based on the MACRO determine the default state to use or the
+	 * offset from the max_state.
+	 */
+	if (upper > (THERMAL_MAX_LIMIT - max_state)) {
+		/* upper default max_state */
+		if (upper == THERMAL_NO_LIMIT)
+			upper = max_state;
+		else
+			upper = max_state - (THERMAL_MAX_LIMIT - upper);
+	}
+
+	if (lower > (THERMAL_MAX_LIMIT - max_state)) {
+		/* lower default 0 */
+		if (lower == THERMAL_NO_LIMIT)
+			lower = 0;
+		else
+			lower =  max_state - (THERMAL_MAX_LIMIT - lower);
+	}
 
 	if (lower > upper || upper > max_state)
 		return -EINVAL;
