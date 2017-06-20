@@ -516,8 +516,11 @@ struct msm_gpu_submitqueue *msm_submitqueue_get(struct msm_file_private *ctx,
 		u32 id);
 int msm_submitqueue_create(struct msm_file_private *ctx, u32 prio,
 		u32 flags, u32 *id);
+int msm_submitqueue_query(struct msm_file_private *ctx, u32 id, u32 param,
+		void __user *data, u32 len);
 int msm_submitqueue_remove(struct msm_file_private *ctx, u32 id);
 void msm_submitqueue_close(struct msm_file_private *ctx);
+
 void msm_submitqueue_destroy(struct kref *kref);
 
 struct hdmi;

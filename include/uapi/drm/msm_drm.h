@@ -362,12 +362,27 @@ struct drm_msm_gem_sync {
  * use and query 0 but cannot destroy it.
  */
 
-#define MSM_SUBMITQUEUE_FLAGS (0)
+/*
+ * Allows a process to bypass the 2 second quality of service timeout.
+ * Only CAP_SYS_ADMIN capable processes can set this flag.
+ */
+#define MSM_SUBMITQUEUE_BYPASS_QOS_TIMEOUT 0x00000001
+
+#define MSM_SUBMITQUEUE_FLAGS (MSM_SUBMITQUEUE_BYPASS_QOS_TIMEOUT)
 
 struct drm_msm_submitqueue {
 	__u32 flags;   /* in, MSM_SUBMITQUEUE_x */
 	__u32 prio;    /* in, Priority level */
 	__u32 id;      /* out, identifier */
+};
+
+#define MSM_SUBMITQUEUE_PARAM_FAULTS 0
+
+struct drm_msm_submitqueue_query {
+	__u64 data;
+	__u32 id;
+	__u32 param;
+	__u32 len;
 };
 
 #define DRM_MSM_GET_PARAM              0x00
@@ -384,6 +399,7 @@ struct drm_msm_submitqueue {
 #define DRM_MSM_GEM_SVM_NEW            0x09
 #define DRM_MSM_SUBMITQUEUE_NEW        0x0A
 #define DRM_MSM_SUBMITQUEUE_CLOSE      0x0B
+#define DRM_MSM_SUBMITQUEUE_QUERY      0x0C
 
 #define DRM_SDE_WB_CONFIG              0x40
 #define DRM_MSM_REGISTER_EVENT         0x41
@@ -432,6 +448,9 @@ struct drm_msm_submitqueue {
 #define DRM_IOCTL_MSM_SUBMITQUEUE_CLOSE \
 	DRM_IOW(DRM_COMMAND_BASE + DRM_MSM_SUBMITQUEUE_CLOSE, \
 		struct drm_msm_submitqueue)
+#define DRM_IOCTL_MSM_SUBMITQUEUE_QUERY \
+	DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_SUBMITQUEUE_QUERY, \
+		struct drm_msm_submitqueue_query)
 
 #if defined(__cplusplus)
 }

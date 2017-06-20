@@ -1707,8 +1707,25 @@ static int msm_ioctl_submitqueue_new(struct drm_device *dev, void *data,
 		return -EPERM;
 	}
 
+	if (args->flags & MSM_SUBMITQUEUE_BYPASS_QOS_TIMEOUT &&
+		!capable(CAP_SYS_ADMIN)) {
+		DRM_ERROR(
+			"Only CAP_SYS_ADMIN processes can bypass the timer\n");
+		return -EPERM;
+	}
+
 	return msm_submitqueue_create(file->driver_priv, args->prio,
 		args->flags, &args->id);
+}
+
+static int msm_ioctl_submitqueue_query(struct drm_device *dev, void *data,
+		struct drm_file *file)
+{
+	struct drm_msm_submitqueue_query *args = data;
+	void __user *ptr = (void __user *)(uintptr_t) args->data;
+
+	return msm_submitqueue_query(file->driver_priv, args->id,
+		args->param, ptr, args->len);
 }
 
 static int msm_ioctl_submitqueue_close(struct drm_device *dev, void *data,
@@ -1767,6 +1784,8 @@ static const struct drm_ioctl_desc msm_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MSM_SUBMITQUEUE_NEW,  msm_ioctl_submitqueue_new,
 			  DRM_AUTH|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MSM_SUBMITQUEUE_CLOSE, msm_ioctl_submitqueue_close,
+			  DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_SUBMITQUEUE_QUERY, msm_ioctl_submitqueue_query,
 			  DRM_AUTH|DRM_RENDER_ALLOW),
 };
 
