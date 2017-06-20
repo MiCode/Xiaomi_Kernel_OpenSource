@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -739,7 +739,7 @@ out:
 }
 
 /* Snapshot a preemption record buffer */
-static size_t snapshot_preemption_record(struct kgsl_device *device, u8 *buf,
+size_t a5xx_snapshot_preemption(struct kgsl_device *device, u8 *buf,
 	size_t remain, void *priv)
 {
 	struct kgsl_memdesc *memdesc = priv;
@@ -865,8 +865,7 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_snapshot_data *snap_data = gpudev->snapshot_data;
-	unsigned int reg, i;
-	struct adreno_ringbuffer *rb;
+	unsigned int reg;
 	struct registers regs;
 
 	/* Disable Clock gating temporarily for the debug bus to work */
@@ -964,16 +963,6 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 
 	/* Debug bus */
 	a5xx_snapshot_debugbus(device, snapshot);
-
-	/* Preemption record */
-	if (adreno_is_preemption_enabled(adreno_dev)) {
-		FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
-			kgsl_snapshot_add_section(device,
-				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
-				snapshot, snapshot_preemption_record,
-				&rb->preemption_desc);
-		}
-	}
 
 }
 

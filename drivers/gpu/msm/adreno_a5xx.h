@@ -237,5 +237,6 @@ unsigned int a5xx_preemption_pre_ibsubmit(
 
 
 void a5xx_preempt_callback(struct adreno_device *adreno_dev, int bit);
-
+size_t a5xx_snapshot_preemption(struct kgsl_device *device, u8 *buf,
+		size_t remain, void *priv);
 #endif

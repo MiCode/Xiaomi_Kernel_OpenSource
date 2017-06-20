@@ -1029,6 +1029,8 @@ struct adreno_gpudev {
 	int (*perfcounter_update)(struct adreno_device *adreno_dev,
 				struct adreno_perfcount_register *reg,
 				bool update_reg);
+	size_t (*snapshot_preemption)(struct kgsl_device *, u8 *,
+				 size_t, void *);
 };
 
 /**

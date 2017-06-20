@@ -25,6 +25,9 @@
 #define A6XX_NUM_XIN_AXI_BLOCKS 5
 #define A6XX_NUM_XIN_CORE_BLOCKS 4
 
+/* Snapshot section size of each CP preemption record for A6XX  */
+#define A6XX_SNAPSHOT_CP_CTXRECORD_SIZE_IN_BYTES (64 * 1024)
+
 static const unsigned int a6xx_gras_cluster[] = {
 	0x8000, 0x8006, 0x8010, 0x8092, 0x8094, 0x809D, 0x80A0, 0x80A6,
 	0x80AF, 0x80F1, 0x8100, 0x8107, 0x8109, 0x8109, 0x8110, 0x8110,
@@ -1502,6 +1505,32 @@ static void _a6xx_do_crashdump(struct kgsl_device *device)
 	}
 
 	crash_dump_valid = true;
+}
+
+/* Snapshot the preemption related buffers */
+size_t a6xx_snapshot_preemption(struct kgsl_device *device,
+	u8 *buf, size_t remain, void *priv)
+{
+	struct kgsl_memdesc *memdesc = priv;
+	struct kgsl_snapshot_gpu_object_v2 *header =
+		(struct kgsl_snapshot_gpu_object_v2 *)buf;
+	u8 *ptr = buf + sizeof(*header);
+
+	if (remain < (A6XX_SNAPSHOT_CP_CTXRECORD_SIZE_IN_BYTES +
+						sizeof(*header))) {
+		SNAPSHOT_ERR_NOMEM(device, "PREEMPTION RECORD");
+		return 0;
+	}
+
+	header->size = A6XX_SNAPSHOT_CP_CTXRECORD_SIZE_IN_BYTES >> 2;
+	header->gpuaddr = memdesc->gpuaddr;
+	header->ptbase =
+		kgsl_mmu_pagetable_get_ttbr0(device->mmu.defaultpagetable);
+	header->type = SNAPSHOT_GPU_OBJECT_GLOBAL;
+
+	memcpy(ptr, memdesc->hostptr, A6XX_SNAPSHOT_CP_CTXRECORD_SIZE_IN_BYTES);
+
+	return A6XX_SNAPSHOT_CP_CTXRECORD_SIZE_IN_BYTES + sizeof(*header);
 }
 
 /*
