@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,6 +68,7 @@
 #define CHRK_SB_PGD_PORT_WM_L1			(0x1 << 1)
 #define CHRK_SB_PGD_PORT_WM_L2			(0x2 << 1)
 #define CHRK_SB_PGD_PORT_WM_L3			(0x3 << 1)
+#define CHRK_SB_PGD_PORT_WM_L8			(0x8 << 1)
 #define CHRK_SB_PGD_PORT_WM_LB			(0xB << 1)
 
 #define CHRK_SB_PGD_PORT_RX_NUM			16
