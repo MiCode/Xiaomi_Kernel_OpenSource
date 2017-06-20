@@ -353,8 +353,22 @@ static void hangcheck_handler(unsigned long data)
 		/* some progress has been made.. ya! */
 		gpu->hangcheck_fence[ring->id] = fence;
 	} else if (fence < submitted) {
-		/* no progress and not done.. hung! */
+		struct msm_gem_submit *submit;
+
 		gpu->hangcheck_fence[ring->id] = fence;
+
+		/*
+		 * No progress done, but see if the current submit is
+		 * intentionally skipping the hangcheck
+		 */
+		submit = list_first_entry_or_null(&ring->submits,
+			struct msm_gem_submit, node);
+
+		if (!submit || (submit->queue->flags &
+			MSM_SUBMITQUEUE_BYPASS_QOS_TIMEOUT))
+			goto out;
+
+		/* no progress and not done and not special .. hung! */
 		dev_err(dev->dev, "%s: hangcheck detected gpu lockup rb %d!\n",
 				gpu->name, ring->id);
 		dev_err(dev->dev, "%s:     completed fence: %u\n",
@@ -365,6 +379,7 @@ static void hangcheck_handler(unsigned long data)
 		queue_work(priv->wq, &gpu->recover_work);
 	}
 
+out:
 	/* if still more pending work, reset the hangcheck timer: */
 	if (submitted > gpu->hangcheck_fence[ring->id])
 		hangcheck_timer_reset(gpu);

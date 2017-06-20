@@ -362,7 +362,13 @@ struct drm_msm_gem_sync {
  * use and query 0 but cannot destroy it.
  */
 
-#define MSM_SUBMITQUEUE_FLAGS (0)
+/*
+ * Allows a process to bypass the 2 second quality of service timeout.
+ * Only CAP_SYS_ADMIN capable processes can set this flag.
+ */
+#define MSM_SUBMITQUEUE_BYPASS_QOS_TIMEOUT 0x00000001
+
+#define MSM_SUBMITQUEUE_FLAGS (MSM_SUBMITQUEUE_BYPASS_QOS_TIMEOUT)
 
 struct drm_msm_submitqueue {
 	__u32 flags;   /* in, MSM_SUBMITQUEUE_x */

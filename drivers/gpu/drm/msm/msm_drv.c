@@ -1707,6 +1707,13 @@ static int msm_ioctl_submitqueue_new(struct drm_device *dev, void *data,
 		return -EPERM;
 	}
 
+	if (args->flags & MSM_SUBMITQUEUE_BYPASS_QOS_TIMEOUT &&
+		!capable(CAP_SYS_ADMIN)) {
+		DRM_ERROR(
+			"Only CAP_SYS_ADMIN processes can bypass the timer\n");
+		return -EPERM;
+	}
+
 	return msm_submitqueue_create(file->driver_priv, args->prio,
 		args->flags, &args->id);
 }
