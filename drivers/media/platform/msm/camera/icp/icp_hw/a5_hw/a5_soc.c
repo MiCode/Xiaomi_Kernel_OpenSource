@@ -95,7 +95,7 @@ int cam_a5_disable_soc_resources(struct cam_hw_soc_info *soc_info)
 
 	rc = cam_soc_util_disable_platform_resource(soc_info, true, true);
 	if (rc)
-		pr_err("%s: enable platform failed\n", __func__);
+		pr_err("%s: disable platform failed\n", __func__);
 
 	return rc;
 }

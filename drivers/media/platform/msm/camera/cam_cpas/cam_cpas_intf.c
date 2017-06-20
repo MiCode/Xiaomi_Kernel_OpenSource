@@ -327,7 +327,7 @@ EXPORT_SYMBOL(cam_cpas_register_client);
 int cam_cpas_subdev_cmd(struct cam_cpas_intf *cpas_intf,
 	struct cam_control *cmd)
 {
-	int rc;
+	int rc = 0;
 
 	if (!cmd) {
 		pr_err("Invalid input cmd\n");
@@ -357,6 +357,8 @@ int cam_cpas_subdev_cmd(struct cam_cpas_intf *cpas_intf,
 
 		break;
 	}
+	case CAM_SD_SHUTDOWN:
+		break;
 	default:
 		pr_err("Unknown op code %d for CPAS\n", cmd->op_code);
 		rc = -EINVAL;

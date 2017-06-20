@@ -74,166 +74,6 @@ static int cam_icp_hw_mgr_create_debugfs_entry(void)
 	return 0;
 }
 
-static int cam_icp_stop_cpas(struct cam_icp_hw_mgr *hw_mgr_priv)
-{
-	struct cam_hw_intf *a5_dev_intf = NULL;
-	struct cam_hw_intf *ipe0_dev_intf = NULL;
-	struct cam_hw_intf *ipe1_dev_intf = NULL;
-	struct cam_hw_intf *bps_dev_intf = NULL;
-	struct cam_icp_hw_mgr *hw_mgr = hw_mgr_priv;
-	struct cam_icp_cpas_vote cpas_vote;
-	int rc = 0;
-
-	if (!hw_mgr) {
-		pr_err("Invalid params\n");
-		return -EINVAL;
-	}
-
-	a5_dev_intf = hw_mgr->devices[CAM_ICP_DEV_A5][0];
-	bps_dev_intf = hw_mgr->devices[CAM_ICP_DEV_BPS][0];
-	ipe0_dev_intf = hw_mgr->devices[CAM_ICP_DEV_IPE][0];
-
-	if ((!a5_dev_intf) || (!bps_dev_intf) || (!ipe0_dev_intf)) {
-		pr_err("dev intfs are NULL\n");
-		return -EINVAL;
-	}
-
-	rc = a5_dev_intf->hw_ops.process_cmd(
-		a5_dev_intf->hw_priv,
-		CAM_ICP_A5_CMD_CPAS_STOP,
-		&cpas_vote,
-		sizeof(struct cam_icp_cpas_vote));
-	if (rc < 0)
-		pr_err("CAM_ICP_A5_CMD_CPAS_STOP is failed: %d\n", rc);
-
-	rc = bps_dev_intf->hw_ops.process_cmd(
-		bps_dev_intf->hw_priv,
-		CAM_ICP_BPS_CMD_CPAS_STOP,
-		&cpas_vote,
-		sizeof(struct cam_icp_cpas_vote));
-	if (rc < 0)
-		pr_err("CAM_ICP_BPS_CMD_CPAS_STOP is failed: %d\n", rc);
-
-	rc = ipe0_dev_intf->hw_ops.process_cmd(
-		ipe0_dev_intf->hw_priv,
-		CAM_ICP_IPE_CMD_CPAS_STOP,
-		&cpas_vote,
-		sizeof(struct cam_icp_cpas_vote));
-	if (rc < 0)
-		pr_err("CAM_ICP_IPE_CMD_CPAS_STOP is failed: %d\n", rc);
-
-	ipe1_dev_intf = hw_mgr->devices[CAM_ICP_DEV_IPE][1];
-	if (!ipe1_dev_intf)
-		return rc;
-
-	rc = ipe1_dev_intf->hw_ops.process_cmd(
-		ipe1_dev_intf->hw_priv,
-		CAM_ICP_IPE_CMD_CPAS_STOP,
-		&cpas_vote,
-		sizeof(struct cam_icp_cpas_vote));
-	if (rc < 0)
-		pr_err("CAM_ICP_IPE_CMD_CPAS_STOP is failed: %d\n", rc);
-
-	return rc;
-}
-
-static int cam_icp_start_cpas(struct cam_icp_hw_mgr *hw_mgr_priv)
-{
-	struct cam_hw_intf *a5_dev_intf = NULL;
-	struct cam_hw_intf *ipe0_dev_intf = NULL;
-	struct cam_hw_intf *ipe1_dev_intf = NULL;
-	struct cam_hw_intf *bps_dev_intf = NULL;
-	struct cam_icp_hw_mgr *hw_mgr = hw_mgr_priv;
-	struct cam_icp_cpas_vote cpas_vote;
-	int rc = 0;
-
-	if (!hw_mgr) {
-		pr_err("Invalid params\n");
-		return -EINVAL;
-	}
-
-	a5_dev_intf = hw_mgr->devices[CAM_ICP_DEV_A5][0];
-	bps_dev_intf = hw_mgr->devices[CAM_ICP_DEV_BPS][0];
-	ipe0_dev_intf = hw_mgr->devices[CAM_ICP_DEV_IPE][0];
-
-	if ((!a5_dev_intf) || (!bps_dev_intf) || (!ipe0_dev_intf)) {
-		pr_err("dev intfs are null\n");
-		return -EINVAL;
-	}
-
-	cpas_vote.ahb_vote.type = CAM_VOTE_ABSOLUTE;
-	cpas_vote.ahb_vote.vote.level = CAM_TURBO_VOTE;
-	cpas_vote.axi_vote.compressed_bw = 640000000;
-	cpas_vote.axi_vote.uncompressed_bw = 640000000;
-
-	rc = a5_dev_intf->hw_ops.process_cmd(
-		a5_dev_intf->hw_priv,
-		CAM_ICP_A5_CMD_CPAS_START,
-		&cpas_vote,
-		sizeof(struct cam_icp_cpas_vote));
-	if (rc) {
-		pr_err("CAM_ICP_A5_CMD_CPAS_START is failed: %d\n", rc);
-		goto a5_cpas_start_failed;
-	}
-
-	rc = bps_dev_intf->hw_ops.process_cmd(
-		bps_dev_intf->hw_priv,
-		CAM_ICP_BPS_CMD_CPAS_START,
-		&cpas_vote,
-		sizeof(struct cam_icp_cpas_vote));
-	if (rc < 0) {
-		pr_err("CAM_ICP_BPS_CMD_CPAS_START is failed: %d\n", rc);
-		goto bps_cpas_start_failed;
-	}
-
-	rc = ipe0_dev_intf->hw_ops.process_cmd(
-		ipe0_dev_intf->hw_priv,
-		CAM_ICP_IPE_CMD_CPAS_START,
-		&cpas_vote,
-		sizeof(struct cam_icp_cpas_vote));
-	if (rc < 0) {
-		pr_err("CAM_ICP_IPE_CMD_CPAS_START is failed: %d\n", rc);
-		goto ipe0_cpas_start_failed;
-	}
-
-	ipe1_dev_intf = hw_mgr->devices[CAM_ICP_DEV_IPE][1];
-	if (!ipe1_dev_intf)
-		return rc;
-
-	rc = ipe1_dev_intf->hw_ops.process_cmd(
-		ipe1_dev_intf->hw_priv,
-		CAM_ICP_IPE_CMD_CPAS_START,
-		&cpas_vote,
-		sizeof(struct cam_icp_cpas_vote));
-	if (rc < 0) {
-		pr_err("CAM_ICP_IPE_CMD_CPAS_START is failed: %d\n", rc);
-		goto ipe1_cpas_start_failed;
-	}
-
-	return rc;
-
-ipe1_cpas_start_failed:
-	rc = ipe0_dev_intf->hw_ops.process_cmd(
-		ipe0_dev_intf->hw_priv,
-		CAM_ICP_IPE_CMD_CPAS_STOP,
-		&cpas_vote,
-		sizeof(struct cam_icp_cpas_vote));
-ipe0_cpas_start_failed:
-	rc = bps_dev_intf->hw_ops.process_cmd(
-		bps_dev_intf->hw_priv,
-		CAM_ICP_BPS_CMD_CPAS_STOP,
-		&cpas_vote,
-		sizeof(struct cam_icp_cpas_vote));
-bps_cpas_start_failed:
-	rc = a5_dev_intf->hw_ops.process_cmd(
-		a5_dev_intf->hw_priv,
-		CAM_ICP_A5_CMD_CPAS_STOP,
-		&cpas_vote,
-		sizeof(struct cam_icp_cpas_vote));
-a5_cpas_start_failed:
-	return rc;
-}
-
 static int cam_icp_mgr_process_cmd(void *priv, void *data)
 {
 	int rc;
@@ -566,7 +406,7 @@ int32_t cam_icp_hw_mgr_cb(uint32_t irq_status, void *data)
 	return rc;
 }
 
-static int cam_icp_free_hfi_mem(void)
+static void cam_icp_free_hfi_mem(void)
 {
 	cam_smmu_dealloc_firmware(icp_hw_mgr.iommu_hdl);
 	cam_mem_mgr_release_mem(&icp_hw_mgr.hfi_mem.qtbl);
@@ -574,8 +414,6 @@ static int cam_icp_free_hfi_mem(void)
 	cam_mem_mgr_release_mem(&icp_hw_mgr.hfi_mem.msg_q);
 	cam_mem_mgr_release_mem(&icp_hw_mgr.hfi_mem.dbg_q);
 	cam_mem_mgr_release_mem(&icp_hw_mgr.hfi_mem.sec_heap);
-
-	return 0;
 }
 
 static int cam_icp_allocate_hfi_mem(void)
@@ -806,18 +644,17 @@ static int cam_icp_mgr_release_ctx(struct cam_icp_hw_mgr *hw_mgr, int ctx_id)
 
 	mutex_lock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
 	if (!hw_mgr->ctx_data[ctx_id].in_use) {
-		pr_err("ctx is already in use: %d\n", ctx_id);
+		ICP_DBG("ctx is not in use: %d\n", ctx_id);
 		mutex_unlock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
-		return -EINVAL;
+		return 0;
 	}
 	mutex_unlock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
 
-	mutex_lock(&hw_mgr->hw_mgr_mutex);
 	task = cam_req_mgr_workq_get_task(icp_hw_mgr.cmd_work);
-	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 	if (task)
 		cam_icp_mgr_destroy_handle(&hw_mgr->ctx_data[ctx_id], task);
 
+	mutex_lock(&hw_mgr->hw_mgr_mutex);
 	mutex_lock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
 	hw_mgr->ctx_data[ctx_id].in_use = 0;
 	hw_mgr->ctx_data[ctx_id].fw_handle = 0;
@@ -829,6 +666,7 @@ static int cam_icp_mgr_release_ctx(struct cam_icp_hw_mgr *hw_mgr, int ctx_id)
 	mutex_destroy(&hw_mgr->ctx_data[ctx_id].hfi_frame_process.lock);
 	mutex_unlock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
 	kfree(hw_mgr->ctx_data[ctx_id].hfi_frame_process.bitmap);
+	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
 	return 0;
 }
@@ -861,40 +699,64 @@ static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args)
 	struct cam_hw_intf *ipe0_dev_intf = NULL;
 	struct cam_hw_intf *ipe1_dev_intf = NULL;
 	struct cam_hw_intf *bps_dev_intf = NULL;
-	int rc = 0;
+	struct cam_icp_a5_set_irq_cb irq_cb;
+	struct cam_icp_a5_set_fw_buf_info fw_buf_info;
+	struct cam_icp_hw_ctx_data *ctx_data = NULL;
+	int i;
+
+	mutex_lock(&hw_mgr->hw_mgr_mutex);
+	if (hw_mgr->fw_download ==  false) {
+		ICP_DBG("hw mgr is already closed\n");
+		mutex_unlock(&hw_mgr->hw_mgr_mutex);
+		return 0;
+	}
 
 	a5_dev_intf = hw_mgr->devices[CAM_ICP_DEV_A5][0];
 	ipe0_dev_intf = hw_mgr->devices[CAM_ICP_DEV_IPE][0];
+	ipe1_dev_intf = hw_mgr->devices[CAM_ICP_DEV_IPE][1];
 	bps_dev_intf = hw_mgr->devices[CAM_ICP_DEV_BPS][0];
 
 	if ((!a5_dev_intf) || (!ipe0_dev_intf) || (!bps_dev_intf)) {
-		pr_err("dev intfs are wrong\n");
-		return rc;
+		pr_err("dev intfs are wrong, failed to close\n");
+		mutex_unlock(&hw_mgr->hw_mgr_mutex);
+		return -EINVAL;
 	}
+
+	irq_cb.icp_hw_mgr_cb = NULL;
+	irq_cb.data = NULL;
+	a5_dev_intf->hw_ops.process_cmd(
+		a5_dev_intf->hw_priv,
+		CAM_ICP_A5_SET_IRQ_CB,
+		&irq_cb, sizeof(irq_cb));
+
+	fw_buf_info.kva = 0;
+	fw_buf_info.iova = 0;
+	fw_buf_info.len = 0;
+	a5_dev_intf->hw_ops.process_cmd(
+		a5_dev_intf->hw_priv,
+		CAM_ICP_A5_CMD_SET_FW_BUF,
+		&fw_buf_info,
+		sizeof(fw_buf_info));
+
+	mutex_unlock(&hw_mgr->hw_mgr_mutex);
+
+	for (i = 0; i < CAM_ICP_CTX_MAX; i++) {
+		ctx_data = &hw_mgr->ctx_data[i];
+		cam_icp_mgr_release_ctx(hw_mgr, i);
+	}
+
 	mutex_lock(&hw_mgr->hw_mgr_mutex);
-	rc = a5_dev_intf->hw_ops.deinit(a5_dev_intf->hw_priv, NULL, 0);
-	if (rc < 0)
-		pr_err("a5 dev de-init failed\n");
-
-	rc = bps_dev_intf->hw_ops.deinit(bps_dev_intf->hw_priv, NULL, 0);
-	if (rc < 0)
-		pr_err("bps dev de-init failed\n");
-
-	rc = ipe0_dev_intf->hw_ops.deinit(ipe0_dev_intf->hw_priv, NULL, 0);
-	if (rc < 0)
-		pr_err("ipe0 dev de-init failed\n");
-
 	ipe1_dev_intf = hw_mgr->devices[CAM_ICP_DEV_IPE][1];
-	if (ipe1_dev_intf) {
-		rc = ipe1_dev_intf->hw_ops.deinit(ipe1_dev_intf->hw_priv,
-						NULL, 0);
-		if (rc < 0)
-			pr_err("ipe1 dev de-init failed\n");
-	}
+	if (ipe1_dev_intf)
+		ipe1_dev_intf->hw_ops.deinit(ipe1_dev_intf->hw_priv,
+			NULL, 0);
 
+	ipe0_dev_intf->hw_ops.deinit(ipe0_dev_intf->hw_priv, NULL, 0);
+	bps_dev_intf->hw_ops.deinit(bps_dev_intf->hw_priv, NULL, 0);
+	a5_dev_intf->hw_ops.deinit(a5_dev_intf->hw_priv, NULL, 0);
+	cam_hfi_deinit();
 	cam_icp_free_hfi_mem();
 	hw_mgr->fw_download = false;
-	debugfs_remove_recursive(icp_hw_mgr.dentry);
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
 	return 0;
@@ -975,9 +837,9 @@ static int cam_icp_mgr_download_fw(void *hw_mgr_priv, void *download_fw_args)
 	irq_cb.icp_hw_mgr_cb = cam_icp_hw_mgr_cb;
 	irq_cb.data = hw_mgr_priv;
 	rc = a5_dev_intf->hw_ops.process_cmd(
-				a5_dev_intf->hw_priv,
-				CAM_ICP_A5_SET_IRQ_CB,
-				&irq_cb, sizeof(irq_cb));
+		a5_dev_intf->hw_priv,
+		CAM_ICP_A5_SET_IRQ_CB,
+		&irq_cb, sizeof(irq_cb));
 	if (rc < 0) {
 		pr_err("CAM_ICP_A5_SET_IRQ_CB failed\n");
 		rc = -EINVAL;
@@ -989,10 +851,10 @@ static int cam_icp_mgr_download_fw(void *hw_mgr_priv, void *download_fw_args)
 	fw_buf_info.len = icp_hw_mgr.hfi_mem.fw_buf.len;
 
 	rc = a5_dev_intf->hw_ops.process_cmd(
-			a5_dev_intf->hw_priv,
-			CAM_ICP_A5_CMD_SET_FW_BUF,
-			&fw_buf_info,
-			sizeof(fw_buf_info));
+		a5_dev_intf->hw_priv,
+		CAM_ICP_A5_CMD_SET_FW_BUF,
+		&fw_buf_info,
+		sizeof(fw_buf_info));
 	if (rc < 0) {
 		pr_err("CAM_ICP_A5_CMD_SET_FW_BUF failed\n");
 		goto set_irq_failed;
@@ -1001,9 +863,9 @@ static int cam_icp_mgr_download_fw(void *hw_mgr_priv, void *download_fw_args)
 	cam_hfi_enable_cpu(a5_dev->soc_info.reg_map[A5_SIERRA_BASE].mem_base);
 
 	rc = a5_dev_intf->hw_ops.process_cmd(
-			a5_dev_intf->hw_priv,
-			CAM_ICP_A5_CMD_FW_DOWNLOAD,
-			NULL, 0);
+		a5_dev_intf->hw_priv,
+		CAM_ICP_A5_CMD_FW_DOWNLOAD,
+		NULL, 0);
 	if (rc < 0) {
 		pr_err("FW download is failed\n");
 		goto set_irq_failed;
@@ -1083,14 +945,8 @@ static int cam_icp_mgr_download_fw(void *hw_mgr_priv, void *download_fw_args)
 	}
 
 	hw_mgr->fw_download = true;
-
-	rc = cam_icp_stop_cpas(hw_mgr);
-	if (rc) {
-		pr_err("cpas stop failed\n");
-		goto set_irq_failed;
-	}
-
 	hw_mgr->ctxt_cnt = 0;
+	ICP_DBG("FW download done successfully\n");
 
 	return rc;
 
@@ -1443,20 +1299,11 @@ static int cam_icp_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 		mutex_unlock(&hw_mgr->hw_mgr_mutex);
 		return -EINVAL;
 	}
+	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
 	rc = cam_icp_mgr_release_ctx(hw_mgr, ctx_id);
-	if (rc) {
-		mutex_unlock(&hw_mgr->hw_mgr_mutex);
+	if (rc)
 		return -EINVAL;
-	}
-
-	--hw_mgr->ctxt_cnt;
-	if (!hw_mgr->ctxt_cnt) {
-		ICP_DBG("stop cpas for last context\n");
-		cam_icp_stop_cpas(hw_mgr);
-	}
-	ICP_DBG("context count : %u\n", hw_mgr->ctxt_cnt);
-	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
 	ICP_DBG("fw handle %d\n", fw_handle);
 	return rc;
@@ -1662,13 +1509,6 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 
 	/* Fill ctx with acquire info */
 	ctx_data = &hw_mgr->ctx_data[ctx_id];
-
-	if (!hw_mgr->ctxt_cnt++) {
-		ICP_DBG("starting cpas\n");
-		cam_icp_start_cpas(hw_mgr);
-	}
-	ICP_DBG("context count : %u\n", hw_mgr->ctxt_cnt);
-
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
 	/* Fill ctx with acquire info */
@@ -1782,9 +1622,6 @@ get_ioconfig_task_failed:
 create_handle_failed:
 get_create_task_failed:
 cmd_cpu_buf_failed:
-	--hw_mgr->ctxt_cnt;
-	if (!hw_mgr->ctxt_cnt)
-		cam_icp_stop_cpas(hw_mgr);
 	cam_icp_mgr_release_ctx(hw_mgr, ctx_id);
 	kfree(tmp_acquire);
 	return rc;
