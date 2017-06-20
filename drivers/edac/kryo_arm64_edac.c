@@ -63,7 +63,7 @@ static inline void set_errxctlr_el1(void)
 
 static inline void set_errxmisc_overflow(void)
 {
-	u64 val = 0x7F7F00000000;
+	u64 val = 0x7F7F00000000ULL;
 
 	asm volatile("msr s3_0_c5_c5_0, %0" : : "r" (val));
 }
@@ -119,8 +119,9 @@ static const struct errors_edac errors[] = {
 #define DATA_BUF_ERR		0x2
 #define CACHE_DATA_ERR		0x6
 #define CACHE_TAG_DIRTY_ERR	0x7
-#define TLB_PARITY_ERR		0x8
-#define BUS_ERROR		0x18
+#define TLB_PARITY_ERR_DATA	0x8
+#define TLB_PARITY_ERR_TAG	0x9
+#define BUS_ERROR		0x12
 
 struct erp_drvdata {
 	struct edac_device_ctl_info *edev_ctl;
@@ -218,8 +219,12 @@ static void dump_err_reg(int errorcode, int level, u64 errxstatus, u64 errxmisc,
 		edac_printk(KERN_CRIT, EDAC_CPU, "ECC Error from cache tag or dirty RAM\n");
 		break;
 
-	case TLB_PARITY_ERR:
-		edac_printk(KERN_CRIT, EDAC_CPU, "Parity error on TLB RAM\n");
+	case TLB_PARITY_ERR_DATA:
+		edac_printk(KERN_CRIT, EDAC_CPU, "Parity error on TLB DATA RAM\n");
+		break;
+
+	case TLB_PARITY_ERR_TAG:
+		edac_printk(KERN_CRIT, EDAC_CPU, "Parity error on TLB TAG RAM\n");
 		break;
 
 	case BUS_ERROR:
@@ -284,6 +289,16 @@ static void kryo_check_l1_l2_ecc(void *info)
 	spin_unlock_irqrestore(&local_handler_lock, flags);
 }
 
+static bool l3_is_bus_error(u64 errxstatus)
+{
+	if (KRYO_ERRXSTATUS_SERR(errxstatus) == BUS_ERROR) {
+		edac_printk(KERN_CRIT, EDAC_CPU, "Bus Error\n");
+		return true;
+	}
+
+	return false;
+}
+
 static void kryo_check_l3_scu_error(struct edac_device_ctl_info *edev_ctl)
 {
 	u64 errxstatus = 0;
@@ -297,6 +312,11 @@ static void kryo_check_l3_scu_error(struct edac_device_ctl_info *edev_ctl)
 
 	if (KRYO_ERRXSTATUS_VALID(errxstatus) &&
 		KRYO_ERRXMISC_LVL(errxmisc) == L3) {
+		if (l3_is_bus_error(errxstatus)) {
+			if (edev_ctl->panic_on_ue)
+				panic("Causing panic due to Bus Error\n");
+			return;
+		}
 		if (KRYO_ERRXSTATUS_UE(errxstatus)) {
 			edac_printk(KERN_CRIT, EDAC_CPU, "Detected L3 uncorrectable error\n");
 			dump_err_reg(KRYO_L3_UE, L3, errxstatus, errxmisc,
