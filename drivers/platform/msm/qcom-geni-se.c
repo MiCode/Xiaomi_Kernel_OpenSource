@@ -31,7 +31,7 @@
 #define GENI_SE_IOMMU_VA_SIZE	(0xC0000000)
 
 #define NUM_LOG_PAGES 2
-
+#define MAX_CLK_PERF_LEVEL 32
 static unsigned long default_bus_bw_set[] = {0, 19200000, 50000000, 100000000};
 
 /**
@@ -52,6 +52,8 @@ static unsigned long default_bus_bw_set[] = {0, 19200000, 50000000, 100000000};
  * @cur_ib:		Current Bus Instantaneous BW request value.
  * @bus_bw_set:		Clock plan for the bus driver.
  * @cur_bus_bw_idx:	Current index within the bus clock plan.
+ * @num_clk_levels:	Number of valid clock levels in clk_perf_tbl.
+ * @clk_perf_tbl:	Table of clock frequency input to Serial Engine clock.
  * @log_ctx:		Logging context to hold the debug information
  */
 struct geni_se_device {
@@ -72,6 +74,8 @@ struct geni_se_device {
 	int bus_bw_set_size;
 	unsigned long *bus_bw_set;
 	int cur_bus_bw_idx;
+	unsigned int num_clk_levels;
+	unsigned long *clk_perf_tbl;
 	void *log_ctx;
 };
 
@@ -807,6 +811,111 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 	return 0;
 }
 EXPORT_SYMBOL(geni_se_resources_init);
+
+/**
+ * geni_se_clk_tbl_get() - Get the clock table to program DFS
+ * @rsc:	Resource for which the clock table is requested.
+ * @tbl:	Table in which the output is returned.
+ *
+ * This function is called by the protocol drivers to determine the different
+ * clock frequencies supported by Serail Engine Core Clock. The protocol
+ * drivers use the output to determine the clock frequency index to be
+ * programmed into DFS.
+ *
+ * Return:	number of valid performance levels in the table on success,
+ *		standard Linux error codes on failure.
+ */
+int geni_se_clk_tbl_get(struct se_geni_rsc *rsc, unsigned long **tbl)
+{
+	struct geni_se_device *geni_se_dev;
+	int i;
+	unsigned long prev_freq = 0;
+
+	if (unlikely(!rsc || !rsc->wrapper_dev || !rsc->se_clk || !tbl))
+		return -EINVAL;
+
+	*tbl = NULL;
+	geni_se_dev = dev_get_drvdata(rsc->wrapper_dev);
+	if (unlikely(!geni_se_dev))
+		return -EPROBE_DEFER;
+
+	if (geni_se_dev->clk_perf_tbl) {
+		*tbl = geni_se_dev->clk_perf_tbl;
+		return geni_se_dev->num_clk_levels;
+	}
+
+	geni_se_dev->clk_perf_tbl = kzalloc(sizeof(*geni_se_dev->clk_perf_tbl) *
+						MAX_CLK_PERF_LEVEL, GFP_KERNEL);
+	if (!geni_se_dev->clk_perf_tbl)
+		return -ENOMEM;
+
+	for (i = 0; i < MAX_CLK_PERF_LEVEL; i++) {
+		geni_se_dev->clk_perf_tbl[i] = clk_round_rate(rsc->se_clk,
+								prev_freq + 1);
+		if (geni_se_dev->clk_perf_tbl[i] == prev_freq) {
+			geni_se_dev->clk_perf_tbl[i] = 0;
+			break;
+		}
+		prev_freq = geni_se_dev->clk_perf_tbl[i];
+	}
+	geni_se_dev->num_clk_levels = i;
+	*tbl = geni_se_dev->clk_perf_tbl;
+	return geni_se_dev->num_clk_levels;
+}
+EXPORT_SYMBOL(geni_se_clk_tbl_get);
+
+/**
+ * geni_se_clk_freq_match() - Get the matching or closest SE clock frequency
+ * @rsc:	Resource for which the clock frequency is requested.
+ * @req_freq:	Requested clock frequency.
+ * @index:	Index of the resultant frequency in the table.
+ * @res_freq:	Resultant frequency which matches or is closer to the
+ *		requested frequency.
+ * @exact:	Flag to indicate exact multiple requirement of the requested
+ *		frequency .
+ *
+ * This function is called by the protocol drivers to determine the matching
+ * or closest frequency of the Serial Engine clock to be selected in order
+ * to meet the performance requirements.
+ *
+ * Return:	0 on success, standard Linux error codes on failure.
+ */
+int geni_se_clk_freq_match(struct se_geni_rsc *rsc, unsigned long req_freq,
+			   unsigned int *index, unsigned long *res_freq,
+			   bool exact)
+{
+	unsigned long *tbl;
+	int num_clk_levels;
+	int i;
+
+	num_clk_levels = geni_se_clk_tbl_get(rsc, &tbl);
+	if (num_clk_levels < 0)
+		return num_clk_levels;
+
+	if (num_clk_levels == 0)
+		return -EFAULT;
+
+	*res_freq = 0;
+	for (i = 0; i < num_clk_levels; i++) {
+		if (!(tbl[i] % req_freq)) {
+			*index = i;
+			*res_freq = tbl[i];
+			return 0;
+		}
+
+		if (!(*res_freq) || ((tbl[i] > *res_freq) &&
+				     (tbl[i] < req_freq))) {
+			*index = i;
+			*res_freq = tbl[i];
+		}
+	}
+
+	if (exact || !(*res_freq))
+		return -ENOKEY;
+
+	return 0;
+}
+EXPORT_SYMBOL(geni_se_clk_freq_match);
 
 /**
  * geni_se_tx_dma_prep() - Prepare the Serial Engine for TX DMA transfer
