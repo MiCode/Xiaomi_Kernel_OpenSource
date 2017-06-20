@@ -49,6 +49,9 @@ static bool use_cycle_counter;
 DEFINE_MUTEX(cluster_lock);
 static atomic64_t walt_irq_work_lastq_ws;
 
+static struct irq_work walt_cpufreq_irq_work;
+static struct irq_work walt_migration_irq_work;
+
 u64 sched_ktime_clock(void)
 {
 	if (unlikely(sched_ktime_suspended))
@@ -842,12 +845,8 @@ void fixup_busy_time(struct task_struct *p, int new_cpu)
 
 	migrate_top_tasks(p, src_rq, dest_rq);
 
-	if (!same_freq_domain(new_cpu, task_cpu(p))) {
-		cpufreq_update_util(dest_rq, SCHED_CPUFREQ_INTERCLUSTER_MIG |
-					     SCHED_CPUFREQ_WALT);
-		cpufreq_update_util(src_rq, SCHED_CPUFREQ_INTERCLUSTER_MIG |
-					    SCHED_CPUFREQ_WALT);
-	}
+	if (!same_freq_domain(new_cpu, task_cpu(p)))
+		irq_work_queue(&walt_migration_irq_work);
 
 	if (p == src_rq->ed_task) {
 		src_rq->ed_task = NULL;
@@ -1873,7 +1872,7 @@ static inline void run_walt_irq_work(u64 old_window_start, struct rq *rq)
 	result = atomic64_cmpxchg(&walt_irq_work_lastq_ws, old_window_start,
 				   rq->window_start);
 	if (result == old_window_start)
-		irq_work_queue(&rq->irq_work);
+		irq_work_queue(&walt_cpufreq_irq_work);
 }
 
 /* Reflect task activity on its demand and cpu's busy time statistics */
@@ -2993,6 +2992,11 @@ void walt_irq_work(struct irq_work *irq_work)
 	struct rq *rq;
 	int cpu;
 	u64 wc;
+	int flag = SCHED_CPUFREQ_WALT;
+
+	/* Am I the window rollover work or the migration work? */
+	if (irq_work == &walt_migration_irq_work)
+		flag |= SCHED_CPUFREQ_INTERCLUSTER_MIG;
 
 	for_each_cpu(cpu, cpu_possible_mask)
 		raw_spin_lock(&cpu_rq(cpu)->lock);
@@ -3021,12 +3025,13 @@ void walt_irq_work(struct irq_work *irq_work)
 
 	for_each_sched_cluster(cluster)
 		for_each_cpu(cpu, &cluster->cpus)
-			cpufreq_update_util(cpu_rq(cpu), SCHED_CPUFREQ_WALT);
+			cpufreq_update_util(cpu_rq(cpu), flag);
 
 	for_each_cpu(cpu, cpu_possible_mask)
 		raw_spin_unlock(&cpu_rq(cpu)->lock);
 
-	core_ctl_check(this_rq()->window_start);
+	if (irq_work != &walt_migration_irq_work)
+		core_ctl_check(this_rq()->window_start);
 }
 
 int walt_proc_update_handler(struct ctl_table *table, int write,
@@ -3062,7 +3067,8 @@ void walt_sched_init(struct rq *rq)
 	int j;
 
 	cpumask_set_cpu(cpu_of(rq), &rq->freq_domain_cpumask);
-	init_irq_work(&rq->irq_work, walt_irq_work);
+	init_irq_work(&walt_migration_irq_work, walt_irq_work);
+	init_irq_work(&walt_cpufreq_irq_work, walt_irq_work);
 	rq->hmp_stats.cumulative_runnable_avg = 0;
 	rq->window_start = 0;
 	rq->cum_window_start = 0;
