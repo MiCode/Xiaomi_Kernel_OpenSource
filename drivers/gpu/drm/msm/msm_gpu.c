@@ -300,8 +300,6 @@ static void recover_worker(struct work_struct *work)
 	struct msm_gpu *gpu = container_of(work, struct msm_gpu, recover_work);
 	struct drm_device *dev = gpu->dev;
 
-	dev_err(dev->dev, "%s: hangcheck recover!\n", gpu->name);
-
 	mutex_lock(&dev->struct_mutex);
 	if (msm_gpu_active(gpu)) {
 		struct msm_gem_submit *submit;
