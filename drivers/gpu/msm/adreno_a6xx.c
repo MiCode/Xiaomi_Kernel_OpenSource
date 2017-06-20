@@ -678,9 +678,6 @@ static int _load_firmware(struct kgsl_device *device, const char *fwfile,
 	}
 
 	release_firmware(fw);
-
-	ret = _load_gmu_firmware(device);
-
 	return ret;
 }
 
@@ -1567,9 +1564,18 @@ static int _load_gmu_firmware(struct kgsl_device *device)
  */
 static int a6xx_microcode_read(struct adreno_device *adreno_dev)
 {
-	return _load_firmware(KGSL_DEVICE(adreno_dev),
-			adreno_dev->gpucore->sqefw_name,
-			ADRENO_FW(adreno_dev, ADRENO_FW_SQE));
+	int ret;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_firmware *sqe_fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
+
+	if (sqe_fw->memdesc.hostptr == NULL) {
+		ret = _load_firmware(device, adreno_dev->gpucore->sqefw_name,
+				sqe_fw);
+		if (ret)
+			return ret;
+	}
+
+	return _load_gmu_firmware(device);
 }
 
 #define VBIF_RESET_ACK_TIMEOUT	100
