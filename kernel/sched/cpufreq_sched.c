@@ -202,7 +202,7 @@ static void update_fdomain_capacity_request(int cpu)
 	}
 
 	/* Convert the new maximum capacity request into a cpu frequency */
-	freq_new = capacity * policy->max >> SCHED_CAPACITY_SHIFT;
+	freq_new = capacity * policy->cpuinfo.max_freq >> SCHED_CAPACITY_SHIFT;
 	index_new = cpufreq_frequency_table_target(policy, freq_new, CPUFREQ_RELATION_L);
 	freq_new = policy->freq_table[index_new].frequency;
 
