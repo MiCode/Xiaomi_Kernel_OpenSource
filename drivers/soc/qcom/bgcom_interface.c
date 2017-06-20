@@ -21,10 +21,36 @@
 #include <linux/errno.h>
 #include <linux/uaccess.h>
 #include <linux/slab.h>
+#include <linux/sysfs.h>
+#include <linux/kobject.h>
+#include <soc/qcom/subsystem_restart.h>
+#include <soc/qcom/subsystem_notif.h>
 #include "bgcom.h"
 #include "linux/bgcom_interface.h"
 
 #define BGCOM "bg_com_dev"
+
+enum {
+	SSR_DOMAIN_BG,
+	SSR_DOMAIN_MODEM,
+	SSR_DOMAIN_MAX,
+};
+
+struct bg_event {
+	enum bg_event_type e_type;
+};
+
+struct service_info {
+	const char                      name[32];
+	int                             domain_id;
+	void                            *handle;
+	struct notifier_block           *nb;
+};
+
+static char *ssr_domains[] = {
+	"bg-wear",
+	"modem",
+};
 
 static  DEFINE_MUTEX(bg_char_mutex);
 static  struct cdev              bg_cdev;
@@ -34,6 +60,23 @@ static  dev_t                    bg_dev;
 static  int                      device_open;
 static  void                     *handle;
 static  struct   bgcom_open_config_type   config_type;
+
+/**
+ * send_uevent(): send events to user space
+ * pce : ssr event handle value
+ * Return: 0 on success, standard Linux error code on error
+ *
+ * It adds pce value to event and broadcasts to user space.
+ */
+static int send_uevent(struct bg_event *pce)
+{
+	char event_string[32];
+	char *envp[2] = { event_string, NULL };
+
+	snprintf(event_string, ARRAY_SIZE(event_string),
+			"BG_EVENT=%d", pce->e_type);
+	return kobject_uevent_env(&dev_ret->kobj, KOBJ_CHANGE, envp);
+}
 
 static int bgcom_char_open(struct inode *inode, struct file *file)
 {
@@ -146,6 +189,12 @@ static long bg_com_ioctl(struct file *filp,
 		if (ret < 0)
 			pr_err("bgchar_write_cmd failed\n");
 		break;
+	case SET_SPI_FREE:
+		ret = bgcom_set_spi_state(BGCOM_SPI_FREE);
+		break;
+	case SET_SPI_BUSY:
+		ret = bgcom_set_spi_state(BGCOM_SPI_BUSY);
+		break;
 	default:
 		ret = -ENOIOCTLCMD;
 	}
@@ -213,6 +262,106 @@ static void __exit exit_bg_com_dev(void)
 	unregister_chrdev_region(bg_dev, 1);
 }
 
+/**
+ *ssr_bg_cb(): callback function is called
+ *by ssr framework when BG goes down, up and during ramdump
+ *collection. It handles BG shutdown and power up events.
+ */
+static int ssr_bg_cb(struct notifier_block *this,
+		unsigned long opcode, void *data)
+{
+	struct bg_event bge;
+
+	switch (opcode) {
+	case SUBSYS_BEFORE_SHUTDOWN:
+		bge.e_type = BG_BEFORE_POWER_DOWN;
+		send_uevent(&bge);
+		break;
+	case SUBSYS_AFTER_POWERUP:
+		bge.e_type = BG_AFTER_POWER_UP;
+		send_uevent(&bge);
+		break;
+	}
+	return NOTIFY_DONE;
+}
+
+/**
+ *ssr_modem_cb(): callback function is called
+ *by ssr framework when modem goes down, up and during ramdump
+ *collection. It handles modem shutdown and power up events.
+ */
+static int ssr_modem_cb(struct notifier_block *this,
+		unsigned long opcode, void *data)
+{
+	struct bg_event modeme;
+
+	switch (opcode) {
+	case SUBSYS_BEFORE_SHUTDOWN:
+		modeme.e_type = MODEM_BEFORE_POWER_DOWN;
+		send_uevent(&modeme);
+		break;
+	case SUBSYS_AFTER_POWERUP:
+		modeme.e_type = MODEM_AFTER_POWER_UP;
+		send_uevent(&modeme);
+		break;
+	}
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block ssr_modem_nb = {
+	.notifier_call = ssr_modem_cb,
+	.priority = 0,
+};
+
+static struct notifier_block ssr_bg_nb = {
+	.notifier_call = ssr_bg_cb,
+	.priority = 0,
+};
+
+static struct service_info service_data[2] = {
+	{
+		.name = "SSR_BG",
+		.domain_id = SSR_DOMAIN_BG,
+		.nb = &ssr_bg_nb,
+		.handle = NULL,
+	},
+	{
+		.name = "SSR_MODEM",
+		.domain_id = SSR_DOMAIN_MODEM,
+		.nb = &ssr_modem_nb,
+		.handle = NULL,
+	},
+};
+
+/**
+ * ssr_register checks that domain id should be in range and register
+ * SSR framework for value at domain id.
+ */
+static int __init ssr_register(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(service_data); i++) {
+		if ((service_data[i].domain_id < 0) ||
+				(service_data[i].domain_id >= SSR_DOMAIN_MAX)) {
+			pr_err("Invalid service ID = %d\n",
+					service_data[i].domain_id);
+		} else {
+			service_data[i].handle =
+					subsys_notif_register_notifier(
+					ssr_domains[service_data[i].domain_id],
+					service_data[i].nb);
+			if (IS_ERR_OR_NULL(service_data[i].handle)) {
+				pr_err("subsys register failed for id = %d",
+						service_data[i].domain_id);
+				service_data[i].handle = NULL;
+			}
+		}
+	}
+	return 0;
+}
+
 module_init(init_bg_com_dev);
+late_initcall(ssr_register);
 module_exit(exit_bg_com_dev);
 MODULE_LICENSE("GPL v2");
