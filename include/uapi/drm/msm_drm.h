@@ -370,6 +370,15 @@ struct drm_msm_submitqueue {
 	__u32 id;      /* out, identifier */
 };
 
+#define MSM_SUBMITQUEUE_PARAM_FAULTS 0
+
+struct drm_msm_submitqueue_query {
+	__u64 data;
+	__u32 id;
+	__u32 param;
+	__u32 len;
+};
+
 #define DRM_MSM_GET_PARAM              0x00
 /* placeholder:
 #define DRM_MSM_SET_PARAM              0x01
@@ -384,6 +393,7 @@ struct drm_msm_submitqueue {
 #define DRM_MSM_GEM_SVM_NEW            0x09
 #define DRM_MSM_SUBMITQUEUE_NEW        0x0A
 #define DRM_MSM_SUBMITQUEUE_CLOSE      0x0B
+#define DRM_MSM_SUBMITQUEUE_QUERY      0x0C
 
 #define DRM_SDE_WB_CONFIG              0x40
 #define DRM_MSM_REGISTER_EVENT         0x41
@@ -432,6 +442,9 @@ struct drm_msm_submitqueue {
 #define DRM_IOCTL_MSM_SUBMITQUEUE_CLOSE \
 	DRM_IOW(DRM_COMMAND_BASE + DRM_MSM_SUBMITQUEUE_CLOSE, \
 		struct drm_msm_submitqueue)
+#define DRM_IOCTL_MSM_SUBMITQUEUE_QUERY \
+	DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_SUBMITQUEUE_QUERY, \
+		struct drm_msm_submitqueue_query)
 
 #if defined(__cplusplus)
 }

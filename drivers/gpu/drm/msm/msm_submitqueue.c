@@ -27,6 +27,9 @@ struct msm_gpu_submitqueue *msm_submitqueue_get(struct msm_file_private *ctx,
 {
 	struct msm_gpu_submitqueue *entry;
 
+	if (!ctx)
+		return NULL;
+
 	read_lock(&ctx->queuelock);
 
 	list_for_each_entry(entry, &ctx->submitqueues, node) {
@@ -93,6 +96,29 @@ int msm_submitqueue_init(struct msm_file_private *ctx)
 	 */
 
 	return msm_submitqueue_create(ctx, 3, 0, NULL);
+}
+
+int msm_submitqueue_query(struct msm_file_private *ctx, u32 id, u32 param,
+		void __user *data, u32 len)
+{
+	struct msm_gpu_submitqueue *queue = msm_submitqueue_get(ctx, id);
+	int ret = 0;
+
+	if (!queue)
+		return -ENOENT;
+
+	if (param == MSM_SUBMITQUEUE_PARAM_FAULTS) {
+		u32 size = min_t(u32, len, sizeof(queue->faults));
+
+		if (copy_to_user(data, &queue->faults, size))
+			ret = -EFAULT;
+	} else {
+		ret = -EINVAL;
+	}
+
+	msm_submitqueue_put(queue);
+
+	return ret;
 }
 
 int msm_submitqueue_remove(struct msm_file_private *ctx, u32 id)

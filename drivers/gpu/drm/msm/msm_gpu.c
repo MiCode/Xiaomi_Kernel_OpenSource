@@ -274,6 +274,20 @@ static void inactive_start(struct msm_gpu *gpu)
 			round_jiffies_up(jiffies + DRM_MSM_INACTIVE_JIFFIES));
 }
 
+static void retire_guilty_submit(struct msm_gpu *gpu,
+		struct msm_ringbuffer *ring)
+{
+	struct msm_gem_submit *submit = list_first_entry_or_null(&ring->submits,
+		struct msm_gem_submit, node);
+
+	if (!submit)
+		return;
+
+	submit->queue->faults++;
+
+	msm_gem_submit_free(submit);
+}
+
 /*
  * Hangcheck detection for locked gpu:
  */
@@ -296,13 +310,12 @@ static void recover_worker(struct work_struct *work)
 
 		inactive_cancel(gpu);
 
-		FOR_EACH_RING(gpu, ring, i) {
-			uint32_t fence = gpu->funcs->last_fence(gpu, ring);
-
+		/* Retire all events that have already passed */
+		FOR_EACH_RING(gpu, ring, i)
 			retire_submits(gpu, ring,
-				gpu->funcs->active_ring(gpu) == ring ?
-					fence + 1 : fence);
-		}
+				gpu->funcs->last_fence(gpu, ring));
+
+		retire_guilty_submit(gpu, gpu->funcs->active_ring(gpu));
 
 		/* Recover the GPU */
 		gpu->funcs->recover(gpu);
