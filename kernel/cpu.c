@@ -494,6 +494,7 @@ static int cpuhp_up_callbacks(unsigned int cpu, struct cpuhp_cpu_state *st,
 		if (ret) {
 			st->target = prev_state;
 			undo_cpu_up(cpu, st);
+			cpu_notify(CPU_UP_CANCELED, cpu);
 			break;
 		}
 	}
