@@ -15,21 +15,11 @@
 #define _MSM_VIDC_CLOCKS_H_
 #include "msm_vidc_internal.h"
 
-/* Low threshold for encoder dcvs */
-#define DCVS_ENC_LOW_THR 4
-/* High threshold for encoder dcvs */
-#define DCVS_ENC_HIGH_THR 9
 /* extra o/p buffers in case of encoder dcvs */
 #define DCVS_ENC_EXTRA_OUTPUT_BUFFERS 2
+
 /* extra o/p buffers in case of decoder dcvs */
 #define DCVS_DEC_EXTRA_OUTPUT_BUFFERS 4
-/* Default threshold to reduce the core frequency */
-#define DCVS_NOMINAL_THRESHOLD 8
-/* Default threshold to increase the core frequency */
-#define DCVS_TURBO_THRESHOLD 4
-
-/* Considering one safeguard buffer */
-#define DCVS_BUFFER_SAFEGUARD (DCVS_DEC_EXTRA_OUTPUT_BUFFERS - 1)
 
 void msm_clock_data_reset(struct msm_vidc_inst *inst);
 int msm_vidc_update_operating_rate(struct msm_vidc_inst *inst);
