@@ -39,6 +39,7 @@ struct msm_gem_address_space {
 	const char *name;
 	struct msm_mmu *mmu;
 	const struct msm_gem_aspace_ops *ops;
+	bool domain_attached;
 };
 
 struct msm_gem_vma {

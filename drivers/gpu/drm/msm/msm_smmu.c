@@ -37,6 +37,7 @@ struct msm_smmu_client {
 	struct device *dev;
 	struct dma_iommu_mapping *mmu_mapping;
 	bool domain_attached;
+	bool secure;
 };
 
 struct msm_smmu {
@@ -275,6 +276,14 @@ static void msm_smmu_unmap_dma_buf(struct msm_mmu *mmu, struct sg_table *sgt,
 	msm_dma_unmap_sg(client->dev, sgt->sgl, sgt->nents, dir, dma_buf);
 }
 
+static bool msm_smmu_is_domain_secure(struct msm_mmu *mmu)
+{
+	struct msm_smmu *smmu = to_msm_smmu(mmu);
+	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
+
+	return client->secure;
+}
+
 static const struct msm_mmu_funcs funcs = {
 	.attach = msm_smmu_attach,
 	.detach = msm_smmu_detach,
@@ -285,6 +294,7 @@ static const struct msm_mmu_funcs funcs = {
 	.map_dma_buf = msm_smmu_map_dma_buf,
 	.unmap_dma_buf = msm_smmu_unmap_dma_buf,
 	.destroy = msm_smmu_destroy,
+	.is_domain_secure = msm_smmu_is_domain_secure,
 };
 
 static struct msm_smmu_domain msm_smmu_domains[MSM_SMMU_DOMAIN_MAX] = {
@@ -458,6 +468,7 @@ static int _msm_smmu_create_mapping(struct msm_smmu_client *client,
 	if (domain->secure) {
 		int secure_vmid = VMID_CP_PIXEL;
 
+		client->secure = true;
 		rc = iommu_domain_set_attr(client->mmu_mapping->domain,
 				DOMAIN_ATTR_SECURE_VMID, &secure_vmid);
 		if (rc) {
