@@ -1418,7 +1418,7 @@ int gmu_start(struct kgsl_device *device)
 
 			gmu_irq_enable(device);
 
-			ret = hfi_start(gmu, GMU_WARM_BOOT);
+			ret = hfi_start(gmu, GMU_COLD_BOOT);
 			if (ret)
 				goto error_gpu;
 
