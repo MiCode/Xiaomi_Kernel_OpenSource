@@ -477,6 +477,9 @@ static void ath10k_wmi_tlv_op_rx(struct ath10k *ar, struct sk_buff *skb)
 	case WMI_TLV_VDEV_STOPPED_EVENTID:
 		ath10k_wmi_event_vdev_stopped(ar, skb);
 		break;
+	case WMI_TLV_VDEV_DELETE_RESP_EVENTID:
+		ath10k_wmi_event_vdev_delete_resp(ar, skb);
+		break;
 	case WMI_TLV_PEER_STA_KICKOUT_EVENTID:
 		ath10k_wmi_event_peer_sta_kickout(ar, skb);
 		break;

@@ -3120,6 +3120,12 @@ void ath10k_wmi_event_vdev_stopped(struct ath10k *ar, struct sk_buff *skb)
 	complete(&ar->vdev_setup_done);
 }
 
+void ath10k_wmi_event_vdev_delete_resp(struct ath10k *ar, struct sk_buff *skb)
+{
+	ath10k_dbg(ar, ATH10K_DBG_WMI, "WMI_VDEV_DELETE_RESP_EVENTID\n");
+	complete(&ar->vdev_delete_done);
+}
+
 static int
 ath10k_wmi_op_pull_peer_kick_ev(struct ath10k *ar, struct sk_buff *skb,
 				struct wmi_peer_kick_ev_arg *arg)

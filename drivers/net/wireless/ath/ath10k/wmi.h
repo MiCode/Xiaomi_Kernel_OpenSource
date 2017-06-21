@@ -6599,6 +6599,7 @@ int ath10k_wmi_event_debug_mesg(struct ath10k *ar, struct sk_buff *skb);
 void ath10k_wmi_event_update_stats(struct ath10k *ar, struct sk_buff *skb);
 void ath10k_wmi_event_vdev_start_resp(struct ath10k *ar, struct sk_buff *skb);
 void ath10k_wmi_event_vdev_stopped(struct ath10k *ar, struct sk_buff *skb);
+void ath10k_wmi_event_vdev_delete_resp(struct ath10k *ar, struct sk_buff *skb);
 void ath10k_wmi_event_peer_sta_kickout(struct ath10k *ar, struct sk_buff *skb);
 void ath10k_wmi_event_host_swba(struct ath10k *ar, struct sk_buff *skb);
 void ath10k_wmi_event_tbttoffset_update(struct ath10k *ar, struct sk_buff *skb);
