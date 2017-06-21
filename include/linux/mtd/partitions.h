@@ -37,7 +37,7 @@
  */
 
 struct mtd_partition {
-	const char *name;		/* identifier string */
+	char *name;			/* identifier string */
 	uint64_t size;			/* partition size */
 	uint64_t offset;		/* offset within the master MTD space */
 	uint32_t mask_flags;		/* master MTD flags to mask out for this partition */
@@ -97,7 +97,7 @@ extern void deregister_mtd_parser(struct mtd_part_parser *parser);
 		      deregister_mtd_parser)
 
 int mtd_is_partition(const struct mtd_info *mtd);
-int mtd_add_partition(struct mtd_info *master, const char *name,
+int mtd_add_partition(struct mtd_info *master, char *name,
 		      long long offset, long long length);
 int mtd_del_partition(struct mtd_info *master, int partno);
 uint64_t mtd_get_device_size(const struct mtd_info *mtd);

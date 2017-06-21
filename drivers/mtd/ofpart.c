@@ -112,7 +112,7 @@ static int parse_ofpart_partitions(struct mtd_info *master,
 		partname = of_get_property(pp, "label", &len);
 		if (!partname)
 			partname = of_get_property(pp, "name", &len);
-		parts[i].name = partname;
+		parts[i].name = (char *)partname;
 
 		if (of_get_property(pp, "read-only", &len))
 			parts[i].mask_flags |= MTD_WRITEABLE;
@@ -186,7 +186,7 @@ static int parse_ofoldpart_partitions(struct mtd_info *master,
 		if (names && (plen > 0)) {
 			int len = strlen(names) + 1;
 
-			parts[i].name = names;
+			parts[i].name = (char *)names;
 			plen -= len;
 			names += len;
 		} else {
