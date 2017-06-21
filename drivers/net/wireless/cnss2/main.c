@@ -35,6 +35,7 @@
 #define WLAN_RECOVERY_DELAY		1000
 #define FILE_SYSTEM_READY		1
 #define FW_READY_TIMEOUT		20000
+#define FW_ASSERT_TIMEOUT		5000
 #define CNSS_EVENT_PENDING		2989
 
 static struct cnss_plat_data *plat_env;
@@ -665,6 +666,8 @@ static char *cnss_driver_event_to_str(enum cnss_driver_event_type type)
 		return "UNREGISTER_DRIVER";
 	case CNSS_DRIVER_EVENT_RECOVERY:
 		return "RECOVERY";
+	case CNSS_DRIVER_EVENT_FORCE_FW_ASSERT:
+		return "FORCE_FW_ASSERT";
 	case CNSS_DRIVER_EVENT_MAX:
 		return "EVENT_MAX";
 	}
@@ -1545,6 +1548,55 @@ void cnss_schedule_recovery(struct device *dev,
 }
 EXPORT_SYMBOL(cnss_schedule_recovery);
 
+static int cnss_force_fw_assert_hdlr(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
+	int ret;
+
+	ret = cnss_pci_set_mhi_state(plat_priv->bus_priv,
+				     CNSS_MHI_TRIGGER_RDDM);
+	if (ret) {
+		cnss_pr_err("Failed to trigger RDDM, err = %d\n", ret);
+		cnss_schedule_recovery(&pci_priv->pci_dev->dev,
+				       CNSS_REASON_DEFAULT);
+		return 0;
+	}
+
+	if (!test_bit(CNSS_DEV_ERR_NOTIFY, &plat_priv->driver_state)) {
+		mod_timer(&plat_priv->fw_boot_timer,
+			  jiffies + msecs_to_jiffies(FW_ASSERT_TIMEOUT));
+	}
+
+	return 0;
+}
+
+int cnss_force_fw_assert(struct device *dev)
+{
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv is NULL\n");
+		return -ENODEV;
+	}
+
+	if (plat_priv->device_id == QCA6174_DEVICE_ID) {
+		cnss_pr_info("Forced FW assert is not supported\n");
+		return -EINVAL;
+	}
+
+	if (test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
+		cnss_pr_info("Recovery is already in progress, ignore forced FW assert\n");
+		return 0;
+	}
+
+	cnss_driver_event_post(plat_priv,
+			       CNSS_DRIVER_EVENT_FORCE_FW_ASSERT,
+			       false, NULL);
+
+	return 0;
+}
+EXPORT_SYMBOL(cnss_force_fw_assert);
+
 void fw_boot_timeout(unsigned long data)
 {
 	struct cnss_plat_data *plat_priv = (struct cnss_plat_data *)data;
@@ -1672,6 +1724,9 @@ static void cnss_driver_event_work(struct work_struct *work)
 		case CNSS_DRIVER_EVENT_RECOVERY:
 			ret = cnss_driver_recovery_hdlr(plat_priv,
 							event->data);
+			break;
+		case CNSS_DRIVER_EVENT_FORCE_FW_ASSERT:
+			ret = cnss_force_fw_assert_hdlr(plat_priv);
 			break;
 		default:
 			cnss_pr_err("Invalid driver event type: %d",
