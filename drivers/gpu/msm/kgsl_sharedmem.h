@@ -292,8 +292,10 @@ static inline int kgsl_allocate_global(struct kgsl_device *device,
 	else {
 		ret = kgsl_sharedmem_page_alloc_user(memdesc, (size_t) size);
 		if (ret == 0) {
-			if (kgsl_memdesc_map(memdesc) == NULL)
+			if (kgsl_memdesc_map(memdesc) == NULL) {
+				kgsl_sharedmem_free(memdesc);
 				ret = -ENOMEM;
+			}
 		}
 	}
 
