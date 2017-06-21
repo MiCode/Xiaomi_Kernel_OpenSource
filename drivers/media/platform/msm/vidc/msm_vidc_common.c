@@ -1610,8 +1610,6 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 				"event_notify->height = %d event_notify->width = %d\n",
 				event_notify->height,
 				event_notify->width);
-		inst->prop.height[OUTPUT_PORT] = event_notify->height;
-		inst->prop.width[OUTPUT_PORT] = event_notify->width;
 	}
 
 	rc = msm_vidc_check_session_supported(inst);
