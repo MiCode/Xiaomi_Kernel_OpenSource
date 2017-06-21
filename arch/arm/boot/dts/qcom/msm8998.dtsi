@@ -2366,6 +2366,10 @@
 		hyplog-size-offset = <0x414>;    /* 0x066BFB34 */
 	};
 
+	qcom_msmhdcp: qcom,msm_hdcp {
+		compatible = "qcom,msm-hdcp";
+	};
+
 	qcom_crypto: qcrypto@1DE0000 {
 		compatible = "qcom,qcrypto";
 		reg = <0x1DE0000 0x20000>,

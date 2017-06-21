@@ -147,6 +147,20 @@ static bool sde_plane_enabled(struct drm_plane_state *state)
 	return state && state->fb && state->crtc;
 }
 
+static struct sde_kms *_sde_plane_get_kms(struct drm_plane *plane)
+{
+	struct msm_drm_private *priv;
+
+	if (!plane || !plane->dev)
+		return NULL;
+
+	priv = plane->dev->dev_private;
+	if (!priv)
+		return NULL;
+
+	return to_sde_kms(priv->kms);
+}
+
 /**
  * _sde_plane_calc_fill_level - calculate fill level of the given source format
  * @plane:		Pointer to drm plane
@@ -582,12 +596,62 @@ int sde_plane_wait_input_fence(struct drm_plane *plane, uint32_t wait_ms)
 	return ret;
 }
 
+/**
+ * _sde_plane_get_aspace: gets the address space based on the
+ *            fb_translation mode property
+ */
+static int _sde_plane_get_aspace(
+		struct sde_plane *psde,
+		struct sde_plane_state *pstate,
+		struct msm_gem_address_space **aspace)
+{
+	struct sde_kms *kms;
+	int mode;
+
+	if (!psde || !pstate || !aspace) {
+		SDE_ERROR("invalid parameters\n");
+		return -EINVAL;
+	}
+
+	kms = _sde_plane_get_kms(&psde->base);
+	if (!kms) {
+		SDE_ERROR("invalid kms\n");
+		return -EINVAL;
+	}
+
+	mode = sde_plane_get_property(pstate,
+			PLANE_PROP_FB_TRANSLATION_MODE);
+
+	switch (mode) {
+	case SDE_DRM_FB_NON_SEC:
+		*aspace = kms->aspace[MSM_SMMU_DOMAIN_UNSECURE];
+		if (!aspace)
+			return -EINVAL;
+		break;
+	case SDE_DRM_FB_SEC:
+		*aspace = kms->aspace[MSM_SMMU_DOMAIN_SECURE];
+		if (!aspace)
+			return -EINVAL;
+		break;
+	case SDE_DRM_FB_SEC_DIR_TRANS:
+	case SDE_DRM_FB_NON_SEC_DIR_TRANS:
+		*aspace = NULL;
+		break;
+	default:
+		SDE_ERROR("invalid fb_translation mode:%d\n", mode);
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
 static inline void _sde_plane_set_scanout(struct sde_phy_plane *pp,
 		struct sde_plane_state *pstate,
 		struct sde_hw_pipe_cfg *pipe_cfg,
 		struct drm_framebuffer *fb)
 {
 	struct sde_plane *psde;
+	struct msm_gem_address_space *aspace = NULL;
 	int ret;
 
 	if (!pp || !pstate || !pipe_cfg || !fb) {
@@ -603,7 +667,13 @@ static inline void _sde_plane_set_scanout(struct sde_phy_plane *pp,
 		return;
 	}
 
-	ret = sde_format_populate_layout(psde->aspace, fb, &pipe_cfg->layout);
+	ret = _sde_plane_get_aspace(psde, pstate, &aspace);
+	if (ret) {
+		SDE_ERROR_PLANE(psde, "Failed to get aspace %d\n", ret);
+		return;
+	}
+
+	ret = sde_format_populate_layout(aspace, fb, &pipe_cfg->layout);
 	if (ret == -EAGAIN)
 		SDE_DEBUG_PLANE(psde, "not updating same src addrs\n");
 	else if (ret)
@@ -1132,9 +1202,9 @@ static int _sde_plane_color_fill(struct sde_phy_plane *pp,
 }
 
 static int _sde_plane_mode_set(struct drm_plane *plane,
-				struct drm_plane_state *state)
+		struct drm_plane_state *state)
 {
-	uint32_t nplanes, src_flags;
+	uint32_t nplanes, src_flags = 0x0;
 	struct sde_plane *psde;
 	struct sde_plane_state *pstate;
 	const struct sde_format *fmt;
@@ -1145,6 +1215,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	int idx;
 	struct sde_phy_plane *pp;
 	uint32_t num_of_phy_planes = 0, maxlinewidth = 0xFFFF;
+	int mode = 0;
 
 	if (!plane) {
 		SDE_ERROR("invalid plane\n");
@@ -1220,6 +1291,15 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 		return 0;
 
 	memset(&src, 0, sizeof(struct sde_rect));
+
+	/* update secure session flag */
+	mode = sde_plane_get_property(pstate,
+			PLANE_PROP_FB_TRANSLATION_MODE);
+	if ((mode == SDE_DRM_FB_SEC) ||
+			(mode == SDE_DRM_FB_SEC_DIR_TRANS))
+		src_flags |= SDE_SSPP_SECURE_OVERLAY_SESSION;
+
+
 	/* update roi config */
 	if (pstate->dirty & SDE_PLANE_DIRTY_RECTS) {
 		POPULATE_RECT(&src, state->src_x, state->src_y,
@@ -1286,10 +1366,11 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 					pp->scaler3_cfg);
 		}
 
-		if ((pstate->dirty & SDE_PLANE_DIRTY_FORMAT) &&
+	if (((pstate->dirty & SDE_PLANE_DIRTY_FORMAT) ||
+				(src_flags &
+				 SDE_SSPP_SECURE_OVERLAY_SESSION)) &&
 				pp->pipe_hw->ops.setup_format) {
-			src_flags = 0x0;
-			SDE_DEBUG_PLANE(psde, "rotation 0x%llX\n",
+		SDE_DEBUG_PLANE(psde, "rotation 0x%llX\n",
 			sde_plane_get_property(pstate, PLANE_PROP_ROTATION));
 			if (sde_plane_get_property(pstate, PLANE_PROP_ROTATION)
 				& BIT(DRM_REFLECT_X))
@@ -1344,9 +1425,22 @@ static int sde_plane_prepare_fb(struct drm_plane *plane,
 {
 	struct drm_framebuffer *fb = new_state->fb;
 	struct sde_plane *psde = to_sde_plane(plane);
+	struct sde_plane_state *pstate;
+	int rc;
+
+	if (!psde || !new_state)
+		return -EINVAL;
 
 	if (!new_state->fb)
 		return 0;
+
+	pstate = to_sde_plane_state(new_state);
+	rc = _sde_plane_get_aspace(psde, pstate, &psde->aspace);
+
+	if (rc) {
+		SDE_ERROR_PLANE(psde, "Failed to get aspace %d\n", rc);
+		return rc;
+	}
 
 	SDE_DEBUG_PLANE(psde, "FB[%u]\n", fb->base.id);
 	return msm_framebuffer_prepare(fb, psde->aspace);
@@ -2631,7 +2725,6 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 
 	/* cache local stuff for later */
 	plane = &psde->base;
-	psde->aspace = kms->aspace[MSM_SMMU_DOMAIN_UNSECURE];
 
 	INIT_LIST_HEAD(&psde->phy_plane_head);
 

@@ -47,6 +47,7 @@ struct msm_ringbuffer *msm_ringbuffer_new(struct msm_gpu *gpu, int id)
 	ring->next  = ring->start;
 	ring->cur   = ring->start;
 
+	INIT_LIST_HEAD(&ring->submits);
 	spin_lock_init(&ring->lock);
 
 	return ring;

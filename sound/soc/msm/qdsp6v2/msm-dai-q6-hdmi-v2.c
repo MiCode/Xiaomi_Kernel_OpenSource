@@ -283,6 +283,7 @@ static void msm_dai_q6_hdmi_shutdown(struct snd_pcm_substream *substream,
 			*dai_data->status_mask);
 
 	clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
+	memset(&dai_data->ca, 0, sizeof(dai_data->ca));
 }
 
 

@@ -1400,8 +1400,26 @@ static int msm_anlg_cdc_codec_enable_on_demand_supply(
 	}
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		if (atomic_inc_return(&supply->ref) == 1)
+		if (atomic_inc_return(&supply->ref) == 1) {
+			ret = regulator_set_voltage(supply->supply,
+						    supply->min_uv,
+						    supply->max_uv);
+			if (ret) {
+				dev_err(codec->dev,
+					"Setting regulator voltage(en) for micbias with err = %d\n",
+					ret);
+				goto out;
+			}
+			ret = regulator_set_load(supply->supply,
+						 supply->optimum_ua);
+			if (ret < 0) {
+				dev_err(codec->dev,
+					"Setting regulator optimum mode(en) failed for micbias with err = %d\n",
+					ret);
+				goto out;
+			}
 			ret = regulator_enable(supply->supply);
+		}
 		if (ret)
 			dev_err(codec->dev, "%s: Failed to enable %s\n",
 				__func__,
@@ -1413,12 +1431,27 @@ static int msm_anlg_cdc_codec_enable_on_demand_supply(
 				 __func__, on_demand_supply_name[w->shift]);
 			goto out;
 		}
-		if (atomic_dec_return(&supply->ref) == 0)
+		if (atomic_dec_return(&supply->ref) == 0) {
 			ret = regulator_disable(supply->supply);
 			if (ret)
 				dev_err(codec->dev, "%s: Failed to disable %s\n",
 					__func__,
 					on_demand_supply_name[w->shift]);
+			ret = regulator_set_voltage(supply->supply,
+						    0,
+						    supply->max_uv);
+			if (ret) {
+				dev_err(codec->dev,
+					"Setting regulator voltage(dis) failed for micbias with err = %d\n",
+					ret);
+				goto out;
+			}
+			ret = regulator_set_load(supply->supply, 0);
+			if (ret < 0)
+				dev_err(codec->dev,
+					"Setting regulator optimum mode(dis) failed for micbias with err = %d\n",
+					ret);
+		}
 		break;
 	default:
 		break;
@@ -3685,6 +3718,30 @@ static struct regulator *msm_anlg_cdc_find_regulator(
 	return NULL;
 }
 
+static void msm_anlg_cdc_update_micbias_regulator(
+				const struct sdm660_cdc_priv *sdm660_cdc,
+				const char *name,
+				struct on_demand_supply *micbias_supply)
+{
+	int i;
+	struct sdm660_cdc_pdata *pdata = sdm660_cdc->dev->platform_data;
+
+	for (i = 0; i < sdm660_cdc->num_of_supplies; i++) {
+		if (sdm660_cdc->supplies[i].supply &&
+		    !strcmp(sdm660_cdc->supplies[i].supply, name)) {
+			micbias_supply->supply =
+				sdm660_cdc->supplies[i].consumer;
+			micbias_supply->min_uv = pdata->regulator[i].min_uv;
+			micbias_supply->max_uv = pdata->regulator[i].max_uv;
+			micbias_supply->optimum_ua =
+					pdata->regulator[i].optimum_ua;
+			return;
+		}
+	}
+
+	dev_err(sdm660_cdc->dev, "Error: regulator not found:%s\n", name);
+}
+
 static int msm_anlg_cdc_device_down(struct snd_soc_codec *codec)
 {
 	struct msm_asoc_mach_data *pdata = NULL;
@@ -4114,10 +4171,10 @@ static int msm_anlg_cdc_soc_probe(struct snd_soc_codec *codec)
 
 	wcd9xxx_spmi_set_codec(codec);
 
-	sdm660_cdc->on_demand_list[ON_DEMAND_MICBIAS].supply =
-				msm_anlg_cdc_find_regulator(
+	msm_anlg_cdc_update_micbias_regulator(
 				sdm660_cdc,
-				on_demand_supply_name[ON_DEMAND_MICBIAS]);
+				on_demand_supply_name[ON_DEMAND_MICBIAS],
+				&sdm660_cdc->on_demand_list[ON_DEMAND_MICBIAS]);
 	atomic_set(&sdm660_cdc->on_demand_list[ON_DEMAND_MICBIAS].ref,
 		   0);
 
@@ -4183,7 +4240,7 @@ static int msm_anlg_cdc_enable_static_supplies_to_optimum(
 		if (pdata->regulator[i].ondemand)
 			continue;
 		if (regulator_count_voltages(
-				sdm660_cdc->supplies[i].consumer) <=	0)
+				sdm660_cdc->supplies[i].consumer) <= 0)
 			continue;
 
 		ret = regulator_set_voltage(
@@ -4216,7 +4273,7 @@ static int msm_anlg_cdc_disable_static_supplies_to_optimum(
 		if (pdata->regulator[i].ondemand)
 			continue;
 		if (regulator_count_voltages(
-				sdm660_cdc->supplies[i].consumer) <=	0)
+				sdm660_cdc->supplies[i].consumer) <= 0)
 			continue;
 		regulator_set_voltage(sdm660_cdc->supplies[i].consumer, 0,
 				pdata->regulator[i].max_uv);
@@ -4317,6 +4374,28 @@ static int msm_anlg_cdc_init_supplies(struct sdm660_cdc_priv *sdm660_cdc,
 		if (regulator_count_voltages(
 			sdm660_cdc->supplies[i].consumer) <= 0)
 			continue;
+		if (pdata->regulator[i].ondemand) {
+			ret = regulator_set_voltage(
+					sdm660_cdc->supplies[i].consumer,
+					0, pdata->regulator[i].max_uv);
+			if (ret) {
+				dev_err(sdm660_cdc->dev,
+					"Setting regulator voltage failed for regulator %s err = %d\n",
+					sdm660_cdc->supplies[i].supply, ret);
+				goto err_supplies;
+			}
+			ret = regulator_set_load(
+				sdm660_cdc->supplies[i].consumer, 0);
+			if (ret < 0) {
+				dev_err(sdm660_cdc->dev,
+					"Setting regulator optimum mode failed for regulator %s err = %d\n",
+					sdm660_cdc->supplies[i].supply, ret);
+				goto err_supplies;
+			} else {
+				ret = 0;
+				continue;
+			}
+		}
 		ret = regulator_set_voltage(sdm660_cdc->supplies[i].consumer,
 					    pdata->regulator[i].min_uv,
 					    pdata->regulator[i].max_uv);

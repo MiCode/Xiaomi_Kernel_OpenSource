@@ -653,7 +653,15 @@ void *msm_gem_vaddr(struct drm_gem_object *obj)
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
 
 	mutex_lock(&msm_obj->lock);
-	if (!msm_obj->vaddr) {
+
+	if (msm_obj->vaddr) {
+		mutex_unlock(&msm_obj->lock);
+		return msm_obj->vaddr;
+	}
+
+	if (obj->import_attach) {
+		msm_obj->vaddr = dma_buf_vmap(obj->import_attach->dmabuf);
+	} else {
 		struct page **pages = get_pages(obj);
 		if (IS_ERR(pages)) {
 			mutex_unlock(&msm_obj->lock);

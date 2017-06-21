@@ -1,0 +1,77 @@
+Binding for Maxim MAX20010 regulator
+
+MAX20010 is a synchronous step-down converter. It is able to deliver upto 6A
+with 2 different programmable output voltages from 0.5V to 1.27V in 10mV steps
+and from 0.625V to 1.5875V in 12.5mV steps. It supports synchronous
+rectification and automatic PWM/PFM transitions.
+
+The MAX20010 interface is via I2C bus.
+
+=======================
+Supported Properties
+=======================
+
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: should be "maxim,max20010".
+
+- reg
+	Usage:      required
+	Value type: <u32>
+	Definition: The device 8-bit I2C address.
+
+- vin-supply
+	Usage:      optional
+	Value type: <phandle>
+	Definition: This is the phandle for the parent regulator. Typically used
+		    for EN pin control of the buck.
+
+- regulator-initial-mode
+	Usage:      optional
+	Value type: <u32>
+	Definition: The regulator operating mode. Should be either
+		    "MAX20010_OPMODE_SYNC" or "MAX20010_OPMODE_FPWM".
+		    These constants are defined in file
+		    include/dt-bindings/regulator/max20010.h
+
+- maxim,vrange-sel
+	Usage:      optional
+	Value type: <u32>
+	Definition: Integer value specifies the voltage range to be used.
+		    Supported values are 0 or 1.
+		    Value 0 supports voltage range from 0.5V to 1.27V in 10mV
+		    steps. Value 1 supports voltage range from 0.625V to 1.5875V
+		    in 12.5mV steps.
+
+- maxim,soft-start-slew-rate
+	Usage:      optional
+	Value type: <u32>
+	Definition: An integer value specifies the slew rate in uV/uS to be used
+		    for soft-start operation of the buck. Supported values are
+		    5500, 11000, 22000 and 44000.
+
+- maxim,dvs-slew-rate
+	Usage:      optional
+	Value type: <u32>
+	Definition: An integer value specifies the slew rate in uV/uS to be used
+		    for buck dynamic voltage scaling operations. Supported
+		    values are 5500, 11000, 22000 and 44000.
+
+=======
+Example
+=======
+
+	i2c_0 {
+		max20010-regulator@74 {
+			compatible = "maxim,max20010";
+			reg = <0x74>;
+			vin-supply = <&parent_reg>;
+			regulator-min-microvolt = <600000>;
+			regulator-max-microvolt = <1270000>;
+			regulator-initial-mode = <MAX20010_OPMODE_SYNC>;
+			maxim,vrange-sel = <0>;
+			maxim,soft-start-slew-rate = <5500>;
+			maxim,dvs-slew-rate = <5500>;
+		}
+	}

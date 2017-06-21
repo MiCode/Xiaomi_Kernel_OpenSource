@@ -4143,6 +4143,7 @@ static void glink_core_link_down(struct glink_transport_if *if_ptr)
 	rwref_write_get(&xprt_ptr->xprt_state_lhb0);
 	xprt_ptr->next_lcid = 1;
 	xprt_ptr->local_state = GLINK_XPRT_DOWN;
+	xprt_ptr->curr_qos_rate_kBps = 0;
 	xprt_ptr->local_version_idx = xprt_ptr->versions_entries - 1;
 	xprt_ptr->remote_version_idx = xprt_ptr->versions_entries - 1;
 	xprt_ptr->l_features =

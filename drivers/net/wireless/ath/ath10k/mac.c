@@ -782,6 +782,7 @@ static int ath10k_mac_set_rts(struct ath10k_vif *arvif, u32 value)
 static int ath10k_peer_delete(struct ath10k *ar, u32 vdev_id, const u8 *addr)
 {
 	int ret;
+	unsigned long time_left;
 
 	lockdep_assert_held(&ar->conf_mutex);
 
@@ -792,6 +793,16 @@ static int ath10k_peer_delete(struct ath10k *ar, u32 vdev_id, const u8 *addr)
 	ret = ath10k_wait_for_peer_deleted(ar, vdev_id, addr);
 	if (ret)
 		return ret;
+
+	if (QCA_REV_WCN3990(ar)) {
+		time_left = wait_for_completion_timeout(&ar->peer_delete_done,
+							5 * HZ);
+
+		if (time_left == 0) {
+			ath10k_warn(ar, "Timeout in receiving peer delete response\n");
+			return -ETIMEDOUT;
+		}
+	}
 
 	ar->num_peers--;
 
@@ -5924,6 +5935,9 @@ static int ath10k_sta_state(struct ieee80211_hw *hw,
 	     new_state == IEEE80211_STA_NOTEXIST))
 		cancel_work_sync(&arsta->update_wk);
 
+	if (vif->type == NL80211_IFTYPE_STATION && new_state > ar->sta_state)
+		ar->sta_state = new_state;
+
 	mutex_lock(&ar->conf_mutex);
 
 	if (old_state == IEEE80211_STA_NOTEXIST &&
@@ -7392,8 +7406,9 @@ ath10k_mac_op_unassign_vif_chanctx(struct ieee80211_hw *hw,
 		   ctx, arvif->vdev_id);
 
 	WARN_ON(!arvif->is_started);
-
-	if (vif->type == NL80211_IFTYPE_MONITOR) {
+	if (vif->type == NL80211_IFTYPE_MONITOR ||
+	    (vif->type == NL80211_IFTYPE_STATION &&
+	     ar->sta_state < IEEE80211_STA_ASSOC)) {
 		WARN_ON(!arvif->is_up);
 
 		ret = ath10k_wmi_vdev_down(ar, arvif->vdev_id);
@@ -7409,6 +7424,7 @@ ath10k_mac_op_unassign_vif_chanctx(struct ieee80211_hw *hw,
 		ath10k_warn(ar, "failed to stop vdev %i: %d\n",
 			    arvif->vdev_id, ret);
 
+	ar->sta_state = IEEE80211_STA_NOTEXIST;
 	arvif->is_started = false;
 
 	mutex_unlock(&ar->conf_mutex);

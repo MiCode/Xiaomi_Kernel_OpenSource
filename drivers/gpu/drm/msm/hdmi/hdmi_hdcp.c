@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -84,84 +84,6 @@ struct hdmi_hdcp_ctrl {
 	bool max_cascade_exceeded;
 	bool max_dev_exceeded;
 };
-
-static int hdmi_ddc_read(struct hdmi *hdmi, u16 addr, u8 offset,
-	u8 *data, u16 data_len)
-{
-	int rc;
-	int retry = 5;
-	struct i2c_msg msgs[] = {
-		{
-			.addr	= addr >> 1,
-			.flags	= 0,
-			.len	= 1,
-			.buf	= &offset,
-		}, {
-			.addr	= addr >> 1,
-			.flags	= I2C_M_RD,
-			.len	= data_len,
-			.buf	= data,
-		}
-	};
-
-	DBG("Start DDC read");
-retry:
-	rc = i2c_transfer(hdmi->i2c, msgs, 2);
-
-	retry--;
-	if (rc == 2)
-		rc = 0;
-	else if (retry > 0)
-		goto retry;
-	else
-		rc = -EIO;
-
-	DBG("End DDC read %d", rc);
-
-	return rc;
-}
-
-#define HDCP_DDC_WRITE_MAX_BYTE_NUM 32
-
-static int hdmi_ddc_write(struct hdmi *hdmi, u16 addr, u8 offset,
-	u8 *data, u16 data_len)
-{
-	int rc;
-	int retry = 10;
-	u8 buf[HDCP_DDC_WRITE_MAX_BYTE_NUM];
-	struct i2c_msg msgs[] = {
-		{
-			.addr	= addr >> 1,
-			.flags	= 0,
-			.len	= 1,
-		}
-	};
-
-	DBG("Start DDC write");
-	if (data_len > (HDCP_DDC_WRITE_MAX_BYTE_NUM - 1)) {
-		pr_err("%s: write size too big\n", __func__);
-		return -ERANGE;
-	}
-
-	buf[0] = offset;
-	memcpy(&buf[1], data, data_len);
-	msgs[0].buf = buf;
-	msgs[0].len = data_len + 1;
-retry:
-	rc = i2c_transfer(hdmi->i2c, msgs, 1);
-
-	retry--;
-	if (rc == 1)
-		rc = 0;
-	else if (retry > 0)
-		goto retry;
-	else
-		rc = -EIO;
-
-	DBG("End DDC write %d", rc);
-
-	return rc;
-}
 
 static int hdmi_hdcp_scm_wr(struct hdmi_hdcp_ctrl *hdcp_ctrl, u32 *preg,
 	u32 *pdata, u32 count)

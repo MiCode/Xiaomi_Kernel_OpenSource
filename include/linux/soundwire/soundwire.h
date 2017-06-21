@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -196,7 +196,6 @@ static inline struct swr_device *to_swr_device(struct device *dev)
  * @shutdown: standard shutdown callback used during power down/halt
  * @suspend: standard suspend callback used during system suspend
  * @resume: standard resume callback used during system resume
- * @startup: additional init operation for slave devices
  * @driver: soundwire device drivers should initialize name and
  * owner field of this structure
  * @id_table: list of soundwire devices supported by this driver
@@ -210,7 +209,6 @@ struct swr_driver {
 	int	(*device_up)(struct swr_device *swr);
 	int	(*device_down)(struct swr_device *swr);
 	int	(*reset_device)(struct swr_device *swr);
-	int	(*startup)(struct swr_device *swr);
 	struct device_driver		driver;
 	const struct swr_device_id	*id_table;
 };
@@ -309,4 +307,6 @@ extern int swr_reset_device(struct swr_device *swr_dev);
 extern int swr_slvdev_datapath_control(struct swr_device *swr_dev, u8 dev_num,
 				       bool enable);
 extern int swr_remove_from_group(struct swr_device *dev, u8 dev_num);
+
+extern void swr_remove_device(struct swr_device *swr_dev);
 #endif /* _LINUX_SOUNDWIRE_H */
