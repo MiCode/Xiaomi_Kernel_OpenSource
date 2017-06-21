@@ -67,6 +67,11 @@ enum qpnp_regulator_subtype {
 	QPNP_ULT_HF_SUBTYPE	= 0x0D,
 };
 
+enum qpnp_logical_mode {
+	QPNP_LOGICAL_MODE_AUTO,
+	QPNP_LOGICAL_MODE_PWM,
+};
+
 static const struct voltage_range fts2_range0 = {0, 350000, 1275000,  5000};
 static const struct voltage_range fts2_range1 = {0, 700000, 2040000, 10000};
 static const struct voltage_range fts2p5_range0
@@ -97,6 +102,8 @@ static const struct voltage_range hf_range1 = {1550000, 1550000, 3125000,
 
 #define QPNP_SMPS_MODE_PWM		0x80
 #define QPNP_SMPS_MODE_AUTO		0x40
+#define QPNP_FTS426_MODE_PWM		0x07
+#define QPNP_FTS426_MODE_AUTO		0x06
 
 #define QPNP_SMPS_STEP_CTRL_STEP_MASK	0x18
 #define QPNP_SMPS_STEP_CTRL_STEP_SHIFT	3
@@ -153,8 +160,8 @@ struct spm_vreg {
 	u32				max_step_uV;
 	bool				online;
 	u16				spmi_base_addr;
-	u8				init_mode;
-	u8				mode;
+	enum qpnp_logical_mode		init_mode;
+	enum qpnp_logical_mode		mode;
 	int				step_rate;
 	enum qpnp_regulator_uniq_type	regulator_type;
 	u32				cpu_num;
@@ -222,7 +229,7 @@ static unsigned spm_regulator_vlevel_to_selector(struct spm_vreg *vreg,
 static int qpnp_smps_read_voltage(struct spm_vreg *vreg)
 {
 	int rc;
-	u8 reg[2] = {0,};
+	u8 reg[2] = {0};
 
 	if (vreg->regulator_type == QPNP_TYPE_FTS426) {
 		rc = spmi_ext_register_readl(vreg->spmi_dev->ctrl,
@@ -236,7 +243,7 @@ static int qpnp_smps_read_voltage(struct spm_vreg *vreg)
 			return rc;
 		}
 
-		vreg->last_set_vlevel = (reg[1] << 8) | reg[0];
+		vreg->last_set_vlevel = ((unsigned)reg[1] << 8) | reg[0];
 	} else {
 		rc = spmi_ext_register_readl(vreg->spmi_dev->ctrl,
 					vreg->spmi_dev->sid,
@@ -282,12 +289,36 @@ static int qpnp_smps_write_voltage(struct spm_vreg *vreg, unsigned vlevel)
 	return rc;
 }
 
+static inline enum qpnp_logical_mode qpnp_regval_to_mode(struct spm_vreg *vreg,
+							u8 regval)
+{
+	if (vreg->regulator_type == QPNP_TYPE_FTS426)
+		return (regval == QPNP_FTS426_MODE_PWM)
+			? QPNP_LOGICAL_MODE_PWM : QPNP_LOGICAL_MODE_AUTO;
+	else
+		return (regval & QPNP_SMPS_MODE_PWM)
+			? QPNP_LOGICAL_MODE_PWM : QPNP_LOGICAL_MODE_AUTO;
+}
+
+static inline u8 qpnp_mode_to_regval(struct spm_vreg *vreg,
+					enum qpnp_logical_mode mode)
+{
+	if (vreg->regulator_type == QPNP_TYPE_FTS426)
+		return (mode == QPNP_LOGICAL_MODE_PWM)
+			? QPNP_FTS426_MODE_PWM : QPNP_FTS426_MODE_AUTO;
+	else
+		return (mode == QPNP_LOGICAL_MODE_PWM)
+			? QPNP_SMPS_MODE_PWM : QPNP_SMPS_MODE_AUTO;
+}
+
 static int qpnp_smps_set_mode(struct spm_vreg *vreg, u8 mode)
 {
 	int rc;
+	u8 reg = 0;
 
+	reg = qpnp_mode_to_regval(vreg, mode);
 	rc = spmi_ext_register_writel(vreg->spmi_dev->ctrl, vreg->spmi_dev->sid,
-		vreg->spmi_base_addr + QPNP_SMPS_REG_MODE, &mode, 1);
+		vreg->spmi_base_addr + QPNP_SMPS_REG_MODE, &reg, 1);
 	if (rc)
 		dev_err(&vreg->spmi_dev->dev, "%s: could not write to mode register, rc=%d\n",
 			__func__, rc);
@@ -403,12 +434,12 @@ static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
 		return 0;
 
 	pwm_required = (vreg->regulator_type == QPNP_TYPE_FTS2)
-			&& !(vreg->init_mode & QPNP_SMPS_MODE_PWM)
+			&& (vreg->init_mode != QPNP_LOGICAL_MODE_PWM)
 			&& vreg->uV > vreg->last_set_uV;
 
 	if (pwm_required) {
 		/* Switch to PWM mode so that voltage ramping is fast. */
-		rc = qpnp_smps_set_mode(vreg, QPNP_SMPS_MODE_PWM);
+		rc = qpnp_smps_set_mode(vreg, QPNP_LOGICAL_MODE_PWM);
 		if (rc)
 			return rc;
 	}
@@ -427,7 +458,7 @@ static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
 		/* Wait for mode transition to complete. */
 		udelay(QPNP_FTS2_MODE_CHANGE_DELAY - QPNP_SPMI_WRITE_MIN_DELAY);
 		/* Switch to AUTO mode so that power consumption is lowered. */
-		rc = qpnp_smps_set_mode(vreg, QPNP_SMPS_MODE_AUTO);
+		rc = qpnp_smps_set_mode(vreg, QPNP_LOGICAL_MODE_AUTO);
 		if (rc)
 			return rc;
 	}
@@ -518,7 +549,7 @@ static unsigned int spm_regulator_get_mode(struct regulator_dev *rdev)
 {
 	struct spm_vreg *vreg = rdev_get_drvdata(rdev);
 
-	return vreg->mode == QPNP_SMPS_MODE_PWM
+	return vreg->mode == QPNP_LOGICAL_MODE_PWM
 			? REGULATOR_MODE_NORMAL : REGULATOR_MODE_IDLE;
 }
 
@@ -532,8 +563,8 @@ static int spm_regulator_set_mode(struct regulator_dev *rdev, unsigned int mode)
 	 * in the case that qcom,mode has been specified as "pwm" in device
 	 * tree.
 	 */
-	vreg->mode
-	 = mode == REGULATOR_MODE_NORMAL ? QPNP_SMPS_MODE_PWM : vreg->init_mode;
+	vreg->mode = (mode == REGULATOR_MODE_NORMAL) ? QPNP_LOGICAL_MODE_PWM
+						     : vreg->init_mode;
 
 	return qpnp_smps_set_mode(vreg, vreg->mode);
 }
@@ -787,36 +818,34 @@ static int qpnp_smps_init_mode(struct spm_vreg *vreg)
 {
 	const char *mode_name;
 	int rc;
+	u8 val = 0;
 
 	rc = of_property_read_string(vreg->spmi_dev->dev.of_node, "qcom,mode",
 					&mode_name);
 	if (!rc) {
 		if (strcmp("pwm", mode_name) == 0) {
-			vreg->init_mode = QPNP_SMPS_MODE_PWM;
+			vreg->init_mode = QPNP_LOGICAL_MODE_PWM;
 		} else if ((strcmp("auto", mode_name) == 0) &&
 				(vreg->regulator_type != QPNP_TYPE_ULT_HF)) {
-			vreg->init_mode = QPNP_SMPS_MODE_AUTO;
+			vreg->init_mode = QPNP_LOGICAL_MODE_AUTO;
 		} else {
 			dev_err(&vreg->spmi_dev->dev, "%s: unknown regulator mode: %s\n",
 				__func__, mode_name);
 			return -EINVAL;
 		}
 
-		rc = spmi_ext_register_writel(vreg->spmi_dev->ctrl,
-			vreg->spmi_dev->sid,
-			vreg->spmi_base_addr + QPNP_SMPS_REG_MODE,
-			&vreg->init_mode, 1);
+		rc = qpnp_smps_set_mode(vreg, vreg->init_mode);
 		if (rc)
-			dev_err(&vreg->spmi_dev->dev, "%s: could not write mode register, rc=%d\n",
-				__func__, rc);
+			return rc;
 	} else {
 		rc = spmi_ext_register_readl(vreg->spmi_dev->ctrl,
 			vreg->spmi_dev->sid,
 			vreg->spmi_base_addr + QPNP_SMPS_REG_MODE,
-			&vreg->init_mode, 1);
+			&val, 1);
 		if (rc)
 			dev_err(&vreg->spmi_dev->dev, "%s: could not read mode register, rc=%d\n",
 				__func__, rc);
+		vreg->init_mode = qpnp_regval_to_mode(vreg, val);
 	}
 
 	vreg->mode = vreg->init_mode;
@@ -1098,8 +1127,8 @@ static int spm_regulator_probe(struct spmi_device *spmi)
 		vreg->rdesc.name,
 		spm_regulator_using_range0(vreg) ? "LV" : "MV",
 		vreg->uV,
-		vreg->init_mode & QPNP_SMPS_MODE_PWM ? "PWM" :
-		    (vreg->init_mode & QPNP_SMPS_MODE_AUTO ? "AUTO" : "PFM"),
+		vreg->init_mode == QPNP_LOGICAL_MODE_PWM ? "PWM" :
+		   (vreg->init_mode == QPNP_LOGICAL_MODE_AUTO ? "AUTO" : "PFM"),
 		vreg->step_rate);
 
 	return rc;
