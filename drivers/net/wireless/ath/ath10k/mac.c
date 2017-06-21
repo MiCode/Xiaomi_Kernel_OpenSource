@@ -5230,6 +5230,26 @@ static void ath10k_remove_interface(struct ieee80211_hw *hw,
 	mutex_unlock(&ar->conf_mutex);
 }
 
+static int ath10k_change_interface(struct ieee80211_hw *hw,
+				   struct ieee80211_vif *vif,
+				   enum nl80211_iftype new_type, bool p2p)
+{
+	struct ath10k *ar = hw->priv;
+	int ret = 0;
+
+	ath10k_dbg(ar, ATH10K_DBG_MAC,
+		   "change_interface new: %d (%d), old: %d (%d)\n", new_type,
+		   p2p, vif->type, vif->p2p);
+
+	if (new_type != vif->type || vif->p2p != p2p) {
+		ath10k_remove_interface(hw, vif);
+		vif->type = new_type;
+		vif->p2p = p2p;
+		ret = ath10k_add_interface(hw, vif);
+	}
+	return ret;
+}
+
 /*
  * FIXME: Has to be verified.
  */
@@ -7471,6 +7491,7 @@ static const struct ieee80211_ops ath10k_ops = {
 	.stop				= ath10k_stop,
 	.config				= ath10k_config,
 	.add_interface			= ath10k_add_interface,
+	.change_interface		= ath10k_change_interface,
 	.remove_interface		= ath10k_remove_interface,
 	.configure_filter		= ath10k_configure_filter,
 	.bss_info_changed		= ath10k_bss_info_changed,
