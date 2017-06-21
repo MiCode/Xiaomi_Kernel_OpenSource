@@ -3291,7 +3291,10 @@ static int sde_rotator_probe(struct platform_device *pdev)
 
 	ret = sde_rotator_core_init(&rot_dev->mgr, pdev);
 	if (ret < 0) {
-		SDEDEV_ERR(&pdev->dev, "fail init core %d\n", ret);
+		if (ret == -EPROBE_DEFER)
+			SDEDEV_INFO(&pdev->dev, "probe defer for core init\n");
+		else
+			SDEDEV_ERR(&pdev->dev, "fail init core %d\n", ret);
 		goto error_rotator_core_init;
 	}
 
