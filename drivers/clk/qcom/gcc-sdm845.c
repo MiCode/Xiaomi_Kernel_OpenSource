@@ -3856,7 +3856,7 @@ static int __init gcc_sdm845_init(void)
 {
 	return platform_driver_register(&gcc_sdm845_driver);
 }
-core_initcall(gcc_sdm845_init);
+subsys_initcall(gcc_sdm845_init);
 
 static void __exit gcc_sdm845_exit(void)
 {

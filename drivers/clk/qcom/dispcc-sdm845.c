@@ -1130,7 +1130,7 @@ static int __init disp_cc_sdm845_init(void)
 {
 	return platform_driver_register(&disp_cc_sdm845_driver);
 }
-core_initcall(disp_cc_sdm845_init);
+subsys_initcall(disp_cc_sdm845_init);
 
 static void __exit disp_cc_sdm845_exit(void)
 {

@@ -2059,7 +2059,7 @@ static int __init cam_cc_sdm845_init(void)
 {
 	return platform_driver_register(&cam_cc_sdm845_driver);
 }
-core_initcall(cam_cc_sdm845_init);
+subsys_initcall(cam_cc_sdm845_init);
 
 static void __exit cam_cc_sdm845_exit(void)
 {

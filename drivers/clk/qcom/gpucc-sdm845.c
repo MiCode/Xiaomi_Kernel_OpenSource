@@ -594,7 +594,7 @@ static int __init gpu_cc_gfx_sdm845_init(void)
 {
 	return platform_driver_register(&gpu_cc_gfx_sdm845_driver);
 }
-arch_initcall(gpu_cc_gfx_sdm845_init);
+subsys_initcall(gpu_cc_gfx_sdm845_init);
 
 static void __exit gpu_cc_gfx_sdm845_exit(void)
 {
@@ -643,7 +643,7 @@ static int __init gpu_cc_sdm845_init(void)
 {
 	return platform_driver_register(&gpu_cc_sdm845_driver);
 }
-core_initcall(gpu_cc_sdm845_init);
+subsys_initcall(gpu_cc_sdm845_init);
 
 static void __exit gpu_cc_sdm845_exit(void)
 {

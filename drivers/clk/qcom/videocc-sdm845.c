@@ -402,7 +402,7 @@ static int __init video_cc_sdm845_init(void)
 {
 	return platform_driver_register(&video_cc_sdm845_driver);
 }
-core_initcall(video_cc_sdm845_init);
+subsys_initcall(video_cc_sdm845_init);
 
 static void __exit video_cc_sdm845_exit(void)
 {
