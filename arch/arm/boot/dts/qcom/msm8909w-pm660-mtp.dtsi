@@ -28,14 +28,19 @@
 	};
 
 	qcom,wcnss-wlan@a000000 {
-		/delete-property/ qcom,pronto-vddmx-supply;
-		/delete-property/ qcom,pronto-vddcx-supply;
-		/delete-property/ qcom,pronto-vddpx-supply;
-		/delete-property/ qcom,iris-vddxo-supply;
-		/delete-property/ qcom,iris-vddrfa-supply;
+		/delete-property/ qcom,iris-vddpa-voltage-level;
 		/delete-property/ qcom,iris-vddpa-supply;
-		/delete-property/ qcom,iris-vdddig-supply;
 		/delete-property/ qcom,wcnss-adc_tm;
+		/delete-property/ qcom,is-dual-band-disabled;
+		/delete-property/ qcom,iris-vddpa-current;
+		qcom,pronto-vddmx-supply = <&pm660_s2_corner_ao>;
+		qcom,pronto-vddcx-supply = <&pm660_s3_corner>;
+		qcom,pronto-vddpx-supply = <&pm660_l13>;
+		qcom,iris-vddxo-supply   = <&pm660_l12>;
+		qcom,iris-vddrfa-supply  = <&pm660_l6>;
+		qcom,iris-vdddig-supply  = <&pm660_l13>;
+		qcom,wcn-external-gpio = <&msm_gpio 64 0>;
+		qcom,wcn-external-gpio-support;
 	};
 
 	qcom,pronto@a21b000 {
