@@ -2823,7 +2823,9 @@ module_param_cb(restart, &fg_restart_ops, &fg_restart, 0644);
 static int fg_get_time_to_full_locked(struct fg_chip *chip, int *val)
 {
 	int rc, ibatt_avg, vbatt_avg, rbatt, msoc, full_soc, act_cap_mah,
-		i_cc2cv = 0, soc_cc2cv, tau, divisor, iterm,
+		i_cc2cv = 0, soc_cc2cv, tau, divisor, iterm, ttf_mode,
+		i, soc_per_step, msoc_this_step, msoc_next_step,
+		ibatt_this_step, t_predicted_this_step,
 		t_predicted_cv, t_predicted = 0;
 
 	if (chip->bp.float_volt_uv <= 0) {
@@ -2847,6 +2849,18 @@ static int fg_get_time_to_full_locked(struct fg_chip *chip, int *val)
 	if (msoc >= 100) {
 		*val = 0;
 		return 0;
+	}
+
+	if (is_qnovo_en(chip))
+		ttf_mode = TTF_MODE_QNOVO;
+	else
+		ttf_mode = TTF_MODE_NORMAL;
+
+	/* when switching TTF algorithms the TTF needs to be reset */
+	if (chip->ttf.mode != ttf_mode) {
+		fg_circ_buf_clr(&chip->ttf.ibatt);
+		fg_circ_buf_clr(&chip->ttf.vbatt);
+		chip->ttf.mode = ttf_mode;
 	}
 
 	/* at least 10 samples are required to produce a stable IBATT */
@@ -2908,6 +2922,12 @@ static int fg_get_time_to_full_locked(struct fg_chip *chip, int *val)
 		i_cc2cv = ibatt_avg * vbatt_avg /
 			max(MILLI_UNIT, chip->bp.float_volt_uv / MILLI_UNIT);
 		break;
+	case TTF_MODE_QNOVO:
+		i_cc2cv = min(
+			chip->ttf.cc_step.arr[MAX_CC_STEPS - 1] / MILLI_UNIT,
+			ibatt_avg * vbatt_avg /
+			max(MILLI_UNIT, chip->bp.float_volt_uv / MILLI_UNIT));
+		break;
 	default:
 		pr_err("TTF mode %d is not supported\n", chip->ttf.mode);
 		break;
@@ -2931,6 +2951,29 @@ static int fg_get_time_to_full_locked(struct fg_chip *chip, int *val)
 		divisor = max(100, (ibatt_avg + i_cc2cv) / 2 * 100);
 		t_predicted = div_s64((s64)act_cap_mah * (soc_cc2cv - msoc) *
 						HOURS_TO_SECONDS, divisor);
+		break;
+	case TTF_MODE_QNOVO:
+		soc_per_step = 100 / MAX_CC_STEPS;
+		for (i = msoc / soc_per_step; i < MAX_CC_STEPS - 1; ++i) {
+			msoc_next_step = (i + 1) * soc_per_step;
+			if (i == msoc / soc_per_step)
+				msoc_this_step = msoc;
+			else
+				msoc_this_step = i * soc_per_step;
+
+			/* scale ibatt by 85% to account for discharge pulses */
+			ibatt_this_step = min(
+					chip->ttf.cc_step.arr[i] / MILLI_UNIT,
+					ibatt_avg) * 85 / 100;
+			divisor = max(100, ibatt_this_step * 100);
+			t_predicted_this_step = div_s64((s64)act_cap_mah *
+					(msoc_next_step - msoc_this_step) *
+					HOURS_TO_SECONDS, divisor);
+			t_predicted += t_predicted_this_step;
+			fg_dbg(chip, FG_TTF, "[%d, %d] ma=%d t=%d\n",
+				msoc_this_step, msoc_next_step,
+				ibatt_this_step, t_predicted_this_step);
+		}
 		break;
 	default:
 		pr_err("TTF mode %d is not supported\n", chip->ttf.mode);
