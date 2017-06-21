@@ -233,6 +233,7 @@ enum esr_timer_config {
 
 enum ttf_mode {
 	TTF_MODE_NORMAL = 0,
+	TTF_MODE_QNOVO,
 };
 
 /* DT parameters for FG device */
