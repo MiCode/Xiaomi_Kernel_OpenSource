@@ -1064,6 +1064,7 @@
 		qcom,pm-qos-irq-cpu = <0>;
 		qcom,pm-qos-irq-latency = <70 70>;
 
+		non-removable;
 		status = "disabled";
 	};
 
@@ -1268,6 +1269,7 @@
 		qcom,pm-qos-cpu-group-latency-us = <70 70>;
 		qcom,pm-qos-default-cpu = <0>;
 
+		non-removable;
 		status = "disabled";
 	};
 
