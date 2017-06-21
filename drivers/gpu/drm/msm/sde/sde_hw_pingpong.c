@@ -69,8 +69,12 @@ static struct sde_pingpong_cfg *_pingpong_offset(enum sde_pingpong pp,
 static int sde_hw_pp_setup_te_config(struct sde_hw_pingpong *pp,
 		struct sde_hw_tear_check *te)
 {
-	struct sde_hw_blk_reg_map *c = &pp->hw;
+	struct sde_hw_blk_reg_map *c;
 	int cfg;
+
+	if (!pp || !te)
+		return -EINVAL;
+	c = &pp->hw;
 
 	cfg = BIT(19); /*VSYNC_COUNTER_EN */
 	if (te->hw_vsync_mode)
@@ -149,26 +153,38 @@ static int sde_hw_pp_poll_timeout_wr_ptr(struct sde_hw_pingpong *pp,
 
 static void sde_hw_pp_dsc_enable(struct sde_hw_pingpong *pp)
 {
-	struct sde_hw_blk_reg_map *c = &pp->hw;
+	struct sde_hw_blk_reg_map *c;
+
+	if (!pp)
+		return;
+	c = &pp->hw;
 
 	SDE_REG_WRITE(c, PP_DSC_MODE, 1);
 }
 
 static void sde_hw_pp_dsc_disable(struct sde_hw_pingpong *pp)
 {
-	struct sde_hw_blk_reg_map *c = &pp->hw;
+	struct sde_hw_blk_reg_map *c;
+
+	if (!pp)
+		return;
+	c = &pp->hw;
 
 	SDE_REG_WRITE(c, PP_DSC_MODE, 0);
 }
 
 static int sde_hw_pp_setup_dsc(struct sde_hw_pingpong *pp)
 {
-	struct sde_hw_blk_reg_map *pp_c = &pp->hw;
+	struct sde_hw_blk_reg_map *c;
 	int data;
 
-	data = SDE_REG_READ(pp_c, PP_DCE_DATA_OUT_SWAP);
+	if (!pp)
+		return -EINVAL;
+	c = &pp->hw;
+
+	data = SDE_REG_READ(c, PP_DCE_DATA_OUT_SWAP);
 	data |= BIT(18); /* endian flip */
-	SDE_REG_WRITE(pp_c, PP_DCE_DATA_OUT_SWAP, data);
+	SDE_REG_WRITE(c, PP_DCE_DATA_OUT_SWAP, data);
 	return 0;
 }
 
@@ -225,7 +241,11 @@ static int sde_hw_pp_setup_dither_v1(struct sde_hw_pingpong *pp,
 
 static int sde_hw_pp_enable_te(struct sde_hw_pingpong *pp, bool enable)
 {
-	struct sde_hw_blk_reg_map *c = &pp->hw;
+	struct sde_hw_blk_reg_map *c;
+
+	if (!pp)
+		return -EINVAL;
+	c = &pp->hw;
 
 	SDE_REG_WRITE(c, PP_TEAR_CHECK_EN, enable);
 	return 0;
@@ -234,8 +254,12 @@ static int sde_hw_pp_enable_te(struct sde_hw_pingpong *pp, bool enable)
 static int sde_hw_pp_get_vsync_info(struct sde_hw_pingpong *pp,
 		struct sde_hw_pp_vsync_info *info)
 {
-	struct sde_hw_blk_reg_map *c = &pp->hw;
+	struct sde_hw_blk_reg_map *c;
 	u32 val;
+
+	if (!pp || !info)
+		return -EINVAL;
+	c = &pp->hw;
 
 	val = SDE_REG_READ(c, PP_VSYNC_INIT_VAL);
 	info->rd_ptr_init_val = val & 0xffff;

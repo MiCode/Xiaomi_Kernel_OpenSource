@@ -385,6 +385,9 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 		return;
 
 	hw_ctl = phys_enc->hw_ctl;
+	if (!hw_ctl)
+		return;
+
 	SDE_ATRACE_BEGIN("vblank_irq");
 
 	/* signal only for master, where there is a pending kickoff */

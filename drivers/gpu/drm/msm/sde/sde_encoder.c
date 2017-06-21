@@ -626,7 +626,7 @@ void sde_encoder_helper_split_config(
 
 		if (hw_mdptop->ops.setup_split_pipe)
 			hw_mdptop->ops.setup_split_pipe(hw_mdptop, &cfg);
-	} else {
+	} else if (sde_enc->hw_pp[0]) {
 		/*
 		 * slave encoder
 		 * - determine split index from master index,
@@ -2206,6 +2206,11 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 		return;
 	}
 
+	if (!phys->hw_pp) {
+		SDE_ERROR("invalid pingpong hw\n");
+		return;
+	}
+
 	ctl = phys->hw_ctl;
 	if (!ctl || !ctl->ops.trigger_flush) {
 		SDE_ERROR("missing trigger cb\n");
@@ -2247,7 +2252,12 @@ static inline void _sde_encoder_trigger_start(struct sde_encoder_phys *phys)
 	struct sde_hw_ctl *ctl;
 
 	if (!phys) {
-		SDE_ERROR("invalid encoder\n");
+		SDE_ERROR("invalid argument(s)\n");
+		return;
+	}
+
+	if (!phys->hw_pp) {
+		SDE_ERROR("invalid pingpong hw\n");
 		return;
 	}
 
@@ -2509,7 +2519,7 @@ static void _sde_encoder_update_master(struct drm_encoder *drm_enc,
 		bool active;
 
 		phys = sde_enc->phys_encs[i];
-		if (!phys || !phys->ops.update_split_role)
+		if (!phys || !phys->ops.update_split_role || !phys->hw_pp)
 			continue;
 
 		active = test_bit(i, &params->affected_displays);
