@@ -47,6 +47,7 @@ enum ipahal_reg_name {
 	IPA_ENDP_INIT_MODE_n,
 	IPA_ENDP_INIT_NAT_n,
 	IPA_ENDP_INIT_CTRL_n,
+	IPA_ENDP_INIT_CTRL_SCND_n,
 	IPA_ENDP_INIT_HOL_BLOCK_EN_n,
 	IPA_ENDP_INIT_HOL_BLOCK_TIMER_n,
 	IPA_ENDP_INIT_DEAGGR_n,
@@ -340,6 +341,14 @@ struct ipahal_reg_tx_cfg {
 struct ipahal_reg_idle_indication_cfg {
 	u16 enter_idle_debounce_thresh;
 	bool const_non_idle_enable;
+};
+
+/*
+ * struct ipa_ep_cfg_ctrl_scnd - PA_ENDP_INIT_CTRL_SCND_n register
+ * @endp_delay: delay endpoint
+ */
+struct ipahal_ep_cfg_ctrl_scnd {
+	bool endp_delay;
 };
 
 /*
