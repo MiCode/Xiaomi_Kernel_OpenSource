@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -279,11 +279,14 @@ int mdp3_layer_pre_commit(struct msm_fb_data_type *mfd,
 	format = mdp3_ctrl_get_source_format(layer->buffer.format);
 	pr_debug("stride:%d layer_width:%d", stride, layer->buffer.width);
 
-	dma->source_config.format = format;
-	dma->source_config.stride = stride;
-	dma->output_config.pack_pattern =
-		mdp3_ctrl_get_pack_pattern(layer->buffer.format);
-	dma->update_src_cfg = true;
+	if ((dma->source_config.format != format) ||
+			(dma->source_config.stride != stride)) {
+		dma->source_config.format = format;
+		dma->source_config.stride = stride;
+		dma->output_config.pack_pattern =
+			mdp3_ctrl_get_pack_pattern(layer->buffer.format);
+		dma->update_src_cfg = true;
+	}
 	mdp3_session->overlay.id = 1;
 
 	ret = __mdp3_handle_buffer_fences(mfd, commit, layer_list);
