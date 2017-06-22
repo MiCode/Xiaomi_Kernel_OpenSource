@@ -13,6 +13,8 @@
 /dts-v1/;
 
 #include "skeleton64.dtsi"
+#include <dt-bindings/clock/msm-clocks-8996.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8996";
@@ -54,6 +56,7 @@
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
+	virtual-interrupt-parent = "gic";
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
 
@@ -479,5 +482,124 @@
 
 	hostless: qcom,msm-pcm-hostless {
 		compatible = "qcom,msm-pcm-hostless";
+	};
+};
+
+#include "msm8996-pinctrl.dtsi"
+
+&soc {
+	clock_gcc: qcom,gcc@300000 {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_mmss: qcom,mmsscc@8c0000 {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_gpu: qcom,gpucc@8c0000 {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_debug: qcom,cc-debug@362000 {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_cpu: qcom,cpu-clock-8996@ {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	pm8994_s1_corner: regulator-s1-corner {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8994_s1_corner";
+	};
+
+	pm8994_s1_floor_corner: regulator-s1-floor-corner {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8994_s1_floor_corner";
+	};
+
+	pm8994_s1_corner_ao: regulator-s1-corner-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8994_s1_corner_ao";
+	};
+
+	pm8994_s2_corner: regulator-s2-corner {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8994_s2_corner";
+	};
+
+	pm8994_s2_corner_ao: regulator-s2-corner-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8994_s2_corner_ao";
+	};
+
+	pm8994_l12: regulator-l12 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8994_l12";
+	};
+
+	pm8994_l18_pin_ctrl: regulator-l18-pin-ctrl {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8994_l18_pin_ctrl";
+	};
+
+	pm8994_l26_corner: regulator-l26-corner {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8994_l26_corner";
+	};
+
+	pm8994_l26_floor_corner: regulator-l26-floor-corner {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8994_l26_floor_corner";
+	};
+
+	pmi8994_boost_pin_ctrl: regulator-bst-pin-ctrl {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmi8994_boost_pin_ctrl";
+	};
+
+	pm8994_s11: spm-regulator@3200 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8994_s11";
+	};
+
+	pmi8994_s2: regulator@1700 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmi8994_s2";
+	};
+
+	pm8004_s2: regulator@1700 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8004_s2";
+	};
+
+	spi_eth_vreg: spi_eth_phy_vreg {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "ethernet_phy";
+	};
+
+	usb_otg_switch: usb-otg-switch {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "usb_otg_vreg";
+	};
+
+	rome_vreg: rome_vreg {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "rome_vreg";
+	};
+
+	hl7509_en_vreg: hl7509_en_vreg {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "hl7509_en_vreg";
 	};
 };
