@@ -31,6 +31,12 @@
 #define BGCOM_REG_TO_SLAVE_AHB               0x42
 #define BGCOM_REG_TO_MASTER_AHB              0x43
 
+/* Enum to define the bgcom SPI state */
+enum bgcom_spi_state {
+	BGCOM_SPI_FREE = 0,
+	BGCOM_SPI_BUSY,
+};
+
 /* Enums to identify Blackghost events */
 enum bgcom_event_type {
 	BGCOM_EVENT_NONE	= 0,
@@ -199,5 +205,7 @@ int bgcom_suspend(void *handle);
  * Return 0 on success or -Ve on error
 */
 int bgcom_resume(void *handle);
+
+int bgcom_set_spi_state(enum bgcom_spi_state state);
 
 #endif /* BGCOM_H */
