@@ -1166,6 +1166,8 @@ int gmu_probe(struct kgsl_device *device)
 	else
 		gmu->idle_level = GPU_HW_ACTIVE;
 
+	/* disable LM during boot time */
+	clear_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
 	return 0;
 
 error:

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -150,24 +150,6 @@ void a5xx_hwcg_set(struct adreno_device *adreno_dev, bool on);
 #define GPMU_LLM_ENABLED		BIT(9)
 #define GPMU_ISENSE_STATUS		GENMASK(3, 0)
 #define GPMU_ISENSE_END_POINT_CAL_ERR	BIT(0)
-
-/* A5XX_GPU_CS_AMP_CALIBRATION_CONTROL1 */
-#define AMP_SW_TRIM_START		BIT(0)
-
-/* A5XX_GPU_CS_SENSOR_GENERAL_STATUS */
-#define SS_AMPTRIM_DONE			BIT(11)
-#define CS_PWR_ON_STATUS		BIT(10)
-
-/* A5XX_GPU_CS_AMP_CALIBRATION_STATUS*_* */
-#define AMP_OUT_OF_RANGE_ERR		BIT(4)
-#define AMP_OFFSET_CHECK_MAX_ERR	BIT(2)
-#define AMP_OFFSET_CHECK_MIN_ERR	BIT(1)
-
-/* A5XX_GPU_CS_AMP_CALIBRATION_DONE */
-#define SW_OPAMP_CAL_DONE           BIT(0)
-
-#define AMP_CALIBRATION_ERR (AMP_OFFSET_CHECK_MIN_ERR | \
-		AMP_OFFSET_CHECK_MAX_ERR | AMP_OUT_OF_RANGE_ERR)
 
 #define AMP_CALIBRATION_RETRY_CNT	3
 #define AMP_CALIBRATION_TIMEOUT		6
