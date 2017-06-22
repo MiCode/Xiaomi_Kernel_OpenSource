@@ -537,11 +537,12 @@ void bhi_firmware_download(struct work_struct *work)
 
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Enter\n");
 
-	wait_event_interruptible(*mhi_dev_ctxt->mhi_ev_wq.bhi_event,
+	ret = wait_event_interruptible_timeout(
+		*mhi_dev_ctxt->mhi_ev_wq.bhi_event,
 		mhi_dev_ctxt->mhi_state == MHI_STATE_BHI ||
-		mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT);
-	if (mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT ||
-	    mhi_dev_ctxt->mhi_state != MHI_STATE_BHI) {
+		mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT,
+		msecs_to_jiffies(MHI_MAX_STATE_TRANSITION_TIMEOUT));
+	if (!ret || mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT) {
 		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
 			"MHI is not in valid state for firmware download\n");
 		return;

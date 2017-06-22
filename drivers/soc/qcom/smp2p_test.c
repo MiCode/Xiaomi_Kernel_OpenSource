@@ -1,6 +1,6 @@
 /* drivers/soc/qcom/smp2p_test.c
  *
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,7 @@
 #include <linux/jiffies.h>
 #include <linux/delay.h>
 #include <linux/completion.h>
+#include <linux/mutex.h>
 #include <soc/qcom/subsystem_restart.h>
 #include "smp2p_private.h"
 #include "smp2p_test_common.h"
@@ -1238,12 +1239,15 @@ static void smp2p_ut_remote_ssr_ack(struct seq_file *s)
 }
 
 static struct dentry *dent;
+static DEFINE_MUTEX(show_lock);
 
 static int debugfs_show(struct seq_file *s, void *data)
 {
 	void (*show)(struct seq_file *) = s->private;
 
+	mutex_lock(&show_lock);
 	show(s);
+	mutex_unlock(&show_lock);
 
 	return 0;
 }

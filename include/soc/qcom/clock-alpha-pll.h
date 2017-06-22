@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,6 +48,7 @@ struct alpha_pll_clk {
 	struct alpha_pll_masks *masks;
 	void *const __iomem *base;
 	u32 offset;
+	u32 fabia_frac_offset;
 
 	/* if fsm_en_mask is set, config PLL to FSM mode */
 	u32 fsm_reg_offset;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -731,10 +731,6 @@ int scm_call2_atomic(u32 fn_id, struct scm_desc *desc)
 
 	x0 = fn_id | BIT(SMC_ATOMIC_SYSCALL) | scm_version_mask;
 
-	pr_debug("scm_call: func id %#llx, args: %#x, %#llx, %#llx, %#llx, %#llx\n",
-		x0, desc->arginfo, desc->args[0], desc->args[1],
-		desc->args[2], desc->x5);
-
 	if (scm_version == SCM_ARMV8_64)
 		ret = __scm_call_armv8_64(x0, desc->arginfo, desc->args[0],
 					  desc->args[1], desc->args[2],
@@ -746,9 +742,8 @@ int scm_call2_atomic(u32 fn_id, struct scm_desc *desc)
 					  desc->x5, &desc->ret[0],
 					  &desc->ret[1], &desc->ret[2]);
 	if (ret < 0)
-		pr_err("scm_call failed: func id %#llx, arginfo: %#x, args: %#llx, %#llx, %#llx, %#llx, ret: %d, syscall returns: %#llx, %#llx, %#llx\n",
-			x0, desc->arginfo, desc->args[0], desc->args[1],
-			desc->args[2], desc->x5, ret, desc->ret[0],
+		pr_err("scm_call failed: func id %#llx, ret: %d, syscall returns: %#llx, %#llx, %#llx\n",
+			x0, ret, desc->ret[0],
 			desc->ret[1], desc->ret[2]);
 
 	if (arglen > N_REGISTER_ARGS)
