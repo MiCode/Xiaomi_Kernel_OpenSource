@@ -992,6 +992,9 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		if (err)
 			goto bail;
 	}
+	if (ctx->buf->virt && metalen <= copylen)
+		memset(ctx->buf->virt, 0, metalen);
+
 	/* copy metadata */
 	rpra = ctx->buf->virt;
 	ctx->rpra = rpra;
