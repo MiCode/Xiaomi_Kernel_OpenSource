@@ -31,12 +31,20 @@ static const unsigned int a6xx_gras_cluster[] = {
 	0x8400, 0x840B,
 };
 
-static const unsigned int a6xx_ps_cluster[] = {
+static const unsigned int a6xx_ps_cluster_rac[] = {
 	0x8800, 0x8806, 0x8809, 0x8811, 0x8818, 0x881E, 0x8820, 0x8865,
 	0x8870, 0x8879, 0x8880, 0x8889, 0x8890, 0x8891, 0x8898, 0x8898,
-	0x88C0, 0x88c1, 0x88D0, 0x88E3, 0x88F0, 0x88F3, 0x8900, 0x891A,
-	0x8927, 0x8928, 0x8C00, 0x8C01, 0x8C17, 0x8C33, 0x9200, 0x9216,
-	0x9218, 0x9236, 0x9300, 0x9306,
+	0x88C0, 0x88C1, 0x88D0, 0x88E3, 0x8900, 0x890C, 0x890F, 0x891A,
+	0x8C00, 0x8C01, 0x8C08, 0x8C10, 0x8C17, 0x8C1F, 0x8C26, 0x8C33,
+};
+
+static const unsigned int a6xx_ps_cluster_rbp[] = {
+	0x88F0, 0x88F3, 0x890D, 0x890E, 0x8927, 0x8928, 0x8BF0, 0x8BF1,
+	0x8C02, 0x8C07, 0x8C11, 0x8C16, 0x8C20, 0x8C25,
+};
+
+static const unsigned int a6xx_ps_cluster[] = {
+	0x9200, 0x9216, 0x9218, 0x9236, 0x9300, 0x9306,
 };
 
 static const unsigned int a6xx_fe_cluster[] = {
@@ -48,18 +56,41 @@ static const unsigned int a6xx_pc_vs_cluster[] = {
 	0x9100, 0x9108, 0x9300, 0x9306, 0x9980, 0x9981, 0x9B00, 0x9B07,
 };
 
+static const struct sel_reg {
+	unsigned int host_reg;
+	unsigned int cd_reg;
+	unsigned int val;
+} _a6xx_rb_rac_aperture = {
+	.host_reg = A6XX_RB_RB_SUB_BLOCK_SEL_CNTL_HOST,
+	.cd_reg = A6XX_RB_RB_SUB_BLOCK_SEL_CNTL_CD,
+	.val = 0x0,
+},
+_a6xx_rb_rbp_aperture = {
+	.host_reg = A6XX_RB_RB_SUB_BLOCK_SEL_CNTL_HOST,
+	.cd_reg = A6XX_RB_RB_SUB_BLOCK_SEL_CNTL_CD,
+	.val = 0x9,
+};
+
 static struct a6xx_cluster_registers {
 	unsigned int id;
 	const unsigned int *regs;
 	unsigned int num_sets;
+	const struct sel_reg *sel;
 	unsigned int offset0;
 	unsigned int offset1;
 } a6xx_clusters[] = {
-	{ CP_CLUSTER_GRAS, a6xx_gras_cluster, ARRAY_SIZE(a6xx_gras_cluster)/2 },
-	{ CP_CLUSTER_PS, a6xx_ps_cluster, ARRAY_SIZE(a6xx_ps_cluster)/2 },
-	{ CP_CLUSTER_FE, a6xx_fe_cluster, ARRAY_SIZE(a6xx_fe_cluster)/2 },
+	{ CP_CLUSTER_GRAS, a6xx_gras_cluster, ARRAY_SIZE(a6xx_gras_cluster)/2,
+		NULL },
+	{ CP_CLUSTER_PS, a6xx_ps_cluster_rac, ARRAY_SIZE(a6xx_ps_cluster_rac)/2,
+		&_a6xx_rb_rac_aperture },
+	{ CP_CLUSTER_PS, a6xx_ps_cluster_rbp, ARRAY_SIZE(a6xx_ps_cluster_rbp)/2,
+		&_a6xx_rb_rbp_aperture },
+	{ CP_CLUSTER_PS, a6xx_ps_cluster, ARRAY_SIZE(a6xx_ps_cluster)/2,
+		NULL },
+	{ CP_CLUSTER_FE, a6xx_fe_cluster, ARRAY_SIZE(a6xx_fe_cluster)/2,
+		NULL },
 	{ CP_CLUSTER_PC_VS, a6xx_pc_vs_cluster,
-					ARRAY_SIZE(a6xx_pc_vs_cluster)/2 },
+		ARRAY_SIZE(a6xx_pc_vs_cluster)/2, NULL },
 };
 
 struct a6xx_cluster_regs_info {
@@ -246,6 +277,16 @@ static const unsigned int a6xx_gmu_registers[] = {
 	0x26400, 0x26416, 0x26420, 0x26427,
 };
 
+static const unsigned int a6xx_rb_rac_registers[] = {
+	0x8E04, 0x8E05, 0x8E07, 0x8E08, 0x8E10, 0x8E1C, 0x8E20, 0x8E25,
+	0x8E28, 0x8E28, 0x8E2C, 0x8E2F, 0x8E50, 0x8E52,
+};
+
+static const unsigned int a6xx_rb_rbp_registers[] = {
+	0x8E01, 0x8E01, 0x8E0C, 0x8E0C, 0x8E3B, 0x8E3E, 0x8E40, 0x8E43,
+	0x8E53, 0x8E5F, 0x8E70, 0x8E77,
+};
+
 static const struct adreno_vbif_snapshot_registers
 a6xx_vbif_snapshot_registers[] = {
 	{ 0x20040000, 0xFF000000, a6xx_vbif_ver_20xxxxxx_registers,
@@ -282,10 +323,6 @@ static const unsigned int a6xx_registers[] = {
 	/* GRAS */
 	0x8600, 0x8601, 0x8610, 0x861B, 0x8620, 0x8620, 0x8628, 0x862B,
 	0x8630, 0x8637,
-	/* RB */
-	0x8E01, 0x8E01, 0x8E04, 0x8E05, 0x8E07, 0x8E08, 0x8E0C, 0x8E0C,
-	0x8E10, 0x8E1C, 0x8E20, 0x8E25, 0x8E28, 0x8E28, 0x8E2C, 0x8E2F,
-	0x8E3B, 0x8E3E, 0x8E40, 0x8E43, 0x8E50, 0x8E5E, 0x8E70, 0x8E77,
 	/* VPC */
 	0x9600, 0x9604, 0x9624, 0x9637,
 	/* PC */
@@ -516,26 +553,42 @@ static struct kgsl_memdesc a6xx_capturescript;
 static struct kgsl_memdesc a6xx_crashdump_registers;
 static bool crash_dump_valid;
 
-static size_t a6xx_legacy_snapshot_registers(struct kgsl_device *device,
-		u8 *buf, size_t remain)
-{
-	struct kgsl_snapshot_registers regs = {
-		.regs = a6xx_registers,
-		.count = ARRAY_SIZE(a6xx_registers) / 2,
-	};
-
-	return kgsl_snapshot_dump_registers(device, buf, remain, &regs);
-}
-
-static struct cdregs {
+static struct reg_list {
 	const unsigned int *regs;
-	unsigned int size;
-} _a6xx_cd_registers[] = {
-	{ a6xx_registers, ARRAY_SIZE(a6xx_registers) },
+	unsigned int count;
+	const struct sel_reg *sel;
+} a6xx_reg_list[] = {
+	{ a6xx_registers, ARRAY_SIZE(a6xx_registers) / 2, NULL },
+	{ a6xx_rb_rac_registers, ARRAY_SIZE(a6xx_rb_rac_registers) / 2,
+		&_a6xx_rb_rac_aperture },
+	{ a6xx_rb_rbp_registers, ARRAY_SIZE(a6xx_rb_rbp_registers) / 2,
+		&_a6xx_rb_rbp_aperture },
 };
 
 #define REG_PAIR_COUNT(_a, _i) \
 	(((_a)[(2 * (_i)) + 1] - (_a)[2 * (_i)]) + 1)
+
+static size_t a6xx_legacy_snapshot_registers(struct kgsl_device *device,
+		u8 *buf, size_t remain)
+{
+	unsigned int i;
+	size_t used = 0;
+
+	for (i = 0; i < ARRAY_SIZE(a6xx_reg_list); i++) {
+		struct reg_list *regs = &a6xx_reg_list[i];
+		struct kgsl_snapshot_registers snapshot_regs = {
+			.regs = regs->regs,
+			.count = regs->count,
+		};
+
+		if (regs->sel)
+			kgsl_regwrite(device, regs->sel->host_reg,
+				regs->sel->val);
+		used += kgsl_snapshot_dump_registers(device, buf + used,
+						remain - used, &snapshot_regs);
+	}
+	return used;
+}
 
 static size_t a6xx_snapshot_registers(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv)
@@ -556,10 +609,10 @@ static size_t a6xx_snapshot_registers(struct kgsl_device *device, u8 *buf,
 
 	remain -= sizeof(*header);
 
-	for (i = 0; i < ARRAY_SIZE(_a6xx_cd_registers); i++) {
-		struct cdregs *regs = &_a6xx_cd_registers[i];
+	for (i = 0; i < ARRAY_SIZE(a6xx_reg_list); i++) {
+		struct reg_list *regs = &a6xx_reg_list[i];
 
-		for (j = 0; j < regs->size / 2; j++) {
+		for (j = 0; j < regs->count; j++) {
 			unsigned int start = regs->regs[2 * j];
 			unsigned int end = regs->regs[(2 * j) + 1];
 
@@ -958,6 +1011,10 @@ static size_t a6xx_legacy_snapshot_mvc(struct kgsl_device *device, u8 *buf,
 	 */
 	aperture_cntl = ((cur_cluster->id & 0x7) << 8) | (ctxt << 4) | ctxt;
 	kgsl_regwrite(device, A6XX_CP_APERTURE_CNTL_HOST, aperture_cntl);
+
+	if (cur_cluster->sel)
+		kgsl_regwrite(device, cur_cluster->sel->host_reg,
+			cur_cluster->sel->val);
 
 	for (i = 0; i < cur_cluster->num_sets; i++) {
 		start = cur_cluster->regs[2 * i];
@@ -1592,6 +1649,12 @@ static int _a6xx_crashdump_init_mvc(uint64_t *ptr, uint64_t *offset)
 	for (i = 0; i < ARRAY_SIZE(a6xx_clusters); i++) {
 		struct a6xx_cluster_registers *cluster = &a6xx_clusters[i];
 
+		if (cluster->sel) {
+			ptr[qwords++] = cluster->sel->val;
+			ptr[qwords++] = ((uint64_t)cluster->sel->cd_reg << 44) |
+				(1 << 21) | 1;
+		}
+
 		cluster->offset0 = *offset;
 		for (j = 0; j < A6XX_NUM_CTXTS; j++) {
 
@@ -1600,7 +1663,7 @@ static int _a6xx_crashdump_init_mvc(uint64_t *ptr, uint64_t *offset)
 
 			ptr[qwords++] = (cluster->id << 8) | (j << 4) | j;
 			ptr[qwords++] =
-				((uint64_t)A6XX_CP_APERTURE_CNTL_HOST << 44) |
+				((uint64_t)A6XX_CP_APERTURE_CNTL_CD << 44) |
 				(1 << 21) | 1;
 
 			for (k = 0; k < cluster->num_sets; k++) {
@@ -1747,14 +1810,18 @@ void a6xx_crashdump_init(struct adreno_device *adreno_dev)
 	 * To save the registers, we need 16 bytes per register pair for the
 	 * script and a dword for each register in the data
 	 */
-	for (i = 0; i < ARRAY_SIZE(_a6xx_cd_registers); i++) {
-		struct cdregs *regs = &_a6xx_cd_registers[i];
+	for (i = 0; i < ARRAY_SIZE(a6xx_reg_list); i++) {
+		struct reg_list *regs = &a6xx_reg_list[i];
+
+		/* 16 bytes for programming the aperture */
+		if (regs->sel)
+			script_size += 16;
 
 		/* Each pair needs 16 bytes (2 qwords) */
-		script_size += (regs->size / 2) * 16;
+		script_size += regs->count * 16;
 
 		/* Each register needs a dword in the data */
-		for (j = 0; j < regs->size / 2; j++)
+		for (j = 0; j < regs->count; j++)
 			data_size += REG_PAIR_COUNT(regs->regs, j) *
 				sizeof(unsigned int);
 
@@ -1850,10 +1917,17 @@ void a6xx_crashdump_init(struct adreno_device *adreno_dev)
 	ptr = (uint64_t *)a6xx_capturescript.hostptr;
 
 	/* For the registers, program a read command for each pair */
-	for (i = 0; i < ARRAY_SIZE(_a6xx_cd_registers); i++) {
-		struct cdregs *regs = &_a6xx_cd_registers[i];
+	for (i = 0; i < ARRAY_SIZE(a6xx_reg_list); i++) {
+		struct reg_list *regs = &a6xx_reg_list[i];
 
-		for (j = 0; j < regs->size / 2; j++) {
+		/* Program the SEL_CNTL_CD register appropriately */
+		if (regs->sel) {
+			*ptr++ = regs->sel->val;
+			*ptr++ = (((uint64_t)regs->sel->cd_reg << 44)) |
+					(1 << 21) | 1;
+		}
+
+		for (j = 0; j < regs->count; j++) {
 			unsigned int r = REG_PAIR_COUNT(regs->regs, j);
 			*ptr++ = a6xx_crashdump_registers.gpuaddr + offset;
 			*ptr++ = (((uint64_t) regs->regs[2 * j]) << 44) | r;

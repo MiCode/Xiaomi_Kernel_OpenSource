@@ -117,6 +117,7 @@
 #define A6XX_CP_ALWAYS_ON_COUNTER_HI     0x981
 #define A6XX_CP_AHB_CNTL                 0x98D
 #define A6XX_CP_APERTURE_CNTL_HOST       0xA00
+#define A6XX_CP_APERTURE_CNTL_CD         0xA03
 #define A6XX_VSC_ADDR_MODE_CNTL          0xC01
 
 /* RBBM registers */
@@ -599,6 +600,8 @@
 #define A6XX_RB_PERFCTR_CMP_SEL_1           0x8E2D
 #define A6XX_RB_PERFCTR_CMP_SEL_2           0x8E2E
 #define A6XX_RB_PERFCTR_CMP_SEL_3           0x8E2F
+#define A6XX_RB_RB_SUB_BLOCK_SEL_CNTL_HOST  0x8E3B
+#define A6XX_RB_RB_SUB_BLOCK_SEL_CNTL_CD    0x8E3D
 #define A6XX_RB_CONTEXT_SWITCH_GMEM_SAVE_RESTORE 0x8E50
 
 /* PC registers */
