@@ -292,6 +292,7 @@ struct smb_charger {
 	struct delayed_work	pl_enable_work;
 	struct work_struct	legacy_detection_work;
 	struct delayed_work	uusb_otg_work;
+	struct delayed_work	bb_removal_work;
 
 	/* cached status */
 	int			voltage_min_uv;
