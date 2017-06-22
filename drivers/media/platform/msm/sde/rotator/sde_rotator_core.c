@@ -515,6 +515,12 @@ static int sde_rotator_import_buffer(struct sde_layer_buffer *buffer,
 	if (!input)
 		dir = DMA_FROM_DEVICE;
 
+	if (buffer->plane_count > SDE_ROT_MAX_PLANES) {
+		SDEROT_ERR("buffer plane_count exceeds MAX_PLANE limit:%d\n",
+				buffer->plane_count);
+		return -EINVAL;
+	}
+
 	memset(planes, 0, sizeof(planes));
 
 	for (i = 0; i < buffer->plane_count; i++) {
