@@ -36,8 +36,11 @@
 /* each entry will have register address and bit offset in that register */
 #define MAX_BIT_OFFSET 2
 
-/* default line width for sspp */
+/* default line width for sspp, mixer, ds (input), wb */
 #define DEFAULT_SDE_LINE_WIDTH 2048
+
+/* default output line width for ds */
+#define DEFAULT_SDE_OUTPUT_LINE_WIDTH 2560
 
 /* max mixer blend stages */
 #define DEFAULT_SDE_MIXER_BLENDSTAGES 7
@@ -60,8 +63,8 @@
 /* total number of intf - dp, dsi, hdmi */
 #define INTF_COUNT			3
 
-#define MAX_SSPP_UPSCALE		20
-#define MAX_SSPP_DOWNSCALE		4
+#define MAX_UPSCALE_RATIO		20
+#define MAX_DOWNSCALE_RATIO		4
 #define SSPP_UNITY_SCALE		1
 
 #define MAX_HORZ_DECIMATION		4
@@ -140,6 +143,7 @@ enum sde_prop {
 	DIM_LAYER,
 	SMART_DMA_REV,
 	IDLE_PC,
+	DEST_SCALER,
 	SDE_PROP_MAX,
 };
 
@@ -227,6 +231,20 @@ enum {
 	DSC_OFF,
 	DSC_LEN,
 	DSC_PROP_MAX,
+};
+
+enum {
+	DS_TOP_OFF,
+	DS_TOP_LEN,
+	DS_TOP_INPUT_LINEWIDTH,
+	DS_TOP_OUTPUT_LINEWIDTH,
+	DS_TOP_PROP_MAX,
+};
+
+enum {
+	DS_OFF,
+	DS_LEN,
+	DS_PROP_MAX,
 };
 
 enum {
@@ -371,6 +389,7 @@ static struct sde_prop_type sde_prop[] = {
 	{DIM_LAYER, "qcom,sde-has-dim-layer", false, PROP_TYPE_BOOL},
 	{SMART_DMA_REV, "qcom,sde-smart-dma-rev", false, PROP_TYPE_STRING},
 	{IDLE_PC, "qcom,sde-has-idle-pc", false, PROP_TYPE_BOOL},
+	{DEST_SCALER, "qcom,sde-has-dest-scaler", false, PROP_TYPE_BOOL},
 };
 
 static struct sde_prop_type sde_perf_prop[] = {
@@ -498,6 +517,20 @@ static struct sde_prop_type dspp_blocks_prop[] = {
 static struct sde_prop_type ad_prop[] = {
 	{AD_OFF, "qcom,sde-dspp-ad-off", false, PROP_TYPE_U32_ARRAY},
 	{AD_VERSION, "qcom,sde-dspp-ad-version", false, PROP_TYPE_U32},
+};
+
+static struct sde_prop_type ds_top_prop[] = {
+	{DS_TOP_OFF, "qcom,sde-dest-scaler-top-off", false, PROP_TYPE_U32},
+	{DS_TOP_LEN, "qcom,sde-dest-scaler-top-size", false, PROP_TYPE_U32},
+	{DS_TOP_INPUT_LINEWIDTH, "qcom,sde-max-dest-scaler-input-linewidth",
+		false, PROP_TYPE_U32},
+	{DS_TOP_OUTPUT_LINEWIDTH, "qcom,sde-max-dest-scaler-output-linewidth",
+		false, PROP_TYPE_U32},
+};
+
+static struct sde_prop_type ds_prop[] = {
+	{DS_OFF, "qcom,sde-dest-scaler-off", false, PROP_TYPE_U32_ARRAY},
+	{DS_LEN, "qcom,sde-dest-scaler-size", false, PROP_TYPE_U32},
 };
 
 static struct sde_prop_type pp_prop[] = {
@@ -857,8 +890,8 @@ static void _sde_sspp_setup_vig(struct sde_mdss_cfg *sde_cfg,
 	struct sde_sspp_cfg *sspp, struct sde_sspp_sub_blks *sblk,
 	bool *prop_exists, struct sde_prop_value *prop_value, u32 *vig_count)
 {
-	sblk->maxupscale = MAX_SSPP_UPSCALE;
-	sblk->maxdwnscale = MAX_SSPP_DOWNSCALE;
+	sblk->maxupscale = MAX_UPSCALE_RATIO;
+	sblk->maxdwnscale = MAX_DOWNSCALE_RATIO;
 	sspp->id = SSPP_VIG0 + *vig_count;
 	snprintf(sspp->name, SDE_HW_BLK_NAME_LEN, "sspp_%u",
 			sspp->id - SSPP_VIG0);
@@ -952,8 +985,8 @@ static void _sde_sspp_setup_rgb(struct sde_mdss_cfg *sde_cfg,
 	struct sde_sspp_cfg *sspp, struct sde_sspp_sub_blks *sblk,
 	bool *prop_exists, struct sde_prop_value *prop_value, u32 *rgb_count)
 {
-	sblk->maxupscale = MAX_SSPP_UPSCALE;
-	sblk->maxdwnscale = MAX_SSPP_DOWNSCALE;
+	sblk->maxupscale = MAX_UPSCALE_RATIO;
+	sblk->maxdwnscale = MAX_DOWNSCALE_RATIO;
 	sspp->id = SSPP_RGB0 + *rgb_count;
 	snprintf(sspp->name, SDE_HW_BLK_NAME_LEN, "sspp_%u",
 			sspp->id - SSPP_VIG0);
@@ -1287,8 +1320,8 @@ static int sde_mixer_parse_dt(struct device_node *np,
 	u32 off_count, blend_off_count, max_blendstages, lm_pair_mask;
 	struct sde_lm_cfg *mixer;
 	struct sde_lm_sub_blks *sblk;
-	int pp_count, dspp_count;
-	u32 pp_idx, dspp_idx;
+	int pp_count, dspp_count, ds_count;
+	u32 pp_idx, dspp_idx, ds_idx;
 	struct device_node *snp = NULL;
 
 	if (!sde_cfg) {
@@ -1319,6 +1352,7 @@ static int sde_mixer_parse_dt(struct device_node *np,
 
 	pp_count = sde_cfg->pingpong_count;
 	dspp_count = sde_cfg->dspp_count;
+	ds_count = sde_cfg->ds_count;
 
 	/* get mixer feature dt properties if they exist */
 	snp = of_get_child_by_name(np, mixer_prop[MIXER_BLOCKS].prop_name);
@@ -1358,7 +1392,7 @@ static int sde_mixer_parse_dt(struct device_node *np,
 	if (rc)
 		goto end;
 
-	for (i = 0, pp_idx = 0, dspp_idx = 0; i < off_count; i++) {
+	for (i = 0, pp_idx = 0, dspp_idx = 0, ds_idx = 0; i < off_count; i++) {
 		mixer = sde_cfg->mixer + i;
 		sblk = kzalloc(sizeof(*sblk), GFP_KERNEL);
 		if (!sblk) {
@@ -1400,13 +1434,17 @@ static int sde_mixer_parse_dt(struct device_node *np,
 								: PINGPONG_MAX;
 			mixer->dspp = dspp_count > 0 ? dspp_idx + DSPP_0
 								: DSPP_MAX;
+			mixer->ds = ds_count > 0 ? ds_idx + DS_0 : DS_MAX;
 			pp_count--;
 			dspp_count--;
+			ds_count--;
 			pp_idx++;
 			dspp_idx++;
+			ds_idx++;
 		} else {
 			mixer->pingpong = PINGPONG_MAX;
 			mixer->dspp = DSPP_MAX;
+			mixer->ds = DS_MAX;
 		}
 
 		sblk->gc.id = SDE_MIXER_GC;
@@ -2038,6 +2076,116 @@ end:
 	return rc;
 }
 
+static int sde_ds_parse_dt(struct device_node *np,
+			struct sde_mdss_cfg *sde_cfg)
+{
+	int rc, prop_count[DS_PROP_MAX], top_prop_count[DS_TOP_PROP_MAX], i;
+	struct sde_prop_value *prop_value = NULL, *top_prop_value = NULL;
+	bool prop_exists[DS_PROP_MAX], top_prop_exists[DS_TOP_PROP_MAX];
+	u32 off_count = 0, top_off_count = 0;
+	struct sde_ds_cfg *ds;
+	struct sde_ds_top_cfg *ds_top = NULL;
+
+	if (!sde_cfg) {
+		SDE_ERROR("invalid argument\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	if (!sde_cfg->mdp[0].has_dest_scaler) {
+		SDE_DEBUG("dest scaler feature not supported\n");
+		rc = 0;
+		goto end;
+	}
+
+	/* Parse the dest scaler top register offset and capabilities */
+	top_prop_value = kzalloc(DS_TOP_PROP_MAX *
+			sizeof(struct sde_prop_value), GFP_KERNEL);
+	if (!top_prop_value) {
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	rc = _validate_dt_entry(np, ds_top_prop,
+				ARRAY_SIZE(ds_top_prop),
+				top_prop_count, &top_off_count);
+	if (rc)
+		goto end;
+
+	rc = _read_dt_entry(np, ds_top_prop,
+			ARRAY_SIZE(ds_top_prop), top_prop_count,
+			top_prop_exists, top_prop_value);
+	if (rc)
+		goto end;
+
+	/* Parse the offset of each dest scaler block */
+	prop_value = kzalloc(DS_PROP_MAX *
+			sizeof(struct sde_prop_value), GFP_KERNEL);
+	if (!prop_value) {
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	rc = _validate_dt_entry(np, ds_prop, ARRAY_SIZE(ds_prop), prop_count,
+		&off_count);
+	if (rc)
+		goto end;
+
+	sde_cfg->ds_count = off_count;
+
+	rc = _read_dt_entry(np, ds_prop, ARRAY_SIZE(ds_prop), prop_count,
+		prop_exists, prop_value);
+	if (rc)
+		goto end;
+
+	if (!off_count)
+		goto end;
+
+	ds_top = kzalloc(sizeof(struct sde_ds_top_cfg), GFP_KERNEL);
+	if (!ds_top) {
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	ds_top->id = DS_TOP;
+	snprintf(ds_top->name, SDE_HW_BLK_NAME_LEN, "ds_top_%u",
+		ds_top->id - DS_TOP);
+	ds_top->base = PROP_VALUE_ACCESS(top_prop_value, DS_TOP_OFF, 0);
+	ds_top->len = PROP_VALUE_ACCESS(top_prop_value, DS_TOP_LEN, 0);
+	ds_top->maxupscale = MAX_UPSCALE_RATIO;
+
+	ds_top->maxinputwidth = PROP_VALUE_ACCESS(top_prop_value,
+			DS_TOP_INPUT_LINEWIDTH, 0);
+	if (!top_prop_exists[DS_TOP_INPUT_LINEWIDTH])
+		ds_top->maxinputwidth = DEFAULT_SDE_LINE_WIDTH;
+
+	ds_top->maxoutputwidth = PROP_VALUE_ACCESS(top_prop_value,
+			DS_TOP_OUTPUT_LINEWIDTH, 0);
+	if (!top_prop_exists[DS_TOP_OUTPUT_LINEWIDTH])
+		ds_top->maxoutputwidth = DEFAULT_SDE_OUTPUT_LINE_WIDTH;
+
+	for (i = 0; i < off_count; i++) {
+		ds = sde_cfg->ds + i;
+		ds->top = ds_top;
+		ds->base = PROP_VALUE_ACCESS(prop_value, DS_OFF, i);
+		ds->id = DS_0 + i;
+		ds->len = PROP_VALUE_ACCESS(prop_value, DS_LEN, 0);
+		snprintf(ds->name, SDE_HW_BLK_NAME_LEN, "ds_%u",
+			ds->id - DS_0);
+
+		if (!prop_exists[DS_LEN])
+			ds->len = DEFAULT_SDE_HW_BLOCK_LEN;
+
+		if (sde_cfg->qseed_type == SDE_SSPP_SCALER_QSEED3)
+			set_bit(SDE_SSPP_SCALER_QSEED3, &ds->features);
+	}
+
+end:
+	kfree(top_prop_value);
+	kfree(prop_value);
+	return rc;
+};
+
 static int sde_dsc_parse_dt(struct device_node *np,
 			struct sde_mdss_cfg *sde_cfg)
 {
@@ -2542,6 +2690,9 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	if (!prop_exists[UBWC_SWIZZLE])
 		cfg->mdp[0].ubwc_swizzle = DEFAULT_SDE_UBWC_SWIZZLE;
 
+	cfg->mdp[0].has_dest_scaler =
+		PROP_VALUE_ACCESS(prop_value, DEST_SCALER, 0);
+
 	rc = of_property_read_string(np, sde_prop[QSEED_TYPE].prop_name, &type);
 	if (!rc && !strcmp(type, "qseedv3")) {
 		cfg->qseed_type = SDE_SSPP_SCALER_QSEED3;
@@ -2987,6 +3138,9 @@ void sde_hw_catalog_deinit(struct sde_mdss_cfg *sde_cfg)
 	for (i = 0; i < sde_cfg->dspp_count; i++)
 		kfree(sde_cfg->dspp[i].sblk);
 
+	if (sde_cfg->ds_count)
+		kfree(sde_cfg->ds[0].top);
+
 	for (i = 0; i < sde_cfg->pingpong_count; i++)
 		kfree(sde_cfg->pingpong[i].sblk);
 
@@ -3055,6 +3209,10 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev)
 	if (rc)
 		goto end;
 
+	rc = sde_ds_parse_dt(np, sde_cfg);
+	if (rc)
+		goto end;
+
 	rc = sde_dsc_parse_dt(np, sde_cfg);
 	if (rc)
 		goto end;
@@ -3063,7 +3221,9 @@ struct sde_mdss_cfg *sde_hw_catalog_init(struct drm_device *dev, u32 hw_rev)
 	if (rc)
 		goto end;
 
-	/* mixer parsing should be done after dspp and pp for mapping setup */
+	/* mixer parsing should be done after dspp,
+	 * ds and pp for mapping setup
+	 */
 	rc = sde_mixer_parse_dt(np, sde_cfg);
 	if (rc)
 		goto end;

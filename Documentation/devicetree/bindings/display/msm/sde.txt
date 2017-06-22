@@ -135,6 +135,18 @@ Optional properties:
 				power collapse feature available or not.
 - qcom,sde-has-mixer-gc:	Boolean property to indicate if mixer has gamma correction
 				feature available or not.
+- qcom,sde-has-dest-scaler: 	Boolean property to indicate if destination scaler
+				feature is available or not.
+- qcom,sde-max-dest-scaler-input-linewidth: A u32 value indicates the
+				maximum input line width to destination scaler.
+- qcom,sde-max-dest-scaler-output-linewidth: A u32 value indicates the
+				maximum output line width of destination scaler.
+- qcom,sde-dest-scaler-top-off: A u32 value provides the
+				offset from mdp base to destination scaler block.
+- qcom,sde-dest-scaler-top-size: A u32 value indicates the address range for ds top
+- qcom,sde-dest-scaler-off: 	Array of u32 offsets indicate the qseed3 scaler blocks
+				offset from destination scaler top offset.
+- qcom,sde-dest-scaler-size:    A u32 value indicates the address range for each scaler block
 - qcom,sde-sspp-clk-ctrl:	Array of offsets describing clk control
 				offsets for dynamic clock gating. 1st value
 				in the array represents offset of the control
@@ -432,6 +444,8 @@ Example:
     qcom,sde-dspp-off = <0x00055000 0x00057000>;
     qcom,sde-dspp-ad-off = <0x24000 0x22800>;
     qcom,sde-dspp-ad-version = <0x00030000>;
+    qcom,sde-dest-scaler-top-off = <0x00061000>;
+    qcom,sde-dest-scaler-off = <0x800 0x1000>;
     qcom,sde-wb-off = <0x00066000>;
     qcom,sde-wb-xin-id = <6>;
     qcom,sde-intf-off = <0x0006b000 0x0006b800
@@ -493,6 +507,8 @@ Example:
     qcom,sde-cdm-size = <0x100>;
     qcom,sde-pp-size = <0x100>;
     qcom,sde-wb-size = <0x100>;
+    qcom,sde-dest-scaler-top-size = <0xc>;
+    qcom,sde-dest-scaler-size = <0x800>;
     qcom,sde-len = <0x100>;
     qcom,sde-wb-linewidth = <2560>;
     qcom,sde-sspp-scale-size = <0x100>;
@@ -502,6 +518,9 @@ Example:
     qcom,sde-highest-bank-bit = <15>;
     qcom,sde-has-mixer-gc;
     qcom,sde-has-idle-pc;
+    qcom,sde-has-dest-scaler;
+    qcom,sde-max-dest-scaler-input-linewidth = <2048>;
+    qcom,sde-max-dest-scaler-output-linewidth = <2560>;
     qcom,sde-sspp-max-rects = <1 1 1 1
 				1 1 1 1
 				1 1

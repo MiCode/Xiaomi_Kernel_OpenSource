@@ -517,6 +517,7 @@ struct sde_clk_ctrl_reg {
  * @highest_bank_bit:  UBWC parameter
  * @ubwc_static:       ubwc static configuration
  * @ubwc_swizzle:      ubwc default swizzle setting
+ * @has_dest_scaler:   indicates support of destination scaler
  * @clk_ctrls          clock control register definition
  */
 struct sde_mdp_cfg {
@@ -524,6 +525,7 @@ struct sde_mdp_cfg {
 	u32 highest_bank_bit;
 	u32 ubwc_static;
 	u32 ubwc_swizzle;
+	bool has_dest_scaler;
 	struct sde_clk_ctrl_reg clk_ctrls[SDE_CLK_CTRL_MAX];
 };
 
@@ -562,6 +564,7 @@ struct sde_sspp_cfg {
  * @sblk:              LM Sub-blocks information
  * @dspp:              ID of connected DSPP, DSPP_MAX if unsupported
  * @pingpong:          ID of connected PingPong, PINGPONG_MAX if unsupported
+ * @ds:                ID of connected DS, DS_MAX if unsupported
  * @lm_pair_mask:      Bitmask of LMs that can be controlled by same CTL
  */
 struct sde_lm_cfg {
@@ -569,6 +572,7 @@ struct sde_lm_cfg {
 	const struct sde_lm_sub_blks *sblk;
 	u32 dspp;
 	u32 pingpong;
+	u32 ds;
 	unsigned long lm_pair_mask;
 };
 
@@ -594,6 +598,38 @@ struct sde_dspp_top_cfg  {
 struct sde_dspp_cfg  {
 	SDE_HW_BLK_INFO;
 	const struct sde_dspp_sub_blks *sblk;
+};
+
+/**
+ * struct sde_ds_top_cfg - information of dest scaler top
+ * @id               enum identifying this block
+ * @base             register offset of this block
+ * @features         bit mask identifying features
+ * @version          hw version of dest scaler
+ * @maxinputwidth    maximum input line width
+ * @maxoutputwidth   maximum output line width
+ * @maxupscale       maximum upscale ratio
+ */
+struct sde_ds_top_cfg {
+	SDE_HW_BLK_INFO;
+	u32 version;
+	u32 maxinputwidth;
+	u32 maxoutputwidth;
+	u32 maxupscale;
+};
+
+/**
+ * struct sde_ds_cfg - information of dest scaler blocks
+ * @id          enum identifying this block
+ * @base        register offset wrt DS top offset
+ * @features    bit mask identifying features
+ * @version     hw version of the qseed block
+ * @top         DS top information
+ */
+struct sde_ds_cfg {
+	SDE_HW_BLK_INFO;
+	u32 version;
+	const struct sde_ds_top_cfg *top;
 };
 
 /**
@@ -912,6 +948,9 @@ struct sde_mdss_cfg {
 	u32 dspp_count;
 	struct sde_dspp_cfg dspp[MAX_BLOCKS];
 
+	u32 ds_count;
+	struct sde_ds_cfg ds[MAX_BLOCKS];
+
 	u32 pingpong_count;
 	struct sde_pingpong_cfg pingpong[MAX_BLOCKS];
 
@@ -964,6 +1003,7 @@ struct sde_mdss_hw_cfg_handler {
 #define BLK_CURSOR(s) ((s)->cursor)
 #define BLK_MIXER(s) ((s)->mixer)
 #define BLK_DSPP(s) ((s)->dspp)
+#define BLK_DS(s) ((s)->ds)
 #define BLK_PINGPONG(s) ((s)->pingpong)
 #define BLK_CDM(s) ((s)->cdm)
 #define BLK_INTF(s) ((s)->intf)
