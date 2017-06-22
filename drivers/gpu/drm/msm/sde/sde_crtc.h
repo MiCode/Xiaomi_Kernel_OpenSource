@@ -190,8 +190,6 @@ struct sde_crtc {
 	struct completion frame_done_comp;
 
 	/* for handling internal event thread */
-	struct task_struct *event_thread;
-	struct kthread_worker event_worker;
 	struct sde_crtc_event event_cache[SDE_CRTC_MAX_EVENT_COUNT];
 	struct list_head event_free_list;
 	spinlock_t event_lock;
