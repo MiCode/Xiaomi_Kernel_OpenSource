@@ -2800,14 +2800,6 @@
 };
 
 &pm8998_gpios {
-	gpio@d400 {
-		qcom,mode = <0>;
-		qcom,vin-sel = <1>;
-		qcom,src-sel = <0>;
-		qcom,master-en = <1>;
-		status = "okay";
-	};
-
 	key_home {
 		key_home_default: key_home_default {
 			pins = "gpio5";
@@ -2863,6 +2855,15 @@
 			function = "normal";
 			power-source = <0>;
 			output-low;
+		};
+	};
+
+	nfc_clk {
+		nfc_clk_default: nfc_clk_default {
+			pins = "gpio21";
+			function = "normal";
+			input-enable;
+			power-source = <1>;
 		};
 	};
 };
