@@ -290,6 +290,19 @@ uint64_t msm_gem_mmap_offset(struct drm_gem_object *obj)
 	return offset;
 }
 
+dma_addr_t msm_gem_get_dma_addr(struct drm_gem_object *obj)
+{
+	struct msm_gem_object *msm_obj = to_msm_bo(obj);
+	struct drm_device *dev = obj->dev;
+
+	if (IS_ERR_OR_NULL(msm_obj->sgt)) {
+		dev_err(dev->dev, "invalid scatter/gather table\n");
+		return 0;
+	}
+
+	return sg_dma_address(msm_obj->sgt->sgl);
+}
+
 static void obj_remove_domain(struct msm_gem_vma *domain)
 {
 	if (domain) {

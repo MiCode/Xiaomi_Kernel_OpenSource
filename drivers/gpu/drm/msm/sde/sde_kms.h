@@ -89,7 +89,6 @@
 
 #define SDE_NAME_SIZE  12
 
-
 /* timeout in frames waiting for frame done */
 #define SDE_FRAME_DONE_TIMEOUT	60
 
@@ -101,6 +100,12 @@
 
 /* max virtual encoders per secure crtc */
 #define MAX_ALLOWED_ENCODER_CNT_PER_SECURE_CRTC	1
+
+/* defines the operations required for secure state transition */
+#define SDE_KMS_OPS_CRTC_SECURE_STATE_CHANGE               BIT(0)
+#define SDE_KMS_OPS_WAIT_FOR_TX_DONE                       BIT(1)
+#define SDE_KMS_OPS_CLEANUP_PLANE_FB                       BIT(2)
+#define SDE_KMS_OPS_PREPARE_PLANE_FB                       BIT(3)
 
 /*
  * struct sde_irq_callback - IRQ callback handlers
