@@ -173,6 +173,13 @@ bool sde_encoder_is_dsc_enabled(struct drm_encoder *drm_enc);
 bool sde_encoder_is_dsc_merge(struct drm_encoder *drm_enc);
 
 /**
+ * sde_encoder_is_cmd_mode - check if it is cmd mode
+ * @drm_enc: Pointer to drm encoder object
+ * @Return: true if it is cmd mode
+ */
+bool sde_encoder_is_cmd_mode(struct drm_encoder *drm_enc);
+
+/**
  * sde_encoder_init - initialize virtual encoder object
  * @dev:        Pointer to drm device structure
  * @disp_info:  Pointer to display information structure
