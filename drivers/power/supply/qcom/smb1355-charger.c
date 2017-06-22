@@ -16,6 +16,7 @@
 #include <linux/regmap.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
+#include <linux/iio/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/qpnp/qpnp-revid.h>
 #include <linux/of.h>
@@ -124,12 +125,18 @@ struct smb_irq_info {
 	int			irq;
 };
 
+struct smb_iio {
+	struct iio_channel	*temp_chan;
+	struct iio_channel	*temp_max_chan;
+};
+
 struct smb1355 {
 	struct device		*dev;
 	char			*name;
 	struct regmap		*regmap;
 
 	struct smb_params	param;
+	struct smb_iio		iio;
 
 	struct mutex		write_lock;
 
@@ -266,9 +273,12 @@ static enum power_supply_property smb1355_parallel_props[] = {
 	POWER_SUPPLY_PROP_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_PIN_ENABLED,
 	POWER_SUPPLY_PROP_INPUT_SUSPEND,
+	POWER_SUPPLY_PROP_CHARGER_TEMP,
+	POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_MODEL_NAME,
+	POWER_SUPPLY_PROP_PARALLEL_MODE,
 	POWER_SUPPLY_PROP_CONNECTOR_HEALTH,
 };
 
@@ -338,6 +348,42 @@ static int smb1355_get_prop_connector_health(struct smb1355 *chip)
 	return POWER_SUPPLY_HEALTH_COOL;
 }
 
+
+static int smb1355_get_prop_charger_temp(struct smb1355 *chip,
+				union power_supply_propval *val)
+{
+	int rc;
+
+	if (!chip->iio.temp_chan ||
+		PTR_ERR(chip->iio.temp_chan) == -EPROBE_DEFER)
+		chip->iio.temp_chan = devm_iio_channel_get(chip->dev,
+						"charger_temp");
+
+	if (IS_ERR(chip->iio.temp_chan))
+		return PTR_ERR(chip->iio.temp_chan);
+
+	rc = iio_read_channel_processed(chip->iio.temp_chan, &val->intval);
+	val->intval /= 100;
+	return rc;
+}
+
+static int smb1355_get_prop_charger_temp_max(struct smb1355 *chip,
+				union power_supply_propval *val)
+{
+	int rc;
+
+	if (!chip->iio.temp_max_chan ||
+		PTR_ERR(chip->iio.temp_max_chan) == -EPROBE_DEFER)
+		chip->iio.temp_max_chan = devm_iio_channel_get(chip->dev,
+							"charger_temp_max");
+	if (IS_ERR(chip->iio.temp_max_chan))
+		return PTR_ERR(chip->iio.temp_max_chan);
+
+	rc = iio_read_channel_processed(chip->iio.temp_max_chan, &val->intval);
+	val->intval /= 100;
+	return rc;
+}
+
 static int smb1355_parallel_get_prop(struct power_supply *psy,
 				     enum power_supply_property prop,
 				     union power_supply_propval *val)
@@ -359,6 +405,12 @@ static int smb1355_parallel_get_prop(struct power_supply *psy,
 		rc = smb1355_read(chip, BATTERY_STATUS_2_REG, &stat);
 		if (rc >= 0)
 			val->intval = !(stat & DISABLE_CHARGING_BIT);
+		break;
+	case POWER_SUPPLY_PROP_CHARGER_TEMP:
+		rc = smb1355_get_prop_charger_temp(chip, val);
+		break;
+	case POWER_SUPPLY_PROP_CHARGER_TEMP_MAX:
+		rc = smb1355_get_prop_charger_temp_max(chip, val);
 		break;
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
 		rc = smb1355_get_parallel_charging(chip, &val->intval);
