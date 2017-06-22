@@ -657,13 +657,14 @@ EXPORT_SYMBOL(sde_rsc_client_state_update);
  * sde_rsc_client_vote() - ab/ib vote from rsc client
  *
  * @client:	 Client pointer provided by sde_rsc_client_create().
+ * @bus_id: data bus for which to be voted
  * @ab:		 aggregated bandwidth vote from client.
  * @ib:		 instant bandwidth vote from client.
  *
  * Return: error code.
  */
 int sde_rsc_client_vote(struct sde_rsc_client *caller_client,
-	u64 ab_vote, u64 ib_vote)
+		u32 bus_id, u64 ab_vote, u64 ib_vote)
 {
 	int rc = 0;
 	struct sde_rsc_priv *rsc;
@@ -717,7 +718,8 @@ int sde_rsc_client_vote(struct sde_rsc_client *caller_client,
 
 	rpmh_invalidate(rsc->disp_rsc);
 	sde_power_data_bus_set_quota(&rsc->phandle, rsc->pclient,
-		SDE_POWER_HANDLE_DATA_BUS_CLIENT_RT, ab_vote, ib_vote);
+		SDE_POWER_HANDLE_DATA_BUS_CLIENT_RT,
+		bus_id, ab_vote, ib_vote);
 	rpmh_flush(rsc->disp_rsc);
 
 	if (rsc->hw_ops.tcs_use_ok)
