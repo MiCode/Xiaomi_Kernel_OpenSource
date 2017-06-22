@@ -796,7 +796,7 @@ static int ath10k_peer_delete(struct ath10k *ar, u32 vdev_id, const u8 *addr)
 
 	if (QCA_REV_WCN3990(ar)) {
 		time_left = wait_for_completion_timeout(&ar->peer_delete_done,
-							5 * HZ);
+							50 * HZ);
 
 		if (time_left == 0) {
 			ath10k_warn(ar, "Timeout in receiving peer delete response\n");
