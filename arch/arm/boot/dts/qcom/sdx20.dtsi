@@ -339,6 +339,9 @@
 	wake-gpio = <&tlmm_pinmux 58 0>;
 	clkreq-gpio = <&tlmm_pinmux 60 0>;
 
+	vreg-1.8-supply = <&pmd9650_l1>;
+	qcom,vreg-1.8-voltage-level = <1224000 1224000 0>;
+
 	qcom,pcie-phy-ver = <5>;
 	qcom,pcie-perst-enum;
 };
