@@ -27,29 +27,23 @@
 #include <linux/usb/phy.h>
 #include <linux/reset.h>
 
-#define QUSB2PHY_PWR_CTRL1		0x210
+/* QUSB2PHY_PWR_CTRL1 register related bits */
 #define PWR_CTRL1_POWR_DOWN		BIT(0)
 
-#define QUSB2PHY_PLL_COMMON_STATUS_ONE	0x1A0
+/* QUSB2PHY_PLL_COMMON_STATUS_ONE register related bits */
 #define CORE_READY_STATUS		BIT(0)
 
 /* Get TUNE value from efuse bit-mask */
 #define TUNE_VAL_MASK(val, pos, mask)	((val >> pos) & mask)
 
-#define QUSB2PHY_INTR_CTRL		0x22C
+/* QUSB2PHY_INTR_CTRL register related bits */
 #define DMSE_INTR_HIGH_SEL              BIT(4)
 #define DPSE_INTR_HIGH_SEL              BIT(3)
 #define CHG_DET_INTR_EN                 BIT(2)
 #define DMSE_INTR_EN                    BIT(1)
 #define DPSE_INTR_EN                    BIT(0)
 
-#define QUSB2PHY_INTR_STAT		0x230
-#define DMSE_INTERRUPT			BIT(1)
-#define DPSE_INTERRUPT			BIT(0)
-
-#define QUSB2PHY_PORT_TUNE1		0x23c
-
-#define QUSB2PHY_PLL_CORE_INPUT_OVERRIDE 0x0a8
+/* QUSB2PHY_PLL_CORE_INPUT_OVERRIDE register related bits */
 #define CORE_PLL_RATE			BIT(0)
 #define CORE_PLL_RATE_MUX		BIT(1)
 #define CORE_PLL_EN			BIT(2)
@@ -73,6 +67,16 @@ unsigned int phy_tune1;
 module_param(phy_tune1, uint, 0644);
 MODULE_PARM_DESC(phy_tune1, "QUSB PHY v2 TUNE1");
 
+enum qusb_phy_reg {
+	PORT_TUNE1,
+	PLL_COMMON_STATUS_ONE,
+	PWR_CTRL1,
+	INTR_CTRL,
+	PLL_CORE_INPUT_OVERRIDE,
+	TEST1,
+	USB2_PHY_REG_MAX,
+};
+
 struct qusb_phy {
 	struct usb_phy		phy;
 	void __iomem		*base;
@@ -92,8 +96,10 @@ struct qusb_phy {
 	int			host_init_seq_len;
 	int			*qusb_phy_host_init_seq;
 
+	unsigned int		*phy_reg;
+	int			qusb_phy_reg_offset_cnt;
+
 	u32			tune_val;
-	u32			phy_auto_resume_offset;
 	int			efuse_bit_pos;
 	int			efuse_num_of_bits;
 
@@ -316,7 +322,7 @@ static void qusb_phy_get_tune1_param(struct qusb_phy *qphy)
 
 	qphy->tune_val = TUNE_VAL_MASK(qphy->tune_val,
 				qphy->efuse_bit_pos, bit_mask);
-	reg = readb_relaxed(qphy->base + QUSB2PHY_PORT_TUNE1);
+	reg = readb_relaxed(qphy->base + qphy->phy_reg[PORT_TUNE1]);
 	if (qphy->tune_val) {
 		reg = reg & 0x0f;
 		reg |= (qphy->tune_val << 4);
@@ -372,7 +378,7 @@ static void qusb_phy_host_init(struct usb_phy *phy)
 	/* Require to get phy pll lock successfully */
 	usleep_range(150, 160);
 
-	reg = readb_relaxed(qphy->base + QUSB2PHY_PLL_COMMON_STATUS_ONE);
+	reg = readb_relaxed(qphy->base + qphy->phy_reg[PLL_COMMON_STATUS_ONE]);
 	dev_dbg(phy->dev, "QUSB2PHY_PLL_COMMON_STATUS_ONE:%x\n", reg);
 	if (!(reg & CORE_READY_STATUS)) {
 		dev_err(phy->dev, "QUSB PHY PLL LOCK fails:%x\n", reg);
@@ -421,9 +427,9 @@ static int qusb_phy_init(struct usb_phy *phy)
 	}
 
 	/* Disable the PHY */
-	writel_relaxed(readl_relaxed(qphy->base + QUSB2PHY_PWR_CTRL1) |
+	writel_relaxed(readl_relaxed(qphy->base + qphy->phy_reg[PWR_CTRL1]) |
 			PWR_CTRL1_POWR_DOWN,
-			qphy->base + QUSB2PHY_PWR_CTRL1);
+			qphy->base + qphy->phy_reg[PWR_CTRL1]);
 
 	if (qphy->qusb_phy_init_seq)
 		qusb_phy_write_seq(qphy->base, qphy->qusb_phy_init_seq,
@@ -435,7 +441,7 @@ static int qusb_phy_init(struct usb_phy *phy)
 		pr_debug("%s(): Programming TUNE1 parameter as:%x\n", __func__,
 				qphy->tune_val);
 		writel_relaxed(qphy->tune_val,
-				qphy->base + QUSB2PHY_PORT_TUNE1);
+				qphy->base + qphy->phy_reg[PORT_TUNE1]);
 	}
 
 	/* If phy_tune1 modparam set, override tune1 value */
@@ -443,16 +449,16 @@ static int qusb_phy_init(struct usb_phy *phy)
 		pr_debug("%s(): (modparam) TUNE1 val:0x%02x\n",
 						__func__, phy_tune1);
 		writel_relaxed(phy_tune1,
-				qphy->base + QUSB2PHY_PORT_TUNE1);
+				qphy->base + qphy->phy_reg[PORT_TUNE1]);
 	}
 
 	/* ensure above writes are completed before re-enabling PHY */
 	wmb();
 
 	/* Enable the PHY */
-	writel_relaxed(readl_relaxed(qphy->base + QUSB2PHY_PWR_CTRL1) &
+	writel_relaxed(readl_relaxed(qphy->base + qphy->phy_reg[PWR_CTRL1]) &
 			~PWR_CTRL1_POWR_DOWN,
-			qphy->base + QUSB2PHY_PWR_CTRL1);
+			qphy->base + qphy->phy_reg[PWR_CTRL1]);
 
 	/* Ensure above write is completed before turning ON ref clk */
 	wmb();
@@ -460,7 +466,7 @@ static int qusb_phy_init(struct usb_phy *phy)
 	/* Require to get phy pll lock successfully */
 	usleep_range(150, 160);
 
-	reg = readb_relaxed(qphy->base + QUSB2PHY_PLL_COMMON_STATUS_ONE);
+	reg = readb_relaxed(qphy->base + qphy->phy_reg[PLL_COMMON_STATUS_ONE]);
 	dev_dbg(phy->dev, "QUSB2PHY_PLL_COMMON_STATUS_ONE:%x\n", reg);
 	if (!(reg & CORE_READY_STATUS)) {
 		dev_err(phy->dev, "QUSB PHY PLL LOCK fails:%x\n", reg);
@@ -478,9 +484,9 @@ static void qusb_phy_shutdown(struct usb_phy *phy)
 	qusb_phy_enable_clocks(qphy, true);
 
 	/* Disable the PHY */
-	writel_relaxed(readl_relaxed(qphy->base + QUSB2PHY_PWR_CTRL1) |
+	writel_relaxed(readl_relaxed(qphy->base + qphy->phy_reg[PWR_CTRL1]) |
 			PWR_CTRL1_POWR_DOWN,
-			qphy->base + QUSB2PHY_PWR_CTRL1);
+			qphy->base + qphy->phy_reg[PWR_CTRL1]);
 
 	/* Makes sure that above write goes through */
 	wmb();
@@ -525,7 +531,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			(qphy->phy.flags & PHY_HOST_MODE)) {
 			/* Disable all interrupts */
 			writel_relaxed(0x00,
-				qphy->base + QUSB2PHY_INTR_CTRL);
+				qphy->base + qphy->phy_reg[INTR_CTRL]);
 
 			linestate = qusb_phy_get_linestate(qphy);
 			/*
@@ -537,29 +543,27 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			 * e.g. if currently D+ high, D- low (HS 'J'/Suspend),
 			 * configure the mask to trigger on D+ low OR D- high
 			 */
-			intr_mask = DMSE_INTERRUPT | DPSE_INTERRUPT;
+			intr_mask = DPSE_INTR_EN | DMSE_INTR_EN;
 			if (!(linestate & LINESTATE_DP)) /* D+ low */
 				intr_mask |= DPSE_INTR_HIGH_SEL;
 			if (!(linestate & LINESTATE_DM)) /* D- low */
 				intr_mask |= DMSE_INTR_HIGH_SEL;
 
 			writel_relaxed(intr_mask,
-				qphy->base + QUSB2PHY_INTR_CTRL);
+				qphy->base + qphy->phy_reg[INTR_CTRL]);
 
 			/* hold core PLL into reset */
 			writel_relaxed(CORE_PLL_EN_FROM_RESET |
 				CORE_RESET | CORE_RESET_MUX,
-				qphy->base + QUSB2PHY_PLL_CORE_INPUT_OVERRIDE);
+				qphy->base +
+				qphy->phy_reg[PLL_CORE_INPUT_OVERRIDE]);
 
-			if (qphy->phy_auto_resume_offset) {
-				/* enable phy auto-resume */
-				writel_relaxed(0x91,
-				qphy->base + qphy->phy_auto_resume_offset);
-				/* flush the previous write before next write */
-				wmb();
-				writel_relaxed(0x90,
-				qphy->base + qphy->phy_auto_resume_offset);
-			}
+			/* enable phy auto-resume */
+			writel_relaxed(0x91, qphy->base + qphy->phy_reg[TEST1]);
+			/* flush the previous write before next write */
+			wmb();
+			writel_relaxed(0x90, qphy->base + qphy->phy_reg[TEST1]);
+
 			dev_dbg(phy->dev, "%s: intr_mask = %x\n",
 			__func__, intr_mask);
 
@@ -569,7 +573,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 		} else { /* Cable disconnect case */
 			/* Disable all interrupts */
 			writel_relaxed(0x00,
-				qphy->base + QUSB2PHY_INTR_CTRL);
+				qphy->base + qphy->phy_reg[INTR_CTRL]);
 			qusb_phy_reset(qphy);
 			qusb_phy_enable_clocks(qphy, false);
 			qusb_phy_enable_power(qphy, false, true);
@@ -582,11 +586,11 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			qusb_phy_enable_clocks(qphy, true);
 			/* Clear all interrupts on resume */
 			writel_relaxed(0x00,
-				qphy->base + QUSB2PHY_INTR_CTRL);
+				qphy->base + qphy->phy_reg[INTR_CTRL]);
 
 			/* bring core PLL out of reset */
-			writel_relaxed(CORE_PLL_EN_FROM_RESET,
-				qphy->base + QUSB2PHY_PLL_CORE_INPUT_OVERRIDE);
+			writel_relaxed(CORE_PLL_EN_FROM_RESET, qphy->base +
+				qphy->phy_reg[PLL_CORE_INPUT_OVERRIDE]);
 
 			/* Makes sure that above write goes through */
 			wmb();
@@ -870,6 +874,31 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	}
 
 	size = 0;
+	of_get_property(dev->of_node, "qcom,qusb-phy-reg-offset", &size);
+	if (size) {
+		qphy->phy_reg = devm_kzalloc(dev, size, GFP_KERNEL);
+		if (qphy->phy_reg) {
+			qphy->qusb_phy_reg_offset_cnt =
+				size / sizeof(*qphy->phy_reg);
+			if (qphy->qusb_phy_reg_offset_cnt > USB2_PHY_REG_MAX) {
+				dev_err(dev, "invalid reg offset count\n");
+				return -EINVAL;
+			}
+
+			of_property_read_u32_array(dev->of_node,
+					"qcom,qusb-phy-reg-offset",
+					qphy->phy_reg,
+					qphy->qusb_phy_reg_offset_cnt);
+		} else {
+			dev_err(dev, "err mem alloc for qusb_phy_reg_offset\n");
+			return -ENOMEM;
+		}
+	} else {
+		dev_err(dev, "err provide qcom,qmp-phy-reg-offset\n");
+		return -EINVAL;
+	}
+
+	size = 0;
 	of_get_property(dev->of_node, "qcom,qusb-phy-init-seq", &size);
 	if (size) {
 		qphy->qusb_phy_init_seq = devm_kzalloc(dev,
@@ -916,12 +945,6 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		dev_err(dev, "error reading qcom,vdd-voltage-level property\n");
 		return ret;
 	}
-
-	ret = of_property_read_u32(dev->of_node, "qcom,phy-auto-resume-offset",
-			&qphy->phy_auto_resume_offset);
-	if (ret)
-		dev_dbg(dev, "error reading qcom,phy-auto-resume-offset %d\n",
-				ret);
 
 	qphy->vdd = devm_regulator_get(dev, "vdd");
 	if (IS_ERR(qphy->vdd)) {
