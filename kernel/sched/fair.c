@@ -6870,8 +6870,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			if (new_util > capacity_orig_of(i))
 				continue;
 
-			cpu_idle_idx = cpu_rq(i)->nr_running ? -1 :
-				       idle_get_state_idx(cpu_rq(i));
+			cpu_idle_idx = idle_get_state_idx(cpu_rq(i));
 
 			if (!need_idle &&
 			    add_capacity_margin(new_util_cum) <
