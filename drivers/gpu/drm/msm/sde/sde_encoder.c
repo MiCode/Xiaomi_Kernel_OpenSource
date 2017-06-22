@@ -56,9 +56,6 @@
 		(p) ? ((p)->hw_pp ? (p)->hw_pp->idx - PINGPONG_0 : -1) : -1, \
 		##__VA_ARGS__)
 
-/* timeout in frames waiting for frame done */
-#define SDE_ENCODER_FRAME_DONE_TIMEOUT	60
-
 /*
  * Two to anticipate panels that can do cmd/vid dynamic switching
  * plan is to create all possible physical encoder types, and switch between
@@ -173,7 +170,6 @@ enum sde_enc_rc_states {
  * @rsc_cfg:			rsc configuration
  * @cur_conn_roi:		current connector roi
  * @prv_conn_roi:		previous connector roi to optimize if unchanged
- * @disable_inprogress:		sde encoder disable is in progress.
  */
 struct sde_encoder_virt {
 	struct drm_encoder base;
@@ -217,7 +213,6 @@ struct sde_encoder_virt {
 	struct sde_encoder_rsc_config rsc_cfg;
 	struct sde_rect cur_conn_roi;
 	struct sde_rect prv_conn_roi;
-	bool disable_inprogress;
 };
 
 #define to_sde_encoder_virt(x) container_of(x, struct sde_encoder_virt, base)
@@ -1643,7 +1638,6 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 	SDE_EVT32(DRMID(drm_enc));
 
 	sde_enc->cur_master = NULL;
-	sde_enc->disable_inprogress = false;
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
@@ -1702,7 +1696,6 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 
 	priv = drm_enc->dev->dev_private;
 	sde_kms = to_sde_kms(priv->kms);
-	sde_enc->disable_inprogress = true;
 
 	SDE_EVT32(DRMID(drm_enc));
 
@@ -1867,9 +1860,6 @@ static void sde_encoder_frame_done_callback(
 
 		sde_encoder_resource_control(drm_enc,
 				SDE_ENC_RC_EVENT_FRAME_DONE);
-
-		if (sde_enc->disable_inprogress)
-			event |= SDE_ENCODER_FRAME_EVENT_DURING_DISABLE;
 
 		if (sde_enc->crtc_frame_event_cb)
 			sde_enc->crtc_frame_event_cb(
@@ -2332,7 +2322,7 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc)
 	SDE_DEBUG_ENC(sde_enc, "\n");
 
 	atomic_set(&sde_enc->frame_done_timeout,
-			SDE_ENCODER_FRAME_DONE_TIMEOUT * 1000 /
+			SDE_FRAME_DONE_TIMEOUT * 1000 /
 			drm_enc->crtc->state->adjusted_mode.vrefresh);
 	mod_timer(&sde_enc->frame_done_timer, jiffies +
 		((atomic_read(&sde_enc->frame_done_timeout) * HZ) / 1000));
@@ -2912,10 +2902,7 @@ static void sde_encoder_frame_done_timeout(unsigned long data)
 
 	SDE_ERROR_ENC(sde_enc, "frame done timeout\n");
 
-	event =	SDE_ENCODER_FRAME_EVENT_ERROR;
-	if (sde_enc->disable_inprogress)
-		event |= SDE_ENCODER_FRAME_EVENT_DURING_DISABLE;
-
+	event = SDE_ENCODER_FRAME_EVENT_ERROR;
 	SDE_EVT32(DRMID(drm_enc), event);
 	sde_enc->crtc_frame_event_cb(sde_enc->crtc_frame_event_cb_data, event);
 }
