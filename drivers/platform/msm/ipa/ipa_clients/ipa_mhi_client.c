@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1059,6 +1059,7 @@ static void ipa_mhi_gsi_ev_err_cb(struct gsi_evt_err_notify *notify)
 		IPA_MHI_ERR("Unexpected err evt: %d\n", notify->evt_id);
 	}
 	IPA_MHI_ERR("err_desc=0x%x\n", notify->err_desc);
+	ipa_assert();
 }
 
 static void ipa_mhi_gsi_ch_err_cb(struct gsi_chan_err_notify *notify)
@@ -1090,6 +1091,7 @@ static void ipa_mhi_gsi_ch_err_cb(struct gsi_chan_err_notify *notify)
 		IPA_MHI_ERR("Unexpected err evt: %d\n", notify->evt_id);
 	}
 	IPA_MHI_ERR("err_desc=0x%x\n", notify->err_desc);
+	ipa_assert();
 }
 
 
