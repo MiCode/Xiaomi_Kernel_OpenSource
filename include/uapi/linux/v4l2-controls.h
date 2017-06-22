@@ -1218,6 +1218,13 @@ enum v4l2_mpeg_vidc_video_venc_iframesize_type {
 #define V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP \
 		(V4L2_CID_MPEG_MSM_VIDC_BASE + 101)
 
+#define V4L2_CID_MPEG_VIDC_VIDEO_AU_DELIMITER \
+		(V4L2_CID_MPEG_MSM_VIDC_BASE + 102)
+enum v4l2_mpeg_vidc_video_au_delimiter {
+	V4L2_MPEG_VIDC_VIDEO_AU_DELIMITER_DISABLED = 0,
+	V4L2_MPEG_VIDC_VIDEO_AU_DELIMITER_ENABLED = 1
+};
+
 
 /*  Camera class control IDs */
 
