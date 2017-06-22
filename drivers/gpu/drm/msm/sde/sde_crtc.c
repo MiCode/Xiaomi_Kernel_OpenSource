@@ -2357,6 +2357,8 @@ static struct drm_crtc_state *sde_crtc_duplicate_state(struct drm_crtc *crtc)
 
 	_sde_crtc_rp_duplicate(&old_cstate->rp, &cstate->rp);
 
+	cstate->idle_pc = sde_crtc->idle_pc;
+
 	return &cstate->base;
 }
 
@@ -2457,6 +2459,24 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 			sde_encoder_virt_restore(encoder);
 		}
 
+	} else if (event_type == SDE_POWER_EVENT_PRE_DISABLE) {
+		/*
+		 * Serialize h/w idle state update with crtc atomic check.
+		 * Grab the modeset lock to ensure that there is no on-going
+		 * atomic check, then increment the idle_pc counter. The next
+		 * atomic check will detect a new idle_pc since the counter
+		 * has advanced between the old_state and new_state, and
+		 * therefore properly reprogram all relevant drm objects'
+		 * hardware.
+		 */
+		drm_modeset_lock_crtc(crtc, NULL);
+
+		sde_crtc->idle_pc++;
+
+		SDE_DEBUG("crtc%d idle_pc:%d\n", crtc->base.id,
+				sde_crtc->idle_pc);
+		SDE_EVT32(DRMID(crtc), sde_crtc->idle_pc);
+
 	} else if (event_type == SDE_POWER_EVENT_POST_DISABLE) {
 		struct drm_plane *plane;
 
@@ -2466,6 +2486,8 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 		 */
 		drm_atomic_crtc_for_each_plane(plane, crtc)
 			sde_plane_set_revalidate(plane, true);
+
+		drm_modeset_unlock_crtc(crtc);
 	}
 
 	mutex_unlock(&sde_crtc->crtc_lock);
@@ -2594,7 +2616,8 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 
 	sde_crtc->power_event = sde_power_handle_register_event(
 		&priv->phandle,
-		SDE_POWER_EVENT_POST_ENABLE | SDE_POWER_EVENT_POST_DISABLE,
+		SDE_POWER_EVENT_POST_ENABLE | SDE_POWER_EVENT_POST_DISABLE |
+		SDE_POWER_EVENT_PRE_DISABLE,
 		sde_crtc_handle_power_event, crtc, sde_crtc->name);
 }
 

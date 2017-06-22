@@ -125,6 +125,7 @@ struct sde_crtc_event {
  * @vblank_cb_time  : ktime at vblank count reset
  * @vblank_refcount : reference count for vblank enable request
  * @suspend         : whether or not a suspend operation is in progress
+ * @idle_pc       : count of current idle power collapse request
  * @feature_list  : list of color processing features supported on a crtc
  * @active_list   : list of color processing features are active
  * @dirty_list    : list of color processing features are dirty
@@ -173,6 +174,7 @@ struct sde_crtc {
 	ktime_t vblank_cb_time;
 	atomic_t vblank_refcount;
 	bool suspend;
+	u32 idle_pc;
 
 	struct list_head feature_list;
 	struct list_head active_list;
@@ -278,6 +280,7 @@ struct sde_crtc_respool {
  * @sbuf_cfg: stream buffer configuration
  * @sbuf_prefill_line: number of line for inline rotator prefetch
  * @sbuf_flush_mask: flush mask for inline rotator
+ * @idle_pc: count of idle power collapse request when state is duplicated
  */
 struct sde_crtc_state {
 	struct drm_crtc_state base;
@@ -306,6 +309,8 @@ struct sde_crtc_state {
 	struct sde_ctl_sbuf_cfg sbuf_cfg;
 	u32 sbuf_prefill_line;
 	u32 sbuf_flush_mask;
+
+	u32 idle_pc;
 
 	struct sde_crtc_respool rp;
 };
