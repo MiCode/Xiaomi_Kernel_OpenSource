@@ -28,48 +28,40 @@
 int cam_context_buf_done_from_hw(struct cam_context *ctx,
 	void *done_event_data, uint32_t bubble_state)
 {
-	int rc = 0;
-	int i, j;
+	int j;
 	struct cam_ctx_request *req;
 	struct cam_hw_done_event_data *done =
 		(struct cam_hw_done_event_data *)done_event_data;
 
 	if (list_empty(&ctx->active_req_list)) {
 		pr_err("Buf done with no active request\n");
-		rc = -EINVAL;
-		goto end;
+		return -EIO;
 	}
 
 	req = list_first_entry(&ctx->active_req_list,
 		struct cam_ctx_request, list);
 
-	for (i = 0; i < done->num_handles; i++) {
-		for (j = 0; j < req->num_out_map_entries; j++) {
-			if (done->resource_handle[i] ==
-				req->out_map_entries[j].resource_handle)
-				break;
-		}
+	if (done->request_id != req->request_id) {
+		pr_err("mismatch: done request [%lld], active request [%lld]\n",
+			done->request_id, req->request_id);
+		return -EIO;
+	}
 
-		if (j == req->num_out_map_entries) {
-			pr_err("Can not find matching lane handle 0x%x\n",
-				done->resource_handle[i]);
-			rc = -EINVAL;
-			continue;
-		}
+	if (!req->num_out_map_entries) {
+		pr_err("active request with no output fence objects to signal\n");
+		return -EIO;
+	}
 
+	list_del_init(&req->list);
+	for (j = 0; j < req->num_out_map_entries; j++) {
 		cam_sync_signal(req->out_map_entries[j].sync_id,
 			CAM_SYNC_STATE_SIGNALED_SUCCESS);
-		req->num_out_acked++;
 		req->out_map_entries[j].sync_id = -1;
 	}
 
-	if (req->num_out_acked == req->num_out_map_entries) {
-		list_del_init(&req->list);
-		list_add_tail(&req->list, &ctx->free_req_list);
-	}
+	list_add_tail(&req->list, &ctx->free_req_list);
 
-end:
-	return rc;
+	return 0;
 }
 
 int cam_context_apply_req_to_hw(struct cam_context *ctx,

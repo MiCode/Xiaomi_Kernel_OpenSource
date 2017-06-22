@@ -100,12 +100,12 @@ static int cam_icp_mgr_process_msg_frame_process(uint32_t *msg_ptr)
 {
 	int i;
 	uint32_t idx;
-	uint32_t request_id;
+	uint64_t request_id;
 	struct cam_icp_hw_ctx_data *ctx_data = NULL;
 	struct hfi_msg_ipebps_async_ack *ioconfig_ack = NULL;
 	struct hfi_msg_frame_process_done *frame_done;
 	struct hfi_frame_process_info *hfi_frame_process;
-	struct cam_hw_done_event_data   buf_data;
+	struct cam_hw_done_event_data buf_data;
 
 	ioconfig_ack = (struct hfi_msg_ipebps_async_ack *)msg_ptr;
 	if (ioconfig_ack->err_type != HFI_ERR_SYS_NONE) {
@@ -119,12 +119,9 @@ static int cam_icp_mgr_process_msg_frame_process(uint32_t *msg_ptr)
 		pr_err("result : %u\n", frame_done->result);
 		return -EIO;
 	}
-	ICP_DBG("result : %u\n", frame_done->result);
 
 	ctx_data = (struct cam_icp_hw_ctx_data *)ioconfig_ack->user_data1;
 	request_id = ioconfig_ack->user_data2;
-	ICP_DBG("ctx : %pK, request_id :%d\n",
-		(void *)ctx_data->context_priv, request_id);
 
 	hfi_frame_process = &ctx_data->hfi_frame_process;
 	for (i = 0; i < CAM_FRAME_CMD_MAX; i++)
@@ -132,22 +129,17 @@ static int cam_icp_mgr_process_msg_frame_process(uint32_t *msg_ptr)
 			break;
 
 	if (i >= CAM_FRAME_CMD_MAX) {
-		pr_err("unable to find pkt in ctx data for req_id =%d\n",
+		pr_err("unable to find pkt in ctx data for req_id =%lld\n",
 			request_id);
 		return -EINVAL;
 	}
 	idx = i;
 
-	/* send event to ctx this needs to be done in msg handler */
-	buf_data.num_handles = hfi_frame_process->num_out_resources[idx];
-	for (i = 0; i < buf_data.num_handles; i++)
-		buf_data.resource_handle[i] =
-			hfi_frame_process->out_resource[idx][i];
-
+	buf_data.request_id = hfi_frame_process->request_id[idx];
 	ctx_data->ctxt_event_cb(ctx_data->context_priv, 0, &buf_data);
 
 	/* now release memory for hfi frame process command */
-	ICP_DBG("matching request id: %d\n",
+	ICP_DBG("matching request id: %lld\n",
 			hfi_frame_process->request_id[idx]);
 	mutex_lock(&ctx_data->hfi_frame_process.lock);
 	hfi_frame_process->request_id[idx] = 0;
@@ -1195,8 +1187,6 @@ static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
 		}
 
 		prepare_args->out_map_entries[j].sync_id = io_cfg_ptr[i].fence;
-		prepare_args->out_map_entries[j++].resource_handle =
-							io_cfg_ptr[i].fence;
 		prepare_args->num_out_map_entries++;
 		ICP_DBG(" out fence = %x index = %d\n", io_cfg_ptr[i].fence, i);
 	}
@@ -1243,13 +1233,8 @@ static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
 	mutex_unlock(&ctx_data->hfi_frame_process.lock);
 
 	ctx_data->hfi_frame_process.request_id[idx] = packet->header.request_id;
-	ICP_DBG("slot[%d]: %d\n", idx,
-		ctx_data->hfi_frame_process.request_id[idx]);
 	ctx_data->hfi_frame_process.num_out_resources[idx] =
 				prepare_args->num_out_map_entries;
-	for (i = 0; i < prepare_args->num_out_map_entries; i++)
-		ctx_data->hfi_frame_process.out_resource[idx][i] =
-			prepare_args->out_map_entries[i].resource_handle;
 
 	hfi_cmd = (struct hfi_cmd_ipebps_async *)
 			&ctx_data->hfi_frame_process.hfi_frame_cmd[idx];
@@ -1263,7 +1248,7 @@ static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
 
 	prepare_args->priv = &ctx_data->hfi_frame_process.request_id[idx];
 
-	ICP_DBG("slot : %d, hfi_cmd : %pK, request : %d\n",	idx,
+	ICP_DBG("slot : %d, hfi_cmd : %pK, request : %lld\n", idx,
 		(void *)hfi_cmd,
 		ctx_data->hfi_frame_process.request_id[idx]);
 
