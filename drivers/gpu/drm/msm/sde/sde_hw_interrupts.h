@@ -208,6 +208,17 @@ struct sde_hw_intr_ops {
 			bool clear);
 
 	/**
+	 * get_intr_status_nolock - nolock version of get_interrupt_status
+	 * @intr:	HW interrupt handle
+	 * @irq_idx:	Lookup irq index return from irq_idx_lookup
+	 * @clear:	True to clear irq after read
+	 */
+	u32 (*get_intr_status_nolock)(
+			struct sde_hw_intr *intr,
+			int irq_idx,
+			bool clear);
+
+	/**
 	 * get_valid_interrupts - Gets a mask of all valid interrupt sources
 	 *                        within SDE. These are actually status bits
 	 *                        within interrupt registers that specify the

@@ -202,6 +202,22 @@ int sde_core_irq_disable(struct sde_kms *sde_kms, int *irq_idxs, u32 irq_count)
 	return ret;
 }
 
+u32 sde_core_irq_read_nolock(struct sde_kms *sde_kms, int irq_idx, bool clear)
+{
+	if (!sde_kms || !sde_kms->hw_intr ||
+			!sde_kms->hw_intr->ops.get_interrupt_status)
+		return 0;
+
+	if (irq_idx < 0) {
+		SDE_ERROR("[%pS] invalid irq_idx=%d\n",
+				__builtin_return_address(0), irq_idx);
+		return 0;
+	}
+
+	return sde_kms->hw_intr->ops.get_intr_status_nolock(sde_kms->hw_intr,
+			irq_idx, clear);
+}
+
 u32 sde_core_irq_read(struct sde_kms *sde_kms, int irq_idx, bool clear)
 {
 	if (!sde_kms || !sde_kms->hw_intr ||

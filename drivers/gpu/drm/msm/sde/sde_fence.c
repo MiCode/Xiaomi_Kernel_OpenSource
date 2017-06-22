@@ -338,7 +338,7 @@ int sde_fence_create(struct sde_fence_context *ctx, uint64_t *val,
 	return rc;
 }
 
-void sde_fence_signal(struct sde_fence_context *ctx, bool is_error)
+void sde_fence_signal(struct sde_fence_context *ctx, ktime_t ts, bool is_error)
 {
 	unsigned long flags;
 	struct sde_fence *fc, *next;
@@ -382,6 +382,7 @@ void sde_fence_signal(struct sde_fence_context *ctx, bool is_error)
 
 	list_for_each_entry_safe(fc, next, &local_list_head, fence_list) {
 		spin_lock_irqsave(&ctx->lock, flags);
+		fc->base.timestamp = ts;
 		is_signaled = fence_is_signaled_locked(&fc->base);
 		spin_unlock_irqrestore(&ctx->lock, flags);
 

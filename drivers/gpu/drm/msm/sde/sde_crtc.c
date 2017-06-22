@@ -1520,6 +1520,8 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 	struct sde_crtc_state *cstate;
 	struct sde_kms *sde_kms;
 	unsigned long flags;
+	bool frame_done = false;
+	int i;
 
 	if (!work) {
 		SDE_ERROR("invalid work handle\n");
@@ -1546,9 +1548,11 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 	SDE_DEBUG("crtc%d event:%u ts:%lld\n", crtc->base.id, fevent->event,
 			ktime_to_ns(fevent->ts));
 
-	if (fevent->event == SDE_ENCODER_FRAME_EVENT_DONE ||
-			(fevent->event & SDE_ENCODER_FRAME_EVENT_ERROR) ||
-			(fevent->event & SDE_ENCODER_FRAME_EVENT_PANEL_DEAD)) {
+	SDE_EVT32_VERBOSE(DRMID(crtc), fevent->event, SDE_EVTLOG_FUNC_ENTRY);
+
+	if (fevent->event & (SDE_ENCODER_FRAME_EVENT_DONE
+				| SDE_ENCODER_FRAME_EVENT_ERROR
+				| SDE_ENCODER_FRAME_EVENT_PANEL_DEAD)) {
 
 		if (atomic_read(&sde_crtc->frame_pending) < 1) {
 			/* this should not happen */
@@ -1571,22 +1575,29 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 							SDE_EVTLOG_FUNC_CASE3);
 		}
 
-		if (fevent->event == SDE_ENCODER_FRAME_EVENT_DONE ||
-			    (fevent->event & SDE_ENCODER_FRAME_EVENT_ERROR))
-			complete_all(&sde_crtc->frame_done_comp);
-
-		if (fevent->event == SDE_ENCODER_FRAME_EVENT_DONE)
+		if (fevent->event & SDE_ENCODER_FRAME_EVENT_DONE)
 			sde_core_perf_crtc_update(crtc, 0, false);
-	} else {
-		SDE_ERROR("crtc%d ts:%lld unknown event %u\n", crtc->base.id,
-				ktime_to_ns(fevent->ts),
-				fevent->event);
-		SDE_EVT32(DRMID(crtc), fevent->event, SDE_EVTLOG_FUNC_CASE4);
+
+		if (fevent->event & (SDE_ENCODER_FRAME_EVENT_DONE
+					| SDE_ENCODER_FRAME_EVENT_ERROR))
+			frame_done = true;
+	}
+
+	if (fevent->event & SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE)
+		sde_fence_signal(&sde_crtc->output_fence, fevent->ts, 0);
+
+	if (fevent->event & SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE) {
+		for (i = 0; i < cstate->num_connectors; ++i)
+			sde_connector_complete_commit(cstate->connectors[i],
+					fevent->ts);
 	}
 
 	if (fevent->event & SDE_ENCODER_FRAME_EVENT_PANEL_DEAD)
 		SDE_ERROR("crtc%d ts:%lld received panel dead event\n",
 				crtc->base.id, ktime_to_ns(fevent->ts));
+
+	if (frame_done)
+		complete_all(&sde_crtc->frame_done_comp);
 
 	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
 	list_add_tail(&fevent->list, &sde_crtc->frame_event_list);
@@ -1631,30 +1642,6 @@ static void sde_crtc_frame_event_cb(void *data, u32 event)
 	fevent->crtc = crtc;
 	fevent->ts = ktime_get();
 	kthread_queue_work(&priv->event_thread[crtc_id].worker, &fevent->work);
-}
-
-void sde_crtc_complete_commit(struct drm_crtc *crtc,
-		struct drm_crtc_state *old_state)
-{
-	struct sde_crtc *sde_crtc;
-	struct sde_crtc_state *cstate;
-	int i;
-
-	if (!crtc || !crtc->state) {
-		SDE_ERROR("invalid crtc\n");
-		return;
-	}
-
-	sde_crtc = to_sde_crtc(crtc);
-	cstate = to_sde_crtc_state(crtc->state);
-	SDE_EVT32_VERBOSE(DRMID(crtc));
-
-	/* signal release fence */
-	sde_fence_signal(&sde_crtc->output_fence, 0);
-
-	/* signal retire fence */
-	for (i = 0; i < cstate->num_connectors; ++i)
-		sde_connector_complete_commit(cstate->connectors[i]);
 }
 
 /**
@@ -3269,8 +3256,10 @@ static int sde_crtc_atomic_get_property(struct drm_crtc *crtc,
 {
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *cstate;
+	struct drm_encoder *encoder;
 	int i, ret = -EINVAL;
 	bool conn_offset = 0;
+	bool is_cmd = true;
 
 	if (!crtc || !state) {
 		SDE_ERROR("invalid argument(s)\n");
@@ -3285,13 +3274,30 @@ static int sde_crtc_atomic_get_property(struct drm_crtc *crtc,
 				break;
 		}
 
+		/**
+		 * set the cmd flag only when all the encoders attached
+		 * to the crtc are in cmd mode. Consider all other cases
+		 * as video mode.
+		 */
+		drm_for_each_encoder(encoder, crtc->dev) {
+			if (encoder->crtc == crtc)
+				is_cmd &= sde_encoder_is_cmd_mode(encoder);
+		}
+
 		i = msm_property_index(&sde_crtc->property_info, property);
 		if (i == CRTC_PROP_OUTPUT_FENCE) {
 			uint32_t offset = sde_crtc_get_property(cstate,
 					CRTC_PROP_OUTPUT_FENCE_OFFSET);
 
+			/**
+			 * set the offset to 0 only for cmd mode panels, so
+			 * the release fence for the current frame can be
+			 * triggered right after PP_DONE interrupt.
+			 */
+			offset = is_cmd ? 0 : (offset + conn_offset);
+
 			ret = sde_fence_create(&sde_crtc->output_fence, val,
-							offset + conn_offset);
+								offset);
 			if (ret)
 				SDE_ERROR("fence create failed\n");
 		} else {

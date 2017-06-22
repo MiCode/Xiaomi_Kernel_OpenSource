@@ -393,9 +393,6 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 {
 	struct sde_kms *sde_kms;
 	struct msm_drm_private *priv;
-	struct drm_crtc *crtc;
-	struct drm_crtc_state *old_crtc_state;
-	int i;
 
 	if (!kms || !old_state)
 		return;
@@ -405,8 +402,6 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 		return;
 	priv = sde_kms->dev->dev_private;
 
-	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i)
-		sde_crtc_complete_commit(crtc, old_crtc_state);
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
 	SDE_EVT32(SDE_EVTLOG_FUNC_EXIT);
@@ -519,8 +514,10 @@ retry:
 	}
 
 	/* old_state actually contains updated crtc pointers */
-	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i)
-		sde_crtc_prepare_commit(crtc, old_crtc_state);
+	for_each_crtc_in_state(old_state, crtc, old_crtc_state, i) {
+		if (crtc->state->active)
+			sde_crtc_prepare_commit(crtc, old_crtc_state);
+	}
 }
 
 /**

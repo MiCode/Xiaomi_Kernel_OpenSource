@@ -30,7 +30,7 @@
 #define SDE_CRTC_NAME_SIZE	12
 
 /* define the maximum number of in-flight frame events */
-#define SDE_CRTC_FRAME_EVENT_SIZE	2
+#define SDE_CRTC_FRAME_EVENT_SIZE	4
 
 /**
  * enum sde_crtc_client_type: crtc client type
@@ -366,14 +366,6 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc);
  * @old_state: Pointer to drm crtc old state object
  */
 void sde_crtc_prepare_commit(struct drm_crtc *crtc,
-		struct drm_crtc_state *old_state);
-
-/**
- * sde_crtc_complete_commit - callback signalling completion of current commit
- * @crtc: Pointer to drm crtc object
- * @old_state: Pointer to drm crtc old state object
- */
-void sde_crtc_complete_commit(struct drm_crtc *crtc,
 		struct drm_crtc_state *old_state);
 
 /**
