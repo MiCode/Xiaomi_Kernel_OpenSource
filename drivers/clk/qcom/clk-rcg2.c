@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "clk: %s: " fmt, __func__
+
 #include <linux/kernel.h>
 #include <linux/bitops.h>
 #include <linux/err.h>
@@ -99,8 +101,8 @@ static u8 clk_rcg2_get_parent(struct clk_hw *hw)
 			return i;
 
 err:
-	pr_debug("%s: Clock %s has invalid parent, using default.\n",
-		 __func__, clk_hw_get_name(hw));
+	pr_debug("Clock %s has invalid parent, using default.\n",
+		 clk_hw_get_name(hw));
 	return 0;
 }
 
@@ -126,7 +128,7 @@ static int update_config(struct clk_rcg2 *rcg)
 		udelay(1);
 	}
 
-	WARN(1, "%s: rcg didn't update its configuration.", name);
+	WARN(1, "clk: %s: rcg didn't update its configuration.", name);
 	return 0;
 }
 
@@ -164,7 +166,7 @@ static int clk_rcg2_set_force_enable(struct clk_hw *hw)
 		udelay(1);
 	}
 
-	WARN(1, "%s: rcg didn't turn on.", clk_hw_get_name(hw));
+	WARN(1, "clk: %s: rcg didn't turn on.", clk_hw_get_name(hw));
 	return ret;
 }
 
@@ -1220,8 +1222,8 @@ static u8 clk_parent_index_pre_div_and_mode(struct clk_hw *hw, u32 offset,
 		if (cfg == rcg->parent_map[i].cfg)
 			return i;
 err:
-	pr_debug("%s: Clock %s has invalid parent, using default.\n",
-		 __func__, clk_hw_get_name(hw));
+	pr_debug("Clock %s has invalid parent, using default.\n",
+		 clk_hw_get_name(hw));
 	return 0;
 }
 

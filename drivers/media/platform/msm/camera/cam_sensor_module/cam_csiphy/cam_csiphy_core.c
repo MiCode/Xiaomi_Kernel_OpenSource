@@ -486,6 +486,8 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		}
 	}
 		break;
+	case CAM_SD_SHUTDOWN:
+		break;
 	default:
 		pr_err("%s:%d :Error: Invalid Opcode: %d\n",
 			__func__, __LINE__, cmd->op_code);

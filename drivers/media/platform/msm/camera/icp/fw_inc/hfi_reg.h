@@ -92,17 +92,14 @@
 
 /**
  * @INVALID: Invalid state
- * @FW_LOAD_DONE: Firmware load is completed
- * @FW_RESP_DONE: Firmware response is received
- * @FW_START_SENT: firmware start is send
- * @FW_READY: firmware is ready to accept commands
+ * @HFI_DEINIT: HFI is not initialized yet
+ * @HFI_INIT: HFI is initialized
+ * @HFI_READY: HFI is ready to send/receive commands/messages
  */
 enum hfi_state {
-	INVALID,
-	FW_LOAD_DONE,
-	FW_RESP_DONE,
-	FW_START_SENT,
-	FW_READY
+	HFI_DEINIT,
+	HFI_INIT,
+	HFI_READY
 };
 
 /**
@@ -292,6 +289,9 @@ struct hfi_qtbl {
  * @msgpacket_buf: message buffer
  * @hfi_state: State machine for hfi
  * @cmd_q_lock: Lock for command queue
+ * @cmd_q_state: State of command queue
+ * @mutex msg_q_lock: Lock for message queue
+ * @msg_q_state: State of message queue
  * @csr_base: CSR base address
  */
 struct hfi_info {
@@ -301,7 +301,9 @@ struct hfi_info {
 	uint32_t msgpacket_buf[ICP_HFI_MAX_MSG_SIZE_IN_WORDS];
 	uint8_t hfi_state;
 	struct mutex cmd_q_lock;
+	bool cmd_q_state;
 	struct mutex msg_q_lock;
+	bool msg_q_state;
 	void __iomem *csr_base;
 };
 

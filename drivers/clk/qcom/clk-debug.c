@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "clk: %s: " fmt, __func__
+
 #include <linux/clk.h>
 #include <linux/export.h>
 #include <linux/module.h>
@@ -141,7 +143,7 @@ static u8 clk_debug_mux_get_parent(struct clk_hw *hw)
 	for (i = 0; i < num_parents; i++) {
 		if (!strcmp(meas->parent[i].parents,
 					clk_hw_get_name(hw_clk))) {
-			pr_debug("%s: clock parent - %s, index %d\n", __func__,
+			pr_debug("clock parent - %s, index %d\n",
 					meas->parent[i].parents, i);
 			return i;
 		}

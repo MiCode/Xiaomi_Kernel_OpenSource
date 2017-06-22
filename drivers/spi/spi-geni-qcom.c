@@ -110,14 +110,6 @@ static struct spi_master *get_spi_master(struct device *dev)
 	return spi;
 }
 
-static int get_sclk(u32 speed_hz, unsigned long *sclk_freq)
-{
-	u32 root_freq[] = { 19200000 };
-
-	*sclk_freq = root_freq[0];
-	return 0;
-}
-
 static int do_spi_clk_cfg(u32 speed_hz, struct spi_geni_master *mas)
 {
 	unsigned long sclk_freq;
@@ -131,14 +123,20 @@ static int do_spi_clk_cfg(u32 speed_hz, struct spi_geni_master *mas)
 	clk_sel &= ~CLK_SEL_MSK;
 	m_clk_cfg &= ~CLK_DIV_MSK;
 
-	idx = get_sclk(speed_hz, &sclk_freq);
-	if (idx < 0)
-		return -EINVAL;
+	ret = geni_se_clk_freq_match(&mas->spi_rsc, speed_hz, &idx,
+					&sclk_freq, true);
+	if (ret) {
+		dev_err(mas->dev, "%s: Failed(%d) to find src clk for 0x%x\n",
+						__func__, ret, speed_hz);
+		return ret;
+	}
 
 	div = ((sclk_freq / SPI_OVERSAMPLING) / speed_hz);
 	if (!div)
 		return -EINVAL;
 
+	dev_dbg(mas->dev, "%s: req %u sclk %lu, idx %d, div %d\n", __func__,
+						speed_hz, sclk_freq, idx, div);
 	clk_sel |= (idx & CLK_SEL_MSK);
 	m_clk_cfg |= ((div << CLK_DIV_SHFT) | SER_CLK_EN);
 	ret = clk_set_rate(rsc->se_clk, sclk_freq);
@@ -362,13 +360,13 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 	reinit_completion(&mas->xfer_done);
 	/* Speed and bits per word can be overridden per transfer */
 	if (xfer->speed_hz != mas->cur_speed_hz) {
+		mas->cur_speed_hz = xfer->speed_hz;
 		ret = do_spi_clk_cfg(mas->cur_speed_hz, mas);
 		if (ret) {
 			dev_err(mas->dev, "%s:Err setting clks:%d\n",
 								__func__, ret);
 			goto geni_transfer_one_exit;
 		}
-		mas->cur_speed_hz = xfer->speed_hz;
 	}
 
 	setup_fifo_xfer(xfer, mas, slv->mode, spi);

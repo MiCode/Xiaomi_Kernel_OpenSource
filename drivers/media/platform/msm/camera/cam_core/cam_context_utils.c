@@ -60,10 +60,6 @@ int cam_context_buf_done_from_hw(struct cam_context *ctx,
 		cam_sync_signal(req->out_map_entries[j].sync_id,
 			CAM_SYNC_STATE_SIGNALED_SUCCESS);
 		req->num_out_acked++;
-		trace_printk("Sync success req %lld, reset sync id 0x%x\n",
-			req->request_id,
-			req->out_map_entries[j].sync_id);
-
 		req->out_map_entries[j].sync_id = -1;
 	}
 
@@ -195,8 +191,6 @@ void cam_context_sync_callback(int32_t sync_obj, int status, void *data)
 	req->num_in_acked++;
 	if (req->num_in_acked == req->num_in_map_entries) {
 		apply.request_id = req->request_id;
-		trace_printk("async cb for request :%llu",
-			req->request_id);
 		cam_context_apply_req_to_hw(ctx, &apply);
 	}
 }
@@ -287,8 +281,6 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 		list_add_tail(&req->list, &ctx->pending_req_list);
 		spin_unlock(&ctx->lock);
 		for (i = 0; i < req->num_in_map_entries; i++) {
-			trace_printk("register in fence callback: %d\n",
-				req->in_map_entries[i].sync_id);
 			rc = cam_sync_register_callback(
 					cam_context_sync_callback,
 					(void *)ctx,

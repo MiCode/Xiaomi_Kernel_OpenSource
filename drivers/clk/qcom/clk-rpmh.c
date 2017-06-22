@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "clk: %s: " fmt, __func__
+
 #include <linux/kernel.h>
 #include <linux/err.h>
 #include <linux/platform_device.h>
@@ -243,7 +245,7 @@ static void clk_rpmh_unprepare(struct clk_hw *hw)
 
 	if (ret) {
 		c->state = c->valid_state_mask;
-		WARN(1, "%s failed to disable\n", c->res_name);
+		WARN(1, "clk: %s failed to disable\n", c->res_name);
 	}
 
 out:

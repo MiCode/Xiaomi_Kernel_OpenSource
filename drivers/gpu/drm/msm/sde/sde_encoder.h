@@ -128,14 +128,24 @@ void sde_encoder_trigger_kickoff_pending(struct drm_encoder *encoder);
 void sde_encoder_kickoff(struct drm_encoder *encoder);
 
 /**
- * sde_encoder_wait_nxt_committed - Wait for hardware to have flushed the
- *	current pending frames to hardware at a vblank or ctl_start
- *	Encoders will map this differently depending on irqs
- *	vid mode -> vsync_irq
+ * sde_encoder_wait_for_event - Waits for encoder events
  * @encoder:	encoder pointer
+ * @event:      event to wait for
+ * MSM_ENC_COMMIT_DONE -  Wait for hardware to have flushed the current pending
+ *                        frames to hardware at a vblank or ctl_start
+ *                        Encoders will map this differently depending on the
+ *                        panel type.
+ *	                  vid mode -> vsync_irq
+ *                        cmd mode -> ctl_start
+ * MSM_ENC_TX_COMPLETE -  Wait for the hardware to transfer all the pixels to
+ *                        the panel. Encoders will map this differently
+ *                        depending on the panel type.
+ *                        vid mode -> vsync_irq
+ *                        cmd mode -> pp_done
  * Returns: 0 on success, -EWOULDBLOCK if already signaled, error otherwise
  */
-int sde_encoder_wait_for_commit_done(struct drm_encoder *drm_encoder);
+int sde_encoder_wait_for_event(struct drm_encoder *drm_encoder,
+						enum msm_event_wait event);
 
 /*
  * sde_encoder_get_intf_mode - get interface mode of the given encoder

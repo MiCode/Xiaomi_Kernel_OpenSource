@@ -6,20 +6,11 @@ Venus
 Required properties:
 - compatible : one of:
 	- "qcom,msm-vidc"
-- qcom,max-hw-load: The maximum load the hardware can support expressed in units
-  of macroblocks per second. The load is a reflection of hardware capability
-  rather than a performance guarantee. Performance is guaranteed only up to
-  advertised capability of the chipset.
-- qcom,max-hq-mbs-per-frame : Max no of mbs per frame beyond which
-    "High Quality" encoding is not supported.
-- qcom,max-hq-frames-per-sec : Max no of frames per second beyond which
-    "High Quality" encoding is not supported.
+        - "qcom,sdm845-vidc" : Invokes driver specific data for SDM845.
 
 Optional properties:
 - reg : offset and length of the register set for the device.
 - interrupts : should contain the vidc interrupt.
-- qcom,platform-version : mask and shift of the platform version bits
-    in efuse register.
 - qcom,reg-presets : list of offset-value pairs for registers to be written.
   The offsets are from the base offset specified in 'reg'. This is mainly
   used for QoS, VBIF, etc. presets for video.
@@ -64,20 +55,9 @@ Optional properties:
        macro block in low power mode.
        the required frequency to get the final frequency, the factor is
        represented in Q16 format.
-- qcom,sw-power-collapse = A bool indicating if video hardware core can be
-  power collapsed in idle state.
-- qcom,never-unload-fw = A bool indicating if video firmware should be not be
-  unloaded after all active sessions have closed.  Once a new session starts up
-  after this, the firmware will be ready to go.  This should be set on platforms
-  that desire low-latency video startup and don't mind "leakage" of some memory.
 - qcom,use-non-secure-pil = A bool indicating which type of pil to use to load
   the fw.
 - qcom,fw-bias = The address at which venus fw is loaded (manually).
-- qcom,enable-thermal-mitigation = A bool to enable thermal mitigation when
-  thermal run away occurs.
-- qcom,hfi-version = The hfi packetization version supported by venus firmware.
-  If hfi version is not specified, then packetization type will default to
-  legacy.
 - qcom,vidc-iommu-domains = node containing individual domain nodes, each with:
      - a unique domain name for the domain node (e.g vidc,domain-ns)
      - qcom,vidc-domain-phandle: phandle for the domain as defined in
@@ -97,13 +77,6 @@ Optional properties:
            internal persist = 0x200
            internal persist1 = 0x400
            internal cmd queue = 0x800
-- qcom,pm-qos-latency-us = The latency used to vote for QOS power manager. This
-value is typically max(latencies of every cluster at all power levels) + 1
-- qcom,max-secure-instances = An int containing max number of concurrent secure
-  instances supported, accounting for venus and system wide limitations like
-  memory, performance etc.
-- qcom,debug-timeout = A bool indicating that FW errors such as SYS_ERROR,
-  SESSION_ERROR and timeouts will be treated as Fatal.
 - cache-slice-names = An array of supported cache slice names by llcc
 - cache-slices = An array of supported cache slice ids corresponding
   to cache-slice-names by llcc
@@ -171,25 +144,16 @@ Example:
 		venus-supply = <&gdsc>;
 		venus-core0-supply = <&gdsc1>;
 		venus-core1-supply = <&gdsc2>;
-		qcom,hfi-version = "3xx";
 		qcom,reg-presets = <0x80004 0x1>,
 			<0x80178 0x00001FFF>;
 		qcom,qdss-presets = <0xFC307000 0x1000>,
 			<0xFC322000 0x1000>;
-		qcom,max-hw-load = <1224450>; /* 4k @ 30 + 1080p @ 30*/
-		qcom,never-unload-fw;
 		clock-names = "foo_clk", "bar_clk", "baz_clk";
 		qcom,clock-configs = <0x3 0x1 0x0>;
-		qcom,sw-power-collapse;
 		qcom,buffer-type-tz-usage-table = <0x1 0x1>,
 						<0x1fe 0x2>;
-		qcom,enable-thermal-mitigation;
-		qcom,use-non-secure-pil;
-		qcom,use_dynamic_bw_update;
 		qcom,fw-bias = <0xe000000>;
 		qcom,allowed-clock-rates = <200000000 300000000 400000000>;
-		qcom,max-hq-mbs-per-frame = <8160>;
-		qcom,max-hq-frames-per-sec = <60>;
 		msm_vidc_cb1: msm_vidc_cb1 {
 			compatible = "qcom,msm-vidc,context-bank";
 			label = "venus_ns";

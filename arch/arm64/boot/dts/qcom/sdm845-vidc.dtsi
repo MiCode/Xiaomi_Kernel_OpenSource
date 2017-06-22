@@ -16,16 +16,10 @@
 
 &soc {
 	msm_vidc: qcom,vidc@aa00000 {
-		compatible = "qcom,msm-vidc";
+		compatible = "qcom,msm-vidc", "qcom,sdm845-vidc";
 		status = "ok";
 		reg = <0xaa00000 0x200000>;
 		interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>;
-		qcom,hfi = "venus";
-		qcom,firmware-name = "venus";
-		qcom,never-unload-fw;
-		qcom,sw-power-collapse;
-		qcom,max-secure-instances = <5>;
-		qcom,max-hw-load = <2563200>; /* Full 4k @ 60 + 1080p @ 60 */
 
 		/* LLCC Info */
 		cache-slice-names = "vidsc0", "vidsc1";
@@ -53,21 +47,6 @@
 		qcom,clock-configs = <0x1 0x0 0x0 0x1 0x0 0x1 0x0>;
 		qcom,allowed-clock-rates = <200000000 320000000 380000000
 			444000000 533000000>;
-		qcom,max-hq-mbs-per-frame = <8160>;
-		qcom,max-hq-frames-per-sec = <60>;
-		qcom,clock-freq-tbl {
-			qcom,profile-enc {
-				qcom,codec-mask = <0x55555555>;
-				qcom,vpp-cycles-per-mb = <675>;
-				qcom,vsp-cycles-per-mb = <125>;
-				qcom,low-power-cycles-per-mb = <320>;
-			};
-			qcom,profile-dec {
-				qcom,codec-mask = <0xffffffff>;
-				qcom,vpp-cycles-per-mb = <200>;
-				qcom,vsp-cycles-per-mb = <50>;
-			};
-		};
 
 		/* Buses */
 		bus_cnoc {
@@ -84,7 +63,7 @@
 			label = "venus-ddr";
 			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
-			qcom,bus-governor = "performance";
+			qcom,bus-governor = "msm-vidc-ddr";
 			qcom,bus-range-kbps = <1000 3388000>;
 		};
 		arm9_bus_ddr {

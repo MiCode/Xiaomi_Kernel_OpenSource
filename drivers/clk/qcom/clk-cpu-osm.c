@@ -11,7 +11,7 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "%s: " fmt, __func__
+#define pr_fmt(fmt) "clk: %s: " fmt, __func__
 
 #include <linux/debugfs.h>
 #include <linux/kernel.h>
@@ -3401,7 +3401,7 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 		goto provider_err;
 	}
 	WARN(clk_prepare_enable(l3_clk.hw.clk),
-		     "Failed to enable clock for L3\n");
+		     "clk: Failed to enable clock for L3\n");
 	udelay(300);
 
 	/* Configure default rate to lowest frequency */

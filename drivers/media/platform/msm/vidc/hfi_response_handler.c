@@ -1320,6 +1320,13 @@ static int hfi_process_session_etb_done(u32 device_id,
 	data_done.status = hfi_map_err_status(pkt->error_type);
 	data_done.size = sizeof(struct msm_vidc_cb_data_done);
 	data_done.clnt_data = pkt->input_tag;
+	data_done.input_done.recon_stats.buffer_index =
+		pkt->ubwc_cr_stats.frame_index;
+	memcpy(&data_done.input_done.recon_stats.ubwc_stats_info,
+		&pkt->ubwc_cr_stats.ubwc_stats_info,
+		sizeof(data_done.input_done.recon_stats.ubwc_stats_info));
+	data_done.input_done.recon_stats.complexity_number =
+		pkt->ubwc_cr_stats.complexity_number;
 	data_done.input_done.offset = pkt->offset;
 	data_done.input_done.filled_len = pkt->filled_len;
 	data_done.input_done.packet_buffer =

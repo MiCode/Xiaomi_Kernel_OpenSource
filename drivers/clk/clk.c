@@ -10,6 +10,8 @@
  * Standard functionality for the common clock API.  See Documentation/clk.txt
  */
 
+#define pr_fmt(fmt) "clk: " fmt
+
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/clk/clk-conf.h>

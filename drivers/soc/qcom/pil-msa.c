@@ -26,6 +26,7 @@
 #include <linux/highmem.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
+#include <trace/events/trace_msm_pil_event.h>
 
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
@@ -513,6 +514,7 @@ static int pil_mss_reset(struct pil_desc *pil)
 	u32 debug_val;
 	int ret;
 
+	trace_pil_func(__func__);
 	if (drv->mba_dp_phys)
 		start_addr = drv->mba_dp_phys;
 
@@ -612,6 +614,7 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 	const u8 *data;
 	struct device *dma_dev = md->mba_mem_dev_fixed ?: &md->mba_mem_dev;
 
+	trace_pil_func(__func__);
 	fw_name_p = drv->non_elf_image ? fw_name_legacy : fw_name;
 	ret = request_firmware(&fw, fw_name_p, pil->dev);
 	if (ret) {
@@ -734,6 +737,7 @@ static int pil_msa_auth_modem_mdt(struct pil_desc *pil, const u8 *metadata,
 	struct device *dma_dev = drv->mba_mem_dev_fixed ?: &drv->mba_mem_dev;
 	unsigned long attrs = 0;
 
+	trace_pil_func(__func__);
 	dma_dev->coherent_dma_mask = DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
 	attrs |= DMA_ATTR_SKIP_ZEROING;
 	attrs |= DMA_ATTR_STRONGLY_ORDERED;

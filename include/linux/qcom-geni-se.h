@@ -565,6 +565,41 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 			   unsigned long ab, unsigned long ib);
 
 /**
+ * geni_se_clk_tbl_get() - Get the clock table to program DFS
+ * @rsc:	Resource for which the clock table is requested.
+ * @tbl:	Table in which the output is returned.
+ *
+ * This function is called by the protocol drivers to determine the different
+ * clock frequencies supported by Serail Engine Core Clock. The protocol
+ * drivers use the output to determine the clock frequency index to be
+ * programmed into DFS.
+ *
+ * Return:	number of valid performance levels in the table on success,
+ *		standard Linux error codes on failure.
+ */
+int geni_se_clk_tbl_get(struct se_geni_rsc *rsc, unsigned long **tbl);
+
+/**
+ * geni_se_clk_freq_match() - Get the matching or closest SE clock frequency
+ * @rsc:	Resource for which the clock frequency is requested.
+ * @req_freq:	Requested clock frequency.
+ * @index:	Index of the resultant frequency in the table.
+ * @res_freq:	Resultant frequency which matches or is closer to the
+ *		requested frequency.
+ * @exact:	Flag to indicate exact multiple requirement of the requested
+ *		frequency .
+ *
+ * This function is called by the protocol drivers to determine the matching
+ * or closest frequency of the Serial Engine clock to be selected in order
+ * to meet the performance requirements.
+ *
+ * Return:	0 on success, standard Linux error codes on failure.
+ */
+int geni_se_clk_freq_match(struct se_geni_rsc *rsc, unsigned long req_freq,
+			   unsigned int *index, unsigned long *res_freq,
+			   bool exact);
+
+/**
  * geni_se_tx_dma_prep() - Prepare the Serial Engine for TX DMA transfer
  * @wrapper_dev:	QUPv3 Wrapper Device to which the TX buffer is mapped.
  * @base:		Base address of the SE register block.
@@ -792,6 +827,19 @@ static inline int se_geni_resources_off(struct se_geni_rsc *rsc)
 
 static inline int geni_se_resources_init(struct se_geni_rsc *rsc,
 					 unsigned long ab, unsigned long ib)
+{
+	return -ENXIO;
+}
+
+static inline int geni_se_clk_tbl_get(struct se_geni_rsc *rsc,
+					unsigned long **tbl)
+{
+	return -ENXIO;
+}
+
+static inline int geni_se_clk_freq_match(struct se_geni_rsc *rsc,
+			unsigned long req_freq, unsigned int *index,
+			unsigned long *res_freq, bool exact)
 {
 	return -ENXIO;
 }

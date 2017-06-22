@@ -431,7 +431,7 @@ static int __dcc_ll_cfg(struct dcc_drvdata *drvdata, int curr_list)
 				link = 0;
 			}
 
-			prev_off  = off;
+			prev_off  = off + entry->len - 1;
 			prev_addr = addr;
 			}
 		}

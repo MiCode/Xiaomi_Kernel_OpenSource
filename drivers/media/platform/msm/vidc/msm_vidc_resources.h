@@ -185,14 +185,17 @@ struct msm_vidc_platform_resources {
 	uint32_t pm_qos_latency_us;
 	uint32_t max_inst_count;
 	uint32_t max_secure_inst_count;
+	int msm_vidc_hw_rsp_timeout;
+	int msm_vidc_firmware_unload_delay;
+	uint32_t msm_vidc_pwr_collapse_delay;
+	struct msm_vidc_codec_data *codec_data;
+	int codec_data_count;
 };
 
 static inline bool is_iommu_present(struct msm_vidc_platform_resources *res)
 {
 	return !list_empty(&res->context_banks);
 }
-
-extern uint32_t msm_vidc_pwr_collapse_delay;
 
 #endif
 

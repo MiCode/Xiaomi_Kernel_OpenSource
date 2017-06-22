@@ -22,6 +22,8 @@ void msm_vidc_free_platform_resources(
 
 int read_hfi_type(struct platform_device *pdev);
 
+int read_platform_resources_from_drv_data(
+		struct msm_vidc_core *core);
 int read_platform_resources_from_dt(
 		struct msm_vidc_platform_resources *res);
 

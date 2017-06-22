@@ -25,13 +25,15 @@
 		#size-cells = <1>;
 		ranges;
 
-		interrupts = <0 489 0>, <0 130 0>, <0 486 0>;
-		interrupt-names = "hs_phy_irq", "pwr_event_irq", "ss_phy_irq";
+		interrupts = <0 489 0>, <0 130 0>, <0 486 0>, <0 488 0>;
+		interrupt-names = "dp_hs_phy_irq", "pwr_event_irq",
+				"ss_phy_irq", "dm_hs_phy_irq";
 
 		USB3_GDSC-supply = <&usb30_prim_gdsc>;
 		qcom,usb-dbm = <&dbm_1p5>;
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
 		qcom,num-gsi-evt-buffs = <0x3>;
+		qcom,use-pdc-interrupts;
 		extcon = <&pmi8998_pdphy>, <&pmi8998_pdphy>, <&eud>;
 
 		clocks = <&clock_gcc GCC_USB30_PRIM_MASTER_CLK>,
@@ -322,11 +324,13 @@
 		#size-cells = <1>;
 		ranges;
 
-		interrupts = <0 491 0>, <0 135 0>, <0 487 0>;
-		interrupt-names = "hs_phy_irq", "pwr_event_irq", "ss_phy_irq";
+		interrupts = <0 491 0>, <0 135 0>, <0 487 0>, <0 490 0>;
+		interrupt-names = "dp_hs_phy_irq", "pwr_event_irq",
+				"ss_phy_irq", "dm_hs_phy_irq";
 
 		USB3_GDSC-supply = <&usb30_sec_gdsc>;
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
+		qcom,use-pdc-interrupts;
 
 		clocks = <&clock_gcc GCC_USB30_SEC_MASTER_CLK>,
 			 <&clock_gcc GCC_CFG_NOC_USB3_SEC_AXI_CLK>,

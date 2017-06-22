@@ -121,6 +121,7 @@ struct sde_crtc_event {
  * @stage_cfg     : H/w mixer stage configuration
  * @debugfs_root  : Parent of debugfs node
  * @vblank_cb_count : count of vblank callback since last reset
+ * @play_count    : frame count between crtc enable and disable
  * @vblank_cb_time  : ktime at vblank count reset
  * @vblank_refcount : reference count for vblank enable request
  * @suspend         : whether or not a suspend operation is in progress
@@ -167,6 +168,7 @@ struct sde_crtc {
 	struct dentry *debugfs_root;
 
 	u32 vblank_cb_count;
+	u64 play_count;
 	ktime_t vblank_cb_time;
 	atomic_t vblank_refcount;
 	bool suspend;

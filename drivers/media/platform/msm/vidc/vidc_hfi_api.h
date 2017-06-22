@@ -1082,6 +1082,22 @@ enum hal_command_response {
 	HAL_RESPONSE_UNUSED = 0x10000000,
 };
 
+struct ubwc_cr_stats_info_type {
+	u32 cr_stats_info0;
+	u32 cr_stats_info1;
+	u32 cr_stats_info2;
+	u32 cr_stats_info3;
+	u32 cr_stats_info4;
+	u32 cr_stats_info5;
+	u32 cr_stats_info6;
+};
+
+struct recon_stats_type {
+	u32 buffer_index;
+	u32 complexity_number;
+	struct ubwc_cr_stats_info_type ubwc_stats_info;
+};
+
 struct vidc_hal_ebd {
 	u32 timestamp_hi;
 	u32 timestamp_lo;
@@ -1094,6 +1110,7 @@ struct vidc_hal_ebd {
 	u32 alloc_len;
 	u32 filled_len;
 	enum hal_picture picture_type;
+	struct recon_stats_type recon_stats;
 	ion_phys_addr_t packet_buffer;
 	ion_phys_addr_t extra_data_buffer;
 };
@@ -1315,8 +1332,16 @@ struct vidc_bus_vote_data {
 	enum hal_video_codec codec;
 	enum hal_uncompressed_format color_formats[2];
 	int num_formats; /* 1 = DPB-OPB unified; 2 = split */
-	int height, width, fps;
+	int input_height, input_width, fps;
+	int output_height, output_width;
+	int compression_ratio;
+	int complexity_factor;
+	unsigned int lcu_size;
 	enum msm_vidc_power_mode power_mode;
+	struct imem_ab_table *imem_ab_tbl;
+	enum hal_work_mode work_mode;
+	unsigned long bitrate;
+	u32 imem_ab_tbl_size;
 };
 
 struct vidc_clk_scale_data {
