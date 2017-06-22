@@ -371,6 +371,7 @@ static int cam_vfe_bus_get_num_wm(
 	case CAM_VFE_BUS_VER2_VFE_OUT_STATS_CS:
 		switch (format) {
 		case CAM_FORMAT_PLAIN64:
+		case CAM_FORMAT_PLAIN128:
 			return 1;
 		default:
 			break;
@@ -629,7 +630,8 @@ static int cam_vfe_bus_acquire_wm(
 		rsrc_data->height = 1;
 		rsrc_data->pack_fmt = 0x0;
 		rsrc_data->en_cfg = 0x3;
-	} else if (rsrc_data->index < 5) {
+	} else if (rsrc_data->index < 5 ||
+		rsrc_data->index == 7 || rsrc_data->index == 8) {
 		switch (plane) {
 		case PLANE_Y:
 			switch (rsrc_data->format) {
@@ -664,6 +666,12 @@ static int cam_vfe_bus_acquire_wm(
 		}
 		rsrc_data->pack_fmt = 0xE;
 		rsrc_data->en_cfg = 0x1;
+	} else if (rsrc_data->index >= 11) {
+		rsrc_data->width = 0;
+		rsrc_data->height = 0;
+		rsrc_data->pack_fmt = 0x0;
+		rsrc_data->stride = 1;
+		rsrc_data->en_cfg = 0x3;
 	} else {
 		rsrc_data->width = rsrc_data->width * 4;
 		rsrc_data->height = rsrc_data->height / 2;
