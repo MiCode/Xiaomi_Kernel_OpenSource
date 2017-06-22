@@ -128,6 +128,17 @@ static bool migrate_one_irq(struct irq_desc *desc)
 							cpu_isolated_mask);
 		if (cpumask_empty(affinity))
 			affinity = cpu_online_mask;
+		/*
+		 * We are overriding the affinity with all online and
+		 * un-isolated cpus. irq_set_affinity_locked() call
+		 * below notify this mask to PM QOS affinity listener.
+		 * That results in applying the CPU_DMA_LATENCY QOS
+		 * to all the CPUs specified in the mask. But the low
+		 * level irqchip driver sets the affinity of an irq
+		 * to only one CPU. So pick only one CPU from the
+		 * prepared mask while overriding the user affinity.
+		 */
+		affinity = cpumask_of(cpumask_any(affinity));
 		brokeaff = true;
 	}
 	/*
