@@ -116,7 +116,7 @@ static int mhi_pm_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt,
 		mhi_dev_ctxt->mhi_state == MHI_STATE_M0 ||
 		mhi_dev_ctxt->mhi_state == MHI_STATE_M1 ||
 		mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT,
-		msecs_to_jiffies(MHI_MAX_RESUME_TIMEOUT));
+		msecs_to_jiffies(MHI_MAX_STATE_TRANSITION_TIMEOUT));
 	if (!r || mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT) {
 		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
 			"Failed to get M0||M1 event or LD pm_state:0x%x state:%s\n",
@@ -142,7 +142,7 @@ static int mhi_pm_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt,
 	r = wait_event_timeout(*mhi_dev_ctxt->mhi_ev_wq.m3_event,
 		mhi_dev_ctxt->mhi_state == MHI_STATE_M3 ||
 		mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT,
-		msecs_to_jiffies(MHI_MAX_SUSPEND_TIMEOUT));
+		msecs_to_jiffies(MHI_MAX_STATE_TRANSITION_TIMEOUT));
 	if (!r || mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT) {
 		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
 			"Failed to get M3 event, timeout, current state:%s\n",
@@ -180,7 +180,7 @@ static int mhi_pm_initiate_m0(struct mhi_device_ctxt *mhi_dev_ctxt)
 		mhi_dev_ctxt->mhi_state == MHI_STATE_M0 ||
 		mhi_dev_ctxt->mhi_state == MHI_STATE_M1 ||
 		mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT,
-		msecs_to_jiffies(MHI_MAX_RESUME_TIMEOUT));
+		msecs_to_jiffies(MHI_MAX_STATE_TRANSITION_TIMEOUT));
 	if (!r || mhi_dev_ctxt->mhi_pm_state == MHI_PM_LD_ERR_FATAL_DETECT) {
 		mhi_log(mhi_dev_ctxt, MHI_MSG_ERROR,
 			"Failed to get M0 event, timeout or LD\n");
@@ -322,9 +322,6 @@ static int mhi_pm_slave_mode_power_on(struct mhi_device_ctxt *mhi_dev_ctxt)
 	else
 		ret_val = 0;
 
-	/* wait for firmware download to complete */
-	flush_work(&mhi_dev_ctxt->bhi_ctxt.fw_load_work);
-
 	if (ret_val) {
 		read_lock_irq(&mhi_dev_ctxt->pm_xfer_lock);
 		mhi_dev_ctxt->deassert_wake(mhi_dev_ctxt);
@@ -332,6 +329,9 @@ static int mhi_pm_slave_mode_power_on(struct mhi_device_ctxt *mhi_dev_ctxt)
 	}
 
 unlock_pm_lock:
+
+	/* wait for firmware download to complete */
+	flush_work(&mhi_dev_ctxt->bhi_ctxt.fw_load_work);
 
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO, "Exit with ret:%d\n", ret_val);
 	mutex_unlock(&mhi_dev_ctxt->pm_lock);
