@@ -500,7 +500,7 @@ static long camera_v4l2_vidioc_private_ioctl(struct file *filep, void *fh,
 
 		MSM_CAM_GET_IOCTL_ARG_PTR(&tmp, &k_ioctl->ioctl_ptr,
 			sizeof(tmp));
-		if (copy_from_user(&ptr, tmp,
+		if (copy_from_user(&ptr, (void __user *)tmp,
 			sizeof(struct msm_camera_return_buf))) {
 			return -EFAULT;
 		}
@@ -798,7 +798,7 @@ static long camera_handle_internal_compat_ioctl(struct file *file,
 {
 	long rc = 0;
 	struct msm_camera_private_ioctl_arg k_ioctl;
-	void __user *tmp_compat_ioctl_ptr = NULL;
+	void *tmp_compat_ioctl_ptr = NULL;
 
 	rc = msm_copy_camera_private_ioctl_args(arg,
 		&k_ioctl, &tmp_compat_ioctl_ptr);
@@ -813,11 +813,13 @@ static long camera_handle_internal_compat_ioctl(struct file *file,
 				k_ioctl.id, k_ioctl.size);
 			return -EINVAL;
 		}
-		k_ioctl.ioctl_ptr = (__u64)tmp_compat_ioctl_ptr;
-		if (!k_ioctl.ioctl_ptr) {
+
+		if (tmp_compat_ioctl_ptr == NULL) {
 			pr_debug("Invalid ptr for id %d", k_ioctl.id);
 			return -EINVAL;
 		}
+		k_ioctl.ioctl_ptr = (__u64)(uintptr_t)tmp_compat_ioctl_ptr;
+
 		rc = camera_v4l2_vidioc_private_ioctl(file, file->private_data,
 			0, cmd, (void *)&k_ioctl);
 		}
@@ -829,7 +831,7 @@ static long camera_handle_internal_compat_ioctl(struct file *file,
 	return rc;
 }
 
-long camera_v4l2_compat_ioctl(struct file *file, unsigned int cmd,
+static long camera_v4l2_compat_ioctl(struct file *file, unsigned int cmd,
 	unsigned long arg)
 {
 	long ret = 0;

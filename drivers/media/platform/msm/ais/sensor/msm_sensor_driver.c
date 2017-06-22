@@ -385,7 +385,7 @@ static int32_t msm_sensor_get_pw_settings_compat(
 		pr_err("failed: no memory ps32");
 		return -ENOMEM;
 	}
-	if (copy_from_user(ps32, (void *)us_ps, sizeof(*ps32) * size)) {
+	if (copy_from_user(ps32, (void __user *)us_ps, sizeof(*ps32) * size)) {
 		pr_err("failed: copy_from_user");
 		kfree(ps32);
 		return -EFAULT;
@@ -422,7 +422,9 @@ static int32_t msm_sensor_create_pd_settings(void *setting,
 	} else
 #endif
 	{
-		if (copy_from_user(pd, (void *)pu, sizeof(*pd) * size_down)) {
+		if (copy_from_user(pd,
+				(void __user *)pu,
+				sizeof(*pd) * size_down)) {
 			pr_err("failed: copy_from_user");
 			return -EFAULT;
 		}
@@ -474,7 +476,8 @@ static int32_t msm_sensor_get_power_down_settings(void *setting,
 			}
 		} else
 #endif
-		if (copy_from_user(pd, (void *)slave_info->power_setting_array.
+		if (copy_from_user(pd,
+				(void __user *)slave_info->power_setting_array.
 				power_down_setting, sizeof(*pd) * size_down)) {
 			pr_err("failed: copy_from_user");
 			kfree(pd);
@@ -540,7 +543,8 @@ static int32_t msm_sensor_get_power_up_settings(void *setting,
 #endif
 	{
 		if (copy_from_user(pu,
-			(void *)slave_info->power_setting_array.power_setting,
+			(void __user *)
+			slave_info->power_setting_array.power_setting,
 			sizeof(*pu) * size)) {
 			pr_err("failed: copy_from_user");
 			kfree(pu);
@@ -653,7 +657,7 @@ int32_t msm_sensor_driver_probe(void *setting,
 			rc = -ENOMEM;
 			goto free_slave_info;
 		}
-		if (copy_from_user((void *)slave_info32, setting,
+		if (copy_from_user((void *)slave_info32, (void __user *)setting,
 			sizeof(*slave_info32))) {
 			pr_err("failed: copy_from_user");
 			rc = -EFAULT;
@@ -704,7 +708,7 @@ int32_t msm_sensor_driver_probe(void *setting,
 #endif
 	{
 		if (copy_from_user(slave_info,
-					(void *)setting, sizeof(*slave_info))) {
+				(void __user *)setting, sizeof(*slave_info))) {
 			pr_err("failed: copy_from_user");
 			rc = -EFAULT;
 			goto free_slave_info;

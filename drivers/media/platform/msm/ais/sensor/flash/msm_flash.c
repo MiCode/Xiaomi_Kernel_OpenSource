@@ -54,7 +54,7 @@ static struct msm_camera_i2c_fn_t msm_sensor_cci_func_tbl = {
 	.i2c_poll =  msm_camera_cci_i2c_poll,
 };
 
-void msm_torch_brightness_set(struct led_classdev *led_cdev,
+static void msm_torch_brightness_set(struct led_classdev *led_cdev,
 				enum led_brightness value)
 {
 	if (!torch_trigger) {
@@ -202,7 +202,7 @@ static int32_t msm_flash_i2c_init(
 		}
 
 		if (copy_from_user(power_setting_array32,
-			(void *)flash_init_info->power_setting_array,
+			(void __user *)flash_init_info->power_setting_array,
 			sizeof(struct msm_sensor_power_setting_array32))) {
 			pr_err("%s copy_from_user failed %d\n",
 				__func__, __LINE__);
@@ -248,7 +248,7 @@ static int32_t msm_flash_i2c_init(
 	} else
 #endif
 	if (copy_from_user(&flash_ctrl->power_setting_array,
-		(void *)flash_init_info->power_setting_array,
+		(void __user *)flash_init_info->power_setting_array,
 		sizeof(struct msm_sensor_power_setting_array))) {
 		pr_err("%s copy_from_user failed %d\n", __func__, __LINE__);
 		return -EFAULT;
@@ -298,7 +298,8 @@ static int32_t msm_flash_i2c_init(
 			goto msm_flash_i2c_init_fail;
 		}
 
-		if (copy_from_user(settings, (void *)flash_init_info->settings,
+		if (copy_from_user(settings,
+			(void __user *)flash_init_info->settings,
 			sizeof(struct msm_camera_i2c_reg_setting_array))) {
 			kfree(settings);
 			pr_err("%s copy_from_user failed %d\n",
@@ -414,7 +415,7 @@ static int32_t msm_flash_i2c_write_setting_array(
 	if (!settings)
 		return -ENOMEM;
 
-	if (copy_from_user(settings, (void *)flash_data->cfg.settings,
+	if (copy_from_user(settings, (void __user *)flash_data->cfg.settings,
 		sizeof(struct msm_camera_i2c_reg_setting_array))) {
 		kfree(settings);
 		pr_err("%s copy_from_user failed %d\n", __func__, __LINE__);
@@ -626,7 +627,7 @@ static int32_t msm_flash_release(
 }
 
 static int32_t msm_flash_config(struct msm_flash_ctrl_t *flash_ctrl,
-	void __user *argp)
+	void *argp)
 {
 	int32_t rc = 0;
 	struct msm_flash_cfg_data_t *flash_data =
@@ -701,7 +702,7 @@ static long msm_flash_subdev_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
 {
 	struct msm_flash_ctrl_t *fctrl = NULL;
-	void __user *argp = (void __user *)arg;
+	void *argp = arg;
 
 	CDBG("Enter\n");
 
@@ -1038,7 +1039,8 @@ static long msm_flash_subdev_do_ioctl(
 		case CFG_FLASH_INIT:
 			flash_data.cfg.flash_init_info = &flash_init_info;
 			if (copy_from_user(&flash_init_info32,
-				(void *)compat_ptr(u32->cfg.flash_init_info),
+				(void __user *)
+				compat_ptr(u32->cfg.flash_init_info),
 				sizeof(struct msm_flash_init_info_t32))) {
 				pr_err("%s copy_from_user failed %d\n",
 					__func__, __LINE__);
