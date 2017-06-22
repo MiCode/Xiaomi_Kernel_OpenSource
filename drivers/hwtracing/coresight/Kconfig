@@ -199,4 +199,12 @@ config CORESIGHT_TGU
 	  used to monitor a data stream to detect protocol violations and to
 	  provide a trigger point for centering data around a specific event
 	  within the trace data buffer.
+
+config CORESIGHT_EVENT
+        tristate "CoreSight Event driver"
+        help
+          This driver provides support for registering with various events
+          and performing CoreSight actions like aborting trace on their
+          occurrence. These events can be controlled by using module
+          parameters.
 endif
