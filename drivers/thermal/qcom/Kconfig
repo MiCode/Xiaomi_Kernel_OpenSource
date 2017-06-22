@@ -49,3 +49,14 @@ config QTI_REG_COOLING_DEVICE
 	  will be used by QTI chipset to place a floor voltage restriction at
 	  low temperatures. The regulator cooling device will message the AOP
 	  using mail box to establish the floor voltage.
+
+config QTI_QMI_COOLING_DEVICE
+	bool "QTI QMI cooling devices"
+	depends on MSM_QMI_INTERFACE && THERMAL_OF
+	help
+	   This enables the QTI remote subsystem cooling devices. These cooling
+	   devices will be used by QTI chipset to place various remote
+	   subsystem mitigations like remote processor passive mitigation,
+	   remote subsystem voltage restriction at low temperatures etc.
+	   The QMI cooling device will interface with remote subsystem
+	   using QTI QMI interface.
