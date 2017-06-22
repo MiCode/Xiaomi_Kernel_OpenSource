@@ -30,7 +30,7 @@ struct smem_client {
 	enum session_type session_type;
 };
 
-static int get_device_address(struct smem_client *smem_client,
+static int msm_ion_get_device_address(struct smem_client *smem_client,
 		struct ion_handle *hndl, unsigned long align,
 		ion_phys_addr_t *iova, unsigned long *buffer_size,
 		unsigned long flags, enum hal_buffer buffer_type,
@@ -122,12 +122,6 @@ static int get_device_address(struct smem_client *smem_client,
 			goto mem_map_sg_failed;
 		}
 		if (table->sgl) {
-			dprintk(VIDC_DBG,
-				"%s: CB : %s, DMA buf: %pK, device: %pK, attach: %pK, table: %pK, table sgl: %pK, rc: %d, dma_address: %pa\n",
-				__func__, cb->name, buf, cb->dev, attach,
-				table, table->sgl, rc,
-				&table->sgl->dma_address);
-
 			*iova = table->sgl->dma_address;
 			*buffer_size = table->sgl->dma_length;
 		} else {
@@ -153,7 +147,6 @@ static int get_device_address(struct smem_client *smem_client,
 		}
 	}
 
-	dprintk(VIDC_DBG, "mapped ion handle %pK to %pa\n", hndl, iova);
 	return 0;
 mem_map_sg_failed:
 	dma_buf_unmap_attachment(attach, table, DMA_BIDIRECTIONAL);
@@ -166,38 +159,26 @@ mem_map_failed:
 	return rc;
 }
 
-static void put_device_address(struct smem_client *smem_client,
+static int msm_ion_put_device_address(struct smem_client *smem_client,
 	struct ion_handle *hndl, u32 flags,
 	struct dma_mapping_info *mapping_info,
 	enum hal_buffer buffer_type)
 {
-	struct ion_client *clnt = NULL;
+	int rc = 0;
 
 	if (!hndl || !smem_client || !mapping_info) {
 		dprintk(VIDC_WARN, "Invalid params: %pK, %pK\n",
 				smem_client, hndl);
-		return;
+		return -EINVAL;
 	}
 
 	if (!mapping_info->dev || !mapping_info->table ||
 		!mapping_info->buf || !mapping_info->attach) {
 		dprintk(VIDC_WARN, "Invalid params:\n");
-		return;
+		return -EINVAL;
 	}
 
-	clnt = smem_client->clnt;
-	if (!clnt) {
-		dprintk(VIDC_WARN, "Invalid client\n");
-		return;
-	}
 	if (is_iommu_present(smem_client->res)) {
-		dprintk(VIDC_DBG,
-			"Calling dma_unmap_sg - device: %pK, address: %pa, buf: %pK, table: %pK, attach: %pK\n",
-			mapping_info->dev,
-			&mapping_info->table->sgl->dma_address,
-			mapping_info->buf, mapping_info->table,
-			mapping_info->attach);
-
 		trace_msm_smem_buffer_iommu_op_start("UNMAP", 0, 0, 0, 0, 0);
 		msm_dma_unmap_sg(mapping_info->dev, mapping_info->table->sgl,
 			mapping_info->table->nents, DMA_BIDIRECTIONAL,
@@ -207,68 +188,257 @@ static void put_device_address(struct smem_client *smem_client,
 		dma_buf_detach(mapping_info->buf, mapping_info->attach);
 		dma_buf_put(mapping_info->buf);
 		trace_msm_smem_buffer_iommu_op_end("UNMAP", 0, 0, 0, 0, 0);
+
+		mapping_info->dev = NULL;
+		mapping_info->mapping = NULL;
+		mapping_info->table = NULL;
+		mapping_info->attach = NULL;
+		mapping_info->buf = NULL;
 	}
+
+	return rc;
 }
 
-static int ion_user_to_kernel(struct smem_client *client, int fd, u32 size,
-		struct msm_smem *mem, enum hal_buffer buffer_type)
+static void *msm_ion_get_dma_buf(int fd)
 {
-	struct ion_handle *hndl = NULL;
-	ion_phys_addr_t iova = 0;
-	unsigned long buffer_size = size;
+	struct dma_buf *dma_buf;
+
+	dma_buf = dma_buf_get(fd);
+	if (IS_ERR_OR_NULL(dma_buf)) {
+		dprintk(VIDC_ERR, "Failed to get dma_buf for %d, error %ld\n",
+				fd, PTR_ERR(dma_buf));
+		dma_buf = NULL;
+	}
+
+	return dma_buf;
+}
+
+void *msm_smem_get_dma_buf(int fd)
+{
+	return (void *)msm_ion_get_dma_buf(fd);
+}
+
+static void msm_ion_put_dma_buf(struct dma_buf *dma_buf)
+{
+	if (!dma_buf) {
+		dprintk(VIDC_ERR, "%s: Invalid params: %pK\n",
+				__func__, dma_buf);
+		return;
+	}
+
+	dma_buf_put(dma_buf);
+}
+
+void msm_smem_put_dma_buf(void *dma_buf)
+{
+	return msm_ion_put_dma_buf((struct dma_buf *)dma_buf);
+}
+
+static struct ion_handle *msm_ion_get_handle(void *ion_client,
+		struct dma_buf *dma_buf)
+{
+	struct ion_handle *handle;
+
+	if (!ion_client || !dma_buf) {
+		dprintk(VIDC_ERR, "%s: Invalid params: %pK %pK\n",
+				__func__, ion_client, dma_buf);
+		return NULL;
+	}
+
+	handle = ion_import_dma_buf(ion_client, dma_buf);
+	if (IS_ERR_OR_NULL(handle)) {
+		dprintk(VIDC_ERR, "Failed to get ion_handle: %pK, %pK, %ld\n",
+				ion_client, dma_buf, PTR_ERR(handle));
+		handle = NULL;
+	}
+
+	return handle;
+}
+
+void *msm_smem_get_handle(struct smem_client *client, void *dma_buf)
+{
+	if (!client)
+		return NULL;
+
+	return (void *)msm_ion_get_handle(client->clnt,
+			(struct dma_buf *)dma_buf);
+}
+
+static void msm_ion_put_handle(struct ion_client *ion_client,
+		struct ion_handle *ion_handle)
+{
+	if (!ion_client || !ion_handle) {
+		dprintk(VIDC_ERR, "%s: Invalid params: %pK %pK\n",
+				__func__, ion_client, ion_handle);
+		return;
+	}
+
+	ion_free(ion_client, ion_handle);
+}
+
+void msm_smem_put_handle(struct smem_client *client, void *handle)
+{
+	if (!client) {
+		dprintk(VIDC_ERR, "%s: Invalid params %pK %pK\n",
+				__func__, client, handle);
+		return;
+	}
+	return msm_ion_put_handle(client->clnt, (struct ion_handle *)handle);
+}
+
+static int msm_ion_map_dma_buf(struct msm_vidc_inst *inst,
+		struct msm_smem *smem)
+{
 	int rc = 0;
+	ion_phys_addr_t iova = 0;
+	u32 temp = 0;
+	unsigned long buffer_size = 0;
 	unsigned long align = SZ_4K;
 	unsigned long ion_flags = 0;
+	struct ion_client *ion_client;
+	struct ion_handle *ion_handle;
+	struct dma_buf *dma_buf;
 
-#ifdef CONFIG_ION
-	hndl = ion_import_dma_buf_fd(client->clnt, fd);
-#endif
-	dprintk(VIDC_DBG, "%s ion handle: %pK\n", __func__, hndl);
-	if (IS_ERR_OR_NULL(hndl)) {
-		dprintk(VIDC_ERR, "Failed to get handle: %pK, %d, %d, %pK\n",
-				client, fd, size, hndl);
-		rc = -ENOMEM;
-		goto fail_import_fd;
+	if (!inst || !inst->mem_client || !inst->mem_client->clnt) {
+		dprintk(VIDC_ERR, "%s: Invalid params: %pK %pK\n",
+				__func__, inst, smem);
+		return -EINVAL;
 	}
 
-	mem->kvaddr = NULL;
-	rc = ion_handle_get_flags(client->clnt, hndl, &ion_flags);
+	ion_client = inst->mem_client->clnt;
+	dma_buf = msm_ion_get_dma_buf(smem->fd);
+	if (!dma_buf)
+		return -EINVAL;
+	ion_handle = msm_ion_get_handle(ion_client, dma_buf);
+	if (!ion_handle)
+		return -EINVAL;
+
+	smem->dma_buf = dma_buf;
+	smem->handle = ion_handle;
+	rc = ion_handle_get_flags(ion_client, ion_handle, &ion_flags);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to get ion flags: %d\n", rc);
-		goto fail_device_address;
+		goto exit;
 	}
 
-	mem->buffer_type = buffer_type;
 	if (ion_flags & ION_FLAG_CACHED)
-		mem->flags |= SMEM_CACHED;
+		smem->flags |= SMEM_CACHED;
 
 	if (ion_flags & ION_FLAG_SECURE)
-		mem->flags |= SMEM_SECURE;
+		smem->flags |= SMEM_SECURE;
 
-	rc = get_device_address(client, hndl, align, &iova, &buffer_size,
-				mem->flags, buffer_type, &mem->mapping_info);
+	rc = msm_ion_get_device_address(inst->mem_client, ion_handle,
+			align, &iova, &buffer_size, smem->flags,
+			smem->buffer_type, &smem->mapping_info);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to get device address: %d\n", rc);
-		goto fail_device_address;
+		goto exit;
+	}
+	temp = (u32)iova;
+	if ((ion_phys_addr_t)temp != iova) {
+		dprintk(VIDC_ERR, "iova(%pa) truncated to %#x", &iova, temp);
+		rc = -EINVAL;
+		goto exit;
 	}
 
-	mem->mem_type = client->mem_type;
-	mem->smem_priv = hndl;
-	mem->device_addr = iova;
-	mem->size = buffer_size;
-	if ((u32)mem->device_addr != iova) {
-		dprintk(VIDC_ERR, "iova(%pa) truncated to %#x",
-			&iova, (u32)mem->device_addr);
-		goto fail_device_address;
-	}
-	dprintk(VIDC_DBG,
-		"%s: ion_handle = %pK, fd = %d, device_addr = %pa, size = %zx, kvaddr = %pK, buffer_type = %d, flags = %#lx\n",
-		__func__, mem->smem_priv, fd, &mem->device_addr, mem->size,
-		mem->kvaddr, mem->buffer_type, mem->flags);
+	smem->device_addr = (u32)iova + smem->offset;
+
+exit:
 	return rc;
-fail_device_address:
-	ion_free(client->clnt, hndl);
-fail_import_fd:
+}
+
+int msm_smem_map_dma_buf(struct msm_vidc_inst *inst, struct msm_smem *smem)
+{
+	int rc = 0;
+
+	if (!inst || !smem) {
+		dprintk(VIDC_ERR, "%s: Invalid params: %pK %pK\n",
+				__func__, inst, smem);
+		return -EINVAL;
+	}
+
+	if (smem->refcount) {
+		smem->refcount++;
+		return rc;
+	}
+
+	switch (inst->mem_client->mem_type) {
+	case SMEM_ION:
+		rc = msm_ion_map_dma_buf(inst, smem);
+		break;
+	default:
+		dprintk(VIDC_ERR, "%s: Unknown mem_type %d\n",
+			__func__, inst->mem_client->mem_type);
+		rc = -EINVAL;
+		break;
+	}
+	if (!rc)
+		smem->refcount++;
+
+	return rc;
+}
+
+static int msm_ion_unmap_dma_buf(struct msm_vidc_inst *inst,
+		struct msm_smem *smem)
+{
+	int rc = 0;
+
+	if (!inst || !inst->mem_client || !smem) {
+		dprintk(VIDC_ERR, "%s: Invalid params: %pK %pK\n",
+				__func__, inst, smem);
+		return -EINVAL;
+	}
+
+	rc = msm_ion_put_device_address(inst->mem_client, smem->handle,
+			smem->flags, &smem->mapping_info, smem->buffer_type);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to put device address: %d\n", rc);
+		goto exit;
+	}
+
+	msm_ion_put_handle(inst->mem_client->clnt, smem->handle);
+	msm_ion_put_dma_buf(smem->dma_buf);
+
+	smem->device_addr = 0x0;
+	smem->handle = NULL;
+	smem->dma_buf = NULL;
+
+exit:
+	return rc;
+}
+
+int msm_smem_unmap_dma_buf(struct msm_vidc_inst *inst, struct msm_smem *smem)
+{
+	int rc = 0;
+
+	if (!inst || !smem) {
+		dprintk(VIDC_ERR, "%s: Invalid params: %pK %pK\n",
+				__func__, inst, smem);
+		return -EINVAL;
+	}
+
+	if (smem->refcount) {
+		smem->refcount--;
+	} else {
+		dprintk(VIDC_WARN,
+			"unmap called while refcount is zero already\n");
+		return -EINVAL;
+	}
+
+	if (smem->refcount)
+		return rc;
+
+	switch (inst->mem_client->mem_type) {
+	case SMEM_ION:
+		rc = msm_ion_unmap_dma_buf(inst, smem);
+		break;
+	default:
+		dprintk(VIDC_ERR, "%s: Unknown mem_type %d\n",
+			__func__, inst->mem_client->mem_type);
+		rc = -EINVAL;
+		break;
+	}
+
 	return rc;
 }
 
@@ -321,6 +491,12 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 	int rc = 0;
 	int ion_flags = 0;
 
+	if (!client || !mem) {
+		dprintk(VIDC_ERR, "%s: Invalid params: %pK %pK\n",
+				__func__, client, mem);
+		return -EINVAL;
+	}
+
 	align = ALIGN(align, SZ_4K);
 	size = ALIGN(size, SZ_4K);
 
@@ -366,10 +542,13 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 	}
 	trace_msm_smem_buffer_ion_op_end("ALLOC", (u32)buffer_type,
 		heap_mask, size, align, flags, map_kernel);
-	mem->mem_type = client->mem_type;
-	mem->smem_priv = hndl;
+
+	mem->handle = hndl;
 	mem->flags = flags;
 	mem->buffer_type = buffer_type;
+	mem->offset = 0;
+	mem->size = size;
+
 	if (map_kernel) {
 		mem->kvaddr = ion_map_kernel(client->clnt, hndl);
 		if (IS_ERR_OR_NULL(mem->kvaddr)) {
@@ -382,24 +561,23 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 		mem->kvaddr = NULL;
 	}
 
-	rc = get_device_address(client, hndl, align, &iova, &buffer_size,
-				flags, buffer_type, &mem->mapping_info);
+	rc = msm_ion_get_device_address(client, hndl, align, &iova,
+			&buffer_size, flags, buffer_type, &mem->mapping_info);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to get device address: %d\n",
 			rc);
 		goto fail_device_address;
 	}
-	mem->device_addr = iova;
-	if ((u32)mem->device_addr != iova) {
+	mem->device_addr = (u32)iova;
+	if ((ion_phys_addr_t)mem->device_addr != iova) {
 		dprintk(VIDC_ERR, "iova(%pa) truncated to %#x",
-			&iova, (u32)mem->device_addr);
+			&iova, mem->device_addr);
 		goto fail_device_address;
 	}
-	mem->size = size;
 	dprintk(VIDC_DBG,
-		"%s: ion_handle = %pK, device_addr = %pa, size = %#zx, kvaddr = %pK, buffer_type = %#x, flags = %#lx\n",
-		__func__, mem->smem_priv, &mem->device_addr,
-		mem->size, mem->kvaddr, mem->buffer_type, mem->flags);
+		"%s: ion_handle = %pK, device_addr = %x, size = %d, kvaddr = %pK, buffer_type = %#x, flags = %#lx\n",
+		__func__, mem->handle, mem->device_addr, mem->size,
+		mem->kvaddr, mem->buffer_type, mem->flags);
 	return rc;
 fail_device_address:
 	if (mem->kvaddr)
@@ -410,30 +588,40 @@ fail_shared_mem_alloc:
 	return rc;
 }
 
-static void free_ion_mem(struct smem_client *client, struct msm_smem *mem)
+static int free_ion_mem(struct smem_client *client, struct msm_smem *mem)
 {
+	int rc = 0;
+
+	if (!client || !mem) {
+		dprintk(VIDC_ERR, "%s: Invalid params: %pK %pK\n",
+				__func__, client, mem);
+		return -EINVAL;
+	}
+
 	dprintk(VIDC_DBG,
-		"%s: ion_handle = %pK, device_addr = %pa, size = %#zx, kvaddr = %pK, buffer_type = %#x\n",
-		__func__, mem->smem_priv, &mem->device_addr,
-		mem->size, mem->kvaddr, mem->buffer_type);
+		"%s: ion_handle = %pK, device_addr = %x, size = %d, kvaddr = %pK, buffer_type = %#x\n",
+		__func__, mem->handle, mem->device_addr, mem->size,
+		mem->kvaddr, mem->buffer_type);
 
 	if (mem->device_addr)
-		put_device_address(client, mem->smem_priv, mem->flags,
+		msm_ion_put_device_address(client, mem->handle, mem->flags,
 			&mem->mapping_info, mem->buffer_type);
 
 	if (mem->kvaddr)
-		ion_unmap_kernel(client->clnt, mem->smem_priv);
-	if (mem->smem_priv) {
+		ion_unmap_kernel(client->clnt, mem->handle);
+
+	if (mem->handle) {
 		trace_msm_smem_buffer_ion_op_start("FREE",
 				(u32)mem->buffer_type, -1, mem->size, -1,
 				mem->flags, -1);
-		dprintk(VIDC_DBG,
-			"%s: Freeing handle %pK, client: %pK\n",
-			__func__, mem->smem_priv, client->clnt);
-		ion_free(client->clnt, mem->smem_priv);
+		ion_free(client->clnt, mem->handle);
 		trace_msm_smem_buffer_ion_op_end("FREE", (u32)mem->buffer_type,
 			-1, mem->size, -1, mem->flags, -1);
+	} else {
+		dprintk(VIDC_ERR, "%s: invalid ion_handle\n", __func__);
 	}
+
+	return rc;
 }
 
 static void *ion_new_client(void)
@@ -443,135 +631,105 @@ static void *ion_new_client(void)
 	client = msm_ion_client_create("video_client");
 	if (!client)
 		dprintk(VIDC_ERR, "Failed to create smem client\n");
+
+	dprintk(VIDC_DBG, "%s: client %pK\n", __func__, client);
+
 	return client;
 };
 
 static void ion_delete_client(struct smem_client *client)
 {
+	if (!client) {
+		dprintk(VIDC_ERR, "%s: Invalid params: %pK\n",
+				__func__, client);
+		return;
+	}
+
+	dprintk(VIDC_DBG, "%s: client %pK\n", __func__, client->clnt);
 	ion_client_destroy(client->clnt);
+	client->clnt = NULL;
 }
 
-struct msm_smem *msm_smem_user_to_kernel(void *clt, int fd, u32 size,
-		enum hal_buffer buffer_type)
+static int msm_ion_cache_operations(void *ion_client, void *ion_handle,
+		unsigned long offset, unsigned long size,
+		enum smem_cache_ops cache_op)
 {
-	struct smem_client *client = clt;
 	int rc = 0;
-	struct msm_smem *mem;
-
-	if (fd < 0) {
-		dprintk(VIDC_ERR, "Invalid fd: %d\n", fd);
-		return NULL;
-	}
-	mem = kzalloc(sizeof(*mem), GFP_KERNEL);
-	if (!mem) {
-		dprintk(VIDC_ERR, "Failed to allocate shared mem\n");
-		return NULL;
-	}
-	switch (client->mem_type) {
-	case SMEM_ION:
-		rc = ion_user_to_kernel(clt, fd, size, mem, buffer_type);
-		break;
-	default:
-		dprintk(VIDC_ERR, "Mem type not supported\n");
-		rc = -EINVAL;
-		break;
-	}
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to allocate shared memory\n");
-		kfree(mem);
-		mem = NULL;
-	}
-	return mem;
-}
-
-bool msm_smem_compare_buffers(void *clt, int fd, void *priv)
-{
-	struct smem_client *client = clt;
-	struct ion_handle *handle = NULL;
-	bool ret = false;
-
-	if (!clt || !priv) {
-		dprintk(VIDC_ERR, "Invalid params: %pK, %pK\n",
-			clt, priv);
-		return false;
-	}
-#ifdef CONFIG_ION
-	handle = ion_import_dma_buf_fd(client->clnt, fd);
-#endif
-	ret = handle == priv;
-	(!IS_ERR_OR_NULL(handle)) ? ion_free(client->clnt, handle) : 0;
-	return ret;
-}
-
-static int ion_cache_operations(struct smem_client *client,
-	struct msm_smem *mem, enum smem_cache_ops cache_op)
-{
-	unsigned long ionflag = 0;
-	int rc = 0;
+	unsigned long flags = 0;
 	int msm_cache_ops = 0;
 
-	if (!mem || !client) {
-		dprintk(VIDC_ERR, "Invalid params: %pK, %pK\n",
-			mem, client);
+	if (!ion_client || !ion_handle) {
+		dprintk(VIDC_ERR, "%s: Invalid params: %pK %pK\n",
+			__func__, ion_client, ion_handle);
 		return -EINVAL;
 	}
-	rc = ion_handle_get_flags(client->clnt,	mem->smem_priv,
-		&ionflag);
+
+	rc = ion_handle_get_flags(ion_client, ion_handle, &flags);
 	if (rc) {
 		dprintk(VIDC_ERR,
-			"ion_handle_get_flags failed: %d\n", rc);
-		goto cache_op_failed;
+			"%s: ion_handle_get_flags failed: %d, ion client %pK, ion handle %pK\n",
+			__func__, rc, ion_client, ion_handle);
+		goto exit;
 	}
-	if (ION_IS_CACHED(ionflag)) {
-		switch (cache_op) {
-		case SMEM_CACHE_CLEAN:
-			msm_cache_ops = ION_IOC_CLEAN_CACHES;
-			break;
-		case SMEM_CACHE_INVALIDATE:
-			msm_cache_ops = ION_IOC_INV_CACHES;
-			break;
-		case SMEM_CACHE_CLEAN_INVALIDATE:
-			msm_cache_ops = ION_IOC_CLEAN_INV_CACHES;
-			break;
-		default:
-			dprintk(VIDC_ERR, "cache operation not supported\n");
-			rc = -EINVAL;
-			goto cache_op_failed;
-		}
-		rc = msm_ion_do_cache_op(client->clnt,
-			(struct ion_handle *)mem->smem_priv,
-			0, (unsigned long)mem->size,
-			msm_cache_ops);
-		if (rc) {
-			dprintk(VIDC_ERR,
-					"cache operation failed %d\n", rc);
-			goto cache_op_failed;
-		}
+
+	if (!ION_IS_CACHED(flags))
+		goto exit;
+
+	switch (cache_op) {
+	case SMEM_CACHE_CLEAN:
+		msm_cache_ops = ION_IOC_CLEAN_CACHES;
+		break;
+	case SMEM_CACHE_INVALIDATE:
+		msm_cache_ops = ION_IOC_INV_CACHES;
+		break;
+	case SMEM_CACHE_CLEAN_INVALIDATE:
+		msm_cache_ops = ION_IOC_CLEAN_INV_CACHES;
+		break;
+	default:
+		dprintk(VIDC_ERR, "%s: cache (%d) operation not supported\n",
+			__func__, cache_op);
+		rc = -EINVAL;
+		goto exit;
 	}
-cache_op_failed:
+
+	rc = msm_ion_do_cache_offset_op(ion_client, ion_handle, NULL,
+			offset, size, msm_cache_ops);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"%s: cache operation failed %d, ion client %pK, ion handle %pK, offset %lu, size %lu, msm_cache_ops %u\n",
+			__func__, rc, ion_client, ion_handle, offset,
+			size, msm_cache_ops);
+		goto exit;
+	}
+
+exit:
 	return rc;
 }
 
-int msm_smem_cache_operations(void *clt, struct msm_smem *mem,
+int msm_smem_cache_operations(struct smem_client *client,
+		void *handle, unsigned long offset, unsigned long size,
 		enum smem_cache_ops cache_op)
 {
-	struct smem_client *client = clt;
 	int rc = 0;
 
-	if (!client) {
-		dprintk(VIDC_ERR, "Invalid params: %pK\n",
-			client);
+	if (!client || !handle) {
+		dprintk(VIDC_ERR, "%s: Invalid params: %pK %pK\n",
+			__func__, client, handle);
 		return -EINVAL;
 	}
+
 	switch (client->mem_type) {
 	case SMEM_ION:
-		rc = ion_cache_operations(client, mem, cache_op);
+		rc = msm_ion_cache_operations(client->clnt, handle,
+				offset, size, cache_op);
 		if (rc)
 			dprintk(VIDC_ERR,
-			"Failed cache operations: %d\n", rc);
+			"%s: Failed cache operations: %d\n", __func__, rc);
 		break;
 	default:
-		dprintk(VIDC_ERR, "Mem type not supported\n");
+		dprintk(VIDC_ERR, "%s: Mem type (%d) not supported\n",
+			__func__, client->mem_type);
+		rc = -EINVAL;
 		break;
 	}
 	return rc;
@@ -607,32 +765,22 @@ void *msm_smem_new_client(enum smem_type mtype,
 	return client;
 }
 
-struct msm_smem *msm_smem_alloc(void *clt, size_t size, u32 align, u32 flags,
-		enum hal_buffer buffer_type, int map_kernel)
+int msm_smem_alloc(struct smem_client *client, size_t size,
+		u32 align, u32 flags, enum hal_buffer buffer_type,
+		int map_kernel, struct msm_smem *smem)
 {
-	struct smem_client *client;
 	int rc = 0;
-	struct msm_smem *mem;
 
-	client = clt;
-	if (!client) {
-		dprintk(VIDC_ERR, "Invalid  client passed\n");
-		return NULL;
+	if (!client || !smem || !size) {
+		dprintk(VIDC_ERR, "%s: Invalid params %pK %pK %d\n",
+				__func__, client, smem, (u32)size);
+		return -EINVAL;
 	}
-	if (!size) {
-		dprintk(VIDC_ERR, "No need to allocate memory of size: %zx\n",
-			size);
-		return NULL;
-	}
-	mem = kzalloc(sizeof(*mem), GFP_KERNEL);
-	if (!mem) {
-		dprintk(VIDC_ERR, "Failed to allocate shared mem\n");
-		return NULL;
-	}
+
 	switch (client->mem_type) {
 	case SMEM_ION:
 		rc = alloc_ion_mem(client, size, align, flags, buffer_type,
-					mem, map_kernel);
+					smem, map_kernel);
 		break;
 	default:
 		dprintk(VIDC_ERR, "Mem type not supported\n");
@@ -640,30 +788,34 @@ struct msm_smem *msm_smem_alloc(void *clt, size_t size, u32 align, u32 flags,
 		break;
 	}
 	if (rc) {
-		dprintk(VIDC_ERR, "Failed to allocate shared memory\n");
-		kfree(mem);
-		mem = NULL;
+		dprintk(VIDC_ERR, "Failed to allocate memory\n");
 	}
-	return mem;
+
+	return rc;
 }
 
-void msm_smem_free(void *clt, struct msm_smem *mem)
+int msm_smem_free(void *clt, struct msm_smem *smem)
 {
+	int rc = 0;
 	struct smem_client *client = clt;
 
-	if (!client || !mem) {
+	if (!client || !smem) {
 		dprintk(VIDC_ERR, "Invalid  client/handle passed\n");
-		return;
+		return -EINVAL;
 	}
 	switch (client->mem_type) {
 	case SMEM_ION:
-		free_ion_mem(client, mem);
+		rc = free_ion_mem(client, smem);
 		break;
 	default:
 		dprintk(VIDC_ERR, "Mem type not supported\n");
+		rc = -EINVAL;
 		break;
 	}
-	kfree(mem);
+	if (rc)
+		dprintk(VIDC_ERR, "Failed to free memory\n");
+
+	return rc;
 };
 
 void msm_smem_delete_client(void *clt)
@@ -692,7 +844,7 @@ struct context_bank_info *msm_smem_get_context_bank(void *clt,
 	struct context_bank_info *cb = NULL, *match = NULL;
 
 	if (!clt) {
-		dprintk(VIDC_ERR, "%s - invalid params\n", __func__);
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
 		return NULL;
 	}
 
@@ -713,12 +865,13 @@ struct context_bank_info *msm_smem_get_context_bank(void *clt,
 		if (cb->is_secure == is_secure &&
 				cb->buffer_type & buffer_type) {
 			match = cb;
-			dprintk(VIDC_DBG,
-				"context bank found for CB : %s, device: %pK mapping: %pK\n",
-				match->name, match->dev, match->mapping);
 			break;
 		}
 	}
+	if (!match)
+		dprintk(VIDC_ERR,
+			"%s: cb not found for buffer_type %x, is_secure %d\n",
+			__func__, buffer_type, is_secure);
 
 	return match;
 }
