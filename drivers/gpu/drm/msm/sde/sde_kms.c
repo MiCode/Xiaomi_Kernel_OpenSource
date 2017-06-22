@@ -1440,6 +1440,103 @@ static void sde_kms_preclose(struct msm_kms *kms, struct drm_file *file)
 		sde_crtc_cancel_pending_flip(priv->crtcs[i], file);
 }
 
+static int sde_kms_check_secure_transition(struct msm_kms *kms,
+		struct drm_atomic_state *state)
+{
+	struct sde_kms *sde_kms;
+	struct drm_device *dev;
+	struct drm_crtc *crtc;
+	struct drm_crtc *sec_crtc = NULL, *temp_crtc = NULL;
+	struct drm_crtc_state *crtc_state;
+	int secure_crtc_cnt = 0, active_crtc_cnt = 0;
+	int secure_global_crtc_cnt = 0, active_mode_crtc_cnt = 0;
+	int i;
+
+	if (!kms || !state) {
+		return -EINVAL;
+		SDE_ERROR("invalid arguments\n");
+	}
+
+	/* iterate state object for active and secure crtc */
+	for_each_crtc_in_state(state, crtc, crtc_state, i) {
+		if (!crtc_state->active)
+			continue;
+		active_crtc_cnt++;
+		if (sde_crtc_get_secure_level(crtc, crtc_state) ==
+				SDE_DRM_SEC_ONLY) {
+			sec_crtc = crtc;
+			secure_crtc_cnt++;
+		}
+	}
+
+	/* bail out from further validation if no secure ctrc */
+	if (!secure_crtc_cnt)
+		return 0;
+
+	if ((secure_crtc_cnt > MAX_ALLOWED_SECURE_CLIENT_CNT) ||
+		(secure_crtc_cnt &&
+		 (active_crtc_cnt > MAX_ALLOWED_CRTC_CNT_DURING_SECURE))) {
+		SDE_ERROR("Secure check failed active:%d, secure:%d\n",
+				active_crtc_cnt, secure_crtc_cnt);
+		return -EPERM;
+	}
+
+	sde_kms = to_sde_kms(kms);
+	dev = sde_kms->dev;
+	/* iterate global list for active and secure crtc */
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+
+		if (!crtc->state->active)
+			continue;
+
+		active_mode_crtc_cnt++;
+
+		if (sde_crtc_get_secure_level(crtc, crtc->state) ==
+				SDE_DRM_SEC_ONLY) {
+			secure_global_crtc_cnt++;
+			temp_crtc = crtc;
+		}
+	}
+
+	/**
+	 * if more than one crtc is active fail
+	 * check if the previous and current commit secure
+	 * are same
+	 */
+	if (secure_crtc_cnt && ((active_mode_crtc_cnt > 1) ||
+			(secure_global_crtc_cnt && (temp_crtc != sec_crtc))))
+		SDE_ERROR("Secure check failed active:%d crtc_id:%d\n",
+				active_mode_crtc_cnt, temp_crtc->base.id);
+
+	return 0;
+}
+
+static int sde_kms_atomic_check(struct msm_kms *kms,
+		struct drm_atomic_state *state)
+{
+	struct sde_kms *sde_kms;
+	struct drm_device *dev;
+	int ret;
+
+	if (!kms || !state)
+		return -EINVAL;
+
+	sde_kms = to_sde_kms(kms);
+	dev = sde_kms->dev;
+
+	ret = drm_atomic_helper_check(dev, state);
+	if (ret)
+		return ret;
+	/*
+	 * Check if any secure transition(moving CRTC between secure and
+	 * non-secure state and vice-versa) is allowed or not. when moving
+	 * to secure state, planes with fb_mode set to dir_translated only can
+	 * be staged on the CRTC, and only one CRTC can be active during
+	 * Secure state
+	 */
+	return sde_kms_check_secure_transition(kms, state);
+}
+
 static struct msm_gem_address_space*
 _sde_kms_get_address_space(struct msm_kms *kms,
 		unsigned int domain)
@@ -1482,6 +1579,7 @@ static const struct msm_kms_funcs kms_funcs = {
 	.enable_vblank   = sde_kms_enable_vblank,
 	.disable_vblank  = sde_kms_disable_vblank,
 	.check_modified_format = sde_format_check_modified_format,
+	.atomic_check = sde_kms_atomic_check,
 	.get_format      = sde_get_msm_format,
 	.round_pixclk    = sde_kms_round_pixclk,
 	.destroy         = sde_kms_destroy,

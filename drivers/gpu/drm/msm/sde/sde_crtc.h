@@ -500,4 +500,21 @@ void sde_crtc_res_put(struct drm_crtc_state *state, u32 type, u64 tag);
 void sde_crtc_get_crtc_roi(struct drm_crtc_state *state,
 		const struct sde_rect **crtc_roi);
 
+/** sde_crt_get_secure_level - retrieve the secure level from the give state
+ *	object, this is used to determine the secure state of the crtc
+ * @crtc : Pointer to drm crtc structure
+ * @usr: Pointer to drm crtc state
+ * return: secure_level
+ */
+static inline int sde_crtc_get_secure_level(struct drm_crtc *crtc,
+		struct drm_crtc_state *state)
+{
+	if (!crtc || !state)
+		return -EINVAL;
+
+	return sde_crtc_get_property(to_sde_crtc_state(state),
+			CRTC_PROP_SECURITY_LEVEL);
+}
+
+
 #endif /* _SDE_CRTC_H_ */
