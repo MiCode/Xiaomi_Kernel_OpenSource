@@ -58,7 +58,7 @@ int cam_req_mgr_util_init(void)
 	spin_unlock_bh(&hdl_tbl_lock);
 
 	bitmap_size = BITS_TO_LONGS(CAM_REQ_MGR_MAX_HANDLES) * sizeof(long);
-	hdl_tbl->bitmap = kzalloc(sizeof(bitmap_size), GFP_KERNEL);
+	hdl_tbl->bitmap = kzalloc(bitmap_size, GFP_KERNEL);
 	if (!hdl_tbl->bitmap) {
 		rc = -ENOMEM;
 		goto bitmap_alloc_fail;
