@@ -2217,6 +2217,32 @@ static void tasha_mbhc_moisture_config(struct wcd_mbhc *mbhc)
 	tasha_mbhc_hph_l_pull_up_control(codec, mbhc->moist_iref);
 }
 
+static void tasha_update_anc_state(struct snd_soc_codec *codec, bool enable,
+				   int anc_num)
+{
+	if (enable)
+		snd_soc_update_bits(codec, WCD9335_CDC_RX1_RX_PATH_CFG0 +
+				(20 * anc_num), 0x10, 0x10);
+	else
+		snd_soc_update_bits(codec, WCD9335_CDC_RX1_RX_PATH_CFG0 +
+				(20 * anc_num), 0x10, 0x00);
+}
+
+static bool tasha_is_anc_on(struct wcd_mbhc *mbhc)
+{
+	bool anc_on = false;
+	u16 ancl, ancr;
+
+	ancl =
+	(snd_soc_read(mbhc->codec, WCD9335_CDC_RX1_RX_PATH_CFG0)) & 0x10;
+	ancr =
+	(snd_soc_read(mbhc->codec, WCD9335_CDC_RX2_RX_PATH_CFG0)) & 0x10;
+
+	anc_on = !!(ancl | ancr);
+
+	return anc_on;
+}
+
 static const struct wcd_mbhc_cb mbhc_cb = {
 	.request_irq = tasha_mbhc_request_irq,
 	.irq_control = tasha_mbhc_irq_control,
@@ -2239,6 +2265,8 @@ static const struct wcd_mbhc_cb mbhc_cb = {
 	.mbhc_gnd_det_ctrl = tasha_mbhc_gnd_det_ctrl,
 	.hph_pull_down_ctrl = tasha_mbhc_hph_pull_down_ctrl,
 	.mbhc_moisture_config = tasha_mbhc_moisture_config,
+	.update_anc_state = tasha_update_anc_state,
+	.is_anc_on = tasha_is_anc_on,
 };
 
 static int tasha_get_anc_slot(struct snd_kcontrol *kcontrol,
