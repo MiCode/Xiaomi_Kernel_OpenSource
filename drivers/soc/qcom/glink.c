@@ -4095,7 +4095,7 @@ static struct glink_core_xprt_ctx *glink_create_dummy_xprt_ctx(
 	xprt_ptr = kzalloc(sizeof(*xprt_ptr), GFP_KERNEL);
 	if (!xprt_ptr)
 		return ERR_PTR(-ENOMEM);
-	if_ptr = kmalloc(sizeof(*if_ptr), GFP_KERNEL);
+	if_ptr = kzalloc(sizeof(*if_ptr), GFP_KERNEL);
 	if (!if_ptr) {
 		kfree(xprt_ptr);
 		return ERR_PTR(-ENOMEM);
