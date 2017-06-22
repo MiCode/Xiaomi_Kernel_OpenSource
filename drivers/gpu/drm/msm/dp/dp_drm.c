@@ -450,5 +450,17 @@ enum drm_mode_status dp_connector_mode_valid(struct drm_connector *connector,
 		struct drm_display_mode *mode,
 		void *display)
 {
-	return MODE_OK;
+	struct dp_display *dp_disp;
+
+	if (!mode || !display) {
+		pr_err("invalid params\n");
+		return MODE_ERROR;
+	}
+
+	dp_disp = display;
+
+	if (mode->clock > dp_disp->max_pclk_khz)
+		return MODE_BAD;
+	else
+		return MODE_OK;
 }
