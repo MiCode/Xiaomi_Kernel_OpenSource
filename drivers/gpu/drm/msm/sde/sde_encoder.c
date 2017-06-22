@@ -1909,27 +1909,41 @@ static void sde_encoder_frame_done_callback(
 	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
 	unsigned int i;
 
-	if (!sde_enc->frame_busy_mask[0]) {
-		/* suppress frame_done without waiter, likely autorefresh */
-		SDE_EVT32(DRMID(drm_enc), event, ready_phys->intf_idx);
-		return;
-	}
+	if (event & (SDE_ENCODER_FRAME_EVENT_DONE
+			| SDE_ENCODER_FRAME_EVENT_ERROR
+			| SDE_ENCODER_FRAME_EVENT_PANEL_DEAD)) {
 
-	/* One of the physical encoders has become idle */
-	for (i = 0; i < sde_enc->num_phys_encs; i++)
-		if (sde_enc->phys_encs[i] == ready_phys) {
-			clear_bit(i, sde_enc->frame_busy_mask);
-			SDE_EVT32_VERBOSE(DRMID(drm_enc), i,
-					sde_enc->frame_busy_mask[0]);
+		if (!sde_enc->frame_busy_mask[0]) {
+			/**
+			 * suppress frame_done without waiter,
+			 * likely autorefresh
+			 */
+			SDE_EVT32(DRMID(drm_enc), event, ready_phys->intf_idx);
+			return;
 		}
 
-	if (!sde_enc->frame_busy_mask[0]) {
-		atomic_set(&sde_enc->frame_done_timeout, 0);
-		del_timer(&sde_enc->frame_done_timer);
+		/* One of the physical encoders has become idle */
+		for (i = 0; i < sde_enc->num_phys_encs; i++) {
+			if (sde_enc->phys_encs[i] == ready_phys) {
+				clear_bit(i, sde_enc->frame_busy_mask);
+				SDE_EVT32_VERBOSE(DRMID(drm_enc), i,
+					sde_enc->frame_busy_mask[0]);
+			}
+		}
 
-		sde_encoder_resource_control(drm_enc,
-				SDE_ENC_RC_EVENT_FRAME_DONE);
+		if (!sde_enc->frame_busy_mask[0]) {
+			atomic_set(&sde_enc->frame_done_timeout, 0);
+			del_timer(&sde_enc->frame_done_timer);
 
+			sde_encoder_resource_control(drm_enc,
+					SDE_ENC_RC_EVENT_FRAME_DONE);
+
+			if (sde_enc->crtc_frame_event_cb)
+				sde_enc->crtc_frame_event_cb(
+					sde_enc->crtc_frame_event_cb_data,
+					event);
+		}
+	} else {
 		if (sde_enc->crtc_frame_event_cb)
 			sde_enc->crtc_frame_event_cb(
 				sde_enc->crtc_frame_event_cb_data, event);
@@ -1969,6 +1983,9 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	}
 
 	pending_kickoff_cnt = sde_encoder_phys_inc_pending(phys);
+
+	if (phys->ops.is_master && phys->ops.is_master(phys))
+		atomic_inc(&phys->pending_retire_fence_cnt);
 
 	if (extra_flush_bits && ctl->ops.update_pending_flush)
 		ctl->ops.update_pending_flush(ctl, extra_flush_bits);
