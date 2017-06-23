@@ -122,7 +122,8 @@ int cam_vfe_enable_soc_resources(struct cam_hw_soc_info *soc_info)
 		goto end;
 	}
 
-	rc = cam_soc_util_enable_platform_resource(soc_info, true, true);
+	rc = cam_soc_util_enable_platform_resource(soc_info, true,
+		CAM_TURBO_VOTE, true);
 	if (rc) {
 		pr_err("Error! enable platform failed\n");
 		goto stop_cpas;

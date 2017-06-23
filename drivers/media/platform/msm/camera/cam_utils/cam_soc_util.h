@@ -37,6 +37,29 @@
 #define CAM_SOC_MAX_CLK             32
 
 /**
+ * enum cam_vote_level - Enum for voting level
+ *
+ * @CAM_SUSPEND_VOTE : Suspend vote
+ * @CAM_MINSVS_VOTE  : Min SVS vote
+ * @CAM_LOWSVS_VOTE  : Low SVS vote
+ * @CAM_SVS_VOTE     : SVS vote
+ * @CAM_SVSL1_VOTE   : SVS Plus vote
+ * @CAM_NOMINAL_VOTE : Nominal vote
+ * @CAM_TURBO_VOTE   : Turbo vote
+ * @CAM_MAX_VOTE     : Max voting level, This is invalid level.
+ */
+enum cam_vote_level {
+	CAM_SUSPEND_VOTE,
+	CAM_MINSVS_VOTE,
+	CAM_LOWSVS_VOTE,
+	CAM_SVS_VOTE,
+	CAM_SVSL1_VOTE,
+	CAM_NOMINAL_VOTE,
+	CAM_TURBO_VOTE,
+	CAM_MAX_VOTE,
+};
+
+/**
  * struct cam_soc_reg_map:   Information about the mapped register space
  *
  * @mem_base:               Starting location of MAPPED register space
@@ -75,8 +98,10 @@ struct cam_soc_reg_map {
  * @num_clk:                Number of clocks
  * @clk_name:               Array of clock names
  * @clk:                    Array of associated clock resources
- * @clk_rate:               Array of default clock rates
+ * @clk_rate:               2D array of clock rates representing clock rate
+ *                          values at different vote levels
  * @src_clk_idx:            Source clock index that is rate-controllable
+ * @clk_level_valid:        Indicates whether corresponding level is valid
  * @soc_private:            Soc private data
  *
  */
@@ -103,8 +128,10 @@ struct cam_hw_soc_info {
 	uint32_t                        num_clk;
 	const char                     *clk_name[CAM_SOC_MAX_CLK];
 	struct clk                     *clk[CAM_SOC_MAX_CLK];
-	int32_t                         clk_rate[CAM_SOC_MAX_CLK];
+	int32_t                         clk_rate[CAM_MAX_VOTE][CAM_SOC_MAX_CLK];
 	int32_t                         src_clk_idx;
+	bool                            clk_level_valid[CAM_MAX_VOTE];
+
 
 	void                           *soc_private;
 };
@@ -159,6 +186,18 @@ struct cam_hw_soc_info {
 	((!__soc_info || __base_index >= __soc_info->num_reg_map) ?  \
 		0 : __soc_info->reg_map[__base_index].size)
 
+/**
+ * cam_soc_util_get_level_from_string()
+ *
+ * @brief:              Get the associated vote level for the input string
+ *
+ * @string:             Input string to compare with.
+ * @level:              Vote level corresponds to input string.
+ *
+ * @return:             Success or failure
+ */
+int cam_soc_util_get_level_from_string(const char *string,
+	enum cam_vote_level *level);
 
 /**
  * cam_soc_util_get_dt_properties()
@@ -208,6 +247,9 @@ int cam_soc_util_release_platform_resource(struct cam_hw_soc_info *soc_info);
  *                          TRUE: Enable all clocks in soc_info Now.
  *                          False: Don't enable clocks Now. Driver will
  *                                 enable independently.
+ * @clk_level:          Clock level to be applied.
+ *                      Applicable only if enable_clocks is true
+ *                          Valid range : 0 to (CAM_MAX_VOTE - 1)
  * @enable_irq:         Boolean flag:
  *                          TRUE: Enable IRQ in soc_info Now.
  *                          False: Don't enable IRQ Now. Driver will
@@ -216,7 +258,7 @@ int cam_soc_util_release_platform_resource(struct cam_hw_soc_info *soc_info);
  * @return:             Success or failure
  */
 int cam_soc_util_enable_platform_resource(struct cam_hw_soc_info *soc_info,
-	bool enable_clocks, bool enable_irq);
+	bool enable_clocks, enum cam_vote_level clk_level, bool enable_irq);
 
 /**
  * cam_soc_util_disable_platform_resource()
@@ -247,6 +289,22 @@ int cam_soc_util_disable_platform_resource(struct cam_hw_soc_info *soc_info,
  */
 int cam_soc_util_clk_enable(struct clk *clk, const char *clk_name,
 	int32_t clk_rate);
+
+
+/**
+ * cam_soc_util_set_clk_rate_level()
+ *
+ * @brief:              Apply clock rates for the requested level.
+ *                      This applies the new requested level for all
+ *                      the clocks listed in DT based on their values.
+ *
+ * @soc_info:           Device soc information
+ * @clk_level:          Clock level number to set
+ *
+ * @return:             Success or failure
+ */
+int cam_soc_util_set_clk_rate_level(struct cam_hw_soc_info *soc_info,
+	enum cam_vote_level clk_level);
 
 /**
  * cam_soc_util_clk_disable()

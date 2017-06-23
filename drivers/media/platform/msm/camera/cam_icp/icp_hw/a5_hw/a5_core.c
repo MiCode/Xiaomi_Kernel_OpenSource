@@ -272,7 +272,7 @@ int cam_a5_init_hw(void *device_priv,
 	}
 
 	cpas_vote.ahb_vote.type = CAM_VOTE_ABSOLUTE;
-	cpas_vote.ahb_vote.vote.level = CAM_TURBO_VOTE;
+	cpas_vote.ahb_vote.vote.level = CAM_SVS_VOTE;
 	cpas_vote.axi_vote.compressed_bw = ICP_TURBO_VOTE;
 	cpas_vote.axi_vote.uncompressed_bw = ICP_TURBO_VOTE;
 

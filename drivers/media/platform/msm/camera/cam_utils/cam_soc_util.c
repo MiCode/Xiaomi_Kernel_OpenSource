@@ -19,6 +19,79 @@
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
+int cam_soc_util_get_level_from_string(const char *string,
+	enum cam_vote_level *level)
+{
+	if (!level)
+		return -EINVAL;
+
+	if (!strcmp(string, "suspend")) {
+		*level = CAM_SUSPEND_VOTE;
+	} else if (!strcmp(string, "minsvs")) {
+		*level = CAM_MINSVS_VOTE;
+	} else if (!strcmp(string, "lowsvs")) {
+		*level = CAM_LOWSVS_VOTE;
+	} else if (!strcmp(string, "svs")) {
+		*level = CAM_SVS_VOTE;
+	} else if (!strcmp(string, "svs_l1")) {
+		*level = CAM_SVSL1_VOTE;
+	} else if (!strcmp(string, "nominal")) {
+		*level = CAM_NOMINAL_VOTE;
+	} else if (!strcmp(string, "turbo")) {
+		*level = CAM_TURBO_VOTE;
+	} else {
+		pr_err("Invalid string %s\n", string);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+/**
+ * cam_soc_util_get_clk_level_to_apply()
+ *
+ * @brief:              Get the clock level to apply. If the requested level
+ *                      is not valid, bump the level to next available valid
+ *                      level. If no higher level found, return failure.
+ *
+ * @soc_info:           Device soc struct to be populated
+ * @req_level:          Requested level
+ * @apply_level         Level to apply
+ *
+ * @return:             success or failure
+ */
+static int cam_soc_util_get_clk_level_to_apply(
+	struct cam_hw_soc_info *soc_info, enum cam_vote_level req_level,
+	enum cam_vote_level *apply_level)
+{
+	if (req_level >= CAM_MAX_VOTE) {
+		pr_err("Invalid clock level parameter %d\n", req_level);
+		return -EINVAL;
+	}
+
+	if (soc_info->clk_level_valid[req_level] == true) {
+		*apply_level = req_level;
+	} else {
+		int i;
+
+		for (i = (req_level + 1); i < CAM_MAX_VOTE; i++)
+			if (soc_info->clk_level_valid[i] == true) {
+				*apply_level = i;
+				break;
+			}
+
+		if (i == CAM_MAX_VOTE) {
+			pr_err("No valid clock level found to apply, req=%d\n",
+				req_level);
+			return -EINVAL;
+		}
+	}
+
+	CDBG("Req level %d, Applying %d\n", req_level, *apply_level);
+
+	return 0;
+}
+
 int cam_soc_util_irq_enable(struct cam_hw_soc_info *soc_info)
 {
 	if (!soc_info) {
@@ -53,7 +126,18 @@ int cam_soc_util_irq_disable(struct cam_hw_soc_info *soc_info)
 	return 0;
 }
 
-int cam_soc_util_clk_enable(struct clk *clk, const char *clk_name,
+/**
+ * cam_soc_util_set_clk_rate()
+ *
+ * @brief:              Set the rate on a given clock.
+ *
+ * @clk:                Clock that needs to be set
+ * @clk_name:           Clocks name associated with clk
+ * @clk_rate:           Clocks rate associated with clk
+ *
+ * @return:             success or failure
+ */
+static int cam_soc_util_set_clk_rate(struct clk *clk, const char *clk_name,
 	int32_t clk_rate)
 {
 	int rc = 0;
@@ -62,14 +146,13 @@ int cam_soc_util_clk_enable(struct clk *clk, const char *clk_name,
 	if (!clk || !clk_name)
 		return -EINVAL;
 
-	CDBG("enable %s, clk %pK rate %d\n",
-		clk_name, clk, clk_rate);
+	CDBG("set %s, rate %d\n", clk_name, clk_rate);
 	if (clk_rate > 0) {
 		clk_rate_round = clk_round_rate(clk, clk_rate);
 		CDBG("new_rate %ld\n", clk_rate_round);
 		if (clk_rate_round < 0) {
-			pr_err("%s: round failed for clock %s rc = %ld\n",
-				__func__, clk_name, clk_rate_round);
+			pr_err("round failed for clock %s rc = %ld\n",
+				clk_name, clk_rate_round);
 			return clk_rate_round;
 		}
 		rc = clk_set_rate(clk, clk_rate_round);
@@ -93,9 +176,25 @@ int cam_soc_util_clk_enable(struct clk *clk, const char *clk_name,
 			return rc;
 		}
 	}
+
+	return rc;
+}
+
+int cam_soc_util_clk_enable(struct clk *clk, const char *clk_name,
+	int32_t clk_rate)
+{
+	int rc = 0;
+
+	if (!clk || !clk_name)
+		return -EINVAL;
+
+	rc = cam_soc_util_set_clk_rate(clk, clk_name, clk_rate);
+	if (rc)
+		return rc;
+
 	rc = clk_prepare_enable(clk);
 	if (rc) {
-		pr_err("enable failed for %s\n", clk_name);
+		pr_err("enable failed for %s: rc(%d)\n", clk_name, rc);
 		return rc;
 	}
 
@@ -119,20 +218,32 @@ int cam_soc_util_clk_disable(struct clk *clk, const char *clk_name)
  * @brief:              This function enables the default clocks present
  *                      in soc_info
  *
- * @soc_info:           device soc struct to be populated
+ * @soc_info:           Device soc struct to be populated
+ * @clk_level:          Clk level to apply while enabling
  *
  * @return:             success or failure
  */
-static int cam_soc_util_clk_enable_default(struct cam_hw_soc_info *soc_info)
+static int cam_soc_util_clk_enable_default(struct cam_hw_soc_info *soc_info,
+	enum cam_vote_level clk_level)
 {
 	int i, rc = 0;
+	enum cam_vote_level apply_level;
 
-	if (soc_info->num_clk == 0)
+	if ((soc_info->num_clk == 0) ||
+		(soc_info->num_clk >= CAM_SOC_MAX_CLK)) {
+		pr_err("Invalid number of clock %d\n", soc_info->num_clk);
+		return -EINVAL;
+	}
+
+	rc = cam_soc_util_get_clk_level_to_apply(soc_info, clk_level,
+		&apply_level);
+	if (rc)
 		return rc;
 
 	for (i = 0; i < soc_info->num_clk; i++) {
 		rc = cam_soc_util_clk_enable(soc_info->clk[i],
-			soc_info->clk_name[i], soc_info->clk_rate[i]);
+			soc_info->clk_name[i],
+			soc_info->clk_rate[apply_level][i]);
 		if (rc)
 			goto clk_disable;
 	}
@@ -165,11 +276,9 @@ static void cam_soc_util_clk_disable_default(struct cam_hw_soc_info *soc_info)
 	if (soc_info->num_clk == 0)
 		return;
 
-	for (i = soc_info->num_clk - 1; i >= 0; i--) {
-		CDBG("disable %s\n", soc_info->clk_name[i]);
+	for (i = soc_info->num_clk - 1; i >= 0; i--)
 		cam_soc_util_clk_disable(soc_info->clk[i],
 			soc_info->clk_name[i]);
-	}
 }
 
 /**
@@ -186,9 +295,13 @@ static int cam_soc_util_get_dt_clk_info(struct cam_hw_soc_info *soc_info)
 {
 	struct device_node *of_node = NULL;
 	int count;
-	int i, rc;
+	int num_clk_rates, num_clk_levels;
+	int i, j, rc;
+	int32_t num_clk_level_strings;
 	struct platform_device *pdev = NULL;
 	const char *src_clk_str = NULL;
+	const char *clk_cntl_lvl_string = NULL;
+	enum cam_vote_level level;
 
 	if (!soc_info || !soc_info->pdev)
 		return -EINVAL;
@@ -224,35 +337,111 @@ static int cam_soc_util_get_dt_clk_info(struct cam_hw_soc_info *soc_info)
 		}
 	}
 
-	rc = of_property_read_u32_array(of_node, "clock-rates",
-		soc_info->clk_rate, count);
-	if (rc) {
-		pr_err("reading clock-rates failed");
-		return rc;
+	num_clk_rates = of_property_count_u32_elems(of_node, "clock-rates");
+	if (num_clk_rates <= 0) {
+		pr_err("reading clock-rates count failed\n");
+		return -EINVAL;
 	}
 
+	if ((num_clk_rates % soc_info->num_clk) != 0) {
+		pr_err("mismatch clk/rates, No of clocks=%d, No of rates=%d\n",
+			soc_info->num_clk, num_clk_rates);
+		return -EINVAL;
+	}
+
+	num_clk_levels = (num_clk_rates / soc_info->num_clk);
+
+	num_clk_level_strings = of_property_count_strings(of_node,
+		"clock-cntl-level");
+	if (num_clk_level_strings != num_clk_levels) {
+		pr_err("Mismatch No of levels=%d, No of level string=%d\n",
+			num_clk_levels, num_clk_level_strings);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < num_clk_levels; i++) {
+		rc = of_property_read_string_index(of_node,
+			"clock-cntl-level", i, &clk_cntl_lvl_string);
+		if (rc) {
+			pr_err("Error reading clock-cntl-level, rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = cam_soc_util_get_level_from_string(clk_cntl_lvl_string,
+			&level);
+		if (rc)
+			return rc;
+
+		CDBG("[%d] : %s %d\n", i, clk_cntl_lvl_string, level);
+		soc_info->clk_level_valid[level] = true;
+		for (j = 0; j < soc_info->num_clk; j++) {
+			rc = of_property_read_u32_index(of_node, "clock-rates",
+				((i * soc_info->num_clk) + j),
+				&soc_info->clk_rate[level][j]);
+			if (rc) {
+				pr_err("Error reading clock-rates, rc=%d\n",
+					rc);
+				return rc;
+			}
+
+			soc_info->clk_rate[level][j] =
+				(soc_info->clk_rate[level][j] == 0) ?
+				(long)NO_SET_RATE :
+				soc_info->clk_rate[level][j];
+
+			CDBG("soc_info->clk_rate[%d][%d] = %d\n", level, j,
+				soc_info->clk_rate[level][j]);
+		}
+	}
+
+	soc_info->src_clk_idx = -1;
 	rc = of_property_read_string_index(of_node, "src-clock-name", 0,
 		&src_clk_str);
-	if (rc) {
+	if (rc || !src_clk_str) {
 		CDBG("No src_clk_str found\n");
-		soc_info->src_clk_idx = -1;
 		rc = 0;
 		/* Bottom loop is dependent on src_clk_str. So return here */
 		return rc;
 	}
 
 	for (i = 0; i < soc_info->num_clk; i++) {
-		soc_info->clk_rate[i] = (soc_info->clk_rate[i] == 0) ?
-			(long)-1 : soc_info->clk_rate[i];
-		if (src_clk_str &&
-			(strcmp(soc_info->clk_name[i], src_clk_str) == 0)) {
+		if (strcmp(soc_info->clk_name[i], src_clk_str) == 0) {
 			soc_info->src_clk_idx = i;
+			CDBG("src clock = %s, index = %d\n", src_clk_str, i);
+			break;
 		}
-		CDBG("clk_rate[%d] = %d\n", i, soc_info->clk_rate[i]);
 	}
 
 	return rc;
 }
+
+int cam_soc_util_set_clk_rate_level(struct cam_hw_soc_info *soc_info,
+	enum cam_vote_level clk_level)
+{
+	int i, rc = 0;
+	enum cam_vote_level apply_level;
+
+	if ((soc_info->num_clk == 0) ||
+		(soc_info->num_clk >= CAM_SOC_MAX_CLK)) {
+		pr_err("Invalid number of clock %d\n", soc_info->num_clk);
+		return -EINVAL;
+	}
+
+	rc = cam_soc_util_get_clk_level_to_apply(soc_info, clk_level,
+		&apply_level);
+	if (rc)
+		return rc;
+
+	for (i = 0; i < soc_info->num_clk; i++) {
+		rc = cam_soc_util_set_clk_rate(soc_info->clk[i],
+			soc_info->clk_name[i],
+			soc_info->clk_rate[apply_level][i]);
+		if (rc)
+			break;
+	}
+
+	return rc;
+};
 
 int cam_soc_util_get_dt_properties(struct cam_hw_soc_info *soc_info)
 {
@@ -507,7 +696,7 @@ int cam_soc_util_release_platform_resource(struct cam_hw_soc_info *soc_info)
 }
 
 int cam_soc_util_enable_platform_resource(struct cam_hw_soc_info *soc_info,
-	bool enable_clocks, bool enable_irq)
+	bool enable_clocks, enum cam_vote_level clk_level, bool enable_irq)
 {
 	int i, rc = 0;
 
@@ -524,7 +713,7 @@ int cam_soc_util_enable_platform_resource(struct cam_hw_soc_info *soc_info,
 	}
 
 	if (enable_clocks) {
-		rc = cam_soc_util_clk_enable_default(soc_info);
+		rc = cam_soc_util_clk_enable_default(soc_info, clk_level);
 		if (rc)
 			goto disable_regulator;
 	}
