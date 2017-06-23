@@ -501,6 +501,7 @@ struct adm_cmd_device_open_v6 {
 /* Sets one or more parameters to a COPP.
 */
 #define ADM_CMD_SET_PP_PARAMS_V5                        0x00010328
+#define ADM_CMD_SET_PP_PARAMS_V6 0x0001035D
 
 /*  Payload of the #ADM_CMD_SET_PP_PARAMS_V5 command.
  *	If the data_payload_addr_lsw and data_payload_addr_msw element
@@ -723,6 +724,7 @@ struct adm_cmd_rsp_device_open_v5 {
 /* This command allows a query of one COPP parameter.
 */
 #define ADM_CMD_GET_PP_PARAMS_V5                                0x0001032A
+#define ADM_CMD_GET_PP_PARAMS_V6 0x0001035E
 
 /*  Payload an #ADM_CMD_GET_PP_PARAMS_V5 command.
 */
@@ -1600,49 +1602,80 @@ struct afe_sidetone_iir_filter_config_params {
 #define AFE_PARAM_ID_LOOPBACK_GAIN_PER_PATH	0x00010206
 
 /* Used by RTAC */
-struct afe_rtac_set_param_v2 {
+struct afe_rtac_user_data_set_v2 {
+	/* Port interface and direction (Rx or Tx) to start. */
 	u16 port_id;
-/* Port interface and direction (Rx or Tx) to start.
- */
 
+	/* Actual size of the payload in bytes.
+	 * This is used for parsing the parameter payload.
+	 * Supported values: > 0
+	 */
 	u16 payload_size;
-/* Actual size of the payload in bytes.
- * This is used for parsing the parameter payload.
- * Supported values: > 0
- */
 
-u32 payload_address_lsw;
-/* LSW of 64 bit Payload address.
- * Address should be 32-byte,
- * 4kbyte aligned and must be contiguous memory.
- */
+	/* The header detailing the memory mapping for out of band. */
+	struct mem_mapping_hdr mem_hdr;
 
-u32 payload_address_msw;
-/* MSW of 64 bit Payload address.
- * In case of 32-bit shared memory address,
- * this field must be set to zero.
- * In case of 36-bit shared memory address,
- * bit-4 to bit-31 must be set to zero.
- * Address should be 32-byte, 4kbyte aligned
- * and must be contiguous memory.
- */
+	/* The parameter header for the parameter data to set */
+	struct param_hdr_v1 param_hdr;
 
-u32 mem_map_handle;
-/* Memory map handle returned by
- * AFE_SERVICE_CMD_SHARED_MEM_MAP_REGIONS commands.
- * Supported Values:
- * - NULL -- Message. The parameter data is in-band.
- * - Non-NULL -- The parameter data is Out-band.Pointer to
- * the physical address
- * in shared memory of the payload data.
- * An optional field is available if parameter
- * data is in-band:
- * afe_param_data_v2 param_data[...].
- * For detailed payload content, see the
- * afe_port_param_data_v2 structure.
- */
+	/* The parameter data to be filled when sent inband */
+	u32 *param_data;
 } __packed;
 
+struct afe_rtac_user_data_set_v3 {
+	/* Port interface and direction (Rx or Tx) to start. */
+	u16 port_id;
+	/* Reserved for future enhancements. Must be 0. */
+	u16 reserved;
+
+	/* The header detailing the memory mapping for out of band. */
+	struct mem_mapping_hdr mem_hdr;
+
+	/* The size of the parameter header and parameter data */
+	u32 payload_size;
+
+	/* The parameter header for the parameter data to set */
+	struct param_hdr_v3 param_hdr;
+
+	/* The parameter data to be filled when sent inband */
+	u32 *param_data;
+} __packed;
+
+struct afe_rtac_user_data_get_v2 {
+	/* Port interface and direction (Rx or Tx) to start. */
+	u16 port_id;
+
+	/* Actual size of the payload in bytes.
+	 * This is used for parsing the parameter payload.
+	 * Supported values: > 0
+	 */
+	u16 payload_size;
+
+	/* The header detailing the memory mapping for out of band. */
+	struct mem_mapping_hdr mem_hdr;
+
+	/* The module ID of the parameter to get */
+	u32 module_id;
+
+	/* The parameter ID of the parameter to get */
+	u32 param_id;
+
+	/* The parameter data to be filled when sent inband */
+	struct param_hdr_v1 param_hdr;
+} __packed;
+
+struct afe_rtac_user_data_get_v3 {
+	/* Port interface and direction (Rx or Tx) to start. */
+	u16 port_id;
+	/* Reserved for future enhancements. Must be 0. */
+	u16 reserved;
+
+	/* The header detailing the memory mapping for out of band. */
+	struct mem_mapping_hdr mem_hdr;
+
+	/* The parameter data to be filled when sent inband */
+	struct param_hdr_v3 param_hdr;
+} __packed;
 #define AFE_PORT_CMD_SET_PARAM_V2	0x000100EF
 struct afe_port_cmd_set_param_v2 {
 	/* APR Header */
@@ -6503,6 +6536,7 @@ struct asm_stream_cmd_open_transcode_loopback_t {
 
 #define ASM_STREAM_CMD_FLUSH_READBUFS   0x00010C09
 #define ASM_STREAM_CMD_SET_PP_PARAMS_V2 0x00010DA1
+#define ASM_STREAM_CMD_SET_PP_PARAMS_V3 0x0001320D
 
 struct asm_stream_cmd_set_pp_params_v2 {
 	u32                  data_payload_addr_lsw;
@@ -6556,6 +6590,7 @@ struct asm_stream_param_data_v2 {
 } __packed;
 
 #define ASM_STREAM_CMD_GET_PP_PARAMS_V2		0x00010DA2
+#define ASM_STREAM_CMD_GET_PP_PARAMS_V3 0x0001320E
 
 struct asm_stream_cmd_get_pp_params_v2 {
 	u32                  data_payload_addr_lsw;
@@ -6734,6 +6769,7 @@ struct asm_aac_dual_mono_mapping_param {
 } __packed;
 
 #define ASM_STREAM_CMDRSP_GET_PP_PARAMS_V2 0x00010DA4
+#define ASM_STREAM_CMDRSP_GET_PP_PARAMS_V3 0x0001320F
 
 struct asm_stream_cmdrsp_get_pp_params_v2 {
 	u32                  status;

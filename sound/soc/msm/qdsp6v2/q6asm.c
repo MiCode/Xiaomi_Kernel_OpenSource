@@ -1898,10 +1898,10 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 			break;
 		}
 		case ASM_STREAM_CMD_GET_PP_PARAMS_V2:
-			pr_debug("%s: ASM_STREAM_CMD_GET_PP_PARAMS_V2 session %d opcode 0x%x token 0x%x src %d dest %d\n",
-				__func__, ac->session,
-				data->opcode, data->token,
-				data->src_port, data->dest_port);
+		case ASM_STREAM_CMD_GET_PP_PARAMS_V3:
+			pr_debug("%s: ASM_STREAM_CMD_GET_PP_PARAMS session %d opcode 0x%x token 0x%x src %d dest %d\n",
+				__func__, ac->session, data->opcode,
+				data->token, data->src_port, data->dest_port);
 			/* Should only come here if there is an APR */
 			/* error or malformed APR packet. Otherwise */
 			/* response will be returned as */
@@ -1971,13 +1971,13 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		break;
 	}
 	case ASM_STREAM_CMDRSP_GET_PP_PARAMS_V2:
-		pr_debug("%s: ASM_STREAM_CMDRSP_GET_PP_PARAMS_V2 session %d opcode 0x%x token 0x%x src %d dest %d\n",
-				__func__, ac->session, data->opcode,
-				data->token,
-				data->src_port, data->dest_port);
+	case ASM_STREAM_CMDRSP_GET_PP_PARAMS_V3:
+		pr_debug("%s: ASM_STREAM_CMDRSP_GET_PP_PARAMS session %d opcode 0x%x token 0x%x src %d dest %d\n",
+			__func__, ac->session, data->opcode, data->token,
+			data->src_port, data->dest_port);
 		if (payload[0] != 0) {
-			pr_err("%s: ASM_STREAM_CMDRSP_GET_PP_PARAMS_V2 returned error = 0x%x\n",
-				__func__, payload[0]);
+			pr_err("%s: ASM_STREAM_CMDRSP_GET_PP_PARAMS returned error = 0x%x\n",
+			       __func__, payload[0]);
 		} else if (generic_get_data) {
 			generic_get_data->valid = 1;
 			if (generic_get_data->is_inband) {
