@@ -15,6 +15,8 @@
 
 #ifdef CONFIG_SEEMP_CORE
 #include <linux/kernel.h>
+#include <linux/seemp_api.h>
+#include <linux/socket.h>
 
 #define MAX_BUF_SIZE 188
 
@@ -66,10 +68,32 @@ static inline void seemp_logk_sendto(int fd, void __user *buff, size_t len,
 
 	seemp_logk_kernel_end(blck);
 }
+
+static inline void seemp_logk_rtic(__u8 type, __u64 actor, __u8 asset_id[0x20],
+		__u8 asset_category, __u8 response)
+{
+	char *buf = NULL;
+	void *blck = NULL;
+
+	blck = seemp_setup_buf(&buf);
+	if (!blck)
+		return;
+
+	SEEMP_LOGK_RECORD(SEEMP_API_kernel__rtic,
+		"app_pid=%llu,rtic_type=%u,asset_id=%s,asset_category=%u,response=%u",
+		actor, type, asset_id, asset_category, response);
+
+	seemp_logk_kernel_end(blck);
+}
 #else
 static inline void seemp_logk_sendto(int fd, void __user *buff,
 		size_t len, unsigned int flags, struct sockaddr __user *addr,
 		int addr_len)
+{
+}
+
+static inline void seemp_logk_rtic(__u8 type, __u64 actor, __u8 asset_id[0x20],
+		__u8 asset_category, __u8 response)
 {
 }
 #endif
