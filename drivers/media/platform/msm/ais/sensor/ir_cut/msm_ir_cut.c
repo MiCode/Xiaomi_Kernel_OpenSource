@@ -282,7 +282,7 @@ static int32_t msm_ir_cut_handle_init(
 }
 
 static int32_t msm_ir_cut_config(struct msm_ir_cut_ctrl_t *ir_cut_ctrl,
-	void __user *argp)
+	void *argp)
 {
 	int32_t rc = -EINVAL;
 	struct msm_ir_cut_cfg_data_t *ir_cut_data =
@@ -327,7 +327,7 @@ static long msm_ir_cut_subdev_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
 {
 	struct msm_ir_cut_ctrl_t *fctrl = NULL;
-	void __user *argp = (void __user *)arg;
+	void *argp = arg;
 
 	CDBG("Enter\n");
 
