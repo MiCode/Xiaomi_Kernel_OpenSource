@@ -50,17 +50,6 @@ config TOUCHSCREEN_SYNAPTICS_DSX_CORE_v21
 	  To compile this driver as a module, choose M here: the
 	  module will be called synaptics_dsx_core.
 
-config TOUCHSCREEN_SYNAPTICS_DSX_RMI_DEV_v21
-	tristate "Synaptics DSX touchscreen RMI device module"
-	depends on TOUCHSCREEN_SYNAPTICS_DSX_CORE_v21
-	help
-	  Say Y here to enable support for direct RMI register access.
-
-	  If unsure, say N.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called synaptics_dsx_rmi_dev.
-
 config TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE_v21
 	tristate "Synaptics DSX touchscreen firmware update module"
 	depends on TOUCHSCREEN_SYNAPTICS_DSX_CORE_v21
@@ -71,16 +60,5 @@ config TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE_v21
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called synaptics_dsx_fw_update.
-
-config TOUCHSCREEN_SYNAPTICS_DSX_PROXIMITY_v21
-	tristate "Synaptics DSX touchscreen proximity module"
-	depends on TOUCHSCREEN_SYNAPTICS_DSX_CORE_v21
-	help
-	  Say Y here to enable support for proximity functionalities.
-
-	  If unsure, say N.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called synaptics_dsx_proximity.
 
 endif

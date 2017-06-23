@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,6 +49,7 @@
 			qcom,pon-dbc-delay = <15625>;
 			qcom,system-reset;
 			qcom,store-hard-reset-reason;
+			qcom,kpdpwr-sw-debounce;
 
 			qcom,pon_1 {
 				qcom,pon-type = <0>;
