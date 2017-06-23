@@ -953,13 +953,6 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		pipe->dst.y += mixer->ctl->border_y_off;
 	}
 
-	if (mfd->panel_orientation & MDP_FLIP_LR)
-		pipe->dst.x = pipe->mixer_left->width
-			- pipe->dst.x - pipe->dst.w;
-	if (mfd->panel_orientation & MDP_FLIP_UD)
-		pipe->dst.y = pipe->mixer_left->height
-			- pipe->dst.y - pipe->dst.h;
-
 	pipe->horz_deci = req->horz_deci;
 	pipe->vert_deci = req->vert_deci;
 
@@ -2964,6 +2957,16 @@ static int mdss_mdp_overlay_get_fb_pipe(struct msm_fb_data_type *mfd,
 			req->src_rect = req->dst_rect = left_rect;
 			if (split_lm && rotate_180)
 				req->src_rect = right_rect;
+		}
+
+		if (mfd->panel_orientation == MDP_ROT_180) {
+			if (mixer_mux == MDSS_MDP_MIXER_MUX_RIGHT) {
+				req->src_rect.x = 0;
+				req->dst_rect.x = mixer->width;
+			} else {
+				req->src_rect.x = (split_lm) ? mixer->width : 0;
+				req->dst_rect.x = 0;
+			}
 		}
 
 		req->z_order = MDSS_MDP_STAGE_BASE;
