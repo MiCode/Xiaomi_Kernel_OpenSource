@@ -3660,9 +3660,6 @@ static ssize_t icnss_fw_debug_write(struct file *fp,
 	if (ret)
 		return ret;
 
-	if (ret == 0)
-		memset(&priv->stats, 0, sizeof(priv->stats));
-
 	return count;
 }
 
