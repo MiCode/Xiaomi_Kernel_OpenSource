@@ -1674,6 +1674,8 @@ exit:
 int mdss_dp_on(struct mdss_panel_data *pdata)
 {
 	struct mdss_dp_drv_pdata *dp_drv = NULL;
+	bool hpd;
+	int rc = 0;
 
 	if (!pdata) {
 		pr_err("Invalid input data\n");
@@ -1682,6 +1684,22 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 
 	dp_drv = container_of(pdata, struct mdss_dp_drv_pdata,
 			panel_data);
+
+	mutex_lock(&dp_drv->attention_lock);
+	hpd = dp_drv->cable_connected;
+	mutex_unlock(&dp_drv->attention_lock);
+
+	/* In case of device coming out of PM_SUSPEND, there can be
+	 * a corner case where the sink is turned off or the DP cable
+	 * is disconnected almost at the same time as userspace triggering
+	 * unblank. This can cause the UNBLANK call to be still triggered
+	 * before the disconnect event is notified to the userspace.
+	 * Avoid turning ON DP path in such cases.
+	 */
+	if (!hpd || !dp_drv->alt_mode.dp_status.hpd_high) {
+		pr_err("DP sink not connected\n");
+		return -EINVAL;
+	}
 
 	/*
 	 * If the link already active, then nothing needs to be done here.
@@ -1707,8 +1725,11 @@ int mdss_dp_on(struct mdss_panel_data *pdata)
 	 * init/deinit during unrelated resume/suspend events,
 	 * add host initialization call before DP power-on.
 	 */
-	if (!dp_drv->dp_initialized)
-		mdss_dp_host_init(pdata);
+	if (!dp_drv->dp_initialized) {
+		rc = mdss_dp_host_init(pdata);
+		if (rc < 0)
+			return rc;
+	}
 
 	return mdss_dp_on_hpd(dp_drv);
 }
@@ -1941,6 +1962,11 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 	}
 
 	dp_drv->orientation = usbpd_get_plug_orientation(dp_drv->pd);
+	if (dp_drv->orientation == ORIENTATION_NONE) {
+		pr_err("DP cable might be disconnected\n");
+		ret = -EINVAL;
+		goto orientation_error;
+	}
 
 	dp_drv->aux_sel_gpio_output = 0;
 	if (dp_drv->orientation == ORIENTATION_CC2)
@@ -1981,8 +2007,9 @@ static int mdss_dp_host_init(struct mdss_panel_data *pdata)
 	return 0;
 
 clk_error:
-	mdss_dp_regulator_ctrl(dp_drv, false);
 	mdss_dp_config_gpios(dp_drv, false);
+orientation_error:
+	mdss_dp_regulator_ctrl(dp_drv, false);
 vreg_error:
 	return ret;
 }
