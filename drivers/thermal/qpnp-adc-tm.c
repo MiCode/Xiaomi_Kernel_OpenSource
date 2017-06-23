@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3292,40 +3292,55 @@ static int qpnp_adc_tm_remove(struct platform_device *pdev)
 static void qpnp_adc_tm_shutdown(struct platform_device *pdev)
 {
 	struct qpnp_adc_tm_chip *chip = dev_get_drvdata(&pdev->dev);
-	int rc = 0;
+	int rc = 0, i = 0;
 	u8 reg_val = 0, status1 = 0, en_ctl1 = 0;
 
-	/* Set measurement in single measurement mode */
-	reg_val = ADC_OP_NORMAL_MODE << QPNP_OP_MODE_SHIFT;
-	rc = qpnp_adc_tm_mode_select(chip, reg_val);
-	if (rc < 0)
-		pr_err("adc-tm single mode select failed\n");
+	if (!chip->adc_tm_hc) {
+		/* Set measurement in single measurement mode */
+		reg_val = ADC_OP_NORMAL_MODE << QPNP_OP_MODE_SHIFT;
+		rc = qpnp_adc_tm_mode_select(chip, reg_val);
+		if (rc < 0)
+			pr_err("adc-tm single mode select failed\n");
+	}
 
 	/* Disable bank */
 	rc = qpnp_adc_tm_disable(chip);
 	if (rc < 0)
 		pr_err("adc-tm disable failed\n");
 
-	/* Check if a conversion is in progress */
-	rc = qpnp_adc_tm_req_sts_check(chip);
-	if (rc < 0)
-		pr_err("adc-tm req_sts check failed\n");
+	if (chip->adc_tm_hc) {
+		for (i = 0; i < 8; i++) {
+			rc = qpnp_adc_tm_reg_update(chip,
+				QPNP_BTM_Mn_EN(i),
+				QPNP_BTM_Mn_MEAS_EN, false);
+			if (rc < 0)
+				pr_err("multi meas disable failed\n");
+		}
+	} else {
+		/* Check if a conversion is in progress */
+		rc = qpnp_adc_tm_req_sts_check(chip);
+		if (rc < 0)
+			pr_err("adc-tm req_sts check failed\n");
 
-	/* Disable multimeasurement */
-	reg_val = 0;
-	rc = qpnp_adc_tm_write_reg(chip, QPNP_ADC_TM_MULTI_MEAS_EN, reg_val, 1);
-	if (rc < 0)
-		pr_err("adc-tm multi-measurement mode disable failed\n");
+		/* Disable multimeasurement */
+		reg_val = 0;
+		rc = qpnp_adc_tm_write_reg(chip,
+				QPNP_ADC_TM_MULTI_MEAS_EN, reg_val, 1);
+		if (rc < 0)
+			pr_err("adc-tm multi-meas mode disable failed\n");
 
-	rc = qpnp_adc_tm_read_reg(chip, QPNP_ADC_TM_STATUS1, &status1, 1);
-	if (rc < 0)
-		pr_err("adc-tm status1 read failed\n");
+		rc = qpnp_adc_tm_read_reg(chip,
+				QPNP_ADC_TM_STATUS1, &status1, 1);
+		if (rc < 0)
+			pr_err("adc-tm status1 read failed\n");
 
-	rc = qpnp_adc_tm_read_reg(chip, QPNP_EN_CTL1, &en_ctl1, 1);
-	if (rc < 0)
-		pr_err("adc-tm en_ctl1 read failed\n");
+		rc = qpnp_adc_tm_read_reg(chip,
+				QPNP_EN_CTL1, &en_ctl1, 1);
+		if (rc < 0)
+			pr_err("adc-tm en_ctl1 read failed\n");
 
-	pr_debug("adc-tm status1=0%x, en_ctl1=0x%x\n", status1, en_ctl1);
+		pr_debug("status1=0%x, en_ctl1=0x%x\n", status1, en_ctl1);
+	}
 }
 
 static int qpnp_adc_tm_suspend_noirq(struct device *dev)
