@@ -618,6 +618,8 @@ struct mdss_dp_drv_pdata {
 	/* DP Pixel clock RCG and PLL parent */
 	struct clk *pixel_clk_rcg;
 	struct clk *pixel_parent;
+	struct clk *pixel_clk_two_div;
+	struct clk *pixel_clk_four_div;
 
 	/* regulators */
 	struct dss_module_power power_data[DP_MAX_PM];
