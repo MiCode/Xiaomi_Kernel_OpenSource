@@ -268,14 +268,18 @@
 		compatible = "qcom,qusb2phy";
 		reg = <0x0c012000 0x180>,
 			<0x01fcb24c 0x4>,
+			<0x00780240 0x4>,
 			<0x00188018 0x4>;
 		reg-names = "qusb_phy_base",
 			"tcsr_clamp_dig_n_1p8",
+			"tune2_efuse_addr",
 			"ref_clk_addr";
 		vdd-supply = <&pm660l_l1>;
 		vdda18-supply = <&pm660_l10>;
 		vdda33-supply = <&pm660l_l7>;
 		qcom,vdd-voltage-level = <0 925000 925000>;
+		qcom,tune2-efuse-bit-pos = <25>;
+		qcom,tune2-efuse-num-bits = <4>;
 		qcom,qusb-phy-init-seq = <0xf8 0x80
 					0xb3 0x84
 					0x83 0x88
