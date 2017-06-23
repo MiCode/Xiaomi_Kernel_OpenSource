@@ -478,6 +478,8 @@ struct ipa_pkt_status_hw {
 #define IPA_HDR_UCP_802_3_TO_ETHII 7
 #define IPA_HDR_UCP_ETHII_TO_802_3 8
 #define IPA_HDR_UCP_ETHII_TO_ETHII 9
+#define IPA_HDR_UCP_L2TP_HEADER_ADD 10
+#define IPA_HDR_UCP_L2TP_HEADER_REMOVE 11
 
 /* Processing context TLV type */
 #define IPA_PROC_CTX_TLV_TYPE_END 0
@@ -519,6 +521,28 @@ struct ipa_hw_hdr_proc_ctx_hdr_add {
 };
 
 /**
+ * struct ipa_hw_hdr_proc_ctx_l2tp_add_hdr -
+ * HW structure of IPA processing context - add l2tp header tlv
+ * @tlv: IPA processing context TLV
+ * @l2tp_params: l2tp parameters
+ */
+struct ipa_hw_hdr_proc_ctx_l2tp_add_hdr {
+	struct ipa_hw_hdr_proc_ctx_tlv tlv;
+	struct ipa_l2tp_header_add_procparams l2tp_params;
+};
+
+/**
+ * struct ipa_hw_hdr_proc_ctx_l2tp_remove_hdr -
+ * HW structure of IPA processing context - remove l2tp header tlv
+ * @tlv: IPA processing context TLV
+ * @l2tp_params: l2tp parameters
+ */
+struct ipa_hw_hdr_proc_ctx_l2tp_remove_hdr {
+	struct ipa_hw_hdr_proc_ctx_tlv tlv;
+	struct ipa_l2tp_header_remove_procparams l2tp_params;
+};
+
+/**
  * struct ipa_hw_hdr_proc_ctx_add_hdr_seq -
  * IPA processing context header - add header sequence
  * @hdr_add: add header command
@@ -539,6 +563,32 @@ struct ipa_hw_hdr_proc_ctx_add_hdr_seq {
 struct ipa_hw_hdr_proc_ctx_add_hdr_cmd_seq {
 	struct ipa_hw_hdr_proc_ctx_hdr_add hdr_add;
 	struct ipa_hw_hdr_proc_ctx_tlv cmd;
+	struct ipa_hw_hdr_proc_ctx_tlv end;
+};
+
+/**
+ * struct ipa_hw_hdr_proc_ctx_add_l2tp_hdr_cmd_seq -
+ * IPA processing context header - process command sequence
+ * @hdr_add: add header command
+ * @l2tp_params: l2tp params for header addition
+ * @end: tlv end command (cmd.type must be 0)
+ */
+struct ipa_hw_hdr_proc_ctx_add_l2tp_hdr_cmd_seq {
+	struct ipa_hw_hdr_proc_ctx_hdr_add hdr_add;
+	struct ipa_hw_hdr_proc_ctx_l2tp_add_hdr l2tp_params;
+	struct ipa_hw_hdr_proc_ctx_tlv end;
+};
+
+/**
+ * struct ipa_hw_hdr_proc_ctx_remove_l2tp_hdr_cmd_seq -
+ * IPA processing context header - process command sequence
+ * @hdr_add: add header command
+ * @l2tp_params: l2tp params for header removal
+ * @end: tlv end command (cmd.type must be 0)
+ */
+struct ipa_hw_hdr_proc_ctx_remove_l2tp_hdr_cmd_seq {
+	struct ipa_hw_hdr_proc_ctx_hdr_add hdr_add;
+	struct ipa_hw_hdr_proc_ctx_l2tp_remove_hdr l2tp_params;
 	struct ipa_hw_hdr_proc_ctx_tlv end;
 };
 
