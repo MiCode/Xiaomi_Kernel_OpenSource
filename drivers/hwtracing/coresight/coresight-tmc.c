@@ -140,7 +140,11 @@ static ssize_t tmc_read(struct file *file, char __user *data, size_t len,
 {
 	struct tmc_drvdata *drvdata = container_of(file->private_data,
 						   struct tmc_drvdata, miscdev);
-	char *bufp = drvdata->buf + *ppos;
+	char *bufp;
+
+	mutex_lock(&drvdata->mem_lock);
+
+	bufp = drvdata->buf + *ppos;
 
 	if (*ppos + len > drvdata->len)
 		len = drvdata->len - *ppos;
@@ -156,6 +160,7 @@ static ssize_t tmc_read(struct file *file, char __user *data, size_t len,
 
 	if (copy_to_user(data, bufp, len)) {
 		dev_dbg(drvdata->dev, "%s: copy_to_user failed\n", __func__);
+		mutex_unlock(&drvdata->mem_lock);
 		return -EFAULT;
 	}
 
@@ -163,6 +168,8 @@ static ssize_t tmc_read(struct file *file, char __user *data, size_t len,
 
 	dev_dbg(drvdata->dev, "%s: %zu bytes copied, %d bytes left\n",
 		__func__, len, (int)(drvdata->len - *ppos));
+
+	mutex_unlock(&drvdata->mem_lock);
 	return len;
 }
 
