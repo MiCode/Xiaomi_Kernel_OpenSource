@@ -109,8 +109,6 @@ static void dp_ctrl_push_idle(struct dp_ctrl *dp_ctrl)
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
-	drm_dp_link_power_down(ctrl->aux->drm_aux, &ctrl->panel->dp_link);
-
 	reinit_completion(&ctrl->idle_comp);
 	dp_ctrl_state_ctrl(ctrl, ST_PUSH_IDLE);
 
@@ -171,7 +169,8 @@ static void dp_ctrl_configure_source_params(struct dp_ctrl_private *ctrl)
 	cc = ctrl->link->get_colorimetry_config(ctrl->link);
 	ctrl->catalog->config_misc(ctrl->catalog, cc, tb);
 
-	ctrl->catalog->config_msa(ctrl->catalog);
+	ctrl->catalog->config_msa(ctrl->catalog,
+		drm_dp_bw_code_to_link_rate(ctrl->link->bw_code));
 
 	ctrl->panel->timing_cfg(ctrl->panel);
 }
@@ -226,7 +225,7 @@ static void dp_ctrl_calc_tu_parameters(struct dp_ctrl_private *ctrl,
 {
 	u32 const multiplier = 1000000;
 	u64 pclk, lclk;
-	u8 bpp, ln_cnt, link_rate;
+	u8 bpp, ln_cnt;
 	int run_idx = 0;
 	u32 lwidth, h_blank;
 	u32 fifo_empty = 0;
@@ -289,7 +288,6 @@ static void dp_ctrl_calc_tu_parameters(struct dp_ctrl_private *ctrl,
 	u64 brute_force_threshold = 10;
 	u64 diff_abs;
 
-	link_rate = ctrl->link->link_rate;
 	ln_cnt =  ctrl->link->lane_count;
 
 	bpp = pinfo->bpp;
@@ -309,7 +307,7 @@ static void dp_ctrl_calc_tu_parameters(struct dp_ctrl_private *ctrl,
 	even_distribution = 0;
 	min_hblank = 0;
 
-	lclk = drm_dp_bw_code_to_link_rate(link_rate) * DP_KHZ_TO_HZ;
+	lclk = drm_dp_bw_code_to_link_rate(ctrl->link->bw_code) * DP_KHZ_TO_HZ;
 
 	pr_debug("pclk=%lld, active_width=%d, h_blank=%d\n",
 						pclk, lwidth, h_blank);
@@ -832,15 +830,15 @@ static int dp_ctrl_link_rate_down_shift(struct dp_ctrl_private *ctrl)
 	if (!ctrl)
 		return -EINVAL;
 
-	switch (ctrl->link->link_rate) {
+	switch (ctrl->link->bw_code) {
 	case DP_LINK_RATE_810:
-		ctrl->link->link_rate = DP_LINK_BW_5_4;
+		ctrl->link->bw_code = DP_LINK_BW_5_4;
 		break;
 	case DP_LINK_BW_5_4:
-		ctrl->link->link_rate = DP_LINK_BW_2_7;
+		ctrl->link->bw_code = DP_LINK_BW_2_7;
 		break;
 	case DP_LINK_BW_2_7:
-		ctrl->link->link_rate = DP_LINK_BW_1_62;
+		ctrl->link->bw_code = DP_LINK_BW_1_62;
 		break;
 	case DP_LINK_BW_1_62:
 	default:
@@ -848,7 +846,7 @@ static int dp_ctrl_link_rate_down_shift(struct dp_ctrl_private *ctrl)
 		break;
 	};
 
-	pr_debug("new rate=%d\n", ctrl->link->link_rate);
+	pr_debug("new bw code=0x%x\n", ctrl->link->bw_code);
 
 	return ret;
 }
@@ -907,7 +905,7 @@ static int dp_ctrl_link_training_2(struct dp_ctrl_private *ctrl)
 static int dp_ctrl_link_train(struct dp_ctrl_private *ctrl)
 {
 	int ret = 0;
-	struct drm_dp_link dp_link;
+	struct drm_dp_link link_info;
 
 	ctrl->link->p_level = 0;
 	ctrl->link->v_level = 0;
@@ -915,10 +913,10 @@ static int dp_ctrl_link_train(struct dp_ctrl_private *ctrl)
 	dp_ctrl_config_ctrl(ctrl);
 	dp_ctrl_state_ctrl(ctrl, 0);
 
-	dp_link.num_lanes = ctrl->link->lane_count;
-	dp_link.rate = ctrl->link->link_rate;
-	dp_link.capabilities = ctrl->panel->dp_link.capabilities;
-	drm_dp_link_configure(ctrl->aux->drm_aux, &dp_link);
+	link_info.num_lanes = ctrl->link->lane_count;
+	link_info.rate = drm_dp_bw_code_to_link_rate(ctrl->link->bw_code);
+	link_info.capabilities = ctrl->panel->link_info.capabilities;
+	drm_dp_link_configure(ctrl->aux->drm_aux, &link_info);
 
 	ret = dp_ctrl_link_train_1(ctrl);
 	if (ret < 0) {
@@ -973,7 +971,7 @@ static int dp_ctrl_setup_main_link(struct dp_ctrl_private *ctrl, bool train)
 
 	ctrl->catalog->mainlink_ctrl(ctrl->catalog, true);
 
-	drm_dp_link_power_up(ctrl->aux->drm_aux, &ctrl->panel->dp_link);
+	drm_dp_link_power_up(ctrl->aux->drm_aux, &ctrl->panel->link_info);
 
 	if (ctrl->link->phy_pattern_requested(ctrl->link))
 		goto end;
@@ -1031,7 +1029,7 @@ static int dp_ctrl_enable_mainlink_clocks(struct dp_ctrl_private *ctrl)
 	ctrl->power->set_pixel_clk_parent(ctrl->power);
 
 	dp_ctrl_set_clock_rate(ctrl, "ctrl_link_clk",
-		drm_dp_bw_code_to_link_rate(ctrl->link->link_rate));
+		drm_dp_bw_code_to_link_rate(ctrl->link->bw_code));
 
 	dp_ctrl_set_clock_rate(ctrl, "ctrl_pixel_clk", ctrl->pixel_rate);
 
@@ -1152,12 +1150,12 @@ static int dp_ctrl_on_hpd(struct dp_ctrl_private *ctrl)
 	ctrl->power->clk_enable(ctrl->power, DP_CORE_PM, true);
 	ctrl->catalog->hpd_config(ctrl->catalog, true);
 
-	ctrl->link->link_rate  = ctrl->panel->get_link_rate(ctrl->panel);
-	ctrl->link->lane_count = ctrl->panel->dp_link.num_lanes;
+	ctrl->link->bw_code  = ctrl->panel->get_link_rate(ctrl->panel);
+	ctrl->link->lane_count = ctrl->panel->link_info.num_lanes;
 	ctrl->pixel_rate = ctrl->panel->pinfo.pixel_clk_khz;
 
-	pr_debug("link_rate=%d, lane_count=%d, pixel_rate=%d\n",
-		ctrl->link->link_rate, ctrl->link->lane_count,
+	pr_debug("bw_code=%d, lane_count=%d, pixel_rate=%d\n",
+		ctrl->link->bw_code, ctrl->link->lane_count,
 		ctrl->pixel_rate);
 
 	ctrl->catalog->phy_lane_cfg(ctrl->catalog,

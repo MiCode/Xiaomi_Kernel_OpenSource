@@ -31,8 +31,9 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 {
 	int rlen, rc = 0;
 	struct dp_panel_private *panel;
-	struct drm_dp_link *dp_link;
+	struct drm_dp_link *link_info;
 	u8 major = 0, minor = 0;
+	unsigned long caps = DP_LINK_CAP_ENHANCED_FRAMING;
 
 	if (!dp_panel) {
 		pr_err("invalid input\n");
@@ -41,7 +42,7 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 	}
 
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
-	dp_link = &dp_panel->dp_link;
+	link_info = &dp_panel->link_info;
 
 	rlen = drm_dp_dpcd_read(panel->aux->drm_aux, DP_DPCD_REV,
 		dp_panel->dpcd, (DP_RECEIVER_CAP_SIZE + 1));
@@ -51,22 +52,22 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 		goto end;
 	}
 
-	dp_link->revision = dp_panel->dpcd[DP_DPCD_REV];
+	link_info->revision = dp_panel->dpcd[DP_DPCD_REV];
 
-	major = (dp_link->revision >> 4) & 0x0f;
-	minor = dp_link->revision & 0x0f;
+	major = (link_info->revision >> 4) & 0x0f;
+	minor = link_info->revision & 0x0f;
 	pr_debug("version: %d.%d\n", major, minor);
 
-	dp_link->rate =
+	link_info->rate =
 		drm_dp_bw_code_to_link_rate(dp_panel->dpcd[DP_MAX_LINK_RATE]);
-	pr_debug("link_rate=%d\n", dp_link->rate);
+	pr_debug("link_rate=%d\n", link_info->rate);
 
-	dp_link->num_lanes = dp_panel->dpcd[DP_MAX_LANE_COUNT] &
+	link_info->num_lanes = dp_panel->dpcd[DP_MAX_LANE_COUNT] &
 			DP_MAX_LANE_COUNT_MASK;
-	pr_debug("lane_count=%d\n", dp_link->num_lanes);
+	pr_debug("lane_count=%d\n", link_info->num_lanes);
 
 	if (dp_panel->dpcd[DP_MAX_LANE_COUNT] & DP_ENHANCED_FRAME_CAP)
-		dp_link->capabilities |= DP_LINK_CAP_ENHANCED_FRAMING;
+		link_info->capabilities |= caps;
 
 end:
 	return rc;
@@ -75,7 +76,7 @@ end:
 static u32 dp_panel_get_max_pclk(struct dp_panel *dp_panel)
 {
 	struct dp_panel_private *panel;
-	struct drm_dp_link *dp_link;
+	struct drm_dp_link *link_info;
 	u32 bpc, bpp, max_data_rate_khz, max_pclk_rate_khz;
 	const u8 num_components = 3;
 
@@ -85,15 +86,15 @@ static u32 dp_panel_get_max_pclk(struct dp_panel *dp_panel)
 	}
 
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
-	dp_link = &dp_panel->dp_link;
+	link_info = &dp_panel->link_info;
 
 	bpc = sde_get_sink_bpc(dp_panel->edid_ctrl);
 	bpp = bpc * num_components;
 
-	max_data_rate_khz = (dp_link->num_lanes * dp_link->rate * 8);
+	max_data_rate_khz = (link_info->num_lanes * link_info->rate * 8);
 	max_pclk_rate_khz = max_data_rate_khz / bpp;
 
-	pr_debug("bpp=%d, max_lane_cnt=%d\n", bpp, dp_link->num_lanes);
+	pr_debug("bpp=%d, max_lane_cnt=%d\n", bpp, link_info->num_lanes);
 	pr_debug("max_data_rate=%dKHz, max_pclk_rate=%dKHz\n",
 		max_data_rate_khz, max_pclk_rate_khz);
 
@@ -225,8 +226,8 @@ static u32 dp_panel_get_link_rate(struct dp_panel *dp_panel)
 
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 
-	lane_cnt = dp_panel->dp_link.num_lanes;
-	max_rate = drm_dp_link_rate_to_bw_code(dp_panel->dp_link.rate);
+	lane_cnt = dp_panel->link_info.num_lanes;
+	max_rate = drm_dp_link_rate_to_bw_code(dp_panel->link_info.rate);
 	pinfo = &dp_panel->pinfo;
 
 	/*

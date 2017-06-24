@@ -50,7 +50,7 @@ struct dp_link {
 	u32 test_requested;
 
 	u32 lane_count;
-	u32 link_rate;
+	u32 bw_code;
 	u32 v_level;
 	u32 p_level;
 
