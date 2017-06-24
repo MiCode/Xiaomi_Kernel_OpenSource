@@ -188,9 +188,9 @@ static void receive_ack_msg(struct gmu_device *gmu, struct hfi_msg_rsp *rsp)
 				msg->seqnum == rsp->ret_hdr.seqnum)
 			break;
 	}
-	spin_unlock(&hfi->msglock);
 
 	if (msg == NULL) {
+		spin_unlock(&hfi->msglock);
 		dev_err(&gmu->pdev->dev,
 				"Cannot find receiver of ack msg with id=%d\n",
 				rsp->ret_hdr.id);
@@ -199,6 +199,7 @@ static void receive_ack_msg(struct gmu_device *gmu, struct hfi_msg_rsp *rsp)
 
 	memcpy(&msg->results, (void *) rsp, rsp->hdr.size << 2);
 	complete(&msg->msg_complete);
+	spin_unlock(&hfi->msglock);
 }
 
 static void receive_err_msg(struct gmu_device *gmu, struct hfi_msg_rsp *rsp)
