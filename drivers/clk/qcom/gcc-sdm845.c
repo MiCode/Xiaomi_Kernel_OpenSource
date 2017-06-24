@@ -3566,7 +3566,6 @@ static struct clk_regmap *gcc_sdm845_clocks[] = {
 };
 
 static const struct qcom_reset_map gcc_sdm845_resets[] = {
-	[GCC_GPU_BCR] = { 0x71000 },
 	[GCC_MMSS_BCR] = { 0xb000 },
 	[GCC_PCIE_0_BCR] = { 0x6b000 },
 	[GCC_PCIE_1_BCR] = { 0x8d000 },

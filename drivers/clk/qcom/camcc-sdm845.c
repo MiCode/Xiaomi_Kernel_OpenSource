@@ -1928,22 +1928,11 @@ static struct clk_regmap *cam_cc_sdm845_clocks[] = {
 };
 
 static const struct qcom_reset_map cam_cc_sdm845_resets[] = {
-	[TITAN_CAM_CC_BPS_BCR] = { 0x6000 },
-	[TITAN_CAM_CC_CAMNOC_BCR] = { 0xb120 },
 	[TITAN_CAM_CC_CCI_BCR] = { 0xb0d4 },
 	[TITAN_CAM_CC_CPAS_BCR] = { 0xb118 },
 	[TITAN_CAM_CC_CSI0PHY_BCR] = { 0x5000 },
 	[TITAN_CAM_CC_CSI1PHY_BCR] = { 0x5024 },
 	[TITAN_CAM_CC_CSI2PHY_BCR] = { 0x5048 },
-	[TITAN_CAM_CC_FD_BCR] = { 0xb0ac },
-	[TITAN_CAM_CC_ICP_BCR] = { 0xb074 },
-	[TITAN_CAM_CC_IFE_0_BCR] = { 0x9000 },
-	[TITAN_CAM_CC_IFE_1_BCR] = { 0xa000 },
-	[TITAN_CAM_CC_IFE_LITE_BCR] = { 0xb000 },
-	[TITAN_CAM_CC_IPE_0_BCR] = { 0x7000 },
-	[TITAN_CAM_CC_IPE_1_BCR] = { 0x8000 },
-	[TITAN_CAM_CC_JPEG_BCR] = { 0xb048 },
-	[TITAN_CAM_CC_LRME_BCR] = { 0xb0f4 },
 	[TITAN_CAM_CC_MCLK0_BCR] = { 0x4000 },
 	[TITAN_CAM_CC_MCLK1_BCR] = { 0x4020 },
 	[TITAN_CAM_CC_MCLK2_BCR] = { 0x4040 },
