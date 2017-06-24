@@ -16,6 +16,7 @@
 #include <linux/clk.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 
@@ -59,6 +60,10 @@ enum cam_vote_level {
 	CAM_MAX_VOTE,
 };
 
+/* pinctrl states */
+#define CAM_SOC_PINCTRL_STATE_SLEEP "cam_suspend"
+#define CAM_SOC_PINCTRL_STATE_DEFAULT "cam_default"
+
 /**
  * struct cam_soc_reg_map:   Information about the mapped register space
  *
@@ -71,6 +76,35 @@ struct cam_soc_reg_map {
 	void __iomem                   *mem_base;
 	uint32_t                        mem_cam_base;
 	resource_size_t                 size;
+};
+
+/**
+ * struct cam_soc_pinctrl_info:   Information about pinctrl data
+ *
+ * @pinctrl:               pintrl object
+ * @gpio_state_active:     default pinctrl state
+ * @gpio_state_suspend     suspend state of pinctrl
+ **/
+struct cam_soc_pinctrl_info {
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *gpio_state_active;
+	struct pinctrl_state *gpio_state_suspend;
+};
+
+/**
+ * struct cam_soc_gpio_data:   Information about the gpio pins
+ *
+ * @cam_gpio_common_tbl:       It is list of al the gpios present in gpios node
+ * @cam_gpio_common_tbl_size:  It is equal to number of gpios prsent in
+ *                             gpios node in DTSI
+ * @cam_gpio_req_tbl            It is list of al the requesetd gpios
+ * @cam_gpio_req_tbl_size:      It is size of requested gpios
+ **/
+struct cam_soc_gpio_data {
+	struct gpio *cam_gpio_common_tbl;
+	uint8_t cam_gpio_common_tbl_size;
+	struct gpio *cam_gpio_req_tbl;
+	uint8_t cam_gpio_req_tbl_size;
 };
 
 /**
@@ -92,9 +126,16 @@ struct cam_soc_reg_map {
  * @num_reg_map:            Number of mapped register space associated
  *                          with mem_block. num_reg_map = num_mem_block in
  *                          most cases
+ * @reserve_mem:            Whether to reserve memory for Mem blocks
  * @num_rgltr:              Number of regulators
  * @rgltr_name:             Array of regulator names
+ * @rgltr_ctrl_support:     Whether regulator control is supported
+ * @rgltr_min_volt:         Array of minimum regulator voltage
+ * @rgltr_max_volt:         Array of maximum regulator voltage
+ * @rgltr_op_mode:          Array of regulator operation mode
+ * @rgltr_type:             Array of regulator names
  * @rgltr:                  Array of associated regulator resources
+ * @rgltr_delay:            Array of regulator delay values
  * @num_clk:                Number of clocks
  * @clk_name:               Array of clock names
  * @clk:                    Array of associated clock resources
@@ -102,6 +143,8 @@ struct cam_soc_reg_map {
  *                          values at different vote levels
  * @src_clk_idx:            Source clock index that is rate-controllable
  * @clk_level_valid:        Indicates whether corresponding level is valid
+ * @gpio_data:              Pointer to gpio info
+ * @pinctrl_info:           Pointer to pinctrl info
  * @soc_private:            Soc private data
  *
  */
@@ -109,7 +152,6 @@ struct cam_hw_soc_info {
 	struct platform_device         *pdev;
 	uint32_t                        hw_version;
 	uint32_t                        index;
-
 	const char                     *irq_name;
 	struct resource                *irq_line;
 	void                           *irq_data;
@@ -120,10 +162,17 @@ struct cam_hw_soc_info {
 	struct resource                *mem_block[CAM_SOC_MAX_BLOCK];
 	struct cam_soc_reg_map          reg_map[CAM_SOC_MAX_BASE];
 	uint32_t                        num_reg_map;
+	uint32_t                        reserve_mem;
 
 	uint32_t                        num_rgltr;
 	const char                     *rgltr_name[CAM_SOC_MAX_REGULATOR];
+	uint32_t                        rgltr_ctrl_support;
+	uint32_t                        rgltr_min_volt[CAM_SOC_MAX_REGULATOR];
+	uint32_t                        rgltr_max_volt[CAM_SOC_MAX_REGULATOR];
+	uint32_t                        rgltr_op_mode[CAM_SOC_MAX_REGULATOR];
+	uint32_t                        rgltr_type[CAM_SOC_MAX_REGULATOR];
 	struct regulator               *rgltr[CAM_SOC_MAX_REGULATOR];
+	uint32_t                        rgltr_delay[CAM_SOC_MAX_REGULATOR];
 
 	uint32_t                        num_clk;
 	const char                     *clk_name[CAM_SOC_MAX_CLK];
@@ -132,6 +181,8 @@ struct cam_hw_soc_info {
 	int32_t                         src_clk_idx;
 	bool                            clk_level_valid[CAM_MAX_VOTE];
 
+	struct cam_soc_gpio_data       *gpio_data;
+	struct cam_soc_pinctrl_info     pinctrl_info;
 
 	void                           *soc_private;
 };
@@ -339,6 +390,45 @@ int cam_soc_util_irq_enable(struct cam_hw_soc_info *soc_info);
  * @return:             Success or failure
  */
 int cam_soc_util_irq_disable(struct cam_hw_soc_info *soc_info);
+
+/**
+ * cam_soc_util_regulator_enable()
+ *
+ * @brief:              Enable single regulator
+ *
+ * @rgltr               Regulator that needs to be turned ON
+ * @rgltr_name          Associated Regulator name
+ * @rgltr_min_volt:     Requested minimum volatage
+ * @rgltr_max_volt:     Requested maximum volatage
+ * @rgltr_op_mode:      Requested Load
+ * @rgltr_delay:        Requested delay needed aaftre enabling regulator
+ *
+ * @return:             Success or failure
+ */
+int cam_soc_util_regulator_enable(struct regulator *rgltr,
+	const char *rgltr_name,
+	uint32_t rgltr_min_volt, uint32_t rgltr_max_volt,
+	uint32_t rgltr_op_mode, uint32_t rgltr_delay);
+
+/**
+ * cam_soc_util_regulator_enable()
+ *
+ * @brief:              Disable single regulator
+ *
+ * @rgltr               Regulator that needs to be turned ON
+ * @rgltr_name          Associated Regulator name
+ * @rgltr_min_volt:     Requested minimum volatage
+ * @rgltr_max_volt:     Requested maximum volatage
+ * @rgltr_op_mode:      Requested Load
+ * @rgltr_delay:        Requested delay needed aaftre enabling regulator
+ *
+ * @return:             Success or failure
+ */
+int cam_soc_util_regulator_disable(struct regulator *rgltr,
+	const char *rgltr_name,
+	uint32_t rgltr_min_volt, uint32_t rgltr_max_volt,
+	uint32_t rgltr_op_mode, uint32_t rgltr_delay);
+
 
 /**
  * cam_soc_util_w()
