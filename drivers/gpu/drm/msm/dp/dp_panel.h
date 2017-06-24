@@ -40,7 +40,7 @@ struct dp_panel_info {
 struct dp_panel {
 	/* dpcd raw data */
 	u8 dpcd[DP_RECEIVER_CAP_SIZE];
-	struct drm_dp_link dp_link;
+	struct drm_dp_link link_info;
 
 	struct sde_edid_ctrl *edid_ctrl;
 	struct dp_panel_info pinfo;

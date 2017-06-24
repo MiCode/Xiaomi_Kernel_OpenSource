@@ -547,10 +547,12 @@ static void dp_catalog_ctrl_config_misc(struct dp_catalog_ctrl *ctrl,
 	dp_write(base + DP_MISC1_MISC0, misc_val);
 }
 
-static void dp_catalog_ctrl_config_msa(struct dp_catalog_ctrl *ctrl)
+static void dp_catalog_ctrl_config_msa(struct dp_catalog_ctrl *ctrl,
+					u32 rate)
 {
 	u32 pixel_m, pixel_n;
 	u32 mvid, nvid;
+	u32 const link_rate = 540000;
 	struct dp_catalog_private *catalog;
 	void __iomem *base_cc, *base_ctrl;
 
@@ -569,6 +571,9 @@ static void dp_catalog_ctrl_config_msa(struct dp_catalog_ctrl *ctrl)
 
 	mvid = (pixel_m & 0xFFFF) * 5;
 	nvid = (0xFFFF & (~pixel_n)) + (pixel_m & 0xFFFF);
+
+	if (link_rate == rate)
+		nvid *= 2;
 
 	pr_debug("mvid=0x%x, nvid=0x%x\n", mvid, nvid);
 	dp_write(base_ctrl + DP_SOFTWARE_MVID, mvid);
