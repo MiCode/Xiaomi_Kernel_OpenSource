@@ -4289,7 +4289,7 @@ int qcrypto_cipher_set_device(struct ablkcipher_request *req, unsigned int dev)
 };
 EXPORT_SYMBOL(qcrypto_cipher_set_device);
 
-int qcrypto_cipher_set_device_hw(struct ablkcipher_request *req, u32 dev,
+int qcrypto_cipher_set_device_hw(struct skcipher_request *req, u32 dev,
 			u32 hw_inst)
 {
 	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(req->base.tfm);
@@ -4335,7 +4335,7 @@ int qcrypto_ahash_set_device(struct ahash_request *req, unsigned int dev)
 };
 EXPORT_SYMBOL(qcrypto_ahash_set_device);
 
-int qcrypto_cipher_set_flag(struct ablkcipher_request *req, unsigned int flags)
+int qcrypto_cipher_set_flag(struct skcipher_request *req, unsigned int flags)
 {
 	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(req->base.tfm);
 	struct crypto_priv *cp = ctx->cp;
