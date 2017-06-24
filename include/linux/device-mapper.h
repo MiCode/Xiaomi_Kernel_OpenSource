@@ -650,4 +650,12 @@ static inline unsigned long to_bytes(sector_t n)
 	return (n << SECTOR_SHIFT);
 }
 
+/*-----------------------------------------------------------------
+ * Helper for block layer and dm core operations
+ *-----------------------------------------------------------------
+ */
+void dm_dispatch_request(struct request *rq);
+void dm_kill_unmapped_request(struct request *rq, int error);
+void dm_end_request(struct request *clone, int error);
+
 #endif	/* _LINUX_DEVICE_MAPPER_H */
