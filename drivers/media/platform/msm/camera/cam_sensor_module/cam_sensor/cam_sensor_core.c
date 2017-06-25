@@ -14,6 +14,7 @@
 #include <cam_sensor_cmn_header.h>
 #include "cam_sensor_core.h"
 #include <cam_sensor_util.h>
+#include "cam_soc_util.h"
 
 static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 	void *arg)
@@ -492,7 +493,7 @@ void cam_sensor_query_cap(struct cam_sensor_ctrl_t *s_ctrl,
 	query_cap->ois_slot_id =
 		s_ctrl->sensordata->subdev_id[SUB_MODULE_OIS];
 	query_cap->slot_info =
-		s_ctrl->id;
+		s_ctrl->soc_info.index;
 }
 
 static uint16_t cam_sensor_id_by_mask(struct cam_sensor_ctrl_t *s_ctrl,
@@ -603,8 +604,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 
 		/* Parse and fill vreg params for powerup settings */
 		rc = msm_camera_fill_vreg_params(
-			s_ctrl->sensordata->power_info.cam_vreg,
-			s_ctrl->sensordata->power_info.num_vreg,
+			&s_ctrl->soc_info,
 			s_ctrl->sensordata->power_info.power_setting,
 			s_ctrl->sensordata->power_info.power_setting_size);
 		if (rc < 0) {
@@ -617,8 +617,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 
 		/* Parse and fill vreg params for powerdown settings*/
 		rc = msm_camera_fill_vreg_params(
-			s_ctrl->sensordata->power_info.cam_vreg,
-			s_ctrl->sensordata->power_info.num_vreg,
+			&s_ctrl->soc_info,
 			s_ctrl->sensordata->power_info.power_down_setting,
 			s_ctrl->sensordata->power_info.power_down_setting_size);
 		if (rc < 0) {
@@ -650,7 +649,8 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		}
 
 		CDBG("%s:%d Probe Succeeded on the slot: %d\n",
-			__func__, __LINE__, s_ctrl->id);
+			__func__, __LINE__,
+			s_ctrl->soc_info.index);
 		rc = cam_sensor_power_down(s_ctrl);
 		if (rc < 0) {
 			pr_err("%s:%d :Error: fail in Sensor Power Down\n",
@@ -844,6 +844,8 @@ int cam_sensor_power_up(struct cam_sensor_ctrl_t *s_ctrl)
 	int rc;
 	struct cam_sensor_power_ctrl_t *power_info;
 	struct cam_camera_slave_info *slave_info;
+	struct cam_hw_soc_info *soc_info =
+		&s_ctrl->soc_info;
 
 	if (!s_ctrl) {
 		pr_err("%s:%d failed: %pK\n",
@@ -861,7 +863,7 @@ int cam_sensor_power_up(struct cam_sensor_ctrl_t *s_ctrl)
 		return -EINVAL;
 	}
 
-	rc = cam_sensor_core_power_up(power_info);
+	rc = cam_sensor_core_power_up(power_info, soc_info);
 	if (rc < 0) {
 		pr_err("%s:%d power up the core is failed:%d\n",
 			__func__, __LINE__, rc);
@@ -884,6 +886,7 @@ int cam_sensor_power_up(struct cam_sensor_ctrl_t *s_ctrl)
 int cam_sensor_power_down(struct cam_sensor_ctrl_t *s_ctrl)
 {
 	struct cam_sensor_power_ctrl_t *power_info;
+	struct cam_hw_soc_info *soc_info;
 	int rc = 0;
 
 	if (!s_ctrl) {
@@ -893,13 +896,14 @@ int cam_sensor_power_down(struct cam_sensor_ctrl_t *s_ctrl)
 	}
 
 	power_info = &s_ctrl->sensordata->power_info;
+	soc_info = &s_ctrl->soc_info;
 
 	if (!power_info) {
 		pr_err("%s:%d failed: power_info %pK\n",
 			__func__, __LINE__, power_info);
 		return -EINVAL;
 	}
-	rc = msm_camera_power_down(power_info);
+	rc = msm_camera_power_down(power_info, soc_info);
 	if (rc < 0) {
 		pr_err("%s:%d power down the core is failed:%d\n",
 			__func__, __LINE__, rc);

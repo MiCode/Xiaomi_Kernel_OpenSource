@@ -13,12 +13,13 @@
 #include "cam_csiphy_soc.h"
 #include "cam_csiphy_core.h"
 #include "include/cam_csiphy_1_0_hwreg.h"
-#include "cam_sensor_util.h"
 
 int32_t cam_csiphy_enable_hw(struct csiphy_device *csiphy_dev)
 {
 	int32_t rc = 0;
-	long clk_rate = 0;
+	struct cam_hw_soc_info   *soc_info;
+
+	soc_info = &csiphy_dev->soc_info;
 
 	if (csiphy_dev->ref_count++) {
 		pr_err("%s:%d csiphy refcount = %d\n", __func__,
@@ -26,92 +27,58 @@ int32_t cam_csiphy_enable_hw(struct csiphy_device *csiphy_dev)
 		return rc;
 	}
 
-	rc = msm_camera_config_vreg(&csiphy_dev->v4l2_dev_str.pdev->dev,
-		csiphy_dev->csiphy_vreg,
-		csiphy_dev->num_vreg, NULL, 0,
-		&csiphy_dev->csiphy_reg_ptr[0], 1);
+	rc = cam_soc_util_enable_platform_resource(soc_info, true,
+		CAM_TURBO_VOTE, true);
 	if (rc < 0) {
-		pr_err("%s:%d failed regulator get\n", __func__, __LINE__);
-		goto csiphy_config_regulator_fail;
+		pr_err("%s:%d failed to enable platform resources %d\n",
+			__func__, __LINE__, rc);
+		return rc;
 	}
 
-	rc = msm_camera_enable_vreg(&csiphy_dev->v4l2_dev_str.pdev->dev,
-		csiphy_dev->csiphy_vreg,
-		csiphy_dev->num_vreg, NULL, 0,
-		&csiphy_dev->csiphy_reg_ptr[0], 1);
-	if (rc < 0) {
-		pr_err("%s:%d failed to enable regulators\n", __func__, rc);
-		goto csiphy_regulator_fail;
-	}
+	rc = cam_soc_util_set_clk_rate(
+		soc_info->clk[csiphy_dev->csiphy_clk_index],
+		soc_info->clk_name[csiphy_dev->csiphy_clk_index],
+		soc_info->clk_rate[0][csiphy_dev->csiphy_clk_index]);
 
-	/*Enable clocks*/
-	rc = msm_camera_clk_enable(&csiphy_dev->v4l2_dev_str.pdev->dev,
-		csiphy_dev->csiphy_clk_info, csiphy_dev->csiphy_clk,
-		csiphy_dev->num_clk, true);
 	if (rc < 0) {
-		pr_err("%s: csiphy clk enable failed\n", __func__);
-		csiphy_dev->ref_count--;
-		goto csiphy_regulator_fail;
-	}
-
-	clk_rate = msm_camera_clk_set_rate(&csiphy_dev->v4l2_dev_str.pdev->dev,
-		csiphy_dev->csiphy_clk[csiphy_dev->csiphy_clk_index],
-		clk_rate);
-	if (clk_rate < 0) {
-		pr_err("csiphy_clk_set_rate failed\n");
-		goto csiphy_clk_enable_fail;
-	}
-
-	rc = msm_camera_enable_irq(csiphy_dev->irq, ENABLE_IRQ);
-	if (rc < 0) {
-		pr_err("%s:%d :ERROR: irq enable failed\n",
+		pr_err("%s:%d csiphy_clk_set_rate failed\n",
 			__func__, __LINE__);
-		goto csiphy_clk_enable_fail;
-		return -EINVAL;
+		goto csiphy_disable_platform_resource;
 	}
 
 	cam_csiphy_reset(csiphy_dev);
 
 	return rc;
-csiphy_clk_enable_fail:
-	msm_camera_clk_enable(&csiphy_dev->v4l2_dev_str.pdev->dev,
-		csiphy_dev->csiphy_clk_info, csiphy_dev->csiphy_clk,
-		csiphy_dev->num_clk, false);
-csiphy_regulator_fail:
-	msm_camera_enable_vreg(&csiphy_dev->v4l2_dev_str.pdev->dev,
-		csiphy_dev->csiphy_vreg,
-		csiphy_dev->num_vreg, NULL, 0,
-		&csiphy_dev->csiphy_reg_ptr[0], 0);
-csiphy_config_regulator_fail:
-	msm_camera_config_vreg(&csiphy_dev->v4l2_dev_str.pdev->dev,
-		csiphy_dev->csiphy_vreg,
-		csiphy_dev->num_vreg, NULL, 0,
-		&csiphy_dev->csiphy_reg_ptr[0], 0);
+
+
+csiphy_disable_platform_resource:
+	cam_soc_util_disable_platform_resource(soc_info, true, true);
 
 	return rc;
 }
 
-int32_t cam_csiphy_disable_hw(struct platform_device *pdev)
+int32_t cam_csiphy_disable_hw(struct csiphy_device *csiphy_dev)
 {
-	struct csiphy_device *csiphy_dev =
-		platform_get_drvdata(pdev);
+	struct cam_hw_soc_info   *soc_info;
 
-	/*Disable regulators*/
-	msm_camera_enable_vreg(&csiphy_dev->v4l2_dev_str.pdev->dev,
-		csiphy_dev->csiphy_vreg,
-		csiphy_dev->num_vreg, NULL, 0,
-		&csiphy_dev->csiphy_reg_ptr[0], 0);
+	if (!csiphy_dev || !csiphy_dev->ref_count) {
+		pr_err("%s:%d csiphy dev NULL / ref_count ZERO\n", __func__,
+			__LINE__);
+		return 0;
+	}
+	soc_info = &csiphy_dev->soc_info;
 
-	/*Disable clocks*/
-	msm_camera_clk_enable(&csiphy_dev->v4l2_dev_str.pdev->dev,
-		csiphy_dev->csiphy_clk_info, csiphy_dev->csiphy_clk,
-		csiphy_dev->num_clk, false);
+	if (--csiphy_dev->ref_count) {
+		pr_err("%s:%d csiphy refcount = %d\n", __func__,
+			__LINE__, csiphy_dev->ref_count);
+		return 0;
+	}
 
-	/*Disable IRQ*/
-	msm_camera_enable_irq(csiphy_dev->irq, false);
+	cam_csiphy_reset(csiphy_dev);
+
+	cam_soc_util_disable_platform_resource(soc_info, true, true);
 
 	return 0;
-
 }
 
 int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
@@ -121,11 +88,16 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 	uint32_t  clk_cnt = 0;
 	char      *csi_3p_clk_name = "csi_phy_3p_clk";
 	char      *csi_3p_clk_src_name = "csiphy_3p_clk_src";
+	struct cam_hw_soc_info   *soc_info;
 
-	if (pdev->dev.of_node) {
-		of_property_read_u32((&pdev->dev)->of_node,
-			"cell-index", &pdev->id);
-		CDBG("%s: device id = %d\n", __func__, pdev->id);
+	csiphy_dev->is_csiphy_3phase_hw = 0;
+	soc_info = &csiphy_dev->soc_info;
+
+	rc = cam_soc_util_get_dt_properties(soc_info);
+	if (rc < 0) {
+		pr_err("%s:%d :Error: parsing common soc dt(rc %d)\n",
+			 __func__, __LINE__, rc);
+		return  rc;
 	}
 
 	csiphy_dev->is_csiphy_3phase_hw = 0;
@@ -151,124 +123,56 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 		return rc;
 	}
 
-	rc = msm_camera_get_clk_info(csiphy_dev->v4l2_dev_str.pdev,
-		&csiphy_dev->csiphy_clk_info,
-		&csiphy_dev->csiphy_clk,
-		&csiphy_dev->num_clk);
-	if (rc < 0) {
-		pr_err("%s:%d failed clock get\n", __func__, __LINE__);
-		return rc;
+	if (soc_info->num_clk > CSIPHY_NUM_CLK_MAX) {
+		pr_err("%s:%d invalid clk count=%d, max is %d\n", __func__,
+			__LINE__, soc_info->num_clk, CSIPHY_NUM_CLK_MAX);
+		return -EINVAL;
 	}
-
-	if (csiphy_dev->num_clk > CSIPHY_NUM_CLK_MAX) {
-		pr_err("%s: invalid clk count=%zu, max is %d\n", __func__,
-			csiphy_dev->num_clk, CSIPHY_NUM_CLK_MAX);
-		goto clk_mem_ovf_err;
-	}
-
-	for (i = 0; i < csiphy_dev->num_clk; i++) {
-		if (!strcmp(csiphy_dev->csiphy_clk_info[i].clk_name,
+	for (i = 0; i < soc_info->num_clk; i++) {
+		if (!strcmp(soc_info->clk_name[i],
 			csi_3p_clk_src_name)) {
 			csiphy_dev->csiphy_3p_clk_info[0].clk_name =
-				csiphy_dev->csiphy_clk_info[i].clk_name;
+				soc_info->clk_name[i];
 			csiphy_dev->csiphy_3p_clk_info[0].clk_rate =
-				csiphy_dev->csiphy_clk_info[i].clk_rate;
+				soc_info->clk_rate[0][i];
 			csiphy_dev->csiphy_3p_clk[0] =
-				csiphy_dev->csiphy_clk[i];
+				soc_info->clk[i];
 			continue;
-		} else if (!strcmp(csiphy_dev->csiphy_clk_info[i].clk_name,
-					csi_3p_clk_name)) {
+		} else if (!strcmp(soc_info->clk_name[i],
+				csi_3p_clk_name)) {
 			csiphy_dev->csiphy_3p_clk_info[1].clk_name =
-				csiphy_dev->csiphy_clk_info[i].clk_name;
+				soc_info->clk_name[i];
 			csiphy_dev->csiphy_3p_clk_info[1].clk_rate =
-				csiphy_dev->csiphy_clk_info[i].clk_rate;
+				soc_info->clk_rate[0][i];
 			csiphy_dev->csiphy_3p_clk[1] =
-				csiphy_dev->csiphy_clk[i];
+				soc_info->clk[i];
 			continue;
 		}
 
-		if (!strcmp(csiphy_dev->csiphy_clk_info[clk_cnt].clk_name,
+		if (!strcmp(soc_info->clk_name[i],
 			"csiphy_timer_src_clk")) {
 			csiphy_dev->csiphy_max_clk =
-				csiphy_dev->csiphy_clk_info[clk_cnt].clk_rate;
+			soc_info->clk_rate[0][clk_cnt];
 			csiphy_dev->csiphy_clk_index = clk_cnt;
 		}
-		CDBG("%s: clk_rate[%d] = %ld\n", __func__, clk_cnt,
-			csiphy_dev->csiphy_clk_info[clk_cnt].clk_rate);
+		CDBG("%s:%d clk_rate[%d] = %d\n", __func__, __LINE__, clk_cnt,
+			soc_info->clk_rate[0][clk_cnt]);
 		clk_cnt++;
 	}
+	rc = cam_soc_util_request_platform_resource(&csiphy_dev->soc_info,
+		cam_csiphy_irq, csiphy_dev);
 
-	rc = cam_sensor_get_dt_vreg_data(pdev->dev.of_node,
-		&(csiphy_dev->csiphy_vreg), &(csiphy_dev->num_vreg));
-	if (rc < 0) {
-		pr_err("%s:%d Reg get failed\n", __func__, __LINE__);
-		csiphy_dev->num_vreg = 0;
-	}
-
-	csiphy_dev->base = msm_camera_get_reg_base(pdev, "csiphy", true);
-	if (!csiphy_dev->base) {
-		pr_err("%s: no mem resource?\n", __func__);
-		rc = -ENODEV;
-		goto csiphy_no_resource;
-	}
-
-	csiphy_dev->irq = msm_camera_get_irq(pdev, "csiphy");
-	if (!csiphy_dev->irq) {
-		pr_err("%s: no irq resource?\n", __func__);
-		rc = -ENODEV;
-		goto csiphy_no_resource;
-	}
-
-	rc = msm_camera_register_irq(pdev, csiphy_dev->irq,
-		cam_csiphy_irq, IRQF_TRIGGER_RISING, "csiphy", csiphy_dev);
-	if (rc < 0) {
-		pr_err("%s: irq request fail\n", __func__);
-		rc = -EBUSY;
-		goto csiphy_no_resource;
-	}
-	msm_camera_enable_irq(csiphy_dev->irq, false);
-	return rc;
-
-csiphy_no_resource:
-	msm_camera_put_reg_base(pdev, csiphy_dev->base, "csiphy", true);
-clk_mem_ovf_err:
-	msm_camera_put_clk_info(csiphy_dev->v4l2_dev_str.pdev,
-		&csiphy_dev->csiphy_clk_info,
-		&csiphy_dev->csiphy_clk,
-		csiphy_dev->num_clk);
 	return rc;
 }
 
 int32_t cam_csiphy_soc_release(struct csiphy_device *csiphy_dev)
 {
-
-	if (!csiphy_dev || !csiphy_dev->ref_count) {
-		pr_err("%s csiphy dev NULL / ref_count ZERO\n", __func__);
+	if (!csiphy_dev) {
+		pr_err("%s:%d csiphy dev NULL\n", __func__, __LINE__);
 		return 0;
 	}
 
-	if (--csiphy_dev->ref_count) {
-		pr_err("%s:%d csiphy refcount = %d\n", __func__,
-			__LINE__, csiphy_dev->ref_count);
-		return 0;
-	}
-
-	cam_csiphy_reset(csiphy_dev);
-
-	msm_camera_enable_irq(csiphy_dev->irq, false);
-
-	msm_camera_clk_enable(&csiphy_dev->v4l2_dev_str.pdev->dev,
-		csiphy_dev->csiphy_clk_info, csiphy_dev->csiphy_clk,
-		csiphy_dev->num_clk, false);
-
-	msm_camera_enable_vreg(&csiphy_dev->v4l2_dev_str.pdev->dev,
-		csiphy_dev->csiphy_vreg, csiphy_dev->num_vreg,
-		NULL, 0, &csiphy_dev->csiphy_reg_ptr[0], 0);
-
-	msm_camera_config_vreg(&csiphy_dev->v4l2_dev_str.pdev->dev,
-		csiphy_dev->csiphy_vreg, csiphy_dev->num_vreg,
-		NULL, 0, &csiphy_dev->csiphy_reg_ptr[0], 0);
-
+	cam_soc_util_release_platform_resource(&csiphy_dev->soc_info);
 
 	return 0;
 }

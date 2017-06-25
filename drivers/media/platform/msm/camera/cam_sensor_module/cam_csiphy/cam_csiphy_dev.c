@@ -120,11 +120,13 @@ static int32_t cam_csiphy_platform_probe(struct platform_device *pdev)
 	mutex_init(&new_csiphy_dev->mutex);
 	new_csiphy_dev->v4l2_dev_str.pdev = pdev;
 
+	new_csiphy_dev->soc_info.pdev = pdev;
+
 	new_csiphy_dev->ref_count = 0;
 
 	rc = cam_csiphy_parse_dt_info(pdev, new_csiphy_dev);
 	if (rc < 0) {
-		pr_err("%s:%d :ERROR: dt paring failed: %d\n",
+		pr_err("%s:%d :ERROR: dt parsing failed: %d\n",
 			__func__, __LINE__, rc);
 		goto csiphy_no_resource;
 	}
@@ -167,7 +169,7 @@ static int32_t cam_csiphy_platform_probe(struct platform_device *pdev)
 	new_csiphy_dev->is_acquired_dev_combo_mode = 0;
 
 	cpas_parms.cam_cpas_client_cb = NULL;
-	cpas_parms.cell_index = pdev->id;
+	cpas_parms.cell_index = new_csiphy_dev->soc_info.index;
 	cpas_parms.dev = &pdev->dev;
 	cpas_parms.userdata = new_csiphy_dev;
 

@@ -49,10 +49,13 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 {
 	uint32_t irq;
 	struct cci_device *cci_dev = data;
+	struct cam_hw_soc_info *soc_info =
+		&cci_dev->soc_info;
+	void __iomem *base = soc_info->reg_map[0].mem_base;
 
-	irq = cam_io_r_mb(cci_dev->base + CCI_IRQ_STATUS_0_ADDR);
-	cam_io_w_mb(irq, cci_dev->base + CCI_IRQ_CLEAR_0_ADDR);
-	cam_io_w_mb(0x1, cci_dev->base + CCI_IRQ_GLOBAL_CLEAR_CMD_ADDR);
+	irq = cam_io_r_mb(base + CCI_IRQ_STATUS_0_ADDR);
+	cam_io_w_mb(irq, base + CCI_IRQ_CLEAR_0_ADDR);
+	cam_io_w_mb(0x1, base + CCI_IRQ_GLOBAL_CLEAR_CMD_ADDR);
 
 	if (irq & CCI_IRQ_STATUS_0_RST_DONE_ACK_BMSK) {
 		if (cci_dev->cci_master_info[MASTER_0].reset_pending == TRUE) {
@@ -123,24 +126,24 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 	if (irq & CCI_IRQ_STATUS_0_I2C_M0_Q0Q1_HALT_ACK_BMSK) {
 		cci_dev->cci_master_info[MASTER_0].reset_pending = TRUE;
 		cam_io_w_mb(CCI_M0_RESET_RMSK,
-			cci_dev->base + CCI_RESET_CMD_ADDR);
+			base + CCI_RESET_CMD_ADDR);
 	}
 	if (irq & CCI_IRQ_STATUS_0_I2C_M1_Q0Q1_HALT_ACK_BMSK) {
 		cci_dev->cci_master_info[MASTER_1].reset_pending = TRUE;
 		cam_io_w_mb(CCI_M1_RESET_RMSK,
-			cci_dev->base + CCI_RESET_CMD_ADDR);
+			base + CCI_RESET_CMD_ADDR);
 	}
 	if (irq & CCI_IRQ_STATUS_0_I2C_M0_ERROR_BMSK) {
 		pr_err("%s:%d MASTER_0 error 0x%x\n", __func__, __LINE__, irq);
 		cci_dev->cci_master_info[MASTER_0].status = -EINVAL;
 		cam_io_w_mb(CCI_M0_HALT_REQ_RMSK,
-			cci_dev->base + CCI_HALT_REQ_ADDR);
+			base + CCI_HALT_REQ_ADDR);
 	}
 	if (irq & CCI_IRQ_STATUS_0_I2C_M1_ERROR_BMSK) {
 		pr_err("%s:%d MASTER_1 error 0x%x\n", __func__, __LINE__, irq);
 		cci_dev->cci_master_info[MASTER_1].status = -EINVAL;
 		cam_io_w_mb(CCI_M1_HALT_REQ_RMSK,
-			cci_dev->base + CCI_HALT_REQ_ADDR);
+			base + CCI_HALT_REQ_ADDR);
 	}
 	return IRQ_HANDLED;
 }
@@ -150,8 +153,10 @@ static int cam_cci_irq_routine(struct v4l2_subdev *sd, u32 status,
 {
 	struct cci_device *cci_dev = v4l2_get_subdevdata(sd);
 	irqreturn_t ret;
+	struct cam_hw_soc_info *soc_info =
+		&cci_dev->soc_info;
 
-	ret = cam_cci_irq(cci_dev->irq->start, cci_dev);
+	ret = cam_cci_irq(soc_info->irq_line->start, cci_dev);
 	*handled = TRUE;
 	return 0;
 }
@@ -171,6 +176,7 @@ static int cam_cci_platform_probe(struct platform_device *pdev)
 {
 	struct cam_cpas_register_params cpas_parms;
 	struct cci_device *new_cci_dev;
+	struct cam_hw_soc_info *soc_info = NULL;
 	int rc = 0;
 
 	new_cci_dev = kzalloc(sizeof(struct cci_device),
@@ -178,7 +184,11 @@ static int cam_cci_platform_probe(struct platform_device *pdev)
 	if (!new_cci_dev)
 		return -ENOMEM;
 
+	soc_info = &new_cci_dev->soc_info;
+
 	new_cci_dev->v4l2_dev_str.pdev = pdev;
+
+	soc_info->pdev = pdev;
 
 	rc = cam_cci_parse_dt_info(pdev, new_cci_dev);
 	if (rc < 0) {

@@ -129,18 +129,7 @@ int cam_soc_util_irq_disable(struct cam_hw_soc_info *soc_info)
 	return 0;
 }
 
-/**
- * cam_soc_util_set_clk_rate()
- *
- * @brief:              Set the rate on a given clock.
- *
- * @clk:                Clock that needs to be set
- * @clk_name:           Clocks name associated with clk
- * @clk_rate:           Clocks rate associated with clk
- *
- * @return:             success or failure
- */
-static int cam_soc_util_set_clk_rate(struct clk *clk, const char *clk_name,
+int cam_soc_util_set_clk_rate(struct clk *clk, const char *clk_name,
 	int32_t clk_rate)
 {
 	int rc = 0;

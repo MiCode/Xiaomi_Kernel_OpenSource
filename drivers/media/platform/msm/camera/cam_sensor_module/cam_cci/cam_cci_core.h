@@ -23,7 +23,7 @@
  *
  * This API gets CCI clk rates
  */
-uint32_t *cam_cci_get_clk_rates(struct cci_device *cci_dev,
+void cam_cci_get_clk_rates(struct cci_device *cci_dev,
 	struct cam_cci_ctrl *c_ctrl);
 
 /**

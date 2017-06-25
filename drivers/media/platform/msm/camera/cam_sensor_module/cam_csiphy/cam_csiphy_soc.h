@@ -60,4 +60,11 @@ int cam_csiphy_parse_dt_info(struct platform_device *pdev,
  */
 int cam_csiphy_enable_hw(struct csiphy_device *csiphy_dev);
 
+/**
+ * @csiphy_dev: CSIPhy device structure
+ *
+ * This API disables SOC related parameters
+ */
+int cam_csiphy_disable_hw(struct csiphy_device *csiphy_dev);
+
 #endif /* _CAM_CSIPHY_SOC_H_ */
