@@ -3270,6 +3270,21 @@ static void sdhci_msm_cmdq_dump_debug_ram(struct sdhci_host *host)
 	pr_err("-------------------------\n");
 }
 
+static void sdhci_msm_cache_debug_data(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	struct sdhci_msm_debug_data *cached_data = &msm_host->cached_data;
+
+	memcpy(&cached_data->copy_mmc, msm_host->mmc,
+		sizeof(struct mmc_host));
+	if (msm_host->mmc->card)
+		memcpy(&cached_data->copy_card, msm_host->mmc->card,
+			sizeof(struct mmc_card));
+	memcpy(&cached_data->copy_host, host,
+		sizeof(struct sdhci_host));
+}
+
 void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -3281,6 +3296,7 @@ void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 	u32 test_bus_val = 0;
 	u32 debug_reg[MAX_TEST_BUS] = {0};
 
+	sdhci_msm_cache_debug_data(host);
 	pr_info("----------- VENDOR REGISTER DUMP -----------\n");
 	if (host->cq_host)
 		sdhci_msm_cmdq_dump_debug_ram(host);
