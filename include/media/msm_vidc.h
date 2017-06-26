@@ -20,7 +20,7 @@
 #include <linux/msm_ion.h>
 #include <uapi/media/msm_vidc.h>
 
-#define HAL_BUFFER_MAX 0xb
+#define HAL_BUFFER_MAX 0xd
 
 enum smem_type {
 	SMEM_ION,
