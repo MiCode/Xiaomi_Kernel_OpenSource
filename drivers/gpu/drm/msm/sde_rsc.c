@@ -671,8 +671,6 @@ int sde_rsc_client_vote(struct sde_rsc_client *caller_client,
 {
 	int rc = 0;
 	struct sde_rsc_priv *rsc;
-	bool amc_mode = false;
-	enum rpmh_state state;
 
 	if (!caller_client) {
 		pr_err("invalid client for ab/ib vote\n");
@@ -686,11 +684,6 @@ int sde_rsc_client_vote(struct sde_rsc_client *caller_client,
 	if (!rsc)
 		return -EINVAL;
 
-	if (caller_client != rsc->primary_client) {
-		pr_err("only primary client can use sde rsc:: curr client name:%s\n",
-							caller_client->name);
-		return -EINVAL;
-	}
 	pr_debug("client:%s ab:%llu ib:%llu\n",
 			caller_client->name, ab_vote, ib_vote);
 
@@ -698,16 +691,6 @@ int sde_rsc_client_vote(struct sde_rsc_client *caller_client,
 	rc = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
 	if (rc)
 		goto clk_enable_fail;
-
-	if (rsc->hw_ops.is_amc_mode)
-		amc_mode = rsc->hw_ops.is_amc_mode(rsc);
-
-	if (rsc->current_state == SDE_RSC_CMD_STATE)
-		state = RPMH_WAKE_ONLY_STATE;
-	else if (amc_mode)
-		state = RPMH_ACTIVE_ONLY_STATE;
-	else
-		state = RPMH_AWAKE_STATE;
 
 	if (rsc->hw_ops.tcs_wait) {
 		rc = rsc->hw_ops.tcs_wait(rsc);

@@ -530,6 +530,7 @@ void sde_encoder_helper_split_config(
 	struct split_pipe_cfg cfg = { 0 };
 	struct sde_hw_mdp *hw_mdptop;
 	enum sde_rm_topology_name topology;
+	struct msm_display_info *disp_info;
 
 	if (!phys_enc || !phys_enc->hw_mdptop || !phys_enc->parent) {
 		SDE_ERROR("invalid arg(s), encoder %d\n", phys_enc != 0);
@@ -538,6 +539,10 @@ void sde_encoder_helper_split_config(
 
 	sde_enc = to_sde_encoder_virt(phys_enc->parent);
 	hw_mdptop = phys_enc->hw_mdptop;
+	disp_info = &sde_enc->disp_info;
+
+	if (disp_info->intf_type != DRM_MODE_CONNECTOR_DSI)
+		return;
 
 	/**
 	 * disable split modes since encoder will be operating in as the only
@@ -1164,15 +1169,11 @@ static int sde_encoder_update_rsc_client(
 struct sde_rsc_client *sde_encoder_get_rsc_client(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc;
-	struct msm_display_info *disp_info;
 
 	if (!drm_enc)
 		return NULL;
-
 	sde_enc = to_sde_encoder_virt(drm_enc);
-	disp_info = &sde_enc->disp_info;
-
-	return disp_info->is_primary ? sde_enc->rsc_client : NULL;
+	return sde_enc->rsc_client;
 }
 
 static void _sde_encoder_resource_control_helper(struct drm_encoder *drm_enc,
