@@ -4157,12 +4157,10 @@ static void mmc_hw_reset_for_init(struct mmc_host *host)
  */
 int mmc_cmdq_hw_reset(struct mmc_host *host)
 {
-	if (!host->bus_ops->power_restore)
-	return -EOPNOTSUPP;
+	if (!host->bus_ops->reset)
+		return -EOPNOTSUPP;
 
-	mmc_power_cycle(host, host->ocr_avail);
-	mmc_select_voltage(host, host->card->ocr);
-	return host->bus_ops->power_restore(host);
+	return host->bus_ops->reset(host);
 }
 EXPORT_SYMBOL(mmc_cmdq_hw_reset);
 
