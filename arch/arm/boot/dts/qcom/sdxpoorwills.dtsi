@@ -214,3 +214,4 @@
 };
 
 #include "sdxpoorwills-regulator.dtsi"
+#include "sdxpoorwills-usb.dtsi"

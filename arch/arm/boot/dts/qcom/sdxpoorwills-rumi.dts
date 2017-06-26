@@ -36,3 +36,35 @@
 &gdsc_pcie {
 	compatible = "regulator-fixed";
 };
+
+&usb {
+	/delete-property/ qcom,usb-dbm;
+	qcom,charging-disabled;
+	dwc3@a600000 {
+		usb-phy = <&usb2_phy>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+	};
+};
+
+&usb2_phy {
+	reg = <0xff1000 0x1000>,
+	      <0x0a60cd00 0x40>;
+	reg-names = "hsusb_phy_base",
+		"emu_phy_base";
+	qcom,emu-init-seq = <0x19 0x404
+			     0x20 0x414
+			     0x79 0x410
+			     0x00 0x418
+			     0x99 0x404
+			     0x04 0x408
+			     0xd9 0x404>;
+
+	qcom,emu-dcm-reset-seq = <0x100000 0x20
+				  0x0 0x20
+				  0x1e0 0x20
+				  0x5 0x14>;
+};
+
+&usb3_qmp_phy {
+	status = "disabled";
+};
