@@ -55,6 +55,12 @@
 /* switches SMMU pagetable, used on a5xx only */
 #define CP_SMMU_TABLE_UPDATE 0x53
 
+/*  Set internal CP registers, used to indicate context save data addresses */
+#define CP_SET_PSEUDO_REGISTER      0x56
+
+/* Tell CP the current operation mode, indicates save and restore procedure */
+#define CP_SET_MARKER  0x65
+
 /* register read/modify/write */
 #define CP_REG_RMW		0x21
 
