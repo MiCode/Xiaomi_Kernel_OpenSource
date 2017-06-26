@@ -1045,7 +1045,6 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		clear_predict_history();
 		clear_cl_predict_history();
 
-		do_div(us, USEC_PER_SEC/SCLK_HZ);
 		system_sleep_enter(us);
 	}
 	/* Notify cluster enter event after successfully config completion */
