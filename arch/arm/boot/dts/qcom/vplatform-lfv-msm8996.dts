@@ -21,6 +21,11 @@
 	compatible = "qcom,msm8996";
 	qcom,msm-id = <246 0x0>;
 
+	aliases {
+		spi9 = &spi_9;
+		i2c8 = &i2c_8;
+	};
+
 	soc: soc { };
 
 	psci {
@@ -601,5 +606,46 @@
 	hl7509_en_vreg: hl7509_en_vreg {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "hl7509_en_vreg";
+	};
+
+	spi_9: spi@75B7000 { /* BLSP2 QUP3 */
+		compatible = "qcom,spi-qup-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "spi_physical";
+		reg = <0x075B7000 0x600>;
+		interrupt-names = "spi_irq";
+		interrupts = <0 103 0>;
+		spi-max-frequency = <19200000>;
+		qcom,infinite-mode = <0>;
+		qcom,ver-reg-exists;
+		qcom,master-id = <84>;
+		qcom,use-pinctrl;
+		pinctrl-names = "spi_default", "spi_sleep";
+		pinctrl-0 = <&spi_9_active>;
+		pinctrl-1 = <&spi_9_sleep>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
+			 <&clock_gcc clk_gcc_blsp2_qup3_spi_apps_clk>;
+	};
+
+	i2c_8: i2c@75b6000 { /* BLSP2 QUP2 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		reg = <0x75b6000 0x1000>;
+		interrupt-names = "qup_irq";
+		interrupts = <0 102 0>;
+		qcom,disable-dma;
+		qcom,master-id = <84>;
+		qcom,clk-freq-out = <400000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
+			<&clock_gcc clk_gcc_blsp2_qup2_i2c_apps_clk>;
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_8_active>;
+		pinctrl-1 = <&i2c_8_sleep>;
 	};
 };
