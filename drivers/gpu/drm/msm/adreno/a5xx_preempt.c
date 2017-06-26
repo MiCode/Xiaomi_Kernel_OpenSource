@@ -15,41 +15,6 @@
 #include "msm_iommu.h"
 #include "a5xx_gpu.h"
 
-static void *alloc_kernel_bo(struct drm_device *drm, struct msm_gpu *gpu,
-		size_t size, uint32_t flags, struct drm_gem_object **bo,
-		u64 *iova)
-{
-	struct drm_gem_object *_bo;
-	u64 _iova;
-	void *ptr;
-	int ret;
-
-	_bo = msm_gem_new(drm, size, flags);
-
-	if (IS_ERR(_bo))
-		return _bo;
-
-	ret = msm_gem_get_iova(_bo, gpu->aspace, &_iova);
-	if (ret)
-		goto out;
-
-	ptr = msm_gem_vaddr(_bo);
-	if (!ptr) {
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	if (bo)
-		*bo = _bo;
-	if (iova)
-		*iova = _iova;
-
-	return ptr;
-out:
-	drm_gem_object_unreference_unlocked(_bo);
-	return ERR_PTR(ret);
-}
-
 /*
  * Try to transition the preemption state from old to new. Return
  * true on success or false if the original state wasn't 'old'
@@ -100,7 +65,6 @@ static inline void update_wptr(struct msm_gpu *gpu, struct msm_ringbuffer *ring)
 /* Return the highest priority ringbuffer with something in it */
 static struct msm_ringbuffer *get_next_ring(struct msm_gpu *gpu)
 {
-	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	unsigned long flags;
 	int i;
 
@@ -109,7 +73,7 @@ static struct msm_ringbuffer *get_next_ring(struct msm_gpu *gpu)
 		struct msm_ringbuffer *ring = gpu->rb[i];
 
 		spin_lock_irqsave(&ring->lock, flags);
-		empty = (get_wptr(ring) == adreno_gpu->memptrs->rptr[ring->id]);
+		empty = (get_wptr(ring) == ring->memptrs->rptr);
 		spin_unlock_irqrestore(&ring->lock, flags);
 
 		if (!empty)
@@ -176,10 +140,8 @@ void a5xx_preempt_trigger(struct msm_gpu *gpu)
 
 	/* Set the SMMU info for the preemption */
 	if (a5xx_gpu->smmu_info) {
-		a5xx_gpu->smmu_info->ttbr0 =
-			adreno_gpu->memptrs->ttbr0[ring->id];
-		a5xx_gpu->smmu_info->contextidr =
-			adreno_gpu->memptrs->contextidr[ring->id];
+		a5xx_gpu->smmu_info->ttbr0 = ring->memptrs->ttbr0;
+		a5xx_gpu->smmu_info->contextidr = ring->memptrs->contextidr;
 	}
 
 	/* Set the address of the incoming preemption record */
@@ -278,10 +240,10 @@ static int preempt_init_ring(struct a5xx_gpu *a5xx_gpu,
 	struct drm_gem_object *bo;
 	u64 iova;
 
-	ptr = alloc_kernel_bo(gpu->dev, gpu,
+	ptr = msm_gem_kernel_new(gpu->dev,
 		A5XX_PREEMPT_RECORD_SIZE + A5XX_PREEMPT_COUNTER_SIZE,
 		MSM_BO_UNCACHED | MSM_BO_PRIVILEGED,
-		&bo, &iova);
+		gpu->aspace, &bo, &iova);
 
 	if (IS_ERR(ptr))
 		return PTR_ERR(ptr);
@@ -296,7 +258,7 @@ static int preempt_init_ring(struct a5xx_gpu *a5xx_gpu,
 	ptr->info = 0;
 	ptr->data = 0;
 	ptr->cntl = MSM_GPU_RB_CNTL_DEFAULT;
-	ptr->rptr_addr = rbmemptr(adreno_gpu, ring->id, rptr);
+	ptr->rptr_addr = rbmemptr(ring, rptr);
 	ptr->counter = iova + A5XX_PREEMPT_RECORD_SIZE;
 
 	return 0;
@@ -352,10 +314,10 @@ void a5xx_preempt_init(struct msm_gpu *gpu)
 	}
 
 	if (msm_iommu_allow_dynamic(gpu->aspace->mmu)) {
-		ptr = alloc_kernel_bo(gpu->dev, gpu,
+		ptr = msm_gem_kernel_new(gpu->dev,
 			sizeof(struct a5xx_smmu_info),
 			MSM_BO_UNCACHED | MSM_BO_PRIVILEGED,
-			&bo, &iova);
+			gpu->aspace, &bo, &iova);
 
 		if (IS_ERR(ptr))
 			goto fail;

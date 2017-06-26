@@ -653,7 +653,7 @@ static inline void ufshcd_cond_add_cmd_trace(struct ufs_hba *hba,
 					unsigned int tag, const char *str)
 {
 	struct ufshcd_lrb *lrbp;
-	char *cmd_type;
+	char *cmd_type = NULL;
 	u8 opcode = 0;
 	u8 cmd_id = 0, idn = 0;
 	sector_t lba = -1;

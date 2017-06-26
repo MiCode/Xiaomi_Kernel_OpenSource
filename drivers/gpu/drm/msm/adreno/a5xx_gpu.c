@@ -46,7 +46,6 @@ static void a5xx_flush(struct msm_gpu *gpu, struct msm_ringbuffer *ring)
 static void a5xx_set_pagetable(struct msm_gpu *gpu, struct msm_ringbuffer *ring,
 	struct msm_gem_address_space *aspace)
 {
-	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	struct msm_mmu *mmu = aspace->mmu;
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
 
@@ -75,17 +74,15 @@ static void a5xx_set_pagetable(struct msm_gpu *gpu, struct msm_ringbuffer *ring,
 	 * reload the pagetable if the current ring gets preempted out.
 	 */
 	OUT_PKT7(ring, CP_MEM_WRITE, 4);
-	OUT_RING(ring, lower_32_bits(rbmemptr(adreno_gpu, ring->id, ttbr0)));
-	OUT_RING(ring, upper_32_bits(rbmemptr(adreno_gpu, ring->id, ttbr0)));
+	OUT_RING(ring, lower_32_bits(rbmemptr(ring, ttbr0)));
+	OUT_RING(ring, upper_32_bits(rbmemptr(ring, ttbr0)));
 	OUT_RING(ring, lower_32_bits(iommu->ttbr0));
 	OUT_RING(ring, upper_32_bits(iommu->ttbr0));
 
 	/* Also write the current contextidr (ASID) */
 	OUT_PKT7(ring, CP_MEM_WRITE, 3);
-	OUT_RING(ring, lower_32_bits(rbmemptr(adreno_gpu, ring->id,
-		contextidr)));
-	OUT_RING(ring, upper_32_bits(rbmemptr(adreno_gpu, ring->id,
-		contextidr)));
+	OUT_RING(ring, lower_32_bits(rbmemptr(ring, contextidr)));
+	OUT_RING(ring, upper_32_bits(rbmemptr(ring, contextidr)));
 	OUT_RING(ring, iommu->contextidr);
 
 	/* Invalidate the draw state so we start off fresh */
@@ -217,8 +214,8 @@ static void a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 	OUT_PKT7(ring, CP_EVENT_WRITE, 4);
 	OUT_RING(ring, CACHE_FLUSH_TS | (1 << 31));
 
-	OUT_RING(ring, lower_32_bits(rbmemptr(adreno_gpu, ring->id, fence)));
-	OUT_RING(ring, upper_32_bits(rbmemptr(adreno_gpu, ring->id, fence)));
+	OUT_RING(ring, lower_32_bits(rbmemptr(ring, fence)));
+	OUT_RING(ring, upper_32_bits(rbmemptr(ring, fence)));
 	OUT_RING(ring, submit->fence);
 
 	if (submit->secure) {
@@ -477,30 +474,14 @@ static int a5xx_preempt_start(struct msm_gpu *gpu)
 static struct drm_gem_object *a5xx_ucode_load_bo(struct msm_gpu *gpu,
 		const struct firmware *fw, u64 *iova)
 {
-	struct drm_device *drm = gpu->dev;
 	struct drm_gem_object *bo;
 	void *ptr;
 
-	bo = msm_gem_new(drm, fw->size - 4,
-		MSM_BO_UNCACHED | MSM_BO_GPU_READONLY);
+	ptr = msm_gem_kernel_new(gpu->dev, fw->size - 4,
+		MSM_BO_UNCACHED | MSM_BO_GPU_READONLY, gpu->aspace, &bo, iova);
 
-	if (IS_ERR(bo))
-		return bo;
-
-	ptr = msm_gem_vaddr(bo);
-	if (!ptr) {
-		drm_gem_object_unreference_unlocked(bo);
-		return ERR_PTR(-ENOMEM);
-	}
-
-	if (iova) {
-		int ret = msm_gem_get_iova(bo, gpu->aspace, iova);
-
-		if (ret) {
-			drm_gem_object_unreference_unlocked(bo);
-			return ERR_PTR(ret);
-		}
-	}
+	if (IS_ERR(ptr))
+		return ERR_CAST(ptr);
 
 	memcpy(ptr, &fw->data[4], fw->size - 4);
 	return bo;
