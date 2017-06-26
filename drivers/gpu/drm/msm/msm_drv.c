@@ -229,6 +229,24 @@ void __iomem *msm_ioremap(struct platform_device *pdev, const char *name,
 	return ptr;
 }
 
+unsigned long msm_iomap_size(struct platform_device *pdev, const char *name)
+{
+	struct resource *res;
+
+	if (name)
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, name);
+	else
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+
+	if (!res) {
+		dev_err(&pdev->dev, "failed to get memory resource: %s\n",
+									name);
+		return 0;
+	}
+
+	return resource_size(res);
+}
+
 void msm_iounmap(struct platform_device *pdev, void __iomem *addr)
 {
 	devm_iounmap(&pdev->dev, addr);
@@ -389,10 +407,11 @@ static int msm_drm_uninit(struct device *dev)
 			       priv->vram.paddr, attrs);
 	}
 
+	component_unbind_all(dev, ddev);
+
 	sde_dbg_destroy();
 	debugfs_remove_recursive(priv->debug_root);
 
-	component_unbind_all(dev, ddev);
 	sde_power_client_destroy(&priv->phandle, priv->pclient);
 	sde_power_resource_deinit(pdev, &priv->phandle);
 
@@ -586,6 +605,15 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 		goto power_client_fail;
 	}
 
+	dbg_power_ctrl.handle = &priv->phandle;
+	dbg_power_ctrl.client = priv->pclient;
+	dbg_power_ctrl.enable_fn = msm_power_enable_wrapper;
+	ret = sde_dbg_init(&pdev->dev, &dbg_power_ctrl);
+	if (ret) {
+		dev_err(dev, "failed to init sde dbg: %d\n", ret);
+		goto dbg_init_fail;
+	}
+
 	/* Bind all our sub-components: */
 	ret = msm_component_bind_all(dev, ddev);
 	if (ret)
@@ -594,15 +622,6 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	ret = msm_init_vram(ddev);
 	if (ret)
 		goto fail;
-
-	dbg_power_ctrl.handle = &priv->phandle;
-	dbg_power_ctrl.client = priv->pclient;
-	dbg_power_ctrl.enable_fn = msm_power_enable_wrapper;
-	ret = sde_dbg_init(&pdev->dev, &dbg_power_ctrl);
-	if (ret) {
-		dev_err(dev, "failed to init sde dbg: %d\n", ret);
-		goto fail;
-	}
 
 	switch (get_mdp_ver(pdev)) {
 	case KMS_MDP4:
@@ -757,6 +776,8 @@ fail:
 	msm_drm_uninit(dev);
 	return ret;
 bind_fail:
+	sde_dbg_destroy();
+dbg_init_fail:
 	sde_power_client_destroy(&priv->phandle, priv->pclient);
 power_client_fail:
 	sde_power_resource_deinit(pdev, &priv->phandle);

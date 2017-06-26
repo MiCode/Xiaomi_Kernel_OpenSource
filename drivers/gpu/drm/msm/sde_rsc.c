@@ -30,6 +30,9 @@
 #include "sde_rsc_priv.h"
 #include "sde_dbg.h"
 
+#define SDE_RSC_DRV_DBG_NAME		"sde_rsc_drv"
+#define SDE_RSC_WRAPPER_DBG_NAME	"sde_rsc_wrapper"
+
 /* worst case time to execute the one tcs vote(sleep/wake) - ~1ms */
 #define SINGLE_TCS_EXECUTION_TIME				1064000
 
@@ -1065,6 +1068,10 @@ static int sde_rsc_bind(struct device *dev,
 	rsc->master_drm = drm;
 	mutex_unlock(&rsc->client_lock);
 
+	sde_dbg_reg_register_base(SDE_RSC_DRV_DBG_NAME, rsc->drv_io.base,
+							rsc->drv_io.len);
+	sde_dbg_reg_register_base(SDE_RSC_WRAPPER_DBG_NAME,
+				rsc->wrapper_io.base, rsc->wrapper_io.len);
 	return 0;
 }
 
