@@ -141,6 +141,8 @@
 			    0x00 0x23c /* CHG_CTRL2 */
 			    0x22 0x210>; /* PWR_CTRL1 */
 
+		qcom,phy-auto-resume-offset = <0x254>;
+
 		phy_type= "utmi";
 		clocks = <&clock_rpmh RPMH_CXO_CLK>,
 			 <&clock_gcc GCC_USB_PHY_CFG_AHB2PHY_CLK>;
