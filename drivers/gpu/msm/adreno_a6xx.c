@@ -1416,6 +1416,8 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 	int ret, i;
 
 	switch (boot_state) {
+	case GMU_RESET:
+		/* fall through */
 	case GMU_COLD_BOOT:
 		/* Turn on the HM and SPTP head switches */
 		ret = a6xx_hm_sptprac_enable(device);
@@ -1428,6 +1430,10 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 		if (!test_and_set_bit(GMU_BOOT_INIT_DONE, &gmu->flags)) {
 			_load_gmu_rpmh_ucode(device);
 			/* Turn on the HM and SPTP head switches */
+			ret = a6xx_hm_sptprac_enable(device);
+			if (ret)
+				return ret;
+		} else if (boot_state == GMU_RESET) {
 			ret = a6xx_hm_sptprac_enable(device);
 			if (ret)
 				return ret;
@@ -1458,11 +1464,6 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 		if (ret)
 			return ret;
 		break;
-	case GMU_RESET:
-		/* Turn on the HM and SPTP head switches */
-		ret = a6xx_hm_sptprac_enable(device);
-		if (ret)
-			return ret;
 	default:
 		break;
 	}
