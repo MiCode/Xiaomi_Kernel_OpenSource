@@ -2858,7 +2858,7 @@ static int _sde_plane_validate_scaler_v2(struct sde_plane *psde,
 					"req %d/%d, fetch %d/%d, src %dx%d\n",
 					hor_req_pixels, vert_req_pixels,
 					hor_fetch_pixels, vert_fetch_pixels,
-					src_w, src_h);
+					img_w, img_h);
 			return -EINVAL;
 		}
 
@@ -3564,7 +3564,7 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 		}
 
 		if (psde->features & BIT(SDE_SSPP_SCALER_QSEED3)) {
-			msm_property_install_volatile_range(
+			msm_property_install_range(
 					&psde->property_info, "scaler_v2",
 					0x0, 0, ~0, 0, PLANE_PROP_SCALER_V2);
 			msm_property_install_blob(&psde->property_info,
@@ -3576,7 +3576,7 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 					"lut_sep", 0,
 					PLANE_PROP_SCALER_LUT_SEP);
 		} else if (psde->features & SDE_SSPP_SCALER) {
-			msm_property_install_volatile_range(
+			msm_property_install_range(
 					&psde->property_info, "scaler_v1", 0x0,
 					0, ~0, 0, PLANE_PROP_SCALER_V1);
 		}
@@ -3781,6 +3781,9 @@ static inline void _sde_plane_set_scaler_v1(struct sde_plane *psde, void *usr)
 		return;
 	}
 
+	/* force property to be dirty, even if the pointer didn't change */
+	msm_property_set_dirty(&psde->property_info, PLANE_PROP_SCALER_V1);
+
 	/* populate from user space */
 	pe = &(psde->pixel_ext);
 	memset(pe, 0, sizeof(struct sde_hw_pixel_ext));
@@ -3843,6 +3846,9 @@ static inline void _sde_plane_set_scaler_v2(struct sde_plane *psde,
 		SDE_DEBUG_PLANE(psde, "scale data removed\n");
 		return;
 	}
+
+	/* force property to be dirty, even if the pointer didn't change */
+	msm_property_set_dirty(&psde->property_info, PLANE_PROP_SCALER_V2);
 
 	/* populate from user space */
 	pe = &(psde->pixel_ext);
