@@ -371,6 +371,18 @@ int msm_property_index(struct msm_property_info *info,
 	return rc;
 }
 
+int msm_property_set_dirty(struct msm_property_info *info, int property_idx)
+{
+	if (!info) {
+		DRM_ERROR("invalid property info\n");
+		return -EINVAL;
+	}
+	mutex_lock(&info->property_lock);
+	_msm_property_set_dirty_no_lock(info, property_idx);
+	mutex_unlock(&info->property_lock);
+	return 0;
+}
+
 int msm_property_atomic_set(struct msm_property_info *info,
 		uint64_t *property_values,
 		struct drm_property_blob **property_blobs,
