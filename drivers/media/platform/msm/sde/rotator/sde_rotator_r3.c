@@ -2677,9 +2677,9 @@ static irqreturn_t sde_hw_rotator_rotirq_handler(int irq, void *ptr)
 static irqreturn_t sde_hw_rotator_regdmairq_handler(int irq, void *ptr)
 {
 	struct sde_hw_rotator *rot = ptr;
-	struct sde_hw_rotator_context *ctx;
+	struct sde_hw_rotator_context *ctx, *tmp;
 	irqreturn_t ret = IRQ_NONE;
-	u32 isr;
+	u32 isr, isr_tmp;
 	u32 ts;
 	u32 q_id;
 
@@ -2716,18 +2716,28 @@ static irqreturn_t sde_hw_rotator_regdmairq_handler(int irq, void *ptr)
 		 * Timestamp packet is not available in sbuf mode.
 		 * Simulate timestamp update in the handler instead.
 		 */
-		if (!list_empty(&rot->sbuf_ctx[q_id])) {
-			ctx = list_first_entry_or_null(&rot->sbuf_ctx[q_id],
-					struct sde_hw_rotator_context, list);
-			if (ctx) {
+		if (list_empty(&rot->sbuf_ctx[q_id]))
+			goto skip_sbuf;
+
+		ctx = NULL;
+		isr_tmp = isr;
+		list_for_each_entry(tmp, &rot->sbuf_ctx[q_id], list) {
+			u32 mask;
+
+			mask = tmp->timestamp & 0x1 ? REGDMA_INT_1_MASK :
+				REGDMA_INT_0_MASK;
+			if (isr_tmp & mask) {
+				isr_tmp &= ~mask;
+				ctx = tmp;
 				ts = ctx->timestamp;
 				sde_hw_rotator_update_swts(rot, ctx, ts);
 				SDEROT_DBG("update swts:0x%X\n", ts);
-			} else {
-				SDEROT_ERR("invalid swts ctx\n");
 			}
+			SDEROT_EVTLOG(isr, tmp->timestamp);
 		}
-
+		if (ctx == NULL)
+			SDEROT_ERR("invalid swts ctx\n");
+skip_sbuf:
 		ctx = rot->rotCtx[q_id][ts & SDE_HW_ROT_REGDMA_SEG_MASK];
 
 		/*
