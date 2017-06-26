@@ -1238,7 +1238,7 @@ static int gmu_enable_gdsc(struct gmu_device *gmu)
 	return ret;
 }
 
-#define CX_GDSC_TIMEOUT	10	/* ms */
+#define CX_GDSC_TIMEOUT	500	/* ms */
 static int gmu_disable_gdsc(struct gmu_device *gmu)
 {
 	int ret;
@@ -1264,7 +1264,7 @@ static int gmu_disable_gdsc(struct gmu_device *gmu)
 	do {
 		if (!regulator_is_enabled(gmu->cx_gdsc))
 			return 0;
-		udelay(100);
+		cond_resched();
 
 	} while (!(time_after(jiffies, t)));
 
