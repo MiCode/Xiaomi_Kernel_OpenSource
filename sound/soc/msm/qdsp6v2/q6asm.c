@@ -36,6 +36,7 @@
 
 #include <sound/apr_audio-v2.h>
 #include <sound/q6asm-v2.h>
+#include <sound/q6core.h>
 #include <sound/q6audio-v2.h>
 #include <sound/audio_cal_utils.h>
 #include <sound/adsp_err.h>
@@ -7117,13 +7118,10 @@ fail_cmd:
 	return rc;
 }
 
-int q6asm_send_ion_fd(struct audio_client *ac, int fd)
+int q6asm_audio_map_shm_fd(struct audio_client *ac, int fd)
 {
-	struct ion_client *client;
-	struct ion_handle *handle;
 	ion_phys_addr_t paddr;
 	size_t pa_len = 0;
-	void *vaddr;
 	int ret;
 	int sz = 0;
 	struct avs_rtic_shared_mem_addr shm;
@@ -7139,19 +7137,10 @@ int q6asm_send_ion_fd(struct audio_client *ac, int fd)
 		goto fail_cmd;
 	}
 
-	ret = msm_audio_ion_import("audio_mem_client",
-				   &client,
-				   &handle,
-				   fd,
-				   NULL,
-				   0,
-				   &paddr,
-				   &pa_len,
-				   &vaddr);
+	ret = msm_audio_ion_phys_assign("audio_shm_mem_client", fd,
+					&paddr, &pa_len, HLOS_TO_ADSP);
 	if (ret) {
-		pr_err("%s: audio ION import failed, rc = %d\n",
-		       __func__, ret);
-		ret = -ENOMEM;
+		pr_err("%s: shm ION phys failed, rc = %d\n", __func__, ret);
 		goto fail_cmd;
 	}
 	/* get payload length */
