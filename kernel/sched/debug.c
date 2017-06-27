@@ -698,10 +698,6 @@ do {									\
 	P(cpu_capacity);
 #endif
 #ifdef CONFIG_SCHED_WALT
-#ifdef CONFIG_SCHED_HMP
-	P(static_cpu_pwr_cost);
-	P(cluster->static_cluster_pwr_cost);
-#endif
 	P(cluster->load_scale_factor);
 	P(cluster->capacity);
 	P(cluster->max_possible_capacity);
@@ -794,10 +790,6 @@ static void sched_debug_header(struct seq_file *m)
 	P(sysctl_sched_child_runs_first);
 	P(sysctl_sched_features);
 #ifdef CONFIG_SCHED_WALT
-#ifdef CONFIG_SCHED_HMP
-	P(sched_upmigrate);
-	P(sched_downmigrate);
-#endif
 	P(sched_init_task_load_windows);
 	P(min_capacity);
 	P(max_capacity);
@@ -965,9 +957,6 @@ static void sched_show_numa(struct task_struct *p, struct seq_file *m)
 void proc_sched_show_task(struct task_struct *p, struct seq_file *m)
 {
 	unsigned long nr_switches;
-	unsigned int load_avg;
-
-	load_avg = pct_task_load(p);
 
 	SEQ_printf(m, "%s (%d, #threads: %d)\n", p->comm, task_pid_nr(p),
 						get_nr_threads(p));
@@ -1025,11 +1014,8 @@ void proc_sched_show_task(struct task_struct *p, struct seq_file *m)
 		P_SCHEDSTAT(se.statistics.nr_wakeups_affine_attempts);
 		P_SCHEDSTAT(se.statistics.nr_wakeups_passive);
 		P_SCHEDSTAT(se.statistics.nr_wakeups_idle);
-#if defined(CONFIG_SMP) && defined(CONFIG_FAIR_GROUP_SCHED)
-		__P(load_avg);
-#ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_WALT
 		P(ravg.demand);
-#endif
 #endif
 		avg_atom = p->se.sum_exec_runtime;
 		if (nr_switches)

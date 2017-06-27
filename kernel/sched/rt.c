@@ -39,21 +39,6 @@ fixup_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p,
 #ifdef CONFIG_SMP
 static int find_lowest_rq(struct task_struct *task);
 
-#ifdef CONFIG_SCHED_HMP
-static int
-select_task_rq_rt_hmp(struct task_struct *p, int cpu, int sd_flag, int flags)
-{
-	int target;
-
-	rcu_read_lock();
-	target = find_lowest_rq(p);
-	if (target != -1)
-		cpu = target;
-	rcu_read_unlock();
-
-	return cpu;
-}
-#endif /* CONFIG_SCHED_HMP */
 #endif /* CONFIG_SMP */
 #else  /* CONFIG_SCHED_WALT */
 
@@ -63,7 +48,7 @@ inc_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p) { }
 static inline void
 dec_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p) { }
 
-#endif	/* CONFIG_SCHED_HMP */
+#endif	/* CONFIG_SCHED_WALT */
 
 #include "walt.h"
 
@@ -1515,10 +1500,6 @@ select_task_rq_rt(struct task_struct *p, int cpu, int sd_flag, int flags)
 	struct rq *rq;
 	bool may_not_preempt;
 
-#ifdef CONFIG_SCHED_HMP
-	return select_task_rq_rt_hmp(p, cpu, sd_flag, flags);
-#endif
-
 	/* For anything but wake ups, just return the task_cpu */
 	if (sd_flag != SD_BALANCE_WAKE && sd_flag != SD_BALANCE_FORK)
 		goto out;
@@ -1771,93 +1752,6 @@ static struct task_struct *pick_highest_pushable_task(struct rq *rq, int cpu)
 
 static DEFINE_PER_CPU(cpumask_var_t, local_cpu_mask);
 
-#ifdef CONFIG_SCHED_HMP
-static int find_lowest_rq_hmp(struct task_struct *task)
-{
-	struct cpumask *lowest_mask = *this_cpu_ptr(&local_cpu_mask);
-	struct cpumask candidate_mask = CPU_MASK_NONE;
-	struct sched_cluster *cluster;
-	int best_cpu = -1;
-	int prev_cpu = task_cpu(task);
-	u64 cpu_load, min_load = ULLONG_MAX;
-	int i;
-	int restrict_cluster;
-	int boost_on_big;
-	int pack_task, wakeup_latency, least_wakeup_latency = INT_MAX;
-
-	boost_on_big = sched_boost() == FULL_THROTTLE_BOOST &&
-			sched_boost_policy() == SCHED_BOOST_ON_BIG;
-
-	restrict_cluster = sysctl_sched_restrict_cluster_spill;
-
-	/* Make sure the mask is initialized first */
-	if (unlikely(!lowest_mask))
-		return best_cpu;
-
-	if (task->nr_cpus_allowed == 1)
-		return best_cpu; /* No other targets possible */
-
-	if (!cpupri_find(&task_rq(task)->rd->cpupri, task, lowest_mask))
-		return best_cpu; /* No targets found */
-
-	pack_task = is_short_burst_task(task);
-
-	/*
-	 * At this point we have built a mask of cpus representing the
-	 * lowest priority tasks in the system.  Now we want to elect
-	 * the best one based on our affinity and topology.
-	 */
-
-	for_each_sched_cluster(cluster) {
-		if (boost_on_big && cluster->capacity != max_possible_capacity)
-			continue;
-
-		cpumask_and(&candidate_mask, &cluster->cpus, lowest_mask);
-		cpumask_andnot(&candidate_mask, &candidate_mask,
-			       cpu_isolated_mask);
-
-		if (cpumask_empty(&candidate_mask))
-			continue;
-
-		for_each_cpu(i, &candidate_mask) {
-			if (sched_cpu_high_irqload(i))
-				continue;
-
-			cpu_load = cpu_rq(i)->hmp_stats.cumulative_runnable_avg;
-			if (!restrict_cluster)
-				cpu_load = scale_load_to_cpu(cpu_load, i);
-
-			if (pack_task) {
-				wakeup_latency = cpu_rq(i)->wakeup_latency;
-
-				if (wakeup_latency > least_wakeup_latency)
-					continue;
-
-				if (wakeup_latency < least_wakeup_latency) {
-					least_wakeup_latency = wakeup_latency;
-					min_load = cpu_load;
-					best_cpu = i;
-					continue;
-				}
-			}
-
-			if (cpu_load < min_load ||
-				(cpu_load == min_load &&
-				(i == prev_cpu || (best_cpu != prev_cpu &&
-				cpus_share_cache(prev_cpu, i))))) {
-				min_load = cpu_load;
-				best_cpu = i;
-			}
-		}
-
-		if (restrict_cluster && best_cpu != -1)
-			break;
-	}
-
-	return best_cpu;
-}
-#endif	/* CONFIG_SCHED_HMP */
-
 static inline unsigned long task_util(struct task_struct *p)
 {
 #ifdef CONFIG_SCHED_WALT
@@ -1887,10 +1781,6 @@ static int find_lowest_rq(struct task_struct *task)
 	int max_spare_cap_cpu = -1;
 	long max_spare_cap = -LONG_MAX;
 	bool placement_boost;
-
-#ifdef CONFIG_SCHED_HMP
-	return find_lowest_rq_hmp(task);
-#endif
 
 	/* Make sure the mask is initialized first */
 	if (unlikely(!lowest_mask))
