@@ -39,7 +39,7 @@
 
 #define ICP_PACKET_SIZE         0
 #define ICP_PACKET_TYPE         1
-#define ICP_PACKET_IPCODE       2
+#define ICP_PACKET_OPCODE       2
 #define ICP_IPE_MAX_OUTPUT_SUPPORTED 6
 
 /**
