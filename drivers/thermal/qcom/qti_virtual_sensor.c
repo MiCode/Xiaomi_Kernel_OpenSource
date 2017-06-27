@@ -29,7 +29,7 @@ static const struct virtual_sensor_data qti_virtual_sensors[] = {
 		.logic = VIRT_MAXIMUM,
 	},
 	{
-		.virt_zone_name = "silver-virt-max-usr",
+		.virt_zone_name = "silv-virt-max-step",
 		.num_sensors = 4,
 		.sensor_names = {"cpu0-silver-usr",
 				"cpu1-silver-usr",
@@ -38,7 +38,7 @@ static const struct virtual_sensor_data qti_virtual_sensors[] = {
 		.logic = VIRT_MAXIMUM,
 	},
 	{
-		.virt_zone_name = "gold-virt-max-usr",
+		.virt_zone_name = "gold-virt-max-step",
 		.num_sensors = 4,
 		.sensor_names = {"cpu0-gold-usr",
 				"cpu1-gold-usr",

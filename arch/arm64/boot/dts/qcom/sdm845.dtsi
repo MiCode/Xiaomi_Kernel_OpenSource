@@ -3261,10 +3261,10 @@
 			};
 		};
 
-		silver-virt-max-usr {
-			polling-delay-passive = <100>;
-			polling-delay = <100>;
-			thermal-governor = "user_space";
+		silv-virt-max-step {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-governor = "step_wise";
 			trips {
 				silver-trip {
 					temperature = <120000>;
@@ -3274,10 +3274,10 @@
 			};
 		};
 
-		gold-virt-max-usr {
-			polling-delay-passive = <100>;
-			polling-delay = <100>;
-			thermal-governor = "user_space";
+		gold-virt-max-step {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-governor = "step_wise";
 			trips {
 				gold-trip {
 					temperature = <120000>;
