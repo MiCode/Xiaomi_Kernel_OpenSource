@@ -33,7 +33,8 @@
 #include <linux/termios.h>
 
 #include <soc/qcom/glink.h>
-
+/* This Limit ensures that auto queue will not exhaust memory on remote side */
+#define MAX_PENDING_GLINK_PKT 5
 #define MODULE_NAME "msm_glinkpkt"
 #define DEVICE_NAME "glinkpkt"
 #define WAKEUPSOURCE_TIMEOUT (2000) /* two seconds */
@@ -136,6 +137,7 @@ struct glink_pkt_dev {
 	struct glink_link_info link_info;
 	void *link_state_handle;
 	bool link_up;
+	bool auto_intent_enabled;
 };
 
 /**
@@ -447,8 +449,26 @@ void glink_pkt_notify_state(void *handle, const void *priv, unsigned event)
 bool glink_pkt_rmt_rx_intent_req_cb(void *handle, const void *priv, size_t sz)
 {
 	struct queue_rx_intent_work *work_item;
+	int pending_pkt_count = 0;
+	struct glink_rx_pkt *pkt = NULL;
+	unsigned long flags;
+	struct glink_pkt_dev *devp = (struct glink_pkt_dev *)priv;
+
 	GLINK_PKT_INFO("%s(): QUEUE RX INTENT to receive size[%zu]\n",
 		   __func__, sz);
+	if (devp->auto_intent_enabled) {
+		spin_lock_irqsave(&devp->pkt_list_lock, flags);
+		list_for_each_entry(pkt, &devp->pkt_list, list)
+			pending_pkt_count++;
+		spin_unlock_irqrestore(&devp->pkt_list_lock, flags);
+		if (pending_pkt_count > MAX_PENDING_GLINK_PKT) {
+			GLINK_PKT_ERR("%s failed, max limit reached\n",
+					__func__);
+			return false;
+		}
+	} else {
+		return false;
+	}
 
 	work_item = kzalloc(sizeof(*work_item), GFP_ATOMIC);
 	if (!work_item) {
@@ -457,7 +477,7 @@ bool glink_pkt_rmt_rx_intent_req_cb(void *handle, const void *priv, size_t sz)
 	}
 
 	work_item->intent_size = sz;
-	work_item->devp = (struct glink_pkt_dev *)priv;
+	work_item->devp = devp;
 	INIT_WORK(&work_item->work, glink_pkt_queue_rx_intent_worker);
 	queue_work(glink_pkt_wq, &work_item->work);
 
@@ -626,10 +646,11 @@ ssize_t glink_pkt_read(struct file *file,
 	}
 
 	mutex_lock(&devp->ch_lock);
-	if (!glink_rx_intent_exists(devp->handle, count)) {
+	if (!glink_pkt_read_avail(devp) &&
+				!glink_rx_intent_exists(devp->handle, count)) {
 		ret  = glink_queue_rx_intent(devp->handle, devp, count);
 		if (ret) {
-			GLINK_PKT_ERR("%s: failed to queue_rx_intent ret[%d]\n",
+			GLINK_PKT_ERR("%s: failed to queue intent ret[%d]\n",
 					__func__, ret);
 			mutex_unlock(&devp->ch_lock);
 			return ret;
@@ -915,6 +936,7 @@ static long glink_pkt_ioctl(struct file *file, unsigned int cmd,
 	case GLINK_PKT_IOCTL_QUEUE_RX_INTENT:
 		ret = get_user(size, (uint32_t *)arg);
 		GLINK_PKT_INFO("%s: intent size[%d]\n", __func__, size);
+		devp->auto_intent_enabled = false;
 		ret  = glink_queue_rx_intent(devp->handle, devp, size);
 		if (ret) {
 			GLINK_PKT_ERR("%s: failed to QUEUE_RX_INTENT ret[%d]\n",
@@ -1183,6 +1205,7 @@ static int glink_pkt_init_add_device(struct glink_pkt_dev *devp, int i)
 				glink_pkt_link_state_cb;
 	devp->i = i;
 	devp->poll_mode = 0;
+	devp->auto_intent_enabled = true;
 	devp->ws_locked = 0;
 	devp->ch_state = GLINK_LOCAL_DISCONNECTED;
 	/* Default timeout for open wait is 120sec */
