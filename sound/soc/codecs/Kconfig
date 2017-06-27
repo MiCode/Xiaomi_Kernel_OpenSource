@@ -900,10 +900,14 @@ config SND_SOC_WCD934X_MBHC
 	select SND_SOC_WCD_MBHC
 	select SND_SOC_WCD_MBHC_ADC
 
+config REGMAP_SWR
+	tristate
+	default y
+
 config SND_SOC_WSA881X
         tristate
+	depends on REGMAP_SWR
 	select MSM_CDC_PINCTRL
-	select REGMAP_SWR
 
 config SND_SOC_WSA881X_ANALOG
         tristate
