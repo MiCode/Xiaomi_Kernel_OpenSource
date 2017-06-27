@@ -192,8 +192,17 @@ config SND_SOC_MSM8996
 	 the machine driver and the corresponding
 	 DAI-links
 
-config SND_SOC_MSM8998
+config SND_SOC_MACHINE_MSM8998
 	tristate "SoC Machine driver for MSM8998 boards"
+
+	help
+	To enable the machine driver and the
+	corresponding DAI-links on MSM8998.
+	All platform specific audio modules are
+	enabled here.
+
+config SND_SOC_MSM8998
+	tristate "Sound SoC drivers to interface with DSP"
 	depends on ARCH_QCOM
 	select SND_SOC_COMPRESS
 	select SND_SOC_QDSP6V2
@@ -234,6 +243,15 @@ config SND_SOC_660
 	 interfaces with DSP, also it will enable
 	 the machine driver and the corresponding
 	 DAI-links
+
+config SND_SOC_MACHINE_SDM845
+	tristate "SoC Machine driver for SDM845 boards"
+
+	help
+	To enable the machine driver and the
+	corresponding DAI-links on SDM845.
+	All platform specific audio modules are
+	enabled here.
 
 config SND_SOC_SDM845
 	tristate "SoC Machine driver for SDM845 boards"
