@@ -168,6 +168,11 @@ static int cam_icp_mgr_process_msg_config_io(uint32_t *msg_ptr)
 		}
 		ctx_data =
 			(struct cam_icp_hw_ctx_data *)ioconfig_ack->user_data1;
+		if (!ctx_data) {
+			pr_err("wrong ctx data from firmware message\n");
+			return -EINVAL;
+		}
+
 		mutex_lock(&ctx_data->ctx_mutex);
 		ctx_data->scratch_mem_size = ipe_config_ack->scratch_mem_size;
 		mutex_unlock(&ctx_data->ctx_mutex);
@@ -183,6 +188,10 @@ static int cam_icp_mgr_process_msg_config_io(uint32_t *msg_ptr)
 		}
 		ctx_data =
 			(struct cam_icp_hw_ctx_data *)ioconfig_ack->user_data1;
+		if (!ctx_data) {
+			pr_err("wrong ctx data from firmware message\n");
+			return -EINVAL;
+		}
 	}
 	complete(&ctx_data->wait_complete);
 
@@ -567,12 +576,11 @@ qtbl_alloc_failed:
 static int cam_icp_mgr_get_free_ctx(struct cam_icp_hw_mgr *hw_mgr)
 {
 	int i = 0;
-	int num_ctx = CAM_ICP_CTX_MAX;
 
-	for (i = 0; i < num_ctx; i++) {
+	for (i = 0; i < CAM_ICP_CTX_MAX; i++) {
 		mutex_lock(&hw_mgr->ctx_data[i].ctx_mutex);
-		if (hw_mgr->ctx_data[i].in_use == 0) {
-			hw_mgr->ctx_data[i].in_use = 1;
+		if (hw_mgr->ctx_data[i].in_use == false) {
+			hw_mgr->ctx_data[i].in_use = true;
 			mutex_unlock(&hw_mgr->ctx_data[i].ctx_mutex);
 			break;
 		}
@@ -580,6 +588,13 @@ static int cam_icp_mgr_get_free_ctx(struct cam_icp_hw_mgr *hw_mgr)
 	}
 
 	return i;
+}
+
+static void cam_icp_mgr_put_ctx(struct cam_icp_hw_ctx_data *ctx_data)
+{
+	mutex_lock(&ctx_data->ctx_mutex);
+	ctx_data->in_use = true;
+	mutex_unlock(&ctx_data->ctx_mutex);
 }
 
 static int cam_icp_mgr_abort_handle(
@@ -603,7 +618,7 @@ static int cam_icp_mgr_abort_handle(
 		sizeof(struct hfi_cmd_abort_destroy) -
 		sizeof(abort_cmd.payload.direct);
 	abort_cmd.pkt_type = HFI_CMD_IPEBPS_ASYNC_COMMAND_DIRECT;
-	if (ctx_data->icp_dev_acquire_info.dev_type == CAM_ICP_RES_TYPE_BPS)
+	if (ctx_data->icp_dev_acquire_info->dev_type == CAM_ICP_RES_TYPE_BPS)
 		abort_cmd.opcode = HFI_IPEBPS_CMD_OPCODE_BPS_ABORT;
 	else
 		abort_cmd.opcode = HFI_IPEBPS_CMD_OPCODE_IPE_ABORT;
@@ -614,14 +629,18 @@ static int cam_icp_mgr_abort_handle(
 	abort_cmd.user_data1 = (uint64_t)ctx_data;
 	abort_cmd.user_data2 = (uint64_t)0x0;
 	memcpy(abort_cmd.payload.direct, &ctx_data->temp_payload,
-						sizeof(uint32_t));
+		sizeof(uint32_t));
 
 	task_data = (struct hfi_cmd_work_data *)task->payload;
 	task_data->data = (void *)&abort_cmd;
 	task_data->request_id = 0;
 	task_data->type = ICP_WORKQ_TASK_CMD_TYPE;
 	task->process_cb = cam_icp_mgr_process_cmd;
-	cam_req_mgr_workq_enqueue_task(task, &icp_hw_mgr, CRM_TASK_PRIORITY_0);
+	rc = cam_req_mgr_workq_enqueue_task(task, &icp_hw_mgr,
+		CRM_TASK_PRIORITY_0);
+	if (rc)
+		return rc;
+
 	ICP_DBG("fw_handle = %x ctx_data = %pK\n",
 		ctx_data->fw_handle, ctx_data);
 	rem_jiffies = wait_for_completion_timeout(&ctx_data->wait_complete,
@@ -653,7 +672,7 @@ static int cam_icp_mgr_destroy_handle(
 		sizeof(struct ipe_bps_destroy) -
 		sizeof(destroy_cmd.payload.direct);
 	destroy_cmd.pkt_type = HFI_CMD_IPEBPS_ASYNC_COMMAND_DIRECT;
-	if (ctx_data->icp_dev_acquire_info.dev_type == CAM_ICP_RES_TYPE_BPS)
+	if (ctx_data->icp_dev_acquire_info->dev_type == CAM_ICP_RES_TYPE_BPS)
 		destroy_cmd.opcode = HFI_IPEBPS_CMD_OPCODE_BPS_DESTROY;
 	else
 		destroy_cmd.opcode = HFI_IPEBPS_CMD_OPCODE_IPE_DESTROY;
@@ -671,7 +690,11 @@ static int cam_icp_mgr_destroy_handle(
 	task_data->request_id = 0;
 	task_data->type = ICP_WORKQ_TASK_CMD_TYPE;
 	task->process_cb = cam_icp_mgr_process_cmd;
-	cam_req_mgr_workq_enqueue_task(task, &icp_hw_mgr, CRM_TASK_PRIORITY_0);
+	rc = cam_req_mgr_workq_enqueue_task(task, &icp_hw_mgr,
+		CRM_TASK_PRIORITY_0);
+	if (rc)
+		return rc;
+
 	ICP_DBG("fw_handle = %x ctx_data = %pK\n",
 		ctx_data->fw_handle, ctx_data);
 	rem_jiffies = wait_for_completion_timeout(&ctx_data->wait_complete,
@@ -705,7 +728,7 @@ static int cam_icp_mgr_release_ctx(struct cam_icp_hw_mgr *hw_mgr, int ctx_id)
 
 	mutex_lock(&hw_mgr->hw_mgr_mutex);
 	mutex_lock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
-	hw_mgr->ctx_data[ctx_id].in_use = 0;
+	hw_mgr->ctx_data[ctx_id].in_use = false;
 	hw_mgr->ctx_data[ctx_id].fw_handle = 0;
 	hw_mgr->ctx_data[ctx_id].scratch_mem_size = 0;
 	mutex_lock(&hw_mgr->ctx_data[ctx_id].hfi_frame_process.lock);
@@ -713,12 +736,12 @@ static int cam_icp_mgr_release_ctx(struct cam_icp_hw_mgr *hw_mgr, int ctx_id)
 		clear_bit(i, hw_mgr->ctx_data[ctx_id].hfi_frame_process.bitmap);
 	mutex_unlock(&hw_mgr->ctx_data[ctx_id].hfi_frame_process.lock);
 	mutex_destroy(&hw_mgr->ctx_data[ctx_id].hfi_frame_process.lock);
-	mutex_unlock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
 	kfree(hw_mgr->ctx_data[ctx_id].hfi_frame_process.bitmap);
 	hw_mgr->ctxt_cnt--;
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
-	if (!hw_mgr->ctxt_cnt)
-		cam_icp_mgr_hw_close(hw_mgr, NULL);
+	kfree(hw_mgr->ctx_data[ctx_id].icp_dev_acquire_info);
+	hw_mgr->ctx_data[ctx_id].icp_dev_acquire_info = NULL;
+	mutex_unlock(&hw_mgr->ctx_data[ctx_id].ctx_mutex);
 
 	return 0;
 }
@@ -1063,7 +1086,7 @@ static int cam_icp_mgr_prepare_frame_process_cmd(
 {
 	hfi_cmd->size = sizeof(struct hfi_cmd_ipebps_async);
 	hfi_cmd->pkt_type = HFI_CMD_IPEBPS_ASYNC_COMMAND_INDIRECT;
-	if (ctx_data->icp_dev_acquire_info.dev_type == CAM_ICP_RES_TYPE_BPS)
+	if (ctx_data->icp_dev_acquire_info->dev_type == CAM_ICP_RES_TYPE_BPS)
 		hfi_cmd->opcode = HFI_IPEBPS_CMD_OPCODE_BPS_FRAME_PROCESS;
 	else
 		hfi_cmd->opcode = HFI_IPEBPS_CMD_OPCODE_IPE_FRAME_PROCESS;
@@ -1227,7 +1250,7 @@ static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
 
 	prepare_args->in_map_entries[0].sync_id = merged_sync_in_obj;
 	prepare_args->in_map_entries[0].resource_handle =
-			ctx_data->icp_dev_acquire_info.dev_type;
+		ctx_data->icp_dev_acquire_info->dev_type;
 	prepare_args->num_in_map_entries = 1;
 	ICP_DBG("out buf entries processing is done\n");
 
@@ -1310,7 +1333,7 @@ static int cam_icp_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 
 	ctx_data = release_hw->ctxt_to_hw_map;
 	ctx_id = ctx_data->ctx_id;
-	if (ctx_id < 0) {
+	if (ctx_id < 0 || ctx_id >= CAM_ICP_CTX_MAX) {
 		pr_err("Invalid ctx id: %d\n", ctx_id);
 		return -EINVAL;
 	}
@@ -1321,6 +1344,8 @@ static int cam_icp_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 	}
 
 	rc = cam_icp_mgr_release_ctx(hw_mgr, ctx_id);
+	if (!hw_mgr->ctxt_cnt)
+		cam_icp_mgr_hw_close(hw_mgr, NULL);
 
 	return rc;
 }
@@ -1341,7 +1366,7 @@ static int cam_icp_mgr_send_config_io(struct cam_icp_hw_ctx_data *ctx_data,
 
 	ioconfig_cmd.size = sizeof(struct hfi_cmd_ipebps_async);
 	ioconfig_cmd.pkt_type = HFI_CMD_IPEBPS_ASYNC_COMMAND_INDIRECT;
-	if (ctx_data->icp_dev_acquire_info.dev_type == CAM_ICP_RES_TYPE_BPS)
+	if (ctx_data->icp_dev_acquire_info->dev_type == CAM_ICP_RES_TYPE_BPS)
 		ioconfig_cmd.opcode = HFI_IPEBPS_CMD_OPCODE_BPS_CONFIG_IO;
 	else
 		ioconfig_cmd.opcode = HFI_IPEBPS_CMD_OPCODE_IPE_CONFIG_IO;
@@ -1359,7 +1384,11 @@ static int cam_icp_mgr_send_config_io(struct cam_icp_hw_ctx_data *ctx_data,
 	task_data->request_id = 0;
 	task_data->type = ICP_WORKQ_TASK_CMD_TYPE;
 	task->process_cb = cam_icp_mgr_process_cmd;
-	cam_req_mgr_workq_enqueue_task(task, &icp_hw_mgr, CRM_TASK_PRIORITY_0);
+	rc = cam_req_mgr_workq_enqueue_task(task, &icp_hw_mgr,
+		CRM_TASK_PRIORITY_0);
+	if (rc)
+		return rc;
+
 	ICP_DBG("fw_hdl = %x ctx_data = %pK\n", ctx_data->fw_handle, ctx_data);
 
 	rem_jiffies = wait_for_completion_timeout(&ctx_data->wait_complete,
@@ -1400,7 +1429,10 @@ static int cam_icp_mgr_create_handle(uint32_t dev_type,
 	task_data->request_id = 0;
 	task_data->type = ICP_WORKQ_TASK_CMD_TYPE;
 	task->process_cb = cam_icp_mgr_process_cmd;
-	cam_req_mgr_workq_enqueue_task(task, &icp_hw_mgr, CRM_TASK_PRIORITY_0);
+	rc = cam_req_mgr_workq_enqueue_task(task, &icp_hw_mgr,
+		CRM_TASK_PRIORITY_0);
+	if (rc)
+		return rc;
 
 	rem_jiffies = wait_for_completion_timeout(&ctx_data->wait_complete,
 			msecs_to_jiffies((timeout)));
@@ -1440,7 +1472,11 @@ static int cam_icp_mgr_send_ping(struct cam_icp_hw_ctx_data *ctx_data)
 	task_data->request_id = 0;
 	task_data->type = ICP_WORKQ_TASK_CMD_TYPE;
 	task->process_cb = cam_icp_mgr_process_cmd;
-	cam_req_mgr_workq_enqueue_task(task, &icp_hw_mgr, CRM_TASK_PRIORITY_0);
+
+	rc = cam_req_mgr_workq_enqueue_task(task, &icp_hw_mgr,
+		CRM_TASK_PRIORITY_0);
+	if (rc)
+		return rc;
 
 	rem_jiffies = wait_for_completion_timeout(&ctx_data->wait_complete,
 			msecs_to_jiffies((timeout)));
@@ -1449,22 +1485,73 @@ static int cam_icp_mgr_send_ping(struct cam_icp_hw_ctx_data *ctx_data)
 		pr_err("FW response timed out %d\n", rc);
 	}
 
-
 	return rc;
+}
+
+static int cam_icp_get_acquire_info(struct cam_icp_hw_mgr *hw_mgr,
+	struct cam_hw_acquire_args *args,
+	struct cam_icp_hw_ctx_data *ctx_data)
+{
+	int i;
+	int acquire_size;
+	struct cam_icp_acquire_dev_info icp_dev_acquire_info;
+	struct cam_icp_res_info *p_icp_out = NULL;
+
+	if (copy_from_user(&icp_dev_acquire_info,
+		(void __user *)args->acquire_info,
+		sizeof(struct cam_icp_acquire_dev_info)))
+		return -EFAULT;
+
+	if (icp_dev_acquire_info.num_out_res > ICP_MAX_OUTPUT_SUPPORTED) {
+		pr_err("num of out resources exceeding : %u\n",
+			icp_dev_acquire_info.num_out_res);
+		return -EINVAL;
+	}
+
+	acquire_size = sizeof(struct cam_icp_acquire_dev_info) +
+		(icp_dev_acquire_info.num_out_res *
+		sizeof(struct cam_icp_res_info));
+	ctx_data->icp_dev_acquire_info = kzalloc(acquire_size, GFP_KERNEL);
+	if (!ctx_data->icp_dev_acquire_info)
+		return -ENOMEM;
+
+	if (copy_from_user(ctx_data->icp_dev_acquire_info,
+		(void __user *)args->acquire_info, acquire_size)) {
+		kfree(ctx_data->icp_dev_acquire_info);
+		ctx_data->icp_dev_acquire_info = NULL;
+		return -EFAULT;
+	}
+
+	ICP_DBG("%x %x %x %x %x %x %x\n",
+		ctx_data->icp_dev_acquire_info->dev_type,
+		ctx_data->icp_dev_acquire_info->in_res.format,
+		ctx_data->icp_dev_acquire_info->in_res.width,
+		ctx_data->icp_dev_acquire_info->in_res.height,
+		ctx_data->icp_dev_acquire_info->in_res.fps,
+		ctx_data->icp_dev_acquire_info->num_out_res,
+		ctx_data->icp_dev_acquire_info->scratch_mem_size);
+
+	p_icp_out = ctx_data->icp_dev_acquire_info->out_res;
+	for (i = 0; i < ctx_data->icp_dev_acquire_info->num_out_res; i++)
+		ICP_DBG("out[i] %x %x %x %x\n",
+			p_icp_out[i].format,
+			p_icp_out[i].width,
+			p_icp_out[i].height,
+			p_icp_out[i].fps);
+
+	return 0;
 }
 
 static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 {
-	int rc = 0, i, bitmap_size = 0, tmp_size;
+	int rc = 0, bitmap_size = 0;
 	uint32_t ctx_id = 0;
 	uint64_t io_buf_addr;
 	size_t io_buf_size;
 	struct cam_icp_hw_mgr *hw_mgr = hw_mgr_priv;
 	struct cam_icp_hw_ctx_data *ctx_data = NULL;
 	struct cam_hw_acquire_args *args = acquire_hw_args;
-	struct cam_icp_acquire_dev_info icp_dev_acquire_info;
-	struct cam_icp_res_info *p_icp_out = NULL;
-	uint8_t *tmp_acquire;
+	struct cam_icp_acquire_dev_info *icp_dev_acquire_info;
 
 	if ((!hw_mgr_priv) || (!acquire_hw_args)) {
 		pr_err("Invalid params: %pK %pK\n", hw_mgr_priv,
@@ -1477,97 +1564,46 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 		return -EINVAL;
 	}
 
-	if (copy_from_user(&icp_dev_acquire_info,
-		(void __user *)args->acquire_info,
-		sizeof(icp_dev_acquire_info)))
-		return -EFAULT;
-
-	if (icp_dev_acquire_info.num_out_res > ICP_IPE_MAX_OUTPUT_SUPPORTED) {
-		pr_err("num of out resources exceeding : %u\n",
-			icp_dev_acquire_info.num_out_res);
-		return -EINVAL;
-	}
-
-	ICP_DBG("%x %x %x %x %x %x %x\n",
-		icp_dev_acquire_info.dev_type,
-		icp_dev_acquire_info.in_res.format,
-		icp_dev_acquire_info.in_res.width,
-		icp_dev_acquire_info.in_res.height,
-		icp_dev_acquire_info.in_res.fps,
-		icp_dev_acquire_info.num_out_res,
-		icp_dev_acquire_info.scratch_mem_size);
-
-	tmp_size = sizeof(icp_dev_acquire_info) +
-			icp_dev_acquire_info.num_out_res *
-			sizeof(struct cam_icp_res_info);
-
-	tmp_acquire = kzalloc(tmp_size, GFP_KERNEL);
-	if (!tmp_acquire)
-		return -EINVAL;
-
-	if (copy_from_user(tmp_acquire,
-		(void __user *)args->acquire_info, tmp_size)) {
-		kfree(tmp_acquire);
-		return -EFAULT;
-	}
-
-	p_icp_out =
-		(struct cam_icp_res_info *)(tmp_acquire +
-		sizeof(icp_dev_acquire_info)-
-		sizeof(struct cam_icp_res_info));
-	ICP_DBG("out[0] %x %x %x %x\n",
-		p_icp_out[0].format,
-		p_icp_out[0].width,
-		p_icp_out[0].height,
-		p_icp_out[0].fps);
-
-	ICP_DBG("out[1] %x %x %x %x\n",
-		p_icp_out[1].format,
-		p_icp_out[1].width,
-		p_icp_out[1].height,
-		p_icp_out[1].fps);
-
 	mutex_lock(&hw_mgr->hw_mgr_mutex);
 	ctx_id = cam_icp_mgr_get_free_ctx(hw_mgr);
 	if (ctx_id >= CAM_ICP_CTX_MAX) {
 		pr_err("No free ctx space in hw_mgr\n");
-		kfree(tmp_acquire);
 		mutex_unlock(&hw_mgr->hw_mgr_mutex);
 		return -EFAULT;
 	}
-
-	/* Fill ctx with acquire info */
 	ctx_data = &hw_mgr->ctx_data[ctx_id];
 	ctx_data->ctx_id = ctx_id;
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
-	/* Fill ctx with acquire info */
 	mutex_lock(&ctx_data->ctx_mutex);
-	ctx_data->icp_dev_acquire_info = icp_dev_acquire_info;
-	for (i = 0; i < icp_dev_acquire_info.num_out_res; i++)
-		ctx_data->icp_out_acquire_info[i] = p_icp_out[i];
+	rc = cam_icp_get_acquire_info(hw_mgr, args, ctx_data);
+	if (rc < 0) {
+		mutex_unlock(&ctx_data->ctx_mutex);
+		goto acquire_info_failed;
+	}
+	icp_dev_acquire_info = ctx_data->icp_dev_acquire_info;
 	mutex_unlock(&ctx_data->ctx_mutex);
 
 	/* Get IOCONFIG command info */
-	if (ctx_data->icp_dev_acquire_info.secure_mode)
+	if (icp_dev_acquire_info->secure_mode)
 		rc = cam_mem_get_io_buf(
-			icp_dev_acquire_info.io_config_cmd_handle,
+			icp_dev_acquire_info->io_config_cmd_handle,
 			hw_mgr->iommu_sec_hdl,
 			&io_buf_addr, &io_buf_size);
 	else
 		rc = cam_mem_get_io_buf(
-			icp_dev_acquire_info.io_config_cmd_handle,
+			icp_dev_acquire_info->io_config_cmd_handle,
 			hw_mgr->iommu_hdl,
 			&io_buf_addr, &io_buf_size);
 
-	ICP_DBG("io_config_cmd_handle : %d\n",
-		icp_dev_acquire_info.io_config_cmd_handle);
-	ICP_DBG("io_buf_addr : %pK\n", (void *)io_buf_addr);
-	ICP_DBG("io_buf_size : %zu\n", io_buf_size);
 	if (rc < 0) {
 		pr_err("unable to get src buf info from io desc\n");
 		goto cmd_cpu_buf_failed;
 	}
+	ICP_DBG("io_config_cmd_handle : %d\n",
+		icp_dev_acquire_info->io_config_cmd_handle);
+	ICP_DBG("io_buf_addr : %pK\n", (void *)io_buf_addr);
+	ICP_DBG("io_buf_size : %zu\n", io_buf_size);
 
 	if (!hw_mgr->ctxt_cnt) {
 		rc = cam_icp_mgr_download_fw(hw_mgr, ctx_data);
@@ -1581,15 +1617,13 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 		goto create_handle_failed;
 	}
 
-	/* Send create fw handle command */
-	rc = cam_icp_mgr_create_handle(icp_dev_acquire_info.dev_type,
+	rc = cam_icp_mgr_create_handle(icp_dev_acquire_info->dev_type,
 		ctx_data);
 	if (rc) {
 		pr_err("create handle failed\n");
 		goto create_handle_failed;
 	}
 
-	/* Send IOCONFIG command */
 	rc = cam_icp_mgr_send_config_io(ctx_data, io_buf_addr);
 	if (rc) {
 		pr_err("IO Config command failed\n");
@@ -1606,17 +1640,16 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 	ctx_data->hfi_frame_process.bits = bitmap_size * BITS_PER_BYTE;
 	mutex_init(&ctx_data->hfi_frame_process.lock);
 	hw_mgr->ctx_data[ctx_id].ctxt_event_cb = args->event_cb;
+	icp_dev_acquire_info->scratch_mem_size = ctx_data->scratch_mem_size;
 	mutex_unlock(&ctx_data->ctx_mutex);
 
-	icp_dev_acquire_info.scratch_mem_size = ctx_data->scratch_mem_size;
 	if (copy_to_user((void __user *)args->acquire_info,
-		&icp_dev_acquire_info, sizeof(icp_dev_acquire_info)))
+		icp_dev_acquire_info, sizeof(struct cam_icp_acquire_dev_info)))
 		goto copy_to_user_failed;
 
 	ICP_DBG("scratch mem size = %x fw_handle = %x\n",
-			(unsigned int)icp_dev_acquire_info.scratch_mem_size,
+			(unsigned int)icp_dev_acquire_info->scratch_mem_size,
 			(unsigned int)ctx_data->fw_handle);
-	kfree(tmp_acquire);
 	hw_mgr->ctxt_cnt++;
 	return 0;
 
@@ -1627,8 +1660,10 @@ create_handle_failed:
 	if (!hw_mgr->ctxt_cnt)
 		cam_icp_mgr_hw_close(hw_mgr, NULL);
 cmd_cpu_buf_failed:
-	cam_icp_mgr_release_ctx(hw_mgr, ctx_id);
-	kfree(tmp_acquire);
+	kfree(hw_mgr->ctx_data[ctx_id].icp_dev_acquire_info);
+	hw_mgr->ctx_data[ctx_id].icp_dev_acquire_info = NULL;
+acquire_info_failed:
+	cam_icp_mgr_put_ctx(ctx_data);
 	return rc;
 }
 
