@@ -236,6 +236,14 @@ struct msm_display_info {
 };
 
 /**
+ * struct - msm_display_kickoff_params - info for display features at kickoff
+ * @hdr_metadata: HDR metadata info passed from userspace
+ */
+struct msm_display_kickoff_params {
+	struct drm_msm_ext_panel_hdr_metadata *hdr_metadata;
+};
+
+/**
  * struct msm_drm_event - defines custom event notification struct
  * @base: base object required for event notification by DRM framework.
  * @event: event object required for event notification by DRM framework.

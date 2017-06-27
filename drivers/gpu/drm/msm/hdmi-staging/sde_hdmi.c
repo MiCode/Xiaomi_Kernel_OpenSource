@@ -2203,6 +2203,13 @@ sde_hdmi_connector_detect(struct drm_connector *connector,
 	return status;
 }
 
+int sde_hdmi_pre_kickoff(struct drm_connector *connector,
+	void *display,
+	struct msm_display_kickoff_params *params)
+{
+	return 0;
+}
+
 int sde_hdmi_connector_get_modes(struct drm_connector *connector, void *display)
 {
 	struct sde_hdmi *hdmi_display = (struct sde_hdmi *)display;

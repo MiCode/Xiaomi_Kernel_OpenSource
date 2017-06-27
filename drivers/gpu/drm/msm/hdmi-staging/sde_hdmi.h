@@ -452,6 +452,17 @@ bool sde_hdmi_tx_is_panel_on(struct sde_hdmi *hdmi_ctrl);
 int sde_hdmi_start_hdcp(struct drm_connector *connector);
 void sde_hdmi_hdcp_off(struct sde_hdmi *hdmi_ctrl);
 
+
+/*
+ * sde_hdmi_pre_kickoff - program kickoff-time features
+ * @display: Pointer to private display structure
+ * @params: Parameters for kickoff-time programming
+ * Returns: Zero on success
+ */
+int sde_hdmi_pre_kickoff(struct drm_connector *connector,
+		void *display,
+		struct msm_display_kickoff_params *params);
+
 #else /*#ifdef CONFIG_DRM_SDE_HDMI*/
 
 static inline u32 sde_hdmi_get_num_of_displays(void)
