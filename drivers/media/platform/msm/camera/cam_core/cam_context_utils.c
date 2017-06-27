@@ -138,29 +138,24 @@ static void cam_context_sync_callback(int32_t sync_obj, int status, void *data)
 int32_t cam_context_release_dev_to_hw(struct cam_context *ctx,
 	struct cam_release_dev_cmd *cmd)
 {
-	int rc = 0;
 	int i;
 	struct cam_hw_release_args arg;
 	struct cam_ctx_request *req;
 
-	if (!ctx->hw_mgr_intf) {
+	if ((!ctx->hw_mgr_intf) || (!ctx->hw_mgr_intf->hw_release)) {
 		pr_err("HW interface is not ready\n");
-		rc = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
-	if (ctx->ctxt_to_hw_map) {
-		arg.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
-		if ((list_empty(&ctx->active_req_list)) &&
-			(list_empty(&ctx->pending_req_list)))
-			arg.active_req = false;
-		else
-			arg.active_req = true;
+	arg.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
+	if ((list_empty(&ctx->active_req_list)) &&
+		(list_empty(&ctx->pending_req_list)))
+		arg.active_req = false;
+	else
+		arg.active_req = true;
 
-		ctx->hw_mgr_intf->hw_release(ctx->hw_mgr_intf->hw_mgr_priv,
-			&arg);
-		ctx->ctxt_to_hw_map = NULL;
-	}
+	ctx->hw_mgr_intf->hw_release(ctx->hw_mgr_intf->hw_mgr_priv, &arg);
+	ctx->ctxt_to_hw_map = NULL;
 
 	ctx->session_hdl = 0;
 	ctx->dev_hdl = 0;
@@ -180,7 +175,6 @@ int32_t cam_context_release_dev_to_hw(struct cam_context *ctx,
 		list_add_tail(&req->list, &ctx->free_req_list);
 	}
 
-	/* flush the pending queue */
 	while (!list_empty(&ctx->pending_req_list)) {
 		req = list_first_entry(&ctx->pending_req_list,
 			struct cam_ctx_request, list);
@@ -199,8 +193,7 @@ int32_t cam_context_release_dev_to_hw(struct cam_context *ctx,
 		list_add_tail(&req->list, &ctx->free_req_list);
 	}
 
-end:
-	return rc;
+	return 0;
 }
 
 int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,

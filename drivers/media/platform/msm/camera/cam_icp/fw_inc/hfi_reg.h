@@ -49,6 +49,7 @@
 #define ICP_CSR_EN_CLKGATE_WFI                  (1 << 12)
 #define ICP_CSR_EDBGRQ                          (1 << 14)
 #define ICP_CSR_DBGSWENABLE                     (1 << 22)
+#define ICP_CSR_A5_STATUS_WFI                   (1 << 7)
 
 /* start of Queue table and queues */
 #define MAX_ICP_HFI_QUEUES                      4
