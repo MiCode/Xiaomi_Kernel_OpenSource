@@ -88,6 +88,7 @@ static const struct ep_pcie_irq_info_t ep_pcie_irq_info[EP_PCIE_MAX_IRQ] = {
 	{"int_link_up",	0},
 	{"int_link_down",	0},
 	{"int_bridge_flush_n",	0},
+	{"int_bme",	0},
 	{"int_global",	0}
 };
 
@@ -982,19 +983,47 @@ static void ep_pcie_release_resources(struct ep_pcie_dev_t *dev)
 	dev->phy = NULL;
 	dev->mmio = NULL;
 	dev->msi = NULL;
+}
 
-	if (dev->bus_client) {
-		msm_bus_scale_unregister_client(dev->bus_client);
-		dev->bus_client = 0;
+static void ep_pcie_enumeration_complete(struct ep_pcie_dev_t *dev)
+{
+	dev->enumerated = true;
+	dev->link_status = EP_PCIE_LINK_ENABLED;
+
+	if (dev->gpio[EP_PCIE_GPIO_MDM2AP].num) {
+		/* assert MDM2AP Status GPIO */
+		EP_PCIE_DBG2(dev, "PCIe V%d: assert MDM2AP Status.\n",
+				dev->rev);
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: MDM2APStatus GPIO initial:%d.\n",
+			dev->rev,
+			gpio_get_value(
+			dev->gpio[EP_PCIE_GPIO_MDM2AP].num));
+		gpio_set_value(dev->gpio[EP_PCIE_GPIO_MDM2AP].num,
+			dev->gpio[EP_PCIE_GPIO_MDM2AP].on);
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: MDM2APStatus GPIO after assertion:%d.\n",
+			dev->rev,
+			gpio_get_value(
+			dev->gpio[EP_PCIE_GPIO_MDM2AP].num));
 	}
+
+	hw_drv.device_id = readl_relaxed(dev->dm_core);
+	EP_PCIE_DBG(&ep_pcie_dev,
+		"PCIe V%d: register driver for device 0x%x.\n",
+		ep_pcie_dev.rev, hw_drv.device_id);
+	ep_pcie_register_drv(&hw_drv);
+	ep_pcie_notify_event(dev, EP_PCIE_EVENT_LINKUP);
+
+	return;
 }
 
 int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 {
 	int ret = 0;
-	u32 val;
-	u32 retries;
-	u32 bme;
+	u32 val = 0;
+	u32 retries = 0;
+	u32 bme = 0;
 	bool ltssm_en = false;
 	struct ep_pcie_dev_t *dev = &ep_pcie_dev;
 
@@ -1222,46 +1251,37 @@ checkbme:
 					0x7FFFE000);
 	}
 
-	/* Wait for up to 1000ms for BME to be set */
-	retries = 0;
-	bme = readl_relaxed(dev->dm_core +
-		PCIE20_COMMAND_STATUS) & BIT(2);
-	while (!bme && (retries < BME_CHECK_MAX_COUNT)) {
-		retries++;
-		usleep_range(BME_TIMEOUT_US_MIN, BME_TIMEOUT_US_MAX);
+	if (!(opt & EP_PCIE_OPT_ENUM_ASYNC)) {
+		/* Wait for up to 1000ms for BME to be set */
+		retries = 0;
+
 		bme = readl_relaxed(dev->dm_core +
-			PCIE20_COMMAND_STATUS) & BIT(2);
+		PCIE20_COMMAND_STATUS) & BIT(2);
+		while (!bme && (retries < BME_CHECK_MAX_COUNT)) {
+			retries++;
+			usleep_range(BME_TIMEOUT_US_MIN, BME_TIMEOUT_US_MAX);
+			bme = readl_relaxed(dev->dm_core +
+				PCIE20_COMMAND_STATUS) & BIT(2);
+		}
+	} else {
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: EP_PCIE_OPT_ENUM_ASYNC is true.\n",
+			dev->rev);
 	}
 
 	if (bme) {
-		dev->link_status = EP_PCIE_LINK_ENABLED;
 		EP_PCIE_DBG(dev,
 			"PCIe V%d: PCIe link is up and BME is enabled after %d checkings (%d ms).\n",
 			dev->rev, retries,
 			BME_TIMEOUT_US_MIN * retries / 1000);
-
-		if (dev->gpio[EP_PCIE_GPIO_MDM2AP].num) {
-			/* assert MDM2AP Status GPIO */
-			EP_PCIE_DBG2(dev, "PCIe V%d: assert MDM2AP Status .\n",
-				dev->rev);
-			EP_PCIE_DBG(dev,
-				"PCIe V%d: MDM2APStatus GPIO initial:%d.\n",
-				dev->rev,
-				gpio_get_value(
-					dev->gpio[EP_PCIE_GPIO_MDM2AP].num));
-			gpio_set_value(dev->gpio[EP_PCIE_GPIO_MDM2AP].num,
-					dev->gpio[EP_PCIE_GPIO_MDM2AP].on);
-			EP_PCIE_DBG(dev,
-				"PCIe V%d: MDM2APStatus GPIO after assertion:%d.\n",
-				dev->rev,
-				gpio_get_value(
-					dev->gpio[EP_PCIE_GPIO_MDM2AP].num));
-		}
+		ep_pcie_enumeration_complete(dev);
 	} else {
-		EP_PCIE_ERR(dev,
-			"PCIe V%d: PCIe link is up but BME is still disabled after max waiting time.\n",
-			dev->rev);
-		if (!ep_pcie_debug_keep_resource) {
+		if (!(opt & EP_PCIE_OPT_ENUM_ASYNC))
+			EP_PCIE_ERR(dev,
+				"PCIe V%d: PCIe link is up but BME is still disabled after max waiting time.\n",
+				dev->rev);
+		if (!ep_pcie_debug_keep_resource &&
+				!(opt&EP_PCIE_OPT_ENUM_ASYNC)) {
 			ret = EP_PCIE_ERROR;
 			dev->link_status = EP_PCIE_LINK_DISABLED;
 			goto link_fail;
@@ -1361,6 +1381,38 @@ int ep_pcie_core_mask_irq_event(enum ep_pcie_irq_event event,
 
 	spin_unlock_irqrestore(&dev->ext_lock, irqsave_flags);
 	return rc;
+}
+
+static irqreturn_t ep_pcie_handle_bme_irq(int irq, void *data)
+{
+	struct ep_pcie_dev_t *dev = data;
+	unsigned long irqsave_flags;
+
+	spin_lock_irqsave(&dev->isr_lock, irqsave_flags);
+
+	dev->bme_counter++;
+	EP_PCIE_DBG(dev,
+		"PCIe V%d: No. %ld BME IRQ.\n", dev->rev, dev->bme_counter);
+
+	if (readl_relaxed(dev->dm_core + PCIE20_COMMAND_STATUS) & BIT(2)) {
+		/* BME has been enabled */
+		if (!dev->enumerated) {
+			EP_PCIE_DBG(dev,
+				"PCIe V%d:BME is set. Enumeration is complete\n",
+				dev->rev);
+			schedule_work(&dev->handle_bme_work);
+		} else {
+			EP_PCIE_DBG(dev,
+				"PCIe V%d:BME is set again after the enumeration has completed\n",
+				dev->rev);
+		}
+	} else {
+		EP_PCIE_DBG(dev,
+				"PCIe V%d:BME is still disabled\n", dev->rev);
+	}
+
+	spin_unlock_irqrestore(&dev->isr_lock, irqsave_flags);
+	return IRQ_HANDLED;
 }
 
 static irqreturn_t ep_pcie_handle_linkdown_irq(int irq, void *data)
@@ -1497,19 +1549,19 @@ static int ep_pcie_enumeration(struct ep_pcie_dev_t *dev)
 			"PCIe V%d: PCIe link enumeration failed.\n",
 			ep_pcie_dev.rev);
 	} else {
-		EP_PCIE_INFO(&ep_pcie_dev,
-			"PCIe V%d: PCIe link enumeration is successful with host side.\n",
-			ep_pcie_dev.rev);
-
-		dev->enumerated = true;
-
-		hw_drv.device_id = readl_relaxed(dev->dm_core);
-		EP_PCIE_DBG(&ep_pcie_dev,
-			"PCIe V%d: register driver for device 0x%x.\n",
-			ep_pcie_dev.rev, hw_drv.device_id);
-		ep_pcie_register_drv(&hw_drv);
-
-		ep_pcie_notify_event(dev, EP_PCIE_EVENT_LINKUP);
+		if (dev->link_status == EP_PCIE_LINK_ENABLED) {
+			EP_PCIE_INFO(&ep_pcie_dev,
+				"PCIe V%d: PCIe link enumeration is successful with host side.\n",
+				ep_pcie_dev.rev);
+		} else if (dev->link_status == EP_PCIE_LINK_UP) {
+			EP_PCIE_INFO(&ep_pcie_dev,
+				"PCIe V%d: PCIe link training is successful with host side. Waiting for enumeration to complete.\n",
+				ep_pcie_dev.rev);
+		} else {
+			EP_PCIE_ERR(&ep_pcie_dev,
+				"PCIe V%d: PCIe link is in the unexpected status: %d\n",
+				ep_pcie_dev.rev, dev->link_status);
+		}
 	}
 
 	return ret;
@@ -1521,6 +1573,14 @@ static void handle_perst_func(struct work_struct *work)
 					handle_perst_work);
 
 	ep_pcie_enumeration(dev);
+}
+
+static void handle_bme_func(struct work_struct *work)
+{
+	struct ep_pcie_dev_t *dev = container_of(work,
+			struct ep_pcie_dev_t, handle_bme_work);
+
+	ep_pcie_enumeration_complete(dev);
 }
 
 static irqreturn_t ep_pcie_handle_perst_irq(int irq, void *data)
@@ -1595,7 +1655,7 @@ static irqreturn_t ep_pcie_handle_global_irq(int irq, void *data)
 				EP_PCIE_DUMP(dev,
 					"PCIe V%d: handle BME event.\n",
 					dev->rev);
-				dev->link_status = EP_PCIE_LINK_ENABLED;
+				ep_pcie_handle_bme_irq(irq, data);
 				break;
 			case EP_PCIE_INT_EVT_PM_TURNOFF:
 				EP_PCIE_DUMP(dev,
@@ -1640,6 +1700,10 @@ int32_t ep_pcie_irq_init(struct ep_pcie_dev_t *dev)
 
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
 
+	/* Initialize all works to be performed before registering for IRQs*/
+	INIT_WORK(&dev->handle_perst_work, handle_perst_func);
+	INIT_WORK(&dev->handle_bme_work, handle_bme_func);
+
 	if (dev->aggregated_irq) {
 		ret = devm_request_irq(pdev,
 			dev->irq[EP_PCIE_INT_GLOBAL].num,
@@ -1653,10 +1717,39 @@ int32_t ep_pcie_irq_init(struct ep_pcie_dev_t *dev)
 			return ret;
 		}
 
+		ret = enable_irq_wake(dev->irq[EP_PCIE_INT_GLOBAL].num);
+		if (ret) {
+			EP_PCIE_ERR(dev,
+				"PCIe V%d: Unable to enable wake for Global interrupt\n",
+				dev->rev);
+			return ret;
+		}
+
 		EP_PCIE_DBG(dev,
 			"PCIe V%d: request global interrupt %d\n",
 			dev->rev, dev->irq[EP_PCIE_INT_GLOBAL].num);
 		goto perst_irq;
+	}
+
+	/* register handler for BME interrupt */
+	ret = devm_request_irq(pdev,
+		dev->irq[EP_PCIE_INT_BME].num,
+		ep_pcie_handle_bme_irq,
+		IRQF_TRIGGER_RISING, dev->irq[EP_PCIE_INT_BME].name,
+		dev);
+	if (ret) {
+		EP_PCIE_ERR(dev,
+			"PCIe V%d: Unable to request BME interrupt %d\n",
+			dev->rev, dev->irq[EP_PCIE_INT_BME].num);
+		return ret;
+	}
+
+	ret = enable_irq_wake(dev->irq[EP_PCIE_INT_BME].num);
+	if (ret) {
+		EP_PCIE_ERR(dev,
+			"PCIe V%d: Unable to enable wake for BME interrupt\n",
+			dev->rev);
+		return ret;
 	}
 
 	/* register handler for linkdown interrupt */
@@ -1731,8 +1824,6 @@ perst_irq:
 			dev->rev, perst_irq);
 		return ret;
 	}
-
-	INIT_WORK(&dev->handle_perst_work, handle_perst_func);
 
 	return 0;
 }
