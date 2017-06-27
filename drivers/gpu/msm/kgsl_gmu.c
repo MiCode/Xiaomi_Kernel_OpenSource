@@ -1202,14 +1202,16 @@ static int gmu_enable_clks(struct gmu_device *gmu)
 static int gmu_disable_clks(struct gmu_device *gmu)
 {
 	int ret, j = 0;
+	unsigned int gmu_freq;
 
 	if (IS_ERR_OR_NULL(gmu->clks[0]))
 		return 0;
 
-	ret = clk_set_rate(gmu->clks[0], gmu->gmu_freqs[0]);
+	gmu_freq = gmu->gmu_freqs[gmu->num_gmupwrlevels - 1];
+	ret = clk_set_rate(gmu->clks[0], gmu_freq);
 	if (ret) {
 		dev_err(&gmu->pdev->dev, "fail to reset GMU clk freq %d\n",
-				gmu->gmu_freqs[0]);
+				gmu_freq);
 		return ret;
 	}
 
