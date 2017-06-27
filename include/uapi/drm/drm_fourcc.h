@@ -241,8 +241,23 @@ extern "C" {
  */
 #define DRM_FORMAT_MOD_QCOM_COMPRESSED	fourcc_mod_code(QCOM, 1)
 
+/*
+ * QTI DX Format
+ *
+ * Refers to a DX variant of the base format.
+ * Implementation may be platform and base-format specific.
+ */
+#define DRM_FORMAT_MOD_QCOM_DX	fourcc_mod_code(QCOM, 0x2)
+
+/*
+ * QTI Tight Format
+ *
+ * Refers to a tightly packed variant of the base format.
+ * Implementation may be platform and base-format specific.
+ */
+#define DRM_FORMAT_MOD_QCOM_TIGHT	fourcc_mod_code(QCOM, 0x4)
+
 #if defined(__cplusplus)
 }
 #endif
-
 #endif /* DRM_FOURCC_H */

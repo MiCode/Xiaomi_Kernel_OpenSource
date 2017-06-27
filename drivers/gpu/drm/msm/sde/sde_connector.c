@@ -70,7 +70,8 @@ static void sde_connector_destroy(struct drm_connector *connector)
 
 	if (c_conn->blob_caps)
 		drm_property_unreference_blob(c_conn->blob_caps);
-
+	if (c_conn->blob_hdr)
+		drm_property_unreference_blob(c_conn->blob_hdr);
 	msm_property_destroy(&c_conn->property_info);
 
 	drm_connector_unregister(connector);
@@ -355,6 +356,32 @@ void sde_connector_complete_commit(struct drm_connector *connector)
 	sde_fence_signal(&to_sde_connector(connector)->retire_fence, 0);
 }
 
+static void sde_connector_update_hdr_props(struct drm_connector *connector)
+{
+	struct sde_connector *c_conn = to_sde_connector(connector);
+	struct drm_msm_ext_panel_hdr_properties hdr_prop = {};
+
+	hdr_prop.hdr_supported = connector->hdr_supported;
+
+	if (hdr_prop.hdr_supported) {
+		hdr_prop.hdr_eotf =
+		  connector->hdr_eotf;
+		hdr_prop.hdr_metadata_type_one =
+		  connector->hdr_metadata_type_one;
+		hdr_prop.hdr_max_luminance =
+		  connector->hdr_max_luminance;
+		hdr_prop.hdr_avg_luminance =
+		  connector->hdr_avg_luminance;
+		hdr_prop.hdr_min_luminance =
+		  connector->hdr_min_luminance;
+	}
+	msm_property_set_blob(&c_conn->property_info,
+			      &c_conn->blob_hdr,
+			      &hdr_prop,
+			      sizeof(hdr_prop),
+			      CONNECTOR_PROP_HDR_INFO);
+}
+
 static enum drm_connector_status
 sde_connector_detect(struct drm_connector *connector, bool force)
 {
@@ -392,6 +419,7 @@ static const struct drm_connector_funcs sde_connector_ops = {
 static int sde_connector_get_modes(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn;
+	int ret = 0;
 
 	if (!connector) {
 		SDE_ERROR("invalid connector\n");
@@ -403,8 +431,11 @@ static int sde_connector_get_modes(struct drm_connector *connector)
 		SDE_DEBUG("missing get_modes callback\n");
 		return 0;
 	}
+	ret = c_conn->ops.get_modes(connector, c_conn->display);
+	if (ret)
+		sde_connector_update_hdr_props(connector);
 
-	return c_conn->ops.get_modes(connector, c_conn->display);
+	return ret;
 }
 
 static enum drm_mode_status
@@ -575,6 +606,13 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 		kfree(info);
 	}
 
+	if (connector_type == DRM_MODE_CONNECTOR_HDMIA) {
+		msm_property_install_blob(&c_conn->property_info,
+				"hdr_properties",
+				DRM_MODE_PROP_IMMUTABLE,
+				CONNECTOR_PROP_HDR_INFO);
+	}
+
 	msm_property_install_range(&c_conn->property_info, "RETIRE_FENCE",
 			0x0, 0, INR_OPEN_MAX, 0, CONNECTOR_PROP_RETIRE_FENCE);
 
@@ -612,6 +650,8 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 error_destroy_property:
 	if (c_conn->blob_caps)
 		drm_property_unreference_blob(c_conn->blob_caps);
+	if (c_conn->blob_hdr)
+		drm_property_unreference_blob(c_conn->blob_hdr);
 	msm_property_destroy(&c_conn->property_info);
 error_unregister_conn:
 	drm_connector_unregister(&c_conn->base);

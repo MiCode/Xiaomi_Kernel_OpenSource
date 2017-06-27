@@ -155,6 +155,7 @@
 		interrupts = <GIC_SPI 329 IRQ_TYPE_LEVEL_HIGH>,
 			   <GIC_SPI 330 IRQ_TYPE_LEVEL_HIGH>,
 			   <GIC_SPI 331 IRQ_TYPE_EDGE_RISING>;
+		qcom,deferred-regulator-disable-delay = <80>;
 		vdd-supply = <&gdsc_gpu_cx>;
 		clocks = <&clock_gcc clk_gcc_gpu_cfg_ahb_clk>,
 			<&clock_gcc clk_gcc_bimc_gfx_clk>,
