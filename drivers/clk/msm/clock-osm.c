@@ -606,6 +606,83 @@ static int clk_osm_acd_auto_local_write_reg(struct clk_osm *c, u32 mask)
 	return 0;
 }
 
+static int clk_osm_acd_init(struct clk_osm *c)
+{
+
+	int rc = 0;
+	u32 auto_xfer_mask = 0;
+
+	if (!c->acd_init)
+		return 0;
+
+	c->acd_debugfs_addr = ACD_HW_VERSION;
+
+	/* Program ACD tunable-length delay register */
+	clk_osm_acd_master_write_reg(c, c->acd_td, ACDTD);
+	auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACDTD);
+
+	/* Program ACD control register */
+	clk_osm_acd_master_write_reg(c, c->acd_cr, ACDCR);
+	auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACDCR);
+
+	/* Program ACD soft start control register */
+	clk_osm_acd_master_write_reg(c, c->acd_sscr, ACDSSCR);
+	auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACDSSCR);
+
+	/* Program initial ACD external interface configuration register */
+	clk_osm_acd_master_write_reg(c, c->acd_extint0_cfg, ACD_EXTINT_CFG);
+	auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACD_EXTINT_CFG);
+
+	/* Program ACD auto-register transfer control register */
+	clk_osm_acd_master_write_reg(c, c->acd_autoxfer_ctl, ACD_AUTOXFER_CTL);
+
+	/* Ensure writes complete before transfers to local copy */
+	clk_osm_acd_mb(c);
+
+	/* Transfer master copies */
+	rc = clk_osm_acd_auto_local_write_reg(c, auto_xfer_mask);
+	if (rc)
+		return rc;
+
+	/* Switch CPUSS clock source to ACD clock */
+	rc = clk_osm_acd_master_write_through_reg(c, ACD_GFMUX_CFG_SELECT,
+						  ACD_GFMUX_CFG);
+	if (rc)
+		return rc;
+
+	/* Program ACD_DCVS_SW */
+	rc = clk_osm_acd_master_write_through_reg(c,
+				  ACD_DCVS_SW_DCVS_IN_PRGR_SET,
+				  ACD_DCVS_SW);
+	if (rc)
+		return rc;
+
+	rc = clk_osm_acd_master_write_through_reg(c,
+				  ACD_DCVS_SW_DCVS_IN_PRGR_CLEAR,
+				  ACD_DCVS_SW);
+	if (rc)
+		return rc;
+
+	udelay(1);
+
+	/* Program final ACD external interface configuration register */
+	rc = clk_osm_acd_master_write_through_reg(c, c->acd_extint1_cfg,
+						  ACD_EXTINT_CFG);
+	if (rc)
+		return rc;
+
+	/*
+	 * ACDCR, ACDTD, ACDSSCR, ACD_EXTINT_CFG, ACD_GFMUX_CFG
+	 * must be copied from master to local copy on PC exit.
+	 */
+	auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACD_GFMUX_CFG);
+	clk_osm_acd_master_write_reg(c, auto_xfer_mask, ACD_AUTOXFER_CFG);
+
+	/* ACD has been initialized and enabled for this cluster */
+	c->acd_init = false;
+	return 0;
+}
+
 static inline int clk_osm_count_ns(struct clk_osm *c, u64 nsec)
 {
 	u64 temp;
@@ -729,6 +806,17 @@ static int clk_osm_set_rate(struct clk *c, unsigned long rate)
 static int clk_osm_enable(struct clk *c)
 {
 	struct clk_osm *cpuclk = to_clk_osm(c);
+	int rc;
+
+	rc = clk_osm_acd_init(cpuclk);
+	if (rc) {
+		pr_err("Failed to initialize ACD for cluster %d, rc=%d\n",
+						cpuclk->cluster_num, rc);
+		return rc;
+	}
+
+	/* Wait for 5 usecs before enabling OSM */
+	udelay(5);
 
 	clk_osm_write_reg(cpuclk, 1, ENABLE_REG);
 
@@ -3105,81 +3193,6 @@ static int clk_osm_panic_callback(struct notifier_block *nfb,
 	return NOTIFY_OK;
 }
 
-static int clk_osm_acd_init(struct clk_osm *c)
-{
-
-	int rc = 0;
-	u32 auto_xfer_mask = 0;
-
-	if (!c->acd_init)
-		return 0;
-
-	c->acd_debugfs_addr = ACD_HW_VERSION;
-
-	/* Program ACD tunable-length delay register */
-	clk_osm_acd_master_write_reg(c, c->acd_td, ACDTD);
-	auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACDTD);
-
-	/* Program ACD control register */
-	clk_osm_acd_master_write_reg(c, c->acd_cr, ACDCR);
-	auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACDCR);
-
-	/* Program ACD soft start control register */
-	clk_osm_acd_master_write_reg(c, c->acd_sscr, ACDSSCR);
-	auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACDSSCR);
-
-	/* Program initial ACD external interface configuration register */
-	clk_osm_acd_master_write_reg(c, c->acd_extint0_cfg, ACD_EXTINT_CFG);
-	auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACD_EXTINT_CFG);
-
-	/* Program ACD auto-register transfer control register */
-	clk_osm_acd_master_write_reg(c, c->acd_autoxfer_ctl, ACD_AUTOXFER_CTL);
-
-	/* Ensure writes complete before transfers to local copy */
-	clk_osm_acd_mb(c);
-
-	/* Transfer master copies */
-	rc = clk_osm_acd_auto_local_write_reg(c, auto_xfer_mask);
-	if (rc)
-		return rc;
-
-	/* Switch CPUSS clock source to ACD clock */
-	rc = clk_osm_acd_master_write_through_reg(c, ACD_GFMUX_CFG_SELECT,
-						  ACD_GFMUX_CFG);
-	if (rc)
-		return rc;
-
-	/* Program ACD_DCVS_SW */
-	rc = clk_osm_acd_master_write_through_reg(c,
-				  ACD_DCVS_SW_DCVS_IN_PRGR_SET,
-				  ACD_DCVS_SW);
-	if (rc)
-		return rc;
-
-	rc = clk_osm_acd_master_write_through_reg(c,
-				  ACD_DCVS_SW_DCVS_IN_PRGR_CLEAR,
-				  ACD_DCVS_SW);
-	if (rc)
-		return rc;
-
-	udelay(1);
-
-	/* Program final ACD external interface configuration register */
-	rc = clk_osm_acd_master_write_through_reg(c, c->acd_extint1_cfg,
-						  ACD_EXTINT_CFG);
-	if (rc)
-		return rc;
-
-	/*
-	 * ACDCR, ACDTD, ACDSSCR, ACD_EXTINT_CFG, ACD_GFMUX_CFG
-	 * must be copied from master to local copy on PC exit.
-	 */
-	auto_xfer_mask |= ACD_REG_RELATIVE_ADDR_BITMASK(ACD_GFMUX_CFG);
-	clk_osm_acd_master_write_reg(c, auto_xfer_mask, ACD_AUTOXFER_CFG);
-
-	return 0;
-}
-
 static unsigned long init_rate = 300000000;
 static unsigned long osm_clk_init_rate = 200000000;
 
@@ -3360,17 +3373,6 @@ static int cpu_clock_osm_driver_probe(struct platform_device *pdev)
 				  "qcom,osm-pll-setup")) {
 		clk_osm_setup_cluster_pll(&pwrcl_clk);
 		clk_osm_setup_cluster_pll(&perfcl_clk);
-	}
-
-	rc = clk_osm_acd_init(&pwrcl_clk);
-	if (rc) {
-		pr_err("failed to initialize ACD for pwrcl, rc=%d\n", rc);
-		return rc;
-	}
-	rc = clk_osm_acd_init(&perfcl_clk);
-	if (rc) {
-		pr_err("failed to initialize ACD for perfcl, rc=%d\n", rc);
-		return rc;
 	}
 
 	spin_lock_init(&pwrcl_clk.lock);

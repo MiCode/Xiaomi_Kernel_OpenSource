@@ -22,8 +22,7 @@ Charger specific properties:
   Definition: String which indicates the charging mode. Can be one of the
 	      following:
               Standalone/Parallel Master	- "qcom,smb138x-charger"
-	      smb138x Parallel Slave		- "qcom,smb138x-parallel-slave"
-	      smb1355 Parallel Slave		- "qcom,smb1355-parallel-slave",
+	      Parallel Slave			- "qcom,smb138x-parallel-slave"
 
 - qcom,pmic-revid
   Usage:      required
@@ -36,8 +35,7 @@ Charger specific properties:
   Usage:      optional
   Value type: <u32>
   Definition: Specifies parallel charging mode. If not specified, MID-MID
-	      option is selected by default. Note that smb1355 can only
-	      run in MID-MID configuration.
+	      option is selected by default.
 
 - qcom,suspend-input
   Usage:      optional
@@ -127,7 +125,7 @@ Example
 =======
 
 smb138x_charger: qcom,smb138x-charger {
-	compatible = "qcom,smb138x-charger";
+	compatible = "qcom,qpnp-smb138x-charger";
 	#address-cells = <1>;
 	#size-cells = <1>;
 

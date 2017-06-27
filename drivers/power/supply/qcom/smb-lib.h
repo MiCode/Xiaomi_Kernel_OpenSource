@@ -64,9 +64,12 @@ enum print_reason {
 #define BATT_PROFILE_VOTER		"BATT_PROFILE_VOTER"
 #define OTG_DELAY_VOTER			"OTG_DELAY_VOTER"
 #define USBIN_I_VOTER			"USBIN_I_VOTER"
+#define WEAK_CHARGER_VOTER		"WEAK_CHARGER_VOTER"
 
 #define VCONN_MAX_ATTEMPTS	3
 #define OTG_MAX_ATTEMPTS	3
+#define BOOST_BACK_STORM_COUNT	3
+#define WEAK_CHG_STORM_COUNT	8
 
 enum smb_mode {
 	PARALLEL_MASTER = 0,
@@ -227,16 +230,17 @@ struct smb_charger {
 	struct smb_iio		iio;
 	int			*debug_mask;
 	enum smb_mode		mode;
-	bool			external_vconn;
 	struct smb_chg_freq	chg_freq;
 	int			smb_version;
 	int			otg_delay_ms;
+	int			*weak_chg_icl_ua;
 
 	/* locks */
 	struct mutex		lock;
 	struct mutex		write_lock;
 	struct mutex		ps_change_lock;
 	struct mutex		otg_oc_lock;
+	struct mutex		vconn_oc_lock;
 
 	/* power supplies */
 	struct power_supply		*batt_psy;
@@ -292,6 +296,7 @@ struct smb_charger {
 	struct delayed_work	pl_enable_work;
 	struct work_struct	legacy_detection_work;
 	struct delayed_work	uusb_otg_work;
+	struct delayed_work	bb_removal_work;
 
 	/* cached status */
 	int			voltage_min_uv;
@@ -320,6 +325,9 @@ struct smb_charger {
 	bool			typec_present;
 	u8			typec_status[5];
 	bool			typec_legacy_valid;
+	int			fake_input_current_limited;
+	bool			pr_swap_in_progress;
+	int			typec_mode;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -423,6 +431,8 @@ int smblib_set_prop_batt_capacity(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_system_temp_level(struct smb_charger *chg,
 				const union power_supply_propval *val);
+int smblib_set_prop_input_current_limited(struct smb_charger *chg,
+				const union power_supply_propval *val);
 
 int smblib_get_prop_dc_present(struct smb_charger *chg,
 				union power_supply_propval *val);
@@ -448,8 +458,6 @@ int smblib_get_prop_usb_current_max(struct smb_charger *chg,
 int smblib_get_prop_usb_current_now(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_typec_cc_orientation(struct smb_charger *chg,
-				union power_supply_propval *val);
-int smblib_get_prop_typec_mode(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_typec_power_role(struct smb_charger *chg,
 				union power_supply_propval *val);
@@ -503,6 +511,10 @@ int smblib_rerun_aicl(struct smb_charger *chg);
 int smblib_set_icl_current(struct smb_charger *chg, int icl_ua);
 int smblib_get_icl_current(struct smb_charger *chg, int *icl_ua);
 int smblib_get_charge_current(struct smb_charger *chg, int *total_current_ua);
+int smblib_get_prop_pr_swap_in_progress(struct smb_charger *chg,
+				union power_supply_propval *val);
+int smblib_set_prop_pr_swap_in_progress(struct smb_charger *chg,
+				const union power_supply_propval *val);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);

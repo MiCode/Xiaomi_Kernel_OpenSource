@@ -108,6 +108,7 @@ struct usb_pdphy {
 	int tx_status;
 	u8 frame_filter_val;
 	bool in_test_data_mode;
+	bool rx_busy;
 
 	enum data_role data_role;
 	enum power_role power_role;
@@ -334,15 +335,6 @@ int pd_phy_update_roles(enum data_role dr, enum power_role pr)
 }
 EXPORT_SYMBOL(pd_phy_update_roles);
 
-int pd_phy_update_spec_rev(enum pd_spec_rev rev)
-{
-	struct usb_pdphy *pdphy = __pdphy;
-
-	return pdphy_masked_write(pdphy, USB_PDPHY_MSG_CONFIG,
-			MSG_CONFIG_SPEC_REV_MASK, rev);
-}
-EXPORT_SYMBOL(pd_phy_update_spec_rev);
-
 int pd_phy_open(struct pd_phy_params *params)
 {
 	int ret;
@@ -377,7 +369,9 @@ int pd_phy_open(struct pd_phy_params *params)
 	if (ret)
 		return ret;
 
-	ret = pd_phy_update_spec_rev(params->spec_rev);
+	/* PD 2.0  phy */
+	ret = pdphy_masked_write(pdphy, USB_PDPHY_MSG_CONFIG,
+			MSG_CONFIG_SPEC_REV_MASK, USBPD_REV_20);
 	if (ret)
 		return ret;
 
@@ -490,6 +484,12 @@ int pd_phy_write(u16 hdr, const u8 *data, size_t data_len,
 		dev_err(pdphy->dev, "%s: invalid data object len %zu\n",
 			__func__, data_len);
 		return -EINVAL;
+	}
+
+	ret = pdphy_reg_read(pdphy, &val, USB_PDPHY_RX_ACKNOWLEDGE, 1);
+	if (ret || val || pdphy->rx_busy) {
+		dev_err(pdphy->dev, "%s: RX message pending\n", __func__);
+		return -EBUSY;
 	}
 
 	pdphy->tx_status = -EINPROGRESS;
@@ -664,6 +664,15 @@ static int pd_phy_bist_mode(u8 bist_mode)
 			BIST_MODE_MASK | BIST_ENABLE, bist_mode | BIST_ENABLE);
 }
 
+static irqreturn_t pdphy_msg_rx_irq(int irq, void *data)
+{
+	struct usb_pdphy *pdphy = data;
+
+	pdphy->rx_busy = true;
+
+	return IRQ_WAKE_THREAD;
+}
+
 static irqreturn_t pdphy_msg_rx_irq_thread(int irq, void *data)
 {
 	u8 size, rx_status, frame_type;
@@ -720,6 +729,7 @@ static irqreturn_t pdphy_msg_rx_irq_thread(int irq, void *data)
 		false);
 	pdphy->rx_bytes += size + 1;
 done:
+	pdphy->rx_busy = false;
 	return IRQ_HANDLED;
 }
 
@@ -805,7 +815,7 @@ static int pdphy_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = pdphy_request_irq(pdphy, pdev->dev.of_node,
-		&pdphy->msg_rx_irq, "msg-rx", NULL,
+		&pdphy->msg_rx_irq, "msg-rx", pdphy_msg_rx_irq,
 		pdphy_msg_rx_irq_thread, (IRQF_TRIGGER_RISING | IRQF_ONESHOT));
 	if (ret < 0)
 		return ret;
