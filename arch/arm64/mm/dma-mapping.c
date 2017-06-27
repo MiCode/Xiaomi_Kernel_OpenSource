@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2012 ARM Ltd.
  * Author: Catalin Marinas <catalin.marinas@arm.com>
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -46,17 +47,6 @@ static pgprot_t __get_dma_pgprot(struct dma_attrs *attrs, pgprot_t prot,
 		return pgprot_noncached(prot);
 	else if (!coherent || dma_get_attr(DMA_ATTR_WRITE_COMBINE, attrs))
 		return pgprot_writecombine(prot);
-	return prot;
-}
-
-static int __get_iommu_pgprot(struct dma_attrs *attrs, int prot,
-			      bool coherent)
-{
-	if (!dma_get_attr(DMA_ATTR_EXEC_MAPPING, attrs))
-		prot |= IOMMU_NOEXEC;
-	if (coherent)
-		prot |= IOMMU_CACHE;
-
 	return prot;
 }
 
@@ -1142,6 +1132,17 @@ void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 EXPORT_SYMBOL(arch_setup_dma_ops);
 
 #ifdef CONFIG_ARM64_DMA_USE_IOMMU
+
+static int __get_iommu_pgprot(struct dma_attrs *attrs, int prot,
+			      bool coherent)
+{
+	if (!dma_get_attr(DMA_ATTR_EXEC_MAPPING, attrs))
+		prot |= IOMMU_NOEXEC;
+	if (coherent)
+		prot |= IOMMU_CACHE;
+
+	return prot;
+}
 
 /*
  * Make an area consistent for devices.
