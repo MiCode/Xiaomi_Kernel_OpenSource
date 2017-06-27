@@ -2038,16 +2038,16 @@ static void param_set_mask(struct snd_pcm_hw_params *p, int n, unsigned int bit)
 	}
 }
 
-static int msm_ext_disp_get_idx_from_beid(int32_t be_id)
+static int msm_ext_disp_get_idx_from_beid(int32_t id)
 {
 	int idx;
 
-	switch (be_id) {
+	switch (id) {
 	case MSM_BACKEND_DAI_DISPLAY_PORT_RX:
 		idx = DP_RX_IDX;
 		break;
 	default:
-		pr_err("%s: Incorrect ext_disp be_id %d\n", __func__, be_id);
+		pr_err("%s: Incorrect ext_disp id %d\n", __func__, id);
 		idx = -EINVAL;
 		break;
 	}
@@ -2077,7 +2077,7 @@ int msm_common_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	pr_debug("%s: format = %d, rate = %d\n",
 		  __func__, params_format(params), params_rate(params));
 
-	switch (dai_link->be_id) {
+	switch (dai_link->id) {
 	case MSM_BACKEND_DAI_USB_RX:
 		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
 				usb_rx_cfg.bit_format);
@@ -2093,8 +2093,8 @@ int msm_common_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 		break;
 
 	case MSM_BACKEND_DAI_DISPLAY_PORT_RX:
-		idx = msm_ext_disp_get_idx_from_beid(dai_link->be_id);
-		if (IS_ERR_VALUE(idx)) {
+		idx = msm_ext_disp_get_idx_from_beid(dai_link->id);
+		if (idx < 0) {
 			pr_err("%s: Incorrect ext disp idx %d\n",
 			       __func__, idx);
 			rc = idx;
@@ -2341,11 +2341,11 @@ void msm_aux_pcm_snd_shutdown(struct snd_pcm_substream *substream)
 }
 EXPORT_SYMBOL(msm_aux_pcm_snd_shutdown);
 
-static int msm_get_port_id(int be_id)
+static int msm_get_port_id(int id)
 {
 	int afe_port_id;
 
-	switch (be_id) {
+	switch (id) {
 	case MSM_BACKEND_DAI_PRI_MI2S_RX:
 		afe_port_id = AFE_PORT_ID_PRIMARY_MI2S_RX;
 		break;
@@ -2371,7 +2371,7 @@ static int msm_get_port_id(int be_id)
 		afe_port_id = AFE_PORT_ID_QUATERNARY_MI2S_TX;
 		break;
 	default:
-		pr_err("%s: Invalid be_id: %d\n", __func__, be_id);
+		pr_err("%s: Invalid id: %d\n", __func__, id);
 		afe_port_id = -EINVAL;
 	}
 
@@ -2422,7 +2422,7 @@ static int msm_mi2s_set_sclk(struct snd_pcm_substream *substream, bool enable)
 	int port_id = 0;
 	int index = cpu_dai->id;
 
-	port_id = msm_get_port_id(rtd->dai_link->be_id);
+	port_id = msm_get_port_id(rtd->dai_link->id);
 	if (port_id < 0) {
 		dev_err(rtd->card->dev, "%s: Invalid port_id\n", __func__);
 		ret = port_id;
@@ -2461,7 +2461,7 @@ int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	int ret = 0;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	int port_id = msm_get_port_id(rtd->dai_link->be_id);
+	int port_id = msm_get_port_id(rtd->dai_link->id);
 	int index = cpu_dai->id;
 	unsigned int fmt = SND_SOC_DAIFMT_CBS_CFS;
 
@@ -2539,7 +2539,7 @@ void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 {
 	int ret;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	int port_id = msm_get_port_id(rtd->dai_link->be_id);
+	int port_id = msm_get_port_id(rtd->dai_link->id);
 	int index = rtd->cpu_dai->id;
 
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
@@ -2699,13 +2699,13 @@ codec_dai:
 			dai_link[i].codec_name = NULL;
 		}
 		if (pdata->snd_card_val == INT_SND_CARD) {
-			if ((dai_link[i].be_id ==
+			if ((dai_link[i].id ==
 					MSM_BACKEND_DAI_INT0_MI2S_RX) ||
-			    (dai_link[i].be_id ==
+			    (dai_link[i].id ==
 					MSM_BACKEND_DAI_INT1_MI2S_RX) ||
-			    (dai_link[i].be_id ==
+			    (dai_link[i].id ==
 					MSM_BACKEND_DAI_INT2_MI2S_TX) ||
-			    (dai_link[i].be_id ==
+			    (dai_link[i].id ==
 					MSM_BACKEND_DAI_INT3_MI2S_TX)) {
 				index = of_property_match_string(cdev->of_node,
 							"asoc-codec-names",
