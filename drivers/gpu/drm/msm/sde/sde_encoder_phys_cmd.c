@@ -571,6 +571,9 @@ void sde_encoder_phys_cmd_irq_control(struct sde_encoder_phys *phys_enc,
 
 	cmd_enc = to_sde_encoder_phys_cmd(phys_enc);
 
+	SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx - PINGPONG_0,
+			enable, atomic_read(&phys_enc->vblank_refcount));
+
 	if (enable) {
 		sde_encoder_helper_register_irq(phys_enc, INTR_IDX_PINGPONG);
 		sde_encoder_helper_register_irq(phys_enc, INTR_IDX_UNDERRUN);

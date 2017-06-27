@@ -34,8 +34,12 @@ static void sde_core_irq_callback_handler(void *arg, int irq_idx)
 
 	pr_debug("irq_idx=%d\n", irq_idx);
 
-	if (list_empty(&irq_obj->irq_cb_tbl[irq_idx]))
+	if (list_empty(&irq_obj->irq_cb_tbl[irq_idx])) {
 		SDE_ERROR("irq_idx=%d has no registered callback\n", irq_idx);
+		SDE_EVT32_IRQ(irq_idx, atomic_read(
+				&sde_kms->irq_obj.enable_counts[irq_idx]),
+				SDE_EVTLOG_ERROR);
+	}
 
 	atomic_inc(&irq_obj->irq_counts[irq_idx]);
 
@@ -119,12 +123,18 @@ static int _sde_core_irq_enable(struct sde_kms *sde_kms, int irq_idx)
 
 int sde_core_irq_enable(struct sde_kms *sde_kms, int *irq_idxs, u32 irq_count)
 {
-	int i;
-	int ret = 0;
+	int i, ret = 0, counts;
 
 	if (!sde_kms || !irq_idxs || !irq_count) {
 		SDE_ERROR("invalid params\n");
 		return -EINVAL;
+	}
+
+	counts = atomic_read(&sde_kms->irq_obj.enable_counts[irq_idxs[0]]);
+	if (counts) {
+		SDE_ERROR("%pS: irq_idx=%d enable_count=%d\n",
+			__builtin_return_address(0), irq_idxs[0], counts);
+		SDE_EVT32(irq_idxs[0], counts, SDE_EVTLOG_ERROR);
 	}
 
 	for (i = 0; (i < irq_count) && !ret; i++)
@@ -175,12 +185,18 @@ static int _sde_core_irq_disable(struct sde_kms *sde_kms, int irq_idx)
 
 int sde_core_irq_disable(struct sde_kms *sde_kms, int *irq_idxs, u32 irq_count)
 {
-	int i;
-	int ret = 0;
+	int i, ret = 0, counts;
 
 	if (!sde_kms || !irq_idxs || !irq_count) {
 		SDE_ERROR("invalid params\n");
 		return -EINVAL;
+	}
+
+	counts = atomic_read(&sde_kms->irq_obj.enable_counts[irq_idxs[0]]);
+	if (counts == 2) {
+		SDE_ERROR("%pS: irq_idx=%d enable_count=%d\n",
+			__builtin_return_address(0), irq_idxs[0], counts);
+		SDE_EVT32(irq_idxs[0], counts, SDE_EVTLOG_ERROR);
 	}
 
 	for (i = 0; (i < irq_count) && !ret; i++)
@@ -210,9 +226,16 @@ int sde_core_irq_register_callback(struct sde_kms *sde_kms, int irq_idx,
 {
 	unsigned long irq_flags;
 
-	if (!sde_kms || !register_irq_cb || !register_irq_cb->func ||
-			!sde_kms->irq_obj.irq_cb_tbl) {
+	if (!sde_kms || !sde_kms->irq_obj.irq_cb_tbl) {
 		SDE_ERROR("invalid params\n");
+		return -EINVAL;
+	}
+
+	if (!register_irq_cb || !register_irq_cb->func) {
+		SDE_ERROR("invalid irq_cb:%d func:%d\n",
+				register_irq_cb != NULL,
+				register_irq_cb ?
+					register_irq_cb->func != NULL : -1);
 		return -EINVAL;
 	}
 
@@ -238,9 +261,16 @@ int sde_core_irq_unregister_callback(struct sde_kms *sde_kms, int irq_idx,
 {
 	unsigned long irq_flags;
 
-	if (!sde_kms || !register_irq_cb || !register_irq_cb->func ||
-			!sde_kms->irq_obj.irq_cb_tbl) {
+	if (!sde_kms || !sde_kms->irq_obj.irq_cb_tbl) {
 		SDE_ERROR("invalid params\n");
+		return -EINVAL;
+	}
+
+	if (!register_irq_cb || !register_irq_cb->func) {
+		SDE_ERROR("invalid irq_cb:%d func:%d\n",
+				register_irq_cb != NULL,
+				register_irq_cb ?
+					register_irq_cb->func != NULL : -1);
 		return -EINVAL;
 	}
 

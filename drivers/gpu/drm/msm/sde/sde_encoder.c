@@ -417,6 +417,9 @@ int sde_encoder_helper_register_irq(struct sde_encoder_phys *phys_enc,
 
 		sde_core_irq_unregister_callback(phys_enc->sde_kms,
 				irq->irq_idx, &irq->cb);
+
+		SDE_EVT32(DRMID(phys_enc->parent), intr_idx, irq->hw_idx,
+				irq->irq_idx, SDE_EVTLOG_ERROR);
 		irq->irq_idx = -EINVAL;
 		return ret;
 	}
@@ -432,6 +435,7 @@ int sde_encoder_helper_unregister_irq(struct sde_encoder_phys *phys_enc,
 		enum sde_intr_idx intr_idx)
 {
 	struct sde_encoder_irq *irq;
+	int ret;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -440,16 +444,31 @@ int sde_encoder_helper_unregister_irq(struct sde_encoder_phys *phys_enc,
 	irq = &phys_enc->irq[intr_idx];
 
 	/* silently skip irqs that weren't registered */
-	if (irq->irq_idx < 0)
+	if (irq->irq_idx < 0) {
+		SDE_ERROR(
+			"extra unregister irq, enc%d intr_idx:0x%x hw_idx:0x%x irq_idx:0x%x\n",
+				DRMID(phys_enc->parent), intr_idx, irq->hw_idx,
+				irq->irq_idx);
+		SDE_EVT32(DRMID(phys_enc->parent), intr_idx, irq->hw_idx,
+				irq->irq_idx, SDE_EVTLOG_ERROR);
 		return 0;
+	}
 
-	sde_core_irq_disable(phys_enc->sde_kms, &irq->irq_idx, 1);
-	sde_core_irq_unregister_callback(phys_enc->sde_kms, irq->irq_idx,
+	ret = sde_core_irq_disable(phys_enc->sde_kms, &irq->irq_idx, 1);
+	if (ret)
+		SDE_EVT32(DRMID(phys_enc->parent), intr_idx, irq->hw_idx,
+				irq->irq_idx, ret, SDE_EVTLOG_ERROR);
+
+	ret = sde_core_irq_unregister_callback(phys_enc->sde_kms, irq->irq_idx,
 			&irq->cb);
-	irq->irq_idx = -EINVAL;
+	if (ret)
+		SDE_EVT32(DRMID(phys_enc->parent), intr_idx, irq->hw_idx,
+				irq->irq_idx, ret, SDE_EVTLOG_ERROR);
 
 	SDE_EVT32(DRMID(phys_enc->parent), intr_idx, irq->hw_idx, irq->irq_idx);
 	SDE_DEBUG_PHYS(phys_enc, "unregistered %d\n", irq->irq_idx);
+
+	irq->irq_idx = -EINVAL;
 
 	return 0;
 }
