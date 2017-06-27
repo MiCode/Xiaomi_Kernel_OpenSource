@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -449,7 +449,8 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 	struct kgsl_device *device = dev_get_drvdata(dev);
 	struct kgsl_pwrctrl *pwr;
 	struct kgsl_pwrlevel *pwr_level;
-	int level, i;
+	int level;
+	unsigned int i;
 	unsigned long cur_freq;
 
 	if (device == NULL)
@@ -477,7 +478,12 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 	/* If the governor recommends a new frequency, update it here */
 	if (*freq != cur_freq) {
 		level = pwr->max_pwrlevel;
-		for (i = pwr->min_pwrlevel; i >= pwr->max_pwrlevel; i--)
+		/*
+		 * Array index of pwrlevels[] should be within the permitted
+		 * power levels, i.e., from max_pwrlevel to min_pwrlevel.
+		 */
+		for (i = pwr->min_pwrlevel; (i >= pwr->max_pwrlevel
+					&& i <= pwr->min_pwrlevel); i--)
 			if (*freq <= pwr->pwrlevels[i].gpu_freq) {
 				if (pwr->thermal_cycle == CYCLE_ACTIVE)
 					level = _thermal_adjust(pwr, i);
