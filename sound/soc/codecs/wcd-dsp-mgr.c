@@ -610,6 +610,25 @@ static struct device *wdsp_get_dev_for_cmpnt(struct device *wdsp_dev,
 	return cmpnt->cdev;
 }
 
+static int wdsp_get_devops_for_cmpnt(struct device *wdsp_dev,
+				     enum wdsp_cmpnt_type type,
+				     void *data)
+{
+	struct wdsp_mgr_priv *wdsp;
+	int ret = 0;
+
+	if (!wdsp_dev || type >= WDSP_CMPNT_TYPE_MAX)
+		return -EINVAL;
+
+	wdsp = dev_get_drvdata(wdsp_dev);
+	ret = wdsp_unicast_event(wdsp, type,
+				 WDSP_EVENT_GET_DEVOPS, data);
+	if (ret)
+		WDSP_ERR(wdsp, "get_dev_ops failed for cmpnt type %d",
+			 type);
+	return ret;
+}
+
 static void wdsp_collect_ramdumps(struct wdsp_mgr_priv *wdsp)
 {
 	struct wdsp_img_section img_section;
@@ -941,6 +960,7 @@ static int wdsp_resume(struct device *wdsp_dev)
 static struct wdsp_mgr_ops wdsp_ops = {
 	.register_cmpnt_ops = wdsp_register_cmpnt_ops,
 	.get_dev_for_cmpnt = wdsp_get_dev_for_cmpnt,
+	.get_devops_for_cmpnt = wdsp_get_devops_for_cmpnt,
 	.signal_handler = wdsp_signal_handler,
 	.vote_for_dsp = wdsp_vote_for_dsp,
 	.suspend = wdsp_suspend,
