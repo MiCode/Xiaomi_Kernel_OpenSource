@@ -1206,12 +1206,7 @@ tc_qdisc_flow_control(struct net_device *dev, u32 tcm_handle, int enable_flow)
 			qdisc_len = q->q.qlen;
 			if (q->ops->change(q, &req.attr))
 				pr_err("%s(): qdisc change failed", __func__);
-		} else {
-			WARN_ONCE(1, "%s(): called on queue which does %s",
-				  __func__, "not support change() operation");
 		}
-	} else {
-		WARN_ONCE(1, "%s(): called on bad queue", __func__);
 	}
 	return qdisc_len;
 }
