@@ -2634,7 +2634,7 @@ static int _sde_crtc_excl_rect_overlap_check(struct plane_state pstates[],
 	for (i = curr_cnt; i < cnt; i++) {
 		pstate = pstates[i].drm_pstate;
 		POPULATE_RECT(&dst_rect, pstate->crtc_x, pstate->crtc_y,
-				pstate->crtc_w, pstate->crtc_h, true);
+				pstate->crtc_w, pstate->crtc_h, false);
 		sde_kms_rect_intersect(&dst_rect, excl_rect, &intersect);
 
 		if (intersect.w == excl_rect->w && intersect.h == excl_rect->h
