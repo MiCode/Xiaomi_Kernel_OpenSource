@@ -19,6 +19,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #include "sdm845-qrd.dtsi"
+#include "sdm845-qrd-audio-overlay.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM845 v1 QRD";
