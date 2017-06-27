@@ -17,6 +17,12 @@
 #include "sde_connector.h"
 #include "sde_backlight.h"
 
+#define SDE_DEBUG_CONN(c, fmt, ...) SDE_DEBUG("conn%d " fmt,\
+		(c) ? (c)->base.base.id : -1, ##__VA_ARGS__)
+
+#define SDE_ERROR_CONN(c, fmt, ...) SDE_ERROR("conn%d " fmt,\
+		(c) ? (c)->base.base.id : -1, ##__VA_ARGS__)
+
 static const struct drm_prop_enum_list e_topology_name[] = {
 	{SDE_RM_TOPOLOGY_UNKNOWN,	"sde_unknown"},
 	{SDE_RM_TOPOLOGY_SINGLEPIPE,	"sde_singlepipe"},
@@ -205,6 +211,68 @@ sde_connector_atomic_duplicate_state(struct drm_connector *connector)
 	return &c_state->base;
 }
 
+static int _sde_connector_set_hdr_info(
+	struct sde_connector *c_conn,
+	struct sde_connector_state *c_state,
+	void *usr_ptr)
+{
+	struct drm_connector *connector;
+	struct drm_msm_ext_panel_hdr_metadata *hdr_meta;
+	int i;
+
+	if (!c_conn || !c_state) {
+		SDE_ERROR_CONN(c_conn, "invalid args\n");
+		return -EINVAL;
+	}
+
+	connector = &c_conn->base;
+
+	if (!connector->hdr_supported) {
+		SDE_ERROR_CONN(c_conn, "sink doesn't support HDR\n");
+		return -ENOTSUPP;
+	}
+
+	memset(&c_state->hdr_meta, 0, sizeof(c_state->hdr_meta));
+
+	if (!usr_ptr) {
+		SDE_DEBUG_CONN(c_conn, "hdr metadata cleared\n");
+		return 0;
+	}
+
+	if (copy_from_user(&c_state->hdr_meta,
+		(void __user *)usr_ptr,
+			sizeof(*hdr_meta))) {
+		SDE_ERROR_CONN(c_conn, "failed to copy hdr metadata\n");
+		return -EFAULT;
+	}
+
+	hdr_meta = &c_state->hdr_meta;
+
+	SDE_DEBUG_CONN(c_conn, "hdr_supported %d\n",
+				   hdr_meta->hdr_supported);
+	SDE_DEBUG_CONN(c_conn, "eotf %d\n",
+				   hdr_meta->eotf);
+	SDE_DEBUG_CONN(c_conn, "white_point_x %d\n",
+				   hdr_meta->white_point_x);
+	SDE_DEBUG_CONN(c_conn, "white_point_y %d\n",
+				   hdr_meta->white_point_y);
+	SDE_DEBUG_CONN(c_conn, "max_luminance %d\n",
+				   hdr_meta->max_luminance);
+	SDE_DEBUG_CONN(c_conn, "max_content_light_level %d\n",
+				   hdr_meta->max_content_light_level);
+	SDE_DEBUG_CONN(c_conn, "max_average_light_level %d\n",
+				   hdr_meta->max_average_light_level);
+
+	for (i = 0; i < HDR_PRIMARIES_COUNT; i++) {
+		SDE_DEBUG_CONN(c_conn, "display_primaries_x [%d]\n",
+				   hdr_meta->display_primaries_x[i]);
+		SDE_DEBUG_CONN(c_conn, "display_primaries_y [%d]\n",
+				   hdr_meta->display_primaries_y[i]);
+	}
+
+	return 0;
+}
+
 static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		struct drm_connector_state *state,
 		struct drm_property *property,
@@ -262,6 +330,12 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		rc = sde_rm_check_property_topctl(val);
 		if (rc)
 			SDE_ERROR("invalid topology_control: 0x%llX\n", val);
+	}
+
+	if (idx == CONNECTOR_PROP_HDR_METADATA) {
+		rc = _sde_connector_set_hdr_info(c_conn, c_state, (void *)val);
+		if (rc)
+			SDE_ERROR_CONN(c_conn, "cannot set hdr info %d\n", rc);
 	}
 
 	/* check for custom property handling */
@@ -612,6 +686,10 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 				DRM_MODE_PROP_IMMUTABLE,
 				CONNECTOR_PROP_HDR_INFO);
 	}
+
+	msm_property_install_volatile_range(&c_conn->property_info,
+		"hdr_metadata", 0x0, 0, ~0, 0,
+		CONNECTOR_PROP_HDR_METADATA);
 
 	msm_property_install_range(&c_conn->property_info, "RETIRE_FENCE",
 			0x0, 0, INR_OPEN_MAX, 0, CONNECTOR_PROP_RETIRE_FENCE);
