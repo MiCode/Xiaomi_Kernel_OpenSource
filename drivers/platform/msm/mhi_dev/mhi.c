@@ -28,6 +28,7 @@
 #include <linux/msm_ep_pcie.h>
 #include <linux/ipa_mhi.h>
 #include <linux/vmalloc.h>
+#include <linux/wakelock.h>
 
 #include "mhi.h"
 #include "mhi_hwio.h"
@@ -1129,6 +1130,13 @@ static void mhi_dev_scheduler(struct work_struct *work)
 
 void mhi_dev_notify_a7_event(struct mhi_dev *mhi)
 {
+
+	if (!atomic_read(&mhi->mhi_dev_wake)) {
+		pm_stay_awake(mhi->dev);
+		atomic_set(&mhi->mhi_dev_wake, 1);
+	}
+	mhi_log(MHI_MSG_VERBOSE, "acquiring mhi wakelock\n");
+
 	schedule_work(&mhi->chdb_ctrl_work);
 	mhi_log(MHI_MSG_VERBOSE, "mhi irq triggered\n");
 }
@@ -1367,6 +1375,10 @@ int mhi_dev_suspend(struct mhi_dev *mhi)
 		mhi_dev_write_to_host(mhi, &data_transfer);
 
 	}
+
+	atomic_set(&mhi->mhi_dev_wake, 0);
+	pm_relax(mhi->dev);
+	mhi_log(MHI_MSG_VERBOSE, "releasing mhi wakelock\n");
 
 	mutex_unlock(&mhi_ctx->mhi_write_test);
 
@@ -2028,6 +2040,14 @@ static int get_device_tree_data(struct platform_device *pdev)
 		}
 	}
 
+	device_init_wakeup(mhi->dev, true);
+	/* MHI device will be woken up from PCIe event */
+	device_set_wakeup_capable(mhi->dev, false);
+	/* Hold a wakelock until completion of M0 */
+	pm_stay_awake(mhi->dev);
+	atomic_set(&mhi->mhi_dev_wake, 1);
+
+	mhi_log(MHI_MSG_VERBOSE, "acquiring wakelock\n");
 
 	return 0;
 }
