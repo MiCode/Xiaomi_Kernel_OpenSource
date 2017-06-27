@@ -36,7 +36,6 @@
 #define L_MODE V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_DISABLED_AT_SLICE_BOUNDARY
 
 #define MAX_SUPPORTED_INSTANCES 16
-static int msm_vidc_update_host_buff_counts(struct msm_vidc_inst *inst);
 
 const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata none",
@@ -1604,10 +1603,8 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 			return;
 		}
 		bufreq->buffer_count_min = event_notify->capture_buf_count;
-
 	}
 
-	msm_vidc_update_host_buff_counts(inst);
 	mutex_unlock(&inst->lock);
 
 	if (event == V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT) {
@@ -4044,7 +4041,7 @@ err_no_mem:
 	return rc;
 }
 
-static int msm_vidc_update_host_buff_counts(struct msm_vidc_inst *inst)
+int msm_vidc_update_host_buff_counts(struct msm_vidc_inst *inst)
 {
 	int extra_buffers;
 	struct hal_buffer_requirements *bufreq;
@@ -4143,8 +4140,8 @@ int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 				req.buffer_count_min, req.buffer_size);
 		}
 	}
-
-	rc = msm_vidc_update_host_buff_counts(inst);
+	if (inst->session_type == MSM_VIDC_ENCODER)
+		rc = msm_vidc_update_host_buff_counts(inst);
 
 	dprintk(VIDC_DBG, "Buffer requirements host adjusted:\n");
 	dprintk(VIDC_DBG, "%15s %8s %8s %8s %8s\n",
