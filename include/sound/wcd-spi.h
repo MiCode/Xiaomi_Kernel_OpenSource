@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,5 +53,11 @@ int wcd_spi_data_read(struct spi_device *spi, struct wcd_spi_msg *msg)
 }
 
 #endif /* End of CONFIG_SND_SOC_WCD_SPI */
+
+struct wcd_spi_ops {
+	struct spi_device *spi_dev;
+	int (*read_dev)(struct spi_device *spi, struct wcd_spi_msg *msg);
+	int (*write_dev)(struct spi_device *spi, struct wcd_spi_msg *msg);
+};
 
 #endif /* End of __WCD_SPI_H__ */

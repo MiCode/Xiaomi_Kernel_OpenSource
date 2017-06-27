@@ -925,6 +925,7 @@ static int wdsp_spi_event_handler(struct device *dev, void *priv_data,
 {
 	struct spi_device *spi = to_spi_device(dev);
 	struct wcd_spi_priv *wcd_spi = spi_get_drvdata(spi);
+	struct wcd_spi_ops *spi_ops;
 	int ret = 0;
 
 	dev_dbg(&spi->dev, "%s: event type %d\n",
@@ -977,6 +978,20 @@ static int wdsp_spi_event_handler(struct device *dev, void *priv_data,
 
 	case WDSP_EVENT_RESUME:
 		ret = wcd_spi_wait_for_resume(wcd_spi);
+		break;
+
+	case WDSP_EVENT_GET_DEVOPS:
+		if (!data) {
+			dev_err(&spi->dev, "%s: invalid data\n",
+				__func__);
+			ret = -EINVAL;
+			break;
+		}
+
+		spi_ops = (struct wcd_spi_ops *) data;
+		spi_ops->spi_dev = spi;
+		spi_ops->read_dev = wcd_spi_data_read;
+		spi_ops->write_dev = wcd_spi_data_write;
 		break;
 
 	default:
