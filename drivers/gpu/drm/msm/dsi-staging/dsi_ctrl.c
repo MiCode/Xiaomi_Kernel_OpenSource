@@ -9,7 +9,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
  */
 
 #define pr_fmt(fmt)	"dsi-ctrl:[%s] " fmt, __func__
@@ -884,7 +883,7 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 			  const struct mipi_dsi_msg *msg,
 			  u32 flags)
 {
-	int rc = 0;
+	int rc = 0, ret = 0;
 	struct mipi_dsi_packet packet;
 	struct dsi_ctrl_cmd_dma_fifo_info cmd;
 	struct dsi_ctrl_cmd_dma_info cmd_mem;
@@ -948,42 +947,59 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 	hw_flags |= (flags & DSI_CTRL_CMD_DEFER_TRIGGER) ?
 			DSI_CTRL_HW_CMD_WAIT_FOR_TRIGGER : 0;
 
-	if (!(flags & DSI_CTRL_CMD_DEFER_TRIGGER))
-		reinit_completion(&dsi_ctrl->int_info.cmd_dma_done);
-
-	if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
-		dsi_ctrl->hw.ops.kickoff_command(&dsi_ctrl->hw,
-						&cmd_mem,
-						hw_flags);
-	} else if (flags & DSI_CTRL_CMD_FIFO_STORE) {
-		dsi_ctrl->hw.ops.kickoff_fifo_command(&dsi_ctrl->hw,
-						      &cmd,
-						      hw_flags);
+	if (flags & DSI_CTRL_CMD_DEFER_TRIGGER) {
+		if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
+			dsi_ctrl->hw.ops.kickoff_command(&dsi_ctrl->hw,
+							&cmd_mem,
+							hw_flags);
+		} else if (flags & DSI_CTRL_CMD_FIFO_STORE) {
+			dsi_ctrl->hw.ops.kickoff_fifo_command(&dsi_ctrl->hw,
+							      &cmd,
+							      hw_flags);
+		}
 	}
 
 	if (!(flags & DSI_CTRL_CMD_DEFER_TRIGGER)) {
-		u32 retry = 10;
-		u32 status = 0;
-		u64 error = 0;
-		u32 mask = (DSI_CMD_MODE_DMA_DONE);
+		dsi_ctrl_enable_status_interrupt(dsi_ctrl,
+					DSI_SINT_CMD_MODE_DMA_DONE, NULL);
+		reinit_completion(&dsi_ctrl->irq_info.cmd_dma_done);
 
-		while ((status == 0) && (retry > 0)) {
-			udelay(1000);
-			status = dsi_ctrl->hw.ops.get_interrupt_status(
-								&dsi_ctrl->hw);
-			error = dsi_ctrl->hw.ops.get_error_status(
-								&dsi_ctrl->hw);
-			status &= mask;
-			retry--;
-			dsi_ctrl->hw.ops.clear_interrupt_status(&dsi_ctrl->hw,
-								status);
-			dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
-							    error);
+		if (flags & DSI_CTRL_CMD_FETCH_MEMORY) {
+			dsi_ctrl->hw.ops.kickoff_command(&dsi_ctrl->hw,
+						      &cmd_mem,
+						      hw_flags);
+		} else if (flags & DSI_CTRL_CMD_FIFO_STORE) {
+			dsi_ctrl->hw.ops.kickoff_fifo_command(&dsi_ctrl->hw,
+							      &cmd,
+							      hw_flags);
 		}
-		pr_debug("INT STATUS = %x, retry = %d\n", status, retry);
-		if (retry == 0)
-			pr_err("[DSI_%d]Command transfer failed\n",
-			       dsi_ctrl->cell_index);
+
+		ret = wait_for_completion_timeout(
+				&dsi_ctrl->irq_info.cmd_dma_done,
+				msecs_to_jiffies(DSI_CTRL_TX_TO_MS));
+
+		if (ret == 0) {
+			u32 status = 0;
+			u32 mask = DSI_CMD_MODE_DMA_DONE;
+
+			if (status & mask) {
+				status |= (DSI_CMD_MODE_DMA_DONE |
+						DSI_BTA_DONE);
+				dsi_ctrl->hw.ops.clear_interrupt_status(
+								&dsi_ctrl->hw,
+								status);
+				dsi_ctrl_disable_status_interrupt(dsi_ctrl,
+						DSI_SINT_CMD_MODE_DMA_DONE);
+				complete_all(&dsi_ctrl->irq_info.cmd_dma_done);
+				pr_warn("dma_tx done but irq not triggered\n");
+			} else {
+				rc = -ETIMEDOUT;
+				dsi_ctrl_disable_status_interrupt(dsi_ctrl,
+						DSI_SINT_CMD_MODE_DMA_DONE);
+				pr_err("[DSI_%d]Command transfer failed\n",
+						dsi_ctrl->cell_index);
+			}
+		}
 
 		dsi_ctrl->hw.ops.reset_cmd_fifo(&dsi_ctrl->hw);
 	}
@@ -1152,15 +1168,6 @@ static int dsi_ctrl_drv_state_init(struct dsi_ctrl *dsi_ctrl)
 	return rc;
 }
 
-int dsi_ctrl_intr_deinit(struct dsi_ctrl *dsi_ctrl)
-{
-	struct dsi_ctrl_interrupts *ints = &dsi_ctrl->int_info;
-
-	devm_free_irq(&dsi_ctrl->pdev->dev, ints->irq, dsi_ctrl);
-
-	return 0;
-}
-
 static int dsi_ctrl_buffer_deinit(struct dsi_ctrl *dsi_ctrl)
 {
 	if (dsi_ctrl->tx_cmd_buf) {
@@ -1259,6 +1266,10 @@ static int dsi_ctrl_dev_probe(struct platform_device *pdev)
 
 	dsi_ctrl->cell_index = index;
 	dsi_ctrl->version = version;
+	dsi_ctrl->irq_info.irq_num = -1;
+	dsi_ctrl->irq_info.irq_stat_mask = 0x0;
+
+	spin_lock_init(&dsi_ctrl->irq_info.irq_lock);
 
 	dsi_ctrl->name = of_get_property(pdev->dev.of_node, "label", NULL);
 	if (!dsi_ctrl->name)
@@ -1677,6 +1688,236 @@ int dsi_ctrl_phy_reset_config(struct dsi_ctrl *dsi_ctrl, bool enable)
 	return 0;
 }
 
+static void dsi_ctrl_handle_error_status(struct dsi_ctrl *dsi_ctrl,
+				unsigned long int error)
+{
+	pr_err("%s: %lu\n", __func__, error);
+
+	/* DTLN PHY error */
+	if (error & 0x3000e00)
+		if (dsi_ctrl->hw.ops.clear_error_status)
+			dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
+					0x3000e00);
+
+	/* DSI FIFO OVERFLOW error */
+	if (error & 0xf0000) {
+		if (dsi_ctrl->hw.ops.clear_error_status)
+			dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
+					0xf0000);
+	}
+
+	/* DSI FIFO UNDERFLOW error */
+	if (error & 0xf00000) {
+		if (dsi_ctrl->hw.ops.clear_error_status)
+			dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
+					0xf00000);
+	}
+
+	/* DSI PLL UNLOCK error */
+	if (error & BIT(8))
+		if (dsi_ctrl->hw.ops.clear_error_status)
+			dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
+					BIT(8));
+}
+
+/**
+ * dsi_ctrl_isr - interrupt service routine for DSI CTRL component
+ * @irq: Incoming IRQ number
+ * @ptr: Pointer to user data structure (struct dsi_ctrl)
+ * Returns: IRQ_HANDLED if no further action required
+ */
+static irqreturn_t dsi_ctrl_isr(int irq, void *ptr)
+{
+	struct dsi_ctrl *dsi_ctrl;
+	struct dsi_event_cb_info cb_info;
+	unsigned long flags;
+	uint32_t cell_index, status, i;
+	uint64_t errors;
+
+	if (!ptr)
+		return IRQ_NONE;
+	dsi_ctrl = ptr;
+
+	/* clear status interrupts */
+	if (dsi_ctrl->hw.ops.get_interrupt_status)
+		status = dsi_ctrl->hw.ops.get_interrupt_status(&dsi_ctrl->hw);
+	else
+		status = 0x0;
+
+	if (dsi_ctrl->hw.ops.clear_interrupt_status)
+		dsi_ctrl->hw.ops.clear_interrupt_status(&dsi_ctrl->hw, status);
+
+	spin_lock_irqsave(&dsi_ctrl->irq_info.irq_lock, flags);
+	cell_index = dsi_ctrl->cell_index;
+	spin_unlock_irqrestore(&dsi_ctrl->irq_info.irq_lock, flags);
+
+	/* clear error interrupts */
+	if (dsi_ctrl->hw.ops.get_error_status)
+		errors = dsi_ctrl->hw.ops.get_error_status(&dsi_ctrl->hw);
+	else
+		errors = 0x0;
+
+	if (errors) {
+		/* handle DSI error recovery */
+		dsi_ctrl_handle_error_status(dsi_ctrl, errors);
+		if (dsi_ctrl->hw.ops.clear_error_status)
+			dsi_ctrl->hw.ops.clear_error_status(&dsi_ctrl->hw,
+							errors);
+	}
+
+	if (status & DSI_CMD_MODE_DMA_DONE) {
+		dsi_ctrl_disable_status_interrupt(dsi_ctrl,
+					DSI_SINT_CMD_MODE_DMA_DONE);
+		complete_all(&dsi_ctrl->irq_info.cmd_dma_done);
+	}
+
+	if (status & DSI_CMD_FRAME_DONE) {
+		dsi_ctrl_disable_status_interrupt(dsi_ctrl,
+					DSI_SINT_CMD_FRAME_DONE);
+		complete_all(&dsi_ctrl->irq_info.cmd_frame_done);
+	}
+
+	if (status & DSI_VIDEO_MODE_FRAME_DONE) {
+		dsi_ctrl_disable_status_interrupt(dsi_ctrl,
+					DSI_SINT_VIDEO_MODE_FRAME_DONE);
+		complete_all(&dsi_ctrl->irq_info.vid_frame_done);
+	}
+
+	if (status & DSI_BTA_DONE) {
+		dsi_ctrl_disable_status_interrupt(dsi_ctrl,
+					DSI_SINT_BTA_DONE);
+		complete_all(&dsi_ctrl->irq_info.bta_done);
+	}
+
+	for (i = 0; status && i < DSI_STATUS_INTERRUPT_COUNT; ++i) {
+		if (status & 0x1) {
+			spin_lock_irqsave(&dsi_ctrl->irq_info.irq_lock, flags);
+			cb_info = dsi_ctrl->irq_info.irq_stat_cb[i];
+			spin_unlock_irqrestore(
+					&dsi_ctrl->irq_info.irq_lock, flags);
+
+			if (cb_info.event_cb)
+				(void)cb_info.event_cb(cb_info.event_usr_ptr,
+						cb_info.event_idx,
+						cell_index, irq, 0, 0, 0);
+		}
+		status >>= 1;
+	}
+
+	return IRQ_HANDLED;
+}
+
+/**
+ * _dsi_ctrl_setup_isr - register ISR handler
+ * @dsi_ctrl: Pointer to associated dsi_ctrl structure
+ * Returns: Zero on success
+ */
+static int dsi_ctrl_setup_isr(struct dsi_ctrl *dsi_ctrl)
+{
+	int irq_num, rc;
+
+	if (!dsi_ctrl)
+		return -EINVAL;
+	if (dsi_ctrl->irq_info.irq_num != -1)
+		return 0;
+
+	init_completion(&dsi_ctrl->irq_info.cmd_dma_done);
+	init_completion(&dsi_ctrl->irq_info.vid_frame_done);
+	init_completion(&dsi_ctrl->irq_info.cmd_frame_done);
+	init_completion(&dsi_ctrl->irq_info.bta_done);
+
+	irq_num = platform_get_irq(dsi_ctrl->pdev, 0);
+	if (irq_num < 0) {
+		pr_err("[DSI_%d] Failed to get IRQ number, %d\n",
+				dsi_ctrl->cell_index, irq_num);
+		rc = irq_num;
+	} else {
+		rc = devm_request_threaded_irq(&dsi_ctrl->pdev->dev, irq_num,
+				dsi_ctrl_isr, NULL, 0, "dsi_ctrl", dsi_ctrl);
+		if (rc) {
+			pr_err("[DSI_%d] Failed to request IRQ, %d\n",
+					dsi_ctrl->cell_index, rc);
+		} else {
+			dsi_ctrl->irq_info.irq_num = irq_num;
+			disable_irq_nosync(irq_num);
+
+			pr_info("[DSI_%d] IRQ %d registered\n",
+					dsi_ctrl->cell_index, irq_num);
+		}
+	}
+	return rc;
+}
+
+/**
+ * _dsi_ctrl_destroy_isr - unregister ISR handler
+ * @dsi_ctrl: Pointer to associated dsi_ctrl structure
+ */
+static void _dsi_ctrl_destroy_isr(struct dsi_ctrl *dsi_ctrl)
+{
+	if (!dsi_ctrl || !dsi_ctrl->pdev || dsi_ctrl->irq_info.irq_num < 0)
+		return;
+
+	if (dsi_ctrl->irq_info.irq_num != -1) {
+		devm_free_irq(&dsi_ctrl->pdev->dev,
+				dsi_ctrl->irq_info.irq_num, dsi_ctrl);
+		dsi_ctrl->irq_info.irq_num = -1;
+	}
+}
+
+void dsi_ctrl_enable_status_interrupt(struct dsi_ctrl *dsi_ctrl,
+		uint32_t intr_idx, struct dsi_event_cb_info *event_info)
+{
+	unsigned long flags;
+
+	if (!dsi_ctrl || dsi_ctrl->irq_info.irq_num == -1 ||
+			intr_idx >= DSI_STATUS_INTERRUPT_COUNT)
+		return;
+
+	spin_lock_irqsave(&dsi_ctrl->irq_info.irq_lock, flags);
+
+	if (dsi_ctrl->irq_info.irq_stat_refcount[intr_idx] == 0) {
+		/* enable irq on first request */
+		if (dsi_ctrl->irq_info.irq_stat_mask == 0)
+			enable_irq(dsi_ctrl->irq_info.irq_num);
+
+		/* update hardware mask */
+		dsi_ctrl->irq_info.irq_stat_mask |= BIT(intr_idx);
+		dsi_ctrl->hw.ops.enable_status_interrupts(&dsi_ctrl->hw,
+				dsi_ctrl->irq_info.irq_stat_mask);
+	}
+	++(dsi_ctrl->irq_info.irq_stat_refcount[intr_idx]);
+
+	if (event_info)
+		dsi_ctrl->irq_info.irq_stat_cb[intr_idx] = *event_info;
+
+	spin_unlock_irqrestore(&dsi_ctrl->irq_info.irq_lock, flags);
+}
+
+void dsi_ctrl_disable_status_interrupt(struct dsi_ctrl *dsi_ctrl,
+		uint32_t intr_idx)
+{
+	unsigned long flags;
+
+	if (!dsi_ctrl || dsi_ctrl->irq_info.irq_num == -1 ||
+			intr_idx >= DSI_STATUS_INTERRUPT_COUNT)
+		return;
+
+	spin_lock_irqsave(&dsi_ctrl->irq_info.irq_lock, flags);
+
+	if (dsi_ctrl->irq_info.irq_stat_refcount[intr_idx])
+		if (--(dsi_ctrl->irq_info.irq_stat_refcount[intr_idx]) == 0) {
+			dsi_ctrl->irq_info.irq_stat_mask &= ~BIT(intr_idx);
+			dsi_ctrl->hw.ops.enable_status_interrupts(&dsi_ctrl->hw,
+					dsi_ctrl->irq_info.irq_stat_mask);
+
+			/* don't need irq if no lines are enabled */
+			if (dsi_ctrl->irq_info.irq_stat_mask == 0)
+				disable_irq_nosync(dsi_ctrl->irq_info.irq_num);
+		}
+
+	spin_unlock_irqrestore(&dsi_ctrl->irq_info.irq_lock, flags);
+}
+
 /**
  * dsi_ctrl_host_init() - Initialize DSI host hardware.
  * @dsi_ctrl:        DSI controller handle.
@@ -1729,7 +1970,7 @@ int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl)
 					  &dsi_ctrl->host_config.video_timing);
 	}
 
-
+	dsi_ctrl_setup_isr(dsi_ctrl);
 
 	dsi_ctrl->hw.ops.enable_status_interrupts(&dsi_ctrl->hw, 0x0);
 	dsi_ctrl->hw.ops.enable_error_interrupts(&dsi_ctrl->hw, 0x0);
@@ -1776,6 +2017,8 @@ int dsi_ctrl_host_deinit(struct dsi_ctrl *dsi_ctrl)
 	}
 
 	mutex_lock(&dsi_ctrl->ctrl_lock);
+
+	_dsi_ctrl_destroy_isr(dsi_ctrl);
 
 	rc = dsi_ctrl_check_state(dsi_ctrl, DSI_CTRL_OP_HOST_INIT, 0x0);
 	if (rc) {
@@ -1933,7 +2176,7 @@ error:
  */
 int dsi_ctrl_cmd_tx_trigger(struct dsi_ctrl *dsi_ctrl, u32 flags)
 {
-	int rc = 0;
+	int rc = 0, ret = 0;
 	u32 status = 0;
 	u32 mask = (DSI_CMD_MODE_DMA_DONE);
 
@@ -1944,27 +2187,43 @@ int dsi_ctrl_cmd_tx_trigger(struct dsi_ctrl *dsi_ctrl, u32 flags)
 
 	mutex_lock(&dsi_ctrl->ctrl_lock);
 
-	reinit_completion(&dsi_ctrl->int_info.cmd_dma_done);
-
-	dsi_ctrl->hw.ops.trigger_command_dma(&dsi_ctrl->hw);
+	if (!(flags & DSI_CTRL_CMD_BROADCAST_MASTER))
+		dsi_ctrl->hw.ops.trigger_command_dma(&dsi_ctrl->hw);
 
 	if ((flags & DSI_CTRL_CMD_BROADCAST) &&
-	    (flags & DSI_CTRL_CMD_BROADCAST_MASTER)) {
-		u32 retry = 10;
+		(flags & DSI_CTRL_CMD_BROADCAST_MASTER)) {
+		dsi_ctrl_enable_status_interrupt(dsi_ctrl,
+					DSI_SINT_CMD_MODE_DMA_DONE, NULL);
+		reinit_completion(&dsi_ctrl->irq_info.cmd_dma_done);
 
-		while ((status == 0) && (retry > 0)) {
-			udelay(1000);
+		/* trigger command */
+		dsi_ctrl->hw.ops.trigger_command_dma(&dsi_ctrl->hw);
+
+		ret = wait_for_completion_timeout(
+				&dsi_ctrl->irq_info.cmd_dma_done,
+				msecs_to_jiffies(DSI_CTRL_TX_TO_MS));
+
+		if (ret == 0) {
 			status = dsi_ctrl->hw.ops.get_interrupt_status(
 								&dsi_ctrl->hw);
-			status &= mask;
-			retry--;
-			dsi_ctrl->hw.ops.clear_interrupt_status(&dsi_ctrl->hw,
+			if (status & mask) {
+				status |= (DSI_CMD_MODE_DMA_DONE |
+						DSI_BTA_DONE);
+				dsi_ctrl->hw.ops.clear_interrupt_status(
+								&dsi_ctrl->hw,
 								status);
+				dsi_ctrl_disable_status_interrupt(dsi_ctrl,
+						DSI_SINT_CMD_MODE_DMA_DONE);
+				complete_all(&dsi_ctrl->irq_info.cmd_dma_done);
+				pr_warn("dma_tx done but irq not triggered\n");
+			} else {
+				rc = -ETIMEDOUT;
+				dsi_ctrl_disable_status_interrupt(dsi_ctrl,
+						DSI_SINT_CMD_MODE_DMA_DONE);
+				pr_err("[DSI_%d]Command transfer failed\n",
+						dsi_ctrl->cell_index);
+			}
 		}
-		pr_debug("INT STATUS = %x, retry = %d\n", status, retry);
-		if (retry == 0)
-			pr_err("[DSI_%d]Command transfer failed\n",
-			       dsi_ctrl->cell_index);
 	}
 
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
