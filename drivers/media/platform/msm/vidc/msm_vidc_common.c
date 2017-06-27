@@ -4075,7 +4075,6 @@ static int msm_vidc_update_host_buff_counts(struct msm_vidc_inst *inst)
 		}
 
 		/* For DPB buffers, no need to add Extra buffers */
-
 		bufreq->buffer_count_min_host =	bufreq->buffer_count_actual =
 			bufreq->buffer_count_min;
 
@@ -4093,6 +4092,20 @@ static int msm_vidc_update_host_buff_counts(struct msm_vidc_inst *inst)
 
 		bufreq->buffer_count_min_host =	bufreq->buffer_count_actual =
 			bufreq->buffer_count_min + extra_buffers;
+
+		bufreq = get_buff_req_buffer(inst,
+				HAL_BUFFER_EXTRADATA_OUTPUT2);
+		if (!bufreq) {
+			dprintk(VIDC_DBG,
+				"No buffer requirements : %x\n",
+					HAL_BUFFER_EXTRADATA_OUTPUT2);
+		} else {
+			if (bufreq->buffer_count_min) {
+				bufreq->buffer_count_min_host =
+				bufreq->buffer_count_actual =
+				bufreq->buffer_count_min + extra_buffers;
+			}
+		}
 	} else {
 
 		bufreq = get_buff_req_buffer(inst,
@@ -4109,6 +4122,20 @@ static int msm_vidc_update_host_buff_counts(struct msm_vidc_inst *inst)
 
 		bufreq->buffer_count_min_host =	bufreq->buffer_count_actual =
 			bufreq->buffer_count_min + extra_buffers;
+
+		bufreq = get_buff_req_buffer(inst,
+				HAL_BUFFER_EXTRADATA_OUTPUT);
+		if (!bufreq) {
+			dprintk(VIDC_DBG,
+				"No buffer requirements : %x\n",
+				HAL_BUFFER_EXTRADATA_OUTPUT);
+		} else {
+			if (bufreq->buffer_count_min) {
+				bufreq->buffer_count_min_host =
+				bufreq->buffer_count_actual =
+				bufreq->buffer_count_min + extra_buffers;
+			}
+		}
 	}
 
 	return 0;
