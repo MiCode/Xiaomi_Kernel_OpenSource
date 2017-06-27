@@ -71,6 +71,16 @@ config QCOM_LLCC_AMON_PANIC
 	  deadlock detection mode AMON will trigger an interrupt if some LLCC request
 	  ages out.
 
+config QCOM_LLCC_PERFMON
+	tristate "Qualcomm Technologies, Inc. LLCC Perfmon driver"
+	depends on QCOM_LLCC
+	help
+	  This option enables driver for LLCC Performance monitor block. Using
+	  this various events in different LLCC sub block ports can be monitored.
+	  This is used for performance and debug activity and exports SYSFS
+	  interface. SYSFS interface used for configure and dump the LLCC
+	  performance events.
+
 config QCOM_PM
 	bool "Qualcomm Power Management"
 	depends on ARCH_QCOM && !ARM64
