@@ -2816,6 +2816,9 @@ int dsi_display_dev_probe(struct platform_device *pdev)
 				(void)_dsi_display_dev_deinit(main_display);
 				component_del(&main_display->pdev->dev,
 					      &dsi_display_comp_ops);
+				mutex_lock(&dsi_display_list_lock);
+				list_del(&main_display->list);
+				mutex_unlock(&dsi_display_list_lock);
 				comp_add_success = false;
 				default_active_node = NULL;
 				pr_debug("removed the existing comp ops\n");
