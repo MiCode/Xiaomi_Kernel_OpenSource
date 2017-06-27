@@ -489,6 +489,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_rdi(
 			continue;
 
 		vfe_acquire.vfe_out.cdm_ops = ife_ctx->cdm_ops;
+		vfe_acquire.vfe_out.ctx = ife_ctx;
 		vfe_acquire.vfe_out.out_port_info = out_port;
 		vfe_acquire.vfe_out.split_id = CAM_ISP_HW_SPLIT_LEFT;
 		vfe_acquire.vfe_out.unique_id = ife_ctx->ctx_index;
@@ -552,6 +553,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_pixel(
 		vfe_acquire.rsrc_type = CAM_ISP_RESOURCE_VFE_OUT;
 		vfe_acquire.tasklet = ife_ctx->common.tasklet_info;
 		vfe_acquire.vfe_out.cdm_ops = ife_ctx->cdm_ops;
+		vfe_acquire.vfe_out.ctx = ife_ctx;
 		vfe_acquire.vfe_out.out_port_info =  out_port;
 		vfe_acquire.vfe_out.is_dual       = ife_src_res->is_dual_vfe;
 		vfe_acquire.vfe_out.unique_id     = ife_ctx->ctx_index;
@@ -1334,7 +1336,7 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 		return -EPERM;
 	}
 
-	CDBG("%s%d: Enter...ctx id:%d\n", __func__, __LINE__, ctx->ctx_index);
+	CDBG("%s:%d Enter ctx id:%d\n", __func__, __LINE__, ctx->ctx_index);
 
 	if (cfg->num_hw_update_entries > 0) {
 		cdm_cmd = ctx->cdm_cmd;
@@ -2326,7 +2328,9 @@ static int cam_ife_hw_mgr_handle_rup_for_camif_hw_res(
 
 	}
 
-	CDBG("%s: Exit (rup_status = %d)!\n", __func__, rup_status);
+	if (!rup_status)
+		CDBG("%s: Exit rup_status = %d\n", __func__, rup_status);
+
 	return 0;
 }
 
@@ -2470,7 +2474,9 @@ static int cam_ife_hw_mgr_handle_epoch_for_camif_hw_res(
 		}
 	}
 
-	CDBG("%s: Exit (epoch_status = %d)!\n", __func__, epoch_status);
+	if (!epoch_status)
+		CDBG("%s: Exit epoch_status = %d\n", __func__, epoch_status);
+
 	return 0;
 }
 
@@ -2640,11 +2646,11 @@ static int cam_ife_hw_mgr_handle_buf_done_for_hw_res(
 
 {
 	int32_t                              buf_done_status = 0;
-	int32_t                              i = 0;
+	int32_t                              i;
 	int32_t                              rc = 0;
 	cam_hw_event_cb_func                 ife_hwr_irq_wm_done_cb;
 	struct cam_isp_resource_node        *hw_res_l = NULL;
-	struct cam_ife_hw_mgr_ctx           *ife_hwr_mgr_ctx = handler_priv;
+	struct cam_ife_hw_mgr_ctx           *ife_hwr_mgr_ctx = NULL;
 	struct cam_vfe_bus_irq_evt_payload  *evt_payload = payload;
 	struct cam_ife_hw_mgr_res           *isp_ife_out_res = NULL;
 	struct cam_hw_event_recovery_data    recovery_data;
@@ -2655,6 +2661,7 @@ static int cam_ife_hw_mgr_handle_buf_done_for_hw_res(
 
 	CDBG("%s:Enter\n", __func__);
 
+	ife_hwr_mgr_ctx = evt_payload->ctx;
 	ife_hwr_irq_wm_done_cb =
 		ife_hwr_mgr_ctx->common.event_cb[CAM_ISP_HW_EVENT_DONE];
 
@@ -2734,13 +2741,11 @@ static int cam_ife_hw_mgr_handle_buf_done_for_hw_res(
 			}
 			break;
 		}
-		CDBG("%s:buf_done status:(%d),isp_ife_out_res->res_id : 0x%x\n",
-			__func__, buf_done_status, isp_ife_out_res->res_id);
+		if (!buf_done_status)
+			CDBG("buf_done status:(%d),out_res->res_id: 0x%x\n",
+			buf_done_status, isp_ife_out_res->res_id);
 	}
 
-
-	CDBG("%s: Exit (buf_done_status (Success) = %d)!\n", __func__,
-			buf_done_status);
 	return rc;
 
 err:
@@ -2775,7 +2780,7 @@ int cam_ife_mgr_do_tasklet_buf_done(void *handler_priv,
 		return rc;
 
 	evt_payload = evt_payload_priv;
-	ife_hwr_mgr_ctx = (struct cam_ife_hw_mgr_ctx *)handler_priv;
+	ife_hwr_mgr_ctx = (struct cam_ife_hw_mgr_ctx *)evt_payload->ctx;
 
 	CDBG("addr of evt_payload = %llx\n", (uint64_t)evt_payload);
 	CDBG("bus_irq_status_0: = %x\n", evt_payload->irq_reg_val[0]);
@@ -2785,19 +2790,6 @@ int cam_ife_mgr_do_tasklet_buf_done(void *handler_priv,
 	CDBG("bus_irq_comp_owrt: = %x\n", evt_payload->irq_reg_val[4]);
 	CDBG("bus_irq_dual_comp_err: = %x\n", evt_payload->irq_reg_val[5]);
 	CDBG("bus_irq_dual_comp_owrt: = %x\n", evt_payload->irq_reg_val[6]);
-
-	/*
-	 * If overflow/overwrite/error/violation are pending
-	 * for this context it needs to be handled remaining
-	 * interrupts are ignored.
-	 */
-	rc = cam_ife_hw_mgr_handle_camif_error(ife_hwr_mgr_ctx,
-		evt_payload_priv);
-	if (rc) {
-		pr_err("%s: Encountered Error (%d), ignoring other irqs\n",
-			__func__, rc);
-		return IRQ_HANDLED;
-	}
 
 	CDBG("%s: Calling Buf_done\n", __func__);
 	/* WM Done */

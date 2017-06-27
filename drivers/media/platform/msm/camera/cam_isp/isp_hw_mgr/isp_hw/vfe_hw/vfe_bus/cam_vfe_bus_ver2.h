@@ -171,7 +171,7 @@ struct cam_vfe_bus_ver2_hw_info {
  *
  * @Brief:                   Initialize Bus layer
  *
- * @mem_base:                Mapped base address of register space
+ * @soc_info:                Soc Information for the associated HW
  * @hw_intf:                 HW Interface of HW to which this resource belongs
  * @bus_hw_info:             BUS HW info that contains details of BUS registers
  * @vfe_irq_controller:      VFE IRQ Controller to use for subscribing to Top
@@ -182,7 +182,8 @@ struct cam_vfe_bus_ver2_hw_info {
  * @Return:                  0: Success
  *                           Non-zero: Failure
  */
-int cam_vfe_bus_ver2_init(void __iomem       *mem_base,
+int cam_vfe_bus_ver2_init(
+	struct cam_hw_soc_info               *soc_info,
 	struct cam_hw_intf                   *hw_intf,
 	void                                 *bus_hw_info,
 	void                                 *vfe_irq_controller,

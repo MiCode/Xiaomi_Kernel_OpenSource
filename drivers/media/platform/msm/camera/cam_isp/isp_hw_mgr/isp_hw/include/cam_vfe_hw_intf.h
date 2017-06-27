@@ -108,6 +108,7 @@ struct cam_vfe_hw_get_hw_cap {
  *                           (Default is Master in case of Single VFE)
  * @dual_slave_core:         If Master and Slave exists, HW Index of Slave
  * @cdm_ops:                 CDM operations
+ * @ctx:                     Context data
  */
 struct cam_vfe_hw_vfe_out_acquire_args {
 	struct cam_isp_resource_node      *rsrc_node;
@@ -118,6 +119,7 @@ struct cam_vfe_hw_vfe_out_acquire_args {
 	uint32_t                           is_master;
 	uint32_t                           dual_slave_core;
 	struct cam_cdm_utils_ops          *cdm_ops;
+	void                              *ctx;
 };
 
 /*
@@ -192,22 +194,21 @@ struct cam_vfe_top_irq_evt_payload {
  *
  * @list:                    list_head node for the payload
  * @core_index:              Index of VFE HW that generated this IRQ event
- * @core_info:               Private data of handler in bottom half context
  * @evt_id:                  IRQ event
  * @irq_reg_val:             IRQ and Error register values, read when IRQ was
  *                           handled
  * @error_type:              Identify different errors
  * @ts:                      Timestamp
+ * @ctx:                     Context data received during acquire
  */
 struct cam_vfe_bus_irq_evt_payload {
-	struct list_head             list;
-	uint32_t                     core_index;
-	void                        *core_info;
-	uint32_t                     evt_id;
-	uint32_t                     irq_reg_val[CAM_IFE_BUS_IRQ_REGISTERS_MAX];
-	uint32_t                     error_type;
-	struct cam_vfe_bus_ver2_priv *bus_priv;
-	struct cam_isp_timestamp     ts;
+	struct list_head            list;
+	uint32_t                    core_index;
+	uint32_t                    evt_id;
+	uint32_t                    irq_reg_val[CAM_IFE_BUS_IRQ_REGISTERS_MAX];
+	uint32_t                    error_type;
+	struct cam_isp_timestamp    ts;
+	void                       *ctx;
 };
 
 /*
