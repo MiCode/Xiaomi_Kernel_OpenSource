@@ -880,6 +880,7 @@ config SND_SOC_WCD934X_DSD
 
 config SND_SOC_WCD9335
         tristate
+	depends on WCD9XXX_CODEC_CORE
 	select SND_SOC_WCD9XXX
 	select SND_SOC_WCD_MBHC
 	select SND_SOC_WCD_MBHC_LEGACY
@@ -887,6 +888,7 @@ config SND_SOC_WCD9335
 
 config SND_SOC_WCD934X
         tristate
+	depends on WCD9XXX_CODEC_CORE
 	select SND_SOC_WCD9XXX
 	select AUDIO_EXT_CLK
 	select SND_SOC_WCD_DSP_MGR
