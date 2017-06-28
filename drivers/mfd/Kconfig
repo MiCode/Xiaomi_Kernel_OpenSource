@@ -8,7 +8,7 @@ menu "Multifunction device drivers"
 config MFD_CORE
 	tristate
 	select IRQ_DOMAIN
-	default n
+	default y
 
 config MFD_CS5535
 	tristate "AMD CS5535 and CS5536 southbridge core functions"
@@ -1636,11 +1636,16 @@ config MSM_CDC_SUPPLY
 	  power supply enable or disable. This driver acts as interface
 	  between codec and regulator framework.
 
-config WCD9XXX_CODEC_UTIL
-	tristate "WCD9XXX Codec Utils"
-	select MFD_CORE
+config WCD9XXX_CODEC_CORE
+	tristate "WCD9XXX Codec Core"
+	select SLIMBUS
+	select SOUNDWIRE_WCD_CTRL
+	select MSM_CDC_SUPPLY
+	select MSM_CDC_PINCTRL
+	select REGMAP_ALLOW_WRITE_DEBUGFS
+	select PINCTRL_WCD
 	help
-	  WCD9XXX Util driver provides APIs for WCD drivers to reset,
+	  WCD9XXX Core driver provides APIs for WCD drivers to reset,
 	  suspend/resume, regmap bus callback functions and read/write
 	  functions. This driver also hides the underlying bus related
 	  functionalities.
@@ -1649,8 +1654,6 @@ config WCD9335_CODEC
 	tristate "WCD9335 Codec"
 	select SLIMBUS
 	select SOUNDWIRE_WCD_CTRL
-	select MFD_CORE
-	select WCD9XXX_CODEC_UTIL
 	select MSM_CDC_SUPPLY
 	select MSM_CDC_PINCTRL
 	select REGMAP_ALLOW_WRITE_DEBUGFS
@@ -1665,8 +1668,6 @@ config WCD934X_CODEC
 	tristate "WCD934X Codec"
 	depends on SLIMBUS
 	select SOUNDWIRE_WCD_CTRL
-	select MFD_CORE
-	select WCD9XXX_CODEC_UTIL
 	select MSM_CDC_SUPPLY
 	select MSM_CDC_PINCTRL
 	select REGMAP_ALLOW_WRITE_DEBUGFS
