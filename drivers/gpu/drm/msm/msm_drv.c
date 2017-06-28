@@ -1384,7 +1384,7 @@ static int msm_ioctl_deregister_event(struct drm_device *dev, void *data,
 	return ret;
 }
 
-void msm_mode_object_event_nofity(struct drm_mode_object *obj,
+void msm_mode_object_event_notify(struct drm_mode_object *obj,
 		struct drm_device *dev, struct drm_event *event, u8 *payload)
 {
 	struct msm_drm_private *priv = NULL;
