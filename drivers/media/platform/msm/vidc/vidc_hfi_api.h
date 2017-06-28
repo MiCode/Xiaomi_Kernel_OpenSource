@@ -866,8 +866,8 @@ struct hal_videocores_usage_info {
 };
 
 enum hal_work_mode {
-	VIDC_WORK_MODE_1,
-	VIDC_WORK_MODE_2,
+	VIDC_WORK_MODE_1 = 1,
+	VIDC_WORK_MODE_2 = 2,
 	VIDC_WORK_MODE_UNUSED = 0x10000000,
 };
 
