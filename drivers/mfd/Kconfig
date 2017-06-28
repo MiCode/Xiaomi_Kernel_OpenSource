@@ -1645,20 +1645,6 @@ config WCD9XXX_CODEC_UTIL
 	  functions. This driver also hides the underlying bus related
 	  functionalities.
 
-config WCD9330_CODEC
-	tristate "WCD9330 Codec"
-	select SLIMBUS
-	select MFD_CORE
-	select WCD9XXX_CODEC_UTIL
-	select MSM_CDC_SUPPLY
-	select REGMAP_ALLOW_WRITE_DEBUGFS
-	help
-	  Enables the WCD9xxx codec core driver. The core driver provides
-	  read/write capability to registers which are part of the
-	  WCD9330 core and gives the ability to use the WCD9330 codec.
-	  The WCD9330 codec support either I2C/I2S or Slimbus for
-	  control and data exchnage with master processor.
-
 config WCD9335_CODEC
 	tristate "WCD9335 Codec"
 	select SLIMBUS
