@@ -50,6 +50,7 @@ struct msm_ringbuffer {
 	uint32_t submitted_fence;
 	spinlock_t lock;
 	struct list_head submits;
+	uint32_t hangcheck_fence;
 
 	struct msm_memptrs *memptrs;
 	uint64_t memptrs_iova;

@@ -346,13 +346,13 @@ static void hangcheck_handler(unsigned long data)
 	uint32_t fence = ring->memptrs->fence;
 	uint32_t submitted = gpu->funcs->submitted_fence(gpu, ring);
 
-	if (fence != gpu->hangcheck_fence[ring->id]) {
+	if (fence != ring->hangcheck_fence) {
 		/* some progress has been made.. ya! */
-		gpu->hangcheck_fence[ring->id] = fence;
+		ring->hangcheck_fence = fence;
 	} else if (fence < submitted) {
 		struct msm_gem_submit *submit;
 
-		gpu->hangcheck_fence[ring->id] = fence;
+		ring->hangcheck_fence = fence;
 
 		/*
 		 * No progress done, but see if the current submit is
@@ -378,7 +378,7 @@ static void hangcheck_handler(unsigned long data)
 
 out:
 	/* if still more pending work, reset the hangcheck timer: */
-	if (submitted > gpu->hangcheck_fence[ring->id])
+	if (submitted > ring->hangcheck_fence)
 		hangcheck_timer_reset(gpu);
 
 	/* workaround for missing irq: */
