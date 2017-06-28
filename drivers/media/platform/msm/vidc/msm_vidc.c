@@ -1843,7 +1843,7 @@ static int msm_vidc_get_count(struct msm_vidc_inst *inst,
 	struct v4l2_ctrl *ctrl)
 {
 	int rc = 0;
-	struct hal_buffer_requirements *bufreq, *newreq;
+	struct hal_buffer_requirements *bufreq;
 	enum hal_buffer buffer_type;
 
 	if (ctrl->id == V4L2_CID_MIN_BUFFERS_FOR_OUTPUT) {
@@ -1892,16 +1892,7 @@ static int msm_vidc_get_count(struct msm_vidc_inst *inst,
 
 
 		if (inst->in_reconfig) {
-			rc = msm_comm_try_get_bufreqs(inst);
-			newreq = get_buff_req_buffer(inst,
-				buffer_type);
-			if (!newreq) {
-				dprintk(VIDC_ERR,
-					"Failed to find new bufreqs = %d\n",
-					buffer_type);
-				return 0;
-			}
-			ctrl->val = newreq->buffer_count_min;
+			ctrl->val = bufreq->buffer_count_min;
 		}
 		if (inst->session_type == MSM_VIDC_DECODER &&
 				!inst->in_reconfig &&
@@ -1969,9 +1960,6 @@ static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 
 	case V4L2_CID_MIN_BUFFERS_FOR_CAPTURE:
-		if (inst->in_reconfig)
-			msm_comm_try_get_bufreqs(inst);
-
 		buffer_type = msm_comm_get_hal_output_buffer(inst);
 		bufreq = get_buff_req_buffer(inst,
 			buffer_type);
@@ -1984,7 +1972,6 @@ static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		ctrl->val = bufreq->buffer_count_min_host;
 		break;
 	case V4L2_CID_MIN_BUFFERS_FOR_OUTPUT:
-		msm_comm_try_get_bufreqs(inst);
 		bufreq = get_buff_req_buffer(inst, HAL_BUFFER_INPUT);
 		if (!bufreq) {
 			dprintk(VIDC_ERR,

@@ -98,6 +98,8 @@ int __dwc3_gadget_ep_set_halt(struct dwc3_ep *dep, int value, int protocol);
 void dwc3_stop_active_transfer(struct dwc3 *dwc, u32 epnum, bool force);
 irqreturn_t dwc3_interrupt(int irq, void *_dwc);
 void dwc3_bh_work(struct work_struct *w);
+void dwc3_ep_inc_enq(struct dwc3_ep *dep);
+void dwc3_ep_inc_deq(struct dwc3_ep *dep);
 
 static inline dma_addr_t dwc3_trb_dma_offset(struct dwc3_ep *dep,
 		struct dwc3_trb *trb)

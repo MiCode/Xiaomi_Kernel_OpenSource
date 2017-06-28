@@ -36,6 +36,7 @@
 #define L_MODE V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_DISABLED_AT_SLICE_BOUNDARY
 
 #define MAX_SUPPORTED_INSTANCES 16
+static int msm_vidc_update_host_buff_counts(struct msm_vidc_inst *inst);
 
 const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata none",
@@ -1456,6 +1457,7 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	int rc = 0;
 	struct hfi_device *hdev;
 	u32 *ptr = NULL;
+	struct hal_buffer_requirements *bufreq;
 
 	if (!event_notify) {
 		dprintk(VIDC_WARN, "Got an empty event from hfi\n");
@@ -1600,6 +1602,46 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	inst->in_reconfig = true;
 	inst->reconfig_height = event_notify->height;
 	inst->reconfig_width = event_notify->width;
+
+	if (msm_comm_get_stream_output_mode(inst) ==
+			HAL_VIDEO_DECODER_SECONDARY) {
+
+		bufreq = get_buff_req_buffer(inst,
+				HAL_BUFFER_OUTPUT);
+		if (!bufreq) {
+			dprintk(VIDC_ERR,
+				"Failed : No buffer requirements : %x\n",
+					HAL_BUFFER_OUTPUT);
+			return;
+		}
+
+		bufreq->buffer_count_min = event_notify->capture_buf_count;
+
+		bufreq = get_buff_req_buffer(inst,
+				HAL_BUFFER_OUTPUT2);
+		if (!bufreq) {
+			dprintk(VIDC_ERR,
+				"Failed : No buffer requirements : %x\n",
+					HAL_BUFFER_OUTPUT2);
+			return;
+		}
+
+		bufreq->buffer_count_min = event_notify->capture_buf_count;
+	} else {
+
+		bufreq = get_buff_req_buffer(inst,
+				HAL_BUFFER_OUTPUT);
+		if (!bufreq) {
+			dprintk(VIDC_ERR,
+				"Failed : No buffer requirements : %x\n",
+					HAL_BUFFER_OUTPUT);
+			return;
+		}
+		bufreq->buffer_count_min = event_notify->capture_buf_count;
+
+	}
+
+	msm_vidc_update_host_buff_counts(inst);
 	mutex_unlock(&inst->lock);
 
 	if (event == V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT) {
@@ -1610,8 +1652,6 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 				"event_notify->height = %d event_notify->width = %d\n",
 				event_notify->height,
 				event_notify->width);
-		inst->prop.height[OUTPUT_PORT] = event_notify->height;
-		inst->prop.width[OUTPUT_PORT] = event_notify->width;
 	}
 
 	rc = msm_vidc_check_session_supported(inst);
@@ -4132,7 +4172,7 @@ static int msm_vidc_update_host_buff_counts(struct msm_vidc_inst *inst)
 
 		/* For DPB buffers, no need to add Extra buffers */
 
-		bufreq->buffer_count_actual = bufreq->buffer_count_min_host =
+		bufreq->buffer_count_min_host =	bufreq->buffer_count_actual =
 			bufreq->buffer_count_min;
 
 		bufreq = get_buff_req_buffer(inst,
@@ -4147,7 +4187,7 @@ static int msm_vidc_update_host_buff_counts(struct msm_vidc_inst *inst)
 		extra_buffers = msm_vidc_get_extra_buff_count(inst,
 			HAL_BUFFER_OUTPUT);
 
-		bufreq->buffer_count_min_host =
+		bufreq->buffer_count_min_host =	bufreq->buffer_count_actual =
 			bufreq->buffer_count_min + extra_buffers;
 	} else {
 
@@ -4163,7 +4203,7 @@ static int msm_vidc_update_host_buff_counts(struct msm_vidc_inst *inst)
 		extra_buffers = msm_vidc_get_extra_buff_count(inst,
 			HAL_BUFFER_OUTPUT);
 
-		bufreq->buffer_count_actual = bufreq->buffer_count_min_host =
+		bufreq->buffer_count_min_host =	bufreq->buffer_count_actual =
 			bufreq->buffer_count_min + extra_buffers;
 	}
 

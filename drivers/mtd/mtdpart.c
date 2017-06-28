@@ -617,7 +617,7 @@ static int mtd_add_partition_attrs(struct mtd_part *new)
 	return ret;
 }
 
-int mtd_add_partition(struct mtd_info *master, const char *name,
+int mtd_add_partition(struct mtd_info *master, char *name,
 		      long long offset, long long length)
 {
 	struct mtd_partition part;

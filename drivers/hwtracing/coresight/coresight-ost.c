@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,19 +30,26 @@
 
 static struct stm_drvdata *stmdrvdata;
 
-static uint32_t stm_channel_alloc(uint32_t off)
+static uint32_t stm_channel_alloc(void)
 {
 	struct stm_drvdata *drvdata = stmdrvdata;
-	uint32_t ch;
-	unsigned long flags;
+	uint32_t ch, off, num_ch_per_cpu;
+	int cpu;
 
-	spin_lock_irqsave(&drvdata->spinlock, flags);
-	do {
-		ch = find_next_zero_bit(drvdata->chs.bitmap,
-					drvdata->numsp, off);
-	} while ((ch < drvdata->numsp) &&
-		 test_and_set_bit(ch, drvdata->chs.bitmap));
-	spin_unlock_irqrestore(&drvdata->spinlock, flags);
+	num_ch_per_cpu = drvdata->numsp/num_present_cpus();
+
+	cpu = get_cpu();
+
+	off = num_ch_per_cpu * cpu;
+	ch = find_next_zero_bit(drvdata->chs.bitmap,
+				drvdata->numsp, off);
+	if (unlikely(ch >= (off + num_ch_per_cpu))) {
+		put_cpu();
+		return drvdata->numsp;
+	}
+
+	set_bit(ch, drvdata->chs.bitmap);
+	put_cpu();
 
 	return ch;
 }
@@ -65,11 +72,8 @@ static int stm_ost_send(void *addr, const void *data, uint32_t count)
 static void stm_channel_free(uint32_t ch)
 {
 	struct stm_drvdata *drvdata = stmdrvdata;
-	unsigned long flags;
 
-	spin_lock_irqsave(&drvdata->spinlock, flags);
 	clear_bit(ch, drvdata->chs.bitmap);
-	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 }
 
 static int stm_trace_ost_header(unsigned long ch_addr, uint32_t flags,
@@ -146,7 +150,14 @@ static inline int __stm_trace(uint32_t flags, uint8_t entity_id,
 	unsigned long ch_addr;
 
 	/* allocate channel and get the channel address */
-	ch = stm_channel_alloc(0);
+	ch = stm_channel_alloc();
+	if (unlikely(ch >= drvdata->numsp)) {
+		drvdata->ch_alloc_fail_count++;
+		dev_err_ratelimited(drvdata->dev,
+				    "Channel allocation failed %d",
+				    drvdata->ch_alloc_fail_count);
+		return 0;
+	}
 
 	ch_addr = (unsigned long)stm_channel_addr(drvdata, ch);
 
