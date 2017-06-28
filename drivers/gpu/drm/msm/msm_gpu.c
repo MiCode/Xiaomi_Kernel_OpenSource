@@ -18,7 +18,7 @@
 #include "msm_gpu.h"
 #include "msm_gem.h"
 #include "msm_mmu.h"
-
+#include "msm_trace.h"
 
 /*
  * Power Management:
@@ -494,8 +494,17 @@ static void retire_submits(struct msm_gpu *gpu, struct msm_ringbuffer *ring,
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 
 	list_for_each_entry_safe(submit, tmp, &ring->submits, node) {
+		struct msm_memptr_ticks *ticks;
+
 		if (submit->fence > fence)
 			break;
+
+		ticks = &(ring->memptrs->ticks[submit->tick_index]);
+
+		/* Add memory barrier to ensure the timer ticks are posted */
+		rmb();
+
+		trace_msm_retired(submit, ticks->started, ticks->retired);
 
 		msm_gem_submit_free(submit);
 	}
@@ -577,6 +586,12 @@ int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 	msm_rd_dump_submit(submit);
 
 	ring->submitted_fence = submit->fence;
+
+	submit->tick_index = ring->tick_index;
+	ring->tick_index = (ring->tick_index + 1) %
+		ARRAY_SIZE(ring->memptrs->ticks);
+
+	trace_msm_queued(submit);
 
 	update_sw_cntrs(gpu);
 
