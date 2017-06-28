@@ -1217,7 +1217,16 @@ static struct platform_driver wdsp_mgr_driver = {
 	.probe = wdsp_mgr_probe,
 	.remove = wdsp_mgr_remove,
 };
-module_platform_driver(wdsp_mgr_driver);
+
+int wcd_dsp_mgr_init(void)
+{
+	return platform_driver_register(&wdsp_mgr_driver);
+}
+
+void wcd_dsp_mgr_exit(void)
+{
+	platform_driver_unregister(&wdsp_mgr_driver);
+}
 
 MODULE_DESCRIPTION("WCD DSP manager driver");
 MODULE_DEVICE_TABLE(of, wdsp_mgr_dt_match);

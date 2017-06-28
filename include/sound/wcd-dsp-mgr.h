@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 #define __WCD_DSP_MGR_H__
 
 #include <linux/types.h>
+#include <linux/device.h>
 
 /*
  * These enums correspond to the component types
@@ -133,4 +134,6 @@ struct wdsp_mgr_ops {
 	int (*resume)(struct device *wdsp_dev);
 };
 
+int wcd_dsp_mgr_init(void);
+void wcd_dsp_mgr_exit(void);
 #endif /* end of __WCD_DSP_MGR_H__ */
