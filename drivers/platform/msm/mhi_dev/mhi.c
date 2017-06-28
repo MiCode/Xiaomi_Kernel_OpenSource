@@ -34,13 +34,10 @@
 #include "mhi_sm.h"
 
 /* Wait time on the device for Host to set M0 state */
-#define MHI_M0_WAIT_MIN_USLEEP		20000000
-#define MHI_M0_WAIT_MAX_USLEEP		25000000
 #define MHI_DEV_M0_MAX_CNT		30
 /* Wait time before suspend/resume is complete */
-#define MHI_SUSPEND_WAIT_MIN		3100
-#define MHI_SUSPEND_WAIT_MAX		3200
-#define MHI_SUSPEND_WAIT_TIMEOUT	500
+#define MHI_SUSPEND_MIN			10000
+#define MHI_SUSPEND_TIMEOUT		3000
 #define MHI_MASK_CH_EV_LEN		32
 #define MHI_RING_CMD_ID			0
 #define MHI_RING_PRIMARY_EVT_ID		1
@@ -512,12 +509,11 @@ int mhi_dev_send_event(struct mhi_dev *mhi, int evnt_ring,
 	struct mhi_addr transfer_addr;
 	uint32_t data_buffer = 0;
 
-	rc = ep_pcie_get_msi_config(mhi->phandle,
-			&cfg);
-		if (rc) {
-			pr_err("Error retrieving pcie msi logic\n");
-			return rc;
-		}
+	rc = ep_pcie_get_msi_config(mhi->phandle, &cfg);
+	if (rc) {
+		pr_err("Error retrieving pcie msi logic\n");
+		return rc;
+	}
 
 	if (evnt_ring_idx > mhi->cfg.event_rings) {
 		pr_err("Invalid event ring idx: %lld\n", evnt_ring_idx);
@@ -1728,9 +1724,9 @@ int mhi_dev_write_channel(struct mhi_dev_client *handle_client,
 
 	atomic_inc(&mhi_ctx->write_active);
 	while (atomic_read(&mhi_ctx->is_suspended) &&
-			suspend_wait_timeout < MHI_SUSPEND_WAIT_TIMEOUT) {
+			suspend_wait_timeout < MHI_SUSPEND_TIMEOUT) {
 		/* wait for the suspend to finish */
-		usleep_range(MHI_SUSPEND_WAIT_MIN, MHI_SUSPEND_WAIT_MAX);
+		msleep(MHI_SUSPEND_MIN);
 		suspend_wait_timeout++;
 	}
 
@@ -1827,7 +1823,7 @@ static void mhi_dev_enable(struct work_struct *work)
 				struct mhi_dev, ring_init_cb_work);
 
 	enum mhi_dev_state state;
-	uint32_t max_cnt = 0;
+	uint32_t max_cnt = 0, bhi_intvec = 0;
 
 
 	if (mhi->use_ipa) {
@@ -1856,9 +1852,24 @@ static void mhi_dev_enable(struct work_struct *work)
 	if (rc)
 		pr_err("%s Failed to initialize mhi_dev_net iface\n", __func__);
 
-	rc = ep_pcie_get_msi_config(mhi->phandle, &msi_cfg);
+	rc = mhi_dev_mmio_read(mhi, BHI_INTVEC, &bhi_intvec);
 	if (rc)
-		pr_warn("MHI: error geting msi configs\n");
+		return rc;
+
+	if (bhi_intvec != 0xffffffff) {
+		/* Indicate the host that the device is ready */
+		rc = ep_pcie_get_msi_config(mhi->phandle, &msi_cfg);
+		if (rc) {
+			pr_err("MHI: error geting msi configs\n");
+			return;
+		}
+
+		rc = ep_pcie_trigger_msi(mhi_ctx->phandle, bhi_intvec);
+		if (rc) {
+			pr_err("%s: error sending msi\n", __func__);
+			return;
+		}
+	}
 
 	rc = mhi_dev_mmio_get_mhi_state(mhi, &state);
 	if (rc) {
@@ -1866,9 +1877,9 @@ static void mhi_dev_enable(struct work_struct *work)
 		return;
 	}
 
-	while (state != MHI_DEV_M0_STATE && max_cnt < MHI_DEV_M0_MAX_CNT) {
+	while (state != MHI_DEV_M0_STATE && max_cnt < MHI_SUSPEND_TIMEOUT) {
 		/* Wait for Host to set the M0 state */
-		usleep_range(MHI_M0_WAIT_MIN_USLEEP, MHI_M0_WAIT_MAX_USLEEP);
+		msleep(MHI_SUSPEND_MIN);
 		rc = mhi_dev_mmio_get_mhi_state(mhi, &state);
 		if (rc) {
 			pr_err("%s: get mhi state failed\n", __func__);
@@ -2032,7 +2043,6 @@ static int mhi_init(struct mhi_dev *mhi)
 		pr_err("Failed to update the MMIO init\n");
 		return rc;
 	}
-
 
 	mhi->ring = devm_kzalloc(&pdev->dev,
 			(sizeof(struct mhi_dev_ring) *

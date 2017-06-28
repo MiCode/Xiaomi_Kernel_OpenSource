@@ -1,4 +1,4 @@
-/* Copyright (c) 2016 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,7 +27,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/machine.h>
-#include "pmic-voter.h"
+#include <linux/pmic-voter.h>
 #include "smb138x-charger.h"
 
 #define SMB_DEFAULT_FCC_UA 1000000
@@ -1326,8 +1326,8 @@ static int smb138x_init_parallel_psy(struct smb138x *chip)
 	int rc = 0;
 	struct smb_charger *chg = &chip->chg;
 
-	chg->parallel_psy.name		= "usb-parallel";
-	chg->parallel_psy.type		= POWER_SUPPLY_TYPE_USB_PARALLEL;
+	chg->parallel_psy.name		= "parallel";
+	chg->parallel_psy.type		= POWER_SUPPLY_TYPE_PARALLEL;
 	chg->parallel_psy.properties	= smb138x_parallel_props;
 	chg->parallel_psy.num_properties	=
 					ARRAY_SIZE(smb138x_parallel_props);

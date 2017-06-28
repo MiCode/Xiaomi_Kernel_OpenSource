@@ -2123,6 +2123,10 @@ sound-9330 {
 - qcom,model : The user-visible name of this sound card.
 - qcom,tasha-mclk-clk-freq : MCLK frequency value for tasha codec
                              and node is "sound-9335"
+- qcom,prim_mi2s_aux_master : Handle to prim_master pinctrl configurations
+- qcom,prim_mi2s_aux_slave : Handle to prim_slave pinctrl configurations
+- qcom,sec_mi2s_aux_master : Handle to sec_master pinctrl configurations
+- qcom,sec_mi2s_aux_slave : Handle to sec_slave pinctrl configurations
 - qcom,audio-routing : A list of the connections between audio components.
 - asoc-platform: This is phandle list containing the references to platform device
                  nodes that are used as part of the sound card dai-links.
@@ -2181,6 +2185,10 @@ Example:
 		"MIC BIAS4 External", "Digital Mic6";
 
 		qcom,tasha-mclk-clk-freq = <12288000>;
+		qcom,prim_mi2s_aux_master = <&prim_master>;
+		qcom,prim_mi2s_aux_slave = <&prim_slave>;
+		qcom,sec_mi2s_aux_master = <&sec_master>;
+		qcom,sec_mi2s_aux_slave = <&sec_slave>;
 		asoc-platform = <&pcm0>, <&pcm1>, <&voip>, <&voice>,
 				<&loopback>, <&hostless>, <&afe>, <&routing>,
 				<&pcm_dtmf>, <&host_pcm>;

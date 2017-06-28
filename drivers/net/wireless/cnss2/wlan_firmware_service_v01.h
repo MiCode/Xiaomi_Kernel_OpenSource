@@ -76,6 +76,7 @@
 #define QMI_WLFW_FUNCTION_NAME_LEN_V01 128
 #define QMI_WLFW_MAX_NUM_CE_V01 12
 #define QMI_WLFW_MAX_TIMESTAMP_LEN_V01 32
+#define QMI_WLFW_MAX_ATHDIAG_DATA_SIZE_V01 512
 #define QMI_WLFW_MAX_BUILD_ID_LEN_V01 128
 #define QMI_WLFW_MAX_STR_LEN_V01 16
 #define QMI_WLFW_MAX_NUM_SHADOW_REG_V01 24
@@ -301,9 +302,11 @@ struct wlfw_cap_resp_msg_v01 {
 	struct wlfw_fw_version_info_s_v01 fw_version_info;
 	uint8_t fw_build_id_valid;
 	char fw_build_id[QMI_WLFW_MAX_BUILD_ID_LEN_V01 + 1];
+	uint8_t num_macs_valid;
+	uint8_t num_macs;
 };
 
-#define WLFW_CAP_RESP_MSG_V01_MAX_MSG_LEN 203
+#define WLFW_CAP_RESP_MSG_V01_MAX_MSG_LEN 207
 extern struct elem_info wlfw_cap_resp_msg_v01_ei[];
 
 struct wlfw_bdf_download_req_msg_v01 {
@@ -319,9 +322,11 @@ struct wlfw_bdf_download_req_msg_v01 {
 	uint8_t data[QMI_WLFW_MAX_DATA_SIZE_V01];
 	uint8_t end_valid;
 	uint8_t end;
+	uint8_t bdf_type_valid;
+	uint8_t bdf_type;
 };
 
-#define WLFW_BDF_DOWNLOAD_REQ_MSG_V01_MAX_MSG_LEN 6178
+#define WLFW_BDF_DOWNLOAD_REQ_MSG_V01_MAX_MSG_LEN 6182
 extern struct elem_info wlfw_bdf_download_req_msg_v01_ei[];
 
 struct wlfw_bdf_download_resp_msg_v01 {
@@ -472,20 +477,20 @@ struct wlfw_athdiag_read_resp_msg_v01 {
 	struct qmi_response_type_v01 resp;
 	uint8_t data_valid;
 	uint32_t data_len;
-	uint8_t data[QMI_WLFW_MAX_DATA_SIZE_V01];
+	uint8_t data[QMI_WLFW_MAX_ATHDIAG_DATA_SIZE_V01];
 };
 
-#define WLFW_ATHDIAG_READ_RESP_MSG_V01_MAX_MSG_LEN 6156
+#define WLFW_ATHDIAG_READ_RESP_MSG_V01_MAX_MSG_LEN 524
 extern struct elem_info wlfw_athdiag_read_resp_msg_v01_ei[];
 
 struct wlfw_athdiag_write_req_msg_v01 {
 	uint32_t offset;
 	uint32_t mem_type;
 	uint32_t data_len;
-	uint8_t data[QMI_WLFW_MAX_DATA_SIZE_V01];
+	uint8_t data[QMI_WLFW_MAX_ATHDIAG_DATA_SIZE_V01];
 };
 
-#define WLFW_ATHDIAG_WRITE_REQ_MSG_V01_MAX_MSG_LEN 6163
+#define WLFW_ATHDIAG_WRITE_REQ_MSG_V01_MAX_MSG_LEN 531
 extern struct elem_info wlfw_athdiag_write_req_msg_v01_ei[];
 
 struct wlfw_athdiag_write_resp_msg_v01 {

@@ -618,7 +618,7 @@ static int msm_ispif_reset(struct ispif_device *ispif)
 			ispif->base + ISPIF_VFE_m_INTF_CMD_0(i));
 		msm_camera_io_w(ISPIF_STOP_INTF_IMMEDIATELY,
 			ispif->base + ISPIF_VFE_m_INTF_CMD_1(i));
-		pr_debug("%s: base %lx", __func__, (unsigned long)ispif->base);
+		pr_debug("%s: base %pK", __func__, ispif->base);
 		msm_camera_io_w(0, ispif->base +
 			ISPIF_VFE_m_PIX_INTF_n_CID_MASK(i, 0));
 		msm_camera_io_w(0, ispif->base +
@@ -1017,6 +1017,11 @@ static void msm_ispif_config_stereo(struct ispif_device *ispif,
 
 	for (i = 0; i < params->num; i++) {
 		vfe_intf = params->entries[i].vfe_intf;
+		if (!msm_ispif_is_intf_valid(ispif->csid_version, vfe_intf)) {
+			pr_err("%s: invalid interface type %d\n", __func__,
+				vfe_intf);
+			return;
+		}
 		if (params->entries[i].intftype == PIX0 &&
 			params->stereo_enable &&
 			params->right_entries[i].csid < CSID_MAX &&

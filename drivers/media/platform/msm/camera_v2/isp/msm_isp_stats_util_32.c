@@ -632,6 +632,12 @@ int msm_isp_cfg_stats_stream(struct vfe_device *vfe_dev, void *arg)
 	if (vfe_dev->stats_data.num_active_stream == 0)
 		vfe_dev->hw_info->vfe_ops.stats_ops.cfg_ub(vfe_dev);
 
+	if (stream_cfg_cmd->num_streams > MSM_ISP_STATS_MAX) {
+		pr_err("%s invalid num_streams %d\n", __func__,
+			stream_cfg_cmd->num_streams);
+		return -EINVAL;
+	}
+
 	if (stream_cfg_cmd->enable) {
 		msm_isp_stats_update_cgc_override(vfe_dev, stream_cfg_cmd);
 

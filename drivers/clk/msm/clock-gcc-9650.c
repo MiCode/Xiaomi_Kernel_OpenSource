@@ -1410,7 +1410,6 @@ static struct mux_clk gcc_debug_mux = {
 };
 
 static struct clk_lookup msm_clocks_rpm_9650[] = {
-	CLK_LIST(a7pll_clk),
 	CLK_LIST(xo),
 	CLK_LIST(xo_a_clk),
 	CLK_LIST(ce_clk),
@@ -1538,9 +1537,12 @@ static struct clk_lookup msm_clocks_gcc_9650[] = {
 	CLK_LIST(gcc_usb3_pipe_clk),
 	CLK_LIST(gcc_usb_phy_cfg_ahb_clk),
 	CLK_LIST(gcc_mss_cfg_ahb_clk),
+	CLK_LIST(a7pll_clk),
 };
 
 /* sdx20 */
+/* Fractional Val offset from PLL base */
+#define APCS_CPU_PLL_FRAC_OFF	0x40
 
 static int set_pcie_aux_mux_sel(struct mux_clk *clk, int sel);
 static int get_pcie_aux_mux_sel(struct mux_clk *clk);
@@ -1652,10 +1654,13 @@ static int get_pcie_aux_mux_sel(struct mux_clk *clk)
 static void msm_clocks_gcc_sdx20_fixup(void)
 {
 	gcc_pcie_sleep_clk.c.parent =  &pcie_aux_phy_clk_src.c;
+
+	a7pll_clk.fabia_frac_offset = APCS_CPU_PLL_FRAC_OFF;
 	a7pll_clk.masks = &fabia_pll_masks_p;
 	a7pll_clk.vco_tbl =  fabia_pll_vco_p;
 	a7pll_clk.num_vco =  ARRAY_SIZE(fabia_pll_vco_p);
 	a7pll_clk.c.ops = &clk_ops_fabia_alpha_pll;
+	a7pll_clk.is_fabia = true;
 
 	apss_ahb_clk_src.freq_tbl = ftbl_apss_ahb_clk_src_sdx20;
 	usb30_mock_utmi_clk_src.freq_tbl =

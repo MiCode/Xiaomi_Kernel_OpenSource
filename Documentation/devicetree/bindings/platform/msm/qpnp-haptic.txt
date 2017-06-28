@@ -10,6 +10,7 @@ pwm(pulse width modulation) and audio.
 Required Properties:
  - compatible: must be "qcom,qpnp-haptic"
  - reg: address of device
+ - qcom,pmic-revid : phandle to fetch PMIC revid
  - qcom,actuator-type: must be one of "erm" or "lra"
  - qcom,play-mode : must be one of "buffer", "direct", "pwm" or "audio"
 
@@ -63,7 +64,16 @@ Optional properties when qcom,actuator-type is "lra"
 			"max-qwd" : Maximum QWD
 			"zxd-eop" : ZXD + End of pattern (This is the Default)
  - qcom,lra-high-z : High Z configuration for auto resonance. Possible string values are
-			"none", "opt1", "opt2" and "opt3" (default)
+			"none", "opt1", "opt2" and "opt3" (default). For PM660,
+			"opt0" is valid value for 1 LRA period.
+ - qcom,lra-hw-auto-resonance : boolean, enable Hardware auto-resonance for PM660.
+			Use this property to enable Hardware auto-resonance.
+			If not defined then Software auto-resonance is enabled(default).
+ - qcom,lra-qwd-drive-duration : Drive duration of LRA in QWD mode for PM660.
+			Possible values are: 0: 1/4 LRA PERIOD and 1: 3/8 LRA PERIOD
+ - qcom,lra-calibrate-at-eop : To calibrate at End of Pattern for PM660.
+			Possible values are: 0 to disable and 1 to enable Calibration
+			at End of Pattern
  - qcom,lra-res-cal-period : Auto resonance calibration period. The values range from
 			4 to 32(default)
  - qcom,perform-lra-auto-resonance-search : boolean, define this property if:
@@ -109,6 +119,7 @@ Example:
 			interrupts = <0x3 0xc0 0x0>,
 				     <0x3 0xc0 0x1>;
 			interrupt-names = "sc-irq", "play-irq";
+			qcom,pmic-revid = <&pm660_revid>;
 			vcc_pon-supply = <&pon_perph_reg>;
 			qcom,play-mode = "direct";
 			qcom,wave-play-rate-us = <5263>;

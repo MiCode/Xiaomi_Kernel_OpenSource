@@ -22,8 +22,8 @@
 #define WLFW_SERVICE_INS_ID_V01		1
 #define WLFW_CLIENT_ID			0x4b4e454c
 #define MAX_BDF_FILE_NAME		11
-#define DEFAULT_BDF_FILE_NAME		"bdwlan.bin"
-#define BDF_FILE_NAME_PREFIX		"bdwlan.b"
+#define DEFAULT_BDF_FILE_NAME		"bdwlan.elf"
+#define BDF_FILE_NAME_PREFIX		"bdwlan.e"
 
 #ifdef CONFIG_CNSS2_DEBUG
 static unsigned int qmi_timeout = 10000;
@@ -44,6 +44,11 @@ static bool bdf_bypass = true;
 module_param(bdf_bypass, bool, S_IRUSR | S_IWUSR);
 MODULE_PARM_DESC(bdf_bypass, "If BDF is not found, send dummy BDF to FW");
 #endif
+
+enum cnss_bdf_type {
+	CNSS_BDF_BIN,
+	CNSS_BDF_ELF,
+};
 
 static void cnss_wlfw_clnt_notifier_work(struct work_struct *work)
 {
@@ -462,6 +467,8 @@ bypass_bdf:
 		req->seg_id_valid = 1;
 		req->data_valid = 1;
 		req->end_valid = 1;
+		req->bdf_type_valid = 1;
+		req->bdf_type = CNSS_BDF_ELF;
 
 		if (remaining > QMI_WLFW_MAX_DATA_SIZE_V01) {
 			req->data_len = QMI_WLFW_MAX_DATA_SIZE_V01;

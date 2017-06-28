@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -121,6 +121,10 @@ int ipahal_reg_init(enum ipa_hw_type ipa_hw_type);
 #define IPA_ENDP_INIT_CTRL_n_ENDP_SUSPEND_SHFT 0x0
 #define IPA_ENDP_INIT_CTRL_n_ENDP_DELAY_BMSK 0x2
 #define IPA_ENDP_INIT_CTRL_n_ENDP_DELAY_SHFT 0x1
+
+/* IPA_ENDP_INIT_CTRL_SCND_n register */
+#define IPA_ENDP_INIT_CTRL_SCND_n_ENDP_DELAY_BMSK 0x2
+#define IPA_ENDP_INIT_CTRL_SCND_n_ENDP_DELAY_SHFT 0x1
 
 /* IPA_ENDP_INIT_HOL_BLOCK_EN_n register */
 #define IPA_ENDP_INIT_HOL_BLOCK_EN_n_RMSK 0x1

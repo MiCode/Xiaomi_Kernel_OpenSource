@@ -16,6 +16,7 @@
 #define BITS(_s, _n)	(((1UL << (_n)) - 1) << _s)
 
 #define QCA8337_PHY_ID		0x004dd036
+#define ATH8030_PHY_ID		0x004dd076
 #define QCA8337_ID_QCA8337	0x13
 #define QCA8337_NUM_PORTS					7
 /* Make sure that port0 is the cpu port */
@@ -113,7 +114,7 @@
 
 /* PWS_REG (POWER_ON_STRIP) */
 #define QCA8337_REG_POWER_ON_STRIP		0x010
-#define QCA8337_REG_POS_VAL			0x2613a0
+#define QCA8337_REG_POS_VAL			0x261320
 #define   QCA8337_PWS_POWER_ON_SEL	BIT(31)
 #define   QCA8337_PWS_LED_OPEN_EN	BIT(24)
 #define   QCA8337_PWS_SERDES_AEN	BIT(7)

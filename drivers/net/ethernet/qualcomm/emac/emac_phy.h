@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -74,6 +74,7 @@ struct emac_phy {
 	bool	is_wol_irq_reg;
 	bool	is_wol_enabled;
 	spinlock_t	wol_irq_lock; /* lock for wol irq gpio enablement */
+	bool	is_ext_phy_connect;
 };
 
 int emac_phy_config_internal(struct platform_device *pdev,

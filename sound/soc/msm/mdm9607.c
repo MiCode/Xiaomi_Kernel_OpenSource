@@ -407,11 +407,6 @@ static int mdm_mi2s_startup(struct snd_pcm_substream *substream)
 					__func__);
 				goto err;
 			}
-			ret = snd_soc_dai_set_fmt(codec_dai,
-					SND_SOC_DAIFMT_CBM_CFM);
-			if (ret < 0)
-				pr_err("%s Set fmt for codec dai failed\n",
-					__func__);
 		}
 	}
 err:

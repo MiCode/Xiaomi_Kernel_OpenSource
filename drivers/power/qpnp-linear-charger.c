@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3134,8 +3134,8 @@ static int qpnp_lbc_parallel_probe(struct spmi_device *spmi)
 		return rc;
 	}
 
-	chip->parallel_psy.name		= "usb-parallel";
-	chip->parallel_psy.type		= POWER_SUPPLY_TYPE_USB_PARALLEL;
+	chip->parallel_psy.name		= "parallel";
+	chip->parallel_psy.type		= POWER_SUPPLY_TYPE_PARALLEL;
 	chip->parallel_psy.get_property	= qpnp_lbc_parallel_get_property;
 	chip->parallel_psy.set_property	= qpnp_lbc_parallel_set_property;
 	chip->parallel_psy.properties	= qpnp_lbc_parallel_properties;

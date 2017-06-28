@@ -63,6 +63,10 @@ const char *ipa3_event_name[] = {
 	__stringify(IPA_TETHERING_STATS_UPDATE_NETWORK_STATS),
 	__stringify(IPA_PER_CLIENT_STATS_CONNECT_EVENT),
 	__stringify(IPA_PER_CLIENT_STATS_DISCONNECT_EVENT),
+	__stringify(ADD_VLAN_IFACE),
+	__stringify(DEL_VLAN_IFACE),
+	__stringify(ADD_L2TP_VLAN_MAPPING),
+	__stringify(DEL_L2TP_VLAN_MAPPING)
 };
 
 const char *ipa3_hdr_l2_type_name[] = {
@@ -77,6 +81,8 @@ const char *ipa3_hdr_proc_type_name[] = {
 	__stringify(IPA_HDR_PROC_ETHII_TO_802_3),
 	__stringify(IPA_HDR_PROC_802_3_TO_ETHII),
 	__stringify(IPA_HDR_PROC_802_3_TO_802_3),
+	__stringify(IPA_HDR_PROC_L2TP_HEADER_ADD),
+	__stringify(IPA_HDR_PROC_L2TP_HEADER_REMOVE),
 };
 
 static struct dentry *dent;
