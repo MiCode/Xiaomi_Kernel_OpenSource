@@ -12,6 +12,9 @@
 
 #include <linux/input.h>
 #include <linux/of_gpio.h>
+#include <linux/module.h>
+#include <linux/platform_device.h>
+#include <linux/of_device.h>
 #include <linux/mfd/msm-cdc-pinctrl.h>
 #include <sound/pcm_params.h>
 #include <sound/q6afe-v2.h>
@@ -190,7 +193,7 @@ struct msm_wsa881x_dev_info {
 static struct snd_soc_aux_dev *msm_aux_dev;
 static struct snd_soc_codec_conf *msm_codec_conf;
 
-static bool msm_swap_gnd_mic(struct snd_soc_codec *codec);
+static bool msm_swap_gnd_mic(struct snd_soc_codec *codec, bool active);
 
 static struct wcd_mbhc_config mbhc_cfg = {
 	.read_fw_bin = false,
@@ -2594,7 +2597,7 @@ static int msm_prepare_us_euro(struct snd_soc_card *card)
 	return ret;
 }
 
-static bool msm_swap_gnd_mic(struct snd_soc_codec *codec)
+static bool msm_swap_gnd_mic(struct snd_soc_codec *codec, bool active)
 {
 	struct snd_soc_card *card = codec->component.card;
 	struct msm_asoc_mach_data *pdata =
