@@ -4320,13 +4320,15 @@ static struct snd_soc_codec_driver soc_codec_dev_sdm660_cdc = {
 	.suspend = msm_anlg_cdc_suspend,
 	.resume = msm_anlg_cdc_resume,
 	.reg_word_size = 1,
-	.controls = msm_anlg_cdc_snd_controls,
-	.num_controls = ARRAY_SIZE(msm_anlg_cdc_snd_controls),
-	.dapm_widgets = msm_anlg_cdc_dapm_widgets,
-	.num_dapm_widgets = ARRAY_SIZE(msm_anlg_cdc_dapm_widgets),
-	.dapm_routes = audio_map,
-	.num_dapm_routes = ARRAY_SIZE(audio_map),
 	.get_regmap = msm_anlg_get_regmap,
+	.component_driver = {
+		.controls = msm_anlg_cdc_snd_controls,
+		.num_controls = ARRAY_SIZE(msm_anlg_cdc_snd_controls),
+		.dapm_widgets = msm_anlg_cdc_dapm_widgets,
+		.num_dapm_widgets = ARRAY_SIZE(msm_anlg_cdc_dapm_widgets),
+		.dapm_routes = audio_map,
+		.num_dapm_routes = ARRAY_SIZE(audio_map),
+	},
 };
 
 static int msm_anlg_cdc_init_supplies(struct sdm660_cdc_priv *sdm660_cdc,
