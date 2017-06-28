@@ -624,6 +624,10 @@
 		404000000 444000000 533000000>;
 };
 
+&refgen {
+	status = "ok";
+};
+
 &spss_utils {
 	qcom,spss-dev-firmware-name  = "spss2d";	/* 8 chars max */
 	qcom,spss-test-firmware-name = "spss2t";	/* 8 chars max */
