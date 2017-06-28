@@ -125,7 +125,8 @@ static void a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 	struct msm_ringbuffer *ring = gpu->rb[submit->ring];
 	unsigned int i, ibs = 0;
 	unsigned long flags;
-	u64 ktime, ticks;
+	u64 ticks;
+	ktime_t time;
 
 	a5xx_set_pagetable(gpu, ring, submit->aspace);
 
@@ -253,18 +254,19 @@ static void a5xx_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 	local_irq_save(flags);
 	ticks = gpu_read64(gpu, REG_A5XX_RBBM_ALWAYSON_COUNTER_LO,
 		REG_A5XX_RBBM_ALWAYSON_COUNTER_HI);
-	ktime = ktime_get_raw_ns();
+	time = ktime_get_raw();
 	local_irq_restore(flags);
 
 	if (submit->profile_buf) {
-		/* Write the data into the use-specified profile buffer */
+		struct timespec64 ts = ktime_to_timespec64(time);
 
-		submit->profile_buf->queue_time = ktime;
-		submit->profile_buf->submit_time = ktime;
+		/* Write the data into the user-specified profile buffer */
+		submit->profile_buf->time.tv_sec = ts.tv_sec;
+		submit->profile_buf->time.tv_nsec = ts.tv_nsec;
 		submit->profile_buf->ticks_queued = ticks;
 	}
 
-	trace_msm_submitted(submit, ticks, ktime);
+	trace_msm_submitted(submit, ticks, ktime_to_ns(time));
 
 	a5xx_flush(gpu, ring);
 
