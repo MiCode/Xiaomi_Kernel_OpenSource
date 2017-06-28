@@ -4052,7 +4052,7 @@ int msm_anlg_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 
 	sdm660_cdc_priv = snd_soc_codec_get_drvdata(codec);
 	card = codec->component.card;
-	sdm660_cdc_priv->entry = snd_register_module_info(codec_root->module,
+	sdm660_cdc_priv->entry = snd_info_create_subdir(codec_root->module,
 							     "spmi0-03",
 							     codec_root);
 	if (!sdm660_cdc_priv->entry) {

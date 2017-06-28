@@ -1383,7 +1383,7 @@ int msm_sdw_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 
 	msm_sdw = snd_soc_codec_get_drvdata(codec);
 	card = codec->component.card;
-	msm_sdw->entry = snd_register_module_info(codec_root->module,
+	msm_sdw->entry = snd_info_create_subdir(codec_root->module,
 						  "152c1000.msm-sdw-codec",
 						  codec_root);
 	if (!msm_sdw->entry) {

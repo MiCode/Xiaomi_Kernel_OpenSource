@@ -1157,7 +1157,7 @@ int msm_dig_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 
 	msm_dig = snd_soc_codec_get_drvdata(codec);
 	card = codec->component.card;
-	msm_dig->entry = snd_register_module_info(codec_root->module,
+	msm_dig->entry = snd_info_create_subdir(codec_root->module,
 						  "msm_digital_codec",
 						  codec_root);
 	if (!msm_dig->entry) {
