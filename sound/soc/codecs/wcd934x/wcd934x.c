@@ -8607,6 +8607,10 @@ static const struct tavil_reg_mask_val tavil_codec_reg_init_common_val[] = {
 	{WCD934X_TLMM_DMIC3_DATA_PINCFG, 0xFF, 0x0a},
 	{WCD934X_CPE_SS_SVA_CFG, 0x60, 0x00},
 	{WCD934X_CPE_SS_CPAR_CFG, 0x10, 0x10},
+	{WCD934X_MICB1_TEST_CTL_1, 0xff, 0xfa},
+	{WCD934X_MICB2_TEST_CTL_1, 0xff, 0xfa},
+	{WCD934X_MICB3_TEST_CTL_1, 0xff, 0xfa},
+	{WCD934X_MICB4_TEST_CTL_1, 0xff, 0xfa},
 };
 
 static void tavil_codec_init_reg(struct tavil_priv *priv)
