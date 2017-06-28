@@ -64,8 +64,6 @@ struct msm_gpu_funcs {
 	void (*submit)(struct msm_gpu *gpu, struct msm_gem_submit *submit);
 	void (*flush)(struct msm_gpu *gpu, struct msm_ringbuffer *ring);
 	irqreturn_t (*irq)(struct msm_gpu *irq);
-	uint32_t (*last_fence)(struct msm_gpu *gpu,
-			struct msm_ringbuffer *ring);
 	uint32_t (*submitted_fence)(struct msm_gpu *gpu,
 			struct msm_ringbuffer *ring);
 	struct msm_ringbuffer *(*active_ring)(struct msm_gpu *gpu);
@@ -186,7 +184,7 @@ static inline bool msm_gpu_active(struct msm_gpu *gpu)
 
 	FOR_EACH_RING(gpu, ring, i) {
 		if (gpu->funcs->submitted_fence(gpu, ring) >
-			gpu->funcs->last_fence(gpu, ring))
+			ring->memptrs->fence)
 			return true;
 	}
 

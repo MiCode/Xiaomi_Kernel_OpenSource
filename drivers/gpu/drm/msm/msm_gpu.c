@@ -310,8 +310,7 @@ static void recover_worker(struct work_struct *work)
 
 		/* Retire all events that have already passed */
 		FOR_EACH_RING(gpu, ring, i)
-			retire_submits(gpu, ring,
-				gpu->funcs->last_fence(gpu, ring));
+			retire_submits(gpu, ring, ring->memptrs->fence);
 
 		retire_guilty_submit(gpu, gpu->funcs->active_ring(gpu));
 
@@ -344,7 +343,7 @@ static void hangcheck_handler(unsigned long data)
 	struct drm_device *dev = gpu->dev;
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_ringbuffer *ring = gpu->funcs->active_ring(gpu);
-	uint32_t fence = gpu->funcs->last_fence(gpu, ring);
+	uint32_t fence = ring->memptrs->fence;
 	uint32_t submitted = gpu->funcs->submitted_fence(gpu, ring);
 
 	if (fence != gpu->hangcheck_fence[ring->id]) {
@@ -542,16 +541,13 @@ static void retire_worker(struct work_struct *work)
 	int i;
 
 	FOR_EACH_RING(gpu, ring, i) {
-		uint32_t fence;
-
 		if (!ring)
 			continue;
 
-		fence = gpu->funcs->last_fence(gpu, ring);
-		msm_update_fence(gpu->dev, fence);
+		msm_update_fence(gpu->dev, ring->memptrs->fence);
 
 		mutex_lock(&dev->struct_mutex);
-		_retire_ring(gpu, ring, fence);
+		_retire_ring(gpu, ring, ring->memptrs->fence);
 		mutex_unlock(&dev->struct_mutex);
 	}
 
