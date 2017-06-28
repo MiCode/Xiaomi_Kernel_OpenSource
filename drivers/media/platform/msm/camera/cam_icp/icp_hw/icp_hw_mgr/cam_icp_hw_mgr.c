@@ -1215,7 +1215,8 @@ static int cam_icp_mgr_process_io_cfg(struct cam_icp_hw_mgr *hw_mgr,
 			continue;
 		}
 
-		prepare_args->out_map_entries[j].sync_id = io_cfg_ptr[i].fence;
+		prepare_args->out_map_entries[j++].sync_id =
+			io_cfg_ptr[i].fence;
 		prepare_args->num_out_map_entries++;
 		ICP_DBG(" out fence = %x index = %d\n", io_cfg_ptr[i].fence, i);
 	}
