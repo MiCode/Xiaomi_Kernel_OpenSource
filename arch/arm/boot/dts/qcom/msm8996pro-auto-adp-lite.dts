@@ -46,6 +46,14 @@
 			status = "disabled";
 		};
 	};
+
+	qcom,adv7481@70 {
+		status = "disabled";
+	};
+
+	qcom,msm-ba {
+		status = "disabled";
+	};
 };
 
 &pil_modem {
