@@ -1074,15 +1074,6 @@ static void hfi_process_sess_get_prop_buf_req(
 	}
 
 	while (req_bytes) {
-		if (hfi_buf_req->buffer_size &&
-			hfi_buf_req->buffer_count_min > hfi_buf_req->
-			buffer_count_actual)
-			dprintk(VIDC_WARN,
-				"Bad buffer requirements for %#x: min %d, actual %d\n",
-				hfi_buf_req->buffer_type,
-				hfi_buf_req->buffer_count_min,
-				hfi_buf_req->buffer_count_actual);
-
 		dprintk(VIDC_DBG, "got buffer requirements for: %d\n",
 					hfi_buf_req->buffer_type);
 		switch (hfi_buf_req->buffer_type) {

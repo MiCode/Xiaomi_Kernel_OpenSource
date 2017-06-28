@@ -24,7 +24,7 @@ static struct rpmh_client *rpmh_client;
 
 static int setup_wakeup(uint64_t sleep_val)
 {
-	struct tcs_cmd cmd[3] = { { 0 } };
+	struct tcs_cmd cmd[2] = { { 0 } };
 
 	cmd[0].data = (sleep_val >> 32) & PDC_TIME_UPPER_MASK;
 	cmd[0].data |= 1 << PDC_TIME_VALID_SHIFT;

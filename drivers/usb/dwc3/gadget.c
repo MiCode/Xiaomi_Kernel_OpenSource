@@ -164,12 +164,12 @@ static void dwc3_ep_inc_trb(u8 *index)
 		*index = 0;
 }
 
-static void dwc3_ep_inc_enq(struct dwc3_ep *dep)
+void dwc3_ep_inc_enq(struct dwc3_ep *dep)
 {
 	dwc3_ep_inc_trb(&dep->trb_enqueue);
 }
 
-static void dwc3_ep_inc_deq(struct dwc3_ep *dep)
+void dwc3_ep_inc_deq(struct dwc3_ep *dep)
 {
 	dwc3_ep_inc_trb(&dep->trb_dequeue);
 }
@@ -901,6 +901,7 @@ static struct usb_request *dwc3_gadget_ep_alloc_request(struct usb_ep *ep,
 
 	req->epnum	= dep->number;
 	req->dep	= dep;
+	req->request.dma = DMA_ERROR_CODE;
 
 	dep->allocated_requests++;
 

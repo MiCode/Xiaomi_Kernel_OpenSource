@@ -70,6 +70,7 @@ struct channel_space {
  * @stmheer:		settings for register STMHEER.
  * @stmheter:		settings for register STMHETER.
  * @stmhebsr:		settings for register STMHEBSR.
+ * @ch_alloc_fail_count:	Number of ch allocation failures over time.
  */
 struct stm_drvdata {
 	void __iomem		*base;
@@ -90,6 +91,7 @@ struct stm_drvdata {
 	u32			stmheer;
 	u32			stmheter;
 	u32			stmhebsr;
+	u32			ch_alloc_fail_count;
 };
 
 #ifdef CONFIG_CORESIGHT_STM

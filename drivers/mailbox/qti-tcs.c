@@ -79,7 +79,7 @@
 #define CMD_STATUS_COMPL		BIT(16)
 
 /* Control/Hidden TCS */
-#define TCS_HIDDEN_MAX_SLOTS		3
+#define TCS_HIDDEN_MAX_SLOTS		2
 #define TCS_HIDDEN_CMD0_DRV_DATA	0x38
 #define TCS_HIDDEN_CMD_SHIFT		0x08
 
