@@ -227,6 +227,21 @@ unlock:
 	return req;
 }
 
+static int check_ctrlr_state(struct rpmh_client *rc, enum rpmh_state state)
+{
+	struct rpmh_mbox *rpm = rc->rpmh;
+	unsigned long flags;
+	int ret = 0;
+
+	/* Do not allow setting active votes when in solver mode */
+	spin_lock_irqsave(&rpm->lock, flags);
+	if (rpm->in_solver_mode && state == RPMH_AWAKE_STATE)
+		ret = -EBUSY;
+	spin_unlock_irqrestore(&rpm->lock, flags);
+
+	return ret;
+}
+
 /**
  * __rpmh_write: Cache and send the RPMH request
  *
@@ -282,12 +297,17 @@ int rpmh_write_single_async(struct rpmh_client *rc, enum rpmh_state state,
 			u32 addr, u32 data)
 {
 	struct rpmh_msg *rpm_msg;
+	int ret;
 
 	if (IS_ERR_OR_NULL(rc))
 		return -EINVAL;
 
 	if (rpmh_standalone)
 		return 0;
+
+	ret = check_ctrlr_state(rc, state);
+	if (ret)
+		return ret;
 
 	rpm_msg = get_msg_from_pool(rc);
 	if (!rpm_msg)
@@ -332,6 +352,10 @@ int rpmh_write_single(struct rpmh_client *rc, enum rpmh_state state,
 
 	if (rpmh_standalone)
 		return 0;
+
+	ret = check_ctrlr_state(rc, state);
+	if (ret)
+		return ret;
 
 	rpm_msg.cmd[0].addr = addr;
 	rpm_msg.cmd[0].data = data;
@@ -385,9 +409,14 @@ int rpmh_write_async(struct rpmh_client *rc, enum rpmh_state state,
 			struct tcs_cmd *cmd, int n)
 {
 	struct rpmh_msg *rpm_msg;
+	int ret;
 
 	if (rpmh_standalone)
 		return 0;
+
+	ret = check_ctrlr_state(rc, state);
+	if (ret)
+		return ret;
 
 	rpm_msg = __get_rpmh_msg_async(rc, state, cmd, n);
 	if (IS_ERR(rpm_msg))
@@ -429,6 +458,10 @@ int rpmh_write(struct rpmh_client *rc, enum rpmh_state state,
 	if (rpmh_standalone)
 		return 0;
 
+	ret = check_ctrlr_state(rc, state);
+	if (ret)
+		return ret;
+
 	memcpy(rpm_msg.cmd, cmd, n * sizeof(*cmd));
 	rpm_msg.msg.num_payload = n;
 
@@ -467,8 +500,6 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 	int count = 0;
 	int ret, i, j, k;
 	bool complete_set;
-	unsigned long flags;
-	struct rpmh_mbox *rpm;
 
 	if (IS_ERR_OR_NULL(rc) || !cmd || !n)
 		return -EINVAL;
@@ -476,14 +507,9 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 	if (rpmh_standalone)
 		return 0;
 
-	/* Do not allow setting wake votes when in solver mode */
-	rpm = rc->rpmh;
-	spin_lock_irqsave(&rpm->lock, flags);
-	if (rpm->in_solver_mode && state == RPMH_WAKE_ONLY_STATE) {
-		spin_unlock_irqrestore(&rpm->lock, flags);
-		return -EIO;
-	}
-	spin_unlock_irqrestore(&rpm->lock, flags);
+	ret = check_ctrlr_state(rc, state);
+	if (ret)
+		return ret;
 
 	while (n[count++])
 		;
