@@ -122,6 +122,19 @@ struct sde_connector_ops {
 	int (*get_info)(struct msm_display_info *info, void *display);
 
 	int (*set_backlight)(void *display, u32 bl_lvl);
+
+
+	/**
+	 * pre_kickoff - trigger display to program kickoff-time features
+	 * @connector: Pointer to drm connector structure
+	 * @display: Pointer to private display structure
+	 * @params: Parameter bundle of connector-stored information for
+	 *	kickoff-time programming into the display
+	 * Returns: Zero on success
+	 */
+	int (*pre_kickoff)(struct drm_connector *connector,
+		void *display,
+		struct msm_display_kickoff_params *params);
 };
 
 /**
@@ -306,6 +319,13 @@ void sde_connector_complete_commit(struct drm_connector *connector);
  */
 int sde_connector_get_info(struct drm_connector *connector,
 		struct msm_display_info *info);
+
+/**
+ * sde_connector_pre_kickoff - trigger kickoff time feature programming
+ * @connector: Pointer to drm connector object
+ * Returns: Zero on success
+ */
+int sde_connector_pre_kickoff(struct drm_connector *connector);
 
 #endif /* _SDE_CONNECTOR_H_ */
 

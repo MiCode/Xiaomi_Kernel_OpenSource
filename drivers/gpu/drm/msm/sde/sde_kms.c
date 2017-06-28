@@ -602,6 +602,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.get_info =   sde_hdmi_get_info,
 		.set_property = sde_hdmi_set_property,
 		.get_property = sde_hdmi_get_property,
+		.pre_kickoff = sde_hdmi_pre_kickoff,
 	};
 	struct msm_display_info info = {0};
 	struct drm_encoder *encoder;
