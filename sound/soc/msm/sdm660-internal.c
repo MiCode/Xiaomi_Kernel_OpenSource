@@ -1303,7 +1303,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	card = rtd->card->snd_card;
 	if (!codec_root)
-		codec_root = snd_register_module_info(card->module, "codecs",
+		codec_root = snd_info_create_subdir(card->module, "codecs",
 						      card->proc_root);
 	if (!codec_root) {
 		pr_debug("%s: Cannot create codecs module entry\n",
@@ -1323,7 +1323,7 @@ static int msm_sdw_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm =
 			snd_soc_codec_get_dapm(codec);
 	struct msm_asoc_mach_data *pdata = snd_soc_card_get_drvdata(rtd->card);
-	struct snd_soc_pcm_runtime *rtd_aux = rtd->card->rtd_aux;
+	struct snd_soc_component *aux_comp;
 	struct snd_card *card;
 
 	snd_soc_add_codec_controls(codec, msm_sdw_controls,
@@ -1342,16 +1342,22 @@ static int msm_sdw_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	 * Send speaker configuration only for WSA8810.
 	 * Default configuration is for WSA8815.
 	 */
-	if (rtd_aux && rtd_aux->component)
-		if (!strcmp(rtd_aux->component->name, WSA8810_NAME_1) ||
-		    !strcmp(rtd_aux->component->name, WSA8810_NAME_2)) {
+	pr_debug("%s: Number of aux devices: %d\n",
+		 __func__, rtd->card->num_aux_devs);
+	if (rtd->card->num_aux_devs &&
+		!list_empty(&rtd->card->aux_comp_list)) {
+		aux_comp = list_first_entry(&rtd->card->aux_comp_list,
+					struct snd_soc_component, list_aux);
+		if (!strcmp(aux_comp->name, WSA8810_NAME_1) ||
+			!strcmp(aux_comp->name, WSA8810_NAME_2)) {
 			msm_sdw_set_spkr_mode(rtd->codec, SPKR_MODE_1);
 			msm_sdw_set_spkr_gain_offset(rtd->codec,
 						   RX_GAIN_OFFSET_M1P5_DB);
+		}
 	}
 	card = rtd->card->snd_card;
 	if (!codec_root)
-		codec_root = snd_register_module_info(card->module, "codecs",
+		codec_root = snd_info_create_subdir(card->module, "codecs",
 						      card->proc_root);
 	if (!codec_root) {
 		pr_debug("%s: Cannot create codecs module entry\n",
