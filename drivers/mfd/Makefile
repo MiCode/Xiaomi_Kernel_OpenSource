@@ -211,7 +211,7 @@ wcd-core-objs			:= wcd9xxx-rst.o wcd9xxx-core-init.o \
 				   wcd934x-regmap.o wcd934x-tables.o \
 				   wcd9335-regmap.o wcd9335-tables.o \
 				   msm-cdc-pinctrl.o msm-cdc-supply.o
-obj-$(CONFIG_WCD934X_CODEC)	+= wcd-core.o
+obj-$(CONFIG_WCD9XXX_CODEC_CORE) += wcd-core.o
 intel-soc-pmic-objs		:= intel_soc_pmic_core.o intel_soc_pmic_crc.o
 intel-soc-pmic-$(CONFIG_INTEL_PMC_IPC)	+= intel_soc_pmic_bxtwc.o
 obj-$(CONFIG_INTEL_SOC_PMIC)	+= intel-soc-pmic.o
