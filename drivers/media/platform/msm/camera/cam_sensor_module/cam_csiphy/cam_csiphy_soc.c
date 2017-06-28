@@ -28,7 +28,7 @@ int32_t cam_csiphy_enable_hw(struct csiphy_device *csiphy_dev)
 	}
 
 	rc = cam_soc_util_enable_platform_resource(soc_info, true,
-		CAM_TURBO_VOTE, true);
+		CAM_TURBO_VOTE, ENABLE_IRQ);
 	if (rc < 0) {
 		pr_err("%s:%d failed to enable platform resources %d\n",
 			__func__, __LINE__, rc);
