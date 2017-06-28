@@ -567,13 +567,12 @@ void msm_gpu_retire(struct msm_gpu *gpu)
 int msm_gpu_submit(struct msm_gpu *gpu, struct msm_gem_submit *submit)
 {
 	struct drm_device *dev = gpu->dev;
-	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_ringbuffer *ring = gpu->rb[submit->ring];
 	int i;
 
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 
-	submit->fence = FENCE(submit->ring, ++priv->next_fence[submit->ring]);
+	submit->fence = FENCE(submit->ring, ++ring->seqno);
 
 	inactive_cancel(gpu);
 

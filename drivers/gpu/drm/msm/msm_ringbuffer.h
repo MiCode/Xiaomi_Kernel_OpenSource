@@ -47,6 +47,7 @@ struct msm_ringbuffer {
 	struct drm_gem_object *bo;
 	uint32_t *start, *end, *cur, *next;
 	uint64_t iova;
+	uint32_t seqno;
 	uint32_t submitted_fence;
 	spinlock_t lock;
 	struct list_head submits;

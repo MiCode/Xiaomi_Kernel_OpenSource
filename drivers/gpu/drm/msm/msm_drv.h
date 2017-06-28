@@ -297,7 +297,6 @@ struct msm_drm_private {
 
 	struct drm_fb_helper *fbdev;
 
-	uint32_t next_fence[MSM_GPU_MAX_RINGS];
 	uint32_t completed_fence[MSM_GPU_MAX_RINGS];
 
 	wait_queue_head_t fence_event;
