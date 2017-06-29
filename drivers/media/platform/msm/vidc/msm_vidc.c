@@ -918,24 +918,6 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	}
 
 fail_start:
-	if (rc) {
-		struct msm_vidc_buffer *temp, *next;
-
-		mutex_lock(&inst->registeredbufs.lock);
-		list_for_each_entry_safe(temp, next,
-				&inst->registeredbufs.list, list) {
-			struct vb2_buffer *vb;
-
-			print_vidc_buffer(VIDC_ERR, "return buf", inst, temp);
-			vb = msm_comm_get_vb_using_vidc_buffer(inst, temp);
-			if (vb)
-				vb2_buffer_done(vb, VB2_BUF_STATE_QUEUED);
-			msm_comm_unmap_vidc_buffer(inst, temp);
-			list_del(&temp->list);
-			kfree(temp);
-		}
-		mutex_unlock(&inst->registeredbufs.lock);
-	}
 	return rc;
 }
 
@@ -987,6 +969,35 @@ static int msm_vidc_start_streaming(struct vb2_queue *q, unsigned int count)
 	}
 
 stream_start_failed:
+	if (rc) {
+		struct msm_vidc_buffer *temp, *next;
+		struct vb2_buffer *vb;
+
+		mutex_lock(&inst->registeredbufs.lock);
+		list_for_each_entry_safe(temp, next, &inst->registeredbufs.list,
+					list) {
+			if (temp->vvb.vb2_buf.type != q->type)
+				continue;
+			/*
+			 * queued_list lock is already acquired before
+			 * vb2_stream so no need to acquire it again.
+			 */
+			list_for_each_entry(vb, &q->queued_list, queued_entry) {
+				if (msm_comm_compare_vb2_planes(inst, temp,
+						vb)) {
+					print_vb2_buffer(VIDC_ERR, "return vb",
+						inst, vb);
+					vb2_buffer_done(vb,
+						VB2_BUF_STATE_QUEUED);
+					break;
+				}
+			}
+			msm_comm_unmap_vidc_buffer(inst, temp);
+			list_del(&temp->list);
+			kfree(temp);
+		}
+		mutex_unlock(&inst->registeredbufs.lock);
+	}
 	return rc;
 }
 
