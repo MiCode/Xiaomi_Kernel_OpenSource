@@ -254,13 +254,12 @@ static void sugov_walt_adjust(struct sugov_cpu *sg_cpu, unsigned long *util,
 			      unsigned long *max)
 {
 	struct sugov_policy *sg_policy = sg_cpu->sg_policy;
-	unsigned long cap_cur = capacity_curr_of(sg_cpu->cpu);
 	bool is_migration = sg_cpu->flags & SCHED_CPUFREQ_INTERCLUSTER_MIG;
 	unsigned long nl = sg_cpu->walt_load.nl;
 	unsigned long cpu_util = sg_cpu->util;
 	bool is_hiload;
 
-	is_hiload = (cpu_util >= mult_frac(cap_cur,
+	is_hiload = (cpu_util >= mult_frac(sg_policy->avg_cap,
 					   HISPEED_LOAD,
 					   100));
 
