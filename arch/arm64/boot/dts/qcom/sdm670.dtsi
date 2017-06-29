@@ -1760,6 +1760,38 @@
 		memory-region = <&pil_video_mem>;
 		status = "ok";
 	};
+
+	qcom,turing@8300000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x8300000 0x100000>;
+		interrupts = <0 578 1>;
+
+		vdd_cx-supply = <&pm660l_s3_level>;
+		qcom,proxy-reg-names = "vdd_cx";
+		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "xo";
+		qcom,proxy-clock-names = "xo";
+
+		qcom,pas-id = <18>;
+		qcom,proxy-timeout-ms = <10000>;
+		qcom,smem-id = <601>;
+		qcom,sysmon-id = <7>;
+		qcom,ssctl-instance-id = <0x17>;
+		qcom,firmware-name = "cdsp";
+		memory-region = <&pil_cdsp_mem>;
+
+		/* GPIO inputs from turing */
+		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_5_in 0 0>;
+		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_5_in 2 0>;
+		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_5_in 1 0>;
+		qcom,gpio-stop-ack = <&smp2pgpio_ssr_smp2p_5_in 3 0>;
+
+		/* GPIO output to turing*/
+		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_5_out 0 0>;
+		status = "ok";
+	};
 };
 
 #include "sdm670-pinctrl.dtsi"
