@@ -1007,3 +1007,49 @@ int32_t cam_sensor_apply_request(struct cam_req_mgr_apply_request *apply)
 	rc = cam_sensor_apply_settings(s_ctrl, apply->request_id);
 	return rc;
 }
+
+int32_t cam_sensor_flush_request(struct cam_req_mgr_flush_request *flush_req)
+{
+	int32_t rc = 0, i;
+	uint32_t cancel_req_id_found = 0;
+	struct cam_sensor_ctrl_t *s_ctrl = NULL;
+	struct i2c_settings_array *i2c_set = NULL;
+
+	if (!flush_req)
+		return -EINVAL;
+
+	s_ctrl = (struct cam_sensor_ctrl_t *)
+		cam_get_device_priv(flush_req->dev_hdl);
+	if (!s_ctrl) {
+		pr_err("%s: Device data is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < MAX_PER_FRAME_ARRAY; i++) {
+		i2c_set = &(s_ctrl->i2c_data.per_frame[i]);
+
+		if ((flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ)
+				&& (i2c_set->request_id != flush_req->req_id))
+			continue;
+
+		if (i2c_set->is_settings_valid == 1) {
+			rc = delete_request(i2c_set);
+			if (rc < 0)
+				pr_err("%s:%d :Error: delete request: %lld rc: %d\n",
+					__func__, __LINE__,
+					i2c_set->request_id, rc);
+
+			if (flush_req->type ==
+				CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ) {
+				cancel_req_id_found = 1;
+				break;
+			}
+		}
+	}
+
+	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ &&
+		!cancel_req_id_found)
+		CDBG("%s:Flush request id:%lld not found in the pending list\n",
+			__func__, flush_req->req_id);
+	return rc;
+}
