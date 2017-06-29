@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -520,14 +520,16 @@ int32_t msm_camera_tz_i2c_power_up(
 				msm_camera_tz_get_ta_handle(),
 				sensor_id,
 				&sensor_secure);
-			if (!rc && sensor_secure)
+			if (!rc && sensor_secure) {
 				/* Sensor validated by TA*/
 				sensor_info[sensor_id].ready++;
+				msm_camera_tz_unlock();
+			}
 			else {
+				msm_camera_tz_unlock();
 				msm_camera_tz_unload_ta();
 				rc = -EFAULT;
 			}
-			msm_camera_tz_unlock();
 		}
 	} else
 		rc = -EFAULT;

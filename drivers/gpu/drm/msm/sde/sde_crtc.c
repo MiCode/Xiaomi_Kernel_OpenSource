@@ -36,6 +36,7 @@
 #include "sde_connector.h"
 #include "sde_power_handle.h"
 #include "sde_core_perf.h"
+#include "sde_trace.h"
 
 /* default input fence timeout, in ms */
 #define SDE_CRTC_INPUT_FENCE_TIMEOUT    2000
@@ -642,6 +643,7 @@ static void _sde_crtc_wait_for_fences(struct drm_crtc *crtc)
 	 * that each plane can check its fence status and react appropriately
 	 * if its fence has timed out.
 	 */
+	SDE_ATRACE_BEGIN("plane_wait_input_fence");
 	drm_atomic_crtc_for_each_plane(plane, crtc) {
 		if (wait_ms) {
 			/* determine updated wait time */
@@ -653,6 +655,7 @@ static void _sde_crtc_wait_for_fences(struct drm_crtc *crtc)
 		}
 		sde_plane_wait_input_fence(plane, wait_ms);
 	}
+	SDE_ATRACE_END("plane_wait_input_fence");
 }
 
 static void _sde_crtc_setup_mixer_for_encoder(
@@ -887,6 +890,7 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	sde_kms = _sde_crtc_get_kms(crtc);
 	priv = sde_kms->dev->dev_private;
 
+	SDE_ATRACE_BEGIN("crtc_commit");
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		if (encoder->crtc != crtc)
 			continue;
@@ -903,7 +907,7 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 		SDE_ERROR("crtc%d invalid frame pending\n",
 				crtc->base.id);
 		SDE_EVT32(DRMID(crtc), 0);
-		return;
+		goto end;
 	} else if (atomic_inc_return(&sde_crtc->frame_pending) == 1) {
 		/* acquire bandwidth and other resources */
 		SDE_DEBUG("crtc%d first commit\n", crtc->base.id);
@@ -921,6 +925,9 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 
 		sde_encoder_kickoff(encoder);
 	}
+end:
+	SDE_ATRACE_END("crtc_commit");
+	return;
 }
 
 /**

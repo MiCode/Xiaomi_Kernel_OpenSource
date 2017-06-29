@@ -144,6 +144,7 @@ enum msm_mdp_conn_property {
 	/* blob properties, always put these first */
 	CONNECTOR_PROP_SDE_INFO,
 	CONNECTOR_PROP_HDR_INFO,
+	CONNECTOR_PROP_HDR_METADATA,
 
 	/* # of blob properties */
 	CONNECTOR_PROP_BLOBCOUNT,
@@ -232,6 +233,14 @@ struct msm_display_info {
 	uint32_t max_height;
 
 	enum msm_display_compression compression;
+};
+
+/**
+ * struct - msm_display_kickoff_params - info for display features at kickoff
+ * @hdr_metadata: HDR metadata info passed from userspace
+ */
+struct msm_display_kickoff_params {
+	struct drm_msm_ext_panel_hdr_metadata *hdr_metadata;
 };
 
 /**
