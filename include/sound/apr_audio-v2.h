@@ -812,15 +812,6 @@ struct adm_cmd_set_pp_params_v5 {
 	 */
 } __packed;
 
-struct audproc_mfc_output_media_fmt {
-	struct adm_cmd_set_pp_params_v5 params;
-	struct param_hdr_v1 data;
-	uint32_t sampling_rate;
-	uint16_t bits_per_sample;
-	uint16_t num_channels;
-	uint16_t channel_type[8];
-} __packed;
-
 struct audproc_mfc_param_media_fmt {
 	uint32_t sampling_rate;
 	uint16_t bits_per_sample;
@@ -6517,55 +6508,27 @@ struct asm_stream_cmd_open_transcode_loopback_t {
 #define ASM_STREAM_CMD_SET_PP_PARAMS_V2 0x00010DA1
 #define ASM_STREAM_CMD_SET_PP_PARAMS_V3 0x0001320D
 
-struct asm_stream_cmd_set_pp_params_v2 {
-	u32                  data_payload_addr_lsw;
-/* LSW of parameter data payload address. Supported values: any. */
-	u32                  data_payload_addr_msw;
-/* MSW of Parameter data payload address. Supported values: any.
- * - Must be set to zero for in-band data.
- * - In the case of 32 bit Shared memory address, msw  field must be
- * - set to zero.
- * - In the case of 36 bit shared memory address, bit 31 to bit 4 of
- * msw
- *
- * - must be set to zero.
+/*
+ * Structure for the ASM Stream Set PP Params command. Parameter data must be
+ * pre-packed with the correct header for either V2 or V3 when sent in-band.
+ * Use q6core_pack_pp_params to pack the header and data correctly depending on
+ * Instance ID support.
  */
-	u32                  mem_map_handle;
-/* Supported Values: Any.
-* memory map handle returned by DSP through
-* ASM_CMD_SHARED_MEM_MAP_REGIONS
-* command.
-* if mmhandle is NULL, the ParamData payloads are within the
-* message payload (in-band).
-* If mmhandle is non-NULL, the ParamData payloads begin at the
-* address specified in the address msw and lsw (out-of-band).
-*/
+struct asm_stream_cmd_set_pp_params {
+	/* APR Header */
+	struct apr_hdr apr_hdr;
 
-	u32                  data_payload_size;
-/* Size in bytes of the variable payload accompanying the
-message, or in shared memory. This field is used for parsing the
-parameter payload. */
+	/* The memory mapping header to be used when sending out of band */
+	struct mem_mapping_hdr mem_hdr;
 
-} __packed;
+	/* The total size of the payload, including the parameter header */
+	u32 payload_size;
 
-
-struct asm_stream_param_data_v2 {
-	u32                  module_id;
-	/* Unique module ID. */
-
-	u32                  param_id;
-	/* Unique parameter ID. */
-
-	u16                  param_size;
-/* Data size of the param_id/module_id combination. This is
- * a multiple of 4 bytes.
- */
-
-	u16                  reserved;
-/* Reserved for future enhancements. This field must be set to
- * zero.
- */
-
+	/* The parameter data to be filled when sent inband. Parameter data
+	 * must be pre-packed with parameter header and then copied here. Use
+	 * q6core_pack_pp_params to pack the header and param data correctly.
+	 */
+	u32 param_data[0];
 } __packed;
 
 #define ASM_STREAM_CMD_GET_PP_PARAMS_V2		0x00010DA2
@@ -7988,9 +7951,6 @@ struct audproc_topology_module_id_info_t {
 
 
 struct asm_volume_ctrl_master_gain {
-	struct apr_hdr	hdr;
-	struct asm_stream_cmd_set_pp_params_v2 param;
-	struct asm_stream_param_data_v2 data;
 	uint16_t                  master_gain;
 	/*< Linear gain in Q13 format. */
 
@@ -8001,10 +7961,6 @@ struct asm_volume_ctrl_master_gain {
 
 
 struct asm_volume_ctrl_lr_chan_gain {
-	struct apr_hdr	hdr;
-	struct asm_stream_cmd_set_pp_params_v2 param;
-	struct asm_stream_param_data_v2 data;
-
 	uint16_t                  l_chan_gain;
 	/*< Linear gain in Q13 format for the left channel. */
 
@@ -8016,6 +7972,7 @@ struct audproc_chmixer_param_coeff {
 	uint32_t index;
 	uint16_t num_output_channels;
 	uint16_t num_input_channels;
+	uint32_t payload[0];
 } __packed;
 
 
@@ -8044,6 +8001,7 @@ struct audproc_volume_ctrl_channel_type_gain_pair {
 /* Payload of the AUDPROC_PARAM_ID_MULTICHANNEL_MUTE parameters used by
  * the Volume Control module.
  */
+#define ASM_MAX_CHANNELS 8
 struct audproc_volume_ctrl_multichannel_gain {
 	uint32_t num_channels;
 	/* Number of channels for which mute configuration is provided. Any
@@ -8051,7 +8009,8 @@ struct audproc_volume_ctrl_multichannel_gain {
 	 * provided are set to unmute.
 	 */
 
-	struct audproc_volume_ctrl_channel_type_gain_pair *gain_data;
+	struct audproc_volume_ctrl_channel_type_gain_pair
+		gain_data[ASM_MAX_CHANNELS];
 	/* Array of channel type/mute setting pairs. */
 } __packed;
 
@@ -8065,9 +8024,6 @@ struct audproc_volume_ctrl_multichannel_gain {
 
 
 struct asm_volume_ctrl_mute_config {
-	struct apr_hdr	hdr;
-	struct asm_stream_cmd_set_pp_params_v2 param;
-	struct asm_stream_param_data_v2 data;
 	uint32_t                  mute_flag;
 /*< Specifies whether mute is disabled (0) or enabled (nonzero).*/
 
@@ -8095,9 +8051,6 @@ struct asm_volume_ctrl_mute_config {
  * parameters used by the Volume Control module.
  */
 struct asm_soft_step_volume_params {
-	struct apr_hdr	hdr;
-	struct asm_stream_cmd_set_pp_params_v2 param;
-	struct asm_stream_param_data_v2 data;
 	uint32_t                  period;
 /*< Period in milliseconds.
  * Supported values: 0 to 15000
@@ -8127,9 +8080,6 @@ struct asm_soft_step_volume_params {
 
 
 struct asm_soft_pause_params {
-	struct apr_hdr	hdr;
-	struct asm_stream_cmd_set_pp_params_v2 param;
-	struct asm_stream_param_data_v2 data;
 	uint32_t                  enable_flag;
 /*< Specifies whether soft pause is disabled (0) or enabled
  * (nonzero).
@@ -8219,10 +8169,7 @@ struct asm_volume_ctrl_channeltype_gain_pair {
 
 
 struct asm_volume_ctrl_multichannel_gain {
-	struct apr_hdr	hdr;
-	struct asm_stream_cmd_set_pp_params_v2 param;
-	struct asm_stream_param_data_v2 data;
-	uint32_t                  num_channels;
+	uint32_t num_channels;
 	/*
 	 * Number of channels for which gain values are provided. Any
 	 * channels present in the data for which gain is not provided are
@@ -8247,9 +8194,6 @@ struct asm_volume_ctrl_multichannel_gain {
 
 
 struct asm_volume_ctrl_channelype_mute_pair {
-	struct apr_hdr	hdr;
-	struct asm_stream_cmd_set_pp_params_v2 param;
-	struct asm_stream_param_data_v2 data;
 	uint8_t                   channelype;
 /*< Channel type for which the mute setting is to be applied.
  * Supported values:
@@ -8298,9 +8242,6 @@ struct asm_volume_ctrl_channelype_mute_pair {
 
 
 struct asm_volume_ctrl_multichannel_mute {
-	struct apr_hdr	hdr;
-	struct asm_stream_cmd_set_pp_params_v2 param;
-	struct asm_stream_param_data_v2 data;
 	uint32_t                  num_channels;
 /*< Number of channels for which mute configuration is
  * provided. Any channels present in the data for which mute
@@ -8745,9 +8686,6 @@ struct asm_eq_per_band_params {
 } __packed;
 
 struct asm_eq_params {
-	struct apr_hdr	hdr;
-	struct asm_stream_cmd_set_pp_params_v2 param;
-	struct asm_stream_param_data_v2 data;
 		uint32_t                  enable_flag;
 /*< Specifies whether the equalizer module is disabled (0) or enabled
  * (nonzero).
@@ -9402,16 +9340,6 @@ struct srs_trumedia_params {
 #define ASM_STREAM_POSTPROC_TOPO_ID_DTS_HPX 0x00010DED
 #define ASM_STREAM_POSTPROC_TOPO_ID_HPX_PLUS  0x10015000
 #define ASM_STREAM_POSTPROC_TOPO_ID_HPX_MASTER  0x10015001
-struct asm_dts_eagle_param {
-	struct apr_hdr	hdr;
-	struct asm_stream_cmd_set_pp_params_v2 param;
-	struct asm_stream_param_data_v2 data;
-} __packed;
-
-struct asm_dts_eagle_param_get {
-	struct apr_hdr	hdr;
-	struct asm_stream_cmd_get_pp_params_v2 param;
-} __packed;
 
 /* Opcode to set BT address and license for aptx decoder */
 #define APTX_DECODER_BT_ADDRESS 0x00013201
@@ -10669,7 +10597,7 @@ union asm_session_mtmx_strtr_param_config {
 struct asm_mtmx_strtr_params {
 	struct apr_hdr  hdr;
 	struct asm_session_cmd_set_mtmx_strstr_params_v2 param;
-	struct asm_stream_param_data_v2 data;
+	struct param_hdr_v1 data;
 	union asm_session_mtmx_strtr_param_config config;
 } __packed;
 
@@ -10779,7 +10707,7 @@ struct asm_mtmx_strtr_get_params {
 
 struct asm_mtmx_strtr_get_params_cmdrsp {
 	uint32_t err_code;
-	struct asm_stream_param_data_v2 param_info;
+	struct param_hdr_v1 param_info;
 	union asm_session_mtmx_strtr_data_type param_data;
 } __packed;
 
