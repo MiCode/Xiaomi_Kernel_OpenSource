@@ -2645,10 +2645,9 @@ static void adreno_gmu_regwrite(struct kgsl_device *device,
 	void __iomem *reg;
 	struct gmu_device *gmu = &device->gmu;
 
-	offsetwords -= gmu->gmu2gpu_offset;
-
 	trace_kgsl_regwrite(device, offsetwords, value);
 
+	offsetwords -= gmu->gmu2gpu_offset;
 	reg = gmu->reg_virt + (offsetwords << 2);
 
 	/*
