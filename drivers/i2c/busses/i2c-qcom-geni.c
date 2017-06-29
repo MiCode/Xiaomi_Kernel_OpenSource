@@ -123,32 +123,40 @@ static inline void qcom_geni_i2c_conf(void __iomem *base, int dfs, int div)
 
 static void geni_i2c_err(struct geni_i2c_dev *gi2c, int err)
 {
-	u32 m_stat = readl_relaxed(gi2c->base + SE_GENI_M_IRQ_STATUS);
-	u32 rx_st = readl_relaxed(gi2c->base + SE_GENI_RX_FIFO_STATUS);
-	u32 tx_st = readl_relaxed(gi2c->base + SE_GENI_TX_FIFO_STATUS);
 	u32 m_cmd = readl_relaxed(gi2c->base + SE_GENI_M_CMD0);
+	u32 m_stat = readl_relaxed(gi2c->base + SE_GENI_M_IRQ_STATUS);
 	u32 geni_s = readl_relaxed(gi2c->base + SE_GENI_STATUS);
 	u32 geni_ios = readl_relaxed(gi2c->base + SE_GENI_IOS);
+	u32 dma = readl_relaxed(gi2c->base + SE_GENI_DMA_MODE_EN);
+	u32 rx_st, tx_st;
+
+	if (gi2c->cur)
+		GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
+			    "len:%d, slv-addr:0x%x, RD/WR:%d\n", gi2c->cur->len,
+			    gi2c->cur->addr, gi2c->cur->flags);
 
 	if (err == I2C_NACK || err == GENI_ABORT_DONE) {
 		GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev, "%s\n",
-			    gi2c_log[err].msg);
-		GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
-			     "m_stat:0x%x, tx_stat:0x%x, rx_stat:0x%x, ",
-			     m_stat, tx_st, rx_st);
-		GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
-			     "m_cmd:0x%x, geni_status:0x%x, geni_ios:0x%x\n",
-			     m_cmd, geni_s, geni_ios);
+			     gi2c_log[err].msg);
+		goto err_ret;
 	} else {
 		GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev, "%s\n",
 			     gi2c_log[err].msg);
-		GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
-			     "m_stat:0x%x, tx_stat:0x%x, rx_stat:0x%x, ",
-			     m_stat, tx_st, rx_st);
-		GENI_SE_ERR(gi2c->ipcl, true, gi2c->dev,
+	}
+	if (dma) {
+		rx_st = readl_relaxed(gi2c->base + SE_DMA_RX_IRQ_STAT);
+		tx_st = readl_relaxed(gi2c->base + SE_DMA_TX_IRQ_STAT);
+	} else {
+		rx_st = readl_relaxed(gi2c->base + SE_GENI_RX_FIFO_STATUS);
+		tx_st = readl_relaxed(gi2c->base + SE_GENI_TX_FIFO_STATUS);
+	}
+	GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
+		     "DMA:%d tx_stat:0x%x, rx_stat:0x%x, irq-stat:0x%x\n",
+		     dma, tx_st, rx_st, m_stat);
+	GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev,
 			     "m_cmd:0x%x, geni_status:0x%x, geni_ios:0x%x\n",
 			     m_cmd, geni_s, geni_ios);
-	}
+err_ret:
 	gi2c->err = gi2c_log[err].err;
 }
 
@@ -185,7 +193,6 @@ static irqreturn_t geni_i2c_irq(int irq, void *dev)
 		if (!dma)
 			writel_relaxed(0, (gi2c->base +
 					   SE_GENI_TX_WATERMARK_REG));
-		gi2c->err = -EIO;
 		goto irqret;
 	}
 
@@ -310,11 +317,12 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 				ret = geni_se_rx_dma_prep(gi2c->wrapper_dev,
 							gi2c->base, msgs[i].buf,
 							msgs[i].len, &rx_dma);
-				if (ret)
+				if (ret) {
 					mode = FIFO_MODE;
+					ret = geni_se_select_mode(gi2c->base,
+								  mode);
+				}
 			}
-			if (mode == FIFO_MODE)
-				geni_se_select_mode(gi2c->base, mode);
 		} else {
 			dev_dbg(gi2c->dev,
 				"WRITE:n:%d,i:%d len:%d, stretch:%d, m_param:0x%x\n",
@@ -327,15 +335,15 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 				ret = geni_se_tx_dma_prep(gi2c->wrapper_dev,
 							gi2c->base, msgs[i].buf,
 							msgs[i].len, &tx_dma);
-				if (ret)
+				if (ret) {
 					mode = FIFO_MODE;
+					ret = geni_se_select_mode(gi2c->base,
+								  mode);
+				}
 			}
-			if (mode == FIFO_MODE) {
-				geni_se_select_mode(gi2c->base, mode);
-				/* Get FIFO IRQ */
+			if (mode == FIFO_MODE) /* Get FIFO IRQ */
 				geni_write_reg(1, gi2c->base,
 						SE_GENI_TX_WATERMARK_REG);
-			}
 		}
 		/* Ensure FIFO write go through before waiting for Done evet */
 		mb();
