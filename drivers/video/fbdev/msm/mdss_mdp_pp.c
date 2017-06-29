@@ -2783,7 +2783,7 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl,
 		(ctl->mfd->panel_info->type != WRITEBACK_PANEL));
 
 	if (valid_mixers && (mixer_cnt <= mdata->nmax_concurrent_ad_hw) &&
-		valid_ad_panel) {
+		valid_ad_panel && (info->pp_program_mask & PP_PROGRAM_AD)) {
 		ret = mdss_mdp_ad_setup(ctl->mfd);
 		if (ret < 0)
 			pr_warn("ad_setup(disp%d) returns %d\n", disp_num, ret);
