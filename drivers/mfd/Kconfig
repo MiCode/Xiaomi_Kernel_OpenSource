@@ -1650,35 +1650,6 @@ config WCD9XXX_CODEC_CORE
 	  functions. This driver also hides the underlying bus related
 	  functionalities.
 
-config WCD9335_CODEC
-	tristate "WCD9335 Codec"
-	select SLIMBUS
-	select SOUNDWIRE_WCD_CTRL
-	select MSM_CDC_SUPPLY
-	select MSM_CDC_PINCTRL
-	select REGMAP_ALLOW_WRITE_DEBUGFS
-	help
-	  Enables the WCD9xxx codec core driver. The core driver provides
-	  read/write capability to registers which are part of the
-	  WCD9335 core and gives the ability to use the WCD9335 codec.
-	  The WCD9335 codec support either I2C/I2S or Slimbus for
-	  control and data exchnage with master processor.
-
-config WCD934X_CODEC
-	tristate "WCD934X Codec"
-	depends on SLIMBUS
-	select SOUNDWIRE_WCD_CTRL
-	select MSM_CDC_SUPPLY
-	select MSM_CDC_PINCTRL
-	select REGMAP_ALLOW_WRITE_DEBUGFS
-	select PINCTRL_WCD
-	help
-	  Enables the WCD9xxx codec core driver. The core driver provides
-	  read/write capability to registers which are part of the
-	  WCD934X core and gives the ability to use the WCD934X codec.
-	  The WCD934X codec supports either I2C/I2S or Slimbus for
-	  control and data exchange with master processor.
-
 menu "Multimedia Capabilities Port drivers"
 	depends on ARCH_SA1100
 
