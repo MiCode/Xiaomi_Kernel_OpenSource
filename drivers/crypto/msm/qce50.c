@@ -1164,7 +1164,7 @@ static void _qce_dump_descr_fifos_dbg(struct qce_device *pce_dev, int req_info)
 
 #define QCE_WRITE_REG(val, addr)					\
 {									\
-	pr_info("      [0x%p] 0x%x\n", addr, (uint32_t)val);		\
+	pr_info("      [0x%pK] 0x%x\n", addr, (uint32_t)val);		\
 	writel_relaxed(val, addr);					\
 }
 
@@ -2735,7 +2735,7 @@ static int qce_sps_init_ep_conn(struct qce_device *pce_dev,
 		sps_event->callback = NULL;
 	}
 
-	pr_debug("success, %s : pipe_handle=0x%lx, desc fifo base (phy) = 0x%p\n",
+	pr_debug("success, %s : pipe_handle=0x%lx, desc fifo base (phy) = 0x%pK\n",
 		is_producer ? "PRODUCER(RX/OUT)" : "CONSUMER(TX/IN)",
 		(uintptr_t)sps_pipe_info, &sps_connect_info->desc.phys_base);
 	goto out;
@@ -2897,7 +2897,7 @@ static int qce_sps_get_bam(struct qce_device *pce_dev)
 	bam.ipc_loglevel = QCE_BAM_DEFAULT_IPC_LOGLVL;
 	bam.options |= SPS_BAM_CACHED_WP;
 	pr_debug("bam physical base=0x%lx\n", (uintptr_t)bam.phys_addr);
-	pr_debug("bam virtual base=0x%p\n", bam.virt_addr);
+	pr_debug("bam virtual base=0x%pK\n", bam.virt_addr);
 
 	/* Register CE Peripheral BAM device to SPS driver */
 	rc = sps_register_bam_device(&bam, &pbam->handle);
@@ -3000,7 +3000,7 @@ static void print_notify_debug(struct sps_event_notify *notify)
 	phys_addr_t addr =
 		DESC_FULL_ADDR((phys_addr_t) notify->data.transfer.iovec.flags,
 				  notify->data.transfer.iovec.addr);
-	pr_debug("sps ev_id=%d, addr=0x%pa, size=0x%x, flags=0x%x user=0x%p\n",
+	pr_debug("sps ev_id=%d, addr=0x%pa, size=0x%x, flags=0x%x user=0x%pK\n",
 			notify->event_id, &addr,
 			notify->data.transfer.iovec.size,
 			notify->data.transfer.iovec.flags,
