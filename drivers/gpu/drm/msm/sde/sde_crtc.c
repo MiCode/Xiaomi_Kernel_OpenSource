@@ -601,6 +601,7 @@ void sde_crtc_complete_commit(struct drm_crtc *crtc,
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *cstate;
 	struct drm_connector *conn;
+	struct sde_connector *c_conn;
 	struct drm_device *dev;
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
@@ -625,16 +626,18 @@ void sde_crtc_complete_commit(struct drm_crtc *crtc,
 	for (i = 0; i < cstate->num_connectors; ++i)
 		sde_connector_complete_commit(cstate->connectors[i]);
 
-	if (!sde_kms->splash_info.handoff &&
-		sde_kms->splash_info.lk_is_exited) {
+	if (sde_splash_get_lk_complete_status(&sde_kms->splash_info)) {
 		mutex_lock(&dev->mode_config.mutex);
 		drm_for_each_connector(conn, crtc->dev) {
 			if (conn->state->crtc != crtc)
 				continue;
 
+			c_conn = to_sde_connector(conn);
+
 			sde_splash_clean_up_free_resource(priv->kms,
 					&priv->phandle,
-					conn->connector_type);
+					c_conn->connector_type,
+					c_conn->display);
 		}
 		mutex_unlock(&dev->mode_config.mutex);
 	}
