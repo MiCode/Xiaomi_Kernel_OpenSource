@@ -25,6 +25,28 @@
 #define MSM_BO_STOLEN        0x10000000    /* try to use stolen/splash memory */
 #define MSM_BO_KEEPATTRS     0x20000000     /* keep h/w bus attributes */
 
+struct msm_gem_aspace_ops {
+	int (*map)(struct msm_gem_address_space *, struct msm_gem_vma *,
+		struct sg_table *sgt, void *priv, unsigned int flags);
+
+	void (*unmap)(struct msm_gem_address_space *, struct msm_gem_vma *,
+		struct sg_table *sgt, void *priv);
+
+	void (*destroy)(struct msm_gem_address_space *);
+};
+
+struct msm_gem_address_space {
+	const char *name;
+	struct msm_mmu *mmu;
+	const struct msm_gem_aspace_ops *ops;
+};
+
+struct msm_gem_vma {
+	/* Node used by the GPU address space, but not the SDE address space */
+	struct drm_mm_node node;
+	uint64_t iova;
+};
+
 struct msm_gem_object {
 	struct drm_gem_object base;
 
@@ -62,9 +84,7 @@ struct msm_gem_object {
 	struct sg_table *sgt;
 	void *vaddr;
 
-	struct {
-		dma_addr_t iova;
-	} domain[NUM_DOMAINS];
+	struct msm_gem_vma domain[NUM_DOMAINS];
 
 	/* normally (resv == &_resv) except for imported bo's */
 	struct reservation_object *resv;

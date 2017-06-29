@@ -140,41 +140,19 @@ static const struct drm_mode_config_funcs mode_config_funcs = {
 	.atomic_commit = msm_atomic_commit,
 };
 
-int msm_register_mmu(struct drm_device *dev, struct msm_mmu *mmu)
+int msm_register_address_space(struct drm_device *dev,
+		struct msm_gem_address_space *aspace)
 {
 	struct msm_drm_private *priv = dev->dev_private;
-	int idx = priv->num_mmus++;
+	int idx = priv->num_aspaces++;
 
-	if (WARN_ON(idx >= ARRAY_SIZE(priv->mmus)))
+	if (WARN_ON(idx >= ARRAY_SIZE(priv->aspace)))
 		return -EINVAL;
 
-	priv->mmus[idx] = mmu;
+	priv->aspace[idx] = aspace;
 
 	return idx;
 }
-
-void msm_unregister_mmu(struct drm_device *dev, struct msm_mmu *mmu)
-{
-	struct msm_drm_private *priv = dev->dev_private;
-	int idx;
-
-	if (priv->num_mmus <= 0) {
-		dev_err(dev->dev, "invalid num mmus %d\n", priv->num_mmus);
-		return;
-	}
-
-	idx = priv->num_mmus - 1;
-
-	/* only support reverse-order deallocation */
-	if (priv->mmus[idx] != mmu) {
-		dev_err(dev->dev, "unexpected mmu at idx %d\n", idx);
-		return;
-	}
-
-	--priv->num_mmus;
-	priv->mmus[idx] = 0;
-}
-
 
 #ifdef CONFIG_DRM_MSM_REGISTER_LOGGING
 static bool reglog = false;
