@@ -356,7 +356,6 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 
 	/* enable top level HWCG */
 	kgsl_regwrite(device, A6XX_RBBM_CLOCK_CNTL, on ? 0x8AA8AA02 : 0);
-	kgsl_regwrite(device, A5XX_RBBM_ISDB_CNT, on ? 0x00000182 : 0x00000180);
 }
 
 /*
