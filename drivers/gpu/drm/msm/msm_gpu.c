@@ -319,7 +319,7 @@ static void recover_worker(struct work_struct *work)
 		gpu->funcs->recover(gpu);
 
 		/* Replay the remaining on all rings, highest priority first */
-		for (i = gpu->nr_rings - 1; i >= 0; i--) {
+		for (i = 0;  i < gpu->nr_rings; i++) {
 			struct msm_ringbuffer *ring = gpu->rb[i];
 
 			list_for_each_entry(submit, &ring->submits, node)
