@@ -167,7 +167,7 @@ struct msm_gpu *adreno_load_gpu(struct drm_device *dev)
 
 		pm_runtime_get_sync(&pdev->dev);
 		ret = msm_gpu_hw_init(gpu);
-		pm_runtime_put_sync(&pdev->dev);
+		pm_runtime_put_sync_autosuspend(&pdev->dev);
 		if (ret) {
 			dev_err(dev->dev, "gpu hw init failed: %d\n", ret);
 			mutex_lock(&dev->struct_mutex);
