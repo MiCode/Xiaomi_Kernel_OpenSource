@@ -27,6 +27,8 @@ enum clock_properties {
 	CLOCK_PROP_HAS_MEM_RETENTION    = 1 << 1,
 };
 
+#define PERF_GOV "performance"
+
 static inline struct device *msm_iommu_get_ctx(const char *ctx_name)
 {
 	return NULL;
@@ -426,6 +428,8 @@ static int msm_vidc_populate_bus(struct device *dev,
 	buses->bus_tbl = temp_table;
 	bus = &buses->bus_tbl[buses->count];
 
+	memset(bus, 0x0, sizeof(struct bus_info));
+
 	rc = of_property_read_string(dev->of_node, "label", &temp_name);
 	if (rc) {
 		dprintk(VIDC_ERR, "'label' not found in node\n");
@@ -457,8 +461,11 @@ static int msm_vidc_populate_bus(struct device *dev,
 		rc = 0;
 		dprintk(VIDC_DBG,
 				"'qcom,bus-governor' not found, default to performance governor\n");
-		bus->governor = "performance";
+		bus->governor = PERF_GOV;
 	}
+
+	if (!strcmp(bus->governor, PERF_GOV))
+		bus->is_prfm_gov_used = true;
 
 	rc = of_property_read_u32_array(dev->of_node, "qcom,bus-range-kbps",
 			range, ARRAY_SIZE(range));

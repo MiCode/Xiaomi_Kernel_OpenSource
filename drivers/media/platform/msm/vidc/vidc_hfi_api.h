@@ -1340,10 +1340,8 @@ struct vidc_bus_vote_data {
 	int complexity_factor;
 	unsigned int lcu_size;
 	enum msm_vidc_power_mode power_mode;
-	struct imem_ab_table *imem_ab_tbl;
 	enum hal_work_mode work_mode;
-	unsigned long bitrate;
-	u32 imem_ab_tbl_size;
+	bool use_sys_cache;
 };
 
 struct vidc_clk_scale_data {
