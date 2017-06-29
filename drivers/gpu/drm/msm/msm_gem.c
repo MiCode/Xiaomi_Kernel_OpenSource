@@ -311,6 +311,10 @@ put_iova(struct drm_gem_object *obj)
 		if (iommu_present(&platform_bus_type)) {
 			msm_gem_unmap_vma(domain->aspace, domain,
 				msm_obj->sgt, get_dmabuf_ptr(obj));
+
+			msm_gem_remove_obj_from_aspace_active_list(
+					domain->aspace,
+					obj);
 		}
 
 		obj_remove_domain(domain);
@@ -390,10 +394,12 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj,
 			msm_obj->flags);
 	}
 
-	if (!ret && domain)
+	if (!ret && domain) {
 		*iova = domain->iova;
-	else
+		msm_gem_add_obj_to_aspace_active_list(aspace, obj);
+	} else {
 		obj_remove_domain(domain);
+	}
 
 	return ret;
 }
@@ -439,6 +445,63 @@ void msm_gem_put_iova(struct drm_gem_object *obj,
 	// unmapped (if the iova refcnt drops to zero), but then later
 	// if another _get_iova_locked() fails we can start unmapping
 	// things that are no longer needed..
+}
+
+void msm_gem_aspace_domain_attach_detach_update(
+		struct msm_gem_address_space *aspace,
+		bool is_detach)
+{
+	struct msm_gem_object *msm_obj;
+	struct drm_gem_object *obj;
+	struct aspace_client *aclient;
+	int ret;
+	uint32_t iova;
+
+	if (!aspace)
+		return;
+
+	mutex_lock(&aspace->dev->struct_mutex);
+	if (is_detach) {
+		/* Indicate to clients domain is getting detached */
+		list_for_each_entry(aclient, &aspace->clients, list) {
+			if (aclient->cb)
+				aclient->cb(aclient->cb_data,
+						is_detach);
+		}
+
+		/**
+		 * Unmap active buffers,
+		 * typically clients should do this when the callback is called,
+		 * but this needs to be done for the framebuffers which are not
+		 * attached to any planes. (background apps)
+		 */
+		list_for_each_entry(msm_obj, &aspace->active_list, iova_list) {
+			obj = &msm_obj->base;
+			if (obj->import_attach) {
+				put_iova(obj);
+				put_pages(obj);
+			}
+		}
+	} else {
+		/* map active buffers */
+		list_for_each_entry(msm_obj, &aspace->active_list,
+				iova_list) {
+			obj = &msm_obj->base;
+			ret = msm_gem_get_iova_locked(obj, aspace, &iova);
+			if (ret) {
+				mutex_unlock(&obj->dev->struct_mutex);
+				return;
+			}
+		}
+
+		/* Indicate to clients domain is attached */
+		list_for_each_entry(aclient, &aspace->clients, list) {
+			if (aclient->cb)
+				aclient->cb(aclient->cb_data,
+						is_detach);
+		}
+	}
+	mutex_unlock(&aspace->dev->struct_mutex);
 }
 
 int msm_gem_dumb_create(struct drm_file *file, struct drm_device *dev,
@@ -869,6 +932,7 @@ static int msm_gem_new_impl(struct drm_device *dev,
 
 	INIT_LIST_HEAD(&msm_obj->submit_entry);
 	INIT_LIST_HEAD(&msm_obj->domains);
+	INIT_LIST_HEAD(&msm_obj->iova_list);
 
 	list_add_tail(&msm_obj->mm_list, &priv->inactive_list);
 

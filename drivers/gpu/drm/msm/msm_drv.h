@@ -660,12 +660,56 @@ msm_gem_address_space_create(struct device *dev, struct iommu_domain *domain,
 
 /* For SDE  display */
 struct msm_gem_address_space *
-msm_gem_smmu_address_space_create(struct device *dev, struct msm_mmu *mmu,
+msm_gem_smmu_address_space_create(struct drm_device *dev, struct msm_mmu *mmu,
 		const char *name);
 
+/**
+ * msm_gem_add_obj_to_aspace_active_list: adds obj to active obj list in aspace
+ */
+void msm_gem_add_obj_to_aspace_active_list(
+		struct msm_gem_address_space *aspace,
+		struct drm_gem_object *obj);
+
+/**
+ * msm_gem_remove_obj_from_aspace_active_list: removes obj from  active obj
+ * list in aspace
+ */
+void msm_gem_remove_obj_from_aspace_active_list(
+		struct msm_gem_address_space *aspace,
+		struct drm_gem_object *obj);
+
+/**
+ * msm_gem_smmu_address_space_get: returns the aspace pointer for the requested
+ * domain
+ */
 struct msm_gem_address_space *
 msm_gem_smmu_address_space_get(struct drm_device *dev,
 		unsigned int domain);
+
+/**
+ * msm_gem_aspace_domain_attach_detach: function to inform the attach/detach
+ * of the domain for this aspace
+ */
+void msm_gem_aspace_domain_attach_detach_update(
+		struct msm_gem_address_space *aspace,
+		bool is_detach);
+
+/**
+ * msm_gem_address_space_register_cb: function to register callback for attach
+ * and detach of the domain
+ */
+int msm_gem_address_space_register_cb(
+		struct msm_gem_address_space *aspace,
+		void (*cb)(void *, bool),
+		void *cb_data);
+
+/**
+ * msm_gem_address_space_register_cb: function to unregister callback
+ */
+int msm_gem_address_space_unregister_cb(
+		struct msm_gem_address_space *aspace,
+		void (*cb)(void *, bool),
+		void *cb_data);
 
 int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 		struct drm_file *file);
