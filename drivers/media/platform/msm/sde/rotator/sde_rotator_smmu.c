@@ -519,7 +519,8 @@ int sde_smmu_probe(struct platform_device *pdev)
 	char name[MAX_CLIENT_NAME_LEN];
 
 	if (!mdata) {
-		SDEROT_ERR("probe failed as mdata is not initialized\n");
+		SDEROT_INFO(
+			"probe failed as mdata is not initializedi, probe defer\n");
 		return -EPROBE_DEFER;
 	}
 
