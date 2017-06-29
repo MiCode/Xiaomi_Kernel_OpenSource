@@ -1115,6 +1115,13 @@ int msm_vdec_s_ext_ctrl(struct msm_vidc_inst *inst,
 							__func__, rc);
 						break;
 					}
+					rc = msm_comm_try_get_bufreqs(inst);
+					if (rc) {
+						dprintk(VIDC_ERR,
+							"%s Failed to get buffer requirements : %d\n",
+							__func__, rc);
+						break;
+					}
 				}
 				inst->clk_data.dpb_fourcc = fourcc;
 				break;

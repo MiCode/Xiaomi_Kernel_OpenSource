@@ -837,12 +837,12 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		b.buffer_type = HAL_BUFFER_OUTPUT;
 	}
 
+	rc = msm_comm_try_get_bufreqs(inst);
+
 	b.buffer_size = inst->bufq[CAPTURE_PORT].plane_sizes[0];
 	rc = call_hfi_op(hdev, session_set_property,
 			inst->session, HAL_PARAM_BUFFER_SIZE_MINIMUM,
 			&b);
-
-	rc = msm_comm_try_get_bufreqs(inst);
 
 	/* Verify if buffer counts are correct */
 	rc = msm_vidc_verify_buffer_counts(inst);
