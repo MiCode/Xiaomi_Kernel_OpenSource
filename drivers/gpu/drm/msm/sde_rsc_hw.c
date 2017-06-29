@@ -294,101 +294,8 @@ static int rsc_hw_solver_init(struct sde_rsc_priv *rsc)
 	return 0;
 }
 
-int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
-{
-	int rc;
-	int count, wrapper_status;
-	unsigned long reg;
-
-	if (rsc->power_collapse_block)
-		return -EINVAL;
-
-	rc = regulator_set_mode(rsc->fs, REGULATOR_MODE_FAST);
-	if (rc) {
-		pr_err("vdd reg fast mode set failed rc:%d\n", rc);
-		return rc;
-	}
-
-	rc = -EBUSY;
-
-	rsc_event_trigger(rsc, SDE_RSC_EVENT_PRE_CORE_PC);
-
-	/* update qtimers to high during clk & video mode state */
-	if ((rsc->current_state == SDE_RSC_VID_STATE) ||
-			(rsc->current_state == SDE_RSC_CLK_STATE)) {
-		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F0_QTMR_V1_CNTP_CVAL_HI,
-						0xffffffff, rsc->debug_mode);
-		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F0_QTMR_V1_CNTP_CVAL_LO,
-						0xffffffff, rsc->debug_mode);
-	}
-
-	wrapper_status = dss_reg_r(&rsc->wrapper_io, SDE_RSCC_WRAPPER_CTRL,
-				rsc->debug_mode);
-	wrapper_status |= BIT(3);
-	wrapper_status |= BIT(0);
-	dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_CTRL,
-					wrapper_status, rsc->debug_mode);
-
-	/**
-	 * force busy and idle during clk & video mode state because it
-	 * is trying to entry in mode-2 without turning on the vysnc.
-	 */
-	if ((rsc->current_state == SDE_RSC_VID_STATE) ||
-			(rsc->current_state == SDE_RSC_CLK_STATE)) {
-		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
-				BIT(0) | BIT(1), rsc->debug_mode);
-		wmb(); /* force busy gurantee */
-		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
-				BIT(0) | BIT(9), rsc->debug_mode);
-	}
-
-	/* make sure that mode-2 is triggered before wait*/
-	wmb();
-
-	/* check for sequence running status before exiting */
-	for (count = MAX_CHECK_LOOPS; count > 0; count--) {
-		if (!regulator_is_enabled(rsc->fs)) {
-			rc = 0;
-			break;
-		}
-		usleep_range(1, 2);
-	}
-
-	if (rc) {
-		pr_err("vdd fs is still enabled\n");
-		goto end;
-	} else {
-		rc = -EINVAL;
-		/* this wait is required to turn off the rscc clocks */
-		for (count = MAX_CHECK_LOOPS; count > 0; count--) {
-			reg = dss_reg_r(&rsc->wrapper_io,
-				SDE_RSCC_PWR_CTRL, rsc->debug_mode);
-			if (test_bit(POWER_CTRL_BIT_12, &reg)) {
-				rc = 0;
-				break;
-			}
-			usleep_range(1, 2);
-		}
-	}
-
-	if ((rsc->current_state == SDE_RSC_VID_STATE) ||
-			(rsc->current_state == SDE_RSC_CLK_STATE)) {
-		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
-					BIT(0) | BIT(8), rsc->debug_mode);
-		wmb(); /* force busy on vsync */
-	}
-
-	rsc_event_trigger(rsc, SDE_RSC_EVENT_POST_CORE_PC);
-
-	return 0;
-
-end:
-	rsc_event_trigger(rsc, SDE_RSC_EVENT_POST_CORE_RESTORE);
-
-	return rc;
-}
-
-int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc, enum sde_rsc_state state)
+static int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc,
+						enum sde_rsc_state state)
 {
 	int rc = -EBUSY;
 	int count, reg;
@@ -446,6 +353,89 @@ int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc, enum sde_rsc_state state)
 		pr_err("vdd reg is not enabled yet\n");
 
 	rsc_event_trigger(rsc, SDE_RSC_EVENT_POST_CORE_RESTORE);
+
+	return rc;
+}
+
+static int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
+{
+	int rc;
+	int count, wrapper_status;
+	unsigned long reg;
+
+	if (rsc->power_collapse_block)
+		return -EINVAL;
+
+	rc = regulator_set_mode(rsc->fs, REGULATOR_MODE_FAST);
+	if (rc) {
+		pr_err("vdd reg fast mode set failed rc:%d\n", rc);
+		return rc;
+	}
+
+	rsc_event_trigger(rsc, SDE_RSC_EVENT_PRE_CORE_PC);
+
+	/* update qtimers to high during clk & video mode state */
+	if ((rsc->current_state == SDE_RSC_VID_STATE) ||
+			(rsc->current_state == SDE_RSC_CLK_STATE)) {
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F0_QTMR_V1_CNTP_CVAL_HI,
+						0xffffffff, rsc->debug_mode);
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_F0_QTMR_V1_CNTP_CVAL_LO,
+						0xffffffff, rsc->debug_mode);
+	}
+
+	wrapper_status = dss_reg_r(&rsc->wrapper_io, SDE_RSCC_WRAPPER_CTRL,
+				rsc->debug_mode);
+	wrapper_status |= BIT(3);
+	wrapper_status |= BIT(0);
+	dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_CTRL,
+					wrapper_status, rsc->debug_mode);
+
+	/**
+	 * force busy and idle during clk & video mode state because it
+	 * is trying to entry in mode-2 without turning on the vysnc.
+	 */
+	if ((rsc->current_state == SDE_RSC_VID_STATE) ||
+			(rsc->current_state == SDE_RSC_CLK_STATE)) {
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
+				BIT(0) | BIT(1), rsc->debug_mode);
+		wmb(); /* force busy gurantee */
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
+				BIT(0) | BIT(9), rsc->debug_mode);
+	}
+
+	/* make sure that mode-2 is triggered before wait*/
+	wmb();
+
+	rc = -EBUSY;
+	/* this wait is required to turn off the rscc clocks */
+	for (count = MAX_CHECK_LOOPS; count > 0; count--) {
+		reg = dss_reg_r(&rsc->wrapper_io,
+				SDE_RSCC_PWR_CTRL, rsc->debug_mode);
+		if (test_bit(POWER_CTRL_BIT_12, &reg)) {
+			rc = 0;
+			break;
+		}
+		usleep_range(1, 2);
+	}
+
+	if (rc) {
+		pr_err("mdss gdsc power down failed rc:%d\n", rc);
+		goto end;
+	}
+
+	if ((rsc->current_state == SDE_RSC_VID_STATE) ||
+			(rsc->current_state == SDE_RSC_CLK_STATE)) {
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_OVERRIDE_CTRL,
+					BIT(0) | BIT(8), rsc->debug_mode);
+		wmb(); /* force busy on vsync */
+	}
+
+	rsc_event_trigger(rsc, SDE_RSC_EVENT_POST_CORE_PC);
+
+	return 0;
+
+end:
+	sde_rsc_mode2_exit(rsc, rsc->current_state);
 
 	return rc;
 }
