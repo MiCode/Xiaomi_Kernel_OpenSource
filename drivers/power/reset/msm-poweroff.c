@@ -47,7 +47,7 @@
 #define SCM_EDLOAD_MODE			0X01
 #define SCM_DLOAD_CMD			0x10
 #define SCM_DLOAD_MINIDUMP		0X20
-
+#define SCM_DLOAD_BOTHDUMPS	(SCM_DLOAD_MINIDUMP | SCM_DLOAD_FULLDUMP)
 
 static int restart_mode;
 static void *restart_reason;
@@ -488,7 +488,8 @@ static ssize_t show_dload_mode(struct kobject *kobj, struct attribute *attr,
 				char *buf)
 {
 	return scnprintf(buf, PAGE_SIZE, "DLOAD dump type: %s\n",
-			(dload_type == SCM_DLOAD_MINIDUMP) ? "mini" : "full");
+		(dload_type == SCM_DLOAD_BOTHDUMPS) ? "both" :
+		((dload_type == SCM_DLOAD_MINIDUMP) ? "mini" : "full"));
 }
 
 static size_t store_dload_mode(struct kobject *kobj, struct attribute *attr,
@@ -502,8 +503,16 @@ static size_t store_dload_mode(struct kobject *kobj, struct attribute *attr,
 			return -ENODEV;
 		}
 		dload_type = SCM_DLOAD_MINIDUMP;
-	} else {
-		pr_err("Invalid value. Use 'full' or 'mini'\n");
+	} else if (sysfs_streq(buf, "both")) {
+		if (!minidump_enabled) {
+			pr_err("Minidump not enabled, setting fulldump only\n");
+			dload_type = SCM_DLOAD_FULLDUMP;
+			return count;
+		}
+		dload_type = SCM_DLOAD_BOTHDUMPS;
+	} else{
+		pr_err("Invalid Dump setup request..\n");
+		pr_err("Supported dumps:'full', 'mini', or 'both'\n");
 		return -EINVAL;
 	}
 
