@@ -1510,7 +1510,6 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *cstate;
 	struct sde_kms *sde_kms;
-	struct drm_encoder *encoder;
 	unsigned long flags;
 
 	if (!work) {
@@ -1564,26 +1563,8 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 		}
 
 		if (fevent->event == SDE_ENCODER_FRAME_EVENT_DONE ||
-			    (fevent->event & SDE_ENCODER_FRAME_EVENT_ERROR)) {
-			bool signal_fence = true;
-
-			drm_for_each_encoder(encoder, crtc->dev) {
-				if (encoder->crtc != crtc)
-					continue;
-
-				signal_fence &=
-					sde_encoder_is_cmd_mode(encoder);
-			}
-
-			/* signal release fence only for cmd mode panels here */
-			if (signal_fence) {
-				sde_fence_signal(&sde_crtc->output_fence, 0);
-				SDE_EVT32_VERBOSE(DRMID(crtc), fevent->event,
-							SDE_EVTLOG_FUNC_CASE4);
-			}
-
+			    (fevent->event & SDE_ENCODER_FRAME_EVENT_ERROR))
 			complete_all(&sde_crtc->frame_done_comp);
-		}
 
 		if (fevent->event == SDE_ENCODER_FRAME_EVENT_DONE)
 			sde_core_perf_crtc_update(crtc, 0, false);
@@ -1648,9 +1629,7 @@ void sde_crtc_complete_commit(struct drm_crtc *crtc,
 {
 	struct sde_crtc *sde_crtc;
 	struct sde_crtc_state *cstate;
-	struct drm_encoder *encoder;
 	int i;
-	bool signal_fence = true;
 
 	if (!crtc || !crtc->state) {
 		SDE_ERROR("invalid crtc\n");
@@ -1661,16 +1640,8 @@ void sde_crtc_complete_commit(struct drm_crtc *crtc,
 	cstate = to_sde_crtc_state(crtc->state);
 	SDE_EVT32_VERBOSE(DRMID(crtc));
 
-	drm_for_each_encoder(encoder, crtc->dev) {
-		if (encoder->crtc != crtc)
-			continue;
-
-		signal_fence &= !sde_encoder_is_cmd_mode(encoder);
-	}
-
-	/* signal release fence for non-cmd mode panels */
-	if (signal_fence)
-		sde_fence_signal(&sde_crtc->output_fence, 0);
+	/* signal release fence */
+	sde_fence_signal(&sde_crtc->output_fence, 0);
 
 	/* signal retire fence */
 	for (i = 0; i < cstate->num_connectors; ++i)
