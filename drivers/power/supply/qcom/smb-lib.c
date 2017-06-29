@@ -2867,13 +2867,13 @@ int smblib_get_prop_fcc_delta(struct smb_charger *chg,
  * USB MAIN PSY SETTERS *
  ************************/
 
-#define SDP_CURRENT_MA			500000
-#define CDP_CURRENT_MA			1500000
-#define DCP_CURRENT_MA			1500000
-#define HVDCP_CURRENT_MA		3000000
-#define TYPEC_DEFAULT_CURRENT_MA	900000
-#define TYPEC_MEDIUM_CURRENT_MA		1500000
-#define TYPEC_HIGH_CURRENT_MA		3000000
+#define SDP_CURRENT_UA			500000
+#define CDP_CURRENT_UA			1500000
+#define DCP_CURRENT_UA			1500000
+#define HVDCP_CURRENT_UA		3000000
+#define TYPEC_DEFAULT_CURRENT_UA	900000
+#define TYPEC_MEDIUM_CURRENT_UA		1500000
+#define TYPEC_HIGH_CURRENT_UA		3000000
 int smblib_get_charge_current(struct smb_charger *chg,
 				int *total_current_ua)
 {
@@ -2907,19 +2907,19 @@ int smblib_get_charge_current(struct smb_charger *chg,
 
 	/* QC 2.0/3.0 adapter */
 	if (apsd_result->bit & (QC_3P0_BIT | QC_2P0_BIT)) {
-		*total_current_ua = HVDCP_CURRENT_MA;
+		*total_current_ua = HVDCP_CURRENT_UA;
 		return 0;
 	}
 
 	if (non_compliant) {
 		switch (apsd_result->bit) {
 		case CDP_CHARGER_BIT:
-			current_ua = CDP_CURRENT_MA;
+			current_ua = CDP_CURRENT_UA;
 			break;
 		case DCP_CHARGER_BIT:
 		case OCP_CHARGER_BIT:
 		case FLOAT_CHARGER_BIT:
-			current_ua = DCP_CURRENT_MA;
+			current_ua = DCP_CURRENT_UA;
 			break;
 		default:
 			current_ua = 0;
@@ -2934,7 +2934,7 @@ int smblib_get_charge_current(struct smb_charger *chg,
 	case POWER_SUPPLY_TYPEC_SOURCE_DEFAULT:
 		switch (apsd_result->bit) {
 		case CDP_CHARGER_BIT:
-			current_ua = CDP_CURRENT_MA;
+			current_ua = CDP_CURRENT_UA;
 			break;
 		case DCP_CHARGER_BIT:
 		case OCP_CHARGER_BIT:
@@ -2947,10 +2947,10 @@ int smblib_get_charge_current(struct smb_charger *chg,
 		}
 		break;
 	case POWER_SUPPLY_TYPEC_SOURCE_MEDIUM:
-		current_ua = TYPEC_MEDIUM_CURRENT_MA;
+		current_ua = TYPEC_MEDIUM_CURRENT_UA;
 		break;
 	case POWER_SUPPLY_TYPEC_SOURCE_HIGH:
-		current_ua = TYPEC_HIGH_CURRENT_MA;
+		current_ua = TYPEC_HIGH_CURRENT_UA;
 		break;
 	case POWER_SUPPLY_TYPEC_NON_COMPLIANT:
 	case POWER_SUPPLY_TYPEC_NONE:
@@ -3472,8 +3472,29 @@ static void smblib_handle_hvdcp_detect_done(struct smb_charger *chg,
 		   rising ? "rising" : "falling");
 }
 
+static int get_rp_based_dcp_current(struct smb_charger *chg, int typec_mode)
+{
+	int rp_ua;
+
+	switch (typec_mode) {
+	case POWER_SUPPLY_TYPEC_SOURCE_HIGH:
+		rp_ua = TYPEC_HIGH_CURRENT_UA;
+		break;
+	case POWER_SUPPLY_TYPEC_SOURCE_MEDIUM:
+	case POWER_SUPPLY_TYPEC_SOURCE_DEFAULT:
+	/* fall through */
+	default:
+		rp_ua = DCP_CURRENT_UA;
+	}
+
+	return rp_ua;
+}
+
 static void smblib_force_legacy_icl(struct smb_charger *chg, int pst)
 {
+	int typec_mode;
+	int rp_ua;
+
 	/* while PD is active it should have complete ICL control */
 	if (chg->pd_active)
 		return;
@@ -3495,7 +3516,9 @@ static void smblib_force_legacy_icl(struct smb_charger *chg, int pst)
 		break;
 	case POWER_SUPPLY_TYPE_USB_DCP:
 	case POWER_SUPPLY_TYPE_USB_FLOAT:
-		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, 1500000);
+		typec_mode = smblib_get_prop_typec_mode(chg);
+		rp_ua = get_rp_based_dcp_current(chg, typec_mode);
+		vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, rp_ua);
 		break;
 	case POWER_SUPPLY_TYPE_USB_HVDCP:
 	case POWER_SUPPLY_TYPE_USB_HVDCP_3:
@@ -3780,12 +3803,40 @@ static void smblib_handle_typec_insertion(struct smb_charger *chg)
 		typec_sink_removal(chg);
 }
 
+static void smblib_handle_rp_change(struct smb_charger *chg, int typec_mode)
+{
+	int rp_ua;
+	const struct apsd_result *apsd = smblib_get_apsd_result(chg);
+
+	if ((apsd->pst != POWER_SUPPLY_TYPE_USB_DCP)
+		&& (apsd->pst != POWER_SUPPLY_TYPE_USB_FLOAT))
+		return;
+
+	/*
+	 * handle Rp change for DCP/FLOAT/OCP.
+	 * Update the current only if the Rp is different from
+	 * the last Rp value.
+	 */
+	smblib_dbg(chg, PR_MISC, "CC change old_mode=%d new_mode=%d\n",
+						chg->typec_mode, typec_mode);
+
+	rp_ua = get_rp_based_dcp_current(chg, typec_mode);
+	vote(chg->usb_icl_votable, LEGACY_UNKNOWN_VOTER, true, rp_ua);
+}
+
 static void smblib_handle_typec_cc_state_change(struct smb_charger *chg)
 {
+	int typec_mode;
+
 	if (chg->pr_swap_in_progress)
 		return;
 
-	chg->typec_mode = smblib_get_prop_typec_mode(chg);
+	typec_mode = smblib_get_prop_typec_mode(chg);
+	if (chg->typec_present && (typec_mode != chg->typec_mode))
+		smblib_handle_rp_change(chg, typec_mode);
+
+	chg->typec_mode = typec_mode;
+
 	if (!chg->typec_present && chg->typec_mode != POWER_SUPPLY_TYPEC_NONE) {
 		chg->typec_present = true;
 		smblib_dbg(chg, PR_MISC, "TypeC %s insertion\n",
