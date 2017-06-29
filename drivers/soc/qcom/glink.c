@@ -1915,13 +1915,13 @@ check_ctx:
 		}
 
 		ctx->transport_ptr = xprt_ctx;
+		rwref_get(&ctx->ch_state_lhb2);
 		list_add_tail(&ctx->port_list_node, &xprt_ctx->channels);
 
 		GLINK_INFO_PERF_CH_XPRT(ctx, xprt_ctx,
 			"%s: local:GLINK_CHANNEL_CLOSED\n",
 			__func__);
 	}
-	rwref_get(&ctx->ch_state_lhb2);
 	spin_unlock_irqrestore(&xprt_ctx->xprt_ctx_lock_lhb1, flags);
 	rwref_write_put(&xprt_ctx->xprt_state_lhb0);
 	mutex_lock(&xprt_ctx->xprt_dbgfs_lock_lhb4);
