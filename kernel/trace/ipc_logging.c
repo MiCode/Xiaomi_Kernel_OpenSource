@@ -314,8 +314,11 @@ void ipc_log_write(void *ctxt, struct encode_context *ectxt)
 		ilctxt->write_page->hdr.end_time = t_now;
 
 		ilctxt->write_page = get_next_page(ilctxt, ilctxt->write_page);
-		if (WARN_ON(ilctxt->write_page == NULL))
+		if (WARN_ON(ilctxt->write_page == NULL)) {
+			spin_unlock(&ilctxt->context_lock_lhb1);
+			read_unlock_irqrestore(&context_list_lock_lha1, flags);
 			return;
+		}
 		ilctxt->write_page->hdr.write_offset = 0;
 		ilctxt->write_page->hdr.start_time = t_now;
 		memcpy((ilctxt->write_page->data +
