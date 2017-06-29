@@ -591,10 +591,11 @@ uint32_t socinfo_get_id(void)
 }
 EXPORT_SYMBOL_GPL(socinfo_get_id);
 
-static char *socinfo_get_id_string(void)
+char *socinfo_get_id_string(void)
 {
 	return (socinfo) ? cpu_of_id[socinfo->v0_1.id].soc_id_string : NULL;
 }
+EXPORT_SYMBOL(socinfo_get_id_string);
 
 uint32_t socinfo_get_version(void)
 {
