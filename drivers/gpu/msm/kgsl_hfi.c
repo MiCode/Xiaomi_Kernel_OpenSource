@@ -177,6 +177,7 @@ static void receive_ack_msg(struct gmu_device *gmu, struct hfi_msg_rsp *rsp)
 {
 	struct kgsl_hfi *hfi = &gmu->hfi;
 	struct pending_msg *msg = NULL, *next;
+	bool in_queue = false;
 
 	trace_kgsl_hfi_receive(rsp->ret_hdr.id,
 		rsp->ret_hdr.size,
@@ -185,11 +186,13 @@ static void receive_ack_msg(struct gmu_device *gmu, struct hfi_msg_rsp *rsp)
 	spin_lock(&hfi->msglock);
 	list_for_each_entry_safe(msg, next, &hfi->msglist, node) {
 		if (msg->msg_id == rsp->ret_hdr.id &&
-				msg->seqnum == rsp->ret_hdr.seqnum)
+				msg->seqnum == rsp->ret_hdr.seqnum) {
+			in_queue = true;
 			break;
+		}
 	}
 
-	if (msg == NULL) {
+	if (in_queue == false) {
 		spin_unlock(&hfi->msglock);
 		dev_err(&gmu->pdev->dev,
 				"Cannot find receiver of ack msg with id=%d\n",
