@@ -48,13 +48,13 @@ bool cam_cdm_read_hw_reg(struct cam_hw_info *cdm_hw,
 
 	if ((reg > cdm->offset_tbl->offset_max_size) ||
 		(reg > cdm->offset_tbl->last_offset)) {
-		pr_err("CDM accessing invalid reg=%d\n", reg);
+		pr_err_ratelimited("Invalid reg=%d\n", reg);
 		goto permission_error;
 	} else {
 		reg_addr = (base + (CAM_CDM_OFFSET_FROM_REG(
 				cdm->offset_tbl, reg)));
 		if (reg_addr > (base + mem_len)) {
-			pr_err("accessing invalid mapped region %d\n", reg);
+			pr_err_ratelimited("Invalid mapped region %d\n", reg);
 			goto permission_error;
 		}
 		*value = cam_io_r_mb(reg_addr);
@@ -84,13 +84,13 @@ bool cam_cdm_write_hw_reg(struct cam_hw_info *cdm_hw,
 
 	if ((reg > cdm->offset_tbl->offset_max_size) ||
 		(reg > cdm->offset_tbl->last_offset)) {
-		pr_err("CDM accessing invalid reg=%d\n", reg);
+		pr_err_ratelimited("CDM accessing invalid reg=%d\n", reg);
 		goto permission_error;
 	} else {
 		reg_addr = (base + CAM_CDM_OFFSET_FROM_REG(
 				cdm->offset_tbl, reg));
 		if (reg_addr > (base + mem_len)) {
-			pr_err("Accessing invalid region %d:%d\n",
+			pr_err_ratelimited("Accessing invalid region %d:%d\n",
 				reg, (CAM_CDM_OFFSET_FROM_REG(
 				cdm->offset_tbl, reg)));
 			goto permission_error;
@@ -106,7 +106,7 @@ permission_error:
 int cam_cdm_soc_load_dt_private(struct platform_device *pdev,
 	struct cam_cdm_private_dt_data *ptr)
 {
-	int i, rc = -1;
+	int i, rc = -EINVAL;
 
 	ptr->dt_num_supported_clients = of_property_count_strings(
 						pdev->dev.of_node,
@@ -186,7 +186,7 @@ int cam_hw_cdm_soc_get_dt_properties(struct cam_hw_info *cdm_hw,
 	return rc;
 
 error:
-	rc = -1;
+	rc = -EINVAL;
 	kfree(soc_ptr->soc_private);
 	soc_ptr->soc_private = NULL;
 	return rc;
