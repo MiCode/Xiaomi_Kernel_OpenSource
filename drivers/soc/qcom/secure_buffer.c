@@ -412,6 +412,8 @@ const char *msm_secure_vmid_to_string(int secure_vmid)
 		return "VMID_WLAN_CE";
 	case VMID_CP_CAMERA_PREVIEW:
 		return "VMID_CP_CAMERA_PREVIEW";
+	case VMID_CP_SPSS_SP_SHARED:
+		return "VMID_CP_SPSS_SP_SHARED";
 	case VMID_INVAL:
 		return "VMID_INVAL";
 	default:
