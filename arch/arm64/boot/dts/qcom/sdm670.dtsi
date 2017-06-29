@@ -394,6 +394,8 @@
 
 #include "sdm670-ion.dtsi"
 
+#include "sdm670-qupv3.dtsi"
+
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
