@@ -58,6 +58,9 @@
 /* default ubwc swizzle register value */
 #define DEFAULT_SDE_UBWC_SWIZZLE 0x0
 
+/* default ubwc macrotile mode value */
+#define DEFAULT_SDE_UBWC_MACROTILE_MODE 0x0
+
 /* default hardware block size if dtsi entry is not present */
 #define DEFAULT_SDE_HW_BLOCK_LEN 0x100
 
@@ -150,6 +153,7 @@ enum sde_prop {
 	IDLE_PC,
 	DEST_SCALER,
 	SMART_PANEL_ALIGN_MODE,
+	MACROTILE_MODE,
 	SDE_PROP_MAX,
 };
 
@@ -417,6 +421,7 @@ static struct sde_prop_type sde_prop[] = {
 	{DEST_SCALER, "qcom,sde-has-dest-scaler", false, PROP_TYPE_BOOL},
 	{SMART_PANEL_ALIGN_MODE, "qcom,sde-smart-panel-align-mode",
 			false, PROP_TYPE_U32},
+	{MACROTILE_MODE, "qcom,sde-macrotile-mode", false, PROP_TYPE_U32},
 };
 
 static struct sde_prop_type sde_perf_prop[] = {
@@ -2871,9 +2876,14 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 	if (!prop_exists[BANK_BIT])
 		cfg->mdp[0].highest_bank_bit = DEFAULT_SDE_HIGHEST_BANK_BIT;
 
-	cfg->ubwc_version = PROP_VALUE_ACCESS(prop_value, UBWC_VERSION, 0);
+	cfg->ubwc_version = SDE_HW_UBWC_VER(PROP_VALUE_ACCESS(prop_value,
+			UBWC_VERSION, 0));
 	if (!prop_exists[UBWC_VERSION])
 		cfg->ubwc_version = DEFAULT_SDE_UBWC_VERSION;
+
+	cfg->macrotile_mode = PROP_VALUE_ACCESS(prop_value, MACROTILE_MODE, 0);
+	if (!prop_exists[MACROTILE_MODE])
+		cfg->macrotile_mode = DEFAULT_SDE_UBWC_MACROTILE_MODE;
 
 	cfg->mdp[0].ubwc_static = PROP_VALUE_ACCESS(prop_value, UBWC_STATIC, 0);
 	if (!prop_exists[UBWC_STATIC])
