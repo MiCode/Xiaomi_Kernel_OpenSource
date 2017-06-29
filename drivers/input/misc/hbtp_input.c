@@ -87,6 +87,7 @@ struct hbtp_data {
 	u32 power_on_delay;
 	u32 power_off_delay;
 	bool manage_pin_ctrl;
+	struct kobject *sysfs_kobject;
 };
 
 static struct hbtp_data *hbtp;
@@ -1350,6 +1351,39 @@ static struct platform_driver hbtp_pdev_driver = {
 	},
 };
 
+static ssize_t hbtp_display_pwr_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	u32 status;
+	ssize_t ret;
+	char *envp[2] = {HBTP_EVENT_TYPE_DISPLAY, NULL};
+
+	mutex_lock(&hbtp->mutex);
+	ret = kstrtou32(buf, 10, &status);
+	if (ret) {
+		pr_err("hbtp: ret error: %zd\n", ret);
+		return ret;
+	}
+	if (!hbtp || !hbtp->input_dev) {
+		pr_err("hbtp: hbtp or hbtp->input_dev not ready!\n");
+		return ret;
+	}
+	if (status) {
+		pr_debug("hbtp: display power on!\n");
+		kobject_uevent_env(&hbtp->input_dev->dev.kobj,
+			KOBJ_ONLINE, envp);
+	} else {
+		pr_debug("hbtp: display power off!\n");
+		kobject_uevent_env(&hbtp->input_dev->dev.kobj,
+			KOBJ_OFFLINE, envp);
+	}
+	mutex_unlock(&hbtp->mutex);
+	return count;
+}
+
+static struct kobj_attribute hbtp_display_attribute =
+		__ATTR(display_pwr, 0660, NULL, hbtp_display_pwr_store);
+
 static int __init hbtp_init(void)
 {
 	int error;
@@ -1380,6 +1414,16 @@ static int __init hbtp_init(void)
 	if (error) {
 		pr_err("Failed to register platform driver: %d\n", error);
 		goto err_platform_drv_reg;
+	}
+
+	hbtp->sysfs_kobject = kobject_create_and_add("hbtp", kernel_kobj);
+	if (!hbtp->sysfs_kobject)
+		pr_err("%s: Could not create sysfs kobject\n", __func__);
+	else {
+		error = sysfs_create_file(hbtp->sysfs_kobject,
+			&hbtp_display_attribute.attr);
+		if (error)
+			pr_err("failed to create the display_pwr sysfs\n");
 	}
 
 	return 0;
