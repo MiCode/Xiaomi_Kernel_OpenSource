@@ -94,7 +94,7 @@ struct msm_sensor_ctrl_t {
 	struct msm_sensor_init_t s_init;
 };
 
-int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp);
+int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void *argp);
 
 int msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl);
 

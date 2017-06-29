@@ -50,7 +50,7 @@ struct cam_ahb_client_data {
 
 static struct cam_ahb_client_data data;
 
-int get_vector_index(char *name)
+static int get_vector_index(char *name)
 {
 	int i = 0, rc = -1;
 
@@ -213,7 +213,7 @@ err1:
 }
 EXPORT_SYMBOL(cam_ahb_clk_init);
 
-int cam_consolidate_ahb_vote(enum cam_ahb_clk_client id,
+static int cam_consolidate_ahb_vote(enum cam_ahb_clk_client id,
 	enum cam_ahb_clk_vote vote)
 {
 	int i = 0;

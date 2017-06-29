@@ -509,20 +509,20 @@ static const struct v4l2_ctrl_ops msm_ba_ctrl_ops = {
 	.s_ctrl = msm_ba_op_s_ctrl,
 };
 
-const struct v4l2_ctrl_ops *msm_ba_get_ctrl_ops(void)
-{
-	return &msm_ba_ctrl_ops;
-}
-
 static struct v4l2_ctrl **msm_ba_get_super_cluster(struct msm_ba_inst *inst,
 				int *size)
 {
 	int c = 0;
 	int sz = 0;
-	struct v4l2_ctrl **cluster = kmalloc(sizeof(struct v4l2_ctrl *) *
+	struct v4l2_ctrl **cluster = NULL;
+
+	if (!size || !inst)
+		return NULL;
+
+	cluster = kmalloc(sizeof(struct v4l2_ctrl *) *
 			BA_NUM_CTRLS, GFP_KERNEL);
 
-	if (!size || !cluster || !inst)
+	if (!cluster)
 		return NULL;
 
 	for (c = 0; c < BA_NUM_CTRLS; c++)
@@ -539,9 +539,11 @@ static struct v4l2_ctrl **msm_ba_get_super_cluster(struct msm_ba_inst *inst,
 int msm_ba_ctrl_init(struct msm_ba_inst *inst)
 {
 	int idx = 0;
-	struct v4l2_ctrl_config ctrl_cfg = {0};
+	struct v4l2_ctrl_config ctrl_cfg;
 	int rc = 0;
 	int cluster_size = 0;
+
+	memset(&ctrl_cfg, 0x00, sizeof(struct v4l2_ctrl_config));
 
 	if (!inst) {
 		dprintk(BA_ERR, "%s - invalid instance", __func__);

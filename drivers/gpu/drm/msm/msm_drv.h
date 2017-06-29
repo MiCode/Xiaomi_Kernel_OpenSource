@@ -155,6 +155,7 @@ enum msm_mdp_conn_property {
 	CONNECTOR_PROP_DST_W,
 	CONNECTOR_PROP_DST_H,
 	CONNECTOR_PROP_PLL_DELTA,
+	CONNECTOR_PROP_PLL_ENABLE,
 
 	/* enum/bitmask properties */
 	CONNECTOR_PROP_TOPOLOGY_NAME,
@@ -465,6 +466,7 @@ struct sg_table *msm_gem_prime_get_sg_table(struct drm_gem_object *obj);
 void *msm_gem_prime_vmap(struct drm_gem_object *obj);
 void msm_gem_prime_vunmap(struct drm_gem_object *obj, void *vaddr);
 int msm_gem_prime_mmap(struct drm_gem_object *obj, struct vm_area_struct *vma);
+struct reservation_object *msm_gem_prime_res_obj(struct drm_gem_object *obj);
 struct drm_gem_object *msm_gem_prime_import_sg_table(struct drm_device *dev,
 		struct dma_buf_attachment *attach, struct sg_table *sg);
 int msm_gem_prime_pin(struct drm_gem_object *obj);
@@ -494,7 +496,12 @@ int msm_gem_svm_new_handle(struct drm_device *dev, struct drm_file *file,
 struct drm_gem_object *msm_gem_svm_new(struct drm_device *dev,
 		struct drm_file *file, uint64_t hostptr,
 		uint64_t size, uint32_t flags);
-
+void *msm_gem_kernel_new(struct drm_device *dev, uint32_t size,
+		uint32_t flags, struct msm_gem_address_space *aspace,
+		struct drm_gem_object **bo, uint64_t *iova);
+void *msm_gem_kernel_new_locked(struct drm_device *dev, uint32_t size,
+		uint32_t flags, struct msm_gem_address_space *aspace,
+		struct drm_gem_object **bo, uint64_t *iova);
 int msm_framebuffer_prepare(struct drm_framebuffer *fb,
 		struct msm_gem_address_space *aspace);
 void msm_framebuffer_cleanup(struct drm_framebuffer *fb,
@@ -516,8 +523,11 @@ struct msm_gpu_submitqueue *msm_submitqueue_get(struct msm_file_private *ctx,
 		u32 id);
 int msm_submitqueue_create(struct msm_file_private *ctx, u32 prio,
 		u32 flags, u32 *id);
+int msm_submitqueue_query(struct msm_file_private *ctx, u32 id, u32 param,
+		void __user *data, u32 len);
 int msm_submitqueue_remove(struct msm_file_private *ctx, u32 id);
 void msm_submitqueue_close(struct msm_file_private *ctx);
+
 void msm_submitqueue_destroy(struct kref *kref);
 
 struct hdmi;

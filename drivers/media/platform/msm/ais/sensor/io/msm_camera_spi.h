@@ -83,6 +83,14 @@ uint16_t msm_camera_spi_get_hlen(struct msm_camera_spi_inst *inst)
 	return sizeof(inst->opcode) + inst->addr_len + inst->dummy_len;
 }
 
+int32_t msm_camera_spi_tx_helper(struct msm_camera_i2c_client *client,
+	struct msm_camera_spi_inst *inst, uint32_t addr, uint8_t *data,
+	uint32_t num_byte, char *tx, char *rx);
+
+int32_t msm_camera_spi_tx_read(struct msm_camera_i2c_client *client,
+	struct msm_camera_spi_inst *inst, uint32_t addr, uint8_t *data,
+	uint32_t num_byte, char *tx, char *rx);
+
 int32_t msm_camera_spi_read(struct msm_camera_i2c_client *client,
 	uint32_t addr, uint16_t *data,
 	enum msm_camera_i2c_data_type data_type);

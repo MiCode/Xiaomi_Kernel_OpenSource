@@ -18,12 +18,13 @@
 
 int msm_vdec_inst_init(struct msm_vidc_inst *inst);
 int msm_vdec_ctrl_init(struct msm_vidc_inst *inst);
-int msm_vdec_querycap(void *instance, struct v4l2_capability *cap);
-int msm_vdec_enum_fmt(void *instance, struct v4l2_fmtdesc *f);
-int msm_vdec_s_fmt(void *instance, struct v4l2_format *f);
-int msm_vdec_g_fmt(void *instance, struct v4l2_format *f);
-int msm_vdec_s_ext_ctrl(void *instance, struct v4l2_ext_controls *a);
-int msm_vdec_reqbufs(void *instance, struct v4l2_requestbuffers *b);
+int msm_vdec_querycap(struct msm_vidc_inst *inst, struct v4l2_capability *cap);
+int msm_vdec_enum_fmt(struct msm_vidc_inst *inst, struct v4l2_fmtdesc *f);
+int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f);
+int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f);
+int msm_vdec_s_ext_ctrl(struct msm_vidc_inst *inst,
+		struct v4l2_ext_controls *a);
+int msm_vdec_reqbufs(struct msm_vidc_inst *inst, struct v4l2_requestbuffers *b);
 int msm_vdec_prepare_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b);
 int msm_vdec_release_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b);
 int msm_vdec_qbuf(struct msm_vidc_inst *inst, struct v4l2_buffer *b);
@@ -32,6 +33,8 @@ int msm_vdec_streamon(struct msm_vidc_inst *inst, enum v4l2_buf_type i);
 int msm_vdec_streamoff(struct msm_vidc_inst *inst, enum v4l2_buf_type i);
 int msm_vdec_cmd(struct msm_vidc_inst *inst, struct v4l2_decoder_cmd *dec);
 int msm_vdec_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a);
-struct vb2_ops *msm_vdec_get_vb2q_ops(void);
+const struct vb2_ops *msm_vdec_get_vb2q_ops(void);
+void msm_vdec_g_ctrl(struct msm_vidc_ctrl **ctrls, int *num_ctrls);
+void msm_vdec_ctrl_sort(void);
 
 #endif

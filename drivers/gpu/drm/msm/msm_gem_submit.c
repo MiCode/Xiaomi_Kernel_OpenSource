@@ -430,7 +430,7 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 		return -EINVAL;
 
 	gpu = priv->gpu;
-	if (!gpu)
+	if (!gpu || !ctx)
 		return -ENXIO;
 
 	queue = msm_submitqueue_get(ctx, args->queueid);

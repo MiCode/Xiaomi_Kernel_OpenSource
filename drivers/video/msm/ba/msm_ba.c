@@ -53,7 +53,7 @@ int msm_ba_querycap(void *instance, struct v4l2_capability *cap)
 
 	if (!inst || !cap) {
 		dprintk(BA_ERR,
-			"Invalid input, inst = 0x%p, cap = 0x%p", inst, cap);
+			"Invalid input, inst = 0x%pK, cap = 0x%pK", inst, cap);
 		return -EINVAL;
 	}
 
@@ -618,7 +618,7 @@ int msm_ba_save_restore_input(void *instance, enum msm_ba_save_restore_ip sr)
 }
 EXPORT_SYMBOL(msm_ba_save_restore_input);
 
-void msm_ba_release_subdev_node(struct video_device *vdev)
+static void msm_ba_release_subdev_node(struct video_device *vdev)
 {
 	struct v4l2_subdev *sd = video_get_drvdata(vdev);
 
@@ -632,7 +632,7 @@ static int msm_ba_register_v4l2_subdev(struct v4l2_device *v4l2_dev,
 	struct video_device *vdev;
 	int rc = 0;
 
-	dprintk(BA_DBG, "Enter %s: v4l2_dev 0x%p, v4l2_subdev 0x%p",
+	dprintk(BA_DBG, "Enter %s: v4l2_dev 0x%pK, v4l2_subdev 0x%pK",
 			  __func__, v4l2_dev, sd);
 	if (NULL == v4l2_dev || NULL == sd || !sd->name[0]) {
 		dprintk(BA_ERR, "Invalid input");
@@ -884,7 +884,7 @@ int msm_ba_close(void *instance)
 
 	debugfs_remove_recursive(inst->debugfs_root);
 
-	dprintk(BA_DBG, "Closed BA instance: %p", inst);
+	dprintk(BA_DBG, "Closed BA instance: %pK", inst);
 	kfree(inst);
 
 	return rc;

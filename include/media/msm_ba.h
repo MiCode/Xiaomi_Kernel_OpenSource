@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,6 +68,7 @@ int msm_ba_s_ext_ctrl(void *instance, struct v4l2_ext_controls *a);
 int msm_ba_g_ctrl(void *instance, struct v4l2_control *a);
 int msm_ba_streamon(void *instance, enum v4l2_buf_type i);
 int msm_ba_streamoff(void *instance, enum v4l2_buf_type i);
+long msm_ba_private_ioctl(void *instance, int cmd, void *arg);
 int msm_ba_save_restore_input(void *instance, enum msm_ba_save_restore_ip sr);
 int msm_ba_poll(void *instance, struct file *filp,
 		struct poll_table_struct *pt);

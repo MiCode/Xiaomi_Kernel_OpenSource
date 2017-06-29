@@ -513,7 +513,7 @@ int32_t msm_camera_spi_write(struct msm_camera_i2c_client *client,
 		&client->spi_client->cmd_tbl.page_program;
 	uint8_t header_len = sizeof(pg->opcode) + pg->addr_len + pg->dummy_len;
 	uint16_t len = 0;
-	char buf[data_type];
+	char *buf = NULL;
 	char *tx;
 	int rc = -EINVAL;
 
@@ -524,10 +524,13 @@ int32_t msm_camera_spi_write(struct msm_camera_i2c_client *client,
 		&& data_type != MSM_CAMERA_I2C_WORD_DATA))
 		return rc;
 	S_I2C_DBG("Data: 0x%x\n", data);
+	buf = kzalloc(data_type, GFP_KERNEL);
+	if (!buf)
+		goto NOMEM;
 	len = header_len + (uint8_t)data_type;
 	tx = kmalloc(len, GFP_KERNEL | GFP_DMA);
 	if (!tx)
-		goto NOMEM;
+		goto FREEBUF;
 	if (data_type == MSM_CAMERA_I2C_BYTE_DATA) {
 		buf[0] = data;
 		SPIDBG("Byte %d: 0x%x\n", len, buf[0]);
@@ -540,6 +543,8 @@ int32_t msm_camera_spi_write(struct msm_camera_i2c_client *client,
 	if (rc < 0)
 		goto ERROR;
 	goto OUT;
+FREEBUF:
+	kfree(buf);
 NOMEM:
 	pr_err("%s: memory allocation failed\n", __func__);
 	return -ENOMEM;
@@ -547,6 +552,7 @@ ERROR:
 	pr_err("%s: error write\n", __func__);
 OUT:
 	kfree(tx);
+	kfree(buf);
 	return rc;
 }
 int32_t msm_camera_spi_write_table(struct msm_camera_i2c_client *client,
@@ -585,7 +591,7 @@ int32_t msm_camera_spi_write_table(struct msm_camera_i2c_client *client,
 	client->addr_type = client_addr_type;
 	return rc;
 }
-uint32_t msm_get_burst_size(struct msm_camera_i2c_reg_array *reg_setting,
+static uint32_t msm_get_burst_size(struct msm_camera_i2c_reg_array *reg_setting,
 	uint32_t reg_size, uint32_t index, uint16_t burst_addr)
 {
 	uint32_t i;
@@ -601,7 +607,7 @@ uint32_t msm_get_burst_size(struct msm_camera_i2c_reg_array *reg_setting,
 }
 
 #ifdef SPI_DYNAMIC_ALLOC
-int32_t msm_camera_spi_send_burst(struct msm_camera_i2c_client *client,
+static int32_t msm_camera_spi_send_burst(struct msm_camera_i2c_client *client,
 	struct msm_camera_i2c_reg_array *reg_setting, uint32_t reg_size,
 	struct msm_camera_burst_info *info,
 	enum msm_camera_i2c_data_type data_type)
@@ -677,7 +683,7 @@ fail:
 	return rc;
 }
 #else /* SPI_DYNAMIC_ALLOC */
-int32_t msm_camera_spi_send_burst(struct msm_camera_i2c_client *client,
+static int32_t msm_camera_spi_send_burst(struct msm_camera_i2c_client *client,
 	struct msm_camera_i2c_reg_array *reg_setting, uint32_t reg_size,
 	struct msm_camera_burst_info *info,
 	enum msm_camera_i2c_data_type data_type)

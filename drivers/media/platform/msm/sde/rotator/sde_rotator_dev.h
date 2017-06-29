@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +21,7 @@
 #include <linux/iommu.h>
 #include <linux/dma-buf.h>
 #include <linux/msm-bus.h>
+#include <linux/kthread.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-fh.h>
 #include <media/v4l2-ctrls.h>
@@ -131,8 +132,8 @@ struct sde_rotator_ctx {
 	struct sde_rotator_vbinfo *vbinfo_cap;
 	struct sde_rotator_vbinfo *vbinfo_out;
 	wait_queue_head_t wait_queue;
-	struct work_struct submit_work;
-	struct work_struct retire_work;
+	struct kthread_work submit_work;
+	struct kthread_work retire_work;
 	struct sde_rot_queue work_queue;
 	struct sde_rot_entry_container *request;
 	struct sde_rot_file_private *private;

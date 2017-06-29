@@ -685,7 +685,7 @@ ERROR2:
 	kfree(array);
 ERROR1:
 	kfree(ps);
-	power_setting_size = 0;
+	power_setting_size = NULL;
 	return rc;
 }
 

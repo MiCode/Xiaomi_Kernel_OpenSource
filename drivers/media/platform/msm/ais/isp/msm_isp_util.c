@@ -512,7 +512,7 @@ static int msm_isp_cfg_rdi(struct vfe_device *vfe_dev,
 	return rc;
 }
 
-int msm_isp_cfg_input(struct vfe_device *vfe_dev, void *arg)
+static int msm_isp_cfg_input(struct vfe_device *vfe_dev, void *arg)
 {
 	int rc = 0;
 	struct msm_vfe_input_cfg *input_cfg = arg;
@@ -542,7 +542,7 @@ int msm_isp_cfg_input(struct vfe_device *vfe_dev, void *arg)
 	return rc;
 }
 
-int msm_isp_camif_cfg(struct vfe_device *vfe_dev, void *arg)
+static int msm_isp_camif_cfg(struct vfe_device *vfe_dev, void *arg)
 {
 	int rc = 0;
 	struct msm_vfe_camif_cfg *camif_cfg = arg;
@@ -579,7 +579,7 @@ int msm_isp_camif_cfg(struct vfe_device *vfe_dev, void *arg)
 }
 
 
-int msm_isp_operation_cfg(struct vfe_device *vfe_dev, void *arg)
+static int msm_isp_operation_cfg(struct vfe_device *vfe_dev, void *arg)
 {
 	struct msm_vfe_operation_cfg *op_cfg = arg;
 
@@ -1233,14 +1233,16 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 	case VFE_WRITE: {
 		msm_camera_io_memcpy(vfe_dev->vfe_base +
 			reg_cfg_cmd->u.rw_info.reg_offset,
-			cfg_data + reg_cfg_cmd->u.rw_info.cmd_data_offset/4,
+			(void __iomem *)
+			(cfg_data + reg_cfg_cmd->u.rw_info.cmd_data_offset/4),
 			reg_cfg_cmd->u.rw_info.len);
 		break;
 	}
 	case VFE_WRITE_MB: {
 		msm_camera_io_memcpy_mb(vfe_dev->vfe_base +
 			reg_cfg_cmd->u.rw_info.reg_offset,
-			cfg_data + reg_cfg_cmd->u.rw_info.cmd_data_offset/4,
+			(void __iomem *)
+			(cfg_data + reg_cfg_cmd->u.rw_info.cmd_data_offset/4),
 			reg_cfg_cmd->u.rw_info.len);
 		break;
 	}
@@ -2295,12 +2297,12 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 }
 
 #ifdef CONFIG_MSM_AVTIMER
-void msm_isp_end_avtimer(void)
+static void msm_isp_end_avtimer(void)
 {
 	avcs_core_disable_power_collapse(0);
 }
 #else
-void msm_isp_end_avtimer(void)
+static void msm_isp_end_avtimer(void)
 {
 	pr_err("AV Timer is not supported\n");
 }
@@ -2408,7 +2410,7 @@ void msm_isp_save_framedrop_values(struct vfe_device *vfe_dev,
 	}
 }
 
-void msm_isp_dump_irq_debug(void)
+static void msm_isp_dump_irq_debug(void)
 {
 	uint32_t index, count, i;
 

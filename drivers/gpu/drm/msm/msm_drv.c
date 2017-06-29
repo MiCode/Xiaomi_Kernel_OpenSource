@@ -26,11 +26,68 @@
 #include "msm_gem.h"
 #include "msm_mmu.h"
 
+static void msm_drm_helper_hotplug_event(struct drm_device *dev)
+{
+	struct drm_connector *connector;
+	char *event_string;
+	char const *connector_name;
+	char *envp[2];
+
+	if (!dev) {
+		DRM_ERROR("hotplug_event failed, invalid input\n");
+		return;
+	}
+
+	if (!dev->mode_config.poll_enabled)
+		return;
+
+	event_string = kzalloc(SZ_4K, GFP_KERNEL);
+	if (!event_string) {
+		DRM_ERROR("failed to allocate event string\n");
+		return;
+	}
+
+	mutex_lock(&dev->mode_config.mutex);
+	drm_for_each_connector(connector, dev) {
+		/* Only handle HPD capable connectors. */
+		if (!(connector->polled & DRM_CONNECTOR_POLL_HPD))
+			continue;
+
+		connector->status = connector->funcs->detect(connector, false);
+
+		if (connector->name)
+			connector_name = connector->name;
+		else
+			connector_name = "unknown";
+
+		snprintf(event_string, SZ_4K, "name=%s status=%s\n",
+			connector_name,
+			drm_get_connector_status_name(connector->status));
+		DRM_DEBUG("generating hotplug event [%s]\n", event_string);
+		envp[0] = event_string;
+		envp[1] = NULL;
+		kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE,
+				envp);
+	}
+	mutex_unlock(&dev->mode_config.mutex);
+	kfree(event_string);
+}
+
 static void msm_fb_output_poll_changed(struct drm_device *dev)
 {
-	struct msm_drm_private *priv = dev->dev_private;
+	struct msm_drm_private *priv = NULL;
+
+	if (!dev) {
+		DRM_ERROR("output_poll_changed failed, invalid input\n");
+		return;
+	}
+
+	priv = dev->dev_private;
+
 	if (priv->fbdev)
 		drm_fb_helper_hotplug_event(priv->fbdev);
+	else
+		msm_drm_helper_hotplug_event(dev);
 }
 
 static const struct drm_mode_config_funcs mode_config_funcs = {
@@ -602,7 +659,8 @@ static int msm_open(struct drm_device *dev, struct drm_file *file)
 	if (IS_ERR(ctx))
 		return PTR_ERR(ctx);
 
-	INIT_LIST_HEAD(&ctx->counters);
+	if (ctx)
+		INIT_LIST_HEAD(&ctx->counters);
 
 	msm_submitqueue_init(ctx);
 
@@ -1707,8 +1765,25 @@ static int msm_ioctl_submitqueue_new(struct drm_device *dev, void *data,
 		return -EPERM;
 	}
 
+	if (args->flags & MSM_SUBMITQUEUE_BYPASS_QOS_TIMEOUT &&
+		!capable(CAP_SYS_ADMIN)) {
+		DRM_ERROR(
+			"Only CAP_SYS_ADMIN processes can bypass the timer\n");
+		return -EPERM;
+	}
+
 	return msm_submitqueue_create(file->driver_priv, args->prio,
 		args->flags, &args->id);
+}
+
+static int msm_ioctl_submitqueue_query(struct drm_device *dev, void *data,
+		struct drm_file *file)
+{
+	struct drm_msm_submitqueue_query *args = data;
+	void __user *ptr = (void __user *)(uintptr_t) args->data;
+
+	return msm_submitqueue_query(file->driver_priv, args->id,
+		args->param, ptr, args->len);
 }
 
 static int msm_ioctl_submitqueue_close(struct drm_device *dev, void *data,
@@ -1768,6 +1843,8 @@ static const struct drm_ioctl_desc msm_ioctls[] = {
 			  DRM_AUTH|DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MSM_SUBMITQUEUE_CLOSE, msm_ioctl_submitqueue_close,
 			  DRM_AUTH|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MSM_SUBMITQUEUE_QUERY, msm_ioctl_submitqueue_query,
+			  DRM_AUTH|DRM_RENDER_ALLOW),
 };
 
 static const struct vm_operations_struct vm_ops = {
@@ -1820,6 +1897,7 @@ static struct drm_driver msm_driver = {
 	.prime_fd_to_handle = drm_gem_prime_fd_to_handle,
 	.gem_prime_export   = drm_gem_prime_export,
 	.gem_prime_import   = drm_gem_prime_import,
+	.gem_prime_res_obj  = msm_gem_prime_res_obj,
 	.gem_prime_pin      = msm_gem_prime_pin,
 	.gem_prime_unpin    = msm_gem_prime_unpin,
 	.gem_prime_get_sg_table = msm_gem_prime_get_sg_table,

@@ -131,6 +131,8 @@ struct msm_gpu {
 
 	struct pm_qos_request pm_qos_req_dma;
 
+	struct drm_gem_object *memptrs_bo;
+
 #ifdef DOWNSTREAM_CONFIG_MSM_BUS_SCALING
 	struct msm_bus_scale_pdata *bus_scale_table;
 	uint32_t bsc;

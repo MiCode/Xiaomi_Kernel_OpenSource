@@ -62,6 +62,9 @@ int msm_camera_fill_vreg_params(struct camera_vreg_t *cam_vreg,
 int msm_camera_pinctrl_init
 	(struct msm_pinctrl_info *sensor_pctrl, struct device *dev);
 
+int msm_cam_sensor_handle_reg_gpio(int seq_val,
+	struct msm_camera_gpio_conf *gconf, int val);
+
 int32_t msm_sensor_driver_get_gpio_data(
 	struct msm_camera_gpio_conf **gpio_conf,
 	struct device_node *of_node);

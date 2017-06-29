@@ -111,6 +111,7 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b);
 int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b);
 int msm_vidc_streamon(void *instance, enum v4l2_buf_type i);
 int msm_vidc_query_ctrl(void *instance, struct v4l2_queryctrl *ctrl);
+int msm_vidc_query_ext_ctrl(void *instance, struct v4l2_query_ext_ctrl *ctrl);
 int msm_vidc_streamoff(void *instance, enum v4l2_buf_type i);
 int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd);
 int msm_vidc_poll(void *instance, struct file *filp,

@@ -112,7 +112,8 @@ static void loopback_event_handler(uint32_t opcode,
 	switch (opcode) {
 	case ASM_STREAM_CMD_ENCDEC_EVENTS:
 	case ASM_IEC_61937_MEDIA_FMT_EVENT:
-		pr_debug("%s: ASM_IEC_61937_MEDIA_FMT_EVENT\n", __func__);
+		pr_debug("%s: Handling stream event : 0X%x\n",
+			__func__, opcode);
 		rtd = cstream->private_data;
 		if (!rtd) {
 			pr_err("%s: rtd is NULL\n", __func__);
@@ -449,17 +450,17 @@ static int msm_transcode_loopback_set_params(struct snd_compr_stream *cstream,
 					trans->audio_client->perf_mode,
 					trans->session_id,
 					SNDRV_PCM_STREAM_CAPTURE,
-					true);
+					COMPRESSED_PASSTHROUGH_GEN);
 		else
 			msm_pcm_routing_reg_phy_stream(
 					soc_pcm_tx->dai_link->be_id,
 					trans->audio_client->perf_mode,
 					trans->session_id,
 					SNDRV_PCM_STREAM_CAPTURE);
-
+		/* Opening Rx ADM in LOW_LATENCY mode by default */
 		msm_pcm_routing_reg_phy_stream(
 					soc_pcm_rx->dai_link->be_id,
-					trans->audio_client->perf_mode,
+					true,
 					trans->session_id,
 					SNDRV_PCM_STREAM_PLAYBACK);
 		pr_debug("%s: Successfully opened ADM sessions\n", __func__);
@@ -913,10 +914,21 @@ static int msm_transcode_loopback_probe(struct snd_soc_platform *platform)
 	return 0;
 }
 
+static int msm_transcode_loopback_remove(struct snd_soc_platform *platform)
+{
+	struct trans_loopback_pdata *pdata = NULL;
+
+	pdata = (struct trans_loopback_pdata *)
+			snd_soc_platform_get_drvdata(platform);
+	kfree(pdata);
+	return 0;
+}
+
 static struct snd_soc_platform_driver msm_soc_platform = {
 	.probe		= msm_transcode_loopback_probe,
 	.compr_ops	= &msm_transcode_loopback_ops,
 	.pcm_new	= msm_transcode_loopback_new,
+	.remove		= msm_transcode_loopback_remove,
 };
 
 static int msm_transcode_dev_probe(struct platform_device *pdev)

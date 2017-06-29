@@ -22,6 +22,71 @@
 #include "sde_hdmi.h"
 #include "hdmi.h"
 
+/*
+ * Add these register definitions to support the latest chipsets. These
+ * are derived from hdmi.xml.h and are going to be replaced by a chipset
+ * based mask approach.
+ */
+#define SDE_HDMI_ACTIVE_HSYNC_START__MASK 0x00001fff
+static inline uint32_t SDE_HDMI_ACTIVE_HSYNC_START(uint32_t val)
+{
+	return ((val) << HDMI_ACTIVE_HSYNC_START__SHIFT) &
+		SDE_HDMI_ACTIVE_HSYNC_START__MASK;
+}
+#define SDE_HDMI_ACTIVE_HSYNC_END__MASK 0x1fff0000
+static inline uint32_t SDE_HDMI_ACTIVE_HSYNC_END(uint32_t val)
+{
+	return ((val) << HDMI_ACTIVE_HSYNC_END__SHIFT) &
+		SDE_HDMI_ACTIVE_HSYNC_END__MASK;
+}
+
+#define SDE_HDMI_ACTIVE_VSYNC_START__MASK 0x00001fff
+static inline uint32_t SDE_HDMI_ACTIVE_VSYNC_START(uint32_t val)
+{
+	return ((val) << HDMI_ACTIVE_VSYNC_START__SHIFT) &
+		SDE_HDMI_ACTIVE_VSYNC_START__MASK;
+}
+#define SDE_HDMI_ACTIVE_VSYNC_END__MASK 0x1fff0000
+static inline uint32_t SDE_HDMI_ACTIVE_VSYNC_END(uint32_t val)
+{
+	return ((val) << HDMI_ACTIVE_VSYNC_END__SHIFT) &
+		SDE_HDMI_ACTIVE_VSYNC_END__MASK;
+}
+
+#define SDE_HDMI_VSYNC_ACTIVE_F2_START__MASK 0x00001fff
+static inline uint32_t SDE_HDMI_VSYNC_ACTIVE_F2_START(uint32_t val)
+{
+	return ((val) << HDMI_VSYNC_ACTIVE_F2_START__SHIFT) &
+		SDE_HDMI_VSYNC_ACTIVE_F2_START__MASK;
+}
+#define SDE_HDMI_VSYNC_ACTIVE_F2_END__MASK 0x1fff0000
+static inline uint32_t SDE_HDMI_VSYNC_ACTIVE_F2_END(uint32_t val)
+{
+	return ((val) << HDMI_VSYNC_ACTIVE_F2_END__SHIFT) &
+		SDE_HDMI_VSYNC_ACTIVE_F2_END__MASK;
+}
+
+#define SDE_HDMI_TOTAL_H_TOTAL__MASK 0x00001fff
+static inline uint32_t SDE_HDMI_TOTAL_H_TOTAL(uint32_t val)
+{
+	return ((val) << HDMI_TOTAL_H_TOTAL__SHIFT) &
+		SDE_HDMI_TOTAL_H_TOTAL__MASK;
+}
+
+#define SDE_HDMI_TOTAL_V_TOTAL__MASK 0x1fff0000
+static inline uint32_t SDE_HDMI_TOTAL_V_TOTAL(uint32_t val)
+{
+	return ((val) << HDMI_TOTAL_V_TOTAL__SHIFT) &
+		SDE_HDMI_TOTAL_V_TOTAL__MASK;
+}
+
+#define SDE_HDMI_VSYNC_TOTAL_F2_V_TOTAL__MASK 0x00001fff
+static inline uint32_t SDE_HDMI_VSYNC_TOTAL_F2_V_TOTAL(uint32_t val)
+{
+	return ((val) << HDMI_VSYNC_TOTAL_F2_V_TOTAL__SHIFT) &
+		SDE_HDMI_VSYNC_TOTAL_F2_V_TOTAL__MASK;
+}
+
 struct sde_hdmi_bridge {
 	struct drm_bridge base;
 	struct hdmi *hdmi;
@@ -385,10 +450,18 @@ static void sde_hdmi_update_hdcp_info(struct drm_connector *connector)
 	if (fd)
 		ops = sde_hdmi_hdcp2p2_start(fd);
 
+	/* If ops is true, sink supports hdcp */
+	if (ops)
+		display->sink_hdcp22_support = true;
+
 	if (ops && ops->feature_supported)
 		display->hdcp22_present = ops->feature_supported(fd);
 	else
 		display->hdcp22_present = false;
+
+	/* if hdcp22_present is true, src supports hdcp 2p2 */
+	if (display->hdcp22_present)
+		display->src_hdcp22_support = true;
 
 	if (!display->hdcp22_present) {
 		if (display->hdcp1_use_sw_keys) {
@@ -421,6 +494,16 @@ static void _sde_hdmi_bridge_enable(struct drm_bridge *bridge)
 
 static void _sde_hdmi_bridge_disable(struct drm_bridge *bridge)
 {
+	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
+	struct hdmi *hdmi = sde_hdmi_bridge->hdmi;
+	struct sde_connector *c_conn = to_sde_connector(hdmi->connector);
+	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
+
+	mutex_lock(&display->display_lock);
+
+	display->pll_update_enable = false;
+
+	mutex_unlock(&display->display_lock);
 }
 
 static void _sde_hdmi_bridge_post_disable(struct drm_bridge *bridge)
@@ -601,28 +684,28 @@ static void _sde_hdmi_bridge_mode_set(struct drm_bridge *bridge,
 		mode->htotal, mode->vtotal, hstart, hend, vstart, vend);
 
 	hdmi_write(hdmi, REG_HDMI_TOTAL,
-			HDMI_TOTAL_H_TOTAL(mode->htotal - 1) |
-			HDMI_TOTAL_V_TOTAL(mode->vtotal - 1));
+			SDE_HDMI_TOTAL_H_TOTAL(mode->htotal - 1) |
+			SDE_HDMI_TOTAL_V_TOTAL(mode->vtotal - 1));
 
 	hdmi_write(hdmi, REG_HDMI_ACTIVE_HSYNC,
-			HDMI_ACTIVE_HSYNC_START(hstart) |
-			HDMI_ACTIVE_HSYNC_END(hend));
+			SDE_HDMI_ACTIVE_HSYNC_START(hstart) |
+			SDE_HDMI_ACTIVE_HSYNC_END(hend));
 	hdmi_write(hdmi, REG_HDMI_ACTIVE_VSYNC,
-			HDMI_ACTIVE_VSYNC_START(vstart) |
-			HDMI_ACTIVE_VSYNC_END(vend));
+			SDE_HDMI_ACTIVE_VSYNC_START(vstart) |
+			SDE_HDMI_ACTIVE_VSYNC_END(vend));
 
 	if (mode->flags & DRM_MODE_FLAG_INTERLACE) {
 		hdmi_write(hdmi, REG_HDMI_VSYNC_TOTAL_F2,
-				HDMI_VSYNC_TOTAL_F2_V_TOTAL(mode->vtotal));
+				SDE_HDMI_VSYNC_TOTAL_F2_V_TOTAL(mode->vtotal));
 		hdmi_write(hdmi, REG_HDMI_VSYNC_ACTIVE_F2,
-				HDMI_VSYNC_ACTIVE_F2_START(vstart + 1) |
-				HDMI_VSYNC_ACTIVE_F2_END(vend + 1));
+				SDE_HDMI_VSYNC_ACTIVE_F2_START(vstart + 1) |
+				SDE_HDMI_VSYNC_ACTIVE_F2_END(vend + 1));
 	} else {
 		hdmi_write(hdmi, REG_HDMI_VSYNC_TOTAL_F2,
-				HDMI_VSYNC_TOTAL_F2_V_TOTAL(0));
+				SDE_HDMI_VSYNC_TOTAL_F2_V_TOTAL(0));
 		hdmi_write(hdmi, REG_HDMI_VSYNC_ACTIVE_F2,
-				HDMI_VSYNC_ACTIVE_F2_START(0) |
-				HDMI_VSYNC_ACTIVE_F2_END(0));
+				SDE_HDMI_VSYNC_ACTIVE_F2_START(0) |
+				SDE_HDMI_VSYNC_ACTIVE_F2_END(0));
 	}
 
 	frame_ctrl = 0;

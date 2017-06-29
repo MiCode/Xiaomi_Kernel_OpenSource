@@ -49,9 +49,6 @@ MODULE_DEVICE_TABLE(of, msm_vfe_dt_match);
 #define OVERFLOW_BUFFER_LENGTH 64
 static char stat_line[OVERFLOW_LENGTH];
 
-struct msm_isp_statistics stats;
-struct msm_isp_ub_info ub_info;
-
 static int msm_isp_enable_debugfs(struct vfe_device *vfe_dev,
 	  struct msm_isp_bw_req_info *isp_req_hist);
 
@@ -107,8 +104,8 @@ static int vfe_debugfs_statistics_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static ssize_t vfe_debugfs_statistics_read(struct file *t_file, char *t_char,
-	size_t t_size_t, loff_t *t_loff_t)
+static ssize_t vfe_debugfs_statistics_read(struct file *t_file,
+	char __user *t_char, size_t t_size_t, loff_t *t_loff_t)
 {
 	int i;
 	uint64_t *ptr;
@@ -132,7 +129,7 @@ static ssize_t vfe_debugfs_statistics_read(struct file *t_file, char *t_char,
 }
 
 static ssize_t vfe_debugfs_statistics_write(struct file *t_file,
-	const char *t_char, size_t t_size_t, loff_t *t_loff_t)
+	const char __user *t_char, size_t t_size_t, loff_t *t_loff_t)
 {
 	struct vfe_device *vfe_dev = (struct vfe_device *)
 		t_file->private_data;
@@ -149,7 +146,7 @@ static int bw_history_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static ssize_t bw_history_read(struct file *t_file, char *t_char,
+static ssize_t bw_history_read(struct file *t_file, char __user *t_char,
 	size_t t_size_t, loff_t *t_loff_t)
 {
 	int i;
@@ -194,7 +191,7 @@ static ssize_t bw_history_read(struct file *t_file, char *t_char,
 }
 
 static ssize_t bw_history_write(struct file *t_file,
-	const char *t_char, size_t t_size_t, loff_t *t_loff_t)
+	const char __user *t_char, size_t t_size_t, loff_t *t_loff_t)
 {
 	struct msm_isp_bw_req_info *isp_req_hist =
 		(struct msm_isp_bw_req_info *) t_file->private_data;
@@ -210,7 +207,7 @@ static int ub_info_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static ssize_t ub_info_read(struct file *t_file, char *t_char,
+static ssize_t ub_info_read(struct file *t_file, char __user *t_char,
 	size_t t_size_t, loff_t *t_loff_t)
 {
 	int i;
@@ -241,7 +238,7 @@ static ssize_t ub_info_read(struct file *t_file, char *t_char,
 }
 
 static ssize_t ub_info_write(struct file *t_file,
-	const char *t_char, size_t t_size_t, loff_t *t_loff_t)
+	const char __user *t_char, size_t t_size_t, loff_t *t_loff_t)
 {
 	struct vfe_device *vfe_dev =
 		(struct vfe_device *) t_file->private_data;

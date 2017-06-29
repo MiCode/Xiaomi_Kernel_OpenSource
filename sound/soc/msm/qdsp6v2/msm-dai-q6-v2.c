@@ -3586,6 +3586,9 @@ static int msm_dai_q6_dai_mi2s_probe(struct snd_soc_dai *dai)
 			ctrl = &mi2s_config_controls[11];
 	}
 
+	if (dai->id == MSM_QUAT_MI2S)
+		ctrl = &mi2s_config_controls[8];
+
 	if (ctrl) {
 		rc = snd_ctl_add(dai->component->card->snd_card,
 				snd_ctl_new1(ctrl,

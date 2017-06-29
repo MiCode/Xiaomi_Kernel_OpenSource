@@ -27,6 +27,9 @@ int msm_isp_axi_create_stream(struct vfe_device *vfe_dev,
 void msm_isp_axi_destroy_stream(
 	struct msm_vfe_axi_shared_data *axi_data, int stream_idx);
 
+int msm_isp_axi_get_num_planes(uint32_t output_format,
+	struct msm_vfe_axi_stream *stream_info);
+
 int msm_isp_validate_axi_request(
 	struct msm_vfe_axi_shared_data *axi_data,
 	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd);
@@ -36,21 +39,34 @@ void msm_isp_axi_reserve_wm(
 	struct msm_vfe_axi_shared_data *axi_data,
 	struct msm_vfe_axi_stream *stream_info);
 
+void msm_isp_axi_free_wm(struct msm_vfe_axi_shared_data *axi_data,
+	struct msm_vfe_axi_stream *stream_info);
+
 void msm_isp_axi_reserve_comp_mask(
 	struct msm_vfe_axi_shared_data *axi_data,
+	struct msm_vfe_axi_stream *stream_info);
+
+void msm_isp_axi_free_comp_mask(struct msm_vfe_axi_shared_data *axi_data,
 	struct msm_vfe_axi_stream *stream_info);
 
 int msm_isp_axi_check_stream_state(
 	struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream_cfg_cmd *stream_cfg_cmd);
 
+void msm_isp_check_for_output_error(struct vfe_device *vfe_dev,
+	struct msm_isp_timestamp *ts, struct msm_isp_sof_info *sof_info);
+
 int msm_isp_calculate_framedrop(
 	struct msm_vfe_axi_shared_data *axi_data,
 	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd);
+void msm_isp_calculate_bandwidth(
+	struct msm_vfe_axi_shared_data *axi_data,
+	struct msm_vfe_axi_stream *stream_info);
 void msm_isp_reset_framedrop(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info);
 
 int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg);
+void msm_isp_start_avtimer(void);
 void msm_isp_get_avtimer_ts(struct msm_isp_timestamp *time_stamp);
 int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg);
 int msm_isp_update_stream_bandwidth(struct vfe_device *vfe_dev,

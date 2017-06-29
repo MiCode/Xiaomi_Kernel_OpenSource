@@ -152,6 +152,7 @@
 			qcom,gpu-mempool@1 {
 				reg = <1>;
 				qcom,mempool-page-size  = <65536>;
+				qcom,mempool-allocate;
 			};
 		};
 

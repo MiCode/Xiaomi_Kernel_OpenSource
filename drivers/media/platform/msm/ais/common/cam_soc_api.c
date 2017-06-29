@@ -36,7 +36,7 @@ struct msm_cam_bus_pscale_data {
 	struct mutex lock;
 };
 
-struct msm_cam_bus_pscale_data g_cv[CAM_BUS_CLIENT_MAX];
+static struct msm_cam_bus_pscale_data g_cv[CAM_BUS_CLIENT_MAX];
 
 /* Get all clocks from DT */
 static int msm_camera_get_clk_info_internal(struct device *dev,
@@ -771,7 +771,7 @@ void __iomem *msm_camera_get_reg_base(struct platform_device *pdev,
 		char *device_name, int reserve_mem)
 {
 	struct resource *mem;
-	void *base;
+	void __iomem *base;
 
 	if (!pdev || !device_name) {
 		pr_err("Invalid params\n");

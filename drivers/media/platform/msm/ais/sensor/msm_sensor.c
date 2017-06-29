@@ -343,7 +343,7 @@ static long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 {
 	int rc = 0;
 	struct msm_sensor_ctrl_t *s_ctrl = get_sctrl(sd);
-	void __user *argp = (void __user *)arg;
+	void *argp = arg;
 
 	if (!s_ctrl) {
 		pr_err("%s s_ctrl NULL\n", __func__);
@@ -421,7 +421,7 @@ long msm_sensor_subdev_fops_ioctl(struct file *file,
 }
 
 static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
-	void __user *argp)
+	void *argp)
 {
 	struct sensorb_cfg_data32 *cdata = (struct sensorb_cfg_data32 *)argp;
 	int32_t rc = 0;
@@ -498,7 +498,7 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 		}
 
 		if (copy_from_user(&conf_array32,
-			(void *)compat_ptr(cdata->cfg.setting),
+			(void __user *)compat_ptr(cdata->cfg.setting),
 			sizeof(struct msm_camera_i2c_reg_setting32))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
@@ -525,7 +525,7 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 			break;
 		}
 		if (copy_from_user(reg_setting,
-			(void *)(conf_array.reg_setting),
+			(void __user *)(conf_array.reg_setting),
 			conf_array.size *
 			sizeof(struct msm_camera_i2c_reg_array))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
@@ -571,7 +571,7 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 			(struct msm_camera_i2c_read_config *)
 			compat_ptr(cdata->cfg.setting);
 
-		if (copy_from_user(&read_config, read_config_ptr,
+		if (copy_from_user(&read_config, (void __user *)read_config_ptr,
 			sizeof(struct msm_camera_i2c_read_config))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
@@ -640,7 +640,7 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 			goto DONE;
 
 		if (copy_from_user(&write_config32,
-				(void *)compat_ptr(cdata->cfg.setting),
+				(void __user *)compat_ptr(cdata->cfg.setting),
 				sizeof(
 				struct msm_camera_i2c_array_write_config32))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
@@ -682,7 +682,7 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 			break;
 		}
 		if (copy_from_user(reg_setting,
-				(void *)(write_config.conf_array.reg_setting),
+			(void __user *)(write_config.conf_array.reg_setting),
 				write_config.conf_array.size *
 				sizeof(struct msm_camera_i2c_reg_array))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
@@ -753,7 +753,7 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 		}
 
 		if (copy_from_user(&conf_array32,
-			(void *)compat_ptr(cdata->cfg.setting),
+			(void __user *)compat_ptr(cdata->cfg.setting),
 			sizeof(struct msm_camera_i2c_seq_reg_setting32))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
@@ -780,7 +780,8 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 			rc = -ENOMEM;
 			break;
 		}
-		if (copy_from_user(reg_setting, (void *)conf_array.reg_setting,
+		if (copy_from_user(reg_setting,
+			(void __user *)conf_array.reg_setting,
 			conf_array.size *
 			sizeof(struct msm_camera_i2c_seq_reg_array))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
@@ -863,7 +864,7 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 			goto DONE;
 
 		if (copy_from_user(&stop_setting32,
-				(void *)compat_ptr((cdata->cfg.setting)),
+				(void __user *)compat_ptr((cdata->cfg.setting)),
 			sizeof(struct msm_camera_i2c_reg_setting32))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
@@ -890,7 +891,7 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 			break;
 		}
 		if (copy_from_user(stop_setting->reg_setting,
-			(void *)reg_setting,
+			(void __user *)reg_setting,
 			stop_setting->size *
 			sizeof(struct msm_camera_i2c_reg_array))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
@@ -949,7 +950,7 @@ DONE:
 }
 #endif
 
-int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
+int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void *argp)
 {
 	struct sensorb_cfg_data *cdata = (struct sensorb_cfg_data *)argp;
 	int32_t rc = 0;
@@ -1026,7 +1027,7 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 		}
 
 		if (copy_from_user(&conf_array,
-			(void *)cdata->cfg.setting,
+			(void __user *)cdata->cfg.setting,
 			sizeof(struct msm_camera_i2c_reg_setting))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
@@ -1046,7 +1047,8 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			rc = -ENOMEM;
 			break;
 		}
-		if (copy_from_user(reg_setting, (void *)conf_array.reg_setting,
+		if (copy_from_user(reg_setting,
+			(void __user *)conf_array.reg_setting,
 			conf_array.size *
 			sizeof(struct msm_camera_i2c_reg_array))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
@@ -1089,7 +1091,7 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 
 		read_config_ptr =
 			(struct msm_camera_i2c_read_config *)cdata->cfg.setting;
-		if (copy_from_user(&read_config, read_config_ptr,
+		if (copy_from_user(&read_config, (void __user *)read_config_ptr,
 			sizeof(struct msm_camera_i2c_read_config))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
@@ -1153,7 +1155,7 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			goto DONE;
 
 		if (copy_from_user(&write_config,
-			(void *)cdata->cfg.setting,
+			(void __user *)cdata->cfg.setting,
 			sizeof(struct msm_camera_i2c_array_write_config))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
@@ -1178,7 +1180,7 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			break;
 		}
 		if (copy_from_user(reg_setting,
-				(void *)(write_config.conf_array.reg_setting),
+			(void __user *)(write_config.conf_array.reg_setting),
 				write_config.conf_array.size *
 				sizeof(struct msm_camera_i2c_reg_array))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
@@ -1243,7 +1245,7 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 		}
 
 		if (copy_from_user(&conf_array,
-			(void *)cdata->cfg.setting,
+			(void __user *)cdata->cfg.setting,
 			sizeof(struct msm_camera_i2c_seq_reg_setting))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
@@ -1265,7 +1267,8 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			rc = -ENOMEM;
 			break;
 		}
-		if (copy_from_user(reg_setting, (void *)conf_array.reg_setting,
+		if (copy_from_user(reg_setting,
+			(void __user *)conf_array.reg_setting,
 			conf_array.size *
 			sizeof(struct msm_camera_i2c_seq_reg_array))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
@@ -1349,7 +1352,7 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			goto DONE;
 
 		if (copy_from_user(stop_setting,
-			(void *)cdata->cfg.setting,
+			(void __user *)cdata->cfg.setting,
 			sizeof(struct msm_camera_i2c_reg_setting))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
@@ -1371,7 +1374,7 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			break;
 		}
 		if (copy_from_user(stop_setting->reg_setting,
-			(void *)reg_setting,
+			(void __user *)reg_setting,
 			stop_setting->size *
 			sizeof(struct msm_camera_i2c_reg_array))) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);

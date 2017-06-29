@@ -230,6 +230,14 @@ static int msm_v4l2_queryctrl(struct file *file, void *fh,
 	return msm_vidc_query_ctrl((void *)vidc_inst, ctrl);
 }
 
+static int msm_v4l2_query_ext_ctrl(struct file *file, void *fh,
+	struct v4l2_query_ext_ctrl *ctrl)
+{
+	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
+
+	return msm_vidc_query_ext_ctrl((void *)vidc_inst, ctrl);
+}
+
 static const struct v4l2_ioctl_ops msm_v4l2_ioctl_ops = {
 	.vidioc_querycap = msm_v4l2_querycap,
 	.vidioc_enum_fmt_vid_cap_mplane = msm_v4l2_enum_fmt,
@@ -247,6 +255,7 @@ static const struct v4l2_ioctl_ops msm_v4l2_ioctl_ops = {
 	.vidioc_s_ctrl = msm_v4l2_s_ctrl,
 	.vidioc_g_ctrl = msm_v4l2_g_ctrl,
 	.vidioc_queryctrl = msm_v4l2_queryctrl,
+	.vidioc_query_ext_ctrl = msm_v4l2_query_ext_ctrl,
 	.vidioc_s_ext_ctrls = msm_v4l2_s_ext_ctrl,
 	.vidioc_subscribe_event = msm_v4l2_subscribe_event,
 	.vidioc_unsubscribe_event = msm_v4l2_unsubscribe_event,
@@ -321,6 +330,7 @@ static int msm_vidc_initialize_core(struct platform_device *pdev,
 		init_completion(&core->completions[i]);
 	}
 
+	msm_comm_sort_ctrl();
 	INIT_DELAYED_WORK(&core->fw_unload_work, msm_vidc_fw_unload_handler);
 	return rc;
 }
