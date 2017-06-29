@@ -9,8 +9,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#ifndef _CAM_REQ_MGR_CORE_DEFS_H_
-#define _CAM_REQ_MGR_CORE_DEFS_H_
+
+#ifndef _CAM_CORE_DEFS_H_
+#define _CAM_CORE_DEFS_H_
 
 #define CAM_CORE_TRACE_ENABLE 0
 
@@ -40,5 +41,5 @@
 	__func__, __LINE__, ##args)
 #endif
 
-#endif /* _CAM_REQ_MGR_CORE_DEFS_H_ */
+#endif /* _CAM_CORE_DEFS_H_ */
 

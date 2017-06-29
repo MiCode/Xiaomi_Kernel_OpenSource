@@ -722,7 +722,7 @@ unmap_end:
 static int cam_mem_util_unmap(int32_t idx)
 {
 	int rc = 0;
-	enum cam_smmu_region_id region;
+	enum cam_smmu_region_id region = CAM_SMMU_REGION_SHARED;
 
 	if (idx >= CAM_MEM_BUFQ_MAX || idx <= 0) {
 		pr_err("Incorrect index\n");
@@ -735,14 +735,17 @@ static int cam_mem_util_unmap(int32_t idx)
 		if (tbl.bufq[idx].i_hdl && tbl.bufq[idx].kmdvaddr)
 			ion_unmap_kernel(tbl.client, tbl.bufq[idx].i_hdl);
 
-	if (tbl.bufq[idx].flags & CAM_MEM_FLAG_HW_READ_WRITE)
-		region = CAM_SMMU_REGION_IO;
+	if (tbl.bufq[idx].flags & CAM_MEM_FLAG_HW_READ_WRITE ||
+		tbl.bufq[idx].flags & CAM_MEM_FLAG_HW_SHARED_ACCESS) {
 
-	if (tbl.bufq[idx].flags & CAM_MEM_FLAG_HW_SHARED_ACCESS)
-		region = CAM_SMMU_REGION_SHARED;
+		if (tbl.bufq[idx].flags & CAM_MEM_FLAG_HW_READ_WRITE)
+			region = CAM_SMMU_REGION_IO;
 
-	rc = cam_mem_util_unmap_hw_va(idx,
-		region);
+		if (tbl.bufq[idx].flags & CAM_MEM_FLAG_HW_SHARED_ACCESS)
+			region = CAM_SMMU_REGION_SHARED;
+
+		rc = cam_mem_util_unmap_hw_va(idx, region);
+	}
 
 	mutex_lock(&tbl.bufq[idx].q_lock);
 	tbl.bufq[idx].flags = 0;

@@ -201,7 +201,7 @@ static int __cam_node_handle_release_dev(struct cam_node *node,
 	return rc;
 }
 
-static int __cam_node_get_dev_info(struct cam_req_mgr_device_info *info)
+static int __cam_node_crm_get_dev_info(struct cam_req_mgr_device_info *info)
 {
 	struct cam_context *ctx = NULL;
 
@@ -214,10 +214,11 @@ static int __cam_node_get_dev_info(struct cam_req_mgr_device_info *info)
 			__func__, info->dev_hdl);
 		return -EINVAL;
 	}
-	return cam_context_handle_get_dev_info(ctx, info);
+	return cam_context_handle_crm_get_dev_info(ctx, info);
 }
 
-static int __cam_node_link_setup(struct cam_req_mgr_core_dev_link_setup *setup)
+static int __cam_node_crm_link_setup(
+	struct cam_req_mgr_core_dev_link_setup *setup)
 {
 	int rc;
 	struct cam_context *ctx = NULL;
@@ -233,14 +234,14 @@ static int __cam_node_link_setup(struct cam_req_mgr_core_dev_link_setup *setup)
 	}
 
 	if (setup->link_enable)
-		rc = cam_context_handle_link(ctx, setup);
+		rc = cam_context_handle_crm_link(ctx, setup);
 	else
-		rc = cam_context_handle_unlink(ctx, setup);
+		rc = cam_context_handle_crm_unlink(ctx, setup);
 
 	return rc;
 }
 
-static int __cam_node_apply_req(struct cam_req_mgr_apply_request *apply)
+static int __cam_node_crm_apply_req(struct cam_req_mgr_apply_request *apply)
 {
 	struct cam_context *ctx = NULL;
 
@@ -254,7 +255,26 @@ static int __cam_node_apply_req(struct cam_req_mgr_apply_request *apply)
 		return -EINVAL;
 	}
 
-	return cam_context_handle_apply_req(ctx, apply);
+	return cam_context_handle_crm_apply_req(ctx, apply);
+}
+
+static int __cam_node_crm_flush_req(struct cam_req_mgr_flush_request *flush)
+{
+	struct cam_context *ctx = NULL;
+
+	if (!flush) {
+		pr_err("%s: Invalid flush request payload\n", __func__);
+		return -EINVAL;
+	}
+
+	ctx = (struct cam_context *) cam_get_device_priv(flush->dev_hdl);
+	if (!ctx) {
+		pr_err("%s: Can not get context for handle %d\n",
+			__func__, flush->dev_hdl);
+		return -EINVAL;
+	}
+
+	return cam_context_handle_crm_flush_req(ctx, flush);
 }
 
 int cam_node_deinit(struct cam_node *node)
@@ -283,9 +303,10 @@ int cam_node_init(struct cam_node *node, struct cam_hw_mgr_intf *hw_mgr_intf,
 	strlcpy(node->name, name, sizeof(node->name));
 
 	memcpy(&node->hw_mgr_intf, hw_mgr_intf, sizeof(node->hw_mgr_intf));
-	node->crm_node_intf.apply_req = __cam_node_apply_req;
-	node->crm_node_intf.get_dev_info = __cam_node_get_dev_info;
-	node->crm_node_intf.link_setup = __cam_node_link_setup;
+	node->crm_node_intf.apply_req = __cam_node_crm_apply_req;
+	node->crm_node_intf.get_dev_info = __cam_node_crm_get_dev_info;
+	node->crm_node_intf.link_setup = __cam_node_crm_link_setup;
+	node->crm_node_intf.flush_req = __cam_node_crm_flush_req;
 
 	mutex_init(&node->list_mutex);
 	INIT_LIST_HEAD(&node->free_ctx_list);
