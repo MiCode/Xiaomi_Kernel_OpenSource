@@ -83,7 +83,7 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 	if (c_conn->ops.set_backlight) {
 		event.type = DRM_EVENT_SYS_BACKLIGHT;
 		event.length = sizeof(u32);
-		msm_mode_object_event_nofity(&c_conn->base.base,
+		msm_mode_object_event_notify(&c_conn->base.base,
 				c_conn->base.dev, &event, (u8 *)&brightness);
 		c_conn->ops.set_backlight(c_conn->display, bl_lvl);
 	}

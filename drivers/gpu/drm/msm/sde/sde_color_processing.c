@@ -1357,7 +1357,7 @@ static void sde_cp_notify_ad_event(struct drm_crtc *crtc_drm, void *arg)
 	hw_dspp->ops.ad_read_intr_resp(hw_dspp, AD4_BACKLIGHT, &bl);
 	event.length = sizeof(u32);
 	event.type = DRM_EVENT_AD_BACKLIGHT;
-	msm_mode_object_event_nofity(&crtc_drm->base, crtc_drm->dev,
+	msm_mode_object_event_notify(&crtc_drm->base, crtc_drm->dev,
 			&event, (u8 *)&bl);
 }
 

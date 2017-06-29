@@ -2319,7 +2319,7 @@ static void _sde_crtc_set_suspend(struct drm_crtc *crtc, bool enable)
 		_sde_crtc_vblank_enable_nolock(sde_crtc, !enable);
 
 	sde_crtc->suspend = enable;
-	msm_mode_object_event_nofity(&crtc->base, crtc->dev, &event,
+	msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
 			(u8 *)&power_on);
 	mutex_unlock(&sde_crtc->crtc_lock);
 }

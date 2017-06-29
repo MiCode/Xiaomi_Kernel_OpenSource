@@ -732,7 +732,7 @@ enum msm_dsi_encoder_id {
  * @event: event that needs to be notified.
  * @payload: payload for the event.
  */
-void msm_mode_object_event_nofity(struct drm_mode_object *obj,
+void msm_mode_object_event_notify(struct drm_mode_object *obj,
 		struct drm_device *dev, struct drm_event *event, u8 *payload);
 #ifdef CONFIG_DRM_MSM_DSI
 void __init msm_dsi_register(void);
