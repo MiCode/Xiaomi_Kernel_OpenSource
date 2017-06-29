@@ -837,7 +837,7 @@ done:
  * about the write are encapsulated in @msg. Write size should be multiple
  * of 4 bytes and write address should be 4-byte aligned.
  */
-int wcd_spi_data_write(struct spi_device *spi,
+static int wcd_spi_data_write(struct spi_device *spi,
 		       struct wcd_spi_msg *msg)
 {
 	if (!spi || !msg) {
@@ -850,7 +850,6 @@ int wcd_spi_data_write(struct spi_device *spi,
 			    __func__, msg->remote_addr, msg->len);
 	return wcd_spi_data_xfer(spi, msg, WCD_SPI_XFER_WRITE);
 }
-EXPORT_SYMBOL(wcd_spi_data_write);
 
 /*
  * wcd_spi_data_read: Read data from WCD SPI
@@ -861,7 +860,7 @@ EXPORT_SYMBOL(wcd_spi_data_write);
  * about the read are encapsulated in @msg. Read size should be multiple
  * of 4 bytes and read address should be 4-byte aligned.
  */
-int wcd_spi_data_read(struct spi_device *spi,
+static int wcd_spi_data_read(struct spi_device *spi,
 		      struct wcd_spi_msg *msg)
 {
 	if (!spi || !msg) {
@@ -874,7 +873,6 @@ int wcd_spi_data_read(struct spi_device *spi,
 			    __func__, msg->remote_addr, msg->len);
 	return wcd_spi_data_xfer(spi, msg, WCD_SPI_XFER_READ);
 }
-EXPORT_SYMBOL(wcd_spi_data_read);
 
 static int wdsp_spi_dload_section(struct spi_device *spi,
 				  void *data)
