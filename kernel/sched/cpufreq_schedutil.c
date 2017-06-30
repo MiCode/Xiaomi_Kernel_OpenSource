@@ -494,10 +494,12 @@ static ssize_t hispeed_freq_store(struct gov_attr_set *attr_set,
 
 	tunables->hispeed_freq = val;
 	list_for_each_entry(sg_policy, &attr_set->policy_list, tunables_hook) {
+		raw_spin_lock(&sg_policy->update_lock);
 		hs_util = freq_to_util(sg_policy,
 					sg_policy->tunables->hispeed_freq);
 		hs_util = mult_frac(hs_util, TARGET_LOAD, 100);
 		sg_policy->hispeed_util = hs_util;
+		raw_spin_unlock(&sg_policy->update_lock);
 	}
 
 	return count;
