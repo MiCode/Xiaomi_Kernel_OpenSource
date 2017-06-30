@@ -709,8 +709,8 @@ static int msm_vidc_queue_setup(struct vb2_queue *q,
 			sizes[i] = inst->bufq[OUTPUT_PORT].plane_sizes[i];
 
 		bufreq->buffer_count_actual = *num_buffers;
-		rc = set_buffer_count(inst, bufreq->buffer_count_actual,
-			*num_buffers, HAL_BUFFER_INPUT);
+		rc = set_buffer_count(inst, bufreq->buffer_count_min_host,
+			bufreq->buffer_count_min_host, HAL_BUFFER_INPUT);
 		}
 
 		break;
@@ -743,8 +743,8 @@ static int msm_vidc_queue_setup(struct vb2_queue *q,
 			sizes[i] = inst->bufq[CAPTURE_PORT].plane_sizes[i];
 
 		bufreq->buffer_count_actual = *num_buffers;
-		rc = set_buffer_count(inst, bufreq->buffer_count_actual,
-			*num_buffers, buffer_type);
+		rc = set_buffer_count(inst, bufreq->buffer_count_min_host,
+			bufreq->buffer_count_min_host, buffer_type);
 		}
 		break;
 	default:
@@ -1234,29 +1234,6 @@ static int msm_vidc_op_s_ctrl(struct v4l2_ctrl *ctrl)
 	return rc;
 }
 
-static int set_actual_buffer_count(struct msm_vidc_inst *inst,
-	int count, enum hal_buffer type)
-{
-	int rc = 0;
-	struct hfi_device *hdev;
-	struct hal_buffer_count_actual buf_count;
-
-	hdev = inst->core->device;
-
-	buf_count.buffer_type = type;
-	buf_count.buffer_count_min_host = count;
-	buf_count.buffer_count_actual = count;
-	rc = call_hfi_op(hdev, session_set_property,
-		inst->session, HAL_PARAM_BUFFER_COUNT_ACTUAL,
-		&buf_count);
-	if (rc)
-		dprintk(VIDC_ERR,
-			"Failed to set actual count %d for buffer type %d\n",
-			count, type);
-	return rc;
-}
-
-
 static int msm_vidc_get_count(struct msm_vidc_inst *inst,
 	struct v4l2_ctrl *ctrl)
 {
@@ -1281,13 +1258,20 @@ static int msm_vidc_get_count(struct msm_vidc_inst *inst,
 				"Buffer count Host changed from %d to %d\n",
 					bufreq->buffer_count_min_host,
 					ctrl->val);
-			bufreq->buffer_count_min_host = ctrl->val;
+			bufreq->buffer_count_actual =
+			bufreq->buffer_count_min =
+			bufreq->buffer_count_min_host =
+				ctrl->val;
 		} else {
 			ctrl->val = bufreq->buffer_count_min_host;
 		}
-		rc = set_actual_buffer_count(inst,
-				bufreq->buffer_count_min_host,
+		rc = set_buffer_count(inst,
+			bufreq->buffer_count_min_host,
+			bufreq->buffer_count_actual,
 			HAL_BUFFER_INPUT);
+
+		msm_vidc_update_host_buff_counts(inst);
+		ctrl->val = bufreq->buffer_count_min_host;
 		return rc;
 
 	} else if (ctrl->id == V4L2_CID_MIN_BUFFERS_FOR_CAPTURE) {
@@ -1308,30 +1292,36 @@ static int msm_vidc_get_count(struct msm_vidc_inst *inst,
 				return 0;
 		}
 
-
-		if (inst->in_reconfig) {
-			ctrl->val = bufreq->buffer_count_min;
-		}
 		if (inst->session_type == MSM_VIDC_DECODER &&
 				!inst->in_reconfig &&
 			inst->state < MSM_VIDC_LOAD_RESOURCES_DONE) {
 			dprintk(VIDC_DBG,
 				"Clients updates Buffer count from %d to %d\n",
 				bufreq->buffer_count_min_host, ctrl->val);
-			bufreq->buffer_count_min_host = ctrl->val;
+			bufreq->buffer_count_actual =
+			bufreq->buffer_count_min =
+			bufreq->buffer_count_min_host =
+				ctrl->val;
 		}
 		if (ctrl->val > bufreq->buffer_count_min_host) {
 			dprintk(VIDC_DBG,
 				"Buffer count Host changed from %d to %d\n",
 				bufreq->buffer_count_min_host,
 				ctrl->val);
-			bufreq->buffer_count_min_host = ctrl->val;
+			bufreq->buffer_count_actual =
+			bufreq->buffer_count_min =
+			bufreq->buffer_count_min_host =
+				ctrl->val;
 		} else {
 			ctrl->val = bufreq->buffer_count_min_host;
 		}
-		rc = set_actual_buffer_count(inst,
-				bufreq->buffer_count_min_host,
+		rc = set_buffer_count(inst,
+			bufreq->buffer_count_min_host,
+			bufreq->buffer_count_actual,
 			HAL_BUFFER_OUTPUT);
+
+		msm_vidc_update_host_buff_counts(inst);
+		ctrl->val = bufreq->buffer_count_min_host;
 
 		return rc;
 	}
@@ -1378,6 +1368,8 @@ static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 
 	case V4L2_CID_MIN_BUFFERS_FOR_CAPTURE:
+		if (inst->in_reconfig)
+			msm_vidc_update_host_buff_counts(inst);
 		buffer_type = msm_comm_get_hal_output_buffer(inst);
 		bufreq = get_buff_req_buffer(inst,
 			buffer_type);
