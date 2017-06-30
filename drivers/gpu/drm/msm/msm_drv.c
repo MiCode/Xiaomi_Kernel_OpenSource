@@ -126,10 +126,21 @@ static void msm_fb_output_poll_changed(struct drm_device *dev)
 int msm_atomic_check(struct drm_device *dev,
 			    struct drm_atomic_state *state)
 {
+	struct msm_drm_private *priv;
+
+	if (!dev)
+		return -EINVAL;
+
 	if (msm_is_suspend_blocked(dev)) {
 		DRM_DEBUG("rejecting commit during suspend\n");
 		return -EBUSY;
 	}
+
+	priv = dev->dev_private;
+	if (priv && priv->kms && priv->kms->funcs &&
+			priv->kms->funcs->atomic_check)
+		return priv->kms->funcs->atomic_check(priv->kms, state);
+
 	return drm_atomic_helper_check(dev, state);
 }
 
