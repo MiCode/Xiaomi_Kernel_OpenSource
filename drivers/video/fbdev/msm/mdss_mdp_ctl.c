@@ -31,6 +31,7 @@
 #define MDSS_MDP_QSEED3_VER_DOWNSCALE_LIM 2
 #define NUM_MIXERCFG_REGS 3
 #define MDSS_MDP_WB_OUTPUT_BPP	3
+#define MIN_BUS_THROUGHPUT_SCALE_FACTOR 35
 struct mdss_mdp_mixer_cfg {
 	u32 config_masks[NUM_MIXERCFG_REGS];
 	bool border_enabled;
@@ -608,9 +609,19 @@ static u32 __calc_qseed3_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
 }
 
 static inline bool __is_vert_downscaling(u32 src_h,
-	struct mdss_rect dst){
-
+	struct mdss_rect dst)
+{
 	return (src_h > dst.h);
+}
+
+static inline bool __is_bus_throughput_factor_required(u32 src_h,
+	struct mdss_rect dst)
+{
+	u64 scale_factor = src_h * 10;
+
+	do_div(scale_factor, dst.h);
+	return (__is_vert_downscaling(src_h, dst) &&
+		(scale_factor >= MIN_BUS_THROUGHPUT_SCALE_FACTOR));
 }
 
 static u32 get_pipe_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
@@ -658,6 +669,15 @@ static u32 get_pipe_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
 			rate = max(bwc_rate, rate);
 		}
 	}
+
+	/*
+	 * If the downscale factor is >= 3.5 for a 32 BPP surface,
+	 * it is recommended to add a 10% bus throughput factor to
+	 * the clock rate.
+	 */
+	if ((pipe->src_fmt->bpp == 4) &&
+		__is_bus_throughput_factor_required(src_h, dst))
+		rate = apply_fudge_factor(rate, &mdata->bus_throughput_factor);
 
 	if (flags & PERF_CALC_PIPE_APPLY_CLK_FUDGE)
 		rate = mdss_mdp_clk_fudge_factor(mixer, rate);

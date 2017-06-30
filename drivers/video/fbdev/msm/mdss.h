@@ -526,6 +526,7 @@ struct mdss_data_type {
 
 	u32 splash_intf_sel;
 	u32 splash_split_disp;
+	struct mult_factor bus_throughput_factor;
 };
 
 extern struct mdss_data_type *mdss_res;
