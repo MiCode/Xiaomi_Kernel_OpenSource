@@ -1108,7 +1108,7 @@ static irqreturn_t wcd_mbhc_release_handler(int irq, void *data)
 	 * For ADC MBHC, ADC_COMPLETE interrupt will be generated
 	 * in this case. So skip the check here.
 	 */
-	if (!WCD_MBHC_DETECTION &&
+	if (mbhc->mbhc_detection_logic == WCD_DETECTION_LEGACY &&
 		mbhc->current_plug == MBHC_PLUG_TYPE_HEADPHONE) {
 		wcd_mbhc_find_plug_and_report(mbhc, MBHC_PLUG_TYPE_HEADSET);
 		goto exit;
@@ -1922,7 +1922,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 	init_waitqueue_head(&mbhc->wait_btn_press);
 	mutex_init(&mbhc->codec_resource_lock);
 
-	switch (WCD_MBHC_DETECTION) {
+	switch (mbhc->mbhc_detection_logic) {
 	case WCD_DETECTION_LEGACY:
 		wcd_mbhc_legacy_init(mbhc);
 		break;
@@ -1931,7 +1931,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 		break;
 	default:
 		pr_err("%s: Unknown detection logic type %d\n",
-			__func__, WCD_MBHC_DETECTION);
+			__func__, mbhc->mbhc_detection_logic);
 		break;
 	}
 

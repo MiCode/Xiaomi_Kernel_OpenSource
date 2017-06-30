@@ -998,19 +998,26 @@ int tavil_mbhc_post_ssr_init(struct wcd934x_mbhc *mbhc,
 			     struct snd_soc_codec *codec)
 {
 	int ret;
+	struct wcd_mbhc *wcd_mbhc;
 
 	if (!mbhc || !codec)
 		return -EINVAL;
 
-	wcd_mbhc_deinit(&mbhc->wcd_mbhc);
-	ret = wcd_mbhc_init(&mbhc->wcd_mbhc, codec, &mbhc_cb, &intr_ids,
+	wcd_mbhc = &mbhc->wcd_mbhc;
+	if (wcd_mbhc == NULL) {
+		pr_err("%s: wcd_mbhc is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	wcd_mbhc_deinit(wcd_mbhc);
+	ret = wcd_mbhc_init(wcd_mbhc, codec, &mbhc_cb, &intr_ids,
 			    wcd_mbhc_registers, TAVIL_ZDET_SUPPORTED);
 	if (ret) {
 		dev_err(codec->dev, "%s: mbhc initialization failed\n",
 			__func__);
 		goto done;
 	}
-	if (!WCD_MBHC_DETECTION) {
+	if (wcd_mbhc->mbhc_detection_logic == WCD_DETECTION_LEGACY) {
 		snd_soc_update_bits(codec, WCD934X_MBHC_NEW_CTL_1, 0x04, 0x04);
 		snd_soc_update_bits(codec, WCD934X_MBHC_CTL_BCS, 0x01, 0x01);
 	}
@@ -1033,6 +1040,7 @@ int tavil_mbhc_init(struct wcd934x_mbhc **mbhc, struct snd_soc_codec *codec,
 {
 	struct regulator *supply;
 	struct wcd934x_mbhc *wcd934x_mbhc;
+	struct wcd_mbhc *wcd_mbhc;
 	int ret;
 
 	wcd934x_mbhc = devm_kzalloc(codec->dev, sizeof(struct wcd934x_mbhc),
@@ -1043,8 +1051,18 @@ int tavil_mbhc_init(struct wcd934x_mbhc **mbhc, struct snd_soc_codec *codec,
 	wcd934x_mbhc->wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	wcd934x_mbhc->fw_data = fw_data;
 	BLOCKING_INIT_NOTIFIER_HEAD(&wcd934x_mbhc->notifier);
+	wcd_mbhc = &wcd934x_mbhc->wcd_mbhc;
+	if (wcd_mbhc == NULL) {
+		pr_err("%s: wcd_mbhc is NULL\n", __func__);
+		ret = -EINVAL;
+		goto err;
+	}
 
-	ret = wcd_mbhc_init(&wcd934x_mbhc->wcd_mbhc, codec, &mbhc_cb,
+
+	/* Setting default mbhc detection logic to ADC for Tavil */
+	wcd_mbhc->mbhc_detection_logic = WCD_DETECTION_ADC;
+
+	ret = wcd_mbhc_init(wcd_mbhc, codec, &mbhc_cb,
 				&intr_ids, wcd_mbhc_registers,
 				TAVIL_ZDET_SUPPORTED);
 	if (ret) {
@@ -1070,7 +1088,7 @@ int tavil_mbhc_init(struct wcd934x_mbhc **mbhc, struct snd_soc_codec *codec,
 	snd_soc_add_codec_controls(codec, hph_type_detect_controls,
 				   ARRAY_SIZE(hph_type_detect_controls));
 
-	if (!WCD_MBHC_DETECTION) {
+	if (wcd_mbhc->mbhc_detection_logic == WCD_DETECTION_LEGACY) {
 		snd_soc_update_bits(codec, WCD934X_MBHC_NEW_CTL_1, 0x04, 0x04);
 		snd_soc_update_bits(codec, WCD934X_MBHC_CTL_BCS, 0x01, 0x01);
 	}
