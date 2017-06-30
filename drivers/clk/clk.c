@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2010-2011 Canonical Ltd <jeremy.kerr@canonical.com>
  * Copyright (C) 2011-2012 Linaro Ltd <mturquette@linaro.org>
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -23,6 +24,9 @@
 #include <linux/init.h>
 #include <linux/sched.h>
 #include <linux/clkdev.h>
+#include <linux/of_platform.h>
+#include <linux/pm_opp.h>
+#include <linux/regulator/consumer.h>
 
 #include "clk.h"
 
@@ -38,6 +42,13 @@ static int enable_refcnt;
 static HLIST_HEAD(clk_root_list);
 static HLIST_HEAD(clk_orphan_list);
 static LIST_HEAD(clk_notifier_list);
+
+struct clk_handoff_vdd {
+	struct list_head list;
+	struct clk_vdd_class *vdd_class;
+};
+
+static LIST_HEAD(clk_handoff_vdd_list);
 
 /***    private data structures    ***/
 
@@ -73,6 +84,9 @@ struct clk_core {
 	struct hlist_node	debug_node;
 #endif
 	struct kref		ref;
+	struct clk_vdd_class	*vdd_class;
+	unsigned long		*rate_max;
+	int			num_rate_max;
 };
 
 #define CREATE_TRACE_POINTS
@@ -484,6 +498,225 @@ int __clk_mux_determine_rate_closest(struct clk_hw *hw,
 }
 EXPORT_SYMBOL_GPL(__clk_mux_determine_rate_closest);
 
+/*
+ *  Find the voltage level required for a given clock rate.
+ */
+static int clk_find_vdd_level(struct clk_core *clk, unsigned long rate)
+{
+	int level;
+
+	/*
+	 * For certain PLLs, due to the limitation in the bits allocated for
+	 * programming the fractional divider, the actual rate of the PLL will
+	 * be slightly higher than the requested rate (in the order of several
+	 * Hz). To accommodate this difference, convert the FMAX rate and the
+	 * clock frequency to KHz and use that for deriving the voltage level.
+	 */
+	for (level = 0; level < clk->num_rate_max; level++)
+		if (DIV_ROUND_CLOSEST(rate, 1000) <=
+				DIV_ROUND_CLOSEST(clk->rate_max[level], 1000))
+			break;
+
+	if (level == clk->num_rate_max) {
+		pr_err("Rate %lu for %s is greater than highest Fmax\n", rate,
+				clk->name);
+		return -EINVAL;
+	}
+
+	return level;
+}
+
+/*
+ * Update voltage level given the current votes.
+ */
+static int clk_update_vdd(struct clk_vdd_class *vdd_class)
+{
+	int level, rc = 0, i, ignore;
+	struct regulator **r = vdd_class->regulator;
+	int *uv = vdd_class->vdd_uv;
+	int n_reg = vdd_class->num_regulators;
+	int cur_lvl = vdd_class->cur_level;
+	int max_lvl = vdd_class->num_levels - 1;
+	int cur_base = cur_lvl * n_reg;
+	int new_base;
+
+	/* aggregate votes */
+	for (level = max_lvl; level > 0; level--)
+		if (vdd_class->level_votes[level])
+			break;
+
+	if (level == cur_lvl)
+		return 0;
+
+	max_lvl = max_lvl * n_reg;
+	new_base = level * n_reg;
+
+	for (i = 0; i < vdd_class->num_regulators; i++) {
+		pr_debug("Set Voltage level Min %d, Max %d\n", uv[new_base + i],
+				uv[max_lvl + i]);
+		rc = regulator_set_voltage(r[i], uv[new_base + i],
+			vdd_class->use_max_uV ? INT_MAX : uv[max_lvl + i]);
+		if (rc)
+			goto set_voltage_fail;
+
+		if (cur_lvl == 0 || cur_lvl == vdd_class->num_levels)
+			rc = regulator_enable(r[i]);
+		else if (level == 0)
+			rc = regulator_disable(r[i]);
+		if (rc)
+			goto enable_disable_fail;
+	}
+
+	if (vdd_class->set_vdd && !vdd_class->num_regulators)
+		rc = vdd_class->set_vdd(vdd_class, level);
+
+	if (!rc)
+		vdd_class->cur_level = level;
+
+	return rc;
+
+enable_disable_fail:
+	regulator_set_voltage(r[i], uv[cur_base + i],
+			vdd_class->use_max_uV ? INT_MAX : uv[max_lvl + i]);
+
+set_voltage_fail:
+	for (i--; i >= 0; i--) {
+		regulator_set_voltage(r[i], uv[cur_base + i],
+		       vdd_class->use_max_uV ? INT_MAX : uv[max_lvl + i]);
+		if (cur_lvl == 0 || cur_lvl == vdd_class->num_levels)
+			regulator_disable(r[i]);
+		else if (level == 0)
+			ignore = regulator_enable(r[i]);
+	}
+
+	return rc;
+}
+
+/*
+ *  Vote for a voltage level.
+ */
+static int clk_vote_vdd_level(struct clk_vdd_class *vdd_class, int level)
+{
+	int rc = 0;
+
+	if (level >= vdd_class->num_levels)
+		return -EINVAL;
+
+	mutex_lock(&vdd_class->lock);
+
+	vdd_class->level_votes[level]++;
+
+	rc = clk_update_vdd(vdd_class);
+	if (rc)
+		vdd_class->level_votes[level]--;
+
+	mutex_unlock(&vdd_class->lock);
+
+	return rc;
+}
+
+/*
+ * Remove vote for a voltage level.
+ */
+static int clk_unvote_vdd_level(struct clk_vdd_class *vdd_class, int level)
+{
+	int rc = 0;
+
+	if (level >= vdd_class->num_levels)
+		return -EINVAL;
+
+	mutex_lock(&vdd_class->lock);
+
+	if (WARN(!vdd_class->level_votes[level],
+				"Reference counts are incorrect for %s level %d\n",
+				vdd_class->class_name, level))
+		goto out;
+
+	vdd_class->level_votes[level]--;
+
+	rc = clk_update_vdd(vdd_class);
+	if (rc)
+		vdd_class->level_votes[level]++;
+
+out:
+	mutex_unlock(&vdd_class->lock);
+	return rc;
+}
+
+/*
+ * Vote for a voltage level corresponding to a clock's rate.
+ */
+static int clk_vote_rate_vdd(struct clk_core *core, unsigned long rate)
+{
+	int level;
+
+	if (!core->vdd_class)
+		return 0;
+
+	level = clk_find_vdd_level(core, rate);
+	if (level < 0)
+		return level;
+
+	return clk_vote_vdd_level(core->vdd_class, level);
+}
+
+/*
+ * Remove vote for a voltage level corresponding to a clock's rate.
+ */
+static void clk_unvote_rate_vdd(struct clk_core *core, unsigned long rate)
+{
+	int level;
+
+	if (!core->vdd_class)
+		return;
+
+	level = clk_find_vdd_level(core, rate);
+	if (level < 0)
+		return;
+
+	clk_unvote_vdd_level(core->vdd_class, level);
+}
+
+static bool clk_is_rate_level_valid(struct clk_core *core, unsigned long rate)
+{
+	int level;
+
+	if (!core->vdd_class)
+		return true;
+
+	level = clk_find_vdd_level(core, rate);
+
+	return level >= 0;
+}
+
+static int clk_vdd_class_init(struct clk_vdd_class *vdd)
+{
+	struct clk_handoff_vdd *v;
+
+	if (vdd->skip_handoff)
+		return 0;
+
+	list_for_each_entry(v, &clk_handoff_vdd_list, list) {
+		if (v->vdd_class == vdd)
+			return 0;
+	}
+
+	pr_debug("voting for vdd_class %s\n", vdd->class_name);
+
+	if (clk_vote_vdd_level(vdd, vdd->num_levels - 1))
+		pr_err("failed to vote for %s\n", vdd->class_name);
+
+	v = kmalloc(sizeof(*v), GFP_KERNEL);
+	if (!v)
+		return -ENOMEM;
+
+	v->vdd_class = vdd;
+
+	list_add_tail(&v->list, &clk_handoff_vdd_list);
+
+	return 0;
+}
+
 /***        clk api        ***/
 
 static void clk_core_unprepare(struct clk_core *core)
@@ -510,6 +743,9 @@ static void clk_core_unprepare(struct clk_core *core)
 		core->ops->unprepare(core->hw);
 
 	trace_clk_unprepare_complete(core);
+
+	clk_unvote_rate_vdd(core, core->rate);
+
 	clk_core_unprepare(core->parent);
 }
 
@@ -556,12 +792,19 @@ static int clk_core_prepare(struct clk_core *core)
 
 		trace_clk_prepare(core);
 
+		ret = clk_vote_rate_vdd(core, core->rate);
+		if (ret) {
+			clk_core_unprepare(core->parent);
+			return ret;
+		}
+
 		if (core->ops->prepare)
 			ret = core->ops->prepare(core->hw);
 
 		trace_clk_prepare_complete(core);
 
 		if (ret) {
+			clk_unvote_rate_vdd(core, core->rate);
 			clk_core_unprepare(core->parent);
 			return ret;
 		}
@@ -827,6 +1070,7 @@ __setup("clk_ignore_unused", clk_ignore_unused_setup);
 static int clk_disable_unused(void)
 {
 	struct clk_core *core;
+	struct clk_handoff_vdd *v, *v_temp;
 
 	if (clk_ignore_unused) {
 		pr_warn("clk: Not disabling unused clocks\n");
@@ -846,6 +1090,13 @@ static int clk_disable_unused(void)
 
 	hlist_for_each_entry(core, &clk_orphan_list, child_node)
 		clk_unprepare_unused_subtree(core);
+
+	list_for_each_entry_safe(v, v_temp, &clk_handoff_vdd_list, list) {
+		clk_unvote_vdd_level(v->vdd_class,
+				v->vdd_class->num_levels - 1);
+		list_del(&v->list);
+		kfree(v);
+	};
 
 	clk_prepare_unlock();
 
@@ -1435,11 +1686,20 @@ static struct clk_core *clk_calc_new_rates(struct clk_core *core,
 		}
 	}
 
+	/*
+	 * Certain PLLs only have 16 bits to program the fractional divider.
+	 * Hence the programmed rate might be slightly different than the
+	 * requested one.
+	 */
 	if ((core->flags & CLK_SET_RATE_PARENT) && parent &&
-	    best_parent_rate != parent->rate)
+		(DIV_ROUND_CLOSEST(best_parent_rate, 1000) !=
+			DIV_ROUND_CLOSEST(parent->rate, 1000)))
 		top = clk_calc_new_rates(parent, best_parent_rate);
 
 out:
+	if (!clk_is_rate_level_valid(core, rate))
+		return NULL;
+
 	clk_calc_subtree(core, new_rate, parent, p_index);
 
 	return top;
@@ -1518,6 +1778,15 @@ static int clk_change_rate(struct clk_core *core)
 		clk_enable_unlock(flags);
 	}
 
+	trace_clk_set_rate(core, core->new_rate);
+
+	/* Enforce vdd requirements for new frequency. */
+	if (core->prepare_count) {
+		rc = clk_vote_rate_vdd(core, core->new_rate);
+		if (rc)
+			goto out;
+	}
+
 	if (core->new_parent && core->new_parent != core->parent) {
 		old_parent = __clk_set_parent_before(core, core->new_parent);
 		trace_clk_set_parent(core, core->new_parent);
@@ -1538,17 +1807,18 @@ static int clk_change_rate(struct clk_core *core)
 	if (core->flags & CLK_OPS_PARENT_ENABLE)
 		clk_core_prepare_enable(parent);
 
-	trace_clk_set_rate(core, core->new_rate);
-
 	if (!skip_set_rate && core->ops->set_rate) {
 		rc = core->ops->set_rate(core->hw, core->new_rate,
 						best_parent_rate);
 		if (rc)
-			goto out;
-
+			goto err_set_rate;
 	}
 
 	trace_clk_set_rate_complete(core, core->new_rate);
+
+	/* Release vdd requirements for old frequency. */
+	if (core->prepare_count)
+		clk_unvote_rate_vdd(core, old_rate);
 
 	core->rate = clk_recalc(core, best_parent_rate);
 
@@ -1588,6 +1858,10 @@ static int clk_change_rate(struct clk_core *core)
 		rc = clk_change_rate(core->new_child);
 
 	return rc;
+
+err_set_rate:
+	if (core->prepare_count)
+		clk_unvote_rate_vdd(core, core->new_rate);
 out:
 	trace_clk_set_rate_complete(core, core->new_rate);
 
@@ -2643,7 +2917,18 @@ struct clk *clk_register(struct device *dev, struct clk_hw *hw)
 	core->num_parents = hw->init->num_parents;
 	core->min_rate = 0;
 	core->max_rate = ULONG_MAX;
+	core->vdd_class = hw->init->vdd_class;
+	core->rate_max = hw->init->rate_max;
+	core->num_rate_max = hw->init->num_rate_max;
 	hw->core = core;
+
+	if (core->vdd_class) {
+		ret = clk_vdd_class_init(core->vdd_class);
+		if (ret) {
+			pr_err("Failed to initialize vdd class\n");
+			goto fail_parent_names;
+		}
+	}
 
 	/* allocate local copy in case parent_names is __initdata */
 	core->parent_names = kcalloc(core->num_parents, sizeof(char *),
@@ -2840,6 +3125,166 @@ static void devm_clk_hw_release(struct device *dev, void *res)
 	clk_hw_unregister(*(struct clk_hw **)res);
 }
 
+#define MAX_LEN_OPP_HANDLE	50
+#define LEN_OPP_HANDLE		16
+
+static int derive_device_list(struct device **device_list,
+				struct clk_core *core,
+				struct device_node *np,
+				char *clk_handle_name, int count)
+{
+	int j;
+	struct platform_device *pdev;
+	struct device_node *dev_node;
+
+	for (j = 0; j < count; j++) {
+		device_list[j] = NULL;
+		dev_node = of_parse_phandle(np, clk_handle_name, j);
+		if (!dev_node) {
+			pr_err("Unable to get device_node pointer for %s opp-handle (%s)\n",
+					core->name, clk_handle_name);
+			return -ENODEV;
+		}
+
+		pdev = of_find_device_by_node(dev_node);
+		if (!pdev) {
+			pr_err("Unable to find platform_device node for %s opp-handle\n",
+						core->name);
+			return -ENODEV;
+		}
+		device_list[j] = &pdev->dev;
+	}
+	return 0;
+}
+
+static int clk_get_voltage(struct clk_core *core, unsigned long rate, int n)
+{
+	struct clk_vdd_class *vdd;
+	int level, corner;
+
+	/* Use the first regulator in the vdd class for the OPP table. */
+	vdd = core->vdd_class;
+	if (vdd->num_regulators > 1) {
+		corner = vdd->vdd_uv[vdd->num_regulators * n];
+	} else {
+		level = clk_find_vdd_level(core, rate);
+		if (level < 0) {
+			pr_err("Could not find vdd level\n");
+			return -EINVAL;
+		}
+		corner = vdd->vdd_uv[level];
+	}
+
+	if (!corner) {
+		pr_err("%s: Unable to find vdd level for rate %lu\n",
+					core->name, rate);
+		return -EINVAL;
+	}
+
+	return corner;
+}
+
+static int clk_add_and_print_opp(struct clk_hw *hw,
+				struct device **device_list, int count,
+				unsigned long rate, int uv, int n)
+{
+	struct clk_core *core = hw->core;
+	int j, ret = 0;
+
+	for (j = 0; j < count; j++) {
+		ret = dev_pm_opp_add(device_list[j], rate, uv);
+		if (ret) {
+			pr_err("%s: couldn't add OPP for %lu - err: %d\n",
+						core->name, rate, ret);
+			return ret;
+		}
+
+		if (n == 0 || n == core->num_rate_max - 1 ||
+					rate == clk_hw_round_rate(hw, INT_MAX))
+			pr_info("%s: set OPP pair(%lu Hz: %u uV) on %s\n",
+						core->name, rate, uv,
+						dev_name(device_list[j]));
+	}
+	return ret;
+}
+
+static void clk_populate_clock_opp_table(struct device_node *np,
+						struct clk_hw *hw)
+{
+	struct device **device_list;
+	struct clk_core *core = hw->core;
+	char clk_handle_name[MAX_LEN_OPP_HANDLE];
+	int n, len, count, uv, ret;
+	unsigned long rate = 0, rrate = 0;
+
+	if (!core || !core->num_rate_max)
+		return;
+
+	if (strlen(core->name) + LEN_OPP_HANDLE < MAX_LEN_OPP_HANDLE) {
+		ret = snprintf(clk_handle_name, ARRAY_SIZE(clk_handle_name),
+				"qcom,%s-opp-handle", core->name);
+		if (ret < strlen(core->name) + LEN_OPP_HANDLE) {
+			pr_err("%s: Failed to hold clk_handle_name\n",
+							core->name);
+			return;
+		}
+	} else {
+		pr_err("clk name (%s) too large to fit in clk_handle_name\n",
+							core->name);
+		return;
+	}
+
+	if (of_find_property(np, clk_handle_name, &len)) {
+		count = len/sizeof(u32);
+
+		device_list = kmalloc_array(count, sizeof(struct device *),
+							GFP_KERNEL);
+		if (!device_list)
+			return;
+
+		ret = derive_device_list(device_list, core, np,
+					clk_handle_name, count);
+		if (ret < 0) {
+			pr_err("Failed to fill device_list for %s\n",
+						clk_handle_name);
+			goto err_derive_device_list;
+		}
+	} else {
+		pr_debug("Unable to find %s\n", clk_handle_name);
+		return;
+	}
+
+	for (n = 0; ; n++) {
+		rrate = clk_hw_round_rate(hw, rate + 1);
+		if (!rate) {
+			pr_err("clk_round_rate failed for %s\n",
+							core->name);
+			goto err_derive_device_list;
+		}
+
+		/*
+		 * If clk_hw_round_rate gives the same value on consecutive
+		 * iterations, exit the loop since we're at the maximum clock
+		 * frequency.
+		 */
+		if (rate == rrate)
+			break;
+		rate = rrate;
+
+		uv = clk_get_voltage(core, rate, n);
+		if (uv < 0)
+			goto err_derive_device_list;
+
+		ret = clk_add_and_print_opp(hw, device_list, count,
+							rate, uv, n);
+		if (ret)
+			goto err_derive_device_list;
+	}
+
+err_derive_device_list:
+	kfree(device_list);
+}
+
 /**
  * devm_clk_register - resource managed clk_register()
  * @dev: device that is registering this clock
@@ -2866,6 +3311,7 @@ struct clk *devm_clk_register(struct device *dev, struct clk_hw *hw)
 		devres_free(clkp);
 	}
 
+	clk_populate_clock_opp_table(dev->of_node, hw);
 	return clk;
 }
 EXPORT_SYMBOL_GPL(devm_clk_register);
@@ -2896,6 +3342,7 @@ int devm_clk_hw_register(struct device *dev, struct clk_hw *hw)
 		devres_free(hwp);
 	}
 
+	clk_populate_clock_opp_table(dev->of_node, hw);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(devm_clk_hw_register);
