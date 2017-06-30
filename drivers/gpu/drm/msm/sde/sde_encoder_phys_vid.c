@@ -476,6 +476,7 @@ static int sde_encoder_phys_vid_control_vblank_irq(
 {
 	int ret = 0;
 	struct sde_encoder_phys_vid *vid_enc;
+	unsigned long lock_flags;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -492,6 +493,8 @@ static int sde_encoder_phys_vid_control_vblank_irq(
 			__builtin_return_address(0),
 			enable, atomic_read(&phys_enc->vblank_refcount));
 
+	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
+
 	SDE_EVT32(DRMID(phys_enc->parent), enable,
 			atomic_read(&phys_enc->vblank_refcount));
 
@@ -500,6 +503,8 @@ static int sde_encoder_phys_vid_control_vblank_irq(
 	else if (!enable && atomic_dec_return(&phys_enc->vblank_refcount) == 0)
 		ret = sde_encoder_helper_unregister_irq(phys_enc,
 				INTR_IDX_VSYNC);
+
+	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 
 	if (ret)
 		SDE_ERROR_VIDENC(vid_enc,
