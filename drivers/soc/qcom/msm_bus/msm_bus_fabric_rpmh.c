@@ -386,6 +386,10 @@ static int tcs_cmd_list_gen(int *n_active,
 			tcs_cmd_gen(cur_bcm, &cmdlist_wake[k],
 				cur_bcm->node_vec[ACTIVE_CTX].vec_a,
 				cur_bcm->node_vec[ACTIVE_CTX].vec_b, commit);
+
+			if (cur_rsc->rscdev->req_state == RPMH_AWAKE_STATE)
+				commit = false;
+
 			tcs_cmd_gen(cur_bcm, &cmdlist_sleep[k],
 				cur_bcm->node_vec[DUAL_CTX].vec_a,
 				cur_bcm->node_vec[DUAL_CTX].vec_b, commit);
