@@ -225,8 +225,17 @@ int sde_core_perf_crtc_check(struct drm_crtc *crtc,
 				struct sde_crtc_state *tmp_cstate =
 					to_sde_crtc_state(tmp_crtc->state);
 
-				bw_sum_of_intfs +=
-					tmp_cstate->new_perf.bw_ctl[i];
+				SDE_DEBUG("crtc:%d bw:%llu ctrl:%d\n",
+					tmp_crtc->base.id,
+					tmp_cstate->new_perf.bw_ctl[i],
+					tmp_cstate->bw_control);
+				/*
+				 * For bw check only use the bw if the
+				 * atomic property has been already set
+				 */
+				if (tmp_cstate->bw_control)
+					bw_sum_of_intfs +=
+						tmp_cstate->new_perf.bw_ctl[i];
 			}
 		}
 
