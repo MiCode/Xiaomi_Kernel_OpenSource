@@ -15,32 +15,6 @@ msm_drm-y := \
 	dp/dp_ctrl.o \
 	dp/dp_display.o \
 	dp/dp_drm.o \
-	hdmi/hdmi.o \
-	hdmi/hdmi_audio.o \
-	hdmi/hdmi_bridge.o \
-	hdmi/hdmi_connector.o \
-	hdmi/hdmi_i2c.o \
-	hdmi/hdmi_phy.o \
-	hdmi/hdmi_phy_8960.o \
-	hdmi/hdmi_phy_8x60.o \
-	hdmi/hdmi_phy_8x74.o \
-	edp/edp.o \
-	edp/edp_aux.o \
-	edp/edp_bridge.o \
-	edp/edp_connector.o \
-	edp/edp_ctrl.o \
-	edp/edp_phy.o \
-	mdp/mdp_format.o \
-	mdp/mdp_kms.o \
-	mdp/mdp5/mdp5_cfg.o \
-	mdp/mdp5/mdp5_ctl.o \
-	mdp/mdp5/mdp5_crtc.o \
-	mdp/mdp5/mdp5_encoder.o \
-	mdp/mdp5/mdp5_irq.o \
-	mdp/mdp5/mdp5_mdss.o \
-	mdp/mdp5/mdp5_kms.o \
-	mdp/mdp5/mdp5_plane.o \
-	mdp/mdp5/mdp5_smp.o \
 	sde/sde_crtc.o \
 	sde/sde_encoder.o \
 	sde/sde_encoder_phys_vid.o \
@@ -61,7 +35,36 @@ msm_drm-y := \
 	sde/sde_hw_reg_dma_v1_color_proc.o \
 	sde/sde_hw_color_proc_v4.o \
 	sde/sde_hw_ad4.o \
-	sde_edid_parser.o
+	sde_edid_parser.o \
+
+msm_drm-$(CONFIG_DRM_MSM_HDMI) += hdmi/hdmi.o \
+	hdmi/hdmi_audio.o \
+	hdmi/hdmi_bridge.o \
+	hdmi/hdmi_connector.o \
+	hdmi/hdmi_i2c.o \
+	hdmi/hdmi_phy.o \
+	hdmi/hdmi_phy_8960.o \
+	hdmi/hdmi_phy_8x60.o \
+	hdmi/hdmi_phy_8x74.o \
+
+msm_drm-$(CONFIG_DRM_MSM_EDP) += edp/edp.o \
+	edp/edp_aux.o \
+	edp/edp_bridge.o \
+	edp/edp_connector.o \
+	edp/edp_ctrl.o \
+	edp/edp_phy.o \
+
+msm_drm-$(CONFIG_DRM_MSM_MDP5) += mdp/mdp_format.o \
+	mdp/mdp_kms.o \
+	mdp/mdp5/mdp5_cfg.o \
+	mdp/mdp5/mdp5_ctl.o \
+	mdp/mdp5/mdp5_crtc.o \
+	mdp/mdp5/mdp5_encoder.o \
+	mdp/mdp5/mdp5_irq.o \
+	mdp/mdp5/mdp5_mdss.o \
+	mdp/mdp5/mdp5_kms.o \
+	mdp/mdp5/mdp5_plane.o \
+	mdp/mdp5/mdp5_smp.o \
 
 msm_drm-$(CONFIG_DRM_SDE_RSC) += sde_rsc.o \
 	sde_rsc_hw.o \
@@ -85,9 +88,9 @@ msm_drm-$(CONFIG_DRM_MSM_MDP4) += mdp/mdp4/mdp4_crtc.o \
 
 msm_drm-$(CONFIG_DRM_FBDEV_EMULATION) += msm_fbdev.o
 msm_drm-$(CONFIG_SYNC_FILE) += sde/sde_fence.o
-msm_drm-$(CONFIG_COMMON_CLK) += mdp/mdp4/mdp4_lvds_pll.o
-msm_drm-$(CONFIG_COMMON_CLK) += hdmi/hdmi_pll_8960.o
-msm_drm-$(CONFIG_COMMON_CLK) += hdmi/hdmi_phy_8996.o
+msm_drm-$(CONFIG_DRM_MSM_MDP4) += mdp/mdp4/mdp4_lvds_pll.o
+msm_drm-$(CONFIG_DRM_MSM_HDMI) += hdmi/hdmi_pll_8960.o
+msm_drm-$(CONFIG_DRM_MSM_HDMI) += hdmi/hdmi_phy_8996.o
 
 msm_drm-$(CONFIG_DRM_MSM_HDMI_HDCP) += hdmi/hdmi_hdcp.o
 
