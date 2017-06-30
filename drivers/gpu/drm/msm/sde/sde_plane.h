@@ -190,6 +190,12 @@ void sde_plane_get_ctl_flush(struct drm_plane *plane, struct sde_hw_ctl *ctl,
 bool sde_plane_is_sbuf_mode(struct drm_plane *plane, u32 *prefill);
 
 /**
+ * sde_plane_restore - restore hw state if previously power collapsed
+ * @plane: Pointer to drm plane structure
+ */
+void sde_plane_restore(struct drm_plane *plane);
+
+/**
  * sde_plane_flush - final plane operations before commit flush
  * @plane: Pointer to drm plane structure
  */
