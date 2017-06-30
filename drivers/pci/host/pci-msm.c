@@ -292,6 +292,7 @@
 
 #define PERST_PROPAGATION_DELAY_US_MIN	  1000
 #define PERST_PROPAGATION_DELAY_US_MAX	  1005
+#define SWITCH_DELAY_MAX	  20
 #define REFCLK_STABILIZATION_DELAY_US_MIN     1000
 #define REFCLK_STABILIZATION_DELAY_US_MAX     1005
 #define LINK_UP_TIMEOUT_US_MIN		    5000
@@ -626,6 +627,7 @@ struct msm_pcie_dev_t {
 	bool				 ext_ref_clk;
 	bool				common_phy;
 	uint32_t			   ep_latency;
+	uint32_t			switch_latency;
 	uint32_t			wr_halt_size;
 	uint32_t			cpl_timeout;
 	uint32_t			current_bdf;
@@ -1936,6 +1938,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->common_phy);
 	PCIE_DBG_FS(dev, "ep_latency: %dms\n",
 		dev->ep_latency);
+	PCIE_DBG_FS(dev, "switch_latency: %dms\n",
+		dev->switch_latency);
 	PCIE_DBG_FS(dev, "wr_halt_size: 0x%x\n",
 		dev->wr_halt_size);
 	PCIE_DBG_FS(dev, "cpl_timeout: 0x%x\n",
@@ -4548,6 +4552,16 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 		goto link_fail;
 	}
 
+	if (dev->switch_latency) {
+		PCIE_DBG(dev, "switch_latency: %dms\n",
+			dev->switch_latency);
+		if (dev->switch_latency <= SWITCH_DELAY_MAX)
+			usleep_range(dev->switch_latency * 1000,
+				dev->switch_latency * 1000);
+		else
+			msleep(dev->switch_latency);
+	}
+
 	msm_pcie_config_controller(dev);
 
 	if (!dev->msi_gicm_addr)
@@ -6043,6 +6057,20 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	else
 		PCIE_DBG(&msm_pcie_dev[rc_idx], "RC%d: ep-latency: 0x%x.\n",
 			rc_idx, msm_pcie_dev[rc_idx].ep_latency);
+
+	msm_pcie_dev[rc_idx].switch_latency = 0;
+	ret = of_property_read_u32((&pdev->dev)->of_node,
+					"qcom,switch-latency",
+					&msm_pcie_dev[rc_idx].switch_latency);
+
+	if (ret)
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+				"RC%d: switch-latency does not exist.\n",
+				rc_idx);
+	else
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+				"RC%d: switch-latency: 0x%x.\n",
+				rc_idx, msm_pcie_dev[rc_idx].switch_latency);
 
 	msm_pcie_dev[rc_idx].wr_halt_size = 0;
 	ret = of_property_read_u32(pdev->dev.of_node,
