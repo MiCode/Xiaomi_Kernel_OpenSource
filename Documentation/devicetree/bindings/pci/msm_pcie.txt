@@ -95,6 +95,9 @@ Optional Properties:
     and assign for each endpoint.
   - qcom,ep-latency: The time (unit: ms) to wait for the PCIe endpoint to become
     stable after power on, before de-assert the PERST to the endpoint.
+  - qcom,switch-latency: The time (unit: ms) to wait for the PCIe endpoint's link
+    training with switch downstream port after the link between switch upstream
+    port and RC is up.
   - qcom,wr-halt-size: With base 2, this exponent determines the size of the
     data that PCIe core will halt on for each write transaction.
   - qcom,slv-addr-space-size: The memory space size of PCIe Root Complex.
@@ -268,6 +271,7 @@ Example:
 		qcom,smmu-exist;
 		qcom,smmu-sid-base = <0x1480>;
 		qcom,ep-latency = <100>;
+		qcom,switch-latency = <100>;
 		qcom,wr-halt-size = <0xa>; /* 1KB */
 		qcom,slv-addr-space-size = <0x1000000>; /* 16MB */
 		qcom,cpl-timeout = <0x2>;
