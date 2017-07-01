@@ -243,6 +243,7 @@ struct clock_data {
 	int buffer_counter;
 	int load;
 	int load_low;
+	int load_norm;
 	int load_high;
 	int min_threshold;
 	int max_threshold;

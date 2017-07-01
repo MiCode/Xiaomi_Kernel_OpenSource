@@ -1339,6 +1339,7 @@ struct vidc_bus_vote_data {
 	int output_height, output_width;
 	int compression_ratio;
 	int complexity_factor;
+	bool use_dpb_read;
 	unsigned int lcu_size;
 	enum msm_vidc_power_mode power_mode;
 	enum hal_work_mode work_mode;

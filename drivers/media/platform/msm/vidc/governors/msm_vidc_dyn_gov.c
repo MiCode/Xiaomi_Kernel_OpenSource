@@ -387,12 +387,22 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 
 	integer_part = d->compression_ratio >> 16;
 	frac_part =
-		((d->compression_ratio - (integer_part * 65536)) * 100) >> 16;
+		((d->compression_ratio - (integer_part << 16)) * 100) >> 16;
 
 	dpb_read_compression_factor = FP(integer_part, frac_part, 100);
 
+	integer_part = d->complexity_factor >> 16;
+	frac_part =
+		((d->complexity_factor - (integer_part << 16)) * 100) >> 16;
+
+	motion_vector_complexity = FP(integer_part, frac_part, 100);
+
 	dpb_write_compression_factor = !dpb_compression_enabled ? FP_ONE :
 		__compression_ratio(__lut(width, height, fps), opb_bpp);
+
+	dpb_write_compression_factor = d->use_dpb_read ?
+		dpb_read_compression_factor :
+		dpb_write_compression_factor;
 
 	opb_compression_factor = !opb_compression_enabled ? FP_ONE :
 		__compression_ratio(__lut(width, height, fps), opb_bpp);
@@ -436,8 +446,6 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 	ddr.line_buffer_read = FP_INT(tnbr_per_lcu *
 			lcu_per_frame * fps / bps(1));
 	ddr.line_buffer_write = ddr.line_buffer_read;
-
-	motion_vector_complexity = FP_INT(4);
 
 	bw_for_1x_8bpc = fp_div(FP_INT(width * height), FP_INT(32 * 8));
 
