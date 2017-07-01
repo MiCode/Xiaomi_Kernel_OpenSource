@@ -35,25 +35,6 @@ struct wcd_spi_msg {
 	u32 flags;
 };
 
-#ifdef CONFIG_SND_SOC_WCD_SPI
-
-int wcd_spi_data_write(struct spi_device *spi, struct wcd_spi_msg *msg);
-int wcd_spi_data_read(struct spi_device *spi, struct wcd_spi_msg *msg);
-
-#else
-
-int wcd_spi_data_write(struct spi_device *spi, struct wcd_spi_msg *msg)
-{
-	return -ENODEV;
-}
-
-int wcd_spi_data_read(struct spi_device *spi, struct wcd_spi_msg *msg)
-{
-	return -ENODEV;
-}
-
-#endif /* End of CONFIG_SND_SOC_WCD_SPI */
-
 struct wcd_spi_ops {
 	struct spi_device *spi_dev;
 	int (*read_dev)(struct spi_device *spi, struct wcd_spi_msg *msg);
