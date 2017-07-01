@@ -9,17 +9,21 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include <linux/pm_runtime.h>
-#include <linux/dma-mapping.h>
+#include <asm/dma-iommu.h>
 #include <linux/delay.h>
+#include <linux/dma-mapping.h>
+#include <linux/gcd.h>
+#include <linux/msm-sps.h>
+#include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/slab.h>
 #include <linux/slimbus/slimbus.h>
-#include <linux/msm-sps.h>
-#include <linux/gcd.h>
 #include "slim-msm.h"
 
 /* Pipe Number Offset Mask */
 #define P_OFF_MASK 0x3FC
+#define MSM_SLIM_VA_START	(0x40000000)
+#define MSM_SLIM_VA_SIZE	(0xC0000000)
 
 int msm_slim_rx_enqueue(struct msm_slim_ctrl *dev, u32 *buf, u8 len)
 {
@@ -164,17 +168,61 @@ void msm_slim_free_endpoint(struct msm_slim_endp *ep)
 	ep->sps = NULL;
 }
 
+static int msm_slim_iommu_attach(struct msm_slim_ctrl *ctrl_dev)
+{
+	struct dma_iommu_mapping *iommu_map;
+	dma_addr_t va_start = MSM_SLIM_VA_START;
+	size_t va_size = MSM_SLIM_VA_SIZE;
+	int bypass = 1;
+	struct device *dev;
+
+	if (unlikely(!ctrl_dev))
+		return -EINVAL;
+
+	if (!ctrl_dev->iommu_desc.cb_dev)
+		return 0;
+
+	dev = ctrl_dev->iommu_desc.cb_dev;
+	iommu_map = arm_iommu_create_mapping(&platform_bus_type,
+						va_start, va_size);
+	if (IS_ERR(iommu_map)) {
+		dev_err(dev, "%s iommu_create_mapping failure\n", __func__);
+		return PTR_ERR(iommu_map);
+	}
+
+	if (ctrl_dev->iommu_desc.s1_bypass) {
+		if (iommu_domain_set_attr(iommu_map->domain,
+					DOMAIN_ATTR_S1_BYPASS, &bypass)) {
+			dev_err(dev, "%s Can't bypass s1 translation\n",
+				__func__);
+			arm_iommu_release_mapping(iommu_map);
+			return -EIO;
+		}
+	}
+
+	if (arm_iommu_attach_device(dev, iommu_map)) {
+		dev_err(dev, "%s can't arm_iommu_attach_device\n", __func__);
+		arm_iommu_release_mapping(iommu_map);
+		return -EIO;
+	}
+	ctrl_dev->iommu_desc.iommu_map = iommu_map;
+	SLIM_INFO(ctrl_dev, "NGD IOMMU Attach complete\n");
+	return 0;
+}
+
 int msm_slim_sps_mem_alloc(
 		struct msm_slim_ctrl *dev, struct sps_mem_buffer *mem, u32 len)
 {
 	dma_addr_t phys;
+	struct device *dma_dev = dev->iommu_desc.cb_dev ?
+					dev->iommu_desc.cb_dev : dev->dev;
 
 	mem->size = len;
 	mem->min_size = 0;
-	mem->base = dma_alloc_coherent(dev->dev, mem->size, &phys, GFP_KERNEL);
+	mem->base = dma_alloc_coherent(dma_dev, mem->size, &phys, GFP_KERNEL);
 
 	if (!mem->base) {
-		dev_err(dev->dev, "dma_alloc_coherent(%d) failed\n", len);
+		dev_err(dma_dev, "dma_alloc_coherent(%d) failed\n", len);
 		return -ENOMEM;
 	}
 
@@ -387,6 +435,10 @@ int msm_alloc_port(struct slim_controller *ctrl, u8 pn)
 	if (pn >= dev->port_nums)
 		return -ENODEV;
 
+	ret = msm_slim_iommu_attach(dev);
+	if (ret)
+		return ret;
+
 	endpoint = &dev->pipes[pn];
 	ret = msm_slim_init_endpoint(dev, endpoint);
 	dev_dbg(dev->dev, "sps register bam error code:%x\n", ret);
@@ -435,9 +487,37 @@ enum slim_port_err msm_slim_port_xfer_status(struct slim_controller *ctr,
 	return SLIM_P_INPROGRESS;
 }
 
+static int msm_slim_iommu_map(struct msm_slim_ctrl *dev, phys_addr_t iobuf,
+			      u32 len)
+{
+	int ret;
+
+	if (!dev->iommu_desc.cb_dev)
+		return 0;
+
+	ret = iommu_map(dev->iommu_desc.iommu_map->domain,
+			rounddown(iobuf, PAGE_SIZE),
+			rounddown(iobuf, PAGE_SIZE),
+			roundup((len + (iobuf - rounddown(iobuf, PAGE_SIZE))),
+				PAGE_SIZE), IOMMU_READ | IOMMU_WRITE);
+	return ret;
+}
+
+static void msm_slim_iommu_unmap(struct msm_slim_ctrl *dev, phys_addr_t iobuf,
+				u32 len)
+{
+	if (!dev->iommu_desc.cb_dev)
+		return;
+
+	iommu_unmap(dev->iommu_desc.iommu_map->domain,
+		    rounddown(iobuf, PAGE_SIZE),
+		    roundup((len + (iobuf - rounddown(iobuf, PAGE_SIZE))),
+			    PAGE_SIZE));
+}
+
 static void msm_slim_port_cb(struct sps_event_notify *ev)
 {
-
+	struct msm_slim_ctrl *dev = ev->user;
 	struct completion *comp = ev->data.transfer.user;
 	struct sps_iovec *iovec = &ev->data.transfer.iovec;
 
@@ -450,6 +530,8 @@ static void msm_slim_port_cb(struct sps_event_notify *ev)
 		pr_err("%s: ERR event %d\n",
 					__func__, ev->event_id);
 	}
+	if (dev)
+		msm_slim_iommu_unmap(dev, iovec->addr, iovec->size);
 	if (comp)
 		complete(comp);
 }
@@ -467,14 +549,19 @@ int msm_slim_port_xfer(struct slim_controller *ctrl, u8 pn, phys_addr_t iobuf,
 	if (!dev->pipes[pn].connected)
 		return -ENOTCONN;
 
+	ret = msm_slim_iommu_map(dev, iobuf, len);
+	if (ret)
+		return ret;
+
 	sreg.options = (SPS_EVENT_DESC_DONE|SPS_EVENT_ERROR);
 	sreg.mode = SPS_TRIGGER_WAIT;
 	sreg.xfer_done = NULL;
 	sreg.callback = msm_slim_port_cb;
-	sreg.user = NULL;
+	sreg.user = dev;
 	ret = sps_register_event(dev->pipes[pn].sps, &sreg);
 	if (ret) {
 		dev_dbg(dev->dev, "sps register event error:%x\n", ret);
+		msm_slim_iommu_unmap(dev, iobuf, len);
 		return ret;
 	}
 	ret = sps_transfer_one(dev->pipes[pn].sps, iobuf, len, comp,
@@ -490,6 +577,8 @@ int msm_slim_port_xfer(struct slim_controller *ctrl, u8 pn, phys_addr_t iobuf,
 				PGD_THIS_EE(PGD_PORT_INT_EN_EEn, dev->ver));
 		/* Make sure that port registers are updated before returning */
 		mb();
+	} else {
+		msm_slim_iommu_unmap(dev, iobuf, len);
 	}
 
 	return ret;
@@ -1102,6 +1191,12 @@ init_pipes:
 	}
 
 init_msgq:
+	ret = msm_slim_iommu_attach(dev);
+	if (ret) {
+		sps_deregister_bam_device(bam_handle);
+		return ret;
+	}
+
 	ret = msm_slim_init_rx_msgq(dev, pipe_reg);
 	if (ret)
 		dev_err(dev->dev, "msm_slim_init_rx_msgq failed 0x%x\n", ret);

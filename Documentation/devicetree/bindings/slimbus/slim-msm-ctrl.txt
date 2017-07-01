@@ -65,6 +65,17 @@ Optional property:
 		 and follow appropriate steps to ensure communication on the bus
 		 can be resumed after subsytem restart. By default slimbus driver
 		 register with ADSP subsystem.
+ - qcom,iommu-s1-bypass: Boolean flag to bypass IOMMU stage 1 translation.
+
+Optional subnodes:
+qcom,iommu_slim_ctrl_cb : Child node representing the Slimbus controller
+                          context bank.
+
+Subnode Required properties:
+- compatible : Must be "qcom,slim-ctrl-cb";
+- iommus : A list of phandle and IOMMU specifier pairs that
+           describe the IOMMU master interfaces of the device.
+
 Example:
 	slim@fe12f000 {
 		cell-index = <1>;
@@ -78,4 +89,9 @@ Example:
 		qcom,rxreg-access;
 		qcom,apps-ch-pipes = <0x60000000>;
 		qcom,ea-pc = <0x30>;
+
+		iommu_slim_ctrl_cb: qcom,iommu_slim_ctrl_cb {
+			compatible = "qcom,iommu-slim-ctrl-cb";
+			iommus = <&apps_smmu 0x1 0x0>;
+		};
 	};
