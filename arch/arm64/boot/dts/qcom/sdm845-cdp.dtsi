@@ -37,10 +37,6 @@
 };
 
 &soc {
-	sound-tavil {
-		qcom,us-euro-gpios = <&tavil_us_euro_sw>;
-	};
-
 	gpio_keys {
 		compatible = "gpio-keys";
 		label = "gpio-keys";
