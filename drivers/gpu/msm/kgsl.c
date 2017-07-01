@@ -569,8 +569,10 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 	context->tid = task_pid_nr(current);
 
 	ret = kgsl_sync_timeline_create(context);
-	if (ret)
+	if (ret) {
+		kgsl_process_private_put(dev_priv->process_priv);
 		goto out;
+	}
 
 	snprintf(name, sizeof(name), "context-%d", id);
 	kgsl_add_event_group(&context->events, context, name,
