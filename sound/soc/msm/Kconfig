@@ -195,6 +195,9 @@ config SND_SOC_MSM8996
 config SND_SOC_MACHINE_MSM8998
 	tristate "SoC Machine driver for MSM8998 boards"
 	select SND_SOC_WSA881X
+	select SND_SOC_WCD9335
+	select SND_SOC_WCD934X
+	select SND_SOC_CPE
 
 	help
 	To enable the machine driver and the
@@ -215,12 +218,9 @@ config SND_SOC_MSM8998
 	select MSM_QDSP6_PDR
 	select MSM_QDSP6_NOTIFIER
 	select MSM_QDSP6V2_CODECS
-	select SND_SOC_WCD9335
-	select SND_SOC_WCD934X
 	select SND_SOC_MSM_HDMI_CODEC_RX
 	select DTS_SRS_TM
 	select QTI_PP
-	select SND_SOC_CPE
 	select MSM_ULTRASOUND
 	select DOLBY_LICENSE
 	select SND_HWDEP
@@ -247,6 +247,7 @@ config SND_SOC_660
 config SND_SOC_MACHINE_SDM845
 	tristate "SoC Machine driver for SDM845 boards"
 	select SND_SOC_WSA881X
+	select SND_SOC_WCD934X
 
 	help
 	To enable the machine driver and the
@@ -267,7 +268,6 @@ config SND_SOC_SDM845
 	select MSM_QDSP6_PDR
 	select MSM_QDSP6_NOTIFIER
 	select MSM_QDSP6V2_CODECS
-	select SND_SOC_WCD934X
 	select DTS_SRS_TM
 	select QTI_PP
 	select MSM_ULTRASOUND

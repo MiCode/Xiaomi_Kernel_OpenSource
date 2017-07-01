@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,7 +43,7 @@ struct tavil_dsd_config {
 	int version;
 };
 
-#ifdef CONFIG_SND_SOC_WCD934X_DSD
+#if IS_ENABLED(CONFIG_SND_SOC_WCD934X_DSD)
 int tavil_dsd_set_mixer_value(struct tavil_dsd_config *dsd_conf,
 			      int interp_num, int sw_value);
 int tavil_dsd_get_current_mixer_value(struct tavil_dsd_config *dsd_conf,

@@ -24,7 +24,7 @@ enum wcd_mbhc_adc_mux_ctl {
 	MUX_CTL_NONE,
 };
 
-#ifdef CONFIG_SND_SOC_WCD_MBHC_ADC
+#if IS_ENABLED(CONFIG_SND_SOC_WCD_MBHC_ADC)
 void wcd_mbhc_adc_init(struct wcd_mbhc *mbhc);
 #else
 static inline void wcd_mbhc_adc_init(struct wcd_mbhc *mbhc)

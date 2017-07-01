@@ -23,6 +23,7 @@
 #include <linux/of_gpio.h>
 #include <dt-bindings/clock/qcom,audio-ext-clk.h>
 #include <sound/q6afe-v2.h>
+#include "audio-ext-clk-up.h"
 
 enum audio_clk_mux {
 	AP_CLK2,
@@ -611,17 +612,15 @@ static struct platform_driver audio_ref_clk_driver = {
 	.remove = audio_ref_clk_remove,
 };
 
-static int __init audio_ref_clk_platform_init(void)
+int audio_ref_clk_platform_init(void)
 {
 	return platform_driver_register(&audio_ref_clk_driver);
 }
-module_init(audio_ref_clk_platform_init);
 
-static void __exit audio_ref_clk_platform_exit(void)
+void audio_ref_clk_platform_exit(void)
 {
 	platform_driver_unregister(&audio_ref_clk_driver);
 }
-module_exit(audio_ref_clk_platform_exit);
 
 MODULE_DESCRIPTION("Audio Ref Up Clock module platform driver");
 MODULE_LICENSE("GPL v2");

@@ -648,6 +648,7 @@ void *wcd_cpe_get_core_handle(
 done:
 	return core;
 }
+EXPORT_SYMBOL(wcd_cpe_get_core_handle);
 
 /*
  * svass_engine_irq: threaded interrupt handler for svass engine irq

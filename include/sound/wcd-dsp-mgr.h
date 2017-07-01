@@ -15,6 +15,7 @@
 #define __WCD_DSP_MGR_H__
 
 #include <linux/types.h>
+#include <linux/device.h>
 
 /*
  * These enums correspond to the component types
@@ -140,4 +141,6 @@ struct wdsp_mgr_ops {
 	int (*resume)(struct device *wdsp_dev);
 };
 
+int wcd_dsp_mgr_init(void);
+void wcd_dsp_mgr_exit(void);
 #endif /* end of __WCD_DSP_MGR_H__ */
