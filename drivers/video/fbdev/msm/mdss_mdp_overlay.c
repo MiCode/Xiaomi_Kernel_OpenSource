@@ -2318,6 +2318,31 @@ set_roi:
 }
 
 /*
+ * For the pipe which is being used for Secure Display,
+ * cleanup the previously queued buffers.
+ */
+static void __overlay_cleanup_secure_pipe(struct msm_fb_data_type *mfd)
+{
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_mdp_pipe *pipe;
+	struct mdss_mdp_data *buf, *tmpbuf;
+
+	list_for_each_entry(pipe, &mdp5_data->pipes_used, list) {
+		if (pipe->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION) {
+			list_for_each_entry_safe(buf, tmpbuf, &pipe->buf_queue,
+							pipe_list) {
+				if (buf->state == MDP_BUF_STATE_ACTIVE) {
+					__pipe_buf_mark_cleanup(mfd, buf);
+					list_move(&buf->buf_list,
+						&mdp5_data->bufs_freelist);
+					mdss_mdp_overlay_buf_free(mfd, buf);
+				}
+			}
+		}
+	}
+}
+
+/*
  * Check if there is any change in secure state and store it.
  */
 static void __overlay_set_secure_transition_state(struct msm_fb_data_type *mfd)
@@ -2393,9 +2418,19 @@ static int __overlay_secure_ctrl(struct msm_fb_data_type *mfd)
 	if (mdp5_data->secure_transition_state == SD_NON_SECURE_TO_SECURE) {
 		if (!mdss_get_sd_client_cnt()) {
 			MDSS_XLOG(0x11);
-			/*wait for ping pong done */
-			if (ctl->ops.wait_pingpong)
+			/* wait for ping pong done */
+			if (ctl->ops.wait_pingpong) {
 				mdss_mdp_display_wait4pingpong(ctl, true);
+
+				/*
+				 * For command mode panels, there will not be
+				 * a NULL commit preceding secure display. If
+				 * a pipe is reused for secure display,
+				 * cleanup buffers in the secure pipe before
+				 * detaching IOMMU.
+				 */
+				__overlay_cleanup_secure_pipe(mfd);
+			}
 			/*
 			 * unmap the previous commit buffers before
 			 * transitioning to secure state
