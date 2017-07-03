@@ -81,7 +81,15 @@ int mmc_gpio_get_cd(struct mmc_host *host)
 {
 	struct mmc_gpio *ctx = host->slot.handler_priv;
 	int cansleep;
+	int ret;
 
+	if (host->extcon) {
+		ret =  extcon_get_state(host->extcon, EXTCON_MECHANICAL);
+		if (ret < 0)
+			dev_err(mmc_dev(host), "%s: Extcon failed to check card state, ret=%d\n",
+					__func__, ret);
+		return ret;
+	}
 	if (!ctx || !ctx->cd_gpio)
 		return -ENOSYS;
 
