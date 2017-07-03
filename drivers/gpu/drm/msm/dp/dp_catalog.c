@@ -471,6 +471,8 @@ static void dp_catalog_ctrl_config_ctrl(struct dp_catalog_ctrl *ctrl, u32 cfg)
 	dp_catalog_get_priv(ctrl);
 	base = catalog->io->ctrl_io.base;
 
+	pr_debug("DP_CONFIGURATION_CTRL=0x%x\n", cfg);
+
 	dp_write(base + DP_CONFIGURATION_CTRL, cfg);
 	dp_write(base + DP_MAINLINK_LEVELS, 0xa08);
 	dp_write(base + MMSS_DP_ASYNC_FIFO_CONFIG, 0x1);
@@ -507,10 +509,7 @@ static void dp_catalog_ctrl_mainlink_ctrl(struct dp_catalog_ctrl *ctrl,
 	dp_catalog_get_priv(ctrl);
 	base = catalog->io->ctrl_io.base;
 
-	mainlink_ctrl = dp_read(base + DP_MAINLINK_CTRL);
-
 	if (enable) {
-		mainlink_ctrl |= BIT(0);
 		dp_write(base + DP_MAINLINK_CTRL, 0x02000000);
 		wmb(); /* make sure mainlink is turned off before reset */
 		dp_write(base + DP_MAINLINK_CTRL, 0x02000002);
@@ -520,8 +519,9 @@ static void dp_catalog_ctrl_mainlink_ctrl(struct dp_catalog_ctrl *ctrl,
 		dp_write(base + DP_MAINLINK_CTRL, 0x02000001);
 		wmb(); /* make sure mainlink turned on */
 	} else {
+		mainlink_ctrl = dp_read(base + DP_MAINLINK_CTRL);
 		mainlink_ctrl &= ~BIT(0);
-		dp_write(base + DP_MAINLINK_CTRL, 0x0);
+		dp_write(base + DP_MAINLINK_CTRL, mainlink_ctrl);
 	}
 }
 
@@ -543,7 +543,7 @@ static void dp_catalog_ctrl_config_misc(struct dp_catalog_ctrl *ctrl,
 	misc_val |= (tb << 5);
 	misc_val |= BIT(0); /* Configure clock to synchronous mode */
 
-	pr_debug("isc settings = 0x%x\n", misc_val);
+	pr_debug("misc settings = 0x%x\n", misc_val);
 	dp_write(base + DP_MISC1_MISC0, misc_val);
 }
 
@@ -572,6 +572,8 @@ static void dp_catalog_ctrl_config_msa(struct dp_catalog_ctrl *ctrl,
 	mvid = (pixel_m & 0xFFFF) * 5;
 	nvid = (0xFFFF & (~pixel_n)) + (pixel_m & 0xFFFF);
 
+	pr_debug("rate = %d\n", rate);
+
 	if (link_rate == rate)
 		nvid *= 2;
 
@@ -598,7 +600,7 @@ static void dp_catalog_ctrl_set_pattern(struct dp_catalog_ctrl *ctrl,
 
 	bit = 1;
 	bit <<= (pattern - 1);
-	pr_debug("bit=%d train=%d\n", bit, pattern);
+	pr_debug("hw: bit=%d train=%d\n", bit, pattern);
 	dp_write(base + DP_STATE_CTRL, bit);
 
 	bit = 8;
@@ -797,7 +799,7 @@ static void dp_catalog_ctrl_update_vx_px(struct dp_catalog_ctrl *ctrl,
 	base0 = catalog->io->ln_tx0_io.base;
 	base1 = catalog->io->ln_tx1_io.base;
 
-	pr_debug("v=%d p=%d\n", v_level, p_level);
+	pr_debug("hw: v=%d p=%d\n", v_level, p_level);
 
 	value0 = vm_voltage_swing[v_level][p_level];
 	value1 = vm_pre_emphasis[v_level][p_level];
@@ -819,8 +821,11 @@ static void dp_catalog_ctrl_update_vx_px(struct dp_catalog_ctrl *ctrl,
 		dp_write(base0 + TXn_TX_EMP_POST1_LVL, value1);
 		dp_write(base1 + TXn_TX_EMP_POST1_LVL, value1);
 
-		pr_debug("host PHY settings: value0=0x%x value1=0x%x",
-						value0, value1);
+		pr_debug("hw: vx_value=0x%x px_value=0x%x\n",
+			value0, value1);
+	} else {
+		pr_err("invalid vx (0x%x=0x%x), px (0x%x=0x%x\n",
+			v_level, value0, p_level, value1);
 	}
 }
 

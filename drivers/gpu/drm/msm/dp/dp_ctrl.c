@@ -133,6 +133,10 @@ static void dp_ctrl_config_ctrl(struct dp_ctrl_private *ctrl)
 
 	tbd = ctrl->link->get_test_bits_depth(ctrl->link,
 			ctrl->panel->pinfo.bpp);
+
+	if (tbd == DP_TEST_BIT_DEPTH_UNKNOWN)
+		tbd = DP_TEST_BIT_DEPTH_8;
+
 	config |= tbd << 8;
 
 	/* Num of Lanes */
@@ -732,22 +736,18 @@ static int dp_ctrl_update_sink_vx_px(struct dp_ctrl_private *ctrl,
 		max_level_reached  |= BIT(5);
 	}
 
-	pr_debug("max_level_reached = 0x%x\n", max_level_reached);
-
 	pre_emphasis_level <<= 3;
 
 	for (i = 0; i < 4; i++)
 		buf[i] = voltage_level | pre_emphasis_level | max_level_reached;
 
-	pr_debug("p|v=0x%x\n", voltage_level | pre_emphasis_level);
+	pr_debug("sink: p|v=0x%x\n", voltage_level | pre_emphasis_level);
 	return drm_dp_dpcd_write(ctrl->aux->drm_aux, 0x103, buf, 4);
 }
 
 static void dp_ctrl_update_vx_px(struct dp_ctrl_private *ctrl)
 {
 	struct dp_link *link = ctrl->link;
-
-	pr_debug("v=%d p=%d\n", link->v_level, link->p_level);
 
 	ctrl->catalog->update_vx_px(ctrl->catalog,
 			link->v_level, link->p_level);
@@ -760,7 +760,7 @@ static void dp_ctrl_train_pattern_set(struct dp_ctrl_private *ctrl,
 {
 	u8 buf[4];
 
-	pr_debug("pattern=%x\n", pattern);
+	pr_debug("sink: pattern=%x\n", pattern);
 
 	buf[0] = pattern;
 	drm_dp_dpcd_write(ctrl->aux->drm_aux, DP_TRAINING_PATTERN_SET, buf, 1);
@@ -789,7 +789,7 @@ static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 		len = drm_dp_dpcd_read_link_status(ctrl->aux->drm_aux,
 			link_status);
 		if (len < DP_LINK_STATUS_SIZE) {
-			pr_err("[%s]: DP link status read failed\n", __func__);
+			pr_err("DP link status read failed\n");
 			ret = -1;
 			break;
 		}
@@ -801,20 +801,24 @@ static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 		}
 
 		if (ctrl->link->v_level == DP_LINK_VOLTAGE_MAX) {
+			pr_err_ratelimited("max v_level reached\n");
 			ret = -1;
-			break;	/* quit */
+			break;
 		}
 
 		if (old_v_level == ctrl->link->v_level) {
 			tries++;
 			if (tries >= maximum_retries) {
+				pr_err("max tries reached\n");
 				ret = -1;
-				break;	/* quit */
+				break;
 			}
 		} else {
 			tries = 0;
 			old_v_level = ctrl->link->v_level;
 		}
+
+		pr_debug("clock recovery not done, adjusting vx px\n");
 
 		ctrl->link->adjust_levels(ctrl->link, link_status);
 		dp_ctrl_update_vx_px(ctrl);
@@ -879,7 +883,7 @@ static int dp_ctrl_link_training_2(struct dp_ctrl_private *ctrl)
 		len = drm_dp_dpcd_read_link_status(ctrl->aux->drm_aux,
 			link_status);
 		if (len < DP_LINK_STATUS_SIZE) {
-			pr_err("[%s]: DP link status read failed\n", __func__);
+			pr_err("DP link status read failed\n");
 			ret = -1;
 			break;
 		}
@@ -932,7 +936,8 @@ static int dp_ctrl_link_train(struct dp_ctrl_private *ctrl)
 		goto clear;
 	}
 
-	pr_debug("Training 1 completed successfully\n");
+	/* print success info as this is a result of user initiated action */
+	pr_info("Training 1 completed\n");
 
 	dp_ctrl_state_ctrl(ctrl, 0);
 
@@ -953,7 +958,8 @@ static int dp_ctrl_link_train(struct dp_ctrl_private *ctrl)
 		goto clear;
 	}
 
-	pr_debug("Training 2 completed successfully\n");
+	/* print success info as this is a result of user initiated action */
+	pr_info("Training 2 completed\n");
 
 	dp_ctrl_state_ctrl(ctrl, 0);
 	/* Make sure to clear the current pattern before starting a new one */

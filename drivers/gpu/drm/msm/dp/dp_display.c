@@ -12,7 +12,7 @@
  *
  */
 
-#define pr_fmt(fmt)	"[drm-dp]: %s: " fmt, __func__
+#define pr_fmt(fmt)	"[drm-dp] %s: " fmt, __func__
 
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -45,7 +45,7 @@ struct dp_display_private {
 
 	struct platform_device *pdev;
 	struct dentry *root;
-	struct mutex lock;
+	struct completion notification_comp;
 
 	struct dp_usbpd   *usbpd;
 	struct dp_parser  *parser;
@@ -171,7 +171,7 @@ static int dp_display_bind(struct device *dev, struct device *master,
 		pr_err("invalid param(s), dev %pK, pdev %pK, master %pK\n",
 				dev, pdev, master);
 		rc = -EINVAL;
-		goto error;
+		goto end;
 	}
 
 	drm = dev_get_drvdata(master);
@@ -180,13 +180,11 @@ static int dp_display_bind(struct device *dev, struct device *master,
 		pr_err("invalid param(s), drm %pK, dp %pK\n",
 				drm, dp);
 		rc = -EINVAL;
-		goto error;
+		goto end;
 	}
 
 	dp->dp_display.drm_dev = drm;
 	priv = drm->dev_private;
-
-	mutex_lock(&dp->lock);
 
 	rc = dp_display_debugfs_init(dp);
 	if (rc) {
@@ -218,8 +216,6 @@ static int dp_display_bind(struct device *dev, struct device *master,
 		goto end;
 	}
 end:
-	mutex_unlock(&dp->lock);
-error:
 	return rc;
 }
 
@@ -240,17 +236,10 @@ static void dp_display_unbind(struct device *dev, struct device *master,
 		return;
 	}
 
-	mutex_lock(&dp->lock);
-
 	(void)dp->power->power_client_deinit(dp->power);
-
-	(void) dp->panel->sde_edid_deregister(dp->panel);
-
-	(void) dp->aux->drm_aux_deregister(dp->aux);
-
+	(void)dp->panel->sde_edid_deregister(dp->panel);
+	(void)dp->aux->drm_aux_deregister(dp->aux);
 	(void)dp_display_debugfs_deinit(dp);
-
-	mutex_unlock(&dp->lock);
 }
 
 static const struct component_ops dp_display_comp_ops = {
@@ -276,7 +265,12 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 		dp->parser->max_pclk_khz);
 
 	dp->dp_display.is_connected = true;
+
 	drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
+
+	reinit_completion(&dp->notification_comp);
+	if (!wait_for_completion_timeout(&dp->notification_comp, HZ * 2))
+		pr_warn("timeout\n");
 
 	return rc;
 }
@@ -318,6 +312,10 @@ static void dp_display_process_hpd_low(struct dp_display_private *dp)
 {
 	dp->dp_display.is_connected = false;
 	drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
+
+	reinit_completion(&dp->notification_comp);
+	if (!wait_for_completion_timeout(&dp->notification_comp, HZ * 2))
+		pr_warn("timeout\n");
 }
 
 static int dp_display_usbpd_configure_cb(struct device *dev)
@@ -338,11 +336,10 @@ static int dp_display_usbpd_configure_cb(struct device *dev)
 		goto end;
 	}
 
-	mutex_lock(&dp->lock);
 	dp_display_host_init(dp);
+
 	if (dp->usbpd->hpd_high)
 		dp_display_process_hpd_high(dp);
-	mutex_unlock(&dp->lock);
 end:
 	return rc;
 }
@@ -365,10 +362,12 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 		goto end;
 	}
 
-	mutex_lock(&dp->lock);
-
 	dp->dp_display.is_connected = false;
 	drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
+
+	reinit_completion(&dp->notification_comp);
+	if (!wait_for_completion_timeout(&dp->notification_comp, HZ * 2))
+		pr_warn("timeout\n");
 
 	/*
 	 * If a cable/dongle is connected to the TX device but
@@ -381,8 +380,6 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 	 */
 	if (!dp->power_on && dp->core_initialized)
 		dp_display_host_deinit(dp);
-
-	mutex_unlock(&dp->lock);
 end:
 	return rc;
 }
@@ -403,8 +400,6 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 		return -ENODEV;
 	}
 
-	mutex_lock(&dp->lock);
-
 	if (dp->usbpd->hpd_irq) {
 		dp->hpd_irq_on = true;
 		rc = dp->link->process_request(dp->link);
@@ -423,7 +418,6 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 		dp_display_process_hpd_high(dp);
 	}
 end:
-	mutex_unlock(&dp->lock);
 	return rc;
 }
 
@@ -543,18 +537,29 @@ static int dp_display_enable(struct dp_display *dp_display)
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
-	mutex_lock(&dp->lock);
 	rc = dp->ctrl->on(dp->ctrl, dp->hpd_irq_on);
 	if (!rc)
 		dp->power_on = true;
-	mutex_unlock(&dp->lock);
 error:
 	return rc;
 }
 
-static int dp_display_post_enable(struct dp_display *dp)
+static int dp_display_post_enable(struct dp_display *dp_display)
 {
-	return 0;
+	int rc = 0;
+	struct dp_display_private *dp;
+
+	if (!dp_display) {
+		pr_err("invalid input\n");
+		rc = -EINVAL;
+		goto end;
+	}
+
+	dp = container_of(dp_display, struct dp_display_private, dp_display);
+
+	complete_all(&dp->notification_comp);
+end:
+	return rc;
 }
 
 static int dp_display_pre_disable(struct dp_display *dp_display)
@@ -570,9 +575,7 @@ static int dp_display_pre_disable(struct dp_display *dp_display)
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
-	mutex_lock(&dp->lock);
 	dp->ctrl->push_idle(dp->ctrl);
-	mutex_unlock(&dp->lock);
 error:
 	return rc;
 }
@@ -590,11 +593,12 @@ static int dp_display_disable(struct dp_display *dp_display)
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
-	mutex_lock(&dp->lock);
 	dp->ctrl->off(dp->ctrl, dp->hpd_irq_on);
 	dp_display_host_deinit(dp);
+
 	dp->power_on = false;
-	mutex_unlock(&dp->lock);
+
+	complete_all(&dp->notification_comp);
 error:
 	return rc;
 }
@@ -668,7 +672,8 @@ static int dp_display_probe(struct platform_device *pdev)
 	if (!dp)
 		return -ENOMEM;
 
-	mutex_init(&dp->lock);
+	init_completion(&dp->notification_comp);
+
 	dp->pdev = pdev;
 	dp->name = "drm_dp";
 

@@ -16,6 +16,8 @@
 
 #include "dp_panel.h"
 
+#define DP_PANEL_DEFAULT_BPP 24
+
 enum {
 	DP_LINK_RATE_MULTIPLIER = 27000000,
 };
@@ -25,6 +27,7 @@ struct dp_panel_private {
 	struct dp_panel dp_panel;
 	struct dp_aux *aux;
 	struct dp_catalog_panel *catalog;
+	bool lane_switch_supported;
 };
 
 static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
@@ -62,8 +65,12 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 		drm_dp_bw_code_to_link_rate(dp_panel->dpcd[DP_MAX_LINK_RATE]);
 	pr_debug("link_rate=%d\n", link_info->rate);
 
-	link_info->num_lanes = dp_panel->dpcd[DP_MAX_LANE_COUNT] &
+	if (panel->lane_switch_supported)
+		link_info->num_lanes = dp_panel->dpcd[DP_MAX_LANE_COUNT] &
 			DP_MAX_LANE_COUNT_MASK;
+	else
+		link_info->num_lanes = 2;
+
 	pr_debug("lane_count=%d\n", link_info->num_lanes);
 
 	if (dp_panel->dpcd[DP_MAX_LANE_COUNT] & DP_ENHANCED_FRAME_CAP)
@@ -75,21 +82,21 @@ end:
 
 static u32 dp_panel_get_max_pclk(struct dp_panel *dp_panel)
 {
-	struct dp_panel_private *panel;
 	struct drm_dp_link *link_info;
-	u32 bpc, bpp, max_data_rate_khz, max_pclk_rate_khz;
 	const u8 num_components = 3;
+	u32 bpc, bpp, max_data_rate_khz, max_pclk_rate_khz;
 
 	if (!dp_panel) {
 		pr_err("invalid input\n");
 		return 0;
 	}
 
-	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
 	link_info = &dp_panel->link_info;
 
 	bpc = sde_get_sink_bpc(dp_panel->edid_ctrl);
 	bpp = bpc * num_components;
+	if (!bpp)
+		bpp = DP_PANEL_DEFAULT_BPP;
 
 	max_data_rate_khz = (link_info->num_lanes * link_info->rate * 8);
 	max_pclk_rate_khz = max_data_rate_khz / bpp;
@@ -197,7 +204,7 @@ static void dp_panel_edid_deregister(struct dp_panel *dp_panel)
 static int dp_panel_init_panel_info(struct dp_panel *dp_panel)
 {
 	int rc = 0;
-	struct dp_panel_private *panel;
+	struct dp_panel_info *pinfo;
 
 	if (!dp_panel) {
 		pr_err("invalid input\n");
@@ -205,7 +212,30 @@ static int dp_panel_init_panel_info(struct dp_panel *dp_panel)
 		goto end;
 	}
 
-	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+	pinfo = &dp_panel->pinfo;
+
+	/*
+	 * print resolution info as this is a result
+	 * of user initiated action of cable connection
+	 */
+	pr_info("SET NEW RESOLUTION:\n");
+	pr_info("%dx%d@%dfps\n", pinfo->h_active,
+		pinfo->v_active, pinfo->refresh_rate);
+	pr_info("h_porches(back|front|width) = (%d|%d|%d)\n",
+			pinfo->h_back_porch,
+			pinfo->h_front_porch,
+			pinfo->h_sync_width);
+	pr_info("v_porches(back|front|width) = (%d|%d|%d)\n",
+			pinfo->v_back_porch,
+			pinfo->v_front_porch,
+			pinfo->v_sync_width);
+	pr_info("pixel clock (KHz)=(%d)\n", pinfo->pixel_clk_khz);
+	pr_info("bpp = %d\n", pinfo->bpp);
+	pr_info("active low (h|v)=(%d|%d)\n", pinfo->h_active_low,
+		pinfo->v_active_low);
+
+	pinfo->bpp = max_t(u32, 18, min_t(u32, pinfo->bpp, 30));
+	pr_info("updated bpp = %d\n", pinfo->bpp);
 end:
 	return rc;
 }
