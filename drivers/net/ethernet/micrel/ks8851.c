@@ -632,19 +632,20 @@ static void ks8851_rx_pkts3(struct ks8851_net *ks)
 	for (index32 = 1; rxfc > 0; rxfc--) {
 		/* Get packet data length and pointer to packet data */
 		rxlen = (htonl(buf32[index32]) >> 16) & 0xfff;
-		totallen += rxlen;
 		index32++;
 		rxalign = ALIGN(rxlen-4, 4);
 		rxlen32 = ALIGN(rxlen, 4)/4;
 		rxpkt = (u8 *)&buf32[index32];
+		totallen += rxalign;
 		if (totallen > rxfifosize) {
 			if (rxfifosize >= MAX_RXFIFO_SIZE)
 				break;
 			buf1 = kzalloc(rxlen, GFP_DMA);
 			if (buf1 == NULL)
 				return;
-			memcpy(buf1, rxpkt, (rxlen - (totallen - rxfifosize)));
-			ks8851_rdfifo(ks, buf1 + (rxlen -
+			memcpy(buf1, rxpkt, (rxalign -
+				(totallen - rxfifosize)));
+			ks8851_rdfifo(ks, buf1 + (rxalign -
 				(totallen - rxfifosize)),
 						totallen - rxfifosize);
 			buf32 = (u32 *)buf1;
@@ -768,6 +769,9 @@ static irqreturn_t ks8851_irq(int irq, void *_ks)
 		ks8851_wrreg16(ks, KS_RXCR2, rxc->rxcr2);
 		ks8851_wrreg16(ks, KS_RXCR1, rxc->rxcr1);
 	}
+
+	if (unlikely(status & IRQ_RXOI))
+		ks->netdev->stats.rx_over_errors++;
 
 	mutex_unlock(&ks->lock);
 
