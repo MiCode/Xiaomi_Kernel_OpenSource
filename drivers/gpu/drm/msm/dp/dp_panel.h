@@ -53,7 +53,7 @@ struct dp_panel {
 	int (*init_info)(struct dp_panel *dp_panel);
 	int (*timing_cfg)(struct dp_panel *dp_panel);
 	int (*read_dpcd)(struct dp_panel *dp_panel);
-	u32 (*get_link_rate)(struct dp_panel *dp_panel);
+	u32 (*get_min_req_link_rate)(struct dp_panel *dp_panel);
 	u32 (*get_max_pclk)(struct dp_panel *dp_panel);
 };
 

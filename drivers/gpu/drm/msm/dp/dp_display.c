@@ -310,6 +310,9 @@ static void dp_display_host_deinit(struct dp_display_private *dp)
 
 static void dp_display_process_hpd_low(struct dp_display_private *dp)
 {
+	/* cancel any pending request */
+	dp->ctrl->abort(dp->ctrl);
+
 	dp->dp_display.is_connected = false;
 	drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
 
@@ -361,6 +364,9 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 		rc = -ENODEV;
 		goto end;
 	}
+
+	/* cancel any pending request */
+	dp->ctrl->abort(dp->ctrl);
 
 	dp->dp_display.is_connected = false;
 	drm_helper_hpd_irq_event(dp->dp_display.connector->dev);

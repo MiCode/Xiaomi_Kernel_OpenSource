@@ -67,6 +67,7 @@ struct dp_ctrl_private {
 
 	bool psm_enabled;
 	bool orientation;
+	atomic_t aborted;
 
 	u32 pixel_rate;
 	u32 vic;
@@ -90,6 +91,20 @@ static void dp_ctrl_video_ready(struct dp_ctrl_private *ctrl)
 {
 	pr_debug("dp_video_ready\n");
 	complete(&ctrl->video_comp);
+}
+
+static void dp_ctrl_abort(struct dp_ctrl *dp_ctrl)
+{
+	struct dp_ctrl_private *ctrl;
+
+	if (!dp_ctrl) {
+		pr_err("Invalid input data\n");
+		return;
+	}
+
+	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
+
+	atomic_set(&ctrl->aborted, 1);
 }
 
 static void dp_ctrl_state_ctrl(struct dp_ctrl_private *ctrl, u32 state)
@@ -172,10 +187,6 @@ static void dp_ctrl_configure_source_params(struct dp_ctrl_private *ctrl)
 		ctrl->panel->pinfo.bpp);
 	cc = ctrl->link->get_colorimetry_config(ctrl->link);
 	ctrl->catalog->config_misc(ctrl->catalog, cc, tb);
-
-	ctrl->catalog->config_msa(ctrl->catalog,
-		drm_dp_bw_code_to_link_rate(ctrl->link->bw_code));
-
 	ctrl->panel->timing_cfg(ctrl->panel);
 }
 
@@ -766,9 +777,32 @@ static void dp_ctrl_train_pattern_set(struct dp_ctrl_private *ctrl,
 	drm_dp_dpcd_write(ctrl->aux->drm_aux, DP_TRAINING_PATTERN_SET, buf, 1);
 }
 
+static int dp_ctrl_read_link_status(struct dp_ctrl_private *ctrl,
+					u8 *link_status)
+{
+	int ret = 0, len;
+	u32 const offset = DP_LANE_ALIGN_STATUS_UPDATED - DP_LANE0_1_STATUS;
+	u32 link_status_read_max_retries = 100;
+
+	while (--link_status_read_max_retries) {
+		len = drm_dp_dpcd_read_link_status(ctrl->aux->drm_aux,
+			link_status);
+		if (len != DP_LINK_STATUS_SIZE) {
+			pr_err("DP link status read failed, err: %d\n", len);
+			ret = len;
+			break;
+		}
+
+		if (!(link_status[offset] & DP_LINK_STATUS_UPDATED))
+			break;
+	}
+
+	return ret;
+}
+
 static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 {
-	int tries, old_v_level, ret = 0, len = 0;
+	int tries, old_v_level, ret = 0;
 	u8 link_status[DP_LINK_STATUS_SIZE];
 	int const maximum_retries = 5;
 
@@ -778,7 +812,7 @@ static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 
 	ctrl->catalog->set_pattern(ctrl->catalog, 0x01);
 	dp_ctrl_train_pattern_set(ctrl, DP_TRAINING_PATTERN_1 |
-		DP_RECOVERED_CLOCK_OUT_EN); /* train_1 */
+		DP_LINK_SCRAMBLING_DISABLE); /* train_1 */
 	dp_ctrl_update_vx_px(ctrl);
 
 	tries = 0;
@@ -786,23 +820,18 @@ static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 	while (1) {
 		drm_dp_link_train_clock_recovery_delay(ctrl->panel->dpcd);
 
-		len = drm_dp_dpcd_read_link_status(ctrl->aux->drm_aux,
-			link_status);
-		if (len < DP_LINK_STATUS_SIZE) {
-			pr_err("DP link status read failed\n");
-			ret = -1;
+		ret = dp_ctrl_read_link_status(ctrl, link_status);
+		if (ret)
 			break;
-		}
 
 		if (drm_dp_clock_recovery_ok(link_status,
 			ctrl->link->lane_count)) {
-			ret = 0;
 			break;
 		}
 
 		if (ctrl->link->v_level == DP_LINK_VOLTAGE_MAX) {
 			pr_err_ratelimited("max v_level reached\n");
-			ret = -1;
+			ret = -EAGAIN;
 			break;
 		}
 
@@ -810,7 +839,7 @@ static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 			tries++;
 			if (tries >= maximum_retries) {
 				pr_err("max tries reached\n");
-				ret = -1;
+				ret = -EAGAIN;
 				break;
 			}
 		} else {
@@ -830,25 +859,39 @@ static int dp_ctrl_link_train_1(struct dp_ctrl_private *ctrl)
 static int dp_ctrl_link_rate_down_shift(struct dp_ctrl_private *ctrl)
 {
 	int ret = 0;
+	u32 min_req_link_rate_khz;
+	u32 new_proposed_link_bw_code;
+	u32 new_proposed_link_rate_khz;
 
 	if (!ctrl)
 		return -EINVAL;
 
+	min_req_link_rate_khz = ctrl->panel->get_min_req_link_rate(ctrl->panel);
+
 	switch (ctrl->link->bw_code) {
 	case DP_LINK_RATE_810:
-		ctrl->link->bw_code = DP_LINK_BW_5_4;
+		new_proposed_link_bw_code = DP_LINK_BW_5_4;
 		break;
 	case DP_LINK_BW_5_4:
-		ctrl->link->bw_code = DP_LINK_BW_2_7;
+		new_proposed_link_bw_code = DP_LINK_BW_2_7;
 		break;
 	case DP_LINK_BW_2_7:
-		ctrl->link->bw_code = DP_LINK_BW_1_62;
-		break;
 	case DP_LINK_BW_1_62:
 	default:
-		ret = -EINVAL;
+		new_proposed_link_bw_code = DP_LINK_BW_1_62;
 		break;
 	};
+
+	new_proposed_link_rate_khz = drm_dp_bw_code_to_link_rate(
+						new_proposed_link_bw_code);
+
+	pr_debug("new proposed link rate=%d khz\n", new_proposed_link_rate_khz);
+	pr_debug("min required link rate=%d khz\n", min_req_link_rate_khz);
+
+	if (new_proposed_link_rate_khz >= min_req_link_rate_khz)
+		ctrl->link->bw_code = new_proposed_link_bw_code;
+	else
+		pr_debug("can't go below min required link rate\n");
 
 	pr_debug("new bw code=0x%x\n", ctrl->link->bw_code);
 
@@ -863,10 +906,14 @@ static void dp_ctrl_clear_training_pattern(struct dp_ctrl_private *ctrl)
 
 static int dp_ctrl_link_training_2(struct dp_ctrl_private *ctrl)
 {
-	int tries = 0, ret = 0, len = 0;
+	int tries = 0, ret = 0;
 	char pattern;
 	int const maximum_retries = 5;
 	u8 link_status[DP_LINK_STATUS_SIZE];
+
+	dp_ctrl_state_ctrl(ctrl, 0);
+	/* Make sure to clear the current pattern before starting a new one */
+	wmb();
 
 	if (drm_dp_tps3_supported(ctrl->panel->dpcd))
 		pattern = DP_TRAINING_PATTERN_3;
@@ -880,21 +927,15 @@ static int dp_ctrl_link_training_2(struct dp_ctrl_private *ctrl)
 	do  {
 		drm_dp_link_train_channel_eq_delay(ctrl->panel->dpcd);
 
-		len = drm_dp_dpcd_read_link_status(ctrl->aux->drm_aux,
-			link_status);
-		if (len < DP_LINK_STATUS_SIZE) {
-			pr_err("DP link status read failed\n");
-			ret = -1;
+		ret = dp_ctrl_read_link_status(ctrl, link_status);
+		if (ret)
 			break;
-		}
 
-		if (drm_dp_channel_eq_ok(link_status, ctrl->link->lane_count)) {
-			ret = 0;
+		if (drm_dp_channel_eq_ok(link_status, ctrl->link->lane_count))
 			break;
-		}
 
 		if (tries > maximum_retries) {
-			ret = -1;
+			ret = -EAGAIN;
 			break;
 		}
 		tries++;
@@ -909,63 +950,45 @@ static int dp_ctrl_link_training_2(struct dp_ctrl_private *ctrl)
 static int dp_ctrl_link_train(struct dp_ctrl_private *ctrl)
 {
 	int ret = 0;
-	struct drm_dp_link link_info;
+	u8 encoding = 0x1;
+	struct drm_dp_link link_info = {0};
 
 	ctrl->link->p_level = 0;
 	ctrl->link->v_level = 0;
 
 	dp_ctrl_config_ctrl(ctrl);
-	dp_ctrl_state_ctrl(ctrl, 0);
 
 	link_info.num_lanes = ctrl->link->lane_count;
 	link_info.rate = drm_dp_bw_code_to_link_rate(ctrl->link->bw_code);
 	link_info.capabilities = ctrl->panel->link_info.capabilities;
+
 	drm_dp_link_configure(ctrl->aux->drm_aux, &link_info);
+	drm_dp_dpcd_write(ctrl->aux->drm_aux, DP_MAIN_LINK_CHANNEL_CODING_SET,
+				&encoding, 1);
 
 	ret = dp_ctrl_link_train_1(ctrl);
-	if (ret < 0) {
-		if (!dp_ctrl_link_rate_down_shift(ctrl)) {
-			pr_debug("retry with lower rate\n");
-
-			dp_ctrl_clear_training_pattern(ctrl);
-			return -EAGAIN;
-		}
-
-		pr_err("Training 1 failed\n");
-		ret = -EINVAL;
-		goto clear;
+	if (ret) {
+		pr_err("link training #1 failed\n");
+		goto end;
 	}
 
 	/* print success info as this is a result of user initiated action */
-	pr_info("Training 1 completed\n");
-
-	dp_ctrl_state_ctrl(ctrl, 0);
-
-	/* Make sure to clear the current pattern before starting a new one */
-	wmb();
+	pr_info("link training #1 successful\n");
 
 	ret = dp_ctrl_link_training_2(ctrl);
-	if (ret < 0) {
-		if (!dp_ctrl_link_rate_down_shift(ctrl)) {
-			pr_debug("retry with lower rate\n");
-
-			dp_ctrl_clear_training_pattern(ctrl);
-			return -EAGAIN;
-		}
-
-		pr_err("Training 2 failed\n");
-		ret = -EINVAL;
-		goto clear;
+	if (ret) {
+		pr_err("link training #2 failed\n");
+		goto end;
 	}
 
 	/* print success info as this is a result of user initiated action */
-	pr_info("Training 2 completed\n");
+	pr_debug("link training #2 successful\n");
 
+end:
 	dp_ctrl_state_ctrl(ctrl, 0);
 	/* Make sure to clear the current pattern before starting a new one */
 	wmb();
 
-clear:
 	dp_ctrl_clear_training_pattern(ctrl);
 	return ret;
 }
@@ -1021,6 +1044,8 @@ static void dp_ctrl_set_clock_rate(struct dp_ctrl_private *ctrl,
 		num--;
 		cfg++;
 	}
+
+	pr_debug("setting rate=%d on clk=%s\n", rate, name);
 
 	if (num)
 		cfg->rate = rate;
@@ -1132,6 +1157,9 @@ static int dp_ctrl_on_irq(struct dp_ctrl_private *ctrl, bool lt_needed)
 
 		dp_ctrl_configure_source_params(ctrl);
 
+		ctrl->catalog->config_msa(ctrl->catalog,
+			drm_dp_bw_code_to_link_rate(ctrl->link->bw_code));
+
 		reinit_completion(&ctrl->idle_comp);
 
 		if (ctrl->psm_enabled) {
@@ -1152,11 +1180,15 @@ static int dp_ctrl_on_irq(struct dp_ctrl_private *ctrl, bool lt_needed)
 static int dp_ctrl_on_hpd(struct dp_ctrl_private *ctrl)
 {
 	int ret = 0;
+	u32 rate = ctrl->panel->link_info.rate;
+	u32 link_train_max_retries = 100;
+
+	atomic_set(&ctrl->aborted, 0);
 
 	ctrl->power->clk_enable(ctrl->power, DP_CORE_PM, true);
 	ctrl->catalog->hpd_config(ctrl->catalog, true);
 
-	ctrl->link->bw_code  = ctrl->panel->get_link_rate(ctrl->panel);
+	ctrl->link->bw_code  = drm_dp_link_rate_to_bw_code(rate);
 	ctrl->link->lane_count = ctrl->panel->link_info.num_lanes;
 	ctrl->pixel_rate = ctrl->panel->pinfo.pixel_clk_khz;
 
@@ -1178,8 +1210,25 @@ static int dp_ctrl_on_hpd(struct dp_ctrl_private *ctrl)
 	if (ctrl->psm_enabled)
 		ret = ctrl->link->send_psm_request(ctrl->link, false);
 
-	while (-EAGAIN == dp_ctrl_setup_main_link(ctrl, true))
-		pr_debug("MAIN LINK TRAINING RETRY\n");
+	while (--link_train_max_retries && !atomic_read(&ctrl->aborted)) {
+		ctrl->catalog->config_msa(ctrl->catalog,
+			drm_dp_bw_code_to_link_rate(ctrl->link->bw_code));
+
+		ret = dp_ctrl_setup_main_link(ctrl, true);
+		if (!ret)
+			break;
+
+		/* try with lower link rate */
+		dp_ctrl_link_rate_down_shift(ctrl);
+
+		ctrl->catalog->mainlink_ctrl(ctrl->catalog, false);
+
+		dp_ctrl_disable_mainlink_clocks(ctrl);
+		/* hw recommended delay before re-enabling clocks */
+		msleep(20);
+
+		dp_ctrl_enable_mainlink_clocks(ctrl);
+	}
 
 	pr_debug("End-\n");
 
@@ -1296,6 +1345,7 @@ struct dp_ctrl *dp_ctrl_get(struct dp_ctrl_in *in)
 	dp_ctrl->on        = dp_ctrl_on;
 	dp_ctrl->off       = dp_ctrl_off;
 	dp_ctrl->push_idle = dp_ctrl_push_idle;
+	dp_ctrl->abort     = dp_ctrl_abort;
 	dp_ctrl->isr       = dp_ctrl_isr;
 
 	return dp_ctrl;
