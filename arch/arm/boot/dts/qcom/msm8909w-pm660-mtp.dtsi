@@ -39,13 +39,13 @@
 	};
 
 	qcom,pronto@a21b000 {
-		/delete-property/ vdd_pronto_pll-supply;
+		vdd_pronto_pll-supply = <&pm660_l12>;
 	};
 
 	qcom,mss@4080000 {
-		/delete-property/ vdd_cx-supply;
-		/delete-property/ vdd_mx-supply;
-		/delete-property/ vdd_pll-supply;
+		vdd_cx-supply = <&pm660_s2_corner>;
+		vdd_mx-supply = <&pm660_s3_corner_ao>;
+		vdd_pll-supply = <&pm660_l12>;
 	};
 
 	tpiu@820000 {
