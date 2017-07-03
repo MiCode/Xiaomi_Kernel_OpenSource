@@ -58,7 +58,8 @@
 #define BALIGN		128
 #define NUM_CHANNELS	4	/* adsp, mdsp, slpi, cdsp*/
 #define NUM_SESSIONS	9	/*8 compute, 1 cpz*/
-#define M_FDLIST	16
+#define M_FDLIST	(16)
+#define M_CRCLIST	(64)
 
 #define IS_CACHE_ALIGNED(x) (((x) & ((L1_CACHE_BYTES)-1)) == 0)
 
@@ -172,6 +173,7 @@ struct smq_invoke_ctx {
 	struct overlap *overs;
 	struct overlap **overps;
 	struct smq_msg msg;
+	uint32_t *crc;
 };
 
 struct fastrpc_ctx_lst {
@@ -681,7 +683,7 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, ssize_t size,
 
 
 static int context_restore_interrupted(struct fastrpc_file *fl,
-				       struct fastrpc_ioctl_invoke_attrs *inv,
+				       struct fastrpc_ioctl_invoke_crc *inv,
 				       struct smq_invoke_ctx **po)
 {
 	int err = 0;
@@ -788,7 +790,7 @@ bail:
 static void context_free(struct smq_invoke_ctx *ctx);
 
 static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
-			 struct fastrpc_ioctl_invoke_attrs *invokefd,
+			 struct fastrpc_ioctl_invoke_crc *invokefd,
 			 struct smq_invoke_ctx **po)
 {
 	int err = 0, bufs, size = 0;
@@ -834,7 +836,7 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 		if (err)
 			goto bail;
 	}
-
+	ctx->crc = (uint32_t *)invokefd->crc;
 	ctx->sc = invoke->sc;
 	if (bufs) {
 		VERIFY(err, 0 == context_build_overlap(ctx));
@@ -993,6 +995,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	int err = 0;
 	int mflags = 0;
 	uint64_t *fdlist;
+	uint32_t *crclist;
 
 	/* calculate size of the metadata */
 	rpra = 0;
@@ -1018,7 +1021,9 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			goto bail;
 		ipage += 1;
 	}
-	metalen = copylen = (ssize_t)&ipage[0] + (sizeof(uint64_t) * M_FDLIST);
+	metalen = copylen = (ssize_t)&ipage[0] + (sizeof(uint64_t) * M_FDLIST) +
+				 (sizeof(uint32_t) * M_CRCLIST);
+
 	/* calculate len requreed for copying */
 	for (oix = 0; oix < inbufs + outbufs; ++oix) {
 		int i = ctx->overps[oix]->raix;
@@ -1112,6 +1117,8 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	fdlist = (uint64_t *)&pages[bufs + handles];
 	for (i = 0; i < M_FDLIST; i++)
 		fdlist[i] = 0;
+	crclist = (uint32_t *)&fdlist[M_FDLIST];
+	memset(crclist, 0, sizeof(uint32_t)*M_FDLIST);
 
 	/* copy non ion buffers */
 	PERF(ctx->fl->profile, ctx->fl->perf.copy,
@@ -1191,6 +1198,8 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 	struct smq_phy_page *pages;
 	struct fastrpc_mmap *mmap;
 	uint64_t *fdlist;
+	uint32_t *crclist = NULL;
+
 	remote_arg64_t *rpra = ctx->rpra;
 	int i, inbufs, outbufs, handles;
 	int err = 0;
@@ -1201,6 +1210,8 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 	list = smq_invoke_buf_start(ctx->rpra, sc);
 	pages = smq_phy_page_start(sc, list);
 	fdlist = (uint64_t *)(pages + inbufs + outbufs + handles);
+	crclist = (uint32_t *)(fdlist + M_FDLIST);
+
 	for (i = inbufs; i < inbufs + outbufs; ++i) {
 		if (!ctx->maps[i]) {
 			K_COPY_TO_USER(err, kernel,
@@ -1223,6 +1234,10 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 				fastrpc_mmap_free(mmap);
 		}
 	}
+	if (ctx->crc && crclist && rpra)
+		K_COPY_TO_USER(err, kernel, (void __user *)ctx->crc,
+			crclist, M_CRCLIST*sizeof(uint32_t));
+
  bail:
 	return err;
 }
@@ -1345,7 +1360,7 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl);
 
 static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 				   uint32_t kernel,
-				   struct fastrpc_ioctl_invoke_attrs *inv)
+				   struct fastrpc_ioctl_invoke_crc *inv)
 {
 	struct smq_invoke_ctx *ctx = 0;
 	struct fastrpc_ioctl_invoke *invoke = &inv->inv;
@@ -1436,7 +1451,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 				struct fastrpc_ioctl_init_attrs *uproc)
 {
 	int err = 0;
-	struct fastrpc_ioctl_invoke_attrs ioctl;
+	struct fastrpc_ioctl_invoke_crc ioctl;
 	struct fastrpc_ioctl_init *init = &uproc->init;
 	struct smq_phy_page pages[1];
 	struct fastrpc_mmap *file = 0, *mem = 0;
@@ -1455,6 +1470,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		ioctl.inv.pra = ra;
 		ioctl.fds = 0;
 		ioctl.attrs = 0;
+		ioctl.crc = NULL;
 		fl->pd = 0;
 		VERIFY(err, !(err = fastrpc_internal_invoke(fl,
 			FASTRPC_MODE_PARALLEL, 1, &ioctl)));
@@ -1524,6 +1540,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		ioctl.inv.pra = ra;
 		ioctl.fds = fds;
 		ioctl.attrs = 0;
+		ioctl.crc = NULL;
 		VERIFY(err, !(err = fastrpc_internal_invoke(fl,
 			FASTRPC_MODE_PARALLEL, 1, &ioctl)));
 		if (err)
@@ -1542,7 +1559,7 @@ bail:
 static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 {
 	int err = 0;
-	struct fastrpc_ioctl_invoke_attrs ioctl;
+	struct fastrpc_ioctl_invoke_crc ioctl;
 	remote_arg_t ra[1];
 	int tgid = 0;
 
@@ -1560,6 +1577,7 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	ioctl.inv.pra = ra;
 	ioctl.fds = 0;
 	ioctl.attrs = 0;
+	ioctl.crc = NULL;
 	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
 		FASTRPC_MODE_PARALLEL, 1, &ioctl)));
 bail:
@@ -1569,7 +1587,7 @@ bail:
 static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 			       struct fastrpc_mmap *map)
 {
-	struct fastrpc_ioctl_invoke_attrs ioctl;
+	struct fastrpc_ioctl_invoke_crc ioctl;
 	struct smq_phy_page page;
 	int num = 1;
 	remote_arg_t ra[3];
@@ -1606,6 +1624,7 @@ static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 	ioctl.inv.pra = ra;
 	ioctl.fds = 0;
 	ioctl.attrs = 0;
+	ioctl.crc = NULL;
 	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
 		FASTRPC_MODE_PARALLEL, 1, &ioctl)));
 	map->raddr = (uintptr_t)routargs.vaddrout;
@@ -1616,7 +1635,7 @@ static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 static int fastrpc_munmap_on_dsp(struct fastrpc_file *fl,
 				 struct fastrpc_mmap *map)
 {
-	struct fastrpc_ioctl_invoke_attrs ioctl;
+	struct fastrpc_ioctl_invoke_crc ioctl;
 	remote_arg_t ra[1];
 	int err = 0;
 	struct {
@@ -1639,6 +1658,7 @@ static int fastrpc_munmap_on_dsp(struct fastrpc_file *fl,
 	ioctl.inv.pra = ra;
 	ioctl.fds = 0;
 	ioctl.attrs = 0;
+	ioctl.crc = NULL;
 	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
 		FASTRPC_MODE_PARALLEL, 1, &ioctl)));
 	return err;
@@ -2194,7 +2214,7 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 				 unsigned long ioctl_param)
 {
 	union {
-		struct fastrpc_ioctl_invoke_attrs inv;
+		struct fastrpc_ioctl_invoke_crc inv;
 		struct fastrpc_ioctl_mmap mmap;
 		struct fastrpc_ioctl_munmap munmap;
 		struct fastrpc_ioctl_init_attrs init;
@@ -2207,10 +2227,12 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 
 	p.inv.fds = 0;
 	p.inv.attrs = 0;
+	p.inv.crc = NULL;
 
 	switch (ioctl_num) {
 	case FASTRPC_IOCTL_INVOKE:
 		size = sizeof(struct fastrpc_ioctl_invoke);
+		/* fall through */
 	case FASTRPC_IOCTL_INVOKE_FD:
 		if (!size)
 			size = sizeof(struct fastrpc_ioctl_invoke_fd);
@@ -2218,6 +2240,10 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 	case FASTRPC_IOCTL_INVOKE_ATTRS:
 		if (!size)
 			size = sizeof(struct fastrpc_ioctl_invoke_attrs);
+		/* fall through */
+	case FASTRPC_IOCTL_INVOKE_CRC:
+		if (!size)
+			size = sizeof(struct fastrpc_ioctl_invoke_crc);
 		VERIFY(err, 0 == copy_from_user(&p.inv, param, size));
 		if (err)
 			goto bail;

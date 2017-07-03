@@ -27,6 +27,7 @@
 #define FASTRPC_IOCTL_GETINFO	_IOWR('R', 8, uint32_t)
 #define FASTRPC_IOCTL_GETPERF	_IOWR('R', 9, struct fastrpc_ioctl_perf)
 #define FASTRPC_IOCTL_INIT_ATTRS _IOWR('R', 10, struct fastrpc_ioctl_init_attrs)
+#define FASTRPC_IOCTL_INVOKE_CRC _IOWR('R', 11, struct fastrpc_ioctl_invoke_crc)
 
 #define FASTRPC_GLINK_GUID "fastrpcglink-apps-dsp"
 #define FASTRPC_SMD_GUID "fastrpcsmd-apps-dsp"
@@ -154,6 +155,13 @@ struct fastrpc_ioctl_invoke_attrs {
 	struct fastrpc_ioctl_invoke inv;
 	int *fds;		/* fd list */
 	unsigned int *attrs;	/* attribute list */
+};
+
+struct fastrpc_ioctl_invoke_crc {
+	struct fastrpc_ioctl_invoke inv;
+	int *fds;		/* fd list */
+	unsigned int *attrs;	/* attribute list */
+	unsigned int *crc;
 };
 
 struct fastrpc_ioctl_init {
