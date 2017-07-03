@@ -2616,6 +2616,9 @@ static int rmnet_ipa_set_data_quota_modem(struct wan_ioctl_set_data_quota *data)
 	if (!data->set_quota)
 		ipa_qmi_stop_data_qouta();
 
+	/* prevent string buffer overflows */
+	data->interface_name[IFNAMSIZ-1] = '\0';
+
 	index = find_vchannel_name_index(data->interface_name);
 	IPAWANERR("iface name %s, quota %lu\n",
 			  data->interface_name,
