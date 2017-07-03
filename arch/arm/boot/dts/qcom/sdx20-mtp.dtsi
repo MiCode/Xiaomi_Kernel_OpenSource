@@ -19,3 +19,6 @@
 	interrupts = <75 IRQ_TYPE_LEVEL_LOW>;
 };
 
+&usb_detect {
+	status = "disabled";
+};
