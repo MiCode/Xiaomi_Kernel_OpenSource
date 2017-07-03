@@ -47,13 +47,6 @@ enum test_video_pattern {
 	DP_TEST_VIDEO_PATTERN_COLOR_SQUARE = 0x03,
 };
 
-enum test_bit_depth {
-	DP_TEST_BIT_DEPTH_6 = 0x00,
-	DP_TEST_BIT_DEPTH_8 = 0x01,
-	DP_TEST_BIT_DEPTH_10 = 0x02,
-	DP_TEST_BIT_DEPTH_UNKNOWN = 0xFFFFFFFF,
-};
-
 enum dp_link_response {
 	TEST_ACK			= 0x1,
 	TEST_NACK			= 0x2,
@@ -1517,7 +1510,7 @@ static int dp_link_adjust_levels(struct dp_link *dp_link, u8 *link_status)
 		dp_link->p_level = DP_LINK_PRE_EMPHASIS_LEVEL_1;
 	}
 
-	pr_debug("v_level=%d, p_level=%d\n",
+	pr_debug("adjusted: v_level=%d, p_level=%d\n",
 		dp_link->v_level, dp_link->p_level);
 
 	return 0;
