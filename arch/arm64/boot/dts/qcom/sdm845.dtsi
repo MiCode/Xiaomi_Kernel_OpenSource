@@ -3878,6 +3878,22 @@
 				trip = <&aoss0_trip>;
 				cooling-device = <&ebi_cdev 0 0>;
 			};
+			modem_vdd_cdev {
+				trip = <&aoss0_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&aoss0_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cdsp_vdd_cdev {
+				trip = <&aoss0_trip>;
+				cooling-device = <&cdsp_vdd 0 0>;
+			};
+			slpi_vdd_cdev {
+				trip = <&aoss0_trip>;
+				cooling-device = <&slpi_vdd 0 0>;
+			};
 		};
 	};
 
@@ -3918,6 +3934,22 @@
 			ebi_vdd_cdev {
 				trip = <&cpu0_trip>;
 				cooling-device = <&ebi_cdev 0 0>;
+			};
+			modem_vdd_cdev {
+				trip = <&cpu0_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&cpu0_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cdsp_vdd_cdev {
+				trip = <&cpu0_trip>;
+				cooling-device = <&cdsp_vdd 0 0>;
+			};
+			slpi_vdd_cdev {
+				trip = <&cpu0_trip>;
+				cooling-device = <&slpi_vdd 0 0>;
 			};
 		};
 	};
@@ -3960,6 +3992,22 @@
 				trip = <&cpu1_trip>;
 				cooling-device = <&ebi_cdev 0 0>;
 			};
+			modem_vdd_cdev {
+				trip = <&cpu1_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&cpu1_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cdsp_vdd_cdev {
+				trip = <&cpu1_trip>;
+				cooling-device = <&cdsp_vdd 0 0>;
+			};
+			slpi_vdd_cdev {
+				trip = <&cpu1_trip>;
+				cooling-device = <&slpi_vdd 0 0>;
+			};
 		};
 	};
 
@@ -4000,6 +4048,22 @@
 			ebi_vdd_cdev {
 				trip = <&cpu2_trip>;
 				cooling-device = <&ebi_cdev 0 0>;
+			};
+			modem_vdd_cdev {
+				trip = <&cpu2_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&cpu2_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cdsp_vdd_cdev {
+				trip = <&cpu2_trip>;
+				cooling-device = <&cdsp_vdd 0 0>;
+			};
+			slpi_vdd_cdev {
+				trip = <&cpu2_trip>;
+				cooling-device = <&slpi_vdd 0 0>;
 			};
 		};
 	};
@@ -4042,6 +4106,22 @@
 				trip = <&cpu3_trip>;
 				cooling-device = <&ebi_cdev 0 0>;
 			};
+			modem_vdd_cdev {
+				trip = <&cpu3_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&cpu3_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cdsp_vdd_cdev {
+				trip = <&cpu3_trip>;
+				cooling-device = <&cdsp_vdd 0 0>;
+			};
+			slpi_vdd_cdev {
+				trip = <&cpu3_trip>;
+				cooling-device = <&slpi_vdd 0 0>;
+			};
 		};
 	};
 
@@ -4082,6 +4162,22 @@
 			ebi_vdd_cdev {
 				trip = <&l3_0_trip>;
 				cooling-device = <&ebi_cdev 0 0>;
+			};
+			modem_vdd_cdev {
+				trip = <&l3_0_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&l3_0_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cdsp_vdd_cdev {
+				trip = <&l3_0_trip>;
+				cooling-device = <&cdsp_vdd 0 0>;
+			};
+			slpi_vdd_cdev {
+				trip = <&l3_0_trip>;
+				cooling-device = <&slpi_vdd 0 0>;
 			};
 		};
 	};
@@ -4124,6 +4220,22 @@
 				trip = <&l3_1_trip>;
 				cooling-device = <&ebi_cdev 0 0>;
 			};
+			modem_vdd_cdev {
+				trip = <&l3_1_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&l3_1_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cdsp_vdd_cdev {
+				trip = <&l3_1_trip>;
+				cooling-device = <&cdsp_vdd 0 0>;
+			};
+			slpi_vdd_cdev {
+				trip = <&l3_1_trip>;
+				cooling-device = <&slpi_vdd 0 0>;
+			};
 		};
 	};
 
@@ -4164,6 +4276,22 @@
 			ebi_vdd_cdev {
 				trip = <&cpug0_trip>;
 				cooling-device = <&ebi_cdev 0 0>;
+			};
+			modem_vdd_cdev {
+				trip = <&cpug0_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&cpug0_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cdsp_vdd_cdev {
+				trip = <&cpug0_trip>;
+				cooling-device = <&cdsp_vdd 0 0>;
+			};
+			slpi_vdd_cdev {
+				trip = <&cpug0_trip>;
+				cooling-device = <&slpi_vdd 0 0>;
 			};
 		};
 	};
@@ -4206,6 +4334,22 @@
 				trip = <&cpug1_trip>;
 				cooling-device = <&ebi_cdev 0 0>;
 			};
+			modem_vdd_cdev {
+				trip = <&cpug1_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&cpug1_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cdsp_vdd_cdev {
+				trip = <&cpug1_trip>;
+				cooling-device = <&cdsp_vdd 0 0>;
+			};
+			slpi_vdd_cdev {
+				trip = <&cpug1_trip>;
+				cooling-device = <&slpi_vdd 0 0>;
+			};
 		};
 	};
 
@@ -4246,6 +4390,22 @@
 			ebi_vdd_cdev {
 				trip = <&cpug2_trip>;
 				cooling-device = <&ebi_cdev 0 0>;
+			};
+			modem_vdd_cdev {
+				trip = <&cpug2_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&cpug2_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cdsp_vdd_cdev {
+				trip = <&cpug2_trip>;
+				cooling-device = <&cdsp_vdd 0 0>;
+			};
+			slpi_vdd_cdev {
+				trip = <&cpug2_trip>;
+				cooling-device = <&slpi_vdd 0 0>;
 			};
 		};
 	};
@@ -4288,6 +4448,22 @@
 				trip = <&cpug3_trip>;
 				cooling-device = <&ebi_cdev 0 0>;
 			};
+			modem_vdd_cdev {
+				trip = <&cpug3_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&cpug3_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cdsp_vdd_cdev {
+				trip = <&cpug3_trip>;
+				cooling-device = <&cdsp_vdd 0 0>;
+			};
+			slpi_vdd_cdev {
+				trip = <&cpug3_trip>;
+				cooling-device = <&slpi_vdd 0 0>;
+			};
 		};
 	};
 
@@ -4328,6 +4504,22 @@
 			ebi_vdd_cdev {
 				trip = <&gpu0_trip_l>;
 				cooling-device = <&ebi_cdev 0 0>;
+			};
+			modem_vdd_cdev {
+				trip = <&gpu0_trip_l>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&gpu0_trip_l>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cdsp_vdd_cdev {
+				trip = <&gpu0_trip_l>;
+				cooling-device = <&cdsp_vdd 0 0>;
+			};
+			slpi_vdd_cdev {
+				trip = <&gpu0_trip_l>;
+				cooling-device = <&slpi_vdd 0 0>;
 			};
 		};
 	};
@@ -4370,6 +4562,22 @@
 				trip = <&gpu1_trip_l>;
 				cooling-device = <&ebi_cdev 0 0>;
 			};
+			modem_vdd_cdev {
+				trip = <&gpu1_trip_l>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&gpu1_trip_l>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cdsp_vdd_cdev {
+				trip = <&gpu1_trip_l>;
+				cooling-device = <&cdsp_vdd 0 0>;
+			};
+			slpi_vdd_cdev {
+				trip = <&gpu1_trip_l>;
+				cooling-device = <&slpi_vdd 0 0>;
+			};
 		};
 	};
 
@@ -4410,6 +4618,22 @@
 			ebi_vdd_cdev {
 				trip = <&aoss1_trip>;
 				cooling-device = <&ebi_cdev 0 0>;
+			};
+			modem_vdd_cdev {
+				trip = <&aoss1_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&aoss1_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cdsp_vdd_cdev {
+				trip = <&aoss1_trip>;
+				cooling-device = <&cdsp_vdd 0 0>;
+			};
+			slpi_vdd_cdev {
+				trip = <&aoss1_trip>;
+				cooling-device = <&slpi_vdd 0 0>;
 			};
 		};
 	};
@@ -4452,6 +4676,22 @@
 				trip = <&dsp_trip>;
 				cooling-device = <&ebi_cdev 0 0>;
 			};
+			modem_vdd_cdev {
+				trip = <&dsp_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&dsp_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cdsp_vdd_cdev {
+				trip = <&dsp_trip>;
+				cooling-device = <&cdsp_vdd 0 0>;
+			};
+			slpi_vdd_cdev {
+				trip = <&dsp_trip>;
+				cooling-device = <&slpi_vdd 0 0>;
+			};
 		};
 	};
 
@@ -4492,6 +4732,22 @@
 			ebi_vdd_cdev {
 				trip = <&ddr_trip>;
 				cooling-device = <&ebi_cdev 0 0>;
+			};
+			modem_vdd_cdev {
+				trip = <&ddr_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&ddr_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cdsp_vdd_cdev {
+				trip = <&ddr_trip>;
+				cooling-device = <&cdsp_vdd 0 0>;
+			};
+			slpi_vdd_cdev {
+				trip = <&ddr_trip>;
+				cooling-device = <&slpi_vdd 0 0>;
 			};
 		};
 	};
@@ -4534,6 +4790,22 @@
 				trip = <&wlan_trip>;
 				cooling-device = <&ebi_cdev 0 0>;
 			};
+			modem_vdd_cdev {
+				trip = <&wlan_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&wlan_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cdsp_vdd_cdev {
+				trip = <&wlan_trip>;
+				cooling-device = <&cdsp_vdd 0 0>;
+			};
+			slpi_vdd_cdev {
+				trip = <&wlan_trip>;
+				cooling-device = <&slpi_vdd 0 0>;
+			};
 		};
 	};
 
@@ -4574,6 +4846,22 @@
 			ebi_vdd_cdev {
 				trip = <&hvx_trip>;
 				cooling-device = <&ebi_cdev 0 0>;
+			};
+			modem_vdd_cdev {
+				trip = <&hvx_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&hvx_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cdsp_vdd_cdev {
+				trip = <&hvx_trip>;
+				cooling-device = <&cdsp_vdd 0 0>;
+			};
+			slpi_vdd_cdev {
+				trip = <&hvx_trip>;
+				cooling-device = <&slpi_vdd 0 0>;
 			};
 		};
 	};
@@ -4616,6 +4904,22 @@
 				trip = <&camera_trip>;
 				cooling-device = <&ebi_cdev 0 0>;
 			};
+			modem_vdd_cdev {
+				trip = <&camera_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&camera_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cdsp_vdd_cdev {
+				trip = <&camera_trip>;
+				cooling-device = <&cdsp_vdd 0 0>;
+			};
+			slpi_vdd_cdev {
+				trip = <&camera_trip>;
+				cooling-device = <&slpi_vdd 0 0>;
+			};
 		};
 	};
 
@@ -4657,6 +4961,22 @@
 				trip = <&mmss_trip>;
 				cooling-device = <&ebi_cdev 0 0>;
 			};
+			modem_vdd_cdev {
+				trip = <&mmss_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&mmss_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cdsp_vdd_cdev {
+				trip = <&mmss_trip>;
+				cooling-device = <&cdsp_vdd 0 0>;
+			};
+			slpi_vdd_cdev {
+				trip = <&mmss_trip>;
+				cooling-device = <&slpi_vdd 0 0>;
+			};
 		};
 	};
 
@@ -4697,6 +5017,22 @@
 			ebi_vdd_cdev {
 				trip = <&mdm_trip>;
 				cooling-device = <&ebi_cdev 0 0>;
+			};
+			modem_vdd_cdev {
+				trip = <&mdm_trip>;
+				cooling-device = <&modem_vdd 0 0>;
+			};
+			adsp_vdd_cdev {
+				trip = <&mdm_trip>;
+				cooling-device = <&adsp_vdd 0 0>;
+			};
+			cdsp_vdd_cdev {
+				trip = <&mdm_trip>;
+				cooling-device = <&cdsp_vdd 0 0>;
+			};
+			slpi_vdd_cdev {
+				trip = <&mdm_trip>;
+				cooling-device = <&slpi_vdd 0 0>;
 			};
 		};
 	};
