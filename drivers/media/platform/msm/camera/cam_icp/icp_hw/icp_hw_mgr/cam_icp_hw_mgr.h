@@ -42,6 +42,9 @@
 #define ICP_PACKET_OPCODE       2
 #define ICP_MAX_OUTPUT_SUPPORTED 6
 
+#define ICP_FRAME_PROCESS_SUCCESS 0
+#define ICP_FRAME_PROCESS_FAILURE 1
+
 /**
  * struct icp_hfi_mem_info
  * @qtbl: Memory info of queue table

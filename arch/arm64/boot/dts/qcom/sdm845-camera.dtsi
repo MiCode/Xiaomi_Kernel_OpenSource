@@ -795,7 +795,7 @@
 
 	cam_a5: qcom,a5@ac00000 {
 		cell-index = <0>;
-		compatible = "qcom,cam_a5";
+		compatible = "qcom,cam-a5";
 		reg = <0xac00000 0x6000>,
 			<0xac10000 0x8000>,
 			<0xac18000 0x3000>;
@@ -832,7 +832,7 @@
 
 	cam_ipe0: qcom,ipe0 {
 		cell-index = <0>;
-		compatible = "qcom,cam_ipe";
+		compatible = "qcom,cam-ipe";
 		regulator-names = "ipe0-vdd";
 		ipe0-vdd-supply = <&ipe_0_gdsc>;
 		clock-names = "ipe_0_ahb_clk",
@@ -853,7 +853,7 @@
 
 	cam_ipe1: qcom,ipe1 {
 		cell-index = <1>;
-		compatible = "qcom,cam_ipe";
+		compatible = "qcom,cam-ipe";
 		regulator-names = "ipe1-vdd";
 		ipe1-vdd-supply = <&ipe_1_gdsc>;
 		clock-names = "ipe_1_ahb_clk",
@@ -874,7 +874,7 @@
 
 	cam_bps: qcom,bps {
 		cell-index = <0>;
-		compatible = "qcom,cam_bps";
+		compatible = "qcom,cam-bps";
 		regulator-names = "bps-vdd";
 		bps-vdd-supply = <&bps_gdsc>;
 		clock-names = "bps_ahb_clk",
