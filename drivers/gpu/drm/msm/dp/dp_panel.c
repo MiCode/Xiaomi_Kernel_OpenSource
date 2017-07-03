@@ -240,13 +240,10 @@ end:
 	return rc;
 }
 
-static u32 dp_panel_get_link_rate(struct dp_panel *dp_panel)
+static u32 dp_panel_get_min_req_link_rate(struct dp_panel *dp_panel)
 {
 	const u32 encoding_factx10 = 8;
-	const u32 ln_to_link_ratio = 10;
-	u32 min_link_rate, reminder = 0;
-	u32 calc_link_rate = 0, lane_cnt, max_rate = 0;
-	struct dp_panel_private *panel;
+	u32 min_link_rate_khz = 0, lane_cnt;
 	struct dp_panel_info *pinfo;
 
 	if (!dp_panel) {
@@ -254,54 +251,19 @@ static u32 dp_panel_get_link_rate(struct dp_panel *dp_panel)
 		goto end;
 	}
 
-	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
-
 	lane_cnt = dp_panel->link_info.num_lanes;
-	max_rate = drm_dp_link_rate_to_bw_code(dp_panel->link_info.rate);
 	pinfo = &dp_panel->pinfo;
 
-	/*
-	 * The max pixel clock supported is 675Mhz. The
-	 * current calculations below will make sure
-	 * the min_link_rate is within 32 bit limits.
-	 * Any changes in the section of code should
-	 * consider this limitation.
-	 */
-	min_link_rate = (u32)div_u64(pinfo->pixel_clk_khz * 1000,
-				(lane_cnt * encoding_factx10));
-	min_link_rate /= ln_to_link_ratio;
-	min_link_rate = (min_link_rate * pinfo->bpp);
-	min_link_rate = (u32)div_u64_rem(min_link_rate * 10,
-				DP_LINK_RATE_MULTIPLIER, &reminder);
+	/* num_lanes * lane_count * 8 >= pclk * bpp * 10 */
+	min_link_rate_khz = pinfo->pixel_clk_khz /
+				(lane_cnt * encoding_factx10);
+	min_link_rate_khz *= pinfo->bpp;
 
-	/*
-	 * To avoid any fractional values,
-	 * increment the min_link_rate
-	 */
-	if (reminder)
-		min_link_rate += 1;
-	pr_debug("min_link_rate = %d\n", min_link_rate);
-
-	if (min_link_rate <= DP_LINK_BW_1_62)
-		calc_link_rate = DP_LINK_BW_1_62;
-	else if (min_link_rate <= DP_LINK_BW_2_7)
-		calc_link_rate = DP_LINK_BW_2_7;
-	else if (min_link_rate <= DP_LINK_BW_5_4)
-		calc_link_rate = DP_LINK_BW_5_4;
-	else if (min_link_rate <= DP_LINK_RATE_810)
-		calc_link_rate = DP_LINK_RATE_810;
-	else {
-		/* Cap the link rate to the max supported rate */
-		pr_debug("link_rate = %d is unsupported\n", min_link_rate);
-		calc_link_rate = DP_LINK_RATE_810;
-	}
-
-	if (calc_link_rate > max_rate)
-		calc_link_rate = max_rate;
-
-	pr_debug("calc_link_rate = 0x%x\n", calc_link_rate);
+	pr_debug("min lclk req=%d khz for pclk=%d khz, lanes=%d, bpp=%d\n",
+		min_link_rate_khz, pinfo->pixel_clk_khz, lane_cnt,
+		pinfo->bpp);
 end:
-	return calc_link_rate;
+	return min_link_rate_khz;
 }
 
 struct dp_panel *dp_panel_get(struct device *dev, struct dp_aux *aux,
@@ -334,7 +296,7 @@ struct dp_panel *dp_panel_get(struct device *dev, struct dp_aux *aux,
 	dp_panel->init_info = dp_panel_init_panel_info;
 	dp_panel->timing_cfg = dp_panel_timing_cfg;
 	dp_panel->read_dpcd = dp_panel_read_dpcd;
-	dp_panel->get_link_rate = dp_panel_get_link_rate;
+	dp_panel->get_min_req_link_rate = dp_panel_get_min_req_link_rate;
 	dp_panel->get_max_pclk = dp_panel_get_max_pclk;
 
 	return dp_panel;
