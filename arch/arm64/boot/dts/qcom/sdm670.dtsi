@@ -552,6 +552,30 @@
 		#reset-cells = <1>;
 	};
 
+	slim_aud: slim@62dc0000 {
+		cell-index = <1>;
+		compatible = "qcom,slim-ngd";
+		reg = <0x62dc0000 0x2c000>,
+			<0x62d84000 0x2a000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 163 0>, <0 164 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x780000>;
+		qcom,ea-pc = <0x290>;
+		status = "disabled";
+	};
+
+	slim_qca: slim@62e40000 {
+		cell-index = <3>;
+		compatible = "qcom,slim-ngd";
+		reg = <0x62e40000 0x2c000>,
+			<0x62e04000 0x20000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 291 0>, <0 292 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		status = "disabled";
+	};
+
 	wdog: qcom,wdt@17980000{
 		compatible = "qcom,msm-watchdog";
 		reg = <0x17980000 0x1000>;
