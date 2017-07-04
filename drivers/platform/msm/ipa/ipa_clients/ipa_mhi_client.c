@@ -2046,6 +2046,8 @@ static int ipa_mhi_suspend_dl(bool force)
 	if (ipa_get_transport_type() == IPA_TRANSPORT_TYPE_GSI)
 		ipa_mhi_update_host_ch_state(true);
 
+	return 0;
+
 fail_stop_event_update_dl_channel:
 		ipa_mhi_resume_channels(true,
 				ipa_mhi_client_ctx->dl_channels);
