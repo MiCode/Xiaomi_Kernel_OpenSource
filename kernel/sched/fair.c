@@ -6581,7 +6581,8 @@ static int start_cpu(bool boosted)
 	return boosted ? rd->max_cap_orig_cpu : rd->min_cap_orig_cpu;
 }
 
-static inline int find_best_target(struct task_struct *p, bool boosted, bool prefer_idle)
+static inline int find_best_target(struct task_struct *p, int *backup_cpu,
+				   bool boosted, bool prefer_idle)
 {
 	unsigned long best_idle_min_cap_orig = ULONG_MAX;
 	unsigned long min_util = boosted_task_util(p);
@@ -6597,6 +6598,8 @@ static inline int find_best_target(struct task_struct *p, bool boosted, bool pre
 	int best_idle_cpu = -1;
 	int target_cpu = -1;
 	int cpu, i;
+
+	*backup_cpu = -1;
 
 	schedstat_inc(p->se.statistics.nr_wakeups_fbt_attempts);
 	schedstat_inc(this_rq()->eas_stats.fbt_attempts);
@@ -6832,6 +6835,10 @@ static inline int find_best_target(struct task_struct *p, bool boosted, bool pre
 		target_cpu = prefer_idle
 			? best_active_cpu
 			: best_idle_cpu;
+	else
+		*backup_cpu = prefer_idle
+		? best_active_cpu
+		: best_idle_cpu;
 
 	trace_sched_find_best_target(p, prefer_idle, min_util, cpu,
 				     best_idle_cpu, best_active_cpu,
@@ -6868,7 +6875,7 @@ static int wake_cap(struct task_struct *p, int cpu, int prev_cpu)
 static int select_energy_cpu_brute(struct task_struct *p, int prev_cpu, int sync)
 {
 	struct sched_domain *sd;
-	int target_cpu = prev_cpu, tmp_target;
+	int target_cpu = prev_cpu, tmp_target, tmp_backup;
 	bool boosted, prefer_idle;
 
 	schedstat_inc(p->se.statistics.nr_wakeups_secb_attempts);
@@ -6897,7 +6904,7 @@ static int select_energy_cpu_brute(struct task_struct *p, int prev_cpu, int sync
 
 	sd = rcu_dereference(per_cpu(sd_ea, prev_cpu));
 	/* Find a cpu with sufficient capacity */
-	tmp_target = find_best_target(p, boosted, prefer_idle);
+	tmp_target = find_best_target(p, &tmp_backup, boosted, prefer_idle);
 
 	if (!sd)
 		goto unlock;
@@ -6926,10 +6933,15 @@ static int select_energy_cpu_brute(struct task_struct *p, int prev_cpu, int sync
 		}
 
 		if (energy_diff(&eenv) >= 0) {
-			schedstat_inc(p->se.statistics.nr_wakeups_secb_no_nrg_sav);
-			schedstat_inc(this_rq()->eas_stats.secb_no_nrg_sav);
-			target_cpu = prev_cpu;
-			goto unlock;
+			/* No energy saving for target_cpu, try backup */
+			target_cpu = tmp_backup;
+			eenv.dst_cpu = target_cpu;
+			if (tmp_backup < 0 || energy_diff(&eenv) >= 0) {
+				schedstat_inc(p->se.statistics.nr_wakeups_secb_no_nrg_sav);
+				schedstat_inc(this_rq()->eas_stats.secb_no_nrg_sav);
+				target_cpu = prev_cpu;
+				goto unlock;
+			}
 		}
 
 		schedstat_inc(p->se.statistics.nr_wakeups_secb_nrg_sav);
