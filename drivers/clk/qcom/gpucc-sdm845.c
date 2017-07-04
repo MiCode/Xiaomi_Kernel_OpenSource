@@ -37,7 +37,6 @@
 #include "vdd-level-sdm845.h"
 
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
-#define F_SLEW(f, s, h, m, n, sf) { (f), (s), (2 * (h) - 1), (m), (n), (sf) }
 
 static int vdd_gx_corner[] = {
 	RPMH_REGULATOR_LEVEL_OFF,		/* VDD_GX_NONE */
@@ -67,6 +66,7 @@ enum {
 	P_GPU_CC_PLL1_OUT_EVEN,
 	P_GPU_CC_PLL1_OUT_MAIN,
 	P_GPU_CC_PLL1_OUT_ODD,
+	P_CRC_DIV,
 };
 
 static const struct parent_map gpu_cc_parent_map_0[] = {
@@ -107,8 +107,28 @@ static const char * const gpu_cc_parent_names_1[] = {
 	"core_bi_pll_test_se",
 };
 
+static const struct parent_map gpu_cc_parent_map_2[] = {
+	{ P_BI_TCXO, 0 },
+	{ P_CRC_DIV,  1 },
+	{ P_GPU_CC_PLL0_OUT_ODD, 2 },
+	{ P_GPU_CC_PLL1_OUT_EVEN, 3 },
+	{ P_GPU_CC_PLL1_OUT_ODD, 4 },
+	{ P_GPLL0_OUT_MAIN, 5 },
+	{ P_CORE_BI_PLL_TEST_SE, 7 },
+};
+
+static const char * const gpu_cc_parent_names_2[] = {
+	"bi_tcxo",
+	"crc_div",
+	"gpu_cc_pll0_out_odd",
+	"gpu_cc_pll1_out_even",
+	"gpu_cc_pll1_out_odd",
+	"gcc_gpu_gpll0_clk_src",
+	"core_bi_pll_test_se",
+};
+
 static struct pll_vco fabia_vco[] = {
-	{ 250000000, 2000000000, 0 },
+	{ 249600000, 2000000000, 0 },
 	{ 125000000, 1000000000, 1 },
 };
 
@@ -186,12 +206,27 @@ static struct clk_rcg2 gpu_cc_gmu_clk_src = {
 	},
 };
 
+static struct clk_fixed_factor crc_div = {
+	.mult = 1,
+	.div = 1,
+	.hw.init = &(struct clk_init_data){
+		.name = "crc_div",
+		.parent_names = (const char *[]){ "gpu_cc_pll0_out_even" },
+		.num_parents = 1,
+		.flags = CLK_SET_RATE_PARENT,
+		.ops = &clk_fixed_factor_ops,
+	},
+};
+
 static const struct freq_tbl ftbl_gpu_cc_gx_gfx3d_clk_src[] = {
-	F_SLEW(147000000, P_GPU_CC_PLL0_OUT_EVEN,  1, 0, 0,  294000000),
-	F_SLEW(210000000, P_GPU_CC_PLL0_OUT_EVEN,  1, 0, 0,  420000000),
-	F_SLEW(338000000, P_GPU_CC_PLL0_OUT_EVEN,  1, 0, 0,  676000000),
-	F_SLEW(425000000, P_GPU_CC_PLL0_OUT_EVEN,  1, 0, 0,  850000000),
-	F_SLEW(600000000, P_GPU_CC_PLL0_OUT_EVEN,  1, 0, 0, 1200000000),
+	F(147000000, P_CRC_DIV,  1, 0, 0),
+	F(210000000, P_CRC_DIV,  1, 0, 0),
+	F(280000000, P_CRC_DIV,  1, 0, 0),
+	F(338000000, P_CRC_DIV,  1, 0, 0),
+	F(425000000, P_CRC_DIV,  1, 0, 0),
+	F(487000000, P_CRC_DIV,  1, 0, 0),
+	F(548000000, P_CRC_DIV,  1, 0, 0),
+	F(600000000, P_CRC_DIV,  1, 0, 0),
 	{ }
 };
 
@@ -199,12 +234,12 @@ static struct clk_rcg2 gpu_cc_gx_gfx3d_clk_src = {
 	.cmd_rcgr = 0x101c,
 	.mnd_width = 0,
 	.hid_width = 5,
-	.parent_map = gpu_cc_parent_map_1,
+	.parent_map = gpu_cc_parent_map_2,
 	.freq_tbl = ftbl_gpu_cc_gx_gfx3d_clk_src,
 	.flags = FORCE_ENABLE_RCG,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gpu_cc_gx_gfx3d_clk_src",
-		.parent_names = gpu_cc_parent_names_1,
+		.parent_names = gpu_cc_parent_names_2,
 		.num_parents = 7,
 		.flags = CLK_SET_RATE_PARENT,
 		.ops =  &clk_rcg2_ops,
@@ -532,14 +567,21 @@ static int gpu_cc_gfx_sdm845_probe(struct platform_device *pdev)
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res == NULL) {
-		dev_err(&pdev->dev, "Failed to get resources for clock_gfxcc.\n");
+		dev_err(&pdev->dev, "Failed to get resources for clock_gfxcc\n");
 		return -EINVAL;
 	}
 
 	base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	if (IS_ERR(base)) {
-		dev_err(&pdev->dev, "Failed to ioremap the GFX CC base.\n");
+		dev_err(&pdev->dev, "Failed to ioremap the GFX CC base\n");
 		return PTR_ERR(base);
+	}
+
+	/* Register clock fixed factor for CRC divide. */
+	ret = devm_clk_hw_register(&pdev->dev, &crc_div.hw);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to register hardware clock\n");
+		return ret;
 	}
 
 	regmap = devm_regmap_init_mmio(&pdev->dev, base,
@@ -577,7 +619,7 @@ static int gpu_cc_gfx_sdm845_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	dev_info(&pdev->dev, "Registered GFX CC clocks.\n");
+	dev_info(&pdev->dev, "Registered GFX CC clocks\n");
 
 	return ret;
 }
@@ -626,7 +668,7 @@ static int gpu_cc_sdm845_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	dev_info(&pdev->dev, "Registered GPU CC clocks.\n");
+	dev_info(&pdev->dev, "Registered GPU CC clocks\n");
 
 	return ret;
 }
