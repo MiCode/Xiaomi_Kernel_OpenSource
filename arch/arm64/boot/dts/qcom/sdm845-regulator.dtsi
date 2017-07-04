@@ -726,6 +726,13 @@
 			regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_OFF>;
 			regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
 		};
+
+		ebi_cdev: regulator-cdev {
+			compatible = "qcom,rpmh-reg-cdev";
+			mboxes = <&qmp_aop 0>;
+			qcom,reg-resource-name = "ebi";
+			#cooling-cells = <2>;
+		};
 	};
 
 	rpmh-regulator-smpa2 {
@@ -822,6 +829,13 @@
 			regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
 			qcom,min-dropout-voltage-level = <(-1)>;
 		};
+
+		cx_cdev: regulator-cdev {
+			compatible = "qcom,rpmh-reg-cdev";
+			mboxes = <&qmp_aop 0>;
+			qcom,reg-resource-name = "cx";
+			#cooling-cells = <2>;
+		};
 	};
 
 	rpmh-regulator-ldoa1 {
@@ -889,6 +903,13 @@
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <RPMH_REGULATOR_LEVEL_OFF>;
 			regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
+		};
+
+		mx_cdev: regulator-cdev {
+			compatible = "qcom,rpmh-reg-cdev";
+			mboxes = <&qmp_aop 0>;
+			qcom,reg-resource-name = "mx";
+			#cooling-cells = <2>;
 		};
 	};
 
