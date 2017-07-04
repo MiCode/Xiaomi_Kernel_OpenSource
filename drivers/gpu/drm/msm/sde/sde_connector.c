@@ -331,7 +331,7 @@ int sde_connector_get_dither_cfg(struct drm_connector *conn,
 
 	/* try to get user config data first */
 	*cfg = msm_property_get_blob(&c_conn->property_info,
-					c_state->property_blobs,
+					&c_state->property_state,
 					&dither_sz,
 					CONNECTOR_PROP_PP_DITHER);
 	/* if user config data doesn't exist, use default dither blob */
@@ -459,13 +459,12 @@ static void _sde_connector_destroy_fb(struct sde_connector *c_conn,
 	drm_framebuffer_unreference(c_state->out_fb);
 	c_state->out_fb = NULL;
 
-	if (c_conn) {
-		c_state->property_values[CONNECTOR_PROP_OUT_FB] =
+	if (c_conn)
+		c_state->property_values[CONNECTOR_PROP_OUT_FB].value =
 			msm_property_get_default(&c_conn->property_info,
 					CONNECTOR_PROP_OUT_FB);
-	} else {
-		c_state->property_values[CONNECTOR_PROP_OUT_FB] = ~0;
-	}
+	else
+		c_state->property_values[CONNECTOR_PROP_OUT_FB].value = ~0;
 }
 
 static void sde_connector_atomic_destroy_state(struct drm_connector *connector,
@@ -496,8 +495,7 @@ static void sde_connector_atomic_destroy_state(struct drm_connector *connector,
 	} else {
 		/* destroy value helper */
 		msm_property_destroy_state(&c_conn->property_info, c_state,
-				c_state->property_values,
-				c_state->property_blobs);
+				&c_state->property_state);
 	}
 }
 
@@ -526,7 +524,8 @@ static void sde_connector_atomic_reset(struct drm_connector *connector)
 
 	/* reset value helper, zero out state structure and reset properties */
 	msm_property_reset_state(&c_conn->property_info, c_state,
-			c_state->property_values, c_state->property_blobs);
+			&c_state->property_state,
+			c_state->property_values);
 
 	c_state->base.connector = connector;
 	connector->state = &c_state->base;
@@ -554,8 +553,8 @@ sde_connector_atomic_duplicate_state(struct drm_connector *connector)
 
 	/* duplicate value helper */
 	msm_property_duplicate_state(&c_conn->property_info,
-			c_oldstate, c_state, c_state->property_values,
-			c_state->property_blobs);
+			c_oldstate, c_state,
+			&c_state->property_state, c_state->property_values);
 
 	/* additional handling for drm framebuffer objects */
 	if (c_state->out_fb) {
@@ -755,8 +754,7 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 
 	/* generic property handling */
 	rc = msm_property_atomic_set(&c_conn->property_info,
-			c_state->property_values, c_state->property_blobs,
-			property, val);
+			&c_state->property_state, property, val);
 	if (rc)
 		goto end;
 
@@ -863,8 +861,7 @@ static int sde_connector_atomic_get_property(struct drm_connector *connector,
 	else
 		/* get cached property value */
 		rc = msm_property_atomic_get(&c_conn->property_info,
-				c_state->property_values,
-				c_state->property_blobs, property, val);
+				&c_state->property_state, property, val);
 
 	/* allow for custom override */
 	if (c_conn->ops.get_property)

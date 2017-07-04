@@ -315,6 +315,7 @@ struct sde_connector {
  * @base: Base drm connector structure
  * @out_fb: Pointer to output frame buffer, if applicable
  * @aspace: Address space for accessing frame buffer objects, if applicable
+ * @property_state: Local storage for msm_prop properties
  * @property_values: Local cache of current connector property values
  * @rois: Regions of interest structure for mapping CRTC to Connector output
  * @property_blobs: blob properties
@@ -323,7 +324,8 @@ struct sde_connector_state {
 	struct drm_connector_state base;
 	struct drm_framebuffer *out_fb;
 	struct msm_gem_address_space *aspace;
-	uint64_t property_values[CONNECTOR_PROP_COUNT];
+	struct msm_property_state property_state;
+	struct msm_property_value property_values[CONNECTOR_PROP_COUNT];
 
 	struct msm_roi_list rois;
 	struct drm_property_blob *property_blobs[CONNECTOR_PROP_BLOBCOUNT];
@@ -346,15 +348,15 @@ struct sde_connector_state {
  */
 #define sde_connector_get_property(S, X) \
 	((S) && ((X) < CONNECTOR_PROP_COUNT) ? \
-	 (to_sde_connector_state((S))->property_values[(X)]) : 0)
+	 (to_sde_connector_state((S))->property_values[(X)].value) : 0)
 
 /**
- * sde_connector_get_property_values - retrieve property values cache
+ * sde_connector_get_property_state - retrieve property state cache
  * @S: Pointer to drm connector state
- * Returns: Integer value of requested property
+ * Returns: Pointer to local property state structure
  */
-#define sde_connector_get_property_values(S) \
-	((S) ? (to_sde_connector_state((S))->property_values) : 0)
+#define sde_connector_get_property_state(S) \
+	((S) ? (&to_sde_connector_state((S))->property_state) : NULL)
 
 /**
  * sde_connector_get_out_fb - query out_fb value from sde connector state

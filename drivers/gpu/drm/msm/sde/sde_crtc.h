@@ -271,9 +271,9 @@ struct sde_crtc_respool {
  * @lm_roi        : Current LM ROI, possibly sub-rectangle of mode.
  *                  Origin top left of CRTC.
  * @user_roi_list : List of user's requested ROIs as from set property
+ * @property_state: Local storage for msm_prop properties
  * @property_values: Current crtc property values
  * @input_fence_timeout_ns : Cached input fence timeout, in ns
- * @property_blobs: Reference pointers for blob properties
  * @num_dim_layers: Number of dim layers
  * @dim_layer: Dim layer configs
  * @new_perf: new performance state being requested
@@ -299,9 +299,9 @@ struct sde_crtc_state {
 	struct sde_rect lm_roi[CRTC_DUAL_MIXERS];
 	struct msm_roi_list user_roi_list;
 
-	uint64_t property_values[CRTC_PROP_COUNT];
+	struct msm_property_state property_state;
+	struct msm_property_value property_values[CRTC_PROP_COUNT];
 	uint64_t input_fence_timeout_ns;
-	struct drm_property_blob *property_blobs[CRTC_PROP_COUNT];
 	uint32_t num_dim_layers;
 	struct sde_hw_dim_layer dim_layer[SDE_MAX_DIM_LAYERS];
 
@@ -325,7 +325,7 @@ struct sde_crtc_state {
  * Returns: Integer value of requested property
  */
 #define sde_crtc_get_property(S, X) \
-	((S) && ((X) < CRTC_PROP_COUNT) ? ((S)->property_values[(X)]) : 0)
+	((S) && ((X) < CRTC_PROP_COUNT) ? ((S)->property_values[(X)].value) : 0)
 
 static inline int sde_crtc_mixer_width(struct sde_crtc *sde_crtc,
 	struct drm_display_mode *mode)

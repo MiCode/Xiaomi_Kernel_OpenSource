@@ -985,15 +985,15 @@ static int _sde_plane_setup_scaler3_lut(struct sde_plane *psde,
 
 	cfg->dir_lut = msm_property_get_blob(
 			&psde->property_info,
-			pstate->property_blobs, &cfg->dir_len,
+			&pstate->property_state, &cfg->dir_len,
 			PLANE_PROP_SCALER_LUT_ED);
 	cfg->cir_lut = msm_property_get_blob(
 			&psde->property_info,
-			pstate->property_blobs, &cfg->cir_len,
+			&pstate->property_state, &cfg->cir_len,
 			PLANE_PROP_SCALER_LUT_CIR);
 	cfg->sep_lut = msm_property_get_blob(
 			&psde->property_info,
-			pstate->property_blobs, &cfg->sep_len,
+			&pstate->property_state, &cfg->sep_len,
 			PLANE_PROP_SCALER_LUT_SEP);
 	if (!cfg->dir_lut || !cfg->cir_lut || !cfg->sep_lut)
 		ret = -ENODATA;
@@ -1302,7 +1302,7 @@ static void sde_color_process_plane_setup(struct drm_plane *plane)
 	if (psde->pipe_hw->ops.setup_pa_memcolor) {
 		/* Skin memory color setup */
 		memcol = msm_property_get_blob(&psde->property_info,
-					pstate->property_blobs,
+					&pstate->property_state,
 					&memcol_sz,
 					PLANE_PROP_SKIN_COLOR);
 		psde->pipe_hw->ops.setup_pa_memcolor(psde->pipe_hw,
@@ -1310,7 +1310,7 @@ static void sde_color_process_plane_setup(struct drm_plane *plane)
 
 		/* Sky memory color setup */
 		memcol = msm_property_get_blob(&psde->property_info,
-					pstate->property_blobs,
+					&pstate->property_state,
 					&memcol_sz,
 					PLANE_PROP_SKY_COLOR);
 		psde->pipe_hw->ops.setup_pa_memcolor(psde->pipe_hw,
@@ -1318,7 +1318,7 @@ static void sde_color_process_plane_setup(struct drm_plane *plane)
 
 		/* Foliage memory color setup */
 		memcol = msm_property_get_blob(&psde->property_info,
-					pstate->property_blobs,
+					&pstate->property_state,
 					&memcol_sz,
 					PLANE_PROP_FOLIAGE_COLOR);
 		psde->pipe_hw->ops.setup_pa_memcolor(psde->pipe_hw,
@@ -3274,7 +3274,8 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 	}
 
 	/* determine what needs to be refreshed */
-	while ((idx = msm_property_pop_dirty(&psde->property_info)) >= 0) {
+	while ((idx = msm_property_pop_dirty(&psde->property_info,
+					&pstate->property_state)) >= 0) {
 		switch (idx) {
 		case PLANE_PROP_SCALER_V1:
 		case PLANE_PROP_SCALER_V2:
@@ -3885,14 +3886,15 @@ static inline void _sde_plane_set_csc_v1(struct sde_plane *psde, void *usr_ptr)
 	psde->csc_usr_ptr = &psde->csc_cfg;
 }
 
-static inline void _sde_plane_set_scaler_v1(struct sde_plane *psde, void *usr)
+static inline void _sde_plane_set_scaler_v1(struct sde_plane *psde,
+		struct sde_plane_state *pstate, void *usr)
 {
 	struct sde_drm_scaler_v1 scale_v1;
 	struct sde_hw_pixel_ext *pe;
 	int i;
 
-	if (!psde) {
-		SDE_ERROR("invalid plane\n");
+	if (!psde || !pstate) {
+		SDE_ERROR("invalid argument(s)\n");
 		return;
 	}
 
@@ -3908,7 +3910,8 @@ static inline void _sde_plane_set_scaler_v1(struct sde_plane *psde, void *usr)
 	}
 
 	/* force property to be dirty, even if the pointer didn't change */
-	msm_property_set_dirty(&psde->property_info, PLANE_PROP_SCALER_V1);
+	msm_property_set_dirty(&psde->property_info,
+			&pstate->property_state, PLANE_PROP_SCALER_V1);
 
 	/* populate from user space */
 	pe = &(psde->pixel_ext);
@@ -3974,7 +3977,8 @@ static inline void _sde_plane_set_scaler_v2(struct sde_plane *psde,
 	}
 
 	/* force property to be dirty, even if the pointer didn't change */
-	msm_property_set_dirty(&psde->property_info, PLANE_PROP_SCALER_V2);
+	msm_property_set_dirty(&psde->property_info,
+			&pstate->property_state, PLANE_PROP_SCALER_V2);
 
 	/* populate from user space */
 	pe = &(psde->pixel_ext);
@@ -4091,8 +4095,7 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 	} else {
 		pstate = to_sde_plane_state(state);
 		ret = msm_property_atomic_set(&psde->property_info,
-				pstate->property_values, pstate->property_blobs,
-				property, val);
+				&pstate->property_state, property, val);
 		if (!ret) {
 			idx = msm_property_index(&psde->property_info,
 					property);
@@ -4104,11 +4107,12 @@ static int sde_plane_atomic_set_property(struct drm_plane *plane,
 				_sde_plane_set_csc_v1(psde, (void *)val);
 				break;
 			case PLANE_PROP_SCALER_V1:
-				_sde_plane_set_scaler_v1(psde, (void *)val);
+				_sde_plane_set_scaler_v1(psde, pstate,
+						(void *)val);
 				break;
 			case PLANE_PROP_SCALER_V2:
 				_sde_plane_set_scaler_v2(psde, pstate,
-					(void *)val);
+						(void *)val);
 				break;
 			case PLANE_PROP_EXCL_RECT_V1:
 				_sde_plane_set_excl_rect_v1(psde, pstate,
@@ -4153,8 +4157,7 @@ static int sde_plane_atomic_get_property(struct drm_plane *plane,
 		pstate = to_sde_plane_state(state);
 		sde_plane_rot_install_caps(plane);
 		ret = msm_property_atomic_get(&psde->property_info,
-				pstate->property_values, pstate->property_blobs,
-				property, val);
+				&pstate->property_state, property, val);
 	}
 
 	return ret;
@@ -4215,7 +4218,7 @@ static void sde_plane_destroy_state(struct drm_plane *plane,
 
 	/* destroy value helper */
 	msm_property_destroy_state(&psde->property_info, pstate,
-			pstate->property_values, pstate->property_blobs);
+			&pstate->property_state);
 }
 
 static struct drm_plane_state *
@@ -4246,13 +4249,14 @@ sde_plane_duplicate_state(struct drm_plane *plane)
 
 	/* duplicate value helper */
 	msm_property_duplicate_state(&psde->property_info, old_state, pstate,
-			pstate->property_values, pstate->property_blobs);
+			&pstate->property_state, pstate->property_values);
 
 	/* clear out any input fence */
 	pstate->input_fence = 0;
 	input_fence_default = msm_property_get_default(
 			&psde->property_info, PLANE_PROP_INPUT_FENCE);
-	msm_property_set_property(&psde->property_info, pstate->property_values,
+	msm_property_set_property(&psde->property_info,
+			&pstate->property_state,
 			PLANE_PROP_INPUT_FENCE, input_fence_default);
 
 	pstate->dirty = 0x0;
@@ -4292,7 +4296,8 @@ static void sde_plane_reset(struct drm_plane *plane)
 
 	/* reset value helper */
 	msm_property_reset_state(&psde->property_info, pstate,
-			pstate->property_values, pstate->property_blobs);
+			&pstate->property_state,
+			pstate->property_values);
 
 	pstate->base.plane = plane;
 
