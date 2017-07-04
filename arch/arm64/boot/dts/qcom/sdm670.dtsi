@@ -396,6 +396,8 @@
 
 #include "sdm670-ion.dtsi"
 
+#include "sdm670-smp2p.dtsi"
+
 #include "sdm670-qupv3.dtsi"
 
 &soc {
