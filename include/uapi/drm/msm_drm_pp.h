@@ -28,17 +28,35 @@ struct drm_msm_pcc_coeff {
 
 /**
  * struct drm_msm_pcc - pcc feature structure
- * flags: for customizing operations
- * r: red coefficients.
- * g: green coefficients.
- * b: blue coefficients.
+ * @flags: for customizing operations
+ * @r: red coefficients.
+ * @g: green coefficients.
+ * @b: blue coefficients.
+ * @r_rr: second order coefficients
+ * @r_gg: second order coefficients
+ * @r_bb: second order coefficients
+ * @g_rr: second order coefficients
+ * @g_gg: second order coefficients
+ * @g_bb: second order coefficients
+ * @b_rr: second order coefficients
+ * @b_gg: second order coefficients
+ * @b_bb: second order coefficients
  */
-
+#define DRM_MSM_PCC3
 struct drm_msm_pcc {
 	__u64 flags;
 	struct drm_msm_pcc_coeff r;
 	struct drm_msm_pcc_coeff g;
 	struct drm_msm_pcc_coeff b;
+	__u32 r_rr;
+	__u32 r_gg;
+	__u32 r_bb;
+	__u32 g_rr;
+	__u32 g_gg;
+	__u32 g_bb;
+	__u32 b_rr;
+	__u32 b_gg;
+	__u32 b_bb;
 };
 
 /* struct drm_msm_pa_vlut - picture adjustment vLUT structure

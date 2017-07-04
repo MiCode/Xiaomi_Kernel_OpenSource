@@ -50,4 +50,10 @@ enum {
 #define IGC_DIS 0
 #define IGC_DITHER_DATA_MASK (BIT(4) - 1)
 
+#define PCC_NUM_PLANES 3
+#define PCC_NUM_COEFF 11
+#define PCC_EN BIT(0)
+#define PCC_DIS 0
+#define PCC_C_OFF 0x4
+
 #endif /* _SDE_HW_COLOR_PROC_COMMON_V4_H_ */
