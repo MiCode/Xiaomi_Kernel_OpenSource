@@ -354,7 +354,7 @@ struct ipa3_hdr_proc_ctx_entry {
 	struct list_head link;
 	u32 cookie;
 	enum ipa_hdr_proc_type type;
-	union ipa_l2tp_hdr_proc_ctx_params l2tp_params;
+	struct ipa_l2tp_hdr_proc_ctx_params l2tp_params;
 	struct ipa3_hdr_proc_ctx_offset_entry *offset_entry;
 	struct ipa3_hdr_entry *hdr;
 	u32 ref_cnt;

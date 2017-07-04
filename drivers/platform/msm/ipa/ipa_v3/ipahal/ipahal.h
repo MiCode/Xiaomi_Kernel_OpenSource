@@ -637,7 +637,7 @@ int ipahal_cp_proc_ctx_to_hw_buff(enum ipa_hdr_proc_type type,
 		bool is_hdr_proc_ctx, dma_addr_t phys_base,
 		u32 hdr_base_addr,
 		struct ipa_hdr_offset_entry *offset_entry,
-		union ipa_l2tp_hdr_proc_ctx_params l2tp_params);
+		struct ipa_l2tp_hdr_proc_ctx_params l2tp_params);
 
 /*
  * ipahal_get_proc_ctx_needed_len() - calculates the needed length for addition
