@@ -64,6 +64,8 @@ struct sde_crtc_custom_events {
 
 static int sde_crtc_power_interrupt_handler(struct drm_crtc *crtc_drm,
 	bool en, struct sde_irq_callback *ad_irq);
+static int sde_crtc_idle_interrupt_handler(struct drm_crtc *crtc_drm,
+	bool en, struct sde_irq_callback *idle_irq);
 
 static int sde_crtc_pm_event_handler(struct drm_crtc *crtc_drm,
 	bool en, struct sde_irq_callback *noirq);
@@ -72,6 +74,7 @@ static struct sde_crtc_custom_events custom_events[] = {
 	{DRM_EVENT_AD_BACKLIGHT, sde_cp_ad_interrupt},
 	{DRM_EVENT_CRTC_POWER, sde_crtc_power_interrupt_handler},
 	{DRM_EVENT_SDE_POWER, sde_crtc_pm_event_handler},
+	{DRM_EVENT_IDLE_NOTIFY, sde_crtc_idle_interrupt_handler}
 };
 
 /* default input fence timeout, in ms */
@@ -1623,7 +1626,8 @@ int sde_crtc_get_secure_transition_ops(struct drm_crtc *crtc,
 		if (encoder->crtc != crtc)
 			continue;
 
-		post_commit &= !sde_encoder_is_cmd_mode(encoder);
+		post_commit &= sde_encoder_check_mode(encoder,
+						MSM_DISPLAY_CAP_VID_MODE);
 	}
 
 	drm_atomic_crtc_for_each_plane(plane, crtc) {
@@ -2441,6 +2445,12 @@ static void sde_crtc_atomic_begin(struct drm_crtc *crtc,
 	if (unlikely(!sde_crtc->num_mixers))
 		return;
 
+	/* cancel the idle notify delayed work */
+	if (sde_encoder_check_mode(sde_crtc->mixers[0].encoder,
+					MSM_DISPLAY_CAP_VID_MODE) &&
+		kthread_cancel_delayed_work_sync(&sde_crtc->idle_notify_work))
+		SDE_DEBUG("idle notify work cancelled\n");
+
 	_sde_crtc_blend_setup(crtc);
 
 	/*
@@ -2470,10 +2480,13 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct sde_crtc *sde_crtc;
 	struct drm_device *dev;
 	struct drm_plane *plane;
+	struct msm_drm_private *priv;
+	struct msm_drm_thread *event_thread;
 	unsigned long flags;
 	struct sde_crtc_state *cstate;
+	int idle_time = 0;
 
-	if (!crtc) {
+	if (!crtc || !crtc->dev || !crtc->dev->dev_private) {
 		SDE_ERROR("invalid crtc\n");
 		return;
 	}
@@ -2489,6 +2502,15 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 	cstate = to_sde_crtc_state(crtc->state);
 	dev = crtc->dev;
+	priv = dev->dev_private;
+
+	if (crtc->index >= ARRAY_SIZE(priv->event_thread)) {
+		SDE_ERROR("invalid crtc index[%d]\n", crtc->index);
+		return;
+	}
+
+	event_thread = &priv->event_thread[crtc->index];
+	idle_time = sde_crtc_get_property(cstate, CRTC_PROP_IDLE_TIME);
 
 	if (sde_crtc->event) {
 		SDE_DEBUG("already received sde_crtc->event\n");
@@ -2518,6 +2540,15 @@ static void sde_crtc_atomic_flush(struct drm_crtc *crtc,
 
 	/* wait for acquire fences before anything else is done */
 	_sde_crtc_wait_for_fences(crtc);
+
+	/* schedule the idle notify delayed work */
+	if (idle_time && sde_encoder_check_mode(sde_crtc->mixers[0].encoder,
+						MSM_DISPLAY_CAP_VID_MODE)) {
+		kthread_queue_delayed_work(&event_thread->worker,
+					&sde_crtc->idle_notify_work,
+					msecs_to_jiffies(idle_time));
+		SDE_DEBUG("schedule idle notify work in %dms\n", idle_time);
+	}
 
 	if (!cstate->rsc_update) {
 		drm_for_each_encoder(encoder, dev) {
@@ -3708,6 +3739,9 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 			sde_kms->perf.max_core_clk_rate,
 			CRTC_PROP_ROT_CLK);
 
+	msm_property_install_range(&sde_crtc->property_info,
+		"idle_time", 0x0, 0, U64_MAX, 0, CRTC_PROP_IDLE_TIME);
+
 	msm_property_install_blob(&sde_crtc->property_info, "capabilities",
 		DRM_MODE_PROP_IMMUTABLE, CRTC_PROP_INFO);
 
@@ -3912,7 +3946,8 @@ static int sde_crtc_atomic_get_property(struct drm_crtc *crtc,
 		 */
 		drm_for_each_encoder(encoder, crtc->dev) {
 			if (encoder->crtc == crtc)
-				is_cmd &= sde_encoder_is_cmd_mode(encoder);
+				is_cmd = sde_encoder_check_mode(encoder,
+						MSM_DISPLAY_CAP_CMD_MODE);
 		}
 
 		i = msm_property_index(&sde_crtc->property_info, property);
@@ -4435,6 +4470,31 @@ static int _sde_crtc_init_events(struct sde_crtc *sde_crtc)
 	return rc;
 }
 
+/*
+ * __sde_crtc_idle_notify_work - signal idle timeout to user space
+ */
+static void __sde_crtc_idle_notify_work(struct kthread_work *work)
+{
+	struct sde_crtc *sde_crtc = container_of(work, struct sde_crtc,
+				idle_notify_work.work);
+	struct drm_crtc *crtc;
+	struct drm_event event;
+	int ret = 0;
+
+	if (!sde_crtc) {
+		SDE_ERROR("invalid sde crtc\n");
+	} else {
+		crtc = &sde_crtc->base;
+		event.type = DRM_EVENT_IDLE_NOTIFY;
+		event.length = sizeof(u32);
+		msm_mode_object_event_notify(&crtc->base, crtc->dev,
+				&event, (u8 *)&ret);
+
+		SDE_DEBUG("crtc[%d]: idle timeout notified\n", crtc->base.id);
+	}
+}
+
+
 /* initialize crtc */
 struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 {
@@ -4504,6 +4564,9 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 	/* Install color processing properties */
 	sde_cp_crtc_init(crtc);
 	sde_cp_crtc_install_properties(crtc);
+
+	kthread_init_delayed_work(&sde_crtc->idle_notify_work,
+					__sde_crtc_idle_notify_work);
 
 	SDE_DEBUG("%s: successfully initialized crtc\n", sde_crtc->name);
 	return crtc;
@@ -4648,5 +4711,11 @@ static int sde_crtc_pm_event_handler(struct drm_crtc *crtc, bool en,
 	 * IRQ object noirq is not being used here since there is
 	 * no crtc irq from pm event.
 	 */
+	return 0;
+}
+
+static int sde_crtc_idle_interrupt_handler(struct drm_crtc *crtc_drm,
+	bool en, struct sde_irq_callback *irq)
+{
 	return 0;
 }

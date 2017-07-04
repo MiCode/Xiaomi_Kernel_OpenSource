@@ -147,6 +147,7 @@ enum msm_mdp_crtc_property {
 	CRTC_PROP_ROT_CLK,
 	CRTC_PROP_ROI_V1,
 	CRTC_PROP_SECURITY_LEVEL,
+	CRTC_PROP_IDLE_TIME,
 
 	/* total # of properties */
 	CRTC_PROP_COUNT

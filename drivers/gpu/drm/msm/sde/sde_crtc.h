@@ -191,6 +191,7 @@ struct sde_crtc_event {
  * @misr_enable   : boolean entry indicates misr enable/disable status.
  * @misr_frame_count  : misr frame count provided by client
  * @misr_data     : store misr data before turning off the clocks.
+ * @idle_notify_work: delayed worker to notify idle timeout to user space
  * @power_event   : registered power event handle
  * @cur_perf      : current performance committed to clock/bandwidth driver
  * @rp_lock       : serialization lock for resource pool
@@ -248,6 +249,8 @@ struct sde_crtc {
 	bool misr_enable;
 	u32 misr_frame_count;
 	u32 misr_data[CRTC_DUAL_MIXERS];
+
+	struct kthread_delayed_work idle_notify_work;
 
 	struct sde_power_event *power_event;
 
