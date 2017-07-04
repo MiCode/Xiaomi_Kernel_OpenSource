@@ -16,6 +16,7 @@
 #include "sde_kms.h"
 #include "sde_connector.h"
 #include "sde_backlight.h"
+#include "sde_splash.h"
 
 #define SDE_DEBUG_CONN(c, fmt, ...) SDE_DEBUG("conn%d " fmt,\
 		(c) ? (c)->base.base.id : -1, ##__VA_ARGS__)
@@ -501,13 +502,35 @@ void sde_connector_prepare_fence(struct drm_connector *connector)
 
 void sde_connector_complete_commit(struct drm_connector *connector)
 {
+	struct drm_device *dev;
+	struct msm_drm_private *priv;
+	struct sde_connector *c_conn;
+	struct sde_kms *sde_kms;
+
 	if (!connector) {
 		SDE_ERROR("invalid connector\n");
 		return;
 	}
 
+	dev = connector->dev;
+	priv = dev->dev_private;
+	sde_kms = to_sde_kms(priv->kms);
+
 	/* signal connector's retire fence */
 	sde_fence_signal(&to_sde_connector(connector)->retire_fence, 0);
+
+	/* after first vsync comes,
+	 * early splash resource should start to be released.
+	 */
+	if (sde_splash_get_lk_complete_status(&sde_kms->splash_info)) {
+		c_conn = to_sde_connector(connector);
+
+		sde_splash_clean_up_free_resource(priv->kms,
+						&priv->phandle,
+						c_conn->connector_type,
+						c_conn->display);
+	}
+
 }
 
 static void sde_connector_update_hdr_props(struct drm_connector *connector)
