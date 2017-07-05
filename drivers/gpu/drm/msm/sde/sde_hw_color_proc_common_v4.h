@@ -55,5 +55,15 @@ enum {
 #define PCC_EN BIT(0)
 #define PCC_DIS 0
 #define PCC_C_OFF 0x4
+#define PCC_R_OFF 0x10
+#define PCC_G_OFF 0x1c
+#define PCC_B_OFF 0x28
+#define PCC_RG_OFF 0x34
+#define PCC_RB_OFF 0x40
+#define PCC_GB_OFF 0x4c
+#define PCC_RGB_OFF 0x58
+#define PCC_RR_OFF 0x64
+#define PCC_GG_OFF 0x70
+#define PCC_BB_OFF 0x7c
 
 #endif /* _SDE_HW_COLOR_PROC_COMMON_V4_H_ */

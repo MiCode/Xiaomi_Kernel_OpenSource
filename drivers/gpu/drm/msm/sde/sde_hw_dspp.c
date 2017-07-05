@@ -65,7 +65,8 @@ static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 					c->ops.setup_pcc =
 						reg_dmav1_setup_dspp_pccv4;
 				else
-					c->ops.setup_pcc = NULL;
+					c->ops.setup_pcc =
+						sde_setup_dspp_pccv4;
 			}
 			break;
 		case SDE_DSPP_HSIC:
