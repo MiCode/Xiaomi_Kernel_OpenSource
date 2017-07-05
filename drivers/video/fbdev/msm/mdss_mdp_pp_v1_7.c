@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -358,7 +358,8 @@ static int pp_hist_lut_get_config(char __iomem *base_addr, void *cfg_data,
 	int ret = 0, i = 0;
 	char __iomem *hist_addr;
 	u32 sz = 0, temp = 0, *data = NULL;
-	struct mdp_hist_lut_data_v1_7 *lut_data = NULL;
+	struct mdp_hist_lut_data_v1_7 lut_data_v1_7;
+	struct mdp_hist_lut_data_v1_7 *lut_data = &lut_data_v1_7;
 	struct mdp_hist_lut_data *lut_cfg_data = NULL;
 
 	if (!base_addr || !cfg_data) {
@@ -378,7 +379,11 @@ static int pp_hist_lut_get_config(char __iomem *base_addr, void *cfg_data,
 		       lut_cfg_data->version, lut_cfg_data->cfg_payload);
 		return -EINVAL;
 	}
-	lut_data = lut_cfg_data->cfg_payload;
+	if (copy_from_user(lut_data, (void __user *) lut_cfg_data->cfg_payload,
+			sizeof(*lut_data))) {
+		pr_err("copy from user failed for lut_data\n");
+		return -EFAULT;
+	}
 	if (lut_data->len != ENHIST_LUT_ENTRIES) {
 		pr_err("invalid hist_lut len %d", lut_data->len);
 		return -EINVAL;
@@ -1786,7 +1791,8 @@ static int pp_igc_get_config(char __iomem *base_addr, void *cfg_data,
 {
 	int ret = 0, i = 0;
 	struct mdp_igc_lut_data *lut_cfg_data = NULL;
-	struct mdp_igc_lut_data_v1_7 *lut_data = NULL;
+	struct mdp_igc_lut_data_v1_7 lut_data_v1_7;
+	struct mdp_igc_lut_data_v1_7 *lut_data = &lut_data_v1_7;
 	char __iomem *c1 = NULL, *c2 = NULL;
 	u32 *c0c1_data = NULL, *c2_data = NULL;
 	u32 data = 0, sz = 0;
@@ -1810,7 +1816,11 @@ static int pp_igc_get_config(char __iomem *base_addr, void *cfg_data,
 		ret = -EINVAL;
 		goto exit;
 	}
-	lut_data = lut_cfg_data->cfg_payload;
+	if (copy_from_user(lut_data, (void __user *) lut_cfg_data->cfg_payload,
+			sizeof(*lut_data))) {
+		pr_err("copy from user failed for lut_data\n");
+		return -EFAULT;
+	}
 	if (lut_data->len != IGC_LUT_ENTRIES) {
 		pr_err("invalid lut len %d\n", lut_data->len);
 		ret = -EINVAL;
