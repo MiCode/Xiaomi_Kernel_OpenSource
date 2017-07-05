@@ -710,15 +710,6 @@ set_stereo_to_custom_stereo_return:
 	return rc;
 }
 
-int adm_dolby_dap_send_params(int port_id, int copp_idx, char *params,
-			      uint32_t params_length)
-{
-	/* Use as wrapper for adm_set_pp_params until no longer used */
-	return adm_set_pp_params(port_id, copp_idx, NULL, params,
-				 params_length);
-}
-EXPORT_SYMBOL(adm_dolby_dap_send_params);
-
 /*
  * With pre-packed data, only the opcode differes from V5 and V6.
  * Use q6common_pack_pp_params to pack the data correctly.
@@ -849,28 +840,6 @@ done:
 }
 EXPORT_SYMBOL(adm_pack_and_set_one_pp_param);
 
-int adm_get_params_v2(int port_id, int copp_idx, uint32_t module_id,
-		      uint32_t param_id, uint32_t params_length, char *params,
-		      uint32_t client_id)
-{
-	struct param_hdr_v3 param_hdr = {0};
-
-	param_hdr.module_id = module_id;
-	param_hdr.instance_id = INSTANCE_ID_0;
-	param_hdr.param_id = param_id;
-	param_hdr.param_size = params_length;
-
-	return adm_get_pp_params(port_id, copp_idx, client_id, NULL, &param_hdr,
-				 params);
-}
-
-int adm_get_params(int port_id, int copp_idx, uint32_t module_id,
-		   uint32_t param_id, uint32_t params_length, char *params)
-{
-	return adm_get_params_v2(port_id, copp_idx, module_id, param_id,
-				 params_length, params, 0);
-}
-
 /*
  * Only one parameter can be requested at a time. Therefore, packing and sending
  * the request can be handled locally.
@@ -988,14 +957,6 @@ done:
 	return ret;
 }
 EXPORT_SYMBOL(adm_get_pp_params);
-
-int adm_get_pp_topo_module_list(int port_id, int copp_idx, int32_t param_length,
-				char *params)
-{
-	return adm_get_pp_topo_module_list_v2(port_id, copp_idx, param_length,
-					      (int32_t *) params);
-}
-EXPORT_SYMBOL(adm_get_pp_topo_module_list);
 
 int adm_get_pp_topo_module_list_v2(int port_id, int copp_idx,
 				   int32_t param_length,
