@@ -20,9 +20,12 @@
 #include "dsi_ctrl_reg.h"
 #include "dsi_hw.h"
 #include "dsi_panel.h"
+#include "dsi_catalog.h"
 
 #define MMSS_MISC_CLAMP_REG_OFF           0x0014
 #define DSI_CTRL_DYNAMIC_FORCE_ON         (0x23F|BIT(8)|BIT(9)|BIT(11)|BIT(21))
+#define DSI_CTRL_CMD_MISR_ENABLE          BIT(28)
+#define DSI_CTRL_VIDEO_MISR_ENABLE        BIT(16)
 
 /* Unsupported formats default to RGB888 */
 static const u8 cmd_mode_format_map[DSI_PIXEL_FORMAT_MAX] = {
@@ -146,6 +149,70 @@ void dsi_ctrl_hw_cmn_soft_reset(struct dsi_ctrl_hw *ctrl)
 	DSI_W32(ctrl, DSI_CTRL, reg_ctrl);
 	wmb(); /* make sure DSI controller is enabled again */
 	pr_debug("[DSI_%d] ctrl soft reset done\n", ctrl->index);
+}
+
+/**
+ * setup_misr() - Setup frame MISR
+ * @ctrl:	  Pointer to the controller host hardware.
+ * @panel_mode:   CMD or VIDEO mode indicator
+ * @enable:	  Enable/disable MISR.
+ * @frame_count:  Number of frames to accumulate MISR.
+ */
+void dsi_ctrl_hw_cmn_setup_misr(struct dsi_ctrl_hw *ctrl,
+			enum dsi_op_mode panel_mode,
+			bool enable,
+			u32 frame_count)
+{
+	u32 addr;
+	u32 config = 0;
+
+	if (panel_mode == DSI_OP_CMD_MODE) {
+		addr = DSI_MISR_CMD_CTRL;
+		if (enable)
+			config = DSI_CTRL_CMD_MISR_ENABLE;
+	} else {
+		addr = DSI_MISR_VIDEO_CTRL;
+		if (enable)
+			config = DSI_CTRL_VIDEO_MISR_ENABLE;
+		if (frame_count > 255)
+			frame_count = 255;
+		config |= frame_count << 8;
+	}
+
+	pr_debug("[DSI_%d] MISR ctrl: 0x%x\n", ctrl->index,
+			config);
+	DSI_W32(ctrl, addr, config);
+	wmb(); /* make sure MISR is configured */
+}
+
+/**
+ * collect_misr() - Read frame MISR
+ * @ctrl:	  Pointer to the controller host hardware.
+ * @panel_mode:   CMD or VIDEO mode indicator
+ */
+u32 dsi_ctrl_hw_cmn_collect_misr(struct dsi_ctrl_hw *ctrl,
+			enum dsi_op_mode panel_mode)
+{
+	u32 addr;
+	u32 enabled;
+	u32 misr = 0;
+
+	if (panel_mode == DSI_OP_CMD_MODE) {
+		addr = DSI_MISR_CMD_MDP0_32BIT;
+		enabled = DSI_R32(ctrl, DSI_MISR_CMD_CTRL) &
+				DSI_CTRL_CMD_MISR_ENABLE;
+	} else {
+		addr = DSI_MISR_VIDEO_32BIT;
+		enabled = DSI_R32(ctrl, DSI_MISR_VIDEO_CTRL) &
+				DSI_CTRL_VIDEO_MISR_ENABLE;
+	}
+
+	if (enabled)
+		misr = DSI_R32(ctrl, addr);
+
+	pr_debug("[DSI_%d] MISR enabled %x value: 0x%x\n", ctrl->index,
+			enabled, misr);
+	return misr;
 }
 
 /**
