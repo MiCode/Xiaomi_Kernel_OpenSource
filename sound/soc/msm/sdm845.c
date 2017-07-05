@@ -6696,16 +6696,18 @@ static int msm_init_wsa_dev(struct platform_device *pdev,
 	ret = of_property_read_u32(pdev->dev.of_node,
 				   "qcom,wsa-max-devs", &wsa_max_devs);
 	if (ret) {
-		dev_dbg(&pdev->dev,
+		dev_info(&pdev->dev,
 			 "%s: wsa-max-devs property missing in DT %s, ret = %d\n",
 			 __func__, pdev->dev.of_node->full_name, ret);
-		goto err;
+		card->num_aux_devs = 0;
+		return 0;
 	}
 	if (wsa_max_devs == 0) {
 		dev_warn(&pdev->dev,
 			 "%s: Max WSA devices is 0 for this target?\n",
 			 __func__);
-		goto err;
+		card->num_aux_devs = 0;
+		return 0;
 	}
 
 	/* Get count of WSA device phandles for this platform */
