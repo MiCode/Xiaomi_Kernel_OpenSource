@@ -47,7 +47,7 @@ enum cnss_mhi_state {
 struct cnss_msi_user {
 	char *name;
 	int num_vectors;
-	uint32_t base_vector;
+	u32 base_vector;
 };
 
 struct cnss_msi_config {
@@ -73,7 +73,7 @@ struct cnss_pci_data {
 	size_t smmu_iova_len;
 	void __iomem *bar;
 	struct cnss_msi_config *msi_config;
-	uint32_t msi_ep_base_data;
+	u32 msi_ep_base_data;
 	struct mhi_device mhi_dev;
 	unsigned long mhi_state;
 };

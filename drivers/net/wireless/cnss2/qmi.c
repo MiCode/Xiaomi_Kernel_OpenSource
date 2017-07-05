@@ -27,7 +27,7 @@
 
 #ifdef CONFIG_CNSS2_DEBUG
 static unsigned int qmi_timeout = 10000;
-module_param(qmi_timeout, uint, S_IRUSR | S_IWUSR);
+module_param(qmi_timeout, uint, 0600);
 MODULE_PARM_DESC(qmi_timeout, "Timeout for QMI message in milliseconds");
 
 #define QMI_WLFW_TIMEOUT_MS		qmi_timeout
@@ -36,12 +36,12 @@ MODULE_PARM_DESC(qmi_timeout, "Timeout for QMI message in milliseconds");
 #endif
 
 static bool daemon_support;
-module_param(daemon_support, bool, S_IRUSR | S_IWUSR);
+module_param(daemon_support, bool, 0600);
 MODULE_PARM_DESC(daemon_support, "User space has cnss-daemon support or not");
 
 static bool bdf_bypass = true;
 #ifdef CONFIG_CNSS2_DEBUG
-module_param(bdf_bypass, bool, S_IRUSR | S_IWUSR);
+module_param(bdf_bypass, bool, 0600);
 MODULE_PARM_DESC(bdf_bypass, "If BDF is not found, send dummy BDF to FW");
 #endif
 
@@ -422,7 +422,7 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv)
 		goto out;
 	}
 
-	if (0xFF == plat_priv->board_info.board_id)
+	if (plat_priv->board_info.board_id == 0xFF)
 		snprintf(filename, sizeof(filename), DEFAULT_BDF_FILE_NAME);
 	else
 		snprintf(filename, sizeof(filename),
@@ -680,8 +680,8 @@ out:
 }
 
 int cnss_wlfw_athdiag_read_send_sync(struct cnss_plat_data *plat_priv,
-				     uint32_t offset, uint32_t mem_type,
-				     uint32_t data_len, uint8_t *data)
+				     u32 offset, u32 mem_type,
+				     u32 data_len, u8 *data)
 {
 	struct wlfw_athdiag_read_req_msg_v01 req;
 	struct wlfw_athdiag_read_resp_msg_v01 *resp;
@@ -746,8 +746,8 @@ out:
 }
 
 int cnss_wlfw_athdiag_write_send_sync(struct cnss_plat_data *plat_priv,
-				      uint32_t offset, uint32_t mem_type,
-				      uint32_t data_len, uint8_t *data)
+				      u32 offset, u32 mem_type,
+				      u32 data_len, u8 *data)
 {
 	struct wlfw_athdiag_write_req_msg_v01 *req;
 	struct wlfw_athdiag_write_resp_msg_v01 resp;
@@ -804,7 +804,7 @@ out:
 }
 
 int cnss_wlfw_ini_send_sync(struct cnss_plat_data *plat_priv,
-			    uint8_t fw_log_mode)
+			    u8 fw_log_mode)
 {
 	int ret;
 	struct wlfw_ini_req_msg_v01 req;
