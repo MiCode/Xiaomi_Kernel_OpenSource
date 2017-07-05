@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2910,12 +2910,13 @@ static struct snd_soc_dai_link msm8996_common_dai_links[] = {
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA15,
 	},
 	{
-		.name = "MSM8996 Compress9",
-		.stream_name = "Compress9",
+		.name = "MSM8996 ULL NOIRQ_2",
+		.stream_name = "MM_NOIRQ_2",
 		.cpu_dai_name = "MultiMedia16",
-		.platform_name = "msm-compress-dsp",
+		.platform_name = "msm-pcm-dsp-noirq",
 		.dynamic = 1,
 		.dpcm_playback = 1,
+		.dpcm_capture = 1,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 			 SND_SOC_DPCM_TRIGGER_POST},
 		.codec_dai_name = "snd-soc-dummy-dai",
