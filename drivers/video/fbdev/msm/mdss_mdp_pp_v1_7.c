@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1954,19 +1954,23 @@ static int pp_pgc_get_config(char __iomem *base_addr, void *cfg_data,
 	u32 *c0_data = NULL, *c1_data = NULL, *c2_data = NULL;
 	u32 val = 0, i = 0, sz = 0;
 	struct mdp_pgc_lut_data *pgc_data = NULL;
-	struct mdp_pgc_lut_data_v1_7  *pgc_data_v17 = NULL;
+	struct mdp_pgc_lut_data_v1_7  pgc_lut_data_v17;
+	struct mdp_pgc_lut_data_v1_7  *pgc_data_v17 = &pgc_lut_data_v17;
 	if (!base_addr || !cfg_data) {
 		pr_err("invalid params base_addr %pK cfg_data %pK block_type %d\n",
 		      base_addr, cfg_data, block_type);
 		return -EINVAL;
 	}
 	pgc_data = (struct mdp_pgc_lut_data *) cfg_data;
-	pgc_data_v17 = (struct mdp_pgc_lut_data_v1_7 *)
-			pgc_data->cfg_payload;
-	if (pgc_data->version != mdp_pgc_v1_7 || !pgc_data_v17) {
+	if (pgc_data->version != mdp_pgc_v1_7 || !pgc_data->cfg_payload) {
 		pr_err("invalid pgc version %d payload %pK\n",
-			pgc_data->version, pgc_data_v17);
+			pgc_data->version, pgc_data->cfg_payload);
 		return -EINVAL;
+	}
+	if (copy_from_user(pgc_data_v17, (void __user *) pgc_data->cfg_payload,
+			sizeof(*pgc_data_v17))) {
+		pr_err("copy from user failed for pgc lut data\n");
+		return -EFAULT;
 	}
 	if (!(pgc_data->flags & MDP_PP_OPS_READ)) {
 		pr_info("read ops is not set %d", pgc_data->flags);
