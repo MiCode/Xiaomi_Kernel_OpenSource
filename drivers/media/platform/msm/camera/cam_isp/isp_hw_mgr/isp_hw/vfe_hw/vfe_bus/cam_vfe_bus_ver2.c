@@ -424,7 +424,6 @@ static int cam_vfe_bus_get_num_wm(
 	case CAM_VFE_BUS_VER2_VFE_OUT_STATS_CS:
 		switch (format) {
 		case CAM_FORMAT_PLAIN64:
-		case CAM_FORMAT_PLAIN128:
 			return 1;
 		default:
 			break;
@@ -636,7 +635,26 @@ static enum cam_vfe_bus_packer_format
 	switch (out_fmt) {
 	case CAM_FORMAT_NV21:
 	case CAM_FORMAT_NV12:
-		return PACKER_FMT_PLAIN_8;
+		return PACKER_FMT_PLAIN_8_LSB_MSB_10;
+	case CAM_FORMAT_PLAIN16_16:
+		return PACKER_FMT_PLAIN_16_16BPP;
+	case CAM_FORMAT_PLAIN64:
+		return PACKER_FMT_PLAIN_64;
+	case CAM_FORMAT_MIPI_RAW_6:
+	case CAM_FORMAT_MIPI_RAW_8:
+	case CAM_FORMAT_MIPI_RAW_10:
+	case CAM_FORMAT_MIPI_RAW_12:
+	case CAM_FORMAT_MIPI_RAW_14:
+	case CAM_FORMAT_MIPI_RAW_16:
+	case CAM_FORMAT_MIPI_RAW_20:
+	case CAM_FORMAT_QTI_RAW_8:
+	case CAM_FORMAT_QTI_RAW_10:
+	case CAM_FORMAT_QTI_RAW_12:
+	case CAM_FORMAT_QTI_RAW_14:
+	case CAM_FORMAT_PLAIN128:
+	case CAM_FORMAT_PD8:
+	case CAM_FORMAT_PD10:
+		return PACKER_FMT_PLAIN_128;
 	default:
 		return PACKER_FMT_MAX;
 	}
@@ -685,7 +703,6 @@ static int cam_vfe_bus_acquire_wm(
 	if (rsrc_data->index < 3) {
 		rsrc_data->width = rsrc_data->width * 5/4 * rsrc_data->height;
 		rsrc_data->height = 1;
-		rsrc_data->pack_fmt = 0x0;
 		rsrc_data->en_cfg = 0x3;
 	} else if (rsrc_data->index < 5 ||
 		rsrc_data->index == 7 || rsrc_data->index == 8) {
@@ -721,18 +738,15 @@ static int cam_vfe_bus_acquire_wm(
 			pr_err("Invalid plane type %d\n", plane);
 			return -EINVAL;
 		}
-		rsrc_data->pack_fmt = 0xE;
 		rsrc_data->en_cfg = 0x1;
 	} else if (rsrc_data->index >= 11) {
 		rsrc_data->width = 0;
 		rsrc_data->height = 0;
-		rsrc_data->pack_fmt = 0x0;
 		rsrc_data->stride = 1;
 		rsrc_data->en_cfg = 0x3;
 	} else {
 		rsrc_data->width = rsrc_data->width * 4;
 		rsrc_data->height = rsrc_data->height / 2;
-		rsrc_data->pack_fmt = 0x0;
 		rsrc_data->en_cfg = 0x1;
 	}
 
