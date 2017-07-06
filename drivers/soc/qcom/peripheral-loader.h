@@ -77,6 +77,34 @@ struct pil_image_info {
 	__le32 size;
 } __attribute__((__packed__));
 
+#define MAX_NUM_OF_SS 3
+
+/**
+ * struct md_ssr_ss_info - Info in imem about smem ToC
+ * @md_ss_smem_regions_baseptr: Start physical address of SMEM TOC
+ * @md_ss_num_of_regions: number of segments that need to be dumped
+ * @md_ss_encryption_status: status of encryption of segments
+ * @md_ss_ssr_cause: ssr cause enum
+ */
+struct md_ssr_ss_info {
+	u32 md_ss_smem_regions_baseptr;
+	u8 md_ss_num_of_regions;
+	u8 md_ss_encryption_status;
+	u8 md_ss_ssr_cause;
+	u8 reserved;
+};
+
+/**
+ * struct md_ssr_toc - Wrapper of struct md_ssr_ss_info
+ * @md_ssr_toc_init: flag to indicate to MSS SW about imem init done
+ * @md_ssr_ss: Instance of struct md_ssr_ss_info for a subsystem
+ */
+struct md_ssr_toc /* Shared IMEM ToC struct */
+{
+	u32 md_ssr_toc_init;
+	struct md_ssr_ss_info	md_ssr_ss[MAX_NUM_OF_SS];
+};
+
 /**
  * struct pil_reset_ops - PIL operations
  * @init_image: prepare an image for authentication
