@@ -339,6 +339,13 @@
 			reg = <0x0 0x86000000 0x0 0x200000>;
 		};
 	};
+
+	vendor: vendor {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0 0 0 0xffffffff>;
+		compatible = "simple-bus";
+	};
 };
 
 #include "sdm855-gdsc.dtsi"
