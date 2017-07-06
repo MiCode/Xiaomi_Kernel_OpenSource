@@ -2833,6 +2833,7 @@ static int mmc_runtime_suspend(struct mmc_host *host)
 		return -EBUSY;
 	}
 
+	MMC_TRACE(host, "%s\n", __func__);
 	err = _mmc_suspend(host, true);
 	if (err)
 		pr_err("%s: error %d doing aggressive suspend\n",
@@ -2854,6 +2855,7 @@ static int mmc_runtime_resume(struct mmc_host *host)
 	if (!(host->caps & (MMC_CAP_AGGRESSIVE_PM | MMC_CAP_RUNTIME_RESUME)))
 		return 0;
 
+	MMC_TRACE(host, "%s\n", __func__);
 	err = _mmc_resume(host);
 	if (err)
 		pr_err("%s: error %d doing aggressive resume\n",
