@@ -130,11 +130,6 @@ uint32_t adreno_submitted_fence(struct msm_gpu *gpu,
 	return ring->submitted_fence;
 }
 
-uint32_t adreno_last_fence(struct msm_gpu *gpu, struct msm_ringbuffer *ring)
-{
-	return ring ? ring->memptrs->fence : 0;
-}
-
 void adreno_recover(struct msm_gpu *gpu)
 {
 	struct drm_device *dev = gpu->dev;
@@ -294,7 +289,7 @@ void adreno_show(struct msm_gpu *gpu, struct seq_file *m)
 			continue;
 
 		seq_printf(m, "rb %d: fence:    %d/%d\n", i,
-			adreno_last_fence(gpu, ring),
+			ring->memptrs->fence,
 			adreno_submitted_fence(gpu, ring));
 
 		seq_printf(m, "      rptr:     %d\n",
@@ -344,7 +339,7 @@ void adreno_dump_info(struct msm_gpu *gpu)
 			continue;
 
 		dev_err(dev->dev, " ring %d: fence %d/%d rptr/wptr %x/%x\n", i,
-			adreno_last_fence(gpu, ring),
+			ring->memptrs->fence,
 			adreno_submitted_fence(gpu, ring),
 			get_rptr(adreno_gpu, ring),
 			get_wptr(ring));
@@ -603,7 +598,7 @@ static void adreno_snapshot_ringbuffer(struct msm_gpu *gpu,
 	header.rptr = get_rptr(adreno_gpu, ring);
 	header.wptr = get_wptr(ring);
 	header.timestamp_queued = adreno_submitted_fence(gpu, ring);
-	header.timestamp_retired = adreno_last_fence(gpu, ring);
+	header.timestamp_retired = ring->memptrs->fence;
 
 	/* Write the header even if the ringbuffer data is empty */
 	if (!SNAPSHOT_HEADER(snapshot, header, SNAPSHOT_SECTION_RB_V2,

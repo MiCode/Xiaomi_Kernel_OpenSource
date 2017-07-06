@@ -217,7 +217,6 @@ static inline int adreno_is_a540(struct adreno_gpu *gpu)
 
 int adreno_get_param(struct msm_gpu *gpu, uint32_t param, uint64_t *value);
 int adreno_hw_init(struct msm_gpu *gpu);
-uint32_t adreno_last_fence(struct msm_gpu *gpu, struct msm_ringbuffer *ring);
 uint32_t adreno_submitted_fence(struct msm_gpu *gpu,
 		struct msm_ringbuffer *ring);
 void adreno_recover(struct msm_gpu *gpu);
