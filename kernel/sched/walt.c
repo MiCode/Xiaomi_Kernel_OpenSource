@@ -3047,3 +3047,33 @@ void walt_irq_work(struct irq_work *irq_work)
 
 	core_ctl_check(this_rq()->window_start);
 }
+
+#ifndef CONFIG_SCHED_HMP
+int walt_proc_update_handler(struct ctl_table *table, int write,
+			     void __user *buffer, size_t *lenp,
+			     loff_t *ppos)
+{
+	int ret;
+	unsigned int *data = (unsigned int *)table->data;
+	static DEFINE_MUTEX(mutex);
+
+	mutex_lock(&mutex);
+	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+	if (ret || !write) {
+		mutex_unlock(&mutex);
+		return ret;
+	}
+
+	if (data == &sysctl_sched_group_upmigrate_pct)
+		sched_group_upmigrate =
+		    pct_to_real(sysctl_sched_group_upmigrate_pct);
+	else if (data == &sysctl_sched_group_downmigrate_pct)
+		sched_group_downmigrate =
+		    pct_to_real(sysctl_sched_group_downmigrate_pct);
+	else
+		ret = -EINVAL;
+	mutex_unlock(&mutex);
+
+	return ret;
+}
+#endif
