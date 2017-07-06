@@ -689,6 +689,7 @@ static void _sde_sspp_setup_vig(struct sde_mdss_cfg *sde_cfg,
 {
 	sblk->maxupscale = MAX_SSPP_UPSCALE;
 	sblk->maxdwnscale = MAX_SSPP_DOWNSCALE;
+	sblk->format_list = plane_formats_yuv;
 	sspp->id = SSPP_VIG0 + *vig_count;
 	sspp->clk_ctrl = SDE_CLK_CTRL_VIG0 + *vig_count;
 	sspp->type = SSPP_TYPE_VIG;
@@ -759,6 +760,7 @@ static void _sde_sspp_setup_rgb(struct sde_mdss_cfg *sde_cfg,
 {
 	sblk->maxupscale = MAX_SSPP_UPSCALE;
 	sblk->maxdwnscale = MAX_SSPP_DOWNSCALE;
+	sblk->format_list = plane_formats;
 	sspp->id = SSPP_RGB0 + *rgb_count;
 	sspp->clk_ctrl = SDE_CLK_CTRL_RGB0 + *rgb_count;
 	sspp->type = SSPP_TYPE_RGB;
@@ -799,6 +801,7 @@ static void _sde_sspp_setup_cursor(struct sde_mdss_cfg *sde_cfg,
 	set_bit(SDE_SSPP_CURSOR, &sspp->features);
 	sblk->maxupscale = SSPP_UNITY_SCALE;
 	sblk->maxdwnscale = SSPP_UNITY_SCALE;
+	sblk->format_list = cursor_formats;
 	sspp->id = SSPP_CURSOR0 + *cursor_count;
 	sspp->clk_ctrl = SDE_CLK_CTRL_CURSOR0 + *cursor_count;
 	sspp->type = SSPP_TYPE_CURSOR;
@@ -812,6 +815,7 @@ static void _sde_sspp_setup_dma(struct sde_mdss_cfg *sde_cfg,
 {
 	sblk->maxupscale = SSPP_UNITY_SCALE;
 	sblk->maxdwnscale = SSPP_UNITY_SCALE;
+	sblk->format_list = plane_formats;
 	sspp->id = SSPP_DMA0 + *dma_count;
 	sspp->clk_ctrl = SDE_CLK_CTRL_DMA0 + *dma_count;
 	sspp->type = SSPP_TYPE_DMA;
@@ -1291,6 +1295,7 @@ static int sde_wb_parse_dt(struct device_node *np,
 		wb->xin_id = PROP_VALUE_ACCESS(prop_value, WB_XIN_ID, i);
 		wb->vbif_idx = VBIF_NRT;
 		wb->len = PROP_VALUE_ACCESS(prop_value, WB_LEN, 0);
+		wb->format_list = wb2_formats;
 		if (!prop_exists[WB_LEN])
 			wb->len = DEFAULT_SDE_HW_BLOCK_LEN;
 		sblk->maxlinewidth = sde_cfg->max_wb_linewidth;
