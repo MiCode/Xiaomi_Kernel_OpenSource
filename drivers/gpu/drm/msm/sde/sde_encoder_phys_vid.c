@@ -16,6 +16,7 @@
 #include "sde_core_irq.h"
 #include "sde_formats.h"
 #include "dsi_display.h"
+#include "sde_trace.h"
 
 #define SDE_DEBUG_VIDENC(e, fmt, ...) SDE_DEBUG("enc%d intf%d " fmt, \
 		(e) && (e)->base.parent ? \
@@ -384,6 +385,7 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 		return;
 
 	hw_ctl = phys_enc->hw_ctl;
+	SDE_ATRACE_BEGIN("vblank_irq");
 
 	/* signal only for master, where there is a pending kickoff */
 	if (sde_encoder_phys_vid_is_master(phys_enc)
@@ -422,6 +424,7 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 
 	/* Signal any waiting atomic commit thread */
 	wake_up_all(&phys_enc->pending_kickoff_wq);
+	SDE_ATRACE_END("vblank_irq");
 }
 
 static void sde_encoder_phys_vid_underrun_irq(void *arg, int irq_idx)
