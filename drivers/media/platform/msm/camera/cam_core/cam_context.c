@@ -34,7 +34,7 @@ static int cam_context_handle_hw_event(void *context, uint32_t evt_id,
 	return rc;
 }
 
-int cam_context_handle_get_dev_info(struct cam_context *ctx,
+int cam_context_handle_crm_get_dev_info(struct cam_context *ctx,
 	struct cam_req_mgr_device_info *info)
 {
 	int rc;
@@ -63,7 +63,7 @@ int cam_context_handle_get_dev_info(struct cam_context *ctx,
 	return rc;
 }
 
-int cam_context_handle_link(struct cam_context *ctx,
+int cam_context_handle_crm_link(struct cam_context *ctx,
 	struct cam_req_mgr_core_dev_link_setup *link)
 {
 	int rc;
@@ -91,7 +91,7 @@ int cam_context_handle_link(struct cam_context *ctx,
 	return rc;
 }
 
-int cam_context_handle_unlink(struct cam_context *ctx,
+int cam_context_handle_crm_unlink(struct cam_context *ctx,
 	struct cam_req_mgr_core_dev_link_setup *unlink)
 {
 	int rc;
@@ -120,7 +120,7 @@ int cam_context_handle_unlink(struct cam_context *ctx,
 	return rc;
 }
 
-int cam_context_handle_apply_req(struct cam_context *ctx,
+int cam_context_handle_crm_apply_req(struct cam_context *ctx,
 	struct cam_req_mgr_apply_request *apply)
 {
 	int rc;
@@ -149,6 +149,29 @@ int cam_context_handle_apply_req(struct cam_context *ctx,
 	return rc;
 }
 
+int cam_context_handle_crm_flush_req(struct cam_context *ctx,
+	struct cam_req_mgr_flush_request *flush)
+{
+	int rc;
+
+	if (!ctx->state_machine) {
+		pr_err("%s: Context is not ready\n", __func__);
+		return -EINVAL;
+	}
+
+	mutex_lock(&ctx->ctx_mutex);
+	if (ctx->state_machine[ctx->state].crm_ops.flush_req) {
+		rc = ctx->state_machine[ctx->state].crm_ops.flush_req(ctx,
+			flush);
+	} else {
+		pr_err("%s: No crm flush req in dev %d, state %d\n",
+			__func__, ctx->dev_hdl, ctx->state);
+		rc = -EPROTO;
+	}
+	mutex_unlock(&ctx->ctx_mutex);
+
+	return rc;
+}
 
 int cam_context_handle_acquire_dev(struct cam_context *ctx,
 	struct cam_acquire_dev_cmd *cmd)

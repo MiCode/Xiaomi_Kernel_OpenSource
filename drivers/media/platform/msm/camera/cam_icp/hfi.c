@@ -302,6 +302,19 @@ int hfi_get_hw_caps(void *query_buf)
 	return 0;
 }
 
+void cam_hfi_disable_cpu(void __iomem *icp_base)
+{
+	uint32_t data;
+	uint32_t val;
+
+	data = cam_io_r(icp_base + HFI_REG_A5_CSR_A5_STATUS);
+	/* Add waiting logic in case it is not idle */
+	if (data & ICP_CSR_A5_STATUS_WFI) {
+		val = cam_io_r(icp_base + HFI_REG_A5_CSR_A5_CONTROL);
+		val &= ~(ICP_FLAG_CSR_A5_EN | ICP_FLAG_CSR_WAKE_UP_EN);
+		cam_io_w(val, icp_base + HFI_REG_A5_CSR_A5_CONTROL);
+	}
+}
 
 void cam_hfi_enable_cpu(void __iomem *icp_base)
 {

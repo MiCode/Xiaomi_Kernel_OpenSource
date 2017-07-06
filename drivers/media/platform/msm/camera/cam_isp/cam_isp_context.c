@@ -14,11 +14,13 @@
 #include <linux/videodev2.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#include <linux/ratelimit.h>
 
 #include "cam_isp_context.h"
 #include "cam_isp_log.h"
 #include "cam_mem_mgr.h"
 #include "cam_sync_api.h"
+#include "cam_req_mgr_dev.h"
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
@@ -537,7 +539,7 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 	 */
 	list_for_each_entry(req, &ctx->active_req_list, list) {
 		if (++cnt > 2) {
-			pr_err("%s: Apply failed due to pipeline congestion\n",
+			pr_err_ratelimited("%s: Apply failed due to congest\n",
 				__func__);
 			rc = -EFAULT;
 			goto end;
@@ -627,6 +629,94 @@ static int __cam_isp_ctx_apply_req_in_bubble(
 	return rc;
 }
 
+static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
+	struct list_head *req_list, struct cam_req_mgr_flush_request *flush_req)
+{
+	int i, rc;
+	uint32_t cancel_req_id_found = 0;
+	struct cam_ctx_request           *req;
+	struct cam_ctx_request           *req_temp;
+	struct cam_isp_ctx_req           *req_isp;
+
+	spin_lock(&ctx->lock);
+	if (list_empty(req_list)) {
+		spin_unlock(&ctx->lock);
+		CDBG("%s: request list is empty\n", __func__);
+		return 0;
+	}
+
+	list_for_each_entry_safe(req, req_temp, req_list, list) {
+		if ((flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ)
+				&& (req->request_id != flush_req->req_id))
+			continue;
+
+		list_del_init(&req->list);
+		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
+		for (i = 0; i < req_isp->num_fence_map_out; i++) {
+			if (req_isp->fence_map_out[i].sync_id != -1) {
+				CDBG("%s: Flush req 0x%llx, fence %d\n",
+					__func__, req->request_id,
+					req_isp->fence_map_out[i].sync_id);
+				rc = cam_sync_signal(
+					req_isp->fence_map_out[i].sync_id,
+					CAM_SYNC_STATE_SIGNALED_ERROR);
+				if (rc)
+					pr_err_ratelimited("%s: signal fence failed\n",
+						__func__);
+				req_isp->fence_map_out[i].sync_id = -1;
+			}
+		}
+		list_add_tail(&req->list, &ctx->free_req_list);
+
+		/* If flush request id found, exit the loop */
+		if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ) {
+			cancel_req_id_found = 1;
+			break;
+		}
+	}
+	spin_unlock(&ctx->lock);
+
+	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ &&
+		!cancel_req_id_found)
+		CDBG("%s:Flush request id:%lld is not found in the list\n",
+			__func__, flush_req->req_id);
+
+	return 0;
+}
+
+static int __cam_isp_ctx_flush_req_in_top_state(
+	struct cam_context *ctx,
+	struct cam_req_mgr_flush_request *flush_req)
+{
+	int rc = 0;
+
+	CDBG("%s: try to flush pending list\n", __func__);
+	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, flush_req);
+	CDBG("%s: Flush request in top state %d\n",
+		__func__, ctx->state);
+	return rc;
+}
+
+static int __cam_isp_ctx_flush_req_in_ready(
+	struct cam_context *ctx,
+	struct cam_req_mgr_flush_request *flush_req)
+{
+	int rc = 0;
+
+	CDBG("%s: try to flush pending list\n", __func__);
+	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, flush_req);
+
+	/* if nothing is in pending req list, change state to acquire*/
+	spin_lock(&ctx->lock);
+	if (list_empty(&ctx->pending_req_list))
+		ctx->state = CAM_CTX_ACQUIRED;
+	spin_unlock(&ctx->lock);
+
+	CDBG("%s: Flush request in ready state. next state %d\n",
+		__func__, ctx->state);
+	return rc;
+}
+
 static struct cam_ctx_ops
 	cam_isp_ctx_activated_state_machine[CAM_ISP_CTX_ACTIVATED_MAX] = {
 	/* SOF */
@@ -679,12 +769,10 @@ static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
 	struct cam_release_dev_cmd *cmd)
 {
 	int rc = 0;
-	int i;
 	struct cam_hw_release_args       rel_arg;
-	struct cam_ctx_request	        *req;
-	struct cam_isp_ctx_req	        *req_isp;
 	struct cam_isp_context *ctx_isp =
 		(struct cam_isp_context *) ctx->ctx_priv;
+	struct cam_req_mgr_flush_request flush_req;
 
 	if (ctx_isp->hw_ctx) {
 		rel_arg.ctxt_to_hw_map = ctx_isp->hw_ctx;
@@ -704,25 +792,16 @@ static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
 	 * But we still add some sanity check code here to help the debug
 	 */
 	if (!list_empty(&ctx->active_req_list))
-		pr_err("%s: Active list is empty.\n", __func__);
+		pr_err("%s: Active list is not empty\n", __func__);
 
-	/* flush the pending list */
-	while (!list_empty(&ctx->pending_req_list)) {
-		req = list_first_entry(&ctx->pending_req_list,
-			struct cam_ctx_request, list);
-		list_del_init(&req->list);
-		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
-		pr_err("%s: signal fence in pending list. fence num %d\n",
-			__func__, req_isp->num_fence_map_out);
-		for (i = 0; i < req_isp->num_fence_map_out; i++) {
-			if (req_isp->fence_map_out[i].sync_id != -1) {
-				cam_sync_signal(
-					req_isp->fence_map_out[i].sync_id,
-					CAM_SYNC_STATE_SIGNALED_ERROR);
-			}
-		}
-		list_add_tail(&req->list, &ctx->free_req_list);
-	}
+	/* Flush all the pending request list  */
+	flush_req.type = CAM_REQ_MGR_FLUSH_TYPE_ALL;
+	flush_req.link_hdl = ctx->link_hdl;
+	flush_req.dev_hdl = ctx->dev_hdl;
+
+	CDBG("%s: try to flush pending list\n", __func__);
+	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, &flush_req);
+
 	ctx->state = CAM_CTX_AVAILABLE;
 	CDBG("%s: next state %d\n", __func__, ctx->state);
 	return rc;
@@ -1252,6 +1331,7 @@ static struct cam_ctx_ops
 			.link = __cam_isp_ctx_link_in_acquired,
 			.unlink = __cam_isp_ctx_unlink_in_acquired,
 			.get_dev_info = __cam_isp_ctx_get_dev_info_in_acquired,
+			.flush_req = __cam_isp_ctx_flush_req_in_top_state,
 		},
 		.irq_ops = NULL,
 	},
@@ -1264,6 +1344,7 @@ static struct cam_ctx_ops
 		},
 		.crm_ops = {
 			.unlink = __cam_isp_ctx_unlink_in_ready,
+			.flush_req = __cam_isp_ctx_flush_req_in_ready,
 		},
 		.irq_ops = NULL,
 	},
@@ -1276,6 +1357,7 @@ static struct cam_ctx_ops
 		},
 		.crm_ops = {
 			.apply_req = __cam_isp_ctx_apply_req,
+			.flush_req = __cam_isp_ctx_flush_req_in_top_state,
 		},
 		.irq_ops = __cam_isp_ctx_handle_irq_in_activated,
 	},

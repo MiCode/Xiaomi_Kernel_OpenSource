@@ -22,26 +22,6 @@
 #include "cam_cpas_hw.h"
 #include "cam_cpas_soc.h"
 
-static int cam_cpas_get_vote_level_from_string(const char *string,
-	enum cam_vote_level *vote_level)
-{
-	if (!vote_level || !string)
-		return -EINVAL;
-
-	if (strnstr("suspend", string, strlen(string)))
-		*vote_level = CAM_SUSPEND_VOTE;
-	else if (strnstr("svs", string, strlen(string)))
-		*vote_level = CAM_SVS_VOTE;
-	else if (strnstr("nominal", string, strlen(string)))
-		*vote_level = CAM_NOMINAL_VOTE;
-	else if (strnstr("turbo", string, strlen(string)))
-		*vote_level = CAM_TURBO_VOTE;
-	else
-		*vote_level = CAM_SVS_VOTE;
-
-	return 0;
-}
-
 int cam_cpas_get_custom_dt_info(struct platform_device *pdev,
 	struct cam_cpas_private_soc *soc_private)
 {
@@ -130,7 +110,7 @@ int cam_cpas_get_custom_dt_info(struct platform_device *pdev,
 				return -ENODEV;
 			}
 
-			rc = cam_cpas_get_vote_level_from_string(ahb_string,
+			rc = cam_soc_util_get_level_from_string(ahb_string,
 				&soc_private->vdd_ahb[i].ahb_level);
 			if (rc) {
 				pr_err("invalid ahb-string at index=%d\n", i);
@@ -207,11 +187,13 @@ int cam_cpas_soc_deinit_resources(struct cam_hw_soc_info *soc_info)
 	return rc;
 }
 
-int cam_cpas_soc_enable_resources(struct cam_hw_soc_info *soc_info)
+int cam_cpas_soc_enable_resources(struct cam_hw_soc_info *soc_info,
+	enum cam_vote_level default_level)
 {
 	int rc = 0;
 
-	rc = cam_soc_util_enable_platform_resource(soc_info, true, true);
+	rc = cam_soc_util_enable_platform_resource(soc_info, true,
+		default_level, true);
 	if (rc)
 		pr_err("enable platform resource failed, rc=%d\n", rc);
 

@@ -39,8 +39,8 @@
 
 #define ICP_PACKET_SIZE         0
 #define ICP_PACKET_TYPE         1
-#define ICP_PACKET_IPCODE       2
-#define ICP_IPE_MAX_OUTPUT_SUPPORTED 6
+#define ICP_PACKET_OPCODE       2
+#define ICP_MAX_OUTPUT_SUPPORTED 6
 
 /**
  * struct icp_hfi_mem_info
@@ -100,7 +100,7 @@ struct hfi_frame_process_info {
 	void *bitmap;
 	size_t bits;
 	struct mutex lock;
-	int32_t request_id[CAM_FRAME_CMD_MAX];
+	uint64_t request_id[CAM_FRAME_CMD_MAX];
 	uint32_t num_out_resources[CAM_FRAME_CMD_MAX];
 	uint32_t out_resource[CAM_FRAME_CMD_MAX][CAM_MAX_OUT_RES];
 };
@@ -113,13 +113,13 @@ struct hfi_frame_process_info {
  * @scratch_mem_size: Scratch memory size
  * @acquire_dev_cmd: Acquire command
  * @icp_dev_acquire_info: Acquire device info
- * @icp_out_acquire_info: Acquire out resource info
  * @ctxt_event_cb: Context callback function
  * @in_use: Flag for context usage
  * @role: Role of a context in case of chaining
  * @chain_ctx: Peer context
  * @hfi_frame_process: Frame process command
  * @wait_complete: Completion info
+ * @ctx_id: Context Id
  * @temp_payload: Payload for destroy handle data
  */
 struct cam_icp_hw_ctx_data {
@@ -128,15 +128,15 @@ struct cam_icp_hw_ctx_data {
 	uint32_t fw_handle;
 	uint32_t scratch_mem_size;
 	struct cam_acquire_dev_cmd acquire_dev_cmd;
-	struct cam_icp_acquire_dev_info icp_dev_acquire_info;
-	struct cam_icp_res_info icp_out_acquire_info[CAM_MAX_OUT_RES];
+	struct cam_icp_acquire_dev_info *icp_dev_acquire_info;
 	cam_hw_event_cb_func ctxt_event_cb;
-	uint32_t in_use;
+	bool in_use;
 	uint32_t role;
 	struct cam_icp_hw_ctx_data *chain_ctx;
 	struct hfi_frame_process_info hfi_frame_process;
 	struct completion wait_complete;
 	struct ipe_bps_destroy temp_payload;
+	uint32_t ctx_id;
 };
 
 /**
@@ -183,4 +183,6 @@ struct cam_icp_hw_mgr {
 	bool a5_debug;
 };
 
+static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args);
+static int cam_icp_mgr_download_fw(void *hw_mgr_priv, void *download_fw_args);
 #endif /* CAM_ICP_HW_MGR_H */

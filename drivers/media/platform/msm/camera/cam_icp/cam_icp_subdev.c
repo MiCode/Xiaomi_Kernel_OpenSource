@@ -142,8 +142,6 @@ static int cam_icp_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	memset(&g_icp_dev, 0, sizeof(g_icp_dev));
-
 	g_icp_dev.sd.pdev = pdev;
 	g_icp_dev.sd.internal_ops = &cam_icp_subdev_internal_ops;
 	rc = cam_subdev_probe(&g_icp_dev.sd, pdev, CAM_ICP_DEV_NAME,

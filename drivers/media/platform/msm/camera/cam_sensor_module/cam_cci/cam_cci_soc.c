@@ -13,46 +13,17 @@
 #include "cam_cci_dev.h"
 #include "cam_cci_core.h"
 
-static int32_t cam_cci_pinctrl_init(struct cci_device *cci_dev)
-{
-	struct msm_pinctrl_info *cci_pctrl = NULL;
-
-	cci_pctrl = &cci_dev->cci_pinctrl;
-	cci_pctrl->pinctrl = devm_pinctrl_get(&cci_dev->v4l2_dev_str.pdev->dev);
-	if (IS_ERR_OR_NULL(cci_pctrl->pinctrl)) {
-		pr_err("%s:%d devm_pinctrl_get cci_pinctrl failed\n",
-			__func__, __LINE__);
-		return -EINVAL;
-	}
-	cci_pctrl->gpio_state_active = pinctrl_lookup_state(
-						cci_pctrl->pinctrl,
-						CCI_PINCTRL_STATE_DEFAULT);
-	if (IS_ERR_OR_NULL(cci_pctrl->gpio_state_active)) {
-		pr_err("%s:%d look up state  for active state failed\n",
-			__func__, __LINE__);
-		return -EINVAL;
-	}
-	cci_pctrl->gpio_state_suspend = pinctrl_lookup_state(
-						cci_pctrl->pinctrl,
-						CCI_PINCTRL_STATE_SLEEP);
-	if (IS_ERR_OR_NULL(cci_pctrl->gpio_state_suspend)) {
-		pr_err("%s:%d look up state for suspend state failed\n",
-			__func__, __LINE__);
-		return -EINVAL;
-	}
-	return 0;
-}
-
 int cam_cci_init(struct v4l2_subdev *sd,
 	struct cam_cci_ctrl *c_ctrl)
 {
 	uint8_t i = 0, j = 0;
-	int32_t rc = 0, ret = 0;
+	int32_t rc = 0;
 	struct cci_device *cci_dev;
 	enum cci_i2c_master_t master = MASTER_0;
-	uint32_t *clk_rates  = NULL;
 	struct cam_ahb_vote ahb_vote;
 	struct cam_axi_vote axi_vote;
+	struct cam_hw_soc_info *soc_info = NULL;
+	void __iomem *base = NULL;
 
 	cci_dev = v4l2_get_subdevdata(sd);
 	if (!cci_dev || !c_ctrl) {
@@ -62,8 +33,21 @@ int cam_cci_init(struct v4l2_subdev *sd,
 		return rc;
 	}
 
+	soc_info = &cci_dev->soc_info;
+	base = soc_info->reg_map[0].mem_base;
+
+	if (!soc_info || !base) {
+		pr_err("%s:%d failed: invalid params %pK %pK\n", __func__,
+			__LINE__, soc_info, base);
+		rc = -EINVAL;
+		return rc;
+	}
+
+	CDBG("%s:%d Base address %pK\n", __func__, __LINE__, base);
+
 	if (cci_dev->ref_count++) {
-		CDBG("%s ref_count %d\n", __func__, cci_dev->ref_count);
+		CDBG("%s:%d ref_count %d\n", __func__, __LINE__,
+			cci_dev->ref_count);
 		master = c_ctrl->cci_info->cci_i2c_master;
 		CDBG("%s:%d master %d\n", __func__, __LINE__, master);
 		if (master < MASTER_MAX && master >= 0) {
@@ -80,10 +64,10 @@ int cam_cci_init(struct v4l2_subdev *sd,
 			/* Set proper mask to RESET CMD address */
 			if (master == MASTER_0)
 				cam_io_w_mb(CCI_M0_RESET_RMSK,
-					cci_dev->base + CCI_RESET_CMD_ADDR);
+					base + CCI_RESET_CMD_ADDR);
 			else
 				cam_io_w_mb(CCI_M1_RESET_RMSK,
-					cci_dev->base + CCI_RESET_CMD_ADDR);
+					base + CCI_RESET_CMD_ADDR);
 			/* wait for reset done irq */
 			rc = wait_for_completion_timeout(
 				&cci_dev->cci_master_info[master].
@@ -108,74 +92,24 @@ int cam_cci_init(struct v4l2_subdev *sd,
 		pr_err("%s:%d CPAS start failed\n",
 			__func__, __LINE__);
 	}
-
-	ret = cam_cci_pinctrl_init(cci_dev);
-	if (ret < 0) {
-		pr_err("%s:%d Initialization of pinctrl failed\n",
-				__func__, __LINE__);
-		cci_dev->cci_pinctrl_status = 0;
-	} else {
-		cci_dev->cci_pinctrl_status = 1;
-	}
-	rc = msm_camera_request_gpio_table(cci_dev->cci_gpio_tbl,
-		cci_dev->cci_gpio_tbl_size, 1);
-	if (cci_dev->cci_pinctrl_status) {
-		ret = pinctrl_select_state(cci_dev->cci_pinctrl.pinctrl,
-				cci_dev->cci_pinctrl.gpio_state_active);
-		if (ret)
-			pr_err("%s:%d cannot set pin to active state\n",
-				__func__, __LINE__);
-	}
-	if (rc < 0) {
-		CDBG("%s: request gpio failed\n", __func__);
-		goto request_gpio_failed;
-	}
-
-	rc = msm_camera_config_vreg(&cci_dev->v4l2_dev_str.pdev->dev,
-		cci_dev->cci_vreg, cci_dev->regulator_count, NULL, 0,
-		&cci_dev->cci_reg_ptr[0], 1);
-	if (rc < 0) {
-		pr_err("%s:%d cci config_vreg failed\n", __func__, __LINE__);
-		goto clk_enable_failed;
-	}
-
-	rc = msm_camera_enable_vreg(&cci_dev->v4l2_dev_str.pdev->dev,
-		cci_dev->cci_vreg, cci_dev->regulator_count, NULL, 0,
-		&cci_dev->cci_reg_ptr[0], 1);
-	if (rc < 0) {
-		pr_err("%s:%d cci enable_vreg failed\n", __func__, __LINE__);
-		goto reg_enable_failed;
-	}
-
-	clk_rates = cam_cci_get_clk_rates(cci_dev, c_ctrl);
-	if (!clk_rates) {
-		pr_err("%s: clk enable failed\n", __func__);
-		goto reg_enable_failed;
-	}
-
-	for (i = 0; i < cci_dev->num_clk; i++) {
-		cci_dev->cci_clk_info[i].clk_rate =
-			clk_rates[i];
-	}
-	rc = msm_camera_clk_enable(&cci_dev->v4l2_dev_str.pdev->dev,
-		cci_dev->cci_clk_info, cci_dev->cci_clk,
-		cci_dev->num_clk, true);
-	if (rc < 0) {
-		pr_err("%s: clk enable failed\n", __func__);
-		goto reg_enable_failed;
-	}
+	cam_cci_get_clk_rates(cci_dev, c_ctrl);
 
 	/* Re-initialize the completion */
 	reinit_completion(&cci_dev->cci_master_info[master].reset_complete);
 	for (i = 0; i < NUM_QUEUES; i++)
 		reinit_completion(&cci_dev->cci_master_info[master].
 			report_q[i]);
-	rc = msm_camera_enable_irq(cci_dev->irq, true);
+
+	/* Enable Regulators and IRQ*/
+	rc = cam_soc_util_enable_platform_resource(soc_info, true,
+		CAM_TURBO_VOTE, true);
 	if (rc < 0) {
-		pr_err("%s: irq enable failed\n", __func__);
-		return -EINVAL;
+		CDBG("%s:%d request platform resources failed\n", __func__,
+			__LINE__);
+		goto platform_enable_failed;
 	}
-	cci_dev->hw_version = cam_io_r_mb(cci_dev->base +
+
+	cci_dev->hw_version = cam_io_r_mb(base +
 		CCI_HW_VERSION_ADDR);
 	CDBG("%s:%d: hw_version = 0x%x\n", __func__, __LINE__,
 		cci_dev->hw_version);
@@ -195,7 +129,8 @@ int cam_cci_init(struct v4l2_subdev *sd,
 					max_queue_size =
 						CCI_I2C_QUEUE_1_SIZE;
 
-			CDBG("CCI Master[%d] :: Q0 size: %d Q1 size: %d\n", i,
+			CDBG("%s:%d : CCI Master[%d] :: Q0 : %d Q1 : %d\n",
+				__func__, __LINE__, i,
 				cci_dev->cci_i2c_queue_info[i][j].
 				max_queue_size,
 				cci_dev->cci_i2c_queue_info[i][j].
@@ -204,14 +139,14 @@ int cam_cci_init(struct v4l2_subdev *sd,
 	}
 
 	cci_dev->cci_master_info[MASTER_0].reset_pending = TRUE;
-	cam_io_w_mb(CCI_RESET_CMD_RMSK, cci_dev->base +
+	cam_io_w_mb(CCI_RESET_CMD_RMSK, base +
 			CCI_RESET_CMD_ADDR);
-	cam_io_w_mb(0x1, cci_dev->base + CCI_RESET_CMD_ADDR);
+	cam_io_w_mb(0x1, base + CCI_RESET_CMD_ADDR);
 	rc = wait_for_completion_timeout(
 		&cci_dev->cci_master_info[MASTER_0].reset_complete,
 		CCI_TIMEOUT);
 	if (rc <= 0) {
-		pr_err("%s: wait_for_completion_timeout %d\n",
+		pr_err("%s:%d wait_for_completion_timeout\n",
 			 __func__, __LINE__);
 		if (rc == 0)
 			rc = -ETIMEDOUT;
@@ -220,14 +155,15 @@ int cam_cci_init(struct v4l2_subdev *sd,
 	for (i = 0; i < MASTER_MAX; i++)
 		cci_dev->i2c_freq_mode[i] = I2C_MAX_MODES;
 	cam_io_w_mb(CCI_IRQ_MASK_0_RMSK,
-		cci_dev->base + CCI_IRQ_MASK_0_ADDR);
+		base + CCI_IRQ_MASK_0_ADDR);
 	cam_io_w_mb(CCI_IRQ_MASK_0_RMSK,
-		cci_dev->base + CCI_IRQ_CLEAR_0_ADDR);
-	cam_io_w_mb(0x1, cci_dev->base + CCI_IRQ_GLOBAL_CLEAR_CMD_ADDR);
+		base + CCI_IRQ_CLEAR_0_ADDR);
+	cam_io_w_mb(0x1, base + CCI_IRQ_GLOBAL_CLEAR_CMD_ADDR);
 
 	for (i = 0; i < MASTER_MAX; i++) {
 		if (!cci_dev->write_wq[i]) {
-			pr_err("Failed to flush write wq\n");
+			pr_err("%s:%d Failed to flush write wq\n",
+				__func__, __LINE__);
 			rc = -ENOMEM;
 			goto reset_complete_failed;
 		} else {
@@ -239,25 +175,9 @@ int cam_cci_init(struct v4l2_subdev *sd,
 	return 0;
 
 reset_complete_failed:
-	msm_camera_enable_irq(cci_dev->irq, false);
-	msm_camera_clk_enable(&cci_dev->v4l2_dev_str.pdev->dev,
-		cci_dev->cci_clk_info, cci_dev->cci_clk,
-		cci_dev->num_clk, false);
-reg_enable_failed:
-	msm_camera_config_vreg(&cci_dev->v4l2_dev_str.pdev->dev,
-		cci_dev->cci_vreg, cci_dev->regulator_count, NULL, 0,
-		&cci_dev->cci_reg_ptr[0], 0);
-clk_enable_failed:
-	if (cci_dev->cci_pinctrl_status) {
-		ret = pinctrl_select_state(cci_dev->cci_pinctrl.pinctrl,
-				cci_dev->cci_pinctrl.gpio_state_suspend);
-		if (ret)
-			pr_err("%s:%d cannot set pin to suspend state\n",
-				__func__, __LINE__);
-	}
-	msm_camera_request_gpio_table(cci_dev->cci_gpio_tbl,
-		cci_dev->cci_gpio_tbl_size, 0);
-request_gpio_failed:
+	cam_soc_util_disable_platform_resource(soc_info, 1, 1);
+
+platform_enable_failed:
 	cci_dev->ref_count--;
 	cam_cpas_stop(cci_dev->cpas_handle);
 
@@ -267,12 +187,9 @@ request_gpio_failed:
 void cam_cci_soc_remove(struct platform_device *pdev,
 	struct cci_device *cci_dev)
 {
-	msm_camera_put_clk_info_and_rates(pdev,
-		&cci_dev->cci_clk_info, &cci_dev->cci_clk,
-		&cci_dev->cci_clk_rates, cci_dev->num_clk_cases,
-		cci_dev->num_clk);
+	struct cam_hw_soc_info *soc_info = &cci_dev->soc_info;
 
-	msm_camera_put_reg_base(pdev, cci_dev->base, "cci", true);
+	cam_soc_util_release_platform_resource(soc_info);
 }
 
 static void cam_cci_init_cci_params(struct cci_device *new_cci_dev)
@@ -291,76 +208,6 @@ static void cam_cci_init_cci_params(struct cci_device *new_cci_dev)
 				cci_master_info[i].report_q[j]);
 			}
 	}
-}
-
-static int32_t cam_cci_init_gpio_params(struct cci_device *cci_dev)
-{
-	int32_t rc = 0, i = 0;
-	uint32_t *val_array = NULL;
-	uint8_t tbl_size = 0;
-	struct device_node *of_node = cci_dev->v4l2_dev_str.pdev->dev.of_node;
-	struct gpio *gpio_tbl = NULL;
-
-	cci_dev->cci_gpio_tbl_size = tbl_size = of_gpio_count(of_node);
-	CDBG("%s gpio count %d\n", __func__, tbl_size);
-	if (!tbl_size) {
-		pr_err("%s:%d gpio count 0\n", __func__, __LINE__);
-		return -EINVAL;
-	}
-
-	gpio_tbl = cci_dev->cci_gpio_tbl =
-		kzalloc(sizeof(struct gpio) * tbl_size, GFP_KERNEL);
-	if (!gpio_tbl) {
-		pr_err("%s failed %d\n", __func__, __LINE__);
-		return -EINVAL;
-	}
-
-	for (i = 0; i < tbl_size; i++) {
-		gpio_tbl[i].gpio = of_get_gpio(of_node, i);
-		CDBG("%s gpio_tbl[%d].gpio = %d\n", __func__, i,
-			gpio_tbl[i].gpio);
-	}
-
-	val_array = kcalloc(tbl_size, sizeof(uint32_t),
-		GFP_KERNEL);
-	if (!val_array) {
-		rc = -ENOMEM;
-		goto free_gpio_tbl;
-	}
-
-	rc = of_property_read_u32_array(of_node, "qcom,gpio-tbl-flags",
-		val_array, tbl_size);
-	if (rc < 0) {
-		pr_err("%s failed %d\n", __func__, __LINE__);
-		goto free_val_array;
-	}
-	for (i = 0; i < tbl_size; i++) {
-		gpio_tbl[i].flags = val_array[i];
-		CDBG("%s gpio_tbl[%d].flags = %ld\n", __func__, i,
-			gpio_tbl[i].flags);
-	}
-
-	for (i = 0; i < tbl_size; i++) {
-		rc = of_property_read_string_index(of_node,
-			"qcom,gpio-tbl-label", i, &gpio_tbl[i].label);
-		CDBG("%s gpio_tbl[%d].label = %s\n", __func__, i,
-			gpio_tbl[i].label);
-		if (rc < 0) {
-			pr_err("%s failed %d\n", __func__, __LINE__);
-			goto free_val_array;
-		}
-	}
-
-	kfree(val_array);
-	return rc;
-
-free_val_array:
-	kfree(val_array);
-free_gpio_tbl:
-	kfree(cci_dev->cci_gpio_tbl);
-	cci_dev->cci_gpio_tbl = NULL;
-	cci_dev->cci_gpio_tbl_size = 0;
-	return rc;
 }
 
 static void cam_cci_init_default_clk_params(struct cci_device *cci_dev,
@@ -403,75 +250,78 @@ static void cam_cci_init_clk_params(struct cci_device *cci_dev)
 			src_node = of_find_node_by_name(of_node,
 				"qcom,i2c_custom_mode");
 
-		rc = of_property_read_u32(src_node, "qcom,hw-thigh", &val);
-		CDBG("%s qcom,hw-thigh %d, rc %d\n", __func__, val, rc);
+		rc = of_property_read_u32(src_node, "hw-thigh", &val);
+		CDBG("%s:%d hw-thigh %d, rc %d\n", __func__, __LINE__, val, rc);
 		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_thigh = val;
-			rc = of_property_read_u32(src_node, "qcom,hw-tlow",
+			rc = of_property_read_u32(src_node, "hw-tlow",
 				&val);
-			CDBG("%s qcom,hw-tlow %d, rc %d\n", __func__, val, rc);
+			CDBG("%s:%d hw-tlow %d, rc %d\n", __func__, __LINE__,
+				val, rc);
 		}
 		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_tlow = val;
-			rc = of_property_read_u32(src_node, "qcom,hw-tsu-sto",
+			rc = of_property_read_u32(src_node, "hw-tsu-sto",
 				&val);
-			CDBG("%s qcom,hw-tsu-sto %d, rc %d\n",
-				__func__, val, rc);
+			CDBG("%s:%d hw-tsu-sto %d, rc %d\n",
+				__func__, __LINE__, val, rc);
 		}
 		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_tsu_sto = val;
-			rc = of_property_read_u32(src_node, "qcom,hw-tsu-sta",
+			rc = of_property_read_u32(src_node, "hw-tsu-sta",
 				&val);
-			CDBG("%s qcom,hw-tsu-sta %d, rc %d\n",
-				__func__, val, rc);
+			CDBG("%s:%d hw-tsu-sta %d, rc %d\n",
+				__func__, __LINE__, val, rc);
 		}
 		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_tsu_sta = val;
-			rc = of_property_read_u32(src_node, "qcom,hw-thd-dat",
+			rc = of_property_read_u32(src_node, "hw-thd-dat",
 				&val);
-			CDBG("%s qcom,hw-thd-dat %d, rc %d\n",
-				__func__, val, rc);
+			CDBG("%s:%d hw-thd-dat %d, rc %d\n",
+				__func__, __LINE__, val, rc);
 		}
 		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_thd_dat = val;
-			rc = of_property_read_u32(src_node, "qcom,hw-thd-sta",
+			rc = of_property_read_u32(src_node, "hw-thd-sta",
 				&val);
-			CDBG("%s qcom,hw-thd-sta %d, rc %d\n", __func__,
+			CDBG("%s:%d hw-thd-sta %d, rc %d\n", __func__, __LINE__,
 				val, rc);
 		}
 		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_thd_sta = val;
-			rc = of_property_read_u32(src_node, "qcom,hw-tbuf",
+			rc = of_property_read_u32(src_node, "hw-tbuf",
 				&val);
-			CDBG("%s qcom,hw-tbuf %d, rc %d\n", __func__, val, rc);
+			CDBG("%s:%d hw-tbuf %d, rc %d\n", __func__, __LINE__,
+				val, rc);
 		}
 		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_tbuf = val;
 			rc = of_property_read_u32(src_node,
-				"qcom,hw-scl-stretch-en", &val);
-			CDBG("%s qcom,hw-scl-stretch-en %d, rc %d\n",
-				__func__, val, rc);
+				"hw-scl-stretch-en", &val);
+			CDBG("%s:%d hw-scl-stretch-en %d, rc %d\n",
+				__func__, __LINE__, val, rc);
 		}
 		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_scl_stretch_en = val;
-			rc = of_property_read_u32(src_node, "qcom,hw-trdhld",
+			rc = of_property_read_u32(src_node, "hw-trdhld",
 				&val);
-			CDBG("%s qcom,hw-trdhld %d, rc %d\n",
-				__func__, val, rc);
+			CDBG("%s:%d hw-trdhld %d, rc %d\n",
+				__func__, __LINE__, val, rc);
 		}
 		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_trdhld = val;
-			rc = of_property_read_u32(src_node, "qcom,hw-tsp",
+			rc = of_property_read_u32(src_node, "hw-tsp",
 				&val);
-			CDBG("%s qcom,hw-tsp %d, rc %d\n", __func__, val, rc);
+			CDBG("%s:%d hw-tsp %d, rc %d\n", __func__, __LINE__,
+				val, rc);
 		}
 		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_tsp = val;
 			val = 0;
-			rc = of_property_read_u32(src_node, "qcom,cci-clk-src",
+			rc = of_property_read_u32(src_node, "cci-clk-src",
 				&val);
-			CDBG("%s qcom,cci-clk-src %d, rc %d\n",
-				__func__, val, rc);
+			CDBG("%s:%d cci-clk-src %d, rc %d\n",
+				__func__, __LINE__, val, rc);
 			cci_dev->cci_clk_params[count].cci_clk_src = val;
 		} else
 			cam_cci_init_default_clk_params(cci_dev, count);
@@ -484,141 +334,78 @@ int cam_cci_parse_dt_info(struct platform_device *pdev,
 	struct cci_device *new_cci_dev)
 {
 	int rc = 0, i = 0;
+	struct cam_hw_soc_info *soc_info =
+		&new_cci_dev->soc_info;
 
-	/* Get Clock Info*/
-	rc = msm_camera_get_clk_info_and_rates(pdev,
-		&new_cci_dev->cci_clk_info, &new_cci_dev->cci_clk,
-		&new_cci_dev->cci_clk_rates, &new_cci_dev->num_clk_cases,
-		&new_cci_dev->num_clk);
+	rc = cam_soc_util_get_dt_properties(soc_info);
 	if (rc < 0) {
-		pr_err("%s: cam_cci_get_clk_info() failed", __func__);
-		kfree(new_cci_dev);
-		new_cci_dev = NULL;
-		return -EFAULT;
+		pr_err("%s:%d :Error: Parsing DT data failed:%d\n",
+			__func__, __LINE__, rc);
+		return -EINVAL;
 	}
 
 	new_cci_dev->ref_count = 0;
-	new_cci_dev->base = msm_camera_get_reg_base(pdev, "cci", true);
-	if (!new_cci_dev->base) {
-		pr_err("%s: no mem resource?\n", __func__);
-		return -ENODEV;
-	}
-	new_cci_dev->irq = msm_camera_get_irq(pdev, "cci");
-	if (!new_cci_dev->irq) {
-		pr_err("%s: no irq resource?\n", __func__);
-		return -ENODEV;
-	}
-	CDBG("%s line %d cci irq start %d end %d\n", __func__,
-		__LINE__,
-		(int) new_cci_dev->irq->start,
-		(int) new_cci_dev->irq->end);
-	rc = msm_camera_register_irq(pdev, new_cci_dev->irq,
-		cam_cci_irq, IRQF_TRIGGER_RISING, "cci", new_cci_dev);
-	if (rc < 0) {
-		pr_err("%s: irq request fail\n", __func__);
-		rc = -EBUSY;
-		goto cci_release_mem;
-	}
 
-	msm_camera_enable_irq(new_cci_dev->irq, false);
+	rc = cam_soc_util_request_platform_resource(soc_info,
+		cam_cci_irq, new_cci_dev);
+	if (rc < 0) {
+		pr_err("%s:%d :Error: requesting platform resources failed:%d\n",
+			__func__, __LINE__, rc);
+		return -EINVAL;
+	}
 	new_cci_dev->v4l2_dev_str.pdev = pdev;
 	cam_cci_init_cci_params(new_cci_dev);
 	cam_cci_init_clk_params(new_cci_dev);
-	rc = cam_cci_init_gpio_params(new_cci_dev);
-	if (rc < 0) {
-		pr_err("%s:%d :Error: In Initializing GPIO params:%d\n",
-			__func__, __LINE__, rc);
-		goto cci_release_mem;
-	}
-
-	rc = cam_sensor_get_dt_vreg_data(new_cci_dev->
-		v4l2_dev_str.pdev->dev.of_node,
-		&(new_cci_dev->cci_vreg), &(new_cci_dev->regulator_count));
-	if (rc < 0) {
-		pr_err("%s: cam_sensor_get_dt_vreg_data fail\n", __func__);
-		rc = -EFAULT;
-		goto cci_release_mem;
-	}
-
-	/* Parse VREG data */
-	if ((new_cci_dev->regulator_count < 0) ||
-		(new_cci_dev->regulator_count > MAX_REGULATOR)) {
-		pr_err("%s: invalid reg count = %d, max is %d\n", __func__,
-			new_cci_dev->regulator_count, MAX_REGULATOR);
-		rc = -EFAULT;
-		goto cci_invalid_vreg_data;
-	}
 
 	rc = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
 	if (rc)
-		pr_err("%s: failed to add child nodes, rc=%d\n", __func__, rc);
+		pr_err("%s:%d failed to add child nodes, rc=%d\n",
+			__func__, __LINE__, rc);
+
 	for (i = 0; i < MASTER_MAX; i++) {
 		new_cci_dev->write_wq[i] = create_singlethread_workqueue(
 			"cam_cci_wq");
 		if (!new_cci_dev->write_wq[i])
-			pr_err("Failed to create write wq\n");
+			pr_err("%s:%d Failed to create write wq\n",
+				__func__, __LINE__);
 	}
 	CDBG("%s line %d\n", __func__, __LINE__);
 	return 0;
-
-cci_invalid_vreg_data:
-	kfree(new_cci_dev->cci_vreg);
-	new_cci_dev->cci_vreg = NULL;
-cci_release_mem:
-	msm_camera_put_reg_base(pdev, new_cci_dev->base, "cci", true);
-
-	return rc;
 }
 
 int cam_cci_soc_release(struct cci_device *cci_dev)
 {
 	uint8_t i = 0, rc = 0;
+	struct cam_hw_soc_info *soc_info =
+		&cci_dev->soc_info;
 
 	if (!cci_dev->ref_count || cci_dev->cci_state != CCI_STATE_ENABLED) {
-		pr_err("%s invalid ref count %d / cci state %d\n",
-			__func__, cci_dev->ref_count, cci_dev->cci_state);
+		pr_err("%s:%d invalid ref count %d / cci state %d\n", __func__,
+			__LINE__, cci_dev->ref_count, cci_dev->cci_state);
 		return -EINVAL;
 	}
 	if (--cci_dev->ref_count) {
-		CDBG("%s ref_count Exit %d\n", __func__, cci_dev->ref_count);
+		CDBG("%s:%d ref_count Exit %d\n", __func__, __LINE__,
+			cci_dev->ref_count);
 		return 0;
 	}
 	for (i = 0; i < MASTER_MAX; i++)
 		if (cci_dev->write_wq[i])
 			flush_workqueue(cci_dev->write_wq[i]);
 
-	msm_camera_enable_irq(cci_dev->irq, false);
-	msm_camera_clk_enable(&cci_dev->v4l2_dev_str.pdev->dev,
-		cci_dev->cci_clk_info, cci_dev->cci_clk,
-		cci_dev->num_clk, false);
-
-	rc = msm_camera_enable_vreg(&cci_dev->v4l2_dev_str.pdev->dev,
-		cci_dev->cci_vreg, cci_dev->regulator_count, NULL, 0,
-		&cci_dev->cci_reg_ptr[0], 0);
-	if (rc < 0)
-		pr_err("%s:%d cci disable_vreg failed\n", __func__, __LINE__);
-
-	rc = msm_camera_config_vreg(&cci_dev->v4l2_dev_str.pdev->dev,
-		cci_dev->cci_vreg, cci_dev->regulator_count, NULL, 0,
-		&cci_dev->cci_reg_ptr[0], 0);
-	if (rc < 0)
-		pr_err("%s:%d cci unconfig_vreg failed\n", __func__, __LINE__);
-
-	if (cci_dev->cci_pinctrl_status) {
-		rc = pinctrl_select_state(cci_dev->cci_pinctrl.pinctrl,
-				cci_dev->cci_pinctrl.gpio_state_suspend);
-		if (rc)
-			pr_err("%s:%d cannot set pin to active state\n",
-				__func__, __LINE__);
-	}
-	cci_dev->cci_pinctrl_status = 0;
-	msm_camera_request_gpio_table(cci_dev->cci_gpio_tbl,
-		cci_dev->cci_gpio_tbl_size, 0);
 	for (i = 0; i < MASTER_MAX; i++)
 		cci_dev->i2c_freq_mode[i] = I2C_MAX_MODES;
+
+	rc = cam_soc_util_disable_platform_resource(soc_info, true, true);
+	if (rc) {
+		pr_err("%s:%d: platform resources disable failed, rc=%d\n",
+			__func__, __LINE__, rc);
+		return rc;
+	}
+
 	cci_dev->cci_state = CCI_STATE_DISABLED;
 	cci_dev->cycles_per_us = 0;
-	cci_dev->cci_clk_src = 0;
+	soc_info->src_clk_idx = 0;
 
 	return rc;
 }

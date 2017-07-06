@@ -98,6 +98,13 @@ void hfi_send_system_cmd(uint32_t type, uint64_t data, uint32_t size);
  * @icp_base: icp base address
  */
 void cam_hfi_enable_cpu(void __iomem *icp_base);
+
+/**
+ * cam_hfi_disable_cpu() - disable A5 CPU
+ * @icp_base: icp base address
+ */
+void cam_hfi_disable_cpu(void __iomem *icp_base);
+
 /**
  * cam_hfi_deinit() - cleanup HFI
  */

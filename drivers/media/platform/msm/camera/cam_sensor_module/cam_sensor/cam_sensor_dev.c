@@ -166,12 +166,16 @@ static int32_t cam_sensor_driver_platform_probe(
 {
 	int32_t rc = 0, i = 0;
 	struct cam_sensor_ctrl_t *s_ctrl = NULL;
+	struct cam_hw_soc_info *soc_info = NULL;
 
 	/* Create sensor control structure */
 	s_ctrl = devm_kzalloc(&pdev->dev,
 		sizeof(struct cam_sensor_ctrl_t), GFP_KERNEL);
 	if (!s_ctrl)
 		return -ENOMEM;
+
+	soc_info = &s_ctrl->soc_info;
+	soc_info->pdev = pdev;
 
 	/* Initialize sensor device type */
 	s_ctrl->of_node = pdev->dev.of_node;
@@ -189,7 +193,7 @@ static int32_t cam_sensor_driver_platform_probe(
 	}
 
 	/* Fill platform device id*/
-	pdev->id = s_ctrl->id;
+	pdev->id = soc_info->index;
 
 	s_ctrl->v4l2_dev_str.internal_ops =
 		&cam_sensor_internal_ops;
@@ -230,6 +234,7 @@ static int32_t cam_sensor_driver_platform_probe(
 	s_ctrl->bridge_intf.ops.get_dev_info = cam_sensor_publish_dev_info;
 	s_ctrl->bridge_intf.ops.link_setup = cam_sensor_establish_link;
 	s_ctrl->bridge_intf.ops.apply_req = cam_sensor_apply_request;
+	s_ctrl->bridge_intf.ops.flush_req = cam_sensor_flush_request;
 
 	s_ctrl->sensordata->power_info.dev = &pdev->dev;
 	platform_set_drvdata(pdev, s_ctrl);

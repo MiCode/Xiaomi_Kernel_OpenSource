@@ -330,40 +330,31 @@ int32_t cam_actuator_i2c_pkt_parse(struct cam_actuator_ctrl_t *a_ctrl,
 	return rc;
 }
 
-static int32_t cam_actuator_vreg_control(struct cam_actuator_ctrl_t *a_ctrl,
+static int32_t cam_actuator_vreg_control(
+	struct cam_actuator_ctrl_t *a_ctrl,
 	int config)
 {
-	int rc = 0, i, cnt;
-	struct cam_actuator_vreg *vreg_cfg;
+	int rc = 0, cnt;
+	struct cam_hw_soc_info  *soc_info;
 
-	vreg_cfg = &a_ctrl->vreg_cfg;
-	cnt = vreg_cfg->num_vreg;
+	soc_info = &a_ctrl->soc_info;
+	cnt = soc_info->num_rgltr;
+
 	if (!cnt)
 		return 0;
 
-	if (cnt >= MSM_ACTUATOR_MAX_VREGS) {
+	if (cnt >= CAM_SOC_MAX_REGULATOR) {
 		pr_err("%s:%d Regulators more than supported %d\n",
 			__func__, __LINE__, cnt);
 		return -EINVAL;
 	}
 
-	for (i = 0; i < cnt; i++) {
-		if (a_ctrl->io_master_info.master_type ==
-			CCI_MASTER) {
-			rc = msm_camera_config_single_vreg(
-				&(a_ctrl->v4l2_dev_str.pdev->dev),
-				&vreg_cfg->cam_vreg[i],
-				(struct regulator **)&vreg_cfg->data[i],
-				config);
-		} else if (a_ctrl->io_master_info.master_type ==
-			I2C_MASTER) {
-			rc = msm_camera_config_single_vreg(
-				&(a_ctrl->io_master_info.client->dev),
-				&vreg_cfg->cam_vreg[i],
-				(struct regulator **)&vreg_cfg->data[i],
-				config);
-		}
-	}
+	if (config)
+		rc = cam_soc_util_enable_platform_resource(soc_info, false, 0,
+			false);
+	else
+		rc = cam_soc_util_disable_platform_resource(soc_info, false,
+			false);
 
 	return rc;
 }
@@ -371,6 +362,9 @@ static int32_t cam_actuator_vreg_control(struct cam_actuator_ctrl_t *a_ctrl,
 static int32_t cam_actuator_power_up(struct cam_actuator_ctrl_t *a_ctrl)
 {
 	int rc = 0;
+	struct cam_hw_soc_info  *soc_info =
+		&a_ctrl->soc_info;
+	struct msm_camera_gpio_num_info *gpio_num_info = NULL;
 
 	rc = cam_actuator_vreg_control(a_ctrl, 1);
 	if (rc < 0) {
@@ -379,28 +373,23 @@ static int32_t cam_actuator_power_up(struct cam_actuator_ctrl_t *a_ctrl)
 		return rc;
 	}
 
-	if (a_ctrl->gconf &&
-		a_ctrl->gconf->gpio_num_info &&
-		a_ctrl->gconf->gpio_num_info->valid[SENSOR_VAF] == 1) {
-		rc = msm_camera_request_gpio_table(
-			a_ctrl->gconf->cam_gpio_req_tbl,
-			a_ctrl->gconf->cam_gpio_req_tbl_size, 1);
+	gpio_num_info = a_ctrl->gpio_num_info;
+
+	if (soc_info->gpio_data &&
+		gpio_num_info &&
+		gpio_num_info->valid[SENSOR_VAF] == 1) {
+		rc = cam_soc_util_request_platform_resource(&a_ctrl->soc_info,
+			NULL, NULL);
+		rc = cam_soc_util_enable_platform_resource(&a_ctrl->soc_info,
+			false, 0, false);
 		if (rc < 0) {
 			pr_err("%s:%d :Error: Failed in req gpio: %d\n",
 				__func__, __LINE__, rc);
 			return rc;
 		}
-		if (a_ctrl->cam_pinctrl_status) {
-			rc = pinctrl_select_state(
-				a_ctrl->pinctrl_info.pinctrl,
-				a_ctrl->pinctrl_info.gpio_state_active);
-			if (rc < 0)
-				pr_err("%s:%d :Error: cannot set pin to active state: %d",
-					__func__, __LINE__, rc);
-		}
 
 		gpio_set_value_cansleep(
-			a_ctrl->gconf->gpio_num_info->gpio_num[SENSOR_VAF],
+			gpio_num_info->gpio_num[SENSOR_VAF],
 			1);
 	}
 
@@ -413,6 +402,9 @@ static int32_t cam_actuator_power_up(struct cam_actuator_ctrl_t *a_ctrl)
 static int32_t cam_actuator_power_down(struct cam_actuator_ctrl_t *a_ctrl)
 {
 	int32_t rc = 0;
+	struct cam_hw_soc_info *soc_info =
+		&a_ctrl->soc_info;
+	struct msm_camera_gpio_num_info *gpio_num_info = NULL;
 
 	rc = cam_actuator_vreg_control(a_ctrl, 0);
 	if (rc < 0) {
@@ -420,35 +412,21 @@ static int32_t cam_actuator_power_down(struct cam_actuator_ctrl_t *a_ctrl)
 		return rc;
 	}
 
-	if (a_ctrl->gconf &&
-		a_ctrl->gconf->gpio_num_info &&
-		a_ctrl->gconf->gpio_num_info->
-			valid[SENSOR_VAF] == 1) {
+	gpio_num_info = a_ctrl->gpio_num_info;
+
+	if (soc_info->gpio_data &&
+		gpio_num_info &&
+		gpio_num_info->valid[SENSOR_VAF] == 1) {
 
 		gpio_set_value_cansleep(
-			a_ctrl->gconf->gpio_num_info->
-				gpio_num[SENSOR_VAF],
+			gpio_num_info->gpio_num[SENSOR_VAF],
 			GPIOF_OUT_INIT_LOW);
 
-		if (a_ctrl->cam_pinctrl_status) {
-			rc = pinctrl_select_state(
-				a_ctrl->pinctrl_info.pinctrl,
-				a_ctrl->pinctrl_info.
-					gpio_state_suspend);
-			if (rc < 0)
-				pr_err("%s:%d cannot set pin to suspend state: %d",
-					__func__, __LINE__, rc);
-
-			devm_pinctrl_put(
-				a_ctrl->pinctrl_info.pinctrl);
-		}
-		a_ctrl->cam_pinctrl_status = 0;
-		rc = msm_camera_request_gpio_table(
-			a_ctrl->gconf->cam_gpio_req_tbl,
-			a_ctrl->gconf->cam_gpio_req_tbl_size,
-			0);
+		rc = cam_soc_util_release_platform_resource(&a_ctrl->soc_info);
+		rc |= cam_soc_util_disable_platform_resource(&a_ctrl->soc_info,
+					0, 0);
 		if (rc < 0)
-			pr_err("%s:%d Failed in selecting state: %d\n",
+			pr_err("%s:%d Failed to disable platform resources: %d\n",
 				__func__, __LINE__, rc);
 	}
 

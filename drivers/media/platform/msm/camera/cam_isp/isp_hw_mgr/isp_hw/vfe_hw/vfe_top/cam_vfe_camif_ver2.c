@@ -119,10 +119,6 @@ static int cam_vfe_camif_resource_start(
 			rsrc_data->camif_reg->line_skip_pattern);
 	cam_io_w_mb(0x1, rsrc_data->mem_base +
 			rsrc_data->camif_reg->pixel_skip_pattern);
-	cam_io_w_mb(0x0, rsrc_data->mem_base +
-			rsrc_data->camif_reg->skip_period);
-	cam_io_w_mb(0x1, rsrc_data->mem_base +
-			rsrc_data->camif_reg->irq_subsample_pattern);
 
 	/* epoch config with 20 line */
 	cam_io_w_mb(0x00140014,

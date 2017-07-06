@@ -16,45 +16,61 @@
 #include <linux/dma-buf.h>
 #include <media/cam_defs.h>
 #include <media/cam_icp.h>
-#include "bps_soc.h"
+#include "a5_soc.h"
 #include "cam_soc_util.h"
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
-static int cam_bps_get_dt_properties(struct cam_hw_soc_info *soc_info)
+static int cam_a5_get_dt_properties(struct cam_hw_soc_info *soc_info)
 {
 	int rc = 0;
+	const char *fw_name;
+	struct a5_soc_info *camp_a5_soc_info;
+	struct device_node *of_node = NULL;
+	struct platform_device *pdev = NULL;
+
+	pdev = soc_info->pdev;
+	of_node = pdev->dev.of_node;
 
 	rc = cam_soc_util_get_dt_properties(soc_info);
+	if (rc < 0) {
+		pr_err("%s: get a5 dt prop is failed\n", __func__);
+		return rc;
+	}
+
+	camp_a5_soc_info = soc_info->soc_private;
+	fw_name = camp_a5_soc_info->fw_name;
+
+	rc = of_property_read_string(of_node, "fw_name", &fw_name);
 	if (rc < 0)
-		pr_err("get bps dt prop is failed\n");
+		pr_err("%s: fw_name read failed\n", __func__);
 
 	return rc;
 }
 
-static int cam_bps_request_platform_resource(
+static int cam_a5_request_platform_resource(
 	struct cam_hw_soc_info *soc_info,
-	irq_handler_t bps_irq_handler, void *irq_data)
+	irq_handler_t a5_irq_handler, void *irq_data)
 {
 	int rc = 0;
 
-	rc = cam_soc_util_request_platform_resource(soc_info, bps_irq_handler,
+	rc = cam_soc_util_request_platform_resource(soc_info, a5_irq_handler,
 		irq_data);
 
 	return rc;
 }
 
-int cam_bps_init_soc_resources(struct cam_hw_soc_info *soc_info,
-	irq_handler_t bps_irq_handler, void *irq_data)
+int cam_a5_init_soc_resources(struct cam_hw_soc_info *soc_info,
+	irq_handler_t a5_irq_handler, void *irq_data)
 {
 	int rc = 0;
 
-	rc = cam_bps_get_dt_properties(soc_info);
+	rc = cam_a5_get_dt_properties(soc_info);
 	if (rc < 0)
 		return rc;
 
-	rc = cam_bps_request_platform_resource(soc_info, bps_irq_handler,
+	rc = cam_a5_request_platform_resource(soc_info, a5_irq_handler,
 		irq_data);
 	if (rc < 0)
 		return rc;
@@ -62,22 +78,23 @@ int cam_bps_init_soc_resources(struct cam_hw_soc_info *soc_info,
 	return rc;
 }
 
-int cam_bps_enable_soc_resources(struct cam_hw_soc_info *soc_info)
+int cam_a5_enable_soc_resources(struct cam_hw_soc_info *soc_info)
 {
 	int rc = 0;
 
-	rc = cam_soc_util_enable_platform_resource(soc_info, true, false);
+	rc = cam_soc_util_enable_platform_resource(soc_info, true,
+		CAM_TURBO_VOTE, true);
 	if (rc)
 		pr_err("%s: enable platform failed\n", __func__);
 
 	return rc;
 }
 
-int cam_bps_disable_soc_resources(struct cam_hw_soc_info *soc_info)
+int cam_a5_disable_soc_resources(struct cam_hw_soc_info *soc_info)
 {
 	int rc = 0;
 
-	rc = cam_soc_util_disable_platform_resource(soc_info, true, false);
+	rc = cam_soc_util_disable_platform_resource(soc_info, true, true);
 	if (rc)
 		pr_err("%s: disable platform failed\n", __func__);
 
