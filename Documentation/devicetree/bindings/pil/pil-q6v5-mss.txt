@@ -88,6 +88,7 @@ Optional properties:
 - qcom,override-acc-1: Override the default ACC settings with this value if present.
 - qcom,cx-ipeak-vote: Boolean- Present if we need to set bit 5 of cxip_lm_vote_clear
 			 during modem shutdown
+- qcom,minidump-id: Unique id for each subsystem
 
 One child node to represent the MBA image may be specified, when the MBA image
 needs to be loaded in a specifically carved out memory region.
