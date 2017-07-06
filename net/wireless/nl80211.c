@@ -5775,6 +5775,10 @@ static int validate_scan_freqs(struct nlattr *freqs)
 		if (nla_len(attr1) != sizeof(u32))
 			return 0;
 
+	nla_for_each_nested(attr1, freqs, tmp1)
+		if (nla_len(attr1) != sizeof(u32))
+			return 0;
+
 	nla_for_each_nested(attr1, freqs, tmp1) {
 		n_channels++;
 		/*
