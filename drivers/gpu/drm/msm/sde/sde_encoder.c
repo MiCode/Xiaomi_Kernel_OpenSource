@@ -2389,6 +2389,7 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 	SDE_EVT32(DRMID(drm_enc));
 
 	/* prepare for next kickoff, may include waiting on previous kickoff */
+	SDE_ATRACE_BEGIN("enc_prepare_for_kickoff");
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		phys = sde_enc->phys_encs[i];
 		if (phys) {
@@ -2399,6 +2400,7 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 			_sde_encoder_setup_dither(phys);
 		}
 	}
+	SDE_ATRACE_END("enc_prepare_for_kickoff");
 
 	sde_encoder_resource_control(drm_enc, SDE_ENC_RC_EVENT_KICKOFF);
 
@@ -3133,7 +3135,9 @@ int sde_encoder_wait_for_event(struct drm_encoder *drm_enc,
 		};
 
 		if (phys && fn_wait) {
+			SDE_ATRACE_BEGIN("wait_for_completion_event");
 			ret = fn_wait(phys);
+			SDE_ATRACE_END("wait_for_completion_event");
 			if (ret)
 				return ret;
 		}

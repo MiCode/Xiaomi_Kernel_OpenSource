@@ -1544,6 +1544,7 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 		return;
 	}
 	priv = sde_kms->dev->dev_private;
+	SDE_ATRACE_BEGIN("crtc_frame_event");
 
 	SDE_DEBUG("crtc%d event:%u ts:%lld\n", crtc->base.id, fevent->event,
 			ktime_to_ns(fevent->ts));
@@ -1583,13 +1584,18 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 			frame_done = true;
 	}
 
-	if (fevent->event & SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE)
+	if (fevent->event & SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE) {
+		SDE_ATRACE_BEGIN("signal_release_fence");
 		sde_fence_signal(&sde_crtc->output_fence, fevent->ts, 0);
+		SDE_ATRACE_END("signal_release_fence");
+	}
 
 	if (fevent->event & SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE) {
+		SDE_ATRACE_BEGIN("signal_retire_fence");
 		for (i = 0; i < cstate->num_connectors; ++i)
 			sde_connector_complete_commit(cstate->connectors[i],
 					fevent->ts);
+		SDE_ATRACE_END("signal_retire_fence");
 	}
 
 	if (fevent->event & SDE_ENCODER_FRAME_EVENT_PANEL_DEAD)
@@ -1602,6 +1608,7 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
 	list_add_tail(&fevent->list, &sde_crtc->frame_event_list);
 	spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
+	SDE_ATRACE_END("crtc_frame_event");
 }
 
 static void sde_crtc_frame_event_cb(void *data, u32 event)
@@ -2118,6 +2125,7 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
 	struct sde_crtc_state *cstate;
+	int ret;
 
 	if (!crtc) {
 		SDE_ERROR("invalid argument\n");
@@ -2161,7 +2169,10 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	}
 
 	/* wait for frame_event_done completion */
-	if (_sde_crtc_wait_for_frame_done(crtc)) {
+	SDE_ATRACE_BEGIN("wait_for_frame_done_event");
+	ret = _sde_crtc_wait_for_frame_done(crtc);
+	SDE_ATRACE_END("wait_for_frame_done_event");
+	if (ret) {
 		SDE_ERROR("crtc%d wait for frame done failed;frame_pending%d\n",
 				crtc->base.id,
 				atomic_read(&sde_crtc->frame_pending));
