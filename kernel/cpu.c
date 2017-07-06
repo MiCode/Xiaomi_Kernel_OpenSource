@@ -463,6 +463,7 @@ static int cpuhp_down_callbacks(unsigned int cpu, struct cpuhp_cpu_state *st,
 
 	for (; st->state > target; st->state--) {
 		ret = cpuhp_invoke_callback(cpu, st->state, false, NULL);
+		BUG_ON(ret && st->state < CPUHP_AP_IDLE_DEAD);
 		if (ret) {
 			st->target = prev_state;
 			undo_cpu_down(cpu, st);
@@ -494,6 +495,7 @@ static int cpuhp_up_callbacks(unsigned int cpu, struct cpuhp_cpu_state *st,
 		if (ret) {
 			st->target = prev_state;
 			undo_cpu_up(cpu, st);
+			cpu_notify(CPU_UP_CANCELED, cpu);
 			break;
 		}
 	}

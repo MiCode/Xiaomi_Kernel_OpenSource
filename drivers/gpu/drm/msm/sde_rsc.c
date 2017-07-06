@@ -30,6 +30,9 @@
 #include "sde_rsc_priv.h"
 #include "sde_dbg.h"
 
+#define SDE_RSC_DRV_DBG_NAME		"sde_rsc_drv"
+#define SDE_RSC_WRAPPER_DBG_NAME	"sde_rsc_wrapper"
+
 /* worst case time to execute the one tcs vote(sleep/wake) - ~1ms */
 #define SINGLE_TCS_EXECUTION_TIME				1064000
 
@@ -657,18 +660,17 @@ EXPORT_SYMBOL(sde_rsc_client_state_update);
  * sde_rsc_client_vote() - ab/ib vote from rsc client
  *
  * @client:	 Client pointer provided by sde_rsc_client_create().
+ * @bus_id: data bus for which to be voted
  * @ab:		 aggregated bandwidth vote from client.
  * @ib:		 instant bandwidth vote from client.
  *
  * Return: error code.
  */
 int sde_rsc_client_vote(struct sde_rsc_client *caller_client,
-	u64 ab_vote, u64 ib_vote)
+		u32 bus_id, u64 ab_vote, u64 ib_vote)
 {
 	int rc = 0;
 	struct sde_rsc_priv *rsc;
-	bool amc_mode = false;
-	enum rpmh_state state;
 
 	if (!caller_client) {
 		pr_err("invalid client for ab/ib vote\n");
@@ -682,11 +684,6 @@ int sde_rsc_client_vote(struct sde_rsc_client *caller_client,
 	if (!rsc)
 		return -EINVAL;
 
-	if (caller_client != rsc->primary_client) {
-		pr_err("only primary client can use sde rsc:: curr client name:%s\n",
-							caller_client->name);
-		return -EINVAL;
-	}
 	pr_debug("client:%s ab:%llu ib:%llu\n",
 			caller_client->name, ab_vote, ib_vote);
 
@@ -694,16 +691,6 @@ int sde_rsc_client_vote(struct sde_rsc_client *caller_client,
 	rc = sde_rsc_clk_enable(&rsc->phandle, rsc->pclient, true);
 	if (rc)
 		goto clk_enable_fail;
-
-	if (rsc->hw_ops.is_amc_mode)
-		amc_mode = rsc->hw_ops.is_amc_mode(rsc);
-
-	if (rsc->current_state == SDE_RSC_CMD_STATE)
-		state = RPMH_WAKE_ONLY_STATE;
-	else if (amc_mode)
-		state = RPMH_ACTIVE_ONLY_STATE;
-	else
-		state = RPMH_AWAKE_STATE;
 
 	if (rsc->hw_ops.tcs_wait) {
 		rc = rsc->hw_ops.tcs_wait(rsc);
@@ -717,7 +704,8 @@ int sde_rsc_client_vote(struct sde_rsc_client *caller_client,
 
 	rpmh_invalidate(rsc->disp_rsc);
 	sde_power_data_bus_set_quota(&rsc->phandle, rsc->pclient,
-		SDE_POWER_HANDLE_DATA_BUS_CLIENT_RT, ab_vote, ib_vote);
+		SDE_POWER_HANDLE_DATA_BUS_CLIENT_RT,
+		bus_id, ab_vote, ib_vote);
 	rpmh_flush(rsc->disp_rsc);
 
 	if (rsc->hw_ops.tcs_use_ok)
@@ -1063,6 +1051,10 @@ static int sde_rsc_bind(struct device *dev,
 	rsc->master_drm = drm;
 	mutex_unlock(&rsc->client_lock);
 
+	sde_dbg_reg_register_base(SDE_RSC_DRV_DBG_NAME, rsc->drv_io.base,
+							rsc->drv_io.len);
+	sde_dbg_reg_register_base(SDE_RSC_WRAPPER_DBG_NAME,
+				rsc->wrapper_io.base, rsc->wrapper_io.len);
 	return 0;
 }
 

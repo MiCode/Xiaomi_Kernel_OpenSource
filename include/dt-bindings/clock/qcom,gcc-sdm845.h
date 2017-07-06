@@ -204,34 +204,33 @@
 
 
 /* GCC reset clocks */
-#define GCC_GPU_BCR						0
-#define GCC_MMSS_BCR						1
-#define GCC_PCIE_0_BCR						2
-#define GCC_PCIE_1_BCR						3
-#define GCC_PCIE_PHY_BCR					4
-#define GCC_PDM_BCR						5
-#define GCC_PRNG_BCR						6
-#define GCC_QUPV3_WRAPPER_0_BCR					7
-#define GCC_QUPV3_WRAPPER_1_BCR					8
-#define GCC_QUSB2PHY_PRIM_BCR					9
-#define GCC_QUSB2PHY_SEC_BCR					10
-#define GCC_SDCC2_BCR						11
-#define GCC_SDCC4_BCR						12
-#define GCC_TSIF_BCR						13
-#define GCC_UFS_CARD_BCR					14
-#define GCC_UFS_PHY_BCR						15
-#define GCC_USB30_PRIM_BCR					16
-#define GCC_USB30_SEC_BCR					17
-#define GCC_USB3_PHY_PRIM_BCR					18
-#define GCC_USB3PHY_PHY_PRIM_BCR				19
-#define GCC_USB3_DP_PHY_PRIM_BCR				20
-#define GCC_USB3_PHY_SEC_BCR					21
-#define GCC_USB3PHY_PHY_SEC_BCR					22
-#define GCC_USB3_DP_PHY_SEC_BCR					23
-#define GCC_USB_PHY_CFG_AHB2PHY_BCR				24
-#define GCC_PCIE_0_PHY_BCR					25
-#define GCC_PCIE_1_PHY_BCR					26
-#define GCC_SDCC1_BCR						27
+#define GCC_MMSS_BCR						0
+#define GCC_PCIE_0_BCR						1
+#define GCC_PCIE_1_BCR						2
+#define GCC_PCIE_PHY_BCR					3
+#define GCC_PDM_BCR						4
+#define GCC_PRNG_BCR						5
+#define GCC_QUPV3_WRAPPER_0_BCR					6
+#define GCC_QUPV3_WRAPPER_1_BCR					7
+#define GCC_QUSB2PHY_PRIM_BCR					8
+#define GCC_QUSB2PHY_SEC_BCR					9
+#define GCC_SDCC2_BCR						10
+#define GCC_SDCC4_BCR						11
+#define GCC_TSIF_BCR						12
+#define GCC_UFS_CARD_BCR					13
+#define GCC_UFS_PHY_BCR						14
+#define GCC_USB30_PRIM_BCR					15
+#define GCC_USB30_SEC_BCR					16
+#define GCC_USB3_PHY_PRIM_BCR					17
+#define GCC_USB3PHY_PHY_PRIM_BCR				18
+#define GCC_USB3_DP_PHY_PRIM_BCR				19
+#define GCC_USB3_PHY_SEC_BCR					20
+#define GCC_USB3PHY_PHY_SEC_BCR					21
+#define GCC_USB3_DP_PHY_SEC_BCR					22
+#define GCC_USB_PHY_CFG_AHB2PHY_BCR				23
+#define GCC_PCIE_0_PHY_BCR					24
+#define GCC_PCIE_1_PHY_BCR					25
+#define GCC_SDCC1_BCR						26
 
 /* Dummy clocks for rate measurement */
 #define MEASURE_ONLY_SNOC_CLK					0

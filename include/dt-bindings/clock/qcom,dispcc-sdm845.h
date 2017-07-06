@@ -56,9 +56,6 @@
 #define DISP_CC_MDSS_BYTE0_DIV_CLK_SRC				39
 #define DISP_CC_MDSS_BYTE1_DIV_CLK_SRC				40
 
-#define DISP_CC_MDSS_CORE_BCR					0
-#define DISP_CC_MDSS_GCC_CLOCKS_BCR				1
-#define DISP_CC_MDSS_RSCC_BCR					2
-#define DISP_CC_MDSS_SPDM_BCR					3
+#define DISP_CC_MDSS_RSCC_BCR					0
 
 #endif

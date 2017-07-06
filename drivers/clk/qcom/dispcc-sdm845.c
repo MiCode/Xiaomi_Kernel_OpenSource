@@ -992,8 +992,6 @@ static struct clk_regmap *disp_cc_sdm845_clocks[] = {
 };
 
 static const struct qcom_reset_map disp_cc_sdm845_resets[] = {
-	[DISP_CC_MDSS_CORE_BCR] = { 0x2000 },
-	[DISP_CC_MDSS_GCC_CLOCKS_BCR] = { 0x4000 },
 	[DISP_CC_MDSS_RSCC_BCR] = { 0x5000 },
 };
 
@@ -1132,7 +1130,7 @@ static int __init disp_cc_sdm845_init(void)
 {
 	return platform_driver_register(&disp_cc_sdm845_driver);
 }
-core_initcall(disp_cc_sdm845_init);
+subsys_initcall(disp_cc_sdm845_init);
 
 static void __exit disp_cc_sdm845_exit(void)
 {

@@ -14,7 +14,7 @@
 
 #include "wcd-mbhc-v2.h"
 
-#ifdef CONFIG_SND_SOC_WCD_MBHC
+#if IS_ENABLED(CONFIG_SND_SOC_WCD_MBHC)
 int wcd_mbhc_start(struct wcd_mbhc *mbhc,
 		       struct wcd_mbhc_config *mbhc_cfg);
 void wcd_mbhc_stop(struct wcd_mbhc *mbhc);

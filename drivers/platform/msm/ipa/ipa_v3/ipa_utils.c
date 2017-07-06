@@ -43,6 +43,7 @@
 #define IPA_BCR_REG_VAL_v3_0 (0x00000001)
 #define IPA_BCR_REG_VAL_v3_5 (0x0000003B)
 #define IPA_BCR_REG_VAL_v4_0 (0x00000039)
+#define IPA_CLKON_CFG_v4_0 (0x30000000)
 #define IPA_AGGR_GRAN_MIN (1)
 #define IPA_AGGR_GRAN_MAX (32)
 #define IPA_EOT_COAL_GRAN_MIN (1)
@@ -2055,6 +2056,9 @@ int ipa3_init_hw(void)
 
 	ipahal_write_reg(IPA_BCR, val);
 
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
+		ipahal_write_reg(IPA_CLKON_CFG, IPA_CLKON_CFG_v4_0);
+
 	ipa3_cfg_qsb();
 
 	return 0;
@@ -2200,7 +2204,7 @@ u8 ipa3_get_qmb_master_sel(enum ipa_client_type client)
 
 void ipa3_set_client(int index, enum ipacm_client_enum client, bool uplink)
 {
-	if (client >= IPACM_CLIENT_MAX || client < IPACM_CLIENT_USB) {
+	if (client > IPACM_CLIENT_MAX || client < IPACM_CLIENT_USB) {
 		IPAERR("Bad client number! client =%d\n", client);
 	} else if (index >= IPA3_MAX_NUM_PIPES || index < 0) {
 		IPAERR("Bad pipe index! index =%d\n", index);

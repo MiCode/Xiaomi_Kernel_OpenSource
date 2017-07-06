@@ -24,6 +24,7 @@
 #include <linux/mfd/wcd9xxx/wcd9xxx-irq.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
 #include <linux/mfd/wcd934x/registers.h>
+#include <linux/mfd/wcd934x/irq.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>

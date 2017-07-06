@@ -53,14 +53,14 @@ static struct msm_vidc_codec_data sdm845_codec_data[] =  {
 
 static struct msm_vidc_common_data default_common_data[] = {
 	{
-		.key = "qcon,never-unload-fw",
+		.key = "qcom,never-unload-fw",
 		.value = 1,
 	},
 };
 
 static struct msm_vidc_common_data sdm845_common_data[] = {
 	{
-		.key = "qcon,never-unload-fw",
+		.key = "qcom,never-unload-fw",
 		.value = 1,
 	},
 	{
@@ -97,7 +97,7 @@ static struct msm_vidc_common_data sdm845_common_data[] = {
 	},
 	{
 		.key = "qcom,hw-resp-timeout",
-		.value = 2000,
+		.value = 250,
 	},
 };
 

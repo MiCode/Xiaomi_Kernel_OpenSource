@@ -559,6 +559,8 @@ struct mmc_host {
 
 	struct dentry		*debugfs_root;
 
+	bool			err_occurred;
+
 	struct mmc_async_req	*areq;		/* active async req */
 	struct mmc_context_info	context_info;	/* async synchronization info */
 

@@ -152,7 +152,7 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.name = "Extradata Type",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDC_EXTRADATA_NONE,
-		.maximum = V4L2_MPEG_VIDC_EXTRADATA_VPX_COLORSPACE,
+		.maximum = V4L2_MPEG_VIDC_EXTRADATA_UBWC_CR_STATS_INFO,
 		.default_value = V4L2_MPEG_VIDC_EXTRADATA_NONE,
 		.menu_skip_mask = ~(
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_NONE) |
@@ -179,7 +179,8 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 			(1 <<
 			V4L2_MPEG_VIDC_EXTRADATA_CONTENT_LIGHT_LEVEL_SEI) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_VUI_DISPLAY) |
-			(1 << V4L2_MPEG_VIDC_EXTRADATA_VPX_COLORSPACE)
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_VPX_COLORSPACE) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_UBWC_CR_STATS_INFO)
 			),
 		.qmenu = mpeg_video_vidc_extradata,
 	},
@@ -877,6 +878,7 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		case V4L2_MPEG_VIDC_EXTRADATA_CONTENT_LIGHT_LEVEL_SEI:
 		case V4L2_MPEG_VIDC_EXTRADATA_VUI_DISPLAY:
 		case V4L2_MPEG_VIDC_EXTRADATA_VPX_COLORSPACE:
+		case V4L2_MPEG_VIDC_EXTRADATA_UBWC_CR_STATS_INFO:
 			inst->bufq[CAPTURE_PORT].num_planes = 2;
 			inst->bufq[CAPTURE_PORT].plane_sizes[EXTRADATA_IDX(2)] =
 				VENUS_EXTRADATA_SIZE(
@@ -1112,6 +1114,13 @@ int msm_vdec_s_ext_ctrl(struct msm_vidc_inst *inst,
 					if (rc) {
 						dprintk(VIDC_ERR,
 							"%s Failed setting output color format : %d\n",
+							__func__, rc);
+						break;
+					}
+					rc = msm_comm_try_get_bufreqs(inst);
+					if (rc) {
+						dprintk(VIDC_ERR,
+							"%s Failed to get buffer requirements : %d\n",
 							__func__, rc);
 						break;
 					}

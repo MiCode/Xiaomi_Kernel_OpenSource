@@ -179,13 +179,14 @@ int sde_rsc_client_state_update(struct sde_rsc_client *client,
  * sde_rsc_client_vote() - ab/ib vote from rsc client
  *
  * @client:	 Client pointer provided by sde_rsc_client_create().
+ * @bus_id:	 data bus identifier
  * @ab:		 aggregated bandwidth vote from client.
  * @ib:		 instant bandwidth vote from client.
  *
  * Return: error code.
  */
 int sde_rsc_client_vote(struct sde_rsc_client *caller_client,
-	u64 ab_vote, u64 ib_vote);
+	u32 bus_id, u64 ab_vote, u64 ib_vote);
 
 /**
  * sde_rsc_register_event - register a callback function for an event
@@ -243,7 +244,7 @@ static inline int sde_rsc_client_state_update(struct sde_rsc_client *client,
 }
 
 static inline int sde_rsc_client_vote(struct sde_rsc_client *caller_client,
-	u64 ab_vote, u64 ib_vote)
+	u32 bus_id, u64 ab_vote, u64 ib_vote)
 {
 	return 0;
 }

@@ -85,6 +85,7 @@ static const char *ipareg_name_to_str[IPA_REG_MAX] = {
 	__stringify(IPA_IDLE_INDICATION_CFG),
 	__stringify(IPA_DPS_SEQUENCER_FIRST),
 	__stringify(IPA_HPS_SEQUENCER_FIRST),
+	__stringify(IPA_CLKON_CFG),
 };
 
 static void ipareg_construct_dummy(enum ipahal_reg_name reg,
@@ -1490,6 +1491,9 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v4_0][IPA_ENDP_STATUS_n] = {
 		ipareg_construct_endp_status_n_v4_0, ipareg_parse_dummy,
 		0x00000840, 0x70},
+	[IPA_HW_v4_0][IPA_CLKON_CFG] = {
+		ipareg_construct_dummy, ipareg_parse_dummy,
+		0x00000044, 0},
 };
 
 /*

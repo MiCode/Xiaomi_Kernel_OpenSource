@@ -265,7 +265,7 @@ static int inst_info_open(struct inode *inode, struct file *file)
 
 static int publish_unreleased_reference(struct msm_vidc_inst *inst)
 {
-	struct buffer_info *temp = NULL;
+	struct msm_vidc_buffer *temp = NULL;
 
 	if (!inst) {
 		dprintk(VIDC_ERR, "%s: invalid param\n", __func__);
@@ -277,14 +277,15 @@ static int publish_unreleased_reference(struct msm_vidc_inst *inst)
 
 		mutex_lock(&inst->registeredbufs.lock);
 		list_for_each_entry(temp, &inst->registeredbufs.list, list) {
-			if (temp->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
-			!temp->inactive && atomic_read(&temp->ref_count)) {
+			struct vb2_buffer *vb2 = &temp->vvb.vb2_buf;
+
+			if (vb2->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 				write_str(&dbg_buf,
-				"\tpending buffer: %#lx fd[0] = %d ref_count = %d held by: %s\n",
-				temp->device_addr[0],
-				temp->fd[0],
-				atomic_read(&temp->ref_count),
-				DYNAMIC_BUF_OWNER(temp));
+				"\tbuffer: %#x fd[0] = %d size %d refcount = %d\n",
+				temp->smem[0].device_addr,
+				vb2->planes[0].m.fd,
+				vb2->planes[0].length,
+				temp->smem[0].refcount);
 			}
 		}
 		mutex_unlock(&inst->registeredbufs.lock);
@@ -403,18 +404,14 @@ void msm_vidc_debugfs_update(struct msm_vidc_inst *inst,
 
 	switch (e) {
 	case MSM_VIDC_DEBUGFS_EVENT_ETB:
-		mutex_lock(&inst->lock);
 		inst->count.etb++;
-		mutex_unlock(&inst->lock);
 		if (inst->count.ebd && inst->count.ftb > inst->count.fbd) {
 			d->pdata[FRAME_PROCESSING].name[0] = '\0';
 			tic(inst, FRAME_PROCESSING, a);
 		}
 	break;
 	case MSM_VIDC_DEBUGFS_EVENT_EBD:
-		mutex_lock(&inst->lock);
 		inst->count.ebd++;
-		mutex_unlock(&inst->lock);
 		if (inst->count.ebd && inst->count.ebd == inst->count.etb) {
 			toc(inst, FRAME_PROCESSING);
 			dprintk(VIDC_PROF, "EBD: FW needs input buffers\n");
@@ -431,6 +428,7 @@ void msm_vidc_debugfs_update(struct msm_vidc_inst *inst,
 	}
 	break;
 	case MSM_VIDC_DEBUGFS_EVENT_FBD:
+		inst->count.fbd++;
 		inst->debug.samples++;
 		if (inst->count.ebd && inst->count.fbd == inst->count.ftb) {
 			toc(inst, FRAME_PROCESSING);

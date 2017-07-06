@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -92,6 +92,8 @@ struct adreno_ringbuffer_pagetable_info {
  * @drawctxt_active: The last pagetable that this ringbuffer is set to
  * @preemption_desc: The memory descriptor containing
  * preemption info written/read by CP
+ * @perfcounter_save_restore_desc: Used by CP to save/restore the perfcounter
+ * values across preemption
  * @pagetable_desc: Memory to hold information about the pagetables being used
  * and the commands to switch pagetable on the RB
  * @dispatch_q: The dispatcher side queue for this ringbuffer
@@ -118,6 +120,7 @@ struct adreno_ringbuffer {
 	struct kgsl_event_group events;
 	struct adreno_context *drawctxt_active;
 	struct kgsl_memdesc preemption_desc;
+	struct kgsl_memdesc perfcounter_save_restore_desc;
 	struct kgsl_memdesc pagetable_desc;
 	struct adreno_dispatcher_drawqueue dispatch_q;
 	wait_queue_head_t ts_expire_waitq;

@@ -14,6 +14,7 @@
 #ifndef _MSM_VIDC_COMMON_H_
 #define _MSM_VIDC_COMMON_H_
 #include "msm_vidc_internal.h"
+
 struct vb2_buf_entry {
 	struct list_head list;
 	struct vb2_buffer *vb;
@@ -28,6 +29,8 @@ enum load_calc_quirks {
 	LOAD_CALC_IGNORE_NON_REALTIME_LOAD = 1 << 2,
 };
 
+enum hal_buffer get_hal_buffer_type(unsigned int type,
+		unsigned int plane_num);
 struct msm_vidc_core *get_vidc_core(int core_id);
 const struct msm_vidc_format *msm_comm_get_pixel_fmt_index(
 	const struct msm_vidc_format fmt[], int size, int index, int fmt_type);
@@ -46,7 +49,7 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst);
 int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst);
 int msm_comm_set_output_buffers(struct msm_vidc_inst *inst);
 int msm_comm_queue_output_buffers(struct msm_vidc_inst *inst);
-int msm_comm_qbuf(struct msm_vidc_inst *inst, struct vb2_buffer *vb);
+int msm_comm_qbuf(struct msm_vidc_inst *inst, struct msm_vidc_buffer *mbuf);
 void msm_comm_flush_dynamic_buffers(struct msm_vidc_inst *inst);
 int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags);
 int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst,
@@ -58,6 +61,7 @@ int msm_comm_release_output_buffers(struct msm_vidc_inst *inst,
 void msm_comm_validate_output_buffers(struct msm_vidc_inst *inst);
 int msm_comm_force_cleanup(struct msm_vidc_inst *inst);
 int msm_comm_suspend(int core_id);
+int msm_vidc_update_host_buff_counts(struct msm_vidc_inst *inst);
 enum hal_extradata_id msm_comm_get_hal_extradata_index(
 	enum v4l2_mpeg_vidc_extradata index);
 struct hal_buffer_requirements *get_buff_req_buffer(
@@ -69,14 +73,12 @@ void msm_comm_session_clean(struct msm_vidc_inst *inst);
 int msm_comm_kill_session(struct msm_vidc_inst *inst);
 enum multi_stream msm_comm_get_stream_output_mode(struct msm_vidc_inst *inst);
 enum hal_buffer msm_comm_get_hal_output_buffer(struct msm_vidc_inst *inst);
-struct msm_smem *msm_comm_smem_alloc(struct msm_vidc_inst *inst,
-			size_t size, u32 align, u32 flags,
-			enum hal_buffer buffer_type, int map_kernel);
-void msm_comm_smem_free(struct msm_vidc_inst *inst, struct msm_smem *mem);
+int msm_comm_smem_alloc(struct msm_vidc_inst *inst, size_t size, u32 align,
+		u32 flags, enum hal_buffer buffer_type, int map_kernel,
+		struct msm_smem *smem);
+void msm_comm_smem_free(struct msm_vidc_inst *inst, struct msm_smem *smem);
 int msm_comm_smem_cache_operations(struct msm_vidc_inst *inst,
 		struct msm_smem *mem, enum smem_cache_ops cache_ops);
-struct msm_smem *msm_comm_smem_user_to_kernel(struct msm_vidc_inst *inst,
-			int fd, u32 offset, enum hal_buffer buffer_type);
 enum hal_video_codec get_hal_codec(int fourcc);
 enum hal_domain get_hal_domain(int session_type);
 int msm_comm_check_core_init(struct msm_vidc_core *core);
@@ -106,5 +108,41 @@ u32 get_frame_size_nv12_ubwc(int plane, u32 height, u32 width);
 u32 get_frame_size_rgba(int plane, u32 height, u32 width);
 u32 get_frame_size_nv21(int plane, u32 height, u32 width);
 u32 get_frame_size_tp10_ubwc(int plane, u32 height, u32 width);
-void msm_comm_set_use_sys_cache(struct msm_vidc_inst *inst);
+struct vb2_buffer *msm_comm_get_vb_using_vidc_buffer(
+		struct msm_vidc_inst *inst, struct msm_vidc_buffer *mbuf);
+struct msm_vidc_buffer *msm_comm_get_buffer_using_device_planes(
+		struct msm_vidc_inst *inst, u32 *planes);
+struct msm_vidc_buffer *msm_comm_get_vidc_buffer(struct msm_vidc_inst *inst,
+		struct vb2_buffer *vb2);
+void msm_comm_put_vidc_buffer(struct msm_vidc_inst *inst,
+		struct msm_vidc_buffer *mbuf);
+void handle_release_buffer_reference(struct msm_vidc_inst *inst, u32 *planes);
+int msm_comm_vb2_buffer_done(struct msm_vidc_inst *inst,
+		struct vb2_buffer *vb);
+int msm_comm_flush_vidc_buffer(struct msm_vidc_inst *inst,
+		struct msm_vidc_buffer *mbuf);
+int msm_comm_unmap_vidc_buffer(struct msm_vidc_inst *inst,
+		struct msm_vidc_buffer *mbuf);
+bool msm_comm_compare_dma_plane(struct msm_vidc_inst *inst,
+		struct msm_vidc_buffer *mbuf, unsigned long *dma_planes, u32 i);
+bool msm_comm_compare_dma_planes(struct msm_vidc_inst *inst,
+		struct msm_vidc_buffer *mbuf, unsigned long *dma_planes);
+bool msm_comm_compare_vb2_plane(struct msm_vidc_inst *inst,
+		struct msm_vidc_buffer *mbuf, struct vb2_buffer *vb2, u32 i);
+bool msm_comm_compare_vb2_planes(struct msm_vidc_inst *inst,
+		struct msm_vidc_buffer *mbuf, struct vb2_buffer *vb2);
+bool msm_comm_compare_device_plane(struct msm_vidc_buffer *mbuf,
+		u32 *planes, u32 i);
+bool msm_comm_compare_device_planes(struct msm_vidc_buffer *mbuf,
+		u32 *planes);
+int msm_comm_qbuf_cache_operations(struct msm_vidc_inst *inst,
+		struct v4l2_buffer *b);
+int msm_comm_dqbuf_cache_operations(struct msm_vidc_inst *inst,
+			struct v4l2_buffer *b);
+void print_vidc_buffer(u32 tag, const char *str, struct msm_vidc_inst *inst,
+		struct msm_vidc_buffer *mbuf);
+void print_vb2_buffer(u32 tag, const char *str, struct msm_vidc_inst *inst,
+		struct vb2_buffer *vb2);
+void print_v4l2_buffer(u32 tag, const char *str, struct msm_vidc_inst *inst,
+		struct v4l2_buffer *v4l2);
 #endif

@@ -28,9 +28,4 @@
 #define VIDEO_CC_VENUS_CTL_CORE_CLK				11
 #define VIDEO_PLL0						12
 
-#define VIDEO_CC_INTERFACE_BCR					0
-#define VIDEO_CC_VCODEC0_BCR					1
-#define VIDEO_CC_VCODEC1_BCR					2
-#define VIDEO_CC_VENUS_BCR					3
-
 #endif

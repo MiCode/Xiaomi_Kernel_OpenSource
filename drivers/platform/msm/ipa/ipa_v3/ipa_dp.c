@@ -1836,6 +1836,8 @@ static void ipa3_fast_replenish_rx_cache(struct ipa3_sys_context *sys)
 	struct gsi_xfer_elem gsi_xfer_elem_one;
 	u32 curr;
 
+	spin_lock_bh(&sys->spinlock);
+
 	rx_len_cached = sys->len;
 	curr = atomic_read(&sys->repl.head_idx);
 
@@ -1878,6 +1880,7 @@ static void ipa3_fast_replenish_rx_cache(struct ipa3_sys_context *sys)
 		mb();
 		atomic_set(&sys->repl.head_idx, curr);
 	}
+	spin_unlock_bh(&sys->spinlock);
 
 	queue_work(sys->repl_wq, &sys->repl_work);
 

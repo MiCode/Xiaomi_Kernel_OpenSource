@@ -57,6 +57,9 @@
 
 #define DEFAULT_MAXLINEWIDTH	4096
 
+/* stride alignment requirement for avoiding partial writes */
+#define PARTIAL_WRITE_ALIGNMENT	0x1F
+
 /* Macro for constructing the REGDMA command */
 #define SDE_REGDMA_WRITE(p, off, data) \
 	do { \
@@ -869,6 +872,8 @@ static void sde_hw_rotator_setup_timestamp_packet(
 	SDE_REGDMA_WRITE(wrptr, ROT_WB_OUT_SIZE, 0x00010001);
 	SDE_REGDMA_WRITE(wrptr, ROT_WB_OUT_IMG_SIZE, 0x00010001);
 	SDE_REGDMA_WRITE(wrptr, ROT_WB_OUT_XY, 0);
+	SDE_REGDMA_WRITE(wrptr, ROT_WB_DST_WRITE_CONFIG,
+			(ctx->rot->highest_bank & 0x3) << 8);
 	SDE_REGDMA_WRITE(wrptr, ROTTOP_DNSC, 0);
 	SDE_REGDMA_WRITE(wrptr, ROTTOP_OP_MODE, 1);
 	SDE_REGDMA_MODIFY(wrptr, REGDMA_TIMESTAMP_REG, mask, swts);
@@ -1270,7 +1275,7 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 	u32 *wrptr;
 	u32 pack = 0;
 	u32 dst_format = 0;
-	u32 partial_write = 0;
+	u32 no_partial_writes = 0;
 	int i;
 
 	wrptr = sde_hw_rotator_get_regdma_segment(ctx);
@@ -1355,12 +1360,34 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 			(cfg->h_downscale_factor << 16));
 
 	/* partial write check */
-	if (test_bit(SDE_CAPS_PARTIALWR, mdata->sde_caps_map) &&
-			!sde_mdp_is_ubwc_format(fmt))
-		partial_write = BIT(10);
+	if (test_bit(SDE_CAPS_PARTIALWR, mdata->sde_caps_map)) {
+		no_partial_writes = BIT(10);
+
+		/*
+		 * For simplicity, don't disable partial writes if
+		 * the ROI does not span the entire width of the
+		 * output image, and require the total stride to
+		 * also be properly aligned.
+		 *
+		 * This avoids having to determine the memory access
+		 * alignment of the actual horizontal ROI on a per
+		 * color format basis.
+		 */
+		if (sde_mdp_is_ubwc_format(fmt)) {
+			no_partial_writes = 0x0;
+		} else if (cfg->dst_rect->x ||
+				cfg->dst_rect->w != cfg->img_width) {
+			no_partial_writes = 0x0;
+		} else {
+			for (i = 0; i < SDE_ROT_MAX_PLANES; i++)
+				if (cfg->dst_plane.ystride[i] &
+						PARTIAL_WRITE_ALIGNMENT)
+					no_partial_writes = 0x0;
+		}
+	}
 
 	/* write config setup for bank configuration */
-	SDE_REGDMA_WRITE(wrptr, ROT_WB_DST_WRITE_CONFIG, partial_write |
+	SDE_REGDMA_WRITE(wrptr, ROT_WB_DST_WRITE_CONFIG, no_partial_writes |
 			(ctx->rot->highest_bank & 0x3) << 8);
 
 	if (test_bit(SDE_CAPS_UBWC_2, mdata->sde_caps_map))
@@ -2677,9 +2704,9 @@ static irqreturn_t sde_hw_rotator_rotirq_handler(int irq, void *ptr)
 static irqreturn_t sde_hw_rotator_regdmairq_handler(int irq, void *ptr)
 {
 	struct sde_hw_rotator *rot = ptr;
-	struct sde_hw_rotator_context *ctx;
+	struct sde_hw_rotator_context *ctx, *tmp;
 	irqreturn_t ret = IRQ_NONE;
-	u32 isr;
+	u32 isr, isr_tmp;
 	u32 ts;
 	u32 q_id;
 
@@ -2716,18 +2743,28 @@ static irqreturn_t sde_hw_rotator_regdmairq_handler(int irq, void *ptr)
 		 * Timestamp packet is not available in sbuf mode.
 		 * Simulate timestamp update in the handler instead.
 		 */
-		if (!list_empty(&rot->sbuf_ctx[q_id])) {
-			ctx = list_first_entry_or_null(&rot->sbuf_ctx[q_id],
-					struct sde_hw_rotator_context, list);
-			if (ctx) {
+		if (list_empty(&rot->sbuf_ctx[q_id]))
+			goto skip_sbuf;
+
+		ctx = NULL;
+		isr_tmp = isr;
+		list_for_each_entry(tmp, &rot->sbuf_ctx[q_id], list) {
+			u32 mask;
+
+			mask = tmp->timestamp & 0x1 ? REGDMA_INT_1_MASK :
+				REGDMA_INT_0_MASK;
+			if (isr_tmp & mask) {
+				isr_tmp &= ~mask;
+				ctx = tmp;
 				ts = ctx->timestamp;
 				sde_hw_rotator_update_swts(rot, ctx, ts);
 				SDEROT_DBG("update swts:0x%X\n", ts);
-			} else {
-				SDEROT_ERR("invalid swts ctx\n");
 			}
+			SDEROT_EVTLOG(isr, tmp->timestamp);
 		}
-
+		if (ctx == NULL)
+			SDEROT_ERR("invalid swts ctx\n");
+skip_sbuf:
 		ctx = rot->rotCtx[q_id][ts & SDE_HW_ROT_REGDMA_SEG_MASK];
 
 		/*

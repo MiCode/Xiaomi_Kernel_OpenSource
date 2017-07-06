@@ -172,6 +172,8 @@ struct sde_encoder_phys_ops {
  * @INTR_IDX_PINGPONG: Pingpong done unterrupt for cmd mode panel
  * @INTR_IDX_UNDERRUN: Underrun unterrupt for video and cmd mode panel
  * @INTR_IDX_RDPTR:    Readpointer done unterrupt for cmd mode panel
+ * @INTR_IDX_AUTOREFRESH_DONE:  Autorefresh done for cmd mode panel meaning
+ *                              autorefresh has triggered a double buffer flip
  */
 enum sde_intr_idx {
 	INTR_IDX_VSYNC,
@@ -179,6 +181,7 @@ enum sde_intr_idx {
 	INTR_IDX_UNDERRUN,
 	INTR_IDX_CTL_START,
 	INTR_IDX_RDPTR,
+	INTR_IDX_AUTOREFRESH_DONE,
 	INTR_IDX_MAX,
 };
 
@@ -284,6 +287,18 @@ struct sde_encoder_phys_vid {
 };
 
 /**
+ * struct sde_encoder_phys_cmd_autorefresh - autorefresh state tracking
+ * @cfg: current active autorefresh configuration
+ * @kickoff_cnt: atomic count tracking autorefresh done irq kickoffs pending
+ * @kickoff_wq:	wait queue for waiting on autorefresh done irq
+ */
+struct sde_encoder_phys_cmd_autorefresh {
+	struct sde_hw_autorefresh cfg;
+	atomic_t kickoff_cnt;
+	wait_queue_head_t kickoff_wq;
+};
+
+/**
  * struct sde_encoder_phys_cmd - sub-class of sde_encoder_phys to handle command
  *	mode specific operations
  * @base:	Baseclass physical encoder structure
@@ -292,12 +307,14 @@ struct sde_encoder_phys_vid {
  * @serialize_wait4pp:	serialize wait4pp feature waits for pp_done interrupt
  *			after ctl_start instead of before next frame kickoff
  * @pp_timeout_report_cnt: number of pingpong done irq timeout errors
+ * @autorefresh: autorefresh feature state
  */
 struct sde_encoder_phys_cmd {
 	struct sde_encoder_phys base;
 	int stream_sel;
 	bool serialize_wait4pp;
 	int pp_timeout_report_cnt;
+	struct sde_encoder_phys_cmd_autorefresh autorefresh;
 };
 
 /**

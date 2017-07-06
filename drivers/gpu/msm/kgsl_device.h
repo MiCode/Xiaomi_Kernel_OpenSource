@@ -378,6 +378,8 @@ struct kgsl_process_private;
  * @pwr_constraint: power constraint from userspace for this context
  * @fault_count: number of times gpu hanged in last _context_throttle_time ms
  * @fault_time: time of the first gpu hang in last _context_throttle_time ms
+ * @user_ctxt_record: memory descriptor used by CP to save/restore VPC data
+ * across preemption
  */
 struct kgsl_context {
 	struct kref refcount;
@@ -395,6 +397,7 @@ struct kgsl_context {
 	struct kgsl_pwr_constraint pwr_constraint;
 	unsigned int fault_count;
 	unsigned long fault_time;
+	struct kgsl_mem_entry *user_ctxt_record;
 };
 
 #define _context_comm(_c) \
@@ -688,6 +691,8 @@ void kgsl_snapshot_save_frozen_objs(struct work_struct *work);
 
 void kgsl_events_init(void);
 void kgsl_events_exit(void);
+
+void kgsl_context_detach(struct kgsl_context *context);
 
 void kgsl_del_event_group(struct kgsl_event_group *group);
 

@@ -83,7 +83,7 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 	if (c_conn->ops.set_backlight) {
 		event.type = DRM_EVENT_SYS_BACKLIGHT;
 		event.length = sizeof(u32);
-		msm_mode_object_event_nofity(&c_conn->base.base,
+		msm_mode_object_event_notify(&c_conn->base.base,
 				c_conn->base.dev, &event, (u8 *)&brightness);
 		c_conn->ops.set_backlight(c_conn->display, bl_lvl);
 	}
@@ -546,7 +546,7 @@ static int _sde_connector_set_roi_v1(
 			return rc;
 
 		c_state->rois.roi[i] = roi_v1.roi[i];
-		SDE_DEBUG_CONN(c_conn, "roi%d: roi 0x%x 0x%x 0x%x 0x%x\n", i,
+		SDE_DEBUG_CONN(c_conn, "roi%d: roi (%d,%d) (%d,%d)\n", i,
 				c_state->rois.roi[i].x1,
 				c_state->rois.roi[i].y1,
 				c_state->rois.roi[i].x2,

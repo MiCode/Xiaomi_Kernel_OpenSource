@@ -864,9 +864,12 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			dwords += 2;
 	}
 
-	if (gpudev->preemption_yield_enable &&
-				adreno_is_preemption_enabled(adreno_dev))
-		dwords += 8;
+	if (adreno_is_preemption_enabled(adreno_dev)) {
+		if (gpudev->preemption_set_marker)
+			dwords += 4;
+		else if (gpudev->preemption_yield_enable)
+			dwords += 8;
+	}
 
 	link = kcalloc(dwords, sizeof(unsigned int), GFP_KERNEL);
 	if (!link) {
@@ -897,6 +900,10 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			gpu_ticks_submitted));
 	}
 
+	if (gpudev->preemption_set_marker &&
+			adreno_is_preemption_enabled(adreno_dev))
+		cmds += gpudev->preemption_set_marker(cmds, 1);
+
 	if (numibs) {
 		list_for_each_entry(ib, &cmdobj->cmdlist, node) {
 			/*
@@ -918,9 +925,12 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		}
 	}
 
-	if (gpudev->preemption_yield_enable &&
-				adreno_is_preemption_enabled(adreno_dev))
-		cmds += gpudev->preemption_yield_enable(cmds);
+	if (adreno_is_preemption_enabled(adreno_dev)) {
+		if (gpudev->preemption_set_marker)
+			cmds += gpudev->preemption_set_marker(cmds, 0);
+		else if (gpudev->preemption_yield_enable)
+			cmds += gpudev->preemption_yield_enable(cmds);
+	}
 
 	if (kernel_profiling) {
 		cmds += _get_alwayson_counter(adreno_dev, cmds,

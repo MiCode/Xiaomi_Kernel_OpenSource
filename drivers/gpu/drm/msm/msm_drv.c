@@ -151,41 +151,19 @@ static const struct drm_mode_config_funcs mode_config_funcs = {
 	.atomic_commit = msm_atomic_commit,
 };
 
-int msm_register_mmu(struct drm_device *dev, struct msm_mmu *mmu)
+int msm_register_address_space(struct drm_device *dev,
+		struct msm_gem_address_space *aspace)
 {
 	struct msm_drm_private *priv = dev->dev_private;
-	int idx = priv->num_mmus++;
+	int idx = priv->num_aspaces++;
 
-	if (WARN_ON(idx >= ARRAY_SIZE(priv->mmus)))
+	if (WARN_ON(idx >= ARRAY_SIZE(priv->aspace)))
 		return -EINVAL;
 
-	priv->mmus[idx] = mmu;
+	priv->aspace[idx] = aspace;
 
 	return idx;
 }
-
-void msm_unregister_mmu(struct drm_device *dev, struct msm_mmu *mmu)
-{
-	struct msm_drm_private *priv = dev->dev_private;
-	int idx;
-
-	if (priv->num_mmus <= 0) {
-		dev_err(dev->dev, "invalid num mmus %d\n", priv->num_mmus);
-		return;
-	}
-
-	idx = priv->num_mmus - 1;
-
-	/* only support reverse-order deallocation */
-	if (priv->mmus[idx] != mmu) {
-		dev_err(dev->dev, "unexpected mmu at idx %d\n", idx);
-		return;
-	}
-
-	--priv->num_mmus;
-	priv->mmus[idx] = 0;
-}
-
 
 #ifdef CONFIG_DRM_MSM_REGISTER_LOGGING
 static bool reglog = false;
@@ -238,6 +216,24 @@ void __iomem *msm_ioremap(struct platform_device *pdev, const char *name,
 		printk(KERN_DEBUG "IO:region %s %p %08lx\n", dbgname, ptr, size);
 
 	return ptr;
+}
+
+unsigned long msm_iomap_size(struct platform_device *pdev, const char *name)
+{
+	struct resource *res;
+
+	if (name)
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, name);
+	else
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+
+	if (!res) {
+		dev_err(&pdev->dev, "failed to get memory resource: %s\n",
+									name);
+		return 0;
+	}
+
+	return resource_size(res);
 }
 
 void msm_iounmap(struct platform_device *pdev, void __iomem *addr)
@@ -400,10 +396,11 @@ static int msm_drm_uninit(struct device *dev)
 			       priv->vram.paddr, attrs);
 	}
 
+	component_unbind_all(dev, ddev);
+
 	sde_dbg_destroy();
 	debugfs_remove_recursive(priv->debug_root);
 
-	component_unbind_all(dev, ddev);
 	sde_power_client_destroy(&priv->phandle, priv->pclient);
 	sde_power_resource_deinit(pdev, &priv->phandle);
 
@@ -597,6 +594,15 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 		goto power_client_fail;
 	}
 
+	dbg_power_ctrl.handle = &priv->phandle;
+	dbg_power_ctrl.client = priv->pclient;
+	dbg_power_ctrl.enable_fn = msm_power_enable_wrapper;
+	ret = sde_dbg_init(&pdev->dev, &dbg_power_ctrl);
+	if (ret) {
+		dev_err(dev, "failed to init sde dbg: %d\n", ret);
+		goto dbg_init_fail;
+	}
+
 	/* Bind all our sub-components: */
 	ret = msm_component_bind_all(dev, ddev);
 	if (ret)
@@ -605,15 +611,6 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	ret = msm_init_vram(ddev);
 	if (ret)
 		goto fail;
-
-	dbg_power_ctrl.handle = &priv->phandle;
-	dbg_power_ctrl.client = priv->pclient;
-	dbg_power_ctrl.enable_fn = msm_power_enable_wrapper;
-	ret = sde_dbg_init(&pdev->dev, &dbg_power_ctrl);
-	if (ret) {
-		dev_err(dev, "failed to init sde dbg: %d\n", ret);
-		goto fail;
-	}
 
 	switch (get_mdp_ver(pdev)) {
 	case KMS_MDP4:
@@ -768,6 +765,8 @@ fail:
 	msm_drm_uninit(dev);
 	return ret;
 bind_fail:
+	sde_dbg_destroy();
+dbg_init_fail:
 	sde_power_client_destroy(&priv->phandle, priv->pclient);
 power_client_fail:
 	sde_power_resource_deinit(pdev, &priv->phandle);
@@ -1374,7 +1373,7 @@ static int msm_ioctl_deregister_event(struct drm_device *dev, void *data,
 	return ret;
 }
 
-void msm_mode_object_event_nofity(struct drm_mode_object *obj,
+void msm_mode_object_event_notify(struct drm_mode_object *obj,
 		struct drm_device *dev, struct drm_event *event, u8 *payload)
 {
 	struct msm_drm_private *priv = NULL;

@@ -6870,8 +6870,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			if (new_util > capacity_orig_of(i))
 				continue;
 
-			cpu_idle_idx = cpu_rq(i)->nr_running ? -1 :
-				       idle_get_state_idx(cpu_rq(i));
+			cpu_idle_idx = idle_get_state_idx(cpu_rq(i));
 
 			if (!need_idle &&
 			    add_capacity_margin(new_util_cum) <
@@ -6995,6 +6994,18 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			trace_sched_task_util_colocated(p, task_cpu(p),
 						task_util(p),
 						cpumask_first(rtg_target),
+						target_cpu, 0, need_idle);
+			return target_cpu;
+		}
+
+		/*
+		 * We always want to migrate the task to the best CPU when
+		 * placement boost is active.
+		 */
+		if (placement_boost) {
+			trace_sched_task_util_boosted(p, task_cpu(p),
+						task_util(p),
+						target_cpu,
 						target_cpu, 0, need_idle);
 			return target_cpu;
 		}

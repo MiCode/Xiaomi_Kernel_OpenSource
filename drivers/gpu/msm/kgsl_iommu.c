@@ -1255,7 +1255,7 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	ret = iommu_domain_get_attr(iommu_pt->domain,
 				DOMAIN_ATTR_CONTEXT_BANK, &cb_num);
 	if (ret) {
-		KGSL_CORE_ERR("get DOMAIN_ATTR_PROCID failed: %d\n",
+		KGSL_CORE_ERR("get DOMAIN_ATTR_CONTEXT_BANK failed: %d\n",
 				ret);
 		goto done;
 	}

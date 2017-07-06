@@ -311,13 +311,6 @@ static struct clk_regmap *video_cc_sdm845_clocks[] = {
 	[VIDEO_PLL0] = &video_pll0.clkr,
 };
 
-static const struct qcom_reset_map video_cc_sdm845_resets[] = {
-	[VIDEO_CC_INTERFACE_BCR] = { 0x8f0 },
-	[VIDEO_CC_VCODEC0_BCR] = { 0x870 },
-	[VIDEO_CC_VCODEC1_BCR] = { 0x8b0 },
-	[VIDEO_CC_VENUS_BCR] = { 0x810 },
-};
-
 static const struct regmap_config video_cc_sdm845_regmap_config = {
 	.reg_bits	= 32,
 	.reg_stride	= 4,
@@ -330,8 +323,6 @@ static const struct qcom_cc_desc video_cc_sdm845_desc = {
 	.config = &video_cc_sdm845_regmap_config,
 	.clks = video_cc_sdm845_clocks,
 	.num_clks = ARRAY_SIZE(video_cc_sdm845_clocks),
-	.resets = video_cc_sdm845_resets,
-	.num_resets = ARRAY_SIZE(video_cc_sdm845_resets),
 };
 
 static const struct of_device_id video_cc_sdm845_match_table[] = {
@@ -411,7 +402,7 @@ static int __init video_cc_sdm845_init(void)
 {
 	return platform_driver_register(&video_cc_sdm845_driver);
 }
-core_initcall(video_cc_sdm845_init);
+subsys_initcall(video_cc_sdm845_init);
 
 static void __exit video_cc_sdm845_exit(void)
 {

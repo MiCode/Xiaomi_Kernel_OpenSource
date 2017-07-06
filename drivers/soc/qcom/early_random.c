@@ -56,9 +56,18 @@ void __init init_random_pool(void)
 					&desc);
 
 	if (!ret) {
+		u64 bytes_received = desc.ret[0];
+
+		if (bytes_received != SZ_512)
+			pr_warn("Did not receive the expected number of bytes from PRNG: %llu\n",
+				bytes_received);
+
 		dmac_inv_range(random_buffer, random_buffer +
 						RANDOM_BUFFER_SIZE);
-		add_hwgenerator_randomness(random_buffer, SZ_512, SZ_512 << 3);
+		bytes_received = (bytes_received <= RANDOM_BUFFER_SIZE) ?
+					bytes_received : RANDOM_BUFFER_SIZE;
+		add_hwgenerator_randomness(random_buffer, bytes_received,
+					   bytes_received << 3);
 	}
 }
 

@@ -251,6 +251,7 @@ struct sde_reg_dma_kickoff_cfg {
  * @alloc_reg_dma_buf: allocate reg dma buffer
  * @dealloc_reg_dma: de-allocate reg dma buffer
  * @reset_reg_dma_buf: reset the buffer to init state
+ * @last_command: notify control that last command is queued
  */
 struct sde_hw_reg_dma_ops {
 	int (*check_support)(enum sde_reg_dma_features feature,
@@ -262,6 +263,7 @@ struct sde_hw_reg_dma_ops {
 	struct sde_reg_dma_buffer* (*alloc_reg_dma_buf)(u32 size);
 	int (*dealloc_reg_dma)(struct sde_reg_dma_buffer *lut_buf);
 	int (*reset_reg_dma_buf)(struct sde_reg_dma_buffer *buf);
+	int (*last_command)(struct sde_hw_ctl *ctl, enum sde_reg_dma_queue q);
 };
 
 /**
@@ -298,4 +300,9 @@ int sde_reg_dma_init(void __iomem *addr, struct sde_mdss_cfg *m,
  *                            who call this api.
  */
 struct sde_hw_reg_dma_ops *sde_reg_dma_get_ops(void);
+
+/**
+ * sde_reg_dma_deinit() - de-initialize the reg dma
+ */
+void sde_reg_dma_deinit(void);
 #endif /* _SDE_REG_DMA_H */

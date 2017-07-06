@@ -52,6 +52,10 @@ static struct kgsl_sync_fence *kgsl_sync_fence_create(
 	fence_init(&kfence->fence, &kgsl_sync_fence_ops, &ktimeline->lock,
 		ktimeline->fence_context, timestamp);
 
+	/*
+	 * sync_file_create() takes a refcount to the fence. This refcount is
+	 * put when the fence is signaled.
+	 */
 	kfence->sync_file = sync_file_create(&kfence->fence);
 
 	if (kfence->sync_file == NULL) {
@@ -60,9 +64,6 @@ static struct kgsl_sync_fence *kgsl_sync_fence_create(
 		kfree(kfence);
 		return NULL;
 	}
-
-	/* Get a refcount to the fence. Put when signaled */
-	fence_get(&kfence->fence);
 
 	spin_lock_irqsave(&ktimeline->lock, flags);
 	list_add_tail(&kfence->child_list, &ktimeline->child_list_head);
@@ -707,6 +708,14 @@ long kgsl_ioctl_syncsource_create_fence(struct kgsl_device_private *dev_priv,
 	list_add_tail(&sfence->child_list, &syncsource->child_list_head);
 	spin_unlock(&syncsource->lock);
 out:
+	/*
+	 * We're transferring ownership of the fence to the sync file.
+	 * The sync file takes an extra refcount when it is created, so put
+	 * our refcount.
+	 */
+	if (sync_file)
+		fence_put(&sfence->fence);
+
 	if (ret) {
 		if (sync_file)
 			fput(sync_file->file);

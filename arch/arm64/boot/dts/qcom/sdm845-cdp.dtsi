@@ -37,10 +37,6 @@
 };
 
 &soc {
-	sound-tavil {
-		qcom,us-euro-gpios = <&tavil_us_euro_sw>;
-	};
-
 	gpio_keys {
 		compatible = "gpio-keys";
 		label = "gpio-keys";
@@ -300,7 +296,7 @@
 	qcom,platform-reset-gpio = <&tlmm 6 0>;
 };
 
-&dsi_dual_nt35597_truly_cmd_display {
+&dsi_nt35597_truly_dsc_cmd_display {
 	qcom,dsi-display-active;
 };
 
@@ -334,7 +330,9 @@
 		interrupts = <63 0>;
 		interrupt-names = "nfc_irq";
 		pinctrl-names = "nfc_active", "nfc_suspend";
-		pinctrl-0 = <&nfc_int_active &nfc_enable_active>;
+		pinctrl-0 = <&nfc_int_active
+			     &nfc_enable_active
+			     &nfc_clk_default>;
 		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend>;
 		clocks = <&clock_rpmh RPMH_LN_BB_CLK3>;
 		clock-names = "ref_clk";

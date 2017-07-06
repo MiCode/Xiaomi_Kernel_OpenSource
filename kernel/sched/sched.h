@@ -1491,6 +1491,10 @@ static inline void idle_set_state_idx(struct rq *rq, int idle_state_idx)
 static inline int idle_get_state_idx(struct rq *rq)
 {
 	WARN_ON(!rcu_read_lock_held());
+
+	if (rq->nr_running || cpu_of(rq) == raw_smp_processor_id())
+		return -1;
+
 	return rq->idle_state_idx;
 }
 #else

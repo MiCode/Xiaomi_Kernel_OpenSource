@@ -381,6 +381,11 @@ uint32_t core_set_dolby_manufacturer_id(int manufacturer_id)
 	return rc;
 }
 
+/**
+ * q6core_is_adsp_ready - check adsp ready status
+ *
+ * Returns true if adsp is ready otherwise returns false
+ */
 bool q6core_is_adsp_ready(void)
 {
 	int rc = 0;
@@ -419,7 +424,7 @@ bail:
 	mutex_unlock(&(q6core_lcl.cmd_lock));
 	return ret;
 }
-
+EXPORT_SYMBOL(q6core_is_adsp_ready);
 
 static int q6core_map_memory_regions(phys_addr_t *buf_add, uint32_t mempool_id,
 			uint32_t *bufsz, uint32_t bufcnt, uint32_t *map_handle)

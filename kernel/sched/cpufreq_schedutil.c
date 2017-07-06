@@ -36,7 +36,6 @@ struct sugov_policy {
 	raw_spinlock_t update_lock;  /* For shared policies */
 	u64 last_freq_update_time;
 	s64 freq_update_delay_ns;
-	u64 hispeed_jmp_ts;
 	unsigned int next_freq;
 	unsigned int cached_raw_freq;
 	unsigned long hispeed_util;
@@ -216,11 +215,8 @@ static void sugov_walt_adjust(struct sugov_cpu *sg_cpu, unsigned long *util,
 					   HISPEED_LOAD,
 					   100));
 
-	if (is_hiload && !is_migration &&
-	    sg_policy->next_freq < sg_policy->tunables->hispeed_freq) {
+	if (is_hiload && !is_migration)
 		*util = max(*util, sg_policy->hispeed_util);
-		sg_policy->hispeed_jmp_ts = sg_cpu->last_update;
-	}
 
 	if (is_hiload && nl >= mult_frac(cpu_util, NL_RATIO, 100))
 		*util = *max;

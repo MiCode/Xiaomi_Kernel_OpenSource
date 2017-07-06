@@ -837,7 +837,7 @@ done:
  * about the write are encapsulated in @msg. Write size should be multiple
  * of 4 bytes and write address should be 4-byte aligned.
  */
-int wcd_spi_data_write(struct spi_device *spi,
+static int wcd_spi_data_write(struct spi_device *spi,
 		       struct wcd_spi_msg *msg)
 {
 	if (!spi || !msg) {
@@ -850,7 +850,6 @@ int wcd_spi_data_write(struct spi_device *spi,
 			    __func__, msg->remote_addr, msg->len);
 	return wcd_spi_data_xfer(spi, msg, WCD_SPI_XFER_WRITE);
 }
-EXPORT_SYMBOL(wcd_spi_data_write);
 
 /*
  * wcd_spi_data_read: Read data from WCD SPI
@@ -861,7 +860,7 @@ EXPORT_SYMBOL(wcd_spi_data_write);
  * about the read are encapsulated in @msg. Read size should be multiple
  * of 4 bytes and read address should be 4-byte aligned.
  */
-int wcd_spi_data_read(struct spi_device *spi,
+static int wcd_spi_data_read(struct spi_device *spi,
 		      struct wcd_spi_msg *msg)
 {
 	if (!spi || !msg) {
@@ -874,7 +873,6 @@ int wcd_spi_data_read(struct spi_device *spi,
 			    __func__, msg->remote_addr, msg->len);
 	return wcd_spi_data_xfer(spi, msg, WCD_SPI_XFER_READ);
 }
-EXPORT_SYMBOL(wcd_spi_data_read);
 
 static int wdsp_spi_dload_section(struct spi_device *spi,
 				  void *data)
@@ -925,6 +923,7 @@ static int wdsp_spi_event_handler(struct device *dev, void *priv_data,
 {
 	struct spi_device *spi = to_spi_device(dev);
 	struct wcd_spi_priv *wcd_spi = spi_get_drvdata(spi);
+	struct wcd_spi_ops *spi_ops;
 	int ret = 0;
 
 	dev_dbg(&spi->dev, "%s: event type %d\n",
@@ -977,6 +976,20 @@ static int wdsp_spi_event_handler(struct device *dev, void *priv_data,
 
 	case WDSP_EVENT_RESUME:
 		ret = wcd_spi_wait_for_resume(wcd_spi);
+		break;
+
+	case WDSP_EVENT_GET_DEVOPS:
+		if (!data) {
+			dev_err(&spi->dev, "%s: invalid data\n",
+				__func__);
+			ret = -EINVAL;
+			break;
+		}
+
+		spi_ops = (struct wcd_spi_ops *) data;
+		spi_ops->spi_dev = spi;
+		spi_ops->read_dev = wcd_spi_data_read;
+		spi_ops->write_dev = wcd_spi_data_write;
 		break;
 
 	default:

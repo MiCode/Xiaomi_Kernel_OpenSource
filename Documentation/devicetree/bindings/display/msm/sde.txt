@@ -341,6 +341,10 @@ Bus Scaling Subnodes:
 				mdss blocks.
 - qcom,sde-data-bus:		Property to provide Bus scaling for data bus access for
 				mdss blocks.
+- qcom,sde-llcc-bus:		Property to provide Bus scaling for data bus access for
+				mnoc to llcc.
+- qcom,sde-ebi-bus:		Property to provide Bus scaling for data bus access for
+				llcc to ebi.
 
 - qcom,sde-inline-rotator:	A 2 cell property, with format of (rotator phandle,
 				instance id), of inline rotator device.
@@ -637,6 +641,24 @@ Example:
                 <25 512 0 6400000>,
             <22 512 0 6400000>, <23 512 0 6400000>,
                 <25 512 0 6400000>;
+    };
+    qcom,sde-llcc-bus {
+        qcom,msm-bus,name = "mdss_sde_llcc";
+        qcom,msm-bus,num-cases = <3>;
+        qcom,msm-bus,num-paths = <1>;
+        qcom,msm-bus,vectors-KBps =
+            <132 770 0 0>,
+            <132 770 0 6400000>,
+            <132 770 0 6400000>;
+    };
+    qcom,sde-ebi-bus {
+        qcom,msm-bus,name = "mdss_sde_ebi";
+        qcom,msm-bus,num-cases = <3>;
+        qcom,msm-bus,num-paths = <1>;
+        qcom,msm-bus,vectors-KBps =
+            <129 512 0 0>,
+            <129 512 0 6400000>,
+            <129 512 0 6400000>;
     };
 
     qcom,sde-reg-bus {

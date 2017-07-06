@@ -24,6 +24,7 @@
 #include "msm_drv.h"
 #include "msm_kms.h"
 #include "msm_mmu.h"
+#include "msm_gem.h"
 #include "sde_dbg.h"
 #include "sde_hw_catalog.h"
 #include "sde_hw_ctl.h"
@@ -158,7 +159,7 @@ struct sde_kms {
 	int core_rev;
 	struct sde_mdss_cfg *catalog;
 
-	struct msm_mmu *mmu[MSM_SMMU_DOMAIN_MAX];
+	struct msm_gem_address_space *aspace[MSM_SMMU_DOMAIN_MAX];
 	int mmu_id[MSM_SMMU_DOMAIN_MAX];
 	struct sde_power_client *core_client;
 

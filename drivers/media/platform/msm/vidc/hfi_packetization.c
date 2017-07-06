@@ -10,9 +10,6 @@
  * GNU General Public License for more details.
  *
  */
-#include <linux/errno.h>
-#include <linux/log2.h>
-#include <linux/hash.h>
 #include "hfi_packetization.h"
 #include "msm_vidc_debug.h"
 
@@ -619,6 +616,9 @@ static int get_hfi_extradata_index(enum hal_extradata_id index)
 	case HAL_EXTRADATA_VPX_COLORSPACE:
 		ret = HFI_PROPERTY_PARAM_VDEC_VPX_COLORSPACE_EXTRADATA;
 		break;
+	case HAL_EXTRADATA_UBWC_CR_STATS_INFO:
+		ret = HFI_PROPERTY_PARAM_VDEC_UBWC_CR_STAT_INFO_EXTRADATA;
+		break;
 	default:
 		dprintk(VIDC_WARN, "Extradata index not found: %d\n", index);
 		break;
@@ -868,8 +868,6 @@ int create_pkt_cmd_session_ftb(struct hfi_cmd_session_fill_buffer_packet *pkt,
 		output_frame->device_addr, output_frame->timestamp,
 		output_frame->alloc_len, output_frame->filled_len,
 		output_frame->offset);
-	dprintk(VIDC_DBG, "### Q OUTPUT BUFFER ###: %d, %d, %d\n",
-			pkt->alloc_len, pkt->filled_len, pkt->offset);
 
 	return rc;
 }
@@ -1295,7 +1293,7 @@ int create_pkt_cmd_session_set_property(
 		struct hal_quantization *hal_quant =
 			(struct hal_quantization *) pdata;
 		pkt->rg_property_data[0] =
-			HFI_PROPERTY_CONFIG_VENC_SESSION_QP;
+			HFI_PROPERTY_CONFIG_VENC_FRAME_QP;
 		hfi = (struct hfi_quantization *) &pkt->rg_property_data[1];
 		hfi->qp_packed = hal_quant->qpi | hal_quant->qpp << 8 |
 			hal_quant->qpb << 16;

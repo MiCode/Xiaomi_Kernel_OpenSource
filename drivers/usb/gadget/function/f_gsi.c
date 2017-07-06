@@ -40,6 +40,7 @@ MODULE_PARM_DESC(qti_packet_debug, "Print QTI Packet's Raw Data");
 
 static struct workqueue_struct *ipa_usb_wq;
 
+static void gsi_rndis_ipa_reset_trigger(struct gsi_data_port *d_port);
 static void ipa_disconnect_handler(struct gsi_data_port *d_port);
 static int gsi_ctrl_send_notification(struct f_gsi *gsi);
 static int gsi_alloc_trb_buffer(struct f_gsi *gsi);
@@ -472,6 +473,7 @@ static void ipa_data_path_enable(struct gsi_data_port *d_port)
 	usb_gsi_ep_op(d_port->in_ep, (void *)&block_db,
 				GSI_EP_OP_SET_CLR_BLOCK_DBL);
 
+	/* GSI channel DBL address for USB IN endpoint */
 	dbl_register_addr = gsi->d_port.in_db_reg_phs_addr_msb;
 	dbl_register_addr = dbl_register_addr << 32;
 	dbl_register_addr =
@@ -481,11 +483,18 @@ static void ipa_data_path_enable(struct gsi_data_port *d_port)
 	req.buf_base_addr = &dbl_register_addr;
 
 	req.num_bufs = gsi->d_port.in_request.num_bufs;
-	usb_gsi_ep_op(gsi->d_port.in_ep, &req, GSI_EP_OP_RING_IN_DB);
+	usb_gsi_ep_op(gsi->d_port.in_ep, &req, GSI_EP_OP_RING_DB);
 
 	if (gsi->d_port.out_ep) {
-		usb_gsi_ep_op(gsi->d_port.out_ep, &gsi->d_port.out_request,
-			GSI_EP_OP_UPDATEXFER);
+		/* GSI channel DBL address for USB OUT endpoint */
+		dbl_register_addr = gsi->d_port.out_db_reg_phs_addr_msb;
+		dbl_register_addr = dbl_register_addr << 32;
+		dbl_register_addr = dbl_register_addr |
+					gsi->d_port.out_db_reg_phs_addr_lsb;
+		/* use temp request to pass 64 bit dbl reg addr and num_bufs */
+		req.buf_base_addr = &dbl_register_addr;
+		req.num_bufs = gsi->d_port.out_request.num_bufs;
+		usb_gsi_ep_op(gsi->d_port.out_ep, &req, GSI_EP_OP_RING_DB);
 	}
 }
 
@@ -503,14 +512,11 @@ static void ipa_disconnect_handler(struct gsi_data_port *d_port)
 		 */
 		usb_gsi_ep_op(d_port->in_ep, (void *)&block_db,
 				GSI_EP_OP_SET_CLR_BLOCK_DBL);
-		gsi->in_ep_desc_backup = gsi->d_port.in_ep->desc;
 		usb_gsi_ep_op(gsi->d_port.in_ep, NULL, GSI_EP_OP_DISABLE);
 	}
 
-	if (gsi->d_port.out_ep) {
-		gsi->out_ep_desc_backup = gsi->d_port.out_ep->desc;
+	if (gsi->d_port.out_ep)
 		usb_gsi_ep_op(gsi->d_port.out_ep, NULL, GSI_EP_OP_DISABLE);
-	}
 
 	gsi->d_port.net_ready_trigger = false;
 }
@@ -616,6 +622,7 @@ static void ipa_work_handler(struct work_struct *w)
 	struct device *dev;
 	struct device *gad_dev;
 	struct f_gsi *gsi = d_port_to_gsi(d_port);
+	bool block_db;
 
 	event = read_event(d_port);
 
@@ -674,28 +681,6 @@ static void ipa_work_handler(struct work_struct *w)
 				log_event_err("%s: gsi_alloc_trb_failed\n",
 								__func__);
 				break;
-			}
-
-			/*
-			 * Update desc and reconfigure USB GSI OUT and IN
-			 * endpoint for RNDIS Adaptor enable case.
-			 */
-			if (d_port->out_ep && !d_port->out_ep->desc &&
-					gsi->out_ep_desc_backup) {
-				d_port->out_ep->desc = gsi->out_ep_desc_backup;
-				d_port->out_ep->ep_intr_num = 1;
-				log_event_dbg("%s: OUT ep_op_config", __func__);
-				usb_gsi_ep_op(d_port->out_ep,
-					&d_port->out_request, GSI_EP_OP_CONFIG);
-			}
-
-			if (d_port->in_ep && !d_port->in_ep->desc &&
-					gsi->in_ep_desc_backup) {
-				d_port->in_ep->desc = gsi->in_ep_desc_backup;
-				d_port->in_ep->ep_intr_num = 2;
-				log_event_dbg("%s: IN ep_op_config", __func__);
-				usb_gsi_ep_op(d_port->in_ep,
-					&d_port->in_request, GSI_EP_OP_CONFIG);
 			}
 
 			ipa_connect_channels(d_port);
@@ -759,7 +744,15 @@ static void ipa_work_handler(struct work_struct *w)
 			if (event == EVT_HOST_NRDY) {
 				log_event_dbg("%s: ST_CON_HOST_NRDY\n",
 								__func__);
-				ipa_disconnect_handler(d_port);
+				block_db = true;
+				/* stop USB ringing doorbell to GSI(OUT_EP) */
+				usb_gsi_ep_op(d_port->in_ep, (void *)&block_db,
+						GSI_EP_OP_SET_CLR_BLOCK_DBL);
+				gsi_rndis_ipa_reset_trigger(d_port);
+				usb_gsi_ep_op(d_port->in_ep, NULL,
+						GSI_EP_OP_ENDXFER);
+				usb_gsi_ep_op(d_port->out_ep, NULL,
+						GSI_EP_OP_ENDXFER);
 			}
 
 			ipa_disconnect_work_handler(d_port);
@@ -1383,6 +1376,17 @@ static void gsi_rndis_open(struct f_gsi *gsi)
 	rndis_set_param_medium(gsi->params, RNDIS_MEDIUM_802_3,
 				gsi_xfer_bitrate(cdev->gadget) / 100);
 	rndis_signal_connect(gsi->params);
+}
+
+static void gsi_rndis_ipa_reset_trigger(struct gsi_data_port *d_port)
+{
+	unsigned long flags;
+	struct f_gsi *gsi = d_port_to_gsi(d_port);
+
+	log_event_dbg("%s: setting net_ready_trigger\n", __func__);
+	spin_lock_irqsave(&d_port->lock, flags);
+	d_port->net_ready_trigger = false;
+	spin_unlock_irqrestore(&d_port->lock, flags);
 }
 
 void gsi_rndis_flow_ctrl_enable(bool enable, struct rndis_params *param)
@@ -2618,7 +2622,7 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.in_req_num_buf = num_in_bufs;
 		gsi->d_port.out_aggr_size = GSI_ECM_AGGR_SIZE;
 		info.out_req_buf_len = GSI_OUT_ECM_BUF_LEN;
-		info.out_req_num_buf = GSI_ECM_NUM_OUT_BUFFERS;
+		info.out_req_num_buf = num_out_bufs;
 		info.notify_buf_len = GSI_CTRL_NOTIFY_BUFF_LEN;
 
 		/* export host's Ethernet address in CDC format */

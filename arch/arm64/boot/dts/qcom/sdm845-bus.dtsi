@@ -680,7 +680,14 @@
 			qcom,qport = <10>;
 			qcom,connections = <&slv_qns_a2noc_snoc>;
 			qcom,bus-dev = <&fab_aggre2_noc>;
+			qcom,ap-owned;
 			qcom,prio = <2>;
+			qcom,node-qos-clks {
+				clocks =
+				<&clock_gcc GCC_AGGRE_USB3_PRIM_AXI_CLK>;
+				clock-names =
+				"clk-usb3-prim-axi-no-rate";
+			};
 		};
 
 		mas_xm_usb3_1: mas-xm-usb3-1 {
@@ -691,7 +698,14 @@
 			qcom,qport = <11>;
 			qcom,connections = <&slv_qns_a2noc_snoc>;
 			qcom,bus-dev = <&fab_aggre2_noc>;
+			qcom,ap-owned;
 			qcom,prio = <2>;
+			qcom,node-qos-clks {
+				clocks =
+				<&clock_gcc GCC_AGGRE_USB3_SEC_AXI_CLK>;
+				clock-names =
+				"clk-usb3-sec-axi-no-rate";
+			};
 		};
 
 		mas_qxm_camnoc_hf0_uncomp: mas-qxm-camnoc-hf0-uncomp {

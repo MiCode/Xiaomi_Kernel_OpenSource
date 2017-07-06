@@ -2958,7 +2958,7 @@ int sde_rotator_core_init(struct sde_rot_mgr **pmgr,
 	*pmgr = mgr;
 	ret = sde_rotator_footswitch_ctrl(mgr, true);
 	if (ret) {
-		SDEROT_ERR("res_init failed %d\n", ret);
+		SDEROT_INFO("res_init failed %d, use probe defer\n", ret);
 		ret = -EPROBE_DEFER;
 		goto error_fs_en_fail;
 	}

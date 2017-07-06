@@ -245,8 +245,6 @@ int kgsl_readtimestamp(struct kgsl_device *device, void *priv,
 }
 EXPORT_SYMBOL(kgsl_readtimestamp);
 
-static long gpumem_free_entry(struct kgsl_mem_entry *entry);
-
 /* Scheduled by kgsl_mem_entry_put_deferred() */
 static void _deferred_put(struct work_struct *work)
 {
@@ -254,13 +252,6 @@ static void _deferred_put(struct work_struct *work)
 		container_of(work, struct kgsl_mem_entry, work);
 
 	kgsl_mem_entry_put(entry);
-}
-
-static inline void
-kgsl_mem_entry_put_deferred(struct kgsl_mem_entry *entry)
-{
-	if (entry)
-		queue_work(kgsl_driver.mem_workqueue, &entry->work);
 }
 
 static inline struct kgsl_mem_entry *
@@ -272,7 +263,6 @@ kgsl_mem_entry_create(void)
 		kref_init(&entry->refcount);
 		/* put this ref in userspace memory alloc and map ioctls */
 		kref_get(&entry->refcount);
-		INIT_WORK(&entry->work, _deferred_put);
 	}
 
 	return entry;
@@ -579,8 +569,10 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 	context->tid = task_pid_nr(current);
 
 	ret = kgsl_sync_timeline_create(context);
-	if (ret)
+	if (ret) {
+		kgsl_process_private_put(dev_priv->process_priv);
 		goto out;
+	}
 
 	snprintf(name, sizeof(name), "context-%d", id);
 	kgsl_add_event_group(&context->events, context, name,
@@ -608,7 +600,7 @@ EXPORT_SYMBOL(kgsl_context_init);
  * detached by checking the KGSL_CONTEXT_PRIV_DETACHED bit in
  * context->priv.
  */
-static void kgsl_context_detach(struct kgsl_context *context)
+void kgsl_context_detach(struct kgsl_context *context)
 {
 	struct kgsl_device *device;
 
@@ -1812,7 +1804,7 @@ long kgsl_ioctl_drawctxt_destroy(struct kgsl_device_private *dev_priv,
 	return 0;
 }
 
-static long gpumem_free_entry(struct kgsl_mem_entry *entry)
+long gpumem_free_entry(struct kgsl_mem_entry *entry)
 {
 	pid_t ptname = 0;
 
@@ -1882,7 +1874,7 @@ long kgsl_ioctl_sharedmem_free(struct kgsl_device_private *dev_priv,
 		return -EINVAL;
 
 	ret = gpumem_free_entry(entry);
-	kgsl_mem_entry_put_deferred(entry);
+	kgsl_mem_entry_put(entry);
 
 	return ret;
 }
@@ -1900,7 +1892,7 @@ long kgsl_ioctl_gpumem_free_id(struct kgsl_device_private *dev_priv,
 		return -EINVAL;
 
 	ret = gpumem_free_entry(entry);
-	kgsl_mem_entry_put_deferred(entry);
+	kgsl_mem_entry_put(entry);
 
 	return ret;
 }
@@ -1937,7 +1929,8 @@ static void gpuobj_free_fence_func(void *priv)
 {
 	struct kgsl_mem_entry *entry = priv;
 
-	kgsl_mem_entry_put_deferred(entry);
+	INIT_WORK(&entry->work, _deferred_put);
+	queue_work(kgsl_driver.mem_workqueue, &entry->work);
 }
 
 static long gpuobj_free_on_fence(struct kgsl_device_private *dev_priv,
@@ -2001,7 +1994,7 @@ long kgsl_ioctl_gpuobj_free(struct kgsl_device_private *dev_priv,
 	else
 		ret = -EINVAL;
 
-	kgsl_mem_entry_put_deferred(entry);
+	kgsl_mem_entry_put(entry);
 	return ret;
 }
 
@@ -3054,7 +3047,7 @@ static uint64_t kgsl_filter_cachemode(uint64_t flags)
 /* The largest allowable alignment for a GPU object is 32MB */
 #define KGSL_MAX_ALIGN (32 * SZ_1M)
 
-static struct kgsl_mem_entry *gpumem_alloc_entry(
+struct kgsl_mem_entry *gpumem_alloc_entry(
 		struct kgsl_device_private *dev_priv,
 		uint64_t size, uint64_t flags)
 {
@@ -3381,13 +3374,7 @@ long kgsl_ioctl_sparse_phys_free(struct kgsl_device_private *dev_priv,
 	if (entry == NULL)
 		return -EINVAL;
 
-	if (!kgsl_mem_entry_set_pend(entry)) {
-		kgsl_mem_entry_put(entry);
-		return -EBUSY;
-	}
-
 	if (entry->memdesc.cur_bindings != 0) {
-		kgsl_mem_entry_unset_pend(entry);
 		kgsl_mem_entry_put(entry);
 		return -EINVAL;
 	}
@@ -3396,7 +3383,7 @@ long kgsl_ioctl_sparse_phys_free(struct kgsl_device_private *dev_priv,
 
 	/* One put for find_id(), one put for the kgsl_mem_entry_create() */
 	kgsl_mem_entry_put(entry);
-	kgsl_mem_entry_put_deferred(entry);
+	kgsl_mem_entry_put(entry);
 
 	return 0;
 }
@@ -3456,13 +3443,7 @@ long kgsl_ioctl_sparse_virt_free(struct kgsl_device_private *dev_priv,
 	if (entry == NULL)
 		return -EINVAL;
 
-	if (!kgsl_mem_entry_set_pend(entry)) {
-		kgsl_mem_entry_put(entry);
-		return -EBUSY;
-	}
-
 	if (entry->bind_tree.rb_node != NULL) {
-		kgsl_mem_entry_unset_pend(entry);
 		kgsl_mem_entry_put(entry);
 		return -EINVAL;
 	}
@@ -3471,7 +3452,7 @@ long kgsl_ioctl_sparse_virt_free(struct kgsl_device_private *dev_priv,
 
 	/* One put for find_id(), one put for the kgsl_mem_entry_create() */
 	kgsl_mem_entry_put(entry);
-	kgsl_mem_entry_put_deferred(entry);
+	kgsl_mem_entry_put(entry);
 
 	return 0;
 }
@@ -4869,7 +4850,7 @@ static int __init kgsl_core_init(void)
 		WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS, 0);
 
 	kgsl_driver.mem_workqueue = alloc_workqueue("kgsl-mementry",
-		WQ_MEM_RECLAIM, 0);
+		WQ_UNBOUND | WQ_MEM_RECLAIM, 0);
 
 	kgsl_events_init();
 

@@ -16,11 +16,13 @@
 #include <linux/types.h>
 #include <linux/of.h>
 
-#ifdef CONFIG_MSM_CDC_PINCTRL
+#if IS_ENABLED(CONFIG_MSM_CDC_PINCTRL)
 extern int msm_cdc_pinctrl_select_sleep_state(struct device_node *np);
 extern int msm_cdc_pinctrl_select_active_state(struct device_node *np);
 extern bool msm_cdc_pinctrl_get_state(struct device_node *np);
 extern int msm_cdc_get_gpio_state(struct device_node *np);
+int msm_cdc_pinctrl_drv_init(void);
+void msm_cdc_pinctrl_drv_exit(void);
 
 #else
 int msm_cdc_pinctrl_select_sleep_state(struct device_node *np)
@@ -35,7 +37,13 @@ int msm_cdc_get_gpio_state(struct device_node *np)
 {
 	return 0;
 }
-#
+int msm_cdc_pinctrl_drv_init(void)
+{
+	return 0;
+}
+void msm_cdc_pinctrl_drv_exit(void)
+{
+}
 #endif
 
 #endif
