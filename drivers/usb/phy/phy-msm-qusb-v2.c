@@ -632,13 +632,16 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			writel_relaxed(intr_mask,
 				qphy->base + QUSB2PHY_INTR_CTRL);
 
-			/* enable phy auto-resume */
-			writel_relaxed(0x91,
+			if (linestate & (LINESTATE_DP | LINESTATE_DM)) {
+
+				/* enable phy auto-resume */
+				writel_relaxed(0x91,
 					qphy->base + QUSB2PHY_TEST1);
-			/* flush the previous write before next write */
-			wmb();
-			writel_relaxed(0x90,
-				qphy->base + QUSB2PHY_TEST1);
+				/* flush the previous write before next write */
+				wmb();
+				writel_relaxed(0x90,
+					qphy->base + QUSB2PHY_TEST1);
+			}
 
 			dev_dbg(phy->dev, "%s: intr_mask = %x\n",
 			__func__, intr_mask);
