@@ -45,6 +45,7 @@ static const char *ipahal_pkt_status_exception_to_str
 	__stringify(IPAHAL_PKT_STATUS_EXCEPTION_FRAG_RULE_MISS),
 	__stringify(IPAHAL_PKT_STATUS_EXCEPTION_SW_FILT),
 	__stringify(IPAHAL_PKT_STATUS_EXCEPTION_NAT),
+	__stringify(IPAHAL_PKT_STATUS_EXCEPTION_IPV6CT),
 };
 
 #define IPAHAL_MEM_ALLOC(__size, __is_atomic_ctx) \
@@ -838,9 +839,12 @@ static void ipa_pkt_status_parse(
 {
 	enum ipahal_pkt_status_opcode opcode = 0;
 	enum ipahal_pkt_status_exception exception_type = 0;
+	bool is_ipv6;
 
 	struct ipa_pkt_status_hw *hw_status =
 		(struct ipa_pkt_status_hw *)unparsed_status;
+
+	is_ipv6 = (hw_status->status_mask & 0x80) ? false : true;
 
 	status->pkt_len = hw_status->pkt_len;
 	status->endp_src_idx = hw_status->endp_src_idx;
@@ -933,7 +937,10 @@ static void ipa_pkt_status_parse(
 		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_SW_FILT;
 		break;
 	case 64:
-		exception_type = IPAHAL_PKT_STATUS_EXCEPTION_NAT;
+		if (is_ipv6)
+			exception_type = IPAHAL_PKT_STATUS_EXCEPTION_IPV6CT;
+		else
+			exception_type = IPAHAL_PKT_STATUS_EXCEPTION_NAT;
 		break;
 	default:
 		IPAHAL_ERR("unsupported Status Exception type 0x%x\n",
