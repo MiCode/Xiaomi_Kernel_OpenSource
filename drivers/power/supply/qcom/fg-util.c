@@ -22,7 +22,9 @@ void fg_circ_buf_add(struct fg_circ_buf *buf, int val)
 
 void fg_circ_buf_clr(struct fg_circ_buf *buf)
 {
-	memset(buf, 0, sizeof(*buf));
+	buf->size = 0;
+	buf->head = 0;
+	memset(buf->arr, 0, sizeof(buf->arr));
 }
 
 int fg_circ_buf_avg(struct fg_circ_buf *buf, int *avg)

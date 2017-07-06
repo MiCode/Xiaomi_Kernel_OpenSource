@@ -50,6 +50,7 @@
 #define SRAM_WRITE		"fg_sram_write"
 #define PROFILE_LOAD		"fg_profile_load"
 #define DELTA_SOC		"fg_delta_soc"
+#define TTF_PRIMING		"fg_ttf_priming"
 
 /* Delta BSOC irq votable reasons */
 #define DELTA_BSOC_IRQ_VOTER	"fg_delta_bsoc_irq"
@@ -243,6 +244,10 @@ enum esr_timer_config {
 	NUM_ESR_TIMERS,
 };
 
+enum ttf_mode {
+	TTF_MODE_NORMAL = 0,
+};
+
 /* DT parameters for FG device */
 struct fg_dt_props {
 	bool	force_load_profile;
@@ -340,6 +345,14 @@ struct fg_pt {
 	s32 y;
 };
 
+struct ttf {
+	struct fg_circ_buf	ibatt;
+	struct fg_circ_buf	vbatt;
+	struct fg_cc_step_data	cc_step;
+	struct mutex		lock;
+	int			mode;
+};
+
 static const struct fg_pt fg_ln_table[] = {
 	{ 1000,		0 },
 	{ 2000,		693 },
@@ -379,6 +392,7 @@ struct fg_chip {
 	struct power_supply	*usb_psy;
 	struct power_supply	*dc_psy;
 	struct power_supply	*parallel_psy;
+	struct power_supply	*pc_port_psy;
 	struct iio_channel	*batt_id_chan;
 	struct iio_channel	*die_temp_chan;
 	struct fg_irq_info	*irqs;
@@ -395,10 +409,9 @@ struct fg_chip {
 	struct fg_cyc_ctr_data	cyc_ctr;
 	struct notifier_block	nb;
 	struct fg_cap_learning  cl;
-	struct fg_cc_step_data	cc_step;
+	struct ttf		ttf;
 	struct mutex		bus_lock;
 	struct mutex		sram_rw_lock;
-	struct mutex		batt_avg_lock;
 	struct mutex		charge_full_lock;
 	u32			batt_soc_base;
 	u32			batt_info_base;
@@ -411,6 +424,7 @@ struct fg_chip {
 	int			prev_charge_status;
 	int			charge_done;
 	int			charge_type;
+	int			online_status;
 	int			last_soc;
 	int			last_batt_temp;
 	int			health;
@@ -438,10 +452,8 @@ struct fg_chip {
 	struct delayed_work	profile_load_work;
 	struct work_struct	status_change_work;
 	struct work_struct	cycle_count_work;
-	struct delayed_work	batt_avg_work;
+	struct delayed_work	ttf_work;
 	struct delayed_work	sram_dump_work;
-	struct fg_circ_buf	ibatt_circ_buf;
-	struct fg_circ_buf	vbatt_circ_buf;
 };
 
 /* Debugfs data structures are below */
