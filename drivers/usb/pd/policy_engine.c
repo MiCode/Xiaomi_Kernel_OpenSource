@@ -182,7 +182,7 @@ static void *usbpd_ipc_log;
 #define PS_HARD_RESET_TIME	25
 #define PS_SOURCE_ON		400
 #define PS_SOURCE_OFF		750
-#define SWAP_SOURCE_START_TIME	20
+#define FIRST_SOURCE_CAP_TIME	200
 #define VDM_BUSY_TIME		50
 #define VCONN_ON_TIME		100
 
@@ -796,17 +796,27 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 			pd->pd_phy_opened = true;
 		}
 
-		pd->current_state = PE_SRC_SEND_CAPABILITIES;
 		if (pd->in_pr_swap) {
-			kick_sm(pd, SWAP_SOURCE_START_TIME);
 			pd->in_pr_swap = false;
 			val.intval = 0;
 			power_supply_set_property(pd->usb_psy,
 					POWER_SUPPLY_PROP_PR_SWAP, &val);
-			break;
 		}
 
-		/* fall-through */
+		/*
+		 * A sink might remove its terminations (during some Type-C
+		 * compliance tests or a sink attempting to do Try.SRC)
+		 * at this point just after we enabled VBUS. Sending PD
+		 * messages now would delay detecting the detach beyond the
+		 * required timing. Instead, delay sending out the first
+		 * source capabilities to allow for the other side to
+		 * completely settle CC debounce and allow HW to detect detach
+		 * sooner in the meantime. PD spec allows up to
+		 * tFirstSourceCap (250ms).
+		 */
+		pd->current_state = PE_SRC_SEND_CAPABILITIES;
+		kick_sm(pd, FIRST_SOURCE_CAP_TIME);
+		break;
 
 	case PE_SRC_SEND_CAPABILITIES:
 		kick_sm(pd, 0);
