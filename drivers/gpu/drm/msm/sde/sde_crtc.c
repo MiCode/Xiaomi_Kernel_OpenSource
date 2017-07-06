@@ -1371,7 +1371,7 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 	msm_property_install_enum(&sde_crtc->property_info, "security_level",
 			0x0, 0, e_secure_level,
 			ARRAY_SIZE(e_secure_level),
-			CRTC_PROP_SECURITY_LEVEL);
+			CRTC_PROP_SECURITY_LEVEL, SDE_DRM_SEC_NON_SEC);
 
 	sde_kms_info_reset(info);
 
