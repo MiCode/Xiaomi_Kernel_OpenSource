@@ -478,7 +478,8 @@ struct hfi_vpe_rotation_type {
 };
 
 struct hfi_conceal_color {
-	u32 conceal_color;
+	u32 conceal_color_8bit;
+	u32 conceal_color_10bit;
 };
 
 struct hfi_intra_period {
