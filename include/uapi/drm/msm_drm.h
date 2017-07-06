@@ -103,6 +103,7 @@ struct drm_msm_ext_panel_hdr_properties {
 #define MSM_PARAM_MAX_FREQ   0x04
 #define MSM_PARAM_TIMESTAMP  0x05
 #define MSM_PARAM_GMEM_BASE  0x06
+#define MSM_PARAM_NR_RINGS   0x07
 
 struct drm_msm_param {
 	__u32 pipe;           /* in, MSM_PIPE_x */
@@ -264,9 +265,15 @@ struct drm_msm_gem_submit {
 	__u32 queueid;         /* in, submitqueue id */
 };
 
+/*
+ * Define a preprocessor variable to let the userspace know that
+ * drm_msm_gem_submit_profile_buffer switched to only support a kernel timestamp
+ * for submit time
+ */
+#define MSM_PROFILE_BUFFER_SUBMIT_TIME 1
+
 struct drm_msm_gem_submit_profile_buffer {
-	__s64 queue_time;      /* out, Ringbuffer queue time (nsecs) */
-	__s64 submit_time;     /* out, Ringbuffer submission time (nsecs) */
+	struct drm_msm_timespec time;   /* out, submission time */
 	__u64 ticks_queued;    /* out, GPU ticks at ringbuffer submission */
 	__u64 ticks_submitted; /* out, GPU ticks before cmdstream execution*/
 	__u64 ticks_retired;   /* out, GPU ticks after cmdstream execution */

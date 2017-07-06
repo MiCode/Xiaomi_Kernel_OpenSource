@@ -316,8 +316,8 @@ static int get_mdp_ver(struct platform_device *pdev)
 	static const struct of_device_id match_types[] = { {
 		.compatible = "qcom,sde-kms",
 		.data	= (void	*)KMS_SDE,
-		/* end node */
-	} };
+	},
+	{} };
 	struct device *dev = &pdev->dev;
 	const struct of_device_id *match;
 	match = of_match_node(match_types, dev->of_node);
