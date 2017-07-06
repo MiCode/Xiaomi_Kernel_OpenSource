@@ -827,6 +827,11 @@ static unsigned long __calculate(struct vidc_bus_vote_data *d,
 		[HAL_VIDEO_DOMAIN_DECODER] = __calculate_decoder,
 	};
 
+	if (d->domain >= ARRAY_SIZE(calc)) {
+		dprintk(VIDC_ERR, "%s: invalid domain %d\n",
+			__func__, d->domain);
+		return 0;
+	}
 	return calc[d->domain](d, gm);
 }
 

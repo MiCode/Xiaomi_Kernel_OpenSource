@@ -371,19 +371,19 @@ static int msm_vidc_load_platform_version_table(
 	return 0;
 }
 
+/* A comparator to compare loads (needed later on) */
+static int cmp(const void *a, const void *b)
+{
+	/* want to sort in reverse so flip the comparison */
+	return ((struct allowed_clock_rates_table *)b)->clock_rate -
+		((struct allowed_clock_rates_table *)a)->clock_rate;
+}
+
 static int msm_vidc_load_allowed_clocks_table(
 		struct msm_vidc_platform_resources *res)
 {
 	int rc = 0;
 	struct platform_device *pdev = res->pdev;
-
-	/* A comparator to compare loads (needed later on) */
-	int cmp(const void *a, const void *b)
-	{
-		/* want to sort in reverse so flip the comparison */
-		return ((struct allowed_clock_rates_table *)b)->clock_rate -
-			((struct allowed_clock_rates_table *)a)->clock_rate;
-	}
 
 	if (!of_find_property(pdev->dev.of_node,
 			"qcom,allowed-clock-rates", NULL)) {
