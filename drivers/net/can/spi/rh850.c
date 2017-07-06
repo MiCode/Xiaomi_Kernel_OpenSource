@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1015,6 +1015,8 @@ static int rh850_create_netdev(struct spi_device *spi,
 		LOGDE("Couldn't alloc candev\n");
 		return -ENOMEM;
 	}
+
+	netdev->mtu = CANFD_MTU;
 
 	netdev_priv_data = netdev_priv(netdev);
 	netdev_priv_data->rh850_can = priv_data;

@@ -1,5 +1,6 @@
 config CNSS
 	tristate "CNSS driver for wifi module"
+	select CNSS_UTILS
 	select CRYPTO
 	select CRYPTO_HASH
 	select CRYPTO_BLKCIPHER

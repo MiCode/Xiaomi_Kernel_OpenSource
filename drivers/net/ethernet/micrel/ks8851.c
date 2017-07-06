@@ -36,6 +36,7 @@
 #define KSZ8851_TX_SPACE (6144 * 3)
 #define TX_DMA_BUFFER_SIZE (8192 * 3)
 #define RX_DMA_BUFFER_SIZE (2048 * 2)
+#define MAX_RXFIFO_SIZE (12 * 1024)
 #define CIDER_READ_MAX_ITER 20
 #define CIDER_READ_MAX_DELAY 20
 
@@ -158,6 +159,12 @@ static int msg_enable;
 
 /* turn register number and byte-enable mask into data for start of packet */
 #define MK_OP(_byteen, _reg) (BYTE_EN(_byteen) | (_reg)  << (8+2) | (_reg) >> 6)
+
+#define KS8851_RX_WORKQUEUE_NAME "ks8851_rx_wq"
+#define KS8851_TX_WORKQUEUE_NAME "ks8851_tx_wq"
+
+static struct workqueue_struct *ks8851_rx_wq;
+static struct workqueue_struct *ks8851_tx_wq;
 
 /* SPI register read/write calls.
  *
@@ -500,6 +507,7 @@ static int ks8851_rdfifolen(struct ks8851_net *ks, u16 fc)
 	int ret;
 	u16 count;
 	u16 rxfifosize = 0;
+	u16 tmpfifosize = 0;
 	struct spi_transfer *xfer;
 	struct spi_message *msg;
 	u32 *txd;
@@ -534,9 +542,14 @@ static int ks8851_rdfifolen(struct ks8851_net *ks, u16 fc)
 
 	ret = spi_sync(ks->spidev, msg);
 
-	for (count = 0, rxfifosize = 0; count < fc; count++)
-		rxfifosize += ALIGN((htons((u16)rxd[count]) & 0xfff), 4)+4;
-	rxfifosize += 4;
+	for (count = 0, tmpfifosize = 0; count < fc; count++) {
+		if (tmpfifosize >= MAX_RXFIFO_SIZE)
+			break;
+		tmpfifosize += ALIGN((htons((u16)rxd[count]) & 0xfff), 4)+4;
+	}
+	tmpfifosize += 4;
+	rxfifosize = (tmpfifosize >=
+		MAX_RXFIFO_SIZE) ? MAX_RXFIFO_SIZE : tmpfifosize;
 	if (ret < 0)
 		netdev_err(ks->netdev, "read: spi_sync() failed\n");
 	spi_message_free(msg);
@@ -575,10 +588,11 @@ static void ks8851_rx_pkts3(struct ks8851_net *ks)
 	unsigned rxfc = 0, rxfct = 0;
 	int rxfifosize = 0;
 	unsigned rxlen = 0;
+	unsigned totallen = 0;
 	unsigned rxalign = 0;
 	u8 *rxpkt = 0;
-	u8 *buf = 0;
-	u32 *buf32 = 0;
+	u8 *buf = NULL, *buf1 = NULL;
+	u32 *buf32 = NULL;
 	u16 rxlen32 = 0;
 	u16 index32 = 0;
 
@@ -593,8 +607,7 @@ static void ks8851_rx_pkts3(struct ks8851_net *ks)
 
 	/* tabulate all frame sizes so we can do one read for all frames */
 	rxfifosize = ks8851_rdfifolen(ks, rxfc);
-
-	if (rxfifosize < 0) {
+	if (rxfifosize <= 0) {
 		pr_debug("ks8851:Memory not available");
 		return;
 	}
@@ -615,9 +628,6 @@ static void ks8851_rx_pkts3(struct ks8851_net *ks)
 
 	/* read all frames from rx fifo */
 	ks8851_rdfifo(ks, buf, rxfifosize);
-
-	ks8851_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr);
-
 	/* parse frames */
 	for (index32 = 1; rxfc > 0; rxfc--) {
 		/* Get packet data length and pointer to packet data */
@@ -626,6 +636,22 @@ static void ks8851_rx_pkts3(struct ks8851_net *ks)
 		rxalign = ALIGN(rxlen-4, 4);
 		rxlen32 = ALIGN(rxlen, 4)/4;
 		rxpkt = (u8 *)&buf32[index32];
+		totallen += rxalign;
+		if (totallen > rxfifosize) {
+			if (rxfifosize >= MAX_RXFIFO_SIZE)
+				break;
+			buf1 = kzalloc(rxlen, GFP_DMA);
+			if (buf1 == NULL)
+				return;
+			memcpy(buf1, rxpkt, (rxalign -
+				(totallen - rxfifosize)));
+			ks8851_rdfifo(ks, buf1 + (rxalign -
+				(totallen - rxfifosize)),
+						totallen - rxfifosize);
+			buf32 = (u32 *)buf1;
+			index32 = 0;
+			rxpkt = (u8 *)&buf32[index32];
+		}
 		/* swap bytes to make the correct order */
 		for (; rxlen32 > 0; rxlen32--, index32++)
 			buf32[index32] = htonl(buf32[index32]);
@@ -644,8 +670,12 @@ static void ks8851_rx_pkts3(struct ks8851_net *ks)
 		/* record packet stats */
 		ks->netdev->stats.rx_packets++;
 		ks->netdev->stats.rx_bytes += rxlen;
+			if (totallen > rxfifosize) {
+				kfree(buf1);
+				break;
+			}
 	}
-
+	ks8851_wrreg16(ks, KS_RXQCR, ks->rc_rxqcr);
 	kfree(buf);
 }
 
@@ -666,7 +696,7 @@ static irqreturn_t ks8851_irq(int irq, void *_ks)
 	struct ks8851_net *ks = _ks;
 	unsigned status;
 	unsigned handled = 0;
-
+	int ret = 0;
 	mutex_lock(&ks->lock);
 
 	status = ks8851_32bitrdreg16(ks, KS_ISR);
@@ -719,7 +749,9 @@ static irqreturn_t ks8851_irq(int irq, void *_ks)
 		 * packet read-out, however we're masking the interrupt
 		 * from the device so do not bother masking just the RX
 		 * from the device. */
-		schedule_work(&ks->rx_work);
+		ret = queue_work(ks8851_rx_wq, &ks->rx_work);
+		if (ret != 0)
+			handled |= IRQ_RXI;
 	}
 
 	/* if something stopped the rx process, probably due to wanting
@@ -737,6 +769,9 @@ static irqreturn_t ks8851_irq(int irq, void *_ks)
 		ks8851_wrreg16(ks, KS_RXCR2, rxc->rxcr2);
 		ks8851_wrreg16(ks, KS_RXCR1, rxc->rxcr1);
 	}
+
+	if (unlikely(status & IRQ_RXOI))
+		ks->netdev->stats.rx_over_errors++;
 
 	mutex_unlock(&ks->lock);
 
@@ -1050,8 +1085,7 @@ static netdev_tx_t ks8851_start_xmit(struct sk_buff *skb,
 		skb_queue_tail(&ks->txq, skb);
 	}
 	spin_unlock(&ks->statelock);
-	schedule_work(&ks->tx_work);
-
+	queue_work(ks8851_tx_wq, &ks->tx_work);
 	return ret;
 }
 
@@ -1589,6 +1623,18 @@ static int ks8851_probe(struct spi_device *spi)
 	INIT_WORK(&ks->rx_work, ks8851_rx_work);
 
 
+	ks8851_rx_wq = create_singlethread_workqueue(
+			KS8851_RX_WORKQUEUE_NAME);
+	if (!ks8851_rx_wq) {
+		pr_debug("workqueue creation failed\n");
+		return -ENOMEM;
+	}
+	ks8851_tx_wq = create_singlethread_workqueue(
+			KS8851_TX_WORKQUEUE_NAME);
+	if (!ks8851_tx_wq) {
+		pr_debug("tx work queue creation failed");
+		return -ENOMEM;
+	}
 	/* initialise pre-made spi transfer messages */
 
 	spi_message_init(&ks->spi_msg1);
