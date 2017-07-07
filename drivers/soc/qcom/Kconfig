@@ -163,6 +163,14 @@ config QCOM_SCM
 	  world(EL2 and EL3) by using smc call.
 	  SCM driver provides the support for atomic scm calls also.
 
+config QCOM_MEMORY_DUMP_V2
+	bool "QCOM Memory Dump V2 Support"
+	help
+	  This enables memory dump feature. It allows various client
+	  subsystems to register respective dump regions. At the time
+	  of deadlocks or cpu hangs these dump regions are captured to
+	  give a snapshot of the system at the time of the crash.
+
 config QCOM_SMEM_STATE
 	bool
 
