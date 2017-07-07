@@ -230,7 +230,7 @@ static inline int scm_io_write(phys_addr_t address, u32 val)
 	return 0;
 }
 
-inline bool scm_is_secure_device(void)
+static inline bool scm_is_secure_device(void)
 {
 	return false;
 }
