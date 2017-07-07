@@ -19,6 +19,7 @@
 #include <dt-bindings/clock/qcom,videocc-sdm845.h>
 #include <dt-bindings/clock/qcom,cpucc-sdm845.h>
 #include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/soc/qcom,tcs-mbox.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 
 / {
@@ -988,6 +989,24 @@
 		LLCC_2: llcc_2_dcache {
 			qcom,dump-size = <0xd8000>;
 		};
+	};
+
+	cmd_db: qcom,cmd-db@c3f000c {
+		compatible = "qcom,cmd-db";
+		reg = <0xc3f000c 0x8>;
+	};
+
+	apps_rsc: mailbox@179e0000 {
+		compatible = "qcom,tcs-drv";
+		label = "apps_rsc";
+		reg = <0x179e0000 0x100>, <0x179e0d00 0x3000>;
+		interrupts = <0 5 0>;
+		#mbox-cells = <1>;
+		qcom,drv-id = <2>;
+		qcom,tcs-config = <ACTIVE_TCS  2>,
+				<SLEEP_TCS     3>,
+				<WAKE_TCS      3>,
+				<CONTROL_TCS   1>;
 	};
 
 	dcc: dcc_v2@10a2000 {
