@@ -114,6 +114,7 @@
 #define OK_TO_QNOVO_VOTER	"ok_to_qnovo_voter"
 
 #define QNOVO_VOTER		"qnovo_voter"
+#define FG_AVAILABLE_VOTER	"FG_AVAILABLE_VOTER"
 
 struct qnovo_dt_props {
 	bool			external_rsense;
@@ -138,6 +139,7 @@ struct qnovo {
 	s64			v_gain_mega;
 	struct notifier_block	nb;
 	struct power_supply	*batt_psy;
+	struct power_supply	*bms_psy;
 	struct work_struct	status_change_work;
 	int			fv_uV_request;
 	int			fcc_uA_request;
@@ -229,6 +231,17 @@ static bool is_batt_available(struct qnovo *chip)
 	return true;
 }
 
+static bool is_fg_available(struct qnovo *chip)
+{
+	if (!chip->bms_psy)
+		chip->bms_psy = power_supply_get_by_name("bms");
+
+	if (!chip->bms_psy)
+		return false;
+
+	return true;
+}
+
 static int qnovo_batt_psy_update(struct qnovo *chip, bool disable)
 {
 	union power_supply_propval pval = {0};
@@ -280,6 +293,16 @@ static int qnovo_disable_cb(struct votable *votable, void *data, int disable,
 		pr_err("Couldn't set prop qnovo_enable rc = %d\n", rc);
 		return -EINVAL;
 	}
+
+	/*
+	 * fg must be available for enable FG_AVAILABLE_VOTER
+	 * won't enable it otherwise
+	 */
+
+	if (is_fg_available(chip))
+		power_supply_set_property(chip->bms_psy,
+				POWER_SUPPLY_PROP_CHARGE_QNOVO_ENABLE,
+				&pval);
 
 	rc = qnovo_batt_psy_update(chip, disable);
 	return rc;
@@ -1132,7 +1155,6 @@ static int qnovo_update_status(struct qnovo *chip)
 	}
 
 	if (chip->ok_to_qnovo ^ ok_to_qnovo) {
-
 		vote(chip->disable_votable, OK_TO_QNOVO_VOTER, !ok_to_qnovo, 0);
 		if (!ok_to_qnovo)
 			vote(chip->disable_votable, USER_VOTER, true, 0);
@@ -1149,6 +1171,9 @@ static void status_change_work(struct work_struct *work)
 	struct qnovo *chip = container_of(work,
 			struct qnovo, status_change_work);
 
+	if (is_fg_available(chip))
+		vote(chip->disable_votable, FG_AVAILABLE_VOTER, false, 0);
+
 	if (qnovo_update_status(chip))
 		kobject_uevent(&chip->dev->kobj, KOBJ_CHANGE);
 }
@@ -1162,7 +1187,8 @@ static int qnovo_notifier_call(struct notifier_block *nb,
 	if (ev != PSY_EVENT_PROP_CHANGED)
 		return NOTIFY_OK;
 
-	if (strcmp(psy->desc->name, "battery") == 0)
+	if (strcmp(psy->desc->name, "battery") == 0
+		|| strcmp(psy->desc->name, "bms") == 0)
 		schedule_work(&chip->status_change_work);
 
 	return NOTIFY_OK;
@@ -1171,6 +1197,12 @@ static int qnovo_notifier_call(struct notifier_block *nb,
 static irqreturn_t handle_ptrain_done(int irq, void *data)
 {
 	struct qnovo *chip = data;
+	union power_supply_propval pval = {0};
+
+	if (is_fg_available(chip))
+		power_supply_set_property(chip->bms_psy,
+				POWER_SUPPLY_PROP_RESISTANCE,
+				&pval);
 
 	qnovo_update_status(chip);
 	kobject_uevent(&chip->dev->kobj, KOBJ_CHANGE);
@@ -1186,6 +1218,7 @@ static int qnovo_hw_init(struct qnovo *chip)
 	u8 val;
 
 	vote(chip->disable_votable, USER_VOTER, true, 0);
+	vote(chip->disable_votable, FG_AVAILABLE_VOTER, true, 0);
 
 	val = 0;
 	rc = qnovo_write(chip, QNOVO_STRM_CTRL, &val, 1);
