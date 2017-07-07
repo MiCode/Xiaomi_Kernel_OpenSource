@@ -565,32 +565,21 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	 */
 	/* Encoder Parameters */
 
-	enum hal_video_codec standard;
-	int width, height, fps;
-	enum hal_uncompressed_format dpb_color_format;
-	enum hal_uncompressed_format original_color_format;
+	int width, height, fps, dpb_bpp, lcu_per_frame, lcu_size,
+		vertical_tile_width, colocated_bytes_per_lcu, bitrate,
+		ref_overlap_bw_factor;
+	enum hal_uncompressed_format dpb_color_format, original_color_format;
 	bool dpb_compression_enabled, original_compression_enabled,
-		two_stage_encoding, low_power, rotation, cropping_or_scaling;
+		work_mode_1, low_power, rotation, cropping_or_scaling,
+		b_frames_enabled = false;
 	fp_t dpb_compression_factor, original_compression_factor,
-		qsmmu_bw_overhead_factor;
-	bool b_frames_enabled;
-
-	/* Derived Parameters */
-	int lcu_size;
-	enum gop {
-		GOP_IBBP,
-		GOP_IPPP,
-	} gop;
-	unsigned long bitrate;
-	fp_t bins_to_bit_factor, chroma_luma_factor_dpb, one_frame_bw_dpb,
-		 chroma_luma_factor_original, one_frame_bw_original,
-		 line_buffer_size_per_lcu, line_buffer_size, line_buffer_bw,
-		 bw_increase_p, bw_increase_b;
-	int collocated_mv_per_lcu, max_transaction_size,
-		search_window_size_vertical_p, search_window_factor_p,
-		search_window_factor_bw_p,
-		search_window_size_vertical_b, search_window_factor_b,
-		search_window_factor_bw_b;
+		input_compression_factor, qsmmu_bw_overhead_factor,
+		ref_y_bw_factor, ref_cb_cr_bw_factor, ten_bpc_bpp_factor,
+		bw_for_1x_8bpc, dpb_bw_for_1x, ref_cb_cr_read,
+		bins_to_bit_factor, ref_y_read,	ten_bpc_packing_factor,
+		dpb_write_factor, ref_overlap_bw;
+	fp_t integer_part, frac_part;
+	unsigned long ret = 0;
 
 	/* Output paramaters */
 	struct {
@@ -599,27 +588,41 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 			original_write, dpb_read, dpb_write, total;
 	} ddr = {0};
 
-	unsigned long ret = 0;
-	fp_t integer_part, frac_part;
 
 	/* Encoder Parameters setup */
+	ten_bpc_packing_factor = FP(1, 67, 1000);
+	ten_bpc_bpp_factor = FP(1, 1, 4);
+	rotation = false;
+	cropping_or_scaling = false;
+	vertical_tile_width = 960;
+	ref_y_bw_factor = FP(1, 30, 100);
+	ref_cb_cr_bw_factor = FP(1, 50, 100);
+	dpb_write_factor = FP(1, 8, 100);
 
-	standard = d->codec;
+
+	/* Derived Parameters */
+	lcu_size = d->lcu_size;
+	fps = d->fps;
+	b_frames_enabled = d->b_frames_enabled;
 	width = max(d->input_width, BASELINE_DIMENSIONS.width);
 	height = max(d->input_height, BASELINE_DIMENSIONS.height);
+	bitrate = __lut(width, height, fps)->bitrate;
+	lcu_per_frame = DIV_ROUND_UP(width, lcu_size) *
+		DIV_ROUND_UP(height, lcu_size);
 
 	dpb_color_format = HAL_COLOR_FORMAT_NV12_UBWC;
 	original_color_format = d->num_formats >= 1 ?
 		d->color_formats[0] : HAL_UNUSED_COLOR;
 
-	fps = d->fps;
+	dpb_bpp = d->num_formats >= 1 ? __bpp(d->color_formats[0]) : INT_MAX;
 
 	dpb_compression_enabled = __ubwc(dpb_color_format);
 	original_compression_enabled = __ubwc(original_color_format);
 
-	two_stage_encoding = false;
+	work_mode_1 = d->work_mode == VIDC_WORK_MODE_1;
 	low_power = d->power_mode == VIDC_POWER_LOW;
-	b_frames_enabled = false;
+	bins_to_bit_factor = work_mode_1 ?
+		FP_INT(0) : FP_INT(4);
 
 	/*
 	 * Convert Q16 number into Integer and Fractional part upto 2 places.
@@ -636,96 +639,84 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 
 	dpb_compression_factor = FP(integer_part, frac_part, 100);
 
-	original_compression_factor = dpb_compression_factor;
+	integer_part = d->input_cr >> 16;
+	frac_part =
+		((d->input_cr - (integer_part * 65536)) * 100) >> 16;
 
-	rotation = false;
-	cropping_or_scaling = false;
+	input_compression_factor = FP(integer_part, frac_part, 100);
 
-	/* Derived Parameters */
-	lcu_size = 16;
-	gop = b_frames_enabled ? GOP_IBBP : GOP_IPPP;
-	bitrate = __lut(width, height, fps)->bitrate;
-	bins_to_bit_factor = FP(1, 6, 10);
+	original_compression_factor =
+		original_compression_enabled ? d->use_dpb_read ?
+			dpb_compression_factor : input_compression_factor :
+		FP_ONE;
 
-	/*
-	 * FIXME: Minor color format related hack: a lot of the derived params
-	 * depend on the YUV bitdepth as a variable.  However, we don't have
-	 * appropriate enums defined yet (hence no support).  As a result omit
-	 * a lot of the checks (which should look like the snippet below) in
-	 * favour of hardcoding.
-	 *      dpb_color_format == YUV420 ? 0.5 :
-	 *      dpb_color_format == YUV422 ? 1.0 : 2.0
-	 * Similar hacks are annotated inline in code with the string "CF hack"
-	 * for documentation purposes.
-	 */
-	chroma_luma_factor_dpb = FP(0, 1, 2);
-	one_frame_bw_dpb = fp_mult(FP_ONE + chroma_luma_factor_dpb,
-			fp_div(FP_INT(width * height * fps),
-				FP_INT(1000 * 1000)));
-
-	chroma_luma_factor_original = FP(0, 1, 2); /* XXX: CF hack */
-	one_frame_bw_original = fp_mult(FP_ONE + chroma_luma_factor_original,
-			fp_div(FP_INT(width * height * fps),
-				FP_INT(1000 * 1000)));
-
-	line_buffer_size_per_lcu = FP_ZERO;
-	if (lcu_size == 16)
-		line_buffer_size_per_lcu = FP_INT(128) + fp_mult(FP_INT(256),
-					FP_ONE /*XXX: CF hack */);
-	else
-		line_buffer_size_per_lcu = FP_INT(192) + fp_mult(FP_INT(512),
-					FP_ONE /*XXX: CF hack */);
-
-	line_buffer_size = fp_div(
-			fp_mult(FP_INT(width / lcu_size),
-				line_buffer_size_per_lcu),
-			FP_INT(1024));
-	line_buffer_bw = fp_mult(line_buffer_size,
-			fp_div(FP_INT((height / lcu_size /
-				(two_stage_encoding ? 2 : 1) - 1) * fps),
-				FP_INT(1000)));
-
-	collocated_mv_per_lcu = lcu_size == 16 ? 16 : 64;
-	max_transaction_size = 256;
-
-	search_window_size_vertical_p = low_power ? 32 :
-					b_frames_enabled ? 80 :
-					width > 2048 ? 64 : 48;
-	search_window_factor_p = search_window_size_vertical_p * 2 / lcu_size;
-	search_window_factor_bw_p = !two_stage_encoding ?
-		search_window_size_vertical_p * 2 / lcu_size + 1 :
-		(search_window_size_vertical_p * 2 / lcu_size + 2) / 2;
-	bw_increase_p = fp_mult(one_frame_bw_dpb,
-			FP_INT(search_window_factor_bw_p - 1) / 3);
-
-	search_window_size_vertical_b = 48;
-	search_window_factor_b = search_window_size_vertical_b * 2 / lcu_size;
-	search_window_factor_bw_b = !two_stage_encoding ?
-		search_window_size_vertical_b * 2 / lcu_size + 1 :
-		(search_window_size_vertical_b * 2 / lcu_size + 2) / 2;
-	bw_increase_b = fp_mult(one_frame_bw_dpb,
-			FP_INT((search_window_factor_bw_b - 1) / 3));
-
-	/* Output parameters for DDR */
 	ddr.vsp_read = fp_mult(fp_div(FP_INT(bitrate), FP_INT(8)),
 			bins_to_bit_factor);
 	ddr.vsp_write = ddr.vsp_read + fp_div(FP_INT(bitrate), FP_INT(8));
 
-	ddr.collocated_read = fp_div(FP_INT(DIV_ROUND_UP(width, lcu_size) *
-			DIV_ROUND_UP(height, lcu_size) *
-			collocated_mv_per_lcu * fps), FP_INT(1000 * 1000));
+	colocated_bytes_per_lcu = lcu_size == 16 ? 16 :
+				lcu_size == 32 ? 64 : 256;
+
+	ddr.collocated_read = FP_INT(lcu_per_frame *
+			colocated_bytes_per_lcu * fps / bps(1));
+
 	ddr.collocated_write = ddr.collocated_read;
+
+	ddr.line_buffer_read = FP_INT(16 * lcu_per_frame * fps / bps(1));
 
 	ddr.line_buffer_write = ddr.line_buffer_read;
 
-	ddr.original_read = fp_div(one_frame_bw_original,
-			original_compression_factor);
+	bw_for_1x_8bpc = fp_div(FP_INT(width * height), FP_INT(32 * 8));
+
+	bw_for_1x_8bpc = fp_mult(bw_for_1x_8bpc,
+		fp_div(FP_INT(256 * 30), FP_INT(1000 * 1000)));
+
+	dpb_bw_for_1x = dpb_bpp == 8 ? bw_for_1x_8bpc :
+		fp_mult(bw_for_1x_8bpc, fp_mult(ten_bpc_packing_factor,
+			ten_bpc_bpp_factor));
+
+	ddr.original_read = fp_div(fp_mult(FP(1, 50, 100), dpb_bw_for_1x),
+		input_compression_factor);
+
 	ddr.original_write = FP_ZERO;
 
-	ddr.dpb_read = FP_ZERO;
+	ref_y_bw_factor =
+		width == vertical_tile_width ? FP_INT(1) : ref_y_bw_factor;
 
-	ddr.dpb_read = fp_div(ddr.dpb_read, dpb_compression_factor);
-	ddr.dpb_write = fp_div(one_frame_bw_dpb, dpb_compression_factor);
+	ref_y_read = fp_mult(ref_y_bw_factor, dpb_bw_for_1x);
+
+	ref_y_read = fp_div(ref_y_read, dpb_compression_factor);
+
+	ref_y_read =
+		b_frames_enabled ? fp_mult(ref_y_read, FP_INT(2)) : ref_y_read;
+
+	ref_cb_cr_read = fp_mult(ref_cb_cr_bw_factor, dpb_bw_for_1x);
+
+	ref_cb_cr_read = fp_div(ref_cb_cr_read, dpb_compression_factor);
+
+	ref_cb_cr_read =
+		b_frames_enabled ? fp_mult(ref_cb_cr_read, FP_INT(2)) :
+					ref_cb_cr_read;
+
+	ref_cb_cr_read = fp_div(ref_cb_cr_read, FP_INT(2));
+
+	ddr.dpb_write = fp_mult(dpb_write_factor, dpb_bw_for_1x);
+
+	ddr.dpb_write = fp_mult(ddr.dpb_write, FP(1, 50, 100));
+
+	ddr.dpb_write = fp_div(ddr.dpb_write, input_compression_factor);
+
+	ref_overlap_bw_factor =
+		width <= vertical_tile_width ? FP_INT(0) : FP_INT(1);
+
+	ref_overlap_bw = fp_mult(ddr.dpb_write, ref_overlap_bw_factor);
+
+	ref_overlap_bw = fp_div(ref_overlap_bw, dpb_write_factor);
+
+	ref_overlap_bw = fp_mult(ref_overlap_bw,
+		(dpb_write_factor - FP_INT(1)));
+
+	ddr.dpb_read = ref_y_read + ref_cb_cr_read + ref_overlap_bw;
 
 	ddr.total = ddr.vsp_read + ddr.vsp_write +
 		ddr.collocated_read + ddr.collocated_write +
@@ -739,7 +730,6 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	if (debug) {
 		struct dump dump[] = {
 		{"ENCODER PARAMETERS", "", DUMP_HEADER_MAGIC},
-		{"standard", "%#x", standard},
 		{"width", "%d", width},
 		{"height", "%d", height},
 		{"DPB format", "%#x", dpb_color_format},
@@ -748,8 +738,8 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 		{"DPB compression enable", "%d", dpb_compression_enabled},
 		{"original compression enable", "%d",
 			original_compression_enabled},
-		{"two stage encoding", "%d", two_stage_encoding},
 		{"low power mode", "%d", low_power},
+		{"Work Mode", "%d", work_mode_1},
 		{"DPB compression factor", DUMP_FP_FMT,
 			dpb_compression_factor},
 		{"original compression factor", DUMP_FP_FMT,
@@ -759,44 +749,21 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 
 		{"DERIVED PARAMETERS", "", DUMP_HEADER_MAGIC},
 		{"LCU size", "%d", lcu_size},
-		{"GOB pattern", "%d", gop},
 		{"bitrate (Mbit/sec)", "%lu", bitrate},
 		{"bins to bit factor", DUMP_FP_FMT, bins_to_bit_factor},
-		{"B-frames enabled", "%d", b_frames_enabled},
-		{"search window size vertical (B)", "%d",
-			search_window_size_vertical_b},
-		{"search window factor (B)", "%d", search_window_factor_b},
-		{"search window factor BW (B)", "%d",
-			search_window_factor_bw_b},
-		{"bw increase (MB/s) (B)", DUMP_FP_FMT, bw_increase_b},
-		{"search window size vertical (P)", "%d",
-			search_window_size_vertical_p},
-		{"search window factor (P)", "%d", search_window_factor_p},
-		{"search window factor BW (P)", "%d",
-			search_window_factor_bw_p},
-		{"bw increase (MB/s) (P)", DUMP_FP_FMT, bw_increase_p},
-		{"chroma/luma factor DPB", DUMP_FP_FMT,
-			chroma_luma_factor_dpb},
-		{"one frame BW DPB (MB/s)", DUMP_FP_FMT, one_frame_bw_dpb},
-		{"chroma/Luma factor original", DUMP_FP_FMT,
-			chroma_luma_factor_original},
-		{"one frame BW original (MB/s)", DUMP_FP_FMT,
-			one_frame_bw_original},
-		{"line buffer size per LCU", DUMP_FP_FMT,
-			line_buffer_size_per_lcu},
-		{"line buffer size (KB)", DUMP_FP_FMT, line_buffer_size},
-		{"line buffer BW (MB/s)", DUMP_FP_FMT, line_buffer_bw},
-		{"collocated MVs per LCU", "%d", collocated_mv_per_lcu},
 
 		{"INTERMEDIATE B/W DDR", "", DUMP_HEADER_MAGIC},
+		{"ref_y_read", DUMP_FP_FMT, ref_y_read},
+		{"ref_cb_cr_read", DUMP_FP_FMT, ref_cb_cr_read},
+		{"ref_overlap_bw", DUMP_FP_FMT, ref_overlap_bw},
 		{"VSP read", DUMP_FP_FMT, ddr.vsp_read},
-		{"VSP read", DUMP_FP_FMT, ddr.vsp_write},
+		{"VSP write", DUMP_FP_FMT, ddr.vsp_write},
 		{"collocated read", DUMP_FP_FMT, ddr.collocated_read},
-		{"collocated read", DUMP_FP_FMT, ddr.collocated_write},
+		{"collocated write", DUMP_FP_FMT, ddr.collocated_write},
 		{"line buffer read", DUMP_FP_FMT, ddr.line_buffer_read},
-		{"line buffer read", DUMP_FP_FMT, ddr.line_buffer_write},
+		{"line buffer write", DUMP_FP_FMT, ddr.line_buffer_write},
 		{"original read", DUMP_FP_FMT, ddr.original_read},
-		{"original read", DUMP_FP_FMT, ddr.original_write},
+		{"original write", DUMP_FP_FMT, ddr.original_write},
 		{"DPB read", DUMP_FP_FMT, ddr.dpb_read},
 		{"DPB write", DUMP_FP_FMT, ddr.dpb_write},
 		};
