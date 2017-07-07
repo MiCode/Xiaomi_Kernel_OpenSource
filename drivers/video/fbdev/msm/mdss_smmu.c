@@ -280,6 +280,27 @@ end:
 	return rc;
 }
 
+int mdss_smmu_set_attribute(int domain, int flag, int val)
+{
+	int rc = 0, domain_attr = 0;
+	struct mdss_smmu_client *mdss_smmu = mdss_smmu_get_cb(domain);
+
+	if (!mdss_smmu) {
+		pr_err("not able to get smmu context\n");
+		return -EINVAL;
+	}
+
+	if (flag == EARLY_MAP)
+		domain_attr = DOMAIN_ATTR_EARLY_MAP;
+	else
+		goto end;
+
+	rc = iommu_domain_set_attr(mdss_smmu->mmu_mapping->domain,
+			domain_attr, &val);
+end:
+	return rc;
+}
+
 /*
  * mdss_smmu_attach_v2()
  *
