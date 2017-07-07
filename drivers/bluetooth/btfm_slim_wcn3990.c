@@ -76,7 +76,7 @@ int btfm_slim_chrk_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 	uint8_t reg_val = 0;
 	uint16_t reg;
 
-	BTFMSLIM_DBG("enable(%d)", enable);
+	BTFMSLIM_DBG("port(%d) enable(%d)", port_num, enable);
 	if (rxport) {
 		/* Port enable */
 		reg = CHRK_SB_PGD_PORT_RX_CFGN(port_num - 0x10);
