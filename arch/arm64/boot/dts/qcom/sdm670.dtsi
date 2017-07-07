@@ -1113,6 +1113,7 @@
 #include "sdm670-pinctrl.dtsi"
 #include "msm-arm-smmu-sdm670.dtsi"
 #include "msm-gdsc-sdm845.dtsi"
+#include "sdm670-pm.dtsi"
 
 &usb30_prim_gdsc {
 	status = "ok";
