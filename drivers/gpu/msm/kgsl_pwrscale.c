@@ -550,7 +550,11 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 	/* If the governor recommends a new frequency, update it here */
 	if (*freq != cur_freq) {
 		level = pwr->max_pwrlevel;
-		for (i = pwr->min_pwrlevel; i >= pwr->max_pwrlevel; i--)
+		/*
+		 * To avoid infinite loop issue type cast max_pwrlevel to
+		 * signed integer type
+		 */
+		for (i = pwr->min_pwrlevel; i >= (int)pwr->max_pwrlevel; i--)
 			if (*freq <= pwr->pwrlevels[i].gpu_freq) {
 				if (pwr->thermal_cycle == CYCLE_ACTIVE)
 					level = _thermal_adjust(pwr, i);
