@@ -1897,6 +1897,23 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		vui_timing_info.time_scale = NSEC_PER_SEC;
 		break;
 	}
+	case V4L2_CID_MPEG_VIDC_VIDEO_LTRMODE:
+	case V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT:
+	case V4L2_CID_MPEG_VIDC_VENC_PARAM_SAR_WIDTH:
+	case V4L2_CID_MPEG_VIDC_VENC_PARAM_SAR_HEIGHT:
+	case V4L2_CID_MPEG_VIDC_VIDEO_BLUR_WIDTH:
+	case V4L2_CID_MPEG_VIDC_VIDEO_BLUR_HEIGHT:
+	case V4L2_CID_MPEG_VIDC_VIDEO_LAYER_ID:
+	case V4L2_CID_MPEG_VIDC_VENC_PARAM_LAYER_BITRATE:
+	case V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP_MIN:
+	case V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP_MIN:
+	case V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP_MIN:
+	case V4L2_CID_MPEG_VIDC_VIDEO_I_FRAME_QP_MAX:
+	case V4L2_CID_MPEG_VIDC_VIDEO_P_FRAME_QP_MAX:
+	case V4L2_CID_MPEG_VIDC_VIDEO_B_FRAME_QP_MAX:
+		dprintk(VIDC_DBG, "Set the control : %#x using ext ctrl\n",
+			ctrl->id);
+		break;
 	default:
 		dprintk(VIDC_ERR, "Unsupported index: %x\n", ctrl->id);
 		rc = -ENOTSUPP;
