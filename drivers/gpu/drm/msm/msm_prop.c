@@ -304,7 +304,7 @@ void msm_property_install_rotation(struct msm_property_info *info,
 void msm_property_install_enum(struct msm_property_info *info,
 		const char *name, int flags, int is_bitmask,
 		const struct drm_prop_enum_list *values, int num_values,
-		uint32_t property_idx)
+		uint32_t property_idx, uint64_t default_value)
 {
 	struct drm_property **prop;
 
@@ -337,7 +337,7 @@ void msm_property_install_enum(struct msm_property_info *info,
 		}
 
 		/* save init value for later */
-		info->property_data[property_idx].default_value = 0;
+		info->property_data[property_idx].default_value = default_value;
 		info->property_data[property_idx].force_dirty = false;
 
 		/* always attach property, if created */

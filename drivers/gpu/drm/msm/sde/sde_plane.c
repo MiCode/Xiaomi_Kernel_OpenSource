@@ -1907,10 +1907,12 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 		BIT(DRM_REFLECT_X) | BIT(DRM_REFLECT_Y), PLANE_PROP_ROTATION);
 
 	msm_property_install_enum(&psde->property_info, "blend_op", 0x0, 0,
-		e_blend_op, ARRAY_SIZE(e_blend_op), PLANE_PROP_BLEND_OP);
+		e_blend_op, ARRAY_SIZE(e_blend_op), PLANE_PROP_BLEND_OP,
+		SDE_DRM_BLEND_OP_PREMULTIPLIED);
 
 	msm_property_install_enum(&psde->property_info, "src_config", 0x0, 1,
-		e_src_config, ARRAY_SIZE(e_src_config), PLANE_PROP_SRC_CONFIG);
+		e_src_config, ARRAY_SIZE(e_src_config), PLANE_PROP_SRC_CONFIG,
+		0);
 
 	list_for_each_entry(pp, &psde->phy_plane_head, phy_plane_list) {
 		if (pp->pipe_hw->ops.setup_solidfill)
@@ -1973,7 +1975,7 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 			0x0,
 			0, e_fb_translation_mode,
 			ARRAY_SIZE(e_fb_translation_mode),
-			PLANE_PROP_FB_TRANSLATION_MODE);
+			PLANE_PROP_FB_TRANSLATION_MODE, SDE_DRM_FB_NON_SEC);
 }
 
 static inline void _sde_plane_set_csc_v1(struct sde_phy_plane *pp,

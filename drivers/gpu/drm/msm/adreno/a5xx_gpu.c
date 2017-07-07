@@ -774,6 +774,9 @@ static int a5xx_hw_init(struct msm_gpu *gpu)
 	gpu_write(gpu, REG_A5XX_TPL1_ADDR_MODE_CNTL, 0x1);
 	gpu_write(gpu, REG_A5XX_RBBM_SECVID_TSB_ADDR_MODE_CNTL, 0x1);
 
+	a5xx_gpu->timestamp_counter = adreno_get_counter(gpu,
+		MSM_COUNTER_GROUP_CP, 0, NULL, NULL);
+
 	/* Load the GPMU firmware before starting the HW init */
 	a5xx_gpmu_ucode_init(gpu);
 
@@ -1218,8 +1221,11 @@ static int a5xx_pm_suspend(struct msm_gpu *gpu)
 
 static int a5xx_get_timestamp(struct msm_gpu *gpu, uint64_t *value)
 {
-	*value = gpu_read64(gpu, REG_A5XX_RBBM_PERFCTR_CP_0_LO,
-		REG_A5XX_RBBM_PERFCTR_CP_0_HI);
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+	struct a5xx_gpu *a5xx_gpu = to_a5xx_gpu(adreno_gpu);
+
+	*value = adreno_read_counter(gpu, MSM_COUNTER_GROUP_CP,
+		a5xx_gpu->timestamp_counter);
 
 	return 0;
 }
@@ -1252,7 +1258,6 @@ static const struct adreno_gpu_funcs funcs = {
 		.pm_suspend = a5xx_pm_suspend,
 		.pm_resume = a5xx_pm_resume,
 		.recover = a5xx_recover,
-		.last_fence = adreno_last_fence,
 		.submitted_fence = adreno_submitted_fence,
 		.submit = a5xx_submit,
 		.flush = a5xx_flush,
