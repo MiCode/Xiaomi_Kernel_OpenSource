@@ -177,11 +177,26 @@ extern void get_iowait_load(unsigned long *nr_waiters, unsigned long *load);
 extern u64 nr_running_integral(unsigned int cpu);
 #endif
 
+#ifdef CONFIG_SMP
 extern void sched_update_nr_prod(int cpu, long delta, bool inc);
 extern void sched_get_nr_running_avg(int *avg, int *iowait_avg, int *big_avg,
 				     unsigned int *max_nr,
 				     unsigned int *big_max_nr);
 extern unsigned int sched_get_cpu_util(int cpu);
+#else
+static inline void sched_update_nr_prod(int cpu, long delta, bool inc)
+{
+}
+static inline void sched_get_nr_running_avg(int *avg, int *iowait_avg,
+				int *big_avg, unsigned int *max_nr,
+				unsigned int *big_max_nr)
+{
+}
+static inline unsigned int sched_get_cpu_util(int cpu)
+{
+	return 0;
+}
+#endif
 
 extern void calc_global_load(unsigned long ticks);
 
