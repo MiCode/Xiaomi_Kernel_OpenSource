@@ -19,6 +19,7 @@
 #include "cam_req_mgr_core.h"
 #include "cam_req_mgr_workq.h"
 #include "cam_req_mgr_debug.h"
+#include "cam_trace.h"
 
 static struct cam_req_mgr_core_device *g_crm_core_dev;
 
@@ -975,7 +976,7 @@ end:
  * cam_req_mgr_process_flush_req()
  *
  * @brief: This runs in workque thread context. Call core funcs to check
- *         which requests need to be removedcancelled.
+ *         which requests need to be removed/cancelled.
  * @priv : link information.
  * @data : contains information about frame_id, link etc.
  *
@@ -1006,6 +1007,8 @@ int cam_req_mgr_process_flush_req(void *priv, void *data)
 		flush_info->flush_type);
 
 	in_q = link->req.in_q;
+
+	trace_cam_flush_req(flush_info);
 
 	mutex_lock(&link->req.lock);
 	if (flush_info->flush_type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {

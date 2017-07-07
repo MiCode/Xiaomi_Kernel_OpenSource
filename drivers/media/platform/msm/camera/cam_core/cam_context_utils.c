@@ -19,11 +19,12 @@
 #include <media/cam_sync.h>
 #include <media/cam_defs.h>
 
-#include "cam_sync_api.h"
-#include "cam_req_mgr_util.h"
+#include "cam_context.h"
 #include "cam_mem_mgr.h"
 #include "cam_node.h"
-#include "cam_context.h"
+#include "cam_req_mgr_util.h"
+#include "cam_sync_api.h"
+#include "cam_trace.h"
 
 int cam_context_buf_done_from_hw(struct cam_context *ctx,
 	void *done_event_data, uint32_t bubble_state)
@@ -41,6 +42,8 @@ int cam_context_buf_done_from_hw(struct cam_context *ctx,
 
 	req = list_first_entry(&ctx->active_req_list,
 		struct cam_ctx_request, list);
+
+	trace_cam_buf_done("UTILS", ctx, req);
 
 	if (done->request_id != req->request_id) {
 		pr_err("mismatch: done request [%lld], active request [%lld]\n",
