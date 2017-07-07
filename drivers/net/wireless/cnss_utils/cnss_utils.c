@@ -283,7 +283,7 @@ static int __init cnss_utils_init(void)
 {
 	struct cnss_utils_priv *priv = NULL;
 
-	priv = kmalloc(sizeof(*priv), GFP_KERNEL);
+	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
 
