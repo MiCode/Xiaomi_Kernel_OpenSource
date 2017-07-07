@@ -121,4 +121,5 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 		      const struct msm_pinctrl_soc_data *soc_data);
 int msm_pinctrl_remove(struct platform_device *pdev);
 
+extern int msm_show_resume_irq_mask;
 #endif
