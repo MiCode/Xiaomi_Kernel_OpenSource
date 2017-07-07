@@ -73,8 +73,6 @@ enum {
 	R_MAX
 };
 
-#define TX_MODE_BUFFER_LINE_THRES 2
-
 #define SDE_QSEED3_DEFAULT_PRELOAD_H 0x4
 #define SDE_QSEED3_DEFAULT_PRELOAD_V 0x3
 
@@ -2546,14 +2544,28 @@ int sde_plane_validate_multirect_v2(struct sde_multirect_plane_states *plane)
 	struct sde_plane *sde_plane[R_MAX];
 	const struct sde_format *fmt[R_MAX];
 	bool q16_data = true;
-	int i, buffer_lines = TX_MODE_BUFFER_LINE_THRES;
+	int i, buffer_lines;
+	unsigned int max_tile_height = 1;
 	bool parallel_fetch_qualified = true;
+	bool has_tiled_rect = false;
 
 	for (i = 0; i < R_MAX; i++) {
 		const struct msm_format *msm_fmt;
-		int width_threshold;
 
 		drm_state[i] = i ? plane->r1 : plane->r0;
+		msm_fmt = msm_framebuffer_format(drm_state[i]->fb);
+		fmt[i] = to_sde_format(msm_fmt);
+
+		if (SDE_FORMAT_IS_UBWC(fmt[i])) {
+			has_tiled_rect = true;
+			if (fmt[i]->tile_height > max_tile_height)
+				max_tile_height = fmt[i]->tile_height;
+		}
+	}
+
+	for (i = 0; i < R_MAX; i++) {
+		int width_threshold;
+
 		pstate[i] = to_sde_plane_state(drm_state[i]);
 		sde_plane[i] = to_sde_plane(drm_state[i]->plane);
 
@@ -2575,8 +2587,6 @@ int sde_plane_validate_multirect_v2(struct sde_multirect_plane_states *plane)
 			return -EINVAL;
 		}
 
-		msm_fmt = msm_framebuffer_format(drm_state[i]->fb);
-		fmt[i] = to_sde_format(msm_fmt);
 		if (SDE_FORMAT_IS_YUV(fmt[i])) {
 			SDE_ERROR_PLANE(sde_plane[i],
 				"Unsupported format for multirect mode\n");
@@ -2591,7 +2601,7 @@ int sde_plane_validate_multirect_v2(struct sde_multirect_plane_states *plane)
 		 * width for tiled formats.
 		 */
 		width_threshold = sde_plane[i]->pipe_sblk->maxlinewidth;
-		if (SDE_FORMAT_IS_UBWC(fmt[i]))
+		if (has_tiled_rect)
 			width_threshold /= 2;
 
 		if (parallel_fetch_qualified && src[i].w > width_threshold)
@@ -2610,8 +2620,7 @@ int sde_plane_validate_multirect_v2(struct sde_multirect_plane_states *plane)
 	}
 
 	/* TIME_MX Mode */
-	if (SDE_FORMAT_IS_UBWC(fmt[R0]))
-		buffer_lines = 2 * fmt[R0]->tile_height;
+	buffer_lines = 2 * max_tile_height;
 
 	if ((dst[R1].y >= dst[R0].y + dst[R0].h + buffer_lines) ||
 		(dst[R0].y >= dst[R1].y + dst[R1].h + buffer_lines)) {
