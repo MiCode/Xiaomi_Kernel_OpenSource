@@ -1570,8 +1570,8 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 				union power_supply_propval *val)
 {
 	union power_supply_propval pval = {0, };
-	bool usb_online, dc_online;
-	u8 stat;
+	bool usb_online, dc_online, qnovo_en;
+	u8 stat, pt_en_cmd;
 	int rc;
 
 	rc = smblib_get_prop_usb_online(chg, &pval);
@@ -1639,11 +1639,22 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 		smblib_err(chg, "Couldn't read BATTERY_CHARGER_STATUS_2 rc=%d\n",
 				rc);
 			return rc;
-		}
+	}
 
 	stat &= ENABLE_TRICKLE_BIT | ENABLE_PRE_CHARGING_BIT |
 		 ENABLE_FAST_CHARGING_BIT | ENABLE_FULLON_MODE_BIT;
-	if (!stat)
+
+	rc = smblib_read(chg, QNOVO_PT_ENABLE_CMD_REG, &pt_en_cmd);
+	if (rc < 0) {
+		smblib_err(chg, "Couldn't read QNOVO_PT_ENABLE_CMD_REG rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	qnovo_en = (bool)(pt_en_cmd & QNOVO_PT_ENABLE_CMD_BIT);
+
+	/* ignore stat7 when qnovo is enabled */
+	if (!qnovo_en && !stat)
 		val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
 
 	return 0;
