@@ -29,6 +29,7 @@ struct dp_display {
 	struct dp_bridge *bridge;
 	struct drm_connector *connector;
 	bool is_connected;
+	u32 max_pclk_khz;
 
 	int (*enable)(struct dp_display *dp_display);
 	int (*post_enable)(struct dp_display *dp_display);

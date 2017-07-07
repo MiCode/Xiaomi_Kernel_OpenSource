@@ -72,6 +72,34 @@ end:
 	return rc;
 }
 
+static u32 dp_panel_get_max_pclk(struct dp_panel *dp_panel)
+{
+	struct dp_panel_private *panel;
+	struct drm_dp_link *dp_link;
+	u32 bpc, bpp, max_data_rate_khz, max_pclk_rate_khz;
+	const u8 num_components = 3;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		return 0;
+	}
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+	dp_link = &dp_panel->dp_link;
+
+	bpc = sde_get_sink_bpc(dp_panel->edid_ctrl);
+	bpp = bpc * num_components;
+
+	max_data_rate_khz = (dp_link->num_lanes * dp_link->rate * 8);
+	max_pclk_rate_khz = max_data_rate_khz / bpp;
+
+	pr_debug("bpp=%d, max_lane_cnt=%d\n", bpp, dp_link->num_lanes);
+	pr_debug("max_data_rate=%dKHz, max_pclk_rate=%dKHz\n",
+		max_data_rate_khz, max_pclk_rate_khz);
+
+	return max_pclk_rate_khz;
+}
+
 static int dp_panel_timing_cfg(struct dp_panel *dp_panel)
 {
 	int rc = 0;
@@ -276,6 +304,7 @@ struct dp_panel *dp_panel_get(struct device *dev, struct dp_aux *aux,
 	dp_panel->timing_cfg = dp_panel_timing_cfg;
 	dp_panel->read_dpcd = dp_panel_read_dpcd;
 	dp_panel->get_link_rate = dp_panel_get_link_rate;
+	dp_panel->get_max_pclk = dp_panel_get_max_pclk;
 
 	return dp_panel;
 error:

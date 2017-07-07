@@ -261,6 +261,7 @@ static const struct component_ops dp_display_comp_ops = {
 static int dp_display_process_hpd_high(struct dp_display_private *dp)
 {
 	int rc = 0;
+	u32 max_pclk_from_edid = 0;
 
 	rc = dp->panel->read_dpcd(dp->panel);
 	if (rc)
@@ -268,6 +269,11 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 
 	sde_get_edid(dp->dp_display.connector, &dp->aux->drm_aux->ddc,
 		(void **)&dp->panel->edid_ctrl);
+
+	max_pclk_from_edid = dp->panel->get_max_pclk(dp->panel);
+
+	dp->dp_display.max_pclk_khz = min(max_pclk_from_edid,
+		dp->parser->max_pclk_khz);
 
 	dp->dp_display.is_connected = true;
 	drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
