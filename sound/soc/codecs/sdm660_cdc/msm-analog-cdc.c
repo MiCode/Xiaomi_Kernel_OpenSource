@@ -2055,6 +2055,9 @@ static const char * const rdac2_mux_text[] = {
 	"ZERO", "RX2", "RX1"
 };
 
+static const struct snd_kcontrol_new adc1_switch =
+	SOC_DAPM_SINGLE("Switch", SND_SOC_NOPM, 0, 1, 0);
+
 static const struct soc_enum rdac2_mux_enum =
 	SOC_ENUM_SINGLE(MSM89XX_PMIC_DIGITAL_CDC_CONN_HPHR_DAC_CTL,
 		0, 3, rdac2_mux_text);
@@ -3105,7 +3108,8 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"ADC2 MUX", "INP2", "ADC2_INP2"},
 	{"ADC2 MUX", "INP3", "ADC2_INP3"},
 
-	{"ADC1", NULL, "AMIC1"},
+	{"ADC1", NULL, "ADC1_INP1"},
+	{"ADC1_INP1", "Switch", "AMIC1"},
 	{"ADC2_INP2", NULL, "AMIC2"},
 	{"ADC2_INP3", NULL, "AMIC3"},
 
@@ -3446,6 +3450,8 @@ static const struct snd_soc_dapm_widget msm_anlg_cdc_dapm_widgets[] = {
 
 	SND_SOC_DAPM_SPK("Ext Spk", msm_anlg_cdc_codec_enable_spk_ext_pa),
 
+	SND_SOC_DAPM_SWITCH("ADC1_INP1", SND_SOC_NOPM, 0, 0,
+			    &adc1_switch),
 	SND_SOC_DAPM_SUPPLY("RX1 CLK", MSM89XX_PMIC_DIGITAL_CDC_DIG_CLK_CTL,
 			    0, 0, NULL, 0),
 	SND_SOC_DAPM_SUPPLY("RX2 CLK", MSM89XX_PMIC_DIGITAL_CDC_DIG_CLK_CTL,

@@ -1370,6 +1370,7 @@ start:
 	}
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 out:
+	hba->ufs_stats.clk_hold.ts = ktime_get();
 	return rc;
 }
 EXPORT_SYMBOL_GPL(ufshcd_hold);
@@ -1474,6 +1475,7 @@ static void __ufshcd_release(struct ufs_hba *hba, bool no_sched)
 
 	hba->clk_gating.state = REQ_CLKS_OFF;
 	trace_ufshcd_clk_gating(dev_name(hba->dev), hba->clk_gating.state);
+	hba->ufs_stats.clk_rel.ts = ktime_get();
 
 	hrtimer_start(&hba->clk_gating.gate_hrtimer,
 			ms_to_ktime(hba->clk_gating.delay_ms),
@@ -1920,8 +1922,10 @@ static void ufshcd_hibern8_exit_work(struct work_struct *work)
 
 	/* Exit from hibern8 */
 	if (ufshcd_is_link_hibern8(hba)) {
+		hba->ufs_stats.clk_hold.ctx = H8_EXIT_WORK;
 		ufshcd_hold(hba, false);
 		ret = ufshcd_uic_hibern8_exit(hba);
+		hba->ufs_stats.clk_rel.ctx = H8_EXIT_WORK;
 		ufshcd_release(hba, false);
 		if (!ret) {
 			spin_lock_irqsave(hba->host->host_lock, flags);
@@ -2344,6 +2348,7 @@ ufshcd_send_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
 	int ret;
 	unsigned long flags;
 
+	hba->ufs_stats.clk_hold.ctx = UIC_CMD_SEND;
 	ufshcd_hold_all(hba);
 	mutex_lock(&hba->uic_cmd_mutex);
 	ufshcd_add_delay_before_dme_cmd(hba);
@@ -2357,6 +2362,7 @@ ufshcd_send_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
 	ufshcd_save_tstamp_of_last_dme_cmd(hba);
 	mutex_unlock(&hba->uic_cmd_mutex);
 	ufshcd_release_all(hba);
+	hba->ufs_stats.clk_rel.ctx = UIC_CMD_SEND;
 
 	ufsdbg_error_inject_dispatcher(hba,
 		ERR_INJECT_UIC, 0, &ret);
@@ -2834,6 +2840,7 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 		goto out;
 	}
 
+	hba->ufs_stats.clk_hold.ctx = QUEUE_CMD;
 	err = ufshcd_hold(hba, true);
 	if (err) {
 		err = SCSI_MLQUEUE_HOST_BUSY;
@@ -2847,6 +2854,7 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	if (err) {
 		clear_bit_unlock(tag, &hba->lrb_in_use);
 		err = SCSI_MLQUEUE_HOST_BUSY;
+		hba->ufs_stats.clk_rel.ctx = QUEUE_CMD;
 		ufshcd_release(hba, true);
 		goto out;
 	}
@@ -4216,8 +4224,10 @@ static int ufshcd_uic_change_pwr_mode(struct ufs_hba *hba, u8 mode)
 	uic_cmd.command = UIC_CMD_DME_SET;
 	uic_cmd.argument1 = UIC_ARG_MIB(PA_PWRMODE);
 	uic_cmd.argument3 = mode;
+	hba->ufs_stats.clk_hold.ctx = PWRCTL_CMD_SEND;
 	ufshcd_hold_all(hba);
 	ret = ufshcd_uic_pwr_ctrl(hba, &uic_cmd);
+	hba->ufs_stats.clk_rel.ctx = PWRCTL_CMD_SEND;
 	ufshcd_release_all(hba);
 out:
 	return ret;
@@ -5385,6 +5395,7 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 			update_req_stats(hba, lrbp);
 			/* Mark completed command as NULL in LRB */
 			lrbp->cmd = NULL;
+			hba->ufs_stats.clk_rel.ctx = XFR_REQ_COMPL;
 			__ufshcd_release(hba, false);
 			__ufshcd_hibern8_release(hba, false);
 			if (cmd->request) {
@@ -5907,6 +5918,7 @@ static void ufshcd_err_handler(struct work_struct *work)
 	if (unlikely((hba->clk_gating.state != CLKS_ON) &&
 	    ufshcd_is_auto_hibern8_supported(hba))) {
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		hba->ufs_stats.clk_hold.ctx = ERR_HNDLR_WORK;
 		ufshcd_hold(hba, false);
 		spin_lock_irqsave(hba->host->host_lock, flags);
 		clks_enabled = true;
@@ -6049,8 +6061,10 @@ skip_err_handling:
 
 	hba->silence_err_logs = false;
 
-	if (clks_enabled)
+	if (clks_enabled) {
 		__ufshcd_release(hba, false);
+		hba->ufs_stats.clk_rel.ctx = ERR_HNDLR_WORK;
+	}
 out:
 	ufshcd_clear_eh_in_progress(hba);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
@@ -6286,7 +6300,8 @@ static irqreturn_t ufshcd_intr(int irq, void *__hba)
 
 	spin_lock(hba->host->host_lock);
 	intr_status = ufshcd_readl(hba, REG_INTERRUPT_STATUS);
-
+	hba->ufs_stats.last_intr_status = intr_status;
+	hba->ufs_stats.last_intr_ts = ktime_get();
 	/*
 	 * There could be max of hba->nutrs reqs in flight and in worst case
 	 * if the reqs get finished 1 by 1 after the interrupt status is
@@ -6365,6 +6380,7 @@ static int ufshcd_issue_tm_cmd(struct ufs_hba *hba, int lun_id, int task_id,
 	 * the maximum wait time is bounded by %TM_CMD_TIMEOUT.
 	 */
 	wait_event(hba->tm_tag_wq, ufshcd_get_tm_free_slot(hba, &free_slot));
+	hba->ufs_stats.clk_hold.ctx = TM_CMD_SEND;
 	ufshcd_hold_all(hba);
 
 	spin_lock_irqsave(host->host_lock, flags);
@@ -6422,6 +6438,7 @@ static int ufshcd_issue_tm_cmd(struct ufs_hba *hba, int lun_id, int task_id,
 	clear_bit(free_slot, &hba->tm_condition);
 	ufshcd_put_tm_slot(hba, free_slot);
 	wake_up(&hba->tm_tag_wq);
+	hba->ufs_stats.clk_rel.ctx = TM_CMD_SEND;
 
 	ufshcd_release_all(hba);
 	return err;
@@ -9315,6 +9332,7 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 	int ret = 0;
 
 	/* let's not get into low power until clock scaling is completed */
+	hba->ufs_stats.clk_hold.ctx = CLK_SCALE_WORK;
 	ufshcd_hold_all(hba);
 
 	ret = ufshcd_clock_scaling_prepare(hba);
@@ -9378,6 +9396,7 @@ scale_up_gear:
 clk_scaling_unprepare:
 	ufshcd_clock_scaling_unprepare(hba);
 out:
+	hba->ufs_stats.clk_rel.ctx = CLK_SCALE_WORK;
 	ufshcd_release_all(hba);
 	return ret;
 }
