@@ -64,3 +64,7 @@
 &cnss_pcie {
 	status = "disabled";
 };
+
+&mhi_device {
+	status = "ok";
+};
