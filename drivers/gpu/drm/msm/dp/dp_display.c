@@ -20,6 +20,7 @@
 #include <linux/debugfs.h>
 #include <linux/component.h>
 #include <linux/of_irq.h>
+#include <linux/hdcp_qseecom.h>
 
 #include "msm_drv.h"
 #include "dp_usbpd.h"
@@ -302,6 +303,21 @@ static void dp_display_update_hdcp_info(struct dp_display_private *dp)
 	else
 		dp->hdcp.hdcp2_present = false;
 
+	pr_debug("hdcp2p2: %s\n",
+			dp->hdcp.hdcp2_present ? "supported" : "not supported");
+
+	if (!dp->hdcp.hdcp2_present) {
+		dp->hdcp.hdcp1_present = hdcp1_check_if_supported_load_app();
+
+		if (dp->hdcp.hdcp1_present) {
+			fd = dp->hdcp.hdcp1;
+			ops = sde_hdcp_1x_start(fd);
+		}
+	}
+
+	pr_debug("hdcp1x: %s\n",
+			dp->hdcp.hdcp1_present ? "supported" : "not supported");
+
 	if (dp->hdcp.hdcp2_present || dp->hdcp.hdcp1_present) {
 		dp->hdcp.data = fd;
 		dp->hdcp.ops = ops;
@@ -364,9 +380,18 @@ static int dp_display_initialize_hdcp(struct dp_display_private *dp)
 	hdcp_init_data.hdcp_io       = &dp->parser->io.hdcp_io;
 	hdcp_init_data.revision      = &dp->panel->link_info.revision;
 
+	dp->hdcp.hdcp1 = sde_hdcp_1x_init(&hdcp_init_data);
+	if (IS_ERR_OR_NULL(dp->hdcp.hdcp1)) {
+		pr_err("Error initializing HDCP 1.x\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	pr_debug("HDCP 1.3 initialized\n");
+
 	dp->hdcp.hdcp2 = sde_dp_hdcp2p2_init(&hdcp_init_data);
 	if (!IS_ERR_OR_NULL(dp->hdcp.hdcp2))
-		pr_err("HDCP 2.2 initialized\n");
+		pr_debug("HDCP 2.2 initialized\n");
 
 	dp->hdcp.feature_enabled = true;
 
