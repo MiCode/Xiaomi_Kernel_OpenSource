@@ -1696,6 +1696,7 @@ static int cam_vfe_bus_start_vfe_out(
 	/* BUS_WR_TEST_BUS_CTRL */
 	cam_io_w_mb(0x0, rsrc_data->common_data->mem_base + 0x0000211C);
 
+	vfe_out->res_state = CAM_ISP_RESOURCE_STATE_STREAMING;
 	return rc;
 }
 
@@ -1723,7 +1724,6 @@ static int cam_vfe_bus_stop_vfe_out(
 	for (i = 0; i < rsrc_data->num_wm; i++)
 		rc = cam_vfe_bus_stop_wm(rsrc_data->wm_res[i]);
 
-	vfe_out->res_state = CAM_ISP_RESOURCE_STATE_STREAMING;
 
 	vfe_out->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
 	return rc;
