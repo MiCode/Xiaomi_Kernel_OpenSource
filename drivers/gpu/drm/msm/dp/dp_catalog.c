@@ -424,6 +424,22 @@ static void dp_catalog_aux_get_irq(struct dp_catalog_aux *aux, bool cmd_busy)
 }
 
 /* controller related catalog functions */
+static u32 dp_catalog_ctrl_read_hdcp_status(struct dp_catalog_ctrl *ctrl)
+{
+	struct dp_catalog_private *catalog;
+	void __iomem *base;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	dp_catalog_get_priv(ctrl);
+	base = catalog->io->ctrl_io.base;
+
+	return dp_read(base + DP_HDCP_STATUS);
+}
+
 static void dp_catalog_ctrl_update_transfer_unit(struct dp_catalog_ctrl *ctrl)
 {
 	struct dp_catalog_private *catalog;
@@ -917,6 +933,7 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
 		.update_vx_px   = dp_catalog_ctrl_update_vx_px,
 		.get_interrupt  = dp_catalog_ctrl_get_interrupt,
 		.update_transfer_unit = dp_catalog_ctrl_update_transfer_unit,
+		.read_hdcp_status     = dp_catalog_ctrl_read_hdcp_status,
 	};
 	struct dp_catalog_audio audio = {
 		.acr_ctrl      = dp_catalog_audio_acr_ctrl,

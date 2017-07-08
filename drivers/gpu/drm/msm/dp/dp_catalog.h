@@ -71,6 +71,7 @@ struct dp_catalog_ctrl {
 				u8 p_level);
 	void (*get_interrupt)(struct dp_catalog_ctrl *ctrl);
 	void (*update_transfer_unit)(struct dp_catalog_ctrl *ctrl);
+	u32 (*read_hdcp_status)(struct dp_catalog_ctrl *ctrl);
 };
 
 struct dp_catalog_audio {
