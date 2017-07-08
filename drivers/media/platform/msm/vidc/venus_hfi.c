@@ -90,6 +90,8 @@ static void __flush_debug_queue(struct venus_hfi_device *device, u8 *packet);
 static int __initialize_packetization(struct venus_hfi_device *device);
 static struct hal_session *__get_session(struct venus_hfi_device *device,
 		u32 session_id);
+static bool __is_session_valid(struct venus_hfi_device *device,
+		struct hal_session *session, const char *func);
 static int __set_clocks(struct venus_hfi_device *device, u32 freq);
 static int __iface_cmdq_write(struct venus_hfi_device *device,
 					void *pkt);
@@ -1668,11 +1670,9 @@ static int __sys_set_power_control(struct venus_hfi_device *device,
 
 static int venus_hfi_core_init(void *device)
 {
+	int rc = 0;
 	struct hfi_cmd_sys_init_packet pkt;
 	struct hfi_cmd_sys_get_property_packet version_pkt;
-	int rc = 0;
-	struct list_head *ptr, *next;
-	struct hal_session *session = NULL;
 	struct venus_hfi_device *dev;
 
 	if (!device) {
@@ -1683,6 +1683,7 @@ static int venus_hfi_core_init(void *device)
 	dev = device;
 	mutex_lock(&dev->lock);
 
+	dprintk(VIDC_DBG, "Core initializing\n");
 	rc = __load_fw(dev);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to load Venus FW\n");
@@ -1690,20 +1691,6 @@ static int venus_hfi_core_init(void *device)
 	}
 
 	__set_state(dev, VENUS_STATE_INIT);
-
-	list_for_each_safe(ptr, next, &dev->sess_head) {
-		/*
-		 * This means that session list is not empty. Kick stale
-		 * sessions out of our valid instance list, but keep the
-		 * list_head inited so that list_del (in the future, called
-		 * by session_clean()) will be valid. When client doesn't close
-		 * them, then it is a genuine leak which driver can't fix.
-		 */
-		session = list_entry(ptr, struct hal_session, list);
-		list_del_init(&session->list);
-	}
-
-	INIT_LIST_HEAD(&dev->sess_head);
 
 	if (!dev->hal_client) {
 		dev->hal_client = msm_smem_new_client(
@@ -1766,21 +1753,23 @@ static int venus_hfi_core_init(void *device)
 		pm_qos_add_request(&dev->qos, PM_QOS_CPU_DMA_LATENCY,
 				dev->res->pm_qos_latency_us);
 	}
-
+	dprintk(VIDC_DBG, "Core inited successfully\n");
 	mutex_unlock(&dev->lock);
 	return rc;
 err_core_init:
 	__set_state(dev, VENUS_STATE_DEINIT);
 	__unload_fw(dev);
 err_load_fw:
+	dprintk(VIDC_ERR, "Core init failed\n");
 	mutex_unlock(&dev->lock);
 	return rc;
 }
 
 static int venus_hfi_core_release(void *dev)
 {
-	struct venus_hfi_device *device = dev;
 	int rc = 0;
+	struct venus_hfi_device *device = dev;
+	struct hal_session *session, *next;
 
 	if (!device) {
 		dprintk(VIDC_ERR, "invalid device\n");
@@ -1788,7 +1777,7 @@ static int venus_hfi_core_release(void *dev)
 	}
 
 	mutex_lock(&device->lock);
-
+	dprintk(VIDC_DBG, "Core releasing\n");
 	if (device->res->pm_qos_latency_us &&
 		pm_qos_request_active(&device->qos))
 		pm_qos_remove_request(&device->qos);
@@ -1797,6 +1786,11 @@ static int venus_hfi_core_release(void *dev)
 	__set_state(device, VENUS_STATE_DEINIT);
 	__unload_fw(device);
 
+	/* unlink all sessions from device */
+	list_for_each_entry_safe(session, next, &device->sess_head, list)
+		list_del(&session->list);
+
+	dprintk(VIDC_DBG, "Core released successfully\n");
 	mutex_unlock(&device->lock);
 
 	return rc;
@@ -1937,6 +1931,10 @@ static int venus_hfi_session_set_property(void *sess,
 	mutex_lock(&device->lock);
 
 	dprintk(VIDC_INFO, "in set_prop,with prop id: %#x\n", ptype);
+	if (!__is_session_valid(device, session, __func__)) {
+		rc = -EINVAL;
+		goto err_set_prop;
+	}
 
 	rc = call_hfi_pkt_op(device, session_set_property,
 			pkt, session, ptype, pdata);
@@ -1979,6 +1977,10 @@ static int venus_hfi_session_get_property(void *sess,
 	mutex_lock(&device->lock);
 
 	dprintk(VIDC_INFO, "%s: property id: %d\n", __func__, ptype);
+	if (!__is_session_valid(device, session, __func__)) {
+		rc = -EINVAL;
+		goto err_create_pkt;
+	}
 
 	rc = call_hfi_pkt_op(device, session_get_property,
 				&pkt, session, ptype);
@@ -2010,8 +2012,25 @@ static void __set_default_sys_properties(struct venus_hfi_device *device)
 
 static void __session_clean(struct hal_session *session)
 {
+	struct hal_session *temp, *next;
+	struct venus_hfi_device *device;
+
+	if (!session || !session->device) {
+		dprintk(VIDC_WARN, "%s: invalid params\n", __func__);
+		return;
+	}
+	device = session->device;
 	dprintk(VIDC_DBG, "deleted the session: %pK\n", session);
-	list_del(&session->list);
+	/*
+	 * session might have been removed from the device list in
+	 * core_release, so check and remove if it is in the list
+	 */
+	list_for_each_entry_safe(temp, next, &device->sess_head, list) {
+		if (session == temp) {
+			list_del(&session->list);
+			break;
+		}
+	}
 	/* Poison the session handle with zeros */
 	*session = (struct hal_session){ {0} };
 	kfree(session);
@@ -2105,6 +2124,9 @@ static int __send_session_cmd(struct hal_session *session, int pkt_type)
 	int rc = 0;
 	struct venus_hfi_device *device = session->device;
 
+	if (!__is_session_valid(device, session, __func__))
+		return -EINVAL;
+
 	rc = call_hfi_pkt_op(device, session_cmd,
 			&pkt, pkt_type, session);
 	if (rc == -EPERM)
@@ -2190,6 +2212,10 @@ static int venus_hfi_session_set_buffers(void *sess,
 	device = session->device;
 	mutex_lock(&device->lock);
 
+	if (!__is_session_valid(device, session, __func__)) {
+		rc = -EINVAL;
+		goto err_create_pkt;
+	}
 	if (buffer_info->buffer_type == HAL_BUFFER_INPUT) {
 		/*
 		 * Hardware doesn't care about input buffers being
@@ -2234,6 +2260,10 @@ static int venus_hfi_session_release_buffers(void *sess,
 	device = session->device;
 	mutex_lock(&device->lock);
 
+	if (!__is_session_valid(device, session, __func__)) {
+		rc = -EINVAL;
+		goto err_create_pkt;
+	}
 	if (buffer_info->buffer_type == HAL_BUFFER_INPUT) {
 		rc = 0;
 		goto err_create_pkt;
@@ -2368,6 +2398,9 @@ static int __session_etb(struct hal_session *session,
 	int rc = 0;
 	struct venus_hfi_device *device = session->device;
 
+	if (!__is_session_valid(device, session, __func__))
+		return -EINVAL;
+
 	if (session->is_decoder) {
 		struct hfi_cmd_session_empty_buffer_compressed_packet pkt;
 
@@ -2437,6 +2470,9 @@ static int __session_ftb(struct hal_session *session,
 	struct venus_hfi_device *device = session->device;
 	struct hfi_cmd_session_fill_buffer_packet pkt;
 
+	if (!__is_session_valid(device, session, __func__))
+		return -EINVAL;
+
 	rc = call_hfi_pkt_op(device, session_ftb,
 			&pkt, session, output_frame);
 	if (rc) {
@@ -2490,6 +2526,12 @@ static int venus_hfi_session_process_batch(void *sess,
 	device = session->device;
 
 	mutex_lock(&device->lock);
+
+	if (!__is_session_valid(device, session, __func__)) {
+		rc = -EINVAL;
+		goto err_etbs_and_ftbs;
+	}
+
 	for (c = 0; c < num_ftbs; ++c) {
 		rc = __session_ftb(session, &ftbs[c], true);
 		if (rc) {
@@ -2537,6 +2579,10 @@ static int venus_hfi_session_get_buf_req(void *sess)
 	device = session->device;
 	mutex_lock(&device->lock);
 
+	if (!__is_session_valid(device, session, __func__)) {
+		rc = -EINVAL;
+		goto err_create_pkt;
+	}
 	rc = call_hfi_pkt_op(device, session_get_buf_req,
 			&pkt, session);
 	if (rc) {
@@ -2567,6 +2613,10 @@ static int venus_hfi_session_flush(void *sess, enum hal_flush flush_mode)
 	device = session->device;
 	mutex_lock(&device->lock);
 
+	if (!__is_session_valid(device, session, __func__)) {
+		rc = -EINVAL;
+		goto err_create_pkt;
+	}
 	rc = call_hfi_pkt_op(device, session_flush,
 			&pkt, session, flush_mode);
 	if (rc) {
@@ -2842,6 +2892,24 @@ static void __flush_debug_queue(struct venus_hfi_device *device, u8 *packet)
 
 	if (local_packet)
 		kfree(packet);
+}
+
+static bool __is_session_valid(struct venus_hfi_device *device,
+		struct hal_session *session, const char *func)
+{
+	struct hal_session *temp = NULL;
+
+	if (!device || !session)
+		goto invalid;
+
+	list_for_each_entry(temp, &device->sess_head, list)
+		if (session == temp)
+			return true;
+
+invalid:
+	dprintk(VIDC_WARN, "%s: device %pK, invalid session %pK\n",
+			func, device, session);
+	return false;
 }
 
 static struct hal_session *__get_session(struct venus_hfi_device *device,
