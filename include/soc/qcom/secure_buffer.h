@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,7 @@
 
 #define PERM_READ                       0x4
 #define PERM_WRITE                      0x2
+#define PERM_EXEC			0x1
 
 #ifdef CONFIG_QCOM_SECURE_BUFFER
 int msm_secure_table(struct sg_table *table);
@@ -39,8 +40,8 @@ int hyp_assign_table(struct sg_table *table,
 			int *dest_vmids, int *dest_perms,
 			int dest_nelems);
 int hyp_assign_phys(phys_addr_t addr, u64 size,
-			int *dest_vmids, int *dest_perms,
-			int dest_nelems);
+			u32 *source_vmlist, int source_nelems,
+			int *dest_vmids, int *dest_perms, int dest_nelems);
 bool msm_secure_v2_is_supported(void);
 #else
 static inline int msm_secure_table(struct sg_table *table)
@@ -58,12 +59,14 @@ int hyp_assign_table(struct sg_table *table,
 {
 	return -EINVAL;
 }
-int hyp_assign_phys(phys_addr_t addr, u64 size,
-			int *dest_vmids, int *dest_perms,
-			int dest_nelems)
+
+static inline int hyp_assign_phys(phys_addr_t addr, u64 size,
+			u32 *source_vmlist, int source_nelems,
+			int *dest_vmids, int *dest_perms, int dest_nelems)
 {
 	return -EINVAL;
 }
+
 static inline bool msm_secure_v2_is_supported(void)
 {
 	return false;

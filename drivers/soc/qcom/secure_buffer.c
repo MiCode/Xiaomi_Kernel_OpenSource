@@ -319,12 +319,11 @@ err1:
 	return ret;
 }
 
-int hyp_assign_phys(phys_addr_t addr, u64 size,
-			int *dest_vmids, int *dest_perms,
-			int dest_nelems)
+int hyp_assign_phys(phys_addr_t addr, u64 size, u32 *source_vm_list,
+			int source_nelems, int *dest_vmids,
+			int *dest_perms, int dest_nelems)
 {
 	struct sg_table *table;
-	u32 source_vm;
 	int ret;
 
 	table = kzalloc(sizeof(struct sg_table), GFP_KERNEL);
@@ -336,9 +335,7 @@ int hyp_assign_phys(phys_addr_t addr, u64 size,
 
 	sg_set_page(table->sgl, phys_to_page(addr), size, 0);
 
-	source_vm = VMID_HLOS;
-
-	ret = hyp_assign_table(table, &source_vm, 1, dest_vmids,
+	ret = hyp_assign_table(table, source_vm_list, source_nelems, dest_vmids,
 						dest_perms, dest_nelems);
 	if (ret)
 		goto err2;
