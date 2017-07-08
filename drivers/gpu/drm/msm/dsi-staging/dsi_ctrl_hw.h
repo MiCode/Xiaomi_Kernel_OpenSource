@@ -721,6 +721,14 @@ struct dsi_ctrl_hw_ops {
 	 * @ctrl:         Pointer to the controller host hardware.
 	 */
 	void (*clear_rdbk_register)(struct dsi_ctrl_hw *ctrl);
+
+	/** schedule_dma_cmd() - Schdeule DMA command transfer on a
+	 *                       particular blanking line.
+	 * @ctrl:         Pointer to the controller host hardware.
+	 * @line_no:      Blanking line number on whihch DMA command
+	 *                needs to be sent.
+	 */
+	void (*schedule_dma_cmd)(struct dsi_ctrl_hw *ctrl, int line_no);
 };
 
 /*
