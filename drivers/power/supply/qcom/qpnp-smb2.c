@@ -1851,6 +1851,12 @@ static int smb2_post_init(struct smb2 *chip)
 	struct smb_charger *chg = &chip->chg;
 	int rc;
 
+	/* In case the usb path is suspended, we would have missed disabling
+	 * the icl change interrupt because the interrupt could have been
+	 * not requested
+	 */
+	rerun_election(chg->usb_icl_votable);
+
 	/* configure power role for dual-role */
 	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
 				 TYPEC_POWER_ROLE_CMD_MASK, 0);
@@ -2200,6 +2206,8 @@ static int smb2_request_interrupts(struct smb2 *chip)
 				return rc;
 		}
 	}
+	if (chg->irq_info[USBIN_ICL_CHANGE_IRQ].irq)
+		chg->usb_icl_change_irq_enabled = true;
 
 	return rc;
 }

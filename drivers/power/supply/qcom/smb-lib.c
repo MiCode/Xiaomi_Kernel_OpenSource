@@ -426,12 +426,27 @@ static int step_charge_soc_update(struct smb_charger *chg, int capacity)
 int smblib_set_usb_suspend(struct smb_charger *chg, bool suspend)
 {
 	int rc = 0;
+	int irq = chg->irq_info[USBIN_ICL_CHANGE_IRQ].irq;
+
+	if (suspend && irq) {
+		if (chg->usb_icl_change_irq_enabled) {
+			disable_irq_nosync(irq);
+			chg->usb_icl_change_irq_enabled = false;
+		}
+	}
 
 	rc = smblib_masked_write(chg, USBIN_CMD_IL_REG, USBIN_SUSPEND_BIT,
 				 suspend ? USBIN_SUSPEND_BIT : 0);
 	if (rc < 0)
 		smblib_err(chg, "Couldn't write %s to USBIN_SUSPEND_BIT rc=%d\n",
 			suspend ? "suspend" : "resume", rc);
+
+	if (!suspend && irq) {
+		if (!chg->usb_icl_change_irq_enabled) {
+			enable_irq(irq);
+			chg->usb_icl_change_irq_enabled = true;
+		}
+	}
 
 	return rc;
 }
@@ -884,7 +899,6 @@ int smblib_set_icl_current(struct smb_charger *chg, int icl_ua)
 	if (icl_ua < USBIN_25MA)
 		return smblib_set_usb_suspend(chg, true);
 
-	disable_irq_nosync(chg->irq_info[USBIN_ICL_CHANGE_IRQ].irq);
 	if (icl_ua == INT_MAX)
 		goto override_suspend_config;
 
@@ -942,7 +956,6 @@ override_suspend_config:
 	}
 
 enable_icl_changed_interrupt:
-	enable_irq(chg->irq_info[USBIN_ICL_CHANGE_IRQ].irq);
 	return rc;
 }
 

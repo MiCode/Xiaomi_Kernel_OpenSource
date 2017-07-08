@@ -330,6 +330,7 @@ struct smb_charger {
 	int			fake_input_current_limited;
 	bool			pr_swap_in_progress;
 	int			typec_mode;
+	int			usb_icl_change_irq_enabled;
 
 	/* workaround flag */
 	u32			wa_flags;
