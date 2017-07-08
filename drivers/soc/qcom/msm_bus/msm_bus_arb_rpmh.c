@@ -854,10 +854,15 @@ static void commit_data(void)
 	INIT_LIST_HEAD(&commit_list);
 }
 
-int commit_late_init_data(void)
+int commit_late_init_data(bool lock)
 {
 	int rc;
-	rt_mutex_lock(&msm_bus_adhoc_lock);
+
+	if (lock) {
+		rt_mutex_lock(&msm_bus_adhoc_lock);
+		return 0;
+	}
+
 	rc = bus_for_each_dev(&msm_bus_type, NULL, NULL,
 						bcm_remove_handoff_req);
 
