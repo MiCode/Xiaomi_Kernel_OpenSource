@@ -1033,7 +1033,7 @@ static int cam_ife_csid_enable_csi2(
 	val = (csid_hw->csi2_rx_cfg.lane_num - 1)  |
 		(csid_hw->csi2_rx_cfg.lane_cfg << 4) |
 		(csid_hw->csi2_rx_cfg.lane_type << 24);
-	val |= csid_hw->csi2_rx_cfg.phy_sel & 0x3;
+	val |= (csid_hw->csi2_rx_cfg.phy_sel & 0x3) << 20;
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		csid_reg->csi2_reg->csid_csi2_rx_cfg0_addr);
 
