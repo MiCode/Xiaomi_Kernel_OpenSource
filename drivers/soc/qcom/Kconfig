@@ -116,3 +116,11 @@ config MSM_GLADIATOR_HANG_DETECT
          If the configured threshold is reached, it causes SoC reset on
          gladiator hang detection and collects the context for the
          gladiator hang.
+
+config QCOM_SECURE_BUFFER
+	bool "Helper functions for securing buffers through TZ"
+	help
+	 Say 'Y' here for targets that need to call into TZ to secure
+	 memory buffers. This ensures that only the correct clients can
+	 use this memory and no unauthorized access is made to the
+	 buffer
