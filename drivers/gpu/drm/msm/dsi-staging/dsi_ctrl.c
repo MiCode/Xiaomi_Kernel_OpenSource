@@ -905,7 +905,15 @@ static void dsi_ctrl_wait_for_video_done(struct dsi_ctrl *dsi_ctrl)
 	u32 v_total = 0, v_blank = 0, sleep_ms = 0, fps = 0, ret;
 	struct dsi_mode_info *timing;
 
-	if (dsi_ctrl->host_config.panel_mode != DSI_OP_VIDEO_MODE)
+	/**
+	 * No need to wait if the panel is not video mode or
+	 * if DSI controller supports command DMA scheduling or
+	 * if we are sending init commands.
+	 */
+	if ((dsi_ctrl->host_config.panel_mode != DSI_OP_VIDEO_MODE) ||
+		(dsi_ctrl->version >= DSI_CTRL_VERSION_2_2) ||
+		(dsi_ctrl->current_state.vid_engine_state !=
+					DSI_CTRL_ENGINE_ON))
 		return;
 
 	dsi_ctrl->hw.ops.clear_interrupt_status(&dsi_ctrl->hw,
@@ -943,8 +951,9 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 	u32 hw_flags = 0;
 	u32 length = 0;
 	u8 *buffer = NULL;
-	u32 cnt = 0;
+	u32 cnt = 0, line_no = 0x1;
 	u8 *cmdbuf;
+	struct dsi_mode_info *timing;
 
 	rc = mipi_dsi_create_packet(&packet, msg);
 	if (rc) {
@@ -998,6 +1007,17 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 		cmd.use_lpm = (msg->flags & MIPI_DSI_MSG_USE_LPM) ?
 				  true : false;
 	}
+
+	timing = &(dsi_ctrl->host_config.video_timing);
+	if (timing)
+		line_no += timing->v_back_porch + timing->v_sync_width +
+				timing->v_active;
+	if ((dsi_ctrl->host_config.panel_mode == DSI_OP_VIDEO_MODE) &&
+		dsi_ctrl->hw.ops.schedule_dma_cmd &&
+		(dsi_ctrl->current_state.vid_engine_state ==
+					DSI_CTRL_ENGINE_ON))
+		dsi_ctrl->hw.ops.schedule_dma_cmd(&dsi_ctrl->hw,
+				line_no);
 
 	hw_flags |= (flags & DSI_CTRL_CMD_DEFER_TRIGGER) ?
 			DSI_CTRL_HW_CMD_WAIT_FOR_TRIGGER : 0;
@@ -2505,6 +2525,7 @@ int dsi_ctrl_cmd_tx_trigger(struct dsi_ctrl *dsi_ctrl, u32 flags)
 
 	if ((flags & DSI_CTRL_CMD_BROADCAST) &&
 		(flags & DSI_CTRL_CMD_BROADCAST_MASTER)) {
+		dsi_ctrl_wait_for_video_done(dsi_ctrl);
 		dsi_ctrl_enable_status_interrupt(dsi_ctrl,
 					DSI_SINT_CMD_MODE_DMA_DONE, NULL);
 		reinit_completion(&dsi_ctrl->irq_info.cmd_dma_done);

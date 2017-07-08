@@ -176,6 +176,7 @@ u32 dsi_ctrl_hw_cmn_get_cmd_read_data(struct dsi_ctrl_hw *ctrl,
 				     u32 rx_byte,
 				     u32 pkt_size, u32 *hw_read_cnt);
 void dsi_ctrl_hw_cmn_clear_rdbk_reg(struct dsi_ctrl_hw *ctrl);
+void dsi_ctrl_hw_22_schedule_dma_cmd(struct dsi_ctrl_hw *ctrl, int line_on);
 
 /* Definitions specific to 1.4 DSI controller hardware */
 int dsi_ctrl_hw_14_wait_for_lane_idle(struct dsi_ctrl_hw *ctrl, u32 lanes);
