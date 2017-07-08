@@ -48,54 +48,15 @@
 #define of_board_is_sbc()	of_machine_is_compatible("qcom,sbc")
 
 #define machine_is_msm8974()	of_machine_is_compatible("qcom,msm8974")
-#define machine_is_msm9625()	of_machine_is_compatible("qcom,msm9625")
-#define machine_is_msm8610()	of_machine_is_compatible("qcom,msm8610")
-#define machine_is_msm8226()	of_machine_is_compatible("qcom,msm8226")
-#define machine_is_apq8074()	of_machine_is_compatible("qcom,apq8074")
-#define machine_is_msm8926()	of_machine_is_compatible("qcom,msm8926")
 
-#define early_machine_is_msm8610()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8610")
-#define early_machine_is_msm8909()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8909")
 #define early_machine_is_msm8916()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8916")
-#define early_machine_is_msm8936()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8936")
-#define early_machine_is_msm8939()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8939")
 #define early_machine_is_apq8084()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,apq8084")
-#define early_machine_is_mdm9630()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mdm9630")
-#define early_machine_is_msmzirc()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmzirc")
-#define early_machine_is_fsm9900()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,fsm9900")
-#define early_machine_is_msm8994()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8994")
-#define early_machine_is_msm8992()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8992")
-#define early_machine_is_fsm9010()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,fsm9010")
-#define early_machine_is_msm8976()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8976")
-#define early_machine_is_msmtellurium()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmtellurium")
 #define early_machine_is_msm8996()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8996")
 #define early_machine_is_msm8996_auto()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8996-cdp")
-#define early_machine_is_msm8929()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8929")
-#define early_machine_is_msmcobalt()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmcobalt")
-#define early_machine_is_apqcobalt()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,apqcobalt")
-#define early_machine_is_msmhamster()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmhamster")
-#define early_machine_is_msmfalcon()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmfalcon")
 #else
 #define of_board_is_sim()		0
 #define of_board_is_rumi()		0
@@ -110,29 +71,10 @@
 #define of_board_is_sbc()		0
 
 #define machine_is_msm8974()		0
-#define machine_is_msm9625()		0
-#define machine_is_msm8610()		0
-#define machine_is_msm8226()		0
-#define machine_is_apq8074()		0
-#define machine_is_msm8926()		0
 
-#define early_machine_is_msm8610()	0
-#define early_machine_is_msm8909()	0
 #define early_machine_is_msm8916()	0
-#define early_machine_is_msm8936()	0
-#define early_machine_is_msm8939()	0
 #define early_machine_is_apq8084()	0
-#define early_machine_is_mdm9630()	0
-#define early_machine_is_fsm9900()	0
-#define early_machine_is_fsm9010()	0
-#define early_machine_is_msmtellurium()	0
 #define early_machine_is_msm8996()	0
-#define early_machine_is_msm8976() 0
-#define early_machine_is_msm8929()	0
-#define early_machine_is_msmcobalt()	0
-#define early_machine_is_apqcobalt()	0
-#define early_machine_is_msmhamster()	0
-#define early_machine_is_msmfalcon()	0
 #endif
 
 #define PLATFORM_SUBTYPE_MDM	1
@@ -141,57 +83,16 @@
 
 enum msm_cpu {
 	MSM_CPU_UNKNOWN = 0,
-	MSM_CPU_7X01,
-	MSM_CPU_7X25,
-	MSM_CPU_7X27,
-	MSM_CPU_8X50,
-	MSM_CPU_8X50A,
-	MSM_CPU_7X30,
-	MSM_CPU_8X55,
-	MSM_CPU_8X60,
 	MSM_CPU_8960,
 	MSM_CPU_8960AB,
-	MSM_CPU_7X27A,
-	FSM_CPU_9XXX,
-	MSM_CPU_7X25A,
-	MSM_CPU_7X25AA,
-	MSM_CPU_7X25AB,
 	MSM_CPU_8064,
-	MSM_CPU_8064AB,
-	MSM_CPU_8064AA,
-	MSM_CPU_8930,
-	MSM_CPU_8930AA,
-	MSM_CPU_8930AB,
-	MSM_CPU_7X27AA,
-	MSM_CPU_9615,
 	MSM_CPU_8974,
 	MSM_CPU_8974PRO_AA,
 	MSM_CPU_8974PRO_AB,
 	MSM_CPU_8974PRO_AC,
-	MSM_CPU_8627,
-	MSM_CPU_8625,
-	MSM_CPU_9625,
-	MSM_CPU_8909,
 	MSM_CPU_8916,
-	MSM_CPU_8936,
-	MSM_CPU_8939,
-	MSM_CPU_8226,
-	MSM_CPU_8610,
-	MSM_CPU_8625Q,
 	MSM_CPU_8084,
-	MSM_CPU_9630,
-	FSM_CPU_9900,
-	MSM_CPU_ZIRC,
-	MSM_CPU_8994,
-	MSM_CPU_8992,
-	FSM_CPU_9010,
-	MSM_CPU_TELLURIUM,
 	MSM_CPU_8996,
-	MSM_CPU_8976,
-	MSM_CPU_8929,
-	MSM_CPU_COBALT,
-	MSM_CPU_HAMSTER,
-	MSM_CPU_FALCON,
 };
 
 struct msm_soc_info {
