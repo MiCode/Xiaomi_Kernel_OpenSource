@@ -642,7 +642,8 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.soft_reset   = dsi_display_soft_reset,
 		.pre_kickoff  = dsi_conn_pre_kickoff,
 		.clk_ctrl = dsi_display_clk_ctrl,
-		.get_topology = dsi_conn_get_topology
+		.get_topology = dsi_conn_get_topology,
+		.get_dst_format = dsi_display_get_dst_format
 	};
 	static const struct sde_connector_ops wb_ops = {
 		.post_init =    sde_wb_connector_post_init,
@@ -651,7 +652,8 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.set_property = sde_wb_connector_set_property,
 		.get_info =     sde_wb_get_info,
 		.soft_reset =   NULL,
-		.get_topology = sde_wb_get_topology
+		.get_topology = sde_wb_get_topology,
+		.get_dst_format = NULL
 	};
 	static const struct sde_connector_ops dp_ops = {
 		.post_init  = dp_connector_post_init,

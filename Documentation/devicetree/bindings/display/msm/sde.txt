@@ -178,6 +178,9 @@ Optional properties:
 - qcom,sde-te-size:		A u32 value indicates the te block address range.
 - qcom,sde-te2-size:		A u32 value indicates the te2 block address range.
 - qcom,sde-dsc-off:	 	A u32 offset indicates the dsc block offset on pingpong.
+- qcom,sde-dither-off:		A u32 offset indicates the dither block offset on pingpong.
+- qcom,sde-dither-version:	A u32 value indicates the dither block version.
+- qcom,sde-dither-size:		A u32 value indicates the dither block address range.
 - qcom,sde-sspp-vig-blocks:	A node that lists the blocks inside the VIG hardware. The
 				block entries will contain the offset and version (if needed)
 				of each feature block. The presence of a block entry
