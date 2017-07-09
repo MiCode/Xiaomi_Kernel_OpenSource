@@ -207,6 +207,12 @@
 			};
 		};
 
+		smmu_sde_sec: qcom,smmu_sde_sec_cb {
+			compatible = "qcom,smmu_sde_sec";
+			iommus = <&apps_smmu 0x881 0x8>,
+			       <&apps_smmu 0xc81 0x8>;
+		};
+
 		/* data and reg bus scale settings */
 		qcom,sde-data-bus {
 			qcom,msm-bus,name = "mdss_sde_mnoc";

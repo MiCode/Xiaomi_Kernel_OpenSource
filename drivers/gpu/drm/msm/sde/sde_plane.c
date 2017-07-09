@@ -3512,6 +3512,12 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 	static const struct drm_prop_enum_list e_src_config[] = {
 		{SDE_DRM_DEINTERLACE, "deinterlace"}
 	};
+	static const struct drm_prop_enum_list e_fb_translation_mode[] = {
+		{SDE_DRM_FB_NON_SEC, "non_sec"},
+		{SDE_DRM_FB_SEC, "sec"},
+		{SDE_DRM_FB_NON_SEC_DIR_TRANS, "non_sec_direct_translation"},
+		{SDE_DRM_FB_SEC_DIR_TRANS, "sec_direct_translation"},
+	};
 	const struct sde_format_extended *format_list;
 	struct sde_format_extended *virt_format_list = NULL;
 	struct sde_kms_info *info;
@@ -3730,6 +3736,12 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 		msm_property_install_blob(&psde->property_info, feature_name, 0,
 			PLANE_PROP_FOLIAGE_COLOR);
 	}
+
+	msm_property_install_enum(&psde->property_info, "fb_translation_mode",
+			0x0,
+			0, e_fb_translation_mode,
+			ARRAY_SIZE(e_fb_translation_mode),
+			PLANE_PROP_FB_TRANSLATION_MODE);
 }
 
 static inline void _sde_plane_set_csc_v1(struct sde_plane *psde, void *usr_ptr)
