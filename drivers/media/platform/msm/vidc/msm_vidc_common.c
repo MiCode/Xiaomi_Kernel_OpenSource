@@ -5076,7 +5076,6 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	rc = msm_vidc_load_supported(inst);
 	if (rc) {
 		change_inst_state(inst, MSM_VIDC_CORE_INVALID);
-		msm_comm_kill_session(inst);
 		dprintk(VIDC_WARN,
 			"%s: Hardware is overloaded\n", __func__);
 		return rc;
@@ -5126,7 +5125,6 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	}
 	if (rc) {
 		change_inst_state(inst, MSM_VIDC_CORE_INVALID);
-		msm_comm_kill_session(inst);
 		dprintk(VIDC_ERR,
 			"%s: Resolution unsupported\n", __func__);
 	}
