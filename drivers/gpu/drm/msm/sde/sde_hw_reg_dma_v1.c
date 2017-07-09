@@ -13,6 +13,7 @@
 #include "sde_hw_ctl.h"
 #include "sde_hw_reg_dma_v1.h"
 #include "msm_drv.h"
+#include "msm_mmu.h"
 
 #define GUARD_BYTES (BIT(8) - 1)
 #define ALIGNED_OFFSET (U32_MAX & ~(GUARD_BYTES))
@@ -582,6 +583,7 @@ static struct sde_reg_dma_buffer *alloc_reg_dma_buf_v1(u32 size)
 	struct sde_reg_dma_buffer *dma_buf = NULL;
 	u32 iova_aligned, offset;
 	u32 rsize = size + GUARD_BYTES;
+	struct msm_gem_address_space *aspace = NULL;
 	int rc = 0;
 
 	if (!size || SIZE_DWORD(size) > MAX_DWORDS_SZ) {
@@ -602,7 +604,15 @@ static struct sde_reg_dma_buffer *alloc_reg_dma_buf_v1(u32 size)
 		goto fail;
 	}
 
-	rc = msm_gem_get_iova(dma_buf->buf, 0, &dma_buf->iova);
+	aspace = msm_gem_smmu_address_space_get(reg_dma->drm_dev,
+			MSM_SMMU_DOMAIN_UNSECURE);
+	if (!aspace) {
+		DRM_ERROR("failed to get aspace\n");
+		rc = -EINVAL;
+		goto free_gem;
+	}
+
+	rc = msm_gem_get_iova(dma_buf->buf, aspace, &dma_buf->iova);
 	if (rc) {
 		DRM_ERROR("failed to get the iova rc %d\n", rc);
 		goto free_gem;
@@ -625,7 +635,7 @@ static struct sde_reg_dma_buffer *alloc_reg_dma_buf_v1(u32 size)
 	return dma_buf;
 
 put_iova:
-	msm_gem_put_iova(dma_buf->buf, 0);
+	msm_gem_put_iova(dma_buf->buf, aspace);
 free_gem:
 	msm_gem_free_object(dma_buf->buf);
 fail:

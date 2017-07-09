@@ -115,6 +115,7 @@ enum sde_plane_sclcheck_state {
 
 /*
  * struct sde_plane - local sde plane structure
+ * @aspace: address space pointer
  * @csc_cfg: Decoded user configuration for csc
  * @csc_usr_ptr: Points to csc_cfg if valid user config available
  * @csc_ptr: Points to sde_csc_cfg structure to use for current
@@ -129,7 +130,7 @@ enum sde_plane_sclcheck_state {
 struct sde_plane {
 	struct drm_plane base;
 
-	int mmu_id;
+	struct msm_gem_address_space *aspace;
 
 	struct mutex lock;
 
@@ -888,7 +889,7 @@ static inline void _sde_plane_set_scanout(struct drm_plane *plane,
 		return;
 	}
 
-	ret = sde_format_populate_layout(psde->mmu_id, fb, &pipe_cfg->layout);
+	ret = sde_format_populate_layout(psde->aspace, fb, &pipe_cfg->layout);
 	if (ret == -EAGAIN)
 		SDE_DEBUG_PLANE(psde, "not updating same src addrs\n");
 	else if (ret)
@@ -1801,7 +1802,7 @@ static int sde_plane_rot_submit_command(struct drm_plane *plane,
 		struct sde_hw_fmt_layout layout;
 
 		memset(&layout, 0, sizeof(struct sde_hw_fmt_layout));
-		sde_format_populate_layout(rstate->mmu_id, state->fb,
+		sde_format_populate_layout(rstate->aspace, state->fb,
 				&layout);
 		for (i = 0; i < ARRAY_SIZE(rot_cmd->src_iova); i++) {
 			rot_cmd->src_iova[i] = layout.plane_addr[i];
@@ -1810,7 +1811,7 @@ static int sde_plane_rot_submit_command(struct drm_plane *plane,
 		rot_cmd->src_planes = layout.num_planes;
 
 		memset(&layout, 0, sizeof(struct sde_hw_fmt_layout));
-		sde_format_populate_layout(rstate->mmu_id, rstate->out_fb,
+		sde_format_populate_layout(rstate->aspace, rstate->out_fb,
 				&layout);
 		for (i = 0; i < ARRAY_SIZE(rot_cmd->dst_iova); i++) {
 			rot_cmd->dst_iova[i] = layout.plane_addr[i];
@@ -1950,6 +1951,7 @@ static int sde_plane_rot_prepare_fb(struct drm_plane *plane,
 	struct sde_plane_state *new_pstate = to_sde_plane_state(new_state);
 	struct sde_plane_rot_state *new_rstate = &new_pstate->rot;
 	struct drm_crtc_state *cstate;
+	struct sde_kms *kms = _sde_plane_get_kms(plane);
 	int ret;
 
 	SDE_DEBUG("plane%d.%d FB[%u] sbuf:%d rot:%d crtc:%d\n",
@@ -1957,6 +1959,9 @@ static int sde_plane_rot_prepare_fb(struct drm_plane *plane,
 			new_rstate->sequence_id, fb ? fb->base.id : 0,
 			!!new_rstate->out_sbuf, !!new_rstate->rot_hw,
 			sde_plane_crtc_enabled(new_state));
+
+	if (!kms)
+		return -EINVAL;
 
 	if (!new_rstate->out_sbuf || !new_rstate->rot_hw)
 		return 0;
@@ -2005,9 +2010,11 @@ static int sde_plane_rot_prepare_fb(struct drm_plane *plane,
 				new_rstate->sequence_id);
 
 		if (new_state->fb->flags & DRM_MODE_FB_SECURE)
-			new_rstate->mmu_id = MSM_SMMU_DOMAIN_SECURE;
+			new_rstate->aspace =
+				kms->aspace[MSM_SMMU_DOMAIN_SECURE];
 		else
-			new_rstate->mmu_id = MSM_SMMU_DOMAIN_UNSECURE;
+			new_rstate->aspace =
+				kms->aspace[MSM_SMMU_DOMAIN_UNSECURE];
 
 		/* check if out_fb is already attached to rotator */
 		new_rstate->out_fbo = sde_kms_fbo_alloc(plane->dev, fb_w, fb_h,
@@ -2046,7 +2053,7 @@ static int sde_plane_rot_prepare_fb(struct drm_plane *plane,
 	}
 
 	/* prepare rotator input buffer */
-	ret = msm_framebuffer_prepare(new_state->fb, new_rstate->mmu_id);
+	ret = msm_framebuffer_prepare(new_state->fb, new_rstate->aspace);
 	if (ret) {
 		SDE_ERROR("failed to prepare input framebuffer\n");
 		goto error_prepare_input_buffer;
@@ -2058,7 +2065,7 @@ static int sde_plane_rot_prepare_fb(struct drm_plane *plane,
 				new_rstate->sequence_id);
 
 		ret = msm_framebuffer_prepare(new_rstate->out_fb,
-				new_rstate->mmu_id);
+				new_rstate->aspace);
 		if (ret) {
 			SDE_ERROR("failed to prepare inline framebuffer\n");
 			goto error_prepare_output_buffer;
@@ -2068,7 +2075,7 @@ static int sde_plane_rot_prepare_fb(struct drm_plane *plane,
 	return 0;
 
 error_prepare_output_buffer:
-	msm_framebuffer_cleanup(new_state->fb, new_rstate->mmu_id);
+	msm_framebuffer_cleanup(new_state->fb, new_rstate->aspace);
 error_prepare_input_buffer:
 	sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FB,
 			(u64) &new_rstate->rot_hw->base);
@@ -2124,7 +2131,7 @@ static void sde_plane_rot_cleanup_fb(struct drm_plane *plane,
 	if (sde_plane_enabled(old_state)) {
 		if (old_rstate->out_fb) {
 			msm_framebuffer_cleanup(old_rstate->out_fb,
-					old_rstate->mmu_id);
+					old_rstate->aspace);
 			sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FB,
 					(u64) &old_rstate->rot_hw->base);
 			old_rstate->out_fb = NULL;
@@ -2133,7 +2140,7 @@ static void sde_plane_rot_cleanup_fb(struct drm_plane *plane,
 			old_rstate->out_fbo = NULL;
 		}
 
-		msm_framebuffer_cleanup(old_state->fb, old_rstate->mmu_id);
+		msm_framebuffer_cleanup(old_state->fb, old_rstate->aspace);
 	}
 }
 
@@ -2163,6 +2170,7 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 	old_pstate = to_sde_plane_state(plane->state);
 	rstate = &pstate->rot;
 	old_rstate = &old_pstate->rot;
+	rstate->aspace = psde->aspace;
 
 	/* cstate will be null if crtc is disconnected from plane */
 	cstate = _sde_plane_get_crtc_state(state);
@@ -2657,14 +2665,14 @@ static int sde_plane_prepare_fb(struct drm_plane *plane,
 
 	new_rstate = &to_sde_plane_state(new_state)->rot;
 
-	ret = msm_framebuffer_prepare(new_rstate->out_fb, new_rstate->mmu_id);
+	ret = msm_framebuffer_prepare(new_rstate->out_fb, psde->aspace);
 	if (ret) {
 		SDE_ERROR("failed to prepare framebuffer\n");
 		return ret;
 	}
 
 	/* validate framebuffer layout before commit */
-	ret = sde_format_populate_layout(new_rstate->mmu_id,
+	ret = sde_format_populate_layout(psde->aspace,
 			new_rstate->out_fb, &layout);
 	if (ret) {
 		SDE_ERROR_PLANE(psde, "failed to get format layout, %d\n", ret);
@@ -2687,7 +2695,7 @@ static void sde_plane_cleanup_fb(struct drm_plane *plane,
 
 	old_rstate = &to_sde_plane_state(old_state)->rot;
 
-	msm_framebuffer_cleanup(old_rstate->out_fb, old_rstate->mmu_id);
+	msm_framebuffer_cleanup(old_rstate->out_fb, old_rstate->aspace);
 
 	sde_plane_rot_cleanup_fb(plane, old_state);
 }
@@ -4481,7 +4489,7 @@ struct drm_plane *sde_plane_init(struct drm_device *dev,
 	/* cache local stuff for later */
 	plane = &psde->base;
 	psde->pipe = pipe;
-	psde->mmu_id = kms->mmu_id[MSM_SMMU_DOMAIN_UNSECURE];
+	psde->aspace = kms->aspace[MSM_SMMU_DOMAIN_UNSECURE];
 	psde->is_virtual = (master_plane_id != 0);
 	psde->scaler_check_state = SDE_PLANE_SCLCHECK_NONE;
 	INIT_LIST_HEAD(&psde->mplane_list);

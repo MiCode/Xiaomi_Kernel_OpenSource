@@ -151,20 +151,6 @@ static const struct drm_mode_config_funcs mode_config_funcs = {
 	.atomic_commit = msm_atomic_commit,
 };
 
-int msm_register_address_space(struct drm_device *dev,
-		struct msm_gem_address_space *aspace)
-{
-	struct msm_drm_private *priv = dev->dev_private;
-	int idx = priv->num_aspaces++;
-
-	if (WARN_ON(idx >= ARRAY_SIZE(priv->aspace)))
-		return -EINVAL;
-
-	priv->aspace[idx] = aspace;
-
-	return idx;
-}
-
 #ifdef CONFIG_DRM_MSM_REGISTER_LOGGING
 static bool reglog = false;
 MODULE_PARM_DESC(reglog, "Enable register read/write logging");
@@ -1931,6 +1917,30 @@ static int add_display_components(struct device *dev,
 		of_platform_depopulate(dev);
 
 	return ret;
+}
+
+struct msm_gem_address_space *
+msm_gem_smmu_address_space_get(struct drm_device *dev,
+		unsigned int domain)
+{
+	struct msm_drm_private *priv = NULL;
+	struct msm_kms *kms;
+	const struct msm_kms_funcs *funcs;
+
+	if ((!dev) || (!dev->dev_private))
+		return NULL;
+
+	priv = dev->dev_private;
+	kms = priv->kms;
+	if (!kms)
+		return NULL;
+
+	funcs = kms->funcs;
+
+	if ((!funcs) || (!funcs->get_address_space))
+		return NULL;
+
+	return funcs->get_address_space(priv->kms, domain);
 }
 
 /*

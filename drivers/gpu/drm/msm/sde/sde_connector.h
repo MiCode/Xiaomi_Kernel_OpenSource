@@ -240,7 +240,7 @@ struct sde_connector {
 	struct drm_panel *panel;
 	void *display;
 
-	int mmu_id[SDE_IOMMU_DOMAIN_MAX];
+	struct msm_gem_address_space *aspace[SDE_IOMMU_DOMAIN_MAX];
 
 	char name[SDE_CONNECTOR_NAME_SIZE];
 
@@ -304,14 +304,14 @@ struct sde_connector {
  * struct sde_connector_state - private connector status structure
  * @base: Base drm connector structure
  * @out_fb: Pointer to output frame buffer, if applicable
- * @mmu_id: MMU ID for accessing frame buffer objects, if applicable
+ * @aspace: Address space for accessing frame buffer objects, if applicable
  * @property_values: Local cache of current connector property values
  * @rois: Regions of interest structure for mapping CRTC to Connector output
  */
 struct sde_connector_state {
 	struct drm_connector_state base;
 	struct drm_framebuffer *out_fb;
-	int mmu_id;
+	struct msm_gem_address_space *aspace;
 	uint64_t property_values[CONNECTOR_PROP_COUNT];
 
 	struct msm_roi_list rois;
