@@ -770,6 +770,7 @@
 			reg = <0x0 SPMI_USID>;
 			#address-cells = <2>;
 			#size-cells = <0>;
+			qcom,can-sleep;
 		};
 
 		qcom,pm8998-debug@1 {
@@ -777,6 +778,7 @@
 			reg = <0x1 SPMI_USID>;
 			#address-cells = <2>;
 			#size-cells = <0>;
+			qcom,can-sleep;
 		};
 
 		qcom,pmi8998-debug@2 {
@@ -784,6 +786,7 @@
 			reg = <0x2 SPMI_USID>;
 			#address-cells = <2>;
 			#size-cells = <0>;
+			qcom,can-sleep;
 		};
 
 		qcom,pmi8998-debug@3 {
@@ -791,6 +794,7 @@
 			reg = <0x3 SPMI_USID>;
 			#address-cells = <2>;
 			#size-cells = <0>;
+			qcom,can-sleep;
 		};
 
 		qcom,pm8005-debug@4 {
@@ -798,6 +802,7 @@
 			reg = <0x4 SPMI_USID>;
 			#address-cells = <2>;
 			#size-cells = <0>;
+			qcom,can-sleep;
 		};
 
 		qcom,pm8005-debug@5 {
@@ -805,6 +810,7 @@
 			reg = <0x5 SPMI_USID>;
 			#address-cells = <2>;
 			#size-cells = <0>;
+			qcom,can-sleep;
 		};
 	};
 
