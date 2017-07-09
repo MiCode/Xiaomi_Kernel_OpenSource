@@ -339,7 +339,7 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 	regs = a6xx_hwcg_registers[i].regs;
 
 	/* Disable SP clock before programming HWCG registers */
-	kgsl_gmu_regrmw(device, A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 0, 0);
+	kgsl_gmu_regrmw(device, A6XX_GPU_GMU_GX_SPTPRAC_CLOCK_CONTROL, 1, 0);
 
 	for (j = 0; j < a6xx_hwcg_registers[i].count; j++)
 		kgsl_regwrite(device, regs[j].off, on ? regs[j].val : 0);
