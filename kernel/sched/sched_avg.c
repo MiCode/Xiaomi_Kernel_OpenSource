@@ -162,16 +162,14 @@ EXPORT_SYMBOL(sched_update_nr_prod);
 unsigned int sched_get_cpu_util(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
-	u64 util = 0;
-	unsigned long capacity = SCHED_CAPACITY_SCALE, flags;
+	u64 util;
+	unsigned long capacity, flags;
 	unsigned int busy;
 
 	raw_spin_lock_irqsave(&rq->lock, flags);
 
-#ifdef CONFIG_SMP
 	util = rq->cfs.avg.util_avg;
 	capacity = capacity_orig_of(cpu);
-#endif
 
 #ifdef CONFIG_SCHED_WALT
 	if (!walt_disabled && sysctl_sched_use_walt_cpu_util) {
