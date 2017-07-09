@@ -3532,13 +3532,44 @@ static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
 	return 0;
 }
 
-static void sde_plane_atomic_update(struct drm_plane *plane,
+static void _sde_plane_atomic_disable(struct drm_plane *plane,
 				struct drm_plane_state *old_state)
 {
 	struct sde_plane *psde;
 	struct drm_plane_state *state;
 	struct sde_plane_state *pstate;
-	struct sde_plane_state *old_pstate;
+
+	if (!plane) {
+		SDE_ERROR("invalid plane\n");
+		return;
+	} else if (!plane->state) {
+		SDE_ERROR("invalid plane state\n");
+		return;
+	} else if (!old_state) {
+		SDE_ERROR("invalid old state\n");
+		return;
+	}
+
+	psde = to_sde_plane(plane);
+	state = plane->state;
+	pstate = to_sde_plane_state(state);
+
+	SDE_EVT32(DRMID(plane), is_sde_plane_virtual(plane),
+			pstate->multirect_mode);
+
+	pstate->pending = true;
+
+	if (is_sde_plane_virtual(plane) &&
+			psde->pipe_hw && psde->pipe_hw->ops.setup_multirect)
+		psde->pipe_hw->ops.setup_multirect(psde->pipe_hw,
+				SDE_SSPP_RECT_SOLO, SDE_SSPP_MULTIRECT_NONE);
+}
+
+static void sde_plane_atomic_update(struct drm_plane *plane,
+				struct drm_plane_state *old_state)
+{
+	struct sde_plane *psde;
+	struct drm_plane_state *state;
 
 	if (!plane) {
 		SDE_ERROR("invalid plane\n");
@@ -3551,15 +3582,13 @@ static void sde_plane_atomic_update(struct drm_plane *plane,
 	psde = to_sde_plane(plane);
 	psde->is_error = false;
 	state = plane->state;
-	pstate = to_sde_plane_state(state);
-	old_pstate = to_sde_plane_state(old_state);
 
 	SDE_DEBUG_PLANE(psde, "\n");
 
 	sde_plane_rot_atomic_update(plane, old_state);
 
 	if (!sde_plane_sspp_enabled(state)) {
-		pstate->pending = true;
+		_sde_plane_atomic_disable(plane, old_state);
 	} else {
 		int ret;
 
