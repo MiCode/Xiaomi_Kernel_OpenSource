@@ -92,6 +92,21 @@ for ((i) = (start); \
 (i) < (end) && (i) + sde_cea_db_payload_len(&(cea)[(i)]) < (end); \
 (i) += sde_cea_db_payload_len(&(cea)[(i)]) + 1)
 
+static bool sde_cea_db_is_hdmi_hf_vsdb(const u8 *db)
+{
+	int hdmi_id;
+
+	if (sde_cea_db_tag(db) != VENDOR_SPECIFIC_DATA_BLOCK)
+		return false;
+
+	if (sde_cea_db_payload_len(db) < 7)
+		return false;
+
+	hdmi_id = db[1] | (db[2] << 8) | (db[3] << 16);
+
+	return hdmi_id == HDMI_IEEE_OUI_HF;
+}
+
 static u8 *sde_edid_find_extended_tag_block(struct edid *edid, int blk_id)
 {
 	u8 *db = NULL;
@@ -338,6 +353,63 @@ struct drm_connector *connector, struct sde_edid_ctrl *edid_ctrl)
 	SDE_EDID_DEBUG("%s -\n", __func__);
 }
 
+static void _sde_edid_update_dc_modes(
+struct drm_connector *connector, struct sde_edid_ctrl *edid_ctrl)
+{
+	int i, start, end;
+	u8 *edid_ext, *hdmi;
+	struct drm_display_info *disp_info;
+	u32 hdmi_dc_yuv_modes = 0;
+
+	SDE_EDID_DEBUG("%s +\n", __func__);
+
+	if (!connector || !edid_ctrl) {
+		SDE_ERROR("invalid input\n");
+		return;
+	}
+
+	disp_info = &connector->display_info;
+
+	edid_ext = sde_find_cea_extension(edid_ctrl->edid);
+
+	if (!edid_ext) {
+		SDE_ERROR("no cea extension\n");
+		return;
+	}
+
+	if (sde_cea_db_offsets(edid_ext, &start, &end))
+		return;
+
+	sde_for_each_cea_db(edid_ext, i, start, end) {
+		if (sde_cea_db_is_hdmi_hf_vsdb(&edid_ext[i])) {
+
+			hdmi = &edid_ext[i];
+
+			if (sde_cea_db_payload_len(hdmi) < 7)
+				continue;
+
+			if (hdmi[7] & DRM_EDID_YCBCR420_DC_30) {
+				hdmi_dc_yuv_modes |= DRM_EDID_YCBCR420_DC_30;
+				SDE_EDID_DEBUG("Y420 30-bit supported\n");
+			}
+
+			if (hdmi[7] & DRM_EDID_YCBCR420_DC_36) {
+				hdmi_dc_yuv_modes |= DRM_EDID_YCBCR420_DC_36;
+				SDE_EDID_DEBUG("Y420 36-bit supported\n");
+			}
+
+			if (hdmi[7] & DRM_EDID_YCBCR420_DC_48) {
+				hdmi_dc_yuv_modes |= DRM_EDID_YCBCR420_DC_36;
+				SDE_EDID_DEBUG("Y420 48-bit supported\n");
+			}
+		}
+	}
+
+	disp_info->edid_hdmi_dc_modes |= hdmi_dc_yuv_modes;
+
+	SDE_EDID_DEBUG("%s -\n", __func__);
+}
+
 static void _sde_edid_extract_audio_data_blocks(
 	struct sde_edid_ctrl *edid_ctrl)
 {
@@ -475,6 +547,7 @@ int _sde_edid_update_modes(struct drm_connector *connector,
 
 		rc = drm_add_edid_modes(connector, edid_ctrl->edid);
 		sde_edid_set_mode_format(connector, edid_ctrl);
+		_sde_edid_update_dc_modes(connector, edid_ctrl);
 		SDE_EDID_DEBUG("%s -", __func__);
 		return rc;
 	}
