@@ -57,6 +57,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8996")
 #define early_machine_is_msm8996_auto()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8996-cdp")
+#define early_machine_is_sdm855()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdm855")
 #else
 #define of_board_is_sim()		0
 #define of_board_is_rumi()		0
@@ -75,6 +77,7 @@
 #define early_machine_is_msm8916()	0
 #define early_machine_is_apq8084()	0
 #define early_machine_is_msm8996()	0
+#define early_machine_is_sdm855()	0
 #endif
 
 #define PLATFORM_SUBTYPE_MDM	1
@@ -93,6 +96,7 @@ enum msm_cpu {
 	MSM_CPU_8916,
 	MSM_CPU_8084,
 	MSM_CPU_8996,
+	MSM_CPU_SDM855,
 };
 
 struct msm_soc_info {

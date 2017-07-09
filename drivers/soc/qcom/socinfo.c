@@ -304,6 +304,9 @@ static struct msm_soc_info cpu_of_id[] = {
 	[305] = {MSM_CPU_8996, "MSM8996pro"},
 	[312] = {MSM_CPU_8996, "APQ8096pro"},
 
+	/* sdm855 ID */
+	[339] = {MSM_CPU_SDM855, "SDM855"},
+
 	/* Uninitialized IDs are not known to run Linux.
 	 * MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	 * considered as unknown CPU.
@@ -1102,6 +1105,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_msm8996_auto()) {
 		dummy_socinfo.id = 310;
 		strlcpy(dummy_socinfo.build_id, "msm8996-auto - ",
+		sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_sdm855()) {
+		dummy_socinfo.id = 339;
+		strlcpy(dummy_socinfo.build_id, "sdm855 - ",
 		sizeof(dummy_socinfo.build_id));
 	} else
 		strlcat(dummy_socinfo.build_id, "Dummy socinfo",
