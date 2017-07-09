@@ -358,6 +358,7 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 
 		SDE_EVT32(DRMID(phys_enc->parent), SDE_EVTLOG_FATAL);
 
+		sde_encoder_helper_unregister_irq(phys_enc, INTR_IDX_RDPTR);
 		SDE_DBG_DUMP("sde", "dsi0_ctrl", "dsi0_phy", "dsi1_ctrl",
 				"dsi1_phy", "vbif", "dbg_bus",
 				"vbif_dbg_bus", "panic");
