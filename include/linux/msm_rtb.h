@@ -57,7 +57,7 @@ int uncached_logk(enum logk_event_type log_type, void *data);
 
 #define BRANCH_TO_NEXT_ISTR \
 	do { \
-		asm volatile("b .+4\n" : : : "memory") \
+		asm volatile("b .+4\n" : : : "memory"); \
 	} while (0)
 
 /*
