@@ -631,7 +631,12 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
 			{ 29, 14, 8, 8, IPA_EE_AP } },
-
+	/* Dummy consumer (pipe 31) is used in L2TP rt rule */
+	[IPA_3_0][IPA_CLIENT_DUMMY_CONS]          = {
+			true, IPA_v3_0_GROUP_DL, false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 31, 31, 8, 8, IPA_EE_AP } },
 
 	/* IPA_3_5 */
 	[IPA_3_5][IPA_CLIENT_WLAN1_PROD]          = {
@@ -778,6 +783,12 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
 			{ 19, 13, 8, 8, IPA_EE_AP } },
+	/* Dummy consumer (pipe 31) is used in L2TP rt rule */
+	[IPA_3_5][IPA_CLIENT_DUMMY_CONS]          = {
+			true, IPA_v3_5_GROUP_UL_DL, false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_PCIE,
+			{ 31, 31, 8, 8, IPA_EE_AP } },
 
 	/* IPA_3_5_MHI */
 	[IPA_3_5_MHI][IPA_CLIENT_USB_PROD]            = {
@@ -928,6 +939,12 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
 			{ 19, 13, 8, 8, IPA_EE_AP } },
+	/* Dummy consumer (pipe 31) is used in L2TP rt rule */
+	[IPA_3_5_MHI][IPA_CLIENT_DUMMY_CONS]          = {
+			true, IPA_v3_5_MHI_GROUP_DMA, false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_PCIE,
+			{ 31, 31, 8, 8, IPA_EE_AP } },
 
 	/* IPA_3_5_1 */
 	[IPA_3_5_1][IPA_CLIENT_WLAN1_PROD]          = {
@@ -1073,7 +1090,13 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_DDR,
 			{ 11, 2, 4, 6, IPA_EE_AP } },
-
+	/* Dummy consumer (pipe 31) is used in L2TP rt rule */
+	[IPA_3_5_1][IPA_CLIENT_DUMMY_CONS]          = {
+			true, IPA_v3_5_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 31, 31, 8, 8, IPA_EE_AP } },
 
 	/* IPA_4_0 */
 	[IPA_4_0][IPA_CLIENT_WLAN1_PROD]          = {
@@ -1273,6 +1296,13 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
 			{ 21, 15, 9, 9, IPA_EE_AP } },
+	/* Dummy consumer (pipe 31) is used in L2TP rt rule */
+	[IPA_4_0][IPA_CLIENT_DUMMY_CONS]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 31, 31, 8, 8, IPA_EE_AP } },
 
 	/* IPA_4_0_MHI */
 	[IPA_4_0_MHI][IPA_CLIENT_USB_PROD]            = {
@@ -1452,8 +1482,13 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_INVALID,
 			QMB_MASTER_SELECT_PCIE,
 			{ 21, 15, 9, 9, IPA_EE_AP } },
-
-
+	/* Dummy consumer (pipe 31) is used in L2TP rt rule */
+	[IPA_4_0_MHI][IPA_CLIENT_DUMMY_CONS]          = {
+			true, IPA_v4_0_GROUP_UL_DL,
+			false,
+			IPA_DPS_HPS_SEQ_TYPE_INVALID,
+			QMB_MASTER_SELECT_DDR,
+			{ 31, 31, 8, 8, IPA_EE_AP } },
 };
 
 static struct msm_bus_vectors ipa_init_vectors_v3_0[]  = {
@@ -2136,7 +2171,8 @@ int ipa3_get_ep_mapping(enum ipa_client_type client)
 
 	ipa_ep_idx = ipa3_ep_mapping[ipa3_get_hw_type_index()][client].
 		ipa_gsi_ep_info.ipa_ep_num;
-	if (ipa_ep_idx < 0 || ipa_ep_idx >= IPA3_MAX_NUM_PIPES)
+	if (ipa_ep_idx < 0 || (ipa_ep_idx >= IPA3_MAX_NUM_PIPES
+		&& client != IPA_CLIENT_DUMMY_CONS))
 		return IPA_EP_NOT_ALLOCATED;
 
 	return ipa_ep_idx;
@@ -2903,7 +2939,8 @@ int ipa3_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ep_mode)
 		if (ep_mode->mode == IPA_DMA)
 			type = IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY;
 		else
-			type = IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_UCP;
+			type =
+			   IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP;
 
 		IPADBG(" set sequencers to sequance 0x%x, ep = %d\n", type,
 				clnt_hdl);
