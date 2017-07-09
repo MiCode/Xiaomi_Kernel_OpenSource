@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +26,8 @@
 		log_info.file = __FILENAME__; \
 		log_info.line = __LINE__; \
 		log_info.type = EP; \
-		log_info.id_string = ipa_clients_strings[client]
+		log_info.id_string = (client < 0 || client >= IPA_CLIENT_MAX) \
+			? "Invalid Client" : ipa_clients_strings[client]
 
 #define IPA_ACTIVE_CLIENTS_PREP_SIMPLE(log_info) \
 		log_info.file = __FILENAME__; \
