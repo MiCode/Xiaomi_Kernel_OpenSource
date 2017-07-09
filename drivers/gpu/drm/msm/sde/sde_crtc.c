@@ -2525,6 +2525,17 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 		atomic_set(&sde_crtc->frame_pending, 0);
 	}
 
+	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
+	list_for_each_entry(node, &sde_crtc->user_event_list, list) {
+		ret = 0;
+		if (node->func)
+			ret = node->func(crtc, false, &node->irq);
+		if (ret)
+			SDE_ERROR("%s failed to disable event %x\n",
+					sde_crtc->name, node->event);
+	}
+	spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
+
 	sde_core_perf_crtc_update(crtc, 0, true);
 
 	drm_for_each_encoder(encoder, crtc->dev) {
@@ -2545,17 +2556,6 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	/* disable clk & bw control until clk & bw properties are set */
 	cstate->bw_control = false;
 	cstate->bw_split_vote = false;
-
-	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
-	list_for_each_entry(node, &sde_crtc->user_event_list, list) {
-		ret = 0;
-		if (node->func)
-			ret = node->func(crtc, false, &node->irq);
-		if (ret)
-			SDE_ERROR("%s failed to disable event %x\n",
-					sde_crtc->name, node->event);
-	}
-	spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
 
 	mutex_unlock(&sde_crtc->crtc_lock);
 }
