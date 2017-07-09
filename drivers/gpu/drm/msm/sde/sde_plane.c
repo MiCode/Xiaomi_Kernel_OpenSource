@@ -1882,7 +1882,7 @@ static int sde_plane_rot_submit_command(struct drm_plane *plane,
 		rot_cmd->dst_planes = layout.num_planes;
 
 		/* VBIF remapper settings */
-		for (i = 0; rstate->rot_hw->caps->xin_count; i++) {
+		for (i = 0; i < rstate->rot_hw->caps->xin_count; i++) {
 			const struct sde_rot_vbif_cfg *cfg =
 					&rstate->rot_hw->caps->vbif_cfg[i];
 
