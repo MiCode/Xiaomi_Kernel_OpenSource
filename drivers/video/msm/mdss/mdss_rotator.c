@@ -2179,6 +2179,12 @@ static int mdss_rotator_handle_request(struct mdss_rot_mgr *mgr,
 	struct mdss_rot_entry_container *req = NULL;
 	int size, ret;
 	uint32_t req_count;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if (mdata->handoff_pending) {
+		pr_err("Rotator request failed. Handoff pending\n");
+		return -EPERM;
+	}
 
 	if (mdss_get_sd_client_cnt()) {
 		pr_err("rot request not permitted during secure display session\n");

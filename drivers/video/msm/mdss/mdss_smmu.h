@@ -201,7 +201,7 @@ static inline void mdss_smmu_unmap_dma_buf(struct sg_table *table, int domain,
 }
 
 static inline int mdss_smmu_dma_alloc_coherent(struct device *dev, size_t size,
-		dma_addr_t *phys, dma_addr_t *iova, void *cpu_addr,
+		dma_addr_t *phys, dma_addr_t *iova, void **cpu_addr,
 		gfp_t gfp, int domain)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
