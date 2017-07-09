@@ -2056,8 +2056,15 @@ int ipa3_init_hw(void)
 
 	ipahal_write_reg(IPA_BCR, val);
 
-	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0)
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+		struct ipahal_reg_tx_cfg cfg;
+
 		ipahal_write_reg(IPA_CLKON_CFG, IPA_CLKON_CFG_v4_0);
+		ipahal_read_reg_fields(IPA_TX_CFG, &cfg);
+		/* disable PA_MASK_EN to allow holb drop */
+		cfg.pa_mask_en = 0;
+		ipahal_write_reg_fields(IPA_TX_CFG, &cfg);
+	}
 
 	ipa3_cfg_qsb();
 
