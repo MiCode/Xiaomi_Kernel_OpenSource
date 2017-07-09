@@ -840,6 +840,15 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	setup_fault_process(device, snapshot,
 			context ? context->proc_priv : NULL);
 
+	/* Add GPU specific sections - registers mainly, but other stuff too */
+	if (gpudev->snapshot)
+		gpudev->snapshot(adreno_dev, snapshot);
+
+	/* Dumping these buffers is useless if the GX is not on */
+	if (gpudev->gx_is_on)
+		if (!gpudev->gx_is_on(adreno_dev))
+			return;
+
 	adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB1_BASE,
 			ADRENO_REG_CP_IB1_BASE_HI, &snapshot->ib1base);
 	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB1_BUFSZ, &snapshot->ib1size);
@@ -861,10 +870,6 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 		 (adreno_dev->next_rb != adreno_dev->cur_rb))
 		adreno_snapshot_ringbuffer(device, snapshot,
 			adreno_dev->next_rb);
-
-	/* Add GPU specific sections - registers mainly, but other stuff too */
-	if (gpudev->snapshot)
-		gpudev->snapshot(adreno_dev, snapshot);
 
 	/* Dump selected global buffers */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
