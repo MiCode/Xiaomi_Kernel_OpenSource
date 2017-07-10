@@ -630,7 +630,7 @@ static int sde_power_reg_bus_update(u32 reg_bus_hdl, u32 usecase_ndx)
 }
 #else
 static int sde_power_data_bus_parse(struct platform_device *pdev,
-		struct sde_power_data_bus_handle *pdbus)
+		struct sde_power_data_bus_handle *pdbus, const char *name)
 {
 	return 0;
 }
