@@ -8,7 +8,9 @@
 enum {
 	WDSP_REG_PKT = 1,
 	WDSP_CMD_PKT,
+	WDSP_READY_PKT,
 };
+#define WDSP_READY_PKT WDSP_READY_PKT
 
 /*
  * struct wdsp_reg_pkt -  Glink channel information structure format
