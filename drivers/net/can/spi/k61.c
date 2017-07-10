@@ -35,10 +35,11 @@
 #define LOGDE(...) dev_err(&priv_data->spidev->dev, __VA_ARGS__)
 #define LOGNE(...) netdev_err(netdev, __VA_ARGS__)
 
-#define MAX_TX_BUFFERS		1
-#define XFER_BUFFER_SIZE	64
-#define K61_CLOCK		120000000
-#define K61_MAX_CHANNELS	1
+#define MAX_TX_BUFFERS			1
+#define XFER_BUFFER_SIZE		64
+#define K61_CLOCK			120000000
+#define K61_MAX_CHANNELS		1
+#define K61_FW_QUERY_RETRY_COUNT	3
 
 struct k61_can {
 	struct net_device	*netdev;
@@ -366,7 +367,7 @@ static int k61_query_firmware_version(struct k61_can *priv_data)
 
 	if (ret == 0) {
 		wait_for_completion_interruptible_timeout(
-				&priv_data->response_completion, 0.1 * HZ);
+				&priv_data->response_completion, 0.001 * HZ);
 		ret = priv_data->cmd_result;
 	}
 
@@ -806,7 +807,7 @@ cleanup_privdata:
 
 static int k61_probe(struct spi_device *spi)
 {
-	int err;
+	int err, retry = 0, query_err = -1;
 	struct k61_can *priv_data;
 	struct device *dev;
 
@@ -842,10 +843,10 @@ static int k61_probe(struct spi_device *spi)
 	gpio_direction_output(priv_data->reset, 0);
 	udelay(1);
 	gpio_direction_output(priv_data->reset, 1);
-	/* Provide a delay of 10us for the chip to reset. This is part of
+	/* Provide a delay of 300us for the chip to reset. This is part of
 	 * the reset sequence.
 	 */
-	usleep_range(10, 11);
+	usleep_range(300, 301);
 
 	err = k61_create_netdev(spi, priv_data);
 	if (err) {
@@ -868,9 +869,12 @@ static int k61_probe(struct spi_device *spi)
 	}
 	dev_dbg(dev, "Request irq %d ret %d\n", spi->irq, err);
 
-	err = k61_query_firmware_version(priv_data);
+	while ((query_err != 0) && (retry < K61_FW_QUERY_RETRY_COUNT)) {
+		query_err = k61_query_firmware_version(priv_data);
+		retry++;
+	}
 
-	if (err) {
+	if (query_err) {
 		dev_info(dev, "K61 probe failed\n");
 		err = -ENODEV;
 		goto free_irq;
