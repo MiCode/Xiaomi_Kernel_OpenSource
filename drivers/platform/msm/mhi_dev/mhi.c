@@ -1854,7 +1854,7 @@ static void mhi_dev_enable(struct work_struct *work)
 
 	rc = mhi_dev_mmio_read(mhi, BHI_INTVEC, &bhi_intvec);
 	if (rc)
-		return rc;
+		return;
 
 	if (bhi_intvec != 0xffffffff) {
 		/* Indicate the host that the device is ready */
