@@ -93,6 +93,66 @@ struct dp_pinctrl {
 	struct pinctrl_state *state_suspend;
 };
 
+#define DP_ENUM_STR(x)	#x
+#define DP_AUX_CFG_MAX_VALUE_CNT 3
+/**
+ * struct dp_aux_cfg - DP's AUX configuration settings
+ *
+ * @cfg_cnt: count of the configurable settings for the AUX register
+ * @current_index: current index of the AUX config lut
+ * @offset: register offset of the AUX config register
+ * @lut: look up table for the AUX config values for this register
+ */
+struct dp_aux_cfg {
+	u32 cfg_cnt;
+	u32 current_index;
+	u32 offset;
+	u32 lut[DP_AUX_CFG_MAX_VALUE_CNT];
+};
+
+/* PHY AUX config registers */
+enum dp_phy_aux_config_type {
+	PHY_AUX_CFG0,
+	PHY_AUX_CFG1,
+	PHY_AUX_CFG2,
+	PHY_AUX_CFG3,
+	PHY_AUX_CFG4,
+	PHY_AUX_CFG5,
+	PHY_AUX_CFG6,
+	PHY_AUX_CFG7,
+	PHY_AUX_CFG8,
+	PHY_AUX_CFG9,
+	PHY_AUX_CFG_MAX,
+};
+
+static inline char *dp_phy_aux_config_type_to_string(u32 cfg_type)
+{
+	switch (cfg_type) {
+	case PHY_AUX_CFG0:
+		return DP_ENUM_STR(PHY_AUX_CFG0);
+	case PHY_AUX_CFG1:
+		return DP_ENUM_STR(PHY_AUX_CFG1);
+	case PHY_AUX_CFG2:
+		return DP_ENUM_STR(PHY_AUX_CFG2);
+	case PHY_AUX_CFG3:
+		return DP_ENUM_STR(PHY_AUX_CFG3);
+	case PHY_AUX_CFG4:
+		return DP_ENUM_STR(PHY_AUX_CFG4);
+	case PHY_AUX_CFG5:
+		return DP_ENUM_STR(PHY_AUX_CFG5);
+	case PHY_AUX_CFG6:
+		return DP_ENUM_STR(PHY_AUX_CFG6);
+	case PHY_AUX_CFG7:
+		return DP_ENUM_STR(PHY_AUX_CFG7);
+	case PHY_AUX_CFG8:
+		return DP_ENUM_STR(PHY_AUX_CFG8);
+	case PHY_AUX_CFG9:
+		return DP_ENUM_STR(PHY_AUX_CFG9);
+	default:
+		return "unknown";
+	}
+}
+
 /**
  * struct dp_parser - DP parser's data exposed to clients
  *
@@ -111,7 +171,7 @@ struct dp_parser {
 	struct dp_display_data disp_data;
 
 	u8 l_map[4];
-	u32 aux_cfg[AUX_CFG_LEN];
+	struct dp_aux_cfg aux_cfg[AUX_CFG_LEN];
 	u32 max_pclk_khz;
 
 	int (*parse)(struct dp_parser *parser);

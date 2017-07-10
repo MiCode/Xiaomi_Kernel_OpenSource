@@ -32,7 +32,7 @@ struct dp_aux {
 	int (*drm_aux_register)(struct dp_aux *aux);
 	void (*drm_aux_deregister)(struct dp_aux *aux);
 	void (*isr)(struct dp_aux *aux);
-	void (*init)(struct dp_aux *aux, u32 *aux_cfg);
+	void (*init)(struct dp_aux *aux, struct dp_aux_cfg *aux_cfg);
 	void (*deinit)(struct dp_aux *aux);
 };
 

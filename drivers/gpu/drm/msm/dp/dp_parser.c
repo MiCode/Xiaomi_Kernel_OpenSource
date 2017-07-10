@@ -101,23 +101,85 @@ err:
 	return rc;
 }
 
+static const char *dp_get_phy_aux_config_property(u32 cfg_type)
+{
+	switch (cfg_type) {
+	case PHY_AUX_CFG0:
+		return "qcom,aux-cfg0-settings";
+	case PHY_AUX_CFG1:
+		return "qcom,aux-cfg1-settings";
+	case PHY_AUX_CFG2:
+		return "qcom,aux-cfg2-settings";
+	case PHY_AUX_CFG3:
+		return "qcom,aux-cfg3-settings";
+	case PHY_AUX_CFG4:
+		return "qcom,aux-cfg4-settings";
+	case PHY_AUX_CFG5:
+		return "qcom,aux-cfg5-settings";
+	case PHY_AUX_CFG6:
+		return "qcom,aux-cfg6-settings";
+	case PHY_AUX_CFG7:
+		return "qcom,aux-cfg7-settings";
+	case PHY_AUX_CFG8:
+		return "qcom,aux-cfg8-settings";
+	case PHY_AUX_CFG9:
+		return "qcom,aux-cfg9-settings";
+	default:
+		return "unknown";
+	}
+}
+
+static void dp_parser_phy_aux_cfg_reset(struct dp_parser *parser)
+{
+	int i = 0;
+
+	for (i = 0; i < PHY_AUX_CFG_MAX; i++)
+		parser->aux_cfg[i] = (const struct dp_aux_cfg){ 0 };
+}
+
 static int dp_parser_aux(struct dp_parser *parser)
 {
-	int len = 0, i = 0, rc = 0;
 	struct device_node *of_node = parser->pdev->dev.of_node;
+	int len = 0, i = 0, j = 0, config_count = 0;
 	const char *data;
+	int const minimum_config_count = 1;
 
-	data = of_get_property(of_node, "qcom,aux-cfg-settings", &len);
-	if (!data || (len != AUX_CFG_LEN)) {
-		pr_err("Unable to read DP AUX CFG settings\n");
-		rc = -EINVAL;
-		goto end;
+	for (i = 0; i < PHY_AUX_CFG_MAX; i++) {
+		const char *property = dp_get_phy_aux_config_property(i);
+
+		data = of_get_property(of_node, property, &len);
+		if (!data) {
+			pr_err("Unable to read %s\n", property);
+			goto error;
+		}
+
+		config_count = len - 1;
+		if ((config_count < minimum_config_count) ||
+			(config_count > DP_AUX_CFG_MAX_VALUE_CNT)) {
+			pr_err("Invalid config count (%d) configs for %s\n",
+					config_count, property);
+			goto error;
+		}
+
+		parser->aux_cfg[i].offset = data[0];
+		parser->aux_cfg[i].cfg_cnt = config_count;
+		pr_debug("%s offset=0x%x, cfg_cnt=%d\n",
+				property,
+				parser->aux_cfg[i].offset,
+				parser->aux_cfg[i].cfg_cnt);
+		for (j = 1; j < len; j++) {
+			parser->aux_cfg[i].lut[j - 1] = data[j];
+			pr_debug("%s lut[%d]=0x%x\n",
+					property,
+					i,
+					parser->aux_cfg[i].lut[j - 1]);
+		}
 	}
+		return 0;
 
-	for (i = 0; i < len; i++)
-		parser->aux_cfg[i] = data[i];
-end:
-	return rc;
+error:
+	dp_parser_phy_aux_cfg_reset(parser);
+	return -EINVAL;
 }
 
 static int dp_parser_misc(struct dp_parser *parser)

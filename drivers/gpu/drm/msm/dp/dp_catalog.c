@@ -364,11 +364,13 @@ static void dp_catalog_aux_enable(struct dp_catalog_aux *aux, bool enable)
 	dp_write(base + DP_AUX_CTRL, aux_ctrl);
 }
 
-static void dp_catalog_aux_setup(struct dp_catalog_aux *aux, u32 *aux_cfg)
+static void dp_catalog_aux_setup(struct dp_catalog_aux *aux,
+		struct dp_aux_cfg *cfg)
 {
 	struct dp_catalog_private *catalog;
+	int i = 0;
 
-	if (!aux || !aux_cfg) {
+	if (!aux || !cfg) {
 		pr_err("invalid input\n");
 		return;
 	}
@@ -384,16 +386,13 @@ static void dp_catalog_aux_setup(struct dp_catalog_aux *aux, u32 *aux_cfg)
 		QSERDES_COM_BIAS_EN_CLKBUFLR_EN, 0x3f);
 
 	/* DP AUX CFG register programming */
-	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_CFG0, aux_cfg[0]);
-	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_CFG1, aux_cfg[1]);
-	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_CFG2, aux_cfg[2]);
-	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_CFG3, aux_cfg[3]);
-	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_CFG4, aux_cfg[4]);
-	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_CFG5, aux_cfg[5]);
-	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_CFG6, aux_cfg[6]);
-	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_CFG7, aux_cfg[7]);
-	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_CFG8, aux_cfg[8]);
-	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_CFG9, aux_cfg[9]);
+	for (i = 0; i < PHY_AUX_CFG_MAX; i++) {
+		pr_debug("%s: offset=0x%08x, value=0x%08x\n",
+			dp_phy_aux_config_type_to_string(i),
+			cfg[i].offset, cfg[i].lut[cfg[i].current_index]);
+		dp_write(catalog->io->phy_io.base + cfg[i].offset,
+			cfg[i].lut[cfg[i].current_index]);
+	}
 
 	dp_write(catalog->io->phy_io.base + DP_PHY_AUX_INTERRUPT_MASK, 0x1F);
 }

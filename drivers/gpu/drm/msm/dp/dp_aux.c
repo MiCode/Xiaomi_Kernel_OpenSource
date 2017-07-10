@@ -296,11 +296,19 @@ unlock_exit:
 	return ret;
 }
 
-static void dp_aux_init(struct dp_aux *dp_aux, u32 *aux_cfg)
+static void dp_aux_reset_phy_config_indices(struct dp_aux_cfg *aux_cfg)
+{
+	int i = 0;
+
+	for (i = 0; i < PHY_AUX_CFG_MAX; i++)
+		aux_cfg[i].current_index = 0;
+}
+
+static void dp_aux_init(struct dp_aux *dp_aux, struct dp_aux_cfg *aux_cfg)
 {
 	struct dp_aux_private *aux;
 
-	if (!dp_aux) {
+	if (!dp_aux || !aux_cfg) {
 		pr_err("invalid input\n");
 		return;
 	}
@@ -309,6 +317,7 @@ static void dp_aux_init(struct dp_aux *dp_aux, u32 *aux_cfg)
 
 	aux->catalog->reset(aux->catalog);
 	aux->catalog->enable(aux->catalog, true);
+	dp_aux_reset_phy_config_indices(aux_cfg);
 	aux->catalog->setup(aux->catalog, aux_cfg);
 }
 
