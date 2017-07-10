@@ -129,7 +129,7 @@ done:
 	if (got_chord) {
 		pr_info("keychord: got keychord id %d. Any tasks: %d\n",
 			keychord->id,
-			!list_empty_careful(&kdev->waitq.task_list));
+			!list_empty_careful(&kdev->waitq.head));
 		wake_up_interruptible(&kdev->waitq);
 	}
 }
