@@ -95,7 +95,7 @@ struct scm_desc {
 	u64 x5;
 };
 
-#ifdef CONFIG_QCOM_SCM
+#if defined(CONFIG_QCOM_SCM) || defined(CONFIG_QCOM_SCM_QCPE)
 extern int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf, size_t cmd_len,
 		void *resp_buf, size_t resp_len);
 
