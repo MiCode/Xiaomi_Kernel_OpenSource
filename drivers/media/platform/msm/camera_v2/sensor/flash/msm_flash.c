@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -999,13 +999,13 @@ static long msm_flash_subdev_do_ioctl(
 	sd = vdev_to_v4l2_subdev(vdev);
 	u32 = (struct msm_flash_cfg_data_t32 *)arg;
 
-	flash_data.cfg_type = u32->cfg_type;
-	for (i = 0; i < MAX_LED_TRIGGERS; i++) {
-		flash_data.flash_current[i] = u32->flash_current[i];
-		flash_data.flash_duration[i] = u32->flash_duration[i];
-	}
 	switch (cmd) {
 	case VIDIOC_MSM_FLASH_CFG32:
+		flash_data.cfg_type = u32->cfg_type;
+		for (i = 0; i < MAX_LED_TRIGGERS; i++) {
+			flash_data.flash_current[i] = u32->flash_current[i];
+			flash_data.flash_duration[i] = u32->flash_duration[i];
+		}
 		cmd = VIDIOC_MSM_FLASH_CFG;
 		switch (flash_data.cfg_type) {
 		case CFG_FLASH_OFF:
