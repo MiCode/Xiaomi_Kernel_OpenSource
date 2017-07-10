@@ -531,6 +531,13 @@ static int wdsp_glink_ch_info_init(struct wdsp_glink_priv *wpriv,
 	u8 *payload;
 	u32 ch_size, ch_cfg_size;
 
+	mutex_lock(&wpriv->glink_mutex);
+	if (wpriv->ch) {
+		dev_err(wpriv->dev, "%s: glink ch memory is already allocated\n",
+			 __func__);
+		ret = -EINVAL;
+		goto done;
+	}
 	payload = (u8 *)pkt->payload;
 	no_of_channels = pkt->no_of_channels;
 
@@ -611,6 +618,7 @@ err_ch_mem:
 	wpriv->no_of_channels = 0;
 
 done:
+	mutex_unlock(&wpriv->glink_mutex);
 	return ret;
 }
 
