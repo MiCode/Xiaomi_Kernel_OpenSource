@@ -48,6 +48,11 @@ struct mdss_smmu_private {
 
 void mdss_smmu_register(struct device *dev);
 int mdss_smmu_init(struct mdss_data_type *mdata, struct device *dev);
+int mdss_smmu_set_attribute(int domain, int flag, int val);
+
+enum smmu_attributes {
+	EARLY_MAP
+};
 
 static inline int mdss_smmu_dma_data_direction(int dir)
 {

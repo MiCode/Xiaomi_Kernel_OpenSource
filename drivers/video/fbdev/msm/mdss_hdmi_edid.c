@@ -469,8 +469,10 @@ static ssize_t hdmi_edid_sysfs_wta_res_info(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
 	int rc, page_id;
+	u32 i = 0, j, page;
 	ssize_t ret = strnlen(buf, PAGE_SIZE);
 	struct hdmi_edid_ctrl *edid_ctrl = hdmi_edid_get_ctrl(dev);
+	struct msm_hdmi_mode_timing_info info = {0};
 
 	if (!edid_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -483,7 +485,22 @@ static ssize_t hdmi_edid_sysfs_wta_res_info(struct device *dev,
 		return rc;
 	}
 
-	edid_ctrl->page_id = page_id;
+	if (page_id > MSM_HDMI_INIT_RES_PAGE) {
+		page = MSM_HDMI_INIT_RES_PAGE;
+		while (page < page_id) {
+			j = 1;
+			while (sizeof(info) * j < PAGE_SIZE) {
+				i++;
+				j++;
+			}
+			page++;
+		}
+	}
+
+	if (i < HDMI_VFRMT_MAX)
+		edid_ctrl->page_id = page_id;
+	else
+		DEV_ERR("%s: invalid page id\n", __func__);
 
 	DEV_DBG("%s: %d\n", __func__, edid_ctrl->page_id);
 	return ret;
@@ -1278,6 +1295,7 @@ static void hdmi_edid_extract_speaker_allocation_data(
 static void hdmi_edid_extract_sink_caps(struct hdmi_edid_ctrl *edid_ctrl,
 	const u8 *in_buf)
 {
+	u8 len;
 	const u8 *vsd = NULL;
 
 	if (!edid_ctrl) {
@@ -1292,13 +1310,29 @@ static void hdmi_edid_extract_sink_caps(struct hdmi_edid_ctrl *edid_ctrl,
 		edid_ctrl->basic_audio_supp = false;
 	pr_debug("%s: basic audio supported: %s\n", __func__,
 		edid_ctrl->basic_audio_supp ? "true" : "false");
+	vsd = hdmi_edid_find_block(in_buf, DBC_START_OFFSET,
+		VENDOR_SPECIFIC_DATA_BLOCK, &len);
+
+	if (vsd == NULL || len == 0 || len > MAX_DATA_BLOCK_SIZE)
+		return;
+
+	/* Max TMDS clock is in  multiples of 5Mhz. */
+	edid_ctrl->sink_caps.max_pclk_in_hz = vsd[7] * 5000000;
 
 	vsd = hdmi_edid_find_hfvsdb(in_buf);
 
 	if (vsd) {
-		/* Max pixel clock is in  multiples of 5Mhz. */
-		edid_ctrl->sink_caps.max_pclk_in_hz =
-				vsd[5]*5000000;
+		/*
+		 * HF-VSDB define larger TMDS clock than VSDB. If sink
+		 * supports TMDS Character Rates > 340M, the sink shall
+		 * set Max_TMDS_Character_Rates appropriately and non-zero.
+		 * Or, if sink dose not support TMDS Character Rates > 340M,
+		 * the sink shall set this filed to 0. The max TMDS support
+		 * clock Rate = Max_TMDS_Character_Rates * 5Mhz.
+		 */
+		if (vsd[5] != 0)
+			edid_ctrl->sink_caps.max_pclk_in_hz =
+					vsd[5] * 5000000;
 		edid_ctrl->sink_caps.scdc_present =
 				(vsd[6] & 0x80) ? true : false;
 		edid_ctrl->sink_caps.scramble_support =
@@ -2433,6 +2467,25 @@ bool hdmi_edid_is_dvi_mode(void *input)
 		sink_mode = edid_ctrl->sink_mode;
 
 	return (sink_mode == SINK_MODE_DVI);
+}
+
+/**
+ * hdmi_edid_get_sink_caps_max_tmds_clk() - get max tmds clock supported.
+ * Sink side's limitation should be concerned as well.
+ * @input: edid parser data
+ *
+ * Return: max tmds clock
+ */
+u32 hdmi_edid_get_sink_caps_max_tmds_clk(void *input)
+{
+	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;
+
+	if (!edid_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return 0;
+	}
+
+	return edid_ctrl->sink_caps.max_pclk_in_hz;
 }
 
 /**

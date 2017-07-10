@@ -580,7 +580,8 @@ static ssize_t hdmi_tx_sysfs_wta_edid(struct device *dev,
 	}
 
 	mutex_lock(&hdmi_ctrl->tx_lock);
-	if (edid_size < EDID_BLOCK_SIZE) {
+	if ((edid_size < EDID_BLOCK_SIZE) ||
+		(edid_size > hdmi_ctrl->edid_buf_size)) {
 		DEV_DBG("%s: disabling custom edid\n", __func__);
 
 		ret = -EINVAL;
@@ -632,6 +633,11 @@ static ssize_t hdmi_tx_sysfs_rda_edid(struct device *dev,
 
 	mutex_lock(&hdmi_ctrl->tx_lock);
 	cea_blks = hdmi_ctrl->edid_buf[EDID_BLOCK_SIZE - 2];
+	if (cea_blks >= MAX_EDID_BLOCKS) {
+		DEV_ERR("%s: invalid cea blocks\n", __func__);
+		mutex_unlock(&hdmi_ctrl->tx_lock);
+		return -EINVAL;
+	}
 	size = (cea_blks + 1) * EDID_BLOCK_SIZE;
 	size = min_t(u32, size, PAGE_SIZE);
 
@@ -2228,6 +2234,14 @@ static int hdmi_tx_read_sink_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 		status = hdmi_edid_parser(data);
 		if (status)
 			DEV_ERR("%s: edid parse failed\n", __func__);
+		else
+			/*
+			 * Updata HDMI max supported TMDS clock, consider
+			 * both sink and source capicity.
+			 */
+			hdmi_edid_set_max_pclk_rate(data,
+			  min(hdmi_edid_get_sink_caps_max_tmds_clk(data) / 1000,
+			      hdmi_ctrl->max_pclk_khz));
 	}
 bail:
 	if (hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_DDC_PM, false))
