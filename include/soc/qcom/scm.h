@@ -95,7 +95,7 @@ struct scm_desc {
 	u64 x5;
 };
 
-#ifdef CONFIG_QCOM_SCM
+#if defined(CONFIG_QCOM_SCM) || defined(CONFIG_QCOM_SCM_QCPE)
 extern int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf, size_t cmd_len,
 		void *resp_buf, size_t resp_len);
 
@@ -230,7 +230,7 @@ static inline int scm_io_write(phys_addr_t address, u32 val)
 	return 0;
 }
 
-inline bool scm_is_secure_device(void)
+static inline bool scm_is_secure_device(void)
 {
 	return false;
 }
