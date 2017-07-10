@@ -150,3 +150,21 @@ config QCOM_SECURE_BUFFER
 	 memory buffers. This ensures that only the correct clients can
 	 use this memory and no unauthorized access is made to the
 	 buffer
+
+config ICNSS
+	tristate "Platform driver for Q6 integrated connectivity"
+	select CNSS_UTILS
+	---help---
+	  This module adds support for Q6 integrated WLAN connectivity
+	  subsystem. This module is responsible for communicating WLAN on/off
+	  control messages to FW over QMI channel. It is also responsible for
+	  handling WLAN PD restart notifications.
+
+config ICNSS_DEBUG
+	bool "ICNSS debug support"
+	depends on ICNSS
+	---help---
+	  Say 'Y' here to enable ICNSS driver debug support. Debug support
+	  primarily consists of logs consisting of information related to
+	  hardware register access and enabling BUG_ON for certain cases to aid
+	  the debugging.
