@@ -192,6 +192,28 @@
 				};
 			};
 		};
+		bmi160_int1_default: bmi160_int1_default {
+			     mux {
+				     pins = "gpio0";
+				     function = "gpio";
+			     };
+			     config {
+				     pins = "gpio0";
+				     drive-strength = <12>;
+				     bias-pull-down;
+			     };
+		};
+		bmi160_int2_default: bmi160_int2_default {
+			     mux {
+				     pins = "gpio1";
+				     function = "gpio";
+			     };
+			     config {
+				     pins = "gpio1";
+				     drive-strength = <12>;
+				     bias-pull-down;
+			     };
+		};
 
 		cnss_pins {
 			cnss_wlan_en_active: cnss_wlan_en_active {

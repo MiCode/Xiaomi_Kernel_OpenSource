@@ -20,6 +20,25 @@
 	qcom,board-id = <0x1e 0>;
 };
 
+&pmd9650_l13 {
+	regulator-always-on;
+};
+
+&i2c_1 {
+	status = "ok";
+	bmi160@68{
+		compatible = "bosch-sensortec,bmi160";
+		reg = <0x68>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&bmi160_int1_default &bmi160_int2_default>;
+		interrupt-parent = <&tlmm_pinmux>;
+		interrupts = <0x0 0x2002>;
+		bmi,init-interval = <200>;
+		bmi,place = <1>;
+		bmi,gpio_irq = <&tlmm_pinmux 0x0 0x2002>;
+	};
+};
+
 &i2c_3 {
 	status = "ok";
 	smb1351_otg_supply: smb1351-charger@55{
