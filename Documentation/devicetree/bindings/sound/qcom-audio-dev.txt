@@ -406,6 +406,12 @@ Required properties:
       - qcom,msm-pcm-loopback-low-latency : Flag indicating whether
         the device node is of type low latency.
 
+* wcd_dsp_glink
+
+Required properties:
+
+ - compatible :                            "qcom,wcd-dsp-glink"
+
 Example:
 
 	qcom,msm-pcm {
@@ -680,6 +686,11 @@ Example:
 		pinctrl-0 = <&cdc_reset_active>;
 		pinctrl-1 = <&cdc_reset_sleep>;
 	};
+
+	wcd_dsp_glink {
+		compatible = "qcom,wcd-dsp-glink";
+	};
+
 
 * MSM8916 ASoC Machine driver
 
