@@ -276,12 +276,12 @@ static int msm_vidc_load_subcache_info(struct msm_vidc_platform_resources *res)
 			"cache-slice-names", c, &vsc->name);
 	}
 
-	res->sys_cache_enabled = true;
+	res->sys_cache_present = true;
 
 	return 0;
 
 err_load_subcache_table_fail:
-	res->sys_cache_enabled = false;
+	res->sys_cache_present = false;
 	subcaches->count = 0;
 	subcaches->subcache_tbl = NULL;
 
