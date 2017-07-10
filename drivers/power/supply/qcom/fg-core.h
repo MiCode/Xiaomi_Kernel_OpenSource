@@ -352,6 +352,8 @@ struct ttf {
 	struct fg_cc_step_data	cc_step;
 	struct mutex		lock;
 	int			mode;
+	int			last_ttf;
+	s64			last_ms;
 };
 
 static const struct fg_pt fg_ln_table[] = {

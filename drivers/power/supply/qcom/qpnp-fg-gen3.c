@@ -2226,6 +2226,8 @@ static void fg_ttf_update(struct fg_chip *chip)
 	mutex_lock(&chip->ttf.lock);
 	fg_circ_buf_clr(&chip->ttf.ibatt);
 	fg_circ_buf_clr(&chip->ttf.vbatt);
+	chip->ttf.last_ttf = 0;
+	chip->ttf.last_ms = 0;
 	mutex_unlock(&chip->ttf.lock);
 	schedule_delayed_work(&chip->ttf_work, msecs_to_jiffies(delay_ms));
 }
@@ -2825,8 +2827,9 @@ static int fg_get_time_to_full_locked(struct fg_chip *chip, int *val)
 	int rc, ibatt_avg, vbatt_avg, rbatt, msoc, full_soc, act_cap_mah,
 		i_cc2cv = 0, soc_cc2cv, tau, divisor, iterm, ttf_mode,
 		i, soc_per_step, msoc_this_step, msoc_next_step,
-		ibatt_this_step, t_predicted_this_step,
+		ibatt_this_step, t_predicted_this_step, ttf_slope,
 		t_predicted_cv, t_predicted = 0;
+	s64 delta_ms;
 
 	if (chip->bp.float_volt_uv <= 0) {
 		pr_err("battery profile is not loaded\n");
@@ -2860,6 +2863,8 @@ static int fg_get_time_to_full_locked(struct fg_chip *chip, int *val)
 	if (chip->ttf.mode != ttf_mode) {
 		fg_circ_buf_clr(&chip->ttf.ibatt);
 		fg_circ_buf_clr(&chip->ttf.vbatt);
+		chip->ttf.last_ttf = 0;
+		chip->ttf.last_ms = 0;
 		chip->ttf.mode = ttf_mode;
 	}
 
@@ -3007,11 +3012,33 @@ cv_estimate:
 	fg_dbg(chip, FG_TTF, "t_predicted_cv=%d\n", t_predicted_cv);
 	t_predicted += t_predicted_cv;
 
+	fg_dbg(chip, FG_TTF, "t_predicted_prefilter=%d\n", t_predicted);
+	if (chip->ttf.last_ms != 0) {
+		delta_ms = ktime_ms_delta(ktime_get_boottime(),
+					  ms_to_ktime(chip->ttf.last_ms));
+		if (delta_ms > 10000) {
+			ttf_slope = div64_s64(
+				(s64)(t_predicted - chip->ttf.last_ttf) *
+				MICRO_UNIT, delta_ms);
+			if (ttf_slope > -100)
+				ttf_slope = -100;
+			else if (ttf_slope < -2000)
+				ttf_slope = -2000;
+
+			t_predicted = div_s64(
+				(s64)ttf_slope * delta_ms, MICRO_UNIT) +
+				chip->ttf.last_ttf;
+			fg_dbg(chip, FG_TTF, "ttf_slope=%d\n", ttf_slope);
+		} else {
+			t_predicted = chip->ttf.last_ttf;
+		}
+	}
+
 	/* clamp the ttf to 0 */
 	if (t_predicted < 0)
 		t_predicted = 0;
 
-	fg_dbg(chip, FG_TTF, "t_predicted=%d\n", t_predicted);
+	fg_dbg(chip, FG_TTF, "t_predicted_postfilter=%d\n", t_predicted);
 	*val = t_predicted;
 	return 0;
 }
@@ -3239,6 +3266,7 @@ static void ttf_work(struct work_struct *work)
 	struct fg_chip *chip = container_of(work, struct fg_chip,
 					    ttf_work.work);
 	int rc, ibatt_now, vbatt_now, ttf;
+	ktime_t ktime_now;
 
 	mutex_lock(&chip->ttf.lock);
 	if (chip->charge_status != POWER_SUPPLY_STATUS_CHARGING &&
@@ -3274,6 +3302,15 @@ static void ttf_work(struct work_struct *work)
 							msecs_to_jiffies(1500));
 			mutex_unlock(&chip->ttf.lock);
 			return;
+		}
+
+		/* update the TTF reference point every minute */
+		ktime_now = ktime_get_boottime();
+		if (ktime_ms_delta(ktime_now,
+				   ms_to_ktime(chip->ttf.last_ms)) > 60000 ||
+				   chip->ttf.last_ms == 0) {
+			chip->ttf.last_ttf = ttf;
+			chip->ttf.last_ms = ktime_to_ms(ktime_now);
 		}
 	}
 
