@@ -130,7 +130,7 @@ static int pppolac_recv_core(struct sock *sk_udp, struct sk_buff *skb)
 
 	/* Fix PPP protocol if it is compressed. */
 	if (skb->len >= 1 && skb->data[0] & 1)
-		skb_push(skb, 1)[0] = 0;
+		*(u8 *)skb_push(skb, 1) = 0;
 
 	/* Drop the packet if PPP protocol is missing. */
 	if (skb->len < 2)
