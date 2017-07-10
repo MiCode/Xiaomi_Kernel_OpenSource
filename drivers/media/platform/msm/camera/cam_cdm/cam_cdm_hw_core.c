@@ -618,8 +618,7 @@ int cam_hw_cdm_alloc_genirq_mem(void *hw_priv)
 	genirq_alloc_cmd.align = 0;
 	genirq_alloc_cmd.size = (8 * CAM_CDM_HWFIFO_SIZE);
 	genirq_alloc_cmd.smmu_hdl = cdm_core->iommu_hdl.non_secure;
-	genirq_alloc_cmd.flags = 0;
-	genirq_alloc_cmd.region = CAM_MEM_MGR_REGION_NON_SECURE_IO;
+	genirq_alloc_cmd.flags = CAM_MEM_FLAG_HW_READ_WRITE;
 	rc = cam_mem_mgr_request_mem(&genirq_alloc_cmd,
 		&genirq_alloc_out);
 	if (rc) {
