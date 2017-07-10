@@ -1102,51 +1102,65 @@ static int ext4_get_context(struct inode *inode, void *ctx, size_t len)
 				 EXT4_XATTR_NAME_ENCRYPTION_CONTEXT, ctx, len);
 }
 
-static int ext4_key_prefix(struct inode *inode, u8 **key)
-{
-	*key = EXT4_SB(inode->i_sb)->key_prefix;
-	return EXT4_SB(inode->i_sb)->key_prefix_size;
-}
-
-static int ext4_prepare_context(struct inode *inode)
-{
-	return ext4_convert_inline_data(inode);
-}
-
 static int ext4_set_context(struct inode *inode, const void *ctx, size_t len,
 							void *fs_data)
 {
-	handle_t *handle;
-	int res, res2;
+	handle_t *handle = fs_data;
+	int res, res2, retries = 0;
 
-	/* fs_data is null when internally used. */
-	if (fs_data) {
-		res  = ext4_xattr_set(inode, EXT4_XATTR_INDEX_ENCRYPTION,
-				EXT4_XATTR_NAME_ENCRYPTION_CONTEXT, ctx,
-				len, 0);
+	res = ext4_convert_inline_data(inode);
+	if (res)
+		return res;
+
+	/*
+	 * If a journal handle was specified, then the encryption context is
+	 * being set on a new inode via inheritance and is part of a larger
+	 * transaction to create the inode.  Otherwise the encryption context is
+	 * being set on an existing inode in its own transaction.  Only in the
+	 * latter case should the "retry on ENOSPC" logic be used.
+	 */
+
+	if (handle) {
+		res = ext4_xattr_set_handle(handle, inode,
+					    EXT4_XATTR_INDEX_ENCRYPTION,
+					    EXT4_XATTR_NAME_ENCRYPTION_CONTEXT,
+					    ctx, len, 0);
 		if (!res) {
 			ext4_set_inode_flag(inode, EXT4_INODE_ENCRYPT);
 			ext4_clear_inode_state(inode,
 					EXT4_STATE_MAY_INLINE_DATA);
+			/*
+			 * Update inode->i_flags - e.g. S_DAX may get disabled
+			 */
+			ext4_set_inode_flags(inode);
 		}
 		return res;
 	}
 
+	res = dquot_initialize(inode);
+	if (res)
+		return res;
+retry:
 	handle = ext4_journal_start(inode, EXT4_HT_MISC,
 			ext4_jbd2_credits_xattr(inode));
 	if (IS_ERR(handle))
 		return PTR_ERR(handle);
 
-	res = ext4_xattr_set(inode, EXT4_XATTR_INDEX_ENCRYPTION,
-			EXT4_XATTR_NAME_ENCRYPTION_CONTEXT, ctx,
-			len, 0);
+	res = ext4_xattr_set_handle(handle, inode, EXT4_XATTR_INDEX_ENCRYPTION,
+				    EXT4_XATTR_NAME_ENCRYPTION_CONTEXT,
+				    ctx, len, 0);
 	if (!res) {
 		ext4_set_inode_flag(inode, EXT4_INODE_ENCRYPT);
+		/* Update inode->i_flags - e.g. S_DAX may get disabled */
+		ext4_set_inode_flags(inode);
 		res = ext4_mark_inode_dirty(handle, inode);
 		if (res)
 			EXT4_ERROR_INODE(inode, "Failed to mark inode dirty");
 	}
 	res2 = ext4_journal_stop(handle);
+
+	if (res == -ENOSPC && ext4_should_retry_alloc(inode->i_sb, &retries))
+		goto retry;
 	if (!res)
 		res = res2;
 	return res;
@@ -1163,10 +1177,9 @@ static unsigned ext4_max_namelen(struct inode *inode)
 		EXT4_NAME_LEN;
 }
 
-static struct fscrypt_operations ext4_cryptops = {
+static const struct fscrypt_operations ext4_cryptops = {
+	.key_prefix		= "ext4:",
 	.get_context		= ext4_get_context,
-	.key_prefix		= ext4_key_prefix,
-	.prepare_context	= ext4_prepare_context,
 	.set_context		= ext4_set_context,
 	.dummy_context		= ext4_dummy_context,
 	.is_encrypted		= ext4_encrypted_inode,
@@ -1174,7 +1187,7 @@ static struct fscrypt_operations ext4_cryptops = {
 	.max_namelen		= ext4_max_namelen,
 };
 #else
-static struct fscrypt_operations ext4_cryptops = {
+static const struct fscrypt_operations ext4_cryptops = {
 	.is_encrypted		= ext4_encrypted_inode,
 };
 #endif
@@ -4199,11 +4212,6 @@ no_journal:
 	ratelimit_state_init(&sbi->s_msg_ratelimit_state, 5 * HZ, 10);
 
 	kfree(orig_data);
-#ifdef CONFIG_EXT4_FS_ENCRYPTION
-	memcpy(sbi->key_prefix, EXT4_KEY_DESC_PREFIX,
-				EXT4_KEY_DESC_PREFIX_SIZE);
-	sbi->key_prefix_size = EXT4_KEY_DESC_PREFIX_SIZE;
-#endif
 	return 0;
 
 cantfind_ext4:
