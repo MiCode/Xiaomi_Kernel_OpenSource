@@ -121,4 +121,6 @@ config WCNSS_MEM_PRE_ALLOC
 	 for it's internal usage and release it to back to pre allocated pool.
 	 This memory is allocated at the cold boot time.
 
+source "drivers/net/wireless/cnss_utils/Kconfig"
+
 endif # WLAN
