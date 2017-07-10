@@ -336,9 +336,6 @@ static void wdsp_glink_notify_state(void *handle, const void *priv,
 		if (ch->free_mem) {
 			kfree(ch);
 			ch = NULL;
-		} else {
-			/* Open the glink channel again */
-			queue_work(wpriv->work_queue, &ch->lcl_ch_open_wrk);
 		}
 	} else if (event == GLINK_REMOTE_DISCONNECTED) {
 		dev_dbg(wpriv->dev, "%s: remote channel: %s disconnected remotely\n",
