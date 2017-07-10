@@ -1893,11 +1893,6 @@ struct drm_msm_ext_panel_hdr_metadata *hdr_meta)
 		return;
 	}
 
-	if (!connector->hdr_supported) {
-		SDE_ERROR("Sink does not support HDR\n");
-		return;
-	}
-
 	/* Setup Packet header and payload */
 	packet_header = type_code | (version << 8) | (length << 16);
 	hdmi_write(hdmi, HDMI_GENERIC0_HDR, packet_header);
@@ -2308,8 +2303,14 @@ int sde_hdmi_pre_kickoff(struct drm_connector *connector,
 	struct msm_display_kickoff_params *params)
 {
 
-	sde_hdmi_panel_set_hdr_infoframe(display,
-		params->hdr_metadata);
+	if (!connector || !display || !params) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	if (connector->hdr_supported)
+		sde_hdmi_panel_set_hdr_infoframe(display,
+			params->hdr_metadata);
 
 	return 0;
 }
