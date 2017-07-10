@@ -976,12 +976,15 @@ static int __validate_layer_reconfig(struct mdp_input_layer *layer,
 {
 	int status = 0;
 	struct mdss_mdp_format_params *src_fmt;
+	struct mdss_data_type *mdata = mfd_to_mdata(pipe->mfd);
 
 	/*
-	 * csc registers are not double buffered. It is not permitted
-	 * to change them on staged pipe with YUV layer.
+	 * csc registers are not double buffered earlier to sdm 3.x.x.
+	 * It is not permitted to change them on staged pipe
+	 * with YUV layer.
 	 */
-	if (pipe->csc_coeff_set != layer->color_space) {
+	if (mdata->mdp_rev < MDSS_MDP_HW_REV_300 &&
+		pipe->csc_coeff_set != layer->color_space) {
 		src_fmt = mdss_mdp_get_format_params(layer->buffer.format);
 		if (!src_fmt) {
 			pr_err("Invalid layer format %d\n",
