@@ -112,14 +112,12 @@ config SND_SOC_INT_CODEC
 	select MSM_CDC_PINCTRL
 	select SND_SOC_MSM_SDW
 	select SND_SOC_SDM660_CDC
-	select SND_SOC_MSM_HDMI_CODEC_RX
 	select QTI_PP
 	select DTS_SRS_TM
 	select DOLBY_LICENSE
 	select SND_HWDEP
 	select MSM_ULTRASOUND
 	select DTS_EAGLE
-	select SND_SOC_SDM660_COMMON
 	select SND_SOC_COMPRESS
 	select PINCTRL_LPI
 	help
@@ -144,7 +142,6 @@ config SND_SOC_EXT_CODEC
 	select SND_SOC_WCD9335
 	select SND_SOC_WCD934X
 	select SND_SOC_WSA881X
-	select SND_SOC_MSM_HDMI_CODEC_RX
 	select MFD_CORE
 	select QTI_PP
 	select DTS_SRS_TM
@@ -154,7 +151,6 @@ config SND_SOC_EXT_CODEC
 	select SND_HWDEP
 	select MSM_ULTRASOUND
 	select DTS_EAGLE
-	select SND_SOC_SDM660_COMMON
 	select SND_SOC_COMPRESS
 	select PINCTRL_LPI
 	help
@@ -233,12 +229,12 @@ config SND_SOC_MSM8998
 	 DAI-links
 
 config SND_SOC_660
-	tristate "SoC Machine driver for SDM660 boards"
-	depends on ARCH_SDM660
+	tristate "SoC Machine driver for SDM660/670 boards"
+	depends on ARCH_SDM660 || ARCH_SDM670
 	select SND_SOC_INT_CODEC
 	select SND_SOC_EXT_CODEC
 	help
-	 To add support for SoC audio on SDM660.
+	 To add support for SoC audio on SDM660/670.
 	 This will enable sound soc drivers which
 	 interfaces with DSP, also it will enable
 	 the machine driver and the corresponding

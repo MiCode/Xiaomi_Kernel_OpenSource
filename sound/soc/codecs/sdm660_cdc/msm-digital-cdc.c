@@ -1157,7 +1157,7 @@ int msm_dig_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 
 	msm_dig = snd_soc_codec_get_drvdata(codec);
 	card = codec->component.card;
-	msm_dig->entry = snd_register_module_info(codec_root->module,
+	msm_dig->entry = snd_info_create_subdir(codec_root->module,
 						  "msm_digital_codec",
 						  codec_root);
 	if (!msm_dig->entry) {
@@ -2037,13 +2037,15 @@ static struct snd_soc_codec_driver soc_msm_dig_codec = {
 	.remove = msm_dig_cdc_soc_remove,
 	.suspend = msm_dig_cdc_suspend,
 	.resume = msm_dig_cdc_resume,
-	.controls = msm_dig_snd_controls,
-	.num_controls = ARRAY_SIZE(msm_dig_snd_controls),
-	.dapm_widgets = msm_dig_dapm_widgets,
-	.num_dapm_widgets = ARRAY_SIZE(msm_dig_dapm_widgets),
-	.dapm_routes = audio_dig_map,
-	.num_dapm_routes = ARRAY_SIZE(audio_dig_map),
 	.get_regmap = msm_digital_get_regmap,
+	.component_driver = {
+		.controls = msm_dig_snd_controls,
+		.num_controls = ARRAY_SIZE(msm_dig_snd_controls),
+		.dapm_widgets = msm_dig_dapm_widgets,
+		.num_dapm_widgets = ARRAY_SIZE(msm_dig_dapm_widgets),
+		.dapm_routes = audio_dig_map,
+		.num_dapm_routes = ARRAY_SIZE(audio_dig_map),
+	},
 };
 
 const struct regmap_config msm_digital_regmap_config = {
