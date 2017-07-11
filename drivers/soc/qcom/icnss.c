@@ -84,34 +84,58 @@ module_param(qmi_timeout, ulong, 0600);
 	} while (0)
 
 #define icnss_pr_err(_fmt, ...) do {					\
-		pr_err(_fmt, ##__VA_ARGS__);				\
-		icnss_ipc_log_string("ERR: " pr_fmt(_fmt),		\
-				     ##__VA_ARGS__);			\
+	printk("%s" pr_fmt(_fmt), KERN_ERR, ##__VA_ARGS__);		\
+	icnss_ipc_log_string("%s" pr_fmt(_fmt), "",			\
+			     ##__VA_ARGS__);				\
 	} while (0)
 
 #define icnss_pr_warn(_fmt, ...) do {					\
-		pr_warn(_fmt, ##__VA_ARGS__);				\
-		icnss_ipc_log_string("WRN: " pr_fmt(_fmt),		\
-				     ##__VA_ARGS__);			\
+	printk("%s" pr_fmt(_fmt), KERN_WARNING, ##__VA_ARGS__);		\
+	icnss_ipc_log_string("%s" pr_fmt(_fmt), "",			\
+			     ##__VA_ARGS__);				\
 	} while (0)
 
 #define icnss_pr_info(_fmt, ...) do {					\
-		pr_info(_fmt, ##__VA_ARGS__);				\
-		icnss_ipc_log_string("INF: " pr_fmt(_fmt),		\
-				     ##__VA_ARGS__);			\
+	printk("%s" pr_fmt(_fmt), KERN_INFO, ##__VA_ARGS__);		\
+	icnss_ipc_log_string("%s" pr_fmt(_fmt), "",			\
+			     ##__VA_ARGS__);				\
 	} while (0)
 
+#if defined(CONFIG_DYNAMIC_DEBUG)
 #define icnss_pr_dbg(_fmt, ...) do {					\
-		pr_debug(_fmt, ##__VA_ARGS__);				\
-		icnss_ipc_log_string("DBG: " pr_fmt(_fmt),		\
-				     ##__VA_ARGS__);			\
+	pr_debug(_fmt, ##__VA_ARGS__);					\
+	icnss_ipc_log_string(pr_fmt(_fmt), ##__VA_ARGS__);		\
 	} while (0)
 
 #define icnss_pr_vdbg(_fmt, ...) do {					\
-		pr_debug(_fmt, ##__VA_ARGS__);				\
-		icnss_ipc_log_long_string("DBG: " pr_fmt(_fmt),		\
-				     ##__VA_ARGS__);			\
+	pr_debug(_fmt, ##__VA_ARGS__);					\
+	icnss_ipc_log_long_string(pr_fmt(_fmt), ##__VA_ARGS__);		\
 	} while (0)
+#elif defined(DEBUG)
+#define icnss_pr_dbg(_fmt, ...) do {					\
+	printk("%s" pr_fmt(_fmt), KERN_DEBUG, ##__VA_ARGS__);		\
+	icnss_ipc_log_string("%s" pr_fmt(_fmt), "",			\
+			     ##__VA_ARGS__);				\
+	} while (0)
+
+#define icnss_pr_vdbg(_fmt, ...) do {					\
+	printk("%s" pr_fmt(_fmt), KERN_DEBUG, ##__VA_ARGS__);		\
+	icnss_ipc_log_long_string("%s" pr_fmt(_fmt), "",		\
+				  ##__VA_ARGS__);			\
+	} while (0)
+#else
+#define icnss_pr_dbg(_fmt, ...) do {					\
+	no_printk("%s" pr_fmt(_fmt), KERN_DEBUG, ##__VA_ARGS__);	\
+	icnss_ipc_log_string("%s" pr_fmt(_fmt), "",			\
+		     ##__VA_ARGS__);					\
+	} while (0)
+
+#define icnss_pr_vdbg(_fmt, ...) do {					\
+	no_printk("%s" pr_fmt(_fmt), KERN_DEBUG, ##__VA_ARGS__);	\
+	icnss_ipc_log_long_string("%s" pr_fmt(_fmt), "",		\
+				  ##__VA_ARGS__);			\
+	} while (0)
+#endif
 
 #ifdef CONFIG_ICNSS_DEBUG
 #define ICNSS_ASSERT(_condition) do {					\
