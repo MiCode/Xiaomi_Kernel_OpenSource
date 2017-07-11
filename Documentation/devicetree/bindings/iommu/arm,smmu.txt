@@ -91,6 +91,11 @@ conditions.
 		  a four level page table configuration. Set to use a three
 		  level page table instead.
 
+- qcom,no-asid-retention:
+		  Some hardware may lose internal state for asid after
+		  retention. No cache invalidation operations involving asid
+		  may be used.
+
 - clocks        : List of clocks to be used during SMMU register access. See
                   Documentation/devicetree/bindings/clock/clock-bindings.txt
                   for information about the format. For each clock specified
