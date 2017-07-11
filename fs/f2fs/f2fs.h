@@ -2238,13 +2238,11 @@ static inline bool is_dot_dotdot(const struct qstr *str)
 
 static inline bool f2fs_may_extent_tree(struct inode *inode)
 {
-	mode_t mode = inode->i_mode;
-
 	if (!test_opt(F2FS_I_SB(inode), EXTENT_CACHE) ||
 			is_inode_flag_set(inode, FI_NO_EXTENT))
 		return false;
 
-	return S_ISREG(mode);
+	return S_ISREG(inode->i_mode);
 }
 
 static inline void *f2fs_kmalloc(struct f2fs_sb_info *sbi,
@@ -2259,7 +2257,7 @@ static inline void *f2fs_kmalloc(struct f2fs_sb_info *sbi,
 	return kmalloc(size, flags);
 }
 
-static inline void *f2fs_kvmalloc(size_t size, gfp_t flags)
+static inline void *kvmalloc(size_t size, gfp_t flags)
 {
 	void *ret;
 
@@ -2269,7 +2267,7 @@ static inline void *f2fs_kvmalloc(size_t size, gfp_t flags)
 	return ret;
 }
 
-static inline void *f2fs_kvzalloc(size_t size, gfp_t flags)
+static inline void *kvzalloc(size_t size, gfp_t flags)
 {
 	void *ret;
 
@@ -2338,9 +2336,9 @@ void f2fs_drop_nlink(struct inode *dir, struct inode *inode);
 struct f2fs_dir_entry *__f2fs_find_entry(struct inode *dir,
 			struct fscrypt_name *fname, struct page **res_page);
 struct f2fs_dir_entry *f2fs_find_entry(struct inode *dir,
-			struct qstr *child, struct page **res_page);
+			const struct qstr *child, struct page **res_page);
 struct f2fs_dir_entry *f2fs_parent_dir(struct inode *dir, struct page **p);
-ino_t f2fs_inode_by_name(struct inode *dir, struct qstr *qstr,
+ino_t f2fs_inode_by_name(struct inode *dir, const struct qstr *qstr,
 			struct page **page);
 void f2fs_set_link(struct inode *dir, struct f2fs_dir_entry *de,
 			struct page *page, struct inode *inode);
@@ -2916,11 +2914,12 @@ static inline void set_opt_mode(struct f2fs_sb_info *sbi, unsigned int mt)
 static inline bool f2fs_may_encrypt(struct inode *inode)
 {
 #ifdef CONFIG_F2FS_FS_ENCRYPTION
-	mode_t mode = inode->i_mode;
+	umode_t mode = inode->i_mode;
 
 	return (S_ISREG(mode) || S_ISDIR(mode) || S_ISLNK(mode));
 #else
 	return 0;
 #endif
 }
+
 #endif
