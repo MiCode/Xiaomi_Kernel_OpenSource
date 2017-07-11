@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -618,7 +618,8 @@ bool is_secure_vmid_valid(int vmid)
 		vmid == VMID_CP_CAMERA ||
 		vmid == VMID_CP_SEC_DISPLAY ||
 		vmid == VMID_CP_APP ||
-		vmid == VMID_CP_CAMERA_PREVIEW);
+		vmid == VMID_CP_CAMERA_PREVIEW ||
+		vmid == VMID_CP_SPSS_SP);
 }
 
 int get_secure_vmid(unsigned long flags)
@@ -639,6 +640,8 @@ int get_secure_vmid(unsigned long flags)
 		return VMID_CP_APP;
 	if (flags & ION_FLAG_CP_CAMERA_PREVIEW)
 		return VMID_CP_CAMERA_PREVIEW;
+	if (flags & ION_FLAG_CP_SPSS_SP)
+		return VMID_CP_SPSS_SP;
 	return -EINVAL;
 }
 /* fix up the cases where the ioctl direction bits are incorrect */
