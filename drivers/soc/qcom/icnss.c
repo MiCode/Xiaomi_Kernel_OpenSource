@@ -3334,6 +3334,7 @@ static int icnss_smmu_init(struct icnss_priv *priv)
 	struct dma_iommu_mapping *mapping;
 	int atomic_ctx = 1;
 	int s1_bypass = 1;
+	int fast = 1;
 	int ret = 0;
 
 	icnss_pr_dbg("Initializing SMMU\n");
@@ -3347,7 +3348,17 @@ static int icnss_smmu_init(struct icnss_priv *priv)
 		goto map_fail;
 	}
 
-	if (!priv->bypass_s1_smmu) {
+	if (priv->bypass_s1_smmu) {
+		ret = iommu_domain_set_attr(mapping->domain,
+					    DOMAIN_ATTR_S1_BYPASS,
+					    &s1_bypass);
+		if (ret < 0) {
+			icnss_pr_err("Set s1_bypass attribute failed, err = %d\n",
+				     ret);
+			goto set_attr_fail;
+		}
+		icnss_pr_dbg("SMMU S1 BYPASS\n");
+	} else {
 		ret = iommu_domain_set_attr(mapping->domain,
 					    DOMAIN_ATTR_ATOMIC,
 					    &atomic_ctx);
@@ -3356,14 +3367,17 @@ static int icnss_smmu_init(struct icnss_priv *priv)
 				     ret);
 			goto set_attr_fail;
 		}
-	}
+		icnss_pr_dbg("SMMU ATTR ATOMIC\n");
 
-	ret = iommu_domain_set_attr(mapping->domain,
-				    DOMAIN_ATTR_S1_BYPASS,
-				    &s1_bypass);
-	if (ret < 0) {
-		icnss_pr_err("Set s1_bypass attribute failed, err = %d\n", ret);
-		goto set_attr_fail;
+		ret = iommu_domain_set_attr(mapping->domain,
+					    DOMAIN_ATTR_FAST,
+					    &fast);
+		if (ret < 0) {
+			icnss_pr_err("Set fast map attribute failed, err = %d\n",
+				     ret);
+			goto set_attr_fail;
+		}
+		icnss_pr_dbg("SMMU FAST map set\n");
 	}
 
 	ret = arm_iommu_attach_device(&priv->pdev->dev, mapping);
