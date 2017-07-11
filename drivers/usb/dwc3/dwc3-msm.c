@@ -319,7 +319,7 @@ static inline u32 dwc3_msm_read_reg_field(void __iomem *base,
 					  u32 offset,
 					  const u32 mask)
 {
-	u32 shift = ffs(mask);
+	u32 shift = __ffs(mask);
 	u32 val = ioread32(base + offset);
 
 	val &= mask;		/* clear other bits */
@@ -353,7 +353,7 @@ static inline void dwc3_msm_write_reg(void __iomem *base, u32 offset, u32 val)
 static inline void dwc3_msm_write_reg_field(void __iomem *base, u32 offset,
 					    const u32 mask, u32 val)
 {
-	u32 shift = find_first_bit((void *)&mask, 32);
+	u32 shift = __ffs(mask);
 	u32 tmp = ioread32(base + offset);
 
 	tmp &= ~mask;		/* clear written bits */
