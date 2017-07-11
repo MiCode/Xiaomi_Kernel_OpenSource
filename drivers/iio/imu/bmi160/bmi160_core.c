@@ -264,7 +264,7 @@ static int bmi160_acc_gyro_early_buff_init(void)
 	client_data->acc_bufsample_cnt = 0;
 	client_data->gyro_bufsample_cnt = 0;
 	client_data->report_evt_cnt = 5;
-	client_data->max_buffer_time = 20;
+	client_data->max_buffer_time = 40;
 
 	client_data->bmi_acc_cachepool = kmem_cache_create("acc_sensor_sample",
 			sizeof(struct bmi_acc_sample),
