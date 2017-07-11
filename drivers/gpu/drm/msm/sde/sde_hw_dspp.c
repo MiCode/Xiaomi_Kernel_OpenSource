@@ -87,6 +87,17 @@ static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 					reg_dmav1_setup_dspp_vlutv18;
 			}
 			break;
+		case SDE_DSPP_HIST:
+			if (c->cap->sblk->hist.version ==
+				(SDE_COLOR_PROCESS_VER(0x1, 0x7))) {
+				c->ops.setup_histogram =
+				    sde_setup_dspp_hist_v1_7;
+				c->ops.read_histogram =
+				    sde_read_dspp_hist_v1_7;
+				c->ops.lock_histogram =
+				    sde_lock_dspp_hist_v1_7;
+			}
+			break;
 		case SDE_DSPP_GAMUT:
 			if (c->cap->sblk->gamut.version ==
 					SDE_COLOR_PROCESS_VER(0x4, 0)) {

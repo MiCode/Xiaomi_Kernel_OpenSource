@@ -29,6 +29,25 @@ enum sde_memcolor_type {
 	MEMCOLOR_FOLIAGE
 };
 
+/*
+ * PA HISTOGRAM modes
+ * @HIST_DISABLED          Histogram disabled
+ * @HIST_ENABLED           Histogram enabled
+ */
+enum sde_hist_modes {
+	HIST_DISABLED,
+	HIST_ENABLED
+};
+
+/**
+ * struct drm_prop_enum_list - drm structure for creating enum property and
+ *                             enumerating values
+ */
+static const struct drm_prop_enum_list sde_hist_modes[] = {
+	{HIST_DISABLED, "hist_off"},
+	{HIST_ENABLED, "hist_on"},
+};
+
 /**
  * sde_cp_crtc_init(): Initialize color processing lists for a crtc.
  *                     Should be called during crtc initialization.

@@ -23,6 +23,9 @@
 #define PA_VAL_DSPP_OFF		0x240
 #define PA_CONT_DSPP_OFF	0x244
 
+#define PA_HIST_CTRL_DSPP_OFF	0x4
+#define PA_HIST_DATA_DSPP_OFF	0x400
+
 #define PA_LUTV_DSPP_OFF	0x1400
 #define PA_LUT_SWAP_OFF		0x234
 
@@ -66,6 +69,7 @@
 #define DSPP_OP_PA_CONT_EN	BIT(28)
 #define DSPP_OP_PA_EN		BIT(20)
 #define DSPP_OP_PA_LUTV_EN	BIT(19)
+#define DSPP_OP_PA_HIST_EN	BIT(16)
 #define DSPP_OP_PA_SKIN_EN	BIT(5)
 #define DSPP_OP_PA_FOL_EN	BIT(6)
 #define DSPP_OP_PA_SKY_EN	BIT(7)
@@ -502,4 +506,70 @@ void sde_setup_dspp_gc_v1_7(struct sde_hw_dspp *ctx, void *cfg)
 			BIT(0));
 	i = BIT(0) | ((payload->flags & PGC_8B_ROUND) ? BIT(1) : 0);
 	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->gc.base, i);
+}
+
+void sde_setup_dspp_hist_v1_7(struct sde_hw_dspp *ctx, void *cfg)
+{
+	u32 base, offset;
+	u32 op_mode;
+	bool feature_enabled;
+
+	if (!ctx || !cfg) {
+		DRM_ERROR("invalid parameters ctx %pK cfg %pK", ctx, cfg);
+		return;
+	}
+
+	feature_enabled = *(bool *)cfg;
+	base = ctx->cap->sblk->hist.base;
+	offset = base + PA_HIST_CTRL_DSPP_OFF;
+
+	op_mode = SDE_REG_READ(&ctx->hw, base);
+	if (!feature_enabled) {
+		op_mode &= ~DSPP_OP_PA_HIST_EN;
+		if (PA_DSPP_DISABLE_REQUIRED(op_mode))
+			op_mode &= ~DSPP_OP_PA_EN;
+	} else {
+		op_mode |= DSPP_OP_PA_HIST_EN | DSPP_OP_PA_EN;
+	}
+
+	SDE_REG_WRITE(&ctx->hw, offset, 0);
+	SDE_REG_WRITE(&ctx->hw, base, op_mode);
+}
+
+void sde_read_dspp_hist_v1_7(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct drm_msm_hist *hist_data;
+	u32 offset, offset_ctl;
+	u32 i;
+
+	if (!ctx || !cfg) {
+		DRM_ERROR("invalid parameters ctx %pK cfg %pK", ctx, cfg);
+		return;
+	}
+
+	hist_data = (struct drm_msm_hist *)cfg;
+	offset = ctx->cap->sblk->hist.base + PA_HIST_DATA_DSPP_OFF;
+	offset_ctl = ctx->cap->sblk->hist.base + PA_HIST_CTRL_DSPP_OFF;
+
+	for (i = 0; i < HIST_V_SIZE; i++)
+		hist_data->data[i] = SDE_REG_READ(&ctx->hw, offset + i * 4) &
+					REG_MASK(24);
+
+	/* unlock hist buffer */
+	SDE_REG_WRITE(&ctx->hw, offset_ctl, 0);
+}
+
+void sde_lock_dspp_hist_v1_7(struct sde_hw_dspp *ctx, void *cfg)
+{
+	u32 offset_ctl;
+
+	if (!ctx) {
+		DRM_ERROR("invalid parameters ctx %pK", ctx);
+		return;
+	}
+
+	offset_ctl = ctx->cap->sblk->hist.base + PA_HIST_CTRL_DSPP_OFF;
+
+	/* lock hist buffer */
+	SDE_REG_WRITE(&ctx->hw, offset_ctl, 1);
 }

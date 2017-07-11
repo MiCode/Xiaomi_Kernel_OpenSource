@@ -62,6 +62,8 @@ static void dspp_gc_install_property(struct drm_crtc *crtc);
 
 static void dspp_igc_install_property(struct drm_crtc *crtc);
 
+static void dspp_hist_install_property(struct drm_crtc *crtc);
+
 typedef void (*dspp_prop_install_func_t)(struct drm_crtc *crtc);
 
 static dspp_prop_install_func_t dspp_prop_install_func[SDE_DSPP_MAX];
@@ -86,6 +88,7 @@ do { \
 	func[SDE_DSPP_GAMUT] = dspp_gamut_install_property; \
 	func[SDE_DSPP_GC] = dspp_gc_install_property; \
 	func[SDE_DSPP_IGC] = dspp_igc_install_property; \
+	func[SDE_DSPP_HIST] = dspp_hist_install_property; \
 } while (0)
 
 typedef void (*lm_prop_install_func_t)(struct drm_crtc *crtc);
@@ -111,7 +114,8 @@ enum {
 	SDE_CP_CRTC_DSPP_SIXZONE,
 	SDE_CP_CRTC_DSPP_GAMUT,
 	SDE_CP_CRTC_DSPP_DITHER,
-	SDE_CP_CRTC_DSPP_HIST,
+	SDE_CP_CRTC_DSPP_HIST_CTRL,
+	SDE_CP_CRTC_DSPP_HIST_IRQ,
 	SDE_CP_CRTC_DSPP_AD,
 	SDE_CP_CRTC_DSPP_VLUT,
 	SDE_CP_CRTC_DSPP_AD_MODE,
@@ -532,6 +536,42 @@ static void sde_cp_crtc_install_enum_property(struct drm_crtc *crtc,
 	sde_cp_crtc_prop_attach(&prop_attach);
 }
 
+static void _sde_cp_crtc_enable_hist_irq(struct sde_crtc *sde_crtc)
+{
+	struct drm_crtc *crtc_drm = &sde_crtc->base;
+	struct sde_kms *kms = NULL;
+	struct sde_hw_mixer *hw_lm;
+	struct sde_hw_dspp *hw_dspp = NULL;
+	int i, irq_idx;
+
+	if (!crtc_drm) {
+		DRM_ERROR("invalid crtc %pK\n", crtc_drm);
+		return;
+	}
+
+	kms = get_kms(crtc_drm);
+
+	for (i = 0; i < sde_crtc->num_mixers; i++) {
+		hw_lm = sde_crtc->mixers[i].hw_lm;
+		hw_dspp = sde_crtc->mixers[i].hw_dspp;
+		if (!hw_lm->cfg.right_mixer)
+			break;
+	}
+
+	if (!hw_dspp) {
+		DRM_ERROR("invalid dspp\n");
+		return;
+	}
+
+	irq_idx = sde_core_irq_idx_lookup(kms, SDE_IRQ_TYPE_HIST_DSPP_DONE,
+					hw_dspp->idx);
+	if (irq_idx < 0) {
+		DRM_ERROR("failed to get irq idx\n");
+		return;
+	}
+	sde_core_irq_enable(kms, &irq_idx, 1);
+}
+
 static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 				   struct sde_crtc *sde_crtc)
 {
@@ -639,6 +679,21 @@ static void sde_cp_crtc_setfeature(struct sde_cp_node *prop_node,
 				continue;
 			}
 			hw_lm->ops.setup_gc(hw_lm, &hw_cfg);
+			break;
+		case SDE_CP_CRTC_DSPP_HIST_CTRL:
+			if (!hw_dspp || !hw_dspp->ops.setup_histogram) {
+				ret = -EINVAL;
+				continue;
+			}
+			hw_dspp->ops.setup_histogram(hw_dspp, &feature_enabled);
+			break;
+		case SDE_CP_CRTC_DSPP_HIST_IRQ:
+			if (!hw_dspp || !hw_lm) {
+				ret = -EINVAL;
+				continue;
+			}
+			if (!hw_lm->cfg.right_mixer)
+				_sde_cp_crtc_enable_hist_irq(sde_crtc);
 			break;
 		case SDE_CP_CRTC_DSPP_AD_MODE:
 			if (!hw_dspp || !hw_dspp->ops.setup_ad) {
@@ -1288,6 +1343,30 @@ static void dspp_igc_install_property(struct drm_crtc *crtc)
 	case 3:
 		sde_cp_crtc_install_blob_property(crtc, feature_name,
 			SDE_CP_CRTC_DSPP_IGC, sizeof(struct drm_msm_igc_lut));
+		break;
+	default:
+		DRM_ERROR("version %d not supported\n", version);
+		break;
+	}
+}
+
+static void dspp_hist_install_property(struct drm_crtc *crtc)
+{
+	struct sde_kms *kms = NULL;
+	struct sde_mdss_cfg *catalog = NULL;
+	u32 version;
+
+	kms = get_kms(crtc);
+	catalog = kms->catalog;
+
+	version = catalog->dspp[0].sblk->hist.version >> 16;
+	switch (version) {
+	case 1:
+		sde_cp_crtc_install_enum_property(crtc,
+			SDE_CP_CRTC_DSPP_HIST_CTRL, sde_hist_modes,
+			ARRAY_SIZE(sde_hist_modes), "SDE_DSPP_HIST_CTRL_V1");
+		sde_cp_crtc_install_range_property(crtc, "SDE_DSPP_HIST_IRQ_V1",
+			SDE_CP_CRTC_DSPP_HIST_IRQ, 0, U16_MAX, 0);
 		break;
 	default:
 		DRM_ERROR("version %d not supported\n", version);
