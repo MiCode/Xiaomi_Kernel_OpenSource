@@ -1864,7 +1864,7 @@ static int sde_plane_rot_submit_command(struct drm_plane *plane,
 		struct sde_hw_fmt_layout layout;
 
 		memset(&layout, 0, sizeof(struct sde_hw_fmt_layout));
-		sde_format_populate_layout(rstate->aspace, state->fb,
+		sde_format_populate_layout(pstate->aspace, state->fb,
 				&layout);
 		for (i = 0; i < ARRAY_SIZE(rot_cmd->src_iova); i++) {
 			rot_cmd->src_iova[i] = layout.plane_addr[i];
@@ -1873,7 +1873,7 @@ static int sde_plane_rot_submit_command(struct drm_plane *plane,
 		rot_cmd->src_planes = layout.num_planes;
 
 		memset(&layout, 0, sizeof(struct sde_hw_fmt_layout));
-		sde_format_populate_layout(rstate->aspace, rstate->out_fb,
+		sde_format_populate_layout(pstate->aspace, rstate->out_fb,
 				&layout);
 		for (i = 0; i < ARRAY_SIZE(rot_cmd->dst_iova); i++) {
 			rot_cmd->dst_iova[i] = layout.plane_addr[i];
@@ -2066,7 +2066,6 @@ static int sde_plane_rot_prepare_fb(struct drm_plane *plane,
 
 		SDE_DEBUG("plane%d.%d allocate fb/fbo\n", plane->base.id,
 				new_rstate->sequence_id);
-		new_rstate->aspace = new_pstate->aspace;
 
 		/* check if out_fb is already attached to rotator */
 		new_rstate->out_fbo = sde_kms_fbo_alloc(plane->dev, fb_w, fb_h,
@@ -2105,9 +2104,9 @@ static int sde_plane_rot_prepare_fb(struct drm_plane *plane,
 	}
 
 	/* prepare rotator input buffer */
-	ret = msm_framebuffer_prepare(new_state->fb, new_rstate->aspace);
+	ret = msm_framebuffer_prepare(new_state->fb, new_pstate->aspace);
 	if (ret) {
-		SDE_ERROR("failed to prepare input framebuffer\n");
+		SDE_ERROR("failed to prepare input framebuffer, %d\n", ret);
 		goto error_prepare_input_buffer;
 	}
 
@@ -2117,9 +2116,10 @@ static int sde_plane_rot_prepare_fb(struct drm_plane *plane,
 				new_rstate->sequence_id);
 
 		ret = msm_framebuffer_prepare(new_rstate->out_fb,
-				new_rstate->aspace);
+				new_pstate->aspace);
 		if (ret) {
-			SDE_ERROR("failed to prepare inline framebuffer\n");
+			SDE_ERROR("failed to prepare inline framebuffer, %d\n",
+					ret);
 			goto error_prepare_output_buffer;
 		}
 	}
@@ -2127,7 +2127,7 @@ static int sde_plane_rot_prepare_fb(struct drm_plane *plane,
 	return 0;
 
 error_prepare_output_buffer:
-	msm_framebuffer_cleanup(new_state->fb, new_rstate->aspace);
+	msm_framebuffer_cleanup(new_state->fb, new_pstate->aspace);
 error_prepare_input_buffer:
 	sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FB,
 			(u64) &new_rstate->rot_hw->base);
@@ -2183,7 +2183,7 @@ static void sde_plane_rot_cleanup_fb(struct drm_plane *plane,
 	if (sde_plane_enabled(old_state)) {
 		if (old_rstate->out_fb) {
 			msm_framebuffer_cleanup(old_rstate->out_fb,
-					old_rstate->aspace);
+					old_pstate->aspace);
 			sde_crtc_res_put(cstate, SDE_CRTC_RES_ROT_OUT_FB,
 					(u64) &old_rstate->rot_hw->base);
 			old_rstate->out_fb = NULL;
@@ -2192,7 +2192,7 @@ static void sde_plane_rot_cleanup_fb(struct drm_plane *plane,
 			old_rstate->out_fbo = NULL;
 		}
 
-		msm_framebuffer_cleanup(old_state->fb, old_rstate->aspace);
+		msm_framebuffer_cleanup(old_state->fb, old_pstate->aspace);
 	}
 }
 
@@ -2747,16 +2747,19 @@ static void sde_plane_cleanup_fb(struct drm_plane *plane,
 		struct drm_plane_state *old_state)
 {
 	struct sde_plane *psde = to_sde_plane(plane);
+	struct sde_plane_state *old_pstate;
 	struct sde_plane_rot_state *old_rstate;
 
-	if (!old_state->fb)
+	if (!old_state || !old_state->fb)
 		return;
+
+	old_pstate = to_sde_plane_state(old_state);
 
 	SDE_DEBUG_PLANE(psde, "FB[%u]\n", old_state->fb->base.id);
 
-	old_rstate = &to_sde_plane_state(old_state)->rot;
+	old_rstate = &old_pstate->rot;
 
-	msm_framebuffer_cleanup(old_rstate->out_fb, old_rstate->aspace);
+	msm_framebuffer_cleanup(old_rstate->out_fb, old_pstate->aspace);
 
 	sde_plane_rot_cleanup_fb(plane, old_state);
 }

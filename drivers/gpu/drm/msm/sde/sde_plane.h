@@ -34,7 +34,6 @@
  * @rot90: true if rotation of 90 degree is required
  * @hflip: true if horizontal flip is required
  * @vflip: true if vertical flip is required
- * @aspace:  pointer address space for input/output buffers
  * @rot_cmd: rotator configuration command
  * @nplane: total number of drm plane attached to rotator
  * @in_fb: input fb attached to rotator
@@ -64,7 +63,6 @@ struct sde_plane_rot_state {
 	bool rot90;
 	bool hflip;
 	bool vflip;
-	struct msm_gem_address_space *aspace;
 	struct sde_hw_rot_cmd rot_cmd;
 	int nplane;
 	/* input */
