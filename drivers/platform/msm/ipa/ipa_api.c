@@ -172,6 +172,7 @@ const char *ipa_clients_strings[IPA_CLIENT_MAX] = {
 	__stringify(IPA_CLIENT_TEST3_CONS),
 	__stringify(IPA_CLIENT_TEST4_PROD),
 	__stringify(IPA_CLIENT_TEST4_CONS),
+	__stringify(IPA_CLIENT_DUMMY_CONS),
 };
 
 /**

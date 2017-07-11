@@ -669,7 +669,8 @@ int cam_hw_cdm_init(void *hw_priv,
 	soc_info = &cdm_hw->soc_info;
 	cdm_core = (struct cam_cdm *)cdm_hw->core_info;
 
-	rc = cam_soc_util_enable_platform_resource(soc_info, true, true);
+	rc = cam_soc_util_enable_platform_resource(soc_info, true,
+		CAM_SVS_VOTE, true);
 	if (rc) {
 		pr_err("Enable platform failed\n");
 		goto end;

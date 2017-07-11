@@ -263,14 +263,9 @@ struct cam_sensor_power_ctrl_t {
 	uint16_t power_setting_size;
 	struct cam_sensor_power_setting *power_down_setting;
 	uint16_t power_down_setting_size;
-	struct msm_camera_gpio_conf *gpio_conf;
-	struct camera_vreg_t *cam_vreg;
-	int num_vreg;
-	struct clk **clk_ptr;
-	struct msm_cam_clk_info *clk_info;
+	struct msm_camera_gpio_num_info *gpio_num_info;
 	struct msm_pinctrl_info pinctrl_info;
 	uint8_t cam_pinctrl_status;
-	size_t clk_info_size;
 };
 
 struct cam_camera_slave_info {

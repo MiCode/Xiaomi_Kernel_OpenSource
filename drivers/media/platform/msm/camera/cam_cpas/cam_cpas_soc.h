@@ -59,6 +59,7 @@ struct cam_cpas_private_soc {
 int cam_cpas_soc_init_resources(struct cam_hw_soc_info *soc_info,
 	irq_handler_t vfe_irq_handler, void *irq_data);
 int cam_cpas_soc_deinit_resources(struct cam_hw_soc_info *soc_info);
-int cam_cpas_soc_enable_resources(struct cam_hw_soc_info *soc_info);
+int cam_cpas_soc_enable_resources(struct cam_hw_soc_info *soc_info,
+	enum cam_vote_level default_level);
 int cam_cpas_soc_disable_resources(struct cam_hw_soc_info *soc_info);
 #endif /* _CAM_CPAS_SOC_H_ */

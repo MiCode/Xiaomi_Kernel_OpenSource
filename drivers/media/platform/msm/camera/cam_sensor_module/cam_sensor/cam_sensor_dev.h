@@ -30,7 +30,6 @@
 #include <cam_cci_dev.h>
 #include <cam_sensor_cmn_header.h>
 #include <cam_subdev.h>
-#include <cam_sensor_soc_api.h>
 #include <cam_sensor_io.h>
 
 #define NUM_MASTERS 2
@@ -91,6 +90,7 @@ struct intf_params {
  */
 struct cam_sensor_ctrl_t {
 	struct platform_device *pdev;
+	struct cam_hw_soc_info soc_info;
 	struct mutex cam_sensor_mutex;
 	struct cam_sensor_board_info *sensordata;
 	enum cci_i2c_master_t cci_i2c_master;

@@ -24,6 +24,7 @@
 #include "msm_drv.h"
 #include "msm_kms.h"
 #include "msm_gpu.h"
+#include "msm_mmu.h"
 #include "dsi_ctrl.h"
 #include "dsi_ctrl_hw.h"
 #include "dsi_clk.h"
@@ -250,6 +251,16 @@ static int dsi_ctrl_debugfs_deinit(struct dsi_ctrl *dsi_ctrl)
 {
 	debugfs_remove(dsi_ctrl->debugfs_root);
 	return 0;
+}
+
+static inline struct msm_gem_address_space*
+dsi_ctrl_get_aspace(struct dsi_ctrl *dsi_ctrl,
+		int domain)
+{
+	if (!dsi_ctrl || !dsi_ctrl->drm_dev)
+		return NULL;
+
+	return msm_gem_smmu_address_space_get(dsi_ctrl->drm_dev, domain);
 }
 
 static int dsi_ctrl_check_state(struct dsi_ctrl *dsi_ctrl,
@@ -1170,8 +1181,17 @@ static int dsi_ctrl_drv_state_init(struct dsi_ctrl *dsi_ctrl)
 
 static int dsi_ctrl_buffer_deinit(struct dsi_ctrl *dsi_ctrl)
 {
+	struct msm_gem_address_space *aspace = NULL;
+
 	if (dsi_ctrl->tx_cmd_buf) {
-		msm_gem_put_iova(dsi_ctrl->tx_cmd_buf, 0);
+		aspace = dsi_ctrl_get_aspace(dsi_ctrl,
+				MSM_SMMU_DOMAIN_UNSECURE);
+		if (!aspace) {
+			pr_err("failed to get address space\n");
+			return -ENOMEM;
+		}
+
+		msm_gem_put_iova(dsi_ctrl->tx_cmd_buf, aspace);
 
 		msm_gem_free_object(dsi_ctrl->tx_cmd_buf);
 		dsi_ctrl->tx_cmd_buf = NULL;
@@ -1184,6 +1204,13 @@ int dsi_ctrl_buffer_init(struct dsi_ctrl *dsi_ctrl)
 {
 	int rc = 0;
 	u32 iova = 0;
+	struct msm_gem_address_space *aspace = NULL;
+
+	aspace = dsi_ctrl_get_aspace(dsi_ctrl, MSM_SMMU_DOMAIN_UNSECURE);
+	if (!aspace) {
+		pr_err("failed to get address space\n");
+		return -ENOMEM;
+	}
 
 	dsi_ctrl->tx_cmd_buf = msm_gem_new(dsi_ctrl->drm_dev,
 					   SZ_4K,
@@ -1198,7 +1225,7 @@ int dsi_ctrl_buffer_init(struct dsi_ctrl *dsi_ctrl)
 
 	dsi_ctrl->cmd_buffer_size = SZ_4K;
 
-	rc = msm_gem_get_iova(dsi_ctrl->tx_cmd_buf, 0, &iova);
+	rc = msm_gem_get_iova(dsi_ctrl->tx_cmd_buf, aspace, &iova);
 	if (rc) {
 		pr_err("failed to get iova, rc=%d\n", rc);
 		(void)dsi_ctrl_buffer_deinit(dsi_ctrl);

@@ -19,6 +19,7 @@
 #include <dt-bindings/clock/qcom,videocc-sdm845.h>
 #include <dt-bindings/clock/qcom,cpucc-sdm845.h>
 #include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/soc/qcom,tcs-mbox.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 
 / {
@@ -552,6 +553,30 @@
 		#reset-cells = <1>;
 	};
 
+	slim_aud: slim@62dc0000 {
+		cell-index = <1>;
+		compatible = "qcom,slim-ngd";
+		reg = <0x62dc0000 0x2c000>,
+			<0x62d84000 0x2a000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 163 0>, <0 164 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x780000>;
+		qcom,ea-pc = <0x290>;
+		status = "disabled";
+	};
+
+	slim_qca: slim@62e40000 {
+		cell-index = <3>;
+		compatible = "qcom,slim-ngd";
+		reg = <0x62e40000 0x2c000>,
+			<0x62e04000 0x20000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 291 0>, <0 292 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		status = "disabled";
+	};
+
 	wdog: qcom,wdt@17980000{
 		compatible = "qcom,msm-watchdog";
 		reg = <0x17980000 0x1000>;
@@ -966,6 +991,29 @@
 		};
 	};
 
+	cmd_db: qcom,cmd-db@c3f000c {
+		compatible = "qcom,cmd-db";
+		reg = <0xc3f000c 0x8>;
+	};
+
+	apps_rsc: mailbox@179e0000 {
+		compatible = "qcom,tcs-drv";
+		label = "apps_rsc";
+		reg = <0x179e0000 0x100>, <0x179e0d00 0x3000>;
+		interrupts = <0 5 0>;
+		#mbox-cells = <1>;
+		qcom,drv-id = <2>;
+		qcom,tcs-config = <ACTIVE_TCS  2>,
+				<SLEEP_TCS     3>,
+				<WAKE_TCS      3>,
+				<CONTROL_TCS   1>;
+	};
+
+	system_pm {
+		compatible = "qcom,system-pm";
+		mboxes = <&apps_rsc 0>;
+	};
+
 	dcc: dcc_v2@10a2000 {
 		compatible = "qcom,dcc_v2";
 		reg = <0x10a2000 0x1000>,
@@ -1052,11 +1100,44 @@
 
 		status = "disabled";
 	};
+
+	qcom,lpass@62400000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x62400000 0x00100>;
+		interrupts = <0 162 1>;
+
+		vdd_cx-supply = <&pm660l_l9_level>;
+		qcom,proxy-reg-names = "vdd_cx";
+		qcom,vdd_cx-uV-uA = <RPMH_REGULATOR_LEVEL_TURBO 100000>;
+
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "xo";
+		qcom,proxy-clock-names = "xo";
+
+		qcom,pas-id = <1>;
+		qcom,proxy-timeout-ms = <10000>;
+		qcom,smem-id = <423>;
+		qcom,sysmon-id = <1>;
+		qcom,ssctl-instance-id = <0x14>;
+		qcom,firmware-name = "adsp";
+		memory-region = <&pil_adsp_mem>;
+
+		/* GPIO inputs from lpass */
+		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_2_in 0 0>;
+		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_2_in 2 0>;
+		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_2_in 1 0>;
+		qcom,gpio-stop-ack = <&smp2pgpio_ssr_smp2p_2_in 3 0>;
+
+		/* GPIO output to lpass */
+		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
+		status = "ok";
+	};
 };
 
 #include "sdm670-pinctrl.dtsi"
 #include "msm-arm-smmu-sdm670.dtsi"
 #include "msm-gdsc-sdm845.dtsi"
+#include "sdm670-pm.dtsi"
 
 &usb30_prim_gdsc {
 	status = "ok";

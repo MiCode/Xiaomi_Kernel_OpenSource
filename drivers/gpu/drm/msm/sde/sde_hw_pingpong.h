@@ -17,6 +17,7 @@
 #include "sde_hw_mdss.h"
 #include "sde_hw_util.h"
 #include "sde_hw_blk.h"
+#include <uapi/drm/msm_drm_pp.h>
 
 struct sde_hw_pingpong;
 
@@ -62,6 +63,7 @@ struct sde_hw_dsc_cfg {
  *  @setup_dsc : program DSC block with encoding details
  *  @enable_dsc : enables DSC encoder
  *  @disable_dsc : disables DSC encoder
+ *  @setup_dither : function to program the dither hw block
  */
 struct sde_hw_pingpong_ops {
 	/**
@@ -123,6 +125,11 @@ struct sde_hw_pingpong_ops {
 	 * Disables DSC encoder
 	 */
 	void (*disable_dsc)(struct sde_hw_pingpong *pp);
+
+	/**
+	 * Program the dither hw block
+	 */
+	int (*setup_dither)(struct sde_hw_pingpong *pp, void *cfg, size_t len);
 };
 
 struct sde_hw_pingpong {

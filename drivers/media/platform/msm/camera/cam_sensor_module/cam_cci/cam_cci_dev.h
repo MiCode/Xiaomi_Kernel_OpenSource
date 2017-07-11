@@ -31,12 +31,12 @@
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-subdev.h>
 #include <cam_sensor_cmn_header.h>
-#include <cam_sensor_soc_api.h>
 #include <cam_io_util.h>
 #include <cam_sensor_util.h>
 #include <cam_subdev.h>
 #include <cam_cpas_api.h>
 #include "cam_cci_hwreg.h"
+#include "cam_soc_util.h"
 
 #define V4L2_IDENT_CCI 50005
 #define CCI_I2C_QUEUE_0_SIZE 128
@@ -206,36 +206,25 @@ enum cam_cci_state_t {
  */
 struct cci_device {
 	struct v4l2_subdev subdev;
-	struct resource *irq;
-	void __iomem *base;
+	struct cam_hw_soc_info soc_info;
 	uint32_t hw_version;
 	uint8_t ref_count;
 	enum cam_cci_state_t cci_state;
-	size_t num_clk;
-	struct clk **cci_clk;
-	struct msm_cam_clk_info *cci_clk_info;
 	struct cam_cci_i2c_queue_info
 		cci_i2c_queue_info[NUM_MASTERS][NUM_QUEUES];
 	struct cam_cci_master_info cci_master_info[NUM_MASTERS];
 	enum i2c_freq_mode i2c_freq_mode[NUM_MASTERS];
 	struct cam_cci_clk_params_t cci_clk_params[I2C_MAX_MODES];
-	struct gpio *cci_gpio_tbl;
-	uint8_t cci_gpio_tbl_size;
 	struct msm_pinctrl_info cci_pinctrl;
 	uint8_t cci_pinctrl_status;
-	uint32_t cci_clk_src;
-	struct camera_vreg_t *cci_vreg;
-	struct regulator *cci_reg_ptr[MAX_REGULATOR];
-	int32_t regulator_count;
 	uint8_t support_seq_write;
 	struct workqueue_struct *write_wq[MASTER_MAX];
 	struct cam_cci_wait_sync_cfg cci_wait_sync_cfg;
 	uint8_t valid_sync;
 	struct cam_subdev v4l2_dev_str;
 	uint32_t cycles_per_us;
+	int32_t clk_level_index;
 	uint8_t payload_size;
-	size_t num_clk_cases;
-	uint32_t **cci_clk_rates;
 	char device_name[20];
 	uint32_t cpas_handle;
 };

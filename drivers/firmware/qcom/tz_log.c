@@ -477,10 +477,10 @@ static int _disp_tz_reset_stats(void)
 
 static int _disp_tz_interrupt_stats(void)
 {
-	int i, j, int_info_size;
+	int i, j;
 	int len = 0;
 	int *num_int;
-	unsigned char *ptr;
+	void *ptr;
 	struct tzdbg_int_t *tzdbg_ptr;
 	struct tzdbg_int_t_tz40 *tzdbg_ptr_tz40;
 
@@ -488,14 +488,12 @@ static int _disp_tz_interrupt_stats(void)
 			(tzdbg.diag_buf->int_info_off - sizeof(uint32_t)));
 	ptr = ((unsigned char *)tzdbg.diag_buf +
 					tzdbg.diag_buf->int_info_off);
-	int_info_size = ((tzdbg.diag_buf->ring_off -
-				tzdbg.diag_buf->int_info_off)/(*num_int));
 
 	pr_info("qsee_version = 0x%x\n", tzdbg.tz_version);
 
 	if (tzdbg.tz_version < QSEE_VERSION_TZ_4_X) {
+		tzdbg_ptr = ptr;
 		for (i = 0; i < (*num_int); i++) {
-			tzdbg_ptr = (struct tzdbg_int_t *)ptr;
 			len += snprintf(tzdbg.disp_buf + len,
 				(debug_rw_buf_size - 1) - len,
 				"     Interrupt Number          : 0x%x\n"
@@ -519,11 +517,11 @@ static int _disp_tz_interrupt_stats(void)
 								__func__);
 				break;
 			}
-			ptr += int_info_size;
+			tzdbg_ptr++;
 		}
 	} else {
+		tzdbg_ptr_tz40 = ptr;
 		for (i = 0; i < (*num_int); i++) {
-			tzdbg_ptr_tz40 = (struct tzdbg_int_t_tz40 *)ptr;
 			len += snprintf(tzdbg.disp_buf + len,
 				(debug_rw_buf_size - 1) - len,
 				"     Interrupt Number          : 0x%x\n"
@@ -547,7 +545,7 @@ static int _disp_tz_interrupt_stats(void)
 								__func__);
 				break;
 			}
-			ptr += int_info_size;
+			tzdbg_ptr_tz40++;
 		}
 	}
 

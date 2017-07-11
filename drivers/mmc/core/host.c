@@ -224,7 +224,7 @@ void mmc_host_clk_release(struct mmc_host *host)
 	host->clk_requests--;
 	if (mmc_host_may_gate_card(host->card) &&
 	    !host->clk_requests)
-		schedule_delayed_work(&host->clk_gate_work,
+		queue_delayed_work(host->clk_gate_wq, &host->clk_gate_work,
 				      msecs_to_jiffies(host->clkgate_delay));
 	spin_unlock_irqrestore(&host->clk_lock, flags);
 }
@@ -283,6 +283,8 @@ static inline void mmc_host_clk_exit(struct mmc_host *host)
 		mmc_host_clk_gate_delayed(host);
 	if (host->clk_gated)
 		mmc_host_clk_hold(host);
+	if (host->clk_gate_wq)
+		destroy_workqueue(host->clk_gate_wq);
 	/* There should be only one user now */
 	WARN_ON(host->clk_requests > 1);
 }
@@ -297,6 +299,42 @@ static inline void mmc_host_clk_sysfs_init(struct mmc_host *host)
 	if (device_create_file(&host->class_dev, &host->clkgate_delay_attr))
 		pr_err("%s: Failed to create clkgate_delay sysfs entry\n",
 				mmc_hostname(host));
+}
+
+static inline bool mmc_host_clk_gate_wq_init(struct mmc_host *host)
+{
+	char *wq = NULL;
+	int wq_nl;
+	bool ret = true;
+
+	wq_nl = sizeof("mmc_clk_gate/") + sizeof(mmc_hostname(host)) + 1;
+
+	wq = kzalloc(wq_nl, GFP_KERNEL);
+	if (!wq) {
+		ret = false;
+		goto out;
+	}
+
+	snprintf(wq, wq_nl, "mmc_clk_gate/%s", mmc_hostname(host));
+
+	/*
+	 * Create a work queue with flag WQ_MEM_RECLAIM set for
+	 * mmc clock gate work. Because mmc thread is created with
+	 * flag PF_MEMALLOC set, kernel will check for work queue
+	 * flag WQ_MEM_RECLAIM when flush the work queue. If work
+	 * queue flag WQ_MEM_RECLAIM is not set, kernel warning
+	 * will be triggered.
+	 */
+	host->clk_gate_wq = create_workqueue(wq);
+	if (!host->clk_gate_wq) {
+		ret = false;
+		dev_err(host->parent,
+				"failed to create clock gate work queue\n");
+	}
+
+	kfree(wq);
+out:
+	return ret;
 }
 #else
 
@@ -315,6 +353,11 @@ static inline void mmc_host_clk_sysfs_init(struct mmc_host *host)
 bool mmc_host_may_gate_card(struct mmc_card *card)
 {
 	return false;
+}
+
+static inline bool mmc_host_clk_gate_wq_init(struct mmc_host *host)
+{
+	return true;
 }
 #endif
 
@@ -641,6 +684,11 @@ again:
 
 	if (mmc_gpio_alloc(host)) {
 		put_device(&host->class_dev);
+		return NULL;
+	}
+
+	if (!mmc_host_clk_gate_wq_init(host)) {
+		kfree(host);
 		return NULL;
 	}
 

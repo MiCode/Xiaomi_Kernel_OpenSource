@@ -257,7 +257,10 @@ static void sde_hw_sspp_setup_multirect(struct sde_hw_pipe *ctx,
 	} else {
 		mode_mask = SDE_REG_READ(&ctx->hw, SSPP_MULTIRECT_OPMODE + idx);
 		mode_mask |= index;
-		mode_mask |= (mode == SDE_SSPP_MULTIRECT_TIME_MX) ? 0x4 : 0x0;
+		if (mode == SDE_SSPP_MULTIRECT_TIME_MX)
+			mode_mask |= BIT(2);
+		else
+			mode_mask &= ~BIT(2);
 	}
 
 	SDE_REG_WRITE(&ctx->hw, SSPP_MULTIRECT_OPMODE + idx, mode_mask);

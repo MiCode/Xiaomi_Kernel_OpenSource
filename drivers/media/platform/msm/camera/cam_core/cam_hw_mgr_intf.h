@@ -51,7 +51,7 @@ struct cam_hw_update_entry {
  * struct cam_hw_fence_map_entry - Entry for the resource to sync id map
  *
  * @resrouce_handle:       Resource port id for the buffer
- * @sync_id:               Synce id
+ * @sync_id:               Sync id
  *
  */
 struct cam_hw_fence_map_entry {
@@ -65,12 +65,14 @@ struct cam_hw_fence_map_entry {
  * @num_handles:           number of handles in the event
  * @resrouce_handle:       list of the resource handle
  * @timestamp:             time stamp
+ * @request_id:            request identifier
  *
  */
 struct cam_hw_done_event_data {
 	uint32_t           num_handles;
 	uint32_t           resource_handle[CAM_NUM_OUT_PER_COMP_IRQ_MAX];
 	struct timeval     timestamp;
+	uint64_t           request_id;
 };
 
 /**
@@ -95,10 +97,12 @@ struct cam_hw_acquire_args {
  * struct cam_hw_release_args - Payload for release command
  *
  * @ctxt_to_hw_map:        HW context from the acquire
+ * @active_req:            Active request flag
  *
  */
 struct cam_hw_release_args {
 	void              *ctxt_to_hw_map;
+	bool               active_req;
 };
 
 /**

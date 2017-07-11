@@ -1033,6 +1033,12 @@ void sde_cp_crtc_suspend(struct drm_crtc *crtc)
 		sde_cp_update_list(prop_node, sde_crtc, true);
 		list_del_init(&prop_node->active_list);
 	}
+
+	list_for_each_entry_safe(prop_node, n, &sde_crtc->ad_active,
+				 active_list) {
+		sde_cp_update_list(prop_node, sde_crtc, true);
+		list_del_init(&prop_node->active_list);
+	}
 }
 
 void sde_cp_crtc_resume(struct drm_crtc *crtc)
@@ -1368,7 +1374,6 @@ int sde_cp_ad_interrupt(struct drm_crtc *crtc_drm, bool en,
 		return -EINVAL;
 	}
 
-	mutex_lock(&crtc->crtc_lock);
 	kms = get_kms(crtc_drm);
 	num_mixers = crtc->num_mixers;
 
@@ -1422,6 +1427,5 @@ int sde_cp_ad_interrupt(struct drm_crtc *crtc_drm, bool en,
 		sde_core_irq_unregister_callback(kms, irq_idx, ad_irq);
 	}
 exit:
-	mutex_unlock(&crtc->crtc_lock);
 	return ret;
 }

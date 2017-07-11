@@ -31,9 +31,9 @@
 #include <cam_sensor_cmn_header.h>
 #include <cam_req_mgr_interface.h>
 #include <cam_subdev.h>
-#include <cam_sensor_soc_api.h>
 #include <cam_io_util.h>
 #include <cam_cpas_api.h>
+#include "cam_soc_util.h"
 
 #define MAX_CSIPHY                  3
 #define MAX_DPHY_DATA_LN            4
@@ -175,19 +175,11 @@ struct csiphy_ctrl_t {
  *   device is for combo mode
  */
 struct csiphy_device {
-	struct resource *irq;
-	void __iomem *base;
 	struct mutex mutex;
 	uint32_t hw_version;
 	uint32_t csiphy_state;
 	struct csiphy_ctrl_t *ctrl_reg;
-	size_t num_clk;
 	uint32_t csiphy_max_clk;
-	int32_t num_vreg;
-	struct clk **csiphy_clk;
-	struct msm_cam_clk_info *csiphy_clk_info;
-	struct camera_vreg_t *csiphy_vreg;
-	struct regulator *csiphy_reg_ptr[MAX_REGULATOR];
 	struct msm_cam_clk_info csiphy_3p_clk_info[2];
 	struct clk *csiphy_3p_clk[2];
 	uint32_t csiphy_clk_index;
@@ -203,6 +195,7 @@ struct csiphy_device {
 	uint32_t acquire_count;
 	char device_name[20];
 	uint32_t is_acquired_dev_combo_mode;
+	struct cam_hw_soc_info   soc_info;
 	uint32_t cpas_handle;
 };
 

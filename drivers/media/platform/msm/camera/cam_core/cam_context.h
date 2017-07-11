@@ -100,6 +100,7 @@ struct cam_ctx_ioctl_ops {
  * @link:                  Link the context
  * @unlink:                Unlink the context
  * @apply_req:             Apply setting for the context
+ * @flush_req:             Flush request to remove request ids
  *
  */
 struct cam_ctx_crm_ops {
@@ -111,6 +112,8 @@ struct cam_ctx_crm_ops {
 			struct cam_req_mgr_core_dev_link_setup *unlink);
 	int (*apply_req)(struct cam_context *ctx,
 			struct cam_req_mgr_apply_request *apply);
+	int (*flush_req)(struct cam_context *ctx,
+			struct cam_req_mgr_flush_request *flush);
 };
 
 
@@ -182,7 +185,7 @@ struct cam_context {
 };
 
 /**
- * cam_context_handle_get_dev_info()
+ * cam_context_handle_crm_get_dev_info()
  *
  * @brief:        Handle get device information command
  *
@@ -190,11 +193,11 @@ struct cam_context {
  * @info:                  Device information returned
  *
  */
-int cam_context_handle_get_dev_info(struct cam_context *ctx,
+int cam_context_handle_crm_get_dev_info(struct cam_context *ctx,
 		struct cam_req_mgr_device_info *info);
 
 /**
- * cam_context_handle_link()
+ * cam_context_handle_crm_link()
  *
  * @brief:        Handle link command
  *
@@ -202,11 +205,11 @@ int cam_context_handle_get_dev_info(struct cam_context *ctx,
  * @link:                  Link command payload
  *
  */
-int cam_context_handle_link(struct cam_context *ctx,
+int cam_context_handle_crm_link(struct cam_context *ctx,
 		struct cam_req_mgr_core_dev_link_setup *link);
 
 /**
- * cam_context_handle_unlink()
+ * cam_context_handle_crm_unlink()
  *
  * @brief:        Handle unlink command
  *
@@ -214,11 +217,11 @@ int cam_context_handle_link(struct cam_context *ctx,
  * @unlink:                Unlink command payload
  *
  */
-int cam_context_handle_unlink(struct cam_context *ctx,
+int cam_context_handle_crm_unlink(struct cam_context *ctx,
 		struct cam_req_mgr_core_dev_link_setup *unlink);
 
 /**
- * cam_context_handle_apply_req()
+ * cam_context_handle_crm_apply_req()
  *
  * @brief:        Handle apply request command
  *
@@ -226,9 +229,20 @@ int cam_context_handle_unlink(struct cam_context *ctx,
  * @apply:                 Apply request command payload
  *
  */
-int cam_context_handle_apply_req(struct cam_context *ctx,
+int cam_context_handle_crm_apply_req(struct cam_context *ctx,
 		struct cam_req_mgr_apply_request *apply);
 
+/**
+ * cam_context_handle_crm_flush_req()
+ *
+ * @brief:        Handle flush request command
+ *
+ * @ctx:                   Object pointer for cam_context
+ * @apply:                 Flush request command payload
+ *
+ */
+int cam_context_handle_crm_flush_req(struct cam_context *ctx,
+		struct cam_req_mgr_flush_request *apply);
 
 /**
  * cam_context_handle_acquire_dev()

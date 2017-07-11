@@ -99,7 +99,6 @@ struct msm_gpu {
 	int irq;
 
 	struct msm_gem_address_space *aspace;
-	int id;
 
 	/* Power Control: */
 	struct regulator *gpu_reg, *gpu_cx;

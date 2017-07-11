@@ -28,48 +28,45 @@
 int cam_context_buf_done_from_hw(struct cam_context *ctx,
 	void *done_event_data, uint32_t bubble_state)
 {
-	int rc = 0;
-	int i, j;
+	int j;
+	int result;
 	struct cam_ctx_request *req;
 	struct cam_hw_done_event_data *done =
 		(struct cam_hw_done_event_data *)done_event_data;
 
 	if (list_empty(&ctx->active_req_list)) {
 		pr_err("Buf done with no active request\n");
-		rc = -EINVAL;
-		goto end;
+		return -EIO;
 	}
 
 	req = list_first_entry(&ctx->active_req_list,
 		struct cam_ctx_request, list);
 
-	for (i = 0; i < done->num_handles; i++) {
-		for (j = 0; j < req->num_out_map_entries; j++) {
-			if (done->resource_handle[i] ==
-				req->out_map_entries[j].resource_handle)
-				break;
-		}
+	if (done->request_id != req->request_id) {
+		pr_err("mismatch: done request [%lld], active request [%lld]\n",
+			done->request_id, req->request_id);
+		return -EIO;
+	}
 
-		if (j == req->num_out_map_entries) {
-			pr_err("Can not find matching lane handle 0x%x\n",
-				done->resource_handle[i]);
-			rc = -EINVAL;
-			continue;
-		}
+	if (!req->num_out_map_entries) {
+		pr_err("active request with no output fence objects to signal\n");
+		return -EIO;
+	}
 
-		cam_sync_signal(req->out_map_entries[j].sync_id,
-			CAM_SYNC_STATE_SIGNALED_SUCCESS);
-		req->num_out_acked++;
+	list_del_init(&req->list);
+	if (!bubble_state)
+		result = CAM_SYNC_STATE_SIGNALED_SUCCESS;
+	else
+		result = CAM_SYNC_STATE_SIGNALED_ERROR;
+
+	for (j = 0; j < req->num_out_map_entries; j++) {
+		cam_sync_signal(req->out_map_entries[j].sync_id, result);
 		req->out_map_entries[j].sync_id = -1;
 	}
 
-	if (req->num_out_acked == req->num_out_map_entries) {
-		list_del_init(&req->list);
-		list_add_tail(&req->list, &ctx->free_req_list);
-	}
+	list_add_tail(&req->list, &ctx->free_req_list);
 
-end:
-	return rc;
+	return 0;
 }
 
 int cam_context_apply_req_to_hw(struct cam_context *ctx,
@@ -114,64 +111,7 @@ end:
 	return rc;
 }
 
-int32_t cam_context_release_dev_to_hw(struct cam_context *ctx,
-	struct cam_release_dev_cmd *cmd)
-{
-	int rc = 0;
-	int i;
-	struct cam_hw_release_args arg;
-	struct cam_ctx_request *req;
-
-	if (!ctx->hw_mgr_intf) {
-		pr_err("HW interface is not ready\n");
-		rc = -EFAULT;
-		goto end;
-	}
-
-	if (ctx->ctxt_to_hw_map) {
-		arg.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
-		ctx->hw_mgr_intf->hw_release(ctx->hw_mgr_intf->hw_mgr_priv,
-			&arg);
-		ctx->ctxt_to_hw_map = NULL;
-	}
-
-	ctx->session_hdl = 0;
-	ctx->dev_hdl = 0;
-	ctx->link_hdl = 0;
-
-	while (!list_empty(&ctx->active_req_list)) {
-		req = list_first_entry(&ctx->active_req_list,
-			struct cam_ctx_request, list);
-		list_del_init(&req->list);
-		pr_warn("signal fence in active list. fence num %d\n",
-			req->num_out_map_entries);
-		for (i = 0; i < req->num_out_map_entries; i++) {
-			if (req->out_map_entries[i].sync_id != -1)
-				cam_sync_signal(req->out_map_entries[i].sync_id,
-					CAM_SYNC_STATE_SIGNALED_ERROR);
-		}
-		list_add_tail(&req->list, &ctx->free_req_list);
-	}
-
-	/* flush the pending queue */
-	while (!list_empty(&ctx->pending_req_list)) {
-		req = list_first_entry(&ctx->pending_req_list,
-			struct cam_ctx_request, list);
-		list_del_init(&req->list);
-		pr_debug("signal fence in pending list. fence num %d\n",
-			req->num_out_map_entries);
-		for (i = 0; i < req->num_out_map_entries; i++)
-			if (req->out_map_entries[i].sync_id != -1)
-				cam_sync_signal(req->out_map_entries[i].sync_id,
-					CAM_SYNC_STATE_SIGNALED_ERROR);
-		list_add_tail(&req->list, &ctx->free_req_list);
-	}
-
-end:
-	return rc;
-}
-
-void cam_context_sync_callback(int32_t sync_obj, int status, void *data)
+static void cam_context_sync_callback(int32_t sync_obj, int status, void *data)
 {
 	struct cam_context *ctx = data;
 	struct cam_ctx_request *req = NULL;
@@ -193,6 +133,67 @@ void cam_context_sync_callback(int32_t sync_obj, int status, void *data)
 		apply.request_id = req->request_id;
 		cam_context_apply_req_to_hw(ctx, &apply);
 	}
+}
+
+int32_t cam_context_release_dev_to_hw(struct cam_context *ctx,
+	struct cam_release_dev_cmd *cmd)
+{
+	int i;
+	struct cam_hw_release_args arg;
+	struct cam_ctx_request *req;
+
+	if ((!ctx->hw_mgr_intf) || (!ctx->hw_mgr_intf->hw_release)) {
+		pr_err("HW interface is not ready\n");
+		return -EINVAL;
+	}
+
+	arg.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
+	if ((list_empty(&ctx->active_req_list)) &&
+		(list_empty(&ctx->pending_req_list)))
+		arg.active_req = false;
+	else
+		arg.active_req = true;
+
+	ctx->hw_mgr_intf->hw_release(ctx->hw_mgr_intf->hw_mgr_priv, &arg);
+	ctx->ctxt_to_hw_map = NULL;
+
+	ctx->session_hdl = 0;
+	ctx->dev_hdl = 0;
+	ctx->link_hdl = 0;
+
+	while (!list_empty(&ctx->active_req_list)) {
+		req = list_first_entry(&ctx->active_req_list,
+			struct cam_ctx_request, list);
+		list_del_init(&req->list);
+		pr_debug("signal fence in active list. fence num %d\n",
+			req->num_out_map_entries);
+		for (i = 0; i < req->num_out_map_entries; i++) {
+			if (req->out_map_entries[i].sync_id > 0)
+				cam_sync_signal(req->out_map_entries[i].sync_id,
+					CAM_SYNC_STATE_SIGNALED_ERROR);
+		}
+		list_add_tail(&req->list, &ctx->free_req_list);
+	}
+
+	while (!list_empty(&ctx->pending_req_list)) {
+		req = list_first_entry(&ctx->pending_req_list,
+			struct cam_ctx_request, list);
+		list_del_init(&req->list);
+		for (i = 0; i < req->num_in_map_entries; i++)
+			if (req->in_map_entries[i].sync_id > 0)
+				cam_sync_deregister_callback(
+					cam_context_sync_callback, ctx,
+					req->in_map_entries[i].sync_id);
+		pr_debug("signal out fence in pending list. fence num %d\n",
+			req->num_out_map_entries);
+		for (i = 0; i < req->num_out_map_entries; i++)
+			if (req->out_map_entries[i].sync_id > 0)
+				cam_sync_signal(req->out_map_entries[i].sync_id,
+					CAM_SYNC_STATE_SIGNALED_ERROR);
+		list_add_tail(&req->list, &ctx->free_req_list);
+	}
+
+	return 0;
 }
 
 int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,

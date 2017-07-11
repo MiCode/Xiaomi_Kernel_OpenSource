@@ -546,6 +546,90 @@ static int ipa3_send_wan_msg(unsigned long usr_param, uint8_t msg_type)
 	return 0;
 }
 
+static void ipa3_vlan_l2tp_msg_free_cb(void *buff, u32 len, u32 type)
+{
+	if (!buff) {
+		IPAERR("Null buffer\n");
+		return;
+	}
+
+	if (type != ADD_VLAN_IFACE &&
+	    type != DEL_VLAN_IFACE &&
+	    type != ADD_L2TP_VLAN_MAPPING &&
+		type != DEL_L2TP_VLAN_MAPPING) {
+		IPAERR("Wrong type given. buff %pK type %d\n", buff, type);
+		return;
+	}
+
+	kfree(buff);
+}
+
+static int ipa3_send_vlan_l2tp_msg(unsigned long usr_param, uint8_t msg_type)
+{
+	int retval;
+	struct ipa_ioc_vlan_iface_info *vlan_info;
+	struct ipa_ioc_l2tp_vlan_mapping_info *mapping_info;
+	struct ipa_msg_meta msg_meta;
+
+	if (msg_type == ADD_VLAN_IFACE ||
+		msg_type == DEL_VLAN_IFACE) {
+		vlan_info = kzalloc(sizeof(struct ipa_ioc_vlan_iface_info),
+			GFP_KERNEL);
+		if (!vlan_info) {
+			IPAERR("no memory\n");
+			return -ENOMEM;
+		}
+
+		if (copy_from_user((u8 *)vlan_info, (void __user *)usr_param,
+			sizeof(struct ipa_ioc_vlan_iface_info))) {
+			kfree(vlan_info);
+			return -EFAULT;
+		}
+
+		memset(&msg_meta, 0, sizeof(msg_meta));
+		msg_meta.msg_type = msg_type;
+		msg_meta.msg_len = sizeof(struct ipa_ioc_vlan_iface_info);
+		retval = ipa3_send_msg(&msg_meta, vlan_info,
+			ipa3_vlan_l2tp_msg_free_cb);
+		if (retval) {
+			IPAERR("ipa3_send_msg failed: %d\n", retval);
+			kfree(vlan_info);
+			return retval;
+		}
+	} else if (msg_type == ADD_L2TP_VLAN_MAPPING ||
+		msg_type == DEL_L2TP_VLAN_MAPPING) {
+		mapping_info = kzalloc(sizeof(struct
+			ipa_ioc_l2tp_vlan_mapping_info), GFP_KERNEL);
+		if (!mapping_info) {
+			IPAERR("no memory\n");
+			return -ENOMEM;
+		}
+
+		if (copy_from_user((u8 *)mapping_info,
+			(void __user *)usr_param,
+			sizeof(struct ipa_ioc_l2tp_vlan_mapping_info))) {
+			kfree(mapping_info);
+			return -EFAULT;
+		}
+
+		memset(&msg_meta, 0, sizeof(msg_meta));
+		msg_meta.msg_type = msg_type;
+		msg_meta.msg_len = sizeof(struct
+			ipa_ioc_l2tp_vlan_mapping_info);
+		retval = ipa3_send_msg(&msg_meta, mapping_info,
+			ipa3_vlan_l2tp_msg_free_cb);
+		if (retval) {
+			IPAERR("ipa3_send_msg failed: %d\n", retval);
+			kfree(mapping_info);
+			return retval;
+		}
+	} else {
+		IPAERR("Unexpected event\n");
+		return -EFAULT;
+	}
+
+	return 0;
+}
 
 static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
@@ -1525,6 +1609,34 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 		memcpy(param, &ipa3_ctx->ipa_hw_type, pyld_sz);
 		if (copy_to_user((u8 *)arg, param, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+
+	case IPA_IOC_ADD_VLAN_IFACE:
+		if (ipa3_send_vlan_l2tp_msg(arg, ADD_VLAN_IFACE)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+
+	case IPA_IOC_DEL_VLAN_IFACE:
+		if (ipa3_send_vlan_l2tp_msg(arg, DEL_VLAN_IFACE)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+
+	case IPA_IOC_ADD_L2TP_VLAN_MAPPING:
+		if (ipa3_send_vlan_l2tp_msg(arg, ADD_L2TP_VLAN_MAPPING)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+
+	case IPA_IOC_DEL_L2TP_VLAN_MAPPING:
+		if (ipa3_send_vlan_l2tp_msg(arg, DEL_L2TP_VLAN_MAPPING)) {
 			retval = -EFAULT;
 			break;
 		}

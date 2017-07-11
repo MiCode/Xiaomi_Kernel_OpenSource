@@ -97,6 +97,12 @@ First Level Node - CAM CPAS device
   Value type: <u32>
   Definition: List of clocks rates.
 
+- clock-cntl-level
+  Usage: required
+  Value type: <string>
+  Definition: List of strings corresponds clock-rates levels.
+  Supported strings: minsvs, lowsvs, svs, svs_l1, nominal, turbo.
+
 - qcom,msm-bus,name
 - qcom,msm-bus,num-cases
 - qcom,msm-bus,num-paths
@@ -191,6 +197,7 @@ Example:
 			<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>;
 		src-clock-name = "slow_ahb_clk_src";
 		clock-rates = <0 0 0 0 80000000 0>;
+		clock-cntl-level = "turbo";
 		qcom,msm-bus,name = "cam_ahb";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <1>;

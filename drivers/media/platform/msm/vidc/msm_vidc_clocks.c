@@ -16,8 +16,8 @@
 #include "msm_vidc_debug.h"
 #include "msm_vidc_clocks.h"
 
-#define MSM_VIDC_MIN_UBWC_COMPLEXITY_FACTOR 1
-#define MSM_VIDC_MAX_UBWC_COMPLEXITY_FACTOR 4
+#define MSM_VIDC_MIN_UBWC_COMPLEXITY_FACTOR (1 << 16)
+#define MSM_VIDC_MAX_UBWC_COMPLEXITY_FACTOR (4 << 16)
 
 static inline unsigned long int get_ubwc_compression_ratio(
 	struct ubwc_cr_stats_info_type ubwc_stats_info)
@@ -104,8 +104,12 @@ static int fill_recon_stats(struct msm_vidc_inst *inst,
 		max_cf = max(max_cf, binfo->CF);
 	}
 	mutex_unlock(&inst->reconbufs.lock);
-	vote_data->compression_ratio = CR;
 
+	/* Sanitize CF values from HW . */
+	max_cf = min_t(u32, max_cf, MSM_VIDC_MAX_UBWC_COMPLEXITY_FACTOR);
+	min_cf = max_t(u32, min_cf, MSM_VIDC_MIN_UBWC_COMPLEXITY_FACTOR);
+
+	vote_data->compression_ratio = CR;
 	vote_data->complexity_factor = max_cf;
 	vote_data->use_dpb_read = false;
 	if (inst->clk_data.load <= inst->clk_data.load_norm) {
@@ -114,7 +118,7 @@ static int fill_recon_stats(struct msm_vidc_inst *inst,
 	}
 
 	dprintk(VIDC_DBG,
-		"Complression Ratio = %d Complexity Factor = %d\n",
+		"Compression Ratio = %d Complexity Factor = %d\n",
 			vote_data->compression_ratio,
 			vote_data->complexity_factor);
 
@@ -160,7 +164,8 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 		list_for_each_entry_safe(temp, next,
 				&inst->registeredbufs.list, list) {
 			if (temp->vvb.vb2_buf.type ==
-				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
+					temp->deferred) {
 				filled_len = max(filled_len,
 					temp->vvb.vb2_buf.planes[0].bytesused);
 				device_addr = temp->smem[0].device_addr;
@@ -260,6 +265,7 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst)
 	int rc = 0;
 	int fw_pending_bufs = 0;
 	int total_output_buf = 0;
+	int min_output_buf = 0;
 	int buffers_outside_fw = 0;
 	struct msm_vidc_core *core;
 	struct hal_buffer_requirements *output_buf_req;
@@ -294,16 +300,37 @@ static int msm_dcvs_scale_clocks(struct msm_vidc_inst *inst)
 	/* Total number of output buffers */
 	total_output_buf = output_buf_req->buffer_count_actual;
 
+	min_output_buf = output_buf_req->buffer_count_min;
+
 	/* Buffers outside FW are with display */
 	buffers_outside_fw = total_output_buf - fw_pending_bufs;
 	dprintk(VIDC_PROF,
-		"Counts : total_output_buf = %d fw_pending_bufs = %d buffers_outside_fw = %d\n",
-		total_output_buf, fw_pending_bufs, buffers_outside_fw);
+		"Counts : total_output_buf = %d Min buffers = %d fw_pending_bufs = %d buffers_outside_fw = %d\n",
+		total_output_buf, min_output_buf, fw_pending_bufs,
+			buffers_outside_fw);
 
-	if (buffers_outside_fw >=  dcvs->min_threshold)
-		dcvs->load = dcvs->load_low;
-	else if (buffers_outside_fw <= dcvs->max_threshold)
+	/*
+	 * PMS decides clock level based on below algo
+
+	 * Limits :
+	 * max_threshold : Client extra allocated buffers. Client
+	 * reserves these buffers for it's smooth flow.
+	 * min_output_buf : HW requested buffers for it's smooth
+	 * flow of buffers.
+	 * min_threshold : Driver requested extra buffers for PMS.
+
+	 * 1) When buffers outside FW are reaching client's extra buffers,
+	 *    FW is slow and will impact pipeline, Increase clock.
+	 * 2) When pending buffers with FW are same as FW requested,
+	 *    pipeline has cushion to absorb FW slowness, Decrease clocks.
+	 * 3) When none of 1) or 2) FW is just fast enough to maintain
+	 *    pipeline, request Right Clocks.
+	 */
+
+	if (buffers_outside_fw <= dcvs->max_threshold)
 		dcvs->load = dcvs->load_high;
+	else if (fw_pending_bufs <= min_output_buf)
+		dcvs->load = dcvs->load_low;
 	else
 		dcvs->load = dcvs->load_norm;
 
@@ -393,7 +420,7 @@ static unsigned long msm_vidc_max_freq(struct msm_vidc_core *core)
 
 	allowed_clks_tbl = core->resources.allowed_clks_tbl;
 	freq = allowed_clks_tbl[0].clock_rate;
-	dprintk(VIDC_PROF, "Max rate = %lu", freq);
+	dprintk(VIDC_PROF, "Max rate = %lu\n", freq);
 
 	return freq;
 }
@@ -571,7 +598,8 @@ int msm_comm_scale_clocks(struct msm_vidc_inst *inst)
 	mutex_lock(&inst->registeredbufs.lock);
 	list_for_each_entry_safe(temp, next, &inst->registeredbufs.list, list) {
 		if (temp->vvb.vb2_buf.type ==
-				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
+					temp->deferred) {
 			filled_len = max(filled_len,
 				temp->vvb.vb2_buf.planes[0].bytesused);
 			device_addr = temp->smem[0].device_addr;

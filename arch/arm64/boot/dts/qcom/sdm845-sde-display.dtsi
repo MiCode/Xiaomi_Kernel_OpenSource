@@ -412,6 +412,7 @@
 		qcom,dp-usbpd-detection = <&pmi8998_pdphy>;
 
 		qcom,aux-cfg-settings = [00 13 04 00 0a 26 0a 03 bb 03];
+		qcom,max-pclk-frequency-khz = <576000>;
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;

@@ -16,6 +16,7 @@
 #include <linux/clk.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 
@@ -37,6 +38,33 @@
 #define CAM_SOC_MAX_CLK             32
 
 /**
+ * enum cam_vote_level - Enum for voting level
+ *
+ * @CAM_SUSPEND_VOTE : Suspend vote
+ * @CAM_MINSVS_VOTE  : Min SVS vote
+ * @CAM_LOWSVS_VOTE  : Low SVS vote
+ * @CAM_SVS_VOTE     : SVS vote
+ * @CAM_SVSL1_VOTE   : SVS Plus vote
+ * @CAM_NOMINAL_VOTE : Nominal vote
+ * @CAM_TURBO_VOTE   : Turbo vote
+ * @CAM_MAX_VOTE     : Max voting level, This is invalid level.
+ */
+enum cam_vote_level {
+	CAM_SUSPEND_VOTE,
+	CAM_MINSVS_VOTE,
+	CAM_LOWSVS_VOTE,
+	CAM_SVS_VOTE,
+	CAM_SVSL1_VOTE,
+	CAM_NOMINAL_VOTE,
+	CAM_TURBO_VOTE,
+	CAM_MAX_VOTE,
+};
+
+/* pinctrl states */
+#define CAM_SOC_PINCTRL_STATE_SLEEP "cam_suspend"
+#define CAM_SOC_PINCTRL_STATE_DEFAULT "cam_default"
+
+/**
  * struct cam_soc_reg_map:   Information about the mapped register space
  *
  * @mem_base:               Starting location of MAPPED register space
@@ -48,6 +76,35 @@ struct cam_soc_reg_map {
 	void __iomem                   *mem_base;
 	uint32_t                        mem_cam_base;
 	resource_size_t                 size;
+};
+
+/**
+ * struct cam_soc_pinctrl_info:   Information about pinctrl data
+ *
+ * @pinctrl:               pintrl object
+ * @gpio_state_active:     default pinctrl state
+ * @gpio_state_suspend     suspend state of pinctrl
+ **/
+struct cam_soc_pinctrl_info {
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *gpio_state_active;
+	struct pinctrl_state *gpio_state_suspend;
+};
+
+/**
+ * struct cam_soc_gpio_data:   Information about the gpio pins
+ *
+ * @cam_gpio_common_tbl:       It is list of al the gpios present in gpios node
+ * @cam_gpio_common_tbl_size:  It is equal to number of gpios prsent in
+ *                             gpios node in DTSI
+ * @cam_gpio_req_tbl            It is list of al the requesetd gpios
+ * @cam_gpio_req_tbl_size:      It is size of requested gpios
+ **/
+struct cam_soc_gpio_data {
+	struct gpio *cam_gpio_common_tbl;
+	uint8_t cam_gpio_common_tbl_size;
+	struct gpio *cam_gpio_req_tbl;
+	uint8_t cam_gpio_req_tbl_size;
 };
 
 /**
@@ -69,14 +126,25 @@ struct cam_soc_reg_map {
  * @num_reg_map:            Number of mapped register space associated
  *                          with mem_block. num_reg_map = num_mem_block in
  *                          most cases
+ * @reserve_mem:            Whether to reserve memory for Mem blocks
  * @num_rgltr:              Number of regulators
  * @rgltr_name:             Array of regulator names
+ * @rgltr_ctrl_support:     Whether regulator control is supported
+ * @rgltr_min_volt:         Array of minimum regulator voltage
+ * @rgltr_max_volt:         Array of maximum regulator voltage
+ * @rgltr_op_mode:          Array of regulator operation mode
+ * @rgltr_type:             Array of regulator names
  * @rgltr:                  Array of associated regulator resources
+ * @rgltr_delay:            Array of regulator delay values
  * @num_clk:                Number of clocks
  * @clk_name:               Array of clock names
  * @clk:                    Array of associated clock resources
- * @clk_rate:               Array of default clock rates
+ * @clk_rate:               2D array of clock rates representing clock rate
+ *                          values at different vote levels
  * @src_clk_idx:            Source clock index that is rate-controllable
+ * @clk_level_valid:        Indicates whether corresponding level is valid
+ * @gpio_data:              Pointer to gpio info
+ * @pinctrl_info:           Pointer to pinctrl info
  * @soc_private:            Soc private data
  *
  */
@@ -84,7 +152,6 @@ struct cam_hw_soc_info {
 	struct platform_device         *pdev;
 	uint32_t                        hw_version;
 	uint32_t                        index;
-
 	const char                     *irq_name;
 	struct resource                *irq_line;
 	void                           *irq_data;
@@ -95,16 +162,27 @@ struct cam_hw_soc_info {
 	struct resource                *mem_block[CAM_SOC_MAX_BLOCK];
 	struct cam_soc_reg_map          reg_map[CAM_SOC_MAX_BASE];
 	uint32_t                        num_reg_map;
+	uint32_t                        reserve_mem;
 
 	uint32_t                        num_rgltr;
 	const char                     *rgltr_name[CAM_SOC_MAX_REGULATOR];
+	uint32_t                        rgltr_ctrl_support;
+	uint32_t                        rgltr_min_volt[CAM_SOC_MAX_REGULATOR];
+	uint32_t                        rgltr_max_volt[CAM_SOC_MAX_REGULATOR];
+	uint32_t                        rgltr_op_mode[CAM_SOC_MAX_REGULATOR];
+	uint32_t                        rgltr_type[CAM_SOC_MAX_REGULATOR];
 	struct regulator               *rgltr[CAM_SOC_MAX_REGULATOR];
+	uint32_t                        rgltr_delay[CAM_SOC_MAX_REGULATOR];
 
 	uint32_t                        num_clk;
 	const char                     *clk_name[CAM_SOC_MAX_CLK];
 	struct clk                     *clk[CAM_SOC_MAX_CLK];
-	int32_t                         clk_rate[CAM_SOC_MAX_CLK];
+	int32_t                         clk_rate[CAM_MAX_VOTE][CAM_SOC_MAX_CLK];
 	int32_t                         src_clk_idx;
+	bool                            clk_level_valid[CAM_MAX_VOTE];
+
+	struct cam_soc_gpio_data       *gpio_data;
+	struct cam_soc_pinctrl_info     pinctrl_info;
 
 	void                           *soc_private;
 };
@@ -159,6 +237,18 @@ struct cam_hw_soc_info {
 	((!__soc_info || __base_index >= __soc_info->num_reg_map) ?  \
 		0 : __soc_info->reg_map[__base_index].size)
 
+/**
+ * cam_soc_util_get_level_from_string()
+ *
+ * @brief:              Get the associated vote level for the input string
+ *
+ * @string:             Input string to compare with.
+ * @level:              Vote level corresponds to input string.
+ *
+ * @return:             Success or failure
+ */
+int cam_soc_util_get_level_from_string(const char *string,
+	enum cam_vote_level *level);
 
 /**
  * cam_soc_util_get_dt_properties()
@@ -208,6 +298,9 @@ int cam_soc_util_release_platform_resource(struct cam_hw_soc_info *soc_info);
  *                          TRUE: Enable all clocks in soc_info Now.
  *                          False: Don't enable clocks Now. Driver will
  *                                 enable independently.
+ * @clk_level:          Clock level to be applied.
+ *                      Applicable only if enable_clocks is true
+ *                          Valid range : 0 to (CAM_MAX_VOTE - 1)
  * @enable_irq:         Boolean flag:
  *                          TRUE: Enable IRQ in soc_info Now.
  *                          False: Don't enable IRQ Now. Driver will
@@ -216,7 +309,7 @@ int cam_soc_util_release_platform_resource(struct cam_hw_soc_info *soc_info);
  * @return:             Success or failure
  */
 int cam_soc_util_enable_platform_resource(struct cam_hw_soc_info *soc_info,
-	bool enable_clocks, bool enable_irq);
+	bool enable_clocks, enum cam_vote_level clk_level, bool enable_irq);
 
 /**
  * cam_soc_util_disable_platform_resource()
@@ -235,6 +328,20 @@ int cam_soc_util_disable_platform_resource(struct cam_hw_soc_info *soc_info,
 	bool disable_clocks, bool disable_irq);
 
 /**
+ * cam_soc_util_set_clk_rate()
+ *
+ * @brief:              Set the rate on a given clock.
+ *
+ * @clk:                Clock that needs to be set
+ * @clk_name:           Clocks name associated with clk
+ * @clk_rate:           Clocks rate associated with clk
+ *
+ * @return:             success or failure
+ */
+int cam_soc_util_set_clk_rate(struct clk *clk, const char *clk_name,
+	int32_t clk_rate);
+
+/**
  * cam_soc_util_clk_enable()
  *
  * @brief:              Enable clock specified in params
@@ -247,6 +354,21 @@ int cam_soc_util_disable_platform_resource(struct cam_hw_soc_info *soc_info,
  */
 int cam_soc_util_clk_enable(struct clk *clk, const char *clk_name,
 	int32_t clk_rate);
+
+/**
+ * cam_soc_util_set_clk_rate_level()
+ *
+ * @brief:              Apply clock rates for the requested level.
+ *                      This applies the new requested level for all
+ *                      the clocks listed in DT based on their values.
+ *
+ * @soc_info:           Device soc information
+ * @clk_level:          Clock level number to set
+ *
+ * @return:             Success or failure
+ */
+int cam_soc_util_set_clk_rate_level(struct cam_hw_soc_info *soc_info,
+	enum cam_vote_level clk_level);
 
 /**
  * cam_soc_util_clk_disable()
@@ -281,6 +403,45 @@ int cam_soc_util_irq_enable(struct cam_hw_soc_info *soc_info);
  * @return:             Success or failure
  */
 int cam_soc_util_irq_disable(struct cam_hw_soc_info *soc_info);
+
+/**
+ * cam_soc_util_regulator_enable()
+ *
+ * @brief:              Enable single regulator
+ *
+ * @rgltr               Regulator that needs to be turned ON
+ * @rgltr_name          Associated Regulator name
+ * @rgltr_min_volt:     Requested minimum volatage
+ * @rgltr_max_volt:     Requested maximum volatage
+ * @rgltr_op_mode:      Requested Load
+ * @rgltr_delay:        Requested delay needed aaftre enabling regulator
+ *
+ * @return:             Success or failure
+ */
+int cam_soc_util_regulator_enable(struct regulator *rgltr,
+	const char *rgltr_name,
+	uint32_t rgltr_min_volt, uint32_t rgltr_max_volt,
+	uint32_t rgltr_op_mode, uint32_t rgltr_delay);
+
+/**
+ * cam_soc_util_regulator_enable()
+ *
+ * @brief:              Disable single regulator
+ *
+ * @rgltr               Regulator that needs to be turned ON
+ * @rgltr_name          Associated Regulator name
+ * @rgltr_min_volt:     Requested minimum volatage
+ * @rgltr_max_volt:     Requested maximum volatage
+ * @rgltr_op_mode:      Requested Load
+ * @rgltr_delay:        Requested delay needed aaftre enabling regulator
+ *
+ * @return:             Success or failure
+ */
+int cam_soc_util_regulator_disable(struct regulator *rgltr,
+	const char *rgltr_name,
+	uint32_t rgltr_min_volt, uint32_t rgltr_max_volt,
+	uint32_t rgltr_op_mode, uint32_t rgltr_delay);
+
 
 /**
  * cam_soc_util_w()

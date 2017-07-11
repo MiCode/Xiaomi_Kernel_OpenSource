@@ -84,7 +84,6 @@ enum cp_mem_usage {
 #define ION_FLAG_CP_NON_PIXEL		ION_BIT(20)
 #define ION_FLAG_CP_CAMERA		ION_BIT(21)
 #define ION_FLAG_CP_HLOS		ION_BIT(22)
-#define ION_FLAG_CP_HLOS_FREE		ION_BIT(23)
 #define ION_FLAG_CP_SEC_DISPLAY		ION_BIT(25)
 #define ION_FLAG_CP_APP			ION_BIT(26)
 #define ION_FLAG_CP_CAMERA_PREVIEW	ION_BIT(27)
@@ -96,13 +95,6 @@ enum cp_mem_usage {
  */
 #define ION_FLAG_SECURE			ION_BIT(ION_HEAP_ID_RESERVED)
 
-/**
- * Flag for clients to force contiguous memort allocation
- *
- * Use of this flag is carefully monitored!
- */
-#define ION_FLAG_FORCE_CONTIGUOUS	ION_BIT(30)
-
 /*
  * Used in conjunction with heap which pool memory to force an allocation
  * to come from the page allocator directly instead of from the pool allocation
@@ -113,7 +105,6 @@ enum cp_mem_usage {
  * Deprecated! Please use the corresponding ION_FLAG_*
  */
 #define ION_SECURE ION_FLAG_SECURE
-#define ION_FORCE_CONTIGUOUS ION_FLAG_FORCE_CONTIGUOUS
 
 /**
  * Macro should be used with ion_heap_ids defined above.

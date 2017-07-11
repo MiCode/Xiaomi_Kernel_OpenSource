@@ -76,7 +76,6 @@ static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
 		INIT_LIST_HEAD(&(a_ctrl->i2c_data.per_frame[i].list_head));
 
 	/* Initialize sensor device type */
-	a_ctrl->of_node = client->dev.of_node;
 	a_ctrl->io_master_info.master_type = I2C_MASTER;
 
 	rc = cam_actuator_parse_dt(a_ctrl, &client->dev);
@@ -203,11 +202,9 @@ static int32_t cam_actuator_driver_platform_probe(
 	if (!a_ctrl)
 		return -ENOMEM;
 
-	/* Initialize actuator device type */
-	a_ctrl->of_node = pdev->dev.of_node;
-
 	/*fill in platform device*/
 	a_ctrl->v4l2_dev_str.pdev = pdev;
+	a_ctrl->soc_info.pdev = pdev;
 
 	a_ctrl->io_master_info.master_type = CCI_MASTER;
 
@@ -257,6 +254,14 @@ static int32_t cam_actuator_driver_platform_probe(
 		pr_err("%s:%d :ERROR: Fail with cam_register_subdev\n",
 			__func__, __LINE__);
 		goto free_mem;
+	}
+
+	rc = cam_soc_util_request_platform_resource(&a_ctrl->soc_info,
+			NULL, NULL);
+	if (rc < 0) {
+		pr_err("%s:%d :Error: Requesting Platform Resources failed rc %d",
+			__func__, __LINE__, rc);
+		goto free_ctrl;
 	}
 
 	a_ctrl->bridge_intf.device_hdl = -1;

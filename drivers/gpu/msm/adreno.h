@@ -876,6 +876,8 @@ struct adreno_gpudev {
 				unsigned int fsynr1);
 	int (*reset)(struct kgsl_device *, int fault);
 	int (*soft_reset)(struct adreno_device *);
+	bool (*gx_is_on)(struct adreno_device *);
+	bool (*sptprac_is_on)(struct adreno_device *);
 };
 
 /**

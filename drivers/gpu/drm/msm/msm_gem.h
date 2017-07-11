@@ -44,7 +44,9 @@ struct msm_gem_address_space {
 struct msm_gem_vma {
 	/* Node used by the GPU address space, but not the SDE address space */
 	struct drm_mm_node node;
+	struct msm_gem_address_space *aspace;
 	uint64_t iova;
+	struct list_head list;
 };
 
 struct msm_gem_object {
@@ -84,7 +86,7 @@ struct msm_gem_object {
 	struct sg_table *sgt;
 	void *vaddr;
 
-	struct msm_gem_vma domain[NUM_DOMAINS];
+	struct list_head domains;
 
 	/* normally (resv == &_resv) except for imported bo's */
 	struct reservation_object *resv;

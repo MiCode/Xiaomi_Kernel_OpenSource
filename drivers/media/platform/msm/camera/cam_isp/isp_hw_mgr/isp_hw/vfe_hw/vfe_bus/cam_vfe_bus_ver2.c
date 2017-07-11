@@ -28,7 +28,8 @@
 
 #define FRAME_BASED_EN 0
 
-#define MAX_BUF_UPDATE_REG_NUM   20
+#define MAX_BUF_UPDATE_REG_NUM   \
+	(sizeof(struct cam_vfe_bus_ver2_reg_offset_bus_client)/4)
 #define MAX_REG_VAL_PAIR_SIZE    \
 		(MAX_BUF_UPDATE_REG_NUM * 2 * CAM_PACKET_MAX_PLANES)
 
@@ -370,6 +371,7 @@ static int cam_vfe_bus_get_num_wm(
 	case CAM_VFE_BUS_VER2_VFE_OUT_STATS_CS:
 		switch (format) {
 		case CAM_FORMAT_PLAIN64:
+		case CAM_FORMAT_PLAIN128:
 			return 1;
 		default:
 			break;
@@ -628,7 +630,8 @@ static int cam_vfe_bus_acquire_wm(
 		rsrc_data->height = 1;
 		rsrc_data->pack_fmt = 0x0;
 		rsrc_data->en_cfg = 0x3;
-	} else if (rsrc_data->index < 5) {
+	} else if (rsrc_data->index < 5 ||
+		rsrc_data->index == 7 || rsrc_data->index == 8) {
 		switch (plane) {
 		case PLANE_Y:
 			switch (rsrc_data->format) {
@@ -663,6 +666,12 @@ static int cam_vfe_bus_acquire_wm(
 		}
 		rsrc_data->pack_fmt = 0xE;
 		rsrc_data->en_cfg = 0x1;
+	} else if (rsrc_data->index >= 11) {
+		rsrc_data->width = 0;
+		rsrc_data->height = 0;
+		rsrc_data->pack_fmt = 0x0;
+		rsrc_data->stride = 1;
+		rsrc_data->en_cfg = 0x3;
 	} else {
 		rsrc_data->width = rsrc_data->width * 4;
 		rsrc_data->height = rsrc_data->height / 2;
@@ -1652,6 +1661,7 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 	struct cam_vfe_bus_ver2_wm_resource_data *wm_data = NULL;
 	uint32_t *reg_val_pair;
 	uint32_t  i, j, size = 0;
+	uint32_t  frame_inc = 0;
 
 	/*
 	 * Need the entire buf io config so we can get the stride info
@@ -1672,13 +1682,19 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 	if (update_buf->num_buf != vfe_out_data->num_wm) {
 		pr_err("Failed! Invalid number buffers:%d required:%d\n",
 			update_buf->num_buf, vfe_out_data->num_wm);
-		return -ENOMEM;
+		return -EINVAL;
 	}
 
 	reg_val_pair = &vfe_out_data->common_data->io_buf_update[0];
 	io_cfg = update_buf->io_cfg;
 
 	for (i = 0, j = 0; i < vfe_out_data->num_wm; i++) {
+		if (j >= (MAX_REG_VAL_PAIR_SIZE - MAX_BUF_UPDATE_REG_NUM * 2)) {
+			pr_err("reg_val_pair %d exceeds the array limit %lu\n",
+				j, MAX_REG_VAL_PAIR_SIZE);
+			return -ENOMEM;
+		}
+
 		wm_data = vfe_out_data->wm_res[i]->res_priv;
 
 		/* For initial configuration program all bus registers */
@@ -1832,6 +1848,11 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 				update_buf->image_buf[i]);
 
 		CDBG("image address 0x%x\n", reg_val_pair[j-1]);
+
+		frame_inc = io_cfg->planes[i].plane_stride *
+			io_cfg->planes[i].slice_height;
+		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+			wm_data->hw_regs->frame_inc, frame_inc);
 
 		/* enable the WM */
 		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,

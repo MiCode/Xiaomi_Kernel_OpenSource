@@ -480,5 +480,12 @@ int dsi_display_soft_reset(void *display);
  */
 int dsi_display_pre_kickoff(struct dsi_display *display,
 		struct msm_display_kickoff_params *params);
+/**
+ * dsi_display_get_dst_format() - get dst_format from DSI display
+ * @display:         Handle to display
+ *
+ * Return: enum dsi_pixel_format type
+ */
+enum dsi_pixel_format dsi_display_get_dst_format(void *display);
 
 #endif /* _DSI_DISPLAY_H_ */

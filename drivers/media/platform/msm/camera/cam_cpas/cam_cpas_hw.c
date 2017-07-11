@@ -665,7 +665,8 @@ static int cam_cpas_util_get_ahb_level(struct cam_hw_info *cpas_hw,
 }
 
 static int cam_cpas_util_apply_client_ahb_vote(struct cam_hw_info *cpas_hw,
-	struct cam_cpas_client *cpas_client, struct cam_ahb_vote *ahb_vote)
+	struct cam_cpas_client *cpas_client, struct cam_ahb_vote *ahb_vote,
+	enum cam_vote_level *applied_level)
 {
 	struct cam_cpas *cpas_core = (struct cam_cpas *) cpas_hw->core_info;
 	struct cam_cpas_bus_client *ahb_bus_client = &cpas_core->ahb_bus_client;
@@ -710,9 +711,21 @@ static int cam_cpas_util_apply_client_ahb_vote(struct cam_hw_info *cpas_hw,
 
 	rc = cam_cpas_util_vote_bus_client_level(ahb_bus_client,
 		highest_level);
-	if (rc)
+	if (rc) {
 		pr_err("Failed in ahb vote, level=%d, rc=%d\n",
 			highest_level, rc);
+		goto unlock_bus_client;
+	}
+
+	rc = cam_soc_util_set_clk_rate_level(&cpas_hw->soc_info, highest_level);
+	if (rc) {
+		pr_err("Failed in scaling clock rate level %d for AHB\n",
+			highest_level);
+		goto unlock_bus_client;
+	}
+
+	if (applied_level)
+		*applied_level = highest_level;
 
 unlock_bus_client:
 	mutex_unlock(&ahb_bus_client->lock);
@@ -748,7 +761,7 @@ static int cam_cpas_hw_update_ahb_vote(struct cam_hw_info *cpas_hw,
 		cpas_core->cpas_client[client_indx]->ahb_level);
 
 	rc = cam_cpas_util_apply_client_ahb_vote(cpas_hw,
-		cpas_core->cpas_client[client_indx], ahb_vote);
+		cpas_core->cpas_client[client_indx], ahb_vote, NULL);
 
 unlock_client:
 	mutex_unlock(&cpas_core->client_mutex[client_indx]);
@@ -765,6 +778,7 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 	struct cam_cpas_client *cpas_client;
 	struct cam_ahb_vote *ahb_vote;
 	struct cam_axi_vote *axi_vote;
+	enum cam_vote_level applied_level = CAM_SVS_VOTE;
 	int rc;
 
 	if (!hw_priv || !start_args) {
@@ -820,7 +834,7 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 		client_indx, ahb_vote->type, ahb_vote->vote.level,
 		cpas_client->ahb_level);
 	rc = cam_cpas_util_apply_client_ahb_vote(cpas_hw, cpas_client,
-		ahb_vote);
+		ahb_vote, &applied_level);
 	if (rc)
 		goto done;
 
@@ -833,7 +847,8 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 		goto done;
 
 	if (cpas_core->streamon_clients == 0) {
-		rc = cam_cpas_soc_enable_resources(&cpas_hw->soc_info);
+		rc = cam_cpas_soc_enable_resources(&cpas_hw->soc_info,
+			applied_level);
 		if (rc) {
 			pr_err("enable_resorce failed, rc=%d\n", rc);
 			goto done;
@@ -932,7 +947,7 @@ static int cam_cpas_hw_stop(void *hw_priv, void *stop_args,
 	ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	ahb_vote.vote.level = CAM_SUSPEND_VOTE;
 	rc = cam_cpas_util_apply_client_ahb_vote(cpas_hw, cpas_client,
-		&ahb_vote);
+		&ahb_vote, NULL);
 	if (rc)
 		goto done;
 
@@ -1383,7 +1398,7 @@ int cam_cpas_hw_probe(struct platform_device *pdev,
 	if (rc)
 		goto axi_cleanup;
 
-	rc = cam_cpas_soc_enable_resources(&cpas_hw->soc_info);
+	rc = cam_cpas_soc_enable_resources(&cpas_hw->soc_info, CAM_SVS_VOTE);
 	if (rc) {
 		pr_err("failed in soc_enable_resources, rc=%d\n", rc);
 		goto remove_default_vote;

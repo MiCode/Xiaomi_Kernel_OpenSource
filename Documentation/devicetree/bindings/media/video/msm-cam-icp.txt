@@ -111,6 +111,12 @@ and name of firmware image.
   Value type: <phandle>
   Definition: List of clocks used for CDM HW.
 
+- clock-cntl-level
+  Usage: required
+  Value type: <string>
+  Definition: List of strings corresponds clock-rates levels.
+  Supported strings: minsvs, lowsvs, svs, svs_l1, nominal, turbo.
+
 - clock-rates
   Usage: required
   Value type: <u32>
@@ -157,6 +163,7 @@ a5: qcom,a5@a10000 {
 			<&clock_camcc CAM_CC_ICP_TS_CLK>;
 
 	clock-rates = <0 0 0 80000000 0 0 0 0 600000000 0 0>;
+	clock-cntl-level = "turbo";
 	fw_name = "CAMERA_ICP.elf";
 };
 
@@ -177,6 +184,7 @@ qcom,ipe0 {
 			<&clock_camcc CAM_CC_IPE_0_CLK_SRC>;
 
 	clock-rates = <80000000 400000000 0 0 600000000>;
+	clock-cntl-level = "turbo";
 };
 
 qcom,ipe1 {
@@ -195,7 +203,8 @@ qcom,ipe1 {
 			<&clock_camcc CAM_CC_IPE_1_CLK>,
 			<&clock_camcc CAM_CC_IPE_1_CLK_SRC>;
 
-		clock-rates = <80000000 400000000 0 0 600000000>;
+	clock-rates = <80000000 400000000 0 0 600000000>;
+	clock-cntl-level = "turbo";
 };
 
 bps: qcom,bps {
@@ -215,5 +224,6 @@ bps: qcom,bps {
 			<&clock_camcc CAM_CC_BPS_CLK_SRC>;
 
 	clock-rates = <80000000 400000000 0 0 600000000>;
+	clock-cntl-level = "turbo";
 };
 

@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 
 #include <media/cam_cpas.h>
+#include "cam_soc_util.h"
 
 #define CAM_HW_IDENTIFIER_LENGTH 128
 
@@ -101,7 +102,7 @@ struct cam_cpas_register_params {
 };
 
 /**
- * enum cam_vote_level - Enum for voting type
+ * enum cam_vote_type - Enum for voting type
  *
  * @CAM_VOTE_ABSOLUTE : Absolute vote
  * @CAM_VOTE_DYNAMIC  : Dynamic vote
@@ -109,21 +110,6 @@ struct cam_cpas_register_params {
 enum cam_vote_type {
 	CAM_VOTE_ABSOLUTE,
 	CAM_VOTE_DYNAMIC,
-};
-
-/**
- * enum cam_vote_level - Enum for voting level
- *
- * @CAM_SUSPEND_VOTE : Suspend vote
- * @CAM_SVS_VOTE     : SVS vote
- * @CAM_NOMINAL_VOTE : Nominal vote
- * @CAM_TURBO_VOTE   : Turbo vote
- */
-enum cam_vote_level {
-	CAM_SUSPEND_VOTE,
-	CAM_SVS_VOTE,
-	CAM_NOMINAL_VOTE,
-	CAM_TURBO_VOTE,
 };
 
 /**

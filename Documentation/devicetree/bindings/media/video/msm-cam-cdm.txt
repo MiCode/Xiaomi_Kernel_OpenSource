@@ -118,6 +118,12 @@ to CDM interface node.
   Value type: <string>
   Definition: List of Clients supported by CDM HW node.
 
+- clock-cntl-level
+  Usage: required
+  Value type: <string>
+  Definition: List of strings corresponds clock-rates levels.
+  Supported strings: minsvs, lowsvs, svs, svs_l1, nominal, turbo.
+
 Example:
 	qcom,cpas-cdm0@ac48000 {
 		cell-index = <0>;
@@ -143,5 +149,6 @@ Example:
 			<&clock_camcc CAM_CC_CAMNOC_AXI_CLK>;
 		qcom,clock-rates = <0 80000000 80000000 80000000 80000000 80000000>;
 		cdm-client-names = "ife";
+		clock-cntl-level = "turbo";
 		status = "ok";
 	};

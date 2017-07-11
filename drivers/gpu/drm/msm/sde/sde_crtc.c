@@ -1202,6 +1202,11 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 				state->fb ? state->fb->base.id : -1);
 
 		format = to_sde_format(msm_framebuffer_format(pstate->base.fb));
+		if (!format) {
+			SDE_ERROR("invalid format\n");
+			return;
+		}
+
 		if (pstate->stage == SDE_STAGE_BASE && format->alpha_enable)
 			bg_alpha_enable = true;
 
@@ -2120,6 +2125,12 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	dev = crtc->dev;
 	sde_crtc = to_sde_crtc(crtc);
 	sde_kms = _sde_crtc_get_kms(crtc);
+
+	if (!sde_kms || !sde_kms->dev || !sde_kms->dev->dev_private) {
+		SDE_ERROR("invalid argument\n");
+		return;
+	}
+
 	priv = sde_kms->dev->dev_private;
 	cstate = to_sde_crtc_state(crtc->state);
 
@@ -2514,6 +2525,17 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 		atomic_set(&sde_crtc->frame_pending, 0);
 	}
 
+	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
+	list_for_each_entry(node, &sde_crtc->user_event_list, list) {
+		ret = 0;
+		if (node->func)
+			ret = node->func(crtc, false, &node->irq);
+		if (ret)
+			SDE_ERROR("%s failed to disable event %x\n",
+					sde_crtc->name, node->event);
+	}
+	spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
+
 	sde_core_perf_crtc_update(crtc, 0, true);
 
 	drm_for_each_encoder(encoder, crtc->dev) {
@@ -2534,17 +2556,6 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	/* disable clk & bw control until clk & bw properties are set */
 	cstate->bw_control = false;
 	cstate->bw_split_vote = false;
-
-	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
-	list_for_each_entry(node, &sde_crtc->user_event_list, list) {
-		ret = 0;
-		if (node->func)
-			ret = node->func(crtc, false, &node->irq);
-		if (ret)
-			SDE_ERROR("%s failed to disable event %x\n",
-					sde_crtc->name, node->event);
-	}
-	spin_unlock_irqrestore(&sde_crtc->spin_lock, flags);
 
 	mutex_unlock(&sde_crtc->crtc_lock);
 }
@@ -2998,6 +3009,10 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 	struct drm_device *dev;
 	struct sde_kms_info *info;
 	struct sde_kms *sde_kms;
+	static const struct drm_prop_enum_list e_secure_level[] = {
+		{SDE_DRM_SEC_NON_SEC, "sec_and_non_sec"},
+		{SDE_DRM_SEC_ONLY, "sec_only"},
+	};
 
 	SDE_DEBUG("\n");
 
@@ -3009,6 +3024,11 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 	sde_crtc = to_sde_crtc(crtc);
 	dev = crtc->dev;
 	sde_kms = _sde_crtc_get_kms(crtc);
+
+	if (!sde_kms) {
+		SDE_ERROR("invalid argument\n");
+		return;
+	}
 
 	info = kzalloc(sizeof(struct sde_kms_info), GFP_KERNEL);
 	if (!info) {
@@ -3070,6 +3090,11 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 
 	msm_property_install_volatile_range(&sde_crtc->property_info,
 		"sde_drm_roi_v1", 0x0, 0, ~0, 0, CRTC_PROP_ROI_V1);
+
+	msm_property_install_enum(&sde_crtc->property_info, "security_level",
+			0x0, 0, e_secure_level,
+			ARRAY_SIZE(e_secure_level),
+			CRTC_PROP_SECURITY_LEVEL);
 
 	sde_kms_info_reset(info);
 

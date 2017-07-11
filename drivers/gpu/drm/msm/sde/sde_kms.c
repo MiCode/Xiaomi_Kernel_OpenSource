@@ -459,13 +459,15 @@ static void sde_kms_wait_for_commit_done(struct msm_kms *kms,
 		struct drm_crtc *crtc)
 {
 	struct drm_encoder *encoder;
-	struct drm_device *dev = crtc->dev;
+	struct drm_device *dev;
 	int ret;
 
 	if (!kms || !crtc || !crtc->state) {
 		SDE_ERROR("invalid params\n");
 		return;
 	}
+
+	dev = crtc->dev;
 
 	if (!crtc->state->enable) {
 		SDE_DEBUG("[crtc:%d] not enable\n", crtc->base.id);
@@ -642,7 +644,8 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.soft_reset   = dsi_display_soft_reset,
 		.pre_kickoff  = dsi_conn_pre_kickoff,
 		.clk_ctrl = dsi_display_clk_ctrl,
-		.get_topology = dsi_conn_get_topology
+		.get_topology = dsi_conn_get_topology,
+		.get_dst_format = dsi_display_get_dst_format
 	};
 	static const struct sde_connector_ops wb_ops = {
 		.post_init =    sde_wb_connector_post_init,
@@ -651,7 +654,8 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.set_property = sde_wb_connector_set_property,
 		.get_info =     sde_wb_get_info,
 		.soft_reset =   NULL,
-		.get_topology = sde_wb_get_topology
+		.get_topology = sde_wb_get_topology,
+		.get_dst_format = NULL
 	};
 	static const struct sde_connector_ops dp_ops = {
 		.post_init  = dp_connector_post_init,
@@ -1414,6 +1418,29 @@ static int sde_kms_atomic_check(struct msm_kms *kms,
 	return drm_atomic_helper_check(dev, state);
 }
 
+static struct msm_gem_address_space*
+_sde_kms_get_address_space(struct msm_kms *kms,
+		unsigned int domain)
+{
+	struct sde_kms *sde_kms;
+
+	if (!kms) {
+		SDE_ERROR("invalid kms\n");
+		return  NULL;
+	}
+
+	sde_kms = to_sde_kms(kms);
+	if (!sde_kms) {
+		SDE_ERROR("invalid sde_kms\n");
+		return NULL;
+	}
+
+	if (domain >= MSM_SMMU_DOMAIN_MAX)
+		return NULL;
+
+	return sde_kms->aspace[domain];
+}
+
 static const struct msm_kms_funcs kms_funcs = {
 	.hw_init         = sde_kms_hw_init,
 	.postinit        = sde_kms_postinit,
@@ -1436,6 +1463,7 @@ static const struct msm_kms_funcs kms_funcs = {
 	.round_pixclk    = sde_kms_round_pixclk,
 	.destroy         = sde_kms_destroy,
 	.register_events = _sde_kms_register_events,
+	.get_address_space = _sde_kms_get_address_space,
 };
 
 /* the caller api needs to turn on clock before calling it */
@@ -1449,17 +1477,17 @@ static int _sde_kms_mmu_destroy(struct sde_kms *sde_kms)
 	struct msm_mmu *mmu;
 	int i;
 
-	for (i = ARRAY_SIZE(sde_kms->mmu_id) - 1; i >= 0; i--) {
-		mmu = sde_kms->aspace[i]->mmu;
-
-		if (!mmu)
+	for (i = ARRAY_SIZE(sde_kms->aspace) - 1; i >= 0; i--) {
+		if (!sde_kms->aspace[i])
 			continue;
+
+		mmu = sde_kms->aspace[i]->mmu;
 
 		mmu->funcs->detach(mmu, (const char **)iommu_ports,
 				ARRAY_SIZE(iommu_ports));
 		msm_gem_address_space_destroy(sde_kms->aspace[i]);
 
-		sde_kms->mmu_id[i] = 0;
+		sde_kms->aspace[i] = NULL;
 	}
 
 	return 0;
@@ -1499,17 +1527,6 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 			goto fail;
 		}
 
-		sde_kms->mmu_id[i] = msm_register_address_space(sde_kms->dev,
-			aspace);
-		if (sde_kms->mmu_id[i] < 0) {
-			ret = sde_kms->mmu_id[i];
-			SDE_ERROR("failed to register sde iommu %d: %d\n",
-					i, ret);
-			mmu->funcs->detach(mmu, (const char **)iommu_ports,
-					ARRAY_SIZE(iommu_ports));
-			msm_gem_address_space_destroy(aspace);
-			goto fail;
-		}
 	}
 
 	return 0;

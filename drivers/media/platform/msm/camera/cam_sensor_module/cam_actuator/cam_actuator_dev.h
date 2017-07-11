@@ -32,7 +32,7 @@
 #include <cam_sensor_cmn_header.h>
 #include <cam_subdev.h>
 #include "cam_sensor_util.h"
-#include "cam_sensor_soc_api.h"
+#include "cam_soc_util.h"
 
 #define NUM_MASTERS 2
 #define NUM_QUEUES 2
@@ -57,18 +57,6 @@
 enum msm_actuator_state_t {
 	ACT_APPLY_SETTINGS_NOW,
 	ACT_APPLY_SETTINGS_LATER,
-};
-
-/**
- * struct cam_actuator_vreg
- * @cam_vreg: Regulator structure
- * @data: Regulator data
- * @num_vreg: Number of regulators
- */
-struct cam_actuator_vreg {
-	struct camera_vreg_t *cam_vreg;
-	void *data[MSM_ACTUATOR_MAX_VREGS];
-	int num_vreg;
 };
 
 /**
@@ -107,18 +95,16 @@ struct cam_actuator_ctrl_t {
 	struct i2c_driver *i2c_driver;
 	enum cci_i2c_master_t cci_i2c_master;
 	struct camera_io_master io_master_info;
+	struct cam_hw_soc_info soc_info;
 	struct mutex actuator_mutex;
 	uint32_t id;
 	enum msm_actuator_state_t act_apply_state;
-	struct cam_actuator_vreg vreg_cfg;
-	struct msm_camera_gpio_conf *gconf;
-	struct msm_pinctrl_info pinctrl_info;
+	struct msm_camera_gpio_num_info *gpio_num_info;
 	uint8_t cam_pinctrl_status;
 	struct cam_subdev v4l2_dev_str;
 	struct i2c_data_settings i2c_data;
 	struct cam_actuator_query_cap act_info;
 	struct intf_params bridge_intf;
-	struct device_node *of_node;
 	char device_name[20];
 };
 
