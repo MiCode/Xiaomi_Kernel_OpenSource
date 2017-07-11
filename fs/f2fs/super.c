@@ -1790,7 +1790,7 @@ static int f2fs_scan_devices(struct f2fs_sb_info *sbi)
 	/* Initialize single device information */
 	if (!RDEV(0).path[0]) {
 #ifdef CONFIG_BLK_DEV_ZONED
-		if (bdev_zoned_model(sbi->sb->s_bdev) == BLK_ZONED_NONE)
+		if (!bdev_is_zoned(sbi->sb->s_bdev))
 			return 0;
 		max_devices = 1;
 #else
