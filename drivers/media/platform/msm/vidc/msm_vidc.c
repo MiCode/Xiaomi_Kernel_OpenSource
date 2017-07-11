@@ -822,7 +822,8 @@ int output_buffer_cache_invalidate(struct msm_vidc_inst *inst,
 
 				if (inst->session_type == MSM_VIDC_ENCODER &&
 					!i)
-					size = b->m.planes[i].bytesused;
+					size = b->m.planes[i].bytesused +
+						b->m.planes[i].data_offset;
 				else
 					size = -1;
 
@@ -1056,7 +1057,8 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 		if (binfo->handle[i] &&
 			(b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)) {
 			if (inst->session_type == MSM_VIDC_DECODER && !i)
-				size = b->m.planes[i].bytesused;
+				size = b->m.planes[i].bytesused +
+						b->m.planes[i].data_offset;
 			else
 				size = -1;
 			rc = msm_comm_smem_cache_operations(inst,
