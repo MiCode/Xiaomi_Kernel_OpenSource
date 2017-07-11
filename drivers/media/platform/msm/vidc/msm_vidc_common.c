@@ -1246,7 +1246,7 @@ static int msm_vidc_comm_update_ctrl(struct msm_vidc_inst *inst,
 	if (ctrl) {
 		v4l2_ctrl_modify_range(ctrl, capability->min,
 				capability->max, ctrl->step,
-				capability->min);
+				ctrl->default_value);
 		dprintk(VIDC_DBG,
 			"%s: Updated Range = %lld --> %lld Def value = %lld\n",
 			ctrl->name, ctrl->minimum, ctrl->maximum,
@@ -1783,6 +1783,12 @@ void msm_comm_validate_output_buffers(struct msm_vidc_inst *inst)
 		return;
 	}
 	mutex_lock(&inst->outputbufs.lock);
+	if (list_empty(&inst->outputbufs.list)) {
+		dprintk(VIDC_DBG, "%s: no OUTPUT buffers allocated\n",
+			__func__);
+		mutex_unlock(&inst->outputbufs.lock);
+		return;
+	}
 	list_for_each_entry(binfo, &inst->outputbufs.list, list) {
 		if (binfo->buffer_ownership != DRIVER) {
 			dprintk(VIDC_DBG,
