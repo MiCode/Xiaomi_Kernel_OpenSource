@@ -20,7 +20,6 @@
 #include <sound/q6core.h>
 #include <linux/qdsp6v2/audio_notifier.h>
 #include "qdsp6v2/msm-pcm-routing-v2.h"
-#include "msm-audio-pinctrl.h"
 #include "sdm660-common.h"
 #include "sdm660-external.h"
 #include "../codecs/wcd9335.h"
