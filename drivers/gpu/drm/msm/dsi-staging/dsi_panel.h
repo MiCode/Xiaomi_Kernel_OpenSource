@@ -184,7 +184,8 @@ struct dsi_panel {
 	bool ulps_enabled;
 	bool allow_phy_power_off;
 
-	u32 panel_jitter;
+	u32 panel_jitter_numer;
+	u32 panel_jitter_denom;
 	u32 panel_prefill_lines;
 	bool panel_initialized;
 	bool te_using_watchdog_timer;

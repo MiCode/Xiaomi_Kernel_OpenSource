@@ -114,15 +114,16 @@ struct sde_rsc_event {
  *
  * @fps:	panel te interval
  * @vtotal:	current vertical total (height + vbp + vfp)
- * @jitter:	panel can set the jitter to wake up rsc/solver early
- *              This value causes mdp core to exit certain mode
- *              early. Default is 10% jitter
+ * @jitter_numer: panel jitter numerator value. This config causes rsc/solver
+ *                early before te. Default is 0.8% jitter.
+ * @jitter_denom: panel jitter denominator.
  * @prefill_lines:	max prefill lines based on panel
  */
 struct sde_rsc_cmd_config {
 	u32 fps;
 	u32 vtotal;
-	u32 jitter;
+	u32 jitter_numer;
+	u32 jitter_denom;
 	u32 prefill_lines;
 };
 

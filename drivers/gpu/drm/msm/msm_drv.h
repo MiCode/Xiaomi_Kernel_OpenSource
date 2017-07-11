@@ -413,7 +413,8 @@ struct msm_mode_info {
  * @frame_rate:		Display frame rate
  * @prefill_lines:	prefill lines based on porches.
  * @vtotal:		display vertical total
- * @jitter:		display jitter configuration
+ * @jitter_numer:	display panel jitter numerator configuration
+ * @jitter_denom:	display panel jitter denominator configuration
  * @comp_info:          Compression supported by the display
  * @roi_caps:           Region of interest capability info
  */
@@ -437,7 +438,8 @@ struct msm_display_info {
 	uint32_t frame_rate;
 	uint32_t prefill_lines;
 	uint32_t vtotal;
-	uint32_t jitter;
+	uint32_t jitter_numer;
+	uint32_t jitter_denom;
 
 	struct msm_compression_info comp_info;
 	struct msm_roi_caps roi_caps;
