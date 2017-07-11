@@ -85,24 +85,6 @@ Properties:
 		    by the OSM hardware for each supported DCVS setpoint
 		    of the Performance cluster.
 
-- qcom,l3-min-cpr-vc-binX
-	Usage:	    required
-	Value type: <u32>
-	Definition: First virtual corner which does not use PLL post-divider
-		    for the L3 clock domain.
-
-- qcom,pwrcl-min-cpr-vc-binX
-	Usage:      required
-	Value type: <u32>
-	Definition: First virtual corner which does not use PLL post-divider
-		    for the power cluster.
-
-- qcom,perfcl-min-cpr-vc-binX
-	Usage:      required
-	Value type: <u32>
-	Definition: First virtual corner which does not use PLL post-divider
-		    for the performance cluster.
-
 - qcom,osm-no-tz
 	Usage:      optional
 	Value type: <empty>
@@ -500,10 +482,6 @@ Example:
 			<  1804800000 0x4044135e 0x00004b4b 0x2 20 >,
 			<  1881600000 0x404c1462 0x00004e4e 0x2 21 >,
 			<  1958400000 0x404c1566 0x00005252 0x3 22 >;
-
-		qcom,l3-min-cpr-vc-bin0 = <7>;
-		qcom,pwrcl-min-cpr-vc-bin0 = <6>;
-		qcom,perfcl-min-cpr-vc-bin0 = <7>;
 
 		qcom,up-timer =
 			<1000 1000 1000>;

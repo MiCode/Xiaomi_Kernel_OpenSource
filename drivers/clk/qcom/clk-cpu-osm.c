@@ -2061,6 +2061,10 @@ static int clk_osm_get_lut(struct platform_device *pdev,
 			 c->osm_table[j].override_data,
 			 c->osm_table[j].mem_acc_level);
 
+		data = (array[i + FREQ_DATA] & GENMASK(29, 28)) >> 28;
+		if (j && !c->min_cpr_vc && !data)
+			c->min_cpr_vc = c->osm_table[j].virtual_corner;
+
 		data = (array[i + FREQ_DATA] & GENMASK(18, 16)) >> 16;
 		if (!last_entry && data == MAX_CORE_COUNT) {
 			fmax_temp[k] = array[i];
@@ -2243,9 +2247,6 @@ static int clk_osm_parse_dt_configs(struct platform_device *pdev)
 	u32 *array;
 	int rc = 0;
 	struct resource *res;
-	char l3_min_cpr_vc_str[] = "qcom,l3-min-cpr-vc-bin0";
-	char pwrcl_min_cpr_vc_str[] = "qcom,pwrcl-min-cpr-vc-bin0";
-	char perfcl_min_cpr_vc_str[] = "qcom,perfcl-min-cpr-vc-bin0";
 
 	array = devm_kzalloc(&pdev->dev, MAX_CLUSTER_CNT * sizeof(u32),
 			     GFP_KERNEL);
@@ -2461,35 +2462,6 @@ static int clk_osm_parse_dt_configs(struct platform_device *pdev)
 	if (!perfcl_clk.vbases[SEQ_BASE]) {
 		dev_err(&pdev->dev, "Unable to map perfcl_sequencer base\n");
 		return -ENOMEM;
-	}
-
-	snprintf(l3_min_cpr_vc_str, ARRAY_SIZE(l3_min_cpr_vc_str),
-			"qcom,l3-min-cpr-vc-bin%d", l3_clk.speedbin);
-	rc = of_property_read_u32(of, l3_min_cpr_vc_str, &l3_clk.min_cpr_vc);
-	if (rc) {
-		dev_err(&pdev->dev, "unable to find %s property, rc=%d\n",
-			l3_min_cpr_vc_str, rc);
-		return -EINVAL;
-	}
-
-	snprintf(pwrcl_min_cpr_vc_str, ARRAY_SIZE(pwrcl_min_cpr_vc_str),
-			"qcom,pwrcl-min-cpr-vc-bin%d", pwrcl_clk.speedbin);
-	rc = of_property_read_u32(of, pwrcl_min_cpr_vc_str,
-						&pwrcl_clk.min_cpr_vc);
-	if (rc) {
-		dev_err(&pdev->dev, "unable to find %s property, rc=%d\n",
-			pwrcl_min_cpr_vc_str, rc);
-		return -EINVAL;
-	}
-
-	snprintf(perfcl_min_cpr_vc_str, ARRAY_SIZE(perfcl_min_cpr_vc_str),
-			"qcom,perfcl-min-cpr-vc-bin%d", perfcl_clk.speedbin);
-	rc = of_property_read_u32(of, perfcl_min_cpr_vc_str,
-						&perfcl_clk.min_cpr_vc);
-	if (rc) {
-		dev_err(&pdev->dev, "unable to find %s property, rc=%d\n",
-			perfcl_min_cpr_vc_str, rc);
-		return -EINVAL;
 	}
 
 	l3_clk.secure_init = perfcl_clk.secure_init = pwrcl_clk.secure_init =
@@ -3037,33 +3009,6 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 
 	clk_data->clk_num = num_clks;
 
-	rc = clk_osm_parse_dt_configs(pdev);
-	if (rc) {
-		dev_err(&pdev->dev, "Unable to parse OSM device tree configurations\n");
-		return rc;
-	}
-
-	rc = clk_osm_parse_acd_dt_configs(pdev);
-	if (rc) {
-		dev_err(&pdev->dev, "Unable to parse ACD device tree configurations\n");
-		return rc;
-	}
-
-	rc = clk_osm_resources_init(pdev);
-	if (rc) {
-		if (rc != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "OSM resources init failed, rc=%d\n",
-				rc);
-		return rc;
-	}
-
-	rc = clk_osm_acd_resources_init(pdev);
-	if (rc) {
-		dev_err(&pdev->dev, "ACD resources init failed, rc=%d\n",
-			rc);
-		return rc;
-	}
-
 	if (l3_clk.vbases[EFUSE_BASE]) {
 		/* Multiple speed-bins are supported */
 		pte_efuse = readl_relaxed(l3_clk.vbases[EFUSE_BASE]);
@@ -3119,6 +3064,33 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 	rc = clk_osm_get_lut(pdev, &perfcl_clk, perfclspeedbinstr);
 	if (rc) {
 		dev_err(&pdev->dev, "Unable to get OSM LUT for perf cluster, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = clk_osm_parse_dt_configs(pdev);
+	if (rc) {
+		dev_err(&pdev->dev, "Unable to parse OSM device tree configurations\n");
+		return rc;
+	}
+
+	rc = clk_osm_parse_acd_dt_configs(pdev);
+	if (rc) {
+		dev_err(&pdev->dev, "Unable to parse ACD device tree configurations\n");
+		return rc;
+	}
+
+	rc = clk_osm_resources_init(pdev);
+	if (rc) {
+		if (rc != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "OSM resources init failed, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	rc = clk_osm_acd_resources_init(pdev);
+	if (rc) {
+		dev_err(&pdev->dev, "ACD resources init failed, rc=%d\n",
 			rc);
 		return rc;
 	}
