@@ -374,6 +374,7 @@ static int msm_vb2_put_buf(struct vb2_v4l2_buffer *vb, int session_id,
 			pr_err("VB buffer is INVALID vb=%pK, ses_id=%d, str_id=%d\n",
 					vb, session_id, stream_id);
 			spin_unlock_irqrestore(&stream->stream_lock, flags);
+			read_unlock(&session->stream_rwlock);
 			return -EINVAL;
 		}
 		msm_vb2 =
@@ -428,6 +429,7 @@ static int msm_vb2_buf_done(struct vb2_v4l2_buffer *vb, int session_id,
 			pr_err("VB buffer is INVALID ses_id=%d, str_id=%d, vb=%pK\n",
 				    session_id, stream_id, vb);
 			spin_unlock_irqrestore(&stream->stream_lock, flags);
+			read_unlock(&session->stream_rwlock);
 			return -EINVAL;
 		}
 		msm_vb2 =

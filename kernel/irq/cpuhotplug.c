@@ -36,10 +36,32 @@ static bool migrate_one_irq(struct irq_desc *desc)
 	affinity = &available_cpus;
 
 	if (cpumask_any_and(affinity, cpu_online_mask) >= nr_cpu_ids) {
+		/*
+		 * The order of preference for selecting a fallback CPU is
+		 *
+		 * (1) online and un-isolated CPU from default affinity
+		 * (2) online and un-isolated CPU
+		 * (3) online CPU
+		 */
 		cpumask_andnot(&available_cpus, cpu_online_mask,
 							cpu_isolated_mask);
-		if (cpumask_empty(affinity))
+		if (cpumask_intersects(&available_cpus, irq_default_affinity))
+			cpumask_and(&available_cpus, &available_cpus,
+							irq_default_affinity);
+		else if (cpumask_empty(&available_cpus))
 			affinity = cpu_online_mask;
+
+		/*
+		 * We are overriding the affinity with all online and
+		 * un-isolated cpus. irq_set_affinity_locked() call
+		 * below notify this mask to PM QOS affinity listener.
+		 * That results in applying the CPU_DMA_LATENCY QOS
+		 * to all the CPUs specified in the mask. But the low
+		 * level irqchip driver sets the affinity of an irq
+		 * to only one CPU. So pick only one CPU from the
+		 * prepared mask while overriding the user affinity.
+		 */
+		affinity = cpumask_of(cpumask_any(affinity));
 		ret = true;
 	}
 

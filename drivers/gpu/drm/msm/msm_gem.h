@@ -151,9 +151,10 @@ struct msm_gem_submit {
 	u32 flags;
 	bool valid;
 	uint64_t profile_buf_iova;
-	void *profile_buf_vaddr;
+	struct drm_msm_gem_submit_profile_buffer *profile_buf;
 	bool secure;
 	struct msm_gpu_submitqueue *queue;
+	int tick_index;
 	unsigned int nr_cmds;
 	unsigned int nr_bos;
 	struct {

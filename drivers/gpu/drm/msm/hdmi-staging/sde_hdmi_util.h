@@ -94,6 +94,9 @@
 /* default hsyncs for 4k@60 for 200ms */
 #define HDMI_DEFAULT_TIMEOUT_HSYNC 28571
 
+#define HDMI_GET_MSB(x)(x >> 8)
+#define HDMI_GET_LSB(x)(x & 0xff)
+
 /*
  * Bits 1:0 in HDMI_HW_DDC_CTRL that dictate how the HDCP 2.2 RxStatus will be
  * read by the hardware

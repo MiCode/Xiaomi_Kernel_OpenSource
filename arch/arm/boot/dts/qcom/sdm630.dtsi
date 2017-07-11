@@ -321,16 +321,10 @@
 		#size-cells = <2>;
 		ranges;
 
-		removed_region0: removed_region0@85800000 {
+		removed_region: removed_region0@85800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x85800000 0x0 0x700000>;
-		};
-
-		removed_region1: removed_region1@86000000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0x0 0x86000000 0x0 0x2f00000>;
+			reg = <0x0 0x85800000 0x0 0x3700000>;
 		};
 
 		modem_fw_mem: modem_fw_region@8ac00000 {
@@ -1280,9 +1274,9 @@
 		};
 	};
 
-	qcom,rmtfs_sharedmem@0 {
+	qcom,rmtfs_sharedmem@85e00000 {
 		compatible = "qcom,sharedmem-uio";
-		reg = <0x0 0x200000>;
+		reg = <0x85e00000 0x200000>;
 		reg-names = "rmtfs";
 		qcom,client-id = <0x00000001>;
 	};

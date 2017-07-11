@@ -46,6 +46,14 @@
 			status = "disabled";
 		};
 	};
+
+	qcom,adv7481@70 {
+		status = "disabled";
+	};
+
+	qcom,msm-ba {
+		status = "disabled";
+	};
 };
 
 &dsi_adv_7533_2 {

@@ -68,7 +68,12 @@ static struct msm_ringbuffer *get_next_ring(struct msm_gpu *gpu)
 	unsigned long flags;
 	int i;
 
-	for (i = gpu->nr_rings - 1; i >= 0; i--) {
+	/*
+	 * Find the highest prority ringbuffer that isn't empty and jump
+	 * to it (0 being the highest and gpu->nr_rings - 1 being the
+	 * lowest)
+	 */
+	for (i = 0; i < gpu->nr_rings; i++) {
 		bool empty;
 		struct msm_ringbuffer *ring = gpu->rb[i];
 

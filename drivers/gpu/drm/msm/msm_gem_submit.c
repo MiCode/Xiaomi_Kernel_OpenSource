@@ -18,6 +18,7 @@
 #include "msm_drv.h"
 #include "msm_gpu.h"
 #include "msm_gem.h"
+#include "msm_trace.h"
 
 /*
  * Cmdstream submission:
@@ -55,7 +56,7 @@ static struct msm_gem_submit *submit_create(struct drm_device *dev,
 		submit->nr_bos = 0;
 		submit->nr_cmds = 0;
 
-		submit->profile_buf_vaddr = NULL;
+		submit->profile_buf = NULL;
 		submit->profile_buf_iova = 0;
 		submit->cmd = (void *)&submit->bos[nr_bos];
 
@@ -510,9 +511,8 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 
 		if (submit_cmd.type == MSM_SUBMIT_CMD_PROFILE_BUF) {
 			submit->profile_buf_iova = submit->cmd[i].iova;
-			submit->profile_buf_vaddr =
-				msm_gem_vaddr(&msm_obj->base) +
-				submit_cmd.submit_offset;
+			submit->profile_buf = msm_gem_vaddr(&msm_obj->base)
+				+ submit_cmd.submit_offset;
 		}
 
 		if (submit->valid)

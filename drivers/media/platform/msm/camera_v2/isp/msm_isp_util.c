@@ -511,6 +511,9 @@ static int msm_isp_cfg_rdi(struct vfe_device *vfe_dev,
 		return -EINVAL;
 	}
 
+	vfe_dev->axi_data.
+		src_info[input_cfg->input_src].sof_counter_step = 1;
+
 	vfe_dev->axi_data.src_info[input_cfg->input_src].pixel_clock =
 		input_cfg->input_pix_clk;
 	vfe_dev->hw_info->vfe_ops.core_ops.cfg_rdi_reg(

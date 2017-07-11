@@ -2176,6 +2176,10 @@ static int mdss_dp_process_hpd_high(struct mdss_dp_drv_pdata *dp)
 	ret = mdss_dp_dpcd_cap_read(dp);
 	if (ret || !mdss_dp_aux_is_link_rate_valid(dp->dpcd.max_link_rate) ||
 		!mdss_dp_aux_is_lane_count_valid(dp->dpcd.max_lane_count)) {
+		if (ret == EDP_AUX_ERR_TOUT) {
+			pr_err("DPCD read timedout, skip connect notification\n");
+			goto end;
+		}
 		/*
 		 * If there is an error in parsing DPCD or if DPCD reports
 		 * unsupported link parameters then set the default link

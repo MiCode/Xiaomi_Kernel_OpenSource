@@ -106,7 +106,7 @@ static void a5xx_counter_enable_pm4(struct msm_gpu *gpu,
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
 	struct a5xx_gpu *a5xx_gpu = to_a5xx_gpu(adreno_gpu);
-	struct msm_ringbuffer *ring = gpu->rb[MSM_GPU_MAX_RINGS - 1];
+	struct msm_ringbuffer *ring = gpu->rb[0];
 	struct adreno_counter *counter = &group->counters[counterid];
 
 	mutex_lock(&gpu->dev->struct_mutex);

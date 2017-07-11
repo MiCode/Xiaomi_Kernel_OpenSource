@@ -62,12 +62,48 @@ struct drm_msm_timespec {
 	__s64 tv_nsec;         /* nanoseconds */
 };
 
+/*
+ * HDR Metadata
+ * These are defined as per EDID spec and shall be used by the sink
+ * to set the HDR metadata for playback from userspace.
+ */
+
+#define HDR_PRIMARIES_COUNT   3
+
+struct drm_msm_ext_panel_hdr_metadata {
+	__u32 eotf;             /* electro optical transfer function */
+	__u32 hdr_supported;    /* HDR supported */
+	__u32 display_primaries_x[HDR_PRIMARIES_COUNT]; /* Primaries x */
+	__u32 display_primaries_y[HDR_PRIMARIES_COUNT]; /* Primaries y */
+	__u32 white_point_x;    /* white_point_x */
+	__u32 white_point_y;    /* white_point_y */
+	__u32 max_luminance;    /* Max luminance */
+	__u32 min_luminance;    /* Min Luminance */
+	__u32 max_content_light_level; /* max content light level */
+	__u32 max_average_light_level; /* max average light level */
+};
+
+/**
+ * HDR sink properties
+ * These are defined as per EDID spec and shall be used by the userspace
+ * to determine the HDR properties to be set to the sink.
+ */
+struct drm_msm_ext_panel_hdr_properties {
+	__u8 hdr_metadata_type_one;   /* static metadata type one */
+	__u32 hdr_supported;          /* HDR supported */
+	__u32 hdr_eotf;               /* electro optical transfer function */
+	__u32 hdr_max_luminance;      /* Max luminance */
+	__u32 hdr_avg_luminance;      /* Avg luminance */
+	__u32 hdr_min_luminance;      /* Min Luminance */
+};
+
 #define MSM_PARAM_GPU_ID     0x01
 #define MSM_PARAM_GMEM_SIZE  0x02
 #define MSM_PARAM_CHIP_ID    0x03
 #define MSM_PARAM_MAX_FREQ   0x04
 #define MSM_PARAM_TIMESTAMP  0x05
 #define MSM_PARAM_GMEM_BASE  0x06
+#define MSM_PARAM_NR_RINGS   0x07
 
 struct drm_msm_param {
 	__u32 pipe;           /* in, MSM_PIPE_x */
@@ -229,9 +265,15 @@ struct drm_msm_gem_submit {
 	__u32 queueid;         /* in, submitqueue id */
 };
 
+/*
+ * Define a preprocessor variable to let the userspace know that
+ * drm_msm_gem_submit_profile_buffer switched to only support a kernel timestamp
+ * for submit time
+ */
+#define MSM_PROFILE_BUFFER_SUBMIT_TIME 1
+
 struct drm_msm_gem_submit_profile_buffer {
-	__s64 queue_time;      /* out, Ringbuffer queue time (nsecs) */
-	__s64 submit_time;     /* out, Ringbuffer submission time (nsecs) */
+	struct drm_msm_timespec time;   /* out, submission time */
 	__u64 ticks_queued;    /* out, GPU ticks at ringbuffer submission */
 	__u64 ticks_submitted; /* out, GPU ticks before cmdstream execution*/
 	__u64 ticks_retired;   /* out, GPU ticks after cmdstream execution */

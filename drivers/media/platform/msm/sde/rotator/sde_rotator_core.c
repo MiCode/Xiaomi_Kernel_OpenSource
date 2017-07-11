@@ -621,9 +621,10 @@ static int sde_rotator_secure_session_ctrl(bool enable)
 	if (mdata->wait_for_transition && mdata->secure_session_ctrl &&
 		mdata->callback_request) {
 		ret = mdata->wait_for_transition(mdata->sec_cam_en, enable);
-		if (ret) {
+		if (ret < 0) {
 			SDEROT_ERR("failed Secure wait for transition %d\n",
 				   ret);
+			ret = -EPERM;
 		} else {
 			if (mdata->sec_cam_en ^ enable) {
 				mdata->sec_cam_en = enable;
@@ -1114,6 +1115,8 @@ static int sde_rotator_assign_queue(struct sde_rot_mgr *mgr,
 		if (IS_ERR_OR_NULL(hw)) {
 			SDEROT_ERR("fail to allocate hw\n");
 			ret = PTR_ERR(hw);
+			if (!ret)
+				ret = -EINVAL;
 		} else {
 			queue->hw = hw;
 		}

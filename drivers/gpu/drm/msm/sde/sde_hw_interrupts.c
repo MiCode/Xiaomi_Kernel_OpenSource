@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -357,37 +357,32 @@ static const struct sde_irq_type sde_irq_map[] = {
 		SDE_INTR_HIST_VIG_1_RSTSEQ_DONE, 2},
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 2},
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 2},
-	/* irq_idx: 68-71 */
+	/* irq_idx: 72-75 */
 	{ SDE_IRQ_TYPE_HIST_VIG_DONE, SSPP_VIG2, SDE_INTR_HIST_VIG_2_DONE, 2},
 	{ SDE_IRQ_TYPE_HIST_VIG_RSTSEQ, SSPP_VIG2,
 		SDE_INTR_HIST_VIG_2_RSTSEQ_DONE, 2},
 	{ SDE_IRQ_TYPE_HIST_VIG_DONE, SSPP_VIG3, SDE_INTR_HIST_VIG_3_DONE, 2},
 	{ SDE_IRQ_TYPE_HIST_VIG_RSTSEQ, SSPP_VIG3,
 		SDE_INTR_HIST_VIG_3_RSTSEQ_DONE, 2},
-	/* irq_idx: 72-75 */
+	/* irq_idx: 76-79 */
 	{ SDE_IRQ_TYPE_HIST_DSPP_DONE, DSPP_0, SDE_INTR_HIST_DSPP_0_DONE, 2},
 	{ SDE_IRQ_TYPE_HIST_DSPP_RSTSEQ, DSPP_0,
 		SDE_INTR_HIST_DSPP_0_RSTSEQ_DONE, 2},
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 2},
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 2},
-	/* irq_idx: 76-79 */
+	/* irq_idx: 80-83 */
 	{ SDE_IRQ_TYPE_HIST_DSPP_DONE, DSPP_1, SDE_INTR_HIST_DSPP_1_DONE, 2},
 	{ SDE_IRQ_TYPE_HIST_DSPP_RSTSEQ, DSPP_1,
 		SDE_INTR_HIST_DSPP_1_RSTSEQ_DONE, 2},
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 2},
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 2},
-	/* irq_idx: 80-83 */
+	/* irq_idx: 84-87 */
 	{ SDE_IRQ_TYPE_HIST_DSPP_DONE, DSPP_2, SDE_INTR_HIST_DSPP_2_DONE, 2},
 	{ SDE_IRQ_TYPE_HIST_DSPP_RSTSEQ, DSPP_2,
 		SDE_INTR_HIST_DSPP_2_RSTSEQ_DONE, 2},
 	{ SDE_IRQ_TYPE_HIST_DSPP_DONE, DSPP_3, SDE_INTR_HIST_DSPP_3_DONE, 2},
 	{ SDE_IRQ_TYPE_HIST_DSPP_RSTSEQ, DSPP_3,
 		SDE_INTR_HIST_DSPP_3_RSTSEQ_DONE, 2},
-	/* irq_idx: 84-87 */
-	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 2},
-	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 2},
-	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 2},
-	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 2},
 	/* irq_idx: 88-91 */
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 2},
 	{ SDE_IRQ_TYPE_RESERVED, 0, 0, 2},
@@ -905,7 +900,7 @@ static u32 sde_hw_intr_get_interrupt_status(struct sde_hw_intr *intr,
 			sde_intr_set[reg_idx].status_off) &
 					sde_irq_map[irq_idx].irq_mask;
 	if (intr_status && clear)
-		SDE_REG_WRITE(&intr->hw, sde_intr_set[irq_idx].clr_off,
+		SDE_REG_WRITE(&intr->hw, sde_intr_set[reg_idx].clr_off,
 				intr_status);
 
 	spin_unlock_irqrestore(&intr->mask_lock, irq_flags);

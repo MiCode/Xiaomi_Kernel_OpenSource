@@ -694,22 +694,21 @@ static int cpu_power_select(struct cpuidle_device *dev,
 	int best_level = -1;
 	uint32_t latency_us = pm_qos_request_for_cpu(PM_QOS_CPU_DMA_LATENCY,
 							dev->cpu);
-	uint32_t sleep_us =
-		(uint32_t)(ktime_to_us(tick_nohz_get_sleep_length()));
+	s64 sleep_us = ktime_to_us(tick_nohz_get_sleep_length());
 	uint32_t modified_time_us = 0;
 	uint32_t next_event_us = 0;
 	int i, idx_restrict;
 	uint32_t lvl_latency_us = 0;
 	uint64_t predicted = 0;
 	uint32_t htime = 0, idx_restrict_time = 0;
-	uint32_t next_wakeup_us = sleep_us;
+	uint32_t next_wakeup_us = (uint32_t)sleep_us;
 	uint32_t *min_residency = get_per_cpu_min_residency(dev->cpu);
 	uint32_t *max_residency = get_per_cpu_max_residency(dev->cpu);
 
 	if (!cpu)
 		return -EINVAL;
 
-	if (sleep_disabled && !cpu_isolated(dev->cpu))
+	if ((sleep_disabled && !cpu_isolated(dev->cpu)) || sleep_us  < 0)
 		return 0;
 
 	idx_restrict = cpu->nlevels + 1;
@@ -750,8 +749,8 @@ static int cpu_power_select(struct cpuidle_device *dev,
 			if (next_wakeup_us > max_residency[i]) {
 				predicted = lpm_cpuidle_predict(dev, cpu,
 					&idx_restrict, &idx_restrict_time);
-				if (predicted < min_residency[i])
-					predicted = 0;
+				if (predicted && (predicted < min_residency[i]))
+					predicted = min_residency[i];
 			} else
 				invalidate_predict_history(dev);
 		}
@@ -1119,10 +1118,14 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		bool from_idle, int predicted)
 {
 	struct lpm_cluster_level *level = &cluster->levels[idx];
+	struct cpumask online_cpus;
 	int ret, i;
 
+	cpumask_and(&online_cpus, &cluster->num_children_in_sync,
+					cpu_online_mask);
+
 	if (!cpumask_equal(&cluster->num_children_in_sync, &cluster->child_cpus)
-			|| is_IPI_pending(&cluster->num_children_in_sync)) {
+			|| is_IPI_pending(&online_cpus)) {
 		return -EPERM;
 	}
 

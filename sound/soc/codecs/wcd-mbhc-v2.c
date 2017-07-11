@@ -361,6 +361,7 @@ out_micb_en:
 			/* Disable micbias, pullup & enable cs */
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);
 		mutex_unlock(&mbhc->hphl_pa_lock);
+		clear_bit(WCD_MBHC_ANC0_OFF_ACK, &mbhc->hph_anc_state);
 		break;
 	case WCD_EVENT_PRE_HPHR_PA_OFF:
 		mutex_lock(&mbhc->hphr_pa_lock);
@@ -378,6 +379,7 @@ out_micb_en:
 			/* Disable micbias, pullup & enable cs */
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);
 		mutex_unlock(&mbhc->hphr_pa_lock);
+		clear_bit(WCD_MBHC_ANC1_OFF_ACK, &mbhc->hph_anc_state);
 		break;
 	case WCD_EVENT_PRE_HPHL_PA_ON:
 		set_bit(WCD_MBHC_EVENT_PA_HPHL, &mbhc->event_state);
@@ -495,6 +497,25 @@ static void wcd_mbhc_clr_and_turnon_hph_padac(struct wcd_mbhc *mbhc)
 			 __func__);
 		usleep_range(wg_time * 1000, wg_time * 1000 + 50);
 	}
+
+	if (test_and_clear_bit(WCD_MBHC_ANC0_OFF_ACK,
+				&mbhc->hph_anc_state)) {
+		usleep_range(20000, 20100);
+		pr_debug("%s: HPHL ANC clear flag and enable ANC_EN\n",
+			__func__);
+		if (mbhc->mbhc_cb->update_anc_state)
+			mbhc->mbhc_cb->update_anc_state(mbhc->codec, true, 0);
+	}
+
+	if (test_and_clear_bit(WCD_MBHC_ANC1_OFF_ACK,
+				&mbhc->hph_anc_state)) {
+		usleep_range(20000, 20100);
+		pr_debug("%s: HPHR ANC clear flag and enable ANC_EN\n",
+			__func__);
+		if (mbhc->mbhc_cb->update_anc_state)
+			mbhc->mbhc_cb->update_anc_state(mbhc->codec, true, 1);
+	}
+
 }
 
 static bool wcd_mbhc_is_hph_pa_on(struct wcd_mbhc *mbhc)
@@ -526,6 +547,20 @@ static void wcd_mbhc_set_and_turnoff_hph_padac(struct wcd_mbhc *mbhc)
 	}
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HPH_PA_EN, 0);
 	usleep_range(wg_time * 1000, wg_time * 1000 + 50);
+
+
+	if (mbhc->mbhc_cb->is_anc_on && mbhc->mbhc_cb->is_anc_on(mbhc)) {
+		usleep_range(20000, 20100);
+		pr_debug("%s ANC is on, setting ANC_OFF_ACK\n", __func__);
+		set_bit(WCD_MBHC_ANC0_OFF_ACK, &mbhc->hph_anc_state);
+		set_bit(WCD_MBHC_ANC1_OFF_ACK, &mbhc->hph_anc_state);
+		if (mbhc->mbhc_cb->update_anc_state) {
+			mbhc->mbhc_cb->update_anc_state(mbhc->codec, false, 0);
+			mbhc->mbhc_cb->update_anc_state(mbhc->codec, false, 1);
+		} else {
+			pr_debug("%s ANC is off\n", __func__);
+		}
+	}
 }
 
 int wcd_mbhc_get_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,

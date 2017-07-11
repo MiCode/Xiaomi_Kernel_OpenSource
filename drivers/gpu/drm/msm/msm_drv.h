@@ -143,6 +143,8 @@ enum msm_mdp_crtc_property {
 enum msm_mdp_conn_property {
 	/* blob properties, always put these first */
 	CONNECTOR_PROP_SDE_INFO,
+	CONNECTOR_PROP_HDR_INFO,
+	CONNECTOR_PROP_HDR_METADATA,
 
 	/* # of blob properties */
 	CONNECTOR_PROP_BLOBCOUNT,
@@ -234,6 +236,14 @@ struct msm_display_info {
 };
 
 /**
+ * struct - msm_display_kickoff_params - info for display features at kickoff
+ * @hdr_metadata: HDR metadata info passed from userspace
+ */
+struct msm_display_kickoff_params {
+	struct drm_msm_ext_panel_hdr_metadata *hdr_metadata;
+};
+
+/**
  * struct msm_drm_event - defines custom event notification struct
  * @base: base object required for event notification by DRM framework.
  * @event: event object required for event notification by DRM framework.
@@ -287,7 +297,6 @@ struct msm_drm_private {
 
 	struct drm_fb_helper *fbdev;
 
-	uint32_t next_fence[MSM_GPU_MAX_RINGS];
 	uint32_t completed_fence[MSM_GPU_MAX_RINGS];
 
 	wait_queue_head_t fence_event;

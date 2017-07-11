@@ -20,6 +20,7 @@
 #include <linux/scatterlist.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
+#include <linux/ratelimit.h>
 
 #include "kgsl.h"
 #include "kgsl_sharedmem.h"
@@ -699,6 +700,10 @@ kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 	size_t len;
 	unsigned int align;
 
+	static DEFINE_RATELIMIT_STATE(_rs,
+					DEFAULT_RATELIMIT_INTERVAL,
+					DEFAULT_RATELIMIT_BURST);
+
 	size = PAGE_ALIGN(size);
 	if (size == 0 || size > UINT_MAX)
 		return -EINVAL;
@@ -761,7 +766,8 @@ kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 			 */
 			memdesc->size = (size - len);
 
-			if (sharedmem_noretry_flag != true)
+			if (sharedmem_noretry_flag != true &&
+					__ratelimit(&_rs))
 				KGSL_CORE_ERR(
 					"Out of memory: only allocated %lldKB of %lldKB requested\n",
 					(size - len) >> 10, size >> 10);

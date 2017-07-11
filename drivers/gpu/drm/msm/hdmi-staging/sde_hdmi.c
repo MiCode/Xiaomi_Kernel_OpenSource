@@ -1867,6 +1867,106 @@ int sde_hdmi_get_info(struct msm_display_info *info,
 	return rc;
 }
 
+static void sde_hdmi_panel_set_hdr_infoframe(struct sde_hdmi *display,
+struct drm_msm_ext_panel_hdr_metadata *hdr_meta)
+{
+	u32 packet_payload = 0;
+	u32 packet_header = 0;
+	u32 packet_control = 0;
+	u32 const type_code = 0x87;
+	u32 const version = 0x01;
+	u32 const length = 0x1a;
+	u32 const descriptor_id = 0x00;
+	struct hdmi *hdmi;
+	struct drm_connector *connector;
+
+	if (!display || !hdr_meta) {
+		SDE_ERROR("invalid input\n");
+		return;
+	}
+
+	hdmi = display->ctrl.ctrl;
+	connector = display->ctrl.ctrl->connector;
+
+	if (!hdmi || !connector) {
+		SDE_ERROR("invalid input\n");
+		return;
+	}
+
+	if (!connector->hdr_supported) {
+		SDE_ERROR("Sink does not support HDR\n");
+		return;
+	}
+
+	/* Setup Packet header and payload */
+	packet_header = type_code | (version << 8) | (length << 16);
+	hdmi_write(hdmi, HDMI_GENERIC0_HDR, packet_header);
+
+	packet_payload = (hdr_meta->eotf << 8);
+	if (connector->hdr_metadata_type_one) {
+		packet_payload |= (descriptor_id << 16)
+			| (HDMI_GET_LSB(hdr_meta->display_primaries_x[0])
+			   << 24);
+		hdmi_write(hdmi, HDMI_GENERIC0_0, packet_payload);
+	} else {
+		pr_debug("Metadata Type 1 not supported\n");
+		hdmi_write(hdmi, HDMI_GENERIC0_0, packet_payload);
+		goto enable_packet_control;
+	}
+
+	packet_payload =
+	(HDMI_GET_MSB(hdr_meta->display_primaries_x[0]))
+	| (HDMI_GET_LSB(hdr_meta->display_primaries_y[0]) << 8)
+	| (HDMI_GET_MSB(hdr_meta->display_primaries_y[0]) << 16)
+	| (HDMI_GET_LSB(hdr_meta->display_primaries_x[1]) << 24);
+	hdmi_write(hdmi, HDMI_GENERIC0_1, packet_payload);
+
+	packet_payload =
+		(HDMI_GET_MSB(hdr_meta->display_primaries_x[1]))
+		| (HDMI_GET_LSB(hdr_meta->display_primaries_y[1]) << 8)
+		| (HDMI_GET_MSB(hdr_meta->display_primaries_y[1]) << 16)
+		| (HDMI_GET_LSB(hdr_meta->display_primaries_x[2]) << 24);
+	hdmi_write(hdmi, HDMI_GENERIC0_2, packet_payload);
+
+	packet_payload =
+		(HDMI_GET_MSB(hdr_meta->display_primaries_x[2]))
+		| (HDMI_GET_LSB(hdr_meta->display_primaries_y[2]) << 8)
+		| (HDMI_GET_MSB(hdr_meta->display_primaries_y[2]) << 16)
+		| (HDMI_GET_LSB(hdr_meta->white_point_x) << 24);
+	hdmi_write(hdmi, HDMI_GENERIC0_3, packet_payload);
+
+	packet_payload =
+		(HDMI_GET_MSB(hdr_meta->white_point_x))
+		| (HDMI_GET_LSB(hdr_meta->white_point_y) << 8)
+		| (HDMI_GET_MSB(hdr_meta->white_point_y) << 16)
+		| (HDMI_GET_LSB(hdr_meta->max_luminance) << 24);
+	hdmi_write(hdmi, HDMI_GENERIC0_4, packet_payload);
+
+	packet_payload =
+		(HDMI_GET_MSB(hdr_meta->max_luminance))
+		| (HDMI_GET_LSB(hdr_meta->min_luminance) << 8)
+		| (HDMI_GET_MSB(hdr_meta->min_luminance) << 16)
+		| (HDMI_GET_LSB(hdr_meta->max_content_light_level) << 24);
+	hdmi_write(hdmi, HDMI_GENERIC0_5, packet_payload);
+
+	packet_payload =
+		(HDMI_GET_MSB(hdr_meta->max_content_light_level))
+		| (HDMI_GET_LSB(hdr_meta->max_average_light_level) << 8)
+		| (HDMI_GET_MSB(hdr_meta->max_average_light_level) << 16);
+	hdmi_write(hdmi, HDMI_GENERIC0_6, packet_payload);
+
+enable_packet_control:
+	/*
+	 * GENERIC0_LINE | GENERIC0_CONT | GENERIC0_SEND
+	 * Setup HDMI TX generic packet control
+	 * Enable this packet to transmit every frame
+	 * Enable HDMI TX engine to transmit Generic packet 1
+	 */
+	packet_control = hdmi_read(hdmi, HDMI_GEN_PKT_CTRL);
+	packet_control |= BIT(0) | BIT(1) | BIT(2) | BIT(16);
+	hdmi_write(hdmi, HDMI_GEN_PKT_CTRL, packet_control);
+}
+
 int sde_hdmi_set_property(struct drm_connector *connector,
 			struct drm_connector_state *state,
 			int property_index,
@@ -2201,6 +2301,17 @@ sde_hdmi_connector_detect(struct drm_connector *connector,
 	connector->display_info.height_mm = info.height_mm;
 
 	return status;
+}
+
+int sde_hdmi_pre_kickoff(struct drm_connector *connector,
+	void *display,
+	struct msm_display_kickoff_params *params)
+{
+
+	sde_hdmi_panel_set_hdr_infoframe(display,
+		params->hdr_metadata);
+
+	return 0;
 }
 
 int sde_hdmi_connector_get_modes(struct drm_connector *connector, void *display)

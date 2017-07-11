@@ -318,7 +318,6 @@ static struct fastrpc_channel_ctx gcinfo[NUM_CHANNELS] = {
 		.channel = SMD_APPS_DSPS,
 		.link.link_info.edge = "dsps",
 		.link.link_info.transport = "smem",
-		.vmid = VMID_SSC_Q6,
 	},
 	{
 		.name = "cdsprpc-smd",
@@ -1140,6 +1139,9 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		if (err)
 			goto bail;
 	}
+	if (ctx->buf->virt && metalen <= copylen)
+		memset(ctx->buf->virt, 0, metalen);
+
 	/* copy metadata */
 	rpra = ctx->buf->virt;
 	ctx->rpra = rpra;

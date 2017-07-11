@@ -56,6 +56,8 @@ struct a5xx_gpu {
 	struct a5xx_smmu_info *smmu_info;
 	struct drm_gem_object *smmu_info_bo;
 	uint64_t smmu_info_iova;
+
+	int timestamp_counter;
 };
 
 #define to_a5xx_gpu(x) container_of(x, struct a5xx_gpu, base)

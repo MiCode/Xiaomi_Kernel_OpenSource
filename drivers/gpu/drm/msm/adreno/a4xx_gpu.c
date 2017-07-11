@@ -522,7 +522,6 @@ static const struct adreno_gpu_funcs funcs = {
 		.pm_suspend = a4xx_pm_suspend,
 		.pm_resume = a4xx_pm_resume,
 		.recover = a4xx_recover,
-		.last_fence = adreno_last_fence,
 		.submitted_fence = adreno_submitted_fence,
 		.submit = adreno_submit,
 		.flush = adreno_flush,

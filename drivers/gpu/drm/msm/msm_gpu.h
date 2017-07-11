@@ -64,8 +64,6 @@ struct msm_gpu_funcs {
 	void (*submit)(struct msm_gpu *gpu, struct msm_gem_submit *submit);
 	void (*flush)(struct msm_gpu *gpu, struct msm_ringbuffer *ring);
 	irqreturn_t (*irq)(struct msm_gpu *irq);
-	uint32_t (*last_fence)(struct msm_gpu *gpu,
-			struct msm_ringbuffer *ring);
 	uint32_t (*submitted_fence)(struct msm_gpu *gpu,
 			struct msm_ringbuffer *ring);
 	struct msm_ringbuffer *(*active_ring)(struct msm_gpu *gpu);
@@ -147,7 +145,6 @@ struct msm_gpu {
 #define DRM_MSM_HANGCHECK_PERIOD 500 /* in ms */
 #define DRM_MSM_HANGCHECK_JIFFIES msecs_to_jiffies(DRM_MSM_HANGCHECK_PERIOD)
 	struct timer_list hangcheck_timer;
-	uint32_t hangcheck_fence[MSM_GPU_MAX_RINGS];
 	struct work_struct recover_work;
 	struct msm_snapshot *snapshot;
 };
@@ -186,7 +183,7 @@ static inline bool msm_gpu_active(struct msm_gpu *gpu)
 
 	FOR_EACH_RING(gpu, ring, i) {
 		if (gpu->funcs->submitted_fence(gpu, ring) >
-			gpu->funcs->last_fence(gpu, ring))
+			ring->memptrs->fence)
 			return true;
 	}
 

@@ -28,6 +28,24 @@
 
 #define WBID(wb_enc) ((wb_enc) ? wb_enc->wb_dev->wb_idx : -1)
 
+#define TO_S15D16(_x_)	((_x_) << 7)
+
+/**
+ * sde_rgb2yuv_601l - rgb to yuv color space conversion matrix
+ *
+ */
+static struct sde_csc_cfg sde_encoder_phys_wb_rgb2yuv_601l = {
+	{
+		TO_S15D16(0x0083), TO_S15D16(0x0102), TO_S15D16(0x0032),
+		TO_S15D16(0x1fb5), TO_S15D16(0x1f6c), TO_S15D16(0x00e1),
+		TO_S15D16(0x00e1), TO_S15D16(0x1f45), TO_S15D16(0x1fdc)
+	},
+	{ 0x00, 0x00, 0x00 },
+	{ 0x0040, 0x0200, 0x0200 },
+	{ 0x000, 0x3ff, 0x000, 0x3ff, 0x000, 0x3ff },
+	{ 0x040, 0x3ac, 0x040, 0x3c0, 0x040, 0x3c0 },
+};
+
 /**
  * sde_encoder_phys_wb_is_master - report wb always as master encoder
  */
@@ -149,6 +167,15 @@ void sde_encoder_phys_setup_cdm(struct sde_encoder_phys *phys_enc,
 			cdm_cfg->output_bit_depth,
 			cdm_cfg->h_cdwn_type,
 			cdm_cfg->v_cdwn_type);
+
+	if (hw_cdm && hw_cdm->ops.setup_csc_data) {
+		ret = hw_cdm->ops.setup_csc_data(hw_cdm,
+				&sde_encoder_phys_wb_rgb2yuv_601l);
+		if (ret < 0) {
+			SDE_ERROR("failed to setup CSC %d\n", ret);
+			return;
+		}
+	}
 
 	if (hw_cdm && hw_cdm->ops.setup_cdwn) {
 		ret = hw_cdm->ops.setup_cdwn(hw_cdm, cdm_cfg);

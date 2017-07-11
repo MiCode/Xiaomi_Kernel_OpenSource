@@ -122,6 +122,19 @@ struct sde_connector_ops {
 	int (*get_info)(struct msm_display_info *info, void *display);
 
 	int (*set_backlight)(void *display, u32 bl_lvl);
+
+
+	/**
+	 * pre_kickoff - trigger display to program kickoff-time features
+	 * @connector: Pointer to drm connector structure
+	 * @display: Pointer to private display structure
+	 * @params: Parameter bundle of connector-stored information for
+	 *	kickoff-time programming into the display
+	 * Returns: Zero on success
+	 */
+	int (*pre_kickoff)(struct drm_connector *connector,
+		void *display,
+		struct msm_display_kickoff_params *params);
 };
 
 /**
@@ -139,6 +152,7 @@ struct sde_connector_ops {
  * @property_info: Private structure for generic property handling
  * @property_data: Array of private data for generic property handling
  * @blob_caps: Pointer to blob structure for 'capabilities' property
+ * @blob_hdr: Pointer to blob structure for 'hdr_properties' property
  */
 struct sde_connector {
 	struct drm_connector base;
@@ -159,6 +173,7 @@ struct sde_connector {
 	struct msm_property_info property_info;
 	struct msm_property_data property_data[CONNECTOR_PROP_COUNT];
 	struct drm_property_blob *blob_caps;
+	struct drm_property_blob *blob_hdr;
 };
 
 /**
@@ -206,12 +221,14 @@ struct sde_connector {
  * @out_fb: Pointer to output frame buffer, if applicable
  * @aspace: Address space for accessing frame buffer objects, if applicable
  * @property_values: Local cache of current connector property values
+ * @hdr_meta: HDR metadata info passed from userspace
  */
 struct sde_connector_state {
 	struct drm_connector_state base;
 	struct drm_framebuffer *out_fb;
 	struct msm_gem_address_space *aspace;
 	uint64_t property_values[CONNECTOR_PROP_COUNT];
+	struct drm_msm_ext_panel_hdr_metadata hdr_meta;
 };
 
 /**
@@ -302,6 +319,13 @@ void sde_connector_complete_commit(struct drm_connector *connector);
  */
 int sde_connector_get_info(struct drm_connector *connector,
 		struct msm_display_info *info);
+
+/**
+ * sde_connector_pre_kickoff - trigger kickoff time feature programming
+ * @connector: Pointer to drm connector object
+ * Returns: Zero on success
+ */
+int sde_connector_pre_kickoff(struct drm_connector *connector);
 
 #endif /* _SDE_CONNECTOR_H_ */
 

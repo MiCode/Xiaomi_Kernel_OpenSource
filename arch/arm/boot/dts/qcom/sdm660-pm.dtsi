@@ -39,7 +39,7 @@
 		qcom,vctl-timeout-us = <500>;
 		qcom,vctl-port = <0x0>;
 		qcom,phase-port = <0x1>;
-		qcom,saw2-avs-ctl = <0x1010031>;
+		qcom,saw2-avs-ctl = <0x101c031>;
 		qcom,saw2-avs-limit = <0x4580458>;
 		qcom,pfm-port = <0x2>;
 	};
@@ -341,6 +341,7 @@
 		qcom,gic-map =
 			<0x02 216>, /* tsens1_tsens_upper_lower_int */
 			<0x34 275>, /* qmp_usb3_lfps_rxterm_irq_cx */
+			<0x3d 209>, /* lpi_dir_conn_irq_apps[1] */
 			<0x4f 379>, /* qusb2phy_intr for Dm */
 			<0x50 380>, /* qusb2phy_intr for Dm for secondary PHY */
 			<0x51 379>, /* qusb2phy_intr for Dp */
@@ -484,7 +485,6 @@
 			<0xff 206>, /* rpm_ipc[22] */
 			<0xff 207>, /* rpm_ipc[23] */
 			<0xff 208>, /* lpi_dir_conn_irq_apps[0] */
-			<0xff 209>, /* lpi_dir_conn_irq_apps[1] */
 			<0xff 210>, /* lpi_dir_conn_irq_apps[2] */
 			<0xff 212>, /* usb30s_power_event_irq */
 			<0xff 213>, /* secure_wdog_bark_irq */

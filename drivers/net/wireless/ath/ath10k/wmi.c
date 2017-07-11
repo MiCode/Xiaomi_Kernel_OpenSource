@@ -2446,6 +2446,31 @@ static int ath10k_wmi_10_4_op_pull_ch_info_ev(struct ath10k *ar,
 	return 0;
 }
 
+static void wlan_fill_survey_result(struct ath10k *ar,
+				    struct survey_info *survey,
+				    struct wmi_ch_info_ev_arg arg)
+{
+	u64 clock_freq;
+
+	if (!arg.mac_clk_mhz || !survey)
+		return;
+
+	clock_freq = arg.mac_clk_mhz * 1000;
+
+	memset(survey, 0, sizeof(*survey));
+
+	survey->noise = __le32_to_cpu(arg.noise_floor);
+	survey->time = __le32_to_cpu(arg.cycle_count) / clock_freq;
+	survey->time_busy = __le32_to_cpu(arg.rx_clear_count) / clock_freq;
+	survey->time_tx = __le32_to_cpu(arg.rx_clear_count) / clock_freq;
+
+	survey->filled = SURVEY_INFO_NOISE_DBM;
+	ar->ch_info_can_report_survey = true;
+
+	survey->filled |= (SURVEY_INFO_TIME | SURVEY_INFO_TIME_BUSY |
+			   SURVEY_INFO_TIME_TX);
+}
+
 void ath10k_wmi_event_chan_info(struct ath10k *ar, struct sk_buff *skb)
 {
 	struct wmi_ch_info_ev_arg arg = {};
@@ -2487,6 +2512,12 @@ void ath10k_wmi_event_chan_info(struct ath10k *ar, struct sk_buff *skb)
 	if (idx >= ARRAY_SIZE(ar->survey)) {
 		ath10k_warn(ar, "chan info: invalid frequency %d (idx %d out of bounds)\n",
 			    freq, idx);
+		goto exit;
+	}
+
+	if (QCA_REV_WCN3990(ar)) {
+		survey = &ar->survey[idx];
+		wlan_fill_survey_result(ar, survey, arg);
 		goto exit;
 	}
 
