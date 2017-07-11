@@ -495,6 +495,7 @@ static int handle_alloc_generic_req(void *req_h, void *req, void *conn_h)
 	struct mem_alloc_generic_resp_msg_v01 *alloc_resp;
 	int rc, resp = 0;
 	int client_id;
+	uint32_t size = 0;
 
 	mutex_lock(&memsh_drv->mem_share);
 	alloc_req = (struct mem_alloc_generic_req_msg_v01 *)req;
@@ -521,12 +522,12 @@ static int handle_alloc_generic_req(void *req_h, void *req, void *conn_h)
 		return -EINVAL;
 	}
 
-	memblock[client_id].free_memory += 1;
-	pr_debug("memshare: %s, free memory count for client id: %d = %d",
-		__func__, memblock[client_id].client_id,
-			memblock[client_id].free_memory);
 	if (!memblock[client_id].allotted) {
-		rc = memshare_alloc(memsh_drv->dev, alloc_req->num_bytes,
+		if (alloc_req->client_id == 1 && alloc_req->num_bytes > 0)
+			size = alloc_req->num_bytes + MEMSHARE_GUARD_BYTES;
+		else
+			size = alloc_req->num_bytes;
+		rc = memshare_alloc(memsh_drv->dev, size,
 					&memblock[client_id]);
 		if (rc) {
 			pr_err("memshare: %s,Unable to allocate memory for requested client\n",
@@ -534,11 +535,16 @@ static int handle_alloc_generic_req(void *req_h, void *req, void *conn_h)
 			resp = 1;
 		}
 		if (!resp) {
+			memblock[client_id].free_memory += 1;
 			memblock[client_id].allotted = 1;
 			memblock[client_id].size = alloc_req->num_bytes;
 			memblock[client_id].peripheral = alloc_req->proc_id;
 		}
 	}
+	pr_debug("memshare: In %s, free memory count for client id: %d = %d",
+		__func__, memblock[client_id].client_id,
+		memblock[client_id].free_memory);
+
 	memblock[client_id].sequence_id = alloc_req->sequence_id;
 
 	fill_alloc_response(alloc_resp, client_id, &resp);
@@ -941,9 +947,11 @@ static int memshare_child_probe(struct platform_device *pdev)
   /*
    *	Memshare allocation for guaranteed clients
    */
-	if (memblock[num_clients].guarantee) {
+	if (memblock[num_clients].guarantee && size > 0) {
+		if (client_id == 1)
+			size += MEMSHARE_GUARD_BYTES;
 		rc = memshare_alloc(memsh_child->dev,
-				memblock[num_clients].size,
+				size,
 				&memblock[num_clients]);
 		if (rc) {
 			pr_err("memshare: %s, Unable to allocate memory for guaranteed clients, rc: %d\n",
@@ -951,6 +959,7 @@ static int memshare_child_probe(struct platform_device *pdev)
 			return rc;
 		}
 		memblock[num_clients].allotted = 1;
+		shared_hyp_mapping(num_clients);
 	}
 
 	/*

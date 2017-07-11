@@ -24,6 +24,7 @@
 #define GPS	0
 #define CHECK	0
 #define FREE	1
+#define MEMSHARE_GUARD_BYTES	(4*1024)
 
 struct mem_blocks {
 	/* Client Id information */
