@@ -64,10 +64,13 @@ struct se_geni_rsc {
 	struct pinctrl *geni_pinctrl;
 	struct pinctrl_state *geni_gpio_active;
 	struct pinctrl_state *geni_gpio_sleep;
+	int	clk_freq_out;
 };
 
 #define PINCTRL_DEFAULT	"default"
 #define PINCTRL_SLEEP	"sleep"
+
+#define KHz(freq) (1000 * (freq))
 
 /* Common SE registers */
 #define GENI_INIT_CFG_REVISION		(0x0)
