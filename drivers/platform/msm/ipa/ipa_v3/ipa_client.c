@@ -1254,6 +1254,12 @@ int ipa3_request_gsi_channel(struct ipa_request_gsi_channel_params *params,
 
 	memset(gsi_ep_cfg_ptr, 0, sizeof(struct ipa_gsi_ep_config));
 	gsi_ep_cfg_ptr = ipa_get_gsi_ep_info(ipa_ep_idx);
+	if (gsi_ep_cfg_ptr == NULL) {
+		IPAERR("Error ipa_get_gsi_ep_info ret NULL\n");
+		result = -EFAULT;
+		goto write_evt_scratch_fail;
+	}
+
 	params->chan_params.evt_ring_hdl = ep->gsi_evt_ring_hdl;
 	params->chan_params.ch_id = gsi_ep_cfg_ptr->ipa_gsi_chan_num;
 	gsi_res = gsi_alloc_channel(&params->chan_params, gsi_dev_hdl,
