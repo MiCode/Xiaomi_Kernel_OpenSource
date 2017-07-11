@@ -136,4 +136,13 @@ void sde_cp_crtc_pre_ipc(struct drm_crtc *crtc);
  * @crtc: Pointer to crtc.
  */
 void sde_cp_crtc_post_ipc(struct drm_crtc *crtc);
+
+/**
+ * sde_cp_hist_interrupt: Api to enable/disable histogram interrupt
+ * @crtc: Pointer to crtc.
+ * @en: Variable to enable/disable interrupt.
+ * @irq: Pointer to irq callback
+ */
+int sde_cp_hist_interrupt(struct drm_crtc *crtc_drm, bool en,
+	struct sde_irq_callback *hist_irq);
 #endif /*_SDE_COLOR_PROCESSING_H */
