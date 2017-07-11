@@ -35,9 +35,11 @@
 
 #define DEFAULT_MDP_TRANSFER_TIME 14000
 
-#define DEFAULT_PANEL_JITTER		5
-#define MAX_PANEL_JITTER		25
-#define DEFAULT_PANEL_PREFILL_LINES	16
+#define DEFAULT_PANEL_JITTER_NUMERATOR		2
+#define DEFAULT_PANEL_JITTER_DENOMINATOR	1
+#define DEFAULT_PANEL_JITTER_ARRAY_SIZE		2
+#define MAX_PANEL_JITTER		10
+#define DEFAULT_PANEL_PREFILL_LINES	25
 
 static u32 dsi_dsc_rc_buf_thresh[] = {0x0e, 0x1c, 0x2a, 0x38, 0x46, 0x54,
 		0x62, 0x69, 0x70, 0x77, 0x79, 0x7b, 0x7d, 0x7e};
@@ -1579,16 +1581,24 @@ static int dsi_panel_parse_jitter_config(struct dsi_panel *panel,
 				     struct device_node *of_node)
 {
 	int rc;
+	u32 jitter[DEFAULT_PANEL_JITTER_ARRAY_SIZE] = {0, 0};
+	u64 jitter_val = 0;
 
-	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-jitter",
-				  &panel->panel_jitter);
+	rc = of_property_read_u32_array(of_node, "qcom,mdss-dsi-panel-jitter",
+				jitter, DEFAULT_PANEL_JITTER_ARRAY_SIZE);
 	if (rc) {
-		pr_debug("panel jitter is not defined rc=%d\n", rc);
-		panel->panel_jitter = DEFAULT_PANEL_JITTER;
-	} else if (panel->panel_jitter > MAX_PANEL_JITTER) {
-		pr_debug("invalid jitter config=%d setting to:%d\n",
-			panel->panel_jitter, DEFAULT_PANEL_JITTER);
-		panel->panel_jitter = DEFAULT_PANEL_JITTER;
+		pr_debug("panel jitter not defined rc=%d\n", rc);
+	} else {
+		jitter_val = jitter[0];
+		jitter_val = div_u64(jitter_val, jitter[1]);
+	}
+
+	if (rc || !jitter_val || (jitter_val > MAX_PANEL_JITTER)) {
+		panel->panel_jitter_numer = DEFAULT_PANEL_JITTER_NUMERATOR;
+		panel->panel_jitter_denom = DEFAULT_PANEL_JITTER_DENOMINATOR;
+	} else {
+		panel->panel_jitter_numer = jitter[0];
+		panel->panel_jitter_denom = jitter[1];
 	}
 
 	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-prefill-lines",
