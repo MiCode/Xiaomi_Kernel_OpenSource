@@ -100,6 +100,25 @@ struct sde_plane_rot_state {
 #define SDE_PLANE_DIRTY_ALL	0xFFFFFFFF
 
 /**
+ * enum sde_plane_sclcheck_state - User scaler data status
+ *
+ * @SDE_PLANE_SCLCHECK_NONE: No user data provided
+ * @SDE_PLANE_SCLCHECK_INVALID: Invalid user data provided
+ * @SDE_PLANE_SCLCHECK_SCALER_V1: Valid scaler v1 data
+ * @SDE_PLANE_SCLCHECK_SCALER_V1_CHECK: Unchecked scaler v1 data
+ * @SDE_PLANE_SCLCHECK_SCALER_V2: Valid scaler v2 data
+ * @SDE_PLANE_SCLCHECK_SCALER_V2_CHECK: Unchecked scaler v2 data
+ */
+enum sde_plane_sclcheck_state {
+	SDE_PLANE_SCLCHECK_NONE,
+	SDE_PLANE_SCLCHECK_INVALID,
+	SDE_PLANE_SCLCHECK_SCALER_V1,
+	SDE_PLANE_SCLCHECK_SCALER_V1_CHECK,
+	SDE_PLANE_SCLCHECK_SCALER_V2,
+	SDE_PLANE_SCLCHECK_SCALER_V2_CHECK,
+};
+
+/**
  * struct sde_plane_state: Define sde extension of drm plane state object
  * @base:	base drm plane state object
  * @property_values:	cached plane property values
@@ -112,6 +131,9 @@ struct sde_plane_rot_state {
  * @multirect_index: index of the rectangle of SSPP
  * @multirect_mode: parallel or time multiplex multirect mode
  * @pending:	whether the current update is still pending
+ * @scaler3_cfg: configuration data for scaler3
+ * @pixel_ext: configuration data for pixel extensions
+ * @scaler_check_state: indicates status of user provided pixel extension data
  * @cdp_cfg:	CDP configuration
  */
 struct sde_plane_state {
@@ -126,6 +148,11 @@ struct sde_plane_state {
 	uint32_t multirect_index;
 	uint32_t multirect_mode;
 	bool pending;
+
+	/* scaler configuration */
+	struct sde_hw_scaler3_cfg scaler3_cfg;
+	struct sde_hw_pixel_ext pixel_ext;
+	enum sde_plane_sclcheck_state scaler_check_state;
 
 	/* @sc_cfg: system_cache configuration */
 	struct sde_hw_pipe_sc_cfg sc_cfg;
