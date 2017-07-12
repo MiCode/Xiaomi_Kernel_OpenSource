@@ -3688,6 +3688,7 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	vote(chg->usb_icl_votable, DCP_VOTER, false, 0);
 	vote(chg->usb_icl_votable, PL_USBIN_USBIN_VOTER, false, 0);
 	vote(chg->usb_icl_votable, SW_QC3_VOTER, false, 0);
+	vote(chg->usb_icl_votable, OTG_VOTER, false, 0);
 
 	/* reset hvdcp voters */
 	vote(chg->hvdcp_disable_votable_indirect, VBUS_CC_SHORT_VOTER, true, 0);
@@ -3848,6 +3849,12 @@ static void smblib_handle_typec_cc_state_change(struct smb_charger *chg)
 		smblib_dbg(chg, PR_MISC, "TypeC removal\n");
 		smblib_handle_typec_removal(chg);
 	}
+
+	/* suspend usb if sink */
+	if (chg->typec_status[3] & UFP_DFP_MODE_STATUS_BIT)
+		vote(chg->usb_icl_votable, OTG_VOTER, true, 0);
+	else
+		vote(chg->usb_icl_votable, OTG_VOTER, false, 0);
 
 	smblib_dbg(chg, PR_INTERRUPT, "IRQ: cc-state-change; Type-C %s detected\n",
 				smblib_typec_mode_name[chg->typec_mode]);
