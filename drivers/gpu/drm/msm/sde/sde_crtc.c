@@ -2759,7 +2759,8 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 
 		/* check dim layer stage with every plane */
 		for (i = 0; i < cstate->num_dim_layers; i++) {
-			if (pstates[cnt].stage == cstate->dim_layer[i].stage) {
+			if (cstate->dim_layer[i].stage
+					== (pstates[cnt].stage + SDE_STAGE_0)) {
 				SDE_ERROR(
 					"plane:%d/dim_layer:%i-same stage:%d\n",
 					plane->base.id, i,
