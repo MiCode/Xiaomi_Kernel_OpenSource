@@ -126,6 +126,8 @@ enum cnss_driver_event_type {
 	CNSS_DRIVER_EVENT_UNREGISTER_DRIVER,
 	CNSS_DRIVER_EVENT_RECOVERY,
 	CNSS_DRIVER_EVENT_FORCE_FW_ASSERT,
+	CNSS_DRIVER_EVENT_POWER_UP,
+	CNSS_DRIVER_EVENT_POWER_DOWN,
 	CNSS_DRIVER_EVENT_MAX,
 };
 
@@ -201,6 +203,7 @@ struct cnss_plat_data {
 	struct dentry *root_dentry;
 	atomic_t pm_count;
 	struct timer_list fw_boot_timer;
+	struct completion power_up_complete;
 };
 
 void *cnss_bus_dev_to_bus_priv(struct device *dev);
