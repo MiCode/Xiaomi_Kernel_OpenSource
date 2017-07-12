@@ -667,6 +667,7 @@
 			qcom,mhi-ep-msi = <0>;
 			qcom,mhi-version = <0x1000000>;
 			qcom,use-ipa-software-channel;
+		status = "disabled";
 	};
 
 	blsp1_uart1: serial@78af000 {
