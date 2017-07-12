@@ -359,9 +359,7 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 		SDE_EVT32(DRMID(phys_enc->parent), SDE_EVTLOG_FATAL);
 
 		sde_encoder_helper_unregister_irq(phys_enc, INTR_IDX_RDPTR);
-		SDE_DBG_DUMP("sde", "dsi0_ctrl", "dsi0_phy", "dsi1_ctrl",
-				"dsi1_phy", "vbif", "dbg_bus",
-				"vbif_dbg_bus", "panic");
+		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus", "panic");
 	}
 
 	atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
@@ -418,9 +416,7 @@ static int _sde_encoder_phys_cmd_poll_write_pointer_started(
 				phys_enc->hw_pp->idx - PINGPONG_0,
 				timeout_us,
 				ret);
-		SDE_DBG_DUMP("sde", "dsi0_ctrl", "dsi0_phy", "dsi1_ctrl",
-				"dsi1_phy", "vbif_rt", "dbg_bus",
-				"vbif_dbg_bus", "panic");
+		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus", "panic");
 	}
 
 	return ret;
