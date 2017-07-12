@@ -367,18 +367,18 @@
 	/delete-node/ rpmh-regulator-gfxlvl;
 	/delete-node/ rpmh-regulator-msslvl;
 	/delete-node/ rpmh-regulator-smpc3;
-	/delete-node/ ext_5v_boost;
 };
 
 &spmi_bus {
 	/delete-node/ qcom,pm8998@0;
 	/delete-node/ qcom,pm8998@1;
-	/delete-node/ qcom,pmi8998@2;
-	/delete-node/ qcom,pmi8998@3;
 	/delete-node/ qcom,pm8005@4;
 	/delete-node/ qcom,pm8005@5;
 };
 
+/delete-node/ &pmi8998_lsid0;
+/delete-node/ &pmi8998_lsid1;
+/delete-node/ &ext_5v_boost;
 
 #include "pm660.dtsi"
 #include "pm660l.dtsi"

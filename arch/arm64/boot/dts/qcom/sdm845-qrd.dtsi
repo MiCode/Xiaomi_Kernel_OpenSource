@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include "sdm845-pmic-overlay.dtsi"
+#include "sdm845-pinctrl-overlay.dtsi"
 #include "smb1355.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 

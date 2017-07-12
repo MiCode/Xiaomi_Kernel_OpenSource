@@ -11,6 +11,8 @@
  */
 
 #include <dt-bindings/gpio/gpio.h>
+#include "sdm845-pmic-overlay.dtsi"
+#include "sdm845-pinctrl-overlay.dtsi"
 #include "sdm845-camera-sensor-cdp.dtsi"
 
 &vendor {
