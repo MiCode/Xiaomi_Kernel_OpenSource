@@ -13,7 +13,7 @@
 #include "smb1355.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 
-/{
+&vendor {
 	bluetooth: bt_wcn3990 {
 		compatible = "qca,wcn3990";
 		qca,bt-vdd-io-supply = <&pm8998_s3>;
