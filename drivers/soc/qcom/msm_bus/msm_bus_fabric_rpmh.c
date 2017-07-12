@@ -559,6 +559,8 @@ int msm_bus_commit_data(struct list_head *clist)
 	int cnt_sleep = 0;
 	int i = 0;
 
+	if (!clist)
+		return ret;
 
 	list_for_each_entry_safe(node, node_tmp, clist, link) {
 		if (unlikely(node->node_info->defer_qos))
