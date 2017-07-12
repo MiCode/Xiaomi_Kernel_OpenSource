@@ -471,24 +471,28 @@ static u32  top_task_load(struct rq *rq)
 u64 freq_policy_load(struct rq *rq)
 {
 	unsigned int reporting_policy = sysctl_sched_freq_reporting_policy;
+	int freq_aggr_thresh = sched_freq_aggregate_threshold;
 	struct sched_cluster *cluster = rq->cluster;
 	u64 aggr_grp_load = cluster->aggr_grp_load;
-	u64 load;
+	u64 load, tt_load = 0;
 
-	if (rq->ed_task != NULL)
-		return sched_ravg_window;
+	if (rq->ed_task != NULL) {
+		load = sched_ravg_window;
+		goto done;
+	}
 
-	if (aggr_grp_load > sched_freq_aggregate_threshold)
+	if (aggr_grp_load > freq_aggr_thresh)
 		load = rq->prev_runnable_sum + aggr_grp_load;
 	else
 		load = rq->prev_runnable_sum + rq->grp_time.prev_runnable_sum;
 
+	tt_load = top_task_load(rq);
 	switch (reporting_policy) {
 	case FREQ_REPORT_MAX_CPU_LOAD_TOP_TASK:
-		load = max_t(u64, load, top_task_load(rq));
+		load = max_t(u64, load, tt_load);
 		break;
 	case FREQ_REPORT_TOP_TASK:
-		load = top_task_load(rq);
+		load = tt_load;
 		break;
 	case FREQ_REPORT_CPU_LOAD:
 		break;
@@ -496,6 +500,9 @@ u64 freq_policy_load(struct rq *rq)
 		break;
 	}
 
+done:
+	trace_sched_load_to_gov(rq, aggr_grp_load, tt_load, freq_aggr_thresh,
+				load, reporting_policy);
 	return load;
 }
 
