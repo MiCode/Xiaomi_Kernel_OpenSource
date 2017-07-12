@@ -1811,9 +1811,10 @@ int __init msm_bus_device_init_driver(void)
 
 int __init msm_bus_device_late_init(void)
 {
+	commit_late_init_data(true);
 	MSM_BUS_ERR("msm_bus_late_init: Remove handoff bw requests\n");
 	init_time = false;
-	return commit_late_init_data();
+	return commit_late_init_data(false);
 }
 subsys_initcall(msm_bus_device_init_driver);
 late_initcall_sync(msm_bus_device_late_init);
