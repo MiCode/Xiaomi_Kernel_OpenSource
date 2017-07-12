@@ -13,7 +13,7 @@
 
 /dts-v1/;
 
-#include "mdm9650-mtp.dtsi"
+#include "mdm9650-v1.1-mtp.dtsi"
 / {
 	model = "Qualcomm Technologies, Inc. MDM 9650 TTP";
 	compatible = "qcom,mdm9650-ttp", "qcom,mdm9650", "qcom,ttp";

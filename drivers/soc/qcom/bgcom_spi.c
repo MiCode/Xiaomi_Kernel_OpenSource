@@ -86,6 +86,17 @@ static uint32_t g_slav_status_reg;
 /* BGCOM client callbacks set-up */
 static struct list_head cb_head = LIST_HEAD_INIT(cb_head);
 
+static enum bgcom_spi_state spi_state;
+
+int bgcom_set_spi_state(enum bgcom_spi_state state)
+{
+	if (state < 0 || state > 1)
+		return -EINVAL;
+	spi_state = state;
+	return 0;
+}
+EXPORT_SYMBOL(bgcom_set_spi_state);
+
 static inline
 void add_to_irq_list(struct  cb_data *data)
 {
@@ -330,6 +341,13 @@ int bgcom_ahb_read(void *handle, uint32_t ahb_start_addr,
 		pr_err("Invalid param\n");
 		return -EINVAL;
 	}
+	if (!is_bgcom_ready())
+		return -ENODEV;
+
+	if (spi_state == BGCOM_SPI_BUSY) {
+		pr_err("Device busy\n");
+		return -EBUSY;
+	}
 
 	size = num_words*BG_SPI_WORD_SIZE;
 	txn_len = BG_SPI_AHB_READ_CMD_LEN + size;
@@ -382,6 +400,11 @@ int bgcom_ahb_write(void *handle, uint32_t ahb_start_addr,
 	if (!is_bgcom_ready())
 		return -ENODEV;
 
+	if (spi_state == BGCOM_SPI_BUSY) {
+		pr_err("Device busy\n");
+		return -EBUSY;
+	}
+
 	size = num_words*BG_SPI_WORD_SIZE;
 	txn_len = BG_SPI_AHB_CMD_LEN + size;
 
@@ -420,6 +443,12 @@ int bgcom_fifo_write(void *handle, uint32_t num_words,
 
 	if (!is_bgcom_ready())
 		return -ENODEV;
+
+	if (spi_state == BGCOM_SPI_BUSY) {
+		pr_err("Device busy\n");
+		return -EBUSY;
+	}
+
 	size = num_words*BG_SPI_WORD_SIZE;
 	txn_len = BG_SPI_WRITE_CMND_LEN + size;
 
@@ -456,6 +485,12 @@ int bgcom_fifo_read(void *handle, uint32_t num_words,
 
 	if (!is_bgcom_ready())
 		return -ENODEV;
+
+	if (spi_state == BGCOM_SPI_BUSY) {
+		pr_err("Device busy\n");
+		return -EBUSY;
+	}
+
 	size = num_words*BG_SPI_WORD_SIZE;
 	txn_len = BG_SPI_READ_LEN + size;
 	tx_buf = kzalloc(txn_len, GFP_KERNEL | GFP_ATOMIC);
@@ -501,6 +536,11 @@ int bgcom_reg_write(void *handle, uint8_t reg_start_addr,
 	if (!is_bgcom_ready())
 		return -ENODEV;
 
+	if (spi_state == BGCOM_SPI_BUSY) {
+		pr_err("Device busy\n");
+		return -EBUSY;
+	}
+
 	size = num_regs*BG_SPI_WORD_SIZE;
 	txn_len = BG_SPI_WRITE_CMND_LEN + size;
 
@@ -534,6 +574,15 @@ int bgcom_reg_read(void *handle, uint8_t reg_start_addr,
 		pr_err("Invalid param\n");
 		return -EINVAL;
 	}
+
+	if (!is_bgcom_ready())
+		return -ENODEV;
+
+	if (spi_state == BGCOM_SPI_BUSY) {
+		pr_err("Device busy\n");
+		return -EBUSY;
+	}
+
 	size = num_regs*BG_SPI_WORD_SIZE;
 	txn_len = BG_SPI_READ_LEN + size;
 
@@ -643,8 +692,9 @@ static irqreturn_t bg_irq_tasklet_hndlr(int irq, void *device)
 	if (list_empty(&cb_head)) {
 		pr_debug("No callback registered\n");
 		return IRQ_HANDLED;
-	}
-	if (!bg_spi->irq_lock) {
+	} else if (spi_state == BGCOM_SPI_BUSY) {
+		return IRQ_HANDLED;
+	} else if (!bg_spi->irq_lock) {
 		bg_spi->irq_lock = 1;
 		bg_irq_tasklet_hndlr_l();
 		bg_spi->irq_lock = 0;
@@ -667,6 +717,8 @@ static void bg_spi_init(struct bg_spi_priv *bg_spi)
 	/* BGCOM IRQ set-up */
 	bg_com_drv = &bg_spi->lhandle;
 	bg_spi->irq_lock = 0;
+
+	spi_state = BGCOM_SPI_FREE;
 }
 
 static int bg_spi_probe(struct spi_device *spi)

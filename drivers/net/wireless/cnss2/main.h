@@ -64,16 +64,16 @@ struct cnss_dump_seg {
 	unsigned long address;
 	void *v_address;
 	unsigned long size;
-	uint32_t type;
+	u32 type;
 };
 
 struct cnss_dump_data {
-	uint32_t version;
-	uint32_t magic;
+	u32 version;
+	u32 magic;
 	char name[32];
 	phys_addr_t paddr;
 	int nentries;
-	uint32_t seg_version;
+	u32 seg_version;
 };
 
 struct cnss_ramdump_info_v2 {
@@ -93,13 +93,13 @@ struct cnss_esoc_info {
 
 struct cnss_bus_bw_info {
 	struct msm_bus_scale_pdata *bus_scale_table;
-	uint32_t bus_client;
+	u32 bus_client;
 	int current_bw_vote;
 };
 
 struct cnss_wlan_mac_addr {
 	u8 mac_addr[MAX_NO_OF_MAC_ADDR][ETH_ALEN];
-	uint32_t no_of_mac_addr_set;
+	u32 no_of_mac_addr_set;
 };
 
 struct cnss_wlan_mac_info {
@@ -181,7 +181,7 @@ struct cnss_plat_data {
 	unsigned long device_id;
 	struct cnss_wlan_driver *driver_ops;
 	enum cnss_driver_status driver_status;
-	uint32_t recovery_count;
+	u32 recovery_count;
 	struct cnss_wlan_mac_info wlan_mac_info;
 	unsigned long driver_state;
 	struct list_head event_list;

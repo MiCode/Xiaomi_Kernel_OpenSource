@@ -25,6 +25,11 @@
 #define IPA_V3_0_CLK_RATE_SVS (75 * 1000 * 1000UL)
 #define IPA_V3_0_CLK_RATE_NOMINAL (150 * 1000 * 1000UL)
 #define IPA_V3_0_CLK_RATE_TURBO (200 * 1000 * 1000UL)
+
+#define IPA_V3_5_CLK_RATE_SVS (200 * 1000 * 1000UL)
+#define IPA_V3_5_CLK_RATE_NOMINAL (400 * 1000 * 1000UL)
+#define IPA_V3_5_CLK_RATE_TURBO (42640 * 10 * 1000UL)
+
 #define IPA_V3_0_MAX_HOLB_TMR_VAL (4294967296 - 1)
 
 #define IPA_V3_0_BW_THRESHOLD_TURBO_MBPS (1000)
@@ -5105,18 +5110,21 @@ int ipa3_controller_static_bind(struct ipa3_controller *ctrl,
 	if (hw_type >= IPA_HW_v3_5) {
 		ipa_init_mem_partition_v3_5();
 		ctrl->ipa_init_sram = _ipa_init_sram_v3_5;
+		ctrl->ipa_clk_rate_turbo = IPA_V3_5_CLK_RATE_TURBO;
+		ctrl->ipa_clk_rate_nominal = IPA_V3_5_CLK_RATE_NOMINAL;
+		ctrl->ipa_clk_rate_svs = IPA_V3_5_CLK_RATE_SVS;
 	} else {
 		ipa_init_mem_partition_v3_0();
 		ctrl->ipa_init_sram = _ipa_init_sram_v3_0;
+		ctrl->ipa_clk_rate_turbo = IPA_V3_0_CLK_RATE_TURBO;
+		ctrl->ipa_clk_rate_nominal = IPA_V3_0_CLK_RATE_NOMINAL;
+		ctrl->ipa_clk_rate_svs = IPA_V3_0_CLK_RATE_SVS;
 	}
 
 	ctrl->ipa_init_rt4 = _ipa_init_rt4_v3;
 	ctrl->ipa_init_rt6 = _ipa_init_rt6_v3;
 	ctrl->ipa_init_flt4 = _ipa_init_flt4_v3;
 	ctrl->ipa_init_flt6 = _ipa_init_flt6_v3;
-	ctrl->ipa_clk_rate_turbo = IPA_V3_0_CLK_RATE_TURBO;
-	ctrl->ipa_clk_rate_nominal = IPA_V3_0_CLK_RATE_NOMINAL;
-	ctrl->ipa_clk_rate_svs = IPA_V3_0_CLK_RATE_SVS;
 	ctrl->ipa3_read_ep_reg = _ipa_read_ep_reg_v3_0;
 	ctrl->ipa3_commit_flt = __ipa_commit_flt_v3;
 	ctrl->ipa3_commit_rt = __ipa_commit_rt_v3;

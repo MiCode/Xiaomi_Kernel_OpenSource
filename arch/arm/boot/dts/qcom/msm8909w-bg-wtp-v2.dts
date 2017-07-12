@@ -34,40 +34,35 @@
 &soc {
 	i2c@78b9000 { /* BLSP1 QUP5 */
 		synaptics@20 {
-			status = "disabled";
-			synaptics,display-coords = <0 0 479 479>;
+			compatible = "synaptics,dsx-i2c";
+			reg = <0x20>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <98 0x2008>;
+			vdd_ana-supply = <&pm660_l18>;
+			vcc_i2c-supply = <&pm660_l13>;
+			synaptics,pwr-reg-name = "vdd_ana";
+			synaptics,bus-reg-name = "vcc_i2c";
+			pinctrl-names = "pmx_ts_active", "pmx_ts_suspend",
+							"pmx_ts_release";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
+			synaptics,irq-gpio = <&msm_gpio 98 0x2008>;
+			synaptics,irq-on-state = <0>;
+			synaptics,irq-flags = <0x2008>;
+			synaptics,power-delay-ms = <200>;
+			synaptics,reset-delay-ms = <200>;
+			synaptics,max-y-for-2d = <389>;
+			synaptics,resume-in-workqueue;
+			/delete-property/ synaptics,reset-gpio;
+			/delete-property/ synaptics,display-coords;
+			/delete-property/ synaptics,panel-coords;
 			/delete-property/ synaptics,power-down;
 			/delete-property/ synaptics,disable-gpios;
-			synaptics,is_wake;
+			/delete-property/ synaptics,is_wake;
 		};
 
-		it7260@46 {
-			status = "disabled";
-			compatible = "ite,it7260_ts";
-			reg = <0x46>;
-			interrupt-parent = <&msm_gpio>;
-			interrupts = <13 0x2008>;
-			/* deleted - avdd-supply */
-			/* deleted - vdd-supply */
-			/* pins used by touchscreen */
-			pinctrl-names = "pmx_ts_active","pmx_ts_suspend", \
-							"pmx_ts_release";
-			pinctrl-0 = <&ts_int_active &ts_ite_reset_active>;
-			pinctrl-1 = <&ts_int_suspend &ts_ite_reset_suspend>;
-			pinctrl-2 = <&ts_release>;
-			ite,reset-gpio = <&msm_gpio 12 0x00>;
-			ite,irq-gpio = <&msm_gpio 13 0x2008>;
-			ite,panel-coords = <0 0 320 320>;
-			ite,display-coords = <0 0 320 320>;
-			ite,reset-delay = <20>;
-			ite,num-fingers = <2>;
-			ite,wakeup;
-			ite,palm-detect-en;
-			ite,palm-detect-keycode = <142>;
-			ite,fw-name = "it7260_fw_050D0014.bin";
-			ite,cfg-name = "it7260_cfg_62011E01.bin";
-			ite,avdd-lpm-cur = <3000>;
-		};
+		/delete-node/ it7260@46;
 	};
 
 	qcom,blackghost {
@@ -123,6 +118,17 @@
 			qcom,glinkpkt-dev-name = "glink_pkt_bg_display_ctrl";
 		};
 	};
+
+	spi@78B8000 {  /* BLSP1 QUP4 */
+		status = "ok";
+		qcom,bg-spi {
+			compatible = "qcom,bg-spi";
+			reg = <0>;
+			spi-max-frequency = <19200000>;
+			interrupt-parent = <&msm_gpio>;
+			qcom,irq-gpio = <&msm_gpio 110 1>;
+		};
+	};
 };
 
 &i2c_1 {
@@ -134,6 +140,10 @@
 };
 
 &i2c_3 {
+	status = "disabled";
+};
+
+&i2c_4 {
 	status = "disabled";
 };
 
@@ -151,16 +161,53 @@
 	pinctrl-0 = <&uart_console_sleep>;
 };
 
-&soc
-{
-	spi@78b6000 { /* BLSP1 QUP2 */
-		status = "ok";
-		qcom,bg-spi {
-			compatible = "qcom,bg-spi";
-			reg = <0>;
-			spi-max-frequency = <19200000>;
-			interrupt-parent = <&msm_gpio>;
-			qcom,irq-gpio = <&msm_gpio 110 1>;
-		};
+/* Pinctrl dt nodes for interrupt & reset gpio for Synaptics touch controller */
+&ts_int_active {
+	mux {
+		pins = "gpio98";
+	};
+
+	config {
+		pins = "gpio98";
+	};
+};
+
+&ts_int_suspend {
+	mux {
+		pins = "gpio98";
+	};
+
+	config {
+		pins = "gpio98";
+	};
+};
+
+&ts_reset_active {
+	mux {
+		pins = "gpio16";
+	};
+
+	config {
+		pins = "gpio16";
+	};
+};
+
+&ts_reset_suspend {
+	mux {
+		pins = "gpio16";
+	};
+
+	config {
+		pins = "gpio16";
+	};
+};
+
+&ts_release {
+	mux {
+		pins = "gpio98", "gpio16";
+	};
+
+	config {
+		pins = "gpio98", "gpio16";
 	};
 };

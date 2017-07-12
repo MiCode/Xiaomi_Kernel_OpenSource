@@ -759,6 +759,7 @@ config MSM_SECURE_BUFFER
 
 config ICNSS
 	tristate "Platform driver for Q6 integrated connectivity"
+	select CNSS_UTILS
 	---help---
 	  This module adds support for Q6 integrated WLAN connectivity
 	  subsystem. This module is responsible for communicating WLAN on/off

@@ -2200,6 +2200,11 @@ static int adreno_soft_reset(struct kgsl_device *device)
 	/* Reset the GPU */
 	_soft_reset(adreno_dev);
 
+	/* Clear the busy_data stats - we're starting over from scratch */
+	adreno_dev->busy_data.gpu_busy = 0;
+	adreno_dev->busy_data.vbif_ram_cycles = 0;
+	adreno_dev->busy_data.vbif_starved_ram = 0;
+
 	/* Set the page table back to the default page table */
 	adreno_ringbuffer_set_global(adreno_dev, 0);
 	kgsl_mmu_set_pt(&device->mmu, device->mmu.defaultpagetable);

@@ -447,7 +447,7 @@
 				config {
 					pins = "gpio14";
 					drive-strength = <2>;
-					bias-disable;
+					bias-pull-up;
 				};
 			};
 			spi4_cs0_sleep: spi4_cs0_sleep {
@@ -458,7 +458,7 @@
 				config {
 					pins = "gpio14";
 					drive-strength = <2>;
-					bias-disable;
+					bias-pull-up;
 				};
 			};
 		};

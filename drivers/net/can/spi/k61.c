@@ -313,8 +313,11 @@ static int k61_do_spi_transaction(struct k61_can *priv_data)
 	ret = spi_sync(spi, msg);
 	LOGDI("spi_sync ret %d\n", ret);
 
-	if (ret == 0)
+	if (ret == 0) {
+		devm_kfree(&spi->dev, msg);
+		devm_kfree(&spi->dev, xfer);
 		k61_process_rx(priv_data, priv_data->rx_buf);
+	}
 	return ret;
 }
 

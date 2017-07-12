@@ -47,13 +47,13 @@
 static DEFINE_SPINLOCK(pci_link_down_lock);
 
 static unsigned int pci_link_down_panic;
-module_param(pci_link_down_panic, uint, S_IRUSR | S_IWUSR);
+module_param(pci_link_down_panic, uint, 0600);
 MODULE_PARM_DESC(pci_link_down_panic,
 		 "Trigger kernel panic when PCI link down is detected");
 
 static bool fbc_bypass;
 #ifdef CONFIG_CNSS2_DEBUG
-module_param(fbc_bypass, bool, S_IRUSR | S_IWUSR);
+module_param(fbc_bypass, bool, 0600);
 MODULE_PARM_DESC(fbc_bypass,
 		 "Bypass firmware download when loading WLAN driver");
 #endif
@@ -869,8 +869,8 @@ static void cnss_pci_disable_msi(struct cnss_pci_data *pci_priv)
 }
 
 int cnss_get_user_msi_assignment(struct device *dev, char *user_name,
-				 int *num_vectors, uint32_t *user_base_data,
-				 uint32_t *base_vector)
+				 int *num_vectors, u32 *user_base_data,
+				 u32 *base_vector)
 {
 	struct cnss_pci_data *pci_priv = dev_get_drvdata(dev);
 	struct cnss_msi_config *msi_config;
@@ -914,8 +914,8 @@ int cnss_get_msi_irq(struct device *dev, unsigned int vector)
 }
 EXPORT_SYMBOL(cnss_get_msi_irq);
 
-void cnss_get_msi_address(struct device *dev, uint32_t *msi_addr_low,
-			  uint32_t *msi_addr_high)
+void cnss_get_msi_address(struct device *dev, u32 *msi_addr_low,
+			  u32 *msi_addr_high)
 {
 	struct pci_dev *pci_dev = to_pci_dev(dev);
 
@@ -931,7 +931,7 @@ static int cnss_pci_enable_bus(struct cnss_pci_data *pci_priv)
 {
 	int ret = 0;
 	struct pci_dev *pci_dev = pci_priv->pci_dev;
-	uint16_t device_id;
+	u16 device_id;
 
 	pci_read_config_word(pci_dev, PCI_DEVICE_ID, &device_id);
 	if (device_id != pci_priv->pci_device_id->device)  {

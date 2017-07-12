@@ -149,4 +149,5 @@ bool emac_hw_read_tx_tstamp(struct emac_hw *hw, struct emac_hwtxtstamp *ts);
 /* MII_INT_ENABLE/MII_INT_STATUS */
 #define LINK_SUCCESS_INTERRUPT			BIT(10)
 #define LINK_SUCCESS_BX			BIT(7)
+#define WOL_INT				BIT(0)
 #endif /*_EMAC_HW_H_*/

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -201,7 +201,7 @@ enum hal_property {
 	HAL_PARAM_VENC_H264_ENTROPY_CABAC_MODEL,
 	HAL_CONFIG_VENC_MAX_BITRATE,
 	HAL_PARAM_VENC_H264_VUI_TIMING_INFO,
-	HAL_PARAM_VENC_H264_GENERATE_AUDNAL,
+	HAL_PARAM_VENC_GENERATE_AUDNAL,
 	HAL_PARAM_VENC_MAX_NUM_B_FRAMES,
 	HAL_PARAM_BUFFER_ALLOC_MODE,
 	HAL_PARAM_VDEC_FRAME_ASSEMBLY,

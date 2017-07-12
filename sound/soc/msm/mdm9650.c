@@ -162,6 +162,7 @@ static int mdm_enable_codec_ext_clk(struct snd_soc_codec *codec,
 
 static void *def_tasha_mbhc_cal(void);
 static void *adsp_state_notifier;
+static bool dummy_device_registered;
 
 static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.read_fw_bin = false,
@@ -2504,9 +2505,10 @@ static struct platform_driver mdm_asoc_machine_dummy_driver = {
 static int  mdm_adsp_state_callback(struct notifier_block *nb,
 					unsigned long value, void *priv)
 {
-	if (SUBSYS_AFTER_POWERUP == value) {
+	if (!dummy_device_registered && SUBSYS_AFTER_POWERUP == value) {
 		platform_driver_register(&mdm_asoc_machine_dummy_driver);
 		platform_device_register(&dummy_machine_device);
+		dummy_device_registered = true;
 	}
 
 		return NOTIFY_OK;

@@ -345,5 +345,6 @@ source "drivers/net/wireless/cw1200/Kconfig"
 source "drivers/net/wireless/rsi/Kconfig"
 source "drivers/net/wireless/cnss/Kconfig"
 source "drivers/net/wireless/cnss2/Kconfig"
+source "drivers/net/wireless/cnss_utils/Kconfig"
 
 endif # WLAN

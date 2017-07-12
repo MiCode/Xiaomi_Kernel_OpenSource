@@ -112,6 +112,7 @@ static atomic_t mi2s_ref_count;
 static atomic_t sec_mi2s_ref_count;
 
 static void *adsp_state_notifier;
+static bool dummy_device_registered;
 
 static int mdm_mi2s_clk_ctl(struct snd_soc_pcm_runtime *rtd, bool enable)
 {
@@ -1779,9 +1780,10 @@ static struct platform_driver mdm_asoc_machine_dummy_driver = {
 static int  mdm_adsp_state_callback(struct notifier_block *nb,
 					unsigned long value, void *priv)
 {
-	if (SUBSYS_AFTER_POWERUP == value) {
+	if (!dummy_device_registered && SUBSYS_AFTER_POWERUP == value) {
 		platform_driver_register(&mdm_asoc_machine_dummy_driver);
 		platform_device_register(&dummy_machine_device);
+		dummy_device_registered = true;
 	}
 
 		return NOTIFY_OK;

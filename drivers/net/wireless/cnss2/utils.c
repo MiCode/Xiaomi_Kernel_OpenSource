@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -114,7 +114,7 @@ int cnss_wlan_get_dfs_nol(void *info, u16 info_len)
 
 	dfs_info = &dfs_nol_info;
 
-	if (dfs_info->dfs_nol_info == NULL || dfs_info->dfs_nol_info_len == 0) {
+	if (!dfs_info->dfs_nol_info || dfs_info->dfs_nol_info_len == 0) {
 		mutex_unlock(&dfs_nol_info_lock);
 		return -ENOENT;
 	}

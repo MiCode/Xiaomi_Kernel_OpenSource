@@ -44,13 +44,13 @@ static DECLARE_RWSEM(cnss_pm_sem);
 
 static bool qmi_bypass;
 #ifdef CONFIG_CNSS2_DEBUG
-module_param(qmi_bypass, bool, S_IRUSR | S_IWUSR);
+module_param(qmi_bypass, bool, 0600);
 MODULE_PARM_DESC(qmi_bypass, "Bypass QMI from platform driver");
 #endif
 
 static bool enable_waltest;
 #ifdef CONFIG_CNSS2_DEBUG
-module_param(enable_waltest, bool, S_IRUSR | S_IWUSR);
+module_param(enable_waltest, bool, 0600);
 MODULE_PARM_DESC(enable_waltest, "Enable to handle firmware waltest");
 #endif
 
@@ -60,7 +60,7 @@ enum cnss_debug_quirks {
 
 unsigned long quirks;
 #ifdef CONFIG_CNSS2_DEBUG
-module_param(quirks, ulong, S_IRUSR | S_IWUSR);
+module_param(quirks, ulong, 0600);
 MODULE_PARM_DESC(quirks, "Debug quirks for the driver");
 #endif
 
@@ -231,7 +231,7 @@ int cnss_request_bus_bandwidth(int bandwidth)
 
 	bus_bw_info = &plat_priv->bus_bw_info;
 	if (!bus_bw_info->bus_client)
-		return -ENOSYS;
+		return -EINVAL;
 
 	switch (bandwidth) {
 	case CNSS_BUS_WIDTH_NONE:
@@ -320,7 +320,7 @@ void cnss_remove_pm_qos(void)
 }
 EXPORT_SYMBOL(cnss_remove_pm_qos);
 
-u8 *cnss_common_get_wlan_mac_address(struct device *dev, uint32_t *num)
+u8 *cnss_common_get_wlan_mac_address(struct device *dev, u32 *num)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 	struct cnss_wlan_mac_info *wlan_mac_info;
@@ -439,8 +439,8 @@ int cnss_wlan_disable(struct device *dev, enum cnss_driver_mode mode)
 EXPORT_SYMBOL(cnss_wlan_disable);
 
 #ifdef CONFIG_CNSS2_DEBUG
-int cnss_athdiag_read(struct device *dev, uint32_t offset, uint32_t mem_type,
-		      uint32_t data_len, uint8_t *output)
+int cnss_athdiag_read(struct device *dev, u32 offset, u32 mem_type,
+		      u32 data_len, u8 *output)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 	int ret = 0;
@@ -475,8 +475,8 @@ out:
 }
 EXPORT_SYMBOL(cnss_athdiag_read);
 
-int cnss_athdiag_write(struct device *dev, uint32_t offset, uint32_t mem_type,
-		       uint32_t data_len, uint8_t *input)
+int cnss_athdiag_write(struct device *dev, u32 offset, u32 mem_type,
+		       u32 data_len, u8 *input)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 	int ret = 0;
@@ -511,22 +511,22 @@ out:
 }
 EXPORT_SYMBOL(cnss_athdiag_write);
 #else
-int cnss_athdiag_read(struct device *dev, uint32_t offset, uint32_t mem_type,
-		      uint32_t data_len, uint8_t *output)
+int cnss_athdiag_read(struct device *dev, u32 offset, u32 mem_type,
+		      u32 data_len, u8 *output)
 {
 	return -EPERM;
 }
 EXPORT_SYMBOL(cnss_athdiag_read);
 
-int cnss_athdiag_write(struct device *dev, uint32_t offset, uint32_t mem_type,
-		       uint32_t data_len, uint8_t *input)
+int cnss_athdiag_write(struct device *dev, u32 offset, u32 mem_type,
+		       u32 data_len, u8 *input)
 {
 	return -EPERM;
 }
 EXPORT_SYMBOL(cnss_athdiag_write);
 #endif
 
-int cnss_set_fw_log_mode(struct device *dev, uint8_t fw_log_mode)
+int cnss_set_fw_log_mode(struct device *dev, u8 fw_log_mode)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
 
@@ -886,9 +886,9 @@ static int cnss_modem_notifier_nb(struct notifier_block *nb,
 
 	esoc_info = &plat_priv->esoc_info;
 
-	if (SUBSYS_AFTER_POWERUP == code)
+	if (code == SUBSYS_AFTER_POWERUP)
 		esoc_info->modem_current_status = 1;
-	else if (SUBSYS_BEFORE_SHUTDOWN == code)
+	else if (code == SUBSYS_BEFORE_SHUTDOWN)
 		esoc_info->modem_current_status = 0;
 	else
 		return NOTIFY_DONE;
@@ -2087,7 +2087,7 @@ static ssize_t cnss_fs_ready_store(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(fs_ready, S_IWUSR | S_IWGRP, NULL, cnss_fs_ready_store);
+static DEVICE_ATTR(fs_ready, 0220, NULL, cnss_fs_ready_store);
 
 static int cnss_create_sysfs(struct cnss_plat_data *plat_priv)
 {

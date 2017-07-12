@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -322,6 +322,8 @@ static void emac_get_wol(struct net_device *netdev,
 static int emac_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
 {
 	struct emac_adapter *adpt = netdev_priv(netdev);
+	struct phy_device *phydev = netdev->phydev;
+	u32 ret = 0;
 
 	if (wol->wolopts & (WAKE_ARP | WAKE_MAGICSECURE |
 			    WAKE_UCAST | WAKE_BCAST | WAKE_MCAST))
@@ -330,13 +332,23 @@ static int emac_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
 	if (emac_wol_exclusion(adpt, wol))
 		return wol->wolopts ? -EOPNOTSUPP : 0;
 
+	/* Enable WOL interrupt */
+	ret = phy_ethtool_set_wol(phydev, wol);
+	if (ret)
+		return ret;
+
 	adpt->wol = 0;
-	if (wol->wolopts & WAKE_MAGIC)
+	if (wol->wolopts & WAKE_MAGIC) {
 		adpt->wol |= EMAC_WOL_MAGIC;
+		emac_wol_gpio_irq(adpt, true);
+		/* Release wakelock */
+		__pm_relax(&adpt->link_wlock);
+	}
+
 	if (wol->wolopts & WAKE_PHY)
 		adpt->wol |= EMAC_WOL_PHY;
 
-	return 0;
+	return ret;
 }
 
 static int emac_get_intr_coalesce(struct net_device *netdev,
