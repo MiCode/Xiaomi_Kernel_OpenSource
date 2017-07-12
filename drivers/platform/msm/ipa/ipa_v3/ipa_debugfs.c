@@ -1257,8 +1257,6 @@ static ssize_t ipa3_read_ntn(struct file *file, char __user *ubuf,
 	if (!ipa3_get_ntn_stats(&stats)) {
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 			"TX num_pkts_processed=%u\n"
-			"TX tail_ptr_val=%u\n"
-			"TX num_db_fired=%u\n"
 			"TX ringFull=%u\n"
 			"TX ringEmpty=%u\n"
 			"TX ringUsageHigh=%u\n"
@@ -1270,27 +1268,25 @@ static ssize_t ipa3_read_ntn(struct file *file, char __user *ubuf,
 			"TX bamFifoUsageLow=%u\n"
 			"TX bamUtilCount=%u\n"
 			"TX num_db=%u\n"
-			"TX num_qmb_int_handled=%u\n",
+			"TX num_qmb_int_handled=%u\n"
+			"TX ipa_pipe_number=%u\n",
 			TX_STATS(num_pkts_processed),
-			TX_STATS(tail_ptr_val),
-			TX_STATS(num_db_fired),
-			TX_STATS(tx_comp_ring_stats.ringFull),
-			TX_STATS(tx_comp_ring_stats.ringEmpty),
-			TX_STATS(tx_comp_ring_stats.ringUsageHigh),
-			TX_STATS(tx_comp_ring_stats.ringUsageLow),
-			TX_STATS(tx_comp_ring_stats.RingUtilCount),
-			TX_STATS(bam_stats.bamFifoFull),
-			TX_STATS(bam_stats.bamFifoEmpty),
-			TX_STATS(bam_stats.bamFifoUsageHigh),
-			TX_STATS(bam_stats.bamFifoUsageLow),
-			TX_STATS(bam_stats.bamUtilCount),
+			TX_STATS(ring_stats.ringFull),
+			TX_STATS(ring_stats.ringEmpty),
+			TX_STATS(ring_stats.ringUsageHigh),
+			TX_STATS(ring_stats.ringUsageLow),
+			TX_STATS(ring_stats.RingUtilCount),
+			TX_STATS(gsi_stats.bamFifoFull),
+			TX_STATS(gsi_stats.bamFifoEmpty),
+			TX_STATS(gsi_stats.bamFifoUsageHigh),
+			TX_STATS(gsi_stats.bamFifoUsageLow),
+			TX_STATS(gsi_stats.bamUtilCount),
 			TX_STATS(num_db),
-			TX_STATS(num_qmb_int_handled));
+			TX_STATS(num_qmb_int_handled),
+			TX_STATS(ipa_pipe_number));
 		cnt += nbytes;
 		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
-			"RX max_outstanding_pkts=%u\n"
 			"RX num_pkts_processed=%u\n"
-			"RX rx_ring_rp_value=%u\n"
 			"RX ringFull=%u\n"
 			"RX ringEmpty=%u\n"
 			"RX ringUsageHigh=%u\n"
@@ -1301,21 +1297,23 @@ static ssize_t ipa3_read_ntn(struct file *file, char __user *ubuf,
 			"RX bamFifoUsageHigh=%u\n"
 			"RX bamFifoUsageLow=%u\n"
 			"RX bamUtilCount=%u\n"
-			"RX num_db=%u\n",
-			RX_STATS(max_outstanding_pkts),
+			"RX num_db=%u\n"
+			"RX num_qmb_int_handled=%u\n"
+			"RX ipa_pipe_number=%u\n",
 			RX_STATS(num_pkts_processed),
-			RX_STATS(rx_ring_rp_value),
-			RX_STATS(rx_ind_ring_stats.ringFull),
-			RX_STATS(rx_ind_ring_stats.ringEmpty),
-			RX_STATS(rx_ind_ring_stats.ringUsageHigh),
-			RX_STATS(rx_ind_ring_stats.ringUsageLow),
-			RX_STATS(rx_ind_ring_stats.RingUtilCount),
-			RX_STATS(bam_stats.bamFifoFull),
-			RX_STATS(bam_stats.bamFifoEmpty),
-			RX_STATS(bam_stats.bamFifoUsageHigh),
-			RX_STATS(bam_stats.bamFifoUsageLow),
-			RX_STATS(bam_stats.bamUtilCount),
-			RX_STATS(num_db));
+			RX_STATS(ring_stats.ringFull),
+			RX_STATS(ring_stats.ringEmpty),
+			RX_STATS(ring_stats.ringUsageHigh),
+			RX_STATS(ring_stats.ringUsageLow),
+			RX_STATS(ring_stats.RingUtilCount),
+			RX_STATS(gsi_stats.bamFifoFull),
+			RX_STATS(gsi_stats.bamFifoEmpty),
+			RX_STATS(gsi_stats.bamFifoUsageHigh),
+			RX_STATS(gsi_stats.bamFifoUsageLow),
+			RX_STATS(gsi_stats.bamUtilCount),
+			RX_STATS(num_db),
+			RX_STATS(num_qmb_int_handled),
+			RX_STATS(ipa_pipe_number));
 		cnt += nbytes;
 	} else {
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
