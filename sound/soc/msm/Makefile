@@ -22,7 +22,7 @@ obj-$(CONFIG_SND_SOC_MACHINE_MSM8998) += snd-soc-msm8998.o
 
 # for SDM660 sound card driver
 snd-soc-sdm660-common-objs := sdm660-common.o
-obj-$(CONFIG_SND_SOC_SDM660_COMMON) += snd-soc-sdm660-common.o
+obj-$(CONFIG_SND_SOC_660) += snd-soc-sdm660-common.o
 
 # for SDM660 sound card driver
 snd-soc-int-codec-objs := sdm660-internal.o
