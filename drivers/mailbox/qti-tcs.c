@@ -909,7 +909,7 @@ tx_fail:
 
 	/* If we were just busy waiting for TCS, dump the state and return */
 	if (ret == -EBUSY) {
-		pr_info("TCS Busy, retrying RPMH message send\n");
+		pr_info_ratelimited("TCS Busy, retrying RPMH message send\n");
 		dump_tcs_stats(drv);
 		ret = -EAGAIN;
 	}
