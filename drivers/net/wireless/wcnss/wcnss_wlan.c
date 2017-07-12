@@ -2796,23 +2796,42 @@ wcnss_trigger_config(struct platform_device *pdev)
 	int is_pronto_vadc;
 	int is_pronto_v3;
 	int pil_retry = 0;
-	int has_pronto_hw = of_property_read_bool(pdev->dev.of_node,
-							"qcom,has-pronto-hw");
+	struct wcnss_wlan_config *wlan_cfg = &penv->wlan_config;
+	struct device_node *node = (&pdev->dev)->of_node;
+	int has_pronto_hw = of_property_read_bool(node, "qcom,has-pronto-hw");
 
-	is_pronto_vadc = of_property_read_bool(pdev->dev.of_node,
-					       "qcom,is-pronto-vadc");
+	is_pronto_vadc = of_property_read_bool(node, "qcom,is-pronto-vadc");
+	is_pronto_v3 = of_property_read_bool(node, "qcom,is-pronto-v3");
 
-	is_pronto_v3 = of_property_read_bool(pdev->dev.of_node,
-							"qcom,is-pronto-v3");
+	penv->is_vsys_adc_channel =
+		of_property_read_bool(node, "qcom,has-vsys-adc-channel");
+	penv->is_a2xb_split_reg =
+		of_property_read_bool(node, "qcom,has-a2xb-split-reg");
 
-	penv->is_vsys_adc_channel = of_property_read_bool(pdev->dev.of_node,
-						"qcom,has-vsys-adc-channel");
+	wlan_cfg->wcn_external_gpio_support =
+		of_property_read_bool(node, "qcom,wcn-external-gpio-support");
+	if (wlan_cfg->wcn_external_gpio_support) {
+		if (of_find_property(node, WCNSS_EXTERNAL_GPIO_NAME, NULL)) {
+			wlan_cfg->wcn_external_gpio =
+					of_get_named_gpio(
+						pdev->dev.of_node,
+						WCNSS_EXTERNAL_GPIO_NAME,
+						0);
+			if (!gpio_is_valid(wlan_cfg->wcn_external_gpio)) {
+				pr_err("%s: Invalid %s num defined in DT\n",
+				       __func__, WCNSS_EXTERNAL_GPIO_NAME);
+				ret = -EINVAL;
+				goto fail;
+			}
+		} else {
+			pr_err("%s: %s prop not defined in DT node\n",
+			       __func__, WCNSS_EXTERNAL_GPIO_NAME);
+			goto fail;
+		}
+	}
 
-	penv->is_a2xb_split_reg = of_property_read_bool(pdev->dev.of_node,
-						"qcom,has-a2xb-split-reg");
-
-	if (of_property_read_u32(pdev->dev.of_node,
-			"qcom,wlan-rx-buff-count", &penv->wlan_rx_buff_count)) {
+	if (of_property_read_u32(node, "qcom,wlan-rx-buff-count",
+				 &penv->wlan_rx_buff_count)) {
 		penv->wlan_rx_buff_count = WCNSS_DEF_WLAN_RX_BUFF_COUNT;
 	}
 
@@ -2873,15 +2892,18 @@ wcnss_trigger_config(struct platform_device *pdev)
 		goto fail;
 	}
 
-	index++;
-	ret = wcnss_dt_parse_vreg_level(&pdev->dev, index,
-					"qcom,iris-vddpa-current",
-					"qcom,iris-vddpa-voltage-level",
-					penv->wlan_config.iris_vlevel);
-
-	if (ret) {
-		dev_err(&pdev->dev, "error reading voltage-level property\n");
-		goto fail;
+	if (!wlan_cfg->wcn_external_gpio_support) {
+		index++;
+		ret = wcnss_dt_parse_vreg_level(
+				&pdev->dev, index,
+				"qcom,iris-vddpa-current",
+				"qcom,iris-vddpa-voltage-level",
+				penv->wlan_config.iris_vlevel);
+		if (ret) {
+			dev_err(&pdev->dev,
+				"error reading voltage-level property\n");
+			goto fail;
+		}
 	}
 
 	index++;
@@ -2904,8 +2926,8 @@ wcnss_trigger_config(struct platform_device *pdev)
 	pdata = pdev->dev.platform_data;
 	if (WCNSS_CONFIG_UNSPECIFIED == has_48mhz_xo) {
 		if (has_pronto_hw) {
-			has_48mhz_xo = of_property_read_bool(pdev->dev.of_node,
-							"qcom,has-48mhz-xo");
+			has_48mhz_xo =
+			of_property_read_bool(node, "qcom,has-48mhz-xo");
 		} else {
 			has_48mhz_xo = pdata->has_48mhz_xo;
 		}
@@ -2916,8 +2938,8 @@ wcnss_trigger_config(struct platform_device *pdev)
 	penv->wlan_config.is_pronto_v3 = is_pronto_v3;
 
 	if (WCNSS_CONFIG_UNSPECIFIED == has_autodetect_xo && has_pronto_hw) {
-		has_autodetect_xo = of_property_read_bool(pdev->dev.of_node,
-							"qcom,has-autodetect-xo");
+		has_autodetect_xo =
+			of_property_read_bool(node, "qcom,has-autodetect-xo");
 	}
 
 	penv->thermal_mitigation = 0;
@@ -3198,8 +3220,8 @@ wcnss_trigger_config(struct platform_device *pdev)
 			goto fail_ioremap2;
 		}
 
-		if (of_property_read_bool(
-			pdev->dev.of_node, "qcom,is-dual-band-disabled")) {
+		if (of_property_read_bool(node,
+					  "qcom,is-dual-band-disabled")) {
 			ret = wcnss_get_dual_band_capability_info(pdev);
 			if (ret) {
 				pr_err(
