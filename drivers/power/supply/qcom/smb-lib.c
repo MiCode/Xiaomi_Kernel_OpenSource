@@ -3903,6 +3903,12 @@ irqreturn_t smblib_handle_usb_typec_change(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 
+	if (chg->pr_swap_in_progress) {
+		smblib_dbg(chg, PR_INTERRUPT,
+				"Ignoring since pr_swap_in_progress\n");
+		return IRQ_HANDLED;
+	}
+
 	mutex_lock(&chg->lock);
 	smblib_usb_typec_change(chg);
 	mutex_unlock(&chg->lock);
