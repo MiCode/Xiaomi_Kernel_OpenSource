@@ -1911,3 +1911,4 @@
 #include "pm660.dtsi"
 #include "pm660l.dtsi"
 #include "sdm670-regulator.dtsi"
+#include "sdm670-audio.dtsi"
