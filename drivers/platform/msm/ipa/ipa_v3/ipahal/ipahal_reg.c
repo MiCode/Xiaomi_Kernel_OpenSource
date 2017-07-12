@@ -43,6 +43,7 @@ static const char *ipareg_name_to_str[IPA_REG_MAX] = {
 	__stringify(IPA_ENDP_INIT_ROUTE_n),
 	__stringify(IPA_ENDP_INIT_MODE_n),
 	__stringify(IPA_ENDP_INIT_NAT_n),
+	__stringify(IPA_ENDP_INIT_CONN_TRACK_n),
 	__stringify(IPA_ENDP_INIT_CTRL_n),
 	__stringify(IPA_ENDP_INIT_CTRL_SCND_n),
 	__stringify(IPA_ENDP_INIT_HOL_BLOCK_EN_n),
@@ -722,6 +723,17 @@ static void ipareg_construct_endp_init_nat_n(enum ipahal_reg_name reg,
 	IPA_SETFIELD_IN_REG(*val, ep_nat->nat_en,
 		IPA_ENDP_INIT_NAT_n_NAT_EN_SHFT,
 		IPA_ENDP_INIT_NAT_n_NAT_EN_BMSK);
+}
+
+static void ipareg_construct_endp_init_conn_track_n(enum ipahal_reg_name reg,
+	const void *fields, u32 *val)
+{
+	struct ipa_ep_cfg_conn_track *ep_ipv6ct =
+		(struct ipa_ep_cfg_conn_track *)fields;
+
+	IPA_SETFIELD_IN_REG(*val, ep_ipv6ct->conn_track_en,
+		IPA_ENDP_INIT_CONN_TRACK_n_CONN_TRACK_EN_SHFT,
+		IPA_ENDP_INIT_CONN_TRACK_n_CONN_TRACK_EN_BMSK);
 }
 
 static void ipareg_construct_endp_init_mode_n(enum ipahal_reg_name reg,
@@ -1494,6 +1506,10 @@ static struct ipahal_reg_obj ipahal_reg_objs[IPA_HW_MAX][IPA_REG_MAX] = {
 	[IPA_HW_v4_0][IPA_CLKON_CFG] = {
 		ipareg_construct_dummy, ipareg_parse_dummy,
 		0x00000044, 0},
+	[IPA_HW_v4_0][IPA_ENDP_INIT_CONN_TRACK_n] = {
+		ipareg_construct_endp_init_conn_track_n,
+		ipareg_parse_dummy,
+		0x00000850, 0x70},
 };
 
 /*

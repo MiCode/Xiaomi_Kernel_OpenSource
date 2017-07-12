@@ -745,7 +745,7 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa4_nat_mdfy_pdn(&mdfy_pdn)) {
+		if (ipa3_nat_mdfy_pdn(&mdfy_pdn)) {
 			retval = -EFAULT;
 			break;
 		}

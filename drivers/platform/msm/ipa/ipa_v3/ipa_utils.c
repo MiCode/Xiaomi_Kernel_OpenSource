@@ -2487,8 +2487,8 @@ int ipa3_cfg_ep_seq(u32 clnt_hdl, const struct ipa_ep_cfg_seq *seq_cfg)
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
  * @ipa_ep_cfg:	[in] IPA end-point configuration params
  *
- * This includes nat, header, mode, aggregation and route settings and is a one
- * shot API to configure the IPA end-point fully
+ * This includes nat, IPv6CT, header, mode, aggregation and route settings and
+ * is a one shot API to configure the IPA end-point fully
  *
  * Returns:	0 on success, negative on failure
  *
@@ -2525,6 +2525,13 @@ int ipa3_cfg_ep(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg)
 		if (result)
 			return result;
 
+		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+			result = ipa3_cfg_ep_conn_track(clnt_hdl,
+				&ipa_ep_cfg->conn_track);
+			if (result)
+				return result;
+		}
+
 		result = ipa3_cfg_ep_mode(clnt_hdl, &ipa_ep_cfg->mode);
 		if (result)
 			return result;
@@ -2550,7 +2557,7 @@ int ipa3_cfg_ep(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg)
 	return 0;
 }
 
-const char *ipa3_get_nat_en_str(enum ipa_nat_en_type nat_en)
+static const char *ipa3_get_nat_en_str(enum ipa_nat_en_type nat_en)
 {
 	switch (nat_en) {
 	case (IPA_BYPASS_NAT):
@@ -2564,10 +2571,22 @@ const char *ipa3_get_nat_en_str(enum ipa_nat_en_type nat_en)
 	return "undefined";
 }
 
+static const char *ipa3_get_ipv6ct_en_str(enum ipa_ipv6ct_en_type ipv6ct_en)
+{
+	switch (ipv6ct_en) {
+	case (IPA_BYPASS_IPV6CT):
+		return "ipv6ct disabled";
+	case (IPA_ENABLE_IPV6CT):
+		return "ipv6ct enabled";
+	}
+
+	return "undefined";
+}
+
 /**
  * ipa3_cfg_ep_nat() - IPA end-point NAT configuration
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
- * @ipa_ep_cfg:	[in] IPA end-point configuration params
+ * @ep_nat:	[in] IPA NAT end-point configuration params
  *
  * Returns:	0 on success, negative on failure
  *
@@ -2599,6 +2618,49 @@ int ipa3_cfg_ep_nat(u32 clnt_hdl, const struct ipa_ep_cfg_nat *ep_nat)
 	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	ipahal_write_reg_n_fields(IPA_ENDP_INIT_NAT_n, clnt_hdl, ep_nat);
+
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
+
+	return 0;
+}
+
+/**
+ * ipa3_cfg_ep_conn_track() - IPA end-point IPv6CT configuration
+ * @clnt_hdl:		[in] opaque client handle assigned by IPA to client
+ * @ep_conn_track:	[in] IPA IPv6CT end-point configuration params
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa3_cfg_ep_conn_track(u32 clnt_hdl,
+	const struct ipa_ep_cfg_conn_track *ep_conn_track)
+{
+	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
+		ipa3_ctx->ep[clnt_hdl].valid == 0 || ep_conn_track == NULL) {
+		IPAERR("bad parm, clnt_hdl = %d , ep_valid = %d\n",
+			clnt_hdl,
+			ipa3_ctx->ep[clnt_hdl].valid);
+		return -EINVAL;
+	}
+
+	if (IPA_CLIENT_IS_CONS(ipa3_ctx->ep[clnt_hdl].client)) {
+		IPAERR("IPv6CT does not apply to IPA out EP %d\n", clnt_hdl);
+		return -EINVAL;
+	}
+
+	IPADBG("pipe=%d, conn_track_en=%d(%s)\n",
+		clnt_hdl,
+		ep_conn_track->conn_track_en,
+		ipa3_get_ipv6ct_en_str(ep_conn_track->conn_track_en));
+
+	/* copy over EP cfg */
+	ipa3_ctx->ep[clnt_hdl].cfg.conn_track = *ep_conn_track;
+
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
+
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_CONN_TRACK_n, clnt_hdl,
+		ep_conn_track);
 
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
@@ -4286,6 +4348,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_disable_endpoint = NULL;
 	api_ctrl->ipa_cfg_ep = ipa3_cfg_ep;
 	api_ctrl->ipa_cfg_ep_nat = ipa3_cfg_ep_nat;
+	api_ctrl->ipa_cfg_ep_conn_track = ipa3_cfg_ep_conn_track;
 	api_ctrl->ipa_cfg_ep_hdr = ipa3_cfg_ep_hdr;
 	api_ctrl->ipa_cfg_ep_hdr_ext = ipa3_cfg_ep_hdr_ext;
 	api_ctrl->ipa_cfg_ep_mode = ipa3_cfg_ep_mode;
