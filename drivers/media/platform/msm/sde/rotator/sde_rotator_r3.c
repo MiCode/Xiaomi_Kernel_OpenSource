@@ -1446,6 +1446,9 @@ static void sde_hw_rotator_setup_wbengine(struct sde_hw_rotator_context *ctx,
 
 		if (bw > 0xFF)
 			bw = 0xFF;
+		else if (bw == 0)
+			bw = 1;
+
 		SDE_REGDMA_WRITE(wrptr, ROT_WB_TRAFFIC_SHAPER_WR_CLIENT,
 				BIT(31) | (cfg->prefill_bw ? BIT(27) : 0) | bw);
 		SDEROT_DBG("Enable ROT_WB Traffic Shaper:%d\n", bw);
