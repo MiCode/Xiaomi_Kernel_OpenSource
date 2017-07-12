@@ -644,6 +644,12 @@ int ipa3_request_gsi_channel(struct ipa_request_gsi_channel_params *params,
 	}
 
 	gsi_ep_cfg_ptr = ipa3_get_gsi_ep_info(ep->client);
+	if (gsi_ep_cfg_ptr == NULL) {
+		IPAERR("Error ipa3_get_gsi_ep_info ret NULL\n");
+		result = -EFAULT;
+		goto write_evt_scratch_fail;
+	}
+
 	params->chan_params.evt_ring_hdl = ep->gsi_evt_ring_hdl;
 	params->chan_params.ch_id = gsi_ep_cfg_ptr->ipa_gsi_chan_num;
 	gsi_res = gsi_alloc_channel(&params->chan_params, gsi_dev_hdl,
