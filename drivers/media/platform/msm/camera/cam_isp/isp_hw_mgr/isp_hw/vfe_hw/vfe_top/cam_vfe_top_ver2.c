@@ -391,7 +391,8 @@ int cam_vfe_top_ver2_init(
 				CAM_ISP_HW_VFE_IN_RDI0 + j++;
 
 			rc = cam_vfe_rdi_ver2_init(hw_intf, soc_info,
-				NULL, &top_priv->mux_rsrc[i]);
+				&ver2_hw_info->rdi_hw_info,
+				&top_priv->mux_rsrc[i]);
 			if (rc)
 				goto deinit_resources;
 		}

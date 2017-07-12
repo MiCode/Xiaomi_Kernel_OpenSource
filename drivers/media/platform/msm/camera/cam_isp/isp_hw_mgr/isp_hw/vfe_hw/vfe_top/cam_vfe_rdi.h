@@ -16,18 +16,22 @@
 #include "cam_isp_hw.h"
 #include "cam_vfe_top.h"
 
+#define CAM_VFE_RDI_VER2_MAX  4
+
 struct cam_vfe_rdi_ver2_reg {
 	uint32_t     reg_update_cmd;
 };
 
 struct cam_vfe_rdi_reg_data {
+	uint32_t     reg_update_cmd_data;
+	uint32_t     sof_irq_mask;
 	uint32_t     reg_update_irq_mask;
 };
 
 struct cam_vfe_rdi_ver2_hw_info {
-	struct cam_vfe_top_ver2_reg_offset_common   *common_reg;
-	struct cam_vfe_rdi_ver2_reg               *rdi_reg;
-	struct cam_vfe_rdi_reg_data               *reg_data;
+	struct cam_vfe_top_ver2_reg_offset_common  *common_reg;
+	struct cam_vfe_rdi_ver2_reg                *rdi_reg;
+	struct cam_vfe_rdi_reg_data  *reg_data[CAM_VFE_RDI_VER2_MAX];
 };
 
 int cam_vfe_rdi_ver2_acquire_resource(

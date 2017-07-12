@@ -62,78 +62,126 @@ static int cam_ife_csid_is_ipp_format_supported(
 	return rc;
 }
 
-static int cam_ife_csid_get_format(uint32_t  res_id,
-	uint32_t decode_fmt, uint32_t *path_fmt, uint32_t *plain_fmt)
+static int cam_ife_csid_get_format(uint32_t input_fmt,
+	uint32_t *path_fmt)
 {
 	int rc = 0;
 
-	if (res_id >= CAM_IFE_PIX_PATH_RES_RDI_0 &&
-		res_id <= CAM_IFE_PIX_PATH_RES_RDI_3) {
-		*path_fmt = 0xf;
-		return 0;
-	}
-
-	switch (decode_fmt) {
+	switch (input_fmt) {
 	case CAM_FORMAT_MIPI_RAW_6:
 		*path_fmt  = 0;
-		*plain_fmt = 0;
 		break;
 	case CAM_FORMAT_MIPI_RAW_8:
 		*path_fmt  = 1;
-		*plain_fmt = 0;
 		break;
 	case CAM_FORMAT_MIPI_RAW_10:
 		*path_fmt  = 2;
-		*plain_fmt = 1;
 		break;
 	case CAM_FORMAT_MIPI_RAW_12:
 		*path_fmt  = 3;
-		*plain_fmt = 1;
 		break;
 	case CAM_FORMAT_MIPI_RAW_14:
 		*path_fmt  = 4;
-		*plain_fmt = 1;
 		break;
 	case CAM_FORMAT_MIPI_RAW_16:
 		*path_fmt  = 5;
-		*plain_fmt = 1;
 		break;
 	case CAM_FORMAT_MIPI_RAW_20:
 		*path_fmt  = 6;
-		*plain_fmt = 2;
 		break;
 	case CAM_FORMAT_DPCM_10_6_10:
 		*path_fmt  = 7;
-		*plain_fmt = 1;
 		break;
 	case CAM_FORMAT_DPCM_10_8_10:
 		*path_fmt  = 8;
-		*plain_fmt = 1;
 		break;
 	case CAM_FORMAT_DPCM_12_6_12:
 		*path_fmt  = 9;
-		*plain_fmt = 1;
 		break;
 	case CAM_FORMAT_DPCM_12_8_12:
 		*path_fmt  = 0xA;
-		*plain_fmt = 1;
 		break;
 	case CAM_FORMAT_DPCM_14_8_14:
 		*path_fmt  = 0xB;
-		*plain_fmt = 1;
 		break;
 	case CAM_FORMAT_DPCM_14_10_14:
 		*path_fmt  = 0xC;
-		*plain_fmt = 1;
 		break;
 	default:
 		pr_err("%s:%d:CSID:%d un supported format\n",
-		__func__, __LINE__, decode_fmt);
+		__func__, __LINE__, input_fmt);
 		rc = -EINVAL;
 	}
 
 	return rc;
 }
+
+static int cam_ife_csid_get_rdi_format(uint32_t input_fmt,
+	uint32_t output_fmt, uint32_t *path_fmt, uint32_t *plain_fmt)
+{
+	int rc = 0;
+
+	CDBG("%s:%d:input format:%d output format:%d\n",
+		__func__, __LINE__, input_fmt, output_fmt);
+
+	switch (output_fmt) {
+	case CAM_FORMAT_MIPI_RAW_6:
+	case CAM_FORMAT_MIPI_RAW_8:
+	case CAM_FORMAT_MIPI_RAW_10:
+	case CAM_FORMAT_MIPI_RAW_12:
+	case CAM_FORMAT_MIPI_RAW_14:
+	case CAM_FORMAT_MIPI_RAW_16:
+	case CAM_FORMAT_MIPI_RAW_20:
+	case CAM_FORMAT_DPCM_10_6_10:
+	case CAM_FORMAT_DPCM_10_8_10:
+	case CAM_FORMAT_DPCM_12_6_12:
+	case CAM_FORMAT_DPCM_12_8_12:
+	case CAM_FORMAT_DPCM_14_8_14:
+	case CAM_FORMAT_DPCM_14_10_14:
+		*path_fmt  = 0xF;
+		*plain_fmt = 0;
+		break;
+
+	case CAM_FORMAT_PLAIN8:
+		rc = cam_ife_csid_get_format(input_fmt, path_fmt);
+		if (rc)
+			goto error;
+
+		*plain_fmt = 0;
+		break;
+	case CAM_FORMAT_PLAIN16_8:
+	case CAM_FORMAT_PLAIN16_10:
+	case CAM_FORMAT_PLAIN16_12:
+	case CAM_FORMAT_PLAIN16_14:
+	case CAM_FORMAT_PLAIN16_16:
+		rc = cam_ife_csid_get_format(input_fmt, path_fmt);
+		if (rc)
+			goto error;
+
+		*plain_fmt = 1;
+		break;
+	case CAM_FORMAT_PLAIN32_20:
+		rc = cam_ife_csid_get_format(input_fmt, path_fmt);
+		if (rc)
+			goto error;
+
+		*plain_fmt = 2;
+		break;
+	default:
+		*path_fmt  = 0xF;
+		*plain_fmt = 0;
+		break;
+	}
+
+	CDBG("%s:%d:path format value:%d plain format value:%d\n",
+		__func__, __LINE__, *path_fmt, *plain_fmt);
+
+	return 0;
+error:
+	return rc;
+
+}
+
 
 static int cam_ife_csid_cid_get(struct cam_ife_csid_hw *csid_hw,
 	struct cam_isp_resource_node **res, int32_t vc, uint32_t dt,
@@ -668,6 +716,18 @@ static int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 	res->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
 	path_data = (struct cam_ife_csid_path_cfg   *)res->res_priv;
 
+	/* store the output format for RDI */
+	switch (reserve->res_id) {
+	case CAM_IFE_PIX_PATH_RES_RDI_0:
+	case CAM_IFE_PIX_PATH_RES_RDI_1:
+	case CAM_IFE_PIX_PATH_RES_RDI_2:
+	case CAM_IFE_PIX_PATH_RES_RDI_3:
+		path_data->output_fmt = reserve->out_port->format;
+		break;
+	default:
+		break;
+	}
+
 	path_data->cid = reserve->cid;
 	path_data->decode_fmt = reserve->in_port->format;
 	path_data->master_idx = reserve->master_idx;
@@ -1114,7 +1174,7 @@ static int cam_ife_csid_init_config_ipp_path(
 	struct cam_ife_csid_path_cfg           *path_data;
 	struct cam_ife_csid_reg_offset         *csid_reg;
 	struct cam_hw_soc_info                 *soc_info;
-	uint32_t path_format = 0, plain_format = 0, val = 0;
+	uint32_t path_format = 0, val = 0;
 
 	path_data = (struct cam_ife_csid_path_cfg  *) res->res_priv;
 	csid_reg = csid_hw->csid_info->csid_reg;
@@ -1128,8 +1188,7 @@ static int cam_ife_csid_init_config_ipp_path(
 	}
 
 	CDBG("%s:%d: Enabled IPP Path.......\n", __func__, __LINE__);
-	rc = cam_ife_csid_get_format(res->res_id,
-		path_data->decode_fmt, &path_format, &plain_format);
+	rc = cam_ife_csid_get_format(path_data->decode_fmt, &path_format);
 	if (rc)
 		return rc;
 
@@ -1300,8 +1359,7 @@ static int cam_ife_csid_enable_ipp_path(
 	/* for slave mode, not need to resume for slave device */
 
 	/* Enable the required ipp interrupts */
-	val = CSID_PATH_INFO_RST_DONE | CSID_PATH_ERROR_FIFO_OVERFLOW|
-		CSID_PATH_INFO_INPUT_SOF|CSID_PATH_INFO_INPUT_EOF;
+	val = CSID_PATH_INFO_RST_DONE | CSID_PATH_ERROR_FIFO_OVERFLOW;
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		csid_reg->ipp_reg->csid_ipp_irq_mask_addr);
 
@@ -1416,8 +1474,8 @@ static int cam_ife_csid_init_config_rdi_path(
 		return -EINVAL;
 	}
 
-	rc = cam_ife_csid_get_format(res->res_id,
-		path_data->decode_fmt, &path_format, &plain_fmt);
+	rc = cam_ife_csid_get_rdi_format(path_data->decode_fmt,
+		path_data->output_fmt, &path_format, &plain_fmt);
 	if (rc)
 		return rc;
 
@@ -1558,8 +1616,7 @@ static int cam_ife_csid_enable_rdi_path(
 			csid_reg->rdi_reg[id]->csid_rdi_ctrl_addr);
 
 	/* Enable the required RDI interrupts */
-	val = (CSID_PATH_INFO_RST_DONE | CSID_PATH_ERROR_FIFO_OVERFLOW|
-		CSID_PATH_INFO_INPUT_SOF | CSID_PATH_INFO_INPUT_EOF);
+	val = CSID_PATH_INFO_RST_DONE | CSID_PATH_ERROR_FIFO_OVERFLOW;
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		csid_reg->rdi_reg[id]->csid_rdi_irq_mask_addr);
 
@@ -2103,7 +2160,6 @@ static int cam_ife_csid_start(void *hw_priv, void *start_args,
 	res = (struct cam_isp_resource_node *)start_args;
 	csid_reg = csid_hw->csid_info->csid_reg;
 
-	mutex_lock(&csid_hw->hw_info->hw_mutex);
 	if ((res->res_type == CAM_ISP_RESOURCE_CID &&
 		res->res_id >= CAM_IFE_CSID_CID_MAX) ||
 		(res->res_type == CAM_ISP_RESOURCE_PIX_PATH &&
@@ -2136,7 +2192,6 @@ static int cam_ife_csid_start(void *hw_priv, void *start_args,
 		break;
 	}
 end:
-	mutex_unlock(&csid_hw->hw_info->hw_mutex);
 	return rc;
 }
 
@@ -2159,7 +2214,6 @@ static int cam_ife_csid_stop(void *hw_priv,
 	csid_hw_info = (struct cam_hw_info  *)hw_priv;
 	csid_hw = (struct cam_ife_csid_hw   *)csid_hw_info->core_info;
 
-	mutex_lock(&csid_hw->hw_info->hw_mutex);
 	/* Stop the resource first */
 	for (i = 0; i < csid_stop->num_res; i++) {
 		res = csid_stop->node_res[i];
@@ -2191,9 +2245,10 @@ static int cam_ife_csid_stop(void *hw_priv,
 		if (res->res_type == CAM_ISP_RESOURCE_PIX_PATH &&
 			csid_stop->stop_cmd == CAM_CSID_HALT_AT_FRAME_BOUNDARY)
 			rc = cam_ife_csid_res_wait_for_halt(csid_hw, res);
+		else
+			res->res_state = CAM_ISP_RESOURCE_STATE_INIT_HW;
 	}
 
-	mutex_unlock(&csid_hw->hw_info->hw_mutex);
 	return rc;
 
 }
@@ -2387,6 +2442,11 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 			complete(&csid_hw->csid_rdin_complete[i]);
 		}
 
+		if (irq_status_rdi[i]  & CSID_PATH_INFO_INPUT_SOF)
+			CDBG("%s: CSID RDI SOF received\n", __func__);
+		if (irq_status_rdi[i]  & CSID_PATH_INFO_INPUT_EOF)
+			CDBG("%s: CSID RDI EOF received\n", __func__);
+
 		if (irq_status_rdi[i] & CSID_PATH_INFO_INPUT_EOF)
 			complete(&csid_hw->csid_rdin_complete[i]);
 
@@ -2553,6 +2613,7 @@ int cam_ife_csid_hw_deinit(struct cam_ife_csid_hw *ife_csid_hw)
 	for (i = 0; i < CAM_IFE_CSID_CID_RES_MAX; i++)
 		kfree(ife_csid_hw->cid_res[i].res_priv);
 
+	cam_ife_csid_deinit_soc_resources(&ife_csid_hw->hw_info->soc_info);
 
 	return 0;
 }

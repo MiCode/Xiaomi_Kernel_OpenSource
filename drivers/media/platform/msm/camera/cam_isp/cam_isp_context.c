@@ -879,6 +879,412 @@ static struct cam_ctx_ops
 	},
 };
 
+static int __cam_isp_ctx_rdi_only_sof_in_top_state(
+	struct cam_isp_context *ctx_isp, void *evt_data)
+{
+	int rc = 0;
+	struct cam_context                    *ctx = ctx_isp->base;
+	struct cam_req_mgr_sof_notify          notify;
+	struct cam_isp_hw_sof_event_data      *sof_event_data = evt_data;
+	uint64_t                               request_id  = 0;
+
+	if (!evt_data) {
+		pr_err("%s: in valid sof event data\n", __func__);
+		return -EINVAL;
+	}
+
+	ctx_isp->frame_id++;
+	ctx_isp->sof_timestamp_val = sof_event_data->timestamp;
+	CDBG("%s: frame id: %lld time stamp:0x%llx\n", __func__,
+		ctx_isp->frame_id, ctx_isp->sof_timestamp_val);
+
+	/*
+	 * notify reqmgr with sof signal. Note, due to scheduling delay
+	 * we can run into situation that two active requests has already
+	 * be in the active queue while we try to do the notification.
+	 * In this case, we need to skip the current notification. This
+	 * helps the state machine to catch up the delay.
+	 */
+	if (ctx->ctx_crm_intf && ctx->ctx_crm_intf->notify_sof &&
+		ctx_isp->active_req_cnt <= 2) {
+		notify.link_hdl = ctx->link_hdl;
+		notify.dev_hdl = ctx->dev_hdl;
+		notify.frame_id = ctx_isp->frame_id;
+
+		ctx->ctx_crm_intf->notify_sof(&notify);
+		CDBG("%s: Notify CRM  SOF frame %lld\n", __func__,
+			ctx_isp->frame_id);
+
+		/*
+		 * It is idle frame with out any applied request id, send
+		 * request id as zero
+		 */
+		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
+	} else {
+		pr_err("%s: Can not notify SOF to CRM\n", __func__);
+	}
+
+	if (list_empty(&ctx->active_req_list))
+		ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
+	else
+		CDBG("%s: Still need to wait for the buf done\n", __func__);
+
+	CDBG("%s: next substate %d\n", __func__,
+		ctx_isp->substate_activated);
+	return rc;
+}
+
+static int __cam_isp_ctx_rdi_only_sof_in_applied_state(
+	struct cam_isp_context *ctx_isp, void *evt_data)
+{
+	struct cam_isp_hw_sof_event_data      *sof_event_data = evt_data;
+
+	if (!evt_data) {
+		pr_err("%s: in valid sof event data\n", __func__);
+		return -EINVAL;
+	}
+
+	ctx_isp->frame_id++;
+	ctx_isp->sof_timestamp_val = sof_event_data->timestamp;
+	CDBG("%s: frame id: %lld time stamp:0x%llx\n", __func__,
+		ctx_isp->frame_id, ctx_isp->sof_timestamp_val);
+
+	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_BUBBLE_APPLIED;
+	CDBG("%s: next substate %d\n", __func__, ctx_isp->substate_activated);
+
+	return 0;
+}
+
+static int __cam_isp_ctx_rdi_only_sof_in_bubble_applied(
+	struct cam_isp_context *ctx_isp, void *evt_data)
+{
+	struct cam_ctx_request    *req;
+	struct cam_isp_ctx_req    *req_isp;
+	struct cam_context        *ctx = ctx_isp->base;
+	struct cam_isp_hw_sof_event_data      *sof_event_data = evt_data;
+	uint64_t  request_id = 0;
+
+	ctx_isp->frame_id++;
+	ctx_isp->sof_timestamp_val = sof_event_data->timestamp;
+	CDBG("%s: frame id: %lld time stamp:0x%llx\n", __func__,
+		ctx_isp->frame_id, ctx_isp->sof_timestamp_val);
+
+	if (list_empty(&ctx->pending_req_list)) {
+		/*
+		 * If no pending req in epoch, this is an error case.
+		 * The recovery is to go back to sof state
+		 */
+		pr_err("%s: No pending request\n", __func__);
+		ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
+
+		/* Send SOF event as empty frame*/
+		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
+
+		goto end;
+	}
+
+	req = list_first_entry(&ctx->pending_req_list, struct cam_ctx_request,
+		list);
+	req_isp = (struct cam_isp_ctx_req *)req->req_priv;
+
+	CDBG("Report Bubble flag %d\n", req_isp->bubble_report);
+	if (req_isp->bubble_report && ctx->ctx_crm_intf &&
+		ctx->ctx_crm_intf->notify_err) {
+		struct cam_req_mgr_error_notify notify;
+
+		notify.link_hdl = ctx->link_hdl;
+		notify.dev_hdl = ctx->dev_hdl;
+		notify.req_id = req->request_id;
+		notify.error = CRM_KMD_ERR_BUBBLE;
+		ctx->ctx_crm_intf->notify_err(&notify);
+		CDBG("%s: Notify CRM about Bubble frame %lld\n", __func__,
+			ctx_isp->frame_id);
+	} else {
+		/*
+		 * Since can not bubble report, always move the request to
+		 * active list.
+		 */
+		list_del_init(&req->list);
+		list_add_tail(&req->list, &ctx->active_req_list);
+		ctx_isp->active_req_cnt++;
+		CDBG("%s: move request %lld to active list(cnt = %d)\n",
+			__func__, req->request_id, ctx_isp->active_req_cnt);
+		req_isp->bubble_report = 0;
+	}
+
+	request_id = req->request_id;
+	__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+		CAM_REQ_MGR_SOF_EVENT_ERROR);
+
+	/* change the state to bubble, as reg update has not come */
+	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_BUBBLE;
+	CDBG("%s: next substate %d\n", __func__, ctx_isp->substate_activated);
+end:
+	return 0;
+}
+
+static int __cam_isp_ctx_rdi_only_sof_in_bubble_state(
+	struct cam_isp_context *ctx_isp, void *evt_data)
+{
+	uint32_t i;
+	struct cam_ctx_request                *req;
+	struct cam_context                    *ctx = ctx_isp->base;
+	struct cam_req_mgr_sof_notify          notify;
+	struct cam_isp_hw_sof_event_data      *sof_event_data = evt_data;
+	struct cam_isp_ctx_req                *req_isp;
+	uint64_t                               request_id  = 0;
+
+	if (!evt_data) {
+		pr_err("%s: in valid sof event data\n", __func__);
+		return -EINVAL;
+	}
+
+	ctx_isp->frame_id++;
+	ctx_isp->sof_timestamp_val = sof_event_data->timestamp;
+	CDBG("%s: frame id: %lld time stamp:0x%llx\n", __func__,
+		ctx_isp->frame_id, ctx_isp->sof_timestamp_val);
+	/*
+	 * Signal all active requests with error and move the  all the active
+	 * requests to free list
+	 */
+	while (!list_empty(&ctx->active_req_list)) {
+		req = list_first_entry(&ctx->active_req_list,
+				struct cam_ctx_request, list);
+		list_del_init(&req->list);
+		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
+		CDBG("%s: signal fence in active list. fence num %d\n",
+			__func__, req_isp->num_fence_map_out);
+		for (i = 0; i < req_isp->num_fence_map_out; i++)
+			if (req_isp->fence_map_out[i].sync_id != -1) {
+				cam_sync_signal(
+					req_isp->fence_map_out[i].sync_id,
+					CAM_SYNC_STATE_SIGNALED_ERROR);
+			}
+		list_add_tail(&req->list, &ctx->free_req_list);
+	}
+
+	/* notify reqmgr with sof signal */
+	if (ctx->ctx_crm_intf && ctx->ctx_crm_intf->notify_sof) {
+		notify.link_hdl = ctx->link_hdl;
+		notify.dev_hdl = ctx->dev_hdl;
+		notify.frame_id = ctx_isp->frame_id;
+
+		ctx->ctx_crm_intf->notify_sof(&notify);
+		CDBG("%s: Notify CRM  SOF frame %lld\n", __func__,
+			ctx_isp->frame_id);
+
+	} else {
+		pr_err("%s: Can not notify SOF to CRM\n", __func__);
+	}
+
+	/*
+	 * It is idle frame with out any applied request id, send
+	 * request id as zero
+	 */
+	__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+		CAM_REQ_MGR_SOF_EVENT_SUCCESS);
+
+	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
+
+	CDBG("%s: next substate %d\n", __func__,
+		ctx_isp->substate_activated);
+
+	return 0;
+}
+
+static int __cam_isp_ctx_rdi_only_reg_upd_in_bubble_applied_state(
+	struct cam_isp_context *ctx_isp, void *evt_data)
+{
+	struct cam_ctx_request  *req;
+	struct cam_context      *ctx = ctx_isp->base;
+	struct cam_isp_ctx_req  *req_isp;
+	struct cam_req_mgr_sof_notify  notify;
+	uint64_t  request_id  = 0;
+
+	/* notify reqmgr with sof signal*/
+	if (ctx->ctx_crm_intf && ctx->ctx_crm_intf->notify_sof) {
+		if (list_empty(&ctx->pending_req_list)) {
+			pr_err("Reg upd ack with no pending request\n");
+			goto error;
+		}
+		req = list_first_entry(&ctx->pending_req_list,
+				struct cam_ctx_request, list);
+		list_del_init(&req->list);
+
+		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
+		request_id = req->request_id;
+		if (req_isp->num_fence_map_out != 0) {
+			list_add_tail(&req->list, &ctx->active_req_list);
+			ctx_isp->active_req_cnt++;
+			CDBG("%s: move request %lld to active list(cnt = %d)\n",
+				__func__, req->request_id,
+				ctx_isp->active_req_cnt);
+		} else {
+			/* no io config, so the request is completed. */
+			list_add_tail(&req->list, &ctx->free_req_list);
+			CDBG("%s:move active req %lld to free list(cnt=%d)\n",
+				__func__, req->request_id,
+				ctx_isp->active_req_cnt);
+		}
+
+		notify.link_hdl = ctx->link_hdl;
+		notify.dev_hdl = ctx->dev_hdl;
+		notify.frame_id = ctx_isp->frame_id;
+
+		ctx->ctx_crm_intf->notify_sof(&notify);
+		CDBG("%s: Notify CRM  SOF frame %lld\n", __func__,
+			ctx_isp->frame_id);
+	} else {
+		pr_err("%s: Can not notify SOF to CRM\n", __func__);
+	}
+	__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+		CAM_REQ_MGR_SOF_EVENT_SUCCESS);
+
+	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_EPOCH;
+	CDBG("%s: next substate %d\n", __func__, ctx_isp->substate_activated);
+
+	return 0;
+error:
+	/* Send SOF event as idle frame*/
+	__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+		CAM_REQ_MGR_SOF_EVENT_SUCCESS);
+
+	/*
+	 * There is no request in the pending list, move the sub state machine
+	 * to SOF sub state
+	 */
+	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
+
+	return 0;
+}
+
+static struct cam_isp_ctx_irq_ops
+	cam_isp_ctx_rdi_only_activated_state_machine_irq
+			[CAM_ISP_CTX_ACTIVATED_MAX] = {
+	/* SOF */
+	{
+		.irq_ops = {
+			NULL,
+			__cam_isp_ctx_rdi_only_sof_in_top_state,
+			__cam_isp_ctx_reg_upd_in_sof,
+			NULL,
+			NULL,
+			NULL,
+		},
+	},
+	/* APPLIED */
+	{
+		.irq_ops = {
+			__cam_isp_ctx_handle_error,
+			__cam_isp_ctx_rdi_only_sof_in_applied_state,
+			NULL,
+			NULL,
+			NULL,
+			__cam_isp_ctx_buf_done_in_applied,
+		},
+	},
+	/* EPOCH */
+	{
+		.irq_ops = {
+			__cam_isp_ctx_handle_error,
+			__cam_isp_ctx_rdi_only_sof_in_top_state,
+			NULL,
+			NULL,
+			NULL,
+			__cam_isp_ctx_buf_done_in_epoch,
+		},
+	},
+	/* BUBBLE*/
+	{
+		.irq_ops = {
+			__cam_isp_ctx_handle_error,
+			__cam_isp_ctx_rdi_only_sof_in_bubble_state,
+			NULL,
+			NULL,
+			NULL,
+			__cam_isp_ctx_buf_done_in_bubble,
+		},
+	},
+	/* BUBBLE APPLIED ie PRE_BUBBLE */
+	{
+		.irq_ops = {
+			__cam_isp_ctx_handle_error,
+			__cam_isp_ctx_rdi_only_sof_in_bubble_applied,
+			__cam_isp_ctx_rdi_only_reg_upd_in_bubble_applied_state,
+			NULL,
+			NULL,
+			__cam_isp_ctx_buf_done_in_bubble_applied,
+		},
+	},
+
+	/* HALT */
+	{
+	},
+};
+
+static int __cam_isp_ctx_rdi_only_apply_req_top_state(
+	struct cam_context *ctx, struct cam_req_mgr_apply_request *apply)
+{
+	int rc = 0;
+	struct cam_isp_context *ctx_isp =
+		(struct cam_isp_context *) ctx->ctx_priv;
+
+	CDBG("%s: current substate %d\n", __func__,
+		ctx_isp->substate_activated);
+	rc = __cam_isp_ctx_apply_req_in_activated_state(ctx, apply,
+		CAM_ISP_CTX_ACTIVATED_APPLIED);
+	CDBG("%s: new substate %d\n", __func__, ctx_isp->substate_activated);
+
+	return rc;
+}
+
+static struct cam_ctx_ops
+	cam_isp_ctx_rdi_only_activated_state_machine
+		[CAM_ISP_CTX_ACTIVATED_MAX] = {
+	/* SOF */
+	{
+		.ioctl_ops = {},
+		.crm_ops = {
+			.apply_req = __cam_isp_ctx_rdi_only_apply_req_top_state,
+		},
+		.irq_ops = NULL,
+	},
+	/* APPLIED */
+	{
+		.ioctl_ops = {},
+		.crm_ops = {},
+		.irq_ops = NULL,
+	},
+	/* EPOCH */
+	{
+		.ioctl_ops = {},
+		.crm_ops = {
+			.apply_req = __cam_isp_ctx_rdi_only_apply_req_top_state,
+		},
+		.irq_ops = NULL,
+	},
+	/* PRE BUBBLE */
+	{
+		.ioctl_ops = {},
+		.crm_ops = {},
+		.irq_ops = NULL,
+	},
+	/* BUBBLE */
+	{
+		.ioctl_ops = {},
+		.crm_ops = {},
+		.irq_ops = NULL,
+	},
+	/* HALT */
+	{
+		.ioctl_ops = {},
+		.crm_ops = {},
+		.irq_ops = NULL,
+	},
+};
+
 
 /* top level state machine */
 static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
@@ -1055,6 +1461,7 @@ static int __cam_isp_ctx_acquire_dev_in_available(struct cam_context *ctx,
 	struct cam_hw_release_args       release;
 	struct cam_isp_context          *ctx_isp =
 		(struct cam_isp_context *) ctx->ctx_priv;
+	struct cam_isp_hw_cmd_args       hw_cmd_args;
 
 	if (!ctx->hw_mgr_intf) {
 		pr_err("HW interface is not ready!\n");
@@ -1106,6 +1513,36 @@ static int __cam_isp_ctx_acquire_dev_in_available(struct cam_context *ctx,
 	if (rc != 0) {
 		pr_err("Acquire device failed\n");
 		goto free_res;
+	}
+
+	/* Query the context has rdi only resource */
+	hw_cmd_args.ctxt_to_hw_map = param.ctxt_to_hw_map;
+	hw_cmd_args.cmd_type = CAM_ISP_HW_MGR_CMD_IS_RDI_ONLY_CONTEXT;
+	rc = ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
+				&hw_cmd_args);
+	if (rc) {
+		pr_err("HW command failed\n");
+		goto free_hw;
+	}
+
+	if (hw_cmd_args.u.is_rdi_only_context) {
+		/*
+		 * this context has rdi only resource assign rdi only
+		 * state machine
+		 */
+		CDBG("%s: RDI only session Context\n", __func__);
+
+		ctx_isp->substate_machine_irq =
+			cam_isp_ctx_rdi_only_activated_state_machine_irq;
+		ctx_isp->substate_machine =
+			cam_isp_ctx_rdi_only_activated_state_machine;
+	} else {
+		CDBG("%s: Session has PIX or PIX and RDI resources\n",
+			__func__);
+		ctx_isp->substate_machine_irq =
+			cam_isp_ctx_activated_state_machine_irq;
+		ctx_isp->substate_machine =
+			cam_isp_ctx_activated_state_machine;
 	}
 
 	ctx_isp->hw_ctx = param.ctxt_to_hw_map;

@@ -37,6 +37,9 @@ static const char drv_name[] = "vfe_bus";
 
 #define CAM_VFE_BUS_VER2_PAYLOAD_MAX             256
 
+#define CAM_VFE_RDI_BUS_DEFAULT_WIDTH           0xFF01
+#define CAM_VFE_RDI_BUS_DEFAULT_STRIDE          0xFF01
+
 #define MAX_BUF_UPDATE_REG_NUM   \
 	(sizeof(struct cam_vfe_bus_ver2_reg_offset_bus_client)/4)
 #define MAX_REG_VAL_PAIR_SIZE    \
@@ -348,6 +351,19 @@ static int cam_vfe_bus_get_num_wm(
 		case CAM_FORMAT_MIPI_RAW_14:
 		case CAM_FORMAT_MIPI_RAW_16:
 		case CAM_FORMAT_MIPI_RAW_20:
+		case CAM_FORMAT_DPCM_10_6_10:
+		case CAM_FORMAT_DPCM_10_8_10:
+		case CAM_FORMAT_DPCM_12_6_12:
+		case CAM_FORMAT_DPCM_12_8_12:
+		case CAM_FORMAT_DPCM_14_8_14:
+		case CAM_FORMAT_DPCM_14_10_14:
+		case CAM_FORMAT_PLAIN8:
+		case CAM_FORMAT_PLAIN16_8:
+		case CAM_FORMAT_PLAIN16_10:
+		case CAM_FORMAT_PLAIN16_12:
+		case CAM_FORMAT_PLAIN16_14:
+		case CAM_FORMAT_PLAIN16_16:
+		case CAM_FORMAT_PLAIN32_20:
 		case CAM_FORMAT_PLAIN128:
 			return 1;
 		default:
@@ -636,8 +652,6 @@ static enum cam_vfe_bus_packer_format
 	case CAM_FORMAT_NV21:
 	case CAM_FORMAT_NV12:
 		return PACKER_FMT_PLAIN_8_LSB_MSB_10;
-	case CAM_FORMAT_PLAIN16_16:
-		return PACKER_FMT_PLAIN_16_16BPP;
 	case CAM_FORMAT_PLAIN64:
 		return PACKER_FMT_PLAIN_64;
 	case CAM_FORMAT_MIPI_RAW_6:
@@ -652,6 +666,13 @@ static enum cam_vfe_bus_packer_format
 	case CAM_FORMAT_QTI_RAW_12:
 	case CAM_FORMAT_QTI_RAW_14:
 	case CAM_FORMAT_PLAIN128:
+	case CAM_FORMAT_PLAIN8:
+	case CAM_FORMAT_PLAIN16_8:
+	case CAM_FORMAT_PLAIN16_10:
+	case CAM_FORMAT_PLAIN16_12:
+	case CAM_FORMAT_PLAIN16_14:
+	case CAM_FORMAT_PLAIN16_16:
+	case CAM_FORMAT_PLAIN32_20:
 	case CAM_FORMAT_PD8:
 	case CAM_FORMAT_PD10:
 		return PACKER_FMT_PLAIN_128;
@@ -701,8 +722,10 @@ static int cam_vfe_bus_acquire_wm(
 	rsrc_data->height = out_port_info->height;
 
 	if (rsrc_data->index < 3) {
-		rsrc_data->width = rsrc_data->width * 5/4 * rsrc_data->height;
-		rsrc_data->height = 1;
+		rsrc_data->width = CAM_VFE_RDI_BUS_DEFAULT_WIDTH;
+		rsrc_data->height = 0;
+		rsrc_data->stride = CAM_VFE_RDI_BUS_DEFAULT_STRIDE;
+		rsrc_data->pack_fmt = 0x0;
 		rsrc_data->en_cfg = 0x3;
 	} else if (rsrc_data->index < 5 ||
 		rsrc_data->index == 7 || rsrc_data->index == 8) {
@@ -807,7 +830,6 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 
 	cam_io_w_mb(0, common_data->mem_base + rsrc_data->hw_regs->header_addr);
 	cam_io_w_mb(0, common_data->mem_base + rsrc_data->hw_regs->header_cfg);
-	cam_io_w_mb(0, common_data->mem_base + rsrc_data->hw_regs->frame_inc);
 	cam_io_w(0xf, common_data->mem_base + rsrc_data->hw_regs->burst_limit);
 
 	cam_io_w_mb(rsrc_data->width,
@@ -817,15 +839,10 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 	cam_io_w(rsrc_data->pack_fmt,
 		common_data->mem_base + rsrc_data->hw_regs->packer_cfg);
 
-	cam_io_w(0xFFFFFFFF, common_data->mem_base +
-		rsrc_data->hw_regs->irq_subsample_pattern);
-	cam_io_w(0x0, common_data->mem_base +
-		rsrc_data->hw_regs->irq_subsample_period);
-
-	cam_io_w(0xFFFFFFFF,
-		common_data->mem_base + rsrc_data->hw_regs->framedrop_pattern);
-	cam_io_w(0x0,
-		common_data->mem_base + rsrc_data->hw_regs->framedrop_period);
+	/* Configure stride for RDIs */
+	if (rsrc_data->index < 3)
+		cam_io_w_mb(rsrc_data->stride, (common_data->mem_base +
+			rsrc_data->hw_regs->stride));
 
 	/* Subscribe IRQ */
 	if (rsrc_data->irq_enabled) {
@@ -1885,8 +1902,8 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 		wm_data = vfe_out_data->wm_res[i]->res_priv;
 
 		/* For initial configuration program all bus registers */
-		if (wm_data->stride != io_cfg->planes[i].plane_stride ||
-			!wm_data->init_cfg_done) {
+		if ((wm_data->stride != io_cfg->planes[i].plane_stride ||
+			!wm_data->init_cfg_done) && (wm_data->index >= 3)) {
 			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 				wm_data->hw_regs->stride,
 				io_cfg->planes[i].plane_stride);

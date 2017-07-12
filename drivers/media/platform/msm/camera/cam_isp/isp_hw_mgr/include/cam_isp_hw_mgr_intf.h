@@ -115,6 +115,28 @@ struct cam_isp_hw_error_event_data {
 	uint64_t             timestamp;
 };
 
+/* enum cam_isp_hw_mgr_command - Hardware manager command type */
+enum cam_isp_hw_mgr_command {
+	CAM_ISP_HW_MGR_CMD_IS_RDI_ONLY_CONTEXT,
+	CAM_ISP_HW_MGR_CMD_MAX,
+};
+
+/**
+ * struct cam_isp_hw_cmd_args - Payload for hw manager command
+ *
+ * @ctxt_to_hw_map:        HW context from the acquire
+ * @cmd_type               HW command type
+ * @get_context            Get context type information
+ */
+struct cam_isp_hw_cmd_args {
+	void                               *ctxt_to_hw_map;
+	uint32_t                            cmd_type;
+	union {
+		uint32_t                      is_rdi_only_context;
+	} u;
+};
+
+
 /**
  * cam_isp_hw_mgr_init()
  *

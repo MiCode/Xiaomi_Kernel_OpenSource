@@ -25,6 +25,8 @@ struct cam_vfe_mux_rdi_data {
 	void __iomem                                *mem_base;
 	struct cam_hw_intf                          *hw_intf;
 	struct cam_vfe_top_ver2_reg_offset_common   *common_reg;
+	struct cam_vfe_rdi_ver2_reg                 *rdi_reg;
+	struct cam_vfe_rdi_reg_data                 *reg_data;
 
 	enum cam_isp_hw_sync_mode          sync_mode;
 };
@@ -144,12 +146,17 @@ static int cam_vfe_rdi_handle_irq_bottom_half(void *handler_priv,
 
 	switch (payload->evt_id) {
 	case CAM_ISP_HW_EVENT_SOF:
-		if (irq_status0 & 0x8000000)
+		if (irq_status0 & rdi_priv->reg_data->sof_irq_mask) {
+			CDBG("Received SOF\n");
 			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
+		}
 		break;
 	case CAM_ISP_HW_EVENT_REG_UPDATE:
-		if (irq_status0 & 0x20)
+		if (irq_status0 & rdi_priv->reg_data->reg_update_irq_mask) {
+			CDBG("Received REG UPDATE\n");
 			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
+		}
+		cam_vfe_put_evt_payload(payload->core_info, &payload);
 		break;
 	default:
 		break;
@@ -166,6 +173,7 @@ int cam_vfe_rdi_ver2_init(
 	struct cam_isp_resource_node  *rdi_node)
 {
 	struct cam_vfe_mux_rdi_data     *rdi_priv = NULL;
+	struct cam_vfe_rdi_ver2_hw_info *rdi_info = rdi_hw_info;
 
 	rdi_priv = kzalloc(sizeof(struct cam_vfe_mux_rdi_data),
 			GFP_KERNEL);
@@ -178,6 +186,31 @@ int cam_vfe_rdi_ver2_init(
 
 	rdi_priv->mem_base   = soc_info->reg_map[VFE_CORE_BASE_IDX].mem_base;
 	rdi_priv->hw_intf    = hw_intf;
+	rdi_priv->common_reg = rdi_info->common_reg;
+	rdi_priv->rdi_reg    = rdi_info->rdi_reg;
+
+	switch (rdi_node->res_id) {
+	case CAM_ISP_HW_VFE_IN_RDI0:
+		rdi_priv->reg_data = rdi_info->reg_data[0];
+		break;
+	case CAM_ISP_HW_VFE_IN_RDI1:
+		rdi_priv->reg_data = rdi_info->reg_data[1];
+		break;
+	case CAM_ISP_HW_VFE_IN_RDI2:
+		rdi_priv->reg_data = rdi_info->reg_data[2];
+		break;
+	case CAM_ISP_HW_VFE_IN_RDI3:
+		if (rdi_info->reg_data[3]) {
+			rdi_priv->reg_data = rdi_info->reg_data[3];
+		} else {
+			pr_err("Error! RDI3 is not supported\n");
+			goto err_init;
+		}
+		break;
+	default:
+		CDBG("Error! invalid Resource id:%d\n", rdi_node->res_id);
+		goto err_init;
+	}
 
 	rdi_node->start = cam_vfe_rdi_resource_start;
 	rdi_node->stop  = cam_vfe_rdi_resource_stop;
@@ -185,6 +218,9 @@ int cam_vfe_rdi_ver2_init(
 	rdi_node->bottom_half_handler = cam_vfe_rdi_handle_irq_bottom_half;
 
 	return 0;
+err_init:
+	kfree(rdi_priv);
+	return -EINVAL;
 }
 
 int cam_vfe_rdi_ver2_deinit(
