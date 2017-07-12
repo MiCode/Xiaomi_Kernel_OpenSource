@@ -1709,14 +1709,14 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 		}
 	}
 
+	if (sde_enc->cur_master && sde_enc->cur_master->ops.disable)
+		sde_enc->cur_master->ops.disable(sde_enc->cur_master);
+
 	/* after phys waits for frame-done, should be no more frames pending */
 	if (atomic_xchg(&sde_enc->frame_done_timeout, 0)) {
 		SDE_ERROR("enc%d timeout pending\n", drm_enc->base.id);
 		del_timer_sync(&sde_enc->frame_done_timer);
 	}
-
-	if (sde_enc->cur_master && sde_enc->cur_master->ops.disable)
-		sde_enc->cur_master->ops.disable(sde_enc->cur_master);
 
 	sde_encoder_resource_control(drm_enc, SDE_ENC_RC_EVENT_STOP);
 
