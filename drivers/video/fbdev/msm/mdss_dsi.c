@@ -2710,8 +2710,6 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 				ctrl_pdata->update_phy_timing);
 
 		rc = mdss_dsi_on(pdata);
-		mdss_dsi_op_mode_config(pdata->panel_info.mipi.mode,
-							pdata);
 		break;
 	case MDSS_EVENT_UNBLANK:
 		if (ctrl_pdata->on_cmds.link_state == DSI_LP_MODE)
