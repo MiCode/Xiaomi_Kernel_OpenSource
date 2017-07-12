@@ -513,6 +513,7 @@
 		qcom,pcie-active-config;
 		qcom,pcie-aggregated-irq;
 		qcom,pcie-perst-enum;
+		status = "disabled";
 	};
 
 	qcom,msm_gsi {
