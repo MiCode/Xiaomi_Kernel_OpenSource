@@ -319,6 +319,18 @@
 		#size-cells = <2>;
 		ranges;
 
+		wlan_msa_guard: wlan_msa_guard@85600000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x85600000 0x0 0x100000>;
+		};
+
+		wlan_msa_mem: wlan_msa_mem@85700000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x85700000 0x0 0x100000>;
+		};
+
 		removed_regions: removed_regions@85800000 {
 			compatible = "removed-dma-pool";
 			no-map;

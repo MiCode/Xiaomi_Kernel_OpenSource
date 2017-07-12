@@ -927,19 +927,6 @@ static void walk_zones_in_node(struct seq_file *m, pg_data_t *pgdat,
 #endif
 
 #ifdef CONFIG_PROC_FS
-static char * const migratetype_names[MIGRATE_TYPES] = {
-	"Unmovable",
-	"Movable",
-	"Reclaimable",
-#ifdef CONFIG_CMA
-	"CMA",
-#endif
-	"HighAtomic",
-#ifdef CONFIG_MEMORY_ISOLATION
-	"Isolate",
-#endif
-};
-
 static void frag_show_print(struct seq_file *m, pg_data_t *pgdat,
 						struct zone *zone)
 {
@@ -1103,6 +1090,8 @@ static void pagetypeinfo_showmixedcount_print(struct seq_file *m,
 				continue;
 
 			page_ext = lookup_page_ext(page);
+			if (unlikely(!page_ext))
+				continue;
 
 			if (!test_bit(PAGE_EXT_OWNER, &page_ext->flags))
 				continue;
@@ -1140,7 +1129,7 @@ static void pagetypeinfo_showmixedcount(struct seq_file *m, pg_data_t *pgdat)
 #ifdef CONFIG_PAGE_OWNER
 	int mtype;
 
-	if (!page_owner_inited)
+	if (!static_branch_unlikely(&page_owner_inited))
 		return;
 
 	drain_all_pages(NULL);

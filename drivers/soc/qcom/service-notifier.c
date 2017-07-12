@@ -84,6 +84,7 @@ static DEFINE_MUTEX(service_list_lock);
 struct ind_req_resp {
 	char service_path[SERVREG_NOTIF_NAME_LENGTH];
 	int transaction_id;
+	int curr_state;
 };
 
 /*
@@ -200,7 +201,29 @@ static void send_ind_ack(struct work_struct *work)
 	struct qmi_servreg_notif_set_ack_req_msg_v01 req;
 	struct msg_desc req_desc, resp_desc;
 	struct qmi_servreg_notif_set_ack_resp_msg_v01 resp = { { 0, 0 } };
+	struct service_notif_info *service_notif;
+	enum pd_subsys_state state = USER_PD_STATE_CHANGE;
 	int rc;
+
+	service_notif = _find_service_info(data->ind_msg.service_path);
+	if (!service_notif)
+		return;
+	if ((int)data->ind_msg.curr_state < QMI_STATE_MIN_VAL ||
+		(int)data->ind_msg.curr_state > QMI_STATE_MAX_VAL)
+		pr_err("Unexpected indication notification state %d\n",
+			data->ind_msg.curr_state);
+	else {
+		mutex_lock(&notif_add_lock);
+		mutex_lock(&service_list_lock);
+		rc = service_notif_queue_notification(service_notif,
+			data->ind_msg.curr_state, &state);
+		if (rc & NOTIFY_STOP_MASK)
+			pr_err("Notifier callback aborted for %s with error %d\n",
+				data->ind_msg.service_path, rc);
+		service_notif->curr_state = data->ind_msg.curr_state;
+		mutex_unlock(&service_list_lock);
+		mutex_unlock(&notif_add_lock);
+	}
 
 	req.transaction_id = data->ind_msg.transaction_id;
 	snprintf(req.service_name, ARRAY_SIZE(req.service_name), "%s",
@@ -236,11 +259,9 @@ static void root_service_service_ind_cb(struct qmi_handle *handle,
 				unsigned int msg_len, void *ind_cb_priv)
 {
 	struct qmi_client_info *data = (struct qmi_client_info *)ind_cb_priv;
-	struct service_notif_info *service_notif;
 	struct msg_desc ind_desc;
 	struct qmi_servreg_notif_state_updated_ind_msg_v01 ind_msg = {
 					QMI_STATE_MIN_VAL, "", 0xFFFF };
-	enum pd_subsys_state state = USER_PD_STATE_CHANGE;
 	int rc;
 
 	ind_desc.msg_id = SERVREG_NOTIF_STATE_UPDATED_IND_MSG;
@@ -256,27 +277,8 @@ static void root_service_service_ind_cb(struct qmi_handle *handle,
 		ind_msg.service_name, ind_msg.curr_state,
 		ind_msg.transaction_id);
 
-	service_notif = _find_service_info(ind_msg.service_name);
-	if (!service_notif)
-		return;
-
-	if ((int)ind_msg.curr_state < QMI_STATE_MIN_VAL ||
-			(int)ind_msg.curr_state > QMI_STATE_MAX_VAL)
-		pr_err("Unexpected indication notification state %d\n",
-							ind_msg.curr_state);
-	else {
-		mutex_lock(&notif_add_lock);
-		mutex_lock(&service_list_lock);
-		rc = service_notif_queue_notification(service_notif,
-					ind_msg.curr_state, &state);
-		if (rc & NOTIFY_STOP_MASK)
-			pr_err("Notifier callback aborted for %s with error %d\n",
-						ind_msg.service_name, rc);
-		service_notif->curr_state = ind_msg.curr_state;
-		mutex_unlock(&service_list_lock);
-		mutex_unlock(&notif_add_lock);
-	}
 	data->ind_msg.transaction_id = ind_msg.transaction_id;
+	data->ind_msg.curr_state = ind_msg.curr_state;
 	snprintf(data->ind_msg.service_path,
 		ARRAY_SIZE(data->ind_msg.service_path), "%s",
 		ind_msg.service_name);
@@ -373,6 +375,12 @@ static void root_service_service_arrive(struct work_struct *work)
 	mutex_unlock(&qmi_client_release_lock);
 	pr_info("Connection established between QMI handle and %d service\n",
 							data->instance_id);
+	/* Register for indication messages about service */
+	rc = qmi_register_ind_cb(data->clnt_handle,
+		root_service_service_ind_cb, (void *)data);
+	if (rc < 0)
+		pr_err("Indication callback register failed(instance-id: %d) rc:%d\n",
+			data->instance_id, rc);
 	mutex_lock(&notif_add_lock);
 	mutex_lock(&service_list_lock);
 	list_for_each_entry(service_notif, &service_list, list) {
@@ -395,12 +403,6 @@ static void root_service_service_arrive(struct work_struct *work)
 	}
 	mutex_unlock(&service_list_lock);
 	mutex_unlock(&notif_add_lock);
-	/* Register for indication messages about service */
-	rc = qmi_register_ind_cb(data->clnt_handle,
-		root_service_service_ind_cb, (void *)data);
-	if (rc < 0)
-		pr_err("Indication callback register failed(instance-id: %d) rc:%d\n",
-							data->instance_id, rc);
 }
 
 static void root_service_service_exit(struct qmi_client_info *data,
