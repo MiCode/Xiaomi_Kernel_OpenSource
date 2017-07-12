@@ -613,6 +613,16 @@ struct sde_hw_sspp_ops {
 	 */
 	void (*setup_cdp)(struct sde_hw_pipe *ctx,
 			struct sde_hw_pipe_cdp_cfg *cfg);
+
+	/**
+	 * setup_secure_address - setup secureity status of the source address
+	 * @ctx: Pointer to pipe context
+	 * @index: rectangle index in multirect
+	 * @enable: enable content protected buffer state
+	 */
+	void (*setup_secure_address)(struct sde_hw_pipe *ctx,
+			enum sde_sspp_multirect_index index,
+		bool enable);
 };
 
 /**
