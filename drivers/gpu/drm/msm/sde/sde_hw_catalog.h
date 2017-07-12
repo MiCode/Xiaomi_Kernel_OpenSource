@@ -655,6 +655,7 @@ struct sde_vp_cfg {
  * @csc_type           csc or csc_10bit support.
  * @has_src_split      source split feature status
  * @has_cdp            Client driver prefetch feature status
+ * @has_hdr            HDR feature support
  * @dma_formats        Supported formats for dma pipe
  * @cursor_formats     Supported formats for cursor pipe
  * @vig_formats        Supported formats for vig pipe
@@ -672,7 +673,7 @@ struct sde_mdss_cfg {
 	u32 csc_type;
 	bool has_src_split;
 	bool has_cdp;
-
+	bool has_hdr;
 	u32 mdss_count;
 	struct sde_mdss_base_cfg mdss[MAX_BLOCKS];
 

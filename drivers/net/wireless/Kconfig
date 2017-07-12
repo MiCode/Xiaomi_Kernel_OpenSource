@@ -311,6 +311,14 @@ config CNSS_CRYPTO
 	  from cnss platform driver. This crypto APIs used to generate cipher
 	  key and add support for the WLAN driver module security protocol.
 
+config CNSS_QCA6290
+	bool "Enable CNSS QCA6290 chipset specific changes"
+	---help---
+	  This enables the changes from WLAN host driver that are specific to
+	  CNSS QCA6290 chipset.
+	  These changes are needed to support the new hardware architecture
+	  for CNSS QCA6290 chipset.
+
 source "drivers/net/wireless/ath/Kconfig"
 source "drivers/net/wireless/b43/Kconfig"
 source "drivers/net/wireless/b43legacy/Kconfig"
