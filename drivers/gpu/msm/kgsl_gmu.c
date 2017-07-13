@@ -1139,6 +1139,7 @@ int gmu_probe(struct kgsl_device *device)
 		goto error;
 
 	gmu->num_gpupwrlevels = pwr->num_pwrlevels;
+	gmu->wakeup_pwrlevel = pwr->default_pwrlevel;
 
 	for (i = 0; i < gmu->num_gpupwrlevels; i++) {
 		int j = gmu->num_gpupwrlevels - 1 - i;
@@ -1346,12 +1347,11 @@ static int gmu_suspend(struct kgsl_device *device)
 /* To be called to power on both GPU and GMU */
 int gmu_start(struct kgsl_device *device)
 {
-	int ret = 0, perf_idx;
+	int ret = 0;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct gmu_device *gmu = &device->gmu;
-	int bus_level = pwr->pwrlevels[pwr->default_pwrlevel].bus_freq;
 
 	switch (device->state) {
 	case KGSL_STATE_INIT:
@@ -1360,13 +1360,9 @@ int gmu_start(struct kgsl_device *device)
 		gmu_enable_gdsc(gmu);
 		gmu_enable_clks(gmu);
 
-		/* Convert to RPMh frequency index */
-		perf_idx = gmu->num_gpupwrlevels -
-				pwr->default_pwrlevel - 1;
-
 		/* Vote for 300MHz DDR for GMU to init */
 		ret = msm_bus_scale_client_update_request(gmu->pcl,
-				bus_level);
+				pwr->pwrlevels[pwr->default_pwrlevel].bus_freq);
 		if (ret) {
 			dev_err(&gmu->pdev->dev,
 					"Failed to allocate gmu b/w\n");
@@ -1385,7 +1381,8 @@ int gmu_start(struct kgsl_device *device)
 			goto error_gpu;
 
 		/* Send default DCVS level */
-		ret = gmu_dcvs_set(gmu, perf_idx, bus_level);
+		ret = gmu_dcvs_set(gmu, pwr->default_pwrlevel,
+				pwr->pwrlevels[pwr->default_pwrlevel].bus_freq);
 		if (ret)
 			goto error_gpu;
 
@@ -1396,8 +1393,6 @@ int gmu_start(struct kgsl_device *device)
 		WARN_ON(test_bit(GMU_CLK_ON, &gmu->flags));
 		gmu_enable_gdsc(gmu);
 		gmu_enable_clks(gmu);
-
-		perf_idx = gmu->num_gpupwrlevels - gmu->wakeup_pwrlevel - 1;
 
 		ret = gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_START,
 				GMU_WARM_BOOT, 0);
@@ -1411,7 +1406,9 @@ int gmu_start(struct kgsl_device *device)
 			goto error_gpu;
 
 		if (gmu->wakeup_pwrlevel != pwr->default_pwrlevel) {
-			ret = gmu_dcvs_set(gmu, perf_idx, bus_level);
+			ret = gmu_dcvs_set(gmu, gmu->wakeup_pwrlevel,
+					pwr->pwrlevels[gmu->wakeup_pwrlevel]
+					.bus_freq);
 			if (ret)
 				goto error_gpu;
 			gmu->wakeup_pwrlevel = pwr->default_pwrlevel;
@@ -1424,11 +1421,6 @@ int gmu_start(struct kgsl_device *device)
 			gmu_enable_gdsc(gmu);
 			gmu_enable_clks(gmu);
 
-			perf_idx = gmu->num_gpupwrlevels -
-				pwr->active_pwrlevel - 1;
-
-			bus_level =
-				pwr->pwrlevels[pwr->active_pwrlevel].bus_freq;
 			ret = gpudev->rpmh_gpu_pwrctrl(
 				adreno_dev, GMU_FW_START, GMU_RESET, 0);
 			if (ret)
@@ -1441,7 +1433,9 @@ int gmu_start(struct kgsl_device *device)
 				goto error_gpu;
 
 			/* Send DCVS level prior to reset*/
-			ret = gmu_dcvs_set(gmu, perf_idx, bus_level);
+			ret = gmu_dcvs_set(gmu, pwr->active_pwrlevel,
+					pwr->pwrlevels[pwr->active_pwrlevel]
+					.bus_freq);
 			if (ret)
 				goto error_gpu;
 
@@ -1450,9 +1444,8 @@ int gmu_start(struct kgsl_device *device)
 				OOB_CPINIT_CHECK_MASK,
 				OOB_CPINIT_CLEAR_MASK);
 
-		} else {
+		} else
 			gmu_fast_boot(device);
-		}
 		break;
 	default:
 		break;

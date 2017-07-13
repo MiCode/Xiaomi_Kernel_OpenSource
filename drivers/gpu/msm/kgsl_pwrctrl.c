@@ -253,23 +253,30 @@ static int kgsl_clk_set_rate(struct kgsl_device *device,
 {
 	struct gmu_device *gmu = &device->gmu;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	struct kgsl_pwrlevel *pl = &pwr->pwrlevels[pwrlevel];
 	int ret = 0;
 
 	/* GMU scales GPU freq */
 	if (kgsl_gmu_isenabled(device)) {
 		/* If GMU has not been started, save it */
 		if (!(gmu->flags & GMU_HFI_ON)) {
+			/* In slumber the clock is off so we are done */
+			if (pwrlevel == (gmu->num_gpupwrlevels - 1))
+				return 0;
+
 			gmu->wakeup_pwrlevel = pwrlevel;
 			return 0;
 		}
 
+		/* If the GMU is on we cannot vote for the lowest level */
+		if (pwrlevel == (gmu->num_gpupwrlevels - 1)) {
+			WARN(1, "Cannot set 0 GPU frequency with GMU\n");
+			return -EINVAL;
+		}
 		ret = gmu_dcvs_set(gmu, pwrlevel, INVALID_DCVS_IDX);
-	} else {
+	} else
 		/* Linux clock driver scales GPU freq */
-		struct kgsl_pwrlevel *Pl = &pwr->pwrlevels[pwrlevel];
-
-		ret = clk_set_rate(pwr->grp_clks[0], Pl->gpu_freq);
-	}
+		ret = clk_set_rate(pwr->grp_clks[0], pl->gpu_freq);
 
 	if (ret)
 		KGSL_PWR_ERR(device, "GPU clk freq set failure\n");
