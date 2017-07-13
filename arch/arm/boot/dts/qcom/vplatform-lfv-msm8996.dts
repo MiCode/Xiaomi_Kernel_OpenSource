@@ -802,9 +802,20 @@
 		regulator-max-microvolt = <1800000>;
 	};
 
+	pm8994_l30: regulator-l30 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8994_l30";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		qcom,init-voltage = <1800000>;
+	};
+
 	pm8994_l18_pin_ctrl: regulator-l18-pin-ctrl {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm8994_l18_pin_ctrl";
+		regulator-min-microvolt = <2700000>;
+		regulator-max-microvolt = <2900000>;
+		qcom,init-voltage = <2700000>;
 	};
 
 	pm8994_l26_corner: regulator-l26-corner {
@@ -830,6 +841,22 @@
 	pmi8994_s2: regulator@1700 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pmi8994_s2";
+	};
+
+	pm8994_s3: regulator-s3 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8994_s3";
+		regulator-min-microvolt = <1300000>;
+		regulator-max-microvolt = <1300000>;
+		qcom,init-voltage = <1300000>;
+	};
+
+	pm8994_s4: regulator-s4 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8994_s4";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		qcom,init-voltage = <1800000>;
 	};
 
 	pm8004_s2: regulator@1700 {
@@ -961,6 +988,7 @@
 			    <86 512 0 0>,
 			    <86 512 500 800>;
 	};
+
 	qcom,lpass@9300000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x9300000 0x00100>;
@@ -991,6 +1019,31 @@
 
 		/* GPIO output to lpass */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
+	};
+
+	qcom,cnss {
+		compatible = "qcom,cnss";
+		wlan-bootstrap-gpio = <&tlmm 46 0>;
+		vdd-wlan-supply = <&rome_vreg>;
+		vdd-wlan-io-supply = <&pm8994_s4>;
+		vdd-wlan-xtal-supply = <&pm8994_l30>;
+		vdd-wlan-core-supply = <&pm8994_s3>;
+		wlan-ant-switch-supply = <&pm8994_l18_pin_ctrl>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cnss_default>;
+
+		qcom,msm-bus,name = "msm-cnss";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+					/* No vote */
+					<45 512 0 0>,
+					/* Up to 200 Mbps */
+					<45 512 41421 1520000>,
+					/* Up to 400 Mbps */
+					<45 512 96650 1520000>,
+					/* Up to 800 Mbps */
+					<45 512 207108 14432000>;
 	};
 };
 #include "vplatform-lfv-agave.dtsi"
