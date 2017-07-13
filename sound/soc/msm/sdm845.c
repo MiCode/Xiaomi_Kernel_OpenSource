@@ -434,6 +434,7 @@ static const char *const mi2s_ch_text[] = {"One", "Two", "Three", "Four",
 					   "Five", "Six", "Seven",
 					   "Eight"};
 static const char *const hifi_text[] = {"Off", "On"};
+static const char *const qos_text[] = {"Disable", "Enable"};
 
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_rx_chs, slim_rx_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(slim_2_rx_chs, slim_rx_ch_text);
@@ -498,9 +499,11 @@ static SOC_ENUM_SINGLE_EXT_DECL(mi2s_tx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(aux_pcm_rx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(aux_pcm_tx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(hifi_function, hifi_text);
+static SOC_ENUM_SINGLE_EXT_DECL(qos_vote, qos_text);
 
 static struct platform_device *spdev;
 static int msm_hifi_control;
+static int qos_vote_status;
 
 static bool is_initial_boot;
 static bool codec_reg_done;
@@ -2628,6 +2631,72 @@ static int msm_hifi_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static s32 msm_qos_value(struct snd_pcm_runtime *runtime)
+{
+	s32 usecs;
+
+	if (!runtime->rate)
+		return -EINVAL;
+
+	/* take 75% of period time as the deadline */
+	usecs = (750000 / runtime->rate) * runtime->period_size;
+	usecs += ((750000 % runtime->rate) * runtime->period_size) /
+		 runtime->rate;
+
+	return usecs;
+}
+
+static int msm_qos_ctl_get(struct snd_kcontrol *kcontrol,
+			   struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.enumerated.item[0] = qos_vote_status;
+
+	return 0;
+}
+
+static int msm_qos_ctl_put(struct snd_kcontrol *kcontrol,
+			   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct snd_soc_card *card = codec->component.card;
+	const char *be_name = MSM_DAILINK_NAME(LowLatency);
+	struct snd_soc_pcm_runtime *rtd;
+	struct snd_pcm_substream *substream;
+	s32 usecs;
+
+	rtd = snd_soc_get_pcm_runtime(card, be_name);
+	if (!rtd) {
+		pr_err("%s: fail to get pcm runtime for %s\n",
+			__func__, be_name);
+		return -EINVAL;
+	}
+
+	substream = rtd->pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
+	if (!substream) {
+		pr_err("%s: substream is null\n", __func__);
+		return -EINVAL;
+	}
+
+	qos_vote_status = ucontrol->value.enumerated.item[0];
+	if (qos_vote_status) {
+		if (pm_qos_request_active(&substream->latency_pm_qos_req))
+			pm_qos_remove_request(&substream->latency_pm_qos_req);
+		if (!substream->runtime) {
+			pr_err("%s: runtime is null\n", __func__);
+			return -EINVAL;
+		}
+		usecs = msm_qos_value(substream->runtime);
+		if (usecs >= 0)
+			pm_qos_add_request(&substream->latency_pm_qos_req,
+					PM_QOS_CPU_DMA_LATENCY, usecs);
+	} else {
+		if (pm_qos_request_active(&substream->latency_pm_qos_req))
+			pm_qos_remove_request(&substream->latency_pm_qos_req);
+	}
+
+	return 0;
+}
+
 static const struct snd_kcontrol_new msm_snd_controls[] = {
 	SOC_ENUM_EXT("SLIM_0_RX Channels", slim_0_rx_chs,
 			msm_slim_rx_ch_get, msm_slim_rx_ch_put),
@@ -2857,6 +2926,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			msm_aux_pcm_tx_format_get, msm_aux_pcm_tx_format_put),
 	SOC_ENUM_EXT("HiFi Function", hifi_function, msm_hifi_get,
 			msm_hifi_put),
+	SOC_ENUM_EXT("MultiMedia5_RX QOS Vote", qos_vote, msm_qos_ctl_get,
+			msm_qos_ctl_put),
 };
 
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec,
