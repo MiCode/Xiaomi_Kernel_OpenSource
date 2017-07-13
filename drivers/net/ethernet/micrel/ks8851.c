@@ -301,6 +301,21 @@ static void ks8851_rdreg(struct ks8851_net *ks, unsigned op,
 }
 
 /**
+ * ks8851_rdreg16 - read 16 bit register from device
+ * @ks: The chip information
+ * @reg: The register address
+ *
+ * Read a 16bit register from the chip, returning the result
+*/
+static unsigned ks8851_rdreg16(struct ks8851_net *ks, unsigned reg)
+{
+	__le16 rx = 0;
+
+	ks8851_rdreg(ks, MK_OP(reg & 2 ? 0xC : 0x3, reg), (u8 *)&rx, 2);
+	return le16_to_cpu(rx);
+}
+
+/**
  * ks8851_rdreg8 - read 8 bit register from device
  * @ks: The chip information
  * @reg: The register address
@@ -696,7 +711,6 @@ static irqreturn_t ks8851_irq(int irq, void *_ks)
 	struct ks8851_net *ks = _ks;
 	unsigned status;
 	unsigned handled = 0;
-	int ret = 0;
 	mutex_lock(&ks->lock);
 
 	status = ks8851_32bitrdreg16(ks, KS_ISR);
@@ -725,8 +739,7 @@ static irqreturn_t ks8851_irq(int irq, void *_ks)
 
 		/* update our idea of how much tx space is available to the
 		 * system */
-		ks->tx_space = KSZ8851_TX_SPACE;
-
+		ks->tx_space = ks8851_rdreg16(ks, KS_TXMIR);
 		netif_dbg(ks, intr, ks->netdev,
 			  "%s: txspace %d\n", __func__, ks->tx_space);
 		/* TX FIFO is empty */
@@ -749,9 +762,7 @@ static irqreturn_t ks8851_irq(int irq, void *_ks)
 		 * packet read-out, however we're masking the interrupt
 		 * from the device so do not bother masking just the RX
 		 * from the device. */
-		ret = queue_work(ks8851_rx_wq, &ks->rx_work);
-		if (ret != 0)
-			handled |= IRQ_RXI;
+		ks8851_rx_pkts3(ks);
 	}
 
 	/* if something stopped the rx process, probably due to wanting
