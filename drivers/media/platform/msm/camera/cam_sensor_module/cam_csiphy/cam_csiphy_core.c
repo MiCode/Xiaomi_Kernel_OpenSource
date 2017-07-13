@@ -37,7 +37,7 @@ void cam_csiphy_reset(struct csiphy_device *csiphy_dev)
 	base = soc_info->reg_map[0].mem_base;
 
 	for (i = 0; i < size; i++) {
-		cam_io_w(
+		cam_io_w_mb(
 			csiphy_dev->ctrl_reg->
 			csiphy_reset_reg[i].reg_data,
 			base +
@@ -128,7 +128,7 @@ void cam_csiphy_cphy_irq_config(struct csiphy_device *csiphy_dev)
 		csiphy_dev->soc_info.reg_map[0].mem_base;
 
 	for (i = 0; i < csiphy_dev->num_irq_registers; i++)
-		cam_io_w(csiphy_dev->ctrl_reg->
+		cam_io_w_mb(csiphy_dev->ctrl_reg->
 			csiphy_irq_reg[i].reg_data,
 			csiphybase +
 			csiphy_dev->ctrl_reg->
@@ -142,7 +142,7 @@ void cam_csiphy_cphy_irq_disable(struct csiphy_device *csiphy_dev)
 		csiphy_dev->soc_info.reg_map[0].mem_base;
 
 	for (i = 0; i < csiphy_dev->num_irq_registers; i++)
-		cam_io_w(0x0,
+		cam_io_w_mb(0x0,
 			csiphybase +
 			csiphy_dev->ctrl_reg->
 			csiphy_irq_reg[i].reg_addr);
@@ -171,22 +171,22 @@ irqreturn_t cam_csiphy_irq(int irq_num, void *data)
 			base +
 			csiphy_dev->ctrl_reg->csiphy_reg.
 			mipi_csiphy_interrupt_status0_addr + 0x4*i);
-		cam_io_w(irq,
+		cam_io_w_mb(irq,
 			base +
 			csiphy_dev->ctrl_reg->csiphy_reg.
 			mipi_csiphy_interrupt_clear0_addr + 0x4*i);
 		pr_err_ratelimited(
 			"%s CSIPHY%d_IRQ_STATUS_ADDR%d = 0x%x\n",
 			__func__, soc_info->index, i, irq);
-		cam_io_w(0x0,
+		cam_io_w_mb(0x0,
 			base +
 			csiphy_dev->ctrl_reg->csiphy_reg.
 			mipi_csiphy_interrupt_clear0_addr + 0x4*i);
 	}
-	cam_io_w(0x1, base +
+	cam_io_w_mb(0x1, base +
 		csiphy_dev->ctrl_reg->
 		csiphy_reg.mipi_csiphy_glbl_irq_cmd_addr);
-	cam_io_w(0x0, base +
+	cam_io_w_mb(0x0, base +
 		csiphy_dev->ctrl_reg->
 		csiphy_reg.mipi_csiphy_glbl_irq_cmd_addr);
 
@@ -198,7 +198,8 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev)
 	int32_t      rc = 0;
 	uint32_t     lane_enable = 0, mask = 1, size = 0;
 	uint16_t     lane_mask = 0, i = 0, cfg_size = 0;
-	uint8_t      settle_cnt, lane_cnt, lane_pos = 0;
+	uint8_t      lane_cnt, lane_pos = 0;
+	uint16_t     settle_cnt = 0;
 	void __iomem *csiphybase;
 	struct csiphy_reg_t (*reg_array)[MAX_SETTINGS_PER_LANE];
 
@@ -257,13 +258,13 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev)
 		switch (csiphy_dev->ctrl_reg->
 			csiphy_common_reg[i].csiphy_param_type) {
 			case CSIPHY_LANE_ENABLE:
-				cam_io_w(lane_enable,
+				cam_io_w_mb(lane_enable,
 					csiphybase +
 					csiphy_dev->ctrl_reg->
 					csiphy_common_reg[i].reg_addr);
 			break;
 			case CSIPHY_DEFAULT_PARAMS:
-				cam_io_w(csiphy_dev->ctrl_reg->
+				cam_io_w_mb(csiphy_dev->ctrl_reg->
 					csiphy_common_reg[i].reg_data,
 					csiphybase +
 					csiphy_dev->ctrl_reg->
@@ -284,22 +285,22 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev)
 		for (i = 0; i < cfg_size; i++) {
 			switch (reg_array[lane_pos][i].csiphy_param_type) {
 			case CSIPHY_LANE_ENABLE:
-				cam_io_w(lane_enable,
+				cam_io_w_mb(lane_enable,
 					csiphybase +
 					reg_array[lane_pos][i].reg_addr);
 			break;
 			case CSIPHY_DEFAULT_PARAMS:
-				cam_io_w(reg_array[lane_pos][i].reg_data,
+				cam_io_w_mb(reg_array[lane_pos][i].reg_data,
 					csiphybase +
 					reg_array[lane_pos][i].reg_addr);
 			break;
 			case CSIPHY_SETTLE_CNT_LOWER_BYTE:
-				cam_io_w(settle_cnt & 0xFF,
+				cam_io_w_mb(settle_cnt & 0xFF,
 					csiphybase +
 					reg_array[lane_pos][i].reg_addr);
 			break;
 			case CSIPHY_SETTLE_CNT_HIGHER_BYTE:
-				cam_io_w((settle_cnt >> 8) & 0xFF,
+				cam_io_w_mb((settle_cnt >> 8) & 0xFF,
 					csiphybase +
 					reg_array[lane_pos][i].reg_addr);
 			break;
