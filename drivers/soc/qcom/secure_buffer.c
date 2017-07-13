@@ -416,6 +416,8 @@ const char *msm_secure_vmid_to_string(int secure_vmid)
 		return "VMID_CP_SPSS_SP";
 	case VMID_CP_SPSS_SP_SHARED:
 		return "VMID_CP_SPSS_SP_SHARED";
+	case VMID_CP_SPSS_HLOS_SHARED:
+		return "VMID_CP_SPSS_HLOS_SHARED";
 	case VMID_INVAL:
 		return "VMID_INVAL";
 	default:
