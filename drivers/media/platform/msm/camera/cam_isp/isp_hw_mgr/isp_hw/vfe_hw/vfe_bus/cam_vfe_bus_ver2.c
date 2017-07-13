@@ -845,6 +845,12 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 		}
 	}
 
+	/* enable ubwc if needed*/
+	if (rsrc_data->en_ubwc) {
+		cam_io_w_mb(0x1, common_data->mem_base +
+			rsrc_data->hw_regs->ubwc_regs->mode_cfg);
+	}
+
 	/* Enable WM */
 	cam_io_w_mb(rsrc_data->en_cfg, common_data->mem_base +
 		rsrc_data->hw_regs->cfg);
