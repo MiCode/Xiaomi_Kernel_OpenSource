@@ -21,9 +21,47 @@
 #include "cam_mem_mgr.h"
 #include "cam_sync_api.h"
 #include "cam_req_mgr_dev.h"
+#include "cam_trace.h"
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
+
+static uint64_t __cam_isp_ctx_get_event_ts(uint32_t evt_id, void *evt_data)
+{
+	uint64_t ts = 0;
+
+	if (!evt_data)
+		return 0;
+
+	switch (evt_id) {
+	case CAM_ISP_HW_EVENT_ERROR:
+		ts = ((struct cam_isp_hw_error_event_data *)evt_data)->
+			timestamp;
+		break;
+	case CAM_ISP_HW_EVENT_SOF:
+		ts = ((struct cam_isp_hw_sof_event_data *)evt_data)->
+			timestamp;
+		break;
+	case CAM_ISP_HW_EVENT_REG_UPDATE:
+		ts = ((struct cam_isp_hw_reg_update_event_data *)evt_data)->
+			timestamp;
+		break;
+	case CAM_ISP_HW_EVENT_EPOCH:
+		ts = ((struct cam_isp_hw_epoch_event_data *)evt_data)->
+			timestamp;
+		break;
+	case CAM_ISP_HW_EVENT_EOF:
+		ts = ((struct cam_isp_hw_eof_event_data *)evt_data)->
+			timestamp;
+		break;
+	case CAM_ISP_HW_EVENT_DONE:
+		break;
+	default:
+		CDBG("%s: Invalid Event Type %d\n", __func__, evt_id);
+	}
+
+	return ts;
+}
 
 static int __cam_isp_ctx_handle_buf_done_in_activated_state(
 	struct cam_isp_context *ctx_isp,
@@ -45,6 +83,9 @@ static int __cam_isp_ctx_handle_buf_done_in_activated_state(
 
 	req = list_first_entry(&ctx->active_req_list,
 			struct cam_ctx_request, list);
+
+	trace_cam_buf_done("ISP", ctx, req);
+
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
 	for (i = 0; i < done->num_handles; i++) {
 		for (j = 0; j < req_isp->num_fence_map_out; j++) {
@@ -785,6 +826,8 @@ static int __cam_isp_ctx_flush_req_in_ready(
 		ctx->state = CAM_CTX_ACQUIRED;
 	spin_unlock(&ctx->lock);
 
+	trace_cam_context_state("ISP", ctx);
+
 	CDBG("%s: Flush request in ready state. next state %d\n",
 		__func__, ctx->state);
 	return rc;
@@ -878,6 +921,8 @@ static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
 	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, &flush_req);
 
 	ctx->state = CAM_CTX_AVAILABLE;
+
+	trace_cam_context_state("ISP", ctx);
 	CDBG("%s: next state %d\n", __func__, ctx->state);
 	return rc;
 }
@@ -1086,6 +1131,7 @@ static int __cam_isp_ctx_acquire_dev_in_available(struct cam_context *ctx,
 
 	ctx->state = CAM_CTX_ACQUIRED;
 
+	trace_cam_context_state("ISP", ctx);
 	CDBG("%s:%d: Acquire success.\n", __func__, __LINE__);
 	kfree(isp_res);
 	return rc;
@@ -1107,8 +1153,10 @@ static int __cam_isp_ctx_config_dev_in_acquired(struct cam_context *ctx,
 
 	rc = __cam_isp_ctx_config_dev_in_top_state(ctx, cmd);
 
-	if (!rc && ctx->link_hdl)
+	if (!rc && ctx->link_hdl) {
 		ctx->state = CAM_CTX_READY;
+		trace_cam_context_state("ISP", ctx);
+	}
 
 	CDBG("%s: next state %d\n", __func__, ctx->state);
 	return rc;
@@ -1125,8 +1173,10 @@ static int __cam_isp_ctx_link_in_acquired(struct cam_context *ctx,
 	ctx->ctx_crm_intf = link->crm_cb;
 
 	/* change state only if we had the init config */
-	if (!list_empty(&ctx->pending_req_list))
+	if (!list_empty(&ctx->pending_req_list)) {
 		ctx->state = CAM_CTX_READY;
+		trace_cam_context_state("ISP", ctx);
+	}
 
 	CDBG("%s: next state %d\n", __func__, ctx->state);
 
@@ -1206,11 +1256,13 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	 * irq handling comes early
 	 */
 	ctx->state = CAM_CTX_ACTIVATED;
+	trace_cam_context_state("ISP", ctx);
 	rc = ctx->hw_mgr_intf->hw_start(ctx->hw_mgr_intf->hw_mgr_priv, &arg);
 	if (rc) {
 		/* HW failure. user need to clean up the resource */
 		pr_err("Start HW failed\n");
 		ctx->state = CAM_CTX_READY;
+		trace_cam_context_state("ISP", ctx);
 		goto end;
 	}
 	CDBG("%s: start device success\n", __func__);
@@ -1226,6 +1278,7 @@ static int __cam_isp_ctx_unlink_in_ready(struct cam_context *ctx,
 	ctx->link_hdl = 0;
 	ctx->ctx_crm_intf = NULL;
 	ctx->state = CAM_CTX_ACQUIRED;
+	trace_cam_context_state("ISP", ctx);
 
 	return rc;
 }
@@ -1300,6 +1353,7 @@ static int __cam_isp_ctx_stop_dev_in_activated(struct cam_context *ctx,
 
 	__cam_isp_ctx_stop_dev_in_activated_unlock(ctx);
 	ctx->state = CAM_CTX_ACQUIRED;
+	trace_cam_context_state("ISP", ctx);
 	return rc;
 }
 
@@ -1327,6 +1381,7 @@ static int __cam_isp_ctx_release_dev_in_activated(struct cam_context *ctx,
 	ctx->ctx_crm_intf = NULL;
 
 	ctx->state =  CAM_CTX_AVAILABLE;
+	trace_cam_context_state("ISP", ctx);
 
 	return rc;
 }
@@ -1338,6 +1393,7 @@ static int __cam_isp_ctx_apply_req(struct cam_context *ctx,
 	struct cam_isp_context *ctx_isp =
 		(struct cam_isp_context *) ctx->ctx_priv;
 
+	trace_cam_apply_req("ISP", apply);
 	CDBG("%s: Enter: apply req in Substate %d request _id:%lld\n",
 		__func__, ctx_isp->substate_activated, apply->request_id);
 	if (ctx_isp->substate_machine[ctx_isp->substate_activated].
@@ -1367,6 +1423,10 @@ static int __cam_isp_ctx_handle_irq_in_activated(void *context,
 		(struct cam_isp_context *)ctx->ctx_priv;
 
 	spin_lock_bh(&ctx->lock);
+
+	trace_cam_isp_activated_irq(ctx, ctx_isp->substate_activated, evt_id,
+		__cam_isp_ctx_get_event_ts(evt_id, evt_data));
+
 	CDBG("%s: Enter: State %d, Substate %d, evt id %d\n",
 		__func__, ctx->state, ctx_isp->substate_activated, evt_id);
 	if (ctx_isp->substate_machine_irq[ctx_isp->substate_activated].
