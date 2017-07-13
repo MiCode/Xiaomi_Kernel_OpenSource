@@ -477,6 +477,7 @@ void handle_thermal_trip(struct thermal_zone_device *tz, int trip)
 	 * So, start monitoring again.
 	 */
 	monitor_thermal_zone(tz);
+	trace_thermal_handle_trip(tz, trip);
 }
 
 /**
@@ -567,6 +568,7 @@ void thermal_zone_set_trips(struct thermal_zone_device *tz)
 	ret = tz->ops->set_trips(tz, low, high);
 	if (ret)
 		dev_err(&tz->device, "Failed to set trips: %d\n", ret);
+	trace_thermal_set_trip(tz);
 
 exit:
 	mutex_unlock(&tz->lock);
@@ -621,6 +623,7 @@ void thermal_zone_device_update(struct thermal_zone_device *tz,
 	if (!tz->ops->get_temp)
 		return;
 
+	trace_thermal_device_update(tz, event);
 	update_temperature(tz);
 
 	thermal_zone_set_trips(tz);
@@ -1826,6 +1829,7 @@ void thermal_cdev_update(struct thermal_cooling_device *cdev)
 				current_target = instance->target;
 		}
 	}
+	trace_cdev_update_start(cdev);
 	cdev->ops->set_cur_state(cdev, current_target);
 	if (cdev->ops->set_min_state)
 		cdev->ops->set_min_state(cdev, min_target);
