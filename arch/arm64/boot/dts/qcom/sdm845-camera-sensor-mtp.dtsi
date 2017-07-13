@@ -333,7 +333,7 @@
 		compatible = "qcom,cam-sensor";
 		reg = <0x02>;
 		csiphy-sd-index = <2>;
-		sensor-position-roll = <90>;
+		sensor-position-roll = <270>;
 		sensor-position-pitch = <0>;
 		sensor-position-yaw = <0>;
 		eeprom-src = <&eeprom_front>;
