@@ -332,6 +332,16 @@ bool mbox_controller_is_idle(struct mbox_chan *chan)
 }
 EXPORT_SYMBOL(mbox_controller_is_idle);
 
+
+void mbox_chan_debug(struct mbox_chan *chan)
+{
+	if (!chan || !chan->cl || !chan->mbox->debug)
+		return;
+
+	return chan->mbox->debug(chan);
+}
+EXPORT_SYMBOL(mbox_chan_debug);
+
 /**
  * mbox_request_channel - Request a mailbox channel.
  * @cl: Identity of the client requesting the channel.
