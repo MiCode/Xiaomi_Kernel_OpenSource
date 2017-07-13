@@ -358,16 +358,19 @@ void sde_fence_signal(struct sde_fence_context *ctx, ktime_t ts, bool is_error)
 	if ((int)(ctx->done_count - ctx->commit_count) < 0) {
 		++ctx->done_count;
 		SDE_DEBUG("fence_signal:done count:%d commit count:%d\n",
-					ctx->commit_count, ctx->done_count);
+					ctx->done_count, ctx->commit_count);
 	} else {
 		SDE_ERROR("extra signal attempt! done count:%d commit:%d\n",
 					ctx->done_count, ctx->commit_count);
+		SDE_EVT32(ctx->drm_id, ctx->done_count, ctx->commit_count,
+			ktime_to_us(ts), SDE_EVTLOG_FATAL);
 		spin_unlock_irqrestore(&ctx->lock, flags);
 		return;
 	}
 	spin_unlock_irqrestore(&ctx->lock, flags);
 
-	SDE_EVT32(ctx->drm_id, ctx->done_count);
+	SDE_EVT32(ctx->drm_id, ctx->done_count, ctx->commit_count,
+			ktime_to_us(ts));
 
 	spin_lock(&ctx->list_lock);
 	if (list_empty(&ctx->fence_list_head)) {
