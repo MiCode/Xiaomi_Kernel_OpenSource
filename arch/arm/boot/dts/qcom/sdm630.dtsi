@@ -1288,18 +1288,9 @@
 		compatible = "qcom,clk-cpu-osm-sdm630";
 		reg = <0x179c0000 0x4000>, <0x17916000 0x1000>,
 			<0x17816000 0x1000>, <0x179d1000 0x1000>,
-			<0x00784130 0x8>, <0x17914800 0x800>,
-			<0x17814800 0x800>;
+			<0x00784130 0x8>;
 		reg-names = "osm", "pwrcl_pll", "perfcl_pll",
-			"apcs_common", "perfcl_efuse",
-			"pwrcl_acd", "perfcl_acd";
-
-		qcom,acdtd-val = <0x0000a111 0x0000a111>;
-		qcom,acdcr-val = <0x002c5ffd 0x002c5ffd>;
-		qcom,acdsscr-val = <0x00000901 0x00000901>;
-		qcom,acdextint0-val = <0x2cf9ae8 0x2cf9ae8>;
-		qcom,acdextint1-val = <0x2cf9afe 0x2cf9afe>;
-		qcom,acdautoxfer-val = <0x00000015 0x00000015>;
+			"apcs_common", "perfcl_efuse";
 
 		vdd-pwrcl-supply = <&apc0_pwrcl_vreg>;
 		vdd-perfcl-supply = <&apc1_perfcl_vreg>;
