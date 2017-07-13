@@ -523,7 +523,6 @@ static int sde_encoder_phys_cmd_control_vblank_irq(
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 		to_sde_encoder_phys_cmd(phys_enc);
-	unsigned long lock_flags;
 	int ret = 0;
 
 	if (!phys_enc) {
@@ -539,8 +538,6 @@ static int sde_encoder_phys_cmd_control_vblank_irq(
 			__builtin_return_address(0),
 			enable, atomic_read(&phys_enc->vblank_refcount));
 
-	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
-
 	SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx - PINGPONG_0,
 			enable, atomic_read(&phys_enc->vblank_refcount));
 
@@ -549,8 +546,6 @@ static int sde_encoder_phys_cmd_control_vblank_irq(
 	else if (!enable && atomic_dec_return(&phys_enc->vblank_refcount) == 0)
 		ret = sde_encoder_helper_unregister_irq(phys_enc,
 				INTR_IDX_RDPTR);
-
-	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 
 end:
 	if (ret)
