@@ -233,8 +233,8 @@ static int _sde_connector_get_default_dither_cfg_v1(
 	}
 
 	if (!c_conn->ops.get_dst_format) {
-		SDE_ERROR("get_dst_format is invalid\n");
-		return -EINVAL;
+		SDE_DEBUG("get_dst_format is unavailable\n");
+		return 0;
 	}
 
 	dst_format = c_conn->ops.get_dst_format(c_conn->display);
