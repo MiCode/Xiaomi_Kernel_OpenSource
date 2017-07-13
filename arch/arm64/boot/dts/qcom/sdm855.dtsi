@@ -622,3 +622,4 @@
 };
 #include "sdm855-pinctrl.dtsi"
 #include "sdm855-regulator.dtsi"
+#include "sdm855-ion.dtsi"
