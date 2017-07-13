@@ -33,6 +33,9 @@
 #include "sde_hdmi_util.h"
 #include "sde_hdcp.h"
 
+#ifndef MIN
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+#endif
 #ifdef HDMI_DEBUG_ENABLE
 #define SDE_HDMI_DEBUG(fmt, args...)   SDE_ERROR(fmt, ##args)
 #else
@@ -110,6 +113,8 @@ enum hdmi_tx_feature_type {
  * @client_notify_pending: If there is client notification pending.
  * @irq_domain:       IRQ domain structure.
  * @pll_update_enable: if it's allowed to update HDMI PLL ppm.
+ * @dc_enable:        If deep color is enabled. Only DC_30 so far.
+ * @dc_feature_supported: If deep color feature is supported.
  * @notifier:         CEC notifider to convey physical address information.
  * @root:             Debug fs root entry.
  */
@@ -161,6 +166,8 @@ struct sde_hdmi {
 	struct irq_domain *irq_domain;
 	struct cec_notifier *notifier;
 	bool pll_update_enable;
+	bool dc_enable;
+	bool dc_feature_supported;
 
 	struct delayed_work hdcp_cb_work;
 	struct dss_io_data io[HDMI_TX_MAX_IO];
@@ -188,6 +195,8 @@ enum hdmi_tx_scdc_access_type {
 
 #define HDMI_KHZ_TO_HZ 1000
 #define HDMI_MHZ_TO_HZ 1000000
+#define HDMI_YUV420_24BPP_PCLK_TMDS_CH_RATE_RATIO 2
+#define HDMI_RGB_24BPP_PCLK_TMDS_CH_RATE_RATIO 1
 
 /* Maximum pixel clock rates for hdmi tx */
 #define HDMI_DEFAULT_MAX_PCLK_RATE	148500
