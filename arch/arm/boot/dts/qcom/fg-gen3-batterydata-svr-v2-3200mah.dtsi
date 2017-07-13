@@ -1,0 +1,84 @@
+/*
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,svr835v2_3200mah {
+	/*3003021_TC_MLP603170_3200mAh_averaged_MasterSlave_Jun292017*/
+	qcom, = <24>;
+	qcom,max-voltage-uv = <4200000>;
+	qcom,fg-cc-cv-threshold-mv = <4190>;
+	qcom,fastchg-current-ma = <3200>;
+	qcom,nom-batt-capacity-mah = <3200>;
+	qcom,batt-id-kohm = <0>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "svr835v2_3200mah";
+	qcom,checksum = <0xB7B0>;
+	qcom,gui-version = "PMI8998GUI - 2.0.0.58";
+	qcom,fg-profile-data = [
+		 87 16 AB 0B
+		 BE 15 3A 0A
+		 8B 1C 6D 02
+		 76 0D 1F 0A
+		 50 18 ED 22
+		 98 45 CA 52
+		 83 00 00 00
+		 0D 00 00 00
+		 00 00 37 B4
+		 78 C5 9D BA
+		 29 00 08 00
+		 3E CA 11 E5
+		 D4 06 B7 EA
+		 51 07 0F 02
+		 82 DD 22 3B
+		 1C 06 09 20
+		 27 00 14 00
+		 1C 19 82 0A
+		 E9 0C 49 03
+		 84 1C 5C 03
+		 D0 15 0D 12
+		 91 19 0C 22
+		 F0 3C 35 4B
+		 7D 00 00 00
+		 12 00 00 00
+		 00 00 F3 D4
+		 9F B4 AF D3
+		 22 00 00 00
+		 CC EA 11 E5
+		 2D F4 35 E3
+		 A5 F3 49 0B
+		 8F EA 5A 1A
+		 9B 33 CC FF
+		 07 10 00 00
+		 21 0D 33 43
+		 22 00 40 00
+		 07 01 0A FA
+		 FF 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 00 00 00 00
+	];
+};
