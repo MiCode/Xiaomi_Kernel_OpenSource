@@ -1,6 +1,6 @@
 menuconfig ION
 	bool "Ion Memory Manager"
-	depends on HAVE_MEMBLOCK && HAS_DMA && MMU
+	depends on HAVE_MEMBLOCK && HAS_DMA && MMU && ION_MSM
 	select GENERIC_ALLOCATOR
 	select DMA_SHARED_BUFFER
 	---help---
@@ -33,3 +33,35 @@ config ION_TEGRA
 	help
 	  Choose this option if you wish to use ion on an nVidia Tegra.
 
+config ION_HISI
+	tristate "Ion for Hisilicon"
+	depends on ARCH_HISI && ION
+	help
+	  Choose this option if you wish to use ion on Hisilicon Platform.
+
+source "drivers/staging/android/ion/hisilicon/Kconfig"
+
+config ION_POOL_CACHE_POLICY
+	bool "Ion set page pool cache policy"
+	depends on ION && X86
+	default y if X86
+	help
+	  Choose this option if need to explicity set cache policy of the
+	  pages in the page pool.
+
+config ION_MSM
+	tristate "Ion for MSM"
+	depends on ARCH_QCOM && CMA
+	select MSM_SECURE_BUFFER
+	help
+	  Choose this option if you wish to use ion on an MSM target.
+	  Features include allocating heaps from device tree, buffer
+	  cache maintenance, and a custom ioctl/compat_ioctl. Enable
+	  utility functions used by ion_system_heap.
+
+config ALLOC_BUFFERS_IN_4K_CHUNKS
+	bool "Turns off allocation optimization and allocate only 4K pages"
+	depends on ARCH_QCOM && ION
+	help
+          Choose this option if you want ION to allocate buffers in
+          only 4KB chunks.
