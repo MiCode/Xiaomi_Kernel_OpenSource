@@ -12,6 +12,7 @@
 
 #include <dt-bindings/interrupt-controller/irq.h>
 #include "msm8998-svr20-pinctrl.dtsi"
+#include "msm8998-camera-sensor-svr20.dtsi"
 &vendor {
 	bluetooth: bt_wcn3990 {
 		compatible = "qca,wcn3990";
