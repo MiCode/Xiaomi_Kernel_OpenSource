@@ -516,15 +516,15 @@ ssize_t ipa_read(struct file *filp, char __user *buf, size_t count,
 	char __user *start;
 	struct ipa_push_msg *msg = NULL;
 	int ret;
-	DEFINE_WAIT(wait);
+	DEFINE_WAIT_FUNC(wait, woken_wake_function);
 	int locked;
 
 	start = buf;
 
+	add_wait_queue(&ipa_ctx->msg_waitq, &wait);
 	while (1) {
 		mutex_lock(&ipa_ctx->msg_lock);
 		locked = 1;
-		prepare_to_wait(&ipa_ctx->msg_waitq, &wait, TASK_INTERRUPTIBLE);
 		if (!list_empty(&ipa_ctx->msg_list)) {
 			msg = list_first_entry(&ipa_ctx->msg_list,
 					struct ipa_push_msg, link);
@@ -576,10 +576,10 @@ ssize_t ipa_read(struct file *filp, char __user *buf, size_t count,
 
 		locked = 0;
 		mutex_unlock(&ipa_ctx->msg_lock);
-		schedule();
+		wait_woken(&wait, TASK_INTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
 	}
 
-	finish_wait(&ipa_ctx->msg_waitq, &wait);
+	remove_wait_queue(&ipa_ctx->msg_waitq, &wait);
 	if (start != buf && ret != -EFAULT)
 		ret = buf - start;
 

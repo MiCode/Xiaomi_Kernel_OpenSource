@@ -1384,7 +1384,7 @@ int msm_sdw_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 
 	msm_sdw = snd_soc_codec_get_drvdata(codec);
 	card = codec->component.card;
-	msm_sdw->entry = snd_register_module_info(codec_root->module,
+	msm_sdw->entry = snd_info_create_subdir(codec_root->module,
 						  "152c1000.msm-sdw-codec",
 						  codec_root);
 	if (!msm_sdw->entry) {
@@ -1762,13 +1762,15 @@ static struct regmap *msm_sdw_get_regmap(struct device *dev)
 static struct snd_soc_codec_driver soc_codec_dev_msm_sdw = {
 	.probe = msm_sdw_codec_probe,
 	.remove = msm_sdw_codec_remove,
-	.controls = msm_sdw_snd_controls,
-	.num_controls = ARRAY_SIZE(msm_sdw_snd_controls),
-	.dapm_widgets = msm_sdw_dapm_widgets,
-	.num_dapm_widgets = ARRAY_SIZE(msm_sdw_dapm_widgets),
-	.dapm_routes = audio_map,
-	.num_dapm_routes = ARRAY_SIZE(audio_map),
 	.get_regmap = msm_sdw_get_regmap,
+	.component_driver = {
+		.controls = msm_sdw_snd_controls,
+		.num_controls = ARRAY_SIZE(msm_sdw_snd_controls),
+		.dapm_widgets = msm_sdw_dapm_widgets,
+		.num_dapm_widgets = ARRAY_SIZE(msm_sdw_dapm_widgets),
+		.dapm_routes = audio_map,
+		.num_dapm_routes = ARRAY_SIZE(audio_map),
+	},
 };
 
 static void msm_sdw_add_child_devices(struct work_struct *work)

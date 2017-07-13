@@ -386,6 +386,10 @@ static int tcs_cmd_list_gen(int *n_active,
 			tcs_cmd_gen(cur_bcm, &cmdlist_wake[k],
 				cur_bcm->node_vec[ACTIVE_CTX].vec_a,
 				cur_bcm->node_vec[ACTIVE_CTX].vec_b, commit);
+
+			if (cur_rsc->rscdev->req_state == RPMH_AWAKE_STATE)
+				commit = false;
+
 			tcs_cmd_gen(cur_bcm, &cmdlist_sleep[k],
 				cur_bcm->node_vec[DUAL_CTX].vec_a,
 				cur_bcm->node_vec[DUAL_CTX].vec_b, commit);
@@ -555,6 +559,8 @@ int msm_bus_commit_data(struct list_head *clist)
 	int cnt_sleep = 0;
 	int i = 0;
 
+	if (!clist)
+		return ret;
 
 	list_for_each_entry_safe(node, node_tmp, clist, link) {
 		if (unlikely(node->node_info->defer_qos))
@@ -1807,9 +1813,10 @@ int __init msm_bus_device_init_driver(void)
 
 int __init msm_bus_device_late_init(void)
 {
+	commit_late_init_data(true);
 	MSM_BUS_ERR("msm_bus_late_init: Remove handoff bw requests\n");
 	init_time = false;
-	return commit_late_init_data();
+	return commit_late_init_data(false);
 }
 subsys_initcall(msm_bus_device_init_driver);
 late_initcall_sync(msm_bus_device_late_init);

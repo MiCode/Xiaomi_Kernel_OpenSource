@@ -979,7 +979,7 @@ static int _sde_crtc_check_rois_centered_and_symmetric(struct drm_crtc *crtc,
 	 * On certain HW, if using 2 LM, ROIs must be split evenly between the
 	 * LMs and be of equal width.
 	 */
-	if (sde_crtc->num_mixers == 1)
+	if (sde_crtc->num_mixers < 2)
 		return 0;
 
 	roi[0] = &crtc_state->lm_roi[0];

@@ -747,11 +747,11 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			msm_bt_sample_rate_put),
 };
 
-static int msm_slim_get_ch_from_beid(int32_t be_id)
+static int msm_slim_get_ch_from_beid(int32_t id)
 {
 	int ch_id = 0;
 
-	switch (be_id) {
+	switch (id) {
 	case MSM_BACKEND_DAI_SLIMBUS_0_RX:
 		ch_id = SLIM_RX_0;
 		break;
@@ -821,14 +821,14 @@ int msm_ext_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	pr_debug("%s: format = %d, rate = %d\n",
 		  __func__, params_format(params), params_rate(params));
 
-	switch (dai_link->be_id) {
+	switch (dai_link->id) {
 	case MSM_BACKEND_DAI_SLIMBUS_0_RX:
 	case MSM_BACKEND_DAI_SLIMBUS_1_RX:
 	case MSM_BACKEND_DAI_SLIMBUS_2_RX:
 	case MSM_BACKEND_DAI_SLIMBUS_3_RX:
 	case MSM_BACKEND_DAI_SLIMBUS_4_RX:
 	case MSM_BACKEND_DAI_SLIMBUS_6_RX:
-		idx = msm_slim_get_ch_from_beid(dai_link->be_id);
+		idx = msm_slim_get_ch_from_beid(dai_link->id);
 		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
 				slim_rx_cfg[idx].bit_format);
 		rate->min = rate->max = slim_rx_cfg[idx].sample_rate;
@@ -837,7 +837,7 @@ int msm_ext_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 
 	case MSM_BACKEND_DAI_SLIMBUS_0_TX:
 	case MSM_BACKEND_DAI_SLIMBUS_3_TX:
-		idx = msm_slim_get_ch_from_beid(dai_link->be_id);
+		idx = msm_slim_get_ch_from_beid(dai_link->id);
 		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
 				slim_tx_cfg[idx].bit_format);
 		rate->min = rate->max = slim_tx_cfg[idx].sample_rate;
@@ -938,15 +938,15 @@ int msm_snd_hw_params(struct snd_pcm_substream *substream,
 				__func__, ret);
 			goto err_ch_map;
 		}
-		if (dai_link->be_id == MSM_BACKEND_DAI_SLIMBUS_5_RX) {
+		if (dai_link->id == MSM_BACKEND_DAI_SLIMBUS_5_RX) {
 			pr_debug("%s: rx_5_ch=%d\n", __func__,
 				  slim_rx_cfg[5].channels);
 			rx_ch_count = slim_rx_cfg[5].channels;
-		} else if (dai_link->be_id == MSM_BACKEND_DAI_SLIMBUS_2_RX) {
+		} else if (dai_link->id == MSM_BACKEND_DAI_SLIMBUS_2_RX) {
 			pr_debug("%s: rx_2_ch=%d\n", __func__,
 				 slim_rx_cfg[2].channels);
 			rx_ch_count = slim_rx_cfg[2].channels;
-		} else if (dai_link->be_id == MSM_BACKEND_DAI_SLIMBUS_6_RX) {
+		} else if (dai_link->id == MSM_BACKEND_DAI_SLIMBUS_6_RX) {
 			pr_debug("%s: rx_6_ch=%d\n", __func__,
 				  slim_rx_cfg[6].channels);
 			rx_ch_count = slim_rx_cfg[6].channels;
@@ -973,19 +973,19 @@ int msm_snd_hw_params(struct snd_pcm_substream *substream,
 			goto err_ch_map;
 		}
 		/* For <codec>_tx1 case */
-		if (dai_link->be_id == MSM_BACKEND_DAI_SLIMBUS_0_TX)
+		if (dai_link->id == MSM_BACKEND_DAI_SLIMBUS_0_TX)
 			user_set_tx_ch = slim_tx_cfg[0].channels;
 		/* For <codec>_tx3 case */
-		else if (dai_link->be_id == MSM_BACKEND_DAI_SLIMBUS_1_TX)
+		else if (dai_link->id == MSM_BACKEND_DAI_SLIMBUS_1_TX)
 			user_set_tx_ch = slim_tx_cfg[1].channels;
-		else if (dai_link->be_id == MSM_BACKEND_DAI_SLIMBUS_4_TX)
+		else if (dai_link->id == MSM_BACKEND_DAI_SLIMBUS_4_TX)
 			user_set_tx_ch = msm_vi_feed_tx_ch;
 		else
 			user_set_tx_ch = tx_ch_cnt;
 
-		pr_debug("%s: msm_slim_0_tx_ch(%d) user_set_tx_ch(%d) tx_ch_cnt(%d), be_id (%d)\n",
+		pr_debug("%s: msm_slim_0_tx_ch(%d) user_set_tx_ch(%d) tx_ch_cnt(%d), id (%d)\n",
 			 __func__,  slim_tx_cfg[0].channels, user_set_tx_ch,
-			 tx_ch_cnt, dai_link->be_id);
+			 tx_ch_cnt, dai_link->id);
 
 		ret = snd_soc_dai_set_channel_map(cpu_dai,
 						  user_set_tx_ch, tx_ch, 0, 0);
@@ -1097,8 +1097,8 @@ int msm_snd_cpe_hw_params(struct snd_pcm_substream *substream,
 		goto end;
 	}
 
-	pr_debug("%s: tx_ch_cnt(%d) be_id %d\n",
-		 __func__, tx_ch_cnt, dai_link->be_id);
+	pr_debug("%s: tx_ch_cnt(%d) id %d\n",
+		 __func__, tx_ch_cnt, dai_link->id);
 
 	ret = snd_soc_dai_set_channel_map(cpu_dai,
 					  tx_ch_cnt, tx_ch, 0, 0);
@@ -1495,7 +1495,7 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 			snd_soc_codec_get_dapm(codec);
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
-	struct snd_soc_pcm_runtime *rtd_aux = rtd->card->rtd_aux;
+	struct snd_soc_component *aux_comp;
 	struct snd_card *card;
 	struct snd_info_entry *entry;
 	struct msm_asoc_mach_data *pdata =
@@ -1678,13 +1678,20 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	 * Send speaker configuration only for WSA8810.
 	 * Defalut configuration is for WSA8815.
 	 */
+	pr_debug("%s: Number of aux devices: %d\n",
+		__func__, rtd->card->num_aux_devs);
+
 	if (!strcmp(dev_name(codec_dai->dev), "tavil_codec")) {
-		if (rtd_aux && rtd_aux->component)
-			if (!strcmp(rtd_aux->component->name, WSA8810_NAME_1) ||
-			    !strcmp(rtd_aux->component->name, WSA8810_NAME_2)) {
+		if (rtd->card->num_aux_devs &&
+		    !list_empty(&rtd->card->aux_comp_list)) {
+			aux_comp = list_first_entry(&rtd->card->aux_comp_list,
+				struct snd_soc_component, list_aux);
+			if (!strcmp(aux_comp->name, WSA8810_NAME_1) ||
+			    !strcmp(aux_comp->name, WSA8810_NAME_2)) {
 				tavil_set_spkr_mode(rtd->codec, SPKR_MODE_1);
 				tavil_set_spkr_gain_offset(rtd->codec,
 							RX_GAIN_OFFSET_M1P5_DB);
+			}
 		}
 		card = rtd->card->snd_card;
 		entry = snd_info_create_subdir(card->module, "codecs",
@@ -1698,12 +1705,16 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		pdata->codec_root = entry;
 		tavil_codec_info_create_codec_entry(pdata->codec_root, codec);
 	} else {
-		if (rtd_aux && rtd_aux->component)
-			if (!strcmp(rtd_aux->component->name, WSA8810_NAME_1) ||
-			    !strcmp(rtd_aux->component->name, WSA8810_NAME_2)) {
+		if (rtd->card->num_aux_devs &&
+		    !list_empty(&rtd->card->aux_comp_list)) {
+			aux_comp = list_first_entry(&rtd->card->aux_comp_list,
+				struct snd_soc_component, list_aux);
+			if (!strcmp(aux_comp->name, WSA8810_NAME_1) ||
+			    !strcmp(aux_comp->name, WSA8810_NAME_2)) {
 				tasha_set_spkr_mode(rtd->codec, SPKR_MODE_1);
 				tasha_set_spkr_gain_offset(rtd->codec,
 							RX_GAIN_OFFSET_M1P5_DB);
+			}
 		}
 		card = rtd->card->snd_card;
 		entry = snd_info_create_subdir(card->module, "codecs",

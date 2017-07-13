@@ -131,8 +131,10 @@ static struct v4l2_ctrl **get_super_cluster(struct msm_vidc_inst *inst,
 	struct v4l2_ctrl **cluster = kmalloc(sizeof(struct v4l2_ctrl *) *
 			num_ctrls, GFP_KERNEL);
 
-	if (!cluster || !inst)
+	if (!cluster || !inst) {
+		kfree(cluster);
 		return NULL;
+	}
 
 	for (c = 0; c < num_ctrls; c++)
 		cluster[c] =  inst->ctrls[c];
@@ -985,16 +987,16 @@ static void handle_sys_init_done(enum hal_command_response cmd, void *data)
 	complete(&(core->completions[index]));
 }
 
+static void put_inst_helper(struct kref *kref)
+{
+	struct msm_vidc_inst *inst = container_of(kref,
+			struct msm_vidc_inst, kref);
+
+	msm_vidc_destroy(inst);
+}
+
 static void put_inst(struct msm_vidc_inst *inst)
 {
-	void put_inst_helper(struct kref *kref)
-	{
-		struct msm_vidc_inst *inst = container_of(kref,
-				struct msm_vidc_inst, kref);
-
-		msm_vidc_destroy(inst);
-	}
-
 	if (!inst)
 		return;
 
@@ -1246,7 +1248,7 @@ static int msm_vidc_comm_update_ctrl(struct msm_vidc_inst *inst,
 	if (ctrl) {
 		v4l2_ctrl_modify_range(ctrl, capability->min,
 				capability->max, ctrl->step,
-				capability->min);
+				ctrl->default_value);
 		dprintk(VIDC_DBG,
 			"%s: Updated Range = %lld --> %lld Def value = %lld\n",
 			ctrl->name, ctrl->minimum, ctrl->maximum,
@@ -1783,6 +1785,12 @@ void msm_comm_validate_output_buffers(struct msm_vidc_inst *inst)
 		return;
 	}
 	mutex_lock(&inst->outputbufs.lock);
+	if (list_empty(&inst->outputbufs.list)) {
+		dprintk(VIDC_DBG, "%s: no OUTPUT buffers allocated\n",
+			__func__);
+		mutex_unlock(&inst->outputbufs.lock);
+		return;
+	}
 	list_for_each_entry(binfo, &inst->outputbufs.list, list) {
 		if (binfo->buffer_ownership != DRIVER) {
 			dprintk(VIDC_DBG,
