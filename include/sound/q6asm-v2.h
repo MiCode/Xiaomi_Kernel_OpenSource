@@ -611,6 +611,14 @@ int q6asm_set_softvolume(struct audio_client *ac,
 int q6asm_set_softvolume_v2(struct audio_client *ac,
 			    struct asm_softvolume_params *param, int instance);
 
+/* Set panning and MFC params */
+int q6asm_set_mfc_panning_params(struct audio_client *ac,
+				 struct asm_stream_pan_ctrl_params *pan_param);
+
+/* Set vol gain pair */
+int q6asm_set_vol_ctrl_gain_pair(struct audio_client *ac,
+				 struct asm_stream_pan_ctrl_params *pan_param);
+
 /* Send left-right channel gain */
 int q6asm_set_lrgain(struct audio_client *ac, int left_gain, int right_gain);
 
