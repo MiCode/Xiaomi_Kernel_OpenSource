@@ -395,6 +395,7 @@ static int dp_aux_rw_cmds_retry(struct mdss_dp_drv_pdata *dp,
 	int i;
 	u32 aux_cfg1_config_count;
 	int ret;
+	bool connected = false;
 
 	aux_cfg1_config_count = mdss_dp_phy_aux_get_config_cnt(dp,
 			PHY_AUX_CFG1);
@@ -403,6 +404,15 @@ retry:
 	ret = 0;
 	do {
 		struct edp_cmd cmd1 = *cmd;
+
+		mutex_lock(&dp->attention_lock);
+		connected = dp->cable_connected;
+		mutex_unlock(&dp->attention_lock);
+
+		if (!connected) {
+			pr_err("dp cable disconnected\n");
+			break;
+		}
 
 		dp->aux_error_num = EDP_AUX_ERR_NONE;
 		pr_debug("Trying %s, iteration count: %d\n",
