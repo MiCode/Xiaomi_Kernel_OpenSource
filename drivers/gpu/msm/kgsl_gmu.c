@@ -505,7 +505,11 @@ static int rpmh_arc_cmds(struct gmu_device *gmu,
 	}
 
 	cmd_db_get_aux_data(res_id, (uint8_t *)arc->val, len);
-	arc->num = len >> 1;
+	for (arc->num = 1; arc->num <= MAX_GX_LEVELS; arc->num++) {
+		if (arc->num == MAX_GX_LEVELS ||
+				arc->val[arc->num - 1] >= arc->val[arc->num])
+			break;
+	}
 
 	return 0;
 }
@@ -528,35 +532,42 @@ static int setup_volt_dependency_tbl(struct arc_vote_desc *votes,
 {
 	int i, j, k;
 	uint16_t cur_vlvl;
+	bool found_match;
 
 	/* i tracks current KGSL GPU frequency table entry
 	 * j tracks second rail voltage table entry
 	 * k tracks primary rail voltage table entry
 	 */
-	for (i = 0, k = 0; i < num_entries; k++) {
-		if (pri_rail->val[k] != vlvl[i]) {
-			if (k >= pri_rail->num)
-				return -EINVAL;
-			continue;
-		}
-		votes[i].pri_idx = k;
-		votes[i].vlvl = vlvl[i];
-		cur_vlvl = vlvl[i];
+	for (i = 0; i < num_entries; i++) {
+		found_match = false;
 
-		/* find index of second rail vlvl array element that
-		 * its vlvl >= current vlvl of primary rail
-		 */
-		for (j = 0; j < sec_rail->num; j++) {
-			if (sec_rail->val[j] >= cur_vlvl) {
-				votes[i].sec_idx = j;
+		/* Look for a primary rail voltage that matches a VLVL level */
+		for (k = 0; k < pri_rail->num; k++) {
+			if (pri_rail->val[k] == vlvl[i]) {
+				votes[i].pri_idx = k;
+				votes[i].vlvl = vlvl[i];
+				cur_vlvl = vlvl[i];
+				found_match = true;
 				break;
 			}
 		}
 
-		if (j == sec_rail->num)
-			votes[i].sec_idx = j;
+		/* If we did not find a matching VLVL level then abort */
+		if (!found_match)
+			return -EINVAL;
 
-		i++;
+		/*
+		 * Look for a secondary rail index whose VLVL value
+		 * is greater than or equal to the VLVL value of the
+		 * corresponding index of the primary rail
+		 */
+		for (j = 0; j < sec_rail->num; j++) {
+			if (sec_rail->val[j] >= cur_vlvl ||
+					j + 1 == sec_rail->num) {
+				votes[i].sec_idx = j;
+				break;
+			}
+		}
 	}
 	return 0;
 }
@@ -575,26 +586,25 @@ static int rpmh_arc_votes_init(struct gmu_device *gmu,
 		struct rpmh_arc_vals *sec_rail,
 		unsigned int type)
 {
+	struct device *dev;
+	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
 	unsigned int num_freqs;
 	struct arc_vote_desc *votes;
 	unsigned int vlvl_tbl[MAX_GX_LEVELS];
 	unsigned int *freq_tbl;
 	int i, ret;
-	/*
-	 * FIXME: remove below two arrays after OPP VLVL query API ready
-	 * struct dev_pm_opp *opp;
-	 */
-	uint16_t gpu_vlvl[] = {0, 128, 256, 384};
-	uint16_t cx_vlvl[] = {0, 48, 256};
+	struct dev_pm_opp *opp;
 
 	if (type == GPU_ARC_VOTE) {
 		num_freqs = gmu->num_gpupwrlevels;
 		votes = gmu->rpmh_votes.gx_votes;
-		freq_tbl = gmu->gmu_freqs;
+		freq_tbl = gmu->gpu_freqs;
+		dev = &device->pdev->dev;
 	} else if (type == GMU_ARC_VOTE) {
 		num_freqs = gmu->num_gmupwrlevels;
 		votes = gmu->rpmh_votes.cx_votes;
-		freq_tbl = gmu->gpu_freqs;
+		freq_tbl = gmu->gmu_freqs;
+		dev = &gmu->pdev->dev;
 	} else {
 		return -EINVAL;
 	}
@@ -606,26 +616,25 @@ static int rpmh_arc_votes_init(struct gmu_device *gmu,
 		return -EINVAL;
 	}
 
-	/*
-	 * FIXME: Find a core's voltage VLVL value based on its frequency
-	 *	using OPP framework, waiting for David Colin, ETA Jan.
-	 */
+	memset(vlvl_tbl, 0, sizeof(vlvl_tbl));
 	for (i = 0; i < num_freqs; i++) {
-		/*
-		 * opp = dev_pm_opp_find_freq_exact(&gmu->pdev->dev,
-		 *		freq_tbl[i], true);
-		 * if (IS_ERR(opp)) {
-		 *	dev_err(&gmu->pdev->dev,
-		 *			"Failed to find opp freq %d of %s\n",
-		 *			freq_tbl[i], debug_strs[type]);
-		 *	return PTR_ERR(opp);
-		 * }
-		 * vlvl_tbl[i] = dev_pm_opp_get_voltage(opp);
-		 */
-		if (type == GPU_ARC_VOTE)
-			vlvl_tbl[i] = gpu_vlvl[i];
-		else
-			vlvl_tbl[i] = cx_vlvl[i];
+		/* Hardcode VLVL for 0 because it is not registered in OPP */
+		if (freq_tbl[i] == 0) {
+			vlvl_tbl[i] = 0;
+			continue;
+		}
+
+		/* Otherwise get the value from the OPP API */
+		opp = dev_pm_opp_find_freq_exact(dev, freq_tbl[i], true);
+		if (IS_ERR(opp)) {
+			dev_err(&gmu->pdev->dev,
+				"Failed to find opp freq %d of %s\n",
+				freq_tbl[i], debug_strs[type]);
+			return PTR_ERR(opp);
+		}
+
+		/* Values from OPP framework are offset by 1 */
+		vlvl_tbl[i] = dev_pm_opp_get_voltage(opp) - 1;
 	}
 
 	ret = setup_volt_dependency_tbl(votes,
