@@ -3574,6 +3574,29 @@ static void sde_plane_atomic_update(struct drm_plane *plane,
 	}
 }
 
+void sde_plane_restore(struct drm_plane *plane)
+{
+	struct sde_plane *psde;
+
+	if (!plane || !plane->state) {
+		SDE_ERROR("invalid plane\n");
+		return;
+	}
+
+	psde = to_sde_plane(plane);
+
+	/*
+	 * Revalidate is only true here if idle PC occurred and
+	 * there is no plane state update in current commit cycle.
+	 */
+	if (!psde->revalidate)
+		return;
+
+	SDE_DEBUG_PLANE(psde, "\n");
+
+	/* last plane state is same as current state */
+	sde_plane_atomic_update(plane, plane->state);
+}
 
 /* helper to install properties which are common to planes and crtcs */
 static void _sde_plane_install_properties(struct drm_plane *plane,

@@ -1376,48 +1376,6 @@ static void sde_kms_preclose(struct msm_kms *kms, struct drm_file *file)
 		sde_crtc_cancel_pending_flip(priv->crtcs[i], file);
 }
 
-static int sde_kms_atomic_check(struct msm_kms *kms,
-		struct drm_atomic_state *state)
-{
-	struct sde_kms *sde_kms = to_sde_kms(kms);
-	struct drm_device *dev = sde_kms->dev;
-	struct drm_crtc *crtc;
-	struct drm_crtc_state *crtc_state;
-	int rc, i;
-
-	if (!kms || !state)
-		return -EINVAL;
-
-	/*
-	 * Add planes (and other affected DRM objects, if any) to new state
-	 * if idle power collapse occurred since previous commit.
-	 * Since atomic state is a delta from the last, if the user-space
-	 * did not request any changes on a plane/connector, that object
-	 * will not be included in the new atomic state. Idle power collapse
-	 * is driver-autonomous, so the driver needs to ensure that all
-	 * hardware is reprogrammed as the power comes back on by forcing
-	 * the drm objects attached to the CRTC into the new atomic state.
-	 */
-	for_each_crtc_in_state(state, crtc, crtc_state, i) {
-		struct sde_crtc_state *cstate = to_sde_crtc_state(crtc_state);
-		struct sde_crtc_state *old_cstate =
-				to_sde_crtc_state(crtc->state);
-
-		if (cstate->idle_pc != old_cstate->idle_pc) {
-			SDE_DEBUG("crtc%d idle_pc:%d/%d\n",
-					crtc->base.id, cstate->idle_pc,
-					old_cstate->idle_pc);
-			SDE_EVT32(DRMID(crtc), cstate->idle_pc,
-					old_cstate->idle_pc);
-			rc = drm_atomic_add_affected_planes(state, crtc);
-			if (rc)
-				return rc;
-		}
-	}
-
-	return drm_atomic_helper_check(dev, state);
-}
-
 static struct msm_gem_address_space*
 _sde_kms_get_address_space(struct msm_kms *kms,
 		unsigned int domain)
@@ -1458,7 +1416,6 @@ static const struct msm_kms_funcs kms_funcs = {
 	.enable_vblank   = sde_kms_enable_vblank,
 	.disable_vblank  = sde_kms_disable_vblank,
 	.check_modified_format = sde_format_check_modified_format,
-	.atomic_check    = sde_kms_atomic_check,
 	.get_format      = sde_get_msm_format,
 	.round_pixclk    = sde_kms_round_pixclk,
 	.destroy         = sde_kms_destroy,
