@@ -329,7 +329,7 @@ Required properties:
  - qcom,gpio-connect                       Gpio that connects to parent
                                            interrupt controller
 
-* audio-ext-clk
+* audio-ext-clk-up
 
 Required properties:
 
