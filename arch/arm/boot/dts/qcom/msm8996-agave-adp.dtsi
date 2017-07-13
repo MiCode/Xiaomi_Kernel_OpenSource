@@ -869,6 +869,9 @@
 
 		qcom,ntn-rst-delay-msec = <100>;
 		qcom,ntn-rc-num = <1>;
+		qcom,ntn-bus-num = <1>;
+		qcom,ntn-mdio-bus-id = <1>;
+		qcom,ntn-phy-addr = <7>;
 
 		qcom,msm-bus,name = "ntn";
 		qcom,msm-bus,num-cases = <2>;
