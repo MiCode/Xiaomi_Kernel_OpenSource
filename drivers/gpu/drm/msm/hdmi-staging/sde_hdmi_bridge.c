@@ -577,6 +577,10 @@ static void _sde_hdmi_bridge_set_avi_infoframe(struct hdmi *hdmi,
 	struct hdmi_avi_infoframe info;
 
 	drm_hdmi_avi_infoframe_from_display_mode(&info, mode);
+
+	if (mode->private_flags & MSM_MODE_FLAG_COLOR_FORMAT_YCBCR420)
+		info.colorspace = HDMI_COLORSPACE_YUV420;
+
 	hdmi_avi_infoframe_pack(&info, avi_iframe, sizeof(avi_iframe));
 	checksum = avi_iframe[HDMI_INFOFRAME_HEADER_SIZE - 1];
 
@@ -711,6 +715,15 @@ static u32 _sde_hdmi_choose_best_format(struct hdmi *hdmi,
 	if (dc_format & MSM_MODE_FLAG_RGB444_DC_ENABLE)
 		return (MSM_MODE_FLAG_COLOR_FORMAT_RGB444
 			| MSM_MODE_FLAG_RGB444_DC_ENABLE);
+	else if (dc_format & MSM_MODE_FLAG_YUV420_DC_ENABLE)
+		return (MSM_MODE_FLAG_COLOR_FORMAT_YCBCR420
+			| MSM_MODE_FLAG_YUV420_DC_ENABLE);
+	else if (mode->flags & DRM_MODE_FLAG_SUPPORTS_RGB)
+		return MSM_MODE_FLAG_COLOR_FORMAT_RGB444;
+	else if (mode->flags & DRM_MODE_FLAG_SUPPORTS_YUV)
+		return MSM_MODE_FLAG_COLOR_FORMAT_YCBCR420;
+
+	SDE_ERROR("Can't get available best display format\n");
 
 	return MSM_MODE_FLAG_COLOR_FORMAT_RGB444;
 }
@@ -726,13 +739,13 @@ static void _sde_hdmi_bridge_mode_set(struct drm_bridge *bridge,
 	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
 	int hstart, hend, vstart, vend;
 	uint32_t frame_ctrl;
+	u32 div = 0;
 
 	mode = adjusted_mode;
 
-	display->dc_enable =  mode->private_flags &
+	display->dc_enable = mode->private_flags &
 				(MSM_MODE_FLAG_RGB444_DC_ENABLE |
 				 MSM_MODE_FLAG_YUV420_DC_ENABLE);
-
 	/* compute pixclock as per color format and bit depth */
 	hdmi->pixclock = sde_hdmi_calc_pixclk(
 				mode->clock * HDMI_KHZ_TO_HZ,
@@ -741,18 +754,21 @@ static void _sde_hdmi_bridge_mode_set(struct drm_bridge *bridge,
 	SDE_DEBUG("Actual PCLK: %lu, Mode PCLK: %d\n",
 		hdmi->pixclock, mode->clock);
 
-	hstart = mode->htotal - mode->hsync_start;
-	hend   = mode->htotal - mode->hsync_start + mode->hdisplay;
+	if (mode->private_flags & MSM_MODE_FLAG_COLOR_FORMAT_YCBCR420)
+		div = 1;
+
+	hstart = (mode->htotal - mode->hsync_start) >> div;
+	hend   = (mode->htotal - mode->hsync_start + mode->hdisplay) >> div;
 
 	vstart = mode->vtotal - mode->vsync_start - 1;
 	vend   = mode->vtotal - mode->vsync_start + mode->vdisplay - 1;
 
-	DRM_DEBUG(
+	SDE_DEBUG(
 		"htotal=%d, vtotal=%d, hstart=%d, hend=%d, vstart=%d, vend=%d",
 		mode->htotal, mode->vtotal, hstart, hend, vstart, vend);
 
 	hdmi_write(hdmi, REG_HDMI_TOTAL,
-			SDE_HDMI_TOTAL_H_TOTAL(mode->htotal - 1) |
+			SDE_HDMI_TOTAL_H_TOTAL((mode->htotal >> div) - 1) |
 			SDE_HDMI_TOTAL_V_TOTAL(mode->vtotal - 1));
 
 	hdmi_write(hdmi, REG_HDMI_ACTIVE_HSYNC,
@@ -814,6 +830,8 @@ static bool _sde_hdmi_bridge_mode_fixup(struct drm_bridge *bridge,
 
 	adjusted_mode->private_flags |=
 		_sde_hdmi_choose_best_format(hdmi, adjusted_mode);
+	SDE_DEBUG("Adjusted mode private flags: 0x%x\n",
+		  adjusted_mode->private_flags);
 
 	return true;
 }
