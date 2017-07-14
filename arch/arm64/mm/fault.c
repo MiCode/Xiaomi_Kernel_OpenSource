@@ -40,7 +40,6 @@
 #include <asm/system_misc.h>
 #include <asm/pgtable.h>
 #include <asm/tlbflush.h>
-#include <asm/kryo3xx-arm64-edac.h>
 #include <soc/qcom/scm.h>
 
 struct fault_info {
@@ -521,7 +520,6 @@ static int do_alignment_fault(unsigned long addr, unsigned int esr,
  */
 static int do_bad(unsigned long addr, unsigned int esr, struct pt_regs *regs)
 {
-	kryo3xx_poll_cache_errors(NULL);
 	return 1;
 }
 
