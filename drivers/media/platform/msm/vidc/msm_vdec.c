@@ -804,6 +804,10 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		}
 		bufreq->buffer_count_min =
 			MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
+		bufreq->buffer_count_min_host =
+			MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
+		bufreq->buffer_count_actual =
+			MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
 
 		if (msm_comm_get_stream_output_mode(inst) ==
 				HAL_VIDEO_DECODER_SECONDARY) {
@@ -819,6 +823,10 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 
 			bufreq->buffer_count_min =
 				MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS;
+			bufreq->buffer_count_min_host =
+				MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
+			bufreq->buffer_count_actual =
+				MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
 
 			bufreq = get_buff_req_buffer(inst,
 					HAL_BUFFER_OUTPUT2);
@@ -831,6 +839,11 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 
 			bufreq->buffer_count_min =
 				MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS;
+			bufreq->buffer_count_min_host =
+				MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
+			bufreq->buffer_count_actual =
+				MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
+
 		} else {
 
 			bufreq = get_buff_req_buffer(inst,
@@ -843,6 +856,10 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			}
 			bufreq->buffer_count_min =
 				MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS;
+			bufreq->buffer_count_min_host =
+				MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
+			bufreq->buffer_count_actual =
+				MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
 
 		}
 
