@@ -625,10 +625,29 @@ struct audproc_softvolume_params {
  */
 #define AUDPROC_PARAM_ID_MFC_OUTPUT_MEDIA_FORMAT            0x00010913
 
+/* ID of the Channel Mixer module, which is used to configure
+ * channel-mixer related parameters.
+ * This module supports the AUDPROC_CHMIXER_PARAM_ID_COEFF parameter ID.
+ */
+#define AUDPROC_MODULE_ID_CHMIXER                           0x00010341
+
 /* ID of the Coefficient parameter used by AUDPROC_MODULE_ID_CHMIXER to
  *configure the channel mixer weighting coefficients.
  */
 #define AUDPROC_CHMIXER_PARAM_ID_COEFF                      0x00010342
+
+/* Payload of the per-session, per-device parameter data of the
+ *   #ADM_CMD_SET_PSPD_MTMX_STRTR_PARAMS_V5 command or
+ *   #ADM_CMD_SET_PSPD_MTMX_STRTR_PARAMS_V6 command.
+ * Immediately following this structure are param_size bytes of parameter
+ *   data. The structure and size depend on the module_id/param_id pair.
+ */
+struct adm_pspd_param_data_t {
+	uint32_t module_id;
+	uint32_t param_id;
+	uint16_t param_size;
+	uint16_t reserved;
+} __packed;
 
 struct audproc_mfc_output_media_fmt {
 	struct adm_cmd_set_pp_params_v5 params;
