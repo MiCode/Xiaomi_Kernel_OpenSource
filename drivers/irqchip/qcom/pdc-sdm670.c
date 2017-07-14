@@ -126,7 +126,7 @@ static struct pdc_pin sdm670_data[] = {
 	{122, 669}, /* core_bi_px_gpio_41 */
 	{123, 670}, /* core_bi_px_gpio_89 */
 	{124, 671}, /* core_bi_px_gpio_31 */
-	{125, 672}, /* core_bi_px_gpio_49 */
+	{125, 95}, /* core_bi_px_gpio_49 */
 	{-1}
 };
 
