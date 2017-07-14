@@ -436,6 +436,7 @@ int gmu_dcvs_set(struct gmu_device *gmu,
 	struct kgsl_device *device = container_of(gmu, struct kgsl_device, gmu);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int perf_idx = INVALID_DCVS_IDX, bw_idx = INVALID_DCVS_IDX;
 
 	if (gpu_pwrlevel < gmu->num_gpupwrlevels)
@@ -447,6 +448,10 @@ int gmu_dcvs_set(struct gmu_device *gmu,
 	if ((perf_idx == INVALID_DCVS_IDX) &&
 		(bw_idx == INVALID_DCVS_IDX))
 		return -EINVAL;
+
+	if (bw_idx == INVALID_DCVS_IDX)
+		/* Use default BW, algorithm changes on V2 */
+		bw_idx = pwr->pwrlevels[gpu_pwrlevel].bus_freq;
 
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
 		return gpudev->rpmh_gpu_pwrctrl(adreno_dev,
