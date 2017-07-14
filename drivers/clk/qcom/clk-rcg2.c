@@ -1085,6 +1085,7 @@ static int clk_dp_set_rate(struct clk_hw *hw, unsigned long rate,
 			unsigned long parent_rate)
 {
 	struct clk_rcg2 *rcg = to_clk_rcg2(hw);
+	struct clk_hw *parent = clk_hw_get_parent(hw);
 	struct freq_tbl f = { 0 };
 	unsigned long src_rate;
 	unsigned long num, den;
@@ -1092,7 +1093,12 @@ static int clk_dp_set_rate(struct clk_hw *hw, unsigned long rate,
 	u32 hid_div, cfg;
 	int i, num_parents = clk_hw_get_num_parents(hw);
 
-	src_rate = clk_get_rate(clk_hw_get_parent(hw)->clk);
+	if (!parent) {
+		pr_err("RCG parent isn't initialized\n");
+		return -EINVAL;
+	}
+
+	src_rate = clk_get_rate(parent->clk);
 	if (src_rate <= 0) {
 		pr_err("Invalid RCG parent rate\n");
 		return -EINVAL;
@@ -1253,12 +1259,14 @@ static u8 clk_parent_index_pre_div_and_mode(struct clk_hw *hw, u32 offset,
 		u32 *mode, u32 *pre_div)
 {
 	struct clk_rcg2 *rcg;
-	int num_parents = clk_hw_get_num_parents(hw);
+	int num_parents;
 	u32 cfg, mask;
 	int i, ret;
 
 	if (!hw)
 		return -EINVAL;
+
+	num_parents = clk_hw_get_num_parents(hw);
 
 	rcg = to_clk_rcg2(hw);
 
