@@ -5484,17 +5484,18 @@ static irqreturn_t fg_first_soc_irq_handler(int irq, void *_chip)
 static void fg_external_power_changed(struct power_supply *psy)
 {
 	struct fg_chip *chip = container_of(psy, struct fg_chip, bms_psy);
+	bool input_present = is_input_present(chip);
 
-	if (is_input_present(chip) && chip->rslow_comp.active &&
+	if (input_present ^ chip->rslow_comp.active &&
 			chip->rslow_comp.chg_rs_to_rslow > 0 &&
 			chip->rslow_comp.chg_rslow_comp_c1 > 0 &&
 			chip->rslow_comp.chg_rslow_comp_c2 > 0)
 		schedule_work(&chip->rslow_comp_work);
-	if (!is_input_present(chip) && chip->resume_soc_lowered) {
+	if (!input_present && chip->resume_soc_lowered) {
 		fg_stay_awake(&chip->resume_soc_wakeup_source);
 		schedule_work(&chip->set_resume_soc_work);
 	}
-	if (!is_input_present(chip) && chip->charge_full)
+	if (!input_present && chip->charge_full)
 		schedule_work(&chip->charge_full_work);
 }
 
@@ -5559,6 +5560,25 @@ done:
 #define RSLOW_COMP_REG			0x528
 #define RSLOW_COMP_C1_OFFSET		0
 #define RSLOW_COMP_C2_OFFSET		2
+#define BATT_PROFILE_OFFSET		0x4C0
+static void get_default_rslow_comp_settings(struct fg_chip *chip)
+{
+	int offset;
+
+	offset = RSLOW_CFG_REG + RSLOW_CFG_OFFSET - BATT_PROFILE_OFFSET;
+	memcpy(&chip->rslow_comp.rslow_cfg, chip->batt_profile + offset, 1);
+
+	offset = RSLOW_THRESH_REG + RSLOW_THRESH_OFFSET - BATT_PROFILE_OFFSET;
+	memcpy(&chip->rslow_comp.rslow_thr, chip->batt_profile + offset, 1);
+
+	offset = TEMP_RS_TO_RSLOW_REG + RS_TO_RSLOW_CHG_OFFSET -
+		BATT_PROFILE_OFFSET;
+	memcpy(&chip->rslow_comp.rs_to_rslow, chip->batt_profile + offset, 2);
+
+	offset = RSLOW_COMP_REG + RSLOW_COMP_C1_OFFSET - BATT_PROFILE_OFFSET;
+	memcpy(&chip->rslow_comp.rslow_comp, chip->batt_profile + offset, 4);
+}
+
 static int populate_system_data(struct fg_chip *chip)
 {
 	u8 buffer[24];
@@ -5611,37 +5631,7 @@ static int populate_system_data(struct fg_chip *chip)
 				chip->ocv_junction_p1p2,
 				chip->ocv_junction_p2p3);
 
-	rc = fg_mem_read(chip, buffer, RSLOW_CFG_REG, 1, RSLOW_CFG_OFFSET, 0);
-	if (rc) {
-		pr_err("unable to read rslow cfg: %d\n", rc);
-		goto done;
-	}
-
-	chip->rslow_comp.rslow_cfg = buffer[0];
-	rc = fg_mem_read(chip, buffer, RSLOW_THRESH_REG, 1,
-			RSLOW_THRESH_OFFSET, 0);
-	if (rc) {
-		pr_err("unable to read rslow thresh: %d\n", rc);
-		goto done;
-	}
-
-	chip->rslow_comp.rslow_thr = buffer[0];
-	rc = fg_mem_read(chip, buffer, TEMP_RS_TO_RSLOW_REG, 2,
-			RS_TO_RSLOW_CHG_OFFSET, 0);
-	if (rc) {
-		pr_err("unable to read rs to rslow_chg: %d\n", rc);
-		goto done;
-	}
-
-	memcpy(chip->rslow_comp.rs_to_rslow, buffer, 2);
-	rc = fg_mem_read(chip, buffer, RSLOW_COMP_REG, 4,
-			RSLOW_COMP_C1_OFFSET, 0);
-	if (rc) {
-		pr_err("unable to read rslow comp: %d\n", rc);
-		goto done;
-	}
-
-	memcpy(chip->rslow_comp.rslow_comp, buffer, 4);
+	get_default_rslow_comp_settings(chip);
 done:
 	fg_mem_release(chip);
 	return rc;
@@ -6065,7 +6055,6 @@ static void discharge_gain_work(struct work_struct *work)
 }
 
 #define LOW_LATENCY			BIT(6)
-#define BATT_PROFILE_OFFSET		0x4C0
 #define PROFILE_INTEGRITY_REG		0x53C
 #define PROFILE_INTEGRITY_BIT		BIT(0)
 #define FIRST_EST_DONE_BIT		BIT(5)
@@ -6485,6 +6474,12 @@ wait:
 				pr_info("Battery profiles same, using default\n");
 			if (fg_est_dump)
 				schedule_work(&chip->dump_sram);
+			/*
+			 * Copy the profile read from device tree for
+			 * getting profile parameters later.
+			 */
+			memcpy(chip->batt_profile, data, len);
+			chip->batt_profile_len = len;
 			goto done;
 		}
 	} else {
@@ -9046,6 +9041,8 @@ static void fg_shutdown(struct spmi_device *spmi)
 
 	if (fg_debug_mask & FG_STATUS)
 		pr_emerg("FG shutdown started\n");
+	if (chip->rslow_comp.active)
+		fg_rslow_charge_comp_clear(chip);
 	fg_cancel_all_works(chip);
 	fg_check_ima_idle(chip);
 	chip->fg_shutdown = true;
