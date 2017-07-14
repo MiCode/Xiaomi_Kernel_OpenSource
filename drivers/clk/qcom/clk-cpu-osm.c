@@ -518,6 +518,9 @@ static long clk_osm_round_rate(struct clk_hw *hw, unsigned long rate,
 	int i;
 	unsigned long rrate = 0;
 
+	if (!hw)
+		return -EINVAL;
+
 	/*
 	 * If the rate passed in is 0, return the first frequency in the
 	 * FMAX table.
