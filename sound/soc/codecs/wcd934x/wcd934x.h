@@ -137,6 +137,7 @@ struct tavil_reg_mask_val {
 extern void *tavil_get_afe_config(struct snd_soc_codec *codec,
 				  enum afe_config_type config_type);
 extern int tavil_cdc_mclk_enable(struct snd_soc_codec *codec, bool enable);
+extern int tavil_cdc_mclk_tx_enable(struct snd_soc_codec *codec, bool enable);
 extern int tavil_set_spkr_mode(struct snd_soc_codec *codec, int mode);
 extern int tavil_set_spkr_gain_offset(struct snd_soc_codec *codec, int offset);
 extern struct wcd_dsp_cntl *tavil_get_wcd_dsp_cntl(struct device *dev);

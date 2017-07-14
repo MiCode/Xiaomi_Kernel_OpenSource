@@ -180,6 +180,8 @@ enum {
 	ANC_MIC_AMIC2,
 	ANC_MIC_AMIC3,
 	ANC_MIC_AMIC4,
+	CLK_INTERNAL,
+	CLK_MODE,
 };
 
 enum {
@@ -1069,6 +1071,40 @@ err:
 	if (!hwdep_cal)
 		release_firmware(fw);
 	return ret;
+}
+
+static int tavil_get_clkmode(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tavil_priv *tavil_p = snd_soc_codec_get_drvdata(codec);
+
+	if (test_bit(CLK_MODE, &tavil_p->status_mask))
+		ucontrol->value.enumerated.item[0] = 1;
+	else
+		ucontrol->value.enumerated.item[0] = 0;
+
+	dev_dbg(codec->dev, "%s: is_low_power_clock: %s\n", __func__,
+		test_bit(CLK_MODE, &tavil_p->status_mask) ? "true" : "false");
+
+	return 0;
+}
+
+static int tavil_put_clkmode(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tavil_priv *tavil_p = snd_soc_codec_get_drvdata(codec);
+
+	if (ucontrol->value.enumerated.item[0])
+		set_bit(CLK_MODE, &tavil_p->status_mask);
+	else
+		clear_bit(CLK_MODE, &tavil_p->status_mask);
+
+	dev_dbg(codec->dev, "%s: is_low_power_clock: %s\n", __func__,
+		test_bit(CLK_MODE, &tavil_p->status_mask) ? "true" : "false");
+
+	return 0;
 }
 
 static int tavil_vi_feed_mixer_get(struct snd_kcontrol *kcontrol,
@@ -5576,6 +5612,9 @@ static const char *const tavil_anc_func_text[] = {"OFF", "ON"};
 static const struct soc_enum tavil_anc_func_enum =
 	SOC_ENUM_SINGLE_EXT(2, tavil_anc_func_text);
 
+static const char *const tavil_clkmode_text[] = {"EXTERNAL", "INTERNAL"};
+static SOC_ENUM_SINGLE_EXT_DECL(tavil_clkmode_enum, tavil_clkmode_text);
+
 /* Cutoff frequency for high pass filter */
 static const char * const cf_text[] = {
 	"CF_NEG_3DB_4HZ", "CF_NEG_3DB_75HZ", "CF_NEG_3DB_150HZ"
@@ -5754,6 +5793,9 @@ static const struct snd_kcontrol_new tavil_snd_controls[] = {
 		tavil_put_anc_slot),
 	SOC_ENUM_EXT("ANC Function", tavil_anc_func_enum, tavil_get_anc_func,
 		tavil_put_anc_func),
+
+	SOC_ENUM_EXT("CLK MODE", tavil_clkmode_enum, tavil_get_clkmode,
+		     tavil_put_clkmode),
 
 	SOC_ENUM("TX0 HPF cut off", cf_dec0_enum),
 	SOC_ENUM("TX1 HPF cut off", cf_dec1_enum),
@@ -8416,6 +8458,50 @@ static int tavil_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
 	WCD9XXX_V2_BG_CLK_UNLOCK(tavil->resmgr);
 	return ret;
 }
+
+/*
+ * tavil_cdc_mclk_tx_enable: Enable/Disable codec's clock for TX path
+ * @codec: Handle to codec
+ * @enable: Indicates whether clock should be enabled or disabled
+ */
+int tavil_cdc_mclk_tx_enable(struct snd_soc_codec *codec, bool enable)
+{
+	struct tavil_priv *tavil_p;
+	int ret = 0;
+	bool clk_mode;
+	bool clk_internal;
+
+	if (!codec)
+		return -EINVAL;
+
+	tavil_p = snd_soc_codec_get_drvdata(codec);
+	clk_mode = test_bit(CLK_MODE, &tavil_p->status_mask);
+	clk_internal = test_bit(CLK_INTERNAL, &tavil_p->status_mask);
+
+	dev_dbg(codec->dev, "%s: clkmode: %d, enable: %d, clk_internal: %d\n",
+		__func__, clk_mode, enable, clk_internal);
+
+	if (clk_mode || clk_internal) {
+		if (enable) {
+			wcd_resmgr_enable_master_bias(tavil_p->resmgr);
+			tavil_dig_core_power_collapse(tavil_p, POWER_RESUME);
+			tavil_vote_svs(tavil_p, true);
+			ret = tavil_codec_internal_rco_ctrl(codec, enable);
+			set_bit(CLK_INTERNAL, &tavil_p->status_mask);
+		} else {
+			clear_bit(CLK_INTERNAL, &tavil_p->status_mask);
+			tavil_codec_internal_rco_ctrl(codec, enable);
+			tavil_vote_svs(tavil_p, false);
+			tavil_dig_core_power_collapse(tavil_p, POWER_COLLAPSE);
+			wcd_resmgr_disable_master_bias(tavil_p->resmgr);
+		}
+	} else {
+		ret = __tavil_cdc_mclk_enable(tavil_p, enable);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(tavil_cdc_mclk_tx_enable);
 
 static const struct wcd_resmgr_cb tavil_resmgr_cb = {
 	.cdc_rco_ctrl = __tavil_codec_internal_rco_ctrl,
