@@ -236,6 +236,7 @@ TRACE_EVENT(sched_update_history,
 		__field(	 int,	samples			)
 		__field(enum task_event,	evt		)
 		__field(unsigned int,	demand			)
+		__field(unsigned int,	coloc_demand		)
 		__field(unsigned int,	pred_demand		)
 		__array(	 u32,	hist, RAVG_HIST_SIZE_MAX)
 		__field(unsigned int,	nr_big_tasks		)
@@ -249,6 +250,7 @@ TRACE_EVENT(sched_update_history,
 		__entry->samples        = samples;
 		__entry->evt            = evt;
 		__entry->demand         = p->ravg.demand;
+		__entry->coloc_demand   = p->ravg.coloc_demand;
 		__entry->pred_demand     = p->ravg.pred_demand;
 		memcpy(__entry->hist, p->ravg.sum_history,
 					RAVG_HIST_SIZE_MAX * sizeof(u32));
@@ -256,12 +258,12 @@ TRACE_EVENT(sched_update_history,
 		__entry->cpu            = rq->cpu;
 	),
 
-	TP_printk("%d (%s): runtime %u samples %d event %s demand %u pred_demand %u"
+	TP_printk("%d (%s): runtime %u samples %d event %s demand %u coloc_demand %u pred_demand %u"
 		" (hist: %u %u %u %u %u) cpu %d nr_big %u",
 		__entry->pid, __entry->comm,
 		__entry->runtime, __entry->samples,
 		task_event_names[__entry->evt],
-		__entry->demand, __entry->pred_demand,
+		__entry->demand, __entry->coloc_demand, __entry->pred_demand,
 		__entry->hist[0], __entry->hist[1],
 		__entry->hist[2], __entry->hist[3],
 		__entry->hist[4], __entry->cpu, __entry->nr_big_tasks)
@@ -317,6 +319,7 @@ TRACE_EVENT(sched_update_task_ravg,
 		__field(	u64,	irqtime			)
 		__field(enum task_event,	evt		)
 		__field(unsigned int,	demand			)
+		__field(unsigned int,	coloc_demand		)
 		__field(unsigned int,	sum			)
 		__field(	 int,	cpu			)
 		__field(unsigned int,	pred_demand		)
@@ -350,6 +353,7 @@ TRACE_EVENT(sched_update_task_ravg,
 		__entry->mark_start     = p->ravg.mark_start;
 		__entry->delta_m        = (wallclock - p->ravg.mark_start);
 		__entry->demand         = p->ravg.demand;
+		__entry->coloc_demand	= p->ravg.coloc_demand;
 		__entry->sum            = p->ravg.sum;
 		__entry->irqtime        = irqtime;
 		__entry->pred_demand     = p->ravg.pred_demand;
@@ -370,12 +374,12 @@ TRACE_EVENT(sched_update_task_ravg,
 		__entry->prev_top	= rq->prev_top;
 	),
 
-	TP_printk("wc %llu ws %llu delta %llu event %s cpu %d cur_freq %u cur_pid %d task %d (%s) ms %llu delta %llu demand %u sum %u irqtime %llu pred_demand %u rq_cs %llu rq_ps %llu cur_window %u (%s) prev_window %u (%s) nt_cs %llu nt_ps %llu active_wins %u grp_cs %lld grp_ps %lld, grp_nt_cs %llu, grp_nt_ps: %llu curr_top %u prev_top %u",
+	TP_printk("wc %llu ws %llu delta %llu event %s cpu %d cur_freq %u cur_pid %d task %d (%s) ms %llu delta %llu demand %u coloc_demand: %u sum %u irqtime %llu pred_demand %u rq_cs %llu rq_ps %llu cur_window %u (%s) prev_window %u (%s) nt_cs %llu nt_ps %llu active_wins %u grp_cs %lld grp_ps %lld, grp_nt_cs %llu, grp_nt_ps: %llu curr_top %u prev_top %u",
 		__entry->wallclock, __entry->win_start, __entry->delta,
 		task_event_names[__entry->evt], __entry->cpu,
 		__entry->cur_freq, __entry->cur_pid,
 		__entry->pid, __entry->comm, __entry->mark_start,
-		__entry->delta_m, __entry->demand,
+		__entry->delta_m, __entry->demand, __entry->coloc_demand,
 		__entry->sum, __entry->irqtime, __entry->pred_demand,
 		__entry->rq_cs, __entry->rq_ps, __entry->curr_window,
 		__window_print(p, __get_dynamic_array(curr_sum), nr_cpu_ids),
