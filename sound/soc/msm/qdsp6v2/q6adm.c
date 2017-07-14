@@ -781,9 +781,9 @@ fail_cmd:
 	return ret;
 }
 
-int adm_set_stereo_to_custom_stereo(int port_id, int copp_idx,
-				    unsigned int session_id, char *params,
-				    uint32_t params_length)
+int adm_set_pspd_matrix_params(int port_id, int copp_idx,
+				unsigned int session_id, char *params,
+				uint32_t params_length)
 {
 	struct adm_cmd_set_pspd_mtmx_strtr_params_v5 *adm_params = NULL;
 	int sz, rc = 0, port_idx;
