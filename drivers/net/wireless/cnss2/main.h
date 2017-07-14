@@ -220,5 +220,6 @@ void cnss_unregister_subsys(struct cnss_plat_data *plat_priv);
 int cnss_register_ramdump(struct cnss_plat_data *plat_priv);
 void cnss_unregister_ramdump(struct cnss_plat_data *plat_priv);
 void cnss_set_pin_connect_status(struct cnss_plat_data *plat_priv);
+u32 cnss_get_wake_msi(struct cnss_plat_data *plat_priv);
 
 #endif /* _CNSS_MAIN_H */

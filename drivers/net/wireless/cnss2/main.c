@@ -37,6 +37,7 @@
 #define FW_READY_TIMEOUT		20000
 #define FW_ASSERT_TIMEOUT		5000
 #define CNSS_EVENT_PENDING		2989
+#define WAKE_MSI_NAME			"WAKE"
 
 static struct cnss_plat_data *plat_env;
 
@@ -536,6 +537,24 @@ int cnss_set_fw_log_mode(struct device *dev, u8 fw_log_mode)
 	return cnss_wlfw_ini_send_sync(plat_priv, fw_log_mode);
 }
 EXPORT_SYMBOL(cnss_set_fw_log_mode);
+
+u32 cnss_get_wake_msi(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
+	int ret, num_vectors;
+	u32 user_base_data, base_vector;
+
+	ret = cnss_get_user_msi_assignment(&pci_priv->pci_dev->dev,
+					   WAKE_MSI_NAME, &num_vectors,
+					   &user_base_data, &base_vector);
+
+	if (ret) {
+		cnss_pr_err("WAKE MSI is not valid\n");
+		return 0;
+	}
+
+	return user_base_data;
+}
 
 static int cnss_fw_mem_ready_hdlr(struct cnss_plat_data *plat_priv)
 {
