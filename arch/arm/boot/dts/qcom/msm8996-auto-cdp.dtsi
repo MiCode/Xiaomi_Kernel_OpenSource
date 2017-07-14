@@ -333,7 +333,7 @@
 	};
 };
 
-&mdss_mdp {
+&sde_kms {
 	qcom,mdss-pref-prim-intf = "dsi";
 	qcom,sde-plane-id-map {
 		qcom,sde-plane-id@0 {
