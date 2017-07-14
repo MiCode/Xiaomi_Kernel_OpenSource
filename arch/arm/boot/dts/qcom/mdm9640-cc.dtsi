@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1052,6 +1052,7 @@
 		compatible = "qcom,cbc";
 		qcom,base-offset = <GCC_PCIE_PIPE_CBCR>;
 		qcom,parent = <&pcie_pipe_clk_src>;
+		qcom,halt-check = <5>;
 		qcom,bcr-offset = <GCC_PCIEPHY_PHY_BCR>;
 	};
 
