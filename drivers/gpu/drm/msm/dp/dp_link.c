@@ -47,13 +47,6 @@ enum test_video_pattern {
 	DP_TEST_VIDEO_PATTERN_COLOR_SQUARE = 0x03,
 };
 
-enum test_bit_depth {
-	DP_TEST_BIT_DEPTH_6 = 0x00,
-	DP_TEST_BIT_DEPTH_8 = 0x01,
-	DP_TEST_BIT_DEPTH_10 = 0x02,
-	DP_TEST_BIT_DEPTH_UNKNOWN = 0xFFFFFFFF,
-};
-
 enum dp_link_response {
 	TEST_ACK			= 0x1,
 	TEST_NACK			= 0x2,
@@ -765,12 +758,12 @@ exit:
  *
  * Returns true if the requested link rate is supported.
  */
-static bool dp_link_is_link_rate_valid(u32 link_rate)
+static bool dp_link_is_link_rate_valid(u32 bw_code)
 {
-	return ((link_rate == DP_LINK_BW_1_62) ||
-		(link_rate == DP_LINK_BW_2_7) ||
-		(link_rate == DP_LINK_BW_5_4) ||
-		(link_rate == DP_LINK_RATE_810));
+	return ((bw_code == DP_LINK_BW_1_62) ||
+		(bw_code == DP_LINK_BW_2_7) ||
+		(bw_code == DP_LINK_BW_5_4) ||
+		(bw_code == DP_LINK_RATE_810));
 }
 
 /**
@@ -1101,7 +1094,7 @@ static int dp_link_process_link_training_request(struct dp_link_private *link)
 			link->request.test_lane_count);
 
 	link->dp_link.lane_count = link->request.test_lane_count;
-	link->dp_link.link_rate = link->request.test_link_rate;
+	link->dp_link.bw_code = link->request.test_link_rate;
 
 	return 0;
 }
@@ -1216,7 +1209,7 @@ static int dp_link_process_phy_test_pattern_request(
 	pr_debug("start\n");
 
 	link->dp_link.lane_count = link->request.test_lane_count;
-	link->dp_link.link_rate = link->request.test_link_rate;
+	link->dp_link.bw_code = link->request.test_link_rate;
 
 	dp_link_parse_vx_px(link);
 
@@ -1517,7 +1510,7 @@ static int dp_link_adjust_levels(struct dp_link *dp_link, u8 *link_status)
 		dp_link->p_level = DP_LINK_PRE_EMPHASIS_LEVEL_1;
 	}
 
-	pr_debug("v_level=%d, p_level=%d\n",
+	pr_debug("adjusted: v_level=%d, p_level=%d\n",
 		dp_link->v_level, dp_link->p_level);
 
 	return 0;

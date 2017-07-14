@@ -58,13 +58,14 @@
 #define MSM_VERSION_PATCHLEVEL	0
 
 #define TEARDOWN_DEADLOCK_RETRY_MAX 5
+#define HPD_STRING_SIZE 30
 
 static void msm_drm_helper_hotplug_event(struct drm_device *dev)
 {
 	struct drm_connector *connector;
-	char *event_string;
+	char name[HPD_STRING_SIZE], status[HPD_STRING_SIZE];
 	char const *connector_name;
-	char *envp[2];
+	char *envp[3];
 
 	if (!dev) {
 		DRM_ERROR("hotplug_event failed, invalid input\n");
@@ -73,12 +74,6 @@ static void msm_drm_helper_hotplug_event(struct drm_device *dev)
 
 	if (!dev->mode_config.poll_enabled)
 		return;
-
-	event_string = kzalloc(SZ_4K, GFP_KERNEL);
-	if (!event_string) {
-		DRM_ERROR("failed to allocate event string\n");
-		return;
-	}
 
 	mutex_lock(&dev->mode_config.mutex);
 	drm_for_each_connector(connector, dev) {
@@ -93,17 +88,20 @@ static void msm_drm_helper_hotplug_event(struct drm_device *dev)
 		else
 			connector_name = "unknown";
 
-		snprintf(event_string, SZ_4K, "name=%s status=%s\n",
-			connector_name,
+		snprintf(name, HPD_STRING_SIZE, "name=%s", connector_name);
+
+		snprintf(status, HPD_STRING_SIZE, "status=%s",
 			drm_get_connector_status_name(connector->status));
-		DRM_DEBUG("generating hotplug event [%s]\n", event_string);
-		envp[0] = event_string;
-		envp[1] = NULL;
+
+		DRM_DEBUG("generating hotplug event [%s]: [%s]\n",
+			name, status);
+		envp[0] = name;
+		envp[1] = status;
+		envp[2] = NULL;
 		kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE,
 				envp);
 	}
 	mutex_unlock(&dev->mode_config.mutex);
-	kfree(event_string);
 }
 
 static void msm_fb_output_poll_changed(struct drm_device *dev)

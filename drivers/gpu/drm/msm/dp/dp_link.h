@@ -46,11 +46,18 @@ enum status_update {
 	DS_PORT_STATUS_CHANGED = 0x200,
 };
 
+enum test_bit_depth {
+	DP_TEST_BIT_DEPTH_6 = 0x00,
+	DP_TEST_BIT_DEPTH_8 = 0x01,
+	DP_TEST_BIT_DEPTH_10 = 0x02,
+	DP_TEST_BIT_DEPTH_UNKNOWN = 0xFFFFFFFF,
+};
+
 struct dp_link {
 	u32 test_requested;
 
 	u32 lane_count;
-	u32 link_rate;
+	u32 bw_code;
 	u32 v_level;
 	u32 p_level;
 

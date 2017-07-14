@@ -16,6 +16,8 @@
 
 #include "dp_panel.h"
 
+#define DP_PANEL_DEFAULT_BPP 24
+
 enum {
 	DP_LINK_RATE_MULTIPLIER = 27000000,
 };
@@ -25,14 +27,16 @@ struct dp_panel_private {
 	struct dp_panel dp_panel;
 	struct dp_aux *aux;
 	struct dp_catalog_panel *catalog;
+	bool lane_switch_supported;
 };
 
 static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 {
 	int rlen, rc = 0;
 	struct dp_panel_private *panel;
-	struct drm_dp_link *dp_link;
+	struct drm_dp_link *link_info;
 	u8 major = 0, minor = 0;
+	unsigned long caps = DP_LINK_CAP_ENHANCED_FRAMING;
 
 	if (!dp_panel) {
 		pr_err("invalid input\n");
@@ -41,7 +45,7 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 	}
 
 	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
-	dp_link = &dp_panel->dp_link;
+	link_info = &dp_panel->link_info;
 
 	rlen = drm_dp_dpcd_read(panel->aux->drm_aux, DP_DPCD_REV,
 		dp_panel->dpcd, (DP_RECEIVER_CAP_SIZE + 1));
@@ -51,22 +55,26 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 		goto end;
 	}
 
-	dp_link->revision = dp_panel->dpcd[DP_DPCD_REV];
+	link_info->revision = dp_panel->dpcd[DP_DPCD_REV];
 
-	major = (dp_link->revision >> 4) & 0x0f;
-	minor = dp_link->revision & 0x0f;
+	major = (link_info->revision >> 4) & 0x0f;
+	minor = link_info->revision & 0x0f;
 	pr_debug("version: %d.%d\n", major, minor);
 
-	dp_link->rate =
+	link_info->rate =
 		drm_dp_bw_code_to_link_rate(dp_panel->dpcd[DP_MAX_LINK_RATE]);
-	pr_debug("link_rate=%d\n", dp_link->rate);
+	pr_debug("link_rate=%d\n", link_info->rate);
 
-	dp_link->num_lanes = dp_panel->dpcd[DP_MAX_LANE_COUNT] &
+	if (panel->lane_switch_supported)
+		link_info->num_lanes = dp_panel->dpcd[DP_MAX_LANE_COUNT] &
 			DP_MAX_LANE_COUNT_MASK;
-	pr_debug("lane_count=%d\n", dp_link->num_lanes);
+	else
+		link_info->num_lanes = 2;
+
+	pr_debug("lane_count=%d\n", link_info->num_lanes);
 
 	if (dp_panel->dpcd[DP_MAX_LANE_COUNT] & DP_ENHANCED_FRAME_CAP)
-		dp_link->capabilities |= DP_LINK_CAP_ENHANCED_FRAMING;
+		link_info->capabilities |= caps;
 
 end:
 	return rc;
@@ -74,26 +82,26 @@ end:
 
 static u32 dp_panel_get_max_pclk(struct dp_panel *dp_panel)
 {
-	struct dp_panel_private *panel;
-	struct drm_dp_link *dp_link;
-	u32 bpc, bpp, max_data_rate_khz, max_pclk_rate_khz;
+	struct drm_dp_link *link_info;
 	const u8 num_components = 3;
+	u32 bpc, bpp, max_data_rate_khz, max_pclk_rate_khz;
 
 	if (!dp_panel) {
 		pr_err("invalid input\n");
 		return 0;
 	}
 
-	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
-	dp_link = &dp_panel->dp_link;
+	link_info = &dp_panel->link_info;
 
 	bpc = sde_get_sink_bpc(dp_panel->edid_ctrl);
 	bpp = bpc * num_components;
+	if (!bpp)
+		bpp = DP_PANEL_DEFAULT_BPP;
 
-	max_data_rate_khz = (dp_link->num_lanes * dp_link->rate * 8);
+	max_data_rate_khz = (link_info->num_lanes * link_info->rate * 8);
 	max_pclk_rate_khz = max_data_rate_khz / bpp;
 
-	pr_debug("bpp=%d, max_lane_cnt=%d\n", bpp, dp_link->num_lanes);
+	pr_debug("bpp=%d, max_lane_cnt=%d\n", bpp, link_info->num_lanes);
 	pr_debug("max_data_rate=%dKHz, max_pclk_rate=%dKHz\n",
 		max_data_rate_khz, max_pclk_rate_khz);
 
@@ -196,7 +204,7 @@ static void dp_panel_edid_deregister(struct dp_panel *dp_panel)
 static int dp_panel_init_panel_info(struct dp_panel *dp_panel)
 {
 	int rc = 0;
-	struct dp_panel_private *panel;
+	struct dp_panel_info *pinfo;
 
 	if (!dp_panel) {
 		pr_err("invalid input\n");
@@ -204,18 +212,38 @@ static int dp_panel_init_panel_info(struct dp_panel *dp_panel)
 		goto end;
 	}
 
-	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+	pinfo = &dp_panel->pinfo;
+
+	/*
+	 * print resolution info as this is a result
+	 * of user initiated action of cable connection
+	 */
+	pr_info("SET NEW RESOLUTION:\n");
+	pr_info("%dx%d@%dfps\n", pinfo->h_active,
+		pinfo->v_active, pinfo->refresh_rate);
+	pr_info("h_porches(back|front|width) = (%d|%d|%d)\n",
+			pinfo->h_back_porch,
+			pinfo->h_front_porch,
+			pinfo->h_sync_width);
+	pr_info("v_porches(back|front|width) = (%d|%d|%d)\n",
+			pinfo->v_back_porch,
+			pinfo->v_front_porch,
+			pinfo->v_sync_width);
+	pr_info("pixel clock (KHz)=(%d)\n", pinfo->pixel_clk_khz);
+	pr_info("bpp = %d\n", pinfo->bpp);
+	pr_info("active low (h|v)=(%d|%d)\n", pinfo->h_active_low,
+		pinfo->v_active_low);
+
+	pinfo->bpp = max_t(u32, 18, min_t(u32, pinfo->bpp, 30));
+	pr_info("updated bpp = %d\n", pinfo->bpp);
 end:
 	return rc;
 }
 
-static u32 dp_panel_get_link_rate(struct dp_panel *dp_panel)
+static u32 dp_panel_get_min_req_link_rate(struct dp_panel *dp_panel)
 {
 	const u32 encoding_factx10 = 8;
-	const u32 ln_to_link_ratio = 10;
-	u32 min_link_rate, reminder = 0;
-	u32 calc_link_rate = 0, lane_cnt, max_rate = 0;
-	struct dp_panel_private *panel;
+	u32 min_link_rate_khz = 0, lane_cnt;
 	struct dp_panel_info *pinfo;
 
 	if (!dp_panel) {
@@ -223,54 +251,19 @@ static u32 dp_panel_get_link_rate(struct dp_panel *dp_panel)
 		goto end;
 	}
 
-	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
-
-	lane_cnt = dp_panel->dp_link.num_lanes;
-	max_rate = drm_dp_link_rate_to_bw_code(dp_panel->dp_link.rate);
+	lane_cnt = dp_panel->link_info.num_lanes;
 	pinfo = &dp_panel->pinfo;
 
-	/*
-	 * The max pixel clock supported is 675Mhz. The
-	 * current calculations below will make sure
-	 * the min_link_rate is within 32 bit limits.
-	 * Any changes in the section of code should
-	 * consider this limitation.
-	 */
-	min_link_rate = (u32)div_u64(pinfo->pixel_clk_khz * 1000,
-				(lane_cnt * encoding_factx10));
-	min_link_rate /= ln_to_link_ratio;
-	min_link_rate = (min_link_rate * pinfo->bpp);
-	min_link_rate = (u32)div_u64_rem(min_link_rate * 10,
-				DP_LINK_RATE_MULTIPLIER, &reminder);
+	/* num_lanes * lane_count * 8 >= pclk * bpp * 10 */
+	min_link_rate_khz = pinfo->pixel_clk_khz /
+				(lane_cnt * encoding_factx10);
+	min_link_rate_khz *= pinfo->bpp;
 
-	/*
-	 * To avoid any fractional values,
-	 * increment the min_link_rate
-	 */
-	if (reminder)
-		min_link_rate += 1;
-	pr_debug("min_link_rate = %d\n", min_link_rate);
-
-	if (min_link_rate <= DP_LINK_BW_1_62)
-		calc_link_rate = DP_LINK_BW_1_62;
-	else if (min_link_rate <= DP_LINK_BW_2_7)
-		calc_link_rate = DP_LINK_BW_2_7;
-	else if (min_link_rate <= DP_LINK_BW_5_4)
-		calc_link_rate = DP_LINK_BW_5_4;
-	else if (min_link_rate <= DP_LINK_RATE_810)
-		calc_link_rate = DP_LINK_RATE_810;
-	else {
-		/* Cap the link rate to the max supported rate */
-		pr_debug("link_rate = %d is unsupported\n", min_link_rate);
-		calc_link_rate = DP_LINK_RATE_810;
-	}
-
-	if (calc_link_rate > max_rate)
-		calc_link_rate = max_rate;
-
-	pr_debug("calc_link_rate = 0x%x\n", calc_link_rate);
+	pr_debug("min lclk req=%d khz for pclk=%d khz, lanes=%d, bpp=%d\n",
+		min_link_rate_khz, pinfo->pixel_clk_khz, lane_cnt,
+		pinfo->bpp);
 end:
-	return calc_link_rate;
+	return min_link_rate_khz;
 }
 
 struct dp_panel *dp_panel_get(struct device *dev, struct dp_aux *aux,
@@ -303,7 +296,7 @@ struct dp_panel *dp_panel_get(struct device *dev, struct dp_aux *aux,
 	dp_panel->init_info = dp_panel_init_panel_info;
 	dp_panel->timing_cfg = dp_panel_timing_cfg;
 	dp_panel->read_dpcd = dp_panel_read_dpcd;
-	dp_panel->get_link_rate = dp_panel_get_link_rate;
+	dp_panel->get_min_req_link_rate = dp_panel_get_min_req_link_rate;
 	dp_panel->get_max_pclk = dp_panel_get_max_pclk;
 
 	return dp_panel;

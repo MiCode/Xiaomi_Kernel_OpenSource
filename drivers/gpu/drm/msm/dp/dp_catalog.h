@@ -58,7 +58,7 @@ struct dp_catalog_ctrl {
 	void (*lane_mapping)(struct dp_catalog_ctrl *ctrl);
 	void (*mainlink_ctrl)(struct dp_catalog_ctrl *ctrl, bool enable);
 	void (*config_misc)(struct dp_catalog_ctrl *ctrl, u32 cc, u32 tb);
-	void (*config_msa)(struct dp_catalog_ctrl *ctrl);
+	void (*config_msa)(struct dp_catalog_ctrl *ctrl, u32 rate);
 	void (*set_pattern)(struct dp_catalog_ctrl *ctrl, u32 pattern);
 	void (*reset)(struct dp_catalog_ctrl *ctrl);
 	bool (*mainlink_ready)(struct dp_catalog_ctrl *ctrl);
