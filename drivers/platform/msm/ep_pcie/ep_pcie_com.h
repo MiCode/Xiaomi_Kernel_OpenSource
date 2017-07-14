@@ -347,14 +347,14 @@ static inline void ep_pcie_write_mask(void __iomem *addr,
 	wmb();
 }
 
-static inline void ep_pcie_write_reg(void *base, u32 offset, u32 value)
+static inline void ep_pcie_write_reg(void __iomem *base, u32 offset, u32 value)
 {
 	writel_relaxed(value, base + offset);
 	/* ensure register write goes through before next regiser operation */
 	wmb();
 }
 
-static inline void ep_pcie_write_reg_field(void *base, u32 offset,
+static inline void ep_pcie_write_reg_field(void __iomem *base, u32 offset,
 	const u32 mask, u32 val)
 {
 	u32 shift = find_first_bit((void *)&mask, 32);
