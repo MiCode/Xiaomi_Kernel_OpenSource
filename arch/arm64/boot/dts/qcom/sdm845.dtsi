@@ -476,6 +476,10 @@
 		method = "smc";
 	};
 
+	chosen {
+		bootargs = "rcupdate.rcu_expedited=1";
+	};
+
 	soc: soc { };
 
 	vendor: vendor {
