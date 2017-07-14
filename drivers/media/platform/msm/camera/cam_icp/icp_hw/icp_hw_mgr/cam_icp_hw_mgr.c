@@ -416,7 +416,8 @@ static int cam_icp_alloc_shared_mem(struct cam_mem_mgr_memory_desc *qtbl)
 	memset(&out, 0, sizeof(out));
 	alloc.size = SZ_1M;
 	alloc.align = 0;
-	alloc.region = CAM_MEM_MGR_REGION_SHARED;
+	alloc.flags = CAM_MEM_FLAG_HW_READ_WRITE |
+		CAM_MEM_FLAG_HW_SHARED_ACCESS;
 	alloc.smmu_hdl = icp_hw_mgr.iommu_hdl;
 	rc = cam_mem_mgr_request_mem(&alloc, &out);
 	if (rc)
@@ -462,7 +463,7 @@ static int cam_icp_allocate_hfi_mem(void)
 	int rc;
 
 	rc = cam_smmu_get_region_info(icp_hw_mgr.iommu_hdl,
-		CAM_MEM_MGR_REGION_SHARED,
+		CAM_SMMU_REGION_SHARED,
 		&icp_hw_mgr.hfi_mem.shmem);
 	if (rc) {
 		pr_err("Unable to get shared memory info\n");

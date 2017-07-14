@@ -50,4 +50,7 @@ int cam_vfe_top_init(uint32_t          top_version,
 	void                          *top_hw_info,
 	struct cam_vfe_top            **vfe_top);
 
+int cam_vfe_top_deinit(uint32_t        top_version,
+	struct cam_vfe_top           **vfe_top);
+
 #endif /* _CAM_VFE_TOP_H_*/

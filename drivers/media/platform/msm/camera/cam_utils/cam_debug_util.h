@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,7 +13,6 @@
 #ifndef _CAM_DEBUG_UTIL_H_
 #define _CAM_DEBUG_UTIL_H_
 
-#define DEFAULT     0xFFFF
 #define CAM_CDM    (1 << 0)
 #define CAM_CORE   (1 << 1)
 #define CAM_CPAS   (1 << 2)
@@ -26,32 +25,91 @@
 #define CAM_JPEG   (1 << 9)
 #define CAM_FD     (1 << 10)
 #define CAM_LRME   (1 << 11)
+#define CAM_FLASH  (1 << 12)
 
-#define GROUP      DEFAULT
-#define TRACE_ON   0
+#define STR_BUFFER_MAX_LENGTH  1024
+#define GROUP                  0x0000
 
-#define CAM_ERR(__module, fmt, args...)                                      \
-	do { if (GROUP & __module) {                                         \
-		if (TRACE_ON)                                                \
-			trace_printk(fmt, ##args);                           \
-		else                                                         \
-			pr_err(fmt, ##args);                                 \
-	} } while (0)
+enum cam_debug_level {
+	CAM_LEVEL_INFO,
+	CAM_LEVEL_WARN,
+	CAM_LEVEL_ERR,
+	CAM_LEVEL_DBG,
+};
 
-#define CAM_WARN(__module, fmt, args...)                                     \
-	do { if (GROUP & __module) {                                         \
-		if (TRACE_ON)                                                \
-			trace_printk(fmt, ##args);                           \
-		else                                                         \
-			pr_warn(fmt, ##args);                                \
-	} } while (0)
+/*
+ *  cam_debug_log()
+ *
+ * @brief:        Get the Module name form module ID and print
+ *                respective debug logs
+ *
+ * @module_id :  Respective Module ID which is calling this function
+ * @dbg_level :  Debug level from cam_module_debug_level enum entries
+ * @func :       Function which is calling to print logs
+ * @line :       Line number associated with the function which is calling
+ *               to print log
+ * @fmt  :       Formatted string which needs to be print in the log
+ *
+ */
+void cam_debug_log(unsigned int module_id, enum cam_debug_level dbg_level,
+	const char *func, const int line, const char *fmt, ...);
 
-#define CAM_INFO(__module, fmt, args...)                                     \
-	do { if (GROUP & __module) {                                         \
-		if (TRACE_ON)                                                \
-			trace_printk(fmt, ##args);                           \
-		else                                                         \
-			pr_info(fmt, ##args);                                \
-	} } while (0)
+/*
+ * CAM_ERR
+ * @brief :     This Macro will print error logs
+ *
+ * @__module :  Respective module id which is been calling this Macro
+ * @fmt :       Formatted string which needs to be print in log
+ * @args:       Arguments which needs to be print in log
+ */
+#define CAM_ERR(__module, fmt, args...)                            \
+	{                                                          \
+		cam_debug_log(__module, CAM_LEVEL_ERR,             \
+			__func__, __LINE__, fmt, ##args);          \
+	}
+
+/*
+ * CAM_WARN
+ * @brief :     This Macro will print warning logs
+ *
+ * @__module :  Respective module id which is been calling this Macro
+ * @fmt      :  Formatted string which needs to be print in log
+ * @args     :  Arguments which needs to be print in log
+ */
+#define CAM_WARN(__module, fmt, args...)                           \
+	{                                                          \
+		cam_debug_log(__module, CAM_LEVEL_WARN,            \
+			__func__, __LINE__, fmt, ##args);          \
+	}
+
+/*
+ * CAM_INFO
+ * @brief :     This Macro will print Information logs
+ *
+ * @__module :  Respective module id which is been calling this Macro
+ * @fmt      :  Formatted string which needs to be print in log
+ * @args     :  Arguments which needs to be print in log
+ */
+#define CAM_INFO(__module, fmt, args...)                           \
+	{                                                          \
+		cam_debug_log(__module, CAM_LEVEL_INFO,            \
+			__func__, __LINE__, fmt, ##args);          \
+	}
+
+/*
+ * CAM_DBG
+ * @brief :     This Macro will print debug logs when enabled using GROUP
+ *
+ * @__module :  Respective module id which is been calling this Macro
+ * @fmt      :  Formatted string which needs to be print in log
+ * @args     :  Arguments which needs to be print in log
+ */
+#define CAM_DBG(__module, fmt, args...)                            \
+	do {                                                       \
+		if (GROUP & __module) {                            \
+			cam_debug_log(__module, CAM_LEVEL_DBG,     \
+				__func__, __LINE__, fmt, ##args);  \
+		}                                                  \
+	} while (0)
 
 #endif /* _CAM_DEBUG_UTIL_H_ */

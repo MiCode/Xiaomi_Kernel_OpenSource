@@ -50,32 +50,32 @@ enum cam_isp_hw_err_type {
 /**
  * struct cam_isp_hw_sof_event_data - Event payload for CAM_HW_EVENT_SOF
  *
- * @timestamp:             Timestamp for the buf done event
+ * @timestamp:     Time stamp for the sof event
  *
  */
 struct cam_isp_hw_sof_event_data {
-	struct timeval       timestamp;
+	uint64_t       timestamp;
 };
 
 /**
  * struct cam_isp_hw_reg_update_event_data - Event payload for
  *                         CAM_HW_EVENT_REG_UPDATE
  *
- * @timestamp:             Timestamp for the buf done event
+ * @timestamp:     Time stamp for the reg update event
  *
  */
 struct cam_isp_hw_reg_update_event_data {
-	struct timeval       timestamp;
+	uint64_t       timestamp;
 };
 
 /**
  * struct cam_isp_hw_epoch_event_data - Event payload for CAM_HW_EVENT_EPOCH
  *
- * @timestamp:             Timestamp for the buf done event
+ * @timestamp:     Time stamp for the epoch event
  *
  */
 struct cam_isp_hw_epoch_event_data {
-	struct timeval       timestamp;
+	uint64_t       timestamp;
 };
 
 /**
@@ -90,29 +90,29 @@ struct cam_isp_hw_done_event_data {
 	uint32_t             num_handles;
 	uint32_t             resource_handle[
 				CAM_NUM_OUT_PER_COMP_IRQ_MAX];
-	struct timeval       timestamp;
+	uint64_t       timestamp;
 };
 
 /**
  * struct cam_isp_hw_eof_event_data - Event payload for CAM_HW_EVENT_EOF
  *
- * @timestamp:             Timestamp for the buf done event
+ * @timestamp:             Timestamp for the eof event
  *
  */
 struct cam_isp_hw_eof_event_data {
-	struct timeval       timestamp;
+	uint64_t       timestamp;
 };
 
 /**
  * struct cam_isp_hw_error_event_data - Event payload for CAM_HW_EVENT_ERROR
  *
- * @error_type:            error type for the error event
- * @timestamp:             Timestamp for the buf done event
+ * @error_type:            Error type for the error event
+ * @timestamp:             Timestamp for the error event
  *
  */
 struct cam_isp_hw_error_event_data {
 	uint32_t             error_type;
-	struct timeval       timestamp;
+	uint64_t             timestamp;
 };
 
 /**

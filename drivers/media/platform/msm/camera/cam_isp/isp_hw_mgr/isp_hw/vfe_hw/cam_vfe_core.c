@@ -51,11 +51,6 @@ static uint32_t top_reset_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
 	0x00000000,
 };
 
-static uint32_t bus_irq_reg_mask[CAM_IFE_IRQ_REGISTERS_MAX] = {
-	0x00000200,
-	0x00000000,
-};
-
 static int cam_vfe_get_evt_payload(struct cam_vfe_hw_core_info *core_info,
 	struct cam_vfe_top_irq_evt_payload    **evt_payload)
 {
@@ -188,15 +183,25 @@ int cam_vfe_init_hw(void *hw_priv, void *init_hw_args, uint32_t arg_size)
 
 	CDBG("Enable soc done\n");
 
+	rc = core_info->vfe_bus->hw_ops.init(core_info->vfe_bus->bus_priv,
+		NULL, 0);
+	if (rc) {
+		pr_err("Bus HW init Failed rc=%d\n", rc);
+		goto disable_soc;
+	}
+
 	/* Do HW Reset */
 	rc = cam_vfe_reset(hw_priv, NULL, 0);
 	if (rc) {
-		pr_err("Reset Failed\n");
-		goto disable_soc;
+		pr_err("Reset Failed rc=%d\n", rc);
+		goto deinit_bus;
 	}
 
 	return 0;
 
+deinit_bus:
+	core_info->vfe_bus->hw_ops.deinit(core_info->vfe_bus->bus_priv,
+		NULL, 0);
 disable_soc:
 	cam_vfe_disable_soc_resources(soc_info);
 decrement_open_cnt:
@@ -382,10 +387,11 @@ int cam_vfe_reserve(void *hw_priv, void *reserve_args, uint32_t arg_size)
 		rc = core_info->vfe_top->hw_ops.reserve(
 			core_info->vfe_top->top_priv,
 			acquire,
-			sizeof(acquire));
+			sizeof(*acquire));
 	else if (acquire->rsrc_type == CAM_ISP_RESOURCE_VFE_OUT)
-		rc = core_info->vfe_bus->acquire_resource(
-			core_info->vfe_bus->bus_priv, acquire);
+		rc = core_info->vfe_bus->hw_ops.reserve(
+			core_info->vfe_bus->bus_priv, acquire,
+			sizeof(*acquire));
 	else
 		pr_err("Invalid res type:%d\n", acquire->rsrc_type);
 
@@ -415,10 +421,11 @@ int cam_vfe_release(void *hw_priv, void *release_args, uint32_t arg_size)
 	if (isp_res->res_type == CAM_ISP_RESOURCE_VFE_IN)
 		rc = core_info->vfe_top->hw_ops.release(
 			core_info->vfe_top->top_priv, isp_res,
-			sizeof(struct cam_isp_resource_node));
+			sizeof(*isp_res));
 	else if (isp_res->res_type == CAM_ISP_RESOURCE_VFE_OUT)
-		rc = core_info->vfe_bus->release_resource(
-			core_info->vfe_bus->bus_priv, isp_res);
+		rc = core_info->vfe_bus->hw_ops.release(
+			core_info->vfe_bus->bus_priv, isp_res,
+			sizeof(*isp_res));
 	else
 		pr_err("Invalid res type:%d\n", isp_res->res_type);
 
@@ -468,16 +475,7 @@ int cam_vfe_start(void *hw_priv, void *start_args, uint32_t arg_size)
 		else
 			pr_err("Error! subscribe irq controller failed\n");
 	} else if (isp_res->res_type == CAM_ISP_RESOURCE_VFE_OUT) {
-		isp_res->irq_handle = cam_irq_controller_subscribe_irq(
-			core_info->vfe_irq_controller, CAM_IRQ_PRIORITY_2,
-			bus_irq_reg_mask, &core_info->irq_payload,
-			core_info->vfe_bus->top_half_handler,
-			cam_ife_mgr_do_tasklet_buf_done,
-			isp_res->tasklet_info, cam_tasklet_enqueue_cmd);
-		if (isp_res->irq_handle > 0)
-			rc = core_info->vfe_bus->start_resource(isp_res);
-		else
-			pr_err("Error! subscribe irq controller failed\n");
+		rc = core_info->vfe_bus->hw_ops.start(isp_res, NULL, 0);
 	} else {
 		pr_err("Invalid res type:%d\n", isp_res->res_type);
 	}
@@ -513,7 +511,7 @@ int cam_vfe_stop(void *hw_priv, void *stop_args, uint32_t arg_size)
 	} else if (isp_res->res_type == CAM_ISP_RESOURCE_VFE_OUT) {
 		cam_irq_controller_unsubscribe_irq(
 			core_info->vfe_irq_controller, isp_res->irq_handle);
-		rc = core_info->vfe_bus->stop_resource(isp_res);
+		rc = core_info->vfe_bus->hw_ops.stop(isp_res, NULL, 0);
 	} else {
 		pr_err("Invalid res type:%d\n", isp_res->res_type);
 	}
@@ -560,7 +558,7 @@ int cam_vfe_process_cmd(void *hw_priv, uint32_t cmd_type,
 
 		break;
 	case CAM_VFE_HW_CMD_GET_BUF_UPDATE:
-		rc = core_info->vfe_bus->process_cmd(
+		rc = core_info->vfe_bus->hw_ops.process_cmd(
 			core_info->vfe_bus->bus_priv, cmd_type, cmd_args,
 			arg_size);
 		break;
@@ -611,15 +609,15 @@ int cam_vfe_core_init(struct cam_vfe_hw_core_info  *core_info,
 		&core_info->vfe_top);
 	if (rc) {
 		pr_err("Error! cam_vfe_top_init failed\n");
-		return rc;
+		goto deinit_controller;
 	}
 
-	rc = cam_vfe_bus_init(vfe_hw_info->bus_version,
-		soc_info->reg_map[0].mem_base, hw_intf,
-		vfe_hw_info->bus_hw_info, NULL, &core_info->vfe_bus);
+	rc = cam_vfe_bus_init(vfe_hw_info->bus_version, soc_info, hw_intf,
+		vfe_hw_info->bus_hw_info, core_info->vfe_irq_controller,
+		&core_info->vfe_bus);
 	if (rc) {
 		pr_err("Error! cam_vfe_bus_init failed\n");
-		return rc;
+		goto deinit_top;
 	}
 
 	INIT_LIST_HEAD(&core_info->free_payload_list);
@@ -632,4 +630,46 @@ int cam_vfe_core_init(struct cam_vfe_hw_core_info  *core_info,
 	spin_lock_init(&core_info->spin_lock);
 
 	return rc;
+
+deinit_top:
+	cam_vfe_top_deinit(vfe_hw_info->top_version,
+		&core_info->vfe_top);
+
+deinit_controller:
+	cam_irq_controller_deinit(&core_info->vfe_irq_controller);
+
+	return rc;
 }
+
+int cam_vfe_core_deinit(struct cam_vfe_hw_core_info  *core_info,
+	struct cam_vfe_hw_info                       *vfe_hw_info)
+{
+	int                rc = -EINVAL;
+	int                i;
+	unsigned long      flags;
+
+	spin_lock_irqsave(&core_info->spin_lock, flags);
+
+	INIT_LIST_HEAD(&core_info->free_payload_list);
+	for (i = 0; i < CAM_VFE_EVT_MAX; i++)
+		INIT_LIST_HEAD(&core_info->evt_payload[i].list);
+
+	rc = cam_vfe_bus_deinit(vfe_hw_info->bus_version,
+		&core_info->vfe_bus);
+	if (rc)
+		pr_err("Error cam_vfe_bus_deinit failed rc=%d\n", rc);
+
+	rc = cam_vfe_top_deinit(vfe_hw_info->top_version,
+		&core_info->vfe_top);
+	if (rc)
+		pr_err("Error cam_vfe_top_deinit failed rc=%d\n", rc);
+
+	rc = cam_irq_controller_deinit(&core_info->vfe_irq_controller);
+	if (rc)
+		pr_err("Error cam_irq_controller_deinit failed rc=%d\n", rc);
+
+	spin_unlock_irqrestore(&core_info->spin_lock, flags);
+
+	return rc;
+}
+

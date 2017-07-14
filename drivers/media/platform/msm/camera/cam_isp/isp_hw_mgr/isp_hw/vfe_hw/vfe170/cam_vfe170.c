@@ -30,6 +30,7 @@ MODULE_DEVICE_TABLE(of, cam_vfe170_dt_match);
 
 static struct platform_driver cam_vfe170_driver = {
 	.probe = cam_vfe_probe,
+	.remove = cam_vfe_remove,
 	.driver = {
 		.name = "cam_vfe170",
 		.owner = THIS_MODULE,

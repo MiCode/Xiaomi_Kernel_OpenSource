@@ -233,6 +233,7 @@ struct cam_cdm {
 	struct cam_cdm_client *clients[CAM_PER_CDM_MAX_REGISTERED_CLIENTS];
 	uint8_t bl_tag;
 	atomic_t error;
+	atomic_t bl_done;
 	struct cam_cdm_hw_mem gen_irq;
 	uint32_t cpas_handle;
 };
