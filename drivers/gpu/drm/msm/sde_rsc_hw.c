@@ -18,12 +18,14 @@
 #include <linux/delay.h>
 
 #include "sde_rsc_priv.h"
+#include "sde_dbg.h"
 
 /* display rsc offset */
 #define SDE_RSCC_PDC_SEQ_START_ADDR_REG_OFFSET_DRV0	0x020
 #define SDE_RSCC_PDC_MATCH_VALUE_LO_REG_OFFSET_DRV0	0x024
 #define SDE_RSCC_PDC_MATCH_VALUE_HI_REG_OFFSET_DRV0	0x028
 #define SDE_RSCC_PDC_SLAVE_ID_DRV0			0x02c
+#define SDE_RSCC_SEQ_PROGRAM_COUNTER			0x408
 #define SDE_RSCC_SEQ_CFG_BR_ADDR_0_DRV0			0x410
 #define SDE_RSCC_SEQ_CFG_BR_ADDR_1_DRV0			0x414
 #define SDE_RSCC_SEQ_MEM_0_DRV0				0x600
@@ -299,6 +301,7 @@ static int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc,
 {
 	int rc = -EBUSY;
 	int count, reg;
+	unsigned long power_status;
 
 	rsc_event_trigger(rsc, SDE_RSC_EVENT_PRE_CORE_RESTORE);
 
@@ -335,9 +338,14 @@ static int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc,
 	/* make sure that mode-2 exit before wait*/
 	wmb();
 
-	/* check for sequence running status before exiting */
+	/* this wait is required to make sure that gdsc is powered on */
 	for (count = MAX_CHECK_LOOPS; count > 0; count--) {
-		if (regulator_is_enabled(rsc->fs)) {
+		power_status = dss_reg_r(&rsc->wrapper_io,
+				SDE_RSCC_PWR_CTRL, rsc->debug_mode);
+		if (!test_bit(POWER_CTRL_BIT_12, &power_status)) {
+			reg = dss_reg_r(&rsc->drv_io,
+				SDE_RSCC_SEQ_PROGRAM_COUNTER, rsc->debug_mode);
+			SDE_EVT32(count, reg, power_status);
 			rc = 0;
 			break;
 		}
@@ -415,7 +423,7 @@ static int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
 			rc = 0;
 			break;
 		}
-		usleep_range(1, 2);
+		usleep_range(10, 100);
 	}
 
 	if (rc) {
