@@ -120,6 +120,8 @@ Optional properties
 				minimum allowable length configuration value.
 - qcom,sde-ubwc-swizzle:	A u32 property to specify the default UBWC
 				swizzle configuration value.
+- qcom,rot-reg-bus:		Property to provide Bus scaling for register
+				access for rotator blocks.
 
 Subnode properties:
 - compatible:		Compatible name used in smmu v2.
@@ -188,6 +190,16 @@ Example:
 		qcom,mdss-sbuf-headroom = <20>;
 		cache-slice-names = "rotator";
 		cache-slices = <&llcc 4>;
+
+		rot_reg: qcom,rot-reg-bus {
+			qcom,msm-bus,name = "mdss_rot_reg";
+			qcom,msm-bus,num-cases = <2>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,vectors-KBps =
+				<1 590 0 0>,
+				<1 590 0 76800>;
+		};
 
 		smmu_rot_unsec: qcom,smmu_rot_unsec_cb {
 			compatible = "qcom,smmu_sde_rot_unsec";
