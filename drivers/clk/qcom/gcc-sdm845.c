@@ -182,6 +182,22 @@ static const char * const gcc_parent_names_9[] = {
 	"core_bi_pll_test_se",
 };
 
+static const struct parent_map gcc_parent_map_10[] = {
+	{ P_BI_TCXO, 0 },
+	{ P_GPLL0_OUT_MAIN, 1 },
+	{ P_GPLL4_OUT_MAIN, 5 },
+	{ P_GPLL0_OUT_EVEN, 6 },
+	{ P_CORE_BI_PLL_TEST_SE, 7 },
+};
+
+static const char * const gcc_parent_names_10[] = {
+	"bi_tcxo",
+	"gpll0",
+	"gpll4",
+	"gpll0_out_even",
+	"core_bi_pll_test_se",
+};
+
 static struct clk_dummy measure_only_snoc_clk = {
 	.rrate = 1000,
 	.hw.init = &(struct clk_init_data){
@@ -229,6 +245,28 @@ static struct clk_alpha_pll gpll0 = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gpll0",
+			.parent_names = (const char *[]){ "bi_tcxo" },
+			.num_parents = 1,
+			.ops = &clk_fabia_fixed_pll_ops,
+			VDD_CX_FMAX_MAP4(
+				MIN, 615000000,
+				LOW, 1066000000,
+				LOW_L1, 1600000000,
+				NOMINAL, 2000000000),
+		},
+	},
+};
+
+static struct clk_alpha_pll gpll4 = {
+	.offset = 0x76000,
+	.vco_table = fabia_vco,
+	.num_vco = ARRAY_SIZE(fabia_vco),
+	.type = FABIA_PLL,
+	.clkr = {
+		.enable_reg = 0x52000,
+		.enable_mask = BIT(4),
+		.hw.init = &(struct clk_init_data){
+			.name = "gpll4",
 			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
 			.ops = &clk_fabia_fixed_pll_ops,
@@ -476,6 +514,7 @@ static const struct freq_tbl ftbl_gcc_qupv3_wrap0_s0_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(29491200, P_GPLL0_OUT_EVEN, 1, 1536, 15625),
 	F(32000000, P_GPLL0_OUT_EVEN, 1, 8, 75),
+	F(38400000, P_GPLL0_OUT_EVEN, 1, 16, 125),
 	F(48000000, P_GPLL0_OUT_EVEN, 1, 4, 25),
 	F(64000000, P_GPLL0_OUT_EVEN, 1, 16, 75),
 	F(80000000, P_GPLL0_OUT_EVEN, 1, 4, 15),
@@ -830,6 +869,17 @@ static const struct freq_tbl ftbl_gcc_sdcc2_apps_clk_src[] = {
 	F(25000000, P_GPLL0_OUT_EVEN, 12, 0, 0),
 	F(50000000, P_GPLL0_OUT_EVEN, 6, 0, 0),
 	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
+	F(201500000, P_GPLL4_OUT_MAIN, 4, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_gcc_sdcc2_apps_clk_src_sdm845_v2[] = {
+	F(400000, P_BI_TCXO, 12, 1, 4),
+	F(9600000, P_BI_TCXO, 2, 0, 0),
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(25000000, P_GPLL0_OUT_EVEN, 12, 0, 0),
+	F(50000000, P_GPLL0_OUT_EVEN, 6, 0, 0),
+	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
 	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
 	{ }
 };
@@ -838,12 +888,12 @@ static struct clk_rcg2 gcc_sdcc2_apps_clk_src = {
 	.cmd_rcgr = 0x1400c,
 	.mnd_width = 8,
 	.hid_width = 5,
-	.parent_map = gcc_parent_map_5,
+	.parent_map = gcc_parent_map_10,
 	.freq_tbl = ftbl_gcc_sdcc2_apps_clk_src,
 	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_sdcc2_apps_clk_src",
-		.parent_names = gcc_parent_names_5,
+		.parent_names = gcc_parent_names_10,
 		.num_parents = 5,
 		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
@@ -851,7 +901,7 @@ static struct clk_rcg2 gcc_sdcc2_apps_clk_src = {
 			MIN, 9600000,
 			LOWER, 19200000,
 			LOW, 100000000,
-			LOW_L1, 200000000),
+			LOW_L1, 201500000),
 	},
 };
 
@@ -3775,6 +3825,7 @@ static struct clk_regmap *gcc_sdm845_clocks[] = {
 	[GCC_VSENSOR_CLK_SRC] = &gcc_vsensor_clk_src.clkr,
 	[GPLL0] = &gpll0.clkr,
 	[GPLL0_OUT_EVEN] = &gpll0_out_even.clkr,
+	[GPLL4] = &gpll4.clkr,
 };
 
 static const struct qcom_reset_map gcc_sdm845_resets[] = {
@@ -3952,6 +4003,9 @@ static void gcc_sdm845_fixup_sdm845v2(void)
 		50000000;
 	gcc_qupv3_wrap1_s7_clk_src.clkr.hw.init->rate_max[VDD_CX_NOMINAL] =
 		128000000;
+	gcc_sdcc2_apps_clk_src.freq_tbl = ftbl_gcc_sdcc2_apps_clk_src_sdm845_v2;
+	gcc_sdcc2_apps_clk_src.clkr.hw.init->rate_max[VDD_CX_LOW_L1] =
+		200000000;
 	gcc_ufs_card_axi_clk_src.freq_tbl =
 		ftbl_gcc_ufs_card_axi_clk_src_sdm845_v2;
 	gcc_ufs_card_axi_clk_src.clkr.hw.init->rate_max[VDD_CX_HIGH] =
