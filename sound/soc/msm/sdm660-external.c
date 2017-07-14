@@ -56,7 +56,6 @@
 
 static int msm_ext_spk_control = 1;
 static struct wcd_mbhc_config *wcd_mbhc_cfg_ptr;
-bool codec_reg_done;
 
 struct msm_asoc_wcd93xx_codec {
 	void* (*get_afe_config_fn)(struct snd_soc_codec *codec,
@@ -1772,7 +1771,6 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		if (!entry) {
 			pr_debug("%s: Cannot create codecs module entry\n",
 				 __func__);
-			pdata->codec_root = NULL;
 			goto done;
 		}
 		pdata->codec_root = entry;
@@ -1795,18 +1793,16 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		if (!entry) {
 			pr_debug("%s: Cannot create codecs module entry\n",
 				 __func__);
-			ret = 0;
-			goto err_snd_module;
+			goto done;
 		}
 		pdata->codec_root = entry;
 		tasha_codec_info_create_codec_entry(pdata->codec_root, codec);
 		tasha_mbhc_zdet_gpio_ctrl(msm_config_hph_en0_gpio, rtd->codec);
 	}
-	codec_reg_done = true;
 done:
+	msm_set_codec_reg_done(true);
 	return 0;
 
-err_snd_module:
 err_afe_cfg:
 	return ret;
 }
