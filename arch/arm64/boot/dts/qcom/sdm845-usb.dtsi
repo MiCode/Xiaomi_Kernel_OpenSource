@@ -113,13 +113,24 @@
 	/* Primary USB port related QUSB2 PHY */
 	qusb_phy0: qusb@88e2000 {
 		compatible = "qcom,qusb2phy-v2";
-		reg = <0x088e2000 0x400>;
-		reg-names = "qusb_phy_base";
+		reg = <0x088e2000 0x400>,
+			<0x007801e8 0x4>;
+		reg-names = "qusb_phy_base", "efuse_addr";
 
+		qcom,efuse-bit-pos = <25>;
+		qcom,efuse-num-bits = <3>;
 		vdd-supply = <&pm8998_l1>;
 		vdda18-supply = <&pm8998_l12>;
 		vdda33-supply = <&pm8998_l24>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
+		qcom,qusb-phy-reg-offset =
+			<0x240 /* QUSB2PHY_PORT_TUNE1 */
+			 0x1a0 /* QUSB2PHY_PLL_COMMON_STATUS_ONE */
+			 0x210 /* QUSB2PHY_PWR_CTRL1 */
+			 0x230 /* QUSB2PHY_INTR_CTRL */
+			 0x0a8 /* QUSB2PHY_PLL_CORE_INPUT_OVERRIDE */
+			 0x254>; /* QUSB2PHY_TEST1 */
+
 		qcom,qusb-phy-init-seq =
 			/* <value reg_offset> */
 			   <0x23 0x210 /* PWR_CTRL1 */
@@ -140,8 +151,6 @@
 			    0x03 0x250 /* TUNE5 */
 			    0x00 0x23c /* CHG_CTRL2 */
 			    0x22 0x210>; /* PWR_CTRL1 */
-
-		qcom,phy-auto-resume-offset = <0x254>;
 
 		phy_type= "utmi";
 		clocks = <&clock_rpmh RPMH_CXO_CLK>,
@@ -385,6 +394,14 @@
 		vdda18-supply = <&pm8998_l12>;
 		vdda33-supply = <&pm8998_l24>;
 		qcom,vdd-voltage-level = <0 880000 880000>;
+		qcom,qusb-phy-reg-offset =
+			<0x240 /* QUSB2PHY_PORT_TUNE1 */
+			 0x1a0 /* QUSB2PHY_PLL_COMMON_STATUS_ONE */
+			 0x210 /* QUSB2PHY_PWR_CTRL1 */
+			 0x230 /* QUSB2PHY_INTR_CTRL */
+			 0x0a8 /* QUSB2PHY_PLL_CORE_INPUT_OVERRIDE */
+			 0x254>; /* QUSB2PHY_TEST1 */
+
 		qcom,qusb-phy-init-seq =
 			/* <value reg_offset> */
 			   <0x23 0x210 /* PWR_CTRL1 */
