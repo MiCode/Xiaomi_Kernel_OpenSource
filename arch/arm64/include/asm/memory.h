@@ -25,6 +25,7 @@
 #include <linux/const.h>
 #include <linux/types.h>
 #include <asm/bug.h>
+#include <asm/page.h>
 #include <asm/sizes.h>
 
 /*
@@ -100,6 +101,14 @@
 #else
 #define KASAN_SHADOW_SIZE	(0)
 #endif
+
+#define THREAD_SHIFT		14
+
+#if THREAD_SHIFT >= PAGE_SHIFT
+#define THREAD_SIZE_ORDER	(THREAD_SHIFT - PAGE_SHIFT)
+#endif
+
+#define THREAD_SIZE		(UL(1) << THREAD_SHIFT)
 
 /*
  * Physical vs virtual RAM address space conversion.  These are
