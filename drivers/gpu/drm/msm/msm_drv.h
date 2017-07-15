@@ -144,7 +144,7 @@ enum msm_mdp_conn_property {
 	/* blob properties, always put these first */
 	CONNECTOR_PROP_SDE_INFO,
 	CONNECTOR_PROP_HDR_INFO,
-	CONNECTOR_PROP_HDR_METADATA,
+	CONNECTOR_PROP_HDR_CONTROL,
 
 	/* # of blob properties */
 	CONNECTOR_PROP_BLOBCOUNT,
@@ -237,10 +237,10 @@ struct msm_display_info {
 
 /**
  * struct - msm_display_kickoff_params - info for display features at kickoff
- * @hdr_metadata: HDR metadata info passed from userspace
+ * @hdr_ctrl: HDR control info passed from userspace
  */
 struct msm_display_kickoff_params {
-	struct drm_msm_ext_panel_hdr_metadata *hdr_metadata;
+	struct drm_msm_ext_panel_hdr_ctrl *hdr_ctrl;
 };
 
 /**
