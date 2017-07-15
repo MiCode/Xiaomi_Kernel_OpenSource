@@ -17,6 +17,7 @@ amd	Advanced Micro Devices (AMD), Inc.
 amlogic	Amlogic, Inc.
 ams	AMS AG
 amstaos	AMS-Taos Inc.
+android	Google Inc.
 apm	Applied Micro Circuits Corporation (APM)
 arm	ARM Ltd.
 armadeus	ARMadeus Systems SARL
