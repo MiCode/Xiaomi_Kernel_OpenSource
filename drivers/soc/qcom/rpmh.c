@@ -530,7 +530,7 @@ EXPORT_SYMBOL(rpmh_write);
 int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 			struct tcs_cmd *cmd, int *n)
 {
-	struct rpmh_msg *rpm_msg[RPMH_MAX_REQ_IN_BATCH];
+	struct rpmh_msg *rpm_msg[RPMH_MAX_REQ_IN_BATCH] = { NULL };
 	DECLARE_COMPLETION_ONSTACK(compl);
 	atomic_t wait_count = ATOMIC_INIT(0); /* overwritten */
 	int count = 0;
@@ -548,7 +548,7 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 	if (ret)
 		return ret;
 
-	while (n[count++])
+	while (n[count++] > 0)
 		;
 	count--;
 	if (!count || count > RPMH_MAX_REQ_IN_BATCH)
@@ -674,7 +674,7 @@ int rpmh_write_control(struct rpmh_client *rc, struct tcs_cmd *cmd, int n)
 {
 	DEFINE_RPMH_MSG_ONSTACK(rc, 0, NULL, NULL, rpm_msg);
 
-	if (IS_ERR_OR_NULL(rc) ||  n > MAX_RPMH_PAYLOAD)
+	if (IS_ERR_OR_NULL(rc) || n <= 0 || n > MAX_RPMH_PAYLOAD)
 		return -EINVAL;
 
 	if (rpmh_standalone)
@@ -906,8 +906,10 @@ static struct rpmh_mbox *get_mbox(struct platform_device *pdev,
 
 	rpmh->msg_pool = kzalloc(sizeof(struct rpmh_msg) *
 				RPMH_MAX_FAST_RES, GFP_KERNEL);
-	if (!rpmh->msg_pool)
+	if (!rpmh->msg_pool) {
+		of_node_put(spec.np);
 		return ERR_PTR(-ENOMEM);
+	}
 
 	rpmh->mbox_dn = spec.np;
 	INIT_LIST_HEAD(&rpmh->resources);
