@@ -1681,9 +1681,16 @@ static int venus_hfi_core_init(void *device)
 	}
 
 	dev = device;
-	mutex_lock(&dev->lock);
 
 	dprintk(VIDC_DBG, "Core initializing\n");
+
+	mutex_lock(&dev->lock);
+
+	dev->bus_vote.data =
+		kzalloc(sizeof(struct vidc_bus_vote_data), GFP_KERNEL);
+	dev->bus_vote.data_count = 1;
+	dev->bus_vote.data->power_mode = VIDC_POWER_TURBO;
+
 	rc = __load_fw(dev);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to load Venus FW\n");
