@@ -2587,7 +2587,8 @@ int mdss_dsi_post_clkon_cb(void *priv,
 	}
 	if (clk & MDSS_DSI_LINK_CLK) {
 		/* toggle the resync FIFO everytime clock changes */
-		if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30)
+		if ((ctrl->shared_data->phy_rev == DSI_PHY_REV_30) &&
+				!pdata->panel_info.cont_splash_enabled)
 			mdss_dsi_phy_v3_toggle_resync_fifo(ctrl);
 
 		if (ctrl->ulps) {
