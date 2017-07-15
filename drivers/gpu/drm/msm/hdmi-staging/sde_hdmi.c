@@ -556,13 +556,13 @@ static const struct file_operations sde_hdmi_hdcp_state_fops = {
 	.read = _sde_hdmi_hdcp_state_read,
 };
 
-static u64 _sde_hdmi_clip_valid_pclk(struct drm_display_mode *mode, u64 pclk_in)
+static u64 _sde_hdmi_clip_valid_pclk(struct hdmi *hdmi, u64 pclk_in)
 {
 	u32 pclk_delta, pclk;
 	u64 pclk_clip = pclk_in;
 
 	/* as per standard, 0.5% of deviation is allowed */
-	pclk = mode->clock * HDMI_KHZ_TO_HZ;
+	pclk = hdmi->pixclock;
 	pclk_delta = pclk * 5 / 1000;
 
 	if (pclk_in < (pclk - pclk_delta))
@@ -700,7 +700,6 @@ static void sde_hdmi_tx_hdcp_cb_work(struct work_struct *work)
 static int _sde_hdmi_update_pll_delta(struct sde_hdmi *display, s32 ppm)
 {
 	struct hdmi *hdmi = display->ctrl.ctrl;
-	struct drm_display_mode *current_mode = &display->mode;
 	u64 cur_pclk, dst_pclk;
 	u64 clip_pclk;
 	int rc = 0;
@@ -725,7 +724,7 @@ static int _sde_hdmi_update_pll_delta(struct sde_hdmi *display, s32 ppm)
 	dst_pclk = cur_pclk * (1000000000 + ppm);
 	do_div(dst_pclk, 1000000000);
 
-	clip_pclk = _sde_hdmi_clip_valid_pclk(current_mode, dst_pclk);
+	clip_pclk = _sde_hdmi_clip_valid_pclk(hdmi, dst_pclk);
 
 	/* update pclk */
 	if (clip_pclk != cur_pclk) {
@@ -2126,9 +2125,13 @@ static int sde_hdmi_tx_check_capability(struct sde_hdmi *sde_hdmi)
 		}
 	}
 
-	SDE_DEBUG("%s: Features <HDMI:%s, HDCP:%s>\n", __func__,
+	if (sde_hdmi->hdmi_tx_major_version >= HDMI_TX_VERSION_4)
+		sde_hdmi->dc_feature_supported = true;
+
+	SDE_DEBUG("%s: Features <HDMI:%s, HDCP:%s, Deep Color:%s>\n", __func__,
 			hdmi_disabled ? "OFF" : "ON",
-			hdcp_disabled ? "OFF" : "ON");
+			hdcp_disabled ? "OFF" : "ON",
+			sde_hdmi->dc_feature_supported ? "ON" : "OFF");
 
 	if (hdmi_disabled) {
 		DEV_ERR("%s: HDMI disabled\n", __func__);

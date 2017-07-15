@@ -825,3 +825,76 @@ int sde_hdmi_hdcp2p2_read_rxstatus(void *hdmi_display)
 	}
 	return rc;
 }
+
+unsigned long sde_hdmi_calc_pixclk(unsigned long pixel_freq,
+	u32 out_format, bool dc_enable)
+{
+	u32 rate_ratio = HDMI_RGB_24BPP_PCLK_TMDS_CH_RATE_RATIO;
+
+	if (out_format & MSM_MODE_FLAG_COLOR_FORMAT_YCBCR420)
+		rate_ratio = HDMI_YUV420_24BPP_PCLK_TMDS_CH_RATE_RATIO;
+
+	pixel_freq /= rate_ratio;
+
+	if (dc_enable)
+		pixel_freq += pixel_freq >> 2;
+
+	return pixel_freq;
+
+}
+
+bool sde_hdmi_validate_pixclk(struct drm_connector *connector,
+	unsigned long pclk)
+{
+	struct sde_connector *c_conn = to_sde_connector(connector);
+	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
+	unsigned long max_pclk = display->max_pclk_khz * HDMI_KHZ_TO_HZ;
+
+	if (connector->max_tmds_char)
+		max_pclk = MIN(max_pclk,
+			connector->max_tmds_char * HDMI_MHZ_TO_HZ);
+	else if (connector->max_tmds_clock)
+		max_pclk = MIN(max_pclk,
+			connector->max_tmds_clock * HDMI_MHZ_TO_HZ);
+
+	SDE_DEBUG("MAX PCLK = %ld, PCLK = %ld\n", max_pclk, pclk);
+
+	return pclk < max_pclk;
+}
+
+static bool sde_hdmi_check_dc_clock(struct drm_connector *connector,
+	struct drm_display_mode *mode, u32 format)
+{
+	struct sde_connector *c_conn = to_sde_connector(connector);
+	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
+
+	 u32 tmds_clk_with_dc = sde_hdmi_calc_pixclk(
+					mode->clock * HDMI_KHZ_TO_HZ,
+					format,
+					true);
+
+	return (display->dc_feature_supported &&
+		 sde_hdmi_validate_pixclk(connector, tmds_clk_with_dc));
+}
+
+int sde_hdmi_sink_dc_support(struct drm_connector *connector,
+	struct drm_display_mode *mode)
+{
+	int dc_format = 0;
+
+	if ((mode->flags & DRM_MODE_FLAG_SUPPORTS_YUV) &&
+	    (connector->display_info.edid_hdmi_dc_modes
+	     & DRM_EDID_YCBCR420_DC_30))
+		if (sde_hdmi_check_dc_clock(connector, mode,
+				MSM_MODE_FLAG_COLOR_FORMAT_YCBCR420))
+			dc_format |= MSM_MODE_FLAG_YUV420_DC_ENABLE;
+
+	if ((mode->flags & DRM_MODE_FLAG_SUPPORTS_RGB) &&
+	    (connector->display_info.edid_hdmi_dc_modes
+	     & DRM_EDID_HDMI_DC_30))
+		if (sde_hdmi_check_dc_clock(connector, mode,
+				MSM_MODE_FLAG_COLOR_FORMAT_RGB444))
+			dc_format |= MSM_MODE_FLAG_RGB444_DC_ENABLE;
+
+	return dc_format;
+}
