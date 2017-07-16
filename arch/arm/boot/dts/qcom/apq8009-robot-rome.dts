@@ -16,6 +16,8 @@
 #include "msm8909-mtp.dtsi"
 #include "msm8909-pm8916.dtsi"
 #include "msm8909-pm8916-mtp.dtsi"
+#include "msm8909-pm8916-camera.dtsi"
+#include "msm8909-pm8916-camera-sensor-robot.dtsi"
 
 / {
 	model = "Qualcomm Technologies,Inc.APQ8009 Robot-Rome Reference Board";
