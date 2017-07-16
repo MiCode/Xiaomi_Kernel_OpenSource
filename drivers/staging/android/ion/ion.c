@@ -3,7 +3,7 @@
  * drivers/staging/android/ion/ion.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -76,7 +76,7 @@ struct ion_device {
  * @dev:		backpointer to ion device
  * @handles:		an rb tree of all the handles in this client
  * @idr:		an idr space for allocating handle ids
- * @lock:		lock protecting the tree of handles
+ * @lock:		lock protecting the tree of handles and idr
  * @name:		used for debugging
  * @display_name:	used for debugging (unique version of @name)
  * @display_serial:	used for debugging (to make display_name unique)
@@ -91,7 +91,6 @@ struct ion_client {
 	struct ion_device *dev;
 	struct rb_root handles;
 	struct idr idr;
-	/* Protects idr */
 	struct mutex lock;
 	char *name;
 	char *display_name;
@@ -671,8 +670,8 @@ int ion_phys(struct ion_client *client, struct ion_handle *handle,
 		mutex_unlock(&client->lock);
 		return -ENODEV;
 	}
-	mutex_unlock(&client->lock);
 	ret = buffer->heap->ops->phys(buffer->heap, buffer, addr, len);
+	mutex_unlock(&client->lock);
 	return ret;
 }
 EXPORT_SYMBOL(ion_phys);
@@ -777,33 +776,7 @@ void ion_unmap_kernel(struct ion_client *client, struct ion_handle *handle)
 }
 EXPORT_SYMBOL(ion_unmap_kernel);
 
-static struct mutex debugfs_mutex;
 static struct rb_root *ion_root_client;
-static int is_client_alive(struct ion_client *client)
-{
-	struct rb_node *node;
-	struct ion_client *tmp;
-	struct ion_device *dev;
-
-	node = ion_root_client->rb_node;
-	dev = container_of(ion_root_client, struct ion_device, clients);
-
-	down_read(&dev->lock);
-	while (node) {
-		tmp = rb_entry(node, struct ion_client, node);
-		if (client < tmp) {
-			node = node->rb_left;
-		} else if (client > tmp) {
-			node = node->rb_right;
-		} else {
-			up_read(&dev->lock);
-			return 1;
-		}
-	}
-
-	up_read(&dev->lock);
-	return 0;
-}
 
 static int ion_debug_client_show(struct seq_file *s, void *unused)
 {
@@ -813,14 +786,6 @@ static int ion_debug_client_show(struct seq_file *s, void *unused)
 	seq_printf(s, "%16.16s: %16.16s : %16.16s : %12.12s\n",
 		   "heap_name", "size_in_bytes", "handle refcount",
 		   "buffer");
-
-	mutex_lock(&debugfs_mutex);
-	if (!is_client_alive(client)) {
-		seq_printf(s, "ion_client 0x%p dead, can't dump its buffers\n",
-			   client);
-		mutex_unlock(&debugfs_mutex);
-		return 0;
-	}
 
 	mutex_lock(&client->lock);
 	for (n = rb_first(&client->handles); n; n = rb_next(n)) {
@@ -836,7 +801,6 @@ static int ion_debug_client_show(struct seq_file *s, void *unused)
 		seq_puts(s, "\n");
 	}
 	mutex_unlock(&client->lock);
-	mutex_unlock(&debugfs_mutex);
 	return 0;
 }
 
@@ -967,27 +931,27 @@ void ion_client_destroy(struct ion_client *client)
 	struct rb_node *n;
 
 	pr_debug("%s: %d\n", __func__, __LINE__);
-	mutex_lock(&debugfs_mutex);
+	down_write(&dev->lock);
+	rb_erase(&client->node, &dev->clients);
+	up_write(&dev->lock);
+
+	/* After this completes, there are no more references to client */
+	debugfs_remove_recursive(client->debug_root);
+
+	mutex_lock(&client->lock);
 	while ((n = rb_first(&client->handles))) {
 		struct ion_handle *handle = rb_entry(n, struct ion_handle,
 						     node);
 		ion_handle_destroy(&handle->ref);
 	}
+	mutex_unlock(&client->lock);
 
 	idr_destroy(&client->idr);
-
-	down_write(&dev->lock);
 	if (client->task)
 		put_task_struct(client->task);
-	rb_erase(&client->node, &dev->clients);
-	debugfs_remove_recursive(client->debug_root);
-
-	up_write(&dev->lock);
-
 	kfree(client->display_name);
 	kfree(client->name);
 	kfree(client);
-	mutex_unlock(&debugfs_mutex);
 }
 EXPORT_SYMBOL(ion_client_destroy);
 
@@ -1794,7 +1758,7 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 	seq_printf(s, "%16s %16s %16s\n", "client", "pid", "size");
 	seq_puts(s, "----------------------------------------------------\n");
 
-	mutex_lock(&debugfs_mutex);
+	down_read(&dev->lock);
 	for (n = rb_first(&dev->clients); n; n = rb_next(n)) {
 		struct ion_client *client = rb_entry(n, struct ion_client,
 						     node);
@@ -1813,7 +1777,7 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 				   client->pid, size);
 		}
 	}
-	mutex_unlock(&debugfs_mutex);
+	up_read(&dev->lock);
 
 	seq_puts(s, "----------------------------------------------------\n");
 	seq_puts(s, "orphaned allocations (info is from last known client):\n");
@@ -2048,7 +2012,6 @@ debugfs_done:
 	plist_head_init(&idev->heaps);
 	idev->clients = RB_ROOT;
 	ion_root_client = &idev->clients;
-	mutex_init(&debugfs_mutex);
 	return idev;
 }
 EXPORT_SYMBOL(ion_device_create);
