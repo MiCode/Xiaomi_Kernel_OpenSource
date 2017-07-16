@@ -574,7 +574,7 @@ static int cam_soc_util_get_gpio_info(struct cam_hw_soc_info *soc_info)
 		goto free_gpio_array;
 	}
 
-	for (i = 0; i <= gpio_array_size; i++)
+	for (i = 0; i < gpio_array_size; i++)
 		gconf->cam_gpio_common_tbl[i].gpio = gpio_array[i];
 
 	gconf->cam_gpio_common_tbl_size = gpio_array_size;
