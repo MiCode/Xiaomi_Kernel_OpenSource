@@ -227,7 +227,7 @@ int sde_hw_cdm_enable(struct sde_hw_cdm *ctx,
 		return -EINVAL;
 
 	if (cdm->output_type == CDM_CDWN_OUTPUT_HDMI) {
-		if (fmt->chroma_sample != SDE_CHROMA_H1V2)
+		if (fmt->chroma_sample == SDE_CHROMA_H1V2)
 			return -EINVAL; /*unsupported format */
 		opmode = BIT(0);
 		opmode |= (fmt->chroma_sample << 1);

@@ -164,4 +164,10 @@ int sde_hdmi_hdcp2p2_read_rxstatus(void *hdmi_display);
 void sde_hdmi_ddc_config(void *hdmi_display);
 int sde_hdmi_ddc_hdcp2p2_isr(void *hdmi_display);
 void sde_hdmi_dump_regs(void *hdmi_display);
+unsigned long sde_hdmi_calc_pixclk(unsigned long pixel_freq,
+	u32 out_format, bool dc_enable);
+bool sde_hdmi_validate_pixclk(struct drm_connector *connector,
+	unsigned long pclk);
+int sde_hdmi_sink_dc_support(struct drm_connector *connector,
+	struct drm_display_mode *mode);
 #endif /* _SDE_HDMI_UTIL_H_ */

@@ -55,6 +55,33 @@
 
 #define MAX_CHANNELS_PER_ENC 2
 
+/* rgb to yuv color space conversion matrix */
+static struct sde_csc_cfg sde_csc_10bit_convert[SDE_MAX_CSC] = {
+	[SDE_CSC_RGB2YUV_601L] = {
+		{
+			TO_S15D16(0x0083), TO_S15D16(0x0102), TO_S15D16(0x0032),
+			TO_S15D16(0xffb4), TO_S15D16(0xff6b), TO_S15D16(0x00e1),
+			TO_S15D16(0x00e1), TO_S15D16(0xff44), TO_S15D16(0xffdb),
+		},
+		{ 0x0, 0x0, 0x0,},
+		{ 0x0040, 0x0200, 0x0200,},
+		{ 0x0, 0x3ff, 0x0, 0x3ff, 0x0, 0x3ff,},
+		{ 0x0040, 0x03ac, 0x0040, 0x03c0, 0x0040, 0x03c0,},
+	},
+
+	[SDE_CSC_RGB2YUV_601FR] = {
+		{
+			TO_S15D16(0x0099), TO_S15D16(0x012d), TO_S15D16(0x003a),
+			TO_S15D16(0xffaa), TO_S15D16(0xff56), TO_S15D16(0x0100),
+			TO_S15D16(0x0100), TO_S15D16(0xff2a), TO_S15D16(0xffd6),
+		},
+		{ 0x0, 0x0, 0x0,},
+		{ 0x0000, 0x0200, 0x0200,},
+		{ 0x0, 0x3ff, 0x0, 0x3ff, 0x0, 0x3ff,},
+		{ 0x0, 0x3ff, 0x0, 0x3ff, 0x0, 0x3ff,},
+	},
+};
+
 /**
  * struct sde_encoder_virt - virtual encoder. Container of one or more physical
  *	encoders. Virtual encoder manages one "logical" display. Physical
@@ -1373,4 +1400,109 @@ enum sde_intf_mode sde_encoder_get_intf_mode(struct drm_encoder *encoder)
 	}
 
 	return INTF_MODE_NONE;
+}
+
+/**
+ * sde_encoder_phys_setup_cdm - setup chroma down block
+ * @phys_enc:	Pointer to physical encoder
+ * @output_type: HDMI/WB
+ * @format:	Output format
+ * @roi: Output size
+ */
+void sde_encoder_phys_setup_cdm(struct sde_encoder_phys *phys_enc,
+		const struct sde_format *format, u32 output_type,
+		struct sde_rect *roi)
+{
+	struct drm_encoder *encoder = phys_enc->parent;
+	struct sde_encoder_virt *sde_enc = NULL;
+	struct sde_hw_cdm *hw_cdm = phys_enc->hw_cdm;
+	struct sde_hw_cdm_cfg *cdm_cfg = &phys_enc->cdm_cfg;
+	int ret;
+	u32 csc_type = 0;
+
+	if (!encoder) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+	sde_enc = to_sde_encoder_virt(encoder);
+
+	if (!SDE_FORMAT_IS_YUV(format)) {
+		SDE_DEBUG_ENC(sde_enc, "[cdm_disable fmt:%x]\n",
+				format->base.pixel_format);
+
+		if (hw_cdm && hw_cdm->ops.disable)
+			hw_cdm->ops.disable(hw_cdm);
+
+		return;
+	}
+
+	memset(cdm_cfg, 0, sizeof(struct sde_hw_cdm_cfg));
+
+	cdm_cfg->output_width = roi->w;
+	cdm_cfg->output_height = roi->h;
+	cdm_cfg->output_fmt = format;
+	cdm_cfg->output_type = output_type;
+	cdm_cfg->output_bit_depth = SDE_FORMAT_IS_DX(format) ?
+		CDM_CDWN_OUTPUT_10BIT : CDM_CDWN_OUTPUT_8BIT;
+
+	/* enable 10 bit logic */
+	switch (cdm_cfg->output_fmt->chroma_sample) {
+	case SDE_CHROMA_RGB:
+		cdm_cfg->h_cdwn_type = CDM_CDWN_DISABLE;
+		cdm_cfg->v_cdwn_type = CDM_CDWN_DISABLE;
+		break;
+	case SDE_CHROMA_H2V1:
+		cdm_cfg->h_cdwn_type = CDM_CDWN_COSITE;
+		cdm_cfg->v_cdwn_type = CDM_CDWN_DISABLE;
+		break;
+	case SDE_CHROMA_420:
+		cdm_cfg->h_cdwn_type = CDM_CDWN_COSITE;
+		cdm_cfg->v_cdwn_type = CDM_CDWN_OFFSITE;
+		break;
+	case SDE_CHROMA_H1V2:
+	default:
+		SDE_ERROR("unsupported chroma sampling type\n");
+		cdm_cfg->h_cdwn_type = CDM_CDWN_DISABLE;
+		cdm_cfg->v_cdwn_type = CDM_CDWN_DISABLE;
+		break;
+	}
+
+	SDE_DEBUG_ENC(sde_enc, "[cdm_enable:%d,%d,%X,%d,%d,%d,%d]\n",
+			cdm_cfg->output_width,
+			cdm_cfg->output_height,
+			cdm_cfg->output_fmt->base.pixel_format,
+			cdm_cfg->output_type,
+			cdm_cfg->output_bit_depth,
+			cdm_cfg->h_cdwn_type,
+			cdm_cfg->v_cdwn_type);
+
+	if (output_type == CDM_CDWN_OUTPUT_HDMI)
+		csc_type = SDE_CSC_RGB2YUV_601FR;
+	else if (output_type == CDM_CDWN_OUTPUT_WB)
+		csc_type = SDE_CSC_RGB2YUV_601L;
+
+	if (hw_cdm && hw_cdm->ops.setup_csc_data) {
+		ret = hw_cdm->ops.setup_csc_data(hw_cdm,
+				&sde_csc_10bit_convert[csc_type]);
+		if (ret < 0) {
+			SDE_ERROR("failed to setup CSC %d\n", ret);
+			return;
+		}
+	}
+
+	if (hw_cdm && hw_cdm->ops.setup_cdwn) {
+		ret = hw_cdm->ops.setup_cdwn(hw_cdm, cdm_cfg);
+		if (ret < 0) {
+			SDE_ERROR("failed to setup CDM %d\n", ret);
+			return;
+		}
+	}
+
+	if (hw_cdm && hw_cdm->ops.enable) {
+		ret = hw_cdm->ops.enable(hw_cdm, cdm_cfg);
+		if (ret < 0) {
+			SDE_ERROR("failed to enable CDM %d\n", ret);
+			return;
+		}
+	}
 }

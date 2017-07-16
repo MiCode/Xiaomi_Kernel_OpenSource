@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016 - 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -167,3 +167,40 @@
 		<  560000000  7 >,
 		<  624000000  7 >;
 };
+
+&soc {
+	ipa_hw: qcom,ipa@680000 {
+		compatible = "qcom,ipa";
+		reg = <0x680000 0x4effc>,
+			<0x684000 0x26934>;
+		reg-names = "ipa-base", "bam-base";
+		interrupts = <0 333 0>,
+			     <0 432 0>;
+		interrupt-names = "ipa-irq", "bam-irq";
+		qcom,ipa-hw-ver = <5>; /* IPA core version = IPAv2.5 */
+		qcom,ipa-hw-mode = <0>;
+		qcom,ee = <0>;
+		qcom,use-ipa-tethering-bridge;
+		qcom,ipa-bam-remote-mode;
+		qcom,modem-cfg-emb-pipe-flt;
+		clocks = <&clock_gcc clk_ipa_clk>;
+		clock-names = "core_clk";
+		qcom,use-dma-zone;
+		qcom,msm-bus,name = "ipa";
+		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+		<90 512 0 0>, <90 585 0 0>,         /* No vote */
+		<90 512 80000 640000>, <90 585 80000 640000>,    /* SVS */
+		<90 512 206000 960000>, <90 585 206000 960000>;    /* PERF */
+		qcom,bus-vector-names = "MIN", "SVS", "PERF";
+	};
+
+	qcom,rmnet-ipa {
+		compatible = "qcom,rmnet-ipa";
+		qcom,rmnet-ipa-ssr;
+		qcom,ipa-loaduC;
+		qcom,ipa-advertise-sg-support;
+	};
+};
+

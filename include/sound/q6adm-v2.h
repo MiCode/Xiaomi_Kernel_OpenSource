@@ -138,9 +138,13 @@ int adm_get_topology_for_port_copp_idx(int port_id, int copp_idx);
 
 int adm_get_indexes_from_copp_id(int copp_id, int *port_idx, int *copp_idx);
 
-int adm_set_stereo_to_custom_stereo(int port_id, int copp_idx,
-				    unsigned int session_id,
-				    char *params, uint32_t params_length);
+int adm_set_pspd_matrix_params(int port_id, int copp_idx,
+				unsigned int session_id,
+				char *params, uint32_t params_length);
+
+int adm_set_downmix_params(int port_id, int copp_idx,
+				unsigned int session_id, char *params,
+				uint32_t params_length);
 
 int adm_get_pp_topo_module_list(int port_id, int copp_idx, int32_t param_length,
 				char *params);

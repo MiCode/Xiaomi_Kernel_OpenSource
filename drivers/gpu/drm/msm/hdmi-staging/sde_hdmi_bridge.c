@@ -345,7 +345,9 @@ static int _sde_hdmi_bridge_setup_scrambler(struct hdmi *hdmi,
 		return 0;
 	}
 
-	if (mode->clock > HDMI_TX_SCRAMBLER_THRESHOLD_RATE_KHZ) {
+	/* use actual clock instead of mode clock */
+	if (hdmi->pixclock >
+		HDMI_TX_SCRAMBLER_THRESHOLD_RATE_KHZ * HDMI_KHZ_TO_HZ) {
 		scrambler_on = true;
 		tmds_clock_ratio = 1;
 	} else {
@@ -400,6 +402,38 @@ static int _sde_hdmi_bridge_setup_scrambler(struct hdmi *hdmi,
 		hdmi_write(hdmi, REG_HDMI_CTRL, reg_val);
 	}
 	return rc;
+}
+
+static void _sde_hdmi_bridge_setup_deep_color(struct hdmi *hdmi)
+{
+	struct drm_connector *connector = hdmi->connector;
+	struct sde_connector *c_conn = to_sde_connector(connector);
+	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
+	u32 hdmi_ctrl_reg, vbi_pkt_reg;
+
+	SDE_DEBUG("Deep Color: %s\n", display->dc_enable ? "On" : "Off");
+
+	if (display->dc_enable) {
+		hdmi_ctrl_reg = hdmi_read(hdmi, REG_HDMI_CTRL);
+
+		/* GC CD override */
+		hdmi_ctrl_reg |= BIT(27);
+
+		/* enable deep color for RGB888/YUV444/YUV420 30 bits */
+		hdmi_ctrl_reg |= BIT(24);
+		hdmi_write(hdmi, REG_HDMI_CTRL, hdmi_ctrl_reg);
+		/* Enable GC_CONT and GC_SEND in General Control Packet
+		 * (GCP) register so that deep color data is
+		 * transmitted to the sink on every frame, allowing
+		 * the sink to decode the data correctly.
+		 *
+		 * GC_CONT: 0x1 - Send GCP on every frame
+		 * GC_SEND: 0x1 - Enable GCP Transmission
+		 */
+		vbi_pkt_reg = hdmi_read(hdmi, REG_HDMI_VBI_PKT_CTRL);
+		vbi_pkt_reg |= BIT(5) | BIT(4);
+		hdmi_write(hdmi, REG_HDMI_VBI_PKT_CTRL, vbi_pkt_reg);
+	}
 }
 
 static void _sde_hdmi_bridge_pre_enable(struct drm_bridge *bridge)
@@ -543,6 +577,10 @@ static void _sde_hdmi_bridge_set_avi_infoframe(struct hdmi *hdmi,
 	struct hdmi_avi_infoframe info;
 
 	drm_hdmi_avi_infoframe_from_display_mode(&info, mode);
+
+	if (mode->private_flags & MSM_MODE_FLAG_COLOR_FORMAT_YCBCR420)
+		info.colorspace = HDMI_COLORSPACE_YUV420;
+
 	hdmi_avi_infoframe_pack(&info, avi_iframe, sizeof(avi_iframe));
 	checksum = avi_iframe[HDMI_INFOFRAME_HEADER_SIZE - 1];
 
@@ -660,31 +698,77 @@ static inline void _sde_hdmi_save_mode(struct hdmi *hdmi,
 	drm_mode_copy(&display->mode, mode);
 }
 
+static u32 _sde_hdmi_choose_best_format(struct hdmi *hdmi,
+	struct drm_display_mode *mode)
+{
+	/*
+	 * choose priority:
+	 * 1. DC + RGB
+	 * 2. DC + YUV
+	 * 3. RGB
+	 * 4. YUV
+	 */
+	int dc_format;
+	struct drm_connector *connector = hdmi->connector;
+
+	dc_format = sde_hdmi_sink_dc_support(connector, mode);
+	if (dc_format & MSM_MODE_FLAG_RGB444_DC_ENABLE)
+		return (MSM_MODE_FLAG_COLOR_FORMAT_RGB444
+			| MSM_MODE_FLAG_RGB444_DC_ENABLE);
+	else if (dc_format & MSM_MODE_FLAG_YUV420_DC_ENABLE)
+		return (MSM_MODE_FLAG_COLOR_FORMAT_YCBCR420
+			| MSM_MODE_FLAG_YUV420_DC_ENABLE);
+	else if (mode->flags & DRM_MODE_FLAG_SUPPORTS_RGB)
+		return MSM_MODE_FLAG_COLOR_FORMAT_RGB444;
+	else if (mode->flags & DRM_MODE_FLAG_SUPPORTS_YUV)
+		return MSM_MODE_FLAG_COLOR_FORMAT_YCBCR420;
+
+	SDE_ERROR("Can't get available best display format\n");
+
+	return MSM_MODE_FLAG_COLOR_FORMAT_RGB444;
+}
+
 static void _sde_hdmi_bridge_mode_set(struct drm_bridge *bridge,
 		 struct drm_display_mode *mode,
 		 struct drm_display_mode *adjusted_mode)
 {
 	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
 	struct hdmi *hdmi = sde_hdmi_bridge->hdmi;
+	struct drm_connector *connector = hdmi->connector;
+	struct sde_connector *c_conn = to_sde_connector(connector);
+	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
 	int hstart, hend, vstart, vend;
 	uint32_t frame_ctrl;
+	u32 div = 0;
 
 	mode = adjusted_mode;
 
-	hdmi->pixclock = mode->clock * 1000;
+	display->dc_enable = mode->private_flags &
+				(MSM_MODE_FLAG_RGB444_DC_ENABLE |
+				 MSM_MODE_FLAG_YUV420_DC_ENABLE);
+	/* compute pixclock as per color format and bit depth */
+	hdmi->pixclock = sde_hdmi_calc_pixclk(
+				mode->clock * HDMI_KHZ_TO_HZ,
+				mode->private_flags,
+				display->dc_enable);
+	SDE_DEBUG("Actual PCLK: %lu, Mode PCLK: %d\n",
+		hdmi->pixclock, mode->clock);
 
-	hstart = mode->htotal - mode->hsync_start;
-	hend   = mode->htotal - mode->hsync_start + mode->hdisplay;
+	if (mode->private_flags & MSM_MODE_FLAG_COLOR_FORMAT_YCBCR420)
+		div = 1;
+
+	hstart = (mode->htotal - mode->hsync_start) >> div;
+	hend   = (mode->htotal - mode->hsync_start + mode->hdisplay) >> div;
 
 	vstart = mode->vtotal - mode->vsync_start - 1;
 	vend   = mode->vtotal - mode->vsync_start + mode->vdisplay - 1;
 
-	DRM_DEBUG(
+	SDE_DEBUG(
 		"htotal=%d, vtotal=%d, hstart=%d, hend=%d, vstart=%d, vend=%d",
 		mode->htotal, mode->vtotal, hstart, hend, vstart, vend);
 
 	hdmi_write(hdmi, REG_HDMI_TOTAL,
-			SDE_HDMI_TOTAL_H_TOTAL(mode->htotal - 1) |
+			SDE_HDMI_TOTAL_H_TOTAL((mode->htotal >> div) - 1) |
 			SDE_HDMI_TOTAL_V_TOTAL(mode->vtotal - 1));
 
 	hdmi_write(hdmi, REG_HDMI_ACTIVE_HSYNC,
@@ -734,6 +818,22 @@ static void _sde_hdmi_bridge_mode_set(struct drm_bridge *bridge,
 
 	_sde_hdmi_save_mode(hdmi, mode);
 	_sde_hdmi_bridge_setup_scrambler(hdmi, mode);
+	_sde_hdmi_bridge_setup_deep_color(hdmi);
+}
+
+static bool _sde_hdmi_bridge_mode_fixup(struct drm_bridge *bridge,
+	 const struct drm_display_mode *mode,
+	 struct drm_display_mode *adjusted_mode)
+{
+	struct sde_hdmi_bridge *sde_hdmi_bridge = to_hdmi_bridge(bridge);
+	struct hdmi *hdmi = sde_hdmi_bridge->hdmi;
+
+	adjusted_mode->private_flags |=
+		_sde_hdmi_choose_best_format(hdmi, adjusted_mode);
+	SDE_DEBUG("Adjusted mode private flags: 0x%x\n",
+		  adjusted_mode->private_flags);
+
+	return true;
 }
 
 static const struct drm_bridge_funcs _sde_hdmi_bridge_funcs = {
@@ -742,6 +842,7 @@ static const struct drm_bridge_funcs _sde_hdmi_bridge_funcs = {
 		.disable = _sde_hdmi_bridge_disable,
 		.post_disable = _sde_hdmi_bridge_post_disable,
 		.mode_set = _sde_hdmi_bridge_mode_set,
+		.mode_fixup = _sde_hdmi_bridge_mode_fixup,
 };
 
 
