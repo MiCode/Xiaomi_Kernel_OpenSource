@@ -74,6 +74,9 @@ const char *cam_get_module_name(unsigned int module_id)
 	case CAM_EEPROM:
 		name = "CAM-EEPROM";
 		break;
+	case CAM_UTIL:
+		name = "CAM-UTIL";
+		break;
 	default:
 		name = "CAM";
 		break;

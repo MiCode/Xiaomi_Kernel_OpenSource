@@ -1898,7 +1898,7 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 		(struct cam_hw_prepare_update_args *) prepare_hw_update_args;
 	struct cam_ife_hw_mgr_ctx        *ctx;
 	struct cam_ife_hw_mgr            *hw_mgr;
-	struct cam_isp_kmd_buf_info       kmd_buf;
+	struct cam_kmd_buf_info           kmd_buf;
 	uint32_t                          i;
 	bool                              fill_fence = true;
 
@@ -1912,13 +1912,13 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 	ctx = (struct cam_ife_hw_mgr_ctx *) prepare->ctxt_to_hw_map;
 	hw_mgr = (struct cam_ife_hw_mgr *)hw_mgr_priv;
 
-	rc = cam_isp_validate_packet(prepare->packet);
+	rc = cam_packet_util_validate_packet(prepare->packet);
 	if (rc)
 		return rc;
 
 	CDBG("%s:%d enter\n", __func__, __LINE__);
 	/* Pre parse the packet*/
-	rc = cam_isp_get_kmd_buffer(prepare->packet, &kmd_buf);
+	rc = cam_packet_util_get_kmd_buffer(prepare->packet, &kmd_buf);
 	if (rc)
 		return rc;
 

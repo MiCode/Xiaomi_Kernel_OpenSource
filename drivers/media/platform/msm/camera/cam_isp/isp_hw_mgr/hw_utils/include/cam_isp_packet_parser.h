@@ -18,47 +18,7 @@
 #include "cam_isp_hw_mgr_intf.h"
 #include "cam_ife_hw_mgr.h"
 #include "cam_hw_intf.h"
-
-/**
- * @brief                  KMD scratch buffer information
- *
- * @handle:                Memory handle
- * @cpu_addr:              Cpu address
- * @offset:                Offset from the start of the buffer
- * @size:                  Size of the buffer
- * @used_bytes:            Used memory in bytes
- *
- */
-struct cam_isp_kmd_buf_info {
-	int        handle;
-	uint32_t  *cpu_addr;
-	uint32_t   offset;
-	uint32_t   size;
-	uint32_t   used_bytes;
-};
-
-
-/**
- * @brief                  Validate the packet
- *
- * @packet:                Packet to be validated
- *
- * @return:                0 for success
- *                         -EINVAL for Fail
- */
-int cam_isp_validate_packet(struct cam_packet *packet);
-
-/**
- * @brief                  Get the kmd buffer from the packet command descriptor
- *
- * @packet:                Packet data
- * @kmd_buf:               Extracted the KMD buffer information
- *
- * @return:                0 for success
- *                         -EINVAL for Fail
- */
-int cam_isp_get_kmd_buffer(struct cam_packet *packet,
-	struct cam_isp_kmd_buf_info *kmd_buf_info);
+#include "cam_packet_util.h"
 
 /**
  * @brief                  Add change base in the hw entries list
@@ -77,7 +37,7 @@ int cam_isp_add_change_base(
 	struct cam_hw_prepare_update_args     *prepare,
 	struct list_head                      *res_list_isp_src,
 	uint32_t                               base_idx,
-	struct cam_isp_kmd_buf_info           *kmd_buf_info);
+	struct cam_kmd_buf_info               *kmd_buf_info);
 
 /**
  * @brief                  Add command buffer in the HW entries list for given
@@ -112,7 +72,7 @@ int cam_isp_add_command_buffers(
 int cam_isp_add_io_buffers(int	 iommu_hdl,
 	struct cam_hw_prepare_update_args    *prepare,
 	uint32_t                              base_idx,
-	struct cam_isp_kmd_buf_info          *kmd_buf_info,
+	struct cam_kmd_buf_info              *kmd_buf_info,
 	struct cam_ife_hw_mgr_res            *res_list_isp_out,
 	uint32_t                              size_isp_out,
 	bool                                  fill_fence);
@@ -134,7 +94,7 @@ int cam_isp_add_reg_update(
 	struct cam_hw_prepare_update_args    *prepare,
 	struct list_head                     *res_list_isp_src,
 	uint32_t                              base_idx,
-	struct cam_isp_kmd_buf_info          *kmd_buf_info);
+	struct cam_kmd_buf_info              *kmd_buf_info);
 
 
 #endif /*_CAM_ISP_HW_PARSER_H */

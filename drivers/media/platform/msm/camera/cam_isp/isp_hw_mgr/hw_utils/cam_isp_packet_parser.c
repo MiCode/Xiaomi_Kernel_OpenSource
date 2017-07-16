@@ -19,126 +19,11 @@
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
-static int cam_isp_get_cmd_mem_addr(int handle, uint32_t **buf_addr,
-	size_t *len)
-{
-	int rc = 0;
-	uint64_t kmd_buf_addr = 0;
-
-	rc = cam_mem_get_cpu_buf(handle, &kmd_buf_addr, len);
-	if (rc) {
-		pr_err("%s:%d Unable to get the virtual address rc:%d\n",
-			__func__, __LINE__, rc);
-		rc = -ENOMEM;
-	} else {
-		if (kmd_buf_addr && *len)
-			*buf_addr = (uint32_t *)kmd_buf_addr;
-		else {
-			pr_err("%s:%d Invalid addr and length :%ld\n",
-				__func__, __LINE__, *len);
-			rc = -ENOMEM;
-		}
-	}
-	return rc;
-}
-
-static int cam_isp_validate_cmd_desc(
-	struct cam_cmd_buf_desc *cmd_desc)
-{
-	if (cmd_desc->length > cmd_desc->size ||
-		(cmd_desc->mem_handle <= 0)) {
-		pr_err("%s:%d invalid cmd arg %d %d %d %d\n",
-			__func__, __LINE__, cmd_desc->offset,
-			cmd_desc->length, cmd_desc->mem_handle,
-			cmd_desc->size);
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-int cam_isp_validate_packet(struct cam_packet *packet)
-{
-	if (!packet)
-		return -EINVAL;
-
-	CDBG("%s:%d num cmd buf:%d num of io config:%d kmd buf index:%d\n",
-		__func__, __LINE__, packet->num_cmd_buf,
-		packet->num_io_configs, packet->kmd_cmd_buf_index);
-
-	if (packet->kmd_cmd_buf_index >= packet->num_cmd_buf ||
-		(!packet->header.size) ||
-		packet->cmd_buf_offset > packet->header.size ||
-		packet->io_configs_offset > packet->header.size)  {
-		pr_err("%s:%d invalid packet:%d %d %d %d %d\n",
-			__func__, __LINE__, packet->kmd_cmd_buf_index,
-			packet->num_cmd_buf, packet->cmd_buf_offset,
-			packet->io_configs_offset, packet->header.size);
-		return -EINVAL;
-	}
-
-	CDBG("%s:%d exit\n", __func__, __LINE__);
-	return 0;
-}
-
-int cam_isp_get_kmd_buffer(struct cam_packet *packet,
-	struct cam_isp_kmd_buf_info *kmd_buf)
-{
-	int                      rc = 0;
-	size_t                   len = 0;
-	struct cam_cmd_buf_desc *cmd_desc;
-	uint32_t                *cpu_addr;
-
-	if (!packet || !kmd_buf) {
-		pr_err("%s:%d Invalid arg\n", __func__, __LINE__);
-		rc = -EINVAL;
-		return rc;
-	}
-
-	/* Take first command descriptor and add offset to it for kmd*/
-	cmd_desc = (struct cam_cmd_buf_desc *) ((uint8_t *)
-			&packet->payload + packet->cmd_buf_offset);
-	cmd_desc += packet->kmd_cmd_buf_index;
-
-	CDBG("%s:%d enter\n", __func__, __LINE__);
-	rc = cam_isp_validate_cmd_desc(cmd_desc);
-	if (rc)
-		return rc;
-
-	CDBG("%s:%d enter\n", __func__, __LINE__);
-	rc = cam_isp_get_cmd_mem_addr(cmd_desc->mem_handle, &cpu_addr,
-		&len);
-	if (rc)
-		return rc;
-
-	if (len < cmd_desc->size) {
-		pr_err("%s:%d invalid memory len:%ld and cmd desc size:%d\n",
-			__func__, __LINE__, len, cmd_desc->size);
-		return -EINVAL;
-	}
-
-	cpu_addr += cmd_desc->offset/4 + packet->kmd_cmd_buf_offset/4;
-	CDBG("%s:%d total size %d, cmd size: %d, KMD buffer size: %d\n",
-		__func__, __LINE__, cmd_desc->size, cmd_desc->length,
-		cmd_desc->size - cmd_desc->length);
-	CDBG("%s:%d: handle 0x%x, cmd offset %d, kmd offset %d, addr 0x%pK\n",
-		__func__, __LINE__, cmd_desc->mem_handle, cmd_desc->offset,
-		packet->kmd_cmd_buf_offset, cpu_addr);
-
-	kmd_buf->cpu_addr   = cpu_addr;
-	kmd_buf->handle     = cmd_desc->mem_handle;
-	kmd_buf->offset     = cmd_desc->offset + packet->kmd_cmd_buf_offset;
-	kmd_buf->size       = cmd_desc->size - cmd_desc->length;
-	kmd_buf->used_bytes = 0;
-
-	return rc;
-}
-
 int cam_isp_add_change_base(
 	struct cam_hw_prepare_update_args      *prepare,
 	struct list_head                       *res_list_isp_src,
 	uint32_t                                base_idx,
-	struct cam_isp_kmd_buf_info            *kmd_buf_info)
+	struct cam_kmd_buf_info                *kmd_buf_info)
 {
 	int rc = -EINVAL;
 	struct cam_ife_hw_mgr_res       *hw_mgr_res;
@@ -235,7 +120,7 @@ int cam_isp_add_command_buffers(
 			return -EINVAL;
 		}
 
-		rc = cam_isp_validate_cmd_desc(&cmd_desc[i]);
+		rc = cam_packet_util_validate_cmd_desc(&cmd_desc[i]);
 		if (rc)
 			return rc;
 
@@ -304,7 +189,7 @@ int cam_isp_add_io_buffers(
 	int                                   iommu_hdl,
 	struct cam_hw_prepare_update_args    *prepare,
 	uint32_t                              base_idx,
-	struct cam_isp_kmd_buf_info          *kmd_buf_info,
+	struct cam_kmd_buf_info              *kmd_buf_info,
 	struct cam_ife_hw_mgr_res            *res_list_isp_out,
 	uint32_t                              size_isp_out,
 	bool                                  fill_fence)
@@ -533,7 +418,7 @@ int cam_isp_add_reg_update(
 	struct cam_hw_prepare_update_args    *prepare,
 	struct list_head                     *res_list_isp_src,
 	uint32_t                              base_idx,
-	struct cam_isp_kmd_buf_info          *kmd_buf_info)
+	struct cam_kmd_buf_info              *kmd_buf_info)
 {
 	int rc = -EINVAL;
 	struct cam_isp_resource_node         *res;

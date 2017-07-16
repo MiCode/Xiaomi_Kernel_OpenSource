@@ -103,7 +103,7 @@ int cam_context_apply_req_to_hw(struct cam_context *ctx,
 	cfg.num_hw_update_entries = req->num_hw_update_entries;
 	cfg.out_map_entries = req->out_map_entries;
 	cfg.num_out_map_entries = req->num_out_map_entries;
-	cfg.priv = (void *)&req->request_id;
+	cfg.priv = req->req_priv;
 	list_add_tail(&req->list, &ctx->active_req_list);
 
 	rc = ctx->hw_mgr_intf->hw_config(ctx->hw_mgr_intf->hw_mgr_priv, &cfg);

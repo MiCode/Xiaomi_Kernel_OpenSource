@@ -20,8 +20,6 @@
 #include "cam_hw_intf.h"
 #include "cam_debug_util.h"
 
-#define BITS_MASK_SHIFT(x, mask, shift) (((x) & (mask)) >> shift)
-
 /* Number of times to retry while polling */
 #define CAM_CPAS_POLL_RETRY_CNT 5
 /* Minimum usecs to sleep while polling */

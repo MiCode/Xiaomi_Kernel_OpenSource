@@ -21,23 +21,6 @@
 #include "cam_cpas_hw_intf.h"
 #include "cam_cpas_soc.h"
 
-int cam_cpas_util_get_string_index(const char **strings,
-	uint32_t num_strings, char *matching_string, uint32_t *index)
-{
-	int i;
-
-	for (i = 0; i < num_strings; i++) {
-		if (strnstr(strings[i], matching_string, strlen(strings[i]))) {
-			CAM_DBG(CAM_CPAS, "matched %s : %d",
-				matching_string, i);
-			*index = i;
-			return 0;
-		}
-	}
-
-	return -EINVAL;
-}
-
 int cam_cpas_util_reg_update(struct cam_hw_info *cpas_hw,
 	enum cam_cpas_reg_base reg_base, struct cam_cpas_reg *reg_info)
 {
@@ -1040,7 +1023,7 @@ static int cam_cpas_hw_register_client(struct cam_hw_info *cpas_hw,
 
 	mutex_lock(&cpas_hw->hw_mutex);
 
-	rc = cam_cpas_util_get_string_index(soc_private->client_name,
+	rc = cam_common_util_get_string_index(soc_private->client_name,
 		soc_private->num_clients, client_name, &client_indx);
 	if (rc || !CAM_CPAS_CLIENT_VALID(client_indx) ||
 		CAM_CPAS_CLIENT_REGISTERED(cpas_core, client_indx)) {

@@ -69,7 +69,7 @@ bool cam_cdm_set_cam_hw_version(
 	return false;
 }
 
-void cam_cdm_cpas_cb(int32_t client_handle, void *userdata,
+void cam_cdm_cpas_cb(uint32_t client_handle, void *userdata,
 	enum cam_camnoc_irq_type evt_type, uint32_t evt_data)
 {
 	pr_err("CPAS error callback type=%d with data=%x\n", evt_type,

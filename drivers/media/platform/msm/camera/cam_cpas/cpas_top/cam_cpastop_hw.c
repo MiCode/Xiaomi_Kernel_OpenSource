@@ -38,19 +38,19 @@ static int cam_cpastop_get_hw_info(struct cam_hw_info *cpas_hw,
 
 	reg_value = cam_io_r_mb(soc_info->reg_map[reg_indx].mem_base + 0x0);
 	hw_caps->camera_version.major =
-		BITS_MASK_SHIFT(reg_value, 0xff0000, 0x10);
+		CAM_BITS_MASK_SHIFT(reg_value, 0xff0000, 0x10);
 	hw_caps->camera_version.minor =
-		BITS_MASK_SHIFT(reg_value, 0xff00, 0x8);
+		CAM_BITS_MASK_SHIFT(reg_value, 0xff00, 0x8);
 	hw_caps->camera_version.incr =
-		BITS_MASK_SHIFT(reg_value, 0xff, 0x0);
+		CAM_BITS_MASK_SHIFT(reg_value, 0xff, 0x0);
 
 	reg_value = cam_io_r_mb(soc_info->reg_map[reg_indx].mem_base + 0x4);
 	hw_caps->cpas_version.major =
-		BITS_MASK_SHIFT(reg_value, 0xf0000000, 0x1c);
+		CAM_BITS_MASK_SHIFT(reg_value, 0xf0000000, 0x1c);
 	hw_caps->cpas_version.minor =
-		BITS_MASK_SHIFT(reg_value, 0xfff0000, 0x10);
+		CAM_BITS_MASK_SHIFT(reg_value, 0xfff0000, 0x10);
 	hw_caps->cpas_version.incr =
-		BITS_MASK_SHIFT(reg_value, 0xffff, 0x0);
+		CAM_BITS_MASK_SHIFT(reg_value, 0xffff, 0x0);
 
 	reg_value = cam_io_r_mb(soc_info->reg_map[reg_indx].mem_base + 0x8);
 	hw_caps->camera_capability = reg_value;
@@ -81,7 +81,7 @@ static int cam_cpastop_setup_regbase_indices(struct cam_hw_soc_info *soc_info,
 		return -EINVAL;
 	}
 
-	rc = cam_cpas_util_get_string_index(soc_info->mem_block_name,
+	rc = cam_common_util_get_string_index(soc_info->mem_block_name,
 		soc_info->num_mem_block, "cam_cpas_top", &index);
 	if ((rc == 0) && (index < num_reg_map)) {
 		regbase_index[CAM_CPAS_REG_CPASTOP] = index;
@@ -91,7 +91,7 @@ static int cam_cpastop_setup_regbase_indices(struct cam_hw_soc_info *soc_info,
 		return -EINVAL;
 	}
 
-	rc = cam_cpas_util_get_string_index(soc_info->mem_block_name,
+	rc = cam_common_util_get_string_index(soc_info->mem_block_name,
 		soc_info->num_mem_block, "cam_camnoc", &index);
 	if ((rc == 0) && (index < num_reg_map)) {
 		regbase_index[CAM_CPAS_REG_CAMNOC] = index;
