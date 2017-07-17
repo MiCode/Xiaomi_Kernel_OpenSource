@@ -134,7 +134,6 @@ static DEFINE_SPINLOCK(pci_link_down_lock);
 #define FW_IMAGE_MISSION	(0x02)
 #define FW_IMAGE_BDATA		(0x03)
 #define FW_IMAGE_PRINT		(0x04)
-#define FW_SETUP_DELAY		2000
 
 #define SEG_METADATA		(0x01)
 #define SEG_NON_PAGED		(0x02)
@@ -274,10 +273,8 @@ static struct cnss_data {
 	u32 fw_dma_size;
 	u32 fw_seg_count;
 	struct segment_memory fw_seg_mem[MAX_NUM_OF_SEGMENTS];
-	atomic_t fw_store_in_progress;
 	/* Firmware setup complete lock */
 	struct mutex fw_setup_stat_lock;
-	struct completion fw_setup_complete;
 	void *bdata_cpu;
 	dma_addr_t bdata_dma;
 	u32 bdata_dma_size;
@@ -1374,15 +1371,6 @@ int cnss_get_fw_image(struct image_desc_info *image_desc_info)
 	    !penv->fw_seg_count || !penv->bdata_seg_count)
 		return -EINVAL;
 
-	/* Check for firmware setup trigger by usersapce is in progress
-	 * and wait for complition of firmware setup.
-	 */
-
-	if (atomic_read(&penv->fw_store_in_progress)) {
-		wait_for_completion_timeout(&penv->fw_setup_complete,
-					    msecs_to_jiffies(FW_SETUP_DELAY));
-	}
-
 	mutex_lock(&penv->fw_setup_stat_lock);
 	image_desc_info->fw_addr = penv->fw_dma;
 	image_desc_info->fw_size = penv->fw_dma_size;
@@ -1627,7 +1615,9 @@ static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 		goto err_pcie_suspend;
 	}
 
+	mutex_lock(&penv->fw_setup_stat_lock);
 	cnss_wlan_fw_mem_alloc(pdev);
+	mutex_unlock(&penv->fw_setup_stat_lock);
 
 	ret = device_create_file(&penv->pldev->dev, &dev_attr_wlan_setup);
 
@@ -1874,17 +1864,11 @@ static ssize_t fw_image_setup_store(struct device *dev,
 	if (!penv)
 		return -ENODEV;
 
-	if (atomic_read(&penv->fw_store_in_progress)) {
-		pr_info("%s: Firmware setup in progress\n", __func__);
-		return 0;
-	}
-
-	atomic_set(&penv->fw_store_in_progress, 1);
-	init_completion(&penv->fw_setup_complete);
+	mutex_lock(&penv->fw_setup_stat_lock);
+	pr_info("%s: Firmware setup in progress\n", __func__);
 
 	if (kstrtoint(buf, 0, &val)) {
-		atomic_set(&penv->fw_store_in_progress, 0);
-		complete(&penv->fw_setup_complete);
+		mutex_unlock(&penv->fw_setup_stat_lock);
 		return -EINVAL;
 	}
 
@@ -1895,8 +1879,7 @@ static ssize_t fw_image_setup_store(struct device *dev,
 		if (ret != 0) {
 			pr_err("%s: Invalid parsing of FW image files %d",
 			       __func__, ret);
-			atomic_set(&penv->fw_store_in_progress, 0);
-			complete(&penv->fw_setup_complete);
+			mutex_unlock(&penv->fw_setup_stat_lock);
 			return -EINVAL;
 		}
 		penv->fw_image_setup = val;
@@ -1906,9 +1889,8 @@ static ssize_t fw_image_setup_store(struct device *dev,
 		penv->bmi_test = val;
 	}
 
-	atomic_set(&penv->fw_store_in_progress, 0);
-	complete(&penv->fw_setup_complete);
-
+	pr_info("%s: Firmware setup completed\n", __func__);
+	mutex_unlock(&penv->fw_setup_stat_lock);
 	return count;
 }
 
@@ -2007,16 +1989,21 @@ int cnss_get_codeswap_struct(struct codeswap_codeseg_info *swap_seg)
 {
 	struct codeswap_codeseg_info *cnss_seg_info = penv->cnss_seg_info;
 
+	mutex_lock(&penv->fw_setup_stat_lock);
 	if (!cnss_seg_info) {
 		swap_seg = NULL;
+		mutex_unlock(&penv->fw_setup_stat_lock);
 		return -ENOENT;
 	}
+
 	if (!atomic_read(&penv->fw_available)) {
 		pr_debug("%s: fw is not available\n", __func__);
+		mutex_unlock(&penv->fw_setup_stat_lock);
 		return -ENOENT;
 	}
 
 	*swap_seg = *cnss_seg_info;
+	mutex_unlock(&penv->fw_setup_stat_lock);
 
 	return 0;
 }
@@ -2034,15 +2021,6 @@ static void cnss_wlan_memory_expansion(void)
 	struct codeswap_codeseg_info *cnss_seg_info;
 	u_int32_t total_length = 0;
 	struct pci_dev *pdev;
-
-	/* Check for firmware setup trigger by usersapce is in progress
-	 * and wait for complition of firmware setup.
-	 */
-
-	if (atomic_read(&penv->fw_store_in_progress)) {
-		wait_for_completion_timeout(&penv->fw_setup_complete,
-					    msecs_to_jiffies(FW_SETUP_DELAY));
-	}
 
 	mutex_lock(&penv->fw_setup_stat_lock);
 	filename = cnss_wlan_get_evicted_data_file();
@@ -2859,6 +2837,7 @@ static int cnss_probe(struct platform_device *pdev)
 	penv->vreg_info.wlan_reg = NULL;
 	penv->vreg_info.state = VREG_OFF;
 	penv->pci_register_again = false;
+	mutex_init(&penv->fw_setup_stat_lock);
 
 	ret = cnss_wlan_get_resources(pdev);
 	if (ret)
@@ -3016,8 +2995,6 @@ skip_ramdump:
 	memset(phys_to_virt(0), 0, SZ_4K);
 #endif
 
-	atomic_set(&penv->fw_store_in_progress, 0);
-	mutex_init(&penv->fw_setup_stat_lock);
 	ret = device_create_file(dev, &dev_attr_fw_image_setup);
 	if (ret) {
 		pr_err("cnss: fw_image_setup sys file creation failed\n");
