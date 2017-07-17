@@ -46,7 +46,6 @@
 #include <linux/msm-bus.h>
 #include <linux/interrupt.h>	/* tasklet */
 #include <asm/arch_timer.h> /* Timer */
-#include <linux/avtimer_kernel.h> /* Timer */
 
 /*
  * General defines
@@ -924,8 +923,6 @@ static int tspp_start_tsif(struct tspp_tsif_device *tsif_device)
 {
 	int start_hardware = 0;
 	u32 ctl;
-	u32 tts_ctl;
-	int retval;
 
 	if (tsif_device->ref_count == 0) {
 		start_hardware = 1;
@@ -978,39 +975,6 @@ static int tspp_start_tsif(struct tspp_tsif_device *tsif_device)
 			pr_warn("tspp: unknown tsif mode 0x%x",
 				tsif_device->mode);
 		}
-		/* Set 4bytes Time Stamp for TCR */
-		if (tsif_device->tts_source == TSIF_TTS_LPASS_TIMER) {
-			if (tsif_device->lpass_timer_enable == 0) {
-				retval = avcs_core_open();
-				if (retval < 0) {
-					pr_warn("tspp: avcs open fail:%d\n",
-						retval);
-					return retval;
-				}
-				retval = avcs_core_disable_power_collapse(1);
-				if (retval  < 0) {
-					pr_warn("tspp: avcs power enable:%d\n",
-						retval);
-					return retval;
-				}
-				tsif_device->lpass_timer_enable = 1;
-			}
-
-			tts_ctl	= readl_relaxed(tsif_device->base +
-						TSIF_TTS_CTL_OFF);
-			tts_ctl = 0;
-			/* Set LPASS Timer TTS source */
-			tts_ctl |= TSIF_TTS_CTL_TTS_SOURCE;
-			 /* Set 4 byte TTS */
-			tts_ctl |= TSIF_TTS_CTL_TTS_LENGTH_0;
-
-			writel_relaxed(tts_ctl, tsif_device->base +
-				       TSIF_TTS_CTL_OFF);
-			/* write TTS control register */
-			wmb();
-			tts_ctl	= readl_relaxed(tsif_device->base +
-						TSIF_TTS_CTL_OFF);
-		}
 
 		writel_relaxed(ctl, tsif_device->base + TSIF_STS_CTL_OFF);
 		/* write Status control register */
@@ -1035,13 +999,8 @@ static int tspp_start_tsif(struct tspp_tsif_device *tsif_device)
 
 static void tspp_stop_tsif(struct tspp_tsif_device *tsif_device)
 {
-	if (tsif_device->ref_count == 0) {
-		if (tsif_device->lpass_timer_enable == 1) {
-			if (avcs_core_disable_power_collapse(0) == 0)
-				tsif_device->lpass_timer_enable = 0;
-		}
+	if (tsif_device->ref_count == 0)
 		return;
-	}
 
 	tsif_device->ref_count--;
 
@@ -1957,44 +1916,9 @@ EXPORT_SYMBOL(tspp_get_ref_clk_counter);
 int tspp_get_lpass_time_counter(u32 dev, enum tspp_source source,
 			u64 *lpass_time_counter)
 {
-	struct tspp_device *pdev;
-	struct tspp_tsif_device *tsif_device;
-
-	if (!lpass_time_counter)
-		return -EINVAL;
-
-	pdev = tspp_find_by_id(dev);
-	if (!pdev) {
-		pr_err("tspp_get_lpass_time_counter: can't find device %i\n",
-		       dev);
-		return -ENODEV;
-	}
-
-	switch (source) {
-	case TSPP_SOURCE_TSIF0:
-		tsif_device = &pdev->tsif[0];
-		break;
-
-	case TSPP_SOURCE_TSIF1:
-		tsif_device = &pdev->tsif[1];
-		break;
-
-	default:
-		tsif_device = NULL;
-		break;
-	}
-
-	if (tsif_device && tsif_device->ref_count) {
-		if (avcs_core_query_timer(lpass_time_counter) < 0) {
-			pr_err("tspp_get_lpass_time_counter: read error\n");
-			*lpass_time_counter = 0;
-			return -ENETRESET;
-		}
-	} else
-		*lpass_time_counter = 0;
-
-	return 0;
+	return -EPERM;
 }
+
 EXPORT_SYMBOL(tspp_get_lpass_time_counter);
 
 /**
@@ -3035,17 +2959,7 @@ static int msm_tspp_probe(struct platform_device *pdev)
 		goto err_irq;
 	device->req_irqs = false;
 
-	/* Check whether AV timer time stamps are enabled */
-	if (!of_property_read_u32(pdev->dev.of_node, "qcom,lpass-timer-tts",
-				  &device->tts_source)) {
-		if (device->tts_source == 1)
-			device->tts_source = TSIF_TTS_LPASS_TIMER;
-		else
-			device->tts_source = TSIF_TTS_TCR;
-	} else {
-		device->tts_source = TSIF_TTS_TCR;
-	}
-
+	device->tts_source = TSIF_TTS_TCR;
 	for (i = 0; i < TSPP_TSIF_INSTANCES; i++)
 		device->tsif[i].tts_source = device->tts_source;
 
