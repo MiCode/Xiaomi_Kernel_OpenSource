@@ -428,6 +428,7 @@ static int sde_rsc_mode2_entry(struct sde_rsc_priv *rsc)
 
 	if (rc) {
 		pr_err("mdss gdsc power down failed rc:%d\n", rc);
+		SDE_EVT32(rc, SDE_EVTLOG_ERROR);
 		goto end;
 	}
 
@@ -675,10 +676,24 @@ int rsc_hw_vsync(struct sde_rsc_priv *rsc, enum rsc_vsync_req request,
 				rsc->debug_mode));
 		break;
 
+	case VSYNC_READ_VSYNC0:
+		return dss_reg_r(&rsc->wrapper_io,
+				SDE_RSCC_WRAPPER_VSYNC_TIMESTAMP0,
+				rsc->debug_mode);
+
 	case VSYNC_ENABLE:
-		reg = BIT(8) | ((mode & 0x7) << 10);
+		/* clear the current VSYNC value */
+		reg = BIT(9) | ((mode & 0x7) << 10);
 		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_DEBUG_BUS,
 					reg, rsc->debug_mode);
+
+		/* enable the VSYNC logging */
+		reg = BIT(8) | ((mode & 0x7) << 10);
+		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_DEBUG_BUS,
+				reg, rsc->debug_mode);
+
+		/* ensure vsync config has been written before waiting on it */
+		wmb();
 		break;
 
 	case VSYNC_DISABLE:

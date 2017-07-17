@@ -51,11 +51,13 @@ enum rsc_mode_req {
 /**
  * rsc_vsync_req: sde rsc vsync request information
  * VSYNC_READ: read vsync status
+ * VSYNC_READ_VSYNC0: read value vsync0 timestamp (cast to int from u32)
  * VSYNC_ENABLE: enable rsc wrapper vsync status
  * VSYNC_DISABLE: disable rsc wrapper vsync status
  */
 enum rsc_vsync_req {
 	VSYNC_READ,
+	VSYNC_READ_VSYNC0,
 	VSYNC_ENABLE,
 	VSYNC_DISABLE,
 };

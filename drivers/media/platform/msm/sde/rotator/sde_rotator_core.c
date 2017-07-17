@@ -325,7 +325,7 @@ static int sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 	if (mgr->rsc_client)
 		ret = sde_rsc_client_state_update(mgr->rsc_client,
 				on ? SDE_RSC_CLK_STATE : SDE_RSC_IDLE_STATE,
-				NULL, -1);
+				NULL, SDE_RSC_INVALID_CRTC_ID, NULL);
 	else
 		ret = sde_rot_enable_vreg(mgr->module_power.vreg_config,
 			mgr->module_power.num_vreg, on);
