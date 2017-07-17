@@ -397,7 +397,9 @@ static struct dev_config aux_pcm_tx_cfg[] = {
 };
 
 static int msm_vi_feed_tx_ch = 2;
-static const char *const slim_rx_ch_text[] = {"One", "Two"};
+static const char *const slim_rx_ch_text[] = {"One", "Two", "Three", "Four",
+						"Five", "Six", "Seven",
+						"Eight"};
 static const char *const slim_tx_ch_text[] = {"One", "Two", "Three", "Four",
 						"Five", "Six", "Seven",
 						"Eight"};
