@@ -347,6 +347,7 @@
 
 	qcom,pcie-phy-ver = <5>;
 	qcom,pcie-perst-enum;
+	status = "disabled";
 };
 
 &cnss_pcie {
@@ -385,6 +386,7 @@
 	interrupts = <0 119 0>;
 	interrupt-names = "mhi-device-inta";
 	qcom,mhi-ifc-id = <0x030317cb>;
+	status = "disabled";
 };
 
 #include "sdx20-usb.dtsi"
