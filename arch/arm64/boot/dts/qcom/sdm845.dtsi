@@ -1319,10 +1319,6 @@
 			<  2112000000 0x4054176e 0x00005858 0x3 24 >,
 			<  2208000000 0x40541873 0x00005c5c 0x3 25 >;
 
-		qcom,l3-min-cpr-vc-bin0 = <7>;
-		qcom,pwrcl-min-cpr-vc-bin0 = <6>;
-		qcom,perfcl-min-cpr-vc-bin0 = <7>;
-
 		qcom,up-timer =
 			<1000 1000 1000>;
 		qcom,down-timer =
