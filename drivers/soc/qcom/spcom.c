@@ -196,6 +196,7 @@ struct spcom_channel {
 	 * glink state: CONNECTED / LOCAL_DISCONNECTED, REMOTE_DISCONNECTED
 	 */
 	unsigned glink_state;
+	bool is_closing;
 
 	/* Events notification */
 	struct completion connect;
@@ -483,7 +484,17 @@ static void spcom_notify_state(void *handle, const void *priv, unsigned event)
 	switch (event) {
 	case GLINK_CONNECTED:
 		pr_debug("GLINK_CONNECTED, ch name [%s].\n", ch->name);
+		mutex_lock(&ch->lock);
+
+		if (ch->is_closing) {
+			pr_err("Unexpected CONNECTED while closing [%s].\n",
+				ch->name);
+			mutex_unlock(&ch->lock);
+			return;
+		}
+
 		ch->glink_state = event;
+
 		/*
 		 * if spcom_notify_state() is called within glink_open()
 		 * then ch->glink_handle is not updated yet.
@@ -493,7 +504,16 @@ static void spcom_notify_state(void *handle, const void *priv, unsigned event)
 			ch->glink_handle = handle;
 		}
 
-		/* prepare default rx buffer after connected */
+		/* signal before unlock mutex & before calling glink */
+		complete_all(&ch->connect);
+
+		/*
+		 * Prepare default rx buffer.
+		 * glink_queue_rx_intent() can be called only AFTER connected.
+		 * We do it here, ASAP, to allow rx data.
+		 */
+
+		pr_debug("call glink_queue_rx_intent() ch [%s].\n", ch->name);
 		ret = glink_queue_rx_intent(ch->glink_handle,
 					    ch, ch->rx_buf_size);
 		if (ret) {
@@ -503,7 +523,9 @@ static void spcom_notify_state(void *handle, const void *priv, unsigned event)
 				 ch->rx_buf_size);
 			ch->rx_buf_ready = true;
 		}
-		complete_all(&ch->connect);
+
+		pr_debug("GLINK_CONNECTED, ch name [%s] done.\n", ch->name);
+		mutex_unlock(&ch->lock);
 		break;
 	case GLINK_LOCAL_DISCONNECTED:
 		/*
@@ -668,6 +690,13 @@ static int spcom_init_channel(struct spcom_channel *ch, const char *name)
 	ch->glink_state = GLINK_LOCAL_DISCONNECTED;
 	ch->actual_rx_size = 0;
 	ch->rx_buf_size = SPCOM_RX_BUF_SIZE;
+	ch->is_closing = false;
+	ch->glink_handle = NULL;
+	ch->ref_count = 0;
+	ch->rx_abort = false;
+	ch->tx_abort = false;
+	ch->txn_id = INITIAL_TXN_ID; /* use non-zero nonce for debug */
+	ch->pid = 0;
 
 	return 0;
 }
@@ -738,6 +767,8 @@ static int spcom_open(struct spcom_channel *ch, unsigned int timeout_msec)
 	/* init completion before calling glink_open() */
 	reinit_completion(&ch->connect);
 
+	ch->is_closing = false;
+
 	handle = glink_open(&cfg);
 	if (IS_ERR_OR_NULL(handle)) {
 		pr_err("glink_open failed.\n");
@@ -751,6 +782,8 @@ static int spcom_open(struct spcom_channel *ch, unsigned int timeout_msec)
 	ch->ref_count++;
 	ch->pid = current_pid();
 	ch->txn_id = INITIAL_TXN_ID;
+
+	mutex_unlock(&ch->lock);
 
 	pr_debug("Wait for connection on channel [%s] timeout_msec [%d].\n",
 		 name, timeout_msec);
@@ -767,8 +800,6 @@ static int spcom_open(struct spcom_channel *ch, unsigned int timeout_msec)
 		wait_for_completion(&(ch->connect));
 		pr_debug("Channel [%s] opened, no timeout.\n", name);
 	}
-
-	mutex_unlock(&ch->lock);
 
 	return 0;
 exit_err:
@@ -796,6 +827,8 @@ static int spcom_close(struct spcom_channel *ch)
 		return 0;
 	}
 
+	ch->is_closing = true;
+
 	ret = glink_close(ch->glink_handle);
 	if (ret)
 		pr_err("glink_close() fail, ret [%d].\n", ret);
@@ -811,6 +844,7 @@ static int spcom_close(struct spcom_channel *ch)
 	ch->pid = 0;
 
 	pr_debug("Channel closed [%s].\n", ch->name);
+
 	mutex_unlock(&ch->lock);
 
 	return 0;
@@ -2752,7 +2786,7 @@ static int __init spcom_init(void)
 {
 	int ret;
 
-	pr_info("spcom driver Ver 1.0 23-Nov-2015.\n");
+	pr_info("spcom driver version 1.1 17-July-2017.\n");
 
 	ret = platform_driver_register(&spcom_driver);
 	if (ret)
