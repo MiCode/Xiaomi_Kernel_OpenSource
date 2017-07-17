@@ -28,6 +28,14 @@
 				     0x10060 0x3c
 				     0x0 0x4>;
 	};
+
+	timer {
+		clock-frequency = <1000000>;
+	};
+
+	timer@0x17c00000 {
+		clock-frequency = <1000000>;
+	};
 };
 
 &usb0 {
