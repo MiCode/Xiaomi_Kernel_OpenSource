@@ -37,6 +37,8 @@
 		qcom,mdss-dsi-underflow-color = <0xff>;
 		qcom,mdss-dsi-border-color = <0>;
 		qcom,mdss-dsi-reset-sequence = <1 10>, <0 10>, <1 10>;
+		qcom,mdss-pan-physical-width-dimension = <64>;
+		qcom,mdss-pan-physical-height-dimension = <117>;
 		qcom,mdss-dsi-on-command = [
 			15 01 00 00 00 00 02 bb 10
 			15 01 00 00 00 00 02 b0 03

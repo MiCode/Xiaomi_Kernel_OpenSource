@@ -197,6 +197,8 @@
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-reset-sequence = <1 20>, <0 20>, <1 50>;
+		qcom,mdss-pan-physical-width-dimension = <74>;
+		qcom,mdss-pan-physical-height-dimension = <131>;
 		qcom,mdss-dsi-tx-eot-append;
 
 		qcom,config-select = <&dsi_dual_nt35597_truly_video_config0>;
