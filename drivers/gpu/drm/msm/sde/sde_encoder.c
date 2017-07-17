@@ -17,6 +17,7 @@
  */
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
+#include <linux/kthread.h>
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 #include <linux/sde_rsc.h>
@@ -206,7 +207,7 @@ struct sde_encoder_virt {
 	bool idle_pc_supported;
 	struct mutex rc_lock;
 	enum sde_enc_rc_states rc_state;
-	struct delayed_work delayed_off_work;
+	struct kthread_delayed_work delayed_off_work;
 	struct msm_display_topology topology;
 	bool mode_set_complete;
 
@@ -1267,12 +1268,22 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 {
 	bool schedule_off = false;
 	struct sde_encoder_virt *sde_enc;
+	struct msm_drm_private *priv;
+	struct msm_drm_thread *disp_thread;
 
-	if (!drm_enc || !drm_enc->dev || !drm_enc->dev->dev_private) {
+	if (!drm_enc || !drm_enc->dev || !drm_enc->dev->dev_private ||
+			!drm_enc->crtc) {
 		SDE_ERROR("invalid parameters\n");
 		return -EINVAL;
 	}
 	sde_enc = to_sde_encoder_virt(drm_enc);
+	priv = drm_enc->dev->dev_private;
+
+	if (drm_enc->crtc->index >= ARRAY_SIZE(priv->disp_thread)) {
+		SDE_ERROR("invalid crtc index\n");
+		return -EINVAL;
+	}
+	disp_thread = &priv->disp_thread[drm_enc->crtc->index];
 
 	/*
 	 * when idle_pc is not supported, process only KICKOFF and STOP
@@ -1291,7 +1302,8 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 	switch (sw_event) {
 	case SDE_ENC_RC_EVENT_KICKOFF:
 		/* cancel delayed off work, if any */
-		if (cancel_delayed_work_sync(&sde_enc->delayed_off_work))
+		if (kthread_cancel_delayed_work_sync(
+				&sde_enc->delayed_off_work))
 			SDE_DEBUG_ENC(sde_enc, "sw_event:%d, work cancelled\n",
 					sw_event);
 
@@ -1338,8 +1350,10 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		}
 
 		/* schedule delayed off work */
-		schedule_delayed_work(&sde_enc->delayed_off_work,
-					msecs_to_jiffies(IDLE_TIMEOUT));
+		kthread_queue_delayed_work(
+				&disp_thread->worker,
+				&sde_enc->delayed_off_work,
+				msecs_to_jiffies(IDLE_TIMEOUT));
 		SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
 				SDE_EVTLOG_FUNC_CASE2);
 		SDE_DEBUG_ENC(sde_enc, "sw_event:%d, work scheduled\n",
@@ -1348,7 +1362,8 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 
 	case SDE_ENC_RC_EVENT_STOP:
 		/* cancel delayed off work, if any */
-		if (cancel_delayed_work_sync(&sde_enc->delayed_off_work))
+		if (kthread_cancel_delayed_work_sync(
+				&sde_enc->delayed_off_work))
 			SDE_DEBUG_ENC(sde_enc, "sw_event:%d, work cancelled\n",
 					sw_event);
 
@@ -1372,6 +1387,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 
 		SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
 				SDE_ENC_RC_STATE_OFF, SDE_EVTLOG_FUNC_CASE3);
+
 		sde_enc->rc_state = SDE_ENC_RC_STATE_OFF;
 
 		mutex_unlock(&sde_enc->rc_lock);
@@ -1379,7 +1395,8 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 
 	case SDE_ENC_RC_EVENT_EARLY_WAKE_UP:
 		/* cancel delayed off work, if any */
-		if (cancel_delayed_work_sync(&sde_enc->delayed_off_work)) {
+		if (kthread_cancel_delayed_work_sync(
+				&sde_enc->delayed_off_work)) {
 			SDE_DEBUG_ENC(sde_enc, "sw_event:%d, work cancelled\n",
 					sw_event);
 			schedule_off = true;
@@ -1417,7 +1434,9 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		 */
 		if (schedule_off && !sde_crtc_frame_pending(drm_enc->crtc)) {
 			/* schedule delayed off work */
-			schedule_delayed_work(&sde_enc->delayed_off_work,
+			kthread_queue_delayed_work(
+					&disp_thread->worker,
+					&sde_enc->delayed_off_work,
 					msecs_to_jiffies(IDLE_TIMEOUT));
 			SDE_DEBUG_ENC(sde_enc, "sw_event:%d, work scheduled\n",
 					sw_event);
@@ -1432,6 +1451,22 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		if (sde_enc->rc_state != SDE_ENC_RC_STATE_ON) {
 			SDE_DEBUG_ENC(sde_enc, "sw_event:%d, rc:%d !ON state\n",
 					sw_event, sde_enc->rc_state);
+			SDE_EVT32_VERBOSE(DRMID(drm_enc), sw_event,
+					sde_enc->rc_state);
+			mutex_unlock(&sde_enc->rc_lock);
+			return 0;
+		}
+
+		/*
+		 * if we are in ON but a frame was just kicked off,
+		 * ignore the IDLE event, it's probably a stale timer event
+		 */
+		if (sde_enc->frame_busy_mask[0]) {
+			SDE_DEBUG_ENC(sde_enc,
+					"sw_event:%d, rc:%d frame pending\n",
+					sw_event, sde_enc->rc_state);
+			SDE_EVT32_VERBOSE(DRMID(drm_enc), sw_event,
+					sde_enc->rc_state);
 			mutex_unlock(&sde_enc->rc_lock);
 			return 0;
 		}
@@ -1455,11 +1490,10 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 	return 0;
 }
 
-static void sde_encoder_off_work(struct work_struct *work)
+static void sde_encoder_off_work(struct kthread_work *work)
 {
-	struct delayed_work *dw = to_delayed_work(work);
-	struct sde_encoder_virt *sde_enc = container_of(dw,
-			struct sde_encoder_virt, delayed_off_work);
+	struct sde_encoder_virt *sde_enc = container_of(work,
+			struct sde_encoder_virt, delayed_off_work.work);
 
 	if (!sde_enc) {
 		SDE_ERROR("invalid sde encoder\n");
@@ -3038,7 +3072,8 @@ struct drm_encoder *sde_encoder_init(
 	}
 
 	mutex_init(&sde_enc->rc_lock);
-	INIT_DELAYED_WORK(&sde_enc->delayed_off_work, sde_encoder_off_work);
+	kthread_init_delayed_work(&sde_enc->delayed_off_work,
+			sde_encoder_off_work);
 
 	memcpy(&sde_enc->disp_info, disp_info, sizeof(*disp_info));
 
