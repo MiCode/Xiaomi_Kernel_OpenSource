@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -263,10 +263,17 @@ struct msm_slim_bulk_wr {
 	bool		in_progress;
 };
 
+struct msm_slim_iommu {
+	struct device			*cb_dev;
+	struct dma_iommu_mapping	*iommu_map;
+	bool				s1_bypass;
+};
+
 struct msm_slim_ctrl {
 	struct slim_controller  ctrl;
 	struct slim_framer	framer;
 	struct device		*dev;
+	struct msm_slim_iommu	iommu_desc;
 	void __iomem		*base;
 	struct resource		*slew_mem;
 	struct resource		*bam_mem;

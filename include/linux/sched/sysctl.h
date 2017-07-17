@@ -22,6 +22,8 @@ extern unsigned int sysctl_sched_is_big_little;
 extern unsigned int sysctl_sched_sync_hint_enable;
 extern unsigned int sysctl_sched_initial_task_util;
 extern unsigned int sysctl_sched_cstate_aware;
+extern unsigned int sysctl_sched_capacity_margin;
+extern unsigned int sysctl_sched_capacity_margin_down;
 #ifdef CONFIG_SCHED_WALT
 extern unsigned int sysctl_sched_use_walt_cpu_util;
 extern unsigned int sysctl_sched_use_walt_task_util;
@@ -33,6 +35,8 @@ extern unsigned int sysctl_sched_cpu_high_irqload;
 extern unsigned int sysctl_sched_use_walt_cpu_util;
 extern unsigned int sysctl_sched_use_walt_task_util;
 extern unsigned int sysctl_sched_boost;
+extern unsigned int sysctl_sched_group_upmigrate_pct;
+extern unsigned int sysctl_sched_group_downmigrate_pct;
 #endif
 
 #ifdef CONFIG_SCHED_HMP
@@ -53,8 +57,6 @@ extern unsigned int sysctl_sched_spill_nr_run;
 extern unsigned int sysctl_sched_spill_load_pct;
 extern unsigned int sysctl_sched_upmigrate_pct;
 extern unsigned int sysctl_sched_downmigrate_pct;
-extern unsigned int sysctl_sched_group_upmigrate_pct;
-extern unsigned int sysctl_sched_group_downmigrate_pct;
 extern unsigned int sysctl_early_detection_duration;
 extern unsigned int sysctl_sched_small_wakee_task_load_pct;
 extern unsigned int sysctl_sched_big_waker_task_load_pct;
@@ -67,6 +69,14 @@ extern unsigned int sysctl_sched_freq_aggregate_threshold_pct;
 extern unsigned int sysctl_sched_prefer_sync_wakee_to_waker;
 extern unsigned int sysctl_sched_short_burst;
 extern unsigned int sysctl_sched_short_sleep;
+
+#elif defined(CONFIG_SCHED_WALT)
+
+extern int
+walt_proc_update_handler(struct ctl_table *table, int write,
+			 void __user *buffer, size_t *lenp,
+			 loff_t *ppos);
+
 #endif /* CONFIG_SCHED_HMP */
 
 enum sched_tunable_scaling {
@@ -147,6 +157,10 @@ extern int sched_rr_handler(struct ctl_table *table, int write,
 extern int sched_rt_handler(struct ctl_table *table, int write,
 		void __user *buffer, size_t *lenp,
 		loff_t *ppos);
+
+extern int sched_updown_migrate_handler(struct ctl_table *table,
+					int write, void __user *buffer,
+					size_t *lenp, loff_t *ppos);
 
 extern int sysctl_numa_balancing(struct ctl_table *table, int write,
 				 void __user *buffer, size_t *lenp,

@@ -126,10 +126,10 @@ enum vidc_hw_reg {
 };
 
 struct vidc_mem_addr {
-	ion_phys_addr_t align_device_addr;
+	u32 align_device_addr;
 	u8 *align_virtual_addr;
 	u32 mem_size;
-	struct msm_smem *mem_data;
+	struct msm_smem mem_data;
 };
 
 struct vidc_iface_q_info {

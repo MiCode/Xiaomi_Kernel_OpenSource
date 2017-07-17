@@ -408,7 +408,6 @@ static void dspp_3d_gamutv4_off(struct sde_hw_dspp *ctx, void *cfg)
 
 	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, dspp_buf[GAMUT][ctx->idx],
 			REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
-	kick_off.last_command = hw_cfg->last_feature;
 	rc = dma_ops->kick_off(&kick_off);
 	if (rc)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
@@ -505,7 +504,6 @@ void reg_dmav1_setup_dspp_3d_gamutv4(struct sde_hw_dspp *ctx, void *cfg)
 
 	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, dspp_buf[GAMUT][ctx->idx],
 			REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
-	kick_off.last_command = hw_cfg->last_feature;
 	rc = dma_ops->kick_off(&kick_off);
 	if (rc)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
@@ -598,7 +596,6 @@ void reg_dmav1_setup_dspp_gcv18(struct sde_hw_dspp *ctx, void *cfg)
 
 	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, dspp_buf[GC][ctx->idx],
 			REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
-	kick_off.last_command = hw_cfg->last_feature;
 	rc = dma_ops->kick_off(&kick_off);
 	if (rc) {
 		DRM_ERROR("failed to kick off ret %d\n", rc);

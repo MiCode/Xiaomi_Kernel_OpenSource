@@ -202,7 +202,7 @@ static int ad4_mode_setup(struct sde_hw_dspp *dspp, enum ad4_modes mode)
 	} else {
 		info[dspp->idx].state = ad4_state_run;
 		SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset,
-				0);
+				0x100);
 	}
 
 	return 0;

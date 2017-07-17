@@ -46,7 +46,7 @@ static void msm_iommu_detach(struct msm_mmu *mmu, const char * const *names,
 }
 
 static int msm_iommu_map(struct msm_mmu *mmu, uint32_t iova,
-		struct sg_table *sgt, unsigned len, int prot)
+		struct sg_table *sgt, int prot)
 {
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
 	struct iommu_domain *domain = iommu->domain;
@@ -85,7 +85,7 @@ fail:
 }
 
 static int msm_iommu_unmap(struct msm_mmu *mmu, uint32_t iova,
-		struct sg_table *sgt, unsigned len)
+		struct sg_table *sgt)
 {
 	struct msm_iommu *iommu = to_msm_iommu(mmu);
 	struct iommu_domain *domain = iommu->domain;

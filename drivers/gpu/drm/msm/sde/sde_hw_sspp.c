@@ -257,7 +257,10 @@ static void sde_hw_sspp_setup_multirect(struct sde_hw_pipe *ctx,
 	} else {
 		mode_mask = SDE_REG_READ(&ctx->hw, SSPP_MULTIRECT_OPMODE + idx);
 		mode_mask |= index;
-		mode_mask |= (mode == SDE_SSPP_MULTIRECT_TIME_MX) ? 0x4 : 0x0;
+		if (mode == SDE_SSPP_MULTIRECT_TIME_MX)
+			mode_mask |= BIT(2);
+		else
+			mode_mask &= ~BIT(2);
 	}
 
 	SDE_REG_WRITE(&ctx->hw, SSPP_MULTIRECT_OPMODE + idx, mode_mask);
@@ -1223,8 +1226,8 @@ static struct sde_hw_blk_ops sde_hw_ops = {
 };
 
 struct sde_hw_pipe *sde_hw_sspp_init(enum sde_sspp idx,
-			void __iomem *addr,
-			struct sde_mdss_cfg *catalog)
+		void __iomem *addr, struct sde_mdss_cfg *catalog,
+		bool is_virtual_pipe)
 {
 	struct sde_hw_pipe *hw_pipe;
 	struct sde_sspp_cfg *cfg;
@@ -1256,12 +1259,13 @@ struct sde_hw_pipe *sde_hw_sspp_init(enum sde_sspp idx,
 		goto blk_init_error;
 	}
 
-	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name,
+	if (!is_virtual_pipe)
+		sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name,
 			hw_pipe->hw.blk_off,
 			hw_pipe->hw.blk_off + hw_pipe->hw.length,
 			hw_pipe->hw.xin_id);
 
-	if (cfg->sblk->scaler_blk.len)
+	if (cfg->sblk->scaler_blk.len && !is_virtual_pipe)
 		sde_dbg_reg_register_dump_range(SDE_DBG_NAME,
 			cfg->sblk->scaler_blk.name,
 			hw_pipe->hw.blk_off + cfg->sblk->scaler_blk.base,

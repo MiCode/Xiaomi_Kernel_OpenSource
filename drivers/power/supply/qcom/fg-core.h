@@ -51,8 +51,11 @@
 #define PROFILE_LOAD		"fg_profile_load"
 #define DELTA_SOC		"fg_delta_soc"
 
-/* Delta BSOC votable reasons */
+/* Delta BSOC irq votable reasons */
 #define DELTA_BSOC_IRQ_VOTER	"fg_delta_bsoc_irq"
+
+/* Battery missing irq votable reasons */
+#define BATT_MISS_IRQ_VOTER	"fg_batt_miss_irq"
 
 #define DEBUG_PRINT_BUFFER_SIZE		64
 /* 3 byte address + 1 space character */
@@ -361,6 +364,7 @@ struct fg_chip {
 	struct fg_irq_info	*irqs;
 	struct votable		*awake_votable;
 	struct votable		*delta_bsoc_irq_en_votable;
+	struct votable		*batt_miss_irq_en_votable;
 	struct fg_sram_param	*sp;
 	struct fg_alg_flag	*alg_flags;
 	int			*debug_mask;
@@ -467,6 +471,7 @@ extern void dump_sram(u8 *buf, int addr, int len);
 extern int64_t twos_compliment_extend(int64_t val, int s_bit_pos);
 extern s64 fg_float_decode(u16 val);
 extern bool is_input_present(struct fg_chip *chip);
+extern bool is_qnovo_en(struct fg_chip *chip);
 extern void fg_circ_buf_add(struct fg_circ_buf *buf, int val);
 extern void fg_circ_buf_clr(struct fg_circ_buf *buf);
 extern int fg_circ_buf_avg(struct fg_circ_buf *buf, int *avg);

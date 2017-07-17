@@ -61,6 +61,8 @@ struct msm_perf_state;
 struct msm_gem_submit;
 struct msm_fence_context;
 struct msm_fence_cb;
+struct msm_gem_address_space;
+struct msm_gem_vma;
 
 #define NUM_DOMAINS    4    /* one for KMS, then one per gpu core (?) */
 #define MAX_CRTCS      8
@@ -117,6 +119,7 @@ enum msm_mdp_plane_property {
 	PLANE_PROP_ROTATION,
 	PLANE_PROP_BLEND_OP,
 	PLANE_PROP_SRC_CONFIG,
+	PLANE_PROP_FB_TRANSLATION_MODE,
 
 	/* total # of properties */
 	PLANE_PROP_COUNT
@@ -136,11 +139,14 @@ enum msm_mdp_crtc_property {
 	CRTC_PROP_CORE_CLK,
 	CRTC_PROP_CORE_AB,
 	CRTC_PROP_CORE_IB,
-	CRTC_PROP_MEM_AB,
-	CRTC_PROP_MEM_IB,
+	CRTC_PROP_LLCC_AB,
+	CRTC_PROP_LLCC_IB,
+	CRTC_PROP_DRAM_AB,
+	CRTC_PROP_DRAM_IB,
 	CRTC_PROP_ROT_PREFILL_BW,
 	CRTC_PROP_ROT_CLK,
 	CRTC_PROP_ROI_V1,
+	CRTC_PROP_SECURITY_LEVEL,
 
 	/* total # of properties */
 	CRTC_PROP_COUNT
@@ -150,6 +156,7 @@ enum msm_mdp_conn_property {
 	/* blob properties, always put these first */
 	CONNECTOR_PROP_SDE_INFO,
 	CONNECTOR_PROP_HDR_INFO,
+	CONNECTOR_PROP_PP_DITHER,
 
 	/* # of blob properties */
 	CONNECTOR_PROP_BLOBCOUNT,
@@ -471,8 +478,8 @@ struct msm_drm_event {
 	u8 data[];
 };
 
-/* Commit thread specific structure */
-struct msm_drm_commit {
+/* Commit/Event thread specific structure */
+struct msm_drm_thread {
 	struct drm_device *dev;
 	struct task_struct *thread;
 	unsigned int crtc_id;
@@ -526,9 +533,13 @@ struct msm_drm_private {
 	uint32_t pending_crtcs;
 	wait_queue_head_t pending_crtcs_event;
 
-	/* registered MMUs: */
-	unsigned int num_mmus;
-	struct msm_mmu *mmus[NUM_DOMAINS];
+	/* Registered address spaces.. currently this is fixed per # of
+	 * iommu's.  Ie. one for display block and one for gpu block.
+	 * Eventually, to do per-process gpu pagetables, we'll want one
+	 * of these per-process.
+	 */
+	unsigned int num_aspaces;
+	struct msm_gem_address_space *aspace[NUM_DOMAINS];
 
 	unsigned int num_planes;
 	struct drm_plane *planes[MAX_PLANES];
@@ -536,7 +547,8 @@ struct msm_drm_private {
 	unsigned int num_crtcs;
 	struct drm_crtc *crtcs[MAX_CRTCS];
 
-	struct msm_drm_commit disp_thread[MAX_CRTCS];
+	struct msm_drm_thread disp_thread[MAX_CRTCS];
+	struct msm_drm_thread event_thread[MAX_CRTCS];
 
 	unsigned int num_encoders;
 	struct drm_encoder *encoders[MAX_ENCODERS];
@@ -632,10 +644,29 @@ static inline bool msm_is_suspend_blocked(struct drm_device *dev)
 int msm_atomic_commit(struct drm_device *dev,
 		struct drm_atomic_state *state, bool nonblock);
 
-int msm_register_mmu(struct drm_device *dev, struct msm_mmu *mmu);
-void msm_unregister_mmu(struct drm_device *dev, struct msm_mmu *mmu);
-
 void msm_gem_submit_free(struct msm_gem_submit *submit);
+void msm_gem_unmap_vma(struct msm_gem_address_space *aspace,
+		struct msm_gem_vma *vma, struct sg_table *sgt,
+		void *priv);
+int msm_gem_map_vma(struct msm_gem_address_space *aspace,
+		struct msm_gem_vma *vma, struct sg_table *sgt,
+		void *priv, unsigned int flags);
+void msm_gem_address_space_destroy(struct msm_gem_address_space *aspace);
+
+/* For GPU and legacy display */
+struct msm_gem_address_space *
+msm_gem_address_space_create(struct device *dev, struct iommu_domain *domain,
+		const char *name);
+
+/* For SDE  display */
+struct msm_gem_address_space *
+msm_gem_smmu_address_space_create(struct device *dev, struct msm_mmu *mmu,
+		const char *name);
+
+struct msm_gem_address_space *
+msm_gem_smmu_address_space_get(struct drm_device *dev,
+		unsigned int domain);
+
 int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 		struct drm_file *file);
 
@@ -647,13 +678,16 @@ int msm_gem_mmap_obj(struct drm_gem_object *obj,
 int msm_gem_mmap(struct file *filp, struct vm_area_struct *vma);
 int msm_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf);
 uint64_t msm_gem_mmap_offset(struct drm_gem_object *obj);
-int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
-		uint32_t *iova);
-int msm_gem_get_iova(struct drm_gem_object *obj, int id, uint32_t *iova);
-uint32_t msm_gem_iova(struct drm_gem_object *obj, int id);
+int msm_gem_get_iova_locked(struct drm_gem_object *obj,
+		struct msm_gem_address_space *aspace, uint32_t *iova);
+int msm_gem_get_iova(struct drm_gem_object *obj,
+		struct msm_gem_address_space *aspace, uint32_t *iova);
+uint32_t msm_gem_iova(struct drm_gem_object *obj,
+		struct msm_gem_address_space *aspace);
 struct page **msm_gem_get_pages(struct drm_gem_object *obj);
 void msm_gem_put_pages(struct drm_gem_object *obj);
-void msm_gem_put_iova(struct drm_gem_object *obj, int id);
+void msm_gem_put_iova(struct drm_gem_object *obj,
+		struct msm_gem_address_space *aspace);
 int msm_gem_dumb_create(struct drm_file *file, struct drm_device *dev,
 		struct drm_mode_create_dumb *args);
 int msm_gem_dumb_map_offset(struct drm_file *file, struct drm_device *dev,
@@ -690,9 +724,12 @@ struct drm_gem_object *msm_gem_import(struct drm_device *dev,
 		struct dma_buf *dmabuf, struct sg_table *sgt);
 
 void msm_framebuffer_set_kmap(struct drm_framebuffer *fb, bool enable);
-int msm_framebuffer_prepare(struct drm_framebuffer *fb, int id);
-void msm_framebuffer_cleanup(struct drm_framebuffer *fb, int id);
-uint32_t msm_framebuffer_iova(struct drm_framebuffer *fb, int id, int plane);
+int msm_framebuffer_prepare(struct drm_framebuffer *fb,
+		struct msm_gem_address_space *aspace);
+void msm_framebuffer_cleanup(struct drm_framebuffer *fb,
+		struct msm_gem_address_space *aspace);
+uint32_t msm_framebuffer_iova(struct drm_framebuffer *fb,
+		struct msm_gem_address_space *aspace, int plane);
 struct drm_gem_object *msm_framebuffer_bo(struct drm_framebuffer *fb, int plane);
 const struct msm_format *msm_framebuffer_format(struct drm_framebuffer *fb);
 struct drm_framebuffer *msm_framebuffer_init(struct drm_device *dev,
@@ -729,7 +766,7 @@ enum msm_dsi_encoder_id {
  * @event: event that needs to be notified.
  * @payload: payload for the event.
  */
-void msm_mode_object_event_nofity(struct drm_mode_object *obj,
+void msm_mode_object_event_notify(struct drm_mode_object *obj,
 		struct drm_device *dev, struct drm_event *event, u8 *payload);
 #ifdef CONFIG_DRM_MSM_DSI
 void __init msm_dsi_register(void);
@@ -771,6 +808,7 @@ static inline void msm_rd_dump_submit(struct msm_gem_submit *submit) {}
 
 void __iomem *msm_ioremap(struct platform_device *pdev, const char *name,
 		const char *dbgname);
+unsigned long msm_iomap_size(struct platform_device *pdev, const char *name);
 void msm_iounmap(struct platform_device *dev, void __iomem *addr);
 void msm_writel(u32 data, void __iomem *addr);
 u32 msm_readl(const void __iomem *addr);

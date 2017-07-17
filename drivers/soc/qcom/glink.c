@@ -1930,6 +1930,7 @@ check_ctx:
 			kfree(flcid);
 		}
 
+		ctx->transport_ptr = xprt_ctx;
 		list_add_tail(&ctx->port_list_node, &xprt_ctx->channels);
 
 		GLINK_INFO_PERF_CH_XPRT(ctx, xprt_ctx,
@@ -2616,7 +2617,6 @@ void *glink_open(const struct glink_open_config *cfg)
 	ctx->local_xprt_req = best_id;
 	ctx->no_migrate = cfg->transport &&
 				!(cfg->options & GLINK_OPT_INITIAL_XPORT);
-	ctx->transport_ptr = transport_ptr;
 	ctx->local_open_state = GLINK_CHANNEL_OPENING;
 	GLINK_INFO_PERF_CH(ctx,
 		"%s: local:GLINK_CHANNEL_CLOSED->GLINK_CHANNEL_OPENING\n",
@@ -2862,7 +2862,7 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 	struct channel_ctx *ctx = (struct channel_ctx *)handle;
 	uint32_t riid;
 	int ret = 0;
-	struct glink_core_tx_pkt *tx_info;
+	struct glink_core_tx_pkt *tx_info = NULL;
 	size_t intent_size;
 	bool is_atomic =
 		tx_flags & (GLINK_TX_SINGLE_THREADED | GLINK_TX_ATOMIC);
@@ -2877,6 +2877,13 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 		return ret;
 
 	rwref_read_get_atomic(&ctx->ch_state_lhb2, is_atomic);
+	tx_info = kzalloc(sizeof(struct glink_core_tx_pkt),
+				is_atomic ? GFP_ATOMIC : GFP_KERNEL);
+	if (!tx_info) {
+		GLINK_ERR_CH(ctx, "%s: No memory for allocation\n", __func__);
+		ret = -ENOMEM;
+		goto glink_tx_common_err;
+	}
 	if (!(vbuf_provider || pbuf_provider)) {
 		ret = -EINVAL;
 		goto glink_tx_common_err;
@@ -2996,14 +3003,7 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 	GLINK_INFO_PERF_CH(ctx, "%s: R[%u]:%zu data[%p], size[%zu]. TID %u\n",
 			__func__, riid, intent_size,
 			data ? data : iovec, size, current->pid);
-	tx_info = kzalloc(sizeof(struct glink_core_tx_pkt),
-				is_atomic ? GFP_ATOMIC : GFP_KERNEL);
-	if (!tx_info) {
-		GLINK_ERR_CH(ctx, "%s: No memory for allocation\n", __func__);
-		ch_push_remote_rx_intent(ctx, intent_size, riid, cookie);
-		ret = -ENOMEM;
-		goto glink_tx_common_err;
-	}
+
 	rwref_lock_init(&tx_info->pkt_ref, glink_tx_pkt_release);
 	INIT_LIST_HEAD(&tx_info->list_done);
 	INIT_LIST_HEAD(&tx_info->list_node);
@@ -3028,10 +3028,15 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 	else
 		xprt_schedule_tx(ctx->transport_ptr, ctx, tx_info);
 
+	rwref_read_put(&ctx->ch_state_lhb2);
+	glink_put_ch_ctx(ctx, false);
+	return ret;
+
 glink_tx_common_err:
 	rwref_read_put(&ctx->ch_state_lhb2);
 glink_tx_common_err_2:
 	glink_put_ch_ctx(ctx, false);
+	kfree(tx_info);
 	return ret;
 }
 
@@ -4095,7 +4100,7 @@ static struct glink_core_xprt_ctx *glink_create_dummy_xprt_ctx(
 	xprt_ptr = kzalloc(sizeof(*xprt_ptr), GFP_KERNEL);
 	if (!xprt_ptr)
 		return ERR_PTR(-ENOMEM);
-	if_ptr = kmalloc(sizeof(*if_ptr), GFP_KERNEL);
+	if_ptr = kzalloc(sizeof(*if_ptr), GFP_KERNEL);
 	if (!if_ptr) {
 		kfree(xprt_ptr);
 		return ERR_PTR(-ENOMEM);

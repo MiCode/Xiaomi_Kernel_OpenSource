@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,7 @@
 #include <linux/highmem.h>
 #include <linux/cma.h>
 #include <linux/module.h>
+#include <linux/bitops.h>
 #include <linux/show_mem_notifier.h>
 #include <asm/cacheflush.h>
 #include "../ion_priv.h"
@@ -618,7 +619,32 @@ bool is_secure_vmid_valid(int vmid)
 		vmid == VMID_CP_CAMERA ||
 		vmid == VMID_CP_SEC_DISPLAY ||
 		vmid == VMID_CP_APP ||
-		vmid == VMID_CP_CAMERA_PREVIEW);
+		vmid == VMID_CP_CAMERA_PREVIEW ||
+		vmid == VMID_CP_SPSS_SP ||
+		vmid == VMID_CP_SPSS_SP_SHARED);
+}
+
+unsigned int count_set_bits(unsigned long val)
+{
+	return ((unsigned int)bitmap_weight(&val, BITS_PER_LONG));
+}
+
+int populate_vm_list(unsigned long flags, unsigned int *vm_list,
+		     int nelems)
+{
+	unsigned int itr = 0;
+	int vmid;
+
+	flags = flags & ION_FLAGS_CP_MASK;
+	for_each_set_bit(itr, &flags, BITS_PER_LONG) {
+		vmid = get_secure_vmid(0x1UL << itr);
+		if (vmid < 0 || !nelems)
+			return -EINVAL;
+
+		vm_list[nelems - 1] = vmid;
+		nelems--;
+	}
+	return 0;
 }
 
 int get_secure_vmid(unsigned long flags)
@@ -639,6 +665,10 @@ int get_secure_vmid(unsigned long flags)
 		return VMID_CP_APP;
 	if (flags & ION_FLAG_CP_CAMERA_PREVIEW)
 		return VMID_CP_CAMERA_PREVIEW;
+	if (flags & ION_FLAG_CP_SPSS_SP)
+		return VMID_CP_SPSS_SP;
+	if (flags & ION_FLAG_CP_SPSS_SP_SHARED)
+		return VMID_CP_SPSS_SP_SHARED;
 	return -EINVAL;
 }
 /* fix up the cases where the ioctl direction bits are incorrect */

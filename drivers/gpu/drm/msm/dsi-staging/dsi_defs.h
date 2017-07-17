@@ -9,7 +9,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
  */
 
 #ifndef _DSI_DEFS_H_
@@ -36,6 +35,7 @@
 		value;\
 	})
 
+#define DSI_DEBUG_NAME_LEN		32
 /**
  * enum dsi_pixel_format - DSI pixel formats
  * @DSI_PIXEL_FORMAT_RGB565:
@@ -446,5 +446,14 @@ static inline bool dsi_rect_is_equal(struct dsi_rect *r1,
 			r1->h == r2->h;
 }
 
+struct dsi_event_cb_info {
+	uint32_t event_idx;
+	void *event_usr_ptr;
+
+	int (*event_cb)(void *event_usr_ptr,
+		uint32_t event_idx, uint32_t instance_idx,
+		uint32_t data0, uint32_t data1,
+		uint32_t data2, uint32_t data3);
+};
 
 #endif /* _DSI_DEFS_H_ */

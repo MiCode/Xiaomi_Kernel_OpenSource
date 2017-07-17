@@ -20,7 +20,6 @@
 #include <linux/mfd/wcd9xxx/core.h>
 #include <sound/cpe_cmi.h>
 #include <sound/soc.h>
-#include <linux/mfd/wcd9xxx/wcd9330_registers.h>
 #include <linux/mfd/wcd9335/registers.h>
 #include "wcd_cpe_services.h"
 #include "wcd_cmi_api.h"
@@ -45,9 +44,6 @@
 #define MEM_ACCESS_DRAM_VAL			0x2
 #define LISTEN_CTL_SPE_VAL			0x0
 #define LISTEN_CTL_MSM_VAL			0x1
-
-#define TOMTOM_A_SVASS_SPE_INBOX(N)	(TOMTOM_A_SVASS_SPE_INBOX_0 + (N))
-#define TOMTOM_A_SVASS_SPE_OUTBOX(N)	(TOMTOM_A_SVASS_SPE_OUTBOX_0 + (N))
 
 #define WCD9335_CPE_SS_SPE_DRAM_OFFSET		0x48000
 #define WCD9335_CPE_SS_SPE_DRAM_SIZE		0x34000
@@ -316,8 +312,7 @@ static int cpe_register_write(u32 reg, u32 val)
 {
 	int ret = 0;
 
-	if (reg != TOMTOM_A_SVASS_MEM_BANK &&
-	    reg != WCD9335_CPE_SS_MEM_BANK_0)
+	if (reg != WCD9335_CPE_SS_MEM_BANK_0)
 		pr_debug("%s: reg = 0x%x, value = 0x%x\n",
 			  __func__, reg, val);
 
@@ -2149,73 +2144,27 @@ fail_cmd:
 
 static enum cpe_svc_result cpe_tgt_tomtom_boot(int debug_mode)
 {
-	enum cpe_svc_result rc = CPE_SVC_SUCCESS;
-
-	if (!debug_mode)
-		rc = cpe_update_bits(TOMTOM_A_SVASS_CPAR_WDOG_CFG,
-				     0x3F, 0x31);
-	else
-		pr_info("%s: CPE in debug mode, WDOG disabled\n",
-			__func__);
-
-	rc = cpe_update_bits(TOMTOM_A_SVASS_CLKRST_CTL,
-			     0x02, 0x00);
-	rc = cpe_update_bits(TOMTOM_A_SVASS_CLKRST_CTL,
-			     0x0C, 0x04);
-	rc = cpe_update_bits(TOMTOM_A_SVASS_CPAR_CFG,
-			     0x01, 0x01);
-
-	return rc;
+	return CPE_SVC_SUCCESS;
 }
 
 static u32 cpe_tgt_tomtom_is_cpar_init_done(void)
 {
-	u8 status = 0;
-
-	cpe_register_read(TOMTOM_A_SVASS_STATUS, &status);
-	return status & 0x01;
+	return 0;
 }
 
 static u32 cpe_tgt_tomtom_is_active(void)
 {
-	u8 status = 0;
-
-	cpe_register_read(TOMTOM_A_SVASS_STATUS, &status);
-	return status & 0x04;
+	return 0;
 }
 
 static enum cpe_svc_result cpe_tgt_tomtom_reset(void)
 {
-	enum cpe_svc_result rc = CPE_SVC_SUCCESS;
-
-	rc = cpe_update_bits(TOMTOM_A_SVASS_CPAR_WDOG_CFG,
-			     0x30, 0x00);
-
-	rc = cpe_update_bits(TOMTOM_A_SVASS_CPAR_CFG,
-			     0x01, 0x00);
-	rc = cpe_update_bits(TOMTOM_A_MEM_LEAKAGE_CTL,
-			     0x07, 0x03);
-	rc = cpe_update_bits(TOMTOM_A_SVASS_CLKRST_CTL,
-			     0x08, 0x08);
-	rc = cpe_update_bits(TOMTOM_A_SVASS_CLKRST_CTL,
-			     0x02, 0x02);
-	return rc;
+	return CPE_SVC_SUCCESS;
 }
 
 enum cpe_svc_result cpe_tgt_tomtom_voicetx(bool enable)
 {
-	enum cpe_svc_result rc = CPE_SVC_SUCCESS;
-	u8 val = 0;
-
-	if (enable)
-		val = 0x02;
-	else
-		val = 0x00;
-	rc = cpe_update_bits(TOMTOM_A_SVASS_CFG,
-			     0x02, val);
-	val = 0;
-	cpe_register_read(TOMTOM_A_SVASS_CFG, &val);
-	return rc;
+	return CPE_SVC_SUCCESS;
 }
 
 enum cpe_svc_result cpe_svc_toggle_lab(void *cpe_handle, bool enable)
@@ -2235,251 +2184,37 @@ enum cpe_svc_result cpe_svc_toggle_lab(void *cpe_handle, bool enable)
 static enum cpe_svc_result cpe_tgt_tomtom_read_mailbox(u8 *buffer,
 	size_t size)
 {
-	enum cpe_svc_result rc = CPE_SVC_SUCCESS;
-	u32 cnt = 0;
-
-	if (size >= TOMTOM_A_SVASS_SPE_OUTBOX_SIZE)
-		size = TOMTOM_A_SVASS_SPE_OUTBOX_SIZE - 1;
-	for (cnt = 0; (cnt < size) && (rc == CPE_SVC_SUCCESS); cnt++) {
-		rc = cpe_register_read(TOMTOM_A_SVASS_SPE_OUTBOX(cnt),
-			&(buffer[cnt]));
-	}
-	return rc;
+	return CPE_SVC_SUCCESS;
 }
 
 static enum cpe_svc_result cpe_tgt_tomtom_write_mailbox(u8 *buffer,
 	size_t size)
 {
-	enum cpe_svc_result rc = CPE_SVC_SUCCESS;
-	u32 cnt = 0;
-
-	if (size >= TOMTOM_A_SVASS_SPE_INBOX_SIZE)
-		size = TOMTOM_A_SVASS_SPE_INBOX_SIZE - 1;
-	for (cnt = 0; (cnt < size) && (rc == CPE_SVC_SUCCESS); cnt++) {
-		rc = cpe_register_write(TOMTOM_A_SVASS_SPE_INBOX(cnt),
-			buffer[cnt]);
-	}
-
-	if (rc == CPE_SVC_SUCCESS)
-		rc = cpe_register_write(TOMTOM_A_SVASS_SPE_INBOX_TRG, 1);
-
-	return rc;
-}
-
-static enum cpe_svc_result cpe_get_mem_addr(struct cpe_info *t_info,
-		const struct cpe_svc_mem_segment *mem_seg,
-		u32 *addr, u8 *mem)
-{
-	enum cpe_svc_result rc = CPE_SVC_SUCCESS;
-	u32 offset, mem_sz, address;
-	u8 mem_type;
-
-	switch (mem_seg->type) {
-
-	case CPE_SVC_DATA_MEM:
-		mem_type = MEM_ACCESS_DRAM_VAL;
-		offset = TOMTOM_A_SVASS_SPE_DRAM_OFFSET;
-		mem_sz = TOMTOM_A_SVASS_SPE_DRAM_SIZE;
-		break;
-
-	case CPE_SVC_INSTRUCTION_MEM:
-		mem_type = MEM_ACCESS_IRAM_VAL;
-		offset = TOMTOM_A_SVASS_SPE_IRAM_OFFSET;
-		mem_sz = TOMTOM_A_SVASS_SPE_IRAM_SIZE;
-		break;
-
-	default:
-		pr_err("%s: Invalid mem type = %u\n",
-			__func__, mem_seg->type);
-		return CPE_SVC_INVALID_HANDLE;
-	}
-
-	if (mem_seg->cpe_addr < offset) {
-		pr_err("%s: Invalid addr %x for mem type %u\n",
-			__func__, mem_seg->cpe_addr, mem_type);
-			return CPE_SVC_INVALID_HANDLE;
-	}
-
-	address = mem_seg->cpe_addr - offset;
-	if (address + mem_seg->size > mem_sz) {
-		pr_err("%s: wrong size %zu, start address %x, mem_type %u\n",
-			__func__, mem_seg->size, address, mem_type);
-		return CPE_SVC_INVALID_HANDLE;
-	}
-
-	(*addr) = address;
-	(*mem) = mem_type;
-
-	return rc;
+	return CPE_SVC_SUCCESS;
 }
 
 static enum cpe_svc_result cpe_tgt_tomtom_read_RAM(struct cpe_info *t_info,
 		struct cpe_svc_mem_segment *mem_seg)
 {
-	enum cpe_svc_result rc = CPE_SVC_SUCCESS;
-	u8 mem_reg_val = 0;
-	u32 cnt = 0;
-	bool autoinc;
-	u8 mem = MEM_ACCESS_NONE_VAL;
-	u32 addr = 0;
-	u32 ptr_update = true;
-
-	if (!mem_seg) {
-		pr_err("%s: Invalid mem segment\n",
-			__func__);
-		return CPE_SVC_INVALID_HANDLE;
-	}
-
-	rc = cpe_get_mem_addr(t_info, mem_seg, &addr, &mem);
-
-	if (rc != CPE_SVC_SUCCESS) {
-		pr_err("%s: Cannot obtain address, mem_type %u\n",
-			__func__, mem_seg->type);
-		return rc;
-	}
-
-	rc = cpe_register_write(TOMTOM_A_SVASS_MEM_CTL, 0);
-	autoinc = cpe_register_read_autoinc_supported();
-	if (autoinc)
-		mem_reg_val |= 0x04;
-
-	mem_reg_val |= 0x08;
-	mem_reg_val |= mem;
-
-	do {
-		if (!autoinc || ptr_update) {
-			rc = cpe_register_write(TOMTOM_A_SVASS_MEM_PTR0,
-				(addr & 0xFF));
-			rc = cpe_register_write(TOMTOM_A_SVASS_MEM_PTR1,
-				((addr >> 8) & 0xFF));
-			rc = cpe_register_write(TOMTOM_A_SVASS_MEM_PTR2,
-				((addr >> 16) & 0xFF));
-
-			rc = cpe_register_write(TOMTOM_A_SVASS_MEM_CTL,
-						mem_reg_val);
-
-			ptr_update = false;
-		}
-		rc = cpe_register_read(TOMTOM_A_SVASS_MEM_BANK,
-			&mem_seg->data[cnt]);
-
-		if (!autoinc)
-			rc = cpe_register_write(TOMTOM_A_SVASS_MEM_CTL, 0);
-	} while (++cnt < mem_seg->size);
-
-	rc = cpe_register_write(TOMTOM_A_SVASS_MEM_CTL, 0);
-
-	return rc;
+	return CPE_SVC_SUCCESS;
 }
 
 static enum cpe_svc_result cpe_tgt_tomtom_write_RAM(struct cpe_info *t_info,
 		const struct cpe_svc_mem_segment *mem_seg)
 {
-	enum cpe_svc_result rc = CPE_SVC_SUCCESS;
-	u8 mem_reg_val = 0;
-	u8 mem = MEM_ACCESS_NONE_VAL;
-	u32 addr = 0;
-	u8 *temp_ptr = NULL;
-	u32 temp_size = 0;
-	bool autoinc;
-
-	if (!mem_seg) {
-		pr_err("%s: Invalid mem segment\n",
-			__func__);
-		return CPE_SVC_INVALID_HANDLE;
-	}
-
-	rc = cpe_get_mem_addr(t_info, mem_seg, &addr, &mem);
-
-	if (rc != CPE_SVC_SUCCESS) {
-		pr_err("%s: Cannot obtain address, mem_type %u\n",
-			__func__, mem_seg->type);
-		return rc;
-	}
-
-	autoinc = cpe_register_read_autoinc_supported();
-	if (autoinc)
-		mem_reg_val |= 0x04;
-	mem_reg_val |= mem;
-
-	rc = cpe_update_bits(TOMTOM_A_SVASS_MEM_CTL,
-			     0x0F, mem_reg_val);
-
-	rc = cpe_register_write(TOMTOM_A_SVASS_MEM_PTR0,
-				(addr & 0xFF));
-	rc = cpe_register_write(TOMTOM_A_SVASS_MEM_PTR1,
-				((addr >> 8) & 0xFF));
-
-	rc = cpe_register_write(TOMTOM_A_SVASS_MEM_PTR2,
-				((addr >> 16) & 0xFF));
-
-	temp_size = 0;
-	temp_ptr = mem_seg->data;
-
-	while (temp_size <= mem_seg->size) {
-		u32 to_write = (mem_seg->size >= temp_size+CHUNK_SIZE)
-			? CHUNK_SIZE : (mem_seg->size-temp_size);
-
-		if (t_info->state == CPE_STATE_OFFLINE) {
-			pr_err("%s: CPE is offline\n", __func__);
-			return CPE_SVC_FAILED;
-		}
-
-		cpe_register_write_repeat(TOMTOM_A_SVASS_MEM_BANK,
-			temp_ptr, to_write);
-		temp_size += CHUNK_SIZE;
-		temp_ptr += CHUNK_SIZE;
-	}
-
-	rc = cpe_register_write(TOMTOM_A_SVASS_MEM_CTL, 0);
-	return rc;
+	return CPE_SVC_SUCCESS;
 }
 
 static enum cpe_svc_result cpe_tgt_tomtom_route_notification(
 		enum cpe_svc_module module,
 		enum cpe_svc_route_dest dest)
 {
-	enum cpe_svc_result rc = CPE_SVC_SUCCESS;
-	u8 ctl_reg_val = 0;
-
-	switch (module) {
-	case CPE_SVC_LISTEN_PROC:
-		switch (dest) {
-		case CPE_SVC_EXTERNAL:
-			ctl_reg_val = LISTEN_CTL_MSM_VAL;
-			break;
-		case CPE_SVC_INTERNAL:
-			ctl_reg_val = LISTEN_CTL_SPE_VAL;
-			break;
-		default:
-			pr_err("%s: Invalid dest %d\n",
-				__func__, dest);
-			return CPE_SVC_FAILED;
-		}
-
-		rc = cpe_update_bits(TOMTOM_A_SVASS_CFG,
-				     0x01, ctl_reg_val);
-		break;
-	default:
-		pr_err("%s: Invalid module %d\n",
-			__func__, module);
-		rc = CPE_SVC_FAILED;
-		break;
-	}
-
-	return rc;
+	return CPE_SVC_SUCCESS;
 }
 
 static enum cpe_svc_result cpe_tgt_tomtom_set_debug_mode(u32 enable)
 {
-	enum cpe_svc_result rc = CPE_SVC_SUCCESS;
-	u8 dbg_reg_val = 0x00;
-
-	if (enable)
-		dbg_reg_val = 0x08;
-	rc = cpe_update_bits(TOMTOM_A_SVASS_DEBUG,
-			     0x08, dbg_reg_val);
-	return rc;
+	return CPE_SVC_SUCCESS;
 }
 
 static const struct cpe_svc_hw_cfg *cpe_tgt_tomtom_get_cpe_info(void)

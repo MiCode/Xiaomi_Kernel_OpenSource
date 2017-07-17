@@ -406,30 +406,63 @@ err_disable_irq:
 		return IRQ_NONE;
 }
 
+/**
+ * wcd9xxx_free_irq
+ *
+ * @wcd9xxx_res: pointer to core resource
+ * irq: irq number
+ * @data: data pointer
+ *
+ */
 void wcd9xxx_free_irq(struct wcd9xxx_core_resource *wcd9xxx_res,
 			int irq, void *data)
 {
 	free_irq(phyirq_to_virq(wcd9xxx_res, irq), data);
 }
+EXPORT_SYMBOL(wcd9xxx_free_irq);
 
+/**
+ * wcd9xxx_enable_irq
+ *
+ * @wcd9xxx_res: pointer to core resource
+ * irq: irq number
+ *
+ */
 void wcd9xxx_enable_irq(struct wcd9xxx_core_resource *wcd9xxx_res, int irq)
 {
 	if (wcd9xxx_res->irq)
 		enable_irq(phyirq_to_virq(wcd9xxx_res, irq));
 }
+EXPORT_SYMBOL(wcd9xxx_enable_irq);
 
+/**
+ * wcd9xxx_disable_irq
+ *
+ * @wcd9xxx_res: pointer to core resource
+ * irq: irq number
+ *
+ */
 void wcd9xxx_disable_irq(struct wcd9xxx_core_resource *wcd9xxx_res, int irq)
 {
 	if (wcd9xxx_res->irq)
 		disable_irq_nosync(phyirq_to_virq(wcd9xxx_res, irq));
 }
+EXPORT_SYMBOL(wcd9xxx_disable_irq);
 
+/**
+ * wcd9xxx_disable_irq_sync
+ *
+ * @wcd9xxx_res: pointer to core resource
+ * irq: irq number
+ *
+ */
 void wcd9xxx_disable_irq_sync(
 			struct wcd9xxx_core_resource *wcd9xxx_res, int irq)
 {
 	if (wcd9xxx_res->irq)
 		disable_irq(phyirq_to_virq(wcd9xxx_res, irq));
 }
+EXPORT_SYMBOL(wcd9xxx_disable_irq_sync);
 
 static int wcd9xxx_irq_setup_downstream_irq(
 			struct wcd9xxx_core_resource *wcd9xxx_res)
@@ -470,6 +503,13 @@ static int wcd9xxx_irq_setup_downstream_irq(
 	return 0;
 }
 
+/**
+ * wcd9xxx_irq_init
+ *
+ * @wcd9xxx_res: pointer to core resource
+ *
+ * Returns 0 on success, appropriate error code otherwise
+ */
 int wcd9xxx_irq_init(struct wcd9xxx_core_resource *wcd9xxx_res)
 {
 	int i, ret;
@@ -568,6 +608,7 @@ fail_irq_init:
 	mutex_destroy(&wcd9xxx_res->nested_irq_lock);
 	return ret;
 }
+EXPORT_SYMBOL(wcd9xxx_irq_init);
 
 int wcd9xxx_request_irq(struct wcd9xxx_core_resource *wcd9xxx_res,
 			int irq, irq_handler_t handler,
@@ -580,6 +621,7 @@ int wcd9xxx_request_irq(struct wcd9xxx_core_resource *wcd9xxx_res,
 	return request_threaded_irq(virq, NULL, handler, IRQF_TRIGGER_RISING,
 				    name, data);
 }
+EXPORT_SYMBOL(wcd9xxx_request_irq);
 
 void wcd9xxx_irq_exit(struct wcd9xxx_core_resource *wcd9xxx_res)
 {
@@ -799,15 +841,13 @@ static struct platform_driver wcd9xxx_irq_driver = {
 	},
 };
 
-static int wcd9xxx_irq_drv_init(void)
+int wcd9xxx_irq_drv_init(void)
 {
 	return platform_driver_register(&wcd9xxx_irq_driver);
 }
-subsys_initcall(wcd9xxx_irq_drv_init);
 
-static void wcd9xxx_irq_drv_exit(void)
+void wcd9xxx_irq_drv_exit(void)
 {
 	platform_driver_unregister(&wcd9xxx_irq_driver);
 }
-module_exit(wcd9xxx_irq_drv_exit);
 #endif /* CONFIG_OF */

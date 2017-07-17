@@ -108,6 +108,7 @@ int wcd_resmgr_get_clk_type(struct wcd9xxx_resmgr_v2 *resmgr)
 	}
 	return resmgr->clk_type;
 }
+EXPORT_SYMBOL(wcd_resmgr_get_clk_type);
 
 static void wcd_resmgr_cdc_specific_get_clk(struct wcd9xxx_resmgr_v2 *resmgr,
 						int clk_users)
@@ -123,6 +124,10 @@ static void wcd_resmgr_cdc_specific_get_clk(struct wcd9xxx_resmgr_v2 *resmgr,
 	}
 }
 
+/*
+ * wcd_resmgr_post_ssr_v2
+ * @resmgr: handle to struct wcd9xxx_resmgr_v2
+ */
 void wcd_resmgr_post_ssr_v2(struct wcd9xxx_resmgr_v2 *resmgr)
 {
 	int old_bg_audio_users;
@@ -157,7 +162,7 @@ void wcd_resmgr_post_ssr_v2(struct wcd9xxx_resmgr_v2 *resmgr)
 
 	WCD9XXX_V2_BG_CLK_UNLOCK(resmgr);
 }
-
+EXPORT_SYMBOL(wcd_resmgr_post_ssr_v2);
 
 /*
  * wcd_resmgr_enable_master_bias: enable codec master bias
@@ -190,6 +195,7 @@ int wcd_resmgr_enable_master_bias(struct wcd9xxx_resmgr_v2 *resmgr)
 	mutex_unlock(&resmgr->master_bias_lock);
 	return 0;
 }
+EXPORT_SYMBOL(wcd_resmgr_enable_master_bias);
 
 /*
  * wcd_resmgr_disable_master_bias: disable codec master bias
@@ -213,6 +219,7 @@ int wcd_resmgr_disable_master_bias(struct wcd9xxx_resmgr_v2 *resmgr)
 	mutex_unlock(&resmgr->master_bias_lock);
 	return 0;
 }
+EXPORT_SYMBOL(wcd_resmgr_disable_master_bias);
 
 static int wcd_resmgr_enable_clk_mclk(struct wcd9xxx_resmgr_v2 *resmgr)
 {
@@ -511,6 +518,7 @@ int wcd_resmgr_enable_clk_block(struct wcd9xxx_resmgr_v2 *resmgr,
 
 	return ret;
 }
+EXPORT_SYMBOL(wcd_resmgr_enable_clk_block);
 
 void wcd_resmgr_set_sido_input_src(struct wcd9xxx_resmgr_v2 *resmgr,
 					  int sido_src)
@@ -601,6 +609,7 @@ int wcd_resmgr_disable_clk_block(struct wcd9xxx_resmgr_v2 *resmgr,
 
 	return ret;
 }
+EXPORT_SYMBOL(wcd_resmgr_disable_clk_block);
 
 /*
  * wcd_resmgr_init: initialize wcd resource manager
@@ -639,6 +648,7 @@ struct wcd9xxx_resmgr_v2 *wcd_resmgr_init(
 
 	return resmgr;
 }
+EXPORT_SYMBOL(wcd_resmgr_init);
 
 /*
  * wcd_resmgr_remove: Clean-up wcd resource manager
@@ -649,6 +659,7 @@ void wcd_resmgr_remove(struct wcd9xxx_resmgr_v2 *resmgr)
 	mutex_destroy(&resmgr->master_bias_lock);
 	kfree(resmgr);
 }
+EXPORT_SYMBOL(wcd_resmgr_remove);
 
 /*
  * wcd_resmgr_post_init: post init call to assign codec handle
@@ -676,5 +687,7 @@ int wcd_resmgr_post_init(struct wcd9xxx_resmgr_v2 *resmgr,
 
 	return 0;
 }
+EXPORT_SYMBOL(wcd_resmgr_post_init);
+
 MODULE_DESCRIPTION("wcd9xxx resmgr v2 module");
 MODULE_LICENSE("GPL v2");

@@ -100,45 +100,6 @@ static void release_rq_locks_irqrestore(const cpumask_t *cpus,
 	local_irq_restore(*flags);
 }
 
-struct timer_list sched_grp_timer;
-static void sched_agg_grp_load(unsigned long data)
-{
-	struct sched_cluster *cluster;
-	unsigned long flags;
-	int cpu;
-
-	acquire_rq_locks_irqsave(cpu_possible_mask, &flags);
-
-	for_each_sched_cluster(cluster) {
-		u64 aggr_grp_load = 0;
-
-		for_each_cpu(cpu, &cluster->cpus) {
-			struct rq *rq = cpu_rq(cpu);
-
-			if (rq->curr)
-				update_task_ravg(rq->curr, rq, TASK_UPDATE,
-						sched_ktime_clock(), 0);
-			aggr_grp_load +=
-				rq->grp_time.prev_runnable_sum;
-		}
-
-		cluster->aggr_grp_load = aggr_grp_load;
-	}
-
-	release_rq_locks_irqrestore(cpu_possible_mask, &flags);
-
-	if (sched_boost() == RESTRAINED_BOOST)
-		mod_timer(&sched_grp_timer, jiffies + 1);
-}
-
-static int __init setup_sched_grp_timer(void)
-{
-	init_timer_deferrable(&sched_grp_timer);
-	sched_grp_timer.function = sched_agg_grp_load;
-	return 0;
-}
-late_initcall(setup_sched_grp_timer);
-
 /* 1 -> use PELT based load stats, 0 -> use window-based load stats */
 unsigned int __read_mostly walt_disabled = 0;
 
@@ -910,8 +871,10 @@ void fixup_busy_time(struct task_struct *p, int new_cpu)
 	migrate_top_tasks(p, src_rq, dest_rq);
 
 	if (!same_freq_domain(new_cpu, task_cpu(p))) {
-		cpufreq_update_util(dest_rq, SCHED_CPUFREQ_INTERCLUSTER_MIG);
-		cpufreq_update_util(src_rq, SCHED_CPUFREQ_INTERCLUSTER_MIG);
+		cpufreq_update_util(dest_rq, SCHED_CPUFREQ_INTERCLUSTER_MIG |
+					     SCHED_CPUFREQ_WALT);
+		cpufreq_update_util(src_rq, SCHED_CPUFREQ_INTERCLUSTER_MIG |
+					    SCHED_CPUFREQ_WALT);
 	}
 
 	if (p == src_rq->ed_task) {
@@ -3058,6 +3021,8 @@ void walt_irq_work(struct irq_work *irq_work)
 	wc = sched_ktime_clock();
 
 	for_each_sched_cluster(cluster) {
+		u64 aggr_grp_load = 0;
+
 		raw_spin_lock(&cluster->load_lock);
 
 		for_each_cpu(cpu, &cluster->cpus) {
@@ -3066,16 +3031,51 @@ void walt_irq_work(struct irq_work *irq_work)
 				update_task_ravg(rq->curr, rq,
 						TASK_UPDATE, wc, 0);
 				account_load_subtractions(rq);
+				aggr_grp_load += rq->grp_time.prev_runnable_sum;
 			}
-
-			cpufreq_update_util(rq, 0);
 		}
+
+		cluster->aggr_grp_load = aggr_grp_load;
 
 		raw_spin_unlock(&cluster->load_lock);
 	}
+
+	for_each_sched_cluster(cluster)
+		for_each_cpu(cpu, &cluster->cpus)
+			cpufreq_update_util(cpu_rq(cpu), SCHED_CPUFREQ_WALT);
 
 	for_each_cpu(cpu, cpu_possible_mask)
 		raw_spin_unlock(&cpu_rq(cpu)->lock);
 
 	core_ctl_check(this_rq()->window_start);
 }
+
+#ifndef CONFIG_SCHED_HMP
+int walt_proc_update_handler(struct ctl_table *table, int write,
+			     void __user *buffer, size_t *lenp,
+			     loff_t *ppos)
+{
+	int ret;
+	unsigned int *data = (unsigned int *)table->data;
+	static DEFINE_MUTEX(mutex);
+
+	mutex_lock(&mutex);
+	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+	if (ret || !write) {
+		mutex_unlock(&mutex);
+		return ret;
+	}
+
+	if (data == &sysctl_sched_group_upmigrate_pct)
+		sched_group_upmigrate =
+		    pct_to_real(sysctl_sched_group_upmigrate_pct);
+	else if (data == &sysctl_sched_group_downmigrate_pct)
+		sched_group_downmigrate =
+		    pct_to_real(sysctl_sched_group_downmigrate_pct);
+	else
+		ret = -EINVAL;
+	mutex_unlock(&mutex);
+
+	return ret;
+}
+#endif

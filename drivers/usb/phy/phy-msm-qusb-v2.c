@@ -48,7 +48,6 @@
 #define DPSE_INTERRUPT			BIT(0)
 
 #define QUSB2PHY_PORT_TUNE1		0x23c
-#define QUSB2PHY_TEST1			0x24C
 
 #define QUSB2PHY_PLL_CORE_INPUT_OVERRIDE 0x0a8
 #define CORE_PLL_RATE			BIT(0)
@@ -94,6 +93,7 @@ struct qusb_phy {
 	int			*qusb_phy_host_init_seq;
 
 	u32			tune_val;
+	u32			phy_auto_resume_offset;
 	int			efuse_bit_pos;
 	int			efuse_num_of_bits;
 
@@ -551,14 +551,15 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 				CORE_RESET | CORE_RESET_MUX,
 				qphy->base + QUSB2PHY_PLL_CORE_INPUT_OVERRIDE);
 
-			/* enable phy auto-resume */
-			writel_relaxed(0x91,
-					qphy->base + QUSB2PHY_TEST1);
-			/* flush the previous write before next write */
-			wmb();
-			writel_relaxed(0x90,
-				qphy->base + QUSB2PHY_TEST1);
-
+			if (qphy->phy_auto_resume_offset) {
+				/* enable phy auto-resume */
+				writel_relaxed(0x91,
+				qphy->base + qphy->phy_auto_resume_offset);
+				/* flush the previous write before next write */
+				wmb();
+				writel_relaxed(0x90,
+				qphy->base + qphy->phy_auto_resume_offset);
+			}
 			dev_dbg(phy->dev, "%s: intr_mask = %x\n",
 			__func__, intr_mask);
 
@@ -915,6 +916,12 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		dev_err(dev, "error reading qcom,vdd-voltage-level property\n");
 		return ret;
 	}
+
+	ret = of_property_read_u32(dev->of_node, "qcom,phy-auto-resume-offset",
+			&qphy->phy_auto_resume_offset);
+	if (ret)
+		dev_dbg(dev, "error reading qcom,phy-auto-resume-offset %d\n",
+				ret);
 
 	qphy->vdd = devm_regulator_get(dev, "vdd");
 	if (IS_ERR(qphy->vdd)) {

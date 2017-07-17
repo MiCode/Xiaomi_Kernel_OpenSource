@@ -266,6 +266,10 @@ module_param_named(
 	debug_mask, __debug_mask, int, 0600
 );
 
+static int __weak_chg_icl_ua = 500000;
+module_param_named(
+	weak_chg_icl_ua, __weak_chg_icl_ua, int, 0600);
+
 #define MICRO_1P5A		1500000
 #define MICRO_P1A		100000
 #define OTG_DEFAULT_DEGLITCH_TIME_MS	50
@@ -461,6 +465,8 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 			val->intval = 0;
 		else
 			val->intval = 1;
+		if (chg->real_charger_type == POWER_SUPPLY_TYPE_UNKNOWN)
+			val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN:
 		val->intval = chg->voltage_min_uv;
@@ -1466,15 +1472,6 @@ static int smb2_configure_typec(struct smb_charger *chg)
 		return rc;
 	}
 
-	/* configure power role for dual-role */
-	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
-				 TYPEC_POWER_ROLE_CMD_MASK, 0);
-	if (rc < 0) {
-		dev_err(chg->dev,
-			"Couldn't configure power role for DRP rc=%d\n", rc);
-		return rc;
-	}
-
 	/*
 	 * disable Type-C factory mode and stay in Attached.SRC state when VCONN
 	 * over-current happens
@@ -1852,6 +1849,16 @@ static int smb2_init_hw(struct smb2 *chip)
 static int smb2_post_init(struct smb2 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
+	int rc;
+
+	/* configure power role for dual-role */
+	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
+				 TYPEC_POWER_ROLE_CMD_MASK, 0);
+	if (rc < 0) {
+		dev_err(chg->dev,
+			"Couldn't configure power role for DRP rc=%d\n", rc);
+		return rc;
+	}
 
 	rerun_election(chg->usb_irq_enable_votable);
 
@@ -2113,7 +2120,7 @@ static struct smb_irq_info smb2_irqs[] = {
 	[SWITCH_POWER_OK_IRQ] = {
 		.name		= "switcher-power-ok",
 		.handler	= smblib_handle_switcher_power_ok,
-		.storm_data	= {true, 1000, 3},
+		.storm_data	= {true, 1000, 8},
 	},
 };
 
@@ -2307,6 +2314,7 @@ static int smb2_probe(struct platform_device *pdev)
 	chg->dev = &pdev->dev;
 	chg->param = v1_params;
 	chg->debug_mask = &__debug_mask;
+	chg->weak_chg_icl_ua = &__weak_chg_icl_ua;
 	chg->mode = PARALLEL_MASTER;
 	chg->irq_info = smb2_irqs;
 	chg->name = "PMI";
@@ -2418,7 +2426,11 @@ static int smb2_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
-	smb2_post_init(chip);
+	rc = smb2_post_init(chip);
+	if (rc < 0) {
+		pr_err("Failed in post init rc=%d\n", rc);
+		goto cleanup;
+	}
 
 	smb2_create_debugfs(chip);
 

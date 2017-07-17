@@ -250,7 +250,8 @@ static void sde_encoder_phys_wb_setup_fb(struct sde_encoder_phys *phys_enc,
 	struct sde_hw_wb_cfg *wb_cfg;
 	struct sde_hw_wb_cdp_cfg *cdp_cfg;
 	const struct msm_format *format;
-	int ret, mmu_id;
+	int ret;
+	struct msm_gem_address_space *aspace;
 
 	if (!phys_enc || !phys_enc->sde_kms || !phys_enc->sde_kms->catalog) {
 		SDE_ERROR("invalid encoder\n");
@@ -264,9 +265,9 @@ static void sde_encoder_phys_wb_setup_fb(struct sde_encoder_phys *phys_enc,
 
 	wb_cfg->intf_mode = phys_enc->intf_mode;
 	wb_cfg->is_secure = (fb->flags & DRM_MODE_FB_SECURE) ? true : false;
-	mmu_id = (wb_cfg->is_secure) ?
-			wb_enc->mmu_id[SDE_IOMMU_DOMAIN_SECURE] :
-			wb_enc->mmu_id[SDE_IOMMU_DOMAIN_UNSECURE];
+	aspace = (wb_cfg->is_secure) ?
+			wb_enc->aspace[SDE_IOMMU_DOMAIN_SECURE] :
+			wb_enc->aspace[SDE_IOMMU_DOMAIN_UNSECURE];
 
 	SDE_DEBUG("[fb_secure:%d]\n", wb_cfg->is_secure);
 
@@ -288,7 +289,7 @@ static void sde_encoder_phys_wb_setup_fb(struct sde_encoder_phys *phys_enc,
 	wb_cfg->roi = *wb_roi;
 
 	if (hw_wb->caps->features & BIT(SDE_WB_XY_ROI_OFFSET)) {
-		ret = sde_format_populate_layout(mmu_id, fb, &wb_cfg->dest);
+		ret = sde_format_populate_layout(aspace, fb, &wb_cfg->dest);
 		if (ret) {
 			SDE_DEBUG("failed to populate layout %d\n", ret);
 			return;
@@ -297,7 +298,7 @@ static void sde_encoder_phys_wb_setup_fb(struct sde_encoder_phys *phys_enc,
 		wb_cfg->dest.height = fb->height;
 		wb_cfg->dest.num_planes = wb_cfg->dest.format->num_planes;
 	} else {
-		ret = sde_format_populate_layout_with_roi(mmu_id, fb, wb_roi,
+		ret = sde_format_populate_layout_with_roi(aspace, fb, wb_roi,
 			&wb_cfg->dest);
 		if (ret) {
 			/* this error should be detected during atomic_check */
@@ -914,9 +915,16 @@ static int _sde_encoder_phys_wb_init_internal_fb(
 	struct drm_mode_fb_cmd2 mode_cmd;
 	uint32_t size;
 	int nplanes, i, ret;
+	struct msm_gem_address_space *aspace;
 
 	if (!wb_enc || !wb_enc->base.parent || !wb_enc->base.sde_kms) {
 		SDE_ERROR("invalid params\n");
+		return -EINVAL;
+	}
+
+	aspace = wb_enc->base.sde_kms->aspace[SDE_IOMMU_DOMAIN_UNSECURE];
+	if (!aspace) {
+		SDE_ERROR("invalid address space\n");
 		return -EINVAL;
 	}
 
@@ -974,8 +982,7 @@ static int _sde_encoder_phys_wb_init_internal_fb(
 	}
 
 	/* prepare the backing buffer now so that it's available later */
-	ret = msm_framebuffer_prepare(fb,
-			wb_enc->mmu_id[SDE_IOMMU_DOMAIN_UNSECURE]);
+	ret = msm_framebuffer_prepare(fb, aspace);
 	if (!ret)
 		wb_enc->fb_disable = fb;
 	return ret;
@@ -1234,15 +1241,15 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 	phys_enc = &wb_enc->base;
 
 	if (p->sde_kms->vbif[VBIF_NRT]) {
-		wb_enc->mmu_id[SDE_IOMMU_DOMAIN_UNSECURE] =
-			p->sde_kms->mmu_id[MSM_SMMU_DOMAIN_NRT_UNSECURE];
-		wb_enc->mmu_id[SDE_IOMMU_DOMAIN_SECURE] =
-			p->sde_kms->mmu_id[MSM_SMMU_DOMAIN_NRT_SECURE];
+		wb_enc->aspace[SDE_IOMMU_DOMAIN_UNSECURE] =
+			p->sde_kms->aspace[MSM_SMMU_DOMAIN_NRT_UNSECURE];
+		wb_enc->aspace[SDE_IOMMU_DOMAIN_SECURE] =
+			p->sde_kms->aspace[MSM_SMMU_DOMAIN_NRT_SECURE];
 	} else {
-		wb_enc->mmu_id[SDE_IOMMU_DOMAIN_UNSECURE] =
-			p->sde_kms->mmu_id[MSM_SMMU_DOMAIN_UNSECURE];
-		wb_enc->mmu_id[SDE_IOMMU_DOMAIN_SECURE] =
-			p->sde_kms->mmu_id[MSM_SMMU_DOMAIN_SECURE];
+		wb_enc->aspace[SDE_IOMMU_DOMAIN_UNSECURE] =
+			p->sde_kms->aspace[MSM_SMMU_DOMAIN_UNSECURE];
+		wb_enc->aspace[SDE_IOMMU_DOMAIN_SECURE] =
+			p->sde_kms->aspace[MSM_SMMU_DOMAIN_SECURE];
 	}
 
 	hw_mdp = sde_rm_get_mdp(&p->sde_kms->rm);

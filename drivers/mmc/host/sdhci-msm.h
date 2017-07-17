@@ -170,6 +170,12 @@ struct sdhci_msm_ice_data {
 	int state;
 };
 
+struct sdhci_msm_debug_data {
+	struct mmc_host copy_mmc;
+	struct mmc_card copy_card;
+	struct sdhci_host copy_host;
+};
+
 struct sdhci_msm_host {
 	struct platform_device	*pdev;
 	void __iomem *core_mem;    /* MSM SDCC mapped address */
@@ -185,6 +191,7 @@ struct sdhci_msm_host {
 	atomic_t clks_on; /* Set if clocks are enabled */
 	struct sdhci_msm_pltfm_data *pdata;
 	struct mmc_host  *mmc;
+	struct sdhci_msm_debug_data cached_data;
 	struct sdhci_pltfm_data sdhci_msm_pdata;
 	u32 curr_pwr_state;
 	u32 curr_io_level;
@@ -218,6 +225,7 @@ struct sdhci_msm_host {
 	bool mci_removed;
 	const struct sdhci_msm_offset *offset;
 	bool core_3_0v_support;
+	bool pltfm_init_done;
 };
 
 extern char *saved_command_line;

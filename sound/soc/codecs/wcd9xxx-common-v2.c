@@ -1316,6 +1316,7 @@ void wcd_clsh_fsm(struct snd_soc_codec *codec,
 		break;
 	};
 }
+EXPORT_SYMBOL(wcd_clsh_fsm);
 
 int wcd_clsh_get_clsh_state(struct wcd_clsh_cdc_data *clsh)
 {

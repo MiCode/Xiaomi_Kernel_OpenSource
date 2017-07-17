@@ -23,6 +23,7 @@
 #include <linux/of_gpio.h>
 #include <dt-bindings/clock/qcom,audio-ext-clk.h>
 #include <sound/q6afe-v2.h>
+#include "audio-ext-clk-up.h"
 
 enum audio_clk_mux {
 	AP_CLK2,
@@ -176,6 +177,15 @@ static int audio_ext_lpass_mclk_prepare(struct clk_hw *hw)
 	struct pinctrl_info *pnctrl_info = &audio_lpass_mclk->pnctrl_info;
 	int ret;
 
+	lpass_mclk.enable = 1;
+	ret = afe_set_lpass_clock_v2(AFE_PORT_ID_PRIMARY_MI2S_RX,
+				&lpass_mclk);
+	if (ret < 0) {
+		pr_err("%s afe_set_digital_codec_core_clock failed\n",
+			__func__);
+		return ret;
+	}
+
 	if (pnctrl_info->pinctrl) {
 		ret = pinctrl_select_state(pnctrl_info->pinctrl,
 				pnctrl_info->active);
@@ -184,15 +194,6 @@ static int audio_ext_lpass_mclk_prepare(struct clk_hw *hw)
 				__func__, ret);
 			return -EIO;
 		}
-	}
-
-	lpass_mclk.enable = 1;
-	ret = afe_set_lpass_clock_v2(AFE_PORT_ID_PRIMARY_MI2S_RX,
-				&lpass_mclk);
-	if (ret < 0) {
-		pr_err("%s afe_set_digital_codec_core_clock failed\n",
-			__func__);
-		return ret;
 	}
 
 	if (pnctrl_info->base)
@@ -611,17 +612,15 @@ static struct platform_driver audio_ref_clk_driver = {
 	.remove = audio_ref_clk_remove,
 };
 
-static int __init audio_ref_clk_platform_init(void)
+int audio_ref_clk_platform_init(void)
 {
 	return platform_driver_register(&audio_ref_clk_driver);
 }
-module_init(audio_ref_clk_platform_init);
 
-static void __exit audio_ref_clk_platform_exit(void)
+void audio_ref_clk_platform_exit(void)
 {
 	platform_driver_unregister(&audio_ref_clk_driver);
 }
-module_exit(audio_ref_clk_platform_exit);
 
 MODULE_DESCRIPTION("Audio Ref Up Clock module platform driver");
 MODULE_LICENSE("GPL v2");

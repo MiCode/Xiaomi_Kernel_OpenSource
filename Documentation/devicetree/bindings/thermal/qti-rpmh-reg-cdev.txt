@@ -1,0 +1,44 @@
+RPMh regulator cooling device.
+
+The RPMh regulator cooling device, will be used to place a voltage floor
+restriction on a rail. This cooling device will use a QMP AOP mail box to send
+the message to apply and clear voltage floor restriction.
+
+The cooling device node should be a child of the regulator devicetree node,
+which it is trying to place the floor restriction.
+
+Properties:
+
+- compatible:
+	Usage: required
+	Value type: <string>
+	Definition: shall be "qcom,rpmh-reg-cdev"
+
+- qcom,reg-resource-name:
+	Usage: required
+	Value type: <string>
+	Definition: The regulator resource name to be used for communicating
+			with RPMh. This value should be any of the below
+			resource name,
+			cx -> For CX rail,
+			mx -> For MX rail,
+			ebi -> For EBI rail.
+
+- mboxes:
+	Usage: required
+	Value type: <phandle>
+	Definition: A phandle to the QMP AOP mail box, that needs to be used
+			for sending the floor restriction message.
+
+- #cooling-cells: Must be 2. Please refer to
+			<devicetree/bindings/thermal/thermal.txt> for more
+			details.
+
+Example:
+
+	vdd_cx: rpmh-cx-regulator-cdev {
+		compatible = "qcom,rpmh-reg-cdev";
+		mboxes = <&qmp_aop 0>;
+		qcom,reg-resource-name = "cx";
+		#cooling-cells = <2>;
+	};

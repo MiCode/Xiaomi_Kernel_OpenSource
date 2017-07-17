@@ -463,6 +463,7 @@ static int cpuhp_down_callbacks(unsigned int cpu, struct cpuhp_cpu_state *st,
 
 	for (; st->state > target; st->state--) {
 		ret = cpuhp_invoke_callback(cpu, st->state, false, NULL);
+		BUG_ON(ret && st->state < CPUHP_AP_IDLE_DEAD);
 		if (ret) {
 			st->target = prev_state;
 			undo_cpu_down(cpu, st);
@@ -494,6 +495,7 @@ static int cpuhp_up_callbacks(unsigned int cpu, struct cpuhp_cpu_state *st,
 		if (ret) {
 			st->target = prev_state;
 			undo_cpu_up(cpu, st);
+			cpu_notify(CPU_UP_CANCELED, cpu);
 			break;
 		}
 	}
@@ -883,6 +885,9 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen,
 
 	if (!cpu_present(cpu))
 		return -EINVAL;
+
+	if (!tasks_frozen && !cpu_isolated(cpu) && num_online_uniso_cpus() == 1)
+		return -EBUSY;
 
 	cpu_hotplug_begin();
 

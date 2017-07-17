@@ -170,6 +170,16 @@ struct msm_vidc_vqzip_sei_payload {
 	unsigned int data[1];
 };
 
+struct msm_vidc_ubwc_cr_stats_info {
+	unsigned int stats_tile_32;
+	unsigned int stats_tile_64;
+	unsigned int stats_tile_96;
+	unsigned int stats_tile_128;
+	unsigned int stats_tile_160;
+	unsigned int stats_tile_192;
+	unsigned int stats_tile_256;
+};
+
 struct msm_vidc_yuv_stats_payload {
 	unsigned int frame_qp;
 	unsigned int texture;
@@ -250,6 +260,12 @@ enum msm_vidc_extradata_type {
 #define MSM_VIDC_EXTRADATA_PQ_INFO \
 	MSM_VIDC_EXTRADATA_PQ_INFO
 	MSM_VIDC_EXTRADATA_PQ_INFO = 0x00000017,
+#define MSM_VIDC_EXTRADATA_COLOUR_REMAPPING_INFO_SEI \
+	MSM_VIDC_EXTRADATA_COLOUR_REMAPPING_INFO_SEI
+	MSM_VIDC_EXTRADATA_COLOUR_REMAPPING_INFO_SEI = 0x00000018,
+#define MSM_VIDC_EXTRADATA_UBWC_CR_STAT_INFO \
+	MSM_VIDC_EXTRADATA_UBWC_CR_STAT_INFO
+	MSM_VIDC_EXTRADATA_UBWC_CR_STAT_INFO = 0x00000019,
 	MSM_VIDC_EXTRADATA_INPUT_CROP = 0x0700000E,
 #define MSM_VIDC_EXTRADATA_OUTPUT_CROP \
 	MSM_VIDC_EXTRADATA_OUTPUT_CROP

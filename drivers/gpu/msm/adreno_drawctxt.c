@@ -341,6 +341,7 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 	struct adreno_context *drawctxt;
 	struct kgsl_device *device = dev_priv->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int ret;
 	unsigned int local;
 
@@ -419,6 +420,16 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 	if (ret != 0) {
 		kfree(drawctxt);
 		return ERR_PTR(ret);
+	}
+
+	if (gpudev->preemption_context_init) {
+		ret = gpudev->preemption_context_init(&drawctxt->base);
+		if (ret != 0) {
+			kgsl_context_detach(&drawctxt->base);
+			kgsl_context_put(&drawctxt->base);
+			kfree(drawctxt);
+			return ERR_PTR(ret);
+		}
 	}
 
 	kgsl_sharedmem_writel(device, &device->memstore,
@@ -545,9 +556,17 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 void adreno_drawctxt_destroy(struct kgsl_context *context)
 {
 	struct adreno_context *drawctxt;
+	struct adreno_device *adreno_dev;
+	struct adreno_gpudev *gpudev;
 
 	if (context == NULL)
 		return;
+
+	adreno_dev = ADRENO_DEVICE(context->device);
+	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+
+	if (gpudev->preemption_context_destroy)
+		gpudev->preemption_context_destroy(context);
 
 	drawctxt = ADRENO_CONTEXT(context);
 	debugfs_remove_recursive(drawctxt->debug_root);

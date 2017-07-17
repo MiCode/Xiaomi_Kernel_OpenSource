@@ -21,7 +21,6 @@
 #include <linux/iommu.h>
 
 struct msm_mmu;
-struct msm_gpu;
 
 enum msm_mmu_domain_type {
 	MSM_SMMU_DOMAIN_UNSECURE,
@@ -35,9 +34,8 @@ struct msm_mmu_funcs {
 	int (*attach)(struct msm_mmu *mmu, const char * const *names, int cnt);
 	void (*detach)(struct msm_mmu *mmu, const char * const *names, int cnt);
 	int (*map)(struct msm_mmu *mmu, uint32_t iova, struct sg_table *sgt,
-			unsigned int len, int prot);
-	int (*unmap)(struct msm_mmu *mmu, uint32_t iova, struct sg_table *sgt,
-			unsigned int len);
+			int prot);
+	int (*unmap)(struct msm_mmu *mmu, uint32_t iova, struct sg_table *sgt);
 	int (*map_sg)(struct msm_mmu *mmu, struct sg_table *sgt,
 			enum dma_data_direction dir);
 	void (*unmap_sg)(struct msm_mmu *mmu, struct sg_table *sgt,
@@ -62,8 +60,11 @@ static inline void msm_mmu_init(struct msm_mmu *mmu, struct device *dev,
 }
 
 struct msm_mmu *msm_iommu_new(struct device *dev, struct iommu_domain *domain);
-struct msm_mmu *msm_gpummu_new(struct device *dev, struct msm_gpu *gpu);
 struct msm_mmu *msm_smmu_new(struct device *dev,
 	enum msm_mmu_domain_type domain);
+
+/* SDE smmu driver initialize and cleanup functions */
+int __init msm_smmu_driver_init(void);
+void __exit msm_smmu_driver_cleanup(void);
 
 #endif /* __MSM_MMU_H__ */

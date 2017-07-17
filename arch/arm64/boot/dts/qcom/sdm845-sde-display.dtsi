@@ -399,19 +399,20 @@
 			 <&clock_gcc GCC_USB3_PRIM_PHY_PIPE_CLK>,
 			 <&clock_dispcc DISP_CC_MDSS_DP_LINK_CLK>,
 			 <&clock_dispcc DISP_CC_MDSS_DP_LINK_INTF_CLK>,
-			 <&clock_dispcc DISP_CC_MDSS_DP_CRYPTO_CLK>,
 			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL_CLK>,
+			 <&clock_dispcc DISP_CC_MDSS_DP_CRYPTO_CLK>,
 			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL_CLK_SRC>,
 			 <&mdss_dp_pll DP_VCO_DIVIDED_CLK_SRC_MUX>;
 		clock-names = "core_aux_clk", "core_usb_ref_clk_src",
 			"core_usb_ref_clk", "core_usb_cfg_ahb_clk",
 			"core_usb_pipe_clk", "ctrl_link_clk",
-			"ctrl_link_iface_clk", "ctrl_crypto_clk",
-			"ctrl_pixel_clk", "pixel_clk_rcg", "pixel_parent";
+			"ctrl_link_iface_clk", "ctrl_pixel_clk",
+			"crypto_clk", "pixel_clk_rcg", "pixel_parent";
 
 		qcom,dp-usbpd-detection = <&pmi8998_pdphy>;
 
 		qcom,aux-cfg-settings = [00 13 04 00 0a 26 0a 03 bb 03];
+		qcom,max-pclk-frequency-khz = <576000>;
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;
@@ -545,22 +546,34 @@
 	qcom,mdss-dsi-panel-phy-timings = [00 1c 07 07 23 21 07 07 05 03 04 00];
 	qcom,mdss-dsi-t-clk-post = <0x0d>;
 	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,display-topology = <1 0 1>,
+				<2 0 1>;
+	qcom,default-topology-index = <0>;
 };
 
 &dsi_dual_sim_vid {
 	qcom,mdss-dsi-panel-phy-timings = [00 1c 07 07 23 21 07 07 05 03 04 00];
 	qcom,mdss-dsi-t-clk-post = <0x0d>;
 	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,display-topology = <2 0 2>,
+				<1 0 2>;
+	qcom,default-topology-index = <0>;
 };
 
 &dsi_sim_cmd {
 	qcom,mdss-dsi-panel-phy-timings = [00 1c 07 07 23 21 07 07 05 03 04 00];
 	qcom,mdss-dsi-t-clk-post = <0x0d>;
 	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,display-topology = <1 0 1>,
+				<2 0 1>;
+	qcom,default-topology-index = <0>;
 };
 
 &dsi_dual_sim_cmd {
 	qcom,mdss-dsi-panel-phy-timings = [00 1c 07 07 23 21 07 07 05 03 04 00];
 	qcom,mdss-dsi-t-clk-post = <0x0d>;
 	qcom,mdss-dsi-t-clk-pre = <0x2d>;
+	qcom,display-topology = <2 0 2>,
+				<1 0 2>;
+	qcom,default-topology-index = <0>;
 };

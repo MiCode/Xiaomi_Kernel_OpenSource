@@ -36,7 +36,10 @@ struct sugov_policy {
 	raw_spinlock_t update_lock;  /* For shared policies */
 	u64 last_freq_update_time;
 	s64 freq_update_delay_ns;
-	u64 hispeed_jmp_ts;
+	u64 last_ws;
+	u64 curr_cycles;
+	u64 last_cyc_update_time;
+	unsigned long avg_cap;
 	unsigned int next_freq;
 	unsigned int cached_raw_freq;
 	unsigned long hispeed_util;
@@ -200,27 +203,68 @@ static void sugov_iowait_boost(struct sugov_cpu *sg_cpu, unsigned long *util,
 	sg_cpu->iowait_boost >>= 1;
 }
 
+static unsigned long freq_to_util(struct sugov_policy *sg_policy,
+				  unsigned int freq)
+{
+	return mult_frac(sg_policy->max, freq,
+			 sg_policy->policy->cpuinfo.max_freq);
+}
+
+#define KHZ 1000
+static void sugov_track_cycles(struct sugov_policy *sg_policy,
+				unsigned int prev_freq,
+				u64 upto)
+{
+	u64 delta_ns, cycles;
+	/* Track cycles in current window */
+	delta_ns = upto - sg_policy->last_cyc_update_time;
+	cycles = (prev_freq * delta_ns) / (NSEC_PER_SEC / KHZ);
+	sg_policy->curr_cycles += cycles;
+	sg_policy->last_cyc_update_time = upto;
+}
+
+static void sugov_calc_avg_cap(struct sugov_policy *sg_policy, u64 curr_ws,
+				unsigned int prev_freq)
+{
+	u64 last_ws = sg_policy->last_ws;
+	unsigned int avg_freq;
+
+	WARN_ON(curr_ws < last_ws);
+	if (curr_ws <= last_ws)
+		return;
+
+	/* If we skipped some windows */
+	if (curr_ws > (last_ws + sched_ravg_window)) {
+		avg_freq = prev_freq;
+		/* Reset tracking history */
+		sg_policy->last_cyc_update_time = curr_ws;
+	} else {
+		sugov_track_cycles(sg_policy, prev_freq, curr_ws);
+		avg_freq = sg_policy->curr_cycles;
+		avg_freq /= sched_ravg_window / (NSEC_PER_SEC / KHZ);
+	}
+	sg_policy->avg_cap = freq_to_util(sg_policy, avg_freq);
+	sg_policy->curr_cycles = 0;
+	sg_policy->last_ws = curr_ws;
+}
+
 #define NL_RATIO 75
 #define HISPEED_LOAD 90
 static void sugov_walt_adjust(struct sugov_cpu *sg_cpu, unsigned long *util,
 			      unsigned long *max)
 {
 	struct sugov_policy *sg_policy = sg_cpu->sg_policy;
-	unsigned long cap_cur = capacity_curr_of(sg_cpu->cpu);
 	bool is_migration = sg_cpu->flags & SCHED_CPUFREQ_INTERCLUSTER_MIG;
 	unsigned long nl = sg_cpu->walt_load.nl;
 	unsigned long cpu_util = sg_cpu->util;
 	bool is_hiload;
 
-	is_hiload = (cpu_util >= mult_frac(cap_cur,
+	is_hiload = (cpu_util >= mult_frac(sg_policy->avg_cap,
 					   HISPEED_LOAD,
 					   100));
 
-	if (is_hiload && !is_migration &&
-	    sg_policy->next_freq < sg_policy->tunables->hispeed_freq) {
+	if (is_hiload && !is_migration)
 		*util = max(*util, sg_policy->hispeed_util);
-		sg_policy->hispeed_jmp_ts = sg_cpu->last_update;
-	}
 
 	if (is_hiload && nl >= mult_frac(cpu_util, NL_RATIO, 100))
 		*util = *max;
@@ -251,6 +295,8 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	} else {
 		sugov_get_util(&util, &max, sg_cpu->cpu);
 		sugov_iowait_boost(sg_cpu, &util, &max);
+		sugov_calc_avg_cap(sg_policy, sg_cpu->walt_load.ws,
+				   sg_policy->policy->cur);
 		sugov_walt_adjust(sg_cpu, &util, &max);
 		next_f = get_next_freq(sg_policy, util, max);
 	}
@@ -326,12 +372,11 @@ static void sugov_update_shared(struct update_util_data *hook, u64 time,
 	raw_spin_lock(&sg_policy->update_lock);
 
 	if (sg_policy->max != max) {
-		hs_util = mult_frac(max,
-				    sg_policy->tunables->hispeed_freq,
-				    sg_policy->policy->cpuinfo.max_freq);
+		sg_policy->max = max;
+		hs_util = freq_to_util(sg_policy,
+					sg_policy->tunables->hispeed_freq);
 		hs_util = mult_frac(hs_util, TARGET_LOAD, 100);
 		sg_policy->hispeed_util = hs_util;
-		sg_policy->max = max;
 	}
 
 	sg_cpu->util = util;
@@ -340,6 +385,9 @@ static void sugov_update_shared(struct update_util_data *hook, u64 time,
 
 	sugov_set_iowait_boost(sg_cpu, time, flags);
 	sg_cpu->last_update = time;
+
+	sugov_calc_avg_cap(sg_policy, sg_cpu->walt_load.ws,
+			   sg_policy->policy->cur);
 
 	trace_sugov_util_update(sg_cpu->cpu, sg_cpu->util, max,
 				sg_cpu->walt_load.nl,
@@ -358,6 +406,10 @@ static void sugov_work(struct kthread_work *work)
 	struct sugov_policy *sg_policy = container_of(work, struct sugov_policy, work);
 
 	mutex_lock(&sg_policy->work_lock);
+	raw_spin_lock(&sg_policy->update_lock);
+	sugov_track_cycles(sg_policy, sg_policy->policy->cur,
+			   sched_ktime_clock());
+	raw_spin_unlock(&sg_policy->update_lock);
 	__cpufreq_driver_target(sg_policy->policy, sg_policy->next_freq,
 				CPUFREQ_RELATION_L);
 	mutex_unlock(&sg_policy->work_lock);
@@ -442,11 +494,12 @@ static ssize_t hispeed_freq_store(struct gov_attr_set *attr_set,
 
 	tunables->hispeed_freq = val;
 	list_for_each_entry(sg_policy, &attr_set->policy_list, tunables_hook) {
-		hs_util = mult_frac(sg_policy->max,
-				    sg_policy->tunables->hispeed_freq,
-				    sg_policy->policy->cpuinfo.max_freq);
+		raw_spin_lock(&sg_policy->update_lock);
+		hs_util = freq_to_util(sg_policy,
+					sg_policy->tunables->hispeed_freq);
 		hs_util = mult_frac(hs_util, TARGET_LOAD, 100);
 		sg_policy->hispeed_util = hs_util;
+		raw_spin_unlock(&sg_policy->update_lock);
 	}
 
 	return count;
@@ -699,6 +752,11 @@ static int sugov_start(struct cpufreq_policy *policy)
 		sg_cpu->cpu = cpu;
 		sg_cpu->flags = SCHED_CPUFREQ_RT;
 		sg_cpu->iowait_boost_max = policy->cpuinfo.max_freq;
+	}
+
+	for_each_cpu(cpu, policy->cpus) {
+		struct sugov_cpu *sg_cpu = &per_cpu(sugov_cpu, cpu);
+
 		cpufreq_add_update_util_hook(cpu, &sg_cpu->update_util,
 					     policy_is_shared(policy) ?
 							sugov_update_shared :
@@ -729,6 +787,10 @@ static void sugov_limits(struct cpufreq_policy *policy)
 
 	if (!policy->fast_switch_enabled) {
 		mutex_lock(&sg_policy->work_lock);
+		raw_spin_lock(&sg_policy->update_lock);
+		sugov_track_cycles(sg_policy, sg_policy->policy->cur,
+				   sched_ktime_clock());
+		raw_spin_unlock(&sg_policy->update_lock);
 		cpufreq_policy_apply_limits(policy);
 		mutex_unlock(&sg_policy->work_lock);
 	}

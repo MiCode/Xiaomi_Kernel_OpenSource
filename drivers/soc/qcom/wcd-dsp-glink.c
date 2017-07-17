@@ -58,6 +58,7 @@ struct wdsp_glink_rsp_que {
 
 struct wdsp_glink_tx_buf {
 	struct work_struct tx_work;
+	struct work_struct free_tx_work;
 
 	/* Glink channel information */
 	struct wdsp_glink_ch *ch;
@@ -125,6 +126,46 @@ static int wdsp_glink_close_ch(struct wdsp_glink_ch *ch);
 static int wdsp_glink_open_ch(struct wdsp_glink_ch *ch);
 
 /*
+ * wdsp_glink_free_tx_buf_work - Work function to free tx pkt
+ * work:      Work structure
+ */
+static void wdsp_glink_free_tx_buf_work(struct work_struct *work)
+{
+	struct wdsp_glink_tx_buf *tx_buf;
+
+	tx_buf = container_of(work, struct wdsp_glink_tx_buf,
+			      free_tx_work);
+	vfree(tx_buf);
+}
+
+/*
+ * wdsp_glink_free_tx_buf - Function to free tx buffer
+ * priv:        Pointer to the channel
+ * pkt_priv:    Pointer to the tx buffer
+ */
+static void wdsp_glink_free_tx_buf(const void *priv, const void *pkt_priv)
+{
+	struct wdsp_glink_tx_buf *tx_buf = (struct wdsp_glink_tx_buf *)pkt_priv;
+	struct wdsp_glink_priv *wpriv;
+	struct wdsp_glink_ch *ch;
+
+	if (!priv) {
+		pr_err("%s: Invalid priv\n", __func__);
+		return;
+	}
+	if (!tx_buf) {
+		pr_err("%s: Invalid tx_buf\n", __func__);
+		return;
+	}
+
+	ch = (struct wdsp_glink_ch *)priv;
+	wpriv = ch->wpriv;
+	/* Work queue to free tx pkt */
+	INIT_WORK(&tx_buf->free_tx_work, wdsp_glink_free_tx_buf_work);
+	queue_work(wpriv->work_queue, &tx_buf->free_tx_work);
+}
+
+/*
  * wdsp_glink_notify_rx - Glink notify rx callback for responses
  * handle:      Opaque Channel handle returned by GLink
  * priv:        Private pointer to the channel
@@ -183,14 +224,8 @@ static void wdsp_glink_notify_rx(void *handle, const void *priv,
 static void wdsp_glink_notify_tx_done(void *handle, const void *priv,
 				      const void *pkt_priv, const void *ptr)
 {
-	if (!pkt_priv) {
-		pr_err("%s: Invalid parameter\n", __func__);
-		return;
-	}
-	/* Free tx pkt */
-	vfree(pkt_priv);
+	wdsp_glink_free_tx_buf(priv, pkt_priv);
 }
-
 /*
  * wdsp_glink_notify_tx_abort - Glink notify tx abort callback to
  * free tx buffer
@@ -201,12 +236,7 @@ static void wdsp_glink_notify_tx_done(void *handle, const void *priv,
 static void wdsp_glink_notify_tx_abort(void *handle, const void *priv,
 				       const void *pkt_priv)
 {
-	if (!pkt_priv) {
-		pr_err("%s: Invalid parameter\n", __func__);
-		return;
-	}
-	/* Free tx pkt */
-	vfree(pkt_priv);
+	wdsp_glink_free_tx_buf(priv, pkt_priv);
 }
 
 /*
@@ -555,7 +585,7 @@ static int wdsp_glink_ch_info_init(struct wdsp_glink_priv *wpriv,
 		goto done;
 	}
 	ch = kcalloc(no_of_channels, sizeof(struct wdsp_glink_ch *),
-		     GFP_KERNEL);
+		     GFP_ATOMIC);
 	if (!ch) {
 		ret = -ENOMEM;
 		goto done;

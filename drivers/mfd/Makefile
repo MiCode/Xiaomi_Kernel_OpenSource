@@ -205,16 +205,13 @@ obj-$(CONFIG_MFD_HI655X_PMIC)   += hi655x-pmic.o
 obj-$(CONFIG_MFD_DLN2)		+= dln2.o
 obj-$(CONFIG_MFD_RT5033)	+= rt5033.o
 obj-$(CONFIG_MFD_SKY81452)	+= sky81452.o
-obj-$(CONFIG_MSM_CDC_PINCTRL)	+= msm-cdc-pinctrl.o
-obj-$(CONFIG_MSM_CDC_SUPPLY) += msm-cdc-supply.o
-obj-$(CONFIG_WCD9XXX_CODEC_UTIL) += wcd9xxx-utils.o
-obj-$(CONFIG_WCD9330_CODEC)	+= wcd9xxx-core.o wcd9xxx-irq.o wcd9xxx-slimslave.o\
-						wcd9330-regmap.o
-obj-$(CONFIG_WCD9335_CODEC)	+= wcd9xxx-core.o wcd9xxx-irq.o wcd9xxx-slimslave.o\
-					wcd9335-regmap.o wcd9335-tables.o
-obj-$(CONFIG_WCD934X_CODEC)	+= wcd9xxx-core.o wcd9xxx-irq.o wcd9xxx-slimslave.o\
-					wcd934x-regmap.o wcd934x-tables.o
-
+wcd-core-objs			:= wcd9xxx-rst.o wcd9xxx-core-init.o \
+				   wcd9xxx-core.o wcd9xxx-irq.o \
+				   wcd9xxx-slimslave.o wcd9xxx-utils.o \
+				   wcd934x-regmap.o wcd934x-tables.o \
+				   wcd9335-regmap.o wcd9335-tables.o \
+				   msm-cdc-pinctrl.o msm-cdc-supply.o
+obj-$(CONFIG_WCD9XXX_CODEC_CORE) += wcd-core.o
 intel-soc-pmic-objs		:= intel_soc_pmic_core.o intel_soc_pmic_crc.o
 intel-soc-pmic-$(CONFIG_INTEL_PMC_IPC)	+= intel_soc_pmic_bxtwc.o
 obj-$(CONFIG_INTEL_SOC_PMIC)	+= intel-soc-pmic.o

@@ -9,3 +9,71 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+/{
+	aliases {
+		serial0 = &qupv3_se10_2uart;
+		serial1 = &qupv3_se9_2uart;
+		spi0 = &qupv3_se8_spi;
+		i2c0 = &qupv3_se10_i2c;
+		i2c1 = &qupv3_se3_i2c;
+		hsuart0 = &qupv3_se6_4uart;
+	};
+
+};
+
+&qupv3_se9_2uart {
+	status = "disabled";
+};
+
+&qupv3_se8_spi {
+	status = "disabled";
+};
+
+&qupv3_se10_2uart {
+	status = "ok";
+};
+
+&qupv3_se3_i2c {
+	status = "disabled";
+};
+
+&qupv3_se10_i2c {
+	status = "disabled";
+};
+
+&qupv3_se6_4uart {
+	status = "disabled";
+};
+
+&ufsphy_mem {
+	compatible = "qcom,ufs-phy-qrbtc-sdm845";
+
+	vdda-phy-supply = <&pm660l_l1>; /* 0.88v */
+	vdda-pll-supply = <&pm660_l1>; /* 1.2v */
+	vdda-phy-max-microamp = <62900>;
+	vdda-pll-max-microamp = <18300>;
+
+	status = "ok";
+};
+
+&ufshc_mem {
+	limit-tx-hs-gear = <1>;
+	limit-rx-hs-gear = <1>;
+	scsi-cmd-timeout = <300000>;
+
+	vdd-hba-supply = <&ufs_phy_gdsc>;
+	vdd-hba-fixed-regulator;
+	vcc-supply = <&pm660l_l4>;
+	vccq2-supply = <&pm660_l8>;
+	vcc-max-microamp = <600000>;
+	vccq2-max-microamp = <600000>;
+
+	qcom,vddp-ref-clk-supply = <&pm660_l1>;
+	qcom,vddp-ref-clk-max-microamp = <100>;
+
+	qcom,disable-lpm;
+	rpm-level = <0>;
+	spm-level = <0>;
+	status = "ok";
+};

@@ -31,6 +31,7 @@
 #include <linux/mfd/wcd9xxx/wcd9xxx-irq.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
 #include <linux/mfd/wcd934x/registers.h>
+#include <linux/mfd/wcd934x/irq.h>
 #include <linux/mfd/wcd9xxx/pdata.h>
 #include <linux/regulator/consumer.h>
 #include <linux/soundwire/swr-wcd.h>
@@ -231,37 +232,6 @@ enum {
 struct tavil_idle_detect_config {
 	u8 hph_idle_thr;
 	u8 hph_idle_detect_en;
-};
-
-static const struct intr_data wcd934x_intr_table[] = {
-	{WCD9XXX_IRQ_SLIMBUS, false},
-	{WCD934X_IRQ_MBHC_SW_DET, true},
-	{WCD934X_IRQ_MBHC_BUTTON_PRESS_DET, true},
-	{WCD934X_IRQ_MBHC_BUTTON_RELEASE_DET, true},
-	{WCD934X_IRQ_MBHC_ELECT_INS_REM_DET, true},
-	{WCD934X_IRQ_MBHC_ELECT_INS_REM_LEG_DET, true},
-	{WCD934X_IRQ_MISC, false},
-	{WCD934X_IRQ_HPH_PA_CNPL_COMPLETE, false},
-	{WCD934X_IRQ_HPH_PA_CNPR_COMPLETE, false},
-	{WCD934X_IRQ_EAR_PA_CNP_COMPLETE, false},
-	{WCD934X_IRQ_LINE_PA1_CNP_COMPLETE, false},
-	{WCD934X_IRQ_LINE_PA2_CNP_COMPLETE, false},
-	{WCD934X_IRQ_SLNQ_ANALOG_ERROR, false},
-	{WCD934X_IRQ_RESERVED_3, false},
-	{WCD934X_IRQ_HPH_PA_OCPL_FAULT, false},
-	{WCD934X_IRQ_HPH_PA_OCPR_FAULT, false},
-	{WCD934X_IRQ_EAR_PA_OCP_FAULT, false},
-	{WCD934X_IRQ_SOUNDWIRE, false},
-	{WCD934X_IRQ_VDD_DIG_RAMP_COMPLETE, false},
-	{WCD934X_IRQ_RCO_ERROR, false},
-	{WCD934X_IRQ_CPE_ERROR, false},
-	{WCD934X_IRQ_MAD_AUDIO, false},
-	{WCD934X_IRQ_MAD_BEACON, false},
-	{WCD934X_IRQ_CPE1_INTR, true},
-	{WCD934X_IRQ_RESERVED_4, false},
-	{WCD934X_IRQ_MAD_ULTRASOUND, false},
-	{WCD934X_IRQ_VBAT_ATTACK, false},
-	{WCD934X_IRQ_VBAT_RESTORE, false},
 };
 
 struct tavil_cpr_reg_defaults {
@@ -675,140 +645,6 @@ static const struct tavil_reg_mask_val tavil_spkr_mode1[] = {
 };
 
 static int __tavil_enable_efuse_sensing(struct tavil_priv *tavil);
-
-/*
- * wcd934x_get_codec_info: Get codec specific information
- *
- * @wcd9xxx: pointer to wcd9xxx structure
- * @wcd_type: pointer to wcd9xxx_codec_type structure
- *
- * Returns 0 for success or negative error code for failure
- */
-int wcd934x_get_codec_info(struct wcd9xxx *wcd9xxx,
-			   struct wcd9xxx_codec_type *wcd_type)
-{
-	u16 id_minor, id_major;
-	struct regmap *wcd_regmap;
-	int rc, version = -1;
-
-	if (!wcd9xxx || !wcd_type)
-		return -EINVAL;
-
-	if (!wcd9xxx->regmap) {
-		dev_err(wcd9xxx->dev, "%s: wcd9xxx regmap is null\n", __func__);
-		return -EINVAL;
-	}
-	wcd_regmap = wcd9xxx->regmap;
-
-	rc = regmap_bulk_read(wcd_regmap, WCD934X_CHIP_TIER_CTRL_CHIP_ID_BYTE0,
-			      (u8 *)&id_minor, sizeof(u16));
-	if (rc)
-		return -EINVAL;
-
-	rc = regmap_bulk_read(wcd_regmap, WCD934X_CHIP_TIER_CTRL_CHIP_ID_BYTE2,
-			      (u8 *)&id_major, sizeof(u16));
-	if (rc)
-		return -EINVAL;
-
-	dev_info(wcd9xxx->dev, "%s: wcd9xxx chip id major 0x%x, minor 0x%x\n",
-		 __func__, id_major, id_minor);
-
-	if (id_major != TAVIL_MAJOR)
-		goto version_unknown;
-
-	/*
-	 * As fine version info cannot be retrieved before tavil probe.
-	 * Assign coarse versions for possible future use before tavil probe.
-	 */
-	if (id_minor == cpu_to_le16(0))
-		version = TAVIL_VERSION_1_0;
-	else if (id_minor == cpu_to_le16(0x01))
-		version = TAVIL_VERSION_1_1;
-
-version_unknown:
-	if (version < 0)
-		dev_err(wcd9xxx->dev, "%s: wcd934x version unknown\n",
-			__func__);
-
-	/* Fill codec type info */
-	wcd_type->id_major = id_major;
-	wcd_type->id_minor = id_minor;
-	wcd_type->num_irqs = WCD934X_NUM_IRQS;
-	wcd_type->version = version;
-	wcd_type->slim_slave_type = WCD9XXX_SLIM_SLAVE_ADDR_TYPE_1;
-	wcd_type->i2c_chip_status = 0x01;
-	wcd_type->intr_tbl = wcd934x_intr_table;
-	wcd_type->intr_tbl_size = ARRAY_SIZE(wcd934x_intr_table);
-
-	wcd_type->intr_reg[WCD9XXX_INTR_STATUS_BASE] =
-						WCD934X_INTR_PIN1_STATUS0;
-	wcd_type->intr_reg[WCD9XXX_INTR_CLEAR_BASE] =
-						WCD934X_INTR_PIN1_CLEAR0;
-	wcd_type->intr_reg[WCD9XXX_INTR_MASK_BASE] =
-						WCD934X_INTR_PIN1_MASK0;
-	wcd_type->intr_reg[WCD9XXX_INTR_LEVEL_BASE] =
-						WCD934X_INTR_LEVEL0;
-	wcd_type->intr_reg[WCD9XXX_INTR_CLR_COMMIT] =
-						WCD934X_INTR_CLR_COMMIT;
-
-	return rc;
-}
-EXPORT_SYMBOL(wcd934x_get_codec_info);
-
-/*
- * wcd934x_bringdown: Bringdown WCD Codec
- *
- * @wcd9xxx: Pointer to wcd9xxx structure
- *
- * Returns 0 for success or negative error code for failure
- */
-int wcd934x_bringdown(struct wcd9xxx *wcd9xxx)
-{
-	if (!wcd9xxx || !wcd9xxx->regmap)
-		return -EINVAL;
-
-	regmap_write(wcd9xxx->regmap, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
-		     0x04);
-
-	return 0;
-}
-EXPORT_SYMBOL(wcd934x_bringdown);
-
-/*
- * wcd934x_bringup: Bringup WCD Codec
- *
- * @wcd9xxx: Pointer to the wcd9xxx structure
- *
- * Returns 0 for success or negative error code for failure
- */
-int wcd934x_bringup(struct wcd9xxx *wcd9xxx)
-{
-	struct regmap *wcd_regmap;
-
-	if (!wcd9xxx)
-		return -EINVAL;
-
-	if (!wcd9xxx->regmap) {
-		dev_err(wcd9xxx->dev, "%s: wcd9xxx regmap is null!\n",
-			__func__);
-		return -EINVAL;
-	}
-	wcd_regmap = wcd9xxx->regmap;
-
-	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_RST_CTL, 0x01);
-	regmap_write(wcd_regmap, WCD934X_SIDO_NEW_VOUT_A_STARTUP, 0x19);
-	regmap_write(wcd_regmap, WCD934X_SIDO_NEW_VOUT_D_STARTUP, 0x15);
-	/* Add 1msec delay for VOUT to settle */
-	usleep_range(1000, 1100);
-	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x5);
-	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x7);
-	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_RST_CTL, 0x3);
-	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_RST_CTL, 0x7);
-	regmap_write(wcd_regmap, WCD934X_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x3);
-
-	return 0;
-}
-EXPORT_SYMBOL(wcd934x_bringup);
 
 /**
  * tavil_set_spkr_gain_offset - offset the speaker path

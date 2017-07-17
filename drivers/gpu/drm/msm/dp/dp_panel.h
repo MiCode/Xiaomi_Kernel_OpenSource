@@ -46,6 +46,7 @@ struct dp_panel {
 	struct dp_panel_info pinfo;
 
 	u32 vic;
+	u32 max_pclk_khz;
 
 	int (*sde_edid_register)(struct dp_panel *dp_panel);
 	void (*sde_edid_deregister)(struct dp_panel *dp_panel);
@@ -53,6 +54,7 @@ struct dp_panel {
 	int (*timing_cfg)(struct dp_panel *dp_panel);
 	int (*read_dpcd)(struct dp_panel *dp_panel);
 	u32 (*get_link_rate)(struct dp_panel *dp_panel);
+	u32 (*get_max_pclk)(struct dp_panel *dp_panel);
 };
 
 struct dp_panel *dp_panel_get(struct device *dev, struct dp_aux *aux,

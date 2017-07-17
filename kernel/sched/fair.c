@@ -221,8 +221,8 @@ unsigned int sysctl_sched_cfs_bandwidth_slice = 5000UL;
  * The margin used when comparing utilization with CPU capacity:
  * util * 1024 < capacity * margin
  */
-unsigned int capacity_margin = 1078; /* ~5% margin */
-unsigned int capacity_margin_down = 1205; /* ~15% margin */
+unsigned int sysctl_sched_capacity_margin = 1078; /* ~5% margin */
+unsigned int sysctl_sched_capacity_margin_down = 1205; /* ~15% margin */
 
 static inline void update_load_add(struct load_weight *lw, unsigned long inc)
 {
@@ -5918,9 +5918,9 @@ static inline bool __task_fits(struct task_struct *p, int cpu, int util)
 	util += boosted_task_util(p);
 
 	if (capacity_orig_of(task_cpu(p)) > capacity_orig_of(cpu))
-		margin = capacity_margin_down;
+		margin = sysctl_sched_capacity_margin_down;
 	else
-		margin = capacity_margin;
+		margin = sysctl_sched_capacity_margin;
 
 	return (capacity_orig_of(cpu) * 1024) > (util * margin);
 }
@@ -5948,7 +5948,7 @@ static inline bool task_fits_spare(struct task_struct *p, int cpu)
 static bool __cpu_overutilized(int cpu, int delta)
 {
 	return (capacity_orig_of(cpu) * 1024) <
-	       ((cpu_util(cpu) + delta) * capacity_margin);
+	       ((cpu_util(cpu) + delta) * sysctl_sched_capacity_margin);
 }
 
 bool cpu_overutilized(int cpu)
@@ -6085,9 +6085,13 @@ find_idlest_group(struct sched_domain *sd, struct task_struct *p,
 	struct sched_group *fit_group = NULL, *spare_group = NULL;
 	unsigned long min_load = ULONG_MAX, this_load = 0;
 	unsigned long fit_capacity = ULONG_MAX;
-	unsigned long max_spare_capacity = capacity_margin - SCHED_CAPACITY_SCALE;
+	unsigned long max_spare_capacity;
+
 	int load_idx = sd->forkexec_idx;
 	int imbalance = 100 + (sd->imbalance_pct-100)/2;
+
+	max_spare_capacity = sysctl_sched_capacity_margin -
+			     SCHED_CAPACITY_SCALE;
 
 	if (sd_flag & SD_BALANCE_WAKE)
 		load_idx = sd->wake_idx;
@@ -6870,8 +6874,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			if (new_util > capacity_orig_of(i))
 				continue;
 
-			cpu_idle_idx = cpu_rq(i)->nr_running ? -1 :
-				       idle_get_state_idx(cpu_rq(i));
+			cpu_idle_idx = idle_get_state_idx(cpu_rq(i));
 
 			if (!need_idle &&
 			    add_capacity_margin(new_util_cum) <
@@ -6995,6 +6998,18 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 			trace_sched_task_util_colocated(p, task_cpu(p),
 						task_util(p),
 						cpumask_first(rtg_target),
+						target_cpu, 0, need_idle);
+			return target_cpu;
+		}
+
+		/*
+		 * We always want to migrate the task to the best CPU when
+		 * placement boost is active.
+		 */
+		if (placement_boost) {
+			trace_sched_task_util_boosted(p, task_cpu(p),
+						task_util(p),
+						target_cpu,
 						target_cpu, 0, need_idle);
 			return target_cpu;
 		}
@@ -8419,7 +8434,8 @@ static void update_cpu_capacity(struct sched_domain *sd, int cpu)
 		mcc->cpu = cpu;
 #ifdef CONFIG_SCHED_DEBUG
 		raw_spin_unlock_irqrestore(&mcc->lock, flags);
-		pr_info("CPU%d: update max cpu_capacity %lu\n", cpu, capacity);
+		printk_deferred(KERN_INFO "CPU%d: update max cpu_capacity %lu\n",
+				cpu, capacity);
 		goto skip_unlock;
 #endif
 	}

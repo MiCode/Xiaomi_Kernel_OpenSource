@@ -1665,7 +1665,7 @@ static struct i2c_driver wcd9335_i2c_driver = {
 	.remove                 =       wcd9xxx_i2c_remove,
 };
 
-static int __init wcd9xxx_init(void)
+int wcd9xxx_init(void)
 {
 	int ret[NUM_WCD9XXX_REG_RET] = {0};
 	int i = 0;
@@ -1699,9 +1699,8 @@ static int __init wcd9xxx_init(void)
 
 	return 0;
 }
-module_init(wcd9xxx_init);
 
-static void __exit wcd9xxx_exit(void)
+void wcd9xxx_exit(void)
 {
 	wcd9xxx_set_intf_type(WCD9XXX_INTERFACE_TYPE_PROBING);
 
@@ -1710,7 +1709,6 @@ static void __exit wcd9xxx_exit(void)
 	i2c_del_driver(&wcd9335_i2c_driver);
 	slim_driver_unregister(&wcd_slim_driver);
 }
-module_exit(wcd9xxx_exit);
 
 MODULE_DESCRIPTION("Codec core driver");
 MODULE_LICENSE("GPL v2");

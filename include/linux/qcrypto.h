@@ -15,6 +15,7 @@
 
 #include <linux/crypto.h>
 #include <crypto/hash.h>
+#include <crypto/skcipher.h>
 
 #define QCRYPTO_CTX_KEY_MASK		0x000000ff
 #define QCRYPTO_CTX_USE_HW_KEY		0x00000001
@@ -29,7 +30,7 @@ int qcrypto_cipher_set_device(struct ablkcipher_request *req, unsigned int dev);
 int qcrypto_ahash_set_device(struct ahash_request *req, unsigned int dev);
 /*int qcrypto_aead_set_device(struct aead_request *req, unsigned int dev);*/
 
-int qcrypto_cipher_set_flag(struct ablkcipher_request *req, unsigned int flags);
+int qcrypto_cipher_set_flag(struct skcipher_request *req, unsigned int flags);
 int qcrypto_ahash_set_flag(struct ahash_request *req, unsigned int flags);
 /*int qcrypto_aead_set_flag(struct aead_request *req, unsigned int flags);*/
 
@@ -47,16 +48,16 @@ struct crypto_engine_entry {
 int qcrypto_get_num_engines(void);
 void qcrypto_get_engine_list(size_t num_engines,
 				struct crypto_engine_entry *arr);
-int qcrypto_cipher_set_device_hw(struct ablkcipher_request *req,
+int qcrypto_cipher_set_device_hw(struct skcipher_request *req,
 				unsigned int fde_pfe,
 				unsigned int hw_inst);
 
 
 struct qcrypto_func_set {
-	int (*cipher_set)(struct ablkcipher_request *req,
+	int (*cipher_set)(struct skcipher_request *req,
 			unsigned int fde_pfe,
 			unsigned int hw_inst);
-	int (*cipher_flag)(struct ablkcipher_request *req, unsigned int flags);
+	int (*cipher_flag)(struct skcipher_request *req, unsigned int flags);
 	int (*get_num_engines)(void);
 	void (*get_engine_list)(size_t num_engines,
 				struct crypto_engine_entry *arr);

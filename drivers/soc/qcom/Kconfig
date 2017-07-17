@@ -506,6 +506,7 @@ config MSM_PIL_MSS_QDSP6V5
 
 config ICNSS
         tristate "Platform driver for Q6 integrated connectivity"
+        select CNSS_UTILS
         ---help---
           This module adds support for Q6 integrated WLAN connectivity
           subsystem. This module is responsible for communicating WLAN on/off
@@ -544,6 +545,38 @@ config MSM_QDSP6_APRV3_GLINK
 	  application processor and QDSP6. APR is
 	  used by audio driver to configure QDSP6v2's
 	  ASM, ADM and AFE.
+
+config MSM_QDSP6_SSR
+	bool "Audio QDSP6 SSR support"
+	depends on MSM_QDSP6_APRV2_GLINK || MSM_QDSP6_APRV3_GLINK
+	help
+	  Enable Subsystem Restart. Reset audio
+	  clients when the ADSP subsystem is
+	  restarted. Subsystem Restart for audio
+	  is only used for processes on the ADSP
+	  and signals audio drivers through APR.
+
+
+config MSM_QDSP6_PDR
+	bool "Audio QDSP6 PDR support"
+	depends on MSM_QDSP6_APRV2_GLINK || MSM_QDSP6_APRV3_GLINK
+	help
+	  Enable Protection Domain Restart. Reset
+          audio clients when a process on the ADSP
+          is restarted. PDR for audio is only used
+          for processes on the ADSP and signals
+          audio drivers through APR.
+
+config MSM_QDSP6_NOTIFIER
+	bool "Audio QDSP6 PDR support"
+	depends on MSM_QDSP6_SSR || MSM_QDSP6_PDR
+	help
+	  Enable notifier which decides whether
+	  to use SSR or PDR and notifies all
+	  audio clients of the event. Both SSR
+	  and PDR are recovery methods when
+	  there is a crash on ADSP. Audio drivers
+	  are contacted by ADSP through APR.
 
 config MSM_ADSP_LOADER
 	tristate "ADSP loader support"
@@ -701,3 +734,5 @@ config QCOM_FORCE_WDOG_BITE_ON_PANIC
 	  This forces a watchdog bite when the device restarts due to a
 	  kernel panic. On certain MSM SoCs, this provides us
 	  additional debugging information.
+
+source "drivers/soc/qcom/memshare/Kconfig"

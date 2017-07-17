@@ -546,6 +546,19 @@ int dsi_conn_pre_kickoff(struct drm_connector *connector,
 	return dsi_display_pre_kickoff(display, params);
 }
 
+void dsi_conn_enable_event(struct drm_connector *connector,
+		uint32_t event_idx, bool enable, void *display)
+{
+	struct dsi_event_cb_info event_info;
+
+	memset(&event_info, 0, sizeof(event_info));
+
+	event_info.event_cb = sde_connector_trigger_event;
+	event_info.event_usr_ptr = connector;
+
+	dsi_display_enable_event(display, event_idx, &event_info, enable);
+}
+
 struct dsi_bridge *dsi_drm_bridge_init(struct dsi_display *display,
 				       struct drm_device *dev,
 				       struct drm_encoder *encoder)

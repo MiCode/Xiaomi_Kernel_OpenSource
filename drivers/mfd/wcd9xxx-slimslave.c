@@ -47,7 +47,18 @@ static int wcd9xxx_configure_ports(struct wcd9xxx *wcd9xxx)
 	return 0;
 }
 
-
+/**
+ * wcd9xxx_init_slimslave
+ *
+ * @wcd9xxx: pointer to wcd9xxx struct
+ * @wcd9xxx_pgd_la: pgd_la value
+ * @tx_num: tx number
+ * @rx_num: rx number
+ * @tx_slot: pointer to tx slot
+ * @rx_slot: pointer to rx slot
+ *
+ * Returns 0 on success, appropriate error code otherwise
+ */
 int wcd9xxx_init_slimslave(struct wcd9xxx *wcd9xxx, u8 wcd9xxx_pgd_la,
 			   unsigned int tx_num, unsigned int *tx_slot,
 			   unsigned int rx_num, unsigned int *rx_slot)
@@ -117,6 +128,7 @@ int wcd9xxx_init_slimslave(struct wcd9xxx *wcd9xxx, u8 wcd9xxx_pgd_la,
 err:
 	return ret;
 }
+EXPORT_SYMBOL(wcd9xxx_init_slimslave);
 
 int wcd9xxx_deinit_slimslave(struct wcd9xxx *wcd9xxx)
 {

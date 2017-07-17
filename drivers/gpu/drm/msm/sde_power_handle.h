@@ -16,9 +16,9 @@
 
 #define MAX_CLIENT_NAME_LEN 128
 
-#define SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA	2000000
+#define SDE_POWER_HANDLE_ENABLE_BUS_AB_QUOTA	1600000000
 #define SDE_POWER_HANDLE_DISABLE_BUS_AB_QUOTA	0
-#define SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA	2000000
+#define SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA	1600000000
 #define SDE_POWER_HANDLE_DISABLE_BUS_IB_QUOTA	0
 
 #include <linux/sde_io_util.h>
@@ -57,6 +57,19 @@ enum sde_power_handle_data_bus_client {
 	SDE_POWER_HANDLE_DATA_BUS_CLIENT_RT,
 	SDE_POWER_HANDLE_DATA_BUS_CLIENT_NRT,
 	SDE_POWER_HANDLE_DATA_BUS_CLIENT_MAX
+};
+
+/**
+ * enum SDE_POWER_HANDLE_DBUS_ID - data bus identifier
+ * @SDE_POWER_HANDLE_DBUS_ID_MNOC: DPU/MNOC data bus
+ * @SDE_POWER_HANDLE_DBUS_ID_LLCC: MNOC/LLCC data bus
+ * @SDE_POWER_HANDLE_DBUS_ID_EBI: LLCC/EBI data bus
+ */
+enum SDE_POWER_HANDLE_DBUS_ID {
+	SDE_POWER_HANDLE_DBUS_ID_MNOC,
+	SDE_POWER_HANDLE_DBUS_ID_LLCC,
+	SDE_POWER_HANDLE_DBUS_ID_EBI,
+	SDE_POWER_HANDLE_DBUS_ID_MAX,
 };
 
 /**
@@ -152,7 +165,8 @@ struct sde_power_handle {
 	struct device *dev;
 	u32 current_usecase_ndx;
 	u32 reg_bus_hdl;
-	struct sde_power_data_bus_handle data_bus_handle;
+	struct sde_power_data_bus_handle data_bus_handle
+		[SDE_POWER_HANDLE_DBUS_ID_MAX];
 	struct list_head event_list;
 	struct sde_rsc_client *rsc_client;
 	bool rsc_client_init;
@@ -254,6 +268,7 @@ struct clk *sde_power_clk_get_clk(struct sde_power_handle *phandle,
  * @phandle:  power handle containing the resources
  * @client: client information to set quota
  * @bus_client: real-time or non-real-time bus client
+ * @bus_id: identifier of data bus, see SDE_POWER_HANDLE_DBUS_ID
  * @ab_quota: arbitrated bus bandwidth
  * @ib_quota: instantaneous bus bandwidth
  *
@@ -261,7 +276,8 @@ struct clk *sde_power_clk_get_clk(struct sde_power_handle *phandle,
  */
 int sde_power_data_bus_set_quota(struct sde_power_handle *phandle,
 		struct sde_power_client *pclient,
-		int bus_client, u64 ab_quota, u64 ib_quota);
+		int bus_client, u32 bus_id,
+		u64 ab_quota, u64 ib_quota);
 
 /**
  * sde_power_data_bus_bandwidth_ctrl() - control data bus bandwidth enable
@@ -297,5 +313,12 @@ struct sde_power_event *sde_power_handle_register_event(
  */
 void sde_power_handle_unregister_event(struct sde_power_handle *phandle,
 		struct sde_power_event *event);
+
+/**
+ * sde_power_handle_get_dbus_name - get name of given data bus identifier
+ * @bus_id:	data bus identifier
+ * Return:	Pointer to name string if success; NULL otherwise
+ */
+const char *sde_power_handle_get_dbus_name(u32 bus_id);
 
 #endif /* _SDE_POWER_HANDLE_H_ */

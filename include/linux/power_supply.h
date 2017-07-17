@@ -271,6 +271,7 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_USB_HVDCP_3,	/* Efficient High Voltage DCP */
 	POWER_SUPPLY_TYPE_USB_PD,       /* Power Delivery */
 	POWER_SUPPLY_TYPE_WIRELESS,	/* Accessory Charger Adapters */
+	POWER_SUPPLY_TYPE_USB_FLOAT,	/* Floating charger */
 	POWER_SUPPLY_TYPE_BMS,		/* Battery Monitor System */
 	POWER_SUPPLY_TYPE_PARALLEL,	/* Parallel Path */
 	POWER_SUPPLY_TYPE_MAIN,		/* Main Path */

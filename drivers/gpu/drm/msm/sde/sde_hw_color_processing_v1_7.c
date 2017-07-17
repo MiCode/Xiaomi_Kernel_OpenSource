@@ -70,8 +70,6 @@
 #define DSPP_OP_PA_FOL_EN	BIT(6)
 #define DSPP_OP_PA_SKY_EN	BIT(7)
 
-#define REG_MASK(n) ((BIT(n)) - 1)
-
 #define PA_VIG_DISABLE_REQUIRED(x) \
 			!((x) & (VIG_OP_PA_SKIN_EN | VIG_OP_PA_SKY_EN | \
 			VIG_OP_PA_FOL_EN | VIG_OP_PA_HUE_EN | \

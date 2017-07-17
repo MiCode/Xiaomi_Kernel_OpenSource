@@ -16,6 +16,7 @@
 #include <linux/regmap.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
+#include <linux/iio/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/qpnp/qpnp-revid.h>
 #include <linux/of.h>
@@ -60,6 +61,15 @@
 
 #define CHGR_BATTOV_CFG_REG			(CHGR_BASE + 0x70)
 #define BATTOV_SETTING_MASK			GENMASK(7, 0)
+
+#define TEMP_COMP_STATUS_REG			(MISC_BASE + 0x07)
+#define SKIN_TEMP_RST_HOT_BIT			BIT(6)
+#define SKIN_TEMP_UB_HOT_BIT			BIT(5)
+#define SKIN_TEMP_LB_HOT_BIT			BIT(4)
+#define DIE_TEMP_TSD_HOT_BIT			BIT(3)
+#define DIE_TEMP_RST_HOT_BIT			BIT(2)
+#define DIE_TEMP_UB_HOT_BIT			BIT(1)
+#define DIE_TEMP_LB_HOT_BIT			BIT(0)
 
 #define BARK_BITE_WDOG_PET_REG			(MISC_BASE + 0x43)
 #define BARK_BITE_WDOG_PET_BIT			BIT(0)
@@ -115,12 +125,18 @@ struct smb_irq_info {
 	int			irq;
 };
 
+struct smb_iio {
+	struct iio_channel	*temp_chan;
+	struct iio_channel	*temp_max_chan;
+};
+
 struct smb1355 {
 	struct device		*dev;
 	char			*name;
 	struct regmap		*regmap;
 
 	struct smb_params	param;
+	struct smb_iio		iio;
 
 	struct mutex		write_lock;
 
@@ -257,9 +273,13 @@ static enum power_supply_property smb1355_parallel_props[] = {
 	POWER_SUPPLY_PROP_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_PIN_ENABLED,
 	POWER_SUPPLY_PROP_INPUT_SUSPEND,
+	POWER_SUPPLY_PROP_CHARGER_TEMP,
+	POWER_SUPPLY_PROP_CHARGER_TEMP_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_MODEL_NAME,
+	POWER_SUPPLY_PROP_PARALLEL_MODE,
+	POWER_SUPPLY_PROP_CONNECTOR_HEALTH,
 };
 
 static int smb1355_get_prop_batt_charge_type(struct smb1355 *chip,
@@ -305,6 +325,65 @@ static int smb1355_get_parallel_charging(struct smb1355 *chip, int *disabled)
 	return 0;
 }
 
+static int smb1355_get_prop_connector_health(struct smb1355 *chip)
+{
+	u8 temp;
+	int rc;
+
+	rc = smb1355_read(chip, TEMP_COMP_STATUS_REG, &temp);
+	if (rc < 0) {
+		pr_err("Couldn't read comp stat reg rc = %d\n", rc);
+		return POWER_SUPPLY_HEALTH_UNKNOWN;
+	}
+
+	if (temp & SKIN_TEMP_RST_HOT_BIT)
+		return POWER_SUPPLY_HEALTH_OVERHEAT;
+
+	if (temp & SKIN_TEMP_UB_HOT_BIT)
+		return POWER_SUPPLY_HEALTH_HOT;
+
+	if (temp & SKIN_TEMP_LB_HOT_BIT)
+		return POWER_SUPPLY_HEALTH_WARM;
+
+	return POWER_SUPPLY_HEALTH_COOL;
+}
+
+
+static int smb1355_get_prop_charger_temp(struct smb1355 *chip,
+				union power_supply_propval *val)
+{
+	int rc;
+
+	if (!chip->iio.temp_chan ||
+		PTR_ERR(chip->iio.temp_chan) == -EPROBE_DEFER)
+		chip->iio.temp_chan = devm_iio_channel_get(chip->dev,
+						"charger_temp");
+
+	if (IS_ERR(chip->iio.temp_chan))
+		return PTR_ERR(chip->iio.temp_chan);
+
+	rc = iio_read_channel_processed(chip->iio.temp_chan, &val->intval);
+	val->intval /= 100;
+	return rc;
+}
+
+static int smb1355_get_prop_charger_temp_max(struct smb1355 *chip,
+				union power_supply_propval *val)
+{
+	int rc;
+
+	if (!chip->iio.temp_max_chan ||
+		PTR_ERR(chip->iio.temp_max_chan) == -EPROBE_DEFER)
+		chip->iio.temp_max_chan = devm_iio_channel_get(chip->dev,
+							"charger_temp_max");
+	if (IS_ERR(chip->iio.temp_max_chan))
+		return PTR_ERR(chip->iio.temp_max_chan);
+
+	rc = iio_read_channel_processed(chip->iio.temp_max_chan, &val->intval);
+	val->intval /= 100;
+	return rc;
+}
+
 static int smb1355_parallel_get_prop(struct power_supply *psy,
 				     enum power_supply_property prop,
 				     union power_supply_propval *val)
@@ -327,6 +406,12 @@ static int smb1355_parallel_get_prop(struct power_supply *psy,
 		if (rc >= 0)
 			val->intval = !(stat & DISABLE_CHARGING_BIT);
 		break;
+	case POWER_SUPPLY_PROP_CHARGER_TEMP:
+		rc = smb1355_get_prop_charger_temp(chip, val);
+		break;
+	case POWER_SUPPLY_PROP_CHARGER_TEMP_MAX:
+		rc = smb1355_get_prop_charger_temp_max(chip, val);
+		break;
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
 		rc = smb1355_get_parallel_charging(chip, &val->intval);
 		break;
@@ -343,6 +428,9 @@ static int smb1355_parallel_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_PARALLEL_MODE:
 		val->intval = POWER_SUPPLY_PL_USBMID_USBMID;
+		break;
+	case POWER_SUPPLY_PROP_CONNECTOR_HEALTH:
+		val->intval = smb1355_get_prop_connector_health(chip);
 		break;
 	default:
 		pr_err_ratelimited("parallel psy get prop %d not supported\n",

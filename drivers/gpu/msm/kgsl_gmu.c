@@ -1202,14 +1202,16 @@ static int gmu_enable_clks(struct gmu_device *gmu)
 static int gmu_disable_clks(struct gmu_device *gmu)
 {
 	int ret, j = 0;
+	unsigned int gmu_freq;
 
 	if (IS_ERR_OR_NULL(gmu->clks[0]))
 		return 0;
 
-	ret = clk_set_rate(gmu->clks[0], gmu->gmu_freqs[0]);
+	gmu_freq = gmu->gmu_freqs[gmu->num_gmupwrlevels - 1];
+	ret = clk_set_rate(gmu->clks[0], gmu_freq);
 	if (ret) {
 		dev_err(&gmu->pdev->dev, "fail to reset GMU clk freq %d\n",
-				gmu->gmu_freqs[0]);
+				gmu_freq);
 		return ret;
 	}
 
@@ -1238,7 +1240,7 @@ static int gmu_enable_gdsc(struct gmu_device *gmu)
 	return ret;
 }
 
-#define CX_GDSC_TIMEOUT	10	/* ms */
+#define CX_GDSC_TIMEOUT	500	/* ms */
 static int gmu_disable_gdsc(struct gmu_device *gmu)
 {
 	int ret;
@@ -1264,7 +1266,7 @@ static int gmu_disable_gdsc(struct gmu_device *gmu)
 	do {
 		if (!regulator_is_enabled(gmu->cx_gdsc))
 			return 0;
-		udelay(100);
+		cond_resched();
 
 	} while (!(time_after(jiffies, t)));
 
@@ -1418,7 +1420,7 @@ int gmu_start(struct kgsl_device *device)
 
 			gmu_irq_enable(device);
 
-			ret = hfi_start(gmu, GMU_WARM_BOOT);
+			ret = hfi_start(gmu, GMU_COLD_BOOT);
 			if (ret)
 				goto error_gpu;
 

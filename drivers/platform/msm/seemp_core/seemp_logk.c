@@ -289,7 +289,7 @@ static bool seemp_logk_get_bit_from_vector(__u8 *pVec, __u32 index)
 	unsigned int bit_num = index%8;
 	unsigned char byte;
 
-	if (DIV_ROUND_UP(index, 8) > MASK_BUFFER_SIZE)
+	if (byte_num >= MASK_BUFFER_SIZE)
 		return false;
 
 	byte = pVec[byte_num];
