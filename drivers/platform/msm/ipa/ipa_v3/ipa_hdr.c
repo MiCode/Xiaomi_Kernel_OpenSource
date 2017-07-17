@@ -359,7 +359,7 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 	entry->hdr = hdr_entry;
 	if (add_ref_hdr)
 		hdr_entry->ref_cnt++;
-	entry->cookie = IPA_HDR_COOKIE;
+	entry->cookie = IPA_PROC_HDR_COOKIE;
 
 	needed_len = ipahal_get_proc_ctx_needed_len(proc_ctx->type);
 
@@ -610,7 +610,7 @@ static int __ipa3_del_hdr_proc_ctx(u32 proc_ctx_hdl,
 	struct ipa3_hdr_proc_ctx_tbl *htbl = &ipa3_ctx->hdr_proc_ctx_tbl;
 
 	entry = ipa3_id_find(proc_ctx_hdl);
-	if (!entry || (entry->cookie != IPA_HDR_COOKIE)) {
+	if (!entry || (entry->cookie != IPA_PROC_HDR_COOKIE)) {
 		IPAERR_RL("bad parm\n");
 		return -EINVAL;
 	}
