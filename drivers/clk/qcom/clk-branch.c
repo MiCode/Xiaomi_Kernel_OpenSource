@@ -92,7 +92,7 @@ static int clk_branch_wait(const struct clk_branch *br, bool enabling,
 	} else if (br->halt_check == BRANCH_HALT_ENABLE ||
 		   br->halt_check == BRANCH_HALT ||
 		   (enabling && voted)) {
-		int count = 200;
+		int count = 500;
 
 		while (count-- > 0) {
 			if (check_halt(br, enabling))
