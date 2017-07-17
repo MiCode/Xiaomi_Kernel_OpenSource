@@ -386,8 +386,13 @@ static void msm_vfe32_clear_status_reg(struct vfe_device *vfe_dev)
 static void msm_vfe32_process_reset_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1)
 {
-	if (irq_status1 & BIT(23))
+	if (irq_status1 & BIT(23)) {
+		if (vfe_dev->vfe_reset_timeout_processed == 1) {
+			pr_err("%s:vfe reset was processed.\n", __func__);
+			return;
+		}
 		complete(&vfe_dev->reset_complete);
+	}
 }
 
 static void msm_vfe32_process_halt_irq(struct vfe_device *vfe_dev,
@@ -664,14 +669,28 @@ static long msm_vfe32_reset_hardware(struct vfe_device *vfe_dev,
 	uint32_t first_start, uint32_t blocking)
 {
 	long rc = 0;
+	uint32_t irq_status1;
 
 	if (blocking) {
 		init_completion(&vfe_dev->reset_complete);
 		msm_camera_io_w_mb(0x3FF, vfe_dev->vfe_base + 0x4);
+		vfe_dev->vfe_reset_timeout_processed = 0;
 		rc = wait_for_completion_timeout(
-			&vfe_dev->reset_complete, msecs_to_jiffies(50));
+			&vfe_dev->reset_complete, msecs_to_jiffies(500));
 	} else {
 		msm_camera_io_w_mb(0x3FF, vfe_dev->vfe_base + 0x4);
+	}
+
+	if (blocking && rc <= 0) {
+		/*read ISP status register*/
+		irq_status1 = msm_camera_io_r(vfe_dev->vfe_base + 0x30);
+		pr_err("%s: handling vfe reset time out error. irq_status1 0x%x\n",
+			__func__, irq_status1);
+		if (irq_status1 & BIT(23)) {
+			pr_err("%s: vfe reset has done actually\n", __func__);
+			vfe_dev->vfe_reset_timeout_processed = 1;
+			return 1;
+		}
 	}
 	return rc;
 }
