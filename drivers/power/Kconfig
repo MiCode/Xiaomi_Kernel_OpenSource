@@ -506,6 +506,16 @@ config QPNP_SMBCHARGER
 	  The driver also offers relevant information to userspace via the
 	  power supply framework.
 
+config QPNP_SMB2
+	tristate "QPNP SMB Charger driver"
+	depends on SPMI || MSM_SPMI
+	depends on OF_SPMI
+	help
+	  Enables support for the SMB2 charging peripheral.
+	  This charger module supports Type-C and uUSB interface with
+	  autonomous charging and APSD for different charging sources.
+	  This module also interfaces USB PD for power-delivery support.
+
 config FUELGAUGE_STC3117
 	tristate "STC3117 fuel gauge driver"
 	default n
