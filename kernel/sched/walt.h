@@ -289,7 +289,11 @@ void sort_clusters(void);
 
 void walt_irq_work(struct irq_work *irq_work);
 
+void walt_sched_init(struct rq *rq);
+
 #else /* CONFIG_SCHED_WALT */
+
+static inline void walt_sched_init(struct rq *rq) { }
 
 static inline void update_task_ravg(struct task_struct *p, struct rq *rq,
 				int event, u64 wallclock, u64 irqtime) { }

@@ -8308,56 +8308,9 @@ void __init sched_init(void)
 		rq->avg_idle = 2*sysctl_sched_migration_cost;
 		rq->max_idle_balance_cost = sysctl_sched_migration_cost;
 		rq->push_task = NULL;
-#ifdef CONFIG_SCHED_WALT
-		cpumask_set_cpu(i, &rq->freq_domain_cpumask);
-		init_irq_work(&rq->irq_work, walt_irq_work);
-		rq->hmp_stats.cumulative_runnable_avg = 0;
-		rq->window_start = 0;
-		rq->cum_window_start = 0;
-		rq->hmp_stats.nr_big_tasks = 0;
-		rq->hmp_flags = 0;
-		rq->cur_irqload = 0;
-		rq->avg_irqload = 0;
-		rq->irqload_ts = 0;
-		rq->static_cpu_pwr_cost = 0;
-		rq->cc.cycles = 1;
-		rq->cc.time = 1;
-		rq->cstate = 0;
-		rq->wakeup_latency = 0;
-		rq->wakeup_energy = 0;
 
-		/*
-		 * All cpus part of same cluster by default. This avoids the
-		 * need to check for rq->cluster being non-NULL in hot-paths
-		 * like select_best_cpu()
-		 */
-		rq->cluster = &init_cluster;
-		rq->curr_runnable_sum = rq->prev_runnable_sum = 0;
-		rq->nt_curr_runnable_sum = rq->nt_prev_runnable_sum = 0;
-		memset(&rq->grp_time, 0, sizeof(struct group_cpu_time));
-		rq->old_busy_time = 0;
-		rq->old_estimated_time = 0;
-		rq->old_busy_time_group = 0;
-		rq->hmp_stats.pred_demands_sum = 0;
-		rq->ed_task = NULL;
-		rq->curr_table = 0;
-		rq->prev_top = 0;
-		rq->curr_top = 0;
+		walt_sched_init(rq);
 
-		for (j = 0; j < NUM_TRACKED_WINDOWS; j++) {
-			memset(&rq->load_subs[j], 0,
-					sizeof(struct load_subtractions));
-
-			rq->top_tasks[j] = kcalloc(NUM_LOAD_INDICES,
-						sizeof(u8), GFP_NOWAIT);
-
-			/* No other choice */
-			BUG_ON(!rq->top_tasks[j]);
-
-			clear_top_tasks_bitmap(rq->top_tasks_bitmap[j]);
-		}
-		rq->cum_window_demand = 0;
-#endif
 		INIT_LIST_HEAD(&rq->cfs_tasks);
 
 		rq_attach_root(rq, &def_root_domain);
