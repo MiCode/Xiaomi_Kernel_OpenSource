@@ -2305,13 +2305,13 @@ static void _sde_crtc_set_suspend(struct drm_crtc *crtc, bool enable)
 	}
 
 	/*
-	 * If the vblank refcount != 0, release a power reference on suspend
-	 * and take it back during resume (if it is still != 0).
+	 * If the vblank is enabled, release a power reference on suspend
+	 * and take it back during resume (if it is still enabled).
 	 */
 	if (sde_crtc->suspend == enable)
 		SDE_DEBUG("crtc%d suspend already set to %d, ignoring update\n",
 				crtc->base.id, enable);
-	else if (atomic_read(&sde_crtc->vblank_refcount) != 0)
+	else if (sde_crtc->vblank_enable)
 		_sde_crtc_vblank_enable_nolock(sde_crtc, !enable);
 
 	sde_crtc->suspend = enable;
@@ -2406,24 +2406,14 @@ static int _sde_crtc_vblank_no_lock(struct sde_crtc *sde_crtc, bool en)
 	if (!sde_crtc) {
 		SDE_ERROR("invalid crtc\n");
 		return -EINVAL;
-	} else if (en && atomic_inc_return(&sde_crtc->vblank_refcount) == 1) {
-		SDE_DEBUG("crtc%d vblank enable\n", sde_crtc->base.base.id);
-		if (!sde_crtc->suspend)
-			_sde_crtc_vblank_enable_nolock(sde_crtc, true);
-	} else if (!en && atomic_read(&sde_crtc->vblank_refcount) < 1) {
-		SDE_ERROR("crtc%d invalid vblank disable\n",
-				sde_crtc->base.base.id);
-		return -EINVAL;
-	} else if (!en && atomic_dec_return(&sde_crtc->vblank_refcount) == 0) {
-		SDE_DEBUG("crtc%d vblank disable\n", sde_crtc->base.base.id);
-		if (!sde_crtc->suspend)
-			_sde_crtc_vblank_enable_nolock(sde_crtc, false);
-	} else {
-		SDE_DEBUG("crtc%d vblank %s refcount:%d\n",
-				sde_crtc->base.base.id,
-				en ? "enable" : "disable",
-				atomic_read(&sde_crtc->vblank_refcount));
 	}
+
+	if (!sde_crtc->base.enabled || sde_crtc->suspend)
+		SDE_EVT32(DRMID(&sde_crtc->base), sde_crtc->base.enabled, en,
+				sde_crtc->vblank_enable, sde_crtc->suspend);
+	else if (sde_crtc->vblank_enable != en)
+		_sde_crtc_vblank_enable_nolock(sde_crtc, en);
+	sde_crtc->vblank_enable = en;
 
 	return 0;
 }
@@ -2514,14 +2504,12 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 				crtc->base.id,
 				atomic_read(&sde_crtc->frame_pending));
 
-	if (atomic_read(&sde_crtc->vblank_refcount) && !sde_crtc->suspend) {
-		SDE_ERROR("crtc%d invalid vblank refcount\n",
+	if (sde_crtc->vblank_enable && !sde_crtc->suspend) {
+		SDE_DEBUG("crtc%d vblank left enabled at disable time\n",
 				crtc->base.id);
-		SDE_EVT32(DRMID(crtc), atomic_read(&sde_crtc->vblank_refcount),
-							SDE_EVTLOG_FUNC_CASE1);
-		while (atomic_read(&sde_crtc->vblank_refcount))
-			if (_sde_crtc_vblank_no_lock(sde_crtc, false))
-				break;
+		SDE_EVT32(DRMID(crtc), sde_crtc->vblank_enable,
+				SDE_EVTLOG_FUNC_CASE1);
+		_sde_crtc_vblank_enable_nolock(sde_crtc, false);
 	}
 
 	if (atomic_read(&sde_crtc->frame_pending)) {
@@ -2591,6 +2579,16 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 		sde_encoder_register_frame_event_callback(encoder,
 				sde_crtc_frame_event_cb, (void *)crtc);
 	}
+
+	mutex_lock(&sde_crtc->crtc_lock);
+	if (sde_crtc->vblank_enable) {
+		/* honor user vblank request on crtc while it was disabled */
+		SDE_DEBUG("%s vblank found enabled at crtc enable time\n",
+				sde_crtc->name);
+		SDE_EVT32(DRMID(crtc), sde_crtc->vblank_enable);
+		_sde_crtc_vblank_enable_nolock(sde_crtc, true);
+	}
+	mutex_unlock(&sde_crtc->crtc_lock);
 
 	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
 	list_for_each_entry(node, &sde_crtc->user_event_list, list) {
@@ -3441,8 +3439,7 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 		sde_crtc->vblank_cb_time = ktime_set(0, 0);
 	}
 
-	seq_printf(s, "vblank_refcount:%d\n",
-			atomic_read(&sde_crtc->vblank_refcount));
+	seq_printf(s, "vblank_enable:%d\n", sde_crtc->vblank_enable);
 
 	mutex_unlock(&sde_crtc->crtc_lock);
 
@@ -3808,7 +3805,6 @@ struct drm_crtc *sde_crtc_init(struct drm_device *dev, struct drm_plane *plane)
 
 	crtc = &sde_crtc->base;
 	crtc->dev = dev;
-	atomic_set(&sde_crtc->vblank_refcount, 0);
 
 	mutex_init(&sde_crtc->crtc_lock);
 	spin_lock_init(&sde_crtc->spin_lock);
