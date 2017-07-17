@@ -20,6 +20,7 @@
 #include <linux/of_irq.h>
 #include <linux/qpnp/qpnp-revid.h>
 #include <linux/pmic-voter.h>
+#include <linux/delay.h>
 
 #define QNOVO_REVISION1		0x00
 #define QNOVO_REVISION2		0x01
@@ -124,6 +125,8 @@
 #define USB_READY_VOTER		"USB_READY_VOTER"
 #define DC_READY_VOTER		"DC_READY_VOTER"
 
+#define PT_RESTART_VOTER	"PT_RESTART_VOTER"
+
 struct qnovo_dt_props {
 	bool			external_rsense;
 	struct device_node	*revid_dev_node;
@@ -161,6 +164,8 @@ struct qnovo {
 	int			dc_present;
 	struct delayed_work	usb_debounce_work;
 	struct delayed_work	dc_debounce_work;
+
+	struct delayed_work	ptrain_restart_work;
 };
 
 static int debug_mask;
@@ -354,12 +359,23 @@ static int pt_dis_votable_cb(struct votable *votable, void *data, int disable,
 	struct qnovo *chip = data;
 	int rc;
 
+	if (disable) {
+		cancel_delayed_work_sync(&chip->ptrain_restart_work);
+		vote(chip->awake_votable, PT_RESTART_VOTER, false, 0);
+	}
+
 	rc = qnovo_masked_write(chip, QNOVO_PTRAIN_EN, QNOVO_PTRAIN_EN_BIT,
 				 (bool)disable ? 0 : QNOVO_PTRAIN_EN_BIT);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't %s pulse train rc=%d\n",
 			(bool)disable ? "disable" : "enable", rc);
 		return rc;
+	}
+
+	if (!disable) {
+		vote(chip->awake_votable, PT_RESTART_VOTER, true, 0);
+		schedule_delayed_work(&chip->ptrain_restart_work,
+				msecs_to_jiffies(20));
 	}
 
 	return 0;
@@ -1311,6 +1327,51 @@ static void status_change_work(struct work_struct *work)
 	qnovo_update_status(chip);
 }
 
+static void ptrain_restart_work(struct work_struct *work)
+{
+	struct qnovo *chip = container_of(work,
+				struct qnovo, ptrain_restart_work.work);
+	u8 pt_t1, pt_t2;
+	int rc;
+
+	rc = qnovo_read(chip, QNOVO_PTTIME_STS, &pt_t1, 1);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read QNOVO_PTTIME_STS rc = %d\n",
+			rc);
+		goto clean_up;
+	}
+
+	/* pttime increments every 2 seconds */
+	msleep(2100);
+
+	rc = qnovo_read(chip, QNOVO_PTTIME_STS, &pt_t2, 1);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read QNOVO_PTTIME_STS rc = %d\n",
+			rc);
+		goto clean_up;
+	}
+
+	if (pt_t1 != pt_t2)
+		goto clean_up;
+
+	/* Toggle pt enable to restart pulse train */
+	rc = qnovo_masked_write(chip, QNOVO_PTRAIN_EN, QNOVO_PTRAIN_EN_BIT, 0);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't disable pulse train rc=%d\n", rc);
+		goto clean_up;
+	}
+	msleep(1000);
+	rc = qnovo_masked_write(chip, QNOVO_PTRAIN_EN, QNOVO_PTRAIN_EN_BIT,
+				QNOVO_PTRAIN_EN_BIT);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't enable pulse train rc=%d\n", rc);
+		goto clean_up;
+	}
+
+clean_up:
+	vote(chip->awake_votable, PT_RESTART_VOTER, false, 0);
+}
+
 static int qnovo_notifier_call(struct notifier_block *nb,
 		unsigned long ev, void *v)
 {
@@ -1564,6 +1625,7 @@ static int qnovo_probe(struct platform_device *pdev)
 	INIT_WORK(&chip->status_change_work, status_change_work);
 	INIT_DELAYED_WORK(&chip->dc_debounce_work, dc_debounce_work);
 	INIT_DELAYED_WORK(&chip->usb_debounce_work, usb_debounce_work);
+	INIT_DELAYED_WORK(&chip->ptrain_restart_work, ptrain_restart_work);
 
 	rc = qnovo_hw_init(chip);
 	if (rc < 0) {
