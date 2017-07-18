@@ -377,6 +377,8 @@ struct usbpd {
 	struct list_head	svid_handlers;
 
 	struct list_head	instance;
+
+	u16			ss_lane_svid;
 };
 
 static LIST_HEAD(_usbpd);	/* useful for debugging */
@@ -443,6 +445,47 @@ static inline void start_usb_peripheral(struct usbpd *pd)
 	extcon_set_property(pd->extcon, EXTCON_USB, EXTCON_PROP_USB_SS, val);
 
 	extcon_set_state_sync(pd->extcon, EXTCON_USB, 1);
+}
+
+/**
+ * This API allows client driver to request for releasing SS lanes. It should
+ * not be called from atomic context.
+ *
+ * @pd - USBPD handler
+ * @hdlr - client's handler
+ *
+ * @returns int - Success - 0, else negative error code
+ */
+static int usbpd_release_ss_lane(struct usbpd *pd,
+				struct usbpd_svid_handler *hdlr)
+{
+	int ret = 0;
+
+	if (!hdlr || !pd)
+		return -EINVAL;
+
+	usbpd_dbg(&pd->dev, "hdlr:%pK svid:%d", hdlr, hdlr->svid);
+	/*
+	 * If USB SS lanes are already used by one client, and other client is
+	 * requesting for same or same client requesting again, return -EBUSY.
+	 */
+	if (pd->ss_lane_svid) {
+		usbpd_dbg(&pd->dev, "-EBUSY: ss_lanes are already used by(%d)",
+							pd->ss_lane_svid);
+		ret = -EBUSY;
+		goto err_exit;
+	}
+
+	ret = extcon_blocking_sync(pd->extcon, EXTCON_USB_HOST, 0);
+	if (ret) {
+		usbpd_err(&pd->dev, "err(%d) for releasing ss lane", ret);
+		goto err_exit;
+	}
+
+	pd->ss_lane_svid = hdlr->svid;
+
+err_exit:
+	return ret;
 }
 
 static int set_power_role(struct usbpd *pd, enum power_role pr)
@@ -764,6 +807,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 		if (pd->current_dr == DR_NONE) {
 			pd->current_dr = DR_DFP;
 			start_usb_host(pd, true);
+			pd->ss_lane_svid = 0x0;
 		}
 
 		dual_role_instance_changed(pd->dual_role);
@@ -1073,6 +1117,7 @@ int usbpd_register_svid(struct usbpd *pd, struct usbpd_svid_handler *hdlr)
 	usbpd_dbg(&pd->dev, "registered handler for SVID 0x%04x\n", hdlr->svid);
 
 	list_add_tail(&hdlr->entry, &pd->svid_handlers);
+	hdlr->request_usb_ss_lane = usbpd_release_ss_lane;
 
 	/* already connected with this SVID discovered? */
 	if (pd->vdm_state >= DISCOVERED_SVIDS) {
