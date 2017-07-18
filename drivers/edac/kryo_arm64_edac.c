@@ -16,6 +16,7 @@
 #include <linux/platform_device.h>
 #include <linux/smp.h>
 #include <linux/cpu.h>
+#include <linux/cpu_pm.h>
 #include <linux/interrupt.h>
 #include <linux/of_irq.h>
 
@@ -136,6 +137,7 @@ static const struct errors_edac errors[] = {
 struct erp_drvdata {
 	struct edac_device_ctl_info *edev_ctl;
 	struct erp_drvdata __percpu **erp_cpu_drvdata;
+	struct notifier_block nb_pm;
 	int ppi;
 };
 
@@ -397,6 +399,19 @@ static irqreturn_t kryo_l3_scu_handler(int irq, void *drvdata)
 	return IRQ_HANDLED;
 }
 
+static int kryo_pmu_cpu_pm_notify(struct notifier_block *self,
+				unsigned long action, void *v)
+{
+	switch (action) {
+	case CPU_PM_EXIT:
+		kryo_check_l3_scu_error(panic_handler_drvdata->edev_ctl);
+		kryo_check_l1_l2_ecc(panic_handler_drvdata->edev_ctl);
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
 static void initialize_registers(void *info)
 {
 	set_errxctlr_el1();
@@ -439,6 +454,7 @@ static int kryo_cpu_erp_probe(struct platform_device *pdev)
 	drv->edev_ctl->ctl_name = "cache";
 	drv->edev_ctl->panic_on_ce = ARM64_ERP_PANIC_ON_CE;
 	drv->edev_ctl->panic_on_ue = ARM64_ERP_PANIC_ON_UE;
+	drv->nb_pm.notifier_call = kryo_pmu_cpu_pm_notify;
 	platform_set_drvdata(pdev, drv);
 
 	rc = edac_device_add_device(drv->edev_ctl);
@@ -462,6 +478,8 @@ static int kryo_cpu_erp_probe(struct platform_device *pdev)
 		rc = -ENODEV;
 		goto out_dev;
 	}
+
+	cpu_pm_register_notifier(&(drv->nb_pm));
 
 	return 0;
 
