@@ -31,6 +31,8 @@
 #define CAM_CSIPHY     (1 << 15)
 #define CAM_EEPROM     (1 << 16)
 #define CAM_UTIL       (1 << 17)
+#define CAM_HFI        (1 << 18)
+#define CAM_CTXT       (1 << 19)
 
 #define STR_BUFFER_MAX_LENGTH  1024
 

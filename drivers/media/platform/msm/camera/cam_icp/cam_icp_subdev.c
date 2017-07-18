@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "CAM-ICP %s:%d " fmt, __func__, __LINE__
-
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/of.h>
@@ -36,6 +34,7 @@
 #include "cam_icp_context.h"
 #include "cam_hw_mgr_intf.h"
 #include "cam_icp_hw_mgr_intf.h"
+#include "cam_debug_util.h"
 
 #define CAM_ICP_DEV_NAME        "cam-icp"
 
@@ -65,13 +64,13 @@ static int cam_icp_subdev_open(struct v4l2_subdev *sd,
 
 	mutex_lock(&g_icp_dev.icp_lock);
 	if (g_icp_dev.open_cnt >= 1) {
-		pr_err("ICP subdev is already opened\n");
+		CAM_ERR(CAM_ICP, "ICP subdev is already opened");
 		rc = -EALREADY;
 		goto end;
 	}
 
 	if (!node) {
-		pr_err("Invalid args\n");
+		CAM_ERR(CAM_ICP, "Invalid args");
 		rc = -EINVAL;
 		goto end;
 	}
@@ -79,7 +78,7 @@ static int cam_icp_subdev_open(struct v4l2_subdev *sd,
 	hw_mgr_intf = &node->hw_mgr_intf;
 	rc = hw_mgr_intf->download_fw(hw_mgr_intf->hw_mgr_priv, NULL);
 	if (rc < 0) {
-		pr_err("FW download failed\n");
+		CAM_ERR(CAM_ICP, "FW download failed");
 		goto end;
 	}
 	g_icp_dev.open_cnt++;
@@ -97,27 +96,27 @@ static int cam_icp_subdev_close(struct v4l2_subdev *sd,
 
 	mutex_lock(&g_icp_dev.icp_lock);
 	if (g_icp_dev.open_cnt <= 0) {
-		pr_err("ICP subdev is already closed\n");
+		CAM_ERR(CAM_ICP, "ICP subdev is already closed");
 		rc = -EINVAL;
 		goto end;
 	}
 	g_icp_dev.open_cnt--;
 	if (!node) {
-		pr_err("Invalid args\n");
+		CAM_ERR(CAM_ICP, "Invalid args");
 		rc = -EINVAL;
 		goto end;
 	}
 
 	hw_mgr_intf = &node->hw_mgr_intf;
 	if (!hw_mgr_intf) {
-		pr_err("hw_mgr_intf is not initialized\n");
+		CAM_ERR(CAM_ICP, "hw_mgr_intf is not initialized");
 		rc = -EINVAL;
 		goto end;
 	}
 
 	rc = hw_mgr_intf->hw_close(hw_mgr_intf->hw_mgr_priv, NULL);
 	if (rc < 0) {
-		pr_err("HW close failed\n");
+		CAM_ERR(CAM_ICP, "HW close failed");
 		goto end;
 	}
 
@@ -138,7 +137,7 @@ static int cam_icp_probe(struct platform_device *pdev)
 	struct cam_hw_mgr_intf *hw_mgr_intf;
 
 	if (!pdev) {
-		pr_err("pdev is NULL\n");
+		CAM_ERR(CAM_ICP, "pdev is NULL");
 		return -EINVAL;
 	}
 
@@ -147,7 +146,7 @@ static int cam_icp_probe(struct platform_device *pdev)
 	rc = cam_subdev_probe(&g_icp_dev.sd, pdev, CAM_ICP_DEV_NAME,
 		CAM_ICP_DEVICE_TYPE);
 	if (rc) {
-		pr_err("ICP cam_subdev_probe failed!\n");
+		CAM_ERR(CAM_ICP, "ICP cam_subdev_probe failed");
 		goto probe_fail;
 	}
 
@@ -161,26 +160,24 @@ static int cam_icp_probe(struct platform_device *pdev)
 
 	rc = cam_icp_hw_mgr_init(pdev->dev.of_node, (uint64_t *)hw_mgr_intf);
 	if (rc) {
-		pr_err("ICP HW manager init failed: %d\n", rc);
+		CAM_ERR(CAM_ICP, "ICP HW manager init failed: %d", rc);
 		goto hw_init_fail;
 	}
 
-	pr_debug("Initializing the ICP contexts\n");
 	for (i = 0; i < CAM_CTX_MAX; i++) {
 		g_icp_dev.ctx_icp[i].base = &g_icp_dev.ctx[i];
 		rc = cam_icp_context_init(&g_icp_dev.ctx_icp[i],
 					hw_mgr_intf);
 		if (rc) {
-			pr_err("ICP context init failed!\n");
+			CAM_ERR(CAM_ICP, "ICP context init failed");
 			goto ctx_fail;
 		}
 	}
 
-	pr_debug("Initializing the ICP Node\n");
 	rc = cam_node_init(node, hw_mgr_intf, g_icp_dev.ctx,
 				CAM_CTX_MAX, CAM_ICP_DEV_NAME);
 	if (rc) {
-		pr_err("ICP node init failed!\n");
+		CAM_ERR(CAM_ICP, "ICP node init failed");
 		goto ctx_fail;
 	}
 
@@ -207,20 +204,20 @@ static int cam_icp_remove(struct platform_device *pdev)
 	struct cam_subdev *subdev;
 
 	if (!pdev) {
-		pr_err("pdev is NULL\n");
-		return -EINVAL;
+		CAM_ERR(CAM_ICP, "pdev is NULL");
+		return -ENODEV;
 	}
 
 	sd = platform_get_drvdata(pdev);
 	if (!sd) {
-		pr_err("V4l2 subdev is NULL\n");
-		return -EINVAL;
+		CAM_ERR(CAM_ICP, "V4l2 subdev is NULL");
+		return -ENODEV;
 	}
 
 	subdev = v4l2_get_subdevdata(sd);
 	if (!subdev) {
-		pr_err("cam subdev is NULL\n");
-		return -EINVAL;
+		CAM_ERR(CAM_ICP, "cam subdev is NULL");
+		return -ENODEV;
 	}
 
 	for (i = 0; i < CAM_CTX_MAX; i++)

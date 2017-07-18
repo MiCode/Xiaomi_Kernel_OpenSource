@@ -23,6 +23,7 @@
 #include "cam_a5_hw_intf.h"
 #include "cam_icp_hw_mgr_intf.h"
 #include "cam_cpas_api.h"
+#include "cam_debug_util.h"
 
 struct a5_soc_info cam_a5_soc_info;
 EXPORT_SYMBOL(cam_a5_soc_info);
@@ -64,7 +65,7 @@ int cam_a5_register_cpas(struct cam_hw_soc_info *soc_info,
 
 	rc = cam_cpas_register_client(&cpas_register_params);
 	if (rc < 0) {
-		pr_err("cam_cpas_register_client is failed: %d\n", rc);
+		CAM_ERR(CAM_ICP, "failed: %d", rc);
 		return rc;
 	}
 
@@ -101,7 +102,7 @@ int cam_a5_probe(struct platform_device *pdev)
 	a5_dev_intf->hw_ops.process_cmd = cam_a5_process_cmd;
 	a5_dev_intf->hw_type = CAM_ICP_DEV_A5;
 
-	pr_debug("%s: type %d index %d\n", __func__,
+	CAM_DBG(CAM_ICP, "type %d index %d",
 		a5_dev_intf->hw_type,
 		a5_dev_intf->hw_idx);
 
@@ -118,9 +119,9 @@ int cam_a5_probe(struct platform_device *pdev)
 	match_dev = of_match_device(pdev->dev.driver->of_match_table,
 		&pdev->dev);
 	if (!match_dev) {
-		pr_err("%s: No a5 hardware info\n", __func__);
+		CAM_ERR(CAM_ICP, "No a5 hardware info");
 		rc = -EINVAL;
-		goto pr_err;
+		goto match_err;
 	}
 	hw_info = (struct cam_a5_device_hw_info *)match_dev->data;
 	core_info->a5_hw_info = hw_info;
@@ -130,16 +131,16 @@ int cam_a5_probe(struct platform_device *pdev)
 	rc = cam_a5_init_soc_resources(&a5_dev->soc_info, cam_a5_irq,
 		a5_dev);
 	if (rc < 0) {
-		pr_err("%s: failed to init_soc\n", __func__);
+		CAM_ERR(CAM_ICP, "failed to init_soc");
 		goto init_soc_failure;
 	}
 
-	pr_debug("cam_a5_init_soc_resources : %pK\n",
+	CAM_DBG(CAM_ICP, "soc info : %pK",
 				(void *)&a5_dev->soc_info);
 	rc = cam_a5_register_cpas(&a5_dev->soc_info,
 			core_info, a5_dev_intf->hw_idx);
 	if (rc < 0) {
-		pr_err("a5 cpas registration failed\n");
+		CAM_ERR(CAM_ICP, "a5 cpas registration failed");
 		goto cpas_reg_failed;
 	}
 	a5_dev->hw_state = CAM_HW_STATE_POWER_DOWN;
@@ -147,13 +148,13 @@ int cam_a5_probe(struct platform_device *pdev)
 	spin_lock_init(&a5_dev->hw_lock);
 	init_completion(&a5_dev->hw_complete);
 
-	pr_debug("%s: A5%d probe successful\n", __func__,
+	CAM_DBG(CAM_ICP, "A5%d probe successful",
 		a5_dev_intf->hw_idx);
 	return 0;
 
 cpas_reg_failed:
 init_soc_failure:
-pr_err:
+match_err:
 	kfree(a5_dev->core_info);
 core_info_alloc_failure:
 	kfree(a5_dev);

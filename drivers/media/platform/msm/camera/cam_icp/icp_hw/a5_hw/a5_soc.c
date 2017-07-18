@@ -18,9 +18,7 @@
 #include <media/cam_icp.h>
 #include "a5_soc.h"
 #include "cam_soc_util.h"
-
-#undef CDBG
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#include "cam_debug_util.h"
 
 static int cam_a5_get_dt_properties(struct cam_hw_soc_info *soc_info)
 {
@@ -35,7 +33,7 @@ static int cam_a5_get_dt_properties(struct cam_hw_soc_info *soc_info)
 
 	rc = cam_soc_util_get_dt_properties(soc_info);
 	if (rc < 0) {
-		pr_err("%s: get a5 dt prop is failed\n", __func__);
+		CAM_ERR(CAM_ICP, "get a5 dt prop is failed");
 		return rc;
 	}
 
@@ -44,7 +42,7 @@ static int cam_a5_get_dt_properties(struct cam_hw_soc_info *soc_info)
 
 	rc = of_property_read_string(of_node, "fw_name", &fw_name);
 	if (rc < 0)
-		pr_err("%s: fw_name read failed\n", __func__);
+		CAM_ERR(CAM_ICP, "fw_name read failed");
 
 	return rc;
 }
@@ -85,7 +83,7 @@ int cam_a5_enable_soc_resources(struct cam_hw_soc_info *soc_info)
 	rc = cam_soc_util_enable_platform_resource(soc_info, true,
 		CAM_TURBO_VOTE, true);
 	if (rc)
-		pr_err("%s: enable platform failed\n", __func__);
+		CAM_ERR(CAM_ICP, "enable platform failed");
 
 	return rc;
 }
@@ -96,7 +94,7 @@ int cam_a5_disable_soc_resources(struct cam_hw_soc_info *soc_info)
 
 	rc = cam_soc_util_disable_platform_resource(soc_info, true, true);
 	if (rc)
-		pr_err("%s: disable platform failed\n", __func__);
+		CAM_ERR(CAM_ICP, "disable platform failed");
 
 	return rc;
 }

@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "BPS-CORE %s:%d " fmt, __func__, __LINE__
-
 #include <linux/of.h>
 #include <linux/debugfs.h>
 #include <linux/videodev2.h>
@@ -31,6 +29,7 @@
 #include "cam_icp_hw_intf.h"
 #include "cam_icp_hw_mgr_intf.h"
 #include "cam_cpas_api.h"
+#include "cam_debug_util.h"
 
 static int cam_bps_cpas_vote(struct cam_bps_device_core_info *core_info,
 			struct cam_icp_cpas_vote *cpas_vote)
@@ -45,7 +44,7 @@ static int cam_bps_cpas_vote(struct cam_bps_device_core_info *core_info,
 				&cpas_vote->axi_vote);
 
 	if (rc < 0)
-		pr_err("cpas vote is failed: %d\n", rc);
+		CAM_ERR(CAM_ICP, "cpas vote is failed: %d", rc);
 
 	return rc;
 }
@@ -61,7 +60,7 @@ int cam_bps_init_hw(void *device_priv,
 	int rc = 0;
 
 	if (!device_priv) {
-		pr_err("Invalid cam_dev_info\n");
+		CAM_ERR(CAM_ICP, "Invalid cam_dev_info");
 		return -EINVAL;
 	}
 
@@ -69,7 +68,8 @@ int cam_bps_init_hw(void *device_priv,
 	core_info = (struct cam_bps_device_core_info *)bps_dev->core_info;
 
 	if ((!soc_info) || (!core_info)) {
-		pr_err("soc_info = %pK core_info = %pK\n", soc_info, core_info);
+		CAM_ERR(CAM_ICP, "soc_info = %pK core_info = %pK",
+			soc_info, core_info);
 		return -EINVAL;
 	}
 
@@ -81,16 +81,16 @@ int cam_bps_init_hw(void *device_priv,
 	rc = cam_cpas_start(core_info->cpas_handle,
 			&cpas_vote.ahb_vote, &cpas_vote.axi_vote);
 	if (rc) {
-		pr_err("cpass start failed: %d\n", rc);
+		CAM_ERR(CAM_ICP, "cpass start failed: %d", rc);
 		return rc;
 	}
 	core_info->cpas_start = true;
 
 	rc = cam_bps_enable_soc_resources(soc_info);
 	if (rc) {
-		pr_err("soc enable is failed: %d\n", rc);
+		CAM_ERR(CAM_ICP, "soc enable is failed: %d", rc);
 		if (cam_cpas_stop(core_info->cpas_handle))
-			pr_err("cpas stop is failed\n");
+			CAM_ERR(CAM_ICP, "cpas stop is failed");
 		else
 			core_info->cpas_start = false;
 	}
@@ -107,24 +107,25 @@ int cam_bps_deinit_hw(void *device_priv,
 	int rc = 0;
 
 	if (!device_priv) {
-		pr_err("Invalid cam_dev_info\n");
+		CAM_ERR(CAM_ICP, "Invalid cam_dev_info");
 		return -EINVAL;
 	}
 
 	soc_info = &bps_dev->soc_info;
 	core_info = (struct cam_bps_device_core_info *)bps_dev->core_info;
 	if ((!soc_info) || (!core_info)) {
-		pr_err("soc_info = %pK core_info = %pK\n", soc_info, core_info);
+		CAM_ERR(CAM_ICP, "soc_info = %pK core_info = %pK",
+			soc_info, core_info);
 		return -EINVAL;
 	}
 
 	rc = cam_bps_disable_soc_resources(soc_info);
 	if (rc)
-		pr_err("soc disable is failed: %d\n", rc);
+		CAM_ERR(CAM_ICP, "soc disable is failed: %d", rc);
 
 	if (core_info->cpas_start) {
 		if (cam_cpas_stop(core_info->cpas_handle))
-			pr_err("cpas stop is failed\n");
+			CAM_ERR(CAM_ICP, "cpas stop is failed");
 		else
 			core_info->cpas_start = false;
 	}
@@ -142,12 +143,12 @@ int cam_bps_process_cmd(void *device_priv, uint32_t cmd_type,
 	int rc = 0;
 
 	if (!device_priv) {
-		pr_err("Invalid arguments\n");
+		CAM_ERR(CAM_ICP, "Invalid arguments");
 		return -EINVAL;
 	}
 
 	if (cmd_type >= CAM_ICP_BPS_CMD_MAX) {
-		pr_err("Invalid command : %x\n", cmd_type);
+		CAM_ERR(CAM_ICP, "Invalid command : %x", cmd_type);
 		return -EINVAL;
 	}
 
@@ -160,7 +161,7 @@ int cam_bps_process_cmd(void *device_priv, uint32_t cmd_type,
 		struct cam_icp_cpas_vote *cpas_vote = cmd_args;
 
 		if (!cmd_args) {
-			pr_err("cmd args NULL\n");
+			CAM_ERR(CAM_ICP, "cmd args NULL");
 			return -EINVAL;
 		}
 
@@ -172,7 +173,7 @@ int cam_bps_process_cmd(void *device_priv, uint32_t cmd_type,
 		struct cam_icp_cpas_vote *cpas_vote = cmd_args;
 
 		if (!cmd_args) {
-			pr_err("cmd args NULL\n");
+			CAM_ERR(CAM_ICP, "cmd args NULL");
 			return -EINVAL;
 		}
 
