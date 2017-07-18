@@ -1,5 +1,5 @@
 /* Copyright (c) 2013-2014, 2016, The Linux Foundation. All rights reserved.
- *
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -90,6 +90,7 @@ static void mdp3_hist_done_intr_handler(int type, void *arg)
 		dma->histo_state = MDP3_DMA_HISTO_STATE_READY;
 		complete(&dma->histo_comp);
 		spin_unlock(&dma->histo_lock);
+		mdp3_hist_intr_notify(dma);
 	}
 	if (isr & MDP3_DMA_P_HIST_INTR_RESET_DONE_BIT) {
 		spin_lock(&dma->histo_lock);

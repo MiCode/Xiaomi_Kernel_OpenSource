@@ -247,6 +247,13 @@ static void mdp3_vsync_retire_work_handler(struct work_struct *work)
 	mdp3_vsync_retire_signal(mdp3_session->mfd, 1);
 }
 
+void mdp3_hist_intr_notify(struct mdp3_dma *dma)
+{
+	dma->hist_events++;
+	sysfs_notify_dirent(dma->hist_event_sd);
+	pr_debug("%s:: hist_events = %u\n", __func__, dma->hist_events);
+}
+
 void vsync_notify_handler(void *arg)
 {
 	struct mdp3_session_data *session = (struct mdp3_session_data *)arg;
@@ -392,6 +399,40 @@ static int mdp3_ctrl_blit_req(struct msm_fb_data_type *mfd, void __user *p)
 	return rc;
 }
 
+static ssize_t mdp3_bl_show_event(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdp3_session_data *mdp3_session = NULL;
+	int ret;
+
+	if (!mfd || !mfd->mdp.private1)
+		return -EAGAIN;
+
+	mdp3_session = (struct mdp3_session_data *)mfd->mdp.private1;
+	ret = scnprintf(buf, PAGE_SIZE, "%d\n", mdp3_session->bl_events);
+	return ret;
+}
+
+static ssize_t mdp3_hist_show_event(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdp3_session_data *mdp3_session = NULL;
+	struct mdp3_dma *dma = NULL;
+	int ret;
+
+	if (!mfd || !mfd->mdp.private1)
+		return -EAGAIN;
+
+	mdp3_session = (struct mdp3_session_data *)mfd->mdp.private1;
+	dma = (struct mdp3_dma *)mdp3_session->dma;
+	ret = scnprintf(buf, PAGE_SIZE, "%d\n", dma->hist_events);
+	return ret;
+}
+
 static ssize_t mdp3_vsync_show_event(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -479,6 +520,8 @@ static ssize_t mdp3_dyn_pu_store(struct device *dev,
 	return count;
 }
 
+static DEVICE_ATTR(hist_event, S_IRUGO, mdp3_hist_show_event, NULL);
+static DEVICE_ATTR(bl_event, S_IRUGO, mdp3_bl_show_event, NULL);
 static DEVICE_ATTR(vsync_event, S_IRUGO, mdp3_vsync_show_event, NULL);
 static DEVICE_ATTR(packpattern, S_IRUGO, mdp3_packpattern_show, NULL);
 static DEVICE_ATTR(dyn_pu, S_IRUGO | S_IWUSR | S_IWGRP, mdp3_dyn_pu_show,
@@ -487,6 +530,8 @@ static DEVICE_ATTR(dyn_pu, S_IRUGO | S_IWUSR | S_IWGRP, mdp3_dyn_pu_show,
 static struct attribute *generic_attrs[] = {
 	&dev_attr_packpattern.attr,
 	&dev_attr_dyn_pu.attr,
+	&dev_attr_hist_event.attr,
+	&dev_attr_bl_event.attr,
 	NULL,
 };
 
@@ -2875,6 +2920,22 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 							"vsync_event");
 	if (!mdp3_session->vsync_event_sd) {
 		pr_err("vsync_event sysfs lookup failed\n");
+		rc = -ENODEV;
+		goto init_done;
+	}
+
+	mdp3_session->dma->hist_event_sd = sysfs_get_dirent(dev->kobj.sd,
+							"hist_event");
+	if (!mdp3_session->dma->hist_event_sd) {
+		pr_err("hist_event sysfs lookup failed\n");
+		rc = -ENODEV;
+		goto init_done;
+	}
+
+	mdp3_session->bl_event_sd = sysfs_get_dirent(dev->kobj.sd,
+							"bl_event");
+	if (!mdp3_session->bl_event_sd) {
+		pr_err("bl_event sysfs lookup failed\n");
 		rc = -ENODEV;
 		goto init_done;
 	}
