@@ -810,7 +810,7 @@ int f2fs_preallocate_blocks(struct inode *inode, loff_t pos,
 				F2FS_GET_BLOCK_PRE_AIO :
 				F2FS_GET_BLOCK_PRE_DIO);
 	}
-	if (pos + count > MAX_INLINE_DATA) {
+	if (pos + count > MAX_INLINE_DATA(inode)) {
 		err = f2fs_convert_inline_inode(inode);
 		if (err)
 			return err;
@@ -1852,7 +1852,7 @@ restart:
 	set_new_dnode(&dn, inode, ipage, ipage, 0);
 
 	if (f2fs_has_inline_data(inode)) {
-		if (pos + len <= MAX_INLINE_DATA) {
+		if (pos + len <= MAX_INLINE_DATA(inode)) {
 			read_inline_data(page, ipage);
 			set_inode_flag(inode, FI_DATA_EXIST);
 			if (inode->i_nlink)
