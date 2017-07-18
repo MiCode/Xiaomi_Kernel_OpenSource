@@ -34,13 +34,12 @@ int32_t cam_sensor_get_sub_module_index(struct device_node *of_node,
 
 	src_node = of_parse_phandle(of_node, "actuator-src", 0);
 	if (!src_node) {
-		CDBG("%s:%d src_node NULL\n", __func__, __LINE__);
+		CAM_DBG(CAM_SENSOR, "src_node NULL");
 	} else {
 		rc = of_property_read_u32(src_node, "cell-index", &val);
-		CDBG("%s:%d actuator cell index %d, rc %d\n", __func__,
-			__LINE__, val, rc);
+		CAM_DBG(CAM_SENSOR, "actuator cell index %d, rc %d", val, rc);
 		if (rc < 0) {
-			pr_err("%s:%d failed %d\n", __func__, __LINE__, rc);
+			CAM_ERR(CAM_SENSOR, "failed %d", rc);
 			of_node_put(src_node);
 			return rc;
 		}
@@ -50,13 +49,12 @@ int32_t cam_sensor_get_sub_module_index(struct device_node *of_node,
 
 	src_node = of_parse_phandle(of_node, "ois-src", 0);
 	if (!src_node) {
-		CDBG("%s:%d src_node NULL\n", __func__, __LINE__);
+		CAM_DBG(CAM_SENSOR, "src_node NULL");
 	} else {
 		rc = of_property_read_u32(src_node, "cell-index", &val);
-		CDBG("%s:%d ois cell index %d, rc %d\n", __func__, __LINE__,
-			val, rc);
+		CAM_DBG(CAM_SENSOR, " ois cell index %d, rc %d", val, rc);
 		if (rc < 0) {
-			pr_err("%s:%d failed %d\n", __func__, __LINE__, rc);
+			CAM_ERR(CAM_SENSOR, "failed %d",  rc);
 			of_node_put(src_node);
 			return rc;
 		}
@@ -66,13 +64,12 @@ int32_t cam_sensor_get_sub_module_index(struct device_node *of_node,
 
 	src_node = of_parse_phandle(of_node, "eeprom-src", 0);
 	if (!src_node) {
-		CDBG("%s:%d eeprom src_node NULL\n", __func__, __LINE__);
+		CAM_DBG(CAM_SENSOR, "eeprom src_node NULL");
 	} else {
 		rc = of_property_read_u32(src_node, "cell-index", &val);
-		CDBG("%s:%d eeprom cell index %d, rc %d\n", __func__, __LINE__,
-			val, rc);
+		CAM_DBG(CAM_SENSOR, "eeprom cell index %d, rc %d", val, rc);
 		if (rc < 0) {
-			pr_err("%s:%d failed %d\n", __func__, __LINE__, rc);
+			CAM_ERR(CAM_SENSOR, "failed %d", rc);
 			of_node_put(src_node);
 			return rc;
 		}
@@ -82,13 +79,12 @@ int32_t cam_sensor_get_sub_module_index(struct device_node *of_node,
 
 	src_node = of_parse_phandle(of_node, "led-flash-src", 0);
 	if (!src_node) {
-		CDBG("%s:%d src_node NULL\n", __func__, __LINE__);
+		CAM_DBG(CAM_SENSOR, " src_node NULL");
 	} else {
 		rc = of_property_read_u32(src_node, "cell-index", &val);
-		CDBG("%s:%d led flash cell index %d, rc %d\n", __func__,
-			__LINE__, val, rc);
+		CAM_DBG(CAM_SENSOR, "led flash cell index %d, rc %d", val, rc);
 		if (rc < 0) {
-			pr_err("%s:%d failed %d\n", __func__, __LINE__, rc);
+			CAM_ERR(CAM_SENSOR, "failed %d", rc);
 			of_node_put(src_node);
 			return rc;
 		}
@@ -98,8 +94,7 @@ int32_t cam_sensor_get_sub_module_index(struct device_node *of_node,
 
 	rc = of_property_read_u32(of_node, "csiphy-sd-index", &val);
 	if (rc < 0)
-		pr_err("%s:%d :Error: paring the dt node for csiphy rc %d\n",
-			__func__, __LINE__, rc);
+		CAM_ERR(CAM_SENSOR, "paring the dt node for csiphy rc %d", rc);
 	else
 		sensor_info->subdev_id[SUB_MODULE_CSIPHY] = val;
 
@@ -120,15 +115,14 @@ static int32_t cam_sensor_driver_get_dt_data(struct cam_sensor_ctrl_t *s_ctrl)
 
 	rc = cam_soc_util_get_dt_properties(soc_info);
 	if (rc < 0) {
-		pr_err("%s:%d Failed to read DT properties rc %d",
-			__func__, __LINE__, rc);
+		CAM_ERR(CAM_SENSOR, "Failed to read DT properties rc %d", rc);
 		goto FREE_SENSOR_DATA;
 	}
 
 	rc =  cam_sensor_util_init_gpio_pin_tbl(soc_info,
 			&sensordata->power_info.gpio_num_info);
 	if (rc < 0) {
-		pr_err("%s:%d Failed to read gpios %d", __func__, __LINE__, rc);
+		CAM_ERR(CAM_SENSOR, "Failed to read gpios %d", rc);
 		goto FREE_SENSOR_DATA;
 	}
 
@@ -136,8 +130,7 @@ static int32_t cam_sensor_driver_get_dt_data(struct cam_sensor_ctrl_t *s_ctrl)
 
 	/* Validate cell_id */
 	if (s_ctrl->id >= MAX_CAMERAS) {
-		pr_err("%s:%d Failed invalid cell_id %d", __func__, __LINE__,
-			s_ctrl->id);
+		CAM_ERR(CAM_SENSOR, "Failed invalid cell_id %d", s_ctrl->id);
 		rc = -EINVAL;
 		goto FREE_SENSOR_DATA;
 	}
@@ -145,16 +138,15 @@ static int32_t cam_sensor_driver_get_dt_data(struct cam_sensor_ctrl_t *s_ctrl)
 	/* Read subdev info */
 	rc = cam_sensor_get_sub_module_index(of_node, sensordata);
 	if (rc < 0) {
-		pr_err("%s:%d failed to get sub module index, rc=%d\n",
-			__func__, __LINE__, rc);
+		CAM_ERR(CAM_SENSOR, "failed to get sub module index, rc=%d",
+			 rc);
 		goto FREE_SENSOR_DATA;
 	}
 
 	/* Get CCI master */
 	rc = of_property_read_u32(of_node, "cci-master",
 		&s_ctrl->cci_i2c_master);
-	CDBG("%s:%d cci-master %d, rc %d", __func__, __LINE__,
-		s_ctrl->cci_i2c_master, rc);
+	CAM_DBG(CAM_SENSOR, "cci-master %d, rc %d", s_ctrl->cci_i2c_master, rc);
 	if (rc < 0) {
 		/* Set default master 0 */
 		s_ctrl->cci_i2c_master = MASTER_0;
@@ -163,17 +155,17 @@ static int32_t cam_sensor_driver_get_dt_data(struct cam_sensor_ctrl_t *s_ctrl)
 
 	if (of_property_read_u32(of_node, "sensor-position-pitch",
 		&sensordata->pos_pitch) < 0) {
-		CDBG("%s:%d Invalid sensor position\n", __func__, __LINE__);
+		CAM_DBG(CAM_SENSOR, "Invalid sensor position");
 		sensordata->pos_pitch = 360;
 	}
 	if (of_property_read_u32(of_node, "sensor-position-roll",
 		&sensordata->pos_roll) < 0) {
-		CDBG("%s:%d Invalid sensor position\n", __func__, __LINE__);
+		CAM_DBG(CAM_SENSOR, "Invalid sensor position");
 		sensordata->pos_roll = 360;
 	}
 	if (of_property_read_u32(of_node, "sensor-position-yaw",
 		&sensordata->pos_yaw) < 0) {
-		CDBG("%s:%d Invalid sensor position\n", __func__, __LINE__);
+		CAM_DBG(CAM_SENSOR, "Invalid sensor position");
 		sensordata->pos_yaw = 360;
 	}
 
@@ -188,13 +180,13 @@ int32_t msm_sensor_init_default_params(struct cam_sensor_ctrl_t *s_ctrl)
 {
 	/* Validate input parameters */
 	if (!s_ctrl) {
-		pr_err("%s:%d failed: invalid params s_ctrl %pK\n", __func__,
-			__LINE__, s_ctrl);
+		CAM_ERR(CAM_SENSOR, "failed: invalid params s_ctrl %pK",
+			s_ctrl);
 		return -EINVAL;
 	}
 
-	CDBG("%s: %d master_type: %d\n", __func__, __LINE__,
-		s_ctrl->io_master_info.master_type);
+	CAM_DBG(CAM_SENSOR,
+		"master_type: %d", s_ctrl->io_master_info.master_type);
 	/* Initialize cci_client */
 	if (s_ctrl->io_master_info.master_type == CCI_MASTER) {
 		s_ctrl->io_master_info.cci_client = kzalloc(sizeof(
@@ -203,8 +195,8 @@ int32_t msm_sensor_init_default_params(struct cam_sensor_ctrl_t *s_ctrl)
 			return -ENOMEM;
 
 	} else {
-		pr_err("%s:%d Invalid master / Master type Not supported\n",
-			__func__, __LINE__);
+		CAM_ERR(CAM_SENSOR,
+			"Invalid master / Master type Not supported");
 		return -EINVAL;
 	}
 
@@ -219,30 +211,29 @@ int32_t cam_sensor_parse_dt(struct cam_sensor_ctrl_t *s_ctrl)
 	/* Parse dt information and store in sensor control structure */
 	rc = cam_sensor_driver_get_dt_data(s_ctrl);
 	if (rc < 0) {
-		pr_err("%s:%d Failed to get dt data rc %d", __func__, __LINE__,
-			rc);
+		CAM_ERR(CAM_SENSOR, "Failed to get dt data rc %d", rc);
 		return rc;
 	}
 
 	/* Initialize mutex */
 	mutex_init(&(s_ctrl->cam_sensor_mutex));
 
-	CDBG("%s: %d\n", __func__, __LINE__);
+	CAM_DBG(CAM_SENSOR, "%s: %d");
 	/* Initialize default parameters */
 	for (i = 0; i < soc_info->num_clk; i++) {
 		soc_info->clk[i] = devm_clk_get(&soc_info->pdev->dev,
 					soc_info->clk_name[i]);
 		if (!soc_info->clk[i]) {
-			pr_err("%s:%d get failed for %s\n",
-				__func__, __LINE__, soc_info->clk_name[i]);
+			CAM_ERR(CAM_SENSOR, "get failed for %s",
+				 soc_info->clk_name[i]);
 			rc = -ENOENT;
 			return rc;
 		}
 	}
 	rc = msm_sensor_init_default_params(s_ctrl);
 	if (rc < 0) {
-		pr_err("%s;%d failed: msm_sensor_init_default_params rc %d",
-			__func__, __LINE__, rc);
+		CAM_ERR(CAM_SENSOR,
+			"failed: msm_sensor_init_default_params rc %d", rc);
 		goto FREE_DT_DATA;
 	}
 

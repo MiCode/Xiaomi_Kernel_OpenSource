@@ -27,8 +27,7 @@ static long cam_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = cam_sensor_driver_cmd(s_ctrl, arg);
 		break;
 	default:
-		pr_err("%s:%d Invalid ioctl cmd: %d\n",
-			__func__, __LINE__, cmd);
+		CAM_ERR(CAM_SENSOR, " Invalid ioctl cmd: %d", cmd);
 		rc = -EINVAL;
 		break;
 	}
@@ -42,8 +41,8 @@ static int32_t cam_sensor_driver_i2c_probe(struct i2c_client *client,
 	struct cam_sensor_ctrl_t *s_ctrl;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
-		pr_err("%s %s :Error: i2c_check_functionality failed\n",
-			__func__, client->name);
+		CAM_ERR(CAM_SENSOR,
+			"%s :i2c_check_functionality failed", client->name);
 		return -EFAULT;
 	}
 
@@ -60,8 +59,7 @@ static int32_t cam_sensor_driver_i2c_probe(struct i2c_client *client,
 
 	rc = cam_sensor_parse_dt(s_ctrl);
 	if (rc < 0) {
-		pr_err("%s:%d :Error: cam_sensor_parse_dt rc %d",
-			__func__, __LINE__, rc);
+		CAM_ERR(CAM_SENSOR, "cam_sensor_parse_dt rc %d", rc);
 		goto free_s_ctrl;
 	}
 
@@ -77,7 +75,7 @@ static int cam_sensor_platform_remove(struct platform_device *pdev)
 
 	s_ctrl = platform_get_drvdata(pdev);
 	if (!s_ctrl) {
-		pr_err("%s: sensor device is NULL\n", __func__);
+		CAM_ERR(CAM_SENSOR, "sensor device is NULL");
 		return 0;
 	}
 
@@ -92,7 +90,7 @@ static int cam_sensor_driver_i2c_remove(struct i2c_client *client)
 	struct cam_sensor_ctrl_t  *s_ctrl = i2c_get_clientdata(client);
 
 	if (!s_ctrl) {
-		pr_err("%s: sensor device is NULL\n", __func__);
+		CAM_ERR(CAM_SENSOR, "sensor device is NULL");
 		return 0;
 	}
 
@@ -111,7 +109,7 @@ static long cam_sensor_init_subdev_do_ioctl(struct v4l2_subdev *sd,
 
 	if (copy_from_user(&cmd_data, (void __user *)arg,
 		sizeof(cmd_data))) {
-		pr_err("Failed to copy from user_ptr=%pK size=%zu\n",
+		CAM_ERR(CAM_SENSOR, "Failed to copy from user_ptr=%pK size=%zu",
 			(void __user *)arg, sizeof(cmd_data));
 		return -EFAULT;
 	}
@@ -120,19 +118,18 @@ static long cam_sensor_init_subdev_do_ioctl(struct v4l2_subdev *sd,
 	case VIDIOC_CAM_CONTROL:
 		rc = cam_sensor_subdev_ioctl(sd, cmd, &cmd_data);
 		if (rc < 0)
-			pr_err("%s:%d cam_sensor_subdev_ioctl failed\n",
-				__func__, __LINE__);
+			CAM_ERR(CAM_SENSOR, "cam_sensor_subdev_ioctl failed");
 		break;
 	default:
-		pr_err("%s:%d Invalid compat ioctl cmd_type: %d\n",
-			__func__, __LINE__, cmd);
+		CAM_ERR(CAM_SENSOR, "Invalid compat ioctl cmd_type: %d", cmd);
 		rc = -EINVAL;
 	}
 
 	if (!rc) {
 		if (copy_to_user((void __user *)arg, &cmd_data,
 			sizeof(cmd_data))) {
-			pr_err("Failed to copy to user_ptr=%pK size=%zu\n",
+			CAM_ERR(CAM_SENSOR,
+				"Failed to copy to user_ptr=%pK size=%zu",
 				(void __user *)arg, sizeof(cmd_data));
 			rc = -EFAULT;
 		}
@@ -188,7 +185,7 @@ static int32_t cam_sensor_driver_platform_probe(
 
 	rc = cam_sensor_parse_dt(s_ctrl);
 	if (rc < 0) {
-		pr_err("failed: cam_sensor_parse_dt rc %d", rc);
+		CAM_ERR(CAM_SENSOR, "failed: cam_sensor_parse_dt rc %d", rc);
 		goto free_s_ctrl;
 	}
 
@@ -211,8 +208,7 @@ static int32_t cam_sensor_driver_platform_probe(
 
 	rc = cam_register_subdev(&(s_ctrl->v4l2_dev_str));
 	if (rc < 0) {
-		pr_err("%s:%d :ERROR: Fail with cam_register_subdev\n",
-			__func__, __LINE__);
+		CAM_ERR(CAM_SENSOR, "Fail with cam_register_subdev");
 		goto free_s_ctrl;
 	}
 
@@ -278,11 +274,11 @@ static int __init cam_sensor_driver_init(void)
 
 	rc = platform_driver_register(&cam_sensor_platform_driver);
 	if (rc)
-		pr_err("%s platform_driver_register failed rc = %d",
-			__func__, rc);
+		CAM_ERR(CAM_SENSOR, "platform_driver_register failed rc = %d",
+			rc);
 	rc = i2c_add_driver(&cam_sensor_driver_i2c);
 	if (rc)
-		pr_err("%s i2c_add_driver failed rc = %d", __func__, rc);
+		CAM_ERR(CAM_SENSOR, "i2c_add_driver failed rc = %d", rc);
 
 	return rc;
 }

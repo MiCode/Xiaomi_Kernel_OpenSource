@@ -63,7 +63,7 @@ int32_t cam_cmd_buf_parser(struct csiphy_device *csiphy_dev,
 	size_t                  len;
 
 	if (!cfg_dev || !csiphy_dev) {
-		pr_err("%s:%d Invalid Args\n", __func__, __LINE__);
+		CAM_ERR(CAM_CSIPHY, "Invalid Args");
 		return -EINVAL;
 	}
 
@@ -75,16 +75,16 @@ int32_t cam_cmd_buf_parser(struct csiphy_device *csiphy_dev,
 	rc = cam_mem_get_cpu_buf((int32_t) cfg_dev->packet_handle,
 		(uint64_t *)&generic_ptr, &len);
 	if (rc < 0) {
-		pr_err("%s:%d :ERROR: Failed to get packet Mem address: %d\n",
-			__func__, __LINE__, rc);
+		CAM_ERR(CAM_CSIPHY, "Failed to get packet Mem address: %d", rc);
 		kfree(csiphy_dev->csiphy_info);
 		csiphy_dev->csiphy_info = NULL;
 		return rc;
 	}
 
 	if (cfg_dev->offset > len) {
-		pr_err("%s: %d offset is out of bounds: offset: %lld len: %zu\n",
-			__func__, __LINE__, cfg_dev->offset, len);
+		CAM_ERR(CAM_CSIPHY,
+			"offset is out of bounds: offset: %lld len: %zu",
+			cfg_dev->offset, len);
 		kfree(csiphy_dev->csiphy_info);
 		csiphy_dev->csiphy_info = NULL;
 		return -EINVAL;
@@ -99,8 +99,8 @@ int32_t cam_cmd_buf_parser(struct csiphy_device *csiphy_dev,
 	rc = cam_mem_get_cpu_buf(cmd_desc->mem_handle,
 		(uint64_t *)&generic_ptr, &len);
 	if (rc < 0) {
-		pr_err("%s:%d :ERROR: Failed to get cmd buf Mem address : %d\n",
-			__func__, __LINE__, rc);
+		CAM_ERR(CAM_CSIPHY,
+			"Failed to get cmd buf Mem address : %d", rc);
 		kfree(csiphy_dev->csiphy_info);
 		csiphy_dev->csiphy_info = NULL;
 		return rc;
@@ -158,8 +158,7 @@ irqreturn_t cam_csiphy_irq(int irq_num, void *data)
 	void __iomem *base = NULL;
 
 	if (!csiphy_dev) {
-		pr_err("%s:%d Invalid Args\n",
-			__func__, __LINE__);
+		CAM_ERR(CAM_CSIPHY, "Invalid Args");
 		return -EINVAL;
 	}
 
@@ -175,9 +174,9 @@ irqreturn_t cam_csiphy_irq(int irq_num, void *data)
 			base +
 			csiphy_dev->ctrl_reg->csiphy_reg.
 			mipi_csiphy_interrupt_clear0_addr + 0x4*i);
-		pr_err_ratelimited(
-			"%s CSIPHY%d_IRQ_STATUS_ADDR%d = 0x%x\n",
-			__func__, soc_info->index, i, irq);
+		CAM_ERR_RATE_LIMIT(CAM_CSIPHY,
+			"CSIPHY%d_IRQ_STATUS_ADDR%d = 0x%x",
+			soc_info->index, i, irq);
 		cam_io_w_mb(0x0,
 			base +
 			csiphy_dev->ctrl_reg->csiphy_reg.
@@ -204,8 +203,7 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev)
 	struct csiphy_reg_t (*reg_array)[MAX_SETTINGS_PER_LANE];
 
 	if (csiphy_dev->csiphy_info == NULL) {
-		pr_err("%s:%d csiphy_info is NULL, No/Fail CONFIG_DEV ?\n",
-			__func__, __LINE__);
+		CAM_ERR(CAM_CSIPHY, "csiphy_info is NULL, No/Fail CONFIG_DEV?");
 		return -EINVAL;
 	}
 
@@ -215,7 +213,7 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev)
 	csiphybase = csiphy_dev->soc_info.reg_map[0].mem_base;
 
 	if (!csiphybase) {
-		pr_err("%s: csiphybase NULL\n", __func__);
+		CAM_ERR(CAM_CSIPHY, "csiphybase NULL");
 		return -EINVAL;
 	}
 
@@ -305,7 +303,7 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev)
 					reg_array[lane_pos][i].reg_addr);
 			break;
 			default:
-				CDBG("%s: %d Do Nothing\n", __func__, __LINE__);
+				CAM_DBG(CAM_CSIPHY, "Do Nothing");
 			break;
 			}
 			usleep_range(reg_array[lane_pos][i].delay*1000,
@@ -329,13 +327,11 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 	int32_t              rc = 0;
 
 	if (!csiphy_dev || !cmd) {
-		pr_err("%s:%d Invalid input args\n",
-			__func__, __LINE__);
+		CAM_ERR(CAM_CSIPHY, "Invalid input args");
 		return -EINVAL;
 	}
 
-	pr_debug("%s:%d Opcode received: %d\n", __func__, __LINE__,
-		cmd->op_code);
+	CAM_DBG(CAM_CSIPHY, "Opcode received: %d", cmd->op_code);
 	mutex_lock(&csiphy_dev->mutex);
 	switch (cmd->op_code) {
 	case CAM_ACQUIRE_DEV: {
@@ -348,16 +344,15 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			(void __user *)cmd->handle,
 			sizeof(csiphy_acq_dev));
 		if (rc < 0) {
-			pr_err("%s:%d :ERROR: Failed copying from User\n",
-				__func__, __LINE__);
+			CAM_ERR(CAM_CSIPHY, "Failed copying from User");
 			goto release_mutex;
 		}
 
 		csiphy_acq_params.combo_mode = 0;
 
 		if (csiphy_dev->acquire_count == 2) {
-			pr_err("%s:%d CSIPHY device do not allow more than 2 acquires\n",
-				__func__, __LINE__);
+			CAM_ERR(CAM_CSIPHY,
+					"CSIPHY device do not allow more than 2 acquires");
 			rc = -EINVAL;
 			goto release_mutex;
 		}
@@ -380,8 +375,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		if (copy_to_user((void __user *)cmd->handle,
 				&csiphy_acq_dev,
 				sizeof(struct cam_sensor_acquire_dev))) {
-			pr_err("%s:%d :ERROR: Failed copying from User\n",
-				__func__, __LINE__);
+			CAM_ERR(CAM_CSIPHY, "Failed copying from User");
 			rc = -EINVAL;
 			goto release_mutex;
 		}
@@ -396,8 +390,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		cam_csiphy_query_cap(csiphy_dev, &csiphy_cap);
 		if (copy_to_user((void __user *)cmd->handle,
 			&csiphy_cap, sizeof(struct cam_csiphy_query_cap))) {
-			pr_err("%s:%d :ERROR: Failed copying from User\n",
-				__func__, __LINE__);
+			CAM_ERR(CAM_CSIPHY, "Failed copying from User");
 			rc = -EINVAL;
 			goto release_mutex;
 		}
@@ -406,15 +399,13 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 	case CAM_STOP_DEV: {
 		rc = cam_csiphy_disable_hw(csiphy_dev);
 		if (rc < 0) {
-			pr_err("%s:%d Failed in csiphy release\n",
-				__func__, __LINE__);
+			CAM_ERR(CAM_CSIPHY, "Failed in csiphy release");
 			cam_cpas_stop(csiphy_dev->cpas_handle);
 			goto release_mutex;
 		}
 		rc = cam_cpas_stop(csiphy_dev->cpas_handle);
 		if (rc < 0) {
-			pr_err("%s:%d :Error: de-voting CPAS: %d\n",
-				__func__, __LINE__, rc);
+			CAM_ERR(CAM_CSIPHY, "de-voting CPAS: %d", rc);
 			goto release_mutex;
 		}
 	}
@@ -423,8 +414,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		struct cam_release_dev_cmd release;
 
 		if (!csiphy_dev->acquire_count) {
-			pr_err("%s:%d No valid devices to release\n",
-				__func__, __LINE__);
+			CAM_ERR(CAM_CSIPHY, "No valid devices to release");
 			rc = -EINVAL;
 			goto release_mutex;
 		}
@@ -437,8 +427,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 
 		rc = cam_destroy_device_hdl(release.dev_handle);
 		if (rc < 0)
-			pr_err("%s:%d :ERROR: destroying the device hdl\n",
-				__func__, __LINE__);
+			CAM_ERR(CAM_CSIPHY, "destroying the device hdl");
 		if (release.dev_handle ==
 			csiphy_dev->bridge_intf.device_hdl[0]) {
 			csiphy_dev->bridge_intf.device_hdl[0] = -1;
@@ -462,8 +451,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		} else {
 			rc = cam_cmd_buf_parser(csiphy_dev, &config);
 			if (rc < 0) {
-				pr_err("%s:%d Fail in cmd buf parser\n",
-					__func__, __LINE__);
+				CAM_ERR(CAM_CSIPHY, "Fail in cmd buf parser");
 				goto release_mutex;
 			}
 		}
@@ -481,22 +469,19 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		rc = cam_cpas_start(csiphy_dev->cpas_handle,
 			&ahb_vote, &axi_vote);
 		if (rc < 0) {
-			pr_err("%s:%d :Error: voting CPAS: %d\n",
-				__func__, __LINE__, rc);
+			CAM_ERR(CAM_CSIPHY, "voting CPAS: %d", rc);
 			goto release_mutex;
 		}
 
 		rc = cam_csiphy_enable_hw(csiphy_dev);
 		if (rc != 0) {
-			pr_err("%s: %d cam_csiphy_enable_hw failed\n",
-				__func__, __LINE__);
+			CAM_ERR(CAM_CSIPHY, "cam_csiphy_enable_hw failed");
 			cam_cpas_stop(csiphy_dev->cpas_handle);
 			goto release_mutex;
 		}
 		rc = cam_csiphy_config_dev(csiphy_dev);
 		if (rc < 0) {
-			pr_err("%s: %d cam_csiphy_config_dev failed\n",
-				__func__, __LINE__);
+			CAM_ERR(CAM_CSIPHY, "cam_csiphy_config_dev failed");
 			cam_cpas_stop(csiphy_dev->cpas_handle);
 			goto release_mutex;
 		}
@@ -505,8 +490,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 	case CAM_SD_SHUTDOWN:
 		break;
 	default:
-		pr_err("%s:%d :Error: Invalid Opcode: %d\n",
-			__func__, __LINE__, cmd->op_code);
+		CAM_ERR(CAM_CSIPHY, "Invalid Opcode: %d", cmd->op_code);
 		rc = -EINVAL;
 		goto release_mutex;
 	}

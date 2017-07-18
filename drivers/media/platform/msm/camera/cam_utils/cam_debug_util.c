@@ -62,6 +62,18 @@ const char *cam_get_module_name(unsigned int module_id)
 	case CAM_FLASH:
 		name = "CAM-FLASH";
 		break;
+	case CAM_ACTUATOR:
+		name = "CAM-ACTUATOR";
+		break;
+	case CAM_CCI:
+		name = "CAM-CCI";
+		break;
+	case CAM_CSIPHY:
+		name = "CAM-CSIPHY";
+		break;
+	case CAM_EEPROM:
+		name = "CAM-EEPROM";
+		break;
 	default:
 		name = "CAM";
 		break;

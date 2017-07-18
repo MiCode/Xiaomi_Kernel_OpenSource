@@ -34,6 +34,7 @@
 #include <cam_io_util.h>
 #include <cam_cpas_api.h>
 #include "cam_soc_util.h"
+#include "cam_debug_util.h"
 
 #define MAX_CSIPHY                  3
 #define MAX_DPHY_DATA_LN            4

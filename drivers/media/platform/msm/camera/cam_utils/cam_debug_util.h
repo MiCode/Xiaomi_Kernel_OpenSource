@@ -13,19 +13,23 @@
 #ifndef _CAM_DEBUG_UTIL_H_
 #define _CAM_DEBUG_UTIL_H_
 
-#define CAM_CDM    (1 << 0)
-#define CAM_CORE   (1 << 1)
-#define CAM_CPAS   (1 << 2)
-#define CAM_ISP    (1 << 3)
-#define CAM_CRM    (1 << 4)
-#define CAM_SENSOR (1 << 5)
-#define CAM_SMMU   (1 << 6)
-#define CAM_SYNC   (1 << 7)
-#define CAM_ICP    (1 << 8)
-#define CAM_JPEG   (1 << 9)
-#define CAM_FD     (1 << 10)
-#define CAM_LRME   (1 << 11)
-#define CAM_FLASH  (1 << 12)
+#define CAM_CDM        (1 << 0)
+#define CAM_CORE       (1 << 1)
+#define CAM_CPAS       (1 << 2)
+#define CAM_ISP        (1 << 3)
+#define CAM_CRM        (1 << 4)
+#define CAM_SENSOR     (1 << 5)
+#define CAM_SMMU       (1 << 6)
+#define CAM_SYNC       (1 << 7)
+#define CAM_ICP        (1 << 8)
+#define CAM_JPEG       (1 << 9)
+#define CAM_FD         (1 << 10)
+#define CAM_LRME       (1 << 11)
+#define CAM_FLASH      (1 << 12)
+#define CAM_ACTUATOR   (1 << 13)
+#define CAM_CCI        (1 << 14)
+#define CAM_CSIPHY     (1 << 15)
+#define CAM_EEPROM     (1 << 16)
 
 #define STR_BUFFER_MAX_LENGTH  1024
 

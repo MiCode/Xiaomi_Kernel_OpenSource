@@ -22,7 +22,7 @@ int32_t camera_io_dev_poll(struct camera_io_master *io_master_info,
 	int16_t mask = data_mask & 0xFF;
 
 	if (!io_master_info) {
-		pr_err("%s:%d Invalid Args\n", __func__, __LINE__);
+		CAM_ERR(CAM_SENSOR, "Invalid Args");
 		return -EINVAL;
 	}
 
@@ -34,8 +34,8 @@ int32_t camera_io_dev_poll(struct camera_io_master *io_master_info,
 			addr, data, data_mask, addr_type, data_type,
 			delay_ms);
 	} else {
-		pr_err("%s:%d Invalid Comm. Master:%d\n", __func__,
-			__LINE__, io_master_info->master_type);
+		CAM_ERR(CAM_SENSOR, "Invalid Comm. Master:%d",
+			io_master_info->master_type);
 		return -EINVAL;
 	}
 }
@@ -46,7 +46,7 @@ int32_t camera_io_dev_read(struct camera_io_master *io_master_info,
 	enum camera_sensor_i2c_type data_type)
 {
 	if (!io_master_info) {
-		pr_err("%s:%d Invalid Args\n", __func__, __LINE__);
+		CAM_ERR(CAM_SENSOR, "Invalid Args");
 		return -EINVAL;
 	}
 
@@ -57,8 +57,8 @@ int32_t camera_io_dev_read(struct camera_io_master *io_master_info,
 		return cam_qup_i2c_read(io_master_info->client,
 			addr, data, addr_type, data_type);
 	} else {
-		pr_err("%s:%d Invalid Comm. Master:%d\n", __func__,
-			__LINE__, io_master_info->master_type);
+		CAM_ERR(CAM_SENSOR, "Invalid Comm. Master:%d",
+			io_master_info->master_type);
 		return -EINVAL;
 	}
 }
@@ -67,7 +67,8 @@ int32_t camera_io_dev_write(struct camera_io_master *io_master_info,
 	struct cam_sensor_i2c_reg_setting *write_setting)
 {
 	if (!write_setting || !io_master_info) {
-		pr_err("Input parameters not valid ws: %pK ioinfo: %pK",
+		CAM_ERR(CAM_SENSOR,
+			"Input parameters not valid ws: %pK ioinfo: %pK",
 			write_setting, io_master_info);
 		return -EINVAL;
 	}
@@ -79,8 +80,8 @@ int32_t camera_io_dev_write(struct camera_io_master *io_master_info,
 		return cam_qup_i2c_write_table(io_master_info,
 			write_setting);
 	} else {
-		pr_err("%s:%d Invalid Comm. Master:%d\n", __func__,
-			__LINE__, io_master_info->master_type);
+		CAM_ERR(CAM_SENSOR, "Invalid Comm. Master:%d",
+			io_master_info->master_type);
 		return -EINVAL;
 	}
 }
@@ -88,7 +89,7 @@ int32_t camera_io_dev_write(struct camera_io_master *io_master_info,
 int32_t camera_io_init(struct camera_io_master *io_master_info)
 {
 	if (!io_master_info) {
-		pr_err("%s:%d Invalid Args\n", __func__, __LINE__);
+		CAM_ERR(CAM_SENSOR, "Invalid Args");
 		return -EINVAL;
 	}
 
@@ -98,8 +99,8 @@ int32_t camera_io_init(struct camera_io_master *io_master_info)
 		return cam_sensor_cci_i2c_util(io_master_info->cci_client,
 			MSM_CCI_INIT);
 	} else {
-		pr_err("%s:%d Invalid Comm. Master:%d\n", __func__,
-			__LINE__, io_master_info->master_type);
+		CAM_ERR(CAM_SENSOR, "Invalid Comm. Master:%d",
+			io_master_info->master_type);
 		return -EINVAL;
 	}
 }
@@ -107,7 +108,7 @@ int32_t camera_io_init(struct camera_io_master *io_master_info)
 int32_t camera_io_release(struct camera_io_master *io_master_info)
 {
 	if (!io_master_info) {
-		pr_err("%s:%d Invalid Args\n", __func__, __LINE__);
+		CAM_ERR(CAM_SENSOR, "Invalid Args");
 		return -EINVAL;
 	}
 
@@ -115,8 +116,8 @@ int32_t camera_io_release(struct camera_io_master *io_master_info)
 		return cam_sensor_cci_i2c_util(io_master_info->cci_client,
 			MSM_CCI_RELEASE);
 	} else {
-		pr_err("%s:%d Invalid Comm. Master:%d\n", __func__,
-			__LINE__, io_master_info->master_type);
+		CAM_ERR(CAM_SENSOR, "Invalid Comm. Master:%d",
+			io_master_info->master_type);
 		return -EINVAL;
 	}
 }

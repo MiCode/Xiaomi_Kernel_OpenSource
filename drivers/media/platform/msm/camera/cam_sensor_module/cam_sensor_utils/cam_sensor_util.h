@@ -23,6 +23,7 @@
 #include <cam_req_mgr_interface.h>
 #include <cam_mem_mgr.h>
 #include "cam_soc_util.h"
+#include "cam_debug_util.h"
 
 #define INVALID_VREG 100
 

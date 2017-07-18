@@ -37,6 +37,7 @@
 #include <cam_cpas_api.h>
 #include "cam_cci_hwreg.h"
 #include "cam_soc_util.h"
+#include "cam_debug_util.h"
 
 #define V4L2_IDENT_CCI 50005
 #define CCI_I2C_QUEUE_0_SIZE 128
@@ -79,16 +80,6 @@
 
 #define PRIORITY_QUEUE (QUEUE_0)
 #define SYNC_QUEUE (QUEUE_1)
-
-#undef CDBG
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
-
-#undef CCI_DBG
-#ifdef MSM_CCI_DEBUG
-#define CCI_DBG(fmt, args...) pr_err(fmt, ##args)
-#else
-#define CCI_DBG(fmt, args...) pr_debug(fmt, ##args)
-#endif
 
 enum cci_i2c_sync {
 	MSM_SYNC_DISABLE,

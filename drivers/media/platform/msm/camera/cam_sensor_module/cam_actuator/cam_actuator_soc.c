@@ -28,8 +28,7 @@ int32_t cam_actuator_parse_dt(struct cam_actuator_ctrl_t *a_ctrl,
 	struct platform_device *pdev = NULL;
 
 	if (!soc_info->pdev) {
-		pr_err("%s:%d :Error:soc_info is not initialized\n",
-			__func__, __LINE__);
+		CAM_ERR(CAM_ACTUATOR, "soc_info is not initialized");
 		return -EINVAL;
 	}
 
@@ -41,27 +40,27 @@ int32_t cam_actuator_parse_dt(struct cam_actuator_ctrl_t *a_ctrl,
 
 	rc = cam_soc_util_get_dt_properties(soc_info);
 	if (rc < 0) {
-		pr_err("%s:%d :Error: parsing common soc dt(rc %d)\n",
-			__func__, __LINE__, rc);
+		CAM_ERR(CAM_ACTUATOR, "parsing common soc dt(rc %d)", rc);
 		return rc;
 	}
 	rc = of_property_read_u32(of_node, "cci-master",
 		&(a_ctrl->cci_i2c_master));
-	CDBG("cci-master %d, rc %d\n", a_ctrl->cci_i2c_master, rc);
+	CAM_DBG(CAM_ACTUATOR, "cci-master %d, rc %d",
+		a_ctrl->cci_i2c_master, rc);
 	if (rc < 0 || a_ctrl->cci_i2c_master >= MASTER_MAX) {
-		pr_err("%s:%d :Error: Wrong info from dt CCI master as : %d\n",
-			__func__, __LINE__, a_ctrl->cci_i2c_master);
+		CAM_ERR(CAM_ACTUATOR, "Wrong info from dt CCI master as : %d",
+			a_ctrl->cci_i2c_master);
 		return rc;
 	}
 
 	if (!soc_info->gpio_data) {
-		pr_info("%s:%d No GPIO found\n", __func__, __LINE__);
+		CAM_INFO(CAM_ACTUATOR, "No GPIO found");
 		rc = 0;
 		return rc;
 	}
 
 	if (!soc_info->gpio_data->cam_gpio_common_tbl_size) {
-		pr_info("%s:%d No GPIO found\n", __func__, __LINE__);
+		CAM_INFO(CAM_ACTUATOR, "No GPIO found");
 		return -EINVAL;
 	}
 
@@ -69,8 +68,7 @@ int32_t cam_actuator_parse_dt(struct cam_actuator_ctrl_t *a_ctrl,
 		&a_ctrl->gpio_num_info);
 
 	if ((rc < 0) || (!a_ctrl->gpio_num_info)) {
-		pr_err("%s:%d No/Error Actuator GPIOs\n",
-			__func__, __LINE__);
+		CAM_ERR(CAM_ACTUATOR, "No/Error Actuator GPIOs");
 		return -EINVAL;
 	}
 	return rc;
