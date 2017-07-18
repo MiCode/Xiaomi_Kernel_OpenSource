@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, 2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -75,9 +75,12 @@
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
 			 <&clock_gcc clk_gcc_blsp1_qup1_i2c_apps_clk>;
-		pinctrl-names = "i2c_active", "i2c_sleep";
+		qcom,i2c-dat = <&tlmm 2 0x00>;
+		qcom,i2c-clk = <&tlmm 3 0x00>;
+		pinctrl-names = "i2c_active", "i2c_sleep", "i2c_bitbang";
 		pinctrl-0 = <&i2c_1_active>;
 		pinctrl-1 = <&i2c_1_sleep>;
+		pinctrl-2 = <&i2c_1_bitbang>;
 		status = "disabled";
 	};
 
@@ -98,9 +101,12 @@
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
 			 <&clock_gcc clk_gcc_blsp1_qup2_i2c_apps_clk>;
-		pinctrl-names = "i2c_active", "i2c_sleep";
+		qcom,i2c-dat = <&tlmm 33 0x00>;
+		qcom,i2c-clk = <&tlmm 32 0x00>;
+		pinctrl-names = "i2c_active", "i2c_sleep", "i2c_bitbang";
 		pinctrl-0 = <&i2c_2_active>;
 		pinctrl-1 = <&i2c_2_sleep>;
+		pinctrl-2 = <&i2c_2_bitbang>;
 		status = "disabled";
 	};
 
@@ -121,9 +127,12 @@
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
 			 <&clock_gcc clk_gcc_blsp1_qup3_i2c_apps_clk>;
-		pinctrl-names = "i2c_active", "i2c_sleep";
+		qcom,i2c-dat = <&tlmm 47 0x00>;
+		qcom,i2c-clk = <&tlmm 48 0x00>;
+		pinctrl-names = "i2c_active", "i2c_sleep", "i2c_bitbang";
 		pinctrl-0 = <&i2c_3_active>;
 		pinctrl-1 = <&i2c_3_sleep>;
+		pinctrl-2 = <&i2c_3_bitbang>;
 		status = "disabled";
 	};
 
@@ -144,9 +153,12 @@
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
 			 <&clock_gcc clk_gcc_blsp1_qup4_i2c_apps_clk>;
-		pinctrl-names = "i2c_active", "i2c_sleep";
+		qcom,i2c-dat = <&tlmm 10 0x00>;
+		qcom,i2c-clk = <&tlmm 11 0x00>;
+		pinctrl-names = "i2c_active", "i2c_sleep", "i2c_bitbang";
 		pinctrl-0 = <&i2c_4_active>;
 		pinctrl-1 = <&i2c_4_sleep>;
+		pinctrl-2 = <&i2c_4_bitbang>;
 		status = "disabled";
 	};
 
@@ -167,9 +179,12 @@
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
 			 <&clock_gcc clk_gcc_blsp1_qup5_i2c_apps_clk>;
-		pinctrl-names = "i2c_active", "i2c_sleep";
+		qcom,i2c-dat = <&tlmm 87 0x00>;
+		qcom,i2c-clk = <&tlmm 88 0x00>;
+		pinctrl-names = "i2c_active", "i2c_sleep", "i2c_bitbang";
 		pinctrl-0 = <&i2c_5_active>;
 		pinctrl-1 = <&i2c_5_sleep>;
+		pinctrl-2 = <&i2c_5_bitbang>;
 		status = "disabled";
 	};
 
@@ -190,9 +205,12 @@
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
 			 <&clock_gcc clk_gcc_blsp1_qup6_i2c_apps_clk>;
-		pinctrl-names = "i2c_active", "i2c_sleep";
+		qcom,i2c-dat = <&tlmm 43 0x00>;
+		qcom,i2c-clk = <&tlmm 44 0x00>;
+		pinctrl-names = "i2c_active", "i2c_sleep", "i2c_bitbang";
 		pinctrl-0 = <&i2c_6_active>;
 		pinctrl-1 = <&i2c_6_sleep>;
+		pinctrl-2 = <&i2c_6_bitbang>;
 		status = "disabled";
 	};
 
@@ -213,9 +231,12 @@
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
 			 <&clock_gcc clk_gcc_blsp2_qup1_i2c_apps_clk>;
-		pinctrl-names = "i2c_active", "i2c_sleep";
+		qcom,i2c-dat = <&tlmm 55 0x00>;
+		qcom,i2c-clk = <&tlmm 56 0x00>;
+		pinctrl-names = "i2c_active", "i2c_sleep", "i2c_bitbang";
 		pinctrl-0 = <&i2c_7_active>;
 		pinctrl-1 = <&i2c_7_sleep>;
+		pinctrl-2 = <&i2c_7_bitbang>;
 		status = "disabled";
 	};
 
@@ -236,9 +257,12 @@
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
 			 <&clock_gcc clk_gcc_blsp2_qup2_i2c_apps_clk>;
-		pinctrl-names = "i2c_active", "i2c_sleep";
+		qcom,i2c-dat = <&tlmm 6 0x00>;
+		qcom,i2c-clk = <&tlmm 7 0x00>;
+		pinctrl-names = "i2c_active", "i2c_sleep", "i2c_bitbang";
 		pinctrl-0 = <&i2c_8_active>;
 		pinctrl-1 = <&i2c_8_sleep>;
+		pinctrl-2 = <&i2c_8_bitbang>;
 		status = "disabled";
 	};
 
@@ -259,9 +283,12 @@
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
 			 <&clock_gcc clk_gcc_blsp2_qup3_i2c_apps_clk>;
-		pinctrl-names = "i2c_active", "i2c_sleep";
+		qcom,i2c-dat = <&tlmm 51 0x00>;
+		qcom,i2c-clk = <&tlmm 52 0x00>;
+		pinctrl-names = "i2c_active", "i2c_sleep", "i2c_bitbang";
 		pinctrl-0 = <&i2c_9_active>;
 		pinctrl-1 = <&i2c_9_sleep>;
+		pinctrl-2 = <&i2c_9_bitbang>;
 		status = "disabled";
 	};
 
@@ -282,9 +309,12 @@
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
 			 <&clock_gcc clk_gcc_blsp2_qup4_i2c_apps_clk>;
-		pinctrl-names = "i2c_active", "i2c_sleep";
+		qcom,i2c-dat = <&tlmm 67 0x00>;
+		qcom,i2c-clk = <&tlmm 68 0x00>;
+		pinctrl-names = "i2c_active", "i2c_sleep", "i2c_bitbang";
 		pinctrl-0 = <&i2c_10_active>;
 		pinctrl-1 = <&i2c_10_sleep>;
+		pinctrl-2 = <&i2c_10_bitbang>;
 		status = "disabled";
 	};
 
@@ -305,9 +335,12 @@
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
 			 <&clock_gcc clk_gcc_blsp2_qup5_i2c_apps_clk>;
-		pinctrl-names = "i2c_active", "i2c_sleep";
+		qcom,i2c-dat = <&tlmm 60 0x00>;
+		qcom,i2c-clk = <&tlmm 61 0x00>;
+		pinctrl-names = "i2c_active", "i2c_sleep", "i2c_bitbang";
 		pinctrl-0 = <&i2c_11_active>;
 		pinctrl-1 = <&i2c_11_sleep>;
+		pinctrl-2 = <&i2c_11_bitbang>;
 		status = "disabled";
 	};
 
@@ -328,9 +361,12 @@
 		clock-names = "iface_clk", "core_clk";
 		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
 			 <&clock_gcc clk_gcc_blsp2_qup6_i2c_apps_clk>;
-		pinctrl-names = "i2c_active", "i2c_sleep";
+		qcom,i2c-dat = <&tlmm 83 0x00>;
+		qcom,i2c-clk = <&tlmm 84 0x00>;
+		pinctrl-names = "i2c_active", "i2c_sleep", "i2c_bitbang";
 		pinctrl-0 = <&i2c_12_active>;
 		pinctrl-1 = <&i2c_12_sleep>;
+		pinctrl-2 = <&i2c_12_bitbang>;
 		status = "disabled";
 	};
 
