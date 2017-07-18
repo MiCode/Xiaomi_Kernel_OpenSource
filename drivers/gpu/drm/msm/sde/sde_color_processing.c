@@ -52,6 +52,8 @@ static void dspp_pcc_install_property(struct drm_crtc *crtc);
 
 static void dspp_hsic_install_property(struct drm_crtc *crtc);
 
+static void dspp_sixzone_install_property(struct drm_crtc *crtc);
+
 static void dspp_ad_install_property(struct drm_crtc *crtc);
 
 static void dspp_vlut_install_property(struct drm_crtc *crtc);
@@ -81,6 +83,7 @@ static void sde_cp_ad_set_prop(struct sde_crtc *sde_crtc,
 do { \
 	func[SDE_DSPP_PCC] = dspp_pcc_install_property; \
 	func[SDE_DSPP_HSIC] = dspp_hsic_install_property; \
+	func[SDE_DSPP_SIXZONE] = dspp_sixzone_install_property; \
 	func[SDE_DSPP_AD] = dspp_ad_install_property; \
 	func[SDE_DSPP_VLUT] = dspp_vlut_install_property; \
 	func[SDE_DSPP_GAMUT] = dspp_gamut_install_property; \
@@ -1092,6 +1095,30 @@ static void dspp_hsic_install_property(struct drm_crtc *crtc)
 			"SDE_DSPP_PA_HSIC_V", version);
 		sde_cp_crtc_install_blob_property(crtc, feature_name,
 			SDE_CP_CRTC_DSPP_HSIC, sizeof(struct drm_msm_pa_hsic));
+		break;
+	default:
+		DRM_ERROR("version %d not supported\n", version);
+		break;
+	}
+}
+
+static void dspp_sixzone_install_property(struct drm_crtc *crtc)
+{
+	char feature_name[256];
+	struct sde_kms *kms = NULL;
+	struct sde_mdss_cfg *catalog = NULL;
+	u32 version;
+
+	kms = get_kms(crtc);
+	catalog = kms->catalog;
+	version = catalog->dspp[0].sblk->sixzone.version >> 16;
+	switch (version) {
+	case 1:
+		snprintf(feature_name, ARRAY_SIZE(feature_name), "%s%d",
+			"SDE_DSPP_PA_SIXZONE_V", version);
+		sde_cp_crtc_install_blob_property(crtc, feature_name,
+			SDE_CP_CRTC_DSPP_SIXZONE,
+			sizeof(struct drm_msm_sixzone));
 		break;
 	default:
 		DRM_ERROR("version %d not supported\n", version);

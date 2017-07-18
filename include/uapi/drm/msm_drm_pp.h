@@ -122,6 +122,42 @@ struct drm_msm_memcol {
 	__u32 val_region;
 };
 
+#define DRM_MSM_SIXZONE
+#define SIXZONE_LUT_SIZE 384
+#define SIXZONE_HUE_ENABLE (1 << 0)
+#define SIXZONE_SAT_ENABLE (1 << 1)
+#define SIXZONE_VAL_ENABLE (1 << 2)
+/* struct drm_msm_sixzone_curve - Sixzone HSV adjustment curve structure.
+ * @p0: Hue adjustment.
+ * @p1: Saturation/Value adjustment.
+ */
+struct drm_msm_sixzone_curve {
+	__u32 p1;
+	__u32 p0;
+};
+
+/* struct drm_msm_sixzone - Sixzone feature structure.
+ * @flags: for feature customization, values can be:
+ *         - SIXZONE_HUE_ENABLE: Enable hue adjustment
+ *         - SIXZONE_SAT_ENABLE: Enable saturation adjustment
+ *         - SIXZONE_VAL_ENABLE: Enable value adjustment
+ * @threshold: threshold qualifier.
+ * @adjust_p0: Adjustment curve.
+ * @adjust_p1: Adjustment curve.
+ * @sat_hold: Saturation hold info.
+ * @val_hold: Value hold info.
+ * @curve: HSV adjustment curve lut.
+ */
+struct drm_msm_sixzone {
+	__u64 flags;
+	__u32 threshold;
+	__u32 adjust_p0;
+	__u32 adjust_p1;
+	__u32 sat_hold;
+	__u32 val_hold;
+	struct drm_msm_sixzone_curve curve[SIXZONE_LUT_SIZE];
+};
+
 #define GAMUT_3D_MODE_17 1
 #define GAMUT_3D_MODE_5 2
 #define GAMUT_3D_MODE_13 3
