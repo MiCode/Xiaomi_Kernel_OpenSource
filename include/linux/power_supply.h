@@ -110,6 +110,13 @@ enum {
 	POWER_SUPPLY_PARALLEL_MID_MID,
 };
 
+enum {
+	POWER_SUPPLY_PL_NONE,
+	POWER_SUPPLY_PL_USBIN_USBIN,
+	POWER_SUPPLY_PL_USBIN_USBIN_EXT,
+	POWER_SUPPLY_PL_USBMID_USBMID,
+};
+
 enum power_supply_property {
 	/* Properties of type `int' */
 	POWER_SUPPLY_PROP_STATUS = 0,
