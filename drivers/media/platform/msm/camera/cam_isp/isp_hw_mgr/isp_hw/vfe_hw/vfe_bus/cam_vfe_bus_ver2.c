@@ -650,6 +650,8 @@ static enum cam_vfe_bus_packer_format
 	switch (out_fmt) {
 	case CAM_FORMAT_NV21:
 	case CAM_FORMAT_NV12:
+	case CAM_FORMAT_UBWC_NV12:
+	case CAM_FORMAT_UBWC_NV12_4R:
 		return PACKER_FMT_PLAIN_8_LSB_MSB_10;
 	case CAM_FORMAT_PLAIN64:
 		return PACKER_FMT_PLAIN_64;
@@ -660,10 +662,6 @@ static enum cam_vfe_bus_packer_format
 	case CAM_FORMAT_MIPI_RAW_14:
 	case CAM_FORMAT_MIPI_RAW_16:
 	case CAM_FORMAT_MIPI_RAW_20:
-	case CAM_FORMAT_QTI_RAW_8:
-	case CAM_FORMAT_QTI_RAW_10:
-	case CAM_FORMAT_QTI_RAW_12:
-	case CAM_FORMAT_QTI_RAW_14:
 	case CAM_FORMAT_PLAIN128:
 	case CAM_FORMAT_PLAIN8:
 	case CAM_FORMAT_PLAIN16_8:
@@ -675,6 +673,9 @@ static enum cam_vfe_bus_packer_format
 	case CAM_FORMAT_PD8:
 	case CAM_FORMAT_PD10:
 		return PACKER_FMT_PLAIN_128;
+	case CAM_FORMAT_UBWC_TP10:
+	case CAM_FORMAT_TP10:
+		return PACKER_FMT_TP_10;
 	default:
 		return PACKER_FMT_MAX;
 	}
@@ -721,6 +722,7 @@ static int cam_vfe_bus_acquire_wm(
 	rsrc_data->height = out_port_info->height;
 
 	if (rsrc_data->index < 3) {
+		/* Write master 0-2 refers to RDI 0/ RDI 1/RDI 2 */
 		rsrc_data->width = CAM_VFE_RDI_BUS_DEFAULT_WIDTH;
 		rsrc_data->height = 0;
 		rsrc_data->stride = CAM_VFE_RDI_BUS_DEFAULT_STRIDE;
@@ -728,50 +730,59 @@ static int cam_vfe_bus_acquire_wm(
 		rsrc_data->en_cfg = 0x3;
 	} else if (rsrc_data->index < 5 ||
 		rsrc_data->index == 7 || rsrc_data->index == 8) {
-		switch (plane) {
-		case PLANE_Y:
-			switch (rsrc_data->format) {
-			case CAM_FORMAT_UBWC_NV12:
-			case CAM_FORMAT_UBWC_NV12_4R:
-			case CAM_FORMAT_UBWC_TP10:
-				rsrc_data->en_ubwc = 1;
+		/* Write master 3, 4 - for Full OUT , 7-8  FD OUT */
+		switch (rsrc_data->format) {
+		case CAM_FORMAT_UBWC_NV12:
+		case CAM_FORMAT_UBWC_NV12_4R:
+			rsrc_data->en_ubwc = 1;
+			/* Fall through for NV12 */
+		case CAM_FORMAT_NV21:
+		case CAM_FORMAT_NV12:
+			switch (plane) {
+			case PLANE_C:
+				rsrc_data->height /= 2;
+				break;
+			case PLANE_Y:
 				break;
 			default:
-				break;
+				CAM_ERR(CAM_ISP, "Invalid plane %d\n", plane);
+				return -EINVAL;
 			}
 			break;
-		case PLANE_C:
-			switch (rsrc_data->format) {
-			case CAM_FORMAT_NV21:
-			case CAM_FORMAT_NV12:
+		case CAM_FORMAT_UBWC_TP10:
+			rsrc_data->en_ubwc = 1;
+			/* Fall through for LINEAR TP10 */
+		case CAM_FORMAT_TP10:
+			rsrc_data->width = rsrc_data->width * 4 / 3;
+			switch (plane) {
+			case PLANE_C:
 				rsrc_data->height /= 2;
 				break;
-			case CAM_FORMAT_UBWC_NV12:
-			case CAM_FORMAT_UBWC_NV12_4R:
-			case CAM_FORMAT_UBWC_TP10:
-				rsrc_data->height /= 2;
-				rsrc_data->en_ubwc = 1;
+			case PLANE_Y:
 				break;
 			default:
-				break;
+				CAM_ERR(CAM_ISP, "Invalid plane %d\n", plane);
+				return -EINVAL;
 			}
 			break;
 		default:
-			CAM_ERR(CAM_ISP, "Invalid plane type %d", plane);
+			CAM_ERR(CAM_ISP, "Invalid format %d\n",
+				rsrc_data->format);
 			return -EINVAL;
 		}
 		rsrc_data->en_cfg = 0x1;
 	} else if (rsrc_data->index >= 11) {
+		/* Write master 11-19  stats */
 		rsrc_data->width = 0;
 		rsrc_data->height = 0;
 		rsrc_data->stride = 1;
 		rsrc_data->en_cfg = 0x3;
 	} else {
+		/* Write master 5-6 DS ports , 9 - Raw dump , 10 PDAF */
 		rsrc_data->width = rsrc_data->width * 4;
 		rsrc_data->height = rsrc_data->height / 2;
 		rsrc_data->en_cfg = 0x1;
 	}
-
 	if (vfe_out_res_id >= CAM_ISP_IFE_OUT_RES_RDI_0 &&
 		vfe_out_res_id <= CAM_ISP_IFE_OUT_RES_RDI_3)
 		rsrc_data->frame_based = 1;
