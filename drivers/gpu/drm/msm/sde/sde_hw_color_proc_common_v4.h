@@ -72,6 +72,10 @@ enum {
 #define PA_VAL_EN BIT(27)
 #define PA_CONT_EN BIT(28)
 
+#define PA_SIXZONE_HUE_EN BIT(29)
+#define PA_SIXZONE_SAT_EN BIT(30)
+#define PA_SIXZONE_VAL_EN BIT(31)
+
 #define PA_HIST_EN BIT(16)
 
 #define PA_SKIN_EN BIT(7)
@@ -87,11 +91,17 @@ enum {
 #define PA_SAT_OFF 0x20
 #define PA_VAL_OFF 0x24
 #define PA_CONT_OFF 0x28
+#define PA_PWL_HOLD_OFF 0x40
 
 #define PA_DISABLE_REQUIRED(x) \
 	!((x) & (PA_SKIN_EN | PA_SKY_EN | \
 	PA_FOL_EN | PA_HUE_EN | \
 	PA_SAT_EN | PA_VAL_EN | \
-	PA_CONT_EN | PA_HIST_EN))
+	PA_CONT_EN | PA_HIST_EN | \
+	PA_SIXZONE_HUE_EN | PA_SIXZONE_SAT_EN | \
+	PA_SIXZONE_VAL_EN))
+
+#define SIXZONE_ADJ_CURVE_P1_OFF 0x4
+#define SIXZONE_THRESHOLDS_OFF 0x8
 
 #endif /* _SDE_HW_COLOR_PROC_COMMON_V4_H_ */

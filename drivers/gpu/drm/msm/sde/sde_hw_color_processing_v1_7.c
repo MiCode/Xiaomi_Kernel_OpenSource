@@ -14,6 +14,8 @@
 #include "sde_hw_color_processing_v1_7.h"
 #include "sde_hw_ctl.h"
 
+#define REG_MASK_SHIFT(n, shift) ((REG_MASK(n)) << (shift))
+
 #define PA_HUE_VIG_OFF		0x110
 #define PA_SAT_VIG_OFF		0x114
 #define PA_VAL_VIG_OFF		0x118
@@ -75,18 +77,23 @@
 #define DSPP_OP_PA_FOL_EN	BIT(6)
 #define DSPP_OP_PA_SKY_EN	BIT(7)
 
+#define DSPP_SZ_ADJ_CURVE_P1_OFF	0x4
+#define DSPP_SZ_THRESHOLDS_OFF	0x8
+#define DSPP_PA_PWL_HOLD_OFF	0x40
+
 #define PA_VIG_DISABLE_REQUIRED(x) \
 			!((x) & (VIG_OP_PA_SKIN_EN | VIG_OP_PA_SKY_EN | \
 			VIG_OP_PA_FOL_EN | VIG_OP_PA_HUE_EN | \
 			VIG_OP_PA_SAT_EN | VIG_OP_PA_VAL_EN | \
 			VIG_OP_PA_CONT_EN))
 
-
 #define PA_DSPP_DISABLE_REQUIRED(x) \
 			!((x) & (DSPP_OP_PA_SKIN_EN | DSPP_OP_PA_SKY_EN | \
 			DSPP_OP_PA_FOL_EN | DSPP_OP_PA_HUE_EN | \
 			DSPP_OP_PA_SAT_EN | DSPP_OP_PA_VAL_EN | \
-			DSPP_OP_PA_CONT_EN | DSPP_OP_PA_HIST_EN))
+			DSPP_OP_PA_CONT_EN | DSPP_OP_PA_HIST_EN | \
+			DSPP_OP_SZ_HUE_EN | DSPP_OP_SZ_SAT_EN | \
+			DSPP_OP_SZ_VAL_EN))
 
 #define DSPP_OP_PCC_ENABLE	BIT(0)
 #define PCC_OP_MODE_OFF		0
@@ -288,6 +295,79 @@ void sde_setup_dspp_pa_hsic_v17(struct sde_hw_dspp *ctx, void *cfg)
 	__setup_pa_sat(&ctx->hw, &ctx->cap->sblk->hsic, sat, DSPP);
 	__setup_pa_val(&ctx->hw, &ctx->cap->sblk->hsic, val, DSPP);
 	__setup_pa_cont(&ctx->hw, &ctx->cap->sblk->hsic, cont, DSPP);
+}
+
+void sde_setup_dspp_sixzone_v17(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct drm_msm_sixzone *sixzone;
+	u32 opcode = 0, local_opcode = 0;
+	u32 reg = 0, hold = 0, local_hold = 0;
+	u32 addr = 0;
+	int i = 0;
+
+	if (!ctx || !cfg) {
+		DRM_ERROR("invalid param ctx %pK cfg %pK\n", ctx, cfg);
+		return;
+	}
+
+	opcode = SDE_REG_READ(&ctx->hw, ctx->cap->sblk->hsic.base);
+
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("disable sixzone feature\n");
+		opcode &= ~(DSPP_OP_SZ_HUE_EN | DSPP_OP_SZ_SAT_EN |
+			DSPP_OP_SZ_VAL_EN);
+		if (PA_DSPP_DISABLE_REQUIRED(opcode))
+			opcode &= ~DSPP_OP_PA_EN;
+		SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->hsic.base, opcode);
+		return;
+	}
+
+	if (hw_cfg->len != sizeof(struct drm_msm_sixzone)) {
+		DRM_ERROR("invalid size of payload len %d exp %zd\n",
+			hw_cfg->len, sizeof(struct drm_msm_sixzone));
+		return;
+	}
+
+	sixzone = hw_cfg->payload;
+
+	reg = BIT(26);
+	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->sixzone.base, reg);
+
+	addr = ctx->cap->sblk->sixzone.base + DSPP_SZ_ADJ_CURVE_P1_OFF;
+	for (i = 0; i < SIXZONE_LUT_SIZE; i++) {
+		SDE_REG_WRITE(&ctx->hw, addr, sixzone->curve[i].p1);
+		SDE_REG_WRITE(&ctx->hw, (addr - 4), sixzone->curve[i].p0);
+	}
+
+	addr = ctx->cap->sblk->sixzone.base + DSPP_SZ_THRESHOLDS_OFF;
+	SDE_REG_WRITE(&ctx->hw, addr, sixzone->threshold);
+	SDE_REG_WRITE(&ctx->hw, (addr + 4), sixzone->adjust_p0);
+	SDE_REG_WRITE(&ctx->hw, (addr + 8), sixzone->adjust_p1);
+
+	hold = SDE_REG_READ(&ctx->hw,
+		(ctx->cap->sblk->hsic.base + DSPP_PA_PWL_HOLD_OFF));
+	local_hold = ((sixzone->sat_hold & REG_MASK(2)) << 12);
+	local_hold |= ((sixzone->val_hold & REG_MASK(2)) << 14);
+	hold &= ~REG_MASK_SHIFT(4, 12);
+	hold |= local_hold;
+	SDE_REG_WRITE(&ctx->hw,
+		(ctx->cap->sblk->hsic.base + DSPP_PA_PWL_HOLD_OFF),
+		hold);
+
+	if (sixzone->flags & SIXZONE_HUE_ENABLE)
+		local_opcode |= DSPP_OP_SZ_HUE_EN;
+	if (sixzone->flags & SIXZONE_SAT_ENABLE)
+		local_opcode |= DSPP_OP_SZ_SAT_EN;
+	if (sixzone->flags & SIXZONE_VAL_ENABLE)
+		local_opcode |= DSPP_OP_SZ_VAL_EN;
+
+	if (local_opcode)
+		local_opcode |= DSPP_OP_PA_EN;
+
+	opcode &= ~REG_MASK_SHIFT(3, 29);
+	opcode |= local_opcode;
+	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->hsic.base, opcode);
 }
 
 void sde_setup_pipe_pa_memcol_v1_7(struct sde_hw_pipe *ctx,
