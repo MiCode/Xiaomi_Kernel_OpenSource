@@ -61,6 +61,7 @@
 #define TSENS_TM_WATCHDOG_LOG(n)		((n) + 0x13c)
 
 #define TSENS_EN				BIT(0)
+#define TSENS_CTRL_SENSOR_EN_MASK(n)		((n >> 3) & 0xffff)
 
 static void msm_tsens_convert_temp(int last_temp, int *temp)
 {
@@ -499,6 +500,21 @@ static irqreturn_t tsens_tm_irq_thread(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static int tsens2xxx_hw_sensor_en(struct tsens_device *tmdev,
+					u32 sensor_id)
+{
+	void __iomem *srot_addr;
+	unsigned int srot_val, sensor_en;
+
+	srot_addr = TSENS_CTRL_ADDR(tmdev->tsens_srot_addr + 0x4);
+	srot_val = readl_relaxed(srot_addr);
+	srot_val = TSENS_CTRL_SENSOR_EN_MASK(srot_val);
+
+	sensor_en = ((1 << sensor_id) & srot_val);
+
+	return sensor_en;
+}
+
 static int tsens2xxx_hw_init(struct tsens_device *tmdev)
 {
 	void __iomem *srot_addr;
@@ -602,6 +618,7 @@ static const struct tsens_ops ops_tsens2xxx = {
 	.set_trips	= tsens2xxx_set_trip_temp,
 	.interrupts_reg	= tsens2xxx_register_interrupts,
 	.dbg		= tsens2xxx_dbg,
+	.sensor_en	= tsens2xxx_hw_sensor_en,
 };
 
 const struct tsens_data data_tsens2xxx = {
