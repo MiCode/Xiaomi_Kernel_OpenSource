@@ -375,6 +375,21 @@ static int _cpu_down(unsigned int cpu, int tasks_frozen)
 		goto out_release;
 	}
 
+	/*
+	 * By now we've cleared cpu_active_mask, wait for all preempt-disabled
+	 * and RCU users of this state to go away such that all new such users
+	 * will observe it.
+	 *
+	 * For CONFIG_PREEMPT we have preemptible RCU and its sync_rcu() might
+	 * not imply sync_sched(), so wait for both.
+	 *
+	 * Do sync before park smpboot threads to take care the rcu boost case.
+	 */
+	if (IS_ENABLED(CONFIG_PREEMPT))
+		synchronize_rcu_mult(call_rcu, call_rcu_sched);
+	else
+		synchronize_rcu();
+
 	smpboot_park_threads(cpu);
 
 	/*
