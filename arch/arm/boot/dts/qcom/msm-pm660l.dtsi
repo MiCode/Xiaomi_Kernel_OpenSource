@@ -269,6 +269,7 @@
 			qcom,led-strings-list = [00 01 02];
 			qcom,loop-auto-gm-en;
 			qcom,pmic-revid = <&pm660l_revid>;
+			qcom,auto-calibration-enable;
 			status = "ok";
 		};
 
