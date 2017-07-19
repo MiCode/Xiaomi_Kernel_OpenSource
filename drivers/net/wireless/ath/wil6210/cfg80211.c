@@ -45,6 +45,12 @@ static struct ieee80211_channel wil_60ghz_channels[] = {
 /* channel 4 not supported yet */
 };
 
+#ifdef CONFIG_PM
+static struct wiphy_wowlan_support wil_wowlan_support = {
+	.flags = WIPHY_WOWLAN_ANY | WIPHY_WOWLAN_DISCONNECT,
+};
+#endif
+
 /* Vendor id to be used in vendor specific command and events
  * to user space.
  * NOTE: The authoritative place for definition of QCA_NL80211_VENDOR_ID,
@@ -1779,6 +1785,10 @@ static void wil_wiphy_init(struct wiphy *wiphy)
 		wiphy->regulatory_flags |= REGULATORY_DISABLE_BEACON_HINTS;
 		wiphy->regulatory_flags |= REGULATORY_COUNTRY_IE_IGNORE;
 	}
+
+#ifdef CONFIG_PM
+	wiphy->wowlan = &wil_wowlan_support;
+#endif
 }
 
 struct wireless_dev *wil_cfg80211_init(struct device *dev)
