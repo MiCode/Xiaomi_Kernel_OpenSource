@@ -1289,6 +1289,10 @@ static int a6xx_rpmh_power_on_gpu(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = &device->gmu;
 	struct device *dev = &gmu->pdev->dev;
+	int val;
+
+	kgsl_gmu_regread(device, A6XX_GPU_CC_GX_DOMAIN_MISC, &val);
+	WARN_ON(!(val & 0x1));
 
 	/* RSC wake sequence */
 	kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, BIT(1));
@@ -2770,6 +2774,10 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A6XX_GMU_HOST2GMU_INTR_CLR),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_HOST2GMU_INTR_RAW_INFO,
 				A6XX_GMU_HOST2GMU_INTR_RAW_INFO),
+	ADRENO_REG_DEFINE(ADRENO_REG_GMU_NMI_CONTROL_STATUS,
+				A6XX_GMU_NMI_CONTROL_STATUS),
+	ADRENO_REG_DEFINE(ADRENO_REG_GMU_CM3_CFG,
+				A6XX_GMU_CM3_CFG),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TRUST_CONTROL,
 				A6XX_RBBM_SECVID_TRUST_CNTL),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,
