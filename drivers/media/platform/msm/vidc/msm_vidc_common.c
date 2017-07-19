@@ -2184,7 +2184,7 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_data_done *response = data;
 	struct msm_vidc_buffer *mbuf;
-	struct vb2_buffer *vb;
+	struct vb2_buffer *vb, *vb2;
 	struct msm_vidc_inst *inst;
 	struct vidc_hal_ebd *empty_buf_done;
 	struct vb2_v4l2_buffer *vbuf;
@@ -2214,11 +2214,24 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 			__func__, planes[0], planes[1]);
 		goto exit;
 	}
+	vb2 = msm_comm_get_vb_using_vidc_buffer(inst, mbuf);
+
+	/*
+	 * take registeredbufs.lock to update mbuf & vb2 variables together
+	 * so that both are in sync else if mbuf and vb2 variables are not
+	 * in sync msm_comm_compare_vb2_planes() returns false for the
+	 * right buffer due to data_offset field mismatch.
+	 */
+	mutex_lock(&inst->registeredbufs.lock);
 	vb = &mbuf->vvb.vb2_buf;
 
 	vb->planes[0].bytesused = response->input_done.filled_len;
 	if (vb->planes[0].bytesused > vb->planes[0].length)
 		dprintk(VIDC_INFO, "bytesused overflow length\n");
+
+	vb->planes[0].data_offset = response->input_done.offset;
+	if (vb->planes[0].data_offset > vb->planes[0].length)
+		dprintk(VIDC_INFO, "data_offset overflow length\n");
 
 	if (empty_buf_done->status == VIDC_ERR_NOT_SUPPORTED) {
 		dprintk(VIDC_INFO, "Failed : Unsupported input stream\n");
@@ -2236,24 +2249,27 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 	if (extra_idx && extra_idx < VIDEO_MAX_PLANES)
 		vb->planes[extra_idx].bytesused = vb->planes[extra_idx].length;
 
+	if (vb2) {
+		vbuf = to_vb2_v4l2_buffer(vb2);
+		vbuf->flags |= mbuf->vvb.flags;
+		for (i = 0; i < mbuf->vvb.vb2_buf.num_planes; i++) {
+			vb2->planes[i].bytesused =
+				mbuf->vvb.vb2_buf.planes[i].bytesused;
+			vb2->planes[i].data_offset =
+				mbuf->vvb.vb2_buf.planes[i].data_offset;
+		}
+	}
+	mutex_unlock(&inst->registeredbufs.lock);
+
 	update_recon_stats(inst, &empty_buf_done->recon_stats);
 	msm_vidc_clear_freq_entry(inst, mbuf->smem[0].device_addr);
-
-	vb = msm_comm_get_vb_using_vidc_buffer(inst, mbuf);
-	if (vb) {
-		vbuf = to_vb2_v4l2_buffer(vb);
-		vbuf->flags |= mbuf->vvb.flags;
-		for (i = 0; i < mbuf->vvb.vb2_buf.num_planes; i++)
-			vb->planes[i].bytesused =
-				mbuf->vvb.vb2_buf.planes[i].bytesused;
-	}
 	/*
 	 * put_buffer should be done before vb2_buffer_done else
 	 * client might queue the same buffer before it is unmapped
 	 * in put_buffer.
 	 */
 	msm_comm_put_vidc_buffer(inst, mbuf);
-	msm_comm_vb2_buffer_done(inst, vb);
+	msm_comm_vb2_buffer_done(inst, vb2);
 	kref_put_mbuf(mbuf);
 exit:
 	put_inst(inst);
@@ -2306,7 +2322,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 	struct msm_vidc_cb_data_done *response = data;
 	struct msm_vidc_buffer *mbuf;
 	struct msm_vidc_inst *inst;
-	struct vb2_buffer *vb = NULL;
+	struct vb2_buffer *vb, *vb2;
 	struct vidc_hal_fbd *fill_buf_done;
 	struct vb2_v4l2_buffer *vbuf;
 	enum hal_buffer buffer_type;
@@ -2339,6 +2355,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 				__func__, planes[0], planes[1]);
 			goto exit;
 		}
+		vb2 = msm_comm_get_vb_using_vidc_buffer(inst, mbuf);
 	} else {
 		if (handle_multi_stream_buffers(inst,
 				fill_buf_done->packet_buffer1))
@@ -2347,6 +2364,14 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 				&fill_buf_done->packet_buffer1);
 		goto exit;
 	}
+
+	/*
+	 * take registeredbufs.lock to update mbuf & vb2 variables together
+	 * so that both are in sync else if mbuf and vb2 variables are not
+	 * in sync msm_comm_compare_vb2_planes() returns false for the
+	 * right buffer due to data_offset field mismatch.
+	 */
+	mutex_lock(&inst->registeredbufs.lock);
 	vb = &mbuf->vvb.vb2_buf;
 
 	if (fill_buf_done->flags1 & HAL_BUFFERFLAG_DROP_FRAME ||
@@ -2358,10 +2383,12 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 			"fbd:Overflow bytesused = %d; length = %d\n",
 			vb->planes[0].bytesused,
 			vb->planes[0].length);
-	if (vb->planes[0].data_offset != fill_buf_done->offset1)
-		dprintk(VIDC_ERR, "%s: data_offset %d vs %d\n",
-			__func__, vb->planes[0].data_offset,
-			fill_buf_done->offset1);
+	vb->planes[0].data_offset = fill_buf_done->offset1;
+	if (vb->planes[0].data_offset > vb->planes[0].length)
+		dprintk(VIDC_INFO,
+			"fbd:Overflow data_offset = %d; length = %d\n",
+			vb->planes[0].data_offset,
+			vb->planes[0].length);
 	if (!(fill_buf_done->flags1 & HAL_BUFFERFLAG_TIMESTAMPINVALID)) {
 		time_usec = fill_buf_done->timestamp_hi;
 		time_usec = (time_usec << 32) | fill_buf_done->timestamp_lo;
@@ -2419,23 +2446,26 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 		break;
 	}
 
-	vb = msm_comm_get_vb_using_vidc_buffer(inst, mbuf);
-	if (vb) {
-		vbuf = to_vb2_v4l2_buffer(vb);
+	if (vb2) {
+		vbuf = to_vb2_v4l2_buffer(vb2);
 		vbuf->flags = mbuf->vvb.flags;
-		vb->timestamp = mbuf->vvb.vb2_buf.timestamp;
-		for (i = 0; i < mbuf->vvb.vb2_buf.num_planes; i++)
-			vb->planes[i].bytesused =
+		vb2->timestamp = mbuf->vvb.vb2_buf.timestamp;
+		for (i = 0; i < mbuf->vvb.vb2_buf.num_planes; i++) {
+			vb2->planes[i].bytesused =
 				mbuf->vvb.vb2_buf.planes[i].bytesused;
+			vb2->planes[i].data_offset =
+				mbuf->vvb.vb2_buf.planes[i].data_offset;
+		}
 	}
+	mutex_unlock(&inst->registeredbufs.lock);
+
 	/*
 	 * put_buffer should be done before vb2_buffer_done else
 	 * client might queue the same buffer before it is unmapped
-	 * in put_buffer. also don't use mbuf after put_buffer
-	 * as it may be freed in put_buffer.
+	 * in put_buffer.
 	 */
 	msm_comm_put_vidc_buffer(inst, mbuf);
-	msm_comm_vb2_buffer_done(inst, vb);
+	msm_comm_vb2_buffer_done(inst, vb2);
 	kref_put_mbuf(mbuf);
 
 exit:
