@@ -315,17 +315,14 @@ static int cam_soc_util_get_dt_clk_info(struct cam_hw_soc_info *soc_info)
 	int num_clk_rates, num_clk_levels;
 	int i, j, rc;
 	int32_t num_clk_level_strings;
-	struct platform_device *pdev = NULL;
 	const char *src_clk_str = NULL;
 	const char *clk_cntl_lvl_string = NULL;
 	enum cam_vote_level level;
 
-	if (!soc_info || !soc_info->pdev)
+	if (!soc_info || !soc_info->dev)
 		return -EINVAL;
 
-	pdev = soc_info->pdev;
-
-	of_node = pdev->dev.of_node;
+	of_node = soc_info->dev->of_node;
 
 	count = of_property_count_strings(of_node, "clock-names");
 
@@ -563,13 +560,11 @@ static int cam_soc_util_get_gpio_info(struct cam_hw_soc_info *soc_info)
 	int16_t gpio_array_size = 0;
 	struct cam_soc_gpio_data *gconf = NULL;
 	struct device_node *of_node = NULL;
-	struct platform_device *pdev = NULL;
 
-	if (!soc_info || !soc_info->pdev)
+	if (!soc_info || !soc_info->dev)
 		return -EINVAL;
 
-	pdev = soc_info->pdev;
-	of_node = pdev->dev.of_node;
+	of_node = soc_info->dev->of_node;
 
 	/* Validate input parameters */
 	if (!of_node) {
@@ -685,15 +680,13 @@ static int cam_soc_util_get_dt_regulator_info
 {
 	int rc = 0, count = 0, i = 0;
 	struct device_node *of_node = NULL;
-	struct platform_device *pdev = NULL;
 
-	if (!soc_info || !soc_info->pdev) {
+	if (!soc_info || !soc_info->dev) {
 		CAM_ERR(CAM_UTIL, "Invalid parameters");
 		return -EINVAL;
 	}
 
-	pdev = soc_info->pdev;
-	of_node = pdev->dev.of_node;
+	of_node = soc_info->dev->of_node;
 
 	soc_info->num_rgltr = 0;
 	count = of_property_count_strings(of_node, "regulator-names");
@@ -759,19 +752,40 @@ int cam_soc_util_get_dt_properties(struct cam_hw_soc_info *soc_info)
 	struct device_node *of_node = NULL;
 	int count = 0, i = 0, rc = 0;
 	struct platform_device *pdev = NULL;
+	struct device *dev = NULL;
 
-	if (!soc_info || !soc_info->pdev)
+	if (!soc_info)
 		return -EINVAL;
 
-	pdev = soc_info->pdev;
-	of_node = pdev->dev.of_node;
+	if (soc_info->is_i2c_dev) {
+		if (!soc_info->i2c_dev)
+			return -EINVAL;
+		dev = &soc_info->i2c_dev->dev;
+		soc_info->dev = dev;
+		soc_info->dev_name = soc_info->i2c_dev->name;
+	} else if (soc_info->is_spi_dev) {
+		if (!soc_info->spi_dev)
+			return -EINVAL;
+		dev = &soc_info->spi_dev->dev;
+		soc_info->dev = dev;
+		soc_info->dev_name = soc_info->spi_dev->modalias;
+	} else {
+		if (!soc_info->pdev)
+			return -EINVAL;
+		pdev = soc_info->pdev;
+		soc_info->dev_name = pdev->name;
+		soc_info->dev = &pdev->dev;
+	}
+
+	of_node = soc_info->dev->of_node;
 
 	rc = of_property_read_u32(of_node, "cell-index", &soc_info->index);
 	if (rc) {
 		CAM_ERR(CAM_UTIL, "device %s failed to read cell-index",
-			pdev->name);
+			soc_info->dev_name);
 		return rc;
 	}
+
 	count = of_property_count_strings(of_node, "reg-names");
 	if (count <= 0) {
 		CAM_ERR(CAM_UTIL, "no reg-names found");
@@ -848,11 +862,11 @@ int cam_soc_util_get_dt_properties(struct cam_hw_soc_info *soc_info)
  *
  * @return:             0 for Success, negative value for failure
  */
-static int cam_soc_util_get_regulator(struct platform_device *pdev,
+static int cam_soc_util_get_regulator(struct device *dev,
 	struct regulator **reg, const char *rgltr_name)
 {
 	int rc = 0;
-	*reg = regulator_get(&pdev->dev, rgltr_name);
+	*reg = regulator_get(dev, rgltr_name);
 	if (IS_ERR_OR_NULL(*reg)) {
 		rc = PTR_ERR(*reg);
 		rc = rc ? rc : -EINVAL;
@@ -945,7 +959,7 @@ static int cam_soc_util_request_pinctrl(
 	struct cam_hw_soc_info *soc_info) {
 
 	struct cam_soc_pinctrl_info *device_pctrl = &soc_info->pinctrl_info;
-	struct device *dev = &soc_info->pdev->dev;
+	struct device *dev = soc_info->dev;
 
 	device_pctrl->pinctrl = devm_pinctrl_get(dev);
 	if (IS_ERR_OR_NULL(device_pctrl->pinctrl)) {
@@ -1046,15 +1060,11 @@ int cam_soc_util_request_platform_resource(
 	irq_handler_t handler, void *irq_data)
 {
 	int i = 0, rc = 0;
-	struct platform_device *pdev = NULL;
 
-
-	if (!soc_info || !soc_info->pdev) {
+	if (!soc_info || !soc_info->dev) {
 		CAM_ERR(CAM_UTIL, "Invalid parameters");
 		return -EINVAL;
 	}
-
-	pdev = soc_info->pdev;
 
 	for (i = 0; i < soc_info->num_mem_block; i++) {
 		if (soc_info->reserve_mem) {
@@ -1062,7 +1072,7 @@ int cam_soc_util_request_platform_resource(
 				resource_size(soc_info->mem_block[i]),
 				soc_info->mem_block_name[i])){
 				CAM_ERR(CAM_UTIL,
-					"Error Mem Region request Failed:%s",
+					"Error Mem region request Failed:%s",
 					soc_info->mem_block_name[i]);
 				rc = -ENOMEM;
 				goto unmap_base;
@@ -1089,14 +1099,15 @@ int cam_soc_util_request_platform_resource(
 			goto put_regulator;
 		}
 
-		rc = cam_soc_util_get_regulator(pdev, &soc_info->rgltr[i],
+		rc = cam_soc_util_get_regulator(soc_info->dev,
+			&soc_info->rgltr[i],
 			soc_info->rgltr_name[i]);
 		if (rc)
 			goto put_regulator;
 	}
 
 	if (soc_info->irq_line) {
-		rc = devm_request_irq(&pdev->dev, soc_info->irq_line->start,
+		rc = devm_request_irq(soc_info->dev, soc_info->irq_line->start,
 			handler, IRQF_TRIGGER_RISING,
 			soc_info->irq_name, irq_data);
 		if (rc) {
@@ -1110,7 +1121,7 @@ int cam_soc_util_request_platform_resource(
 
 	/* Get Clock */
 	for (i = 0; i < soc_info->num_clk; i++) {
-		soc_info->clk[i] = clk_get(&soc_info->pdev->dev,
+		soc_info->clk[i] = clk_get(soc_info->dev,
 			soc_info->clk_name[i]);
 		if (!soc_info->clk[i]) {
 			CAM_ERR(CAM_UTIL, "get failed for %s",
@@ -1144,7 +1155,7 @@ put_clk:
 
 	if (soc_info->irq_line) {
 		disable_irq(soc_info->irq_line->start);
-		devm_free_irq(&soc_info->pdev->dev,
+		devm_free_irq(soc_info->dev,
 			soc_info->irq_line->start, irq_data);
 	}
 
@@ -1177,15 +1188,11 @@ unmap_base:
 int cam_soc_util_release_platform_resource(struct cam_hw_soc_info *soc_info)
 {
 	int i;
-	struct platform_device *pdev = NULL;
 
-	if (!soc_info || !soc_info->pdev) {
+	if (!soc_info || !soc_info->dev) {
 		CAM_ERR(CAM_UTIL, "Invalid parameter");
 		return -EINVAL;
 	}
-
-
-	pdev = soc_info->pdev;
 
 	for (i = soc_info->num_clk - 1; i >= 0; i--) {
 		clk_put(soc_info->clk[i]);
@@ -1207,7 +1214,7 @@ int cam_soc_util_release_platform_resource(struct cam_hw_soc_info *soc_info)
 
 	if (soc_info->irq_line) {
 		disable_irq(soc_info->irq_line->start);
-		devm_free_irq(&soc_info->pdev->dev,
+		devm_free_irq(soc_info->dev,
 			soc_info->irq_line->start, soc_info->irq_data);
 	}
 

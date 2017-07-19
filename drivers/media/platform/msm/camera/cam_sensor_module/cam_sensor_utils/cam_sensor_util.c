@@ -511,14 +511,20 @@ int cam_sensor_util_request_gpio_table(
 	uint8_t size = 0;
 	struct cam_soc_gpio_data *gpio_conf =
 			soc_info->gpio_data;
-	struct gpio *gpio_tbl = gpio_conf->cam_gpio_req_tbl;
+	struct gpio *gpio_tbl = NULL;
 
-	size = gpio_conf->cam_gpio_req_tbl_size;
+	if (!gpio_conf) {
+		CAM_INFO(CAM_SENSOR, "No GPIO data");
+		return 0;
+	}
 
 	if (gpio_conf->cam_gpio_common_tbl_size <= 0) {
 		CAM_INFO(CAM_SENSOR, "No GPIO entry");
-		return 0;
+		return -EINVAL;
 	}
+
+	gpio_tbl = gpio_conf->cam_gpio_req_tbl;
+	size = gpio_conf->cam_gpio_req_tbl_size;
 
 	if (!gpio_tbl || !size) {
 		CAM_ERR(CAM_SENSOR, "invalid gpio_tbl %pK / size %d",
@@ -861,13 +867,16 @@ int cam_sensor_util_init_gpio_pin_tbl(
 {
 	int rc = 0, val = 0;
 	uint32_t gpio_array_size;
-	struct platform_device *pdev = NULL;
 	struct device_node *of_node = NULL;
 	struct cam_soc_gpio_data *gconf = NULL;
 	struct msm_camera_gpio_num_info *gpio_num_info = NULL;
 
-	pdev = soc_info->pdev;
-	of_node = pdev->dev.of_node;
+	if (!soc_info->dev) {
+		CAM_ERR(CAM_SENSOR, "device node NULL");
+		return -EINVAL;
+	}
+
+	of_node = soc_info->dev->of_node;
 
 	gconf = soc_info->gpio_data;
 	if (!gconf) {
@@ -1100,8 +1109,8 @@ int msm_cam_sensor_handle_reg_gpio(int seq_type,
 	int gpio_offset = -1;
 
 	if (!gpio_num_info) {
-		CAM_ERR(CAM_SENSOR, "Input Parameters are not proper");
-		return -EINVAL;
+		CAM_INFO(CAM_SENSOR, "Input Parameters are not proper");
+		return 0;
 	}
 
 	CAM_DBG(CAM_SENSOR, "Seq type: %d, config: %d", seq_type, val);
@@ -1181,7 +1190,7 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 
 					soc_info->rgltr[j] =
 					regulator_get(
-						&soc_info->pdev->dev,
+						soc_info->dev,
 						soc_info->rgltr_name[j]);
 
 					if (IS_ERR_OR_NULL(
@@ -1274,7 +1283,7 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 				vreg_idx = power_setting->seq_val;
 
 				soc_info->rgltr[vreg_idx] =
-					regulator_get(&soc_info->pdev->dev,
+					regulator_get(soc_info->dev,
 						soc_info->rgltr_name[vreg_idx]);
 				if (IS_ERR_OR_NULL(
 					soc_info->rgltr[vreg_idx])) {
