@@ -669,8 +669,13 @@ static inline struct kgsl_device *kgsl_device_from_dev(struct device *dev)
 
 static inline int kgsl_state_is_awake(struct kgsl_device *device)
 {
+	struct gmu_device *gmu = &device->gmu;
+
 	if (device->state == KGSL_STATE_ACTIVE ||
 		device->state == KGSL_STATE_AWARE)
+		return true;
+	else if (kgsl_gmu_isenabled(device) &&
+			test_bit(GMU_CLK_ON, &gmu->flags))
 		return true;
 	else
 		return false;
