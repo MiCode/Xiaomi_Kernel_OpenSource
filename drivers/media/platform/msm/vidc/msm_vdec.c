@@ -1491,6 +1491,7 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 			rc = -EINVAL;
 			break;
 		}
+		msm_dcvs_try_enable(inst);
 
 		/* Pretend as if FW itself is asking for
 		 * additional buffers.
