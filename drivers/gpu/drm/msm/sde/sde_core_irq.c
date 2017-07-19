@@ -57,7 +57,7 @@ static void sde_core_irq_callback_handler(void *arg, int irq_idx)
 	 * NOTE: sde_core_irq_callback_handler is protected by top-level
 	 *       spinlock, so it is safe to clear any interrupt status here.
 	 */
-	sde_kms->hw_intr->ops.clear_interrupt_status(
+	sde_kms->hw_intr->ops.clear_intr_status_nolock(
 			sde_kms->hw_intr,
 			irq_idx);
 }
@@ -98,7 +98,6 @@ static int _sde_core_irq_enable(struct sde_kms *sde_kms, int irq_idx)
 	SDE_DEBUG("irq_idx=%d enable_count=%d\n", irq_idx,
 			atomic_read(&sde_kms->irq_obj.enable_counts[irq_idx]));
 
-	spin_lock_irqsave(&sde_kms->irq_obj.cb_lock, irq_flags);
 	SDE_EVT32(irq_idx,
 			atomic_read(&sde_kms->irq_obj.enable_counts[irq_idx]));
 	if (atomic_inc_return(&sde_kms->irq_obj.enable_counts[irq_idx]) == 1) {
@@ -111,12 +110,13 @@ static int _sde_core_irq_enable(struct sde_kms *sde_kms, int irq_idx)
 
 		SDE_DEBUG("irq_idx=%d ret=%d\n", irq_idx, ret);
 
+		spin_lock_irqsave(&sde_kms->irq_obj.cb_lock, irq_flags);
 		/* empty callback list but interrupt is enabled */
 		if (list_empty(&sde_kms->irq_obj.irq_cb_tbl[irq_idx]))
 			SDE_ERROR("irq_idx=%d enabled with no callback\n",
 					irq_idx);
+		spin_unlock_irqrestore(&sde_kms->irq_obj.cb_lock, irq_flags);
 	}
-	spin_unlock_irqrestore(&sde_kms->irq_obj.cb_lock, irq_flags);
 
 	return ret;
 }
@@ -150,7 +150,6 @@ int sde_core_irq_enable(struct sde_kms *sde_kms, int *irq_idxs, u32 irq_count)
  */
 static int _sde_core_irq_disable(struct sde_kms *sde_kms, int irq_idx)
 {
-	unsigned long irq_flags;
 	int ret = 0;
 
 	if (!sde_kms || !sde_kms->hw_intr || !sde_kms->irq_obj.enable_counts) {
@@ -166,7 +165,6 @@ static int _sde_core_irq_disable(struct sde_kms *sde_kms, int irq_idx)
 	SDE_DEBUG("irq_idx=%d enable_count=%d\n", irq_idx,
 			atomic_read(&sde_kms->irq_obj.enable_counts[irq_idx]));
 
-	spin_lock_irqsave(&sde_kms->irq_obj.cb_lock, irq_flags);
 	SDE_EVT32(irq_idx,
 			atomic_read(&sde_kms->irq_obj.enable_counts[irq_idx]));
 	if (atomic_dec_return(&sde_kms->irq_obj.enable_counts[irq_idx]) == 0) {
@@ -178,7 +176,6 @@ static int _sde_core_irq_disable(struct sde_kms *sde_kms, int irq_idx)
 					irq_idx);
 		SDE_DEBUG("irq_idx=%d ret=%d\n", irq_idx, ret);
 	}
-	spin_unlock_irqrestore(&sde_kms->irq_obj.cb_lock, irq_flags);
 
 	return ret;
 }
