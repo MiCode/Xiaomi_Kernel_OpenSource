@@ -456,7 +456,7 @@ struct msm_vfe_axi_stream {
 	uint32_t runtime_output_format;
 	enum msm_stream_rdi_input_type  rdi_input_type;
 	struct msm_isp_sw_framskip sw_skip;
-	uint8_t sw_ping_pong_bit;
+	int8_t sw_ping_pong_bit;
 
 	struct vfe_device *vfe_dev[MAX_VFE];
 	int num_isp;
