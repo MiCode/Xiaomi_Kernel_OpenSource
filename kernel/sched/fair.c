@@ -4760,8 +4760,6 @@ static inline void hrtick_update(struct rq *rq)
 
 #ifdef CONFIG_SMP
 static bool cpu_overutilized(int cpu);
-static unsigned long capacity_orig_of(int cpu);
-static unsigned long cpu_util(int cpu);
 unsigned long boosted_cpu_util(int cpu);
 #else
 #define boosted_cpu_util(cpu) cpu_util(cpu)
@@ -5977,7 +5975,6 @@ schedtune_margin(unsigned long signal, long boost)
 	 *   M = B * (SCHED_CAPACITY_SCALE - S)
 	 * The obtained M could be used by the caller to "boost" S.
 	 */
-
 	if (boost >= 0) {
 		margin  = SCHED_CAPACITY_SCALE - signal;
 		margin *= boost;
