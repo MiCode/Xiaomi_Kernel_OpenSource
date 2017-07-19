@@ -1039,7 +1039,6 @@ static int msm_sdw_swrm_read(void *handle, int reg)
 		__func__, reg);
 	sdw_rd_addr_base = MSM_SDW_AHB_BRIDGE_RD_ADDR_0;
 	sdw_rd_data_base = MSM_SDW_AHB_BRIDGE_RD_DATA_0;
-
 	/*
 	 * Add sleep as SWR slave access read takes time.
 	 * Allow for RD_DONE to complete for previous register if any.
@@ -1054,6 +1053,8 @@ static int msm_sdw_swrm_read(void *handle, int reg)
 		dev_err(msm_sdw->dev, "%s: RD Addr Failure\n", __func__);
 		goto err;
 	}
+	/* Add sleep for SWR register read value to get updated. */
+	usleep_range(100, 105);
 	/* Check for RD value */
 	ret = regmap_bulk_read(msm_sdw->regmap, sdw_rd_data_base,
 			       (u8 *)&val, 4);
@@ -1079,12 +1080,12 @@ static int msm_sdw_bulk_write(struct msm_sdw_priv *msm_sdw,
 	sdw_wr_addr_base = MSM_SDW_AHB_BRIDGE_WR_ADDR_0;
 	sdw_wr_data_base = MSM_SDW_AHB_BRIDGE_WR_DATA_0;
 
-	/*
-	 * Add sleep as SWR slave write takes time.
-	 * Allow for any previous pending write to complete.
-	 */
-	usleep_range(50, 55);
 	for (i = 0; i < len; i += 2) {
+		/*
+		 * Add sleep as SWR slave write takes time.
+		 * Allow for any previous pending write to complete.
+		 */
+		usleep_range(100, 105);
 		/* First Write the Data to register */
 		ret = regmap_bulk_write(msm_sdw->regmap,
 			sdw_wr_data_base, bulk_reg[i].buf, 4);
@@ -1383,7 +1384,7 @@ int msm_sdw_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 
 	msm_sdw = snd_soc_codec_get_drvdata(codec);
 	card = codec->component.card;
-	msm_sdw->entry = snd_register_module_info(codec_root->module,
+	msm_sdw->entry = snd_info_create_subdir(codec_root->module,
 						  "152c1000.msm-sdw-codec",
 						  codec_root);
 	if (!msm_sdw->entry) {
@@ -1761,13 +1762,15 @@ static struct regmap *msm_sdw_get_regmap(struct device *dev)
 static struct snd_soc_codec_driver soc_codec_dev_msm_sdw = {
 	.probe = msm_sdw_codec_probe,
 	.remove = msm_sdw_codec_remove,
-	.controls = msm_sdw_snd_controls,
-	.num_controls = ARRAY_SIZE(msm_sdw_snd_controls),
-	.dapm_widgets = msm_sdw_dapm_widgets,
-	.num_dapm_widgets = ARRAY_SIZE(msm_sdw_dapm_widgets),
-	.dapm_routes = audio_map,
-	.num_dapm_routes = ARRAY_SIZE(audio_map),
 	.get_regmap = msm_sdw_get_regmap,
+	.component_driver = {
+		.controls = msm_sdw_snd_controls,
+		.num_controls = ARRAY_SIZE(msm_sdw_snd_controls),
+		.dapm_widgets = msm_sdw_dapm_widgets,
+		.num_dapm_widgets = ARRAY_SIZE(msm_sdw_dapm_widgets),
+		.dapm_routes = audio_map,
+		.num_dapm_routes = ARRAY_SIZE(audio_map),
+	},
 };
 
 static void msm_sdw_add_child_devices(struct work_struct *work)

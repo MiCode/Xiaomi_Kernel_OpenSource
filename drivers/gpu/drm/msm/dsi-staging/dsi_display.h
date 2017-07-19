@@ -444,6 +444,17 @@ int dsi_display_set_tpg_state(struct dsi_display *display, bool enable);
 int dsi_display_clock_gate(struct dsi_display *display, bool enable);
 int dsi_dispaly_static_frame(struct dsi_display *display, bool enable);
 
+/**
+ * dsi_display_enable_event() - enable interrupt based connector event
+ * @display:            Handle to display.
+ * @event_idx:          Event index.
+ * @event_info:         Event callback definition.
+ * @enable:             Whether to enable/disable the event interrupt.
+ */
+void dsi_display_enable_event(struct dsi_display *display,
+		uint32_t event_idx, struct dsi_event_cb_info *event_info,
+		bool enable);
+
 int dsi_display_set_backlight(void *display, u32 bl_lvl);
 
 /**
@@ -469,5 +480,12 @@ int dsi_display_soft_reset(void *display);
  */
 int dsi_display_pre_kickoff(struct dsi_display *display,
 		struct msm_display_kickoff_params *params);
+/**
+ * dsi_display_get_dst_format() - get dst_format from DSI display
+ * @display:         Handle to display
+ *
+ * Return: enum dsi_pixel_format type
+ */
+enum dsi_pixel_format dsi_display_get_dst_format(void *display);
 
 #endif /* _DSI_DISPLAY_H_ */

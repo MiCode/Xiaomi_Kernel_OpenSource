@@ -459,13 +459,15 @@ static void sde_kms_wait_for_commit_done(struct msm_kms *kms,
 		struct drm_crtc *crtc)
 {
 	struct drm_encoder *encoder;
-	struct drm_device *dev = crtc->dev;
+	struct drm_device *dev;
 	int ret;
 
 	if (!kms || !crtc || !crtc->state) {
 		SDE_ERROR("invalid params\n");
 		return;
 	}
+
+	dev = crtc->dev;
 
 	if (!crtc->state->enable) {
 		SDE_DEBUG("[crtc:%d] not enable\n", crtc->base.id);
@@ -642,7 +644,8 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.soft_reset   = dsi_display_soft_reset,
 		.pre_kickoff  = dsi_conn_pre_kickoff,
 		.clk_ctrl = dsi_display_clk_ctrl,
-		.get_topology = dsi_conn_get_topology
+		.get_topology = dsi_conn_get_topology,
+		.get_dst_format = dsi_display_get_dst_format
 	};
 	static const struct sde_connector_ops wb_ops = {
 		.post_init =    sde_wb_connector_post_init,
@@ -651,7 +654,8 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.set_property = sde_wb_connector_set_property,
 		.get_info =     sde_wb_get_info,
 		.soft_reset =   NULL,
-		.get_topology = sde_wb_get_topology
+		.get_topology = sde_wb_get_topology,
+		.get_dst_format = NULL
 	};
 	static const struct sde_connector_ops dp_ops = {
 		.post_init  = dp_connector_post_init,
@@ -1336,6 +1340,8 @@ static void _sde_kms_hw_destroy(struct sde_kms *sde_kms,
 	if (sde_kms->mmio)
 		msm_iounmap(pdev, sde_kms->mmio);
 	sde_kms->mmio = NULL;
+
+	sde_reg_dma_deinit();
 }
 
 static void sde_kms_destroy(struct msm_kms *kms)
@@ -1370,6 +1376,71 @@ static void sde_kms_preclose(struct msm_kms *kms, struct drm_file *file)
 		sde_crtc_cancel_pending_flip(priv->crtcs[i], file);
 }
 
+static int sde_kms_atomic_check(struct msm_kms *kms,
+		struct drm_atomic_state *state)
+{
+	struct sde_kms *sde_kms = to_sde_kms(kms);
+	struct drm_device *dev = sde_kms->dev;
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *crtc_state;
+	int rc, i;
+
+	if (!kms || !state)
+		return -EINVAL;
+
+	/*
+	 * Add planes (and other affected DRM objects, if any) to new state
+	 * if idle power collapse occurred since previous commit.
+	 * Since atomic state is a delta from the last, if the user-space
+	 * did not request any changes on a plane/connector, that object
+	 * will not be included in the new atomic state. Idle power collapse
+	 * is driver-autonomous, so the driver needs to ensure that all
+	 * hardware is reprogrammed as the power comes back on by forcing
+	 * the drm objects attached to the CRTC into the new atomic state.
+	 */
+	for_each_crtc_in_state(state, crtc, crtc_state, i) {
+		struct sde_crtc_state *cstate = to_sde_crtc_state(crtc_state);
+		struct sde_crtc_state *old_cstate =
+				to_sde_crtc_state(crtc->state);
+
+		if (cstate->idle_pc != old_cstate->idle_pc) {
+			SDE_DEBUG("crtc%d idle_pc:%d/%d\n",
+					crtc->base.id, cstate->idle_pc,
+					old_cstate->idle_pc);
+			SDE_EVT32(DRMID(crtc), cstate->idle_pc,
+					old_cstate->idle_pc);
+			rc = drm_atomic_add_affected_planes(state, crtc);
+			if (rc)
+				return rc;
+		}
+	}
+
+	return drm_atomic_helper_check(dev, state);
+}
+
+static struct msm_gem_address_space*
+_sde_kms_get_address_space(struct msm_kms *kms,
+		unsigned int domain)
+{
+	struct sde_kms *sde_kms;
+
+	if (!kms) {
+		SDE_ERROR("invalid kms\n");
+		return  NULL;
+	}
+
+	sde_kms = to_sde_kms(kms);
+	if (!sde_kms) {
+		SDE_ERROR("invalid sde_kms\n");
+		return NULL;
+	}
+
+	if (domain >= MSM_SMMU_DOMAIN_MAX)
+		return NULL;
+
+	return sde_kms->aspace[domain];
+}
+
 static const struct msm_kms_funcs kms_funcs = {
 	.hw_init         = sde_kms_hw_init,
 	.postinit        = sde_kms_postinit,
@@ -1387,10 +1458,12 @@ static const struct msm_kms_funcs kms_funcs = {
 	.enable_vblank   = sde_kms_enable_vblank,
 	.disable_vblank  = sde_kms_disable_vblank,
 	.check_modified_format = sde_format_check_modified_format,
+	.atomic_check    = sde_kms_atomic_check,
 	.get_format      = sde_get_msm_format,
 	.round_pixclk    = sde_kms_round_pixclk,
 	.destroy         = sde_kms_destroy,
 	.register_events = _sde_kms_register_events,
+	.get_address_space = _sde_kms_get_address_space,
 };
 
 /* the caller api needs to turn on clock before calling it */
@@ -1404,17 +1477,17 @@ static int _sde_kms_mmu_destroy(struct sde_kms *sde_kms)
 	struct msm_mmu *mmu;
 	int i;
 
-	for (i = ARRAY_SIZE(sde_kms->mmu_id) - 1; i >= 0; i--) {
-		if (!sde_kms->mmu[i])
+	for (i = ARRAY_SIZE(sde_kms->aspace) - 1; i >= 0; i--) {
+		if (!sde_kms->aspace[i])
 			continue;
 
-		mmu = sde_kms->mmu[i];
-		msm_unregister_mmu(sde_kms->dev, mmu);
+		mmu = sde_kms->aspace[i]->mmu;
+
 		mmu->funcs->detach(mmu, (const char **)iommu_ports,
 				ARRAY_SIZE(iommu_ports));
-		mmu->funcs->destroy(mmu);
-		sde_kms->mmu[i] = 0;
-		sde_kms->mmu_id[i] = 0;
+		msm_gem_address_space_destroy(sde_kms->aspace[i]);
+
+		sde_kms->aspace[i] = NULL;
 	}
 
 	return 0;
@@ -1426,6 +1499,8 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 	int i, ret;
 
 	for (i = 0; i < MSM_SMMU_DOMAIN_MAX; i++) {
+		struct msm_gem_address_space *aspace;
+
 		mmu = msm_smmu_new(sde_kms->dev->dev, i);
 		if (IS_ERR(mmu)) {
 			ret = PTR_ERR(mmu);
@@ -1434,25 +1509,24 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 			continue;
 		}
 
+		aspace = msm_gem_smmu_address_space_create(sde_kms->dev->dev,
+			mmu, "sde");
+		if (IS_ERR(aspace)) {
+			ret = PTR_ERR(aspace);
+			mmu->funcs->destroy(mmu);
+			goto fail;
+		}
+
+		sde_kms->aspace[i] = aspace;
+
 		ret = mmu->funcs->attach(mmu, (const char **)iommu_ports,
 				ARRAY_SIZE(iommu_ports));
 		if (ret) {
 			SDE_ERROR("failed to attach iommu %d: %d\n", i, ret);
-			mmu->funcs->destroy(mmu);
-			continue;
-		}
-
-		sde_kms->mmu_id[i] = msm_register_mmu(sde_kms->dev, mmu);
-		if (sde_kms->mmu_id[i] < 0) {
-			ret = sde_kms->mmu_id[i];
-			SDE_ERROR("failed to register sde iommu %d: %d\n",
-					i, ret);
-			mmu->funcs->detach(mmu, (const char **)iommu_ports,
-					ARRAY_SIZE(iommu_ports));
+			msm_gem_address_space_destroy(aspace);
 			goto fail;
 		}
 
-		sde_kms->mmu[i] = mmu;
 	}
 
 	return 0;
@@ -1460,43 +1534,6 @@ fail:
 	_sde_kms_mmu_destroy(sde_kms);
 
 	return ret;
-}
-
-static void __iomem *_sde_kms_ioremap(struct platform_device *pdev,
-		const char *name, unsigned long *out_size)
-{
-	struct resource *res;
-	unsigned long size;
-	void __iomem *ptr;
-
-	if (out_size)
-		*out_size = 0;
-
-	if (name)
-		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, name);
-	else
-		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-
-	if (!res) {
-		/* availability depends on platform */
-		SDE_DEBUG("failed to get memory resource: %s\n", name);
-		return ERR_PTR(-EINVAL);
-	}
-
-	size = resource_size(res);
-
-	ptr = devm_ioremap_nocache(&pdev->dev, res->start, size);
-	if (!ptr) {
-		SDE_ERROR("failed to ioremap: %s\n", name);
-		return ERR_PTR(-ENOMEM);
-	}
-
-	SDE_DEBUG("IO:region %s %p %08lx\n", name, ptr, size);
-
-	if (out_size)
-		*out_size = size;
-
-	return ptr;
 }
 
 static void sde_kms_handle_power_event(u32 event_type, void *usr)
@@ -1535,8 +1572,7 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto end;
 	}
 
-	sde_kms->mmio = _sde_kms_ioremap(dev->platformdev, "mdp_phys",
-			&sde_kms->mmio_len);
+	sde_kms->mmio = msm_ioremap(dev->platformdev, "mdp_phys", "mdp_phys");
 	if (IS_ERR(sde_kms->mmio)) {
 		rc = PTR_ERR(sde_kms->mmio);
 		SDE_ERROR("mdp register memory map failed: %d\n", rc);
@@ -1544,32 +1580,36 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto error;
 	}
 	DRM_INFO("mapped mdp address space @%p\n", sde_kms->mmio);
+	sde_kms->mmio_len = msm_iomap_size(dev->platformdev, "mdp_phys");
 
 	rc = sde_dbg_reg_register_base(SDE_DBG_NAME, sde_kms->mmio,
 			sde_kms->mmio_len);
 	if (rc)
 		SDE_ERROR("dbg base register kms failed: %d\n", rc);
 
-	sde_kms->vbif[VBIF_RT] = _sde_kms_ioremap(dev->platformdev, "vbif_phys",
-			&sde_kms->vbif_len[VBIF_RT]);
+	sde_kms->vbif[VBIF_RT] = msm_ioremap(dev->platformdev, "vbif_phys",
+								"vbif_phys");
 	if (IS_ERR(sde_kms->vbif[VBIF_RT])) {
 		rc = PTR_ERR(sde_kms->vbif[VBIF_RT]);
 		SDE_ERROR("vbif register memory map failed: %d\n", rc);
 		sde_kms->vbif[VBIF_RT] = NULL;
 		goto error;
 	}
-
+	sde_kms->vbif_len[VBIF_RT] = msm_iomap_size(dev->platformdev,
+								"vbif_phys");
 	rc = sde_dbg_reg_register_base("vbif_rt", sde_kms->vbif[VBIF_RT],
 				sde_kms->vbif_len[VBIF_RT]);
 	if (rc)
 		SDE_ERROR("dbg base register vbif_rt failed: %d\n", rc);
 
-	sde_kms->vbif[VBIF_NRT] = _sde_kms_ioremap(dev->platformdev,
-			"vbif_nrt_phys", &sde_kms->vbif_len[VBIF_NRT]);
+	sde_kms->vbif[VBIF_NRT] = msm_ioremap(dev->platformdev, "vbif_nrt_phys",
+								"vbif_nrt_phys");
 	if (IS_ERR(sde_kms->vbif[VBIF_NRT])) {
 		sde_kms->vbif[VBIF_NRT] = NULL;
 		SDE_DEBUG("VBIF NRT is not defined");
 	} else {
+		sde_kms->vbif_len[VBIF_NRT] = msm_iomap_size(dev->platformdev,
+							"vbif_nrt_phys");
 		rc = sde_dbg_reg_register_base("vbif_nrt",
 				sde_kms->vbif[VBIF_NRT],
 				sde_kms->vbif_len[VBIF_NRT]);
@@ -1578,19 +1618,20 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 					rc);
 	}
 
-	sde_kms->reg_dma = _sde_kms_ioremap(dev->platformdev, "regdma_phys",
-		&sde_kms->reg_dma_len);
+	sde_kms->reg_dma = msm_ioremap(dev->platformdev, "regdma_phys",
+								"regdma_phys");
 	if (IS_ERR(sde_kms->reg_dma)) {
 		sde_kms->reg_dma = NULL;
 		SDE_DEBUG("REG_DMA is not defined");
 	} else {
+		sde_kms->reg_dma_len = msm_iomap_size(dev->platformdev,
+								"regdma_phys");
 		rc =  sde_dbg_reg_register_base("vbif_nrt",
 				sde_kms->reg_dma,
 				sde_kms->reg_dma_len);
 		if (rc)
 			SDE_ERROR("dbg base register reg_dma failed: %d\n",
 					rc);
-
 	}
 
 	sde_kms->core_client = sde_power_client_create(&priv->phandle, "core");

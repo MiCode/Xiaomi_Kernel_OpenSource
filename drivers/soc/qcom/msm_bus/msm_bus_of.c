@@ -113,9 +113,9 @@ static struct msm_bus_scale_pdata *get_pdata(struct platform_device *pdev,
 			int index = i * 2;
 
 			usecase_lat[i].fal_ns = (uint64_t)
-				KBTOB(be32_to_cpu(vec_arr[index]));
+				be32_to_cpu(vec_arr[index]);
 			usecase_lat[i].idle_t_ns = (uint64_t)
-				KBTOB(be32_to_cpu(vec_arr[index + 1]));
+				be32_to_cpu(vec_arr[index + 1]);
 		}
 
 		pdata->usecase_lat = usecase_lat;

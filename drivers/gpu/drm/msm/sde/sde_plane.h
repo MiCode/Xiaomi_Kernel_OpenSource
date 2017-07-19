@@ -34,7 +34,7 @@
  * @rot90: true if rotation of 90 degree is required
  * @hflip: true if horizontal flip is required
  * @vflip: true if vertical flip is required
- * @mmu_id: iommu identifier for input/output buffers
+ * @aspace:  pointer address space for input/output buffers
  * @rot_cmd: rotator configuration command
  * @nplane: total number of drm plane attached to rotator
  * @in_fb: input fb attached to rotator
@@ -64,7 +64,7 @@ struct sde_plane_rot_state {
 	bool rot90;
 	bool hflip;
 	bool vflip;
-	u32 mmu_id;
+	struct msm_gem_address_space *aspace;
 	struct sde_hw_rot_cmd rot_cmd;
 	int nplane;
 	/* input */
@@ -96,13 +96,34 @@ struct sde_plane_rot_state {
 #define SDE_PLANE_DIRTY_FORMAT	0x2
 #define SDE_PLANE_DIRTY_SHARPEN	0x4
 #define SDE_PLANE_DIRTY_PERF	0x8
+#define SDE_PLANE_DIRTY_FB_TRANSLATION_MODE	0x10
 #define SDE_PLANE_DIRTY_ALL	0xFFFFFFFF
+
+/**
+ * enum sde_plane_sclcheck_state - User scaler data status
+ *
+ * @SDE_PLANE_SCLCHECK_NONE: No user data provided
+ * @SDE_PLANE_SCLCHECK_INVALID: Invalid user data provided
+ * @SDE_PLANE_SCLCHECK_SCALER_V1: Valid scaler v1 data
+ * @SDE_PLANE_SCLCHECK_SCALER_V1_CHECK: Unchecked scaler v1 data
+ * @SDE_PLANE_SCLCHECK_SCALER_V2: Valid scaler v2 data
+ * @SDE_PLANE_SCLCHECK_SCALER_V2_CHECK: Unchecked scaler v2 data
+ */
+enum sde_plane_sclcheck_state {
+	SDE_PLANE_SCLCHECK_NONE,
+	SDE_PLANE_SCLCHECK_INVALID,
+	SDE_PLANE_SCLCHECK_SCALER_V1,
+	SDE_PLANE_SCLCHECK_SCALER_V1_CHECK,
+	SDE_PLANE_SCLCHECK_SCALER_V2,
+	SDE_PLANE_SCLCHECK_SCALER_V2_CHECK,
+};
 
 /**
  * struct sde_plane_state: Define sde extension of drm plane state object
  * @base:	base drm plane state object
  * @property_values:	cached plane property values
  * @property_blobs:	blob properties
+ * @aspace:	pointer to address space for input/output buffers
  * @input_fence:	dereferenced input fence pointer
  * @stage:	assigned by crtc blender
  * @excl_rect:	exclusion rect values
@@ -110,12 +131,16 @@ struct sde_plane_rot_state {
  * @multirect_index: index of the rectangle of SSPP
  * @multirect_mode: parallel or time multiplex multirect mode
  * @pending:	whether the current update is still pending
+ * @scaler3_cfg: configuration data for scaler3
+ * @pixel_ext: configuration data for pixel extensions
+ * @scaler_check_state: indicates status of user provided pixel extension data
  * @cdp_cfg:	CDP configuration
  */
 struct sde_plane_state {
 	struct drm_plane_state base;
 	uint64_t property_values[PLANE_PROP_COUNT];
 	struct drm_property_blob *property_blobs[PLANE_PROP_BLOBCOUNT];
+	struct msm_gem_address_space *aspace;
 	void *input_fence;
 	enum sde_stage stage;
 	struct sde_rect excl_rect;
@@ -123,6 +148,11 @@ struct sde_plane_state {
 	uint32_t multirect_index;
 	uint32_t multirect_mode;
 	bool pending;
+
+	/* scaler configuration */
+	struct sde_hw_scaler3_cfg scaler3_cfg;
+	struct sde_hw_pixel_ext pixel_ext;
+	enum sde_plane_sclcheck_state scaler_check_state;
 
 	/* @sc_cfg: system_cache configuration */
 	struct sde_hw_pipe_sc_cfg sc_cfg;

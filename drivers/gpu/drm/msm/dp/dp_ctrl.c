@@ -21,7 +21,6 @@
 #include "dp_ctrl.h"
 
 #define DP_KHZ_TO_HZ 1000
-#define DP_CRYPTO_CLK_RATE_KHZ 180000
 
 #define DP_CTRL_INTR_READY_FOR_VIDEO     BIT(0)
 #define DP_CTRL_INTR_IDLE_PATTERN_SENT  BIT(3)
@@ -1033,8 +1032,6 @@ static int dp_ctrl_enable_mainlink_clocks(struct dp_ctrl_private *ctrl)
 
 	dp_ctrl_set_clock_rate(ctrl, "ctrl_link_clk",
 		drm_dp_bw_code_to_link_rate(ctrl->link->link_rate));
-
-	dp_ctrl_set_clock_rate(ctrl, "ctrl_crypto_clk", DP_CRYPTO_CLK_RATE_KHZ);
 
 	dp_ctrl_set_clock_rate(ctrl, "ctrl_pixel_clk", ctrl->pixel_rate);
 

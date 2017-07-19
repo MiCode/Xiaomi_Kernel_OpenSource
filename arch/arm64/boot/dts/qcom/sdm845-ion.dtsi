@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,10 +33,10 @@
 			qcom,ion-heap-type = "DMA";
 		};
 
-		qcom,ion-heap@13 { /* SPSS HEAP */
+		qcom,ion-heap@13 { /* SECURE SPSS HEAP */
 			reg = <13>;
-			memory-region = <&sp_mem>;
-			qcom,ion-heap-type = "DMA";
+			memory-region = <&secure_sp_mem>;
+			qcom,ion-heap-type = "HYP_CMA";
 		};
 
 		qcom,ion-heap@10 { /* SECURE DISPLAY HEAP */

@@ -445,6 +445,10 @@ extern const struct dev_pm_ops kgsl_pm_ops;
 int kgsl_suspend_driver(struct platform_device *pdev, pm_message_t state);
 int kgsl_resume_driver(struct platform_device *pdev);
 
+struct kgsl_mem_entry *gpumem_alloc_entry(struct kgsl_device_private *dev_priv,
+				uint64_t size, uint64_t flags);
+long gpumem_free_entry(struct kgsl_mem_entry *entry);
+
 static inline int kgsl_gpuaddr_in_memdesc(const struct kgsl_memdesc *memdesc,
 				uint64_t gpuaddr, uint64_t size)
 {

@@ -763,10 +763,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 	case PE_SRC_STARTUP:
 		if (pd->current_dr == DR_NONE) {
 			pd->current_dr = DR_DFP;
-			/*
-			 * Defer starting USB host mode until PE_SRC_READY or
-			 * when PE_SRC_SEND_CAPABILITIES fails
-			 */
+			start_usb_host(pd, true);
 		}
 
 		dual_role_instance_changed(pd->dual_role);
@@ -1302,14 +1299,6 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 				if (svid == 0xFF01)
 					has_dp = true;
 			}
-
-			/*
-			 * Finally start USB host now that we have determined
-			 * if DisplayPort mode is present or not and limit USB
-			 * to HS-only mode if so.
-			 */
-			start_usb_host(pd, !has_dp);
-
 			break;
 
 		default:
@@ -1326,7 +1315,6 @@ static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 		switch (cmd) {
 		case USBPD_SVDM_DISCOVER_IDENTITY:
 		case USBPD_SVDM_DISCOVER_SVIDS:
-			start_usb_host(pd, true);
 			break;
 		default:
 			break;
@@ -1723,11 +1711,7 @@ static void usbpd_sm(struct work_struct *w)
 				ARRAY_SIZE(default_src_caps), SOP_MSG);
 		if (ret) {
 			pd->caps_count++;
-
-			if (pd->caps_count == 10 && pd->current_dr == DR_DFP) {
-				/* Likely not PD-capable, start host now */
-				start_usb_host(pd, true);
-			} else if (pd->caps_count >= PD_CAPS_COUNT) {
+			if (pd->caps_count >= PD_CAPS_COUNT) {
 				usbpd_dbg(&pd->dev, "Src CapsCounter exceeded, disabling PD\n");
 				usbpd_set_state(pd, PE_SRC_DISABLED);
 

@@ -494,8 +494,7 @@ static int dp_parser_clock(struct dp_parser *parser)
 			ctrl_clk_index++;
 
 			if (!strcmp(clk_name, "ctrl_link_clk") ||
-			    !strcmp(clk_name, "ctrl_pixel_clk") ||
-			    !strcmp(clk_name, "ctrl_crypto_clk"))
+			    !strcmp(clk_name, "ctrl_pixel_clk"))
 				clk->type = DSS_CLK_PCLK;
 			else
 				clk->type = DSS_CLK_AHB;

@@ -19,5 +19,1103 @@
 		#gpio-cells = <2>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+
+		/* QUPv3 South SE mappings */
+		/* SE 0 pin mappings */
+		qupv3_se0_i2c_pins: qupv3_se0_i2c_pins {
+			qupv3_se0_i2c_active: qupv3_se0_i2c_active {
+				mux {
+					pins = "gpio0", "gpio1";
+					function = "qup0";
+				};
+
+				config {
+					pins = "gpio0", "gpio1";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se0_i2c_sleep: qupv3_se0_i2c_sleep {
+				mux {
+					pins = "gpio0", "gpio1";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio0", "gpio1";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		qupv3_se0_spi_pins: qupv3_se0_spi_pins {
+			qupv3_se0_spi_active: qupv3_se0_spi_active {
+				mux {
+					pins = "gpio0", "gpio1", "gpio2",
+								"gpio3";
+					function = "qup0";
+				};
+
+				config {
+					pins = "gpio0", "gpio1", "gpio2",
+								"gpio3";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se0_spi_sleep: qupv3_se0_spi_sleep {
+				mux {
+					pins = "gpio0", "gpio1", "gpio2",
+								"gpio3";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio0", "gpio1", "gpio2",
+								"gpio3";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+		};
+
+		/* SE 1 pin mappings */
+		qupv3_se1_i2c_pins: qupv3_se1_i2c_pins {
+			qupv3_se1_i2c_active: qupv3_se1_i2c_active {
+				mux {
+					pins = "gpio17", "gpio18";
+					function = "qup1";
+				};
+
+				config {
+					pins = "gpio17", "gpio18";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se1_i2c_sleep: qupv3_se1_i2c_sleep {
+				mux {
+					pins = "gpio17", "gpio18";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio17", "gpio18";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		qupv3_se1_spi_pins: qupv3_se1_spi_pins {
+			qupv3_se1_spi_active: qupv3_se1_spi_active {
+				mux {
+					pins = "gpio17", "gpio18", "gpio19",
+								"gpio20";
+					function = "qup1";
+				};
+
+				config {
+					pins = "gpio17", "gpio18", "gpio19",
+								"gpio20";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se1_spi_sleep: qupv3_se1_spi_sleep {
+				mux {
+					pins = "gpio17", "gpio18", "gpio19",
+								"gpio20";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio17", "gpio18", "gpio19",
+								"gpio20";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+		};
+
+		/* SE 2 pin mappings */
+		qupv3_se2_i2c_pins: qupv3_se2_i2c_pins {
+			qupv3_se2_i2c_active: qupv3_se2_i2c_active {
+				mux {
+					pins = "gpio27", "gpio28";
+					function = "qup2";
+				};
+
+				config {
+					pins = "gpio27", "gpio28";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se2_i2c_sleep: qupv3_se2_i2c_sleep {
+				mux {
+					pins = "gpio27", "gpio28";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio27", "gpio28";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		qupv3_se2_spi_pins: qupv3_se2_spi_pins {
+			qupv3_se2_spi_active: qupv3_se2_spi_active {
+				mux {
+					pins = "gpio27", "gpio28", "gpio29",
+								"gpio30";
+					function = "qup2";
+				};
+
+				config {
+					pins = "gpio27", "gpio28", "gpio29",
+								"gpio30";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se2_spi_sleep: qupv3_se2_spi_sleep {
+				mux {
+					pins = "gpio27", "gpio28", "gpio29",
+								"gpio30";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio27", "gpio28", "gpio29",
+								"gpio30";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+		};
+
+		/* SE 3 pin mappings */
+		qupv3_se3_i2c_pins: qupv3_se3_i2c_pins {
+			qupv3_se3_i2c_active: qupv3_se3_i2c_active {
+				mux {
+					pins = "gpio41", "gpio42";
+					function = "qup3";
+				};
+
+				config {
+					pins = "gpio41", "gpio42";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se3_i2c_sleep: qupv3_se3_i2c_sleep {
+				mux {
+					pins = "gpio41", "gpio42";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio41", "gpio42";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		qupv3_se3_spi_pins: qupv3_se3_spi_pins {
+			qupv3_se3_spi_active: qupv3_se3_spi_active {
+				mux {
+					pins = "gpio41", "gpio42", "gpio43",
+								"gpio44";
+					function = "qup3";
+				};
+
+				config {
+					pins = "gpio41", "gpio42", "gpio43",
+								"gpio44";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se3_spi_sleep: qupv3_se3_spi_sleep {
+				mux {
+					pins = "gpio41", "gpio42", "gpio43",
+								"gpio44";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio41", "gpio42", "gpio43",
+								"gpio44";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+		};
+
+		/* SE 4 pin mappings */
+		qupv3_se4_i2c_pins: qupv3_se4_i2c_pins {
+			qupv3_se4_i2c_active: qupv3_se4_i2c_active {
+				mux {
+					pins = "gpio89", "gpio90";
+					function = "qup4";
+				};
+
+				config {
+					pins = "gpio89", "gpio90";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se4_i2c_sleep: qupv3_se4_i2c_sleep {
+				mux {
+					pins = "gpio89", "gpio90";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio89", "gpio90";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		qupv3_se4_spi_pins: qupv3_se4_spi_pins {
+			qupv3_se4_spi_active: qupv3_se4_spi_active {
+				mux {
+					pins = "gpio89", "gpio90", "gpio91",
+								"gpio92";
+					function = "qup4";
+				};
+
+				config {
+					pins = "gpio89", "gpio90", "gpio91",
+								"gpio92";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se4_spi_sleep: qupv3_se4_spi_sleep {
+				mux {
+					pins = "gpio89", "gpio90", "gpio91",
+								"gpio92";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio89", "gpio90", "gpio91",
+								"gpio92";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+		};
+
+		/* SE 5 pin mappings */
+		qupv3_se5_i2c_pins: qupv3_se5_i2c_pins {
+			qupv3_se5_i2c_active: qupv3_se5_i2c_active {
+				mux {
+					pins = "gpio85", "gpio86";
+					function = "qup5";
+				};
+
+				config {
+					pins = "gpio85", "gpio86";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se5_i2c_sleep: qupv3_se5_i2c_sleep {
+				mux {
+					pins = "gpio85", "gpio86";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio85", "gpio86";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		qupv3_se5_spi_pins: qupv3_se5_spi_pins {
+			qupv3_se5_spi_active: qupv3_se5_spi_active {
+				mux {
+					pins = "gpio85", "gpio86", "gpio87",
+								"gpio88";
+					function = "qup5";
+				};
+
+				config {
+					pins = "gpio85", "gpio86", "gpio87",
+								"gpio88";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se5_spi_sleep: qupv3_se5_spi_sleep {
+				mux {
+					pins = "gpio85", "gpio86", "gpio87",
+								"gpio88";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio85", "gpio86", "gpio87",
+								"gpio88";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+		};
+
+		/* SE 6 pin mappings */
+		qupv3_se6_i2c_pins: qupv3_se6_i2c_pins {
+			qupv3_se6_i2c_active: qupv3_se6_i2c_active {
+				mux {
+					pins = "gpio45", "gpio46";
+					function = "qup6";
+				};
+
+				config {
+					pins = "gpio45", "gpio46";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se6_i2c_sleep: qupv3_se6_i2c_sleep {
+				mux {
+					pins = "gpio45", "gpio46";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio45", "gpio46";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		qupv3_se6_4uart_pins: qupv3_se6_4uart_pins {
+			qupv3_se6_4uart_active: qupv3_se6_4uart_active {
+				mux {
+					pins = "gpio45", "gpio46", "gpio47",
+								"gpio48";
+					function = "qup6";
+				};
+
+				config {
+					pins = "gpio45", "gpio46", "gpio47",
+								"gpio48";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se6_4uart_sleep: qupv3_se6_4uart_sleep {
+				mux {
+					pins = "gpio45", "gpio46", "gpio47",
+								"gpio48";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio45", "gpio46", "gpio47",
+								"gpio48";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
+		qupv3_se6_spi_pins: qupv3_se6_spi_pins {
+			qupv3_se6_spi_active: qupv3_se6_spi_active {
+				mux {
+					pins = "gpio45", "gpio46", "gpio47",
+								"gpio48";
+					function = "qup6";
+				};
+
+				config {
+					pins = "gpio45", "gpio46", "gpio47",
+								"gpio48";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se6_spi_sleep: qupv3_se6_spi_sleep {
+				mux {
+					pins = "gpio45", "gpio46", "gpio47",
+								"gpio48";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio45", "gpio46", "gpio47",
+								"gpio48";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+		};
+
+		/* SE 7 pin mappings */
+		qupv3_se7_i2c_pins: qupv3_se7_i2c_pins {
+			qupv3_se7_i2c_active: qupv3_se7_i2c_active {
+				mux {
+					pins = "gpio93", "gpio94";
+					function = "qup7";
+				};
+
+				config {
+					pins = "gpio93", "gpio94";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se7_i2c_sleep: qupv3_se7_i2c_sleep {
+				mux {
+					pins = "gpio93", "gpio94";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio93", "gpio94";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		qupv3_se7_4uart_pins: qupv3_se7_4uart_pins {
+			qupv3_se7_4uart_active: qupv3_se7_4uart_active {
+				mux {
+					pins = "gpio93", "gpio94", "gpio95",
+								"gpio96";
+					function = "qup7";
+				};
+
+				config {
+					pins = "gpio93", "gpio94", "gpio95",
+								"gpio96";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se7_4uart_sleep: qupv3_se7_4uart_sleep {
+				mux {
+					pins = "gpio93", "gpio94", "gpio95",
+								"gpio96";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio93", "gpio94", "gpio95",
+								"gpio96";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
+		qupv3_se7_spi_pins: qupv3_se7_spi_pins {
+			qupv3_se7_spi_active: qupv3_se7_spi_active {
+				mux {
+					pins = "gpio93", "gpio94", "gpio95",
+								"gpio96";
+					function = "qup7";
+				};
+
+				config {
+					pins = "gpio93", "gpio94", "gpio95",
+								"gpio96";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se7_spi_sleep: qupv3_se7_spi_sleep {
+				mux {
+					pins = "gpio93", "gpio94", "gpio95",
+								"gpio96";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio93", "gpio94", "gpio95",
+								"gpio96";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+		};
+
+		/* QUPv3 North instances */
+		/* SE 8 pin mappings */
+		qupv3_se8_i2c_pins: qupv3_se8_i2c_pins {
+			qupv3_se8_i2c_active: qupv3_se8_i2c_active {
+				mux {
+					pins = "gpio65", "gpio66";
+					function = "qup8";
+				};
+
+				config {
+					pins = "gpio65", "gpio66";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se8_i2c_sleep: qupv3_se8_i2c_sleep {
+				mux {
+					pins = "gpio65", "gpio66";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio65", "gpio66";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		qupv3_se8_spi_pins: qupv3_se8_spi_pins {
+			qupv3_se8_spi_active: qupv3_se8_spi_active {
+				mux {
+					pins = "gpio65", "gpio66", "gpio67",
+								"gpio68";
+					function = "qup8";
+				};
+
+				config {
+					pins = "gpio65", "gpio66", "gpio67",
+								"gpio68";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se8_spi_sleep: qupv3_se8_spi_sleep {
+				mux {
+					pins = "gpio65", "gpio66", "gpio67",
+								"gpio68";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio65", "gpio66", "gpio67",
+								"gpio68";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+		};
+
+		/* SE 9 pin mappings */
+		qupv3_se9_i2c_pins: qupv3_se9_i2c_pins {
+			qupv3_se9_i2c_active: qupv3_se9_i2c_active {
+				mux {
+					pins = "gpio6", "gpio7";
+					function = "qup9";
+				};
+
+				config {
+					pins = "gpio6", "gpio7";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se9_i2c_sleep: qupv3_se9_i2c_sleep {
+				mux {
+					pins = "gpio6", "gpio7";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio6", "gpio7";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		qupv3_se9_2uart_pins: qupv3_se9_2uart_pins {
+			qupv3_se9_2uart_active: qupv3_se9_2uart_active {
+				mux {
+					pins = "gpio4", "gpio5";
+					function = "qup9";
+				};
+
+				config {
+					pins = "gpio4", "gpio5";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se9_2uart_sleep: qupv3_se9_2uart_sleep {
+				mux {
+					pins = "gpio4", "gpio5";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio4", "gpio5";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
+		qupv3_se9_spi_pins: qupv3_se9_spi_pins {
+			qupv3_se9_spi_active: qupv3_se9_spi_active {
+				mux {
+					pins = "gpio4", "gpio5", "gpio6",
+								"gpio7";
+					function = "qup9";
+				};
+
+				config {
+					pins = "gpio4", "gpio5", "gpio6",
+								"gpio7";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se9_spi_sleep: qupv3_se9_spi_sleep {
+				mux {
+					pins = "gpio4", "gpio5", "gpio6",
+								"gpio7";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio4", "gpio5", "gpio6",
+								"gpio7";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+		};
+
+		/* SE 10 pin mappings */
+		qupv3_se10_i2c_pins: qupv3_se10_i2c_pins {
+			qupv3_se10_i2c_active: qupv3_se10_i2c_active {
+				mux {
+					pins = "gpio55", "gpio56";
+					function = "qup10";
+				};
+
+				config {
+					pins = "gpio55", "gpio56";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se10_i2c_sleep: qupv3_se10_i2c_sleep {
+				mux {
+					pins = "gpio55", "gpio56";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio55", "gpio56";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		qupv3_se10_2uart_pins: qupv3_se10_2uart_pins {
+			qupv3_se10_2uart_active: qupv3_se10_2uart_active {
+				mux {
+					pins = "gpio53", "gpio54";
+					function = "qup10";
+				};
+
+				config {
+					pins = "gpio53", "gpio54";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se10_2uart_sleep: qupv3_se10_2uart_sleep {
+				mux {
+					pins = "gpio53", "gpio54";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio53", "gpio54";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
+		qupv3_se10_spi_pins: qupv3_se10_spi_pins {
+			qupv3_se10_spi_active: qupv3_se10_spi_active {
+				mux {
+					pins = "gpio53", "gpio54", "gpio55",
+								"gpio56";
+					function = "qup10";
+				};
+
+				config {
+					pins = "gpio53", "gpio54", "gpio55",
+								"gpio56";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se10_spi_sleep: qupv3_se10_spi_sleep {
+				mux {
+					pins = "gpio53", "gpio54", "gpio55",
+								"gpio56";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio53", "gpio54", "gpio55",
+								"gpio56";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+		};
+
+		/* SE 11 pin mappings */
+		qupv3_se11_i2c_pins: qupv3_se11_i2c_pins {
+			qupv3_se11_i2c_active: qupv3_se11_i2c_active {
+				mux {
+					pins = "gpio31", "gpio32";
+					function = "qup11";
+				};
+
+				config {
+					pins = "gpio31", "gpio32";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se11_i2c_sleep: qupv3_se11_i2c_sleep {
+				mux {
+					pins = "gpio31", "gpio32";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio31", "gpio32";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		qupv3_se11_spi_pins: qupv3_se11_spi_pins {
+			qupv3_se11_spi_active: qupv3_se11_spi_active {
+				mux {
+					pins = "gpio31", "gpio32", "gpio33",
+								"gpio34";
+					function = "qup11";
+				};
+
+				config {
+					pins = "gpio31", "gpio32", "gpio33",
+								"gpio34";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se11_spi_sleep: qupv3_se11_spi_sleep {
+				mux {
+					pins = "gpio31", "gpio32", "gpio33",
+								"gpio34";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio31", "gpio32", "gpio33",
+								"gpio34";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+		};
+
+		/* SE 12 pin mappings */
+		qupv3_se12_i2c_pins: qupv3_se12_i2c_pins {
+			qupv3_se12_i2c_active: qupv3_se12_i2c_active {
+				mux {
+					pins = "gpio49", "gpio50";
+					function = "qup12";
+				};
+
+				config {
+					pins = "gpio49", "gpio50";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se12_i2c_sleep: qupv3_se12_i2c_sleep {
+				mux {
+					pins = "gpio49", "gpio50";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio49", "gpio50";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		qupv3_se12_spi_pins: qupv3_se12_spi_pins {
+			qupv3_se12_spi_active: qupv3_se12_spi_active {
+				mux {
+					pins = "gpio49", "gpio50", "gpio51",
+								"gpio52";
+					function = "qup12";
+				};
+
+				config {
+					pins = "gpio49", "gpio50", "gpio51",
+								"gpio52";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se12_spi_sleep: qupv3_se12_spi_sleep {
+				mux {
+					pins = "gpio49", "gpio50", "gpio51",
+								"gpio52";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio49", "gpio50", "gpio51",
+								"gpio52";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+		};
+
+		/* SE 13 pin mappings */
+		qupv3_se13_i2c_pins: qupv3_se13_i2c_pins {
+			qupv3_se13_i2c_active: qupv3_se13_i2c_active {
+				mux {
+					pins = "gpio105", "gpio106";
+					function = "qup13";
+				};
+
+				config {
+					pins = "gpio105", "gpio106";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se13_i2c_sleep: qupv3_se13_i2c_sleep {
+				mux {
+					pins = "gpio105", "gpio106";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio105", "gpio106";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		qupv3_se13_spi_pins: qupv3_se13_spi_pins {
+			qupv3_se13_spi_active: qupv3_se13_spi_active {
+				mux {
+					pins = "gpio105", "gpio106", "gpio107",
+								"gpio108";
+					function = "qup13";
+				};
+
+				config {
+					pins = "gpio105", "gpio106", "gpio107",
+								"gpio108";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se13_spi_sleep: qupv3_se13_spi_sleep {
+				mux {
+					pins = "gpio105", "gpio106", "gpio107",
+								"gpio108";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio105", "gpio106", "gpio107",
+								"gpio108";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+		};
+
+		/* SE 14 pin mappings */
+		qupv3_se14_i2c_pins: qupv3_se14_i2c_pins {
+			qupv3_se14_i2c_active: qupv3_se14_i2c_active {
+				mux {
+					pins = "gpio33", "gpio34";
+					function = "qup14";
+				};
+
+				config {
+					pins = "gpio33", "gpio34";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se14_i2c_sleep: qupv3_se14_i2c_sleep {
+				mux {
+					pins = "gpio33", "gpio34";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio33", "gpio34";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		qupv3_se14_spi_pins: qupv3_se14_spi_pins {
+			qupv3_se14_spi_active: qupv3_se14_spi_active {
+				mux {
+					pins = "gpio31", "gpio32", "gpio33",
+								"gpio34";
+					function = "qup14";
+				};
+
+				config {
+					pins = "gpio31", "gpio32", "gpio33",
+								"gpio34";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se14_spi_sleep: qupv3_se14_spi_sleep {
+				mux {
+					pins = "gpio31", "gpio32", "gpio33",
+								"gpio34";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio31", "gpio32", "gpio33",
+								"gpio34";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+		};
+
+		/* SE 15 pin mappings */
+		qupv3_se15_i2c_pins: qupv3_se15_i2c_pins {
+			qupv3_se15_i2c_active: qupv3_se15_i2c_active {
+				mux {
+					pins = "gpio81", "gpio82";
+					function = "qup15";
+				};
+
+				config {
+					pins = "gpio81", "gpio82";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se15_i2c_sleep: qupv3_se15_i2c_sleep {
+				mux {
+					pins = "gpio81", "gpio82";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio81", "gpio82";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		qupv3_se15_spi_pins: qupv3_se15_spi_pins {
+			qupv3_se15_spi_active: qupv3_se15_spi_active {
+				mux {
+					pins = "gpio81", "gpio82", "gpio83",
+								"gpio84";
+					function = "qup15";
+				};
+
+				config {
+					pins = "gpio81", "gpio82", "gpio83",
+								"gpio84";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se15_spi_sleep: qupv3_se15_spi_sleep {
+				mux {
+					pins = "gpio81", "gpio82", "gpio83",
+								"gpio84";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio81", "gpio82", "gpio83",
+								"gpio84";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+		};
 	};
 };

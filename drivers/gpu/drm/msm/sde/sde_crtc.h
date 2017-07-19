@@ -125,6 +125,7 @@ struct sde_crtc_event {
  * @vblank_cb_time  : ktime at vblank count reset
  * @vblank_refcount : reference count for vblank enable request
  * @suspend         : whether or not a suspend operation is in progress
+ * @idle_pc       : count of current idle power collapse request
  * @feature_list  : list of color processing features supported on a crtc
  * @active_list   : list of color processing features are active
  * @dirty_list    : list of color processing features are dirty
@@ -135,6 +136,7 @@ struct sde_crtc_event {
  * @frame_events  : static allocation of in-flight frame events
  * @frame_event_list : available frame event list
  * @spin_lock     : spin lock for frame event, transaction status, etc...
+ * @frame_done_comp    : for frame_event_done synchronization
  * @event_thread  : Pointer to event handler thread
  * @event_worker  : Event worker queue
  * @event_cache   : Local cache of event worker structures
@@ -172,6 +174,7 @@ struct sde_crtc {
 	ktime_t vblank_cb_time;
 	atomic_t vblank_refcount;
 	bool suspend;
+	u32 idle_pc;
 
 	struct list_head feature_list;
 	struct list_head active_list;
@@ -186,10 +189,9 @@ struct sde_crtc {
 	struct sde_crtc_frame_event frame_events[SDE_CRTC_FRAME_EVENT_SIZE];
 	struct list_head frame_event_list;
 	spinlock_t spin_lock;
+	struct completion frame_done_comp;
 
 	/* for handling internal event thread */
-	struct task_struct *event_thread;
-	struct kthread_worker event_worker;
 	struct sde_crtc_event event_cache[SDE_CRTC_MAX_EVENT_COUNT];
 	struct list_head event_free_list;
 	spinlock_t event_lock;
@@ -260,7 +262,8 @@ struct sde_crtc_respool {
  * @intf_mode     : Interface mode of the primary connector
  * @rsc_client    : sde rsc client when mode is valid
  * @is_ppsplit    : Whether current topology requires PPSplit special handling
- * @bw_control    : true if bw/clk controlled by bw/clk properties
+ * @bw_control    : true if bw/clk controlled by core bw/clk properties
+ * @bw_split_vote : true if bw controlled by llcc/dram bw properties
  * @crtc_roi      : Current CRTC ROI. Possibly sub-rectangle of mode.
  *                  Origin top left of CRTC.
  * @lm_bounds     : LM boundaries based on current mode full resolution, no ROI.
@@ -277,6 +280,7 @@ struct sde_crtc_respool {
  * @sbuf_cfg: stream buffer configuration
  * @sbuf_prefill_line: number of line for inline rotator prefetch
  * @sbuf_flush_mask: flush mask for inline rotator
+ * @idle_pc: count of idle power collapse request when state is duplicated
  */
 struct sde_crtc_state {
 	struct drm_crtc_state base;
@@ -287,6 +291,7 @@ struct sde_crtc_state {
 	struct sde_rsc_client *rsc_client;
 	bool rsc_update;
 	bool bw_control;
+	bool bw_split_vote;
 
 	bool is_ppsplit;
 	struct sde_rect crtc_roi;
@@ -304,6 +309,8 @@ struct sde_crtc_state {
 	struct sde_ctl_sbuf_cfg sbuf_cfg;
 	u32 sbuf_prefill_line;
 	u32 sbuf_flush_mask;
+
+	u32 idle_pc;
 
 	struct sde_crtc_respool rp;
 };

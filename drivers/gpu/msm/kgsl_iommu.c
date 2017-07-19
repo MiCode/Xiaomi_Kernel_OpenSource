@@ -34,6 +34,8 @@
 #include "kgsl_trace.h"
 #include "kgsl_pwrctrl.h"
 
+#define CP_APERTURE_REG	0
+
 #define _IOMMU_PRIV(_mmu) (&((_mmu)->priv.iommu))
 
 #define ADDR_IN_GLOBAL(_a) \
@@ -1220,6 +1222,19 @@ void _enable_gpuhtw_llc(struct kgsl_mmu *mmu, struct kgsl_iommu_pt *iommu_pt)
 		"System cache not enabled for GPU pagetable walks: %d\n", ret);
 }
 
+static int program_smmu_aperture(unsigned int cb, unsigned int aperture_reg)
+{
+	struct scm_desc desc = {0};
+
+	desc.args[0] = 0xFFFF0000 | ((aperture_reg & 0xff) << 8) | (cb & 0xff);
+	desc.args[1] = 0xFFFFFFFF;
+	desc.args[2] = 0xFFFFFFFF;
+	desc.args[3] = 0xFFFFFFFF;
+	desc.arginfo = SCM_ARGS(4);
+
+	return scm_call2(SCM_SIP_FNID(SCM_SVC_MP, 0x1B), &desc);
+}
+
 static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 {
 	int ret = 0;
@@ -1255,9 +1270,18 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	ret = iommu_domain_get_attr(iommu_pt->domain,
 				DOMAIN_ATTR_CONTEXT_BANK, &cb_num);
 	if (ret) {
-		KGSL_CORE_ERR("get DOMAIN_ATTR_PROCID failed: %d\n",
+		KGSL_CORE_ERR("get DOMAIN_ATTR_CONTEXT_BANK failed: %d\n",
 				ret);
 		goto done;
+	}
+
+	if (!MMU_FEATURE(mmu, KGSL_MMU_GLOBAL_PAGETABLE)) {
+		ret = program_smmu_aperture(cb_num, CP_APERTURE_REG);
+		if (ret) {
+			pr_err("SMMU aperture programming call failed with error %d\n",
+									ret);
+			return ret;
+		}
 	}
 
 	ctx->cb_num = cb_num;

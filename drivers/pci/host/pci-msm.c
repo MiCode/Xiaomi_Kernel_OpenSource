@@ -564,7 +564,7 @@ static struct msm_pcie_device_info
 	msm_pcie_dev_tbl[MAX_RC_NUM * MAX_DEVICE_NUM];
 
 /* PCIe driver state */
-struct pcie_drv_sta {
+static struct pcie_drv_sta {
 	u32 rc_num;
 	struct mutex drv_lock;
 } pcie_drv;
@@ -690,14 +690,14 @@ static struct msm_pcie_clk_info_t
 
 /* resources */
 static const struct msm_pcie_res_info_t msm_pcie_res_info[MSM_PCIE_MAX_RES] = {
-	{"parf",	0, 0},
-	{"phy",     0, 0},
-	{"dm_core",	0, 0},
-	{"elbi",	0, 0},
-	{"conf",	0, 0},
-	{"io",		0, 0},
-	{"bars",	0, 0},
-	{"tcsr",	0, 0}
+	{"parf",	NULL, NULL},
+	{"phy",     NULL, NULL},
+	{"dm_core",	NULL, NULL},
+	{"elbi",	NULL, NULL},
+	{"conf",	NULL, NULL},
+	{"io",		NULL, NULL},
+	{"bars",	NULL, NULL},
+	{"tcsr",	NULL, NULL}
 };
 
 /* irqs */
@@ -763,14 +763,14 @@ static inline void msm_pcie_fixup_irqs(struct msm_pcie_dev_t *dev)
 }
 #endif
 
-static inline void msm_pcie_write_reg(void *base, u32 offset, u32 value)
+static inline void msm_pcie_write_reg(void __iomem *base, u32 offset, u32 value)
 {
 	writel_relaxed(value, base + offset);
 	/* ensure that changes propagated to the hardware */
 	wmb();
 }
 
-static inline void msm_pcie_write_reg_field(void *base, u32 offset,
+static inline void msm_pcie_write_reg_field(void __iomem *base, u32 offset,
 	const u32 mask, u32 val)
 {
 	u32 shift = find_first_bit((void *)&mask, 32);
@@ -976,7 +976,7 @@ static void msm_pcie_cfg_recover(struct msm_pcie_dev_t *dev, bool rc)
 	int i, j;
 	u32 val = 0;
 	u32 *shadow;
-	void *cfg = dev->conf;
+	void __iomem *cfg = dev->conf;
 
 	for (i = 0; i < MAX_DEVICE_NUM; i++) {
 		if (!rc && !dev->pcidev_table[i].bdf)
@@ -1764,7 +1764,7 @@ static ssize_t msm_pcie_cmd_debug(struct file *file,
 	return count;
 }
 
-const struct file_operations msm_pcie_cmd_debug_ops = {
+static const struct file_operations msm_pcie_cmd_debug_ops = {
 	.write = msm_pcie_cmd_debug,
 };
 
@@ -1807,7 +1807,7 @@ static ssize_t msm_pcie_set_rc_sel(struct file *file,
 	return count;
 }
 
-const struct file_operations msm_pcie_rc_sel_ops = {
+static const struct file_operations msm_pcie_rc_sel_ops = {
 	.write = msm_pcie_set_rc_sel,
 };
 
@@ -1865,7 +1865,7 @@ static ssize_t msm_pcie_set_base_sel(struct file *file,
 	return count;
 }
 
-const struct file_operations msm_pcie_base_sel_ops = {
+static const struct file_operations msm_pcie_base_sel_ops = {
 	.write = msm_pcie_set_base_sel,
 };
 
@@ -1911,7 +1911,7 @@ static ssize_t msm_pcie_set_linkdown_panic(struct file *file,
 	return count;
 }
 
-const struct file_operations msm_pcie_linkdown_panic_ops = {
+static const struct file_operations msm_pcie_linkdown_panic_ops = {
 	.write = msm_pcie_set_linkdown_panic,
 };
 
@@ -1938,7 +1938,7 @@ static ssize_t msm_pcie_set_wr_offset(struct file *file,
 	return count;
 }
 
-const struct file_operations msm_pcie_wr_offset_ops = {
+static const struct file_operations msm_pcie_wr_offset_ops = {
 	.write = msm_pcie_set_wr_offset,
 };
 
@@ -1965,7 +1965,7 @@ static ssize_t msm_pcie_set_wr_mask(struct file *file,
 	return count;
 }
 
-const struct file_operations msm_pcie_wr_mask_ops = {
+static const struct file_operations msm_pcie_wr_mask_ops = {
 	.write = msm_pcie_set_wr_mask,
 };
 static ssize_t msm_pcie_set_wr_value(struct file *file,
@@ -1991,7 +1991,7 @@ static ssize_t msm_pcie_set_wr_value(struct file *file,
 	return count;
 }
 
-const struct file_operations msm_pcie_wr_value_ops = {
+static const struct file_operations msm_pcie_wr_value_ops = {
 	.write = msm_pcie_set_wr_value,
 };
 
@@ -2035,7 +2035,7 @@ static ssize_t msm_pcie_set_boot_option(struct file *file,
 	return count;
 }
 
-const struct file_operations msm_pcie_boot_option_ops = {
+static const struct file_operations msm_pcie_boot_option_ops = {
 	.write = msm_pcie_set_boot_option,
 };
 
@@ -2091,7 +2091,7 @@ static ssize_t msm_pcie_set_aer_enable(struct file *file,
 	return count;
 }
 
-const struct file_operations msm_pcie_aer_enable_ops = {
+static const struct file_operations msm_pcie_aer_enable_ops = {
 	.write = msm_pcie_set_aer_enable,
 };
 
@@ -2118,7 +2118,7 @@ static ssize_t msm_pcie_set_corr_counter_limit(struct file *file,
 	return count;
 }
 
-const struct file_operations msm_pcie_corr_counter_limit_ops = {
+static const struct file_operations msm_pcie_corr_counter_limit_ops = {
 	.write = msm_pcie_set_corr_counter_limit,
 };
 
@@ -2127,14 +2127,14 @@ static void msm_pcie_debugfs_init(void)
 	rc_sel_max = (0x1 << MAX_RC_NUM) - 1;
 	wr_mask = 0xffffffff;
 
-	dent_msm_pcie = debugfs_create_dir("pci-msm", 0);
+	dent_msm_pcie = debugfs_create_dir("pci-msm", NULL);
 	if (IS_ERR(dent_msm_pcie)) {
 		pr_err("PCIe: fail to create the folder for debug_fs.\n");
 		return;
 	}
 
 	dfile_rc_sel = debugfs_create_file("rc_sel", 0664,
-					dent_msm_pcie, 0,
+					dent_msm_pcie, NULL,
 					&msm_pcie_rc_sel_ops);
 	if (!dfile_rc_sel || IS_ERR(dfile_rc_sel)) {
 		pr_err("PCIe: fail to create the file for debug_fs rc_sel.\n");
@@ -2142,7 +2142,7 @@ static void msm_pcie_debugfs_init(void)
 	}
 
 	dfile_case = debugfs_create_file("case", 0664,
-					dent_msm_pcie, 0,
+					dent_msm_pcie, NULL,
 					&msm_pcie_cmd_debug_ops);
 	if (!dfile_case || IS_ERR(dfile_case)) {
 		pr_err("PCIe: fail to create the file for debug_fs case.\n");
@@ -2150,7 +2150,7 @@ static void msm_pcie_debugfs_init(void)
 	}
 
 	dfile_base_sel = debugfs_create_file("base_sel", 0664,
-					dent_msm_pcie, 0,
+					dent_msm_pcie, NULL,
 					&msm_pcie_base_sel_ops);
 	if (!dfile_base_sel || IS_ERR(dfile_base_sel)) {
 		pr_err("PCIe: fail to create the file for debug_fs base_sel.\n");
@@ -2158,7 +2158,7 @@ static void msm_pcie_debugfs_init(void)
 	}
 
 	dfile_linkdown_panic = debugfs_create_file("linkdown_panic", 0644,
-					dent_msm_pcie, 0,
+					dent_msm_pcie, NULL,
 					&msm_pcie_linkdown_panic_ops);
 	if (!dfile_linkdown_panic || IS_ERR(dfile_linkdown_panic)) {
 		pr_err("PCIe: fail to create the file for debug_fs linkdown_panic.\n");
@@ -2166,7 +2166,7 @@ static void msm_pcie_debugfs_init(void)
 	}
 
 	dfile_wr_offset = debugfs_create_file("wr_offset", 0664,
-					dent_msm_pcie, 0,
+					dent_msm_pcie, NULL,
 					&msm_pcie_wr_offset_ops);
 	if (!dfile_wr_offset || IS_ERR(dfile_wr_offset)) {
 		pr_err("PCIe: fail to create the file for debug_fs wr_offset.\n");
@@ -2174,7 +2174,7 @@ static void msm_pcie_debugfs_init(void)
 	}
 
 	dfile_wr_mask = debugfs_create_file("wr_mask", 0664,
-					dent_msm_pcie, 0,
+					dent_msm_pcie, NULL,
 					&msm_pcie_wr_mask_ops);
 	if (!dfile_wr_mask || IS_ERR(dfile_wr_mask)) {
 		pr_err("PCIe: fail to create the file for debug_fs wr_mask.\n");
@@ -2182,7 +2182,7 @@ static void msm_pcie_debugfs_init(void)
 	}
 
 	dfile_wr_value = debugfs_create_file("wr_value", 0664,
-					dent_msm_pcie, 0,
+					dent_msm_pcie, NULL,
 					&msm_pcie_wr_value_ops);
 	if (!dfile_wr_value || IS_ERR(dfile_wr_value)) {
 		pr_err("PCIe: fail to create the file for debug_fs wr_value.\n");
@@ -2190,7 +2190,7 @@ static void msm_pcie_debugfs_init(void)
 	}
 
 	dfile_boot_option = debugfs_create_file("boot_option", 0664,
-					dent_msm_pcie, 0,
+					dent_msm_pcie, NULL,
 					&msm_pcie_boot_option_ops);
 	if (!dfile_boot_option || IS_ERR(dfile_boot_option)) {
 		pr_err("PCIe: fail to create the file for debug_fs boot_option.\n");
@@ -2198,7 +2198,7 @@ static void msm_pcie_debugfs_init(void)
 	}
 
 	dfile_aer_enable = debugfs_create_file("aer_enable", 0664,
-					dent_msm_pcie, 0,
+					dent_msm_pcie, NULL,
 					&msm_pcie_aer_enable_ops);
 	if (!dfile_aer_enable || IS_ERR(dfile_aer_enable)) {
 		pr_err("PCIe: fail to create the file for debug_fs aer_enable.\n");
@@ -2206,7 +2206,7 @@ static void msm_pcie_debugfs_init(void)
 	}
 
 	dfile_corr_counter_limit = debugfs_create_file("corr_counter_limit",
-					0664, dent_msm_pcie, 0,
+					0664, dent_msm_pcie, NULL,
 					&msm_pcie_corr_counter_limit_ops);
 	if (!dfile_corr_counter_limit || IS_ERR(dfile_corr_counter_limit)) {
 		pr_err("PCIe: fail to create the file for debug_fs corr_counter_limit.\n");
@@ -2609,7 +2609,7 @@ static void msm_pcie_gpio_deinit(struct msm_pcie_dev_t *dev)
 		gpio_free(dev->gpio[i].num);
 }
 
-int msm_pcie_vreg_init(struct msm_pcie_dev_t *dev)
+static int msm_pcie_vreg_init(struct msm_pcie_dev_t *dev)
 {
 	int i, rc = 0;
 	struct regulator *vreg;
@@ -3229,7 +3229,7 @@ static void msm_pcie_config_link_state(struct msm_pcie_dev_t *dev)
 	}
 }
 
-void msm_pcie_config_msi_controller(struct msm_pcie_dev_t *dev)
+static void msm_pcie_config_msi_controller(struct msm_pcie_dev_t *dev)
 {
 	int i;
 
@@ -3638,7 +3638,7 @@ static void msm_pcie_release_resources(struct msm_pcie_dev_t *dev)
 	dev->dev_io_res = NULL;
 }
 
-int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
+static int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 {
 	int ret = 0;
 	uint32_t val;
@@ -3895,7 +3895,7 @@ out:
 	return ret;
 }
 
-void msm_pcie_disable(struct msm_pcie_dev_t *dev, u32 options)
+static void msm_pcie_disable(struct msm_pcie_dev_t *dev, u32 options)
 {
 	PCIE_DBG(dev, "RC%d: entry\n", dev->rc_idx);
 
@@ -4721,7 +4721,7 @@ static void msm_pcie_unmap_qgic_addr(struct msm_pcie_dev_t *dev,
 	}
 }
 
-void msm_pcie_destroy_irq(unsigned int irq, struct pci_dev *pdev)
+static void msm_pcie_destroy_irq(unsigned int irq, struct pci_dev *pdev)
 {
 	int pos;
 	struct msi_desc *entry = irq_get_msi_desc(irq);
@@ -4926,9 +4926,8 @@ static int msm_pcie_map_qgic_addr(struct msm_pcie_dev_t *dev,
 {
 	struct iommu_domain *domain = iommu_get_domain_for_dev(&pdev->dev);
 	struct iommu_domain_geometry geometry;
-	int ret, fastmap_en = 0, bypass_en = 0;
-	dma_addr_t iova;
-	phys_addr_t gicm_db_offset;
+	int fastmap_en = 0, bypass_en = 0;
+	dma_addr_t iova, addr;
 
 	msg->address_hi = 0;
 	msg->address_lo = dev->msi_gicm_addr;
@@ -4970,18 +4969,15 @@ static int msm_pcie_map_qgic_addr(struct msm_pcie_dev_t *dev,
 		iova = rounddown(pcie_base_addr, PAGE_SIZE);
 	}
 
-	ret = iommu_map(domain, iova, rounddown(dev->msi_gicm_addr, PAGE_SIZE),
-			PAGE_SIZE, IOMMU_READ | IOMMU_WRITE);
-	if (ret < 0) {
-		PCIE_ERR(dev,
-			"PCIe: RC%d: ret: %d: Could not do iommu map for QGIC address\n",
-			dev->rc_idx, ret);
-		return -ENOMEM;
+	addr = dma_map_resource(&pdev->dev, dev->msi_gicm_addr, PAGE_SIZE,
+				DMA_BIDIRECTIONAL, 0);
+	if (dma_mapping_error(&pdev->dev, addr)) {
+		PCIE_ERR(dev, "PCIe: RC%d: failed to map QGIC address",
+			dev->rc_idx);
+		return -EIO;
 	}
 
-	gicm_db_offset = dev->msi_gicm_addr -
-		rounddown(dev->msi_gicm_addr, PAGE_SIZE);
-	msg->address_lo = iova + gicm_db_offset;
+	msg->address_lo = iova + addr;
 
 	return 0;
 }
@@ -5093,7 +5089,7 @@ static const struct irq_domain_ops msm_pcie_msi_ops = {
 	.map = msm_pcie_msi_map,
 };
 
-int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
+static int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 {
 	int rc;
 	int msi_start =  0;
@@ -5233,7 +5229,7 @@ int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 	return 0;
 }
 
-void msm_pcie_irq_deinit(struct msm_pcie_dev_t *dev)
+static void msm_pcie_irq_deinit(struct msm_pcie_dev_t *dev)
 {
 	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
 
@@ -5575,7 +5571,7 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		msm_pcie_dev[rc_idx].pcidev_table[i].short_bdf = 0;
 		msm_pcie_dev[rc_idx].pcidev_table[i].sid = 0;
 		msm_pcie_dev[rc_idx].pcidev_table[i].domain = rc_idx;
-		msm_pcie_dev[rc_idx].pcidev_table[i].conf_base = 0;
+		msm_pcie_dev[rc_idx].pcidev_table[i].conf_base = NULL;
 		msm_pcie_dev[rc_idx].pcidev_table[i].phy_address = 0;
 		msm_pcie_dev[rc_idx].pcidev_table[i].dev_ctrlstts_offset = 0;
 		msm_pcie_dev[rc_idx].pcidev_table[i].event_reg = NULL;
@@ -5725,7 +5721,7 @@ static struct platform_driver msm_pcie_driver = {
 	},
 };
 
-int __init pcie_init(void)
+static int __init pcie_init(void)
 {
 	int ret = 0, i;
 	char rc_name[MAX_RC_NAME_LEN];
@@ -5784,7 +5780,7 @@ int __init pcie_init(void)
 		msm_pcie_dev_tbl[i].short_bdf = 0;
 		msm_pcie_dev_tbl[i].sid = 0;
 		msm_pcie_dev_tbl[i].domain = -1;
-		msm_pcie_dev_tbl[i].conf_base = 0;
+		msm_pcie_dev_tbl[i].conf_base = NULL;
 		msm_pcie_dev_tbl[i].phy_address = 0;
 		msm_pcie_dev_tbl[i].dev_ctrlstts_offset = 0;
 		msm_pcie_dev_tbl[i].event_reg = NULL;
@@ -5999,7 +5995,7 @@ static int msm_pcie_pm_resume(struct pci_dev *dev,
 	return ret;
 }
 
-void msm_pcie_fixup_resume(struct pci_dev *dev)
+static void msm_pcie_fixup_resume(struct pci_dev *dev)
 {
 	int ret;
 	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev->bus);
@@ -6022,7 +6018,7 @@ void msm_pcie_fixup_resume(struct pci_dev *dev)
 DECLARE_PCI_FIXUP_RESUME(PCIE_VENDOR_ID_RCP, PCIE_DEVICE_ID_RCP,
 				 msm_pcie_fixup_resume);
 
-void msm_pcie_fixup_resume_early(struct pci_dev *dev)
+static void msm_pcie_fixup_resume_early(struct pci_dev *dev)
 {
 	int ret;
 	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev->bus);

@@ -116,6 +116,7 @@ struct sde_debug_bus_entry {
 	u32 wr_addr;
 	u32 block_id;
 	u32 test_id;
+	void (*analyzer)(struct sde_debug_bus_entry *entry, u32 val);
 };
 
 struct vbif_debug_bus_entry {
@@ -160,6 +161,7 @@ struct sde_dbg_vbif_debug_bus {
  * @enable_reg_dump: whether to dump registers into memory, kernel log, or both
  * @dbgbus_sde: debug bus structure for the sde
  * @dbgbus_vbif_rt: debug bus structure for the realtime vbif
+ * @dump_all: dump all entries in register dump
  */
 static struct sde_dbg_base {
 	struct sde_dbg_evtlog *evtlog;
@@ -176,10 +178,48 @@ static struct sde_dbg_base {
 
 	struct sde_dbg_sde_debug_bus dbgbus_sde;
 	struct sde_dbg_vbif_debug_bus dbgbus_vbif_rt;
+	bool dump_all;
 } sde_dbg_base;
 
 /* sde_dbg_base_evtlog - global pointer to main sde event log for macro use */
 struct sde_dbg_evtlog *sde_dbg_base_evtlog;
+
+static void _sde_debug_bus_xbar_dump(struct sde_debug_bus_entry *entry,
+		u32 val)
+{
+	dev_err(sde_dbg_base.dev, "xbar 0x%x %d %d 0x%x\n",
+			entry->wr_addr, entry->block_id, entry->test_id, val);
+}
+
+static void _sde_debug_bus_lm_dump(struct sde_debug_bus_entry *entry,
+		u32 val)
+{
+	if (!(val & 0xFFF000))
+		return;
+
+	dev_err(sde_dbg_base.dev, "lm 0x%x %d %d 0x%x\n",
+			entry->wr_addr, entry->block_id, entry->test_id, val);
+}
+
+static void _sde_debug_bus_ppb0_dump(struct sde_debug_bus_entry *entry,
+		u32 val)
+{
+	if (!(val & BIT(15)))
+		return;
+
+	dev_err(sde_dbg_base.dev, "ppb0 0x%x %d %d 0x%x\n",
+			entry->wr_addr, entry->block_id, entry->test_id, val);
+}
+
+static void _sde_debug_bus_ppb1_dump(struct sde_debug_bus_entry *entry,
+		u32 val)
+{
+	if (!(val & BIT(15)))
+		return;
+
+	dev_err(sde_dbg_base.dev, "ppb1 0x%x %d %d 0x%x\n",
+			entry->wr_addr, entry->block_id, entry->test_id, val);
+}
 
 static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 
@@ -660,16 +700,16 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_DSPP, 20, 3 },
 
 	/* ppb_0 */
-	{ DBGBUS_DSPP, 31, 0 },
-	{ DBGBUS_DSPP, 33, 0 },
-	{ DBGBUS_DSPP, 35, 0 },
-	{ DBGBUS_DSPP, 42, 0 },
+	{ DBGBUS_DSPP, 31, 0, _sde_debug_bus_ppb0_dump },
+	{ DBGBUS_DSPP, 33, 0, _sde_debug_bus_ppb0_dump },
+	{ DBGBUS_DSPP, 35, 0, _sde_debug_bus_ppb0_dump },
+	{ DBGBUS_DSPP, 42, 0, _sde_debug_bus_ppb0_dump },
 
 	/* ppb_1 */
-	{ DBGBUS_DSPP, 32, 0 },
-	{ DBGBUS_DSPP, 34, 0 },
-	{ DBGBUS_DSPP, 36, 0 },
-	{ DBGBUS_DSPP, 43, 0 },
+	{ DBGBUS_DSPP, 32, 0, _sde_debug_bus_ppb1_dump },
+	{ DBGBUS_DSPP, 34, 0, _sde_debug_bus_ppb1_dump },
+	{ DBGBUS_DSPP, 36, 0, _sde_debug_bus_ppb1_dump },
+	{ DBGBUS_DSPP, 43, 0, _sde_debug_bus_ppb1_dump },
 
 	/* lm_lut */
 	{ DBGBUS_DSPP, 109, 0 },
@@ -684,7 +724,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_PERIPH, 74, 0 },
 
 	/* crossbar */
-	{ DBGBUS_DSPP, 0, 0},
+	{ DBGBUS_DSPP, 0, 0, _sde_debug_bus_xbar_dump },
 
 	/* rotator */
 	{ DBGBUS_DSPP, 9, 0},
@@ -698,7 +738,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_DSPP, 63, 4},
 	{ DBGBUS_DSPP, 63, 5},
 	{ DBGBUS_DSPP, 63, 6},
-	{ DBGBUS_DSPP, 63, 7},
+	{ DBGBUS_DSPP, 63, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 64, 0},
 	{ DBGBUS_DSPP, 64, 1},
@@ -707,7 +747,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_DSPP, 64, 4},
 	{ DBGBUS_DSPP, 64, 5},
 	{ DBGBUS_DSPP, 64, 6},
-	{ DBGBUS_DSPP, 64, 7},
+	{ DBGBUS_DSPP, 64, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 65, 0},
 	{ DBGBUS_DSPP, 65, 1},
@@ -716,7 +756,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_DSPP, 65, 4},
 	{ DBGBUS_DSPP, 65, 5},
 	{ DBGBUS_DSPP, 65, 6},
-	{ DBGBUS_DSPP, 65, 7},
+	{ DBGBUS_DSPP, 65, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 66, 0},
 	{ DBGBUS_DSPP, 66, 1},
@@ -725,7 +765,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_DSPP, 66, 4},
 	{ DBGBUS_DSPP, 66, 5},
 	{ DBGBUS_DSPP, 66, 6},
-	{ DBGBUS_DSPP, 66, 7},
+	{ DBGBUS_DSPP, 66, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 67, 0},
 	{ DBGBUS_DSPP, 67, 1},
@@ -734,7 +774,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_DSPP, 67, 4},
 	{ DBGBUS_DSPP, 67, 5},
 	{ DBGBUS_DSPP, 67, 6},
-	{ DBGBUS_DSPP, 67, 7},
+	{ DBGBUS_DSPP, 67, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 68, 0},
 	{ DBGBUS_DSPP, 68, 1},
@@ -743,7 +783,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_DSPP, 68, 4},
 	{ DBGBUS_DSPP, 68, 5},
 	{ DBGBUS_DSPP, 68, 6},
-	{ DBGBUS_DSPP, 68, 7},
+	{ DBGBUS_DSPP, 68, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 69, 0},
 	{ DBGBUS_DSPP, 69, 1},
@@ -752,7 +792,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_DSPP, 69, 4},
 	{ DBGBUS_DSPP, 69, 5},
 	{ DBGBUS_DSPP, 69, 6},
-	{ DBGBUS_DSPP, 69, 7},
+	{ DBGBUS_DSPP, 69, 7, _sde_debug_bus_lm_dump },
 
 	/* LM1 */
 	{ DBGBUS_DSPP, 70, 0},
@@ -762,7 +802,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_DSPP, 70, 4},
 	{ DBGBUS_DSPP, 70, 5},
 	{ DBGBUS_DSPP, 70, 6},
-	{ DBGBUS_DSPP, 70, 7},
+	{ DBGBUS_DSPP, 70, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 71, 0},
 	{ DBGBUS_DSPP, 71, 1},
@@ -771,7 +811,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_DSPP, 71, 4},
 	{ DBGBUS_DSPP, 71, 5},
 	{ DBGBUS_DSPP, 71, 6},
-	{ DBGBUS_DSPP, 71, 7},
+	{ DBGBUS_DSPP, 71, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 72, 0},
 	{ DBGBUS_DSPP, 72, 1},
@@ -780,7 +820,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_DSPP, 72, 4},
 	{ DBGBUS_DSPP, 72, 5},
 	{ DBGBUS_DSPP, 72, 6},
-	{ DBGBUS_DSPP, 72, 7},
+	{ DBGBUS_DSPP, 72, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 73, 0},
 	{ DBGBUS_DSPP, 73, 1},
@@ -789,7 +829,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_DSPP, 73, 4},
 	{ DBGBUS_DSPP, 73, 5},
 	{ DBGBUS_DSPP, 73, 6},
-	{ DBGBUS_DSPP, 73, 7},
+	{ DBGBUS_DSPP, 73, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 74, 0},
 	{ DBGBUS_DSPP, 74, 1},
@@ -798,7 +838,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_DSPP, 74, 4},
 	{ DBGBUS_DSPP, 74, 5},
 	{ DBGBUS_DSPP, 74, 6},
-	{ DBGBUS_DSPP, 74, 7},
+	{ DBGBUS_DSPP, 74, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 75, 0},
 	{ DBGBUS_DSPP, 75, 1},
@@ -807,7 +847,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_DSPP, 75, 4},
 	{ DBGBUS_DSPP, 75, 5},
 	{ DBGBUS_DSPP, 75, 6},
-	{ DBGBUS_DSPP, 75, 7},
+	{ DBGBUS_DSPP, 75, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 76, 0},
 	{ DBGBUS_DSPP, 76, 1},
@@ -816,7 +856,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_DSPP, 76, 4},
 	{ DBGBUS_DSPP, 76, 5},
 	{ DBGBUS_DSPP, 76, 6},
-	{ DBGBUS_DSPP, 76, 7},
+	{ DBGBUS_DSPP, 76, 7, _sde_debug_bus_lm_dump },
 
 	/* LM2 */
 	{ DBGBUS_DSPP, 77, 0},
@@ -826,7 +866,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_DSPP, 77, 4},
 	{ DBGBUS_DSPP, 77, 5},
 	{ DBGBUS_DSPP, 77, 6},
-	{ DBGBUS_DSPP, 77, 7},
+	{ DBGBUS_DSPP, 77, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 78, 0},
 	{ DBGBUS_DSPP, 78, 1},
@@ -835,7 +875,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_DSPP, 78, 4},
 	{ DBGBUS_DSPP, 78, 5},
 	{ DBGBUS_DSPP, 78, 6},
-	{ DBGBUS_DSPP, 78, 7},
+	{ DBGBUS_DSPP, 78, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 79, 0},
 	{ DBGBUS_DSPP, 79, 1},
@@ -844,7 +884,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_DSPP, 79, 4},
 	{ DBGBUS_DSPP, 79, 5},
 	{ DBGBUS_DSPP, 79, 6},
-	{ DBGBUS_DSPP, 79, 7},
+	{ DBGBUS_DSPP, 79, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 80, 0},
 	{ DBGBUS_DSPP, 80, 1},
@@ -853,7 +893,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_DSPP, 80, 4},
 	{ DBGBUS_DSPP, 80, 5},
 	{ DBGBUS_DSPP, 80, 6},
-	{ DBGBUS_DSPP, 80, 7},
+	{ DBGBUS_DSPP, 80, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 81, 0},
 	{ DBGBUS_DSPP, 81, 1},
@@ -862,7 +902,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_DSPP, 81, 4},
 	{ DBGBUS_DSPP, 81, 5},
 	{ DBGBUS_DSPP, 81, 6},
-	{ DBGBUS_DSPP, 81, 7},
+	{ DBGBUS_DSPP, 81, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 82, 0},
 	{ DBGBUS_DSPP, 82, 1},
@@ -871,7 +911,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_DSPP, 82, 4},
 	{ DBGBUS_DSPP, 82, 5},
 	{ DBGBUS_DSPP, 82, 6},
-	{ DBGBUS_DSPP, 82, 7},
+	{ DBGBUS_DSPP, 82, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 83, 0},
 	{ DBGBUS_DSPP, 83, 1},
@@ -880,7 +920,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_8998[] = {
 	{ DBGBUS_DSPP, 83, 4},
 	{ DBGBUS_DSPP, 83, 5},
 	{ DBGBUS_DSPP, 83, 6},
-	{ DBGBUS_DSPP, 83, 7},
+	{ DBGBUS_DSPP, 83, 7, _sde_debug_bus_lm_dump },
 
 	/* csc */
 	{ DBGBUS_SSPP0, 7, 0},
@@ -1384,16 +1424,16 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 20, 3 },
 
 	/* ppb_0 */
-	{ DBGBUS_DSPP, 31, 0 },
-	{ DBGBUS_DSPP, 33, 0 },
-	{ DBGBUS_DSPP, 35, 0 },
-	{ DBGBUS_DSPP, 42, 0 },
+	{ DBGBUS_DSPP, 31, 0, _sde_debug_bus_ppb0_dump },
+	{ DBGBUS_DSPP, 33, 0, _sde_debug_bus_ppb0_dump },
+	{ DBGBUS_DSPP, 35, 0, _sde_debug_bus_ppb0_dump },
+	{ DBGBUS_DSPP, 42, 0, _sde_debug_bus_ppb0_dump },
 
 	/* ppb_1 */
-	{ DBGBUS_DSPP, 32, 0 },
-	{ DBGBUS_DSPP, 34, 0 },
-	{ DBGBUS_DSPP, 36, 0 },
-	{ DBGBUS_DSPP, 43, 0 },
+	{ DBGBUS_DSPP, 32, 0, _sde_debug_bus_ppb1_dump },
+	{ DBGBUS_DSPP, 34, 0, _sde_debug_bus_ppb1_dump },
+	{ DBGBUS_DSPP, 36, 0, _sde_debug_bus_ppb1_dump },
+	{ DBGBUS_DSPP, 43, 0, _sde_debug_bus_ppb1_dump },
 
 	/* lm_lut */
 	{ DBGBUS_DSPP, 109, 0 },
@@ -1401,7 +1441,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 103, 0 },
 
 	/* crossbar */
-	{ DBGBUS_DSPP, 0, 0},
+	{ DBGBUS_DSPP, 0, 0, _sde_debug_bus_xbar_dump },
 
 	/* rotator */
 	{ DBGBUS_DSPP, 9, 0},
@@ -1414,7 +1454,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 63, 4},
 	{ DBGBUS_DSPP, 63, 5},
 	{ DBGBUS_DSPP, 63, 6},
-	{ DBGBUS_DSPP, 63, 7},
+	{ DBGBUS_DSPP, 63, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 64, 1},
 	{ DBGBUS_DSPP, 64, 2},
@@ -1422,7 +1462,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 64, 4},
 	{ DBGBUS_DSPP, 64, 5},
 	{ DBGBUS_DSPP, 64, 6},
-	{ DBGBUS_DSPP, 64, 7},
+	{ DBGBUS_DSPP, 64, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 65, 1},
 	{ DBGBUS_DSPP, 65, 2},
@@ -1430,7 +1470,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 65, 4},
 	{ DBGBUS_DSPP, 65, 5},
 	{ DBGBUS_DSPP, 65, 6},
-	{ DBGBUS_DSPP, 65, 7},
+	{ DBGBUS_DSPP, 65, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 66, 1},
 	{ DBGBUS_DSPP, 66, 2},
@@ -1438,7 +1478,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 66, 4},
 	{ DBGBUS_DSPP, 66, 5},
 	{ DBGBUS_DSPP, 66, 6},
-	{ DBGBUS_DSPP, 66, 7},
+	{ DBGBUS_DSPP, 66, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 67, 1},
 	{ DBGBUS_DSPP, 67, 2},
@@ -1446,7 +1486,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 67, 4},
 	{ DBGBUS_DSPP, 67, 5},
 	{ DBGBUS_DSPP, 67, 6},
-	{ DBGBUS_DSPP, 67, 7},
+	{ DBGBUS_DSPP, 67, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 68, 1},
 	{ DBGBUS_DSPP, 68, 2},
@@ -1454,7 +1494,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 68, 4},
 	{ DBGBUS_DSPP, 68, 5},
 	{ DBGBUS_DSPP, 68, 6},
-	{ DBGBUS_DSPP, 68, 7},
+	{ DBGBUS_DSPP, 68, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 69, 1},
 	{ DBGBUS_DSPP, 69, 2},
@@ -1462,7 +1502,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 69, 4},
 	{ DBGBUS_DSPP, 69, 5},
 	{ DBGBUS_DSPP, 69, 6},
-	{ DBGBUS_DSPP, 69, 7},
+	{ DBGBUS_DSPP, 69, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 84, 1},
 	{ DBGBUS_DSPP, 84, 2},
@@ -1470,7 +1510,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 84, 4},
 	{ DBGBUS_DSPP, 84, 5},
 	{ DBGBUS_DSPP, 84, 6},
-	{ DBGBUS_DSPP, 84, 7},
+	{ DBGBUS_DSPP, 84, 7, _sde_debug_bus_lm_dump },
 
 
 	{ DBGBUS_DSPP, 85, 1},
@@ -1479,7 +1519,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 85, 4},
 	{ DBGBUS_DSPP, 85, 5},
 	{ DBGBUS_DSPP, 85, 6},
-	{ DBGBUS_DSPP, 85, 7},
+	{ DBGBUS_DSPP, 85, 7, _sde_debug_bus_lm_dump },
 
 
 	{ DBGBUS_DSPP, 86, 1},
@@ -1488,7 +1528,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 86, 4},
 	{ DBGBUS_DSPP, 86, 5},
 	{ DBGBUS_DSPP, 86, 6},
-	{ DBGBUS_DSPP, 86, 7},
+	{ DBGBUS_DSPP, 86, 7, _sde_debug_bus_lm_dump },
 
 
 	{ DBGBUS_DSPP, 87, 1},
@@ -1497,7 +1537,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 87, 4},
 	{ DBGBUS_DSPP, 87, 5},
 	{ DBGBUS_DSPP, 87, 6},
-	{ DBGBUS_DSPP, 87, 7},
+	{ DBGBUS_DSPP, 87, 7, _sde_debug_bus_lm_dump },
 
 	/* LM1 */
 	{ DBGBUS_DSPP, 70, 1},
@@ -1506,7 +1546,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 70, 4},
 	{ DBGBUS_DSPP, 70, 5},
 	{ DBGBUS_DSPP, 70, 6},
-	{ DBGBUS_DSPP, 70, 7},
+	{ DBGBUS_DSPP, 70, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 71, 1},
 	{ DBGBUS_DSPP, 71, 2},
@@ -1514,7 +1554,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 71, 4},
 	{ DBGBUS_DSPP, 71, 5},
 	{ DBGBUS_DSPP, 71, 6},
-	{ DBGBUS_DSPP, 71, 7},
+	{ DBGBUS_DSPP, 71, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 72, 1},
 	{ DBGBUS_DSPP, 72, 2},
@@ -1522,7 +1562,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 72, 4},
 	{ DBGBUS_DSPP, 72, 5},
 	{ DBGBUS_DSPP, 72, 6},
-	{ DBGBUS_DSPP, 72, 7},
+	{ DBGBUS_DSPP, 72, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 73, 1},
 	{ DBGBUS_DSPP, 73, 2},
@@ -1530,7 +1570,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 73, 4},
 	{ DBGBUS_DSPP, 73, 5},
 	{ DBGBUS_DSPP, 73, 6},
-	{ DBGBUS_DSPP, 73, 7},
+	{ DBGBUS_DSPP, 73, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 74, 1},
 	{ DBGBUS_DSPP, 74, 2},
@@ -1538,7 +1578,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 74, 4},
 	{ DBGBUS_DSPP, 74, 5},
 	{ DBGBUS_DSPP, 74, 6},
-	{ DBGBUS_DSPP, 74, 7},
+	{ DBGBUS_DSPP, 74, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 75, 1},
 	{ DBGBUS_DSPP, 75, 2},
@@ -1546,7 +1586,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 75, 4},
 	{ DBGBUS_DSPP, 75, 5},
 	{ DBGBUS_DSPP, 75, 6},
-	{ DBGBUS_DSPP, 75, 7},
+	{ DBGBUS_DSPP, 75, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 76, 1},
 	{ DBGBUS_DSPP, 76, 2},
@@ -1554,7 +1594,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 76, 4},
 	{ DBGBUS_DSPP, 76, 5},
 	{ DBGBUS_DSPP, 76, 6},
-	{ DBGBUS_DSPP, 76, 7},
+	{ DBGBUS_DSPP, 76, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 88, 1},
 	{ DBGBUS_DSPP, 88, 2},
@@ -1562,7 +1602,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 88, 4},
 	{ DBGBUS_DSPP, 88, 5},
 	{ DBGBUS_DSPP, 88, 6},
-	{ DBGBUS_DSPP, 88, 7},
+	{ DBGBUS_DSPP, 88, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 89, 1},
 	{ DBGBUS_DSPP, 89, 2},
@@ -1570,7 +1610,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 89, 4},
 	{ DBGBUS_DSPP, 89, 5},
 	{ DBGBUS_DSPP, 89, 6},
-	{ DBGBUS_DSPP, 89, 7},
+	{ DBGBUS_DSPP, 89, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 90, 1},
 	{ DBGBUS_DSPP, 90, 2},
@@ -1578,7 +1618,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 90, 4},
 	{ DBGBUS_DSPP, 90, 5},
 	{ DBGBUS_DSPP, 90, 6},
-	{ DBGBUS_DSPP, 90, 7},
+	{ DBGBUS_DSPP, 90, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 91, 1},
 	{ DBGBUS_DSPP, 91, 2},
@@ -1586,7 +1626,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 91, 4},
 	{ DBGBUS_DSPP, 91, 5},
 	{ DBGBUS_DSPP, 91, 6},
-	{ DBGBUS_DSPP, 91, 7},
+	{ DBGBUS_DSPP, 91, 7, _sde_debug_bus_lm_dump },
 
 	/* LM2 */
 	{ DBGBUS_DSPP, 77, 0},
@@ -1596,7 +1636,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 77, 4},
 	{ DBGBUS_DSPP, 77, 5},
 	{ DBGBUS_DSPP, 77, 6},
-	{ DBGBUS_DSPP, 77, 7},
+	{ DBGBUS_DSPP, 77, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 78, 0},
 	{ DBGBUS_DSPP, 78, 1},
@@ -1605,7 +1645,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 78, 4},
 	{ DBGBUS_DSPP, 78, 5},
 	{ DBGBUS_DSPP, 78, 6},
-	{ DBGBUS_DSPP, 78, 7},
+	{ DBGBUS_DSPP, 78, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 79, 0},
 	{ DBGBUS_DSPP, 79, 1},
@@ -1614,7 +1654,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 79, 4},
 	{ DBGBUS_DSPP, 79, 5},
 	{ DBGBUS_DSPP, 79, 6},
-	{ DBGBUS_DSPP, 79, 7},
+	{ DBGBUS_DSPP, 79, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 80, 0},
 	{ DBGBUS_DSPP, 80, 1},
@@ -1623,7 +1663,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 80, 4},
 	{ DBGBUS_DSPP, 80, 5},
 	{ DBGBUS_DSPP, 80, 6},
-	{ DBGBUS_DSPP, 80, 7},
+	{ DBGBUS_DSPP, 80, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 81, 0},
 	{ DBGBUS_DSPP, 81, 1},
@@ -1632,7 +1672,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 81, 4},
 	{ DBGBUS_DSPP, 81, 5},
 	{ DBGBUS_DSPP, 81, 6},
-	{ DBGBUS_DSPP, 81, 7},
+	{ DBGBUS_DSPP, 81, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 82, 0},
 	{ DBGBUS_DSPP, 82, 1},
@@ -1641,7 +1681,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 82, 4},
 	{ DBGBUS_DSPP, 82, 5},
 	{ DBGBUS_DSPP, 82, 6},
-	{ DBGBUS_DSPP, 82, 7},
+	{ DBGBUS_DSPP, 82, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 83, 0},
 	{ DBGBUS_DSPP, 83, 1},
@@ -1650,7 +1690,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 83, 4},
 	{ DBGBUS_DSPP, 83, 5},
 	{ DBGBUS_DSPP, 83, 6},
-	{ DBGBUS_DSPP, 83, 7},
+	{ DBGBUS_DSPP, 83, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 92, 1},
 	{ DBGBUS_DSPP, 92, 2},
@@ -1658,7 +1698,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 92, 4},
 	{ DBGBUS_DSPP, 92, 5},
 	{ DBGBUS_DSPP, 92, 6},
-	{ DBGBUS_DSPP, 92, 7},
+	{ DBGBUS_DSPP, 92, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 93, 1},
 	{ DBGBUS_DSPP, 93, 2},
@@ -1666,7 +1706,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 93, 4},
 	{ DBGBUS_DSPP, 93, 5},
 	{ DBGBUS_DSPP, 93, 6},
-	{ DBGBUS_DSPP, 93, 7},
+	{ DBGBUS_DSPP, 93, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 94, 1},
 	{ DBGBUS_DSPP, 94, 2},
@@ -1674,7 +1714,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 94, 4},
 	{ DBGBUS_DSPP, 94, 5},
 	{ DBGBUS_DSPP, 94, 6},
-	{ DBGBUS_DSPP, 94, 7},
+	{ DBGBUS_DSPP, 94, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 95, 1},
 	{ DBGBUS_DSPP, 95, 2},
@@ -1682,7 +1722,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 95, 4},
 	{ DBGBUS_DSPP, 95, 5},
 	{ DBGBUS_DSPP, 95, 6},
-	{ DBGBUS_DSPP, 95, 7},
+	{ DBGBUS_DSPP, 95, 7, _sde_debug_bus_lm_dump },
 
 	/* LM5 */
 	{ DBGBUS_DSPP, 110, 1},
@@ -1691,7 +1731,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 110, 4},
 	{ DBGBUS_DSPP, 110, 5},
 	{ DBGBUS_DSPP, 110, 6},
-	{ DBGBUS_DSPP, 110, 7},
+	{ DBGBUS_DSPP, 110, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 111, 1},
 	{ DBGBUS_DSPP, 111, 2},
@@ -1699,7 +1739,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 111, 4},
 	{ DBGBUS_DSPP, 111, 5},
 	{ DBGBUS_DSPP, 111, 6},
-	{ DBGBUS_DSPP, 111, 7},
+	{ DBGBUS_DSPP, 111, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 112, 1},
 	{ DBGBUS_DSPP, 112, 2},
@@ -1707,7 +1747,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 112, 4},
 	{ DBGBUS_DSPP, 112, 5},
 	{ DBGBUS_DSPP, 112, 6},
-	{ DBGBUS_DSPP, 112, 7},
+	{ DBGBUS_DSPP, 112, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 113, 1},
 	{ DBGBUS_DSPP, 113, 2},
@@ -1715,7 +1755,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 113, 4},
 	{ DBGBUS_DSPP, 113, 5},
 	{ DBGBUS_DSPP, 113, 6},
-	{ DBGBUS_DSPP, 113, 7},
+	{ DBGBUS_DSPP, 113, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 114, 1},
 	{ DBGBUS_DSPP, 114, 2},
@@ -1723,7 +1763,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 114, 4},
 	{ DBGBUS_DSPP, 114, 5},
 	{ DBGBUS_DSPP, 114, 6},
-	{ DBGBUS_DSPP, 114, 7},
+	{ DBGBUS_DSPP, 114, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 115, 1},
 	{ DBGBUS_DSPP, 115, 2},
@@ -1731,7 +1771,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 115, 4},
 	{ DBGBUS_DSPP, 115, 5},
 	{ DBGBUS_DSPP, 115, 6},
-	{ DBGBUS_DSPP, 115, 7},
+	{ DBGBUS_DSPP, 115, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 116, 1},
 	{ DBGBUS_DSPP, 116, 2},
@@ -1739,7 +1779,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 116, 4},
 	{ DBGBUS_DSPP, 116, 5},
 	{ DBGBUS_DSPP, 116, 6},
-	{ DBGBUS_DSPP, 116, 7},
+	{ DBGBUS_DSPP, 116, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 117, 1},
 	{ DBGBUS_DSPP, 117, 2},
@@ -1747,7 +1787,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 117, 4},
 	{ DBGBUS_DSPP, 117, 5},
 	{ DBGBUS_DSPP, 117, 6},
-	{ DBGBUS_DSPP, 117, 7},
+	{ DBGBUS_DSPP, 117, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 118, 1},
 	{ DBGBUS_DSPP, 118, 2},
@@ -1755,7 +1795,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 118, 4},
 	{ DBGBUS_DSPP, 118, 5},
 	{ DBGBUS_DSPP, 118, 6},
-	{ DBGBUS_DSPP, 118, 7},
+	{ DBGBUS_DSPP, 118, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 119, 1},
 	{ DBGBUS_DSPP, 119, 2},
@@ -1763,7 +1803,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 119, 4},
 	{ DBGBUS_DSPP, 119, 5},
 	{ DBGBUS_DSPP, 119, 6},
-	{ DBGBUS_DSPP, 119, 7},
+	{ DBGBUS_DSPP, 119, 7, _sde_debug_bus_lm_dump },
 
 	{ DBGBUS_DSPP, 120, 1},
 	{ DBGBUS_DSPP, 120, 2},
@@ -1771,7 +1811,7 @@ static struct sde_debug_bus_entry dbg_bus_sde_sdm845[] = {
 	{ DBGBUS_DSPP, 120, 4},
 	{ DBGBUS_DSPP, 120, 5},
 	{ DBGBUS_DSPP, 120, 6},
-	{ DBGBUS_DSPP, 120, 7},
+	{ DBGBUS_DSPP, 120, 7, _sde_debug_bus_lm_dump },
 
 	/* csc */
 	{ DBGBUS_SSPP0, 7, 0},
@@ -2274,6 +2314,9 @@ static void _sde_dbg_dump_sde_dbg_bus(struct sde_dbg_sde_debug_bus *bus)
 			dump_addr[i*4 + 3] = status;
 		}
 
+		if (head->analyzer)
+			head->analyzer(head, status);
+
 		/* Disable debug bus once we are done */
 		writel_relaxed(0, mem_base + head->wr_addr);
 
@@ -2427,17 +2470,21 @@ static void _sde_dbg_dump_vbif_dbg_bus(struct sde_dbg_vbif_debug_bus *bus)
  */
 static void _sde_dump_array(struct sde_dbg_reg_base *blk_arr[],
 	u32 len, bool do_panic, const char *name, bool dump_dbgbus_sde,
-	bool dump_dbgbus_vbif_rt)
+	bool dump_dbgbus_vbif_rt, bool dump_all)
 {
 	int i;
 
-	for (i = 0; i < len; i++) {
-		if (blk_arr[i] != NULL)
-			_sde_dump_reg_by_ranges(blk_arr[i],
-				sde_dbg_base.enable_reg_dump);
-	}
-
 	sde_evtlog_dump_all(sde_dbg_base.evtlog);
+
+	if (dump_all || !blk_arr || !len) {
+		_sde_dump_reg_all();
+	} else {
+		for (i = 0; i < len; i++) {
+			if (blk_arr[i] != NULL)
+				_sde_dump_reg_by_ranges(blk_arr[i],
+					sde_dbg_base.enable_reg_dump);
+		}
+	}
 
 	if (dump_dbgbus_sde)
 		_sde_dbg_dump_sde_dbg_bus(&sde_dbg_base.dbgbus_sde);
@@ -2459,7 +2506,8 @@ static void _sde_dump_work(struct work_struct *work)
 		ARRAY_SIZE(sde_dbg_base.req_dump_blks),
 		sde_dbg_base.work_panic, "evtlog_workitem",
 		sde_dbg_base.dbgbus_sde.cmn.include_in_deferred_work,
-		sde_dbg_base.dbgbus_vbif_rt.cmn.include_in_deferred_work);
+		sde_dbg_base.dbgbus_vbif_rt.cmn.include_in_deferred_work,
+		sde_dbg_base.dump_all);
 }
 
 void sde_dbg_dump(bool queue_work, const char *name, ...)
@@ -2468,6 +2516,7 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 	bool do_panic = false;
 	bool dump_dbgbus_sde = false;
 	bool dump_dbgbus_vbif_rt = false;
+	bool dump_all = false;
 	va_list args;
 	char *blk_name = NULL;
 	struct sde_dbg_reg_base *blk_base = NULL;
@@ -2485,6 +2534,7 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 
 	memset(sde_dbg_base.req_dump_blks, 0,
 			sizeof(sde_dbg_base.req_dump_blks));
+	sde_dbg_base.dump_all = false;
 
 	va_start(args, name);
 	i = 0;
@@ -2507,6 +2557,9 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 			}
 		}
 
+		if (!strcmp(blk_name, "all"))
+			dump_all = true;
+
 		if (!strcmp(blk_name, "dbg_bus"))
 			dump_dbgbus_sde = true;
 
@@ -2528,7 +2581,7 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 		schedule_work(&sde_dbg_base.dump_work);
 	} else {
 		_sde_dump_array(blk_arr, blk_len, do_panic, name,
-				dump_dbgbus_sde, dump_dbgbus_vbif_rt);
+				dump_dbgbus_sde, dump_dbgbus_vbif_rt, dump_all);
 	}
 }
 
@@ -2577,15 +2630,8 @@ static ssize_t sde_evtlog_dump_read(struct file *file, char __user *buff,
 static ssize_t sde_evtlog_dump_write(struct file *file,
 	const char __user *user_buf, size_t count, loff_t *ppos)
 {
-	_sde_dump_reg_all();
-
-	sde_evtlog_dump_all(sde_dbg_base.evtlog);
-
-	_sde_dbg_dump_sde_dbg_bus(&sde_dbg_base.dbgbus_sde);
-	_sde_dbg_dump_vbif_dbg_bus(&sde_dbg_base.dbgbus_vbif_rt);
-
-	if (sde_dbg_base.panic_on_err)
-		panic("sde");
+	_sde_dump_array(NULL, 0, sde_dbg_base.panic_on_err, "dump_debugfs",
+		true, true, true);
 
 	return count;
 }
@@ -3030,6 +3076,26 @@ int sde_dbg_init(struct device *dev, struct sde_dbg_power_ctrl *power_ctrl)
 	return 0;
 }
 
+static void sde_dbg_reg_base_destroy(void)
+{
+	struct sde_dbg_reg_range *range_node, *range_tmp;
+	struct sde_dbg_reg_base *blk_base, *blk_tmp;
+	struct sde_dbg_base *dbg_base = &sde_dbg_base;
+
+	if (!dbg_base)
+		return;
+
+	list_for_each_entry_safe(blk_base, blk_tmp, &dbg_base->reg_base_list,
+							reg_base_head) {
+		list_for_each_entry_safe(range_node, range_tmp,
+				&blk_base->sub_range_list, head) {
+			list_del(&range_node->head);
+			kfree(range_node);
+		}
+		list_del(&blk_base->reg_base_head);
+		kfree(blk_base);
+	}
+}
 /**
  * sde_dbg_destroy - destroy sde debug facilities
  */
@@ -3039,6 +3105,7 @@ void sde_dbg_destroy(void)
 	sde_dbg_base_evtlog = NULL;
 	sde_evtlog_destroy(sde_dbg_base.evtlog);
 	sde_dbg_base.evtlog = NULL;
+	sde_dbg_reg_base_destroy();
 }
 
 int sde_dbg_reg_register_base(const char *name, void __iomem *base,

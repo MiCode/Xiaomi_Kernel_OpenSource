@@ -27,11 +27,11 @@
 
 /**
  * Max hardware block in certain hardware. For ex: sspp pipes
- * can have QSEED, pcc, igc, pa, csc, etc. This count is max
- * 12 based on software design. It should be increased if any of the
+ * can have QSEED, pcc, igc, pa, csc, qos entries, etc. This count is
+ * 64 based on software design. It should be increased if any of the
  * hardware block has more subblocks.
  */
-#define MAX_SDE_HW_BLK  12
+#define MAX_SDE_HW_BLK  64
 
 /* each entry will have register address and bit offset in that register */
 #define MAX_BIT_OFFSET 2
@@ -217,6 +217,9 @@ enum {
 	TE2_OFF,
 	TE2_LEN,
 	PP_SLAVE,
+	DITHER_OFF,
+	DITHER_LEN,
+	DITHER_VER,
 	PP_PROP_MAX,
 };
 
@@ -494,6 +497,9 @@ static struct sde_prop_type pp_prop[] = {
 	{TE2_OFF, "qcom,sde-te2-off", false, PROP_TYPE_U32_ARRAY},
 	{TE2_LEN, "qcom,sde-te2-size", false, PROP_TYPE_U32},
 	{PP_SLAVE, "qcom,sde-pp-slave", false, PROP_TYPE_U32_ARRAY},
+	{DITHER_OFF, "qcom,sde-dither-off", false, PROP_TYPE_U32_ARRAY},
+	{DITHER_LEN, "qcom,sde-dither-size", false, PROP_TYPE_U32},
+	{DITHER_VER, "qcom,sde-dither-version", false, PROP_TYPE_U32},
 };
 
 static struct sde_prop_type dsc_prop[] = {
@@ -569,8 +575,16 @@ static struct sde_prop_type inline_rot_prop[INLINE_ROT_PROP_MAX] = {
 static int _parse_dt_u32_handler(struct device_node *np,
 	char *prop_name, u32 *offsets, int len, bool mandatory)
 {
-	int rc = of_property_read_u32_array(np, prop_name, offsets, len);
+	int rc = -EINVAL;
 
+	if (len > MAX_SDE_HW_BLK) {
+		SDE_ERROR(
+			"prop: %s tries out of bound access for u32 array read len: %d\n",
+				prop_name, len);
+		return -E2BIG;
+	}
+
+	rc = of_property_read_u32_array(np, prop_name, offsets, len);
 	if (rc && mandatory)
 		SDE_ERROR("mandatory prop: %s u32 array read len:%d\n",
 				prop_name, len);
@@ -592,6 +606,14 @@ static int _parse_dt_bit_offset(struct device_node *np,
 	if (arr) {
 		len /= sizeof(u32);
 		len &= ~0x1;
+
+		if (len > (MAX_SDE_HW_BLK * MAX_BIT_OFFSET)) {
+			SDE_ERROR(
+				"prop: %s len: %d will lead to out of bound access\n",
+				prop_name, len / MAX_BIT_OFFSET);
+			return -E2BIG;
+		}
+
 		for (i = 0, j = 0; i < len; j++) {
 			PROP_BITVALUE_ACCESS(prop_value, prop_index, j, 0) =
 				be32_to_cpu(arr[i]);
@@ -626,8 +648,8 @@ static int _validate_dt_entry(struct device_node *np,
 				sde_prop[0].prop_name);
 		if ((*off_count > MAX_BLOCKS) || (*off_count < 0)) {
 			if (sde_prop[0].is_mandatory) {
-				SDE_ERROR("invalid hw offset prop name:%s\"\
-					  count: %d\n",
+				SDE_ERROR(
+					"invalid hw offset prop name:%s count: %d\n",
 					sde_prop[0].prop_name, *off_count);
 				rc = -EINVAL;
 			}
@@ -670,8 +692,9 @@ static int _validate_dt_entry(struct device_node *np,
 							sde_prop[i].type);
 			break;
 		}
-		SDE_DEBUG("prop id:%d prop name:%s prop type:%d \"\
-			prop_count:%d\n", i, sde_prop[i].prop_name,
+		SDE_DEBUG(
+			"prop id:%d prop name:%s prop type:%d prop_count:%d\n",
+			i, sde_prop[i].prop_name,
 			sde_prop[i].type, prop_count[i]);
 
 		if (rc && sde_prop[i].is_mandatory &&
@@ -689,14 +712,16 @@ static int _validate_dt_entry(struct device_node *np,
 
 		if (off_count && (prop_count[i] != *off_count) &&
 				sde_prop[i].is_mandatory) {
-			SDE_ERROR("prop:%s count:%d is different compared to \"\
-				offset array:%d\n", sde_prop[i].prop_name,
+			SDE_ERROR(
+				"prop:%s count:%d is different compared to offset array:%d\n",
+				sde_prop[i].prop_name,
 				prop_count[i], *off_count);
 			rc = -EINVAL;
 			goto end;
 		} else if (off_count && prop_count[i] != *off_count) {
-			SDE_DEBUG("prop:%s count:%d is different compared to \"\
-				offset array:%d\n", sde_prop[i].prop_name,
+			SDE_DEBUG(
+				"prop:%s count:%d is different compared to offset array:%d\n",
+				sde_prop[i].prop_name,
 				prop_count[i], *off_count);
 			rc = 0;
 			prop_count[i] = 0;
@@ -732,8 +757,9 @@ static int _read_dt_entry(struct device_node *np,
 		case PROP_TYPE_U32:
 			rc = of_property_read_u32(np, sde_prop[i].prop_name,
 				&PROP_VALUE_ACCESS(prop_value, i, 0));
-			SDE_DEBUG("prop id:%d prop name:%s prop type:%d \"\
-				 value:0x%x\n", i, sde_prop[i].prop_name,
+			SDE_DEBUG(
+				"prop id:%d prop name:%s prop type:%d value:0x%x\n",
+				i, sde_prop[i].prop_name,
 				sde_prop[i].type,
 				PROP_VALUE_ACCESS(prop_value, i, 0));
 			if (rc)
@@ -743,8 +769,9 @@ static int _read_dt_entry(struct device_node *np,
 			PROP_VALUE_ACCESS(prop_value, i, 0) =
 				of_property_read_bool(np,
 					sde_prop[i].prop_name);
-			SDE_DEBUG("prop id:%d prop name:%s prop type:%d \"\
-				value:0x%x\n", i, sde_prop[i].prop_name,
+			SDE_DEBUG(
+				"prop id:%d prop name:%s prop type:%d value:0x%x\n",
+				i, sde_prop[i].prop_name,
 				sde_prop[i].type,
 				PROP_VALUE_ACCESS(prop_value, i, 0));
 			break;
@@ -753,8 +780,9 @@ static int _read_dt_entry(struct device_node *np,
 				&PROP_VALUE_ACCESS(prop_value, i, 0),
 				prop_count[i], sde_prop[i].is_mandatory);
 			if (rc && sde_prop[i].is_mandatory) {
-				SDE_ERROR("%s prop validation success but \"\
-					read failed\n", sde_prop[i].prop_name);
+				SDE_ERROR(
+					"%s prop validation success but read failed\n",
+					sde_prop[i].prop_name);
 				prop_exists[i] = false;
 				goto end;
 			} else {
@@ -776,19 +804,21 @@ static int _read_dt_entry(struct device_node *np,
 				prop_value, i, prop_count[i],
 				sde_prop[i].is_mandatory);
 			if (rc && sde_prop[i].is_mandatory) {
-				SDE_ERROR("%s prop validation success but \"\
-					read failed\n", sde_prop[i].prop_name);
+				SDE_ERROR(
+					"%s prop validation success but read failed\n",
+					sde_prop[i].prop_name);
 				prop_exists[i] = false;
 				goto end;
 			} else {
 				if (rc)
 					prop_exists[i] = false;
-				SDE_DEBUG("prop id:%d prop name:%s prop \"\
-					type:%d", i, sde_prop[i].prop_name,
+				SDE_DEBUG(
+					"prop id:%d prop name:%s prop type:%d",
+					i, sde_prop[i].prop_name,
 					sde_prop[i].type);
 				for (j = 0; j < prop_count[i]; j++)
-					SDE_DEBUG(" count[%d]: bit:0x%x \"\
-					off:0x%x \n", j,
+					SDE_DEBUG(
+					"count[%d]: bit:0x%x off:0x%x\n", j,
 					PROP_BITVALUE_ACCESS(prop_value,
 						i, j, 0),
 					PROP_BITVALUE_ACCESS(prop_value,
@@ -1124,6 +1154,13 @@ static int sde_sspp_parse_dt(struct device_node *np,
 
 		snprintf(sblk->src_blk.name, SDE_HW_BLK_NAME_LEN, "sspp_src_%u",
 				sspp->id - SSPP_VIG0);
+
+		if (sspp->clk_ctrl >= SDE_CLK_CTRL_MAX) {
+			SDE_ERROR("%s: invalid clk ctrl: %d\n",
+					sblk->src_blk.name, sspp->clk_ctrl);
+			rc = -EINVAL;
+			goto end;
+		}
 
 		sblk->maxhdeciexp = MAX_HORZ_DECIMATION;
 		sblk->maxvdeciexp = MAX_VERT_DECIMATION;
@@ -1507,6 +1544,13 @@ static int sde_wb_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 		wb->clk_ctrl = SDE_CLK_CTRL_WB0 +
 			PROP_VALUE_ACCESS(prop_value, WB_ID, i);
 		wb->xin_id = PROP_VALUE_ACCESS(prop_value, WB_XIN_ID, i);
+
+		if (wb->clk_ctrl >= SDE_CLK_CTRL_MAX) {
+			SDE_ERROR("%s: invalid clk ctrl: %d\n",
+					wb->name, wb->clk_ctrl);
+			rc = -EINVAL;
+			goto end;
+		}
 
 		if (IS_SDE_MAJOR_MINOR_SAME((sde_cfg->hwversion),
 				SDE_HW_VER_170))
@@ -2334,6 +2378,18 @@ static int sde_pp_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 					pp->id - PINGPONG_0);
 			set_bit(SDE_PINGPONG_DSC, &pp->features);
 		}
+
+		sblk->dither.base = PROP_VALUE_ACCESS(prop_value, DITHER_OFF,
+							i);
+		if (sblk->dither.base) {
+			sblk->dither.id = SDE_PINGPONG_DITHER;
+			snprintf(sblk->dither.name, SDE_HW_BLK_NAME_LEN,
+					"dither_%u", pp->id);
+			set_bit(SDE_PINGPONG_DITHER, &pp->features);
+		}
+		sblk->dither.len = PROP_VALUE_ACCESS(prop_value, DITHER_LEN, 0);
+		sblk->dither.version = PROP_VALUE_ACCESS(prop_value, DITHER_VER,
+								0);
 	}
 
 end:
@@ -2512,7 +2568,7 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 		goto end;
 	}
 
-	prop_value = kzalloc(SDE_PROP_MAX *
+	prop_value = kzalloc(PERF_PROP_MAX *
 			sizeof(struct sde_prop_value), GFP_KERNEL);
 	if (!prop_value) {
 		rc = -ENOMEM;
@@ -2678,7 +2734,7 @@ static int sde_perf_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 			sizeof(struct sde_qos_lut_entry), GFP_KERNEL);
 		if (!cfg->perf.qos_lut_tbl[j].entries) {
 			rc = -ENOMEM;
-			goto end;
+			goto freeprop;
 		}
 
 		for (k = 0, m = 0; k < count; k++, m += entry_size) {

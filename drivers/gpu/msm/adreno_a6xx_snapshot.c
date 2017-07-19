@@ -257,16 +257,17 @@ static const unsigned int a6xx_registers[] = {
 	0x0000, 0x0002, 0x0010, 0x0010, 0x0012, 0x0012, 0x0018, 0x001B,
 	0x001e, 0x0032, 0x0038, 0x003C, 0x0042, 0x0042, 0x0044, 0x0044,
 	0x0047, 0x0047, 0x0056, 0x0056, 0x00AD, 0x00AE, 0x00B0, 0x00FB,
-	0x0100, 0x011D, 0x0200, 0x020D, 0x0210, 0x0213, 0x0218, 0x023D,
-	0x0400, 0x04F9, 0x0500, 0x0500, 0x0505, 0x050B, 0x050E, 0x0511,
-	0x0533, 0x0533, 0x0540, 0x0555,
+	0x0100, 0x011D, 0x0200, 0x020D, 0x0218, 0x023D, 0x0400, 0x04F9,
+	0x0500, 0x0500, 0x0505, 0x050B, 0x050E, 0x0511, 0x0533, 0x0533,
+	0x0540, 0x0555,
 	/* CP */
-	0x0800, 0x0808, 0x0810, 0x0813, 0x0820, 0x0821, 0x0823, 0x0827,
-	0x0830, 0x0833, 0x0840, 0x0843, 0x084F, 0x086F, 0x0880, 0x088A,
-	0x08A0, 0x08AB, 0x08C0, 0x08C4, 0x08D0, 0x08DD, 0x08F0, 0x08F3,
-	0x0900, 0x0903, 0x0908, 0x0911, 0x0928, 0x093E, 0x0942, 0x094D,
-	0x0980, 0x0984, 0x098D, 0x0996, 0x0998, 0x099E, 0x09A0, 0x09A6,
-	0x09A8, 0x09AE, 0x09B0, 0x09B1, 0x09C2, 0x09C8, 0x0A00, 0x0A03,
+	0x0800, 0x0808, 0x0810, 0x0813, 0x0820, 0x0821, 0x0823, 0x0824,
+	0x0826, 0x0827, 0x0830, 0x0833, 0x0840, 0x0843, 0x084F, 0x086F,
+	0x0880, 0x088A, 0x08A0, 0x08AB, 0x08C0, 0x08C4, 0x08D0, 0x08DD,
+	0x08F0, 0x08F3, 0x0900, 0x0903, 0x0908, 0x0911, 0x0928, 0x093E,
+	0x0942, 0x094D, 0x0980, 0x0984, 0x098D, 0x0996, 0x0998, 0x099E,
+	0x09A0, 0x09A6, 0x09A8, 0x09AE, 0x09B0, 0x09B1, 0x09C2, 0x09C8,
+	0x0A00, 0x0A03,
 	/* VSC */
 	0x0C00, 0x0C04, 0x0C06, 0x0C06, 0x0C10, 0x0CD9, 0x0E00, 0x0E0E,
 	/* UCHE */
@@ -288,6 +289,18 @@ static const unsigned int a6xx_registers[] = {
 	/* VFD */
 	0xA600, 0xA601, 0xA603, 0xA603, 0xA60A, 0xA60A, 0xA610, 0xA617,
 	0xA630, 0xA630,
+};
+
+/*
+ * Set of registers to dump for A6XX before actually triggering crash dumper.
+ * Registers in pairs - first value is the start offset, second
+ * is the stop offset (inclusive)
+ */
+static const unsigned int a6xx_pre_crashdumper_registers[] = {
+	/* RBBM: RBBM_STATUS - RBBM_STATUS3 */
+	0x210, 0x213,
+	/* CP: CP_STATUS_1 */
+	0x825, 0x825,
 };
 
 enum a6xx_debugbus_id {
@@ -560,6 +573,17 @@ out:
 
 	/* Return the size of the section */
 	return (count * 8) + sizeof(*header);
+}
+
+static size_t a6xx_snapshot_pre_crashdump_regs(struct kgsl_device *device,
+		u8 *buf, size_t remain, void *priv)
+{
+	struct kgsl_snapshot_registers pre_cdregs = {
+			.regs = a6xx_pre_crashdumper_registers,
+			.count = ARRAY_SIZE(a6xx_pre_crashdumper_registers)/2,
+	};
+
+	return kgsl_snapshot_dump_registers(device, buf, remain, &pre_cdregs);
 }
 
 static size_t a6xx_snapshot_shader_memory(struct kgsl_device *device,
@@ -1384,16 +1408,34 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_snapshot_data *snap_data = gpudev->snapshot_data;
+	bool sptprac_on;
 
-	/* Try to run the crash dumper */
-	_a6xx_do_crashdump(device);
+	/* GMU TCM data dumped through AHB */
+	a6xx_snapshot_gmu(device, snapshot);
 
+	sptprac_on = gpudev->sptprac_is_on(adreno_dev);
+
+	/* Return if the GX is off */
+	if (!gpudev->gx_is_on(adreno_dev)) {
+		pr_err("GX is off. Only dumping GMU data in snapshot\n");
+		return;
+	}
+
+	/* Dump the registers which get affected by crash dumper trigger */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
-		snapshot, a6xx_snapshot_registers, NULL);
+		snapshot, a6xx_snapshot_pre_crashdump_regs, NULL);
 
+	/* Dump vbif registers as well which get affected by crash dumper */
 	adreno_snapshot_vbif_registers(device, snapshot,
 		a6xx_vbif_snapshot_registers,
 		ARRAY_SIZE(a6xx_vbif_snapshot_registers));
+
+	/* Try to run the crash dumper */
+	if (sptprac_on)
+		_a6xx_do_crashdump(device);
+
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
+		snapshot, a6xx_snapshot_registers, NULL);
 
 	/* CP_SQE indexed registers */
 	kgsl_snapshot_indexed_registers(device, snapshot,
@@ -1422,19 +1464,19 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	/* Mempool debug data */
 	a6xx_snapshot_mempool(device, snapshot);
 
-	/* Shader memory */
-	a6xx_snapshot_shader(device, snapshot);
+	if (sptprac_on) {
+		/* Shader memory */
+		a6xx_snapshot_shader(device, snapshot);
 
-	/* MVC register section */
-	a6xx_snapshot_mvc_regs(device, snapshot);
+		/* MVC register section */
+		a6xx_snapshot_mvc_regs(device, snapshot);
 
-	/* registers dumped through DBG AHB */
-	a6xx_snapshot_dbgahb_regs(device, snapshot);
+		/* registers dumped through DBG AHB */
+		a6xx_snapshot_dbgahb_regs(device, snapshot);
+	}
 
 	a6xx_snapshot_debugbus(device, snapshot);
 
-	/* GMU TCM data dumped through AHB */
-	a6xx_snapshot_gmu(device, snapshot);
 }
 
 static int _a6xx_crashdump_init_mvc(uint64_t *ptr, uint64_t *offset)

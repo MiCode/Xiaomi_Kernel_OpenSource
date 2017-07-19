@@ -13,6 +13,7 @@ Required properties:
 - qcom,irq-mask : the bitmask to trigger an interrupt.
 - interrupt : the receiving interrupt line.
 - mbox-desc-offset : offset of mailbox descriptor from start of the msgram.
+- priority : the priority of this mailbox compared to other mailboxes.
 - #mbox-cells: Common mailbox binding property to identify the number of cells
 		required for the mailbox specifier, should be 1.
 
@@ -33,6 +34,7 @@ Example:
 		qcom,irq-mask = <0x1>;
 		interrupt = <0 389 1>;
 		mbox-desc-offset = <0x100>;
+		priority = <1>;
 		mbox-offset = <0x500>;
 		mbox-size = <0x400>;
 		#mbox-cells = <1>;

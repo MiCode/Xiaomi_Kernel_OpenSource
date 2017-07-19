@@ -109,7 +109,7 @@ static void msm_smmu_detach(struct msm_mmu *mmu, const char * const *names,
 }
 
 static int msm_smmu_map(struct msm_mmu *mmu, uint32_t iova,
-		struct sg_table *sgt, unsigned int len, int prot)
+		struct sg_table *sgt, int prot)
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
@@ -177,7 +177,7 @@ static void msm_smmu_unmap_sg(struct msm_mmu *mmu, struct sg_table *sgt,
 }
 
 static int msm_smmu_unmap(struct msm_mmu *mmu, uint32_t iova,
-		struct sg_table *sgt, unsigned int len)
+		struct sg_table *sgt)
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
@@ -229,6 +229,11 @@ static int msm_smmu_map_dma_buf(struct msm_mmu *mmu, struct sg_table *sgt,
 	unsigned long attrs = 0x0;
 	int ret;
 
+	if (!sgt || !client) {
+		DRM_ERROR("sg table is invalid\n");
+		return -ENOMEM;
+	}
+
 	if (flags & MSM_BO_KEEPATTRS)
 		attrs |= DMA_ATTR_IOMMU_USE_UPSTREAM_HINT;
 
@@ -255,6 +260,11 @@ static void msm_smmu_unmap_dma_buf(struct msm_mmu *mmu, struct sg_table *sgt,
 {
 	struct msm_smmu *smmu = to_msm_smmu(mmu);
 	struct msm_smmu_client *client = msm_smmu_to_client(smmu);
+
+	if (!sgt || !client) {
+		DRM_ERROR("sg table is invalid\n");
+		return;
+	}
 
 	if (sgt && sgt->sgl) {
 		DRM_DEBUG("%pad/0x%x/0x%x\n", &sgt->sgl->dma_address,
@@ -286,8 +296,8 @@ static struct msm_smmu_domain msm_smmu_domains[MSM_SMMU_DOMAIN_MAX] = {
 	},
 	[MSM_SMMU_DOMAIN_SECURE] = {
 		.label = "mdp_s",
-		.va_start = 0,
-		.va_size = SZ_4G,
+		.va_start = SZ_128K,
+		.va_size = SZ_4G - SZ_128K,
 		.secure = true,
 	},
 	[MSM_SMMU_DOMAIN_NRT_UNSECURE] = {
@@ -298,20 +308,20 @@ static struct msm_smmu_domain msm_smmu_domains[MSM_SMMU_DOMAIN_MAX] = {
 	},
 	[MSM_SMMU_DOMAIN_NRT_SECURE] = {
 		.label = "rot_s",
-		.va_start = 0,
-		.va_size = SZ_4G,
+		.va_start = SZ_128K,
+		.va_size = SZ_4G - SZ_128K,
 		.secure = true,
 	},
 };
 
 static const struct of_device_id msm_smmu_dt_match[] = {
-	{ .compatible = "qcom,smmu-mdp-unsec",
+	{ .compatible = "qcom,smmu_sde_unsec",
 		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_UNSECURE] },
-	{ .compatible = "qcom,smmu-mdp-sec",
+	{ .compatible = "qcom,smmu_sde_sec",
 		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_SECURE] },
-	{ .compatible = "qcom,smmu-rot-unsec",
+	{ .compatible = "qcom,smmu_sde_nrt_unsec",
 		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_NRT_UNSECURE] },
-	{ .compatible = "qcom,smmu-rot-sec",
+	{ .compatible = "qcom,smmu_sde_nrt_sec",
 		.data = &msm_smmu_domains[MSM_SMMU_DOMAIN_NRT_SECURE] },
 	{}
 };
@@ -535,7 +545,7 @@ static struct platform_driver msm_smmu_driver = {
 	},
 };
 
-static int __init msm_smmu_driver_init(void)
+int __init msm_smmu_driver_init(void)
 {
 	int ret;
 
@@ -545,13 +555,11 @@ static int __init msm_smmu_driver_init(void)
 
 	return ret;
 }
-module_init(msm_smmu_driver_init);
 
-static void __exit msm_smmu_driver_cleanup(void)
+void __exit msm_smmu_driver_cleanup(void)
 {
 	platform_driver_unregister(&msm_smmu_driver);
 }
-module_exit(msm_smmu_driver_cleanup);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MSM SMMU driver");

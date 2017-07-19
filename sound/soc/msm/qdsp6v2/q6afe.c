@@ -2125,6 +2125,7 @@ int afe_set_config(enum afe_config_type config_type, void *config_data, int arg)
 
 	return ret;
 }
+EXPORT_SYMBOL(afe_set_config);
 
 /*
  * afe_clear_config - If SSR happens ADSP loses AFE configs, let AFE driver know
@@ -2135,6 +2136,7 @@ void afe_clear_config(enum afe_config_type config)
 {
 	clear_bit(config, &afe_configured_cmd);
 }
+EXPORT_SYMBOL(afe_clear_config);
 
 bool afe_has_config(enum afe_config_type config)
 {
@@ -5749,6 +5751,14 @@ fail_cmd:
 	return ret;
 }
 
+/**
+ * afe_set_lpass_clk_cfg - Set AFE clk config
+ *
+ * @index: port index
+ * @cfg: pointer to clk set struct
+ *
+ * Returns 0 on success, appropriate error code otherwise
+ */
 int afe_set_lpass_clk_cfg(int index, struct afe_clk_set *cfg)
 {
 	struct afe_lpass_clk_config_command_v2 clk_cfg;
@@ -5829,7 +5839,16 @@ fail_cmd:
 	mutex_unlock(&this_afe.afe_cmd_lock);
 	return ret;
 }
+EXPORT_SYMBOL(afe_set_lpass_clk_cfg);
 
+/**
+ * afe_set_lpass_clock_v2 - Enable AFE lpass clock
+ *
+ * @port_id: AFE port id
+ * @cfg: pointer to clk set struct
+ *
+ * Returns 0 on success, appropriate error code otherwise
+ */
 int afe_set_lpass_clock_v2(u16 port_id, struct afe_clk_set *cfg)
 {
 	int index = 0;
@@ -5855,6 +5874,7 @@ int afe_set_lpass_clock_v2(u16 port_id, struct afe_clk_set *cfg)
 
 	return ret;
 }
+EXPORT_SYMBOL(afe_set_lpass_clock_v2);
 
 int afe_set_lpass_internal_digital_codec_clock(u16 port_id,
 			struct afe_digital_clk_cfg *cfg)

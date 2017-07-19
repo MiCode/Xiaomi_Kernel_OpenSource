@@ -24,6 +24,7 @@
 #include "msm_drv.h"
 #include "msm_kms.h"
 #include "msm_mmu.h"
+#include "msm_gem.h"
 #include "sde_dbg.h"
 #include "sde_hw_catalog.h"
 #include "sde_hw_ctl.h"
@@ -87,6 +88,10 @@
 	ktime_compare(ktime_sub((A), (B)), ktime_set(0, 0))
 
 #define SDE_NAME_SIZE  12
+
+
+/* timeout in frames waiting for frame done */
+#define SDE_FRAME_DONE_TIMEOUT	60
 
 /*
  * struct sde_irq_callback - IRQ callback handlers
@@ -154,8 +159,7 @@ struct sde_kms {
 	int core_rev;
 	struct sde_mdss_cfg *catalog;
 
-	struct msm_mmu *mmu[MSM_SMMU_DOMAIN_MAX];
-	int mmu_id[MSM_SMMU_DOMAIN_MAX];
+	struct msm_gem_address_space *aspace[MSM_SMMU_DOMAIN_MAX];
 	struct sde_power_client *core_client;
 
 	struct ion_client *iclient;

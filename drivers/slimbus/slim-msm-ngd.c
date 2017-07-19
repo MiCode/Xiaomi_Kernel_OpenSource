@@ -9,11 +9,13 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include <asm/dma-iommu.h>
 #include <linux/irq.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/io.h>
+#include <linux/iommu.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
@@ -23,6 +25,7 @@
 #include <linux/clk.h>
 #include <linux/pm_runtime.h>
 #include <linux/of.h>
+#include <linux/of_platform.h>
 #include <linux/of_slimbus.h>
 #include <linux/timer.h>
 #include <linux/msm-sps.h>
@@ -1665,6 +1668,43 @@ static ssize_t set_mask(struct device *device, struct device_attribute *attr,
 
 static DEVICE_ATTR(debug_mask, 0644, show_mask, set_mask);
 
+static const struct of_device_id ngd_slim_dt_match[] = {
+	{
+		.compatible = "qcom,slim-ngd",
+	},
+	{
+		.compatible = "qcom,iommu-slim-ctrl-cb",
+	},
+	{}
+};
+
+static int ngd_slim_iommu_probe(struct device *dev)
+{
+	struct platform_device *pdev;
+	struct msm_slim_ctrl *ctrl_dev;
+
+	if (unlikely(!dev->parent)) {
+		dev_err(dev, "%s no parent for this device\n", __func__);
+		return -EINVAL;
+	}
+
+	pdev = to_platform_device(dev->parent);
+	if (!pdev) {
+		dev_err(dev, "%s Parent platform device not found\n", __func__);
+		return -EINVAL;
+	}
+
+	ctrl_dev = platform_get_drvdata(pdev);
+	if (!ctrl_dev) {
+		dev_err(dev, "%s NULL controller device\n", __func__);
+		return -EINVAL;
+
+	}
+	ctrl_dev->iommu_desc.cb_dev = dev;
+	SLIM_INFO(ctrl_dev, "NGD IOMMU initialization complete\n");
+	return 0;
+}
+
 static int ngd_slim_probe(struct platform_device *pdev)
 {
 	struct msm_slim_ctrl *dev;
@@ -1675,6 +1715,10 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	bool			rxreg_access = false;
 	bool			slim_mdm = false;
 	const char		*ext_modem_id = NULL;
+
+	if (of_device_is_compatible(pdev->dev.of_node,
+				    "qcom,iommu-slim-ctrl-cb"))
+		return ngd_slim_iommu_probe(&pdev->dev);
 
 	slim_mem = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"slimbus_physical");
@@ -1774,6 +1818,17 @@ static int ngd_slim_probe(struct platform_device *pdev)
 					"qcom,slim-mdm", &ext_modem_id);
 		if (!ret)
 			slim_mdm = true;
+
+		dev->iommu_desc.s1_bypass = of_property_read_bool(
+							pdev->dev.of_node,
+							"qcom,iommu-s1-bypass");
+		ret = of_platform_populate(pdev->dev.of_node, ngd_slim_dt_match,
+					   NULL, &pdev->dev);
+		if (ret) {
+			dev_err(dev->dev, "%s: Failed to of_platform_populate %d\n",
+				__func__, ret);
+			goto err_ctrl_failed;
+		}
 	} else {
 		dev->ctrl.nr = pdev->id;
 	}
@@ -1920,6 +1975,10 @@ static int ngd_slim_remove(struct platform_device *pdev)
 	struct msm_slim_ctrl *dev = platform_get_drvdata(pdev);
 
 	ngd_slim_enable(dev, false);
+	if (!IS_ERR_OR_NULL(dev->iommu_desc.iommu_map)) {
+		arm_iommu_detach_device(dev->iommu_desc.cb_dev);
+		arm_iommu_release_mapping(dev->iommu_desc.iommu_map);
+	}
 	if (dev->sysfs_created)
 		sysfs_remove_file(&dev->dev->kobj,
 				&dev_attr_debug_mask.attr);
@@ -2015,8 +2074,13 @@ static int ngd_slim_suspend(struct device *dev)
 {
 	int ret = -EBUSY;
 	struct platform_device *pdev = to_platform_device(dev);
-	struct msm_slim_ctrl *cdev = platform_get_drvdata(pdev);
+	struct msm_slim_ctrl *cdev;
 
+	if (of_device_is_compatible(pdev->dev.of_node,
+				    "qcom,iommu-slim-ctrl-cb"))
+		return 0;
+
+	cdev = platform_get_drvdata(pdev);
 	if (!pm_runtime_enabled(dev) ||
 		(!pm_runtime_suspended(dev) &&
 			cdev->state == MSM_CTRL_IDLE)) {
@@ -2052,9 +2116,14 @@ static int ngd_slim_suspend(struct device *dev)
 static int ngd_slim_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
-	struct msm_slim_ctrl *cdev = platform_get_drvdata(pdev);
+	struct msm_slim_ctrl *cdev;
 	int ret = 0;
 
+	if (of_device_is_compatible(pdev->dev.of_node,
+				    "qcom,iommu-slim-ctrl-cb"))
+		return 0;
+
+	cdev = platform_get_drvdata(pdev);
 	/*
 	 * If deferred response was requested for power-off and it failed,
 	 * mark runtime-pm status as active to be consistent
@@ -2089,13 +2158,6 @@ static const struct dev_pm_ops ngd_slim_dev_pm_ops = {
 		ngd_slim_runtime_resume,
 		ngd_slim_runtime_idle
 	)
-};
-
-static const struct of_device_id ngd_slim_dt_match[] = {
-	{
-		.compatible = "qcom,slim-ngd",
-	},
-	{}
 };
 
 static struct platform_driver ngd_slim_driver = {

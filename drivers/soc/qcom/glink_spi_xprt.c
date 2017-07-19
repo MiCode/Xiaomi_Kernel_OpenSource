@@ -111,7 +111,7 @@ struct glink_cmpnt {
  * @xprt_cfg:			The transport configuration for the glink core
  *				assocaited with this edge.
  * @subsys_name:		Name of the remote subsystem in the edge.
- * @spi_dev:			Pointer to the connectingSPI Device.
+ * @spi_ops:			Function pointers for ops provided by spi.
  * @fifo_size:			Size of the FIFO at the remote end.
  * @tx_fifo_start:		Base Address of the TX FIFO.
  * @tx_fifo_end:		End Address of the TX FIFO.
@@ -147,7 +147,7 @@ struct edge_info {
 	struct glink_transport_if xprt_if;
 	struct glink_core_transport_cfg xprt_cfg;
 	char subsys_name[GLINK_NAME_SIZE];
-	struct spi_device *spi_dev;
+	struct wcd_spi_ops spi_ops;
 
 	uint32_t fifo_size;
 	uint32_t tx_fifo_start;
@@ -286,11 +286,14 @@ static int glink_spi_xprt_rx_data(struct edge_info *einfo, void *src,
 {
 	struct wcd_spi_msg spi_msg;
 
+	if (unlikely(!einfo->spi_ops.read_dev))
+		return -EINVAL;
+
 	memset(&spi_msg, 0, sizeof(spi_msg));
 	spi_msg.data = dst;
 	spi_msg.remote_addr = (uint32_t)(size_t)src;
 	spi_msg.len = (size_t)size;
-	return wcd_spi_data_read(einfo->spi_dev, &spi_msg);
+	return einfo->spi_ops.read_dev(einfo->spi_ops.spi_dev, &spi_msg);
 }
 
 /**
@@ -310,11 +313,14 @@ static int glink_spi_xprt_tx_data(struct edge_info *einfo, void *src,
 {
 	struct wcd_spi_msg spi_msg;
 
+	if (unlikely(!einfo->spi_ops.write_dev))
+		return -EINVAL;
+
 	memset(&spi_msg, 0, sizeof(spi_msg));
 	spi_msg.data = src;
 	spi_msg.remote_addr = (uint32_t)(size_t)dst;
 	spi_msg.len = (size_t)size;
-	return wcd_spi_data_write(einfo->spi_dev, &spi_msg);
+	return einfo->spi_ops.write_dev(einfo->spi_ops.spi_dev, &spi_msg);
 }
 
 /**
@@ -1796,27 +1802,20 @@ static int glink_wdsp_cmpnt_event_handler(struct device *dev,
 {
 	struct edge_info *einfo = dev_get_drvdata(dev);
 	struct glink_cmpnt *cmpnt = &einfo->cmpnt;
-	struct device *sdev;
-	struct spi_device *spi_dev;
+	int rc = -EINVAL;
 
 	switch (event) {
 	case WDSP_EVENT_PRE_BOOTUP:
 		if (cmpnt && cmpnt->master_dev &&
 		    cmpnt->master_ops &&
-		    cmpnt->master_ops->get_dev_for_cmpnt)
-			sdev = cmpnt->master_ops->get_dev_for_cmpnt(
-				cmpnt->master_dev, WDSP_CMPNT_TRANSPORT);
-		else
-			sdev = NULL;
+		    cmpnt->master_ops->get_devops_for_cmpnt)
+			rc = cmpnt->master_ops->get_devops_for_cmpnt(
+				cmpnt->master_dev, WDSP_CMPNT_TRANSPORT,
+				&einfo->spi_ops);
 
-		if (!sdev) {
+		if (rc)
 			dev_err(dev, "%s: Failed to get transport device\n",
 				__func__);
-			break;
-		}
-
-		spi_dev = to_spi_device(sdev);
-		einfo->spi_dev = spi_dev;
 		break;
 	case WDSP_EVENT_POST_BOOTUP:
 		einfo->in_ssr = false;

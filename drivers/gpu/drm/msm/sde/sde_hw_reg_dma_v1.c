@@ -13,6 +13,7 @@
 #include "sde_hw_ctl.h"
 #include "sde_hw_reg_dma_v1.h"
 #include "msm_drv.h"
+#include "msm_mmu.h"
 
 #define GUARD_BYTES (BIT(8) - 1)
 #define ALIGNED_OFFSET (U32_MAX & ~(GUARD_BYTES))
@@ -49,6 +50,7 @@
 			(cfg)->dma_buf->index)
 
 #define REG_DMA_DECODE_SEL 0x180AC060
+#define REG_DMA_LAST_CMD 0x180AC004
 #define SINGLE_REG_WRITE_OPCODE (BIT(28))
 #define REL_ADDR_OPCODE (BIT(27))
 #define HW_INDEX_REG_WRITE_OPCODE (BIT(28) | BIT(29))
@@ -58,6 +60,7 @@
 #define WRAP_MIN_SIZE 2
 #define WRAP_MAX_SIZE (BIT(4) - 1)
 #define MAX_DWORDS_SZ (BIT(14) - 1)
+#define REG_DMA_HEADERS_BUFFER_SZ (sizeof(u32) * 128)
 
 typedef int (*reg_dma_internal_ops) (struct sde_reg_dma_setup_ops_cfg *cfg);
 
@@ -93,17 +96,20 @@ static int validate_dma_cfg(struct sde_reg_dma_setup_ops_cfg *cfg);
 static int validate_write_decode_sel(struct sde_reg_dma_setup_ops_cfg *cfg);
 static int validate_write_reg(struct sde_reg_dma_setup_ops_cfg *cfg);
 static int validate_write_multi_lut_reg(struct sde_reg_dma_setup_ops_cfg *cfg);
+static int validate_last_cmd(struct sde_reg_dma_setup_ops_cfg *cfg);
 static int write_decode_sel(struct sde_reg_dma_setup_ops_cfg *cfg);
 static int write_single_reg(struct sde_reg_dma_setup_ops_cfg *cfg);
 static int write_multi_reg_index(struct sde_reg_dma_setup_ops_cfg *cfg);
 static int write_multi_reg_inc(struct sde_reg_dma_setup_ops_cfg *cfg);
 static int write_multi_lut_reg(struct sde_reg_dma_setup_ops_cfg *cfg);
+static int write_last_cmd(struct sde_reg_dma_setup_ops_cfg *cfg);
 static int reset_reg_dma_buffer_v1(struct sde_reg_dma_buffer *lut_buf);
 static int check_support_v1(enum sde_reg_dma_features feature,
 		enum sde_reg_dma_blk blk, bool *is_supported);
 static int setup_payload_v1(struct sde_reg_dma_setup_ops_cfg *cfg);
 static int kick_off_v1(struct sde_reg_dma_kickoff_cfg *cfg);
 static int reset_v1(struct sde_hw_ctl *ctl);
+static int last_cmd_v1(struct sde_hw_ctl *ctl, enum sde_reg_dma_queue q);
 static struct sde_reg_dma_buffer *alloc_reg_dma_buf_v1(u32 size);
 static int dealloc_reg_dma_v1(struct sde_reg_dma_buffer *lut_buf);
 
@@ -122,6 +128,8 @@ static reg_dma_internal_ops validate_dma_op_params[REG_DMA_SETUP_OPS_MAX] = {
 	[REG_BLK_WRITE_INC] = validate_write_reg,
 	[REG_BLK_WRITE_MULTIPLE] = validate_write_multi_lut_reg,
 };
+
+static struct sde_reg_dma_buffer *last_cmd_buf;
 
 static void get_decode_sel(unsigned long blk, u32 *decode_sel)
 {
@@ -447,6 +455,7 @@ static int write_kick_off_v1(struct sde_reg_dma_kickoff_cfg *cfg)
 	u32 cmd1;
 	struct sde_hw_blk_reg_map hw;
 
+	memset(&hw, 0, sizeof(hw));
 	cmd1 = (cfg->op == REG_DMA_READ) ?
 		(dspp_read_sel[cfg->block_select] << 30) : 0;
 	cmd1 |= (cfg->last_command) ? BIT(24) : 0;
@@ -474,6 +483,11 @@ int init_v1(struct sde_hw_reg_dma *cfg)
 		return -EINVAL;
 
 	reg_dma = cfg;
+	if (!last_cmd_buf) {
+		last_cmd_buf = alloc_reg_dma_buf_v1(REG_DMA_HEADERS_BUFFER_SZ);
+		if (IS_ERR_OR_NULL(last_cmd_buf))
+			return -EINVAL;
+	}
 	reg_dma->ops.check_support = check_support_v1;
 	reg_dma->ops.setup_payload = setup_payload_v1;
 	reg_dma->ops.kick_off = kick_off_v1;
@@ -481,6 +495,7 @@ int init_v1(struct sde_hw_reg_dma *cfg)
 	reg_dma->ops.alloc_reg_dma_buf = alloc_reg_dma_buf_v1;
 	reg_dma->ops.dealloc_reg_dma = dealloc_reg_dma_v1;
 	reg_dma->ops.reset_reg_dma_buf = reset_reg_dma_buffer_v1;
+	reg_dma->ops.last_command = last_cmd_v1;
 
 	reg_dma_ctl_queue_off[CTL_0] = REG_DMA_CTL0_QUEUE_0_CMD0_OFF;
 	for (i = CTL_1; i < ARRAY_SIZE(reg_dma_ctl_queue_off); i++)
@@ -547,6 +562,7 @@ int reset_v1(struct sde_hw_ctl *ctl)
 		return -EINVAL;
 	}
 
+	memset(&hw, 0, sizeof(hw));
 	index = ctl->idx - CTL_0;
 	SET_UP_REG_DMA_REG(hw, reg_dma);
 	SDE_REG_WRITE(&hw, REG_DMA_OP_MODE_OFF, BIT(0));
@@ -569,6 +585,7 @@ static struct sde_reg_dma_buffer *alloc_reg_dma_buf_v1(u32 size)
 	struct sde_reg_dma_buffer *dma_buf = NULL;
 	u32 iova_aligned, offset;
 	u32 rsize = size + GUARD_BYTES;
+	struct msm_gem_address_space *aspace = NULL;
 	int rc = 0;
 
 	if (!size || SIZE_DWORD(size) > MAX_DWORDS_SZ) {
@@ -589,7 +606,15 @@ static struct sde_reg_dma_buffer *alloc_reg_dma_buf_v1(u32 size)
 		goto fail;
 	}
 
-	rc = msm_gem_get_iova(dma_buf->buf, 0, &dma_buf->iova);
+	aspace = msm_gem_smmu_address_space_get(reg_dma->drm_dev,
+			MSM_SMMU_DOMAIN_UNSECURE);
+	if (!aspace) {
+		DRM_ERROR("failed to get aspace\n");
+		rc = -EINVAL;
+		goto free_gem;
+	}
+
+	rc = msm_gem_get_iova(dma_buf->buf, aspace, &dma_buf->iova);
 	if (rc) {
 		DRM_ERROR("failed to get the iova rc %d\n", rc);
 		goto free_gem;
@@ -612,7 +637,7 @@ static struct sde_reg_dma_buffer *alloc_reg_dma_buf_v1(u32 size)
 	return dma_buf;
 
 put_iova:
-	msm_gem_put_iova(dma_buf->buf, 0);
+	msm_gem_put_iova(dma_buf->buf, aspace);
 free_gem:
 	msm_gem_free_object(dma_buf->buf);
 fail:
@@ -647,4 +672,77 @@ static int reset_reg_dma_buffer_v1(struct sde_reg_dma_buffer *lut_buf)
 	lut_buf->ops_completed = 0;
 	lut_buf->next_op_allowed = DECODE_SEL_OP;
 	return 0;
+}
+
+static int validate_last_cmd(struct sde_reg_dma_setup_ops_cfg *cfg)
+{
+	u32 remain_len, write_len;
+
+	remain_len = BUFFER_SPACE_LEFT(cfg);
+	write_len = sizeof(u32);
+	if (remain_len < write_len) {
+		DRM_ERROR("buffer is full sz %d needs %d bytes\n",
+				remain_len, write_len);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int write_last_cmd(struct sde_reg_dma_setup_ops_cfg *cfg)
+{
+	u32 *loc = NULL;
+
+	loc =  (u32 *)((u8 *)cfg->dma_buf->vaddr +
+			cfg->dma_buf->index);
+	loc[0] = REG_DMA_LAST_CMD;
+	loc[1] = BIT(0);
+	cfg->dma_buf->index = sizeof(u32) * 2;
+	cfg->dma_buf->ops_completed = REG_WRITE_OP | DECODE_SEL_OP;
+	cfg->dma_buf->next_op_allowed = REG_WRITE_OP;
+
+	return 0;
+}
+
+static int last_cmd_v1(struct sde_hw_ctl *ctl, enum sde_reg_dma_queue q)
+{
+	struct sde_reg_dma_setup_ops_cfg cfg;
+	struct sde_reg_dma_kickoff_cfg kick_off;
+
+	if (!last_cmd_buf || !ctl || q >= DMA_CTL_QUEUE_MAX) {
+		DRM_ERROR("invalid param buf %pK ctl %pK q %d\n", last_cmd_buf,
+				ctl, q);
+		return -EINVAL;
+	}
+
+	cfg.dma_buf = last_cmd_buf;
+	reset_reg_dma_buffer_v1(last_cmd_buf);
+	if (validate_last_cmd(&cfg)) {
+		DRM_ERROR("validate buf failed\n");
+		return -EINVAL;
+	}
+
+	if (write_last_cmd(&cfg)) {
+		DRM_ERROR("write buf failed\n");
+		return -EINVAL;
+	}
+
+	kick_off.ctl = ctl;
+	kick_off.queue_select = q;
+	kick_off.trigger_mode = WRITE_IMMEDIATE;
+	kick_off.last_command = 1;
+	kick_off.op = REG_DMA_WRITE;
+	kick_off.dma_buf = last_cmd_buf;
+	if (kick_off_v1(&kick_off)) {
+		DRM_ERROR("kick off last cmd failed\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+void deinit_v1(void)
+{
+	if (last_cmd_buf)
+		dealloc_reg_dma_v1(last_cmd_buf);
+	last_cmd_buf = NULL;
 }

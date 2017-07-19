@@ -75,6 +75,9 @@ struct msm_kms_funcs {
 			const struct msm_format *msm_fmt,
 			const struct drm_mode_fb_cmd2 *cmd,
 			struct drm_gem_object **bos);
+	/* perform complete atomic check of given atomic state */
+	int (*atomic_check)(struct msm_kms *kms,
+				    struct drm_atomic_state *state);
 	/* misc: */
 	long (*round_pixclk)(struct msm_kms *kms, unsigned long rate,
 			struct drm_encoder *encoder);
@@ -90,6 +93,10 @@ struct msm_kms_funcs {
 			struct drm_mode_object *obj, u32 event, bool en);
 	/* cleanup: */
 	void (*destroy)(struct msm_kms *kms);
+	/* get address space */
+	struct msm_gem_address_space *(*get_address_space)(
+			struct msm_kms *kms,
+			unsigned int domain);
 };
 
 struct msm_kms {

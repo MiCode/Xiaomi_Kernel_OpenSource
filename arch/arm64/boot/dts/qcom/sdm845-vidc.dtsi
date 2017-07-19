@@ -45,8 +45,8 @@
 			"bus_clk", "core0_clk", "core0_bus_clk",
 			"core1_clk", "core1_bus_clk";
 		qcom,clock-configs = <0x1 0x0 0x0 0x1 0x0 0x1 0x0>;
-		qcom,allowed-clock-rates = <200000000 320000000 380000000
-			444000000 533000000>;
+		qcom,allowed-clock-rates = <100000000 200000000 320000000
+			380000000 444000000 533000000>;
 
 		/* Buses */
 		bus_cnoc {

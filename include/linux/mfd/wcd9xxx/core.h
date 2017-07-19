@@ -434,4 +434,7 @@ static inline int __init wcd9xxx_irq_of_init(struct device_node *node,
 {
 	return 0;
 }
+
+int wcd9xxx_init(void);
+void wcd9xxx_exit(void);
 #endif

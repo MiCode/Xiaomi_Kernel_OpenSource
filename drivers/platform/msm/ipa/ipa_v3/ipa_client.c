@@ -644,6 +644,12 @@ int ipa3_request_gsi_channel(struct ipa_request_gsi_channel_params *params,
 	}
 
 	gsi_ep_cfg_ptr = ipa3_get_gsi_ep_info(ep->client);
+	if (gsi_ep_cfg_ptr == NULL) {
+		IPAERR("Error ipa3_get_gsi_ep_info ret NULL\n");
+		result = -EFAULT;
+		goto write_evt_scratch_fail;
+	}
+
 	params->chan_params.evt_ring_hdl = ep->gsi_evt_ring_hdl;
 	params->chan_params.ch_id = gsi_ep_cfg_ptr->ipa_gsi_chan_num;
 	gsi_res = gsi_alloc_channel(&params->chan_params, gsi_dev_hdl,
@@ -1058,8 +1064,21 @@ static int ipa3_stop_ul_chan_with_data_drain(u32 qmi_req_id,
 	if (should_force_clear) {
 		result = ipa3_enable_force_clear(qmi_req_id, false,
 			source_pipe_bitmask);
-		if (result)
-			goto exit;
+		if (result) {
+			struct ipahal_ep_cfg_ctrl_scnd ep_ctrl_scnd = { 0 };
+
+			/*
+			 * assuming here modem SSR\shutdown, AP can remove
+			 * the delay in this case
+			 */
+			IPAERR(
+				"failed to force clear %d, remove delay from SCND reg\n"
+				, result);
+			ep_ctrl_scnd.endp_delay = false;
+			ipahal_write_reg_n_fields(
+				IPA_ENDP_INIT_CTRL_SCND_n, clnt_hdl,
+				&ep_ctrl_scnd);
+		}
 	}
 	/* with force clear, wait for emptiness */
 	for (i = 0; i < IPA_POLL_FOR_EMPTINESS_NUM; i++) {

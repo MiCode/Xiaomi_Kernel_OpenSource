@@ -178,6 +178,9 @@ Optional properties:
 - qcom,sde-te-size:		A u32 value indicates the te block address range.
 - qcom,sde-te2-size:		A u32 value indicates the te2 block address range.
 - qcom,sde-dsc-off:	 	A u32 offset indicates the dsc block offset on pingpong.
+- qcom,sde-dither-off:		A u32 offset indicates the dither block offset on pingpong.
+- qcom,sde-dither-version:	A u32 value indicates the dither block version.
+- qcom,sde-dither-size:		A u32 value indicates the dither block address range.
 - qcom,sde-sspp-vig-blocks:	A node that lists the blocks inside the VIG hardware. The
 				block entries will contain the offset and version (if needed)
 				of each feature block. The presence of a block entry
@@ -341,6 +344,10 @@ Bus Scaling Subnodes:
 				mdss blocks.
 - qcom,sde-data-bus:		Property to provide Bus scaling for data bus access for
 				mdss blocks.
+- qcom,sde-llcc-bus:		Property to provide Bus scaling for data bus access for
+				mnoc to llcc.
+- qcom,sde-ebi-bus:		Property to provide Bus scaling for data bus access for
+				llcc to ebi.
 
 - qcom,sde-inline-rotator:	A 2 cell property, with format of (rotator phandle,
 				instance id), of inline rotator device.
@@ -357,17 +364,23 @@ Bus Scaling Data:
 				* Current values of src & dst are defined at
 				include/linux/msm-bus-board.h
 
+SMMU Subnodes:
+- smmu_sde_****:		Child nodes representing sde smmu virtual
+				devices
+
 Subnode properties:
-- compatible :          Compatible name used in smmu v2.
-                        smmu_v2 names should be:
-                        "qcom,smmu-mdp-unsec"   - smmu context bank device for
-                                                unsecure mdp domain.
-                        "qcom,smmu-rot-unsec"   - smmu context bank device for
-                                                unsecure rotation domain.
-                        "qcom,smmu-mdp-sec"     - smmu context bank device for
-                                                secure mdp domain.
-                        "qcom,smmu-rot-sec"     - smmu context bank device for
-                                                secure rotation domain.
+- compatible:			Compatible names used for smmu devices.
+				names should be:
+				"qcom,smmu_sde_unsec": smmu context bank device
+				for unsecure sde real time domain.
+				"qcom,smmu_sde_sec": smmu context bank device
+				for secure sde real time domain.
+				"qcom,smmu_sde_nrt_unsec": smmu context bank device
+				for unsecure sde non-real time domain.
+				"qcom,smmu_sde_nrt_sec": smmu context bank device
+				for secure sde non-real time domain.
+
+
 Please refer to ../../interrupt-controller/interrupts.txt for a general
 description of interrupt bindings.
 
@@ -638,6 +651,24 @@ Example:
             <22 512 0 6400000>, <23 512 0 6400000>,
                 <25 512 0 6400000>;
     };
+    qcom,sde-llcc-bus {
+        qcom,msm-bus,name = "mdss_sde_llcc";
+        qcom,msm-bus,num-cases = <3>;
+        qcom,msm-bus,num-paths = <1>;
+        qcom,msm-bus,vectors-KBps =
+            <132 770 0 0>,
+            <132 770 0 6400000>,
+            <132 770 0 6400000>;
+    };
+    qcom,sde-ebi-bus {
+        qcom,msm-bus,name = "mdss_sde_ebi";
+        qcom,msm-bus,num-cases = <3>;
+        qcom,msm-bus,num-paths = <1>;
+        qcom,msm-bus,vectors-KBps =
+            <129 512 0 0>,
+            <129 512 0 6400000>,
+            <129 512 0 6400000>;
+    };
 
     qcom,sde-reg-bus {
         /* Reg Bus Scale Settings */
@@ -651,4 +682,14 @@ Example:
               <1 590 0 160000>,
               <1 590 0 320000>;
         };
+
+    smmu_kms_unsec: qcom,smmu_kms_unsec_cb {
+        compatible = "qcom,smmu_sde_unsec";
+        iommus = <&mmss_smmu 0>;
+    };
+
+    smmu_kms_sec: qcom,smmu_kms_sec_cb {
+        compatible = "qcom,smmu_sde_sec";
+        iommus = <&mmss_smmu 1>;
+    };
   };

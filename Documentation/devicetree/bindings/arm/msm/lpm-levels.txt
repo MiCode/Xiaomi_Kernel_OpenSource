@@ -28,9 +28,6 @@ Required properties:
 	- qcom,default-level: The default low power level that a cluster is
 	programmed. The SPM of the corresponding device is configured at this
 	low power mode by default.
-	- qcom,cpu: List of CPU phandles to identify the CPUs associated with
-	this cluster. This property is required if and only if the cluster
-	node contains a qcom,pm-cpu node.
 
 	qcom,pm-cluster contains qcom,pm-cluster-level nodes which identify
 	the various low power modes that the cluster can enter. The
@@ -103,9 +100,13 @@ Required properties:
 					power collapse (PC)
 
 [Node bindings for qcom,pm-cpu]
-qcom,pm-cpu contains the low power modes that a cpu could enter. Currently it
-doesn't have any required properties and is a container for
-qcom,pm-cpu-levels.
+qcom,pm-cpu contains the low power modes that a cpu could enter and the CPUs
+that share the parameters.It contains the following properties.
+	- qcom,cpu: List of CPU phandles to identify the CPUs associated with
+	this cluster.
+	- qcom,pm-cpu-levels: The different low power modes that a CPU could
+	enter. The following section explains the required properties of this
+	node.
 
 [Node bindings for qcom,pm-cpu-levels]
  Required properties:
@@ -184,7 +185,6 @@ qcom,lpm-levels {
 			label = "a53";
 			qcom,spm-device-names = "l2";
 			qcom,default-level=<0>;
-			qcom,cpu = <&CPU0 &CPU1 &CPU2 &CPU3>;
 
 			qcom,pm-cluster-level@0{
 				reg = <0>;
@@ -210,6 +210,7 @@ qcom,lpm-levels {
 			qcom,pm-cpu {
 				#address-cells = <1>;
 				#size-cells = <0>;
+				qcom,cpu = <&CPU0 &CPU1 &CPU2 &CPU3>;
 				qcom,pm-cpu-level@0 {
 					reg = <0>;
 					qcom,spm-cpu-mode = "wfi";
@@ -255,7 +256,6 @@ qcom,lpm-levels {
 			label = "a57";
 			qcom,spm-device-names = "l2";
 			qcom,default-level=<0>;
-			qcom,cpu = <&CPU4 &CPU5 &CPU6 &CPU7>;
 
 			qcom,pm-cluster-level@0{
 				reg = <0>;
@@ -281,6 +281,7 @@ qcom,lpm-levels {
 			qcom,pm-cpu {
 				#address-cells = <1>;
 				#size-cells = <0>;
+				qcom,cpu = <&CPU4 &CPU5 &CPU6 &CPU7>;
 				qcom,pm-cpu-level@0 {
 					reg = <0>;
 					qcom,spm-cpu-mode = "wfi";

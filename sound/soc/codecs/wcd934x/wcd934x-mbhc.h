@@ -35,7 +35,7 @@ struct wcd934x_mbhc {
 	bool is_hph_recover;
 };
 
-#ifdef CONFIG_SND_SOC_WCD934X_MBHC
+#if IS_ENABLED(CONFIG_SND_SOC_WCD934X_MBHC)
 extern int tavil_mbhc_init(struct wcd934x_mbhc **mbhc,
 			   struct snd_soc_codec *codec,
 			   struct fw_info *fw_data);

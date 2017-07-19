@@ -27,7 +27,6 @@
 #define SDE_ENCODER_FRAME_EVENT_DONE		BIT(0)
 #define SDE_ENCODER_FRAME_EVENT_ERROR		BIT(1)
 #define SDE_ENCODER_FRAME_EVENT_PANEL_DEAD	BIT(2)
-#define SDE_ENCODER_FRAME_EVENT_DURING_DISABLE	BIT(3)
 
 /**
  * Encoder functions and data types
@@ -172,6 +171,13 @@ bool sde_encoder_is_dsc_enabled(struct drm_encoder *drm_enc);
  * @Return: true if encoder is in DSC merge mode
  */
 bool sde_encoder_is_dsc_merge(struct drm_encoder *drm_enc);
+
+/**
+ * sde_encoder_is_cmd_mode - check if it is cmd mode
+ * @drm_enc: Pointer to drm encoder object
+ * @Return: true if it is cmd mode
+ */
+bool sde_encoder_is_cmd_mode(struct drm_encoder *drm_enc);
 
 /**
  * sde_encoder_init - initialize virtual encoder object

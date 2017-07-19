@@ -31,31 +31,6 @@
 #define DEFAULT_VRAIL_COMP	100
 #define DEFAULT_AGG_SCHEME	AGG_SCHEME_LEG
 
-static int get_qos_mode(struct platform_device *pdev,
-			struct device_node *node, const char *qos_mode)
-{
-	static char const *qos_names[] = {"fixed", "limiter",
-						"bypass", "regulator"};
-	int i = 0;
-	int ret = -1;
-
-	if (!qos_mode)
-		goto exit_get_qos_mode;
-
-	for (i = 0; i < ARRAY_SIZE(qos_names); i++) {
-		if (!strcmp(qos_mode, qos_names[i]))
-			break;
-	}
-	if (i == ARRAY_SIZE(qos_names))
-		dev_err(&pdev->dev, "Cannot match mode qos %s using Bypass",
-				qos_mode);
-	else
-		ret = i;
-
-exit_get_qos_mode:
-	return ret;
-}
-
 static int *get_arr(struct platform_device *pdev,
 		struct device_node *node, const char *prop,
 		int *nports)
@@ -210,7 +185,6 @@ static struct msm_bus_fab_device_type *get_fab_device_info(
 		fab_dev->qos_freq = DEFAULT_QOS_FREQ;
 	}
 
-
 	return fab_dev;
 
 fab_dev_err:
@@ -224,54 +198,48 @@ static void get_qos_params(
 		struct platform_device * const pdev,
 		struct msm_bus_node_info_type *node_info)
 {
-	const char *qos_mode = NULL;
-	unsigned int ret;
-	unsigned int temp;
+	const uint32_t *vec_arr = NULL;
+	int len;
 
-	ret = of_property_read_string(dev_node, "qcom,qos-mode", &qos_mode);
+	of_property_read_u32(dev_node, "qcom,prio",
+					&node_info->qos_params.prio_dflt);
 
-	if (ret)
-		node_info->qos_params.mode = -1;
-	else
-		node_info->qos_params.mode = get_qos_mode(pdev, dev_node,
-								qos_mode);
+	vec_arr = of_get_property(dev_node, "qcom,lim-params", &len);
+	if (vec_arr != NULL && len == sizeof(uint32_t) * 2) {
+		node_info->qos_params.limiter.bw = be32_to_cpu(vec_arr[0]);
+		node_info->qos_params.limiter.sat = be32_to_cpu(vec_arr[1]);
+	} else {
+		node_info->qos_params.limiter.bw = 0;
+		node_info->qos_params.limiter.sat = 0;
+	}
 
-	of_property_read_u32(dev_node, "qcom,prio-lvl",
-					&node_info->qos_params.prio_lvl);
+	node_info->qos_params.limiter_en = of_property_read_bool(dev_node,
+						"qcom,lim-en");
 
-	of_property_read_u32(dev_node, "qcom,prio1",
-						&node_info->qos_params.prio1);
+	vec_arr = of_get_property(dev_node, "qcom,qos-reg-params", &len);
+	if (vec_arr != NULL && len == sizeof(uint32_t) * 4) {
+		node_info->qos_params.reg.low_prio = be32_to_cpu(vec_arr[0]);
+		node_info->qos_params.reg.hi_prio = be32_to_cpu(vec_arr[1]);
+		node_info->qos_params.reg.bw = be32_to_cpu(vec_arr[2]);
+		node_info->qos_params.reg.sat = be32_to_cpu(vec_arr[3]);
+	} else {
+		node_info->qos_params.reg.low_prio = 0;
+		node_info->qos_params.reg.hi_prio = 0;
+		node_info->qos_params.reg.bw = 0;
+		node_info->qos_params.reg.sat = 0;
+	}
 
-	of_property_read_u32(dev_node, "qcom,prio0",
-						&node_info->qos_params.prio0);
+	vec_arr = of_get_property(dev_node, "qcom,qos-reg-mode", &len);
+	if (vec_arr != NULL && len == sizeof(uint32_t) * 2) {
+		node_info->qos_params.reg_mode.read = be32_to_cpu(vec_arr[0]);
+		node_info->qos_params.reg_mode.write = be32_to_cpu(vec_arr[1]);
+	} else {
+		node_info->qos_params.reg_mode.read = 0;
+		node_info->qos_params.reg_mode.write = 0;
+	}
 
-	of_property_read_u32(dev_node, "qcom,reg-prio1",
-					&node_info->qos_params.reg_prio1);
-
-	of_property_read_u32(dev_node, "qcom,reg-prio0",
-					&node_info->qos_params.reg_prio0);
-
-	of_property_read_u32(dev_node, "qcom,prio-rd",
-					&node_info->qos_params.prio_rd);
-
-	of_property_read_u32(dev_node, "qcom,prio-wr",
-						&node_info->qos_params.prio_wr);
-
-	of_property_read_u32(dev_node, "qcom,gp",
-						&node_info->qos_params.gp);
-
-	of_property_read_u32(dev_node, "qcom,thmp",
-						&node_info->qos_params.thmp);
-
-	of_property_read_u32(dev_node, "qcom,ws",
-						&node_info->qos_params.ws);
-
-	ret = of_property_read_u32(dev_node, "qcom,bw_buffer", &temp);
-
-	if (ret)
-		node_info->qos_params.bw_buffer = 0;
-	else
-		node_info->qos_params.bw_buffer = KBTOB(temp);
+	node_info->qos_params.urg_fwd_en = of_property_read_bool(dev_node,
+						"qcom,forwarding");
 
 }
 
@@ -308,13 +276,9 @@ static int msm_bus_of_parse_clk_array(struct device_node *dev_node,
 		char gdsc_string[MAX_REG_NAME];
 
 		(*clk_arr)[idx].clk = of_clk_get_by_name(dev_node, clk_name);
+		if (IS_ERR_OR_NULL((*clk_arr)[idx].clk))
+			goto exit_of_parse_clk_array;
 
-		if (IS_ERR_OR_NULL((*clk_arr)[idx].clk)) {
-			dev_err(&pdev->dev,
-				"Failed to get clk %s for bus%d ", clk_name,
-									id);
-			continue;
-		}
 		if (strnstr(clk_name, "no-rate", strlen(clk_name)))
 			(*clk_arr)[idx].enable_only_clk = true;
 
@@ -532,6 +496,10 @@ static int get_bus_node_device_data(
 {
 	bool enable_only;
 	bool setrate_only;
+	int num_elems = 0, num_bcms = 0, i = 0, ret = 0;
+	uint32_t *vec_arr = NULL;
+	struct qos_bcm_type *qos_bcms = NULL;
+	struct device_node *qos_clk_node = NULL;
 
 	node_device->node_info = get_node_info_data(dev_node, pdev);
 	if (IS_ERR_OR_NULL(node_device->node_info)) {
@@ -566,8 +534,6 @@ static int get_bus_node_device_data(
 	}
 
 	if (node_device->node_info->is_fab_dev) {
-		struct device_node *qos_clk_node;
-
 		dev_dbg(&pdev->dev, "Dev %d\n", node_device->node_info->id);
 
 		if (!node_device->node_info->virt_dev) {
@@ -615,6 +581,48 @@ static int get_bus_node_device_data(
 			of_node_put(qos_clk_node);
 		}
 	} else {
+		num_elems = of_property_count_elems_of_size(dev_node,
+					"qcom,node-qos-bcms", sizeof(uint32_t));
+
+		if (num_elems > 0) {
+			if (num_elems % 3 != 0) {
+				pr_err("Error: Length-error on getting vectors\n");
+				return -ENODATA;
+			}
+
+			vec_arr = devm_kzalloc(&pdev->dev, (sizeof(uint32_t) *
+							num_elems), GFP_KERNEL);
+			if (!vec_arr)
+				return -ENOMEM;
+
+			ret = of_property_read_u32_array(dev_node,
+						"qcom,node-qos-bcms", vec_arr,
+								num_elems);
+			if (ret) {
+				pr_err("Error: problem reading qos-bcm vectors\n");
+				return ret;
+			}
+			num_bcms = num_elems / 3;
+			node_device->num_qos_bcms = num_bcms;
+
+			qos_bcms = devm_kzalloc(&pdev->dev,
+						(sizeof(struct qos_bcm_type) *
+						num_bcms), GFP_KERNEL);
+			if (!qos_bcms)
+				return -ENOMEM;
+
+			for (i = 0; i < num_bcms; i++) {
+				int index = i * 3;
+
+				qos_bcms[i].qos_bcm_id = vec_arr[index];
+				qos_bcms[i].vec.vec_a =
+					(uint64_t)KBTOB(vec_arr[index + 1]);
+				qos_bcms[i].vec.vec_b =
+					(uint64_t)KBTOB(vec_arr[index + 2]);
+			}
+			node_device->qos_bcms = qos_bcms;
+		}
+
 		enable_only = of_property_read_bool(dev_node,
 							"qcom,enable-only-clk");
 		node_device->clk[DUAL_CTX].enable_only_clk = enable_only;
@@ -632,6 +640,20 @@ static int get_bus_node_device_data(
 								setrate_only;
 		}
 
+		qos_clk_node = of_get_child_by_name(dev_node,
+						"qcom,node-qos-clks");
+
+		if (qos_clk_node) {
+			if (msm_bus_of_parse_clk_array(qos_clk_node, dev_node,
+						pdev,
+						&node_device->node_qos_clks,
+						&node_device->num_node_qos_clks,
+						node_device->node_info->id)) {
+				dev_dbg(&pdev->dev, "Bypass QoS programming");
+				node_device->fabdev->bypass_qos_prg = true;
+			}
+			of_node_put(qos_clk_node);
+		}
 		node_device->clk[DUAL_CTX].clk = of_clk_get_by_name(dev_node,
 							"node_clk");
 

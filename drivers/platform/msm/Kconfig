@@ -56,6 +56,24 @@ config RMNET_IPA3
 	  for RmNet Data Driver and also exchange of QMI messages between
 	  A7 and Q6 IPA-driver.
 
+config ECM_IPA
+	tristate "STD ECM LAN Driver support"
+	depends on IPA || IPA3
+	help
+	  Enables LAN between applications processor and a tethered
+	  host using the STD ECM protocol.
+	  This Network interface is aimed to allow data path go through
+	  IPA core while using STD ECM protocol.
+
+config RNDIS_IPA
+	tristate "RNDIS_IPA Network Interface Driver support"
+	depends on IPA || IPA3
+	help
+	  Enables LAN between applications processor and a tethered
+	  host using the RNDIS protocol.
+	  This Network interface is aimed to allow data path go through
+	  IPA core while using RNDIS protocol.
+
 config IPA_UT
 	tristate "IPA Unit-Test Framework and Test Suites"
 	depends on IPA3 && DEBUG_FS

@@ -850,8 +850,8 @@ static const struct file_operations ufsdbg_host_regs_fops = {
 static int ufsdbg_dump_device_desc_show(struct seq_file *file, void *data)
 {
 	int err = 0;
-	int buff_len = QUERY_DESC_DEVICE_MAX_SIZE;
-	u8 desc_buf[QUERY_DESC_DEVICE_MAX_SIZE];
+	int buff_len = QUERY_DESC_DEVICE_DEF_SIZE;
+	u8 desc_buf[QUERY_DESC_DEVICE_DEF_SIZE];
 	struct ufs_hba *hba = (struct ufs_hba *)file->private;
 
 	struct desc_field_offset device_desc_field_name[] = {

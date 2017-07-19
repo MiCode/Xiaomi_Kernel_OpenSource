@@ -69,8 +69,12 @@
 #define IPA_IOCTL_ADD_FLT_RULE_AFTER 44
 #define IPA_IOCTL_GET_HW_VERSION 45
 #define IPA_IOCTL_ADD_RT_RULE_EXT 46
-#define IPA_IOCTL_NAT_MODIFY_PDN 47
-#define IPA_IOCTL_MAX 48
+#define IPA_IOCTL_ADD_VLAN_IFACE 47
+#define IPA_IOCTL_DEL_VLAN_IFACE 48
+#define IPA_IOCTL_ADD_L2TP_VLAN_MAPPING 49
+#define IPA_IOCTL_DEL_L2TP_VLAN_MAPPING 50
+#define IPA_IOCTL_NAT_MODIFY_PDN 51
+#define IPA_IOCTL_MAX 52
 
 /**
  * max size of the header to be inserted
@@ -127,6 +131,7 @@
 #define IPA_FLT_MAC_SRC_ADDR_802_3	(1ul << 19)
 #define IPA_FLT_MAC_DST_ADDR_802_3	(1ul << 20)
 #define IPA_FLT_MAC_ETHER_TYPE		(1ul << 21)
+#define IPA_FLT_MAC_DST_ADDR_L2TP	(1ul << 22)
 
 /**
  * maximal number of NAT PDNs in the PDN config table
@@ -250,9 +255,12 @@ enum ipa_client_type {
 
 	IPA_CLIENT_TEST4_PROD			= 70,
 	IPA_CLIENT_TEST4_CONS			= 71,
+
+	/* RESERVERD PROD				= 72, */
+	IPA_CLIENT_DUMMY_CONS			= 73
 };
 
-#define IPA_CLIENT_MAX (IPA_CLIENT_TEST4_CONS + 1)
+#define IPA_CLIENT_MAX (IPA_CLIENT_DUMMY_CONS + 1)
 
 #define IPA_CLIENT_IS_APPS_CONS(client) \
 	((client) == IPA_CLIENT_APPS_LAN_CONS || \
@@ -438,9 +446,28 @@ enum ipa_tethering_stats_event {
 	IPA_TETHERING_STATS_UPDATE_STATS = IPA_ECM_EVENT_MAX,
 	IPA_TETHERING_STATS_UPDATE_NETWORK_STATS,
 	IPA_TETHERING_STATS_EVENT_MAX,
-	IPA_EVENT_MAX_NUM = IPA_TETHERING_STATS_EVENT_MAX
 };
 
+enum ipa_quota_event {
+	IPA_QUOTA_REACH = IPA_TETHERING_STATS_EVENT_MAX,
+	IPA_QUOTA_EVENT_MAX,
+};
+
+enum ipa_ssr_event {
+	IPA_SSR_BEFORE_SHUTDOWN = IPA_QUOTA_EVENT_MAX,
+	IPA_SSR_AFTER_POWERUP,
+	IPA_SSR_EVENT_MAX
+};
+
+enum ipa_vlan_l2tp_event {
+	ADD_VLAN_IFACE = IPA_SSR_EVENT_MAX,
+	DEL_VLAN_IFACE,
+	ADD_L2TP_VLAN_MAPPING,
+	DEL_L2TP_VLAN_MAPPING,
+	IPA_VLAN_L2TP_EVENT_MAX,
+};
+
+#define IPA_EVENT_MAX_NUM (IPA_VLAN_L2TP_EVENT_MAX)
 #define IPA_EVENT_MAX ((int)IPA_EVENT_MAX_NUM)
 
 /**
@@ -774,8 +801,10 @@ enum ipa_hdr_proc_type {
 	IPA_HDR_PROC_ETHII_TO_802_3,
 	IPA_HDR_PROC_802_3_TO_ETHII,
 	IPA_HDR_PROC_802_3_TO_802_3,
+	IPA_HDR_PROC_L2TP_HEADER_ADD,
+	IPA_HDR_PROC_L2TP_HEADER_REMOVE
 };
-#define IPA_HDR_PROC_MAX (IPA_HDR_PROC_802_3_TO_802_3 + 1)
+#define IPA_HDR_PROC_MAX (IPA_HDR_PROC_L2TP_HEADER_REMOVE + 1)
 
 /**
  * struct ipa_rt_rule - attributes of a routing rule
@@ -846,10 +875,45 @@ struct ipa_ioc_add_hdr {
 };
 
 /**
+ * struct ipa_l2tp_header_add_procparams -
+ * @eth_hdr_retained: Specifies if Ethernet header is retained or not
+ * @input_ip_version: Specifies if Input header is IPV4(0) or IPV6(1)
+ * @output_ip_version: Specifies if template header is IPV4(0) or IPV6(1)
+ */
+struct ipa_l2tp_header_add_procparams {
+	uint32_t eth_hdr_retained:1;
+	uint32_t input_ip_version:1;
+	uint32_t output_ip_version:1;
+	uint32_t reserved:29;
+};
+
+/**
+ * struct ipa_l2tp_header_remove_procparams -
+ * @hdr_len_remove: Specifies how much of the header needs to
+		be removed in bytes
+ * @eth_hdr_retained: Specifies if Ethernet header is retained or not
+ */
+struct ipa_l2tp_header_remove_procparams {
+	uint32_t hdr_len_remove:8;
+	uint32_t eth_hdr_retained:1;
+	uint32_t reserved:23;
+};
+
+/**
+ * union ipa_l2tp_hdr_proc_ctx_params -
+ * @hdr_add_param: parameters for header add
+ * @hdr_remove_param: parameters for header remove
+ */
+union ipa_l2tp_hdr_proc_ctx_params {
+	struct ipa_l2tp_header_add_procparams hdr_add_param;
+	struct ipa_l2tp_header_remove_procparams hdr_remove_param;
+};
+/**
  * struct ipa_hdr_proc_ctx_add - processing context descriptor includes
  * in and out parameters
  * @type: processing context type
  * @hdr_hdl: in parameter, handle to header
+ * @l2tp_params: l2tp parameters
  * @proc_ctx_hdl: out parameter, handle to proc_ctx, valid when status is 0
  * @status:	out parameter, status of header add operation,
  *		0 for success,
@@ -860,7 +924,10 @@ struct ipa_hdr_proc_ctx_add {
 	uint32_t hdr_hdl;
 	uint32_t proc_ctx_hdl;
 	int status;
+	union ipa_l2tp_hdr_proc_ctx_params l2tp_params;
 };
+
+#define IPA_L2TP_HDR_PROC_SUPPORT
 
 /**
  * struct ipa_ioc_add_hdr - processing context addition parameters (support
@@ -1435,6 +1502,30 @@ struct ipa_ioc_nat_pdn_entry {
 };
 
 /**
+ * struct ipa_ioc_vlan_iface_info - add vlan interface
+ * @name: interface name
+ * @vlan_id: VLAN ID
+ */
+struct ipa_ioc_vlan_iface_info {
+	char name[IPA_RESOURCE_NAME_MAX];
+	uint8_t vlan_id;
+};
+
+/**
+ * struct ipa_ioc_l2tp_vlan_mapping_info - l2tp->vlan mapping info
+ * @iptype: l2tp tunnel IP type
+ * @l2tp_iface_name: l2tp interface name
+ * @l2tp_session_id: l2tp session id
+ * @vlan_iface_name: vlan interface name
+ */
+struct ipa_ioc_l2tp_vlan_mapping_info {
+	enum ipa_ip_type iptype;
+	char l2tp_iface_name[IPA_RESOURCE_NAME_MAX];
+	uint8_t l2tp_session_id;
+	char vlan_iface_name[IPA_RESOURCE_NAME_MAX];
+};
+
+/**
  * struct ipa_msg_meta - Format of the message meta-data.
  * @msg_type: the type of the message
  * @rsvd: reserved bits for future use.
@@ -1711,6 +1802,21 @@ enum ipacm_client_enum {
 				IPA_IOCTL_GET_HW_VERSION, \
 				enum ipa_hw_type *)
 
+#define IPA_IOC_ADD_VLAN_IFACE _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_ADD_VLAN_IFACE, \
+				struct ipa_ioc_vlan_iface_info *)
+
+#define IPA_IOC_DEL_VLAN_IFACE _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_DEL_VLAN_IFACE, \
+				struct ipa_ioc_vlan_iface_info *)
+
+#define IPA_IOC_ADD_L2TP_VLAN_MAPPING _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_ADD_L2TP_VLAN_MAPPING, \
+				struct ipa_ioc_l2tp_vlan_mapping_info *)
+
+#define IPA_IOC_DEL_L2TP_VLAN_MAPPING _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_DEL_L2TP_VLAN_MAPPING, \
+				struct ipa_ioc_l2tp_vlan_mapping_info *)
 /*
  * unique magic number of the Tethering bridge ioctls
  */

@@ -195,6 +195,7 @@ enum adreno_gpurev {
 	ADRENO_REV_A512 = 512,
 	ADRENO_REV_A530 = 530,
 	ADRENO_REV_A540 = 540,
+	ADRENO_REV_A615 = 615,
 	ADRENO_REV_A630 = 630,
 };
 
@@ -845,11 +846,14 @@ struct adreno_gpudev {
 				unsigned int *cmds,
 				struct kgsl_context *context);
 	int (*preemption_yield_enable)(unsigned int *);
+	unsigned int (*preemption_set_marker)(unsigned int *cmds, int start);
 	unsigned int (*preemption_post_ibsubmit)(
 				struct adreno_device *adreno_dev,
 				unsigned int *cmds);
 	int (*preemption_init)(struct adreno_device *);
 	void (*preemption_schedule)(struct adreno_device *);
+	int (*preemption_context_init)(struct kgsl_context *);
+	void (*preemption_context_destroy)(struct kgsl_context *);
 	void (*enable_64bit)(struct adreno_device *);
 	void (*clk_set_options)(struct adreno_device *,
 				const char *, struct clk *, bool on);
@@ -872,6 +876,8 @@ struct adreno_gpudev {
 				unsigned int fsynr1);
 	int (*reset)(struct kgsl_device *, int fault);
 	int (*soft_reset)(struct adreno_device *);
+	bool (*gx_is_on)(struct adreno_device *);
+	bool (*sptprac_is_on)(struct adreno_device *);
 };
 
 /**
@@ -1141,6 +1147,7 @@ static inline int adreno_is_a6xx(struct adreno_device *adreno_dev)
 			ADRENO_GPUREV(adreno_dev) < 700;
 }
 
+ADRENO_TARGET(a615, ADRENO_REV_A615)
 ADRENO_TARGET(a630, ADRENO_REV_A630)
 
 static inline int adreno_is_a630v1(struct adreno_device *adreno_dev)

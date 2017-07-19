@@ -62,10 +62,17 @@ static int default_buf_reset_reg_dma(struct sde_reg_dma_buffer *lut_buf)
 	return -EINVAL;
 }
 
+static int default_last_command(struct sde_hw_ctl *ctl,
+		enum sde_reg_dma_queue q)
+{
+	return 0;
+}
+
 static struct sde_hw_reg_dma reg_dma = {
 	.ops = {default_check_support, default_setup_payload,
 		default_kick_off, default_reset, default_alloc_reg_dma_buf,
-		default_dealloc_reg_dma, default_buf_reset_reg_dma},
+		default_dealloc_reg_dma, default_buf_reset_reg_dma,
+		default_last_command},
 };
 
 int sde_reg_dma_init(void __iomem *addr, struct sde_mdss_cfg *m,
@@ -102,4 +109,27 @@ int sde_reg_dma_init(void __iomem *addr, struct sde_mdss_cfg *m,
 struct sde_hw_reg_dma_ops *sde_reg_dma_get_ops(void)
 {
 	return &reg_dma.ops;
+}
+
+void sde_reg_dma_deinit(void)
+{
+	struct sde_hw_reg_dma op = {
+	.ops = {default_check_support, default_setup_payload,
+		default_kick_off, default_reset, default_alloc_reg_dma_buf,
+		default_dealloc_reg_dma, default_buf_reset_reg_dma,
+		default_last_command},
+	};
+
+	if (!reg_dma.drm_dev || !reg_dma.caps)
+		return;
+
+	switch (reg_dma.caps->version) {
+	case 1:
+		deinit_v1();
+		break;
+	default:
+		break;
+	}
+	memset(&reg_dma, 0, sizeof(reg_dma));
+	memcpy(&reg_dma.ops, &op.ops, sizeof(op.ops));
 }

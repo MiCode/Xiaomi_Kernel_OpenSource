@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -264,6 +264,14 @@ int msm_property_install_get_status(struct msm_property_info *info);
  */
 int msm_property_index(struct msm_property_info *info,
 		struct drm_property *property);
+
+/**
+ * msm_property_set_dirty - forcibly flag a property as dirty
+ * @info: Pointer to property info container struct
+ * @property_idx: Property index
+ * Returns: Zero on success
+ */
+int msm_property_set_dirty(struct msm_property_info *info, int property_idx);
 
 /**
  * msm_property_atomic_set - helper function for atomic property set callback

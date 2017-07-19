@@ -26,6 +26,11 @@
 #include "msm_gpu.h"
 #include "msm_mmu.h"
 
+static void *get_dmabuf_ptr(struct drm_gem_object *obj)
+{
+	return (obj && obj->import_attach) ? obj->import_attach->dmabuf : NULL;
+}
+
 static dma_addr_t physaddr(struct drm_gem_object *obj)
 {
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
@@ -285,31 +290,61 @@ uint64_t msm_gem_mmap_offset(struct drm_gem_object *obj)
 	return offset;
 }
 
+static void obj_remove_domain(struct msm_gem_vma *domain)
+{
+	if (domain) {
+		list_del(&domain->list);
+		kfree(domain);
+	}
+}
+
 static void
 put_iova(struct drm_gem_object *obj)
 {
 	struct drm_device *dev = obj->dev;
-	struct msm_drm_private *priv = obj->dev->dev_private;
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
-	int id;
+	struct msm_gem_vma *domain, *tmp;
 
 	WARN_ON(!mutex_is_locked(&dev->struct_mutex));
 
-	for (id = 0; id < ARRAY_SIZE(msm_obj->domain); id++) {
-		struct msm_mmu *mmu = priv->mmus[id];
-		if (mmu && msm_obj->domain[id].iova) {
-			uint32_t offset = msm_obj->domain[id].iova;
-
-			if (obj->import_attach && mmu->funcs->unmap_dma_buf)
-				mmu->funcs->unmap_dma_buf(mmu, msm_obj->sgt,
-						obj->import_attach->dmabuf,
-						DMA_BIDIRECTIONAL);
-			else
-				mmu->funcs->unmap(mmu, offset, msm_obj->sgt,
-						obj->size);
-			msm_obj->domain[id].iova = 0;
+	list_for_each_entry_safe(domain, tmp, &msm_obj->domains, list) {
+		if (iommu_present(&platform_bus_type)) {
+			msm_gem_unmap_vma(domain->aspace, domain,
+				msm_obj->sgt, get_dmabuf_ptr(obj));
 		}
+
+		obj_remove_domain(domain);
 	}
+}
+
+static struct msm_gem_vma *obj_add_domain(struct drm_gem_object *obj,
+		struct msm_gem_address_space *aspace)
+{
+	struct msm_gem_object *msm_obj = to_msm_bo(obj);
+	struct msm_gem_vma *domain = kzalloc(sizeof(*domain), GFP_KERNEL);
+
+	if (!domain)
+		return ERR_PTR(-ENOMEM);
+
+	domain->aspace = aspace;
+
+	list_add_tail(&domain->list, &msm_obj->domains);
+
+	return domain;
+}
+
+static struct msm_gem_vma *obj_get_domain(struct drm_gem_object *obj,
+		struct msm_gem_address_space *aspace)
+{
+	struct msm_gem_object *msm_obj = to_msm_bo(obj);
+	struct msm_gem_vma *domain;
+
+	list_for_each_entry(domain, &msm_obj->domains, list) {
+		if (domain->aspace == aspace)
+			return domain;
+	}
+
+	return NULL;
 }
 
 /* should be called under struct_mutex.. although it can be called
@@ -319,65 +354,65 @@ put_iova(struct drm_gem_object *obj)
  * That means when I do eventually need to add support for unpinning
  * the refcnt counter needs to be atomic_t.
  */
-int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
-		uint32_t *iova)
+int msm_gem_get_iova_locked(struct drm_gem_object *obj,
+		struct msm_gem_address_space *aspace, uint32_t *iova)
 {
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
+	struct page **pages;
+	struct msm_gem_vma *domain;
 	int ret = 0;
 
-	if (!msm_obj->domain[id].iova) {
-		struct msm_drm_private *priv = obj->dev->dev_private;
-		struct page **pages = get_pages(obj);
+	if (!iommu_present(&platform_bus_type)) {
+		pages = get_pages(obj);
 
 		if (IS_ERR(pages))
 			return PTR_ERR(pages);
 
-		if (iommu_present(&platform_bus_type)) {
-			struct msm_mmu *mmu = priv->mmus[id];
-
-			if (WARN_ON(!mmu))
-				return -EINVAL;
-
-			if (obj->import_attach && mmu->funcs->map_dma_buf) {
-				ret = mmu->funcs->map_dma_buf(mmu, msm_obj->sgt,
-						obj->import_attach->dmabuf,
-						DMA_BIDIRECTIONAL,
-						msm_obj->flags);
-				if (ret) {
-					DRM_ERROR("Unable to map dma buf\n");
-					return ret;
-				}
-			}
-			msm_obj->domain[id].iova =
-				sg_dma_address(msm_obj->sgt->sgl);
-		} else {
-			WARN_ONCE(1, "physical address being used\n");
-			msm_obj->domain[id].iova = physaddr(obj);
-		}
+		*iova = physaddr(obj);
+		return 0;
 	}
 
-	if (!ret)
-		*iova = msm_obj->domain[id].iova;
+	domain = obj_get_domain(obj, aspace);
+
+	if (!domain) {
+		domain = obj_add_domain(obj, aspace);
+		if (IS_ERR(domain))
+			return PTR_ERR(domain);
+
+		pages = get_pages(obj);
+		if (IS_ERR(pages)) {
+			obj_remove_domain(domain);
+			return PTR_ERR(pages);
+		}
+
+		ret = msm_gem_map_vma(aspace, domain, msm_obj->sgt,
+			get_dmabuf_ptr(obj),
+			msm_obj->flags);
+	}
+
+	if (!ret && domain)
+		*iova = domain->iova;
+	else
+		obj_remove_domain(domain);
 
 	return ret;
 }
 
 /* get iova, taking a reference.  Should have a matching put */
-int msm_gem_get_iova(struct drm_gem_object *obj, int id, uint32_t *iova)
+int msm_gem_get_iova(struct drm_gem_object *obj,
+		struct msm_gem_address_space *aspace, uint32_t *iova)
 {
-	struct msm_gem_object *msm_obj = to_msm_bo(obj);
+	struct msm_gem_vma *domain;
 	int ret;
 
-	/* this is safe right now because we don't unmap until the
-	 * bo is deleted:
-	 */
-	if (msm_obj->domain[id].iova) {
-		*iova = msm_obj->domain[id].iova;
+	domain = obj_get_domain(obj, aspace);
+	if (domain) {
+		*iova = domain->iova;
 		return 0;
 	}
 
 	mutex_lock(&obj->dev->struct_mutex);
-	ret = msm_gem_get_iova_locked(obj, id, iova);
+	ret = msm_gem_get_iova_locked(obj, aspace, iova);
 	mutex_unlock(&obj->dev->struct_mutex);
 	return ret;
 }
@@ -385,14 +420,18 @@ int msm_gem_get_iova(struct drm_gem_object *obj, int id, uint32_t *iova)
 /* get iova without taking a reference, used in places where you have
  * already done a 'msm_gem_get_iova()'.
  */
-uint32_t msm_gem_iova(struct drm_gem_object *obj, int id)
+uint32_t msm_gem_iova(struct drm_gem_object *obj,
+		struct msm_gem_address_space *aspace)
 {
-	struct msm_gem_object *msm_obj = to_msm_bo(obj);
-	WARN_ON(!msm_obj->domain[id].iova);
-	return msm_obj->domain[id].iova;
+	struct msm_gem_vma *domain = obj_get_domain(obj, aspace);
+
+	WARN_ON(!domain);
+
+	return domain ? domain->iova : 0;
 }
 
-void msm_gem_put_iova(struct drm_gem_object *obj, int id)
+void msm_gem_put_iova(struct drm_gem_object *obj,
+		struct msm_gem_address_space *aspace)
 {
 	// XXX TODO ..
 	// NOTE: probably don't need a _locked() version.. we wouldn't
@@ -644,6 +683,7 @@ static void describe_fence(struct fence *fence, const char *type,
 void msm_gem_describe(struct drm_gem_object *obj, struct seq_file *m)
 {
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
+	struct msm_gem_vma *domain;
 	struct reservation_object *robj = msm_obj->resv;
 	struct reservation_object_list *fobj;
 	struct fence *fence;
@@ -666,6 +706,7 @@ void msm_gem_describe(struct drm_gem_object *obj, struct seq_file *m)
 	}
 
 	seq_printf(m, "%08x: %c %2d (%2d) %08llx %p %zu%s\n",
+
 			msm_obj->flags, is_active(msm_obj) ? 'A' : 'I',
 			obj->name, obj->refcount.refcount.counter,
 			off, msm_obj->vaddr, obj->size, madv);
@@ -685,6 +726,12 @@ void msm_gem_describe(struct drm_gem_object *obj, struct seq_file *m)
 	if (fence)
 		describe_fence(fence, "Exclusive", m);
 	rcu_read_unlock();
+
+	/* FIXME: we need to print the address space here too */
+	list_for_each_entry(domain, &msm_obj->domains, list)
+		seq_printf(m, " %08llx", domain->iova);
+
+	seq_puts(m, "\n");
 }
 
 void msm_gem_describe_objects(struct list_head *list, struct seq_file *m)
@@ -721,7 +768,8 @@ void msm_gem_free_object(struct drm_gem_object *obj)
 
 	if (obj->import_attach) {
 		if (msm_obj->vaddr)
-			dma_buf_vunmap(obj->import_attach->dmabuf, msm_obj->vaddr);
+			dma_buf_vunmap(obj->import_attach->dmabuf,
+				msm_obj->vaddr);
 
 		/* Don't drop the pages for imported dmabuf, as they are not
 		 * ours, just free the array we allocated:
@@ -776,7 +824,6 @@ static int msm_gem_new_impl(struct drm_device *dev,
 {
 	struct msm_drm_private *priv = dev->dev_private;
 	struct msm_gem_object *msm_obj;
-	unsigned sz;
 	bool use_vram = false;
 
 	switch (flags & MSM_BO_CACHE_MASK) {
@@ -798,16 +845,17 @@ static int msm_gem_new_impl(struct drm_device *dev,
 	if (WARN_ON(use_vram && !priv->vram.size))
 		return -EINVAL;
 
-	sz = sizeof(*msm_obj);
-	if (use_vram)
-		sz += sizeof(struct drm_mm_node);
-
-	msm_obj = kzalloc(sz, GFP_KERNEL);
+	msm_obj = kzalloc(sizeof(*msm_obj), GFP_KERNEL);
 	if (!msm_obj)
 		return -ENOMEM;
 
-	if (use_vram)
-		msm_obj->vram_node = (void *)&msm_obj[1];
+	if (use_vram) {
+		struct msm_gem_vma *domain = obj_add_domain(&msm_obj->base,
+				NULL);
+
+		if (!IS_ERR(domain))
+			msm_obj->vram_node = &domain->node;
+	}
 
 	msm_obj->flags = flags;
 	msm_obj->madv = MSM_MADV_WILLNEED;
@@ -820,6 +868,8 @@ static int msm_gem_new_impl(struct drm_device *dev,
 	}
 
 	INIT_LIST_HEAD(&msm_obj->submit_entry);
+	INIT_LIST_HEAD(&msm_obj->domains);
+
 	list_add_tail(&msm_obj->mm_list, &priv->inactive_list);
 
 	*obj = &msm_obj->base;

@@ -5787,7 +5787,7 @@ void idle_task_exit(void)
 	BUG_ON(cpu_online(smp_processor_id()));
 
 	if (mm != &init_mm) {
-		switch_mm_irqs_off(mm, &init_mm, current);
+		switch_mm(mm, &init_mm, current);
 		finish_arch_post_lock_switch();
 	}
 	mmdrop(mm);
@@ -8052,6 +8052,20 @@ int sched_cpu_deactivate(unsigned int cpu)
 	int ret;
 
 	set_cpu_active(cpu, false);
+	/*
+	 * We've cleared cpu_active_mask, wait for all preempt-disabled and RCU
+	 * users of this state to go away such that all new such users will
+	 * observe it.
+	 *
+	 * For CONFIG_PREEMPT we have preemptible RCU and its sync_rcu() might
+	 * not imply sync_sched(), so wait for both.
+	 *
+	 * Do sync before park smpboot threads to take care the rcu boost case.
+	 */
+	if (IS_ENABLED(CONFIG_PREEMPT))
+		synchronize_rcu_mult(call_rcu, call_rcu_sched);
+	else
+		synchronize_rcu();
 
 	if (!sched_smp_initialized)
 		return 0;
@@ -9122,6 +9136,32 @@ int sched_rr_handler(struct ctl_table *table, int write,
 	mutex_unlock(&mutex);
 	return ret;
 }
+
+#ifdef CONFIG_PROC_SYSCTL
+int sched_updown_migrate_handler(struct ctl_table *table, int write,
+				 void __user *buffer, size_t *lenp,
+				 loff_t *ppos)
+{
+	int ret;
+	unsigned int *data = (unsigned int *)table->data;
+	unsigned int old_val;
+	static DEFINE_MUTEX(mutex);
+
+	mutex_lock(&mutex);
+	old_val = *data;
+
+	ret = proc_douintvec_capacity(table, write, buffer, lenp, ppos);
+
+	if (!ret && write &&
+	    sysctl_sched_capacity_margin > sysctl_sched_capacity_margin_down) {
+		ret = -EINVAL;
+		*data = old_val;
+	}
+	mutex_unlock(&mutex);
+
+	return ret;
+}
+#endif
 
 #ifdef CONFIG_CGROUP_SCHED
 

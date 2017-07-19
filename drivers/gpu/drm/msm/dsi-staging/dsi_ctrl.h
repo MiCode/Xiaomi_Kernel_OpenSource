@@ -138,33 +138,26 @@ struct dsi_ctrl_state_info {
 
 /**
  * struct dsi_ctrl_interrupts - define interrupt information
- * @irq:                   IRQ id for the DSI controller.
- * @intr_lock:             Spinlock to protect access to interrupt registers.
- * @interrupt_status:      Status interrupts which need to be serviced.
- * @error_status:          Error interurpts which need to be serviced.
- * @interrupts_enabled:    Status interrupts which are enabled.
- * @errors_enabled:        Error interrupts which are enabled.
+ * @irq_lock:            Spinlock for ISR handler.
+ * @irq_num:             Linux interrupt number associated with device.
+ * @irq_stat_mask:       Hardware mask of currently enabled interrupts.
+ * @irq_stat_refcount:   Number of times each interrupt has been requested.
+ * @irq_stat_cb:         Status IRQ callback definitions.
  * @cmd_dma_done:          Completion signal for DSI_CMD_MODE_DMA_DONE interrupt
  * @vid_frame_done:        Completion signal for DSI_VIDEO_MODE_FRAME_DONE int.
  * @cmd_frame_done:        Completion signal for DSI_CMD_FRAME_DONE interrupt.
- * @interrupt_done_work:   Work item for servicing status interrupts.
- * @error_status_work:     Work item for servicing error interrupts.
  */
 struct dsi_ctrl_interrupts {
-	u32 irq;
-	spinlock_t intr_lock; /* protects access to interrupt registers */
-	u32 interrupt_status;
-	u64 error_status;
-
-	u32 interrupts_enabled;
-	u64 errors_enabled;
+	spinlock_t irq_lock;
+	int irq_num;
+	uint32_t irq_stat_mask;
+	int irq_stat_refcount[DSI_STATUS_INTERRUPT_COUNT];
+	struct dsi_event_cb_info irq_stat_cb[DSI_STATUS_INTERRUPT_COUNT];
 
 	struct completion cmd_dma_done;
 	struct completion vid_frame_done;
 	struct completion cmd_frame_done;
-
-	struct work_struct interrupt_done_work;
-	struct work_struct error_status_work;
+	struct completion bta_done;
 };
 
 /**
@@ -180,7 +173,7 @@ struct dsi_ctrl_interrupts {
  * @hw:                  DSI controller hardware object.
  * @current_state:       Current driver and hardware state.
  * @clk_cb:		 Callback for DSI clock control.
- * @int_info:            Interrupt information.
+ * @irq_info:            Interrupt information.
  * @clk_info:            Clock information.
  * @clk_freq:            DSi Link clock frequency information.
  * @pwr_info:            Power information.
@@ -212,7 +205,8 @@ struct dsi_ctrl {
 	struct dsi_ctrl_state_info current_state;
 	struct clk_ctrl_cb clk_cb;
 
-	struct dsi_ctrl_interrupts int_info;
+	struct dsi_ctrl_interrupts irq_info;
+
 	/* Clock and power states */
 	struct dsi_ctrl_clk_info clk_info;
 	struct link_clk_freq clk_freq;
@@ -558,6 +552,23 @@ int dsi_ctrl_set_clamp_state(struct dsi_ctrl *dsi_Ctrl,
  */
 int dsi_ctrl_set_clock_source(struct dsi_ctrl *dsi_ctrl,
 			      struct dsi_clk_link_set *source_clks);
+
+/**
+ * dsi_ctrl_enable_status_interrupt() - enable status interrupts
+ * @dsi_ctrl:        DSI controller handle.
+ * @intr_idx:        Index interrupt to disable.
+ * @event_info:      Pointer to event callback definition
+ */
+void dsi_ctrl_enable_status_interrupt(struct dsi_ctrl *dsi_ctrl,
+		uint32_t intr_idx, struct dsi_event_cb_info *event_info);
+
+/**
+ * dsi_ctrl_disable_status_interrupt() - disable status interrupts
+ * @dsi_ctrl:        DSI controller handle.
+ * @intr_idx:        Index interrupt to disable.
+ */
+void dsi_ctrl_disable_status_interrupt(
+		struct dsi_ctrl *dsi_ctrl, uint32_t intr_idx);
 
 /**
  * dsi_ctrl_drv_register() - register platform driver for dsi controller

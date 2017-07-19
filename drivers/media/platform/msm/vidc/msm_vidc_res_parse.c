@@ -27,6 +27,8 @@ enum clock_properties {
 	CLOCK_PROP_HAS_MEM_RETENTION    = 1 << 1,
 };
 
+#define PERF_GOV "performance"
+
 static inline struct device *msm_iommu_get_ctx(const char *ctx_name)
 {
 	return NULL;
@@ -274,12 +276,12 @@ static int msm_vidc_load_subcache_info(struct msm_vidc_platform_resources *res)
 			"cache-slice-names", c, &vsc->name);
 	}
 
-	res->sys_cache_enabled = true;
+	res->sys_cache_present = true;
 
 	return 0;
 
 err_load_subcache_table_fail:
-	res->sys_cache_enabled = false;
+	res->sys_cache_present = false;
 	subcaches->count = 0;
 	subcaches->subcache_tbl = NULL;
 
@@ -369,19 +371,19 @@ static int msm_vidc_load_platform_version_table(
 	return 0;
 }
 
+/* A comparator to compare loads (needed later on) */
+static int cmp(const void *a, const void *b)
+{
+	/* want to sort in reverse so flip the comparison */
+	return ((struct allowed_clock_rates_table *)b)->clock_rate -
+		((struct allowed_clock_rates_table *)a)->clock_rate;
+}
+
 static int msm_vidc_load_allowed_clocks_table(
 		struct msm_vidc_platform_resources *res)
 {
 	int rc = 0;
 	struct platform_device *pdev = res->pdev;
-
-	/* A comparator to compare loads (needed later on) */
-	int cmp(const void *a, const void *b)
-	{
-		/* want to sort in reverse so flip the comparison */
-		return ((struct allowed_clock_rates_table *)b)->clock_rate -
-			((struct allowed_clock_rates_table *)a)->clock_rate;
-	}
 
 	if (!of_find_property(pdev->dev.of_node,
 			"qcom,allowed-clock-rates", NULL)) {
@@ -426,6 +428,8 @@ static int msm_vidc_populate_bus(struct device *dev,
 	buses->bus_tbl = temp_table;
 	bus = &buses->bus_tbl[buses->count];
 
+	memset(bus, 0x0, sizeof(struct bus_info));
+
 	rc = of_property_read_string(dev->of_node, "label", &temp_name);
 	if (rc) {
 		dprintk(VIDC_ERR, "'label' not found in node\n");
@@ -457,8 +461,11 @@ static int msm_vidc_populate_bus(struct device *dev,
 		rc = 0;
 		dprintk(VIDC_DBG,
 				"'qcom,bus-governor' not found, default to performance governor\n");
-		bus->governor = "performance";
+		bus->governor = PERF_GOV;
 	}
+
+	if (!strcmp(bus->governor, PERF_GOV))
+		bus->is_prfm_gov_used = true;
 
 	rc = of_property_read_u32_array(dev->of_node, "qcom,bus-range-kbps",
 			range, ARRAY_SIZE(range));

@@ -1970,9 +1970,6 @@ retry:
 
 				if (sysctl_sched_cstate_aware)
 					cpu_idle_idx =
-					    (cpu == smp_processor_id() ||
-					     cpu_rq(cpu)->nr_running) ?
-					     -1 :
 					     idle_get_state_idx(cpu_rq(cpu));
 
 				if (add_capacity_margin(new_util_cum) <

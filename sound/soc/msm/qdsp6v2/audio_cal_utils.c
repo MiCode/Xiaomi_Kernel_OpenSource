@@ -356,6 +356,15 @@ done:
 	return cal_type;
 }
 
+/**
+ * cal_utils_create_cal_types
+ *
+ * @num_cal_types: number of types
+ * @cal_type: pointer to the cal types pointer
+ * @info: pointer to info
+ *
+ * Returns 0 on success, EINVAL otherwise
+ */
 int cal_utils_create_cal_types(int num_cal_types,
 			struct cal_type_data **cal_type,
 			struct cal_type_info *info)
@@ -411,6 +420,7 @@ int cal_utils_create_cal_types(int num_cal_types,
 done:
 	return ret;
 }
+EXPORT_SYMBOL(cal_utils_create_cal_types);
 
 static void delete_cal_block(struct cal_block_data *cal_block)
 {
@@ -497,6 +507,13 @@ done:
 	return;
 }
 
+/**
+ * cal_utils_get_only_cal_block
+ *
+ * @cal_type: pointer to the cal type
+ *
+ * Returns cal_block structure
+ */
 struct cal_block_data *cal_utils_get_only_cal_block(
 			struct cal_type_data *cal_type)
 {
@@ -516,7 +533,16 @@ struct cal_block_data *cal_utils_get_only_cal_block(
 done:
 	return cal_block;
 }
+EXPORT_SYMBOL(cal_utils_get_only_cal_block);
 
+/**
+ * cal_utils_get_only_cal_block
+ *
+ * @cal_block: pointer to cal block struct
+ * @user_data: pointer to user data
+ *
+ * Returns true on match
+ */
 bool cal_utils_match_buf_num(struct cal_block_data *cal_block,
 					void *user_data)
 {
@@ -528,6 +554,7 @@ bool cal_utils_match_buf_num(struct cal_block_data *cal_block,
 
 	return ret;
 }
+EXPORT_SYMBOL(cal_utils_match_buf_num);
 
 static struct cal_block_data *get_matching_cal_block(
 					struct cal_type_data *cal_type,
@@ -759,6 +786,17 @@ done:
 	return ret;
 }
 
+/**
+ * cal_utils_alloc_cal
+ *
+ * @data_size: size of data to allocate
+ * @data: data pointer
+ * @cal_type: pointer to the cal type
+ * @client_info_size: client info size
+ * @client_info: pointer to client info
+ *
+ * Returns 0 on success, appropriate error code otherwise
+ */
 int cal_utils_alloc_cal(size_t data_size, void *data,
 			struct cal_type_data *cal_type,
 			size_t client_info_size, void *client_info)
@@ -827,7 +865,17 @@ err:
 done:
 	return ret;
 }
+EXPORT_SYMBOL(cal_utils_alloc_cal);
 
+/**
+ * cal_utils_dealloc_cal
+ *
+ * @data_size: size of data to allocate
+ * @data: data pointer
+ * @cal_type: pointer to the cal type
+ *
+ * Returns 0 on success, appropriate error code otherwise
+ */
 int cal_utils_dealloc_cal(size_t data_size, void *data,
 			struct cal_type_data *cal_type)
 {
@@ -887,7 +935,19 @@ err:
 done:
 	return ret;
 }
+EXPORT_SYMBOL(cal_utils_dealloc_cal);
 
+/**
+ * cal_utils_set_cal
+ *
+ * @data_size: size of data to allocate
+ * @data: data pointer
+ * @cal_type: pointer to the cal type
+ * @client_info_size: client info size
+ * @client_info: pointer to client info
+ *
+ * Returns 0 on success, appropriate error code otherwise
+ */
 int cal_utils_set_cal(size_t data_size, void *data,
 			struct cal_type_data *cal_type,
 			size_t client_info_size, void *client_info)
@@ -967,3 +1027,4 @@ err:
 done:
 	return ret;
 }
+EXPORT_SYMBOL(cal_utils_set_cal);
