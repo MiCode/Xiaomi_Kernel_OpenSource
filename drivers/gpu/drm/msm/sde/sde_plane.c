@@ -1753,7 +1753,7 @@ static void sde_plane_rot_calc_cfg(struct drm_plane *plane,
 			drm_rect_height(&rstate->out_rot_rect) >> 16,
 			rstate->out_rot_rect.x1 >> 16,
 			rstate->out_rot_rect.y1 >> 16);
-	SDE_EVT32_VERBOSE(DRMID(plane), rstate->sequence_id,
+	SDE_EVT32(DRMID(plane), rstate->sequence_id,
 			rstate->out_xpos, rstate->nplane,
 			in_rot->x1 >> 16, in_rot->y1 >> 16,
 			drm_rect_width(in_rot) >> 16,
@@ -2353,16 +2353,18 @@ static void sde_plane_rot_atomic_update(struct drm_plane *plane,
 	sde_plane_rot_submit_command(plane, state, SDE_HW_ROT_CMD_COMMIT);
 }
 
-/**
- * sde_plane_rot_flush - perform final flush related rotator options
- * @plane: Pointer to drm plane
- * @pstate: Pointer to sde plane state
- */
-static void sde_plane_rot_flush(struct drm_plane *plane,
-		struct sde_plane_state *pstate)
+void sde_plane_kickoff(struct drm_plane *plane)
 {
-	if (!plane || !pstate || !pstate->rot.rot_hw ||
-			!pstate->rot.rot_hw->ops.commit)
+	struct sde_plane_state *pstate;
+
+	if (!plane || !plane->state) {
+		SDE_ERROR("invalid plane\n");
+		return;
+	}
+
+	pstate = to_sde_plane_state(plane->state);
+
+	if (!pstate->rot.rot_hw || !pstate->rot.rot_hw->ops.commit)
 		return;
 
 	pstate->rot.rot_hw->ops.commit(pstate->rot.rot_hw,
@@ -3140,10 +3142,6 @@ exit:
 	return ret;
 }
 
-/**
- * sde_plane_flush - final plane operations before commit flush
- * @plane: Pointer to drm plane structure
- */
 void sde_plane_flush(struct drm_plane *plane)
 {
 	struct sde_plane *psde;
@@ -3177,9 +3175,6 @@ void sde_plane_flush(struct drm_plane *plane)
 	/* flag h/w flush complete */
 	if (plane->state)
 		pstate->pending = false;
-
-	/* signal inline rotator start */
-	sde_plane_rot_flush(plane, pstate);
 }
 
 static int sde_plane_sspp_atomic_update(struct drm_plane *plane,
