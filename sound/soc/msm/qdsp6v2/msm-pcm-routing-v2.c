@@ -120,17 +120,13 @@ static const char * const lsm_port_text[] = {
 };
 
 struct msm_pcm_route_bdai_pp_params {
-	u16 port_id; /* AFE port ID */
 	unsigned long pp_params_config;
 	bool mute_on;
 	int latency;
 };
 
 static struct msm_pcm_route_bdai_pp_params
-	msm_bedais_pp_params[MSM_BACKEND_DAI_PP_PARAMS_REQ_MAX] = {
-	{HDMI_RX, 0, 0, 0},
-	{DISPLAY_PORT_RX, 0, 0, 0},
-};
+	msm_bedais_pp_params[MSM_BACKEND_DAI_MAX];
 
 /*
  * The be_dai_name_table is passed to HAL so that it can specify the
@@ -144,6 +140,7 @@ struct msm_pcm_route_bdai_name {
 };
 static struct msm_pcm_route_bdai_name be_dai_name_table[MSM_BACKEND_DAI_MAX];
 
+static bool msm_pcm_routing_test_pp_param(int be_idx, long param_bit);
 static int msm_routing_send_device_pp_params(int port_id,  int copp_idx,
 					     int fe_id);
 
@@ -955,7 +952,7 @@ static void msm_pcm_routing_build_matrix(int fedai_id, int sess_type,
 					 uint32_t passthr_mode)
 {
 	int i, port_type, j, num_copps = 0;
-	struct route_payload payload;
+	struct route_payload payload = { {0} };
 
 	port_type = ((path_type == ADM_PATH_PLAYBACK ||
 		      path_type == ADM_PATH_COMPRESSED_RX) ?
@@ -985,6 +982,11 @@ static void msm_pcm_routing_build_matrix(int fedai_id, int sess_type,
 						fe_dai_app_type_cfg
 							[fedai_id][sess_type][i]
 								.sample_rate;
+					if (msm_pcm_routing_test_pp_param(i,
+					    ADM_PP_PARAM_LIMITER_BIT))
+						set_bit(ADM_STATUS_LIMITER,
+							&payload.route_status
+							[num_copps]);
 					num_copps++;
 				}
 			}
@@ -1090,7 +1092,7 @@ int msm_pcm_routing_reg_phy_compr_stream(int fe_id, int perf_mode,
 		port_type = MSM_AFE_PORT_TYPE_RX;
 	} else if (stream_type == SNDRV_PCM_STREAM_CAPTURE) {
 		session_type = SESSION_TYPE_TX;
-		if (passthr_mode != LEGACY_PCM)
+		if ((passthr_mode != LEGACY_PCM) && (passthr_mode != LISTEN))
 			path_type = ADM_PATH_COMPRESSED_TX;
 		else
 			path_type = ADM_PATH_LIVE_REC;
@@ -1206,6 +1208,11 @@ int msm_pcm_routing_reg_phy_compr_stream(int fe_id, int perf_mode,
 						fe_dai_app_type_cfg
 							[fe_id][session_type][i]
 								.sample_rate;
+					if (msm_pcm_routing_test_pp_param(i,
+					    ADM_PP_PARAM_LIMITER_BIT))
+						set_bit(ADM_STATUS_LIMITER,
+							&payload.route_status
+							[num_copps]);
 					num_copps++;
 				}
 			}
@@ -1436,6 +1443,11 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 						fe_dai_app_type_cfg
 							[fedai_id][session_type]
 							[i].sample_rate;
+					if (msm_pcm_routing_test_pp_param(i,
+					    ADM_PP_PARAM_LIMITER_BIT))
+						set_bit(ADM_STATUS_LIMITER,
+							&payload.route_status
+							[num_copps]);
 					num_copps++;
 				}
 			}
@@ -15335,7 +15347,7 @@ done:
 static int msm_routing_send_device_pp_params(int port_id, int copp_idx,
 					     int fe_id)
 {
-	int index, topo_id, be_idx;
+	int topo_id, be_idx;
 	unsigned long pp_config = 0;
 	bool mute_on;
 	int latency;
@@ -15359,16 +15371,6 @@ static int msm_routing_send_device_pp_params(int port_id, int copp_idx,
 		return  -EINVAL;
 	}
 
-	for (index = 0; index < MSM_BACKEND_DAI_PP_PARAMS_REQ_MAX; index++) {
-		if (msm_bedais_pp_params[index].port_id == port_id)
-			break;
-	}
-	if (index >= MSM_BACKEND_DAI_PP_PARAMS_REQ_MAX) {
-		pr_err("%s: Invalid backend pp params index %d\n",
-			__func__, index);
-		return -EINVAL;
-	}
-
 	topo_id = adm_get_topology_for_port_copp_idx(port_id, copp_idx);
 	if (topo_id != COMPRESSED_PASSTHROUGH_DEFAULT_TOPOLOGY) {
 		pr_err("%s: Invalid passthrough topology 0x%x\n",
@@ -15380,11 +15382,11 @@ static int msm_routing_send_device_pp_params(int port_id, int copp_idx,
 		(msm_bedais[be_idx].passthr_mode[fe_id] == LISTEN))
 		compr_passthr_mode = false;
 
-	pp_config = msm_bedais_pp_params[index].pp_params_config;
+	pp_config = msm_bedais_pp_params[be_idx].pp_params_config;
 	if (test_bit(ADM_PP_PARAM_MUTE_BIT, &pp_config)) {
 		pr_debug("%s: ADM_PP_PARAM_MUTE\n", __func__);
 		clear_bit(ADM_PP_PARAM_MUTE_BIT, &pp_config);
-		mute_on = msm_bedais_pp_params[index].mute_on;
+		mute_on = msm_bedais_pp_params[be_idx].mute_on;
 		if ((msm_bedais[be_idx].active) && compr_passthr_mode)
 			adm_send_compressed_device_mute(port_id,
 								copp_idx,
@@ -15394,7 +15396,7 @@ static int msm_routing_send_device_pp_params(int port_id, int copp_idx,
 		pr_debug("%s: ADM_PP_PARAM_LATENCY\n", __func__);
 		clear_bit(ADM_PP_PARAM_LATENCY_BIT,
 			  &pp_config);
-		latency = msm_bedais_pp_params[index].latency;
+		latency = msm_bedais_pp_params[be_idx].latency;
 		if ((msm_bedais[be_idx].active) && compr_passthr_mode)
 			adm_send_compressed_device_latency(port_id,
 							   copp_idx,
@@ -15403,17 +15405,46 @@ static int msm_routing_send_device_pp_params(int port_id, int copp_idx,
 	return 0;
 }
 
+static bool msm_pcm_routing_test_pp_param(int be_idx, long param_bit)
+{
+	return test_bit(param_bit,
+		&msm_bedais_pp_params[be_idx].pp_params_config);
+}
+
+static void msm_routing_set_pp_param(long param_bit, int value)
+{
+	int be_idx;
+
+	if (value) {
+		for (be_idx = 0; be_idx < MSM_BACKEND_DAI_MAX; be_idx++)
+			set_bit(param_bit,
+				&msm_bedais_pp_params[be_idx].
+				pp_params_config);
+	} else {
+		for (be_idx = 0; be_idx < MSM_BACKEND_DAI_MAX; be_idx++)
+			clear_bit(param_bit,
+				&msm_bedais_pp_params[be_idx].
+				pp_params_config);
+	}
+}
+
 static int msm_routing_put_device_pp_params_mixer(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
 	int pp_id = ucontrol->value.integer.value[0];
+	int value = ucontrol->value.integer.value[1];
 	int port_id = 0;
-	int index, be_idx, i, topo_id, idx;
+	int be_idx, i, topo_id, idx;
 	bool mute;
 	int latency;
 	bool compr_passthr_mode = true;
 
 	pr_debug("%s: pp_id: 0x%x\n", __func__, pp_id);
+
+	if (pp_id == ADM_PP_PARAM_LIMITER_ID) {
+		msm_routing_set_pp_param(ADM_PP_PARAM_LIMITER_BIT, value);
+		goto done;
+	}
 
 	for (be_idx = 0; be_idx < MSM_BACKEND_DAI_MAX; be_idx++) {
 		port_id = msm_bedais[be_idx].port_id;
@@ -15424,16 +15455,6 @@ static int msm_routing_put_device_pp_params_mixer(struct snd_kcontrol *kcontrol,
 	if (be_idx >= MSM_BACKEND_DAI_MAX) {
 		pr_debug("%s: Invalid be id %d\n", __func__, be_idx);
 		return  -EINVAL;
-	}
-
-	for (index = 0; index < MSM_BACKEND_DAI_PP_PARAMS_REQ_MAX; index++) {
-		if (msm_bedais_pp_params[index].port_id == port_id)
-			break;
-	}
-	if (index >= MSM_BACKEND_DAI_PP_PARAMS_REQ_MAX) {
-		pr_err("%s: Invalid pp params backend index %d\n",
-			__func__, index);
-		return -EINVAL;
 	}
 
 	for_each_set_bit(i, &msm_bedais[be_idx].fe_sessions[0],
@@ -15458,22 +15479,20 @@ static int msm_routing_put_device_pp_params_mixer(struct snd_kcontrol *kcontrol,
 		switch (pp_id) {
 		case ADM_PP_PARAM_MUTE_ID:
 			pr_debug("%s: ADM_PP_PARAM_MUTE\n", __func__);
-			mute = ucontrol->value.integer.value[1] ? true : false;
-			msm_bedais_pp_params[index].mute_on = mute;
+			mute = value ? true : false;
+			msm_bedais_pp_params[be_idx].mute_on = mute;
 			set_bit(ADM_PP_PARAM_MUTE_BIT,
-				&msm_bedais_pp_params[index].pp_params_config);
+				&msm_bedais_pp_params[be_idx].pp_params_config);
 			if ((msm_bedais[be_idx].active) && compr_passthr_mode)
 				adm_send_compressed_device_mute(port_id,
 					idx, mute);
 			break;
 		case ADM_PP_PARAM_LATENCY_ID:
 			pr_debug("%s: ADM_PP_PARAM_LATENCY\n", __func__);
-			msm_bedais_pp_params[index].latency =
-				ucontrol->value.integer.value[1];
+			msm_bedais_pp_params[be_idx].latency = value;
 			set_bit(ADM_PP_PARAM_LATENCY_BIT,
-				&msm_bedais_pp_params[index].pp_params_config);
-			latency = msm_bedais_pp_params[index].latency =
-				ucontrol->value.integer.value[1];
+				&msm_bedais_pp_params[be_idx].pp_params_config);
+			latency = msm_bedais_pp_params[be_idx].latency = value;
 			if ((msm_bedais[be_idx].active) && compr_passthr_mode)
 				adm_send_compressed_device_latency(port_id,
 					idx, latency);
@@ -15485,6 +15504,7 @@ static int msm_routing_put_device_pp_params_mixer(struct snd_kcontrol *kcontrol,
 		}
 		}
 	}
+done:
 	return 0;
 }
 

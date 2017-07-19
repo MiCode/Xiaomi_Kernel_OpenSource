@@ -446,6 +446,88 @@ struct adm_param_data_v5 {
 	 */
 } __packed;
 
+
+struct param_data_v6 {
+	/* Unique ID of the module. */
+	u32		module_id;
+	/* Unique ID of the instance. */
+	u16		instance_id;
+	/* Reserved for future enhancements.
+	 * This field must be set to zero.
+	 */
+	u16		reserved;
+	/* Unique ID of the parameter. */
+	u32		param_id;
+	/* Data size of the param_id/module_id combination.
+	 * This value is a
+	 * multiple of 4 bytes.
+	 */
+	u32		param_size;
+} __packed;
+
+/* ADM_CMD_SET_MTMX_STRTR_DEV_PARAMS_V1 command is used to set
+ * calibration data to the ADSP Matrix Mixer the payload is
+ * of struct adm_cmd_set_mtmx_params_v1.
+ *
+ * ADM_CMD_GET_MTMX_STRTR_DEV_PARAMS_V1 can be used to get
+ * the calibration data from the ADSP Matrix Mixer and
+ * ADM_CMDRSP_GET_MTMX_STRTR_DEV_PARAMS_V1 is the response
+ * ioctl to ADM_CMD_GET_MTMX_STRTR_DEV_PARAMS_V1.
+ */
+#define ADM_CMD_SET_MTMX_STRTR_DEV_PARAMS_V1	0x00010367
+#define ADM_CMD_GET_MTMX_STRTR_DEV_PARAMS_V1	0x00010368
+#define ADM_CMDRSP_GET_MTMX_STRTR_DEV_PARAMS_V1	0x00010369
+
+/* Payload of the #define ADM_CMD_SET_MTMX_STRTR_DEV_PARAMS_V1 command.
+ * If the data_payload_addr_lsw and data_payload_addr_msw element
+ * are NULL, a series of struct param_data_v6 structures immediately
+ * follows, whose total size is payload_size bytes.
+ */
+struct adm_cmd_set_mtmx_params_v1 {
+	struct apr_hdr	hdr;
+	/* LSW of parameter data payload address.*/
+	u32		payload_addr_lsw;
+
+	/* MSW of parameter data payload address.*/
+	u32		payload_addr_msw;
+
+	/* Memory map handle returned by ADM_CMD_SHARED_MEM_MAP_REGIONS
+	 * command.
+	 * If mem_map_handle is zero it implies the message is in
+	 * the payload
+	 */
+	u32		mem_map_handle;
+
+	/* Size in bytes of the variable payload accompanying this
+	 * message or in shared memory. This is used for parsing
+	 * the parameter payload.
+	 */
+	u32		payload_size;
+
+	/* COPP ID/Device ID */
+	u16		copp_id;
+
+	/* For alignment, must be set to 0 */
+	u16		reserved;
+} __packed;
+
+struct enable_param_v6 {
+	/*
+	 * Specifies whether the Audio processing module is enabled.
+	 * This parameter is generic/common parameter to configure or
+	 * determine the state of any audio processing module.
+	 */
+	struct param_data_v6		param;
+
+	/* @values 0 : Disable 1: Enable */
+	uint32_t			enable;
+} __packed;
+
+/* Defined in ADSP as VOICE_MODULE_TX_STREAM_LIMITER but
+ * used for RX stream limiter on matrix input to ADM.
+ */
+#define ADM_MTMX_MODULE_STREAM_LIMITER  0x00010F15
+
 #define ASM_STREAM_CMD_REGISTER_PP_EVENTS 0x00013213
 #define ASM_STREAM_PP_EVENT 0x00013214
 #define ASM_STREAM_CMD_REGISTER_IEC_61937_FMT_UPDATE 0x13333
@@ -9224,7 +9306,6 @@ struct srs_trumedia_params {
 } __packed;
 /* SRS TruMedia end */
 
-#define AUDPROC_PARAM_ID_ENABLE		0x00010904
 #define ASM_STREAM_POSTPROC_TOPO_ID_SA_PLUS 0x1000FFFF
 /* DTS Eagle */
 #define AUDPROC_MODULE_ID_DTS_HPX_PREMIX 0x0001077C

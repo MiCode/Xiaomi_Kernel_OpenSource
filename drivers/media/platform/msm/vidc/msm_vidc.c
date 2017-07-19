@@ -550,7 +550,7 @@ static int __map_and_update_binfo(struct msm_vidc_inst *inst,
 		binfo->handle[i] = map_buffer(inst, &b->m.planes[i],
 				get_hal_buffer_type(inst, b));
 		if (!binfo->handle[i])
-			rc = -EINVAL;
+			return -EINVAL;
 
 		binfo->mapped[i] = true;
 		binfo->device_addr[i] = binfo->handle[i]->device_addr +
@@ -670,13 +670,13 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 
 		rc = __map_and_update_binfo(inst, binfo, b, i);
 		if (rc)
-			goto exit;
+			goto map_err;
 
 		/* We maintain one ref count for all planes*/
 		if (!i && is_dynamic_output_buffer_mode(b, inst)) {
 			rc = buf_ref_get(inst, binfo);
 			if (rc < 0)
-				goto exit;
+				goto map_err;
 		}
 		dprintk(VIDC_DBG,
 			"%s: [MAP] binfo = %pK, handle[%d] = %pK, device_addr = %pa, fd = %d, offset = %d, mapped = %d\n",
@@ -690,10 +690,14 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 	mutex_unlock(&inst->registeredbufs.lock);
 	return 0;
 
+map_err:
+	if (binfo->handle[0] && binfo->mapped[0])
+		msm_comm_smem_free(inst, binfo->handle[0]);
 exit:
 	kfree(binfo);
 	return rc;
 }
+
 int unmap_and_deregister_buf(struct msm_vidc_inst *inst,
 			struct buffer_info *binfo)
 {

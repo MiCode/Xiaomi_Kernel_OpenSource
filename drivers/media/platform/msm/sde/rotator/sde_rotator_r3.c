@@ -668,11 +668,11 @@ static void sde_hw_rotator_setup_fetchengine(struct sde_hw_rotator_context *ctx,
 
 	/*
 	 * Determine if traffic shaping is required. Only enable traffic
-	 * shaping when content is 4k@30fps. The actual traffic shaping
+	 * shaping when content is 4k@60fps. The actual traffic shaping
 	 * bandwidth calculation is done in output setup.
 	 */
 	if (((cfg->src_rect->w * cfg->src_rect->h) >= RES_UHD) &&
-			(cfg->fps <= 30)) {
+			(cfg->fps <= 60)) {
 		SDEROT_DBG("Enable Traffic Shaper\n");
 		ctx->is_traffic_shaping = true;
 	} else {

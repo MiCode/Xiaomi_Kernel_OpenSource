@@ -776,40 +776,6 @@ void msm_isp_check_for_output_error(struct vfe_device *vfe_dev,
 	}
 }
 
-static int msm_isp_check_sync_time(struct msm_vfe_src_info *src_info,
-			struct msm_isp_timestamp *ts,
-			struct master_slave_resource_info *ms_res)
-{
-	int i;
-	struct msm_vfe_src_info *master_src_info = NULL;
-	uint32_t master_time = 0, current_time;
-
-	if (!ms_res->src_sof_mask)
-		return 0;
-
-	for (i = 0; i < MAX_VFE * VFE_SRC_MAX; i++) {
-		if (ms_res->src_info[i] == NULL)
-			continue;
-		if (src_info == ms_res->src_info[i] ||
-			ms_res->src_info[i]->active == 0)
-			continue;
-		if (ms_res->src_sof_mask &
-			(1 << ms_res->src_info[i]->dual_hw_ms_info.index)) {
-			master_src_info = ms_res->src_info[i];
-			break;
-		}
-	}
-	if (!master_src_info)
-		return 0;
-	master_time = master_src_info->
-		dual_hw_ms_info.sof_info.mono_timestamp_ms;
-	current_time = ts->buf_time.tv_sec * 1000 +
-		ts->buf_time.tv_usec / 1000;
-	if ((current_time - master_time) > ms_res->sof_delta_threshold)
-		return 1;
-	return 0;
-}
-
 static void msm_isp_sync_dual_cam_frame_id(
 		struct vfe_device *vfe_dev,
 		struct master_slave_resource_info *ms_res,
@@ -824,24 +790,11 @@ static void msm_isp_sync_dual_cam_frame_id(
 
 	if (src_info->dual_hw_ms_info.sync_state ==
 		ms_res->dual_sync_mode) {
-		if (msm_isp_check_sync_time(src_info, ts, ms_res) == 0) {
-			(frame_src == VFE_PIX_0) ? src_info->frame_id +=
+		(frame_src == VFE_PIX_0) ? src_info->frame_id +=
 				vfe_dev->axi_data.src_info[frame_src].
 				sof_counter_step :
 			src_info->frame_id++;
-			return;
-		}
-		ms_res->src_sof_mask = 0;
-		ms_res->active_src_mask = 0;
-		for (i = 0; i < MAX_VFE * VFE_SRC_MAX; i++) {
-			if (ms_res->src_info[i] == NULL)
-				continue;
-			if (ms_res->src_info[i]->active == 0)
-				continue;
-			ms_res->src_info[i]->dual_hw_ms_info.
-				sync_state =
-				MSM_ISP_DUAL_CAM_ASYNC;
-		}
+		return;
 	}
 
 	/* find highest frame id */
