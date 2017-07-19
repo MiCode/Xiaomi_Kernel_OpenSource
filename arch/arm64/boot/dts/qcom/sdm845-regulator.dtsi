@@ -854,6 +854,25 @@
 			qcom,init-voltage = <880000>;
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LDO_LPM>;
 		};
+
+		pm8998_l1_ao: regulator-l1-ao {
+			regulator-name = "pm8998_l1_ao";
+			qcom,set = <RPMH_REGULATOR_SET_ACTIVE>;
+			regulator-min-microvolt = <880000>;
+			regulator-max-microvolt = <880000>;
+			qcom,init-voltage = <880000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LDO_LPM>;
+		};
+
+		regulator-l1-so {
+			regulator-name = "pm8998_l1_so";
+			qcom,set = <RPMH_REGULATOR_SET_SLEEP>;
+			regulator-min-microvolt = <880000>;
+			regulator-max-microvolt = <880000>;
+			qcom,init-voltage = <880000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_LDO_LPM>;
+			qcom,init-enable = <0>;
+		};
 	};
 
 	rpmh-regulator-ldoa2 {
