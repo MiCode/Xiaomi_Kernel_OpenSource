@@ -1163,9 +1163,11 @@ static irqreturn_t emac_wol_isr(int irq, void *data)
 
 	for (i = 0; i < QCA8337_NUM_PHYS ; i++) {
 		ret = mdiobus_read(adpt->phydev->bus, i, MII_INT_STATUS);
-
-		if ((ret & LINK_SUCCESS_INTERRUPT) || (ret & LINK_SUCCESS_BX))
+		if ((ret & LINK_SUCCESS_INTERRUPT) || (ret & LINK_SUCCESS_BX) ||
+		    (ret & WOL_INT))
 			val |= 1 << i;
+		if (QCA8337_PHY_ID != adpt->phydev->phy_id)
+			break;
 	}
 
 	pm_runtime_mark_last_busy(netdev->dev.parent);
@@ -1174,7 +1176,7 @@ static irqreturn_t emac_wol_isr(int irq, void *data)
 	if (!pm_runtime_status_suspended(adpt->netdev->dev.parent)) {
 		if (val)
 			emac_wol_gpio_irq(adpt, false);
-		if (val & WOL_INT)
+		if (ret & WOL_INT)
 			__pm_stay_awake(&adpt->link_wlock);
 	}
 	return IRQ_HANDLED;

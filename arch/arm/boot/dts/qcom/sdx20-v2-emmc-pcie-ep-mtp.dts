@@ -53,3 +53,19 @@
 
 	status = "ok";
 };
+
+&pcie_ep {
+	status = "ok";
+};
+
+&pcie0 {
+	status = "disabled";
+};
+
+&cnss_pcie {
+	status = "disabled";
+};
+
+&mhi_device {
+	status = "ok";
+};

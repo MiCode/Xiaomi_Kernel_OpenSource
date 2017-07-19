@@ -140,6 +140,12 @@ static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 
 	cnss_pr_dbg("daemon_support is %d\n", req.daemon_support);
 
+	req.wake_msi = cnss_get_wake_msi(plat_priv);
+	if (req.wake_msi) {
+		cnss_pr_dbg("WAKE MSI base data is %d\n", req.wake_msi);
+		req.wake_msi_valid = 1;
+	}
+
 	req_desc.max_msg_len = WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN;
 	req_desc.msg_id = QMI_WLFW_HOST_CAP_REQ_V01;
 	req_desc.ei_array = wlfw_host_cap_req_msg_v01_ei;
