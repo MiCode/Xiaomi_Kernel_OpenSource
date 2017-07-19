@@ -77,6 +77,8 @@ struct rpmh_mbox {
 	DECLARE_BITMAP(fast_req, RPMH_MAX_FAST_RES);
 	bool dirty;
 	bool in_solver_mode;
+	/* Cache sleep and wake requests sent as passthru */
+	struct rpmh_msg *passthru_cache[2 * RPMH_MAX_REQ_IN_BATCH];
 };
 
 struct rpmh_client {
@@ -111,17 +113,24 @@ static struct rpmh_msg *get_msg_from_pool(struct rpmh_client *rc)
 	return msg;
 }
 
+static void __free_msg_to_pool(struct rpmh_msg *rpm_msg)
+{
+	struct rpmh_mbox *rpm = rpm_msg->rc->rpmh;
+
+	/* If we allocated the pool, set it as available */
+	if (rpm_msg->bit >= 0 && rpm_msg->bit != RPMH_MAX_FAST_RES) {
+		bitmap_clear(rpm->fast_req, rpm_msg->bit, 1);
+	}
+}
+
 static void free_msg_to_pool(struct rpmh_msg *rpm_msg)
 {
 	struct rpmh_mbox *rpm = rpm_msg->rc->rpmh;
 	unsigned long flags;
 
-	/* If we allocated the pool, set it as available */
-	if (rpm_msg->bit >= 0 && rpm_msg->bit != RPMH_MAX_FAST_RES) {
-		spin_lock_irqsave(&rpm->lock, flags);
-		bitmap_clear(rpm->fast_req, rpm_msg->bit, 1);
-		spin_unlock_irqrestore(&rpm->lock, flags);
-	}
+	spin_lock_irqsave(&rpm->lock, flags);
+	__free_msg_to_pool(rpm_msg);
+	spin_unlock_irqrestore(&rpm->lock, flags);
 }
 
 static void rpmh_rx_cb(struct mbox_client *cl, void *msg)
@@ -511,6 +520,70 @@ int rpmh_write(struct rpmh_client *rc, enum rpmh_state state,
 }
 EXPORT_SYMBOL(rpmh_write);
 
+static int cache_passthru(struct rpmh_client *rc, struct rpmh_msg **rpm_msg,
+					int count)
+{
+	struct rpmh_mbox *rpm = rc->rpmh;
+	unsigned long flags;
+	int ret = 0;
+	int index = 0;
+	int i;
+
+	spin_lock_irqsave(&rpm->lock, flags);
+	while (rpm->passthru_cache[index])
+		index++;
+	if (index + count >=  2 * RPMH_MAX_REQ_IN_BATCH) {
+		ret = -ENOMEM;
+		goto fail;
+	}
+
+	for (i = 0; i < count; i++)
+		rpm->passthru_cache[index + i] = rpm_msg[i];
+fail:
+	spin_unlock_irqrestore(&rpm->lock, flags);
+
+	return ret;
+}
+
+static int flush_passthru(struct rpmh_client *rc)
+{
+	struct rpmh_mbox *rpm = rc->rpmh;
+	struct rpmh_msg *rpm_msg;
+	unsigned long flags;
+	int ret = 0;
+	int i;
+
+	/* Send Sleep/Wake requests to the controller, expect no response */
+	spin_lock_irqsave(&rpm->lock, flags);
+	for (i = 0; rpm->passthru_cache[i]; i++) {
+		rpm_msg = rpm->passthru_cache[i];
+		ret = mbox_send_controller_data(rc->chan, &rpm_msg->msg);
+		if (ret)
+			goto fail;
+	}
+fail:
+	spin_unlock_irqrestore(&rpm->lock, flags);
+
+	return ret;
+}
+
+static void invalidate_passthru(struct rpmh_client *rc)
+{
+	struct rpmh_mbox *rpm = rc->rpmh;
+	unsigned long flags;
+	int index = 0;
+	int i;
+
+	spin_lock_irqsave(&rpm->lock, flags);
+	while (rpm->passthru_cache[index])
+		index++;
+	for (i = 0; i < index; i++) {
+		__free_msg_to_pool(rpm->passthru_cache[i]);
+		rpm->passthru_cache[i] = NULL;
+	}
+	spin_unlock_irqrestore(&rpm->lock, flags);
+}
+
 /**
  * rpmh_write_passthru: Write multiple batches of RPMH commands without caching
  *
@@ -607,14 +680,11 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 			rpmh_tx_done(&rc->client, &rpm_msg[j]->msg, ret);
 		wait_for_tx_done(rc, &compl, addr, data);
 	} else {
-		/* Send Sleep requests to the controller, expect no response */
-		for (i = 0; i < count; i++) {
-			rpm_msg[i]->completion = NULL;
-			ret = mbox_send_controller_data(rc->chan,
-						&rpm_msg[i]->msg);
-			free_msg_to_pool(rpm_msg[i]);
-		}
-		return 0;
+		/*
+		 * Cache sleep/wake data in store.
+		 * But flush passthru first before flushing all other data.
+		 */
+		return cache_passthru(rc, rpm_msg, count);
 	}
 
 	return 0;
@@ -709,6 +779,8 @@ int rpmh_invalidate(struct rpmh_client *rc)
 
 	if (rpmh_standalone)
 		return 0;
+
+	invalidate_passthru(rc);
 
 	rpm = rc->rpmh;
 	rpm_msg.msg.invalidate = true;
@@ -822,6 +894,11 @@ int rpmh_flush(struct rpmh_client *rc)
 		return 0;
 	}
 	spin_unlock_irqrestore(&rpm->lock, flags);
+
+	/* First flush the cached passthru's */
+	ret = flush_passthru(rc);
+	if (ret)
+		return ret;
 
 	/*
 	 * Nobody else should be calling this function other than sleep,
