@@ -63,6 +63,11 @@
 		qcom,sde-dspp-off = <0x55000 0x57000 0x59000 0x5b000>;
 		qcom,sde-dspp-size = <0x17e0>;
 
+		qcom,sde-dest-scaler-top-off = <0x00061000>;
+		qcom,sde-dest-scaler-top-size = <0xc>;
+		qcom,sde-dest-scaler-off = <0x800 0x1000>;
+		qcom,sde-dest-scaler-size = <0x800>;
+
 		qcom,sde-wb-off = <0x66000>;
 		qcom,sde-wb-size = <0x2c8>;
 		qcom,sde-wb-xin-id = <6>;
@@ -128,6 +133,9 @@
 		qcom,sde-has-src-split;
 		qcom,sde-has-dim-layer;
 		qcom,sde-has-idle-pc;
+		qcom,sde-has-dest-scaler;
+		qcom,sde-max-dest-scaler-input-linewidth = <2048>;
+		qcom,sde-max-dest-scaler-output-linewidth = <2560>;
 		qcom,sde-max-bw-low-kbps = <9600000>;
 		qcom,sde-max-bw-high-kbps = <9600000>;
 		qcom,sde-dram-channels = <2>;
