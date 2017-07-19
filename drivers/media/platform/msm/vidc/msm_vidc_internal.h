@@ -132,6 +132,11 @@ enum buffer_owner {
 	MAX_OWNER
 };
 
+struct eos_buf {
+	struct list_head list;
+	struct msm_smem *smem;
+};
+
 struct internal_buf {
 	struct list_head list;
 	enum hal_buffer buffer_type;
@@ -270,6 +275,7 @@ struct msm_vidc_inst {
 	struct msm_vidc_list persistbufs;
 	struct msm_vidc_list pending_getpropq;
 	struct msm_vidc_list outputbufs;
+	struct msm_vidc_list eosbufs;
 	struct msm_vidc_list registeredbufs;
 	struct buffer_requirements buff_req;
 	void *mem_client;

@@ -1238,7 +1238,7 @@ static inline int vb2_bufq_init(struct msm_vidc_inst *inst,
 		q->ops = msm_venc_get_vb2q_ops();
 	q->mem_ops = &msm_vidc_vb2_mem_ops;
 	q->drv_priv = inst;
-	q->allow_zero_bytesused = 1;
+	q->allow_zero_bytesused = !V4L2_TYPE_IS_OUTPUT(type);
 	return vb2_queue_init(q);
 }
 
@@ -1356,6 +1356,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	INIT_MSM_VIDC_LIST(&inst->pending_getpropq);
 	INIT_MSM_VIDC_LIST(&inst->outputbufs);
 	INIT_MSM_VIDC_LIST(&inst->registeredbufs);
+	INIT_MSM_VIDC_LIST(&inst->eosbufs);
 
 	kref_init(&inst->kref);
 
@@ -1448,6 +1449,7 @@ fail_mem_client:
 	DEINIT_MSM_VIDC_LIST(&inst->pending_getpropq);
 	DEINIT_MSM_VIDC_LIST(&inst->outputbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->registeredbufs);
+	DEINIT_MSM_VIDC_LIST(&inst->eosbufs);
 
 	kfree(inst);
 	inst = NULL;
@@ -1473,6 +1475,7 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 			dprintk(VIDC_ERR,
 				"Failed to release scratch buffers\n");
 		}
+			msm_comm_release_eos_buffers(inst);
 
 		if (msm_comm_release_persist_buffers(inst)) {
 			dprintk(VIDC_ERR,
@@ -1516,6 +1519,7 @@ int msm_vidc_destroy(struct msm_vidc_inst *inst)
 	DEINIT_MSM_VIDC_LIST(&inst->pending_getpropq);
 	DEINIT_MSM_VIDC_LIST(&inst->outputbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->registeredbufs);
+	DEINIT_MSM_VIDC_LIST(&inst->eosbufs);
 
 	v4l2_fh_del(&inst->event_handler);
 	v4l2_fh_exit(&inst->event_handler);
