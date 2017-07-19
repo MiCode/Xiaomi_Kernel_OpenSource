@@ -624,16 +624,17 @@ static int seemp_logk_rtic_thread(void *data)
 
 			/* determine legitimacy of report */
 			if (report->report_valid &&
-				report->sequence_number <=
-					header->num_incidents &&
 				(last_sequence_number == 0
 					|| report->sequence_number >
 						last_sequence_number)) {
 				seemp_logk_rtic(report->report_type,
-					report->report.incident.actor,
-					report->report.incident.asset_id,
-					report->report.incident.asset_category,
-					report->report.incident.response);
+					report->actor,
+					/* leave this empty until
+					 * asset id is provided
+					 */
+					"",
+					report->asset_category,
+					report->response);
 				last_sequence_number = report->sequence_number;
 			} else {
 				last_pos = cur_pos - 1;
