@@ -27,18 +27,7 @@
 #include "cam_cpas_api.h"
 #include "cam_hw_intf.h"
 #include "cam_hw.h"
-
-#ifdef CONFIG_CAM_CDM_DBG
-#define CDM_CDBG(fmt, args...) pr_err(fmt, ##args)
-#else
-#define CDM_CDBG(fmt, args...) pr_debug(fmt, ##args)
-#endif
-
-#ifdef CONFIG_CAM_CDM_DUMP_DBG
-#define CDM_DUMP_CDBG(fmt, args...) pr_err(fmt, ##args)
-#else
-#define CDM_DUMP_CDBG(fmt, args...) pr_debug(fmt, ##args)
-#endif
+#include "cam_debug_util.h"
 
 #define CAM_MAX_SW_CDM_VERSION_SUPPORTED  1
 #define CAM_SW_CDM_INDEX                  0
