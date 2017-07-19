@@ -696,7 +696,6 @@ static u32 get_pipe_mdp_clk_rate(struct mdss_mdp_pipe *pipe,
 	if (flags & PERF_CALC_PIPE_APPLY_CLK_FUDGE)
 		rate = mdss_mdp_clk_fudge_factor(mixer, rate);
 
-	rate = min(mdata->max_mdp_clk_rate, rate);
 	return rate;
 }
 
