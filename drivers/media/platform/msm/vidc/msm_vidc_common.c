@@ -2172,6 +2172,26 @@ int msm_comm_vb2_buffer_done(struct msm_vidc_inst *inst,
 	return 0;
 }
 
+static bool is_eos_buffer(struct msm_vidc_inst *inst, u32 device_addr)
+{
+	struct eos_buf *temp, *next;
+	bool found = false;
+
+	mutex_lock(&inst->eosbufs.lock);
+	list_for_each_entry_safe(temp, next, &inst->eosbufs.list, list) {
+		if (temp->smem.device_addr == device_addr) {
+			found = true;
+			list_del(&temp->list);
+			msm_comm_smem_free(inst, &temp->smem);
+			kfree(temp);
+			break;
+		}
+	}
+	mutex_unlock(&inst->eosbufs.lock);
+
+	return found;
+}
+
 static void handle_ebd(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_data_done *response = data;
@@ -2196,6 +2216,13 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 	}
 
 	empty_buf_done = (struct vidc_hal_ebd *)&response->input_done;
+	/* If this is internal EOS buffer, handle it in driver */
+	if (is_eos_buffer(inst, empty_buf_done->packet_buffer)) {
+		dprintk(VIDC_DBG, "Received EOS buffer %pK\n",
+			(void *)(u64)empty_buf_done->packet_buffer);
+		goto exit;
+	}
+
 	planes[0] = empty_buf_done->packet_buffer;
 	planes[1] = empty_buf_done->extra_data_buffer;
 
@@ -3643,6 +3670,64 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 		rc = msm_comm_session_continue(inst);
 		break;
 	}
+	case V4L2_DEC_CMD_STOP:
+	{
+		struct vidc_frame_data data = {0};
+		struct hfi_device *hdev;
+		struct eos_buf *binfo;
+		u32 smem_flags = 0;
+
+		get_inst(inst->core, inst);
+		if (inst->session_type != MSM_VIDC_DECODER) {
+			dprintk(VIDC_DBG,
+				"Non-Decoder session. DEC_STOP is not valid\n");
+			rc = -EINVAL;
+			goto exit;
+		}
+
+		binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
+		if (!binfo) {
+			dprintk(VIDC_ERR, "%s: Out of memory\n", __func__);
+			rc = -ENOMEM;
+			goto exit;
+		}
+
+		if (inst->flags & VIDC_SECURE)
+			smem_flags |= SMEM_SECURE;
+
+		rc = msm_comm_smem_alloc(inst,
+				SZ_4K, 1, smem_flags,
+				HAL_BUFFER_INPUT, 0, &binfo->smem);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed to allocate output memory\n");
+			goto exit;
+		}
+
+		mutex_lock(&inst->eosbufs.lock);
+		list_add_tail(&binfo->list, &inst->eosbufs.list);
+		mutex_unlock(&inst->eosbufs.lock);
+
+		data.alloc_len = binfo->smem.size;
+		data.device_addr = binfo->smem.device_addr;
+		data.clnt_data = data.device_addr;
+		data.buffer_type = HAL_BUFFER_INPUT;
+		data.filled_len = 0;
+		data.offset = 0;
+		data.flags = HAL_BUFFERFLAG_EOS;
+		data.timestamp = LLONG_MAX;
+		data.extradata_addr = data.device_addr;
+		data.extradata_size = 0;
+		dprintk(VIDC_DBG, "Queueing EOS buffer %pK\n",
+			(void *)(u64)data.device_addr);
+		hdev = inst->core->device;
+
+		rc = call_hfi_op(hdev, session_etb, inst->session,
+				&data);
+exit:
+		put_inst(inst);
+		break;
+	}
 	default:
 		dprintk(VIDC_ERR, "Unknown Command %d\n", which_cmd);
 		rc = -ENOTSUPP;
@@ -4423,6 +4508,26 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst,
 	mutex_unlock(&inst->scratchbufs.lock);
 	return rc;
 }
+
+void msm_comm_release_eos_buffers(struct msm_vidc_inst *inst)
+{
+	struct eos_buf *buf, *next;
+
+	if (!inst) {
+		dprintk(VIDC_ERR,
+			"Invalid instance pointer = %pK\n", inst);
+		return;
+	}
+
+	mutex_lock(&inst->eosbufs.lock);
+	list_for_each_entry_safe(buf, next, &inst->eosbufs.list, list) {
+		list_del(&buf->list);
+		kfree(buf);
+	}
+	INIT_LIST_HEAD(&inst->eosbufs.list);
+	mutex_unlock(&inst->eosbufs.lock);
+}
+
 
 int msm_comm_release_recon_buffers(struct msm_vidc_inst *inst)
 {
