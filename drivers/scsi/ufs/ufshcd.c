@@ -7833,6 +7833,11 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 		ufshcd_set_auto_hibern8_timer(hba,
 				      hba->hibern8_on_idle.delay_ms);
 out:
+	if (ret) {
+		ufshcd_set_ufs_dev_poweroff(hba);
+		ufshcd_set_link_off(hba);
+	}
+
 	/*
 	 * If we failed to initialize the device or the device is not
 	 * present, turn off the power/clocks etc.
