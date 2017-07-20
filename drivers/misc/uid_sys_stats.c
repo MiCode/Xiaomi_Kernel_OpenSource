@@ -28,7 +28,7 @@
 #include <linux/uaccess.h>
 
 #define UID_HASH_BITS	10
-DECLARE_HASHTABLE(hash_table, UID_HASH_BITS);
+static DECLARE_HASHTABLE(hash_table, UID_HASH_BITS);
 
 static DEFINE_RT_MUTEX(uid_lock);
 static struct proc_dir_entry *cpu_parent;
