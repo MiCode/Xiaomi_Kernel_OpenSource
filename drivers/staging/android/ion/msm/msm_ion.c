@@ -638,7 +638,7 @@ int populate_vm_list(unsigned long flags, unsigned int *vm_list,
 
 	flags = flags & ION_FLAGS_CP_MASK;
 	for_each_set_bit(itr, &flags, BITS_PER_LONG) {
-		vmid = get_secure_vmid(0x1UL << itr);
+		vmid = get_vmid(0x1UL << itr);
 		if (vmid < 0 || !nelems)
 			return -EINVAL;
 
@@ -674,6 +674,19 @@ int get_secure_vmid(unsigned long flags)
 		return VMID_CP_SPSS_HLOS_SHARED;
 	return -EINVAL;
 }
+
+int get_vmid(unsigned long flags)
+{
+	int vmid;
+
+	vmid = get_secure_vmid(flags);
+	if (vmid < 0) {
+		if (flags & ION_FLAG_CP_HLOS)
+			vmid = VMID_HLOS;
+	}
+	return vmid;
+}
+
 /* fix up the cases where the ioctl direction bits are incorrect */
 static unsigned int msm_ion_ioctl_dir(unsigned int cmd)
 {
