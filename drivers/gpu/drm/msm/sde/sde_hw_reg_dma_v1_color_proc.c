@@ -33,6 +33,11 @@
 #define IGC_LUT_MEM_SIZE ((sizeof(struct drm_msm_igc_lut)) + \
 		REG_DMA_HEADERS_BUFFER_SZ)
 
+#define PCC_LUT_ENTRIES (PCC_NUM_PLANES * PCC_NUM_COEFF)
+#define PCC_LEN (PCC_LUT_ENTRIES * sizeof(u32))
+#define PCC_MEM_SIZE (PCC_LEN + \
+		REG_DMA_HEADERS_BUFFER_SZ)
+
 #define REG_MASK(n) ((BIT(n)) - 1)
 
 static struct sde_reg_dma_buffer *dspp_buf[REG_DMA_FEATURES_MAX][DSPP_MAX];
@@ -41,7 +46,7 @@ static u32 feature_map[SDE_DSPP_MAX] = {
 	[SDE_DSPP_VLUT] = VLUT,
 	[SDE_DSPP_GAMUT] = GAMUT,
 	[SDE_DSPP_IGC] = IGC,
-	[SDE_DSPP_PCC] = REG_DMA_FEATURES_MAX,
+	[SDE_DSPP_PCC] = PCC,
 	[SDE_DSPP_GC] = GC,
 	[SDE_DSPP_HSIC] = REG_DMA_FEATURES_MAX,
 	[SDE_DSPP_MEMCOLOR] = REG_DMA_FEATURES_MAX,
@@ -56,6 +61,7 @@ static u32 feature_reg_dma_sz[SDE_DSPP_MAX] = {
 	[SDE_DSPP_GAMUT] = GAMUT_LUT_MEM_SIZE,
 	[SDE_DSPP_GC] = GC_LUT_MEM_SIZE,
 	[SDE_DSPP_IGC] = IGC_LUT_MEM_SIZE,
+	[SDE_DSPP_PCC] = PCC_MEM_SIZE,
 };
 
 static u32 dspp_mapping[DSPP_MAX] = {
@@ -747,6 +753,157 @@ void reg_dmav1_setup_dspp_igcv31(struct sde_hw_dspp *ctx, void *cfg)
 	rc = dma_ops->kick_off(&kick_off);
 	if (rc)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
+}
+
+static void _dspp_pccv4_off(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_reg_dma_kickoff_cfg kick_off;
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct sde_hw_reg_dma_ops *dma_ops;
+	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
+	int rc;
+	u32 reg;
+
+	dma_ops = sde_reg_dma_get_ops();
+	dma_ops->reset_reg_dma_buf(dspp_buf[PCC][ctx->idx]);
+
+	REG_DMA_INIT_OPS(dma_write_cfg, dspp_mapping[ctx->idx], PCC,
+		dspp_buf[PCC][ctx->idx]);
+
+	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("write decode select failed ret %d\n", rc);
+		return;
+	}
+
+	reg = PCC_DIS;
+	REG_DMA_SETUP_OPS(dma_write_cfg,
+		ctx->cap->sblk->pcc.base,
+		&reg, sizeof(reg), REG_SINGLE_WRITE, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("setting opcode failed ret %d\n", rc);
+		return;
+	}
+
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, dspp_buf[PCC][ctx->idx],
+			REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	rc = dma_ops->kick_off(&kick_off);
+	if (rc)
+		DRM_ERROR("failed to kick off ret %d\n", rc);
+}
+
+void reg_dmav1_setup_dspp_pccv4(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_hw_reg_dma_ops *dma_ops;
+	struct sde_reg_dma_kickoff_cfg kick_off;
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
+	struct drm_msm_pcc *pcc_cfg;
+	struct drm_msm_pcc_coeff *coeffs = NULL;
+	u32 *data = NULL;
+	int rc, i = 0;
+	u32 reg = 0;
+
+	rc = reg_dma_dspp_check(ctx, cfg, PCC);
+	if (rc)
+		return;
+
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("disable pcc feature\n");
+		_dspp_pccv4_off(ctx, cfg);
+		return;
+	}
+
+	if (hw_cfg->len != sizeof(struct drm_msm_pcc)) {
+		DRM_ERROR("invalid size of payload len %d exp %zd\n",
+				hw_cfg->len, sizeof(struct drm_msm_pcc));
+		return;
+	}
+
+	pcc_cfg = hw_cfg->payload;
+
+	dma_ops = sde_reg_dma_get_ops();
+	dma_ops->reset_reg_dma_buf(dspp_buf[PCC][ctx->idx]);
+
+	REG_DMA_INIT_OPS(dma_write_cfg, dspp_mapping[ctx->idx],
+		PCC, dspp_buf[PCC][ctx->idx]);
+
+	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("write decode select failed ret %d\n", rc);
+		return;
+	}
+
+	data = kzalloc(PCC_LEN, GFP_KERNEL);
+	if (!data)
+		return;
+
+	for (i = 0; i < PCC_NUM_PLANES; i++) {
+		switch (i) {
+		case 0:
+			coeffs = &pcc_cfg->r;
+			data[i + 24] = pcc_cfg->r_rr;
+			data[i + 27] = pcc_cfg->r_gg;
+			data[i + 30] = pcc_cfg->r_bb;
+			break;
+		case 1:
+			coeffs = &pcc_cfg->g;
+			data[i + 24] = pcc_cfg->g_rr;
+			data[i + 27] = pcc_cfg->g_gg;
+			data[i + 30] = pcc_cfg->g_bb;
+			break;
+		case 2:
+			coeffs = &pcc_cfg->b;
+			data[i + 24] = pcc_cfg->b_rr;
+			data[i + 27] = pcc_cfg->b_gg;
+			data[i + 30] = pcc_cfg->b_bb;
+			break;
+		default:
+			DRM_ERROR("invalid pcc plane: %d\n", i);
+			goto exit;
+		}
+
+		data[i] = coeffs->c;
+		data[i + 3] = coeffs->r;
+		data[i + 6] = coeffs->g;
+		data[i + 9] = coeffs->b;
+		data[i + 12] = coeffs->rg;
+		data[i + 15] = coeffs->rb;
+		data[i + 18] = coeffs->gb;
+		data[i + 21] = coeffs->rgb;
+	}
+
+	REG_DMA_SETUP_OPS(dma_write_cfg,
+		ctx->cap->sblk->pcc.base + PCC_C_OFF,
+		data, PCC_LEN,
+		REG_BLK_WRITE_SINGLE, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("write pcc lut failed ret %d\n", rc);
+		goto exit;
+	}
+
+	reg = PCC_EN;
+	REG_DMA_SETUP_OPS(dma_write_cfg,
+		ctx->cap->sblk->pcc.base,
+		&reg, sizeof(reg), REG_SINGLE_WRITE, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("setting opcode failed ret %d\n", rc);
+		goto exit;
+	}
+
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, dspp_buf[PCC][ctx->idx],
+			REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	rc = dma_ops->kick_off(&kick_off);
+	if (rc)
+		DRM_ERROR("failed to kick off ret %d\n", rc);
+
+exit:
+	kfree(data);
 }
 
 int reg_dmav1_deinit_dspp_ops(enum sde_dspp idx)

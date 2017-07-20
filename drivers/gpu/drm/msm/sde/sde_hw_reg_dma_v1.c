@@ -91,6 +91,7 @@ static u32 v1_supported[REG_DMA_FEATURES_MAX]  = {
 	[VLUT] = GRP_DSPP_HW_BLK_SELECT,
 	[GC] = GRP_DSPP_HW_BLK_SELECT,
 	[IGC] = DSPP_IGC | GRP_DSPP_HW_BLK_SELECT,
+	[PCC] = GRP_DSPP_HW_BLK_SELECT,
 };
 
 static int validate_dma_cfg(struct sde_reg_dma_setup_ops_cfg *cfg);
