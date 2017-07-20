@@ -1748,8 +1748,6 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				ctrl->val >> 16);
 		inst->clk_data.operating_rate = ctrl->val;
 
-		msm_vidc_update_operating_rate(inst);
-
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_VENC_BITRATE_TYPE:
 	{
