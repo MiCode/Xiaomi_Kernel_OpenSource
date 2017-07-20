@@ -2027,14 +2027,15 @@ static struct clk_branch gcc_pcie_0_mstr_axi_clk = {
 	},
 };
 
-static struct clk_gate2 gcc_pcie_0_pipe_clk = {
-	.udelay = 500,
+static struct clk_branch gcc_pcie_0_pipe_clk = {
+	.halt_reg = 0x6b020,
+	.halt_check = BRANCH_VOTED,
 	.clkr = {
 		.enable_reg = 0x5200c,
 		.enable_mask = BIT(4),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_pcie_0_pipe_clk",
-			.ops = &clk_gate2_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };
@@ -2126,14 +2127,15 @@ static struct clk_branch gcc_pcie_1_mstr_axi_clk = {
 	},
 };
 
-static struct clk_gate2 gcc_pcie_1_pipe_clk = {
-	.udelay = 500,
+static struct clk_branch gcc_pcie_1_pipe_clk = {
+	.halt_reg = 0x8d020,
+	.halt_check = BRANCH_VOTED,
 	.clkr = {
 		.enable_reg = 0x52004,
 		.enable_mask = BIT(30),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_pcie_1_pipe_clk",
-			.ops = &clk_gate2_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };
