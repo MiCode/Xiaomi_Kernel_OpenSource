@@ -13,8 +13,9 @@
 #include <linux/module.h>
 #include <cam_sensor_cmn_header.h>
 #include "cam_sensor_core.h"
-#include <cam_sensor_util.h>
+#include "cam_sensor_util.h"
 #include "cam_soc_util.h"
+#include "cam_trace.h"
 
 static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 	void *arg)
@@ -1004,6 +1005,9 @@ int32_t cam_sensor_apply_request(struct cam_req_mgr_apply_request *apply)
 	}
 	CDBG("%s:%d Req Id: %lld\n", __func__, __LINE__,
 		apply->request_id);
+
+	trace_cam_apply_req("Sensor", apply);
+
 	rc = cam_sensor_apply_settings(s_ctrl, apply->request_id);
 	return rc;
 }

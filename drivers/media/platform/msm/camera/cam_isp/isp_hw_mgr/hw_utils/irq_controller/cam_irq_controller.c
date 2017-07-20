@@ -271,14 +271,6 @@ int cam_irq_controller_subscribe_irq(void *irq_controller,
 		return -EINVAL;
 	}
 
-	if (sizeof(evt_bit_mask_arr) !=
-		sizeof(uint32_t) * controller->num_registers) {
-		pr_err("Invalid evt_mask size = %lu expected = %lu\n",
-			sizeof(evt_bit_mask_arr),
-			sizeof(uint32_t) * controller->num_registers);
-		return -EINVAL;
-	}
-
 	evt_handler = kzalloc(sizeof(struct cam_irq_evt_handler), GFP_KERNEL);
 	if (!evt_handler) {
 		CDBG("Error allocating hlist_node\n");
@@ -306,6 +298,8 @@ int cam_irq_controller_subscribe_irq(void *irq_controller,
 	evt_handler->bottom_half              = bottom_half;
 	evt_handler->bottom_half_enqueue_func = bottom_half_enqueue_func;
 	evt_handler->index                    = controller->hdl_idx++;
+
+	/* Avoid rollover to negative values */
 	if (controller->hdl_idx > 0x3FFFFFFF)
 		controller->hdl_idx = 1;
 
@@ -468,7 +462,8 @@ static void cam_irq_controller_th_processing(
 				(void *)th_payload);
 
 		if (!rc && evt_handler->bottom_half_handler) {
-			CDBG("Enqueuing bottom half\n");
+			CDBG("Enqueuing bottom half for %s\n",
+				controller->name);
 			if (evt_handler->bottom_half_enqueue_func) {
 				evt_handler->bottom_half_enqueue_func(
 					evt_handler->bottom_half,
@@ -492,6 +487,8 @@ irqreturn_t cam_irq_controller_handle_irq(int irq_num, void *priv)
 	if (!controller)
 		return IRQ_NONE;
 
+	CDBG("locking controller %pK name %s rw_lock %pK\n",
+		controller, controller->name, &controller->rw_lock);
 	read_lock(&controller->rw_lock);
 	for (i = 0; i < controller->num_registers; i++) {
 		controller->irq_status_arr[i] = cam_io_r_mb(
@@ -500,7 +497,8 @@ irqreturn_t cam_irq_controller_handle_irq(int irq_num, void *priv)
 		cam_io_w_mb(controller->irq_status_arr[i],
 			controller->mem_base +
 			controller->irq_register_arr[i].clear_reg_offset);
-		CDBG("Read irq status%d = 0x%x\n", i,
+		CDBG("Read irq status%d (0x%x) = 0x%x\n", i,
+			controller->irq_register_arr[i].status_reg_offset,
 			controller->irq_status_arr[i]);
 		for (j = 0; j < CAM_IRQ_PRIORITY_MAX; j++) {
 			if (controller->irq_register_arr[i].
@@ -512,6 +510,8 @@ irqreturn_t cam_irq_controller_handle_irq(int irq_num, void *priv)
 		}
 	}
 	read_unlock(&controller->rw_lock);
+	CDBG("unlocked controller %pK name %s rw_lock %pK\n",
+		controller, controller->name, &controller->rw_lock);
 
 	CDBG("Status Registers read Successful\n");
 

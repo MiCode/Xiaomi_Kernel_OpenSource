@@ -36,3 +36,20 @@ int cam_vfe_top_init(uint32_t          top_version,
 	return rc;
 }
 
+int cam_vfe_top_deinit(uint32_t        top_version,
+	struct cam_vfe_top           **vfe_top)
+{
+	int rc = -EINVAL;
+
+	switch (top_version) {
+	case CAM_VFE_TOP_VER_2_0:
+		rc = cam_vfe_top_ver2_deinit(vfe_top);
+		break;
+	default:
+		pr_err("Error! Unsupported Version %x\n", top_version);
+		break;
+	}
+
+	return rc;
+}
+

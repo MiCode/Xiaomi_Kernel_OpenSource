@@ -75,4 +75,7 @@ int cam_vfe_camif_ver2_init(
 	void                          *camif_hw_info,
 	struct cam_isp_resource_node  *camif_node);
 
+int cam_vfe_camif_ver2_deinit(
+	struct cam_isp_resource_node  *camif_node);
+
 #endif /* _CAM_VFE_CAMIF_VER2_H_ */

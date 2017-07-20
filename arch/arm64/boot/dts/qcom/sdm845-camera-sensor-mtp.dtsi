@@ -153,6 +153,7 @@
 		status = "ok";
 		clocks = <&clock_camcc CAM_CC_MCLK0_CLK>;
 		clock-names = "cam_clk";
+		clock-cntl-level = "turbo";
 		clock-rates = <24000000>;
 	};
 
@@ -192,6 +193,7 @@
 		status = "ok";
 		clocks = <&clock_camcc CAM_CC_MCLK2_CLK>;
 		clock-names = "cam_clk";
+		clock-cntl-level = "turbo";
 		clock-rates = <24000000>;
 	};
 
@@ -234,6 +236,7 @@
 		status = "ok";
 		clocks = <&clock_camcc CAM_CC_MCLK1_CLK>;
 		clock-names = "cam_clk";
+		clock-cntl-level = "turbo";
 		clock-rates = <24000000>;
 	};
 
@@ -333,7 +336,7 @@
 		compatible = "qcom,cam-sensor";
 		reg = <0x02>;
 		csiphy-sd-index = <2>;
-		sensor-position-roll = <90>;
+		sensor-position-roll = <270>;
 		sensor-position-pitch = <0>;
 		sensor-position-yaw = <0>;
 		eeprom-src = <&eeprom_front>;

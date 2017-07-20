@@ -359,7 +359,7 @@ int cam_vfe_top_ver2_init(
 	if (!vfe_top) {
 		CDBG("Error! Failed to alloc for vfe_top\n");
 		rc = -ENOMEM;
-		goto err_alloc_top;
+		goto end;
 	}
 
 	top_priv = kzalloc(sizeof(struct cam_vfe_top_ver2_priv),
@@ -367,7 +367,7 @@ int cam_vfe_top_ver2_init(
 	if (!top_priv) {
 		CDBG("Error! Failed to alloc for vfe_top_priv\n");
 		rc = -ENOMEM;
-		goto err_alloc_priv;
+		goto free_vfe_top;
 	}
 	vfe_top->top_priv = top_priv;
 
@@ -384,16 +384,16 @@ int cam_vfe_top_ver2_init(
 				&ver2_hw_info->camif_hw_info,
 				&top_priv->mux_rsrc[i]);
 			if (rc)
-				goto err_mux_init;
+				goto deinit_resources;
 		} else {
 			/* set the RDI resource id */
 			top_priv->mux_rsrc[i].res_id =
-				CAM_ISP_HW_VFE_IN_RDI0 + j;
+				CAM_ISP_HW_VFE_IN_RDI0 + j++;
+
 			rc = cam_vfe_rdi_ver2_init(hw_intf, soc_info,
 				NULL, &top_priv->mux_rsrc[i]);
 			if (rc)
 				goto deinit_resources;
-			j++;
 		}
 	}
 
@@ -416,10 +416,71 @@ int cam_vfe_top_ver2_init(
 	return rc;
 
 deinit_resources:
-err_mux_init:
+	for (--i; i >= 0; i--) {
+		if (ver2_hw_info->mux_type[i] == CAM_VFE_CAMIF_VER_2_0) {
+			if (cam_vfe_camif_ver2_deinit(&top_priv->mux_rsrc[i]))
+				pr_err("Camif Deinit failed\n");
+		} else {
+			if (cam_vfe_rdi_ver2_deinit(&top_priv->mux_rsrc[i]))
+				pr_err("RDI Deinit failed\n");
+		}
+		top_priv->mux_rsrc[i].res_state =
+			CAM_ISP_RESOURCE_STATE_UNAVAILABLE;
+	}
+
 	kfree(vfe_top->top_priv);
-err_alloc_priv:
+free_vfe_top:
 	kfree(vfe_top);
-err_alloc_top:
+end:
 	return rc;
 }
+
+int cam_vfe_top_ver2_deinit(struct cam_vfe_top  **vfe_top_ptr)
+{
+	int i, rc = 0;
+	struct cam_vfe_top_ver2_priv           *top_priv = NULL;
+	struct cam_vfe_top                     *vfe_top;
+
+	if (!vfe_top_ptr) {
+		pr_err("Error! Invalid input\n");
+		return -EINVAL;
+	}
+
+	vfe_top = *vfe_top_ptr;
+	if (!vfe_top) {
+		pr_err("Error! vfe_top NULL\n");
+		return -ENODEV;
+	}
+
+	top_priv = vfe_top->top_priv;
+	if (!top_priv) {
+		pr_err("Error! vfe_top_priv NULL\n");
+		rc = -ENODEV;
+		goto free_vfe_top;
+	}
+
+	for (i = 0; i < CAM_VFE_TOP_VER2_MUX_MAX; i++) {
+		top_priv->mux_rsrc[i].res_state =
+			CAM_ISP_RESOURCE_STATE_UNAVAILABLE;
+		if (top_priv->mux_rsrc[i].res_id ==
+			CAM_ISP_HW_VFE_IN_CAMIF) {
+			rc = cam_vfe_camif_ver2_deinit(&top_priv->mux_rsrc[i]);
+			if (rc)
+				pr_err("Error! Camif deinit failed rc=%d\n",
+					rc);
+		} else {
+			rc = cam_vfe_rdi_ver2_deinit(&top_priv->mux_rsrc[i]);
+			if (rc)
+				pr_err("Error! RDI deinit failed rc=%d\n", rc);
+		}
+	}
+
+	kfree(vfe_top->top_priv);
+
+free_vfe_top:
+	kfree(vfe_top);
+	*vfe_top_ptr = NULL;
+
+	return rc;
+}
+
