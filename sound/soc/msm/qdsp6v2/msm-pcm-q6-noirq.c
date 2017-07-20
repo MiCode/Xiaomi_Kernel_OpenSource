@@ -30,9 +30,12 @@
 #include <sound/control.h>
 #include <sound/q6audio-v2.h>
 #include <sound/timer.h>
+#include <sound/hwdep.h>
+
 #include <asm/dma.h>
 #include <sound/tlv.h>
 #include <sound/pcm_params.h>
+#include <sound/devdep_params.h>
 
 #include "msm-pcm-q6-v2.h"
 #include "msm-pcm-routing-v2.h"
@@ -421,6 +424,42 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	return ret;
 }
 
+
+static int msm_pcm_mmap_fd(struct snd_pcm_substream *substream,
+			   struct snd_pcm_mmap_fd *mmap_fd)
+{
+	struct msm_audio *prtd;
+	struct audio_port_data *apd;
+	struct audio_buffer *ab;
+	int dir = -1;
+
+	if (!substream->runtime) {
+		pr_err("%s substream runtime not found\n", __func__);
+		return -EFAULT;
+	}
+
+	prtd = substream->runtime->private_data;
+	if (!prtd || !prtd->audio_client || !prtd->mmap_flag) {
+		pr_err("%s no audio client or not an mmap session\n", __func__);
+		return -EINVAL;
+	}
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		dir = IN;
+	else
+		dir = OUT;
+
+	apd = prtd->audio_client->port;
+	ab = &(apd[dir].buf[0]);
+	mmap_fd->fd = ion_share_dma_buf_fd(ab->client, ab->handle);
+	if (mmap_fd->fd >= 0) {
+		mmap_fd->dir = dir;
+		mmap_fd->actual_size = ab->actual_size;
+		mmap_fd->size = ab->size;
+	}
+	return mmap_fd->fd < 0 ? -EFAULT : 0;
+}
+
 static int msm_pcm_ioctl(struct snd_pcm_substream *substream,
 			 unsigned int cmd, void *arg)
 {
@@ -444,6 +483,15 @@ static int msm_pcm_ioctl(struct snd_pcm_substream *substream,
 
 	return snd_pcm_lib_ioctl(substream, cmd, arg);
 }
+
+#ifdef CONFIG_COMPAT
+static int msm_pcm_compat_ioctl(struct snd_pcm_substream *substream,
+				unsigned int cmd, void *arg)
+{
+	/* we only handle RESET which is common for both modes */
+	return msm_pcm_ioctl(substream, cmd, arg);
+}
+#endif
 
 static snd_pcm_uframes_t msm_pcm_pointer(struct snd_pcm_substream *substream)
 {
@@ -994,6 +1042,101 @@ static int msm_pcm_add_app_type_controls(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
+static int msm_pcm_hwdep_ioctl(struct snd_hwdep *hw, struct file *file,
+			       unsigned int cmd, unsigned long arg)
+{
+	int ret = 0;
+	struct snd_pcm *pcm = hw->private_data;
+	struct snd_pcm_mmap_fd __user *_mmap_fd = NULL;
+	struct snd_pcm_mmap_fd mmap_fd;
+	struct snd_pcm_substream *substream = NULL;
+	int32_t dir = -1;
+
+	switch (cmd) {
+	case SNDRV_PCM_IOCTL_MMAP_DATA_FD:
+		_mmap_fd = (struct snd_pcm_mmap_fd __user *)arg;
+		if (get_user(dir, (int32_t __user *)&(_mmap_fd->dir))) {
+			pr_err("%s: error copying mmap_fd from user\n",
+			       __func__);
+			ret = -EFAULT;
+			break;
+		}
+		if (dir != OUT && dir != IN) {
+			pr_err("%s invalid stream dir\n", __func__);
+			ret = -EINVAL;
+			break;
+		}
+		substream = pcm->streams[dir].substream;
+		if (!substream) {
+			pr_err("%s substream not found\n", __func__);
+			ret = -ENODEV;
+			break;
+		}
+		pr_debug("%s : %s MMAP Data fd\n", __func__,
+		       dir == 0 ? "P" : "C");
+		if (msm_pcm_mmap_fd(substream, &mmap_fd) < 0) {
+			pr_err("%s: error getting fd\n",
+			       __func__);
+			ret = -EFAULT;
+			break;
+		}
+		if (put_user(mmap_fd.fd, &_mmap_fd->fd) ||
+		    put_user(mmap_fd.size, &_mmap_fd->size) ||
+		    put_user(mmap_fd.actual_size, &_mmap_fd->actual_size)) {
+			pr_err("%s: error copying fd\n", __func__);
+			return -EFAULT;
+		}
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
+}
+
+#ifdef CONFIG_COMPAT
+static int msm_pcm_hwdep_compat_ioctl(struct snd_hwdep *hw,
+				      struct file *file,
+				      unsigned int cmd,
+				      unsigned long arg)
+{
+	/* we only support mmap fd. Handling is common in both modes */
+	return msm_pcm_hwdep_ioctl(hw, file, cmd, arg);
+}
+#else
+static int msm_pcm_hwdep_compat_ioctl(struct snd_hwdep *hw,
+				      struct file *file,
+				      unsigned int cmd,
+				      unsigned long arg)
+{
+	return -EINVAL;
+}
+#endif
+
+static int msm_pcm_add_hwdep_dev(struct snd_soc_pcm_runtime *runtime)
+{
+	struct snd_hwdep *hwdep;
+	int rc;
+	char id[] = "NOIRQ_NN";
+
+	snprintf(id, sizeof(id), "NOIRQ_%d", runtime->pcm->device);
+	pr_debug("%s: pcm dev %d\n", __func__, runtime->pcm->device);
+	rc = snd_hwdep_new(runtime->card->snd_card,
+			   &id[0],
+			   HWDEP_FE_BASE + runtime->pcm->device,
+			   &hwdep);
+	if (!hwdep || rc < 0) {
+		pr_err("%s: hwdep intf failed to create %s - hwdep\n", __func__,
+		       id);
+		return rc;
+	}
+
+	hwdep->iface = SNDRV_HWDEP_IFACE_AUDIO_BE; /* for lack of a FE iface */
+	hwdep->private_data = runtime->pcm; /* of type struct snd_pcm */
+	hwdep->ops.ioctl = msm_pcm_hwdep_ioctl;
+	hwdep->ops.ioctl_compat = msm_pcm_hwdep_compat_ioctl;
+	return 0;
+}
 
 static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
 {
@@ -1027,7 +1170,9 @@ static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
 		pr_err("%s: Could not add app type controls failed %d\n",
 			__func__, ret);
 	}
-
+	ret = msm_pcm_add_hwdep_dev(rtd);
+	if (ret)
+		pr_err("%s: Could not add hw dep node\n", __func__);
 	pcm->nonatomic = true;
 exit:
 	return ret;
@@ -1040,6 +1185,9 @@ static const struct snd_pcm_ops msm_pcm_ops = {
 	.copy           = msm_pcm_copy,
 	.hw_params	= msm_pcm_hw_params,
 	.ioctl          = msm_pcm_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl   = msm_pcm_compat_ioctl,
+#endif
 	.trigger        = msm_pcm_trigger,
 	.pointer        = msm_pcm_pointer,
 	.mmap           = msm_pcm_mmap,
