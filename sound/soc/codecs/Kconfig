@@ -882,7 +882,6 @@ config SND_SOC_WCD9335
         tristate
 	depends on WCD9XXX_CODEC_CORE
 	select SND_SOC_WCD9XXX
-	select SND_SOC_WCD_MBHC
 	select SND_SOC_WCD_MBHC_LEGACY
 	select SND_SOC_WCD_CPE
 
@@ -900,7 +899,6 @@ config SND_SOC_WCD934X
 config SND_SOC_WCD934X_MBHC
         tristate
 	depends on SND_SOC_WCD934X
-	select SND_SOC_WCD_MBHC
 	select SND_SOC_WCD_MBHC_ADC
 
 config REGMAP_SWR
@@ -933,9 +931,11 @@ config SND_SOC_WCD_MBHC
 
 config SND_SOC_WCD_MBHC_LEGACY
 	tristate
+	select SND_SOC_WCD_MBHC
 
 config SND_SOC_WCD_MBHC_ADC
 	tristate
+	select SND_SOC_WCD_MBHC
 
 config SND_SOC_WCD_DSP_MGR
 	tristate

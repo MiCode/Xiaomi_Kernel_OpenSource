@@ -157,12 +157,6 @@ enum wcd_mbhc_detect_logic {
 	WCD_DETECTION_ADC,
 };
 
-#if IS_ENABLED(CONFIG_SND_SOC_WCD_MBHC_ADC)
-#define WCD_MBHC_DETECTION	WCD_DETECTION_ADC
-#else
-#define WCD_MBHC_DETECTION	WCD_DETECTION_LEGACY
-#endif
-
 enum wcd_mbhc_cs_mb_en_flag {
 	WCD_MBHC_EN_CS = 0,
 	WCD_MBHC_EN_MB,
@@ -564,6 +558,9 @@ struct wcd_mbhc {
 	struct completion btn_press_compl;
 	struct mutex hphl_pa_lock;
 	struct mutex hphr_pa_lock;
+
+	/* Holds mbhc detection method - ADC/Legacy */
+	unsigned int mbhc_detection_logic;
 
 	unsigned long intr_status;
 	bool is_hph_ocp_pending;
