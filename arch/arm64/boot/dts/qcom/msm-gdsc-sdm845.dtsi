@@ -196,6 +196,7 @@
 		hw-ctrl-addr = <&gpu_cx_hw_ctrl>;
 		qcom,no-status-check-on-disable;
 		qcom,gds-timeout = <500>;
+		qcom,clk-dis-wait-val = <8>;
 		status = "disabled";
 	};
 
