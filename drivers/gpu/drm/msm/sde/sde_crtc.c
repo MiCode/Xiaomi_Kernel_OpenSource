@@ -55,9 +55,13 @@ struct sde_crtc_custom_events {
 static int sde_crtc_power_interrupt_handler(struct drm_crtc *crtc_drm,
 	bool en, struct sde_irq_callback *ad_irq);
 
+static int sde_crtc_pm_event_handler(struct drm_crtc *crtc_drm,
+	bool en, struct sde_irq_callback *noirq);
+
 static struct sde_crtc_custom_events custom_events[] = {
 	{DRM_EVENT_AD_BACKLIGHT, sde_cp_ad_interrupt},
-	{DRM_EVENT_CRTC_POWER, sde_crtc_power_interrupt_handler}
+	{DRM_EVENT_CRTC_POWER, sde_crtc_power_interrupt_handler},
+	{DRM_EVENT_SDE_POWER, sde_crtc_pm_event_handler},
 };
 
 /* default input fence timeout, in ms */
@@ -2429,6 +2433,8 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 	struct drm_crtc *crtc = arg;
 	struct sde_crtc *sde_crtc;
 	struct drm_encoder *encoder;
+	struct drm_event event;
+	u32 power_on = 0;
 
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
@@ -2449,6 +2455,11 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 			sde_encoder_virt_restore(encoder);
 		}
 
+		event.type = DRM_EVENT_SDE_POWER;
+		event.length = sizeof(power_on);
+		power_on = 1;
+		msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
+				(u8 *)&power_on);
 	} else if (event_type == SDE_POWER_EVENT_POST_DISABLE) {
 		struct drm_plane *plane;
 
@@ -2460,6 +2471,12 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 			sde_plane_set_revalidate(plane, true);
 
 		sde_cp_crtc_suspend(crtc);
+
+		event.type = DRM_EVENT_SDE_POWER;
+		event.length = sizeof(power_on);
+		power_on = 0;
+		msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
+				(u8 *)&power_on);
 	}
 
 	mutex_unlock(&sde_crtc->crtc_lock);
@@ -3973,5 +3990,15 @@ int sde_crtc_register_custom_event(struct sde_kms *kms,
 static int sde_crtc_power_interrupt_handler(struct drm_crtc *crtc_drm,
 	bool en, struct sde_irq_callback *irq)
 {
+	return 0;
+}
+
+static int sde_crtc_pm_event_handler(struct drm_crtc *crtc, bool en,
+		struct sde_irq_callback *noirq)
+{
+	/*
+	 * IRQ object noirq is not being used here since there is
+	 * no crtc irq from pm event.
+	 */
 	return 0;
 }
