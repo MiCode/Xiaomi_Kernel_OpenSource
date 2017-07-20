@@ -846,10 +846,6 @@ static int __get_target_freq(struct devfreq *dev, unsigned long *freq)
 	if (!dev || !freq)
 		return -EINVAL;
 
-	/* Start with highest frequecy and decide correct one later*/
-
-	ab_kbps = INT_MAX;
-
 	gov = container_of(dev->governor,
 			struct governor, devfreq_gov);
 	dev->profile->get_dev_status(dev->dev.parent, &stats);
@@ -860,11 +856,11 @@ static int __get_target_freq(struct devfreq *dev, unsigned long *freq)
 
 	for (c = 0; c < vidc_data->data_count; ++c) {
 		if (vidc_data->data->power_mode == VIDC_POWER_TURBO) {
+			ab_kbps = INT_MAX;
 			goto exit;
 		}
 	}
 
-	ab_kbps = 0;
 	for (c = 0; c < vidc_data->data_count; ++c)
 		ab_kbps += __calculate(&vidc_data->data[c], gov->mode);
 
