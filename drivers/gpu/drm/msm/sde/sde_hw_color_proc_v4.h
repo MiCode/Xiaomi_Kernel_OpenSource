@@ -29,5 +29,12 @@ void sde_setup_dspp_3d_gamutv4(struct sde_hw_dspp *ctx, void *cfg);
  * @cfg: pointer to sde_hw_cp_cfg
  */
 void sde_setup_dspp_igcv3(struct sde_hw_dspp *ctx, void *cfg);
+/**
+ * sde_setup_dspp_pccv4 - Function for pcc v4 version feature
+ *                             programming.
+ * @ctx: dspp ctx pointer
+ * @cfg: pointer to sde_hw_cp_cfg
+ */
+void sde_setup_dspp_pccv4(struct sde_hw_dspp *ctx, void *cfg);
 
 #endif /* _SDE_HW_COLOR_PROC_V4_H_ */
