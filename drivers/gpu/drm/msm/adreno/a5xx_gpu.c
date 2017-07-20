@@ -1248,12 +1248,28 @@ static int a5xx_get_timestamp(struct msm_gpu *gpu, uint64_t *value)
 #ifdef CONFIG_DEBUG_FS
 static void a5xx_show(struct msm_gpu *gpu, struct seq_file *m)
 {
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+	struct a5xx_gpu *a5xx_gpu = to_a5xx_gpu(adreno_gpu);
+	bool enabled = test_bit(A5XX_HWCG_ENABLED, &a5xx_gpu->flags);
+
 	gpu->funcs->pm_resume(gpu);
 
 	seq_printf(m, "status:   %08x\n",
 			gpu_read(gpu, REG_A5XX_RBBM_STATUS));
 
+	/*
+	 * Temporarily disable hardware clock gating before going into
+	 * adreno_show to avoid issues while reading the registers
+	 */
+
+	if (enabled)
+		a5xx_set_hwcg(gpu, false);
+
 	adreno_show(gpu, m);
+
+	if (enabled)
+		a5xx_set_hwcg(gpu, true);
+
 	gpu->funcs->pm_suspend(gpu);
 }
 #endif
