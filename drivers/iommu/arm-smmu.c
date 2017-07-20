@@ -238,6 +238,7 @@ enum arm_smmu_s2cr_privcfg {
 #define ARM_SMMU_CB_FSYNR0		0x68
 #define ARM_SMMU_CB_S1_TLBIVA		0x600
 #define ARM_SMMU_CB_S1_TLBIASID		0x610
+#define ARM_SMMU_CB_S1_TLBIALL		0x618
 #define ARM_SMMU_CB_S1_TLBIVAL		0x620
 #define ARM_SMMU_CB_S2_TLBIIPAS2	0x630
 #define ARM_SMMU_CB_S2_TLBIIPAS2L	0x638
@@ -415,6 +416,7 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_SKIP_INIT		(1 << 2)
 #define ARM_SMMU_OPT_DYNAMIC		(1 << 3)
 #define ARM_SMMU_OPT_3LVL_TABLES	(1 << 4)
+#define ARM_SMMU_OPT_NO_ASID_RETENTION	(1 << 5)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 	enum arm_smmu_implementation	model;
@@ -534,6 +536,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_SKIP_INIT, "qcom,skip-init" },
 	{ ARM_SMMU_OPT_DYNAMIC, "qcom,dynamic" },
 	{ ARM_SMMU_OPT_3LVL_TABLES, "qcom,use-3-lvl-tables" },
+	{ ARM_SMMU_OPT_NO_ASID_RETENTION, "qcom,no-asid-retention" },
 	{ 0, NULL},
 };
 
@@ -991,11 +994,16 @@ static void arm_smmu_tlb_inv_context(void *cookie)
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
 	void __iomem *base;
+	bool use_tlbiall = smmu->options & ARM_SMMU_OPT_NO_ASID_RETENTION;
 
-	if (stage1) {
+	if (stage1 && !use_tlbiall) {
 		base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 		writel_relaxed(ARM_SMMU_CB_ASID(smmu, cfg),
 			       base + ARM_SMMU_CB_S1_TLBIASID);
+		arm_smmu_tlb_sync_cb(smmu, cfg->cbndx);
+	} else if (stage1 && use_tlbiall) {
+		base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
+		writel_relaxed(0, base + ARM_SMMU_CB_S1_TLBIALL);
 		arm_smmu_tlb_sync_cb(smmu, cfg->cbndx);
 	} else {
 		base = ARM_SMMU_GR0(smmu);
@@ -1013,8 +1021,9 @@ static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
 	void __iomem *reg;
+	bool use_tlbiall = smmu->options & ARM_SMMU_OPT_NO_ASID_RETENTION;
 
-	if (stage1) {
+	if (stage1 && !use_tlbiall) {
 		reg = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 		reg += leaf ? ARM_SMMU_CB_S1_TLBIVAL : ARM_SMMU_CB_S1_TLBIVA;
 
@@ -1033,6 +1042,10 @@ static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 				iova += granule >> 12;
 			} while (size -= granule);
 		}
+	} else if (stage1 && use_tlbiall) {
+		reg = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
+		reg += ARM_SMMU_CB_S1_TLBIALL;
+		writel_relaxed(0, reg);
 	} else if (smmu->version == ARM_SMMU_V2) {
 		reg = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 		reg += leaf ? ARM_SMMU_CB_S2_TLBIIPAS2L :
