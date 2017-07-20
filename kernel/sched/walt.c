@@ -221,15 +221,6 @@ void dec_rq_hmp_stats(struct rq *rq, struct task_struct *p, int change_cra)
 		dec_cumulative_runnable_avg(&rq->hmp_stats, p);
 }
 
-void reset_hmp_stats(struct hmp_sched_stats *stats, int reset_cra)
-{
-	stats->nr_big_tasks = 0; /* never happens on EAS */
-	if (reset_cra) {
-		stats->cumulative_runnable_avg = 0;
-		stats->pred_demands_sum = 0;
-	}
-}
-
 /*
  * Demand aggregation for frequency purpose:
  *
@@ -620,20 +611,6 @@ void update_cluster_load_subtractions(struct task_struct *p,
 	}
 
 	raw_spin_unlock(&cluster->load_lock);
-}
-
-static inline void
-init_new_task_load_hmp(struct task_struct *p, bool idle_task)
-{
-}
-
-static inline void
-update_task_burst(struct task_struct *p, struct rq *rq, int event, int runtime)
-{
-}
-
-static void reset_task_stats_hmp(struct task_struct *p)
-{
 }
 
 static inline void inter_cluster_migration_fixup
@@ -1879,7 +1856,7 @@ static inline void run_walt_irq_work(u64 old_window_start, struct rq *rq)
 void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime)
 {
-	u64 runtime, old_window_start;
+	u64 old_window_start;
 
 	if (!rq->window_start || sched_disable_window_stats ||
 	    p->ravg.mark_start == wallclock)
@@ -1895,9 +1872,7 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 	}
 
 	update_task_rq_cpu_cycles(p, rq, event, wallclock, irqtime);
-	runtime = update_task_demand(p, rq, event, wallclock);
-	if (runtime)
-		update_task_burst(p, rq, event, runtime);
+	update_task_demand(p, rq, event, wallclock);
 	update_cpu_busy_time(p, rq, event, wallclock, irqtime);
 	update_task_pred_demand(rq, p, event);
 done:
@@ -1937,8 +1912,6 @@ void init_new_task_load(struct task_struct *p, bool idle_task)
 	INIT_LIST_HEAD(&p->grp_list);
 	memset(&p->ravg, 0, sizeof(struct ravg));
 	p->cpu_cycles = 0;
-
-	init_new_task_load_hmp(p, idle_task);
 
 	p->ravg.curr_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32), GFP_KERNEL);
 	p->ravg.prev_window_cpu = kcalloc(nr_cpu_ids, sizeof(u32), GFP_KERNEL);
@@ -1994,8 +1967,6 @@ void reset_task_stats(struct task_struct *p)
 
 	p->ravg.curr_window_cpu = curr_window_ptr;
 	p->ravg.prev_window_cpu = prev_window_ptr;
-
-	reset_task_stats_hmp(p);
 
 	/* Retain EXITING_TASK marker */
 	p->ravg.sum_history[0] = sum;

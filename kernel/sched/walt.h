@@ -154,7 +154,6 @@ extern void inc_rq_hmp_stats(struct rq *rq,
 				struct task_struct *p, int change_cra);
 extern void dec_rq_hmp_stats(struct rq *rq,
 				struct task_struct *p, int change_cra);
-extern void reset_hmp_stats(struct hmp_sched_stats *stats, int reset_cra);
 extern void fixup_busy_time(struct task_struct *p, int new_cpu);
 extern void init_new_task_load(struct task_struct *p, bool idle_task);
 extern void mark_task_starting(struct task_struct *p);
