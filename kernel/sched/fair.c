@@ -6752,11 +6752,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	}
 
 	if (sysctl_sched_is_big_little) {
-		struct related_thread_group *grp;
-
-		rcu_read_lock();
-		grp = task_related_thread_group(p);
-		rcu_read_unlock();
+		struct related_thread_group *grp = task_related_thread_group(p);
 
 		if (grp && grp->preferred_cluster)
 			rtg_target = &grp->preferred_cluster->cpus;
@@ -7080,8 +7076,12 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag, int wake_f
 	return select_best_cpu(p, prev_cpu, 0, sync);
 #endif
 
-	if (energy_aware())
-		return energy_aware_wake_cpu(p, prev_cpu, sync);
+	if (energy_aware()) {
+		rcu_read_lock();
+		new_cpu = energy_aware_wake_cpu(p, prev_cpu, sync);
+		rcu_read_unlock();
+		return new_cpu;
+	}
 
 	if (sd_flag & SD_BALANCE_WAKE) {
 		record_wakee(p);
@@ -12296,7 +12296,9 @@ void check_for_migration(struct rq *rq, struct task_struct *p)
 		    rq->curr->nr_cpus_allowed == 1)
 			return;
 
+		rcu_read_lock();
 		new_cpu = energy_aware_wake_cpu(p, cpu, 0);
+		rcu_read_unlock();
 		if (capacity_orig_of(new_cpu) > capacity_orig_of(cpu)) {
 			active_balance = kick_active_balance(rq, p, new_cpu);
 			if (active_balance) {
