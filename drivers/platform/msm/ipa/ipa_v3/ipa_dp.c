@@ -1549,6 +1549,8 @@ static void ipa3_cleanup_wlan_rx_common_cache(void)
 	struct ipa3_rx_pkt_wrapper *rx_pkt;
 	struct ipa3_rx_pkt_wrapper *tmp;
 
+	spin_lock_bh(&ipa3_ctx->wc_memb.wlan_spinlock);
+
 	list_for_each_entry_safe(rx_pkt, tmp,
 		&ipa3_ctx->wc_memb.wlan_comm_desc_list, link) {
 		list_del(&rx_pkt->link);
@@ -1568,6 +1570,8 @@ static void ipa3_cleanup_wlan_rx_common_cache(void)
 	if (ipa3_ctx->wc_memb.wlan_comm_total_cnt != 0)
 		IPAERR("wlan comm buff total cnt: %d\n",
 			ipa3_ctx->wc_memb.wlan_comm_total_cnt);
+
+	spin_unlock_bh(&ipa3_ctx->wc_memb.wlan_spinlock);
 
 }
 
@@ -1606,11 +1610,13 @@ static void ipa3_alloc_wlan_rx_common_cache(u32 size)
 			goto fail_dma_mapping;
 		}
 
+		spin_lock_bh(&ipa3_ctx->wc_memb.wlan_spinlock);
 		list_add_tail(&rx_pkt->link,
 			&ipa3_ctx->wc_memb.wlan_comm_desc_list);
 		rx_len_cached = ++ipa3_ctx->wc_memb.wlan_comm_total_cnt;
 
 		ipa3_ctx->wc_memb.wlan_comm_free_cnt++;
+		spin_unlock_bh(&ipa3_ctx->wc_memb.wlan_spinlock);
 
 	}
 
