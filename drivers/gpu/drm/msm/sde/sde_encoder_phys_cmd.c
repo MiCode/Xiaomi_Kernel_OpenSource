@@ -161,7 +161,7 @@ static void sde_encoder_phys_cmd_pp_tx_done_irq(void *arg, int irq_idx)
 	unsigned long lock_flags;
 	int new_cnt;
 
-	if (!phys_enc)
+	if (!phys_enc || !phys_enc->hw_pp)
 		return;
 
 	/* notify all synchronous clients first, then asynchronous clients */
@@ -207,7 +207,7 @@ static void sde_encoder_phys_cmd_pp_rd_ptr_irq(void *arg, int irq_idx)
 {
 	struct sde_encoder_phys *phys_enc = arg;
 
-	if (!phys_enc)
+	if (!phys_enc || !phys_enc->hw_pp)
 		return;
 
 	SDE_EVT32_IRQ(DRMID(phys_enc->parent),
@@ -607,7 +607,7 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 	struct sde_encoder_phys_cmd *cmd_enc =
 		to_sde_encoder_phys_cmd(phys_enc);
 	struct sde_hw_tear_check tc_cfg = { 0 };
-	struct drm_display_mode *mode = &phys_enc->cached_mode;
+	struct drm_display_mode *mode;
 	bool tc_enable = true;
 	u32 vsync_hz;
 	struct msm_drm_private *priv;
@@ -617,6 +617,7 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
+	mode = &phys_enc->cached_mode;
 
 	SDE_DEBUG_CMDENC(cmd_enc, "pp %d\n", phys_enc->hw_pp->idx - PINGPONG_0);
 
@@ -627,7 +628,12 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 	}
 
 	sde_kms = phys_enc->sde_kms;
+	if (!sde_kms || !sde_kms->dev || !sde_kms->dev->dev_private) {
+		SDE_ERROR("invalid device\n");
+		return;
+	}
 	priv = sde_kms->dev->dev_private;
+
 	/*
 	 * TE default: dsi byte clock calculated base on 70 fps;
 	 * around 14 ms to complete a kickoff cycle if te disabled;
@@ -638,8 +644,10 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 	 * frequency divided by the no. of rows (lines) in the LCDpanel.
 	 */
 	vsync_hz = sde_power_clk_get_rate(&priv->phandle, "vsync_clk");
-	if (!vsync_hz) {
-		SDE_DEBUG_CMDENC(cmd_enc, "invalid vsync clock rate\n");
+	if (!vsync_hz || !mode->vtotal || !mode->vrefresh) {
+		SDE_DEBUG_CMDENC(cmd_enc,
+			"invalid params - vsync_hz %u vtot %u vrefresh %u\n",
+			vsync_hz, mode->vtotal, mode->vrefresh);
 		return;
 	}
 
@@ -687,8 +695,8 @@ static void _sde_encoder_phys_cmd_pingpong_config(
 	struct sde_encoder_phys_cmd *cmd_enc =
 		to_sde_encoder_phys_cmd(phys_enc);
 
-	if (!phys_enc || !phys_enc->hw_ctl ||
-			!phys_enc->hw_ctl->ops.setup_intf_cfg) {
+	if (!phys_enc || !phys_enc->hw_ctl || !phys_enc->hw_pp
+			|| !phys_enc->hw_ctl->ops.setup_intf_cfg) {
 		SDE_ERROR("invalid arg(s), enc %d\n", phys_enc != 0);
 		return;
 	}
@@ -717,7 +725,7 @@ static void sde_encoder_phys_cmd_enable_helper(
 	struct sde_hw_ctl *ctl;
 	u32 flush_mask = 0;
 
-	if (!phys_enc || !phys_enc->hw_ctl) {
+	if (!phys_enc || !phys_enc->hw_ctl || !phys_enc->hw_pp) {
 		SDE_ERROR("invalid arg(s), encoder %d\n", phys_enc != 0);
 		return;
 	}
@@ -747,10 +755,11 @@ static void sde_encoder_phys_cmd_enable(struct sde_encoder_phys *phys_enc)
 	struct sde_encoder_phys_cmd *cmd_enc =
 		to_sde_encoder_phys_cmd(phys_enc);
 
-	if (!phys_enc) {
+	if (!phys_enc || !phys_enc->hw_pp) {
 		SDE_ERROR("invalid phys encoder\n");
 		return;
 	}
+
 	SDE_DEBUG_CMDENC(cmd_enc, "pp %d\n", phys_enc->hw_pp->idx - PINGPONG_0);
 
 	if (phys_enc->enable_state == SDE_ENC_ENABLED) {
@@ -803,7 +812,7 @@ static void sde_encoder_phys_cmd_disable(struct sde_encoder_phys *phys_enc)
 		to_sde_encoder_phys_cmd(phys_enc);
 	int ret;
 
-	if (!phys_enc) {
+	if (!phys_enc || !phys_enc->hw_pp) {
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
@@ -857,6 +866,12 @@ static void sde_encoder_phys_cmd_get_hw_resources(
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
+
+	if ((phys_enc->intf_idx - INTF_0) >= INTF_MAX) {
+		SDE_ERROR("invalid intf idx:%d\n", phys_enc->intf_idx);
+		return;
+	}
+
 	SDE_DEBUG_CMDENC(cmd_enc, "\n");
 	hw_res->intfs[phys_enc->intf_idx - INTF_0] = INTF_MODE_CMD;
 }
@@ -869,7 +884,7 @@ static void sde_encoder_phys_cmd_prepare_for_kickoff(
 			to_sde_encoder_phys_cmd(phys_enc);
 	int ret;
 
-	if (!phys_enc) {
+	if (!phys_enc || !phys_enc->hw_pp) {
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
