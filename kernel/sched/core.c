@@ -5958,7 +5958,7 @@ int do_isolation_work_cpu_stop(void *data)
 	 */
 	nohz_balance_clear_nohz_mask(cpu);
 
-	clear_hmp_request(cpu);
+	clear_walt_request(cpu);
 	local_irq_enable();
 	return 0;
 }
@@ -8068,7 +8068,7 @@ int sched_cpu_dying(unsigned int cpu)
 	BUG_ON(rq->nr_running != 1);
 	raw_spin_unlock_irqrestore(&rq->lock, flags);
 
-	clear_hmp_request(cpu);
+	clear_walt_request(cpu);
 
 	calc_load_migrate(rq);
 	update_max_interval();
@@ -8308,7 +8308,6 @@ void __init sched_init(void)
 		rq->avg_idle = 2*sysctl_sched_migration_cost;
 		rq->max_idle_balance_cost = sysctl_sched_migration_cost;
 		rq->push_task = NULL;
-
 		walt_sched_init(rq);
 
 		INIT_LIST_HEAD(&rq->cfs_tasks);
