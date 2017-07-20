@@ -645,7 +645,6 @@
 #include "sdm845-sde-pll.dtsi"
 #include "msm-rdbg.dtsi"
 #include "sdm845-sde.dtsi"
-#include "sdm845-sde-display.dtsi"
 #include "sdm845-qupv3.dtsi"
 
 &soc {
