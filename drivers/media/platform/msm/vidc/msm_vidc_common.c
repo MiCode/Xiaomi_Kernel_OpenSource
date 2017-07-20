@@ -4940,6 +4940,7 @@ int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst)
 {
 	u32 x_min, x_max, y_min, y_max;
 	u32 input_height, input_width, output_height, output_width;
+	u32 rotation;
 
 	input_height = inst->prop.height[OUTPUT_PORT];
 	input_width = inst->prop.width[OUTPUT_PORT];
@@ -4973,6 +4974,20 @@ int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst)
 		dprintk(VIDC_DBG, "%s: supported WxH = %dx%d\n",
 			__func__, input_width, input_height);
 		return 0;
+	}
+
+	rotation =  msm_comm_g_ctrl_for_id(inst,
+					V4L2_CID_MPEG_VIDC_VIDEO_ROTATION);
+
+	if ((output_width != output_height) &&
+		(rotation == V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_90 ||
+		rotation == V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_270)) {
+
+		output_width = inst->prop.height[CAPTURE_PORT];
+		output_height = inst->prop.width[CAPTURE_PORT];
+		dprintk(VIDC_DBG,
+			"Rotation=%u Swapped Output W=%u H=%u to check scaling",
+			rotation, output_width, output_height);
 	}
 
 	x_min = (1<<16)/inst->capability.scale_x.min;
