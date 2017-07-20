@@ -201,7 +201,16 @@
 #define GCC_SDCC1_ICE_CORE_CLK					183
 #define GCC_SDCC1_APPS_CLK_SRC					184
 #define GCC_SDCC1_ICE_CORE_CLK_SRC				185
-
+#define GCC_APC_VS_CLK						186
+#define GCC_GPU_VS_CLK						187
+#define GCC_MSS_VS_CLK						188
+#define GCC_VDDA_VS_CLK						189
+#define GCC_VDDCX_VS_CLK					190
+#define GCC_VDDMX_VS_CLK					191
+#define GCC_VS_CTRL_AHB_CLK					192
+#define GCC_VS_CTRL_CLK						193
+#define GCC_VS_CTRL_CLK_SRC					194
+#define GCC_VSENSOR_CLK_SRC					195
 
 /* GCC reset clocks */
 #define GCC_MMSS_BCR						0
