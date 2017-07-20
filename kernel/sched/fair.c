@@ -5407,10 +5407,13 @@ static inline int task_util(struct task_struct *p)
 }
 
 static inline bool
-bias_to_waker_cpu(struct task_struct *p, int cpu)
+bias_to_waker_cpu(struct task_struct *p, int cpu, struct cpumask *rtg_target)
 {
+	int rtg_target_cpu = rtg_target ? cpumask_first(rtg_target) : cpu;
+
 	return cpumask_test_cpu(cpu, tsk_cpus_allowed(p)) &&
 	       cpu_active(cpu) && !cpu_isolated(cpu) &&
+	       capacity_orig_of(cpu) >= capacity_orig_of(rtg_target_cpu) &&
 	       task_fits_max(p, cpu);
 }
 
@@ -6730,6 +6733,7 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 	bool need_idle;
 	enum sched_boost_policy placement_boost = task_sched_boost(p) ?
 				sched_boost_policy() : SCHED_BOOST_NONE;
+	struct related_thread_group *grp;
 
 	sd = rcu_dereference(per_cpu(sd_ea, task_cpu(p)));
 
@@ -6745,18 +6749,17 @@ static int energy_aware_wake_cpu(struct task_struct *p, int target, int sync)
 
 	need_idle = wake_to_idle(p);
 
-	if (sync && bias_to_waker_cpu(p, cpu)) {
+	grp = task_related_thread_group(p);
+	if (grp && grp->preferred_cluster)
+		rtg_target = &grp->preferred_cluster->cpus;
+
+	if (sync && bias_to_waker_cpu(p, cpu, rtg_target)) {
 		trace_sched_task_util_bias_to_waker(p, task_cpu(p),
 					task_util(p), cpu, cpu, 0, need_idle);
 		return cpu;
 	}
 
 	if (sysctl_sched_is_big_little) {
-		struct related_thread_group *grp = task_related_thread_group(p);
-
-		if (grp && grp->preferred_cluster)
-			rtg_target = &grp->preferred_cluster->cpus;
-
 		task_util_boosted = boosted_task_util(p);
 
 		/*
