@@ -241,11 +241,11 @@ static void print_response(struct tcs_drv *drv, int m)
 		return;
 
 	msg = resp->msg;
-	pr_debug("Response object idx=%d:\n\tfor-tcs=%d\tin-use=%d\n",
+	pr_warn("Response object idx=%d:\n\tfor-tcs=%d\tin-use=%d\n",
 			resp->idx, resp->m, resp->in_use);
-	pr_debug("Msg: state=%d\n", msg->state);
+	pr_warn("Msg: state=%d\n", msg->state);
 	for (i = 0; i < msg->num_payload; i++)
-		pr_debug("addr=0x%x data=0x%x complete=0x%x\n",
+		pr_warn("addr=0x%x data=0x%x complete=0x%x\n",
 				msg->payload[i].addr,
 				msg->payload[i].data,
 				msg->payload[i].complete);
@@ -804,14 +804,14 @@ static void print_tcs_regs(struct tcs_drv *drv, int m)
 	if (!enable)
 		return;
 
-	pr_debug("TCS-%d contents:\n", m);
+	pr_warn("TCS-%d contents:\n", m);
 	for (n = 0; n < tcs->ncpt; n++) {
 		if (!(enable & BIT(n)))
 			continue;
 		addr = read_tcs_reg(base, TCS_DRV_CMD_ADDR, m, n);
 		data = read_tcs_reg(base, TCS_DRV_CMD_DATA, m, n);
 		msgid = read_tcs_reg(base, TCS_DRV_CMD_MSGID, m, n);
-		pr_debug("\tn=%d addr=0x%x data=0x%x hdr=0x%x\n",
+		pr_warn("\tn=%d addr=0x%x data=0x%x hdr=0x%x\n",
 						n, addr, data, msgid);
 	}
 }
@@ -824,7 +824,7 @@ static void dump_tcs_stats(struct tcs_drv *drv)
 	for (i = 0; i < drv->num_tcs; i++) {
 		if (!atomic_read(&drv->tcs_in_use[i]))
 			continue;
-		pr_debug("Time: %llu: TCS-%d:\n\tReq Sent:%d Last Sent:%llu\n\tResp Recv:%d Last Recvd:%llu\n",
+		pr_warn("Time: %llu: TCS-%d:\n\tReq Sent:%d Last Sent:%llu\n\tResp Recv:%d Last Recvd:%llu\n",
 				curr, i,
 				atomic_read(&drv->tcs_send_count[i]),
 				drv->tcs_last_sent_ts[i],
@@ -833,6 +833,13 @@ static void dump_tcs_stats(struct tcs_drv *drv)
 		print_tcs_regs(drv, i);
 		print_response(drv, i);
 	}
+}
+
+static void chan_debug(struct mbox_chan *chan)
+{
+	struct tcs_drv *drv = container_of(chan->mbox, struct tcs_drv, mbox);
+
+	dump_tcs_stats(drv);
 }
 
 /**
@@ -910,7 +917,6 @@ tx_fail:
 	/* If we were just busy waiting for TCS, dump the state and return */
 	if (ret == -EBUSY) {
 		pr_info_ratelimited("TCS Busy, retrying RPMH message send\n");
-		dump_tcs_stats(drv);
 		ret = -EAGAIN;
 	}
 
@@ -1162,6 +1168,7 @@ static int tcs_drv_probe(struct platform_device *pdev)
 	drv->mbox.txdone_irq = true;
 	drv->mbox.of_xlate = of_tcs_mbox_xlate;
 	drv->mbox.is_idle = tcs_drv_is_idle;
+	drv->mbox.debug = chan_debug;
 	drv->num_tcs = st;
 	drv->pdev = pdev;
 	INIT_LIST_HEAD(&drv->response_pending);
