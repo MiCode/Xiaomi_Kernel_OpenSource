@@ -19,41 +19,6 @@
 
 #include <linux/slab.h>
 
-#ifdef CONFIG_SCHED_WALT
-
-static void
-inc_walt_sched_stats_dl(struct rq *rq, struct task_struct *p)
-{
-	inc_cumulative_runnable_avg(&rq->walt_stats, p);
-}
-
-static void
-dec_walt_sched_stats_dl(struct rq *rq, struct task_struct *p)
-{
-	dec_cumulative_runnable_avg(&rq->walt_stats, p);
-}
-
-static void
-fixup_walt_sched_stats_dl(struct rq *rq, struct task_struct *p,
-			 u32 new_task_load, u32 new_pred_demand)
-{
-	s64 task_load_delta = (s64)new_task_load - task_load(p);
-	s64 pred_demand_delta = PRED_DEMAND_DELTA;
-
-	fixup_cumulative_runnable_avg(&rq->walt_stats, p, task_load_delta,
-				      pred_demand_delta);
-}
-
-#else	/* CONFIG_SCHED_WALT */
-
-static inline void
-inc_walt_sched_stats_dl(struct rq *rq, struct task_struct *p) { }
-
-static inline void
-dec_walt_sched_stats_dl(struct rq *rq, struct task_struct *p) { }
-
-#endif	/* CONFIG_SCHED_WALT */
-
 struct dl_bandwidth def_dl_bandwidth;
 
 static inline struct task_struct *dl_task_of(struct sched_dl_entity *dl_se)
@@ -865,7 +830,7 @@ void inc_dl_tasks(struct sched_dl_entity *dl_se, struct dl_rq *dl_rq)
 	WARN_ON(!dl_prio(prio));
 	dl_rq->dl_nr_running++;
 	add_nr_running(rq_of_dl_rq(dl_rq), 1);
-	inc_walt_sched_stats_dl(rq_of_dl_rq(dl_rq), dl_task_of(dl_se));
+	walt_inc_cumulative_runnable_avg(rq_of_dl_rq(dl_rq), dl_task_of(dl_se));
 
 	inc_dl_deadline(dl_rq, deadline);
 	inc_dl_migration(dl_se, dl_rq);
@@ -880,7 +845,7 @@ void dec_dl_tasks(struct sched_dl_entity *dl_se, struct dl_rq *dl_rq)
 	WARN_ON(!dl_rq->dl_nr_running);
 	dl_rq->dl_nr_running--;
 	sub_nr_running(rq_of_dl_rq(dl_rq), 1);
-	dec_walt_sched_stats_dl(rq_of_dl_rq(dl_rq), dl_task_of(dl_se));
+	walt_dec_cumulative_runnable_avg(rq_of_dl_rq(dl_rq), dl_task_of(dl_se));
 
 	dec_dl_deadline(dl_rq, dl_se->deadline);
 	dec_dl_migration(dl_se, dl_rq);
@@ -1845,7 +1810,7 @@ const struct sched_class dl_sched_class = {
 
 	.update_curr		= update_curr_dl,
 #ifdef CONFIG_SCHED_WALT
-	.fixup_walt_sched_stats	= fixup_walt_sched_stats_dl,
+	.fixup_walt_sched_stats	= fixup_walt_sched_stats_common,
 #endif
 };
 

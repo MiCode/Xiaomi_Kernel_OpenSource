@@ -2565,10 +2565,6 @@ static inline int same_freq_domain(int src_cpu, int dst_cpu)
 extern int sched_boost(void);
 extern int preferred_cluster(struct sched_cluster *cluster,
 						struct task_struct *p);
-extern void inc_rq_walt_stats(struct rq *rq,
-				struct task_struct *p, int change_cra);
-extern void dec_rq_walt_stats(struct rq *rq,
-				struct task_struct *p, int change_cra);
 extern struct sched_cluster *rq_cluster(struct rq *rq);
 extern void reset_task_stats(struct task_struct *p);
 extern void clear_top_tasks_bitmap(unsigned long *bitmap);
@@ -2685,12 +2681,6 @@ static inline int sched_boost(void)
 }
 
 static inline bool is_max_capacity_cpu(int cpu) { return true; }
-
-static inline void
-inc_rq_walt_stats(struct rq *rq, struct task_struct *p, int change_cra) { }
-
-static inline void
-dec_rq_walt_stats(struct rq *rq, struct task_struct *p, int change_cra) { }
 
 static inline int
 preferred_cluster(struct sched_cluster *cluster, struct task_struct *p)
