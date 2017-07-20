@@ -89,6 +89,7 @@ enum cp_mem_usage {
 #define ION_FLAG_CP_SEC_DISPLAY		ION_BIT(25)
 #define ION_FLAG_CP_APP			ION_BIT(26)
 #define ION_FLAG_CP_CAMERA_PREVIEW	ION_BIT(27)
+#define ION_FLAG_CP_SPSS_HLOS_SHARED	ION_BIT(30)
 
 
 /**
