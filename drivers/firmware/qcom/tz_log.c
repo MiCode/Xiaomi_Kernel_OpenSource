@@ -960,7 +960,7 @@ static int  tzdbgfs_init(struct platform_device *pdev)
 
 	for (i = 0; i < TZDBG_STATS_MAX; i++) {
 		tzdbg.debug_tz[i] = i;
-		dent = debugfs_create_file(tzdbg.stat[i].name,
+		dent = debugfs_create_file_unsafe(tzdbg.stat[i].name,
 				0444, dent_dir,
 				&tzdbg.debug_tz[i], &tzdbg_fops);
 		if (dent == NULL) {
