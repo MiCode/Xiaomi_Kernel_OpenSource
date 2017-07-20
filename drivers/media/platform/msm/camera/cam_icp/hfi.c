@@ -40,6 +40,8 @@
 
 static struct hfi_info *g_hfi;
 unsigned int g_icp_mmu_hdl;
+static DEFINE_MUTEX(hfi_cmd_q_mutex);
+static DEFINE_MUTEX(hfi_msg_q_mutex);
 
 int hfi_write_cmd(void *cmd_ptr)
 {
@@ -50,20 +52,23 @@ int hfi_write_cmd(void *cmd_ptr)
 	int rc = 0;
 
 	if (!cmd_ptr) {
-		CAM_ERR(CAM_HFI, "Invalid args");
+		CAM_ERR(CAM_HFI, "command is null");
 		return -EINVAL;
 	}
 
-	if (!g_hfi || (g_hfi->hfi_state != HFI_READY)) {
-		CAM_ERR(CAM_HFI, "HFI interface not ready yet");
-		return -EIO;
+	mutex_lock(&hfi_cmd_q_mutex);
+	if (!g_hfi) {
+		CAM_ERR(CAM_HFI, "HFI interface not setup");
+		rc = -ENODEV;
+		goto err;
 	}
 
-	mutex_lock(&g_hfi->cmd_q_lock);
-	if (!g_hfi->cmd_q_state) {
-		CAM_ERR(CAM_HFI, "HFI command interface not ready yet");
-		mutex_unlock(&g_hfi->cmd_q_lock);
-		return -EIO;
+	if (g_hfi->hfi_state != HFI_READY ||
+		!g_hfi->cmd_q_state) {
+		CAM_ERR(CAM_HFI, "HFI state: %u, cmd q state: %u",
+			g_hfi->hfi_state, g_hfi->cmd_q_state);
+		rc = -ENODEV;
+		goto err;
 	}
 
 	q_tbl = (struct hfi_qtbl *)g_hfi->map.qtbl.kva;
@@ -106,7 +111,7 @@ int hfi_write_cmd(void *cmd_ptr)
 	cam_io_w((uint32_t)INTR_ENABLE,
 		g_hfi->csr_base + HFI_REG_A5_CSR_HOST2ICPINT);
 err:
-	mutex_unlock(&g_hfi->cmd_q_lock);
+	mutex_unlock(&hfi_cmd_q_mutex);
 	return rc;
 }
 
@@ -118,14 +123,29 @@ int hfi_read_message(uint32_t *pmsg, uint8_t q_id)
 	uint32_t *read_q, *read_ptr;
 	int rc = 0;
 
-	if (!pmsg || q_id > Q_DBG) {
-		CAM_ERR(CAM_HFI, "Inavlid args");
+	if (!pmsg) {
+		CAM_ERR(CAM_HFI, "Invalid msg");
 		return -EINVAL;
 	}
 
-	if (!g_hfi || (g_hfi->hfi_state != HFI_READY)) {
-		CAM_ERR(CAM_HFI, "HFI interface not ready yet");
-		return -EIO;
+	if (q_id > Q_DBG) {
+		CAM_ERR(CAM_HFI, "Inavlid q :%u", q_id);
+		return -EINVAL;
+	}
+
+	mutex_lock(&hfi_msg_q_mutex);
+	if (!g_hfi) {
+		CAM_ERR(CAM_HFI, "hfi not set up yet");
+		rc = -ENODEV;
+		goto err;
+	}
+
+	if ((g_hfi->hfi_state != HFI_READY) ||
+		!g_hfi->msg_q_state) {
+		CAM_ERR(CAM_HFI, "hfi state: %u, msg q state: %u",
+			g_hfi->hfi_state, g_hfi->msg_q_state);
+		rc = -ENODEV;
+		goto err;
 	}
 
 	q_tbl_ptr = (struct hfi_qtbl *)g_hfi->map.qtbl.kva;
@@ -134,14 +154,8 @@ int hfi_read_message(uint32_t *pmsg, uint8_t q_id)
 	if (q->qhdr_read_idx == q->qhdr_write_idx) {
 		CAM_DBG(CAM_HFI, "Q not ready, state:%u, r idx:%u, w idx:%u",
 			g_hfi->hfi_state, q->qhdr_read_idx, q->qhdr_write_idx);
-		return -EIO;
-	}
-
-	mutex_lock(&g_hfi->msg_q_lock);
-	if (!g_hfi->msg_q_state) {
-		CAM_ERR(CAM_HFI, "HFI message interface not ready yet");
-		mutex_unlock(&g_hfi->msg_q_lock);
-		return -EIO;
+		rc = -EIO;
+		goto err;
 	}
 
 	if (q_id == Q_MSG)
@@ -175,7 +189,7 @@ int hfi_read_message(uint32_t *pmsg, uint8_t q_id)
 
 	q->qhdr_read_idx = new_read_idx;
 err:
-	mutex_unlock(&g_hfi->msg_q_lock);
+	mutex_unlock(&hfi_msg_q_mutex);
 	return rc;
 }
 
@@ -312,6 +326,9 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 	struct hfi_q_hdr *cmd_q_hdr, *msg_q_hdr, *dbg_q_hdr;
 	uint32_t hw_version, fw_version, status = 0;
 
+	mutex_lock(&hfi_cmd_q_mutex);
+	mutex_lock(&hfi_msg_q_mutex);
+
 	if (!g_hfi) {
 		g_hfi = kzalloc(sizeof(struct hfi_info), GFP_KERNEL);
 		if (!g_hfi) {
@@ -326,6 +343,7 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 	}
 
 	memcpy(&g_hfi->map, hfi_mem, sizeof(g_hfi->map));
+	g_hfi->hfi_state = HFI_DEINIT;
 
 	if (debug) {
 		cam_io_w_mb(
@@ -482,40 +500,42 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 	g_hfi->hfi_state = HFI_READY;
 	g_hfi->cmd_q_state = true;
 	g_hfi->msg_q_state = true;
-	mutex_init(&g_hfi->cmd_q_lock);
-	mutex_init(&g_hfi->msg_q_lock);
 	cam_io_w((uint32_t)INTR_ENABLE, icp_base + HFI_REG_A5_CSR_A2HOSTINTEN);
+
+	mutex_unlock(&hfi_cmd_q_mutex);
+	mutex_unlock(&hfi_msg_q_mutex);
 
 	return rc;
 regions_fail:
 	kfree(g_hfi);
 alloc_fail:
+	mutex_unlock(&hfi_cmd_q_mutex);
+	mutex_unlock(&hfi_msg_q_mutex);
 	return rc;
 }
 
 
 void cam_hfi_deinit(void)
 {
+	mutex_lock(&hfi_cmd_q_mutex);
+	mutex_lock(&hfi_msg_q_mutex);
+
 	if (!g_hfi) {
 		CAM_ERR(CAM_HFI, "hfi path not established yet");
-		return;
+		goto err;
 	}
+
+	g_hfi->cmd_q_state = false;
+	g_hfi->msg_q_state = false;
+
 	cam_io_w((uint32_t)INTR_DISABLE,
 		g_hfi->csr_base + HFI_REG_A5_CSR_A2HOSTINTEN);
-
-	mutex_lock(&g_hfi->cmd_q_lock);
-	g_hfi->cmd_q_state = false;
-	mutex_unlock(&g_hfi->cmd_q_lock);
-
-	mutex_lock(&g_hfi->msg_q_lock);
-	g_hfi->msg_q_state = false;
-	mutex_unlock(&g_hfi->msg_q_lock);
-
-	mutex_destroy(&g_hfi->cmd_q_lock);
-	mutex_destroy(&g_hfi->msg_q_lock);
-
-	kfree(g_hfi);
+	kzfree(g_hfi);
 	g_hfi = NULL;
+
+err:
+	mutex_unlock(&hfi_cmd_q_mutex);
+	mutex_unlock(&hfi_msg_q_mutex);
 }
 
 void icp_enable_fw_debug(void)
