@@ -363,14 +363,14 @@ static ssize_t ipa3_read_keep_awake(struct file *file, char __user *ubuf,
 {
 	int nbytes;
 
-	ipa3_active_clients_lock();
-	if (ipa3_ctx->ipa3_active_clients.cnt)
+	mutex_lock(&ipa3_ctx->ipa3_active_clients.mutex);
+	if (atomic_read(&ipa3_ctx->ipa3_active_clients.cnt))
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 				"IPA APPS power state is ON\n");
 	else
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 				"IPA APPS power state is OFF\n");
-	ipa3_active_clients_unlock();
+	mutex_unlock(&ipa3_ctx->ipa3_active_clients.mutex);
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
@@ -1064,7 +1064,7 @@ static ssize_t ipa3_read_stats(struct file *file, char __user *ubuf,
 		ipa3_ctx->stats.stat_compl,
 		ipa3_ctx->stats.aggr_close,
 		ipa3_ctx->stats.wan_aggr_close,
-		ipa3_ctx->ipa3_active_clients.cnt,
+		atomic_read(&ipa3_ctx->ipa3_active_clients.cnt),
 		connect,
 		ipa3_ctx->stats.wan_rx_empty,
 		ipa3_ctx->stats.wan_repl_rx_empty,
@@ -1785,12 +1785,12 @@ static ssize_t ipa3_print_active_clients_log(struct file *file,
 		return 0;
 	}
 	memset(active_clients_buf, 0, IPA_DBG_ACTIVE_CLIENT_BUF_SIZE);
-	ipa3_active_clients_lock();
+	mutex_lock(&ipa3_ctx->ipa3_active_clients.mutex);
 	cnt = ipa3_active_clients_log_print_buffer(active_clients_buf,
 			IPA_DBG_ACTIVE_CLIENT_BUF_SIZE - IPA_MAX_MSG_LEN);
 	table_size = ipa3_active_clients_log_print_table(active_clients_buf
 			+ cnt, IPA_MAX_MSG_LEN);
-	ipa3_active_clients_unlock();
+	mutex_unlock(&ipa3_ctx->ipa3_active_clients.mutex);
 
 	return simple_read_from_buffer(ubuf, count, ppos,
 			active_clients_buf, cnt + table_size);

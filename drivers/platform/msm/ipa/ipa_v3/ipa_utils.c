@@ -1547,43 +1547,6 @@ static struct msm_bus_scale_pdata ipa_bus_client_pdata_v3_0 = {
 	.name = "ipa",
 };
 
-void ipa3_active_clients_lock(void)
-{
-	unsigned long flags;
-
-	mutex_lock(&ipa3_ctx->ipa3_active_clients.mutex);
-	spin_lock_irqsave(&ipa3_ctx->ipa3_active_clients.spinlock, flags);
-	ipa3_ctx->ipa3_active_clients.mutex_locked = true;
-	spin_unlock_irqrestore(&ipa3_ctx->ipa3_active_clients.spinlock, flags);
-}
-
-int ipa3_active_clients_trylock(unsigned long *flags)
-{
-	spin_lock_irqsave(&ipa3_ctx->ipa3_active_clients.spinlock, *flags);
-	if (ipa3_ctx->ipa3_active_clients.mutex_locked) {
-		spin_unlock_irqrestore(&ipa3_ctx->ipa3_active_clients.spinlock,
-					 *flags);
-		return 0;
-	}
-
-	return 1;
-}
-
-void ipa3_active_clients_trylock_unlock(unsigned long *flags)
-{
-	spin_unlock_irqrestore(&ipa3_ctx->ipa3_active_clients.spinlock, *flags);
-}
-
-void ipa3_active_clients_unlock(void)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&ipa3_ctx->ipa3_active_clients.spinlock, flags);
-	ipa3_ctx->ipa3_active_clients.mutex_locked = false;
-	spin_unlock_irqrestore(&ipa3_ctx->ipa3_active_clients.spinlock, flags);
-	mutex_unlock(&ipa3_ctx->ipa3_active_clients.mutex);
-}
-
 /**
  * ipa3_get_clients_from_rm_resource() - get IPA clients which are related to an
  * IPA_RM resource
@@ -1827,15 +1790,7 @@ int ipa3_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 	enum ipa_client_type client;
 	struct ipa_ep_cfg_ctrl suspend;
 	int ipa_ep_idx;
-	unsigned long flags;
 	struct ipa_active_client_logging_info log_info;
-
-	if (ipa3_active_clients_trylock(&flags) == 0)
-		return -EPERM;
-	if (ipa3_ctx->ipa3_active_clients.cnt == 1) {
-		res = -EPERM;
-		goto bail;
-	}
 
 	memset(&clients, 0, sizeof(clients));
 	res = ipa3_get_clients_from_rm_resource(resource, &clients);
@@ -1875,14 +1830,11 @@ int ipa3_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 	if (res == 0) {
 		IPA_ACTIVE_CLIENTS_PREP_RESOURCE(log_info,
 				ipa_rm_resource_str(resource));
-		ipa3_active_clients_log_dec(&log_info, true);
-		ipa3_ctx->ipa3_active_clients.cnt--;
-		IPADBG("active clients = %d\n",
-		       ipa3_ctx->ipa3_active_clients.cnt);
+		/* before gating IPA clocks do TAG process */
+		ipa3_ctx->tag_process_before_gating = true;
+		ipa3_dec_client_disable_clks_no_block(&log_info);
 	}
 bail:
-	ipa3_active_clients_trylock_unlock(&flags);
-
 	return res;
 }
 

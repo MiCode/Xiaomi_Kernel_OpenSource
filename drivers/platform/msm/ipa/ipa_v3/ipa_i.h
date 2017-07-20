@@ -850,9 +850,7 @@ struct ipa3_stats {
 
 struct ipa3_active_clients {
 	struct mutex mutex;
-	spinlock_t spinlock;
-	bool mutex_locked;
-	int cnt;
+	atomic_t cnt;
 };
 
 struct ipa3_wakelock_ref_cnt {
@@ -1851,6 +1849,8 @@ void ipa3_inc_client_enable_clks(struct ipa_active_client_logging_info *id);
 int ipa3_inc_client_enable_clks_no_block(struct ipa_active_client_logging_info
 		*id);
 void ipa3_dec_client_disable_clks(struct ipa_active_client_logging_info *id);
+void ipa3_dec_client_disable_clks_no_block(
+	struct ipa_active_client_logging_info *id);
 void ipa3_active_clients_log_dec(struct ipa_active_client_logging_info *id,
 		bool int_ctx);
 void ipa3_active_clients_log_inc(struct ipa_active_client_logging_info *id,
@@ -1927,10 +1927,7 @@ int ipa3_resume_resource(enum ipa_rm_resource_name name);
 bool ipa3_should_pipe_be_suspended(enum ipa_client_type client);
 int ipa3_tag_aggr_force_close(int pipe_num);
 
-void ipa3_active_clients_lock(void);
-int ipa3_active_clients_trylock(unsigned long *flags);
 void ipa3_active_clients_unlock(void);
-void ipa3_active_clients_trylock_unlock(unsigned long *flags);
 int ipa3_wdi_init(void);
 int ipa3_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id);
 int ipa3_tag_process(struct ipa3_desc *desc, int num_descs,
