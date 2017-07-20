@@ -62,6 +62,10 @@
 #define CHGR_BATTOV_CFG_REG			(CHGR_BASE + 0x70)
 #define BATTOV_SETTING_MASK			GENMASK(7, 0)
 
+#define POWER_MODE_HICCUP_CFG			(BATIF_BASE + 0x72)
+#define MAX_HICCUP_DUETO_BATDIS_MASK		GENMASK(5, 2)
+#define HICCUP_TIMEOUT_CFG_MASK			GENMASK(1, 0)
+
 #define TEMP_COMP_STATUS_REG			(MISC_BASE + 0x07)
 #define SKIN_TEMP_RST_HOT_BIT			BIT(6)
 #define SKIN_TEMP_UB_HOT_BIT			BIT(5)
@@ -577,6 +581,16 @@ static int smb1355_init_hw(struct smb1355 *chip)
 	rc = smb1355_set_charge_param(chip, &chip->param.fcc, 0);
 	if (rc < 0) {
 		pr_err("Couldn't set 0 FCC rc=%d\n", rc);
+		return rc;
+	}
+
+	/* HICCUP setting, unlimited retry with 250ms interval */
+	rc = smb1355_masked_write(chip, POWER_MODE_HICCUP_CFG,
+			HICCUP_TIMEOUT_CFG_MASK | MAX_HICCUP_DUETO_BATDIS_MASK,
+			0);
+	if (rc < 0) {
+		pr_err("Couldn't enable parallel current sensing rc=%d\n",
+			rc);
 		return rc;
 	}
 
