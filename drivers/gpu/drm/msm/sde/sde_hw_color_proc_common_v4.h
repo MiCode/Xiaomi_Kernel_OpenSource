@@ -37,4 +37,17 @@ enum {
 #define GC_TBL_NUM 3
 #define GC_LUT_SWAP_OFF 0x1c
 
+#define IGC_TBL_NUM 3
+#define IGC_DITHER_OFF 0x7e0
+#define IGC_OPMODE_OFF 0x0
+#define IGC_C0_OFF 0x0
+#define IGC_DATA_MASK (BIT(12) - 1)
+#define IGC_DSPP_SEL_MASK_MAX (BIT(4) - 1)
+#define IGC_DSPP_SEL_MASK(n) \
+	((IGC_DSPP_SEL_MASK_MAX & ~(1 << (n))) << 28)
+#define IGC_INDEX_UPDATE BIT(25)
+#define IGC_EN BIT(0)
+#define IGC_DIS 0
+#define IGC_DITHER_DATA_MASK (BIT(4) - 1)
+
 #endif /* _SDE_HW_COLOR_PROC_COMMON_V4_H_ */

@@ -30,6 +30,9 @@
 #define GC_LUT_MEM_SIZE ((sizeof(struct drm_msm_pgc_lut)) + \
 		REG_DMA_HEADERS_BUFFER_SZ)
 
+#define IGC_LUT_MEM_SIZE ((sizeof(struct drm_msm_igc_lut)) + \
+		REG_DMA_HEADERS_BUFFER_SZ)
+
 #define REG_MASK(n) ((BIT(n)) - 1)
 
 static struct sde_reg_dma_buffer *dspp_buf[REG_DMA_FEATURES_MAX][DSPP_MAX];
@@ -37,7 +40,7 @@ static struct sde_reg_dma_buffer *dspp_buf[REG_DMA_FEATURES_MAX][DSPP_MAX];
 static u32 feature_map[SDE_DSPP_MAX] = {
 	[SDE_DSPP_VLUT] = VLUT,
 	[SDE_DSPP_GAMUT] = GAMUT,
-	[SDE_DSPP_IGC] = REG_DMA_FEATURES_MAX,
+	[SDE_DSPP_IGC] = IGC,
 	[SDE_DSPP_PCC] = REG_DMA_FEATURES_MAX,
 	[SDE_DSPP_GC] = GC,
 	[SDE_DSPP_HSIC] = REG_DMA_FEATURES_MAX,
@@ -52,6 +55,7 @@ static u32 feature_reg_dma_sz[SDE_DSPP_MAX] = {
 	[SDE_DSPP_VLUT] = VLUT_MEM_SIZE,
 	[SDE_DSPP_GAMUT] = GAMUT_LUT_MEM_SIZE,
 	[SDE_DSPP_GC] = GC_LUT_MEM_SIZE,
+	[SDE_DSPP_IGC] = IGC_LUT_MEM_SIZE,
 };
 
 static u32 dspp_mapping[DSPP_MAX] = {
@@ -233,6 +237,7 @@ int reg_dmav1_init_dspp_op_v4(int feature, enum sde_dspp idx)
 	int rc = -ENOTSUPP;
 	struct sde_hw_reg_dma_ops *dma_ops;
 	bool is_supported = false;
+	u32 blk;
 
 	if (feature >= SDE_DSPP_MAX || idx >= DSPP_MAX) {
 		DRM_ERROR("invalid feature %x max %x dspp idx %x max %xd\n",
@@ -250,8 +255,8 @@ int reg_dmav1_init_dspp_op_v4(int feature, enum sde_dspp idx)
 	if (IS_ERR_OR_NULL(dma_ops))
 		return -ENOTSUPP;
 
-	rc = dma_ops->check_support(feature_map[feature], dspp_mapping[idx],
-			&is_supported);
+	blk = (feature_map[feature] == IGC) ? DSPP_IGC : dspp_mapping[idx];
+	rc = dma_ops->check_support(feature_map[feature], blk, &is_supported);
 	if (!rc)
 		rc = (is_supported) ? 0 : -ENOTSUPP;
 
@@ -379,7 +384,7 @@ static void dspp_3d_gamutv4_off(struct sde_hw_dspp *ctx, void *cfg)
 {
 	struct sde_reg_dma_kickoff_cfg kick_off;
 	struct sde_hw_cp_cfg *hw_cfg = cfg;
-	u32 op_mode;
+	u32 op_mode = 0;
 	struct sde_hw_reg_dma_ops *dma_ops;
 	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
 	int rc;
@@ -519,7 +524,7 @@ void reg_dmav1_setup_dspp_gcv18(struct sde_hw_dspp *ctx, void *cfg)
 	int rc, i = 0;
 	u32 reg;
 
-	rc = reg_dma_dspp_check(ctx, cfg, GAMUT);
+	rc = reg_dma_dspp_check(ctx, cfg, GC);
 	if (rc)
 		return;
 
@@ -601,6 +606,147 @@ void reg_dmav1_setup_dspp_gcv18(struct sde_hw_dspp *ctx, void *cfg)
 		DRM_ERROR("failed to kick off ret %d\n", rc);
 		return;
 	}
+}
+
+static void _dspp_igcv31_off(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_reg_dma_kickoff_cfg kick_off;
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct sde_hw_reg_dma_ops *dma_ops;
+	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
+	int rc;
+	u32 reg;
+
+	dma_ops = sde_reg_dma_get_ops();
+	dma_ops->reset_reg_dma_buf(dspp_buf[IGC][ctx->idx]);
+
+	REG_DMA_INIT_OPS(dma_write_cfg, dspp_mapping[ctx->idx], IGC,
+		dspp_buf[IGC][ctx->idx]);
+
+	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("write decode select failed ret %d\n", rc);
+		return;
+	}
+
+	reg = IGC_DIS;
+	REG_DMA_SETUP_OPS(dma_write_cfg,
+		ctx->cap->sblk->igc.base + IGC_OPMODE_OFF,
+		&reg, sizeof(reg), REG_SINGLE_WRITE, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("setting opcode failed ret %d\n", rc);
+		return;
+	}
+
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, dspp_buf[IGC][ctx->idx],
+			REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	rc = dma_ops->kick_off(&kick_off);
+	if (rc)
+		DRM_ERROR("failed to kick off ret %d\n", rc);
+}
+
+void reg_dmav1_setup_dspp_igcv31(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct drm_msm_igc_lut *lut_cfg;
+	struct sde_hw_reg_dma_ops *dma_ops;
+	struct sde_reg_dma_kickoff_cfg kick_off;
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
+	int rc, i = 0, j = 0;
+	u32 *addr = NULL;
+	u32 offset = 0;
+	u32 reg;
+
+	rc = reg_dma_dspp_check(ctx, cfg, IGC);
+	if (rc)
+		return;
+
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("disable igc feature\n");
+		_dspp_igcv31_off(ctx, cfg);
+		return;
+	}
+
+	if (hw_cfg->len != sizeof(struct drm_msm_igc_lut)) {
+		DRM_ERROR("invalid size of payload len %d exp %zd\n",
+				hw_cfg->len, sizeof(struct drm_msm_igc_lut));
+		return;
+	}
+
+	lut_cfg = hw_cfg->payload;
+
+	dma_ops = sde_reg_dma_get_ops();
+	dma_ops->reset_reg_dma_buf(dspp_buf[IGC][ctx->idx]);
+
+	REG_DMA_INIT_OPS(dma_write_cfg, DSPP_IGC, IGC, dspp_buf[IGC][ctx->idx]);
+
+	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("write decode select failed ret %d\n", rc);
+		return;
+	}
+
+	for (i = 0; i < IGC_TBL_NUM; i++) {
+		addr = lut_cfg->c0 + (i * ARRAY_SIZE(lut_cfg->c0));
+		offset = IGC_C0_OFF + (i * sizeof(u32));
+
+		for (j = 0; j < IGC_TBL_LEN; j++) {
+			addr[j] &= IGC_DATA_MASK;
+			addr[j] |= IGC_DSPP_SEL_MASK(ctx->idx - 1);
+			if (j == 0)
+				addr[j] |= IGC_INDEX_UPDATE;
+		}
+
+		REG_DMA_SETUP_OPS(dma_write_cfg, offset, addr,
+			IGC_TBL_LEN * sizeof(u32),
+			REG_BLK_WRITE_INC, 0, 0);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("lut write failed ret %d\n", rc);
+			return;
+		}
+	}
+
+	REG_DMA_INIT_OPS(dma_write_cfg, dspp_mapping[ctx->idx], IGC,
+		dspp_buf[IGC][ctx->idx]);
+
+	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("write decode select failed ret %d\n", rc);
+		return;
+	}
+
+	if (lut_cfg->flags & IGC_DITHER_ENABLE) {
+		reg = lut_cfg->strength & IGC_DITHER_DATA_MASK;
+		REG_DMA_SETUP_OPS(dma_write_cfg,
+			ctx->cap->sblk->igc.base + IGC_DITHER_OFF,
+			&reg, sizeof(reg), REG_SINGLE_WRITE, 0, 0);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("dither strength failed ret %d\n", rc);
+			return;
+		}
+	}
+
+	reg = IGC_EN;
+	REG_DMA_SETUP_OPS(dma_write_cfg,
+		ctx->cap->sblk->igc.base + IGC_OPMODE_OFF,
+		&reg, sizeof(reg), REG_SINGLE_WRITE, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("setting opcode failed ret %d\n", rc);
+		return;
+	}
+
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, dspp_buf[IGC][ctx->idx],
+			REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	rc = dma_ops->kick_off(&kick_off);
+	if (rc)
+		DRM_ERROR("failed to kick off ret %d\n", rc);
 }
 
 int reg_dmav1_deinit_dspp_ops(enum sde_dspp idx)

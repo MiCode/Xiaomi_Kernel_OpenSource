@@ -135,6 +135,26 @@ struct drm_msm_pgc_lut {
 	__u32 c2[PGC_TBL_LEN];
 };
 
+#define IGC_TBL_LEN 256
+#define IGC_DITHER_ENABLE (1 << 0)
+/**
+ * struct drm_msm_igc_lut - igc lut feature structure
+ * @flags: flags for the feature customization, values can be:
+ *             - IGC_DITHER_ENABLE: Enable dither functionality
+ * @c0: color0 component lut
+ * @c1: color1 component lut
+ * @c2: color2 component lut
+ * @strength: dither strength, considered valid when IGC_DITHER_ENABLE
+ *            is set in flags. Strength value based on source bit width.
+ */
+struct drm_msm_igc_lut {
+	__u64 flags;
+	__u32 c0[IGC_TBL_LEN];
+	__u32 c1[IGC_TBL_LEN];
+	__u32 c2[IGC_TBL_LEN];
+	__u32 strength;
+};
+
 #define AD4_LUT_GRP0_SIZE 33
 #define AD4_LUT_GRP1_SIZE 32
 /*
