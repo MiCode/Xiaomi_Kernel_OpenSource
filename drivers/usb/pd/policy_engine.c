@@ -1617,7 +1617,6 @@ static void usbpd_sm(struct work_struct *w)
 		else if (pd->current_dr == DR_DFP)
 			stop_usb_host(pd);
 
-		pd->current_pr = PR_NONE;
 		pd->current_dr = DR_NONE;
 
 		reset_vdm_state(pd);
