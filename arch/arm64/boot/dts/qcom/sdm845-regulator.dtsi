@@ -453,7 +453,7 @@
 	};
 
 	apc1_cpr: cprh-ctrl@17db0000 {
-		compatible = "qcom,cprh-sdm845-kbss-regulator";
+		compatible = "qcom,cprh-sdm845-v1-kbss-regulator";
 		reg =	<0x17db0000 0x4000>,
 			<0x00784000 0x1000>,
 			<0x17830000 0x1000>;
