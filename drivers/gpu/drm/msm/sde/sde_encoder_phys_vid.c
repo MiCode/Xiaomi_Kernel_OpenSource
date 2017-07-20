@@ -718,7 +718,7 @@ static void sde_encoder_phys_vid_prepare_for_kickoff(
 		SDE_ERROR_VIDENC(vid_enc, "ctl %d reset failure: %d\n",
 				ctl->idx, rc);
 		sde_encoder_helper_unregister_irq(phys_enc, INTR_IDX_VSYNC);
-		SDE_DBG_DUMP("panic");
+		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus", "panic");
 	}
 
 	programmable_rot_fetch_config(phys_enc, params->inline_rotate_prefill);
