@@ -3182,6 +3182,11 @@ static int set_output_buffers(struct msm_vidc_inst *inst,
 			buffer_type);
 		return 0;
 	}
+
+	/* For DPB buffers, Always use FW count */
+	output_buf->buffer_count_actual = output_buf->buffer_count_min_host =
+		output_buf->buffer_count_min;
+
 	dprintk(VIDC_DBG,
 		"output: num = %d, size = %d\n",
 		output_buf->buffer_count_actual,

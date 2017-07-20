@@ -1115,6 +1115,7 @@ int msm_vdec_s_ext_ctrl(struct msm_vidc_inst *inst,
 				dprintk(VIDC_ERR,
 					"%s Failed setting stream output mode : %d\n",
 					__func__, rc);
+			rc = msm_vidc_update_host_buff_counts(inst);
 			break;
 		case V4L2_CID_MPEG_VIDC_VIDEO_DPB_COLOR_FORMAT:
 			control.id =
@@ -1154,6 +1155,7 @@ int msm_vdec_s_ext_ctrl(struct msm_vidc_inst *inst,
 						break;
 					}
 				}
+				rc = msm_vidc_update_host_buff_counts(inst);
 				inst->clk_data.dpb_fourcc = fourcc;
 				break;
 			default:
