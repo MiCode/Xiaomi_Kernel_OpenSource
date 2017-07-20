@@ -210,6 +210,9 @@ static int smb2_parse_dt(struct smb2 *chip)
 	chg->step_chg_enabled = of_property_read_bool(node,
 				"qcom,step-charging-enable");
 
+	chg->sw_jeita_enabled = of_property_read_bool(node,
+				"qcom,sw-jeita-enable");
+
 	rc = of_property_read_u32(node, "qcom,wd-bark-time-secs",
 					&chip->dt.wd_bark_time);
 	if (rc < 0 || chip->dt.wd_bark_time < MIN_WD_BARK_TIME)

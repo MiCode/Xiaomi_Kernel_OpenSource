@@ -178,6 +178,10 @@ Charger specific properties:
   Definition: WD bark-timeout in seconds. The possible values are
 		16, 32, 64, 128. If not defined it defaults to 64.
 
+- qcom,sw-jeita-enable
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present enables sw compensation for jeita
 
 =============================================
 Second Level Nodes - SMB2 Charger Peripherals
