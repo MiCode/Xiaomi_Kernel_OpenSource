@@ -1141,57 +1141,32 @@ static int cam_icp_mgr_process_cmd_desc(struct cam_icp_hw_mgr *hw_mgr,
 	return rc;
 }
 
-static int cam_icp_mgr_process_io_cfg(struct cam_icp_hw_mgr *hw_mgr,
+static void cam_icp_mgr_process_io_cfg(struct cam_icp_hw_mgr *hw_mgr,
 	struct cam_icp_hw_ctx_data *ctx_data,
 	struct cam_packet *packet,
 	struct cam_hw_prepare_update_args *prepare_args)
 {
-	int        rc = 0, i, j;
-	int32_t    sync_in_obj[CAM_ICP_IPE_IMAGE_MAX];
-	int32_t    merged_sync_in_obj;
+	int i, j, k;
 	struct cam_buf_io_cfg *io_cfg_ptr = NULL;
 
 	io_cfg_ptr = (struct cam_buf_io_cfg *) ((uint32_t *) &packet->payload +
 				packet->io_configs_offset/4);
 	prepare_args->num_out_map_entries = 0;
-	for (i = 0, j = 0; i < packet->num_io_configs; i++) {
-		if (io_cfg_ptr[i].direction == CAM_BUF_INPUT)
-			continue;
+	prepare_args->num_in_map_entries = 0;
 
-		prepare_args->out_map_entries[j++].sync_id =
-			io_cfg_ptr[i].fence;
-		prepare_args->num_out_map_entries++;
-		CAM_DBG(CAM_ICP, " out fence: %x index: %d",
-			io_cfg_ptr[i].fence, i);
-	}
-
-	for (i = 0, j = 0; i < packet->num_io_configs; i++) {
+	for (i = 0, j = 0, k = 0; i < packet->num_io_configs; i++) {
 		if (io_cfg_ptr[i].direction == CAM_BUF_INPUT) {
-			sync_in_obj[j++] = io_cfg_ptr[i].fence;
-			CAM_DBG(CAM_ICP, " in fence = %x index = %d",
-					io_cfg_ptr[i].fence, i);
+			prepare_args->in_map_entries[j++].sync_id =
+				io_cfg_ptr[i].fence;
+			prepare_args->num_in_map_entries++;
+		} else {
+			prepare_args->out_map_entries[k++].sync_id =
+				io_cfg_ptr[i].fence;
+			prepare_args->num_out_map_entries++;
 		}
+		CAM_DBG(CAM_ICP, "dir[%d]: %u, fence: %u",
+			i, io_cfg_ptr[i].direction, io_cfg_ptr[i].fence);
 	}
-
-	if (j == 1) {
-		merged_sync_in_obj = sync_in_obj[j - 1];
-	} else if (j > 1) {
-		rc = cam_sync_merge(&sync_in_obj[0], j, &merged_sync_in_obj);
-		if (rc) {
-			CAM_ERR(CAM_ICP, "fail to merge object: %d", rc);
-			return rc;
-		}
-	} else {
-		CAM_ERR(CAM_ICP, "no input fence provided %u", j);
-		return -EINVAL;
-	}
-
-	prepare_args->in_map_entries[0].sync_id = merged_sync_in_obj;
-	prepare_args->in_map_entries[0].resource_handle =
-		ctx_data->icp_dev_acquire_info->dev_type;
-	prepare_args->num_in_map_entries = 1;
-
-	return rc;
 }
 
 static int cam_icp_mgr_update_hfi_frame_process(
@@ -1264,10 +1239,8 @@ static int cam_icp_mgr_prepare_hw_update(void *hw_mgr_priv,
 	if (rc)
 		return rc;
 
-	rc = cam_icp_mgr_process_io_cfg(hw_mgr, ctx_data,
+	cam_icp_mgr_process_io_cfg(hw_mgr, ctx_data,
 		packet, prepare_args);
-	if (rc)
-		return rc;
 
 	rc = cam_icp_mgr_update_hfi_frame_process(ctx_data, packet,
 		prepare_args, &idx);
