@@ -1366,12 +1366,10 @@ int cnss_pci_start_mhi(struct cnss_pci_data *pci_priv)
 
 	ret = cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_POWER_ON);
 	if (ret)
-		goto deinit_mhi;
+		goto out;
 
 	return 0;
 
-deinit_mhi:
-	cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_DEINIT);
 out:
 	return ret;
 }
