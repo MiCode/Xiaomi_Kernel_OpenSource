@@ -375,6 +375,7 @@ static const struct {
 void a5xx_set_hwcg(struct msm_gpu *gpu, bool state)
 {
 	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+	struct a5xx_gpu *a5xx_gpu = to_a5xx_gpu(adreno_gpu);
 	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(a5xx_hwcg); i++)
@@ -391,6 +392,11 @@ void a5xx_set_hwcg(struct msm_gpu *gpu, bool state)
 
 	gpu_write(gpu, REG_A5XX_RBBM_CLOCK_CNTL, state ? 0xAAA8AA00 : 0);
 	gpu_write(gpu, REG_A5XX_RBBM_ISDB_CNT, state ? 0x182 : 0x180);
+
+	if (state)
+		set_bit(A5XX_HWCG_ENABLED, &a5xx_gpu->flags);
+	else
+		clear_bit(A5XX_HWCG_ENABLED, &a5xx_gpu->flags);
 }
 
 static int a5xx_me_init(struct msm_gpu *gpu)
