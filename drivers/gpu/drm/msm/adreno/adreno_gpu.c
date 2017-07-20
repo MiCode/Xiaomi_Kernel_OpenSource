@@ -297,8 +297,6 @@ void adreno_show(struct msm_gpu *gpu, struct seq_file *m)
 		seq_printf(m, "rb wptr:  %d\n", get_wptr(ring));
 	}
 
-	gpu->funcs->pm_resume(gpu);
-
 	/* dump these out in a form that can be parsed by demsm: */
 	seq_printf(m, "IO:region %s 00000000 00020000\n", gpu->name);
 	for (i = 0; adreno_gpu->registers[i] != ~0; i += 2) {
@@ -311,8 +309,6 @@ void adreno_show(struct msm_gpu *gpu, struct seq_file *m)
 			seq_printf(m, "IO:R %08x %08x\n", addr<<2, val);
 		}
 	}
-
-	gpu->funcs->pm_suspend(gpu);
 }
 #endif
 
