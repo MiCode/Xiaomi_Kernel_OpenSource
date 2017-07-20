@@ -1586,6 +1586,15 @@ static void _sde_encoder_virt_enable_helper(struct drm_encoder *drm_enc)
 				sde_enc->cur_master->hw_mdptop,
 				sde_kms->catalog);
 
+	if (sde_enc->num_phys_encs > ARRAY_SIZE(te_cfg.ppnumber) ||
+			sde_enc->num_phys_encs > ARRAY_SIZE(sde_enc->hw_pp)) {
+		SDE_ERROR("invalid num phys enc %d/%d/%d\n",
+				sde_enc->num_phys_encs,
+				(int) ARRAY_SIZE(te_cfg.ppnumber),
+				(int) ARRAY_SIZE(sde_enc->hw_pp));
+		return;
+	}
+
 	if (hw_mdptop->ops.setup_vsync_sel) {
 		for (i = 0; i < sde_enc->num_phys_encs; i++)
 			te_cfg.ppnumber[i] = sde_enc->hw_pp[i]->idx;
