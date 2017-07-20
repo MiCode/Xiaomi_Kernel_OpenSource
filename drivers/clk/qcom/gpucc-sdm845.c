@@ -36,6 +36,11 @@
 #include "clk-alpha-pll.h"
 #include "vdd-level-sdm845.h"
 
+#define CX_GMU_CBCR_SLEEP_MASK		0xF
+#define CX_GMU_CBCR_SLEEP_SHIFT		4
+#define CX_GMU_CBCR_WAKE_MASK		0xF
+#define CX_GMU_CBCR_WAKE_SHIFT		8
+
 #define F(f, s, h, m, n) { (f), (s), (2 * (h) - 1), (m), (n) }
 
 static int vdd_gx_corner[] = {
@@ -648,6 +653,7 @@ static int gpu_cc_sdm845_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
 	int ret = 0;
+	unsigned int value, mask;
 
 	regmap = qcom_cc_map(pdev, &gpu_cc_sdm845_desc);
 	if (IS_ERR(regmap))
@@ -667,6 +673,12 @@ static int gpu_cc_sdm845_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to register GPU CC clocks\n");
 		return ret;
 	}
+
+	mask = CX_GMU_CBCR_WAKE_MASK << CX_GMU_CBCR_WAKE_SHIFT;
+	mask |= CX_GMU_CBCR_SLEEP_MASK << CX_GMU_CBCR_SLEEP_SHIFT;
+	value = 0xF << CX_GMU_CBCR_WAKE_SHIFT | 0xF << CX_GMU_CBCR_SLEEP_SHIFT;
+	regmap_update_bits(regmap, gpu_cc_cx_gmu_clk.clkr.enable_reg,
+								mask, value);
 
 	dev_info(&pdev->dev, "Registered GPU CC clocks\n");
 
