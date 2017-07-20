@@ -1360,11 +1360,15 @@ int create_pkt_cmd_session_set_property(
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_PARAM_VDEC_CONCEAL_COLOR;
 		hfi = (struct hfi_conceal_color *) &pkt->rg_property_data[1];
-		if (hfi)
-			hfi->conceal_color =
+		if (hfi) {
+			hfi->conceal_color_8bit =
 				((struct hfi_conceal_color *) pdata)->
-				conceal_color;
-		pkt->size += sizeof(u32) * 2;
+				conceal_color_8bit;
+			hfi->conceal_color_10bit =
+				((struct hfi_conceal_color *) pdata)->
+				conceal_color_10bit;
+		}
+		pkt->size += sizeof(u32) + sizeof(struct hfi_conceal_color);
 		break;
 	}
 	case HAL_PARAM_VPE_ROTATION:
