@@ -423,14 +423,22 @@ static void config_debug_fs_run(void)
 	}
 }
 
-static void config_debug_fs_write(struct audio_buffer *ab)
+static void config_debug_fs_write(struct audio_buffer *ab, int offset)
 {
 	if (out_enable_flag) {
 		char zero_pattern[2] = {0x00, 0x00};
+		char *data;
+
+		if ((offset < 0) || (offset > ab->size)) {
+			pr_err("Invalid offset %d", offset);
+			return;
+		}
+
+		data = (char *)ab->data + offset;
 		/* If First two byte is non zero and last two byte
 		is zero then it is warm output pattern */
-		if ((strncmp(((char *)ab->data), zero_pattern, 2)) &&
-		(!strncmp(((char *)ab->data + 2), zero_pattern, 2))) {
+		if ((strncmp(data, zero_pattern, 2)) &&
+		(!strncmp((data + 2), zero_pattern, 2))) {
 			do_gettimeofday(&out_warm_tv);
 			pr_debug("%s: WARM:apr_send_pkt at %ld sec %ld microsec\n",
 			 __func__,
@@ -440,8 +448,8 @@ static void config_debug_fs_write(struct audio_buffer *ab)
 		}
 		/* If First two byte is zero and last two byte is
 		non zero then it is cont ouput pattern */
-		else if ((!strncmp(((char *)ab->data), zero_pattern, 2))
-		&& (strncmp(((char *)ab->data + 2), zero_pattern, 2))) {
+		else if ((!strncmp(data, zero_pattern, 2))
+		&& (strncmp((data + 2), zero_pattern, 2))) {
 			do_gettimeofday(&out_cont_tv);
 			pr_debug("%s: CONT:apr_send_pkt at %ld sec %ld microsec\n",
 			__func__,
@@ -488,7 +496,7 @@ outbuf_fail:
 	return;
 }
 #else
-static void config_debug_fs_write(struct audio_buffer *ab)
+static void config_debug_fs_write(struct audio_buffer *ab, int offset)
 {
 	return;
 }
@@ -7979,6 +7987,7 @@ int q6asm_async_write(struct audio_client *ac,
 	u32 liomode;
 	u32 io_compressed;
 	u32 io_compressed_stream;
+	int offset = 0;
 
 	if (ac == NULL) {
 		pr_err("%s: APR handle NULL\n", __func__);
@@ -8040,7 +8049,10 @@ int q6asm_async_write(struct audio_client *ac,
 		}
 	}
 
-	config_debug_fs_write(ab);
+	if (ab != NULL) {
+		offset = lbuf_phys_addr - ab->phys;
+		config_debug_fs_write(ab, offset);
+	}
 
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &write);
 	if (rc < 0) {
@@ -8187,7 +8199,7 @@ int q6asm_write(struct audio_client *ac, uint32_t len, uint32_t msw_ts,
 				write.mem_map_handle);
 		mutex_unlock(&port->lock);
 
-		config_debug_fs_write(ab);
+		config_debug_fs_write(ab, 0);
 
 		rc = apr_send_pkt(ac->apr, (uint32_t *) &write);
 		if (rc < 0) {
