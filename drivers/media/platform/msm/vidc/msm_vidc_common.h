@@ -116,7 +116,8 @@ struct msm_vidc_buffer *msm_comm_get_vidc_buffer(struct msm_vidc_inst *inst,
 		struct vb2_buffer *vb2);
 void msm_comm_put_vidc_buffer(struct msm_vidc_inst *inst,
 		struct msm_vidc_buffer *mbuf);
-void handle_release_buffer_reference(struct msm_vidc_inst *inst, u32 *planes);
+void handle_release_buffer_reference(struct msm_vidc_inst *inst,
+		struct msm_vidc_buffer *mbuf);
 int msm_comm_vb2_buffer_done(struct msm_vidc_inst *inst,
 		struct vb2_buffer *vb);
 int msm_comm_flush_vidc_buffer(struct msm_vidc_inst *inst,
@@ -145,4 +146,7 @@ void print_vb2_buffer(u32 tag, const char *str, struct msm_vidc_inst *inst,
 		struct vb2_buffer *vb2);
 void print_v4l2_buffer(u32 tag, const char *str, struct msm_vidc_inst *inst,
 		struct v4l2_buffer *v4l2);
+void kref_put_mbuf(struct msm_vidc_buffer *mbuf);
+bool kref_get_mbuf(struct msm_vidc_inst *inst, struct msm_vidc_buffer *mbuf);
+
 #endif

@@ -429,7 +429,7 @@ int msm_vidc_release_buffer(void *instance, int type, unsigned int index)
 		print_vidc_buffer(VIDC_DBG, "release buf", inst, mbuf);
 		msm_comm_unmap_vidc_buffer(inst, mbuf);
 		list_del(&mbuf->list);
-		kfree(mbuf);
+		kref_put_mbuf(mbuf);
 	}
 	mutex_unlock(&inst->registeredbufs.lock);
 
@@ -998,7 +998,7 @@ stream_start_failed:
 			}
 			msm_comm_unmap_vidc_buffer(inst, temp);
 			list_del(&temp->list);
-			kfree(temp);
+			kref_put_mbuf(temp);
 		}
 		mutex_unlock(&inst->registeredbufs.lock);
 	}
@@ -1075,10 +1075,16 @@ static void msm_vidc_buf_queue(struct vb2_buffer *vb2)
 				inst, vb2);
 		return;
 	}
+	if (!kref_get_mbuf(inst, mbuf)) {
+		dprintk(VIDC_ERR, "%s: mbuf not found\n", __func__);
+		return;
+	}
 
 	rc = msm_comm_qbuf(inst, mbuf);
 	if (rc)
 		print_vidc_buffer(VIDC_ERR, "failed qbuf", inst, mbuf);
+
+	kref_put_mbuf(mbuf);
 }
 
 static const struct vb2_ops msm_vidc_vb2q_ops = {
@@ -1620,7 +1626,7 @@ static void msm_vidc_cleanup_instance(struct msm_vidc_inst *inst)
 		print_vidc_buffer(VIDC_ERR, "undequeud buf", inst, temp);
 		msm_comm_unmap_vidc_buffer(inst, temp);
 		list_del(&temp->list);
-		kfree(temp);
+		kref_put_mbuf(temp);
 	}
 	mutex_unlock(&inst->registeredbufs.lock);
 

@@ -1492,6 +1492,7 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 		break;
 	case HAL_EVENT_RELEASE_BUFFER_REFERENCE:
 	{
+		struct msm_vidc_buffer *mbuf;
 		u32 planes[VIDEO_MAX_PLANES] = {0};
 
 		dprintk(VIDC_DBG,
@@ -1501,8 +1502,15 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 
 		planes[0] = event_notify->packet_buffer;
 		planes[1] = event_notify->extra_data_buffer;
-		handle_release_buffer_reference(inst, planes);
-
+		mbuf = msm_comm_get_buffer_using_device_planes(inst, planes);
+		if (!mbuf || !kref_get_mbuf(inst, mbuf)) {
+			dprintk(VIDC_ERR,
+				"%s: data_addr %x, extradata_addr %x not found\n",
+				__func__, planes[0], planes[1]);
+		} else {
+			handle_release_buffer_reference(inst, mbuf);
+			kref_put_mbuf(mbuf);
+		}
 		goto err_bad_event;
 	}
 	default:
@@ -2200,7 +2208,7 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 	planes[1] = empty_buf_done->extra_data_buffer;
 
 	mbuf = msm_comm_get_buffer_using_device_planes(inst, planes);
-	if (!mbuf) {
+	if (!mbuf || !kref_get_mbuf(inst, mbuf)) {
 		dprintk(VIDC_ERR,
 			"%s: data_addr %x, extradata_addr %x not found\n",
 			__func__, planes[0], planes[1]);
@@ -2242,12 +2250,11 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 	/*
 	 * put_buffer should be done before vb2_buffer_done else
 	 * client might queue the same buffer before it is unmapped
-	 * in put_buffer. also don't use mbuf after put_buffer
-	 * as it may be freed in put_buffer.
+	 * in put_buffer.
 	 */
 	msm_comm_put_vidc_buffer(inst, mbuf);
 	msm_comm_vb2_buffer_done(inst, vb);
-
+	kref_put_mbuf(mbuf);
 exit:
 	put_inst(inst);
 }
@@ -2326,7 +2333,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 	buffer_type = msm_comm_get_hal_output_buffer(inst);
 	if (fill_buf_done->buffer_type == buffer_type) {
 		mbuf = msm_comm_get_buffer_using_device_planes(inst, planes);
-		if (!mbuf) {
+		if (!mbuf || !kref_get_mbuf(inst, mbuf)) {
 			dprintk(VIDC_ERR,
 				"%s: data_addr %x, extradata_addr %x not found\n",
 				__func__, planes[0], planes[1]);
@@ -2429,6 +2436,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 	 */
 	msm_comm_put_vidc_buffer(inst, mbuf);
 	msm_comm_vb2_buffer_done(inst, vb);
+	kref_put_mbuf(mbuf);
 
 exit:
 	put_inst(inst);
@@ -4749,8 +4757,7 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 
 		/* remove from list */
 		list_del(&mbuf->list);
-		kfree(mbuf);
-		mbuf = NULL;
+		kref_put_mbuf(mbuf);
 	}
 	mutex_unlock(&inst->registeredbufs.lock);
 
@@ -5938,6 +5945,7 @@ struct msm_vidc_buffer *msm_comm_get_vidc_buffer(struct msm_vidc_inst *inst,
 			rc = -ENOMEM;
 			goto exit;
 		}
+		kref_init(&mbuf->kref);
 	}
 
 	vbuf = to_vb2_v4l2_buffer(vb2);
@@ -6001,11 +6009,11 @@ struct msm_vidc_buffer *msm_comm_get_vidc_buffer(struct msm_vidc_inst *inst,
 	return mbuf;
 
 exit:
-	mutex_unlock(&inst->registeredbufs.lock);
 	dprintk(VIDC_ERR, "%s: rc %d\n", __func__, rc);
 	msm_comm_unmap_vidc_buffer(inst, mbuf);
 	if (!found)
-		kfree(mbuf);
+		kref_put_mbuf(mbuf);
+	mutex_unlock(&inst->registeredbufs.lock);
 
 	return ERR_PTR(rc);
 }
@@ -6057,24 +6065,26 @@ void msm_comm_put_vidc_buffer(struct msm_vidc_inst *inst,
 	 */
 	if (!mbuf->smem[0].refcount) {
 		list_del(&mbuf->list);
-		kfree(mbuf);
-		mbuf = NULL;
+		kref_put_mbuf(mbuf);
 	}
 unlock:
 	mutex_unlock(&inst->registeredbufs.lock);
 }
 
-void handle_release_buffer_reference(struct msm_vidc_inst *inst, u32 *planes)
+void handle_release_buffer_reference(struct msm_vidc_inst *inst,
+		struct msm_vidc_buffer *mbuf)
 {
 	int rc = 0;
-	struct msm_vidc_buffer *mbuf = NULL;
+	struct msm_vidc_buffer *temp;
 	bool found = false;
 	int i = 0;
 
 	mutex_lock(&inst->registeredbufs.lock);
 	found = false;
-	list_for_each_entry(mbuf, &inst->registeredbufs.list, list) {
-		if (msm_comm_compare_device_planes(mbuf, planes)) {
+	/* check if mbuf was not removed by any chance */
+	list_for_each_entry(temp, &inst->registeredbufs.list, list) {
+		if (msm_comm_compare_vb2_planes(inst, mbuf,
+				&temp->vvb.vb2_buf)) {
 			found = true;
 			break;
 		}
@@ -6092,13 +6102,10 @@ void handle_release_buffer_reference(struct msm_vidc_inst *inst, u32 *planes)
 		/* refcount is not zero if client queued the same buffer */
 		if (!mbuf->smem[0].refcount) {
 			list_del(&mbuf->list);
-			kfree(mbuf);
-			mbuf = NULL;
+			kref_put_mbuf(mbuf);
 		}
 	} else {
-		dprintk(VIDC_ERR,
-			"%s: data_addr %x extradata_addr %x not found\n",
-			__func__, planes[0], planes[1]);
+		print_vidc_buffer(VIDC_ERR, "mbuf not found", inst, mbuf);
 		goto unlock;
 	}
 
@@ -6112,8 +6119,9 @@ void handle_release_buffer_reference(struct msm_vidc_inst *inst, u32 *planes)
 	 *    and if found queue it to video hw (if not flushing).
 	 */
 	found = false;
-	list_for_each_entry(mbuf, &inst->registeredbufs.list, list) {
-		if (msm_comm_compare_device_plane(mbuf, planes, 0)) {
+	list_for_each_entry(temp, &inst->registeredbufs.list, list) {
+		if (msm_comm_compare_vb2_plane(inst, mbuf,
+				&temp->vvb.vb2_buf, 0)) {
 			found = true;
 			break;
 		}
@@ -6128,8 +6136,7 @@ void handle_release_buffer_reference(struct msm_vidc_inst *inst, u32 *planes)
 		msm_comm_unmap_vidc_buffer(inst, mbuf);
 		/* remove from list */
 		list_del(&mbuf->list);
-		kfree(mbuf);
-		mbuf = NULL;
+		kref_put_mbuf(mbuf);
 
 		/* don't queue the buffer */
 		found = false;
@@ -6174,5 +6181,43 @@ int msm_comm_unmap_vidc_buffer(struct msm_vidc_inst *inst,
 	}
 
 	return rc;
+}
+
+static void kref_free_mbuf(struct kref *kref)
+{
+	struct msm_vidc_buffer *mbuf = container_of(kref,
+			struct msm_vidc_buffer, kref);
+
+	kfree(mbuf);
+}
+
+void kref_put_mbuf(struct msm_vidc_buffer *mbuf)
+{
+	if (!mbuf)
+		return;
+
+	kref_put(&mbuf->kref, kref_free_mbuf);
+}
+
+bool kref_get_mbuf(struct msm_vidc_inst *inst, struct msm_vidc_buffer *mbuf)
+{
+	struct msm_vidc_buffer *temp;
+	bool matches = false;
+	bool ret = false;
+
+	if (!inst || !mbuf)
+		return false;
+
+	mutex_lock(&inst->registeredbufs.lock);
+	list_for_each_entry(temp, &inst->registeredbufs.list, list) {
+		if (temp == mbuf) {
+			matches = true;
+			break;
+		}
+	}
+	ret = (matches && kref_get_unless_zero(&mbuf->kref)) ? true : false;
+	mutex_unlock(&inst->registeredbufs.lock);
+
+	return ret;
 }
 
