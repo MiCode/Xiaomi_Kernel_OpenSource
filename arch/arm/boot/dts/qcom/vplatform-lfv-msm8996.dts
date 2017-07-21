@@ -815,4 +815,34 @@
 		pinctrl-0 = <&i2c_8_active>;
 		pinctrl-1 = <&i2c_8_sleep>;
 	};
+
+	blsp1_uart2: uart@07570000 { /* BLSP1 UART2 */
+		compatible = "qcom,msm-hsuart-v14";
+		reg = <0x07570000 0x1000>,
+		    <0x7544000 0x2b000>;
+		reg-names = "core_mem", "bam_mem";
+		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
+		interrupts = <0 108 0>, <0 238 0>, <0 810 0>;
+		#address-cells = <0>;
+
+		qcom,inject-rx-on-wakeup;
+		qcom,rx-char-to-inject = <0xFD>;
+
+		qcom,bam-tx-ep-pipe-index = <2>;
+		qcom,bam-rx-ep-pipe-index = <3>;
+		qcom,master-id = <86>;
+		clock-names = "core_clk", "iface_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
+		    <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		pinctrl-names = "sleep", "default";
+		pinctrl-0 = <&blsp1_uart2_sleep>;
+		pinctrl-1 = <&blsp1_uart2_active>;
+
+		qcom,msm-bus,name = "buart2";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			    <86 512 0 0>,
+			    <86 512 500 800>;
+	};
 };
