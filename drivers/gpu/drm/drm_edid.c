@@ -3526,11 +3526,17 @@ drm_extract_vcdb_info(struct drm_connector *connector, const u8 *db)
 		(db[2] & (BIT(3) | BIT(2))) >> 2;
 	connector->ce_scan_info =
 		db[2] & (BIT(1) | BIT(0));
+	connector->rgb_qs =
+		db[2] & BIT(6);
+	connector->yuv_qs =
+		db[2] & BIT(7);
 
 	DRM_DEBUG_KMS("Scan Info (pt|it|ce): (%d|%d|%d)",
 			  (int) connector->pt_scan_info,
 			  (int) connector->it_scan_info,
 			  (int) connector->ce_scan_info);
+	DRM_DEBUG_KMS("rgb_quant_range_select %d", connector->rgb_qs);
+	DRM_DEBUG_KMS("ycc_quant_range_select %d", connector->yuv_qs);
 }
 
 static bool drm_edid_is_luminance_value_present(
