@@ -5996,7 +5996,7 @@ bool mem_cgroup_swap_full(struct page *page)
 
 	VM_BUG_ON_PAGE(!PageLocked(page), page);
 
-	if (vm_swap_full())
+	if (vm_swap_full(page_swap_info(page)))
 		return true;
 	if (!do_swap_account || !cgroup_subsys_on_dfl(memory_cgrp_subsys))
 		return false;

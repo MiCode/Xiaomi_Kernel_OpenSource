@@ -151,12 +151,14 @@ enum {
 	SWP_AREA_DISCARD = (1 << 8),	/* single-time swap area discards */
 	SWP_PAGE_DISCARD = (1 << 9),	/* freed swap page-cluster discards */
 	SWP_STABLE_WRITES = (1 << 10),	/* no overwrite PG_writeback pages */
+	SWP_FAST	= (1 << 11),	/* blkdev access is fast and cheap */
 					/* add others here before... */
-	SWP_SCANNING	= (1 << 11),	/* refcount in scan_swap_map */
+	SWP_SCANNING	= (1 << 12),	/* refcount in scan_swap_map */
 };
 
 #define SWAP_CLUSTER_MAX 32UL
 #define COMPACT_CLUSTER_MAX SWAP_CLUSTER_MAX
+#define SWAPFILE_CLUSTER	256
 
 #define SWAP_MAP_MAX	0x3e	/* Max duplication count, in first swap_map */
 #define SWAP_MAP_BAD	0x3f	/* Note pageblock is bad, in first swap_map */
@@ -241,6 +243,8 @@ struct swap_info_struct {
 					 */
 	struct work_struct discard_work; /* discard worker */
 	struct swap_cluster_list discard_clusters; /* discard clusters list */
+	unsigned int write_pending;
+	unsigned int max_writes;
 };
 
 /* linux/mm/workingset.c */
@@ -328,6 +332,8 @@ extern unsigned long mem_cgroup_shrink_node(struct mem_cgroup *mem,
 						unsigned long *nr_scanned);
 extern unsigned long shrink_all_memory(unsigned long nr_pages);
 extern int vm_swappiness;
+extern int sysctl_swap_ratio;
+extern int sysctl_swap_ratio_enable;
 extern int remove_mapping(struct address_space *mapping, struct page *page);
 extern unsigned long vm_total_pages;
 
@@ -389,10 +395,18 @@ extern struct page *swapin_readahead(swp_entry_t, gfp_t,
 /* linux/mm/swapfile.c */
 extern atomic_long_t nr_swap_pages;
 extern long total_swap_pages;
+extern bool is_swap_fast(swp_entry_t entry);
 
 /* Swap 50% full? Release swapcache more aggressively.. */
-static inline bool vm_swap_full(void)
+static inline bool vm_swap_full(struct swap_info_struct *si)
 {
+	/*
+	 * If the swap device is fast, return true
+	 * not to delay swap free.
+	 */
+	if (si->flags & SWP_FAST)
+		return true;
+
 	return atomic_long_read(&nr_swap_pages) * 2 < total_swap_pages;
 }
 
@@ -428,7 +442,7 @@ struct backing_dev_info;
 #define get_nr_swap_pages()			0L
 #define total_swap_pages			0L
 #define total_swapcache_pages()			0UL
-#define vm_swap_full()				0
+#define vm_swap_full(si)			0
 
 #define si_swapinfo(val) \
 	do { (val)->freeswap = (val)->totalswap = 0; } while (0)
@@ -579,7 +593,7 @@ static inline long mem_cgroup_get_nr_swap_pages(struct mem_cgroup *memcg)
 
 static inline bool mem_cgroup_swap_full(struct page *page)
 {
-	return vm_swap_full();
+	return vm_swap_full(page_swap_info(page));
 }
 #endif
 

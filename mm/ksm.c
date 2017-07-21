@@ -1964,6 +1964,7 @@ int rmap_walk_ksm(struct page *page, struct rmap_walk_control *rwc)
 	stable_node = page_stable_node(page);
 	if (!stable_node)
 		return ret;
+
 again:
 	hlist_for_each_entry(rmap_item, &stable_node->hlist, hlist) {
 		struct anon_vma *anon_vma = rmap_item->anon_vma;
