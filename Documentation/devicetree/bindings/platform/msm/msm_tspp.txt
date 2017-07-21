@@ -24,10 +24,6 @@ Required properties:
 - qcom, msm_bus,vectors: Vectors for bus topology.
 - pinctrl-names: Names for the TSIF mode configuration to specify which TSIF interface is active.
 
-Optional properties:
-  - qcom,lpass-timer-tts : Indicates to add time stamps to TS packets from LPASS timer.
-                           bydefault time stamps will be added from TFIS internal counter.
-
 Example:
 
         tspp: msm_tspp@0x8880000 {
