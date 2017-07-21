@@ -185,6 +185,13 @@
 	qcom,led-strings-list = [01 02];
 };
 
+&pmi8998_haptics {
+	qcom,vmax-mv = <1800>;
+	qcom,wave-play-rate-us = <4347>;
+	qcom,lra-auto-mode;
+	status = "okay";
+};
+
 &mdss_mdp {
 	connectors = <&sde_rscc &sde_wb>;
 };
