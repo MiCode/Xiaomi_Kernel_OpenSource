@@ -69,6 +69,32 @@ struct drm_msm_pa_vlut {
 	__u32 val[PA_VLUT_SIZE];
 };
 
+#define PA_HSIC_HUE_ENABLE (1 << 0)
+#define PA_HSIC_SAT_ENABLE (1 << 1)
+#define PA_HSIC_VAL_ENABLE (1 << 2)
+#define PA_HSIC_CONT_ENABLE (1 << 3)
+/**
+ * struct drm_msm_pa_hsic - pa hsic feature structure
+ * @flags: flags for the feature customization, values can be:
+ *         - PA_HSIC_HUE_ENABLE: Enable hue adjustment
+ *         - PA_HSIC_SAT_ENABLE: Enable saturation adjustment
+ *         - PA_HSIC_VAL_ENABLE: Enable value adjustment
+ *         - PA_HSIC_CONT_ENABLE: Enable contrast adjustment
+ *
+ * @hue: hue setting
+ * @saturation: saturation setting
+ * @value: value setting
+ * @contrast: contrast setting
+ */
+#define DRM_MSM_PA_HSIC
+struct drm_msm_pa_hsic {
+	__u64 flags;
+	__u32 hue;
+	__u32 saturation;
+	__u32 value;
+	__u32 contrast;
+};
+
 /* struct drm_msm_memcol - Memory color feature structure.
  *                         Skin, sky, foliage features are supported.
  * @prot_flags: Bit mask for enabling protection feature.

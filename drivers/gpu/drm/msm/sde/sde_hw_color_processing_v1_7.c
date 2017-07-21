@@ -19,10 +19,10 @@
 #define PA_VAL_VIG_OFF		0x118
 #define PA_CONT_VIG_OFF		0x11C
 
-#define PA_HUE_DSPP_OFF		0x238
-#define PA_SAT_DSPP_OFF		0x23C
-#define PA_VAL_DSPP_OFF		0x240
-#define PA_CONT_DSPP_OFF	0x244
+#define PA_HUE_DSPP_OFF		0x1c
+#define PA_SAT_DSPP_OFF		0x20
+#define PA_VAL_DSPP_OFF		0x24
+#define PA_CONT_DSPP_OFF	0x28
 
 #define PA_LUTV_DSPP_OFF	0x1400
 #define PA_LUT_SWAP_OFF		0x234
@@ -70,6 +70,7 @@
 #define DSPP_OP_PA_CONT_EN	BIT(28)
 #define DSPP_OP_PA_EN		BIT(20)
 #define DSPP_OP_PA_LUTV_EN	BIT(19)
+#define DSPP_OP_PA_HIST_EN	BIT(16)
 #define DSPP_OP_PA_SKIN_EN	BIT(5)
 #define DSPP_OP_PA_FOL_EN	BIT(6)
 #define DSPP_OP_PA_SKY_EN	BIT(7)
@@ -85,7 +86,7 @@
 			!((x) & (DSPP_OP_PA_SKIN_EN | DSPP_OP_PA_SKY_EN | \
 			DSPP_OP_PA_FOL_EN | DSPP_OP_PA_HUE_EN | \
 			DSPP_OP_PA_SAT_EN | DSPP_OP_PA_VAL_EN | \
-			DSPP_OP_PA_CONT_EN | DSPP_OP_PA_LUTV_EN))
+			DSPP_OP_PA_CONT_EN | DSPP_OP_PA_HIST_EN))
 
 #define DSPP_OP_PCC_ENABLE	BIT(0)
 #define PCC_OP_MODE_OFF		0
@@ -112,30 +113,27 @@
 
 
 static void __setup_pa_hue(struct sde_hw_blk_reg_map *hw,
-			const struct sde_pp_blk *blk, uint32_t hue,
-			int location)
+		const struct sde_pp_blk *blk, u32 hue, int loc)
 {
 	u32 base = blk->base;
-	u32 offset = (location == DSPP) ? PA_HUE_DSPP_OFF : PA_HUE_VIG_OFF;
-	u32 op_hue_en = (location == DSPP) ? DSPP_OP_PA_HUE_EN :
-					VIG_OP_PA_HUE_EN;
-	u32 op_pa_en = (location == DSPP) ? DSPP_OP_PA_EN : VIG_OP_PA_EN;
+	u32 offset = (loc == DSPP) ? PA_HUE_DSPP_OFF : PA_HUE_VIG_OFF;
+	u32 op_hue_en = (loc == DSPP) ? DSPP_OP_PA_HUE_EN : VIG_OP_PA_HUE_EN;
+	u32 op_pa_en = (loc == DSPP) ? DSPP_OP_PA_EN : VIG_OP_PA_EN;
 	u32 disable_req;
 	u32 opmode;
 
-	SDE_REG_WRITE(hw, base + offset, hue & PA_HUE_MASK);
-
 	opmode = SDE_REG_READ(hw, base);
+	SDE_REG_WRITE(hw, base + offset, hue & PA_HUE_MASK);
 
 	if (!hue) {
 		opmode &= ~op_hue_en;
-		disable_req = (location == DSPP) ?
+		disable_req = (loc == DSPP) ?
 			PA_DSPP_DISABLE_REQUIRED(opmode) :
 			PA_VIG_DISABLE_REQUIRED(opmode);
 		if (disable_req)
 			opmode &= ~op_pa_en;
 	} else {
-		opmode |= op_hue_en | op_pa_en;
+		opmode |= (op_hue_en | op_pa_en);
 	}
 
 	SDE_REG_WRITE(hw, base, opmode);
@@ -148,38 +146,28 @@ void sde_setup_pipe_pa_hue_v1_7(struct sde_hw_pipe *ctx, void *cfg)
 	__setup_pa_hue(&ctx->hw, &ctx->cap->sblk->hsic_blk, hue, SSPP);
 }
 
-void sde_setup_dspp_pa_hue_v1_7(struct sde_hw_dspp *ctx, void *cfg)
-{
-	uint32_t hue = *((uint32_t *)cfg);
-
-	__setup_pa_hue(&ctx->hw, &ctx->cap->sblk->hsic, hue, DSPP);
-}
-
 static void __setup_pa_sat(struct sde_hw_blk_reg_map *hw,
-			const struct sde_pp_blk *blk, uint32_t sat,
-			int location)
+		const struct sde_pp_blk *blk, u32 sat, int loc)
 {
 	u32 base = blk->base;
-	u32 offset = (location == DSPP) ? PA_SAT_DSPP_OFF : PA_SAT_VIG_OFF;
-	u32 op_sat_en = (location == DSPP) ?
-			DSPP_OP_PA_SAT_EN : VIG_OP_PA_SAT_EN;
-	u32 op_pa_en = (location == DSPP) ? DSPP_OP_PA_EN : VIG_OP_PA_EN;
+	u32 offset = (loc == DSPP) ? PA_SAT_DSPP_OFF : PA_SAT_VIG_OFF;
+	u32 op_sat_en = (loc == DSPP) ? DSPP_OP_PA_SAT_EN : VIG_OP_PA_SAT_EN;
+	u32 op_pa_en = (loc == DSPP) ? DSPP_OP_PA_EN : VIG_OP_PA_EN;
 	u32 disable_req;
 	u32 opmode;
 
-	SDE_REG_WRITE(hw, base + offset, sat & PA_SAT_MASK);
-
 	opmode = SDE_REG_READ(hw, base);
+	SDE_REG_WRITE(hw, base + offset, sat & PA_SAT_MASK);
 
 	if (!sat) {
 		opmode &= ~op_sat_en;
-		disable_req = (location == DSPP) ?
+		disable_req = (loc == DSPP) ?
 			PA_DSPP_DISABLE_REQUIRED(opmode) :
 			PA_VIG_DISABLE_REQUIRED(opmode);
 		if (disable_req)
 			opmode &= ~op_pa_en;
 	} else {
-		opmode |= op_sat_en | op_pa_en;
+		opmode |= (op_sat_en | op_pa_en);
 	}
 
 	SDE_REG_WRITE(hw, base, opmode);
@@ -193,30 +181,27 @@ void sde_setup_pipe_pa_sat_v1_7(struct sde_hw_pipe *ctx, void *cfg)
 }
 
 static void __setup_pa_val(struct sde_hw_blk_reg_map *hw,
-			const struct sde_pp_blk *blk, uint32_t value,
-			int location)
+		const struct sde_pp_blk *blk, u32 value, int loc)
 {
 	u32 base = blk->base;
-	u32 offset = (location == DSPP) ? PA_VAL_DSPP_OFF : PA_VAL_VIG_OFF;
-	u32 op_val_en = (location == DSPP) ?
-			DSPP_OP_PA_VAL_EN : VIG_OP_PA_VAL_EN;
-	u32 op_pa_en = (location == DSPP) ? DSPP_OP_PA_EN : VIG_OP_PA_EN;
+	u32 offset = (loc == DSPP) ? PA_VAL_DSPP_OFF : PA_VAL_VIG_OFF;
+	u32 op_val_en = (loc == DSPP) ? DSPP_OP_PA_VAL_EN : VIG_OP_PA_VAL_EN;
+	u32 op_pa_en = (loc == DSPP) ? DSPP_OP_PA_EN : VIG_OP_PA_EN;
 	u32 disable_req;
 	u32 opmode;
 
-	SDE_REG_WRITE(hw, base + offset, value & PA_VAL_MASK);
-
 	opmode = SDE_REG_READ(hw, base);
+	SDE_REG_WRITE(hw, base + offset, value & PA_VAL_MASK);
 
 	if (!value) {
 		opmode &= ~op_val_en;
-		disable_req = (location == DSPP) ?
+		disable_req = (loc == DSPP) ?
 			PA_DSPP_DISABLE_REQUIRED(opmode) :
 			PA_VIG_DISABLE_REQUIRED(opmode);
 		if (disable_req)
 			opmode &= ~op_pa_en;
 	} else {
-		opmode |= op_val_en | op_pa_en;
+		opmode |= (op_val_en | op_pa_en);
 	}
 
 	SDE_REG_WRITE(hw, base, opmode);
@@ -230,30 +215,28 @@ void sde_setup_pipe_pa_val_v1_7(struct sde_hw_pipe *ctx, void *cfg)
 }
 
 static void __setup_pa_cont(struct sde_hw_blk_reg_map *hw,
-			const struct sde_pp_blk *blk, uint32_t contrast,
-			int location)
+		const struct sde_pp_blk *blk, u32 contrast, int loc)
 {
 	u32 base = blk->base;
-	u32 offset = (location == DSPP) ? PA_CONT_DSPP_OFF : PA_CONT_VIG_OFF;
-	u32 op_cont_en = (location == DSPP) ? DSPP_OP_PA_CONT_EN :
-					VIG_OP_PA_CONT_EN;
-	u32 op_pa_en = (location == DSPP) ? DSPP_OP_PA_EN : VIG_OP_PA_EN;
+	u32 offset = (loc == DSPP) ? PA_CONT_DSPP_OFF : PA_CONT_VIG_OFF;
+	u32 op_cont_en = (loc == DSPP) ?
+		DSPP_OP_PA_CONT_EN : VIG_OP_PA_CONT_EN;
+	u32 op_pa_en = (loc == DSPP) ? DSPP_OP_PA_EN : VIG_OP_PA_EN;
 	u32 disable_req;
 	u32 opmode;
 
-	SDE_REG_WRITE(hw, base + offset, contrast & PA_CONT_MASK);
-
 	opmode = SDE_REG_READ(hw, base);
+	SDE_REG_WRITE(hw, base + offset, contrast & PA_CONT_MASK);
 
 	if (!contrast) {
 		opmode &= ~op_cont_en;
-		disable_req = (location == DSPP) ?
+		disable_req = (loc == DSPP) ?
 			PA_DSPP_DISABLE_REQUIRED(opmode) :
 			PA_VIG_DISABLE_REQUIRED(opmode);
 		if (disable_req)
 			opmode &= ~op_pa_en;
 	} else {
-		opmode |= op_cont_en | op_pa_en;
+		opmode |= (op_cont_en | op_pa_en);
 	}
 
 	SDE_REG_WRITE(hw, base, opmode);
@@ -264,6 +247,47 @@ void sde_setup_pipe_pa_cont_v1_7(struct sde_hw_pipe *ctx, void *cfg)
 	uint32_t contrast = *((uint32_t *)cfg);
 
 	__setup_pa_cont(&ctx->hw, &ctx->cap->sblk->hsic_blk, contrast, SSPP);
+}
+
+void sde_setup_dspp_pa_hsic_v17(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct drm_msm_pa_hsic *hsic_cfg;
+	u32 hue = 0;
+	u32 sat = 0;
+	u32 val = 0;
+	u32 cont = 0;
+
+	if (!ctx || !cfg) {
+		DRM_ERROR("invalid param ctx %pK cfg %pK\n", ctx, cfg);
+		return;
+	}
+
+	if (hw_cfg->payload &&
+		(hw_cfg->len != sizeof(struct drm_msm_pa_hsic))) {
+		DRM_ERROR("invalid size of payload len %d exp %zd\n",
+			hw_cfg->len, sizeof(struct drm_msm_pa_hsic));
+		return;
+	}
+
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("disable pa hsic feature\n");
+	} else {
+		hsic_cfg = hw_cfg->payload;
+		if (hsic_cfg->flags & PA_HSIC_HUE_ENABLE)
+			hue = hsic_cfg->hue;
+		if (hsic_cfg->flags & PA_HSIC_SAT_ENABLE)
+			sat = hsic_cfg->saturation;
+		if (hsic_cfg->flags & PA_HSIC_VAL_ENABLE)
+			val = hsic_cfg->value;
+		if (hsic_cfg->flags & PA_HSIC_CONT_ENABLE)
+			cont = hsic_cfg->contrast;
+	}
+
+	__setup_pa_hue(&ctx->hw, &ctx->cap->sblk->hsic, hue, DSPP);
+	__setup_pa_sat(&ctx->hw, &ctx->cap->sblk->hsic, sat, DSPP);
+	__setup_pa_val(&ctx->hw, &ctx->cap->sblk->hsic, val, DSPP);
+	__setup_pa_cont(&ctx->hw, &ctx->cap->sblk->hsic, cont, DSPP);
 }
 
 void sde_setup_pipe_pa_memcol_v1_7(struct sde_hw_pipe *ctx,
