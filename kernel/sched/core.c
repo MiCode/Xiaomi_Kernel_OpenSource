@@ -9577,8 +9577,8 @@ void sched_exit(struct task_struct *p)
 	wallclock = sched_ktime_clock();
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	dequeue_task(rq, p, 0);
-	reset_task_stats(p);
 	dec_cum_window_demand(rq, p);
+	reset_task_stats(p);
 	p->ravg.mark_start = wallclock;
 	p->ravg.sum_history[0] = EXITING_TASK_MARKER;
 	free_task_load_ptrs(p);
