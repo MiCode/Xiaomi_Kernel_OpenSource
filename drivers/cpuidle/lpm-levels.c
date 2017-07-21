@@ -626,8 +626,8 @@ static int cpu_power_select(struct cpuidle_device *dev,
 			if (next_wakeup_us > max_residency[i]) {
 				predicted = lpm_cpuidle_predict(dev, cpu,
 					&idx_restrict, &idx_restrict_time);
-				if (predicted < min_residency[i])
-					predicted = 0;
+				if (predicted && (predicted < min_residency[i]))
+					predicted = min_residency[i];
 			} else
 				invalidate_predict_history(dev);
 		}
