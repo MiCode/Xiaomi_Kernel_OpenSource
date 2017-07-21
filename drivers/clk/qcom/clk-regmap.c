@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2017, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -103,9 +103,12 @@ EXPORT_SYMBOL_GPL(clk_disable_regmap);
  */
 int devm_clk_register_regmap(struct device *dev, struct clk_regmap *rclk)
 {
-	if (dev && dev_get_regmap(dev, NULL))
+	if (!dev || !rclk)
+		return -EINVAL;
+
+	if (dev_get_regmap(dev, NULL))
 		rclk->regmap = dev_get_regmap(dev, NULL);
-	else if (dev && dev->parent)
+	else if (dev->parent)
 		rclk->regmap = dev_get_regmap(dev->parent, NULL);
 
 	return devm_clk_hw_register(dev, &rclk->hw);
