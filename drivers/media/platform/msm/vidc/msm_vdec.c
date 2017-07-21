@@ -1061,9 +1061,6 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			inst, inst->clk_data.operating_rate >> 16,
 				ctrl->val >> 16);
 		inst->clk_data.operating_rate = ctrl->val;
-
-		msm_vidc_update_operating_rate(inst);
-
 		break;
 	default:
 		break;
