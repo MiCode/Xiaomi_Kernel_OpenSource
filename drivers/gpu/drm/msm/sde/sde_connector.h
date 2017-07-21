@@ -221,14 +221,14 @@ struct sde_connector {
  * @out_fb: Pointer to output frame buffer, if applicable
  * @aspace: Address space for accessing frame buffer objects, if applicable
  * @property_values: Local cache of current connector property values
- * @hdr_meta: HDR metadata info passed from userspace
+ * @hdr_ctrl: HDR control info passed from userspace
  */
 struct sde_connector_state {
 	struct drm_connector_state base;
 	struct drm_framebuffer *out_fb;
 	struct msm_gem_address_space *aspace;
 	uint64_t property_values[CONNECTOR_PROP_COUNT];
-	struct drm_msm_ext_panel_hdr_metadata hdr_meta;
+	struct drm_msm_ext_panel_hdr_ctrl hdr_ctrl;
 };
 
 /**

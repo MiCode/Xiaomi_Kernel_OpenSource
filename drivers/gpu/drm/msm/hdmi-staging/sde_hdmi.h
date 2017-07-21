@@ -147,6 +147,7 @@ struct sde_hdmi {
 	u32 hdcp22_present;
 	u8 hdcp_status;
 	u32 enc_lvl;
+	u8 curr_hdr_state;
 	bool auth_state;
 	bool sink_hdcp22_support;
 	bool src_hdcp22_support;
@@ -197,6 +198,8 @@ enum hdmi_tx_scdc_access_type {
 #define HDMI_MHZ_TO_HZ 1000000
 #define HDMI_YUV420_24BPP_PCLK_TMDS_CH_RATE_RATIO 2
 #define HDMI_RGB_24BPP_PCLK_TMDS_CH_RATE_RATIO 1
+
+#define HDMI_GEN_PKT_CTRL_CLR_MASK 0x7
 
 /* Maximum pixel clock rates for hdmi tx */
 #define HDMI_DEFAULT_MAX_PCLK_RATE	148500
