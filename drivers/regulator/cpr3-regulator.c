@@ -1316,6 +1316,27 @@ static void cprh_controller_program_sdelta(
 static int cprh_regulator_aging_adjust(struct cpr3_controller *ctrl);
 
 /**
+ * cpr3_regulator_cprh_initialized() - checks if CPRh has already been
+ *		initialized by the boot loader
+ * @ctrl:		Pointer to the CPR3 controller
+ *
+ * Return: true if CPRh controller is already initialized else false
+ */
+static bool cpr3_regulator_cprh_initialized(struct cpr3_controller *ctrl)
+{
+	u32 reg;
+
+	if (ctrl->ctrl_type != CPR_CTRL_TYPE_CPRH)
+		return false;
+
+	ctrl->cpr_hw_version = readl_relaxed(ctrl->cpr_ctrl_base
+						+ CPR3_REG_CPR_VERSION);
+	reg = readl_relaxed(ctrl->cpr_ctrl_base + CPRH_REG_CTL(ctrl));
+
+	return reg & CPRH_CTL_OSM_ENABLED;
+}
+
+/**
  * cpr3_regulator_init_cprh() - performs hardware initialization at the
  *		controller and thread level required for CPRh operation.
  * @ctrl:		Pointer to the CPR3 controller
@@ -6458,6 +6479,11 @@ int cpr3_regulator_register(struct platform_device *pdev,
 		return -ENXIO;
 	}
 	ctrl->cpr_ctrl_base = devm_ioremap(dev, res->start, resource_size(res));
+
+	if (cpr3_regulator_cprh_initialized(ctrl)) {
+		cpr3_err(ctrl, "CPRh controller already initialized by boot loader\n");
+		return -EPERM;
+	}
 
 	if (ctrl->aging_possible_mask) {
 		/*
