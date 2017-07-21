@@ -28,6 +28,12 @@
 #define CFG80211_UPDATE_CONNECT_PARAMS 1
 
 /**
+ *  backport support for NL80211_EXT_FEATURE_MGMT_TX_RANDOM_TA
+ *  and NL80211_EXT_FEATURE_MGMT_TX_RANDOM_TA_CONNECTED.
+ */
+#define CFG80211_RAND_TA_FOR_PUBLIC_ACTION_FRAME 1
+
+/**
  * DOC: Introduction
  *
  * cfg80211 is the configuration API for 802.11 devices in Linux. It bridges
