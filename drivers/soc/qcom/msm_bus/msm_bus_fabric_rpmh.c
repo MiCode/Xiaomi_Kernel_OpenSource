@@ -596,8 +596,16 @@ int msm_bus_commit_data(struct list_head *clist)
 	}
 
 	n_active = kcalloc(cnt_vcd+1, sizeof(int), GFP_KERNEL);
+	if (!n_active)
+		return -ENOMEM;
+
 	n_wake = kcalloc(cnt_vcd+1, sizeof(int), GFP_KERNEL);
+	if (!n_wake)
+		return -ENOMEM;
+
 	n_sleep = kcalloc(cnt_vcd+1, sizeof(int), GFP_KERNEL);
+	if (!n_sleep)
+		return -ENOMEM;
 
 	if (cnt_active)
 		cmdlist_active = kcalloc(cnt_active, sizeof(struct tcs_cmd),
@@ -612,18 +620,32 @@ int msm_bus_commit_data(struct list_head *clist)
 				cmdlist_wake, cmdlist_sleep, cur_bcm_clist);
 
 	ret = rpmh_invalidate(cur_mbox);
+	if (ret)
+		MSM_BUS_ERR("%s: Error invalidating mbox: %d\n",
+						__func__, ret);
+
 	if (cur_rsc->rscdev->req_state == RPMH_AWAKE_STATE)
 		ret = rpmh_write(cur_mbox, cur_rsc->rscdev->req_state,
 						cmdlist_active, cnt_active);
 	else
 		ret = rpmh_write_passthru(cur_mbox, cur_rsc->rscdev->req_state,
 						cmdlist_active, n_active);
+	if (ret)
+		MSM_BUS_ERR("%s: error sending active/awake sets: %d\n",
+						__func__, ret);
+
 
 	ret = rpmh_write_passthru(cur_mbox, RPMH_WAKE_ONLY_STATE,
 						cmdlist_wake, n_wake);
+	if (ret)
+		MSM_BUS_ERR("%s: error sending wake sets: %d\n",
+						__func__, ret);
 
 	ret = rpmh_write_passthru(cur_mbox, RPMH_SLEEP_STATE,
 						cmdlist_sleep, n_sleep);
+	if (ret)
+		MSM_BUS_ERR("%s: error sending sleep sets: %d\n",
+						__func__, ret);
 
 	list_for_each_entry_safe(node, node_tmp, clist, link) {
 		bcm_clist_clean(node);
@@ -764,7 +786,7 @@ exit_disable_node_qos_clk:
 static int msm_bus_enable_node_qos_clk(struct msm_bus_node_device_type *node)
 {
 	int i;
-	int ret;
+	int ret = 0;
 	long rounded_rate;
 
 	for (i = 0; i < node->num_node_qos_clks; i++) {
@@ -1343,7 +1365,7 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 	node_info->bcm_dev_ids = devm_kzalloc(bus_dev,
 			sizeof(int) * pdata_node_info->num_bcm_devs,
 			GFP_KERNEL);
-	if (!node_info->bcm_devs) {
+	if (!node_info->bcm_dev_ids) {
 		MSM_BUS_ERR("%s:Bus connections alloc failed\n", __func__);
 		devm_kfree(bus_dev, node_info->bcm_devs);
 		ret = -ENOMEM;
@@ -1367,7 +1389,7 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 	node_info->rsc_dev_ids = devm_kzalloc(bus_dev,
 			sizeof(int) * pdata_node_info->num_rsc_devs,
 			GFP_KERNEL);
-	if (!node_info->rsc_devs) {
+	if (!node_info->rsc_dev_ids) {
 		MSM_BUS_ERR("%s:Bus connections alloc failed\n", __func__);
 		devm_kfree(bus_dev, node_info->rsc_devs);
 		ret = -ENOMEM;
