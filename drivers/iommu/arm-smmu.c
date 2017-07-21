@@ -3311,14 +3311,23 @@ static int arm_smmu_alloc_cb(struct iommu_domain *domain,
 				struct device *dev)
 {
 	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	u32 i, idx;
 	int cb = -EINVAL;
 	bool dynamic;
 
-	/* Dynamic domains must set cbndx through domain attribute */
+	/*
+	 * Dynamic domains have already set cbndx through domain attribute.
+	 * Verify that they picked a valid value.
+	 */
 	dynamic = is_dynamic_domain(domain);
-	if (dynamic)
-		return INVALID_CBNDX;
+	if (dynamic) {
+		cb = smmu_domain->cfg.cbndx;
+		if (cb < smmu->num_context_banks)
+			return cb;
+		else
+			return -EINVAL;
+	}
 
 	mutex_lock(&smmu->stream_map_mutex);
 	for_each_cfg_sme(fwspec, i, idx) {
