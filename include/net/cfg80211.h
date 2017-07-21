@@ -36,6 +36,9 @@
 /* backport support for NL80211_EXT_FEATURE_SCHED_SCAN_RELATIVE_RSSI */
 #define CFG80211_REPORT_BETTER_BSS_IN_SCHED_SCAN 1
 
+/* backport support for specifying reason for connect timeout */
+#define CFG80211_CONNECT_TIMEOUT_REASON_CODE 1
+
 /**
  * DOC: Introduction
  *
