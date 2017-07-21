@@ -209,6 +209,7 @@ static dma_addr_t iommu_dma_alloc_iova(struct iommu_domain *domain,
 	unsigned long shift = iova_shift(iovad);
 	unsigned long iova_len = size >> shift;
 	unsigned long iova = 0;
+	dma_addr_t limit;
 
 	/*
 	 * Freeing non-power-of-two-sized allocations back into the IOVA caches
@@ -222,7 +223,13 @@ static dma_addr_t iommu_dma_alloc_iova(struct iommu_domain *domain,
 	if (domain->geometry.force_aperture)
 		dma_limit = min(dma_limit, domain->geometry.aperture_end);
 
-	iova = alloc_iova_fast(iovad, iova_len, dma_limit >> shift);
+	/*
+	 * Ensure iova is within range specified in iommu_dma_init_domain().
+	 * This also prevents unnecessary work iterating through the entire
+	 * rb_tree.
+	 */
+	limit = min_t(dma_addr_t, dma_limit >> shift, iovad->dma_32bit_pfn);
+	iova = alloc_iova_fast(iovad, iova_len, limit);
 
 	return (dma_addr_t)iova << shift;
 }
