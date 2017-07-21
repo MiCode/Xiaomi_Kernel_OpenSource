@@ -24,6 +24,9 @@
 #include <linux/net.h>
 #include <net/regulatory.h>
 
+/* backport support for new cfg80211 ops "update_connect_params" */
+#define CFG80211_UPDATE_CONNECT_PARAMS 1
+
 /**
  * DOC: Introduction
  *
