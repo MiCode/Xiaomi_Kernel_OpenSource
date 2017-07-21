@@ -623,7 +623,6 @@ void __init mem_init(void)
 #undef MLM
 #undef MLK_ROUNDUP
 
-#ifdef CONFIG_ARM_KERNMEM_PERMS
 struct section_perm {
 	const char *name;
 	unsigned long start;
