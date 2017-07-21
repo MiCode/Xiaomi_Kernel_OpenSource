@@ -1455,7 +1455,7 @@ static void smd_event_handler(void *priv, unsigned event)
 
 	switch (event) {
 	case SMD_EVENT_OPEN:
-		complete(&me->channel[cid].work);
+		complete(&me->channel[cid].workport);
 		break;
 	case SMD_EVENT_CLOSE:
 		fastrpc_notify_drivers(me, cid);
@@ -1476,7 +1476,7 @@ static void fastrpc_init(struct fastrpc_apps *me)
 	me->channel = &gcinfo[0];
 	for (i = 0; i < NUM_CHANNELS; i++) {
 		init_completion(&me->channel[i].work);
-	init_completion(&me->channel[i].workport);
+		init_completion(&me->channel[i].workport);
 		me->channel[i].sesscount = 0;
 	}
 }
