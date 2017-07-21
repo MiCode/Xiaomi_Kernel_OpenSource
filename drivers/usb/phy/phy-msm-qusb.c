@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -130,7 +130,7 @@ struct qusb_phy {
 	bool			cable_connected;
 	bool			suspended;
 	bool			ulpi_mode;
-	bool			rm_pulldown;
+	bool			dpdm_enable;
 	bool			is_se_clk;
 
 	struct regulator_desc	dpdm_rdesc;
@@ -673,15 +673,17 @@ static int qusb_phy_dpdm_regulator_enable(struct regulator_dev *rdev)
 	int ret = 0;
 	struct qusb_phy *qphy = rdev_get_drvdata(rdev);
 
-	dev_dbg(qphy->phy.dev, "%s\n", __func__);
+	dev_dbg(qphy->phy.dev, "%s dpdm_enable:%d\n",
+				__func__, qphy->dpdm_enable);
 
-	if (qphy->rm_pulldown) {
+	if (!qphy->dpdm_enable) {
 		ret = qusb_phy_enable_power(qphy, true, false);
-		if (ret >= 0) {
-			qphy->rm_pulldown = true;
-			dev_dbg(qphy->phy.dev, "dpdm_enable:rm_pulldown:%d\n",
-							qphy->rm_pulldown);
+		if (ret < 0) {
+			dev_dbg(qphy->phy.dev,
+				"dpdm regulator enable failed:%d\n", ret);
+			return ret;
 		}
+		qphy->dpdm_enable = true;
 	}
 
 	return ret;
@@ -692,15 +694,17 @@ static int qusb_phy_dpdm_regulator_disable(struct regulator_dev *rdev)
 	int ret = 0;
 	struct qusb_phy *qphy = rdev_get_drvdata(rdev);
 
-	dev_dbg(qphy->phy.dev, "%s\n", __func__);
+	dev_dbg(qphy->phy.dev, "%s dpdm_enable:%d\n",
+				__func__, qphy->dpdm_enable);
 
-	if (!qphy->rm_pulldown) {
+	if (qphy->dpdm_enable) {
 		ret = qusb_phy_enable_power(qphy, false, false);
-		if (ret >= 0) {
-			qphy->rm_pulldown = false;
-			dev_dbg(qphy->phy.dev, "dpdm_disable:rm_pulldown:%d\n",
-							qphy->rm_pulldown);
+		if (ret < 0) {
+			dev_dbg(qphy->phy.dev,
+				"dpdm regulator disable failed:%d\n", ret);
+			return ret;
 		}
+		qphy->dpdm_enable = false;
 	}
 
 	return ret;
@@ -710,9 +714,9 @@ static int qusb_phy_dpdm_regulator_is_enabled(struct regulator_dev *rdev)
 {
 	struct qusb_phy *qphy = rdev_get_drvdata(rdev);
 
-	dev_dbg(qphy->phy.dev, "%s qphy->rm_pulldown = %d\n", __func__,
-					qphy->rm_pulldown);
-	return qphy->rm_pulldown;
+	dev_dbg(qphy->phy.dev, "%s qphy->dpdm_enable = %d\n", __func__,
+					qphy->dpdm_enable);
+	return qphy->dpdm_enable;
 }
 
 static struct regulator_ops qusb_phy_dpdm_regulator_ops = {
