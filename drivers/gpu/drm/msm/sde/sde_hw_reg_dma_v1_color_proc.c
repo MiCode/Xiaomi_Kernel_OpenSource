@@ -39,6 +39,9 @@
 #define PCC_MEM_SIZE (PCC_LEN + \
 		REG_DMA_HEADERS_BUFFER_SZ)
 
+#define HSIC_MEM_SIZE ((sizeof(struct drm_msm_pa_hsic)) + \
+		REG_DMA_HEADERS_BUFFER_SZ)
+
 #define REG_MASK(n) ((BIT(n)) - 1)
 
 static struct sde_reg_dma_buffer *dspp_buf[REG_DMA_FEATURES_MAX][DSPP_MAX];
@@ -49,7 +52,7 @@ static u32 feature_map[SDE_DSPP_MAX] = {
 	[SDE_DSPP_IGC] = IGC,
 	[SDE_DSPP_PCC] = PCC,
 	[SDE_DSPP_GC] = GC,
-	[SDE_DSPP_HSIC] = REG_DMA_FEATURES_MAX,
+	[SDE_DSPP_HSIC] = HSIC,
 	[SDE_DSPP_MEMCOLOR] = REG_DMA_FEATURES_MAX,
 	[SDE_DSPP_SIXZONE] = REG_DMA_FEATURES_MAX,
 	[SDE_DSPP_DITHER] = REG_DMA_FEATURES_MAX,
@@ -63,6 +66,7 @@ static u32 feature_reg_dma_sz[SDE_DSPP_MAX] = {
 	[SDE_DSPP_GC] = GC_LUT_MEM_SIZE,
 	[SDE_DSPP_IGC] = IGC_LUT_MEM_SIZE,
 	[SDE_DSPP_PCC] = PCC_MEM_SIZE,
+	[SDE_DSPP_HSIC] = HSIC_MEM_SIZE,
 };
 
 static u32 dspp_mapping[DSPP_MAX] = {
@@ -295,8 +299,8 @@ void reg_dmav1_setup_dspp_vlutv18(struct sde_hw_dspp *ctx, void *cfg)
 	if (!hw_cfg->payload) {
 		DRM_DEBUG_DRIVER("Disable vlut feature\n");
 		SDE_REG_WRITE(&ctx->hw, PA_LUTV_OPMODE_OFF, 0);
-		if (op_mode & (~(BIT(20))))
-			op_mode = 0;
+		if (PA_DISABLE_REQUIRED(op_mode))
+			op_mode &= ~PA_EN;
 		SDE_REG_WRITE(&ctx->hw, PA_OP_MODE_OFF, op_mode);
 		return;
 	}
@@ -917,6 +921,124 @@ void reg_dmav1_setup_dspp_pccv4(struct sde_hw_dspp *ctx, void *cfg)
 
 exit:
 	kfree(data);
+}
+
+void reg_dmav1_setup_dspp_pa_hsicv18(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_hw_reg_dma_ops *dma_ops;
+	struct sde_reg_dma_kickoff_cfg kick_off;
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct sde_reg_dma_setup_ops_cfg dma_write_cfg;
+	struct drm_msm_pa_hsic *hsic_cfg;
+	u32 reg = 0, opcode = 0, local_opcode = 0;
+	int rc;
+
+	opcode = SDE_REG_READ(&ctx->hw, ctx->cap->sblk->hsic.base);
+
+	rc = reg_dma_dspp_check(ctx, cfg, HSIC);
+	if (rc)
+		return;
+
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("disable pa hsic feature\n");
+		opcode &= ~(PA_HUE_EN | PA_SAT_EN | PA_VAL_EN | PA_CONT_EN);
+		if (PA_DISABLE_REQUIRED(opcode))
+			opcode &= ~PA_EN;
+		SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->hsic.base, opcode);
+		return;
+	}
+
+	if (hw_cfg->len != sizeof(struct drm_msm_pa_hsic)) {
+		DRM_ERROR("invalid size of payload len %d exp %zd\n",
+				hw_cfg->len, sizeof(struct drm_msm_pa_hsic));
+		return;
+	}
+
+	hsic_cfg = hw_cfg->payload;
+
+	dma_ops = sde_reg_dma_get_ops();
+	dma_ops->reset_reg_dma_buf(dspp_buf[HSIC][ctx->idx]);
+
+	REG_DMA_INIT_OPS(dma_write_cfg, dspp_mapping[ctx->idx],
+		HSIC, dspp_buf[HSIC][ctx->idx]);
+
+	REG_DMA_SETUP_OPS(dma_write_cfg, 0, NULL, 0, HW_BLK_SELECT, 0, 0);
+	rc = dma_ops->setup_payload(&dma_write_cfg);
+	if (rc) {
+		DRM_ERROR("write decode select failed ret %d\n", rc);
+		return;
+	}
+
+	if (hsic_cfg->flags & PA_HSIC_HUE_ENABLE) {
+		reg = hsic_cfg->hue & PA_HUE_MASK;
+		REG_DMA_SETUP_OPS(dma_write_cfg,
+			ctx->cap->sblk->hsic.base + PA_HUE_OFF,
+			&reg, sizeof(reg), REG_SINGLE_WRITE, 0, 0);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("hsic hue write failed ret %d\n", rc);
+			return;
+		}
+		local_opcode |= PA_HUE_EN;
+	} else if (opcode & PA_HUE_EN)
+		opcode &= ~PA_HUE_EN;
+
+	if (hsic_cfg->flags & PA_HSIC_SAT_ENABLE) {
+		reg = hsic_cfg->saturation & PA_SAT_MASK;
+		REG_DMA_SETUP_OPS(dma_write_cfg,
+			ctx->cap->sblk->hsic.base + PA_SAT_OFF,
+			&reg, sizeof(reg), REG_SINGLE_WRITE, 0, 0);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("hsic saturation write failed ret %d\n", rc);
+			return;
+		}
+		local_opcode |= PA_SAT_EN;
+	} else if (opcode & PA_SAT_EN)
+		opcode &= ~PA_SAT_EN;
+
+	if (hsic_cfg->flags & PA_HSIC_VAL_ENABLE) {
+		reg = hsic_cfg->value & PA_VAL_MASK;
+		REG_DMA_SETUP_OPS(dma_write_cfg,
+			ctx->cap->sblk->hsic.base + PA_VAL_OFF,
+			&reg, sizeof(reg), REG_SINGLE_WRITE, 0, 0);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("hsic value write failed ret %d\n", rc);
+			return;
+		}
+		local_opcode |= PA_VAL_EN;
+	} else if (opcode & PA_VAL_EN)
+		opcode &= ~PA_VAL_EN;
+
+	if (hsic_cfg->flags & PA_HSIC_CONT_ENABLE) {
+		reg = hsic_cfg->contrast & PA_CONT_MASK;
+		REG_DMA_SETUP_OPS(dma_write_cfg,
+			ctx->cap->sblk->hsic.base + PA_CONT_OFF,
+			&reg, sizeof(reg), REG_SINGLE_WRITE, 0, 0);
+		rc = dma_ops->setup_payload(&dma_write_cfg);
+		if (rc) {
+			DRM_ERROR("hsic contrast write failed ret %d\n", rc);
+			return;
+		}
+		local_opcode |= PA_CONT_EN;
+	} else if (opcode & PA_CONT_EN)
+		opcode &= ~PA_CONT_EN;
+
+	if (local_opcode)
+		opcode |= (local_opcode | PA_EN);
+	else {
+		DRM_ERROR("Invalid hsic config\n");
+		return;
+	}
+
+	REG_DMA_SETUP_KICKOFF(kick_off, hw_cfg->ctl, dspp_buf[HSIC][ctx->idx],
+			REG_DMA_WRITE, DMA_CTL_QUEUE0, WRITE_IMMEDIATE);
+	rc = dma_ops->kick_off(&kick_off);
+	if (rc)
+		DRM_ERROR("failed to kick off ret %d\n", rc);
+
+	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->hsic.base, opcode);
 }
 
 int reg_dmav1_deinit_dspp_ops(enum sde_dspp idx)

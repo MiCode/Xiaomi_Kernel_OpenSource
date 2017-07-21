@@ -62,11 +62,11 @@ void sde_setup_pipe_pa_memcol_v1_7(struct sde_hw_pipe *ctx,
 void sde_setup_dspp_pcc_v1_7(struct sde_hw_dspp *ctx, void *cfg);
 
 /**
- * sde_setup_dspp_pa_hue_v1_7 - setup DSPP hue feature in v1.7 hardware
+ * sde_setup_dspp_pa_hsic_v17 - setup DSPP hsic feature in v1.7 hardware
  * @ctx: Pointer to DSPP context
- * @cfg: Pointer to hue data
+ * @cfg: Pointer to hsic data
  */
-void sde_setup_dspp_pa_hue_v1_7(struct sde_hw_dspp *ctx, void *cfg);
+void sde_setup_dspp_pa_hsic_v17(struct sde_hw_dspp *ctx, void *cfg);
 
 /**
  * sde_setup_dspp_pa_vlut_v1_7 - setup DSPP PA vLUT feature in v1.7 hardware

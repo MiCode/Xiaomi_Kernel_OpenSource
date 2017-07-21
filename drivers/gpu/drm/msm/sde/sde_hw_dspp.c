@@ -71,8 +71,9 @@ static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 			break;
 		case SDE_DSPP_HSIC:
 			if (c->cap->sblk->hsic.version ==
-				(SDE_COLOR_PROCESS_VER(0x1, 0x7)))
-				c->ops.setup_hue = sde_setup_dspp_pa_hue_v1_7;
+				SDE_COLOR_PROCESS_VER(0x1, 0x7))
+				c->ops.setup_pa_hsic =
+					sde_setup_dspp_pa_hsic_v17;
 			break;
 		case SDE_DSPP_VLUT:
 			if (c->cap->sblk->vlut.version ==

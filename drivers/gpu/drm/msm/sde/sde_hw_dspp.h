@@ -45,11 +45,11 @@ struct sde_hw_dspp_ops {
 	void (*setup_igc)(struct sde_hw_dspp *ctx, void *cfg);
 
 	/**
-	 * setup_pa - setup dspp pa
+	 * setup_pa_hsic - setup dspp pa hsic
 	 * @ctx: Pointer to dspp context
 	 * @cfg: Pointer to configuration
 	 */
-	void (*setup_pa)(struct sde_hw_dspp *dspp, void *cfg);
+	void (*setup_pa_hsic)(struct sde_hw_dspp *dspp, void *cfg);
 
 	/**
 	 * setup_pcc - setup dspp pcc
@@ -92,34 +92,6 @@ struct sde_hw_dspp_ops {
 	 * @cfg: Pointer to configuration
 	 */
 	void (*setup_dither)(struct sde_hw_dspp *ctx, void *cfg);
-
-	/**
-	 * setup_hue - setup dspp PA hue
-	 * @ctx: Pointer to dspp context
-	 * @cfg: Pointer to configuration
-	 */
-	void (*setup_hue)(struct sde_hw_dspp *ctx, void *cfg);
-
-	/**
-	 * setup_sat - setup dspp PA saturation
-	 * @ctx: Pointer to dspp context
-	 * @cfg: Pointer to configuration
-	 */
-	void (*setup_sat)(struct sde_hw_dspp *ctx, void *cfg);
-
-	/**
-	 * setup_val - setup dspp PA value
-	 * @ctx: Pointer to dspp context
-	 * @cfg: Pointer to configuration
-	 */
-	void (*setup_val)(struct sde_hw_dspp *ctx, void *cfg);
-
-	/**
-	 * setup_cont - setup dspp PA contrast
-	 * @ctx: Pointer to dspp context
-	 * @cfg: Pointer to configuration
-	 */
-	void (*setup_cont)(struct sde_hw_dspp *ctx, void *cfg);
 
 	/**
 	 * setup_vlut - setup dspp PA VLUT
