@@ -14,6 +14,10 @@ Required properties:
  - #size-cells: Should be <0> as i2c addresses have no size component
  - qcom,wrapper-core: Wrapper QUPv3 core containing this I2C controller.
 
+Optional property:
+ - qcom,clk-freq-out : Desired I2C bus clock frequency in Hz.
+   When missing default to 400000Hz.
+
 Child nodes should conform to i2c bus binding.
 
 Example:
@@ -32,4 +36,5 @@ i2c@a94000 {
 	#address-cells = <1>;
 	#size-cells = <0>;
 	qcom,wrapper-core = <&qupv3_0>;
+	qcom,clk-freq-out = <400000>;
 };
