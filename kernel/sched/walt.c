@@ -2896,6 +2896,11 @@ void sched_update_cpu_freq_min_max(const cpumask_t *cpus, u32 fmin, u32 fmax)
 		update_cpu_cluster_capacity(cpus);
 }
 
+void note_task_waking(struct task_struct *p, u64 wallclock)
+{
+	p->last_wake_ts = wallclock;
+}
+
 /*
  * Task's cpu usage is accounted in:
  *	rq->curr/prev_runnable_sum,  when its ->grp is NULL

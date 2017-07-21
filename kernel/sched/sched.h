@@ -2211,11 +2211,13 @@ static inline u64 irq_time_read(int cpu)
 
 #ifdef CONFIG_SCHED_WALT
 u64 sched_ktime_clock(void);
+void note_task_waking(struct task_struct *p, u64 wallclock);
 #else /* CONFIG_SCHED_WALT */
 static inline u64 sched_ktime_clock(void)
 {
 	return 0;
 }
+static inline void note_task_waking(struct task_struct *p, u64 wallclock) { }
 #endif /* CONFIG_SCHED_WALT */
 
 #ifdef CONFIG_CPU_FREQ
@@ -2938,8 +2940,6 @@ static inline int pct_task_load(struct task_struct *p) { return 0; }
 
 static inline void notify_migration(int src_cpu, int dest_cpu,
 			bool src_cpu_dead, struct task_struct *p) { }
-
-static inline void note_task_waking(struct task_struct *p, u64 wallclock) { }
 
 static inline void
 check_for_freq_change(struct rq *rq, bool check_pred, bool check_groups) { }
