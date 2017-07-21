@@ -768,6 +768,16 @@ end:
 	SDE_REG_WRITE(&ctx->hw, QSEED3_OP_MODE + idx, op_mode);
 }
 
+static u32 _sde_hw_sspp_get_scaler3_ver(struct sde_hw_pipe *ctx)
+{
+	u32 idx;
+
+	if (!ctx || _sspp_subblk_offset(ctx, SDE_SSPP_SCALER_QSEED3, &idx))
+		return 0;
+
+	return SDE_REG_READ(&ctx->hw, QSEED3_HW_VERSION + idx);
+}
+
 /**
  * sde_hw_sspp_setup_rects()
  */
@@ -1167,8 +1177,10 @@ static void _setup_layer_ops(struct sde_hw_pipe *c,
 	if (sde_hw_sspp_multirect_enabled(c->cap))
 		c->ops.setup_multirect = sde_hw_sspp_setup_multirect;
 
-	if (test_bit(SDE_SSPP_SCALER_QSEED3, &features))
+	if (test_bit(SDE_SSPP_SCALER_QSEED3, &features)) {
 		c->ops.setup_scaler = _sde_hw_sspp_setup_scaler3;
+		c->ops.get_scaler_ver = _sde_hw_sspp_get_scaler3_ver;
+	}
 
 	if (test_bit(SDE_SSPP_HSIC, &features)) {
 		/* TODO: add version based assignment here as inline or macro */

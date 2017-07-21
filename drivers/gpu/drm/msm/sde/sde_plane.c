@@ -3806,6 +3806,10 @@ static void _sde_plane_install_properties(struct drm_plane *plane,
 		sde_kms_info_stop(info);
 	}
 
+	if (psde->pipe_hw && psde->pipe_hw->ops.get_scaler_ver)
+		sde_kms_info_add_keyint(info, "scaler_step_ver",
+			psde->pipe_hw->ops.get_scaler_ver(psde->pipe_hw));
+
 	sde_kms_info_add_keyint(info, "max_linewidth",
 			psde->pipe_sblk->maxlinewidth);
 	sde_kms_info_add_keyint(info, "max_upscale",
