@@ -354,6 +354,7 @@ struct cam_ife_csid_cid_data {
  * @dt :            Data type number
  * @cid             cid number, it is same as DT_ID number in HW
  * @decode_fmt:     input decode format
+ * @output_fmt:     output resource format, needed for RDI resource
  * @crop_enable:    crop is enable or disabled, if enabled
  *                  then remaining parameters are valid.
  * @start_pixel:    start pixel
@@ -373,6 +374,7 @@ struct cam_ife_csid_path_cfg {
 	uint32_t                        dt;
 	uint32_t                        cid;
 	uint32_t                        decode_fmt;
+	uint32_t                        output_fmt;
 	bool                            crop_enable;
 	uint32_t                        start_pixel;
 	uint32_t                        width;
