@@ -7168,12 +7168,25 @@ ath10k_mac_update_vif_chan(struct ath10k *ar,
 
 		if (WARN_ON(!arvif->is_up))
 			continue;
+		if (QCA_REV_WCN3990(ar)) {
+			/* In the case of wcn3990 WLAN module we send
+			 * vdev restart only, no need to send vdev down.
+			 */
 
-		ret = ath10k_wmi_vdev_down(ar, arvif->vdev_id);
-		if (ret) {
-			ath10k_warn(ar, "failed to down vdev %d: %d\n",
-				    arvif->vdev_id, ret);
-			continue;
+			ret = ath10k_vdev_restart(arvif, &vifs[i].new_ctx->def);
+			if (ret) {
+				ath10k_warn(ar,
+					    "failed to restart vdev %d: %d\n",
+					    arvif->vdev_id, ret);
+				continue;
+			}
+		} else {
+			ret = ath10k_wmi_vdev_down(ar, arvif->vdev_id);
+			if (ret) {
+				ath10k_warn(ar, "failed to down vdev %d: %d\n",
+					    arvif->vdev_id, ret);
+				continue;
+			}
 		}
 	}
 
@@ -7204,11 +7217,17 @@ ath10k_mac_update_vif_chan(struct ath10k *ar,
 			ath10k_warn(ar, "failed to update prb tmpl during csa: %d\n",
 				    ret);
 
-		ret = ath10k_vdev_restart(arvif, &vifs[i].new_ctx->def);
-		if (ret) {
-			ath10k_warn(ar, "failed to restart vdev %d: %d\n",
-				    arvif->vdev_id, ret);
-			continue;
+		if (!QCA_REV_WCN3990(ar)) {
+			/* In case of other than wcn3990 WLAN module we
+			 * send vdev down and vdev restart to the firmware.
+			 */
+
+			ret = ath10k_vdev_restart(arvif, &vifs[i].new_ctx->def);
+			if (ret) {
+				ath10k_warn(ar, "failed to restart vdev %d: %d\n",
+					    arvif->vdev_id, ret);
+				continue;
+			}
 		}
 
 		ret = ath10k_wmi_vdev_up(arvif->ar, arvif->vdev_id, arvif->aid,
