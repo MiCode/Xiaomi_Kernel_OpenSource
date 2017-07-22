@@ -667,6 +667,36 @@ ath10k_mac_get_any_chandef_iter(struct ieee80211_hw *hw,
 	*def = &conf->def;
 }
 
+static int ath10k_peer_delete(struct ath10k *ar, u32 vdev_id, const u8 *addr)
+{
+	int ret;
+	unsigned long time_left;
+
+	lockdep_assert_held(&ar->conf_mutex);
+
+	ret = ath10k_wmi_peer_delete(ar, vdev_id, addr);
+	if (ret)
+		return ret;
+
+	ret = ath10k_wait_for_peer_deleted(ar, vdev_id, addr);
+	if (ret)
+		return ret;
+
+	if (QCA_REV_WCN3990(ar)) {
+		time_left = wait_for_completion_timeout(&ar->peer_delete_done,
+							50 * HZ);
+
+		if (time_left == 0) {
+			ath10k_warn(ar, "Timeout in receiving peer delete response\n");
+			return -ETIMEDOUT;
+		}
+	}
+
+	ar->num_peers--;
+
+	return 0;
+}
+
 static int ath10k_peer_create(struct ath10k *ar,
 			      struct ieee80211_vif *vif,
 			      struct ieee80211_sta *sta,
@@ -711,7 +741,7 @@ static int ath10k_peer_create(struct ath10k *ar,
 		spin_unlock_bh(&ar->data_lock);
 		ath10k_warn(ar, "failed to find peer %pM on vdev %i after creation\n",
 			    addr, vdev_id);
-		ath10k_wmi_peer_delete(ar, vdev_id, addr);
+		ath10k_peer_delete(ar, vdev_id, addr);
 		return -ENOENT;
 	}
 
@@ -777,36 +807,6 @@ static int ath10k_mac_set_rts(struct ath10k_vif *arvif, u32 value)
 
 	vdev_param = ar->wmi.vdev_param->rts_threshold;
 	return ath10k_wmi_vdev_set_param(ar, arvif->vdev_id, vdev_param, value);
-}
-
-static int ath10k_peer_delete(struct ath10k *ar, u32 vdev_id, const u8 *addr)
-{
-	int ret;
-	unsigned long time_left;
-
-	lockdep_assert_held(&ar->conf_mutex);
-
-	ret = ath10k_wmi_peer_delete(ar, vdev_id, addr);
-	if (ret)
-		return ret;
-
-	ret = ath10k_wait_for_peer_deleted(ar, vdev_id, addr);
-	if (ret)
-		return ret;
-
-	if (QCA_REV_WCN3990(ar)) {
-		time_left = wait_for_completion_timeout(&ar->peer_delete_done,
-							50 * HZ);
-
-		if (time_left == 0) {
-			ath10k_warn(ar, "Timeout in receiving peer delete response\n");
-			return -ETIMEDOUT;
-		}
-	}
-
-	ar->num_peers--;
-
-	return 0;
 }
 
 static void ath10k_peer_cleanup(struct ath10k *ar, u32 vdev_id)
@@ -5094,7 +5094,7 @@ static int ath10k_add_interface(struct ieee80211_hw *hw,
 err_peer_delete:
 	if (arvif->vdev_type == WMI_VDEV_TYPE_AP ||
 	    arvif->vdev_type == WMI_VDEV_TYPE_IBSS)
-		ath10k_wmi_peer_delete(ar, arvif->vdev_id, vif->addr);
+		ath10k_peer_delete(ar, arvif->vdev_id, vif->addr);
 
 err_vdev_delete:
 	ath10k_wmi_vdev_delete(ar, arvif->vdev_id);
@@ -5150,8 +5150,8 @@ static void ath10k_remove_interface(struct ieee80211_hw *hw,
 
 	if (arvif->vdev_type == WMI_VDEV_TYPE_AP ||
 	    arvif->vdev_type == WMI_VDEV_TYPE_IBSS) {
-		ret = ath10k_wmi_peer_delete(arvif->ar, arvif->vdev_id,
-					     vif->addr);
+		ret = ath10k_peer_delete(arvif->ar, arvif->vdev_id,
+					 vif->addr);
 		if (ret)
 			ath10k_warn(ar, "failed to submit AP/IBSS self-peer removal on vdev %i: %d\n",
 				    arvif->vdev_id, ret);
