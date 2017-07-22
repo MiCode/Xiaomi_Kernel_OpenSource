@@ -62,19 +62,6 @@
 		/delete-property/ vdd-io-supply;
 	};
 
-	qcom,mdss_dsi@0 {
-		/delete-property/ vdda-supply;
-		/delete-property/ vddio-supply;
-		qcom,mdss_dsi_ctrl0@1ac8000 {
-			/delete-property/ vdd-supply;
-			/delete-property/ vddio-supply;
-		};
-	};
-
-	qcom,mdss_dsi_pll@1ac8300 {
-		/delete-property/ vddio-supply;
-	};
-
 	qcom,msm-thermal {
 		/delete-property/ vdd-dig-supply;
 	};
@@ -194,4 +181,39 @@
 
 &pm660_haptics {
 	qcom,actuator-type = "erm";
+};
+
+&dsi_auo_390p_cmd {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,panel-supply-entries = <&dsi_pm660_panel_pwr_supply>;
+};
+
+&mdss_dsi{
+	vdda-supply = <&pm660_l5>; /*1.2V*/
+	vddio-supply = <&pm660_l12>; /*1.8V*/
+	qcom,mdss_dsi_ctrl0@1ac8000 {
+		bklt-supply = <&bob_vreg>;
+		vdd-supply = <&pm660_l18>; /*1.8*/
+		vddio-supply = <&pm660_l11>;
+	};
+};
+
+&mdss_dsi0{
+	qcom,dsi-pref-prim-pan = <&dsi_auo_390p_cmd>;
+	qcom,platform-bklight-en-gpio = <&msm_gpio 52 0>;
+};
+
+&mdss_dsi0_pll {
+	vddio-supply = <&pm660_l12>; /*1.8V*/
+};
+
+&pm660_gpios {
+	gpio@cb00 {
+		status = "ok";
+		qcom,mode = <1>;
+		qcom,vin-sel = <0>;
+		qcom,src-sel = <0>;
+		qcom,master-en = <1>;
+		qcom,out-strength = <2>;
+	};
 };

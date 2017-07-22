@@ -4502,7 +4502,8 @@ static void thermal_monitor_init(void)
 	if (vdd_rstr_enabled) {
 		if (vdd_rstr_apss_freq_dev_init())
 			pr_err("vdd APSS mitigation device init failed\n");
-		else if (!(convert_to_zone_id(&thresh[MSM_VDD_RESTRICTION])))
+
+		if (!(convert_to_zone_id(&thresh[MSM_VDD_RESTRICTION])))
 			therm_set_threshold(&thresh[MSM_VDD_RESTRICTION]);
 	}
 

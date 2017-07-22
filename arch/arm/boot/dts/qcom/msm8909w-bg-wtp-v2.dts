@@ -54,6 +54,8 @@
 			synaptics,reset-delay-ms = <200>;
 			synaptics,max-y-for-2d = <389>;
 			synaptics,resume-in-workqueue;
+			synaptics,x-flip;
+			synaptics,y-flip;
 			/delete-property/ synaptics,reset-gpio;
 			/delete-property/ synaptics,display-coords;
 			/delete-property/ synaptics,panel-coords;

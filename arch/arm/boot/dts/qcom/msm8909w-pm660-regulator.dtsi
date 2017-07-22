@@ -401,4 +401,13 @@
 					<2 (-1) 2 4 6>;
 		qcom,cpr-quot-adjust-scaling-factor-max = <1400>;
 	};
+
+	bob_vreg: bob_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "bob_vreg";
+		startup-delay-us = <400>;
+		enable-active-high;
+		gpio = <&pm660_gpios 12 0>;
+		status = "okay";
+	};
 };

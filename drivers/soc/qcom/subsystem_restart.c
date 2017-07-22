@@ -1190,8 +1190,11 @@ bool subsys_get_crash_status(struct subsys_device *dev)
 
 void subsys_set_error(struct subsys_device *dev, const char *error_msg)
 {
-	snprintf(dev->error_buf, sizeof(dev->error_buf), "%s", error_msg);
-	sysfs_notify(&dev->dev.kobj, NULL, "error");
+	if (dev) {
+		snprintf(dev->error_buf, sizeof(dev->error_buf), "%s",
+							   error_msg);
+		sysfs_notify(&dev->dev.kobj, NULL, "error");
+	}
 }
 
 static struct subsys_device *desc_to_subsys(struct device *d)
