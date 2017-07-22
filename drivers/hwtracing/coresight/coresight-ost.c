@@ -12,6 +12,7 @@
 
 #include <linux/device.h>
 #include <linux/bitmap.h>
+#include <linux/io.h>
 #include "coresight-ost.h"
 
 #define STM_USERSPACE_HEADER_SIZE	(8)
@@ -54,19 +55,40 @@ static uint32_t stm_channel_alloc(void)
 	return ch;
 }
 
-static int stm_ost_send(void *addr, const void *data, uint32_t count)
+static int stm_ost_send(void __iomem *addr, const void *data, uint32_t size)
 {
-	struct stm_drvdata *drvdata = stmdrvdata;
-	const unsigned char *p = data;
-	size_t pos;
-	ssize_t sz;
+	uint32_t len = size;
 
-	for (pos = 0, p = data; count > pos; pos += sz, p += sz) {
-		sz = min_t(unsigned int, count - pos, drvdata->write_bytes);
-		stm_send(addr, p, sz, drvdata->write_bytes);
+	if (((unsigned long)data & 0x1) && (size >= 1)) {
+		writeb_relaxed_no_log(*(uint8_t *)data, addr);
+		data++;
+		size--;
+	}
+	if (((unsigned long)data & 0x2) && (size >= 2)) {
+		writew_relaxed_no_log(*(uint16_t *)data, addr);
+		data += 2;
+		size -= 2;
 	}
 
-	return count;
+	/* now we are 32bit aligned */
+	while (size >= 4) {
+		writel_relaxed_no_log(*(uint32_t *)data, addr);
+		data += 4;
+		size -= 4;
+	}
+
+	if (size >= 2) {
+		writew_relaxed_no_log(*(uint16_t *)data, addr);
+		data += 2;
+		size -= 2;
+	}
+	if (size >= 1) {
+		writeb_relaxed_no_log(*(uint8_t *)data, addr);
+		data++;
+		size--;
+	}
+
+	return len;
 }
 
 static void stm_channel_free(uint32_t ch)
@@ -76,10 +98,10 @@ static void stm_channel_free(uint32_t ch)
 	clear_bit(ch, drvdata->chs.bitmap);
 }
 
-static int stm_trace_ost_header(unsigned long ch_addr, uint32_t flags,
+static int stm_trace_ost_header(void __iomem *ch_addr, uint32_t flags,
 				uint8_t entity_id, uint8_t proto_id)
 {
-	void *addr;
+	void __iomem *addr;
 	uint32_t header;
 	char *hdr;
 
@@ -93,12 +115,13 @@ static int stm_trace_ost_header(unsigned long ch_addr, uint32_t flags,
 	/* header is expected to be D32M type */
 	flags |= STM_FLAG_MARKED;
 	flags &= ~STM_FLAG_TIMESTAMPED;
-	addr =  (void *)(ch_addr | stm_channel_off(STM_PKT_TYPE_DATA, flags));
+	addr = (void __iomem *)(ch_addr +
+		stm_channel_off(STM_PKT_TYPE_DATA, flags));
 
 	return stm_ost_send(addr, &header, sizeof(header));
 }
 
-static int stm_trace_data_header(void *addr)
+static int stm_trace_data_header(void __iomem *addr)
 {
 	char hdr[16];
 	int len = 0;
@@ -114,14 +137,15 @@ static int stm_trace_data_header(void *addr)
 	return len;
 }
 
-static int stm_trace_data(unsigned long ch_addr, uint32_t flags,
+static int stm_trace_data(void __iomem *ch_addr, uint32_t flags,
 			  const void *data, uint32_t size)
 {
-	void *addr;
+	void __iomem *addr;
 	int len = 0;
 
 	flags &= ~STM_FLAG_TIMESTAMPED;
-	addr = (void *)(ch_addr | stm_channel_off(STM_PKT_TYPE_DATA, flags));
+	addr = (void __iomem *)(ch_addr +
+		stm_channel_off(STM_PKT_TYPE_DATA, flags));
 
 	/* send the data header */
 	len += stm_trace_data_header(addr);
@@ -131,12 +155,13 @@ static int stm_trace_data(unsigned long ch_addr, uint32_t flags,
 	return len;
 }
 
-static int stm_trace_ost_tail(unsigned long ch_addr, uint32_t flags)
+static int stm_trace_ost_tail(void __iomem *ch_addr, uint32_t flags)
 {
-	void *addr;
+	void __iomem *addr;
 	uint32_t tail = 0x0;
 
-	addr = (void *)(ch_addr | stm_channel_off(STM_PKT_TYPE_FLAG, flags));
+	addr = (void __iomem *)(ch_addr +
+		stm_channel_off(STM_PKT_TYPE_FLAG, flags));
 
 	return stm_ost_send(addr, &tail, sizeof(tail));
 }
@@ -147,7 +172,7 @@ static inline int __stm_trace(uint32_t flags, uint8_t entity_id,
 	struct stm_drvdata *drvdata = stmdrvdata;
 	int len = 0;
 	uint32_t ch;
-	unsigned long ch_addr;
+	void __iomem *ch_addr;
 
 	/* allocate channel and get the channel address */
 	ch = stm_channel_alloc();
@@ -159,7 +184,7 @@ static inline int __stm_trace(uint32_t flags, uint8_t entity_id,
 		return 0;
 	}
 
-	ch_addr = (unsigned long)stm_channel_addr(drvdata, ch);
+	ch_addr = (void __iomem *)stm_channel_addr(drvdata, ch);
 
 	/* send the ost header */
 	len += stm_trace_ost_header(ch_addr, flags, entity_id,
