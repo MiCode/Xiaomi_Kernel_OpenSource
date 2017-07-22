@@ -784,8 +784,8 @@ static void ipa3_switch_to_intr_rx_work_func(struct work_struct *work)
 	sys = container_of(dwork, struct ipa3_sys_context, switch_to_intr_work);
 
 	if (sys->ep->napi_enabled) {
-		ipa3_rx_switch_to_intr_mode(sys);
-		IPA_ACTIVE_CLIENTS_DEC_SPECIAL("NAPI");
+		/* interrupt mode is done in ipa3_rx_poll context */
+		ipa_assert();
 	} else
 		ipa3_handle_rx(sys);
 }
@@ -3270,6 +3270,7 @@ static void ipa_gsi_irq_rx_notify_cb(struct gsi_chan_xfer_notify *notify)
 {
 	struct ipa3_sys_context *sys;
 	struct ipa3_rx_pkt_wrapper *rx_pkt_expected, *rx_pkt_rcvd;
+	int clk_off;
 
 	if (!notify) {
 		IPAERR("gsi notify is NULL.\n");
@@ -3301,7 +3302,20 @@ static void ipa_gsi_irq_rx_notify_cb(struct gsi_chan_xfer_notify *notify)
 				GSI_CHAN_MODE_POLL);
 			ipa3_inc_acquire_wakelock();
 			atomic_set(&sys->curr_polling_state, 1);
-			queue_work(sys->wq, &sys->work);
+			if (sys->ep->napi_enabled) {
+				struct ipa_active_client_logging_info log;
+
+				IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log, "NAPI");
+				clk_off = ipa3_inc_client_enable_clks_no_block(
+					&log);
+				if (!clk_off)
+					sys->ep->client_notify(sys->ep->priv,
+						IPA_CLIENT_START_POLL, 0);
+				else
+					queue_work(sys->wq, &sys->work);
+			} else {
+				queue_work(sys->wq, &sys->work);
+			}
 		}
 		break;
 	default:
@@ -3669,6 +3683,9 @@ int ipa3_rx_poll(u32 clnt_hdl, int weight)
 	int cnt = 0;
 	struct ipa_mem_buffer mem_info = {0};
 	static int total_cnt;
+	struct ipa_active_client_logging_info log;
+
+	IPA_ACTIVE_CLIENTS_PREP_SPECIAL(log, "NAPI");
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 		ipa3_ctx->ep[clnt_hdl].valid == 0) {
@@ -3681,6 +3698,7 @@ int ipa3_rx_poll(u32 clnt_hdl, int weight)
 	while (cnt < weight &&
 		   atomic_read(&ep->sys->curr_polling_state)) {
 
+		atomic_set(&ipa3_ctx->transport_pm.eot_activity, 1);
 		ret = ipa_poll_gsi_pkt(ep->sys, &mem_info);
 		if (ret)
 			break;
@@ -3698,7 +3716,8 @@ int ipa3_rx_poll(u32 clnt_hdl, int weight)
 
 	if (cnt < weight) {
 		ep->client_notify(ep->priv, IPA_CLIENT_COMP_NAPI, 0);
-		queue_work(ep->sys->wq, &ep->sys->switch_to_intr_work.work);
+		ipa3_rx_switch_to_intr_mode(ep->sys);
+		ipa3_dec_client_disable_clks_no_block(&log);
 	}
 
 	return cnt;
