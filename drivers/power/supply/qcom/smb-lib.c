@@ -3705,6 +3705,7 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 
 	/* reset parallel voters */
 	vote(chg->pl_disable_votable, PL_DELAY_VOTER, true, 0);
+	vote(chg->pl_disable_votable, FCC_CHANGE_VOTER, false, 0);
 	vote(chg->pl_enable_votable_indirect, USBIN_I_VOTER, false, 0);
 	vote(chg->pl_enable_votable_indirect, USBIN_V_VOTER, false, 0);
 	vote(chg->awake_votable, PL_DELAY_VOTER, false, 0);
