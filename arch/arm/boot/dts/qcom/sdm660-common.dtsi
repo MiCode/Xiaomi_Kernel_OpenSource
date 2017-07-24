@@ -108,6 +108,7 @@
 
 		lanes-per-direction = <1>;
 
+		non-removable;
 		qcom,msm-bus,name = "ufs1";
 		qcom,msm-bus,num-cases = <12>;
 		qcom,msm-bus,num-paths = <2>;

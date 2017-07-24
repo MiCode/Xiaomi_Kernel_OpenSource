@@ -1696,6 +1696,9 @@ static int msm_isp_update_deliver_count(struct vfe_device *vfe_dev,
 		rc = -EINVAL;
 		goto done;
 	} else {
+		/*After wm reload, we get bufdone for ping buffer*/
+		if (stream_info->sw_ping_pong_bit == -1)
+			stream_info->sw_ping_pong_bit = 0;
 		stream_info->undelivered_request_cnt--;
 		if (pingpong_bit != stream_info->sw_ping_pong_bit) {
 			pr_err("%s:%d ping pong bit actual %d sw %d\n",
@@ -2621,6 +2624,7 @@ int msm_isp_axi_reset(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 	uint32_t bufq_handle = 0, bufq_id = 0;
 	struct msm_isp_timestamp timestamp;
+	struct msm_vfe_frame_request_queue *queue_req;
 	unsigned long flags;
 	int vfe_idx;
 
@@ -2657,8 +2661,18 @@ int msm_isp_axi_reset(struct vfe_device *vfe_dev,
 					VFE_PING_FLAG);
 		msm_isp_cfg_stream_scratch(stream_info,
 					VFE_PONG_FLAG);
+		stream_info->undelivered_request_cnt = 0;
 		spin_unlock_irqrestore(&stream_info->lock,
 					flags);
+		while (!list_empty(&stream_info->request_q)) {
+			queue_req = list_first_entry_or_null(
+				&stream_info->request_q,
+				struct msm_vfe_frame_request_queue, list);
+			if (queue_req) {
+				queue_req->cmd_used = 0;
+				list_del(&queue_req->list);
+			}
+		}
 		for (bufq_id = 0; bufq_id < VFE_BUF_QUEUE_MAX;
 			bufq_id++) {
 			bufq_handle = stream_info->bufq_handle[bufq_id];
@@ -3487,7 +3501,14 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 
 	spin_lock_irqsave(&stream_info->lock, flags);
 	vfe_idx = msm_isp_get_vfe_idx_for_stream(vfe_dev, stream_info);
-	if (stream_info->undelivered_request_cnt == 1) {
+	/*
+	* When wm reloaded, pingpong status register would be stale, pingpong
+	* status would be updated only after AXI_DONE interrupt processed.
+	* So, we should avoid reading value from pingpong status register
+	* until buf_done happens for ping buffer.
+	*/
+	if ((stream_info->undelivered_request_cnt == 1) &&
+		(stream_info->sw_ping_pong_bit != -1)) {
 		pingpong_status =
 			vfe_dev->hw_info->vfe_ops.axi_ops.get_pingpong_status(
 				vfe_dev);
@@ -3560,10 +3581,25 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 				stream_info->vfe_dev[k]->vfe_base, wm_mask);
 
 		}
-		stream_info->sw_ping_pong_bit = 0;
+		/*
+		* sw_ping_pong_bit is updated only when AXI_DONE.
+		* so now reset this bit to -1.
+		*/
+		stream_info->sw_ping_pong_bit = -1;
 	} else if (stream_info->undelivered_request_cnt == 2) {
-		rc = msm_isp_cfg_ping_pong_address(
-				stream_info, pingpong_status);
+		if (stream_info->sw_ping_pong_bit == -1) {
+			/*
+			* This means wm is reloaded & ping buffer is
+			* already configured. And AXI_DONE for ping
+			* is still pending. So, config pong buffer
+			* now.
+			*/
+			rc = msm_isp_cfg_ping_pong_address(stream_info,
+				VFE_PONG_FLAG);
+		} else {
+			rc = msm_isp_cfg_ping_pong_address(
+					stream_info, pingpong_status);
+		}
 		if (rc) {
 			stream_info->undelivered_request_cnt--;
 			spin_unlock_irqrestore(&stream_info->lock,
