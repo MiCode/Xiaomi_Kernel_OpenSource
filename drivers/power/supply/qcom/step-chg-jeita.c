@@ -271,6 +271,13 @@ static int handle_jeita(struct step_chg_info *chip)
 	int rc = 0, fcc_ua = 0, fv_uv = 0;
 	u64 elapsed_us;
 
+	rc = power_supply_get_property(chip->batt_psy,
+		POWER_SUPPLY_PROP_SW_JEITA_ENABLED, &pval);
+	if (rc < 0)
+		chip->sw_jeita_enable = 0;
+	else
+		chip->sw_jeita_enable = pval.intval;
+
 	if (!chip->sw_jeita_enable) {
 		if (chip->fcc_votable)
 			vote(chip->fcc_votable, JEITA_VOTER, false, 0);
