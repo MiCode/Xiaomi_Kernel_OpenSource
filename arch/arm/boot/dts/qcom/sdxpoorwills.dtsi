@@ -34,6 +34,13 @@
 			reg = <0x8fd00000 0x300000>;
 			label = "peripheral2_mem";
 		};
+
+		mss_mem: mss_region@87800000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x87800000 0x8000000>;
+			label = "mss_mem";
+		};
 	};
 
 	cpus {
@@ -417,6 +424,37 @@
 			qcom,glinkpkt-ch-name = "DATA11";
 			qcom,glinkpkt-dev-name = "smd11";
 		};
+	};
+
+	pil_modem: qcom,mss@4080000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x4080000 0x100>;
+		interrupts = <0 250 1>;
+
+		clocks = <&clock_rpmh RPMH_CXO_CLK>;
+		clock-names = "xo";
+		qcom,proxy-clock-names = "xo";
+
+		vdd_cx-supply = <&pmxpoorwills_s5_level>;
+		qcom,proxy-reg-names = "vdd_cx";
+
+		qcom,pas-id = <0>;
+		qcom,smem-id = <421>;
+		qcom,proxy-timeout-ms = <10000>;
+		qcom,sysmon-id = <0>;
+		qcom,ssctl-instance-id = <0x12>;
+		qcom,firmware-name = "modem";
+		memory-region = <&mss_mem>;
+		status = "ok";
+
+		/* GPIO inputs from mss */
+		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
+		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_1_in 1 0>;
+		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_1_in 2 0>;
+		qcom,gpio-stop-ack = <&smp2pgpio_ssr_smp2p_1_in 3 0>;
+
+		/* GPIO output to mss */
+		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
 	};
 };
 
