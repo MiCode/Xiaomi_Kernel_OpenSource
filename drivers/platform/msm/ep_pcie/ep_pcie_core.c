@@ -1267,6 +1267,8 @@ checkbme:
 		EP_PCIE_DBG(dev,
 			"PCIe V%d: EP_PCIE_OPT_ENUM_ASYNC is true.\n",
 			dev->rev);
+		bme = readl_relaxed(dev->dm_core +
+			PCIE20_COMMAND_STATUS) & BIT(2);
 	}
 
 	if (bme) {
