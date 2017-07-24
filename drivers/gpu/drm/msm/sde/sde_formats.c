@@ -701,7 +701,8 @@ static int _sde_format_get_plane_sizes_linear(
 		const struct sde_format *fmt,
 		const uint32_t width,
 		const uint32_t height,
-		struct sde_hw_fmt_layout *layout)
+		struct sde_hw_fmt_layout *layout,
+		const uint32_t *pitches)
 {
 	int i;
 
@@ -751,6 +752,17 @@ static int _sde_format_get_plane_sizes_linear(
 		}
 	}
 
+	/*
+	 * linear format: allow user allocated pitches if they are greater than
+	 * the requirement.
+	 * ubwc format: pitch values are computed uniformly across
+	 * all the components based on ubwc specifications.
+	 */
+	for (i = 0; i < layout->num_planes && i < SDE_MAX_PLANES; ++i) {
+		if (pitches && layout->plane_pitch[i] < pitches[i])
+			layout->plane_pitch[i] = pitches[i];
+	}
+
 	for (i = 0; i < SDE_MAX_PLANES; i++)
 		layout->total_size += layout->plane_size[i];
 
@@ -761,7 +773,8 @@ int sde_format_get_plane_sizes(
 		const struct sde_format *fmt,
 		const uint32_t w,
 		const uint32_t h,
-		struct sde_hw_fmt_layout *layout)
+		struct sde_hw_fmt_layout *layout,
+		const uint32_t *pitches)
 {
 	if (!layout || !fmt) {
 		DRM_ERROR("invalid pointer\n");
@@ -776,7 +789,7 @@ int sde_format_get_plane_sizes(
 	if (SDE_FORMAT_IS_UBWC(fmt) || SDE_FORMAT_IS_TILE(fmt))
 		return _sde_format_get_plane_sizes_ubwc(fmt, w, h, layout);
 
-	return _sde_format_get_plane_sizes_linear(fmt, w, h, layout);
+	return _sde_format_get_plane_sizes_linear(fmt, w, h, layout, pitches);
 }
 
 int sde_format_get_block_size(const struct sde_format *fmt,
@@ -801,6 +814,7 @@ uint32_t sde_format_get_framebuffer_size(
 		const uint32_t format,
 		const uint32_t width,
 		const uint32_t height,
+		const uint32_t *pitches,
 		const uint64_t *modifiers,
 		const uint32_t modifiers_len)
 {
@@ -811,7 +825,10 @@ uint32_t sde_format_get_framebuffer_size(
 	if (!fmt)
 		return 0;
 
-	if (sde_format_get_plane_sizes(fmt, width, height, &layout))
+	if (!pitches)
+		return -EINVAL;
+
+	if (sde_format_get_plane_sizes(fmt, width, height, &layout, pitches))
 		layout.total_size = 0;
 
 	return layout.total_size;
@@ -917,7 +934,7 @@ static int _sde_format_populate_addrs_linear(
 
 	/* Can now check the pitches given vs pitches expected */
 	for (i = 0; i < layout->num_planes; ++i) {
-		if (layout->plane_pitch[i] != fb->pitches[i]) {
+		if (layout->plane_pitch[i] > fb->pitches[i]) {
 			DRM_ERROR("plane %u expected pitch %u, fb %u\n",
 				i, layout->plane_pitch[i], fb->pitches[i]);
 			return -EINVAL;
@@ -959,7 +976,7 @@ int sde_format_populate_layout(
 
 	/* Populate the plane sizes etc via get_format */
 	ret = sde_format_get_plane_sizes(layout->format, fb->width, fb->height,
-			layout);
+			layout, fb->pitches);
 	if (ret)
 		return ret;
 
@@ -1063,7 +1080,7 @@ int sde_format_check_modified_format(
 	num_base_fmt_planes = drm_format_num_planes(fmt->base.pixel_format);
 
 	ret = sde_format_get_plane_sizes(fmt, cmd->width, cmd->height,
-			&layout);
+			&layout, cmd->pitches);
 	if (ret)
 		return ret;
 
