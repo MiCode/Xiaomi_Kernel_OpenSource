@@ -2980,6 +2980,7 @@
 		vdd-3.3-ch0-supply = <&pm8998_l25>;
 		qcom,vdd-0.8-cx-mx-config = <800000 800000>;
 		qcom,vdd-3.3-ch0-config = <3104000 3312000>;
+		qcom,smmu-s1-bypass;
 	};
 
 	qmi-tmd-devices {
