@@ -438,12 +438,14 @@ out:
 int rerun_election(struct votable *votable)
 {
 	int rc = 0;
+	int effective_result;
 
 	lock_votable(votable);
+	effective_result = get_effective_result_locked(votable);
 	if (votable->callback)
 		rc = votable->callback(votable,
-				votable->data,
-			votable->effective_result,
+			votable->data,
+			effective_result,
 			get_client_str(votable, votable->effective_client_id));
 	unlock_votable(votable);
 	return rc;
