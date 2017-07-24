@@ -81,6 +81,7 @@ Optional properties
 				limits.
 - qcom,mdss-rot-vbif-qos-setting: This array is used to program vbif qos remapper register
 				  priority for rotator clients.
+- qcom,mdss-rot-vbif-memtype:	Array of u32 vbif memory type settings for each xin port.
 - qcom,mdss-rot-cdp-setting:	Integer array of size two, to indicate client driven
 				prefetch is available or not. Index 0 represents
 				if CDP is enabled for read and index 1, if CDP
@@ -173,6 +174,7 @@ Example:
 
 		/* VBIF QoS remapper settings*/
 		qcom,mdss-rot-vbif-qos-setting = <1 1 1 1>;
+		qcom,mdss-rot-vbif-memtype = <3 3>;
 
 		com,mdss-rot-cdp-setting = <1 1>;
 

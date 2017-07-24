@@ -283,6 +283,59 @@ exit:
 	return;
 }
 
+/*
+ * sde_mdp_set_vbif_memtype - set memtype output for the given xin port
+ * @mdata: pointer to global rotator data
+ * @xin_id: xin identifier
+ * @memtype: memtype output configuration
+ * return: none
+ */
+static void sde_mdp_set_vbif_memtype(struct sde_rot_data_type *mdata,
+		u32 xin_id, u32 memtype)
+{
+	u32 reg_off;
+	u32 bit_off;
+	u32 reg_val;
+
+	/*
+	 * Assume 4 bits per bit field, 8 fields per 32-bit register.
+	 */
+	if (xin_id >= 8)
+		return;
+
+	reg_off = MMSS_VBIF_NRT_VBIF_OUT_AXI_AMEMTYPE_CONF0;
+
+	bit_off = (xin_id & 0x7) * 4;
+	reg_val = SDE_VBIF_READ(mdata, reg_off);
+	reg_val &= ~(0x7 << bit_off);
+	reg_val |= (memtype & 0x7) << bit_off;
+	SDE_VBIF_WRITE(mdata, reg_off, reg_val);
+}
+
+/*
+ * sde_mdp_init_vbif - initialize static vbif configuration
+ * return: 0 if success; error code otherwise
+ */
+int sde_mdp_init_vbif(void)
+{
+	struct sde_rot_data_type *mdata = sde_rot_get_mdata();
+	int i;
+
+	if (!mdata)
+		return -EINVAL;
+
+	if (mdata->vbif_memtype_count && mdata->vbif_memtype) {
+		for (i = 0; i < mdata->vbif_memtype_count; i++)
+			sde_mdp_set_vbif_memtype(mdata, i,
+					mdata->vbif_memtype[i]);
+
+		SDEROT_DBG("amemtype=0x%x\n", SDE_VBIF_READ(mdata,
+				MMSS_VBIF_NRT_VBIF_OUT_AXI_AMEMTYPE_CONF0));
+	}
+
+	return 0;
+}
+
 struct reg_bus_client *sde_reg_bus_vote_client_create(char *client_name)
 {
 	struct reg_bus_client *client;
@@ -398,6 +451,32 @@ static int sde_mdp_parse_dt_prop_len(struct platform_device *pdev,
 	return len;
 }
 
+static void sde_mdp_parse_vbif_memtype(struct platform_device *pdev,
+		struct sde_rot_data_type *mdata)
+{
+	int rc;
+
+	mdata->vbif_memtype_count = sde_mdp_parse_dt_prop_len(pdev,
+			"qcom,mdss-rot-vbif-memtype");
+	mdata->vbif_memtype = kzalloc(sizeof(u32) *
+			mdata->vbif_memtype_count, GFP_KERNEL);
+	if (!mdata->vbif_memtype) {
+		mdata->vbif_memtype_count = 0;
+		return;
+	}
+
+	rc = sde_mdp_parse_dt_handler(pdev,
+		"qcom,mdss-rot-vbif-memtype", mdata->vbif_memtype,
+			mdata->vbif_memtype_count);
+	if (rc) {
+		SDEROT_DBG("vbif memtype not found\n");
+		kfree(mdata->vbif_memtype);
+		mdata->vbif_memtype = NULL;
+		mdata->vbif_memtype_count = 0;
+		return;
+	}
+}
+
 static void sde_mdp_parse_vbif_qos(struct platform_device *pdev,
 		struct sde_rot_data_type *mdata)
 {
@@ -409,14 +488,19 @@ static void sde_mdp_parse_vbif_qos(struct platform_device *pdev,
 			"qcom,mdss-rot-vbif-qos-setting");
 	mdata->vbif_nrt_qos = kzalloc(sizeof(u32) *
 			mdata->npriority_lvl, GFP_KERNEL);
-	if (!mdata->vbif_nrt_qos)
+	if (!mdata->vbif_nrt_qos) {
+		mdata->npriority_lvl = 0;
 		return;
+	}
 
 	rc = sde_mdp_parse_dt_handler(pdev,
 		"qcom,mdss-rot-vbif-qos-setting", mdata->vbif_nrt_qos,
 			mdata->npriority_lvl);
 	if (rc) {
 		SDEROT_DBG("vbif setting not found\n");
+		kfree(mdata->vbif_nrt_qos);
+		mdata->vbif_nrt_qos = NULL;
+		mdata->npriority_lvl = 0;
 		return;
 	}
 }
@@ -579,6 +663,8 @@ static int sde_mdp_parse_dt_misc(struct platform_device *pdev,
 
 	sde_mdp_parse_vbif_qos(pdev, mdata);
 
+	sde_mdp_parse_vbif_memtype(pdev, mdata);
+
 	sde_mdp_parse_rot_lut_setting(pdev, mdata);
 
 	sde_mdp_parse_inline_rot_lut_setting(pdev, mdata);
@@ -586,6 +672,17 @@ static int sde_mdp_parse_dt_misc(struct platform_device *pdev,
 	mdata->mdp_base = mdata->sde_io.base + SDE_MDP_OFFSET;
 
 	return 0;
+}
+
+static void sde_mdp_destroy_dt_misc(struct platform_device *pdev,
+		struct sde_rot_data_type *mdata)
+{
+	kfree(mdata->vbif_memtype);
+	mdata->vbif_memtype = NULL;
+	kfree(mdata->vbif_rt_qos);
+	mdata->vbif_rt_qos = NULL;
+	kfree(mdata->vbif_nrt_qos);
+	mdata->vbif_nrt_qos = NULL;
 }
 
 #define MDP_REG_BUS_VECTOR_ENTRY(ab_val, ib_val)	\
@@ -742,6 +839,7 @@ void sde_rotator_base_destroy(struct sde_rot_data_type *mdata)
 
 	sde_rot_res = NULL;
 	sde_mdp_bus_scale_unregister(mdata);
+	sde_mdp_destroy_dt_misc(pdev, mdata);
 	sde_rot_iounmap(&mdata->vbif_nrt_io);
 	sde_rot_iounmap(&mdata->sde_io);
 	devm_kfree(&pdev->dev, mdata);
