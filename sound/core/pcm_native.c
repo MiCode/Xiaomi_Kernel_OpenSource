@@ -654,7 +654,9 @@ static int snd_pcm_hw_free(struct snd_pcm_substream *substream)
 	if (substream->ops->hw_free)
 		result = substream->ops->hw_free(substream);
 	snd_pcm_set_state(substream, SNDRV_PCM_STATE_OPEN);
-	pm_qos_remove_request(&substream->latency_pm_qos_req);
+	if (pm_qos_request_active(&substream->latency_pm_qos_req))
+		pm_qos_remove_request(&substream->latency_pm_qos_req);
+
 	return result;
 }
 
