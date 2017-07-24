@@ -397,6 +397,9 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
 			idx = link->req.apply_data[pd].idx;
 			apply_req.report_if_bubble =
 				in_q->slot[idx].recover;
+
+			trace_cam_req_mgr_apply_request(link, &apply_req, dev);
+
 			CAM_DBG(CAM_CRM, "SEND: pd %d req_id %lld",
 				pd, apply_req.request_id);
 			if (dev->ops && dev->ops->apply_req) {
@@ -1014,7 +1017,7 @@ int cam_req_mgr_process_flush_req(void *priv, void *data)
 
 	in_q = link->req.in_q;
 
-	trace_cam_flush_req(flush_info);
+	trace_cam_flush_req(link, flush_info);
 
 	mutex_lock(&link->req.lock);
 	if (flush_info->flush_type == CAM_REQ_MGR_FLUSH_TYPE_ALL) {
@@ -1193,6 +1196,8 @@ int cam_req_mgr_process_add_req(void *priv, void *data)
 	CAM_DBG(CAM_CRM, "idx %d dev_hdl %x req_id %lld pd %d ready_map %x",
 		idx, add_req->dev_hdl, add_req->req_id, tbl->pd,
 		slot->req_ready_map);
+
+	trace_cam_req_mgr_add_req(link, idx, add_req, tbl, device);
 
 	if (slot->req_ready_map == tbl->dev_mask) {
 		CAM_DBG(CAM_CRM, "idx %d req_id %lld pd %d SLOT READY",
@@ -1585,6 +1590,9 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 		dev->parent = (void *)link;
 		dev->dev_info.dev_hdl = dev->dev_hdl;
 		rc = dev->ops->get_dev_info(&dev->dev_info);
+
+		trace_cam_req_mgr_connect_device(link, &dev->dev_info);
+
 		CAM_DBG(CAM_CRM, "%x: connected: %s, id %d, delay %d",
 			link_info->session_hdl, dev->dev_info.name,
 			dev->dev_info.dev_id, dev->dev_info.p_delay);
