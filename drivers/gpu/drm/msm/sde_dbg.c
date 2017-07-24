@@ -55,6 +55,12 @@
 #define MMSS_VBIF_TEST_BUS_OUT_CTRL	0x210
 #define MMSS_VBIF_TEST_BUS_OUT		0x230
 
+/* Vbif error info */
+#define MMSS_VBIF_XIN_HALT_CTRL1	0x204
+#define MMSS_VBIF_ERR_INFO		0X1a0
+#define MMSS_VBIF_ERR_INFO_1		0x1a4
+#define MMSS_VBIF_CLIENT_NUM		14
+
 /* print debug ranges in groups of 4 u32s */
 #define REG_DUMP_ALIGN		16
 
@@ -2366,7 +2372,8 @@ static void _sde_dbg_dump_vbif_dbg_bus(struct sde_dbg_vbif_debug_bus *bus)
 	bool in_log, in_mem;
 	u32 **dump_mem = NULL;
 	u32 *dump_addr = NULL;
-	u32 value;
+	u32 value, d0, d1;
+	unsigned long reg;
 	struct vbif_debug_bus_entry *head;
 	phys_addr_t phys = 0;
 	int i, list_size = 0;
@@ -2438,6 +2445,30 @@ static void _sde_dbg_dump_vbif_dbg_bus(struct sde_dbg_vbif_debug_bus *bus)
 
 	/* make sure that vbif core is on */
 	wmb();
+
+	/**
+	 * Extract VBIF error info based on XIN halt status.
+	 * If the XIN client is not in HALT state, then retrieve the
+	 * VBIF error info for it.
+	 */
+	reg = readl_relaxed(mem_base + MMSS_VBIF_XIN_HALT_CTRL1);
+	dev_err(sde_dbg_base.dev, "XIN HALT:0x%lX\n", reg);
+	reg >>= 16;
+	for (i = 0; i < MMSS_VBIF_CLIENT_NUM; i++) {
+		if (!test_bit(0, &reg)) {
+			writel_relaxed(i, mem_base + MMSS_VBIF_ERR_INFO);
+			/* make sure reg write goes through */
+			wmb();
+
+			d0 = readl_relaxed(mem_base + MMSS_VBIF_ERR_INFO);
+			d1 = readl_relaxed(mem_base + MMSS_VBIF_ERR_INFO_1);
+
+			dev_err(sde_dbg_base.dev,
+					"Client:%d, errinfo=0x%X, errinfo1=0x%X\n",
+					i, d0, d1);
+		}
+		reg >>= 1;
+	}
 
 	for (i = 0; i < bus_size; i++) {
 		head = dbg_bus + i;
