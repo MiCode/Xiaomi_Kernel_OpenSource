@@ -318,10 +318,6 @@ struct cfs_bandwidth {
 struct task_group {
 	struct cgroup_subsys_state css;
 
-#ifdef CONFIG_SCHED_HMP
-	bool upmigrate_discouraged;
-#endif
-
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	/* schedulable entities of this group on each cpu */
 	struct sched_entity **se;
@@ -1312,7 +1308,6 @@ static inline void finish_lock_switch(struct rq *rq, struct task_struct *prev)
 #define WF_SYNC		0x01		/* waker goes to sleep after wakeup */
 #define WF_FORK		0x02		/* child wakeup after fork */
 #define WF_MIGRATED	0x4		/* internal use, task got migrated */
-#define WF_NO_NOTIFIER	0x08		/* do not notify governor */
 
 /*
  * To aid in avoiding the subversion of "niceness" due to uneven distribution
@@ -2212,12 +2207,14 @@ static inline u64 irq_time_read(int cpu)
 #ifdef CONFIG_SCHED_WALT
 u64 sched_ktime_clock(void);
 void note_task_waking(struct task_struct *p, u64 wallclock);
+extern void update_avg_burst(struct task_struct *p);
 #else /* CONFIG_SCHED_WALT */
 static inline u64 sched_ktime_clock(void)
 {
 	return 0;
 }
 static inline void note_task_waking(struct task_struct *p, u64 wallclock) { }
+static inline void update_avg_burst(struct task_struct *p) { }
 #endif /* CONFIG_SCHED_WALT */
 
 #ifdef CONFIG_CPU_FREQ
@@ -2711,14 +2708,10 @@ extern void sched_boost_parse_dt(void);
 extern void clear_ed_task(struct task_struct *p, struct rq *rq);
 extern bool early_detection_notify(struct rq *rq, u64 wallclock);
 
-#ifdef CONFIG_SCHED_HMP
-extern unsigned int power_cost(int cpu, u64 demand);
-#else
 static inline unsigned int power_cost(int cpu, u64 demand)
 {
 	return cpu_max_possible_capacity(cpu);
 }
-#endif
 
 #else	/* CONFIG_SCHED_WALT */
 
@@ -2881,86 +2874,7 @@ static inline unsigned int power_cost(int cpu, u64 demand)
 
 #endif	/* CONFIG_SCHED_WALT */
 
-#ifdef CONFIG_SCHED_HMP
-#define energy_aware() false
-
-extern int is_big_task(struct task_struct *p);
-extern unsigned int pct_task_load(struct task_struct *p);
-extern void notify_migration(int src_cpu, int dest_cpu,
-			bool src_cpu_dead, struct task_struct *p);
-extern void note_task_waking(struct task_struct *p, u64 wallclock);
-extern void
-check_for_freq_change(struct rq *rq, bool check_pred, bool check_groups);
-extern void fixup_nr_big_tasks(struct hmp_sched_stats *stats,
-					struct task_struct *p, s64 delta);
-extern unsigned int cpu_temp(int cpu);
-extern void pre_big_task_count_change(const struct cpumask *cpus);
-extern void post_big_task_count_change(const struct cpumask *cpus);
-extern void set_hmp_defaults(void);
-extern void update_avg_burst(struct task_struct *p);
-extern void set_task_last_switch_out(struct task_struct *p, u64 wallclock);
-
-extern unsigned int nr_eligible_big_tasks(int cpu);
-
-static inline void
-inc_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p)
-{
-	if (sched_disable_window_stats)
-		return;
-
-	if (is_big_task(p))
-		stats->nr_big_tasks++;
-}
-
-static inline void
-dec_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p)
-{
-	if (sched_disable_window_stats)
-		return;
-
-	if (is_big_task(p))
-		stats->nr_big_tasks--;
-
-	BUG_ON(stats->nr_big_tasks < 0);
-}
-
-static inline bool is_short_burst_task(struct task_struct *p)
-{
-	return p->ravg.avg_burst < sysctl_sched_short_burst &&
-	       p->ravg.avg_sleep_time > sysctl_sched_short_sleep;
-}
-
-#else
 static inline bool energy_aware(void)
 {
 	return sched_feat(ENERGY_AWARE);
 }
-
-static inline int pct_task_load(struct task_struct *p) { return 0; }
-
-static inline void notify_migration(int src_cpu, int dest_cpu,
-			bool src_cpu_dead, struct task_struct *p) { }
-
-static inline void
-check_for_freq_change(struct rq *rq, bool check_pred, bool check_groups) { }
-
-static inline void fixup_nr_big_tasks(struct hmp_sched_stats *stats,
-				      struct task_struct *p, s64 delta) { }
-
-static inline unsigned int cpu_temp(int cpu)
-{
-	return 0;
-}
-
-static inline void pre_big_task_count_change(const struct cpumask *cpus) { }
-
-static inline void post_big_task_count_change(const struct cpumask *cpus) { }
-
-static inline void set_hmp_defaults(void) { }
-
-static inline void update_avg_burst(struct task_struct *p) { }
-
-static inline void set_task_last_switch_out(struct task_struct *p,
-					    u64 wallclock) { }
-
-#endif /* CONFIG_SCHED_HMP */

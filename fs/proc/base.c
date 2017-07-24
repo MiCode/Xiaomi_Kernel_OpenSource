@@ -1632,7 +1632,7 @@ static const struct file_operations proc_pid_sched_group_id_operations = {
 	.release	= single_release,
 };
 
-#endif	/* CONFIG_SCHED_HMP */
+#endif	/* CONFIG_SCHED_WALT */
 
 #ifdef CONFIG_SCHED_AUTOGROUP
 /*

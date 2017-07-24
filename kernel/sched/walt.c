@@ -612,40 +612,6 @@ void update_cluster_load_subtractions(struct task_struct *p,
 	raw_spin_unlock(&cluster->load_lock);
 }
 
-#ifdef CONFIG_SCHED_HMP
-static inline void
-init_new_task_load_hmp(struct task_struct *p, bool idle_task)
-{
-	p->ravg.curr_burst = 0;
-	/*
-	 * Initialize the avg_burst to twice the threshold, so that
-	 * a task would not be classified as short burst right away
-	 * after fork. It takes at least 6 sleep-wakeup cycles for
-	 * the avg_burst to go below the threshold.
-	 */
-	p->ravg.avg_burst = 2 * (u64)sysctl_sched_short_burst;
-	p->ravg.avg_sleep_time = 0;
-}
-
-static inline void
-update_task_burst(struct task_struct *p, struct rq *rq, int event, u64 runtime)
-{
-	/*
-	 * update_task_demand() has checks for idle task and
-	 * exit task. The runtime may include the wait time,
-	 * so update the burst only for the cases where the
-	 * task is running.
-	 */
-	if (event == PUT_PREV_TASK || (event == TASK_UPDATE &&
-				rq->curr == p))
-		p->ravg.curr_burst += runtime;
-}
-
-static void reset_task_stats_hmp(struct task_struct *p)
-{
-	p->ravg.avg_burst = 2 * (u64)sysctl_sched_short_burst;
-}
-#else
 static inline void
 init_new_task_load_hmp(struct task_struct *p, bool idle_task)
 {
@@ -659,7 +625,6 @@ update_task_burst(struct task_struct *p, struct rq *rq, int event, int runtime)
 static void reset_task_stats_hmp(struct task_struct *p)
 {
 }
-#endif
 
 static inline void inter_cluster_migration_fixup
 	(struct task_struct *p, int new_cpu, int task_cpu, bool new_task)
@@ -3057,7 +3022,6 @@ void walt_irq_work(struct irq_work *irq_work)
 	core_ctl_check(this_rq()->window_start);
 }
 
-#ifndef CONFIG_SCHED_HMP
 int walt_proc_update_handler(struct ctl_table *table, int write,
 			     void __user *buffer, size_t *lenp,
 			     loff_t *ppos)
@@ -3085,4 +3049,3 @@ int walt_proc_update_handler(struct ctl_table *table, int write,
 
 	return ret;
 }
-#endif

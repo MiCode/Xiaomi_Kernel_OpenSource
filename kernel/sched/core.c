@@ -1074,7 +1074,6 @@ static int migration_cpu_stop(void *data)
 	struct migration_arg *arg = data;
 	struct task_struct *p = arg->task;
 	struct rq *rq = this_rq();
-	int src_cpu = cpu_of(rq);
 	bool moved = false;
 
 	/*
@@ -1108,9 +1107,6 @@ static int migration_cpu_stop(void *data)
 	raw_spin_unlock(&p->pi_lock);
 
 	local_irq_enable();
-
-	if (moved)
-		notify_migration(src_cpu, arg->dest_cpu, false, p);
 
 	return 0;
 }
@@ -1286,8 +1282,6 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 				      lockdep_is_held(&task_rq(p)->lock)));
 #endif
 #endif
-
-	trace_sched_migrate_task(p, new_cpu, pct_task_load(p));
 
 	if (task_cpu(p) != new_cpu) {
 		if (p->sched_class->migrate_task_rq)
@@ -2091,11 +2085,8 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	struct related_thread_group *grp = NULL;
 	int src_cpu;
 	bool notif_required = false;
-	bool freq_notif_allowed = !(wake_flags & WF_NO_NOTIFIER);
 	bool check_group = false;
 #endif
-
-	wake_flags &= ~WF_NO_NOTIFIER;
 
 	/*
 	 * If we are going to wake up a thread waiting for CONDITION we
@@ -2208,19 +2199,6 @@ stat:
 out:
 	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
 
-#ifdef CONFIG_SMP
-	if (freq_notif_allowed) {
-		if (notif_required && !same_freq_domain(src_cpu, cpu)) {
-			check_for_freq_change(cpu_rq(cpu),
-						false, check_group);
-			check_for_freq_change(cpu_rq(src_cpu),
-						false, check_group);
-		} else if (success) {
-			check_for_freq_change(cpu_rq(cpu), true, false);
-		}
-	}
-#endif
-
 	return success;
 }
 
@@ -2301,26 +2279,6 @@ int wake_up_process(struct task_struct *p)
 	return try_to_wake_up(p, TASK_NORMAL, 0);
 }
 EXPORT_SYMBOL(wake_up_process);
-
-/**
- * wake_up_process_no_notif - Wake up a specific process without notifying
- * governor
- * @p: The process to be woken up.
- *
- * Attempt to wake up the nominated process and move it to the set of runnable
- * processes.
- *
- * Return: 1 if the process was woken up, 0 if it was already running.
- *
- * It may be assumed that this function implies a write memory barrier before
- * changing the task state if and only if any tasks are woken up.
- */
-int wake_up_process_no_notif(struct task_struct *p)
-{
-	WARN_ON(task_is_stopped_or_traced(p));
-	return try_to_wake_up(p, TASK_NORMAL, WF_NO_NOTIFIER);
-}
-EXPORT_SYMBOL(wake_up_process_no_notif);
 
 int wake_up_state(struct task_struct *p, unsigned int state)
 {
@@ -3165,7 +3123,7 @@ void get_iowait_load(unsigned long *nr_waiters, unsigned long *load)
 	*load = rq->load.weight;
 }
 
-#if defined(CONFIG_SMP) && !defined(CONFIG_SCHED_HMP)
+#ifdef CONFIG_SMP
 
 /*
  * sched_exec - execve() is a valuable balancing opportunity, because at
@@ -3692,14 +3650,9 @@ static void __sched notrace __schedule(bool preempt)
 		update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);
 		update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, 0);
 		cpufreq_update_util(rq, 0);
-		if (!is_idle_task(prev) && !prev->on_rq)
-			update_avg_burst(prev);
-
 		rq->nr_switches++;
 		rq->curr = next;
 		++*switch_count;
-
-		set_task_last_switch_out(prev, wallclock);
 
 		trace_sched_switch(preempt, prev, next);
 		rq = context_switch(rq, prev, next, cookie); /* unlocks the rq */
@@ -5953,7 +5906,6 @@ static void migrate_tasks(struct rq *dead_rq, bool migrate_pinned_tasks)
 		if (rq != dead_rq) {
 			raw_spin_unlock(&rq->lock);
 			raw_spin_unlock(&next->pi_lock);
-			notify_migration(dead_rq->cpu, dest_cpu, true, next);
 			rq = dead_rq;
 			raw_spin_lock(&next->pi_lock);
 			raw_spin_lock(&rq->lock);
@@ -8236,9 +8188,6 @@ void __init sched_init(void)
 	for (i = 0; i < WAIT_TABLE_SIZE; i++)
 		init_waitqueue_head(bit_wait_table + i);
 
-#ifdef CONFIG_SCHED_HMP
-	pr_info("HMP scheduling enabled.\n");
-#endif
 	sched_boost_parse_dt();
 	init_clusters();
 
@@ -8426,8 +8375,6 @@ void __init sched_init(void)
 
 	i = alloc_related_thread_groups();
 	BUG_ON(i);
-
-	set_hmp_defaults();
 
 	set_load_weight(&init_task);
 
@@ -9552,13 +9499,6 @@ static u64 cpu_rt_period_read_uint(struct cgroup_subsys_state *css,
 #endif /* CONFIG_RT_GROUP_SCHED */
 
 static struct cftype cpu_files[] = {
-#ifdef CONFIG_SCHED_HMP
-	{
-		.name = "upmigrate_discourage",
-		.read_u64 = cpu_upmigrate_discourage_read_u64,
-		.write_u64 = cpu_upmigrate_discourage_write_u64,
-	},
-#endif
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	{
 		.name = "shares",
