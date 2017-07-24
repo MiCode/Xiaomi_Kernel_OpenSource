@@ -261,6 +261,8 @@ static int __recover_dot_dentries(struct inode *dir, nid_t pino)
 		return 0;
 	}
 
+	dquot_initialize(dir);
+
 	f2fs_balance_fs(sbi, true);
 
 	f2fs_lock_op(sbi);
