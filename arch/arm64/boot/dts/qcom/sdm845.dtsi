@@ -1674,6 +1674,8 @@
 
 		qcom,sdr104-wa;
 
+		qcom,restore-after-cx-collapse;
+
 		qcom,devfreq,freq-table = <50000000 200000000>;
 		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
