@@ -14,36 +14,16 @@
 /dts-v1/;
 
 #include "msm8953.dtsi"
-#include "msm-pmi8950.dtsi"
+#include "msm-pmi8940.dtsi"
 #include "msm8953-mtp.dtsi"
-#include "msm8953-pmi8950.dtsi"
+#include "msm8953-pmi8940.dtsi"
 #include "msm8953-camera-sensor-mtp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM8953 + PMI8950 Ext Codec MTP";
+	model = "Qualcomm Technologies, Inc. MSM8953 + PMI8940 Ext Codec MTP";
 	compatible = "qcom,msm8953-mtp", "qcom,msm8953", "qcom,mtp";
 	qcom,board-id= <8 1>;
-	qcom,pmic-id = <0x010016 0x010011 0x0 0x0>;
-};
-
-/{
-	mtp_batterydata: qcom,battery-data {
-		qcom,batt-id-range-pct = <15>;
-		#include "batterydata-itech-3000mah.dtsi"
-		#include "batterydata-ascent-3450mAh.dtsi"
-	};
-};
-
-&pmi8950_fg {
-	qcom,battery-data = <&mtp_batterydata>;
-};
-
-&pmi8950_charger {
-	qcom,battery-data = <&mtp_batterydata>;
-	qcom,chg-led-sw-controls;
-	qcom,chg-led-support;
-	qcom,external-typec;
-	qcom,typec-psy-name = "typec";
+	qcom,pmic-id = <0x010016 0x020040 0x0 0x0>;
 };
 
 &int_codec {
@@ -101,4 +81,24 @@
 &ext_codec {
 	qcom,model = "msm8953-tasha-snd-card";
 	status = "okay";
+};
+
+/{
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "batterydata-itech-3000mah.dtsi"
+		#include "batterydata-ascent-3450mAh.dtsi"
+	};
+};
+
+&pmi8940_fg {
+	qcom,battery-data = <&mtp_batterydata>;
+};
+
+&pmi8940_charger {
+	qcom,battery-data = <&mtp_batterydata>;
+	qcom,chg-led-sw-controls;
+	qcom,chg-led-support;
+	qcom,external-typec;
+	qcom,typec-psy-name = "typec";
 };

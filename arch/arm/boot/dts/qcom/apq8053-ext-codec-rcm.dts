@@ -14,7 +14,10 @@
 /dts-v1/;
 
 #include "apq8053.dtsi"
+#include "msm-pmi8950.dtsi"
 #include "msm8953-cdp.dtsi"
+#include "msm8953-pmi8950.dtsi"
+#include "msm8953-camera-sensor-cdp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ8053 External Codec RCM";
@@ -111,4 +114,9 @@
 		/delete-property/ bias-pull-up;
 		bias-pull-down;
 	};
+};
+
+&pmi8950_charger {
+	qcom,external-typec;
+	qcom,typec-psy-name = "typec";
 };
