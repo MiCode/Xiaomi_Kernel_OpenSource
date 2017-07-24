@@ -801,7 +801,7 @@ static struct ipa3_rt_tbl *__ipa_add_rt_tbl(enum ipa_ip_type ip,
 			!ipa3_ctx->ip4_rt_tbl_nhash_lcl :
 			!ipa3_ctx->ip6_rt_tbl_nhash_lcl;
 		set->tbl_cnt++;
-		idr_init(&entry->rule_ids);
+		entry->rule_ids = &set->rule_ids;
 		list_add(&entry->link, &set->head_rt_tbl_list);
 
 		IPADBG("add rt tbl idx=%d tbl_cnt=%d ip=%d\n", entry->idx,
@@ -820,7 +820,7 @@ static struct ipa3_rt_tbl *__ipa_add_rt_tbl(enum ipa_ip_type ip,
 ipa_insert_failed:
 	set->tbl_cnt--;
 	list_del(&entry->link);
-	idr_destroy(&entry->rule_ids);
+	idr_destroy(entry->rule_ids);
 fail_rt_idx_alloc:
 	entry->cookie = 0;
 	kmem_cache_free(ipa3_ctx->rt_tbl_cache, entry);
@@ -855,7 +855,7 @@ static int __ipa_del_rt_tbl(struct ipa3_rt_tbl *entry)
 
 	rset = &ipa3_ctx->reap_rt_tbl_set[ip];
 
-	idr_destroy(&entry->rule_ids);
+	entry->rule_ids = NULL;
 	if (entry->in_sys[IPA_RULE_HASHABLE] ||
 		entry->in_sys[IPA_RULE_NON_HASHABLE]) {
 		list_move(&entry->link, &rset->head_rt_tbl_list);
@@ -923,7 +923,7 @@ static int __ipa_create_rt_entry(struct ipa3_rt_entry **entry,
 	(*(entry))->tbl = tbl;
 	(*(entry))->hdr = hdr;
 	(*(entry))->proc_ctx = proc_ctx;
-	id = ipa3_alloc_rule_id(&tbl->rule_ids);
+	id = ipa3_alloc_rule_id(tbl->rule_ids);
 	if (id < 0) {
 		IPAERR("failed to allocate rule id\n");
 		WARN_ON(1);
@@ -967,7 +967,7 @@ ipa_insert_failed:
 		entry->hdr->ref_cnt--;
 	else if (entry->proc_ctx)
 		entry->proc_ctx->ref_cnt--;
-	idr_remove(&tbl->rule_ids, entry->rule_id);
+	idr_remove(tbl->rule_ids, entry->rule_id);
 	list_del(&entry->link);
 	kmem_cache_free(ipa3_ctx->rt_rule_cache, entry);
 	return -EPERM;
@@ -1219,7 +1219,7 @@ int __ipa3_del_rt_rule(u32 rule_hdl)
 	IPADBG("del rt rule tbl_idx=%d rule_cnt=%d rule_id=%d\n ref_cnt=%u",
 		entry->tbl->idx, entry->tbl->rule_cnt,
 		entry->rule_id, entry->tbl->ref_cnt);
-	idr_remove(&entry->tbl->rule_ids, entry->rule_id);
+	idr_remove(entry->tbl->rule_ids, entry->rule_id);
 	if (entry->tbl->rule_cnt == 0 && entry->tbl->ref_cnt == 0) {
 		if (__ipa_del_rt_tbl(entry->tbl))
 			IPAERR("fail to del RT tbl\n");
@@ -1378,7 +1378,7 @@ int ipa3_reset_rt(enum ipa_ip_type ip)
 			else if (rule->proc_ctx)
 				__ipa3_release_hdr_proc_ctx(rule->proc_ctx->id);
 			rule->cookie = 0;
-			idr_remove(&tbl->rule_ids, rule->rule_id);
+			idr_remove(tbl->rule_ids, rule->rule_id);
 			id = rule->id;
 			kmem_cache_free(ipa3_ctx->rt_rule_cache, rule);
 
@@ -1395,7 +1395,7 @@ int ipa3_reset_rt(enum ipa_ip_type ip)
 
 		/* do not remove the "default" routing tbl which has index 0 */
 		if (tbl->idx != apps_start_idx) {
-			idr_destroy(&tbl->rule_ids);
+			tbl->rule_ids = NULL;
 			if (tbl->in_sys[IPA_RULE_HASHABLE] ||
 				tbl->in_sys[IPA_RULE_NON_HASHABLE]) {
 				list_move(&tbl->link, &rset->head_rt_tbl_list);

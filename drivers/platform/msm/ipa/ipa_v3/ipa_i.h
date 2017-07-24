@@ -238,7 +238,7 @@ struct ipa3_flt_entry {
  * @curr_mem: current routing tables block in sys memory
  * @prev_mem: previous routing table block in sys memory
  * @id: routing table id
- * @rule_ids: idr structure that holds the rule_id for each rule
+ * @rule_ids: common idr structure that holds the rule_id for each rule
  */
 struct ipa3_rt_tbl {
 	struct list_head link;
@@ -254,7 +254,7 @@ struct ipa3_rt_tbl {
 	struct ipa_mem_buffer curr_mem[IPA_RULE_TYPE_MAX];
 	struct ipa_mem_buffer prev_mem[IPA_RULE_TYPE_MAX];
 	int id;
-	struct idr rule_ids;
+	struct idr *rule_ids;
 };
 
 /**
@@ -376,7 +376,7 @@ struct ipa3_hdr_proc_ctx_tbl {
  * @end: the last header index
  * @curr_mem: current filter tables block in sys memory
  * @prev_mem: previous filter table block in sys memory
- * @rule_ids: idr structure that holds the rule_id for each rule
+ * @rule_ids: common idr structure that holds the rule_id for each rule
  */
 struct ipa3_flt_tbl {
 	struct list_head head_flt_rule_list;
@@ -386,7 +386,7 @@ struct ipa3_flt_tbl {
 	struct ipa_mem_buffer curr_mem[IPA_RULE_TYPE_MAX];
 	struct ipa_mem_buffer prev_mem[IPA_RULE_TYPE_MAX];
 	bool sticky_rear;
-	struct idr rule_ids;
+	struct idr *rule_ids;
 };
 
 /**
@@ -420,10 +420,12 @@ struct ipa3_rt_entry {
  * struct ipa3_rt_tbl_set - collection of routing tables
  * @head_rt_tbl_list: collection of routing tables
  * @tbl_cnt: number of routing tables
+ * @rule_ids: idr structure that holds the rule_id for each rule
  */
 struct ipa3_rt_tbl_set {
 	struct list_head head_rt_tbl_list;
 	u32 tbl_cnt;
+	struct idr rule_ids;
 };
 
 /**
@@ -1035,6 +1037,7 @@ struct ipa_dma_task_info {
  * @ep_flt_num: End-points supporting filtering number
  * @resume_on_connect: resume ep on ipa connect
  * @flt_tbl: list of all IPA filter tables
+ * @flt_rule_ids: idr structure that holds the rule_id for each rule
  * @mode: IPA operating mode
  * @mmio: iomem
  * @ipa_wrapper_base: IPA wrapper base address
@@ -1120,6 +1123,7 @@ struct ipa3_context {
 	u32 ep_flt_num;
 	bool resume_on_connect[IPA_CLIENT_MAX];
 	struct ipa3_flt_tbl flt_tbl[IPA3_MAX_NUM_PIPES][IPA_IP_MAX];
+	struct idr flt_rule_ids[IPA_IP_MAX];
 	void __iomem *mmio;
 	u32 ipa_wrapper_base;
 	u32 ipa_wrapper_size;

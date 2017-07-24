@@ -3922,14 +3922,17 @@ static void ipa3_destroy_flt_tbl_idrs(void)
 	int i;
 	struct ipa3_flt_tbl *flt_tbl;
 
+	idr_destroy(&ipa3_ctx->flt_rule_ids[IPA_IP_v4]);
+	idr_destroy(&ipa3_ctx->flt_rule_ids[IPA_IP_v6]);
+
 	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
 		if (!ipa_is_ep_support_flt(i))
 			continue;
 
 		flt_tbl = &ipa3_ctx->flt_tbl[i][IPA_IP_v4];
-		idr_destroy(&flt_tbl->rule_ids);
+		flt_tbl->rule_ids = NULL;
 		flt_tbl = &ipa3_ctx->flt_tbl[i][IPA_IP_v6];
-		idr_destroy(&flt_tbl->rule_ids);
+		flt_tbl->rule_ids = NULL;
 	}
 }
 
@@ -4104,6 +4107,7 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	struct ipa3_uc_hdlrs uc_hdlrs = { 0 };
 	struct ipa3_flt_tbl *flt_tbl;
 	int i;
+	struct idr *idr;
 
 	if (ipa3_ctx == NULL) {
 		IPADBG("IPA driver haven't initialized\n");
@@ -4127,6 +4131,11 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	/* Assign resource limitation to each group */
 	ipa3_set_resorce_groups_min_max_limits();
 
+	idr = &(ipa3_ctx->flt_rule_ids[IPA_IP_v4]);
+	idr_init(idr);
+	idr = &(ipa3_ctx->flt_rule_ids[IPA_IP_v6]);
+	idr_init(idr);
+
 	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
 		if (!ipa_is_ep_support_flt(i))
 			continue;
@@ -4137,7 +4146,7 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 			!ipa3_ctx->ip4_flt_tbl_hash_lcl;
 		flt_tbl->in_sys[IPA_RULE_NON_HASHABLE] =
 			!ipa3_ctx->ip4_flt_tbl_nhash_lcl;
-		idr_init(&flt_tbl->rule_ids);
+		flt_tbl->rule_ids = &ipa3_ctx->flt_rule_ids[IPA_IP_v4];
 
 		flt_tbl = &ipa3_ctx->flt_tbl[i][IPA_IP_v6];
 		INIT_LIST_HEAD(&flt_tbl->head_flt_rule_list);
@@ -4145,7 +4154,7 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 			!ipa3_ctx->ip6_flt_tbl_hash_lcl;
 		flt_tbl->in_sys[IPA_RULE_NON_HASHABLE] =
 			!ipa3_ctx->ip6_flt_tbl_nhash_lcl;
-		idr_init(&flt_tbl->rule_ids);
+		flt_tbl->rule_ids = &ipa3_ctx->flt_rule_ids[IPA_IP_v6];
 	}
 
 	if (!ipa3_ctx->apply_rg10_wa) {
@@ -4790,12 +4799,16 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 				hdr_proc_ctx_tbl.head_free_offset_list[i]);
 	}
 	INIT_LIST_HEAD(&ipa3_ctx->rt_tbl_set[IPA_IP_v4].head_rt_tbl_list);
+	idr_init(&ipa3_ctx->rt_tbl_set[IPA_IP_v4].rule_ids);
 	INIT_LIST_HEAD(&ipa3_ctx->rt_tbl_set[IPA_IP_v6].head_rt_tbl_list);
+	idr_init(&ipa3_ctx->rt_tbl_set[IPA_IP_v6].rule_ids);
 
 	rset = &ipa3_ctx->reap_rt_tbl_set[IPA_IP_v4];
 	INIT_LIST_HEAD(&rset->head_rt_tbl_list);
+	idr_init(&rset->rule_ids);
 	rset = &ipa3_ctx->reap_rt_tbl_set[IPA_IP_v6];
 	INIT_LIST_HEAD(&rset->head_rt_tbl_list);
+	idr_init(&rset->rule_ids);
 
 	INIT_LIST_HEAD(&ipa3_ctx->intf_list);
 	INIT_LIST_HEAD(&ipa3_ctx->msg_list);
@@ -4915,6 +4928,12 @@ fail_nat_dev_add:
 fail_device_create:
 	unregister_chrdev_region(ipa3_ctx->dev_num, 1);
 fail_alloc_chrdev_region:
+	rset = &ipa3_ctx->reap_rt_tbl_set[IPA_IP_v6];
+	idr_destroy(&rset->rule_ids);
+	rset = &ipa3_ctx->reap_rt_tbl_set[IPA_IP_v4];
+	idr_destroy(&rset->rule_ids);
+	idr_destroy(&ipa3_ctx->rt_tbl_set[IPA_IP_v6].rule_ids);
+	idr_destroy(&ipa3_ctx->rt_tbl_set[IPA_IP_v4].rule_ids);
 	ipa3_free_dma_task_for_gsi();
 fail_dma_task:
 	idr_destroy(&ipa3_ctx->ipa_idr);
