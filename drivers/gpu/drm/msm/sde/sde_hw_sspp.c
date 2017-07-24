@@ -316,6 +316,7 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 	u32 chroma_samp, unpack, src_format;
 	u32 secure = 0, secure_bit_mask;
 	u32 opmode = 0;
+	u32 fast_clear = 0;
 	u32 op_mode_off, unpack_pat_off, format_off;
 	u32 idx;
 
@@ -385,10 +386,12 @@ static void sde_hw_sspp_setup_format(struct sde_hw_pipe *ctx,
 		SDE_REG_WRITE(c, SSPP_FETCH_CONFIG,
 			SDE_FETCH_CONFIG_RESET_VALUE |
 			ctx->mdp->highest_bank_bit << 18);
-		if (IS_UBWC_20_SUPPORTED(ctx->catalog->ubwc_version))
+		if (IS_UBWC_20_SUPPORTED(ctx->catalog->ubwc_version)) {
+			fast_clear = fmt->alpha_enable ? BIT(31) : 0;
 			SDE_REG_WRITE(c, SSPP_UBWC_STATIC_CTRL,
-					BIT(31) | (ctx->mdp->ubwc_swizzle) |
+					fast_clear | (ctx->mdp->ubwc_swizzle) |
 					(ctx->mdp->highest_bank_bit << 4));
+		}
 	}
 
 	opmode |= MDSS_MDP_OP_PE_OVERRIDE;
