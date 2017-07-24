@@ -153,6 +153,20 @@ struct sde_connector_ops {
 	 */
 	enum sde_csc_type (*get_csc_type)(struct drm_connector *connector,
 		void *display);
+
+	/**
+	 * set_power - update dpms setting
+	 * @connector: Pointer to drm connector structure
+	 * @power_mode: One of the following,
+	 *		SDE_MODE_DPMS_ON
+	 *		SDE_MODE_DPMS_LP1
+	 *		SDE_MODE_DPMS_LP2
+	 *		SDE_MODE_DPMS_OFF
+	 * @display: Pointer to private display structure
+	 * Returns: Zero on success
+	 */
+	int (*set_power)(struct drm_connector *connector,
+			int power_mode, void *display);
 };
 
 /**
@@ -165,8 +179,12 @@ struct sde_connector_ops {
  * @mmu_secure: MMU id for secure buffers
  * @mmu_unsecure: MMU id for unsecure buffers
  * @name: ASCII name of connector
+ * @lock: Mutex lock object for this structure
  * @retire_fence: Retire fence reference
  * @ops: Local callback function pointer table
+ * @dpms_mode: DPMS property setting from user space
+ * @lp_mode: LP property setting from user space
+ * @last_panel_power_mode: Last consolidated dpms/lp mode setting
  * @property_info: Private structure for generic property handling
  * @property_data: Array of private data for generic property handling
  * @blob_caps: Pointer to blob structure for 'capabilities' property
@@ -185,8 +203,12 @@ struct sde_connector {
 
 	char name[SDE_CONNECTOR_NAME_SIZE];
 
+	struct mutex lock;
 	struct sde_fence retire_fence;
 	struct sde_connector_ops ops;
+	int dpms_mode;
+	int lp_mode;
+	int last_panel_power_mode;
 
 	struct msm_property_info property_info;
 	struct msm_property_data property_data[CONNECTOR_PROP_COUNT];
@@ -360,6 +382,13 @@ bool sde_connector_mode_needs_full_range(struct drm_connector *connector);
  * Returns: csc type based on connector HDR state
  */
 enum sde_csc_type sde_connector_get_csc_type(struct drm_connector *conn);
+
+/**
+ * sde_connector_get_dpms - query dpms setting
+ * @connector: Pointer to drm connector structure
+ * Returns: Current DPMS setting for connector
+ */
+int sde_connector_get_dpms(struct drm_connector *connector);
 
 #endif /* _SDE_CONNECTOR_H_ */
 
