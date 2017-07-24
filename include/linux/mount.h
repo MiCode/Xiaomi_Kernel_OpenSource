@@ -68,7 +68,7 @@ struct vfsmount {
 	struct super_block *mnt_sb;	/* pointer to superblock */
 	int mnt_flags;
 	void *data;
-};
+} __randomize_layout;
 
 struct file; /* forward dec */
 struct path;
