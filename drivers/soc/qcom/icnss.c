@@ -1189,21 +1189,22 @@ static int icnss_service_notifier_notify(struct notifier_block *nb,
 	if (event_data == NULL)
 		return notifier_from_errno(-ENOMEM);
 
+	event_data->crashed = true;
+
 	if (state == NULL) {
-		event_data->crashed = true;
 		priv->stats.recovery.root_pd_crash++;
 		goto event_post;
 	}
 
 	switch (*state) {
 	case ROOT_PD_WDOG_BITE:
-		event_data->crashed = true;
 		event_data->wdog_bite = true;
 		priv->stats.recovery.root_pd_crash++;
 		break;
 	case ROOT_PD_SHUTDOWN:
 		cause = ICNSS_ROOT_PD_SHUTDOWN;
 		priv->stats.recovery.root_pd_shutdown++;
+		event_data->crashed = false;
 		break;
 	case USER_PD_STATE_CHANGE:
 		if (test_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state)) {
@@ -1215,11 +1216,9 @@ static int icnss_service_notifier_notify(struct notifier_block *nb,
 		}
 		break;
 	default:
-		event_data->crashed = true;
 		priv->stats.recovery.root_pd_crash++;
 		break;
 	}
-
 	icnss_pr_info("PD service down, pd_state: %d, state: 0x%lx: cause: %s\n",
 		      *state, priv->state, icnss_pdr_cause[cause]);
 event_post:
