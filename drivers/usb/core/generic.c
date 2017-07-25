@@ -57,13 +57,11 @@ static int usb_audio_max_rev_config(struct usb_host_bos *bos)
 	for (desc_cnt = 0; desc_cnt < num_cfg_desc; desc_cnt++) {
 		numfunc = conf_summary->bNumFunctions;
 		for (func_cnt = 0; func_cnt < numfunc; func_cnt++) {
-			/* look for BADD 3.0 */
+			/* honor device preferred config */
 			if (conf_summary->cs_info[func_cnt].bClass ==
 				USB_CLASS_AUDIO &&
-				conf_summary->cs_info[func_cnt].bProtocol ==
-				UAC_VERSION_3 &&
 				conf_summary->cs_info[func_cnt].bSubClass !=
-				FULL_ADC_PROFILE)
+				FULL_ADC_3_0)
 				return conf_summary->bConfigurationValue;
 		}
 	}
