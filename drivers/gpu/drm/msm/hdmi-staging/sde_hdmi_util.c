@@ -68,6 +68,15 @@ static void sde_hdmi_hdcp2p2_ddc_clear_status(struct sde_hdmi *display)
 	hdmi_write(hdmi, HDMI_HDCP2P2_DDC_STATUS, reg_val);
 }
 
+static const char *sde_hdmi_hdr_sname(enum sde_hdmi_hdr_state hdr_state)
+{
+	switch (hdr_state) {
+	case HDR_DISABLE: return "HDR_DISABLE";
+	case HDR_ENABLE: return "HDR_ENABLE";
+	default: return "HDR_INVALID_STATE";
+	}
+}
+
 /**
  * sde_hdmi_dump_regs - utility to dump HDMI regs
  * @hdmi_display: Pointer to private display handle
@@ -898,3 +907,50 @@ int sde_hdmi_sink_dc_support(struct drm_connector *connector,
 
 	return dc_format;
 }
+
+u8 sde_hdmi_hdr_get_ops(u8 curr_state,
+	u8 new_state)
+{
+
+	/** There could be 3 valid state transitions:
+	 * 1. HDR_DISABLE -> HDR_ENABLE
+	 *
+	 * In this transition, we shall start sending
+	 * HDR metadata with metadata from the HDR clip
+	 *
+	 * 2. HDR_ENABLE -> HDR_ENABLE
+	 *
+	 * In this transition, we will keep sending
+	 * HDR metadata but with EOTF and metadata as 0
+	 *
+	 * 3. HDR_ENABLE -> HDR_DISABLE
+	 *
+	 * In this transition, we will stop sending
+	 * metadata to the sink and clear PKT_CTRL register
+	 * bits.
+	 */
+
+	if ((curr_state == HDR_DISABLE)
+				&& (new_state == HDR_ENABLE)) {
+		HDMI_UTIL_DEBUG("State changed %s ---> %s\n",
+						sde_hdmi_hdr_sname(curr_state),
+						sde_hdmi_hdr_sname(new_state));
+		return HDR_SEND_INFO;
+	} else if ((curr_state == HDR_ENABLE)
+				&& (new_state == HDR_ENABLE)) {
+		HDMI_UTIL_DEBUG("State changed %s ---> %s\n",
+						sde_hdmi_hdr_sname(curr_state),
+						sde_hdmi_hdr_sname(new_state));
+		return HDR_SEND_INFO;
+	} else if ((curr_state == HDR_ENABLE)
+				&& (new_state == HDR_DISABLE)) {
+		HDMI_UTIL_DEBUG("State changed %s ---> %s\n",
+						sde_hdmi_hdr_sname(curr_state),
+						sde_hdmi_hdr_sname(new_state));
+		return HDR_CLEAR_INFO;
+	}
+
+	HDMI_UTIL_DEBUG("Unsupported OR no state change\n");
+	return HDR_UNSUPPORTED_OP;
+}
+

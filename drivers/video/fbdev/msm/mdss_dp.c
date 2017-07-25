@@ -3982,12 +3982,6 @@ static int mdss_dp_process_hpd_irq_high(struct mdss_dp_drv_pdata *dp)
 {
 	int ret = 0;
 
-	/* In case of HPD_IRQ events without DP link being turned on such as
-	 * adb shell stop, skip handling hpd_irq event.
-	 */
-	if (!dp->dp_initialized)
-		goto exit;
-
 	pr_debug("start\n");
 
 	dp->hpd_irq_on = true;
@@ -4102,6 +4096,15 @@ static void mdss_dp_process_attention(struct mdss_dp_drv_pdata *dp_drv)
 {
 	if (dp_drv->alt_mode.dp_status.hpd_irq) {
 		pr_debug("Attention: hpd_irq high\n");
+
+		/* In case of HPD_IRQ events without DP link being
+		 * turned on such as adb shell stop, skip handling
+		 * hpd_irq event.
+		 */
+		if (!dp_drv->dp_initialized) {
+			pr_err("DP not initialized yet\n");
+			return;
+		}
 
 		if (dp_is_hdcp_enabled(dp_drv) && dp_drv->hdcp.ops->cp_irq) {
 			if (!dp_drv->hdcp.ops->cp_irq(dp_drv->hdcp.data))

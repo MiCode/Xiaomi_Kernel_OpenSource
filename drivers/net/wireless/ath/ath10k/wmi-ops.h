@@ -31,6 +31,8 @@ struct wmi_ops {
 			    struct wmi_mgmt_rx_ev_arg *arg);
 	int (*pull_ch_info)(struct ath10k *ar, struct sk_buff *skb,
 			    struct wmi_ch_info_ev_arg *arg);
+	int (*pull_peer_delete_resp)(struct ath10k *ar, struct sk_buff *skb,
+				     struct wmi_peer_delete_resp_ev_arg *arg);
 	int (*pull_vdev_start)(struct ath10k *ar, struct sk_buff *skb,
 			       struct wmi_vdev_start_ev_arg *arg);
 	int (*pull_peer_kick)(struct ath10k *ar, struct sk_buff *skb,
@@ -243,6 +245,16 @@ ath10k_wmi_pull_mgmt_rx(struct ath10k *ar, struct sk_buff *skb,
 		return -EOPNOTSUPP;
 
 	return ar->wmi.ops->pull_mgmt_rx(ar, skb, arg);
+}
+
+static inline int
+ath10k_wmi_pull_peer_delete_resp(struct ath10k *ar, struct sk_buff *skb,
+				 struct wmi_peer_delete_resp_ev_arg *arg)
+{
+	if (!ar->wmi.ops->pull_peer_delete_resp)
+		return -EOPNOTSUPP;
+
+	return ar->wmi.ops->pull_peer_delete_resp(ar, skb, arg);
 }
 
 static inline int

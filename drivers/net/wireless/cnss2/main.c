@@ -1100,7 +1100,8 @@ static int cnss_qca6290_powerup(struct cnss_plat_data *plat_priv)
 		return -ENODEV;
 	}
 
-	if (plat_priv->ramdump_info_v2.dump_data_valid) {
+	if (plat_priv->ramdump_info_v2.dump_data_valid ||
+	    test_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state)) {
 		cnss_pci_set_mhi_state(pci_priv, CNSS_MHI_DEINIT);
 		cnss_pci_clear_dump_info(pci_priv);
 	}

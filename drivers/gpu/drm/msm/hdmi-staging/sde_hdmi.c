@@ -1961,6 +1961,30 @@ enable_packet_control:
 	hdmi_write(hdmi, HDMI_GEN_PKT_CTRL, packet_control);
 }
 
+static void sde_hdmi_clear_hdr_infoframe(struct sde_hdmi *display)
+{
+	struct hdmi *hdmi;
+	struct drm_connector *connector;
+	u32 packet_control = 0;
+
+	if (!display) {
+		SDE_ERROR("invalid input\n");
+		return;
+	}
+
+	hdmi = display->ctrl.ctrl;
+	connector = display->ctrl.ctrl->connector;
+
+	if (!hdmi || !connector) {
+		SDE_ERROR("invalid input\n");
+		return;
+	}
+
+	packet_control = hdmi_read(hdmi, HDMI_GEN_PKT_CTRL);
+	packet_control &= ~HDMI_GEN_PKT_CTRL_CLR_MASK;
+	hdmi_write(hdmi, HDMI_GEN_PKT_CTRL, packet_control);
+}
+
 int sde_hdmi_set_property(struct drm_connector *connector,
 			struct drm_connector_state *state,
 			int property_index,
@@ -2305,15 +2329,28 @@ int sde_hdmi_pre_kickoff(struct drm_connector *connector,
 	void *display,
 	struct msm_display_kickoff_params *params)
 {
+	struct sde_hdmi *hdmi_display = (struct sde_hdmi *)display;
+	struct drm_msm_ext_panel_hdr_ctrl *hdr_ctrl;
+	u8 hdr_op;
 
 	if (!connector || !display || !params) {
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
 
-	if (connector->hdr_supported)
-		sde_hdmi_panel_set_hdr_infoframe(display,
-			params->hdr_metadata);
+	hdr_ctrl = params->hdr_ctrl;
+
+	hdr_op = sde_hdmi_hdr_get_ops(hdmi_display->curr_hdr_state,
+		hdr_ctrl->hdr_state);
+
+	if (hdr_op == HDR_SEND_INFO) {
+		if (connector->hdr_supported)
+			sde_hdmi_panel_set_hdr_infoframe(display,
+				&hdr_ctrl->hdr_meta);
+	} else if (hdr_op == HDR_CLEAR_INFO)
+		sde_hdmi_clear_hdr_infoframe(display);
+
+	hdmi_display->curr_hdr_state = hdr_ctrl->hdr_state;
 
 	return 0;
 }
