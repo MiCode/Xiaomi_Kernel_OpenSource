@@ -382,5 +382,6 @@ u8 *ipa_write_8(u8 b, u8 *dest);
 u8 *ipa_pad_to_64(u8 *dest);
 u8 *ipa_pad_to_32(u8 *dest);
 const char *ipa_get_version_string(enum ipa_hw_type ver);
+int ipa_start_gsi_channel(u32 clnt_hdl);
 
 #endif /* _IPA_COMMON_I_H_ */
