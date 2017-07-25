@@ -2069,6 +2069,9 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 
 	}
 
+	/* Disable All flat shading optimization */
+	kgsl_regrmw(device, A5XX_VPC_DBG_ECO_CNTL, 0, 0x1 << 10);
+
 	/*
 	 * VPC corner case with local memory load kill leads to corrupt
 	 * internal state. Normal Disable does not work for all a5x chips.
