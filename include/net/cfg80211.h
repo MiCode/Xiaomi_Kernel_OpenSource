@@ -49,6 +49,13 @@
 #define CFG80211_REKEY_DATA_KEK_LEN 1
 
 /**
+ * Indicate backport support for the new cfg80211_roamed event which unifies the
+ * old APIs cfg80211_roamed and cfg80211_roamed_bss and takes a structure to
+ * update roam information to the kernel.
+ */
+#define CFG80211_ROAMED_API_UNIFIED 1
+
+/**
  * DOC: Introduction
  *
  * cfg80211 is the configuration API for 802.11 devices in Linux. It bridges
