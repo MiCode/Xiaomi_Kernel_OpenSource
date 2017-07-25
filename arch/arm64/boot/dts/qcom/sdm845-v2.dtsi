@@ -52,3 +52,7 @@
 	qcom,spss-test-firmware-name = "spss2t";	/* 8 chars max */
 	qcom,spss-prod-firmware-name = "spss2p";	/* 8 chars max */
 };
+
+&mdss_mdp {
+	clock-max-rate = <0 0 0 0 430000000 19200000 0>;
+};
