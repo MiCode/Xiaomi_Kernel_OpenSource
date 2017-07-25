@@ -8530,7 +8530,11 @@ static int qseecom_probe(struct platform_device *pdev)
 	qseecom.ion_clnt = msm_ion_client_create("qseecom-kernel");
 	if (IS_ERR_OR_NULL(qseecom.ion_clnt)) {
 		pr_err("Ion client cannot be created\n");
-		rc = -ENOMEM;
+
+		if (qseecom.ion_clnt != ERR_PTR(-EPROBE_DEFER))
+			rc = -ENOMEM;
+		else
+			rc = -EPROBE_DEFER;
 		goto exit_del_cdev;
 	}
 
