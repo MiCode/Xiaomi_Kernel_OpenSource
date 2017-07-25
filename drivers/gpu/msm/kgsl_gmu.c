@@ -1405,14 +1405,12 @@ int gmu_start(struct kgsl_device *device)
 		if (ret)
 			goto error_gpu;
 
-		if (gmu->wakeup_pwrlevel != pwr->default_pwrlevel) {
-			ret = gmu_dcvs_set(gmu, gmu->wakeup_pwrlevel,
-					pwr->pwrlevels[gmu->wakeup_pwrlevel]
-					.bus_freq);
-			if (ret)
-				goto error_gpu;
-			gmu->wakeup_pwrlevel = pwr->default_pwrlevel;
-		}
+		ret = gmu_dcvs_set(gmu, gmu->wakeup_pwrlevel,
+				pwr->pwrlevels[gmu->wakeup_pwrlevel].bus_freq);
+		if (ret)
+			goto error_gpu;
+
+		gmu->wakeup_pwrlevel = pwr->default_pwrlevel;
 		break;
 
 	case KGSL_STATE_RESET:
