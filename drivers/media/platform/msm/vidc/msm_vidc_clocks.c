@@ -791,8 +791,6 @@ void msm_clock_data_reset(struct msm_vidc_inst *inst)
 
 	msm_dcvs_print_dcvs_stats(dcvs);
 
-	msm_vidc_update_operating_rate(inst);
-
 	rc = msm_comm_scale_clocks_and_bus(inst);
 
 	if (rc)

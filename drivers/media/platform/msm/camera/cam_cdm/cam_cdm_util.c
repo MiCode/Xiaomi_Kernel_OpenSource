@@ -323,7 +323,7 @@ int cam_cdm_get_ioremap_from_base(uint32_t hw_base,
 	struct cam_soc_reg_map *base_table[CAM_SOC_MAX_BLOCK],
 	void __iomem **device_base)
 {
-	int ret = -1, i;
+	int ret = -EINVAL, i;
 
 	for (i = 0; i < base_array_size; i++) {
 		if (base_table[i])

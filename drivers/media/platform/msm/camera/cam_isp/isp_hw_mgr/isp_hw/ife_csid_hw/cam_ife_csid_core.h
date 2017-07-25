@@ -65,6 +65,7 @@
 #define CSID_PATH_ERROR_PIX_COUNT                 BIT(13)
 #define CSID_PATH_ERROR_LINE_COUNT                BIT(14)
 
+/* enum cam_csid_path_halt_mode select the path halt mode control */
 enum cam_csid_path_halt_mode {
 	CSID_HALT_MODE_INTERNAL,
 	CSID_HALT_MODE_GLOBAL,
@@ -72,6 +73,16 @@ enum cam_csid_path_halt_mode {
 	CSID_HALT_MODE_SLAVE,
 };
 
+/**
+ *enum cam_csid_path_timestamp_stb_sel - select the sof/eof strobes used to
+ *        capture the timestamp
+ */
+enum cam_csid_path_timestamp_stb_sel {
+	CSID_TIMESTAMP_STB_PRE_HALT,
+	CSID_TIMESTAMP_STB_POST_HALT,
+	CSID_TIMESTAMP_STB_POST_IRQ,
+	CSID_TIMESTAMP_STB_MAX,
+};
 
 struct cam_ife_csid_ipp_reg_offset {
 	/*Image pixel path register offsets*/

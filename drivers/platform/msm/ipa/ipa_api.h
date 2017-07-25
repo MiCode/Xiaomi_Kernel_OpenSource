@@ -34,6 +34,9 @@ struct ipa_api_controller {
 	int (*ipa_cfg_ep_nat)(u32 clnt_hdl,
 		const struct ipa_ep_cfg_nat *ipa_ep_cfg);
 
+	int (*ipa_cfg_ep_conn_track)(u32 clnt_hdl,
+		const struct ipa_ep_cfg_conn_track *ipa_ep_cfg);
+
 	int (*ipa_cfg_ep_hdr)(u32 clnt_hdl,
 		const struct ipa_ep_cfg_hdr *ipa_ep_cfg);
 

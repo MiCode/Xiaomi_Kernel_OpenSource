@@ -429,7 +429,7 @@ int msm_vidc_release_buffer(void *instance, int type, unsigned int index)
 		print_vidc_buffer(VIDC_DBG, "release buf", inst, mbuf);
 		msm_comm_unmap_vidc_buffer(inst, mbuf);
 		list_del(&mbuf->list);
-		kfree(mbuf);
+		kref_put_mbuf(mbuf);
 	}
 	mutex_unlock(&inst->registeredbufs.lock);
 
@@ -918,6 +918,10 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	}
 
 fail_start:
+	if (rc) {
+		dprintk(VIDC_ERR, "%s: kill session %pK\n", __func__, inst);
+		msm_comm_kill_session(inst);
+	}
 	return rc;
 }
 
@@ -994,7 +998,7 @@ stream_start_failed:
 			}
 			msm_comm_unmap_vidc_buffer(inst, temp);
 			list_del(&temp->list);
-			kfree(temp);
+			kref_put_mbuf(temp);
 		}
 		mutex_unlock(&inst->registeredbufs.lock);
 	}
@@ -1071,10 +1075,16 @@ static void msm_vidc_buf_queue(struct vb2_buffer *vb2)
 				inst, vb2);
 		return;
 	}
+	if (!kref_get_mbuf(inst, mbuf)) {
+		dprintk(VIDC_ERR, "%s: mbuf not found\n", __func__);
+		return;
+	}
 
 	rc = msm_comm_qbuf(inst, mbuf);
 	if (rc)
 		print_vidc_buffer(VIDC_ERR, "failed qbuf", inst, mbuf);
+
+	kref_put_mbuf(mbuf);
 }
 
 static const struct vb2_ops msm_vidc_vb2q_ops = {
@@ -1601,12 +1611,24 @@ err_invalid_core:
 }
 EXPORT_SYMBOL(msm_vidc_open);
 
-static void cleanup_instance(struct msm_vidc_inst *inst)
+static void msm_vidc_cleanup_instance(struct msm_vidc_inst *inst)
 {
+	struct msm_vidc_buffer *temp, *dummy;
+
 	if (!inst) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
 		return;
 	}
+
+	mutex_lock(&inst->registeredbufs.lock);
+	list_for_each_entry_safe(temp, dummy, &inst->registeredbufs.list,
+			list) {
+		print_vidc_buffer(VIDC_ERR, "undequeud buf", inst, temp);
+		msm_comm_unmap_vidc_buffer(inst, temp);
+		list_del(&temp->list);
+		kref_put_mbuf(temp);
+	}
+	mutex_unlock(&inst->registeredbufs.lock);
 
 	msm_comm_free_freq_table(inst);
 
@@ -1661,17 +1683,17 @@ int msm_vidc_destroy(struct msm_vidc_inst *inst)
 
 	msm_comm_ctrl_deinit(inst);
 
-	DEINIT_MSM_VIDC_LIST(&inst->scratchbufs);
-	DEINIT_MSM_VIDC_LIST(&inst->persistbufs);
-	DEINIT_MSM_VIDC_LIST(&inst->pending_getpropq);
-	DEINIT_MSM_VIDC_LIST(&inst->outputbufs);
-	DEINIT_MSM_VIDC_LIST(&inst->registeredbufs);
-
 	v4l2_fh_del(&inst->event_handler);
 	v4l2_fh_exit(&inst->event_handler);
 
 	for (i = 0; i < MAX_PORT_NUM; i++)
 		vb2_queue_release(&inst->bufq[i].vb2_bufq);
+
+	DEINIT_MSM_VIDC_LIST(&inst->scratchbufs);
+	DEINIT_MSM_VIDC_LIST(&inst->persistbufs);
+	DEINIT_MSM_VIDC_LIST(&inst->pending_getpropq);
+	DEINIT_MSM_VIDC_LIST(&inst->outputbufs);
+	DEINIT_MSM_VIDC_LIST(&inst->registeredbufs);
 
 	mutex_destroy(&inst->sync_lock);
 	mutex_destroy(&inst->bufq[CAPTURE_PORT].lock);
@@ -1695,7 +1717,6 @@ static void close_helper(struct kref *kref)
 int msm_vidc_close(void *instance)
 {
 	struct msm_vidc_inst *inst = instance;
-	struct msm_vidc_buffer *temp, *dummy;
 	int rc = 0;
 
 	if (!inst || !inst->core) {
@@ -1707,30 +1728,20 @@ int msm_vidc_close(void *instance)
 	 * Make sure that HW stop working on these buffers that
 	 * we are going to free.
 	 */
-	if (inst->state != MSM_VIDC_CORE_INVALID &&
-		inst->core->state != VIDC_CORE_INVALID)
-		rc = msm_comm_try_state(inst,
-				MSM_VIDC_RELEASE_RESOURCES_DONE);
-
-	mutex_lock(&inst->registeredbufs.lock);
-	list_for_each_entry_safe(temp, dummy, &inst->registeredbufs.list,
-			list) {
-		print_vidc_buffer(VIDC_ERR, "undequeud buf", inst, temp);
-		msm_comm_unmap_vidc_buffer(inst, temp);
-		list_del(&temp->list);
-		kfree(temp);
-	}
-	mutex_unlock(&inst->registeredbufs.lock);
-
-	cleanup_instance(inst);
-	if (inst->state != MSM_VIDC_CORE_INVALID &&
-		inst->core->state != VIDC_CORE_INVALID)
-		rc = msm_comm_try_state(inst, MSM_VIDC_CORE_UNINIT);
-	else
-		rc = msm_comm_force_cleanup(inst);
+	rc = msm_comm_try_state(inst, MSM_VIDC_RELEASE_RESOURCES_DONE);
 	if (rc)
 		dprintk(VIDC_ERR,
-			"Failed to move video instance to uninit state\n");
+			"Failed to move inst %pK to rel resource done state\n",
+			inst);
+
+	msm_vidc_cleanup_instance(inst);
+
+	rc = msm_comm_try_state(inst, MSM_VIDC_CORE_UNINIT);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Failed to move inst %pK to uninit state\n", inst);
+		rc = msm_comm_force_cleanup(inst);
+	}
 
 	msm_comm_session_clean(inst);
 	msm_smem_delete_client(inst->mem_client);

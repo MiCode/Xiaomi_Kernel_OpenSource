@@ -19,6 +19,7 @@
 		#gpio-cells = <2>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
+		interrupt-parent = <&pdc>;
 
 		/* QUPv3 South SE mappings */
 		/* SE 0 pin mappings */
@@ -899,6 +900,34 @@
 					pins = "gpio49", "gpio50";
 					drive-strength = <2>;
 					bias-pull-up;
+				};
+			};
+		};
+
+		qupv3_se12_2uart_pins: qupv3_se12_2uart_pins {
+			qupv3_se12_2uart_active: qupv3_se12_2uart_active {
+				mux {
+					pins = "gpio51", "gpio52";
+					function = "qup9";
+				};
+
+				config {
+					pins = "gpio51", "gpio52";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			qupv3_se12_2uart_sleep: qupv3_se12_2uart_sleep {
+				mux {
+					pins = "gpio51", "gpio52";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio51", "gpio52";
+					drive-strength = <2>;
+					bias-disable;
 				};
 			};
 		};

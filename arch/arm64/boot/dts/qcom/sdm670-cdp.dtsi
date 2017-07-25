@@ -9,3 +9,27 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+&qupv3_se9_2uart {
+	status = "disabled";
+};
+
+&qupv3_se12_2uart {
+	status = "ok";
+};
+
+&qupv3_se8_spi {
+	status = "disabled";
+};
+
+&qupv3_se3_i2c {
+	status = "disabled";
+};
+
+&qupv3_se10_i2c {
+	status = "disabled";
+};
+
+&qupv3_se6_4uart {
+	status = "disabled";
+};

@@ -211,7 +211,7 @@ static char *dp_link_get_audio_sample_rate(u32 rate)
 static int dp_link_get_period(struct dp_link_private *link, int const addr)
 {
 	int ret = 0;
-	u8 *bp;
+	u8 bp;
 	u8 data;
 	u32 const param_len = 0x1;
 	u32 const max_audio_period = 0xA;
@@ -224,7 +224,7 @@ static int dp_link_get_period(struct dp_link_private *link, int const addr)
 		goto exit;
 	}
 
-	data = *bp;
+	data = bp;
 
 	/* Period - Bits 3:0 */
 	data = data & 0xF;
@@ -322,7 +322,7 @@ exit:
 static int dp_link_parse_audio_pattern_type(struct dp_link_private *link)
 {
 	int ret = 0;
-	u8 *bp;
+	u8 bp;
 	u8 data;
 	int rlen;
 	int const param_len = 0x1;
@@ -337,7 +337,7 @@ static int dp_link_parse_audio_pattern_type(struct dp_link_private *link)
 		ret = -EINVAL;
 		goto exit;
 	}
-	data = *bp;
+	data = bp;
 
 	/* Audio Pattern Type - Bits 7:0 */
 	if ((int)data > max_audio_pattern_type) {
@@ -356,7 +356,7 @@ exit:
 static int dp_link_parse_audio_mode(struct dp_link_private *link)
 {
 	int ret = 0;
-	u8 *bp;
+	u8 bp;
 	u8 data;
 	int rlen;
 	int const param_len = 0x1;
@@ -374,7 +374,7 @@ static int dp_link_parse_audio_mode(struct dp_link_private *link)
 		ret = -EINVAL;
 		goto exit;
 	}
-	data = *bp;
+	data = bp;
 
 	/* Sampling Rate - Bits 3:0 */
 	sampling_rate = data & 0xF;
@@ -528,14 +528,14 @@ static char *dp_link_bit_depth_to_string(u32 tbd)
 static int dp_link_parse_timing_params1(struct dp_link_private *link,
 	int const addr, int const len, u32 *val)
 {
-	u8 *bp;
+	u8 bp[2];
 	int rlen;
 
 	if (len < 2)
 		return -EINVAL;
 
 	/* Read the requested video link pattern (Byte 0x221). */
-	rlen = drm_dp_dpcd_read(link->aux->drm_aux, addr, &bp, len);
+	rlen = drm_dp_dpcd_read(link->aux->drm_aux, addr, bp, len);
 	if (rlen < len) {
 		pr_err("failed to read 0x%x\n", addr);
 		return -EINVAL;
@@ -549,14 +549,14 @@ static int dp_link_parse_timing_params1(struct dp_link_private *link,
 static int dp_link_parse_timing_params2(struct dp_link_private *link,
 	int const addr, int const len, u32 *val1, u32 *val2)
 {
-	u8 *bp;
+	u8 bp[2];
 	int rlen;
 
 	if (len < 2)
 		return -EINVAL;
 
 	/* Read the requested video link pattern (Byte 0x221). */
-	rlen = drm_dp_dpcd_read(link->aux->drm_aux, addr, &bp, len);
+	rlen = drm_dp_dpcd_read(link->aux->drm_aux, addr, bp, len);
 	if (rlen < len) {
 		pr_err("failed to read 0x%x\n", addr);
 		return -EINVAL;
@@ -571,7 +571,7 @@ static int dp_link_parse_timing_params2(struct dp_link_private *link,
 static int dp_link_parse_timing_params3(struct dp_link_private *link,
 	int const addr, u32 *val)
 {
-	u8 *bp;
+	u8 bp;
 	u32 len = 1;
 	int rlen;
 
@@ -581,7 +581,7 @@ static int dp_link_parse_timing_params3(struct dp_link_private *link,
 		pr_err("failed to read 0x%x\n", addr);
 		return -EINVAL;
 	}
-	*val = bp[0];
+	*val = bp;
 
 	return 0;
 }
@@ -597,7 +597,7 @@ static int dp_link_parse_video_pattern_params(struct dp_link_private *link)
 {
 	int ret = 0;
 	int rlen;
-	u8 *bp;
+	u8 bp;
 	u8 data;
 	u32 dyn_range;
 	int const param_len = 0x1;
@@ -612,7 +612,7 @@ static int dp_link_parse_video_pattern_params(struct dp_link_private *link)
 		ret = -EINVAL;
 		goto exit;
 	}
-	data = *bp;
+	data = bp;
 
 	if (!dp_link_is_video_pattern_valid(data)) {
 		pr_err("invalid link video pattern = 0x%x\n", data);
@@ -634,7 +634,7 @@ static int dp_link_parse_video_pattern_params(struct dp_link_private *link)
 		ret = -EINVAL;
 		goto exit;
 	}
-	data = *bp;
+	data = bp;
 
 	/* Dynamic Range */
 	dyn_range = (data & BIT(3)) >> 3;
@@ -789,7 +789,7 @@ static bool dp_link_is_lane_count_valid(u32 lane_count)
  */
 static int dp_link_parse_link_training_params(struct dp_link_private *link)
 {
-	u8 *bp;
+	u8 bp;
 	u8 data;
 	int ret = 0;
 	int rlen;
@@ -803,7 +803,7 @@ static int dp_link_parse_link_training_params(struct dp_link_private *link)
 		ret = -EINVAL;
 		goto exit;
 	}
-	data = *bp;
+	data = bp;
 
 	if (!dp_link_is_link_rate_valid(data)) {
 		pr_err("invalid link rate = 0x%x\n", data);
@@ -822,7 +822,7 @@ static int dp_link_parse_link_training_params(struct dp_link_private *link)
 		ret = -EINVAL;
 		goto exit;
 	}
-	data = *bp;
+	data = bp;
 	data &= 0x1F;
 
 	if (!dp_link_is_lane_count_valid(data)) {
@@ -861,7 +861,7 @@ static bool dp_link_is_phy_test_pattern_supported(u32 phy_test_pattern_sel)
  */
 static int dp_link_parse_phy_test_params(struct dp_link_private *link)
 {
-	u8 *bp;
+	u8 bp;
 	u8 data;
 	int rlen;
 	int const param_len = 0x1;
@@ -876,7 +876,7 @@ static int dp_link_parse_phy_test_params(struct dp_link_private *link)
 		goto end;
 	}
 
-	data = *bp;
+	data = bp;
 
 	link->request.phy_test_pattern_sel = data;
 
@@ -939,7 +939,7 @@ static bool dp_link_is_test_supported(u32 test_requested)
 static int dp_link_parse_request(struct dp_link_private *link)
 {
 	int ret = 0;
-	u8 *bp;
+	u8 bp;
 	u8 data;
 	int rlen;
 	u32 const param_len = 0x1;
@@ -957,12 +957,12 @@ static int dp_link_parse_request(struct dp_link_private *link)
 		goto end;
 	}
 
-	data = *bp;
+	data = bp;
 
 	pr_debug("device service irq vector = 0x%x\n", data);
 
 	if (!(data & BIT(1))) {
-		pr_debug("no link requested\n");
+		pr_debug("no test requested\n");
 		goto end;
 	}
 
@@ -978,7 +978,7 @@ static int dp_link_parse_request(struct dp_link_private *link)
 		goto end;
 	}
 
-	data = *bp;
+	data = bp;
 
 	if (!dp_link_is_test_supported(data)) {
 		pr_debug("link 0x%x not supported\n", data);
@@ -1032,7 +1032,7 @@ end:
  */
 static void dp_link_parse_sink_count(struct dp_link_private *link)
 {
-	u8 *bp;
+	u8 bp;
 	u8 data;
 	int rlen;
 	int const param_len = 0x1;
@@ -1044,7 +1044,7 @@ static void dp_link_parse_sink_count(struct dp_link_private *link)
 		return;
 	}
 
-	data = *bp;
+	data = bp;
 
 	/* BIT 7, BIT 5:0 */
 	link->sink_count.count = (data & BIT(7)) << 6 | (data & 0x63);
@@ -1109,7 +1109,7 @@ static bool dp_link_phy_pattern_requested(struct dp_link *dp_link)
 
 static int dp_link_parse_vx_px(struct dp_link_private *link)
 {
-	u8 *bp;
+	u8 bp;
 	u8 data;
 	int const param_len = 0x1;
 	int const addr1 = 0x206;
@@ -1127,7 +1127,7 @@ static int dp_link_parse_vx_px(struct dp_link_private *link)
 		goto end;
 	}
 
-	data = *bp;
+	data = bp;
 
 	pr_debug("lanes 0/1 (Byte 0x206): 0x%x\n", data);
 
@@ -1148,7 +1148,7 @@ static int dp_link_parse_vx_px(struct dp_link_private *link)
 		goto end;
 	}
 
-	data = *bp;
+	data = bp;
 
 	pr_debug("lanes 2/3 (Byte 0x207): 0x%x\n", data);
 

@@ -118,6 +118,10 @@ int ipahal_reg_init(enum ipa_hw_type ipa_hw_type);
 #define IPA_ENDP_INIT_NAT_n_NAT_EN_BMSK 0x3
 #define IPA_ENDP_INIT_NAT_n_NAT_EN_SHFT 0x0
 
+/* IPA_ENDP_INIT_CONN_TRACK_n register */
+#define IPA_ENDP_INIT_CONN_TRACK_n_CONN_TRACK_EN_BMSK 0x1
+#define IPA_ENDP_INIT_CONN_TRACK_n_CONN_TRACK_EN_SHFT 0x0
+
 /* IPA_ENDP_INIT_CTRL_n register */
 #define IPA_ENDP_INIT_CTRL_n_ENDP_SUSPEND_BMSK 0x1
 #define IPA_ENDP_INIT_CTRL_n_ENDP_SUSPEND_SHFT 0x0

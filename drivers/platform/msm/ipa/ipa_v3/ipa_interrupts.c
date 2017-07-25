@@ -322,27 +322,21 @@ static void ipa3_interrupt_defer(struct work_struct *work)
 
 static irqreturn_t ipa3_isr(int irq, void *ctxt)
 {
-	unsigned long flags;
+	struct ipa_active_client_logging_info log_info;
 
+	IPA_ACTIVE_CLIENTS_PREP_SIMPLE(log_info);
 	IPADBG_LOW("Enter\n");
 	/* defer interrupt handling in case IPA is not clocked on */
-	if (ipa3_active_clients_trylock(&flags) == 0) {
+	if (ipa3_inc_client_enable_clks_no_block(&log_info)) {
 		IPADBG("defer interrupt processing\n");
 		queue_work(ipa3_ctx->power_mgmt_wq, &ipa3_interrupt_defer_work);
 		return IRQ_HANDLED;
 	}
 
-	if (ipa3_ctx->ipa3_active_clients.cnt == 0) {
-		IPADBG("defer interrupt processing\n");
-		queue_work(ipa3_ctx->power_mgmt_wq, &ipa3_interrupt_defer_work);
-		goto bail;
-	}
-
 	ipa3_process_interrupts(true);
 	IPADBG_LOW("Exit\n");
 
-bail:
-	ipa3_active_clients_trylock_unlock(&flags);
+	ipa3_dec_client_disable_clks(&log_info);
 	return IRQ_HANDLED;
 }
 /**

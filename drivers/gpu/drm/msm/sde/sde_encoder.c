@@ -1586,6 +1586,15 @@ static void _sde_encoder_virt_enable_helper(struct drm_encoder *drm_enc)
 				sde_enc->cur_master->hw_mdptop,
 				sde_kms->catalog);
 
+	if (sde_enc->num_phys_encs > ARRAY_SIZE(te_cfg.ppnumber) ||
+			sde_enc->num_phys_encs > ARRAY_SIZE(sde_enc->hw_pp)) {
+		SDE_ERROR("invalid num phys enc %d/%d/%d\n",
+				sde_enc->num_phys_encs,
+				(int) ARRAY_SIZE(te_cfg.ppnumber),
+				(int) ARRAY_SIZE(sde_enc->hw_pp));
+		return;
+	}
+
 	if (hw_mdptop->ops.setup_vsync_sel) {
 		for (i = 0; i < sde_enc->num_phys_encs; i++)
 			te_cfg.ppnumber[i] = sde_enc->hw_pp[i]->idx;
@@ -1709,14 +1718,14 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 		}
 	}
 
+	if (sde_enc->cur_master && sde_enc->cur_master->ops.disable)
+		sde_enc->cur_master->ops.disable(sde_enc->cur_master);
+
 	/* after phys waits for frame-done, should be no more frames pending */
 	if (atomic_xchg(&sde_enc->frame_done_timeout, 0)) {
 		SDE_ERROR("enc%d timeout pending\n", drm_enc->base.id);
 		del_timer_sync(&sde_enc->frame_done_timer);
 	}
-
-	if (sde_enc->cur_master && sde_enc->cur_master->ops.disable)
-		sde_enc->cur_master->ops.disable(sde_enc->cur_master);
 
 	sde_encoder_resource_control(drm_enc, SDE_ENC_RC_EVENT_STOP);
 
@@ -2017,7 +2026,8 @@ void sde_encoder_helper_hw_reset(struct sde_encoder_phys *phys_enc)
 			if (rc) {
 				SDE_ERROR_ENC(sde_enc,
 						"connector soft reset failure\n");
-				SDE_DBG_DUMP("panic");
+				SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus",
+								"panic");
 			}
 		}
 	}
@@ -2025,7 +2035,7 @@ void sde_encoder_helper_hw_reset(struct sde_encoder_phys *phys_enc)
 	rc = ctl->ops.reset(ctl);
 	if (rc) {
 		SDE_ERROR_ENC(sde_enc, "ctl %d reset failure\n",  ctl->idx);
-		SDE_DBG_DUMP("panic");
+		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus", "panic");
 	}
 
 	phys_enc->enable_state = SDE_ENC_ENABLED;

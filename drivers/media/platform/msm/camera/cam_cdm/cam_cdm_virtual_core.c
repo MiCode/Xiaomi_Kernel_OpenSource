@@ -83,7 +83,7 @@ int cam_virtual_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 	struct cam_cdm_hw_intf_cmd_submit_bl *req,
 	struct cam_cdm_client *client)
 {
-	int i, rc = -1;
+	int i, rc = -EINVAL;
 	struct cam_cdm_bl_request *cdm_cmd = req->data;
 	struct cam_cdm *core = (struct cam_cdm *)cdm_hw->core_info;
 
@@ -97,7 +97,7 @@ int cam_virtual_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 			pr_err("len(%d) is invalid count=%d total cnt=%d\n",
 				cdm_cmd->cmd[i].len, i,
 				req->data->cmd_arrary_count);
-			rc = -1;
+			rc = -EINVAL;
 			break;
 		}
 		if (req->data->type == CAM_CDM_BL_CMD_TYPE_MEM_HANDLE) {
@@ -113,7 +113,7 @@ int cam_virtual_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 		} else {
 			pr_err("Only mem hdl/Kernel va type is supported %d\n",
 				req->data->type);
-			rc = -1;
+			rc = -EINVAL;
 			break;
 		}
 
@@ -140,7 +140,7 @@ int cam_virtual_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 				cdm_cmd->cmd[i].offset);
 			pr_err("Sanity check failed for cmd_count=%d cnt=%d\n",
 				i, req->data->cmd_arrary_count);
-			rc = -1;
+			rc = -EINVAL;
 			break;
 		}
 		if (!rc) {
@@ -229,9 +229,8 @@ int cam_virtual_cdm_probe(struct platform_device *pdev)
 	}
 
 	rc = cam_cdm_soc_load_dt_private(pdev, cdm_hw->soc_info.soc_private);
-	if (rc != 0) {
+	if (rc) {
 		pr_err("Failed to load CDM dt private data\n");
-		rc = -1;
 		kfree(cdm_hw->soc_info.soc_private);
 		cdm_hw->soc_info.soc_private = NULL;
 		goto soc_load_failed;

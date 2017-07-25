@@ -897,6 +897,60 @@ passive_show(struct device *dev, struct device_attribute *attr,
 }
 
 static ssize_t
+polling_delay_show(struct device *dev, struct device_attribute *attr,
+		   char *buf)
+{
+	struct thermal_zone_device *tz = to_thermal_zone(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", tz->polling_delay);
+}
+
+static ssize_t
+polling_delay_store(struct device *dev, struct device_attribute *attr,
+		    const char *buf, size_t count)
+{
+	struct thermal_zone_device *tz = to_thermal_zone(dev);
+	int delay;
+
+	if (kstrtoint(buf, 10, &delay))
+		return -EINVAL;
+
+	mutex_lock(&tz->lock);
+	tz->polling_delay = delay;
+	mutex_unlock(&tz->lock);
+	thermal_zone_device_update(tz, THERMAL_EVENT_UNSPECIFIED);
+
+	return count;
+}
+
+static ssize_t
+passive_delay_show(struct device *dev, struct device_attribute *attr,
+		   char *buf)
+{
+	struct thermal_zone_device *tz = to_thermal_zone(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", tz->passive_delay);
+}
+
+static ssize_t
+passive_delay_store(struct device *dev, struct device_attribute *attr,
+		    const char *buf, size_t count)
+{
+	struct thermal_zone_device *tz = to_thermal_zone(dev);
+	int delay;
+
+	if (kstrtoint(buf, 10, &delay))
+		return -EINVAL;
+
+	mutex_lock(&tz->lock);
+	tz->passive_delay = delay;
+	mutex_unlock(&tz->lock);
+	thermal_zone_device_update(tz, THERMAL_EVENT_UNSPECIFIED);
+
+	return count;
+}
+
+static ssize_t
 policy_store(struct device *dev, struct device_attribute *attr,
 		    const char *buf, size_t count)
 {
@@ -1167,6 +1221,10 @@ static DEVICE_ATTR(mode, 0644, mode_show, mode_store);
 static DEVICE_ATTR(passive, S_IRUGO | S_IWUSR, passive_show, passive_store);
 static DEVICE_ATTR(policy, S_IRUGO | S_IWUSR, policy_show, policy_store);
 static DEVICE_ATTR(available_policies, S_IRUGO, available_policies_show, NULL);
+static DEVICE_ATTR(passive_delay, 0644, passive_delay_show,
+			passive_delay_store);
+static DEVICE_ATTR(polling_delay, 0644, polling_delay_show,
+			polling_delay_store);
 
 /* sys I/F for cooling device */
 #define to_cooling_device(_dev)	\
@@ -1322,6 +1380,54 @@ thermal_cooling_device_trip_point_show(struct device *dev,
 		return sprintf(buf, "-1\n");
 	else
 		return sprintf(buf, "%d\n", instance->trip);
+}
+
+static ssize_t
+thermal_cooling_device_upper_limit_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	struct thermal_zone_device *tz = to_thermal_zone(dev);
+	struct thermal_instance *instance;
+	int ret, upper_limit;
+
+	instance =
+	    container_of(attr, struct thermal_instance, upper_attr);
+
+	ret = kstrtoint(buf, 0, &upper_limit);
+	if (ret)
+		return ret;
+	if (upper_limit < instance->lower)
+		return -EINVAL;
+
+	instance->upper = upper_limit;
+	thermal_zone_device_update(tz, THERMAL_EVENT_UNSPECIFIED);
+
+	return count;
+}
+
+static ssize_t
+thermal_cooling_device_lower_limit_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	struct thermal_zone_device *tz = to_thermal_zone(dev);
+	struct thermal_instance *instance;
+	int ret, lower_limit;
+
+	instance =
+	    container_of(attr, struct thermal_instance, lower_attr);
+
+	ret = kstrtoint(buf, 0, &lower_limit);
+	if (ret)
+		return ret;
+	if (lower_limit > instance->upper)
+		return -EINVAL;
+
+	instance->lower = lower_limit;
+	thermal_zone_device_update(tz, THERMAL_EVENT_UNSPECIFIED);
+
+	return count;
 }
 
 static struct attribute *cooling_device_attrs[] = {
@@ -1484,8 +1590,9 @@ int thermal_zone_bind_cooling_device(struct thermal_zone_device *tz,
 			"cdev%d_upper_limit", dev->id);
 	sysfs_attr_init(&dev->upper_attr.attr);
 	dev->upper_attr.attr.name = dev->upper_attr_name;
-	dev->upper_attr.attr.mode = 0444;
+	dev->upper_attr.attr.mode = 0644;
 	dev->upper_attr.show = thermal_cooling_device_upper_limit_show;
+	dev->upper_attr.store = thermal_cooling_device_upper_limit_store;
 	result = device_create_file(&tz->device, &dev->upper_attr);
 	if (result)
 		goto remove_trip_file;
@@ -1494,8 +1601,9 @@ int thermal_zone_bind_cooling_device(struct thermal_zone_device *tz,
 			"cdev%d_lower_limit", dev->id);
 	sysfs_attr_init(&dev->lower_attr.attr);
 	dev->lower_attr.attr.name = dev->lower_attr_name;
-	dev->lower_attr.attr.mode = 0444;
+	dev->lower_attr.attr.mode = 0644;
 	dev->lower_attr.show = thermal_cooling_device_lower_limit_show;
+	dev->lower_attr.store = thermal_cooling_device_lower_limit_store;
 	result = device_create_file(&tz->device, &dev->lower_attr);
 	if (result)
 		goto remove_upper_file;
@@ -2084,6 +2192,13 @@ struct thermal_zone_device *thermal_zone_device_register(const char *type,
 		if (result)
 			goto unregister;
 	}
+	result = device_create_file(&tz->device, &dev_attr_passive_delay);
+	if (result)
+		goto unregister;
+
+	result = device_create_file(&tz->device, &dev_attr_polling_delay);
+	if (result)
+		goto unregister;
 
 	if (IS_ENABLED(CONFIG_THERMAL_EMULATION)) {
 		result = device_create_file(&tz->device, &dev_attr_emul_temp);
@@ -2207,6 +2322,8 @@ void thermal_zone_device_unregister(struct thermal_zone_device *tz)
 		device_remove_file(&tz->device, &dev_attr_mode);
 	device_remove_file(&tz->device, &dev_attr_policy);
 	device_remove_file(&tz->device, &dev_attr_available_policies);
+	device_remove_file(&tz->device, &dev_attr_passive_delay);
+	device_remove_file(&tz->device, &dev_attr_polling_delay);
 	remove_trip_attrs(tz);
 	thermal_set_governor(tz, NULL);
 

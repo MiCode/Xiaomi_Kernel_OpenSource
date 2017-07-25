@@ -15,6 +15,7 @@
 #include <linux/uaccess.h>
 
 #include "cam_node.h"
+#include "cam_trace.h"
 
 static void  __cam_node_handle_shutdown(struct cam_node *node)
 {
@@ -254,6 +255,8 @@ static int __cam_node_crm_apply_req(struct cam_req_mgr_apply_request *apply)
 			__func__, apply->dev_hdl);
 		return -EINVAL;
 	}
+
+	trace_cam_apply_req("Node", apply);
 
 	return cam_context_handle_crm_apply_req(ctx, apply);
 }

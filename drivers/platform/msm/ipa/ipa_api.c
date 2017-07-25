@@ -422,7 +422,7 @@ EXPORT_SYMBOL(ipa_cfg_ep);
 /**
  * ipa_cfg_ep_nat() - IPA end-point NAT configuration
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
- * @ipa_ep_cfg:	[in] IPA end-point configuration params
+ * @ep_nat:	[in] IPA NAT end-point configuration params
  *
  * Returns:	0 on success, negative on failure
  *
@@ -437,6 +437,27 @@ int ipa_cfg_ep_nat(u32 clnt_hdl, const struct ipa_ep_cfg_nat *ep_nat)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_cfg_ep_nat);
+
+/**
+* ipa_cfg_ep_conn_track() - IPA end-point IPv6CT configuration
+* @clnt_hdl:		[in] opaque client handle assigned by IPA to client
+* @ep_conn_track:	[in] IPA IPv6CT end-point configuration params
+*
+* Returns:	0 on success, negative on failure
+*
+* Note:	Should not be called from atomic context
+*/
+int ipa_cfg_ep_conn_track(u32 clnt_hdl,
+	const struct ipa_ep_cfg_conn_track *ep_conn_track)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_cfg_ep_conn_track, clnt_hdl,
+		ep_conn_track);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_cfg_ep_conn_track);
 
 /**
  * ipa_cfg_ep_hdr() -  IPA end-point header configuration

@@ -1940,6 +1940,8 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 		msm_host->core_3_0v_support = true;
 
 	pdata->sdr104_wa = of_property_read_bool(np, "qcom,sdr104-wa");
+	msm_host->regs_restore.is_supported =
+		of_property_read_bool(np, "qcom,restore-after-cx-collapse");
 
 	return pdata;
 out:
@@ -2831,6 +2833,103 @@ static unsigned int sdhci_msm_get_sup_clk_rate(struct sdhci_host *host,
 	return sel_clk;
 }
 
+static void sdhci_msm_registers_save(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	const struct sdhci_msm_offset *msm_host_offset =
+					msm_host->offset;
+
+	if (!msm_host->regs_restore.is_supported)
+		return;
+
+	msm_host->regs_restore.vendor_func = readl_relaxed(host->ioaddr +
+		msm_host_offset->CORE_VENDOR_SPEC);
+	msm_host->regs_restore.vendor_pwrctl_mask =
+		readl_relaxed(host->ioaddr +
+		msm_host_offset->CORE_PWRCTL_MASK);
+	msm_host->regs_restore.vendor_func2 =
+		readl_relaxed(host->ioaddr +
+		msm_host_offset->CORE_VENDOR_SPEC_FUNC2);
+	msm_host->regs_restore.vendor_func3 =
+		readl_relaxed(host->ioaddr +
+		msm_host_offset->CORE_VENDOR_SPEC3);
+	msm_host->regs_restore.hc_2c_2e =
+		sdhci_readl(host, SDHCI_CLOCK_CONTROL);
+	msm_host->regs_restore.hc_3c_3e =
+		sdhci_readl(host, SDHCI_AUTO_CMD_ERR);
+	msm_host->regs_restore.vendor_pwrctl_ctl =
+		readl_relaxed(host->ioaddr +
+		msm_host_offset->CORE_PWRCTL_CTL);
+	msm_host->regs_restore.hc_38_3a =
+		sdhci_readl(host, SDHCI_SIGNAL_ENABLE);
+	msm_host->regs_restore.hc_34_36 =
+		sdhci_readl(host, SDHCI_INT_ENABLE);
+	msm_host->regs_restore.hc_28_2a =
+		sdhci_readl(host, SDHCI_HOST_CONTROL);
+	msm_host->regs_restore.vendor_caps_0 =
+		readl_relaxed(host->ioaddr +
+		msm_host_offset->CORE_VENDOR_SPEC_CAPABILITIES0);
+	msm_host->regs_restore.hc_caps_1 =
+		sdhci_readl(host, SDHCI_CAPABILITIES_1);
+	msm_host->regs_restore.testbus_config = readl_relaxed(host->ioaddr +
+		msm_host_offset->CORE_TESTBUS_CONFIG);
+	msm_host->regs_restore.is_valid = true;
+
+	pr_debug("%s: %s: registers saved. PWRCTL_MASK = 0x%x\n",
+		mmc_hostname(host->mmc), __func__,
+		readl_relaxed(host->ioaddr +
+			msm_host_offset->CORE_PWRCTL_MASK));
+}
+
+static void sdhci_msm_registers_restore(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	const struct sdhci_msm_offset *msm_host_offset =
+					msm_host->offset;
+
+	if (!msm_host->regs_restore.is_supported ||
+		!msm_host->regs_restore.is_valid)
+		return;
+
+	writel_relaxed(msm_host->regs_restore.vendor_func, host->ioaddr +
+			msm_host_offset->CORE_VENDOR_SPEC);
+	writel_relaxed(msm_host->regs_restore.vendor_pwrctl_mask,
+			host->ioaddr + msm_host_offset->CORE_PWRCTL_MASK);
+	writel_relaxed(msm_host->regs_restore.vendor_func2,
+			host->ioaddr +
+			msm_host_offset->CORE_VENDOR_SPEC_FUNC2);
+	writel_relaxed(msm_host->regs_restore.vendor_func3,
+			host->ioaddr +
+			msm_host_offset->CORE_VENDOR_SPEC3);
+	sdhci_writel(host, msm_host->regs_restore.hc_2c_2e,
+			SDHCI_CLOCK_CONTROL);
+	sdhci_writel(host, msm_host->regs_restore.hc_3c_3e,
+			SDHCI_AUTO_CMD_ERR);
+	writel_relaxed(msm_host->regs_restore.vendor_pwrctl_ctl,
+			host->ioaddr + msm_host_offset->CORE_PWRCTL_CTL);
+	sdhci_writel(host, msm_host->regs_restore.hc_38_3a,
+			SDHCI_SIGNAL_ENABLE);
+	sdhci_writel(host, msm_host->regs_restore.hc_34_36,
+			SDHCI_INT_ENABLE);
+	sdhci_writel(host, msm_host->regs_restore.hc_28_2a,
+			SDHCI_HOST_CONTROL);
+	writel_relaxed(msm_host->regs_restore.vendor_caps_0,
+			host->ioaddr +
+			msm_host_offset->CORE_VENDOR_SPEC_CAPABILITIES0);
+	sdhci_writel(host, msm_host->regs_restore.hc_caps_1,
+			SDHCI_CAPABILITIES_1);
+	writel_relaxed(msm_host->regs_restore.testbus_config, host->ioaddr +
+			msm_host_offset->CORE_TESTBUS_CONFIG);
+	msm_host->regs_restore.is_valid = false;
+
+	pr_debug("%s: %s: registers restored. PWRCTL_MASK = 0x%x\n",
+		mmc_hostname(host->mmc), __func__,
+		readl_relaxed(host->ioaddr +
+			msm_host_offset->CORE_PWRCTL_MASK));
+}
+
 static int sdhci_msm_enable_controller_clock(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -2861,6 +2960,7 @@ static int sdhci_msm_enable_controller_clock(struct sdhci_host *host)
 	atomic_set(&msm_host->controller_clock, 1);
 	pr_debug("%s: %s: enabled controller clock\n",
 			mmc_hostname(host->mmc), __func__);
+	sdhci_msm_registers_restore(host);
 	goto out;
 
 disable_pclk:
@@ -2879,6 +2979,7 @@ static void sdhci_msm_disable_controller_clock(struct sdhci_host *host)
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 
 	if (atomic_read(&msm_host->controller_clock)) {
+		sdhci_msm_registers_save(host);
 		if (!IS_ERR(msm_host->clk))
 			clk_disable_unprepare(msm_host->clk);
 		if (!IS_ERR(msm_host->pclk))
@@ -2957,14 +3058,9 @@ static int sdhci_msm_prepare_clocks(struct sdhci_host *host, bool enable)
 			clk_disable_unprepare(msm_host->sleep_clk);
 		if (!IS_ERR_OR_NULL(msm_host->ff_clk))
 			clk_disable_unprepare(msm_host->ff_clk);
-		clk_disable_unprepare(msm_host->clk);
-		if (!IS_ERR(msm_host->pclk))
-			clk_disable_unprepare(msm_host->pclk);
 		if (!IS_ERR_OR_NULL(msm_host->bus_clk))
 			clk_disable_unprepare(msm_host->bus_clk);
-
-		atomic_set(&msm_host->controller_clock, 0);
-		sdhci_msm_bus_voting(host, 0);
+		sdhci_msm_disable_controller_clock(host);
 	}
 	atomic_set(&msm_host->clks_on, enable);
 	goto out;

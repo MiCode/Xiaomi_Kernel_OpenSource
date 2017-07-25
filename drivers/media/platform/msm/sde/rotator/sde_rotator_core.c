@@ -2583,6 +2583,7 @@ static int sde_rotator_parse_dt_bus(struct sde_rot_mgr *mgr,
 {
 	int ret = 0, i;
 	int usecases;
+	struct device_node *node;
 
 	mgr->data_bus.bus_scale_pdata = msm_bus_cl_get_pdata(dev);
 	if (IS_ERR_OR_NULL(mgr->data_bus.bus_scale_pdata)) {
@@ -2594,12 +2595,27 @@ static int sde_rotator_parse_dt_bus(struct sde_rot_mgr *mgr,
 		}
 	}
 
-	mgr->reg_bus.bus_scale_pdata = &rot_reg_bus_scale_table;
-	usecases = mgr->reg_bus.bus_scale_pdata->num_usecases;
-	for (i = 0; i < usecases; i++) {
-		rot_reg_bus_usecases[i].num_paths = 1;
-		rot_reg_bus_usecases[i].vectors =
-			&rot_reg_bus_vectors[i];
+	node = of_get_child_by_name(dev->dev.of_node, "qcom,rot-reg-bus");
+	if (node) {
+		mgr->reg_bus.bus_scale_pdata
+				= msm_bus_pdata_from_node(dev, node);
+		if (IS_ERR_OR_NULL(mgr->reg_bus.bus_scale_pdata)) {
+			SDEROT_ERR("reg bus pdata parsing failed\n");
+			ret = PTR_ERR(mgr->reg_bus.bus_scale_pdata);
+			if (!mgr->reg_bus.bus_scale_pdata)
+				ret = -EINVAL;
+			mgr->reg_bus.bus_scale_pdata = NULL;
+		}
+	} else {
+		SDEROT_DBG(
+			"no DT entries, configuring default reg bus table\n");
+		mgr->reg_bus.bus_scale_pdata = &rot_reg_bus_scale_table;
+		usecases = mgr->reg_bus.bus_scale_pdata->num_usecases;
+		for (i = 0; i < usecases; i++) {
+			rot_reg_bus_usecases[i].num_paths = 1;
+			rot_reg_bus_usecases[i].vectors =
+				&rot_reg_bus_vectors[i];
+		}
 	}
 
 	return ret;

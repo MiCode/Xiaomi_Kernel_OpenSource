@@ -36,6 +36,12 @@
 /* Set for buffers that have no virtual mapping in userspace */
 #define FASTRPC_ATTR_NOVA 0x1
 
+/* Set for buffers that are NOT dma coherent */
+#define FASTRPC_ATTR_NON_COHERENT 0x2
+
+/* Set for buffers that are dma coherent */
+#define FASTRPC_ATTR_COHERENT 0x4
+
 /* Driver should operate in parallel with the co-processor */
 #define FASTRPC_MODE_PARALLEL    0
 

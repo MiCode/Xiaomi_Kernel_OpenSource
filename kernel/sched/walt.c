@@ -612,40 +612,6 @@ void update_cluster_load_subtractions(struct task_struct *p,
 	raw_spin_unlock(&cluster->load_lock);
 }
 
-#ifdef CONFIG_SCHED_HMP
-static inline void
-init_new_task_load_hmp(struct task_struct *p, bool idle_task)
-{
-	p->ravg.curr_burst = 0;
-	/*
-	 * Initialize the avg_burst to twice the threshold, so that
-	 * a task would not be classified as short burst right away
-	 * after fork. It takes at least 6 sleep-wakeup cycles for
-	 * the avg_burst to go below the threshold.
-	 */
-	p->ravg.avg_burst = 2 * (u64)sysctl_sched_short_burst;
-	p->ravg.avg_sleep_time = 0;
-}
-
-static inline void
-update_task_burst(struct task_struct *p, struct rq *rq, int event, u64 runtime)
-{
-	/*
-	 * update_task_demand() has checks for idle task and
-	 * exit task. The runtime may include the wait time,
-	 * so update the burst only for the cases where the
-	 * task is running.
-	 */
-	if (event == PUT_PREV_TASK || (event == TASK_UPDATE &&
-				rq->curr == p))
-		p->ravg.curr_burst += runtime;
-}
-
-static void reset_task_stats_hmp(struct task_struct *p)
-{
-	p->ravg.avg_burst = 2 * (u64)sysctl_sched_short_burst;
-}
-#else
 static inline void
 init_new_task_load_hmp(struct task_struct *p, bool idle_task)
 {
@@ -659,7 +625,6 @@ update_task_burst(struct task_struct *p, struct rq *rq, int event, int runtime)
 static void reset_task_stats_hmp(struct task_struct *p)
 {
 }
-#endif
 
 static inline void inter_cluster_migration_fixup
 	(struct task_struct *p, int new_cpu, int task_cpu, bool new_task)
@@ -1704,6 +1669,7 @@ static void update_history(struct rq *rq, struct task_struct *p,
 						      pred_demand);
 
 	p->ravg.demand = demand;
+	p->ravg.coloc_demand = div64_u64(sum, sched_ravg_hist_size);
 	p->ravg.pred_demand = pred_demand;
 
 	if (__task_in_cum_window_demand(rq, p))
@@ -1982,6 +1948,7 @@ void init_new_task_load(struct task_struct *p, bool idle_task)
 			  (u64)sched_ravg_window, 100);
 
 	p->ravg.demand = init_load_windows;
+	p->ravg.coloc_demand = init_load_windows;
 	p->ravg.pred_demand = 0;
 	for (i = 0; i < RAVG_HIST_SIZE_MAX; ++i)
 		p->ravg.sum_history[i] = init_load_windows;
@@ -2505,7 +2472,7 @@ static void _set_preferred_cluster(struct related_thread_group *grp)
 		    (sched_ravg_window * sched_ravg_hist_size))
 			continue;
 
-		combined_demand += p->ravg.demand;
+		combined_demand += p->ravg.coloc_demand;
 
 	}
 
@@ -2894,6 +2861,11 @@ void sched_update_cpu_freq_min_max(const cpumask_t *cpus, u32 fmin, u32 fmax)
 		update_cpu_cluster_capacity(cpus);
 }
 
+void note_task_waking(struct task_struct *p, u64 wallclock)
+{
+	p->last_wake_ts = wallclock;
+}
+
 /*
  * Task's cpu usage is accounted in:
  *	rq->curr/prev_runnable_sum,  when its ->grp is NULL
@@ -3050,7 +3022,6 @@ void walt_irq_work(struct irq_work *irq_work)
 	core_ctl_check(this_rq()->window_start);
 }
 
-#ifndef CONFIG_SCHED_HMP
 int walt_proc_update_handler(struct ctl_table *table, int write,
 			     void __user *buffer, size_t *lenp,
 			     loff_t *ppos)
@@ -3078,4 +3049,3 @@ int walt_proc_update_handler(struct ctl_table *table, int write,
 
 	return ret;
 }
-#endif

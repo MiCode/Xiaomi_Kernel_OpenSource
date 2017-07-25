@@ -107,7 +107,7 @@ struct cam_cdm_bl_cb_request_entry *cam_cdm_find_request_by_bl_tag(
 		if (node->bl_tag == tag)
 			return node;
 	}
-	pr_err("Could not find the bl request for tag=%d\n", tag);
+	pr_err("Could not find the bl request for tag=%x\n", tag);
 
 	return NULL;
 }
@@ -216,7 +216,7 @@ int cam_cdm_stream_ops_internal(void *hw_priv,
 {
 	struct cam_hw_info *cdm_hw = hw_priv;
 	struct cam_cdm *core = NULL;
-	int rc = -1;
+	int rc = -EPERM;
 	int client_idx;
 	struct cam_cdm_client *client;
 	uint32_t *handle = start_args;
@@ -476,7 +476,8 @@ int cam_cdm_process_cmd(void *hw_priv,
 				core->clients[idx] = NULL;
 				mutex_unlock(
 					&cdm_hw->hw_mutex);
-				rc = -1;
+				rc = -EPERM;
+				pr_err("Invalid ops for virtual cdm\n");
 				break;
 			}
 		} else {
@@ -521,7 +522,7 @@ int cam_cdm_process_cmd(void *hw_priv,
 		if (client->refcount != 0) {
 			pr_err("CDM Client refcount not zero %d",
 				client->refcount);
-			rc = -1;
+			rc = -EPERM;
 			mutex_unlock(&client->lock);
 			mutex_unlock(&cdm_hw->hw_mutex);
 			break;

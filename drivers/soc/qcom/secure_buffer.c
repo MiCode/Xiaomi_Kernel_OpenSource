@@ -380,6 +380,7 @@ int hyp_assign_phys(phys_addr_t addr, u64 size, u32 *source_vm_list,
 	sg_free_table(&table);
 	return ret;
 }
+EXPORT_SYMBOL(hyp_assign_phys);
 
 const char *msm_secure_vmid_to_string(int secure_vmid)
 {
@@ -416,6 +417,8 @@ const char *msm_secure_vmid_to_string(int secure_vmid)
 		return "VMID_CP_SPSS_SP";
 	case VMID_CP_SPSS_SP_SHARED:
 		return "VMID_CP_SPSS_SP_SHARED";
+	case VMID_CP_SPSS_HLOS_SHARED:
+		return "VMID_CP_SPSS_HLOS_SHARED";
 	case VMID_INVAL:
 		return "VMID_INVAL";
 	default:

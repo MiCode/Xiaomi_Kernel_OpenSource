@@ -43,6 +43,10 @@
 #define V4L_EVENT_CAM_REQ_MGR_ERROR       1
 #define V4L_EVENT_CAM_REQ_MGR_MAX         2
 
+/* SOF Event status */
+#define CAM_REQ_MGR_SOF_EVENT_SUCCESS           0
+#define CAM_REQ_MGR_SOF_EVENT_ERROR             1
+
 /**
  * Request Manager : flush_type
  * @CAM_REQ_MGR_FLUSH_TYPE_ALL: Req mgr will remove all the pending
@@ -353,14 +357,18 @@ struct cam_req_mgr_error_msg {
 
 /**
  * struct cam_req_mgr_frame_msg
- * @request_id: request id of frame
- * @frame_count: running count of frames
- * @timestamp: timestamp of frame
+ * @request_id: request id of the frame
+ * @frame_id: frame id of the frame
+ * @timestamp: timestamp of the frame
+ * @link_hdl: link handle associated with this message
+ * @sof_status: sof status success or fail
  */
 struct cam_req_mgr_frame_msg {
 	uint64_t request_id;
-	uint64_t frame_count;
+	uint64_t frame_id;
 	uint64_t timestamp;
+	int32_t  link_hdl;
+	uint32_t sof_status;
 };
 
 /**

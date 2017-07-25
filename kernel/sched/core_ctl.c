@@ -612,8 +612,7 @@ static void wake_up_core_ctl_thread(struct cluster_data *cluster)
 	spin_lock_irqsave(&cluster->pending_lock, flags);
 	cluster->pending = true;
 	spin_unlock_irqrestore(&cluster->pending_lock, flags);
-
-	wake_up_process_no_notif(cluster->core_ctl_thread);
+	wake_up_process(cluster->core_ctl_thread);
 }
 
 static u64 core_ctl_check_timestamp;

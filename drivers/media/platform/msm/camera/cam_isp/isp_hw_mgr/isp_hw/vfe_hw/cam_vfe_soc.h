@@ -45,6 +45,18 @@ int cam_vfe_init_soc_resources(struct cam_hw_soc_info *soc_info,
 	irq_handler_t vfe_irq_handler, void *irq_data);
 
 /*
+ * cam_vfe_deinit_soc_resources()
+ *
+ * @Brief:                   Deinitialize SOC resources including private data
+ *
+ * @soc_info:                Device soc information
+ *
+ * @Return:                  0: Success
+ *                           Non-zero: Failure
+ */
+int cam_vfe_deinit_soc_resources(struct cam_hw_soc_info *soc_info);
+
+/*
  * cam_vfe_enable_soc_resources()
  *
  * @brief:                   Enable regulator, irq resources, start CPAS

@@ -42,7 +42,7 @@ static int get_cdm_mgr_refcount(void)
 	mutex_lock(&cam_cdm_mgr_lock);
 	if (cdm_mgr.probe_done == false) {
 		pr_err("CDM intf mgr not probed yet\n");
-		rc = -1;
+		rc = -EPERM;
 	} else {
 		CDM_CDBG("CDM intf mgr get refcount=%d\n",
 			cdm_mgr.refcount);
@@ -73,7 +73,7 @@ static void put_cdm_mgr_refcount(void)
 static int get_cdm_iommu_handle(struct cam_iommu_handle *cdm_handles,
 	uint32_t hw_idx)
 {
-	int rc = -1;
+	int rc = -EPERM;
 	struct cam_hw_intf *hw = cdm_mgr.nodes[hw_idx].device;
 
 	if (hw->hw_ops.get_hw_caps) {
@@ -87,7 +87,7 @@ static int get_cdm_iommu_handle(struct cam_iommu_handle *cdm_handles,
 static int get_cdm_index_by_id(char *identifier,
 	uint32_t cell_index, uint32_t *hw_index)
 {
-	int rc = -1, i, j;
+	int rc = -EPERM, i, j;
 	char client_name[128];
 
 	CDM_CDBG("Looking for HW id of =%s and index=%d\n",
@@ -125,7 +125,7 @@ static int get_cdm_index_by_id(char *identifier,
 int cam_cdm_get_iommu_handle(char *identifier,
 	struct cam_iommu_handle *cdm_handles)
 {
-	int i, j, rc = -1;
+	int i, j, rc = -EPERM;
 
 	if ((!identifier) || (!cdm_handles))
 		return -EINVAL;
@@ -164,7 +164,7 @@ EXPORT_SYMBOL(cam_cdm_get_iommu_handle);
 
 int cam_cdm_acquire(struct cam_cdm_acquire_data *data)
 {
-	int rc = -1;
+	int rc = -EPERM;
 	struct cam_hw_intf *hw;
 	uint32_t hw_index = 0;
 
@@ -179,7 +179,7 @@ int cam_cdm_acquire(struct cam_cdm_acquire_data *data)
 
 	if (data->id > CAM_CDM_HW_ANY) {
 		pr_err("only CAM_CDM_VIRTUAL/CAM_CDM_HW_ANY is supported\n");
-		rc = -1;
+		rc = -EPERM;
 		goto end;
 	}
 	rc = get_cdm_index_by_id(data->identifier, data->cell_index,
@@ -200,7 +200,7 @@ int cam_cdm_acquire(struct cam_cdm_acquire_data *data)
 			}
 		} else {
 			pr_err("idx %d doesn't have acquire ops\n", hw_index);
-			rc = -1;
+			rc = -EPERM;
 		}
 	}
 end:
@@ -216,7 +216,7 @@ EXPORT_SYMBOL(cam_cdm_acquire);
 int cam_cdm_release(uint32_t handle)
 {
 	uint32_t hw_index;
-	int rc = -1;
+	int rc = -EPERM;
 	struct cam_hw_intf *hw;
 
 	if (get_cdm_mgr_refcount()) {
@@ -250,7 +250,7 @@ EXPORT_SYMBOL(cam_cdm_release);
 int cam_cdm_submit_bls(uint32_t handle, struct cam_cdm_bl_request *data)
 {
 	uint32_t hw_index;
-	int rc = -1;
+	int rc = -EINVAL;
 	struct cam_hw_intf *hw;
 
 	if (!data)
@@ -258,6 +258,7 @@ int cam_cdm_submit_bls(uint32_t handle, struct cam_cdm_bl_request *data)
 
 	if (get_cdm_mgr_refcount()) {
 		pr_err("CDM intf mgr get refcount failed\n");
+		rc = -EPERM;
 		return rc;
 	}
 
@@ -289,11 +290,12 @@ EXPORT_SYMBOL(cam_cdm_submit_bls);
 int cam_cdm_stream_on(uint32_t handle)
 {
 	uint32_t hw_index;
-	int rc = -1;
+	int rc = -EINVAL;
 	struct cam_hw_intf *hw;
 
 	if (get_cdm_mgr_refcount()) {
 		pr_err("CDM intf mgr get refcount failed\n");
+		rc = -EPERM;
 		return rc;
 	}
 
@@ -320,11 +322,12 @@ EXPORT_SYMBOL(cam_cdm_stream_on);
 int cam_cdm_stream_off(uint32_t handle)
 {
 	uint32_t hw_index;
-	int rc = -1;
+	int rc = -EINVAL;
 	struct cam_hw_intf *hw;
 
 	if (get_cdm_mgr_refcount()) {
 		pr_err("CDM intf mgr get refcount failed\n");
+		rc = -EPERM;
 		return rc;
 	}
 
@@ -351,11 +354,12 @@ EXPORT_SYMBOL(cam_cdm_stream_off);
 int cam_cdm_reset_hw(uint32_t handle)
 {
 	uint32_t hw_index;
-	int rc = -1;
+	int rc = -EINVAL;
 	struct cam_hw_intf *hw;
 
 	if (get_cdm_mgr_refcount()) {
 		pr_err("CDM intf mgr get refcount failed\n");
+		rc = -EPERM;
 		return rc;
 	}
 
@@ -426,13 +430,14 @@ int cam_cdm_intf_deregister_hw_cdm(struct cam_hw_intf *hw,
 	struct cam_cdm_private_dt_data *data, enum cam_cdm_type type,
 	uint32_t index)
 {
-	int rc = -1;
+	int rc = -EINVAL;
 
 	if ((!hw) || (!data))
-		return -EINVAL;
+		return rc;
 
 	if (get_cdm_mgr_refcount()) {
 		pr_err("CDM intf mgr get refcount failed\n");
+		rc = -EPERM;
 		return rc;
 	}
 

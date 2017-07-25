@@ -205,13 +205,16 @@ static const unsigned int a6xx_vbif_ver_20xxxxxx_registers[] = {
 	0x3410, 0x3410, 0x3800, 0x3801,
 };
 
-static const unsigned int a6xx_gmu_registers[] = {
+static const unsigned int a6xx_gmu_gx_registers[] = {
 	/* GMU GX */
 	0x1A800, 0x1A800, 0x1A810, 0x1A813, 0x1A816, 0x1A816, 0x1A818, 0x1A81B,
 	0x1A81E, 0x1A81E, 0x1A820, 0x1A823, 0x1A826, 0x1A826, 0x1A828, 0x1A82B,
 	0x1A82E, 0x1A82E, 0x1A830, 0x1A833, 0x1A836, 0x1A836, 0x1A838, 0x1A83B,
 	0x1A83E, 0x1A83E, 0x1A840, 0x1A843, 0x1A846, 0x1A846, 0x1A880, 0x1A884,
 	0x1A900, 0x1A92B, 0x1A940, 0x1A940,
+};
+
+static const unsigned int a6xx_gmu_registers[] = {
 	/* GMU TCM */
 	0x1B400, 0x1C3FF, 0x1C400, 0x1D3FF,
 	/* GMU CX */
@@ -1321,11 +1324,19 @@ static void a6xx_snapshot_debugbus(struct kgsl_device *device,
 static void a6xx_snapshot_gmu(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+
 	if (!kgsl_gmu_isenabled(device))
 		return;
 
 	adreno_snapshot_registers(device, snapshot, a6xx_gmu_registers,
 					ARRAY_SIZE(a6xx_gmu_registers) / 2);
+
+	if (gpudev->gx_is_on(adreno_dev))
+		adreno_snapshot_registers(device, snapshot,
+				a6xx_gmu_gx_registers,
+				ARRAY_SIZE(a6xx_gmu_gx_registers) / 2);
 }
 
 /* a6xx_snapshot_sqe() - Dump SQE data in snapshot */

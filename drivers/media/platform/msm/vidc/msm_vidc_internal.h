@@ -83,7 +83,6 @@ enum vidc_core_state {
 	VIDC_CORE_UNINIT = 0,
 	VIDC_CORE_INIT,
 	VIDC_CORE_INIT_DONE,
-	VIDC_CORE_INVALID
 };
 
 /*
@@ -388,6 +387,7 @@ void msm_vidc_queue_v4l2_event(struct msm_vidc_inst *inst, int event_type);
 
 struct msm_vidc_buffer {
 	struct list_head list;
+	struct kref kref;
 	struct msm_smem smem[VIDEO_MAX_PLANES];
 	struct vb2_v4l2_buffer vvb;
 	bool deferred;

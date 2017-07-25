@@ -109,3 +109,127 @@ void sde_setup_dspp_3d_gamutv4(struct sde_hw_dspp *ctx, void *cfg)
 		&op_mode);
 
 }
+
+void sde_setup_dspp_igcv3(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct drm_msm_igc_lut *lut_cfg;
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	int i = 0, j = 0;
+	u32 *addr = NULL;
+	u32 offset = 0;
+
+	if (!ctx || !cfg) {
+		DRM_ERROR("invalid param ctx %pK cfg %pK\n", ctx, cfg);
+		return;
+	}
+
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("disable igc feature\n");
+		SDE_REG_WRITE(&ctx->hw, IGC_OPMODE_OFF, 0);
+		return;
+	}
+
+	if (hw_cfg->len != sizeof(struct drm_msm_igc_lut)) {
+		DRM_ERROR("invalid size of payload len %d exp %zd\n",
+				hw_cfg->len, sizeof(struct drm_msm_igc_lut));
+		return;
+	}
+
+	lut_cfg = hw_cfg->payload;
+
+	for (i = 0; i < IGC_TBL_NUM; i++) {
+		addr = lut_cfg->c0 + (i * ARRAY_SIZE(lut_cfg->c0));
+		offset = IGC_C0_OFF + (i * sizeof(u32));
+
+		for (j = 0; j < IGC_TBL_LEN; j++) {
+			addr[j] &= IGC_DATA_MASK;
+			addr[j] |= IGC_DSPP_SEL_MASK(ctx->idx - 1);
+			if (j == 0)
+				addr[j] |= IGC_INDEX_UPDATE;
+			/* IGC lut registers are part of DSPP Top HW block */
+			SDE_REG_WRITE(&ctx->hw_top, offset, addr[j]);
+		}
+	}
+
+	if (lut_cfg->flags & IGC_DITHER_ENABLE) {
+		SDE_REG_WRITE(&ctx->hw, IGC_DITHER_OFF,
+			lut_cfg->strength & IGC_DITHER_DATA_MASK);
+	}
+
+	SDE_REG_WRITE(&ctx->hw, IGC_OPMODE_OFF, IGC_EN);
+}
+
+void sde_setup_dspp_pccv4(struct sde_hw_dspp *ctx, void *cfg)
+{
+	struct sde_hw_cp_cfg *hw_cfg = cfg;
+	struct drm_msm_pcc *pcc_cfg;
+	struct drm_msm_pcc_coeff *coeffs = NULL;
+	int i = 0;
+	u32 base = 0;
+
+	if (!ctx || !cfg) {
+		DRM_ERROR("invalid param ctx %pK cfg %pK\n", ctx, cfg);
+		return;
+	}
+
+	if (!hw_cfg->payload) {
+		DRM_DEBUG_DRIVER("disable pcc feature\n");
+		SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->pcc.base, 0);
+		return;
+	}
+
+	if (hw_cfg->len != sizeof(struct drm_msm_pcc)) {
+		DRM_ERROR("invalid size of payload len %d exp %zd\n",
+				hw_cfg->len, sizeof(struct drm_msm_pcc));
+		return;
+	}
+
+	pcc_cfg = hw_cfg->payload;
+
+	for (i = 0; i < PCC_NUM_PLANES; i++) {
+		base = ctx->cap->sblk->pcc.base + (i * sizeof(u32));
+		switch (i) {
+		case 0:
+			coeffs = &pcc_cfg->r;
+			SDE_REG_WRITE(&ctx->hw,
+				base + PCC_RR_OFF, pcc_cfg->r_rr);
+			SDE_REG_WRITE(&ctx->hw,
+				base + PCC_GG_OFF, pcc_cfg->r_gg);
+			SDE_REG_WRITE(&ctx->hw,
+				base + PCC_BB_OFF, pcc_cfg->r_bb);
+			break;
+		case 1:
+			coeffs = &pcc_cfg->g;
+			SDE_REG_WRITE(&ctx->hw,
+				base + PCC_RR_OFF, pcc_cfg->g_rr);
+			SDE_REG_WRITE(&ctx->hw,
+				base + PCC_GG_OFF, pcc_cfg->g_gg);
+			SDE_REG_WRITE(&ctx->hw,
+				base + PCC_BB_OFF, pcc_cfg->g_bb);
+			break;
+		case 2:
+			coeffs = &pcc_cfg->b;
+			SDE_REG_WRITE(&ctx->hw,
+				base + PCC_RR_OFF, pcc_cfg->b_rr);
+			SDE_REG_WRITE(&ctx->hw,
+				base + PCC_GG_OFF, pcc_cfg->b_gg);
+			SDE_REG_WRITE(&ctx->hw,
+				base + PCC_BB_OFF, pcc_cfg->b_bb);
+			break;
+		default:
+			DRM_ERROR("invalid pcc plane: %d\n", i);
+			return;
+		}
+
+		SDE_REG_WRITE(&ctx->hw, base + PCC_C_OFF, coeffs->c);
+		SDE_REG_WRITE(&ctx->hw, base + PCC_R_OFF, coeffs->r);
+		SDE_REG_WRITE(&ctx->hw, base + PCC_G_OFF, coeffs->g);
+		SDE_REG_WRITE(&ctx->hw, base + PCC_B_OFF, coeffs->b);
+		SDE_REG_WRITE(&ctx->hw, base + PCC_RG_OFF, coeffs->rg);
+		SDE_REG_WRITE(&ctx->hw, base + PCC_RB_OFF, coeffs->rb);
+		SDE_REG_WRITE(&ctx->hw, base + PCC_GB_OFF, coeffs->gb);
+		SDE_REG_WRITE(&ctx->hw, base + PCC_RGB_OFF, coeffs->rgb);
+	}
+
+	SDE_REG_WRITE(&ctx->hw, ctx->cap->sblk->pcc.base, PCC_EN);
+}

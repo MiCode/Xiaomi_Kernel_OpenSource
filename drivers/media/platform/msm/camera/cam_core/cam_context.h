@@ -13,6 +13,7 @@
 #ifndef _CAM_CONTEXT_H_
 #define _CAM_CONTEXT_H_
 
+#include <linux/mutex.h>
 #include <linux/spinlock.h>
 #include "cam_req_mgr_interface.h"
 #include "cam_hw_mgr_intf.h"

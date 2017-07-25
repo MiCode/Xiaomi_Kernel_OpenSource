@@ -229,7 +229,7 @@ int cam_vfe_camif_ver2_init(
 	struct cam_vfe_camif_ver2_hw_info *camif_info = camif_hw_info;
 
 	camif_priv = kzalloc(sizeof(struct cam_vfe_mux_camif_data),
-			GFP_KERNEL);
+		GFP_KERNEL);
 	if (!camif_priv) {
 		CDBG("Error! Failed to alloc for camif_priv\n");
 		return -ENOMEM;
@@ -251,3 +251,24 @@ int cam_vfe_camif_ver2_init(
 	return 0;
 }
 
+int cam_vfe_camif_ver2_deinit(
+	struct cam_isp_resource_node  *camif_node)
+{
+	struct cam_vfe_mux_camif_data *camif_priv = camif_node->res_priv;
+
+	camif_node->start = NULL;
+	camif_node->stop  = NULL;
+	camif_node->top_half_handler = NULL;
+	camif_node->bottom_half_handler = NULL;
+
+	camif_node->res_priv = NULL;
+
+	if (!camif_priv) {
+		pr_err("Error! camif_priv is NULL\n");
+		return -ENODEV;
+	}
+
+	kfree(camif_priv);
+
+	return 0;
+}

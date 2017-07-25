@@ -436,7 +436,6 @@
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
 				linux,name = "red";
-				linux,default-trigger = "battery-charging";
 			};
 
 			green_led: qcom,rgb_1 {
@@ -448,7 +447,6 @@
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
 				linux,name = "green";
-				linux,default-trigger = "battery-full";
 			};
 
 			blue_led: qcom,rgb_2 {
@@ -460,7 +458,6 @@
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
 				linux,name = "blue";
-				linux,default-trigger = "boot-indication";
 			};
 		};
 

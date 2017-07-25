@@ -17,17 +17,17 @@
 #include "cam_vfe_bus_ver2.h"
 
 int cam_vfe_bus_init(uint32_t          bus_version,
-	void __iomem                  *mem_base,
+	struct cam_hw_soc_info        *soc_info,
 	struct cam_hw_intf            *hw_intf,
 	void                          *bus_hw_info,
 	void                          *vfe_irq_controller,
-	struct cam_vfe_bus            **vfe_bus)
+	struct cam_vfe_bus           **vfe_bus)
 {
 	int rc = -ENODEV;
 
 	switch (bus_version) {
 	case CAM_VFE_BUS_VER_2_0:
-		rc = cam_vfe_bus_ver2_init(mem_base, hw_intf, bus_hw_info,
+		rc = cam_vfe_bus_ver2_init(soc_info, hw_intf, bus_hw_info,
 			vfe_irq_controller, vfe_bus);
 		break;
 	default:
@@ -37,3 +37,21 @@ int cam_vfe_bus_init(uint32_t          bus_version,
 
 	return rc;
 }
+
+int cam_vfe_bus_deinit(uint32_t        bus_version,
+	struct cam_vfe_bus           **vfe_bus)
+{
+	int rc = -ENODEV;
+
+	switch (bus_version) {
+	case CAM_VFE_BUS_VER_2_0:
+		rc = cam_vfe_bus_ver2_deinit(vfe_bus);
+		break;
+	default:
+		pr_err("Unsupported Bus Version %x\n", bus_version);
+		break;
+	}
+
+	return rc;
+}
+

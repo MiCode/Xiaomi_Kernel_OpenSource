@@ -170,6 +170,24 @@ struct sdhci_msm_ice_data {
 	int state;
 };
 
+struct sdhci_msm_regs_restore {
+	bool is_supported;
+	bool is_valid;
+	u32 vendor_pwrctl_mask;
+	u32 vendor_pwrctl_ctl;
+	u32 vendor_caps_0;
+	u32 vendor_func;
+	u32 vendor_func2;
+	u32 vendor_func3;
+	u32 hc_2c_2e;
+	u32 hc_28_2a;
+	u32 hc_34_36;
+	u32 hc_38_3a;
+	u32 hc_3c_3e;
+	u32 hc_caps_1;
+	u32 testbus_config;
+};
+
 struct sdhci_msm_debug_data {
 	struct mmc_host copy_mmc;
 	struct mmc_card copy_card;
@@ -226,6 +244,7 @@ struct sdhci_msm_host {
 	const struct sdhci_msm_offset *offset;
 	bool core_3_0v_support;
 	bool pltfm_init_done;
+	struct sdhci_msm_regs_restore regs_restore;
 };
 
 extern char *saved_command_line;

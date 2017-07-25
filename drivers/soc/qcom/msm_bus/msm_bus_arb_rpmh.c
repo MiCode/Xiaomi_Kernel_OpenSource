@@ -40,8 +40,6 @@ struct handle_type {
 };
 
 static struct handle_type handle_list;
-static LIST_HEAD(input_list);
-static LIST_HEAD(apply_list);
 static LIST_HEAD(commit_list);
 static LIST_HEAD(late_init_clist);
 static LIST_HEAD(query_list);
@@ -780,77 +778,9 @@ exit_agg_bus_req:
 	return;
 }
 
-static void del_inp_list(struct list_head *list)
-{
-	struct rule_update_path_info *rule_node;
-	struct rule_update_path_info *rule_node_tmp;
-
-	list_for_each_entry_safe(rule_node, rule_node_tmp, list, link) {
-		list_del(&rule_node->link);
-		rule_node->added = false;
-	}
-}
-
-static void del_op_list(struct list_head *list)
-{
-	struct rule_apply_rcm_info *rule;
-	struct rule_apply_rcm_info *rule_tmp;
-
-	list_for_each_entry_safe(rule, rule_tmp, list, link)
-		list_del(&rule->link);
-}
-
-static int msm_bus_apply_rules(struct list_head *list, bool after_clk_commit)
-{
-	struct rule_apply_rcm_info *rule;
-	struct device *dev = NULL;
-	struct msm_bus_node_device_type *dev_info = NULL;
-	int ret = 0;
-
-	list_for_each_entry(rule, list, link) {
-		if (!rule)
-			continue;
-
-		if (rule && (rule->after_clk_commit != after_clk_commit))
-			continue;
-
-		dev = bus_find_device(&msm_bus_type, NULL,
-				(void *) &rule->id,
-				msm_bus_device_match_adhoc);
-
-		if (!dev) {
-			MSM_BUS_ERR("Can't find dev node for %d", rule->id);
-			continue;
-		}
-		dev_info = to_msm_bus_node(dev);
-
-		ret = msm_bus_enable_limiter(dev_info, rule->throttle,
-							rule->lim_bw);
-		if (ret)
-			MSM_BUS_ERR("Failed to set limiter for %d", rule->id);
-	}
-
-	return ret;
-}
-
 static void commit_data(void)
 {
-	bool rules_registered = msm_rule_are_rules_registered();
-
-	if (rules_registered) {
-		msm_rules_update_path(&input_list, &apply_list);
-		msm_bus_apply_rules(&apply_list, false);
-	}
-
 	msm_bus_commit_data(&commit_list);
-
-	if (rules_registered) {
-		msm_bus_apply_rules(&apply_list, true);
-		del_inp_list(&input_list);
-		del_op_list(&apply_list);
-	}
-	INIT_LIST_HEAD(&input_list);
-	INIT_LIST_HEAD(&apply_list);
 	INIT_LIST_HEAD(&commit_list);
 }
 
@@ -909,8 +839,6 @@ static int update_path(struct device *src_dev, int dest, uint64_t act_req_ib,
 	struct msm_bus_node_device_type *dev_info = NULL;
 	int curr_idx;
 	int ret = 0;
-	struct rule_update_path_info *rule_node;
-	bool rules_registered = msm_rule_are_rules_registered();
 
 	if (IS_ERR_OR_NULL(src_dev)) {
 		MSM_BUS_ERR("%s: No source device", __func__);
@@ -957,19 +885,6 @@ static int update_path(struct device *src_dev, int dest, uint64_t act_req_ib,
 		}
 
 		add_node_to_clist(dev_info);
-
-		if (rules_registered) {
-			rule_node = &dev_info->node_info->rule;
-			rule_node->id = dev_info->node_info->id;
-			rule_node->ib = dev_info->node_bw[ACTIVE_CTX].max_ib;
-			rule_node->ab = dev_info->node_bw[ACTIVE_CTX].sum_ab;
-			rule_node->clk =
-				dev_info->node_bw[ACTIVE_CTX].cur_clk_hz;
-			if (!rule_node->added) {
-				list_add_tail(&rule_node->link, &input_list);
-				rule_node->added = true;
-			}
-		}
 
 		next_dev = lnode->next_dev;
 		curr_idx = lnode->next;

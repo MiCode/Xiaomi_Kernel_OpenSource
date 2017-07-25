@@ -1069,6 +1069,14 @@ static int msm_geni_serial_port_setup(struct uart_port *uport)
 						SE_GENI_TX_PACKING_CFG0);
 		geni_write_reg_nolog(cfg1, uport->membase,
 						SE_GENI_TX_PACKING_CFG1);
+		msm_port->handle_rx = handle_rx_hs;
+		msm_port->rx_fifo = devm_kzalloc(uport->dev,
+				sizeof(msm_port->rx_fifo_depth * sizeof(u32)),
+								GFP_KERNEL);
+		if (!msm_port->rx_fifo) {
+			ret = -ENOMEM;
+			goto exit_portsetup;
+		}
 	} else {
 		/*
 		 * Make an unconditional cancel on the main sequencer to reset
@@ -1166,12 +1174,12 @@ static int msm_geni_serial_startup(struct uart_port *uport)
 		goto exit_startup;
 	}
 
+	get_tx_fifo_size(msm_port);
 	if (!msm_port->port_setup) {
 		if (msm_geni_serial_port_setup(uport))
 			goto exit_startup;
 	}
 
-	get_tx_fifo_size(msm_port);
 	msm_geni_serial_start_rx(uport);
 	/*
 	 * Ensure that all the port configuration writes complete
@@ -1790,10 +1798,6 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 		dev_port->rx_fifo = devm_kzalloc(uport->dev, sizeof(u32),
 								GFP_KERNEL);
 	} else {
-		dev_port->handle_rx = handle_rx_hs;
-		dev_port->rx_fifo = devm_kzalloc(uport->dev,
-				sizeof(dev_port->rx_fifo_depth * sizeof(u32)),
-								GFP_KERNEL);
 		pm_runtime_set_suspended(&pdev->dev);
 		pm_runtime_enable(&pdev->dev);
 	}

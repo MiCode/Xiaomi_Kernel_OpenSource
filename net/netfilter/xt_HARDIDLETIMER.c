@@ -72,7 +72,7 @@ static void notify_netlink_uevent(const char *iface,
 {
 	char iface_msg[NLMSG_MAX_SIZE];
 	char state_msg[NLMSG_MAX_SIZE];
-	static const char * const envp[] = { iface_msg, state_msg, NULL };
+	char *envp[] = { iface_msg, state_msg, NULL };
 	int res;
 
 	res = snprintf(iface_msg, NLMSG_MAX_SIZE, "INTERFACE=%s",

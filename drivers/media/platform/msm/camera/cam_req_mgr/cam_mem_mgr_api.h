@@ -14,13 +14,7 @@
 #define _CAM_MEM_MGR_API_H_
 
 #include <media/cam_req_mgr.h>
-
-/* Region IDs for memory manager */
-#define CAM_MEM_MGR_REGION_FIRMWARE      0
-#define CAM_MEM_MGR_REGION_SHARED        1
-#define CAM_MEM_MGR_REGION_NON_SECURE_IO 2
-#define CAM_MEM_MGR_REGION_SECURE_IO     3
-#define CAM_MEM_MGR_REGION_SCRATCH       4
+#include "cam_smmu_api.h"
 
 /**
  * struct cam_mem_mgr_request_desc
@@ -36,7 +30,6 @@ struct cam_mem_mgr_request_desc {
 	uint64_t align;
 	int32_t smmu_hdl;
 	uint32_t flags;
-	uint32_t region;
 };
 
 /**
@@ -55,7 +48,7 @@ struct cam_mem_mgr_memory_desc {
 	int32_t smmu_hdl;
 	uint32_t mem_handle;
 	uint64_t len;
-	uint32_t region;
+	enum cam_smmu_region_id region;
 };
 
 /**

@@ -14,7 +14,7 @@
 #include "sdm845-camera-sensor-mtp.dtsi"
 #include "smb1355.dtsi"
 
-/ {
+&vendor {
 	bluetooth: bt_wcn3990 {
 		compatible = "qca,wcn3990";
 		qca,bt-vdd-io-supply = <&pm8998_s3>;
@@ -260,7 +260,7 @@
 	pinctrl-1 = <&flash_led3_front_dis>;
 };
 
-/{
+&vendor {
 	mtp_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
 		#include "fg-gen3-batterydata-itech-3000mah.dtsi"

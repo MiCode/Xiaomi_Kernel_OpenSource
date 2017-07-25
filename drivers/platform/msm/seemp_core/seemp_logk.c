@@ -13,6 +13,11 @@
 
 #define pr_fmt(fmt) "seemp: %s: " fmt, __func__
 
+#include <linux/delay.h>
+#include <linux/kthread.h>
+#include <linux/seemp_instrumentation.h>
+#include <soc/qcom/scm.h>
+
 #include "seemp_logk.h"
 #include "seemp_ringbuf.h"
 
@@ -23,6 +28,8 @@
 #define MASK_BUFFER_SIZE 256
 #define FOUR_MB 4
 #define YEAR_BASE 1900
+
+#define EL2_SCM_ID 0x02001902
 
 static struct seemp_logk_dev *slogk_dev;
 
@@ -49,11 +56,15 @@ static rwlock_t filter_lock;
 static struct seemp_source_mask *pmask;
 static unsigned int num_sources;
 
+static void *el2_shared_mem;
+static struct task_struct *rtic_thread;
+
 static long seemp_logk_reserve_rdblks(
 		struct seemp_logk_dev *sdev, unsigned long arg);
 static long seemp_logk_set_mask(unsigned long arg);
 static long seemp_logk_set_mapping(unsigned long arg);
 static long seemp_logk_check_filter(unsigned long arg);
+static int seemp_logk_rtic_thread(void *data);
 
 void* (*seemp_logk_kernel_begin)(char **buf);
 
@@ -569,6 +580,15 @@ static int seemp_logk_mmap(struct file *filp,
 		}
 	}
 
+	if (!rtic_thread && el2_shared_mem) {
+		rtic_thread = kthread_run(seemp_logk_rtic_thread,
+				NULL, "seemp_logk_rtic_thread");
+		if (IS_ERR(rtic_thread)) {
+			pr_err("rtic_thread creation failed");
+			rtic_thread = NULL;
+		}
+	}
+
 	return 0;
 }
 
@@ -580,10 +600,59 @@ static const struct file_operations seemp_logk_fops = {
 	.mmap = seemp_logk_mmap,
 };
 
+static int seemp_logk_rtic_thread(void *data)
+{
+	struct el2_report_header_t *header;
+	__u64 last_sequence_number = 0;
+	int last_pos = -1;
+	int i;
+	int num_entries = (PAGE_SIZE - sizeof(struct el2_report_header_t))
+		/ sizeof(struct el2_report_data_t);
+	header = (struct el2_report_header_t *) el2_shared_mem;
+
+	while (!kthread_should_stop()) {
+		for (i = 1; i < num_entries + 1; i++) {
+			struct el2_report_data_t *report;
+			int cur_pos = last_pos + i;
+
+			if (cur_pos >= num_entries)
+				cur_pos -= num_entries;
+
+			report = el2_shared_mem +
+				sizeof(struct el2_report_header_t) +
+				cur_pos * sizeof(struct el2_report_data_t);
+
+			/* determine legitimacy of report */
+			if (report->report_valid &&
+				report->sequence_number <=
+					header->num_incidents &&
+				(last_sequence_number == 0
+					|| report->sequence_number >
+						last_sequence_number)) {
+				seemp_logk_rtic(report->report_type,
+					report->report.incident.actor,
+					report->report.incident.asset_id,
+					report->report.incident.asset_category,
+					report->report.incident.response);
+				last_sequence_number = report->sequence_number;
+			} else {
+				last_pos = cur_pos - 1;
+				break;
+			}
+		}
+
+		/* periodically check el2 report every second */
+		ssleep(1);
+	}
+
+	return 0;
+}
+
 __init int seemp_logk_init(void)
 {
 	int ret;
 	int devno = 0;
+	struct scm_desc desc = {0};
 
 	num_sources = 0;
 	kmalloc_flag = 0;
@@ -650,6 +719,21 @@ __init int seemp_logk_init(void)
 	init_waitqueue_head(&slogk_dev->readers_wq);
 	init_waitqueue_head(&slogk_dev->writers_wq);
 	rwlock_init(&filter_lock);
+
+	el2_shared_mem = (void *) __get_free_page(GFP_KERNEL);
+	if (el2_shared_mem) {
+		desc.arginfo = SCM_ARGS(2, SCM_RW, SCM_VAL);
+		desc.args[0] = (uint64_t) virt_to_phys(el2_shared_mem);
+		desc.args[1] = PAGE_SIZE;
+		ret = scm_call2(EL2_SCM_ID, &desc);
+		if (ret || desc.ret[0] || desc.ret[1]) {
+			pr_err("SCM call failed with ret val = %d %d %d",
+				ret, (int)desc.ret[0], (int)desc.ret[1]);
+			free_page((unsigned long) el2_shared_mem);
+			el2_shared_mem = NULL;
+		}
+	}
+
 	return 0;
 class_destroy_fail:
 	class_destroy(cl);
@@ -665,6 +749,11 @@ pingpong_fail:
 __exit void seemp_logk_cleanup(void)
 {
 	dev_t devno = MKDEV(slogk_dev->major, slogk_dev->minor);
+
+	if (rtic_thread) {
+		kthread_stop(rtic_thread);
+		rtic_thread = NULL;
+	}
 
 	seemp_logk_detach();
 

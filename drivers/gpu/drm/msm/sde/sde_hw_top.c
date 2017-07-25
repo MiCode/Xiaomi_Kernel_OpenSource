@@ -212,7 +212,7 @@ static void sde_hw_setup_vsync_sel(struct sde_hw_mdp *mdp,
 	int i = 0;
 	u32 pp_offset[] = {0xC, 0x8, 0x4, 0x13};
 
-	if (!mdp)
+	if (!mdp || !cfg || (cfg->pp_count > ARRAY_SIZE(cfg->ppnumber)))
 		return;
 
 	reg = SDE_REG_READ(c, MDP_VSYNC_SEL);

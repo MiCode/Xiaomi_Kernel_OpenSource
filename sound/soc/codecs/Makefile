@@ -172,10 +172,12 @@ ifeq ($(CONFIG_COMMON_CLK_QCOM), y)
 endif
 snd-soc-wcd-cpe-objs := wcd_cpe_services.o wcd_cpe_core.o
 snd-soc-wsa881x-objs := wsa881x.o wsa881x-tables.o wsa881x-regmap.o wsa881x-temp-sensor.o
+snd-soc-wcd-mbhc-objs := wcd-mbhc-v2.o
 ifneq (,$(filter $(CONFIG_SND_SOC_WCD_MBHC_LEGACY),y m))
-	snd-soc-wcd-mbhc-objs := wcd-mbhc-v2.o wcd-mbhc-legacy.o
-else ifneq (,$(filter $(CONFIG_SND_SOC_WCD_MBHC_ADC),y m))
-	snd-soc-wcd-mbhc-objs := wcd-mbhc-v2.o wcd-mbhc-adc.o
+	snd-soc-wcd-mbhc-objs += wcd-mbhc-legacy.o
+endif
+ifneq (,$(filter $(CONFIG_SND_SOC_WCD_MBHC_ADC),y m))
+	snd-soc-wcd-mbhc-objs += wcd-mbhc-adc.o
 endif
 snd-soc-wsa881x-analog-objs := wsa881x-analog.o wsa881x-tables-analog.o
 snd-soc-wsa881x-analog-objs += wsa881x-regmap-analog.o wsa881x-irq.o

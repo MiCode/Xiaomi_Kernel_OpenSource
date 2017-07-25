@@ -735,17 +735,18 @@ static int cam_mem_util_unmap(int32_t idx)
 		if (tbl.bufq[idx].i_hdl && tbl.bufq[idx].kmdvaddr)
 			ion_unmap_kernel(tbl.client, tbl.bufq[idx].i_hdl);
 
-	if (tbl.bufq[idx].flags & CAM_MEM_FLAG_HW_READ_WRITE ||
-		tbl.bufq[idx].flags & CAM_MEM_FLAG_HW_SHARED_ACCESS) {
-
+	/* SHARED flag gets precedence, all other flags after it */
+	if (tbl.bufq[idx].flags & CAM_MEM_FLAG_HW_SHARED_ACCESS) {
+		region = CAM_SMMU_REGION_SHARED;
+	} else {
 		if (tbl.bufq[idx].flags & CAM_MEM_FLAG_HW_READ_WRITE)
 			region = CAM_SMMU_REGION_IO;
-
-		if (tbl.bufq[idx].flags & CAM_MEM_FLAG_HW_SHARED_ACCESS)
-			region = CAM_SMMU_REGION_SHARED;
-
-		rc = cam_mem_util_unmap_hw_va(idx, region);
 	}
+
+	if (tbl.bufq[idx].flags & CAM_MEM_FLAG_HW_READ_WRITE ||
+		tbl.bufq[idx].flags & CAM_MEM_FLAG_HW_SHARED_ACCESS)
+		rc = cam_mem_util_unmap_hw_va(idx, region);
+
 
 	mutex_lock(&tbl.bufq[idx].q_lock);
 	tbl.bufq[idx].flags = 0;
@@ -820,15 +821,16 @@ int cam_mem_mgr_request_mem(struct cam_mem_mgr_request_desc *inp,
 	uint32_t mem_handle;
 	int32_t smmu_hdl = 0;
 	int32_t num_hdl = 0;
-	enum cam_smmu_region_id region;
+	enum cam_smmu_region_id region = CAM_SMMU_REGION_SHARED;
 
 	if (!inp || !out) {
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
 
-	if (inp->region != CAM_MEM_MGR_REGION_SHARED &&
-		inp->region != CAM_MEM_MGR_REGION_NON_SECURE_IO) {
+	if (!(inp->flags & CAM_MEM_FLAG_HW_READ_WRITE ||
+		inp->flags & CAM_MEM_FLAG_HW_SHARED_ACCESS ||
+		inp->flags & CAM_MEM_FLAG_CACHE)) {
 		pr_err("Invalid flags for request mem\n");
 		return -EINVAL;
 	}
@@ -866,11 +868,13 @@ int cam_mem_mgr_request_mem(struct cam_mem_mgr_request_desc *inp,
 		goto smmu_fail;
 	}
 
-	if (inp->region == CAM_MEM_MGR_REGION_SHARED)
+	/* SHARED flag gets precedence, all other flags after it */
+	if (inp->flags & CAM_MEM_FLAG_HW_SHARED_ACCESS) {
 		region = CAM_SMMU_REGION_SHARED;
-
-	if (inp->region == CAM_MEM_MGR_REGION_NON_SECURE_IO)
-		region = CAM_SMMU_REGION_IO;
+	} else {
+		if (inp->flags & CAM_MEM_FLAG_HW_READ_WRITE)
+			region = CAM_SMMU_REGION_IO;
+	}
 
 	rc = cam_smmu_map_iova(inp->smmu_hdl,
 		ion_fd,
@@ -915,13 +919,13 @@ int cam_mem_mgr_request_mem(struct cam_mem_mgr_request_desc *inp,
 	out->smmu_hdl = smmu_hdl;
 	out->mem_handle = mem_handle;
 	out->len = inp->size;
-	out->region = inp->region;
+	out->region = region;
 
 	return rc;
 slot_fail:
 	cam_smmu_unmap_iova(inp->smmu_hdl,
 		ion_fd,
-		inp->region);
+		region);
 smmu_fail:
 	ion_unmap_kernel(tbl.client, hdl);
 map_fail:

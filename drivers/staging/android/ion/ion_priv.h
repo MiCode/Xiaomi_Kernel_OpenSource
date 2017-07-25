@@ -293,6 +293,7 @@ long msm_ion_custom_ioctl(struct ion_client *client,
 
 int ion_heap_is_system_secure_heap_type(enum ion_heap_type type);
 int get_secure_vmid(unsigned long flags);
+int get_vmid(unsigned long flags);
 bool is_secure_vmid_valid(int vmid);
 unsigned int count_set_bits(unsigned long val);
 int populate_vm_list(unsigned long flags, unsigned int *vm_list, int nelems);

@@ -55,9 +55,13 @@ struct sde_crtc_custom_events {
 static int sde_crtc_power_interrupt_handler(struct drm_crtc *crtc_drm,
 	bool en, struct sde_irq_callback *ad_irq);
 
+static int sde_crtc_pm_event_handler(struct drm_crtc *crtc_drm,
+	bool en, struct sde_irq_callback *noirq);
+
 static struct sde_crtc_custom_events custom_events[] = {
 	{DRM_EVENT_AD_BACKLIGHT, sde_cp_ad_interrupt},
-	{DRM_EVENT_CRTC_POWER, sde_crtc_power_interrupt_handler}
+	{DRM_EVENT_CRTC_POWER, sde_crtc_power_interrupt_handler},
+	{DRM_EVENT_SDE_POWER, sde_crtc_pm_event_handler},
 };
 
 /* default input fence timeout, in ms */
@@ -2349,8 +2353,6 @@ static struct drm_crtc_state *sde_crtc_duplicate_state(struct drm_crtc *crtc)
 
 	_sde_crtc_rp_duplicate(&old_cstate->rp, &cstate->rp);
 
-	cstate->idle_pc = sde_crtc->idle_pc;
-
 	return &cstate->base;
 }
 
@@ -2431,6 +2433,8 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 	struct drm_crtc *crtc = arg;
 	struct sde_crtc *sde_crtc;
 	struct drm_encoder *encoder;
+	struct drm_event event;
+	u32 power_on = 0;
 
 	if (!crtc) {
 		SDE_ERROR("invalid crtc\n");
@@ -2451,24 +2455,11 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 			sde_encoder_virt_restore(encoder);
 		}
 
-	} else if (event_type == SDE_POWER_EVENT_PRE_DISABLE) {
-		/*
-		 * Serialize h/w idle state update with crtc atomic check.
-		 * Grab the modeset lock to ensure that there is no on-going
-		 * atomic check, then increment the idle_pc counter. The next
-		 * atomic check will detect a new idle_pc since the counter
-		 * has advanced between the old_state and new_state, and
-		 * therefore properly reprogram all relevant drm objects'
-		 * hardware.
-		 */
-		drm_modeset_lock_crtc(crtc, NULL);
-
-		sde_crtc->idle_pc++;
-
-		SDE_DEBUG("crtc%d idle_pc:%d\n", crtc->base.id,
-				sde_crtc->idle_pc);
-		SDE_EVT32(DRMID(crtc), sde_crtc->idle_pc);
-
+		event.type = DRM_EVENT_SDE_POWER;
+		event.length = sizeof(power_on);
+		power_on = 1;
+		msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
+				(u8 *)&power_on);
 	} else if (event_type == SDE_POWER_EVENT_POST_DISABLE) {
 		struct drm_plane *plane;
 
@@ -2479,8 +2470,13 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 		drm_atomic_crtc_for_each_plane(plane, crtc)
 			sde_plane_set_revalidate(plane, true);
 
-		drm_modeset_unlock_crtc(crtc);
 		sde_cp_crtc_suspend(crtc);
+
+		event.type = DRM_EVENT_SDE_POWER;
+		event.length = sizeof(power_on);
+		power_on = 0;
+		msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
+				(u8 *)&power_on);
 	}
 
 	mutex_unlock(&sde_crtc->crtc_lock);
@@ -2609,8 +2605,7 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 
 	sde_crtc->power_event = sde_power_handle_register_event(
 		&priv->phandle,
-		SDE_POWER_EVENT_POST_ENABLE | SDE_POWER_EVENT_POST_DISABLE |
-		SDE_POWER_EVENT_PRE_DISABLE,
+		SDE_POWER_EVENT_POST_ENABLE | SDE_POWER_EVENT_POST_DISABLE,
 		sde_crtc_handle_power_event, crtc, sde_crtc->name);
 }
 
@@ -2780,7 +2775,8 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 
 		/* check dim layer stage with every plane */
 		for (i = 0; i < cstate->num_dim_layers; i++) {
-			if (pstates[cnt].stage == cstate->dim_layer[i].stage) {
+			if (cstate->dim_layer[i].stage
+					== (pstates[cnt].stage + SDE_STAGE_0)) {
 				SDE_ERROR(
 					"plane:%d/dim_layer:%i-same stage:%d\n",
 					plane->base.id, i,
@@ -3995,5 +3991,15 @@ int sde_crtc_register_custom_event(struct sde_kms *kms,
 static int sde_crtc_power_interrupt_handler(struct drm_crtc *crtc_drm,
 	bool en, struct sde_irq_callback *irq)
 {
+	return 0;
+}
+
+static int sde_crtc_pm_event_handler(struct drm_crtc *crtc, bool en,
+		struct sde_irq_callback *noirq)
+{
+	/*
+	 * IRQ object noirq is not being used here since there is
+	 * no crtc irq from pm event.
+	 */
 	return 0;
 }

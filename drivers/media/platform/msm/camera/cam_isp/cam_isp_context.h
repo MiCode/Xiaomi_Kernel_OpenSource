@@ -106,7 +106,9 @@ struct cam_isp_ctx_req {
  * @req_base:              Common request object storage
  * @req_isp:               ISP private request object storage
  * @hw_ctx:                HW object returned by the acquire device command
- *
+ * @sof_timestamp_val:     Captured time stamp value at sof hw event
+ * @active_req_cnt:        Counter for the active request
+ * @reported_req_id:       Last reported request id
  */
 struct cam_isp_context {
 	struct cam_context              *base;
@@ -120,6 +122,9 @@ struct cam_isp_context {
 	struct cam_isp_ctx_req           req_isp[CAM_CTX_REQ_MAX];
 
 	void                            *hw_ctx;
+	uint64_t                         sof_timestamp_val;
+	int32_t                          active_req_cnt;
+	int64_t                          reported_req_id;
 };
 
 /**

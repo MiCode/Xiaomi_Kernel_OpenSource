@@ -668,7 +668,16 @@ void diagfwd_close_transport(uint8_t transport, uint8_t peripheral)
 		dest_info->buf_ptr[i] = fwd_info->buf_ptr[i];
 	if (!check_channel_state(dest_info->ctxt))
 		diagfwd_late_open(dest_info);
-	diagfwd_cntl_open(dest_info);
+
+	/*
+	 *	Open control channel to update masks after buffers are
+	 *	initialized for peripherals that have transport other than
+	 *	GLINK. GLINK supported peripheral mask update will
+	 *	happen after glink buffers are initialized.
+	 */
+
+	if (dest_info->transport != TRANSPORT_GLINK)
+		diagfwd_cntl_open(dest_info);
 	init_fn(peripheral);
 	mutex_unlock(&driver->diagfwd_channel_mutex[peripheral]);
 	diagfwd_queue_read(&peripheral_info[TYPE_DATA][peripheral]);
@@ -851,7 +860,18 @@ int diagfwd_channel_open(struct diagfwd_info *fwd_info)
 	mutex_lock(&driver->diagfwd_channel_mutex[fwd_info->peripheral]);
 	fwd_info->ch_open = 1;
 	diagfwd_buffers_init(fwd_info);
-	diagfwd_write_buffers_init(fwd_info);
+
+	/*
+	 *	Initialize buffers for glink supported
+	 *	peripherals only. Open control channel to update
+	 *	masks after buffers are initialized.
+	 */
+	if (fwd_info->transport == TRANSPORT_GLINK) {
+		diagfwd_write_buffers_init(fwd_info);
+		if (fwd_info->type == TYPE_CNTL)
+			diagfwd_cntl_open(fwd_info);
+	}
+
 	if (fwd_info && fwd_info->c_ops && fwd_info->c_ops->open)
 		fwd_info->c_ops->open(fwd_info);
 	for (i = 0; i < NUM_WRITE_BUFFERS; i++) {

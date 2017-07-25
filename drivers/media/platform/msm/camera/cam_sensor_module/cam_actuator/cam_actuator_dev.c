@@ -14,6 +14,7 @@
 #include "cam_req_mgr_dev.h"
 #include "cam_actuator_soc.h"
 #include "cam_actuator_core.h"
+#include "cam_trace.h"
 
 static long cam_actuator_subdev_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)

@@ -13,7 +13,8 @@
 #include <linux/module.h>
 #include <cam_sensor_cmn_header.h>
 #include "cam_actuator_core.h"
-#include <cam_sensor_util.h>
+#include "cam_sensor_util.h"
+#include "cam_trace.h"
 
 int32_t cam_actuator_slaveInfo_pkt_parser(struct cam_actuator_ctrl_t *a_ctrl,
 	uint32_t *cmd_buf)
@@ -111,6 +112,9 @@ int32_t cam_actuator_apply_request(struct cam_req_mgr_apply_request *apply)
 		return -EINVAL;
 	}
 	request_id = apply->request_id % MAX_PER_FRAME_ARRAY;
+
+	trace_cam_apply_req("Actuator", apply);
+
 	CDBG("%s:%d Request Id: %lld\n",
 		__func__, __LINE__, apply->request_id);
 

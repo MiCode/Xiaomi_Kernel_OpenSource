@@ -632,6 +632,14 @@ config WCD_DSP_GLINK
 	   between MSM and WCD DSP over glink transport protocol. This driver
 	   provides read and write interface via char device.
 
+config QCOM_SMCINVOKE
+	bool "Secure QSEE Support"
+	help
+	  Enable SMCInvoke driver which supports capability based secure
+	  communication between QTI Secure Execution Environment (QSEE)
+          and high level operating system. It exposes APIs for both
+          userspace and kernel clients.
+
 config MSM_EVENT_TIMER
 	bool "Event timer"
         help

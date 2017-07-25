@@ -25,6 +25,7 @@
 #include "cam_icp_context.h"
 #include "cam_req_mgr_util.h"
 #include "cam_mem_mgr.h"
+#include "cam_trace.h"
 
 static int __cam_icp_acquire_dev_in_available(struct cam_context *ctx,
 	struct cam_acquire_dev_cmd *cmd)
@@ -32,8 +33,10 @@ static int __cam_icp_acquire_dev_in_available(struct cam_context *ctx,
 	int rc;
 
 	rc = cam_context_acquire_dev_to_hw(ctx, cmd);
-	if (!rc)
+	if (!rc) {
 		ctx->state = CAM_CTX_ACQUIRED;
+		trace_cam_context_state("ICP", ctx);
+	}
 
 	return rc;
 }
@@ -48,6 +51,7 @@ static int __cam_icp_release_dev_in_acquired(struct cam_context *ctx,
 		pr_err("Unable to release device\n");
 
 	ctx->state = CAM_CTX_AVAILABLE;
+	trace_cam_context_state("ICP", ctx);
 	return rc;
 }
 
@@ -57,8 +61,10 @@ static int __cam_icp_start_dev_in_acquired(struct cam_context *ctx,
 	int rc;
 
 	rc = cam_context_start_dev_to_hw(ctx, cmd);
-	if (!rc)
+	if (!rc) {
 		ctx->state = CAM_CTX_READY;
+		trace_cam_context_state("ICP", ctx);
+	}
 
 	return rc;
 }
@@ -85,6 +91,7 @@ static int __cam_icp_stop_dev_in_ready(struct cam_context *ctx,
 		pr_err("Unable to stop device\n");
 
 	ctx->state = CAM_CTX_ACQUIRED;
+	trace_cam_context_state("ICP", ctx);
 	return rc;
 }
 
