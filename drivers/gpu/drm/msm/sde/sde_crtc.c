@@ -1472,7 +1472,7 @@ static void _sde_crtc_complete_flip(struct drm_crtc *crtc,
 			sde_crtc->event = NULL;
 			DRM_DEBUG_VBL("%s: send event: %pK\n",
 						sde_crtc->name, event);
-			SDE_EVT32(DRMID(crtc));
+			SDE_EVT32_VERBOSE(DRMID(crtc));
 			drm_crtc_send_vblank_event(crtc, event);
 		}
 	}
@@ -1899,7 +1899,7 @@ static void _sde_crtc_setup_lm_bounds(struct drm_crtc *crtc,
 		cstate->lm_bounds[i].h = adj_mode->vdisplay;
 		memcpy(&cstate->lm_roi[i], &cstate->lm_bounds[i],
 				sizeof(cstate->lm_roi[i]));
-		SDE_EVT32(DRMID(crtc), i,
+		SDE_EVT32_VERBOSE(DRMID(crtc), i,
 				cstate->lm_bounds[i].x, cstate->lm_bounds[i].y,
 				cstate->lm_bounds[i].w, cstate->lm_bounds[i].h);
 		SDE_DEBUG("%s: lm%d bnd&roi (%d,%d,%d,%d)\n", sde_crtc->name, i,
@@ -2103,7 +2103,7 @@ static int _sde_crtc_wait_for_frame_done(struct drm_crtc *crtc)
 		return 0;
 	}
 
-	SDE_EVT32(DRMID(crtc), SDE_EVTLOG_FUNC_ENTRY);
+	SDE_EVT32_VERBOSE(DRMID(crtc), SDE_EVTLOG_FUNC_ENTRY);
 	ret = wait_for_completion_timeout(&sde_crtc->frame_done_comp,
 			msecs_to_jiffies(SDE_FRAME_DONE_TIMEOUT));
 	if (!ret) {
@@ -2112,7 +2112,7 @@ static int _sde_crtc_wait_for_frame_done(struct drm_crtc *crtc)
 		SDE_EVT32(DRMID(crtc), SDE_EVTLOG_FATAL);
 		rc = -ETIMEDOUT;
 	}
-	SDE_EVT32(DRMID(crtc), SDE_EVTLOG_FUNC_EXIT);
+	SDE_EVT32_VERBOSE(DRMID(crtc), SDE_EVTLOG_FUNC_EXIT);
 
 	return rc;
 }

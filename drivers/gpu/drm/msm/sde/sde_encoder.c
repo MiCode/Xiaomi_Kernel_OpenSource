@@ -334,9 +334,9 @@ int sde_encoder_helper_wait_for_irq(struct sde_encoder_phys *phys_enc,
 
 	SDE_DEBUG_PHYS(phys_enc, "pending_cnt %d\n",
 			atomic_read(wait_info->atomic_cnt));
-	SDE_EVT32(DRMID(phys_enc->parent), irq->hw_idx,
-			atomic_read(wait_info->atomic_cnt),
-			SDE_EVTLOG_FUNC_ENTRY);
+	SDE_EVT32_VERBOSE(DRMID(phys_enc->parent), intr_idx, irq->hw_idx,
+		irq->irq_idx, phys_enc->hw_pp->idx - PINGPONG_0,
+		atomic_read(wait_info->atomic_cnt), SDE_EVTLOG_FUNC_ENTRY);
 
 	ret = sde_encoder_helper_wait_event_timeout(
 			DRMID(phys_enc->parent),
@@ -349,9 +349,10 @@ int sde_encoder_helper_wait_for_irq(struct sde_encoder_phys *phys_enc,
 		if (irq_status) {
 			unsigned long flags;
 
-			SDE_EVT32(DRMID(phys_enc->parent),
-					irq->hw_idx,
-					atomic_read(wait_info->atomic_cnt));
+			SDE_EVT32(DRMID(phys_enc->parent), intr_idx,
+				irq->hw_idx, irq->irq_idx,
+				phys_enc->hw_pp->idx - PINGPONG_0,
+				atomic_read(wait_info->atomic_cnt));
 			SDE_DEBUG_PHYS(phys_enc,
 					"done but irq %d not triggered\n",
 					irq->irq_idx);
@@ -361,13 +362,22 @@ int sde_encoder_helper_wait_for_irq(struct sde_encoder_phys *phys_enc,
 			ret = 0;
 		} else {
 			ret = -ETIMEDOUT;
+			SDE_EVT32(DRMID(phys_enc->parent), intr_idx,
+				irq->hw_idx, irq->irq_idx,
+				phys_enc->hw_pp->idx - PINGPONG_0,
+				atomic_read(wait_info->atomic_cnt), irq_status,
+				SDE_EVTLOG_ERROR);
 		}
 	} else {
 		ret = 0;
+		SDE_EVT32(DRMID(phys_enc->parent), intr_idx, irq->hw_idx,
+			irq->irq_idx, phys_enc->hw_pp->idx - PINGPONG_0,
+			atomic_read(wait_info->atomic_cnt));
 	}
 
-	SDE_EVT32(DRMID(phys_enc->parent), irq->hw_idx, ret,
-			SDE_EVTLOG_FUNC_EXIT);
+	SDE_EVT32_VERBOSE(DRMID(phys_enc->parent), intr_idx, irq->hw_idx,
+		irq->irq_idx, ret, phys_enc->hw_pp->idx - PINGPONG_0,
+		atomic_read(wait_info->atomic_cnt), SDE_EVTLOG_FUNC_EXIT);
 
 	return ret;
 }
@@ -1365,7 +1375,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 
 	SDE_DEBUG_ENC(sde_enc, "sw_event:%d, idle_pc_supported:%d\n", sw_event,
 			sde_enc->idle_pc_supported);
-	SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->idle_pc_supported,
+	SDE_EVT32_VERBOSE(DRMID(drm_enc), sw_event, sde_enc->idle_pc_supported,
 			sde_enc->rc_state, SDE_EVTLOG_FUNC_ENTRY);
 
 	switch (sw_event) {
@@ -1557,11 +1567,12 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		break;
 
 	default:
+		SDE_EVT32(DRMID(drm_enc), sw_event, SDE_EVTLOG_ERROR);
 		SDE_ERROR("unexpected sw_event: %d\n", sw_event);
 		break;
 	}
 
-	SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->idle_pc_supported,
+	SDE_EVT32_VERBOSE(DRMID(drm_enc), sw_event, sde_enc->idle_pc_supported,
 			sde_enc->rc_state, SDE_EVTLOG_FUNC_EXIT);
 	return 0;
 }
@@ -2104,7 +2115,7 @@ int sde_encoder_helper_wait_event_timeout(
 				atomic_read(info->atomic_cnt) == 0, jiffies);
 		time = ktime_to_ms(ktime_get());
 
-		SDE_EVT32(drm_id, hw_id, rc, time, expected_time,
+		SDE_EVT32_VERBOSE(drm_id, hw_id, rc, time, expected_time,
 				atomic_read(info->atomic_cnt));
 	/* If we timed out, counter is valid and time is less, wait again */
 	} while (atomic_read(info->atomic_cnt) && (rc == 0) &&
