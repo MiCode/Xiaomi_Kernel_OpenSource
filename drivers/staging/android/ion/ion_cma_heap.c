@@ -249,6 +249,8 @@ static void ion_secure_cma_free(struct ion_buffer *buffer)
 	struct ion_cma_buffer_info *info = buffer->priv_virt;
 
 	source_nelems = count_set_bits(buffer->flags & ION_FLAGS_CP_MASK);
+	if (!source_nelems)
+		return;
 	source_vm_list = kcalloc(source_nelems, sizeof(*source_vm_list),
 				 GFP_KERNEL);
 	if (!source_vm_list)
@@ -291,6 +293,10 @@ static int ion_secure_cma_allocate(
 	source_vm = VMID_HLOS;
 
 	dest_nelems = count_set_bits(flags & ION_FLAGS_CP_MASK);
+	if (!dest_nelems) {
+		ret = -EINVAL;
+		goto out;
+	}
 	dest_vm_list = kcalloc(dest_nelems, sizeof(*dest_vm_list), GFP_KERNEL);
 	if (!dest_vm_list) {
 		ret = -ENOMEM;
