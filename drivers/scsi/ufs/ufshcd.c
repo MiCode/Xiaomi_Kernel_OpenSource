@@ -7862,7 +7862,7 @@ static void ufshcd_card_detect_handler(struct work_struct *work)
 			 __func__);
 		pm_runtime_get_sync(hba->dev);
 		ufshcd_detect_device(hba);
-		pm_runtime_put_sync(hba->dev);
+		/* ufshcd_probe_hba() calls pm_runtime_put_sync() on exit */
 	} else {
 		dev_dbg(hba->dev, "%s: card removed notification received\n",
 			 __func__);
