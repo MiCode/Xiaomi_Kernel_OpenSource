@@ -66,11 +66,6 @@
 		/delete-property/ vdd-dig-supply;
 	};
 
-	vadc@3400 {
-		/delete-property/ qcom,adc_tm-vadc;
-		/delete-property/ qcom,pmic-revid;
-	};
-
 	msm8x16_wcd_codec@f000 {
 		/delete-property/ cdc-vdda-cp-supply;
 		/delete-property/ cdc-vdda-h-supply;
@@ -182,6 +177,10 @@
 
 &pm660_haptics {
 	qcom,actuator-type = "erm";
+};
+
+&pm660_vadc {
+	/delete-node/ chan@1d;
 };
 
 &dsi_auo_390p_cmd {
