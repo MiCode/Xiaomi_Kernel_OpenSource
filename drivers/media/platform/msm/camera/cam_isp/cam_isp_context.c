@@ -22,9 +22,7 @@
 #include "cam_sync_api.h"
 #include "cam_req_mgr_dev.h"
 #include "cam_trace.h"
-
-#undef CDBG
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#include "cam_debug_util.h"
 
 static uint64_t __cam_isp_ctx_get_event_ts(uint32_t evt_id, void *evt_data)
 {
@@ -57,7 +55,7 @@ static uint64_t __cam_isp_ctx_get_event_ts(uint32_t evt_id, void *evt_data)
 	case CAM_ISP_HW_EVENT_DONE:
 		break;
 	default:
-		CDBG("%s: Invalid Event Type %d\n", __func__, evt_id);
+		CAM_DBG(CAM_ISP, "Invalid Event Type %d", evt_id);
 	}
 
 	return ts;
@@ -75,11 +73,11 @@ static int __cam_isp_ctx_handle_buf_done_in_activated_state(
 	struct cam_context *ctx = ctx_isp->base;
 
 	if (list_empty(&ctx->active_req_list)) {
-		CDBG("Buf done with no active request!\n");
+		CAM_DBG(CAM_ISP, "Buf done with no active request!");
 		goto end;
 	}
 
-	CDBG("%s: Enter with bubble_state %d\n", __func__, bubble_state);
+	CAM_DBG(CAM_ISP, "Enter with bubble_state %d", bubble_state);
 
 	req = list_first_entry(&ctx->active_req_list,
 			struct cam_ctx_request, list);
@@ -95,29 +93,30 @@ static int __cam_isp_ctx_handle_buf_done_in_activated_state(
 		}
 
 		if (j == req_isp->num_fence_map_out) {
-			pr_err("Can not find matching lane handle 0x%x!\n",
+			CAM_ERR(CAM_ISP,
+				"Can not find matching lane handle 0x%x!",
 				done->resource_handle[i]);
 			rc = -EINVAL;
 			continue;
 		}
 
 		if (!bubble_state) {
-			CDBG("%s: Sync with success: fd 0x%x\n", __func__,
+			CAM_DBG(CAM_ISP, "Sync with success: fd 0x%x",
 				   req_isp->fence_map_out[j].sync_id);
 			rc = cam_sync_signal(req_isp->fence_map_out[j].sync_id,
 				CAM_SYNC_STATE_SIGNALED_SUCCESS);
 			if (rc)
-				pr_err("%s: Sync failed with rc = %d\n",
-					__func__, rc);
+				CAM_ERR(CAM_ISP, "Sync failed with rc = %d",
+					 rc);
 
 		} else if (!req_isp->bubble_report) {
-			CDBG("%s: Sync with failure: fd 0x%x\n", __func__,
+			CAM_DBG(CAM_ISP, "Sync with failure: fd 0x%x",
 				   req_isp->fence_map_out[j].sync_id);
 			rc = cam_sync_signal(req_isp->fence_map_out[j].sync_id,
 				CAM_SYNC_STATE_SIGNALED_ERROR);
 			if (rc)
-				pr_err("%s: Sync failed with rc = %d\n",
-					__func__, rc);
+				CAM_ERR(CAM_ISP, "Sync failed with rc = %d",
+					 rc);
 		} else {
 			/*
 			 * Ignore the buffer done if bubble detect is on
@@ -130,7 +129,7 @@ static int __cam_isp_ctx_handle_buf_done_in_activated_state(
 			continue;
 		}
 
-		CDBG("%s: req %lld, reset sync id 0x%x\n", __func__,
+		CAM_DBG(CAM_ISP, "req %lld, reset sync id 0x%x",
 			   req->request_id,
 			   req_isp->fence_map_out[j].sync_id);
 		req_isp->num_acked++;
@@ -141,8 +140,9 @@ static int __cam_isp_ctx_handle_buf_done_in_activated_state(
 		list_del_init(&req->list);
 		list_add_tail(&req->list, &ctx->free_req_list);
 		ctx_isp->active_req_cnt--;
-		CDBG("%s: Move active request %lld to free list(cnt = %d)\n",
-			__func__, req->request_id, ctx_isp->active_req_cnt);
+		CAM_DBG(CAM_ISP,
+			"Move active request %lld to free list(cnt = %d)",
+			 req->request_id, ctx_isp->active_req_cnt);
 	}
 
 end:
@@ -162,15 +162,17 @@ static void __cam_isp_ctx_send_sof_timestamp(
 	req_msg.u.frame_msg.link_hdl = ctx_isp->base->link_hdl;
 	req_msg.u.frame_msg.sof_status = sof_event_status;
 
-	CDBG("%s: request id:%lld frame number:%lld SOF time stamp:0x%llx\n",
-		__func__, request_id, ctx_isp->frame_id,
+	CAM_DBG(CAM_ISP,
+		"request id:%lld frame number:%lld SOF time stamp:0x%llx",
+		 request_id, ctx_isp->frame_id,
 		ctx_isp->sof_timestamp_val);
-	CDBG("%s sof status:%d\n", __func__, sof_event_status);
+	CAM_DBG(CAM_ISP, " sof status:%d", sof_event_status);
 
 	if (cam_req_mgr_notify_frame_message(&req_msg,
 		V4L_EVENT_CAM_REQ_MGR_SOF, V4L_EVENT_CAM_REQ_MGR_EVENT))
-		pr_err("%s: Error in notifying the sof time for req id:%lld\n",
-				__func__, request_id);
+		CAM_ERR(CAM_ISP,
+			"Error in notifying the sof time for req id:%lld",
+			request_id);
 }
 
 static int __cam_isp_ctx_reg_upd_in_activated_state(
@@ -182,7 +184,7 @@ static int __cam_isp_ctx_reg_upd_in_activated_state(
 	struct cam_isp_ctx_req  *req_isp;
 
 	if (list_empty(&ctx->pending_req_list)) {
-		pr_err("Reg upd ack with no pending request\n");
+		CAM_ERR(CAM_ISP, "Reg upd ack with no pending request");
 		goto end;
 	}
 	req = list_first_entry(&ctx->pending_req_list,
@@ -193,13 +195,14 @@ static int __cam_isp_ctx_reg_upd_in_activated_state(
 	if (req_isp->num_fence_map_out != 0) {
 		list_add_tail(&req->list, &ctx->active_req_list);
 		ctx_isp->active_req_cnt++;
-		CDBG("%s: move request %lld to active list(cnt = %d)\n",
-			__func__, req->request_id, ctx_isp->active_req_cnt);
+		CAM_DBG(CAM_ISP, "move request %lld to active list(cnt = %d)",
+			 req->request_id, ctx_isp->active_req_cnt);
 	} else {
 		/* no io config, so the request is completed. */
 		list_add_tail(&req->list, &ctx->free_req_list);
-		CDBG("%s: move active request %lld to free list(cnt = %d)\n",
-			__func__, req->request_id, ctx_isp->active_req_cnt);
+		CAM_DBG(CAM_ISP,
+			"move active request %lld to free list(cnt = %d)",
+			 req->request_id, ctx_isp->active_req_cnt);
 	}
 
 	/*
@@ -207,7 +210,7 @@ static int __cam_isp_ctx_reg_upd_in_activated_state(
 	 * state so change substate here.
 	 */
 	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_EPOCH;
-	CDBG("%s: next substate %d\n", __func__, ctx_isp->substate_activated);
+	CAM_DBG(CAM_ISP, "next substate %d", ctx_isp->substate_activated);
 
 end:
 	return rc;
@@ -235,7 +238,7 @@ static int __cam_isp_ctx_notify_sof_in_actived_state(
 		notify.frame_id = ctx_isp->frame_id;
 
 		ctx->ctx_crm_intf->notify_sof(&notify);
-		CDBG("%s: Notify CRM  SOF frame %lld\n", __func__,
+		CAM_DBG(CAM_ISP, "Notify CRM  SOF frame %lld",
 			ctx_isp->frame_id);
 
 		list_for_each_entry(req, &ctx->active_req_list, list) {
@@ -249,7 +252,7 @@ static int __cam_isp_ctx_notify_sof_in_actived_state(
 		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
 			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 	} else {
-		pr_err("%s: Can not notify SOF to CRM\n", __func__);
+		CAM_ERR(CAM_ISP, "Can not notify SOF to CRM");
 	}
 
 	return 0;
@@ -263,13 +266,13 @@ static int __cam_isp_ctx_sof_in_activated_state(
 	struct cam_isp_hw_sof_event_data      *sof_event_data = evt_data;
 
 	if (!evt_data) {
-		pr_err("%s: in valid sof event data\n", __func__);
+		CAM_ERR(CAM_ISP, "in valid sof event data");
 		return -EINVAL;
 	}
 
 	ctx_isp->frame_id++;
 	ctx_isp->sof_timestamp_val = sof_event_data->timestamp;
-	CDBG("%s: frame id: %lld time stamp:0x%llx\n", __func__,
+	CAM_DBG(CAM_ISP, "frame id: %lld time stamp:0x%llx",
 		ctx_isp->frame_id, ctx_isp->sof_timestamp_val);
 
 	return rc;
@@ -284,7 +287,7 @@ static int __cam_isp_ctx_reg_upd_in_sof(struct cam_isp_context *ctx_isp,
 	struct cam_context *ctx = ctx_isp->base;
 
 	if (ctx->state != CAM_CTX_ACTIVATED) {
-		CDBG("%s: invalid RUP\n", __func__);
+		CAM_DBG(CAM_ISP, "invalid RUP");
 		goto end;
 	}
 
@@ -303,8 +306,9 @@ static int __cam_isp_ctx_reg_upd_in_sof(struct cam_isp_context *ctx_isp,
 			/* need to handle the buf done */
 			list_add_tail(&req->list, &ctx->active_req_list);
 			ctx_isp->active_req_cnt++;
-			CDBG("%s: move request %lld to active list(cnt = %d)\n",
-				__func__, req->request_id,
+			CAM_DBG(CAM_ISP,
+				"move request %lld to active list(cnt = %d)",
+				 req->request_id,
 				ctx_isp->active_req_cnt);
 			ctx_isp->substate_activated =
 				CAM_ISP_CTX_ACTIVATED_EPOCH;
@@ -327,7 +331,7 @@ static int __cam_isp_ctx_epoch_in_applied(struct cam_isp_context *ctx_isp,
 		 * If no pending req in epoch, this is an error case.
 		 * The recovery is to go back to sof state
 		 */
-		pr_err("%s: No pending request\n", __func__);
+		CAM_ERR(CAM_ISP, "No pending request");
 		ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
 
 		/* Send SOF event as empty frame*/
@@ -341,7 +345,7 @@ static int __cam_isp_ctx_epoch_in_applied(struct cam_isp_context *ctx_isp,
 		list);
 	req_isp = (struct cam_isp_ctx_req *)req->req_priv;
 
-	CDBG("Report Bubble flag %d\n", req_isp->bubble_report);
+	CAM_DBG(CAM_ISP, "Report Bubble flag %d", req_isp->bubble_report);
 	if (req_isp->bubble_report && ctx->ctx_crm_intf &&
 		ctx->ctx_crm_intf->notify_err) {
 		struct cam_req_mgr_error_notify notify;
@@ -351,7 +355,7 @@ static int __cam_isp_ctx_epoch_in_applied(struct cam_isp_context *ctx_isp,
 		notify.req_id = req->request_id;
 		notify.error = CRM_KMD_ERR_BUBBLE;
 		ctx->ctx_crm_intf->notify_err(&notify);
-		CDBG("%s: Notify CRM about Bubble frame %lld\n", __func__,
+		CAM_DBG(CAM_ISP, "Notify CRM about Bubble frame %lld",
 			ctx_isp->frame_id);
 	} else {
 		/*
@@ -361,8 +365,8 @@ static int __cam_isp_ctx_epoch_in_applied(struct cam_isp_context *ctx_isp,
 		list_del_init(&req->list);
 		list_add_tail(&req->list, &ctx->active_req_list);
 		ctx_isp->active_req_cnt++;
-		CDBG("%s: move request %lld to active list(cnt = %d)\n",
-			__func__, req->request_id, ctx_isp->active_req_cnt);
+		CAM_DBG(CAM_ISP, "move request %lld to active list(cnt = %d)",
+			 req->request_id, ctx_isp->active_req_cnt);
 		req_isp->bubble_report = 0;
 	}
 
@@ -371,7 +375,7 @@ static int __cam_isp_ctx_epoch_in_applied(struct cam_isp_context *ctx_isp,
 		CAM_REQ_MGR_SOF_EVENT_ERROR);
 
 	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_BUBBLE;
-	CDBG("%s: next substate %d\n", __func__,
+	CAM_DBG(CAM_ISP, "next substate %d",
 		ctx_isp->substate_activated);
 end:
 	return 0;
@@ -398,7 +402,7 @@ static int __cam_isp_ctx_sof_in_epoch(struct cam_isp_context *ctx_isp,
 	struct cam_isp_hw_sof_event_data      *sof_event_data = evt_data;
 
 	if (!evt_data) {
-		pr_err("%s: in valid sof event data\n", __func__);
+		CAM_ERR(CAM_ISP, "in valid sof event data");
 		return -EINVAL;
 	}
 
@@ -408,9 +412,9 @@ static int __cam_isp_ctx_sof_in_epoch(struct cam_isp_context *ctx_isp,
 	if (list_empty(&ctx->active_req_list))
 		ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
 	else
-		CDBG("%s: Still need to wait for the buf done\n", __func__);
+		CAM_DBG(CAM_ISP, "Still need to wait for the buf done");
 
-	CDBG("%s: next substate %d\n", __func__,
+	CAM_DBG(CAM_ISP, "next substate %d",
 		ctx_isp->substate_activated);
 
 	return rc;
@@ -456,7 +460,7 @@ static int __cam_isp_ctx_epoch_in_bubble_applied(
 		 * If no pending req in epoch, this is an error case.
 		 * Just go back to the bubble state.
 		 */
-		pr_err("%s: No pending request.\n", __func__);
+		CAM_ERR(CAM_ISP, "No pending request.");
 		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
 			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 
@@ -477,7 +481,7 @@ static int __cam_isp_ctx_epoch_in_bubble_applied(
 		notify.req_id = req->request_id;
 		notify.error = CRM_KMD_ERR_BUBBLE;
 		ctx->ctx_crm_intf->notify_err(&notify);
-		CDBG("%s: Notify CRM about Bubble frame %lld\n", __func__,
+		CAM_DBG(CAM_ISP, "Notify CRM about Bubble frame %lld",
 			ctx_isp->frame_id);
 	} else {
 		/*
@@ -487,8 +491,8 @@ static int __cam_isp_ctx_epoch_in_bubble_applied(
 		list_del_init(&req->list);
 		list_add_tail(&req->list, &ctx->active_req_list);
 		ctx_isp->active_req_cnt++;
-		CDBG("%s: move request %lld to active list(cnt = %d)\n",
-			__func__, req->request_id, ctx_isp->active_req_cnt);
+		CAM_DBG(CAM_ISP, "move request %lld to active list(cnt = %d)",
+			 req->request_id, ctx_isp->active_req_cnt);
 		req_isp->bubble_report = 0;
 	}
 
@@ -497,7 +501,7 @@ static int __cam_isp_ctx_epoch_in_bubble_applied(
 		CAM_REQ_MGR_SOF_EVENT_ERROR);
 
 	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_BUBBLE;
-	CDBG("%s: next substate %d\n", __func__, ctx_isp->substate_activated);
+	CAM_DBG(CAM_ISP, "next substate %d", ctx_isp->substate_activated);
 end:
 	return 0;
 }
@@ -526,7 +530,7 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 
 	uint32_t error_type = error_event_data->error_type;
 
-	CDBG("%s: Enter error_type = %d\n", __func__, error_type);
+	CAM_DBG(CAM_ISP, "Enter error_type = %d", error_type);
 	if ((error_type == CAM_ISP_HW_ERROR_OVERFLOW) ||
 		(error_type == CAM_ISP_HW_ERROR_BUSIF_OVERFLOW))
 		notify.error = CRM_KMD_ERR_FATAL;
@@ -538,7 +542,7 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 	 */
 
 	if (list_empty(&ctx->active_req_list)) {
-		pr_err("handling error with no active request!\n");
+		CAM_ERR(CAM_ISP, "handling error with no active request");
 		rc = -EINVAL;
 		goto end;
 	}
@@ -552,10 +556,10 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 		notify.req_id = req->request_id;
 
 		ctx->ctx_crm_intf->notify_err(&notify);
-		pr_err("%s: Notify CRM about ERROR frame %lld\n", __func__,
+		CAM_ERR(CAM_ISP, "Notify CRM about ERROR frame %lld",
 			ctx_isp->frame_id);
 	} else {
-		pr_err("%s: Can not notify ERRROR to CRM\n", __func__);
+		CAM_ERR(CAM_ISP, "Can not notify ERRROR to CRM");
 		rc = -EFAULT;
 	}
 
@@ -564,7 +568,7 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 	/* might need to check if active list is empty */
 
 end:
-	CDBG("%s: Exit\n", __func__);
+	CAM_DBG(CAM_ISP, "Exit");
 	return rc;
 }
 
@@ -641,8 +645,8 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 	struct cam_hw_config_args        cfg;
 
 	if (list_empty(&ctx->pending_req_list)) {
-		pr_err("%s: No available request for Apply id %lld\n",
-			__func__, apply->request_id);
+		CAM_ERR(CAM_ISP, "No available request for Apply id %lld",
+			apply->request_id);
 		rc = -EFAULT;
 		goto end;
 	}
@@ -655,8 +659,9 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 	 */
 	ctx_isp = (struct cam_isp_context *) ctx->ctx_priv;
 	if (ctx_isp->active_req_cnt >=  2) {
-		CDBG("%s: Reject apply request due to congestion(cnt = %d)\n",
-				__func__, ctx_isp->active_req_cnt);
+		CAM_DBG(CAM_ISP,
+			"Reject apply request due to congestion(cnt = %d)",
+			ctx_isp->active_req_cnt);
 		rc = -EFAULT;
 		goto end;
 	}
@@ -673,7 +678,7 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 		goto end;
 	}
 
-	CDBG("%s: Apply request %lld\n", __func__, req->request_id);
+	CAM_DBG(CAM_ISP, "Apply request %lld", req->request_id);
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
 
 	req_isp->bubble_report = apply->report_if_bubble;
@@ -684,11 +689,11 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 
 	rc = ctx->hw_mgr_intf->hw_config(ctx->hw_mgr_intf->hw_mgr_priv, &cfg);
 	if (rc) {
-		pr_err("%s: Can not apply the configuration\n", __func__);
+		CAM_ERR(CAM_ISP, "Can not apply the configuration");
 	} else {
 		spin_lock_bh(&ctx->lock);
 		ctx_isp->substate_activated = next_state;
-		CDBG("%s: new state %d\n", __func__, next_state);
+		CAM_DBG(CAM_ISP, "new state %d", next_state);
 		spin_unlock_bh(&ctx->lock);
 	}
 end:
@@ -702,11 +707,11 @@ static int __cam_isp_ctx_apply_req_in_sof(
 	struct cam_isp_context *ctx_isp =
 		(struct cam_isp_context *) ctx->ctx_priv;
 
-	CDBG("%s: current substate %d\n", __func__,
+	CAM_DBG(CAM_ISP, "current substate %d",
 		ctx_isp->substate_activated);
 	rc = __cam_isp_ctx_apply_req_in_activated_state(ctx, apply,
 		CAM_ISP_CTX_ACTIVATED_APPLIED);
-	CDBG("%s: new substate %d\n", __func__, ctx_isp->substate_activated);
+	CAM_DBG(CAM_ISP, "new substate %d", ctx_isp->substate_activated);
 
 	return rc;
 }
@@ -718,11 +723,11 @@ static int __cam_isp_ctx_apply_req_in_epoch(
 	struct cam_isp_context *ctx_isp =
 		(struct cam_isp_context *) ctx->ctx_priv;
 
-	CDBG("%s: current substate %d\n", __func__,
+	CAM_DBG(CAM_ISP, "current substate %d",
 		ctx_isp->substate_activated);
 	rc = __cam_isp_ctx_apply_req_in_activated_state(ctx, apply,
 		CAM_ISP_CTX_ACTIVATED_APPLIED);
-	CDBG("%s: new substate %d\n", __func__, ctx_isp->substate_activated);
+	CAM_DBG(CAM_ISP, "new substate %d", ctx_isp->substate_activated);
 
 	return rc;
 }
@@ -734,11 +739,11 @@ static int __cam_isp_ctx_apply_req_in_bubble(
 	struct cam_isp_context *ctx_isp =
 		(struct cam_isp_context *) ctx->ctx_priv;
 
-	CDBG("%s: current substate %d\n", __func__,
+	CAM_DBG(CAM_ISP, "current substate %d",
 		ctx_isp->substate_activated);
 	rc = __cam_isp_ctx_apply_req_in_activated_state(ctx, apply,
 		CAM_ISP_CTX_ACTIVATED_BUBBLE_APPLIED);
-	CDBG("%s: new substate %d\n", __func__, ctx_isp->substate_activated);
+	CAM_DBG(CAM_ISP, "new substate %d", ctx_isp->substate_activated);
 
 	return rc;
 }
@@ -755,7 +760,7 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 	spin_lock(&ctx->lock);
 	if (list_empty(req_list)) {
 		spin_unlock(&ctx->lock);
-		CDBG("%s: request list is empty\n", __func__);
+		CAM_DBG(CAM_ISP, "request list is empty");
 		return 0;
 	}
 
@@ -768,15 +773,15 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
 		for (i = 0; i < req_isp->num_fence_map_out; i++) {
 			if (req_isp->fence_map_out[i].sync_id != -1) {
-				CDBG("%s: Flush req 0x%llx, fence %d\n",
-					__func__, req->request_id,
+				CAM_DBG(CAM_ISP, "Flush req 0x%llx, fence %d",
+					 req->request_id,
 					req_isp->fence_map_out[i].sync_id);
 				rc = cam_sync_signal(
 					req_isp->fence_map_out[i].sync_id,
 					CAM_SYNC_STATE_SIGNALED_ERROR);
 				if (rc)
-					pr_err_ratelimited("%s: signal fence failed\n",
-						__func__);
+					CAM_ERR_RATE_LIMIT(CAM_ISP,
+						"signal fence failed\n");
 				req_isp->fence_map_out[i].sync_id = -1;
 			}
 		}
@@ -792,8 +797,9 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 
 	if (flush_req->type == CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ &&
 		!cancel_req_id_found)
-		CDBG("%s:Flush request id:%lld is not found in the list\n",
-			__func__, flush_req->req_id);
+		CAM_DBG(CAM_ISP,
+			"Flush request id:%lld is not found in the list",
+			flush_req->req_id);
 
 	return 0;
 }
@@ -804,10 +810,10 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 {
 	int rc = 0;
 
-	CDBG("%s: try to flush pending list\n", __func__);
+	CAM_DBG(CAM_ISP, "try to flush pending list");
 	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, flush_req);
-	CDBG("%s: Flush request in top state %d\n",
-		__func__, ctx->state);
+	CAM_DBG(CAM_ISP, "Flush request in top state %d",
+		 ctx->state);
 	return rc;
 }
 
@@ -817,7 +823,7 @@ static int __cam_isp_ctx_flush_req_in_ready(
 {
 	int rc = 0;
 
-	CDBG("%s: try to flush pending list\n", __func__);
+	CAM_DBG(CAM_ISP, "try to flush pending list");
 	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, flush_req);
 
 	/* if nothing is in pending req list, change state to acquire*/
@@ -828,8 +834,8 @@ static int __cam_isp_ctx_flush_req_in_ready(
 
 	trace_cam_context_state("ISP", ctx);
 
-	CDBG("%s: Flush request in ready state. next state %d\n",
-		__func__, ctx->state);
+	CAM_DBG(CAM_ISP, "Flush request in ready state. next state %d",
+		 ctx->state);
 	return rc;
 }
 
@@ -889,13 +895,13 @@ static int __cam_isp_ctx_rdi_only_sof_in_top_state(
 	uint64_t                               request_id  = 0;
 
 	if (!evt_data) {
-		pr_err("%s: in valid sof event data\n", __func__);
+		CAM_ERR(CAM_ISP, "in valid sof event data");
 		return -EINVAL;
 	}
 
 	ctx_isp->frame_id++;
 	ctx_isp->sof_timestamp_val = sof_event_data->timestamp;
-	CDBG("%s: frame id: %lld time stamp:0x%llx\n", __func__,
+	CAM_DBG(CAM_ISP, "frame id: %lld time stamp:0x%llx",
 		ctx_isp->frame_id, ctx_isp->sof_timestamp_val);
 
 	/*
@@ -912,7 +918,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_top_state(
 		notify.frame_id = ctx_isp->frame_id;
 
 		ctx->ctx_crm_intf->notify_sof(&notify);
-		CDBG("%s: Notify CRM  SOF frame %lld\n", __func__,
+		CAM_DBG(CAM_ISP, "Notify CRM  SOF frame %lld",
 			ctx_isp->frame_id);
 
 		/*
@@ -922,15 +928,15 @@ static int __cam_isp_ctx_rdi_only_sof_in_top_state(
 		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
 			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 	} else {
-		pr_err("%s: Can not notify SOF to CRM\n", __func__);
+		CAM_ERR(CAM_ISP, "Can not notify SOF to CRM");
 	}
 
 	if (list_empty(&ctx->active_req_list))
 		ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
 	else
-		CDBG("%s: Still need to wait for the buf done\n", __func__);
+		CAM_DBG(CAM_ISP, "Still need to wait for the buf done");
 
-	CDBG("%s: next substate %d\n", __func__,
+	CAM_DBG(CAM_ISP, "next substate %d",
 		ctx_isp->substate_activated);
 	return rc;
 }
@@ -941,17 +947,17 @@ static int __cam_isp_ctx_rdi_only_sof_in_applied_state(
 	struct cam_isp_hw_sof_event_data      *sof_event_data = evt_data;
 
 	if (!evt_data) {
-		pr_err("%s: in valid sof event data\n", __func__);
+		CAM_ERR(CAM_ISP, "in valid sof event data");
 		return -EINVAL;
 	}
 
 	ctx_isp->frame_id++;
 	ctx_isp->sof_timestamp_val = sof_event_data->timestamp;
-	CDBG("%s: frame id: %lld time stamp:0x%llx\n", __func__,
+	CAM_DBG(CAM_ISP, "frame id: %lld time stamp:0x%llx",
 		ctx_isp->frame_id, ctx_isp->sof_timestamp_val);
 
 	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_BUBBLE_APPLIED;
-	CDBG("%s: next substate %d\n", __func__, ctx_isp->substate_activated);
+	CAM_DBG(CAM_ISP, "next substate %d", ctx_isp->substate_activated);
 
 	return 0;
 }
@@ -967,7 +973,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_applied(
 
 	ctx_isp->frame_id++;
 	ctx_isp->sof_timestamp_val = sof_event_data->timestamp;
-	CDBG("%s: frame id: %lld time stamp:0x%llx\n", __func__,
+	CAM_DBG(CAM_ISP, "frame id: %lld time stamp:0x%llx",
 		ctx_isp->frame_id, ctx_isp->sof_timestamp_val);
 
 	if (list_empty(&ctx->pending_req_list)) {
@@ -975,7 +981,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_applied(
 		 * If no pending req in epoch, this is an error case.
 		 * The recovery is to go back to sof state
 		 */
-		pr_err("%s: No pending request\n", __func__);
+		CAM_ERR(CAM_ISP, "No pending request");
 		ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
 
 		/* Send SOF event as empty frame*/
@@ -989,7 +995,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_applied(
 		list);
 	req_isp = (struct cam_isp_ctx_req *)req->req_priv;
 
-	CDBG("Report Bubble flag %d\n", req_isp->bubble_report);
+	CAM_DBG(CAM_ISP, "Report Bubble flag %d", req_isp->bubble_report);
 	if (req_isp->bubble_report && ctx->ctx_crm_intf &&
 		ctx->ctx_crm_intf->notify_err) {
 		struct cam_req_mgr_error_notify notify;
@@ -999,7 +1005,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_applied(
 		notify.req_id = req->request_id;
 		notify.error = CRM_KMD_ERR_BUBBLE;
 		ctx->ctx_crm_intf->notify_err(&notify);
-		CDBG("%s: Notify CRM about Bubble frame %lld\n", __func__,
+		CAM_DBG(CAM_ISP, "Notify CRM about Bubble frame %lld",
 			ctx_isp->frame_id);
 	} else {
 		/*
@@ -1009,8 +1015,8 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_applied(
 		list_del_init(&req->list);
 		list_add_tail(&req->list, &ctx->active_req_list);
 		ctx_isp->active_req_cnt++;
-		CDBG("%s: move request %lld to active list(cnt = %d)\n",
-			__func__, req->request_id, ctx_isp->active_req_cnt);
+		CAM_DBG(CAM_ISP, "move request %lld to active list(cnt = %d)",
+			req->request_id, ctx_isp->active_req_cnt);
 		req_isp->bubble_report = 0;
 	}
 
@@ -1020,7 +1026,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_applied(
 
 	/* change the state to bubble, as reg update has not come */
 	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_BUBBLE;
-	CDBG("%s: next substate %d\n", __func__, ctx_isp->substate_activated);
+	CAM_DBG(CAM_ISP, "next substate %d", ctx_isp->substate_activated);
 end:
 	return 0;
 }
@@ -1037,13 +1043,13 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_state(
 	uint64_t                               request_id  = 0;
 
 	if (!evt_data) {
-		pr_err("%s: in valid sof event data\n", __func__);
+		CAM_ERR(CAM_ISP, "in valid sof event data");
 		return -EINVAL;
 	}
 
 	ctx_isp->frame_id++;
 	ctx_isp->sof_timestamp_val = sof_event_data->timestamp;
-	CDBG("%s: frame id: %lld time stamp:0x%llx\n", __func__,
+	CAM_DBG(CAM_ISP, "frame id: %lld time stamp:0x%llx",
 		ctx_isp->frame_id, ctx_isp->sof_timestamp_val);
 	/*
 	 * Signal all active requests with error and move the  all the active
@@ -1054,8 +1060,8 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_state(
 				struct cam_ctx_request, list);
 		list_del_init(&req->list);
 		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
-		CDBG("%s: signal fence in active list. fence num %d\n",
-			__func__, req_isp->num_fence_map_out);
+		CAM_DBG(CAM_ISP, "signal fence in active list. fence num %d",
+			req_isp->num_fence_map_out);
 		for (i = 0; i < req_isp->num_fence_map_out; i++)
 			if (req_isp->fence_map_out[i].sync_id != -1) {
 				cam_sync_signal(
@@ -1072,11 +1078,11 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_state(
 		notify.frame_id = ctx_isp->frame_id;
 
 		ctx->ctx_crm_intf->notify_sof(&notify);
-		CDBG("%s: Notify CRM  SOF frame %lld\n", __func__,
+		CAM_DBG(CAM_ISP, "Notify CRM  SOF frame %lld",
 			ctx_isp->frame_id);
 
 	} else {
-		pr_err("%s: Can not notify SOF to CRM\n", __func__);
+		CAM_ERR(CAM_ISP, "Can not notify SOF to CRM");
 	}
 
 	/*
@@ -1088,7 +1094,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_state(
 
 	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
 
-	CDBG("%s: next substate %d\n", __func__,
+	CAM_DBG(CAM_ISP, "next substate %d",
 		ctx_isp->substate_activated);
 
 	return 0;
@@ -1106,7 +1112,7 @@ static int __cam_isp_ctx_rdi_only_reg_upd_in_bubble_applied_state(
 	/* notify reqmgr with sof signal*/
 	if (ctx->ctx_crm_intf && ctx->ctx_crm_intf->notify_sof) {
 		if (list_empty(&ctx->pending_req_list)) {
-			pr_err("Reg upd ack with no pending request\n");
+			CAM_ERR(CAM_ISP, "Reg upd ack with no pending request");
 			goto error;
 		}
 		req = list_first_entry(&ctx->pending_req_list,
@@ -1118,15 +1124,15 @@ static int __cam_isp_ctx_rdi_only_reg_upd_in_bubble_applied_state(
 		if (req_isp->num_fence_map_out != 0) {
 			list_add_tail(&req->list, &ctx->active_req_list);
 			ctx_isp->active_req_cnt++;
-			CDBG("%s: move request %lld to active list(cnt = %d)\n",
-				__func__, req->request_id,
-				ctx_isp->active_req_cnt);
+			CAM_DBG(CAM_ISP,
+				"move request %lld to active list(cnt = %d)",
+				req->request_id, ctx_isp->active_req_cnt);
 		} else {
 			/* no io config, so the request is completed. */
 			list_add_tail(&req->list, &ctx->free_req_list);
-			CDBG("%s:move active req %lld to free list(cnt=%d)\n",
-				__func__, req->request_id,
-				ctx_isp->active_req_cnt);
+			CAM_DBG(CAM_ISP,
+				"move active req %lld to free list(cnt=%d)",
+				req->request_id, ctx_isp->active_req_cnt);
 		}
 
 		notify.link_hdl = ctx->link_hdl;
@@ -1134,16 +1140,16 @@ static int __cam_isp_ctx_rdi_only_reg_upd_in_bubble_applied_state(
 		notify.frame_id = ctx_isp->frame_id;
 
 		ctx->ctx_crm_intf->notify_sof(&notify);
-		CDBG("%s: Notify CRM  SOF frame %lld\n", __func__,
+		CAM_DBG(CAM_ISP, "Notify CRM  SOF frame %lld",
 			ctx_isp->frame_id);
 	} else {
-		pr_err("%s: Can not notify SOF to CRM\n", __func__);
+		CAM_ERR(CAM_ISP, "Can not notify SOF to CRM");
 	}
 	__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
 		CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 
 	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_EPOCH;
-	CDBG("%s: next substate %d\n", __func__, ctx_isp->substate_activated);
+	CAM_DBG(CAM_ISP, "next substate %d", ctx_isp->substate_activated);
 
 	return 0;
 error:
@@ -1231,11 +1237,11 @@ static int __cam_isp_ctx_rdi_only_apply_req_top_state(
 	struct cam_isp_context *ctx_isp =
 		(struct cam_isp_context *) ctx->ctx_priv;
 
-	CDBG("%s: current substate %d\n", __func__,
+	CAM_DBG(CAM_ISP, "current substate %d",
 		ctx_isp->substate_activated);
 	rc = __cam_isp_ctx_apply_req_in_activated_state(ctx, apply,
 		CAM_ISP_CTX_ACTIVATED_APPLIED);
-	CDBG("%s: new substate %d\n", __func__, ctx_isp->substate_activated);
+	CAM_DBG(CAM_ISP, "new substate %d", ctx_isp->substate_activated);
 
 	return rc;
 }
@@ -1316,20 +1322,20 @@ static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
 	 * But we still add some sanity check code here to help the debug
 	 */
 	if (!list_empty(&ctx->active_req_list))
-		pr_err("%s: Active list is not empty\n", __func__);
+		CAM_ERR(CAM_ISP, "Active list is not empty");
 
 	/* Flush all the pending request list  */
 	flush_req.type = CAM_REQ_MGR_FLUSH_TYPE_ALL;
 	flush_req.link_hdl = ctx->link_hdl;
 	flush_req.dev_hdl = ctx->dev_hdl;
 
-	CDBG("%s: try to flush pending list\n", __func__);
+	CAM_DBG(CAM_ISP, "try to flush pending list");
 	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, &flush_req);
 
 	ctx->state = CAM_CTX_AVAILABLE;
 
 	trace_cam_context_state("ISP", ctx);
-	CDBG("%s: next state %d\n", __func__, ctx->state);
+	CAM_DBG(CAM_ISP, "next state %d", ctx->state);
 	return rc;
 }
 
@@ -1347,7 +1353,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	struct cam_isp_context           *ctx_isp =
 		(struct cam_isp_context *) ctx->ctx_priv;
 
-	CDBG("%s: get free request object......\n", __func__);
+	CAM_DBG(CAM_ISP, "get free request object......");
 
 	/* get free request */
 	spin_lock_bh(&ctx->lock);
@@ -1359,7 +1365,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	spin_unlock_bh(&ctx->lock);
 
 	if (!req) {
-		pr_err("%s: No more request obj free\n", __func__);
+		CAM_ERR(CAM_ISP, "No more request obj free");
 		rc = -ENOMEM;
 		goto end;
 	}
@@ -1371,20 +1377,20 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	rc = cam_mem_get_cpu_buf((int32_t) cmd->packet_handle,
 		(uint64_t *) &packet_addr, &len);
 	if (rc != 0) {
-		pr_err("%s: Can not get packet address\n", __func__);
+		CAM_ERR(CAM_ISP, "Can not get packet address");
 		rc = -EINVAL;
 		goto free_req;
 	}
 
 	packet = (struct cam_packet *) (packet_addr + cmd->offset);
-	CDBG("%s: pack_handle %llx\n", __func__, cmd->packet_handle);
-	CDBG("%s: packet address is 0x%llx\n", __func__, packet_addr);
-	CDBG("%s: packet with length %zu, offset 0x%llx\n", __func__,
+	CAM_DBG(CAM_ISP, "pack_handle %llx", cmd->packet_handle);
+	CAM_DBG(CAM_ISP, "packet address is 0x%llx", packet_addr);
+	CAM_DBG(CAM_ISP, "packet with length %zu, offset 0x%llx",
 		len, cmd->offset);
-	CDBG("%s: Packet request id %lld\n", __func__,
+	CAM_DBG(CAM_ISP, "Packet request id %lld",
 		packet->header.request_id);
-	CDBG("%s: Packet size 0x%x\n", __func__, packet->header.size);
-	CDBG("%s: packet op %d\n", __func__, packet->header.op_code);
+	CAM_DBG(CAM_ISP, "Packet size 0x%x", packet->header.size);
+	CAM_DBG(CAM_ISP, "packet op %d", packet->header.op_code);
 
 	/* preprocess the configuration */
 	memset(&cfg, 0, sizeof(cfg));
@@ -1397,13 +1403,12 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	cfg.out_map_entries = req_isp->fence_map_out;
 	cfg.in_map_entries = req_isp->fence_map_in;
 
-	CDBG("%s: try to prepare config packet......\n", __func__);
+	CAM_DBG(CAM_ISP, "try to prepare config packet......");
 
 	rc = ctx->hw_mgr_intf->hw_prepare_update(
 		ctx->hw_mgr_intf->hw_mgr_priv, &cfg);
 	if (rc != 0) {
-		pr_err("%s: Prepare config packet failed in HW layer\n",
-			__func__);
+		CAM_ERR(CAM_ISP, "Prepare config packet failed in HW layer");
 		rc = -EFAULT;
 		goto free_req;
 	}
@@ -1412,8 +1417,8 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	req_isp->num_fence_map_in = cfg.num_in_map_entries;
 	req_isp->num_acked = 0;
 
-	CDBG("%s: num_entry: %d, num fence out: %d, num fence in: %d\n",
-		__func__, req_isp->num_cfg, req_isp->num_fence_map_out,
+	CAM_DBG(CAM_ISP, "num_entry: %d, num fence out: %d, num fence in: %d",
+		 req_isp->num_cfg, req_isp->num_fence_map_out,
 		req_isp->num_fence_map_in);
 
 	req->request_id = packet->header.request_id;
@@ -1425,20 +1430,20 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 		add_req.req_id   = req->request_id;
 		rc = ctx->ctx_crm_intf->add_req(&add_req);
 		if (rc) {
-			pr_err("%s: Error: Adding request id=%llu\n", __func__,
+			CAM_ERR(CAM_ISP, "Error: Adding request id=%llu",
 				req->request_id);
 				goto free_req;
 		}
 	}
 
-	CDBG("%s: Packet request id 0x%llx\n", __func__,
+	CAM_DBG(CAM_ISP, "Packet request id 0x%llx",
 		packet->header.request_id);
 
 	spin_lock_bh(&ctx->lock);
 	list_add_tail(&req->list, &ctx->pending_req_list);
 	spin_unlock_bh(&ctx->lock);
 
-	CDBG("%s: Preprocessing Config %lld successful\n", __func__,
+	CAM_DBG(CAM_ISP, "Preprocessing Config %lld successful",
 		req->request_id);
 
 	return rc;
@@ -1464,24 +1469,25 @@ static int __cam_isp_ctx_acquire_dev_in_available(struct cam_context *ctx,
 	struct cam_isp_hw_cmd_args       hw_cmd_args;
 
 	if (!ctx->hw_mgr_intf) {
-		pr_err("HW interface is not ready!\n");
+		CAM_ERR(CAM_ISP, "HW interface is not ready");
 		rc = -EFAULT;
 		goto end;
 	}
 
-	CDBG("%s: session_hdl 0x%x, num_resources %d, hdl type %d, res %lld\n",
-		 __func__, cmd->session_handle, cmd->num_resources,
+	CAM_DBG(CAM_ISP,
+		"session_hdl 0x%x, num_resources %d, hdl type %d, res %lld",
+		cmd->session_handle, cmd->num_resources,
 		cmd->handle_type, cmd->resource_hdl);
 
 	if (cmd->num_resources > CAM_ISP_CTX_RES_MAX) {
-		pr_err("Too much resources in the acquire!\n");
+		CAM_ERR(CAM_ISP, "Too much resources in the acquire");
 		rc = -ENOMEM;
 		goto end;
 	}
 
 	/* for now we only support user pointer */
 	if (cmd->handle_type != 1)  {
-		pr_err("%s: Only user pointer is supported!", __func__);
+		CAM_ERR(CAM_ISP, "Only user pointer is supported");
 		rc = -EINVAL;
 		goto end;
 	}
@@ -1493,8 +1499,8 @@ static int __cam_isp_ctx_acquire_dev_in_available(struct cam_context *ctx,
 		goto end;
 	}
 
-	CDBG("%s: start copy %d resources from user\n",
-		__func__, cmd->num_resources);
+	CAM_DBG(CAM_ISP, "start copy %d resources from user",
+		 cmd->num_resources);
 
 	if (copy_from_user(isp_res, (void __user *)cmd->resource_hdl,
 		sizeof(*isp_res)*cmd->num_resources)) {
@@ -1511,7 +1517,7 @@ static int __cam_isp_ctx_acquire_dev_in_available(struct cam_context *ctx,
 	rc = ctx->hw_mgr_intf->hw_acquire(ctx->hw_mgr_intf->hw_mgr_priv,
 		&param);
 	if (rc != 0) {
-		pr_err("Acquire device failed\n");
+		CAM_ERR(CAM_ISP, "Acquire device failed");
 		goto free_res;
 	}
 
@@ -1521,7 +1527,7 @@ static int __cam_isp_ctx_acquire_dev_in_available(struct cam_context *ctx,
 	rc = ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
 				&hw_cmd_args);
 	if (rc) {
-		pr_err("HW command failed\n");
+		CAM_ERR(CAM_ISP, "HW command failed");
 		goto free_hw;
 	}
 
@@ -1530,15 +1536,14 @@ static int __cam_isp_ctx_acquire_dev_in_available(struct cam_context *ctx,
 		 * this context has rdi only resource assign rdi only
 		 * state machine
 		 */
-		CDBG("%s: RDI only session Context\n", __func__);
+		CAM_DBG(CAM_ISP, "RDI only session Context");
 
 		ctx_isp->substate_machine_irq =
 			cam_isp_ctx_rdi_only_activated_state_machine_irq;
 		ctx_isp->substate_machine =
 			cam_isp_ctx_rdi_only_activated_state_machine;
 	} else {
-		CDBG("%s: Session has PIX or PIX and RDI resources\n",
-			__func__);
+		CAM_DBG(CAM_ISP, "Session has PIX or PIX and RDI resources");
 		ctx_isp->substate_machine_irq =
 			cam_isp_ctx_activated_state_machine_irq;
 		ctx_isp->substate_machine =
@@ -1554,11 +1559,11 @@ static int __cam_isp_ctx_acquire_dev_in_available(struct cam_context *ctx,
 	req_hdl_param.ops = ctx->crm_ctx_intf;
 	req_hdl_param.priv = ctx;
 
-	CDBG("%s: get device handle form bridge\n", __func__);
+	CAM_DBG(CAM_ISP, "get device handle form bridge");
 	ctx->dev_hdl = cam_create_device_hdl(&req_hdl_param);
 	if (ctx->dev_hdl <= 0) {
 		rc = -EFAULT;
-		pr_err("Can not create device handle\n");
+		CAM_ERR(CAM_ISP, "Can not create device handle");
 		goto free_hw;
 	}
 	cmd->dev_handle = ctx->dev_hdl;
@@ -1569,7 +1574,7 @@ static int __cam_isp_ctx_acquire_dev_in_available(struct cam_context *ctx,
 	ctx->state = CAM_CTX_ACQUIRED;
 
 	trace_cam_context_state("ISP", ctx);
-	CDBG("%s:%d: Acquire success.\n", __func__, __LINE__);
+	CAM_DBG(CAM_ISP, "Acquire success.");
 	kfree(isp_res);
 	return rc;
 
@@ -1595,7 +1600,7 @@ static int __cam_isp_ctx_config_dev_in_acquired(struct cam_context *ctx,
 		trace_cam_context_state("ISP", ctx);
 	}
 
-	CDBG("%s: next state %d\n", __func__, ctx->state);
+	CAM_DBG(CAM_ISP, "next state %d", ctx->state);
 	return rc;
 }
 
@@ -1604,7 +1609,7 @@ static int __cam_isp_ctx_link_in_acquired(struct cam_context *ctx,
 {
 	int rc = 0;
 
-	CDBG("%s:%d: Enter.........\n", __func__, __LINE__);
+	CAM_DBG(CAM_ISP, "Enter.........");
 
 	ctx->link_hdl = link->link_hdl;
 	ctx->ctx_crm_intf = link->crm_cb;
@@ -1615,7 +1620,7 @@ static int __cam_isp_ctx_link_in_acquired(struct cam_context *ctx,
 		trace_cam_context_state("ISP", ctx);
 	}
 
-	CDBG("%s: next state %d\n", __func__, ctx->state);
+	CAM_DBG(CAM_ISP, "next state %d", ctx->state);
 
 	return rc;
 }
@@ -1662,8 +1667,7 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 
 	if (list_empty(&ctx->pending_req_list)) {
 		/* should never happen */
-		pr_err("%s: Start device with empty configuration\n",
-			__func__);
+		CAM_ERR(CAM_ISP, "Start device with empty configuration");
 		rc = -EFAULT;
 		goto end;
 	} else {
@@ -1673,8 +1677,7 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
 
 	if (!ctx_isp->hw_ctx) {
-		pr_err("%s:%d: Wrong hw context pointer.\n",
-			__func__, __LINE__);
+		CAM_ERR(CAM_ISP, "Wrong hw context pointer.");
 		rc = -EFAULT;
 		goto end;
 	}
@@ -1697,12 +1700,12 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	rc = ctx->hw_mgr_intf->hw_start(ctx->hw_mgr_intf->hw_mgr_priv, &arg);
 	if (rc) {
 		/* HW failure. user need to clean up the resource */
-		pr_err("Start HW failed\n");
+		CAM_ERR(CAM_ISP, "Start HW failed");
 		ctx->state = CAM_CTX_READY;
 		trace_cam_context_state("ISP", ctx);
 		goto end;
 	}
-	CDBG("%s: start device success\n", __func__);
+	CAM_DBG(CAM_ISP, "start device success");
 end:
 	return rc;
 }
@@ -1735,7 +1738,7 @@ static int __cam_isp_ctx_stop_dev_in_activated_unlock(
 	spin_lock_bh(&ctx->lock);
 	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_HALT;
 	spin_unlock_bh(&ctx->lock);
-	CDBG("%s: next substate %d", __func__, ctx_isp->substate_activated);
+	CAM_DBG(CAM_ISP, "next substate %d", ctx_isp->substate_activated);
 
 	/* stop hw first */
 	if (ctx_isp->hw_ctx) {
@@ -1749,8 +1752,8 @@ static int __cam_isp_ctx_stop_dev_in_activated_unlock(
 				struct cam_ctx_request, list);
 		list_del_init(&req->list);
 		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
-		CDBG("%s: signal fence in pending list. fence num %d\n",
-			__func__, req_isp->num_fence_map_out);
+		CAM_DBG(CAM_ISP, "signal fence in pending list. fence num %d",
+			 req_isp->num_fence_map_out);
 		for (i = 0; i < req_isp->num_fence_map_out; i++)
 			if (req_isp->fence_map_out[i].sync_id != -1) {
 				cam_sync_signal(
@@ -1765,8 +1768,8 @@ static int __cam_isp_ctx_stop_dev_in_activated_unlock(
 				struct cam_ctx_request, list);
 		list_del_init(&req->list);
 		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
-		CDBG("%s: signal fence in active list. fence num %d\n",
-			__func__, req_isp->num_fence_map_out);
+		CAM_DBG(CAM_ISP, "signal fence in active list. fence num %d",
+			 req_isp->num_fence_map_out);
 		for (i = 0; i < req_isp->num_fence_map_out; i++)
 			if (req_isp->fence_map_out[i].sync_id != -1) {
 				cam_sync_signal(
@@ -1779,7 +1782,7 @@ static int __cam_isp_ctx_stop_dev_in_activated_unlock(
 	ctx_isp->active_req_cnt = 0;
 	ctx_isp->reported_req_id = 0;
 
-	CDBG("%s: next state %d", __func__, ctx->state);
+	CAM_DBG(CAM_ISP, "next state %d", ctx->state);
 	return rc;
 }
 
@@ -1831,21 +1834,21 @@ static int __cam_isp_ctx_apply_req(struct cam_context *ctx,
 		(struct cam_isp_context *) ctx->ctx_priv;
 
 	trace_cam_apply_req("ISP", apply);
-	CDBG("%s: Enter: apply req in Substate %d request _id:%lld\n",
-		__func__, ctx_isp->substate_activated, apply->request_id);
+	CAM_DBG(CAM_ISP, "Enter: apply req in Substate %d request _id:%lld",
+		 ctx_isp->substate_activated, apply->request_id);
 	if (ctx_isp->substate_machine[ctx_isp->substate_activated].
 		crm_ops.apply_req) {
 		rc = ctx_isp->substate_machine[ctx_isp->substate_activated].
 			crm_ops.apply_req(ctx, apply);
 	} else {
-		pr_err("%s: No handle function in activated substate %d\n",
-			__func__, ctx_isp->substate_activated);
+		CAM_ERR(CAM_ISP, "No handle function in activated substate %d",
+			 ctx_isp->substate_activated);
 		rc = -EFAULT;
 	}
 
 	if (rc)
-		pr_err("%s: Apply failed in active substate %d\n",
-			__func__, ctx_isp->substate_activated);
+		CAM_ERR(CAM_ISP, "Apply failed in active substate %d",
+			 ctx_isp->substate_activated);
 	return rc;
 }
 
@@ -1864,18 +1867,18 @@ static int __cam_isp_ctx_handle_irq_in_activated(void *context,
 	trace_cam_isp_activated_irq(ctx, ctx_isp->substate_activated, evt_id,
 		__cam_isp_ctx_get_event_ts(evt_id, evt_data));
 
-	CDBG("%s: Enter: State %d, Substate %d, evt id %d\n",
-		__func__, ctx->state, ctx_isp->substate_activated, evt_id);
+	CAM_DBG(CAM_ISP, "Enter: State %d, Substate %d, evt id %d",
+		 ctx->state, ctx_isp->substate_activated, evt_id);
 	if (ctx_isp->substate_machine_irq[ctx_isp->substate_activated].
 		irq_ops[evt_id]) {
 		rc = ctx_isp->substate_machine_irq[ctx_isp->substate_activated].
 			irq_ops[evt_id](ctx_isp, evt_data);
 	} else {
-		CDBG("%s: No handle function for substate %d\n", __func__,
+		CAM_DBG(CAM_ISP, "No handle function for substate %d",
 			ctx_isp->substate_activated);
 	}
-	CDBG("%s: Exit: State %d Substate %d\n",
-		__func__, ctx->state, ctx_isp->substate_activated);
+	CAM_DBG(CAM_ISP, "Exit: State %d Substate %d",
+		 ctx->state, ctx_isp->substate_activated);
 	spin_unlock_bh(&ctx->lock);
 	return rc;
 }
@@ -1950,7 +1953,7 @@ int cam_isp_context_init(struct cam_isp_context *ctx,
 	int i;
 
 	if (!ctx || !ctx_base) {
-		pr_err("%s: Invalid Context\n", __func__);
+		CAM_ERR(CAM_ISP, "Invalid Context");
 		goto err;
 	}
 
@@ -1975,7 +1978,7 @@ int cam_isp_context_init(struct cam_isp_context *ctx,
 	rc = cam_context_init(ctx_base, crm_node_intf, hw_intf, ctx->req_base,
 		CAM_CTX_REQ_MAX);
 	if (rc) {
-		pr_err("%s: Camera Context Base init failed\n", __func__);
+		CAM_ERR(CAM_ISP, "Camera Context Base init failed");
 		goto err;
 	}
 
@@ -1995,7 +1998,7 @@ int cam_isp_context_deinit(struct cam_isp_context *ctx)
 		cam_context_deinit(ctx->base);
 
 	if (ctx->substate_activated != CAM_ISP_CTX_ACTIVATED_SOF)
-		pr_err("%s: ISP context substate is invalid\n", __func__);
+		CAM_ERR(CAM_ISP, "ISP context substate is invalid");
 
 	memset(ctx, 0, sizeof(*ctx));
 	return rc;

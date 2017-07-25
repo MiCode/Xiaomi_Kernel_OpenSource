@@ -10,16 +10,12 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "%s:%d " fmt, __func__, __LINE__
-
 #include <linux/slab.h>
 #include "cam_vfe_rdi.h"
 #include "cam_isp_hw_mgr_intf.h"
 #include "cam_vfe_hw_intf.h"
 #include "cam_io_util.h"
-
-#undef CDBG
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#include "cam_debug_util.h"
 
 struct cam_vfe_mux_rdi_data {
 	void __iomem                                *mem_base;
@@ -53,12 +49,12 @@ static int cam_vfe_rdi_resource_start(
 	int                            rc = 0;
 
 	if (!rdi_res) {
-		pr_err("Error! Invalid input arguments\n");
+		CAM_ERR(CAM_ISP, "Error! Invalid input arguments");
 		return -EINVAL;
 	}
 
 	if (rdi_res->res_state != CAM_ISP_RESOURCE_STATE_RESERVED) {
-		pr_err("Error! Invalid rdi res res_state:%d\n",
+		CAM_ERR(CAM_ISP, "Error! Invalid rdi res res_state:%d",
 			rdi_res->res_state);
 		return -EINVAL;
 	}
@@ -69,7 +65,7 @@ static int cam_vfe_rdi_resource_start(
 	/* Reg Update */
 	cam_io_w_mb(0x2, rsrc_data->mem_base + 0x4AC);
 
-	CDBG("Exit\n");
+	CAM_DBG(CAM_ISP, "Exit");
 
 	return rc;
 }
@@ -82,7 +78,7 @@ static int cam_vfe_rdi_resource_stop(
 	int rc = 0;
 
 	if (!rdi_res) {
-		pr_err("Error! Invalid input arguments\n");
+		CAM_ERR(CAM_ISP, "Error! Invalid input arguments");
 		return -EINVAL;
 	}
 
@@ -105,13 +101,14 @@ int cam_vfe_rdi_process_cmd(void *priv,
 	int rc = -EINVAL;
 
 	if (!priv || !cmd_args) {
-		pr_err("Error! Invalid input arguments\n");
+		CAM_ERR(CAM_ISP, "Error! Invalid input arguments");
 		return -EINVAL;
 	}
 
 	switch (cmd_type) {
 	default:
-		pr_err("Error! unsupported RDI process command:%d\n", cmd_type);
+		CAM_ERR(CAM_ISP,
+			"unsupported RDI process command:%d", cmd_type);
 		break;
 	}
 
@@ -141,19 +138,19 @@ static int cam_vfe_rdi_handle_irq_bottom_half(void *handler_priv,
 	payload = evt_payload_priv;
 	irq_status0 = payload->irq_reg_val[CAM_IFE_IRQ_CAMIF_REG_STATUS0];
 
-	CDBG("event ID:%d\n", payload->evt_id);
-	CDBG("irq_status_0 = %x\n", irq_status0);
+	CAM_DBG(CAM_ISP, "event ID:%d", payload->evt_id);
+	CAM_DBG(CAM_ISP, "irq_status_0 = %x", irq_status0);
 
 	switch (payload->evt_id) {
 	case CAM_ISP_HW_EVENT_SOF:
 		if (irq_status0 & rdi_priv->reg_data->sof_irq_mask) {
-			CDBG("Received SOF\n");
+			CAM_DBG(CAM_ISP, "Received SOF");
 			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 		}
 		break;
 	case CAM_ISP_HW_EVENT_REG_UPDATE:
 		if (irq_status0 & rdi_priv->reg_data->reg_update_irq_mask) {
-			CDBG("Received REG UPDATE\n");
+			CAM_DBG(CAM_ISP, "Received REG UPDATE");
 			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 		}
 		cam_vfe_put_evt_payload(payload->core_info, &payload);
@@ -162,7 +159,7 @@ static int cam_vfe_rdi_handle_irq_bottom_half(void *handler_priv,
 		break;
 	}
 
-	CDBG("returing status = %d\n", ret);
+	CAM_DBG(CAM_ISP, "returing status = %d", ret);
 	return ret;
 }
 
@@ -178,7 +175,7 @@ int cam_vfe_rdi_ver2_init(
 	rdi_priv = kzalloc(sizeof(struct cam_vfe_mux_rdi_data),
 			GFP_KERNEL);
 	if (!rdi_priv) {
-		CDBG("Error! Failed to alloc for rdi_priv\n");
+		CAM_DBG(CAM_ISP, "Error! Failed to alloc for rdi_priv");
 		return -ENOMEM;
 	}
 
@@ -203,12 +200,12 @@ int cam_vfe_rdi_ver2_init(
 		if (rdi_info->reg_data[3]) {
 			rdi_priv->reg_data = rdi_info->reg_data[3];
 		} else {
-			pr_err("Error! RDI3 is not supported\n");
+			CAM_ERR(CAM_ISP, "Error! RDI3 is not supported");
 			goto err_init;
 		}
 		break;
 	default:
-		CDBG("Error! invalid Resource id:%d\n", rdi_node->res_id);
+		CAM_DBG(CAM_ISP, "invalid Resource id:%d", rdi_node->res_id);
 		goto err_init;
 	}
 
@@ -236,7 +233,7 @@ int cam_vfe_rdi_ver2_deinit(
 	rdi_node->res_priv = NULL;
 
 	if (!rdi_priv) {
-		pr_err("Error! rdi_priv NULL\n");
+		CAM_ERR(CAM_ISP, "Error! rdi_priv NULL");
 		return -ENODEV;
 	}
 	kfree(rdi_priv);

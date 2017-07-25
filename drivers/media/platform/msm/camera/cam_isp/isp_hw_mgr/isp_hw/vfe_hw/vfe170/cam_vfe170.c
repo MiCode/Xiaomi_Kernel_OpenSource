@@ -16,9 +16,6 @@
 #include "cam_vfe_core.h"
 #include "cam_vfe_dev.h"
 
-#undef CDBG
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
-
 static const struct of_device_id cam_vfe170_dt_match[] = {
 	{
 		.compatible = "qcom,vfe170",

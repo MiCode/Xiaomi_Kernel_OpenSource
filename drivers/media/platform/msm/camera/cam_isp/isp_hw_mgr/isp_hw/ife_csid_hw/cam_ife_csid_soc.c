@@ -12,9 +12,7 @@
 #include <linux/slab.h>
 #include "cam_ife_csid_soc.h"
 #include "cam_cpas_api.h"
-
-#undef CDBG
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#include "cam_debug_util.h"
 
 static int cam_ife_csid_get_dt_properties(struct cam_hw_soc_info *soc_info)
 {
@@ -69,7 +67,8 @@ int cam_ife_csid_init_soc_resources(struct cam_hw_soc_info *soc_info,
 	rc = cam_ife_csid_request_platform_resource(soc_info, csid_irq_handler,
 		irq_data);
 	if (rc < 0) {
-		pr_err("Error Request platform resources failed rc=%d\n", rc);
+		CAM_ERR(CAM_ISP,
+			"Error Request platform resources failed rc=%d", rc);
 		goto free_soc_private;
 	}
 
@@ -80,7 +79,7 @@ int cam_ife_csid_init_soc_resources(struct cam_hw_soc_info *soc_info,
 	cpas_register_param.dev = &soc_info->pdev->dev;
 	rc = cam_cpas_register_client(&cpas_register_param);
 	if (rc) {
-		pr_err("CPAS registration failed rc=%d\n", rc);
+		CAM_ERR(CAM_ISP, "CPAS registration failed rc=%d", rc);
 		goto release_soc;
 	} else {
 		soc_private->cpas_handle = cpas_register_param.client_handle;
@@ -104,13 +103,13 @@ int cam_ife_csid_deinit_soc_resources(
 
 	soc_private = soc_info->soc_private;
 	if (!soc_private) {
-		pr_err("Error soc_private NULL\n");
+		CAM_ERR(CAM_ISP, "Error soc_private NULL");
 		return -ENODEV;
 	}
 
 	rc = cam_cpas_unregister_client(soc_private->cpas_handle);
 	if (rc)
-		pr_err("CPAS unregistration failed rc=%d\n", rc);
+		CAM_ERR(CAM_ISP, "CPAS unregistration failed rc=%d", rc);
 
 	rc = cam_soc_util_release_platform_resource(soc_info);
 	if (rc < 0)
@@ -133,12 +132,12 @@ int cam_ife_csid_enable_soc_resources(struct cam_hw_soc_info *soc_info)
 	axi_vote.compressed_bw = 640000000;
 	axi_vote.uncompressed_bw = 640000000;
 
-	CDBG("%s:csid vote compressed_bw:%lld uncompressed_bw:%lld\n",
-		__func__, axi_vote.compressed_bw, axi_vote.uncompressed_bw);
+	CAM_DBG(CAM_ISP, "csid vote compressed_bw:%lld uncompressed_bw:%lld",
+		axi_vote.compressed_bw, axi_vote.uncompressed_bw);
 
 	rc = cam_cpas_start(soc_private->cpas_handle, &ahb_vote, &axi_vote);
 	if (rc) {
-		pr_err("Error CPAS start failed\n");
+		CAM_ERR(CAM_ISP, "Error CPAS start failed");
 		rc = -EFAULT;
 		goto end;
 	}
@@ -146,7 +145,7 @@ int cam_ife_csid_enable_soc_resources(struct cam_hw_soc_info *soc_info)
 	rc = cam_soc_util_enable_platform_resource(soc_info, true,
 		CAM_TURBO_VOTE, true);
 	if (rc) {
-		pr_err("%s: enable platform failed\n", __func__);
+		CAM_ERR(CAM_ISP, "enable platform failed");
 		goto stop_cpas;
 	}
 
@@ -164,18 +163,18 @@ int cam_ife_csid_disable_soc_resources(struct cam_hw_soc_info *soc_info)
 	struct cam_csid_soc_private       *soc_private;
 
 	if (!soc_info) {
-		pr_err("Error Invalid params\n");
+		CAM_ERR(CAM_ISP, "Error Invalid params");
 		return -EINVAL;
 	}
 	soc_private = soc_info->soc_private;
 
 	rc = cam_soc_util_disable_platform_resource(soc_info, true, true);
 	if (rc)
-		pr_err("%s: Disable platform failed\n", __func__);
+		CAM_ERR(CAM_ISP, "Disable platform failed");
 
 	rc = cam_cpas_stop(soc_private->cpas_handle);
 	if (rc) {
-		pr_err("Error CPAS stop failed rc=%d\n", rc);
+		CAM_ERR(CAM_ISP, "Error CPAS stop failed rc=%d", rc);
 		return rc;
 	}
 
