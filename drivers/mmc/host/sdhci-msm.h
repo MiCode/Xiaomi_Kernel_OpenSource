@@ -214,6 +214,7 @@ struct sdhci_msm_host {
 	bool pm_qos_group_enable;
 	struct sdhci_msm_pm_qos_irq pm_qos_irq;
 	bool tuning_in_progress;
+	bool pltfm_init_done;
 };
 
 extern char *saved_command_line;

@@ -360,7 +360,8 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 		void __user *userptr =
 			to_user_ptr(args->cmds + (i * sizeof(submit_cmd)));
 		struct msm_gem_object *msm_obj;
-		uint32_t iova;
+		uint64_t iova;
+		size_t size;
 
 		ret = copy_from_user(&submit_cmd, userptr, sizeof(submit_cmd));
 		if (ret) {
@@ -392,9 +393,12 @@ int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 			goto out;
 		}
 
-		if ((submit_cmd.size + submit_cmd.submit_offset) >=
-				msm_obj->base.size) {
-			DRM_ERROR("invalid cmdstream size: %u\n", submit_cmd.size);
+		size = submit_cmd.size + submit_cmd.submit_offset;
+
+		if (!submit_cmd.size || (size < submit_cmd.size) ||
+			(size > msm_obj->base.size)) {
+			DRM_ERROR("invalid cmdstream offset/size: %u/%u\n",
+				submit_cmd.submit_offset, submit_cmd.size);
 			ret = -EINVAL;
 			goto out;
 		}
