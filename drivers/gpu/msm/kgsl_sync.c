@@ -427,9 +427,14 @@ static void kgsl_sync_fence_callback(struct fence *fence, struct fence_cb *cb)
 {
 	struct kgsl_sync_fence_cb *kcb = (struct kgsl_sync_fence_cb *)cb;
 
-	kcb->func(kcb->priv);
-	fence_put(kcb->fence);
-	kfree(kcb);
+	/*
+	 * If the callback is marked for cancellation in a separate thread,
+	 * let the other thread do the cleanup.
+	 */
+	if (kcb->func(kcb->priv)) {
+		fence_put(kcb->fence);
+		kfree(kcb);
+	}
 }
 
 static void kgsl_get_fence_name(struct fence *fence,
@@ -452,7 +457,7 @@ static void kgsl_get_fence_name(struct fence *fence,
 }
 
 struct kgsl_sync_fence_cb *kgsl_sync_fence_async_wait(int fd,
-	void (*func)(void *priv), void *priv, char *fence_name, int name_len)
+	bool (*func)(void *priv), void *priv, char *fence_name, int name_len)
 {
 	struct kgsl_sync_fence_cb *kcb;
 	struct fence *fence;
@@ -492,17 +497,24 @@ struct kgsl_sync_fence_cb *kgsl_sync_fence_async_wait(int fd,
 	return kcb;
 }
 
-int kgsl_sync_fence_async_cancel(struct kgsl_sync_fence_cb *kcb)
+/*
+ * Cancel the fence async callback and do the cleanup. The caller must make
+ * sure that the callback (if run before cancelling) returns false, so that
+ * no other thread frees the pointer.
+ */
+void kgsl_sync_fence_async_cancel(struct kgsl_sync_fence_cb *kcb)
 {
 	if (kcb == NULL)
-		return 0;
+		return;
 
-	if (fence_remove_callback(kcb->fence, &kcb->fence_cb)) {
-		fence_put(kcb->fence);
-		kfree(kcb);
-		return 1;
-	}
-	return 0;
+	/*
+	 * After fence_remove_callback() returns, the fence callback is
+	 * either not called at all, or completed without freeing kcb.
+	 * This thread can then put the fence refcount and free kcb.
+	 */
+	fence_remove_callback(kcb->fence, &kcb->fence_cb);
+	fence_put(kcb->fence);
+	kfree(kcb);
 }
 
 struct kgsl_syncsource {

@@ -1925,12 +1925,13 @@ static long gpuobj_free_on_timestamp(struct kgsl_device_private *dev_priv,
 	return ret;
 }
 
-static void gpuobj_free_fence_func(void *priv)
+static bool gpuobj_free_fence_func(void *priv)
 {
 	struct kgsl_mem_entry *entry = priv;
 
 	INIT_WORK(&entry->work, _deferred_put);
 	queue_work(kgsl_driver.mem_workqueue, &entry->work);
+	return true;
 }
 
 static long gpuobj_free_on_fence(struct kgsl_device_private *dev_priv,
