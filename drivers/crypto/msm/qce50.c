@@ -33,11 +33,16 @@
 #include <crypto/hash.h>
 #include <crypto/sha.h>
 #include <soc/qcom/socinfo.h>
+#include <asm/dma-iommu.h>
+#include <linux/iommu.h>
 
 #include "qce.h"
 #include "qce50.h"
 #include "qcryptohw_50.h"
 #include "qce_ota.h"
+
+#define CRYPTO_SMMU_IOVA_START 0x10000000
+#define CRYPTO_SMMU_IOVA_SIZE 0x40000000
 
 #define CRYPTO_CONFIG_RESET 0xE01EF
 #define MAX_SPS_DESC_FIFO_SIZE 0xfff0
@@ -156,6 +161,8 @@ struct qce_device {
 	atomic_t last_intr_seq;
 	bool cadence_flag;
 	uint8_t *dummyreq_in_buf;
+	struct dma_iommu_mapping *smmu_mapping;
+	bool bypass_s1_smmu;
 };
 
 static void print_notify_debug(struct sps_event_notify *notify);
@@ -5703,6 +5710,10 @@ static int __qce_get_device_tree_data(struct platform_device *pdev,
 		pr_info("CE operating frequency is not defined, setting to default 100MHZ\n");
 		pce_dev->ce_opp_freq_hz = CE_CLK_100MHZ;
 	}
+
+	if (of_property_read_bool((&pdev->dev)->of_node, "qcom,smmu-s1-bypass"))
+		pce_dev->bypass_s1_smmu = true;
+
 	pce_dev->ce_bam_info.dest_pipe_index	=
 			2 * pce_dev->ce_bam_info.pipe_pair_index;
 	pce_dev->ce_bam_info.src_pipe_index	=
@@ -5936,6 +5947,48 @@ static int setup_dummy_req(struct qce_device *pce_dev)
 	return 0;
 }
 
+static void qce_iommu_release_iomapping(struct qce_device *pce_dev)
+{
+	if (pce_dev->smmu_mapping)
+		arm_iommu_release_mapping(pce_dev->smmu_mapping);
+
+	pce_dev->smmu_mapping = NULL;
+}
+
+static int qce_smmu_init(struct qce_device *pce_dev)
+{
+	struct dma_iommu_mapping *mapping;
+	int s1_bypass = 1;
+	int ret = 0;
+
+	mapping = arm_iommu_create_mapping(&platform_bus_type,
+				CRYPTO_SMMU_IOVA_START, CRYPTO_SMMU_IOVA_SIZE);
+	if (IS_ERR(mapping)) {
+		ret = PTR_ERR(mapping);
+		pr_err("Create mapping failed, err = %d\n", ret);
+		return ret;
+	}
+
+	ret = iommu_domain_set_attr(mapping->domain,
+				DOMAIN_ATTR_S1_BYPASS, &s1_bypass);
+	if (ret < 0) {
+		pr_err("Set s1_bypass attribute failed, err = %d\n", ret);
+		goto ext_fail_set_attr;
+	}
+
+	ret = arm_iommu_attach_device(pce_dev->pdev, mapping);
+	if (ret < 0) {
+		pr_err("Attach device failed, err = %d\n", ret);
+		goto ext_fail_set_attr;
+	}
+	pce_dev->smmu_mapping = mapping;
+	return ret;
+
+ext_fail_set_attr:
+	qce_iommu_release_iomapping(pce_dev);
+	return ret;
+}
+
 /* crypto engine open function. */
 void *qce_open(struct platform_device *pdev, int *rc)
 {
@@ -5993,6 +6046,13 @@ void *qce_open(struct platform_device *pdev, int *rc)
 	if (*rc)
 		goto err_enable_clk;
 
+	if (pce_dev->bypass_s1_smmu) {
+		if (qce_smmu_init(pce_dev)) {
+			*rc = -EIO;
+			goto err_smmu;
+		}
+	}
+
 	if (_probe_ce_engine(pce_dev)) {
 		*rc = -ENXIO;
 		goto err;
@@ -6019,6 +6079,9 @@ void *qce_open(struct platform_device *pdev, int *rc)
 	mutex_unlock(&qce_iomap_mutex);
 	return pce_dev;
 err:
+	if (pce_dev->bypass_s1_smmu)
+		qce_iommu_release_iomapping(pce_dev);
+err_smmu:
 	qce_disable_clk(pce_dev);
 
 err_enable_clk:
@@ -6059,6 +6122,9 @@ int qce_close(void *handle)
 				pce_dev->coh_vmem, pce_dev->coh_pmem);
 	kfree(pce_dev->dummyreq_in_buf);
 	kfree(pce_dev->iovec_vmem);
+
+	if (pce_dev->bypass_s1_smmu)
+		qce_iommu_release_iomapping(pce_dev);
 
 	qce_disable_clk(pce_dev);
 	__qce_deinit_clk(pce_dev);
