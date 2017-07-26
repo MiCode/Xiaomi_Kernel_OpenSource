@@ -629,10 +629,22 @@
 	qcom,mdss-dsi-t-clk-pre = <0x2d>;
 	qcom,mdss-dsi-display-timings {
 		timing@0{
+			qcom,mdss-dsi-panel-phy-timings = [00 24 09 09 26 24 09
+				09 06 03 04 00];
+			qcom,display-topology = <2 0 2>;
+			qcom,default-topology-index = <0>;
+		};
+		timing@1{
 			qcom,mdss-dsi-panel-phy-timings = [00 1c 07 07 23 21 07
 				07 05 03 04 00];
 			qcom,display-topology = <2 0 2>,
 						<1 0 2>;
+			qcom,default-topology-index = <0>;
+		};
+		timing@2{
+			qcom,mdss-dsi-panel-phy-timings = [00 18 06 06 21 20 06
+				06 04 03 04 00];
+			qcom,display-topology = <2 0 2>;
 			qcom,default-topology-index = <0>;
 		};
 	};
