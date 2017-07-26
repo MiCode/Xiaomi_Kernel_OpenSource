@@ -3474,6 +3474,7 @@ void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 	if (host->is_crypto_en) {
 		sdhci_msm_ice_get_status(host, &sts);
 		pr_info("%s: ICE status %x\n", mmc_hostname(host->mmc), sts);
+		sdhci_msm_ice_print_regs(host);
 	}
 }
 
@@ -3483,8 +3484,14 @@ static void sdhci_msm_reset(struct sdhci_host *host, u8 mask)
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 
 	/* Set ICE core to be reset in sync with SDHC core */
-	if (msm_host->ice.pdev)
-		writel_relaxed(1, host->ioaddr + CORE_VENDOR_SPEC_ICE_CTRL);
+	if (msm_host->ice.pdev) {
+		if (msm_host->ice_hci_support)
+			writel_relaxed(1, host->ioaddr +
+						HC_VENDOR_SPECIFIC_ICE_CTRL);
+		else
+			writel_relaxed(1,
+				host->ioaddr + CORE_VENDOR_SPEC_ICE_CTRL);
+	}
 
 	sdhci_reset(host, mask);
 }

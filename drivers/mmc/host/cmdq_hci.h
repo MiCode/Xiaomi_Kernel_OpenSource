@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -208,6 +208,9 @@ struct cmdq_host_ops {
 	void (*enhanced_strobe_mask)(struct mmc_host *mmc, bool set);
 	int (*reset)(struct mmc_host *mmc);
 	void (*post_cqe_halt)(struct mmc_host *mmc);
+	int (*crypto_cfg)(struct mmc_host *mmc, struct mmc_request *mrq,
+				u32 slot);
+	void (*crypto_cfg_reset)(struct mmc_host *mmc, unsigned int slot);
 };
 
 static inline void cmdq_writel(struct cmdq_host *host, u32 val, int reg)

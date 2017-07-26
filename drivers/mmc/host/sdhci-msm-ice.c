@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,19 +13,6 @@
 
 #include "sdhci-msm-ice.h"
 
-static void sdhci_msm_ice_success_cb(void *host_ctrl,
-				enum ice_event_completion evt)
-{
-	struct sdhci_msm_host *msm_host = (struct sdhci_msm_host *)host_ctrl;
-
-	if ((msm_host->ice.state == SDHCI_MSM_ICE_STATE_DISABLED &&
-	    evt == ICE_INIT_COMPLETION) || (msm_host->ice.state ==
-	    SDHCI_MSM_ICE_STATE_SUSPENDED && evt == ICE_RESUME_COMPLETION))
-		msm_host->ice.state = SDHCI_MSM_ICE_STATE_ACTIVE;
-
-	complete(&msm_host->ice.async_done);
-}
-
 static void sdhci_msm_ice_error_cb(void *host_ctrl, u32 error)
 {
 	struct sdhci_msm_host *msm_host = (struct sdhci_msm_host *)host_ctrl;
@@ -35,8 +22,6 @@ static void sdhci_msm_ice_error_cb(void *host_ctrl, u32 error)
 
 	if (msm_host->ice.state == SDHCI_MSM_ICE_STATE_ACTIVE)
 		msm_host->ice.state = SDHCI_MSM_ICE_STATE_DISABLED;
-
-	complete(&msm_host->ice.async_done);
 }
 
 static struct platform_device *sdhci_msm_ice_get_pdevice(struct device *dev)
@@ -194,34 +179,69 @@ int sdhci_msm_ice_init(struct sdhci_host *host)
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	int err = 0;
 
-	init_completion(&msm_host->ice.async_done);
-	if (msm_host->ice.vops->config) {
+	if (msm_host->ice.vops->init) {
+		err = sdhci_msm_ice_pltfm_init(msm_host);
+		if (err)
+			goto out;
+
+		if (msm_host->ice_hci_support)
+			sdhci_msm_enable_ice_hci(host, true);
+
 		err = msm_host->ice.vops->init(msm_host->ice.pdev,
 					msm_host,
-					sdhci_msm_ice_success_cb,
 					sdhci_msm_ice_error_cb);
 		if (err) {
 			pr_err("%s: ice init err %d\n",
 				mmc_hostname(host->mmc), err);
-			return err;
+			sdhci_msm_ice_print_regs(host);
+			if (msm_host->ice_hci_support)
+				sdhci_msm_enable_ice_hci(host, false);
+			goto out;
 		}
+		msm_host->ice.state = SDHCI_MSM_ICE_STATE_ACTIVE;
 	}
 
-	if (!wait_for_completion_timeout(&msm_host->ice.async_done,
-		msecs_to_jiffies(SDHCI_MSM_ICE_COMPLETION_TIMEOUT_MS))) {
-		pr_err("%s: ice init timedout after %d ms\n",
-				mmc_hostname(host->mmc),
-				SDHCI_MSM_ICE_COMPLETION_TIMEOUT_MS);
-		sdhci_msm_ice_print_regs(host);
-		return -ETIMEDOUT;
-	}
+out:
+	return err;
+}
 
-	if (msm_host->ice.state != SDHCI_MSM_ICE_STATE_ACTIVE) {
-		pr_err("%s: ice is in invalid state %d\n",
-			mmc_hostname(host->mmc), msm_host->ice.state);
-		return -EINVAL;
-	}
-	return 0;
+void sdhci_msm_ice_cfg_reset(struct sdhci_host *host, u32 slot)
+{
+	writel_relaxed(SDHCI_MSM_ICE_ENABLE_BYPASS,
+		host->ioaddr + CORE_VENDOR_SPEC_ICE_CTRL_INFO_3_n + 16 * slot);
+}
+
+static
+void sdhci_msm_ice_update_cfg(struct sdhci_host *host, u64 lba,
+			u32 slot, unsigned int bypass, short key_index)
+{
+	unsigned int ctrl_info_val = 0;
+
+	/* Configure ICE index */
+	ctrl_info_val =
+		(key_index &
+		 MASK_SDHCI_MSM_ICE_CTRL_INFO_KEY_INDEX)
+		 << OFFSET_SDHCI_MSM_ICE_CTRL_INFO_KEY_INDEX;
+
+	/* Configure data unit size of transfer request */
+	ctrl_info_val |=
+		(SDHCI_MSM_ICE_TR_DATA_UNIT_512_B &
+		 MASK_SDHCI_MSM_ICE_CTRL_INFO_CDU)
+		 << OFFSET_SDHCI_MSM_ICE_CTRL_INFO_CDU;
+
+	/* Configure ICE bypass mode */
+	ctrl_info_val |=
+		(bypass & MASK_SDHCI_MSM_ICE_CTRL_INFO_BYPASS)
+		 << OFFSET_SDHCI_MSM_ICE_CTRL_INFO_BYPASS;
+
+	writel_relaxed((lba & 0xFFFFFFFF),
+		host->ioaddr + CORE_VENDOR_SPEC_ICE_CTRL_INFO_1_n + 16 * slot);
+	writel_relaxed(((lba >> 32) & 0xFFFFFFFF),
+		host->ioaddr + CORE_VENDOR_SPEC_ICE_CTRL_INFO_2_n + 16 * slot);
+	writel_relaxed(ctrl_info_val,
+		host->ioaddr + CORE_VENDOR_SPEC_ICE_CTRL_INFO_3_n + 16 * slot);
+	/* Ensure ICE registers are configured before issuing SDHCI request */
+	mb();
 }
 
 int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
@@ -232,7 +252,6 @@ int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 	int err = 0;
 	struct ice_data_setting ice_set;
 	sector_t lba = 0;
-	unsigned int ctrl_info_val = 0;
 	unsigned int bypass = SDHCI_MSM_ICE_ENABLE_BYPASS;
 	struct request *req;
 
@@ -247,9 +266,10 @@ int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 	req = mrq->req;
 	if (req) {
 		lba = req->__sector;
-		if (msm_host->ice.vops->config) {
-			err = msm_host->ice.vops->config(msm_host->ice.pdev,
-							req, &ice_set);
+		if (msm_host->ice.vops->config_start) {
+			err = msm_host->ice.vops->config_start(
+							msm_host->ice.pdev,
+							req, &ice_set, false);
 			if (err) {
 				pr_err("%s: ice config failed %d\n",
 						mmc_hostname(host->mmc), err);
@@ -274,32 +294,8 @@ int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 				ice_set.crypto_data.key_index);
 	}
 
-	/* Configure ICE index */
-	ctrl_info_val =
-		(ice_set.crypto_data.key_index &
-		 MASK_SDHCI_MSM_ICE_CTRL_INFO_KEY_INDEX)
-		 << OFFSET_SDHCI_MSM_ICE_CTRL_INFO_KEY_INDEX;
-
-	/* Configure data unit size of transfer request */
-	ctrl_info_val |=
-		(SDHCI_MSM_ICE_TR_DATA_UNIT_512_B &
-		 MASK_SDHCI_MSM_ICE_CTRL_INFO_CDU)
-		 << OFFSET_SDHCI_MSM_ICE_CTRL_INFO_CDU;
-
-	/* Configure ICE bypass mode */
-	ctrl_info_val |=
-		(bypass & MASK_SDHCI_MSM_ICE_CTRL_INFO_BYPASS)
-		 << OFFSET_SDHCI_MSM_ICE_CTRL_INFO_BYPASS;
-
-	writel_relaxed((lba & 0xFFFFFFFF),
-		host->ioaddr + CORE_VENDOR_SPEC_ICE_CTRL_INFO_1_n + 16 * slot);
-	writel_relaxed(((lba >> 32) & 0xFFFFFFFF),
-		host->ioaddr + CORE_VENDOR_SPEC_ICE_CTRL_INFO_2_n + 16 * slot);
-	writel_relaxed(ctrl_info_val,
-		host->ioaddr + CORE_VENDOR_SPEC_ICE_CTRL_INFO_3_n + 16 * slot);
-
-	/* Ensure ICE registers are configured before issuing SDHCI request */
-	mb();
+	sdhci_msm_ice_update_cfg(host, lba, slot, bypass,
+				ice_set.crypto_data.key_index);
 	return 0;
 }
 
@@ -315,25 +311,19 @@ int sdhci_msm_ice_reset(struct sdhci_host *host)
 		return -EINVAL;
 	}
 
-	init_completion(&msm_host->ice.async_done);
-
 	if (msm_host->ice.vops->reset) {
 		err = msm_host->ice.vops->reset(msm_host->ice.pdev);
 		if (err) {
 			pr_err("%s: ice reset failed %d\n",
 					mmc_hostname(host->mmc), err);
+			sdhci_msm_ice_print_regs(host);
 			return err;
 		}
 	}
 
-	if (!wait_for_completion_timeout(&msm_host->ice.async_done,
-	     msecs_to_jiffies(SDHCI_MSM_ICE_COMPLETION_TIMEOUT_MS))) {
-		pr_err("%s: ice reset timedout after %d ms\n",
-			mmc_hostname(host->mmc),
-			SDHCI_MSM_ICE_COMPLETION_TIMEOUT_MS);
-		sdhci_msm_ice_print_regs(host);
-		return -ETIMEDOUT;
-	}
+	/* If ICE HCI support is present then re-enable it */
+	if (msm_host->ice_hci_support)
+		sdhci_msm_enable_ice_hci(host, true);
 
 	if (msm_host->ice.state != SDHCI_MSM_ICE_STATE_ACTIVE) {
 		pr_err("%s: ice is in invalid state after reset %d\n",
@@ -356,8 +346,6 @@ int sdhci_msm_ice_resume(struct sdhci_host *host)
 		return -EINVAL;
 	}
 
-	init_completion(&msm_host->ice.async_done);
-
 	if (msm_host->ice.vops->resume) {
 		err = msm_host->ice.vops->resume(msm_host->ice.pdev);
 		if (err) {
@@ -367,20 +355,7 @@ int sdhci_msm_ice_resume(struct sdhci_host *host)
 		}
 	}
 
-	if (!wait_for_completion_timeout(&msm_host->ice.async_done,
-		msecs_to_jiffies(SDHCI_MSM_ICE_COMPLETION_TIMEOUT_MS))) {
-		pr_err("%s: ice resume timedout after %d ms\n",
-			mmc_hostname(host->mmc),
-			SDHCI_MSM_ICE_COMPLETION_TIMEOUT_MS);
-		sdhci_msm_ice_print_regs(host);
-		return -ETIMEDOUT;
-	}
-
-	if (msm_host->ice.state != SDHCI_MSM_ICE_STATE_ACTIVE) {
-		pr_err("%s: ice is in invalid state after resume %d\n",
-			mmc_hostname(host->mmc), msm_host->ice.state);
-		return -EINVAL;
-	}
+	msm_host->ice.state = SDHCI_MSM_ICE_STATE_ACTIVE;
 	return 0;
 }
 
