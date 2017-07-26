@@ -526,6 +526,13 @@ config UID_SYS_STATS
 	  Per UID based cpu time statistics exported to /proc/uid_cputime
 	  Per UID based io statistics exported to /proc/uid_io
 
+config UID_SYS_STATS_DEBUG
+	bool "Per-TASK statistics"
+	depends on UID_SYS_STATS
+	default n
+	help
+	  Per TASK based io statistics exported to /proc/uid_io
+
 config MEMORY_STATE_TIME
 	tristate "Memory freq/bandwidth time statistics"
 	depends on PROFILING
