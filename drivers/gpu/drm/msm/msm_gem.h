@@ -122,6 +122,8 @@ struct msm_gem_object {
 	 */
 	struct drm_mm_node *vram_node;
 	struct list_head iova_list;
+
+	struct msm_gem_address_space *aspace;
 };
 #define to_msm_bo(x) container_of(x, struct msm_gem_object, base)
 

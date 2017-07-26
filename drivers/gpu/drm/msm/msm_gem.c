@@ -311,8 +311,7 @@ static void obj_remove_domain(struct msm_gem_vma *domain)
 	}
 }
 
-static void
-put_iova(struct drm_gem_object *obj)
+static void put_iova(struct drm_gem_object *obj)
 {
 	struct drm_device *dev = obj->dev;
 	struct msm_gem_object *msm_obj = to_msm_bo(obj);
@@ -324,12 +323,14 @@ put_iova(struct drm_gem_object *obj)
 		if (iommu_present(&platform_bus_type)) {
 			msm_gem_unmap_vma(domain->aspace, domain,
 				msm_obj->sgt, get_dmabuf_ptr(obj));
-
-			msm_gem_remove_obj_from_aspace_active_list(
-					domain->aspace,
-					obj);
 		}
 
+		/*
+		 * put_iova removes the domain connected to the obj which makes
+		 * the aspace inaccessible. Store the aspace, as it is used to
+		 * update the active_list during gem_free_obj and gem_purege.
+		 */
+		msm_obj->aspace = domain->aspace;
 		obj_remove_domain(domain);
 	}
 }
@@ -409,7 +410,8 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj,
 
 	if (!ret && domain) {
 		*iova = domain->iova;
-		msm_gem_add_obj_to_aspace_active_list(aspace, obj);
+		if (aspace && aspace->domain_attached)
+			msm_gem_add_obj_to_aspace_active_list(aspace, obj);
 	} else {
 		obj_remove_domain(domain);
 	}
@@ -485,24 +487,21 @@ void msm_gem_aspace_domain_attach_detach_update(
 		/**
 		 * Unmap active buffers,
 		 * typically clients should do this when the callback is called,
-		 * but this needs to be done for the framebuffers which are not
-		 * attached to any planes. (background apps)
+		 * but this needs to be done for the buffers which are not
+		 * attached to any planes.
 		 */
 		list_for_each_entry(msm_obj, &aspace->active_list, iova_list) {
 			obj = &msm_obj->base;
-			if (obj->import_attach) {
+			if (obj->import_attach)
 				put_iova(obj);
-				put_pages(obj);
-			}
 		}
 	} else {
 		/* map active buffers */
-		list_for_each_entry(msm_obj, &aspace->active_list,
-				iova_list) {
+		list_for_each_entry(msm_obj, &aspace->active_list, iova_list) {
 			obj = &msm_obj->base;
 			ret = msm_gem_get_iova_locked(obj, aspace, &iova);
 			if (ret) {
-				mutex_unlock(&obj->dev->struct_mutex);
+				mutex_unlock(&aspace->dev->struct_mutex);
 				return;
 			}
 		}
@@ -613,6 +612,7 @@ void msm_gem_purge(struct drm_gem_object *obj)
 	WARN_ON(obj->import_attach);
 
 	put_iova(obj);
+	msm_gem_remove_obj_from_aspace_active_list(msm_obj->aspace, obj);
 
 	msm_gem_vunmap(obj);
 
@@ -841,6 +841,7 @@ void msm_gem_free_object(struct drm_gem_object *obj)
 	list_del(&msm_obj->mm_list);
 
 	put_iova(obj);
+	msm_gem_remove_obj_from_aspace_active_list(msm_obj->aspace, obj);
 
 	if (obj->import_attach) {
 		if (msm_obj->vaddr)
@@ -946,6 +947,7 @@ static int msm_gem_new_impl(struct drm_device *dev,
 	INIT_LIST_HEAD(&msm_obj->submit_entry);
 	INIT_LIST_HEAD(&msm_obj->domains);
 	INIT_LIST_HEAD(&msm_obj->iova_list);
+	msm_obj->aspace = NULL;
 
 	list_add_tail(&msm_obj->mm_list, &priv->inactive_list);
 
