@@ -1553,23 +1553,25 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			break;
 		}
 
-		buff_req_buffer = get_buff_req_buffer(inst,
-			HAL_BUFFER_EXTRADATA_INPUT);
-
 		extra_idx = EXTRADATA_IDX(inst->bufq[OUTPUT_PORT].num_planes);
+		if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
+			buff_req_buffer = get_buff_req_buffer(inst,
+						HAL_BUFFER_EXTRADATA_INPUT);
 
-		inst->bufq[OUTPUT_PORT].plane_sizes[extra_idx] =
-			buff_req_buffer ?
-			buff_req_buffer->buffer_size : 0;
-
-		buff_req_buffer = get_buff_req_buffer(inst,
-			HAL_BUFFER_EXTRADATA_OUTPUT);
+			inst->bufq[OUTPUT_PORT].plane_sizes[extra_idx] =
+					buff_req_buffer ?
+					buff_req_buffer->buffer_size : 0;
+		}
 
 		extra_idx = EXTRADATA_IDX(inst->bufq[CAPTURE_PORT].num_planes);
-		inst->bufq[CAPTURE_PORT].plane_sizes[extra_idx] =
-			buff_req_buffer ?
-			buff_req_buffer->buffer_size : 0;
+		if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
+			buff_req_buffer = get_buff_req_buffer(inst,
+						HAL_BUFFER_EXTRADATA_OUTPUT);
 
+			inst->bufq[CAPTURE_PORT].plane_sizes[extra_idx] =
+				buff_req_buffer ?
+				buff_req_buffer->buffer_size : 0;
+		}
 		property_id = 0;
 		}
 		break;
