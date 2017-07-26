@@ -873,7 +873,7 @@ static int fg_get_prop_capacity(struct fg_chip *chip, int *val)
 	if (rc < 0)
 		return rc;
 
-	if (chip->delta_soc > 0)
+	if (chip->dt.linearize_soc && chip->delta_soc > 0)
 		*val = chip->maint_soc;
 	else
 		*val = msoc;
@@ -1751,20 +1751,22 @@ static int fg_charge_full_update(struct fg_chip *chip)
 			fg_dbg(chip, FG_STATUS, "Terminated charging @ SOC%d\n",
 				msoc);
 		}
-	} else if (msoc_raw < recharge_soc && chip->charge_full) {
-		chip->delta_soc = FULL_CAPACITY - msoc;
+	} else if (msoc_raw <= recharge_soc && chip->charge_full) {
+		if (chip->dt.linearize_soc) {
+			chip->delta_soc = FULL_CAPACITY - msoc;
 
-		/*
-		 * We're spreading out the delta SOC over every 10% change
-		 * in monotonic SOC. We cannot spread more than 9% in the
-		 * range of 0-100 skipping the first 10%.
-		 */
-		if (chip->delta_soc > 9) {
-			chip->delta_soc = 0;
-			chip->maint_soc = 0;
-		} else {
-			chip->maint_soc = FULL_CAPACITY;
-			chip->last_msoc = msoc;
+			/*
+			 * We're spreading out the delta SOC over every 10%
+			 * change in monotonic SOC. We cannot spread more than
+			 * 9% in the range of 0-100 skipping the first 10%.
+			 */
+			if (chip->delta_soc > 9) {
+				chip->delta_soc = 0;
+				chip->maint_soc = 0;
+			} else {
+				chip->maint_soc = FULL_CAPACITY;
+				chip->last_msoc = msoc;
+			}
 		}
 
 		chip->charge_full = false;
@@ -3204,6 +3206,9 @@ static int fg_update_maint_soc(struct fg_chip *chip)
 {
 	int rc = 0, msoc;
 
+	if (!chip->dt.linearize_soc)
+		return 0;
+
 	mutex_lock(&chip->charge_full_lock);
 	if (chip->delta_soc <= 0)
 		goto out;
@@ -3431,6 +3436,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CAPACITY:
 		rc = fg_get_prop_capacity(chip, &pval->intval);
+		break;
+	case POWER_SUPPLY_PROP_CAPACITY_RAW:
+		rc = fg_get_msoc_raw(chip, &pval->intval);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		if (chip->battery_missing)
@@ -3697,6 +3705,7 @@ static int fg_notifier_cb(struct notifier_block *nb,
 
 static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_CAPACITY_RAW,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_COLD_TEMP,
 	POWER_SUPPLY_PROP_COOL_TEMP,
@@ -4825,6 +4834,9 @@ static int fg_parse_dt(struct fg_chip *chip)
 
 	chip->dt.hold_soc_while_full = of_property_read_bool(node,
 					"qcom,hold-soc-while-full");
+
+	chip->dt.linearize_soc = of_property_read_bool(node,
+					"qcom,linearize-soc");
 
 	rc = fg_parse_ki_coefficients(chip);
 	if (rc < 0)
