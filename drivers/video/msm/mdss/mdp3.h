@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2016-2017, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This program is free software; you can redistribute it and/or modify
@@ -233,6 +233,7 @@ struct mdp3_img_data {
 	struct dma_buf *srcp_dma_buf;
 	struct dma_buf_attachment *srcp_attachment;
 	struct sg_table *srcp_table;
+	struct sg_table *tab_clone;
 };
 
 extern struct mdp3_hw_resource *mdp3_res;

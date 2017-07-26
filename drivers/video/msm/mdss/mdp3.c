@@ -1834,9 +1834,13 @@ int mdp3_put_img(struct mdp3_img_data *data, int client)
 			return -ENOMEM;
 		}
 		if (data->mapped) {
-			mdss_smmu_unmap_dma_buf(data->srcp_table,
-						dom, dir,
-					data->srcp_dma_buf);
+			if (client == MDP3_CLIENT_PPP ||
+						client == MDP3_CLIENT_DMA_P)
+				mdss_smmu_unmap_dma_buf(data->tab_clone,
+					dom, dir, data->srcp_dma_buf);
+			else
+				mdss_smmu_unmap_dma_buf(data->srcp_table,
+					dom, dir, data->srcp_dma_buf);
 			data->mapped = false;
 		}
 		if (!data->skip_detach) {
@@ -1850,6 +1854,10 @@ int mdp3_put_img(struct mdp3_img_data *data, int client)
 		}
 	} else {
 		return -EINVAL;
+	}
+	if (client == MDP3_CLIENT_PPP || client == MDP3_CLIENT_DMA_P) {
+		kfree(data->tab_clone->sgl);
+		kfree(data->tab_clone);
 	}
 	return 0;
 }
@@ -1913,9 +1921,27 @@ int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data, int client)
 				goto err_detach;
 			}
 
-			ret = mdss_smmu_map_dma_buf(data->srcp_dma_buf,
-					data->srcp_table, dom,
-				&data->addr, &data->len, DMA_BIDIRECTIONAL);
+			if (client == MDP3_CLIENT_PPP ||
+						client == MDP3_CLIENT_DMA_P) {
+				data->tab_clone =
+				mdss_smmu_sg_table_clone(data->srcp_table,
+							GFP_KERNEL, true);
+				if (IS_ERR_OR_NULL(data->tab_clone)) {
+					if (!(data->tab_clone))
+						ret = -EINVAL;
+					else
+						ret = PTR_ERR(data->tab_clone);
+					goto clone_err;
+				}
+				ret = mdss_smmu_map_dma_buf(data->srcp_dma_buf,
+					data->tab_clone, dom,
+					&data->addr, &data->len,
+					DMA_BIDIRECTIONAL);
+			} else {
+				ret = mdss_smmu_map_dma_buf(data->srcp_dma_buf,
+					data->srcp_table, dom, &data->addr,
+					&data->len, DMA_BIDIRECTIONAL);
+			}
 
 			if (IS_ERR_VALUE(ret)) {
 				pr_err("smmu map dma buf failed: (%d)\n", ret);
@@ -1926,6 +1952,10 @@ int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data, int client)
 		data->skip_detach = false;
 	}
 done:
+	if (client ==  MDP3_CLIENT_PPP || client == MDP3_CLIENT_DMA_P) {
+		data->addr  += data->tab_clone->sgl->length;
+		data->len   -= data->tab_clone->sgl->length;
+	}
 	if (!ret && (img->offset < data->len)) {
 		data->addr += img->offset;
 		data->len -= img->offset;
@@ -1940,6 +1970,9 @@ done:
 	}
 	return ret;
 
+clone_err:
+	dma_buf_unmap_attachment(data->srcp_attachment, data->srcp_table,
+		mdss_smmu_dma_data_direction(DMA_BIDIRECTIONAL));
 err_detach:
 	dma_buf_detach(data->srcp_dma_buf, data->srcp_attachment);
 err_put:
@@ -1950,6 +1983,11 @@ err_unmap:
 			mdss_smmu_dma_data_direction(DMA_BIDIRECTIONAL));
 	dma_buf_detach(data->srcp_dma_buf, data->srcp_attachment);
 	dma_buf_put(data->srcp_dma_buf);
+
+	if (client ==  MDP3_CLIENT_PPP || client == MDP3_CLIENT_DMA_P) {
+		kfree(data->tab_clone->sgl);
+		kfree(data->tab_clone);
+	}
 	return ret;
 
 }
