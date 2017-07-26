@@ -772,6 +772,34 @@ struct cfg80211_csa_settings {
 };
 
 /**
+ * struct iface_combination_params - input parameters for interface combinations
+ *
+ * Used to pass interface combination parameters
+ *
+ * @num_different_channels: the number of different channels we want
+ *	to use for verification
+ * @radar_detect: a bitmap where each bit corresponds to a channel
+ *	width where radar detection is needed, as in the definition of
+ *	&struct ieee80211_iface_combination.@radar_detect_widths
+ * @iftype_num: array with the number of interfaces of each interface
+ *	type.  The index is the interface type as specified in &enum
+ *	nl80211_iftype.
+ * @beacon_int_gcd: a value specifying GCD of all beaconing interfaces,
+ *	the GCD of a single value is considered the value itself, so for
+ *	a single interface this should be set to that interface's beacon
+ *	interval
+ * @beacon_int_different: a flag indicating whether or not all beacon
+ *	intervals (of beaconing interfaces) are different or not.
+ */
+struct iface_combination_params {
+	int num_different_channels;
+	u8 radar_detect;
+	int iftype_num[NUM_NL80211_IFTYPES];
+	u32 beacon_int_gcd;
+	bool beacon_int_different;
+};
+
+/**
  * enum station_parameters_apply_mask - station parameter values to apply
  * @STATION_PARAM_APPLY_UAPSD: apply new uAPSD parameters (uapsd_queues, max_sp)
  * @STATION_PARAM_APPLY_CAPABILITY: apply new capability
@@ -3082,6 +3110,12 @@ struct ieee80211_iface_limit {
  *	only in special cases.
  * @radar_detect_widths: bitmap of channel widths supported for radar detection
  * @radar_detect_regions: bitmap of regions supported for radar detection
+ * @beacon_int_min_gcd: This interface combination supports different
+ *	beacon intervals.
+ *	= 0 - all beacon intervals for different interface must be same.
+ *	> 0 - any beacon interval for the interface part of this combination AND
+ *	      *GCD* of all beacon intervals from beaconing interfaces of this
+ *	      combination must be greater or equal to this value.
  *
  * With this structure the driver can describe which interface
  * combinations it supports concurrently.
@@ -3147,6 +3181,7 @@ struct ieee80211_iface_combination {
 	bool beacon_int_infra_match;
 	u8 radar_detect_widths;
 	u8 radar_detect_regions;
+	u32 beacon_int_min_gcd;
 };
 
 struct ieee80211_txrx_stypes {
@@ -5644,36 +5679,20 @@ unsigned int ieee80211_get_num_supported_channels(struct wiphy *wiphy);
  * cfg80211_check_combinations - check interface combinations
  *
  * @wiphy: the wiphy
- * @num_different_channels: the number of different channels we want
- *	to use for verification
- * @radar_detect: a bitmap where each bit corresponds to a channel
- *	width where radar detection is needed, as in the definition of
- *	&struct ieee80211_iface_combination.@radar_detect_widths
- * @iftype_num: array with the numbers of interfaces of each interface
- *	type.  The index is the interface type as specified in &enum
- *	nl80211_iftype.
+ * @params: the interface combinations parameter
  *
  * This function can be called by the driver to check whether a
  * combination of interfaces and their types are allowed according to
  * the interface combinations.
  */
 int cfg80211_check_combinations(struct wiphy *wiphy,
-				const int num_different_channels,
-				const u8 radar_detect,
-				const int iftype_num[NUM_NL80211_IFTYPES]);
+				struct iface_combination_params *params);
 
 /**
  * cfg80211_iter_combinations - iterate over matching combinations
  *
  * @wiphy: the wiphy
- * @num_different_channels: the number of different channels we want
- *	to use for verification
- * @radar_detect: a bitmap where each bit corresponds to a channel
- *	width where radar detection is needed, as in the definition of
- *	&struct ieee80211_iface_combination.@radar_detect_widths
- * @iftype_num: array with the numbers of interfaces of each interface
- *	type.  The index is the interface type as specified in &enum
- *	nl80211_iftype.
+ * @params: the interface combinations parameter
  * @iter: function to call for each matching combination
  * @data: pointer to pass to iter function
  *
@@ -5682,9 +5701,7 @@ int cfg80211_check_combinations(struct wiphy *wiphy,
  * purposes.
  */
 int cfg80211_iter_combinations(struct wiphy *wiphy,
-			       const int num_different_channels,
-			       const u8 radar_detect,
-			       const int iftype_num[NUM_NL80211_IFTYPES],
+			       struct iface_combination_params *params,
 			       void (*iter)(const struct ieee80211_iface_combination *c,
 					    void *data),
 			       void *data);
