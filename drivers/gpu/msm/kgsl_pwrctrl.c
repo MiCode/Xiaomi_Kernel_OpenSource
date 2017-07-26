@@ -224,7 +224,7 @@ static int kgsl_bus_scale_request(struct kgsl_device *device,
 {
 	struct gmu_device *gmu = &device->gmu;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	int ret;
+	int ret = 0;
 
 	/* GMU scales BW */
 	if (kgsl_gmu_isenabled(device)) {
@@ -232,7 +232,7 @@ static int kgsl_bus_scale_request(struct kgsl_device *device,
 			return 0;
 
 		ret = gmu_dcvs_set(gmu, INVALID_DCVS_IDX, buslevel);
-	} else {
+	} else if (pwr->pcl) {
 		/* Linux bus driver scales BW */
 		ret = msm_bus_scale_client_update_request(pwr->pcl, buslevel);
 	}
@@ -291,7 +291,8 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 	unsigned long ab;
 
 	/* the bus should be ON to update the active frequency */
-	if (on && !(test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->power_flags)))
+	if (!(kgsl_gmu_isenabled(device)) && on &&
+		!(test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->power_flags)))
 		return;
 	/*
 	 * If the bus should remain on calculate our request and submit it,
@@ -321,9 +322,7 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 		msm_bus_scale_client_update_request(pwr->ocmem_pcl,
 			on ? pwr->active_pwrlevel : pwr->num_pwrlevels - 1);
 
-	/* vote for bus if gpubw-dev support is not enabled */
-	if (pwr->pcl)
-		kgsl_bus_scale_request(device, buslevel);
+	kgsl_bus_scale_request(device, buslevel);
 
 	kgsl_pwrctrl_vbif_update(ab);
 }
