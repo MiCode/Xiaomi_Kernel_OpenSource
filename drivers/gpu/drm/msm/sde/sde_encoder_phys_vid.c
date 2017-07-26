@@ -16,6 +16,7 @@
 #include "sde_core_irq.h"
 #include "sde_formats.h"
 #include "dsi_display.h"
+#include "sde_trace.h"
 
 #define SDE_DEBUG_VIDENC(e, fmt, ...) SDE_DEBUG("enc%d intf%d " fmt, \
 		(e) && (e)->base.parent ? \
@@ -378,11 +379,25 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 	unsigned long lock_flags;
 	u32 flush_register = 0;
 	int new_cnt = -1, old_cnt = -1;
+	u32 event = 0;
 
 	if (!phys_enc)
 		return;
 
 	hw_ctl = phys_enc->hw_ctl;
+	SDE_ATRACE_BEGIN("vblank_irq");
+
+	/* signal only for master, where there is a pending kickoff */
+	if (sde_encoder_phys_vid_is_master(phys_enc)
+			&& atomic_add_unless(
+				&phys_enc->pending_retire_fence_cnt, -1, 0)) {
+		event = SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE
+				| SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE;
+
+		if (phys_enc->parent_ops.handle_frame_done)
+			phys_enc->parent_ops.handle_frame_done(phys_enc->parent,
+				phys_enc, event);
+	}
 
 	if (phys_enc->parent_ops.handle_vblank_virt)
 		phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent,
@@ -405,10 +420,11 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 
 	SDE_EVT32_IRQ(DRMID(phys_enc->parent), vid_enc->hw_intf->idx - INTF_0,
-			old_cnt, new_cnt, flush_register);
+			old_cnt, new_cnt, flush_register, event);
 
 	/* Signal any waiting atomic commit thread */
 	wake_up_all(&phys_enc->pending_kickoff_wq);
+	SDE_ATRACE_END("vblank_irq");
 }
 
 static void sde_encoder_phys_vid_underrun_irq(void *arg, int irq_idx)
@@ -505,7 +521,6 @@ static int sde_encoder_phys_vid_control_vblank_irq(
 {
 	int ret = 0;
 	struct sde_encoder_phys_vid *vid_enc;
-	unsigned long lock_flags;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -522,8 +537,6 @@ static int sde_encoder_phys_vid_control_vblank_irq(
 			__builtin_return_address(0),
 			enable, atomic_read(&phys_enc->vblank_refcount));
 
-	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
-
 	SDE_EVT32(DRMID(phys_enc->parent), enable,
 			atomic_read(&phys_enc->vblank_refcount));
 
@@ -532,8 +545,6 @@ static int sde_encoder_phys_vid_control_vblank_irq(
 	else if (!enable && atomic_dec_return(&phys_enc->vblank_refcount) == 0)
 		ret = sde_encoder_helper_unregister_irq(phys_enc,
 				INTR_IDX_VSYNC);
-
-	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 
 	if (ret)
 		SDE_ERROR_VIDENC(vid_enc,
@@ -948,6 +959,7 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 
 	atomic_set(&phys_enc->vblank_refcount, 0);
 	atomic_set(&phys_enc->pending_kickoff_cnt, 0);
+	atomic_set(&phys_enc->pending_retire_fence_cnt, 0);
 	init_waitqueue_head(&phys_enc->pending_kickoff_wq);
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 

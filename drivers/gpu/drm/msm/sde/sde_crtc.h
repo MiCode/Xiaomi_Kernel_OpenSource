@@ -30,7 +30,7 @@
 #define SDE_CRTC_NAME_SIZE	12
 
 /* define the maximum number of in-flight frame events */
-#define SDE_CRTC_FRAME_EVENT_SIZE	2
+#define SDE_CRTC_FRAME_EVENT_SIZE	4
 
 /**
  * enum sde_crtc_client_type: crtc client type
@@ -123,7 +123,7 @@ struct sde_crtc_event {
  * @vblank_cb_count : count of vblank callback since last reset
  * @play_count    : frame count between crtc enable and disable
  * @vblank_cb_time  : ktime at vblank count reset
- * @vblank_refcount : reference count for vblank enable request
+ * @vblank_enable : whether the user has requested vblank events
  * @suspend         : whether or not a suspend operation is in progress
  * @feature_list  : list of color processing features supported on a crtc
  * @active_list   : list of color processing features are active
@@ -171,7 +171,7 @@ struct sde_crtc {
 	u32 vblank_cb_count;
 	u64 play_count;
 	ktime_t vblank_cb_time;
-	atomic_t vblank_refcount;
+	bool vblank_enable;
 	bool suspend;
 
 	struct list_head feature_list;
@@ -366,14 +366,6 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc);
  * @old_state: Pointer to drm crtc old state object
  */
 void sde_crtc_prepare_commit(struct drm_crtc *crtc,
-		struct drm_crtc_state *old_state);
-
-/**
- * sde_crtc_complete_commit - callback signalling completion of current commit
- * @crtc: Pointer to drm crtc object
- * @old_state: Pointer to drm crtc old state object
- */
-void sde_crtc_complete_commit(struct drm_crtc *crtc,
 		struct drm_crtc_state *old_state);
 
 /**

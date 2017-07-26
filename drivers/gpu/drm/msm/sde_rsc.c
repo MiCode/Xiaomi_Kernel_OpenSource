@@ -58,6 +58,13 @@
 #define TRY_CLK_MODE_SWITCH		0xFFFE
 #define STATE_UPDATE_NOT_ALLOWED	0xFFFD
 
+/**
+ * Expected primary command mode panel vsync ranges
+ * Note: update if a primary panel is expected to run lower than 60fps
+ */
+#define PRIMARY_VBLANK_MIN_US (18 * 1000)
+#define PRIMARY_VBLANK_MAX_US (20 * 1000)
+
 static struct sde_rsc_priv *rsc_prv_list[MAX_RSC_COUNT];
 
 /**
@@ -482,8 +489,7 @@ vsync_wait:
 	/* wait for vsync for vid to cmd state switch and config update */
 	if (!rc && (rsc->current_state == SDE_RSC_VID_STATE ||
 			rsc->current_state == SDE_RSC_CMD_STATE))
-		drm_wait_one_vblank(rsc->master_drm,
-						rsc->primary_client->crtc_id);
+		usleep_range(PRIMARY_VBLANK_MIN_US, PRIMARY_VBLANK_MAX_US);
 end:
 	return rc;
 }
@@ -507,8 +513,7 @@ static int sde_rsc_switch_to_clk(struct sde_rsc_priv *rsc)
 	/* wait for vsync for cmd to clk state switch */
 	if (!rc && rsc->primary_client &&
 				(rsc->current_state == SDE_RSC_CMD_STATE))
-		drm_wait_one_vblank(rsc->master_drm,
-						rsc->primary_client->crtc_id);
+		usleep_range(PRIMARY_VBLANK_MIN_US, PRIMARY_VBLANK_MAX_US);
 end:
 	return rc;
 }
@@ -537,8 +542,7 @@ static int sde_rsc_switch_to_vid(struct sde_rsc_priv *rsc,
 	/* wait for vsync for cmd to vid state switch */
 	if (!rc && rsc->primary_client &&
 			(rsc->current_state == SDE_RSC_CMD_STATE))
-		drm_wait_one_vblank(rsc->master_drm,
-						rsc->primary_client->crtc_id);
+		usleep_range(PRIMARY_VBLANK_MIN_US, PRIMARY_VBLANK_MAX_US);
 
 end:
 	return rc;

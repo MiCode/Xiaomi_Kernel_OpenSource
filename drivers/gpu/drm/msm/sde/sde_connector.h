@@ -406,8 +406,9 @@ void sde_connector_prepare_fence(struct drm_connector *connector);
 /**
  * sde_connector_complete_commit - signal completion of current commit
  * @connector: Pointer to drm connector object
+ * @ts: timestamp to be updated in the fence signalling
  */
-void sde_connector_complete_commit(struct drm_connector *connector);
+void sde_connector_complete_commit(struct drm_connector *connector, ktime_t ts);
 
 /**
  * sde_connector_get_info - query display specific information

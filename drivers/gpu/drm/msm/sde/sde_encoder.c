@@ -17,6 +17,7 @@
  */
 
 #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
+#include <linux/kthread.h>
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 #include <linux/sde_rsc.h>
@@ -206,7 +207,7 @@ struct sde_encoder_virt {
 	bool idle_pc_supported;
 	struct mutex rc_lock;
 	enum sde_enc_rc_states rc_state;
-	struct delayed_work delayed_off_work;
+	struct kthread_delayed_work delayed_off_work;
 	struct msm_display_topology topology;
 	bool mode_set_complete;
 
@@ -417,6 +418,9 @@ int sde_encoder_helper_register_irq(struct sde_encoder_phys *phys_enc,
 
 		sde_core_irq_unregister_callback(phys_enc->sde_kms,
 				irq->irq_idx, &irq->cb);
+
+		SDE_EVT32(DRMID(phys_enc->parent), intr_idx, irq->hw_idx,
+				irq->irq_idx, SDE_EVTLOG_ERROR);
 		irq->irq_idx = -EINVAL;
 		return ret;
 	}
@@ -432,6 +436,7 @@ int sde_encoder_helper_unregister_irq(struct sde_encoder_phys *phys_enc,
 		enum sde_intr_idx intr_idx)
 {
 	struct sde_encoder_irq *irq;
+	int ret;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -440,16 +445,31 @@ int sde_encoder_helper_unregister_irq(struct sde_encoder_phys *phys_enc,
 	irq = &phys_enc->irq[intr_idx];
 
 	/* silently skip irqs that weren't registered */
-	if (irq->irq_idx < 0)
+	if (irq->irq_idx < 0) {
+		SDE_ERROR(
+			"extra unregister irq, enc%d intr_idx:0x%x hw_idx:0x%x irq_idx:0x%x\n",
+				DRMID(phys_enc->parent), intr_idx, irq->hw_idx,
+				irq->irq_idx);
+		SDE_EVT32(DRMID(phys_enc->parent), intr_idx, irq->hw_idx,
+				irq->irq_idx, SDE_EVTLOG_ERROR);
 		return 0;
+	}
 
-	sde_core_irq_disable(phys_enc->sde_kms, &irq->irq_idx, 1);
-	sde_core_irq_unregister_callback(phys_enc->sde_kms, irq->irq_idx,
+	ret = sde_core_irq_disable(phys_enc->sde_kms, &irq->irq_idx, 1);
+	if (ret)
+		SDE_EVT32(DRMID(phys_enc->parent), intr_idx, irq->hw_idx,
+				irq->irq_idx, ret, SDE_EVTLOG_ERROR);
+
+	ret = sde_core_irq_unregister_callback(phys_enc->sde_kms, irq->irq_idx,
 			&irq->cb);
-	irq->irq_idx = -EINVAL;
+	if (ret)
+		SDE_EVT32(DRMID(phys_enc->parent), intr_idx, irq->hw_idx,
+				irq->irq_idx, ret, SDE_EVTLOG_ERROR);
 
 	SDE_EVT32(DRMID(phys_enc->parent), intr_idx, irq->hw_idx, irq->irq_idx);
 	SDE_DEBUG_PHYS(phys_enc, "unregistered %d\n", irq->irq_idx);
+
+	irq->irq_idx = -EINVAL;
 
 	return 0;
 }
@@ -1249,12 +1269,22 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 {
 	bool schedule_off = false;
 	struct sde_encoder_virt *sde_enc;
+	struct msm_drm_private *priv;
+	struct msm_drm_thread *disp_thread;
 
-	if (!drm_enc || !drm_enc->dev || !drm_enc->dev->dev_private) {
+	if (!drm_enc || !drm_enc->dev || !drm_enc->dev->dev_private ||
+			!drm_enc->crtc) {
 		SDE_ERROR("invalid parameters\n");
 		return -EINVAL;
 	}
 	sde_enc = to_sde_encoder_virt(drm_enc);
+	priv = drm_enc->dev->dev_private;
+
+	if (drm_enc->crtc->index >= ARRAY_SIZE(priv->disp_thread)) {
+		SDE_ERROR("invalid crtc index\n");
+		return -EINVAL;
+	}
+	disp_thread = &priv->disp_thread[drm_enc->crtc->index];
 
 	/*
 	 * when idle_pc is not supported, process only KICKOFF and STOP
@@ -1273,7 +1303,8 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 	switch (sw_event) {
 	case SDE_ENC_RC_EVENT_KICKOFF:
 		/* cancel delayed off work, if any */
-		if (cancel_delayed_work_sync(&sde_enc->delayed_off_work))
+		if (kthread_cancel_delayed_work_sync(
+				&sde_enc->delayed_off_work))
 			SDE_DEBUG_ENC(sde_enc, "sw_event:%d, work cancelled\n",
 					sw_event);
 
@@ -1320,8 +1351,10 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		}
 
 		/* schedule delayed off work */
-		schedule_delayed_work(&sde_enc->delayed_off_work,
-					msecs_to_jiffies(IDLE_TIMEOUT));
+		kthread_queue_delayed_work(
+				&disp_thread->worker,
+				&sde_enc->delayed_off_work,
+				msecs_to_jiffies(IDLE_TIMEOUT));
 		SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
 				SDE_EVTLOG_FUNC_CASE2);
 		SDE_DEBUG_ENC(sde_enc, "sw_event:%d, work scheduled\n",
@@ -1330,7 +1363,8 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 
 	case SDE_ENC_RC_EVENT_STOP:
 		/* cancel delayed off work, if any */
-		if (cancel_delayed_work_sync(&sde_enc->delayed_off_work))
+		if (kthread_cancel_delayed_work_sync(
+				&sde_enc->delayed_off_work))
 			SDE_DEBUG_ENC(sde_enc, "sw_event:%d, work cancelled\n",
 					sw_event);
 
@@ -1354,6 +1388,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 
 		SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
 				SDE_ENC_RC_STATE_OFF, SDE_EVTLOG_FUNC_CASE3);
+
 		sde_enc->rc_state = SDE_ENC_RC_STATE_OFF;
 
 		mutex_unlock(&sde_enc->rc_lock);
@@ -1361,7 +1396,8 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 
 	case SDE_ENC_RC_EVENT_EARLY_WAKE_UP:
 		/* cancel delayed off work, if any */
-		if (cancel_delayed_work_sync(&sde_enc->delayed_off_work)) {
+		if (kthread_cancel_delayed_work_sync(
+				&sde_enc->delayed_off_work)) {
 			SDE_DEBUG_ENC(sde_enc, "sw_event:%d, work cancelled\n",
 					sw_event);
 			schedule_off = true;
@@ -1399,7 +1435,9 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		 */
 		if (schedule_off && !sde_crtc_frame_pending(drm_enc->crtc)) {
 			/* schedule delayed off work */
-			schedule_delayed_work(&sde_enc->delayed_off_work,
+			kthread_queue_delayed_work(
+					&disp_thread->worker,
+					&sde_enc->delayed_off_work,
 					msecs_to_jiffies(IDLE_TIMEOUT));
 			SDE_DEBUG_ENC(sde_enc, "sw_event:%d, work scheduled\n",
 					sw_event);
@@ -1414,6 +1452,22 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		if (sde_enc->rc_state != SDE_ENC_RC_STATE_ON) {
 			SDE_DEBUG_ENC(sde_enc, "sw_event:%d, rc:%d !ON state\n",
 					sw_event, sde_enc->rc_state);
+			SDE_EVT32_VERBOSE(DRMID(drm_enc), sw_event,
+					sde_enc->rc_state);
+			mutex_unlock(&sde_enc->rc_lock);
+			return 0;
+		}
+
+		/*
+		 * if we are in ON but a frame was just kicked off,
+		 * ignore the IDLE event, it's probably a stale timer event
+		 */
+		if (sde_enc->frame_busy_mask[0]) {
+			SDE_DEBUG_ENC(sde_enc,
+					"sw_event:%d, rc:%d frame pending\n",
+					sw_event, sde_enc->rc_state);
+			SDE_EVT32_VERBOSE(DRMID(drm_enc), sw_event,
+					sde_enc->rc_state);
 			mutex_unlock(&sde_enc->rc_lock);
 			return 0;
 		}
@@ -1437,11 +1491,10 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 	return 0;
 }
 
-static void sde_encoder_off_work(struct work_struct *work)
+static void sde_encoder_off_work(struct kthread_work *work)
 {
-	struct delayed_work *dw = to_delayed_work(work);
-	struct sde_encoder_virt *sde_enc = container_of(dw,
-			struct sde_encoder_virt, delayed_off_work);
+	struct sde_encoder_virt *sde_enc = container_of(work,
+			struct sde_encoder_virt, delayed_off_work.work);
 
 	if (!sde_enc) {
 		SDE_ERROR("invalid sde encoder\n");
@@ -1857,27 +1910,41 @@ static void sde_encoder_frame_done_callback(
 	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(drm_enc);
 	unsigned int i;
 
-	if (!sde_enc->frame_busy_mask[0]) {
-		/* suppress frame_done without waiter, likely autorefresh */
-		SDE_EVT32(DRMID(drm_enc), event, ready_phys->intf_idx);
-		return;
-	}
+	if (event & (SDE_ENCODER_FRAME_EVENT_DONE
+			| SDE_ENCODER_FRAME_EVENT_ERROR
+			| SDE_ENCODER_FRAME_EVENT_PANEL_DEAD)) {
 
-	/* One of the physical encoders has become idle */
-	for (i = 0; i < sde_enc->num_phys_encs; i++)
-		if (sde_enc->phys_encs[i] == ready_phys) {
-			clear_bit(i, sde_enc->frame_busy_mask);
-			SDE_EVT32_VERBOSE(DRMID(drm_enc), i,
-					sde_enc->frame_busy_mask[0]);
+		if (!sde_enc->frame_busy_mask[0]) {
+			/**
+			 * suppress frame_done without waiter,
+			 * likely autorefresh
+			 */
+			SDE_EVT32(DRMID(drm_enc), event, ready_phys->intf_idx);
+			return;
 		}
 
-	if (!sde_enc->frame_busy_mask[0]) {
-		atomic_set(&sde_enc->frame_done_timeout, 0);
-		del_timer(&sde_enc->frame_done_timer);
+		/* One of the physical encoders has become idle */
+		for (i = 0; i < sde_enc->num_phys_encs; i++) {
+			if (sde_enc->phys_encs[i] == ready_phys) {
+				clear_bit(i, sde_enc->frame_busy_mask);
+				SDE_EVT32_VERBOSE(DRMID(drm_enc), i,
+					sde_enc->frame_busy_mask[0]);
+			}
+		}
 
-		sde_encoder_resource_control(drm_enc,
-				SDE_ENC_RC_EVENT_FRAME_DONE);
+		if (!sde_enc->frame_busy_mask[0]) {
+			atomic_set(&sde_enc->frame_done_timeout, 0);
+			del_timer(&sde_enc->frame_done_timer);
 
+			sde_encoder_resource_control(drm_enc,
+					SDE_ENC_RC_EVENT_FRAME_DONE);
+
+			if (sde_enc->crtc_frame_event_cb)
+				sde_enc->crtc_frame_event_cb(
+					sde_enc->crtc_frame_event_cb_data,
+					event);
+		}
+	} else {
 		if (sde_enc->crtc_frame_event_cb)
 			sde_enc->crtc_frame_event_cb(
 				sde_enc->crtc_frame_event_cb_data, event);
@@ -1917,6 +1984,9 @@ static inline void _sde_encoder_trigger_flush(struct drm_encoder *drm_enc,
 	}
 
 	pending_kickoff_cnt = sde_encoder_phys_inc_pending(phys);
+
+	if (phys->ops.is_master && phys->ops.is_master(phys))
+		atomic_inc(&phys->pending_retire_fence_cnt);
 
 	if (extra_flush_bits && ctl->ops.update_pending_flush)
 		ctl->ops.update_pending_flush(ctl, extra_flush_bits);
@@ -2320,6 +2390,7 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 	SDE_EVT32(DRMID(drm_enc));
 
 	/* prepare for next kickoff, may include waiting on previous kickoff */
+	SDE_ATRACE_BEGIN("enc_prepare_for_kickoff");
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		phys = sde_enc->phys_encs[i];
 		if (phys) {
@@ -2330,6 +2401,7 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 			_sde_encoder_setup_dither(phys);
 		}
 	}
+	SDE_ATRACE_END("enc_prepare_for_kickoff");
 
 	sde_encoder_resource_control(drm_enc, SDE_ENC_RC_EVENT_KICKOFF);
 
@@ -3020,7 +3092,8 @@ struct drm_encoder *sde_encoder_init(
 	}
 
 	mutex_init(&sde_enc->rc_lock);
-	INIT_DELAYED_WORK(&sde_enc->delayed_off_work, sde_encoder_off_work);
+	kthread_init_delayed_work(&sde_enc->delayed_off_work,
+			sde_encoder_off_work);
 
 	memcpy(&sde_enc->disp_info, disp_info, sizeof(*disp_info));
 
@@ -3063,7 +3136,9 @@ int sde_encoder_wait_for_event(struct drm_encoder *drm_enc,
 		};
 
 		if (phys && fn_wait) {
+			SDE_ATRACE_BEGIN("wait_for_completion_event");
 			ret = fn_wait(phys);
+			SDE_ATRACE_END("wait_for_completion_event");
 			if (ret)
 				return ret;
 		}

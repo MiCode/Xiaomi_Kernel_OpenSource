@@ -284,7 +284,7 @@ static int vblank_ctrl_queue_work(struct msm_drm_private *priv,
 	list_add_tail(&vbl_ev->node, &vbl_ctrl->event_list);
 	spin_unlock_irqrestore(&vbl_ctrl->lock, flags);
 
-	kthread_queue_work(&priv->event_thread[crtc_id].worker,
+	kthread_queue_work(&priv->disp_thread[crtc_id].worker,
 			&vbl_ctrl->work);
 
 	return 0;
