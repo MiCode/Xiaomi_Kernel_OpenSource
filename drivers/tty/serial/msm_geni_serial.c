@@ -1886,7 +1886,8 @@ static int msm_geni_serial_sys_resume_noirq(struct device *dev)
 	struct msm_geni_serial_port *port = platform_get_drvdata(pdev);
 	struct uart_port *uport = &port->uport;
 
-	if (uart_console(uport)) {
+	if (uart_console(uport) &&
+	    console_suspend_enabled && uport->suspended) {
 		se_geni_resources_on(&port->serial_rsc);
 		uart_resume_port((struct uart_driver *)uport->private_data,
 									uport);
