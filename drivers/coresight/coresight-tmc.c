@@ -1586,7 +1586,7 @@ out:
 	dev_dbg(drvdata->dev, "%s: %zu bytes copied, %d bytes left\n",
 		__func__, len, (int) (drvdata->size - *ppos));
 
-	mutex_lock(&drvdata->usb_lock);
+	mutex_unlock(&drvdata->usb_lock);
 	return len;
 }
 
