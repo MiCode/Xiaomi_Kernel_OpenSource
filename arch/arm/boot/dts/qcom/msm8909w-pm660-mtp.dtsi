@@ -152,6 +152,7 @@
 #include "msm-pm660.dtsi"
 #include "msm-pm660-rpm-regulator.dtsi"
 #include "msm8909w-pm660-regulator.dtsi"
+#include "msm8909-pm660-pm.dtsi"
 
 &soc {
 	qcom,gcc@1800000 {
