@@ -951,7 +951,7 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 	ret = gpiochip_irqchip_add(chip,
 				   &msm_gpio_irq_chip,
 				   0,
-				   handle_edge_irq,
+				   handle_fasteoi_irq,
 				   IRQ_TYPE_NONE);
 	if (ret) {
 		dev_err(pctrl->dev, "Failed to add irqchip to gpiochip\n");
