@@ -1121,6 +1121,62 @@ static int _sde_encoder_dsc_setup(struct sde_encoder_virt *sde_enc,
 	return ret;
 }
 
+static void _sde_encoder_update_vsync_source(struct sde_encoder_virt *sde_enc,
+			struct msm_display_info *disp_info, bool is_dummy)
+{
+	struct sde_vsync_source_cfg vsync_cfg = { 0 };
+	struct msm_drm_private *priv;
+	struct sde_kms *sde_kms;
+	struct sde_hw_mdp *hw_mdptop;
+	struct drm_encoder *drm_enc;
+	int i;
+
+	if (!sde_enc || !disp_info) {
+		SDE_ERROR("invalid param sde_enc:%d or disp_info:%d\n",
+					sde_enc != NULL, disp_info != NULL);
+		return;
+	} else if (sde_enc->num_phys_encs > ARRAY_SIZE(sde_enc->hw_pp)) {
+		SDE_ERROR("invalid num phys enc %d/%d\n",
+				sde_enc->num_phys_encs,
+				(int) ARRAY_SIZE(sde_enc->hw_pp));
+		return;
+	}
+
+	drm_enc = &sde_enc->base;
+	/* this pointers are checked in virt_enable_helper */
+	priv = drm_enc->dev->dev_private;
+
+	sde_kms = to_sde_kms(priv->kms);
+	if (!sde_kms) {
+		SDE_ERROR("invalid sde_kms\n");
+		return;
+	}
+
+	hw_mdptop = sde_kms->hw_mdp;
+	if (!hw_mdptop) {
+		SDE_ERROR("invalid mdptop\n");
+		return;
+	}
+
+	if (hw_mdptop->ops.setup_vsync_source &&
+			disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE) {
+		for (i = 0; i < sde_enc->num_phys_encs; i++)
+			vsync_cfg.ppnumber[i] = sde_enc->hw_pp[i]->idx;
+
+		vsync_cfg.pp_count = sde_enc->num_phys_encs;
+		vsync_cfg.frame_rate = sde_enc->disp_info.frame_rate;
+		if (is_dummy)
+			vsync_cfg.vsync_source = SDE_VSYNC_SOURCE_WD_TIMER_1;
+		else if (disp_info->is_te_using_watchdog_timer)
+			vsync_cfg.vsync_source = SDE_VSYNC_SOURCE_WD_TIMER_0;
+		else
+			vsync_cfg.vsync_source = SDE_VSYNC0_SOURCE_GPIO;
+		vsync_cfg.is_dummy = is_dummy;
+
+		hw_mdptop->ops.setup_vsync_source(hw_mdptop, &vsync_cfg);
+	}
+}
+
 static int sde_encoder_update_rsc_client(
 		struct drm_encoder *drm_enc,
 		struct sde_encoder_rsc_config *config, bool enable)
@@ -1237,6 +1293,9 @@ static void _sde_encoder_resource_control_helper(struct drm_encoder *drm_enc,
 		rsc_cfg.inline_rotate_prefill =
 				sde_crtc_get_inline_prefill(drm_enc->crtc);
 
+		_sde_encoder_update_vsync_source(sde_enc, &sde_enc->disp_info,
+									false);
+
 		/* enable RSC */
 		sde_encoder_update_rsc_client(drm_enc, &rsc_cfg, true);
 
@@ -1245,6 +1304,14 @@ static void _sde_encoder_resource_control_helper(struct drm_encoder *drm_enc,
 		/* disable RSC */
 		sde_encoder_update_rsc_client(drm_enc, NULL, false);
 
+		/**
+		 * this call is for hardware workaround on sdm845 and should
+		 * not be removed without considering the design changes for
+		 * sde rsc + command mode concurrency. It may lead to pp
+		 * timeout due to vsync from panel for command mode panel.
+		 */
+		_sde_encoder_update_vsync_source(sde_enc, &sde_enc->disp_info,
+									true);
 		/* disable all the irq */
 		for (i = 0; i < sde_enc->num_phys_encs; i++) {
 			struct sde_encoder_phys *phys =
@@ -1604,33 +1671,22 @@ static void _sde_encoder_virt_enable_helper(struct drm_encoder *drm_enc)
 	struct sde_encoder_virt *sde_enc = NULL;
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
-	struct sde_hw_mdp *hw_mdptop;
-	int i = 0;
-	struct sde_watchdog_te_status te_cfg = { 0 };
 
 	if (!drm_enc || !drm_enc->dev || !drm_enc->dev->dev_private) {
 		SDE_ERROR("invalid parameters\n");
 		return;
 	}
+
 	priv = drm_enc->dev->dev_private;
+	sde_kms = to_sde_kms(priv->kms);
+	if (!sde_kms) {
+		SDE_ERROR("invalid sde_kms\n");
+		return;
+	}
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
 	if (!sde_enc || !sde_enc->cur_master) {
 		SDE_ERROR("invalid sde encoder/master\n");
-		return;
-	}
-
-	sde_kms = to_sde_kms(priv->kms);
-	hw_mdptop = sde_kms->hw_mdp;
-
-	if (!hw_mdptop) {
-		SDE_ERROR("invalid mdptop\n");
-		return;
-	}
-
-	sde_kms = to_sde_kms(priv->kms);
-	if (!sde_kms) {
-		SDE_ERROR("invalid sde_kms\n");
 		return;
 	}
 
@@ -1640,24 +1696,7 @@ static void _sde_encoder_virt_enable_helper(struct drm_encoder *drm_enc)
 				sde_enc->cur_master->hw_mdptop,
 				sde_kms->catalog);
 
-	if (sde_enc->num_phys_encs > ARRAY_SIZE(te_cfg.ppnumber) ||
-			sde_enc->num_phys_encs > ARRAY_SIZE(sde_enc->hw_pp)) {
-		SDE_ERROR("invalid num phys enc %d/%d/%d\n",
-				sde_enc->num_phys_encs,
-				(int) ARRAY_SIZE(te_cfg.ppnumber),
-				(int) ARRAY_SIZE(sde_enc->hw_pp));
-		return;
-	}
-
-	if (hw_mdptop->ops.setup_vsync_sel) {
-		for (i = 0; i < sde_enc->num_phys_encs; i++)
-			te_cfg.ppnumber[i] = sde_enc->hw_pp[i]->idx;
-
-		te_cfg.pp_count = sde_enc->num_phys_encs;
-		te_cfg.frame_rate = sde_enc->disp_info.frame_rate;
-		hw_mdptop->ops.setup_vsync_sel(hw_mdptop, &te_cfg,
-				sde_enc->disp_info.is_te_using_watchdog_timer);
-	}
+	_sde_encoder_update_vsync_source(sde_enc, &sde_enc->disp_info, false);
 
 	memset(&sde_enc->prv_conn_roi, 0, sizeof(sde_enc->prv_conn_roi));
 	memset(&sde_enc->cur_conn_roi, 0, sizeof(sde_enc->cur_conn_roi));
