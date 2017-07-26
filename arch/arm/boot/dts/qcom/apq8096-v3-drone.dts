@@ -15,6 +15,7 @@
 
 #include "apq8096-v3.dtsi"
 #include "apq8096-drone.dtsi"
+#include "msm8996-wsa881x.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ8096v3 + PM8996&PMI8996 Drone";
@@ -243,4 +244,80 @@
 	compatible = "removed-dma-pool";
 	no-map;
 	reg = <0 0x8ea00000 0 0x3200000>;
+};
+
+&slim_msm {
+	status = "ok";
+	tasha_codec {
+		status = "ok";
+	};
+};
+
+&wsa881x_211 {
+	qcom,spkr-sd-n-gpio = <&tlmm 114 0>;
+};
+
+&wsa881x_212 {
+	qcom,spkr-sd-n-gpio = <&tlmm 91 0>;
+};
+
+&wsa881x_213 {
+	qcom,spkr-sd-n-gpio = <&tlmm 114 0>;
+};
+
+&wsa881x_214 {
+	qcom,spkr-sd-n-gpio = <&tlmm 91 0>;
+};
+
+
+&soc {
+	qcom,msm-dai-mi2s {
+		status = "ok";
+	};
+
+	sound-9335 {
+		status = "ok";
+
+		qcom,audio-routing =
+			"AIF4 VI", "MCLK",
+			"RX_BIAS", "MCLK",
+			"MADINPUT", "MCLK",
+			"AMIC1", "MIC BIAS1",
+			"MIC BIAS1", "Handset Mic",
+			"AMIC2", "MIC BIAS3",
+			"MIC BIAS3", "Headset Mic",
+			"AMIC3", "MIC BIAS1",
+			"MIC BIAS1", "ANCRight Headset Mic",
+			"AMIC4", "MIC BIAS3",
+			"MIC BIAS3", "ANCLeft Headset Mic",
+			"AMIC5", "MIC BIAS4",
+			"MIC BIAS4", "Handset Mic",
+			"AMIC6", "MIC BIAS4",
+			"MIC BIAS4", "Analog Mic6",
+			"DMIC0", "MIC BIAS1",
+			"MIC BIAS1", "Digital Mic0",
+			"DMIC1", "MIC BIAS1",
+			"MIC BIAS1", "Digital Mic1",
+			"DMIC2", "MIC BIAS3",
+			"MIC BIAS3", "Digital Mic2",
+			"DMIC3", "MIC BIAS3",
+			"MIC BIAS3", "Digital Mic3",
+			"DMIC4", "MIC BIAS4",
+			"MIC BIAS4", "Digital Mic4",
+			"DMIC5", "MIC BIAS4",
+			"MIC BIAS4", "Digital Mic5",
+			"SpkrLeft IN", "SPK1 OUT",
+			"SpkrRight IN", "SPK2 OUT";
+
+		qcom,wsa-max-devs = <2>;
+		qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_212>,
+				<&wsa881x_213>, <&wsa881x_214>;
+		qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
+					  "SpkrLeft", "SpkrRight";
+	};
+};
+
+&wcd9xxx_intc {
+	qcom,gpio-connect = <&tlmm 127 0>;
+	pinctrl-0 = <&wcd_intr_default2>;
 };
