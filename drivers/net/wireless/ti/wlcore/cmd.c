@@ -399,7 +399,7 @@ void wl12xx_free_link(struct wl1271 *wl, struct wl12xx_vif *wlvif, u8 *hlid)
 	WARN_ON_ONCE(wl->active_link_count < 0);
 }
 
-static u8 wlcore_get_native_channel_type(u8 nl_channel_type)
+u8 wlcore_get_native_channel_type(u8 nl_channel_type)
 {
 	switch (nl_channel_type) {
 	case NL80211_CHAN_NO_HT:
@@ -415,6 +415,7 @@ static u8 wlcore_get_native_channel_type(u8 nl_channel_type)
 		return WLCORE_CHAN_NO_HT;
 	}
 }
+EXPORT_SYMBOL_GPL(wlcore_get_native_channel_type);
 
 static int wl12xx_cmd_role_start_dev(struct wl1271 *wl,
 				     struct wl12xx_vif *wlvif,
@@ -1992,12 +1993,15 @@ int wl12xx_start_dev(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 		      wlvif->bss_type == BSS_TYPE_IBSS)))
 		return -EINVAL;
 
-	ret = wl12xx_cmd_role_enable(wl,
-				     wl12xx_wlvif_to_vif(wlvif)->addr,
-				     WL1271_ROLE_DEVICE,
-				     &wlvif->dev_role_id);
-	if (ret < 0)
-		goto out;
+	/* the dev role is already started for p2p mgmt interfaces */
+	if (!wlcore_is_p2p_mgmt(wlvif)) {
+		ret = wl12xx_cmd_role_enable(wl,
+					     wl12xx_wlvif_to_vif(wlvif)->addr,
+					     WL1271_ROLE_DEVICE,
+					     &wlvif->dev_role_id);
+		if (ret < 0)
+			goto out;
+	}
 
 	ret = wl12xx_cmd_role_start_dev(wl, wlvif, band, channel);
 	if (ret < 0)
@@ -2012,7 +2016,8 @@ int wl12xx_start_dev(struct wl1271 *wl, struct wl12xx_vif *wlvif,
 out_stop:
 	wl12xx_cmd_role_stop_dev(wl, wlvif);
 out_disable:
-	wl12xx_cmd_role_disable(wl, &wlvif->dev_role_id);
+	if (!wlcore_is_p2p_mgmt(wlvif))
+		wl12xx_cmd_role_disable(wl, &wlvif->dev_role_id);
 out:
 	return ret;
 }
@@ -2041,9 +2046,11 @@ int wl12xx_stop_dev(struct wl1271 *wl, struct wl12xx_vif *wlvif)
 	if (ret < 0)
 		goto out;
 
-	ret = wl12xx_cmd_role_disable(wl, &wlvif->dev_role_id);
-	if (ret < 0)
-		goto out;
+	if (!wlcore_is_p2p_mgmt(wlvif)) {
+		ret = wl12xx_cmd_role_disable(wl, &wlvif->dev_role_id);
+		if (ret < 0)
+			goto out;
+	}
 
 out:
 	return ret;

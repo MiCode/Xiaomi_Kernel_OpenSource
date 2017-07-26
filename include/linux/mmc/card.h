@@ -132,6 +132,9 @@ struct mmc_ext_csd {
 	u8			cmdq_support;		/* 308 */
 	u8			barrier_support;	/* 486 */
 	u8			barrier_en;
+	u8			pre_eol_info;		/* 267 */
+	u8			device_life_time_est_typ_a;	/* 268 */
+	u8			device_life_time_est_typ_b;	/* 269 */
 
 	u8			fw_version;		/* 254 */
 	unsigned int            feature_support;
