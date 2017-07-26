@@ -46,8 +46,9 @@
 #define RSC_TIME_SLOT_0_NS		((SINGLE_TCS_EXECUTION_TIME * 2) + 100)
 
 #define DEFAULT_PANEL_FPS		60
-#define DEFAULT_PANEL_JITTER		5
-#define DEFAULT_PANEL_PREFILL_LINES	16
+#define DEFAULT_PANEL_JITTER_NUMERATOR	2
+#define DEFAULT_PANEL_JITTER_DENOMINATOR 1
+#define DEFAULT_PANEL_PREFILL_LINES	25
 #define DEFAULT_PANEL_VTOTAL		(480 + DEFAULT_PANEL_PREFILL_LINES)
 #define TICKS_IN_NANO_SECOND		1000000000
 
@@ -320,21 +321,25 @@ static u32 sde_rsc_timer_calculate(struct sde_rsc_priv *rsc,
 	/* calculate for 640x480 60 fps resolution by default */
 	if (!rsc->cmd_config.fps)
 		rsc->cmd_config.fps = DEFAULT_PANEL_FPS;
-	if (!rsc->cmd_config.jitter)
-		rsc->cmd_config.jitter = DEFAULT_PANEL_JITTER;
+	if (!rsc->cmd_config.jitter_numer)
+		rsc->cmd_config.jitter_numer = DEFAULT_PANEL_JITTER_NUMERATOR;
+	if (!rsc->cmd_config.jitter_denom)
+		rsc->cmd_config.jitter_denom = DEFAULT_PANEL_JITTER_DENOMINATOR;
 	if (!rsc->cmd_config.vtotal)
 		rsc->cmd_config.vtotal = DEFAULT_PANEL_VTOTAL;
 	if (!rsc->cmd_config.prefill_lines)
 		rsc->cmd_config.prefill_lines = DEFAULT_PANEL_PREFILL_LINES;
-	pr_debug("frame fps:%d jitter:%d vtotal:%d prefill lines:%d\n",
-		rsc->cmd_config.fps, rsc->cmd_config.jitter,
-		rsc->cmd_config.vtotal, rsc->cmd_config.prefill_lines);
+	pr_debug("frame fps:%d jitter_numer:%d jitter_denom:%d vtotal:%d prefill lines:%d\n",
+		rsc->cmd_config.fps, rsc->cmd_config.jitter_numer,
+		rsc->cmd_config.jitter_denom, rsc->cmd_config.vtotal,
+		rsc->cmd_config.prefill_lines);
 
 	/* 1 nano second */
 	frame_time_ns = TICKS_IN_NANO_SECOND;
 	frame_time_ns = div_u64(frame_time_ns, rsc->cmd_config.fps);
 
-	frame_jitter = frame_time_ns * rsc->cmd_config.jitter;
+	frame_jitter = frame_time_ns * rsc->cmd_config.jitter_numer;
+	frame_jitter = div_u64(frame_jitter, rsc->cmd_config.jitter_denom);
 	/* convert it to percentage */
 	frame_jitter = div_u64(frame_jitter, 100);
 
@@ -749,8 +754,9 @@ static int _sde_debugfs_status_show(struct seq_file *s, void *data)
 				rsc->timer_config.rsc_time_slot_0_ns);
 	seq_printf(s, "rsc time slot 1(ns):%d\n",
 				rsc->timer_config.rsc_time_slot_1_ns);
-	seq_printf(s, "frame fps:%d jitter:%d vtotal:%d prefill lines:%d\n",
-			rsc->cmd_config.fps, rsc->cmd_config.jitter,
+	seq_printf(s, "frame fps:%d jitter_numer:%d jitter_denom:%d vtotal:%d prefill lines:%d\n",
+			rsc->cmd_config.fps, rsc->cmd_config.jitter_numer,
+			rsc->cmd_config.jitter_denom,
 			rsc->cmd_config.vtotal, rsc->cmd_config.prefill_lines);
 
 	seq_puts(s, "\n");

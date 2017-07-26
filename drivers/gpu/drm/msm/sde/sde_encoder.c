@@ -1143,7 +1143,8 @@ static int sde_encoder_update_rsc_client(
 		rsc_config.fps = disp_info->frame_rate;
 		rsc_config.vtotal = disp_info->vtotal;
 		rsc_config.prefill_lines = disp_info->prefill_lines;
-		rsc_config.jitter = disp_info->jitter;
+		rsc_config.jitter_numer = disp_info->jitter_numer;
+		rsc_config.jitter_denom = disp_info->jitter_denom;
 		rsc_config.prefill_lines += config ?
 				config->inline_rotate_prefill : 0;
 		/* update it only once */
