@@ -65,9 +65,10 @@
 
 		qcom,sde-wb-off = <0x66000>;
 		qcom,sde-wb-size = <0x2c8>;
-
 		qcom,sde-wb-xin-id = <6>;
 		qcom,sde-wb-id = <2>;
+		qcom,sde-wb-clk-ctrl = <0x3b8 24>;
+
 		qcom,sde-intf-off = <0x6b000 0x6b800
 					0x6c000 0x6c800>;
 		qcom,sde-intf-size = <0x280>;
