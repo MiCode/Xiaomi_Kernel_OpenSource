@@ -315,11 +315,12 @@ static int lmh_get_recurssive_data(struct scm_desc *desc_arg, uint32_t cmd_idx,
 			pr_err("No LMH device supported.\n");
 			return -ENODEV;
 		}
-		if (!dest_buf)
+		if (!dest_buf) {
 			dest_buf = devm_kcalloc(lmh_data->dev, *size,
 				sizeof(*dest_buf), GFP_KERNEL);
 			if (!dest_buf)
 				return -ENOMEM;
+		}
 
 		for (idx = next;
 			idx < min((next + LMH_SCM_PAYLOAD_SIZE), *size);
