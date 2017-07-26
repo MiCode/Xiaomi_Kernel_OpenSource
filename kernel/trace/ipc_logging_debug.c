@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,23 +74,42 @@ static int debug_log(struct ipc_log_context *ilctxt,
 static ssize_t debug_read_helper(struct file *file, char __user *buff,
 				 size_t count, loff_t *ppos, int cont)
 {
-	struct ipc_log_context *ilctxt = file->private_data;
+	struct ipc_log_context *ilctxt;
+	struct dentry *d = file->f_path.dentry;
 	char *buffer;
 	int bsize;
+	int srcu_idx;
+	int r;
+
+	r = debugfs_use_file_start(d, &srcu_idx);
+	if (!r) {
+		ilctxt = file->private_data;
+		r = kref_get_unless_zero(&ilctxt->refcount) ? 0 : -EIO;
+	}
+	debugfs_use_file_finish(srcu_idx);
+	if (r)
+		return r;
 
 	buffer = kmalloc(count, GFP_KERNEL);
-	if (!buffer)
-		return -ENOMEM;
+	if (!buffer) {
+		bsize = -ENOMEM;
+		goto done;
+	}
 
 	bsize = debug_log(ilctxt, buffer, count, cont);
+
 	if (bsize > 0) {
 		if (copy_to_user(buff, buffer, bsize)) {
+			bsize = -EFAULT;
 			kfree(buffer);
-			return -EFAULT;
+			goto done;
 		}
 		*ppos += bsize;
 	}
 	kfree(buffer);
+
+done:
+	ipc_log_context_put(ilctxt);
 	return bsize;
 }
 
@@ -127,7 +146,7 @@ static void debug_create(const char *name, mode_t mode,
 			 struct ipc_log_context *ilctxt,
 			 const struct file_operations *fops)
 {
-	debugfs_create_file(name, mode, dent, ilctxt, fops);
+	debugfs_create_file_unsafe(name, mode, dent, ilctxt, fops);
 }
 
 static void dfunc_string(struct encode_context *ectxt,
