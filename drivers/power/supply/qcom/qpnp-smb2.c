@@ -1807,8 +1807,8 @@ static int smb2_chg_config_init(struct smb2 *chip)
 		chip->chg.wa_flags |= BOOST_BACK_WA | OTG_WA;
 		chg->param.freq_buck = pm660_params.freq_buck;
 		chg->param.freq_boost = pm660_params.freq_boost;
-		chg->chg_freq.freq_5V		= 600;
-		chg->chg_freq.freq_6V_8V	= 800;
+		chg->chg_freq.freq_5V		= 650;
+		chg->chg_freq.freq_6V_8V	= 850;
 		chg->chg_freq.freq_9V		= 1050;
 		chg->chg_freq.freq_12V		= 1200;
 		chg->chg_freq.freq_removal	= 1050;
