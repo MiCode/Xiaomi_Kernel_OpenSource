@@ -910,10 +910,6 @@ config SND_SOC_WSA881X
 	depends on REGMAP_SWR
 	select MSM_CDC_PINCTRL
 
-config SND_SOC_WSA881X_ANALOG
-        tristate
-	select REGMAP_I2C
-
 config SND_SOC_WCD9XXX
 	tristate
 	default y if SND_SOC_WCD9335=y || SND_SOC_WCD934X=y
