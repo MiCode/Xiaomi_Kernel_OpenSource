@@ -1768,9 +1768,8 @@ static int msm_routing_get_audio_mixer(struct snd_kcontrol *kcontrol,
 static int msm_routing_put_audio_mixer(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 	struct snd_soc_dapm_update *update = NULL;
@@ -1810,9 +1809,8 @@ static int msm_routing_get_listen_mixer(struct snd_kcontrol *kcontrol,
 static int msm_routing_put_listen_mixer(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 	struct snd_soc_dapm_update *update = NULL;
@@ -1928,9 +1926,8 @@ static int msm_routing_get_voice_mixer(struct snd_kcontrol *kcontrol,
 static int msm_routing_put_voice_mixer(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 	struct snd_soc_dapm_update *update = NULL;
@@ -1972,9 +1969,8 @@ static int msm_routing_get_voice_stub_mixer(struct snd_kcontrol *kcontrol,
 static int msm_routing_put_voice_stub_mixer(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 	struct snd_soc_dapm_update *update = NULL;
@@ -2075,9 +2071,8 @@ static int msm_routing_get_switch_mixer(struct snd_kcontrol *kcontrol,
 static int msm_routing_put_switch_mixer(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_dapm_update *update = NULL;
 
 	pr_debug("%s: FM Switch enable %ld\n", __func__,
@@ -2104,9 +2099,8 @@ static int msm_routing_get_hfp_switch_mixer(struct snd_kcontrol *kcontrol,
 static int msm_routing_put_hfp_switch_mixer(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_dapm_update *update = NULL;
 
 	pr_debug("%s: HFP Switch enable %ld\n", __func__,
@@ -2133,9 +2127,8 @@ static int msm_routing_get_int0_mi2s_switch_mixer(struct snd_kcontrol *kcontrol,
 static int msm_routing_put_int0_mi2s_switch_mixer(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_dapm_update *update = NULL;
 
 	pr_debug("%s: INT0 MI2S Switch enable %ld\n", __func__,
@@ -2162,9 +2155,8 @@ static int msm_routing_get_int4_mi2s_switch_mixer(struct snd_kcontrol *kcontrol,
 static int msm_routing_put_int4_mi2s_switch_mixer(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_dapm_update *update = NULL;
 
 	pr_debug("%s: INT4 MI2S Switch enable %ld\n", __func__,
@@ -2191,9 +2183,8 @@ static int msm_routing_get_usb_switch_mixer(struct snd_kcontrol *kcontrol,
 static int msm_routing_put_usb_switch_mixer(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_dapm_update *update = NULL;
 
 	pr_debug("%s: USB Switch enable %ld\n", __func__,
@@ -2220,9 +2211,8 @@ static int msm_routing_get_pri_mi2s_switch_mixer(struct snd_kcontrol *kcontrol,
 static int msm_routing_put_pri_mi2s_switch_mixer(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_dapm_update *update = NULL;
 
 	pr_debug("%s: PRI MI2S Switch enable %ld\n", __func__,
@@ -2249,9 +2239,8 @@ static int msm_routing_get_sec_mi2s_switch_mixer(struct snd_kcontrol *kcontrol,
 static int msm_routing_put_sec_mi2s_switch_mixer(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_dapm_update *update = NULL;
 
 	pr_debug("%s: SEC MI2S Switch enable %ld\n", __func__,
@@ -2280,9 +2269,8 @@ static int msm_routing_put_tert_mi2s_switch_mixer(
 				struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_dapm_update *update = NULL;
 
 	pr_debug("%s: TERT MI2S Switch enable %ld\n", __func__,
@@ -2311,9 +2299,8 @@ static int msm_routing_put_quat_mi2s_switch_mixer(
 				struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_dapm_update *update = NULL;
 
 	pr_debug("%s: QUAT MI2S Switch enable %ld\n", __func__,
@@ -2340,9 +2327,8 @@ static int msm_routing_get_fm_pcmrx_switch_mixer(struct snd_kcontrol *kcontrol,
 static int msm_routing_put_fm_pcmrx_switch_mixer(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_dapm_update *update = NULL;
 
 	pr_debug("%s: FM Switch enable %ld\n", __func__,
@@ -3490,9 +3476,8 @@ static int msm_routing_ec_ref_rx_put(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
 	int ec_ref_port_id;
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	struct snd_soc_dapm_update *update = NULL;
 
@@ -3689,9 +3674,8 @@ static int msm_routing_ext_ec_get(struct snd_kcontrol *kcontrol,
 static int msm_routing_ext_ec_put(struct snd_kcontrol *kcontrol,
 				  struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	int mux = ucontrol->value.enumerated.item[0];
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	int ret = 1;

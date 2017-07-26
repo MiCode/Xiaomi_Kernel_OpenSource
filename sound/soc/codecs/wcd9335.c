@@ -2261,9 +2261,8 @@ static const struct snd_kcontrol_new hph_type_detect_controls[] = {
 static int tasha_vi_feed_mixer_get(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct tasha_priv *tasha_p = snd_soc_codec_get_drvdata(codec);
 
@@ -2275,9 +2274,8 @@ static int tasha_vi_feed_mixer_get(struct snd_kcontrol *kcontrol,
 static int tasha_vi_feed_mixer_put(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct tasha_priv *tasha_p = snd_soc_codec_get_drvdata(codec);
 	struct wcd9xxx *core = tasha_p->wcd9xxx;
@@ -2328,9 +2326,8 @@ static int tasha_vi_feed_mixer_put(struct snd_kcontrol *kcontrol,
 static int slim_tx_mixer_get(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct tasha_priv *tasha_p = snd_soc_codec_get_drvdata(codec);
 
@@ -2341,9 +2338,8 @@ static int slim_tx_mixer_get(struct snd_kcontrol *kcontrol,
 static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct tasha_priv *tasha_p = snd_soc_codec_get_drvdata(codec);
 	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
@@ -2436,9 +2432,8 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 static int slim_rx_mux_get(struct snd_kcontrol *kcontrol,
 			   struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct tasha_priv *tasha_p = snd_soc_codec_get_drvdata(codec);
 
@@ -2454,9 +2449,8 @@ static const char *const slim_rx_mux_text[] = {
 static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 			   struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct tasha_priv *tasha_p = snd_soc_codec_get_drvdata(codec);
 	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
@@ -8505,9 +8499,8 @@ static const struct snd_kcontrol_new tasha_snd_controls[] = {
 static int tasha_put_dec_enum(struct snd_kcontrol *kcontrol,
 			      struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	unsigned int val;
@@ -8565,9 +8558,8 @@ static int tasha_put_dec_enum(struct snd_kcontrol *kcontrol,
 static int tasha_int_dem_inp_mux_put(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	unsigned int val;
@@ -8899,9 +8891,8 @@ static int tasha_codec_configure_cpe_input(struct snd_soc_dapm_widget *w,
 static int tasha_codec_aif4_mixer_switch_get(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-			dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct tasha_priv *tasha_p = snd_soc_codec_get_drvdata(codec);
 
@@ -8918,9 +8909,8 @@ static int tasha_codec_aif4_mixer_switch_get(struct snd_kcontrol *kcontrol,
 static int tasha_codec_aif4_mixer_switch_put(struct snd_kcontrol *kcontrol,
 		struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-			dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_dapm_update *update = NULL;
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct tasha_priv *tasha_p = snd_soc_codec_get_drvdata(codec);
