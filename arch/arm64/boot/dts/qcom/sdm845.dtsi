@@ -3614,6 +3614,9 @@
 			&tsif0_sync_active
 			&tsif1_signals_active
 			&tsif1_sync_active>;		/* dual-tsif-mode2 */
+
+		qcom,smmu-s1-bypass;
+		iommus = <&apps_smmu 0x20 0x0f>;
 	};
 };
 
