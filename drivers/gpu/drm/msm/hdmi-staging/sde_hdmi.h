@@ -482,6 +482,14 @@ int sde_hdmi_pre_kickoff(struct drm_connector *connector,
 		void *display,
 		struct msm_display_kickoff_params *params);
 
+/*
+ * sde_hdmi_mode_needs_full_range - does mode need full range
+ * quantization
+ * @display: Pointer to private display structure
+ * Returns: true or false based on mode
+ */
+bool sde_hdmi_mode_needs_full_range(void *display);
+
 #else /*#ifdef CONFIG_DRM_SDE_HDMI*/
 
 static inline u32 sde_hdmi_get_num_of_displays(void)
@@ -594,6 +602,11 @@ static inline int sde_hdmi_set_property(struct drm_connector *connector,
 			void *display)
 {
 	return 0;
+}
+
+static inline bool sde_hdmi_mode_needs_full_range(void *display)
+{
+	return false;
 }
 
 #endif /*#else of CONFIG_DRM_SDE_HDMI*/

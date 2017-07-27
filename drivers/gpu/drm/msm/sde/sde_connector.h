@@ -135,6 +135,14 @@ struct sde_connector_ops {
 	int (*pre_kickoff)(struct drm_connector *connector,
 		void *display,
 		struct msm_display_kickoff_params *params);
+
+	/**
+	 * mode_needs_full_range - does the mode need full range
+	 * quantization
+	 * @display: Pointer to private display structure
+	 * Returns: true or false based on whether full range is needed
+	 */
+	bool (*mode_needs_full_range)(void *display);
 };
 
 /**
@@ -327,5 +335,12 @@ int sde_connector_get_info(struct drm_connector *connector,
  */
 int sde_connector_pre_kickoff(struct drm_connector *connector);
 
+/**
+ * sde_connector_mode_needs_full_range - query quantization type
+ * for the connector mode
+ * @connector: Pointer to drm connector object
+ * Returns: true OR false based on connector mode
+ */
+bool sde_connector_mode_needs_full_range(struct drm_connector *connector);
 #endif /* _SDE_CONNECTOR_H_ */
 
