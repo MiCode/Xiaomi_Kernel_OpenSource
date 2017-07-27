@@ -24,6 +24,7 @@
 #include <linux/uaccess.h>       /* copy_to_user */
 #include <linux/slab.h>          /* kfree, kzalloc */
 #include <linux/ioport.h>        /* XXX_ mem_region */
+#include <asm/dma-iommu.h>
 #include <linux/dma-mapping.h>   /* dma_XXX */
 #include <linux/dmapool.h>       /* DMA pools */
 #include <linux/delay.h>         /* msleep */
@@ -59,6 +60,10 @@
 #define TSPP_NUM_KEYS                  8
 #define INVALID_CHANNEL                0xFFFFFFFF
 #define TSPP_BAM_DEFAULT_IPC_LOGLVL    2
+
+#define TSPP_SMMU_IOVA_START	(0x10000000)
+#define TSPP_SMMU_IOVA_SIZE	(0x40000000)
+
 /*
  * BAM descriptor FIFO size (in number of descriptors).
  * Max number of descriptors allowed by SPS which is 8K-1.
@@ -489,6 +494,8 @@ struct tspp_device {
 	struct mutex mutex;
 	struct tspp_pinctrl pinctrl;
 	unsigned int tts_source; /* Time stamp source type LPASS timer/TCR */
+	struct dma_iommu_mapping *iommu_mapping;
+	bool bypass_s1_smmu;
 
 	struct dentry *dent;
 	struct dentry *debugfs_regs[ARRAY_SIZE(debugfs_tspp_regs)];
@@ -1056,6 +1063,42 @@ static void tspp_free_key_entry(int entry)
 	}
 
 	tspp_key_entry &= ~(1 << entry);
+}
+
+static int tspp_iommu_init(struct tspp_device *device)
+{
+	struct dma_iommu_mapping *iommu_map;
+	int s1_bypass = 1;
+
+	iommu_map = arm_iommu_create_mapping(&platform_bus_type,
+						TSPP_SMMU_IOVA_START,
+						TSPP_SMMU_IOVA_SIZE);
+	if (IS_ERR(iommu_map)) {
+		dev_err(&device->pdev->dev, "iommu_create_mapping failure\n");
+		return PTR_ERR(iommu_map);
+	}
+	if (iommu_domain_set_attr(iommu_map->domain,
+				  DOMAIN_ATTR_S1_BYPASS, &s1_bypass)) {
+		dev_err(&device->pdev->dev, "Can't bypass s1 translation\n");
+		arm_iommu_release_mapping(iommu_map);
+		return -EIO;
+	}
+	if (arm_iommu_attach_device(&device->pdev->dev, iommu_map)) {
+		dev_err(&device->pdev->dev, "can't arm_iommu_attach_device\n");
+		arm_iommu_release_mapping(iommu_map);
+		return -EIO;
+	}
+
+	device->iommu_mapping = iommu_map;
+	return 0;
+}
+
+static void tspp_iommu_release_iomapping(struct tspp_device *device)
+{
+	if (device->bypass_s1_smmu && device->iommu_mapping)
+		arm_iommu_release_mapping(device->iommu_mapping);
+
+	device->iommu_mapping = NULL;
 }
 
 static int tspp_alloc_buffer(u32 channel_id, struct tspp_data_descriptor *desc,
@@ -2959,6 +3002,14 @@ static int msm_tspp_probe(struct platform_device *pdev)
 		goto err_irq;
 	device->req_irqs = false;
 
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,smmu-s1-bypass")) {
+		device->bypass_s1_smmu = true;
+		if (tspp_iommu_init(device)) {
+			dev_err(&pdev->dev, "iommu init failed");
+			goto err_iommu;
+		}
+	}
+
 	device->tts_source = TSIF_TTS_TCR;
 	for (i = 0; i < TSPP_TSIF_INSTANCES; i++)
 		device->tsif[i].tts_source = device->tts_source;
@@ -3029,6 +3080,8 @@ err_clock:
 	tspp_debugfs_exit(device);
 	for (i = 0; i < TSPP_TSIF_INSTANCES; i++)
 		tsif_debugfs_exit(&device->tsif[i]);
+err_iommu:
+	tspp_iommu_release_iomapping(device);
 err_irq:
 	iounmap(device->bam_props.virt_addr);
 err_map_bam:
