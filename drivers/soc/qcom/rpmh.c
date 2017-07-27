@@ -181,6 +181,7 @@ static inline void wait_for_tx_done(struct rpmh_client *rc,
 {
 	int ret;
 	int count = 4;
+	int skip = 0;
 
 	do {
 		ret = wait_for_completion_timeout(compl, RPMH_TIMEOUT);
@@ -192,6 +193,10 @@ static inline void wait_for_tx_done(struct rpmh_client *rc,
 			return;
 		}
 		if (!count) {
+			if (skip++ % 100)
+				continue;
+			dev_err(rc->dev,
+				"RPMH waiting for interrupt from AOSS\n");
 			mbox_chan_debug(rc->chan);
 		} else {
 			dev_err(rc->dev,

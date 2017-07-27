@@ -11,7 +11,7 @@
  *
  */
 
-#define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
+#define pr_fmt(fmt) "%s " fmt, KBUILD_MODNAME
 
 #include <linux/atomic.h>
 #include <linux/bitmap.h>
@@ -241,7 +241,7 @@ static void print_response(struct tcs_drv *drv, int m)
 		return;
 
 	msg = resp->msg;
-	pr_warn("Response object idx=%d:\n\tfor-tcs=%d\tin-use=%d\n",
+	pr_warn("Response object [idx=%d for-tcs=%d in-use=%d]\n",
 			resp->idx, resp->m, resp->in_use);
 	pr_warn("Msg: state=%d\n", msg->state);
 	for (i = 0; i < msg->num_payload; i++)
@@ -795,7 +795,7 @@ static void print_tcs_regs(struct tcs_drv *drv, int m)
 	int n;
 	struct tcs_mbox *tcs = get_tcs_from_index(drv, m);
 	void __iomem *base = drv->reg_base;
-	u32 enable, addr, data, msgid;
+	u32 enable, addr, data, msgid, sts, irq_sts;
 
 	if (!tcs || tcs_is_free(drv, m))
 		return;
@@ -804,15 +804,24 @@ static void print_tcs_regs(struct tcs_drv *drv, int m)
 	if (!enable)
 		return;
 
-	pr_warn("TCS-%d contents:\n", m);
+	pr_warn("RSC:%s\n", drv->name);
+
+	sts = read_tcs_reg(base, TCS_DRV_STATUS, m, 0);
+	data = read_tcs_reg(base, TCS_DRV_CONTROL, m, 0);
+	irq_sts = read_tcs_reg(base, TCS_DRV_IRQ_STATUS, 0, 0);
+	pr_warn("TCS=%d [ctrlr-sts:%s amc-mode:0x%x irq-sts:%s]\n",
+			m, sts ? "IDLE" : "BUSY", data,
+			(irq_sts & BIT(m)) ? "COMPLETED" : "PENDING");
+
 	for (n = 0; n < tcs->ncpt; n++) {
 		if (!(enable & BIT(n)))
 			continue;
 		addr = read_tcs_reg(base, TCS_DRV_CMD_ADDR, m, n);
 		data = read_tcs_reg(base, TCS_DRV_CMD_DATA, m, n);
 		msgid = read_tcs_reg(base, TCS_DRV_CMD_MSGID, m, n);
-		pr_warn("\tn=%d addr=0x%x data=0x%x hdr=0x%x\n",
-						n, addr, data, msgid);
+		sts = read_tcs_reg(base, TCS_DRV_CMD_STATUS, m, n);
+		pr_warn("\tCMD=%d [addr=0x%x data=0x%x hdr=0x%x sts=0x%x]\n",
+						n, addr, data, msgid, sts);
 	}
 }
 
