@@ -897,6 +897,7 @@ int msm_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 	ret = devm_request_irq(&pdev->dev, gpu->irq, irq_handler,
 			IRQF_TRIGGER_HIGH, gpu->name, gpu);
 	if (ret) {
+		gpu->irq = ret;
 		dev_err(drm->dev, "failed to request IRQ%u: %d\n", gpu->irq, ret);
 		goto fail;
 	}
@@ -1006,6 +1007,11 @@ void msm_gpu_cleanup(struct msm_gpu *gpu)
 	DBG("%s", gpu->name);
 
 	WARN_ON(!list_empty(&gpu->active_list));
+
+	if (gpu->irq >= 0) {
+		disable_irq(gpu->irq);
+		devm_free_irq(&pdev->dev, gpu->irq, gpu);
+	}
 
 	bs_fini(gpu);
 
