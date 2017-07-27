@@ -3933,7 +3933,7 @@ int dsi_display_enable(struct dsi_display *display)
 			pr_err("[%s] failed to switch DSI panel mode, rc=%d\n",
 				   display->name, rc);
 
-		goto error_disable_panel;
+		goto error;
 	}
 
 	if (display->config.panel_mode == DSI_OP_VIDEO_MODE) {

@@ -103,10 +103,16 @@
  *	IDLE is expected when IDLE_PC has run, and PRE_OFF did nothing.
  *	PRE_OFF is expected when PRE_STOP was executed during the ON state.
  *	Resource state should be in OFF at the end of the event.
- * @SDE_ENC_RC_EARLY_WAKEUP
+ * @SDE_ENC_RC_EVENT_PRE_MODESET:
  *	This event happens at NORMAL priority from a work item.
- *	Event signals that there will be frame update soon and the driver should
- *	wake up early to update the frame with minimum latency.
+ *	Event signals that there is a seamless mode switch is in prgoress. A
+ *	client needs to turn of only irq - leave clocks ON to reduce the mode
+ *	switch latency.
+ * @SDE_ENC_RC_EVENT_POST_MODESET:
+ *	This event happens at NORMAL priority from a work item.
+ *	Event signals that seamless mode switch is complete and resources are
+ *	acquired. Clients wants to turn on the irq again and update the rsc
+ *	with new vtotal.
  * @SDE_ENC_RC_EVENT_ENTER_IDLE:
  *	This event happens at NORMAL priority from a work item.
  *	Event signals that there were no frame updates for IDLE_TIMEOUT time.
@@ -118,7 +124,8 @@ enum sde_enc_rc_events {
 	SDE_ENC_RC_EVENT_FRAME_DONE,
 	SDE_ENC_RC_EVENT_PRE_STOP,
 	SDE_ENC_RC_EVENT_STOP,
-	SDE_ENC_RC_EVENT_EARLY_WAKE_UP,
+	SDE_ENC_RC_EVENT_PRE_MODESET,
+	SDE_ENC_RC_EVENT_POST_MODESET,
 	SDE_ENC_RC_EVENT_ENTER_IDLE
 };
 
@@ -127,12 +134,14 @@ enum sde_enc_rc_events {
  * @SDE_ENC_RC_STATE_OFF: Resource is in OFF state
  * @SDE_ENC_RC_STATE_PRE_OFF: Resource is transitioning to OFF state
  * @SDE_ENC_RC_STATE_ON: Resource is in ON state
+ * @SDE_ENC_RC_STATE_MODESET: Resource is in modeset state
  * @SDE_ENC_RC_STATE_IDLE: Resource is in IDLE state
  */
 enum sde_enc_rc_states {
 	SDE_ENC_RC_STATE_OFF,
 	SDE_ENC_RC_STATE_PRE_OFF,
 	SDE_ENC_RC_STATE_ON,
+	SDE_ENC_RC_STATE_MODESET,
 	SDE_ENC_RC_STATE_IDLE
 };
 
@@ -184,7 +193,7 @@ enum sde_enc_rc_states {
  *				clks and resources after IDLE_TIMEOUT time.
  * @topology:                   topology of the display
  * @mode_set_complete:          flag to indicate modeset completion
- * @rsc_cfg:			rsc configuration
+ * @rsc_config:			rsc configuration for display vtotal, fps, etc.
  * @cur_conn_roi:		current connector roi
  * @prv_conn_roi:		previous connector roi to optimize if unchanged
  */
@@ -228,7 +237,7 @@ struct sde_encoder_virt {
 	struct msm_display_topology topology;
 	bool mode_set_complete;
 
-	struct sde_encoder_rsc_config rsc_cfg;
+	struct sde_rsc_cmd_config rsc_config;
 	struct sde_rect cur_conn_roi;
 	struct sde_rect prv_conn_roi;
 };
@@ -1220,8 +1229,8 @@ static int _sde_encoder_update_rsc_client(
 	struct sde_encoder_virt *sde_enc;
 	struct drm_crtc *crtc;
 	enum sde_rsc_state rsc_state;
-	struct sde_rsc_cmd_config rsc_config;
-	int ret;
+	struct sde_rsc_cmd_config *rsc_config;
+	int ret, prefill_lines;
 	struct msm_display_info *disp_info;
 	struct msm_mode_info *mode_info;
 	int wait_vblank_crtc_id = SDE_RSC_INVALID_CRTC_ID;
@@ -1238,6 +1247,7 @@ static int _sde_encoder_update_rsc_client(
 	crtc = drm_enc->crtc;
 	disp_info = &sde_enc->disp_info;
 	mode_info = &sde_enc->mode_info;
+	rsc_config = &sde_enc->rsc_config;
 
 	if (!sde_enc->rsc_client) {
 		SDE_DEBUG_ENC(sde_enc, "rsc client not created\n");
@@ -1253,27 +1263,30 @@ static int _sde_encoder_update_rsc_client(
 		(((disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE) &&
 		  disp_info->is_primary) ? SDE_RSC_CMD_STATE :
 		SDE_RSC_VID_STATE) : SDE_RSC_IDLE_STATE;
+	prefill_lines = config ? mode_info->prefill_lines +
+		config->inline_rotate_prefill : mode_info->prefill_lines;
 
-	if (config && memcmp(&sde_enc->rsc_cfg, config,
-			sizeof(sde_enc->rsc_cfg)))
+	/* compare specific items and reconfigure the rsc */
+	if ((rsc_config->fps != mode_info->frame_rate) ||
+	    (rsc_config->vtotal != mode_info->vtotal) ||
+	    (rsc_config->prefill_lines != prefill_lines) ||
+	    (rsc_config->jitter_numer != mode_info->jitter_numer) ||
+	    (rsc_config->jitter_denom != mode_info->jitter_denom)) {
+		rsc_config->fps = mode_info->frame_rate;
+		rsc_config->vtotal = mode_info->vtotal;
+		rsc_config->prefill_lines = prefill_lines;
+		rsc_config->jitter_numer = mode_info->jitter_numer;
+		rsc_config->jitter_denom = mode_info->jitter_denom;
 		sde_enc->rsc_state_init = false;
+	}
 
 	if (rsc_state != SDE_RSC_IDLE_STATE && !sde_enc->rsc_state_init
 					&& disp_info->is_primary) {
-		rsc_config.fps = mode_info->frame_rate;
-		rsc_config.vtotal = mode_info->vtotal;
-		rsc_config.prefill_lines = mode_info->prefill_lines;
-		rsc_config.jitter_numer = mode_info->jitter_numer;
-		rsc_config.jitter_denom = mode_info->jitter_denom;
-		rsc_config.prefill_lines += config ?
-				config->inline_rotate_prefill : 0;
 		/* update it only once */
 		sde_enc->rsc_state_init = true;
-		if (config)
-			sde_enc->rsc_cfg = *config;
 
 		ret = sde_rsc_client_state_update(sde_enc->rsc_client,
-			rsc_state, &rsc_config, crtc->base.id,
+			rsc_state, rsc_config, crtc->base.id,
 			&wait_vblank_crtc_id);
 	} else {
 		ret = sde_rsc_client_state_update(sde_enc->rsc_client,
@@ -1341,6 +1354,28 @@ static int _sde_encoder_update_rsc_client(
 	return ret;
 }
 
+static void _sde_encoder_irq_control(struct drm_encoder *drm_enc, bool enable)
+{
+	struct sde_encoder_virt *sde_enc;
+	int i;
+
+	if (!drm_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+
+	SDE_DEBUG_ENC(sde_enc, "enable:%d\n", enable);
+	for (i = 0; i < sde_enc->num_phys_encs; i++) {
+		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+
+		if (phys && phys->ops.irq_control)
+			phys->ops.irq_control(phys, enable);
+	}
+
+}
+
 struct sde_rsc_client *sde_encoder_get_rsc_client(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc;
@@ -1388,7 +1423,6 @@ static void _sde_encoder_resource_control_helper(struct drm_encoder *drm_enc,
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
 	struct sde_encoder_virt *sde_enc;
-	int i;
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
 	priv = drm_enc->dev->dev_private;
@@ -1411,21 +1445,11 @@ static void _sde_encoder_resource_control_helper(struct drm_encoder *drm_enc,
 		sde_connector_clk_ctrl(sde_enc->cur_master->connector, true);
 
 		/* enable all the irq */
-		for (i = 0; i < sde_enc->num_phys_encs; i++) {
-			struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
+		_sde_encoder_irq_control(drm_enc, true);
 
-			if (phys && phys->ops.irq_control)
-				phys->ops.irq_control(phys, true);
-		}
 	} else {
 		/* disable all the irq */
-		for (i = 0; i < sde_enc->num_phys_encs; i++) {
-			struct sde_encoder_phys *phys =
-						sde_enc->phys_encs[i];
-
-			if (phys && phys->ops.irq_control)
-				phys->ops.irq_control(phys, false);
-		}
+		_sde_encoder_irq_control(drm_enc, false);
 
 		/* disable DSI clks */
 		sde_connector_clk_ctrl(sde_enc->cur_master->connector, false);
@@ -1440,12 +1464,12 @@ static void _sde_encoder_resource_control_helper(struct drm_encoder *drm_enc,
 static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		u32 sw_event)
 {
-	bool schedule_off = false;
 	bool autorefresh_enabled = false;
 	unsigned int lp, idle_timeout;
 	struct sde_encoder_virt *sde_enc;
 	struct msm_drm_private *priv;
 	struct msm_drm_thread *disp_thread;
+	int ret;
 
 	if (!drm_enc || !drm_enc->dev || !drm_enc->dev->dev_private ||
 			!drm_enc->crtc) {
@@ -1462,13 +1486,15 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 	disp_thread = &priv->disp_thread[drm_enc->crtc->index];
 
 	/*
-	 * when idle_pc is not supported, process only KICKOFF and STOP
-	 * event and return early for other events (ie video mode).
+	 * when idle_pc is not supported, process only KICKOFF, STOP and MODESET
+	 * events and return early for other events (ie video mode).
 	 */
 	if (!sde_enc->idle_pc_supported &&
 			(sw_event != SDE_ENC_RC_EVENT_KICKOFF &&
-				sw_event != SDE_ENC_RC_EVENT_STOP &&
-				sw_event != SDE_ENC_RC_EVENT_PRE_STOP))
+			sw_event != SDE_ENC_RC_EVENT_PRE_MODESET &&
+			sw_event != SDE_ENC_RC_EVENT_POST_MODESET &&
+			sw_event != SDE_ENC_RC_EVENT_STOP &&
+			sw_event != SDE_ENC_RC_EVENT_PRE_STOP))
 		return 0;
 
 	SDE_DEBUG_ENC(sde_enc, "sw_event:%d, idle_pc_supported:%d\n", sw_event,
@@ -1594,7 +1620,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 
 		SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
 				SDE_ENC_RC_STATE_PRE_OFF,
-				SDE_EVTLOG_FUNC_CASE6);
+				SDE_EVTLOG_FUNC_CASE3);
 
 		sde_enc->rc_state = SDE_ENC_RC_STATE_PRE_OFF;
 
@@ -1610,7 +1636,8 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 					sw_event);
 			mutex_unlock(&sde_enc->rc_lock);
 			return 0;
-		} else if (sde_enc->rc_state == SDE_ENC_RC_STATE_ON) {
+		} else if (sde_enc->rc_state == SDE_ENC_RC_STATE_ON ||
+			   sde_enc->rc_state == SDE_ENC_RC_STATE_MODESET) {
 			SDE_ERROR_ENC(sde_enc, "sw_event:%d, rc in state %d\n",
 					sw_event, sde_enc->rc_state);
 			SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
@@ -1627,62 +1654,76 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 			_sde_encoder_resource_control_helper(drm_enc, false);
 
 		SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
-				SDE_ENC_RC_STATE_OFF, SDE_EVTLOG_FUNC_CASE3);
+				SDE_ENC_RC_STATE_OFF, SDE_EVTLOG_FUNC_CASE4);
 
 		sde_enc->rc_state = SDE_ENC_RC_STATE_OFF;
 
 		mutex_unlock(&sde_enc->rc_lock);
 		break;
 
-	case SDE_ENC_RC_EVENT_EARLY_WAKE_UP:
+	case SDE_ENC_RC_EVENT_PRE_MODESET:
 		/* cancel delayed off work, if any */
 		if (kthread_cancel_delayed_work_sync(
-				&sde_enc->delayed_off_work)) {
+				&sde_enc->delayed_off_work))
 			SDE_DEBUG_ENC(sde_enc, "sw_event:%d, work cancelled\n",
 					sw_event);
-			schedule_off = true;
-		}
 
 		mutex_lock(&sde_enc->rc_lock);
 
-		SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
-				schedule_off, SDE_EVTLOG_FUNC_CASE4);
-
-		/* return if the resource control is in OFF state */
-		if (sde_enc->rc_state == SDE_ENC_RC_STATE_OFF) {
-			SDE_DEBUG_ENC(sde_enc, "sw_event:%d, rc in OFF state\n",
-					sw_event);
-			mutex_unlock(&sde_enc->rc_lock);
-			return 0;
-		}
-
-		/*
-		 * enable all the clks and resources if resource control is
-		 * coming out of IDLE state
-		 */
-		if (sde_enc->rc_state == SDE_ENC_RC_STATE_IDLE) {
+		/* return if the resource control is already in ON state */
+		if (sde_enc->rc_state != SDE_ENC_RC_STATE_ON) {
+			/* enable all the clks and resources */
 			_sde_encoder_resource_control_helper(drm_enc, true);
+
 			_sde_encoder_resource_control_rsc_update(drm_enc, true);
+
+			SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
+				SDE_ENC_RC_STATE_ON, SDE_EVTLOG_FUNC_CASE5);
 			sde_enc->rc_state = SDE_ENC_RC_STATE_ON;
-			schedule_off = true;
 		}
 
-		/*
-		 * schedule off work when there are no frames pending and
-		 * 1. early wakeup cancelled off work
-		 * 2. early wakeup changed the rc_state to ON - this is to
-		 *	handle cases where early wakeup is called but no
-		 *	frame updates
-		 */
-		if (schedule_off && !sde_crtc_frame_pending(drm_enc->crtc)) {
-			/* schedule delayed off work */
-			kthread_queue_delayed_work(
-					&disp_thread->worker,
-					&sde_enc->delayed_off_work,
-					msecs_to_jiffies(IDLE_TIMEOUT));
-			SDE_DEBUG_ENC(sde_enc, "sw_event:%d, work scheduled\n",
-					sw_event);
+		ret = sde_encoder_wait_for_event(drm_enc, MSM_ENC_TX_COMPLETE);
+		if (ret && ret != -EWOULDBLOCK) {
+			SDE_ERROR_ENC(sde_enc,
+					"wait for commit done returned %d\n",
+					ret);
+			SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
+					ret, SDE_EVTLOG_ERROR);
+			mutex_unlock(&sde_enc->rc_lock);
+			return -EINVAL;
 		}
+
+		_sde_encoder_irq_control(drm_enc, false);
+
+		SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
+			SDE_ENC_RC_STATE_MODESET, SDE_EVTLOG_FUNC_CASE5);
+
+		sde_enc->rc_state = SDE_ENC_RC_STATE_MODESET;
+		mutex_unlock(&sde_enc->rc_lock);
+		break;
+
+	case SDE_ENC_RC_EVENT_POST_MODESET:
+		mutex_lock(&sde_enc->rc_lock);
+
+		/* return if the resource control is already in ON state */
+		if (sde_enc->rc_state != SDE_ENC_RC_STATE_MODESET) {
+			SDE_ERROR_ENC(sde_enc,
+					"sw_event:%d, rc:%d !MODESET state\n",
+					sw_event, sde_enc->rc_state);
+			SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
+					SDE_EVTLOG_ERROR);
+			mutex_unlock(&sde_enc->rc_lock);
+			return -EINVAL;
+		}
+
+		_sde_encoder_irq_control(drm_enc, true);
+
+		_sde_encoder_update_rsc_client(drm_enc, NULL, true);
+
+		SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
+				SDE_ENC_RC_STATE_ON, SDE_EVTLOG_FUNC_CASE6);
+
+		sde_enc->rc_state = SDE_ENC_RC_STATE_ON;
 
 		mutex_unlock(&sde_enc->rc_lock);
 		break;
@@ -1717,7 +1758,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		_sde_encoder_resource_control_rsc_update(drm_enc, false);
 		_sde_encoder_resource_control_helper(drm_enc, false);
 		SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
-				SDE_ENC_RC_STATE_IDLE, SDE_EVTLOG_FUNC_CASE5);
+				SDE_ENC_RC_STATE_IDLE, SDE_EVTLOG_FUNC_CASE7);
 		sde_enc->rc_state = SDE_ENC_RC_STATE_IDLE;
 
 		mutex_unlock(&sde_enc->rc_lock);
@@ -1798,6 +1839,19 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 		}
 	}
 
+	/* release resources before seamless mode change */
+	if (msm_is_mode_seamless_dms(adj_mode)) {
+		/* restore resource state before releasing them */
+		ret = sde_encoder_resource_control(drm_enc,
+				SDE_ENC_RC_EVENT_PRE_MODESET);
+		if (ret) {
+			SDE_ERROR_ENC(sde_enc,
+					"sde resource control failed: %d\n",
+					ret);
+			return;
+		}
+	}
+
 	/* Reserve dynamic resources now. Indicating non-AtomicTest phase */
 	ret = sde_rm_reserve(&sde_kms->rm, drm_enc, drm_enc->crtc->state,
 			conn->state, false);
@@ -1838,6 +1892,11 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 				phys->ops.mode_set(phys, mode, adj_mode);
 		}
 	}
+
+	/* update resources after seamless mode change */
+	if (msm_is_mode_seamless_dms(adj_mode))
+		sde_encoder_resource_control(&sde_enc->base,
+						SDE_ENC_RC_EVENT_POST_MODESET);
 
 	sde_enc->mode_set_complete = true;
 }
@@ -1915,11 +1974,10 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 	}
 	sde_enc = to_sde_encoder_virt(drm_enc);
 	comp_info = &sde_enc->mode_info.comp_info;
+	cur_mode = &sde_enc->base.crtc->state->adjusted_mode;
 
 	SDE_DEBUG_ENC(sde_enc, "\n");
-	SDE_EVT32(DRMID(drm_enc));
-
-	cur_mode = &sde_enc->base.crtc->state->adjusted_mode;
+	SDE_EVT32(DRMID(drm_enc), cur_mode->hdisplay, cur_mode->vdisplay);
 
 	sde_enc->cur_master = NULL;
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
