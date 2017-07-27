@@ -496,9 +496,18 @@ static int btfm_slim_probe(struct slim_device *slim)
 	/* Driver specific data allocation */
 	btfm_slim->dev = &slim->dev;
 	ret = btfm_slim_register_codec(&slim->dev);
+	if (ret) {
+		BTFMSLIM_ERR("error, registering slimbus codec failed");
+		goto free;
+	}
 	ret = bt_register_slimdev(&slim->dev);
+	if (ret < 0) {
+		btfm_slim_unregister_codec(&slim->dev);
+		goto free;
+	}
 	return ret;
-
+free:
+	slim_remove_device(&btfm_slim->slim_ifd);
 dealloc:
 	mutex_destroy(&btfm_slim->io_lock);
 	mutex_destroy(&btfm_slim->xfer_lock);
