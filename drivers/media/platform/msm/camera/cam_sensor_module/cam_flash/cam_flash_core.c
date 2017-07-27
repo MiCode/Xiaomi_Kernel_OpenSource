@@ -230,10 +230,7 @@ int cam_flash_apply_setting(struct cam_flash_ctrl *fctrl,
 	uint16_t num_iterations;
 	struct cam_flash_frame_setting *flash_data = NULL;
 
-	if (req_id < 0) {
-		CAM_ERR(CAM_FLASH, "ERROR in request id: %lld", req_id);
-		return -EINVAL;
-	} else if (req_id == 0) {
+	if (req_id == 0) {
 		if (fctrl->nrt_info.cmn_attr.cmd_type ==
 			CAMERA_SENSOR_FLASH_CMD_TYPE_WIDGET) {
 			flash_data = &fctrl->nrt_info;

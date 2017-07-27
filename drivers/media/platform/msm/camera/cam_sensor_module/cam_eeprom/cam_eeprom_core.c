@@ -600,7 +600,7 @@ static int32_t cam_eeprom_get_cal_data(struct cam_eeprom_ctrl_t *e_ctrl,
 		if (io_cfg->direction == CAM_BUF_OUTPUT) {
 			rc = cam_mem_get_cpu_buf(io_cfg->mem_handle[0],
 				(uint64_t *)&buf_addr, &buf_size);
-			CAM_DBG(CAM_EEPROM, "buf_addr : %p, buf_size : %zu\n",
+			CAM_DBG(CAM_EEPROM, "buf_addr : %pK, buf_size : %zu\n",
 				(void *)buf_addr, buf_size);
 
 			read_buffer = (uint8_t *)buf_addr;
