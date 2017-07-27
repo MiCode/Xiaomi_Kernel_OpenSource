@@ -381,6 +381,20 @@ static inline uint64_t sde_connector_get_topology_name(
 }
 
 /**
+ * sde_connector_get_lp - helper accessor to retrieve LP state
+ * @connector: pointer to drm connector
+ * Returns: value of the CONNECTOR_PROP_LP property or 0
+ */
+static inline uint64_t sde_connector_get_lp(
+		struct drm_connector *connector)
+{
+	if (!connector || !connector->state)
+		return 0;
+	return sde_connector_get_property(connector->state,
+			CONNECTOR_PROP_LP);
+}
+
+/**
  * sde_connector_init - create drm connector object for a given display
  * @dev: Pointer to drm device struct
  * @encoder: Pointer to associated encoder

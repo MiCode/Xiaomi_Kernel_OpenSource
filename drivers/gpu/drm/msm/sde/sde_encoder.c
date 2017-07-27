@@ -72,6 +72,7 @@
 #define MISR_BUFF_SIZE			256
 
 #define IDLE_TIMEOUT	64
+#define IDLE_SHORT_TIMEOUT	1
 
 /**
  * enum sde_enc_rc_events - events for resource control state machine
@@ -1346,6 +1347,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 {
 	bool schedule_off = false;
 	bool autorefresh_enabled = false;
+	unsigned int lp, idle_timeout;
 	struct sde_encoder_virt *sde_enc;
 	struct msm_drm_private *priv;
 	struct msm_drm_thread *disp_thread;
@@ -1435,13 +1437,26 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 				sde_enc->cur_master->ops.is_autorefresh_enabled(
 							sde_enc->cur_master);
 
+		/* set idle timeout based on master connector's lp value */
+		if (sde_enc->cur_master)
+			lp = sde_connector_get_lp(
+					sde_enc->cur_master->connector);
+		else
+			lp = SDE_MODE_DPMS_ON;
+
+		if (lp == SDE_MODE_DPMS_LP2)
+			idle_timeout = IDLE_SHORT_TIMEOUT;
+		else
+			idle_timeout = IDLE_TIMEOUT;
+
 		if (!autorefresh_enabled)
 			kthread_queue_delayed_work(
 				&disp_thread->worker,
 				&sde_enc->delayed_off_work,
-				msecs_to_jiffies(IDLE_TIMEOUT));
+				msecs_to_jiffies(idle_timeout));
 		SDE_EVT32(DRMID(drm_enc), sw_event, sde_enc->rc_state,
-				SDE_EVTLOG_FUNC_CASE2);
+				autorefresh_enabled,
+				idle_timeout, SDE_EVTLOG_FUNC_CASE2);
 		SDE_DEBUG_ENC(sde_enc, "sw_event:%d, work scheduled\n",
 				sw_event);
 		break;
