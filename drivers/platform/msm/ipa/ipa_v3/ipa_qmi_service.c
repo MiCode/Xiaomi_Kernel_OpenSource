@@ -807,6 +807,11 @@ int ipa3_qmi_filter_notify_send(
 		return -EINVAL;
 	}
 
+	if (req->source_pipe_index == -1) {
+		IPAWANERR("Source pipe index invalid\n");
+		return -EINVAL;
+	}
+
 	mutex_lock(&ipa3_qmi_lock);
 	if (ipa3_qmi_ctx != NULL) {
 		/* cache the qmi_filter_request */
