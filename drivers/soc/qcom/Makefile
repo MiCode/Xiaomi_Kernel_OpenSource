@@ -31,3 +31,4 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
        obj-y += subsystem_restart.o
        obj-y += ramdump.o
 endif
+obj-$(CONFIG_QCOM_EUD) += eud.o
