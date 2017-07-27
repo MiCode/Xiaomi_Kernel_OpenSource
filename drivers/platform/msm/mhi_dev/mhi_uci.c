@@ -73,6 +73,12 @@ struct chan_attr {
 	u32 uci_ownership;
 };
 
+struct uci_ctrl {
+	wait_queue_head_t	ctrl_wq;
+	struct mhi_uci_ctxt_t	*uci_ctxt;
+	atomic_t		ctrl_data_update;
+};
+
 struct uci_client {
 	u32 client_index;
 	/* write channel - always odd*/
@@ -100,9 +106,13 @@ struct uci_client {
 struct mhi_uci_ctxt_t {
 	struct chan_attr chan_attrib[MHI_MAX_SOFTWARE_CHANNELS];
 	struct uci_client client_handles[MHI_SOFTWARE_CLIENT_LIMIT];
+	struct uci_ctrl ctrl_handle;
 	void (*event_notifier)(struct mhi_dev_client_cb_reason *cb);
 	dev_t start_ctrl_nr;
 	struct cdev cdev[MHI_MAX_SOFTWARE_CHANNELS];
+	dev_t ctrl_nr;
+	struct cdev cdev_ctrl;
+	struct device *dev;
 	struct class *mhi_uci_class;
 	atomic_t mhi_disabled;
 	atomic_t mhi_enable_notif_wq_active;
@@ -129,12 +139,16 @@ MODULE_PARM_DESC(mhi_uci_ipc_log_lvl, "ipc dbg lvl");
 
 static ssize_t mhi_uci_client_read(struct file *file, char __user *buf,
 		size_t count, loff_t *offp);
+static ssize_t mhi_uci_ctrl_client_read(struct file *file, char __user *buf,
+		size_t count, loff_t *offp);
 static ssize_t mhi_uci_client_write(struct file *file,
 		const char __user *buf, size_t count, loff_t *offp);
 static int mhi_uci_client_open(struct inode *mhi_inode, struct file*);
+static int mhi_uci_ctrl_open(struct inode *mhi_inode, struct file*);
 static int mhi_uci_client_release(struct inode *mhi_inode,
 		struct file *file_handle);
 static unsigned int mhi_uci_client_poll(struct file *file, poll_table *wait);
+static unsigned int mhi_uci_ctrl_poll(struct file *file, poll_table *wait);
 static struct mhi_uci_ctxt_t uci_ctxt;
 
 static int mhi_init_read_chan(struct uci_client *client_handle,
@@ -213,6 +227,30 @@ static int mhi_uci_send_packet(struct mhi_dev_client **client_handle, void *buf,
 error_memcpy:
 	kfree(data_loc);
 	return data_inserted_so_far;
+}
+
+static unsigned int mhi_uci_ctrl_poll(struct file *file, poll_table *wait)
+{
+	unsigned int mask = 0;
+	struct uci_ctrl *uci_ctrl_handle;
+
+	uci_ctrl_handle = file->private_data;
+
+	if (!uci_ctrl_handle)
+		return -ENODEV;
+
+	poll_wait(file, &uci_ctrl_handle->ctrl_wq, wait);
+	if (!atomic_read(&uci_ctxt.mhi_disabled) &&
+		atomic_read(&uci_ctrl_handle->ctrl_data_update)) {
+		uci_log(UCI_DBG_VERBOSE, "Client can read ctrl_state");
+		mask |= POLLIN | POLLRDNORM;
+	}
+
+	uci_log(UCI_DBG_VERBOSE,
+		"Client attempted to poll ctrl returning mask 0x%x\n",
+		mask);
+
+	return mask;
 }
 
 static unsigned int mhi_uci_client_poll(struct file *file, poll_table *wait)
@@ -297,6 +335,22 @@ handle_not_rdy_err:
 	return rc;
 }
 
+static int mhi_uci_ctrl_open(struct inode *inode,
+			struct file *file_handle)
+{
+	struct uci_ctrl *uci_ctrl_handle;
+
+	uci_log(UCI_DBG_DBG, "Client opened ctrl file device node\n");
+
+	uci_ctrl_handle = &uci_ctxt.ctrl_handle;
+	if (!uci_ctrl_handle)
+		return -EINVAL;
+
+	file_handle->private_data = uci_ctrl_handle;
+
+	return 0;
+}
+
 static int mhi_uci_client_open(struct inode *mhi_inode,
 				struct file *file_handle)
 {
@@ -379,6 +433,53 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 			atomic_read(&uci_handle->ref_count));
 	}
 	return rc;
+}
+
+static ssize_t mhi_uci_ctrl_client_read(struct file *file,
+		char __user *user_buf,
+		size_t count, loff_t *offp)
+{
+	uint32_t rc = 0, info;
+	int nbytes, size;
+	char buf[MHI_CTRL_STATE];
+	struct uci_ctrl *uci_ctrl_handle = NULL;
+
+	if (!file || !user_buf || !count ||
+		(count < MHI_CTRL_STATE) || !file->private_data)
+		return -EINVAL;
+
+	uci_ctrl_handle = file->private_data;
+	rc = mhi_ctrl_state_info(&info);
+	if (rc)
+		return -EINVAL;
+
+	switch (info) {
+	case MHI_STATE_CONFIGURED:
+		nbytes = scnprintf(buf, sizeof(buf),
+			"MHI_STATE=CONFIGURED");
+		break;
+	case MHI_STATE_CONNECTED:
+		nbytes = scnprintf(buf, sizeof(buf),
+			"MHI_STATE=CONNECTED");
+		break;
+	case MHI_STATE_DISCONNECTED:
+		nbytes = scnprintf(buf, sizeof(buf),
+			"MHI_STATE=DISCONNECTED");
+		break;
+	default:
+		pr_err("invalid info:%d\n", info);
+		return -EINVAL;
+	}
+
+
+	size = simple_read_from_buffer(user_buf, count, offp, buf, nbytes);
+
+	atomic_set(&uci_ctrl_handle->ctrl_data_update, 0);
+
+	if (size == 0)
+		*offp = 0;
+
+	return size;
 }
 
 static ssize_t mhi_uci_client_read(struct file *file, char __user *buf,
@@ -636,6 +737,23 @@ static int uci_init_client_attributes(struct mhi_uci_ctxt_t *uci_ctxt)
 	return 0;
 }
 
+void uci_ctrl_update(struct mhi_dev_client_cb_reason *reason)
+{
+	struct uci_ctrl *uci_ctrl_handle = NULL;
+
+	if (reason->reason == MHI_DEV_CTRL_UPDATE) {
+		uci_ctrl_handle = &uci_ctxt.ctrl_handle;
+		if (!uci_ctrl_handle) {
+			pr_err("Invalid uci ctrl handle\n");
+			return;
+		}
+
+		uci_log(UCI_DBG_DBG, "received state change update\n");
+		wake_up(&uci_ctrl_handle->ctrl_wq);
+		atomic_set(&uci_ctrl_handle->ctrl_data_update, 1);
+	}
+}
+EXPORT_SYMBOL(uci_ctrl_update);
 
 static void uci_event_notifier(struct mhi_dev_client_cb_reason *reason)
 {
@@ -720,6 +838,12 @@ static long mhi_uci_client_ioctl(struct file *file, unsigned cmd,
 	return rc;
 }
 
+static const struct file_operations mhi_uci_ctrl_client_fops = {
+	.open = mhi_uci_ctrl_open,
+	.read = mhi_uci_ctrl_client_read,
+	.poll = mhi_uci_ctrl_poll,
+};
+
 static const struct file_operations mhi_uci_client_fops = {
 	.read = mhi_uci_client_read,
 	.write = mhi_uci_client_write,
@@ -772,16 +896,25 @@ int mhi_uci_init(void)
 			}
 		}
 	}
+
+	init_waitqueue_head(&uci_ctxt.ctrl_handle.ctrl_wq);
 	uci_log(UCI_DBG_INFO, "Allocating char devices.\n");
 	r = alloc_chrdev_region(&uci_ctxt.start_ctrl_nr,
 			0, MHI_MAX_SOFTWARE_CHANNELS,
 			DEVICE_NAME);
-
 	if (IS_ERR_VALUE(r)) {
 		uci_log(UCI_DBG_ERROR,
 				"Failed to alloc char devs, ret 0x%x\n", r);
 		goto failed_char_alloc;
 	}
+
+	r = alloc_chrdev_region(&uci_ctxt.ctrl_nr, 0, 1, DEVICE_NAME);
+	if (IS_ERR_VALUE(r)) {
+		uci_log(UCI_DBG_ERROR,
+				"Failed to alloc char ctrl devs, 0x%x\n", r);
+		goto failed_char_alloc;
+	}
+
 	uci_log(UCI_DBG_INFO, "Creating class\n");
 	uci_ctxt.mhi_uci_class = class_create(THIS_MODULE,
 						DEVICE_NAME);
@@ -805,12 +938,12 @@ int mhi_uci_init(void)
 					i, r);
 				goto failed_char_add;
 			}
+
 			uci_ctxt.client_handles[i].dev =
 				device_create(uci_ctxt.mhi_uci_class, NULL,
 						uci_ctxt.start_ctrl_nr + i,
 						NULL, DEVICE_NAME "_pipe_%d",
 						i * 2);
-
 			if (IS_ERR(uci_ctxt.client_handles[i].dev)) {
 				uci_log(UCI_DBG_ERROR,
 						"Failed to add cdev %d\n", i);
@@ -819,6 +952,27 @@ int mhi_uci_init(void)
 			}
 		}
 	}
+
+	/* Control node */
+	cdev_init(&uci_ctxt.cdev_ctrl, &mhi_uci_ctrl_client_fops);
+	uci_ctxt.cdev_ctrl.owner = THIS_MODULE;
+	r = cdev_add(&uci_ctxt.cdev_ctrl, uci_ctxt.ctrl_nr , 1);
+	if (IS_ERR_VALUE(r)) {
+		uci_log(UCI_DBG_ERROR,
+		"Failed to add ctrl cdev %d, ret 0x%x\n", i, r);
+		goto failed_char_add;
+	}
+
+	uci_ctxt.dev =
+		device_create(uci_ctxt.mhi_uci_class, NULL,
+				uci_ctxt.ctrl_nr,
+				NULL, DEVICE_NAME "_ctrl");
+	if (IS_ERR(uci_ctxt.dev)) {
+		uci_log(UCI_DBG_ERROR,
+				"Failed to add ctrl cdev %d\n", i);
+		cdev_del(&uci_ctxt.cdev_ctrl);
+	}
+
 	return 0;
 
 failed_char_add:
