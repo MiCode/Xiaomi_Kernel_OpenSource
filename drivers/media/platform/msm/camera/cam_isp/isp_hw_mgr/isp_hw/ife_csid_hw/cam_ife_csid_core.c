@@ -562,7 +562,7 @@ static int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 	struct cam_ife_csid_cid_data       *cid_data;
 
 	CAM_DBG(CAM_ISP,
-		"CSID:%d res_sel:%d Lane type:%d lane_num:%d dt:%d vc:%d",
+		"CSID:%d res_sel:0x%x Lane type:%d lane_num:%d dt:%d vc:%d",
 		csid_hw->hw_intf->hw_idx,
 		cid_reserv->in_port->res_type,
 		cid_reserv->in_port->lane_type,
@@ -683,11 +683,24 @@ static int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 			}
 			csid_hw->tpg_cfg.in_format =
 				cid_reserv->in_port->format;
-			csid_hw->tpg_cfg.width =
-				cid_reserv->in_port->left_width;
+			csid_hw->tpg_cfg.usage_type =
+				cid_reserv->in_port->usage_type;
+			if (cid_reserv->in_port->usage_type)
+				csid_hw->tpg_cfg.width =
+					(cid_reserv->in_port->right_stop + 1);
+			else
+				csid_hw->tpg_cfg.width =
+					cid_reserv->in_port->left_width;
+
 			csid_hw->tpg_cfg.height = cid_reserv->in_port->height;
 			csid_hw->tpg_cfg.test_pattern =
 				cid_reserv->in_port->test_pattern;
+
+			CAM_DBG(CAM_ISP, "CSID:%d TPG width:%d height:%d",
+				csid_hw->hw_intf->hw_idx,
+				csid_hw->tpg_cfg.width,
+				csid_hw->tpg_cfg.height);
+
 			cid_data->tpg_set = 1;
 		} else {
 			csid_hw->csi2_rx_cfg.phy_sel =
@@ -815,6 +828,7 @@ static int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 	path_data->sync_mode = reserve->sync_mode;
 	path_data->height  = reserve->in_port->height;
 	path_data->start_line = reserve->in_port->line_start;
+	path_data->end_line = reserve->in_port->line_stop;
 	if (reserve->in_port->res_type == CAM_ISP_IFE_IN_RES_TPG) {
 		path_data->dt = CAM_IFE_CSID_TPG_DT_VAL;
 		path_data->vc = CAM_IFE_CSID_TPG_VC_VAL;
@@ -826,11 +840,25 @@ static int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 	if (reserve->sync_mode == CAM_ISP_HW_SYNC_MASTER) {
 		path_data->crop_enable = 1;
 		path_data->start_pixel = reserve->in_port->left_start;
+		path_data->end_pixel = reserve->in_port->left_stop;
 		path_data->width  = reserve->in_port->left_width;
+		CAM_DBG(CAM_ISP, "CSID:%dmaster:startpixel 0x%x endpixel:0x%x",
+			csid_hw->hw_intf->hw_idx, path_data->start_pixel,
+			path_data->end_pixel);
+		CAM_DBG(CAM_ISP, "CSID:%dmaster:line start:0x%x line end:0x%x",
+			csid_hw->hw_intf->hw_idx, path_data->start_line,
+			path_data->end_line);
 	} else if (reserve->sync_mode == CAM_ISP_HW_SYNC_SLAVE) {
 		path_data->crop_enable = 1;
 		path_data->start_pixel = reserve->in_port->right_start;
+		path_data->end_pixel = reserve->in_port->right_stop;
 		path_data->width  = reserve->in_port->right_width;
+		CAM_DBG(CAM_ISP, "CSID:%d slave:start:0x%x end:0x%x width 0x%x",
+			csid_hw->hw_intf->hw_idx, path_data->start_pixel,
+			path_data->end_pixel, path_data->width);
+		CAM_DBG(CAM_ISP, "CSID:%dmaster:line start:0x%x line end:0x%x",
+			csid_hw->hw_intf->hw_idx, path_data->start_line,
+			path_data->end_line);
 	} else {
 		path_data->crop_enable = 0;
 		path_data->width  = reserve->in_port->left_width;
@@ -994,6 +1022,7 @@ static int cam_ife_csid_disable_hw(struct cam_ife_csid_hw *csid_hw)
 static int cam_ife_csid_tpg_start(struct cam_ife_csid_hw   *csid_hw,
 	struct cam_isp_resource_node       *res)
 {
+	int rc = 0;
 	uint32_t  val = 0;
 	struct cam_hw_soc_info    *soc_info;
 
@@ -1039,6 +1068,15 @@ static int cam_ife_csid_tpg_start(struct cam_ife_csid_hw   *csid_hw,
 			}
 		}
 
+		/* Enable the IFE force clock on for dual isp case */
+		if (csid_hw->tpg_cfg.usage_type) {
+			rc = cam_ife_csid_enable_ife_force_clock_on(soc_info,
+				csid_hw->csid_info->csid_reg->tpg_reg->
+				tpg_cpas_ife_reg_offset);
+			if (rc)
+				return rc;
+		}
+
 		CAM_DBG(CAM_ISP, "============ TPG control ============");
 		val = (4 << 20);
 		val |= (0x80 << 8);
@@ -1058,6 +1096,7 @@ static int cam_ife_csid_tpg_start(struct cam_ife_csid_hw   *csid_hw,
 static int cam_ife_csid_tpg_stop(struct cam_ife_csid_hw   *csid_hw,
 	struct cam_isp_resource_node       *res)
 {
+	int rc = 0;
 	struct cam_hw_soc_info    *soc_info;
 
 	if (csid_hw->tpg_start_cnt)
@@ -1072,6 +1111,12 @@ static int cam_ife_csid_tpg_stop(struct cam_ife_csid_hw   *csid_hw,
 	if (!csid_hw->tpg_start_cnt) {
 		CAM_DBG(CAM_ISP, "CSID:%d stop CSID TPG",
 			csid_hw->hw_intf->hw_idx);
+
+		/* Disable the IFE force clock on for dual isp case */
+		if (csid_hw->tpg_cfg.usage_type)
+			rc = cam_ife_csid_disable_ife_force_clock_on(soc_info,
+				csid_hw->csid_info->csid_reg->tpg_reg->
+				tpg_cpas_ife_reg_offset);
 
 		/*stop the TPG */
 		cam_io_w_mb(0,  soc_info->reg_map[0].mem_base +
@@ -1100,8 +1145,8 @@ static int cam_ife_csid_config_tpg(struct cam_ife_csid_hw   *csid_hw,
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 			csid_reg->tpg_reg->csid_tpg_vc_cfg0_addr);
 
-	/* vertical blanking count = 0x740, horzontal blanking count = 0x740*/
-	val = (0x740 << 12) | 0x740;
+	/* vertical blanking count = 0x3FF, horzontal blanking count = 0x740*/
+	val = (0x3FF << 12) | 0x740;
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 			csid_reg->tpg_reg->csid_tpg_vc_cfg1_addr);
 
@@ -1299,9 +1344,9 @@ static int cam_ife_csid_init_config_ipp_path(
 		(path_data->dt << csid_reg->cmn_reg->dt_shift_val) |
 		(path_data->cid << csid_reg->cmn_reg->dt_id_shift_val) |
 		(decode_format << csid_reg->cmn_reg->fmt_shift_val) |
-		(path_data->crop_enable & 1 <<
+		(path_data->crop_enable <<
 		csid_reg->cmn_reg->crop_h_en_shift_val) |
-		(path_data->crop_enable & 1 <<
+		(path_data->crop_enable <<
 		csid_reg->cmn_reg->crop_v_en_shift_val) |
 		(1 << 1) | 1;
 	val |= (1 << csid_reg->ipp_reg->pix_store_en_shift_val);
@@ -1313,21 +1358,21 @@ static int cam_ife_csid_init_config_ipp_path(
 		csid_reg->ipp_reg->csid_ipp_cfg1_addr);
 
 	if (path_data->crop_enable) {
-		val = ((path_data->width +
-			path_data->start_pixel) & 0xFFFF <<
+		val = (((path_data->end_pixel & 0xFFFF) <<
 			csid_reg->cmn_reg->crop_shift) |
-			(path_data->start_pixel & 0xFFFF);
-
+			(path_data->start_pixel & 0xFFFF));
 		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 			csid_reg->ipp_reg->csid_ipp_hcrop_addr);
+		CAM_DBG(CAM_ISP, "CSID:%d Horizontal crop config val: 0x%x",
+			csid_hw->hw_intf->hw_idx, val);
 
-		val = ((path_data->height +
-			path_data->start_line) & 0xFFFF <<
+		val = (((path_data->end_line & 0xFFFF) <<
 			csid_reg->cmn_reg->crop_shift) |
-			(path_data->start_line & 0xFFFF);
-
+			(path_data->start_line & 0xFFFF));
 		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 			csid_reg->ipp_reg->csid_ipp_vcrop_addr);
+		CAM_DBG(CAM_ISP, "CSID:%d Vertical Crop config val: 0x%x",
+			csid_hw->hw_intf->hw_idx, val);
 	}
 
 	/* set frame drop pattern to 0 and period to 1 */
@@ -1623,9 +1668,9 @@ static int cam_ife_csid_init_config_rdi_path(
 		(path_data->cid << csid_reg->cmn_reg->dt_id_shift_val) |
 		(path_format << csid_reg->cmn_reg->fmt_shift_val) |
 		(plain_fmt << csid_reg->cmn_reg->plain_fmt_shit_val) |
-		(path_data->crop_enable & 1 <<
+		(path_data->crop_enable  <<
 			csid_reg->cmn_reg->crop_h_en_shift_val) |
-		(path_data->crop_enable & 1 <<
+		(path_data->crop_enable  <<
 		csid_reg->cmn_reg->crop_v_en_shift_val) |
 		(1 << 2) | 3;
 
@@ -1637,21 +1682,23 @@ static int cam_ife_csid_init_config_rdi_path(
 			csid_reg->rdi_reg[id]->csid_rdi_cfg1_addr);
 
 	if (path_data->crop_enable) {
-		val = ((path_data->width +
-			path_data->start_pixel) & 0xFFFF <<
+		val = (((path_data->end_pixel & 0xFFFF) <<
 			csid_reg->cmn_reg->crop_shift) |
-			(path_data->start_pixel & 0xFFFF);
+			(path_data->start_pixel & 0xFFFF));
 
 		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 			csid_reg->rdi_reg[id]->csid_rdi_rpp_hcrop_addr);
+		CAM_DBG(CAM_ISP, "CSID:%d Horizontal crop config val: 0x%x",
+			csid_hw->hw_intf->hw_idx, val);
 
-		val = ((path_data->height +
-			path_data->start_line) & 0xFFFF <<
+		val = (((path_data->end_line & 0xFFFF) <<
 			csid_reg->cmn_reg->crop_shift) |
-			(path_data->start_line & 0xFFFF);
+			(path_data->start_line & 0xFFFF));
 
 		cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 			csid_reg->rdi_reg[id]->csid_rdi_rpp_vcrop_addr);
+		CAM_DBG(CAM_ISP, "CSID:%d Vertical Crop config val: 0x%x",
+			csid_hw->hw_intf->hw_idx, val);
 	}
 	/* set frame drop pattern to 0 and period to 1 */
 	cam_io_w_mb(1, soc_info->reg_map[0].mem_base +
@@ -2683,6 +2730,7 @@ irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 			CAM_DBG(CAM_ISP, "CSID IPP reset complete");
 			complete(&csid_hw->csid_ipp_complete);
 		}
+
 		if ((irq_status_ipp & CSID_PATH_INFO_INPUT_SOF) &&
 			(csid_hw->csid_debug & CSID_DEBUG_ENABLE_SOF_IRQ))
 			CAM_ERR(CAM_ISP, "CSID:%d IPP SOF received",

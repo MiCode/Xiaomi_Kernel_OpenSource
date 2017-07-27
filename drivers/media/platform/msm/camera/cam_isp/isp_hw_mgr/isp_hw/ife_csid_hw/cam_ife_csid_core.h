@@ -246,6 +246,7 @@ struct cam_ife_csid_csi2_tpg_reg_offset {
 	/*configurations */
 	uint32_t tpg_dtn_cfg_offset;
 	uint32_t tpg_cgen_cfg_offset;
+	uint32_t tpg_cpas_ife_reg_offset;
 
 };
 struct cam_ife_csid_common_reg_offset {
@@ -341,6 +342,7 @@ struct cam_ife_csid_csi2_rx_cfg  {
  * @height:           height
  * @test_pattern :    pattern
  * @in_format:        decode format
+ * @usage_type:       whether dual isp is required
  *
  */
 struct cam_ife_csid_tpg_cfg  {
@@ -348,6 +350,7 @@ struct cam_ife_csid_tpg_cfg  {
 	uint32_t                        height;
 	uint32_t                        test_pattern;
 	uint32_t                        in_format;
+	uint32_t                        usage_type;
 };
 
 /**
@@ -378,8 +381,10 @@ struct cam_ife_csid_cid_data {
  * @crop_enable:    crop is enable or disabled, if enabled
  *                  then remaining parameters are valid.
  * @start_pixel:    start pixel
+ * @end_pixel:      end_pixel
  * @width:          width
  * @start_line:     start line
+ * @end_line:       end_line
  * @height:         heigth
  * @sync_mode:       Applicable for IPP/RDI path reservation
  *                  Reserving the path for master IPP or slave IPP
@@ -397,8 +402,10 @@ struct cam_ife_csid_path_cfg {
 	uint32_t                        out_format;
 	bool                            crop_enable;
 	uint32_t                        start_pixel;
+	uint32_t                        end_pixel;
 	uint32_t                        width;
 	uint32_t                        start_line;
+	uint32_t                        end_line;
 	uint32_t                        height;
 	enum cam_isp_hw_sync_mode       sync_mode;
 	uint32_t                        master_idx;

@@ -496,6 +496,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_rdi(
 		vfe_acquire.vfe_out.out_port_info = out_port;
 		vfe_acquire.vfe_out.split_id = CAM_ISP_HW_SPLIT_LEFT;
 		vfe_acquire.vfe_out.unique_id = ife_ctx->ctx_index;
+		vfe_acquire.vfe_out.is_dual = 0;
 		hw_intf = ife_src_res->hw_res[0]->hw_intf;
 		rc = hw_intf->hw_ops.reserve(hw_intf->hw_priv,
 			&vfe_acquire,
@@ -835,6 +836,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_ipp(
 
 	if (csid_res->is_dual_vfe) {
 		csid_acquire.sync_mode = CAM_ISP_HW_SYNC_SLAVE;
+		csid_acquire.master_idx = csid_res->hw_res[0]->hw_intf->hw_idx;
 
 		for (j = i + 1; j < CAM_IFE_CSID_HW_NUM_MAX; j++) {
 			if (!ife_hw_mgr->csid_devices[j])
@@ -1038,13 +1040,6 @@ static int cam_ife_mgr_acquire_cid_res(
 	struct cam_ife_hw_mgr_res           *cid_res;
 	struct cam_hw_intf                  *hw_intf;
 	struct cam_csid_hw_reserve_resource_args  csid_acquire;
-
-	/* no dual vfe for TPG */
-	if ((in_port->res_type == CAM_ISP_IFE_IN_RES_TPG) &&
-		(in_port->usage_type != 0)) {
-		CAM_ERR(CAM_ISP, "No Dual VFE on TPG input");
-		goto err;
-	}
 
 	ife_hw_mgr = ife_ctx->hw_mgr;
 
@@ -1984,13 +1979,14 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 		/* get command buffers */
 		if (ctx->base[i].split_id != CAM_ISP_HW_SPLIT_MAX) {
 			rc = cam_isp_add_command_buffers(prepare,
-				ctx->base[i].split_id);
-			if (rc) {
-				CAM_ERR(CAM_ISP,
-					"Failed in add cmdbuf, i=%d, split_id=%d, rc=%d",
-					i, ctx->base[i].split_id, rc);
-				goto end;
-			}
+			ctx->base[i].split_id, ctx->base[i].idx,
+			ctx->res_list_ife_out, CAM_IFE_HW_OUT_RES_MAX);
+				if (rc) {
+					CAM_ERR(CAM_ISP,
+						"Failed in add cmdbuf, i=%d, split_id=%d, rc=%d",
+						i, ctx->base[i].split_id, rc);
+					goto end;
+				}
 		}
 
 		if (blob_info.hfr_config) {
@@ -2531,7 +2527,7 @@ static int cam_ife_hw_mgr_check_irq_for_dual_vfe(
 	case CAM_ISP_HW_EVENT_SOF:
 		event_cnt = ife_hw_mgr_ctx->sof_cnt;
 		break;
-	case CAM_ISP_HW_EVENT_REG_UPDATE:
+	case CAM_ISP_HW_EVENT_EPOCH:
 		event_cnt = ife_hw_mgr_ctx->epoch_cnt;
 		break;
 	case CAM_ISP_HW_EVENT_EOF:
@@ -2551,8 +2547,10 @@ static int cam_ife_hw_mgr_check_irq_for_dual_vfe(
 		return rc;
 	}
 
-	if ((event_cnt[core_idx0] - event_cnt[core_idx1] > 1) ||
-		(event_cnt[core_idx1] - event_cnt[core_idx0] > 1)) {
+	if ((event_cnt[core_idx0] &&
+		(event_cnt[core_idx0] - event_cnt[core_idx1] > 1)) ||
+		(event_cnt[core_idx1] &&
+		(event_cnt[core_idx1] - event_cnt[core_idx0] > 1))) {
 
 		CAM_WARN(CAM_ISP,
 			"One of the VFE cound not generate hw event %d",
@@ -2639,6 +2637,8 @@ static int cam_ife_hw_mgr_handle_epoch_for_camif_hw_res(
 
 				if (!epoch_status)
 					ife_hwr_mgr_ctx->epoch_cnt[core_idx]++;
+				else
+					break;
 			}
 
 			/* SOF check for Right side VFE */
@@ -2648,6 +2648,8 @@ static int cam_ife_hw_mgr_handle_epoch_for_camif_hw_res(
 
 				if (!epoch_status)
 					ife_hwr_mgr_ctx->epoch_cnt[core_idx]++;
+				else
+					break;
 			}
 
 			core_index0 = hw_res_l->hw_intf->hw_idx;
@@ -2750,6 +2752,8 @@ static int cam_ife_hw_mgr_process_camif_sof(
 				hw_res_l, evt_payload);
 			if (!sof_status)
 				ife_hwr_mgr_ctx->sof_cnt[core_idx]++;
+			else
+				break;
 		}
 
 		/* SOF check for Right side VFE */
@@ -2765,6 +2769,8 @@ static int cam_ife_hw_mgr_process_camif_sof(
 				evt_payload);
 			if (!sof_status)
 				ife_hwr_mgr_ctx->sof_cnt[core_idx]++;
+			else
+				break;
 		}
 
 		core_index0 = hw_res_l->hw_intf->hw_idx;
@@ -2943,6 +2949,8 @@ static int cam_ife_hw_mgr_handle_eof_for_camif_hw_res(
 
 				if (!eof_status)
 					ife_hwr_mgr_ctx->eof_cnt[core_idx]++;
+				else
+					break;
 			}
 
 			/* EOF check for Right side VFE */
@@ -2952,6 +2960,8 @@ static int cam_ife_hw_mgr_handle_eof_for_camif_hw_res(
 
 				if (!eof_status)
 					ife_hwr_mgr_ctx->eof_cnt[core_idx]++;
+				else
+					break;
 			}
 
 			core_index0 = hw_res_l->hw_intf->hw_idx;
@@ -2966,7 +2976,7 @@ static int cam_ife_hw_mgr_handle_eof_for_camif_hw_res(
 			if (!rc)
 				ife_hwr_irq_eof_cb(
 					ife_hwr_mgr_ctx->common.cb_priv,
-					CAM_ISP_HW_EVENT_EPOCH,
+					CAM_ISP_HW_EVENT_EOF,
 					&eof_done_event_data);
 
 			break;
@@ -3026,6 +3036,8 @@ static int cam_ife_hw_mgr_handle_buf_done_for_hw_res(
 			hw_res_l->hw_intf->hw_idx))
 			buf_done_status = hw_res_l->bottom_half_handler(
 				hw_res_l, evt_payload);
+		else
+			continue;
 
 		switch (buf_done_status) {
 		case CAM_VFE_IRQ_STATUS_ERR_COMP:
@@ -3125,7 +3137,8 @@ int cam_ife_mgr_do_tasklet_buf_done(void *handler_priv,
 	evt_payload = evt_payload_priv;
 	ife_hwr_mgr_ctx = (struct cam_ife_hw_mgr_ctx *)evt_payload->ctx;
 
-	CAM_DBG(CAM_ISP, "addr of evt_payload = %llx", (uint64_t)evt_payload);
+	CAM_DBG(CAM_ISP, "addr of evt_payload = %llx core index:0x%x",
+		(uint64_t)evt_payload, evt_payload->core_index);
 	CAM_DBG(CAM_ISP, "bus_irq_status_0: = %x", evt_payload->irq_reg_val[0]);
 	CAM_DBG(CAM_ISP, "bus_irq_status_1: = %x", evt_payload->irq_reg_val[1]);
 	CAM_DBG(CAM_ISP, "bus_irq_status_2: = %x", evt_payload->irq_reg_val[2]);
@@ -3155,7 +3168,9 @@ int cam_ife_mgr_do_tasklet(void *handler_priv, void *evt_payload_priv)
 	evt_payload = evt_payload_priv;
 	ife_hwr_mgr_ctx = (struct cam_ife_hw_mgr_ctx *)handler_priv;
 
-	CAM_DBG(CAM_ISP, "addr of evt_payload = %llx", (uint64_t)evt_payload);
+	CAM_DBG(CAM_ISP, "addr of evt_payload = %pK core_index:%d",
+		(void *)evt_payload,
+		evt_payload->core_index);
 	CAM_DBG(CAM_ISP, "irq_status_0: = %x", evt_payload->irq_reg_val[0]);
 	CAM_DBG(CAM_ISP, "irq_status_1: = %x", evt_payload->irq_reg_val[1]);
 	CAM_DBG(CAM_ISP, "Violation register: = %x",

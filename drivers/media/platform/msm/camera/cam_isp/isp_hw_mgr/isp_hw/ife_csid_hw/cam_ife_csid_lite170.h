@@ -260,6 +260,7 @@ static struct cam_ife_csid_csi2_tpg_reg_offset
 	/*configurations */
 	.tpg_dtn_cfg_offset                           = 0xc,
 	.tpg_cgen_cfg_offset                          = 0x20,
+	.tpg_cpas_ife_reg_offset                      = 0x28,
 };
 
 

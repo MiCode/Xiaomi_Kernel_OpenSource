@@ -82,4 +82,33 @@ int cam_ife_csid_enable_soc_resources(struct cam_hw_soc_info  *soc_info);
  */
 int cam_ife_csid_disable_soc_resources(struct cam_hw_soc_info *soc_info);
 
+/**
+ * cam_ife_csid_enable_ife_force_clock()
+ *
+ * @brief:                 if csid testgen used for dual isp case, before
+ *                         starting csid test gen, enable ife force clock on
+ *                         through cpas
+ *
+ * @soc_info:              soc info structure pointer
+ * @cpas_ife_base_offset:  cpas ife force clock base reg offset value
+ *
+ */
+int cam_ife_csid_enable_ife_force_clock_on(struct cam_hw_soc_info  *soc_info,
+	uint32_t cpas_ife_base_offset);
+
+/**
+ * cam_ife_csid_disable_ife_force_clock_on()
+ *
+ * @brief:                 disable the IFE force clock on after dual ISP
+ *                         CSID test gen stop
+ *
+ * @soc_info:              soc info structure pointer
+ * @cpas_ife_base_offset:  cpas ife force clock base reg offset value
+ *
+ */
+int cam_ife_csid_disable_ife_force_clock_on(struct cam_hw_soc_info *soc_info,
+	uint32_t cpas_ife_base_offset);
+
+
+
 #endif

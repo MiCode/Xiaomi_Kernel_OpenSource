@@ -181,3 +181,59 @@ int cam_ife_csid_disable_soc_resources(struct cam_hw_soc_info *soc_info)
 	return rc;
 }
 
+int cam_ife_csid_enable_ife_force_clock_on(struct cam_hw_soc_info  *soc_info,
+	uint32_t cpas_ife_base_offset)
+{
+	int rc = 0;
+	struct cam_csid_soc_private       *soc_private;
+	uint32_t                           cpass_ife_force_clk_offset;
+
+	if (!soc_info) {
+		CAM_ERR(CAM_ISP, "Error Invalid params");
+		return -EINVAL;
+	}
+
+	soc_private = soc_info->soc_private;
+	cpass_ife_force_clk_offset =
+		cpas_ife_base_offset + (0x4 * soc_info->index);
+	rc = cam_cpas_reg_write(soc_private->cpas_handle, CAM_CPAS_REG_CPASTOP,
+		cpass_ife_force_clk_offset, 1, 1);
+
+	if (rc)
+		CAM_ERR(CAM_ISP, "CPASS set IFE:%d Force clock On failed",
+			soc_info->index);
+	else
+		CAM_DBG(CAM_ISP, "CPASS set IFE:%d Force clock On",
+		soc_info->index);
+
+	return rc;
+}
+
+int cam_ife_csid_disable_ife_force_clock_on(struct cam_hw_soc_info *soc_info,
+	uint32_t cpas_ife_base_offset)
+{
+	int rc = 0;
+	struct cam_csid_soc_private       *soc_private;
+	uint32_t                           cpass_ife_force_clk_offset;
+
+	if (!soc_info) {
+		CAM_ERR(CAM_ISP, "Error Invalid params");
+		return -EINVAL;
+	}
+
+	soc_private = soc_info->soc_private;
+	cpass_ife_force_clk_offset =
+		cpas_ife_base_offset + (0x4 * soc_info->index);
+	rc = cam_cpas_reg_write(soc_private->cpas_handle, CAM_CPAS_REG_CPASTOP,
+		cpass_ife_force_clk_offset,  1, 0);
+
+	if (rc)
+		CAM_ERR(CAM_ISP, "CPASS set IFE:%d Force clock Off failed",
+			soc_info->index);
+	else
+		CAM_DBG(CAM_ISP, "CPASS set IFE:%d Force clock off",
+		soc_info->index);
+
+	return rc;
+}
+
