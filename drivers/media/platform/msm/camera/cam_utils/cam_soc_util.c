@@ -10,17 +10,13 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "%s:%d " fmt, __func__, __LINE__
-
 #include <linux/of.h>
 #include <linux/clk.h>
 #include <linux/slab.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
 #include "cam_soc_util.h"
-
-#undef CDBG
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#include "cam_debug_util.h"
 
 int cam_soc_util_get_level_from_string(const char *string,
 	enum cam_vote_level *level)
@@ -43,7 +39,7 @@ int cam_soc_util_get_level_from_string(const char *string,
 	} else if (!strcmp(string, "turbo")) {
 		*level = CAM_TURBO_VOTE;
 	} else {
-		pr_err("Invalid string %s\n", string);
+		CAM_ERR(CAM_UTIL, "Invalid string %s", string);
 		return -EINVAL;
 	}
 
@@ -68,7 +64,8 @@ static int cam_soc_util_get_clk_level_to_apply(
 	enum cam_vote_level *apply_level)
 {
 	if (req_level >= CAM_MAX_VOTE) {
-		pr_err("Invalid clock level parameter %d\n", req_level);
+		CAM_ERR(CAM_UTIL, "Invalid clock level parameter %d",
+			req_level);
 		return -EINVAL;
 	}
 
@@ -84,13 +81,15 @@ static int cam_soc_util_get_clk_level_to_apply(
 			}
 
 		if (i == CAM_MAX_VOTE) {
-			pr_err("No valid clock level found to apply, req=%d\n",
+			CAM_ERR(CAM_UTIL,
+				"No valid clock level found to apply, req=%d",
 				req_level);
 			return -EINVAL;
 		}
 	}
 
-	CDBG("Req level %d, Applying %d\n", req_level, *apply_level);
+	CAM_DBG(CAM_UTIL, "Req level %d, Applying %d",
+		req_level, *apply_level);
 
 	return 0;
 }
@@ -98,12 +97,12 @@ static int cam_soc_util_get_clk_level_to_apply(
 int cam_soc_util_irq_enable(struct cam_hw_soc_info *soc_info)
 {
 	if (!soc_info) {
-		pr_err("Invalid arguments\n");
+		CAM_ERR(CAM_UTIL, "Invalid arguments");
 		return -EINVAL;
 	}
 
 	if (!soc_info->irq_line) {
-		pr_err("No IRQ line available\n");
+		CAM_ERR(CAM_UTIL, "No IRQ line available");
 		return -ENODEV;
 	}
 
@@ -115,12 +114,12 @@ int cam_soc_util_irq_enable(struct cam_hw_soc_info *soc_info)
 int cam_soc_util_irq_disable(struct cam_hw_soc_info *soc_info)
 {
 	if (!soc_info) {
-		pr_err("Invalid arguments\n");
+		CAM_ERR(CAM_UTIL, "Invalid arguments");
 		return -EINVAL;
 	}
 
 	if (!soc_info->irq_line) {
-		pr_err("No IRQ line available\n");
+		CAM_ERR(CAM_UTIL, "No IRQ line available");
 		return -ENODEV;
 	}
 
@@ -138,33 +137,34 @@ int cam_soc_util_set_clk_rate(struct clk *clk, const char *clk_name,
 	if (!clk || !clk_name)
 		return -EINVAL;
 
-	CDBG("set %s, rate %d\n", clk_name, clk_rate);
+	CAM_DBG(CAM_UTIL, "set %s, rate %d", clk_name, clk_rate);
 	if (clk_rate > 0) {
 		clk_rate_round = clk_round_rate(clk, clk_rate);
-		CDBG("new_rate %ld\n", clk_rate_round);
+		CAM_DBG(CAM_UTIL, "new_rate %ld", clk_rate_round);
 		if (clk_rate_round < 0) {
-			pr_err("round failed for clock %s rc = %ld\n",
+			CAM_ERR(CAM_UTIL, "round failed for clock %s rc = %ld",
 				clk_name, clk_rate_round);
 			return clk_rate_round;
 		}
 		rc = clk_set_rate(clk, clk_rate_round);
 		if (rc) {
-			pr_err("set_rate failed on %s\n", clk_name);
+			CAM_ERR(CAM_UTIL, "set_rate failed on %s", clk_name);
 			return rc;
 		}
 	} else if (clk_rate == INIT_RATE) {
 		clk_rate_round = clk_get_rate(clk);
-		CDBG("init new_rate %ld\n", clk_rate_round);
+		CAM_DBG(CAM_UTIL, "init new_rate %ld", clk_rate_round);
 		if (clk_rate_round == 0) {
 			clk_rate_round = clk_round_rate(clk, 0);
 			if (clk_rate_round <= 0) {
-				pr_err("round rate failed on %s\n", clk_name);
+				CAM_ERR(CAM_UTIL, "round rate failed on %s",
+					clk_name);
 				return clk_rate_round;
 			}
 		}
 		rc = clk_set_rate(clk, clk_rate_round);
 		if (rc) {
-			pr_err("set_rate failed on %s\n", clk_name);
+			CAM_ERR(CAM_UTIL, "set_rate failed on %s", clk_name);
 			return rc;
 		}
 	}
@@ -186,7 +186,7 @@ int cam_soc_util_clk_enable(struct clk *clk, const char *clk_name,
 
 	rc = clk_prepare_enable(clk);
 	if (rc) {
-		pr_err("enable failed for %s: rc(%d)\n", clk_name, rc);
+		CAM_ERR(CAM_UTIL, "enable failed for %s: rc(%d)", clk_name, rc);
 		return rc;
 	}
 
@@ -198,7 +198,7 @@ int cam_soc_util_clk_disable(struct clk *clk, const char *clk_name)
 	if (!clk || !clk_name)
 		return -EINVAL;
 
-	CDBG("disable %s\n", clk_name);
+	CAM_DBG(CAM_UTIL, "disable %s", clk_name);
 	clk_disable_unprepare(clk);
 
 	return 0;
@@ -223,7 +223,8 @@ static int cam_soc_util_clk_enable_default(struct cam_hw_soc_info *soc_info,
 
 	if ((soc_info->num_clk == 0) ||
 		(soc_info->num_clk >= CAM_SOC_MAX_CLK)) {
-		pr_err("Invalid number of clock %d\n", soc_info->num_clk);
+		CAM_ERR(CAM_UTIL, "Invalid number of clock %d",
+			soc_info->num_clk);
 		return -EINVAL;
 	}
 
@@ -304,14 +305,14 @@ static int cam_soc_util_get_dt_clk_info(struct cam_hw_soc_info *soc_info)
 
 	count = of_property_count_strings(of_node, "clock-names");
 
-	CDBG("count = %d\n", count);
+	CAM_DBG(CAM_UTIL, "count = %d", count);
 	if (count > CAM_SOC_MAX_CLK) {
-		pr_err("invalid count of clocks, count=%d", count);
+		CAM_ERR(CAM_UTIL, "invalid count of clocks, count=%d", count);
 		rc = -EINVAL;
 		return rc;
 	}
 	if (count <= 0) {
-		CDBG("No clock-names found\n");
+		CAM_DBG(CAM_UTIL, "No clock-names found");
 		count = 0;
 		soc_info->num_clk = count;
 		return 0;
@@ -321,9 +322,11 @@ static int cam_soc_util_get_dt_clk_info(struct cam_hw_soc_info *soc_info)
 	for (i = 0; i < count; i++) {
 		rc = of_property_read_string_index(of_node, "clock-names",
 				i, &(soc_info->clk_name[i]));
-		CDBG("clock-names[%d] = %s\n", i, soc_info->clk_name[i]);
+		CAM_DBG(CAM_UTIL, "clock-names[%d] = %s",
+			i, soc_info->clk_name[i]);
 		if (rc) {
-			pr_err("i= %d count= %d reading clock-names failed\n",
+			CAM_ERR(CAM_UTIL,
+				"i= %d count= %d reading clock-names failed",
 				i, count);
 			return rc;
 		}
@@ -331,12 +334,13 @@ static int cam_soc_util_get_dt_clk_info(struct cam_hw_soc_info *soc_info)
 
 	num_clk_rates = of_property_count_u32_elems(of_node, "clock-rates");
 	if (num_clk_rates <= 0) {
-		pr_err("reading clock-rates count failed\n");
+		CAM_ERR(CAM_UTIL, "reading clock-rates count failed");
 		return -EINVAL;
 	}
 
 	if ((num_clk_rates % soc_info->num_clk) != 0) {
-		pr_err("mismatch clk/rates, No of clocks=%d, No of rates=%d\n",
+		CAM_ERR(CAM_UTIL,
+			"mismatch clk/rates, No of clocks=%d, No of rates=%d",
 			soc_info->num_clk, num_clk_rates);
 		return -EINVAL;
 	}
@@ -346,7 +350,8 @@ static int cam_soc_util_get_dt_clk_info(struct cam_hw_soc_info *soc_info)
 	num_clk_level_strings = of_property_count_strings(of_node,
 		"clock-cntl-level");
 	if (num_clk_level_strings != num_clk_levels) {
-		pr_err("Mismatch No of levels=%d, No of level string=%d\n",
+		CAM_ERR(CAM_UTIL,
+			"Mismatch No of levels=%d, No of level string=%d",
 			num_clk_levels, num_clk_level_strings);
 		return -EINVAL;
 	}
@@ -355,7 +360,8 @@ static int cam_soc_util_get_dt_clk_info(struct cam_hw_soc_info *soc_info)
 		rc = of_property_read_string_index(of_node,
 			"clock-cntl-level", i, &clk_cntl_lvl_string);
 		if (rc) {
-			pr_err("Error reading clock-cntl-level, rc=%d\n", rc);
+			CAM_ERR(CAM_UTIL,
+				"Error reading clock-cntl-level, rc=%d", rc);
 			return rc;
 		}
 
@@ -364,14 +370,16 @@ static int cam_soc_util_get_dt_clk_info(struct cam_hw_soc_info *soc_info)
 		if (rc)
 			return rc;
 
-		CDBG("[%d] : %s %d\n", i, clk_cntl_lvl_string, level);
+		CAM_DBG(CAM_UTIL,
+			"[%d] : %s %d", i, clk_cntl_lvl_string, level);
 		soc_info->clk_level_valid[level] = true;
 		for (j = 0; j < soc_info->num_clk; j++) {
 			rc = of_property_read_u32_index(of_node, "clock-rates",
 				((i * soc_info->num_clk) + j),
 				&soc_info->clk_rate[level][j]);
 			if (rc) {
-				pr_err("Error reading clock-rates, rc=%d\n",
+				CAM_ERR(CAM_UTIL,
+					"Error reading clock-rates, rc=%d",
 					rc);
 				return rc;
 			}
@@ -381,7 +389,8 @@ static int cam_soc_util_get_dt_clk_info(struct cam_hw_soc_info *soc_info)
 				(long)NO_SET_RATE :
 				soc_info->clk_rate[level][j];
 
-			CDBG("soc_info->clk_rate[%d][%d] = %d\n", level, j,
+			CAM_DBG(CAM_UTIL, "soc_info->clk_rate[%d][%d] = %d",
+				level, j,
 				soc_info->clk_rate[level][j]);
 		}
 	}
@@ -390,7 +399,7 @@ static int cam_soc_util_get_dt_clk_info(struct cam_hw_soc_info *soc_info)
 	rc = of_property_read_string_index(of_node, "src-clock-name", 0,
 		&src_clk_str);
 	if (rc || !src_clk_str) {
-		CDBG("No src_clk_str found\n");
+		CAM_DBG(CAM_UTIL, "No src_clk_str found");
 		rc = 0;
 		/* Bottom loop is dependent on src_clk_str. So return here */
 		return rc;
@@ -399,7 +408,8 @@ static int cam_soc_util_get_dt_clk_info(struct cam_hw_soc_info *soc_info)
 	for (i = 0; i < soc_info->num_clk; i++) {
 		if (strcmp(soc_info->clk_name[i], src_clk_str) == 0) {
 			soc_info->src_clk_idx = i;
-			CDBG("src clock = %s, index = %d\n", src_clk_str, i);
+			CAM_DBG(CAM_UTIL, "src clock = %s, index = %d",
+				src_clk_str, i);
 			break;
 		}
 	}
@@ -415,7 +425,8 @@ int cam_soc_util_set_clk_rate_level(struct cam_hw_soc_info *soc_info,
 
 	if ((soc_info->num_clk == 0) ||
 		(soc_info->num_clk >= CAM_SOC_MAX_CLK)) {
-		pr_err("Invalid number of clock %d\n", soc_info->num_clk);
+		CAM_ERR(CAM_UTIL, "Invalid number of clock %d",
+			soc_info->num_clk);
 		return -EINVAL;
 	}
 
@@ -448,7 +459,7 @@ static int cam_soc_util_get_dt_gpio_req_tbl(struct device_node *of_node,
 
 	count /= sizeof(uint32_t);
 	if (!count) {
-		pr_err("gpio-req-tbl-num 0\n");
+		CAM_ERR(CAM_UTIL, "gpio-req-tbl-num 0");
 		return 0;
 	}
 
@@ -467,30 +478,32 @@ static int cam_soc_util_get_dt_gpio_req_tbl(struct device_node *of_node,
 	rc = of_property_read_u32_array(of_node, "gpio-req-tbl-num",
 		val_array, count);
 	if (rc) {
-		pr_err("failed in reading gpio-req-tbl-num, rc = %d\n", rc);
+		CAM_ERR(CAM_UTIL, "failed in reading gpio-req-tbl-num, rc = %d",
+			rc);
 		goto free_gpio_req_tbl;
 	}
 
 	for (i = 0; i < count; i++) {
 		if (val_array[i] >= gpio_array_size) {
-			pr_err("gpio req tbl index %d invalid\n", val_array[i]);
+			CAM_ERR(CAM_UTIL, "gpio req tbl index %d invalid",
+				val_array[i]);
 			goto free_gpio_req_tbl;
 		}
 		gconf->cam_gpio_req_tbl[i].gpio = gpio_array[val_array[i]];
-		CDBG("cam_gpio_req_tbl[%d].gpio = %d\n", i,
+		CAM_DBG(CAM_UTIL, "cam_gpio_req_tbl[%d].gpio = %d", i,
 			gconf->cam_gpio_req_tbl[i].gpio);
 	}
 
 	rc = of_property_read_u32_array(of_node, "gpio-req-tbl-flags",
 		val_array, count);
 	if (rc) {
-		pr_err("Failed in gpio-req-tbl-flags, rc %d\n", rc);
+		CAM_ERR(CAM_UTIL, "Failed in gpio-req-tbl-flags, rc %d", rc);
 		goto free_gpio_req_tbl;
 	}
 
 	for (i = 0; i < count; i++) {
 		gconf->cam_gpio_req_tbl[i].flags = val_array[i];
-		CDBG("cam_gpio_req_tbl[%d].flags = %ld\n", i,
+		CAM_DBG(CAM_UTIL, "cam_gpio_req_tbl[%d].flags = %ld", i,
 			gconf->cam_gpio_req_tbl[i].flags);
 	}
 
@@ -499,10 +512,10 @@ static int cam_soc_util_get_dt_gpio_req_tbl(struct device_node *of_node,
 			"gpio-req-tbl-label", i,
 			&gconf->cam_gpio_req_tbl[i].label);
 		if (rc) {
-			pr_err("Failed rc %d\n", rc);
+			CAM_ERR(CAM_UTIL, "Failed rc %d", rc);
 			goto free_gpio_req_tbl;
 		}
-		CDBG("cam_gpio_req_tbl[%d].label = %s\n", i,
+		CAM_DBG(CAM_UTIL, "cam_gpio_req_tbl[%d].label = %s", i,
 			gconf->cam_gpio_req_tbl[i].label);
 	}
 
@@ -536,7 +549,7 @@ static int cam_soc_util_get_gpio_info(struct cam_hw_soc_info *soc_info)
 
 	/* Validate input parameters */
 	if (!of_node) {
-		pr_err("Invalid param of_node\n");
+		CAM_ERR(CAM_UTIL, "Invalid param of_node");
 		return -EINVAL;
 	}
 
@@ -545,7 +558,7 @@ static int cam_soc_util_get_gpio_info(struct cam_hw_soc_info *soc_info)
 	if (gpio_array_size <= 0)
 		return 0;
 
-	CDBG("gpio count %d\n", gpio_array_size);
+	CAM_DBG(CAM_UTIL, "gpio count %d", gpio_array_size);
 
 	gpio_array = kcalloc(gpio_array_size, sizeof(uint16_t), GFP_KERNEL);
 	if (!gpio_array)
@@ -553,7 +566,7 @@ static int cam_soc_util_get_gpio_info(struct cam_hw_soc_info *soc_info)
 
 	for (i = 0; i < gpio_array_size; i++) {
 		gpio_array[i] = of_get_gpio(of_node, i);
-		CDBG("gpio_array[%d] = %d", i, gpio_array[i]);
+		CAM_DBG(CAM_UTIL, "gpio_array[%d] = %d", i, gpio_array[i]);
 	}
 
 	gconf = kzalloc(sizeof(*gconf), GFP_KERNEL);
@@ -563,7 +576,7 @@ static int cam_soc_util_get_gpio_info(struct cam_hw_soc_info *soc_info)
 	rc = cam_soc_util_get_dt_gpio_req_tbl(of_node, gconf, gpio_array,
 		gpio_array_size);
 	if (rc) {
-		pr_err("failed in msm_camera_get_dt_gpio_req_tbl\n");
+		CAM_ERR(CAM_UTIL, "failed in msm_camera_get_dt_gpio_req_tbl");
 		goto free_gpio_array;
 	}
 
@@ -603,23 +616,23 @@ static int cam_soc_util_request_gpio_table(
 
 
 	if (!gpio_conf) {
-		CDBG("No GPIO entry\n");
+		CAM_DBG(CAM_UTIL, "No GPIO entry");
 		return 0;
 	}
 	if (gpio_conf->cam_gpio_common_tbl_size <= 0) {
-		pr_err("GPIO table size is invalid\n");
+		CAM_ERR(CAM_UTIL, "GPIO table size is invalid");
 		return -EINVAL;
 	}
 	size = gpio_conf->cam_gpio_req_tbl_size;
 	gpio_tbl = gpio_conf->cam_gpio_req_tbl;
 
 	if (!gpio_tbl || !size) {
-		pr_err("Invalid gpio_tbl %pK / size %d\n",
+		CAM_ERR(CAM_UTIL, "Invalid gpio_tbl %pK / size %d",
 			gpio_tbl, size);
 		return -EINVAL;
 	}
 	for (i = 0; i < size; i++) {
-		CDBG("i=%d, gpio=%d dir=%ld\n", i,
+		CAM_DBG(CAM_UTIL, "i=%d, gpio=%d dir=%ld", i,
 			gpio_tbl[i].gpio, gpio_tbl[i].flags);
 	}
 	if (gpio_en) {
@@ -632,7 +645,7 @@ static int cam_soc_util_request_gpio_table(
 				 * apply new gpios, outout a error message
 				 * for driver bringup debug
 				 */
-				pr_err("gpio %d:%s request fails\n",
+				CAM_ERR(CAM_UTIL, "gpio %d:%s request fails",
 					gpio_tbl[i].gpio, gpio_tbl[i].label);
 			}
 		}
@@ -651,7 +664,7 @@ static int cam_soc_util_get_dt_regulator_info
 	struct platform_device *pdev = NULL;
 
 	if (!soc_info || !soc_info->pdev) {
-		pr_err("Invalid parameters\n");
+		CAM_ERR(CAM_UTIL, "Invalid parameters");
 		return -EINVAL;
 	}
 
@@ -662,7 +675,7 @@ static int cam_soc_util_get_dt_regulator_info
 	count = of_property_count_strings(of_node, "regulator-names");
 	if (count != -EINVAL) {
 		if (count <= 0) {
-			pr_err("no regulators found\n");
+			CAM_ERR(CAM_UTIL, "no regulators found");
 			count = 0;
 			return -EINVAL;
 		}
@@ -670,22 +683,23 @@ static int cam_soc_util_get_dt_regulator_info
 		soc_info->num_rgltr = count;
 
 	} else {
-		CDBG("No regulators node found\n");
+		CAM_DBG(CAM_UTIL, "No regulators node found");
 		return 0;
 	}
 
 	for (i = 0; i < soc_info->num_rgltr; i++) {
 		rc = of_property_read_string_index(of_node,
 			"regulator-names", i, &soc_info->rgltr_name[i]);
-		CDBG("rgltr_name[%d] = %s\n", i, soc_info->rgltr_name[i]);
+		CAM_DBG(CAM_UTIL, "rgltr_name[%d] = %s",
+			i, soc_info->rgltr_name[i]);
 		if (rc) {
-			pr_err("no regulator resource at cnt=%d\n", i);
+			CAM_ERR(CAM_UTIL, "no regulator resource at cnt=%d", i);
 			return -ENODEV;
 		}
 	}
 
 	if (!of_property_read_bool(of_node, "rgltr-cntrl-support")) {
-		CDBG("No regulator control parameter defined\n");
+		CAM_DBG(CAM_UTIL, "No regulator control parameter defined");
 		soc_info->rgltr_ctrl_support = false;
 		return 0;
 	}
@@ -695,21 +709,21 @@ static int cam_soc_util_get_dt_regulator_info
 	rc = of_property_read_u32_array(of_node, "rgltr-min-voltage",
 		soc_info->rgltr_min_volt, soc_info->num_rgltr);
 	if (rc) {
-		pr_err("No minimum volatage value found, rc=%d\n", rc);
+		CAM_ERR(CAM_UTIL, "No minimum volatage value found, rc=%d", rc);
 		return -EINVAL;
 	}
 
 	rc = of_property_read_u32_array(of_node, "rgltr-max-voltage",
 		soc_info->rgltr_max_volt, soc_info->num_rgltr);
 	if (rc) {
-		pr_err("No maximum volatage value found, rc=%d\n", rc);
+		CAM_ERR(CAM_UTIL, "No maximum volatage value found, rc=%d", rc);
 		return -EINVAL;
 	}
 
 	rc = of_property_read_u32_array(of_node, "rgltr-load-current",
 		soc_info->rgltr_op_mode, soc_info->num_rgltr);
 	if (rc) {
-		pr_err("No Load curent found rc=%d\n", rc);
+		CAM_ERR(CAM_UTIL, "No Load curent found rc=%d", rc);
 		return -EINVAL;
 	}
 
@@ -730,12 +744,13 @@ int cam_soc_util_get_dt_properties(struct cam_hw_soc_info *soc_info)
 
 	rc = of_property_read_u32(of_node, "cell-index", &soc_info->index);
 	if (rc) {
-		pr_err("device %s failed to read cell-index\n", pdev->name);
+		CAM_ERR(CAM_UTIL, "device %s failed to read cell-index",
+			pdev->name);
 		return rc;
 	}
 	count = of_property_count_strings(of_node, "reg-names");
 	if (count <= 0) {
-		pr_err("no reg-names found\n");
+		CAM_ERR(CAM_UTIL, "no reg-names found");
 		count = 0;
 	}
 	soc_info->num_mem_block = count;
@@ -744,7 +759,7 @@ int cam_soc_util_get_dt_properties(struct cam_hw_soc_info *soc_info)
 		rc = of_property_read_string_index(of_node, "reg-names", i,
 			&soc_info->mem_block_name[i]);
 		if (rc) {
-			pr_err("failed to read reg-names at %d\n", i);
+			CAM_ERR(CAM_UTIL, "failed to read reg-names at %d", i);
 			return rc;
 		}
 		soc_info->mem_block[i] =
@@ -752,7 +767,7 @@ int cam_soc_util_get_dt_properties(struct cam_hw_soc_info *soc_info)
 			soc_info->mem_block_name[i]);
 
 		if (!soc_info->mem_block[i]) {
-			pr_err("no mem resource by name %s\n",
+			CAM_ERR(CAM_UTIL, "no mem resource by name %s",
 				soc_info->mem_block_name[i]);
 			rc = -ENODEV;
 			return rc;
@@ -763,7 +778,7 @@ int cam_soc_util_get_dt_properties(struct cam_hw_soc_info *soc_info)
 		rc = of_property_read_u32_array(of_node, "reg-cam-base",
 			soc_info->mem_block_cam_base, soc_info->num_mem_block);
 		if (rc) {
-			pr_err("Error reading register offsets\n");
+			CAM_ERR(CAM_UTIL, "Error reading register offsets");
 			return rc;
 		}
 	}
@@ -771,13 +786,13 @@ int cam_soc_util_get_dt_properties(struct cam_hw_soc_info *soc_info)
 	rc = of_property_read_string_index(of_node, "interrupt-names", 0,
 		&soc_info->irq_name);
 	if (rc) {
-		pr_warn("No interrupt line present\n");
+		CAM_WARN(CAM_UTIL, "No interrupt line present");
 		rc = 0;
 	} else {
 		soc_info->irq_line = platform_get_resource_byname(pdev,
 			IORESOURCE_IRQ, soc_info->irq_name);
 		if (!soc_info->irq_line) {
-			pr_err("no irq resource\n");
+			CAM_ERR(CAM_UTIL, "no irq resource");
 			rc = -ENODEV;
 			return rc;
 		}
@@ -817,7 +832,7 @@ static int cam_soc_util_get_regulator(struct platform_device *pdev,
 	if (IS_ERR_OR_NULL(*reg)) {
 		rc = PTR_ERR(*reg);
 		rc = rc ? rc : -EINVAL;
-		pr_err("Regulator %s get failed %d\n", rgltr_name, rc);
+		CAM_ERR(CAM_UTIL, "Regulator %s get failed %d", rgltr_name, rc);
 		*reg = NULL;
 	}
 	return rc;
@@ -831,13 +846,13 @@ int cam_soc_util_regulator_disable(struct regulator *rgltr,
 	int32_t rc = 0;
 
 	if (!rgltr) {
-		pr_err("Invalid NULL parameter\n");
+		CAM_ERR(CAM_UTIL, "Invalid NULL parameter");
 		return -EINVAL;
 	}
 
 	rc = regulator_disable(rgltr);
 	if (rc) {
-		pr_err("%s regulator disable failed\n", rgltr_name);
+		CAM_ERR(CAM_UTIL, "%s regulator disable failed", rgltr_name);
 		return rc;
 	}
 
@@ -864,31 +879,32 @@ int cam_soc_util_regulator_enable(struct regulator *rgltr,
 	int32_t rc = 0;
 
 	if (!rgltr) {
-		pr_err("Invalid NULL parameter\n");
+		CAM_ERR(CAM_UTIL, "Invalid NULL parameter");
 		return -EINVAL;
 	}
 
 	if (regulator_count_voltages(rgltr) > 0) {
-		CDBG("voltage min=%d, max=%d\n",
+		CAM_DBG(CAM_UTIL, "voltage min=%d, max=%d",
 			rgltr_min_volt, rgltr_max_volt);
 
 		rc = regulator_set_voltage(
 			rgltr, rgltr_min_volt, rgltr_max_volt);
 		if (rc) {
-			pr_err("%s set voltage failed\n", rgltr_name);
+			CAM_ERR(CAM_UTIL, "%s set voltage failed", rgltr_name);
 			return rc;
 		}
 
 		rc = regulator_set_load(rgltr, rgltr_op_mode);
 		if (rc) {
-			pr_err("%s set optimum mode failed\n", rgltr_name);
+			CAM_ERR(CAM_UTIL, "%s set optimum mode failed",
+				rgltr_name);
 			return rc;
 		}
 	}
 
 	rc = regulator_enable(rgltr);
 	if (rc) {
-		pr_err("%s regulator_enable failed\n", rgltr_name);
+		CAM_ERR(CAM_UTIL, "%s regulator_enable failed", rgltr_name);
 		return rc;
 	}
 
@@ -909,7 +925,7 @@ static int cam_soc_util_request_pinctrl(
 
 	device_pctrl->pinctrl = devm_pinctrl_get(dev);
 	if (IS_ERR_OR_NULL(device_pctrl->pinctrl)) {
-		CDBG("Pinctrl not available\n");
+		CAM_DBG(CAM_UTIL, "Pinctrl not available");
 		device_pctrl->pinctrl = NULL;
 		return 0;
 	}
@@ -917,7 +933,8 @@ static int cam_soc_util_request_pinctrl(
 		pinctrl_lookup_state(device_pctrl->pinctrl,
 				CAM_SOC_PINCTRL_STATE_DEFAULT);
 	if (IS_ERR_OR_NULL(device_pctrl->gpio_state_active)) {
-		pr_err("Failed to get the active state pinctrl handle\n");
+		CAM_ERR(CAM_UTIL,
+			"Failed to get the active state pinctrl handle");
 		device_pctrl->gpio_state_active = NULL;
 		return -EINVAL;
 	}
@@ -925,7 +942,8 @@ static int cam_soc_util_request_pinctrl(
 		= pinctrl_lookup_state(device_pctrl->pinctrl,
 				CAM_SOC_PINCTRL_STATE_SLEEP);
 	if (IS_ERR_OR_NULL(device_pctrl->gpio_state_suspend)) {
-		pr_err("Failed to get the suspend state pinctrl handle\n");
+		CAM_ERR(CAM_UTIL,
+			"Failed to get the suspend state pinctrl handle");
 		device_pctrl->gpio_state_suspend = NULL;
 		return -EINVAL;
 	}
@@ -973,7 +991,8 @@ static int cam_soc_util_regulator_enable_default(
 		}
 
 		if (rc) {
-			pr_err("%s enable failed\n", soc_info->rgltr_name[j]);
+			CAM_ERR(CAM_UTIL, "%s enable failed",
+				soc_info->rgltr_name[j]);
 			goto disable_rgltr;
 		}
 	}
@@ -1007,7 +1026,7 @@ int cam_soc_util_request_platform_resource(
 
 
 	if (!soc_info || !soc_info->pdev) {
-		pr_err("Invalid parameters\n");
+		CAM_ERR(CAM_UTIL, "Invalid parameters");
 		return -EINVAL;
 	}
 
@@ -1018,7 +1037,8 @@ int cam_soc_util_request_platform_resource(
 			if (!request_mem_region(soc_info->mem_block[i]->start,
 				resource_size(soc_info->mem_block[i]),
 				soc_info->mem_block_name[i])){
-				pr_err("Error Mem Region request Failed:%s\n",
+				CAM_ERR(CAM_UTIL,
+					"Error Mem Region request Failed:%s",
 					soc_info->mem_block_name[i]);
 				rc = -ENOMEM;
 				goto unmap_base;
@@ -1028,7 +1048,7 @@ int cam_soc_util_request_platform_resource(
 			soc_info->mem_block[i]->start,
 			resource_size(soc_info->mem_block[i]));
 		if (!soc_info->reg_map[i].mem_base) {
-			pr_err("i= %d base NULL\n", i);
+			CAM_ERR(CAM_UTIL, "i= %d base NULL", i);
 			rc = -ENOMEM;
 			goto unmap_base;
 		}
@@ -1041,7 +1061,7 @@ int cam_soc_util_request_platform_resource(
 
 	for (i = 0; i < soc_info->num_rgltr; i++) {
 		if (soc_info->rgltr_name[i] == NULL) {
-			pr_err("can't find regulator name\n");
+			CAM_ERR(CAM_UTIL, "can't find regulator name");
 			goto put_regulator;
 		}
 
@@ -1056,7 +1076,7 @@ int cam_soc_util_request_platform_resource(
 			handler, IRQF_TRIGGER_RISING,
 			soc_info->irq_name, irq_data);
 		if (rc) {
-			pr_err("irq request fail\n");
+			CAM_ERR(CAM_UTIL, "irq request fail");
 			rc = -EBUSY;
 			goto put_regulator;
 		}
@@ -1069,7 +1089,8 @@ int cam_soc_util_request_platform_resource(
 		soc_info->clk[i] = clk_get(&soc_info->pdev->dev,
 			soc_info->clk_name[i]);
 		if (!soc_info->clk[i]) {
-			pr_err("get failed for %s\n", soc_info->clk_name[i]);
+			CAM_ERR(CAM_UTIL, "get failed for %s",
+				soc_info->clk_name[i]);
 			rc = -ENOENT;
 			goto put_clk;
 		}
@@ -1077,11 +1098,11 @@ int cam_soc_util_request_platform_resource(
 
 	rc = cam_soc_util_request_pinctrl(soc_info);
 	if (rc)
-		CDBG("Failed in request pinctrl, rc=%d\n", rc);
+		CAM_DBG(CAM_UTIL, "Failed in request pinctrl, rc=%d", rc);
 
 	rc = cam_soc_util_request_gpio_table(soc_info, true);
 	if (rc) {
-		pr_err("Failed in request gpio table, rc=%d\n", rc);
+		CAM_ERR(CAM_UTIL, "Failed in request gpio table, rc=%d", rc);
 		goto put_clk;
 	}
 
@@ -1135,7 +1156,7 @@ int cam_soc_util_release_platform_resource(struct cam_hw_soc_info *soc_info)
 	struct platform_device *pdev = NULL;
 
 	if (!soc_info || !soc_info->pdev) {
-		pr_err("Invalid parameter\n");
+		CAM_ERR(CAM_UTIL, "Invalid parameter");
 		return -EINVAL;
 	}
 
@@ -1186,7 +1207,7 @@ int cam_soc_util_enable_platform_resource(struct cam_hw_soc_info *soc_info,
 
 	rc = cam_soc_util_regulator_enable_default(soc_info);
 	if (rc) {
-		pr_err("Regulators enable failed\n");
+		CAM_ERR(CAM_UTIL, "Regulators enable failed");
 		return rc;
 	}
 
@@ -1257,7 +1278,7 @@ int cam_soc_util_reg_dump(struct cam_hw_soc_info *soc_info,
 {
 	void __iomem     *base_addr = NULL;
 
-	CDBG("base_idx %u size=%d\n", base_index, size);
+	CAM_DBG(CAM_UTIL, "base_idx %u size=%d", base_index, size);
 
 	if (!soc_info || base_index >= soc_info->num_reg_map ||
 		size <= 0 || (offset + size) >=

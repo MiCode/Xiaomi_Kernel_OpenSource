@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "CAM-SYNC-UTIL %s:%d " fmt, __func__, __LINE__
-
 #include "cam_sync_util.h"
 
 int cam_sync_util_find_and_set_empty_row(struct sync_device *sync_dev,
@@ -85,7 +83,8 @@ uint32_t cam_sync_util_get_group_object_state(struct sync_table_row *table,
 			active_count++;
 			break;
 		default:
-			pr_err("Invalid state of child object during merge\n");
+			CAM_ERR(CAM_SYNC,
+				"Invalid state of child object during merge");
 			return CAM_SYNC_STATE_SIGNALED_ERROR;
 		}
 	}
@@ -256,7 +255,7 @@ int cam_sync_util_validate_merge(uint32_t *sync_obj, uint32_t num_objs)
 	struct sync_table_row *row = NULL;
 
 	if (num_objs <= 1) {
-		pr_err("Single object merge is not allowed\n");
+		CAM_ERR(CAM_SYNC, "Single object merge is not allowed");
 		return -EINVAL;
 	}
 
@@ -265,7 +264,8 @@ int cam_sync_util_validate_merge(uint32_t *sync_obj, uint32_t num_objs)
 		spin_lock_bh(&sync_dev->row_spinlocks[sync_obj[i]]);
 		if (row->type == CAM_SYNC_TYPE_GROUP ||
 			row->state == CAM_SYNC_STATE_INVALID) {
-			pr_err("Group obj %d can't be merged or obj UNINIT\n",
+			CAM_ERR(CAM_SYNC,
+				"Group obj %d can't be merged or obj UNINIT",
 				sync_obj[i]);
 			spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj[i]]);
 			return -EINVAL;

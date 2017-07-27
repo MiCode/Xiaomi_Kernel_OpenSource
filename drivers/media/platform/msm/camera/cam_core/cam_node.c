@@ -16,7 +16,7 @@
 
 #include "cam_node.h"
 #include "cam_trace.h"
-
+#include "cam_debug_util.h"
 static void  __cam_node_handle_shutdown(struct cam_node *node)
 {
 	if (node->hw_mgr_intf.hw_close)
@@ -30,7 +30,7 @@ static int __cam_node_handle_query_cap(struct cam_node *node,
 	int rc = -EFAULT;
 
 	if (!query) {
-		pr_err("%s: Invalid params\n", __func__);
+		CAM_ERR(CAM_CORE, "Invalid params");
 		return -EINVAL;
 	}
 
@@ -65,7 +65,7 @@ static int __cam_node_handle_acquire_dev(struct cam_node *node,
 
 	rc = cam_context_handle_acquire_dev(ctx, acquire);
 	if (rc) {
-		pr_err("%s: Acquire device failed\n", __func__);
+		CAM_ERR(CAM_CORE, "Acquire device failed");
 		goto free_ctx;
 	}
 
@@ -87,19 +87,19 @@ static int __cam_node_handle_start_dev(struct cam_node *node,
 		return -EINVAL;
 
 	if (start->dev_handle <= 0) {
-		pr_err("Invalid device handle for context\n");
+		CAM_ERR(CAM_CORE, "Invalid device handle for context");
 		return -EINVAL;
 	}
 
 	if (start->session_handle <= 0) {
-		pr_err("Invalid session handle for context\n");
+		CAM_ERR(CAM_CORE, "Invalid session handle for context");
 		return -EINVAL;
 	}
 
 	ctx = (struct cam_context *)cam_get_device_priv(start->dev_handle);
 	if (!ctx) {
-		pr_err("%s: Can not get context for handle %d\n",
-			__func__, start->dev_handle);
+		CAM_ERR(CAM_CORE, "Can not get context for handle %d",
+			start->dev_handle);
 		return -EINVAL;
 	}
 
@@ -115,19 +115,19 @@ static int __cam_node_handle_stop_dev(struct cam_node *node,
 		return -EINVAL;
 
 	if (stop->dev_handle <= 0) {
-		pr_err("Invalid device handle for context\n");
+		CAM_ERR(CAM_CORE, "Invalid device handle for context");
 		return -EINVAL;
 	}
 
 	if (stop->session_handle <= 0) {
-		pr_err("Invalid session handle for context\n");
+		CAM_ERR(CAM_CORE, "Invalid session handle for context");
 		return -EINVAL;
 	}
 
 	ctx = (struct cam_context *)cam_get_device_priv(stop->dev_handle);
 	if (!ctx) {
-		pr_err("%s: Can not get context for handle %d\n",
-			__func__, stop->dev_handle);
+		CAM_ERR(CAM_CORE, "Can not get context for handle %d",
+			stop->dev_handle);
 		return -EINVAL;
 	}
 
@@ -143,19 +143,19 @@ static int __cam_node_handle_config_dev(struct cam_node *node,
 		return -EINVAL;
 
 	if (config->dev_handle <= 0) {
-		pr_err("Invalid device handle for context\n");
+		CAM_ERR(CAM_CORE, "Invalid device handle for context");
 		return -EINVAL;
 	}
 
 	if (config->session_handle <= 0) {
-		pr_err("Invalid session handle for context\n");
+		CAM_ERR(CAM_CORE, "Invalid session handle for context");
 		return -EINVAL;
 	}
 
 	ctx = (struct cam_context *)cam_get_device_priv(config->dev_handle);
 	if (!ctx) {
-		pr_err("%s: Can not get context for handle %d\n",
-			__func__, config->dev_handle);
+		CAM_ERR(CAM_CORE, "Can not get context for handle %d",
+			config->dev_handle);
 		return -EINVAL;
 	}
 
@@ -172,29 +172,29 @@ static int __cam_node_handle_release_dev(struct cam_node *node,
 		return -EINVAL;
 
 	if (release->dev_handle <= 0) {
-		pr_err("Invalid device handle for context\n");
+		CAM_ERR(CAM_CORE, "Invalid device handle for context");
 		return -EINVAL;
 	}
 
 	if (release->session_handle <= 0) {
-		pr_err("Invalid session handle for context\n");
+		CAM_ERR(CAM_CORE, "Invalid session handle for context");
 		return -EINVAL;
 	}
 
 	ctx = (struct cam_context *)cam_get_device_priv(release->dev_handle);
 	if (!ctx) {
-		pr_err("%s: Can not get context for handle %d\n",
-			__func__, release->dev_handle);
+		CAM_ERR(CAM_CORE, "Can not get context for handle %d",
+			release->dev_handle);
 		return -EINVAL;
 	}
 
 	rc = cam_context_handle_release_dev(ctx, release);
 	if (rc)
-		pr_err("%s: context release failed\n", __func__);
+		CAM_ERR(CAM_CORE, "context release failed");
 
 	rc = cam_destroy_device_hdl(release->dev_handle);
 	if (rc)
-		pr_err("%s: destroy device handle is failed\n", __func__);
+		CAM_ERR(CAM_CORE, "destroy device handle is failed");
 
 	mutex_lock(&node->list_mutex);
 	list_add_tail(&ctx->list, &node->free_ctx_list);
@@ -211,8 +211,8 @@ static int __cam_node_crm_get_dev_info(struct cam_req_mgr_device_info *info)
 
 	ctx = (struct cam_context *) cam_get_device_priv(info->dev_hdl);
 	if (!ctx) {
-		pr_err("%s: Can not get context  for handle %d\n",
-			__func__, info->dev_hdl);
+		CAM_ERR(CAM_CORE, "Can not get context  for handle %d",
+			info->dev_hdl);
 		return -EINVAL;
 	}
 	return cam_context_handle_crm_get_dev_info(ctx, info);
@@ -229,8 +229,8 @@ static int __cam_node_crm_link_setup(
 
 	ctx = (struct cam_context *) cam_get_device_priv(setup->dev_hdl);
 	if (!ctx) {
-		pr_err("%s: Can not get context for handle %d\n",
-			__func__, setup->dev_hdl);
+		CAM_ERR(CAM_CORE, "Can not get context for handle %d",
+			setup->dev_hdl);
 		return -EINVAL;
 	}
 
@@ -251,8 +251,8 @@ static int __cam_node_crm_apply_req(struct cam_req_mgr_apply_request *apply)
 
 	ctx = (struct cam_context *) cam_get_device_priv(apply->dev_hdl);
 	if (!ctx) {
-		pr_err("%s: Can not get context for handle %d\n",
-			__func__, apply->dev_hdl);
+		CAM_ERR(CAM_CORE, "Can not get context for handle %d",
+			apply->dev_hdl);
 		return -EINVAL;
 	}
 
@@ -266,14 +266,14 @@ static int __cam_node_crm_flush_req(struct cam_req_mgr_flush_request *flush)
 	struct cam_context *ctx = NULL;
 
 	if (!flush) {
-		pr_err("%s: Invalid flush request payload\n", __func__);
+		CAM_ERR(CAM_CORE, "Invalid flush request payload");
 		return -EINVAL;
 	}
 
 	ctx = (struct cam_context *) cam_get_device_priv(flush->dev_hdl);
 	if (!ctx) {
-		pr_err("%s: Can not get context for handle %d\n",
-			__func__, flush->dev_hdl);
+		CAM_ERR(CAM_CORE, "Can not get context for handle %d",
+			flush->dev_hdl);
 		return -EINVAL;
 	}
 
@@ -285,7 +285,7 @@ int cam_node_deinit(struct cam_node *node)
 	if (node)
 		memset(node, 0, sizeof(*node));
 
-	pr_debug("%s: deinit complete!\n", __func__);
+	CAM_DBG(CAM_CORE, "deinit complete");
 
 	return 0;
 }
@@ -317,8 +317,8 @@ int cam_node_init(struct cam_node *node, struct cam_hw_mgr_intf *hw_mgr_intf,
 	node->ctx_size = ctx_size;
 	for (i = 0; i < ctx_size; i++) {
 		if (!ctx_list[i].state_machine) {
-			pr_err("%s: camera context %d is not initialized!",
-				__func__, i);
+			CAM_ERR(CAM_CORE,
+				"camera context %d is not initialized", i);
 			rc = -1;
 			goto err;
 		}
@@ -328,7 +328,7 @@ int cam_node_init(struct cam_node *node, struct cam_hw_mgr_intf *hw_mgr_intf,
 
 	node->state = CAM_NODE_STATE_INIT;
 err:
-	pr_debug("%s: Exit. (rc = %d)\n", __func__, rc);
+	CAM_DBG(CAM_CORE, "Exit. (rc = %d)", rc);
 	return rc;
 }
 
@@ -339,7 +339,7 @@ int cam_node_handle_ioctl(struct cam_node *node, struct cam_control *cmd)
 	if (!cmd)
 		return -EINVAL;
 
-	pr_debug("%s: handle cmd %d\n", __func__, cmd->op_code);
+	CAM_DBG(CAM_CORE, "handle cmd %d", cmd->op_code);
 
 	switch (cmd->op_code) {
 	case CAM_QUERY_CAP: {
@@ -353,8 +353,8 @@ int cam_node_handle_ioctl(struct cam_node *node, struct cam_control *cmd)
 
 		rc = __cam_node_handle_query_cap(node, &query);
 		if (rc) {
-			pr_err("%s: querycap is failed(rc = %d)\n",
-				__func__,  rc);
+			CAM_ERR(CAM_CORE, "querycap is failed(rc = %d)",
+				rc);
 			break;
 		}
 
@@ -374,8 +374,8 @@ int cam_node_handle_ioctl(struct cam_node *node, struct cam_control *cmd)
 		}
 		rc = __cam_node_handle_acquire_dev(node, &acquire);
 		if (rc) {
-			pr_err("%s: acquire device failed(rc = %d)\n",
-				__func__, rc);
+			CAM_ERR(CAM_CORE, "acquire device failed(rc = %d)",
+				rc);
 			break;
 		}
 		if (copy_to_user((void __user *)cmd->handle, &acquire,
@@ -392,8 +392,8 @@ int cam_node_handle_ioctl(struct cam_node *node, struct cam_control *cmd)
 		else {
 			rc = __cam_node_handle_start_dev(node, &start);
 			if (rc)
-				pr_err("%s: start device failed(rc = %d)\n",
-					__func__, rc);
+				CAM_ERR(CAM_CORE,
+					"start device failed(rc = %d)", rc);
 		}
 		break;
 	}
@@ -406,8 +406,8 @@ int cam_node_handle_ioctl(struct cam_node *node, struct cam_control *cmd)
 		else {
 			rc = __cam_node_handle_stop_dev(node, &stop);
 			if (rc)
-				pr_err("%s: stop device failed(rc = %d)\n",
-					__func__, rc);
+				CAM_ERR(CAM_CORE,
+					"stop device failed(rc = %d)", rc);
 		}
 		break;
 	}
@@ -420,8 +420,8 @@ int cam_node_handle_ioctl(struct cam_node *node, struct cam_control *cmd)
 		else {
 			rc = __cam_node_handle_config_dev(node, &config);
 			if (rc)
-				pr_err("%s: config device failed(rc = %d)\n",
-					__func__, rc);
+				CAM_ERR(CAM_CORE,
+					"config device failed(rc = %d)", rc);
 		}
 		break;
 	}
@@ -434,8 +434,8 @@ int cam_node_handle_ioctl(struct cam_node *node, struct cam_control *cmd)
 		else {
 			rc = __cam_node_handle_release_dev(node, &release);
 			if (rc)
-				pr_err("%s: release device failed(rc = %d)\n",
-					__func__, rc);
+				CAM_ERR(CAM_CORE,
+					"release device failed(rc = %d)", rc);
 		}
 		break;
 	}
@@ -443,7 +443,7 @@ int cam_node_handle_ioctl(struct cam_node *node, struct cam_control *cmd)
 		__cam_node_handle_shutdown(node);
 		break;
 	default:
-		pr_err("Unknown op code %d\n", cmd->op_code);
+		CAM_ERR(CAM_CORE, "Unknown op code %d", cmd->op_code);
 		rc = -EINVAL;
 	}
 
