@@ -47,6 +47,12 @@
 
 #define SDE_ENC_WR_PTR_START_TIMEOUT_US 20000
 
+/*
+ * Threshold for signalling retire fences in cases where
+ * CTL_START_IRQ is received just after RD_PTR_IRQ
+ */
+#define SDE_ENC_CTL_START_THRESHOLD_US 500
+
 static inline int _sde_encoder_phys_cmd_get_idle_timeout(
 		struct sde_encoder_phys_cmd *cmd_enc)
 {
@@ -212,7 +218,7 @@ static void sde_encoder_phys_cmd_pp_rd_ptr_irq(void *arg, int irq_idx)
 {
 	struct sde_encoder_phys *phys_enc = arg;
 	struct sde_encoder_phys_cmd *cmd_enc;
-	bool signal_fence = false;
+	u32 event = 0;
 
 	if (!phys_enc || !phys_enc->hw_pp)
 		return;
@@ -221,47 +227,28 @@ static void sde_encoder_phys_cmd_pp_rd_ptr_irq(void *arg, int irq_idx)
 	cmd_enc = to_sde_encoder_phys_cmd(phys_enc);
 
 	/**
-	 * signal only for master,
-	 * - when the ctl_start irq is done and incremented
-	 *   the pending_rd_ptr_cnt.
-	 * - when ctl_start irq status bit is set. This handles the case
-	 *   where ctl_start status bit is set in hardware, but the interrupt
-	 *   is delayed due to some reason.
+	 * signal only for master, when the ctl_start irq is
+	 * done and incremented the pending_rd_ptr_cnt.
 	 */
-	if (sde_encoder_phys_cmd_is_master(phys_enc) &&
-			atomic_read(&phys_enc->pending_retire_fence_cnt)) {
+	if (sde_encoder_phys_cmd_is_master(phys_enc)
+		    && atomic_add_unless(&cmd_enc->pending_rd_ptr_cnt, -1, 0)
+		    && atomic_add_unless(
+				&phys_enc->pending_retire_fence_cnt, -1, 0)) {
 
-		if (atomic_add_unless(
-				&cmd_enc->pending_rd_ptr_cnt, -1, 0)) {
-			signal_fence = true;
-		} else {
-			signal_fence =
-				sde_core_irq_read_nolock(phys_enc->sde_kms,
-				    phys_enc->irq[INTR_IDX_CTL_START].irq_idx,
-				    false);
-			if (signal_fence)
-				SDE_EVT32_IRQ(DRMID(phys_enc->parent),
-				    phys_enc->hw_pp->idx - PINGPONG_0,
-				    atomic_read(
-					&phys_enc->pending_retire_fence_cnt),
-				    SDE_EVTLOG_FUNC_CASE1);
-		}
-
-		if (signal_fence && phys_enc->parent_ops.handle_frame_done) {
-			atomic_add_unless(
-				&phys_enc->pending_retire_fence_cnt, -1, 0);
+		event = SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE;
+		if (phys_enc->parent_ops.handle_frame_done)
 			phys_enc->parent_ops.handle_frame_done(
-				phys_enc->parent, phys_enc,
-				SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE);
-		}
+				phys_enc->parent, phys_enc, event);
 	}
 
 	SDE_EVT32_IRQ(DRMID(phys_enc->parent),
-			phys_enc->hw_pp->idx - PINGPONG_0, signal_fence, 0xfff);
+			phys_enc->hw_pp->idx - PINGPONG_0, event, 0xfff);
 
 	if (phys_enc->parent_ops.handle_vblank_virt)
 		phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent,
 			phys_enc);
+
+	cmd_enc->rd_ptr_timestamp = ktime_get();
 
 	SDE_ATRACE_END("rd_ptr_irq");
 }
@@ -271,6 +258,8 @@ static void sde_encoder_phys_cmd_ctl_start_irq(void *arg, int irq_idx)
 	struct sde_encoder_phys *phys_enc = arg;
 	struct sde_encoder_phys_cmd *cmd_enc;
 	struct sde_hw_ctl *ctl;
+	u32 event = 0;
+	s64 time_diff_us;
 
 	if (!phys_enc || !phys_enc->hw_ctl)
 		return;
@@ -279,16 +268,41 @@ static void sde_encoder_phys_cmd_ctl_start_irq(void *arg, int irq_idx)
 	cmd_enc = to_sde_encoder_phys_cmd(phys_enc);
 
 	ctl = phys_enc->hw_ctl;
-	SDE_EVT32_IRQ(DRMID(phys_enc->parent), ctl->idx - CTL_0, 0xfff);
 	atomic_add_unless(&phys_enc->pending_ctlstart_cnt, -1, 0);
 
-	/*
-	 * this is required for the fence signalling to be done in rd_ptr_irq
-	 * after ctrl_start_irq
-	 */
+	time_diff_us = ktime_us_delta(ktime_get(), cmd_enc->rd_ptr_timestamp);
+
+	/* handle retire fence based on only master */
 	if (sde_encoder_phys_cmd_is_master(phys_enc)
-			&& atomic_read(&phys_enc->pending_retire_fence_cnt))
-		atomic_inc(&cmd_enc->pending_rd_ptr_cnt);
+			&& atomic_read(&phys_enc->pending_retire_fence_cnt)) {
+		/**
+		 * Handle rare cases where the ctl_start_irq is received
+		 * after rd_ptr_irq. If it falls within a threshold, it is
+		 * guaranteed the frame would be picked up in the current TE.
+		 * Signal retire fence immediately in such case.
+		 */
+		if ((time_diff_us <= SDE_ENC_CTL_START_THRESHOLD_US)
+			    && atomic_add_unless(
+				&phys_enc->pending_retire_fence_cnt, -1, 0)) {
+
+			event = SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE;
+
+			if (phys_enc->parent_ops.handle_frame_done)
+				phys_enc->parent_ops.handle_frame_done(
+					phys_enc->parent, phys_enc, event);
+
+		/**
+		 * In ideal cases, ctl_start_irq is received before the
+		 * rd_ptr_irq, so set the atomic flag to indicate the event
+		 * and rd_ptr_irq will handle signalling the retire fence
+		 */
+		} else {
+			atomic_inc(&cmd_enc->pending_rd_ptr_cnt);
+		}
+	}
+
+	SDE_EVT32_IRQ(DRMID(phys_enc->parent), ctl->idx - CTL_0,
+				time_diff_us, event, 0xfff);
 
 	/* Signal any waiting ctl start interrupt */
 	wake_up_all(&phys_enc->pending_kickoff_wq);
