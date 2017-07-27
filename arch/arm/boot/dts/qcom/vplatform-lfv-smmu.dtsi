@@ -1,0 +1,75 @@
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm-arm-smmu.dtsi"
+#include <dt-bindings/msm/msm-bus-ids.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+&lpass_q6_smmu {
+	status = "ok";
+	qcom,register-save;
+	qcom,skip-init;
+	#global-interrupts = <1>;
+	interrupts = <GIC_SPI 404 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 394 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 395 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 396 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 397 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 398 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 399 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 400 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 401 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 402 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 403 IRQ_TYPE_LEVEL_HIGH>;
+	vdd-supply = <&gdsc_hlos1_vote_lpass_adsp>;
+	clocks = <&clock_gcc clk_hlos1_vote_lpass_adsp_smmu_clk>;
+	clock-names = "lpass_q6_smmu_clocks";
+	#clock-cells = <1>;
+};
+
+&cpp_fd_smmu {
+	status = "ok";
+	qcom,register-save;
+	qcom,skip-init;
+	qcom,fatal-asf;
+	#global-interrupts = <1>;
+	interrupts = <GIC_SPI 264 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 263 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 266 IRQ_TYPE_LEVEL_HIGH>,
+		<GIC_SPI 267 IRQ_TYPE_LEVEL_HIGH>;
+	vdd-supply = <&gdsc_mmagic_camss>;
+	clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
+		<&clock_mmss clk_mmss_mmagic_cfg_ahb_clk>,
+		<&clock_mmss clk_smmu_cpp_ahb_clk>,
+		<&clock_mmss clk_smmu_cpp_axi_clk>,
+		<&clock_mmss clk_mmagic_camss_axi_clk>;
+	clock-names = "mmagic_ahb_clk", "mmagic_cfg_ahb_clk",
+		"cpp_ahb_clk", "cpp_axi_clk",
+		"mmagic_camss_axi_clk";
+	#clock-cells = <1>;
+	qcom,bus-master-id = <MSM_BUS_MASTER_CPP>;
+};
+
+&soc {
+	iommu_test_device {
+		compatible = "iommu-debug-test";
+		/*
+		 * 42 shouldn't be used by anyone on the cpp_fd_smmu.  We just
+		 * need _something_ here to get this node recognized by the
+		 * SMMU driver. Our test uses ATOS, which doesn't use SIDs
+		 * anyways, so using a dummy value is ok.
+		 */
+		iommus = <&cpp_fd_smmu 42>;
+	};
+};
