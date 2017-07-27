@@ -10,16 +10,12 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "%s:%d " fmt, __func__, __LINE__
-
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/list.h>
 #include "cam_io_util.h"
 #include "cam_irq_controller.h"
-
-#undef CDBG
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#include "cam_debug_util.h"
 
 /**
  * struct cam_irq_evt_handler:
@@ -143,21 +139,21 @@ int cam_irq_controller_init(const char       *name,
 
 	if (!register_info->num_registers || !register_info->irq_reg_set ||
 		!name || !mem_base) {
-		pr_err("Invalid parameters\n");
+		CAM_ERR(CAM_ISP, "Invalid parameters");
 		rc = -EINVAL;
 		return rc;
 	}
 
 	controller = kzalloc(sizeof(struct cam_irq_controller), GFP_KERNEL);
 	if (!controller) {
-		CDBG("Failed to allocate IRQ Controller\n");
+		CAM_DBG(CAM_ISP, "Failed to allocate IRQ Controller");
 		return -ENOMEM;
 	}
 
 	controller->irq_register_arr = kzalloc(register_info->num_registers *
 		sizeof(struct cam_irq_register_obj), GFP_KERNEL);
 	if (!controller->irq_register_arr) {
-		CDBG("Failed to allocate IRQ register Arr\n");
+		CAM_DBG(CAM_ISP, "Failed to allocate IRQ register Arr");
 		rc = -ENOMEM;
 		goto reg_alloc_error;
 	}
@@ -165,7 +161,7 @@ int cam_irq_controller_init(const char       *name,
 	controller->irq_status_arr = kzalloc(register_info->num_registers *
 		sizeof(uint32_t), GFP_KERNEL);
 	if (!controller->irq_status_arr) {
-		CDBG("Failed to allocate IRQ status Arr\n");
+		CAM_DBG(CAM_ISP, "Failed to allocate IRQ status Arr");
 		rc = -ENOMEM;
 		goto status_alloc_error;
 	}
@@ -174,14 +170,14 @@ int cam_irq_controller_init(const char       *name,
 		kzalloc(register_info->num_registers * sizeof(uint32_t),
 		GFP_KERNEL);
 	if (!controller->th_payload.evt_status_arr) {
-		CDBG("Failed to allocate BH payload bit mask Arr\n");
+		CAM_DBG(CAM_ISP, "Failed to allocate BH payload bit mask Arr");
 		rc = -ENOMEM;
 		goto evt_mask_alloc_error;
 	}
 
 	controller->name = name;
 
-	CDBG("num_registers: %d\n", register_info->num_registers);
+	CAM_DBG(CAM_ISP, "num_registers: %d", register_info->num_registers);
 	for (i = 0; i < register_info->num_registers; i++) {
 		controller->irq_register_arr[i].index = i;
 		controller->irq_register_arr[i].mask_reg_offset =
@@ -190,11 +186,11 @@ int cam_irq_controller_init(const char       *name,
 			register_info->irq_reg_set[i].clear_reg_offset;
 		controller->irq_register_arr[i].status_reg_offset =
 			register_info->irq_reg_set[i].status_reg_offset;
-		CDBG("i %d mask_reg_offset: 0x%x\n", i,
+		CAM_DBG(CAM_ISP, "i %d mask_reg_offset: 0x%x", i,
 			controller->irq_register_arr[i].mask_reg_offset);
-		CDBG("i %d clear_reg_offset: 0x%x\n", i,
+		CAM_DBG(CAM_ISP, "i %d clear_reg_offset: 0x%x", i,
 			controller->irq_register_arr[i].clear_reg_offset);
-		CDBG("i %d status_reg_offset: 0x%x\n", i,
+		CAM_DBG(CAM_ISP, "i %d status_reg_offset: 0x%x", i,
 			controller->irq_register_arr[i].status_reg_offset);
 	}
 	controller->num_registers        = register_info->num_registers;
@@ -202,11 +198,11 @@ int cam_irq_controller_init(const char       *name,
 	controller->global_clear_offset  = register_info->global_clear_offset;
 	controller->mem_base             = mem_base;
 
-	CDBG("global_clear_bitmask: 0x%x\n",
+	CAM_DBG(CAM_ISP, "global_clear_bitmask: 0x%x",
 		controller->global_clear_bitmask);
-	CDBG("global_clear_offset: 0x%x\n",
+	CAM_DBG(CAM_ISP, "global_clear_offset: 0x%x",
 		controller->global_clear_offset);
-	CDBG("mem_base: 0x%llx\n", (uint64_t)controller->mem_base);
+	CAM_DBG(CAM_ISP, "mem_base: %pK", (void __iomem *)controller->mem_base);
 
 	INIT_LIST_HEAD(&controller->evt_handler_list_head);
 	for (i = 0; i < CAM_IRQ_PRIORITY_MAX; i++)
@@ -246,19 +242,21 @@ int cam_irq_controller_subscribe_irq(void *irq_controller,
 	unsigned long               flags;
 
 	if (!controller || !handler_priv || !evt_bit_mask_arr) {
-		pr_err("Invalid params: ctlr=%pK handler_priv=%pK bit_mask_arr = %pK\n",
+		CAM_ERR(CAM_ISP,
+			"Inval params: ctlr=%pK hdl_priv=%pK bit_mask_arr=%pK",
 			controller, handler_priv, evt_bit_mask_arr);
 		return -EINVAL;
 	}
 
 	if (!top_half_handler) {
-		pr_err("Missing top half handler\n");
+		CAM_ERR(CAM_ISP, "Missing top half handler");
 		return -EINVAL;
 	}
 
 	if (bottom_half_handler &&
 		(!bottom_half || !bottom_half_enqueue_func)) {
-		pr_err("Invalid params: bh_handler=%pK bh=%pK bh_enq_f=%pK\n",
+		CAM_ERR(CAM_ISP,
+			"Invalid params: bh_handler=%pK bh=%pK bh_enq_f=%pK",
 			bottom_half_handler,
 			bottom_half,
 			bottom_half_enqueue_func);
@@ -266,21 +264,21 @@ int cam_irq_controller_subscribe_irq(void *irq_controller,
 	}
 
 	if (priority >= CAM_IRQ_PRIORITY_MAX) {
-		pr_err("Invalid priority=%u, max=%u\n", priority,
+		CAM_ERR(CAM_ISP, "Invalid priority=%u, max=%u", priority,
 			CAM_IRQ_PRIORITY_MAX);
 		return -EINVAL;
 	}
 
 	evt_handler = kzalloc(sizeof(struct cam_irq_evt_handler), GFP_KERNEL);
 	if (!evt_handler) {
-		CDBG("Error allocating hlist_node\n");
+		CAM_DBG(CAM_ISP, "Error allocating hlist_node");
 		return -ENOMEM;
 	}
 
 	evt_handler->evt_bit_mask_arr = kzalloc(sizeof(uint32_t) *
 		controller->num_registers, GFP_KERNEL);
 	if (!evt_handler->evt_bit_mask_arr) {
-		CDBG("Error allocating hlist_node\n");
+		CAM_DBG(CAM_ISP, "Error allocating hlist_node");
 		rc = -ENOMEM;
 		goto free_evt_handler;
 	}
@@ -346,7 +344,7 @@ int cam_irq_controller_unsubscribe_irq(void *irq_controller,
 	list_for_each_entry_safe(evt_handler, evt_handler_temp,
 		&controller->evt_handler_list_head, list_node) {
 		if (evt_handler->index == handle) {
-			CDBG("unsubscribe item %d\n", handle);
+			CAM_DBG(CAM_ISP, "unsubscribe item %d", handle);
 			list_del_init(&evt_handler->list_node);
 			list_del_init(&evt_handler->th_list_node);
 			found = 1;
@@ -429,7 +427,7 @@ static void cam_irq_controller_th_processing(
 	int                             rc = -EINVAL;
 	int                             i;
 
-	CDBG("Enter\n");
+	CAM_DBG(CAM_ISP, "Enter");
 
 	if (list_empty(th_list_head))
 		return;
@@ -441,7 +439,7 @@ static void cam_irq_controller_th_processing(
 		if (!is_irq_match)
 			continue;
 
-		CDBG("match found\n");
+		CAM_DBG(CAM_ISP, "match found");
 
 		cam_irq_th_payload_init(th_payload);
 		th_payload->handler_priv  = evt_handler->handler_priv;
@@ -462,7 +460,7 @@ static void cam_irq_controller_th_processing(
 				(void *)th_payload);
 
 		if (!rc && evt_handler->bottom_half_handler) {
-			CDBG("Enqueuing bottom half for %s\n",
+			CAM_DBG(CAM_ISP, "Enqueuing bottom half for %s",
 				controller->name);
 			if (evt_handler->bottom_half_enqueue_func) {
 				evt_handler->bottom_half_enqueue_func(
@@ -474,7 +472,7 @@ static void cam_irq_controller_th_processing(
 		}
 	}
 
-	CDBG("Exit\n");
+	CAM_DBG(CAM_ISP, "Exit");
 }
 
 irqreturn_t cam_irq_controller_handle_irq(int irq_num, void *priv)
@@ -487,7 +485,7 @@ irqreturn_t cam_irq_controller_handle_irq(int irq_num, void *priv)
 	if (!controller)
 		return IRQ_NONE;
 
-	CDBG("locking controller %pK name %s rw_lock %pK\n",
+	CAM_DBG(CAM_ISP, "locking controller %pK name %s rw_lock %pK",
 		controller, controller->name, &controller->rw_lock);
 	read_lock(&controller->rw_lock);
 	for (i = 0; i < controller->num_registers; i++) {
@@ -497,7 +495,7 @@ irqreturn_t cam_irq_controller_handle_irq(int irq_num, void *priv)
 		cam_io_w_mb(controller->irq_status_arr[i],
 			controller->mem_base +
 			controller->irq_register_arr[i].clear_reg_offset);
-		CDBG("Read irq status%d (0x%x) = 0x%x\n", i,
+		CAM_DBG(CAM_ISP, "Read irq status%d (0x%x) = 0x%x", i,
 			controller->irq_register_arr[i].status_reg_offset,
 			controller->irq_status_arr[i]);
 		for (j = 0; j < CAM_IRQ_PRIORITY_MAX; j++) {
@@ -505,25 +503,26 @@ irqreturn_t cam_irq_controller_handle_irq(int irq_num, void *priv)
 				top_half_enable_mask[j] &
 				controller->irq_status_arr[i])
 				need_th_processing[j] = true;
-				CDBG("i %d j %d need_th_processing = %d\n",
+				CAM_DBG(CAM_ISP,
+					"i %d j %d need_th_processing = %d",
 					i, j, need_th_processing[j]);
 		}
 	}
 	read_unlock(&controller->rw_lock);
-	CDBG("unlocked controller %pK name %s rw_lock %pK\n",
+	CAM_DBG(CAM_ISP, "unlocked controller %pK name %s rw_lock %pK",
 		controller, controller->name, &controller->rw_lock);
 
-	CDBG("Status Registers read Successful\n");
+	CAM_DBG(CAM_ISP, "Status Registers read Successful");
 
 	if (controller->global_clear_offset)
 		cam_io_w_mb(controller->global_clear_bitmask,
 			controller->mem_base + controller->global_clear_offset);
 
-	CDBG("Status Clear done\n");
+	CAM_DBG(CAM_ISP, "Status Clear done");
 
 	for (i = 0; i < CAM_IRQ_PRIORITY_MAX; i++) {
 		if (need_th_processing[i]) {
-			CDBG("%s: Invoke TH processing\n", __func__);
+			CAM_DBG(CAM_ISP, "Invoke TH processing");
 			cam_irq_controller_th_processing(controller,
 				&controller->th_list_head[i]);
 		}

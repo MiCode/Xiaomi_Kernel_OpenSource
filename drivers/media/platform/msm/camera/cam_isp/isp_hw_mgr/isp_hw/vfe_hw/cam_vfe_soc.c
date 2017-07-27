@@ -10,14 +10,10 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "%s:%d " fmt, __func__, __LINE__
-
 #include <linux/slab.h>
 #include "cam_cpas_api.h"
 #include "cam_vfe_soc.h"
-
-#undef CDBG
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#include "cam_debug_util.h"
 
 static int cam_vfe_get_dt_properties(struct cam_hw_soc_info *soc_info)
 {
@@ -25,7 +21,7 @@ static int cam_vfe_get_dt_properties(struct cam_hw_soc_info *soc_info)
 
 	rc = cam_soc_util_get_dt_properties(soc_info);
 	if (rc) {
-		pr_err("Error! get DT properties failed rc=%d\n", rc);
+		CAM_ERR(CAM_ISP, "Error! get DT properties failed rc=%d", rc);
 		return rc;
 	}
 
@@ -41,7 +37,8 @@ static int cam_vfe_request_platform_resource(
 	rc = cam_soc_util_request_platform_resource(soc_info, vfe_irq_handler,
 		irq_data);
 	if (rc)
-		pr_err("Error! Request platform resource failed rc=%d\n", rc);
+		CAM_ERR(CAM_ISP,
+			"Error! Request platform resource failed rc=%d", rc);
 
 	return rc;
 }
@@ -52,7 +49,8 @@ static int cam_vfe_release_platform_resource(struct cam_hw_soc_info *soc_info)
 
 	rc = cam_soc_util_release_platform_resource(soc_info);
 	if (rc)
-		pr_err("Error! Release platform resource failed rc=%d\n", rc);
+		CAM_ERR(CAM_ISP,
+			"Error! Release platform resource failed rc=%d", rc);
 
 	return rc;
 }
@@ -67,21 +65,22 @@ int cam_vfe_init_soc_resources(struct cam_hw_soc_info *soc_info,
 	soc_private = kzalloc(sizeof(struct cam_vfe_soc_private),
 		GFP_KERNEL);
 	if (!soc_private) {
-		CDBG("Error! soc_private Alloc Failed\n");
+		CAM_DBG(CAM_ISP, "Error! soc_private Alloc Failed");
 		return -ENOMEM;
 	}
 	soc_info->soc_private = soc_private;
 
 	rc = cam_vfe_get_dt_properties(soc_info);
 	if (rc < 0) {
-		pr_err("Error! Get DT properties failed rc=%d\n", rc);
+		CAM_ERR(CAM_ISP, "Error! Get DT properties failed rc=%d", rc);
 		goto free_soc_private;
 	}
 
 	rc = cam_vfe_request_platform_resource(soc_info, vfe_irq_handler,
 		irq_data);
 	if (rc < 0) {
-		pr_err("Error! Request platform resources failed rc=%d\n", rc);
+		CAM_ERR(CAM_ISP,
+			"Error! Request platform resources failed rc=%d", rc);
 		goto free_soc_private;
 	}
 
@@ -92,7 +91,7 @@ int cam_vfe_init_soc_resources(struct cam_hw_soc_info *soc_info,
 	cpas_register_param.dev = &soc_info->pdev->dev;
 	rc = cam_cpas_register_client(&cpas_register_param);
 	if (rc) {
-		pr_err("CPAS registration failed rc=%d\n", rc);
+		CAM_ERR(CAM_ISP, "CPAS registration failed rc=%d", rc);
 		goto release_soc;
 	} else {
 		soc_private->cpas_handle = cpas_register_param.client_handle;
@@ -114,23 +113,24 @@ int cam_vfe_deinit_soc_resources(struct cam_hw_soc_info *soc_info)
 	struct cam_vfe_soc_private       *soc_private;
 
 	if (!soc_info) {
-		pr_err("Error! soc_info NULL\n");
+		CAM_ERR(CAM_ISP, "Error! soc_info NULL");
 		return -ENODEV;
 	}
 
 	soc_private = soc_info->soc_private;
 	if (!soc_private) {
-		pr_err("Error! soc_private NULL\n");
+		CAM_ERR(CAM_ISP, "Error! soc_private NULL");
 		return -ENODEV;
 	}
 
 	rc = cam_cpas_unregister_client(soc_private->cpas_handle);
 	if (rc)
-		pr_err("CPAS unregistration failed rc=%d\n", rc);
+		CAM_ERR(CAM_ISP, "CPAS unregistration failed rc=%d", rc);
 
 	rc = cam_vfe_release_platform_resource(soc_info);
 	if (rc < 0)
-		pr_err("Error! Release platform resources failed rc=%d\n", rc);
+		CAM_ERR(CAM_ISP,
+			"Error! Release platform resources failed rc=%d", rc);
 
 	kfree(soc_private);
 
@@ -145,7 +145,7 @@ int cam_vfe_enable_soc_resources(struct cam_hw_soc_info *soc_info)
 	struct cam_axi_vote               axi_vote;
 
 	if (!soc_info) {
-		pr_err("Error! Invalid params\n");
+		CAM_ERR(CAM_ISP, "Error! Invalid params");
 		rc = -EINVAL;
 		goto end;
 	}
@@ -159,7 +159,7 @@ int cam_vfe_enable_soc_resources(struct cam_hw_soc_info *soc_info)
 
 	rc = cam_cpas_start(soc_private->cpas_handle, &ahb_vote, &axi_vote);
 	if (rc) {
-		pr_err("Error! CPAS start failed rc=%d\n", rc);
+		CAM_ERR(CAM_ISP, "Error! CPAS start failed rc=%d", rc);
 		rc = -EFAULT;
 		goto end;
 	}
@@ -167,7 +167,7 @@ int cam_vfe_enable_soc_resources(struct cam_hw_soc_info *soc_info)
 	rc = cam_soc_util_enable_platform_resource(soc_info, true,
 		CAM_TURBO_VOTE, true);
 	if (rc) {
-		pr_err("Error! enable platform failed rc=%d\n", rc);
+		CAM_ERR(CAM_ISP, "Error! enable platform failed rc=%d", rc);
 		goto stop_cpas;
 	}
 
@@ -186,7 +186,7 @@ int cam_vfe_disable_soc_resources(struct cam_hw_soc_info *soc_info)
 	struct cam_vfe_soc_private       *soc_private;
 
 	if (!soc_info) {
-		pr_err("Error! Invalid params\n");
+		CAM_ERR(CAM_ISP, "Error! Invalid params");
 		rc = -EINVAL;
 		return rc;
 	}
@@ -194,13 +194,13 @@ int cam_vfe_disable_soc_resources(struct cam_hw_soc_info *soc_info)
 
 	rc = cam_soc_util_disable_platform_resource(soc_info, true, true);
 	if (rc) {
-		pr_err("Disable platform failed rc=%d\n", rc);
+		CAM_ERR(CAM_ISP, "Disable platform failed rc=%d", rc);
 		return rc;
 	}
 
 	rc = cam_cpas_stop(soc_private->cpas_handle);
 	if (rc) {
-		pr_err("Error! CPAS stop failed rc=%d\n", rc);
+		CAM_ERR(CAM_ISP, "Error! CPAS stop failed rc=%d", rc);
 		return rc;
 	}
 

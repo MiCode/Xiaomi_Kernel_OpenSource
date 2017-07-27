@@ -10,10 +10,9 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "%s:%d " fmt, __func__, __LINE__
-
 #include "cam_vfe_top.h"
 #include "cam_vfe_top_ver2.h"
+#include "cam_debug_util.h"
 
 int cam_vfe_top_init(uint32_t          top_version,
 	struct cam_hw_soc_info        *soc_info,
@@ -29,7 +28,7 @@ int cam_vfe_top_init(uint32_t          top_version,
 			vfe_top);
 		break;
 	default:
-		pr_err("Error! Unsupported Version %x\n", top_version);
+		CAM_ERR(CAM_ISP, "Error! Unsupported Version %x", top_version);
 		break;
 	}
 
@@ -46,7 +45,7 @@ int cam_vfe_top_deinit(uint32_t        top_version,
 		rc = cam_vfe_top_ver2_deinit(vfe_top);
 		break;
 	default:
-		pr_err("Error! Unsupported Version %x\n", top_version);
+		CAM_ERR(CAM_ISP, "Error! Unsupported Version %x", top_version);
 		break;
 	}
 

@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "%s:%d " fmt, __func__, __LINE__
-
 #include <linux/ratelimit.h>
 #include <linux/slab.h>
 #include "cam_io_util.h"
@@ -24,9 +22,7 @@
 #include "cam_vfe_bus.h"
 #include "cam_vfe_bus_ver2.h"
 #include "cam_vfe_core.h"
-
-#undef CDBG
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#include "cam_debug_util.h"
 
 static const char drv_name[] = "vfe_bus";
 
@@ -177,7 +173,7 @@ static int cam_vfe_bus_get_evt_payload(
 {
 	if (list_empty(&common_data->free_payload_list)) {
 		*evt_payload = NULL;
-		pr_err("No free payload\n");
+		CAM_ERR(CAM_ISP, "No free payload");
 		return -ENODEV;
 	}
 
@@ -195,11 +191,11 @@ static int cam_vfe_bus_put_evt_payload(void     *core_info,
 	uint32_t   status_reg0, status_reg1, status_reg2;
 
 	if (!core_info) {
-		pr_err("Invalid param core_info NULL");
+		CAM_ERR(CAM_ISP, "Invalid param core_info NULL");
 		return -EINVAL;
 	}
 	if (*evt_payload == NULL) {
-		pr_err("No payload to put\n");
+		CAM_ERR(CAM_ISP, "No payload to put");
 		return -EINVAL;
 	}
 
@@ -209,7 +205,7 @@ static int cam_vfe_bus_put_evt_payload(void     *core_info,
 	status_reg2 = ife_irq_regs[CAM_IFE_IRQ_BUS_REG_STATUS2];
 
 	if (status_reg0 || status_reg1 || status_reg2) {
-		CDBG("status0 0x%x status1 0x%x status2 0x%x\n",
+		CAM_DBG(CAM_ISP, "status0 0x%x status1 0x%x status2 0x%x",
 			status_reg0, status_reg1, status_reg2);
 		return 0;
 	}
@@ -232,7 +228,8 @@ static int cam_vfe_bus_ver2_get_intra_client_mask(
 	*intra_client_mask = 0;
 
 	if (dual_slave_core == current_core) {
-		pr_err("Invalid params. Same core as Master and Slave\n");
+		CAM_ERR(CAM_ISP,
+			"Invalid params. Same core as Master and Slave");
 		return -EINVAL;
 	}
 
@@ -246,7 +243,7 @@ static int cam_vfe_bus_ver2_get_intra_client_mask(
 			*intra_client_mask = 0x2;
 			break;
 		default:
-			pr_err("Invalid value for slave core %u\n",
+			CAM_ERR(CAM_ISP, "Invalid value for slave core %u",
 				dual_slave_core);
 			rc = -EINVAL;
 			break;
@@ -261,7 +258,7 @@ static int cam_vfe_bus_ver2_get_intra_client_mask(
 			*intra_client_mask = 0x2;
 			break;
 		default:
-			pr_err("Invalid value for slave core %u\n",
+			CAM_ERR(CAM_ISP, "Invalid value for slave core %u",
 				dual_slave_core);
 			rc = -EINVAL;
 			break;
@@ -276,14 +273,15 @@ static int cam_vfe_bus_ver2_get_intra_client_mask(
 			*intra_client_mask = 0x2;
 			break;
 		default:
-			pr_err("Invalid value for slave core %u\n",
+			CAM_ERR(CAM_ISP, "Invalid value for slave core %u",
 				dual_slave_core);
 			rc = -EINVAL;
 			break;
 		}
 		break;
 	default:
-		pr_err("Invalid value for master core %u\n", current_core);
+		CAM_ERR(CAM_ISP,
+			"Invalid value for master core %u", current_core);
 		rc = -EINVAL;
 		break;
 	}
@@ -458,7 +456,8 @@ static int cam_vfe_bus_get_num_wm(
 		break;
 	}
 
-	pr_err("Unsupported format %u for resource_type %u", format, res_type);
+	CAM_ERR(CAM_ISP, "Unsupported format %u for resource_type %u",
+		format, res_type);
 
 	return -EINVAL;
 }
@@ -703,7 +702,7 @@ static int cam_vfe_bus_acquire_wm(
 	/* No need to allocate for BUS VER2. VFE OUT to WM is fixed. */
 	wm_idx = cam_vfe_bus_get_wm_idx(vfe_out_res_id, plane);
 	if (wm_idx < 0 || wm_idx >= CAM_VFE_BUS_VER2_MAX_CLIENTS) {
-		pr_err("Unsupported VFE out %d plane %d\n",
+		CAM_ERR(CAM_ISP, "Unsupported VFE out %d plane %d",
 			vfe_out_res_id, plane);
 		return -EINVAL;
 	}
@@ -758,7 +757,7 @@ static int cam_vfe_bus_acquire_wm(
 			}
 			break;
 		default:
-			pr_err("Invalid plane type %d\n", plane);
+			CAM_ERR(CAM_ISP, "Invalid plane type %d", plane);
 			return -EINVAL;
 		}
 		rsrc_data->en_cfg = 0x1;
@@ -846,7 +845,7 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 
 	/* Subscribe IRQ */
 	if (rsrc_data->irq_enabled) {
-		CDBG("Subscribe WM%d IRQ\n", rsrc_data->index);
+		CAM_DBG(CAM_ISP, "Subscribe WM%d IRQ", rsrc_data->index);
 		bus_irq_reg_mask[CAM_VFE_BUS_IRQ_REG1] =
 			(1 << rsrc_data->index);
 		wm_res->irq_handle = cam_irq_controller_subscribe_irq(
@@ -856,7 +855,7 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 			cam_ife_mgr_do_tasklet_buf_done,
 			wm_res->tasklet_info, cam_tasklet_enqueue_cmd);
 		if (wm_res->irq_handle < 0) {
-			pr_err("Subscribe IRQ failed for WM %d\n",
+			CAM_ERR(CAM_ISP, "Subscribe IRQ failed for WM %d",
 				rsrc_data->index);
 			return -EFAULT;
 		}
@@ -872,14 +871,15 @@ static int cam_vfe_bus_start_wm(struct cam_isp_resource_node *wm_res)
 	cam_io_w_mb(rsrc_data->en_cfg, common_data->mem_base +
 		rsrc_data->hw_regs->cfg);
 
-	CDBG("WM res %d width = %d, height = %d\n", rsrc_data->index,
+	CAM_DBG(CAM_ISP, "WM res %d width = %d, height = %d", rsrc_data->index,
 		rsrc_data->width, rsrc_data->height);
-	CDBG("WM res %d pk_fmt = %d\n", rsrc_data->index,
+	CAM_DBG(CAM_ISP, "WM res %d pk_fmt = %d", rsrc_data->index,
 		rsrc_data->pack_fmt & PACKER_FMT_MAX);
-	CDBG("WM res %d stride = %d, burst len = %d\n",
+	CAM_DBG(CAM_ISP, "WM res %d stride = %d, burst len = %d",
 		rsrc_data->index, rsrc_data->stride, 0xf);
-	CDBG("enable WM res %d offset 0x%x val 0x%x\n", rsrc_data->index,
-		(uint32_t) rsrc_data->hw_regs->cfg, rsrc_data->en_cfg);
+	CAM_DBG(CAM_ISP, "enable WM res %d offset 0x%x val 0x%x",
+		rsrc_data->index, (uint32_t) rsrc_data->hw_regs->cfg,
+		rsrc_data->en_cfg);
 
 	wm_res->res_state = CAM_ISP_RESOURCE_STATE_STREAMING;
 
@@ -898,7 +898,7 @@ static int cam_vfe_bus_stop_wm(struct cam_isp_resource_node *wm_res)
 	cam_io_w_mb(0x0,
 		common_data->mem_base + rsrc_data->hw_regs->cfg);
 
-	CDBG("irq_enabled %d", rsrc_data->irq_enabled);
+	CAM_DBG(CAM_ISP, "irq_enabled %d", rsrc_data->irq_enabled);
 	/* Unsubscribe IRQ */
 	if (rsrc_data->irq_enabled)
 		rc = cam_irq_controller_unsubscribe_irq(
@@ -925,18 +925,19 @@ static int cam_vfe_bus_handle_wm_done_top_half(uint32_t evt_id,
 
 	wm_res = th_payload->handler_priv;
 	if (!wm_res) {
-		pr_err_ratelimited("Error! No resource\n");
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "Error! No resource\n");
 		return -ENODEV;
 	}
 
 	rsrc_data = wm_res->res_priv;
 
-	CDBG("IRQ status_0 = %x\n", th_payload->evt_status_arr[0]);
-	CDBG("IRQ status_1 = %x\n", th_payload->evt_status_arr[1]);
+	CAM_DBG(CAM_ISP, "IRQ status_0 = %x", th_payload->evt_status_arr[0]);
+	CAM_DBG(CAM_ISP, "IRQ status_1 = %x", th_payload->evt_status_arr[1]);
 
 	rc  = cam_vfe_bus_get_evt_payload(rsrc_data->common_data, &evt_payload);
 	if (rc) {
-		pr_err_ratelimited("No tasklet_cmd is free in queue\n");
+		CAM_ERR_RATE_LIMIT(CAM_ISP,
+			"No tasklet_cmd is free in queue\n");
 		return rc;
 	}
 
@@ -951,7 +952,7 @@ static int cam_vfe_bus_handle_wm_done_top_half(uint32_t evt_id,
 
 	th_payload->evt_payload_priv = evt_payload;
 
-	CDBG("Exit\n");
+	CAM_DBG(CAM_ISP, "Exit");
 	return rc;
 }
 
@@ -977,7 +978,7 @@ static int cam_vfe_bus_handle_wm_done_bottom_half(void *wm_node,
 			~BIT(rsrc_data->index);
 		rc = CAM_VFE_IRQ_STATUS_SUCCESS;
 	}
-	CDBG("status_reg %x rc %d\n", status_reg, rc);
+	CAM_DBG(CAM_ISP, "status_reg %x rc %d", status_reg, rc);
 
 	if (rc == CAM_VFE_IRQ_STATUS_SUCCESS)
 		cam_vfe_bus_put_evt_payload(rsrc_data->common_data,
@@ -996,7 +997,7 @@ static int cam_vfe_bus_init_wm_resource(uint32_t index,
 	rsrc_data = kzalloc(sizeof(struct cam_vfe_bus_ver2_wm_resource_data),
 		GFP_KERNEL);
 	if (!rsrc_data) {
-		CDBG("Failed to alloc for WM res priv\n");
+		CAM_DBG(CAM_ISP, "Failed to alloc for WM res priv");
 		return -ENOMEM;
 	}
 	wm_res->res_priv = rsrc_data;
@@ -1034,7 +1035,7 @@ static int cam_vfe_bus_deinit_wm_resource(
 	rsrc_data = wm_res->res_priv;
 	wm_res->res_priv = NULL;
 	if (!rsrc_data) {
-		pr_err("Error! WM res priv is NULL\n");
+		CAM_ERR(CAM_ISP, "Error! WM res priv is NULL");
 		return -ENOMEM;
 	}
 	kfree(rsrc_data);
@@ -1097,7 +1098,7 @@ static int cam_vfe_bus_acquire_comp_grp(
 		/* First find a free group */
 		if (is_dual) {
 			if (list_empty(&ver2_bus_priv->free_dual_comp_grp)) {
-				pr_err("No Free Composite Group\n");
+				CAM_ERR(CAM_ISP, "No Free Composite Group");
 				return -ENODEV;
 			}
 			comp_grp_local = list_first_entry(
@@ -1110,7 +1111,7 @@ static int cam_vfe_bus_acquire_comp_grp(
 				&rsrc_data->intra_client_mask);
 		} else {
 			if (list_empty(&ver2_bus_priv->free_comp_grp)) {
-				pr_err("No Free Composite Group\n");
+				CAM_ERR(CAM_ISP, "No Free Composite Group");
 				return -ENODEV;
 			}
 			comp_grp_local = list_first_entry(
@@ -1136,7 +1137,7 @@ static int cam_vfe_bus_acquire_comp_grp(
 		/* Do not support runtime change in composite mask */
 		if (comp_grp_local->res_state ==
 			CAM_ISP_RESOURCE_STATE_STREAMING) {
-			pr_err("Invalid State %d Comp Grp %u\n",
+			CAM_ERR(CAM_ISP, "Invalid State %d Comp Grp %u",
 				comp_grp_local->res_state,
 				rsrc_data->comp_grp_type);
 			return -EBUSY;
@@ -1158,7 +1159,7 @@ static int cam_vfe_bus_release_comp_grp(
 	int match_found = 0;
 
 	if (!in_comp_grp) {
-		pr_err("Invalid Params Comp Grp %pK\n", in_rsrc_data);
+		CAM_ERR(CAM_ISP, "Invalid Params Comp Grp %pK", in_rsrc_data);
 		return -EINVAL;
 	}
 
@@ -1177,7 +1178,7 @@ static int cam_vfe_bus_release_comp_grp(
 	}
 
 	if (!match_found) {
-		pr_err("Could not find matching Comp Grp type %u\n",
+		CAM_ERR(CAM_ISP, "Could not find matching Comp Grp type %u",
 			in_rsrc_data->comp_grp_type);
 		return -ENODEV;
 	}
@@ -1215,8 +1216,9 @@ static int cam_vfe_bus_start_comp_grp(struct cam_isp_resource_node *comp_grp)
 	cam_io_w_mb(rsrc_data->composite_mask, common_data->mem_base +
 		rsrc_data->hw_regs->comp_mask);
 
-	CDBG("composite_mask is 0x%x\n", rsrc_data->composite_mask);
-	CDBG("composite_mask addr 0x%x\n",  rsrc_data->hw_regs->comp_mask);
+	CAM_DBG(CAM_ISP, "composite_mask is 0x%x", rsrc_data->composite_mask);
+	CAM_DBG(CAM_ISP, "composite_mask addr 0x%x",
+		rsrc_data->hw_regs->comp_mask);
 
 	if (rsrc_data->comp_grp_type >= CAM_VFE_BUS_VER2_COMP_GRP_DUAL_0 &&
 		rsrc_data->comp_grp_type <= CAM_VFE_BUS_VER2_COMP_GRP_DUAL_5 &&
@@ -1241,7 +1243,7 @@ static int cam_vfe_bus_start_comp_grp(struct cam_isp_resource_node *comp_grp)
 	}
 
 	/* Subscribe IRQ */
-	CDBG("Subscribe COMP_GRP%d IRQ\n", rsrc_data->comp_grp_type);
+	CAM_DBG(CAM_ISP, "Subscribe COMP_GRP%d IRQ", rsrc_data->comp_grp_type);
 	comp_grp->irq_handle = cam_irq_controller_subscribe_irq(
 		common_data->bus_irq_controller, CAM_IRQ_PRIORITY_1,
 		bus_irq_reg_mask, comp_grp,
@@ -1249,7 +1251,7 @@ static int cam_vfe_bus_start_comp_grp(struct cam_isp_resource_node *comp_grp)
 		cam_ife_mgr_do_tasklet_buf_done,
 		comp_grp->tasklet_info, cam_tasklet_enqueue_cmd);
 	if (comp_grp->irq_handle < 0) {
-		pr_err("Subscribe IRQ failed for comp_grp %d\n",
+		CAM_ERR(CAM_ISP, "Subscribe IRQ failed for comp_grp %d",
 			rsrc_data->comp_grp_type);
 		return -EFAULT;
 	}
@@ -1306,18 +1308,19 @@ static int cam_vfe_bus_handle_comp_done_top_half(uint32_t evt_id,
 
 	comp_grp = th_payload->handler_priv;
 	if (!comp_grp) {
-		pr_err_ratelimited("Error! No resource\n");
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "Error! No resource\n");
 		return -ENODEV;
 	}
 
 	rsrc_data = comp_grp->res_priv;
 
-	CDBG("IRQ status_0 = %x\n", th_payload->evt_status_arr[0]);
-	CDBG("IRQ status_1 = %x\n", th_payload->evt_status_arr[1]);
+	CAM_DBG(CAM_ISP, "IRQ status_0 = %x", th_payload->evt_status_arr[0]);
+	CAM_DBG(CAM_ISP, "IRQ status_1 = %x", th_payload->evt_status_arr[1]);
 
 	rc  = cam_vfe_bus_get_evt_payload(rsrc_data->common_data, &evt_payload);
 	if (rc) {
-		pr_err_ratelimited("No tasklet_cmd is free in queue\n");
+		CAM_ERR_RATE_LIMIT(CAM_ISP,
+			"No tasklet_cmd is free in queue\n");
 		return rc;
 	}
 
@@ -1332,7 +1335,7 @@ static int cam_vfe_bus_handle_comp_done_top_half(uint32_t evt_id,
 
 	th_payload->evt_payload_priv = evt_payload;
 
-	CDBG("Exit\n");
+	CAM_DBG(CAM_ISP, "Exit");
 	return rc;
 }
 
@@ -1349,7 +1352,7 @@ static int cam_vfe_bus_handle_comp_done_bottom_half(
 	uint32_t                               comp_err_reg;
 	uint32_t                               comp_grp_id;
 
-	CDBG("comp grp type %d\n", rsrc_data->comp_grp_type);
+	CAM_DBG(CAM_ISP, "comp grp type %d", rsrc_data->comp_grp_type);
 
 	if (!evt_payload)
 		return rc;
@@ -1392,7 +1395,7 @@ static int cam_vfe_bus_handle_comp_done_bottom_half(
 			rc = CAM_VFE_IRQ_STATUS_SUCCESS;
 		}
 
-		CDBG("status reg = 0x%x, bit index = %d rc %d\n",
+		CAM_DBG(CAM_ISP, "status reg = 0x%x, bit index = %d rc %d",
 			status_reg, (comp_grp_id + 5), rc);
 		break;
 
@@ -1434,7 +1437,7 @@ static int cam_vfe_bus_handle_comp_done_bottom_half(
 		break;
 	default:
 		rc = CAM_VFE_IRQ_STATUS_ERR;
-		pr_err("Error! Invalid comp_grp_type %u\n",
+		CAM_ERR(CAM_ISP, "Error! Invalid comp_grp_type %u",
 			rsrc_data->comp_grp_type);
 		break;
 	}
@@ -1456,7 +1459,7 @@ static int cam_vfe_bus_init_comp_grp(uint32_t index,
 	rsrc_data = kzalloc(sizeof(struct cam_vfe_bus_ver2_comp_grp_data),
 		GFP_KERNEL);
 	if (!rsrc_data) {
-		CDBG("Failed to alloc for comp_grp_priv\n");
+		CAM_DBG(CAM_ISP, "Failed to alloc for comp_grp_priv");
 		return -ENOMEM;
 	}
 	comp_grp->res_priv = rsrc_data;
@@ -1505,7 +1508,7 @@ static int cam_vfe_bus_deinit_comp_grp(
 	comp_grp->res_priv = NULL;
 
 	if (!rsrc_data) {
-		pr_err("Error! comp_grp_priv is NULL\n");
+		CAM_ERR(CAM_ISP, "Error! comp_grp_priv is NULL");
 		return -ENODEV;
 	}
 	kfree(rsrc_data);
@@ -1530,14 +1533,14 @@ static int cam_vfe_bus_acquire_vfe_out(void *bus_priv, void *acquire_args,
 	struct cam_vfe_bus_ver2_vfe_out_data   *rsrc_data = NULL;
 
 	if (!bus_priv || !acquire_args) {
-		pr_err("Invalid Param");
+		CAM_ERR(CAM_ISP, "Invalid Param");
 		return -EINVAL;
 	}
 
 	out_acquire_args = &acq_args->vfe_out;
 	format = out_acquire_args->out_port_info->format;
 
-	CDBG("Acquiring resource type 0x%x\n",
+	CAM_DBG(CAM_ISP, "Acquiring resource type 0x%x",
 		out_acquire_args->out_port_info->res_type);
 
 	vfe_out_res_id = cam_vfe_bus_get_out_res_id(
@@ -1551,7 +1554,7 @@ static int cam_vfe_bus_acquire_vfe_out(void *bus_priv, void *acquire_args,
 
 	rsrc_node = &ver2_bus_priv->vfe_out[vfe_out_res_id];
 	if (rsrc_node->res_state != CAM_ISP_RESOURCE_STATE_AVAILABLE) {
-		pr_err("Resource not available: Res_id %d state:%d\n",
+		CAM_ERR(CAM_ISP, "Resource not available: Res_id %d state:%d",
 			vfe_out_res_id, rsrc_node->res_state);
 		return -EBUSY;
 	}
@@ -1578,7 +1581,8 @@ static int cam_vfe_bus_acquire_vfe_out(void *bus_priv, void *acquire_args,
 			out_acquire_args->dual_slave_core,
 			&rsrc_data->comp_grp);
 		if (rc) {
-			pr_err("VFE%d Comp_Grp acquire failed for Out %d rc=%d\n",
+			CAM_ERR(CAM_ISP,
+				"VFE%d Comp_Grp acquire fail for Out %d rc=%d",
 				rsrc_data->common_data->core_index,
 				vfe_out_res_id, rc);
 			return rc;
@@ -1602,7 +1606,8 @@ static int cam_vfe_bus_acquire_vfe_out(void *bus_priv, void *acquire_args,
 			&rsrc_data->wm_res[i],
 			&client_done_mask);
 		if (rc) {
-			pr_err("VFE%d WM acquire failed for Out %d rc=%d\n",
+			CAM_ERR(CAM_ISP,
+				"VFE%d WM acquire failed for Out %d rc=%d",
 				rsrc_data->common_data->core_index,
 				vfe_out_res_id, rc);
 			goto release_wm;
@@ -1616,7 +1621,7 @@ static int cam_vfe_bus_acquire_vfe_out(void *bus_priv, void *acquire_args,
 	rsrc_node->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
 	out_acquire_args->rsrc_node = rsrc_node;
 
-	CDBG("Acquire successful\n");
+	CAM_DBG(CAM_ISP, "Acquire successful");
 	return rc;
 
 release_wm:
@@ -1637,7 +1642,7 @@ static int cam_vfe_bus_release_vfe_out(void *bus_priv, void *release_args,
 	struct cam_vfe_bus_ver2_vfe_out_data  *rsrc_data = NULL;
 
 	if (!bus_priv || !release_args) {
-		pr_err("Invalid input bus_priv %pK release_args %pK\n",
+		CAM_ERR(CAM_ISP, "Invalid input bus_priv %pK release_args %pK",
 			bus_priv, release_args);
 		return -EINVAL;
 	}
@@ -1646,7 +1651,7 @@ static int cam_vfe_bus_release_vfe_out(void *bus_priv, void *release_args,
 	rsrc_data = vfe_out->res_priv;
 
 	if (vfe_out->res_state != CAM_ISP_RESOURCE_STATE_RESERVED) {
-		pr_err("Error! Invalid resource state:%d\n",
+		CAM_ERR(CAM_ISP, "Error! Invalid resource state:%d",
 			vfe_out->res_state);
 	}
 
@@ -1676,17 +1681,17 @@ static int cam_vfe_bus_start_vfe_out(
 	struct cam_vfe_bus_ver2_common_data   *common_data = NULL;
 
 	if (!vfe_out) {
-		pr_err("Invalid input\n");
+		CAM_ERR(CAM_ISP, "Invalid input");
 		return -EINVAL;
 	}
 
 	rsrc_data = vfe_out->res_priv;
 	common_data = rsrc_data->common_data;
 
-	CDBG("Start resource index %d\n", rsrc_data->out_type);
+	CAM_DBG(CAM_ISP, "Start resource index %d", rsrc_data->out_type);
 
 	if (vfe_out->res_state != CAM_ISP_RESOURCE_STATE_RESERVED) {
-		pr_err("Error! Invalid resource state:%d\n",
+		CAM_ERR(CAM_ISP, "Error! Invalid resource state:%d",
 			vfe_out->res_state);
 		return -EACCES;
 	}
@@ -1730,7 +1735,7 @@ static int cam_vfe_bus_stop_vfe_out(
 	struct cam_vfe_bus_ver2_vfe_out_data  *rsrc_data = NULL;
 
 	if (!vfe_out) {
-		pr_err("Invalid input\n");
+		CAM_ERR(CAM_ISP, "Invalid input");
 		return -EINVAL;
 	}
 
@@ -1793,7 +1798,7 @@ static int cam_vfe_bus_init_vfe_out_resource(uint32_t index,
 	rsrc_data = kzalloc(sizeof(struct cam_vfe_bus_ver2_vfe_out_data),
 		GFP_KERNEL);
 	if (!rsrc_data) {
-		CDBG("Error! Failed to alloc for vfe out priv\n");
+		CAM_DBG(CAM_ISP, "Error! Failed to alloc for vfe out priv");
 		rc = -ENOMEM;
 		return rc;
 	}
@@ -1836,7 +1841,7 @@ static int cam_vfe_bus_deinit_vfe_out_resource(
 	vfe_out->res_priv = NULL;
 
 	if (!rsrc_data) {
-		pr_err("Error! vfe out priv is NULL\n");
+		CAM_ERR(CAM_ISP, "Error! vfe out priv is NULL");
 		return -ENOMEM;
 	}
 	kfree(rsrc_data);
@@ -1850,7 +1855,7 @@ static int cam_vfe_bus_ver2_handle_irq(uint32_t    evt_id,
 	struct cam_vfe_bus_ver2_priv          *bus_priv;
 
 	bus_priv     = th_payload->handler_priv;
-	CDBG("Enter\n");
+	CAM_DBG(CAM_ISP, "Enter");
 	return cam_irq_controller_handle_irq(evt_id,
 		bus_priv->common_data.bus_irq_controller);
 }
@@ -1879,12 +1884,13 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 		update_buf->cdm.res->res_priv;
 
 	if (!vfe_out_data || !vfe_out_data->cdm_util_ops) {
-		pr_err("Failed! Invalid data\n");
+		CAM_ERR(CAM_ISP, "Failed! Invalid data");
 		return -EINVAL;
 	}
 
 	if (update_buf->num_buf != vfe_out_data->num_wm) {
-		pr_err("Failed! Invalid number buffers:%d required:%d\n",
+		CAM_ERR(CAM_ISP,
+			"Failed! Invalid number buffers:%d required:%d",
 			update_buf->num_buf, vfe_out_data->num_wm);
 		return -EINVAL;
 	}
@@ -1894,7 +1900,8 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 
 	for (i = 0, j = 0; i < vfe_out_data->num_wm; i++) {
 		if (j >= (MAX_REG_VAL_PAIR_SIZE - MAX_BUF_UPDATE_REG_NUM * 2)) {
-			pr_err("reg_val_pair %d exceeds the array limit %lu\n",
+			CAM_ERR(CAM_ISP,
+				"reg_val_pair %d exceeds the array limit %lu",
 				j, MAX_REG_VAL_PAIR_SIZE);
 			return -ENOMEM;
 		}
@@ -1909,7 +1916,7 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 				io_cfg->planes[i].plane_stride);
 			wm_data->stride = io_cfg->planes[i].plane_stride;
 		}
-		CDBG("image stride 0x%x\n", wm_data->stride);
+		CAM_DBG(CAM_ISP, "image stride 0x%x", wm_data->stride);
 
 		if (wm_data->framedrop_pattern != io_cfg->framedrop_pattern ||
 			!wm_data->init_cfg_done) {
@@ -1918,7 +1925,8 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 				io_cfg->framedrop_pattern);
 			wm_data->framedrop_pattern = io_cfg->framedrop_pattern;
 		}
-		CDBG("framedrop pattern 0x%x\n", wm_data->framedrop_pattern);
+		CAM_DBG(CAM_ISP, "framedrop pattern 0x%x",
+			wm_data->framedrop_pattern);
 
 		if (wm_data->framedrop_period != io_cfg->framedrop_period ||
 			!wm_data->init_cfg_done) {
@@ -1927,7 +1935,8 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 				io_cfg->framedrop_period);
 			wm_data->framedrop_period = io_cfg->framedrop_period;
 		}
-		CDBG("framedrop period 0x%x\n", wm_data->framedrop_period);
+		CAM_DBG(CAM_ISP, "framedrop period 0x%x",
+			wm_data->framedrop_period);
 
 		if (wm_data->irq_subsample_period != io_cfg->subsample_period
 			|| !wm_data->init_cfg_done) {
@@ -1937,7 +1946,7 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 			wm_data->irq_subsample_period =
 				io_cfg->subsample_period;
 		}
-		CDBG("irq subsample period 0x%x\n",
+		CAM_DBG(CAM_ISP, "irq subsample period 0x%x",
 			wm_data->irq_subsample_period);
 
 		if (wm_data->irq_subsample_pattern != io_cfg->subsample_pattern
@@ -1948,13 +1957,13 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 			wm_data->irq_subsample_pattern =
 				io_cfg->subsample_pattern;
 		}
-		CDBG("irq subsample pattern 0x%x\n",
+		CAM_DBG(CAM_ISP, "irq subsample pattern 0x%x",
 			wm_data->irq_subsample_pattern);
 
 		if (wm_data->en_ubwc) {
 			if (!wm_data->hw_regs->ubwc_regs) {
-				pr_err("%s: No UBWC register to configure.\n",
-					__func__);
+				CAM_ERR(CAM_ISP,
+					"No UBWC register to configure.");
 				return -EINVAL;
 			}
 			if (wm_data->packer_cfg !=
@@ -1966,7 +1975,8 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 				wm_data->packer_cfg =
 					io_cfg->planes[i].packer_config;
 			}
-			CDBG("packer cfg 0x%x\n", wm_data->packer_cfg);
+			CAM_DBG(CAM_ISP, "packer cfg 0x%x",
+				wm_data->packer_cfg);
 
 			if (wm_data->tile_cfg != io_cfg->planes[i].tile_config
 				|| !wm_data->init_cfg_done) {
@@ -1976,7 +1986,7 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 				wm_data->tile_cfg =
 					io_cfg->planes[i].tile_config;
 			}
-			CDBG("tile cfg 0x%x\n", wm_data->tile_cfg);
+			CAM_DBG(CAM_ISP, "tile cfg 0x%x", wm_data->tile_cfg);
 
 			if (wm_data->h_init != io_cfg->planes[i].h_init ||
 				!wm_data->init_cfg_done) {
@@ -1985,7 +1995,7 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 					io_cfg->planes[i].h_init);
 				wm_data->h_init = io_cfg->planes[i].h_init;
 			}
-			CDBG("h_init 0x%x\n", wm_data->h_init);
+			CAM_DBG(CAM_ISP, "h_init 0x%x", wm_data->h_init);
 
 			if (wm_data->v_init != io_cfg->planes[i].v_init ||
 				!wm_data->init_cfg_done) {
@@ -1994,7 +2004,7 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 					io_cfg->planes[i].v_init);
 				wm_data->v_init = io_cfg->planes[i].v_init;
 			}
-			CDBG("v_init 0x%x\n", wm_data->v_init);
+			CAM_DBG(CAM_ISP, "v_init 0x%x", wm_data->v_init);
 
 			if (wm_data->ubwc_meta_stride !=
 				io_cfg->planes[i].meta_stride ||
@@ -2006,7 +2016,8 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 				wm_data->ubwc_meta_stride =
 					io_cfg->planes[i].meta_stride;
 			}
-			CDBG("meta stride 0x%x\n", wm_data->ubwc_meta_stride);
+			CAM_DBG(CAM_ISP, "meta stride 0x%x",
+				wm_data->ubwc_meta_stride);
 
 			if (wm_data->ubwc_mode_cfg !=
 				io_cfg->planes[i].mode_config ||
@@ -2017,7 +2028,8 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 				wm_data->ubwc_mode_cfg =
 					io_cfg->planes[i].mode_config;
 			}
-			CDBG("ubwc mode cfg 0x%x\n", wm_data->ubwc_mode_cfg);
+			CAM_DBG(CAM_ISP, "ubwc mode cfg 0x%x",
+				wm_data->ubwc_mode_cfg);
 
 			if (wm_data->ubwc_meta_offset !=
 				io_cfg->planes[i].meta_offset ||
@@ -2029,14 +2041,14 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 				wm_data->ubwc_meta_offset =
 					io_cfg->planes[i].meta_offset;
 			}
-			CDBG("ubwc meta offset 0x%x\n",
+			CAM_DBG(CAM_ISP, "ubwc meta offset 0x%x",
 				wm_data->ubwc_meta_offset);
 
 			/* UBWC meta address */
 			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 				wm_data->hw_regs->ubwc_regs->meta_addr,
 				update_buf->image_buf[i]);
-			CDBG("ubwc meta addr 0x%llx\n",
+			CAM_DBG(CAM_ISP, "ubwc meta addr 0x%llx",
 				update_buf->image_buf[i]);
 		}
 
@@ -2051,7 +2063,7 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 				wm_data->hw_regs->image_addr,
 				update_buf->image_buf[i]);
 
-		CDBG("image address 0x%x\n", reg_val_pair[j-1]);
+		CAM_DBG(CAM_ISP, "image address 0x%x", reg_val_pair[j-1]);
 
 		frame_inc = io_cfg->planes[i].plane_stride *
 			io_cfg->planes[i].slice_height;
@@ -2072,7 +2084,8 @@ static int cam_vfe_bus_update_buf(void *priv, void *cmd_args,
 
 	/* cdm util returns dwords, need to convert to bytes */
 	if ((size * 4) > update_buf->cdm.size) {
-		pr_err("Failed! Buf size:%d insufficient, expected size:%d\n",
+		CAM_ERR(CAM_ISP,
+			"Failed! Buf size:%d insufficient, expected size:%d",
 			update_buf->cdm.size, size);
 		return -ENOMEM;
 	}
@@ -2105,7 +2118,7 @@ static int cam_vfe_bus_init_hw(void *hw_priv,
 	uint32_t                         top_irq_reg_mask[2] = {0};
 
 	if (!bus_priv) {
-		pr_err("Error! Invalid args\n");
+		CAM_ERR(CAM_ISP, "Error! Invalid args");
 		return -EINVAL;
 	}
 
@@ -2122,7 +2135,7 @@ static int cam_vfe_bus_init_hw(void *hw_priv,
 		NULL);
 
 	if (bus_priv->irq_handle <= 0) {
-		pr_err("Failed to subscribe BUS IRQ\n");
+		CAM_ERR(CAM_ISP, "Failed to subscribe BUS IRQ");
 		return -EFAULT;
 	}
 
@@ -2136,7 +2149,7 @@ static int cam_vfe_bus_deinit_hw(void *hw_priv,
 	int                              rc;
 
 	if (!bus_priv || (bus_priv->irq_handle <= 0)) {
-		pr_err("Error! Invalid args\n");
+		CAM_ERR(CAM_ISP, "Error! Invalid args");
 		return -EINVAL;
 	}
 
@@ -2144,7 +2157,7 @@ static int cam_vfe_bus_deinit_hw(void *hw_priv,
 		bus_priv->common_data.vfe_irq_controller,
 		bus_priv->irq_handle);
 	if (rc)
-		pr_err("Failed to unsubscribe irq rc=%d\n", rc);
+		CAM_ERR(CAM_ISP, "Failed to unsubscribe irq rc=%d", rc);
 
 	return rc;
 }
@@ -2155,7 +2168,7 @@ static int cam_vfe_bus_process_cmd(void *priv,
 	int rc = -EINVAL;
 
 	if (!priv || !cmd_args) {
-		pr_err_ratelimited("Error! Invalid input arguments\n");
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "Error! Invalid input arguments\n");
 		return -EINVAL;
 	}
 
@@ -2164,7 +2177,7 @@ static int cam_vfe_bus_process_cmd(void *priv,
 		rc = cam_vfe_bus_update_buf(priv, cmd_args, arg_size);
 		break;
 	default:
-		pr_err_ratelimited("Error! Invalid camif process command:%d\n",
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "Inval camif process command:%d\n",
 			cmd_type);
 		break;
 	}
@@ -2184,18 +2197,20 @@ int cam_vfe_bus_ver2_init(
 	struct cam_vfe_bus              *vfe_bus_local;
 	struct cam_vfe_bus_ver2_hw_info *ver2_hw_info = bus_hw_info;
 
-	CDBG("Enter\n");
+	CAM_DBG(CAM_ISP, "Enter");
 
 	if (!soc_info || !hw_intf || !bus_hw_info || !vfe_irq_controller) {
-		pr_err("Error! Invalid params soc_info %pK hw_intf %pK hw_info %pK controller %pK\n",
-			soc_info, hw_intf, bus_hw_info, vfe_irq_controller);
+		CAM_ERR(CAM_ISP,
+			"Inval_prms soc_info:%pK hw_intf:%pK hw_info%pK",
+			soc_info, hw_intf, bus_hw_info);
+		CAM_ERR(CAM_ISP, "controller: %pK", vfe_irq_controller);
 		rc = -EINVAL;
 		goto end;
 	}
 
 	vfe_bus_local = kzalloc(sizeof(struct cam_vfe_bus), GFP_KERNEL);
 	if (!vfe_bus_local) {
-		CDBG("Failed to alloc for vfe_bus\n");
+		CAM_DBG(CAM_ISP, "Failed to alloc for vfe_bus");
 		rc = -ENOMEM;
 		goto end;
 	}
@@ -2203,7 +2218,7 @@ int cam_vfe_bus_ver2_init(
 	bus_priv = kzalloc(sizeof(struct cam_vfe_bus_ver2_priv),
 		GFP_KERNEL);
 	if (!bus_priv) {
-		CDBG("Failed to alloc for vfe_bus_priv\n");
+		CAM_DBG(CAM_ISP, "Failed to alloc for vfe_bus_priv");
 		rc = -ENOMEM;
 		goto free_bus_local;
 	}
@@ -2220,7 +2235,7 @@ int cam_vfe_bus_ver2_init(
 		&ver2_hw_info->common_reg.irq_reg_info,
 		&bus_priv->common_data.bus_irq_controller);
 	if (rc) {
-		pr_err("Error! cam_irq_controller_init failed\n");
+		CAM_ERR(CAM_ISP, "Error! cam_irq_controller_init failed");
 		goto free_bus_priv;
 	}
 
@@ -2232,7 +2247,7 @@ int cam_vfe_bus_ver2_init(
 		rc = cam_vfe_bus_init_wm_resource(i, bus_priv, bus_hw_info,
 			&bus_priv->bus_client[i]);
 		if (rc < 0) {
-			pr_err("Error! Init WM failed rc=%d\n", rc);
+			CAM_ERR(CAM_ISP, "Error! Init WM failed rc=%d", rc);
 			goto deinit_wm;
 		}
 	}
@@ -2241,7 +2256,7 @@ int cam_vfe_bus_ver2_init(
 		rc = cam_vfe_bus_init_comp_grp(i, bus_priv, bus_hw_info,
 			&bus_priv->comp_grp[i]);
 		if (rc < 0) {
-			pr_err("Error! Init Comp Grp failed rc=%d\n", rc);
+			CAM_ERR(CAM_ISP, "Init Comp Grp failed rc=%d", rc);
 			goto deinit_comp_grp;
 		}
 	}
@@ -2250,7 +2265,7 @@ int cam_vfe_bus_ver2_init(
 		rc = cam_vfe_bus_init_vfe_out_resource(i, bus_priv, bus_hw_info,
 			&bus_priv->vfe_out[i]);
 		if (rc < 0) {
-			pr_err("Error! Init VFE Out failed rc=%d\n", rc);
+			CAM_ERR(CAM_ISP, "Init VFE Out failed rc=%d", rc);
 			goto deinit_vfe_out;
 		}
 	}
@@ -2274,7 +2289,7 @@ int cam_vfe_bus_ver2_init(
 
 	*vfe_bus = vfe_bus_local;
 
-	CDBG("Exit\n");
+	CAM_DBG(CAM_ISP, "Exit");
 	return rc;
 
 deinit_vfe_out:
@@ -2313,14 +2328,14 @@ int cam_vfe_bus_ver2_deinit(
 	struct cam_vfe_bus              *vfe_bus_local;
 
 	if (!vfe_bus || !*vfe_bus) {
-		pr_err("Error! Invalid input\n");
+		CAM_ERR(CAM_ISP, "Error! Invalid input");
 		return -EINVAL;
 	}
 	vfe_bus_local = *vfe_bus;
 
 	bus_priv = vfe_bus_local->bus_priv;
 	if (!bus_priv) {
-		pr_err("Error! bus_priv is NULL\n");
+		CAM_ERR(CAM_ISP, "Error! bus_priv is NULL");
 		rc = -ENODEV;
 		goto free_bus_local;
 	}
@@ -2332,19 +2347,22 @@ int cam_vfe_bus_ver2_deinit(
 	for (i = 0; i < CAM_VFE_BUS_VER2_MAX_CLIENTS; i++) {
 		rc = cam_vfe_bus_deinit_wm_resource(&bus_priv->bus_client[i]);
 		if (rc < 0)
-			pr_err("Error! Deinit WM failed rc=%d\n", rc);
+			CAM_ERR(CAM_ISP,
+				"Error! Deinit WM failed rc=%d", rc);
 	}
 
 	for (i = 0; i < CAM_VFE_BUS_VER2_COMP_GRP_MAX; i++) {
 		rc = cam_vfe_bus_deinit_comp_grp(&bus_priv->comp_grp[i]);
 		if (rc < 0)
-			pr_err("Error! Deinit Comp Grp failed rc=%d\n", rc);
+			CAM_ERR(CAM_ISP,
+				"Error! Deinit Comp Grp failed rc=%d", rc);
 	}
 
 	for (i = 0; i < CAM_VFE_BUS_VER2_VFE_OUT_MAX; i++) {
 		rc = cam_vfe_bus_deinit_vfe_out_resource(&bus_priv->vfe_out[i]);
 		if (rc < 0)
-			pr_err("Error! Deinit VFE Out failed rc=%d\n", rc);
+			CAM_ERR(CAM_ISP,
+				"Error! Deinit VFE Out failed rc=%d", rc);
 	}
 
 	INIT_LIST_HEAD(&bus_priv->free_comp_grp);
@@ -2354,7 +2372,8 @@ int cam_vfe_bus_ver2_deinit(
 	rc = cam_irq_controller_deinit(
 		&bus_priv->common_data.bus_irq_controller);
 	if (rc)
-		pr_err("Error! Deinit IRQ Controller failed rc=%d\n", rc);
+		CAM_ERR(CAM_ISP,
+			"Error! Deinit IRQ Controller failed rc=%d", rc);
 
 	kfree(vfe_bus_local->bus_priv);
 

@@ -15,9 +15,7 @@
 #include "cam_mem_mgr.h"
 #include "cam_vfe_hw_intf.h"
 #include "cam_isp_packet_parser.h"
-
-#undef CDBG
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#include "cam_debug_util.h"
 
 int cam_isp_add_change_base(
 	struct cam_hw_prepare_update_args      *prepare,
@@ -37,9 +35,8 @@ int cam_isp_add_change_base(
 
 	/* Max one hw entries required for each base */
 	if (num_ent + 1 >= prepare->max_hw_update_entries) {
-		pr_err("%s:%d Insufficient  HW entries :%d %d\n",
-			__func__, __LINE__, num_ent,
-			prepare->max_hw_update_entries);
+		CAM_ERR(CAM_ISP, "Insufficient  HW entries :%d %d",
+			num_ent, prepare->max_hw_update_entries);
 		return -EINVAL;
 	}
 
@@ -105,8 +102,8 @@ int cam_isp_add_command_buffers(
 			((uint8_t *)&prepare->packet->payload +
 			prepare->packet->cmd_buf_offset);
 
-	CDBG("%s:%d split id = %d, number of command buffers:%d\n", __func__,
-		__LINE__, split_id, prepare->packet->num_cmd_buf);
+	CAM_DBG(CAM_ISP, "split id = %d, number of command buffers:%d",
+		split_id, prepare->packet->num_cmd_buf);
 
 	for (i = 0; i < prepare->packet->num_cmd_buf; i++) {
 		if (!cmd_desc[i].length)
@@ -114,9 +111,8 @@ int cam_isp_add_command_buffers(
 
 		/* One hw entry space required for left or right or common */
 		if (num_ent + 1 >= prepare->max_hw_update_entries) {
-			pr_err("%s:%d Insufficient  HW entries :%d %d\n",
-				__func__, __LINE__, num_ent,
-				prepare->max_hw_update_entries);
+			CAM_ERR(CAM_ISP, "Insufficient  HW entries :%d %d",
+				num_ent, prepare->max_hw_update_entries);
 			return -EINVAL;
 		}
 
@@ -126,7 +122,7 @@ int cam_isp_add_command_buffers(
 
 		cmd_meta_data = cmd_desc[i].meta_data;
 
-		CDBG("%s:%d meta type: %d, split_id: %d\n", __func__, __LINE__,
+		CAM_DBG(CAM_ISP, "meta type: %d, split_id: %d",
 			cmd_meta_data, split_id);
 
 		switch (cmd_meta_data) {
@@ -173,8 +169,8 @@ int cam_isp_add_command_buffers(
 			num_ent++;
 			break;
 		default:
-			pr_err("%s:%d invalid cdm command meta data %d\n",
-			__func__, __LINE__, cmd_meta_data);
+			CAM_ERR(CAM_ISP, "invalid cdm command meta data %d",
+				cmd_meta_data);
 			return -EINVAL;
 		}
 	}
@@ -216,33 +212,31 @@ int cam_isp_add_io_buffers(
 	/* Max one hw entries required for each base */
 	if (prepare->num_hw_update_entries + 1 >=
 			prepare->max_hw_update_entries) {
-		pr_err("%s:%d Insufficient  HW entries :%d %d\n",
-			__func__, __LINE__, prepare->num_hw_update_entries,
+		CAM_ERR(CAM_ISP, "Insufficient  HW entries :%d %d",
+			prepare->num_hw_update_entries,
 			prepare->max_hw_update_entries);
 		return -EINVAL;
 	}
 
 	for (i = 0; i < prepare->packet->num_io_configs; i++) {
-		CDBG("%s:%d ======= io config idx %d ============\n",
-			__func__, __LINE__, i);
-		CDBG("%s:%d resource_type:%d fence:%d\n", __func__, __LINE__,
+		CAM_DBG(CAM_ISP, "======= io config idx %d ============", i);
+		CAM_DBG(CAM_ISP, "resource_type:%d fence:%d",
 			io_cfg[i].resource_type, io_cfg[i].fence);
-		CDBG("%s:%d format: %d\n", __func__, __LINE__,
-			io_cfg[i].format);
-		CDBG("%s:%d direction %d\n", __func__, __LINE__,
+		CAM_DBG(CAM_ISP, "format: %d", io_cfg[i].format);
+		CAM_DBG(CAM_ISP, "direction %d",
 			io_cfg[i].direction);
 
 		if (io_cfg[i].direction == CAM_BUF_OUTPUT) {
 			res_id_out = io_cfg[i].resource_type & 0xFF;
 			if (res_id_out >= size_isp_out) {
-				pr_err("%s:%d invalid out restype:%x\n",
-					__func__, __LINE__,
+				CAM_ERR(CAM_ISP, "invalid out restype:%x",
 					io_cfg[i].resource_type);
 				return -EINVAL;
 			}
 
-			CDBG("%s:%d configure output io with fill fence %d\n",
-				__func__, __LINE__, fill_fence);
+			CAM_DBG(CAM_ISP,
+				"configure output io with fill fence %d",
+				fill_fence);
 			if (fill_fence) {
 				if (num_out_buf <
 					prepare->max_out_map_entries) {
@@ -253,8 +247,7 @@ int cam_isp_add_io_buffers(
 						sync_id = io_cfg[i].fence;
 					num_out_buf++;
 				} else {
-					pr_err("%s:%d ln_out:%d max_ln:%d\n",
-						__func__, __LINE__,
+					CAM_ERR(CAM_ISP, "ln_out:%d max_ln:%d",
 						num_out_buf,
 						prepare->max_out_map_entries);
 					return -EINVAL;
@@ -263,15 +256,15 @@ int cam_isp_add_io_buffers(
 
 			hw_mgr_res = &res_list_isp_out[res_id_out];
 			if (hw_mgr_res->res_type == CAM_IFE_HW_MGR_RES_UNINIT) {
-				pr_err("%s:%d io res id:%d not valid\n",
-					__func__, __LINE__,
+				CAM_ERR(CAM_ISP, "io res id:%d not valid",
 					io_cfg[i].resource_type);
 				return -EINVAL;
 			}
 		} else if (io_cfg[i].direction == CAM_BUF_INPUT) {
 			res_id_in = io_cfg[i].resource_type & 0xFF;
-			CDBG("%s:%d configure input io with fill fence %d\n",
-				__func__, __LINE__, fill_fence);
+			CAM_DBG(CAM_ISP,
+				"configure input io with fill fence %d",
+				fill_fence);
 			if (fill_fence) {
 				if (num_in_buf < prepare->max_in_map_entries) {
 					prepare->in_map_entries[num_in_buf].
@@ -282,8 +275,7 @@ int cam_isp_add_io_buffers(
 							io_cfg[i].fence;
 					num_in_buf++;
 				} else {
-					pr_err("%s:%d ln_in:%d imax_ln:%d\n",
-						__func__, __LINE__,
+					CAM_ERR(CAM_ISP, "ln_in:%d imax_ln:%d",
 						num_in_buf,
 						prepare->max_in_map_entries);
 					return -EINVAL;
@@ -291,13 +283,12 @@ int cam_isp_add_io_buffers(
 			}
 			continue;
 		} else {
-			pr_err("%s:%d Invalid io config direction :%d\n",
-				__func__, __LINE__,
+			CAM_ERR(CAM_ISP, "Invalid io config direction :%d",
 				io_cfg[i].direction);
 			return -EINVAL;
 		}
 
-		CDBG("%s:%d setup mem io\n", __func__, __LINE__);
+		CAM_DBG(CAM_ISP, "setup mem io");
 		for (j = 0; j < CAM_ISP_HW_SPLIT_MAX; j++) {
 			if (!hw_mgr_res->hw_res[j])
 				continue;
@@ -307,9 +298,9 @@ int cam_isp_add_io_buffers(
 
 			res = hw_mgr_res->hw_res[j];
 			if (res->res_id != io_cfg[i].resource_type) {
-				pr_err("%s:%d wm err res id:%d io res id:%d\n",
-					__func__, __LINE__, res->res_id,
-					io_cfg[i].resource_type);
+				CAM_ERR(CAM_ISP,
+					"wm err res id:%d io res id:%d",
+					res->res_id, io_cfg[i].resource_type);
 				return -EINVAL;
 			}
 
@@ -324,14 +315,16 @@ int cam_isp_add_io_buffers(
 					io_cfg[i].mem_handle[plane_id],
 					iommu_hdl, &io_addr[plane_id], &size);
 				if (rc) {
-					pr_err("%s:%d no io addr for plane%d\n",
-						__func__, __LINE__, plane_id);
+					CAM_ERR(CAM_ISP,
+						"no io addr for plane%d",
+						plane_id);
 					rc = -ENOMEM;
 					return rc;
 				}
 
 				if (io_addr[plane_id] >> 32) {
-					pr_err("Invalid mapped address\n");
+					CAM_ERR(CAM_ISP,
+						"Invalid mapped address");
 					rc = -EINVAL;
 					return rc;
 				}
@@ -339,13 +332,13 @@ int cam_isp_add_io_buffers(
 				/* need to update with offset */
 				io_addr[plane_id] +=
 						io_cfg[i].offsets[plane_id];
-				CDBG("%s: get io_addr for plane %d: 0x%llx\n",
-					__func__, plane_id,
-					io_addr[plane_id]);
+				CAM_DBG(CAM_ISP,
+					"get io_addr for plane %d: 0x%llx",
+					plane_id, io_addr[plane_id]);
 			}
 			if (!plane_id) {
-				pr_err("%s:%d No valid planes for res%d\n",
-					__func__, __LINE__, res->res_id);
+				CAM_ERR(CAM_ISP, "No valid planes for res%d",
+					res->res_id);
 				rc = -ENOMEM;
 				return rc;
 			}
@@ -356,8 +349,9 @@ int cam_isp_add_io_buffers(
 					(kmd_buf_info->used_bytes +
 					io_cfg_used_bytes);
 			} else {
-				pr_err("%s:%d no free kmd memory for base %d\n",
-					__func__, __LINE__, base_idx);
+				CAM_ERR(CAM_ISP,
+					"no free kmd memory for base %d",
+					base_idx);
 				rc = -ENOMEM;
 				return rc;
 			}
@@ -370,8 +364,8 @@ int cam_isp_add_io_buffers(
 			update_buf.num_buf   = plane_id;
 			update_buf.io_cfg    = &io_cfg[i];
 
-			CDBG("%s:%d: cmd buffer 0x%pK, size %d\n", __func__,
-				__LINE__, update_buf.cdm.cmd_buf_addr,
+			CAM_DBG(CAM_ISP, "cmd buffer 0x%pK, size %d",
+				update_buf.cdm.cmd_buf_addr,
 				update_buf.cdm.size);
 			rc = res->hw_intf->hw_ops.process_cmd(
 				res->hw_intf->hw_priv,
@@ -379,8 +373,8 @@ int cam_isp_add_io_buffers(
 				sizeof(struct cam_isp_hw_get_buf_update));
 
 			if (rc) {
-				pr_err("%s:%d get buf cmd error:%d\n",
-					__func__, __LINE__, res->res_id);
+				CAM_ERR(CAM_ISP, "get buf cmd error:%d",
+					res->res_id);
 				rc = -ENOMEM;
 				return rc;
 			}
@@ -388,7 +382,7 @@ int cam_isp_add_io_buffers(
 		}
 	}
 
-	CDBG("%s: io_cfg_used_bytes %d, fill_fence %d\n", __func__,
+	CAM_DBG(CAM_ISP, "io_cfg_used_bytes %d, fill_fence %d",
 		io_cfg_used_bytes, fill_fence);
 	if (io_cfg_used_bytes) {
 		/* Update the HW entries */
@@ -431,8 +425,7 @@ int cam_isp_add_reg_update(
 	/* Max one hw entries required for each base */
 	if (prepare->num_hw_update_entries + 1 >=
 				prepare->max_hw_update_entries) {
-		pr_err("%s:%d Insufficient  HW entries :%d %d\n",
-			__func__, __LINE__,
+		CAM_ERR(CAM_ISP, "Insufficient  HW entries :%d %d",
 			prepare->num_hw_update_entries,
 			prepare->max_hw_update_entries);
 		return -EINVAL;
@@ -457,9 +450,8 @@ int cam_isp_add_reg_update(
 					(kmd_buf_info->used_bytes +
 					reg_update_size);
 			} else {
-				pr_err("%s:%d no free mem %d %d %d\n",
-					__func__, __LINE__, base_idx,
-					kmd_buf_info->size,
+				CAM_ERR(CAM_ISP, "no free mem %d %d %d",
+					base_idx, kmd_buf_info->size,
 					kmd_buf_info->used_bytes +
 					reg_update_size);
 				rc = -EINVAL;
