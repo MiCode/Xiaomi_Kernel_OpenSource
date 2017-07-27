@@ -592,6 +592,7 @@ static void wcd9xxx_device_exit(struct wcd9xxx *wcd9xxx)
 {
 	device_init_wakeup(wcd9xxx->dev, false);
 	wcd9xxx_irq_exit(&wcd9xxx->core_res);
+	mfd_remove_devices(wcd9xxx->dev);
 	wcd9xxx_bringdown(wcd9xxx->dev);
 	wcd9xxx_reset_low(wcd9xxx->dev);
 	wcd9xxx_core_res_deinit(&wcd9xxx->core_res);
