@@ -209,6 +209,8 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 			inst->fmts[OUTPUT_PORT].fourcc :
 			inst->fmts[CAPTURE_PORT].fourcc;
 
+		memset(&(vote_data[i]), 0x0, sizeof(struct vidc_bus_vote_data));
+
 		vote_data[i].domain = get_hal_domain(inst->session_type);
 		vote_data[i].codec = get_hal_codec(codec);
 		vote_data[i].input_width =  max(inst->prop.width[OUTPUT_PORT],
