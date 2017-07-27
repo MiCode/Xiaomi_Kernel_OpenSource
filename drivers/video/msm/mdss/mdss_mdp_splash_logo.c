@@ -310,10 +310,11 @@ int mdss_mdp_splash_cleanup(struct msm_fb_data_type *mfd,
 
 	mdss_mdp_ctl_splash_finish(ctl, mdp5_data->handoff);
 
-	/* If DSI-1 interface is enabled by LK, free cont_splash_mem for dsi
-	 * during the cleanup for DSI-1.
+	/* If DSI-1 interface is enabled by LK & split dsi is not enabled,
+	 * free cont_splash_mem for dsi during the cleanup for DSI-1.
 	 */
-	if ((mdata->splash_intf_sel & MDSS_MDP_INTF_DSI1_SEL) &&
+	if (!mdata->splash_split_disp &&
+		(mdata->splash_intf_sel & MDSS_MDP_INTF_DSI1_SEL) &&
 		mfd->panel_info->pdest == DISPLAY_1) {
 		pr_debug("delay cleanup for display %d\n",
 						mfd->panel_info->pdest);
@@ -324,7 +325,8 @@ int mdss_mdp_splash_cleanup(struct msm_fb_data_type *mfd,
 		goto end;
 	}
 
-	if ((mdata->splash_intf_sel & MDSS_MDP_INTF_DSI1_SEL) &&
+	if (!mdata->splash_split_disp &&
+		(mdata->splash_intf_sel & MDSS_MDP_INTF_DSI1_SEL) &&
 		mfd->panel_info->pdest == DISPLAY_2 &&
 		!mfd->splash_info.iommu_dynamic_attached) {
 		pr_debug("free splash mem for display %d\n",
