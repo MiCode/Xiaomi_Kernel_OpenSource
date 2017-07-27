@@ -232,6 +232,28 @@ kallsyms()
 	${CC} ${aflags} -c -o ${2} ${afile}
 }
 
+# Generates ${2} .o file with RTIC MP's from the ${1} object file (vmlinux)
+# ${3} the file name where the sizes of the RTIC MP structure are stored
+# just in case, save copy of the RTIC mp to ${4}
+# Note: RTIC_MPGEN has to be set if MPGen is available
+rtic_mp()
+{
+	# assume that RTIC_MP_O generation may fail
+	RTIC_MP_O=
+
+	local aflags="${KBUILD_AFLAGS} ${KBUILD_AFLAGS_KERNEL}               \
+		      ${NOSTDINC_FLAGS} ${LINUXINCLUDE} ${KBUILD_CPPFLAGS}"
+
+	${RTIC_MPGEN} --objcopy="${OBJCOPY}" --objdump="${OBJDUMP}" \
+	--binpath='' --vmlinux=${1} --config=${KCONFIG_CONFIG} && \
+	cat rtic_mp.c | ${CC} ${aflags} -c -o ${2} -x c - && \
+	cp rtic_mp.c ${4} && \
+	${NM} --print-size --size-sort ${2} > ${3} && \
+	RTIC_MP_O=${2}
+	# NM - save generated variable sizes for verification
+	# RTIC_MP_O is our retval - great success if set to generated .o file
+}
+
 # Create map file with all symbols from ${1}
 # See mksymap for additional details
 mksysmap()
@@ -257,6 +279,8 @@ cleanup()
 	rm -f System.map
 	rm -f vmlinux
 	rm -f vmlinux.o
+	rm -f .tmp_rtic_mp_sz*
+	rm -f rtic_mp.*
 }
 
 on_exit()
@@ -329,6 +353,15 @@ if [ -n "${CONFIG_LTO_CLANG}" ]; then
 	recordmcount vmlinux.o
 fi
 
+# Generate RTIC MP placeholder compile unit of the correct size
+# and add it to the list of link objects
+# this needs to be done before generating kallsyms
+if [ ! -z ${RTIC_MPGEN+x} ]; then
+	rtic_mp vmlinux.o rtic_mp.o .tmp_rtic_mp_sz1 .tmp_rtic_mp1.c
+	KBUILD_VMLINUX_LIBS+=" "
+	KBUILD_VMLINUX_LIBS+=$RTIC_MP_O
+fi
+
 kallsymso=""
 kallsyms_vmlinux=""
 if [ -n "${CONFIG_KALLSYMS}" ]; then
@@ -378,6 +411,18 @@ if [ -n "${CONFIG_KALLSYMS}" ]; then
 		vmlinux_link .tmp_kallsyms2.o .tmp_vmlinux3
 
 		kallsyms .tmp_vmlinux3 .tmp_kallsyms3.o
+	fi
+fi
+
+# Update RTIC MP object by replacing the place holder
+# with actual MP data of the same size
+# Also double check that object size did not change
+if [ ! -z ${RTIC_MPGEN+x} ]; then
+	rtic_mp "${kallsyms_vmlinux}" rtic_mp.o .tmp_rtic_mp_sz2 \
+		.tmp_rtic_mp2.c
+	if ! cmp -s .tmp_rtic_mp_sz1 .tmp_rtic_mp_sz2; then
+		echo >&2 'ERROR: RTIC MP object files size mismatch'
+		exit 1
 	fi
 fi
 
