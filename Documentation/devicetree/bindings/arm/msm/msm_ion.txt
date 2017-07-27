@@ -1,0 +1,72 @@
+ION Memory Manager (ION)
+
+ION is a memory manager that allows for sharing of buffers between different
+processes and between user space and kernel space. ION manages different
+memory spaces by separating the memory spaces into "heaps". Depending on the
+type of heap ION must reserve memory using the msm specific memory reservation
+bindings (see Documentation/devicetree/bindings/arm/msm/memory-reserve.txt).
+
+Required properties for Ion
+
+- compatible: "qcom,msm-ion"
+
+
+All child nodes of a qcom,msm-ion node are interpreted as Ion heap
+configurations.
+
+Required properties for Ion heaps
+
+- reg: The ID of the ION heap.
+- qcom,ion-heap-type: The heap type to use for this heap. Should be one of
+  the following:
+    - "SYSTEM"
+    - "SYSTEM_CONTIG"
+    - "CARVEOUT"
+    - "CHUNK"
+    - "CP"
+    - "DMA"
+    - "SECURE_DMA"
+
+Optional properties for Ion heaps
+
+- compatible: "qcom,msm-ion-reserve" This is required if memory is to be reserved
+  as specified by qcom,memory-reservation-size below.
+- qcom,heap-align: Alignment of start of the memory in the heap.
+- qcom,heap-adjacent: ID of heap this heap needs to be adjacent to.
+- qcom,memory-reservation-size: size of reserved memory for the ION heap.
+- qcom,memory-reservation-type: type of memory to be reserved
+(see memory-reserve.txt for information about memory reservations)
+- qcom,default-prefetch-size: Base value to be used for prefetching
+  optimizations. Ignored if the heap does not support prefetching.
+  Will set to a reasonable default value (e.g. the maximum heap size)
+  if this option is not set.
+
+Example:
+	qcom,ion {
+                 compatible = "qcom,msm-ion";
+                 #address-cells = <1>;
+                 #size-cells = <0>;
+
+                 qcom,ion-heap@25 {
+                         reg = <25>;
+                         qcom,ion-heap-type = "SYSTEM";
+                 };
+
+                 qcom,ion-heap@8 { /* CP_MM HEAP */
+                         compatible = "qcom,msm-ion-reserve";
+                         reg = <8>;
+                         qcom,heap-align = <0x1000>;
+                         linux,contiguous-region = <&secure_mem>;
+                         qcom,ion-heap-type = "SECURE_DMA";
+                 };
+
+                 qcom,ion-heap@29 { /* FIRMWARE HEAP */
+                         compatible = "qcom,msm-ion-reserve";
+                         reg = <29>;
+                         qcom,heap-align = <0x20000>;
+                         qcom,heap-adjacent = <8>;
+                         qcom,memory-reservation-type = "EBI1"; /* reserve EBI memory */
+                         qcom,memory-reservation-size = <0xA00000>;
+                         qcom,ion-heap-type = "CARVEOUT";
+                 };
+	};

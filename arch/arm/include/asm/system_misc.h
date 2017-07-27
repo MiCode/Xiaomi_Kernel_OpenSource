@@ -21,6 +21,12 @@ extern void (*arm_pm_idle)(void);
 #define UDBG_BUS	(1 << 4)
 
 extern unsigned int user_debug;
+extern char* (*arch_read_hardware_id)(void);
+
+static inline int handle_guest_sea(phys_addr_t addr, unsigned int esr)
+{
+	return -1;
+}
 
 #endif /* !__ASSEMBLY__ */
 

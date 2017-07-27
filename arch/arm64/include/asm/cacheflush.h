@@ -96,7 +96,7 @@ extern void __dma_inv_area(const void *start, size_t size);
 extern void __dma_clean_area(const void *start, size_t size);
 
 #define dmac_flush_range(start, end) \
-	_dma_flush_area(start, (void *)(end) - (void *)(start))
+	__dma_flush_area(start, (void *)(end) - (void *)(start))
 #define dmac_inv_range(start, end) \
 	__dma_inv_area(start, (void *)(end) - (void *)(start))
 #define dmac_clean_range(start, end) \

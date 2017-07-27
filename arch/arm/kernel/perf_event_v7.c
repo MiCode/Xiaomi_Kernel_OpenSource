@@ -1102,7 +1102,7 @@ static void armv7pmu_reset(void *info)
 	}
 
 	/* Initialize & Reset PMNC: C and P bits */
-	armv7_pmnc_write(ARMV7_PMNC_P | ARMV7_PMNC_C);
+	armv7_pmnc_write(armv7_pmnc_read() | ARMV7_PMNC_P | ARMV7_PMNC_C);
 }
 
 static int armv7_a8_map_event(struct perf_event *event)

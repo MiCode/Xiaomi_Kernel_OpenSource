@@ -19,6 +19,9 @@
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 #include <linux/memblock.h>
+#include <linux/preempt.h>
+#include <linux/seqlock.h>
+#include <linux/irqflags.h>
 
 #include <asm/sections.h>
 #include <linux/io.h>
@@ -31,6 +34,7 @@ static struct memblock_region memblock_reserved_init_regions[INIT_MEMBLOCK_REGIO
 static struct memblock_region memblock_physmem_init_regions[INIT_PHYSMEM_REGIONS] __initdata_memblock;
 #endif
 
+static seqcount_t memblock_seq;
 struct memblock memblock __initdata_memblock = {
 	.memory.regions		= memblock_memory_init_regions,
 	.memory.cnt		= 1,	/* empty dummy entry */
@@ -54,9 +58,6 @@ struct memblock memblock __initdata_memblock = {
 };
 
 int memblock_debug __initdata_memblock;
-#ifdef CONFIG_MOVABLE_NODE
-bool movable_node_enabled __initdata_memblock = false;
-#endif
 static bool system_has_some_mirror __initdata_memblock = false;
 static int memblock_can_resize __initdata_memblock;
 static int memblock_memory_in_slab __initdata_memblock = 0;
@@ -1587,7 +1588,8 @@ void __init memblock_mem_limit_remove_map(phys_addr_t limit)
 	memblock_cap_memory_range(0, max_addr);
 }
 
-static int __init_memblock memblock_search(struct memblock_type *type, phys_addr_t addr)
+static int __init_memblock __memblock_search(struct memblock_type *type,
+					     phys_addr_t addr)
 {
 	unsigned int left = 0, right = type->cnt;
 
@@ -1603,6 +1605,20 @@ static int __init_memblock memblock_search(struct memblock_type *type, phys_addr
 			return mid;
 	} while (left < right);
 	return -1;
+}
+
+static int __init_memblock memblock_search(struct memblock_type *type,
+					   phys_addr_t addr)
+{
+	int ret;
+	unsigned long seq;
+
+	do {
+		seq = raw_read_seqcount_begin(&memblock_seq);
+		ret = __memblock_search(type, addr);
+	} while (unlikely(read_seqcount_retry(&memblock_seq, seq)));
+
+	return ret;
 }
 
 bool __init memblock_is_reserved(phys_addr_t addr)
@@ -1779,6 +1795,37 @@ void __init_memblock __memblock_dump_all(void)
 void __init memblock_allow_resize(void)
 {
 	memblock_can_resize = 1;
+}
+
+static unsigned long __init_memblock
+memblock_resize_late(int begin, unsigned long flags)
+{
+	static int memblock_can_resize_old;
+
+	if (begin) {
+		preempt_disable();
+		local_irq_save(flags);
+		memblock_can_resize_old = memblock_can_resize;
+		memblock_can_resize = 0;
+		raw_write_seqcount_begin(&memblock_seq);
+	} else {
+		raw_write_seqcount_end(&memblock_seq);
+		memblock_can_resize = memblock_can_resize_old;
+		local_irq_restore(flags);
+		preempt_enable();
+	}
+
+	return flags;
+}
+
+unsigned long __init_memblock memblock_region_resize_late_begin(void)
+{
+	return memblock_resize_late(1, 0);
+}
+
+void __init_memblock memblock_region_resize_late_end(unsigned long flags)
+{
+	memblock_resize_late(0, flags);
 }
 
 static int __init early_memblock(char *p)

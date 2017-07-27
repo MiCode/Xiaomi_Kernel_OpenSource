@@ -186,6 +186,13 @@ struct clk_rate_request {
  * @set_flags: Set custom flags which deal with hardware specifics. Returns 0
  *	       on success, -EERROR otherwise.
  *
+ * @list_registers: Queries the hardware to get the current register contents.
+ *		    This callback is optional.
+ *
+ * @list_rate:  On success, return the nth supported frequency for a given
+ *		clock that is below rate_max. Return -ENXIO in case there is
+ *		no frequency table.
+ *
  * The clk_enable/clk_disable and clk_prepare/clk_unprepare pairs allow
  * implementations to split any work between atomic (enable) and sleepable
  * (prepare) contexts.  If enabling a clock requires code that might sleep,
@@ -226,6 +233,10 @@ struct clk_ops {
 	void		(*init)(struct clk_hw *hw);
 	int		(*debug_init)(struct clk_hw *hw, struct dentry *dentry);
 	int		(*set_flags)(struct clk_hw *hw, unsigned int flags);
+	void		(*list_registers)(struct seq_file *f,
+							struct clk_hw *hw);
+	long		(*list_rate)(struct clk_hw *hw, unsigned int n,
+							unsigned long rate_max);
 };
 
 /**
@@ -489,9 +500,10 @@ extern const struct clk_ops clk_divider_ro_ops;
 unsigned long divider_recalc_rate(struct clk_hw *hw, unsigned long parent_rate,
 		unsigned int val, const struct clk_div_table *table,
 		unsigned long flags);
-long divider_round_rate(struct clk_hw *hw, unsigned long rate,
-		unsigned long *prate, const struct clk_div_table *table,
-		u8 width, unsigned long flags);
+long divider_round_rate_parent(struct clk_hw *hw, struct clk_hw *parent,
+			       unsigned long rate, unsigned long *prate,
+			       const struct clk_div_table *table,
+			       u8 width, unsigned long flags);
 int divider_get_val(unsigned long rate, unsigned long parent_rate,
 		const struct clk_div_table *table, u8 width,
 		unsigned long flags);
@@ -835,6 +847,15 @@ static inline void __clk_hw_set_clk(struct clk_hw *dst, struct clk_hw *src)
 {
 	dst->clk = src->clk;
 	dst->core = src->core;
+}
+
+static inline long divider_round_rate(struct clk_hw *hw, unsigned long rate,
+				      unsigned long *prate,
+				      const struct clk_div_table *table,
+				      u8 width, unsigned long flags)
+{
+	return divider_round_rate_parent(hw, clk_hw_get_parent(hw),
+					 rate, prate, table, width, flags);
 }
 
 /*

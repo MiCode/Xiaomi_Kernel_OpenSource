@@ -30,6 +30,7 @@ enum {
 struct call_function_data {
 	struct call_single_data	__percpu *csd;
 	cpumask_var_t		cpumask;
+	cpumask_var_t		cpumask_ipi;
 };
 
 static DEFINE_PER_CPU_SHARED_ALIGNED(struct call_function_data, cfd_data);
@@ -37,6 +38,9 @@ static DEFINE_PER_CPU_SHARED_ALIGNED(struct call_function_data, cfd_data);
 static DEFINE_PER_CPU_SHARED_ALIGNED(struct llist_head, call_single_queue);
 
 static void flush_smp_call_function_queue(bool warn_cpu_offline);
+/* CPU mask indicating which CPUs to bring online during smp_init() */
+static bool have_boot_cpu_mask;
+static cpumask_var_t boot_cpu_mask;
 
 int smpcfd_prepare_cpu(unsigned int cpu)
 {
@@ -45,9 +49,15 @@ int smpcfd_prepare_cpu(unsigned int cpu)
 	if (!zalloc_cpumask_var_node(&cfd->cpumask, GFP_KERNEL,
 				     cpu_to_node(cpu)))
 		return -ENOMEM;
+	if (!zalloc_cpumask_var_node(&cfd->cpumask_ipi, GFP_KERNEL,
+				     cpu_to_node(cpu))) {
+		free_cpumask_var(cfd->cpumask);
+		return -ENOMEM;
+	}
 	cfd->csd = alloc_percpu(struct call_single_data);
 	if (!cfd->csd) {
 		free_cpumask_var(cfd->cpumask);
+		free_cpumask_var(cfd->cpumask_ipi);
 		return -ENOMEM;
 	}
 
@@ -59,6 +69,7 @@ int smpcfd_dead_cpu(unsigned int cpu)
 	struct call_function_data *cfd = &per_cpu(cfd_data, cpu);
 
 	free_cpumask_var(cfd->cpumask);
+	free_cpumask_var(cfd->cpumask_ipi);
 	free_percpu(cfd->csd);
 	return 0;
 }
@@ -428,12 +439,13 @@ void smp_call_function_many(const struct cpumask *mask,
 	cfd = this_cpu_ptr(&cfd_data);
 
 	cpumask_and(cfd->cpumask, mask, cpu_online_mask);
-	cpumask_clear_cpu(this_cpu, cfd->cpumask);
+	__cpumask_clear_cpu(this_cpu, cfd->cpumask);
 
 	/* Some callers race with other cpus changing the passed mask */
 	if (unlikely(!cpumask_weight(cfd->cpumask)))
 		return;
 
+	cpumask_clear(cfd->cpumask_ipi);
 	for_each_cpu(cpu, cfd->cpumask) {
 		struct call_single_data *csd = per_cpu_ptr(cfd->csd, cpu);
 
@@ -442,11 +454,12 @@ void smp_call_function_many(const struct cpumask *mask,
 			csd->flags |= CSD_FLAG_SYNCHRONOUS;
 		csd->func = func;
 		csd->info = info;
-		llist_add(&csd->llist, &per_cpu(call_single_queue, cpu));
+		if (llist_add(&csd->llist, &per_cpu(call_single_queue, cpu)))
+			__cpumask_set_cpu(cpu, cfd->cpumask_ipi);
 	}
 
 	/* Send a message to all CPUs in the map */
-	arch_send_call_function_ipi_mask(cfd->cpumask);
+	arch_send_call_function_ipi_mask(cfd->cpumask_ipi);
 
 	if (wait) {
 		for_each_cpu(cpu, cfd->cpumask) {
@@ -537,6 +550,19 @@ static int __init maxcpus(char *str)
 
 early_param("maxcpus", maxcpus);
 
+static int __init boot_cpus(char *str)
+{
+	alloc_bootmem_cpumask_var(&boot_cpu_mask);
+	if (cpulist_parse(str, boot_cpu_mask) < 0) {
+		pr_warn("SMP: Incorrect boot_cpus cpumask\n");
+		return -EINVAL;
+	}
+	have_boot_cpu_mask = true;
+	return 0;
+}
+
+early_param("boot_cpus", boot_cpus);
+
 /* Setup number of possible processor ids */
 int nr_cpu_ids __read_mostly = NR_CPUS;
 EXPORT_SYMBOL(nr_cpu_ids);
@@ -545,6 +571,20 @@ EXPORT_SYMBOL(nr_cpu_ids);
 void __init setup_nr_cpu_ids(void)
 {
 	nr_cpu_ids = find_last_bit(cpumask_bits(cpu_possible_mask),NR_CPUS) + 1;
+}
+
+static inline bool boot_cpu(int cpu)
+{
+	if (!have_boot_cpu_mask)
+		return true;
+
+	return cpumask_test_cpu(cpu, boot_cpu_mask);
+}
+
+static inline void free_boot_cpu_mask(void)
+{
+	if (have_boot_cpu_mask)	/* Allocated from boot_cpus() */
+		free_bootmem_cpumask_var(boot_cpu_mask);
 }
 
 /* Called by boot processor to activate the rest. */
@@ -562,9 +602,10 @@ void __init smp_init(void)
 	for_each_present_cpu(cpu) {
 		if (num_online_cpus() >= setup_max_cpus)
 			break;
-		if (!cpu_online(cpu))
+		if (!cpu_online(cpu) && boot_cpu(cpu))
 			cpu_up(cpu);
 	}
+	free_boot_cpu_mask();
 
 	num_nodes = num_online_nodes();
 	num_cpus  = num_online_cpus();

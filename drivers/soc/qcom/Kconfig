@@ -1,6 +1,15 @@
 #
 # QCOM Soc drivers
 #
+config QCOM_CPUSS_DUMP
+	bool "CPU Subsystem Dumping support"
+	help
+	  Add support to dump various hardware entities such as the instruction
+	  and data tlb's as well as the unified tlb, which are a part of the
+	  cpu subsystem to an allocated buffer. This allows for analysis of the
+	  the entities if corruption is suspected.
+	  If unsure, say N
+
 config QCOM_GSBI
         tristate "QCOM General Serial Bus Interface"
         depends on ARCH_QCOM
@@ -13,6 +22,32 @@ config QCOM_GSBI
 config QCOM_MDT_LOADER
 	tristate
 	select QCOM_SCM
+
+config QCOM_LLCC
+	tristate "Qualcomm Technologies, Inc. LLCC driver"
+	depends on ARCH_QCOM
+	help
+	  Qualcomm Technologies, Inc. platform specific LLCC driver for Last
+	  Level Cache. This provides interfaces to client's that use the LLCC.
+	  Say yes here to enable LLCC slice driver.
+
+config QCOM_LLCC_AMON
+	tristate "Qualcomm Technologies, Inc. LLCC Activity Monitor(AMON) driver"
+	depends on QCOM_LLCC
+	help
+	  This option enables a activity monitor driver for last level cache
+	  controller. This driver configures the activity monitor as
+	  deadlock detector and dumps the AMON registers upon detection of
+	  deadlock.
+
+config QCOM_LLCC_AMON_PANIC
+	tristate "Panic on detecting LLCC Activity Monitor(AMON) error"
+	depends on QCOM_LLCC_AMON
+	help
+	  This option enables panic upon detection of LLCC Activity Monitor(AMON)
+	  errors. Say yes here to enable deadlock detection mode of AMON. In
+	  deadlock detection mode AMON will trigger an interrupt if some LLCC request
+	  ages out.
 
 config QCOM_PM
 	bool "Qualcomm Power Management"
@@ -83,3 +118,111 @@ config QCOM_WCNSS_CTRL
 	help
 	  Client driver for the WCNSS_CTRL SMD channel, used to download nv
 	  firmware to a newly booted WCNSS chip.
+
+config MSM_SERVICE_LOCATOR
+	bool "Service Locator"
+	depends on MSM_QMI_INTERFACE
+	help
+	  The Service Locator provides a library to retrieve location
+	  information given a service identifier. Location here translates
+	  to what process domain exports the service, and which subsystem
+	  that process domain will execute in.
+
+config MSM_SERVICE_NOTIFIER
+	bool "Service Notifier"
+	depends on MSM_SERVICE_LOCATOR && MSM_SUBSYSTEM_RESTART
+	help
+	  The Service Notifier provides a library for a kernel client to
+	  register for state change notifications regarding a remote service.
+	  A remote service here refers to a process providing certain services
+	  like audio, the identifier for which is provided by the service
+	  locator.
+
+config MSM_SUBSYSTEM_RESTART
+       bool "MSM Subsystem Restart"
+       help
+         This option enables the MSM subsystem restart framework.
+
+         The MSM subsystem restart framework provides support to boot,
+         shutdown, and restart subsystems with a reference counted API.
+         It also notifies userspace of transitions between these states via
+         sysfs.
+
+config MSM_PIL
+       bool "Peripheral image loading"
+       select FW_LOADER
+       default n
+       help
+         Some peripherals need to be loaded into memory before they can be
+         brought out of reset.
+
+         Say yes to support these devices.
+
+config MSM_SYSMON_GLINK_COMM
+       bool "MSM System Monitor communication support using GLINK transport"
+       depends on MSM_GLINK && MSM_SUBSYSTEM_RESTART
+       help
+         This option adds support for MSM System Monitor APIs using the GLINK
+         transport layer. The APIs provided may be used for notifying
+         subsystems within the SoC about other subsystems' power-up/down
+         state-changes.
+
+config MSM_PIL_SSR_GENERIC
+       tristate "MSM Subsystem Boot Support"
+       depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
+       help
+         Support for booting and shutting down MSM Subsystem processors.
+         This driver also monitors the SMSM status bits and the watchdog
+         interrupt for the subsystem and restarts it on a watchdog bite
+         or a fatal error. Subsystems include LPASS, Venus, VPU, WCNSS and
+         BCSS.
+
+config MSM_BOOT_STATS
+	bool "Use MSM boot stats reporting"
+	help
+	  Use this to report msm boot stats such as bootloader throughput,
+	  display init, total boot time.
+	  This figures are reported in mpm sleep clock cycles and have a
+	  resolution of 31 bits as 1 bit is used as an overflow check.
+
+config MSM_CORE_HANG_DETECT
+       tristate "MSM Core Hang Detection Support"
+       help
+         This enables the core hang detection module. It causes SoC
+         reset on core hang detection and collects the core context
+         for hang. By using sysfs entries core hang detection can be
+	 enabled or disabled dynamically.
+
+config MSM_GLADIATOR_HANG_DETECT
+       tristate "MSM Gladiator Hang Detection Support"
+       help
+         This enables the gladiator hang detection module.
+         If the configured threshold is reached, it causes SoC reset on
+         gladiator hang detection and collects the context for the
+         gladiator hang.
+
+config QCOM_SECURE_BUFFER
+	bool "Helper functions for securing buffers through TZ"
+	help
+	 Say 'Y' here for targets that need to call into TZ to secure
+	 memory buffers. This ensures that only the correct clients can
+	 use this memory and no unauthorized access is made to the
+	 buffer
+
+config ICNSS
+	tristate "Platform driver for Q6 integrated connectivity"
+	select CNSS_UTILS
+	---help---
+	  This module adds support for Q6 integrated WLAN connectivity
+	  subsystem. This module is responsible for communicating WLAN on/off
+	  control messages to FW over QMI channel. It is also responsible for
+	  handling WLAN PD restart notifications.
+
+config ICNSS_DEBUG
+	bool "ICNSS debug support"
+	depends on ICNSS
+	---help---
+	  Say 'Y' here to enable ICNSS driver debug support. Debug support
+	  primarily consists of logs consisting of information related to
+	  hardware register access and enabling BUG_ON for certain cases to aid
+	  the debugging.

@@ -25,6 +25,7 @@
 #include <linux/of_iommu.h>
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
+#include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
 
 const struct of_device_id of_default_bus_match_table[] = {
@@ -99,7 +100,7 @@ static void of_device_make_bus_id(struct device *dev)
 
 		/* format arguments only used if dev_name() resolves to NULL */
 		dev_set_name(dev, dev_name(dev) ? "%s:%s" : "%s",
-			     strrchr(node->full_name, '/') + 1, dev_name(dev));
+			     kbasename(node->full_name), dev_name(dev));
 		node = node->parent;
 	}
 }
@@ -188,6 +189,7 @@ static struct platform_device *of_platform_device_create_pdata(
 	dev->dev.bus = &platform_bus_type;
 	dev->dev.platform_data = platform_data;
 	of_msi_configure(&dev->dev, dev->dev.of_node);
+	of_reserved_mem_device_init_by_idx(&dev->dev, dev->dev.of_node, 0);
 
 	if (of_device_add(dev) != 0) {
 		platform_device_put(dev);

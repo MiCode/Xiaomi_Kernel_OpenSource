@@ -4,6 +4,7 @@
 menu "USB Physical Layer drivers"
 
 config USB_PHY
+	select EXTCON
 	def_bool n
 
 #
@@ -109,7 +110,7 @@ config OMAP_OTG
 
 config TAHVO_USB
 	tristate "Tahvo USB transceiver driver"
-	depends on MFD_RETU && EXTCON
+	depends on MFD_RETU
 	depends on USB_GADGET || !USB_GADGET # if USB_GADGET=m, this can't be 'y'
 	select USB_PHY
 	help
@@ -141,7 +142,6 @@ config USB_MSM_OTG
 	depends on (USB || USB_GADGET) && (ARCH_QCOM || COMPILE_TEST)
 	depends on USB_GADGET || !USB_GADGET # if USB_GADGET=m, this can't be 'y'
 	depends on RESET_CONTROLLER
-	depends on EXTCON
 	select USB_PHY
 	help
 	  Enable this to support the USB OTG transceiver on Qualcomm chips. It
@@ -155,7 +155,7 @@ config USB_MSM_OTG
 config USB_QCOM_8X16_PHY
 	tristate "Qualcomm APQ8016/MSM8916 on-chip USB PHY controller support"
 	depends on ARCH_QCOM || COMPILE_TEST
-	depends on RESET_CONTROLLER && EXTCON
+	depends on RESET_CONTROLLER
 	select USB_PHY
 	select USB_ULPI_VIEWPORT
 	help
@@ -165,6 +165,18 @@ config USB_QCOM_8X16_PHY
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called phy-qcom-8x16-usb.
+
+config USB_QCOM_EMU_PHY
+	tristate "Qualcomm Technolgies, Inc. emulation USB PHY driver"
+	depends on ARCH_QCOM || COMPILE_TEST
+	select USB_PHY
+	help
+	  Enable this to support the USB transceiver used on Qualcomm
+	  Technologies, Inc. emulation platforms. It simply performs PHY
+	  initialization given a basic register write sequence.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called phy-qcom-emu.
 
 config USB_MV_OTG
 	tristate "Marvell USB OTG support"
