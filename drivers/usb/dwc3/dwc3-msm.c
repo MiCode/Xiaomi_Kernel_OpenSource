@@ -2824,8 +2824,6 @@ static int dwc3_msm_id_notifier(struct notifier_block *nb,
 
 static void check_for_sdp_connection(struct work_struct *w)
 {
-	int ret;
-	union power_supply_propval pval = {0};
 	struct dwc3_msm *mdwc =
 		container_of(w, struct dwc3_msm, sdp_check.work);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
@@ -2836,21 +2834,6 @@ static void check_for_sdp_connection(struct work_struct *w)
 	/* floating D+/D- lines detected */
 	if (dwc->gadget.state < USB_STATE_DEFAULT &&
 		dwc3_gadget_get_link_state(dwc) != DWC3_LINK_STATE_CMPLY) {
-		if (!mdwc->usb_psy) {
-			mdwc->usb_psy = power_supply_get_by_name("usb");
-			if (!mdwc->usb_psy) {
-				dev_dbg(mdwc->dev,
-					"Could not get usb power_supply\n");
-				return;
-			}
-		}
-		pval.intval = -ETIMEDOUT;
-		ret = power_supply_set_property(mdwc->usb_psy,
-					POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
-		if (ret)
-			dev_dbg(mdwc->dev,
-				"power supply error when setting property\n");
-
 		mdwc->vbus_active = 0;
 		dbg_event(0xFF, "Q RW SPD CHK", mdwc->vbus_active);
 		queue_work(mdwc->dwc3_wq, &mdwc->resume_work);
@@ -3929,14 +3912,16 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA)
 		return 0;
 
 	psy_type = get_psy_type(mdwc);
-	if (psy_type != POWER_SUPPLY_TYPE_USB &&
-			psy_type != POWER_SUPPLY_TYPE_USB_FLOAT)
+	if (psy_type == POWER_SUPPLY_TYPE_USB) {
+		dev_info(mdwc->dev, "Avail curr from USB = %u\n", mA);
+		/* Set max current limit in uA */
+		pval.intval = 1000 * mA;
+	} else if (psy_type == POWER_SUPPLY_TYPE_USB_FLOAT) {
+		pval.intval = -ETIMEDOUT;
+	} else {
 		return 0;
+	}
 
-	dev_info(mdwc->dev, "Avail curr from USB = %u\n", mA);
-
-	/* Set max current limit in uA */
-	pval.intval = 1000 * mA;
 	ret = power_supply_set_property(mdwc->usb_psy,
 				POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
 	if (ret) {
