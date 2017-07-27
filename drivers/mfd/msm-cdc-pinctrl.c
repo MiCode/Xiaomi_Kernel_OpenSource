@@ -217,8 +217,14 @@ static int msm_cdc_pinctrl_remove(struct platform_device *pdev)
 
 	gpio_data = dev_get_drvdata(&pdev->dev);
 
-	if (gpio_data && gpio_data->pinctrl)
-		devm_pinctrl_put(gpio_data->pinctrl);
+	/* to free the requested gpio before exiting */
+	if (gpio_data) {
+		if (gpio_is_valid(gpio_data->gpio))
+			gpio_free(gpio_data->gpio);
+
+		if (gpio_data->pinctrl)
+			devm_pinctrl_put(gpio_data->pinctrl);
+	}
 
 	devm_kfree(&pdev->dev, gpio_data);
 
