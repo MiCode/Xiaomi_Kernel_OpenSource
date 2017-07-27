@@ -365,12 +365,60 @@ int sde_connector_get_info(struct drm_connector *connector,
 	return c_conn->ops.get_info(info, c_conn->display);
 }
 
+static int _sde_connector_update_power_locked(struct sde_connector *c_conn)
+{
+	struct drm_connector *connector;
+	void *display;
+	int (*set_power)(struct drm_connector *, int, void *);
+	int mode, rc = 0;
+
+	if (!c_conn)
+		return -EINVAL;
+	connector = &c_conn->base;
+
+	switch (c_conn->dpms_mode) {
+	case DRM_MODE_DPMS_ON:
+		mode = c_conn->lp_mode;
+		break;
+	case DRM_MODE_DPMS_STANDBY:
+		mode = SDE_MODE_DPMS_STANDBY;
+		break;
+	case DRM_MODE_DPMS_SUSPEND:
+		mode = SDE_MODE_DPMS_SUSPEND;
+		break;
+	case DRM_MODE_DPMS_OFF:
+		mode = SDE_MODE_DPMS_OFF;
+		break;
+	default:
+		mode = c_conn->lp_mode;
+		SDE_ERROR("conn %d dpms set to unrecognized mode %d\n",
+				connector->base.id, mode);
+		break;
+	}
+
+	SDE_EVT32(connector->base.id, c_conn->dpms_mode, c_conn->lp_mode, mode);
+	SDE_DEBUG("conn %d - dpms %d, lp %d, panel %d\n", connector->base.id,
+			c_conn->dpms_mode, c_conn->lp_mode, mode);
+
+	if (mode != c_conn->last_panel_power_mode && c_conn->ops.set_power) {
+		display = c_conn->display;
+		set_power = c_conn->ops.set_power;
+
+		mutex_unlock(&c_conn->lock);
+		rc = set_power(connector, mode, display);
+		mutex_lock(&c_conn->lock);
+	}
+	c_conn->last_panel_power_mode = mode;
+
+	return rc;
+}
+
 int sde_connector_pre_kickoff(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn;
 	struct sde_connector_state *c_state;
 	struct msm_display_kickoff_params params;
-	int rc;
+	int idx, rc;
 
 	if (!connector) {
 		SDE_ERROR("invalid argument\n");
@@ -383,6 +431,22 @@ int sde_connector_pre_kickoff(struct drm_connector *connector)
 	if (!c_conn->display) {
 		SDE_ERROR("invalid argument\n");
 		return -EINVAL;
+	}
+
+	while ((idx = msm_property_pop_dirty(&c_conn->property_info,
+					&c_state->property_state)) >= 0) {
+		switch (idx) {
+		case CONNECTOR_PROP_LP:
+			mutex_lock(&c_conn->lock);
+			c_conn->lp_mode = sde_connector_get_property(
+					connector->state, CONNECTOR_PROP_LP);
+			_sde_connector_update_power_locked(c_conn);
+			mutex_unlock(&c_conn->lock);
+			break;
+		default:
+			/* nothing to do for most properties */
+			break;
+		}
 	}
 
 	if (!c_conn->ops.pre_kickoff)
@@ -687,56 +751,6 @@ static int _sde_connector_set_roi_v1(
 	return 0;
 }
 
-static int _sde_connector_update_power_locked(struct sde_connector *c_conn)
-{
-	struct drm_connector *connector;
-	void *display;
-	int (*set_power)(struct drm_connector *, int, void *);
-	int mode, rc = 0;
-
-	if (!c_conn)
-		return -EINVAL;
-	connector = &c_conn->base;
-
-	mode = c_conn->lp_mode;
-	if (c_conn->dpms_mode != DRM_MODE_DPMS_ON)
-		mode = SDE_MODE_DPMS_OFF;
-	switch (c_conn->dpms_mode) {
-	case DRM_MODE_DPMS_ON:
-		mode = c_conn->lp_mode;
-		break;
-	case DRM_MODE_DPMS_STANDBY:
-		mode = SDE_MODE_DPMS_STANDBY;
-		break;
-	case DRM_MODE_DPMS_SUSPEND:
-		mode = SDE_MODE_DPMS_SUSPEND;
-		break;
-	case DRM_MODE_DPMS_OFF:
-		mode = SDE_MODE_DPMS_OFF;
-		break;
-	default:
-		mode = c_conn->lp_mode;
-		SDE_ERROR("conn %d dpms set to unrecognized mode %d\n",
-				connector->base.id, mode);
-		break;
-	}
-
-	SDE_DEBUG("conn %d - dpms %d, lp %d, panel %d\n", connector->base.id,
-			c_conn->dpms_mode, c_conn->lp_mode, mode);
-
-	if (mode != c_conn->last_panel_power_mode && c_conn->ops.set_power) {
-		display = c_conn->display;
-		set_power = c_conn->ops.set_power;
-
-		mutex_unlock(&c_conn->lock);
-		rc = set_power(connector, mode, display);
-		mutex_lock(&c_conn->lock);
-	}
-	c_conn->last_panel_power_mode = mode;
-
-	return rc;
-}
-
 static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		struct drm_connector_state *state,
 		struct drm_property *property,
@@ -794,12 +808,6 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 			if (rc)
 				SDE_ERROR("prep fb failed, %d\n", rc);
 		}
-		break;
-	case CONNECTOR_PROP_LP:
-		mutex_lock(&c_conn->lock);
-		c_conn->lp_mode = val;
-		_sde_connector_update_power_locked(c_conn);
-		mutex_unlock(&c_conn->lock);
 		break;
 	default:
 		break;
