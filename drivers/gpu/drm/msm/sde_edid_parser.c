@@ -228,10 +228,17 @@ u32 video_format)
 {
 	u8 cea_mode = 0;
 	struct drm_display_mode *mode;
+	u32 mode_fmt_flags = 0;
 
 	/* Need to add Y420 support flag to the modes */
 	list_for_each_entry(mode, &connector->probed_modes, head) {
+		/* Cache the format flags before clearing */
+		mode_fmt_flags = mode->flags;
+		/* Clear the RGB/YUV format flags before calling upstream API */
+		mode->flags &= ~SDE_DRM_MODE_FLAG_FMT_MASK;
 		cea_mode = drm_match_cea_mode(mode);
+		/* Restore the format flags */
+		mode->flags = mode_fmt_flags;
 		if ((cea_mode != 0) && (cea_mode == video_format)) {
 			SDE_EDID_DEBUG("%s found match for %d ", __func__,
 			video_format);
@@ -245,7 +252,7 @@ struct drm_connector *connector, struct sde_edid_ctrl *edid_ctrl,
 const u8 *db)
 {
 	u32 offset = 0;
-	u8 len = 0;
+	u8 cmdb_len = 0;
 	u8 svd_len = 0;
 	const u8 *svd = NULL;
 	u32 i = 0, j = 0;
@@ -261,10 +268,8 @@ const u8 *db)
 		return;
 	}
 	SDE_EDID_DEBUG("%s +\n", __func__);
-	len = db[0] & 0x1f;
+	cmdb_len = db[0] & 0x1f;
 
-	if (len < 7)
-		return;
 	/* Byte 3 to L+1 contain SVDs */
 	offset += 2;
 
@@ -272,20 +277,24 @@ const u8 *db)
 
 	if (svd) {
 		/*moving to the next byte as vic info begins there*/
-		++svd;
 		svd_len = svd[0] & 0x1f;
+		++svd;
 	}
 
 	for (i = 0; i < svd_len; i++, j++) {
-		video_format = *svd & 0x7F;
-		if (db[offset] & (1 << j))
+		video_format = *(svd + i) & 0x7F;
+		if (cmdb_len == 1) {
+			/* If cmdb_len is 1, it means all SVDs support YUV */
+			sde_edid_set_y420_support(connector, video_format);
+		} else if (db[offset] & (1 << j)) {
 			sde_edid_set_y420_support(connector, video_format);
 
-		if (j & 0x80) {
-			j = j/8;
-			offset++;
-			if (offset >= len)
-				break;
+			if (j & 0x80) {
+				j = j/8;
+				offset++;
+				if (offset >= cmdb_len)
+					break;
+			}
 		}
 	}
 

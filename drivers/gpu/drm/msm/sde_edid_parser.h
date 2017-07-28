@@ -33,6 +33,8 @@
 #define SDE_CEA_EXT    0x02
 #define SDE_EXTENDED_TAG 0x07
 
+#define SDE_DRM_MODE_FLAG_FMT_MASK (0x3 << 20)
+
 enum extended_data_block_types {
 	VIDEO_CAPABILITY_DATA_BLOCK = 0x0,
 	VENDOR_SPECIFIC_VIDEO_DATA_BLOCK = 0x01,
