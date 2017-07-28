@@ -741,6 +741,8 @@ kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 	 */
 
 	memdesc->pages = kgsl_malloc(len_alloc * sizeof(struct page *));
+	memdesc->page_count = 0;
+	memdesc->size = 0;
 
 	if (memdesc->pages == NULL) {
 		ret = -ENOMEM;
