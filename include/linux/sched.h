@@ -1499,12 +1499,10 @@ struct ravg {
 	 */
 	u64 mark_start;
 	u32 sum, demand;
+	u32 coloc_demand;
 	u32 sum_history[RAVG_HIST_SIZE_MAX];
 	u32 *curr_window_cpu, *prev_window_cpu;
 	u32 curr_window, prev_window;
-#ifdef CONFIG_SCHED_HMP
-	u64 curr_burst, avg_burst, avg_sleep_time;
-#endif
 	u16 active_windows;
 	u32 pred_demand;
 	u8 busy_buckets[NUM_BUSY_BUCKETS];
@@ -2652,37 +2650,9 @@ struct cpu_cycle_counter_cb {
 
 #define MAX_NUM_CGROUP_COLOC_ID	20
 
-#ifdef CONFIG_SCHED_HMP
-extern int sched_set_window(u64 window_start, unsigned int window_size);
-extern unsigned long sched_get_busy(int cpu);
-extern void sched_get_cpus_busy(struct sched_load *busy,
-				const struct cpumask *query_cpus);
-extern int sched_set_init_task_load(struct task_struct *p, int init_load_pct);
-extern u32 sched_get_init_task_load(struct task_struct *p);
-extern int sched_set_static_cpu_pwr_cost(int cpu, unsigned int cost);
-extern unsigned int sched_get_static_cpu_pwr_cost(int cpu);
-extern int sched_set_static_cluster_pwr_cost(int cpu, unsigned int cost);
-extern unsigned int sched_get_static_cluster_pwr_cost(int cpu);
-extern int sched_set_cluster_wake_idle(int cpu, unsigned int wake_idle);
-extern unsigned int sched_get_cluster_wake_idle(int cpu);
-extern int sched_update_freq_max_load(const cpumask_t *cpumask);
-extern void sched_update_cpu_freq_min_max(const cpumask_t *cpus,
-							u32 fmin, u32 fmax);
-extern void sched_set_cpu_cstate(int cpu, int cstate,
-			 int wakeup_energy, int wakeup_latency);
-extern void sched_set_cluster_dstate(const cpumask_t *cluster_cpus, int dstate,
-				int wakeup_energy, int wakeup_latency);
-extern int sched_set_group_id(struct task_struct *p, unsigned int group_id);
-extern unsigned int sched_get_group_id(struct task_struct *p);
-
-#else /* CONFIG_SCHED_HMP */
 static inline int sched_set_window(u64 window_start, unsigned int window_size)
 {
 	return -EINVAL;
-}
-static inline unsigned long sched_get_busy(int cpu)
-{
-	return 0;
 }
 static inline void sched_get_cpus_busy(struct sched_load *busy,
 				       const struct cpumask *query_cpus) {};
@@ -2696,12 +2666,6 @@ static inline void
 sched_set_cpu_cstate(int cpu, int cstate, int wakeup_energy, int wakeup_latency)
 {
 }
-
-static inline void sched_set_cluster_dstate(const cpumask_t *cluster_cpus,
-			int dstate, int wakeup_energy, int wakeup_latency)
-{
-}
-#endif /* CONFIG_SCHED_HMP */
 
 #ifdef CONFIG_SCHED_WALT
 extern int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb);
@@ -2730,10 +2694,8 @@ static inline void free_task_load_ptrs(struct task_struct *p) { }
 #endif /* CONFIG_SCHED_WALT */
 
 #ifndef CONFIG_SCHED_WALT
-#ifndef CONFIG_SCHED_HMP
 static inline void sched_update_cpu_freq_min_max(const cpumask_t *cpus,
 					u32 fmin, u32 fmax) { }
-#endif /* CONFIG_SCHED_HMP */
 #endif /* CONFIG_SCHED_WALT */
 
 #ifdef CONFIG_NO_HZ_COMMON
@@ -2846,7 +2808,7 @@ extern unsigned long long
 task_sched_runtime(struct task_struct *task);
 
 /* sched_exec is called by processes performing an exec */
-#if defined(CONFIG_SMP) && !defined(CONFIG_SCHED_HMP)
+#ifdef CONFIG_SMP
 extern void sched_exec(void);
 #else
 #define sched_exec()   {}
@@ -2981,7 +2943,6 @@ extern void xtime_update(unsigned long ticks);
 
 extern int wake_up_state(struct task_struct *tsk, unsigned int state);
 extern int wake_up_process(struct task_struct *tsk);
-extern int wake_up_process_no_notif(struct task_struct *tsk);
 extern void wake_up_new_task(struct task_struct *tsk);
 #ifdef CONFIG_SMP
  extern void kick_process(struct task_struct *tsk);
@@ -3216,7 +3177,7 @@ static inline bool mmget_not_zero(struct mm_struct *mm)
 }
 
 /* mmput gets rid of the mappings and all user-space */
-extern void mmput(struct mm_struct *);
+extern int mmput(struct mm_struct *mm);
 #ifdef CONFIG_MMU
 /* same as above but performs the slow path from the async context. Can
  * be called from the atomic context as well

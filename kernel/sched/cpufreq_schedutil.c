@@ -404,12 +404,13 @@ static void sugov_update_shared(struct update_util_data *hook, u64 time,
 static void sugov_work(struct kthread_work *work)
 {
 	struct sugov_policy *sg_policy = container_of(work, struct sugov_policy, work);
+	unsigned long flags;
 
 	mutex_lock(&sg_policy->work_lock);
-	raw_spin_lock(&sg_policy->update_lock);
+	raw_spin_lock_irqsave(&sg_policy->update_lock, flags);
 	sugov_track_cycles(sg_policy, sg_policy->policy->cur,
 			   sched_ktime_clock());
-	raw_spin_unlock(&sg_policy->update_lock);
+	raw_spin_unlock_irqrestore(&sg_policy->update_lock, flags);
 	__cpufreq_driver_target(sg_policy->policy, sg_policy->next_freq,
 				CPUFREQ_RELATION_L);
 	mutex_unlock(&sg_policy->work_lock);
@@ -488,18 +489,19 @@ static ssize_t hispeed_freq_store(struct gov_attr_set *attr_set,
 	unsigned int val;
 	struct sugov_policy *sg_policy;
 	unsigned long hs_util;
+	unsigned long flags;
 
 	if (kstrtouint(buf, 10, &val))
 		return -EINVAL;
 
 	tunables->hispeed_freq = val;
 	list_for_each_entry(sg_policy, &attr_set->policy_list, tunables_hook) {
-		raw_spin_lock(&sg_policy->update_lock);
+		raw_spin_lock_irqsave(&sg_policy->update_lock, flags);
 		hs_util = freq_to_util(sg_policy,
 					sg_policy->tunables->hispeed_freq);
 		hs_util = mult_frac(hs_util, TARGET_LOAD, 100);
 		sg_policy->hispeed_util = hs_util;
-		raw_spin_unlock(&sg_policy->update_lock);
+		raw_spin_unlock_irqrestore(&sg_policy->update_lock, flags);
 	}
 
 	return count;
@@ -784,13 +786,14 @@ static void sugov_stop(struct cpufreq_policy *policy)
 static void sugov_limits(struct cpufreq_policy *policy)
 {
 	struct sugov_policy *sg_policy = policy->governor_data;
+	unsigned long flags;
 
 	if (!policy->fast_switch_enabled) {
 		mutex_lock(&sg_policy->work_lock);
-		raw_spin_lock(&sg_policy->update_lock);
+		raw_spin_lock_irqsave(&sg_policy->update_lock, flags);
 		sugov_track_cycles(sg_policy, sg_policy->policy->cur,
 				   sched_ktime_clock());
-		raw_spin_unlock(&sg_policy->update_lock);
+		raw_spin_unlock_irqrestore(&sg_policy->update_lock, flags);
 		cpufreq_policy_apply_limits(policy);
 		mutex_unlock(&sg_policy->work_lock);
 	}

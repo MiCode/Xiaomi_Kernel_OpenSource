@@ -30,7 +30,7 @@
 #define SDE_CRTC_NAME_SIZE	12
 
 /* define the maximum number of in-flight frame events */
-#define SDE_CRTC_FRAME_EVENT_SIZE	2
+#define SDE_CRTC_FRAME_EVENT_SIZE	4
 
 /**
  * enum sde_crtc_client_type: crtc client type
@@ -123,9 +123,8 @@ struct sde_crtc_event {
  * @vblank_cb_count : count of vblank callback since last reset
  * @play_count    : frame count between crtc enable and disable
  * @vblank_cb_time  : ktime at vblank count reset
- * @vblank_refcount : reference count for vblank enable request
+ * @vblank_enable : whether the user has requested vblank events
  * @suspend         : whether or not a suspend operation is in progress
- * @idle_pc       : count of current idle power collapse request
  * @feature_list  : list of color processing features supported on a crtc
  * @active_list   : list of color processing features are active
  * @dirty_list    : list of color processing features are dirty
@@ -172,9 +171,8 @@ struct sde_crtc {
 	u32 vblank_cb_count;
 	u64 play_count;
 	ktime_t vblank_cb_time;
-	atomic_t vblank_refcount;
+	bool vblank_enable;
 	bool suspend;
-	u32 idle_pc;
 
 	struct list_head feature_list;
 	struct list_head active_list;
@@ -280,7 +278,6 @@ struct sde_crtc_respool {
  * @sbuf_cfg: stream buffer configuration
  * @sbuf_prefill_line: number of line for inline rotator prefetch
  * @sbuf_flush_mask: flush mask for inline rotator
- * @idle_pc: count of idle power collapse request when state is duplicated
  */
 struct sde_crtc_state {
 	struct drm_crtc_state base;
@@ -309,8 +306,6 @@ struct sde_crtc_state {
 	struct sde_ctl_sbuf_cfg sbuf_cfg;
 	u32 sbuf_prefill_line;
 	u32 sbuf_flush_mask;
-
-	u32 idle_pc;
 
 	struct sde_crtc_respool rp;
 };
@@ -371,14 +366,6 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc);
  * @old_state: Pointer to drm crtc old state object
  */
 void sde_crtc_prepare_commit(struct drm_crtc *crtc,
-		struct drm_crtc_state *old_state);
-
-/**
- * sde_crtc_complete_commit - callback signalling completion of current commit
- * @crtc: Pointer to drm crtc object
- * @old_state: Pointer to drm crtc old state object
- */
-void sde_crtc_complete_commit(struct drm_crtc *crtc,
 		struct drm_crtc_state *old_state);
 
 /**

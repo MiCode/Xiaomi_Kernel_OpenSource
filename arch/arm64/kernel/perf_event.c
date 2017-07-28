@@ -1189,20 +1189,24 @@ static int armv8_pmu_device_probe(struct platform_device *pdev)
 {
 	int ret, cpu;
 
-	for_each_possible_cpu(cpu)
-		per_cpu(is_hotplugging, cpu) = false;
+	/* set to true so armv8pmu_idle_update doesn't try to load
+	 * hw_events before arm_pmu_device_probe has initialized it.
+	 */
+	for_each_possible_cpu(cpu) {
+		per_cpu(is_hotplugging, cpu) = true;
+	}
 
-	ret = perf_event_cpu_hp_init();
+	ret = arm_pmu_device_probe(pdev, armv8_pmu_of_device_ids,
+		(acpi_disabled ?  NULL : armv8_pmu_probe_table));
 
-	if (ret)
-		return ret;
+	if (!ret) {
+		for_each_possible_cpu(cpu)
+			per_cpu(is_hotplugging, cpu) = false;
 
-	if (acpi_disabled)
-		return arm_pmu_device_probe(pdev, armv8_pmu_of_device_ids,
-					    NULL);
+		ret = perf_event_cpu_hp_init();
+	}
 
-	return arm_pmu_device_probe(pdev, armv8_pmu_of_device_ids,
-				    armv8_pmu_probe_table);
+	return ret;
 }
 
 static struct platform_driver armv8_pmu_driver = {

@@ -643,14 +643,14 @@ bail:
 }
 
 /**
-* ipa4_nat_mdfy_pdn() - Modify a PDN entry in PDN config table in IPA SRAM
+* ipa3_nat_mdfy_pdn() - Modify a PDN entry in PDN config table in IPA SRAM
 * @mdfy_pdn:	[in] PDN info to be written to SRAM
 *
 * Called by NAT client driver to modify an entry in the PDN config table
 *
 * Returns:	0 on success, negative on failure
 */
-int ipa4_nat_mdfy_pdn(struct ipa_ioc_nat_pdn_entry *mdfy_pdn)
+int ipa3_nat_mdfy_pdn(struct ipa_ioc_nat_pdn_entry *mdfy_pdn)
 {
 	struct ipahal_imm_cmd_dma_shared_mem mem_cmd = { 0 };
 	struct ipa3_desc desc;

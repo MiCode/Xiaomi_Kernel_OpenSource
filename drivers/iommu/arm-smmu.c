@@ -238,6 +238,7 @@ enum arm_smmu_s2cr_privcfg {
 #define ARM_SMMU_CB_FSYNR0		0x68
 #define ARM_SMMU_CB_S1_TLBIVA		0x600
 #define ARM_SMMU_CB_S1_TLBIASID		0x610
+#define ARM_SMMU_CB_S1_TLBIALL		0x618
 #define ARM_SMMU_CB_S1_TLBIVAL		0x620
 #define ARM_SMMU_CB_S2_TLBIIPAS2	0x630
 #define ARM_SMMU_CB_S2_TLBIIPAS2L	0x638
@@ -249,6 +250,7 @@ enum arm_smmu_s2cr_privcfg {
 
 #define SCTLR_S1_ASIDPNE		(1 << 12)
 #define SCTLR_CFCFG			(1 << 7)
+#define SCTLR_HUPCF			(1 << 8)
 #define SCTLR_CFIE			(1 << 6)
 #define SCTLR_CFRE			(1 << 5)
 #define SCTLR_E				(1 << 4)
@@ -415,6 +417,7 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_SKIP_INIT		(1 << 2)
 #define ARM_SMMU_OPT_DYNAMIC		(1 << 3)
 #define ARM_SMMU_OPT_3LVL_TABLES	(1 << 4)
+#define ARM_SMMU_OPT_NO_ASID_RETENTION	(1 << 5)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 	enum arm_smmu_implementation	model;
@@ -534,6 +537,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_SKIP_INIT, "qcom,skip-init" },
 	{ ARM_SMMU_OPT_DYNAMIC, "qcom,dynamic" },
 	{ ARM_SMMU_OPT_3LVL_TABLES, "qcom,use-3-lvl-tables" },
+	{ ARM_SMMU_OPT_NO_ASID_RETENTION, "qcom,no-asid-retention" },
 	{ 0, NULL},
 };
 
@@ -991,11 +995,16 @@ static void arm_smmu_tlb_inv_context(void *cookie)
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
 	void __iomem *base;
+	bool use_tlbiall = smmu->options & ARM_SMMU_OPT_NO_ASID_RETENTION;
 
-	if (stage1) {
+	if (stage1 && !use_tlbiall) {
 		base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 		writel_relaxed(ARM_SMMU_CB_ASID(smmu, cfg),
 			       base + ARM_SMMU_CB_S1_TLBIASID);
+		arm_smmu_tlb_sync_cb(smmu, cfg->cbndx);
+	} else if (stage1 && use_tlbiall) {
+		base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
+		writel_relaxed(0, base + ARM_SMMU_CB_S1_TLBIALL);
 		arm_smmu_tlb_sync_cb(smmu, cfg->cbndx);
 	} else {
 		base = ARM_SMMU_GR0(smmu);
@@ -1013,8 +1022,9 @@ static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
 	void __iomem *reg;
+	bool use_tlbiall = smmu->options & ARM_SMMU_OPT_NO_ASID_RETENTION;
 
-	if (stage1) {
+	if (stage1 && !use_tlbiall) {
 		reg = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 		reg += leaf ? ARM_SMMU_CB_S1_TLBIVAL : ARM_SMMU_CB_S1_TLBIVA;
 
@@ -1033,6 +1043,10 @@ static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 				iova += granule >> 12;
 			} while (size -= granule);
 		}
+	} else if (stage1 && use_tlbiall) {
+		reg = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
+		reg += ARM_SMMU_CB_S1_TLBIALL;
+		writel_relaxed(0, reg);
 	} else if (smmu->version == ARM_SMMU_V2) {
 		reg = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 		reg += leaf ? ARM_SMMU_CB_S2_TLBIIPAS2L :
@@ -1439,6 +1453,11 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 
 	/* SCTLR */
 	reg = SCTLR_CFCFG | SCTLR_CFIE | SCTLR_CFRE | SCTLR_AFE | SCTLR_TRE;
+
+	if (smmu_domain->attributes & (1 << DOMAIN_ATTR_CB_STALL_DISABLE)) {
+		reg &= ~SCTLR_CFCFG;
+		reg |= SCTLR_HUPCF;
+	}
 
 	if ((!(smmu_domain->attributes & (1 << DOMAIN_ATTR_S1_BYPASS)) &&
 	     !(smmu_domain->attributes & (1 << DOMAIN_ATTR_EARLY_MAP))) ||
@@ -2567,19 +2586,23 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	int ret = 0;
 
+	mutex_lock(&smmu_domain->init_mutex);
 	switch (attr) {
 	case DOMAIN_ATTR_NESTING:
 		*(int *)data = (smmu_domain->stage == ARM_SMMU_DOMAIN_NESTED);
-		return 0;
+		ret = 0;
+		break;
 	case DOMAIN_ATTR_PT_BASE_ADDR:
 		*((phys_addr_t *)data) =
 			smmu_domain->pgtbl_cfg.arm_lpae_s1_cfg.ttbr[0];
-		return 0;
+		ret = 0;
+		break;
 	case DOMAIN_ATTR_CONTEXT_BANK:
 		/* context bank index isn't valid until we are attached */
-		if (smmu_domain->smmu == NULL)
-			return -ENODEV;
-
+		if (smmu_domain->smmu == NULL) {
+			ret = -ENODEV;
+			break;
+		}
 		*((unsigned int *) data) = smmu_domain->cfg.cbndx;
 		ret = 0;
 		break;
@@ -2587,9 +2610,10 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		u64 val;
 		struct arm_smmu_device *smmu = smmu_domain->smmu;
 		/* not valid until we are attached */
-		if (smmu == NULL)
-			return -ENODEV;
-
+		if (smmu == NULL) {
+			ret = -ENODEV;
+			break;
+		}
 		val = smmu_domain->pgtbl_cfg.arm_lpae_s1_cfg.ttbr[0];
 		if (smmu_domain->cfg.cbar != CBAR_TYPE_S2_TRANS)
 			val |= (u64)ARM_SMMU_CB_ASID(smmu, &smmu_domain->cfg)
@@ -2600,8 +2624,10 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 	}
 	case DOMAIN_ATTR_CONTEXTIDR:
 		/* not valid until attached */
-		if (smmu_domain->smmu == NULL)
-			return -ENODEV;
+		if (smmu_domain->smmu == NULL) {
+			ret = -ENODEV;
+			break;
+		}
 		*((u32 *)data) = smmu_domain->cfg.procid;
 		ret = 0;
 		break;
@@ -2655,8 +2681,10 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		ret = 0;
 		break;
 	case DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT:
-		if (!smmu_domain->smmu)
-			return -ENODEV;
+		if (!smmu_domain->smmu) {
+			ret = -ENODEV;
+			break;
+		}
 		*((int *)data) = is_iommu_pt_coherent(smmu_domain);
 		ret = 0;
 		break;
@@ -2665,9 +2693,16 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 			& (1 << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_CB_STALL_DISABLE:
+		*((int *)data) = !!(smmu_domain->attributes
+			& (1 << DOMAIN_ATTR_CB_STALL_DISABLE));
+		ret = 0;
+		break;
 	default:
-		return -ENODEV;
+		ret = -ENODEV;
+		break;
 	}
+	mutex_unlock(&smmu_domain->init_mutex);
 	return ret;
 }
 
@@ -2842,6 +2877,12 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		break;
 	}
 
+	case DOMAIN_ATTR_CB_STALL_DISABLE:
+		if (*((int *)data))
+			smmu_domain->attributes |=
+				1 << DOMAIN_ATTR_CB_STALL_DISABLE;
+		ret = 0;
+		break;
 	default:
 		ret = -ENODEV;
 	}
@@ -3298,14 +3339,23 @@ static int arm_smmu_alloc_cb(struct iommu_domain *domain,
 				struct device *dev)
 {
 	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	u32 i, idx;
 	int cb = -EINVAL;
 	bool dynamic;
 
-	/* Dynamic domains must set cbndx through domain attribute */
+	/*
+	 * Dynamic domains have already set cbndx through domain attribute.
+	 * Verify that they picked a valid value.
+	 */
 	dynamic = is_dynamic_domain(domain);
-	if (dynamic)
-		return INVALID_CBNDX;
+	if (dynamic) {
+		cb = smmu_domain->cfg.cbndx;
+		if (cb < smmu->num_context_banks)
+			return cb;
+		else
+			return -EINVAL;
+	}
 
 	mutex_lock(&smmu->stream_map_mutex);
 	for_each_cfg_sme(fwspec, i, idx) {

@@ -28,6 +28,9 @@ Properties:
 	Value type: <string>
 	Definition: Should contain "qcom,pdc-<target>"
 
+	* "qcom,pdc-sdm845": For sdm845 pin data
+	* "qcom,pdc-sdm670": For sdm670 pin data
+
 - reg:
 	Usage: required
 	Value type: <prop-encoded-array>

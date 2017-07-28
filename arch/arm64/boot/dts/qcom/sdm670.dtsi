@@ -26,10 +26,18 @@
 	model = "Qualcomm Technologies, Inc. SDM670";
 	compatible = "qcom,sdm670";
 	qcom,msm-id = <336 0x0>;
-	interrupt-parent = <&intc>;
+	interrupt-parent = <&pdc>;
 
 	aliases {
 		ufshc1 = &ufshc_mem; /* Embedded UFS slot */
+	};
+
+	aliases {
+		serial0 = &qupv3_se12_2uart;
+		spi0 = &qupv3_se8_spi;
+		i2c0 = &qupv3_se10_i2c;
+		i2c1 = &qupv3_se3_i2c;
+		hsuart0 = &qupv3_se6_4uart;
 	};
 
 	cpus {
@@ -416,6 +424,7 @@
 		reg = <0x17a00000 0x10000>,     /* GICD */
 		      <0x17a60000 0x100000>;    /* GICR * 8 */
 		interrupts = <1 9 4>;
+		interrupt-parent = <&intc>;
 	};
 
 	timer {
@@ -430,6 +439,324 @@
 	qcom,sps {
 		compatible = "qcom,msm_sps_4k";
 		qcom,pipe-attr-ee;
+	};
+
+	thermal_zones: thermal-zones {
+		aoss0-usr {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-governor = "user_space";
+			thermal-sensors = <&tsens0 0>;
+			trips {
+				active-config0 {
+					temperature = <125000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		cpu0-silver-usr {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-governor = "user_space";
+			thermal-sensors = <&tsens0 1>;
+			trips {
+				active-config0 {
+					temperature = <125000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		cpu1-silver-usr {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-governor = "user_space";
+			thermal-sensors = <&tsens0 2>;
+			trips {
+				active-config0 {
+					temperature = <125000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		cpu2-silver-usr {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-governor = "user_space";
+			thermal-sensors = <&tsens0 3>;
+			trips {
+				active-config0 {
+					temperature = <125000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		cpu3-silver-usr {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens0 4>;
+			thermal-governor = "user_space";
+			trips {
+				active-config0 {
+					temperature = <125000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		cpu4-silver-usr {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens0 5>;
+			thermal-governor = "user_space";
+			trips {
+				active-config0 {
+					temperature = <125000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		cpu5-silver-usr {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens0 6>;
+			thermal-governor = "user_space";
+			trips {
+				active-config0 {
+					temperature = <125000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		kryo-l3-0-usr {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens0 7>;
+			thermal-governor = "user_space";
+			trips {
+				active-config0 {
+					temperature = <125000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		kryo-l3-1-usr {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens0 8>;
+			thermal-governor = "user_space";
+			trips {
+				active-config0 {
+					temperature = <125000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		cpu0-gold-usr {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens0 9>;
+			thermal-governor = "user_space";
+			trips {
+				active-config0 {
+					temperature = <125000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		cpu1-gold-usr {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens0 10>;
+			thermal-governor = "user_space";
+			trips {
+				active-config0 {
+					temperature = <125000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		gpu0-usr {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens0 11>;
+			thermal-governor = "user_space";
+			trips {
+				active-config0 {
+					temperature = <125000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		gpu1-usr {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-governor = "user_space";
+			thermal-sensors = <&tsens0 12>;
+			trips {
+				active-config0 {
+					temperature = <125000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		aoss1-usr {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens1 0>;
+			thermal-governor = "user_space";
+			trips {
+				active-config0 {
+					temperature = <125000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		mdm-dsp-usr {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens1 1>;
+			thermal-governor = "user_space";
+			trips {
+				active-config0 {
+					temperature = <125000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		ddr-usr {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens1 2>;
+			thermal-governor = "user_space";
+			trips {
+				active-config0 {
+					temperature = <125000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		wlan-usr {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens1 3>;
+			thermal-governor = "user_space";
+			trips {
+				active-config0 {
+					temperature = <125000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		compute-hvx-usr {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens1 4>;
+			thermal-governor = "user_space";
+			trips {
+				active-config0 {
+					temperature = <125000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		camera-usr {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens1 5>;
+			thermal-governor = "user_space";
+			trips {
+				active-config0 {
+					temperature = <125000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		mmss-usr {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens1 6>;
+			thermal-governor = "user_space";
+			trips {
+				active-config0 {
+					temperature = <125000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+
+		mdm-core-usr {
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
+			thermal-sensors = <&tsens1 7>;
+			thermal-governor = "user_space";
+			trips {
+				active-config0 {
+					temperature = <125000>;
+					hysteresis = <1000>;
+					type = "passive";
+				};
+			};
+		};
+	};
+
+	tsens0: tsens@c222000 {
+		compatible = "qcom,tsens24xx";
+		reg = <0xc222000 0x4>,
+		      <0xc263000 0x1ff>;
+		reg-names = "tsens_srot_physical",
+			    "tsens_tm_physical";
+		interrupts = <0 506 0>, <0 508 0>;
+		interrupt-names = "tsens-upper-lower", "tsens-critical";
+		#thermal-sensor-cells = <1>;
+	};
+
+	tsens1: tsens@c223000 {
+		compatible = "qcom,tsens24xx";
+		reg = <0xc223000 0x4>,
+		      <0xc265000 0x1ff>;
+		reg-names = "tsens_srot_physical",
+			    "tsens_tm_physical";
+		interrupts = <0 507 0>, <0 509 0>;
+		interrupt-names = "tsens-upper-lower", "tsens-critical";
+		#thermal-sensor-cells = <1>;
 	};
 
 	timer@0x17c90000{
@@ -619,6 +946,38 @@
 			compatible = "qcom,msm-imem-kaslr_offset";
 			reg = <0x6d0 12>;
 		};
+	};
+
+	gpi_dma0: qcom,gpi-dma@0x800000 {
+		#dma-cells = <6>;
+		compatible = "qcom,gpi-dma";
+		reg = <0x800000 0x60000>;
+		reg-names = "gpi-top";
+		interrupts = <0 244 0>, <0 245 0>, <0 246 0>, <0 247 0>,
+			     <0 248 0>, <0 249 0>, <0 250 0>, <0 251 0>,
+			     <0 252 0>, <0 253 0>, <0 254 0>, <0 255 0>,
+			     <0 256 0>;
+		qcom,max-num-gpii = <13>;
+		qcom,gpii-mask = <0xfa>;
+		qcom,ev-factor = <2>;
+		iommus = <&apps_smmu 0x0016 0x0>;
+		status = "ok";
+	};
+
+	gpi_dma1: qcom,gpi-dma@0xa00000 {
+		#dma-cells = <6>;
+		compatible = "qcom,gpi-dma";
+		reg = <0xa00000 0x60000>;
+		reg-names = "gpi-top";
+		interrupts = <0 279 0>, <0 280 0>, <0 281 0>, <0 282 0>,
+			     <0 283 0>, <0 284 0>, <0 293 0>, <0 294 0>,
+			     <0 295 0>, <0 296 0>, <0 297 0>, <0 298 0>,
+			     <0 299 0>;
+		qcom,max-num-gpii = <13>;
+		qcom,gpii-mask = <0xfa>;
+		qcom,ev-factor = <2>;
+		iommus = <&apps_smmu 0x06d6 0x0>;
+		status = "ok";
 	};
 
 	cpuss_dump {
@@ -1295,6 +1654,66 @@
 		compatible = "qcom,pil-tz-generic";
 		qcom,pas-id = <0xf>;
 		qcom,firmware-name = "ipa_fws";
+	};
+
+	pil_modem: qcom,mss@4080000 {
+		compatible = "qcom,pil-q6v55-mss";
+		reg = <0x4080000 0x100>,
+		      <0x1f63000 0x008>,
+		      <0x1f65000 0x008>,
+		      <0x1f64000 0x008>,
+		      <0x4180000 0x020>,
+		      <0xc2b0000 0x004>,
+		      <0xb2e0100 0x004>,
+		      <0x4180044 0x004>;
+		reg-names = "qdsp6_base", "halt_q6", "halt_modem",
+			    "halt_nc", "rmb_base", "restart_reg",
+			    "pdc_sync", "alt_reset";
+
+		clocks = <&clock_rpmh RPMH_CXO_CLK>,
+			 <&clock_gcc GCC_MSS_CFG_AHB_CLK>,
+			 <&clock_gcc GCC_MSS_Q6_MEMNOC_AXI_CLK>,
+			 <&clock_gcc GCC_BOOT_ROM_AHB_CLK>,
+			 <&clock_gcc GCC_MSS_GPLL0_DIV_CLK_SRC>,
+			 <&clock_gcc GCC_MSS_SNOC_AXI_CLK>,
+			 <&clock_gcc GCC_MSS_MFAB_AXIS_CLK>,
+			 <&clock_gcc GCC_PRNG_AHB_CLK>;
+		clock-names = "xo", "iface_clk", "bus_clk",
+			      "mem_clk", "gpll0_mss_clk", "snoc_axi_clk",
+			      "mnoc_axi_clk", "prng_clk";
+		qcom,proxy-clock-names = "xo", "prng_clk";
+		qcom,active-clock-names = "iface_clk", "bus_clk", "mem_clk",
+					  "gpll0_mss_clk", "snoc_axi_clk",
+					  "mnoc_axi_clk";
+
+		interrupts = <0 266 1>;
+		vdd_cx-supply = <&pm660l_s3_level>;
+		vdd_cx-voltage = <RPMH_REGULATOR_LEVEL_TURBO>;
+		vdd_mx-supply = <&pm660l_s1_level>;
+		vdd_mx-uV = <RPMH_REGULATOR_LEVEL_TURBO>;
+		qcom,firmware-name = "modem";
+		qcom,pil-self-auth;
+		qcom,sysmon-id = <0>;
+		qcom,ssctl-instance-id = <0x12>;
+		qcom,override-acc;
+		qcom,qdsp6v65-1-0;
+		status = "ok";
+		memory-region = <&pil_modem_mem>;
+		qcom,mem-protect-id = <0xF>;
+
+		/* GPIO inputs from mss */
+		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
+		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_1_in 1 0>;
+		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_1_in 2 0>;
+		qcom,gpio-stop-ack = <&smp2pgpio_ssr_smp2p_1_in 3 0>;
+		qcom,gpio-shutdown-ack = <&smp2pgpio_ssr_smp2p_1_in 7 0>;
+
+		/* GPIO output to mss */
+		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
+		qcom,mba-mem@0 {
+			compatible = "qcom,pil-mba-mem";
+			memory-region = <&pil_mba_mem>;
+		};
 	};
 };
 

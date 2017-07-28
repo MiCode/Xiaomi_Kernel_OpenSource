@@ -58,6 +58,16 @@ static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 			if (c->cap->sblk->pcc.version ==
 				(SDE_COLOR_PROCESS_VER(0x1, 0x7)))
 				c->ops.setup_pcc = sde_setup_dspp_pcc_v1_7;
+			else if (c->cap->sblk->pcc.version ==
+					(SDE_COLOR_PROCESS_VER(0x4, 0x0))) {
+				ret = reg_dmav1_init_dspp_op_v4(i, c->idx);
+				if (!ret)
+					c->ops.setup_pcc =
+						reg_dmav1_setup_dspp_pccv4;
+				else
+					c->ops.setup_pcc =
+						sde_setup_dspp_pccv4;
+			}
 			break;
 		case SDE_DSPP_HSIC:
 			if (c->cap->sblk->hsic.version ==
@@ -104,6 +114,18 @@ static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 						sde_setup_dspp_gc_v1_7;
 			}
 			break;
+		case SDE_DSPP_IGC:
+			if (c->cap->sblk->igc.version ==
+					SDE_COLOR_PROCESS_VER(0x3, 0x1)) {
+				ret = reg_dmav1_init_dspp_op_v4(i, c->idx);
+				if (!ret)
+					c->ops.setup_igc =
+						reg_dmav1_setup_dspp_igcv31;
+				else
+					c->ops.setup_igc =
+						sde_setup_dspp_igcv3;
+			}
+			break;
 		case SDE_DSPP_AD:
 			if (c->cap->sblk->ad.version ==
 			    SDE_COLOR_PROCESS_VER(4, 0)) {
@@ -144,6 +166,13 @@ struct sde_hw_dspp *sde_hw_dspp_init(enum sde_dspp idx,
 		kfree(c);
 		return ERR_PTR(-EINVAL);
 	}
+
+	/* Populate DSPP Top HW block */
+	c->hw_top.base_off = addr;
+	c->hw_top.blk_off = m->dspp_top.base;
+	c->hw_top.length = m->dspp_top.len;
+	c->hw_top.hwversion = m->hwversion;
+	c->hw_top.log_mask = SDE_DBG_MASK_DSPP;
 
 	/* Assign ops */
 	c->idx = idx;

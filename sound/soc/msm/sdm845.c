@@ -495,6 +495,8 @@ static SOC_ENUM_SINGLE_EXT_DECL(quat_mi2s_rx_chs, mi2s_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(quat_mi2s_tx_chs, mi2s_ch_text);
 static SOC_ENUM_SINGLE_EXT_DECL(mi2s_rx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(mi2s_tx_format, bit_format_text);
+static SOC_ENUM_SINGLE_EXT_DECL(aux_pcm_rx_format, bit_format_text);
+static SOC_ENUM_SINGLE_EXT_DECL(aux_pcm_tx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(hifi_function, hifi_text);
 
 static struct platform_device *spdev;
@@ -538,10 +540,10 @@ static struct wcd_mbhc_config wcd_mbhc_cfg = {
 };
 
 static struct snd_soc_dapm_route wcd_audio_paths[] = {
-	{"MIC BIAS1", NULL, "MCLK"},
-	{"MIC BIAS2", NULL, "MCLK"},
-	{"MIC BIAS3", NULL, "MCLK"},
-	{"MIC BIAS4", NULL, "MCLK"},
+	{"MIC BIAS1", NULL, "MCLK TX"},
+	{"MIC BIAS2", NULL, "MCLK TX"},
+	{"MIC BIAS3", NULL, "MCLK TX"},
+	{"MIC BIAS4", NULL, "MCLK TX"},
 };
 
 static struct afe_clk_set mi2s_clk[MI2S_MAX] = {
@@ -2252,7 +2254,7 @@ static int mi2s_get_sample_rate(int value)
 	return sample_rate;
 }
 
-static int mi2s_get_format(int value)
+static int mi2s_auxpcm_get_format(int value)
 {
 	int format;
 
@@ -2276,7 +2278,7 @@ static int mi2s_get_format(int value)
 	return format;
 }
 
-static int mi2s_get_format_value(int format)
+static int mi2s_auxpcm_get_format_value(int format)
 {
 	int value;
 
@@ -2441,7 +2443,7 @@ static int msm_mi2s_rx_format_get(struct snd_kcontrol *kcontrol,
 		return idx;
 
 	ucontrol->value.enumerated.item[0] =
-		mi2s_get_format_value(mi2s_rx_cfg[idx].bit_format);
+		mi2s_auxpcm_get_format_value(mi2s_rx_cfg[idx].bit_format);
 
 	pr_debug("%s: idx[%d]_rx_format = %d, item = %d\n", __func__,
 		idx, mi2s_rx_cfg[idx].bit_format,
@@ -2459,7 +2461,7 @@ static int msm_mi2s_rx_format_put(struct snd_kcontrol *kcontrol,
 		return idx;
 
 	mi2s_rx_cfg[idx].bit_format =
-		mi2s_get_format(ucontrol->value.enumerated.item[0]);
+		mi2s_auxpcm_get_format(ucontrol->value.enumerated.item[0]);
 
 	pr_debug("%s: idx[%d]_rx_format = %d, item = %d\n", __func__,
 		  idx, mi2s_rx_cfg[idx].bit_format,
@@ -2477,7 +2479,7 @@ static int msm_mi2s_tx_format_get(struct snd_kcontrol *kcontrol,
 		return idx;
 
 	ucontrol->value.enumerated.item[0] =
-		mi2s_get_format_value(mi2s_tx_cfg[idx].bit_format);
+		mi2s_auxpcm_get_format_value(mi2s_tx_cfg[idx].bit_format);
 
 	pr_debug("%s: idx[%d]_tx_format = %d, item = %d\n", __func__,
 		idx, mi2s_tx_cfg[idx].bit_format,
@@ -2495,10 +2497,82 @@ static int msm_mi2s_tx_format_put(struct snd_kcontrol *kcontrol,
 		return idx;
 
 	mi2s_tx_cfg[idx].bit_format =
-		mi2s_get_format(ucontrol->value.enumerated.item[0]);
+		mi2s_auxpcm_get_format(ucontrol->value.enumerated.item[0]);
 
 	pr_debug("%s: idx[%d]_tx_format = %d, item = %d\n", __func__,
 		  idx, mi2s_tx_cfg[idx].bit_format,
+		  ucontrol->value.enumerated.item[0]);
+
+	return 0;
+}
+
+static int msm_aux_pcm_rx_format_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int idx = aux_pcm_get_port_idx(kcontrol);
+
+	if (idx < 0)
+		return idx;
+
+	ucontrol->value.enumerated.item[0] =
+		mi2s_auxpcm_get_format_value(aux_pcm_rx_cfg[idx].bit_format);
+
+	pr_debug("%s: idx[%d]_rx_format = %d, item = %d\n", __func__,
+		idx, aux_pcm_rx_cfg[idx].bit_format,
+		ucontrol->value.enumerated.item[0]);
+
+	return 0;
+}
+
+static int msm_aux_pcm_rx_format_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int idx = aux_pcm_get_port_idx(kcontrol);
+
+	if (idx < 0)
+		return idx;
+
+	aux_pcm_rx_cfg[idx].bit_format =
+		mi2s_auxpcm_get_format(ucontrol->value.enumerated.item[0]);
+
+	pr_debug("%s: idx[%d]_rx_format = %d, item = %d\n", __func__,
+		  idx, aux_pcm_rx_cfg[idx].bit_format,
+		  ucontrol->value.enumerated.item[0]);
+
+	return 0;
+}
+
+static int msm_aux_pcm_tx_format_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int idx = aux_pcm_get_port_idx(kcontrol);
+
+	if (idx < 0)
+		return idx;
+
+	ucontrol->value.enumerated.item[0] =
+		mi2s_auxpcm_get_format_value(aux_pcm_tx_cfg[idx].bit_format);
+
+	pr_debug("%s: idx[%d]_tx_format = %d, item = %d\n", __func__,
+		idx, aux_pcm_tx_cfg[idx].bit_format,
+		ucontrol->value.enumerated.item[0]);
+
+	return 0;
+}
+
+static int msm_aux_pcm_tx_format_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int idx = aux_pcm_get_port_idx(kcontrol);
+
+	if (idx < 0)
+		return idx;
+
+	aux_pcm_tx_cfg[idx].bit_format =
+		mi2s_auxpcm_get_format(ucontrol->value.enumerated.item[0]);
+
+	pr_debug("%s: idx[%d]_tx_format = %d, item = %d\n", __func__,
+		  idx, aux_pcm_tx_cfg[idx].bit_format,
 		  ucontrol->value.enumerated.item[0]);
 
 	return 0;
@@ -2765,6 +2839,22 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			msm_mi2s_rx_format_get, msm_mi2s_rx_format_put),
 	SOC_ENUM_EXT("QUAT_MI2S_TX Format", mi2s_tx_format,
 			msm_mi2s_tx_format_get, msm_mi2s_tx_format_put),
+	SOC_ENUM_EXT("PRIM_AUX_PCM_RX Format", aux_pcm_rx_format,
+			msm_aux_pcm_rx_format_get, msm_aux_pcm_rx_format_put),
+	SOC_ENUM_EXT("PRIM_AUX_PCM_TX Format", aux_pcm_tx_format,
+			msm_aux_pcm_tx_format_get, msm_aux_pcm_tx_format_put),
+	SOC_ENUM_EXT("SEC_AUX_PCM_RX Format", aux_pcm_rx_format,
+			msm_aux_pcm_rx_format_get, msm_aux_pcm_rx_format_put),
+	SOC_ENUM_EXT("SEC_AUX_PCM_TX Format", aux_pcm_tx_format,
+			msm_aux_pcm_tx_format_get, msm_aux_pcm_tx_format_put),
+	SOC_ENUM_EXT("TERT_AUX_PCM_RX Format", aux_pcm_rx_format,
+			msm_aux_pcm_rx_format_get, msm_aux_pcm_rx_format_put),
+	SOC_ENUM_EXT("TERT_AUX_PCM_TX Format", aux_pcm_tx_format,
+			msm_aux_pcm_tx_format_get, msm_aux_pcm_tx_format_put),
+	SOC_ENUM_EXT("QUAT_AUX_PCM_RX Format", aux_pcm_rx_format,
+			msm_aux_pcm_rx_format_get, msm_aux_pcm_rx_format_put),
+	SOC_ENUM_EXT("QUAT_AUX_PCM_TX Format", aux_pcm_tx_format,
+			msm_aux_pcm_tx_format_get, msm_aux_pcm_tx_format_put),
 	SOC_ENUM_EXT("HiFi Function", hifi_function, msm_hifi_get,
 			msm_hifi_put),
 };
@@ -2782,6 +2872,38 @@ static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec,
 		ret = -EINVAL;
 	}
 	return ret;
+}
+
+static int msm_snd_enable_codec_ext_tx_clk(struct snd_soc_codec *codec,
+					   int enable, bool dapm)
+{
+	int ret = 0;
+
+	if (!strcmp(dev_name(codec->dev), "tavil_codec")) {
+		ret = tavil_cdc_mclk_tx_enable(codec, enable);
+	} else {
+		dev_err(codec->dev, "%s: unknown codec to enable TX ext clk\n",
+			__func__);
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+static int msm_mclk_tx_event(struct snd_soc_dapm_widget *w,
+			     struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
+
+	pr_debug("%s: event = %d\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		return msm_snd_enable_codec_ext_tx_clk(codec, 1, true);
+	case SND_SOC_DAPM_POST_PMD:
+		return msm_snd_enable_codec_ext_tx_clk(codec, 0, true);
+	}
+	return 0;
 }
 
 static int msm_mclk_event(struct snd_soc_dapm_widget *w,
@@ -2840,7 +2962,7 @@ static const struct snd_soc_dapm_widget msm_dapm_widgets[] = {
 			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_SUPPLY("MCLK TX",  SND_SOC_NOPM, 0, 0,
-	NULL, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	msm_mclk_tx_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_SPK("Lineout_1 amp", NULL),
 	SND_SOC_DAPM_SPK("Lineout_2 amp", NULL),
@@ -3134,6 +3256,8 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 		break;
 
 	case MSM_BACKEND_DAI_AUXPCM_RX:
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			aux_pcm_rx_cfg[PRIM_AUX_PCM].bit_format);
 		rate->min = rate->max =
 			aux_pcm_rx_cfg[PRIM_AUX_PCM].sample_rate;
 		channels->min = channels->max =
@@ -3141,6 +3265,8 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 		break;
 
 	case MSM_BACKEND_DAI_AUXPCM_TX:
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			aux_pcm_tx_cfg[PRIM_AUX_PCM].bit_format);
 		rate->min = rate->max =
 			aux_pcm_tx_cfg[PRIM_AUX_PCM].sample_rate;
 		channels->min = channels->max =
@@ -3148,6 +3274,8 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 		break;
 
 	case MSM_BACKEND_DAI_SEC_AUXPCM_RX:
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			aux_pcm_rx_cfg[SEC_AUX_PCM].bit_format);
 		rate->min = rate->max =
 			aux_pcm_rx_cfg[SEC_AUX_PCM].sample_rate;
 		channels->min = channels->max =
@@ -3155,6 +3283,8 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 		break;
 
 	case MSM_BACKEND_DAI_SEC_AUXPCM_TX:
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			aux_pcm_tx_cfg[SEC_AUX_PCM].bit_format);
 		rate->min = rate->max =
 			aux_pcm_tx_cfg[SEC_AUX_PCM].sample_rate;
 		channels->min = channels->max =
@@ -3162,6 +3292,8 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 		break;
 
 	case MSM_BACKEND_DAI_TERT_AUXPCM_RX:
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			aux_pcm_rx_cfg[TERT_AUX_PCM].bit_format);
 		rate->min = rate->max =
 			aux_pcm_rx_cfg[TERT_AUX_PCM].sample_rate;
 		channels->min = channels->max =
@@ -3169,6 +3301,8 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 		break;
 
 	case MSM_BACKEND_DAI_TERT_AUXPCM_TX:
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			aux_pcm_tx_cfg[TERT_AUX_PCM].bit_format);
 		rate->min = rate->max =
 			aux_pcm_tx_cfg[TERT_AUX_PCM].sample_rate;
 		channels->min = channels->max =
@@ -3176,6 +3310,8 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 		break;
 
 	case MSM_BACKEND_DAI_QUAT_AUXPCM_RX:
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			aux_pcm_rx_cfg[QUAT_AUX_PCM].bit_format);
 		rate->min = rate->max =
 			aux_pcm_rx_cfg[QUAT_AUX_PCM].sample_rate;
 		channels->min = channels->max =
@@ -3183,6 +3319,8 @@ static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 		break;
 
 	case MSM_BACKEND_DAI_QUAT_AUXPCM_TX:
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			aux_pcm_tx_cfg[QUAT_AUX_PCM].bit_format);
 		rate->min = rate->max =
 			aux_pcm_tx_cfg[QUAT_AUX_PCM].sample_rate;
 		channels->min = channels->max =
@@ -5187,12 +5325,13 @@ static struct snd_soc_dai_link msm_common_dai_links[] = {
 		.id = MSM_FRONTEND_DAI_MULTIMEDIA15,
 	},
 	{
-		.name = MSM_DAILINK_NAME(Compress9),
-		.stream_name = "Compress9",
+		.name = MSM_DAILINK_NAME(ULL_NOIRQ_2),
+		.stream_name = "MM_NOIRQ_2",
 		.cpu_dai_name = "MultiMedia16",
-		.platform_name = "msm-compress-dsp",
+		.platform_name = "msm-pcm-dsp-noirq",
 		.dynamic = 1,
 		.dpcm_playback = 1,
+		.dpcm_capture = 1,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 			 SND_SOC_DPCM_TRIGGER_POST},
 		.codec_dai_name = "snd-soc-dummy-dai",

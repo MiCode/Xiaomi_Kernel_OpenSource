@@ -34,6 +34,9 @@ struct ipa_api_controller {
 	int (*ipa_cfg_ep_nat)(u32 clnt_hdl,
 		const struct ipa_ep_cfg_nat *ipa_ep_cfg);
 
+	int (*ipa_cfg_ep_conn_track)(u32 clnt_hdl,
+		const struct ipa_ep_cfg_conn_track *ipa_ep_cfg);
+
 	int (*ipa_cfg_ep_hdr)(u32 clnt_hdl,
 		const struct ipa_ep_cfg_hdr *ipa_ep_cfg);
 
@@ -375,6 +378,11 @@ struct ipa_api_controller {
 		int ipa_ep_idx_dl);
 
 	struct device *(*ipa_get_pdev)(void);
+
+	int (*ipa_ntn_uc_reg_rdyCB)(void (*ipauc_ready_cb)(void *user_data),
+		void *user_data);
+
+	void (*ipa_ntn_uc_dereg_rdyCB)(void);
 };
 
 #ifdef CONFIG_IPA

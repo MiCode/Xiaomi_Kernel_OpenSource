@@ -3114,7 +3114,8 @@ int dsi_display_get_info(struct msm_display_info *info, void *disp)
 	info->frame_rate = timing->refresh_rate;
 	info->vtotal = DSI_V_TOTAL(timing);
 	info->prefill_lines = display->panel->panel_prefill_lines;
-	info->jitter = display->panel->panel_jitter;
+	info->jitter_numer = display->panel->panel_jitter_numer;
+	info->jitter_denom = display->panel->panel_jitter_denom;
 	info->width_mm = phy_props.panel_width_mm;
 	info->height_mm = phy_props.panel_height_mm;
 	info->max_width = 1920;

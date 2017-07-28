@@ -319,7 +319,7 @@ static inline u32 dwc3_msm_read_reg_field(void __iomem *base,
 					  u32 offset,
 					  const u32 mask)
 {
-	u32 shift = ffs(mask);
+	u32 shift = __ffs(mask);
 	u32 val = ioread32(base + offset);
 
 	val &= mask;		/* clear other bits */
@@ -353,7 +353,7 @@ static inline void dwc3_msm_write_reg(void __iomem *base, u32 offset, u32 val)
 static inline void dwc3_msm_write_reg_field(void __iomem *base, u32 offset,
 					    const u32 mask, u32 val)
 {
-	u32 shift = find_first_bit((void *)&mask, 32);
+	u32 shift = __ffs(mask);
 	u32 tmp = ioread32(base + offset);
 
 	tmp &= ~mask;		/* clear written bits */
@@ -1768,9 +1768,10 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned int event)
 
 		/*
 		 * Below sequence is used when controller is working without
-		 * having ssphy and only USB high speed is supported.
+		 * having ssphy and only USB high/full speed is supported.
 		 */
-		if (dwc->maximum_speed == USB_SPEED_HIGH) {
+		if (dwc->maximum_speed == USB_SPEED_HIGH ||
+					dwc->maximum_speed == USB_SPEED_FULL) {
 			dwc3_msm_write_reg(mdwc->base, QSCRATCH_GENERAL_CFG,
 				dwc3_msm_read_reg(mdwc->base,
 				QSCRATCH_GENERAL_CFG)
@@ -3763,20 +3764,9 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		platform_device_del(dwc->xhci);
 		usb_unregister_notify(&mdwc->host_nb);
 
-		/*
-		 * Perform USB hardware RESET (both core reset and DBM reset)
-		 * when moving from host to peripheral. This is required for
-		 * peripheral mode to work.
-		 */
-		dwc3_msm_block_reset(mdwc, true);
-
 		dwc3_usb3_phy_suspend(dwc, false);
-		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
-
 		mdwc->in_host_mode = false;
 
-		/* re-init core and OTG registers as block reset clears these */
-		dwc3_post_host_reset_core_init(dwc);
 		pm_runtime_mark_last_busy(mdwc->dev);
 		pm_runtime_put_sync_autosuspend(mdwc->dev);
 		dbg_event(0xFF, "StopHost psync",

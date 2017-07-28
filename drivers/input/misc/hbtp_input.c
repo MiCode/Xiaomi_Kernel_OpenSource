@@ -1362,10 +1362,12 @@ static ssize_t hbtp_display_pwr_store(struct kobject *kobj,
 	ret = kstrtou32(buf, 10, &status);
 	if (ret) {
 		pr_err("hbtp: ret error: %zd\n", ret);
+		mutex_unlock(&hbtp->mutex);
 		return ret;
 	}
 	if (!hbtp || !hbtp->input_dev) {
 		pr_err("hbtp: hbtp or hbtp->input_dev not ready!\n");
+		mutex_unlock(&hbtp->mutex);
 		return ret;
 	}
 	if (status) {

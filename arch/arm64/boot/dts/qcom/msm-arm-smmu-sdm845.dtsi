@@ -65,6 +65,7 @@
 		#iommu-cells = <2>;
 		qcom,skip-init;
 		qcom,use-3-lvl-tables;
+		qcom,no-asid-retention;
 		#global-interrupts = <1>;
 		#size-cells = <1>;
 		#address-cells = <1>;
@@ -339,10 +340,10 @@
 	apps_iommu_coherent_test_device {
 		compatible = "iommu-debug-test";
 		/*
-		 * This SID belongs to QUP1-DMA. We can't use a fake SID for
+		 * This SID belongs to TSIF. We can't use a fake SID for
 		 * the apps_smmu device.
 		 */
-		iommus = <&apps_smmu 0x3 0>;
+		iommus = <&apps_smmu 0x20 0>;
 		dma-coherent;
 	};
 };

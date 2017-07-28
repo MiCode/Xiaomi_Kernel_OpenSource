@@ -937,9 +937,8 @@ static int msm_sdw_ear_spkr_pa_gain_put(struct snd_kcontrol *kcontrol,
 static int msm_sdw_vi_feed_mixer_get(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct msm_sdw_priv *msm_sdw_p = snd_soc_codec_get_drvdata(codec);
 
@@ -951,9 +950,8 @@ static int msm_sdw_vi_feed_mixer_get(struct snd_kcontrol *kcontrol,
 static int msm_sdw_vi_feed_mixer_put(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct msm_sdw_priv *msm_sdw_p = snd_soc_codec_get_drvdata(codec);
 	struct soc_multi_mixer_control *mixer =

@@ -2564,7 +2564,7 @@ static void gpi_setup_debug(struct gpi_dev *gpi_dev)
 
 static int gpi_smmu_init(struct gpi_dev *gpi_dev)
 {
-	u64 size = U64_MAX;
+	u64 size = PAGE_SIZE;
 	dma_addr_t base = 0x0;
 	struct dma_iommu_mapping *map;
 	int attr, ret;

@@ -65,7 +65,6 @@ extern void update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 
 extern unsigned int nr_eligible_big_tasks(int cpu);
 
-#ifndef CONFIG_SCHED_HMP
 static inline void
 inc_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p)
 {
@@ -87,7 +86,6 @@ dec_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p)
 
 	BUG_ON(stats->nr_big_tasks < 0);
 }
-#endif
 
 static inline void
 adjust_nr_big_tasks(struct hmp_sched_stats *stats, int delta, bool inc)
@@ -291,7 +289,11 @@ void sort_clusters(void);
 
 void walt_irq_work(struct irq_work *irq_work);
 
+void walt_sched_init(struct rq *rq);
+
 #else /* CONFIG_SCHED_WALT */
+
+static inline void walt_sched_init(struct rq *rq) { }
 
 static inline void update_task_ravg(struct task_struct *p, struct rq *rq,
 				int event, u64 wallclock, u64 irqtime) { }

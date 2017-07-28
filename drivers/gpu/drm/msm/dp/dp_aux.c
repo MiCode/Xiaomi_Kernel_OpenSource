@@ -131,13 +131,14 @@ static int dp_aux_cmd_fifo_tx(struct dp_aux_private *aux,
 		return -ETIMEDOUT;
 	}
 
-	pr_debug("aux status %s\n",
-		dp_aux_get_error(aux->aux_error_num));
-
-	if (aux->aux_error_num == DP_AUX_ERR_NONE)
+	if (aux->aux_error_num == DP_AUX_ERR_NONE) {
 		ret = len;
-	else
+	} else {
+		pr_err_ratelimited("aux err: %s\n",
+			dp_aux_get_error(aux->aux_error_num));
+
 		ret = -EINVAL;
+	}
 
 	return ret;
 }

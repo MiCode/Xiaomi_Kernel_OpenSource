@@ -476,6 +476,10 @@
 		method = "smc";
 	};
 
+	chosen {
+		bootargs = "rcupdate.rcu_expedited=1";
+	};
+
 	soc: soc { };
 
 	vendor: vendor {
@@ -641,7 +645,6 @@
 #include "sdm845-sde-pll.dtsi"
 #include "msm-rdbg.dtsi"
 #include "sdm845-sde.dtsi"
-#include "sdm845-sde-display.dtsi"
 #include "sdm845-qupv3.dtsi"
 
 &soc {
@@ -737,6 +740,12 @@
 		reg-names = "pshold-base", "tcsr-boot-misc-detect";
 	};
 
+	aop-msg-client {
+		compatible = "qcom,debugfs-qmp-client";
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "aop";
+	};
+
 	spmi_bus: qcom,spmi@c440000 {
 		compatible = "qcom,spmi-pmic-arb";
 		reg = <0xc440000 0x1100>,
@@ -765,7 +774,6 @@
 		qcom,fuse-disable-bit = <12>;
 		#address-cells = <2>;
 		#size-cells = <0>;
-		status = "disabled";
 
 		qcom,pm8998-debug@0 {
 			compatible = "qcom,spmi-pmic";
@@ -975,7 +983,7 @@
 			< 1209600  806400000 >,
 			< 1516800  883200000 >,
 			< 1593600  960000000 >,
-			< 1708800 1094400000 >;
+			< 1708800 1305600000 >;
 	};
 
 	devfreq_l3lat_4: qcom,cpu4-l3lat-mon {
@@ -989,7 +997,7 @@
 			< 1190400  806400000 >,
 			< 1574400  883200000 >,
 			< 1804800  960000000 >,
-			< 2092800 1094400000 >;
+			< 1958400 1305600000 >;
 	};
 
 	cpu_pmu: cpu-pmu {
@@ -1314,10 +1322,6 @@
 			<  2035200000 0x404c166a 0x00005555 0x3 23 >,
 			<  2112000000 0x4054176e 0x00005858 0x3 24 >,
 			<  2208000000 0x40541873 0x00005c5c 0x3 25 >;
-
-		qcom,l3-min-cpr-vc-bin0 = <7>;
-		qcom,pwrcl-min-cpr-vc-bin0 = <6>;
-		qcom,perfcl-min-cpr-vc-bin0 = <7>;
 
 		qcom,up-timer =
 			<1000 1000 1000>;
@@ -1676,6 +1680,8 @@
 
 		qcom,sdr104-wa;
 
+		qcom,restore-after-cx-collapse;
+
 		qcom,devfreq,freq-table = <50000000 200000000>;
 		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
@@ -1965,63 +1971,75 @@
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
 			iommus = <&apps_smmu 0x1401 0x30>;
+			dma-coherent;
 		};
 		qcom,msm_fastrpc_compute_cb2 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
 			iommus = <&apps_smmu 0x1402 0x30>;
+			dma-coherent;
 		};
 		qcom,msm_fastrpc_compute_cb3 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
 			iommus = <&apps_smmu 0x1403 0x30>;
+			dma-coherent;
 		};
 		qcom,msm_fastrpc_compute_cb4 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
 			iommus = <&apps_smmu 0x1404 0x30>;
+			dma-coherent;
 		};
 		qcom,msm_fastrpc_compute_cb5 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
 			iommus = <&apps_smmu 0x1405 0x30>;
+			dma-coherent;
 		};
 		qcom,msm_fastrpc_compute_cb6 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
 			iommus = <&apps_smmu 0x1406 0x30>;
+			dma-coherent;
 		};
 		qcom,msm_fastrpc_compute_cb7 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
 			iommus = <&apps_smmu 0x1407 0x30>;
+			dma-coherent;
 		};
 		qcom,msm_fastrpc_compute_cb8 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
 			iommus = <&apps_smmu 0x1408 0x30>;
+			dma-coherent;
 		};
 		qcom,msm_fastrpc_compute_cb9 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
 			qcom,secure-context-bank;
 			iommus = <&apps_smmu 0x1409 0x30>;
+			dma-coherent;
 		};
 		qcom,msm_fastrpc_compute_cb10 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "cdsprpc-smd";
 			qcom,secure-context-bank;
 			iommus = <&apps_smmu 0x140A 0x30>;
+			dma-coherent;
 		};
 		qcom,msm_fastrpc_compute_cb11 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "adsprpc-smd";
 			iommus = <&apps_smmu 0x1823 0x0>;
+			dma-coherent;
 		};
 		qcom,msm_fastrpc_compute_cb12 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "adsprpc-smd";
 			iommus = <&apps_smmu 0x1824 0x0>;
+			dma-coherent;
 		};
 	};
 
@@ -2235,7 +2253,6 @@
 			compatible = "qcom,sdm845-llcc";
 			#cache-cells = <1>;
 			max-slices = <32>;
-			qcom,dump-size = <0x3c0000>;
 		};
 
 		qcom,llcc-erp {
@@ -2249,19 +2266,19 @@
 		};
 
 		LLCC_1: llcc_1_dcache {
-			qcom,dump-size = <0xd8000>;
+			qcom,dump-size = <0x114100>;
 		};
 
 		LLCC_2: llcc_2_dcache {
-			qcom,dump-size = <0xd8000>;
+			qcom,dump-size = <0x114100>;
 		};
 
 		LLCC_3: llcc_3_dcache {
-			qcom,dump-size = <0xd8000>;
+			qcom,dump-size = <0x114100>;
 		};
 
 		LLCC_4: llcc_4_dcache {
-			qcom,dump-size = <0xd8000>;
+			qcom,dump-size = <0x114100>;
 		};
 	};
 
@@ -2971,6 +2988,7 @@
 		vdd-3.3-ch0-supply = <&pm8998_l25>;
 		qcom,vdd-0.8-cx-mx-config = <800000 800000>;
 		qcom,vdd-3.3-ch0-config = <3104000 3312000>;
+		qcom,smmu-s1-bypass;
 	};
 
 	qmi-tmd-devices {

@@ -38,6 +38,18 @@
 #define MDP_WD_TIMER_0_CTL                0x380
 #define MDP_WD_TIMER_0_CTL2               0x384
 #define MDP_WD_TIMER_0_LOAD_VALUE         0x388
+#define MDP_WD_TIMER_1_CTL                0x390
+#define MDP_WD_TIMER_1_CTL2               0x394
+#define MDP_WD_TIMER_1_LOAD_VALUE         0x398
+#define MDP_WD_TIMER_2_CTL                0x420
+#define MDP_WD_TIMER_2_CTL2               0x424
+#define MDP_WD_TIMER_2_LOAD_VALUE         0x428
+#define MDP_WD_TIMER_3_CTL                0x430
+#define MDP_WD_TIMER_3_CTL2               0x434
+#define MDP_WD_TIMER_3_LOAD_VALUE         0x438
+#define MDP_WD_TIMER_4_CTL                0x440
+#define MDP_WD_TIMER_4_CTL2               0x444
+#define MDP_WD_TIMER_4_LOAD_VALUE         0x448
 
 #define MDP_TICK_COUNT                    16
 #define XO_CLK_RATE                       19200
@@ -204,38 +216,74 @@ static void sde_hw_get_danger_status(struct sde_hw_mdp *mdp,
 	status->wb[WB_3] = 0;
 }
 
-static void sde_hw_setup_vsync_sel(struct sde_hw_mdp *mdp,
-		struct sde_watchdog_te_status *cfg, bool watchdog_te)
+static void sde_hw_setup_vsync_source(struct sde_hw_mdp *mdp,
+		struct sde_vsync_source_cfg *cfg)
 {
-	struct sde_hw_blk_reg_map *c = &mdp->hw;
-	u32 reg = 0;
-	int i = 0;
-	u32 pp_offset[] = {0xC, 0x8, 0x4, 0x13};
+	struct sde_hw_blk_reg_map *c;
+	u32 reg, wd_load_value, wd_ctl, wd_ctl2, i;
+	static const u32 pp_offset[PINGPONG_MAX] = {0xC, 0x8, 0x4, 0x13, 0x18};
 
-	if (!mdp)
+	if (!mdp || !cfg || (cfg->pp_count > ARRAY_SIZE(cfg->ppnumber)))
 		return;
 
+	c = &mdp->hw;
 	reg = SDE_REG_READ(c, MDP_VSYNC_SEL);
 	for (i = 0; i < cfg->pp_count; i++) {
 		int pp_idx = cfg->ppnumber[i] - PINGPONG_0;
+		if (pp_idx >= ARRAY_SIZE(pp_offset))
+			continue;
 
-		if (watchdog_te)
-			reg |= 0xF << pp_offset[pp_idx];
-		else
-			reg &= ~(0xF << pp_offset[pp_idx]);
+		reg &= ~(0xf << pp_offset[pp_idx]);
+		reg |= (cfg->vsync_source & 0xf) << pp_offset[pp_idx];
 	}
-
 	SDE_REG_WRITE(c, MDP_VSYNC_SEL, reg);
 
-	if (watchdog_te) {
-		SDE_REG_WRITE(c, MDP_WD_TIMER_0_LOAD_VALUE,
+	if (cfg->vsync_source >= SDE_VSYNC_SOURCE_WD_TIMER_4 &&
+			cfg->vsync_source <= SDE_VSYNC_SOURCE_WD_TIMER_0) {
+		switch (cfg->vsync_source) {
+		case SDE_VSYNC_SOURCE_WD_TIMER_4:
+			wd_load_value = MDP_WD_TIMER_4_LOAD_VALUE;
+			wd_ctl = MDP_WD_TIMER_4_CTL;
+			wd_ctl2 = MDP_WD_TIMER_4_CTL2;
+			break;
+		case SDE_VSYNC_SOURCE_WD_TIMER_3:
+			wd_load_value = MDP_WD_TIMER_3_LOAD_VALUE;
+			wd_ctl = MDP_WD_TIMER_3_CTL;
+			wd_ctl2 = MDP_WD_TIMER_3_CTL2;
+			break;
+		case SDE_VSYNC_SOURCE_WD_TIMER_2:
+			wd_load_value = MDP_WD_TIMER_2_LOAD_VALUE;
+			wd_ctl = MDP_WD_TIMER_2_CTL;
+			wd_ctl2 = MDP_WD_TIMER_2_CTL2;
+			break;
+		case SDE_VSYNC_SOURCE_WD_TIMER_1:
+			wd_load_value = MDP_WD_TIMER_1_LOAD_VALUE;
+			wd_ctl = MDP_WD_TIMER_1_CTL;
+			wd_ctl2 = MDP_WD_TIMER_1_CTL2;
+			break;
+		case SDE_VSYNC_SOURCE_WD_TIMER_0:
+		default:
+			wd_load_value = MDP_WD_TIMER_0_LOAD_VALUE;
+			wd_ctl = MDP_WD_TIMER_0_CTL;
+			wd_ctl2 = MDP_WD_TIMER_0_CTL2;
+			break;
+		}
+
+		if (cfg->is_dummy) {
+			SDE_REG_WRITE(c, wd_ctl2, 0x0);
+		} else {
+			SDE_REG_WRITE(c, wd_load_value,
 				CALCULATE_WD_LOAD_VALUE(cfg->frame_rate));
 
-		SDE_REG_WRITE(c, MDP_WD_TIMER_0_CTL, BIT(0)); /* clear timer */
-		reg = SDE_REG_READ(c, MDP_WD_TIMER_0_CTL2);
-		reg |= BIT(8);		/* enable heartbeat timer */
-		reg |= BIT(0);		/* enable WD timer */
-		SDE_REG_WRITE(c, MDP_WD_TIMER_0_CTL2, reg);
+			SDE_REG_WRITE(c, wd_ctl, BIT(0)); /* clear timer */
+			reg = SDE_REG_READ(c, wd_ctl2);
+			reg |= BIT(8);		/* enable heartbeat timer */
+			reg |= BIT(0);		/* enable WD timer */
+			SDE_REG_WRITE(c, wd_ctl2, reg);
+		}
+
+		/* make sure that timers are enabled/disabled for vsync state */
+		wmb();
 	}
 }
 
@@ -308,7 +356,7 @@ static void _setup_mdp_ops(struct sde_hw_mdp_ops *ops,
 	ops->setup_cdm_output = sde_hw_setup_cdm_output;
 	ops->setup_clk_force_ctrl = sde_hw_setup_clk_force_ctrl;
 	ops->get_danger_status = sde_hw_get_danger_status;
-	ops->setup_vsync_sel = sde_hw_setup_vsync_sel;
+	ops->setup_vsync_source = sde_hw_setup_vsync_source;
 	ops->get_safe_status = sde_hw_get_safe_status;
 	ops->setup_dce = sde_hw_setup_dce;
 	ops->reset_ubwc = sde_hw_reset_ubwc;

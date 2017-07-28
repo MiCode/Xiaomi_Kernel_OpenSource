@@ -90,6 +90,8 @@ static u32 v1_supported[REG_DMA_FEATURES_MAX]  = {
 	[GAMUT] = GRP_VIG_HW_BLK_SELECT | GRP_DSPP_HW_BLK_SELECT,
 	[VLUT] = GRP_DSPP_HW_BLK_SELECT,
 	[GC] = GRP_DSPP_HW_BLK_SELECT,
+	[IGC] = DSPP_IGC | GRP_DSPP_HW_BLK_SELECT,
+	[PCC] = GRP_DSPP_HW_BLK_SELECT,
 };
 
 static int validate_dma_cfg(struct sde_reg_dma_setup_ops_cfg *cfg);
@@ -182,7 +184,7 @@ static int write_multi_reg(struct sde_reg_dma_setup_ops_cfg *cfg)
 	loc =  (u8 *)cfg->dma_buf->vaddr + cfg->dma_buf->index;
 	memcpy(loc, cfg->data, cfg->data_size);
 	cfg->dma_buf->index += cfg->data_size;
-	cfg->dma_buf->next_op_allowed = REG_WRITE_OP;
+	cfg->dma_buf->next_op_allowed = REG_WRITE_OP | DECODE_SEL_OP;
 	cfg->dma_buf->ops_completed |= REG_WRITE_OP;
 
 	return 0;
@@ -244,7 +246,7 @@ static int write_single_reg(struct sde_reg_dma_setup_ops_cfg *cfg)
 	loc[1] = *cfg->data;
 	cfg->dma_buf->index += ops_mem_size[cfg->ops];
 	cfg->dma_buf->ops_completed |= REG_WRITE_OP;
-	cfg->dma_buf->next_op_allowed = REG_WRITE_OP;
+	cfg->dma_buf->next_op_allowed = REG_WRITE_OP | DECODE_SEL_OP;
 
 	return 0;
 }

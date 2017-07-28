@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -129,7 +129,7 @@ static inline void msm_dbm_write_ep_reg_field(struct dbm *dbm,
 					      enum dbm_reg reg, int ep,
 					      const u32 mask, u32 val)
 {
-	u32 shift = find_first_bit((void *)&mask, 32);
+	u32 shift = __ffs(mask);
 	u32 offset = dbm->reg_table[reg].offset +
 			(dbm->reg_table[reg].ep_mult * ep);
 	u32 tmp = ioread32(dbm->base + offset);

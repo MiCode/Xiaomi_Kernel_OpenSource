@@ -996,6 +996,11 @@ struct buffer_requirements {
 	struct hal_buffer_requirements buffer[HAL_BUFFER_MAX];
 };
 
+struct hal_conceal_color {
+	u32 conceal_color_8bit;
+	u32 conceal_color_10bit;
+};
+
 union hal_get_property {
 	struct hal_frame_rate frame_rate;
 	struct hal_uncompressed_format_select format_select;
@@ -1045,6 +1050,7 @@ union hal_get_property {
 	struct hal_buffer_alloc_mode buffer_alloc_mode;
 	struct buffer_requirements buf_req;
 	enum hal_h264_entropy h264_entropy;
+	struct hal_conceal_color conceal_color;
 };
 
 /* HAL Response */

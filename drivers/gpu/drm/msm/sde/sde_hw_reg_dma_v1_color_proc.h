@@ -46,11 +46,25 @@ void reg_dmav1_setup_dspp_vlutv18(struct sde_hw_dspp *ctx, void *cfg);
 void reg_dmav1_setup_dspp_3d_gamutv4(struct sde_hw_dspp *ctx, void *cfg);
 
 /**
- * reg_dmav1_setup_dspp_gc_v18() - gc v18 implementation using reg dma v1.
+ * reg_dmav1_setup_dspp_gcv18() - gc v18 implementation using reg dma v1.
  * @ctx: dspp ctx info
  * @cfg: pointer to struct sde_hw_cp_cfg
  */
 void reg_dmav1_setup_dspp_gcv18(struct sde_hw_dspp *ctx, void *cfg);
+
+/**
+ * reg_dmav1_setup_dspp_igcv31() - igc v31 implementation using reg dma v1.
+ * @ctx: dspp ctx info
+ * @cfg: pointer to struct sde_hw_cp_cfg
+ */
+void reg_dmav1_setup_dspp_igcv31(struct sde_hw_dspp *ctx, void *cfg);
+
+/**
+ * reg_dmav1_setup_dspp_pccv4() - pcc v4 implementation using reg dma v1.
+ * @ctx: dspp ctx info
+ * @cfg: pointer to struct sde_hw_cp_cfg
+ */
+void reg_dmav1_setup_dspp_pccv4(struct sde_hw_dspp *ctx, void *cfg);
 
 /**
  * reg_dmav1_deinit_dspp_ops() - deinitialize the dspp feature op for sde v4

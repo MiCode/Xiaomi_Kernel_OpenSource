@@ -182,6 +182,20 @@ extern void dmac_inv_range(const void *, const void *);
 extern void dmac_clean_range(const void *, const void *);
 extern void dmac_flush_range(const void *, const void *);
 
+static inline void __dma_inv_area(const void *start, size_t len)
+{
+	dmac_inv_range(start, start + len);
+}
+
+static inline void __dma_clean_area(const void *start, size_t len)
+{
+	dmac_clean_range(start, start + len);
+}
+
+static inline void __dma_flush_area(const void *start, size_t len)
+{
+	dmac_flush_range(start, start + len);
+}
 #endif
 
 /*

@@ -32,6 +32,7 @@
 #define RPMH_MAX_MBOXES			2
 #define RPMH_MAX_FAST_RES		32
 #define RPMH_MAX_REQ_IN_BATCH		10
+#define RPMH_TIMEOUT			msecs_to_jiffies(10000)
 
 #define DEFINE_RPMH_MSG_ONSTACK(rc, s, q, c, name)	\
 	struct rpmh_msg name = {			\
@@ -164,6 +165,41 @@ static void rpmh_tx_done(struct mbox_client *cl, void *msg, int r)
 	if (wc && atomic_dec_and_test(wc))
 		if (compl)
 			complete(compl);
+}
+
+/**
+ * wait_for_tx_done: Wait forever until the response is received.
+ *
+ * @rc: The RPMH client
+ * @compl: The completion object
+ * @addr: An addr that we sent in that request
+ * @data: The data for the address in that request
+ *
+ */
+static inline void wait_for_tx_done(struct rpmh_client *rc,
+		struct completion *compl, u32 addr, u32 data)
+{
+	int ret;
+	int count = 4;
+
+	do {
+		ret = wait_for_completion_timeout(compl, RPMH_TIMEOUT);
+		if (ret) {
+			if (count != 4)
+			dev_notice(rc->dev,
+				"RPMH response received addr=0x%x data=0x%x\n",
+				addr, data);
+			return;
+		}
+		if (!count) {
+			mbox_chan_debug(rc->chan);
+		} else {
+			dev_err(rc->dev,
+			"RPMH response timeout (%d) addr=0x%x,data=0x%x\n",
+			count, addr, data);
+			count--;
+		}
+	} while (true);
 }
 
 static struct rpmh_req *__find_req(struct rpmh_client *rc, u32 addr)
@@ -365,7 +401,7 @@ int rpmh_write_single(struct rpmh_client *rc, enum rpmh_state state,
 	if (ret < 0)
 		return ret;
 
-	wait_for_completion(&compl);
+	wait_for_tx_done(rc, &compl, addr, data);
 
 	return rpm_msg.err;
 }
@@ -469,7 +505,7 @@ int rpmh_write(struct rpmh_client *rc, enum rpmh_state state,
 	if (ret)
 		return ret;
 
-	wait_for_completion(&compl);
+	wait_for_tx_done(rc, &compl, cmd[0].addr, cmd[0].data);
 
 	return rpm_msg.err;
 }
@@ -500,6 +536,7 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 	int count = 0;
 	int ret, i, j, k;
 	bool complete_set;
+	u32 addr, data;
 
 	if (IS_ERR_OR_NULL(rc) || !cmd || !n)
 		return -EINVAL;
@@ -537,6 +574,8 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 		}
 	}
 
+	addr = cmd[0].addr;
+	data = cmd[0].data;
 	/* Create async request batches */
 	for (i = 0; i < count; i++) {
 		rpm_msg[i] = __get_rpmh_msg_async(rc, state, cmd, n[i]);
@@ -566,7 +605,7 @@ int rpmh_write_passthru(struct rpmh_client *rc, enum rpmh_state state,
 		/* For those unsent requests, spoof tx_done */
 		for (j = i; j < count; j++)
 			rpmh_tx_done(&rc->client, &rpm_msg[j]->msg, ret);
-		wait_for_completion(&compl);
+		wait_for_tx_done(rc, &compl, addr, data);
 	} else {
 		/* Send Sleep requests to the controller, expect no response */
 		for (i = 0; i < count; i++) {
@@ -719,7 +758,7 @@ int rpmh_read(struct rpmh_client *rc, u32 addr, u32 *resp)
 		return ret;
 
 	/* Wait until the response is received from RPMH */
-	wait_for_completion(&compl);
+	wait_for_tx_done(rc, &compl, addr, 0);
 
 	/* Read the data back from the tcs_mbox_msg structrure */
 	*resp = rpm_msg.cmd[0].data;

@@ -103,4 +103,18 @@ void sde_cp_crtc_resume(struct drm_crtc *crtc);
  */
 int sde_cp_ad_interrupt(struct drm_crtc *crtc, bool en,
 		struct sde_irq_callback *irq);
+
+/**
+ * sde_cp_crtc_pre_ipc: Handle color processing features
+ *                      before entering IPC
+ * @crtc: Pointer to crtc.
+ */
+void sde_cp_crtc_pre_ipc(struct drm_crtc *crtc);
+
+/**
+ * sde_cp_crtc_post_ipc: Handle color processing features
+ *                       after exiting IPC
+ * @crtc: Pointer to crtc.
+ */
+void sde_cp_crtc_post_ipc(struct drm_crtc *crtc);
 #endif /*_SDE_COLOR_PROCESSING_H */
