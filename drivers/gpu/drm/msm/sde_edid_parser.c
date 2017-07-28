@@ -562,6 +562,11 @@ u32 sde_get_sink_bpc(void *input)
 	struct sde_edid_ctrl *edid_ctrl = (struct sde_edid_ctrl *)(input);
 	struct edid *edid = edid_ctrl->edid;
 
+	if (!edid) {
+		SDE_ERROR("invalid edid input\n");
+		return 0;
+	}
+
 	if ((edid->revision < 3) || !(edid->input & DRM_EDID_INPUT_DIGITAL))
 		return 0;
 

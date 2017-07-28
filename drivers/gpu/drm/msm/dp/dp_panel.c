@@ -84,7 +84,7 @@ static u32 dp_panel_get_max_pclk(struct dp_panel *dp_panel)
 {
 	struct drm_dp_link *link_info;
 	const u8 num_components = 3;
-	u32 bpc, bpp, max_data_rate_khz, max_pclk_rate_khz;
+	u32 bpc = 0, bpp = 0, max_data_rate_khz = 0, max_pclk_rate_khz = 0;
 
 	if (!dp_panel) {
 		pr_err("invalid input\n");
