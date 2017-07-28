@@ -3021,6 +3021,14 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 
 	clk_data->clk_num = num_clks;
 
+	rc = clk_osm_resources_init(pdev);
+	if (rc) {
+		if (rc != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "OSM resources init failed, rc=%d\n",
+				rc);
+		return rc;
+	}
+
 	if (l3_clk.vbases[EFUSE_BASE]) {
 		/* Multiple speed-bins are supported */
 		pte_efuse = readl_relaxed(l3_clk.vbases[EFUSE_BASE]);
@@ -3089,14 +3097,6 @@ static int clk_cpu_osm_driver_probe(struct platform_device *pdev)
 	rc = clk_osm_parse_acd_dt_configs(pdev);
 	if (rc) {
 		dev_err(&pdev->dev, "Unable to parse ACD device tree configurations\n");
-		return rc;
-	}
-
-	rc = clk_osm_resources_init(pdev);
-	if (rc) {
-		if (rc != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "OSM resources init failed, rc=%d\n",
-				rc);
 		return rc;
 	}
 
