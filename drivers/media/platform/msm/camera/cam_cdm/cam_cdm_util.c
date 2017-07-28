@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "CAM-CDM-UTIL %s:%d " fmt, __func__, __LINE__
-
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
@@ -327,7 +325,7 @@ int cam_cdm_get_ioremap_from_base(uint32_t hw_base,
 
 	for (i = 0; i < base_array_size; i++) {
 		if (base_table[i])
-			CDM_CDBG("In loop %d ioremap for %x addr=%x\n",
+			CAM_DBG(CAM_CDM, "In loop %d ioremap for %x addr=%x",
 			i, (base_table[i])->mem_cam_base, hw_base);
 		if ((base_table[i]) &&
 			((base_table[i])->mem_cam_base == hw_base)) {
@@ -349,7 +347,7 @@ static int cam_cdm_util_reg_cont_write(void __iomem *base_addr,
 
 	if ((cmd_buf_size < cdm_get_cmd_header_size(CAM_CDM_CMD_REG_CONT)) ||
 		(!base_addr)) {
-		pr_err(" invalid base addr and data length  %d %pK\n",
+		CAM_ERR(CAM_CDM, "invalid base addr and data length  %d %pK",
 			cmd_buf_size, base_addr);
 		return -EINVAL;
 	}
@@ -359,7 +357,7 @@ static int cam_cdm_util_reg_cont_write(void __iomem *base_addr,
 		(((reg_cont->count * sizeof(uint32_t)) +
 			cdm_get_cmd_header_size(CAM_CDM_CMD_REG_CONT)) >
 			cmd_buf_size)) {
-		pr_err(" buffer size %d is not sufficient for count%d\n",
+		CAM_ERR(CAM_CDM, "buffer size %d is not sufficient for count%d",
 			cmd_buf_size, reg_cont->count);
 		return -EINVAL;
 	}
@@ -381,7 +379,7 @@ static int cam_cdm_util_reg_random_write(void __iomem *base_addr,
 	uint32_t *data;
 
 	if (!base_addr) {
-		pr_err("invalid base address\n");
+		CAM_ERR(CAM_CDM, "invalid base address");
 		return -EINVAL;
 	}
 
@@ -390,15 +388,16 @@ static int cam_cdm_util_reg_random_write(void __iomem *base_addr,
 		(((reg_random->count * (sizeof(uint32_t) * 2)) +
 		cdm_get_cmd_header_size(CAM_CDM_CMD_REG_RANDOM)) >
 			cmd_buf_size)) {
-		pr_err("invalid reg_count  %d cmd_buf_size %d\n",
+		CAM_ERR(CAM_CDM, "invalid reg_count  %d cmd_buf_size %d",
 			reg_random->count, cmd_buf_size);
 		return -EINVAL;
 	}
 	data = cmd_buf + cdm_get_cmd_header_size(CAM_CDM_CMD_REG_RANDOM);
 
 	for (i = 0; i < reg_random->count; i++) {
-		CDM_DUMP_CDBG("reg random: offset 0x%llx, value 0x%x\n",
-			((uint64_t) base_addr + data[0]), data[1]);
+		CAM_DBG(CAM_CDM, "reg random: offset %pK, value 0x%x",
+			((void __iomem *)(base_addr + data[0])),
+			data[1]);
 		cam_io_w(data[1], base_addr + data[0]);
 		data += 2;
 	}
@@ -420,7 +419,8 @@ static int cam_cdm_util_swd_dmi_write(uint32_t cdm_cmd_type,
 	swd_dmi = (struct cdm_dmi_cmd *)cmd_buf;
 
 	if (cmd_buf_size < (cdm_required_size_dmi() + swd_dmi->length + 1)) {
-		pr_err("invalid CDM_SWD_DMI length %d\n", swd_dmi->length + 1);
+		CAM_ERR(CAM_CDM, "invalid CDM_SWD_DMI length %d",
+			swd_dmi->length + 1);
 		return -EINVAL;
 	}
 	data = cmd_buf + cdm_required_size_dmi();
@@ -457,7 +457,7 @@ int cam_cdm_util_cmd_buf_write(void __iomem **current_device_base,
 	total_cmd_buf_size = cmd_buf_size;
 
 	while (cmd_buf_size > 0) {
-		CDM_CDBG("cmd data=%x\n", *cmd_buf);
+		CAM_DBG(CAM_CDM, "cmd data=%x", *cmd_buf);
 		cdm_cmd_type = (*cmd_buf >> CAM_CDM_COMMAND_OFFSET);
 		switch (cdm_cmd_type) {
 		case CAM_CDM_CMD_REG_CONT: {
@@ -488,7 +488,8 @@ int cam_cdm_util_cmd_buf_write(void __iomem **current_device_base,
 		case CAM_CDM_CMD_SWD_DMI_32:
 		case CAM_CDM_CMD_SWD_DMI_64: {
 			if (*current_device_base == 0) {
-				pr_err("Got SWI DMI cmd =%d for invalid hw\n",
+				CAM_ERR(CAM_CDM,
+					"Got SWI DMI cmd =%d for invalid hw",
 					cdm_cmd_type);
 				ret = -EINVAL;
 				break;
@@ -513,11 +514,12 @@ int cam_cdm_util_cmd_buf_write(void __iomem **current_device_base,
 				change_base_cmd->base, base_array_size,
 				base_table, current_device_base);
 			if (ret != 0) {
-				pr_err("Get ioremap change base failed %x\n",
+				CAM_ERR(CAM_CDM,
+					"Get ioremap change base failed %x",
 					change_base_cmd->base);
 				break;
 			}
-			CDM_CDBG("Got ioremap for %x addr=%pK\n",
+			CAM_DBG(CAM_CDM, "Got ioremap for %x addr=%pK",
 				change_base_cmd->base,
 				current_device_base);
 			cmd_buf_size -= (4 *
@@ -526,7 +528,7 @@ int cam_cdm_util_cmd_buf_write(void __iomem **current_device_base,
 			}
 			break;
 		default:
-			pr_err(" unsupported cdm_cmd_type type 0%x\n",
+			CAM_ERR(CAM_CDM, "unsupported cdm_cmd_type type 0%x",
 			cdm_cmd_type);
 			ret = -EINVAL;
 			break;

@@ -10,11 +10,10 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "%s:%d " fmt, __func__, __LINE__
-
 #include "cam_vfe_bus.h"
 #include "cam_vfe_bus_ver1.h"
 #include "cam_vfe_bus_ver2.h"
+#include "cam_debug_util.h"
 
 int cam_vfe_bus_init(uint32_t          bus_version,
 	struct cam_hw_soc_info        *soc_info,
@@ -31,7 +30,7 @@ int cam_vfe_bus_init(uint32_t          bus_version,
 			vfe_irq_controller, vfe_bus);
 		break;
 	default:
-		pr_err("Unsupported Bus Version %x\n", bus_version);
+		CAM_ERR(CAM_ISP, "Unsupported Bus Version %x", bus_version);
 		break;
 	}
 
@@ -48,7 +47,7 @@ int cam_vfe_bus_deinit(uint32_t        bus_version,
 		rc = cam_vfe_bus_ver2_deinit(vfe_bus);
 		break;
 	default:
-		pr_err("Unsupported Bus Version %x\n", bus_version);
+		CAM_ERR(CAM_ISP, "Unsupported Bus Version %x", bus_version);
 		break;
 	}
 

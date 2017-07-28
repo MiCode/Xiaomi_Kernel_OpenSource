@@ -52,16 +52,15 @@ int32_t camera_io_dev_read(struct camera_io_master *io_master_info,
  * @io_master_info: I2C/SPI master information
  * @addr: I2C address
  * @data: I2C data
- * @addr_type: I2C addr type
+ * @data_type: I2C data type
  * @num_bytes: number of bytes
  *
- * This API abstracts sequential read functionality based on master type
+ * This API abstracts read functionality based on master type
  */
 int32_t camera_io_dev_read_seq(struct camera_io_master *io_master_info,
 	uint32_t addr, uint8_t *data,
 	enum camera_sensor_i2c_type addr_type,
-	uint32_t num_bytes);
-
+	int32_t num_bytes);
 
 /**
  * @io_master_info: I2C/SPI master information
@@ -103,4 +102,6 @@ int32_t camera_io_dev_poll(struct camera_io_master *io_master_info,
 	enum camera_sensor_i2c_type addr_type,
 	uint32_t delay_ms);
 
+#include "cam_sensor_i2c.h"
+#include "cam_sensor_spi.h"
 #endif /* _CAM_SENSOR_IO_H_ */

@@ -15,7 +15,6 @@
 #include "cam_ife_csid_core.h"
 #include "cam_ife_csid_dev.h"
 
-
 #define CAM_CSID_LITE_DRV_NAME                    "csid_lite_170"
 #define CAM_CSID_LITE_VERSION_V170                 0x10070000
 

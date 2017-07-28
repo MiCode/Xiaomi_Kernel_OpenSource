@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "CTXT-UTILS %s:%d " fmt, __func__, __LINE__
-
 #include <linux/debugfs.h>
 #include <linux/videodev2.h>
 #include <linux/slab.h>
@@ -25,6 +23,7 @@
 #include "cam_req_mgr_util.h"
 #include "cam_sync_api.h"
 #include "cam_trace.h"
+#include "cam_debug_util.h"
 
 int cam_context_buf_done_from_hw(struct cam_context *ctx,
 	void *done_event_data, uint32_t bubble_state)
@@ -36,7 +35,7 @@ int cam_context_buf_done_from_hw(struct cam_context *ctx,
 		(struct cam_hw_done_event_data *)done_event_data;
 
 	if (list_empty(&ctx->active_req_list)) {
-		pr_err("Buf done with no active request\n");
+		CAM_ERR(CAM_CTXT, "no active request");
 		return -EIO;
 	}
 
@@ -46,13 +45,13 @@ int cam_context_buf_done_from_hw(struct cam_context *ctx,
 	trace_cam_buf_done("UTILS", ctx, req);
 
 	if (done->request_id != req->request_id) {
-		pr_err("mismatch: done request [%lld], active request [%lld]\n",
+		CAM_ERR(CAM_CTXT, "mismatch: done req[%lld], active req[%lld]",
 			done->request_id, req->request_id);
 		return -EIO;
 	}
 
 	if (!req->num_out_map_entries) {
-		pr_err("active request with no output fence objects to signal\n");
+		CAM_ERR(CAM_CTXT, "no output fence to signal");
 		return -EIO;
 	}
 
@@ -80,13 +79,13 @@ int cam_context_apply_req_to_hw(struct cam_context *ctx,
 	struct cam_hw_config_args cfg;
 
 	if (!ctx->hw_mgr_intf) {
-		pr_err("HW interface is not ready\n");
+		CAM_ERR(CAM_CTXT, "HW interface is not ready");
 		rc = -EFAULT;
 		goto end;
 	}
 
 	if (list_empty(&ctx->pending_req_list)) {
-		pr_err("No available request for Apply id %lld\n",
+		CAM_ERR(CAM_CTXT, "No available request for Apply id %lld",
 			apply->request_id);
 		rc = -EFAULT;
 		goto end;
@@ -103,7 +102,7 @@ int cam_context_apply_req_to_hw(struct cam_context *ctx,
 	cfg.num_hw_update_entries = req->num_hw_update_entries;
 	cfg.out_map_entries = req->out_map_entries;
 	cfg.num_out_map_entries = req->num_out_map_entries;
-	cfg.priv = (void *)&req->request_id;
+	cfg.priv = req->req_priv;
 	list_add_tail(&req->list, &ctx->active_req_list);
 
 	rc = ctx->hw_mgr_intf->hw_config(ctx->hw_mgr_intf->hw_mgr_priv, &cfg);
@@ -127,7 +126,7 @@ static void cam_context_sync_callback(int32_t sync_obj, int status, void *data)
 	spin_unlock(&ctx->lock);
 
 	if (!req) {
-		pr_err("No more request obj free\n");
+		CAM_ERR(CAM_CTXT, "No more request obj free");
 		return;
 	}
 
@@ -146,7 +145,7 @@ int32_t cam_context_release_dev_to_hw(struct cam_context *ctx,
 	struct cam_ctx_request *req;
 
 	if ((!ctx->hw_mgr_intf) || (!ctx->hw_mgr_intf->hw_release)) {
-		pr_err("HW interface is not ready\n");
+		CAM_ERR(CAM_CTXT, "HW interface is not ready");
 		return -EINVAL;
 	}
 
@@ -168,7 +167,7 @@ int32_t cam_context_release_dev_to_hw(struct cam_context *ctx,
 		req = list_first_entry(&ctx->active_req_list,
 			struct cam_ctx_request, list);
 		list_del_init(&req->list);
-		pr_debug("signal fence in active list. fence num %d\n",
+		CAM_DBG(CAM_CTXT, "signal fence in active list, num %d",
 			req->num_out_map_entries);
 		for (i = 0; i < req->num_out_map_entries; i++) {
 			if (req->out_map_entries[i].sync_id > 0)
@@ -187,7 +186,7 @@ int32_t cam_context_release_dev_to_hw(struct cam_context *ctx,
 				cam_sync_deregister_callback(
 					cam_context_sync_callback, ctx,
 					req->in_map_entries[i].sync_id);
-		pr_debug("signal out fence in pending list. fence num %d\n",
+		CAM_DBG(CAM_CTXT, "signal fence in pending list, num %d",
 			req->num_out_map_entries);
 		for (i = 0; i < req->num_out_map_entries; i++)
 			if (req->out_map_entries[i].sync_id > 0)
@@ -211,7 +210,7 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 	int32_t i = 0;
 
 	if (!ctx->hw_mgr_intf) {
-		pr_err("HW interface is not ready\n");
+		CAM_ERR(CAM_CTXT, "HW interface is not ready");
 		rc = -EFAULT;
 		goto end;
 	}
@@ -225,7 +224,7 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 	spin_unlock(&ctx->lock);
 
 	if (!req) {
-		pr_err("No more request obj free\n");
+		CAM_ERR(CAM_CTXT, "No more request obj free");
 		rc = -ENOMEM;
 		goto end;
 	}
@@ -239,20 +238,12 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 		(uint64_t *) &packet_addr,
 		&len);
 	if (rc != 0) {
-		pr_err("Can not get packet address\n");
+		CAM_ERR(CAM_CTXT, "Can not get packet address");
 		rc = -EINVAL;
 		goto free_req;
 	}
 
 	packet = (struct cam_packet *) (packet_addr + cmd->offset);
-	pr_debug("pack_handle %llx\n", cmd->packet_handle);
-	pr_debug("packet address is 0x%llx\n", packet_addr);
-	pr_debug("packet with length %zu, offset 0x%llx\n",
-		len, cmd->offset);
-	pr_debug("Packet request id 0x%llx\n",
-		packet->header.request_id);
-	pr_debug("Packet size 0x%x\n", packet->header.size);
-	pr_debug("packet op %d\n", packet->header.op_code);
 
 	/* preprocess the configuration */
 	memset(&cfg, 0, sizeof(cfg));
@@ -269,7 +260,7 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 	rc = ctx->hw_mgr_intf->hw_prepare_update(
 		ctx->hw_mgr_intf->hw_mgr_priv, &cfg);
 	if (rc != 0) {
-		pr_err("Prepare config packet failed in HW layer\n");
+		CAM_ERR(CAM_CTXT, "Prepare config packet failed in HW layer");
 		rc = -EFAULT;
 		goto free_req;
 	}
@@ -289,7 +280,7 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 					cam_context_sync_callback,
 					(void *)ctx,
 					req->in_map_entries[i].sync_id);
-			pr_debug("register in fence callback: %d ret = %d\n",
+			CAM_DBG(CAM_CTXT, "register in fence cb: %d ret = %d",
 				req->in_map_entries[i].sync_id, rc);
 		}
 		goto end;
@@ -302,7 +293,6 @@ free_req:
 	list_add_tail(&req->list, &ctx->free_req_list);
 	spin_unlock(&ctx->lock);
 end:
-	pr_debug("Config dev successful\n");
 	return rc;
 }
 
@@ -315,25 +305,24 @@ int32_t cam_context_acquire_dev_to_hw(struct cam_context *ctx,
 	struct cam_hw_release_args release;
 
 	if (!ctx->hw_mgr_intf) {
-		pr_err("HW interface is not ready\n");
+		CAM_ERR(CAM_CTXT, "HW interface is not ready");
 		rc = -EFAULT;
 		goto end;
 	}
 
-	pr_debug("acquire cmd: session_hdl 0x%x, num_resources %d\n",
-		cmd->session_handle, cmd->num_resources);
-	pr_debug(" handle type %d, res %lld\n", cmd->handle_type,
+	CAM_DBG(CAM_CTXT, "ses hdl: %x, num_res: %d, type: %d, res: %lld",
+		cmd->session_handle, cmd->num_resources, cmd->handle_type,
 		cmd->resource_hdl);
 
 	if (cmd->num_resources > CAM_CTX_RES_MAX) {
-		pr_err("Too much resources in the acquire\n");
+		CAM_ERR(CAM_CTXT, "resource limit exceeded");
 		rc = -ENOMEM;
 		goto end;
 	}
 
 	/* for now we only support user pointer */
 	if (cmd->handle_type != 1)  {
-		pr_err("Only user pointer is supported");
+		CAM_ERR(CAM_CTXT, "Only user pointer is supported");
 		rc = -EINVAL;
 		goto end;
 	}
@@ -344,15 +333,11 @@ int32_t cam_context_acquire_dev_to_hw(struct cam_context *ctx,
 	param.num_acq = cmd->num_resources;
 	param.acquire_info = cmd->resource_hdl;
 
-	pr_debug("ctx %pK: acquire hw resource: hw_intf: 0x%pK, priv 0x%pK",
-		ctx, ctx->hw_mgr_intf, ctx->hw_mgr_intf->hw_mgr_priv);
-	pr_debug("acquire_hw_func 0x%pK\n", ctx->hw_mgr_intf->hw_acquire);
-
 	/* call HW manager to reserve the resource */
 	rc = ctx->hw_mgr_intf->hw_acquire(ctx->hw_mgr_intf->hw_mgr_priv,
 		&param);
 	if (rc != 0) {
-		pr_err("Acquire device failed\n");
+		CAM_ERR(CAM_CTXT, "Acquire device failed");
 		goto end;
 	}
 
@@ -365,11 +350,10 @@ int32_t cam_context_acquire_dev_to_hw(struct cam_context *ctx,
 	req_hdl_param.media_entity_flag = 0;
 	req_hdl_param.priv = ctx;
 
-	pr_debug("get device handle from bridge\n");
 	ctx->dev_hdl = cam_create_device_hdl(&req_hdl_param);
 	if (ctx->dev_hdl <= 0) {
 		rc = -EFAULT;
-		pr_err("Can not create device handle\n");
+		CAM_ERR(CAM_CTXT, "Can not create device handle");
 		goto free_hw;
 	}
 	cmd->dev_handle = ctx->dev_hdl;
@@ -377,7 +361,6 @@ int32_t cam_context_acquire_dev_to_hw(struct cam_context *ctx,
 	/* store session information */
 	ctx->session_hdl = cmd->session_handle;
 
-	pr_err("dev_handle = %x\n", cmd->dev_handle);
 	return rc;
 
 free_hw:
@@ -395,14 +378,14 @@ int32_t cam_context_start_dev_to_hw(struct cam_context *ctx,
 	struct cam_hw_start_args arg;
 
 	if (!ctx->hw_mgr_intf) {
-		pr_err("HW interface is not ready\n");
+		CAM_ERR(CAM_CTXT, "HW interface is not ready");
 		rc = -EFAULT;
 		goto end;
 	}
 
 	if ((cmd->session_handle != ctx->session_hdl) ||
 		(cmd->dev_handle != ctx->dev_hdl)) {
-		pr_err("Invalid session hdl[%d], dev_handle[%d]\n",
+		CAM_ERR(CAM_CTXT, "Invalid session hdl[%d], dev_handle[%d]",
 			cmd->session_handle, cmd->dev_handle);
 		rc = -EPERM;
 		goto end;
@@ -413,12 +396,11 @@ int32_t cam_context_start_dev_to_hw(struct cam_context *ctx,
 				&arg);
 		if (rc) {
 			/* HW failure. user need to clean up the resource */
-			pr_err("Start HW failed\n");
+			CAM_ERR(CAM_CTXT, "Start HW failed");
 			goto end;
 		}
 	}
 
-	pr_debug("start device success\n");
 end:
 	return rc;
 }
@@ -431,7 +413,7 @@ int32_t cam_context_stop_dev_to_hw(struct cam_context *ctx)
 	struct cam_ctx_request *req;
 
 	if (!ctx->hw_mgr_intf) {
-		pr_err("HW interface is not ready\n");
+		CAM_ERR(CAM_CTXT, "HW interface is not ready");
 		rc = -EFAULT;
 		goto end;
 	}
@@ -449,7 +431,7 @@ int32_t cam_context_stop_dev_to_hw(struct cam_context *ctx)
 		req = list_first_entry(&ctx->pending_req_list,
 				struct cam_ctx_request, list);
 		list_del_init(&req->list);
-		pr_debug("signal fence in pending list. fence num %d\n",
+		CAM_DBG(CAM_CTXT, "signal fence in pending list. fence num %d",
 			req->num_out_map_entries);
 		for (i = 0; i < req->num_out_map_entries; i++)
 			if (req->out_map_entries[i].sync_id != -1)
@@ -462,7 +444,7 @@ int32_t cam_context_stop_dev_to_hw(struct cam_context *ctx)
 		req = list_first_entry(&ctx->active_req_list,
 				struct cam_ctx_request, list);
 		list_del_init(&req->list);
-		pr_debug("signal fence in active list. fence num %d\n",
+		CAM_DBG(CAM_CTXT, "signal fence in active list. fence num %d",
 			req->num_out_map_entries);
 		for (i = 0; i < req->num_out_map_entries; i++)
 			if (req->out_map_entries[i].sync_id != -1)

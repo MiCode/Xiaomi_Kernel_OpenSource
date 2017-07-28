@@ -37,8 +37,7 @@ static long cam_cci_subdev_ioctl(struct v4l2_subdev *sd,
 	case VIDIOC_CAM_CONTROL:
 		break;
 	default:
-		pr_err("%s:%d Invalid ioctl cmd: %d\n",
-			__func__, __LINE__, cmd);
+		CAM_ERR(CAM_CCI, "Invalid ioctl cmd: %d", cmd);
 		rc = -ENOIOCTLCMD;
 	}
 
@@ -134,13 +133,13 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 			base + CCI_RESET_CMD_ADDR);
 	}
 	if (irq & CCI_IRQ_STATUS_0_I2C_M0_ERROR_BMSK) {
-		pr_err("%s:%d MASTER_0 error 0x%x\n", __func__, __LINE__, irq);
+		CAM_ERR(CAM_CCI, "MASTER_0 error 0x%x", irq);
 		cci_dev->cci_master_info[MASTER_0].status = -EINVAL;
 		cam_io_w_mb(CCI_M0_HALT_REQ_RMSK,
 			base + CCI_HALT_REQ_ADDR);
 	}
 	if (irq & CCI_IRQ_STATUS_0_I2C_M1_ERROR_BMSK) {
-		pr_err("%s:%d MASTER_1 error 0x%x\n", __func__, __LINE__, irq);
+		CAM_ERR(CAM_CCI, "MASTER_1 error 0x%x", irq);
 		cci_dev->cci_master_info[MASTER_1].status = -EINVAL;
 		cam_io_w_mb(CCI_M1_HALT_REQ_RMSK,
 			base + CCI_HALT_REQ_ADDR);
@@ -192,8 +191,7 @@ static int cam_cci_platform_probe(struct platform_device *pdev)
 
 	rc = cam_cci_parse_dt_info(pdev, new_cci_dev);
 	if (rc < 0) {
-		pr_err("%s: %d Resource get Failed: %d\n",
-			__func__, __LINE__, rc);
+		CAM_ERR(CAM_CCI, "Resource get Failed: %d", rc);
 		goto cci_no_resource;
 	}
 
@@ -214,8 +212,7 @@ static int cam_cci_platform_probe(struct platform_device *pdev)
 
 	rc = cam_register_subdev(&(new_cci_dev->v4l2_dev_str));
 	if (rc < 0) {
-		pr_err("%s:%d :Error: Fail with cam_register_subdev\n",
-			__func__, __LINE__);
+		CAM_ERR(CAM_CCI, "Fail with cam_register_subdev");
 		goto cci_no_resource;
 	}
 
@@ -230,10 +227,10 @@ static int cam_cci_platform_probe(struct platform_device *pdev)
 	strlcpy(cpas_parms.identifier, "cci", CAM_HW_IDENTIFIER_LENGTH);
 	rc = cam_cpas_register_client(&cpas_parms);
 	if (rc) {
-		pr_err("%s:%d CPAS registration failed\n", __func__, __LINE__);
+		CAM_ERR(CAM_CCI, "CPAS registration failed");
 		goto cci_no_resource;
 	}
-	CDBG("CPAS registration successful handle=%d\n",
+	CAM_DBG(CAM_CCI, "CPAS registration successful handle=%d",
 		cpas_parms.client_handle);
 	new_cci_dev->cpas_handle = cpas_parms.client_handle;
 

@@ -94,7 +94,7 @@ struct cam_cpas_register_params {
 	struct device  *dev;
 	void           *userdata;
 	void          (*cam_cpas_client_cb)(
-			int32_t                   client_handle,
+			uint32_t                  client_handle,
 			void                     *userdata,
 			enum cam_camnoc_irq_type  event_type,
 			uint32_t                  event_data);

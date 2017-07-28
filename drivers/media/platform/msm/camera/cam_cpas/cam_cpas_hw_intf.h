@@ -18,16 +18,7 @@
 #include "cam_cpas_api.h"
 #include "cam_hw.h"
 #include "cam_hw_intf.h"
-
-#ifdef CONFIG_CAM_CPAS_DBG
-#define CPAS_CDBG(fmt, args...) pr_err(fmt, ##args)
-#else
-#define CPAS_CDBG(fmt, args...) pr_debug(fmt, ##args)
-#endif
-#undef pr_fmt
-#define pr_fmt(fmt) "CAM-CPAS %s:%d " fmt, __func__, __LINE__
-
-#define BITS_MASK_SHIFT(x, mask, shift) (((x) & (mask)) >> shift)
+#include "cam_debug_util.h"
 
 /* Number of times to retry while polling */
 #define CAM_CPAS_POLL_RETRY_CNT 5

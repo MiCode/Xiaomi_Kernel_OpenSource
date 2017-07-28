@@ -12,6 +12,7 @@
 
 #include "cam_isp_hw_mgr_intf.h"
 #include "cam_ife_hw_mgr.h"
+#include "cam_debug_util.h"
 
 
 int cam_isp_hw_mgr_init(struct device_node *of_node,
@@ -26,7 +27,7 @@ int cam_isp_hw_mgr_init(struct device_node *of_node,
 	if (strnstr(compat_str, "ife", strlen(compat_str)))
 		rc = cam_ife_hw_mgr_init(hw_mgr);
 	else {
-		pr_err("%s: Invalid ISP hw type\n", __func__);
+		CAM_ERR(CAM_ISP, "Invalid ISP hw type");
 		rc = -EINVAL;
 	}
 

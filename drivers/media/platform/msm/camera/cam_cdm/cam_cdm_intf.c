@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "CAM-CDM-INTF %s:%d " fmt, __func__, __LINE__
-
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/of.h>
@@ -41,10 +39,10 @@ static int get_cdm_mgr_refcount(void)
 
 	mutex_lock(&cam_cdm_mgr_lock);
 	if (cdm_mgr.probe_done == false) {
-		pr_err("CDM intf mgr not probed yet\n");
+		CAM_ERR(CAM_CDM, "CDM intf mgr not probed yet");
 		rc = -EPERM;
 	} else {
-		CDM_CDBG("CDM intf mgr get refcount=%d\n",
+		CAM_DBG(CAM_CDM, "CDM intf mgr get refcount=%d",
 			cdm_mgr.refcount);
 		cdm_mgr.refcount++;
 	}
@@ -56,14 +54,14 @@ static void put_cdm_mgr_refcount(void)
 {
 	mutex_lock(&cam_cdm_mgr_lock);
 	if (cdm_mgr.probe_done == false) {
-		pr_err("CDM intf mgr not probed yet\n");
+		CAM_ERR(CAM_CDM, "CDM intf mgr not probed yet");
 	} else {
-		CDM_CDBG("CDM intf mgr put refcount=%d\n",
+		CAM_DBG(CAM_CDM, "CDM intf mgr put refcount=%d",
 			cdm_mgr.refcount);
 		if (cdm_mgr.refcount > 0) {
 			cdm_mgr.refcount--;
 		} else {
-			pr_err("Refcount put when zero\n");
+			CAM_ERR(CAM_CDM, "Refcount put when zero");
 			WARN_ON(1);
 		}
 	}
@@ -90,20 +88,20 @@ static int get_cdm_index_by_id(char *identifier,
 	int rc = -EPERM, i, j;
 	char client_name[128];
 
-	CDM_CDBG("Looking for HW id of =%s and index=%d\n",
+	CAM_DBG(CAM_CDM, "Looking for HW id of =%s and index=%d",
 		identifier, cell_index);
 	snprintf(client_name, sizeof(client_name), "%s", identifier);
-	CDM_CDBG("Looking for HW id of %s count:%d\n", client_name,
+	CAM_DBG(CAM_CDM, "Looking for HW id of %s count:%d", client_name,
 		cdm_mgr.cdm_count);
 	mutex_lock(&cam_cdm_mgr_lock);
 	for (i = 0; i < cdm_mgr.cdm_count; i++) {
 		mutex_lock(&cdm_mgr.nodes[i].lock);
-		CDM_CDBG("dt_num_supported_clients=%d\n",
+		CAM_DBG(CAM_CDM, "dt_num_supported_clients=%d",
 			cdm_mgr.nodes[i].data->dt_num_supported_clients);
 
 		for (j = 0; j <
 			cdm_mgr.nodes[i].data->dt_num_supported_clients; j++) {
-			CDM_CDBG("client name:%s\n",
+			CAM_DBG(CAM_CDM, "client name:%s",
 				cdm_mgr.nodes[i].data->dt_cdm_client_name[j]);
 			if (!strcmp(
 				cdm_mgr.nodes[i].data->dt_cdm_client_name[j],
@@ -131,10 +129,10 @@ int cam_cdm_get_iommu_handle(char *identifier,
 		return -EINVAL;
 
 	if (get_cdm_mgr_refcount()) {
-		pr_err("CDM intf mgr get refcount failed\n");
+		CAM_ERR(CAM_CDM, "CDM intf mgr get refcount failed");
 		return rc;
 	}
-	CDM_CDBG("Looking for Iommu handle of %s\n", identifier);
+	CAM_DBG(CAM_CDM, "Looking for Iommu handle of %s", identifier);
 
 	for (i = 0; i < cdm_mgr.cdm_count; i++) {
 		mutex_lock(&cdm_mgr.nodes[i].lock);
@@ -173,39 +171,41 @@ int cam_cdm_acquire(struct cam_cdm_acquire_data *data)
 		return -EINVAL;
 
 	if (get_cdm_mgr_refcount()) {
-		pr_err("CDM intf mgr get refcount failed\n");
+		CAM_ERR(CAM_CDM, "CDM intf mgr get refcount failed");
 		return rc;
 	}
 
 	if (data->id > CAM_CDM_HW_ANY) {
-		pr_err("only CAM_CDM_VIRTUAL/CAM_CDM_HW_ANY is supported\n");
+		CAM_ERR(CAM_CDM,
+			"only CAM_CDM_VIRTUAL/CAM_CDM_HW_ANY is supported");
 		rc = -EPERM;
 		goto end;
 	}
 	rc = get_cdm_index_by_id(data->identifier, data->cell_index,
 		&hw_index);
 	if ((rc < 0) && (hw_index < CAM_CDM_INTF_MGR_MAX_SUPPORTED_CDM)) {
-		pr_err("Failed to identify associated hw id\n");
+		CAM_ERR(CAM_CDM, "Failed to identify associated hw id");
 		goto end;
 	} else {
-		CDM_CDBG("hw_index:%d\n", hw_index);
+		CAM_DBG(CAM_CDM, "hw_index:%d", hw_index);
 		hw = cdm_mgr.nodes[hw_index].device;
 		if (hw && hw->hw_ops.process_cmd) {
 			rc = hw->hw_ops.process_cmd(hw->hw_priv,
 					CAM_CDM_HW_INTF_CMD_ACQUIRE, data,
 					sizeof(struct cam_cdm_acquire_data));
 			if (rc < 0) {
-				pr_err("CDM hw acquire failed\n");
+				CAM_ERR(CAM_CDM, "CDM hw acquire failed");
 				goto end;
 			}
 		} else {
-			pr_err("idx %d doesn't have acquire ops\n", hw_index);
+			CAM_ERR(CAM_CDM, "idx %d doesn't have acquire ops",
+				hw_index);
 			rc = -EPERM;
 		}
 	}
 end:
 	if (rc < 0) {
-		pr_err("CDM acquire failed for id=%d name=%s, idx=%d\n",
+		CAM_ERR(CAM_CDM, "CDM acquire failed for id=%d name=%s, idx=%d",
 			data->id, data->identifier, data->cell_index);
 		put_cdm_mgr_refcount();
 	}
@@ -220,7 +220,7 @@ int cam_cdm_release(uint32_t handle)
 	struct cam_hw_intf *hw;
 
 	if (get_cdm_mgr_refcount()) {
-		pr_err("CDM intf mgr get refcount failed\n");
+		CAM_ERR(CAM_CDM, "CDM intf mgr get refcount failed");
 		return rc;
 	}
 
@@ -232,10 +232,11 @@ int cam_cdm_release(uint32_t handle)
 					CAM_CDM_HW_INTF_CMD_RELEASE, &handle,
 					sizeof(handle));
 			if (rc < 0)
-				pr_err("hw release failed for handle=%x\n",
+				CAM_ERR(CAM_CDM,
+					"hw release failed for handle=%x",
 					handle);
 		} else
-			pr_err("hw idx %d doesn't have release ops\n",
+			CAM_ERR(CAM_CDM, "hw idx %d doesn't have release ops",
 				hw_index);
 	}
 	put_cdm_mgr_refcount();
@@ -257,7 +258,7 @@ int cam_cdm_submit_bls(uint32_t handle, struct cam_cdm_bl_request *data)
 		return rc;
 
 	if (get_cdm_mgr_refcount()) {
-		pr_err("CDM intf mgr get refcount failed\n");
+		CAM_ERR(CAM_CDM, "CDM intf mgr get refcount failed");
 		rc = -EPERM;
 		return rc;
 	}
@@ -274,10 +275,11 @@ int cam_cdm_submit_bls(uint32_t handle, struct cam_cdm_bl_request *data)
 				CAM_CDM_HW_INTF_CMD_SUBMIT_BL, &req,
 				sizeof(struct cam_cdm_hw_intf_cmd_submit_bl));
 			if (rc < 0)
-				pr_err("hw submit bl failed for handle=%x\n",
+				CAM_ERR(CAM_CDM,
+					"hw submit bl failed for handle=%x",
 					handle);
 		} else {
-			pr_err("hw idx %d doesn't have submit ops\n",
+			CAM_ERR(CAM_CDM, "hw idx %d doesn't have submit ops",
 				hw_index);
 		}
 	}
@@ -294,7 +296,7 @@ int cam_cdm_stream_on(uint32_t handle)
 	struct cam_hw_intf *hw;
 
 	if (get_cdm_mgr_refcount()) {
-		pr_err("CDM intf mgr get refcount failed\n");
+		CAM_ERR(CAM_CDM, "CDM intf mgr get refcount failed");
 		rc = -EPERM;
 		return rc;
 	}
@@ -306,10 +308,12 @@ int cam_cdm_stream_on(uint32_t handle)
 				rc = hw->hw_ops.start(hw->hw_priv, &handle,
 						sizeof(uint32_t));
 				if (rc < 0)
-					pr_err("hw start failed handle=%x\n",
+					CAM_ERR(CAM_CDM,
+						"hw start failed handle=%x",
 						handle);
 			} else {
-				pr_err("hw idx %d doesn't have start ops\n",
+				CAM_ERR(CAM_CDM,
+					"hw idx %d doesn't have start ops",
 					hw_index);
 			}
 	}
@@ -326,7 +330,7 @@ int cam_cdm_stream_off(uint32_t handle)
 	struct cam_hw_intf *hw;
 
 	if (get_cdm_mgr_refcount()) {
-		pr_err("CDM intf mgr get refcount failed\n");
+		CAM_ERR(CAM_CDM, "CDM intf mgr get refcount failed");
 		rc = -EPERM;
 		return rc;
 	}
@@ -338,10 +342,10 @@ int cam_cdm_stream_off(uint32_t handle)
 			rc = hw->hw_ops.stop(hw->hw_priv, &handle,
 					sizeof(uint32_t));
 			if (rc < 0)
-				pr_err("hw stop failed handle=%x\n",
+				CAM_ERR(CAM_CDM, "hw stop failed handle=%x",
 					handle);
 		} else {
-			pr_err("hw idx %d doesn't have stop ops\n",
+			CAM_ERR(CAM_CDM, "hw idx %d doesn't have stop ops",
 				hw_index);
 		}
 	}
@@ -358,7 +362,7 @@ int cam_cdm_reset_hw(uint32_t handle)
 	struct cam_hw_intf *hw;
 
 	if (get_cdm_mgr_refcount()) {
-		pr_err("CDM intf mgr get refcount failed\n");
+		CAM_ERR(CAM_CDM, "CDM intf mgr get refcount failed");
 		rc = -EPERM;
 		return rc;
 	}
@@ -371,10 +375,11 @@ int cam_cdm_reset_hw(uint32_t handle)
 					CAM_CDM_HW_INTF_CMD_RESET_HW, &handle,
 					sizeof(handle));
 			if (rc < 0)
-				pr_err("CDM hw release failed for handle=%x\n",
+				CAM_ERR(CAM_CDM,
+					"CDM hw release failed for handle=%x",
 					handle);
 		} else {
-			pr_err("hw idx %d doesn't have release ops\n",
+			CAM_ERR(CAM_CDM, "hw idx %d doesn't have release ops",
 				hw_index);
 		}
 	}
@@ -394,7 +399,7 @@ int cam_cdm_intf_register_hw_cdm(struct cam_hw_intf *hw,
 		return rc;
 
 	if (get_cdm_mgr_refcount()) {
-		pr_err("CDM intf mgr get refcount failed\n");
+		CAM_ERR(CAM_CDM, "CDM intf mgr get refcount failed");
 		return rc;
 	}
 
@@ -417,7 +422,7 @@ int cam_cdm_intf_register_hw_cdm(struct cam_hw_intf *hw,
 		cdm_mgr.cdm_count++;
 		rc = 0;
 	} else {
-		pr_err("CDM registration failed type=%d count=%d\n",
+		CAM_ERR(CAM_CDM, "CDM registration failed type=%d count=%d",
 			type, cdm_mgr.cdm_count);
 	}
 	mutex_unlock(&cam_cdm_mgr_lock);
@@ -436,7 +441,7 @@ int cam_cdm_intf_deregister_hw_cdm(struct cam_hw_intf *hw,
 		return rc;
 
 	if (get_cdm_mgr_refcount()) {
-		pr_err("CDM intf mgr get refcount failed\n");
+		CAM_ERR(CAM_CDM, "CDM intf mgr get refcount failed");
 		rc = -EPERM;
 		return rc;
 	}
@@ -459,7 +464,7 @@ int cam_cdm_intf_deregister_hw_cdm(struct cam_hw_intf *hw,
 		cdm_mgr.cdm_count--;
 		rc = 0;
 	} else {
-		pr_err("CDM Deregistration failed type=%d index=%d\n",
+		CAM_ERR(CAM_CDM, "CDM Deregistration failed type=%d index=%d",
 			type, index);
 	}
 	mutex_unlock(&cam_cdm_mgr_lock);
@@ -474,7 +479,7 @@ static int cam_cdm_intf_probe(struct platform_device *pdev)
 
 	rc = cam_cdm_intf_mgr_soc_get_dt_properties(pdev, &cdm_mgr);
 	if (rc) {
-		pr_err("Failed to get dt properties\n");
+		CAM_ERR(CAM_CDM, "Failed to get dt properties");
 		return rc;
 	}
 	mutex_lock(&cam_cdm_mgr_lock);
@@ -494,7 +499,8 @@ static int cam_cdm_intf_probe(struct platform_device *pdev)
 		for (i = 0 ; i < CAM_CDM_INTF_MGR_MAX_SUPPORTED_CDM; i++) {
 			if (cdm_mgr.nodes[i].device || cdm_mgr.nodes[i].data ||
 				(cdm_mgr.nodes[i].refcount != 0))
-				pr_err("Valid node present in index=%d\n", i);
+				CAM_ERR(CAM_CDM,
+					"Valid node present in index=%d", i);
 			mutex_destroy(&cdm_mgr.nodes[i].lock);
 			cdm_mgr.nodes[i].device = NULL;
 			cdm_mgr.nodes[i].data = NULL;
@@ -511,19 +517,19 @@ static int cam_cdm_intf_remove(struct platform_device *pdev)
 	int i, rc = -EBUSY;
 
 	if (get_cdm_mgr_refcount()) {
-		pr_err("CDM intf mgr get refcount failed\n");
+		CAM_ERR(CAM_CDM, "CDM intf mgr get refcount failed");
 		return rc;
 	}
 
 	if (cam_virtual_cdm_remove(pdev)) {
-		pr_err("Virtual CDM remove failed\n");
+		CAM_ERR(CAM_CDM, "Virtual CDM remove failed");
 		goto end;
 	}
 	put_cdm_mgr_refcount();
 
 	mutex_lock(&cam_cdm_mgr_lock);
 	if (cdm_mgr.refcount != 0) {
-		pr_err("cdm manger refcount not zero %d\n",
+		CAM_ERR(CAM_CDM, "cdm manger refcount not zero %d",
 			cdm_mgr.refcount);
 		goto end;
 	}
@@ -531,7 +537,7 @@ static int cam_cdm_intf_remove(struct platform_device *pdev)
 	for (i = 0 ; i < CAM_CDM_INTF_MGR_MAX_SUPPORTED_CDM; i++) {
 		if (cdm_mgr.nodes[i].device || cdm_mgr.nodes[i].data ||
 			(cdm_mgr.nodes[i].refcount != 0)) {
-			pr_err("Valid node present in index=%d\n", i);
+			CAM_ERR(CAM_CDM, "Valid node present in index=%d", i);
 			mutex_unlock(&cam_cdm_mgr_lock);
 			goto end;
 		}
