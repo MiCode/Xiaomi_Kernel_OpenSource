@@ -40,6 +40,7 @@
 			17000 15500 30000 8000 3000>;
 		qcom,mdss-dsi-panel-peak-brightness = <4200000>;
 		qcom,mdss-dsi-panel-blackness-level = <3230>;
+		qcom,mdss-dsi-panel-jitter = <0x1 0x1>;
 		qcom,mdss-dsi-on-command = [
 			/* CMD2_P0 */
 			15 01 00 00 00 00 02 ff 20

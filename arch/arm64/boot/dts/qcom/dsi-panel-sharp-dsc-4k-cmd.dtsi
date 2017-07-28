@@ -49,6 +49,7 @@
 		qcom,mdss-dsi-te-using-te-pin;
 		qcom,dcs-cmd-by-left;
 		qcom,mdss-dsi-tx-eot-append;
+		qcom,mdss-dsi-panel-jitter = <0x8 0xa>;
 
 		qcom,adjust-timer-wakeup-ms = <1>;
 		qcom,mdss-dsi-on-command = [
