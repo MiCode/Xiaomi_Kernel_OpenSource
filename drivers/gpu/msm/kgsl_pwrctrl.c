@@ -1049,6 +1049,8 @@ static void __force_on(struct kgsl_device *device, int flag, int on)
 	if (on) {
 		switch (flag) {
 		case KGSL_PWRFLAGS_CLK_ON:
+			/* make sure pwrrail is ON before enabling clocks */
+			kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_ON);
 			kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_ON,
 				KGSL_STATE_ACTIVE);
 			break;
@@ -1854,7 +1856,12 @@ static int kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state)
 
 	if (kgsl_gmu_isenabled(device))
 		return 0;
-	if (test_bit(KGSL_PWRFLAGS_POWER_ON, &pwr->ctrl_flags))
+	/*
+	 * Disabling the regulator means also disabling dependent clocks.
+	 * Hence don't disable it if force clock ON is set.
+	 */
+	if (test_bit(KGSL_PWRFLAGS_POWER_ON, &pwr->ctrl_flags) ||
+		test_bit(KGSL_PWRFLAGS_CLK_ON, &pwr->ctrl_flags))
 		return 0;
 
 	if (state == KGSL_PWRFLAGS_OFF) {
@@ -2362,9 +2369,24 @@ void kgsl_idle_check(struct work_struct *work)
 		   || device->state ==  KGSL_STATE_NAP) {
 
 		if (!atomic_read(&device->active_cnt)) {
+			spin_lock(&device->submit_lock);
+			if (device->submit_now) {
+				spin_unlock(&device->submit_lock);
+				goto done;
+			}
+			/* Don't allow GPU inline submission in SLUMBER */
+			if (requested_state == KGSL_STATE_SLUMBER)
+				device->slumber = true;
+			spin_unlock(&device->submit_lock);
+
 			ret = kgsl_pwrctrl_change_state(device,
 					device->requested_state);
 			if (ret == -EBUSY) {
+				if (requested_state == KGSL_STATE_SLUMBER) {
+					spin_lock(&device->submit_lock);
+					device->slumber = false;
+					spin_unlock(&device->submit_lock);
+				}
 				/*
 				 * If the GPU is currently busy, restore
 				 * the requested state and reschedule
@@ -2375,7 +2397,7 @@ void kgsl_idle_check(struct work_struct *work)
 				kgsl_schedule_work(&device->idle_check_ws);
 			}
 		}
-
+done:
 		if (!ret)
 			kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 
@@ -2835,6 +2857,13 @@ static void kgsl_pwrctrl_set_state(struct kgsl_device *device,
 	trace_kgsl_pwr_set_state(device, state);
 	device->state = state;
 	device->requested_state = KGSL_STATE_NONE;
+
+	spin_lock(&device->submit_lock);
+	if (state == KGSL_STATE_SLUMBER || state == KGSL_STATE_SUSPEND)
+		device->slumber = true;
+	else
+		device->slumber = false;
+	spin_unlock(&device->submit_lock);
 }
 
 static void kgsl_pwrctrl_request_state(struct kgsl_device *device,
