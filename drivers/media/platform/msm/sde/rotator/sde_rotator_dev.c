@@ -486,7 +486,7 @@ static void sde_rotator_stop_streaming(struct vb2_queue *q)
 			struct sde_rotator_vbinfo *vbinfo =
 					&ctx->vbinfo_cap[i];
 
-			if (vbinfo->fence && vbinfo->fd < 0) {
+			if (vbinfo->fence) {
 				/* fence is not used */
 				SDEDEV_DBG(rot_dev->dev,
 						"put fence s:%d t:%d i:%d\n",
@@ -2158,7 +2158,7 @@ static int sde_rotator_dqbuf(struct file *file,
 			&& (buf->index < ctx->nbuf_cap)) {
 		int idx = buf->index;
 
-		if (ctx->vbinfo_cap[idx].fence && ctx->vbinfo_cap[idx].fd < 0) {
+		if (ctx->vbinfo_cap[idx].fence) {
 			/* fence is not used */
 			SDEDEV_DBG(ctx->rot_dev->dev, "put fence s:%d i:%d\n",
 					ctx->session_id, idx);
@@ -2487,6 +2487,7 @@ static long sde_rotator_private_ioctl(struct file *file, void *fh,
 	struct msm_sde_rotator_fence *fence = arg;
 	struct msm_sde_rotator_comp_ratio *comp_ratio = arg;
 	struct sde_rotator_vbinfo *vbinfo;
+	int ret;
 
 	switch (cmd) {
 	case VIDIOC_S_SDE_ROTATOR_FENCE:
@@ -2545,17 +2546,37 @@ static long sde_rotator_private_ioctl(struct file *file, void *fh,
 
 		vbinfo = &ctx->vbinfo_cap[fence->index];
 
-		if (vbinfo->fence == NULL) {
-			vbinfo->fd = -1;
-		} else {
-			vbinfo->fd =
-				sde_rotator_get_sync_fence_fd(vbinfo->fence);
-			if (vbinfo->fd < 0) {
+		if (!vbinfo)
+			return -EINVAL;
+
+		if (vbinfo->fence) {
+			ret = sde_rotator_get_sync_fence_fd(vbinfo->fence);
+			if (ret < 0) {
 				SDEDEV_ERR(rot_dev->dev,
-					"fail get fence fd s:%d\n",
-					ctx->session_id);
-				return vbinfo->fd;
+						"fail get fence fd s:%d\n",
+						ctx->session_id);
+				return ret;
 			}
+
+			/**
+			 * Loose any reference to sync fence once we pass
+			 * it to user. Driver does not clean up user
+			 * unclosed fence descriptors.
+			 */
+			vbinfo->fence = NULL;
+
+			/**
+			 * Cache fence descriptor in case user calls this
+			 * ioctl multiple times. Cached value would be stale
+			 * if user duplicated and closed old descriptor.
+			 */
+			vbinfo->fd = ret;
+		} else if (!sde_rotator_get_fd_sync_fence(vbinfo->fd)) {
+			/**
+			 * User has closed cached fence descriptor.
+			 * Invalidate descriptor cache.
+			 */
+			vbinfo->fd = -1;
 		}
 		fence->fd = vbinfo->fd;
 
