@@ -600,12 +600,6 @@ void print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 			cfs_rq->throttle_count);
 	SEQ_printf(m, "  .%-30s: %d\n", "runtime_enabled",
 			cfs_rq->runtime_enabled);
-#ifdef CONFIG_SCHED_WALT
-	SEQ_printf(m, "  .%-30s: %d\n", "nr_big_tasks",
-			cfs_rq->hmp_stats.nr_big_tasks);
-	SEQ_printf(m, "  .%-30s: %llu\n", "cumulative_runnable_avg",
-			cfs_rq->hmp_stats.cumulative_runnable_avg);
-#endif
 #endif
 
 #ifdef CONFIG_FAIR_GROUP_SCHED

@@ -503,15 +503,7 @@ struct cfs_rq {
 	struct list_head leaf_cfs_rq_list;
 	struct task_group *tg;	/* group that "owns" this runqueue */
 
-#ifdef CONFIG_SCHED_WALT
-	u64 cumulative_runnable_avg;
-#endif
-
 #ifdef CONFIG_CFS_BANDWIDTH
-#ifdef CONFIG_SCHED_WALT
-	struct hmp_sched_stats hmp_stats;
-#endif
-
 	int runtime_enabled;
 	u64 runtime_expires;
 	s64 runtime_remaining;
@@ -2206,14 +2198,12 @@ static inline u64 irq_time_read(int cpu)
 #ifdef CONFIG_SCHED_WALT
 u64 sched_ktime_clock(void);
 void note_task_waking(struct task_struct *p, u64 wallclock);
-extern void update_avg_burst(struct task_struct *p);
 #else /* CONFIG_SCHED_WALT */
 static inline u64 sched_ktime_clock(void)
 {
 	return 0;
 }
 static inline void note_task_waking(struct task_struct *p, u64 wallclock) { }
-static inline void update_avg_burst(struct task_struct *p) { }
 #endif /* CONFIG_SCHED_WALT */
 
 #ifdef CONFIG_CPU_FREQ
@@ -2348,13 +2338,11 @@ extern unsigned int  __read_mostly sysctl_sched_spill_nr_run;
 extern unsigned int  __read_mostly sched_load_granule;
 
 extern int register_cpu_cycle_counter_cb(struct cpu_cycle_counter_cb *cb);
-extern void reset_cpu_hmp_stats(int cpu, int reset_cra);
 extern int update_preferred_cluster(struct related_thread_group *grp,
 			struct task_struct *p, u32 old_load);
 extern void set_preferred_cluster(struct related_thread_group *grp);
 extern void add_new_task_to_grp(struct task_struct *new);
 extern unsigned int update_freq_aggregate_threshold(unsigned int threshold);
-extern void update_avg(u64 *avg, u64 sample);
 
 #define NO_BOOST 0
 #define FULL_THROTTLE_BOOST 1
@@ -2574,54 +2562,15 @@ static inline int same_freq_domain(int src_cpu, int dst_cpu)
 #define	BOOST_KICK	0
 #define	CPU_RESERVED	1
 
-static inline u64 cpu_cravg_sync(int cpu, int sync)
-{
-	struct rq *rq = cpu_rq(cpu);
-	u64 load;
-
-	load = rq->hmp_stats.cumulative_runnable_avg;
-
-	/*
-	 * If load is being checked in a sync wakeup environment,
-	 * we may want to discount the load of the currently running
-	 * task.
-	 */
-	if (sync && cpu == smp_processor_id()) {
-		if (load > rq->curr->ravg.demand)
-			load -= rq->curr->ravg.demand;
-		else
-			load = 0;
-	}
-
-	return load;
-}
-
-extern int power_delta_exceeded(unsigned int cpu_cost, unsigned int base_cost);
-extern void reset_all_window_stats(u64 window_start, unsigned int window_size);
 extern int sched_boost(void);
-extern int task_load_will_fit(struct task_struct *p, u64 task_load, int cpu,
-					enum sched_boost_policy boost_policy);
-extern int task_will_fit(struct task_struct *p, int cpu);
-extern u64 cpu_load(int cpu);
-extern u64 cpu_load_sync(int cpu, int sync);
 extern int preferred_cluster(struct sched_cluster *cluster,
 						struct task_struct *p);
 extern void inc_rq_hmp_stats(struct rq *rq,
 				struct task_struct *p, int change_cra);
 extern void dec_rq_hmp_stats(struct rq *rq,
 				struct task_struct *p, int change_cra);
-extern void reset_hmp_stats(struct hmp_sched_stats *stats, int reset_cra);
-extern int upmigrate_discouraged(struct task_struct *p);
 extern struct sched_cluster *rq_cluster(struct rq *rq);
-extern int nr_big_tasks(struct rq *rq);
 extern void reset_task_stats(struct task_struct *p);
-extern void reset_cfs_rq_hmp_stats(int cpu, int reset_cra);
-extern void inc_hmp_sched_stats_fair(struct rq *rq,
-			struct task_struct *p, int change_cra);
-extern u64 cpu_upmigrate_discourage_read_u64(struct cgroup_subsys_state *css,
-					struct cftype *cft);
-extern int cpu_upmigrate_discourage_write_u64(struct cgroup_subsys_state *css,
-				struct cftype *cft, u64 upmigrate_discourage);
 extern void clear_top_tasks_bitmap(unsigned long *bitmap);
 
 #if defined(CONFIG_SCHED_TUNE) && defined(CONFIG_CGROUP_SCHEDTUNE)
@@ -2730,32 +2679,7 @@ static inline bool task_sched_boost(struct task_struct *p)
 
 static inline void check_for_migration(struct rq *rq, struct task_struct *p) { }
 
-static inline int task_will_fit(struct task_struct *p, int cpu)
-{
-	return 1;
-}
-
 static inline int sched_boost(void)
-{
-	return 0;
-}
-
-static inline int is_big_task(struct task_struct *p)
-{
-	return 0;
-}
-
-static inline int nr_big_tasks(struct rq *rq)
-{
-	return 0;
-}
-
-static inline int is_cpu_throttling_imminent(int cpu)
-{
-	return 0;
-}
-
-static inline int is_task_migration_throttled(struct task_struct *p)
 {
 	return 0;
 }
