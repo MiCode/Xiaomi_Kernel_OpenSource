@@ -4067,9 +4067,14 @@ int msm_vidc_update_host_buff_counts(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 	extra_buffers = msm_vidc_get_extra_buff_count(inst, HAL_BUFFER_INPUT);
-
 	bufreq->buffer_count_min_host = bufreq->buffer_count_min +
 		extra_buffers;
+	bufreq = get_buff_req_buffer(inst, HAL_BUFFER_EXTRADATA_INPUT);
+	if (bufreq) {
+		if (bufreq->buffer_count_min)
+			bufreq->buffer_count_min_host =
+				bufreq->buffer_count_min + extra_buffers;
+	}
 
 	if (msm_comm_get_stream_output_mode(inst) ==
 			HAL_VIDEO_DECODER_SECONDARY) {
