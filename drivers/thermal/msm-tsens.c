@@ -160,14 +160,18 @@ static int tsens_thermal_zone_register(struct tsens_device *tmdev)
 	for (i = 0; i < TSENS_MAX_SENSORS; i++) {
 		tmdev->sensor[i].tmdev = tmdev;
 		tmdev->sensor[i].hw_id = i;
-		tmdev->sensor[i].tzd =
-			devm_thermal_zone_of_sensor_register(
-			&tmdev->pdev->dev, i,
-			&tmdev->sensor[i], &tsens_tm_thermal_zone_ops);
-		if (IS_ERR(tmdev->sensor[i].tzd)) {
-			pr_debug("Error registering sensor:%d\n", i);
-			sensor_missing++;
-			continue;
+		if (tmdev->ops->sensor_en(tmdev, i)) {
+			tmdev->sensor[i].tzd =
+				devm_thermal_zone_of_sensor_register(
+				&tmdev->pdev->dev, i,
+				&tmdev->sensor[i], &tsens_tm_thermal_zone_ops);
+			if (IS_ERR(tmdev->sensor[i].tzd)) {
+				pr_debug("Error registering sensor:%d\n", i);
+				sensor_missing++;
+				continue;
+			}
+		} else {
+			pr_debug("Sensor not enabled:%d\n", i);
 		}
 	}
 
