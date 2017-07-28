@@ -2912,6 +2912,7 @@ static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc)
 		}
 	}
 
+	edev = NULL;
 	/* Use third phandle (optional) for EUD based detach/attach events */
 	if (of_count_phandle_with_args(node, "extcon", NULL) > 2) {
 		edev = extcon_get_edev_by_phandle(mdwc->dev, 2);
@@ -2921,7 +2922,7 @@ static int dwc3_msm_extcon_register(struct dwc3_msm *mdwc)
 		}
 	}
 
-	if (!IS_ERR(edev)) {
+	if (!IS_ERR_OR_NULL(edev)) {
 		mdwc->extcon_eud = edev;
 		mdwc->eud_event_nb.notifier_call = dwc3_msm_eud_notifier;
 		ret = extcon_register_notifier(edev, EXTCON_USB,
