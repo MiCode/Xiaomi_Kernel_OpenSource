@@ -128,32 +128,32 @@ struct ipahal_stats_tethering_all {
 };
 
 /*
- * struct ipahal_stats_init_FnR - Initializations parameters for FnR
+ * struct ipahal_stats_init_flt_rt - Initializations parameters for flt_rt
  * @rule_id_bitmask: array describes which rule ids to monitor.
  *	rule_id bit is determined by:
  *		index to the array => rule_id / 32
  *		bit to enable => rule_id % 32
  */
-struct ipahal_stats_init_FnR {
+struct ipahal_stats_init_flt_rt {
 	u32 rule_id_bitmask[IPAHAL_MAX_RULE_ID_32];
 };
 
 /*
- * struct ipahal_stats_get_offset_FnR - Get offset parameters for FnR
+ * struct ipahal_stats_get_offset_flt_rt - Get offset parameters for flt_rt
  * @init: initialization parameters used in initialization of stats
  * @rule_id: rule_id to get the offset for
  */
-struct ipahal_stats_get_offset_FnR {
-	struct ipahal_stats_init_FnR init;
+struct ipahal_stats_get_offset_flt_rt {
+	struct ipahal_stats_init_flt_rt init;
 	u32 rule_id;
 };
 
 /*
- * struct ipahal_stats_FnR - FnR statistics
+ * struct ipahal_stats_flt_rt - flt_rt statistics
  * @num_packets: Total number of packets hit this rule
  * @num_packets_hash: Total number of packets hit this rule in hash table
  */
-struct ipahal_stats_FnR {
+struct ipahal_stats_flt_rt {
 	u32 num_packets;
 	u32 num_packets_hash;
 };

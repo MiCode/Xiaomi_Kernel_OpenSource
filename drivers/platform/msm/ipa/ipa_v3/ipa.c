@@ -4239,6 +4239,12 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	else
 		IPADBG(":ntn init ok\n");
 
+	result = ipa_hw_stats_init();
+	if (result)
+		IPAERR("fail to init stats %d\n", result);
+	else
+		IPADBG(":stats init ok\n");
+
 	ipa3_register_panic_hdlr();
 
 	ipa3_ctx->q6_proxy_clk_vote_valid = true;

@@ -229,12 +229,12 @@ static int ipahal_parse_stats_tethering(void *init_params, void *raw_stats,
 	return 0;
 }
 
-static struct ipahal_stats_init_pyld *ipahal_generate_init_pyld_FnR(
+static struct ipahal_stats_init_pyld *ipahal_generate_init_pyld_flt_rt(
 	void *params, bool is_atomic_ctx)
 {
 	struct ipahal_stats_init_pyld *pyld;
-	struct ipahal_stats_init_FnR *in =
-		(struct ipahal_stats_init_FnR *)params;
+	struct ipahal_stats_init_flt_rt *in =
+		(struct ipahal_stats_init_flt_rt *)params;
 	int hdr_entries;
 	int num_rules = 0;
 	int i, start_entry;
@@ -266,40 +266,40 @@ static struct ipahal_stats_init_pyld *ipahal_generate_init_pyld_FnR(
 	IPAHAL_DBG_LOW("hdr_entries = %d\n", hdr_entries);
 
 	pyld = IPAHAL_MEM_ALLOC(sizeof(*pyld) +
-		hdr_entries * sizeof(struct ipahal_stats_FnR_hdr_hw) +
-		num_rules * sizeof(struct ipahal_stats_FnR_hw),
+		hdr_entries * sizeof(struct ipahal_stats_flt_rt_hdr_hw) +
+		num_rules * sizeof(struct ipahal_stats_flt_rt_hw),
 		is_atomic_ctx);
 	if (!pyld) {
 		IPAHAL_ERR("no mem\n");
 		return NULL;
 	}
 
-	pyld->len = hdr_entries * sizeof(struct ipahal_stats_FnR_hdr_hw) +
-		num_rules * sizeof(struct ipahal_stats_FnR_hw);
+	pyld->len = hdr_entries * sizeof(struct ipahal_stats_flt_rt_hdr_hw) +
+		num_rules * sizeof(struct ipahal_stats_flt_rt_hw);
 
 	pyld_ptr = pyld->data;
 	incremental_offset =
-		(hdr_entries * sizeof(struct ipahal_stats_FnR_hdr_hw))
+		(hdr_entries * sizeof(struct ipahal_stats_flt_rt_hdr_hw))
 			/ 8;
 	for (i = start_entry; i < hdr_entries; i++) {
-		struct ipahal_stats_FnR_hdr_hw *hdr = pyld_ptr;
+		struct ipahal_stats_flt_rt_hdr_hw *hdr = pyld_ptr;
 
 		hdr->en_mask = in->rule_id_bitmask[i];
 		hdr->cnt_offset = incremental_offset;
 		/* add the stats entry */
 		incremental_offset += _count_ones(in->rule_id_bitmask[i]) *
-			sizeof(struct ipahal_stats_FnR_hw) / 8;
+			sizeof(struct ipahal_stats_flt_rt_hw) / 8;
 		pyld_ptr += sizeof(*hdr);
 	}
 
 	return pyld;
 }
 
-static int ipahal_get_offset_FnR(void *params,
+static int ipahal_get_offset_flt_rt(void *params,
 	struct ipahal_stats_offset *out)
 {
-	struct ipahal_stats_get_offset_FnR *in =
-		(struct ipahal_stats_get_offset_FnR *)params;
+	struct ipahal_stats_get_offset_flt_rt *in =
+		(struct ipahal_stats_get_offset_flt_rt *)params;
 	int i;
 	int hdr_entries;
 	int skip_rules = 0;
@@ -333,7 +333,7 @@ static int ipahal_get_offset_FnR(void *params,
 	IPAHAL_DBG_LOW("hdr_entries = %d\n", hdr_entries);
 
 	/* skip the header */
-	out->offset = hdr_entries * sizeof(struct ipahal_stats_FnR_hdr_hw);
+	out->offset = hdr_entries * sizeof(struct ipahal_stats_flt_rt_hdr_hw);
 
 	/* skip the previous rules  */
 	for (i = start_entry; i < rule_idx; i++)
@@ -343,19 +343,19 @@ static int ipahal_get_offset_FnR(void *params,
 		if (in->init.rule_id_bitmask[rule_idx] & (1 << i))
 			skip_rules++;
 
-	out->offset += skip_rules * sizeof(struct ipahal_stats_FnR_hw);
-	out->size = sizeof(struct ipahal_stats_FnR_hw);
+	out->offset += skip_rules * sizeof(struct ipahal_stats_flt_rt_hw);
+	out->size = sizeof(struct ipahal_stats_flt_rt_hw);
 
 	return 0;
 }
 
-static int ipahal_parse_stats_FnR(void *init_params, void *raw_stats,
+static int ipahal_parse_stats_flt_rt(void *init_params, void *raw_stats,
 	void *parsed_stats)
 {
-	struct ipahal_stats_FnR_hw *raw_hw =
-		(struct ipahal_stats_FnR_hw *)raw_stats;
-	struct ipahal_stats_FnR *out =
-		(struct ipahal_stats_FnR *)parsed_stats;
+	struct ipahal_stats_flt_rt_hw *raw_hw =
+		(struct ipahal_stats_flt_rt_hw *)raw_stats;
+	struct ipahal_stats_flt_rt *out =
+		(struct ipahal_stats_flt_rt *)parsed_stats;
 
 	memset(out, 0, sizeof(*out));
 	IPAHAL_DBG_LOW("\n");
@@ -441,9 +441,9 @@ static struct ipahal_hw_stats_obj
 		ipahal_parse_stats_tethering
 	},
 	[IPA_HW_v4_0][IPAHAL_HW_STATS_FNR] = {
-		ipahal_generate_init_pyld_FnR,
-		ipahal_get_offset_FnR,
-		ipahal_parse_stats_FnR
+		ipahal_generate_init_pyld_flt_rt,
+		ipahal_get_offset_flt_rt,
+		ipahal_parse_stats_flt_rt
 	},
 	[IPA_HW_v4_0][IPAHAL_HW_STATS_DROP] = {
 		ipahal_generate_init_pyld_drop,

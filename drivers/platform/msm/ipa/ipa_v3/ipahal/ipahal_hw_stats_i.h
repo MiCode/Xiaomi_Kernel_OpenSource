@@ -36,13 +36,13 @@ struct ipahal_stats_tethering_hw {
 	u64 num_ipv6_bytes;
 };
 
-struct ipahal_stats_FnR_hdr_hw {
+struct ipahal_stats_flt_rt_hdr_hw {
 	u64 en_mask:32;
 	u64 reserved:16;
 	u64 cnt_offset:16;
 };
 
-struct ipahal_stats_FnR_hw {
+struct ipahal_stats_flt_rt_hw {
 	u64 num_packets_hash:32;
 	u64 num_packets:32;
 };
