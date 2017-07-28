@@ -100,7 +100,7 @@ static void loopback_event_handler(uint32_t opcode,
 		return;
 	}
 
-	cstream = trans->source.cstream;
+	cstream = trans->sink.cstream;
 	ac = trans->audio_client;
 
 	/*
@@ -223,6 +223,7 @@ static int msm_transcode_loopback_open(struct snd_compr_stream *cstream)
 			ret = -EINVAL;
 			goto exit;
 		}
+		msm_adsp_init_mixer_ctl_pp_event_queue(rtd);
 	}
 
 	pr_debug("%s: num stream%d, stream name %s\n", __func__,
@@ -237,8 +238,7 @@ static int msm_transcode_loopback_open(struct snd_compr_stream *cstream)
 	}
 
 	runtime->private_data = trans;
-	if (trans->num_streams == 1)
-		msm_adsp_init_mixer_ctl_pp_event_queue(rtd);
+
 exit:
 	mutex_unlock(&trans->lock);
 	return ret;
@@ -283,14 +283,14 @@ static int msm_transcode_loopback_free(struct snd_compr_stream *cstream)
 	trans->num_streams--;
 	stop_transcoding(trans);
 
-	if (cstream->direction == SND_COMPRESS_PLAYBACK)
+	if (cstream->direction == SND_COMPRESS_PLAYBACK) {
 		memset(&trans->sink, 0, sizeof(struct loopback_stream));
-	else if (cstream->direction == SND_COMPRESS_CAPTURE)
+		msm_adsp_clean_mixer_ctl_pp_event_queue(rtd);
+	} else if (cstream->direction == SND_COMPRESS_CAPTURE) {
 		memset(&trans->source, 0, sizeof(struct loopback_stream));
+	}
 
 	trans->session_state = LOOPBACK_SESSION_CLOSE;
-	if (trans->num_streams == 1)
-		msm_adsp_clean_mixer_ctl_pp_event_queue(rtd);
 	mutex_unlock(&trans->lock);
 	return ret;
 }
