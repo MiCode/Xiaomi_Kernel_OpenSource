@@ -1432,6 +1432,7 @@ static void reset_vdm_state(struct usbpd *pd)
 static void dr_swap(struct usbpd *pd)
 {
 	reset_vdm_state(pd);
+	usbpd_dbg(&pd->dev, "dr_swap: current_dr(%d)\n", pd->current_dr);
 
 	if (pd->current_dr == DR_DFP) {
 		stop_usb_host(pd);
@@ -1439,9 +1440,9 @@ static void dr_swap(struct usbpd *pd)
 		pd->current_dr = DR_UFP;
 	} else if (pd->current_dr == DR_UFP) {
 		stop_usb_peripheral(pd);
+		start_usb_host(pd, true);
 		pd->current_dr = DR_DFP;
 
-		/* don't start USB host until after SVDM discovery */
 		usbpd_send_svdm(pd, USBPD_SID, USBPD_SVDM_DISCOVER_IDENTITY,
 				SVDM_CMD_TYPE_INITIATOR, 0, NULL, 0);
 	}
