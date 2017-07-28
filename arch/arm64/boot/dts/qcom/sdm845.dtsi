@@ -1676,13 +1676,18 @@
 			<81 512 1338562 4096000>,
 			<1 608 1338562 4096000>;
 		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
-			100000000 200000000 4294967295>;
+			100750000 200000000 4294967295>;
 
 		qcom,sdr104-wa;
 
 		qcom,restore-after-cx-collapse;
 
-		qcom,devfreq,freq-table = <50000000 200000000>;
+		qcom,clk-rates = <400000 20000000 25000000
+					50000000 100000000 201500000>;
+		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50",
+				      "SDR104";
+
+		qcom,devfreq,freq-table = <50000000 201500000>;
 		clocks = <&clock_gcc GCC_SDCC2_AHB_CLK>,
 			<&clock_gcc GCC_SDCC2_APPS_CLK>;
 		clock-names = "iface_clk", "core_clk";

@@ -17,6 +17,14 @@
 	qcom,msm-id = <321 0x20000>;
 };
 
+&sdhc_2 {
+	qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+				   100000000 200000000 4294967295>;
+	qcom,clk-rates = <400000 20000000 25000000 50000000
+			  100000000 200000000>;
+	qcom,devfreq,freq-table = <50000000 200000000>;
+};
+
 &clock_gcc {
 	compatible = "qcom,gcc-sdm845-v2";
 };
