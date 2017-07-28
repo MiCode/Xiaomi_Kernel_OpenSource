@@ -2394,6 +2394,40 @@ bool sde_hdmi_mode_needs_full_range(void *display)
 	return true;
 }
 
+enum sde_csc_type sde_hdmi_get_csc_type(struct drm_connector *conn,
+	void *display)
+{
+	struct sde_hdmi *hdmi_display = (struct sde_hdmi *)display;
+	struct sde_connector_state *c_state;
+	struct drm_msm_ext_panel_hdr_ctrl *hdr_ctrl;
+	struct drm_msm_ext_panel_hdr_metadata *hdr_meta;
+
+	if (!hdmi_display || !conn) {
+		SDE_ERROR("invalid input\n");
+		goto error;
+	}
+
+	c_state = to_sde_connector_state(conn->state);
+
+	if (!c_state) {
+		SDE_ERROR("invalid input\n");
+		goto error;
+	}
+
+	hdr_ctrl = &c_state->hdr_ctrl;
+	hdr_meta = &hdr_ctrl->hdr_meta;
+
+	if ((hdr_ctrl->hdr_state == HDR_ENABLE)
+		&& (hdr_meta->eotf != 0))
+		return SDE_CSC_RGB2YUV_2020L;
+	else if (sde_hdmi_mode_needs_full_range(hdmi_display)
+		|| conn->yuv_qs)
+		return SDE_CSC_RGB2YUV_601FR;
+
+error:
+	return SDE_CSC_RGB2YUV_601L;
+}
+
 int sde_hdmi_connector_get_modes(struct drm_connector *connector, void *display)
 {
 	struct sde_hdmi *hdmi_display = (struct sde_hdmi *)display;

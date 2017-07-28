@@ -862,7 +862,12 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc;
 	struct sde_encoder_phys *phys;
+	struct drm_connector *conn_mas = NULL;
 	unsigned int i;
+	enum sde_csc_type conn_csc;
+	struct drm_display_mode *mode;
+	struct sde_hw_cdm *hw_cdm;
+	int mode_is_yuv = 0;
 	int rc;
 
 	if (!drm_enc) {
@@ -882,11 +887,46 @@ void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc)
 	}
 
 	if (sde_enc->cur_master && sde_enc->cur_master->connector) {
-		rc = sde_connector_pre_kickoff(sde_enc->cur_master->connector);
+		conn_mas = sde_enc->cur_master->connector;
+		rc = sde_connector_pre_kickoff(conn_mas);
 		if (rc)
-			SDE_ERROR_ENC(sde_enc, "kickoff conn%d failed rc %d\n",
-					sde_enc->cur_master->connector->base.id,
-					rc);
+			SDE_ERROR_ENC(sde_enc,
+				"kickoff conn%d failed rc %d\n",
+				conn_mas->base.id,
+				rc);
+
+		for (i = 0; i < sde_enc->num_phys_encs; i++) {
+			phys = sde_enc->phys_encs[i];
+			if (phys) {
+				mode = &phys->cached_mode;
+				mode_is_yuv = (mode->private_flags &
+					MSM_MODE_FLAG_COLOR_FORMAT_YCBCR420);
+			}
+			/**
+			 * Check the CSC matrix type to which the
+			 * CDM CSC matrix should be updated to based
+			 * on the connector HDR state
+			 */
+			conn_csc = sde_connector_get_csc_type(conn_mas);
+			if (phys && mode_is_yuv) {
+				if (phys->enc_cdm_csc != conn_csc) {
+					hw_cdm = phys->hw_cdm;
+					rc = hw_cdm->ops.setup_csc_data(hw_cdm,
+					&sde_csc_10bit_convert[conn_csc]);
+
+					if (rc)
+						SDE_ERROR_ENC(sde_enc,
+							"CSC setup failed rc %d\n",
+							rc);
+					SDE_DEBUG_ENC(sde_enc,
+						"updating CSC %d to %d\n",
+						phys->enc_cdm_csc,
+						conn_csc);
+					phys->enc_cdm_csc = conn_csc;
+
+				}
+			}
+		}
 	}
 }
 
@@ -1542,6 +1582,9 @@ void sde_encoder_phys_setup_cdm(struct sde_encoder_phys *phys_enc,
 			return;
 		}
 	}
+
+	/* Cache the CSC default matrix type */
+	phys_enc->enc_cdm_csc = csc_type;
 
 	if (hw_cdm && hw_cdm->ops.setup_cdwn) {
 		ret = hw_cdm->ops.setup_cdwn(hw_cdm, cdm_cfg);
