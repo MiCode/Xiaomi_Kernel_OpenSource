@@ -128,9 +128,20 @@ void a5xx_preempt_trigger(struct msm_gpu *gpu)
 	 * one do nothing except to update the wptr to the latest and greatest
 	 */
 	if (!ring || (a5xx_gpu->cur_ring == ring)) {
-		update_wptr(gpu, ring);
+		/*
+		 * Its possible that while a preemption request is in progress
+		 * from an irq context, a user context trying to submit might
+		 * fail to update the write pointer, because it determines
+		 * that the preempt state is not PREEMPT_NONE.
+		 *
+		 * Close the race by introducing an intermediate
+		 * state PREEMPT_ABORT to let the submit path
+		 * know that the ringbuffer is not going to change
+		 * and can safely update the write pointer.
+		 */
 
-		/* Set the state back to NONE */
+		set_preempt_state(a5xx_gpu, PREEMPT_ABORT);
+		update_wptr(gpu, a5xx_gpu->cur_ring);
 		set_preempt_state(a5xx_gpu, PREEMPT_NONE);
 		return;
 	}
