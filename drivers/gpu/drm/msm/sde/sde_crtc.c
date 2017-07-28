@@ -2084,7 +2084,7 @@ static void sde_crtc_destroy_state(struct drm_crtc *crtc,
 
 	/* destroy value helper */
 	msm_property_destroy_state(&sde_crtc->property_info, cstate,
-			cstate->property_values, cstate->property_blobs);
+			&cstate->property_state);
 }
 
 static int _sde_crtc_wait_for_frame_done(struct drm_crtc *crtc)
@@ -2344,7 +2344,7 @@ static struct drm_crtc_state *sde_crtc_duplicate_state(struct drm_crtc *crtc)
 	/* duplicate value helper */
 	msm_property_duplicate_state(&sde_crtc->property_info,
 			old_cstate, cstate,
-			cstate->property_values, cstate->property_blobs);
+			&cstate->property_state, cstate->property_values);
 
 	/* duplicate base helper */
 	__drm_atomic_helper_crtc_duplicate_state(crtc, &cstate->base);
@@ -2389,7 +2389,8 @@ static void sde_crtc_reset(struct drm_crtc *crtc)
 
 	/* reset value helper */
 	msm_property_reset_state(&sde_crtc->property_info, cstate,
-			cstate->property_values, cstate->property_blobs);
+			&cstate->property_state,
+			cstate->property_values);
 
 	_sde_crtc_set_input_fence_timeout(cstate);
 
@@ -3196,8 +3197,7 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 		sde_crtc = to_sde_crtc(crtc);
 		cstate = to_sde_crtc_state(state);
 		ret = msm_property_atomic_set(&sde_crtc->property_info,
-				cstate->property_values, cstate->property_blobs,
-				property, val);
+				&cstate->property_state, property, val);
 		if (!ret) {
 			idx = msm_property_index(&sde_crtc->property_info,
 					property);
@@ -3317,8 +3317,8 @@ static int sde_crtc_atomic_get_property(struct drm_crtc *crtc,
 				SDE_ERROR("fence create failed\n");
 		} else {
 			ret = msm_property_atomic_get(&sde_crtc->property_info,
-					cstate->property_values,
-					cstate->property_blobs, property, val);
+					&cstate->property_state,
+					property, val);
 			if (ret)
 				ret = sde_cp_crtc_get_property(crtc,
 					property, val);
