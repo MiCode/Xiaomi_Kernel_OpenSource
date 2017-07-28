@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -113,6 +113,9 @@ static int hfi_process_sess_evt_seq_changed(u32 device_id,
 	int prop_id;
 	enum msm_vidc_pixel_depth luma_bit_depth, chroma_bit_depth;
 	struct hfi_colour_space *colour_info;
+
+	 /* Initialize pic_struct to unknown as default */
+	event_notify.pic_struct = MSM_VIDC_PIC_STRUCT_UNKNOWN;
 
 	if (sizeof(struct hfi_msg_event_notify_packet) > pkt->size) {
 		dprintk(VIDC_ERR,
