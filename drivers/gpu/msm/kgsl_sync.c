@@ -370,7 +370,8 @@ static void kgsl_sync_timeline_signal(struct kgsl_sync_timeline *ktimeline,
 	unsigned long flags;
 	struct kgsl_sync_fence *kfence, *next;
 
-	kref_get(&ktimeline->kref);
+	if (!kref_get_unless_zero(&ktimeline->kref))
+		return;
 
 	spin_lock_irqsave(&ktimeline->lock, flags);
 	if (timestamp_cmp(timestamp, ktimeline->last_timestamp) > 0)
