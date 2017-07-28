@@ -223,6 +223,7 @@ struct dwc3_msm {
 	struct notifier_block	id_nb;
 
 	struct notifier_block	host_nb;
+	bool			host_only_mode;
 
 	int			pwr_event_irq;
 	atomic_t                in_p3;
@@ -3215,6 +3216,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (host_mode ||
 		(dwc->is_drd && !of_property_read_bool(node, "extcon"))) {
 		dev_dbg(&pdev->dev, "DWC3 in default host mode\n");
+		mdwc->host_only_mode = true;
 		mdwc->id_state = DWC3_ID_GROUND;
 		dwc3_ext_event_notify(mdwc);
 	}
@@ -3589,7 +3591,9 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		mdwc->in_host_mode = false;
 
 		/* re-init core and OTG registers as block reset clears these */
-		dwc3_post_host_reset_core_init(dwc);
+		if (!mdwc->host_only_mode)
+			dwc3_post_host_reset_core_init(dwc);
+
 		pm_runtime_mark_last_busy(mdwc->dev);
 		pm_runtime_put_sync_autosuspend(mdwc->dev);
 		dbg_event(0xFF, "StopHost psync",
