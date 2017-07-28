@@ -783,10 +783,15 @@ struct sde_mdp_format_params *sde_get_format_params(u32 format)
 	if (!fmt_found) {
 		for (i = 0; i < ARRAY_SIZE(sde_mdp_format_ubwc_map); i++) {
 			fmt = &sde_mdp_format_ubwc_map[i].mdp_format;
-			if (format == fmt->format)
+			if (format == fmt->format) {
+				fmt_found = true;
 				break;
+			}
 		}
 	}
+	/* If format not supported than return NULL */
+	if (!fmt_found)
+		fmt = NULL;
 
 	return fmt;
 }
