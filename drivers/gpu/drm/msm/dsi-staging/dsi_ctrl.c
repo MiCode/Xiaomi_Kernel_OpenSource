@@ -2258,6 +2258,28 @@ int dsi_ctrl_cmd_tx_trigger(struct dsi_ctrl *dsi_ctrl, u32 flags)
 }
 
 /**
+ * _dsi_ctrl_cache_misr - Cache frame MISR value
+ * @dsi_ctrl: Pointer to associated dsi_ctrl structure
+ */
+static void _dsi_ctrl_cache_misr(struct dsi_ctrl *dsi_ctrl)
+{
+	u32 misr;
+
+	if (!dsi_ctrl || !dsi_ctrl->hw.ops.collect_misr)
+		return;
+
+	misr = dsi_ctrl->hw.ops.collect_misr(&dsi_ctrl->hw,
+				dsi_ctrl->host_config.panel_mode);
+
+	if (misr)
+		dsi_ctrl->misr_cache = misr;
+
+	pr_debug("DSI_%d misr_cache = %x\n", dsi_ctrl->cell_index,
+		dsi_ctrl->misr_cache);
+
+}
+
+/**
  * dsi_ctrl_set_power_state() - set power state for dsi controller
  * @dsi_ctrl:          DSI controller handle.
  * @state:             Power state.
@@ -2295,6 +2317,9 @@ int dsi_ctrl_set_power_state(struct dsi_ctrl *dsi_ctrl,
 			goto error;
 		}
 	} else if (state == DSI_CTRL_POWER_VREG_OFF) {
+		if (dsi_ctrl->misr_enable)
+			_dsi_ctrl_cache_misr(dsi_ctrl);
+
 		rc = dsi_ctrl_enable_supplies(dsi_ctrl, false);
 		if (rc) {
 			pr_err("[%d]failed to disable vreg supplies, rc=%d\n",
@@ -2606,6 +2631,59 @@ int dsi_ctrl_set_clock_source(struct dsi_ctrl *dsi_ctrl,
 error:
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
 	return rc;
+}
+
+/**
+ * dsi_ctrl_setup_misr() - Setup frame MISR
+ * @dsi_ctrl:              DSI controller handle.
+ * @enable:                enable/disable MISR.
+ * @frame_count:           Number of frames to accumulate MISR.
+ *
+ * Return: error code.
+ */
+int dsi_ctrl_setup_misr(struct dsi_ctrl *dsi_ctrl,
+			bool enable,
+			u32 frame_count)
+{
+	if (!dsi_ctrl) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	if (!dsi_ctrl->hw.ops.setup_misr)
+		return 0;
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	dsi_ctrl->misr_enable = enable;
+	dsi_ctrl->hw.ops.setup_misr(&dsi_ctrl->hw,
+			dsi_ctrl->host_config.panel_mode,
+			enable, frame_count);
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+	return 0;
+}
+
+/**
+ * dsi_ctrl_collect_misr() - Read frame MISR
+ * @dsi_ctrl:              DSI controller handle.
+ *
+ * Return: MISR value.
+ */
+u32 dsi_ctrl_collect_misr(struct dsi_ctrl *dsi_ctrl)
+{
+	u32 misr;
+
+	if (!dsi_ctrl || !dsi_ctrl->hw.ops.collect_misr)
+		return 0;
+
+	misr = dsi_ctrl->hw.ops.collect_misr(&dsi_ctrl->hw,
+				dsi_ctrl->host_config.panel_mode);
+	if (!misr)
+		misr = dsi_ctrl->misr_cache;
+
+	pr_debug("DSI_%d cached misr = %x, final = %x\n",
+		dsi_ctrl->cell_index, dsi_ctrl->misr_cache, misr);
+
+	return misr;
 }
 
 /**

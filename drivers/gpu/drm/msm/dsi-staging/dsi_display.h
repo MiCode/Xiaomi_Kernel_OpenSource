@@ -154,6 +154,8 @@ struct dsi_display_clk_info {
  * @dsi_clk_handle:   DSI clock handle.
  * @mdp_clk_handle:   MDP clock handle.
  * @root:             Debugfs root directory
+ * @misr_enable       Frame MISR enable/disable
+ * @misr_frame_count  Number of frames to accumulate the MISR value
  */
 struct dsi_display {
 	struct platform_device *pdev;
@@ -201,6 +203,9 @@ struct dsi_display {
 
 	/* DEBUG FS */
 	struct dentry *root;
+
+	bool misr_enable;
+	u32 misr_frame_count;
 };
 
 int dsi_display_dev_probe(struct platform_device *pdev);

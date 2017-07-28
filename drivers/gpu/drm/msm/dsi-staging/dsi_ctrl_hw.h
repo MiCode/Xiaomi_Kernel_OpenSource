@@ -675,6 +675,26 @@ struct dsi_ctrl_hw_ops {
 	ssize_t (*reg_dump_to_buffer)(struct dsi_ctrl_hw *ctrl,
 				      char *buf,
 				      u32 size);
+
+	/**
+	 * setup_misr() - Setup frame MISR
+	 * @ctrl:         Pointer to the controller host hardware.
+	 * @panel_mode:   CMD or VIDEO mode indicator
+	 * @enable:       Enable/disable MISR.
+	 * @frame_count:  Number of frames to accumulate MISR.
+	 */
+	void (*setup_misr)(struct dsi_ctrl_hw *ctrl,
+			   enum dsi_op_mode panel_mode,
+			   bool enable, u32 frame_count);
+
+	/**
+	 * collect_misr() - Read frame MISR
+	 * @ctrl:         Pointer to the controller host hardware.
+	 * @panel_mode:   CMD or VIDEO mode indicator
+	 */
+	u32 (*collect_misr)(struct dsi_ctrl_hw *ctrl,
+			    enum dsi_op_mode panel_mode);
+
 };
 
 /*

@@ -147,6 +147,12 @@ void dsi_ctrl_hw_cmn_setup_cmd_stream(struct dsi_ctrl_hw *ctrl,
 void dsi_ctrl_hw_cmn_phy_sw_reset(struct dsi_ctrl_hw *ctrl);
 void dsi_ctrl_hw_cmn_soft_reset(struct dsi_ctrl_hw *ctrl);
 
+void dsi_ctrl_hw_cmn_setup_misr(struct dsi_ctrl_hw *ctrl,
+			enum dsi_op_mode panel_mode,
+			bool enable, u32 frame_count);
+u32 dsi_ctrl_hw_cmn_collect_misr(struct dsi_ctrl_hw *ctrl,
+			enum dsi_op_mode panel_mode);
+
 void dsi_ctrl_hw_cmn_kickoff_command(struct dsi_ctrl_hw *ctrl,
 			struct dsi_ctrl_cmd_dma_info *cmd,
 			u32 flags);

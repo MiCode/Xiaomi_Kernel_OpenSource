@@ -32,6 +32,8 @@
 #define to_dsi_display(x) container_of(x, struct dsi_display, host)
 #define INT_BASE_10 10
 
+#define MISR_BUFF_SIZE	256
+
 static DEFINE_MUTEX(dsi_display_list_lock);
 static LIST_HEAD(dsi_display_list);
 static char dsi_display_primary[MAX_CMDLINE_PARAM_LEN];
@@ -128,9 +130,20 @@ enum dsi_pixel_format dsi_display_get_dst_format(void *display)
 	return format;
 }
 
+static void _dsi_display_setup_misr(struct dsi_display *display)
+{
+	int i;
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		dsi_ctrl_setup_misr(display->ctrl[i].ctrl,
+				display->misr_enable,
+				display->misr_frame_count);
+	}
+}
+
 static ssize_t debugfs_dump_info_read(struct file *file,
-				      char __user *buff,
-				      size_t count,
+				      char __user *user_buf,
+				      size_t user_len,
 				      loff_t *ppos)
 {
 	struct dsi_display *display = file->private_data;
@@ -168,7 +181,7 @@ static ssize_t debugfs_dump_info_read(struct file *file,
 			"\tClock master = %s\n",
 			display->ctrl[display->clk_master_idx].ctrl->name);
 
-	if (copy_to_user(buff, buf, len)) {
+	if (copy_to_user(user_buf, buf, len)) {
 		kfree(buf);
 		return -EFAULT;
 	}
@@ -179,16 +192,151 @@ static ssize_t debugfs_dump_info_read(struct file *file,
 	return len;
 }
 
+static ssize_t debugfs_misr_setup(struct file *file,
+				  const char __user *user_buf,
+				  size_t user_len,
+				  loff_t *ppos)
+{
+	struct dsi_display *display = file->private_data;
+	char *buf;
+	int rc = 0;
+	size_t len;
+	u32 enable, frame_count;
+
+	if (!display)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	buf = kzalloc(MISR_BUFF_SIZE, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	/* leave room for termination char */
+	len = min_t(size_t, user_len, MISR_BUFF_SIZE - 1);
+	if (copy_from_user(buf, user_buf, len)) {
+		rc = -EINVAL;
+		goto error;
+	}
+
+	buf[len] = '\0'; /* terminate the string */
+
+	if (sscanf(buf, "%u %u", &enable, &frame_count) != 2) {
+		rc = -EINVAL;
+		goto error;
+	}
+
+	display->misr_enable = enable;
+	display->misr_frame_count = frame_count;
+
+	mutex_lock(&display->display_lock);
+	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_CORE_CLK, DSI_CLK_ON);
+	if (rc) {
+		pr_err("[%s] failed to enable DSI core clocks, rc=%d\n",
+		       display->name, rc);
+		goto unlock;
+	}
+
+	_dsi_display_setup_misr(display);
+
+	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_CORE_CLK, DSI_CLK_OFF);
+	if (rc) {
+		pr_err("[%s] failed to disable DSI core clocks, rc=%d\n",
+		       display->name, rc);
+		goto unlock;
+	}
+
+	rc = user_len;
+unlock:
+	mutex_unlock(&display->display_lock);
+error:
+	kfree(buf);
+	return rc;
+}
+
+static ssize_t debugfs_misr_read(struct file *file,
+				 char __user *user_buf,
+				 size_t user_len,
+				 loff_t *ppos)
+{
+	struct dsi_display *display = file->private_data;
+	char *buf;
+	u32 len = 0;
+	int rc = 0;
+	struct dsi_ctrl *dsi_ctrl;
+	int i;
+	u32 misr;
+	size_t max_len = min_t(size_t, user_len, MISR_BUFF_SIZE);
+
+	if (!display)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0;
+
+	buf = kzalloc(max_len, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	mutex_lock(&display->display_lock);
+	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_CORE_CLK, DSI_CLK_ON);
+	if (rc) {
+		pr_err("[%s] failed to enable DSI core clocks, rc=%d\n",
+		       display->name, rc);
+		goto error;
+	}
+
+	for (i = 0; i < display->ctrl_count; i++) {
+		dsi_ctrl = display->ctrl[i].ctrl;
+		misr = dsi_ctrl_collect_misr(display->ctrl[i].ctrl);
+
+		len += snprintf((buf + len), max_len - len,
+			"DSI_%d MISR: 0x%x\n", dsi_ctrl->cell_index, misr);
+
+		if (len >= max_len)
+			break;
+	}
+
+	rc = dsi_display_clk_ctrl(display->dsi_clk_handle,
+			DSI_CORE_CLK, DSI_CLK_OFF);
+	if (rc) {
+		pr_err("[%s] failed to disable DSI core clocks, rc=%d\n",
+		       display->name, rc);
+		goto error;
+	}
+
+	if (copy_to_user(user_buf, buf, len)) {
+		rc = -EFAULT;
+		goto error;
+	}
+
+	*ppos += len;
+
+error:
+	mutex_unlock(&display->display_lock);
+	kfree(buf);
+	return len;
+}
 
 static const struct file_operations dump_info_fops = {
 	.open = simple_open,
 	.read = debugfs_dump_info_read,
 };
 
+static const struct file_operations misr_data_fops = {
+	.open = simple_open,
+	.read = debugfs_misr_read,
+	.write = debugfs_misr_setup,
+};
+
 static int dsi_display_debugfs_init(struct dsi_display *display)
 {
 	int rc = 0;
-	struct dentry *dir, *dump_file;
+	struct dentry *dir, *dump_file, *misr_data;
 
 	dir = debugfs_create_dir(display->name, NULL);
 	if (IS_ERR_OR_NULL(dir)) {
@@ -199,13 +347,25 @@ static int dsi_display_debugfs_init(struct dsi_display *display)
 	}
 
 	dump_file = debugfs_create_file("dump_info",
-					0444,
+					0400,
 					dir,
 					display,
 					&dump_info_fops);
 	if (IS_ERR_OR_NULL(dump_file)) {
 		rc = PTR_ERR(dump_file);
-		pr_err("[%s] debugfs create file failed, rc=%d\n",
+		pr_err("[%s] debugfs create dump info file failed, rc=%d\n",
+		       display->name, rc);
+		goto error_remove_dir;
+	}
+
+	misr_data = debugfs_create_file("misr_data",
+					0600,
+					dir,
+					display,
+					&misr_data_fops);
+	if (IS_ERR_OR_NULL(misr_data)) {
+		rc = PTR_ERR(misr_data);
+		pr_err("[%s] debugfs create misr datafile failed, rc=%d\n",
 		       display->name, rc);
 		goto error_remove_dir;
 	}
@@ -3532,6 +3692,10 @@ int dsi_display_pre_kickoff(struct dsi_display *display,
 		struct msm_display_kickoff_params *params)
 {
 	int rc = 0;
+
+	/* check and setup MISR */
+	if (display->misr_enable)
+		_dsi_display_setup_misr(display);
 
 	rc = dsi_display_set_roi(display, params->rois);
 
