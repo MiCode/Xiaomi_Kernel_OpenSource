@@ -227,7 +227,7 @@ int ipa3_query_intf(struct ipa_ioc_query_intf *lookup)
 
 	if (strnlen(lookup->name, IPA_RESOURCE_NAME_MAX) ==
 			IPA_RESOURCE_NAME_MAX) {
-		IPAERR("Interface name too long. (%s)\n", lookup->name);
+		IPAERR_RL("Interface name too long. (%s)\n", lookup->name);
 		return result;
 	}
 
@@ -268,7 +268,7 @@ int ipa3_query_intf_tx_props(struct ipa_ioc_query_intf_tx_props *tx)
 	}
 
 	if (strnlen(tx->name, IPA_RESOURCE_NAME_MAX) == IPA_RESOURCE_NAME_MAX) {
-		IPAERR("Interface name too long. (%s)\n", tx->name);
+		IPAERR_RL("Interface name too long. (%s)\n", tx->name);
 		return result;
 	}
 
@@ -315,7 +315,7 @@ int ipa3_query_intf_rx_props(struct ipa_ioc_query_intf_rx_props *rx)
 	}
 
 	if (strnlen(rx->name, IPA_RESOURCE_NAME_MAX) == IPA_RESOURCE_NAME_MAX) {
-		IPAERR("Interface name too long. (%s)\n", rx->name);
+		IPAERR_RL("Interface name too long. (%s)\n", rx->name);
 		return result;
 	}
 
@@ -410,13 +410,13 @@ int ipa3_send_msg(struct ipa_msg_meta *meta, void *buff,
 
 	if (meta == NULL || (buff == NULL && callback != NULL) ||
 	    (buff != NULL && callback == NULL)) {
-		IPAERR("invalid param meta=%p buff=%p, callback=%p\n",
+		IPAERR_RL("invalid param meta=%p buff=%p, callback=%p\n",
 		       meta, buff, callback);
 		return -EINVAL;
 	}
 
 	if (meta->msg_type >= IPA_EVENT_MAX_NUM) {
-		IPAERR("unsupported message type %d\n", meta->msg_type);
+		IPAERR_RL("unsupported message type %d\n", meta->msg_type);
 		return -EINVAL;
 	}
 
@@ -640,7 +640,7 @@ int ipa3_pull_msg(struct ipa_msg_meta *meta, char *buff, size_t count)
 	int result = -EINVAL;
 
 	if (meta == NULL || buff == NULL || !count) {
-		IPAERR("invalid param name=%p buff=%p count=%zu\n",
+		IPAERR_RL("invalid param name=%p buff=%p count=%zu\n",
 				meta, buff, count);
 		return result;
 	}
