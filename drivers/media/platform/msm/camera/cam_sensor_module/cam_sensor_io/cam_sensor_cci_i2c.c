@@ -206,7 +206,6 @@ int32_t cam_sensor_cci_i2c_util(struct cam_sensor_cci_client *cci_client,
 	int32_t rc = 0;
 	struct cam_cci_ctrl cci_ctrl;
 
-	CAM_DBG(CAM_SENSOR, "%s line %d");
 	cci_ctrl.cmd = cci_cmd;
 	cci_ctrl.cci_info = cci_client;
 	rc = v4l2_subdev_call(cci_client->cci_subdev,

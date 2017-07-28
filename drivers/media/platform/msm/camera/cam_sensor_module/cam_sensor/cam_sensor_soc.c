@@ -218,7 +218,6 @@ int32_t cam_sensor_parse_dt(struct cam_sensor_ctrl_t *s_ctrl)
 	/* Initialize mutex */
 	mutex_init(&(s_ctrl->cam_sensor_mutex));
 
-	CAM_DBG(CAM_SENSOR, "%s: %d");
 	/* Initialize default parameters */
 	for (i = 0; i < soc_info->num_clk; i++) {
 		soc_info->clk[i] = devm_clk_get(&soc_info->pdev->dev,

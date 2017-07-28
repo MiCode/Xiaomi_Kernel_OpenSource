@@ -27,7 +27,7 @@ static long cam_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = cam_sensor_driver_cmd(s_ctrl, arg);
 		break;
 	default:
-		CAM_ERR(CAM_SENSOR, " Invalid ioctl cmd: %d", cmd);
+		CAM_ERR(CAM_SENSOR, "Invalid ioctl cmd: %d", cmd);
 		rc = -EINVAL;
 		break;
 	}
