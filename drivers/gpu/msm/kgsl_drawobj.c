@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -348,7 +348,13 @@ static int drawobj_add_sync_fence(struct kgsl_device *device,
 	struct kgsl_cmd_syncpoint_fence *sync = priv;
 	struct kgsl_drawobj *drawobj = DRAWOBJ(syncobj);
 	struct kgsl_drawobj_sync_event *event;
+	struct sync_fence *fence = NULL;
 	unsigned int id;
+	int ret = 0;
+
+	fence = sync_fence_fdget(sync->fd);
+	if (fence == NULL)
+		return -EINVAL;
 
 	kref_get(&drawobj->refcount);
 
@@ -364,11 +370,13 @@ static int drawobj_add_sync_fence(struct kgsl_device *device,
 
 	set_bit(event->id, &syncobj->pending);
 
+	trace_syncpoint_fence(syncobj, fence->name);
+
 	event->handle = kgsl_sync_fence_async_wait(sync->fd,
 		drawobj_sync_fence_func, event);
 
 	if (IS_ERR_OR_NULL(event->handle)) {
-		int ret = PTR_ERR(event->handle);
+		ret = PTR_ERR(event->handle);
 
 		clear_bit(event->id, &syncobj->pending);
 		event->handle = NULL;
@@ -376,18 +384,16 @@ static int drawobj_add_sync_fence(struct kgsl_device *device,
 		drawobj_put(drawobj);
 
 		/*
-		 * If ret == 0 the fence was already signaled - print a trace
-		 * message so we can track that
+		 * Print a syncpoint_fence_expire trace if
+		 * the fence is already signaled or there is
+		 * a failure in registering the fence waiter.
 		 */
-		if (ret == 0)
-			trace_syncpoint_fence_expire(syncobj, "signaled");
-
-		return ret;
+		trace_syncpoint_fence_expire(syncobj, (ret < 0) ?
+				"error" : fence->name);
 	}
 
-	trace_syncpoint_fence(syncobj, event->handle->name);
-
-	return 0;
+	sync_fence_put(fence);
+	return ret;
 }
 
 /* drawobj_add_sync_timestamp() - Add a new sync point for a sync obj
