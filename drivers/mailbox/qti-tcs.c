@@ -253,7 +253,6 @@ static inline struct tcs_response *get_response(struct tcs_drv *drv, u32 m,
 			break;
 		}
 		pos++;
-		udelay(1);
 	} while (1);
 	spin_unlock_irqrestore(&pool->lock, flags);
 
@@ -455,8 +454,10 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 			sts = read_tcs_reg(base, TCS_DRV_CMD_STATUS, m, i);
 			if ((!(sts & CMD_STATUS_ISSUED)) ||
 				((resp->msg->is_complete || cmd->complete) &&
-				(!(sts & CMD_STATUS_COMPL))))
+				(!(sts & CMD_STATUS_COMPL)))) {
 				resp->err = -EIO;
+				break;
+			}
 		}
 
 		/* Check for response if this was a read request */
@@ -697,7 +698,8 @@ static int find_slots(struct tcs_mbox *tcs, struct tcs_mbox_msg *msg)
 	int n = 0;
 
 	/* For active requests find the first free AMC. */
-	if (tcs->type == ACTIVE_TCS)
+	if (msg->state == RPMH_ACTIVE_ONLY_STATE ||
+			msg->state == RPMH_AWAKE_STATE)
 		return find_free_tcs(tcs);
 
 	/* Find if we already have the msg in our TCS */
@@ -810,6 +812,10 @@ static int tcs_mbox_invalidate(struct mbox_chan *chan)
 		spin_lock_irqsave(&tcs->tcs_lock, flags);
 		for (i = 0; i < tcs->num_tcs; i++) {
 			m = i + tcs->tcs_offset;
+			if (!tcs_is_free(drv, m)) {
+				spin_unlock_irqrestore(&tcs->tcs_lock, flags);
+				return -EBUSY;
+			}
 			__tcs_buffer_invalidate(drv->reg_base, m);
 		}
 		/* Mark the TCS as free */
@@ -896,7 +902,8 @@ static int chan_tcs_write(struct mbox_chan *chan, void *data)
 		goto tx_fail;
 	}
 
-	if (!msg->payload || msg->num_payload > MAX_RPMH_PAYLOAD) {
+	if (!msg->payload || !msg->num_payload ||
+			msg->num_payload > MAX_RPMH_PAYLOAD) {
 		dev_err(dev, "Payload error\n");
 		ret = -EINVAL;
 		goto tx_fail;
@@ -926,8 +933,11 @@ static int chan_tcs_write(struct mbox_chan *chan, void *data)
 	 * Since we are re-purposing the wake TCS, invalidate previous
 	 * contents to avoid confusion.
 	 */
-	if (msg->state == RPMH_AWAKE_STATE)
-		tcs_mbox_invalidate(chan);
+	if (msg->state == RPMH_AWAKE_STATE) {
+		ret = tcs_mbox_invalidate(chan);
+		if (ret)
+			goto tx_fail;
+	}
 
 	/* Post the message to the TCS and trigger */
 	ret = tcs_mbox_write(chan, msg, true);
@@ -939,8 +949,10 @@ tx_fail:
 				drv, msg, chan, TCS_M_INIT, ret);
 
 		dev_err(dev, "Error sending RPMH message %d\n", ret);
-		if (resp)
+		if (!IS_ERR(resp))
 			send_tcs_response(resp);
+		else
+			dev_err(dev, "No response object %ld\n", PTR_ERR(resp));
 		ret = 0;
 	}
 
@@ -1007,7 +1019,8 @@ static int chan_tcs_ctrl_write(struct mbox_chan *chan, void *data)
 		goto tx_done;
 	}
 
-	if (msg->num_payload > MAX_RPMH_PAYLOAD) {
+	if (!msg->payload || (!msg->num_payload && !msg->invalidate) ||
+			msg->num_payload > MAX_RPMH_PAYLOAD) {
 		dev_err(dev, "Payload error\n");
 		goto tx_done;
 	}
@@ -1147,7 +1160,8 @@ static int tcs_drv_probe(struct platform_device *pdev)
 		if (tcs->num_tcs > MAX_TCS_PER_TYPE)
 			return -EINVAL;
 
-		if (st > max_tcs)
+		if (st + tcs->num_tcs > max_tcs &&
+				st + tcs->num_tcs >= sizeof(tcs->tcs_mask))
 			return -EINVAL;
 
 		tcs->tcs_mask = ((1 << tcs->num_tcs) - 1) << st;
@@ -1169,10 +1183,12 @@ static int tcs_drv_probe(struct platform_device *pdev)
 		for (j = 0; j < i; j++) {
 			ret = of_parse_phandle_with_args(np, "mboxes",
 							"#mbox-cells", j, &p);
-			if (!ret && p.np == pdev->dev.of_node)
+			of_node_put(p.np);
+			if (!ret && p.np == pdev->dev.of_node) {
+				num_chans++;
 				break;
+			}
 		}
-		num_chans++;
 	}
 
 	if (!num_chans) {
