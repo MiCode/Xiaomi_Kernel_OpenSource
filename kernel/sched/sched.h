@@ -2536,6 +2536,11 @@ static inline unsigned int task_load(struct task_struct *p)
 	return p->ravg.demand;
 }
 
+static inline unsigned int task_pl(struct task_struct *p)
+{
+	return p->ravg.pred_demand;
+}
+
 #define pct_to_real(tunable)	\
 		(div64_u64((u64)tunable * (u64)max_task_load(), 100))
 
@@ -2798,6 +2803,7 @@ struct related_thread_group *task_related_thread_group(struct task_struct *p)
 }
 
 static inline u32 task_load(struct task_struct *p) { return 0; }
+static inline u32 task_pl(struct task_struct *p) { return 0; }
 
 static inline int update_preferred_cluster(struct related_thread_group *grp,
 			 struct task_struct *p, u32 old_load)
