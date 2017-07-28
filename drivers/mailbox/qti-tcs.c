@@ -17,6 +17,7 @@
 #include <linux/bitmap.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
+#include <linux/ipc_logging.h>
 #include <linux/jiffies.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
@@ -39,6 +40,8 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/rpmh.h>
+
+#define TCS_DRV_IPC_LOG_SIZE		2
 
 #define MAX_CMDS_PER_TCS		16
 #define MAX_TCS_PER_TYPE		3
@@ -140,7 +143,34 @@ struct tcs_drv {
 	u64 tcs_last_recv_ts[MAX_POOL_SIZE];
 	atomic_t tcs_send_count[MAX_POOL_SIZE];
 	atomic_t tcs_irq_count[MAX_POOL_SIZE];
+	void *ipc_log_ctx;
 };
+
+/* Log to IPC and Ftrace */
+#define log_send_msg(drv, m, n, i, a, d, c, t) do {			\
+	trace_rpmh_send_msg(drv->name, m, n, i, a, d, c, t);		\
+	ipc_log_string(drv->ipc_log_ctx,				\
+		"send msg: m=%d n=%d msgid=0x%x addr=0x%x data=0x%x cmpl=%d trigger=%d", \
+		m, n, i, a, d, c, t);					\
+	} while (0)
+
+#define log_rpmh_notify_irq(drv, m, a, e) do {				\
+	trace_rpmh_notify_irq(drv->name, m, a, e);			\
+	ipc_log_string(drv->ipc_log_ctx,				\
+		"irq response: m=%d addr=0x%x err=%d", m, a, e);	\
+	} while (0)
+
+#define log_rpmh_control_msg(drv, d) do {				\
+	trace_rpmh_control_msg(drv->name, d);				\
+	ipc_log_string(drv->ipc_log_ctx, "ctrlr msg: data=0x%x", d);	\
+	} while (0)
+
+#define log_rpmh_notify(drv, m, a, e) do {				\
+	trace_rpmh_notify(drv->name, m, a, e);				\
+	ipc_log_string(drv->ipc_log_ctx,				\
+		"tx done: m=%d addr=0x%x err=%d", m, a, e);		\
+	} while (0)
+
 
 static int tcs_response_pool_init(struct tcs_drv *drv)
 {
@@ -437,7 +467,7 @@ static irqreturn_t tcs_irq_handler(int irq, void *p)
 			mbox_chan_received_data(resp->chan, resp->msg);
 		}
 
-		trace_rpmh_notify_irq(drv->name, m, resp->msg->payload[0].addr,
+		log_rpmh_notify_irq(drv, m, resp->msg->payload[0].addr,
 						resp->err);
 
 		/* Clear the AMC mode for non-ACTIVE TCSes */
@@ -480,7 +510,7 @@ static inline void mbox_notify_tx_done(struct mbox_chan *chan,
 {
 	struct tcs_drv *drv = container_of(chan->mbox, struct tcs_drv, mbox);
 
-	trace_rpmh_notify(drv->name, m, msg->payload[0].addr, err);
+	log_rpmh_notify(drv, m, msg->payload[0].addr, err);
 	mbox_chan_txdone(chan, err);
 }
 
@@ -546,7 +576,7 @@ static void __tcs_buffer_write(struct tcs_drv *drv, int d, int m, int n,
 		write_tcs_reg(base, TCS_DRV_CMD_MSGID, m, n + i, msgid);
 		write_tcs_reg(base, TCS_DRV_CMD_ADDR, m, n + i, cmd->addr);
 		write_tcs_reg(base, TCS_DRV_CMD_DATA, m, n + i, cmd->data);
-		trace_rpmh_send_msg(drv->name, m, n + i, msgid, cmd->addr,
+		log_send_msg(drv, m, n + i, msgid, cmd->addr,
 					cmd->data, cmd->complete, trigger);
 	}
 
@@ -932,7 +962,7 @@ static void __tcs_write_hidden(struct tcs_drv *drv, int d,
 	for (i = 0; i < msg->num_payload; i++) {
 		/* Only data is write capable */
 		writel_relaxed(cpu_to_le32(msg->payload[i].data), addr);
-		trace_rpmh_control_msg(drv->name, msg->payload[i].data);
+		log_rpmh_control_msg(drv, msg->payload[i].data);
 		addr += TCS_HIDDEN_CMD_SHIFT;
 	}
 }
@@ -1199,6 +1229,9 @@ static int tcs_drv_probe(struct platform_device *pdev)
 
 	for (i = 0; i < ARRAY_SIZE(drv->tcs_in_use); i++)
 		atomic_set(&drv->tcs_in_use[i], 0);
+
+	drv->ipc_log_ctx = ipc_log_context_create(TCS_DRV_IPC_LOG_SIZE,
+						drv->name, 0);
 
 	ret = mbox_controller_register(&drv->mbox);
 	if (ret)
