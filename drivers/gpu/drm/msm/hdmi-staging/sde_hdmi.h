@@ -169,6 +169,7 @@ struct sde_hdmi {
 	bool pll_update_enable;
 	bool dc_enable;
 	bool dc_feature_supported;
+	bool bt2020_colorimetry;
 
 	struct delayed_work hdcp_cb_work;
 	struct dss_io_data io[HDMI_TX_MAX_IO];
@@ -200,6 +201,15 @@ enum hdmi_tx_scdc_access_type {
 #define HDMI_RGB_24BPP_PCLK_TMDS_CH_RATE_RATIO 1
 
 #define HDMI_GEN_PKT_CTRL_CLR_MASK 0x7
+
+/* for AVI program */
+#define HDMI_AVI_INFOFRAME_BUFFER_SIZE \
+	(HDMI_INFOFRAME_HEADER_SIZE + HDMI_AVI_INFOFRAME_SIZE)
+#define HDMI_VS_INFOFRAME_BUFFER_SIZE (HDMI_INFOFRAME_HEADER_SIZE + 6)
+
+#define LEFT_SHIFT_BYTE(x) ((x) << 8)
+#define LEFT_SHIFT_WORD(x) ((x) << 16)
+#define LEFT_SHIFT_24BITS(x) ((x) << 24)
 
 /* Maximum pixel clock rates for hdmi tx */
 #define HDMI_DEFAULT_MAX_PCLK_RATE	148500
