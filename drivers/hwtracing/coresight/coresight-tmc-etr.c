@@ -800,6 +800,8 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev, u32 mode)
 			mutex_unlock(&drvdata->mem_lock);
 			return ret;
 		}
+		coresight_cti_map_trigout(drvdata->cti_flush, 3, 0);
+		coresight_cti_map_trigin(drvdata->cti_reset, 2, 0);
 	} else {
 		drvdata->usbch = usb_qdss_open("qdss", drvdata,
 					       usb_notifier);
@@ -891,6 +893,7 @@ static void tmc_disable_etr_sink(struct coresight_device *csdev)
 	unsigned long flags;
 	struct tmc_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 
+	mutex_lock(&drvdata->mem_lock);
 	spin_lock_irqsave(&drvdata->spinlock, flags);
 	if (drvdata->reading) {
 		spin_unlock_irqrestore(&drvdata->spinlock, flags);
@@ -911,6 +914,11 @@ static void tmc_disable_etr_sink(struct coresight_device *csdev)
 
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM) {
+		coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
+		coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
+	}
+	mutex_unlock(&drvdata->mem_lock);
 	dev_info(drvdata->dev, "TMC-ETR disabled\n");
 }
 
