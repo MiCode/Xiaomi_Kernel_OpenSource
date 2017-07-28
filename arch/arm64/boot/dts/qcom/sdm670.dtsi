@@ -1113,8 +1113,8 @@
 		reg = <0x86000000 0x200000>,
 			<0x1799000c 0x4>;
 		reg-names = "smem", "irq-reg-base";
-		qcom,irq-mask = <0x100>;
-		interrupts = <GIC_SPI 156 IRQ_TYPE_EDGE_RISING>;
+		qcom,irq-mask = <0x1000000>;
+		interrupts = <GIC_SPI 170 IRQ_TYPE_EDGE_RISING>;
 		label = "lpass";
 		qcom,qos-config = <&glink_qos_adsp>;
 		qcom,ramp-time = <0xaf>;
