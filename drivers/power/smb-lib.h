@@ -17,7 +17,6 @@
 #include <linux/irqreturn.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/consumer.h>
-#include <linux/extcon.h>
 #include "storm-watch.h"
 
 enum print_reason {
@@ -136,12 +135,6 @@ struct smb_irq_info {
 	int				irq;
 };
 
-static const unsigned int smblib_extcon_cable[] = {
-	EXTCON_USB,
-	EXTCON_USB_HOST,
-	EXTCON_NONE,
-};
-
 struct smb_regulator {
 	struct regulator_dev	*rdev;
 	struct regulator_desc	rdesc;
@@ -190,9 +183,6 @@ struct smb_params {
 	struct smb_chg_param	dc_icl_div2_mid_hv;
 	struct smb_chg_param	dc_icl_div2_hv;
 	struct smb_chg_param	jeita_cc_comp;
-	struct smb_chg_param	step_soc_threshold[4];
-	struct smb_chg_param	step_soc;
-	struct smb_chg_param	step_cc_delta[5];
 	struct smb_chg_param	freq_buck;
 	struct smb_chg_param	freq_boost;
 };
@@ -224,7 +214,7 @@ struct reg_info {
 struct smb_charger {
 	struct device		*dev;
 	char			*name;
-	struct regmap		*regmap;
+	struct spmi_device	*spmi;
 	struct smb_irq_info	*irq_info;
 	struct smb_params	param;
 	struct smb_iio		iio;
@@ -243,13 +233,11 @@ struct smb_charger {
 	struct mutex		vconn_oc_lock;
 
 	/* power supplies */
-	struct power_supply		*batt_psy;
+	struct power_supply		batt_psy;
 	struct power_supply		*usb_psy;
-	struct power_supply		*dc_psy;
+	struct power_supply		dc_psy;
 	struct power_supply		*bms_psy;
-	struct power_supply_desc	usb_psy_desc;
-	struct power_supply		*usb_main_psy;
-	struct power_supply		*usb_port_psy;
+	struct power_supply		usb_main_psy;
 	enum power_supply_type		real_charger_type;
 
 	/* notifiers */
@@ -261,7 +249,6 @@ struct smb_charger {
 	/* regulators */
 	struct smb_regulator	*vbus_vreg;
 	struct smb_regulator	*vconn_vreg;
-	struct regulator	*dpdm_reg;
 
 	/* votables */
 	struct votable		*dc_suspend_votable;
@@ -287,7 +274,6 @@ struct smb_charger {
 	struct work_struct	rdstd_cc2_detach_work;
 	struct delayed_work	hvdcp_detect_work;
 	struct delayed_work	ps_change_timeout_work;
-	struct delayed_work	step_soc_req_work;
 	struct delayed_work	clear_hdc_work;
 	struct work_struct	otg_oc_work;
 	struct work_struct	vconn_oc_work;
@@ -329,6 +315,7 @@ struct smb_charger {
 	bool			pr_swap_in_progress;
 	int			typec_mode;
 	int			usb_icl_change_irq_enabled;
+	bool			skip_usb_notification;
 
 	/* workaround flag */
 	u32			wa_flags;
@@ -336,9 +323,6 @@ struct smb_charger {
 	bool			typec_en_dis_active;
 	int			boost_current_ua;
 	int			temp_speed_reading_count;
-
-	/* extcon for VBUS / ID notification to USB for uUSB */
-	struct extcon_dev	*extcon;
 
 	/* battery profile */
 	int			batt_profile_fcc_ua;
@@ -348,6 +332,7 @@ struct smb_charger {
 	int			usb_icl_delta_ua;
 	int			pulse_cnt;
 };
+
 
 int smblib_read(struct smb_charger *chg, u16 addr, u8 *val);
 int smblib_masked_write(struct smb_charger *chg, u16 addr, u8 mask, u8 val);
@@ -383,9 +368,6 @@ int smblib_vconn_regulator_is_enabled(struct regulator_dev *rdev);
 irqreturn_t smblib_handle_debug(int irq, void *data);
 irqreturn_t smblib_handle_otg_overcurrent(int irq, void *data);
 irqreturn_t smblib_handle_chg_state_change(int irq, void *data);
-irqreturn_t smblib_handle_step_chg_state_change(int irq, void *data);
-irqreturn_t smblib_handle_step_chg_soc_update_fail(int irq, void *data);
-irqreturn_t smblib_handle_step_chg_soc_update_request(int irq, void *data);
 irqreturn_t smblib_handle_batt_temp_changed(int irq, void *data);
 irqreturn_t smblib_handle_batt_psy_changed(int irq, void *data);
 irqreturn_t smblib_handle_usb_psy_changed(int irq, void *data);
@@ -423,9 +405,6 @@ int smblib_get_prop_batt_current_now(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_get_prop_batt_temp(struct smb_charger *chg,
 				union power_supply_propval *val);
-int smblib_get_prop_step_chg_step(struct smb_charger *chg,
-				union power_supply_propval *val);
-
 int smblib_set_prop_input_suspend(struct smb_charger *chg,
 				const union power_supply_propval *val);
 int smblib_set_prop_batt_capacity(struct smb_charger *chg,
@@ -505,7 +484,7 @@ int smblib_set_prop_charge_qnovo_enable(struct smb_charger *chg,
 void smblib_suspend_on_debug_battery(struct smb_charger *chg);
 int smblib_rerun_apsd_if_required(struct smb_charger *chg);
 int smblib_get_prop_fcc_delta(struct smb_charger *chg,
-			       union power_supply_propval *val);
+				union power_supply_propval *val);
 int smblib_icl_override(struct smb_charger *chg, bool override);
 int smblib_dp_dm(struct smb_charger *chg, int val);
 int smblib_rerun_aicl(struct smb_charger *chg);
