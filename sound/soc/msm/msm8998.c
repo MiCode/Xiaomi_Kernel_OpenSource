@@ -5509,7 +5509,7 @@ static struct snd_soc_dai_link msm_common_misc_fe_dai_links[] = {
 	{
 		.name = MSM_DAILINK_NAME(Transcode Loopback Playback),
 		.stream_name = "Transcode Loopback Playback",
-		.cpu_dai_name = "MultiMedia14",
+		.cpu_dai_name = "MultiMedia26",
 		.platform_name = "msm-transcode-loopback",
 		.dynamic = 1,
 		.dpcm_playback = 1,
@@ -5520,12 +5520,12 @@ static struct snd_soc_dai_link msm_common_misc_fe_dai_links[] = {
 		.ignore_suspend = 1,
 		.ignore_pmdown_time = 1,
 		 /* this dainlink has playback support */
-		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA14,
+		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA26,
 	},
 	{
 		.name = MSM_DAILINK_NAME(Transcode Loopback Capture),
 		.stream_name = "Transcode Loopback Capture",
-		.cpu_dai_name = "MultiMedia18",
+		.cpu_dai_name = "MultiMedia27",
 		.platform_name = "msm-transcode-loopback",
 		.dynamic = 1,
 		.dpcm_capture = 1,
@@ -5535,7 +5535,7 @@ static struct snd_soc_dai_link msm_common_misc_fe_dai_links[] = {
 		.codec_name = "snd-soc-dummy",
 		.ignore_suspend = 1,
 		.ignore_pmdown_time = 1,
-		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA18,
+		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA27,
 	},
 	{
 		.name = "MultiMedia21",
