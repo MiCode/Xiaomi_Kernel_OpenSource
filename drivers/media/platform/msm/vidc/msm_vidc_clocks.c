@@ -227,7 +227,7 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 		vote_data[i].work_mode = inst->clk_data.work_mode;
 		fill_recon_stats(inst, &vote_data[i]);
 
-		if (core->resources.sys_cache_enabled)
+		if (core->resources.sys_cache_res_set)
 			vote_data[i].use_sys_cache = true;
 
 		i++;

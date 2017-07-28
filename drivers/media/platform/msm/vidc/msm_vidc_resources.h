@@ -161,7 +161,7 @@ struct msm_vidc_platform_resources {
 	uint32_t dcvs_tbl_size;
 	struct dcvs_limit *dcvs_limit;
 	bool sys_cache_present;
-	bool sys_cache_enabled;
+	bool sys_cache_res_set;
 	struct subcache_set subcache_set;
 	struct reg_set reg_set;
 	struct addr_set qdss_addr_set;
