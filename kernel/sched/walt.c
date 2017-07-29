@@ -207,18 +207,26 @@ static int __init set_sched_predl(char *str)
 }
 early_param("sched_predl", set_sched_predl);
 
-void inc_rq_walt_stats(struct rq *rq, struct task_struct *p, int change_cra)
+void inc_rq_walt_stats(struct rq *rq, struct task_struct *p)
 {
 	inc_nr_big_task(&rq->walt_stats, p);
-	if (change_cra)
-		inc_cumulative_runnable_avg(&rq->walt_stats, p);
+	walt_inc_cumulative_runnable_avg(rq, p);
 }
 
-void dec_rq_walt_stats(struct rq *rq, struct task_struct *p, int change_cra)
+void dec_rq_walt_stats(struct rq *rq, struct task_struct *p)
 {
 	dec_nr_big_task(&rq->walt_stats, p);
-	if (change_cra)
-		dec_cumulative_runnable_avg(&rq->walt_stats, p);
+	walt_dec_cumulative_runnable_avg(rq, p);
+}
+
+void fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
+				   u32 new_task_load, u32 new_pred_demand)
+{
+	s64 task_load_delta = (s64)new_task_load - task_load(p);
+	s64 pred_demand_delta = PRED_DEMAND_DELTA;
+
+	fixup_cumulative_runnable_avg(&rq->walt_stats, task_load_delta,
+				      pred_demand_delta);
 }
 
 /*

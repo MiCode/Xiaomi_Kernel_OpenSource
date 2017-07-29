@@ -18,41 +18,6 @@ select_task_rq_stop(struct task_struct *p, int cpu, int sd_flag, int flags)
 }
 #endif /* CONFIG_SMP */
 
-#ifdef CONFIG_SCHED_WALT
-
-static void
-inc_walt_sched_stats_stop(struct rq *rq, struct task_struct *p)
-{
-	inc_cumulative_runnable_avg(&rq->walt_stats, p);
-}
-
-static void
-dec_walt_sched_stats_stop(struct rq *rq, struct task_struct *p)
-{
-	dec_cumulative_runnable_avg(&rq->walt_stats, p);
-}
-
-static void
-fixup_walt_sched_stats_stop(struct rq *rq, struct task_struct *p,
-			   u32 new_task_load, u32 new_pred_demand)
-{
-	s64 task_load_delta = (s64)new_task_load - task_load(p);
-	s64 pred_demand_delta = PRED_DEMAND_DELTA;
-
-	fixup_cumulative_runnable_avg(&rq->walt_stats, p, task_load_delta,
-				      pred_demand_delta);
-}
-
-#else	/* CONFIG_SCHED_WALT */
-
-static inline void
-inc_walt_sched_stats_stop(struct rq *rq, struct task_struct *p) { }
-
-static inline void
-dec_walt_sched_stats_stop(struct rq *rq, struct task_struct *p) { }
-
-#endif	/* CONFIG_SCHED_WALT */
-
 static void
 check_preempt_curr_stop(struct rq *rq, struct task_struct *p, int flags)
 {
@@ -78,14 +43,14 @@ static void
 enqueue_task_stop(struct rq *rq, struct task_struct *p, int flags)
 {
 	add_nr_running(rq, 1);
-	inc_walt_sched_stats_stop(rq, p);
+	walt_inc_cumulative_runnable_avg(rq, p);
 }
 
 static void
 dequeue_task_stop(struct rq *rq, struct task_struct *p, int flags)
 {
 	sub_nr_running(rq, 1);
-	dec_walt_sched_stats_stop(rq, p);
+	walt_dec_cumulative_runnable_avg(rq, p);
 }
 
 static void yield_task_stop(struct rq *rq)
@@ -173,6 +138,6 @@ const struct sched_class stop_sched_class = {
 	.switched_to		= switched_to_stop,
 	.update_curr		= update_curr_stop,
 #ifdef CONFIG_SCHED_WALT
-	.fixup_walt_sched_stats	= fixup_walt_sched_stats_stop,
+	.fixup_walt_sched_stats	= fixup_walt_sched_stats_common,
 #endif
 };

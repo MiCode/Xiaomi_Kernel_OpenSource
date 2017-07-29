@@ -38,8 +38,6 @@
 #include <trace/events/sched.h>
 
 #ifdef CONFIG_SCHED_WALT
-static void fixup_walt_sched_stats_fair(struct rq *rq, struct task_struct *p,
-				       u32 new_task_load, u32 new_pred_demand);
 static inline bool task_fits_max(struct task_struct *p, int cpu);
 #endif
 
@@ -4658,7 +4656,7 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 #ifdef CONFIG_SCHED_WALT
 		p->misfit = !task_fits_max(p, rq->cpu);
 #endif
-		inc_rq_walt_stats(rq, p, 1);
+		inc_rq_walt_stats(rq, p);
 	}
 
 #ifdef CONFIG_SMP
@@ -4743,7 +4741,7 @@ static void dequeue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 
 	if (!se) {
 		sub_nr_running(rq, 1);
-		dec_rq_walt_stats(rq, p, 1);
+		dec_rq_walt_stats(rq, p);
 	}
 
 #ifdef CONFIG_SMP
@@ -10393,7 +10391,7 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
 	rq->misfit_task = misfit;
 
 	if (old_misfit != misfit) {
-		adjust_nr_big_tasks(&rq->walt_stats, 1, misfit);
+		walt_adjust_nr_big_tasks(rq, 1, misfit);
 		curr->misfit = misfit;
 	}
 #endif
@@ -10858,7 +10856,7 @@ const struct sched_class fair_sched_class = {
 	.task_change_group	= task_change_group_fair,
 #endif
 #ifdef CONFIG_SCHED_WALT
-	.fixup_walt_sched_stats	= fixup_walt_sched_stats_fair,
+	.fixup_walt_sched_stats	= fixup_walt_sched_stats_common,
 #endif
 };
 
@@ -10909,17 +10907,6 @@ __init void init_sched_fair_class(void)
 
 /* WALT sched implementation begins here */
 #ifdef CONFIG_SCHED_WALT
-
-static void
-fixup_walt_sched_stats_fair(struct rq *rq, struct task_struct *p,
-			   u32 new_task_load, u32 new_pred_demand)
-{
-	s64 task_load_delta = (s64)new_task_load - task_load(p);
-	s64 pred_demand_delta = PRED_DEMAND_DELTA;
-
-	fixup_cumulative_runnable_avg(&rq->walt_stats, p, task_load_delta,
-				      pred_demand_delta);
-}
 
 static inline int
 kick_active_balance(struct rq *rq, struct task_struct *p, int new_cpu)
