@@ -15,6 +15,19 @@
 
 #include "cam_isp_hw.h"
 
+/*
+ * struct cam_csid_soc_private:
+ *
+ * @Brief:                   Private SOC data specific to CSID HW Driver
+ *
+ * @cpas_handle:             Handle returned on registering with CPAS driver.
+ *                           This handle is used for all further interface
+ *                           with CPAS.
+ */
+struct cam_csid_soc_private {
+	uint32_t cpas_handle;
+};
+
 /**
  * struct csid_device_soc_info - CSID SOC info object
  *
@@ -37,6 +50,17 @@ struct csid_device_soc_info {
  */
 int cam_ife_csid_init_soc_resources(struct cam_hw_soc_info *soc_info,
 	irq_handler_t csid_irq_handler, void *irq_data);
+
+
+/**
+ * cam_ife_csid_deinit_soc_resources()
+ *
+ * @brief:                 csid de initialization function for the soc info
+ *
+ * @soc_info:              soc info structure pointer
+ *
+ */
+int cam_ife_csid_deinit_soc_resources(struct cam_hw_soc_info *soc_info);
 
 /**
  * cam_ife_csid_enable_soc_resources()

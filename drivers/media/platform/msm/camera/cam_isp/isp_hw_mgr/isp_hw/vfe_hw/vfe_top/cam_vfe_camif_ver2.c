@@ -10,9 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "%s:%d " fmt, __func__, __LINE__
-
-#include <linux/slab.h>
+ #include <linux/slab.h>
 #include <uapi/media/cam_isp.h>
 #include "cam_io_util.h"
 #include "cam_isp_hw_mgr_intf.h"
@@ -20,9 +18,7 @@
 #include "cam_vfe_top.h"
 #include "cam_vfe_top_ver2.h"
 #include "cam_vfe_camif_ver2.h"
-
-#undef  CDBG
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#include "cam_debug_util.h"
 
 struct cam_vfe_mux_camif_data {
 	void __iomem                                *mem_base;
@@ -55,7 +51,7 @@ static int cam_vfe_camif_validate_pix_pattern(uint32_t pattern)
 		rc = 0;
 		break;
 	default:
-		pr_err("Error! Invalid pix pattern:%d\n", pattern);
+		CAM_ERR(CAM_ISP, "Error! Invalid pix pattern:%d", pattern);
 		rc = -EINVAL;
 		break;
 	}
@@ -96,12 +92,12 @@ static int cam_vfe_camif_resource_start(
 	uint32_t                             val = 0;
 
 	if (!camif_res) {
-		pr_err("Error! Invalid input arguments\n");
+		CAM_ERR(CAM_ISP, "Error! Invalid input arguments");
 		return -EINVAL;
 	}
 
 	if (camif_res->res_state != CAM_ISP_RESOURCE_STATE_RESERVED) {
-		pr_err("Error! Invalid camif res res_state:%d\n",
+		CAM_ERR(CAM_ISP, "Error! Invalid camif res res_state:%d",
 			camif_res->res_state);
 		return -EINVAL;
 	}
@@ -129,7 +125,7 @@ static int cam_vfe_camif_resource_start(
 	/* Reg Update */
 	cam_io_w_mb(0x1, rsrc_data->mem_base + 0x4AC);
 
-	CDBG("Exit\n");
+	CAM_DBG(CAM_ISP, "Exit");
 	return 0;
 }
 
@@ -142,7 +138,7 @@ static int cam_vfe_camif_resource_stop(
 	int rc = 0;
 
 	if (!camif_res) {
-		pr_err("Error! Invalid input arguments\n");
+		CAM_ERR(CAM_ISP, "Error! Invalid input arguments");
 		return -EINVAL;
 	}
 
@@ -188,26 +184,26 @@ static int cam_vfe_camif_handle_irq_bottom_half(void *handler_priv,
 	payload = evt_payload_priv;
 	irq_status0 = payload->irq_reg_val[CAM_IFE_IRQ_CAMIF_REG_STATUS0];
 
-	CDBG("event ID:%d\n", payload->evt_id);
-	CDBG("irq_status_0 = %x\n", irq_status0);
+	CAM_DBG(CAM_ISP, "event ID:%d", payload->evt_id);
+	CAM_DBG(CAM_ISP, "irq_status_0 = %x", irq_status0);
 
 	switch (payload->evt_id) {
 	case CAM_ISP_HW_EVENT_SOF:
 		if (irq_status0 & camif_priv->reg_data->sof_irq_mask) {
-			CDBG("Received SOF\n");
+			CAM_DBG(CAM_ISP, "Received SOF");
 			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 		}
 		break;
 	case CAM_ISP_HW_EVENT_EPOCH:
 		if (irq_status0 & camif_priv->reg_data->epoch0_irq_mask) {
-			CDBG("Received EPOCH\n");
+			CAM_DBG(CAM_ISP, "Received EPOCH");
 			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 		}
 		cam_vfe_put_evt_payload(payload->core_info, &payload);
 		break;
 	case CAM_ISP_HW_EVENT_REG_UPDATE:
 		if (irq_status0 & camif_priv->reg_data->reg_update_irq_mask) {
-			CDBG("Received REG_UPDATE_ACK\n");
+			CAM_DBG(CAM_ISP, "Received REG_UPDATE_ACK");
 			ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 		}
 		break;
@@ -215,7 +211,7 @@ static int cam_vfe_camif_handle_irq_bottom_half(void *handler_priv,
 		break;
 	}
 
-	CDBG("returing status = %d\n", ret);
+	CAM_DBG(CAM_ISP, "returing status = %d", ret);
 	return ret;
 }
 
@@ -231,7 +227,7 @@ int cam_vfe_camif_ver2_init(
 	camif_priv = kzalloc(sizeof(struct cam_vfe_mux_camif_data),
 		GFP_KERNEL);
 	if (!camif_priv) {
-		CDBG("Error! Failed to alloc for camif_priv\n");
+		CAM_DBG(CAM_ISP, "Error! Failed to alloc for camif_priv");
 		return -ENOMEM;
 	}
 
@@ -264,7 +260,7 @@ int cam_vfe_camif_ver2_deinit(
 	camif_node->res_priv = NULL;
 
 	if (!camif_priv) {
-		pr_err("Error! camif_priv is NULL\n");
+		CAM_ERR(CAM_ISP, "Error! camif_priv is NULL");
 		return -ENODEV;
 	}
 

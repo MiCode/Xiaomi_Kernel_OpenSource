@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "CAM-CDM-VIRTUAL %s:%d " fmt, __func__, __LINE__
-
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/of.h>
@@ -46,7 +44,7 @@ static void cam_virtual_cdm_work(struct work_struct *work)
 		if (payload->irq_status & 0x2) {
 			struct cam_cdm_bl_cb_request_entry *node;
 
-			CDM_CDBG("CDM HW Gen/inline IRQ with data=%x\n",
+			CAM_DBG(CAM_CDM, "CDM HW Gen/inline IRQ with data=%x",
 				payload->irq_data);
 			mutex_lock(&cdm_hw->hw_mutex);
 			node = cam_cdm_find_request_by_bl_tag(
@@ -60,18 +58,18 @@ static void cam_virtual_cdm_work(struct work_struct *work)
 						(void *)node);
 				} else if (node->request_type ==
 					CAM_HW_CDM_BL_CB_INTERNAL) {
-					pr_err("Invalid node=%pK %d\n", node,
-						node->request_type);
+					CAM_ERR(CAM_CDM, "Invalid node=%pK %d",
+						node, node->request_type);
 				}
 				list_del_init(&node->entry);
 				kfree(node);
 			} else {
-				pr_err("Invalid node for inline irq\n");
+				CAM_ERR(CAM_CDM, "Invalid node for inline irq");
 			}
 			mutex_unlock(&cdm_hw->hw_mutex);
 		}
 		if (payload->irq_status & 0x1) {
-			CDM_CDBG("CDM HW reset done IRQ\n");
+			CAM_DBG(CAM_CDM, "CDM HW reset done IRQ");
 			complete(&core->reset_complete);
 		}
 		kfree(payload);
@@ -94,7 +92,8 @@ int cam_virtual_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 
 		if ((!cdm_cmd->cmd[i].len) &&
 			(cdm_cmd->cmd[i].len > 0x100000)) {
-			pr_err("len(%d) is invalid count=%d total cnt=%d\n",
+			CAM_ERR(CAM_CDM,
+				"len(%d) is invalid count=%d total cnt=%d",
 				cdm_cmd->cmd[i].len, i,
 				req->data->cmd_arrary_count);
 			rc = -EINVAL;
@@ -111,7 +110,8 @@ int cam_virtual_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 				(uint64_t)cdm_cmd->cmd[i].bl_addr.kernel_iova;
 			len = cdm_cmd->cmd[i].offset + cdm_cmd->cmd[i].len;
 		} else {
-			pr_err("Only mem hdl/Kernel va type is supported %d\n",
+			CAM_ERR(CAM_CDM,
+				"Only mem hdl/Kernel va type is supported %d",
 				req->data->type);
 			rc = -EINVAL;
 			break;
@@ -119,7 +119,8 @@ int cam_virtual_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 
 		if ((!rc) && (vaddr_ptr) && (len) &&
 			(len >= cdm_cmd->cmd[i].offset)) {
-			CDM_CDBG("hdl=%x vaddr=%pK offset=%d cmdlen=%d:%zu\n",
+			CAM_DBG(CAM_CDM,
+				"hdl=%x vaddr=%pK offset=%d cmdlen=%d:%zu",
 				cdm_cmd->cmd[i].bl_addr.mem_handle,
 				(void *)vaddr_ptr, cdm_cmd->cmd[i].offset,
 				cdm_cmd->cmd[i].len, len);
@@ -130,15 +131,17 @@ int cam_virtual_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 				cdm_cmd->cmd[i].len, client->data.base_array,
 				client->data.base_array_cnt, core->bl_tag);
 			if (rc) {
-				pr_err("write failed for cnt=%d:%d\n",
+				CAM_ERR(CAM_CDM, "write failed for cnt=%d:%d",
 					i, req->data->cmd_arrary_count);
 				break;
 			}
 		} else {
-			pr_err("Sanity check failed for hdl=%x len=%zu:%d\n",
+			CAM_ERR(CAM_CDM,
+				"Sanity check failed for hdl=%x len=%zu:%d",
 				cdm_cmd->cmd[i].bl_addr.mem_handle, len,
 				cdm_cmd->cmd[i].offset);
-			pr_err("Sanity check failed for cmd_count=%d cnt=%d\n",
+			CAM_ERR(CAM_CDM,
+				"Sanity check failed for cmd_count=%d cnt=%d",
 				i, req->data->cmd_arrary_count);
 			rc = -EINVAL;
 			break;
@@ -146,7 +149,8 @@ int cam_virtual_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 		if (!rc) {
 			struct cam_cdm_work_payload *payload;
 
-			CDM_CDBG("write BL success for cnt=%d with tag=%d\n",
+			CAM_DBG(CAM_CDM,
+				"write BL success for cnt=%d with tag=%d",
 				i, core->bl_tag);
 			if ((true == req->data->flag) &&
 				(i == req->data->cmd_arrary_count)) {
@@ -184,7 +188,8 @@ int cam_virtual_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 					}
 			}
 			core->bl_tag++;
-			CDM_CDBG("Now commit the BL nothing for virtual\n");
+			CAM_DBG(CAM_CDM,
+				"Now commit the BL nothing for virtual");
 			if (!rc && (core->bl_tag == 63))
 				core->bl_tag = 0;
 		}
@@ -230,7 +235,7 @@ int cam_virtual_cdm_probe(struct platform_device *pdev)
 
 	rc = cam_cdm_soc_load_dt_private(pdev, cdm_hw->soc_info.soc_private);
 	if (rc) {
-		pr_err("Failed to load CDM dt private data\n");
+		CAM_ERR(CAM_CDM, "Failed to load CDM dt private data");
 		kfree(cdm_hw->soc_info.soc_private);
 		cdm_hw->soc_info.soc_private = NULL;
 		goto soc_load_failed;
@@ -257,7 +262,7 @@ int cam_virtual_cdm_probe(struct platform_device *pdev)
 	cdm_hw_intf->hw_ops.write = NULL;
 	cdm_hw_intf->hw_ops.process_cmd = cam_cdm_process_cmd;
 
-	CDM_CDBG("type %d index %d\n", cdm_hw_intf->hw_type,
+	CAM_DBG(CAM_CDM, "type %d index %d", cdm_hw_intf->hw_type,
 		cdm_hw_intf->hw_idx);
 
 	platform_set_drvdata(pdev, cdm_hw_intf);
@@ -285,22 +290,23 @@ int cam_virtual_cdm_probe(struct platform_device *pdev)
 		CAM_HW_IDENTIFIER_LENGTH);
 	rc = cam_cpas_register_client(&cpas_parms);
 	if (rc) {
-		pr_err("Virtual CDM CPAS registration failed\n");
+		CAM_ERR(CAM_CDM, "Virtual CDM CPAS registration failed");
 		goto cpas_registration_failed;
 	}
-	CDM_CDBG("CPAS registration successful handle=%d\n",
+	CAM_DBG(CAM_CDM, "CPAS registration successful handle=%d",
 		cpas_parms.client_handle);
 	cdm_core->cpas_handle = cpas_parms.client_handle;
 
-	CDM_CDBG("CDM%d probe successful\n", cdm_hw_intf->hw_idx);
+	CAM_DBG(CAM_CDM, "CDM%d probe successful", cdm_hw_intf->hw_idx);
 
 	rc = cam_cdm_intf_register_hw_cdm(cdm_hw_intf,
 			soc_private, CAM_VIRTUAL_CDM, &cdm_core->index);
 	if (rc) {
-		pr_err("Virtual CDM Interface registration failed\n");
+		CAM_ERR(CAM_CDM, "Virtual CDM Interface registration failed");
 		goto intf_registration_failed;
 	}
-	CDM_CDBG("CDM%d registered to intf successful\n", cdm_hw_intf->hw_idx);
+	CAM_DBG(CAM_CDM, "CDM%d registered to intf successful",
+		cdm_hw_intf->hw_idx);
 	mutex_unlock(&cdm_hw->hw_mutex);
 
 	return 0;
@@ -328,27 +334,29 @@ int cam_virtual_cdm_remove(struct platform_device *pdev)
 
 	cdm_hw_intf = platform_get_drvdata(pdev);
 	if (!cdm_hw_intf) {
-		pr_err("Failed to get dev private data\n");
+		CAM_ERR(CAM_CDM, "Failed to get dev private data");
 		return rc;
 	}
 
 	cdm_hw = cdm_hw_intf->hw_priv;
 	if (!cdm_hw) {
-		pr_err("Failed to get virtual private data for type=%d idx=%d\n",
+		CAM_ERR(CAM_CDM,
+			"Failed to get virtual private data for type=%d idx=%d",
 			cdm_hw_intf->hw_type, cdm_hw_intf->hw_idx);
 		return rc;
 	}
 
 	cdm_core = cdm_hw->core_info;
 	if (!cdm_core) {
-		pr_err("Failed to get virtual core data for type=%d idx=%d\n",
+		CAM_ERR(CAM_CDM,
+			"Failed to get virtual core data for type=%d idx=%d",
 			cdm_hw_intf->hw_type, cdm_hw_intf->hw_idx);
 		return rc;
 	}
 
 	rc = cam_cpas_unregister_client(cdm_core->cpas_handle);
 	if (rc) {
-		pr_err("CPAS unregister failed\n");
+		CAM_ERR(CAM_CDM, "CPAS unregister failed");
 		return rc;
 	}
 
@@ -356,7 +364,8 @@ int cam_virtual_cdm_remove(struct platform_device *pdev)
 			cdm_hw->soc_info.soc_private, CAM_VIRTUAL_CDM,
 			cdm_core->index);
 	if (rc) {
-		pr_err("Virtual CDM Interface de-registration failed\n");
+		CAM_ERR(CAM_CDM,
+			"Virtual CDM Interface de-registration failed");
 		return rc;
 	}
 

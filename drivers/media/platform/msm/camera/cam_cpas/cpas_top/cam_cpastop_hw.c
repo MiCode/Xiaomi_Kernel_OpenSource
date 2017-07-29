@@ -38,24 +38,24 @@ static int cam_cpastop_get_hw_info(struct cam_hw_info *cpas_hw,
 
 	reg_value = cam_io_r_mb(soc_info->reg_map[reg_indx].mem_base + 0x0);
 	hw_caps->camera_version.major =
-		BITS_MASK_SHIFT(reg_value, 0xff0000, 0x10);
+		CAM_BITS_MASK_SHIFT(reg_value, 0xff0000, 0x10);
 	hw_caps->camera_version.minor =
-		BITS_MASK_SHIFT(reg_value, 0xff00, 0x8);
+		CAM_BITS_MASK_SHIFT(reg_value, 0xff00, 0x8);
 	hw_caps->camera_version.incr =
-		BITS_MASK_SHIFT(reg_value, 0xff, 0x0);
+		CAM_BITS_MASK_SHIFT(reg_value, 0xff, 0x0);
 
 	reg_value = cam_io_r_mb(soc_info->reg_map[reg_indx].mem_base + 0x4);
 	hw_caps->cpas_version.major =
-		BITS_MASK_SHIFT(reg_value, 0xf0000000, 0x1c);
+		CAM_BITS_MASK_SHIFT(reg_value, 0xf0000000, 0x1c);
 	hw_caps->cpas_version.minor =
-		BITS_MASK_SHIFT(reg_value, 0xfff0000, 0x10);
+		CAM_BITS_MASK_SHIFT(reg_value, 0xfff0000, 0x10);
 	hw_caps->cpas_version.incr =
-		BITS_MASK_SHIFT(reg_value, 0xffff, 0x0);
+		CAM_BITS_MASK_SHIFT(reg_value, 0xffff, 0x0);
 
 	reg_value = cam_io_r_mb(soc_info->reg_map[reg_indx].mem_base + 0x8);
 	hw_caps->camera_capability = reg_value;
 
-	CPAS_CDBG("Family %d, version %d.%d.%d, cpas %d.%d.%d, cap 0x%x\n",
+	CAM_DBG(CAM_FD, "Family %d, version %d.%d.%d, cpas %d.%d.%d, cap 0x%x",
 		hw_caps->camera_family, hw_caps->camera_version.major,
 		hw_caps->camera_version.minor, hw_caps->camera_version.incr,
 		hw_caps->cpas_version.major, hw_caps->cpas_version.minor,
@@ -71,31 +71,32 @@ static int cam_cpastop_setup_regbase_indices(struct cam_hw_soc_info *soc_info,
 	int rc;
 
 	if (num_reg_map > CAM_CPAS_REG_MAX) {
-		pr_err("invalid num_reg_map=%d\n", num_reg_map);
+		CAM_ERR(CAM_CPAS, "invalid num_reg_map=%d", num_reg_map);
 		return -EINVAL;
 	}
 
 	if (soc_info->num_mem_block > CAM_SOC_MAX_BLOCK) {
-		pr_err("invalid num_mem_block=%d\n", soc_info->num_mem_block);
+		CAM_ERR(CAM_CPAS, "invalid num_mem_block=%d",
+			soc_info->num_mem_block);
 		return -EINVAL;
 	}
 
-	rc = cam_cpas_util_get_string_index(soc_info->mem_block_name,
+	rc = cam_common_util_get_string_index(soc_info->mem_block_name,
 		soc_info->num_mem_block, "cam_cpas_top", &index);
 	if ((rc == 0) && (index < num_reg_map)) {
 		regbase_index[CAM_CPAS_REG_CPASTOP] = index;
 	} else {
-		pr_err("regbase not found for CPASTOP, rc=%d, %d %d\n",
+		CAM_ERR(CAM_CPAS, "regbase not found for CPASTOP, rc=%d, %d %d",
 			rc, index, num_reg_map);
 		return -EINVAL;
 	}
 
-	rc = cam_cpas_util_get_string_index(soc_info->mem_block_name,
+	rc = cam_common_util_get_string_index(soc_info->mem_block_name,
 		soc_info->num_mem_block, "cam_camnoc", &index);
 	if ((rc == 0) && (index < num_reg_map)) {
 		regbase_index[CAM_CPAS_REG_CAMNOC] = index;
 	} else {
-		pr_err("regbase not found for CAMNOC, rc=%d, %d %d\n",
+		CAM_ERR(CAM_CPAS, "regbase not found for CAMNOC, rc=%d, %d %d",
 			rc, index, num_reg_map);
 		return -EINVAL;
 	}
@@ -124,7 +125,8 @@ static int cam_cpastop_handle_errlogger(struct cam_cpas *cpas_core,
 		reg_value[3] = cam_io_r_mb(
 			soc_info->reg_map[camnoc_index].mem_base +
 			camnoc_info->error_logger[i + 3]);
-		pr_err("offset[0x%x] values [0x%x] [0x%x] [0x%x] [0x%x]\n",
+		CAM_ERR(CAM_CPAS,
+			"offset[0x%x] values [0x%x] [0x%x] [0x%x] [0x%x]",
 			camnoc_info->error_logger[i], reg_value[0],
 			reg_value[1], reg_value[2], reg_value[3]);
 	}
@@ -139,7 +141,7 @@ static int cam_cpastop_handle_errlogger(struct cam_cpas *cpas_core,
 		reg_value[2] = cam_io_r_mb(
 			soc_info->reg_map[camnoc_index].mem_base +
 			camnoc_info->error_logger[i + 2]);
-		pr_err("offset[0x%x] values [0x%x] [0x%x] [0x%x]\n",
+		CAM_ERR(CAM_CPAS, "offset[0x%x] values [0x%x] [0x%x] [0x%x]",
 			camnoc_info->error_logger[i], reg_value[0],
 			reg_value[1], reg_value[2]);
 		i = i + 3;
@@ -152,7 +154,7 @@ static int cam_cpastop_handle_errlogger(struct cam_cpas *cpas_core,
 		reg_value[1] = cam_io_r_mb(
 			soc_info->reg_map[camnoc_index].mem_base +
 			camnoc_info->error_logger[i + 1]);
-		pr_err("offset[0x%x] values [0x%x] [0x%x]\n",
+		CAM_ERR(CAM_CPAS, "offset[0x%x] values [0x%x] [0x%x]",
 			camnoc_info->error_logger[i], reg_value[0],
 			reg_value[1]);
 		i = i + 2;
@@ -162,7 +164,7 @@ static int cam_cpastop_handle_errlogger(struct cam_cpas *cpas_core,
 		reg_value[0] = cam_io_r_mb(
 			soc_info->reg_map[camnoc_index].mem_base +
 			camnoc_info->error_logger[i]);
-		pr_err("offset[0x%x] values [0x%x]\n",
+		CAM_ERR(CAM_CPAS, "offset[0x%x] values [0x%x]",
 			camnoc_info->error_logger[i], reg_value[0]);
 	}
 
@@ -178,7 +180,8 @@ static int cam_cpastop_handle_ubwc_err(struct cam_cpas *cpas_core,
 	reg_value = cam_io_r_mb(soc_info->reg_map[camnoc_index].mem_base +
 		camnoc_info->irq_err[i].err_status.offset);
 
-	pr_err("Dumping ubwc error status [%d]: offset[0x%x] value[0x%x]\n",
+	CAM_ERR(CAM_CPAS,
+		"Dumping ubwc error status [%d]: offset[0x%x] value[0x%x]",
 		i, camnoc_info->irq_err[i].err_status.offset, reg_value);
 
 	return reg_value;
@@ -186,7 +189,7 @@ static int cam_cpastop_handle_ubwc_err(struct cam_cpas *cpas_core,
 
 static int cam_cpastop_handle_ahb_timeout_err(struct cam_hw_info *cpas_hw)
 {
-	pr_err("ahb timout error\n");
+	CAM_ERR(CAM_CPAS, "ahb timout error");
 
 	return 0;
 }
@@ -229,7 +232,8 @@ static void cam_cpastop_notify_clients(struct cam_cpas *cpas_core,
 	int i;
 	struct cam_cpas_client *cpas_client;
 
-	CPAS_CDBG("Notify CB : num_clients=%d, registered=%d, started=%d\n",
+	CAM_DBG(CAM_CPAS,
+		"Notify CB : num_clients=%d, registered=%d, started=%d",
 		cpas_core->num_clients, cpas_core->registered_clients,
 		cpas_core->streamon_clients);
 
@@ -237,7 +241,8 @@ static void cam_cpastop_notify_clients(struct cam_cpas *cpas_core,
 		if (CAM_CPAS_CLIENT_STARTED(cpas_core, i)) {
 			cpas_client = cpas_core->cpas_client[i];
 			if (cpas_client->data.cam_cpas_client_cb) {
-				CPAS_CDBG("Calling client CB %d : %d 0x%x\n",
+				CAM_DBG(CAM_CPAS,
+					"Calling client CB %d : %d 0x%x",
 					i, irq_type, irq_data);
 				cpas_client->data.cam_cpas_client_cb(
 					cpas_client->data.client_handle,
@@ -261,7 +266,7 @@ static void cam_cpastop_work(struct work_struct *work)
 
 	payload = container_of(work, struct cam_cpas_work_payload, work);
 	if (!payload) {
-		pr_err("NULL payload");
+		CAM_ERR(CAM_CPAS, "NULL payload");
 		return;
 	}
 
@@ -273,7 +278,7 @@ static void cam_cpastop_work(struct work_struct *work)
 		if ((payload->irq_status & camnoc_info->irq_err[i].sbm_port) &&
 			(camnoc_info->irq_err[i].enable)) {
 			irq_type = camnoc_info->irq_err[i].irq_type;
-			pr_err("Error occurred, type=%d\n", irq_type);
+			CAM_ERR(CAM_CPAS, "Error occurred, type=%d", irq_type);
 			irq_data = 0;
 
 			switch (irq_type) {
@@ -293,10 +298,10 @@ static void cam_cpastop_work(struct work_struct *work)
 					cpas_hw);
 				break;
 			case CAM_CAMNOC_HW_IRQ_CAMNOC_TEST:
-				CPAS_CDBG("TEST IRQ\n");
+				CAM_DBG(CAM_CPAS, "TEST IRQ");
 				break;
 			default:
-				pr_err("Invalid IRQ type\n");
+				CAM_ERR(CAM_CPAS, "Invalid IRQ type");
 				break;
 			}
 
@@ -309,7 +314,7 @@ static void cam_cpastop_work(struct work_struct *work)
 	}
 
 	if (payload->irq_status)
-		pr_err("IRQ not handled irq_status=0x%x\n",
+		CAM_ERR(CAM_CPAS, "IRQ not handled irq_status=0x%x",
 			payload->irq_status);
 
 	kfree(payload);
@@ -331,7 +336,7 @@ static irqreturn_t cam_cpastop_handle_irq(int irq_num, void *data)
 		soc_info->reg_map[camnoc_index].mem_base +
 		camnoc_info->irq_sbm->sbm_status.offset);
 
-	CPAS_CDBG("IRQ callback, irq_status=0x%x\n", payload->irq_status);
+	CAM_DBG(CAM_CPAS, "IRQ callback, irq_status=0x%x", payload->irq_status);
 
 	payload->hw = cpas_hw;
 	INIT_WORK((struct work_struct *)&payload->work, cam_cpastop_work);
@@ -396,7 +401,8 @@ static int cam_cpastop_poweroff(struct cam_hw_info *cpas_hw)
 			CAM_CPAS_POLL_RETRY_CNT,
 			CAM_CPAS_POLL_MIN_USECS, CAM_CPAS_POLL_MAX_USECS);
 		if (rc) {
-			pr_err("camnoc flush slave pending trans failed\n");
+			CAM_ERR(CAM_CPAS,
+				"camnoc flush slave pending trans failed");
 			/* Do not return error, passthrough */
 		}
 	}
@@ -415,14 +421,14 @@ static int cam_cpastop_init_hw_version(struct cam_hw_info *cpas_hw,
 			(hw_caps->cpas_version.incr == 0)) {
 			camnoc_info = &cam170_cpas100_camnoc_info;
 		} else {
-			pr_err("CPAS Version not supported %d.%d.%d\n",
+			CAM_ERR(CAM_CPAS, "CPAS Version not supported %d.%d.%d",
 				hw_caps->cpas_version.major,
 				hw_caps->cpas_version.minor,
 				hw_caps->cpas_version.incr);
 			return -EINVAL;
 		}
 	} else {
-		pr_err("Camera Version not supported %d.%d.%d\n",
+		CAM_ERR(CAM_CPAS, "Camera Version not supported %d.%d.%d",
 			hw_caps->camera_version.major,
 			hw_caps->camera_version.minor,
 			hw_caps->camera_version.incr);
@@ -435,7 +441,7 @@ static int cam_cpastop_init_hw_version(struct cam_hw_info *cpas_hw,
 int cam_cpastop_get_internal_ops(struct cam_cpas_internal_ops *internal_ops)
 {
 	if (!internal_ops) {
-		pr_err("invalid NULL param\n");
+		CAM_ERR(CAM_CPAS, "invalid NULL param");
 		return -EINVAL;
 	}
 

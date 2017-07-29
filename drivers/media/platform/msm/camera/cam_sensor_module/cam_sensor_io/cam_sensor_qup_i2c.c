@@ -40,7 +40,7 @@ static int32_t cam_qup_i2c_rxdata(
 	};
 	rc = i2c_transfer(dev_client->adapter, msgs, 2);
 	if (rc < 0)
-		pr_err("%s:failed 0x%x\n", __func__, saddr);
+		CAM_ERR(CAM_SENSOR, "%s:failed 0x%x", saddr);
 	return rc;
 }
 
@@ -61,7 +61,7 @@ static int32_t cam_qup_i2c_txdata(
 	};
 	rc = i2c_transfer(dev_client->client->adapter, msg, 1);
 	if (rc < 0)
-		pr_err("%s: failed 0x%x\n", __func__, saddr);
+		CAM_ERR(CAM_SENSOR, "failed 0x%x", saddr);
 	return rc;
 }
 
@@ -77,8 +77,7 @@ int32_t cam_qup_i2c_read(struct i2c_client *client,
 		|| addr_type >= CAMERA_SENSOR_I2C_TYPE_MAX
 		|| data_type <= CAMERA_SENSOR_I2C_TYPE_INVALID
 		|| data_type >= CAMERA_SENSOR_I2C_TYPE_MAX) {
-		pr_err("ERR: %s Failed with addr/data_type verfication\n",
-			__func__);
+		CAM_ERR(CAM_SENSOR, "Failed with addr/data_type verfication");
 		return rc;
 	}
 
@@ -105,7 +104,7 @@ int32_t cam_qup_i2c_read(struct i2c_client *client,
 
 	rc = cam_qup_i2c_rxdata(client, buf, addr_type, data_type);
 	if (rc < 0) {
-		pr_err("%s fail\n", __func__);
+		CAM_ERR(CAM_SENSOR, "failed rc: %d", rc);
 		goto read_fail;
 	}
 
@@ -119,7 +118,7 @@ int32_t cam_qup_i2c_read(struct i2c_client *client,
 		*data = buf[0] << 24 | buf[1] << 16 |
 			buf[2] << 8 | buf[3];
 
-	CDBG("%s addr = 0x%x data: 0x%x\n", __func__, addr, *data);
+	CAM_DBG(CAM_SENSOR, "addr = 0x%x data: 0x%x", addr, *data);
 read_fail:
 	kfree(buf);
 	buf = NULL;
@@ -137,14 +136,13 @@ int32_t cam_qup_i2c_read_seq(struct i2c_client *client,
 
 	if (addr_type <= CAMERA_SENSOR_I2C_TYPE_INVALID
 		|| addr_type >= CAMERA_SENSOR_I2C_TYPE_MAX) {
-		pr_err("ERR: %s Failed with addr_type verification\n",
-			__func__);
+		CAM_ERR(CAM_SENSOR, "Failed with addr_type verification");
 		return rc;
 	}
 
 	if ((num_byte == 0) || (num_byte > I2C_REG_DATA_MAX)) {
-		pr_err("%s: Error num_byte:0x%x max supported:0x%x\n",
-			__func__, num_byte, I2C_REG_DATA_MAX);
+		CAM_ERR(CAM_SENSOR, "num_byte:0x%x max supported:0x%x",
+			num_byte, I2C_REG_DATA_MAX);
 		return rc;
 	}
 
@@ -170,7 +168,7 @@ int32_t cam_qup_i2c_read_seq(struct i2c_client *client,
 
 	rc = cam_qup_i2c_rxdata(client, buf, addr_type, num_byte);
 	if (rc < 0) {
-		pr_err("%s fail\n", __func__);
+		CAM_ERR(CAM_SENSOR, "failed rc: %d", rc);
 		goto read_seq_fail;
 	}
 
@@ -213,8 +211,8 @@ int32_t cam_qup_i2c_poll(struct i2c_client *client,
 	int i = 0;
 
 	if ((delay_ms > MAX_POLL_DELAY_MS) || (delay_ms == 0)) {
-		pr_err("%s:%d invalid delay = %d max_delay = %d\n",
-			__func__, __LINE__, delay_ms, MAX_POLL_DELAY_MS);
+		CAM_ERR(CAM_SENSOR, "invalid delay = %d max_delay = %d",
+			delay_ms, MAX_POLL_DELAY_MS);
 		return -EINVAL;
 	}
 
@@ -234,10 +232,9 @@ int32_t cam_qup_i2c_poll(struct i2c_client *client,
 	}
 	/* If rc is MISMATCH then read is successful but poll is failure */
 	if (rc == I2C_COMPARE_MISMATCH)
-		pr_err("%s:%d poll failed rc=%d(non-fatal)\n",
-			__func__, __LINE__, rc);
+		CAM_ERR(CAM_SENSOR, "poll failed rc=%d(non-fatal)", rc);
 	if (rc < 0)
-		pr_err("%s:%d poll failed rc=%d\n", __func__, __LINE__, rc);
+		CAM_ERR(CAM_SENSOR, "poll failed rc=%d", rc);
 
 	return rc;
 }
@@ -251,20 +248,17 @@ static int32_t cam_qup_i2c_write(struct camera_io_master *client,
 	unsigned char buf[I2C_REG_MAX_BUF_SIZE];
 	uint8_t len = 0;
 
-	CDBG("%s reg addr = 0x%x data type: %d\n",
-			  __func__, reg_setting->reg_addr, data_type);
+	CAM_DBG(CAM_SENSOR, "reg addr = 0x%x data type: %d",
+			reg_setting->reg_addr, data_type);
 	if (addr_type == CAMERA_SENSOR_I2C_TYPE_BYTE) {
 		buf[0] = reg_setting->reg_addr;
-		CDBG("%s byte %d: 0x%x\n", __func__,
-			len, buf[len]);
+		CAM_DBG(CAM_SENSOR, "byte %d: 0x%x", len, buf[len]);
 		len = 1;
 	} else if (addr_type == CAMERA_SENSOR_I2C_TYPE_WORD) {
 		buf[0] = reg_setting->reg_addr >> 8;
 		buf[1] = reg_setting->reg_addr;
-		CDBG("%s byte %d: 0x%x\n", __func__,
-			len, buf[len]);
-		CDBG("%s byte %d: 0x%x\n", __func__,
-			len+1, buf[len+1]);
+		CAM_DBG(CAM_SENSOR, "byte %d: 0x%x", len, buf[len]);
+		CAM_DBG(CAM_SENSOR, "byte %d: 0x%x", len+1, buf[len+1]);
 		len = 2;
 	} else if (addr_type == CAMERA_SENSOR_I2C_TYPE_3B) {
 		buf[0] = reg_setting->reg_addr >> 16;
@@ -278,47 +272,47 @@ static int32_t cam_qup_i2c_write(struct camera_io_master *client,
 		buf[3] = reg_setting->reg_addr;
 		len = 4;
 	} else {
-		pr_err("%s: Invalid I2C addr type\n", __func__);
+		CAM_ERR(CAM_SENSOR, "Invalid I2C addr type");
 		return -EINVAL;
 	}
 
-	CDBG("Data: 0x%x\n", reg_setting->reg_data);
+	CAM_DBG(CAM_SENSOR, "Data: 0x%x", reg_setting->reg_data);
 	if (data_type == CAMERA_SENSOR_I2C_TYPE_BYTE) {
 		buf[len] = reg_setting->reg_data;
-		CDBG("Byte %d: 0x%x\n", len, buf[len]);
+		CAM_DBG(CAM_SENSOR, "Byte %d: 0x%x", len, buf[len]);
 		len += 1;
 	} else if (data_type == CAMERA_SENSOR_I2C_TYPE_WORD) {
 		buf[len] = reg_setting->reg_data >> 8;
 		buf[len+1] = reg_setting->reg_data;
-		CDBG("Byte %d: 0x%x\n", len, buf[len]);
-		CDBG("Byte %d: 0x%x\n", len+1, buf[len+1]);
+		CAM_DBG(CAM_SENSOR, "Byte %d: 0x%x", len, buf[len]);
+		CAM_DBG(CAM_SENSOR, "Byte %d: 0x%x", len+1, buf[len+1]);
 		len += 2;
 	} else if (data_type == CAMERA_SENSOR_I2C_TYPE_3B) {
 		buf[len] = reg_setting->reg_data >> 16;
 		buf[len + 1] = reg_setting->reg_data >> 8;
 		buf[len + 2] = reg_setting->reg_data;
-		CDBG("Byte %d: 0x%x\n", len, buf[len]);
-		CDBG("Byte %d: 0x%x\n", len+1, buf[len+1]);
-		CDBG("Byte %d: 0x%x\n", len+2, buf[len+2]);
+		CAM_DBG(CAM_SENSOR, "Byte %d: 0x%x", len, buf[len]);
+		CAM_DBG(CAM_SENSOR, "Byte %d: 0x%x", len+1, buf[len+1]);
+		CAM_DBG(CAM_SENSOR, "Byte %d: 0x%x", len+2, buf[len+2]);
 		len += 3;
 	} else if (data_type == CAMERA_SENSOR_I2C_TYPE_DWORD) {
 		buf[len] = reg_setting->reg_data >> 24;
 		buf[len + 1] = reg_setting->reg_data >> 16;
 		buf[len + 2] = reg_setting->reg_data >> 8;
 		buf[len + 3] = reg_setting->reg_data;
-		CDBG("Byte %d: 0x%x\n", len, buf[len]);
-		CDBG("Byte %d: 0x%x\n", len+1, buf[len+1]);
-		CDBG("Byte %d: 0x%x\n", len+2, buf[len+2]);
-		CDBG("Byte %d: 0x%x\n", len+3, buf[len+3]);
+		CAM_DBG(CAM_SENSOR, "Byte %d: 0x%x", len, buf[len]);
+		CAM_DBG(CAM_SENSOR, "Byte %d: 0x%x", len+1, buf[len+1]);
+		CAM_DBG(CAM_SENSOR, "Byte %d: 0x%x", len+2, buf[len+2]);
+		CAM_DBG(CAM_SENSOR, "Byte %d: 0x%x", len+3, buf[len+3]);
 		len += 4;
 	} else {
-		pr_err("%s: Invalid Data Type\n", __func__);
+		CAM_ERR(CAM_SENSOR, "Invalid Data Type");
 		return -EINVAL;
 	}
 
 	rc = cam_qup_i2c_txdata(client, buf, len);
 	if (rc < 0)
-		pr_err("%s fail\n", __func__);
+		CAM_ERR(CAM_SENSOR, "failed rc: %d", rc);
 	return rc;
 }
 
@@ -341,7 +335,7 @@ int32_t cam_qup_i2c_write_table(struct camera_io_master *client,
 	reg_setting = write_setting->reg_setting;
 
 	for (i = 0; i < write_setting->size; i++) {
-		CDBG("%s addr 0x%x data 0x%x\n", __func__,
+		CAM_DBG(CAM_SENSOR, "addr 0x%x data 0x%x",
 			reg_setting->reg_addr, reg_setting->reg_data);
 
 		rc = cam_qup_i2c_write(client, reg_setting,

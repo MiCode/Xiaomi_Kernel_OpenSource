@@ -29,7 +29,8 @@ int cam_cpas_get_custom_dt_info(struct platform_device *pdev,
 	int count = 0, i = 0, rc = 0;
 
 	if (!soc_private || !pdev) {
-		pr_err("invalid input arg %pK %pK\n", soc_private, pdev);
+		CAM_ERR(CAM_CPAS, "invalid input arg %pK %pK",
+			soc_private, pdev);
 		return -EINVAL;
 	}
 
@@ -38,7 +39,8 @@ int cam_cpas_get_custom_dt_info(struct platform_device *pdev,
 	rc = of_property_read_string_index(of_node, "arch-compat", 0,
 		(const char **)&soc_private->arch_compat);
 	if (rc) {
-		pr_err("device %s failed to read arch-compat\n", pdev->name);
+		CAM_ERR(CAM_CPAS, "device %s failed to read arch-compat",
+			pdev->name);
 		return rc;
 	}
 
@@ -47,12 +49,13 @@ int cam_cpas_get_custom_dt_info(struct platform_device *pdev,
 
 	count = of_property_count_strings(of_node, "client-names");
 	if (count <= 0) {
-		pr_err("no client-names found\n");
+		CAM_ERR(CAM_CPAS, "no client-names found");
 		count = 0;
 		return -EINVAL;
 	}
 	soc_private->num_clients = count;
-	CPAS_CDBG("arch-compat=%s, client_id_based = %d, num_clients=%d\n",
+	CAM_DBG(CAM_CPAS,
+		"arch-compat=%s, client_id_based = %d, num_clients=%d",
 		soc_private->arch_compat, soc_private->client_id_based,
 		soc_private->num_clients);
 
@@ -60,15 +63,16 @@ int cam_cpas_get_custom_dt_info(struct platform_device *pdev,
 		rc = of_property_read_string_index(of_node,
 			"client-names", i, &soc_private->client_name[i]);
 		if (rc) {
-			pr_err("no client-name at cnt=%d\n", i);
+			CAM_ERR(CAM_CPAS, "no client-name at cnt=%d", i);
 			return -ENODEV;
 		}
-		CPAS_CDBG("Client[%d] : %s\n", i, soc_private->client_name[i]);
+		CAM_DBG(CAM_CPAS, "Client[%d] : %s", i,
+			soc_private->client_name[i]);
 	}
 
 	count = of_property_count_strings(of_node, "client-axi-port-names");
 	if ((count <= 0) || (count != soc_private->num_clients)) {
-		pr_err("incorrect client-axi-port-names info %d %d\n",
+		CAM_ERR(CAM_CPAS, "incorrect client-axi-port-names info %d %d",
 			count, soc_private->num_clients);
 		count = 0;
 		return -EINVAL;
@@ -79,10 +83,10 @@ int cam_cpas_get_custom_dt_info(struct platform_device *pdev,
 			"client-axi-port-names", i,
 			&soc_private->client_axi_port_name[i]);
 		if (rc) {
-			pr_err("no client-name at cnt=%d\n", i);
+			CAM_ERR(CAM_CPAS, "no client-name at cnt=%d", i);
 			return -ENODEV;
 		}
-		CPAS_CDBG("Client AXI Port[%d] : %s\n", i,
+		CAM_DBG(CAM_CPAS, "Client AXI Port[%d] : %s", i,
 			soc_private->client_axi_port_name[i]);
 	}
 
@@ -99,25 +103,29 @@ int cam_cpas_get_custom_dt_info(struct platform_device *pdev,
 			rc = of_property_read_u32_index(of_node, "vdd-corners",
 				i, &soc_private->vdd_ahb[i].vdd_corner);
 			if (rc) {
-				pr_err("vdd-corners failed at index=%d\n", i);
+				CAM_ERR(CAM_CPAS,
+					"vdd-corners failed at index=%d", i);
 				return -ENODEV;
 			}
 
 			rc = of_property_read_string_index(of_node,
 				"vdd-corner-ahb-mapping", i, &ahb_string);
 			if (rc) {
-				pr_err("no ahb-mapping at index=%d\n", i);
+				CAM_ERR(CAM_CPAS,
+					"no ahb-mapping at index=%d", i);
 				return -ENODEV;
 			}
 
 			rc = cam_soc_util_get_level_from_string(ahb_string,
 				&soc_private->vdd_ahb[i].ahb_level);
 			if (rc) {
-				pr_err("invalid ahb-string at index=%d\n", i);
+				CAM_ERR(CAM_CPAS,
+					"invalid ahb-string at index=%d", i);
 				return -EINVAL;
 			}
 
-			CPAS_CDBG("Vdd-AHB mapping [%d] : [%d] [%s] [%d]\n", i,
+			CAM_DBG(CAM_CPAS,
+				"Vdd-AHB mapping [%d] : [%d] [%s] [%d]", i,
 				soc_private->vdd_ahb[i].vdd_corner,
 				ahb_string, soc_private->vdd_ahb[i].ahb_level);
 		}
@@ -135,19 +143,20 @@ int cam_cpas_soc_init_resources(struct cam_hw_soc_info *soc_info,
 
 	rc = cam_soc_util_get_dt_properties(soc_info);
 	if (rc) {
-		pr_err("failed in get_dt_properties, rc=%d\n", rc);
+		CAM_ERR(CAM_CPAS, "failed in get_dt_properties, rc=%d", rc);
 		return rc;
 	}
 
 	if (soc_info->irq_line && !irq_handler) {
-		pr_err("Invalid IRQ handler\n");
+		CAM_ERR(CAM_CPAS, "Invalid IRQ handler");
 		return -EINVAL;
 	}
 
 	rc = cam_soc_util_request_platform_resource(soc_info, irq_handler,
 		irq_data);
 	if (rc) {
-		pr_err("failed in request_platform_resource, rc=%d\n", rc);
+		CAM_ERR(CAM_CPAS, "failed in request_platform_resource, rc=%d",
+			rc);
 		return rc;
 	}
 
@@ -160,7 +169,7 @@ int cam_cpas_soc_init_resources(struct cam_hw_soc_info *soc_info,
 
 	rc = cam_cpas_get_custom_dt_info(soc_info->pdev, soc_info->soc_private);
 	if (rc) {
-		pr_err("failed in get_custom_info, rc=%d\n", rc);
+		CAM_ERR(CAM_CPAS, "failed in get_custom_info, rc=%d", rc);
 		goto free_soc_private;
 	}
 
@@ -179,7 +188,7 @@ int cam_cpas_soc_deinit_resources(struct cam_hw_soc_info *soc_info)
 
 	rc = cam_soc_util_release_platform_resource(soc_info);
 	if (rc)
-		pr_err("release platform failed, rc=%d\n", rc);
+		CAM_ERR(CAM_CPAS, "release platform failed, rc=%d", rc);
 
 	kfree(soc_info->soc_private);
 	soc_info->soc_private = NULL;
@@ -195,7 +204,7 @@ int cam_cpas_soc_enable_resources(struct cam_hw_soc_info *soc_info,
 	rc = cam_soc_util_enable_platform_resource(soc_info, true,
 		default_level, true);
 	if (rc)
-		pr_err("enable platform resource failed, rc=%d\n", rc);
+		CAM_ERR(CAM_CPAS, "enable platform resource failed, rc=%d", rc);
 
 	return rc;
 }
@@ -206,7 +215,7 @@ int cam_cpas_soc_disable_resources(struct cam_hw_soc_info *soc_info)
 
 	rc = cam_soc_util_disable_platform_resource(soc_info, true, true);
 	if (rc)
-		pr_err("disable platform failed, rc=%d\n", rc);
+		CAM_ERR(CAM_CPAS, "disable platform failed, rc=%d", rc);
 
 	return rc;
 }

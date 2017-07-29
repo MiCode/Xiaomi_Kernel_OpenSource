@@ -18,9 +18,7 @@
 #include <media/cam_icp.h>
 #include "ipe_soc.h"
 #include "cam_soc_util.h"
-
-#undef CDBG
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#include "cam_debug_util.h"
 
 static int cam_ipe_get_dt_properties(struct cam_hw_soc_info *soc_info)
 {
@@ -28,7 +26,7 @@ static int cam_ipe_get_dt_properties(struct cam_hw_soc_info *soc_info)
 
 	rc = cam_soc_util_get_dt_properties(soc_info);
 	if (rc < 0)
-		pr_err("get ipe dt prop is failed\n");
+		CAM_ERR(CAM_ICP, "get ipe dt prop is failed");
 
 	return rc;
 }
@@ -69,7 +67,7 @@ int cam_ipe_enable_soc_resources(struct cam_hw_soc_info *soc_info)
 	rc = cam_soc_util_enable_platform_resource(soc_info, true,
 		CAM_TURBO_VOTE, false);
 	if (rc) {
-		pr_err("%s: enable platform failed\n", __func__);
+		CAM_ERR(CAM_ICP, "enable platform failed");
 		return rc;
 	}
 
@@ -82,7 +80,7 @@ int cam_ipe_disable_soc_resources(struct cam_hw_soc_info *soc_info)
 
 	rc = cam_soc_util_disable_platform_resource(soc_info, true, false);
 	if (rc)
-		pr_err("%s: enable platform failed\n", __func__);
+		CAM_ERR(CAM_ICP, "enable platform failed");
 
 	return rc;
 }

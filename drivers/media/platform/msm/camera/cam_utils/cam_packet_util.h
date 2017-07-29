@@ -16,6 +16,62 @@
 #include <uapi/media/cam_defs.h>
 
 /**
+ * @brief                  KMD scratch buffer information
+ *
+ * @handle:                Memory handle
+ * @cpu_addr:              Cpu address
+ * @offset:                Offset from the start of the buffer
+ * @size:                  Size of the buffer
+ * @used_bytes:            Used memory in bytes
+ *
+ */
+struct cam_kmd_buf_info {
+	int        handle;
+	uint32_t  *cpu_addr;
+	uint32_t   offset;
+	uint32_t   size;
+	uint32_t   used_bytes;
+};
+
+/**
+ * cam_packet_util_validate_packet()
+ *
+ * @brief                  Validate the packet
+ *
+ * @packet:                Packet to be validated
+ *
+ * @return:                0 for success
+ *                         -EINVAL for Fail
+ */
+int cam_packet_util_validate_packet(struct cam_packet *packet);
+
+/**
+ * cam_packet_util_validate_cmd_desc()
+ *
+ * @brief                  Validate the packet
+ *
+ * @cmd_desc:              Command descriptor to be validated
+ *
+ * @return:                0 for success
+ *                         -EINVAL for Fail
+ */
+int cam_packet_util_validate_cmd_desc(struct cam_cmd_buf_desc *cmd_desc);
+
+/**
+ * cam_packet_util_get_kmd_buffer()
+ *
+ * @brief                  Get the kmd buffer from the packet command descriptor
+ *
+ * @packet:                Packet data
+ * @kmd_buf:               Extracted the KMD buffer information
+ *
+ * @return:                0 for success
+ *                         -EINVAL for Fail
+ */
+int cam_packet_util_get_kmd_buffer(struct cam_packet *packet,
+	struct cam_kmd_buf_info *kmd_buf_info);
+
+/**
  * cam_packet_util_process_patches()
  *
  * @brief:              Replace the handle in Packet to Address using the
