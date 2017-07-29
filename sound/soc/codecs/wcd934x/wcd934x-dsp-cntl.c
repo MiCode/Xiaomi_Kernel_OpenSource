@@ -763,10 +763,6 @@ static int wcd_control_handler(struct device *dev, void *priv_data,
 	case WDSP_EVENT_DLOAD_FAILED:
 	case WDSP_EVENT_POST_SHUTDOWN:
 
-		if (event == WDSP_EVENT_POST_DLOAD_CODE)
-			/* Mark DSP online since code download is complete */
-			wcd_cntl_change_online_state(cntl, 1);
-
 		/* Disable CPAR */
 		wcd_cntl_cpar_ctrl(cntl, false);
 		/* Disable all the clocks */
@@ -775,6 +771,10 @@ static int wcd_control_handler(struct device *dev, void *priv_data,
 			dev_err(codec->dev,
 				"%s: Failed to disable clocks, err = %d\n",
 				__func__, ret);
+
+		if (event == WDSP_EVENT_POST_DLOAD_CODE)
+			/* Mark DSP online since code download is complete */
+			wcd_cntl_change_online_state(cntl, 1);
 		break;
 
 	case WDSP_EVENT_PRE_DLOAD_DATA:
