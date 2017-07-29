@@ -1634,6 +1634,12 @@ int smblib_get_prop_batt_status(struct smb_charger *chg,
 	if (val->intval != POWER_SUPPLY_STATUS_CHARGING)
 		return 0;
 
+	if (!usb_online && dc_online
+		&& chg->fake_batt_status == POWER_SUPPLY_STATUS_FULL) {
+		val->intval = POWER_SUPPLY_STATUS_FULL;
+		return 0;
+	}
+
 	rc = smblib_read(chg, BATTERY_CHARGER_STATUS_7_REG, &stat);
 	if (rc < 0) {
 		smblib_err(chg, "Couldn't read BATTERY_CHARGER_STATUS_2 rc=%d\n",
@@ -1870,6 +1876,20 @@ int smblib_set_prop_batt_capacity(struct smb_charger *chg,
 				  const union power_supply_propval *val)
 {
 	chg->fake_capacity = val->intval;
+
+	power_supply_changed(chg->batt_psy);
+
+	return 0;
+}
+
+int smblib_set_prop_batt_status(struct smb_charger *chg,
+				  const union power_supply_propval *val)
+{
+	/* Faking battery full */
+	if (val->intval == POWER_SUPPLY_STATUS_FULL)
+		chg->fake_batt_status = val->intval;
+	else
+		chg->fake_batt_status = -EINVAL;
 
 	power_supply_changed(chg->batt_psy);
 
@@ -4711,6 +4731,7 @@ int smblib_init(struct smb_charger *chg)
 	INIT_DELAYED_WORK(&chg->bb_removal_work, smblib_bb_removal_work);
 	chg->fake_capacity = -EINVAL;
 	chg->fake_input_current_limited = -EINVAL;
+	chg->fake_batt_status = -EINVAL;
 
 	switch (chg->mode) {
 	case PARALLEL_MASTER:
