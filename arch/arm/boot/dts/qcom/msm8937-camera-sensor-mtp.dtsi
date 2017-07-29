@@ -36,6 +36,18 @@
 		qcom,cam-vreg-op-mode = <80000>;
 	};
 
+	actuator2: qcom,actuator@2 {
+		cell-index = <2>;
+		reg = <0x2>;
+		compatible = "qcom,actuator";
+		qcom,cci-master = <1>;
+		cam_vaf-supply = <&pm8937_l17>;
+		qcom,cam-vreg-name = "cam_vaf";
+		qcom,cam-vreg-min-voltage = <2850000>;
+		qcom,cam-vreg-max-voltage = <2850000>;
+		qcom,cam-vreg-op-mode = <80000>;
+	};
+
 	eeprom0: qcom,eeprom@0 {
 		cell-index = <0>;
 		compatible = "qcom,eeprom";
@@ -239,7 +251,7 @@
 		qcom,csiphy-sd-index = <1>;
 		qcom,csid-sd-index = <1>;
 		qcom,mount-angle = <90>;
-		qcom,actuator-src = <&actuator1>;
+		qcom,actuator-src = <&actuator2>;
 		qcom,eeprom-src = <&eeprom2>;
 		cam_vdig-supply = <&pm8937_l23>;
 		cam_vana-supply = <&pm8937_l22>;
