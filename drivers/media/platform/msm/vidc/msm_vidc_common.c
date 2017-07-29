@@ -5353,8 +5353,8 @@ int msm_comm_dqbuf_cache_operations(struct msm_vidc_inst *inst,
 			}
 		} else if (inst->session_type == MSM_VIDC_ENCODER) {
 			if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-				if (!i) /* yuv */
-					skip = true;
+				/* yuv and extradata */
+				skip = true;
 			} else if (b->type ==
 					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 				if (!i) /* bitstream */
@@ -5959,8 +5959,11 @@ struct msm_vidc_buffer *msm_comm_get_vidc_buffer(struct msm_vidc_inst *inst,
 		 * always compare dma_buf addresses which is guaranteed
 		 * to be same across the processes (duplicate fds).
 		 */
-		dma_planes[i] = (unsigned long)dma_buf_get(vb2->planes[i].m.fd);
-		dma_buf_put((struct dma_buf *)dma_planes[i]);
+		dma_planes[i] = (unsigned long)msm_smem_get_dma_buf(
+				vb2->planes[i].m.fd);
+		if (!dma_planes[i])
+			return NULL;
+		msm_smem_put_dma_buf((struct dma_buf *)dma_planes[i]);
 	}
 
 	mutex_lock(&inst->registeredbufs.lock);
