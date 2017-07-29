@@ -14,25 +14,25 @@
 #ifdef CONFIG_SCHED_WALT
 
 static void
-inc_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p)
+inc_walt_sched_stats_rt(struct rq *rq, struct task_struct *p)
 {
-	inc_cumulative_runnable_avg(&rq->hmp_stats, p);
+	inc_cumulative_runnable_avg(&rq->walt_stats, p);
 }
 
 static void
-dec_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p)
+dec_walt_sched_stats_rt(struct rq *rq, struct task_struct *p)
 {
-	dec_cumulative_runnable_avg(&rq->hmp_stats, p);
+	dec_cumulative_runnable_avg(&rq->walt_stats, p);
 }
 
 static void
-fixup_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p,
+fixup_walt_sched_stats_rt(struct rq *rq, struct task_struct *p,
 			 u32 new_task_load, u32 new_pred_demand)
 {
 	s64 task_load_delta = (s64)new_task_load - task_load(p);
 	s64 pred_demand_delta = PRED_DEMAND_DELTA;
 
-	fixup_cumulative_runnable_avg(&rq->hmp_stats, p, task_load_delta,
+	fixup_cumulative_runnable_avg(&rq->walt_stats, p, task_load_delta,
 				      pred_demand_delta);
 }
 
@@ -43,10 +43,10 @@ static int find_lowest_rq(struct task_struct *task);
 #else  /* CONFIG_SCHED_WALT */
 
 static inline void
-inc_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p) { }
+inc_walt_sched_stats_rt(struct rq *rq, struct task_struct *p) { }
 
 static inline void
-dec_hmp_sched_stats_rt(struct rq *rq, struct task_struct *p) { }
+dec_walt_sched_stats_rt(struct rq *rq, struct task_struct *p) { }
 
 #endif	/* CONFIG_SCHED_WALT */
 
@@ -1421,7 +1421,7 @@ enqueue_task_rt(struct rq *rq, struct task_struct *p, int flags)
 		rt_se->timeout = 0;
 
 	enqueue_rt_entity(rt_se, flags);
-	inc_hmp_sched_stats_rt(rq, p);
+	inc_walt_sched_stats_rt(rq, p);
 
 	if (!task_current(rq, p) && tsk_nr_cpus_allowed(p) > 1)
 		enqueue_pushable_task(rq, p);
@@ -1433,7 +1433,7 @@ static void dequeue_task_rt(struct rq *rq, struct task_struct *p, int flags)
 
 	update_curr_rt(rq);
 	dequeue_rt_entity(rt_se, flags);
-	dec_hmp_sched_stats_rt(rq, p);
+	dec_walt_sched_stats_rt(rq, p);
 
 	dequeue_pushable_task(rq, p);
 }
@@ -2623,7 +2623,7 @@ const struct sched_class rt_sched_class = {
 
 	.update_curr		= update_curr_rt,
 #ifdef CONFIG_SCHED_WALT
-	.fixup_hmp_sched_stats	= fixup_hmp_sched_stats_rt,
+	.fixup_walt_sched_stats	= fixup_walt_sched_stats_rt,
 #endif
 };
 

@@ -700,10 +700,10 @@ do {									\
 	P(cluster->max_freq);
 	P(cluster->exec_scale_factor);
 #ifdef CONFIG_SCHED_WALT
-	P(hmp_stats.nr_big_tasks);
+	P(walt_stats.nr_big_tasks);
 #endif
-	SEQ_printf(m, "  .%-30s: %llu\n", "hmp_stats.cumulative_runnable_avg",
-			rq->hmp_stats.cumulative_runnable_avg);
+	SEQ_printf(m, "  .%-30s: %llu\n", "walt_stats.cumulative_runnable_avg",
+			rq->walt_stats.cumulative_runnable_avg);
 #endif
 #undef P
 #undef PN

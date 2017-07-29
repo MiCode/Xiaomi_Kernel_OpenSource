@@ -80,7 +80,7 @@ static void update_curr_idle(struct rq *rq)
 
 #ifdef CONFIG_SCHED_WALT
 static void
-fixup_hmp_sched_stats_idle(struct rq *rq, struct task_struct *p,
+fixup_walt_sched_stats_idle(struct rq *rq, struct task_struct *p,
 			   u32 new_task_load, u32 new_pred_demand)
 {
 }
@@ -115,6 +115,6 @@ const struct sched_class idle_sched_class = {
 	.switched_to		= switched_to_idle,
 	.update_curr		= update_curr_idle,
 #ifdef CONFIG_SCHED_WALT
-	.fixup_hmp_sched_stats	= fixup_hmp_sched_stats_idle,
+	.fixup_walt_sched_stats	= fixup_walt_sched_stats_idle,
 #endif
 };
