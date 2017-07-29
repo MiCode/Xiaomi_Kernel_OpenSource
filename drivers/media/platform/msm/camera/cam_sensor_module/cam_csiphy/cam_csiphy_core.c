@@ -385,7 +385,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 	}
 		break;
 	case CAM_QUERY_CAP: {
-		struct cam_csiphy_query_cap csiphy_cap;
+		struct cam_csiphy_query_cap csiphy_cap = {0};
 
 		cam_csiphy_query_cap(csiphy_dev, &csiphy_cap);
 		if (copy_to_user((void __user *)cmd->handle,
