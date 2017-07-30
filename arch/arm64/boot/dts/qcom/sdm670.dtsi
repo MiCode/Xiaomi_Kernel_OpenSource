@@ -1086,7 +1086,7 @@
 		qcom,mpu-enabled;
 	};
 
-	qmp_aop: mailbox@1799000c {
+	qmp_aop: qcom,qmp-aop@c300000 {
 		compatible = "qcom,qmp-mbox";
 		label = "aop";
 		reg = <0xc300000 0x100000>,
@@ -1094,6 +1094,7 @@
 		reg-names = "msgram", "irq-reg-base";
 		qcom,irq-mask = <0x1>;
 		interrupts = <0 389 1>;
+		priority = <0>;
 		mbox-desc-offset = <0x0>;
 		#mbox-cells = <1>;
 	};
