@@ -72,6 +72,54 @@ struct sde_hw_intf_cfg {
 };
 
 /**
+ * struct sde_hw_intf_cfg_v1 :Describes the data strcuture to configure the
+ *                            output interfaces for a particular display on a
+ *                            platform which supports ctl path version 1.
+ * @intf_count:               No. of active interfaces for this display
+ * @intf :                    Interface ids of active interfaces
+ * @intf_mode_sel:            Interface mode, cmd / vid
+ * @intf_master:              Master interface for split display
+ * @wb_count:                 No. of active writebacks
+ * @wb:                       Writeback ids of active writebacks
+ * @merge_3d_count            No. of active merge_3d blocks
+ * @merge_3d:                 Id of the active merge 3d blocks
+ * @cwb_count:                No. of active concurrent writebacks
+ * @cwb:                      Id of active cwb blocks
+ * @cdm_count:                No. of active chroma down module
+ * @cdm:                      Id of active cdm blocks
+ */
+struct sde_hw_intf_cfg_v1 {
+	uint32_t intf_count;
+	enum sde_intf intf[MAX_INTF_PER_CTL_V1];
+	enum sde_ctl_mode_sel intf_mode_sel;
+	enum sde_intf intf_master;
+
+	uint32_t wb_count;
+	enum sde_wb wb[MAX_WB_PER_CTL_V1];
+
+	uint32_t merge_3d_count;
+	enum sde_merge_3d merge_3d[MAX_MERGE_3D_PER_CTL_V1];
+
+	uint32_t cwb_count;
+	enum sde_cwb cwb[MAX_CWB_PER_CTL_V1];
+
+	uint32_t cdm_count;
+	enum sde_cdm cdm[MAX_CDM_PER_CTL_V1];
+};
+
+/**
+ * struct sde_hw_ctl_dsc_cfg :Describes the DSC blocks being used for this
+ *                            display on a platoform which supports ctl path
+ *                            version 1.
+ * @dsc_count:                No. of active dsc blocks
+ * @dsc:                      Id of active dsc blocks
+ */
+struct sde_ctl_dsc_cfg {
+	uint32_t dsc_count;
+	enum sde_dsc dsc[MAX_DSC_PER_CTL_V1];
+};
+
+/**
  * struct sde_ctl_sbuf_cfg - control for stream buffer configuration
  * @rot_op_mode: rotator operation mode
  */
@@ -91,9 +139,24 @@ struct sde_ctl_sbuf_cfg {
  * pending flush mask.
  *
  * @pending_flush_mask: pending ctl_flush
+ * CTL path version SDE_CTL_CFG_VERSION_1_0_0 has * two level flush mechanism
+ * for lower pipe controls. individual control should be flushed before
+ * exercising top level flush
+ * @pending_intf_flush_mask: pending INTF flush
+ * @pending_cdm_flush_mask: pending CDWN block flush
+ * @pending_wb_flush_mask: pending writeback flush
+ * @pending_dsc_flush_mask: pending dsc flush
+ * @pending_merge_3d_flush_mask: pending 3d merge block flush
+ * @pending_cwb_flush_mask: pending flush for concurrent writeback
  */
 struct sde_ctl_flush_cfg {
 	u32 pending_flush_mask;
+	u32 pending_intf_flush_mask;
+	u32 pending_cdm_flush_mask;
+	u32 pending_wb_flush_mask;
+	u32 pending_dsc_flush_mask;
+	u32 pending_merge_3d_flush_mask;
+	u32 pending_cwb_flush_mask;
 };
 
 /**
@@ -176,6 +239,24 @@ struct sde_hw_ctl_ops {
 	 */
 	int (*setup_intf_cfg)(struct sde_hw_ctl *ctx,
 		struct sde_hw_intf_cfg *cfg);
+
+	/**
+	 * Setup ctl_path interface config for SDE_CTL_ACTIVE_CFG
+	 * @ctx   : ctl path ctx pointer
+	 * @cfg    : interface config structure pointer
+	 * @Return: error code
+	 */
+	int (*setup_intf_cfg_v1)(struct sde_hw_ctl *ctx,
+		struct sde_hw_intf_cfg_v1 *cfg);
+
+	/**
+	 * Setup ctl_path dsc config for SDE_CTL_ACTIVE_CFG
+	 * @ctx   : ctl path ctx pointer
+	 * @cfg    : dsc config structure pointer
+	 * @Return: error code
+	 */
+	int (*setup_dsc_cfg)(struct sde_hw_ctl *ctx,
+		struct sde_ctl_dsc_cfg *cfg);
 
 	int (*reset)(struct sde_hw_ctl *c);
 
@@ -268,6 +349,29 @@ struct sde_hw_ctl_ops {
 	int (*update_bitmask_rot)(struct sde_hw_ctl *ctx,
 		enum sde_rot blk, bool enable);
 
+	/**
+	 * update_bitmask_dsc: updates mask corresponding to dsc
+	 * @blk               : blk id
+	 * @enable            : true to enable, 0 to disable
+	 */
+	int (*update_bitmask_dsc)(struct sde_hw_ctl *ctx,
+		enum sde_dsc blk, bool enable);
+
+	/**
+	 * update_bitmask_merge3d: updates mask corresponding to merge_3d
+	 * @blk               : blk id
+	 * @enable            : true to enable, 0 to disable
+	 */
+	int (*update_bitmask_merge3d)(struct sde_hw_ctl *ctx,
+		enum sde_merge_3d blk, bool enable);
+
+	/**
+	 * update_bitmask_cwb: updates mask corresponding to cwb
+	 * @blk               : blk id
+	 * @enable            : true to enable, 0 to disable
+	 */
+	int (*update_bitmask_cwb)(struct sde_hw_ctl *ctx,
+		enum sde_cwb blk, bool enable);
 	/**
 	 * read CTL_TOP register value and return
 	 * the data.

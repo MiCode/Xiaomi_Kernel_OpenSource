@@ -47,11 +47,13 @@
 #define SDE_HW_VER_400	SDE_HW_VER(4, 0, 0) /* sdm845 v1.0 */
 #define SDE_HW_VER_401	SDE_HW_VER(4, 0, 1) /* sdm845 v2.0 */
 #define SDE_HW_VER_410	SDE_HW_VER(4, 1, 0) /* sdm670 v1.0 */
+#define SDE_HW_VER_500	SDE_HW_VER(5, 0, 0) /* sdm855 v1.0 */
 
 #define IS_MSM8996_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_170)
 #define IS_MSM8998_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_300)
 #define IS_SDM845_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_400)
 #define IS_SDM670_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_410)
+#define IS_SDM855_TARGET(rev) IS_SDE_MAJOR_MINOR_SAME((rev), SDE_HW_VER_500)
 
 #define SDE_HW_BLK_NAME_LEN	16
 
@@ -67,6 +69,15 @@
 
 #define MAX_XIN_COUNT 16
 #define SSPP_SUBBLK_COUNT_MAX 2
+
+#define SDE_CTL_CFG_VERSION_1_0_0       0x100
+#define MAX_INTF_PER_CTL_V1                 2
+#define MAX_DSC_PER_CTL_V1                  2
+#define MAX_CWB_PER_CTL_V1                  2
+#define MAX_MERGE_3D_PER_CTL_V1             2
+#define MAX_WB_PER_CTL_V1                   1
+#define MAX_CDM_PER_CTL_V1                  1
+
 
 /**
  * Supported UBWC feature versions
@@ -227,6 +238,8 @@ enum {
  * @SDE_CTL_PINGPONG_SPLIT      CTL supports pingpong split
  * @SDE_CTL_SBUF                CTL supports inline stream buffer
  * @SDE_CTL_PRIMARY_PREF        CTL preferred for primary display
+ * @SDE_CTL_ACTIVE_CFG          CTL configuration is specified using active
+ *                              blocks
  * @SDE_CTL_MAX
  */
 enum {
@@ -234,6 +247,7 @@ enum {
 	SDE_CTL_PINGPONG_SPLIT,
 	SDE_CTL_SBUF,
 	SDE_CTL_PRIMARY_PREF,
+	SDE_CTL_ACTIVE_CFG,
 	SDE_CTL_MAX
 };
 
@@ -928,6 +942,7 @@ struct sde_perf_cfg {
  * @qseed_type         qseed2 or qseed3 support.
  * @csc_type           csc or csc_10bit support.
  * @smart_dma_rev      Supported version of SmartDMA feature.
+ * @ctl_rev            supported version of control path.
  * @has_src_split      source split feature status
  * @has_cdp            Client driven prefetch feature status
  * @has_wb_ubwc        UBWC feature supported on WB
@@ -954,6 +969,7 @@ struct sde_mdss_cfg {
 	u32 qseed_type;
 	u32 csc_type;
 	u32 smart_dma_rev;
+	u32 ctl_rev;
 	bool has_src_split;
 	bool has_cdp;
 	bool has_dim_layer;

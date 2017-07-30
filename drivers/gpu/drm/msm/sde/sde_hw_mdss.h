@@ -272,6 +272,8 @@ enum sde_cwb {
 	CWB_1,
 	CWB_2,
 	CWB_3,
+	CWB_4,
+	CWB_5,
 	CWB_MAX
 };
 
@@ -309,6 +311,13 @@ enum sde_inline_rot {
 	INLINE_ROT0_SSPP,
 	INLINE_ROT0_WB,
 	INLINE_ROT_MAX
+};
+
+enum sde_merge_3d {
+	MERGE_3D_0 = 1,
+	MERGE_3D_1,
+	MERGE_3D_2,
+	MERGE_3D_MAX
 };
 
 /**

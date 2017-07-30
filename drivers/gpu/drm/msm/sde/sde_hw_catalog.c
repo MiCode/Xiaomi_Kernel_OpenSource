@@ -1459,6 +1459,8 @@ static int sde_ctl_parse_dt(struct device_node *np,
 			set_bit(SDE_CTL_PINGPONG_SPLIT, &ctl->features);
 		if (sde_cfg->has_sbuf)
 			set_bit(SDE_CTL_SBUF, &ctl->features);
+		if (sde_cfg->ctl_rev == SDE_CTL_CFG_VERSION_1_0_0)
+			set_bit(SDE_CTL_ACTIVE_CFG, &ctl->features);
 	}
 end:
 	kfree(prop_value);
@@ -3360,6 +3362,10 @@ static int _sde_hardware_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->perf.min_prefill_lines = 24;
 		sde_cfg->vbif_qos_nlvl = 8;
 		sde_cfg->ts_prefill_rev = 2;
+	} else if (IS_SDM855_TARGET(hw_rev)) {
+		sde_cfg->has_wb_ubwc = true;
+		sde_cfg->perf.min_prefill_lines = 24;
+		sde_cfg->ctl_rev = SDE_CTL_CFG_VERSION_1_0_0;
 	} else {
 		SDE_ERROR("unsupported chipset id:%X\n", hw_rev);
 		sde_cfg->perf.min_prefill_lines = 0xffff;
