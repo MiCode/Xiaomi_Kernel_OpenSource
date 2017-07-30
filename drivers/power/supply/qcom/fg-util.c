@@ -255,8 +255,6 @@ int fg_sram_write(struct fg_chip *chip, u16 address, u8 offset,
 		reinit_completion(&chip->soc_update);
 		enable_irq(chip->irqs[SOC_UPDATE_IRQ].irq);
 		atomic_access = true;
-	} else {
-		flags = FG_IMA_DEFAULT;
 	}
 wait:
 	/*
@@ -282,11 +280,17 @@ wait:
 		}
 	}
 
-	rc = fg_interleaved_mem_write(chip, address, offset, val, len,
-			atomic_access);
+	if (chip->use_dma)
+		rc = fg_direct_mem_write(chip, address, offset, val, len,
+				false);
+	else
+		rc = fg_interleaved_mem_write(chip, address, offset, val, len,
+				atomic_access);
+
 	if (rc < 0)
 		pr_err("Error in writing SRAM address 0x%x[%d], rc=%d\n",
 			address, offset, rc);
+
 out:
 	if (atomic_access)
 		disable_irq_nosync(chip->irqs[SOC_UPDATE_IRQ].irq);
@@ -313,9 +317,14 @@ int fg_sram_read(struct fg_chip *chip, u16 address, u8 offset,
 
 	if (!(flags & FG_IMA_NO_WLOCK))
 		vote(chip->awake_votable, SRAM_READ, true, 0);
+
 	mutex_lock(&chip->sram_rw_lock);
 
-	rc = fg_interleaved_mem_read(chip, address, offset, val, len);
+	if (chip->use_dma)
+		rc = fg_direct_mem_read(chip, address, offset, val, len);
+	else
+		rc = fg_interleaved_mem_read(chip, address, offset, val, len);
+
 	if (rc < 0)
 		pr_err("Error in reading SRAM address 0x%x[%d], rc=%d\n",
 			address, offset, rc);

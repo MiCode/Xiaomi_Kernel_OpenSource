@@ -67,6 +67,7 @@
 #define MAX_LINE_LENGTH			(ADDR_LEN + (ITEMS_PER_LINE *	\
 					CHARS_PER_ITEM) + 1)		\
 
+#define NUM_PARTITIONS			3
 #define FG_SRAM_ADDRESS_MAX		255
 #define FG_SRAM_LEN			504
 #define PROFILE_LEN			224
@@ -190,6 +191,18 @@ struct fg_sram_param {
 		int val, u8 *buf);
 	int (*decode)(struct fg_sram_param *sp, enum fg_sram_param_id id,
 		int val);
+};
+
+struct fg_dma_address {
+	/* Starting word address of the partition */
+	u16 partition_start;
+	/* Last word address of the partition */
+	u16 partition_end;
+	/*
+	 * Byte offset in the FG_DMA peripheral that maps to the partition_start
+	 * in SRAM
+	 */
+	u16 spmi_addr_base;
 };
 
 enum fg_alg_flag_id {
@@ -360,12 +373,12 @@ struct fg_chip {
 	struct power_supply	*parallel_psy;
 	struct iio_channel	*batt_id_chan;
 	struct iio_channel	*die_temp_chan;
-	struct fg_memif		*sram;
 	struct fg_irq_info	*irqs;
 	struct votable		*awake_votable;
 	struct votable		*delta_bsoc_irq_en_votable;
 	struct votable		*batt_miss_irq_en_votable;
 	struct fg_sram_param	*sp;
+	struct fg_dma_address	*addr_map;
 	struct fg_alg_flag	*alg_flags;
 	int			*debug_mask;
 	char			batt_profile[PROFILE_LEN];
@@ -409,8 +422,10 @@ struct fg_chip {
 	bool			esr_flt_cold_temp_en;
 	bool			slope_limit_en;
 	bool			use_ima_single_mode;
+	bool			use_dma;
 	struct completion	soc_update;
 	struct completion	soc_ready;
+	struct completion	mem_grant;
 	struct delayed_work	profile_load_work;
 	struct work_struct	status_change_work;
 	struct work_struct	cycle_count_work;
@@ -459,10 +474,15 @@ extern int fg_interleaved_mem_read(struct fg_chip *chip, u16 address,
 			u8 offset, u8 *val, int len);
 extern int fg_interleaved_mem_write(struct fg_chip *chip, u16 address,
 			u8 offset, u8 *val, int len, bool atomic_access);
+extern int fg_direct_mem_read(struct fg_chip *chip, u16 address,
+			u8 offset, u8 *val, int len);
+extern int fg_direct_mem_write(struct fg_chip *chip, u16 address,
+			u8 offset, u8 *val, int len, bool atomic_access);
 extern int fg_read(struct fg_chip *chip, int addr, u8 *val, int len);
 extern int fg_write(struct fg_chip *chip, int addr, u8 *val, int len);
 extern int fg_masked_write(struct fg_chip *chip, int addr, u8 mask, u8 val);
 extern int fg_ima_init(struct fg_chip *chip);
+extern int fg_dma_init(struct fg_chip *chip);
 extern int fg_clear_ima_errors_if_any(struct fg_chip *chip, bool check_hw_sts);
 extern int fg_clear_dma_errors_if_any(struct fg_chip *chip);
 extern int fg_debugfs_create(struct fg_chip *chip);
