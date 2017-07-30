@@ -825,6 +825,12 @@
 		reg-names = "pshold-base", "tcsr-boot-misc-detect";
 	};
 
+	aop-msg-client {
+		compatible = "qcom,debugfs-qmp-client";
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "aop";
+	};
+
 	clock_rpmh: qcom,rpmhclk {
 		compatible = "qcom,dummycc";
 		clock-output-names = "rpmh_clocks";
