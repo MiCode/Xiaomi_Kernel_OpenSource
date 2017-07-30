@@ -45,3 +45,9 @@
 	qcom,allowed-clock-rates = <100000000 200000000 330000000
 		404000000 444000000 533000000>;
 };
+
+&spss_utils {
+	qcom,spss-dev-firmware-name  = "spss2d";	/* 8 chars max */
+	qcom,spss-test-firmware-name = "spss2t";	/* 8 chars max */
+	qcom,spss-prod-firmware-name = "spss2p";	/* 8 chars max */
+};
