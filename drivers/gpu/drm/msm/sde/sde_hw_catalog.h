@@ -77,7 +77,8 @@
 #define MAX_MERGE_3D_PER_CTL_V1             2
 #define MAX_WB_PER_CTL_V1                   1
 #define MAX_CDM_PER_CTL_V1                  1
-
+#define IS_SDE_CTL_REV_100(rev) \
+	((rev) == SDE_CTL_CFG_VERSION_1_0_0)
 
 /**
  * Supported UBWC feature versions
@@ -232,6 +233,16 @@ enum {
 	SDE_PINGPONG_MAX
 };
 
+/** DSC sub-blocks
+ * @SDE_DSC_OUTPUT_CTRL         Supports the control of the pp id which gets
+ *                              the pixel output from this DSC.
+ * @SDE_DSC_MAX
+ */
+enum {
+	SDE_DSC_OUTPUT_CTRL = 0x1,
+	SDE_DSC_MAX
+};
+
 /**
  * CTL sub-blocks
  * @SDE_CTL_SPLIT_DISPLAY       CTL supports video mode split display
@@ -254,10 +265,13 @@ enum {
 /**
  * INTF sub-blocks
  * @SDE_INTF_ROT_START          INTF supports rotator start trigger
+ * @SDE_INTF_INPUT_CTRL         Supports the setting of pp block from which
+ *                              pixel data arrives to this INTF
  * @SDE_INTF_MAX
  */
 enum {
 	SDE_INTF_ROT_START = 0x1,
+	SDE_INTF_INPUT_CTRL,
 	SDE_INTF_MAX
 };
 
@@ -280,6 +294,8 @@ enum {
  * @SDE_WB_QOS,             Writeback supports QoS control, danger/safe/creq
  * @SDE_WB_QOS_8LVL,        Writeback supports 8-level QoS control
  * @SDE_WB_CDP              Writeback supports client driven prefetch
+ * @SDE_WB_INPUT_CTRL       Writeback supports from which pp block input pixel
+ *                          data arrives.
  * @SDE_WB_MAX              maximum value
  */
 enum {
@@ -298,6 +314,7 @@ enum {
 	SDE_WB_QOS,
 	SDE_WB_QOS_8LVL,
 	SDE_WB_CDP,
+	SDE_WB_INPUT_CTRL,
 	SDE_WB_MAX
 };
 

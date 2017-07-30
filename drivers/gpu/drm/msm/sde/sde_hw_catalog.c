@@ -1459,7 +1459,7 @@ static int sde_ctl_parse_dt(struct device_node *np,
 			set_bit(SDE_CTL_PINGPONG_SPLIT, &ctl->features);
 		if (sde_cfg->has_sbuf)
 			set_bit(SDE_CTL_SBUF, &ctl->features);
-		if (sde_cfg->ctl_rev == SDE_CTL_CFG_VERSION_1_0_0)
+		if (IS_SDE_CTL_REV_100(sde_cfg->ctl_rev))
 			set_bit(SDE_CTL_ACTIVE_CFG, &ctl->features);
 	}
 end:
@@ -1709,6 +1709,8 @@ static int sde_intf_parse_dt(struct device_node *np,
 
 		if (sde_cfg->has_sbuf)
 			set_bit(SDE_INTF_ROT_START, &intf->features);
+		if (IS_SDE_CTL_REV_100(sde_cfg->ctl_rev))
+			set_bit(SDE_INTF_INPUT_CTRL, &intf->features);
 	}
 
 end:
@@ -1804,6 +1806,9 @@ static int sde_wb_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
 			set_bit(SDE_WB_UBWC, &wb->features);
 
 		set_bit(SDE_WB_XY_ROI_OFFSET, &wb->features);
+
+		if (IS_SDE_CTL_REV_100(sde_cfg->ctl_rev))
+			set_bit(SDE_WB_INPUT_CTRL, &wb->features);
 
 		for (j = 0; j < sde_cfg->mdp_count; j++) {
 			sde_cfg->mdp[j].clk_ctrls[wb->clk_ctrl].reg_off =
@@ -2403,6 +2408,9 @@ static int sde_dsc_parse_dt(struct device_node *np,
 
 		if (!prop_exists[DSC_LEN])
 			dsc->len = DEFAULT_SDE_HW_BLOCK_LEN;
+
+		if (IS_SDE_CTL_REV_100(sde_cfg->ctl_rev))
+			set_bit(SDE_DSC_OUTPUT_CTRL, &dsc->features);
 	}
 
 end:

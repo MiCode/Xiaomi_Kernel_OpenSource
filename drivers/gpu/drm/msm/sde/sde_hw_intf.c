@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,6 +67,8 @@
 
 #define INTF_MISR_CTRL			0x180
 #define INTF_MISR_SIGNATURE		0x184
+
+#define INTF_MUX                        0x25C
 
 static struct sde_intf_cfg *_intf_offset(enum sde_intf intf,
 		struct sde_mdss_cfg *m,
@@ -249,6 +251,24 @@ static void sde_hw_intf_setup_rot_start(
 	SDE_REG_WRITE(c, INTF_CONFIG, fetch_enable);
 }
 
+static void sde_hw_intf_bind_pingpong_blk(
+		struct sde_hw_intf *intf,
+		bool enable,
+		const enum sde_pingpong pp)
+{
+	struct sde_hw_blk_reg_map *c;
+	int mux_cfg = 0xF;
+
+	if (!intf)
+		return;
+
+	c = &intf->hw;
+	if (enable)
+		mux_cfg = (pp - PINGPONG_0) & 0x7;
+
+	SDE_REG_WRITE(c, INTF_MUX, mux_cfg);
+}
+
 static void sde_hw_intf_get_status(
 		struct sde_hw_intf *intf,
 		struct intf_status *s)
@@ -313,6 +333,8 @@ static void _setup_intf_ops(struct sde_hw_intf_ops *ops,
 	ops->get_line_count = sde_hw_intf_get_line_count;
 	if (cap & BIT(SDE_INTF_ROT_START))
 		ops->setup_rot_start = sde_hw_intf_setup_rot_start;
+	if (cap & BIT(SDE_INTF_INPUT_CTRL))
+		ops->bind_pingpong_blk = sde_hw_intf_bind_pingpong_blk;
 }
 
 static struct sde_hw_blk_ops sde_hw_ops = {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,6 +63,8 @@ struct intf_status {
  * @ setup_misr: enables/disables MISR in HW register
  * @ collect_misr: reads and stores MISR data from HW register
  * @ get_line_count: reads current vertical line counter
+ * @bind_pingpong_blk: enable/disable the connection with pingpong which will
+ *                     feed pixels to this interface
  */
 struct sde_hw_intf_ops {
 	void (*setup_timing_gen)(struct sde_hw_intf *intf,
@@ -87,6 +89,10 @@ struct sde_hw_intf_ops {
 	u32 (*collect_misr)(struct sde_hw_intf *intf);
 
 	u32 (*get_line_count)(struct sde_hw_intf *intf);
+
+	void (*bind_pingpong_blk)(struct sde_hw_intf *intf,
+			bool enable,
+			const enum sde_pingpong pp);
 };
 
 struct sde_hw_intf {
