@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -419,11 +419,11 @@ static void wcnss_vregs_off(struct vregs_info regulators[], uint size,
 
 		/* Remove PWM mode */
 		if (regulators[i].state & VREG_OPTIMUM_MODE_MASK) {
-			rc = regulator_set_optimum_mode(
-					regulators[i].regulator, 0);
-			if (rc < 0)
-				pr_err("regulator_set_optimum_mode(%s) failed (%d)\n",
-						regulators[i].name, rc);
+			rc = regulator_set_load(regulators[i].regulator, 0);
+			if (rc < 0) {
+				pr_err("regulator set load(%s) failed (%d)\n",
+				       regulators[i].name, rc);
+			}
 		}
 
 		/* Set voltage to lowest level */
@@ -518,11 +518,11 @@ static int wcnss_vregs_on(struct device *dev,
 
 		/* Vote for PWM/PFM mode if needed */
 		if (voltage_level[i].uA_load && (reg_cnt > 0)) {
-			rc = regulator_set_optimum_mode(regulators[i].regulator,
-					voltage_level[i].uA_load);
+			rc = regulator_set_load(regulators[i].regulator,
+						voltage_level[i].uA_load);
 			if (rc < 0) {
-				pr_err("regulator_set_optimum_mode(%s) failed (%d)\n",
-						regulators[i].name, rc);
+				pr_err("regulator set load(%s) failed (%d)\n",
+				       regulators[i].name, rc);
 				goto fail;
 			}
 			regulators[i].state |= VREG_OPTIMUM_MODE_MASK;
