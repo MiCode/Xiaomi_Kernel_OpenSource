@@ -1561,6 +1561,28 @@ _sde_kms_get_address_space(struct msm_kms *kms,
 		sde_kms->aspace[domain] : NULL;
 }
 
+static void _sde_kms_post_open(struct msm_kms *kms, struct drm_file *file)
+{
+	struct drm_device *dev = NULL;
+	struct sde_kms *sde_kms = NULL;
+
+	if (!kms) {
+		SDE_ERROR("invalid kms\n");
+		return;
+	}
+
+	sde_kms = to_sde_kms(kms);
+	dev = sde_kms->dev;
+
+	if (!dev) {
+		SDE_ERROR("invalid device\n");
+		return;
+	}
+
+	if (dev->mode_config.funcs->output_poll_changed)
+		dev->mode_config.funcs->output_poll_changed(dev);
+}
+
 static const struct msm_kms_funcs kms_funcs = {
 	.hw_init         = sde_kms_hw_init,
 	.postinit        = sde_kms_postinit,
@@ -1584,6 +1606,7 @@ static const struct msm_kms_funcs kms_funcs = {
 	.destroy         = sde_kms_destroy,
 	.register_events = _sde_kms_register_events,
 	.get_address_space = _sde_kms_get_address_space,
+	.postopen = _sde_kms_post_open,
 };
 
 /* the caller api needs to turn on clock before calling it */
