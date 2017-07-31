@@ -1270,10 +1270,10 @@ static struct snd_soc_dai_link msm_ext_common_fe_dai[] = {
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA15,
 	},
 	{/* hw:x,33 */
-		.name = MSM_DAILINK_NAME(Compress9),
-		.stream_name = "Compress9",
+		.name = MSM_DAILINK_NAME(ULL_NOIRQ_2),
+		.stream_name = "MM_NOIRQ_2",
 		.cpu_dai_name	= "MultiMedia16",
-		.platform_name  = "msm-compress-dsp",
+		.platform_name  = "msm-pcm-dsp-noirq",
 		.dynamic = 1,
 		.dpcm_capture = 1,
 		.dpcm_playback = 1,
