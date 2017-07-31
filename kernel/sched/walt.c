@@ -295,7 +295,12 @@ update_window_start(struct rq *rq, u64 wallclock, int event)
 	rq->window_start += (u64)nr_windows * (u64)sched_ravg_window;
 
 	rq->cum_window_demand = rq->walt_stats.cumulative_runnable_avg;
-	if (event == PUT_PREV_TASK)
+	/*
+	 * If the window is rolled over when the task is dequeued, this
+	 * task demand is not included in cumulative_runnable_avg. So
+	 * add it separately to the cumulative window demand.
+	 */
+	if (!rq->curr->on_rq && event == PUT_PREV_TASK)
 		rq->cum_window_demand += rq->curr->ravg.demand;
 
 	return old_window_start;

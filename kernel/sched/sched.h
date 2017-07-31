@@ -2635,7 +2635,8 @@ static inline void
 dec_cum_window_demand(struct rq *rq, struct task_struct *p)
 {
 	rq->cum_window_demand -= p->ravg.demand;
-	WARN_ON_ONCE(rq->cum_window_demand < 0);
+	if (unlikely((s64)rq->cum_window_demand < 0))
+		rq->cum_window_demand = 0;
 }
 
 static inline void
