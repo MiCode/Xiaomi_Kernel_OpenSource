@@ -624,16 +624,25 @@ int msm_bus_commit_data(struct list_head *clist)
 		MSM_BUS_ERR("%s: Error invalidating mbox: %d\n",
 						__func__, ret);
 
-	if (cur_rsc->rscdev->req_state == RPMH_AWAKE_STATE)
+	if (cur_rsc->rscdev->req_state == RPMH_AWAKE_STATE) {
 		ret = rpmh_write(cur_mbox, cur_rsc->rscdev->req_state,
 						cmdlist_active, cnt_active);
-	else
+		/*
+		 * Ignore -EBUSY from rpmh_write if it's an AWAKE_STATE
+		 * request since AWAKE requests are invalid when
+		 * the display RSC is in solver mode and the bus driver
+		 * does not know the current state of the display RSC.
+		 */
+		if (ret && ret != -EBUSY)
+			MSM_BUS_ERR("%s: error sending active/awake sets: %d\n",
+						__func__, ret);
+	} else {
 		ret = rpmh_write_passthru(cur_mbox, cur_rsc->rscdev->req_state,
 						cmdlist_active, n_active);
-	if (ret)
-		MSM_BUS_ERR("%s: error sending active/awake sets: %d\n",
+		if (ret)
+			MSM_BUS_ERR("%s: error sending active/awake sets: %d\n",
 						__func__, ret);
-
+	}
 
 	ret = rpmh_write_passthru(cur_mbox, RPMH_WAKE_ONLY_STATE,
 						cmdlist_wake, n_wake);
