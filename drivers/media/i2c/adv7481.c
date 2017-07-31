@@ -2034,7 +2034,7 @@ static int adv7481_set_op_stream(struct adv7481_state *state, bool on)
 			__func__, on, state->csia_src, state->csib_src);
 	if (on && state->csia_src != ADV7481_IP_NONE)
 		if (ADV7481_IP_HDMI == state->csia_src) {
-			state->tx_lanes = ADV7481_MIPI_2LANE;
+			state->tx_lanes = ADV7481_MIPI_4LANE;
 			ret = adv7481_set_audio_spdif(state, on);
 			ret |= adv7481_csi_powerup(state, ADV7481_OP_CSIA);
 		} else {
@@ -2049,7 +2049,7 @@ static int adv7481_set_op_stream(struct adv7481_state *state, bool on)
 		/* Turn off */
 		if (ADV7481_IP_NONE != state->csia_src) {
 			if (ADV7481_IP_HDMI == state->csia_src) {
-				state->tx_lanes = ADV7481_MIPI_1LANE;
+				state->tx_lanes = ADV7481_MIPI_4LANE;
 				ret = adv7481_set_audio_spdif(state, on);
 			} else {
 				state->tx_lanes = ADV7481_MIPI_1LANE;
