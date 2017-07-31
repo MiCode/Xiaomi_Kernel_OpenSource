@@ -118,5 +118,5 @@ static void __exit qcom_llcc_core_exit(void)
 }
 module_exit(qcom_llcc_core_exit);
 
-MODULE_DESCRIPTION("QCOM LLCC Core Driver");
+MODULE_DESCRIPTION("Qualcomm Technologies Inc LLCC Core Driver");
 MODULE_LICENSE("GPL v2");
