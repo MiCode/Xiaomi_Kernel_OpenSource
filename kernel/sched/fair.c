@@ -5667,6 +5667,11 @@ end:
  *
  * This works in iterations to compute the SG's energy for each CPU
  * candidate defined by the energy_env's cpu array.
+ *
+ * NOTE: in the following computations for busy_energy and idle_energy we do
+ * not shift by SCHED_CAPACITY_SHIFT in order to reduce rounding errors.
+ * The required scaling will be performed just one time, by the calling
+ * functions, once we accumulated the contributons for all the SGs.
  */
 static void calc_sg_energy(struct energy_env *eenv)
 {
@@ -5694,7 +5699,6 @@ static void calc_sg_energy(struct energy_env *eenv)
 		sg_util = group_norm_util(eenv, cpu_idx);
 
 		busy_energy   = sg_util * busy_power;
-		busy_energy >>= SCHED_CAPACITY_SHIFT;
 
 		/* Compute IDLE energy */
 		idle_idx = group_idle_state(eenv, cpu_idx);
@@ -5702,7 +5706,6 @@ static void calc_sg_energy(struct energy_env *eenv)
 
 		idle_energy   = SCHED_CAPACITY_SCALE - sg_util;
 		idle_energy  *= idle_power;
-		idle_energy >>= SCHED_CAPACITY_SHIFT;
 
 		total_energy = busy_energy + idle_energy;
 		eenv->cpu[cpu_idx].energy += total_energy;
@@ -5830,10 +5833,15 @@ static inline int select_energy_cpu_idx(struct energy_env *eenv)
 			continue;
 
 		eenv->sg_top = sg;
+		/* energy is unscaled to reduce rounding errors */
 		if (compute_energy(eenv) == -EINVAL)
 			return EAS_CPU_PRV;
 
 	} while (sg = sg->next, sg != sd->groups);
+
+	/* Scale energy before comparisons */
+	for (cpu_idx = EAS_CPU_PRV; cpu_idx < EAS_CPU_CNT; ++cpu_idx)
+		eenv->cpu[cpu_idx].energy >>= SCHED_CAPACITY_SHIFT;
 
 	/*
 	 * Compute the dead-zone margin used to prevent too many task
