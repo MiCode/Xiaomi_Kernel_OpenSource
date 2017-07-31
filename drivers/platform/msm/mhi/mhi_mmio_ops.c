@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -109,7 +109,6 @@ int mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 	u64 pcie_dword_val = 0;
 	u32 pcie_word_val = 0;
 	u32 i = 0;
-	int ret_val;
 
 	mhi_log(mhi_dev_ctxt, MHI_MSG_INFO,
 		"~~~ Initializing MMIO ~~~\n");
@@ -131,7 +130,7 @@ int mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 	if (mhi_dev_ctxt->core.mhi_ver != MHI_VERSION) {
 		mhi_log(mhi_dev_ctxt, MHI_MSG_CRITICAL,
 			"Bad MMIO version, 0x%x\n", mhi_dev_ctxt->core.mhi_ver);
-			return ret_val;
+			return -ENXIO;
 	}
 
 	/* Enable the channels */

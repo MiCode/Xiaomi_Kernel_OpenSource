@@ -1030,7 +1030,7 @@ error_dts:
 static void process_rs232_state(struct uci_client *ctrl_client,
 				struct mhi_result *result)
 {
-	struct rs232_ctrl_msg *rs232_pkt;
+	struct rs232_ctrl_msg *rs232_pkt = result->buf_addr;
 	struct uci_client *client = NULL;
 	struct mhi_uci_ctxt_t *uci_ctxt = ctrl_client->uci_ctxt;
 	u32 msg_id;
@@ -1051,7 +1051,6 @@ static void process_rs232_state(struct uci_client *ctrl_client,
 			sizeof(struct rs232_ctrl_msg));
 		goto error_size;
 	}
-	rs232_pkt = result->buf_addr;
 	MHI_GET_CTRL_DEST_ID(CTRL_DEST_ID, rs232_pkt, chan);
 	for (i = 0; i < MHI_SOFTWARE_CLIENT_LIMIT; i++)
 		if (chan == uci_ctxt->client_handles[i].out_attr.chan_id ||
