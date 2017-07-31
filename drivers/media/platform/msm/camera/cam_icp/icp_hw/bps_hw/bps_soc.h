@@ -22,4 +22,8 @@ int cam_bps_enable_soc_resources(struct cam_hw_soc_info *soc_info);
 
 int cam_bps_disable_soc_resources(struct cam_hw_soc_info *soc_info);
 
+int cam_bps_get_gdsc_control(struct cam_hw_soc_info *soc_info);
+
+int cam_bps_transfer_gdsc_control(struct cam_hw_soc_info *soc_info);
+
 #endif /* _CAM_BPS_SOC_H_*/

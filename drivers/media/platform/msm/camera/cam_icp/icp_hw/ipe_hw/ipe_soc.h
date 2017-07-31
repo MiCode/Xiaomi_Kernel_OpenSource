@@ -22,4 +22,7 @@ int cam_ipe_enable_soc_resources(struct cam_hw_soc_info *soc_info);
 
 int cam_ipe_disable_soc_resources(struct cam_hw_soc_info *soc_info);
 
+int cam_ipe_get_gdsc_control(struct cam_hw_soc_info *soc_info);
+
+int cam_ipe_transfer_gdsc_control(struct cam_hw_soc_info *soc_info);
 #endif /* CAM_IPE_SOC_H */

@@ -25,7 +25,10 @@
 #include "cam_cpas_api.h"
 #include "cam_debug_util.h"
 
-struct cam_bps_device_hw_info cam_bps_hw_info = {
+static struct cam_bps_device_hw_info cam_bps_hw_info = {
+	.hw_idx = 0,
+	.pwr_ctrl = 0x5c,
+	.pwr_status = 0x58,
 	.reserved = 0,
 };
 EXPORT_SYMBOL(cam_bps_hw_info);
@@ -100,7 +103,7 @@ int cam_bps_probe(struct platform_device *pdev)
 		rc = -EINVAL;
 		return rc;
 	}
-	hw_info = (struct cam_bps_device_hw_info *)match_dev->data;
+	hw_info = &cam_bps_hw_info;
 	core_info->bps_hw_info = hw_info;
 
 	rc = cam_bps_init_soc_resources(&bps_dev->soc_info, cam_bps_irq,
