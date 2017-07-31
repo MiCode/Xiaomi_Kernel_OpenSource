@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -141,6 +141,8 @@ struct glink_transport_if {
 			struct glink_transport_if *if_ptr, uint32_t state);
 	int (*power_vote)(struct glink_transport_if *if_ptr, uint32_t state);
 	int (*power_unvote)(struct glink_transport_if *if_ptr);
+	int (*rx_rt_vote)(struct glink_transport_if *if_ptr);
+	int (*rx_rt_unvote)(struct glink_transport_if *if_ptr);
 	/*
 	 * Keep data pointers at the end of the structure after all function
 	 * pointer to allow for in-place initialization.
