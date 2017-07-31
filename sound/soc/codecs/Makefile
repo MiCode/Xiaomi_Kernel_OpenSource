@@ -162,14 +162,7 @@ snd-soc-wcd9335-objs := wcd9335.o
 snd-soc-wcd934x-objs := wcd934x.o
 snd-soc-wcd9xxx-objs := wcd9xxx-common-v2.o wcd9xxx-resmgr-v2.o \
 			wcdcal-hwdep.o wcd-dsp-mgr.o wcd-dsp-utils.o \
-			wcd9xxx-soc-init.o
-ifeq ($(CONFIG_COMMON_CLK_MSM), y)
-	snd-soc-wcd9xxx-objs += audio-ext-clk.o
-endif
-
-ifeq ($(CONFIG_COMMON_CLK_QCOM), y)
-	snd-soc-wcd9xxx-objs += audio-ext-clk-up.o
-endif
+			wcd9xxx-soc-init.o audio-ext-clk-up.o
 snd-soc-wcd-cpe-objs := wcd_cpe_services.o wcd_cpe_core.o
 snd-soc-wsa881x-objs := wsa881x.o wsa881x-tables.o wsa881x-regmap.o wsa881x-temp-sensor.o
 snd-soc-wcd-mbhc-objs := wcd-mbhc-v2.o
