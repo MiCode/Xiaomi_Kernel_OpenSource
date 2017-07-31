@@ -333,6 +333,11 @@
 			size = <0x0 0x2000000>;
 			linux,cma-default;
 		};
+
+		smem_region: smem@86000000 {
+			no-map;
+			reg = <0x0 0x86000000 0x0 0x200000>;
+		};
 	};
 };
 
@@ -571,6 +576,12 @@
 		compatible = "qcom,tcsr-mutex";
 		syscon = <&tcsr_mutex_block 0 0x1000>;
 		#hwlock-cells = <1>;
+	};
+
+	smem: qcom,smem@8600000 {
+		compatible = "qcom,smem";
+		memory-region = <&smem_region>;
+		hwlocks = <&tcsr_mutex 3>;
 	};
 };
 
