@@ -243,7 +243,7 @@ uint32_t *cdm_write_regrandom(uint32_t *pCmdBuffer, uint32_t numRegVals,
 		*dst++ = *src++;
 	}
 
-	return pCmdBuffer;
+	return dst;
 }
 
 uint32_t *cdm_write_dmi(uint32_t *pCmdBuffer, uint8_t dmiCmd,
