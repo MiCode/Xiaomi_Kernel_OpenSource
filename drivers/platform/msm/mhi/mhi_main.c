@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1166,6 +1166,7 @@ int parse_xfer_event(struct mhi_device_ctxt *ctxt,
 	{
 		struct mhi_ring *chan_ctxt = NULL;
 		u64 db_value = 0;
+		unsigned long flags;
 
 		mhi_dev_ctxt->flags.uldl_enabled = 1;
 		chan = MHI_EV_READ_CHID(EV_CHID, event);
@@ -1173,6 +1174,8 @@ int parse_xfer_event(struct mhi_device_ctxt *ctxt,
 		chan_ctxt =
 			&mhi_dev_ctxt->mhi_local_chan_ctxt[chan];
 		mhi_log(MHI_MSG_INFO, "DB_MODE/OOB Detected chan %d.\n", chan);
+		spin_lock_irqsave(&mhi_dev_ctxt->db_write_lock[chan],
+				  flags);
 		if (chan_ctxt->wp != chan_ctxt->rp) {
 			db_value = mhi_v2p_addr(mhi_dev_ctxt,
 						MHI_RING_TYPE_XFER_RING, chan,
@@ -1182,8 +1185,10 @@ int parse_xfer_event(struct mhi_device_ctxt *ctxt,
 				     db_value);
 		}
 		client_handle = mhi_dev_ctxt->client_handle_list[chan];
-			if (NULL != client_handle)
-				result->transaction_status = -ENOTCONN;
+		if (client_handle)
+			result->transaction_status = -ENOTCONN;
+		spin_unlock_irqrestore(&mhi_dev_ctxt->db_write_lock[chan],
+				       flags);
 		break;
 	}
 	case MHI_EVENT_CC_BAD_TRE:
