@@ -80,6 +80,13 @@ struct sde_hw_vbif_ops {
 	 */
 	void (*set_mem_type)(struct sde_hw_vbif *vbif,
 			u32 xin_id, u32 value);
+
+	/**
+	 * set_write_gather_en - set write_gather enable
+	 * @vbif: vbif context driver
+	 * @xin_id: client interface identifier
+	 */
+	void (*set_write_gather_en)(struct sde_hw_vbif *vbif, u32 xin_id);
 };
 
 struct sde_hw_vbif {

@@ -184,6 +184,10 @@ void sde_vbif_set_ot_limit(struct sde_kms *sde_kms,
 			!vbif->ops.set_halt_ctrl)
 		return;
 
+	/* set write_gather_en for all write clients */
+	if (vbif->ops.set_write_gather_en && !params->rd)
+		vbif->ops.set_write_gather_en(vbif, params->xin_id);
+
 	ot_lim = _sde_vbif_get_ot_limit(vbif, params) & 0xFF;
 
 	if (ot_lim == 0)

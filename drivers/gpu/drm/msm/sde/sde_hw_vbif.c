@@ -22,7 +22,7 @@
 #define VBIF_QOS_REMAP_01		0x0024
 #define VBIF_QOS_REMAP_10		0x0028
 #define VBIF_QOS_REMAP_11		0x002C
-#define VBIF_WRITE_GATHTER_EN		0x00AC
+#define VBIF_WRITE_GATHER_EN		0x00AC
 #define VBIF_IN_RD_LIM_CONF0		0x00B0
 #define VBIF_IN_RD_LIM_CONF1		0x00B4
 #define VBIF_IN_RD_LIM_CONF2		0x00B8
@@ -167,6 +167,21 @@ static void sde_hw_set_qos_remap(struct sde_hw_vbif *vbif,
 	SDE_REG_WRITE(c, VBIF_XINL_QOS_LVL_REMAP_000 + reg_high, reg_val_lvl);
 }
 
+static void sde_hw_set_write_gather_en(struct sde_hw_vbif *vbif, u32 xin_id)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 reg_val;
+
+	if (!vbif || xin_id >= MAX_XIN_COUNT)
+		return;
+
+	c = &vbif->hw;
+
+	reg_val = SDE_REG_READ(c, VBIF_WRITE_GATHER_EN);
+	reg_val |= BIT(xin_id);
+	SDE_REG_WRITE(c, VBIF_WRITE_GATHER_EN, reg_val);
+}
+
 static void _setup_vbif_ops(struct sde_hw_vbif_ops *ops,
 		unsigned long cap)
 {
@@ -177,6 +192,7 @@ static void _setup_vbif_ops(struct sde_hw_vbif_ops *ops,
 	if (test_bit(SDE_VBIF_QOS_REMAP, &cap))
 		ops->set_qos_remap = sde_hw_set_qos_remap;
 	ops->set_mem_type = sde_hw_set_mem_type;
+	ops->set_write_gather_en = sde_hw_set_write_gather_en;
 }
 
 static const struct sde_vbif_cfg *_top_offset(enum sde_vbif vbif,
