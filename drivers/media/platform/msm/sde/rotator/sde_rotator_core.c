@@ -945,6 +945,11 @@ static struct sde_rot_hw_resource *sde_rotator_get_hw_resource(
 				"timeout waiting for hw resource, a:%d p:%d\n",
 				atomic_read(&hw->num_active),
 				hw->pending_count);
+			SDEROT_EVTLOG(entry->item.session_id,
+					entry->item.sequence_id,
+					atomic_read(&hw->num_active),
+					hw->pending_count,
+					SDE_ROT_EVTLOG_ERROR);
 			return NULL;
 		}
 	}
@@ -1603,9 +1608,14 @@ static void sde_rotator_done_handler(struct kthread_work *work)
 		entry->item.flags,
 		entry->dnsc_factor_w, entry->dnsc_factor_h);
 
-	wait_for_completion_timeout(
+	ret = wait_for_completion_timeout(
 			&entry->item.inline_start,
 			msecs_to_jiffies(ROT_INLINE_START_TIMEOUT_IN_MS));
+	if (!ret) {
+		SDEROT_WARN("timeout waiting for inline start\n");
+		SDEROT_EVTLOG(entry->item.session_id, entry->item.sequence_id,
+				SDE_ROT_EVTLOG_ERROR);
+	}
 
 	if (entry->item.ts)
 		entry->item.ts[SDE_ROTATOR_TS_START] = ktime_get();

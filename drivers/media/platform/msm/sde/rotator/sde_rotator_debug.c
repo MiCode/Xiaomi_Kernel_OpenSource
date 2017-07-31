@@ -21,6 +21,7 @@
 #include "sde_rotator_base.h"
 #include "sde_rotator_core.h"
 #include "sde_rotator_dev.h"
+#include "sde_rotator_trace.h"
 
 #ifdef CONFIG_MSM_SDE_ROTATOR_EVTLOG_DEBUG
 #define SDE_EVTLOG_DEFAULT_ENABLE 1
@@ -639,12 +640,13 @@ static void sde_rot_evtlog_debug_work(struct work_struct *work)
 /*
  * sde_rot_dump_panic - Issue evtlog dump and generic panic
  */
-void sde_rot_dump_panic(void)
+void sde_rot_dump_panic(bool do_panic)
 {
 	sde_rot_evtlog_dump_all();
 	sde_rot_dump_reg_all();
 
-	panic("sde_rotator");
+	if (do_panic)
+		panic("sde_rotator");
 }
 
 /*
@@ -739,6 +741,8 @@ void sde_rot_evtlog(const char *name, int line, int flag, ...)
 	sde_rot_dbg_evtlog.curr =
 		(sde_rot_dbg_evtlog.curr + 1) % SDE_ROT_EVTLOG_ENTRY;
 	sde_rot_dbg_evtlog.last++;
+
+	trace_sde_rot_evtlog(name, line, log->data_cnt, log->data);
 
 	spin_unlock_irqrestore(&sde_rot_xlock, flags);
 }

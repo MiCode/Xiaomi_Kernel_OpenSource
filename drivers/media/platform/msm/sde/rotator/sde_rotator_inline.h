@@ -112,5 +112,6 @@ int sde_rotator_inline_get_pixfmt_caps(struct platform_device *pdev,
 int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 		enum sde_rotator_inline_cmd_type cmd_type);
 int sde_rotator_inline_release(void *handle);
+void sde_rotator_inline_reg_dump(struct platform_device *pdev);
 
 #endif /* __SDE_ROTATOR_INLINE_H__ */
