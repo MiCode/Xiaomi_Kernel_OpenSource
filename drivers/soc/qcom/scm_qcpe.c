@@ -219,7 +219,7 @@ static int scm_call_qcpe(u32 fn_id, struct scm_desc *desc)
 	if (!opened) {
 		ret = habmm_socket_open(&handle, MM_QCPE_VM1, 0, 0);
 		if (ret != HAB_OK) {
-			pr_err("scm_call2: habmm_socket_open failed with ret = %d",
+			pr_err("scm_call_qcpe: habmm_socket_open failed with ret = %d",
 				ret);
 			return ret;
 		}
@@ -239,19 +239,26 @@ static int scm_call_qcpe(u32 fn_id, struct scm_desc *desc)
 		return ret;
 
 	size_bytes = sizeof(smc_params);
+	memset(&smc_params, 0x0, sizeof(smc_params));
 
 	ret = habmm_socket_recv(handle, &smc_params, &size_bytes, 0, 0);
 	if (ret != HAB_OK)
 		return ret;
 
+	if (size_bytes != sizeof(smc_params)) {
+		pr_err("scm_call_qcpe: expected size: %lu, actual=%u\n",
+			sizeof(smc_params), size_bytes);
+		return SCM_ERROR;
+	}
+
 	desc->ret[0] = smc_params.x1;
 	desc->ret[1] = smc_params.x2;
 	desc->ret[2] = smc_params.x3;
 
-	pr_info("scm_call_qcpe: OUT: 0x%llx, 0x%llx, 0x%llx",
-		desc->ret[0], desc->ret[1], desc->ret[2]);
+	pr_info("scm_call_qcpe: OUT: 0x%llx, 0x%llx, 0x%llx, 0x%llx",
+		smc_params.x0, desc->ret[0], desc->ret[1], desc->ret[2]);
 
-	return 0;
+	return smc_params.x0;
 }
 
 static u32 smc(u32 cmd_addr)
