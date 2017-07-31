@@ -544,11 +544,20 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 /* Ucode workaround masks */
 #define CP_INIT_UCODE_WORKAROUND_MASK BIT(5)
 
+/*
+ * Operation mode mask
+ *
+ * This ordinal provides the option to disable the
+ * save/restore of performance counters across preemption.
+ */
+#define CP_INIT_OPERATION_MODE_MASK BIT(6)
+
 #define CP_INIT_MASK (CP_INIT_MAX_CONTEXT | \
 		CP_INIT_ERROR_DETECTION_CONTROL | \
 		CP_INIT_HEADER_DUMP | \
 		CP_INIT_DEFAULT_RESET_STATE | \
-		CP_INIT_UCODE_WORKAROUND_MASK)
+		CP_INIT_UCODE_WORKAROUND_MASK | \
+		CP_INIT_OPERATION_MODE_MASK)
 
 static void _set_ordinals(struct adreno_device *adreno_dev,
 		unsigned int *cmds, unsigned int count)
@@ -580,6 +589,9 @@ static void _set_ordinals(struct adreno_device *adreno_dev,
 
 	if (CP_INIT_MASK & CP_INIT_UCODE_WORKAROUND_MASK)
 		*cmds++ = 0x00000000;
+
+	if (CP_INIT_MASK & CP_INIT_OPERATION_MODE_MASK)
+		*cmds++ = 0x00000002;
 
 	/* Pad rest of the cmds with 0's */
 	while ((unsigned int)(cmds - start) < count)
