@@ -65,6 +65,11 @@
 			no-map;
 			reg = <0 0x88800000 0 0x6200000>;
 		};
+		peripheral_mem: peripheral_region@8ea00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x8ea00000 0 0x2b00000>;
+		};
 	};
 };
 
@@ -130,6 +135,11 @@
 			"msm-dai-q6-tdm.36919";
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
+	};
+	qcom,msm-adsp-loader {
+		status = "ok";
+		compatible = "qcom,adsp-loader";
+		qcom,adsp-state = <0>;
 	};
 
 	qcom,msm-audio-ion {
@@ -928,5 +938,36 @@
 		qcom,msm-bus,vectors-KBps =
 			    <86 512 0 0>,
 			    <86 512 500 800>;
+	};
+	qcom,lpass@9300000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x9300000 0x00100>;
+		interrupts = <0 162 1>;
+
+		vdd_cx-supply = <&pm8994_s1_corner>;
+		qcom,proxy-reg-names = "vdd_cx";
+		qcom,vdd_cx-uV-uA = <7 100000>;
+
+		clocks = <&clock_gcc clk_cxo_pil_lpass_clk>;
+		clock-names = "xo";
+		qcom,proxy-clock-names = "xo";
+
+		qcom,pas-id = <1>;
+		qcom,proxy-timeout-ms = <10000>;
+		qcom,smem-id = <423>;
+		qcom,sysmon-id = <1>;
+		qcom,ssctl-instance-id = <0x14>;
+		qcom,firmware-name = "adsp";
+		qcom,edge = "lpass";
+		memory-region = <&peripheral_mem>;
+
+		/* GPIO inputs from lpass */
+		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_2_in 0 0>;
+		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_2_in 2 0>;
+		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_2_in 1 0>;
+		qcom,gpio-stop-ack = <&smp2pgpio_ssr_smp2p_2_in 3 0>;
+
+		/* GPIO output to lpass */
+		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
 	};
 };
