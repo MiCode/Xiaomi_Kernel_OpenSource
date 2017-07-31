@@ -23,7 +23,6 @@
 
 #define SPI_NUM_CHIPSELECT	(4)
 #define SPI_XFER_TIMEOUT_MS	(250)
-#define SPI_OVERSAMPLING	(2)
 /* SPI SE specific registers */
 #define SE_SPI_CPHA		(0x224)
 #define SE_SPI_LOOPBACK		(0x22C)
@@ -100,6 +99,7 @@ struct spi_geni_master {
 	struct spi_transfer *cur_xfer;
 	struct completion xfer_done;
 	struct device *wrapper_dev;
+	int oversampling;
 };
 
 static struct spi_master *get_spi_master(struct device *dev)
@@ -123,7 +123,8 @@ static int do_spi_clk_cfg(u32 speed_hz, struct spi_geni_master *mas)
 	clk_sel &= ~CLK_SEL_MSK;
 	m_clk_cfg &= ~CLK_DIV_MSK;
 
-	ret = geni_se_clk_freq_match(&mas->spi_rsc, speed_hz, &idx,
+	ret = geni_se_clk_freq_match(&mas->spi_rsc,
+					(speed_hz * mas->oversampling), &idx,
 					&sclk_freq, true);
 	if (ret) {
 		dev_err(mas->dev, "%s: Failed(%d) to find src clk for 0x%x\n",
@@ -131,17 +132,23 @@ static int do_spi_clk_cfg(u32 speed_hz, struct spi_geni_master *mas)
 		return ret;
 	}
 
-	div = ((sclk_freq / SPI_OVERSAMPLING) / speed_hz);
-	if (!div)
+	div = ((sclk_freq / mas->oversampling) / speed_hz);
+	if (!div) {
+		dev_err(mas->dev, "%s:Err:sclk:%lu oversampling:%d speed:%u\n",
+			__func__, sclk_freq, mas->oversampling, speed_hz);
 		return -EINVAL;
+	}
 
 	dev_dbg(mas->dev, "%s: req %u sclk %lu, idx %d, div %d\n", __func__,
 						speed_hz, sclk_freq, idx, div);
 	clk_sel |= (idx & CLK_SEL_MSK);
 	m_clk_cfg |= ((div << CLK_DIV_SHFT) | SER_CLK_EN);
 	ret = clk_set_rate(rsc->se_clk, sclk_freq);
-	if (ret)
+	if (ret) {
+		dev_err(mas->dev, "%s: clk_set_rate failed %d\n",
+							__func__, ret);
 		return ret;
+	}
 
 	geni_write_reg(clk_sel, mas->base, SE_GENI_CLK_SEL);
 	geni_write_reg(m_clk_cfg, mas->base, GENI_SER_M_CLK_CFG);
@@ -238,6 +245,10 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 
 	if (unlikely(!mas->setup)) {
 		int proto = get_se_proto(mas->base);
+		unsigned int major;
+		unsigned int minor;
+		unsigned int step;
+		int hw_ver;
 
 		if (unlikely(proto != SPI)) {
 			dev_err(mas->dev, "Invalid proto %d\n", proto);
@@ -248,12 +259,24 @@ static int spi_geni_prepare_transfer_hardware(struct spi_master *spi)
 		mas->tx_fifo_depth = get_tx_fifo_depth(mas->base);
 		mas->rx_fifo_depth = get_rx_fifo_depth(mas->base);
 		mas->tx_fifo_width = get_tx_fifo_width(mas->base);
+		mas->oversampling = 1;
 		/* Transmit an entire FIFO worth of data per IRQ */
 		mas->tx_wm = 1;
 		dev_dbg(mas->dev, "tx_fifo %d rx_fifo %d tx_width %d\n",
 			mas->tx_fifo_depth, mas->rx_fifo_depth,
 			mas->tx_fifo_width);
 		mas->setup = true;
+		hw_ver = geni_se_qupv3_hw_version(mas->wrapper_dev, &major,
+							&minor, &step);
+		if (hw_ver)
+			dev_err(mas->dev, "%s:Err getting HW version %d\n",
+							__func__, hw_ver);
+		else {
+			dev_dbg(mas->dev, "%s:Major:%d Minor:%d step:%d\n",
+				__func__, major, minor, step);
+			if ((major == 1) && (minor == 0))
+				mas->oversampling = 2;
+		}
 	}
 exit_prepare_transfer_hardware:
 	return ret;
