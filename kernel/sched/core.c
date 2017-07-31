@@ -2187,9 +2187,6 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 		notif_required = true;
 	}
 
-	if (!__task_in_cum_window_demand(cpu_rq(cpu), p))
-		inc_cum_window_demand(cpu_rq(cpu), p, task_load(p));
-
 	note_task_waking(p, wallclock);
 #endif /* CONFIG_SMP */
 
@@ -2249,8 +2246,6 @@ static void try_to_wake_up_local(struct task_struct *p, struct pin_cookie cookie
 
 		update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 		update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);
-		if (!__task_in_cum_window_demand(rq, p))
-			inc_cum_window_demand(rq, p, task_load(p));
 		cpufreq_update_util(rq, 0);
 		ttwu_activate(rq, p, ENQUEUE_WAKEUP);
 		note_task_waking(p, wallclock);
@@ -9577,7 +9572,12 @@ void sched_exit(struct task_struct *p)
 	wallclock = sched_ktime_clock();
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	dequeue_task(rq, p, 0);
-	dec_cum_window_demand(rq, p);
+	/*
+	 * task's contribution is already removed from the
+	 * cumulative window demand in dequeue. As the
+	 * task's stats are reset, the next enqueue does
+	 * not change the cumulative window demand.
+	 */
 	reset_task_stats(p);
 	p->ravg.mark_start = wallclock;
 	p->ravg.sum_history[0] = EXITING_TASK_MARKER;

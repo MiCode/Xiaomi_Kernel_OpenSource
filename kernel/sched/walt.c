@@ -227,6 +227,8 @@ void fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
 
 	fixup_cumulative_runnable_avg(&rq->walt_stats, task_load_delta,
 				      pred_demand_delta);
+
+	walt_fixup_cum_window_demand(rq, task_load_delta);
 }
 
 /*
@@ -295,13 +297,6 @@ update_window_start(struct rq *rq, u64 wallclock, int event)
 	rq->window_start += (u64)nr_windows * (u64)sched_ravg_window;
 
 	rq->cum_window_demand = rq->walt_stats.cumulative_runnable_avg;
-	/*
-	 * If the window is rolled over when the task is dequeued, this
-	 * task demand is not included in cumulative_runnable_avg. So
-	 * add it separately to the cumulative window demand.
-	 */
-	if (!rq->curr->on_rq && event == PUT_PREV_TASK)
-		rq->cum_window_demand += rq->curr->ravg.demand;
 
 	return old_window_start;
 }
@@ -778,9 +773,15 @@ void fixup_busy_time(struct task_struct *p, int new_cpu)
 
 	update_task_cpu_cycles(p, new_cpu);
 
-	if (__task_in_cum_window_demand(src_rq, p)) {
-		dec_cum_window_demand(src_rq, p);
-		inc_cum_window_demand(dest_rq, p, p->ravg.demand);
+	/*
+	 * When a task is migrating during the wakeup, adjust
+	 * the task's contribution towards cumulative window
+	 * demand.
+	 */
+	if (p->state == TASK_WAKING && p->last_sleep_ts >=
+				       src_rq->window_start) {
+		walt_fixup_cum_window_demand(src_rq, -(s64)p->ravg.demand);
+		walt_fixup_cum_window_demand(dest_rq, p->ravg.demand);
 	}
 
 	new_task = is_new_task(p);
@@ -1658,18 +1659,25 @@ static void update_history(struct rq *rq, struct task_struct *p,
 	 * A throttled deadline sched class task gets dequeued without
 	 * changing p->on_rq. Since the dequeue decrements walt stats
 	 * avoid decrementing it here again.
+	 *
+	 * When window is rolled over, the cumulative window demand
+	 * is reset to the cumulative runnable average (contribution from
+	 * the tasks on the runqueue). If the current task is dequeued
+	 * already, it's demand is not included in the cumulative runnable
+	 * average. So add the task demand separately to cumulative window
+	 * demand.
 	 */
-	if (task_on_rq_queued(p) && (!task_has_dl_policy(p) ||
-						!p->dl.dl_throttled))
-		p->sched_class->fixup_walt_sched_stats(rq, p, demand,
-						      pred_demand);
+	if (!task_has_dl_policy(p) || !p->dl.dl_throttled) {
+		if (task_on_rq_queued(p))
+			p->sched_class->fixup_walt_sched_stats(rq, p, demand,
+							       pred_demand);
+		else if (rq->curr == p)
+			walt_fixup_cum_window_demand(rq, demand);
+	}
 
 	p->ravg.demand = demand;
 	p->ravg.coloc_demand = div64_u64(sum, sched_ravg_hist_size);
 	p->ravg.pred_demand = pred_demand;
-
-	if (__task_in_cum_window_demand(rq, p))
-		inc_cum_window_demand(rq, p, p->ravg.demand - prev_demand);
 
 done:
 	trace_sched_update_history(rq, p, runtime, samples, event);

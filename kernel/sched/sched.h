@@ -2620,29 +2620,17 @@ static inline void clear_reserved(int cpu)
 }
 
 static inline bool
-__task_in_cum_window_demand(struct rq *rq, struct task_struct *p)
-{
-	return (p->on_rq || p->last_sleep_ts >= rq->window_start);
-}
-
-static inline bool
 task_in_cum_window_demand(struct rq *rq, struct task_struct *p)
 {
-	return cpu_of(rq) == task_cpu(p) && __task_in_cum_window_demand(rq, p);
+	return cpu_of(rq) == task_cpu(p) && (p->on_rq || p->last_sleep_ts >=
+							 rq->window_start);
 }
 
-static inline void
-dec_cum_window_demand(struct rq *rq, struct task_struct *p)
-{
-	rq->cum_window_demand -= p->ravg.demand;
-	if (unlikely((s64)rq->cum_window_demand < 0))
-		rq->cum_window_demand = 0;
-}
-
-static inline void
-inc_cum_window_demand(struct rq *rq, struct task_struct *p, s64 delta)
+static inline void walt_fixup_cum_window_demand(struct rq *rq, s64 delta)
 {
 	rq->cum_window_demand += delta;
+	if (unlikely((s64)rq->cum_window_demand < 0))
+		rq->cum_window_demand = 0;
 }
 
 extern void update_cpu_cluster_capacity(const cpumask_t *cpus);
@@ -2743,17 +2731,7 @@ static inline int alloc_related_thread_groups(void) { return 0; }
 #define trace_sched_cpu_load_cgroup(...)
 #define trace_sched_cpu_load_wakeup(...)
 
-static inline bool
-__task_in_cum_window_demand(struct rq *rq, struct task_struct *p)
-{
-	return 0;
-}
-
-static inline void
-dec_cum_window_demand(struct rq *rq, struct task_struct *p) { }
-
-static inline void
-inc_cum_window_demand(struct rq *rq, struct task_struct *p, s64 delta) { }
+static inline void walt_fixup_cum_window_demand(struct rq *rq, s64 delta) { }
 
 static inline void update_cpu_cluster_capacity(const cpumask_t *cpus) { }
 

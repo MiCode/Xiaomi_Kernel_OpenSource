@@ -121,6 +121,16 @@ walt_inc_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 
 	fixup_cumulative_runnable_avg(&rq->walt_stats, p->ravg.demand,
 				      p->ravg.pred_demand);
+
+	/*
+	 * Add a task's contribution to the cumulative window demand when
+	 *
+	 * (1) task is enqueued with on_rq = 1 i.e migration,
+	 *     prio/cgroup/class change.
+	 * (2) task is waking for the first time in this window.
+	 */
+	if (p->on_rq || (p->last_sleep_ts < rq->window_start))
+		walt_fixup_cum_window_demand(rq, p->ravg.demand);
 }
 
 static inline void
@@ -131,6 +141,14 @@ walt_dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 
 	fixup_cumulative_runnable_avg(&rq->walt_stats, -(s64)p->ravg.demand,
 				      -(s64)p->ravg.pred_demand);
+
+	/*
+	 * on_rq will be 1 for sleeping tasks. So check if the task
+	 * is migrating or dequeuing in RUNNING state to change the
+	 * prio/cgroup/class.
+	 */
+	if (task_on_rq_migrating(p) || p->state == TASK_RUNNING)
+		walt_fixup_cum_window_demand(rq, -(s64)p->ravg.demand);
 }
 
 extern void fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
