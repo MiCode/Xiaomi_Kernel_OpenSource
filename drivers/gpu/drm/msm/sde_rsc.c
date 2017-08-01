@@ -404,7 +404,13 @@ static u32 sde_rsc_timer_calculate(struct sde_rsc_priv *rsc,
 	/* mode 2 is infinite */
 	rsc->timer_config.rsc_time_slot_2_ns = 0xFFFFFFFF;
 
-	if (rsc->hw_ops.init) {
+	/* timer update should be called with client call */
+	if (cmd_config && rsc->hw_ops.timer_update) {
+		ret = rsc->hw_ops.timer_update(rsc);
+		if (ret)
+			pr_err("sde rsc: hw timer update failed ret:%d\n", ret);
+	/* rsc init should be called during rsc probe - one time only */
+	} else if (rsc->hw_ops.init) {
 		ret = rsc->hw_ops.init(rsc);
 		if (ret)
 			pr_err("sde rsc: hw init failed ret:%d\n", ret);
@@ -917,7 +923,7 @@ static ssize_t _sde_debugfs_mode_ctrl_read(struct file *file, char __user *buf,
 
 end:
 	mutex_unlock(&rsc->client_lock);
-	if (blen < 0)
+	if (blen <= 0)
 		return 0;
 
 	if (copy_to_user(buf, buffer, blen))
@@ -1009,7 +1015,7 @@ static ssize_t _sde_debugfs_vsync_mode_read(struct file *file, char __user *buf,
 
 end:
 	mutex_unlock(&rsc->client_lock);
-	if (blen < 0)
+	if (blen <= 0)
 		return 0;
 
 	if (copy_to_user(buf, buffer, blen))

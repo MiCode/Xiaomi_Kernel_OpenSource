@@ -66,6 +66,8 @@ enum rsc_vsync_req {
  * struct sde_rsc_hw_ops - sde resource state coordinator hardware ops
  * @init:			Initialize the sequencer, solver, qtimer,
 				etc. hardware blocks on RSC.
+ * @timer_update:		update the static wrapper time and pdc/rsc
+				backoff time.
  * @tcs_wait:			Waits for TCS block OK to allow sending a
  *				TCS command.
  * @hw_vsync:			Enables the vsync on RSC block.
@@ -79,6 +81,7 @@ enum rsc_vsync_req {
 
 struct sde_rsc_hw_ops {
 	int (*init)(struct sde_rsc_priv *rsc);
+	int (*timer_update)(struct sde_rsc_priv *rsc);
 	int (*tcs_wait)(struct sde_rsc_priv *rsc);
 	int (*hw_vsync)(struct sde_rsc_priv *rsc, enum rsc_vsync_req request,
 		char *buffer, int buffer_size, u32 mode);
