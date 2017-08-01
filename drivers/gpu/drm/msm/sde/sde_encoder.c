@@ -1335,6 +1335,7 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 		u32 sw_event)
 {
 	bool schedule_off = false;
+	bool autorefresh_enabled = false;
 	struct sde_encoder_virt *sde_enc;
 	struct msm_drm_private *priv;
 	struct msm_drm_thread *disp_thread;
@@ -1417,8 +1418,15 @@ static int sde_encoder_resource_control(struct drm_encoder *drm_enc,
 			return 0;
 		}
 
-		/* schedule delayed off work */
-		kthread_queue_delayed_work(
+		/* schedule delayed off work if autorefresh is disabled */
+		if (sde_enc->cur_master &&
+			sde_enc->cur_master->ops.is_autorefresh_enabled)
+			autorefresh_enabled =
+				sde_enc->cur_master->ops.is_autorefresh_enabled(
+							sde_enc->cur_master);
+
+		if (!autorefresh_enabled)
+			kthread_queue_delayed_work(
 				&disp_thread->worker,
 				&sde_enc->delayed_off_work,
 				msecs_to_jiffies(IDLE_TIMEOUT));

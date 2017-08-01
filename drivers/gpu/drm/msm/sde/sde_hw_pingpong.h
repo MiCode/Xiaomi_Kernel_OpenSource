@@ -80,13 +80,6 @@ struct sde_hw_pingpong_ops {
 			bool enable);
 
 	/**
-	 * read, modify, write to either set or clear listening to external TE
-	 * @Return: 1 if TE was originally connected, 0 if not, or -ERROR
-	 */
-	int (*connect_external_te)(struct sde_hw_pingpong *pp,
-			bool enable_external_te);
-
-	/**
 	 * provides the programmed and current
 	 * line_count
 	 */
