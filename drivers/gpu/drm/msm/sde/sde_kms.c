@@ -404,7 +404,7 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
-	SDE_EVT32(SDE_EVTLOG_FUNC_EXIT);
+	SDE_EVT32_VERBOSE(SDE_EVTLOG_FUNC_EXIT);
 }
 
 static void sde_kms_wait_for_tx_complete(struct msm_kms *kms,

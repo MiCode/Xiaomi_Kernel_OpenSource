@@ -345,7 +345,7 @@ static int sde_rsc_mode2_exit(struct sde_rsc_priv *rsc,
 		if (!test_bit(POWER_CTRL_BIT_12, &power_status)) {
 			reg = dss_reg_r(&rsc->drv_io,
 				SDE_RSCC_SEQ_PROGRAM_COUNTER, rsc->debug_mode);
-			SDE_EVT32(count, reg, power_status);
+			SDE_EVT32_VERBOSE(count, reg, power_status);
 			rc = 0;
 			break;
 		}

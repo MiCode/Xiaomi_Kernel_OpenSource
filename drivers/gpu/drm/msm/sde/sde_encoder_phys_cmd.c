@@ -467,7 +467,8 @@ static int _sde_encoder_phys_cmd_poll_write_pointer_started(
 			phys_enc->hw_pp->idx - PINGPONG_0,
 			info.rd_ptr_line_count,
 			info.wr_ptr_line_count);
-	SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx - PINGPONG_0,
+	SDE_EVT32_VERBOSE(DRMID(phys_enc->parent),
+			phys_enc->hw_pp->idx - PINGPONG_0,
 			info.wr_ptr_line_count);
 
 	ret = hw_pp->ops.poll_timeout_wr_ptr(hw_pp, timeout_us);

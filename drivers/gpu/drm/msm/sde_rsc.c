@@ -582,7 +582,7 @@ int sde_rsc_client_state_update(struct sde_rsc_client *caller_client,
 		return -EINVAL;
 
 	mutex_lock(&rsc->client_lock);
-	SDE_EVT32(caller_client->id, caller_client->current_state,
+	SDE_EVT32_VERBOSE(caller_client->id, caller_client->current_state,
 			state, rsc->current_state, SDE_EVTLOG_FUNC_ENTRY);
 	caller_client->crtc_id = crtc_id;
 	caller_client->current_state = state;
