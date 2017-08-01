@@ -139,15 +139,16 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 
 	hdev = core->device;
 
+	mutex_lock(&core->lock);
 	vote_data = core->vote_data;
 	if (!vote_data) {
 		dprintk(VIDC_PROF,
 			"Failed to get vote_data for inst %pK\n",
 				inst);
+		mutex_unlock(&core->lock);
 		return -EINVAL;
 	}
 
-	mutex_lock(&core->lock);
 	list_for_each_entry(inst, &core->instances, list) {
 		int codec = 0;
 		struct msm_vidc_buffer *temp, *next;
@@ -157,6 +158,7 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 		if (!inst) {
 			dprintk(VIDC_ERR, "%s Invalid args\n",
 				__func__);
+			mutex_unlock(&core->lock);
 			return -EINVAL;
 		}
 

@@ -35,8 +35,6 @@
 		V4L2_EVENT_MSM_VIDC_RELEASE_BUFFER_REFERENCE
 #define L_MODE V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_DISABLED_AT_SLICE_BOUNDARY
 
-#define MAX_SUPPORTED_INSTANCES 16
-
 const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata none",
 	"Extradata MB Quantization",
@@ -957,8 +955,8 @@ static void handle_sys_init_done(enum hal_command_response cmd, void *data)
 	/* This should come from sys_init_done */
 	core->resources.max_inst_count =
 		sys_init_msg->max_sessions_supported ?
-		sys_init_msg->max_sessions_supported :
-		MAX_SUPPORTED_INSTANCES;
+		min_t(u32, sys_init_msg->max_sessions_supported,
+		MAX_SUPPORTED_INSTANCES) : MAX_SUPPORTED_INSTANCES;
 
 	core->resources.max_secure_inst_count =
 		core->resources.max_secure_inst_count ?
@@ -978,11 +976,6 @@ static void handle_sys_init_done(enum hal_command_response cmd, void *data)
 		"%s: supported_codecs[%d]: enc = %#x, dec = %#x\n",
 		__func__, core->codec_count, core->enc_codec_supported,
 		core->dec_codec_supported);
-
-	core->vote_data = kcalloc(MAX_SUPPORTED_INSTANCES,
-		sizeof(core->vote_data), GFP_KERNEL);
-	if (!core->vote_data)
-		dprintk(VIDC_ERR, "%s: failed to allocate memory\n", __func__);
 
 	complete(&(core->completions[index]));
 }
