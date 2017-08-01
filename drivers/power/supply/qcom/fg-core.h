@@ -82,6 +82,8 @@
 
 #define BATT_THERM_NUM_COEFFS		3
 
+#define MAX_CC_STEPS			20
+
 /* Debug flag definitions */
 enum fg_debug_flag {
 	FG_IRQ			= BIT(0), /* Show interrupts */
@@ -328,6 +330,11 @@ struct fg_circ_buf {
 	int	head;
 };
 
+struct fg_cc_step_data {
+	int arr[MAX_CC_STEPS];
+	int sel;
+};
+
 struct fg_pt {
 	s32 x;
 	s32 y;
@@ -388,6 +395,7 @@ struct fg_chip {
 	struct fg_cyc_ctr_data	cyc_ctr;
 	struct notifier_block	nb;
 	struct fg_cap_learning  cl;
+	struct fg_cc_step_data	cc_step;
 	struct mutex		bus_lock;
 	struct mutex		sram_rw_lock;
 	struct mutex		batt_avg_lock;
