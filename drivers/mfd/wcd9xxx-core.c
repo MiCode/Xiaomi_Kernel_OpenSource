@@ -2703,6 +2703,7 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 	u32 mad_dmic_sample_rate = 0;
 	u32 ecpp_dmic_sample_rate = 0;
 	u32 dmic_clk_drive;
+	u32 mic_unmute_delay = 0;
 	const char *static_prop_name = "qcom,cdc-static-supplies";
 	const char *ond_prop_name = "qcom,cdc-on-demand-supplies";
 	const char *cp_supplies_name = "qcom,cdc-cp-supplies";
@@ -2855,6 +2856,16 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 			dmic_clk_drive);
 	else
 		pdata->dmic_clk_drv = dmic_clk_drive;
+
+	ret = of_property_read_u32(dev->of_node,
+				"qcom,cdc-mic-unmute-delay",
+				&mic_unmute_delay);
+	if (ret) {
+		dev_err(dev, "Looking up %s property in node %s failed",
+			"qcom,cdc-mic-unmute-delay",
+			dev->of_node->full_name);
+	}
+	pdata->mic_unmute_delay = mic_unmute_delay;
 
 	ret = of_property_read_string(dev->of_node,
 				"qcom,cdc-variant",
