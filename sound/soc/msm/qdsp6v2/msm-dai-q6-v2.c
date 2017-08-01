@@ -2038,6 +2038,25 @@ static struct snd_soc_dai_driver msm_dai_q6_afe_tx_dai[] = {
 	},
 };
 
+static struct snd_soc_dai_driver msm_dai_q6_afe_lb_tx_dai[] = {
+	{
+		.capture = {
+			.stream_name = "AFE Loopback Capture",
+			.aif_name = "AFE_LOOPBACK_TX",
+			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+			SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.channels_min = 1,
+			.channels_max = 8,
+			.rate_min =     8000,
+			.rate_max =	48000,
+		},
+		.id = AFE_LOOPBACK_TX,
+		.probe = msm_dai_q6_dai_probe,
+		.remove = msm_dai_q6_dai_remove,
+	},
+};
+
 static struct snd_soc_dai_driver msm_dai_q6_bt_sco_rx_dai = {
 	.playback = {
 		.stream_name = "Internal BT-SCO Playback",
@@ -3745,6 +3764,12 @@ register_slim_capture:
 		if (rc)
 			pr_err("%s: Device not found stream name %s\n",
 				__func__, stream_name);
+		break;
+	case AFE_LOOPBACK_TX:
+		rc = snd_soc_register_component(&pdev->dev,
+						&msm_dai_q6_component,
+						&msm_dai_q6_afe_lb_tx_dai[0],
+						1);
 		break;
 	case INT_BT_SCO_RX:
 		rc = snd_soc_register_component(&pdev->dev, &msm_dai_q6_component,
