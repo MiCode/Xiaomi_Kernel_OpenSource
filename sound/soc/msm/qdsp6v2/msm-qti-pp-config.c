@@ -392,6 +392,7 @@ static int msm_afe_tert_mi2s_lb_vol_ctrl;
 static int msm_afe_quat_mi2s_lb_vol_ctrl;
 static int msm_afe_slimbus_7_lb_vol_ctrl;
 static int msm_afe_slimbus_8_lb_vol_ctrl;
+static int msm_asm_bit_width;
 static const DECLARE_TLV_DB_LINEAR(fm_rx_vol_gain, 0, INT_RX_VOL_MAX_STEPS);
 static const DECLARE_TLV_DB_LINEAR(afe_lb_vol_gain, 0, INT_RX_VOL_MAX_STEPS);
 
@@ -408,6 +409,38 @@ static int msm_qti_pp_set_fm_vol_mixer(struct snd_kcontrol *kcontrol,
 	afe_loopback_gain(INT_FM_TX, ucontrol->value.integer.value[0]);
 
 	msm_route_fm_vol_control = ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
+static int msm_asm_bit_width_get(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s get ASM bitwidth = %d\n",
+		__func__, msm_asm_bit_width);
+
+	ucontrol->value.integer.value[0] = msm_asm_bit_width;
+
+	return 0;
+}
+
+static int msm_asm_bit_width_put(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 16:
+		msm_asm_bit_width = 16;
+		break;
+	case 24:
+		msm_asm_bit_width = 24;
+		break;
+	case 32:
+		msm_asm_bit_width = 32;
+		break;
+	default:
+		msm_asm_bit_width = 0;
+		break;
+	}
 
 	return 0;
 }
@@ -1132,6 +1165,11 @@ static const struct snd_kcontrol_new int_fm_vol_mixer_controls[] = {
 	msm_qti_pp_set_quat_mi2s_fm_vol_mixer, fm_rx_vol_gain),
 };
 
+static const struct snd_kcontrol_new dsp_bit_width_controls[] = {
+	SOC_SINGLE_EXT(DSP_BIT_WIDTH_MIXER_CTL, SND_SOC_NOPM, 0, 0x20,
+	0, msm_asm_bit_width_get, msm_asm_bit_width_put),
+};
+
 static const struct snd_kcontrol_new pri_mi2s_lb_vol_mixer_controls[] = {
 	SOC_SINGLE_EXT_TLV("PRI MI2S LOOPBACK Volume", SND_SOC_NOPM, 0,
 	INT_RX_VOL_GAIN, 0, msm_qti_pp_get_pri_mi2s_lb_vol_mixer,
@@ -1403,5 +1441,8 @@ void msm_qti_pp_add_controls(struct snd_soc_platform *platform)
 
 	snd_soc_add_platform_controls(platform, msm_multichannel_ec_controls,
 			ARRAY_SIZE(msm_multichannel_ec_controls));
+
+	snd_soc_add_platform_controls(platform, dsp_bit_width_controls,
+			ARRAY_SIZE(dsp_bit_width_controls));
 }
 #endif /* CONFIG_QTI_PP */
