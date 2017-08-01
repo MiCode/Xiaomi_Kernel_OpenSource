@@ -1116,7 +1116,7 @@ static inline int vb2_bufq_init(struct msm_vidc_inst *inst,
 
 	q->mem_ops = &msm_vidc_vb2_mem_ops;
 	q->drv_priv = inst;
-	q->allow_zero_bytesused = 1;
+	q->allow_zero_bytesused = !V4L2_TYPE_IS_OUTPUT(type);
 	q->copy_timestamp = 1;
 	return vb2_queue_init(q);
 }
@@ -1499,6 +1499,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	INIT_MSM_VIDC_LIST(&inst->outputbufs);
 	INIT_MSM_VIDC_LIST(&inst->registeredbufs);
 	INIT_MSM_VIDC_LIST(&inst->reconbufs);
+	INIT_MSM_VIDC_LIST(&inst->eosbufs);
 
 	kref_init(&inst->kref);
 
@@ -1603,6 +1604,7 @@ fail_mem_client:
 	DEINIT_MSM_VIDC_LIST(&inst->pending_getpropq);
 	DEINIT_MSM_VIDC_LIST(&inst->outputbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->registeredbufs);
+	DEINIT_MSM_VIDC_LIST(&inst->eosbufs);
 
 	kfree(inst);
 	inst = NULL;
@@ -1650,6 +1652,8 @@ static void msm_vidc_cleanup_instance(struct msm_vidc_inst *inst)
 	 */
 	msm_comm_validate_output_buffers(inst);
 
+	msm_comm_release_eos_buffers(inst);
+
 	if (msm_comm_release_output_buffers(inst, true))
 		dprintk(VIDC_ERR,
 			"Failed to release output buffers\n");
@@ -1694,6 +1698,7 @@ int msm_vidc_destroy(struct msm_vidc_inst *inst)
 	DEINIT_MSM_VIDC_LIST(&inst->pending_getpropq);
 	DEINIT_MSM_VIDC_LIST(&inst->outputbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->registeredbufs);
+	DEINIT_MSM_VIDC_LIST(&inst->eosbufs);
 
 	mutex_destroy(&inst->sync_lock);
 	mutex_destroy(&inst->bufq[CAPTURE_PORT].lock);
