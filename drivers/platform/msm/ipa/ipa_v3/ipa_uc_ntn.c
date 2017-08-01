@@ -104,39 +104,81 @@ int ipa3_get_ntn_stats(struct Ipa3HwStatsNTNInfoData_t *stats)
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
 	TX_STATS(num_pkts_processed);
-	TX_STATS(tail_ptr_val);
-	TX_STATS(num_db_fired);
-	TX_STATS(tx_comp_ring_stats.ringFull);
-	TX_STATS(tx_comp_ring_stats.ringEmpty);
-	TX_STATS(tx_comp_ring_stats.ringUsageHigh);
-	TX_STATS(tx_comp_ring_stats.ringUsageLow);
-	TX_STATS(tx_comp_ring_stats.RingUtilCount);
-	TX_STATS(bam_stats.bamFifoFull);
-	TX_STATS(bam_stats.bamFifoEmpty);
-	TX_STATS(bam_stats.bamFifoUsageHigh);
-	TX_STATS(bam_stats.bamFifoUsageLow);
-	TX_STATS(bam_stats.bamUtilCount);
+	TX_STATS(ring_stats.ringFull);
+	TX_STATS(ring_stats.ringEmpty);
+	TX_STATS(ring_stats.ringUsageHigh);
+	TX_STATS(ring_stats.ringUsageLow);
+	TX_STATS(ring_stats.RingUtilCount);
+	TX_STATS(gsi_stats.bamFifoFull);
+	TX_STATS(gsi_stats.bamFifoEmpty);
+	TX_STATS(gsi_stats.bamFifoUsageHigh);
+	TX_STATS(gsi_stats.bamFifoUsageLow);
+	TX_STATS(gsi_stats.bamUtilCount);
 	TX_STATS(num_db);
 	TX_STATS(num_qmb_int_handled);
+	TX_STATS(ipa_pipe_number);
 
-	RX_STATS(max_outstanding_pkts);
 	RX_STATS(num_pkts_processed);
-	RX_STATS(rx_ring_rp_value);
-	RX_STATS(rx_ind_ring_stats.ringFull);
-	RX_STATS(rx_ind_ring_stats.ringEmpty);
-	RX_STATS(rx_ind_ring_stats.ringUsageHigh);
-	RX_STATS(rx_ind_ring_stats.ringUsageLow);
-	RX_STATS(rx_ind_ring_stats.RingUtilCount);
-	RX_STATS(bam_stats.bamFifoFull);
-	RX_STATS(bam_stats.bamFifoEmpty);
-	RX_STATS(bam_stats.bamFifoUsageHigh);
-	RX_STATS(bam_stats.bamFifoUsageLow);
-	RX_STATS(bam_stats.bamUtilCount);
+	RX_STATS(ring_stats.ringFull);
+	RX_STATS(ring_stats.ringEmpty);
+	RX_STATS(ring_stats.ringUsageHigh);
+	RX_STATS(ring_stats.ringUsageLow);
+	RX_STATS(ring_stats.RingUtilCount);
+	RX_STATS(gsi_stats.bamFifoFull);
+	RX_STATS(gsi_stats.bamFifoEmpty);
+	RX_STATS(gsi_stats.bamFifoUsageHigh);
+	RX_STATS(gsi_stats.bamFifoUsageLow);
+	RX_STATS(gsi_stats.bamUtilCount);
 	RX_STATS(num_db);
+	RX_STATS(num_qmb_int_handled);
+	RX_STATS(ipa_pipe_number);
 
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	return 0;
+}
+
+
+int ipa3_ntn_uc_reg_rdyCB(void (*ipa_ready_cb)(void *), void *user_data)
+{
+	int ret;
+
+	if (!ipa3_ctx) {
+		IPAERR("IPA ctx is null\n");
+		return -ENXIO;
+	}
+
+	ret = ipa3_uc_state_check();
+	if (ret) {
+		ipa3_ctx->uc_ntn_ctx.uc_ready_cb = ipa_ready_cb;
+		ipa3_ctx->uc_ntn_ctx.priv = user_data;
+		return 0;
+	}
+
+	return -EEXIST;
+}
+
+void ipa3_ntn_uc_dereg_rdyCB(void)
+{
+	ipa3_ctx->uc_ntn_ctx.uc_ready_cb = NULL;
+	ipa3_ctx->uc_ntn_ctx.priv = NULL;
+}
+
+static void ipa3_uc_ntn_loaded_handler(void)
+{
+	if (!ipa3_ctx) {
+		IPAERR("IPA ctx is null\n");
+		return;
+	}
+
+	if (ipa3_ctx->uc_ntn_ctx.uc_ready_cb) {
+		ipa3_ctx->uc_ntn_ctx.uc_ready_cb(
+			ipa3_ctx->uc_ntn_ctx.priv);
+
+		ipa3_ctx->uc_ntn_ctx.uc_ready_cb =
+			NULL;
+		ipa3_ctx->uc_ntn_ctx.priv = NULL;
+	}
 }
 
 int ipa3_ntn_init(void)
@@ -146,6 +188,8 @@ int ipa3_ntn_init(void)
 	uc_ntn_cbs.ipa_uc_event_hdlr = ipa3_uc_ntn_event_handler;
 	uc_ntn_cbs.ipa_uc_event_log_info_hdlr =
 		ipa3_uc_ntn_event_log_info_handler;
+	uc_ntn_cbs.ipa_uc_loaded_hdlr =
+		ipa3_uc_ntn_loaded_handler;
 
 	ipa3_uc_register_handlers(IPA_HW_FEATURE_NTN, &uc_ntn_cbs);
 

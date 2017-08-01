@@ -16,6 +16,9 @@ Required properties:
 		      Required "interrupt-names" are "hc_irq" and "pwr_irq".
   - <supply-name>-supply: phandle to the regulator device tree node
 			  Required "supply-name" are "vdd" and "vdd-io".
+  - qcom,ice-clk-rates: this is an array that specifies supported Inline
+		    Crypto Engine (ICE) clock frequencies, Units - Hz.
+  - sdhc-msm-crypto: phandle to SDHC ICE node
 
 Required alias:
 - The slot number is specified via an alias with the following format
@@ -77,6 +80,11 @@ Optional Properties:
 			  register dumps on CRC errors and also downgrade bus speed mode to
 			  SDR50/DDR50 in case of continuous CRC errors. Set this flag to enable
 			  this workaround.
+	- qcom,restore-after-cx-collapse - specifies whether the SDCC registers contents need
+	  to be saved and restored by software when the CX Power Collapse feature is enabled.
+	  On certain chipsets, coming out of the CX Power Collapse event, the SDCC registers
+	  contents will not be retained. It is software responsibility to restore the
+	  SDCC registers before resuming to normal operation.
 
 In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltage).
 	- qcom,<supply>-always-on - specifies whether supply should be kept "on" always.
@@ -116,6 +124,7 @@ Example:
                 reg-names = "hc_mem", "core_mem";
                 interrupts = <0 123 0>, <0 138 0>;
                 interrupt-names = "hc_irq", "pwr_irq";
+		sdhc-msm-crypto = <&sdcc1_ice>;
 
 		vdd-supply = <&pm8941_l21>;
 		vdd-io-supply = <&pm8941_l13>;
@@ -138,6 +147,7 @@ Example:
 		qcom,nonremovable;
 		qcom,large-address-bus;
 		qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
+		qcom,ice-clk-rates = <300000000 150000000>;
 
 		qcom,scaling-lower-bus-speed-mode = "DDR52";
 

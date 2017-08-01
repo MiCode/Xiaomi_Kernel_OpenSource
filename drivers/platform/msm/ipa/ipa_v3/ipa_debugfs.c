@@ -264,6 +264,7 @@ int _ipa_read_ep_reg_v4_0(char *buf, int max_len, int pipe)
 	return scnprintf(
 		dbg_buff, IPA_MAX_MSG_LEN,
 		"IPA_ENDP_INIT_NAT_%u=0x%x\n"
+		"IPA_ENDP_INIT_CONN_TRACK_n%u=0x%x\n"
 		"IPA_ENDP_INIT_HDR_%u=0x%x\n"
 		"IPA_ENDP_INIT_HDR_EXT_%u=0x%x\n"
 		"IPA_ENDP_INIT_MODE_%u=0x%x\n"
@@ -274,6 +275,7 @@ int _ipa_read_ep_reg_v4_0(char *buf, int max_len, int pipe)
 		"IPA_ENDP_INIT_DEAGGR_%u=0x%x\n"
 		"IPA_ENDP_INIT_CFG_%u=0x%x\n",
 		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_NAT_n, pipe),
+		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_CONN_TRACK_n, pipe),
 		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_HDR_n, pipe),
 		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_HDR_EXT_n, pipe),
 		pipe, ipahal_read_reg_n(IPA_ENDP_INIT_MODE_n, pipe),
@@ -361,14 +363,14 @@ static ssize_t ipa3_read_keep_awake(struct file *file, char __user *ubuf,
 {
 	int nbytes;
 
-	ipa3_active_clients_lock();
-	if (ipa3_ctx->ipa3_active_clients.cnt)
+	mutex_lock(&ipa3_ctx->ipa3_active_clients.mutex);
+	if (atomic_read(&ipa3_ctx->ipa3_active_clients.cnt))
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 				"IPA APPS power state is ON\n");
 	else
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 				"IPA APPS power state is OFF\n");
-	ipa3_active_clients_unlock();
+	mutex_unlock(&ipa3_ctx->ipa3_active_clients.mutex);
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
@@ -1062,7 +1064,7 @@ static ssize_t ipa3_read_stats(struct file *file, char __user *ubuf,
 		ipa3_ctx->stats.stat_compl,
 		ipa3_ctx->stats.aggr_close,
 		ipa3_ctx->stats.wan_aggr_close,
-		ipa3_ctx->ipa3_active_clients.cnt,
+		atomic_read(&ipa3_ctx->ipa3_active_clients.cnt),
 		connect,
 		ipa3_ctx->stats.wan_rx_empty,
 		ipa3_ctx->stats.wan_repl_rx_empty,
@@ -1255,8 +1257,6 @@ static ssize_t ipa3_read_ntn(struct file *file, char __user *ubuf,
 	if (!ipa3_get_ntn_stats(&stats)) {
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 			"TX num_pkts_processed=%u\n"
-			"TX tail_ptr_val=%u\n"
-			"TX num_db_fired=%u\n"
 			"TX ringFull=%u\n"
 			"TX ringEmpty=%u\n"
 			"TX ringUsageHigh=%u\n"
@@ -1268,27 +1268,25 @@ static ssize_t ipa3_read_ntn(struct file *file, char __user *ubuf,
 			"TX bamFifoUsageLow=%u\n"
 			"TX bamUtilCount=%u\n"
 			"TX num_db=%u\n"
-			"TX num_qmb_int_handled=%u\n",
+			"TX num_qmb_int_handled=%u\n"
+			"TX ipa_pipe_number=%u\n",
 			TX_STATS(num_pkts_processed),
-			TX_STATS(tail_ptr_val),
-			TX_STATS(num_db_fired),
-			TX_STATS(tx_comp_ring_stats.ringFull),
-			TX_STATS(tx_comp_ring_stats.ringEmpty),
-			TX_STATS(tx_comp_ring_stats.ringUsageHigh),
-			TX_STATS(tx_comp_ring_stats.ringUsageLow),
-			TX_STATS(tx_comp_ring_stats.RingUtilCount),
-			TX_STATS(bam_stats.bamFifoFull),
-			TX_STATS(bam_stats.bamFifoEmpty),
-			TX_STATS(bam_stats.bamFifoUsageHigh),
-			TX_STATS(bam_stats.bamFifoUsageLow),
-			TX_STATS(bam_stats.bamUtilCount),
+			TX_STATS(ring_stats.ringFull),
+			TX_STATS(ring_stats.ringEmpty),
+			TX_STATS(ring_stats.ringUsageHigh),
+			TX_STATS(ring_stats.ringUsageLow),
+			TX_STATS(ring_stats.RingUtilCount),
+			TX_STATS(gsi_stats.bamFifoFull),
+			TX_STATS(gsi_stats.bamFifoEmpty),
+			TX_STATS(gsi_stats.bamFifoUsageHigh),
+			TX_STATS(gsi_stats.bamFifoUsageLow),
+			TX_STATS(gsi_stats.bamUtilCount),
 			TX_STATS(num_db),
-			TX_STATS(num_qmb_int_handled));
+			TX_STATS(num_qmb_int_handled),
+			TX_STATS(ipa_pipe_number));
 		cnt += nbytes;
 		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
-			"RX max_outstanding_pkts=%u\n"
 			"RX num_pkts_processed=%u\n"
-			"RX rx_ring_rp_value=%u\n"
 			"RX ringFull=%u\n"
 			"RX ringEmpty=%u\n"
 			"RX ringUsageHigh=%u\n"
@@ -1299,21 +1297,23 @@ static ssize_t ipa3_read_ntn(struct file *file, char __user *ubuf,
 			"RX bamFifoUsageHigh=%u\n"
 			"RX bamFifoUsageLow=%u\n"
 			"RX bamUtilCount=%u\n"
-			"RX num_db=%u\n",
-			RX_STATS(max_outstanding_pkts),
+			"RX num_db=%u\n"
+			"RX num_qmb_int_handled=%u\n"
+			"RX ipa_pipe_number=%u\n",
 			RX_STATS(num_pkts_processed),
-			RX_STATS(rx_ring_rp_value),
-			RX_STATS(rx_ind_ring_stats.ringFull),
-			RX_STATS(rx_ind_ring_stats.ringEmpty),
-			RX_STATS(rx_ind_ring_stats.ringUsageHigh),
-			RX_STATS(rx_ind_ring_stats.ringUsageLow),
-			RX_STATS(rx_ind_ring_stats.RingUtilCount),
-			RX_STATS(bam_stats.bamFifoFull),
-			RX_STATS(bam_stats.bamFifoEmpty),
-			RX_STATS(bam_stats.bamFifoUsageHigh),
-			RX_STATS(bam_stats.bamFifoUsageLow),
-			RX_STATS(bam_stats.bamUtilCount),
-			RX_STATS(num_db));
+			RX_STATS(ring_stats.ringFull),
+			RX_STATS(ring_stats.ringEmpty),
+			RX_STATS(ring_stats.ringUsageHigh),
+			RX_STATS(ring_stats.ringUsageLow),
+			RX_STATS(ring_stats.RingUtilCount),
+			RX_STATS(gsi_stats.bamFifoFull),
+			RX_STATS(gsi_stats.bamFifoEmpty),
+			RX_STATS(gsi_stats.bamFifoUsageHigh),
+			RX_STATS(gsi_stats.bamFifoUsageLow),
+			RX_STATS(gsi_stats.bamUtilCount),
+			RX_STATS(num_db),
+			RX_STATS(num_qmb_int_handled),
+			RX_STATS(ipa_pipe_number));
 		cnt += nbytes;
 	} else {
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
@@ -1783,12 +1783,12 @@ static ssize_t ipa3_print_active_clients_log(struct file *file,
 		return 0;
 	}
 	memset(active_clients_buf, 0, IPA_DBG_ACTIVE_CLIENT_BUF_SIZE);
-	ipa3_active_clients_lock();
+	mutex_lock(&ipa3_ctx->ipa3_active_clients.mutex);
 	cnt = ipa3_active_clients_log_print_buffer(active_clients_buf,
 			IPA_DBG_ACTIVE_CLIENT_BUF_SIZE - IPA_MAX_MSG_LEN);
 	table_size = ipa3_active_clients_log_print_table(active_clients_buf
 			+ cnt, IPA_MAX_MSG_LEN);
-	ipa3_active_clients_unlock();
+	mutex_unlock(&ipa3_ctx->ipa3_active_clients.mutex);
 
 	return simple_read_from_buffer(ubuf, count, ppos,
 			active_clients_buf, cnt + table_size);

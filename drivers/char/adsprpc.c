@@ -211,6 +211,7 @@ struct fastrpc_channel_ctx {
 	struct device *dev;
 	struct fastrpc_session_ctx session[NUM_SESSIONS];
 	struct completion work;
+	struct completion workport;
 	struct notifier_block nb;
 	struct kref kref;
 	int sesscount;
@@ -572,6 +573,13 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 		goto bail;
 	if (sess->smmu.enabled) {
 		attrs = DMA_ATTR_EXEC_MAPPING;
+
+		if (map->attr & FASTRPC_ATTR_NON_COHERENT ||
+			(sess->smmu.coherent && map->uncached))
+			attrs |= DMA_ATTR_FORCE_NON_COHERENT;
+		else if (map->attr & FASTRPC_ATTR_COHERENT)
+			attrs |= DMA_ATTR_FORCE_COHERENT;
+
 		VERIFY(err, map->table->nents ==
 			msm_dma_map_sg_attrs(sess->dev,
 				map->table->sgl, map->table->nents,
@@ -1121,7 +1129,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	for (i = 0; i < M_FDLIST; i++)
 		fdlist[i] = 0;
 	crclist = (uint32_t *)&fdlist[M_FDLIST];
-	memset(crclist, 0, sizeof(uint32_t)*M_FDLIST);
+	memset(crclist, 0, sizeof(uint32_t)*M_CRCLIST);
 
 	/* copy non ion buffers */
 	PERF(ctx->fl->profile, ctx->fl->perf.copy,
@@ -1169,10 +1177,14 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		int i = ctx->overps[oix]->raix;
 		struct fastrpc_mmap *map = ctx->maps[i];
 
-		if (ctx->fl->sctx->smmu.coherent)
-			continue;
 		if (map && map->uncached)
 			continue;
+		if (ctx->fl->sctx->smmu.coherent &&
+			!(map && (map->attr & FASTRPC_ATTR_NON_COHERENT)))
+			continue;
+		if (map && (map->attr & FASTRPC_ATTR_COHERENT))
+			continue;
+
 		if (rpra[i].buf.len && ctx->overps[oix]->mstart)
 			dmac_flush_range(uint64_to_ptr(rpra[i].buf.pv),
 			uint64_to_ptr(rpra[i].buf.pv + rpra[i].buf.len));
@@ -1261,6 +1273,12 @@ static void inv_args_pre(struct smq_invoke_ctx *ctx)
 			continue;
 		if (!rpra[i].buf.len)
 			continue;
+		if (ctx->fl->sctx->smmu.coherent &&
+			!(map && (map->attr & FASTRPC_ATTR_NON_COHERENT)))
+			continue;
+		if (map && (map->attr & FASTRPC_ATTR_COHERENT))
+			continue;
+
 		if (buf_page_start(ptr_to_uint64((void *)rpra)) ==
 				buf_page_start(rpra[i].buf.pv))
 			continue;
@@ -1291,6 +1309,12 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 			continue;
 		if (!rpra[i].buf.len)
 			continue;
+		if (ctx->fl->sctx->smmu.coherent &&
+			!(map && (map->attr & FASTRPC_ATTR_NON_COHERENT)))
+			continue;
+		if (map && (map->attr & FASTRPC_ATTR_COHERENT))
+			continue;
+
 		if (buf_page_start(ptr_to_uint64((void *)rpra)) ==
 				buf_page_start(rpra[i].buf.pv)) {
 			continue;
@@ -1355,6 +1379,7 @@ static void fastrpc_init(struct fastrpc_apps *me)
 	me->channel = &gcinfo[0];
 	for (i = 0; i < NUM_CHANNELS; i++) {
 		init_completion(&me->channel[i].work);
+		init_completion(&me->channel[i].workport);
 		me->channel[i].sesscount = 0;
 	}
 }
@@ -1726,6 +1751,8 @@ static void fastrpc_channel_close(struct kref *kref)
 	cid = ctx - &gcinfo[0];
 	fastrpc_glink_close(ctx->chan, cid);
 	ctx->chan = 0;
+	glink_unregister_link_state_cb(ctx->link.link_notify_handle);
+	ctx->link.link_notify_handle = NULL;
 	mutex_unlock(&me->smd_mutex);
 	pr_info("'closed /dev/%s c %d %d'\n", gcinfo[cid].name,
 						MAJOR(me->dev_no), cid);
@@ -1803,7 +1830,7 @@ void fastrpc_glink_notify_state(void *handle, const void *priv,
 	switch (event) {
 	case GLINK_CONNECTED:
 		link->port_state = FASTRPC_LINK_CONNECTED;
-		complete(&me->channel[cid].work);
+		complete(&me->channel[cid].workport);
 		break;
 	case GLINK_LOCAL_DISCONNECTED:
 		link->port_state = FASTRPC_LINK_DISCONNECTED;
@@ -1953,8 +1980,7 @@ static void fastrpc_glink_close(void *chan, int cid)
 		return;
 	link = &gfa.channel[cid].link;
 
-	if (link->port_state == FASTRPC_LINK_CONNECTED ||
-		link->port_state == FASTRPC_LINK_CONNECTING) {
+	if (link->port_state == FASTRPC_LINK_CONNECTED) {
 		link->port_state = FASTRPC_LINK_DISCONNECTING;
 		glink_close(chan);
 	}
@@ -2136,7 +2162,8 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 		if (err)
 			goto bail;
 
-		VERIFY(err, wait_for_completion_timeout(&me->channel[cid].work,
+		VERIFY(err,
+			 wait_for_completion_timeout(&me->channel[cid].workport,
 						RPC_TIMEOUT));
 		if (err) {
 			me->channel[cid].chan = 0;

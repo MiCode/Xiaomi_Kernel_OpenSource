@@ -114,6 +114,18 @@ u32 sde_core_irq_read(
 		bool clear);
 
 /**
+ * sde_core_irq_read - no lock version of sde_core_irq_read
+ * @sde_kms:		SDE handle
+ * @irq_idx:		irq index
+ * @clear:		True to clear the irq after read
+ * @return:		non-zero if irq detected; otherwise no irq detected
+ */
+u32 sde_core_irq_read_nolock(
+		struct sde_kms *sde_kms,
+		int irq_idx,
+		bool clear);
+
+/**
  * sde_core_irq_register_callback - For registering callback function on IRQ
  *                             interrupt
  * @sde_kms:		SDE handle

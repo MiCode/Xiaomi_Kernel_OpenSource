@@ -117,7 +117,7 @@ if ARM_DMA_USE_IOMMU
 config ARM_DMA_IOMMU_ALIGNMENT
 	int "Maximum PAGE_SIZE order of alignment for DMA IOMMU buffers"
 	range 4 9
-	default 8
+	default 9
 	help
 	  DMA mapping framework by default aligns all buffers to the smallest
 	  PAGE_SIZE order which is greater than or equal to the requested buffer
@@ -228,6 +228,9 @@ config NEED_RET_TO_USER
 	bool
 
 config ARCH_MTD_XIP
+	bool
+
+config ARCH_WANT_KMAP_ATOMIC_FLUSH
 	bool
 
 config VECTORS_BASE
@@ -567,6 +570,7 @@ config ARCH_QCOM
        select SPARSE_IRQ
        select USE_OF
        select PINCTRL
+       select ARCH_WANT_KMAP_ATOMIC_FLUSH
        help
          Support for Qualcomm MSM/QSD based systems.  This runs on the
          apps processor of the MSM/QSD and depends on a shared memory
@@ -1759,6 +1763,29 @@ config ARM_MODULE_PLTS
 	  Say y if you are getting out of memory errors while loading modules
 
 source "mm/Kconfig"
+
+choice
+	prompt "Virtual Memory Reclaim"
+	default NO_VM_RECLAIM
+	help
+	  Select the method of reclaiming virtual memory
+
+config ENABLE_VMALLOC_SAVING
+	bool "Reclaim memory for each subsystem"
+	help
+	  Enable this config to reclaim the virtual space belonging
+	  to any subsystem which is expected to have a lifetime of
+	  the entire system. This feature allows lowmem to be non-
+	  contiguous.
+
+config NO_VM_RECLAIM
+	bool "Do not reclaim memory"
+	help
+	  Do not reclaim any memory. This might result in less lowmem
+	  and wasting virtual memory space which could otherwise be
+	  reclaimed by using any of the other two config options.
+
+endchoice
 
 config FORCE_MAX_ZONEORDER
 	int "Maximum zone order"

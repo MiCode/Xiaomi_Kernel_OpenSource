@@ -24,7 +24,8 @@
 #define MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS MIN_NUM_CAPTURE_BUFFERS
 #define MIN_NUM_DEC_OUTPUT_BUFFERS 4
 #define MIN_NUM_DEC_CAPTURE_BUFFERS 4
-#define DEFAULT_VIDEO_CONCEAL_COLOR_BLACK 0x8010
+// Y=16(0-9bits), Cb(10-19bits)=Cr(20-29bits)=128, black by default
+#define DEFAULT_VIDEO_CONCEAL_COLOR_BLACK 0x8020010
 #define MB_SIZE_IN_PIXEL (16 * 16)
 #define OPERATING_FRAME_RATE_STEP (1 << 16)
 
@@ -264,11 +265,20 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
 	},
 	{
-		.id = V4L2_CID_MPEG_VIDC_VIDEO_CONCEAL_COLOR,
-		.name = "Picture concealed color",
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_CONCEAL_COLOR_8BIT,
+		.name = "Picture concealed color 8bit",
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = 0x0,
-		.maximum = 0xffffff,
+		.maximum = 0xff3fcff,
+		.default_value = DEFAULT_VIDEO_CONCEAL_COLOR_BLACK,
+		.step = 1,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_CONCEAL_COLOR_10BIT,
+		.name = "Picture concealed color 10bit",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 0x0,
+		.maximum = 0x3fffffff,
 		.default_value = DEFAULT_VIDEO_CONCEAL_COLOR_BLACK,
 		.step = 1,
 	},
@@ -804,6 +814,10 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		}
 		bufreq->buffer_count_min =
 			MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
+		bufreq->buffer_count_min_host =
+			MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
+		bufreq->buffer_count_actual =
+			MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
 
 		if (msm_comm_get_stream_output_mode(inst) ==
 				HAL_VIDEO_DECODER_SECONDARY) {
@@ -819,6 +833,10 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 
 			bufreq->buffer_count_min =
 				MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS;
+			bufreq->buffer_count_min_host =
+				MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
+			bufreq->buffer_count_actual =
+				MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
 
 			bufreq = get_buff_req_buffer(inst,
 					HAL_BUFFER_OUTPUT2);
@@ -831,6 +849,11 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 
 			bufreq->buffer_count_min =
 				MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS;
+			bufreq->buffer_count_min_host =
+				MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
+			bufreq->buffer_count_actual =
+				MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
+
 		} else {
 
 			bufreq = get_buff_req_buffer(inst,
@@ -843,6 +866,10 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			}
 			bufreq->buffer_count_min =
 				MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS;
+			bufreq->buffer_count_min_host =
+				MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
+			bufreq->buffer_count_actual =
+				MIN_NUM_THUMBNAIL_MODE_OUTPUT_BUFFERS;
 
 		}
 
@@ -974,11 +1001,6 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			break;
 		}
 		break;
-	case V4L2_CID_MPEG_VIDC_VIDEO_CONCEAL_COLOR:
-		property_id = HAL_PARAM_VDEC_CONCEAL_COLOR;
-		property_val = ctrl->val;
-		pdata = &property_val;
-		break;
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_H264_LEVEL);
 		property_id =
@@ -1039,9 +1061,6 @@ int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			inst, inst->clk_data.operating_rate >> 16,
 				ctrl->val >> 16);
 		inst->clk_data.operating_rate = ctrl->val;
-
-		msm_vidc_update_operating_rate(inst);
-
 		break;
 	default:
 		break;
@@ -1067,29 +1086,37 @@ int msm_vdec_s_ext_ctrl(struct msm_vidc_inst *inst,
 	int rc = 0, i = 0, fourcc = 0;
 	struct v4l2_ext_control *ext_control;
 	struct v4l2_control control;
+	struct hal_conceal_color conceal_color = {0};
+	struct hfi_device *hdev;
 
-	if (!inst || !inst->core || !ctrl) {
+	if (!inst || !inst->core || !inst->core->device || !ctrl) {
 		dprintk(VIDC_ERR,
 			"%s invalid parameters\n", __func__);
 		return -EINVAL;
 	}
 
+	hdev = inst->core->device;
+
+	v4l2_try_ext_ctrls(&inst->ctrl_handler, ctrl);
+
 	ext_control = ctrl->controls;
-	control.id =
-		V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_MODE;
 
 	for (i = 0; i < ctrl->count; i++) {
 		switch (ext_control[i].id) {
 		case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_MODE:
 			control.value = ext_control[i].value;
-
+			control.id =
+				V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_MODE;
 			rc = msm_comm_s_ctrl(inst, &control);
 			if (rc)
 				dprintk(VIDC_ERR,
 					"%s Failed setting stream output mode : %d\n",
 					__func__, rc);
+			rc = msm_vidc_update_host_buff_counts(inst);
 			break;
 		case V4L2_CID_MPEG_VIDC_VIDEO_DPB_COLOR_FORMAT:
+			control.id =
+				V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_MODE;
 			switch (ext_control[i].value) {
 			case V4L2_MPEG_VIDC_VIDEO_DPB_COLOR_FMT_NONE:
 				if (!msm_comm_g_ctrl_for_id(inst, control.id)) {
@@ -1125,6 +1152,7 @@ int msm_vdec_s_ext_ctrl(struct msm_vidc_inst *inst,
 						break;
 					}
 				}
+				rc = msm_vidc_update_host_buff_counts(inst);
 				inst->clk_data.dpb_fourcc = fourcc;
 				break;
 			default:
@@ -1134,6 +1162,36 @@ int msm_vdec_s_ext_ctrl(struct msm_vidc_inst *inst,
 				rc = -ENOTSUPP;
 				break;
 			}
+			break;
+		case V4L2_CID_MPEG_VIDC_VIDEO_CONCEAL_COLOR_8BIT:
+			conceal_color.conceal_color_8bit = ext_control[i].value;
+			i++;
+			switch (ext_control[i].id) {
+			case V4L2_CID_MPEG_VIDC_VIDEO_CONCEAL_COLOR_10BIT:
+				conceal_color.conceal_color_10bit =
+					ext_control[i].value;
+				dprintk(VIDC_DBG,
+					"conceal color: 8bit=0x%x 10bit=0x%x",
+					conceal_color.conceal_color_8bit,
+					conceal_color.conceal_color_10bit);
+				rc = call_hfi_op(hdev, session_set_property,
+						inst->session,
+						HAL_PARAM_VDEC_CONCEAL_COLOR,
+							&conceal_color);
+				if (rc) {
+					dprintk(VIDC_ERR,
+							"%s Failed setting conceal color",
+							__func__);
+				}
+				break;
+			default:
+				dprintk(VIDC_ERR,
+						"%s Could not find CONCEAL_COLOR_10BIT ext_control",
+						__func__);
+				rc = -ENOTSUPP;
+				break;
+			}
+
 			break;
 		default:
 			dprintk(VIDC_ERR

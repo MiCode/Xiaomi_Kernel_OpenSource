@@ -157,12 +157,6 @@ enum wcd_mbhc_detect_logic {
 	WCD_DETECTION_ADC,
 };
 
-#ifdef CONFIG_SND_SOC_WCD_MBHC_ADC
-#define WCD_MBHC_DETECTION	WCD_DETECTION_ADC
-#else
-#define WCD_MBHC_DETECTION	WCD_DETECTION_LEGACY
-#endif
-
 enum wcd_mbhc_cs_mb_en_flag {
 	WCD_MBHC_EN_CS = 0,
 	WCD_MBHC_EN_MB,
@@ -238,6 +232,11 @@ enum wcd_mbhc_plug_type {
 enum pa_dac_ack_flags {
 	WCD_MBHC_HPHL_PA_OFF_ACK = 0,
 	WCD_MBHC_HPHR_PA_OFF_ACK,
+};
+
+enum anc_ack_flags {
+	WCD_MBHC_ANC0_OFF_ACK = 0,
+	WCD_MBHC_ANC1_OFF_ACK,
 };
 
 enum wcd_mbhc_btn_det_mem {
@@ -488,6 +487,9 @@ struct wcd_mbhc_cb {
 	void (*hph_pull_down_ctrl)(struct snd_soc_codec *, bool);
 	void (*mbhc_moisture_config)(struct wcd_mbhc *);
 	bool (*hph_register_recovery)(struct wcd_mbhc *);
+	void (*update_anc_state)(struct snd_soc_codec *codec,
+				 bool enable, int anc_num);
+	bool (*is_anc_on)(struct wcd_mbhc *mbhc);
 };
 
 struct wcd_mbhc_fn {
@@ -538,6 +540,7 @@ struct wcd_mbhc {
 
 	/* track PA/DAC state to sync with userspace */
 	unsigned long hph_pa_dac_state;
+	unsigned long hph_anc_state;
 	unsigned long event_state;
 	unsigned long jiffies_atreport;
 
@@ -564,6 +567,9 @@ struct wcd_mbhc {
 	struct completion btn_press_compl;
 	struct mutex hphl_pa_lock;
 	struct mutex hphr_pa_lock;
+
+	/* Holds mbhc detection method - ADC/Legacy */
+	unsigned int mbhc_detection_logic;
 
 	unsigned long intr_status;
 	bool is_hph_ocp_pending;

@@ -58,13 +58,14 @@
 #define MSM_VERSION_PATCHLEVEL	0
 
 #define TEARDOWN_DEADLOCK_RETRY_MAX 5
+#define HPD_STRING_SIZE 30
 
 static void msm_drm_helper_hotplug_event(struct drm_device *dev)
 {
 	struct drm_connector *connector;
-	char *event_string;
+	char name[HPD_STRING_SIZE], status[HPD_STRING_SIZE];
 	char const *connector_name;
-	char *envp[2];
+	char *envp[3];
 
 	if (!dev) {
 		DRM_ERROR("hotplug_event failed, invalid input\n");
@@ -73,12 +74,6 @@ static void msm_drm_helper_hotplug_event(struct drm_device *dev)
 
 	if (!dev->mode_config.poll_enabled)
 		return;
-
-	event_string = kzalloc(SZ_4K, GFP_KERNEL);
-	if (!event_string) {
-		DRM_ERROR("failed to allocate event string\n");
-		return;
-	}
 
 	mutex_lock(&dev->mode_config.mutex);
 	drm_for_each_connector(connector, dev) {
@@ -93,17 +88,20 @@ static void msm_drm_helper_hotplug_event(struct drm_device *dev)
 		else
 			connector_name = "unknown";
 
-		snprintf(event_string, SZ_4K, "name=%s status=%s\n",
-			connector_name,
+		snprintf(name, HPD_STRING_SIZE, "name=%s", connector_name);
+
+		snprintf(status, HPD_STRING_SIZE, "status=%s",
 			drm_get_connector_status_name(connector->status));
-		DRM_DEBUG("generating hotplug event [%s]\n", event_string);
-		envp[0] = event_string;
-		envp[1] = NULL;
+
+		DRM_DEBUG("generating hotplug event [%s]: [%s]\n",
+			name, status);
+		envp[0] = name;
+		envp[1] = status;
+		envp[2] = NULL;
 		kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE,
 				envp);
 	}
 	mutex_unlock(&dev->mode_config.mutex);
-	kfree(event_string);
 }
 
 static void msm_fb_output_poll_changed(struct drm_device *dev)
@@ -126,21 +124,10 @@ static void msm_fb_output_poll_changed(struct drm_device *dev)
 int msm_atomic_check(struct drm_device *dev,
 			    struct drm_atomic_state *state)
 {
-	struct msm_drm_private *priv;
-
-	if (!dev)
-		return -EINVAL;
-
 	if (msm_is_suspend_blocked(dev)) {
 		DRM_DEBUG("rejecting commit during suspend\n");
 		return -EBUSY;
 	}
-
-	priv = dev->dev_private;
-	if (priv && priv->kms && priv->kms->funcs &&
-			priv->kms->funcs->atomic_check)
-		return priv->kms->funcs->atomic_check(priv->kms, state);
-
 	return drm_atomic_helper_check(dev, state);
 }
 
@@ -297,7 +284,7 @@ static int vblank_ctrl_queue_work(struct msm_drm_private *priv,
 	list_add_tail(&vbl_ev->node, &vbl_ctrl->event_list);
 	spin_unlock_irqrestore(&vbl_ctrl->lock, flags);
 
-	kthread_queue_work(&priv->event_thread[crtc_id].worker,
+	kthread_queue_work(&priv->disp_thread[crtc_id].worker,
 			&vbl_ctrl->work);
 
 	return 0;
@@ -534,6 +521,7 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	struct msm_kms *kms;
 	struct sde_dbg_power_ctrl dbg_power_ctrl = { 0 };
 	int ret, i;
+	struct sched_param param;
 
 	ddev = drm_dev_alloc(drv, dev);
 	if (!ddev) {
@@ -637,6 +625,12 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 	}
 	ddev->mode_config.funcs = &mode_config_funcs;
 
+	/**
+	 * this priority was found during empiric testing to have appropriate
+	 * realtime scheduling to process display updates and interact with
+	 * other real time and normal priority task
+	 */
+	param.sched_priority = 16;
 	for (i = 0; i < priv->num_crtcs; i++) {
 
 		/* initialize display thread */
@@ -647,6 +641,11 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 			kthread_run(kthread_worker_fn,
 				&priv->disp_thread[i].worker,
 				"crtc_commit:%d", priv->disp_thread[i].crtc_id);
+		ret = sched_setscheduler(priv->disp_thread[i].thread,
+							SCHED_FIFO, &param);
+		if (ret)
+			pr_warn("display thread priority update failed: %d\n",
+									ret);
 
 		if (IS_ERR(priv->disp_thread[i].thread)) {
 			dev_err(dev, "failed to create crtc_commit kthread\n");
@@ -661,6 +660,18 @@ static int msm_drm_init(struct device *dev, struct drm_driver *drv)
 			kthread_run(kthread_worker_fn,
 				&priv->event_thread[i].worker,
 				"crtc_event:%d", priv->event_thread[i].crtc_id);
+		/**
+		 * event thread should also run at same priority as disp_thread
+		 * because it is handling frame_done events. A lower priority
+		 * event thread and higher priority disp_thread can causes
+		 * frame_pending counters beyond 2. This can lead to commit
+		 * failure at crtc commit level.
+		 */
+		ret = sched_setscheduler(priv->event_thread[i].thread,
+							SCHED_FIFO, &param);
+		if (ret)
+			pr_warn("display event thread priority update failed: %d\n",
+									ret);
 
 		if (IS_ERR(priv->event_thread[i].thread)) {
 			dev_err(dev, "failed to create crtc_event kthread\n");

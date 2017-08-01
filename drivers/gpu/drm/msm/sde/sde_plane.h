@@ -34,7 +34,6 @@
  * @rot90: true if rotation of 90 degree is required
  * @hflip: true if horizontal flip is required
  * @vflip: true if vertical flip is required
- * @aspace:  pointer address space for input/output buffers
  * @rot_cmd: rotator configuration command
  * @nplane: total number of drm plane attached to rotator
  * @in_fb: input fb attached to rotator
@@ -64,7 +63,6 @@ struct sde_plane_rot_state {
 	bool rot90;
 	bool hflip;
 	bool vflip;
-	struct msm_gem_address_space *aspace;
 	struct sde_hw_rot_cmd rot_cmd;
 	int nplane;
 	/* input */
@@ -215,6 +213,12 @@ void sde_plane_get_ctl_flush(struct drm_plane *plane, struct sde_hw_ctl *ctl,
  * Returns: true if plane is in stream buffer mode
  */
 bool sde_plane_is_sbuf_mode(struct drm_plane *plane, u32 *prefill);
+
+/**
+ * sde_plane_restore - restore hw state if previously power collapsed
+ * @plane: Pointer to drm plane structure
+ */
+void sde_plane_restore(struct drm_plane *plane);
 
 /**
  * sde_plane_flush - final plane operations before commit flush

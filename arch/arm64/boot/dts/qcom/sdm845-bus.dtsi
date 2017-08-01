@@ -572,6 +572,18 @@
 			qcom,prio = <2>;
 		};
 
+		mas_xm_pcie_0: mas-xm-pcie-0 {
+			cell-id = <MSM_BUS_MASTER_PCIE>;
+			label = "mas-xm-pcie-0";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,qport = <5>;
+			qcom,connections = <&slv_qns_pcie_a1noc_snoc>;
+			qcom,bus-dev = <&fab_aggre1_noc>;
+			qcom,ap-owned;
+			qcom,prio = <2>;
+		};
+
 		mas_qhm_a2noc_cfg: mas-qhm-a2noc-cfg {
 			cell-id = <MSM_BUS_MASTER_A2NOC_CFG>;
 			label = "mas-qhm-a2noc-cfg";
@@ -648,18 +660,6 @@
 			qcom,prio = <2>;
 		};
 
-		mas_xm_pcie_0: mas-xm-pcie-0 {
-			cell-id = <MSM_BUS_MASTER_PCIE>;
-			label = "mas-xm-pcie-0";
-			qcom,buswidth = <8>;
-			qcom,agg-ports = <1>;
-			qcom,qport = <5>;
-			qcom,connections = <&slv_qns_pcie_snoc>;
-			qcom,bus-dev = <&fab_aggre1_noc>;
-			qcom,ap-owned;
-			qcom,prio = <2>;
-		};
-
 		mas_xm_qdss_etr: mas-xm-qdss-etr {
 			cell-id = <MSM_BUS_MASTER_QDSS_ETR>;
 			label = "mas-xm-qdss-etr";
@@ -715,6 +715,7 @@
 			qcom,agg-ports = <1>;
 			qcom,connections = <&slv_qns_camnoc_uncomp>;
 			qcom,bus-dev = <&fab_camnoc_virt>;
+			qcom,bcms = <&bcm_mm1>;
 		};
 
 		mas_qxm_camnoc_hf1_uncomp: mas-qxm-camnoc-hf1-uncomp {
@@ -724,6 +725,7 @@
 			qcom,agg-ports = <1>;
 			qcom,connections = <&slv_qns_camnoc_uncomp>;
 			qcom,bus-dev = <&fab_camnoc_virt>;
+			qcom,bcms = <&bcm_mm1>;
 		};
 
 		mas_qxm_camnoc_sf_uncomp: mas-qxm-camnoc-sf-uncomp {
@@ -733,6 +735,7 @@
 			qcom,agg-ports = <1>;
 			qcom,connections = <&slv_qns_camnoc_uncomp>;
 			qcom,bus-dev = <&fab_camnoc_virt>;
+			qcom,bcms = <&bcm_mm1>;
 		};
 
 		mas_qhm_spdm: mas-qhm-spdm {
@@ -1222,6 +1225,19 @@
 			qcom,prio = <2>;
 		};
 
+		mas_xm_gic: mas-xm-gic {
+			cell-id = <MSM_BUS_MASTER_GIC>;
+			label = "mas-xm-gic";
+			qcom,buswidth = <8>;
+			qcom,agg-ports = <1>;
+			qcom,qport = <0>;
+			qcom,connections = <&slv_qxs_imem &slv_qns_memnoc_gc>;
+			qcom,bus-dev = <&fab_system_noc>;
+			qcom,bcms = <&bcm_sn12>;
+			qcom,ap-owned;
+			qcom,prio = <1>;
+		};
+
 		mas_alc: mas-alc {
 			cell-id = <MSM_BUS_MASTER_ALC>;
 			label = "mas-alc";
@@ -1315,6 +1331,15 @@
 			qcom,bcms = <&bcm_sn9>;
 		};
 
+		slv_qns_pcie_a1noc_snoc:slv-qns-pcie-a1noc-snoc {
+			cell-id = <MSM_BUS_SLAVE_ANOC_PCIE_A1NOC_SNOC>;
+			label = "slv-qns-pcie-a1noc-snoc";
+			qcom,buswidth = <16>;
+			qcom,agg-ports = <1>;
+			qcom,bus-dev = <&fab_aggre1_noc>;
+			qcom,connections = <&mas_qnm_pcie_anoc>;
+		};
+
 		slv_qns_a2noc_snoc:slv-qns-a2noc-snoc {
 			cell-id = <MSM_BUS_A2NOC_SNOC_SLV>;
 			label = "slv-qns-a2noc-snoc";
@@ -1348,7 +1373,6 @@
 			qcom,buswidth = <32>;
 			qcom,agg-ports = <1>;
 			qcom,bus-dev = <&fab_camnoc_virt>;
-			qcom,bcms = <&bcm_mm1>;
 		};
 
 		slv_qhs_a1_noc_cfg:slv-qhs-a1-noc-cfg {

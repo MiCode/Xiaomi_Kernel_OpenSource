@@ -17,7 +17,6 @@
 
 #include <linux/io.h>
 #include <linux/of.h>
-#include <linux/async.h>
 #include <linux/blkdev.h>
 #include <crypto/ice.h>
 
@@ -97,6 +96,7 @@ enum {
 #ifdef CONFIG_MMC_SDHCI_MSM_ICE
 int sdhci_msm_ice_get_dev(struct sdhci_host *host);
 int sdhci_msm_ice_init(struct sdhci_host *host);
+void sdhci_msm_ice_cfg_reset(struct sdhci_host *host, u32 slot);
 int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 			u32 slot);
 int sdhci_msm_ice_reset(struct sdhci_host *host);
@@ -120,6 +120,11 @@ inline int sdhci_msm_ice_init(struct sdhci_host *host)
 {
 	return 0;
 }
+
+inline void sdhci_msm_ice_cfg_reset(struct sdhci_host *host, u32 slot)
+{
+}
+
 inline int sdhci_msm_ice_cfg(struct sdhci_host *host,
 		struct mmc_request *mrq, u32 slot)
 {

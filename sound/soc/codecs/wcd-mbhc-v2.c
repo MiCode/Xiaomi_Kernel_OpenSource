@@ -329,6 +329,7 @@ out_micb_en:
 			/* Disable micbias, pullup & enable cs */
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);
 		mutex_unlock(&mbhc->hphl_pa_lock);
+		clear_bit(WCD_MBHC_ANC0_OFF_ACK, &mbhc->hph_anc_state);
 		break;
 	case WCD_EVENT_PRE_HPHR_PA_OFF:
 		mutex_lock(&mbhc->hphr_pa_lock);
@@ -346,6 +347,7 @@ out_micb_en:
 			/* Disable micbias, pullup & enable cs */
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);
 		mutex_unlock(&mbhc->hphr_pa_lock);
+		clear_bit(WCD_MBHC_ANC1_OFF_ACK, &mbhc->hph_anc_state);
 		break;
 	case WCD_EVENT_PRE_HPHL_PA_ON:
 		set_bit(WCD_MBHC_EVENT_PA_HPHL, &mbhc->event_state);
@@ -439,6 +441,25 @@ static void wcd_mbhc_clr_and_turnon_hph_padac(struct wcd_mbhc *mbhc)
 			 __func__);
 		usleep_range(wg_time * 1000, wg_time * 1000 + 50);
 	}
+
+	if (test_and_clear_bit(WCD_MBHC_ANC0_OFF_ACK,
+				&mbhc->hph_anc_state)) {
+		usleep_range(20000, 20100);
+		pr_debug("%s: HPHL ANC clear flag and enable ANC_EN\n",
+			__func__);
+		if (mbhc->mbhc_cb->update_anc_state)
+			mbhc->mbhc_cb->update_anc_state(mbhc->codec, true, 0);
+	}
+
+	if (test_and_clear_bit(WCD_MBHC_ANC1_OFF_ACK,
+				&mbhc->hph_anc_state)) {
+		usleep_range(20000, 20100);
+		pr_debug("%s: HPHR ANC clear flag and enable ANC_EN\n",
+			__func__);
+		if (mbhc->mbhc_cb->update_anc_state)
+			mbhc->mbhc_cb->update_anc_state(mbhc->codec, true, 1);
+	}
+
 }
 
 static bool wcd_mbhc_is_hph_pa_on(struct wcd_mbhc *mbhc)
@@ -471,6 +492,20 @@ static void wcd_mbhc_set_and_turnoff_hph_padac(struct wcd_mbhc *mbhc)
 	}
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HPH_PA_EN, 0);
 	usleep_range(wg_time * 1000, wg_time * 1000 + 50);
+
+
+	if (mbhc->mbhc_cb->is_anc_on && mbhc->mbhc_cb->is_anc_on(mbhc)) {
+		usleep_range(20000, 20100);
+		pr_debug("%s ANC is on, setting ANC_OFF_ACK\n", __func__);
+		set_bit(WCD_MBHC_ANC0_OFF_ACK, &mbhc->hph_anc_state);
+		set_bit(WCD_MBHC_ANC1_OFF_ACK, &mbhc->hph_anc_state);
+		if (mbhc->mbhc_cb->update_anc_state) {
+			mbhc->mbhc_cb->update_anc_state(mbhc->codec, false, 0);
+			mbhc->mbhc_cb->update_anc_state(mbhc->codec, false, 1);
+		} else {
+			pr_debug("%s ANC is off\n", __func__);
+		}
+	}
 }
 
 int wcd_mbhc_get_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
@@ -581,7 +616,8 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		    jack_type == SND_JACK_LINEOUT) &&
 		    (mbhc->hph_status && mbhc->hph_status != jack_type)) {
 
-			if (mbhc->micbias_enable) {
+			if (mbhc->micbias_enable &&
+			    mbhc->hph_status == SND_JACK_HEADSET) {
 				if (mbhc->mbhc_cb->mbhc_micbias_control)
 					mbhc->mbhc_cb->mbhc_micbias_control(
 						codec, MIC_BIAS_2,
@@ -1108,7 +1144,7 @@ static irqreturn_t wcd_mbhc_release_handler(int irq, void *data)
 	 * For ADC MBHC, ADC_COMPLETE interrupt will be generated
 	 * in this case. So skip the check here.
 	 */
-	if (!WCD_MBHC_DETECTION &&
+	if (mbhc->mbhc_detection_logic == WCD_DETECTION_LEGACY &&
 		mbhc->current_plug == MBHC_PLUG_TYPE_HEADPHONE) {
 		wcd_mbhc_find_plug_and_report(mbhc, MBHC_PLUG_TYPE_HEADSET);
 		goto exit;
@@ -1922,7 +1958,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 	init_waitqueue_head(&mbhc->wait_btn_press);
 	mutex_init(&mbhc->codec_resource_lock);
 
-	switch (WCD_MBHC_DETECTION) {
+	switch (mbhc->mbhc_detection_logic) {
 	case WCD_DETECTION_LEGACY:
 		wcd_mbhc_legacy_init(mbhc);
 		break;
@@ -1931,7 +1967,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 		break;
 	default:
 		pr_err("%s: Unknown detection logic type %d\n",
-			__func__, WCD_MBHC_DETECTION);
+			__func__, mbhc->mbhc_detection_logic);
 		break;
 	}
 

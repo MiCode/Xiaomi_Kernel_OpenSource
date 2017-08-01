@@ -337,26 +337,26 @@ static int hfi_process_session_error(u32 device_id,
 	cmd_done.device_id = device_id;
 	cmd_done.session_id = (void *)(uintptr_t)pkt->session_id;
 	cmd_done.status = hfi_map_err_status(pkt->event_data1);
+	info->response.cmd = cmd_done;
 	dprintk(VIDC_INFO, "Received: SESSION_ERROR with event id : %#x %#x\n",
 		pkt->event_data1, pkt->event_data2);
 	switch (pkt->event_data1) {
+	/* Ignore below errors */
 	case HFI_ERR_SESSION_INVALID_SCALE_FACTOR:
-	case HFI_ERR_SESSION_UNSUPPORT_BUFFERTYPE:
-	case HFI_ERR_SESSION_UNSUPPORTED_SETTING:
 	case HFI_ERR_SESSION_UPSCALE_NOT_SUPPORTED:
-		cmd_done.status = VIDC_ERR_NONE;
 		dprintk(VIDC_INFO, "Non Fatal: HFI_EVENT_SESSION_ERROR\n");
 		info->response_type = HAL_RESPONSE_UNUSED;
-		info->response.cmd = cmd_done;
-		return 0;
+		break;
 	default:
+		/* All other errors are not expected and treated as sys error */
 		dprintk(VIDC_ERR,
-			"HFI_EVENT_SESSION_ERROR: data1 %#x, data2 %#x\n",
-			pkt->event_data1, pkt->event_data2);
-		info->response_type = HAL_SESSION_ERROR;
-		info->response.cmd = cmd_done;
-		return 0;
+			"%s: data1 %#x, data2 %#x, treat as sys error\n",
+			__func__, pkt->event_data1, pkt->event_data2);
+		info->response_type = HAL_SYS_ERROR;
+		break;
 	}
+
+	return 0;
 }
 
 static int hfi_process_event_notify(u32 device_id,

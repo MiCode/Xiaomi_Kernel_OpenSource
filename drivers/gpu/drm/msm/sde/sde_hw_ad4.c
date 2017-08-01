@@ -19,6 +19,7 @@
 #define IDLE_2_RUN(x) ((x) == (ad4_init | ad4_cfg | ad4_mode | ad4_input))
 #define MERGE_WIDTH_RIGHT 6
 #define MERGE_WIDTH_LEFT 5
+#define AD_IPC_FRAME_COUNT 2
 
 enum ad4_ops_bitmask {
 	ad4_init = BIT(AD_INIT),
@@ -31,32 +32,64 @@ enum ad4_ops_bitmask {
 enum ad4_state {
 	ad4_state_idle,
 	ad4_state_run,
+	/* idle power collapse resume state */
+	ad4_state_ipcr,
 	ad4_state_max,
 };
 
 typedef int (*ad4_prop_setup)(struct sde_hw_dspp *dspp,
 		struct sde_ad_hw_cfg *ad);
 
+static int ad4_params_check(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg);
+
+static int ad4_no_op_setup(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg);
+static int ad4_mode_setup(struct sde_hw_dspp *dspp, enum ad4_modes mode);
 static int ad4_mode_setup_common(struct sde_hw_dspp *dspp,
 		struct sde_ad_hw_cfg *cfg);
+static int ad4_init_setup(struct sde_hw_dspp *dspp, struct sde_ad_hw_cfg *cfg);
 static int ad4_init_setup_idle(struct sde_hw_dspp *dspp,
 		struct sde_ad_hw_cfg *cfg);
+static int ad4_init_setup_run(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg);
+static int ad4_init_setup_ipcr(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg);
+static int ad4_cfg_setup(struct sde_hw_dspp *dspp, struct sde_ad_hw_cfg *cfg);
 static int ad4_cfg_setup_idle(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg);
+static int ad4_cfg_setup_run(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg);
+static int ad4_cfg_setup_ipcr(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg);
+static int ad4_input_setup(struct sde_hw_dspp *dspp,
 		struct sde_ad_hw_cfg *cfg);
 static int ad4_input_setup_idle(struct sde_hw_dspp *dspp,
 		struct sde_ad_hw_cfg *cfg);
-static int ad4_mode_setup(struct sde_hw_dspp *dspp, enum ad4_modes mode);
-static int ad4_init_setup(struct sde_hw_dspp *dspp, struct sde_ad_hw_cfg *cfg);
-static int ad4_cfg_setup(struct sde_hw_dspp *dspp, struct sde_ad_hw_cfg *cfg);
-static int ad4_input_setup(struct sde_hw_dspp *dspp,
+static int ad4_input_setup_ipcr(struct sde_hw_dspp *dspp,
 		struct sde_ad_hw_cfg *cfg);
 static int ad4_suspend_setup(struct sde_hw_dspp *dspp,
-		struct sde_ad_hw_cfg *cfg);
-static int ad4_params_check(struct sde_hw_dspp *dspp,
 		struct sde_ad_hw_cfg *cfg);
 static int ad4_assertive_setup(struct sde_hw_dspp *dspp,
 		struct sde_ad_hw_cfg *cfg);
 static int ad4_backlight_setup(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg);
+
+static int ad4_ipc_suspend_setup_run(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg);
+static int ad4_ipc_resume_setup_run(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg);
+static int ad4_ipc_resume_setup_ipcr(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg);
+static int ad4_ipc_reset_setup_ipcr(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg);
+static int ad4_mem_init_enable(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg);
+static int ad4_mem_init_disable(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg);
+static int ad4_cfg_ipc_resume(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg);
+static int ad4_cfg_ipc_reset(struct sde_hw_dspp *dspp,
 		struct sde_ad_hw_cfg *cfg);
 
 static ad4_prop_setup prop_set_func[ad4_state_max][AD_PROPMAX] = {
@@ -67,13 +100,29 @@ static ad4_prop_setup prop_set_func[ad4_state_max][AD_PROPMAX] = {
 	[ad4_state_idle][AD_SUSPEND] = ad4_suspend_setup,
 	[ad4_state_idle][AD_ASSERTIVE] = ad4_assertive_setup,
 	[ad4_state_idle][AD_BACKLIGHT] = ad4_backlight_setup,
+	[ad4_state_idle][AD_IPC_SUSPEND] = ad4_no_op_setup,
+	[ad4_state_idle][AD_IPC_RESUME] = ad4_no_op_setup,
+	[ad4_state_idle][AD_IPC_RESET] = ad4_no_op_setup,
 	[ad4_state_run][AD_MODE] = ad4_mode_setup_common,
-	[ad4_state_run][AD_INIT] = ad4_init_setup,
-	[ad4_state_run][AD_CFG] = ad4_cfg_setup,
+	[ad4_state_run][AD_INIT] = ad4_init_setup_run,
+	[ad4_state_run][AD_CFG] = ad4_cfg_setup_run,
 	[ad4_state_run][AD_INPUT] = ad4_input_setup,
 	[ad4_state_run][AD_SUSPEND] = ad4_suspend_setup,
 	[ad4_state_run][AD_ASSERTIVE] = ad4_assertive_setup,
 	[ad4_state_run][AD_BACKLIGHT] = ad4_backlight_setup,
+	[ad4_state_run][AD_IPC_SUSPEND] = ad4_ipc_suspend_setup_run,
+	[ad4_state_run][AD_IPC_RESUME] = ad4_ipc_resume_setup_run,
+	[ad4_state_run][AD_IPC_RESET] = ad4_no_op_setup,
+	[ad4_state_ipcr][AD_MODE] = ad4_mode_setup_common,
+	[ad4_state_ipcr][AD_INIT] = ad4_init_setup_ipcr,
+	[ad4_state_ipcr][AD_CFG] = ad4_cfg_setup_ipcr,
+	[ad4_state_ipcr][AD_INPUT] = ad4_input_setup_ipcr,
+	[ad4_state_ipcr][AD_SUSPEND] = ad4_suspend_setup,
+	[ad4_state_ipcr][AD_ASSERTIVE] = ad4_assertive_setup,
+	[ad4_state_ipcr][AD_BACKLIGHT] = ad4_backlight_setup,
+	[ad4_state_ipcr][AD_IPC_SUSPEND] = ad4_no_op_setup,
+	[ad4_state_ipcr][AD_IPC_RESUME] = ad4_ipc_resume_setup_ipcr,
+	[ad4_state_ipcr][AD_IPC_RESET] = ad4_ipc_reset_setup_ipcr,
 };
 
 struct ad4_info {
@@ -81,14 +130,19 @@ struct ad4_info {
 	u32 completed_ops_mask;
 	bool ad4_support;
 	enum ad4_modes cached_mode;
+	bool is_master;
+	u32 frame_count;
+	u32 tf_ctrl;
+	u32 vc_control_0;
+	u32 last_str;
 	u32 cached_als;
 };
 
 static struct ad4_info info[DSPP_MAX] = {
-	[DSPP_0] = {ad4_state_idle, 0, true, AD4_OFF},
-	[DSPP_1] = {ad4_state_idle, 0, true, AD4_OFF},
-	[DSPP_2] = {ad4_state_max, 0, false, AD4_OFF},
-	[DSPP_3] = {ad4_state_max, 0, false, AD4_OFF},
+	[DSPP_0] = {ad4_state_idle, 0, true, AD4_OFF, false},
+	[DSPP_1] = {ad4_state_idle, 0, true, AD4_OFF, false},
+	[DSPP_2] = {ad4_state_max, 0, false, AD4_OFF, false},
+	[DSPP_3] = {ad4_state_max, 0, false, AD4_OFF, false},
 };
 
 void sde_setup_dspp_ad4(struct sde_hw_dspp *dspp, void *ad_cfg)
@@ -118,7 +172,7 @@ int sde_validate_dspp_ad4(struct sde_hw_dspp *dspp, u32 *prop)
 		return -EINVAL;
 	}
 
-	if (dspp->idx > DSPP_MAX || !info[dspp->idx].ad4_support) {
+	if (dspp->idx >= DSPP_MAX || !info[dspp->idx].ad4_support) {
 		DRM_ERROR("ad4 not supported for dspp idx %d\n", dspp->idx);
 		return -EINVAL;
 	}
@@ -142,7 +196,7 @@ static int ad4_params_check(struct sde_hw_dspp *dspp,
 		return -EINVAL;
 	}
 
-	if (dspp->idx > DSPP_MAX || !info[dspp->idx].ad4_support) {
+	if (dspp->idx >= DSPP_MAX || !info[dspp->idx].ad4_support) {
 		DRM_ERROR("ad4 not supported for dspp idx %d\n", dspp->idx);
 		return -EINVAL;
 	}
@@ -170,6 +224,10 @@ static int ad4_params_check(struct sde_hw_dspp *dspp,
 		return -EINVAL;
 	}
 	hw_lm = cfg->hw_cfg->mixer_info;
+	if (!hw_lm) {
+		DRM_ERROR("invalid mixer info\n");
+		return -EINVAL;
+	}
 
 	if (cfg->hw_cfg->num_of_mixers == 1 &&
 	    hw_lm->cfg.out_height != cfg->hw_cfg->displayv &&
@@ -179,13 +237,18 @@ static int ad4_params_check(struct sde_hw_dspp *dspp,
 			cfg->hw_cfg->displayh, cfg->hw_cfg->displayv);
 		return -EINVAL;
 	} else if (hw_lm->cfg.out_height != cfg->hw_cfg->displayv &&
-		    hw_lm->cfg.out_width != (cfg->hw_cfg->displayh >> 1)) {
+		   hw_lm->cfg.out_width != (cfg->hw_cfg->displayh >> 1)) {
 		DRM_ERROR("dual_lm lmh %d lmw %d displayh %d displayw %d\n",
 			hw_lm->cfg.out_height, hw_lm->cfg.out_width,
 			cfg->hw_cfg->displayh, cfg->hw_cfg->displayv);
 		return -EINVAL;
 	}
 
+	return 0;
+}
+
+static int ad4_no_op_setup(struct sde_hw_dspp *dspp, struct sde_ad_hw_cfg *cfg)
+{
 	return 0;
 }
 
@@ -200,7 +263,8 @@ static int ad4_mode_setup(struct sde_hw_dspp *dspp, enum ad4_modes mode)
 		info[dspp->idx].state = ad4_state_idle;
 		info[dspp->idx].completed_ops_mask = 0;
 	} else {
-		info[dspp->idx].state = ad4_state_run;
+		if (info[dspp->idx].state == ad4_state_idle)
+			info[dspp->idx].state = ad4_state_run;
 		SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset,
 				0x100);
 	}
@@ -235,6 +299,7 @@ static int ad4_init_setup(struct sde_hw_dspp *dspp, struct sde_ad_hw_cfg *cfg)
 		proc_start = 0;
 		proc_end = 0xffff;
 		tile_ctl = 0;
+		info[dspp->idx].is_master = true;
 	} else {
 		tile_ctl = 0x5;
 		if (hw_lm->cfg.right_mixer) {
@@ -244,6 +309,7 @@ static int ad4_init_setup(struct sde_hw_dspp *dspp, struct sde_ad_hw_cfg *cfg)
 			proc_start = (cfg->hw_cfg->displayh >> 1);
 			proc_end = frame_end;
 			tile_ctl |= 0x10;
+			info[dspp->idx].is_master = false;
 		} else {
 			frame_start = 0;
 			frame_end = (cfg->hw_cfg->displayh >> 1) +
@@ -251,23 +317,21 @@ static int ad4_init_setup(struct sde_hw_dspp *dspp, struct sde_ad_hw_cfg *cfg)
 			proc_start = 0;
 			proc_end = (cfg->hw_cfg->displayh >> 1) - 1;
 			tile_ctl |= 0x10;
+			info[dspp->idx].is_master = true;
 		}
 	}
 
 	init = cfg->hw_cfg->payload;
-	blk_offset = 8;
-	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset,
-	    init->init_param_009);
 
 	blk_offset = 0xc;
 	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset,
-	    init->init_param_010);
+			init->init_param_010);
 
 	init->init_param_012 = cfg->hw_cfg->displayv & (BIT(17) - 1);
 	init->init_param_011 = cfg->hw_cfg->displayh & (BIT(17) - 1);
 	blk_offset = 0x10;
 	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset,
-	    ((init->init_param_011 << 16) | init->init_param_012));
+			((init->init_param_011 << 16) | init->init_param_012));
 
 	blk_offset = 0x14;
 	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset,
@@ -275,8 +339,8 @@ static int ad4_init_setup(struct sde_hw_dspp *dspp, struct sde_ad_hw_cfg *cfg)
 
 	blk_offset = 0x44;
 	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset,
-		((((init->init_param_013) & (BIT(17) - 1)) << 16) |
-		 (init->init_param_014 & (BIT(17) - 1))));
+			((((init->init_param_013) & (BIT(17) - 1)) << 16) |
+			(init->init_param_014 & (BIT(17) - 1))));
 
 	blk_offset = 0x5c;
 	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset,
@@ -583,30 +647,31 @@ static int ad4_cfg_setup(struct sde_hw_dspp *dspp, struct sde_ad_hw_cfg *cfg)
 	val = (ad_cfg->cfg_param_004 & (BIT(16) - 1));
 	val |= ((ad_cfg->cfg_param_003 & (BIT(16) - 1)) << 16);
 	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset, val);
-	blk_offset += 4;
+
+	blk_offset = 0x20;
 	val = (ad_cfg->cfg_param_005 & (BIT(8) - 1));
 	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset, val);
-	blk_offset += 4;
+	blk_offset = 0x24;
 	val = (ad_cfg->cfg_param_006 & (BIT(7) - 1));
 	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset, val);
 
 	blk_offset = 0x30;
 	val = (ad_cfg->cfg_param_007 & (BIT(8) - 1));
 	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset, val);
-	blk_offset += 4;
-	val = (ad_cfg->cfg_param_008 & (BIT(8) - 1));
-	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset, val);
-	blk_offset += 4;
+
+	info[dspp->idx].tf_ctrl = (ad_cfg->cfg_param_008 & (BIT(8) - 1));
+
+	blk_offset = 0x38;
 	val = (ad_cfg->cfg_param_009 & (BIT(10) - 1));
 	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset, val);
-	blk_offset += 4;
+
+	blk_offset = 0x3c;
 	val = (ad_cfg->cfg_param_010 & (BIT(12) - 1));
 	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset, val);
 	blk_offset += 4;
 	val = ((ad_cfg->cfg_param_011 & (BIT(16) - 1)) << 16);
 	val |= (ad_cfg->cfg_param_012 & (BIT(16) - 1));
 	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset, val);
-
 
 	blk_offset = 0x88;
 	val = (ad_cfg->cfg_param_013 & (BIT(8) - 1));
@@ -697,14 +762,10 @@ static int ad4_cfg_setup(struct sde_hw_dspp *dspp, struct sde_ad_hw_cfg *cfg)
 	blk_offset = 0x134;
 	val = (ad_cfg->cfg_param_040 & (BIT(12) - 1));
 	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset, val);
-	blk_offset += 4;
-	val = (ad_cfg->cfg_param_041 & (BIT(7) - 1));
-	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset, val);
 
-	blk_offset = 0x15c;
-	val = (ad_cfg->cfg_param_042 & (BIT(10) - 1));
-	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset, val);
-	blk_offset += 4;
+	info[dspp->idx].vc_control_0 = (ad_cfg->cfg_param_041 & (BIT(7) - 1));
+
+	blk_offset += 160;
 	val = (ad_cfg->cfg_param_043 & (BIT(10) - 1));
 	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset, val);
 
@@ -791,6 +852,52 @@ static int ad4_init_setup_idle(struct sde_hw_dspp *dspp,
 	if (ret)
 		return ret;
 
+	ret = ad4_mem_init_enable(dspp, cfg);
+	if (ret)
+		return ret;
+
+	info[dspp->idx].completed_ops_mask |= ad4_init;
+
+	if (IDLE_2_RUN(info[dspp->idx].completed_ops_mask))
+		ad4_mode_setup(dspp, info[dspp->idx].cached_mode);
+
+	return 0;
+}
+
+static int ad4_init_setup_run(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg)
+{
+	int ret;
+
+	if (!cfg->hw_cfg->payload) {
+		info[dspp->idx].completed_ops_mask &= ~ad4_init;
+		return 0;
+	}
+
+	ret = ad4_init_setup(dspp, cfg);
+	if (ret)
+		return ret;
+	ret = ad4_mem_init_disable(dspp, cfg);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+static int ad4_init_setup_ipcr(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg)
+{
+	int ret;
+
+	if (!cfg->hw_cfg->payload) {
+		info[dspp->idx].completed_ops_mask &= ~ad4_init;
+		return 0;
+	}
+
+	ret = ad4_init_setup(dspp, cfg);
+	if (ret)
+		return ret;
+
 	info[dspp->idx].completed_ops_mask |= ad4_init;
 
 	if (IDLE_2_RUN(info[dspp->idx].completed_ops_mask))
@@ -812,6 +919,52 @@ static int ad4_cfg_setup_idle(struct sde_hw_dspp *dspp,
 	ret = ad4_cfg_setup(dspp, cfg);
 	if (ret)
 		return ret;
+	ret = ad4_cfg_ipc_reset(dspp, cfg);
+	if (ret)
+		return ret;
+
+	info[dspp->idx].completed_ops_mask |= ad4_cfg;
+	if (IDLE_2_RUN(info[dspp->idx].completed_ops_mask))
+		ad4_mode_setup(dspp, info[dspp->idx].cached_mode);
+	return 0;
+}
+
+static int ad4_cfg_setup_run(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg)
+{
+	int ret;
+
+	if (!cfg->hw_cfg->payload) {
+		info[dspp->idx].completed_ops_mask &= ~ad4_cfg;
+		return 0;
+	}
+
+	ret = ad4_cfg_setup(dspp, cfg);
+	if (ret)
+		return ret;
+	ret = ad4_cfg_ipc_reset(dspp, cfg);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+static int ad4_cfg_setup_ipcr(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg)
+{
+	int ret;
+
+	if (!cfg->hw_cfg->payload) {
+		info[dspp->idx].completed_ops_mask &= ~ad4_cfg;
+		return 0;
+	}
+
+	ret = ad4_cfg_setup(dspp, cfg);
+	if (ret)
+		return ret;
+	ret = ad4_cfg_ipc_resume(dspp, cfg);
+	if (ret)
+		return ret;
 
 	info[dspp->idx].completed_ops_mask |= ad4_cfg;
 	if (IDLE_2_RUN(info[dspp->idx].completed_ops_mask))
@@ -820,6 +973,22 @@ static int ad4_cfg_setup_idle(struct sde_hw_dspp *dspp,
 }
 
 static int ad4_input_setup_idle(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg)
+{
+	int ret;
+
+	ret = ad4_input_setup(dspp, cfg);
+	if (ret)
+		return ret;
+
+	info[dspp->idx].completed_ops_mask |= ad4_input;
+	if (IDLE_2_RUN(info[dspp->idx].completed_ops_mask))
+		ad4_mode_setup(dspp, info[dspp->idx].cached_mode);
+
+	return 0;
+}
+
+static int ad4_input_setup_ipcr(struct sde_hw_dspp *dspp,
 		struct sde_ad_hw_cfg *cfg)
 {
 	int ret;
@@ -899,4 +1068,183 @@ void sde_read_intr_resp_ad4(struct sde_hw_dspp *dspp, u32 event, u32 *resp)
 	default:
 		break;
 	}
+}
+
+static int ad4_ipc_suspend_setup_run(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg)
+{
+	u32 strength = 0, i = 0;
+	struct sde_hw_mixer *hw_lm;
+
+	hw_lm = cfg->hw_cfg->mixer_info;
+	if ((cfg->hw_cfg->num_of_mixers == 2) && hw_lm->cfg.right_mixer) {
+		/* this AD core is the salve core */
+		for (i = DSPP_0; i < DSPP_MAX; i++) {
+			if (info[i].is_master) {
+				strength = info[i].last_str;
+				break;
+			}
+		}
+	} else {
+		strength = SDE_REG_READ(&dspp->hw,
+				dspp->cap->sblk->ad.base + 0x4c);
+	}
+	info[dspp->idx].last_str = strength;
+
+	return 0;
+}
+
+static int ad4_ipc_resume_setup_run(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg)
+{
+	int ret;
+
+	info[dspp->idx].state = ad4_state_ipcr;
+
+	info[dspp->idx].frame_count = 0;
+	ret = ad4_cfg_ipc_resume(dspp, cfg);
+
+	return ret;
+}
+
+static int ad4_ipc_resume_setup_ipcr(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg)
+{
+	info[dspp->idx].frame_count = 0;
+	return 0;
+}
+
+static int ad4_ipc_reset_setup_ipcr(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg)
+{
+	int ret;
+	u32 strength = 0, i = 0;
+	struct sde_hw_mixer *hw_lm;
+
+	/* Read AD calculator strength output during the 2 frames of manual
+	 * strength mode, and assign the strength output to last_str
+	 * when frame count reaches AD_IPC_FRAME_COUNT to avoid flickers
+	 * caused by strength was not converged before entering IPC mode
+	 */
+	hw_lm = cfg->hw_cfg->mixer_info;
+	if ((cfg->hw_cfg->num_of_mixers == 2) && hw_lm->cfg.right_mixer) {
+		/* this AD core is the salve core */
+		for (i = DSPP_0; i < DSPP_MAX; i++) {
+			if (info[i].is_master) {
+				strength = info[i].last_str;
+				break;
+			}
+		}
+	} else {
+		strength = SDE_REG_READ(&dspp->hw,
+				dspp->cap->sblk->ad.base + 0x4c);
+	}
+
+	if (info[dspp->idx].frame_count == AD_IPC_FRAME_COUNT) {
+		info[dspp->idx].state = ad4_state_run;
+		info[dspp->idx].last_str = strength;
+		ret = ad4_cfg_ipc_reset(dspp, cfg);
+		if (ret)
+			return ret;
+	} else {
+		info[dspp->idx].frame_count++;
+	}
+
+	return 0;
+}
+
+static int ad4_mem_init_enable(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg)
+{
+	u32 blk_offset;
+	struct drm_msm_ad4_init *init;
+
+	if (!cfg->hw_cfg->payload) {
+		info[dspp->idx].completed_ops_mask &= ~ad4_init;
+		return 0;
+	}
+
+	if (cfg->hw_cfg->len != sizeof(struct drm_msm_ad4_init)) {
+		DRM_ERROR("invalid sz param exp %zd given %d cfg %pK\n",
+			sizeof(struct drm_msm_ad4_init), cfg->hw_cfg->len,
+			cfg->hw_cfg->payload);
+		return -EINVAL;
+	}
+
+	init = cfg->hw_cfg->payload;
+	blk_offset = 0x8;
+	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset,
+			(init->init_param_009 & 0xdfff));
+	blk_offset = 0x450;
+	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset, 1);
+
+	return 0;
+}
+
+static int ad4_mem_init_disable(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg)
+{
+	u32 blk_offset;
+	struct drm_msm_ad4_init *init;
+
+	if (!cfg->hw_cfg->payload) {
+		info[dspp->idx].completed_ops_mask &= ~ad4_init;
+		return 0;
+	}
+
+	if (cfg->hw_cfg->len != sizeof(struct drm_msm_ad4_init)) {
+		DRM_ERROR("invalid sz param exp %zd given %d cfg %pK\n",
+			sizeof(struct drm_msm_ad4_init), cfg->hw_cfg->len,
+			cfg->hw_cfg->payload);
+		return -EINVAL;
+	}
+
+	init = cfg->hw_cfg->payload;
+	blk_offset = 0x8;
+	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset,
+			(init->init_param_009 | 0x2000));
+	blk_offset = 0x450;
+	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset, 0);
+
+	return 0;
+}
+
+static int ad4_cfg_ipc_resume(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg)
+{
+	u32 blk_offset, val;
+
+	/* disable temporal filters */
+	blk_offset = 0x34;
+	val = (0x55 & (BIT(8) - 1));
+	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset, val);
+
+	/* set manual strength */
+	blk_offset = 0x15c;
+	val = (info[dspp->idx].last_str & (BIT(10) - 1));
+	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset, val);
+
+	/* enable manul mode */
+	blk_offset = 0x138;
+	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset, 0);
+
+	return 0;
+}
+
+static int ad4_cfg_ipc_reset(struct sde_hw_dspp *dspp,
+		struct sde_ad_hw_cfg *cfg)
+{
+	u32 blk_offset;
+
+	/* enable temporal filters */
+	blk_offset = 0x34;
+	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset,
+		info[dspp->idx].tf_ctrl);
+
+	/* disable manul mode */
+	blk_offset = 0x138;
+	SDE_REG_WRITE(&dspp->hw, dspp->cap->sblk->ad.base + blk_offset,
+		info[dspp->idx].vc_control_0);
+
+	return 0;
 }

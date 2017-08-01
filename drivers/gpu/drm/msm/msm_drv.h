@@ -413,7 +413,8 @@ struct msm_mode_info {
  * @frame_rate:		Display frame rate
  * @prefill_lines:	prefill lines based on porches.
  * @vtotal:		display vertical total
- * @jitter:		display jitter configuration
+ * @jitter_numer:	display panel jitter numerator configuration
+ * @jitter_denom:	display panel jitter denominator configuration
  * @comp_info:          Compression supported by the display
  * @roi_caps:           Region of interest capability info
  */
@@ -437,7 +438,8 @@ struct msm_display_info {
 	uint32_t frame_rate;
 	uint32_t prefill_lines;
 	uint32_t vtotal;
-	uint32_t jitter;
+	uint32_t jitter_numer;
+	uint32_t jitter_denom;
 
 	struct msm_compression_info comp_info;
 	struct msm_roi_caps roi_caps;
@@ -741,16 +743,34 @@ struct drm_fb_helper *msm_fbdev_init(struct drm_device *dev);
 void msm_fbdev_free(struct drm_device *dev);
 
 struct hdmi;
+#ifdef CONFIG_DRM_MSM_HDMI
 int msm_hdmi_modeset_init(struct hdmi *hdmi, struct drm_device *dev,
 		struct drm_encoder *encoder);
 void __init msm_hdmi_register(void);
 void __exit msm_hdmi_unregister(void);
+#else
+static inline void __init msm_hdmi_register(void)
+{
+}
+static inline void __exit msm_hdmi_unregister(void)
+{
+}
+#endif
 
 struct msm_edp;
+#ifdef CONFIG_DRM_MSM_EDP
 void __init msm_edp_register(void);
 void __exit msm_edp_unregister(void);
 int msm_edp_modeset_init(struct msm_edp *edp, struct drm_device *dev,
 		struct drm_encoder *encoder);
+#else
+static inline void __init msm_edp_register(void)
+{
+}
+static inline void __exit msm_edp_unregister(void)
+{
+}
+#endif
 
 struct msm_dsi;
 enum msm_dsi_encoder_id {

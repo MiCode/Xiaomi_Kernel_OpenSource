@@ -37,47 +37,13 @@ extern unsigned int sysctl_sched_use_walt_task_util;
 extern unsigned int sysctl_sched_boost;
 extern unsigned int sysctl_sched_group_upmigrate_pct;
 extern unsigned int sysctl_sched_group_downmigrate_pct;
-#endif
-
-#ifdef CONFIG_SCHED_HMP
-
-enum freq_reporting_policy {
-	FREQ_REPORT_MAX_CPU_LOAD_TOP_TASK,
-	FREQ_REPORT_CPU_LOAD,
-	FREQ_REPORT_TOP_TASK,
-	FREQ_REPORT_INVALID_POLICY
-};
-
-extern int sysctl_sched_freq_inc_notify;
-extern int sysctl_sched_freq_dec_notify;
-extern unsigned int sysctl_sched_freq_reporting_policy;
-extern unsigned int sysctl_sched_window_stats_policy;
-extern unsigned int sysctl_sched_ravg_hist_size;
-extern unsigned int sysctl_sched_spill_nr_run;
-extern unsigned int sysctl_sched_spill_load_pct;
-extern unsigned int sysctl_sched_upmigrate_pct;
-extern unsigned int sysctl_sched_downmigrate_pct;
-extern unsigned int sysctl_early_detection_duration;
-extern unsigned int sysctl_sched_small_wakee_task_load_pct;
-extern unsigned int sysctl_sched_big_waker_task_load_pct;
-extern unsigned int sysctl_sched_select_prev_cpu_us;
-extern unsigned int sysctl_sched_restrict_cluster_spill;
-extern unsigned int sysctl_sched_pred_alert_freq;
-extern unsigned int sysctl_sched_freq_aggregate;
-extern unsigned int sysctl_sched_enable_thread_grouping;
-extern unsigned int sysctl_sched_freq_aggregate_threshold_pct;
-extern unsigned int sysctl_sched_prefer_sync_wakee_to_waker;
-extern unsigned int sysctl_sched_short_burst;
-extern unsigned int sysctl_sched_short_sleep;
-
-#elif defined(CONFIG_SCHED_WALT)
 
 extern int
 walt_proc_update_handler(struct ctl_table *table, int write,
 			 void __user *buffer, size_t *lenp,
 			 loff_t *ppos);
 
-#endif /* CONFIG_SCHED_HMP */
+#endif /* CONFIG_SCHED_WALT */
 
 enum sched_tunable_scaling {
 	SCHED_TUNABLESCALING_NONE,

@@ -26,6 +26,15 @@
 #define IPA_V3_0_CLK_RATE_SVS (75 * 1000 * 1000UL)
 #define IPA_V3_0_CLK_RATE_NOMINAL (150 * 1000 * 1000UL)
 #define IPA_V3_0_CLK_RATE_TURBO (200 * 1000 * 1000UL)
+
+#define IPA_V3_5_CLK_RATE_SVS (200 * 1000 * 1000UL)
+#define IPA_V3_5_CLK_RATE_NOMINAL (400 * 1000 * 1000UL)
+#define IPA_V3_5_CLK_RATE_TURBO (42640 * 10 * 1000UL)
+
+#define IPA_V4_0_CLK_RATE_SVS (125 * 1000 * 1000UL)
+#define IPA_V4_0_CLK_RATE_NOMINAL (220 * 1000 * 1000UL)
+#define IPA_V4_0_CLK_RATE_TURBO (250 * 1000 * 1000UL)
+
 #define IPA_V3_0_MAX_HOLB_TMR_VAL (4294967296 - 1)
 
 #define IPA_V3_0_BW_THRESHOLD_TURBO_MBPS (1000)
@@ -1538,43 +1547,6 @@ static struct msm_bus_scale_pdata ipa_bus_client_pdata_v3_0 = {
 	.name = "ipa",
 };
 
-void ipa3_active_clients_lock(void)
-{
-	unsigned long flags;
-
-	mutex_lock(&ipa3_ctx->ipa3_active_clients.mutex);
-	spin_lock_irqsave(&ipa3_ctx->ipa3_active_clients.spinlock, flags);
-	ipa3_ctx->ipa3_active_clients.mutex_locked = true;
-	spin_unlock_irqrestore(&ipa3_ctx->ipa3_active_clients.spinlock, flags);
-}
-
-int ipa3_active_clients_trylock(unsigned long *flags)
-{
-	spin_lock_irqsave(&ipa3_ctx->ipa3_active_clients.spinlock, *flags);
-	if (ipa3_ctx->ipa3_active_clients.mutex_locked) {
-		spin_unlock_irqrestore(&ipa3_ctx->ipa3_active_clients.spinlock,
-					 *flags);
-		return 0;
-	}
-
-	return 1;
-}
-
-void ipa3_active_clients_trylock_unlock(unsigned long *flags)
-{
-	spin_unlock_irqrestore(&ipa3_ctx->ipa3_active_clients.spinlock, *flags);
-}
-
-void ipa3_active_clients_unlock(void)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&ipa3_ctx->ipa3_active_clients.spinlock, flags);
-	ipa3_ctx->ipa3_active_clients.mutex_locked = false;
-	spin_unlock_irqrestore(&ipa3_ctx->ipa3_active_clients.spinlock, flags);
-	mutex_unlock(&ipa3_ctx->ipa3_active_clients.mutex);
-}
-
 /**
  * ipa3_get_clients_from_rm_resource() - get IPA clients which are related to an
  * IPA_RM resource
@@ -1818,15 +1790,7 @@ int ipa3_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 	enum ipa_client_type client;
 	struct ipa_ep_cfg_ctrl suspend;
 	int ipa_ep_idx;
-	unsigned long flags;
 	struct ipa_active_client_logging_info log_info;
-
-	if (ipa3_active_clients_trylock(&flags) == 0)
-		return -EPERM;
-	if (ipa3_ctx->ipa3_active_clients.cnt == 1) {
-		res = -EPERM;
-		goto bail;
-	}
 
 	memset(&clients, 0, sizeof(clients));
 	res = ipa3_get_clients_from_rm_resource(resource, &clients);
@@ -1866,14 +1830,11 @@ int ipa3_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 	if (res == 0) {
 		IPA_ACTIVE_CLIENTS_PREP_RESOURCE(log_info,
 				ipa_rm_resource_str(resource));
-		ipa3_active_clients_log_dec(&log_info, true);
-		ipa3_ctx->ipa3_active_clients.cnt--;
-		IPADBG("active clients = %d\n",
-		       ipa3_ctx->ipa3_active_clients.cnt);
+		/* before gating IPA clocks do TAG process */
+		ipa3_ctx->tag_process_before_gating = true;
+		ipa3_dec_client_disable_clks_no_block(&log_info);
 	}
 bail:
-	ipa3_active_clients_trylock_unlock(&flags);
-
 	return res;
 }
 
@@ -2487,8 +2448,8 @@ int ipa3_cfg_ep_seq(u32 clnt_hdl, const struct ipa_ep_cfg_seq *seq_cfg)
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
  * @ipa_ep_cfg:	[in] IPA end-point configuration params
  *
- * This includes nat, header, mode, aggregation and route settings and is a one
- * shot API to configure the IPA end-point fully
+ * This includes nat, IPv6CT, header, mode, aggregation and route settings and
+ * is a one shot API to configure the IPA end-point fully
  *
  * Returns:	0 on success, negative on failure
  *
@@ -2525,6 +2486,13 @@ int ipa3_cfg_ep(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg)
 		if (result)
 			return result;
 
+		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_0) {
+			result = ipa3_cfg_ep_conn_track(clnt_hdl,
+				&ipa_ep_cfg->conn_track);
+			if (result)
+				return result;
+		}
+
 		result = ipa3_cfg_ep_mode(clnt_hdl, &ipa_ep_cfg->mode);
 		if (result)
 			return result;
@@ -2550,7 +2518,7 @@ int ipa3_cfg_ep(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg)
 	return 0;
 }
 
-const char *ipa3_get_nat_en_str(enum ipa_nat_en_type nat_en)
+static const char *ipa3_get_nat_en_str(enum ipa_nat_en_type nat_en)
 {
 	switch (nat_en) {
 	case (IPA_BYPASS_NAT):
@@ -2564,10 +2532,22 @@ const char *ipa3_get_nat_en_str(enum ipa_nat_en_type nat_en)
 	return "undefined";
 }
 
+static const char *ipa3_get_ipv6ct_en_str(enum ipa_ipv6ct_en_type ipv6ct_en)
+{
+	switch (ipv6ct_en) {
+	case (IPA_BYPASS_IPV6CT):
+		return "ipv6ct disabled";
+	case (IPA_ENABLE_IPV6CT):
+		return "ipv6ct enabled";
+	}
+
+	return "undefined";
+}
+
 /**
  * ipa3_cfg_ep_nat() - IPA end-point NAT configuration
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
- * @ipa_ep_cfg:	[in] IPA end-point configuration params
+ * @ep_nat:	[in] IPA NAT end-point configuration params
  *
  * Returns:	0 on success, negative on failure
  *
@@ -2599,6 +2579,49 @@ int ipa3_cfg_ep_nat(u32 clnt_hdl, const struct ipa_ep_cfg_nat *ep_nat)
 	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
 
 	ipahal_write_reg_n_fields(IPA_ENDP_INIT_NAT_n, clnt_hdl, ep_nat);
+
+	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
+
+	return 0;
+}
+
+/**
+ * ipa3_cfg_ep_conn_track() - IPA end-point IPv6CT configuration
+ * @clnt_hdl:		[in] opaque client handle assigned by IPA to client
+ * @ep_conn_track:	[in] IPA IPv6CT end-point configuration params
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa3_cfg_ep_conn_track(u32 clnt_hdl,
+	const struct ipa_ep_cfg_conn_track *ep_conn_track)
+{
+	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
+		ipa3_ctx->ep[clnt_hdl].valid == 0 || ep_conn_track == NULL) {
+		IPAERR("bad parm, clnt_hdl = %d , ep_valid = %d\n",
+			clnt_hdl,
+			ipa3_ctx->ep[clnt_hdl].valid);
+		return -EINVAL;
+	}
+
+	if (IPA_CLIENT_IS_CONS(ipa3_ctx->ep[clnt_hdl].client)) {
+		IPAERR("IPv6CT does not apply to IPA out EP %d\n", clnt_hdl);
+		return -EINVAL;
+	}
+
+	IPADBG("pipe=%d, conn_track_en=%d(%s)\n",
+		clnt_hdl,
+		ep_conn_track->conn_track_en,
+		ipa3_get_ipv6ct_en_str(ep_conn_track->conn_track_en));
+
+	/* copy over EP cfg */
+	ipa3_ctx->ep[clnt_hdl].cfg.conn_track = *ep_conn_track;
+
+	IPA_ACTIVE_CLIENTS_INC_EP(ipa3_get_client_mapping(clnt_hdl));
+
+	ipahal_write_reg_n_fields(IPA_ENDP_INIT_CONN_TRACK_n, clnt_hdl,
+		ep_conn_track);
 
 	IPA_ACTIVE_CLIENTS_DEC_EP(ipa3_get_client_mapping(clnt_hdl));
 
@@ -3705,13 +3728,24 @@ int ipa3_init_mem_partition(struct device_node *node)
 int ipa3_controller_static_bind(struct ipa3_controller *ctrl,
 		enum ipa_hw_type hw_type)
 {
+	if (hw_type >= IPA_HW_v4_0) {
+		ctrl->ipa_clk_rate_turbo = IPA_V4_0_CLK_RATE_TURBO;
+		ctrl->ipa_clk_rate_nominal = IPA_V4_0_CLK_RATE_NOMINAL;
+		ctrl->ipa_clk_rate_svs = IPA_V4_0_CLK_RATE_SVS;
+	} else if (hw_type >= IPA_HW_v3_5) {
+		ctrl->ipa_clk_rate_turbo = IPA_V3_5_CLK_RATE_TURBO;
+		ctrl->ipa_clk_rate_nominal = IPA_V3_5_CLK_RATE_NOMINAL;
+		ctrl->ipa_clk_rate_svs = IPA_V3_5_CLK_RATE_SVS;
+	} else {
+		ctrl->ipa_clk_rate_turbo = IPA_V3_0_CLK_RATE_TURBO;
+		ctrl->ipa_clk_rate_nominal = IPA_V3_0_CLK_RATE_NOMINAL;
+		ctrl->ipa_clk_rate_svs = IPA_V3_0_CLK_RATE_SVS;
+	}
+
 	ctrl->ipa_init_rt4 = _ipa_init_rt4_v3;
 	ctrl->ipa_init_rt6 = _ipa_init_rt6_v3;
 	ctrl->ipa_init_flt4 = _ipa_init_flt4_v3;
 	ctrl->ipa_init_flt6 = _ipa_init_flt6_v3;
-	ctrl->ipa_clk_rate_turbo = IPA_V3_0_CLK_RATE_TURBO;
-	ctrl->ipa_clk_rate_nominal = IPA_V3_0_CLK_RATE_NOMINAL;
-	ctrl->ipa_clk_rate_svs = IPA_V3_0_CLK_RATE_SVS;
 	ctrl->ipa3_read_ep_reg = _ipa_read_ep_reg_v3_0;
 	ctrl->ipa3_commit_flt = __ipa_commit_flt_v3;
 	ctrl->ipa3_commit_rt = __ipa_commit_rt_v3;
@@ -4286,6 +4320,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_disable_endpoint = NULL;
 	api_ctrl->ipa_cfg_ep = ipa3_cfg_ep;
 	api_ctrl->ipa_cfg_ep_nat = ipa3_cfg_ep_nat;
+	api_ctrl->ipa_cfg_ep_conn_track = ipa3_cfg_ep_conn_track;
 	api_ctrl->ipa_cfg_ep_hdr = ipa3_cfg_ep_hdr;
 	api_ctrl->ipa_cfg_ep_hdr_ext = ipa3_cfg_ep_hdr_ext;
 	api_ctrl->ipa_cfg_ep_mode = ipa3_cfg_ep_mode;
@@ -4439,6 +4474,8 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_tear_down_uc_offload_pipes =
 		ipa3_tear_down_uc_offload_pipes;
 	api_ctrl->ipa_get_pdev = ipa3_get_pdev;
+	api_ctrl->ipa_ntn_uc_reg_rdyCB = ipa3_ntn_uc_reg_rdyCB;
+	api_ctrl->ipa_ntn_uc_dereg_rdyCB = ipa3_ntn_uc_dereg_rdyCB;
 
 	return 0;
 }

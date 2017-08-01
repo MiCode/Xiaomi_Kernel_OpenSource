@@ -97,6 +97,7 @@
 
 			qcom,boost-threshold-ua = <100000>;
 			qcom,wipower-max-uw = <5000000>;
+			dpdm-supply = <&qusb_phy0>;
 
 			qcom,thermal-mitigation
 					= <3000000 1500000 1000000 500000>;
@@ -436,7 +437,6 @@
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
 				linux,name = "red";
-				linux,default-trigger = "battery-charging";
 			};
 
 			green_led: qcom,rgb_1 {
@@ -448,7 +448,6 @@
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
 				linux,name = "green";
-				linux,default-trigger = "battery-full";
 			};
 
 			blue_led: qcom,rgb_2 {
@@ -460,7 +459,6 @@
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
 				linux,name = "blue";
-				linux,default-trigger = "boot-indication";
 			};
 		};
 

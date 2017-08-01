@@ -170,13 +170,17 @@ struct sde_hw_dspp_ops {
  * struct sde_hw_dspp - dspp description
  * @base: Hardware block base structure
  * @hw: Block hardware details
+ * @hw_top: Block hardware top details
  * @idx: DSPP index
  * @cap: Pointer to layer_cfg
  * @ops: Pointer to operations possible for this DSPP
  */
 struct sde_hw_dspp {
 	struct sde_hw_blk base;
-	 struct sde_hw_blk_reg_map hw;
+	struct sde_hw_blk_reg_map hw;
+
+	/* dspp top */
+	struct sde_hw_blk_reg_map hw_top;
 
 	/* dspp */
 	enum sde_dspp idx;

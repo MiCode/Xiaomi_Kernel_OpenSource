@@ -383,22 +383,21 @@ union Ipa3HwNTNErrorEventData_t {
  * struct NTN3RxInfoData_t - NTN Structure holding the Rx pipe
  * information
  *
- *@max_outstanding_pkts: Number of outstanding packets in Rx
- *		Ring
  *@num_pkts_processed: Number of packets processed - cumulative
- *@rx_ring_rp_value: Read pointer last advertized to the WLAN FW
  *
- *@rx_ind_ring_stats:
- *@bam_stats:
+ *@ring_stats:
+ *@gsi_stats:
  *@num_db: Number of times the doorbell was rung
+ *@num_qmb_int_handled: Number of QMB interrupts handled
+ *@ipa_pipe_number: The IPA Rx/Tx pipe number.
  */
 struct NTN3RxInfoData_t {
-	u32  max_outstanding_pkts;
 	u32  num_pkts_processed;
-	u32  rx_ring_rp_value;
-	struct IpaHwRingStats_t rx_ind_ring_stats;
-	struct IpaHwBamStats_t bam_stats;
-	u32  num_db;
+	struct IpaHwRingStats_t ring_stats;
+	struct IpaHwBamStats_t gsi_stats;
+	u32 num_db;
+	u32 num_qmb_int_handled;
+	u32 ipa_pipe_number;
 } __packed;
 
 
@@ -417,12 +416,11 @@ struct NTN3RxInfoData_t {
  */
 struct NTN3TxInfoData_t {
 	u32  num_pkts_processed;
-	u32  tail_ptr_val;
-	u32  num_db_fired;
-	struct IpaHwRingStats_t tx_comp_ring_stats;
-	struct IpaHwBamStats_t bam_stats;
-	u32  num_db;
-	u32  num_qmb_int_handled;
+	struct IpaHwRingStats_t ring_stats;
+	struct IpaHwBamStats_t gsi_stats;
+	u32 num_db;
+	u32 num_qmb_int_handled;
+	u32 ipa_pipe_number;
 } __packed;
 
 

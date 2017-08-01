@@ -78,15 +78,21 @@ struct sde_danger_safe_status {
 };
 
 /**
- * struct sde_watchdog_te_status - configure watchdog timer to generate TE
+ * struct sde_vsync_source_cfg - configure vsync source and configure the
+ *                                    watchdog timers if required.
  * @pp_count: number of ping pongs active
  * @frame_rate: Display frame rate
  * @ppnumber: ping pong index array
+ * @vsync_source: vsync source selection
+ * @is_dummy: a dummy source of vsync selection. It must not be selected for
+ *           any case other than sde rsc idle request.
  */
-struct sde_watchdog_te_status {
+struct sde_vsync_source_cfg {
 	u32 pp_count;
 	u32 frame_rate;
 	u32 ppnumber[PINGPONG_MAX];
+	u32 vsync_source;
+	bool is_dummy;
 };
 
 /**
@@ -155,13 +161,12 @@ struct sde_hw_mdp_ops {
 			struct sde_danger_safe_status *status);
 
 	/**
-	 * setup_vsync_sel - get vsync configuration details
+	 * setup_vsync_source - setup vsync source configuration details
 	 * @mdp: mdp top context driver
-	 * @cfg: watchdog timer configuration
-	 * @watchdog_te: watchdog timer enable
+	 * @cfg: vsync source selection configuration
 	 */
-	void (*setup_vsync_sel)(struct sde_hw_mdp *mdp,
-			struct sde_watchdog_te_status *cfg, bool watchdog_te);
+	void (*setup_vsync_source)(struct sde_hw_mdp *mdp,
+				struct sde_vsync_source_cfg *cfg);
 
 	/**
 	 * get_safe_status - get safe status

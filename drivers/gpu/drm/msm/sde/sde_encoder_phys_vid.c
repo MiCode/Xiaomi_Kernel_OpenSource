@@ -16,6 +16,7 @@
 #include "sde_core_irq.h"
 #include "sde_formats.h"
 #include "dsi_display.h"
+#include "sde_trace.h"
 
 #define SDE_DEBUG_VIDENC(e, fmt, ...) SDE_DEBUG("enc%d intf%d " fmt, \
 		(e) && (e)->base.parent ? \
@@ -49,6 +50,23 @@ static void drm_mode_to_intf_timing_params(
 		struct intf_timing_params *timing)
 {
 	memset(timing, 0, sizeof(*timing));
+
+	if ((mode->htotal < mode->hsync_end)
+			|| (mode->hsync_start < mode->hdisplay)
+			|| (mode->vtotal < mode->vsync_end)
+			|| (mode->vsync_start < mode->vdisplay)
+			|| (mode->hsync_end < mode->hsync_start)
+			|| (mode->vsync_end < mode->vsync_start)) {
+		SDE_ERROR(
+		    "invalid params - hstart:%d,hend:%d,htot:%d,hdisplay:%d\n",
+				mode->hsync_start, mode->hsync_end,
+				mode->htotal, mode->hdisplay);
+		SDE_ERROR("vstart:%d,vend:%d,vtot:%d,vdisplay:%d\n",
+				mode->vsync_start, mode->vsync_end,
+				mode->vtotal, mode->vdisplay);
+		return;
+	}
+
 	/*
 	 * https://www.kernel.org/doc/htmldocs/drm/ch02s05.html
 	 *  Active Region      Front Porch   Sync   Back Porch
@@ -138,6 +156,15 @@ static u32 programmable_fetch_get_num_lines(
 	    timing->v_back_porch + timing->vsync_pulse_width;
 	u32 needed_vfp_lines = worst_case_needed_lines - start_of_frame_lines;
 	u32 actual_vfp_lines = 0;
+
+	if (worst_case_needed_lines < start_of_frame_lines) {
+		needed_vfp_lines = 0;
+		SDE_ERROR("invalid params - needed_lines:%d, frame_lines:%d\n",
+				worst_case_needed_lines, start_of_frame_lines);
+	} else {
+		needed_vfp_lines = worst_case_needed_lines
+					- start_of_frame_lines;
+	}
 
 	/* Fetch must be outside active lines, otherwise undefined. */
 	if (start_of_frame_lines >= worst_case_needed_lines) {
@@ -352,11 +379,25 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 	unsigned long lock_flags;
 	u32 flush_register = 0;
 	int new_cnt = -1, old_cnt = -1;
+	u32 event = 0;
 
 	if (!phys_enc)
 		return;
 
 	hw_ctl = phys_enc->hw_ctl;
+	SDE_ATRACE_BEGIN("vblank_irq");
+
+	/* signal only for master, where there is a pending kickoff */
+	if (sde_encoder_phys_vid_is_master(phys_enc)
+			&& atomic_add_unless(
+				&phys_enc->pending_retire_fence_cnt, -1, 0)) {
+		event = SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE
+				| SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE;
+
+		if (phys_enc->parent_ops.handle_frame_done)
+			phys_enc->parent_ops.handle_frame_done(phys_enc->parent,
+				phys_enc, event);
+	}
 
 	if (phys_enc->parent_ops.handle_vblank_virt)
 		phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent,
@@ -379,10 +420,11 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 
 	SDE_EVT32_IRQ(DRMID(phys_enc->parent), vid_enc->hw_intf->idx - INTF_0,
-			old_cnt, new_cnt, flush_register);
+			old_cnt, new_cnt, flush_register, event);
 
 	/* Signal any waiting atomic commit thread */
 	wake_up_all(&phys_enc->pending_kickoff_wq);
+	SDE_ATRACE_END("vblank_irq");
 }
 
 static void sde_encoder_phys_vid_underrun_irq(void *arg, int irq_idx)
@@ -442,15 +484,18 @@ static void sde_encoder_phys_vid_mode_set(
 	struct sde_encoder_phys_vid *vid_enc;
 
 	if (!phys_enc || !phys_enc->sde_kms) {
-		SDE_ERROR("invalid encoder\n");
+		SDE_ERROR("invalid encoder/kms\n");
 		return;
 	}
 
 	rm = &phys_enc->sde_kms->rm;
 	vid_enc = to_sde_encoder_phys_vid(phys_enc);
-	phys_enc->cached_mode = *adj_mode;
-	SDE_DEBUG_VIDENC(vid_enc, "caching mode:\n");
-	drm_mode_debug_printmodeline(adj_mode);
+
+	if (adj_mode) {
+		phys_enc->cached_mode = *adj_mode;
+		drm_mode_debug_printmodeline(adj_mode);
+		SDE_DEBUG_VIDENC(vid_enc, "caching mode:\n");
+	}
 
 	instance = phys_enc->split_role == ENC_ROLE_SLAVE ? 1 : 0;
 
@@ -476,7 +521,6 @@ static int sde_encoder_phys_vid_control_vblank_irq(
 {
 	int ret = 0;
 	struct sde_encoder_phys_vid *vid_enc;
-	unsigned long lock_flags;
 
 	if (!phys_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -493,8 +537,6 @@ static int sde_encoder_phys_vid_control_vblank_irq(
 			__builtin_return_address(0),
 			enable, atomic_read(&phys_enc->vblank_refcount));
 
-	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
-
 	SDE_EVT32(DRMID(phys_enc->parent), enable,
 			atomic_read(&phys_enc->vblank_refcount));
 
@@ -503,8 +545,6 @@ static int sde_encoder_phys_vid_control_vblank_irq(
 	else if (!enable && atomic_dec_return(&phys_enc->vblank_refcount) == 0)
 		ret = sde_encoder_helper_unregister_irq(phys_enc,
 				INTR_IDX_VSYNC);
-
-	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 
 	if (ret)
 		SDE_ERROR_VIDENC(vid_enc,
@@ -620,12 +660,17 @@ static void sde_encoder_phys_vid_get_hw_resources(
 static int sde_encoder_phys_vid_wait_for_vblank(
 		struct sde_encoder_phys *phys_enc, bool notify)
 {
-	struct sde_encoder_wait_info wait_info = {
-		.wq = &phys_enc->pending_kickoff_wq,
-		.atomic_cnt = &phys_enc->pending_kickoff_cnt,
-		.timeout_ms = KICKOFF_TIMEOUT_MS,
-	};
+	struct sde_encoder_wait_info wait_info;
 	int ret;
+
+	if (!phys_enc) {
+		pr_err("invalid encoder\n");
+		return -EINVAL;
+	}
+
+	wait_info.wq = &phys_enc->pending_kickoff_wq;
+	wait_info.atomic_cnt = &phys_enc->pending_kickoff_cnt;
+	wait_info.timeout_ms = KICKOFF_TIMEOUT_MS;
 
 	if (!sde_encoder_phys_vid_is_master(phys_enc)) {
 		/* signal done for slave video encoder, unless it is pp-split */
@@ -654,11 +699,7 @@ static int sde_encoder_phys_vid_wait_for_vblank(
 static int sde_encoder_phys_vid_wait_for_commit_done(
 		struct sde_encoder_phys *phys_enc)
 {
-	int ret;
-
-	ret = sde_encoder_phys_vid_wait_for_vblank(phys_enc, true);
-
-	return ret;
+	return sde_encoder_phys_vid_wait_for_vblank(phys_enc, true);
 }
 
 static void sde_encoder_phys_vid_prepare_for_kickoff(
@@ -688,7 +729,7 @@ static void sde_encoder_phys_vid_prepare_for_kickoff(
 		SDE_ERROR_VIDENC(vid_enc, "ctl %d reset failure: %d\n",
 				ctl->idx, rc);
 		sde_encoder_helper_unregister_irq(phys_enc, INTR_IDX_VSYNC);
-		SDE_DBG_DUMP("panic");
+		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus", "panic");
 	}
 
 	programmable_rot_fetch_config(phys_enc, params->inline_rotate_prefill);
@@ -918,6 +959,7 @@ struct sde_encoder_phys *sde_encoder_phys_vid_init(
 
 	atomic_set(&phys_enc->vblank_refcount, 0);
 	atomic_set(&phys_enc->pending_kickoff_cnt, 0);
+	atomic_set(&phys_enc->pending_retire_fence_cnt, 0);
 	init_waitqueue_head(&phys_enc->pending_kickoff_wq);
 	phys_enc->enable_state = SDE_ENC_DISABLED;
 

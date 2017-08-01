@@ -644,6 +644,7 @@ static void sde_encoder_phys_wb_done_irq(void *arg, int irq_idx)
 	struct sde_encoder_phys_wb *wb_enc = arg;
 	struct sde_encoder_phys *phys_enc = &wb_enc->base;
 	struct sde_hw_wb *hw_wb = wb_enc->hw_wb;
+	u32 event = 0;
 
 	SDE_DEBUG("[wb:%d,%u]\n", hw_wb->idx - WB_0,
 			wb_enc->frame_count);
@@ -652,12 +653,20 @@ static void sde_encoder_phys_wb_done_irq(void *arg, int irq_idx)
 	if (phys_enc->enable_state == SDE_ENC_DISABLING)
 		goto complete;
 
+	event = SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE
+			| SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE
+			| SDE_ENCODER_FRAME_EVENT_DONE;
+
+	atomic_add_unless(&phys_enc->pending_retire_fence_cnt, -1, 0);
 	if (phys_enc->parent_ops.handle_frame_done)
 		phys_enc->parent_ops.handle_frame_done(phys_enc->parent,
-				phys_enc, SDE_ENCODER_FRAME_EVENT_DONE);
+				phys_enc, event);
 
-	phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent,
-			phys_enc);
+	if (phys_enc->parent_ops.handle_vblank_virt)
+		phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent,
+				phys_enc);
+
+	SDE_EVT32_IRQ(DRMID(phys_enc->parent), hw_wb->idx - WB_0, event);
 
 complete:
 	complete_all(&wb_enc->wbdone_complete);
@@ -783,7 +792,7 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
 {
 	unsigned long ret;
 	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
-	u32 irq_status;
+	u32 irq_status, event = 0;
 	u64 wb_time = 0;
 	int rc = 0;
 	u32 timeout = max_t(u32, wb_enc->wbdone_timeout, KICKOFF_TIMEOUT_MS);
@@ -802,7 +811,6 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
 	if (!ret) {
 		SDE_EVT32(DRMID(phys_enc->parent), WBID(wb_enc),
 				wb_enc->frame_count);
-
 		irq_status = sde_core_irq_read(phys_enc->sde_kms,
 				wb_enc->irq_idx, true);
 		if (irq_status) {
@@ -812,10 +820,15 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
 		} else {
 			SDE_ERROR("wb:%d kickoff timed out\n",
 					wb_enc->wb_dev->wb_idx - WB_0);
+			atomic_add_unless(
+				&phys_enc->pending_retire_fence_cnt, -1, 0);
+
+			event = SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE
+				| SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE
+				| SDE_ENCODER_FRAME_EVENT_ERROR;
 			if (phys_enc->parent_ops.handle_frame_done)
 				phys_enc->parent_ops.handle_frame_done(
-						phys_enc->parent, phys_enc,
-						SDE_ENCODER_FRAME_EVENT_ERROR);
+					phys_enc->parent, phys_enc, event);
 			rc = -ETIMEDOUT;
 		}
 	}
@@ -844,7 +857,7 @@ static int sde_encoder_phys_wb_wait_for_commit_done(
 	}
 
 	SDE_EVT32(DRMID(phys_enc->parent), WBID(wb_enc), wb_enc->frame_count,
-			wb_time);
+			wb_time, event, rc);
 
 	return rc;
 }
@@ -1296,6 +1309,7 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 	phys_enc->intf_mode = INTF_MODE_WB_LINE;
 	phys_enc->intf_idx = p->intf_idx;
 	phys_enc->enc_spinlock = p->enc_spinlock;
+	atomic_set(&phys_enc->pending_retire_fence_cnt, 0);
 	INIT_LIST_HEAD(&wb_enc->irq_cb.list);
 
 	/* create internal buffer for disable logic */

@@ -75,9 +75,6 @@ struct msm_kms_funcs {
 			const struct msm_format *msm_fmt,
 			const struct drm_mode_fb_cmd2 *cmd,
 			struct drm_gem_object **bos);
-	/* perform complete atomic check of given atomic state */
-	int (*atomic_check)(struct msm_kms *kms,
-				    struct drm_atomic_state *state);
 	/* misc: */
 	long (*round_pixclk)(struct msm_kms *kms, unsigned long rate,
 			struct drm_encoder *encoder);
@@ -118,9 +115,24 @@ struct msm_kms *mdp4_kms_init(struct drm_device *dev);
 static inline
 struct msm_kms *mdp4_kms_init(struct drm_device *dev) { return NULL; };
 #endif
-struct msm_kms *mdp5_kms_init(struct drm_device *dev);
+
+#ifdef CONFIG_DRM_MSM_MDP5
 int msm_mdss_init(struct drm_device *dev);
 void msm_mdss_destroy(struct drm_device *dev);
+struct msm_kms *mdp5_kms_init(struct drm_device *dev);
+#else
+static inline int msm_mdss_init(struct drm_device *dev)
+{
+	return 0;
+}
+static inline void msm_mdss_destroy(struct drm_device *dev)
+{
+}
+static inline struct msm_kms *mdp5_kms_init(struct drm_device *dev)
+{
+	return NULL;
+}
+#endif
 struct msm_kms *sde_kms_init(struct drm_device *dev);
 
 /**

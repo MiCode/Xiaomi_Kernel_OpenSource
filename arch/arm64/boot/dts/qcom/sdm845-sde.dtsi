@@ -57,14 +57,18 @@
 				      0x48000 0x49000 0x4a000>;
 		qcom,sde-mixer-size = <0x320>;
 
+		qcom,sde-dspp-top-off = <0x1300>;
+		qcom,sde-dspp-top-size = <0xc>;
+
 		qcom,sde-dspp-off = <0x55000 0x57000 0x59000 0x5b000>;
 		qcom,sde-dspp-size = <0x17e0>;
 
 		qcom,sde-wb-off = <0x66000>;
 		qcom,sde-wb-size = <0x2c8>;
-
 		qcom,sde-wb-xin-id = <6>;
 		qcom,sde-wb-id = <2>;
+		qcom,sde-wb-clk-ctrl = <0x3b8 24>;
+
 		qcom,sde-intf-off = <0x6b000 0x6b800
 					0x6c000 0x6c800>;
 		qcom,sde-intf-size = <0x280>;
@@ -188,8 +192,10 @@
 		};
 
 		qcom,sde-dspp-blocks {
+			qcom,sde-dspp-igc = <0x0 0x00030001>;
 			qcom,sde-dspp-vlut = <0xa00 0x00010008>;
 			qcom,sde-dspp-gamut = <0x1000 0x00040000>;
+			qcom,sde-dspp-pcc = <0x1700 0x00040000>;
 			qcom,sde-dspp-gc = <0x17c0 0x00010008>;
 		};
 
@@ -349,6 +355,7 @@
 
 		/* Offline rotator QoS setting */
 		qcom,mdss-rot-vbif-qos-setting = <3 3 3 3 3 3 3 3>;
+		qcom,mdss-rot-vbif-memtype = <3 3>;
 		qcom,mdss-rot-cdp-setting = <1 1>;
 		qcom,mdss-rot-qos-lut = <0x0 0x0 0x0 0x0>;
 		qcom,mdss-rot-danger-lut = <0x0 0x0>;
@@ -368,6 +375,17 @@
 
 		cache-slice-names = "rotator";
 		cache-slices = <&llcc 4>;
+
+		/* reg bus scale settings */
+		rot_reg: qcom,rot-reg-bus {
+			qcom,msm-bus,name = "mdss_rot_reg";
+			qcom,msm-bus,num-cases = <2>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,vectors-KBps =
+				<1 590 0 0>,
+				<1 590 0 76800>;
+		};
 
 		smmu_rot_unsec: qcom,smmu_rot_unsec_cb {
 			compatible = "qcom,smmu_sde_rot_unsec";

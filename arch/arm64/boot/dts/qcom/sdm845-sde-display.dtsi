@@ -496,7 +496,7 @@
 	qcom,display-topology = <1 1 1>,
 				<2 2 1>, /* dsc merge */
 				<2 1 1>; /* 3d mux */
-	qcom,default-topology-index = <0>;
+	qcom,default-topology-index = <1>;
 };
 
 &dsi_nt35597_truly_dsc_video {
@@ -506,7 +506,7 @@
 	qcom,display-topology = <1 1 1>,
 				<2 2 1>, /* dsc merge */
 				<2 1 1>; /* 3d mux */
-	qcom,default-topology-index = <0>;
+	qcom,default-topology-index = <1>;
 };
 
 &dsi_sharp_4k_dsc_video {

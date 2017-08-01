@@ -127,9 +127,11 @@ int sde_fence_create(struct sde_fence_context *fence, uint64_t *val,
 /**
  * sde_fence_signal - advance fence timeline to signal outstanding fences
  * @fence: Pointer fence container
+ * @ts: fence timestamp
  * @is_error: Set to non-zero if the commit didn't complete successfully
  */
-void sde_fence_signal(struct sde_fence_context *fence, bool is_error);
+void sde_fence_signal(struct sde_fence_context *fence, ktime_t ts,
+		bool is_error);
 #else
 static inline void *sde_sync_get(uint64_t fd)
 {
@@ -168,7 +170,7 @@ static inline int sde_fence_get(struct sde_fence_context *fence, uint64_t *val)
 }
 
 static inline void sde_fence_signal(struct sde_fence_context *fence,
-								bool is_error)
+						ktime_t ts, bool is_error)
 {
 	/* do nothing */
 }

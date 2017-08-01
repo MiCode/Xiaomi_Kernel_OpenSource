@@ -120,7 +120,6 @@ static void sde_hw_dsc_config(struct sde_hw_dsc *hw_dsc,
 	data |= dsc->max_qp_flatness << 5;
 	data |= dsc->min_qp_flatness;
 	SDE_REG_WRITE(dsc_c, DSC_FLATNESS, data);
-	SDE_REG_WRITE(dsc_c, DSC_FLATNESS, 0x983);
 
 	data = dsc->rc_model_size;
 	SDE_REG_WRITE(dsc_c, DSC_RC_MODEL_SIZE, data);

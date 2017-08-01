@@ -13,7 +13,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include "sdm845-camera-sensor-cdp.dtsi"
 
-/ {
+&vendor {
 	bluetooth: bt_wcn3990 {
 		compatible = "qca,wcn3990";
 		qca,bt-vdd-io-supply = <&pm8998_s3>;
@@ -188,7 +188,7 @@
 	qcom,batteryless-platform;
 };
 
-/ {
+&vendor {
 	extcon_usb1: extcon_usb1 {
 		compatible = "linux,extcon-usb-gpio";
 		id-gpio = <&pmi8998_gpios 9 GPIO_ACTIVE_HIGH>;

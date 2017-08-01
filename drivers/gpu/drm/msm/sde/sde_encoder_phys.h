@@ -235,6 +235,8 @@ struct sde_encoder_irq {
  *				scheduled. Decremented in irq handler
  * @pending_ctlstart_cnt:	Atomic counter tracking the number of ctl start
  *                              pending.
+ * @pending_retire_fence_cnt:   Atomic counter tracking the pending retire
+ *                              fences that have to be signalled.
  * @pending_kickoff_wq:		Wait queue for blocking until kickoff completes
  * @irq:			IRQ tracking structures
  */
@@ -261,6 +263,7 @@ struct sde_encoder_phys {
 	atomic_t underrun_cnt;
 	atomic_t pending_ctlstart_cnt;
 	atomic_t pending_kickoff_cnt;
+	atomic_t pending_retire_fence_cnt;
 	wait_queue_head_t pending_kickoff_wq;
 	struct sde_encoder_irq irq[INTR_IDX_MAX];
 };
@@ -307,6 +310,8 @@ struct sde_encoder_phys_cmd_autorefresh {
  * @serialize_wait4pp:	serialize wait4pp feature waits for pp_done interrupt
  *			after ctl_start instead of before next frame kickoff
  * @pp_timeout_report_cnt: number of pingpong done irq timeout errors
+ * @pending_rd_ptr_cnt: atomic counter to indicate if retire fence can be
+ *                      signaled at the next rd_ptr_irq
  * @autorefresh: autorefresh feature state
  */
 struct sde_encoder_phys_cmd {
@@ -315,6 +320,7 @@ struct sde_encoder_phys_cmd {
 	bool serialize_wait4pp;
 	int pp_timeout_report_cnt;
 	struct sde_encoder_phys_cmd_autorefresh autorefresh;
+	atomic_t pending_rd_ptr_cnt;
 };
 
 /**

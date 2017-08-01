@@ -710,6 +710,9 @@ static void sde_hw_intr_set_mask(struct sde_hw_intr *intr, uint32_t reg_off,
 		return;
 
 	SDE_REG_WRITE(&intr->hw, reg_off, mask);
+
+	/* ensure register writes go through */
+	wmb();
 }
 
 static void sde_hw_intr_dispatch_irq(struct sde_hw_intr *intr,
@@ -731,7 +734,7 @@ static void sde_hw_intr_dispatch_irq(struct sde_hw_intr *intr,
 	 * Now need to go through each IRQ status and find matching
 	 * irq lookup index.
 	 */
-	spin_lock_irqsave(&intr->status_lock, irq_flags);
+	spin_lock_irqsave(&intr->irq_lock, irq_flags);
 	for (reg_idx = 0; reg_idx < ARRAY_SIZE(sde_intr_set); reg_idx++) {
 		irq_status = intr->save_irq_status[reg_idx];
 
@@ -766,7 +769,7 @@ static void sde_hw_intr_dispatch_irq(struct sde_hw_intr *intr,
 				if (cbfunc)
 					cbfunc(arg, irq_idx);
 				else
-					intr->ops.clear_interrupt_status(
+					intr->ops.clear_intr_status_nolock(
 							intr, irq_idx);
 
 				/*
@@ -777,7 +780,7 @@ static void sde_hw_intr_dispatch_irq(struct sde_hw_intr *intr,
 				irq_status &= ~sde_irq_map[irq_idx].irq_mask;
 			}
 	}
-	spin_unlock_irqrestore(&intr->status_lock, irq_flags);
+	spin_unlock_irqrestore(&intr->irq_lock, irq_flags);
 }
 
 static int sde_hw_intr_enable_irq(struct sde_hw_intr *intr, int irq_idx)
@@ -801,7 +804,7 @@ static int sde_hw_intr_enable_irq(struct sde_hw_intr *intr, int irq_idx)
 	reg_idx = irq->reg_idx;
 	reg = &sde_intr_set[reg_idx];
 
-	spin_lock_irqsave(&intr->mask_lock, irq_flags);
+	spin_lock_irqsave(&intr->irq_lock, irq_flags);
 	cache_irq_mask = intr->cache_irq_mask[reg_idx];
 	if (cache_irq_mask & irq->irq_mask) {
 		dbgstr = "SDE IRQ already set:";
@@ -814,9 +817,12 @@ static int sde_hw_intr_enable_irq(struct sde_hw_intr *intr, int irq_idx)
 		/* Enabling interrupts with the new mask */
 		SDE_REG_WRITE(&intr->hw, reg->en_off, cache_irq_mask);
 
+		/* ensure register write goes through */
+		wmb();
+
 		intr->cache_irq_mask[reg_idx] = cache_irq_mask;
 	}
-	spin_unlock_irqrestore(&intr->mask_lock, irq_flags);
+	spin_unlock_irqrestore(&intr->irq_lock, irq_flags);
 
 	pr_debug("%s MASK:0x%.8x, CACHE-MASK:0x%.8x\n", dbgstr,
 			irq->irq_mask, cache_irq_mask);
@@ -845,7 +851,7 @@ static int sde_hw_intr_disable_irq(struct sde_hw_intr *intr, int irq_idx)
 	reg_idx = irq->reg_idx;
 	reg = &sde_intr_set[reg_idx];
 
-	spin_lock_irqsave(&intr->mask_lock, irq_flags);
+	spin_lock_irqsave(&intr->irq_lock, irq_flags);
 	cache_irq_mask = intr->cache_irq_mask[reg_idx];
 	if ((cache_irq_mask & irq->irq_mask) == 0) {
 		dbgstr = "SDE IRQ is already cleared:";
@@ -858,9 +864,12 @@ static int sde_hw_intr_disable_irq(struct sde_hw_intr *intr, int irq_idx)
 		/* Cleaning any pending interrupt */
 		SDE_REG_WRITE(&intr->hw, reg->clr_off, irq->irq_mask);
 
+		/* ensure register write goes through */
+		wmb();
+
 		intr->cache_irq_mask[reg_idx] = cache_irq_mask;
 	}
-	spin_unlock_irqrestore(&intr->mask_lock, irq_flags);
+	spin_unlock_irqrestore(&intr->irq_lock, irq_flags);
 
 	pr_debug("%s MASK:0x%.8x, CACHE-MASK:0x%.8x\n", dbgstr,
 			irq->irq_mask, cache_irq_mask);
@@ -878,6 +887,9 @@ static int sde_hw_intr_clear_irqs(struct sde_hw_intr *intr)
 	for (i = 0; i < ARRAY_SIZE(sde_intr_set); i++)
 		SDE_REG_WRITE(&intr->hw, sde_intr_set[i].clr_off, 0xffffffff);
 
+	/* ensure register writes go through */
+	wmb();
+
 	return 0;
 }
 
@@ -890,6 +902,9 @@ static int sde_hw_intr_disable_irqs(struct sde_hw_intr *intr)
 
 	for (i = 0; i < ARRAY_SIZE(sde_intr_set); i++)
 		SDE_REG_WRITE(&intr->hw, sde_intr_set[i].en_off, 0x00000000);
+
+	/* ensure register writes go through */
+	wmb();
 
 	return 0;
 }
@@ -926,7 +941,7 @@ static void sde_hw_intr_get_interrupt_statuses(struct sde_hw_intr *intr)
 	if (!intr)
 		return;
 
-	spin_lock_irqsave(&intr->status_lock, irq_flags);
+	spin_lock_irqsave(&intr->irq_lock, irq_flags);
 	for (i = 0; i < ARRAY_SIZE(sde_intr_set); i++) {
 		/* Read interrupt status */
 		intr->save_irq_status[i] = SDE_REG_READ(&intr->hw,
@@ -943,25 +958,68 @@ static void sde_hw_intr_get_interrupt_statuses(struct sde_hw_intr *intr)
 		/* Finally update IRQ status based on enable mask */
 		intr->save_irq_status[i] &= enable_mask;
 	}
-	spin_unlock_irqrestore(&intr->status_lock, irq_flags);
+
+	/* ensure register writes go through */
+	wmb();
+
+	spin_unlock_irqrestore(&intr->irq_lock, irq_flags);
 }
 
-static void sde_hw_intr_clear_interrupt_status(struct sde_hw_intr *intr,
+static void sde_hw_intr_clear_intr_status_nolock(struct sde_hw_intr *intr,
 		int irq_idx)
 {
 	int reg_idx;
-	unsigned long irq_flags;
 
 	if (!intr)
 		return;
-
-	spin_lock_irqsave(&intr->mask_lock, irq_flags);
 
 	reg_idx = sde_irq_map[irq_idx].reg_idx;
 	SDE_REG_WRITE(&intr->hw, sde_intr_set[reg_idx].clr_off,
 			sde_irq_map[irq_idx].irq_mask);
 
-	spin_unlock_irqrestore(&intr->mask_lock, irq_flags);
+	/* ensure register writes go through */
+	wmb();
+}
+
+static void sde_hw_intr_clear_interrupt_status(struct sde_hw_intr *intr,
+		int irq_idx)
+{
+	unsigned long irq_flags;
+
+	if (!intr)
+		return;
+
+	spin_lock_irqsave(&intr->irq_lock, irq_flags);
+	sde_hw_intr_clear_intr_status_nolock(intr, irq_idx);
+	spin_unlock_irqrestore(&intr->irq_lock, irq_flags);
+}
+
+static u32 sde_hw_intr_get_intr_status_nolock(struct sde_hw_intr *intr,
+		int irq_idx, bool clear)
+{
+	int reg_idx;
+	u32 intr_status;
+
+	if (!intr)
+		return 0;
+
+	if (irq_idx >= ARRAY_SIZE(sde_irq_map) || irq_idx < 0) {
+		pr_err("invalid IRQ index: [%d]\n", irq_idx);
+		return 0;
+	}
+
+	reg_idx = sde_irq_map[irq_idx].reg_idx;
+	intr_status = SDE_REG_READ(&intr->hw,
+			sde_intr_set[reg_idx].status_off) &
+					sde_irq_map[irq_idx].irq_mask;
+	if (intr_status && clear)
+		SDE_REG_WRITE(&intr->hw, sde_intr_set[reg_idx].clr_off,
+				intr_status);
+
+	/* ensure register writes go through */
+	wmb();
+
+	return intr_status;
 }
 
 static u32 sde_hw_intr_get_interrupt_status(struct sde_hw_intr *intr,
@@ -979,7 +1037,7 @@ static u32 sde_hw_intr_get_interrupt_status(struct sde_hw_intr *intr,
 		return 0;
 	}
 
-	spin_lock_irqsave(&intr->mask_lock, irq_flags);
+	spin_lock_irqsave(&intr->irq_lock, irq_flags);
 
 	reg_idx = sde_irq_map[irq_idx].reg_idx;
 	intr_status = SDE_REG_READ(&intr->hw,
@@ -989,7 +1047,10 @@ static u32 sde_hw_intr_get_interrupt_status(struct sde_hw_intr *intr,
 		SDE_REG_WRITE(&intr->hw, sde_intr_set[reg_idx].clr_off,
 				intr_status);
 
-	spin_unlock_irqrestore(&intr->mask_lock, irq_flags);
+	/* ensure register writes go through */
+	wmb();
+
+	spin_unlock_irqrestore(&intr->irq_lock, irq_flags);
 
 	return intr_status;
 }
@@ -1007,7 +1068,9 @@ static void __setup_intr_ops(struct sde_hw_intr_ops *ops)
 	ops->get_interrupt_sources = sde_hw_intr_get_interrupt_sources;
 	ops->get_interrupt_statuses = sde_hw_intr_get_interrupt_statuses;
 	ops->clear_interrupt_status = sde_hw_intr_clear_interrupt_status;
+	ops->clear_intr_status_nolock = sde_hw_intr_clear_intr_status_nolock;
 	ops->get_interrupt_status = sde_hw_intr_get_interrupt_status;
+	ops->get_intr_status_nolock = sde_hw_intr_get_intr_status_nolock;
 }
 
 static struct sde_mdss_base_cfg *__intr_offset(struct sde_mdss_cfg *m,
@@ -1059,8 +1122,7 @@ struct sde_hw_intr *sde_hw_intr_init(void __iomem *addr,
 		return ERR_PTR(-ENOMEM);
 	}
 
-	spin_lock_init(&intr->mask_lock);
-	spin_lock_init(&intr->status_lock);
+	spin_lock_init(&intr->irq_lock);
 
 	return intr;
 }

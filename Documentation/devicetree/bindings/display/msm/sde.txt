@@ -52,6 +52,9 @@ Required properties
 				The number of offsets defined should reflect the
 				amount of mixers that can drive data to a panel
 				interface.
+- qcom,sde-dspp-top-off:		Offset address for the dspp top block.
+				The offset is calculated from register "mdp_phys"
+				defined in reg property.
 - qcom,sde-dspp-off: 		Array of offset addresses for the available dspp
 				blocks. These offsets are calculated from
 				register "mdp_phys" defined in reg property.
@@ -207,6 +210,7 @@ Optional properties:
 				e.g. qcom,sde-dspp-blocks
 				-- qcom,sde-dspp-pcc: offset and version of PCC hardware
 				-- qcom,sde-dspp-gc: offset and version of GC hardware
+				-- qcom,sde-dspp-igc: offset and version of IGC hardware
 				-- qcom,sde-dspp-hsic: offset and version of global PA adjustment
 				-- qcom,sde-dspp-memcolor: offset and version of PA memcolor hardware
 				-- qcom,sde-dspp-sixzone: offset and version of PA sixzone hardware
@@ -424,6 +428,7 @@ Example:
 		     0x00002600 0x00002800>;
     qcom,sde-mixer-off = <0x00045000 0x00046000
 			0x00047000 0x0004a000>;
+    qcom,sde-dspp-top-off = <0x1300>;
     qcom,sde-dspp-off = <0x00055000 0x00057000>;
     qcom,sde-dspp-ad-off = <0x24000 0x22800>;
     qcom,sde-dspp-ad-version = <0x00030000>;
@@ -481,6 +486,7 @@ Example:
     qcom,sde-sspp-src-size = <0x100>;
     qcom,sde-mixer-size = <0x100>;
     qcom,sde-ctl-size = <0x100>;
+    qcom,sde-dspp-top-size = <0xc>;
     qcom,sde-dspp-size = <0x100>;
     qcom,sde-intf-size = <0x100>;
     qcom,sde-dsc-size = <0x100>;
@@ -599,6 +605,7 @@ Example:
     };
 
     qcom,sde-dspp-blocks {
+        qcom,sde-dspp-igc = <0x0 0x00010000>;
         qcom,sde-dspp-pcc = <0x1700 0x00010000>;
         qcom,sde-dspp-gc = <0x17c0 0x00010000>;
         qcom,sde-dspp-hsic = <0x0 0x00010000>;

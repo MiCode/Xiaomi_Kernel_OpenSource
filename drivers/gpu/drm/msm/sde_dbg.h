@@ -27,6 +27,7 @@
 #define SDE_EVTLOG_FUNC_CASE5	0x7777
 #define SDE_EVTLOG_PANIC	0xdead
 #define SDE_EVTLOG_FATAL	0xbad
+#define SDE_EVTLOG_ERROR	0xebad
 
 #define SDE_DBG_DUMP_DATA_LIMITER (NULL)
 

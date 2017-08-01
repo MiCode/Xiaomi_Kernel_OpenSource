@@ -17,6 +17,7 @@
 #include "sde_hw_interrupts.h"
 #include "sde_core_irq.h"
 #include "sde_formats.h"
+#include "sde_trace.h"
 
 #define SDE_DEBUG_CMDENC(e, fmt, ...) SDE_DEBUG("enc%d intf%d " fmt, \
 		(e) && (e)->base.parent ? \
@@ -160,24 +161,28 @@ static void sde_encoder_phys_cmd_pp_tx_done_irq(void *arg, int irq_idx)
 	struct sde_encoder_phys *phys_enc = arg;
 	unsigned long lock_flags;
 	int new_cnt;
+	u32 event = SDE_ENCODER_FRAME_EVENT_DONE |
+			SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE;
 
-	if (!phys_enc)
+	if (!phys_enc || !phys_enc->hw_pp)
 		return;
 
+	SDE_ATRACE_BEGIN("pp_done_irq");
 	/* notify all synchronous clients first, then asynchronous clients */
 	if (phys_enc->parent_ops.handle_frame_done)
 		phys_enc->parent_ops.handle_frame_done(phys_enc->parent,
-				phys_enc, SDE_ENCODER_FRAME_EVENT_DONE);
+				phys_enc, event);
 
 	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
 	new_cnt = atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 
 	SDE_EVT32_IRQ(DRMID(phys_enc->parent),
-			phys_enc->hw_pp->idx - PINGPONG_0, new_cnt);
+			phys_enc->hw_pp->idx - PINGPONG_0, new_cnt, event);
 
 	/* Signal any waiting atomic commit thread */
 	wake_up_all(&phys_enc->pending_kickoff_wq);
+	SDE_ATRACE_END("pp_done_irq");
 }
 
 static void sde_encoder_phys_cmd_autorefresh_done_irq(void *arg, int irq_idx)
@@ -206,35 +211,88 @@ static void sde_encoder_phys_cmd_autorefresh_done_irq(void *arg, int irq_idx)
 static void sde_encoder_phys_cmd_pp_rd_ptr_irq(void *arg, int irq_idx)
 {
 	struct sde_encoder_phys *phys_enc = arg;
+	struct sde_encoder_phys_cmd *cmd_enc;
+	bool signal_fence = false;
 
-	if (!phys_enc)
+	if (!phys_enc || !phys_enc->hw_pp)
 		return;
 
+	SDE_ATRACE_BEGIN("rd_ptr_irq");
+	cmd_enc = to_sde_encoder_phys_cmd(phys_enc);
+
+	/**
+	 * signal only for master,
+	 * - when the ctl_start irq is done and incremented
+	 *   the pending_rd_ptr_cnt.
+	 * - when ctl_start irq status bit is set. This handles the case
+	 *   where ctl_start status bit is set in hardware, but the interrupt
+	 *   is delayed due to some reason.
+	 */
+	if (sde_encoder_phys_cmd_is_master(phys_enc) &&
+			atomic_read(&phys_enc->pending_retire_fence_cnt)) {
+
+		if (atomic_add_unless(
+				&cmd_enc->pending_rd_ptr_cnt, -1, 0)) {
+			signal_fence = true;
+		} else {
+			signal_fence =
+				sde_core_irq_read_nolock(phys_enc->sde_kms,
+				    phys_enc->irq[INTR_IDX_CTL_START].irq_idx,
+				    false);
+			if (signal_fence)
+				SDE_EVT32_IRQ(DRMID(phys_enc->parent),
+				    phys_enc->hw_pp->idx - PINGPONG_0,
+				    atomic_read(
+					&phys_enc->pending_retire_fence_cnt),
+				    SDE_EVTLOG_FUNC_CASE1);
+		}
+
+		if (signal_fence && phys_enc->parent_ops.handle_frame_done) {
+			atomic_add_unless(
+				&phys_enc->pending_retire_fence_cnt, -1, 0);
+			phys_enc->parent_ops.handle_frame_done(
+				phys_enc->parent, phys_enc,
+				SDE_ENCODER_FRAME_EVENT_SIGNAL_RETIRE_FENCE);
+		}
+	}
+
 	SDE_EVT32_IRQ(DRMID(phys_enc->parent),
-			phys_enc->hw_pp->idx - PINGPONG_0, 0xfff);
+			phys_enc->hw_pp->idx - PINGPONG_0, signal_fence, 0xfff);
 
 	if (phys_enc->parent_ops.handle_vblank_virt)
 		phys_enc->parent_ops.handle_vblank_virt(phys_enc->parent,
 			phys_enc);
+
+	SDE_ATRACE_END("rd_ptr_irq");
 }
 
 static void sde_encoder_phys_cmd_ctl_start_irq(void *arg, int irq_idx)
 {
 	struct sde_encoder_phys *phys_enc = arg;
+	struct sde_encoder_phys_cmd *cmd_enc;
 	struct sde_hw_ctl *ctl;
 
-	if (!phys_enc)
+	if (!phys_enc || !phys_enc->hw_ctl)
 		return;
 
-	if (!phys_enc->hw_ctl)
-		return;
+	SDE_ATRACE_BEGIN("ctl_start_irq");
+	cmd_enc = to_sde_encoder_phys_cmd(phys_enc);
 
 	ctl = phys_enc->hw_ctl;
 	SDE_EVT32_IRQ(DRMID(phys_enc->parent), ctl->idx - CTL_0, 0xfff);
 	atomic_add_unless(&phys_enc->pending_ctlstart_cnt, -1, 0);
 
+	/*
+	 * this is required for the fence signalling to be done in rd_ptr_irq
+	 * after ctrl_start_irq
+	 */
+	if (sde_encoder_phys_cmd_is_master(phys_enc)
+			&& atomic_read(&phys_enc->pending_retire_fence_cnt))
+		atomic_inc(&cmd_enc->pending_rd_ptr_cnt);
+
 	/* Signal any waiting ctl start interrupt */
 	wake_up_all(&phys_enc->pending_kickoff_wq);
+	SDE_ATRACE_END("ctl_start_irq");
 }
 
 static void sde_encoder_phys_cmd_underrun_irq(void *arg, int irq_idx)
@@ -332,7 +390,8 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 			to_sde_encoder_phys_cmd(phys_enc);
-	u32 frame_event = SDE_ENCODER_FRAME_EVENT_ERROR;
+	u32 frame_event = SDE_ENCODER_FRAME_EVENT_ERROR
+				| SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE;
 	bool do_log = false;
 
 	cmd_enc->pp_timeout_report_cnt++;
@@ -345,7 +404,8 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 
 	SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx - PINGPONG_0,
 			cmd_enc->pp_timeout_report_cnt,
-			atomic_read(&phys_enc->pending_kickoff_cnt));
+			atomic_read(&phys_enc->pending_kickoff_cnt),
+			frame_event);
 
 	/* to avoid flooding, only log first time, and "dead" time */
 	if (do_log) {
@@ -359,9 +419,7 @@ static int _sde_encoder_phys_cmd_handle_ppdone_timeout(
 		SDE_EVT32(DRMID(phys_enc->parent), SDE_EVTLOG_FATAL);
 
 		sde_encoder_helper_unregister_irq(phys_enc, INTR_IDX_RDPTR);
-		SDE_DBG_DUMP("sde", "dsi0_ctrl", "dsi0_phy", "dsi1_ctrl",
-				"dsi1_phy", "vbif", "dbg_bus",
-				"vbif_dbg_bus", "panic");
+		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus", "panic");
 	}
 
 	atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
@@ -418,9 +476,7 @@ static int _sde_encoder_phys_cmd_poll_write_pointer_started(
 				phys_enc->hw_pp->idx - PINGPONG_0,
 				timeout_us,
 				ret);
-		SDE_DBG_DUMP("sde", "dsi0_ctrl", "dsi0_phy", "dsi1_ctrl",
-				"dsi1_phy", "vbif_rt", "dbg_bus",
-				"vbif_dbg_bus", "panic");
+		SDE_DBG_DUMP("all", "dbg_bus", "vbif_dbg_bus", "panic");
 	}
 
 	return ret;
@@ -527,7 +583,6 @@ static int sde_encoder_phys_cmd_control_vblank_irq(
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 		to_sde_encoder_phys_cmd(phys_enc);
-	unsigned long lock_flags;
 	int ret = 0;
 
 	if (!phys_enc) {
@@ -543,8 +598,6 @@ static int sde_encoder_phys_cmd_control_vblank_irq(
 			__builtin_return_address(0),
 			enable, atomic_read(&phys_enc->vblank_refcount));
 
-	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
-
 	SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx - PINGPONG_0,
 			enable, atomic_read(&phys_enc->vblank_refcount));
 
@@ -553,8 +606,6 @@ static int sde_encoder_phys_cmd_control_vblank_irq(
 	else if (!enable && atomic_dec_return(&phys_enc->vblank_refcount) == 0)
 		ret = sde_encoder_helper_unregister_irq(phys_enc,
 				INTR_IDX_RDPTR);
-
-	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
 
 end:
 	if (ret)
@@ -574,6 +625,9 @@ void sde_encoder_phys_cmd_irq_control(struct sde_encoder_phys *phys_enc,
 		return;
 
 	cmd_enc = to_sde_encoder_phys_cmd(phys_enc);
+
+	SDE_EVT32(DRMID(phys_enc->parent), phys_enc->hw_pp->idx - PINGPONG_0,
+			enable, atomic_read(&phys_enc->vblank_refcount));
 
 	if (enable) {
 		sde_encoder_helper_register_irq(phys_enc, INTR_IDX_PINGPONG);
@@ -607,7 +661,7 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 	struct sde_encoder_phys_cmd *cmd_enc =
 		to_sde_encoder_phys_cmd(phys_enc);
 	struct sde_hw_tear_check tc_cfg = { 0 };
-	struct drm_display_mode *mode = &phys_enc->cached_mode;
+	struct drm_display_mode *mode;
 	bool tc_enable = true;
 	u32 vsync_hz;
 	struct msm_drm_private *priv;
@@ -617,6 +671,7 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
+	mode = &phys_enc->cached_mode;
 
 	SDE_DEBUG_CMDENC(cmd_enc, "pp %d\n", phys_enc->hw_pp->idx - PINGPONG_0);
 
@@ -627,7 +682,12 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 	}
 
 	sde_kms = phys_enc->sde_kms;
+	if (!sde_kms || !sde_kms->dev || !sde_kms->dev->dev_private) {
+		SDE_ERROR("invalid device\n");
+		return;
+	}
 	priv = sde_kms->dev->dev_private;
+
 	/*
 	 * TE default: dsi byte clock calculated base on 70 fps;
 	 * around 14 ms to complete a kickoff cycle if te disabled;
@@ -638,8 +698,10 @@ static void sde_encoder_phys_cmd_tearcheck_config(
 	 * frequency divided by the no. of rows (lines) in the LCDpanel.
 	 */
 	vsync_hz = sde_power_clk_get_rate(&priv->phandle, "vsync_clk");
-	if (!vsync_hz) {
-		SDE_DEBUG_CMDENC(cmd_enc, "invalid vsync clock rate\n");
+	if (!vsync_hz || !mode->vtotal || !mode->vrefresh) {
+		SDE_DEBUG_CMDENC(cmd_enc,
+			"invalid params - vsync_hz %u vtot %u vrefresh %u\n",
+			vsync_hz, mode->vtotal, mode->vrefresh);
 		return;
 	}
 
@@ -687,8 +749,8 @@ static void _sde_encoder_phys_cmd_pingpong_config(
 	struct sde_encoder_phys_cmd *cmd_enc =
 		to_sde_encoder_phys_cmd(phys_enc);
 
-	if (!phys_enc || !phys_enc->hw_ctl ||
-			!phys_enc->hw_ctl->ops.setup_intf_cfg) {
+	if (!phys_enc || !phys_enc->hw_ctl || !phys_enc->hw_pp
+			|| !phys_enc->hw_ctl->ops.setup_intf_cfg) {
 		SDE_ERROR("invalid arg(s), enc %d\n", phys_enc != 0);
 		return;
 	}
@@ -717,7 +779,7 @@ static void sde_encoder_phys_cmd_enable_helper(
 	struct sde_hw_ctl *ctl;
 	u32 flush_mask = 0;
 
-	if (!phys_enc || !phys_enc->hw_ctl) {
+	if (!phys_enc || !phys_enc->hw_ctl || !phys_enc->hw_pp) {
 		SDE_ERROR("invalid arg(s), encoder %d\n", phys_enc != 0);
 		return;
 	}
@@ -747,10 +809,11 @@ static void sde_encoder_phys_cmd_enable(struct sde_encoder_phys *phys_enc)
 	struct sde_encoder_phys_cmd *cmd_enc =
 		to_sde_encoder_phys_cmd(phys_enc);
 
-	if (!phys_enc) {
+	if (!phys_enc || !phys_enc->hw_pp) {
 		SDE_ERROR("invalid phys encoder\n");
 		return;
 	}
+
 	SDE_DEBUG_CMDENC(cmd_enc, "pp %d\n", phys_enc->hw_pp->idx - PINGPONG_0);
 
 	if (phys_enc->enable_state == SDE_ENC_ENABLED) {
@@ -803,7 +866,7 @@ static void sde_encoder_phys_cmd_disable(struct sde_encoder_phys *phys_enc)
 		to_sde_encoder_phys_cmd(phys_enc);
 	int ret;
 
-	if (!phys_enc) {
+	if (!phys_enc || !phys_enc->hw_pp) {
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
@@ -857,6 +920,12 @@ static void sde_encoder_phys_cmd_get_hw_resources(
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
+
+	if ((phys_enc->intf_idx - INTF_0) >= INTF_MAX) {
+		SDE_ERROR("invalid intf idx:%d\n", phys_enc->intf_idx);
+		return;
+	}
+
 	SDE_DEBUG_CMDENC(cmd_enc, "\n");
 	hw_res->intfs[phys_enc->intf_idx - INTF_0] = INTF_MODE_CMD;
 }
@@ -869,7 +938,7 @@ static void sde_encoder_phys_cmd_prepare_for_kickoff(
 			to_sde_encoder_phys_cmd(phys_enc);
 	int ret;
 
-	if (!phys_enc) {
+	if (!phys_enc || !phys_enc->hw_pp) {
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
@@ -1219,6 +1288,8 @@ struct sde_encoder_phys *sde_encoder_phys_cmd_init(
 	atomic_set(&phys_enc->vblank_refcount, 0);
 	atomic_set(&phys_enc->pending_kickoff_cnt, 0);
 	atomic_set(&phys_enc->pending_ctlstart_cnt, 0);
+	atomic_set(&phys_enc->pending_retire_fence_cnt, 0);
+	atomic_set(&cmd_enc->pending_rd_ptr_cnt, 0);
 	init_waitqueue_head(&phys_enc->pending_kickoff_wq);
 	atomic_set(&cmd_enc->autorefresh.kickoff_cnt, 0);
 	init_waitqueue_head(&cmd_enc->autorefresh.kickoff_wq);

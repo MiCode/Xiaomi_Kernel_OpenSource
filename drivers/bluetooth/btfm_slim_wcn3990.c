@@ -39,6 +39,7 @@ int btfm_slim_chrk_hw_init(struct btfmslim *btfmslim)
 {
 	int ret = 0;
 	uint8_t reg_val;
+	uint16_t reg;
 
 	BTFMSLIM_DBG("");
 
@@ -46,20 +47,20 @@ int btfm_slim_chrk_hw_init(struct btfmslim *btfmslim)
 		return -EINVAL;
 
 	/* Get SB_SLAVE_HW_REV_MSB value*/
-	ret = btfm_slim_read(btfmslim, CHRK_SB_SLAVE_HW_REV_MSB,  1,
-		&reg_val, IFD);
+	reg = CHRK_SB_SLAVE_HW_REV_MSB;
+	ret = btfm_slim_read(btfmslim, reg,  1, &reg_val, IFD);
 	if (ret) {
-		BTFMSLIM_ERR("failed to read (%d)", ret);
+		BTFMSLIM_ERR("failed to read (%d) reg 0x%x", ret, reg);
 		goto error;
 	}
 	BTFMSLIM_DBG("Major Rev: 0x%x, Minor Rev: 0x%x",
 		(reg_val & 0xF0) >> 4, (reg_val & 0x0F));
 
 	/* Get SB_SLAVE_HW_REV_LSB value*/
-	ret = btfm_slim_read(btfmslim, CHRK_SB_SLAVE_HW_REV_LSB,  1,
-		&reg_val, IFD);
+	reg = CHRK_SB_SLAVE_HW_REV_LSB;
+	ret = btfm_slim_read(btfmslim, reg,  1, &reg_val, IFD);
 	if (ret) {
-		BTFMSLIM_ERR("failed to read (%d)", ret);
+		BTFMSLIM_ERR("failed to read (%d) reg 0x%x", ret, reg);
 		goto error;
 	}
 	BTFMSLIM_DBG("Step Rev: 0x%x", reg_val);
@@ -68,62 +69,87 @@ error:
 	return ret;
 }
 
+static inline int is_fm_port(uint8_t port_num)
+{
+	if (port_num == CHRK_SB_PGD_PORT_TX1_FM ||
+		port_num == CHRK_SB_PGD_PORT_TX2_FM)
+		return 1;
+	else
+		return 0;
+}
 
 int btfm_slim_chrk_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 	uint8_t rxport, uint8_t enable)
 {
 	int ret = 0;
 	uint8_t reg_val = 0;
+	uint8_t port_bit = 0;
 	uint16_t reg;
 
 	BTFMSLIM_DBG("port(%d) enable(%d)", port_num, enable);
 	if (rxport) {
-		/* Port enable */
-		reg = CHRK_SB_PGD_PORT_RX_CFGN(port_num - 0x10);
-	} else { /* txport */
-		/* Multiple Channel Setting - only FM Tx will be multiple
-		 * channel
-		 */
-		if (enable && (port_num == CHRK_SB_PGD_PORT_TX1_FM ||
-			port_num == CHRK_SB_PGD_PORT_TX2_FM)) {
-
-			reg_val = (0x1 << CHRK_SB_PGD_PORT_TX1_FM) |
-				(0x1 << CHRK_SB_PGD_PORT_TX2_FM);
-			reg = CHRK_SB_PGD_TX_PORTn_MULTI_CHNL_0(port_num);
+		if (enable && btfmslim->sample_rate == 48000) {
+			/* For A2DP Rx */
+			reg_val = 0x1;
+			port_bit = port_num - 0x10;
+			reg = CHRK_SB_PGD_RX_PORTn_MULTI_CHNL_0(port_bit);
+			BTFMSLIM_DBG("writing reg_val (%d) to reg(%x) for A2DP",
+					reg_val, reg);
 			ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
 			if (ret) {
-				BTFMSLIM_ERR("failed to write (%d)", ret);
+				BTFMSLIM_ERR("failed to write (%d) reg 0x%x",
+						ret, reg);
 				goto error;
 			}
 		}
+		/* Port enable */
+		reg = CHRK_SB_PGD_PORT_RX_CFGN(port_num - 0x10);
+		goto enable_disable_rxport;
+	}
+	if (!enable)
+		goto enable_disable_txport;
 
-		/* Enable Tx port hw auto recovery for underrun or
-		 * overrun error
-		 */
-		reg_val = (enable) ? (CHRK_ENABLE_OVERRUN_AUTO_RECOVERY |
-				CHRK_ENABLE_UNDERRUN_AUTO_RECOVERY) : 0x0;
-
-		ret = btfm_slim_write(btfmslim,
-			CHRK_SB_PGD_PORT_TX_OR_UR_CFGN(port_num), 1,
-			&reg_val, IFD);
+	/* txport */
+	/* Multiple Channel Setting */
+	if (is_fm_port(port_num)) {
+		reg_val = (0x1 << CHRK_SB_PGD_PORT_TX1_FM) |
+				(0x1 << CHRK_SB_PGD_PORT_TX2_FM);
+		reg = CHRK_SB_PGD_TX_PORTn_MULTI_CHNL_0(port_num);
+		ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
 		if (ret) {
-			BTFMSLIM_ERR("failed to write (%d)", ret);
+			BTFMSLIM_ERR("failed to write (%d) reg 0x%x", ret, reg);
 			goto error;
 		}
-
-		/* Port enable */
-		reg = CHRK_SB_PGD_PORT_TX_CFGN(port_num);
 	}
 
-	if (enable)
-		/* Set water mark to 1 and enable the port */
-		reg_val = CHRK_SB_PGD_PORT_ENABLE | CHRK_SB_PGD_PORT_WM_LB;
-	else
+	/* Enable Tx port hw auto recovery for underrun or overrun error */
+	reg_val = (CHRK_ENABLE_OVERRUN_AUTO_RECOVERY |
+				CHRK_ENABLE_UNDERRUN_AUTO_RECOVERY);
+	reg = CHRK_SB_PGD_PORT_TX_OR_UR_CFGN(port_num);
+	ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
+	if (ret) {
+		BTFMSLIM_ERR("failed to write (%d) reg 0x%x", ret, reg);
+		goto error;
+	}
+
+enable_disable_txport:
+	/* Port enable */
+	reg = CHRK_SB_PGD_PORT_TX_CFGN(port_num);
+
+enable_disable_rxport:
+	if (enable) {
+		if (is_fm_port(port_num))
+			reg_val = CHRK_SB_PGD_PORT_ENABLE |
+					CHRK_SB_PGD_PORT_WM_L3;
+		else
+			reg_val = CHRK_SB_PGD_PORT_ENABLE |
+					CHRK_SB_PGD_PORT_WM_LB;
+	} else
 		reg_val = CHRK_SB_PGD_PORT_DISABLE;
 
 	ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
 	if (ret)
-		BTFMSLIM_ERR("failed to write (%d)", ret);
+		BTFMSLIM_ERR("failed to write (%d) reg 0x%x", ret, reg);
 
 error:
 	return ret;
