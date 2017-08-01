@@ -5323,18 +5323,6 @@ static unsigned long __cpu_norm_util(int cpu, unsigned long capacity, int delta)
 	return DIV_ROUND_UP(util << SCHED_CAPACITY_SHIFT, capacity);
 }
 
-static inline int task_util(struct task_struct *p)
-{
-#ifdef CONFIG_SCHED_WALT
-	if (!walt_disabled && sysctl_sched_use_walt_task_util) {
-		u64 demand = p->ravg.demand;
-
-		return (demand << 10) / sched_ravg_window;
-	}
-#endif
-	return p->se.avg.util_avg;
-}
-
 static inline bool
 bias_to_waker_cpu(struct task_struct *p, int cpu, struct cpumask *rtg_target)
 {
