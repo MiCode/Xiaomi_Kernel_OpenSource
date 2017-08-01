@@ -148,6 +148,29 @@ TRACE_EVENT(adreno_cmdbatch_retired,
 	)
 );
 
+TRACE_EVENT(adreno_cmdbatch_sync,
+	TP_PROTO(struct adreno_context *drawctxt,
+		uint64_t ticks),
+	TP_ARGS(drawctxt, ticks),
+	TP_STRUCT__entry(
+		__field(unsigned int, id)
+		__field(unsigned int, timestamp)
+		__field(uint64_t, ticks)
+		__field(int, prio)
+	),
+	TP_fast_assign(
+		__entry->id = drawctxt->base.id;
+		__entry->timestamp = drawctxt->timestamp;
+		__entry->ticks = ticks;
+		__entry->prio = drawctxt->base.priority;
+	),
+	TP_printk(
+		"ctx=%u ctx_prio=%d ts=%u ticks=%lld",
+			__entry->id, __entry->prio, __entry->timestamp,
+			__entry->ticks
+	)
+);
+
 TRACE_EVENT(adreno_cmdbatch_fault,
 	TP_PROTO(struct kgsl_drawobj_cmd *cmdobj, unsigned int fault),
 	TP_ARGS(cmdobj, fault),
