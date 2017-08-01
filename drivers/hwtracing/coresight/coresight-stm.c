@@ -204,6 +204,7 @@ static void stm_disable(struct coresight_device *csdev,
 	if (local_read(&drvdata->mode) == CS_MODE_SYSFS) {
 		spin_lock(&drvdata->spinlock);
 		stm_disable_hw(drvdata);
+		drvdata->enable = false;
 		spin_unlock(&drvdata->spinlock);
 
 		/* Wait until the engine has completely stopped */
