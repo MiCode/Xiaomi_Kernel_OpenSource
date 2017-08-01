@@ -1560,15 +1560,132 @@ static void sde_kms_destroy(struct msm_kms *kms)
 	kfree(sde_kms);
 }
 
+static void _sde_kms_plane_force_remove(struct drm_plane *plane,
+			struct drm_atomic_state *state)
+{
+	struct drm_plane_state *plane_state;
+	int ret = 0;
+
+	if (!plane->crtc)
+		return;
+
+	plane_state = drm_atomic_get_plane_state(state, plane);
+	if (IS_ERR(plane_state)) {
+		ret = PTR_ERR(plane_state);
+		SDE_ERROR("error %d getting plane %d state\n",
+				ret, plane->base.id);
+		return;
+	}
+
+	plane->old_fb = plane->fb;
+
+	SDE_DEBUG("disabling plane %d\n", plane->base.id);
+
+	ret = __drm_atomic_helper_disable_plane(plane, plane_state);
+	if (ret != 0)
+		SDE_ERROR("error %d disabling plane %d\n", ret,
+				plane->base.id);
+}
+
+static int _sde_kms_remove_fbs(struct sde_kms *sde_kms, struct drm_file *file,
+		struct drm_atomic_state *state)
+{
+	struct drm_device *dev = sde_kms->dev;
+	struct drm_framebuffer *fb, *tfb;
+	struct list_head fbs;
+	struct drm_plane *plane;
+	int ret = 0;
+	u32 plane_mask = 0;
+
+	INIT_LIST_HEAD(&fbs);
+
+	list_for_each_entry_safe(fb, tfb, &file->fbs, filp_head) {
+		if (drm_framebuffer_read_refcount(fb) > 1) {
+			list_move_tail(&fb->filp_head, &fbs);
+
+			drm_for_each_plane(plane, dev) {
+				if (plane->fb == fb) {
+					plane_mask |=
+						1 << drm_plane_index(plane);
+					 _sde_kms_plane_force_remove(
+								plane, state);
+				}
+			}
+		} else {
+			list_del_init(&fb->filp_head);
+			drm_framebuffer_unreference(fb);
+		}
+	}
+
+	if (list_empty(&fbs)) {
+		SDE_DEBUG("skip commit as no fb(s)\n");
+		drm_atomic_state_free(state);
+		return 0;
+	}
+
+	SDE_DEBUG("committing after removing all the pipes\n");
+	ret = drm_atomic_commit(state);
+
+	if (ret) {
+		/*
+		 * move the fbs back to original list, so it would be
+		 * handled during drm_release
+		 */
+		list_for_each_entry_safe(fb, tfb, &fbs, filp_head)
+			list_move_tail(&fb->filp_head, &file->fbs);
+
+		SDE_ERROR("atomic commit failed in preclose, ret:%d\n", ret);
+		goto end;
+	}
+
+	while (!list_empty(&fbs)) {
+		fb = list_first_entry(&fbs, typeof(*fb), filp_head);
+
+		list_del_init(&fb->filp_head);
+		drm_framebuffer_unreference(fb);
+	}
+
+end:
+	drm_atomic_clean_old_fb(dev, plane_mask, ret);
+
+	return ret;
+}
+
 static void sde_kms_preclose(struct msm_kms *kms, struct drm_file *file)
 {
 	struct sde_kms *sde_kms = to_sde_kms(kms);
 	struct drm_device *dev = sde_kms->dev;
 	struct msm_drm_private *priv = dev->dev_private;
 	unsigned int i;
+	struct drm_atomic_state *state = NULL;
+	int ret = 0;
 
 	for (i = 0; i < priv->num_crtcs; i++)
 		sde_crtc_cancel_pending_flip(priv->crtcs[i], file);
+
+	drm_modeset_lock_all(dev);
+	state = drm_atomic_state_alloc(dev);
+	if (!state) {
+		ret = -ENOMEM;
+		goto end;
+	}
+
+	state->acquire_ctx = dev->mode_config.acquire_ctx;
+
+	for (i = 0; i < TEARDOWN_DEADLOCK_RETRY_MAX; i++) {
+		ret = _sde_kms_remove_fbs(sde_kms, file, state);
+		if (ret != -EDEADLK)
+			break;
+		drm_atomic_state_clear(state);
+		drm_atomic_legacy_backoff(state);
+	}
+
+end:
+	if ((ret != 0) && state)
+		drm_atomic_state_free(state);
+
+	SDE_DEBUG("sde preclose done, ret:%d\n", ret);
+	drm_modeset_unlock_all(dev);
 }
 
 static int sde_kms_check_secure_transition(struct msm_kms *kms,
