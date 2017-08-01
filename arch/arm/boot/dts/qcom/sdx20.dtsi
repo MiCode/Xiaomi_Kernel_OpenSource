@@ -392,3 +392,6 @@
 #include "sdx20-usb.dtsi"
 #include "sdx20-pm.dtsi"
 
+&usb3 {
+	vbus_dwc3-supply = <&smb1351_otg_supply>;
+};
