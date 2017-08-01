@@ -537,6 +537,13 @@
 		<  2553600000 0x40541c85 0x00006a6a 0x2 29 >,
 		<  2630400000 0x40541d89 0x00006e6e 0x2 30 >,
 		<  2707200000 0x40541e8d 0x00007171 0x2 31 >;
+
+	qcom,l3-memacc-level-vc-bin0 = <8 13>;
+
+	qcom,pwrcl-memacc-level-vc-bin0 = <12 16>;
+
+	qcom,perfcl-memacc-level-vc-bin0 = <14 22>;
+	qcom,perfcl-memacc-level-vc-bin1 = <14 22>;
 };
 
 &clock_gcc {
