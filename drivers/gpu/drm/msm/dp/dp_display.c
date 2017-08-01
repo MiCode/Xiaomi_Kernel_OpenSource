@@ -34,6 +34,7 @@
 #include "dp_audio.h"
 #include "dp_display.h"
 #include "sde_hdcp.h"
+#include "dp_debug.h"
 
 static struct dp_display *g_dp_display;
 
@@ -75,6 +76,7 @@ struct dp_display_private {
 	struct dp_panel   *panel;
 	struct dp_ctrl    *ctrl;
 	struct dp_audio   *audio;
+	struct dp_debug   *debug;
 
 	struct dp_hdcp hdcp;
 
@@ -122,80 +124,6 @@ static irqreturn_t dp_display_irq(int irq, void *dev_id)
 	}
 
 	return IRQ_HANDLED;
-}
-
-static ssize_t debugfs_dp_info_read(struct file *file, char __user *buff,
-		size_t count, loff_t *ppos)
-{
-	struct dp_display_private *dp = file->private_data;
-	char *buf;
-	u32 len = 0;
-
-	if (!dp)
-		return -ENODEV;
-
-	if (*ppos)
-		return 0;
-
-	buf = kzalloc(SZ_4K, GFP_KERNEL);
-	if (!buf)
-		return -ENOMEM;
-
-	len += snprintf(buf + len, (SZ_4K - len), "name = %s\n", dp->name);
-	len += snprintf(buf + len, (SZ_4K - len),
-			"\tResolution = %dx%d\n",
-			dp->panel->pinfo.h_active,
-			dp->panel->pinfo.v_active);
-
-	if (copy_to_user(buff, buf, len)) {
-		kfree(buf);
-		return -EFAULT;
-	}
-
-	*ppos += len;
-
-	kfree(buf);
-	return len;
-}
-
-static const struct file_operations dp_debug_fops = {
-	.open = simple_open,
-	.read = debugfs_dp_info_read,
-};
-
-static int dp_display_debugfs_init(struct dp_display_private *dp)
-{
-	int rc = 0;
-	struct dentry *dir, *file;
-
-	dir = debugfs_create_dir(dp->name, NULL);
-	if (IS_ERR_OR_NULL(dir)) {
-		rc = PTR_ERR(dir);
-		pr_err("[%s] debugfs create dir failed, rc = %d\n",
-		       dp->name, rc);
-		goto error;
-	}
-
-	file = debugfs_create_file("dp_debug", 0444, dir, dp, &dp_debug_fops);
-	if (IS_ERR_OR_NULL(file)) {
-		rc = PTR_ERR(file);
-		pr_err("[%s] debugfs create file failed, rc=%d\n",
-		       dp->name, rc);
-		goto error_remove_dir;
-	}
-
-	dp->root = dir;
-	return rc;
-error_remove_dir:
-	debugfs_remove(dir);
-error:
-	return rc;
-}
-
-static int dp_display_debugfs_deinit(struct dp_display_private *dp)
-{
-	debugfs_remove(dp->root);
-	return 0;
 }
 
 static void dp_display_hdcp_cb_work(struct work_struct *work)
@@ -433,12 +361,6 @@ static int dp_display_bind(struct device *dev, struct device *master,
 	dp->dp_display.drm_dev = drm;
 	priv = drm->dev_private;
 
-	rc = dp_display_debugfs_init(dp);
-	if (rc) {
-		pr_err("[%s]Debugfs init failed, rc=%d\n", dp->name, rc);
-		goto end;
-	}
-
 	rc = dp->parser->parse(dp->parser);
 	if (rc) {
 		pr_err("device tree parsing failed\n");
@@ -492,7 +414,6 @@ static void dp_display_unbind(struct device *dev, struct device *master,
 	(void)dp->power->power_client_deinit(dp->power);
 	(void)dp->panel->sde_edid_deregister(dp->panel);
 	(void)dp->aux->drm_aux_deregister(dp->aux);
-	(void)dp_display_debugfs_deinit(dp);
 	dp_display_deinitialize_hdcp(dp);
 }
 
@@ -780,6 +701,13 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 	if (IS_ERR(dp->audio)) {
 		rc = PTR_ERR(dp->audio);
 		pr_err("failed to initialize audio, rc = %d\n", rc);
+	}
+
+	dp->debug = dp_debug_get(dev, dp->panel, dp->usbpd,
+				dp->link, &dp->dp_display.connector);
+	if (IS_ERR(dp->debug)) {
+		rc = PTR_ERR(dp->debug);
+		pr_err("failed to initialize debug, rc = %d\n", rc);
 		goto err;
 	}
 err:
@@ -944,6 +872,20 @@ static int dp_request_irq(struct dp_display *dp_display)
 	return 0;
 }
 
+static struct dp_debug *dp_get_debug(struct dp_display *dp_display)
+{
+	struct dp_display_private *dp;
+
+	if (!dp_display) {
+		pr_err("invalid input\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	dp = container_of(dp_display, struct dp_display_private, dp_display);
+
+	return dp->debug;
+}
+
 static int dp_display_unprepare(struct dp_display *dp)
 {
 	return 0;
@@ -1007,6 +949,7 @@ static int dp_display_probe(struct platform_device *pdev)
 	g_dp_display->prepare       = dp_display_prepare;
 	g_dp_display->unprepare     = dp_display_unprepare;
 	g_dp_display->request_irq   = dp_request_irq;
+	g_dp_display->get_debug     = dp_get_debug;
 
 	rc = component_add(&pdev->dev, &dp_display_comp_ops);
 	if (rc)
@@ -1047,6 +990,7 @@ static void dp_display_deinit_sub_modules(struct dp_display_private *dp)
 	dp_catalog_put(dp->catalog);
 	dp_parser_put(dp->parser);
 	dp_usbpd_put(dp->usbpd);
+	dp_debug_put(dp->debug);
 }
 
 static int dp_display_remove(struct platform_device *pdev)
