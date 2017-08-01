@@ -68,6 +68,15 @@ static void sde_hdmi_hdcp2p2_ddc_clear_status(struct sde_hdmi *display)
 	hdmi_write(hdmi, HDMI_HDCP2P2_DDC_STATUS, reg_val);
 }
 
+static const char *sde_hdmi_hdr_sname(enum sde_hdmi_hdr_state hdr_state)
+{
+	switch (hdr_state) {
+	case HDR_DISABLE: return "HDR_DISABLE";
+	case HDR_ENABLE: return "HDR_ENABLE";
+	default: return "HDR_INVALID_STATE";
+	}
+}
+
 /**
  * sde_hdmi_dump_regs - utility to dump HDMI regs
  * @hdmi_display: Pointer to private display handle
@@ -825,3 +834,123 @@ int sde_hdmi_hdcp2p2_read_rxstatus(void *hdmi_display)
 	}
 	return rc;
 }
+
+unsigned long sde_hdmi_calc_pixclk(unsigned long pixel_freq,
+	u32 out_format, bool dc_enable)
+{
+	u32 rate_ratio = HDMI_RGB_24BPP_PCLK_TMDS_CH_RATE_RATIO;
+
+	if (out_format & MSM_MODE_FLAG_COLOR_FORMAT_YCBCR420)
+		rate_ratio = HDMI_YUV420_24BPP_PCLK_TMDS_CH_RATE_RATIO;
+
+	pixel_freq /= rate_ratio;
+
+	if (dc_enable)
+		pixel_freq += pixel_freq >> 2;
+
+	return pixel_freq;
+
+}
+
+bool sde_hdmi_validate_pixclk(struct drm_connector *connector,
+	unsigned long pclk)
+{
+	struct sde_connector *c_conn = to_sde_connector(connector);
+	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
+	unsigned long max_pclk = display->max_pclk_khz * HDMI_KHZ_TO_HZ;
+
+	if (connector->max_tmds_char)
+		max_pclk = MIN(max_pclk,
+			connector->max_tmds_char * HDMI_MHZ_TO_HZ);
+	else if (connector->max_tmds_clock)
+		max_pclk = MIN(max_pclk,
+			connector->max_tmds_clock * HDMI_MHZ_TO_HZ);
+
+	SDE_DEBUG("MAX PCLK = %ld, PCLK = %ld\n", max_pclk, pclk);
+
+	return pclk < max_pclk;
+}
+
+static bool sde_hdmi_check_dc_clock(struct drm_connector *connector,
+	struct drm_display_mode *mode, u32 format)
+{
+	struct sde_connector *c_conn = to_sde_connector(connector);
+	struct sde_hdmi *display = (struct sde_hdmi *)c_conn->display;
+
+	 u32 tmds_clk_with_dc = sde_hdmi_calc_pixclk(
+					mode->clock * HDMI_KHZ_TO_HZ,
+					format,
+					true);
+
+	return (display->dc_feature_supported &&
+		 sde_hdmi_validate_pixclk(connector, tmds_clk_with_dc));
+}
+
+int sde_hdmi_sink_dc_support(struct drm_connector *connector,
+	struct drm_display_mode *mode)
+{
+	int dc_format = 0;
+
+	if ((mode->flags & DRM_MODE_FLAG_SUPPORTS_YUV) &&
+	    (connector->display_info.edid_hdmi_dc_modes
+	     & DRM_EDID_YCBCR420_DC_30))
+		if (sde_hdmi_check_dc_clock(connector, mode,
+				MSM_MODE_FLAG_COLOR_FORMAT_YCBCR420))
+			dc_format |= MSM_MODE_FLAG_YUV420_DC_ENABLE;
+
+	if ((mode->flags & DRM_MODE_FLAG_SUPPORTS_RGB) &&
+	    (connector->display_info.edid_hdmi_dc_modes
+	     & DRM_EDID_HDMI_DC_30))
+		if (sde_hdmi_check_dc_clock(connector, mode,
+				MSM_MODE_FLAG_COLOR_FORMAT_RGB444))
+			dc_format |= MSM_MODE_FLAG_RGB444_DC_ENABLE;
+
+	return dc_format;
+}
+
+u8 sde_hdmi_hdr_get_ops(u8 curr_state,
+	u8 new_state)
+{
+
+	/** There could be 3 valid state transitions:
+	 * 1. HDR_DISABLE -> HDR_ENABLE
+	 *
+	 * In this transition, we shall start sending
+	 * HDR metadata with metadata from the HDR clip
+	 *
+	 * 2. HDR_ENABLE -> HDR_ENABLE
+	 *
+	 * In this transition, we will keep sending
+	 * HDR metadata but with EOTF and metadata as 0
+	 *
+	 * 3. HDR_ENABLE -> HDR_DISABLE
+	 *
+	 * In this transition, we will stop sending
+	 * metadata to the sink and clear PKT_CTRL register
+	 * bits.
+	 */
+
+	if ((curr_state == HDR_DISABLE)
+				&& (new_state == HDR_ENABLE)) {
+		HDMI_UTIL_DEBUG("State changed %s ---> %s\n",
+						sde_hdmi_hdr_sname(curr_state),
+						sde_hdmi_hdr_sname(new_state));
+		return HDR_SEND_INFO;
+	} else if ((curr_state == HDR_ENABLE)
+				&& (new_state == HDR_ENABLE)) {
+		HDMI_UTIL_DEBUG("State changed %s ---> %s\n",
+						sde_hdmi_hdr_sname(curr_state),
+						sde_hdmi_hdr_sname(new_state));
+		return HDR_SEND_INFO;
+	} else if ((curr_state == HDR_ENABLE)
+				&& (new_state == HDR_DISABLE)) {
+		HDMI_UTIL_DEBUG("State changed %s ---> %s\n",
+						sde_hdmi_hdr_sname(curr_state),
+						sde_hdmi_hdr_sname(new_state));
+		return HDR_CLEAR_INFO;
+	}
+
+	HDMI_UTIL_DEBUG("Unsupported OR no state change\n");
+	return HDR_UNSUPPORTED_OP;
+}
+

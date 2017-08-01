@@ -63,6 +63,8 @@ enum sde_format_flags {
 	(((X)->fetch_mode == SDE_FETCH_UBWC) && \
 			test_bit(SDE_FORMAT_FLAG_COMPRESSED_BIT, (X)->flag))
 
+#define TO_S15D16(_x_) ((_x_) << 7)
+
 #define SDE_BLEND_FG_ALPHA_FG_CONST	(0 << 0)
 #define SDE_BLEND_FG_ALPHA_BG_CONST	(1 << 0)
 #define SDE_BLEND_FG_ALPHA_FG_PIXEL	(2 << 0)
@@ -337,6 +339,12 @@ enum sde_3d_blend_mode {
 	BLEND_3D_V_ROW_INT,
 	BLEND_3D_COL_INT,
 	BLEND_3D_MAX
+};
+
+enum sde_csc_type {
+	SDE_CSC_RGB2YUV_601L,
+	SDE_CSC_RGB2YUV_601FR,
+	SDE_MAX_CSC
 };
 
 /** struct sde_format - defines the format configuration which

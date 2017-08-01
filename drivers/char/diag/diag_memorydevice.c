@@ -129,37 +129,6 @@ void diag_md_close_all()
 	diag_ws_reset(DIAG_WS_MUX);
 }
 
-static int diag_md_get_peripheral(int ctxt)
-{
-	int peripheral;
-
-	if (driver->num_pd_session) {
-		peripheral = GET_PD_CTXT(ctxt);
-		switch (peripheral) {
-		case UPD_WLAN:
-		case UPD_AUDIO:
-		case UPD_SENSORS:
-			break;
-		case DIAG_ID_MPSS:
-		case DIAG_ID_LPASS:
-		case DIAG_ID_CDSP:
-		default:
-			peripheral =
-				GET_BUF_PERIPHERAL(ctxt);
-			if (peripheral > NUM_PERIPHERALS)
-				peripheral = -EINVAL;
-			break;
-		}
-	} else {
-		/* Account for Apps data as well */
-		peripheral = GET_BUF_PERIPHERAL(ctxt);
-		if (peripheral > NUM_PERIPHERALS)
-			peripheral = -EINVAL;
-	}
-
-	return peripheral;
-}
-
 int diag_md_write(int id, unsigned char *buf, int len, int ctx)
 {
 	int i;

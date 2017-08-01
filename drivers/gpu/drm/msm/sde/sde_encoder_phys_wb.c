@@ -28,24 +28,6 @@
 
 #define WBID(wb_enc) ((wb_enc) ? wb_enc->wb_dev->wb_idx : -1)
 
-#define TO_S15D16(_x_)	((_x_) << 7)
-
-/**
- * sde_rgb2yuv_601l - rgb to yuv color space conversion matrix
- *
- */
-static struct sde_csc_cfg sde_encoder_phys_wb_rgb2yuv_601l = {
-	{
-		TO_S15D16(0x0083), TO_S15D16(0x0102), TO_S15D16(0x0032),
-		TO_S15D16(0x1fb5), TO_S15D16(0x1f6c), TO_S15D16(0x00e1),
-		TO_S15D16(0x00e1), TO_S15D16(0x1f45), TO_S15D16(0x1fdc)
-	},
-	{ 0x00, 0x00, 0x00 },
-	{ 0x0040, 0x0200, 0x0200 },
-	{ 0x000, 0x3ff, 0x000, 0x3ff, 0x000, 0x3ff },
-	{ 0x040, 0x3ac, 0x040, 0x3c0, 0x040, 0x3c0 },
-};
-
 /**
  * sde_encoder_phys_wb_is_master - report wb always as master encoder
  */
@@ -102,96 +84,6 @@ static void sde_encoder_phys_wb_set_traffic_shaper(
 
 	/* traffic shaper is only enabled for rotator */
 	wb_cfg->ts_cfg.en = false;
-}
-
-/**
- * sde_encoder_phys_setup_cdm - setup chroma down block
- * @phys_enc:	Pointer to physical encoder
- * @fb:		Pointer to output framebuffer
- * @format:	Output format
- */
-void sde_encoder_phys_setup_cdm(struct sde_encoder_phys *phys_enc,
-		struct drm_framebuffer *fb, const struct sde_format *format,
-		struct sde_rect *wb_roi)
-{
-	struct sde_hw_cdm *hw_cdm = phys_enc->hw_cdm;
-	struct sde_hw_cdm_cfg *cdm_cfg = &phys_enc->cdm_cfg;
-	int ret;
-
-	if (!SDE_FORMAT_IS_YUV(format)) {
-		SDE_DEBUG("[cdm_disable fmt:%x]\n",
-				format->base.pixel_format);
-
-		if (hw_cdm && hw_cdm->ops.disable)
-			hw_cdm->ops.disable(hw_cdm);
-
-		return;
-	}
-
-	memset(cdm_cfg, 0, sizeof(struct sde_hw_cdm_cfg));
-
-	cdm_cfg->output_width = wb_roi->w;
-	cdm_cfg->output_height = wb_roi->h;
-	cdm_cfg->output_fmt = format;
-	cdm_cfg->output_type = CDM_CDWN_OUTPUT_WB;
-	cdm_cfg->output_bit_depth = SDE_FORMAT_IS_DX(format) ?
-		CDM_CDWN_OUTPUT_10BIT : CDM_CDWN_OUTPUT_8BIT;
-
-	/* enable 10 bit logic */
-	switch (cdm_cfg->output_fmt->chroma_sample) {
-	case SDE_CHROMA_RGB:
-		cdm_cfg->h_cdwn_type = CDM_CDWN_DISABLE;
-		cdm_cfg->v_cdwn_type = CDM_CDWN_DISABLE;
-		break;
-	case SDE_CHROMA_H2V1:
-		cdm_cfg->h_cdwn_type = CDM_CDWN_COSITE;
-		cdm_cfg->v_cdwn_type = CDM_CDWN_DISABLE;
-		break;
-	case SDE_CHROMA_420:
-		cdm_cfg->h_cdwn_type = CDM_CDWN_COSITE;
-		cdm_cfg->v_cdwn_type = CDM_CDWN_OFFSITE;
-		break;
-	case SDE_CHROMA_H1V2:
-	default:
-		SDE_ERROR("unsupported chroma sampling type\n");
-		cdm_cfg->h_cdwn_type = CDM_CDWN_DISABLE;
-		cdm_cfg->v_cdwn_type = CDM_CDWN_DISABLE;
-		break;
-	}
-
-	SDE_DEBUG("[cdm_enable:%d,%d,%X,%d,%d,%d,%d]\n",
-			cdm_cfg->output_width,
-			cdm_cfg->output_height,
-			cdm_cfg->output_fmt->base.pixel_format,
-			cdm_cfg->output_type,
-			cdm_cfg->output_bit_depth,
-			cdm_cfg->h_cdwn_type,
-			cdm_cfg->v_cdwn_type);
-
-	if (hw_cdm && hw_cdm->ops.setup_csc_data) {
-		ret = hw_cdm->ops.setup_csc_data(hw_cdm,
-				&sde_encoder_phys_wb_rgb2yuv_601l);
-		if (ret < 0) {
-			SDE_ERROR("failed to setup CSC %d\n", ret);
-			return;
-		}
-	}
-
-	if (hw_cdm && hw_cdm->ops.setup_cdwn) {
-		ret = hw_cdm->ops.setup_cdwn(hw_cdm, cdm_cfg);
-		if (ret < 0) {
-			SDE_ERROR("failed to setup CDM %d\n", ret);
-			return;
-		}
-	}
-
-	if (hw_cdm && hw_cdm->ops.enable) {
-		ret = hw_cdm->ops.enable(hw_cdm, cdm_cfg);
-		if (ret < 0) {
-			SDE_ERROR("failed to enable CDM %d\n", ret);
-			return;
-		}
-	}
 }
 
 /**
@@ -520,7 +412,8 @@ static void sde_encoder_phys_wb_setup(
 
 	sde_encoder_phys_wb_set_traffic_shaper(phys_enc);
 
-	sde_encoder_phys_setup_cdm(phys_enc, fb, wb_enc->wb_fmt, wb_roi);
+	sde_encoder_phys_setup_cdm(phys_enc, wb_enc->wb_fmt,
+		CDM_CDWN_OUTPUT_WB, wb_roi);
 
 	sde_encoder_phys_wb_setup_fb(phys_enc, fb, wb_roi);
 

@@ -143,6 +143,16 @@
 		qcom,out-strength = <1>;
 	};
 
+	gpio@d200 { /* GPIO 19 - wil6210 refclk3_en */
+		qcom,mode = <0>;		/* Input */
+		qcom,pull = <5>;		/* No Pull */
+		qcom,vin-sel = <1>;		/* VIN1 GPIO_MV */
+		qcom,src-sel = <0>;		/* GPIO */
+		qcom,invert = <0>;		/* Invert */
+		qcom,master-en = <1>;		/* Enable GPIO */
+		status = "okay";
+	};
+
 	/* GPIO 21 (NFC_CLK_REQ) */
 	gpio@d400 {
 		qcom,mode = <0>;

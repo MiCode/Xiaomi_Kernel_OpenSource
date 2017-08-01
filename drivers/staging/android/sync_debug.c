@@ -87,7 +87,7 @@ static void sync_print_pt(struct seq_file *s, struct sync_pt *pt, bool fence)
 	int status = 1;
 	struct sync_timeline *parent = sync_pt_parent(pt);
 
-	if (fence_is_signaled_locked(&pt->base))
+	if (test_bit(FENCE_FLAG_SIGNALED_BIT, &pt->base.flags))
 		status = pt->base.status;
 
 	seq_printf(s, "  %s%spt %s",

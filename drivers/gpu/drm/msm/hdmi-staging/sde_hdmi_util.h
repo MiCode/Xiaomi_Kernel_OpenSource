@@ -125,6 +125,17 @@ enum sde_hdmi_tx_hdcp2p2_rxstatus_intr_mask {
 	RXSTATUS_REAUTH_REQ = BIT(14),
 };
 
+enum sde_hdmi_hdr_state {
+	HDR_DISABLE,
+	HDR_ENABLE
+};
+
+enum sde_hdmi_hdr_op {
+	HDR_UNSUPPORTED_OP,
+	HDR_SEND_INFO,
+	HDR_CLEAR_INFO
+};
+
 struct sde_hdmi_tx_hdcp2p2_ddc_data {
 	enum sde_hdmi_tx_hdcp2p2_rxstatus_intr_mask intr_mask;
 	u32 timeout_ms;
@@ -164,4 +175,12 @@ int sde_hdmi_hdcp2p2_read_rxstatus(void *hdmi_display);
 void sde_hdmi_ddc_config(void *hdmi_display);
 int sde_hdmi_ddc_hdcp2p2_isr(void *hdmi_display);
 void sde_hdmi_dump_regs(void *hdmi_display);
+unsigned long sde_hdmi_calc_pixclk(unsigned long pixel_freq,
+	u32 out_format, bool dc_enable);
+bool sde_hdmi_validate_pixclk(struct drm_connector *connector,
+	unsigned long pclk);
+int sde_hdmi_sink_dc_support(struct drm_connector *connector,
+	struct drm_display_mode *mode);
+u8 sde_hdmi_hdr_get_ops(u8 curr_state,
+	u8 new_state);
 #endif /* _SDE_HDMI_UTIL_H_ */

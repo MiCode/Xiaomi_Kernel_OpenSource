@@ -547,6 +547,7 @@ struct mdss_data_type {
 	u32 sec_session_cnt;
 	wait_queue_head_t secure_waitq;
 	struct cx_ipeak_client *mdss_cx_ipeak;
+	struct mult_factor bus_throughput_factor;
 };
 
 extern struct mdss_data_type *mdss_res;

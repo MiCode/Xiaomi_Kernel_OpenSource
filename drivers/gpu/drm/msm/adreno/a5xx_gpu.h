@@ -23,6 +23,7 @@
 
 enum {
 	A5XX_ZAP_SHADER_LOADED = 1,
+	A5XX_HWCG_ENABLED = 2,
 };
 
 struct a5xx_gpu {

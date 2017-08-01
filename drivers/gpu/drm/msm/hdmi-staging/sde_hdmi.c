@@ -556,13 +556,13 @@ static const struct file_operations sde_hdmi_hdcp_state_fops = {
 	.read = _sde_hdmi_hdcp_state_read,
 };
 
-static u64 _sde_hdmi_clip_valid_pclk(struct drm_display_mode *mode, u64 pclk_in)
+static u64 _sde_hdmi_clip_valid_pclk(struct hdmi *hdmi, u64 pclk_in)
 {
 	u32 pclk_delta, pclk;
 	u64 pclk_clip = pclk_in;
 
 	/* as per standard, 0.5% of deviation is allowed */
-	pclk = mode->clock * HDMI_KHZ_TO_HZ;
+	pclk = hdmi->pixclock;
 	pclk_delta = pclk * 5 / 1000;
 
 	if (pclk_in < (pclk - pclk_delta))
@@ -700,7 +700,6 @@ static void sde_hdmi_tx_hdcp_cb_work(struct work_struct *work)
 static int _sde_hdmi_update_pll_delta(struct sde_hdmi *display, s32 ppm)
 {
 	struct hdmi *hdmi = display->ctrl.ctrl;
-	struct drm_display_mode *current_mode = &display->mode;
 	u64 cur_pclk, dst_pclk;
 	u64 clip_pclk;
 	int rc = 0;
@@ -725,7 +724,7 @@ static int _sde_hdmi_update_pll_delta(struct sde_hdmi *display, s32 ppm)
 	dst_pclk = cur_pclk * (1000000000 + ppm);
 	do_div(dst_pclk, 1000000000);
 
-	clip_pclk = _sde_hdmi_clip_valid_pclk(current_mode, dst_pclk);
+	clip_pclk = _sde_hdmi_clip_valid_pclk(hdmi, dst_pclk);
 
 	/* update pclk */
 	if (clip_pclk != cur_pclk) {
@@ -1893,11 +1892,6 @@ struct drm_msm_ext_panel_hdr_metadata *hdr_meta)
 		return;
 	}
 
-	if (!connector->hdr_supported) {
-		SDE_ERROR("Sink does not support HDR\n");
-		return;
-	}
-
 	/* Setup Packet header and payload */
 	packet_header = type_code | (version << 8) | (length << 16);
 	hdmi_write(hdmi, HDMI_GENERIC0_HDR, packet_header);
@@ -1964,6 +1958,30 @@ enable_packet_control:
 	 */
 	packet_control = hdmi_read(hdmi, HDMI_GEN_PKT_CTRL);
 	packet_control |= BIT(0) | BIT(1) | BIT(2) | BIT(16);
+	hdmi_write(hdmi, HDMI_GEN_PKT_CTRL, packet_control);
+}
+
+static void sde_hdmi_clear_hdr_infoframe(struct sde_hdmi *display)
+{
+	struct hdmi *hdmi;
+	struct drm_connector *connector;
+	u32 packet_control = 0;
+
+	if (!display) {
+		SDE_ERROR("invalid input\n");
+		return;
+	}
+
+	hdmi = display->ctrl.ctrl;
+	connector = display->ctrl.ctrl->connector;
+
+	if (!hdmi || !connector) {
+		SDE_ERROR("invalid input\n");
+		return;
+	}
+
+	packet_control = hdmi_read(hdmi, HDMI_GEN_PKT_CTRL);
+	packet_control &= ~HDMI_GEN_PKT_CTRL_CLR_MASK;
 	hdmi_write(hdmi, HDMI_GEN_PKT_CTRL, packet_control);
 }
 
@@ -2131,9 +2149,13 @@ static int sde_hdmi_tx_check_capability(struct sde_hdmi *sde_hdmi)
 		}
 	}
 
-	SDE_DEBUG("%s: Features <HDMI:%s, HDCP:%s>\n", __func__,
+	if (sde_hdmi->hdmi_tx_major_version >= HDMI_TX_VERSION_4)
+		sde_hdmi->dc_feature_supported = true;
+
+	SDE_DEBUG("%s: Features <HDMI:%s, HDCP:%s, Deep Color:%s>\n", __func__,
 			hdmi_disabled ? "OFF" : "ON",
-			hdcp_disabled ? "OFF" : "ON");
+			hdcp_disabled ? "OFF" : "ON",
+			sde_hdmi->dc_feature_supported ? "ON" : "OFF");
 
 	if (hdmi_disabled) {
 		DEV_ERR("%s: HDMI disabled\n", __func__);
@@ -2307,9 +2329,28 @@ int sde_hdmi_pre_kickoff(struct drm_connector *connector,
 	void *display,
 	struct msm_display_kickoff_params *params)
 {
+	struct sde_hdmi *hdmi_display = (struct sde_hdmi *)display;
+	struct drm_msm_ext_panel_hdr_ctrl *hdr_ctrl;
+	u8 hdr_op;
 
-	sde_hdmi_panel_set_hdr_infoframe(display,
-		params->hdr_metadata);
+	if (!connector || !display || !params) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	hdr_ctrl = params->hdr_ctrl;
+
+	hdr_op = sde_hdmi_hdr_get_ops(hdmi_display->curr_hdr_state,
+		hdr_ctrl->hdr_state);
+
+	if (hdr_op == HDR_SEND_INFO) {
+		if (connector->hdr_supported)
+			sde_hdmi_panel_set_hdr_infoframe(display,
+				&hdr_ctrl->hdr_meta);
+	} else if (hdr_op == HDR_CLEAR_INFO)
+		sde_hdmi_clear_hdr_infoframe(display);
+
+	hdmi_display->curr_hdr_state = hdr_ctrl->hdr_state;
 
 	return 0;
 }

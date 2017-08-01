@@ -42,6 +42,13 @@
 			reg = <0x1 0x0 0 0x10000000>;
 			label = "ion_system_mem";
 		};
+		qseecom_mem: qseecom_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0 0x00000000 0 0xffffffff>;
+			reusable;
+			alignment = <0 0x400000>;
+			size = <0 0x1400000>;
+		};
 		ion_audio: ion_audio_region {
 			reg = <0 0xc8000000 0 0x00400000>;
 			label = "ion_audio_mem";
@@ -475,6 +482,22 @@
 			qcom,msm-cpudai-tdm-dev-id = <36919>;
 			qcom,msm-cpudai-tdm-data-align = <0>;
 		};
+	};
+
+	qcom_seecom: qseecom@86600000 {
+		compatible = "qcom,qseecom";
+		reg = <0x86600000 0x2200000>;
+		reg-names = "secapp-region";
+		qcom,hlos-num-ce-hw-instances = <1>;
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,no-clock-support;
+		qcom,msm-bus,name = "qseecom-noc";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,ce-opp-freq = <171430000>;
+		qcom,qsee-reentrancy-support = <2>;
 	};
 
 	hostless: qcom,msm-pcm-hostless {

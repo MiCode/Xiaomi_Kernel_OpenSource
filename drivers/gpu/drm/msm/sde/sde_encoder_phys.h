@@ -349,8 +349,8 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 #endif
 
 void sde_encoder_phys_setup_cdm(struct sde_encoder_phys *phys_enc,
-		struct drm_framebuffer *fb, const struct sde_format *format,
-		struct sde_rect *wb_roi);
+		const struct sde_format *format, u32 output_type,
+		struct sde_rect *roi);
 
 /**
  * sde_encoder_helper_trigger_start - control start helper function

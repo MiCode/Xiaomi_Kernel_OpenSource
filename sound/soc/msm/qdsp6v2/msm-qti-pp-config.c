@@ -298,11 +298,11 @@ int msm_qti_pp_send_stereo_to_custom_stereo_cmd(int port_id, int copp_idx,
 	*update_params_value16++ = op_FR_ip_FR_weight;
 	avail_length = avail_length - (4 * sizeof(uint16_t));
 	if (params_length) {
-		rc = adm_set_stereo_to_custom_stereo(port_id,
-						     copp_idx,
-						     session_id,
-						     params_value,
-						     params_length);
+		rc = adm_set_pspd_matrix_params(port_id,
+						copp_idx,
+						session_id,
+						params_value,
+						params_length);
 		if (rc) {
 			pr_err("%s: send params failed rc=%d\n", __func__, rc);
 			kfree(params_value);

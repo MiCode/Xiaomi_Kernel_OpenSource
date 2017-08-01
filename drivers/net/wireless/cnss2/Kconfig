@@ -1,0 +1,17 @@
+config CNSS2
+	tristate "CNSS2 Platform Driver for Wi-Fi Module"
+	depends on !CNSS && PCI_MSM
+	---help---
+	  This module adds the support for Connectivity Subsystem (CNSS) used
+	  for PCIe based Wi-Fi devices with QCA6174/QCA6290 chipsets.
+	  This driver also adds support to integrate WLAN module to subsystem
+	  restart framework.
+
+config CNSS2_DEBUG
+	bool "CNSS2 Platform Driver Debug Support"
+	depends on CNSS2
+	---help---
+	  This option is to enable CNSS2 platform driver debug support which
+	  primarily includes providing additional verbose logs for certain
+	  features, enabling kernel panic for certain cases to aid the
+	  debugging, and enabling any other debug mechanisms.

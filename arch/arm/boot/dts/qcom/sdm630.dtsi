@@ -321,6 +321,18 @@
 		#size-cells = <2>;
 		ranges;
 
+		wlan_msa_guard: wlan_msa_guard@85600000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x85600000 0x0 0x100000>;
+		};
+
+		wlan_msa_mem: wlan_msa_mem@85700000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x85700000 0x0 0x100000>;
+		};
+
 		removed_region: removed_region0@85800000 {
 			compatible = "removed-dma-pool";
 			no-map;
@@ -1153,8 +1165,9 @@
 			< 1113600 762 >,
 			< 1344000 2086 >,
 			< 1670400 2929 >,
-			< 2150400 3879 >,
-			< 2380800 4943 >;
+			< 1881600 3879 >,
+			< 2150400 4943 >,
+			< 2380800 5163 >;
 	};
 
 	devfreq_memlat_4: qcom,arm-memlat-mon-4 {
@@ -1292,9 +1305,18 @@
 		compatible = "qcom,clk-cpu-osm-sdm630";
 		reg = <0x179c0000 0x4000>, <0x17916000 0x1000>,
 			<0x17816000 0x1000>, <0x179d1000 0x1000>,
-			<0x00784130 0x8>;
+			<0x00784130 0x8>, <0x17914800 0x800>,
+			<0x17814800 0x800>;
 		reg-names = "osm", "pwrcl_pll", "perfcl_pll",
-			"apcs_common", "perfcl_efuse";
+			"apcs_common", "perfcl_efuse",
+			"pwrcl_acd", "perfcl_acd";
+
+		qcom,acdtd-val = <0x0000a111 0x0000a111>;
+		qcom,acdcr-val = <0x002c5ffd 0x002c5ffd>;
+		qcom,acdsscr-val = <0x00000901 0x00000901>;
+		qcom,acdextint0-val = <0x2cf9ae8 0x2cf9ae8>;
+		qcom,acdextint1-val = <0x2cf9afe 0x2cf9afe>;
+		qcom,acdautoxfer-val = <0x00000015 0x00000015>;
 
 		vdd-pwrcl-supply = <&apc0_pwrcl_vreg>;
 		vdd-perfcl-supply = <&apc1_perfcl_vreg>;
@@ -1668,6 +1690,7 @@
 		qcom,vdd-1.3-rfa-config = <1200000 1370000>;
 		qcom,vdd-3.3-ch0-config = <3200000 3400000>;
 		qcom,wlan-msa-memory = <0x100000>;
+		qcom,wlan-msa-fixed-region = <&wlan_msa_mem>;
 		qcom,smmu-s1-bypass;
 	};
 

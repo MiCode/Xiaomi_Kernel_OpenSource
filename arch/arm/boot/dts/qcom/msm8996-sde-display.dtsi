@@ -94,8 +94,8 @@
 		label = "dsi_dual_sharp_video";
 		qcom,display-type = "primary";
 
-		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
-		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
+		qcom,dsi-ctrl = <&sde_dsi0 &sde_dsi1>;
+		qcom,dsi-phy = <&sde_dsi_phy0 &sde_dsi_phy1>;
 		clocks = <&clock_mmss clk_ext_byte0_clk_src>,
 			 <&clock_mmss clk_ext_pclk0_clk_src>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
@@ -118,8 +118,8 @@
 		label = "single_dsi_sim";
 		qcom,display-type = "primary";
 
-		qcom,dsi-ctrl = <&mdss_dsi0>;
-		qcom,dsi-phy = <&mdss_dsi_phy0>;
+		qcom,dsi-ctrl = <&sde_dsi0>;
+		qcom,dsi-phy = <&sde_dsi_phy0>;
 		clocks = <&clock_mmss clk_ext_byte0_clk_src>,
 			 <&clock_mmss clk_ext_pclk0_clk_src>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
@@ -140,8 +140,8 @@
 		label = "single_dsi_toshiba_720p";
 		qcom,display-type = "primary";
 
-		qcom,dsi-ctrl = <&mdss_dsi0>;
-		qcom,dsi-phy = <&mdss_dsi_phy0>;
+		qcom,dsi-ctrl = <&sde_dsi0>;
+		qcom,dsi-phy = <&sde_dsi_phy0>;
 		clocks = <&clock_mmss clk_ext_byte0_clk_src>,
 			 <&clock_mmss clk_ext_pclk0_clk_src>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
@@ -161,8 +161,8 @@
 		label = "single_dsi_jdi_1080p";
 		qcom,display-type = "primary";
 
-		qcom,dsi-ctrl = <&mdss_dsi0>;
-		qcom,dsi-phy = <&mdss_dsi_phy0>;
+		qcom,dsi-ctrl = <&sde_dsi0>;
+		qcom,dsi-phy = <&sde_dsi_phy0>;
 		clocks = <&clock_mmss clk_ext_byte0_clk_src>,
 			 <&clock_mmss clk_ext_pclk0_clk_src>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
@@ -180,8 +180,8 @@
 		label = "single_dsi_sharp_1080p";
 		qcom,display-type = "primary";
 
-		qcom,dsi-ctrl = <&mdss_dsi0>;
-		qcom,dsi-phy = <&mdss_dsi_phy0>;
+		qcom,dsi-ctrl = <&sde_dsi0>;
+		qcom,dsi-phy = <&sde_dsi_phy0>;
 		clocks = <&clock_mmss clk_ext_byte0_clk_src>,
 			 <&clock_mmss clk_ext_pclk0_clk_src>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
@@ -209,8 +209,8 @@
 		qcom,display-type = "primary";
 
 		/* dsi1/dsi0 swapped due to IMGSWAP */
-		qcom,dsi-ctrl = <&mdss_dsi1 &mdss_dsi0>;
-		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
+		qcom,dsi-ctrl = <&sde_dsi1 &sde_dsi0>;
+		qcom,dsi-phy = <&sde_dsi_phy0 &sde_dsi_phy1>;
 		clocks = <&clock_mmss clk_ext_byte0_clk_src>,
 			 <&clock_mmss clk_ext_pclk0_clk_src>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
@@ -231,8 +231,8 @@
 		label = "dsi_dual_nt35597_video";
 		qcom,display-type = "primary";
 
-		qcom,dsi-ctrl = <&mdss_dsi0 &mdss_dsi1>;
-		qcom,dsi-phy = <&mdss_dsi_phy0 &mdss_dsi_phy1>;
+		qcom,dsi-ctrl = <&sde_dsi0 &sde_dsi1>;
+		qcom,dsi-phy = <&sde_dsi_phy0 &sde_dsi_phy1>;
 		clocks = <&clock_mmss clk_ext_byte0_clk_src>,
 			 <&clock_mmss clk_ext_pclk0_clk_src>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
@@ -253,8 +253,8 @@
 		label = "dsi_adv_7533_1";
 		qcom,display-type = "secondary";
 
-		qcom,dsi-ctrl = <&mdss_dsi0>;
-		qcom,dsi-phy = <&mdss_dsi_phy0>;
+		qcom,dsi-ctrl = <&sde_dsi0>;
+		qcom,dsi-phy = <&sde_dsi_phy0>;
 		clocks = <&clock_mmss clk_ext_byte0_clk_src>,
 			<&clock_mmss clk_ext_pclk0_clk_src>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
@@ -269,8 +269,8 @@
 		label = "dsi_adv_7533_2";
 		qcom,display-type = "tertiary";
 
-		qcom,dsi-ctrl = <&mdss_dsi1>;
-		qcom,dsi-phy = <&mdss_dsi_phy1>;
+		qcom,dsi-ctrl = <&sde_dsi1>;
+		qcom,dsi-phy = <&sde_dsi_phy1>;
 		clocks = <&clock_mmss clk_ext_byte1_clk_src>,
 			<&clock_mmss clk_ext_pclk1_clk_src>;
 		clock-names = "src_byte_clk", "src_pixel_clk";
@@ -297,8 +297,8 @@
 	};
 };
 
-&mdss_mdp {
-	connectors = <&mdss_hdmi &sde_hdmi &dsi_adv_7533_1 &dsi_adv_7533_2>;
+&sde_kms {
+	connectors = <&sde_hdmi_tx &sde_hdmi &dsi_adv_7533_1 &dsi_adv_7533_2>;
 };
 
 &dsi_dual_sharp_video {

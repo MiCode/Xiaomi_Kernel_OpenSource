@@ -184,6 +184,11 @@ ipv4_connected:
 	err = 0;
 	if (IS_ERR(dst)) {
 		err = PTR_ERR(dst);
+		/* Reset daddr and dport so that udp_v6_early_demux()
+		 * fails to find this socket
+		 */
+		memset(&sk->sk_v6_daddr, 0, sizeof(sk->sk_v6_daddr));
+		inet->inet_dport = 0;
 		goto out;
 	}
 

@@ -216,6 +216,45 @@ static int check_bufsize_for_encoding(struct diagfwd_buf_t *buf, uint32_t len)
 	return buf->len;
 }
 
+int diag_md_get_peripheral(int ctxt)
+{
+	int peripheral;
+
+	if (driver->num_pd_session) {
+		peripheral = GET_PD_CTXT(ctxt);
+		switch (peripheral) {
+		case UPD_WLAN:
+			if (!driver->pd_logging_mode[0])
+				peripheral = PERIPHERAL_MODEM;
+			break;
+		case UPD_AUDIO:
+			if (!driver->pd_logging_mode[1])
+				peripheral = PERIPHERAL_LPASS;
+			break;
+		case UPD_SENSORS:
+			if (!driver->pd_logging_mode[2])
+				peripheral = PERIPHERAL_LPASS;
+			break;
+		case DIAG_ID_MPSS:
+		case DIAG_ID_LPASS:
+		case DIAG_ID_CDSP:
+		default:
+			peripheral =
+				GET_BUF_PERIPHERAL(ctxt);
+			if (peripheral > NUM_PERIPHERALS)
+				peripheral = -EINVAL;
+			break;
+		}
+	} else {
+		/* Account for Apps data as well */
+		peripheral = GET_BUF_PERIPHERAL(ctxt);
+		if (peripheral > NUM_PERIPHERALS)
+			peripheral = -EINVAL;
+	}
+
+	return peripheral;
+}
+
 static void diagfwd_data_process_done(struct diagfwd_info *fwd_info,
 				   struct diagfwd_buf_t *buf, int len)
 {
@@ -245,13 +284,15 @@ static void diagfwd_data_process_done(struct diagfwd_info *fwd_info,
 	mutex_lock(&driver->hdlc_disable_mutex);
 	mutex_lock(&fwd_info->data_mutex);
 
-	peripheral = GET_PD_CTXT(buf->ctxt);
-	if (peripheral == DIAG_ID_MPSS)
-		peripheral = PERIPHERAL_MODEM;
-	if (peripheral == DIAG_ID_LPASS)
-		peripheral = PERIPHERAL_LPASS;
-	if (peripheral == DIAG_ID_CDSP)
-		peripheral = PERIPHERAL_CDSP;
+	peripheral = diag_md_get_peripheral(buf->ctxt);
+	if (peripheral < 0) {
+		pr_err("diag:%s:%d invalid peripheral = %d\n",
+			__func__, __LINE__, peripheral);
+		mutex_unlock(&fwd_info->data_mutex);
+		mutex_unlock(&driver->hdlc_disable_mutex);
+		diag_ws_release();
+		return;
+	}
 
 	session_info =
 		diag_md_session_get_peripheral(peripheral);
@@ -1008,7 +1049,16 @@ void diagfwd_close_transport(uint8_t transport, uint8_t peripheral)
 		dest_info->buf_ptr[i] = fwd_info->buf_ptr[i];
 	if (!check_channel_state(dest_info->ctxt))
 		diagfwd_late_open(dest_info);
-	diagfwd_cntl_open(dest_info);
+
+	/*
+	 *	Open control channel to update masks after buffers are
+	 *	initialized for peripherals that have transport other than
+	 *	GLINK. GLINK supported peripheral mask update will
+	 *	happen after glink buffers are initialized.
+	 */
+
+	if (dest_info->transport != TRANSPORT_GLINK)
+		diagfwd_cntl_open(dest_info);
 	init_fn(peripheral);
 	mutex_unlock(&driver->diagfwd_channel_mutex[peripheral]);
 	diagfwd_queue_read(&peripheral_info[TYPE_DATA][peripheral]);
@@ -1199,7 +1249,18 @@ int diagfwd_channel_open(struct diagfwd_info *fwd_info)
 	mutex_lock(&driver->diagfwd_channel_mutex[fwd_info->peripheral]);
 	fwd_info->ch_open = 1;
 	diagfwd_buffers_init(fwd_info);
-	diagfwd_write_buffers_init(fwd_info);
+
+	/*
+	 *	Initialize buffers for glink supported
+	 *	peripherals only. Open control channel to update
+	 *	masks after buffers are initialized.
+	 */
+	if (fwd_info->transport == TRANSPORT_GLINK) {
+		diagfwd_write_buffers_init(fwd_info);
+		if (fwd_info->type == TYPE_CNTL)
+			diagfwd_cntl_open(fwd_info);
+	}
+
 	if (fwd_info && fwd_info->c_ops && fwd_info->c_ops->open)
 		fwd_info->c_ops->open(fwd_info);
 	for (i = 0; i < NUM_WRITE_BUFFERS; i++) {
