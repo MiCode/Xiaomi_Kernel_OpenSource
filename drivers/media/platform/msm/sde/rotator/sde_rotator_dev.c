@@ -46,6 +46,9 @@
 /* acquire fence time out, following other driver fence time out practice */
 #define SDE_ROTATOR_FENCE_TIMEOUT	MSEC_PER_SEC
 
+/* Timeout (msec) waiting for ctx open */
+#define SDE_ROTATOR_CTX_OPEN_TIMEOUT	500
+
 /* Rotator default fps */
 #define SDE_ROTATOR_DEFAULT_FPS	60
 
@@ -896,6 +899,29 @@ struct sde_rotator_ctx *sde_rotator_ctx_open(
 		goto error_lock;
 	}
 
+	/* wait until exclusive ctx, if exists, finishes or timeout */
+	while (rot_dev->excl_ctx) {
+		SDEROT_DBG("waiting to open %s session %d ...\n",
+				file ? "v4l2" : "excl",	rot_dev->session_id);
+		mutex_unlock(&rot_dev->lock);
+		ret = wait_event_interruptible_timeout(rot_dev->open_wq,
+				!rot_dev->excl_ctx,
+				msecs_to_jiffies(rot_dev->open_timeout));
+		if (ret < 0) {
+			goto error_lock;
+		} else if (!ret) {
+			SDEROT_WARN("timeout to open session %d\n",
+					rot_dev->session_id);
+			SDEROT_EVTLOG(rot_dev->session_id,
+					SDE_ROT_EVTLOG_ERROR);
+			ret = -EBUSY;
+			goto error_lock;
+		} else if (mutex_lock_interruptible(&rot_dev->lock)) {
+			ret = -ERESTARTSYS;
+			goto error_lock;
+		}
+	}
+
 	ctx->rot_dev = rot_dev;
 	ctx->file = file;
 
@@ -994,8 +1020,8 @@ struct sde_rotator_ctx *sde_rotator_ctx_open(
 	}
 	sde_rot_mgr_unlock(rot_dev->mgr);
 
-	/* Create control */
 	if (ctx->file) {
+		/* Create control */
 		ctrl_handler = &ctx->ctrl_handler;
 		v4l2_ctrl_handler_init(ctrl_handler, 4);
 		v4l2_ctrl_new_std(ctrl_handler,
@@ -1015,7 +1041,14 @@ struct sde_rotator_ctx *sde_rotator_ctx_open(
 		}
 		ctx->fh.ctrl_handler = ctrl_handler;
 		v4l2_ctrl_handler_setup(ctrl_handler);
+	} else {
+		/* acquire exclusive context */
+		SDEDEV_DBG(rot_dev->dev, "acquire exclusive session id:%u\n",
+				ctx->session_id);
+		SDEROT_EVTLOG(ctx->session_id);
+		rot_dev->excl_ctx = ctx;
 	}
+
 	mutex_unlock(&rot_dev->lock);
 
 	SDEDEV_DBG(ctx->rot_dev->dev, "SDE v4l2 rotator open success\n");
@@ -1062,6 +1095,12 @@ static int sde_rotator_ctx_release(struct sde_rotator_ctx *ctx,
 
 	SDEDEV_DBG(rot_dev->dev, "release s:%d\n", session_id);
 	mutex_lock(&rot_dev->lock);
+	if (rot_dev->excl_ctx == ctx) {
+		SDEDEV_DBG(rot_dev->dev, "release exclusive session id:%u\n",
+				session_id);
+		SDEROT_EVTLOG(session_id);
+		rot_dev->excl_ctx = NULL;
+	}
 	if (ctx->file) {
 		v4l2_ctrl_handler_free(&ctx->ctrl_handler);
 		SDEDEV_DBG(rot_dev->dev, "release streams s:%d\n", session_id);
@@ -1108,6 +1147,7 @@ static int sde_rotator_ctx_release(struct sde_rotator_ctx *ctx,
 	kfree(ctx->vbinfo_out);
 	kfree(ctx->vbinfo_cap);
 	kfree(ctx);
+	wake_up_interruptible(&rot_dev->open_wq);
 	mutex_unlock(&rot_dev->lock);
 	SDEDEV_DBG(rot_dev->dev, "release complete s:%d\n", session_id);
 	return 0;
@@ -3314,6 +3354,8 @@ static int sde_rotator_probe(struct platform_device *pdev)
 	rot_dev->min_bw = 0;
 	rot_dev->min_overhead_us = 0;
 	rot_dev->drvdata = sde_rotator_get_drv_data(&pdev->dev);
+	rot_dev->open_timeout = SDE_ROTATOR_CTX_OPEN_TIMEOUT;
+	init_waitqueue_head(&rot_dev->open_wq);
 
 	rot_dev->pdev = pdev;
 	rot_dev->dev = &pdev->dev;

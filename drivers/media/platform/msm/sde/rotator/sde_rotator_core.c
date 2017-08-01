@@ -2345,6 +2345,7 @@ static int sde_rotator_config_session(struct sde_rot_mgr *mgr,
 
 	if (config->output.sbuf && mgr->sbuf_ctx != private && mgr->sbuf_ctx) {
 		SDEROT_ERR("too many sbuf sessions\n");
+		ret = -EBUSY;
 		goto done;
 	}
 

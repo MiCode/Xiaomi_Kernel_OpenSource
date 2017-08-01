@@ -1438,6 +1438,13 @@ struct dentry *sde_rotator_create_debugfs(
 		return NULL;
 	}
 
+	if (!debugfs_create_u32("open_timeout", 0644,
+			debugfs_root, &rot_dev->open_timeout)) {
+		SDEROT_ERR("fail create open_timeout\n");
+		debugfs_remove_recursive(debugfs_root);
+		return NULL;
+	}
+
 	if (!debugfs_create_u32("disable_syscache", 0644,
 			debugfs_root, &rot_dev->disable_syscache)) {
 		SDEROT_ERR("fail create disable_syscache\n");
