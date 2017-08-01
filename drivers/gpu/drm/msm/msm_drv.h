@@ -71,6 +71,8 @@ struct msm_gem_vma;
 #define MAX_BRIDGES    8
 #define MAX_CONNECTORS 8
 
+#define TEARDOWN_DEADLOCK_RETRY_MAX 5
+
 struct msm_file_private {
 	/* currently we don't do anything useful with this.. but when
 	 * per-context address spaces are supported we'd keep track of
