@@ -2279,8 +2279,6 @@ static void _sde_crtc_set_suspend(struct drm_crtc *crtc, bool enable)
 	struct sde_crtc *sde_crtc;
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
-	struct drm_event event;
-	u32 power_on;
 	int ret = 0;
 
 	if (!crtc || !crtc->dev || !crtc->dev->dev_private) {
@@ -2301,19 +2299,6 @@ static void _sde_crtc_set_suspend(struct drm_crtc *crtc, bool enable)
 
 	mutex_lock(&sde_crtc->crtc_lock);
 
-	event.type = DRM_EVENT_CRTC_POWER;
-	event.length = sizeof(u32);
-	/*
-	 * Update CP on suspend/resume transitions
-	 */
-	if (enable && !sde_crtc->suspend) {
-		sde_cp_crtc_suspend(crtc);
-		power_on = 0;
-	} else if (!enable && sde_crtc->suspend) {
-		sde_cp_crtc_resume(crtc);
-		power_on = 1;
-	}
-
 	/*
 	 * If the vblank is enabled, release a power reference on suspend
 	 * and take it back during resume (if it is still enabled).
@@ -2331,8 +2316,6 @@ static void _sde_crtc_set_suspend(struct drm_crtc *crtc, bool enable)
 	}
 
 	sde_crtc->suspend = enable;
-	msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
-			(u8 *)&power_on);
 	mutex_unlock(&sde_crtc->crtc_lock);
 }
 
@@ -2483,6 +2466,8 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	struct msm_drm_private *priv;
 	unsigned long flags;
 	struct sde_crtc_irq_info *node = NULL;
+	struct drm_event event;
+	u32 power_on;
 	int ret;
 
 	if (!crtc || !crtc->dev || !crtc->dev->dev_private || !crtc->state) {
@@ -2500,6 +2485,14 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 
 	mutex_lock(&sde_crtc->crtc_lock);
 	SDE_EVT32_VERBOSE(DRMID(crtc));
+
+	/* update color processing on suspend */
+	event.type = DRM_EVENT_CRTC_POWER;
+	event.length = sizeof(u32);
+	sde_cp_crtc_suspend(crtc);
+	power_on = 0;
+	msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
+			(u8 *)&power_on);
 
 	/* wait for frame_event_done completion */
 	if (_sde_crtc_wait_for_frame_done(crtc))
@@ -2567,6 +2560,8 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 	struct msm_drm_private *priv;
 	unsigned long flags;
 	struct sde_crtc_irq_info *node = NULL;
+	struct drm_event event;
+	u32 power_on;
 	int ret;
 
 	if (!crtc || !crtc->dev || !crtc->dev->dev_private) {
@@ -2597,6 +2592,15 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 					sde_crtc->name, ret);
 	}
 	sde_crtc->enabled = true;
+
+	/* update color processing on resume */
+	event.type = DRM_EVENT_CRTC_POWER;
+	event.length = sizeof(u32);
+	sde_cp_crtc_resume(crtc);
+	power_on = 1;
+	msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
+			(u8 *)&power_on);
+
 	mutex_unlock(&sde_crtc->crtc_lock);
 
 	spin_lock_irqsave(&sde_crtc->spin_lock, flags);
