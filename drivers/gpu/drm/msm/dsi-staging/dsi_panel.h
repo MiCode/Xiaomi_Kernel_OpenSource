@@ -55,6 +55,9 @@ enum dsi_cmd_set_type {
 	DSI_CMD_SET_VID_TO_CMD_SWITCH,
 	DSI_CMD_SET_POST_VID_TO_CMD_SWITCH,
 	DSI_CMD_SET_PANEL_STATUS,
+	DSI_CMD_SET_LP1,
+	DSI_CMD_SET_LP2,
+	DSI_CMD_SET_NOLP,
 	DSI_CMD_SET_PPS,
 	DSI_CMD_SET_ROI,
 	DSI_CMD_SET_MAX
@@ -229,6 +232,12 @@ int dsi_panel_get_dfps_caps(struct dsi_panel *panel,
 			    struct dsi_dfps_capabilities *dfps_caps);
 
 int dsi_panel_pre_prepare(struct dsi_panel *panel);
+
+int dsi_panel_set_lp1(struct dsi_panel *panel);
+
+int dsi_panel_set_lp2(struct dsi_panel *panel);
+
+int dsi_panel_set_nolp(struct dsi_panel *panel);
 
 int dsi_panel_prepare(struct dsi_panel *panel);
 
