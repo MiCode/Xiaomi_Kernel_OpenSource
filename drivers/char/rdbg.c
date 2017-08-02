@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,7 +22,7 @@
 #include <linux/uaccess.h>
 #include <linux/interrupt.h>
 
-#define SMP2P_NUM_PROCS				8
+#define SMP2P_NUM_PROCS				16
 #define MAX_RETRIES				20
 
 #define SM_VERSION				1
@@ -146,9 +146,17 @@ static struct processor_specific_info proc_info[SMP2P_NUM_PROCS] = {
 		{"rdbg_adsp", SMEM_LC_DEBUGGER, 16*1024},	/*ADSP*/
 		{0},	/*SMP2P_RESERVED_PROC_1*/
 		{"rdbg_wcnss", 0, 0},		/*WCNSS*/
-		{0},	/*SMP2P_RESERVED_PROC_2*/
-		{0},	/*SMP2P_POWER_PROC*/
-		{0}		/*SMP2P_REMOTE_MOCK_PROC*/
+		{"rdbg_cdsp", SMEM_LC_DEBUGGER, 16*1024},		/*CDSP*/
+		{NULL},	/*SMP2P_POWER_PROC*/
+		{NULL},	/*SMP2P_TZ_PROC*/
+		{NULL},	/*EMPTY*/
+		{NULL},	/*EMPTY*/
+		{NULL},	/*EMPTY*/
+		{NULL},	/*EMPTY*/
+		{NULL},	/*EMPTY*/
+		{NULL},	/*EMPTY*/
+		{NULL},	/*EMPTY*/
+		{NULL}		/*SMP2P_REMOTE_MOCK_PROC*/
 };
 
 static int smq_blockmap_get(struct smq_block_map *block_map,
