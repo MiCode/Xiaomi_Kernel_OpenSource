@@ -481,15 +481,15 @@ static inline void pd_reset_protocol(struct usbpd *pd)
 	pd->send_dr_swap = false;
 }
 
-static int pd_send_msg(struct usbpd *pd, u8 hdr_type, const u32 *data,
-		size_t num_data, enum pd_msg_type type)
+static int pd_send_msg(struct usbpd *pd, u8 msg_type, const u32 *data,
+		size_t num_data, enum pd_sop_type sop)
 {
 	int ret;
 	u16 hdr;
 
-	hdr = PD_MSG_HDR(hdr_type, pd->current_dr, pd->current_pr,
+	hdr = PD_MSG_HDR(msg_type, pd->current_dr, pd->current_pr,
 			pd->tx_msgid, num_data, pd->spec_rev);
-	ret = pd_phy_write(hdr, (u8 *)data, num_data * sizeof(u32), type, 15);
+	ret = pd_phy_write(hdr, (u8 *)data, num_data * sizeof(u32), sop, 15);
 	/* TODO figure out timeout. based on tReceive=1.1ms x nRetryCount? */
 
 	if (ret < 0)
@@ -612,12 +612,12 @@ static void kick_sm(struct usbpd *pd, int ms)
 		queue_work(pd->wq, &pd->sm_work);
 }
 
-static void phy_sig_received(struct usbpd *pd, enum pd_sig_type type)
+static void phy_sig_received(struct usbpd *pd, enum pd_sig_type sig)
 {
 	union power_supply_propval val = {1};
 
-	if (type != HARD_RESET_SIG) {
-		usbpd_err(&pd->dev, "invalid signal (%d) received\n", type);
+	if (sig != HARD_RESET_SIG) {
+		usbpd_err(&pd->dev, "invalid signal (%d) received\n", sig);
 		return;
 	}
 
@@ -632,16 +632,16 @@ static void phy_sig_received(struct usbpd *pd, enum pd_sig_type type)
 	kick_sm(pd, 0);
 }
 
-static void phy_msg_received(struct usbpd *pd, enum pd_msg_type type,
+static void phy_msg_received(struct usbpd *pd, enum pd_sop_type sop,
 		u8 *buf, size_t len)
 {
 	struct rx_msg *rx_msg;
 	unsigned long flags;
 	u16 header;
 
-	if (type != SOP_MSG) {
+	if (sop != SOP_MSG) {
 		usbpd_err(&pd->dev, "invalid msg type (%d) received; only SOP supported\n",
-				type);
+				sop);
 		return;
 	}
 
