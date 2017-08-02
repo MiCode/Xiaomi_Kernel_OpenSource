@@ -508,6 +508,7 @@ struct mdss_data_type {
 	struct mdss_scaler_block *scaler_off;
 
 	u32 splash_intf_sel;
+	u32 splash_split_disp;
 };
 
 extern struct mdss_data_type *mdss_res;
