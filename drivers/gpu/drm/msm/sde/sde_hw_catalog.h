@@ -221,6 +221,7 @@ enum {
  * @SDE_PINGPONG_SLAVE      PP block is a suitable slave for split fifo
  * @SDE_PINGPONG_DSC,       Display stream compression blocks
  * @SDE_PINGPONG_DITHER,    Dither blocks
+ * @SDE_PINGPONG_MERGE_3D,  Separate MERGE_3D block exists
  * @SDE_PINGPONG_MAX
  */
 enum {
@@ -230,6 +231,7 @@ enum {
 	SDE_PINGPONG_SLAVE,
 	SDE_PINGPONG_DSC,
 	SDE_PINGPONG_DITHER,
+	SDE_PINGPONG_MERGE_3D,
 	SDE_PINGPONG_MAX
 };
 
@@ -693,16 +695,19 @@ struct sde_ds_cfg {
  * @base               register offset of this block
  * @features           bit mask identifying sub-blocks/features
  * @sblk               sub-blocks information
+ * @merge_3d_id        merge_3d block id
  */
 struct sde_pingpong_cfg  {
 	SDE_HW_BLK_INFO;
 	const struct sde_pingpong_sub_blks *sblk;
+	int merge_3d_id;
 };
 
 /**
  * struct sde_dsc_cfg - information of DSC blocks
  * @id                 enum identifying this block
  * @base               register offset of this block
+ * @len:               length of hardware block
  * @features           bit mask identifying sub-blocks/features
  */
 struct sde_dsc_cfg {
@@ -757,6 +762,17 @@ struct sde_wb_cfg {
 	u32 vbif_idx;
 	u32 xin_id;
 	enum sde_clk_ctrl_type clk_ctrl;
+};
+
+/**
+ * struct sde_merge_3d_cfg - information of merge_3d blocks
+ * @id                 enum identifying this block
+ * @base               register offset of this block
+ * @len:               length of hardware block
+ * @features           bit mask identifying sub-blocks/features
+ */
+struct sde_merge_3d_cfg {
+	SDE_HW_BLK_INFO;
 };
 
 /**
@@ -1048,6 +1064,9 @@ struct sde_mdss_cfg {
 	struct sde_reg_dma_cfg dma_cfg;
 
 	u32 ad_count;
+
+	u32 merge_3d_count;
+	struct sde_merge_3d_cfg merge_3d[MAX_BLOCKS];
 
 	/* Add additional block data structures here */
 

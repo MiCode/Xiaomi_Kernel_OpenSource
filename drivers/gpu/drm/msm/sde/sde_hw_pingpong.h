@@ -20,6 +20,7 @@
 #include <uapi/drm/msm_drm_pp.h>
 
 struct sde_hw_pingpong;
+struct sde_hw_merge_3d;
 
 struct sde_hw_tear_check {
 	/*
@@ -142,6 +143,32 @@ struct sde_hw_pingpong_ops {
 	 * Obtain current vertical line counter
 	 */
 	u32 (*get_line_count)(struct sde_hw_pingpong *pp);
+
+	/**
+	 * Programs the 3d blend configuration
+	 */
+	void (*setup_3d_mode)(struct sde_hw_pingpong *pp,
+			enum sde_3d_blend_mode cfg);
+};
+
+struct sde_hw_merge_3d_ops {
+	/**
+	 * setup the 3d blend mode configuration
+	 */
+	void (*setup_blend_mode)(struct sde_hw_merge_3d *id,
+			enum sde_3d_blend_mode cfg);
+};
+
+struct sde_hw_merge_3d {
+	struct sde_hw_blk base;
+	struct sde_hw_blk_reg_map hw;
+
+	/* merge_3d */
+	enum sde_merge_3d idx;
+	const struct sde_merge_3d_cfg *caps;
+
+	/* ops */
+	struct sde_hw_merge_3d_ops ops;
 };
 
 struct sde_hw_pingpong {
@@ -151,6 +178,9 @@ struct sde_hw_pingpong {
 	/* pingpong */
 	enum sde_pingpong idx;
 	const struct sde_pingpong_cfg *caps;
+
+	/* associated 3d_merge */
+	struct sde_hw_merge_3d *merge_3d;
 
 	/* ops */
 	struct sde_hw_pingpong_ops ops;

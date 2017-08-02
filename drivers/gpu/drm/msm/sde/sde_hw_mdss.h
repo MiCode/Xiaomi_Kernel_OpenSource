@@ -108,6 +108,7 @@ enum sde_hw_blk_type {
 	SDE_HW_BLK_WB,
 	SDE_HW_BLK_DSC,
 	SDE_HW_BLK_ROT,
+	SDE_HW_BLK_MERGE_3D,
 	SDE_HW_BLK_MAX,
 };
 
