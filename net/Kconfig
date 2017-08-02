@@ -240,6 +240,7 @@ source "net/switchdev/Kconfig"
 source "net/l3mdev/Kconfig"
 source "net/qrtr/Kconfig"
 source "net/ncsi/Kconfig"
+source "net/rmnet_data/Kconfig"
 
 config RPS
 	bool
