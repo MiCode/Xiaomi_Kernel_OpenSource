@@ -17,6 +17,7 @@
 #include <dt-bindings/clock/qcom,gpucc-sdm855.h>
 #include <dt-bindings/clock/qcom,videocc-sdm855.h>
 #include <dt-bindings/clock/qcom,cpucc-sdm855.h>
+#include <dt-bindings/clock/qcom,npucc-sdm855.h>
 #include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/clock/qcom,aop-qmp.h>
 
@@ -460,6 +461,13 @@
 	clock_dispcc: qcom,dispcc {
 		compatible = "qcom,dummycc";
 		clock-output-names = "dispcc_clocks";
+		#clock-cells = <1>;
+		#reset-cells = <1>;
+	};
+
+	clock_npucc: qcom,npucc {
+		compatible = "qcom,dummycc";
+		clock-output-names = "npucc_clocks";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
