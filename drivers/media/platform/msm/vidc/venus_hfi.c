@@ -2804,6 +2804,8 @@ static void venus_hfi_pm_handler(struct work_struct *work)
 		}
 	}
 
+	__flush_debug_queue(device, device->raw_packet);
+
 	rc = __suspend(device);
 	if (rc)
 		dprintk(VIDC_ERR, "Failed venus power off\n");
