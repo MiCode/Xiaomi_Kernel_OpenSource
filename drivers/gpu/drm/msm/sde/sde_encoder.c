@@ -185,6 +185,7 @@ enum sde_enc_rc_states {
  * @disp_info:			local copy of msm_display_info struct
  * @mode_info:			local copy of msm_mode_info struct
  * @misr_enable:		misr enable/disable status
+ * @misr_frame_count:		misr frame count before start capturing the data
  * @idle_pc_supported:		indicate if idle power collaps is supported
  * @rc_lock:			resource control mutex lock to protect
  *				virt encoder over various state changes
@@ -229,6 +230,7 @@ struct sde_encoder_virt {
 	struct msm_display_info disp_info;
 	struct msm_mode_info mode_info;
 	bool misr_enable;
+	u32 misr_frame_count;
 
 	bool idle_pc_supported;
 	struct mutex rc_lock;
@@ -2021,6 +2023,11 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 			else if (phys->ops.enable)
 				phys->ops.enable(phys);
 		}
+
+		if (sde_enc->misr_enable && (sde_enc->disp_info.capabilities &
+		     MSM_DISPLAY_CAP_VID_MODE) && phys->ops.setup_misr)
+			phys->ops.setup_misr(phys, true,
+						sde_enc->misr_frame_count);
 	}
 
 	if (msm_is_mode_seamless_dms(cur_mode) &&
@@ -2926,6 +2933,7 @@ static ssize_t _sde_encoder_misr_setup(struct file *file,
 
 	mutex_lock(&sde_enc->enc_lock);
 	sde_enc->misr_enable = enable;
+	sde_enc->misr_frame_count = frame_count;
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
