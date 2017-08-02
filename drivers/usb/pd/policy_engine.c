@@ -498,13 +498,10 @@ static int pd_send_msg(struct usbpd *pd, u8 msg_type, const u32 *data,
 
 	hdr = PD_MSG_HDR(msg_type, pd->current_dr, pd->current_pr,
 			pd->tx_msgid, num_data, pd->spec_rev);
-	ret = pd_phy_write(hdr, (u8 *)data, num_data * sizeof(u32), sop, 15);
-	/* TODO figure out timeout. based on tReceive=1.1ms x nRetryCount? */
 
-	if (ret < 0)
+	ret = pd_phy_write(hdr, (u8 *)data, num_data * sizeof(u32), sop);
+	if (ret)
 		return ret;
-	else if (ret != num_data * sizeof(u32))
-		return -EIO;
 
 	pd->tx_msgid = (pd->tx_msgid + 1) & PD_MAX_MSG_ID;
 	return 0;
@@ -605,7 +602,7 @@ static void pd_send_hard_reset(struct usbpd *pd)
 	/* Force CC logic to source/sink to keep Rp/Rd unchanged */
 	set_power_role(pd, pd->current_pr);
 	pd->hard_reset_count++;
-	pd_phy_signal(HARD_RESET_SIG, 5); /* tHardResetComplete */
+	pd_phy_signal(HARD_RESET_SIG);
 	pd->in_pr_swap = false;
 	power_supply_set_property(pd->usb_psy, POWER_SUPPLY_PROP_PR_SWAP, &val);
 }

@@ -80,6 +80,10 @@
 #define VDD_PDPHY_VOL_MAX		3088000 /* uV */
 #define VDD_PDPHY_HPM_LOAD		3000 /* uA */
 
+/* timers */
+#define RECEIVER_RESPONSE_TIME		15	/* tReceiverResponse */
+#define HARD_RESET_COMPLETE_TIME	5	/* tHardResetComplete */
+
 struct usb_pdphy {
 	struct device *dev;
 	struct regmap *regmap;
@@ -401,14 +405,13 @@ int pd_phy_open(struct pd_phy_params *params)
 }
 EXPORT_SYMBOL(pd_phy_open);
 
-int pd_phy_signal(enum pd_sig_type sig, unsigned int timeout_ms)
+int pd_phy_signal(enum pd_sig_type sig)
 {
 	u8 val;
 	int ret;
 	struct usb_pdphy *pdphy = __pdphy;
 
-	dev_dbg(pdphy->dev, "%s: type %d timeout %u\n", __func__, sig,
-			timeout_ms);
+	dev_dbg(pdphy->dev, "%s: type %d\n", __func__, sig);
 
 	if (!pdphy) {
 		pr_err("%s: pdphy not found\n", __func__);
@@ -436,7 +439,8 @@ int pd_phy_signal(enum pd_sig_type sig, unsigned int timeout_ms)
 		return ret;
 
 	ret = wait_event_interruptible_timeout(pdphy->tx_waitq,
-		pdphy->tx_status != -EINPROGRESS, msecs_to_jiffies(timeout_ms));
+		pdphy->tx_status != -EINPROGRESS,
+		msecs_to_jiffies(HARD_RESET_COMPLETE_TIME));
 	if (ret <= 0) {
 		dev_err(pdphy->dev, "%s: failed ret %d", __func__, ret);
 		return ret ? ret : -ETIMEDOUT;
@@ -455,16 +459,15 @@ int pd_phy_signal(enum pd_sig_type sig, unsigned int timeout_ms)
 }
 EXPORT_SYMBOL(pd_phy_signal);
 
-int pd_phy_write(u16 hdr, const u8 *data, size_t data_len,
-	enum pd_sop_type sop, unsigned int timeout_ms)
+int pd_phy_write(u16 hdr, const u8 *data, size_t data_len, enum pd_sop_type sop)
 {
 	u8 val;
 	int ret;
 	size_t total_len = data_len + USB_PDPHY_MSG_HDR_LEN;
 	struct usb_pdphy *pdphy = __pdphy;
 
-	dev_dbg(pdphy->dev, "%s: hdr %x frame sop_type %d timeout %u\n",
-			__func__, hdr, sop, timeout_ms);
+	dev_dbg(pdphy->dev, "%s: hdr %x frame sop_type %d\n",
+			__func__, hdr, sop);
 
 	if (data && data_len)
 		print_hex_dump_debug("tx data obj:", DUMP_PREFIX_NONE, 32, 4,
@@ -525,7 +528,8 @@ int pd_phy_write(u16 hdr, const u8 *data, size_t data_len,
 		return ret;
 
 	ret = wait_event_interruptible_timeout(pdphy->tx_waitq,
-		pdphy->tx_status != -EINPROGRESS, msecs_to_jiffies(timeout_ms));
+		pdphy->tx_status != -EINPROGRESS,
+		msecs_to_jiffies(RECEIVER_RESPONSE_TIME));
 	if (ret <= 0) {
 		dev_err(pdphy->dev, "%s: failed ret %d", __func__, ret);
 		return ret ? ret : -ETIMEDOUT;
@@ -534,7 +538,7 @@ int pd_phy_write(u16 hdr, const u8 *data, size_t data_len,
 	if (hdr && !pdphy->tx_status)
 		pdphy->tx_bytes += data_len + USB_PDPHY_MSG_HDR_LEN;
 
-	return pdphy->tx_status ? pdphy->tx_status : data_len;
+	return pdphy->tx_status ? pdphy->tx_status : 0;
 }
 EXPORT_SYMBOL(pd_phy_write);
 
