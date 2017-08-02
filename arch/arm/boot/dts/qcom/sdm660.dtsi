@@ -2551,6 +2551,7 @@
 #include "msm-arm-smmu-impl-defs-660.dtsi"
 #include "sdm660-common.dtsi"
 #include "sdm660-blsp.dtsi"
+#include "msm-rdbg.dtsi"
 #include "sdm660-camera.dtsi"
 #include "sdm660-vidc.dtsi"
 #include "msm-audio.dtsi"
