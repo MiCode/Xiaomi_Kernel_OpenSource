@@ -25,6 +25,7 @@
 #include <linux/module.h>
 #include <linux/input.h>
 #include <linux/kthread.h>
+#include <soc/qcom/msm-core.h>
 
 static struct mutex managed_cpus_lock;
 

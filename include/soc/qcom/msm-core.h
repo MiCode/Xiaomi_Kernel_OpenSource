@@ -16,9 +16,12 @@
 #ifdef CONFIG_APSS_CORE_EA
 void set_cpu_throttled(struct cpumask *mask, bool throttling);
 struct blocking_notifier_head *get_power_update_notifier(void);
+void trigger_cpu_pwr_stats_calc(void);
+struct cpu_pwr_stats *get_cpu_pwr_stats(void);
 #else
 static inline void set_cpu_throttled(struct cpumask *mask, bool throttling) {}
 struct blocking_notifier_head *get_power_update_notifier(void) {return NULL; }
+static inline void trigger_cpu_pwr_stats_calc(void) {}
+struct cpu_pwr_stats *get_cpu_pwr_stats(void) {return NULL; }
 #endif
 #endif
-
