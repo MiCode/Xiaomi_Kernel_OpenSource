@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2012, 2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, 2017-2019 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -263,6 +263,7 @@ static void coresight_disable_sink(struct coresight_device *csdev)
 	if (ret)
 		return;
 	csdev->activated = false;
+	csdev->enable = false;
 }
 
 static int coresight_enable_link(struct coresight_device *csdev,
@@ -962,6 +963,7 @@ static ssize_t enable_source_store(struct device *dev,
 		if (ret)
 			return ret;
 	} else {
+		atomic_set(csdev->refcnt, 1);
 		coresight_disable(csdev);
 	}
 

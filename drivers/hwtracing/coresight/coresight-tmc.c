@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright (c) 2012,2017,2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012,2017-2019 The Linux Foundation. All rights reserved.
  *
  * Description: CoreSight Trace Memory Controller driver
  */
@@ -62,11 +62,13 @@ void tmc_flush_and_stop(struct tmc_drvdata *drvdata)
 
 void tmc_enable_hw(struct tmc_drvdata *drvdata)
 {
+	drvdata->enable = true;
 	writel_relaxed(TMC_CTL_CAPT_EN, drvdata->base + TMC_CTL);
 }
 
 void tmc_disable_hw(struct tmc_drvdata *drvdata)
 {
+	drvdata->enable = false;
 	writel_relaxed(0x0, drvdata->base + TMC_CTL);
 }
 
@@ -101,6 +103,9 @@ u32 tmc_get_memwidth_mask(struct tmc_drvdata *drvdata)
 static int tmc_read_prepare(struct tmc_drvdata *drvdata)
 {
 	int ret = 0;
+
+	if (!drvdata->enable)
+		return -EPERM;
 
 	switch (drvdata->config_type) {
 	case TMC_CONFIG_TYPE_ETB:
@@ -330,16 +335,20 @@ static ssize_t buffer_size_store(struct device *dev,
 	unsigned long val;
 	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
+	if (drvdata->enable) {
+		pr_err("ETR is in use, disable it to change the mem_size\n");
+		return -EINVAL;
+	}
 	/* Only permitted for TMC-ETRs */
 	if (drvdata->config_type != TMC_CONFIG_TYPE_ETR)
 		return -EPERM;
-
 	ret = kstrtoul(buf, 0, &val);
 	if (ret)
 		return ret;
 	/* The buffer size should be page aligned */
 	if (val & (PAGE_SIZE - 1))
 		return -EINVAL;
+
 	drvdata->size = val;
 	return size;
 }

@@ -1179,6 +1179,7 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 		drvdata->mode = CS_MODE_SYSFS;
 		atomic_inc(csdev->refcnt);
 	}
+	drvdata->enable = true;
 out:
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
@@ -1653,6 +1654,11 @@ static int tmc_disable_etr_sink(struct coresight_device *csdev)
 
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
+	/* Free memory outside the spinlock if need be */
+	if (drvdata->etr_buf) {
+		tmc_etr_free_sysfs_buf(drvdata->etr_buf);
+		drvdata->etr_buf = NULL;
+	}
 	dev_dbg(&csdev->dev, "TMC-ETR disabled\n");
 	return 0;
 }
