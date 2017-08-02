@@ -2235,6 +2235,9 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 		if (err)
 			goto bail;
 	}
+	VERIFY(err, fl->sctx != NULL);
+	if (err)
+		goto bail;
 	*info = (fl->sctx->smmu.enabled ? 1 : 0);
 bail:
 	return err;
