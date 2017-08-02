@@ -79,6 +79,7 @@ void kgsl_dump_syncpoints(struct kgsl_device *device,
 {
 	struct kgsl_drawobj_sync_event *event;
 	unsigned int i;
+	unsigned long flags;
 
 	for (i = 0; i < syncobj->numsyncs; i++) {
 		event = &syncobj->synclist[i];
@@ -101,12 +102,16 @@ void kgsl_dump_syncpoints(struct kgsl_device *device,
 			break;
 		}
 		case KGSL_CMD_SYNCPOINT_TYPE_FENCE:
+			spin_lock_irqsave(&event->handle_lock, flags);
+
 			if (event->handle)
 				dev_err(device->dev, "  fence: [%pK] %s\n",
 					event->handle->fence,
 					event->handle->name);
 			else
 				dev_err(device->dev, "  fence: invalid\n");
+
+			spin_unlock_irqrestore(&event->handle_lock, flags);
 			break;
 		}
 	}
@@ -119,6 +124,7 @@ static void syncobj_timer(unsigned long data)
 	struct kgsl_drawobj *drawobj = DRAWOBJ(syncobj);
 	struct kgsl_drawobj_sync_event *event;
 	unsigned int i;
+	unsigned long flags;
 
 	if (syncobj == NULL || drawobj->context == NULL)
 		return;
@@ -147,12 +153,16 @@ static void syncobj_timer(unsigned long data)
 				i, event->context->id, event->timestamp);
 			break;
 		case KGSL_CMD_SYNCPOINT_TYPE_FENCE:
+			spin_lock_irqsave(&event->handle_lock, flags);
+
 			if (event->handle != NULL) {
 				dev_err(device->dev, "       [%d] FENCE %s\n",
 				i, event->handle->fence ?
 					event->handle->fence->name : "NULL");
 				kgsl_sync_fence_log(event->handle->fence);
 			}
+
+			spin_unlock_irqrestore(&event->handle_lock, flags);
 			break;
 		}
 	}
@@ -231,7 +241,7 @@ static void drawobj_destroy_sparse(struct kgsl_drawobj *drawobj)
 static void drawobj_destroy_sync(struct kgsl_drawobj *drawobj)
 {
 	struct kgsl_drawobj_sync *syncobj = SYNCOBJ(drawobj);
-	unsigned long pending;
+	unsigned long pending, flags;
 	unsigned int i;
 
 	/* Zap the canary timer */
@@ -262,8 +272,17 @@ static void drawobj_destroy_sync(struct kgsl_drawobj *drawobj)
 				drawobj_sync_func, event);
 			break;
 		case KGSL_CMD_SYNCPOINT_TYPE_FENCE:
-			if (kgsl_sync_fence_async_cancel(event->handle))
+			spin_lock_irqsave(&event->handle_lock, flags);
+
+			if (kgsl_sync_fence_async_cancel(event->handle)) {
+				event->handle = NULL;
+				spin_unlock_irqrestore(
+						&event->handle_lock, flags);
 				drawobj_put(drawobj);
+			} else {
+				spin_unlock_irqrestore(
+						&event->handle_lock, flags);
+			}
 			break;
 		}
 	}
@@ -325,12 +344,23 @@ EXPORT_SYMBOL(kgsl_drawobj_destroy);
 
 static void drawobj_sync_fence_func(void *priv)
 {
+	unsigned long flags;
 	struct kgsl_drawobj_sync_event *event = priv;
+
+	drawobj_sync_expire(event->device, event);
 
 	trace_syncpoint_fence_expire(event->syncobj,
 		event->handle ? event->handle->name : "unknown");
 
-	drawobj_sync_expire(event->device, event);
+	spin_lock_irqsave(&event->handle_lock, flags);
+
+	/*
+	 * Setting the event->handle to NULL here make sure that
+	 * other function does not dereference a invalid pointer.
+	 */
+	event->handle = NULL;
+
+	spin_unlock_irqrestore(&event->handle_lock, flags);
 
 	drawobj_put(&event->syncobj->base);
 }
@@ -350,6 +380,7 @@ static int drawobj_add_sync_fence(struct kgsl_device *device,
 	struct kgsl_drawobj_sync_event *event;
 	struct sync_fence *fence = NULL;
 	unsigned int id;
+	unsigned long flags;
 	int ret = 0;
 
 	fence = sync_fence_fdget(sync->fd);
@@ -368,9 +399,12 @@ static int drawobj_add_sync_fence(struct kgsl_device *device,
 	event->device = device;
 	event->context = NULL;
 
+	spin_lock_init(&event->handle_lock);
 	set_bit(event->id, &syncobj->pending);
 
 	trace_syncpoint_fence(syncobj, fence->name);
+
+	spin_lock_irqsave(&event->handle_lock, flags);
 
 	event->handle = kgsl_sync_fence_async_wait(sync->fd,
 		drawobj_sync_fence_func, event);
@@ -378,8 +412,10 @@ static int drawobj_add_sync_fence(struct kgsl_device *device,
 	if (IS_ERR_OR_NULL(event->handle)) {
 		ret = PTR_ERR(event->handle);
 
-		clear_bit(event->id, &syncobj->pending);
 		event->handle = NULL;
+		spin_unlock_irqrestore(&event->handle_lock, flags);
+
+		clear_bit(event->id, &syncobj->pending);
 
 		drawobj_put(drawobj);
 
@@ -390,6 +426,8 @@ static int drawobj_add_sync_fence(struct kgsl_device *device,
 		 */
 		trace_syncpoint_fence_expire(syncobj, (ret < 0) ?
 				"error" : fence->name);
+	} else {
+		spin_unlock_irqrestore(&event->handle_lock, flags);
 	}
 
 	sync_fence_put(fence);
