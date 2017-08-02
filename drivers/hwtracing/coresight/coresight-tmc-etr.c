@@ -905,8 +905,10 @@ static void tmc_disable_etr_sink(struct coresight_device *csdev)
 	if (val != CS_MODE_DISABLED) {
 		if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
 			__tmc_etr_disable_to_bam(drvdata);
+			spin_unlock_irqrestore(&drvdata->spinlock, flags);
 			tmc_etr_bam_disable(drvdata);
 			usb_qdss_close(drvdata->usbch);
+			goto out;
 		} else {
 			tmc_etr_disable_hw(drvdata);
 		}
@@ -918,6 +920,7 @@ static void tmc_disable_etr_sink(struct coresight_device *csdev)
 		coresight_cti_unmap_trigin(drvdata->cti_reset, 2, 0);
 		coresight_cti_unmap_trigout(drvdata->cti_flush, 3, 0);
 	}
+out:
 	mutex_unlock(&drvdata->mem_lock);
 	dev_info(drvdata->dev, "TMC-ETR disabled\n");
 }
