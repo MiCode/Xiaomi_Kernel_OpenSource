@@ -1260,12 +1260,6 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 		goto power_error;
 	}
 
-	rc = sde_splash_parse_dt(dev);
-	if (rc) {
-		SDE_ERROR("parse dt for splash info failed: %d\n", rc);
-		goto power_error;
-	}
-
 	/*
 	 * Read the DISP_INTF_SEL register to check
 	 * whether early display is enabled in LK.
@@ -1277,15 +1271,23 @@ static int sde_kms_hw_init(struct msm_kms *kms)
 	}
 
 	/*
-	 * when LK has enabled early display, sde_splash_init should be
-	 * called first. This function will first do bandwidth voting job
-	 * because display hardware is accessing AHB data bus, otherwise
-	 * device reboot will happen. Second is to check if the memory is
-	 * reserved.
+	 * when LK has enabled early display, sde_splash_parse_dt and
+	 * sde_splash_init must be called. The first function is to parse the
+	 * mandatory memory node for splash function, and the second function
+	 * will first do bandwidth voting job, because display hardware is now
+	 * accessing AHB data bus, otherwise device reboot will happen, and then
+	 * to check if the memory is reserved.
 	 */
 	sinfo = &sde_kms->splash_info;
-	if (sinfo->handoff)
+	if (sinfo->handoff) {
+		rc = sde_splash_parse_dt(dev);
+		if (rc) {
+			SDE_ERROR("parse dt for splash info failed: %d\n", rc);
+			goto power_error;
+		}
+
 		sde_splash_init(&priv->phandle, kms);
+	}
 
 	for (i = 0; i < sde_kms->catalog->vbif_count; i++) {
 		u32 vbif_idx = sde_kms->catalog->vbif[i].id;
