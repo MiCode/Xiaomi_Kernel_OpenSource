@@ -628,6 +628,10 @@
 &mvs1_gdsc {
 	status = "ok";
 };
+
+&npu_core_gdsc {
+	status = "ok";
+};
 #include "sdm855-pinctrl.dtsi"
 #include "sdm855-regulator.dtsi"
 #include "sdm855-ion.dtsi"
