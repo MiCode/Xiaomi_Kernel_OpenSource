@@ -120,6 +120,10 @@ void set_power_on_alarm(void)
 	next = timerqueue_getnext(&base->timerqueue);
 	spin_unlock_irqrestore(&base->lock, flags);
 
+	rtc = alarmtimer_get_rtcdev();
+	if (!rtc)
+		goto exit;
+
 	if (next) {
 		alarm_ts = ktime_to_timespec(next->expires);
 		alarm_secs = alarm_ts.tv_sec;
@@ -138,10 +142,6 @@ void set_power_on_alarm(void)
 	if (alarm_secs <= wall_time.tv_sec + 1)
 		goto disable_alarm;
 
-	rtc = alarmtimer_get_rtcdev();
-	if (!rtc)
-		goto exit;
-
 	rtc_read_time(rtc, &rtc_time);
 	rtc_tm_to_time(&rtc_time, &rtc_secs);
 	alarm_delta = wall_time.tv_sec - rtc_secs;
@@ -149,7 +149,7 @@ void set_power_on_alarm(void)
 
 	rtc_time_to_tm(alarm_time, &alarm.time);
 	alarm.enabled = 1;
-	rc = rtc_set_alarm(rtcdev, &alarm);
+	rc = rtc_set_alarm(rtc, &alarm);
 	if (rc)
 		goto disable_alarm;
 
@@ -157,7 +157,7 @@ void set_power_on_alarm(void)
 	return;
 
 disable_alarm:
-	rtc_alarm_irq_enable(rtcdev, 0);
+	rtc_timer_cancel(rtc, &rtc->aie_timer);
 exit:
 	mutex_unlock(&power_on_alarm_lock);
 }
