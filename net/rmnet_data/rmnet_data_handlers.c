@@ -476,10 +476,12 @@ static rx_handler_result_t _rmnet_map_ingress_handler(struct sk_buff *skb,
 		if (likely((ckresult == RMNET_MAP_CHECKSUM_OK)
 			    || (ckresult == RMNET_MAP_CHECKSUM_SKIPPED)))
 			skb->ip_summed |= CHECKSUM_UNNECESSARY;
-		else if (ckresult != RMNET_MAP_CHECKSUM_ERR_UNKNOWN_IP_VERSION
-			&& ckresult != RMNET_MAP_CHECKSUM_ERR_UNKNOWN_TRANSPORT
-			&& ckresult != RMNET_MAP_CHECKSUM_VALID_FLAG_NOT_SET
-			&& ckresult != RMNET_MAP_CHECKSUM_FRAGMENTED_PACKET) {
+		else if (ckresult !=
+				    RMNET_MAP_CHECKSUM_ERR_UNKNOWN_IP_VERSION &&
+			 ckresult != RMNET_MAP_CHECKSUM_VALIDATION_FAILED &&
+			 ckresult != RMNET_MAP_CHECKSUM_ERR_UNKNOWN_TRANSPORT &&
+			 ckresult != RMNET_MAP_CHECKSUM_VALID_FLAG_NOT_SET &&
+			 ckresult != RMNET_MAP_CHECKSUM_FRAGMENTED_PACKET) {
 			rmnet_kfree_skb(skb,
 				RMNET_STATS_SKBFREE_INGRESS_BAD_MAP_CKSUM);
 			return RX_HANDLER_CONSUMED;
