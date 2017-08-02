@@ -1082,6 +1082,7 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 
 	drvdata->mode = CS_MODE_SYSFS;
 	tmc_etr_enable_hw(drvdata);
+	drvdata->enable = true;
 out:
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
