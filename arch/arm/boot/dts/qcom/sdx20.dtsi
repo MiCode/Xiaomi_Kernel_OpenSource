@@ -90,6 +90,12 @@
 		/delete-property/qcom,use-rg10-limitation-mitigation;
 	};
 
+	qcom,ipa_fws {
+		compatible = "qcom,pil-tz-generic";
+		qcom,pas-id = <0xf>;
+		qcom,firmware-name = "ipa_fws";
+	};
+
 	qcom,msm-cpufreq {
 		qcom,cpufreq-table =
 			<  307200 >,
