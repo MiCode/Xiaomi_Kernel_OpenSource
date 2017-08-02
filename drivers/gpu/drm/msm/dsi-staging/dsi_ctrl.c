@@ -38,6 +38,8 @@
 #define DSI_CTRL_TX_TO_MS     200
 
 #define TO_ON_OFF(x) ((x) ? "ON" : "OFF")
+
+#define CEIL(x, y)              (((x) + ((y)-1)) / (y))
 /**
  * enum dsi_ctrl_driver_ops - controller driver ops
  */
@@ -890,6 +892,38 @@ static int dsi_ctrl_copy_and_pad_cmd(struct dsi_ctrl *dsi_ctrl,
 	return rc;
 }
 
+static void dsi_ctrl_wait_for_video_done(struct dsi_ctrl *dsi_ctrl)
+{
+	u32 v_total = 0, v_blank = 0, sleep_ms = 0, fps = 0, ret;
+	struct dsi_mode_info *timing;
+
+	if (dsi_ctrl->host_config.panel_mode != DSI_OP_VIDEO_MODE)
+		return;
+
+	dsi_ctrl->hw.ops.clear_interrupt_status(&dsi_ctrl->hw,
+				DSI_VIDEO_MODE_FRAME_DONE);
+
+	dsi_ctrl_enable_status_interrupt(dsi_ctrl,
+				DSI_SINT_VIDEO_MODE_FRAME_DONE, NULL);
+	reinit_completion(&dsi_ctrl->irq_info.vid_frame_done);
+	ret = wait_for_completion_timeout(
+			&dsi_ctrl->irq_info.vid_frame_done,
+			msecs_to_jiffies(DSI_CTRL_TX_TO_MS));
+	if (ret <= 0)
+		pr_debug("wait for video done failed\n");
+	dsi_ctrl_disable_status_interrupt(dsi_ctrl,
+				DSI_SINT_VIDEO_MODE_FRAME_DONE);
+
+	timing = &(dsi_ctrl->host_config.video_timing);
+	v_total = timing->v_sync_width + timing->v_back_porch +
+			timing->v_front_porch + timing->v_active;
+	v_blank = timing->v_sync_width + timing->v_back_porch;
+	fps = timing->refresh_rate;
+
+	sleep_ms = CEIL((v_blank * 1000), (v_total * fps)) + 1;
+	udelay(sleep_ms * 1000);
+}
+
 static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 			  const struct mipi_dsi_msg *msg,
 			  u32 flags)
@@ -971,6 +1005,7 @@ static int dsi_message_tx(struct dsi_ctrl *dsi_ctrl,
 	}
 
 	if (!(flags & DSI_CTRL_CMD_DEFER_TRIGGER)) {
+		dsi_ctrl_wait_for_video_done(dsi_ctrl);
 		dsi_ctrl_enable_status_interrupt(dsi_ctrl,
 					DSI_SINT_CMD_MODE_DMA_DONE, NULL);
 		reinit_completion(&dsi_ctrl->irq_info.cmd_dma_done);
