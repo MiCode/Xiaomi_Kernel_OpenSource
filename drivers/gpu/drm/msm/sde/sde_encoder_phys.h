@@ -367,6 +367,8 @@ struct sde_encoder_phys_cmd {
  * @wb_cfg:		Writeback hardware configuration
  * @cdp_cfg:		Writeback CDP configuration
  * @intf_cfg:		Interface hardware configuration
+ * @intf_cfg_v1:        Interface hardware configuration to be used if control
+ *                      path supports SDE_CTL_ACTIVE_CFG
  * @wb_roi:		Writeback region-of-interest
  * @wb_fmt:		Writeback pixel format
  * @wb_fb:		Pointer to current writeback framebuffer
@@ -392,6 +394,7 @@ struct sde_encoder_phys_wb {
 	struct sde_hw_wb_cfg wb_cfg;
 	struct sde_hw_wb_cdp_cfg cdp_cfg;
 	struct sde_hw_intf_cfg intf_cfg;
+	struct sde_hw_intf_cfg_v1 intf_cfg_v1;
 	struct sde_rect wb_roi;
 	const struct sde_format *wb_fmt;
 	struct drm_framebuffer *wb_fb;

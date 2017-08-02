@@ -401,21 +401,71 @@ static void sde_encoder_phys_wb_setup_fb(struct sde_encoder_phys *phys_enc,
  * sde_encoder_phys_wb_setup_cdp - setup chroma down prefetch block
  * @phys_enc:	Pointer to physical encoder
  */
-static void sde_encoder_phys_wb_setup_cdp(struct sde_encoder_phys *phys_enc)
+static void sde_encoder_phys_wb_setup_cdp(struct sde_encoder_phys *phys_enc,
+		const struct sde_format *format)
 {
-	struct sde_encoder_phys_wb *wb_enc = to_sde_encoder_phys_wb(phys_enc);
-	struct sde_hw_wb *hw_wb = wb_enc->hw_wb;
-	struct sde_hw_intf_cfg *intf_cfg = &wb_enc->intf_cfg;
+	struct sde_encoder_phys_wb *wb_enc;
+	struct sde_hw_wb *hw_wb;
+	struct sde_hw_cdm *hw_cdm;
+	struct sde_hw_ctl *ctl;
+	const int num_wb = 1;
 
-	memset(intf_cfg, 0, sizeof(struct sde_hw_intf_cfg));
+	if (!phys_enc) {
+		SDE_ERROR("invalid encoder\n");
+		return;
+	}
 
-	intf_cfg->intf = SDE_NONE;
-	intf_cfg->wb = hw_wb->idx;
-	intf_cfg->mode_3d = sde_encoder_helper_get_3d_blend_mode(phys_enc);
+	wb_enc = to_sde_encoder_phys_wb(phys_enc);
+	hw_wb = wb_enc->hw_wb;
+	hw_cdm = phys_enc->hw_cdm;
+	ctl = phys_enc->hw_ctl;
 
-	if (phys_enc->hw_ctl && phys_enc->hw_ctl->ops.setup_intf_cfg)
+	if (test_bit(SDE_CTL_ACTIVE_CFG, &ctl->caps->features) &&
+		(phys_enc->hw_ctl &&
+		 phys_enc->hw_ctl->ops.setup_intf_cfg_v1)) {
+		struct sde_hw_intf_cfg_v1 *intf_cfg_v1 = &wb_enc->intf_cfg_v1;
+		struct sde_hw_pingpong *hw_pp = phys_enc->hw_pp;
+		enum sde_3d_blend_mode mode_3d;
+
+		memset(intf_cfg_v1, 0, sizeof(struct sde_hw_intf_cfg_v1));
+
+		mode_3d = sde_encoder_helper_get_3d_blend_mode(phys_enc);
+		intf_cfg_v1->intf_count = SDE_NONE;
+		intf_cfg_v1->wb_count = num_wb;
+		intf_cfg_v1->wb[0] = hw_wb->idx;
+		if (SDE_FORMAT_IS_YUV(format)) {
+			intf_cfg_v1->cdm_count = num_wb;
+			intf_cfg_v1->cdm[0] = hw_cdm->idx;
+		}
+
+		if (mode_3d && hw_pp && hw_pp->merge_3d &&
+			intf_cfg_v1->merge_3d_count < MAX_MERGE_3D_PER_CTL_V1)
+			intf_cfg_v1->merge_3d[intf_cfg_v1->merge_3d_count++] =
+					hw_pp->merge_3d->idx;
+
+		if (hw_pp && hw_pp->ops.setup_3d_mode)
+			hw_pp->ops.setup_3d_mode(hw_pp, mode_3d);
+
+		/* setup which pp blk will connect to this wb */
+		if (hw_pp && hw_wb->ops.bind_pingpong_blk)
+			hw_wb->ops.bind_pingpong_blk(hw_wb, true,
+					hw_pp->idx);
+
+		phys_enc->hw_ctl->ops.setup_intf_cfg_v1(phys_enc->hw_ctl,
+				intf_cfg_v1);
+	} else if (phys_enc->hw_ctl && phys_enc->hw_ctl->ops.setup_intf_cfg) {
+		struct sde_hw_intf_cfg *intf_cfg = &wb_enc->intf_cfg;
+
+		memset(intf_cfg, 0, sizeof(struct sde_hw_intf_cfg));
+
+		intf_cfg->intf = SDE_NONE;
+		intf_cfg->wb = hw_wb->idx;
+		intf_cfg->mode_3d =
+			sde_encoder_helper_get_3d_blend_mode(phys_enc);
+
 		phys_enc->hw_ctl->ops.setup_intf_cfg(phys_enc->hw_ctl,
 				intf_cfg);
+	}
 }
 
 /**
@@ -553,6 +603,7 @@ static void _sde_encoder_phys_wb_update_flush(struct sde_encoder_phys *phys_enc)
 	struct sde_hw_wb *hw_wb;
 	struct sde_hw_ctl *hw_ctl;
 	struct sde_hw_cdm *hw_cdm;
+	struct sde_hw_pingpong *hw_pp;
 	struct sde_ctl_flush_cfg pending_flush = {0,};
 
 	if (!phys_enc)
@@ -561,6 +612,7 @@ static void _sde_encoder_phys_wb_update_flush(struct sde_encoder_phys *phys_enc)
 	hw_wb = wb_enc->hw_wb;
 	hw_ctl = phys_enc->hw_ctl;
 	hw_cdm = phys_enc->hw_cdm;
+	hw_pp = phys_enc->hw_pp;
 
 	SDE_DEBUG("[wb:%d]\n", hw_wb->idx - WB_0);
 
@@ -574,6 +626,10 @@ static void _sde_encoder_phys_wb_update_flush(struct sde_encoder_phys *phys_enc)
 
 	if (hw_ctl->ops.update_bitmask_cdm && hw_cdm)
 		hw_ctl->ops.update_bitmask_cdm(hw_ctl, hw_cdm->idx, 1);
+
+	if (hw_ctl->ops.update_bitmask_merge3d && hw_pp && hw_pp->merge_3d)
+		hw_ctl->ops.update_bitmask_merge3d(hw_ctl,
+				hw_pp->merge_3d->idx, 1);
 
 	if (hw_ctl->ops.get_pending_flush)
 		hw_ctl->ops.get_pending_flush(hw_ctl,
@@ -655,7 +711,7 @@ static void sde_encoder_phys_wb_setup(
 
 	sde_encoder_phys_wb_setup_fb(phys_enc, fb, wb_roi);
 
-	sde_encoder_phys_wb_setup_cdp(phys_enc);
+	sde_encoder_phys_wb_setup_cdp(phys_enc, wb_enc->wb_fmt);
 }
 
 /**
