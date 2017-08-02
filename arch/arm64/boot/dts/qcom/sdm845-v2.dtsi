@@ -25,6 +25,10 @@
 	qcom,devfreq,freq-table = <50000000 200000000>;
 };
 
+&bwmon {
+	qcom,count-unit = <0x10000>;
+};
+
 &clock_gcc {
 	compatible = "qcom,gcc-sdm845-v2";
 };
