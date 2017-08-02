@@ -63,6 +63,21 @@
 #define WCNSS_CONFIG_UNSPECIFIED (-1)
 #define UINT32_MAX (0xFFFFFFFFU)
 
+#define SUBSYS_NOTIF_MIN_INDEX	0
+#define SUBSYS_NOTIF_MAX_INDEX	9
+char *wcnss_subsys_notif_type[] = {
+	"SUBSYS_BEFORE_SHUTDOWN",
+	"SUBSYS_AFTER_SHUTDOWN",
+	"SUBSYS_BEFORE_POWERUP",
+	"SUBSYS_AFTER_POWERUP",
+	"SUBSYS_RAMDUMP_NOTIFICATION",
+	"SUBSYS_POWERUP_FAILURE",
+	"SUBSYS_PROXY_VOTE",
+	"SUBSYS_PROXY_UNVOTE",
+	"SUBSYS_SOC_RESET",
+	"SUBSYS_NOTIF_TYPE_COUNT"
+};
+
 static int has_48mhz_xo = WCNSS_CONFIG_UNSPECIFIED;
 module_param(has_48mhz_xo, int, S_IWUSR | S_IRUGO);
 MODULE_PARM_DESC(has_48mhz_xo, "Is an external 48 MHz XO present");
@@ -2714,50 +2729,15 @@ static struct miscdevice wcnss_usr_ctrl = {
 };
 
 static int
-wcnss_dt_parse_vreg_level(struct device *dev, int index,
-			  const char *current_vreg_name, const char *vreg_name,
-			  struct vregs_level *vlevel)
-{
-	int ret = 0;
-	/* array used to store nominal, low and high voltage values
-	 */
-	u32 voltage_levels[3], current_vreg;
-
-	ret = of_property_read_u32_array(dev->of_node, vreg_name,
-					 voltage_levels,
-					 ARRAY_SIZE(voltage_levels));
-	if (ret) {
-		dev_err(dev, "error reading %s property\n", vreg_name);
-		return ret;
-	}
-
-	vlevel[index].nominal_min = voltage_levels[0];
-	vlevel[index].low_power_min = voltage_levels[1];
-	vlevel[index].max_voltage = voltage_levels[2];
-
-	ret = of_property_read_u32(dev->of_node, current_vreg_name,
-				   &current_vreg);
-	if (ret) {
-		dev_err(dev, "error reading %s property\n", current_vreg_name);
-		return ret;
-	}
-
-	vlevel[index].uA_load = current_vreg;
-
-	return ret;
-}
-
-static int
 wcnss_trigger_config(struct platform_device *pdev)
 {
 	int ret;
-	int rc, index = 0;
+	int rc;
 	struct qcom_wcnss_opts *pdata;
 	struct resource *res;
 	int is_pronto_vadc;
 	int is_pronto_v3;
 	int pil_retry = 0;
-	struct wcnss_wlan_config *wlan_cfg = &penv->wlan_config;
 	struct device_node *node = (&pdev->dev)->of_node;
 	int has_pronto_hw = of_property_read_bool(node, "qcom,has-pronto-hw");
 
@@ -2769,93 +2749,14 @@ wcnss_trigger_config(struct platform_device *pdev)
 	penv->is_a2xb_split_reg =
 		of_property_read_bool(node, "qcom,has-a2xb-split-reg");
 
-	wlan_cfg->wcn_external_gpio_support =
-		of_property_read_bool(node, "qcom,wcn-external-gpio-support");
-
 	if (of_property_read_u32(node, "qcom,wlan-rx-buff-count",
 				 &penv->wlan_rx_buff_count)) {
 		penv->wlan_rx_buff_count = WCNSS_DEF_WLAN_RX_BUFF_COUNT;
 	}
 
-	ret = wcnss_dt_parse_vreg_level(&pdev->dev, index,
-					"qcom,pronto-vddmx-current",
-					"qcom,vddmx-voltage-level",
-					penv->wlan_config.pronto_vlevel);
-
-	if (ret) {
-		dev_err(&pdev->dev, "error reading voltage-level property\n");
-		goto fail;
-	}
-
-	index++;
-	ret = wcnss_dt_parse_vreg_level(&pdev->dev, index,
-					"qcom,pronto-vddcx-current",
-					"qcom,vddcx-voltage-level",
-					penv->wlan_config.pronto_vlevel);
-
-	if (ret) {
-		dev_err(&pdev->dev, "error reading voltage-level property\n");
-		goto fail;
-	}
-
-	index++;
-	ret = wcnss_dt_parse_vreg_level(&pdev->dev, index,
-					"qcom,pronto-vddpx-current",
-					"qcom,vddpx-voltage-level",
-					penv->wlan_config.pronto_vlevel);
-
-	if (ret) {
-		dev_err(&pdev->dev, "error reading voltage-level property\n");
-		goto fail;
-	}
-
-	/* assign 0 to index now onwards, index variable re used to
-	 * represent iris regulator index
-	 */
-	index = 0;
-	ret = wcnss_dt_parse_vreg_level(&pdev->dev, index,
-					"qcom,iris-vddxo-current",
-					"qcom,iris-vddxo-voltage-level",
-					penv->wlan_config.iris_vlevel);
-
-	if (ret) {
-		dev_err(&pdev->dev, "error reading voltage-level property\n");
-		goto fail;
-	}
-
-	index++;
-	ret = wcnss_dt_parse_vreg_level(&pdev->dev, index,
-					"qcom,iris-vddrfa-current",
-					"qcom,iris-vddrfa-voltage-level",
-					penv->wlan_config.iris_vlevel);
-
-	if (ret) {
-		dev_err(&pdev->dev, "error reading voltage-level property\n");
-		goto fail;
-	}
-
-	if (!wlan_cfg->wcn_external_gpio_support) {
-		index++;
-		ret = wcnss_dt_parse_vreg_level(
-				&pdev->dev, index,
-				"qcom,iris-vddpa-current",
-				"qcom,iris-vddpa-voltage-level",
-				penv->wlan_config.iris_vlevel);
-		if (ret) {
-			dev_err(&pdev->dev,
-				"error reading voltage-level property\n");
-			goto fail;
-		}
-	}
-
-	index++;
-	ret = wcnss_dt_parse_vreg_level(&pdev->dev, index,
-					"qcom,iris-vdddig-current",
-					"qcom,iris-vdddig-voltage-level",
-					penv->wlan_config.iris_vlevel);
-
-	if (ret) {
-		dev_err(&pdev->dev, "error reading voltage-level property\n");
+	rc = wcnss_parse_voltage_regulator(&penv->wlan_config, &pdev->dev);
+	if (rc) {
+		dev_err(&pdev->dev, "Failed to parse voltage regulators\n");
 		goto fail;
 	}
 
@@ -3201,7 +3102,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 		penv->vadc_dev = qpnp_get_vadc(&penv->pdev->dev, "wcnss");
 
 		if (IS_ERR(penv->vadc_dev)) {
-			pr_err("%s:  vadc get failed\n", __func__);
+			pr_debug("%s:  vadc get failed\n", __func__);
 			penv->vadc_dev = NULL;
 		} else {
 			rc = wcnss_get_battery_volt(&penv->wlan_config.vbatt);
@@ -3477,7 +3378,15 @@ static int wcnss_notif_cb(struct notifier_block *this, unsigned long code,
 	struct notif_data *data = (struct notif_data *)ss_handle;
 	int ret, xo_mode;
 
-	pr_info("%s: wcnss notification event: %lu\n", __func__, code);
+	if (!(code >= SUBSYS_NOTIF_MIN_INDEX) &&
+	    (code <= SUBSYS_NOTIF_MAX_INDEX)) {
+		pr_debug("%s: Invaild subsystem notification code: %lu\n",
+			 __func__, code);
+		return NOTIFY_DONE;
+	}
+
+	pr_debug("%s: wcnss notification event: %lu : %s\n",
+		 __func__, code, wcnss_subsys_notif_type[code]);
 
 	if (code == SUBSYS_PROXY_VOTE) {
 		if (pdev && pwlanconfig) {

@@ -64,8 +64,6 @@ support for pronto hardware.
 to use for VBATT feature.
 - qcom,has-a2xb-split-reg: boolean flag to determine A2xb split timeout limit
 register is available or not.
-- qcom,wcn-external-gpio-support: boolean flag to determine 3.3v gpio support
-for pronto hardware for a target.
 
 Example:
 
@@ -87,7 +85,6 @@ Example:
 
         gpios = <&msmgpio 36 0>, <&msmgpio 37 0>, <&msmgpio 38 0>,
                 <&msmgpio 39 0>, <&msmgpio 40 0>;
-        qcom,wcn-external-gpio-support;
         qcom,has-48mhz-xo;
         qcom,is-pronto-vt;
         qcom,wlan-rx-buff-count = <512>;

@@ -38,7 +38,6 @@ struct vregs_level {
 };
 
 struct wcnss_wlan_config {
-	bool	wcn_external_gpio_support;
 	int	use_48mhz_xo;
 	int	is_pronto_vadc;
 	int	is_pronto_v3;
@@ -143,6 +142,8 @@ void wcnss_init_delayed_work(struct delayed_work *dwork , void *callbackptr);
 int wcnss_get_iris_name(char *iris_version);
 void wcnss_dump_stack(struct task_struct *task);
 void wcnss_snoc_vote(bool clk_chk_en);
+int wcnss_parse_voltage_regulator(struct wcnss_wlan_config *wlan_config,
+				  struct device *dev);
 
 #ifdef CONFIG_WCNSS_REGISTER_DUMP_ON_BITE
 void wcnss_log_debug_regs_on_bite(void);
