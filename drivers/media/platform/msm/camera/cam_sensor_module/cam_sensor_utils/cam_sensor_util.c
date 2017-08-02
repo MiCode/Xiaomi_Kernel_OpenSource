@@ -571,6 +571,7 @@ int32_t cam_sensor_update_power_settings(void *cmd_buf,
 	if (!power_info->power_setting)
 		return -ENOMEM;
 
+	power_info->power_down_setting_size = 0;
 	power_info->power_down_setting =
 		(struct cam_sensor_power_setting *)
 		kzalloc(sizeof(struct cam_sensor_power_setting) *
