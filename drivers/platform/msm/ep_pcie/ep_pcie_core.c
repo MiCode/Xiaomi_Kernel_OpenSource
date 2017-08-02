@@ -38,9 +38,12 @@
 /* debug mask sys interface */
 static int ep_pcie_debug_mask;
 static int ep_pcie_debug_keep_resource;
+static u32 ep_pcie_bar0_address;
 module_param_named(debug_mask, ep_pcie_debug_mask,
 			int, S_IRUGO | S_IWUSR | S_IWGRP);
 module_param_named(debug_keep_resource, ep_pcie_debug_keep_resource,
+			int, S_IRUGO | S_IWUSR | S_IWGRP);
+module_param_named(bar0_address, ep_pcie_bar0_address,
 			int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 struct ep_pcie_dev_t ep_pcie_dev = {0};
@@ -1275,6 +1278,9 @@ checkbme:
 			dev->rev, retries,
 			BME_TIMEOUT_US_MIN * retries / 1000);
 		ep_pcie_enumeration_complete(dev);
+		/* expose BAR to user space to identify modem */
+		ep_pcie_bar0_address =
+			readl_relaxed(dev->dm_core + PCIE20_BAR0);
 	} else {
 		if (!(opt & EP_PCIE_OPT_ENUM_ASYNC))
 			EP_PCIE_ERR(dev,
