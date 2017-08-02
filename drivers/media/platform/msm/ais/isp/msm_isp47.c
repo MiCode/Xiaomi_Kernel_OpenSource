@@ -2537,8 +2537,7 @@ int msm_vfe47_get_regulators(struct vfe_device *vfe_dev)
 	int rc = 0;
 	int i;
 
-	vfe_dev->vfe_num_regulators =
-		sizeof(*vfe_dev->hw_info->regulator_names) / sizeof(char *);
+	vfe_dev->vfe_num_regulators = vfe_dev->hw_info->regulator_num;
 
 	vfe_dev->regulator_info = kzalloc(sizeof(struct msm_cam_regulator) *
 				vfe_dev->vfe_num_regulators, GFP_KERNEL);
@@ -2811,6 +2810,7 @@ struct msm_vfe_hardware_info vfe47_hw_info = {
 	.dmi_reg_offset = 0xC2C,
 	.axi_hw_info = &msm_vfe47_axi_hw_info,
 	.stats_hw_info = &msm_vfe47_stats_hw_info,
+	.regulator_num = 3,
 	.regulator_names = {"vdd", "camss-vdd", "mmagic-vdd"},
 };
 EXPORT_SYMBOL(vfe47_hw_info);
