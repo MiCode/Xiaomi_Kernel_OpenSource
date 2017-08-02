@@ -47,6 +47,10 @@ struct sde_rm_topology_def {
 	int needs_split_display;
 };
 
+/**
+ * toplogy information to be used when ctl path version does not
+ * support driving more than one interface per ctl_path
+ */
 static const struct sde_rm_topology_def g_top_table[] = {
 	{   SDE_RM_TOPOLOGY_NONE,                 0, 0, 0, 0, false },
 	{   SDE_RM_TOPOLOGY_SINGLEPIPE,           1, 0, 1, 1, false },
@@ -58,6 +62,23 @@ static const struct sde_rm_topology_def g_top_table[] = {
 	{   SDE_RM_TOPOLOGY_DUALPIPE_DSCMERGE,    2, 2, 1, 1, false },
 	{   SDE_RM_TOPOLOGY_PPSPLIT,              1, 0, 2, 1, true  },
 };
+
+/**
+ * topology information to be used when the ctl path version
+ * is SDE_CTL_CFG_VERSION_1_0_0
+ */
+static const struct sde_rm_topology_def g_ctl_ver_1_top_table[] = {
+	{   SDE_RM_TOPOLOGY_NONE,                 0, 0, 0, 0, false },
+	{   SDE_RM_TOPOLOGY_SINGLEPIPE,           1, 0, 1, 1, false },
+	{   SDE_RM_TOPOLOGY_SINGLEPIPE_DSC,       1, 1, 1, 1, false },
+	{   SDE_RM_TOPOLOGY_DUALPIPE,             2, 0, 2, 1, true  },
+	{   SDE_RM_TOPOLOGY_DUALPIPE_DSC,         2, 2, 2, 1, true  },
+	{   SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE,     2, 0, 1, 1, false },
+	{   SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE_DSC, 2, 1, 1, 1, false },
+	{   SDE_RM_TOPOLOGY_DUALPIPE_DSCMERGE,    2, 2, 1, 1, false },
+	{   SDE_RM_TOPOLOGY_PPSPLIT,              1, 0, 2, 1, true  },
+};
+
 
 /**
  * struct sde_rm_requirements - Reservation requirements parameter bundle
@@ -416,6 +437,11 @@ int sde_rm_init(struct sde_rm *rm,
 		INIT_LIST_HEAD(&rm->hw_blks[type]);
 
 	rm->dev = dev;
+
+	if (IS_SDE_CTL_REV_100(cat->ctl_rev))
+		rm->topology_tbl = g_ctl_ver_1_top_table;
+	else
+		rm->topology_tbl = g_top_table;
 
 	/* Some of the sub-blocks require an mdptop to be created */
 	rm->hw_mdp = sde_hw_mdptop_init(MDP_TOP, mmio, cat);
@@ -1583,9 +1609,9 @@ static int _sde_rm_populate_requirements(
 	sde_encoder_get_hw_resources(enc, &reqs->hw_res, conn_state);
 
 	for (i = 0; i < SDE_RM_TOPOLOGY_MAX; i++) {
-		if (RM_IS_TOPOLOGY_MATCH(g_top_table[i],
+		if (RM_IS_TOPOLOGY_MATCH(rm->topology_tbl[i],
 					reqs->hw_res.topology)) {
-			reqs->topology = &g_top_table[i];
+			reqs->topology = &rm->topology_tbl[i];
 			break;
 		}
 	}

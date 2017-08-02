@@ -84,6 +84,7 @@ struct sde_rm {
 	uint32_t lm_max_width;
 	uint32_t rsvp_next_seq;
 	struct mutex rm_lock;
+	const struct sde_rm_topology_def *topology_tbl;
 };
 
 /**
