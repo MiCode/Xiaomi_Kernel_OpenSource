@@ -519,11 +519,10 @@ static int show_votable_clients(struct seq_file *m, void *data)
 
 	lock_votable(votable);
 
-	seq_printf(m, "Votable %s:\n", votable->name);
-	seq_puts(m, "clients:\n");
 	for (i = 0; i < votable->num_clients; i++) {
 		if (votable->client_strs[i]) {
-			seq_printf(m, "%-15s:\t\ten=%d\t\tv=%d\n",
+			seq_printf(m, "%s: %s:\t\t\ten=%d v=%d\n",
+					votable->name,
 					votable->client_strs[i],
 					votable->votes[i].enabled,
 					votable->votes[i].value);
@@ -542,11 +541,11 @@ static int show_votable_clients(struct seq_file *m, void *data)
 		break;
 	}
 
-	seq_printf(m, "type: %s\n", type_str);
-	seq_puts(m, "Effective:\n");
 	effective_client_str = get_effective_client_locked(votable);
-	seq_printf(m, "%-15s:\t\tv=%d\n",
+	seq_printf(m, "%s: effective=%s type=%s v=%d\n",
+			votable->name,
 			effective_client_str ? effective_client_str : "none",
+			type_str,
 			get_effective_result_locked(votable));
 	unlock_votable(votable);
 
