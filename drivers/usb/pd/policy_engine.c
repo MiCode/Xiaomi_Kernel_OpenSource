@@ -129,6 +129,12 @@ enum usbpd_control_msg_type {
 	MSG_VCONN_SWAP,
 	MSG_WAIT,
 	MSG_SOFT_RESET,
+	MSG_NOT_SUPPORTED = 0x10,
+	MSG_GET_SOURCE_CAP_EXTENDED,
+	MSG_GET_STATUS,
+	MSG_FR_SWAP,
+	MSG_GET_PPS_STATUS,
+	MSG_GET_COUNTRY_CODES,
 };
 
 enum usbpd_data_msg_type {
@@ -136,7 +142,27 @@ enum usbpd_data_msg_type {
 	MSG_REQUEST,
 	MSG_BIST,
 	MSG_SINK_CAPABILITIES,
+	MSG_BATTERY_STATUS,
+	MSG_ALERT,
+	MSG_GET_COUNTRY_INFO,
 	MSG_VDM = 0xF,
+};
+
+enum usbpd_ext_msg_type {
+	MSG_SOURCE_CAPABILITIES_EXTENDED = 1,
+	MSG_STATUS,
+	MSG_GET_BATTERY_CAP,
+	MSG_GET_BATTERY_STATUS,
+	MSG_BATTERY_CAPABILITIES,
+	MSG_GET_MANUFACTURER_INFO,
+	MSG_MANUFACTURER_INFO,
+	MSG_SECURITY_REQUEST,
+	MSG_SECURITY_RESPONSE,
+	MSG_FIRMWARE_UPDATE_REQUEST,
+	MSG_FIRMWARE_UPDATE_RESPONSE,
+	MSG_PPS_STATUS,
+	MSG_COUNTRY_INFO,
+	MSG_COUNTRY_CODES,
 };
 
 enum vdm_state {
@@ -202,13 +228,26 @@ static void *usbpd_ipc_log;
 
 #define PD_MAX_DATA_OBJ		7
 
+#define PD_MAX_EXT_MSG_LEN		260
+#define PD_MAX_EXT_MSG_LEGACY_LEN	26
+
 #define PD_MSG_HDR(type, dr, pr, id, cnt, rev) \
-	(((type) & 0xF) | ((dr) << 5) | (rev << 6) | \
+	(((type) & 0x1F) | ((dr) << 5) | (rev << 6) | \
 	 ((pr) << 8) | ((id) << 9) | ((cnt) << 12))
-#define PD_MSG_HDR_COUNT(hdr) (((hdr) >> 12) & 7)
-#define PD_MSG_HDR_TYPE(hdr) ((hdr) & 0xF)
-#define PD_MSG_HDR_ID(hdr) (((hdr) >> 9) & 7)
-#define PD_MSG_HDR_REV(hdr) (((hdr) >> 6) & 3)
+#define PD_MSG_HDR_COUNT(hdr)		(((hdr) >> 12) & 7)
+#define PD_MSG_HDR_TYPE(hdr)		((hdr) & 0x1F)
+#define PD_MSG_HDR_ID(hdr)		(((hdr) >> 9) & 7)
+#define PD_MSG_HDR_REV(hdr)		(((hdr) >> 6) & 3)
+#define PD_MSG_HDR_EXTENDED		BIT(15)
+#define PD_MSG_HDR_IS_EXTENDED(hdr)	((hdr) & PD_MSG_HDR_EXTENDED)
+
+#define PD_MSG_EXT_HDR(chunked, num, req, size) \
+	(((chunked) << 15) | (((num) & 0xF) << 11) | \
+	 ((req) << 10) | ((size) & 0x1FF))
+#define PD_MSG_EXT_HDR_IS_CHUNKED(ehdr)	((ehdr) & 0x8000)
+#define PD_MSG_EXT_HDR_CHUNK_NUM(ehdr)	(((ehdr) >> 11) & 0xF)
+#define PD_MSG_EXT_HDR_REQ_CHUNK(ehdr)	((ehdr) & 0x400)
+#define PD_MSG_EXT_HDR_DATA_SIZE(ehdr)	((ehdr) & 0x1FF)
 
 #define PD_RDO_FIXED(obj, gb, mismatch, usb_comm, no_usb_susp, curr1, curr2) \
 		(((obj) << 28) | ((gb) << 27) | ((mismatch) << 26) | \
@@ -295,19 +334,24 @@ static const u32 default_src_caps[] = { 0x36019096 };	/* VSafe5V @ 1.5A */
 static const u32 default_snk_caps[] = { 0x2601912C };	/* VSafe5V @ 3A */
 
 struct vdm_tx {
-	u32			data[7];
+	u32			data[PD_MAX_DATA_OBJ];
 	int			size;
 };
 
 struct rx_msg {
-	u8			type;
-	u8			len;
-	u32			payload[7];
+	u16			hdr;
+	u16			data_len;	/* size of payload in bytes */
 	struct list_head	entry;
+	u8			payload[];
 };
 
-#define IS_DATA(m, t) ((m) && ((m)->len) && ((m)->type == (t)))
-#define IS_CTRL(m, t) ((m) && !((m)->len) && ((m)->type == (t)))
+#define IS_DATA(m, t) ((m) && !PD_MSG_HDR_IS_EXTENDED((m)->hdr) && \
+		PD_MSG_HDR_COUNT((m)->hdr) && \
+		(PD_MSG_HDR_TYPE((m)->hdr) == (t)))
+#define IS_CTRL(m, t) ((m) && !PD_MSG_HDR_COUNT((m)->hdr) && \
+		(PD_MSG_HDR_TYPE((m)->hdr) == (t)))
+#define IS_EXT(m, t) ((m) && PD_MSG_HDR_IS_EXTENDED((m)->hdr) && \
+		(PD_MSG_HDR_TYPE((m)->hdr) == (t)))
 
 struct usbpd {
 	struct device		dev;
@@ -322,6 +366,7 @@ struct usbpd {
 	bool			hard_reset_recvd;
 	struct list_head	rx_q;
 	spinlock_t		rx_lock;
+	struct rx_msg		*rx_ext_msg;
 
 	u32			received_pdos[PD_MAX_DATA_OBJ];
 	u16			src_cap_id;
@@ -355,6 +400,8 @@ struct usbpd {
 	bool			pd_phy_opened;
 	bool			send_request;
 	struct completion	is_ready;
+	struct completion	tx_chunk_request;
+	u8			next_tx_chunk;
 
 	struct mutex		swap_lock;
 	struct dual_role_phy_instance	*dual_role;
@@ -694,6 +741,150 @@ static void phy_sig_received(struct usbpd *pd, enum pd_sig_type sig)
 	kick_sm(pd, 0);
 }
 
+struct pd_request_chunk {
+	struct work_struct	w;
+	struct usbpd		*pd;
+	u8			msg_type;
+	u8			chunk_num;
+	enum pd_sop_type	sop;
+};
+
+static void pd_request_chunk_work(struct work_struct *w)
+{
+	struct pd_request_chunk *req =
+		container_of(w, struct pd_request_chunk, w);
+	struct usbpd *pd = req->pd;
+	unsigned long flags;
+	int ret;
+	u8 payload[4] = {0}; /* ext_hdr + padding */
+	u16 hdr = PD_MSG_HDR(req->msg_type, pd->current_dr, pd->current_pr,
+			pd->tx_msgid, 1, pd->spec_rev) | PD_MSG_HDR_EXTENDED;
+
+	*(u16 *)payload = PD_MSG_EXT_HDR(1, req->chunk_num, 1, 0);
+
+	ret = pd_phy_write(hdr, payload, sizeof(payload), req->sop);
+	if (!ret) {
+		pd->tx_msgid = (pd->tx_msgid + 1) & PD_MAX_MSG_ID;
+	} else {
+		usbpd_err(&pd->dev, "could not send chunk request\n");
+
+		/* queue what we have anyway */
+		spin_lock_irqsave(&pd->rx_lock, flags);
+		list_add_tail(&pd->rx_ext_msg->entry, &pd->rx_q);
+		spin_unlock_irqrestore(&pd->rx_lock, flags);
+
+		pd->rx_ext_msg = NULL;
+	}
+
+	kfree(req);
+}
+
+static struct rx_msg *pd_ext_msg_received(struct usbpd *pd, u16 header, u8 *buf,
+		size_t len, enum pd_sop_type sop)
+{
+	struct rx_msg *rx_msg;
+	u16 bytes_to_copy;
+	u16 ext_hdr = *(u16 *)buf;
+	u8 chunk_num;
+
+	if (!PD_MSG_EXT_HDR_IS_CHUNKED(ext_hdr)) {
+		usbpd_err(&pd->dev, "unchunked extended messages unsupported\n");
+		return NULL;
+	}
+
+	/* request for next Tx chunk */
+	if (PD_MSG_EXT_HDR_REQ_CHUNK(ext_hdr)) {
+		if (PD_MSG_EXT_HDR_DATA_SIZE(ext_hdr) ||
+			PD_MSG_EXT_HDR_CHUNK_NUM(ext_hdr) !=
+				pd->next_tx_chunk) {
+			usbpd_err(&pd->dev, "invalid request chunk ext header 0x%02x\n",
+					ext_hdr);
+			return NULL;
+		}
+
+		if (!completion_done(&pd->tx_chunk_request))
+			complete(&pd->tx_chunk_request);
+
+		return NULL;
+	}
+
+	chunk_num = PD_MSG_EXT_HDR_CHUNK_NUM(ext_hdr);
+	if (!chunk_num) {
+		/* allocate new message if first chunk */
+		rx_msg = kzalloc(sizeof(*rx_msg) +
+				PD_MSG_EXT_HDR_DATA_SIZE(ext_hdr),
+				GFP_KERNEL);
+		if (!rx_msg)
+			return NULL;
+
+		rx_msg->hdr = header;
+		rx_msg->data_len = PD_MSG_EXT_HDR_DATA_SIZE(ext_hdr);
+
+		if (rx_msg->data_len > PD_MAX_EXT_MSG_LEN) {
+			usbpd_warn(&pd->dev, "Extended message length exceeds max, truncating...\n");
+			rx_msg->data_len = PD_MAX_EXT_MSG_LEN;
+		}
+	} else {
+		if (!pd->rx_ext_msg) {
+			usbpd_err(&pd->dev, "missing first rx_ext_msg chunk\n");
+			return NULL;
+		}
+
+		rx_msg = pd->rx_ext_msg;
+	}
+
+	/*
+	 * The amount to copy is derived as follows:
+	 *
+	 * - if extended data_len < 26, then copy data_len bytes
+	 * - for chunks 0..N-2, copy 26 bytes
+	 * - for the last chunk (N-1), copy the remainder
+	 */
+	bytes_to_copy =
+		min((rx_msg->data_len - chunk_num * PD_MAX_EXT_MSG_LEGACY_LEN),
+			PD_MAX_EXT_MSG_LEGACY_LEN);
+
+	/* check against received length to avoid overrun */
+	if (bytes_to_copy > len - sizeof(ext_hdr)) {
+		usbpd_warn(&pd->dev, "not enough bytes in chunk, expected:%u received:%lu\n",
+			bytes_to_copy, len - sizeof(ext_hdr));
+		bytes_to_copy = len - sizeof(ext_hdr);
+	}
+
+	memcpy(rx_msg->payload + chunk_num * PD_MAX_EXT_MSG_LEGACY_LEN, buf + 2,
+			bytes_to_copy);
+
+	/* request next chunk? */
+	if ((rx_msg->data_len - chunk_num * PD_MAX_EXT_MSG_LEGACY_LEN) >
+			PD_MAX_EXT_MSG_LEGACY_LEN) {
+		struct pd_request_chunk *req;
+
+		if (pd->rx_ext_msg && pd->rx_ext_msg != rx_msg) {
+			usbpd_dbg(&pd->dev, "stale previous rx_ext_msg?\n");
+			kfree(pd->rx_ext_msg);
+		}
+
+		pd->rx_ext_msg = rx_msg;
+
+		req = kzalloc(sizeof(*req), GFP_KERNEL);
+		if (!req)
+			goto queue_rx; /* return what we have anyway */
+
+		INIT_WORK(&req->w, pd_request_chunk_work);
+		req->pd = pd;
+		req->msg_type = PD_MSG_HDR_TYPE(header);
+		req->chunk_num = chunk_num + 1;
+		req->sop = sop;
+		queue_work(pd->wq, &req->w);
+
+		return NULL;
+	}
+
+queue_rx:
+	pd->rx_ext_msg = NULL;
+	return rx_msg;	/* queue it for usbpd_sm */
+}
+
 static void phy_msg_received(struct usbpd *pd, enum pd_sop_type sop,
 		u8 *buf, size_t len)
 {
@@ -745,20 +936,26 @@ static void phy_msg_received(struct usbpd *pd, enum pd_sop_type sop,
 	if (PD_MSG_HDR_REV(header) < pd->spec_rev)
 		pd->spec_rev = PD_MSG_HDR_REV(header);
 
-	rx_msg = kzalloc(sizeof(*rx_msg), GFP_KERNEL);
-	if (!rx_msg)
-		return;
+	usbpd_dbg(&pd->dev, "received message: type(%d) num_objs(%d)\n",
+			PD_MSG_HDR_TYPE(header), PD_MSG_HDR_COUNT(header));
 
-	rx_msg->type = PD_MSG_HDR_TYPE(header);
-	rx_msg->len = PD_MSG_HDR_COUNT(header);
-	memcpy(&rx_msg->payload, buf, min(len, sizeof(rx_msg->payload)));
+	if (!PD_MSG_HDR_IS_EXTENDED(header)) {
+		rx_msg = kzalloc(sizeof(*rx_msg) + len, GFP_KERNEL);
+		if (!rx_msg)
+			return;
+
+		rx_msg->hdr = header;
+		rx_msg->data_len = len;
+		memcpy(rx_msg->payload, buf, len);
+	} else {
+		rx_msg = pd_ext_msg_received(pd, header, buf, len, sop);
+		if (!rx_msg)
+			return;
+	}
 
 	spin_lock_irqsave(&pd->rx_lock, flags);
 	list_add_tail(&rx_msg->entry, &pd->rx_q);
 	spin_unlock_irqrestore(&pd->rx_lock, flags);
-
-	usbpd_dbg(&pd->dev, "received message: type(%d) len(%d)\n",
-			rx_msg->type, rx_msg->len);
 
 	kick_sm(pd, 0);
 }
@@ -1215,11 +1412,13 @@ EXPORT_SYMBOL(usbpd_send_svdm);
 
 static void handle_vdm_rx(struct usbpd *pd, struct rx_msg *rx_msg)
 {
-	u32 vdm_hdr = rx_msg->payload[0];
-	u32 *vdos = &rx_msg->payload[1];
+	u32 vdm_hdr =
+	rx_msg->data_len >= sizeof(u32) ? ((u32 *)rx_msg->payload)[0] : 0;
+
+	u32 *vdos = (u32 *)&rx_msg->payload[sizeof(u32)];
 	u16 svid = VDM_HDR_SVID(vdm_hdr);
 	u16 *psvid;
-	u8 i, num_vdos = rx_msg->len - 1;	/* num objects minus header */
+	u8 i, num_vdos = PD_MSG_HDR_COUNT(rx_msg->hdr) - 1;
 	u8 cmd = SVDM_HDR_CMD(vdm_hdr);
 	u8 cmd_type = SVDM_HDR_CMD_TYPE(vdm_hdr);
 	bool has_dp = false;
@@ -1821,7 +2020,7 @@ static void usbpd_sm(struct work_struct *w)
 
 	case PE_SRC_SEND_CAPABILITIES_WAIT:
 		if (IS_DATA(rx_msg, MSG_REQUEST)) {
-			pd->rdo = rx_msg->payload[0];
+			pd->rdo = *(u32 *)rx_msg->payload;
 			usbpd_set_state(pd, PE_SRC_NEGOTIATE_CAPABILITY);
 		} else if (rx_msg) {
 			usbpd_err(&pd->dev, "Unexpected message received\n");
@@ -1844,7 +2043,7 @@ static void usbpd_sm(struct work_struct *w)
 				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
 			}
 		} else if (IS_DATA(rx_msg, MSG_REQUEST)) {
-			pd->rdo = rx_msg->payload[0];
+			pd->rdo = *(u32 *)rx_msg->payload;
 			usbpd_set_state(pd, PE_SRC_NEGOTIATE_CAPABILITY);
 		} else if (IS_CTRL(rx_msg, MSG_DR_SWAP)) {
 			if (pd->vdm_state == MODE_ENTERED) {
@@ -3432,6 +3631,7 @@ struct usbpd *usbpd_create(struct device *parent)
 	INIT_LIST_HEAD(&pd->rx_q);
 	INIT_LIST_HEAD(&pd->svid_handlers);
 	init_completion(&pd->is_ready);
+	init_completion(&pd->tx_chunk_request);
 
 	pd->psy_nb.notifier_call = psy_changed;
 	ret = power_supply_reg_notifier(&pd->psy_nb);
