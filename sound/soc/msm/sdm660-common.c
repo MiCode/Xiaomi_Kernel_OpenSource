@@ -3027,6 +3027,12 @@ static const struct of_device_id sdm660_asoc_machine_of_match[]  = {
 	  .data = "tasha_codec"},
 	{ .compatible = "qcom,sdm660-asoc-snd-tavil",
 	  .data = "tavil_codec"},
+	{ .compatible = "qcom,sdm670-asoc-snd",
+	  .data = "internal_codec"},
+	{ .compatible = "qcom,sdm670-asoc-snd-tasha",
+	  .data = "tasha_codec"},
+	{ .compatible = "qcom,sdm670-asoc-snd-tavil",
+	  .data = "tavil_codec"},
 	{},
 };
 
