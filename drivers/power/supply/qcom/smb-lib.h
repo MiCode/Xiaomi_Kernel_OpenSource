@@ -67,6 +67,7 @@ enum print_reason {
 #define WEAK_CHARGER_VOTER		"WEAK_CHARGER_VOTER"
 #define OTG_VOTER			"OTG_VOTER"
 #define FCC_CHANGE_VOTER		"FCC_CHANGE_VOTER"
+#define WBC_VOTER			"WBC_VOTER"
 
 #define VCONN_MAX_ATTEMPTS	3
 #define OTG_MAX_ATTEMPTS	3
