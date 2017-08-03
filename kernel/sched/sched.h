@@ -510,6 +510,11 @@ struct cfs_rq {
 	struct task_group *tg;	/* group that "owns" this runqueue */
 
 #ifdef CONFIG_CFS_BANDWIDTH
+
+#ifdef CONFIG_SCHED_WALT
+	struct walt_sched_stats walt_stats;
+#endif
+
 	int runtime_enabled;
 	u64 runtime_expires;
 	s64 runtime_remaining;
