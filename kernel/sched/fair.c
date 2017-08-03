@@ -10176,6 +10176,7 @@ static void nohz_balancer_kick(struct rq *rq)
 	struct sched_domain *sd;
 	int nr_busy, i, cpu = rq->cpu;
 	unsigned int flags = 0;
+	cpumask_t cpumask;
 
 	if (unlikely(rq->idle_balance))
 		return;
@@ -10190,7 +10191,8 @@ static void nohz_balancer_kick(struct rq *rq)
 	 * None are in tickless mode and hence no need for NOHZ idle load
 	 * balancing.
 	 */
-	if (likely(!atomic_read(&nohz.nr_cpus)))
+	cpumask_andnot(&cpumask, nohz.idle_cpus_mask, cpu_isolated_mask);
+	if (cpumask_empty(&cpumask))
 		return;
 
 	if (READ_ONCE(nohz.has_blocked) &&
@@ -10233,7 +10235,7 @@ static void nohz_balancer_kick(struct rq *rq)
 	if (sd) {
 		for_each_cpu(i, sched_domain_span(sd)) {
 			if (i == cpu ||
-			    !cpumask_test_cpu(i, nohz.idle_cpus_mask))
+			    !cpumask_test_cpu(i, &cpumask))
 				continue;
 
 			if (sched_asym_prefer(i, cpu)) {
@@ -10668,6 +10670,14 @@ static __latent_entropy void run_rebalance_domains(struct softirq_action *h)
 	struct rq *this_rq = this_rq();
 	enum cpu_idle_type idle = this_rq->idle_balance ?
 						CPU_IDLE : CPU_NOT_IDLE;
+
+	/*
+	 * Since core isolation doesn't update nohz.idle_cpus_mask, there
+	 * is a possibility this nohz kicked cpu could be isolated. Hence
+	 * return if the cpu is isolated.
+	 */
+	if (cpu_isolated(this_rq->cpu))
+		return;
 
 	/*
 	 * If this CPU has a pending nohz_balance_kick, then do the
