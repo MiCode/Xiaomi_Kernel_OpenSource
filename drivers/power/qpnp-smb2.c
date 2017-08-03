@@ -1436,167 +1436,205 @@ static struct smb_irq_info smb2_irqs[] = {
 	[CHG_ERROR_IRQ] = {
 		.name		= "chg-error",
 		.handler	= smblib_handle_debug,
+		.flags		= IRQ_TYPE_EDGE_RISING,
 	},
 	[CHG_STATE_CHANGE_IRQ] = {
 		.name		= "chg-state-change",
 		.handler	= smblib_handle_chg_state_change,
 		.wake		= true,
+		.flags		= IRQ_TYPE_EDGE_RISING,
 	},
 	[STEP_CHG_STATE_CHANGE_IRQ] = {
 		.name		= "step-chg-state-change",
 		.handler	= NULL,
+		.flags		= IRQ_TYPE_EDGE_RISING,
 	},
 	[STEP_CHG_SOC_UPDATE_FAIL_IRQ] = {
 		.name		= "step-chg-soc-update-fail",
 		.handler	= NULL,
+		.flags		= IRQ_TYPE_EDGE_RISING,
 	},
 	[STEP_CHG_SOC_UPDATE_REQ_IRQ] = {
 		.name		= "step-chg-soc-update-request",
 		.handler	= NULL,
+		.flags		= IRQ_TYPE_EDGE_RISING,
 	},
 /* OTG IRQs */
 	[OTG_FAIL_IRQ] = {
 		.name		= "otg-fail",
 		.handler	= smblib_handle_debug,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[OTG_OVERCURRENT_IRQ] = {
 		.name		= "otg-overcurrent",
 		.handler	= smblib_handle_otg_overcurrent,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[OTG_OC_DIS_SW_STS_IRQ] = {
 		.name		= "otg-oc-dis-sw-sts",
 		.handler	= smblib_handle_debug,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[TESTMODE_CHANGE_DET_IRQ] = {
 		.name		= "testmode-change-detect",
 		.handler	= smblib_handle_debug,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 /* BATTERY IRQs */
 	[BATT_TEMP_IRQ] = {
 		.name		= "bat-temp",
 		.handler	= smblib_handle_batt_temp_changed,
+		.flags		= IRQ_TYPE_EDGE_RISING,
 	},
 	[BATT_OCP_IRQ] = {
 		.name		= "bat-ocp",
 		.handler	= smblib_handle_batt_psy_changed,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[BATT_OV_IRQ] = {
 		.name		= "bat-ov",
 		.handler	= smblib_handle_batt_psy_changed,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[BATT_LOW_IRQ] = {
 		.name		= "bat-low",
 		.handler	= smblib_handle_batt_psy_changed,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[BATT_THERM_ID_MISS_IRQ] = {
 		.name		= "bat-therm-or-id-missing",
 		.handler	= smblib_handle_batt_psy_changed,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[BATT_TERM_MISS_IRQ] = {
 		.name		= "bat-terminal-missing",
 		.handler	= smblib_handle_batt_psy_changed,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 /* USB INPUT IRQs */
 	[USBIN_COLLAPSE_IRQ] = {
 		.name		= "usbin-collapse",
 		.handler	= smblib_handle_debug,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[USBIN_LT_3P6V_IRQ] = {
 		.name		= "usbin-lt-3p6v",
 		.handler	= smblib_handle_debug,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[USBIN_UV_IRQ] = {
 		.name		= "usbin-uv",
 		.handler	= smblib_handle_usbin_uv,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[USBIN_OV_IRQ] = {
 		.name		= "usbin-ov",
 		.handler	= smblib_handle_debug,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[USBIN_PLUGIN_IRQ] = {
 		.name		= "usbin-plugin",
 		.handler	= smblib_handle_usb_plugin,
 		.wake		= true,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[USBIN_SRC_CHANGE_IRQ] = {
 		.name		= "usbin-src-change",
 		.handler	= smblib_handle_usb_source_change,
 		.wake		= true,
+		.flags		= IRQ_TYPE_EDGE_RISING,
 	},
 	[USBIN_ICL_CHANGE_IRQ] = {
 		.name		= "usbin-icl-change",
 		.handler	= smblib_handle_icl_change,
 		.wake		= true,
+		.flags		= IRQ_TYPE_EDGE_RISING,
 	},
 	[TYPE_C_CHANGE_IRQ] = {
 		.name		= "type-c-change",
 		.handler	= smblib_handle_usb_typec_change,
 		.wake		= true,
+		.flags		= IRQ_TYPE_EDGE_RISING,
 	},
 /* DC INPUT IRQs */
 	[DCIN_COLLAPSE_IRQ] = {
 		.name		= "dcin-collapse",
 		.handler	= smblib_handle_debug,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[DCIN_LT_3P6V_IRQ] = {
 		.name		= "dcin-lt-3p6v",
 		.handler	= smblib_handle_debug,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[DCIN_UV_IRQ] = {
 		.name		= "dcin-uv",
 		.handler	= smblib_handle_debug,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[DCIN_OV_IRQ] = {
 		.name		= "dcin-ov",
 		.handler	= smblib_handle_debug,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[DCIN_PLUGIN_IRQ] = {
 		.name		= "dcin-plugin",
 		.handler	= smblib_handle_dc_plugin,
 		.wake		= true,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[DIV2_EN_DG_IRQ] = {
 		.name		= "div2-en-dg",
 		.handler	= smblib_handle_debug,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[DCIN_ICL_CHANGE_IRQ] = {
 		.name		= "dcin-icl-change",
 		.handler	= smblib_handle_debug,
+		.flags		= IRQ_TYPE_EDGE_RISING,
 	},
 /* MISCELLANEOUS IRQs */
 	[WDOG_SNARL_IRQ] = {
 		.name		= "wdog-snarl",
 		.handler	= NULL,
+		.flags		= IRQ_TYPE_EDGE_RISING,
 	},
 	[WDOG_BARK_IRQ] = {
 		.name		= "wdog-bark",
 		.handler	= NULL,
+		.flags		= IRQ_TYPE_EDGE_RISING,
 	},
 	[AICL_FAIL_IRQ] = {
 		.name		= "aicl-fail",
 		.handler	= smblib_handle_debug,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[AICL_DONE_IRQ] = {
 		.name		= "aicl-done",
 		.handler	= smblib_handle_debug,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[HIGH_DUTY_CYCLE_IRQ] = {
 		.name		= "high-duty-cycle",
 		.handler	= smblib_handle_high_duty_cycle,
 		.wake		= true,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[INPUT_CURRENT_LIMIT_IRQ] = {
 		.name		= "input-current-limiting",
 		.handler	= smblib_handle_debug,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[TEMPERATURE_CHANGE_IRQ] = {
 		.name		= "temperature-change",
 		.handler	= smblib_handle_debug,
+		.flags		= IRQ_TYPE_EDGE_FALLING,
 	},
 	[SWITCH_POWER_OK_IRQ] = {
 		.name		= "switcher-power-ok",
 		.handler	= smblib_handle_switcher_power_ok,
 		.storm_data	= {true, 1000, 8},
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 };
 
@@ -1644,8 +1682,9 @@ static int smb2_request_interrupt(struct smb2 *chip,
 	mutex_init(&irq_data->storm_data.storm_lock);
 
 	rc = devm_request_threaded_irq(chg->dev, irq, NULL,
-					smb2_irqs[irq_index].handler,
-					IRQF_ONESHOT, irq_name, irq_data);
+			smb2_irqs[irq_index].handler,
+			IRQF_ONESHOT | smb2_irqs[irq_index].flags,
+			irq_name, irq_data);
 	if (rc < 0) {
 		pr_err("Couldn't request irq %d\n", irq);
 		return rc;

@@ -133,6 +133,7 @@ struct smb_irq_info {
 	const struct storm_watch	storm_data;
 	struct smb_irq_data		*irq_data;
 	int				irq;
+	int				flags;
 };
 
 struct smb_regulator {
