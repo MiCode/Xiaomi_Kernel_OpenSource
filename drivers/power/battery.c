@@ -927,9 +927,9 @@ static int pl_notifier_call(struct notifier_block *nb,
 	if (ev != PSY_EVENT_PROP_CHANGED)
 		return NOTIFY_OK;
 
-	if ((strcmp(psy->desc->name, "parallel") == 0)
-	    || (strcmp(psy->desc->name, "battery") == 0)
-	    || (strcmp(psy->desc->name, "main") == 0))
+	if ((strcmp(psy->name, "parallel") == 0)
+	    || (strcmp(psy->name, "battery") == 0)
+	    || (strcmp(psy->name, "main") == 0))
 		schedule_delayed_work(&chip->status_change_work, 0);
 
 	return NOTIFY_OK;
