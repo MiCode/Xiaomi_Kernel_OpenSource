@@ -960,7 +960,6 @@
 		clock-names = "devfreq_clk";
 		clocks = <&clock_cpucc L3_CLUSTER0_VOTE_CLK>;
 		governor = "performance";
-		qcom,prepare-clk;
 	};
 
 	l3_cpu4: qcom,l3-cpu4 {
@@ -968,7 +967,6 @@
 		clock-names = "devfreq_clk";
 		clocks = <&clock_cpucc L3_CLUSTER1_VOTE_CLK>;
 		governor = "performance";
-		qcom,prepare-clk;
 	};
 
 	devfreq_l3lat_0: qcom,cpu0-l3lat-mon {
