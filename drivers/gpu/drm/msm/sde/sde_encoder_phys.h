@@ -315,6 +315,7 @@ struct sde_encoder_phys_cmd_autorefresh {
  * @pp_timeout_report_cnt: number of pingpong done irq timeout errors
  * @pending_rd_ptr_cnt: atomic counter to indicate if retire fence can be
  *                      signaled at the next rd_ptr_irq
+ * @rd_ptr_timestamp: last rd_ptr_irq timestamp
  * @autorefresh: autorefresh feature state
  */
 struct sde_encoder_phys_cmd {
@@ -324,6 +325,7 @@ struct sde_encoder_phys_cmd {
 	int pp_timeout_report_cnt;
 	struct sde_encoder_phys_cmd_autorefresh autorefresh;
 	atomic_t pending_rd_ptr_cnt;
+	ktime_t rd_ptr_timestamp;
 };
 
 /**
