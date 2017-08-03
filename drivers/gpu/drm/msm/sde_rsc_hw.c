@@ -676,7 +676,7 @@ int rsc_hw_vsync(struct sde_rsc_priv *rsc, enum rsc_vsync_req request,
 		break;
 
 	case VSYNC_ENABLE:
-		reg = BIT(8) | ((mode & 0x7) < 10);
+		reg = BIT(8) | ((mode & 0x7) << 10);
 		dss_reg_w(&rsc->wrapper_io, SDE_RSCC_WRAPPER_DEBUG_BUS,
 					reg, rsc->debug_mode);
 		break;
