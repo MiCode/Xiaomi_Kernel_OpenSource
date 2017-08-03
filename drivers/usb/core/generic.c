@@ -19,6 +19,8 @@
 
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
+#include <linux/usb/audio.h>
+#include <linux/usb/audio-v3.h>
 #include "usb.h"
 
 static inline const char *plural(int n)
@@ -38,6 +40,34 @@ static int is_activesync(struct usb_interface_descriptor *desc)
 	return desc->bInterfaceClass == USB_CLASS_MISC
 		&& desc->bInterfaceSubClass == 1
 		&& desc->bInterfaceProtocol == 1;
+}
+
+static int usb_audio_max_rev_config(struct usb_host_bos *bos)
+{
+	int desc_cnt, func_cnt, numfunc;
+	int num_cfg_desc;
+	struct usb_config_summary_descriptor *conf_summary;
+
+	if (!bos || !bos->config_summary)
+		goto done;
+
+	conf_summary = bos->config_summary;
+	num_cfg_desc = bos->num_config_summary_desc;
+
+	for (desc_cnt = 0; desc_cnt < num_cfg_desc; desc_cnt++) {
+		numfunc = conf_summary->bNumFunctions;
+		for (func_cnt = 0; func_cnt < numfunc; func_cnt++) {
+			/* honor device preferred config */
+			if (conf_summary->cs_info[func_cnt].bClass ==
+				USB_CLASS_AUDIO &&
+				conf_summary->cs_info[func_cnt].bSubClass !=
+				FULL_ADC_3_0)
+				return conf_summary->bConfigurationValue;
+		}
+	}
+
+done:
+	return -EINVAL;
 }
 
 int usb_choose_configuration(struct usb_device *udev)
@@ -130,7 +160,6 @@ int usb_choose_configuration(struct usb_device *udev)
 			best = c;
 			break;
 		}
-
 		/* If all the remaining configs are vendor-specific,
 		 * choose the first one. */
 		else if (!best)
@@ -143,7 +172,10 @@ int usb_choose_configuration(struct usb_device *udev)
 			insufficient_power, plural(insufficient_power));
 
 	if (best) {
-		i = best->desc.bConfigurationValue;
+		/* choose usb audio class preferred config if available */
+		i = usb_audio_max_rev_config(udev->bos);
+		if (i < 0)
+			i = best->desc.bConfigurationValue;
 		dev_dbg(&udev->dev,
 			"configuration #%d chosen from %d choice%s\n",
 			i, num_configs, plural(num_configs));
