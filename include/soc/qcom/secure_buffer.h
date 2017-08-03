@@ -50,8 +50,6 @@ enum vmid {
 #define PERM_EXEC			0x1
 
 #ifdef CONFIG_QCOM_SECURE_BUFFER
-int msm_secure_table(struct sg_table *table);
-int msm_unsecure_table(struct sg_table *table);
 int hyp_assign_table(struct sg_table *table,
 			u32 *source_vm_list, int source_nelems,
 			int *dest_vmids, int *dest_perms,
@@ -59,17 +57,8 @@ int hyp_assign_table(struct sg_table *table,
 extern int hyp_assign_phys(phys_addr_t addr, u64 size,
 			u32 *source_vmlist, int source_nelems,
 			int *dest_vmids, int *dest_perms, int dest_nelems);
-bool msm_secure_v2_is_supported(void);
 const char *msm_secure_vmid_to_string(int secure_vmid);
 #else
-static inline int msm_secure_table(struct sg_table *table)
-{
-	return -EINVAL;
-}
-static inline int msm_unsecure_table(struct sg_table *table)
-{
-	return -EINVAL;
-}
 static inline int hyp_assign_table(struct sg_table *table,
 			u32 *source_vm_list, int source_nelems,
 			int *dest_vmids, int *dest_perms,
@@ -85,10 +74,6 @@ static inline int hyp_assign_phys(phys_addr_t addr, u64 size,
 	return -EINVAL;
 }
 
-static inline bool msm_secure_v2_is_supported(void)
-{
-	return false;
-}
 static inline const char *msm_secure_vmid_to_string(int secure_vmid)
 {
 	return "N/A";
