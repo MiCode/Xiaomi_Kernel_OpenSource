@@ -1197,6 +1197,8 @@ struct drm_connector *sde_connector_init(struct drm_device *dev,
 		return ERR_PTR(-ENOMEM);
 	}
 
+	memset(&display_info, 0, sizeof(display_info));
+
 	rc = drm_connector_init(dev,
 			&c_conn->base,
 			&sde_connector_ops,
