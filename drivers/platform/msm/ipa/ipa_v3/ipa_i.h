@@ -187,6 +187,7 @@ struct ipa3_active_client_htable_entry {
 };
 
 struct ipa3_active_clients_log_ctx {
+	spinlock_t lock;
 	char *log_buffer[IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES];
 	int log_head;
 	int log_tail;

@@ -266,7 +266,9 @@ int ipa3_active_clients_log_print_buffer(char *buf, int size)
 	int cnt = 0;
 	int start_idx;
 	int end_idx;
+	unsigned long flags;
 
+	spin_lock_irqsave(&ipa3_ctx->ipa3_active_clients_logging.lock, flags);
 	start_idx = (ipa3_ctx->ipa3_active_clients_logging.log_tail + 1) %
 			IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES;
 	end_idx = ipa3_ctx->ipa3_active_clients_logging.log_head;
@@ -277,6 +279,8 @@ int ipa3_active_clients_log_print_buffer(char *buf, int size)
 				.log_buffer[i]);
 		cnt += nbytes;
 	}
+	spin_unlock_irqrestore(&ipa3_ctx->ipa3_active_clients_logging.lock,
+		flags);
 
 	return cnt;
 }
@@ -286,7 +290,9 @@ int ipa3_active_clients_log_print_table(char *buf, int size)
 	int i;
 	struct ipa3_active_client_htable_entry *iterator;
 	int cnt = 0;
+	unsigned long flags;
 
+	spin_lock_irqsave(&ipa3_ctx->ipa3_active_clients_logging.lock, flags);
 	cnt = scnprintf(buf, size, "\n---- Active Clients Table ----\n");
 	hash_for_each(ipa3_ctx->ipa3_active_clients_logging.htable, i,
 			iterator, list) {
@@ -319,6 +325,8 @@ int ipa3_active_clients_log_print_table(char *buf, int size)
 	cnt += scnprintf(buf + cnt, size - cnt,
 			"\nTotal active clients count: %d\n",
 			atomic_read(&ipa3_ctx->ipa3_active_clients.cnt));
+	spin_unlock_irqrestore(&ipa3_ctx->ipa3_active_clients_logging.lock,
+		flags);
 
 	return cnt;
 }
@@ -368,6 +376,7 @@ static int ipa3_active_clients_log_init(void)
 {
 	int i;
 
+	spin_lock_init(&ipa3_ctx->ipa3_active_clients_logging.lock);
 	ipa3_ctx->ipa3_active_clients_logging.log_buffer[0] = kzalloc(
 			IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES *
 			sizeof(char[IPA3_ACTIVE_CLIENTS_LOG_LINE_LEN]),
@@ -399,20 +408,28 @@ bail:
 
 void ipa3_active_clients_log_clear(void)
 {
-	mutex_lock(&ipa3_ctx->ipa3_active_clients.mutex);
+	unsigned long flags;
+
+	spin_lock_irqsave(&ipa3_ctx->ipa3_active_clients_logging.lock, flags);
 	ipa3_ctx->ipa3_active_clients_logging.log_head = 0;
 	ipa3_ctx->ipa3_active_clients_logging.log_tail =
 			IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES - 1;
-	mutex_unlock(&ipa3_ctx->ipa3_active_clients.mutex);
+	spin_unlock_irqrestore(&ipa3_ctx->ipa3_active_clients_logging.lock,
+		flags);
 }
 
 static void ipa3_active_clients_log_destroy(void)
 {
+	unsigned long flags;
+
+	spin_lock_irqsave(&ipa3_ctx->ipa3_active_clients_logging.lock, flags);
 	ipa3_ctx->ipa3_active_clients_logging.log_rdy = 0;
 	kfree(ipa3_ctx->ipa3_active_clients_logging.log_buffer[0]);
 	ipa3_ctx->ipa3_active_clients_logging.log_head = 0;
 	ipa3_ctx->ipa3_active_clients_logging.log_tail =
 			IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES - 1;
+	spin_unlock_irqrestore(&ipa3_ctx->ipa3_active_clients_logging.lock,
+		flags);
 }
 
 enum ipa_smmu_cb_type {
@@ -3402,7 +3419,10 @@ void ipa3_active_clients_log_mod(struct ipa_active_client_logging_info *id,
 	struct ipa3_active_client_htable_entry *hfound;
 	u32 hkey;
 	char str_to_hash[IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN];
+	unsigned long flags;
 
+	spin_lock_irqsave(&ipa3_ctx->ipa3_active_clients_logging.lock, flags);
+	int_ctx = true;
 	hfound = NULL;
 	memset(str_to_hash, 0, IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN);
 	strlcpy(str_to_hash, id->id_string, IPA3_ACTIVE_CLIENTS_LOG_NAME_LEN);
@@ -3422,6 +3442,9 @@ void ipa3_active_clients_log_mod(struct ipa_active_client_logging_info *id,
 				int_ctx ? GFP_ATOMIC : GFP_KERNEL);
 		if (hentry == NULL) {
 			IPAERR("failed allocating active clients hash entry");
+			spin_unlock_irqrestore(
+				&ipa3_ctx->ipa3_active_clients_logging.lock,
+				flags);
 			return;
 		}
 		hentry->type = id->type;
@@ -3446,6 +3469,8 @@ void ipa3_active_clients_log_mod(struct ipa_active_client_logging_info *id,
 				id->id_string, id->file, id->line);
 		ipa3_active_clients_log_insert(temp_str);
 	}
+	spin_unlock_irqrestore(&ipa3_ctx->ipa3_active_clients_logging.lock,
+		flags);
 }
 
 void ipa3_active_clients_log_dec(struct ipa_active_client_logging_info *id,
