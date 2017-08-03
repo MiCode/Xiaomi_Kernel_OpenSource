@@ -795,6 +795,33 @@ err_regulators:
 	return rc;
 }
 
+static int pil_deinit_image_trusted(struct pil_desc *pil)
+{
+	struct pil_tz_data *d = desc_to_data(pil);
+	u32 proc, scm_ret = 0;
+	int rc;
+	struct scm_desc desc = {0};
+
+	if (d->subsys_desc.no_auth)
+		return 0;
+
+	desc.args[0] = proc = d->pas_id;
+	desc.arginfo = SCM_ARGS(1);
+
+	if (!is_scm_armv8()) {
+		rc = scm_call(SCM_SVC_PIL, PAS_SHUTDOWN_CMD, &proc,
+			      sizeof(proc), &scm_ret, sizeof(scm_ret));
+	} else {
+		rc = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_SHUTDOWN_CMD),
+			       &desc);
+		scm_ret = desc.ret[0];
+	}
+
+	if (rc)
+		return rc;
+	return scm_ret;
+}
+
 static struct pil_reset_ops pil_ops_trusted = {
 	.init_image = pil_init_image_trusted,
 	.mem_setup =  pil_mem_setup_trusted,
@@ -802,6 +829,7 @@ static struct pil_reset_ops pil_ops_trusted = {
 	.shutdown = pil_shutdown_trusted,
 	.proxy_vote = pil_make_proxy_vote,
 	.proxy_unvote = pil_remove_proxy_vote,
+	.deinit_image = pil_deinit_image_trusted,
 };
 
 static void log_failure_reason(const struct pil_tz_data *d)
