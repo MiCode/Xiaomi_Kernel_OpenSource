@@ -29,8 +29,15 @@
 #define WCN_CDC_SLIM_RX_CH_MAX 2
 #define WCN_CDC_SLIM_TX_CH_MAX 3
 
-static struct snd_soc_card snd_soc_card_msm_card_tavil;
-static struct snd_soc_card snd_soc_card_msm_card_tasha;
+static struct snd_soc_card snd_soc_card_msm_card_tavil = {
+	.name = "sdm670-tavil-snd-card",
+	.late_probe = msm_snd_card_tavil_late_probe,
+};
+
+static struct snd_soc_card snd_soc_card_msm_card_tasha = {
+	.name = "sdm670-tasha-snd-card",
+	.late_probe = msm_snd_card_tasha_late_probe,
+};
 
 static struct snd_soc_ops msm_ext_slimbus_be_ops = {
 	.hw_params = msm_snd_hw_params,

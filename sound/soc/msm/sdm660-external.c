@@ -603,23 +603,23 @@ static int msm_vi_feed_tx_ch_put(struct snd_kcontrol *kcontrol,
 
 static void *def_ext_mbhc_cal(void)
 {
-	void *tavil_wcd_cal;
+	void *wcd_mbhc_cal;
 	struct wcd_mbhc_btn_detect_cfg *btn_cfg;
 	u16 *btn_high;
 
-	tavil_wcd_cal = kzalloc(WCD_MBHC_CAL_SIZE(WCD_MBHC_DEF_BUTTONS,
+	wcd_mbhc_cal = kzalloc(WCD_MBHC_CAL_SIZE(WCD_MBHC_DEF_BUTTONS,
 				WCD9XXX_MBHC_DEF_RLOADS), GFP_KERNEL);
-	if (!tavil_wcd_cal)
+	if (!wcd_mbhc_cal)
 		return NULL;
 
-#define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(tavil_wcd_cal)->X) = (Y))
+#define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(wcd_mbhc_cal)->X) = (Y))
 	S(v_hs_max, 1600);
 #undef S
-#define S(X, Y) ((WCD_MBHC_CAL_BTN_DET_PTR(tavil_wcd_cal)->X) = (Y))
+#define S(X, Y) ((WCD_MBHC_CAL_BTN_DET_PTR(wcd_mbhc_cal)->X) = (Y))
 	S(num_btn, WCD_MBHC_DEF_BUTTONS);
 #undef S
 
-	btn_cfg = WCD_MBHC_CAL_BTN_DET_PTR(tavil_wcd_cal);
+	btn_cfg = WCD_MBHC_CAL_BTN_DET_PTR(wcd_mbhc_cal);
 	btn_high = ((void *)&btn_cfg->_v_btn_low) +
 		(sizeof(btn_cfg->_v_btn_low[0]) * btn_cfg->num_btn);
 
@@ -632,7 +632,7 @@ static void *def_ext_mbhc_cal(void)
 	btn_high[6] = 500;
 	btn_high[7] = 500;
 
-	return tavil_wcd_cal;
+	return wcd_mbhc_cal;
 }
 
 static inline int param_is_mask(int p)
@@ -1478,6 +1478,79 @@ static struct snd_soc_dapm_route wcd_audio_paths[] = {
 	{"MIC BIAS4", NULL, "MCLK"},
 };
 
+int msm_snd_card_tasha_late_probe(struct snd_soc_card *card)
+{
+	const char *be_dl_name = LPASS_BE_SLIMBUS_0_RX;
+	struct snd_soc_pcm_runtime *rtd;
+	int ret = 0;
+	void *mbhc_calibration;
+
+	rtd = snd_soc_get_pcm_runtime(card, be_dl_name);
+	if (!rtd) {
+		dev_err(card->dev,
+			"%s: snd_soc_get_pcm_runtime for %s failed!\n",
+			__func__, be_dl_name);
+		ret = -EINVAL;
+		goto err_pcm_runtime;
+	}
+
+	mbhc_calibration = def_ext_mbhc_cal();
+	if (!mbhc_calibration) {
+		ret = -ENOMEM;
+		goto err_mbhc_cal;
+	}
+	wcd_mbhc_cfg_ptr->calibration = mbhc_calibration;
+	ret = tasha_mbhc_hs_detect(rtd->codec, wcd_mbhc_cfg_ptr);
+	if (ret) {
+		dev_err(card->dev, "%s: mbhc hs detect failed, err:%d\n",
+			__func__, ret);
+		goto err_hs_detect;
+	}
+	return 0;
+
+err_hs_detect:
+	kfree(mbhc_calibration);
+err_mbhc_cal:
+err_pcm_runtime:
+	return ret;
+}
+
+int msm_snd_card_tavil_late_probe(struct snd_soc_card *card)
+{
+	const char *be_dl_name = LPASS_BE_SLIMBUS_0_RX;
+	struct snd_soc_pcm_runtime *rtd;
+	int ret = 0;
+	void *mbhc_calibration;
+
+	rtd = snd_soc_get_pcm_runtime(card, be_dl_name);
+	if (!rtd) {
+		dev_err(card->dev,
+			"%s: snd_soc_get_pcm_runtime for %s failed!\n",
+			__func__, be_dl_name);
+		ret = -EINVAL;
+		goto err;
+	}
+
+	mbhc_calibration = def_ext_mbhc_cal();
+	if (!mbhc_calibration) {
+		ret = -ENOMEM;
+		goto err;
+	}
+	wcd_mbhc_cfg_ptr->calibration = mbhc_calibration;
+	ret = tavil_mbhc_hs_detect(rtd->codec, wcd_mbhc_cfg_ptr);
+	if (ret) {
+		dev_err(card->dev, "%s: mbhc hs detect failed, err:%d\n",
+			__func__, ret);
+		goto err_free_mbhc_cal;
+	}
+	return 0;
+
+err_free_mbhc_cal:
+	kfree(mbhc_calibration);
+err:
+	return ret;
+}
+
 /**
  * msm_audrx_init - Audio init function of sound card instantiate.
  *
@@ -1728,43 +1801,12 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		tasha_codec_info_create_codec_entry(pdata->codec_root, codec);
 		tasha_mbhc_zdet_gpio_ctrl(msm_config_hph_en0_gpio, rtd->codec);
 	}
-
-	wcd_mbhc_cfg_ptr->calibration = def_ext_mbhc_cal();
-	if (!strcmp(dev_name(codec_dai->dev), "tavil_codec")) {
-		if (wcd_mbhc_cfg_ptr->calibration) {
-			pdata->codec = codec;
-			ret = tavil_mbhc_hs_detect(codec, wcd_mbhc_cfg_ptr);
-			if (ret < 0)
-				pr_err("%s: Failed to intialise mbhc %d\n",
-						__func__, ret);
-		} else {
-			pr_err("%s: wcd_mbhc_cfg calibration is NULL\n",
-					__func__);
-			ret = -ENOMEM;
-			goto err_mbhc_cal;
-		}
-	} else {
-		if (wcd_mbhc_cfg_ptr->calibration) {
-			pdata->codec = codec;
-			ret = tasha_mbhc_hs_detect(codec, wcd_mbhc_cfg_ptr);
-			if (ret < 0)
-				pr_err("%s: Failed to intialise mbhc %d\n",
-						__func__, ret);
-		} else {
-			pr_err("%s: wcd_mbhc_cfg calibration is NULL\n",
-					__func__);
-			ret = -ENOMEM;
-			goto err_mbhc_cal;
-		}
-
-	}
 	codec_reg_done = true;
 done:
 	return 0;
 
 err_snd_module:
 err_afe_cfg:
-err_mbhc_cal:
 	return ret;
 }
 EXPORT_SYMBOL(msm_audrx_init);
