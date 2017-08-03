@@ -162,6 +162,7 @@ extern void mark_task_starting(struct task_struct *p);
 extern void set_window_start(struct rq *rq);
 void account_irqtime(int cpu, struct task_struct *curr, u64 delta,
                                   u64 wallclock);
+extern bool do_pl_notif(struct rq *rq);
 
 #define SCHED_HIGH_IRQ_TIMEOUT 3
 static inline u64 sched_irqload(int cpu)
@@ -349,6 +350,7 @@ static inline void sched_account_irqtime(int cpu, struct task_struct *curr,
 }
 
 static inline int same_cluster(int src_cpu, int dst_cpu) { return 1; }
+static inline bool do_pl_notif(struct rq *rq) { return false; }
 
 static inline void
 inc_rq_walt_stats(struct rq *rq, struct task_struct *p) { }

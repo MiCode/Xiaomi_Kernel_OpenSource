@@ -116,8 +116,6 @@ __read_mostly unsigned int sysctl_sched_cpu_high_irqload = (10 * NSEC_PER_MSEC);
  * IMPORTANT: Initialize both copies to same value!!
  */
 
-static __read_mostly bool sched_predl;
-
 __read_mostly unsigned int sched_ravg_hist_size = 5;
 __read_mostly unsigned int sysctl_sched_ravg_hist_size = 5;
 
@@ -1277,6 +1275,33 @@ static inline u64 scale_exec_time(u64 delta, struct rq *rq)
 	delta >>= 10;
 
 	return delta;
+}
+
+/* Convert busy time to frequency equivalent
+ * Assumes load is scaled to 1024
+ */
+static inline unsigned int load_to_freq(struct rq *rq, u64 load)
+{
+	return mult_frac(cpu_max_possible_freq(cpu_of(rq)), load,
+			 capacity_orig_of(cpu_of(rq)));
+}
+
+bool do_pl_notif(struct rq *rq)
+{
+	u64 prev = rq->old_busy_time;
+	u64 pl = rq->walt_stats.pred_demands_sum;
+	int cpu = cpu_of(rq);
+
+	/* If already at max freq, bail out */
+	if (capacity_orig_of(cpu) == capacity_curr_of(cpu))
+		return false;
+
+	prev = max(prev, rq->old_estimated_time);
+
+	pl = div64_u64(pl, sched_ravg_window >> SCHED_CAPACITY_SHIFT);
+
+	/* 400 MHz filter. */
+	return (pl > prev) && (load_to_freq(rq, pl - prev) > 400000);
 }
 
 static void rollover_cpu_window(struct rq *rq, bool full_window)
