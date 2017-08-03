@@ -357,6 +357,7 @@ static void sde_hw_ctl_clear_all_blendstages(struct sde_hw_ctl *ctx)
 		SDE_REG_WRITE(c, CTL_LAYER(LM_0 + i), 0);
 		SDE_REG_WRITE(c, CTL_LAYER_EXT(LM_0 + i), 0);
 		SDE_REG_WRITE(c, CTL_LAYER_EXT2(LM_0 + i), 0);
+		SDE_REG_WRITE(c, CTL_LAYER_EXT3(LM_0 + i), 0);
 	}
 }
 
