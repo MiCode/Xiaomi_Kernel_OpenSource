@@ -99,8 +99,9 @@ static int __load_fw(struct venus_hfi_device *device);
 static void __unload_fw(struct venus_hfi_device *device);
 static int __tzbsp_set_video_state(enum tzbsp_video_state state);
 static int __enable_subcaches(struct venus_hfi_device *device);
+static int __set_subcaches(struct venus_hfi_device *device);
+static int __release_subcaches(struct venus_hfi_device *device);
 static int __disable_subcaches(struct venus_hfi_device *device);
-
 
 /**
  * Utility function to enforce some of our assumptions.  Spam calls to this
@@ -1747,10 +1748,8 @@ static int venus_hfi_core_init(void *device)
 		dprintk(VIDC_WARN, "Failed to send image version pkt to f/w\n");
 
 	rc = __enable_subcaches(device);
-	if (rc) {
-		dprintk(VIDC_WARN,
-			"Failed to enable subcaches, err = %d\n", rc);
-	}
+	if (!rc)
+		__set_subcaches(device);
 
 	if (dev->res->pm_qos_latency_us) {
 #ifdef CONFIG_SMP
@@ -2806,7 +2805,7 @@ static void venus_hfi_pm_handler(struct work_struct *work)
 
 	rc = __suspend(device);
 	if (rc)
-		dprintk(VIDC_ERR, "Failed venus power off\n");
+		dprintk(VIDC_ERR, "Failed __suspend\n");
 
 	/* Cancel pending delayed works if any */
 	cancel_delayed_work(&venus_hfi_pm_work);
@@ -3763,18 +3762,9 @@ static int __enable_subcaches(struct venus_hfi_device *device)
 	int rc = 0;
 	u32 c = 0;
 	struct subcache_info *sinfo;
-	u32 resource[VIDC_MAX_SUBCACHE_SIZE];
-	struct hfi_resource_syscache_info_type *sc_res_info;
-	struct hfi_resource_subcache_type *sc_res;
-	struct vidc_resource_hdr rhdr;
 
 	if (msm_vidc_syscache_disable || !is_sys_cache_present(device))
 		return 0;
-
-	memset((void *)resource, 0x0, (sizeof(u32) * VIDC_MAX_SUBCACHE_SIZE));
-
-	sc_res_info = (struct hfi_resource_syscache_info_type *)resource;
-	sc_res = &(sc_res_info->rg_subcache_entries[0]);
 
 	/* Activate subcaches */
 	venus_hfi_for_each_subcache(device, sinfo) {
@@ -3782,20 +3772,54 @@ static int __enable_subcaches(struct venus_hfi_device *device)
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to activate %s: %d\n",
 				sinfo->name, rc);
-			continue;
+			goto err_activate_fail;
 		}
 		sinfo->isactive = true;
-
-		/* Update the entry */
-		sc_res[c].size = sinfo->subcache->llcc_slice_size;
-		sc_res[c].sc_id = sinfo->subcache->llcc_slice_id;
-		dprintk(VIDC_DBG, "Activate subcache %s\n", sinfo->name);
+		dprintk(VIDC_DBG, "Activated subcache %s\n", sinfo->name);
 		c++;
+	}
+
+	dprintk(VIDC_DBG, "Activated %d Subcaches to Venus\n", c);
+
+	return 0;
+
+err_activate_fail:
+	__release_subcaches(device);
+	__disable_subcaches(device);
+	return -EINVAL;
+}
+
+static int __set_subcaches(struct venus_hfi_device *device)
+{
+	int rc = 0;
+	u32 c = 0;
+	struct subcache_info *sinfo;
+	u32 resource[VIDC_MAX_SUBCACHE_SIZE];
+	struct hfi_resource_syscache_info_type *sc_res_info;
+	struct hfi_resource_subcache_type *sc_res;
+	struct vidc_resource_hdr rhdr;
+
+	if (device->res->sys_cache_res_set) {
+		dprintk(VIDC_DBG, "Subcaches already set to Venus\n");
+		return 0;
+	}
+
+	memset((void *)resource, 0x0, (sizeof(u32) * VIDC_MAX_SUBCACHE_SIZE));
+
+	sc_res_info = (struct hfi_resource_syscache_info_type *)resource;
+	sc_res = &(sc_res_info->rg_subcache_entries[0]);
+
+	venus_hfi_for_each_subcache(device, sinfo) {
+		if (sinfo->isactive == true) {
+			sc_res[c].size = sinfo->subcache->llcc_slice_size;
+			sc_res[c].sc_id = sinfo->subcache->llcc_slice_id;
+			c++;
+		}
 	}
 
 	/* Set resource to Venus for activated subcaches */
 	if (c) {
-		dprintk(VIDC_DBG, "Setting Subcaches\n");
+		dprintk(VIDC_DBG, "Setting %d Subcaches\n", c);
 
 		rhdr.resource_handle = sc_res_info; /* cookie */
 		rhdr.resource_id = VIDC_RESOURCE_SYSCACHE;
@@ -3814,9 +3838,8 @@ static int __enable_subcaches(struct venus_hfi_device *device)
 			sinfo->isset = true;
 	}
 
-	dprintk(VIDC_DBG, "Activated & Set Subcaches to Venus\n");
-
-	device->res->sys_cache_enabled = true;
+	dprintk(VIDC_DBG, "Set Subcaches done to Venus\n");
+	device->res->sys_cache_res_set = true;
 
 	return 0;
 
@@ -3826,7 +3849,7 @@ err_fail_set_subacaches:
 	return rc;
 }
 
-static int __disable_subcaches(struct venus_hfi_device *device)
+static int __release_subcaches(struct venus_hfi_device *device)
 {
 	struct subcache_info *sinfo;
 	int rc = 0;
@@ -3838,8 +3861,6 @@ static int __disable_subcaches(struct venus_hfi_device *device)
 
 	if (msm_vidc_syscache_disable || !is_sys_cache_present(device))
 		return 0;
-
-	dprintk(VIDC_DBG, "Disabling Subcaches\n");
 
 	memset((void *)resource, 0x0, (sizeof(u32) * VIDC_MAX_SUBCACHE_SIZE));
 
@@ -3858,15 +3879,28 @@ static int __disable_subcaches(struct venus_hfi_device *device)
 	}
 
 	if (c > 0) {
+		dprintk(VIDC_DBG, "Releasing %d subcaches\n", c);
 		rhdr.resource_handle = sc_res_info; /* cookie */
 		rhdr.resource_id = VIDC_RESOURCE_SYSCACHE;
 
 		rc = __core_release_resource(device, &rhdr);
 		if (rc)
-			dprintk(VIDC_ERR, "Failed to release subcaches\n");
-
-		dprintk(VIDC_DBG, "Release %d subcaches\n", c);
+			dprintk(VIDC_ERR,
+				"Failed to release %d subcaches\n", c);
 	}
+
+	device->res->sys_cache_res_set = false;
+
+	return rc;
+}
+
+static int __disable_subcaches(struct venus_hfi_device *device)
+{
+	struct subcache_info *sinfo;
+	int rc = 0;
+
+	if (msm_vidc_syscache_disable || !is_sys_cache_present(device))
+		return 0;
 
 	/* De-activate subcaches */
 	venus_hfi_for_each_subcache_reverse(device, sinfo) {
@@ -3882,8 +3916,6 @@ static int __disable_subcaches(struct venus_hfi_device *device)
 			sinfo->isactive = false;
 		}
 	}
-
-	device->res->sys_cache_enabled = false;
 
 	return rc;
 }
@@ -3984,10 +4016,7 @@ static inline int __suspend(struct venus_hfi_device *device)
 		return 0;
 	}
 
-	dprintk(VIDC_PROF, "Entering power collapse\n");
-
-	if (__disable_subcaches(device))
-		dprintk(VIDC_ERR, "Failed to disable subcaches\n");
+	dprintk(VIDC_PROF, "Entering suspend\n");
 
 	if (device->res->pm_qos_latency_us &&
 		pm_qos_request_active(&device->qos))
@@ -3999,8 +4028,10 @@ static inline int __suspend(struct venus_hfi_device *device)
 		goto err_tzbsp_suspend;
 	}
 
+	__disable_subcaches(device);
+
 	__venus_power_off(device);
-	dprintk(VIDC_PROF, "Venus power collapsed\n");
+	dprintk(VIDC_PROF, "Venus power off\n");
 	return rc;
 
 err_tzbsp_suspend:
@@ -4061,10 +4092,8 @@ static inline int __resume(struct venus_hfi_device *device)
 	__sys_set_debug(device, msm_vidc_fw_debug);
 
 	rc = __enable_subcaches(device);
-	if (rc) {
-		dprintk(VIDC_WARN,
-			"Failed to enable subcaches, err = %d\n", rc);
-	}
+	if (!rc)
+		__set_subcaches(device);
 
 	dprintk(VIDC_PROF, "Resumed from power collapse\n");
 exit:
