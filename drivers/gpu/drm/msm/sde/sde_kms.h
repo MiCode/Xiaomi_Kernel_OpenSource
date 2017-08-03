@@ -500,4 +500,13 @@ int sde_kms_fbo_reference(struct sde_kms_fbo *fbo);
  */
 void sde_kms_fbo_unreference(struct sde_kms_fbo *fbo);
 
+/**
+ * smmu attach/detach functions
+ * @sde_kms: poiner to sde_kms structure
+ * @secure_only: if true only secure contexts are attached/detached, else
+ * all contexts are attached/detached/
+ */
+int sde_kms_mmu_attach(struct sde_kms *sde_kms, bool secure_only);
+int sde_kms_mmu_detach(struct sde_kms *sde_kms, bool secure_only);
+
 #endif /* __sde_kms_H__ */

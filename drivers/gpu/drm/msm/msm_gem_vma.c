@@ -44,6 +44,9 @@ static int smmu_aspace_map_vma(struct msm_gem_address_space *aspace,
 	struct dma_buf *buf = priv;
 	int ret;
 
+	if (!aspace || !aspace->domain_attached)
+		return -EINVAL;
+
 	if (buf)
 		ret = aspace->mmu->funcs->map_dma_buf(aspace->mmu, sgt, buf,
 			DMA_BIDIRECTIONAL, flags);
@@ -62,15 +65,109 @@ static void smmu_aspace_destroy(struct msm_gem_address_space *aspace)
 	aspace->mmu->funcs->destroy(aspace->mmu);
 }
 
+static void smmu_aspace_add_to_active(
+		struct msm_gem_address_space *aspace,
+		struct msm_gem_object *msm_obj)
+{
+	WARN_ON(!mutex_is_locked(&aspace->dev->struct_mutex));
+	list_move_tail(&msm_obj->iova_list, &aspace->active_list);
+}
+
+static void smmu_aspace_remove_from_active(
+		struct msm_gem_address_space *aspace,
+		struct msm_gem_object *obj)
+{
+	struct msm_gem_object *msm_obj, *next;
+
+	WARN_ON(!mutex_is_locked(&aspace->dev->struct_mutex));
+
+	list_for_each_entry_safe(msm_obj, next, &aspace->active_list,
+			iova_list) {
+		if (msm_obj == obj) {
+			list_del(&msm_obj->iova_list);
+			break;
+		}
+	}
+}
+
+static int smmu_aspace_register_cb(
+		struct msm_gem_address_space *aspace,
+		void (*cb)(void *, bool),
+		void *cb_data)
+{
+	struct aspace_client *aclient = NULL;
+	struct aspace_client *temp;
+
+	if (!aspace)
+		return -EINVAL;
+
+	if (!aspace->domain_attached)
+		return -EACCES;
+
+	aclient = kzalloc(sizeof(*aclient), GFP_KERNEL);
+	if (!aclient)
+		return -ENOMEM;
+
+	aclient->cb = cb;
+	aclient->cb_data = cb_data;
+	INIT_LIST_HEAD(&aclient->list);
+
+	/* check if callback is already registered */
+	mutex_lock(&aspace->dev->struct_mutex);
+	list_for_each_entry(temp, &aspace->clients, list) {
+		if ((temp->cb == aclient->cb) &&
+			(temp->cb_data == aclient->cb_data)) {
+			kfree(aclient);
+			mutex_unlock(&aspace->dev->struct_mutex);
+			return -EEXIST;
+		}
+	}
+
+	list_move_tail(&aclient->list, &aspace->clients);
+	mutex_unlock(&aspace->dev->struct_mutex);
+
+	return 0;
+}
+
+static int smmu_aspace_unregister_cb(
+		struct msm_gem_address_space *aspace,
+		void (*cb)(void *, bool),
+		void *cb_data)
+{
+	struct aspace_client *aclient = NULL;
+	int rc = -ENOENT;
+
+	if (!aspace || !cb)
+		return -EINVAL;
+
+	mutex_lock(&aspace->dev->struct_mutex);
+	list_for_each_entry(aclient, &aspace->clients, list) {
+		if ((aclient->cb == cb) &&
+			(aclient->cb_data == cb_data)) {
+			list_del(&aclient->list);
+			kfree(aclient);
+			rc = 0;
+			break;
+		}
+	}
+	mutex_unlock(&aspace->dev->struct_mutex);
+
+	return rc;
+}
+
 
 static const struct msm_gem_aspace_ops smmu_aspace_ops = {
 	.map = smmu_aspace_map_vma,
 	.unmap = smmu_aspace_unmap_vma,
-	.destroy = smmu_aspace_destroy
+	.destroy = smmu_aspace_destroy,
+	.add_to_active = smmu_aspace_add_to_active,
+	.remove_from_active = smmu_aspace_remove_from_active,
+	.register_cb = smmu_aspace_register_cb,
+	.unregister_cb = smmu_aspace_unregister_cb,
 };
 
 struct msm_gem_address_space *
-msm_gem_smmu_address_space_create(struct device *dev, struct msm_mmu *mmu,
+msm_gem_smmu_address_space_create(struct drm_device *dev, struct msm_mmu *mmu,
 		const char *name)
 {
 	struct msm_gem_address_space *aspace;
@@ -82,9 +179,12 @@ msm_gem_smmu_address_space_create(struct device *dev, struct msm_mmu *mmu,
 	if (!aspace)
 		return ERR_PTR(-ENOMEM);
 
+	aspace->dev = dev;
 	aspace->name = name;
 	aspace->mmu = mmu;
 	aspace->ops = &smmu_aspace_ops;
+	INIT_LIST_HEAD(&aspace->active_list);
+	INIT_LIST_HEAD(&aspace->clients);
 
 	return aspace;
 }
@@ -218,3 +318,44 @@ msm_gem_address_space_destroy(struct msm_gem_address_space *aspace)
 
 	kfree(aspace);
 }
+
+void msm_gem_add_obj_to_aspace_active_list(
+		struct msm_gem_address_space *aspace,
+		struct drm_gem_object *obj)
+{
+	struct msm_gem_object *msm_obj = to_msm_bo(obj);
+
+	if (aspace && aspace->ops && aspace->ops->add_to_active)
+		aspace->ops->add_to_active(aspace, msm_obj);
+}
+
+void msm_gem_remove_obj_from_aspace_active_list(
+		struct msm_gem_address_space *aspace,
+		struct drm_gem_object *obj)
+{
+	struct msm_gem_object *msm_obj = to_msm_bo(obj);
+
+	if (aspace && aspace->ops && aspace->ops->remove_from_active)
+		aspace->ops->remove_from_active(aspace, msm_obj);
+}
+
+int msm_gem_address_space_register_cb(struct msm_gem_address_space *aspace,
+		void (*cb)(void *, bool),
+		void *cb_data)
+{
+	if (aspace && aspace->ops && aspace->ops->register_cb)
+		return aspace->ops->register_cb(aspace, cb, cb_data);
+
+	return -EINVAL;
+}
+
+int msm_gem_address_space_unregister_cb(struct msm_gem_address_space *aspace,
+		void (*cb)(void *, bool),
+		void *cb_data)
+{
+	if (aspace && aspace->ops && aspace->ops->unregister_cb)
+		return aspace->ops->unregister_cb(aspace, cb, cb_data);
+
+	return -EINVAL;
+}
+
