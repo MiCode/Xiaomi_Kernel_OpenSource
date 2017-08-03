@@ -2711,6 +2711,130 @@ end:
 	return rc;
 }
 
+static int _sde_crtc_find_plane_fb_modes(struct drm_crtc_state *state,
+		uint32_t *fb_ns,
+		uint32_t *fb_sec,
+		uint32_t *fb_ns_dir,
+		uint32_t *fb_sec_dir)
+{
+	struct drm_plane *plane;
+	const struct drm_plane_state *pstate;
+	struct sde_plane_state *sde_pstate;
+	uint32_t mode = 0;
+	int rc;
+
+	if (!state) {
+		SDE_ERROR("invalid state\n");
+		return -EINVAL;
+	}
+
+	*fb_ns = 0;
+	*fb_sec = 0;
+	*fb_ns_dir = 0;
+	*fb_sec_dir = 0;
+	drm_atomic_crtc_state_for_each_plane_state(plane, pstate, state) {
+		if (IS_ERR_OR_NULL(pstate)) {
+			rc = PTR_ERR(pstate);
+			SDE_ERROR("crtc%d failed to get plane%d state%d\n",
+					state->crtc->base.id,
+					plane->base.id, rc);
+			return rc;
+		}
+		sde_pstate = to_sde_plane_state(pstate);
+		mode = sde_plane_get_property(sde_pstate,
+				PLANE_PROP_FB_TRANSLATION_MODE);
+		switch (mode) {
+		case SDE_DRM_FB_NON_SEC:
+			(*fb_ns)++;
+			break;
+		case SDE_DRM_FB_SEC:
+			(*fb_sec)++;
+			break;
+		case SDE_DRM_FB_NON_SEC_DIR_TRANS:
+			(*fb_ns_dir)++;
+			break;
+		case SDE_DRM_FB_SEC_DIR_TRANS:
+			(*fb_sec_dir)++;
+			break;
+		default:
+			SDE_ERROR("Error: Plane[%d], fb_trans_mode:%d",
+					plane->base.id,
+					mode);
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
+static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
+		struct drm_crtc_state *state)
+{
+	struct drm_encoder *encoder;
+	struct sde_crtc_state *cstate;
+	uint32_t secure;
+	uint32_t fb_ns = 0, fb_sec = 0, fb_ns_dir = 0, fb_sec_dir = 0;
+	int encoder_cnt = 0;
+	int rc;
+
+	if (!crtc || !state) {
+		SDE_ERROR("invalid arguments\n");
+		return -EINVAL;
+	}
+
+	cstate = to_sde_crtc_state(state);
+
+	secure = sde_crtc_get_property(cstate,
+			CRTC_PROP_SECURITY_LEVEL);
+
+	rc = _sde_crtc_find_plane_fb_modes(state,
+			&fb_ns,
+			&fb_sec,
+			&fb_ns_dir,
+			&fb_sec_dir);
+	if (rc)
+		return rc;
+
+	/**
+	 * validate planes
+	 * fb_ns_dir is for  secure display use case,
+	 * fb_sec_dir is for secure camera preview use case,
+	 * fb_sec is for secure video playback,
+	 * fb_ns is for normal non secure use cases.
+	 */
+	if (((secure == SDE_DRM_SEC_ONLY) &&
+				(fb_ns || fb_sec || fb_sec_dir)) ||
+			(fb_sec || fb_sec_dir)) {
+		SDE_ERROR(
+			"crtc%d: invalid planes fb_modes Sec:%d, NS:%d, Sec_Dir:%d, NS_Dir%d\n",
+				crtc->base.id,
+				fb_sec, fb_ns, fb_sec_dir,
+				fb_ns_dir);
+		return -EINVAL;
+	}
+
+	/**
+	 * secure_crtc is not allowed in a shared toppolgy
+	 * across different encoders.
+	 */
+	if (fb_ns_dir || fb_sec_dir) {
+		drm_for_each_encoder(encoder, crtc->dev)
+			if (encoder->crtc ==  crtc)
+				encoder_cnt++;
+
+		if (encoder_cnt >
+			MAX_ALLOWED_ENCODER_CNT_PER_SECURE_CRTC) {
+			SDE_ERROR(
+				"crtc%d, invalid virtual encoder crtc%d\n",
+				crtc->base.id,
+				encoder_cnt);
+			return -EINVAL;
+
+		}
+	}
+	SDE_DEBUG("crtc:%d Secure validation successful\n", crtc->base.id);
+	return 0;
+}
+
 static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		struct drm_crtc_state *state)
 {
@@ -2756,6 +2880,10 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 
 	_sde_crtc_setup_is_ppsplit(state);
 	_sde_crtc_setup_lm_bounds(crtc, state);
+
+	rc = _sde_crtc_check_secure_state(crtc, state);
+	if (rc)
+		return rc;
 
 	 /* get plane state for all drm planes associated with crtc state */
 	drm_atomic_crtc_state_for_each_plane_state(plane, pstate, state) {

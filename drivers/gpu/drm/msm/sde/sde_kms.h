@@ -93,6 +93,15 @@
 /* timeout in frames waiting for frame done */
 #define SDE_FRAME_DONE_TIMEOUT	60
 
+/* max active secure client counts allowed */
+#define MAX_ALLOWED_SECURE_CLIENT_CNT	1
+
+/* max active crtc when secure client is active */
+#define MAX_ALLOWED_CRTC_CNT_DURING_SECURE	1
+
+/* max virtual encoders per secure crtc */
+#define MAX_ALLOWED_ENCODER_CNT_PER_SECURE_CRTC	1
+
 /*
  * struct sde_irq_callback - IRQ callback handlers
  * @list: list to callback
