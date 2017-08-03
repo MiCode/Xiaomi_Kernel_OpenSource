@@ -1026,6 +1026,15 @@ static int timed_poll_check(struct kgsl_device *device,
 }
 
 /*
+ * The lowest 16 bits of this value are the number of XO clock cycles
+ * for main hysteresis. This is the first hysteresis. Here we set it
+ * to 0x5DC cycles, or 78.1 us. The highest 16 bits of this value are
+ * the number of XO clock cycles for short hysteresis. This happens
+ * after main hysteresis. Here we set it to 0xA cycles, or 0.5 us.
+ */
+#define GMU_PWR_COL_HYST 0x000A05DC
+
+/*
  * a6xx_gmu_power_config() - Configure and enable GMU's low power mode
  * setting based on ADRENO feature flags.
  * @device: Pointer to KGSL device
@@ -1056,13 +1065,13 @@ static void a6xx_gmu_power_config(struct kgsl_device *device)
 		/* fall through */
 	case GPU_HW_IFPC:
 		kgsl_gmu_regwrite(device, A6XX_GMU_PWR_COL_INTER_FRAME_HYST,
-				0x000A0080);
+				GMU_PWR_COL_HYST);
 		kgsl_gmu_regrmw(device, A6XX_GMU_PWR_COL_INTER_FRAME_CTRL, 0,
 				IFPC_ENABLE_MASK);
 		/* fall through */
 	case GPU_HW_SPTP_PC:
 		kgsl_gmu_regwrite(device, A6XX_GMU_PWR_COL_SPTPRAC_HYST,
-				0x000A0080);
+				GMU_PWR_COL_HYST);
 		kgsl_gmu_regrmw(device, A6XX_GMU_PWR_COL_INTER_FRAME_CTRL, 0,
 				SPTP_ENABLE_MASK);
 		/* fall through */
