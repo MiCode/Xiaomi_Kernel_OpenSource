@@ -2002,8 +2002,6 @@ int dsi_ctrl_host_init(struct dsi_ctrl *dsi_ctrl)
 	dsi_ctrl->hw.ops.enable_status_interrupts(&dsi_ctrl->hw, 0x0);
 	dsi_ctrl->hw.ops.enable_error_interrupts(&dsi_ctrl->hw, 0x0);
 
-	/* Perform a soft reset before enabling dsi controller */
-	dsi_ctrl->hw.ops.soft_reset(&dsi_ctrl->hw);
 	pr_debug("[DSI_%d]Host initialization complete\n",
 		dsi_ctrl->cell_index);
 	dsi_ctrl_update_state(dsi_ctrl, DSI_CTRL_OP_HOST_INIT, 0x1);

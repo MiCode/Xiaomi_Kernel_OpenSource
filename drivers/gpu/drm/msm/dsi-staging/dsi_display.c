@@ -3536,6 +3536,13 @@ int dsi_display_prepare(struct dsi_display *display)
 		goto error_ctrl_clk_off;
 	}
 
+	rc = dsi_display_set_clk_src(display);
+	if (rc) {
+		pr_err("[%s] failed to set DSI link clock source, rc=%d\n",
+			display->name, rc);
+		goto error_phy_disable;
+	}
+
 	rc = dsi_display_ctrl_init(display);
 	if (rc) {
 		pr_err("[%s] failed to setup DSI controller, rc=%d\n",
@@ -3543,10 +3550,10 @@ int dsi_display_prepare(struct dsi_display *display)
 		goto error_phy_disable;
 	}
 
-	rc = dsi_display_set_clk_src(display);
+	rc = dsi_display_ctrl_host_enable(display);
 	if (rc) {
-		pr_err("[%s] failed to set DSI link clock source, rc=%d\n",
-			display->name, rc);
+		pr_err("[%s] failed to enable DSI host, rc=%d\n",
+		       display->name, rc);
 		goto error_ctrl_deinit;
 	}
 
@@ -3555,29 +3562,28 @@ int dsi_display_prepare(struct dsi_display *display)
 	if (rc) {
 		pr_err("[%s] failed to enable DSI link clocks, rc=%d\n",
 		       display->name, rc);
-		goto error_ctrl_deinit;
+		goto error_host_engine_off;
 	}
 
-	rc = dsi_display_ctrl_host_enable(display);
+	rc = dsi_display_soft_reset(display);
 	if (rc) {
-		pr_err("[%s] failed to enable DSI host, rc=%d\n",
-		       display->name, rc);
+		pr_err("[%s] failed soft reset, rc=%d\n", display->name, rc);
 		goto error_ctrl_link_off;
 	}
 
 	rc = dsi_panel_prepare(display->panel);
 	if (rc) {
 		pr_err("[%s] panel prepare failed, rc=%d\n", display->name, rc);
-		goto error_host_engine_off;
+		goto error_ctrl_link_off;
 	}
 
 	goto error;
 
-error_host_engine_off:
-	(void)dsi_display_ctrl_host_disable(display);
 error_ctrl_link_off:
 	(void)dsi_display_clk_ctrl(display->dsi_clk_handle,
 			DSI_LINK_CLK, DSI_CLK_OFF);
+error_host_engine_off:
+	(void)dsi_display_ctrl_host_disable(display);
 error_ctrl_deinit:
 	(void)dsi_display_ctrl_deinit(display);
 error_phy_disable:
