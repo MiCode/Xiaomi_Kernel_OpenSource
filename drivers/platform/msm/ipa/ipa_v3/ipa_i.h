@@ -1888,10 +1888,6 @@ void ipa3_suspend_handler(enum ipa_irq_type interrupt,
 				void *private_data,
 				void *interrupt_data);
 
-
-int ipa_bridge_init(void);
-void ipa_bridge_cleanup(void);
-
 ssize_t ipa3_read(struct file *filp, char __user *buf, size_t count,
 		 loff_t *f_pos);
 int ipa3_pull_msg(struct ipa_msg_meta *meta, char *buff, size_t count);

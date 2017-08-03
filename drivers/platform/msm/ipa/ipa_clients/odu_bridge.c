@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -114,6 +114,7 @@ struct stats {
  * @send_dl_skb: client callback for sending skb in downlink direction
  * @stats: statistics, how many packets were transmitted using the SW bridge
  * @is_conencted: is bridge connected ?
+ * @is_suspended: is bridge suspended ?
  * @mode: ODU mode (router/bridge)
  * @lock: for the initialization, connect and disconnect synchronization
  * @llv6_addr: link local IPv6 address of ODU network interface
@@ -122,6 +123,8 @@ struct stats {
  * @odu_prod_hdl: handle for IPA_CLIENT_ODU_PROD pipe
  * @odu_emb_cons_hdl: handle for IPA_CLIENT_ODU_EMB_CONS pipe
  * @odu_teth_cons_hdl: handle for IPA_CLIENT_ODU_TETH_CONS pipe
+ * @rm_comp: completion object for IP RM
+ * @wakeup_request: client callback to wakeup
  */
 struct odu_bridge_ctx {
 	struct class *class;
@@ -135,6 +138,7 @@ struct odu_bridge_ctx {
 	int (*send_dl_skb)(void *priv, struct sk_buff *skb);
 	struct stats stats;
 	bool is_connected;
+	bool is_suspended;
 	enum odu_bridge_mode mode;
 	struct mutex lock;
 	struct in6_addr llv6_addr;
@@ -146,6 +150,8 @@ struct odu_bridge_ctx {
 	u32 ipa_sys_desc_size;
 	void *logbuf;
 	void *logbuf_low;
+	struct completion rm_comp;
+	void (*wakeup_request)(void *);
 };
 static struct odu_bridge_ctx *odu_bridge_ctx;
 
@@ -1246,6 +1252,288 @@ int odu_bridge_cleanup(void)
 }
 EXPORT_SYMBOL(odu_bridge_cleanup);
 
+/* IPA Bridge implementation */
+#ifdef CONFIG_IPA3
+
+static void ipa_br_rm_notify(void *user_data, enum ipa_rm_event event,
+	unsigned long data)
+{
+	if (event == IPA_RM_RESOURCE_GRANTED)
+		complete(&odu_bridge_ctx->rm_comp);
+}
+
+static int ipa_br_request_prod(void)
+{
+	int res;
+
+	ODU_BRIDGE_FUNC_ENTRY();
+
+	reinit_completion(&odu_bridge_ctx->rm_comp);
+	ODU_BRIDGE_DBG("requesting odu prod\n");
+	res = ipa_rm_request_resource(IPA_RM_RESOURCE_ODU_ADAPT_PROD);
+	if (res) {
+		if (res != -EINPROGRESS) {
+			ODU_BRIDGE_ERR("failed to request prod %d\n", res);
+			return res;
+		}
+		wait_for_completion(&odu_bridge_ctx->rm_comp);
+	}
+
+	ODU_BRIDGE_FUNC_EXIT();
+	return 0;
+
+}
+
+static int ipa_br_release_prod(void)
+{
+	int res;
+
+	ODU_BRIDGE_FUNC_ENTRY();
+
+	reinit_completion(&odu_bridge_ctx->rm_comp);
+	ODU_BRIDGE_DBG("requesting odu prod\n");
+	res = ipa_rm_release_resource(IPA_RM_RESOURCE_ODU_ADAPT_PROD);
+	if (res) {
+		ODU_BRIDGE_ERR("failed to release prod %d\n", res);
+		return res;
+	}
+
+	ODU_BRIDGE_FUNC_EXIT();
+	return 0;
+
+}
+
+static int ipa_br_cons_request(void)
+{
+	ODU_BRIDGE_FUNC_ENTRY();
+	if (odu_bridge_ctx->is_suspended)
+		odu_bridge_ctx->wakeup_request(odu_bridge_ctx->priv);
+	ODU_BRIDGE_FUNC_EXIT();
+	return 0;
+}
+
+static int ipa_br_cons_release(void)
+{
+	ODU_BRIDGE_FUNC_ENTRY();
+	ODU_BRIDGE_FUNC_EXIT();
+	return 0;
+}
+
+/* IPA Bridge API is the new API which will replaces old odu_bridge API */
+int ipa_bridge_init(struct ipa_bridge_init_params *params, u32 *hdl)
+{
+	int ret;
+	struct ipa_rm_create_params create_params;
+
+	if (!params || !params->wakeup_request || !hdl) {
+		ODU_BRIDGE_ERR("NULL arg\n");
+		return -EINVAL;
+	}
+
+
+	ret = odu_bridge_init(&params->info);
+	if (ret)
+		return ret;
+
+	odu_bridge_ctx->wakeup_request = params->wakeup_request;
+
+	/* create IPA RM resources for power management */
+	init_completion(&odu_bridge_ctx->rm_comp);
+	memset(&create_params, 0, sizeof(create_params));
+	create_params.name = IPA_RM_RESOURCE_ODU_ADAPT_PROD;
+	create_params.reg_params.user_data = odu_bridge_ctx;
+	create_params.reg_params.notify_cb = ipa_br_rm_notify;
+	create_params.floor_voltage = IPA_VOLTAGE_SVS;
+	ret = ipa_rm_create_resource(&create_params);
+	if (ret) {
+		ODU_BRIDGE_ERR("failed to create RM prod %d\n", ret);
+		goto fail_rm_prod;
+	}
+
+	ret = ipa_rm_add_dependency_sync(IPA_RM_RESOURCE_ODU_ADAPT_PROD,
+		IPA_RM_RESOURCE_APPS_CONS);
+	if (ret) {
+		ODU_BRIDGE_ERR("failed to add ODU->APPS dependency %d\n", ret);
+		goto fail_add_dep;
+	}
+
+	memset(&create_params, 0, sizeof(create_params));
+	create_params.name = IPA_RM_RESOURCE_ODU_ADAPT_CONS;
+	create_params.request_resource = ipa_br_cons_request;
+	create_params.release_resource = ipa_br_cons_release;
+	create_params.floor_voltage = IPA_VOLTAGE_SVS;
+	ret = ipa_rm_create_resource(&create_params);
+	if (ret) {
+		ODU_BRIDGE_ERR("failed to create RM cons %d\n", ret);
+		goto fail_rm_cons;
+	}
+
+	/* handle is ignored for now */
+	*hdl = 0;
+
+	return 0;
+
+fail_rm_cons:
+	ipa_rm_delete_dependency(IPA_RM_RESOURCE_ODU_ADAPT_PROD,
+		IPA_RM_RESOURCE_APPS_CONS);
+fail_add_dep:
+	ipa_rm_delete_resource(IPA_RM_RESOURCE_ODU_ADAPT_PROD);
+fail_rm_prod:
+	odu_bridge_cleanup();
+	return ret;
+}
+EXPORT_SYMBOL(ipa_bridge_init);
+
+int ipa_bridge_connect(u32 hdl)
+{
+	int ret;
+
+	if (!odu_bridge_ctx) {
+		ODU_BRIDGE_ERR("Not initialized\n");
+		return -EFAULT;
+	}
+
+	if (odu_bridge_ctx->is_connected) {
+		ODU_BRIDGE_ERR("already connected\n");
+		return -EFAULT;
+	}
+
+	ret = ipa_br_request_prod();
+	if (ret)
+		return ret;
+
+	return odu_bridge_connect();
+}
+EXPORT_SYMBOL(ipa_bridge_connect);
+
+int ipa_bridge_set_perf_profile(u32 hdl, u32 bandwidth)
+{
+	struct ipa_rm_perf_profile profile = {0};
+	int ret;
+
+	profile.max_supported_bandwidth_mbps = bandwidth;
+	ret = ipa_rm_set_perf_profile(IPA_RM_RESOURCE_ODU_ADAPT_PROD, &profile);
+	if (ret) {
+		ODU_BRIDGE_ERR("failed to set perf profile to prod %d\n", ret);
+		return ret;
+	}
+
+	ret = ipa_rm_set_perf_profile(IPA_RM_RESOURCE_ODU_ADAPT_CONS, &profile);
+	if (ret) {
+		ODU_BRIDGE_ERR("failed to set perf profile to cons %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(ipa_bridge_set_perf_profile);
+
+int ipa_bridge_disconnect(u32 hdl)
+{
+	int ret;
+
+	ret = odu_bridge_disconnect();
+	if (ret)
+		return ret;
+
+	ret = ipa_br_release_prod();
+	if (ret)
+		return ret;
+
+	return 0;
+}
+EXPORT_SYMBOL(ipa_bridge_disconnect);
+
+int ipa_bridge_suspend(u32 hdl)
+{
+	int ret;
+
+	if (!odu_bridge_ctx) {
+		ODU_BRIDGE_ERR("Not initialized\n");
+		return -EFAULT;
+	}
+
+	if (!odu_bridge_ctx->is_connected) {
+		ODU_BRIDGE_ERR("bridge is  disconnected\n");
+		return -EFAULT;
+	}
+
+	if (odu_bridge_ctx->is_suspended) {
+		ODU_BRIDGE_ERR("bridge is already suspended\n");
+		return -EFAULT;
+	}
+
+	/* stop cons channel to prevent downlink data during suspend */
+	ret = ipa_stop_gsi_channel(odu_bridge_ctx->odu_emb_cons_hdl);
+	if (ret) {
+		ODU_BRIDGE_ERR("failed to stop CONS channel %d\n", ret);
+		return ret;
+	}
+
+	ret = ipa_br_release_prod();
+	if (ret) {
+		ODU_BRIDGE_ERR("failed to release prod %d\n", ret);
+		ipa_start_gsi_channel(odu_bridge_ctx->odu_emb_cons_hdl);
+		return ret;
+	}
+	odu_bridge_ctx->is_suspended = true;
+
+	return 0;
+}
+EXPORT_SYMBOL(ipa_bridge_suspend);
+
+int ipa_bridge_resume(u32 hdl)
+{
+	int ret;
+
+	if (!odu_bridge_ctx) {
+		ODU_BRIDGE_ERR("Not initialized\n");
+		return -EFAULT;
+	}
+
+	if (!odu_bridge_ctx->is_connected) {
+		ODU_BRIDGE_ERR("bridge is  disconnected\n");
+		return -EFAULT;
+	}
+
+	if (!odu_bridge_ctx->is_suspended) {
+		ODU_BRIDGE_ERR("bridge is not suspended\n");
+		return -EFAULT;
+	}
+
+	ret = ipa_br_request_prod();
+	if (ret)
+		return ret;
+
+	ret = ipa_start_gsi_channel(odu_bridge_ctx->odu_emb_cons_hdl);
+	if (ret) {
+		ODU_BRIDGE_ERR("failed to start CONS channel %d\n", ret);
+		return ret;
+	}
+	odu_bridge_ctx->is_suspended = false;
+
+	return 0;
+}
+EXPORT_SYMBOL(ipa_bridge_resume);
+
+int ipa_bridge_tx_dp(u32 hdl, struct sk_buff *skb,
+	struct ipa_tx_meta *metadata)
+{
+	return odu_bridge_tx_dp(skb, metadata);
+}
+EXPORT_SYMBOL(ipa_bridge_tx_dp);
+
+int ipa_bridge_cleanup(u32 hdl)
+{
+	ipa_rm_delete_dependency(IPA_RM_RESOURCE_ODU_ADAPT_PROD,
+		IPA_RM_RESOURCE_APPS_CONS);
+	ipa_rm_delete_resource(IPA_RM_RESOURCE_ODU_ADAPT_PROD);
+	ipa_rm_delete_resource(IPA_RM_RESOURCE_ODU_ADAPT_CONS);
+	return odu_bridge_cleanup();
+}
+EXPORT_SYMBOL(ipa_bridge_cleanup);
+
+#endif /* CONFIG_IPA3 */
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("ODU bridge driver");

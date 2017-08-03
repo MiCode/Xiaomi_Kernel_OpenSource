@@ -2582,6 +2582,21 @@ int ipa_stop_gsi_channel(u32 clnt_hdl)
 EXPORT_SYMBOL(ipa_stop_gsi_channel);
 
 /**
+ * ipa_start_gsi_channel()- Startsa GSI channel in IPA
+ *
+ * Return value: 0 on success, negative otherwise
+ */
+int ipa_start_gsi_channel(u32 clnt_hdl)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_start_gsi_channel, clnt_hdl);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_start_gsi_channel);
+
+/**
  * ipa_get_version_string() - Get string representation of IPA version
  * @ver: IPA version
  *

@@ -1742,9 +1742,6 @@ static inline void ipa_write_reg(void *base, u32 offset, u32 val)
 	iowrite32(val, base + offset);
 }
 
-int ipa_bridge_init(void);
-void ipa_bridge_cleanup(void);
-
 ssize_t ipa_read(struct file *filp, char __user *buf, size_t count,
 		 loff_t *f_pos);
 int ipa_pull_msg(struct ipa_msg_meta *meta, char *buff, size_t count);
