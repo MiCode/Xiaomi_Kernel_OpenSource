@@ -27,6 +27,13 @@
 		#size-cells = <1>;
 		ranges;
 
+		peripheral1_mem: peripheral1_region@0x87800000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x87800000 0x400000>;
+			label = "peripheral1_mem";
+		};
+
 		peripheral2_mem: peripheral2_region@0x87d00000 {
 			compatible = "removed-dma-pool";
 			no-map;
@@ -45,6 +52,13 @@
 			reusable;
 			size = <0x400000>;
 		 };
+
+		qseecom_mem: qseecom_region@0 {
+			compatible = "shared-dma-pool";
+			reusable;
+			alignment = <0x400000>;
+			size = <0x0400000>;
+		};
 	};
 
 	aliases {
@@ -596,6 +610,29 @@
 		qcom,use-sw-hmac-algo;
 		qcom,use-sw-aead-algo;
 		qcom,ce-opp-freq = <171430000>;
+	};
+
+	qcom_seecom: qseecom@87800000 {
+		compatible = "qcom,qseecom";
+		reg = <0x87800000 0x200000>;
+		reg-names = "secapp-region";
+		qcom,hlos-ce-hw-instance = <0>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,msm-bus,name = "qseecom-noc";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<47 512 0 0>,
+				<47 512 200000 400000>,
+				<47 512 300000 800000>,
+				<47 512 400000 1000000>;
+		clocks = <&clock_gcc clk_qcedev_ce_clk>,
+			 <&clock_gcc clk_qcedev_ce_clk>,
+			 <&clock_gcc clk_qcedev_ce_clk>,
+			 <&clock_gcc clk_qcedev_ce_clk>;
+		clock-names = "core_clk", "iface_clk",
+			"bus_clk","core_clk_src";
+		qcom,ce-opp-freq = <100000000>;
 	};
 
 	qcom,rmnet-ipa {
