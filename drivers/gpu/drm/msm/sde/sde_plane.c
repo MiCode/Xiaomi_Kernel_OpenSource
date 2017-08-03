@@ -2222,6 +2222,8 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 			SDE_ERROR("plane%d.%d no available rotator, fb %d\n",
 					plane->base.id, rstate->sequence_id,
 					state->fb ? state->fb->base.id : -1);
+			SDE_EVT32(DRMID(plane), rstate->sequence_id,
+					SDE_EVTLOG_ERROR);
 			return -EINVAL;
 		}
 
