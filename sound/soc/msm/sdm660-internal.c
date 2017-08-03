@@ -1314,6 +1314,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	msm_dig_codec_info_create_codec_entry(codec_root, dig_cdc);
 	msm_anlg_codec_info_create_codec_entry(codec_root, ana_cdc);
 done:
+	msm_set_codec_reg_done(true);
 	return 0;
 }
 
