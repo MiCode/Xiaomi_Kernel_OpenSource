@@ -258,16 +258,16 @@ static inline int _sde_plane_calc_fill_level(struct drm_plane *plane,
 				((src_width + 32) * fmt->bpp);
 		} else {
 			/* non NV12 */
-			total_fl = (fixed_buff_size / 2 - hflip_bytes) /
-				((src_width + 32) * fmt->bpp * 2);
+			total_fl = (fixed_buff_size / 2 - hflip_bytes) * 2 /
+				((src_width + 32) * fmt->bpp);
 		}
 	} else {
 		if (pstate->multirect_mode == SDE_SSPP_MULTIRECT_PARALLEL) {
-			total_fl = (fixed_buff_size / 2 - hflip_bytes) /
-				((src_width + 32) * fmt->bpp * 2);
+			total_fl = (fixed_buff_size / 2 - hflip_bytes) * 2 /
+				((src_width + 32) * fmt->bpp);
 		} else {
-			total_fl = (fixed_buff_size - hflip_bytes) /
-				((src_width + 32) * fmt->bpp * 2);
+			total_fl = (fixed_buff_size - hflip_bytes) * 2 /
+				((src_width + 32) * fmt->bpp);
 		}
 	}
 
