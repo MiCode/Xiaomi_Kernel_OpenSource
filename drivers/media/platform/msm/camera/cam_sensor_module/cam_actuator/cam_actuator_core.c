@@ -500,7 +500,7 @@ int32_t cam_actuator_driver_cmd(struct cam_actuator_ctrl_t *a_ctrl,
 	}
 		break;
 	case CAM_QUERY_CAP: {
-		struct cam_actuator_query_cap actuator_cap;
+		struct cam_actuator_query_cap actuator_cap = {0};
 
 		actuator_cap.slot_info = a_ctrl->id;
 		if (copy_to_user((void __user *) cmd->handle, &actuator_cap,
