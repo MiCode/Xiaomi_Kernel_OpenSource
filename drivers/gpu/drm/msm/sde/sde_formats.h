@@ -64,6 +64,8 @@ uint32_t sde_populate_formats(
  * @w:               width of the buffer
  * @h:               height of the buffer
  * @layout:          layout of the buffer
+ * @pitches:         array of size [SDE_MAX_PLANES] to populate
+ *		     pitch for each plane
  *
  * Return: size of the buffer
  */
@@ -71,7 +73,8 @@ int sde_format_get_plane_sizes(
 		const struct sde_format *fmt,
 		const uint32_t w,
 		const uint32_t h,
-		struct sde_hw_fmt_layout *layout);
+		struct sde_hw_fmt_layout *layout,
+		const uint32_t *pitches);
 
 /**
  * sde_format_get_block_size - get block size of given format when
@@ -137,6 +140,8 @@ int sde_format_populate_layout_with_roi(
  * @format:            DRM pixel format
  * @width:             pixel width
  * @height:            pixel height
+ * @pitches:           array of size [SDE_MAX_PLANES] to populate
+ *		       pitch for each plane
  * @modifiers:         array to populate with drm modifiers, can be NULL
  * @modifiers_len:     length of modifers array
  *
@@ -146,6 +151,7 @@ uint32_t sde_format_get_framebuffer_size(
 		const uint32_t format,
 		const uint32_t width,
 		const uint32_t height,
+		const uint32_t *pitches,
 		const uint64_t *modifiers,
 		const uint32_t modifiers_len);
 

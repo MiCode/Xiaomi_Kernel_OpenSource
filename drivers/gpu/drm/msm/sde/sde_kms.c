@@ -1135,7 +1135,7 @@ struct sde_kms_fbo *sde_kms_fbo_alloc(struct drm_device *dev, u32 width,
 	}
 
 	ret = sde_format_get_plane_sizes(fbo->fmt, fbo->width, fbo->height,
-			&fbo->layout);
+			&fbo->layout, fbo->layout.plane_pitch);
 	if (ret) {
 		SDE_ERROR("failed to get plane sizes\n");
 		goto done;
