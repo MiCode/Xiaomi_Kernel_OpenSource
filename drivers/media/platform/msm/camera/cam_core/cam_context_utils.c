@@ -34,6 +34,11 @@ int cam_context_buf_done_from_hw(struct cam_context *ctx,
 	struct cam_hw_done_event_data *done =
 		(struct cam_hw_done_event_data *)done_event_data;
 
+	if (!ctx || !done) {
+		CAM_ERR(CAM_CTXT, "Invalid input params %pK %pK", ctx, done);
+		return -EINVAL;
+	}
+
 	if (list_empty(&ctx->active_req_list)) {
 		CAM_ERR(CAM_CTXT, "no active request");
 		return -EIO;
@@ -78,6 +83,12 @@ int cam_context_apply_req_to_hw(struct cam_context *ctx,
 	struct cam_ctx_request *req;
 	struct cam_hw_config_args cfg;
 
+	if (!ctx || !apply) {
+		CAM_ERR(CAM_CTXT, "Invalid input params %pK %pK", ctx, apply);
+		rc = -EINVAL;
+		goto end;
+	}
+
 	if (!ctx->hw_mgr_intf) {
 		CAM_ERR(CAM_CTXT, "HW interface is not ready");
 		rc = -EFAULT;
@@ -119,6 +130,11 @@ static void cam_context_sync_callback(int32_t sync_obj, int status, void *data)
 	struct cam_ctx_request *req = NULL;
 	struct cam_req_mgr_apply_request apply;
 
+	if (!ctx) {
+		CAM_ERR(CAM_CTXT, "Invalid input param");
+		return;
+	}
+
 	spin_lock(&ctx->lock);
 	if (!list_empty(&ctx->pending_req_list))
 		req = list_first_entry(&ctx->pending_req_list,
@@ -143,6 +159,11 @@ int32_t cam_context_release_dev_to_hw(struct cam_context *ctx,
 	int i;
 	struct cam_hw_release_args arg;
 	struct cam_ctx_request *req;
+
+	if (!ctx) {
+		CAM_ERR(CAM_CTXT, "Invalid input param");
+		return -EINVAL;
+	}
 
 	if ((!ctx->hw_mgr_intf) || (!ctx->hw_mgr_intf->hw_release)) {
 		CAM_ERR(CAM_CTXT, "HW interface is not ready");
@@ -208,6 +229,12 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 	struct cam_packet *packet;
 	size_t len = 0;
 	int32_t i = 0;
+
+	if (!ctx || !cmd) {
+		CAM_ERR(CAM_CTXT, "Invalid input params %pK %pK", ctx, cmd);
+		rc = -EINVAL;
+		goto end;
+	}
 
 	if (!ctx->hw_mgr_intf) {
 		CAM_ERR(CAM_CTXT, "HW interface is not ready");
@@ -304,6 +331,12 @@ int32_t cam_context_acquire_dev_to_hw(struct cam_context *ctx,
 	struct cam_create_dev_hdl req_hdl_param;
 	struct cam_hw_release_args release;
 
+	if (!ctx || !cmd) {
+		CAM_ERR(CAM_CTXT, "Invalid input params %pK %pK", ctx, cmd);
+		rc = -EINVAL;
+		goto end;
+	}
+
 	if (!ctx->hw_mgr_intf) {
 		CAM_ERR(CAM_CTXT, "HW interface is not ready");
 		rc = -EFAULT;
@@ -377,6 +410,12 @@ int32_t cam_context_start_dev_to_hw(struct cam_context *ctx,
 	int rc = 0;
 	struct cam_hw_start_args arg;
 
+	if (!ctx || !cmd) {
+		CAM_ERR(CAM_CTXT, "Invalid input params %pK %pK", ctx, cmd);
+		rc = -EINVAL;
+		goto end;
+	}
+
 	if (!ctx->hw_mgr_intf) {
 		CAM_ERR(CAM_CTXT, "HW interface is not ready");
 		rc = -EFAULT;
@@ -392,6 +431,7 @@ int32_t cam_context_start_dev_to_hw(struct cam_context *ctx,
 	}
 
 	if (ctx->hw_mgr_intf->hw_start) {
+		arg.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
 		rc = ctx->hw_mgr_intf->hw_start(ctx->hw_mgr_intf->hw_mgr_priv,
 				&arg);
 		if (rc) {
@@ -411,6 +451,12 @@ int32_t cam_context_stop_dev_to_hw(struct cam_context *ctx)
 	uint32_t i;
 	struct cam_hw_stop_args stop;
 	struct cam_ctx_request *req;
+
+	if (!ctx) {
+		CAM_ERR(CAM_CTXT, "Invalid input param");
+		rc = -EINVAL;
+		goto end;
+	}
 
 	if (!ctx->hw_mgr_intf) {
 		CAM_ERR(CAM_CTXT, "HW interface is not ready");
