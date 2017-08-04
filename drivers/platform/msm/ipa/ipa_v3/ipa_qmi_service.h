@@ -121,6 +121,31 @@ extern struct elem_info ipa3_init_modem_driver_cmplt_resp_msg_data_v01_ei[];
 extern struct elem_info ipa3_install_fltr_rule_req_ex_msg_data_v01_ei[];
 extern struct elem_info ipa3_install_fltr_rule_resp_ex_msg_data_v01_ei[];
 
+	extern struct elem_info
+		ipa3_install_fltr_rule_req_ex_msg_data_v01_ei[];
+	extern struct elem_info
+		ipa3_install_fltr_rule_resp_ex_msg_data_v01_ei[];
+	extern struct elem_info
+		ipa3_ul_firewall_rule_type_data_v01_ei[];
+	extern struct elem_info
+		ipa3_ul_firewall_config_result_type_data_v01_ei[];
+	extern struct elem_info
+		ipa3_per_client_stats_info_type_data_v01_ei[];
+	extern struct elem_info
+		ipa3_enable_per_client_stats_req_msg_data_v01_ei[];
+	extern struct elem_info
+		ipa3_enable_per_client_stats_resp_msg_data_v01_ei[];
+	extern struct elem_info
+		ipa3_get_stats_per_client_req_msg_data_v01_ei[];
+	extern struct elem_info
+		ipa3_get_stats_per_client_resp_msg_data_v01_ei[];
+	extern struct elem_info
+		ipa3_configure_ul_firewall_rules_req_msg_data_v01_ei[];
+	extern struct elem_info
+		ipa3_configure_ul_firewall_rules_resp_msg_data_v01_ei[];
+	extern struct elem_info
+		ipa3_configure_ul_firewall_rules_ind_msg_data_v01_ei[];
+
 /**
  * struct ipa3_rmnet_context - IPA rmnet context
  * @ipa_rmnet_ssr: support modem SSR
