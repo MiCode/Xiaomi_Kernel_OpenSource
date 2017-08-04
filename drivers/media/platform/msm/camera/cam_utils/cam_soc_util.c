@@ -128,6 +128,30 @@ int cam_soc_util_irq_disable(struct cam_hw_soc_info *soc_info)
 	return 0;
 }
 
+long cam_soc_util_get_clk_round_rate(struct cam_hw_soc_info *soc_info,
+	uint32_t clk_index, unsigned long clk_rate)
+{
+	if (!soc_info || (clk_index >= soc_info->num_clk) || (clk_rate == 0)) {
+		CAM_ERR(CAM_UTIL, "Invalid input params %pK, %d %lld",
+			soc_info, clk_index, clk_rate);
+		return clk_rate;
+	}
+
+	return clk_round_rate(soc_info->clk[clk_index], clk_rate);
+}
+
+int cam_soc_util_set_clk_flags(struct cam_hw_soc_info *soc_info,
+	uint32_t clk_index, unsigned long flags)
+{
+	if (!soc_info || (clk_index >= soc_info->num_clk)) {
+		CAM_ERR(CAM_UTIL, "Invalid input params %pK, %d",
+			soc_info, clk_index);
+		return -EINVAL;
+	}
+
+	return clk_set_flags(soc_info->clk[clk_index], flags);
+}
+
 int cam_soc_util_set_clk_rate(struct clk *clk, const char *clk_name,
 	int32_t clk_rate)
 {

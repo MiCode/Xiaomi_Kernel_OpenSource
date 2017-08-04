@@ -19,6 +19,7 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
+#include <linux/clk/qcom.h>
 
 #include "cam_io_util.h"
 
@@ -326,6 +327,35 @@ int cam_soc_util_enable_platform_resource(struct cam_hw_soc_info *soc_info,
  */
 int cam_soc_util_disable_platform_resource(struct cam_hw_soc_info *soc_info,
 	bool disable_clocks, bool disable_irq);
+
+/**
+ * cam_soc_util_get_clk_round_rate()
+ *
+ * @brief:              Get the rounded clock rate for the given clock's
+ *                      clock rate value
+ *
+ * @soc_info:           Device soc information
+ * @clk_index:          Clock index in soc_info for which round rate is needed
+ * @clk_rate:           Input clock rate for which rounded rate is needed
+ *
+ * @return:             Rounded clock rate
+ */
+long cam_soc_util_get_clk_round_rate(struct cam_hw_soc_info *soc_info,
+	uint32_t clk_index, unsigned long clk_rate);
+
+/**
+ * cam_soc_util_set_clk_flags()
+ *
+ * @brief:              Camera SOC util to set the flags for a specified clock
+ *
+ * @soc_info:           Device soc information
+ * @clk_index:          Clock index in soc_info for which flags are to be set
+ * @flags:              Flags to set
+ *
+ * @return:             Success or Failure
+ */
+int cam_soc_util_set_clk_flags(struct cam_hw_soc_info *soc_info,
+	 uint32_t clk_index, unsigned long flags);
 
 /**
  * cam_soc_util_set_clk_rate()
