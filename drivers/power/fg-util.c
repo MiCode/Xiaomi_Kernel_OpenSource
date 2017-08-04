@@ -353,15 +353,14 @@ int fg_sram_masked_write(struct fg_chip *chip, u16 address, u8 offset,
 int fg_read(struct fg_chip *chip, int addr, u8 *val, int len)
 {
 	int rc, i;
+	struct spmi_device *spmi = chip->spmi;
 
-	if (!chip || !chip->regmap)
+	if (!chip || !chip->spmi)
 		return -ENXIO;
 
-	rc = regmap_bulk_read(chip->regmap, addr, val, len);
-
-	if (rc < 0) {
-		dev_err(chip->dev, "regmap_read failed for address %04x rc=%d\n",
-			addr, rc);
+	rc = spmi_ext_register_readl(spmi->ctrl, spmi->sid, addr, val, len);
+	if (rc) {
+		pr_err("SPMI read failed addr=0x%02x rc=%d\n", addr, rc);
 		return rc;
 	}
 
@@ -378,26 +377,25 @@ int fg_write(struct fg_chip *chip, int addr, u8 *val, int len)
 {
 	int rc, i;
 	bool sec_access = false;
+	u8 sec_addr_val = 0xA5;
+	struct spmi_device *spmi = chip->spmi;
 
-	if (!chip || !chip->regmap)
+	if (!chip || !chip->spmi)
 		return -ENXIO;
 
 	mutex_lock(&chip->bus_lock);
 	sec_access = (addr & 0x00FF) > 0xD0;
 	if (sec_access) {
-		rc = regmap_write(chip->regmap, (addr & 0xFF00) | 0xD0, 0xA5);
+		rc = spmi_ext_register_writel(spmi->ctrl, spmi->sid,
+				(addr & 0xFF00) | 0xD0, &sec_addr_val, 1);
 		if (rc < 0) {
-			dev_err(chip->dev, "regmap_write failed for address %x rc=%d\n",
-				addr, rc);
+			pr_err("SPMI write failed addr=0x%02x rc=%d\n",
+							addr, rc);
 			goto out;
 		}
 	}
 
-	if (len > 1)
-		rc = regmap_bulk_write(chip->regmap, addr, val, len);
-	else
-		rc = regmap_write(chip->regmap, addr, *val);
-
+	rc = spmi_ext_register_writel(spmi->ctrl, spmi->sid, addr, val, len);
 	if (rc < 0) {
 		dev_err(chip->dev, "regmap_write failed for address %04x rc=%d\n",
 			addr, rc);
@@ -418,30 +416,43 @@ int fg_masked_write(struct fg_chip *chip, int addr, u8 mask, u8 val)
 {
 	int rc;
 	bool sec_access = false;
+	u8 reg, sec_addr_val = 0xA5;
+	struct spmi_device *spmi = chip->spmi;
 
-	if (!chip || !chip->regmap)
+	if (!chip || !chip->spmi)
 		return -ENXIO;
 
 	mutex_lock(&chip->bus_lock);
+	rc = spmi_ext_register_readl(spmi->ctrl, spmi->sid, addr, &reg, 1);
+	if (rc) {
+		pr_err("SPMI read failed addr=0x%02x rc=%d\n", addr, rc);
+		goto out;
+	}
+
+	reg &= ~mask;
+	reg |= val & mask;
+
 	sec_access = (addr & 0x00FF) > 0xD0;
 	if (sec_access) {
-		rc = regmap_write(chip->regmap, (addr & 0xFF00) | 0xD0, 0xA5);
+		rc = spmi_ext_register_writel(spmi->ctrl, spmi->sid,
+				(addr & 0xFF00) | 0xD0, &sec_addr_val, 1);
 		if (rc < 0) {
-			dev_err(chip->dev, "regmap_write failed for address %x rc=%d\n",
-				addr, rc);
+			pr_err("SPMI write failed addr=0x%02x rc=%d\n",
+							addr, rc);
 			goto out;
 		}
 	}
 
-	rc = regmap_update_bits(chip->regmap, addr, mask, val);
+	rc = spmi_ext_register_writel(spmi->ctrl, spmi->sid, addr, &reg, 1);
 	if (rc < 0) {
-		dev_err(chip->dev, "regmap_update_bits failed for address %04x rc=%d\n",
+		dev_err(chip->dev, "regmap_write failed for address %04x rc=%d\n",
 			addr, rc);
 		goto out;
 	}
 
-	fg_dbg(chip, FG_BUS_WRITE, "addr=%04x mask: %02x val: %02x\n", addr,
-		mask, val);
+	if (*chip->debug_mask & FG_BUS_WRITE)
+		pr_info("addr=%04x val=%04x\n", addr, val);
+
 out:
 	mutex_unlock(&chip->bus_lock);
 	return rc;

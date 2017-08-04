@@ -15,9 +15,8 @@
 #include <linux/ktime.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
-#include <linux/of_platform.h>
+#include <linux/spmi.h>
 #include <linux/of_batterydata.h>
-#include <linux/platform_device.h>
 #include <linux/iio/consumer.h>
 #include <linux/qpnp/qpnp-revid.h>
 #include "fg-core.h"
@@ -161,16 +160,16 @@ static struct fg_irq_info fg_irqs[FG_IRQ_MAX];
 
 #define PARAM(_id, _addr_word, _addr_byte, _len, _num, _den, _offset,	\
 	      _enc, _dec)						\
-	{[FG_SRAM_##(_id)] = {						\
-		.addr_word	= (_addr_word),				\
-		.addr_byte	= (_addr_byte),				\
-		.len		= (_len),				\
-		.numrtr		= (_num),				\
-		.denmtr		= (_den),				\
-		.offset		= (_offset),				\
-		.encode		= (_enc),				\
-		.decode		= (_dec),				\
-	} }
+	[FG_SRAM_##_id] = {						\
+		.addr_word	= _addr_word,				\
+		.addr_byte	= _addr_byte,				\
+		.len		= _len,					\
+		.numrtr		= _num,					\
+		.denmtr		= _den,					\
+		.offset		= _offset,				\
+		.encode		= _enc,					\
+		.decode		= _dec,					\
+	}								\
 
 static struct fg_sram_param pmi8998_v1_sram_params[] = {
 	PARAM(BATT_SOC, BATT_SOC_WORD, BATT_SOC_OFFSET, 4, 1, 1, 0, NULL,
@@ -908,6 +907,11 @@ out:
 	return rc;
 }
 
+static char *fg_batt_type;
+module_param_named(
+	battery_type, fg_batt_type, charp, S_IRUSR | S_IWUSR
+);
+
 static int fg_get_batt_profile(struct fg_chip *chip)
 {
 	struct device_node *node = chip->dev->of_node;
@@ -921,8 +925,8 @@ static int fg_get_batt_profile(struct fg_chip *chip)
 		return -ENXIO;
 	}
 
-	profile_node = of_batterydata_get_best_profile(batt_node,
-				chip->batt_id_ohms / 1000, NULL);
+	profile_node = of_batterydata_get_best_profile(batt_node, "bms",
+							fg_batt_type);
 	if (IS_ERR(profile_node))
 		return PTR_ERR(profile_node);
 
@@ -3178,8 +3182,8 @@ static int fg_notifier_cb(struct notifier_block *nb,
 	if (work_pending(&chip->status_change_work))
 		return NOTIFY_OK;
 
-	if ((strcmp(psy->desc->name, "battery") == 0)
-		|| (strcmp(psy->desc->name, "usb") == 0)) {
+	if ((strcmp(psy->name, "battery") == 0)
+		|| (strcmp(psy->name, "usb") == 0)) {
 		/*
 		 * We cannot vote for awake votable here as that takes
 		 * a mutex lock and this is executed in an atomic context.
@@ -3213,17 +3217,6 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_SOC_REPORTING_READY,
 	POWER_SUPPLY_PROP_DEBUG_BATTERY,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
-};
-
-static const struct power_supply_desc fg_psy_desc = {
-	.name = "bms",
-	.type = POWER_SUPPLY_TYPE_BMS,
-	.properties = fg_psy_props,
-	.num_properties = ARRAY_SIZE(fg_psy_props),
-	.get_property = fg_psy_get_property,
-	.set_property = fg_psy_set_property,
-	.external_power_changed = fg_external_power_changed,
-	.property_is_writeable = fg_property_is_writeable,
 };
 
 /* INIT FUNCTIONS STAY HERE */
@@ -3606,8 +3599,7 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 	clear_battery_profile(chip);
 	schedule_delayed_work(&chip->profile_load_work, 0);
 
-	if (chip->fg_psy)
-		power_supply_changed(chip->fg_psy);
+	power_supply_changed(&chip->fg_psy);
 
 	return IRQ_HANDLED;
 }
@@ -3760,77 +3752,93 @@ static struct fg_irq_info fg_irqs[FG_IRQ_MAX] = {
 	[MSOC_FULL_IRQ] = {
 		.name		= "msoc-full",
 		.handler	= fg_soc_irq_handler,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[MSOC_HIGH_IRQ] = {
 		.name		= "msoc-high",
 		.handler	= fg_soc_irq_handler,
 		.wakeable	= true,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[MSOC_EMPTY_IRQ] = {
 		.name		= "msoc-empty",
 		.handler	= fg_empty_soc_irq_handler,
 		.wakeable	= true,
+		.flags		= IRQ_TYPE_EDGE_RISING,
 	},
 	[MSOC_LOW_IRQ] = {
 		.name		= "msoc-low",
 		.handler	= fg_soc_irq_handler,
 		.wakeable	= true,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[MSOC_DELTA_IRQ] = {
 		.name		= "msoc-delta",
 		.handler	= fg_delta_msoc_irq_handler,
 		.wakeable	= true,
+		.flags		= IRQ_TYPE_EDGE_RISING,
 	},
 	[BSOC_DELTA_IRQ] = {
 		.name		= "bsoc-delta",
 		.handler	= fg_delta_bsoc_irq_handler,
 		.wakeable	= true,
+		.flags		= IRQ_TYPE_EDGE_RISING,
 	},
 	[SOC_READY_IRQ] = {
 		.name		= "soc-ready",
 		.handler	= fg_first_est_irq_handler,
 		.wakeable	= true,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[SOC_UPDATE_IRQ] = {
 		.name		= "soc-update",
 		.handler	= fg_soc_update_irq_handler,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	/* BATT_INFO irqs */
 	[BATT_TEMP_DELTA_IRQ] = {
 		.name		= "batt-temp-delta",
 		.handler	= fg_delta_batt_temp_irq_handler,
 		.wakeable	= true,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[BATT_MISSING_IRQ] = {
 		.name		= "batt-missing",
 		.handler	= fg_batt_missing_irq_handler,
 		.wakeable	= true,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[ESR_DELTA_IRQ] = {
 		.name		= "esr-delta",
 		.handler	= fg_dummy_irq_handler,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[VBATT_LOW_IRQ] = {
 		.name		= "vbatt-low",
 		.handler	= fg_vbatt_low_irq_handler,
 		.wakeable	= true,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[VBATT_PRED_DELTA_IRQ] = {
 		.name		= "vbatt-pred-delta",
 		.handler	= fg_dummy_irq_handler,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	/* MEM_IF irqs */
 	[DMA_GRANT_IRQ] = {
 		.name		= "dma-grant",
 		.handler	= fg_dummy_irq_handler,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[MEM_XCP_IRQ] = {
 		.name		= "mem-xcp",
 		.handler	= fg_mem_xcp_irq_handler,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 	[IMA_RDY_IRQ] = {
 		.name		= "ima-rdy",
 		.handler	= fg_dummy_irq_handler,
+		.flags		= IRQ_TYPE_EDGE_BOTH,
 	},
 };
 
@@ -3870,7 +3878,8 @@ static int fg_register_interrupts(struct fg_chip *chip)
 
 			rc = devm_request_threaded_irq(chip->dev, irq, NULL,
 					fg_irqs[irq_index].handler,
-					IRQF_ONESHOT, name, chip);
+					IRQF_ONESHOT | fg_irqs[irq_index].flags,
+					name, chip);
 			if (rc < 0) {
 				dev_err(chip->dev, "failed to register irq handler for %s rc:%d\n",
 					name, rc);
@@ -4378,27 +4387,27 @@ static void fg_cleanup(struct fg_chip *chip)
 	dev_set_drvdata(chip->dev, NULL);
 }
 
-static int fg_gen3_probe(struct platform_device *pdev)
+static int fg_gen3_probe(struct spmi_device *spmi)
 {
 	struct fg_chip *chip;
-	struct power_supply_config fg_psy_cfg;
 	int rc, msoc, volt_uv, batt_temp;
 
-	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
+	if (!spmi->dev.of_node) {
+		pr_err("device node missing\n");
+		return -ENODEV;
+	}
+
+	chip = devm_kzalloc(&spmi->dev, sizeof(*chip), GFP_KERNEL);
 	if (!chip)
 		return -ENOMEM;
 
-	chip->dev = &pdev->dev;
+	chip->dev = &spmi->dev;
 	chip->debug_mask = &fg_gen3_debug_mask;
 	chip->irqs = fg_irqs;
 	chip->charge_status = -EINVAL;
 	chip->prev_charge_status = -EINVAL;
 	chip->ki_coeff_full_soc = -EINVAL;
-	chip->regmap = dev_get_regmap(chip->dev->parent, NULL);
-	if (!chip->regmap) {
-		dev_err(chip->dev, "Parent regmap is unavailable\n");
-		return -ENXIO;
-	}
+	chip->spmi = spmi;
 
 	chip->batt_id_chan = iio_channel_get(chip->dev, "rradc_batt_id");
 	if (IS_ERR(chip->batt_id_chan)) {
@@ -4471,6 +4480,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	INIT_WORK(&chip->cycle_count_work, cycle_count_work);
 	INIT_DELAYED_WORK(&chip->batt_avg_work, batt_avg_work);
 	INIT_DELAYED_WORK(&chip->sram_dump_work, sram_dump_work);
+	dev_set_drvdata(&spmi->dev, chip);
 
 	rc = fg_memif_init(chip);
 	if (rc < 0) {
@@ -4486,25 +4496,30 @@ static int fg_gen3_probe(struct platform_device *pdev)
 		goto exit;
 	}
 
-	platform_set_drvdata(pdev, chip);
-
+	chip->fg_psy.name = "bms";
+	chip->fg_psy.type = POWER_SUPPLY_TYPE_BMS;
+	chip->fg_psy.properties = fg_psy_props;
+	chip->fg_psy.num_properties = ARRAY_SIZE(fg_psy_props);
+	chip->fg_psy.get_property = fg_psy_get_property;
+	chip->fg_psy.set_property = fg_psy_set_property;
+	chip->fg_psy.external_power_changed = fg_external_power_changed;
+	chip->fg_psy.property_is_writeable = fg_property_is_writeable;
 	/* Register the power supply */
-	fg_psy_cfg.drv_data = chip;
-	fg_psy_cfg.of_node = NULL;
-	fg_psy_cfg.supplied_to = NULL;
-	fg_psy_cfg.num_supplicants = 0;
-	chip->fg_psy = devm_power_supply_register(chip->dev, &fg_psy_desc,
-			&fg_psy_cfg);
-	if (IS_ERR(chip->fg_psy)) {
-		pr_err("failed to register fg_psy rc = %ld\n",
-				PTR_ERR(chip->fg_psy));
+	chip->fg_psy.drv_data = chip;
+	chip->fg_psy.of_node = NULL;
+	chip->fg_psy.supplied_to = NULL;
+	chip->fg_psy.num_supplicants = 0;
+	rc = power_supply_register(chip->dev, &chip->fg_psy);
+	if (rc) {
+		dev_err(chip->dev, "Unable to register batt_psy rc = %d\n", rc);
 		goto exit;
 	}
 
 	chip->nb.notifier_call = fg_notifier_cb;
 	rc = power_supply_reg_notifier(&chip->nb);
 	if (rc < 0) {
-		pr_err("Couldn't register psy notifier rc = %d\n", rc);
+		dev_err(chip->dev, "Couldn't register psy notifier rc = %d\n",
+				rc);
 		goto exit;
 	}
 
@@ -4548,6 +4563,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	}
 
 	device_init_wakeup(chip->dev, true);
+
 	schedule_delayed_work(&chip->profile_load_work, 0);
 
 	pr_debug("FG GEN3 driver probed successfully\n");
@@ -4595,9 +4611,9 @@ static const struct dev_pm_ops fg_gen3_pm_ops = {
 	.resume		= fg_gen3_resume,
 };
 
-static int fg_gen3_remove(struct platform_device *pdev)
+static int fg_gen3_remove(struct spmi_device *spmi)
 {
-	struct fg_chip *chip = dev_get_drvdata(&pdev->dev);
+	struct fg_chip *chip = dev_get_drvdata(&spmi->dev);
 
 	fg_cleanup(chip);
 	return 0;
@@ -4608,7 +4624,7 @@ static const struct of_device_id fg_gen3_match_table[] = {
 	{},
 };
 
-static struct platform_driver fg_gen3_driver = {
+static struct spmi_driver fg_gen3_driver = {
 	.driver = {
 		.name = FG_GEN3_DEV_NAME,
 		.owner = THIS_MODULE,
@@ -4621,12 +4637,12 @@ static struct platform_driver fg_gen3_driver = {
 
 static int __init fg_gen3_init(void)
 {
-	return platform_driver_register(&fg_gen3_driver);
+	return spmi_driver_register(&fg_gen3_driver);
 }
 
 static void __exit fg_gen3_exit(void)
 {
-	return platform_driver_unregister(&fg_gen3_driver);
+	return spmi_driver_unregister(&fg_gen3_driver);
 }
 
 module_init(fg_gen3_init);

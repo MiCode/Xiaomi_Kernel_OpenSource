@@ -23,8 +23,8 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/spmi.h>
 #include <linux/power_supply.h>
-#include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/string_helpers.h>
 #include <linux/types.h>
@@ -306,6 +306,7 @@ struct fg_irq_info {
 	const irq_handler_t	handler;
 	bool			wakeable;
 	int			irq;
+	int			flags;
 };
 
 struct fg_circ_buf {
@@ -351,9 +352,9 @@ static const struct fg_pt fg_tsmc_osc_table[] = {
 struct fg_chip {
 	struct device		*dev;
 	struct pmic_revid_data	*pmic_rev_id;
-	struct regmap		*regmap;
+	struct spmi_device	*spmi;
 	struct dentry		*dfs_root;
-	struct power_supply	*fg_psy;
+	struct power_supply	fg_psy;
 	struct power_supply	*batt_psy;
 	struct power_supply	*usb_psy;
 	struct power_supply	*dc_psy;
