@@ -241,6 +241,8 @@ static void get_qos_params(
 	node_info->qos_params.urg_fwd_en = of_property_read_bool(dev_node,
 						"qcom,forwarding");
 
+	node_info->qos_params.defer_init_qos = of_property_read_bool(dev_node,
+						"qcom,defer-init-qos");
 }
 
 static int msm_bus_of_parse_clk_array(struct device_node *dev_node,
