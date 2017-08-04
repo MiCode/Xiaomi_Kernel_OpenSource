@@ -204,10 +204,15 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 			idx = left_crtc_zpos_cnt[pstate->stage]++;
 		}
 
+		/* stage plane on right LM if it crosses the boundary */
+		lm_right = (lm_idx == LEFT_MIXER) &&
+		   (plane->state->crtc_x + plane->state->crtc_w >
+							crtc_split_width);
+
 		/*
 		 * program each mixer with two hw pipes in dual mixer mode,
 		 */
-		if (sde_crtc->num_mixers == CRTC_DUAL_MIXERS) {
+		if (sde_crtc->num_mixers == CRTC_DUAL_MIXERS && lm_right) {
 			stage_cfg->stage[LEFT_MIXER][pstate->stage][1] =
 				sde_plane_pipe(plane, 1);
 
@@ -218,10 +223,7 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 		flush_mask |= ctl->ops.get_bitmask_sspp(ctl,
 				sde_plane_pipe(plane, lm_idx ? 1 : 0));
 
-		/* stage plane on right LM if it crosses the boundary */
-		lm_right = (lm_idx == LEFT_MIXER) &&
-		   (plane->state->crtc_x + plane->state->crtc_w >
-							crtc_split_width);
+
 
 		stage_cfg->stage[lm_idx][pstate->stage][idx] =
 					sde_plane_pipe(plane, lm_idx ? 1 : 0);

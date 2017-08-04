@@ -1237,8 +1237,10 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	bool q16_data = true;
 	int idx;
 	struct sde_phy_plane *pp;
-	uint32_t num_of_phy_planes = 0, maxlinewidth = 0xFFFF;
+	uint32_t num_of_phy_planes = 0;
 	int mode = 0;
+	uint32_t crtc_split_width;
+	bool is_across_mixer_boundary  = false;
 
 	if (!plane) {
 		SDE_ERROR("invalid plane\n");
@@ -1252,6 +1254,7 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 	pstate = to_sde_plane_state(plane->state);
 
 	crtc = state->crtc;
+	crtc_split_width = get_crtc_split_width(crtc);
 	fb = state->fb;
 	if (!crtc || !fb) {
 		SDE_ERROR_PLANE(psde, "invalid crtc %d or fb %d\n",
@@ -1348,17 +1351,17 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 		}
 	}
 
-	list_for_each_entry(pp, &psde->phy_plane_head, phy_plane_list) {
-		if (maxlinewidth > pp->pipe_sblk->maxlinewidth)
-			maxlinewidth = pp->pipe_sblk->maxlinewidth;
+	list_for_each_entry(pp, &psde->phy_plane_head, phy_plane_list)
 		num_of_phy_planes++;
-	}
 
 	/*
 	 * Only need to use one physical plane if plane width is still within
 	 * the limitation.
 	 */
-	if (maxlinewidth >= (src.x + src.w))
+	is_across_mixer_boundary = (plane->state->crtc_x < crtc_split_width) &&
+				(plane->state->crtc_x + plane->state->crtc_w >
+				crtc_split_width);
+	if (crtc_split_width >= (src.x + src.w) && !is_across_mixer_boundary)
 		num_of_phy_planes = 1;
 
 	if (num_of_phy_planes > 1) {
@@ -1369,9 +1372,10 @@ static int _sde_plane_mode_set(struct drm_plane *plane,
 
 	list_for_each_entry(pp, &psde->phy_plane_head, phy_plane_list) {
 		/* Adjust offset for multi-pipe */
-		src.x += src.w * pp->index;
-		dst.x += dst.w * pp->index;
-
+		if (num_of_phy_planes > 1) {
+			src.x += src.w * pp->index;
+			dst.x += dst.w * pp->index;
+		}
 		pp->pipe_cfg.src_rect = src;
 		pp->pipe_cfg.dst_rect = dst;
 
