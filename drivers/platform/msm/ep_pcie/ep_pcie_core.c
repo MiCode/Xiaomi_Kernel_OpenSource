@@ -698,7 +698,7 @@ static void ep_pcie_config_outbound_iatu_entry(struct ep_pcie_dev_t *dev,
 static void ep_pcie_notify_event(struct ep_pcie_dev_t *dev,
 					enum ep_pcie_event event)
 {
-	if (dev && dev->event_reg && dev->event_reg->callback &&
+	if (dev->event_reg && dev->event_reg->callback &&
 		(dev->event_reg->events & event)) {
 			struct ep_pcie_notify *notify =
 				&dev->event_reg->notify;
