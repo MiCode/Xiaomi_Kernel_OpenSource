@@ -1341,7 +1341,6 @@ static struct clk_branch gcc_aggre_noc_pcie_tbu_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_aggre_noc_pcie_tbu_clk",
-			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -4022,10 +4021,6 @@ static void gcc_sdm845_fixup_sdm845v2(void)
 		240000000;
 	gcc_ufs_phy_axi_clk_src.freq_tbl =
 		ftbl_gcc_ufs_card_axi_clk_src_sdm845_v2;
-	gcc_aggre_noc_pcie_tbu_clk.clkr.hw.init = &(struct clk_init_data){
-			.name = "gcc_aggre_noc_pcie_tbu_clk",
-			.ops = &clk_branch2_ops,
-		};
 }
 
 static int gcc_sdm845_fixup(struct platform_device *pdev)
@@ -4097,6 +4092,10 @@ static int gcc_sdm845_probe(struct platform_device *pdev)
 	/* Disable the GPLL0 active input to MMSS and GPU via MISC registers */
 	regmap_update_bits(regmap, GCC_MMSS_MISC, 0x3, 0x3);
 	regmap_update_bits(regmap, GCC_GPU_MISC, 0x3, 0x3);
+
+	/* Keep this clock on all the time on SDM845 v1 */
+	if (of_device_is_compatible(pdev->dev.of_node, "qcom,gcc-sdm845"))
+		clk_prepare_enable(gcc_aggre_noc_pcie_tbu_clk.clkr.hw.clk);
 
 	/* DFS clock registration */
 	ret = qcom_cc_register_rcg_dfs(pdev, &gcc_sdm845_dfs_desc);
