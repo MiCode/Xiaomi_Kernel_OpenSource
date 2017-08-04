@@ -1493,7 +1493,7 @@ static int cam_icp_get_acquire_info(struct cam_icp_hw_mgr *hw_mgr,
 		ctx_data->icp_dev_acquire_info->scratch_mem_size);
 
 	p_icp_out = ctx_data->icp_dev_acquire_info->out_res;
-	for (i = 0; i < ctx_data->icp_dev_acquire_info->num_out_res; i++)
+	for (i = 0; i < icp_dev_acquire_info.num_out_res; i++)
 		CAM_DBG(CAM_ICP, "out[i] %x %x %x %x",
 			p_icp_out[i].format,
 			p_icp_out[i].width,
