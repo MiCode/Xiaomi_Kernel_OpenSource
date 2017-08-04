@@ -67,6 +67,14 @@ config QCOM_PM
 	  modes. It interface with various system drivers to put the cores in
 	  low power modes.
 
+config QCOM_QMI_HELPERS
+	bool
+	help
+	  Helper library for handling QMI encoded messages.  QMI encoded
+	  messages are used in communication between the majority of QRTR
+	  clients and this helpers provide the common functionality needed for
+	  doing this from a kernel driver.
+
 config QCOM_SMEM
 	tristate "Qualcomm Shared Memory Manager (SMEM)"
 	depends on ARCH_QCOM
