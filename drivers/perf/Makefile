@@ -14,3 +14,4 @@ obj-$(CONFIG_QCOM_LLCC_PMU) += qcom_llcc_pmu.o
 obj-$(CONFIG_THUNDERX2_PMU) += thunderx2_pmu.o
 obj-$(CONFIG_XGENE_PMU) += xgene_pmu.o
 obj-$(CONFIG_ARM_SPE_PMU) += arm_spe_pmu.o
+obj-$(CONFIG_ARM_SMMU_PMU) += arm_smmu_pmu.o
