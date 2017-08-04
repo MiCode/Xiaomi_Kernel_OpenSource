@@ -114,6 +114,8 @@
 #define WLAN_VREG_SP2T_MIN	2700000
 
 #define POWER_ON_DELAY		2
+#define WLAN_VREG_IO_DELAY_MIN	100
+#define WLAN_VREG_IO_DELAY_MAX	1000
 #define WLAN_ENABLE_DELAY	10
 #define WLAN_RECOVERY_DELAY	1
 #define PCIE_ENABLE_DELAY	100
@@ -304,13 +306,6 @@ static int cnss_wlan_vreg_on(struct cnss_wlan_vreg_info *vreg_info)
 		}
 	}
 
-	ret = regulator_enable(vreg_info->wlan_reg);
-	if (ret) {
-		pr_err("%s: regulator enable failed for WLAN power\n",
-				__func__);
-		goto error_enable;
-	}
-
 	if (vreg_info->wlan_reg_io) {
 		ret = regulator_enable(vreg_info->wlan_reg_io);
 		if (ret) {
@@ -318,6 +313,8 @@ static int cnss_wlan_vreg_on(struct cnss_wlan_vreg_info *vreg_info)
 				__func__);
 			goto error_enable_reg_io;
 		}
+
+		usleep_range(WLAN_VREG_IO_DELAY_MIN, WLAN_VREG_IO_DELAY_MAX);
 	}
 
 	if (vreg_info->wlan_reg_xtal_aon) {
@@ -336,6 +333,13 @@ static int cnss_wlan_vreg_on(struct cnss_wlan_vreg_info *vreg_info)
 				__func__);
 			goto error_enable_reg_xtal;
 		}
+	}
+
+	ret = regulator_enable(vreg_info->wlan_reg);
+	if (ret) {
+		pr_err("%s: regulator enable failed for WLAN power\n",
+		       __func__);
+		goto error_enable;
 	}
 
 	if (vreg_info->wlan_reg_sp2t) {
@@ -374,6 +378,8 @@ error_enable_ant_switch:
 	if (vreg_info->wlan_reg_sp2t)
 		regulator_disable(vreg_info->wlan_reg_sp2t);
 error_enable_reg_sp2t:
+	regulator_disable(vreg_info->wlan_reg);
+error_enable:
 	if (vreg_info->wlan_reg_xtal)
 		regulator_disable(vreg_info->wlan_reg_xtal);
 error_enable_reg_xtal:
@@ -383,8 +389,6 @@ error_enable_reg_xtal_aon:
 	if (vreg_info->wlan_reg_io)
 		regulator_disable(vreg_info->wlan_reg_io);
 error_enable_reg_io:
-	regulator_disable(vreg_info->wlan_reg);
-error_enable:
 	if (vreg_info->wlan_reg_core)
 		regulator_disable(vreg_info->wlan_reg_core);
 error_enable_reg_core:
@@ -422,6 +426,13 @@ static int cnss_wlan_vreg_off(struct cnss_wlan_vreg_info *vreg_info)
 		}
 	}
 
+	ret = regulator_disable(vreg_info->wlan_reg);
+	if (ret) {
+		pr_err("%s: regulator disable failed for WLAN power\n",
+		       __func__);
+		goto error_disable;
+	}
+
 	if (vreg_info->wlan_reg_xtal) {
 		ret = regulator_disable(vreg_info->wlan_reg_xtal);
 		if (ret) {
@@ -447,13 +458,6 @@ static int cnss_wlan_vreg_off(struct cnss_wlan_vreg_info *vreg_info)
 				__func__);
 			goto error_disable;
 		}
-	}
-
-	ret = regulator_disable(vreg_info->wlan_reg);
-	if (ret) {
-		pr_err("%s: regulator disable failed for WLAN power\n",
-				__func__);
-		goto error_disable;
 	}
 
 	if (vreg_info->wlan_reg_core) {
@@ -715,24 +719,6 @@ static int cnss_wlan_get_resources(struct platform_device *pdev)
 		}
 	}
 
-	vreg_info->wlan_reg = regulator_get(&pdev->dev, WLAN_VREG_NAME);
-
-	if (IS_ERR(vreg_info->wlan_reg)) {
-		if (PTR_ERR(vreg_info->wlan_reg) == -EPROBE_DEFER)
-			pr_err("%s: vreg probe defer\n", __func__);
-		else
-			pr_err("%s: vreg regulator get failed\n", __func__);
-		ret = PTR_ERR(vreg_info->wlan_reg);
-		goto err_reg_get;
-	}
-
-	ret = regulator_enable(vreg_info->wlan_reg);
-
-	if (ret) {
-		pr_err("%s: vreg initial vote failed\n", __func__);
-		goto err_reg_enable;
-	}
-
 	if (of_get_property(pdev->dev.of_node,
 		WLAN_VREG_IO_NAME"-supply", NULL)) {
 		vreg_info->wlan_reg_io = regulator_get(&pdev->dev,
@@ -752,11 +738,32 @@ static int cnss_wlan_get_resources(struct platform_device *pdev)
 					__func__);
 				goto err_reg_io_enable;
 			}
+
+			usleep_range(WLAN_VREG_IO_DELAY_MIN,
+				     WLAN_VREG_IO_DELAY_MAX);
 		}
 	}
 
 	if (cnss_enable_xtal_ldo(pdev))
 		goto err_reg_xtal_enable;
+
+	vreg_info->wlan_reg = regulator_get(&pdev->dev, WLAN_VREG_NAME);
+
+	if (IS_ERR(vreg_info->wlan_reg)) {
+		if (PTR_ERR(vreg_info->wlan_reg) == -EPROBE_DEFER)
+			pr_err("%s: vreg probe defer\n", __func__);
+		else
+			pr_err("%s: vreg regulator get failed\n", __func__);
+		ret = PTR_ERR(vreg_info->wlan_reg);
+		goto err_reg_get;
+	}
+
+	ret = regulator_enable(vreg_info->wlan_reg);
+
+	if (ret) {
+		pr_err("%s: vreg initial vote failed\n", __func__);
+		goto err_reg_enable;
+	}
 
 	if (of_get_property(pdev->dev.of_node,
 		WLAN_VREG_SP2T_NAME"-supply", NULL)) {
@@ -926,7 +933,11 @@ err_reg_sp2t_enable:
 err_reg_sp2t_set:
 	if (vreg_info->wlan_reg_sp2t)
 		regulator_put(vreg_info->wlan_reg_sp2t);
+	regulator_disable(vreg_info->wlan_reg);
 
+err_reg_enable:
+	regulator_put(vreg_info->wlan_reg);
+err_reg_get:
 	cnss_disable_xtal_ldo(pdev);
 
 err_reg_xtal_enable:
@@ -937,12 +948,6 @@ err_reg_io_enable:
 err_reg_io_set:
 	if (vreg_info->wlan_reg_io)
 		regulator_put(vreg_info->wlan_reg_io);
-	regulator_disable(vreg_info->wlan_reg);
-
-err_reg_enable:
-	regulator_put(vreg_info->wlan_reg);
-
-err_reg_get:
 	if (vreg_info->wlan_reg_core)
 		regulator_disable(vreg_info->wlan_reg_core);
 
@@ -972,13 +977,13 @@ static void cnss_wlan_release_resources(void)
 		regulator_put(vreg_info->ant_switch);
 	if (vreg_info->wlan_reg_sp2t)
 		regulator_put(vreg_info->wlan_reg_sp2t);
+	regulator_put(vreg_info->wlan_reg);
 	if (vreg_info->wlan_reg_xtal)
 		regulator_put(vreg_info->wlan_reg_xtal);
 	if (vreg_info->wlan_reg_xtal_aon)
 		regulator_put(vreg_info->wlan_reg_xtal_aon);
 	if (vreg_info->wlan_reg_io)
 		regulator_put(vreg_info->wlan_reg_io);
-	regulator_put(vreg_info->wlan_reg);
 	if (vreg_info->wlan_reg_core)
 		regulator_put(vreg_info->wlan_reg_core);
 	vreg_info->state = VREG_OFF;
