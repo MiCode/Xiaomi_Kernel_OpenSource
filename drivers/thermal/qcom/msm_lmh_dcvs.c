@@ -103,6 +103,7 @@ struct limits_dcvs_hw {
 	unsigned long max_freq;
 	unsigned long min_freq;
 	unsigned long hw_freq_limit;
+	struct device_attribute lmh_freq_attr;
 	struct list_head list;
 	atomic_t is_irq_enabled;
 	struct mutex access_lock;
@@ -475,6 +476,17 @@ static void limits_isens_vref_ldo_init(struct platform_device *pdev,
 	}
 }
 
+static ssize_t
+lmh_freq_limit_show(struct device *dev, struct device_attribute *devattr,
+		       char *buf)
+{
+	struct limits_dcvs_hw *hw = container_of(devattr,
+						struct limits_dcvs_hw,
+						lmh_freq_attr);
+
+	return snprintf(buf, PAGE_SIZE, "%lu\n", hw->hw_freq_limit);
+}
+
 static int limits_dcvs_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -631,6 +643,10 @@ static int limits_dcvs_probe(struct platform_device *pdev)
 		goto probe_exit;
 	}
 	limits_isens_vref_ldo_init(pdev, hw);
+	hw->lmh_freq_attr.attr.name = "lmh_freq_limit";
+	hw->lmh_freq_attr.show = lmh_freq_limit_show;
+	hw->lmh_freq_attr.attr.mode = 0444;
+	device_create_file(&pdev->dev, &hw->lmh_freq_attr);
 
 probe_exit:
 	mutex_lock(&lmh_dcvs_list_access);
