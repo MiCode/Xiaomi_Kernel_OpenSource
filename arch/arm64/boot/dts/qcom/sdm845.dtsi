@@ -29,7 +29,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. SDM845";
 	compatible = "qcom,sdm845";
-	qcom,msm-id = <321 0x0>;
+	qcom,msm-id = <321 0x10000>;
 	interrupt-parent = <&pdc>;
 
 	aliases {
