@@ -66,8 +66,6 @@ to use for VBATT feature.
 register is available or not.
 - qcom,wcn-external-gpio-support: boolean flag to determine 3.3v gpio support
 for pronto hardware for a target.
-- qcom,wcn-external-gpio: The wcnss wlan module 3.3v external GPIO for
-the pronto hardware.
 
 Example:
 
@@ -89,7 +87,6 @@ Example:
 
         gpios = <&msmgpio 36 0>, <&msmgpio 37 0>, <&msmgpio 38 0>,
                 <&msmgpio 39 0>, <&msmgpio 40 0>;
-        qcom,wcn-external-gpio = <&msmgpio 64 0>;
         qcom,wcn-external-gpio-support;
         qcom,has-48mhz-xo;
         qcom,is-pronto-vt;
