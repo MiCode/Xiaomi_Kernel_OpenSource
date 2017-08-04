@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -101,6 +101,45 @@ enum {
 	IRIS_3610
 };
 
+static int wcnss_external_gpio_set_state(bool state)
+{
+	int ret;
+	struct wcnss_wlan_config *cfg = wcnss_get_wlan_config();
+
+	if (!cfg)
+		return -EINVAL;
+
+	if (state) {
+		ret = gpio_request(cfg->wcn_external_gpio,
+				   WCNSS_EXTERNAL_GPIO_NAME);
+		if (ret) {
+			pr_err("%s: Can't get GPIO %s, ret = %d\n",
+			       __func__, WCNSS_EXTERNAL_GPIO_NAME, ret);
+			return ret;
+		}
+
+		ret = gpio_direction_output(cfg->wcn_external_gpio,
+					    WCNSS_EXTERNAL_GPIO_DIR_OUT);
+		if (ret) {
+			pr_err("%s: Can't set GPIO %s direction, ret = %d\n",
+			       __func__, WCNSS_EXTERNAL_GPIO_NAME, ret);
+			gpio_free(cfg->wcn_external_gpio);
+			return ret;
+		}
+
+		gpio_set_value(cfg->wcn_external_gpio,
+			       WCNSS_EXTERNAL_GPIO_HIGH);
+	} else {
+		gpio_set_value(cfg->wcn_external_gpio, WCNSS_EXTERNAL_GPIO_LOW);
+		gpio_free(cfg->wcn_external_gpio);
+	}
+
+	pr_debug("%s: %d gpio is now %s\n", __func__,
+		 cfg->wcn_external_gpio,
+		 state ? "enabled" : "disabled");
+
+	return 0;
+}
 
 int xo_auto_detect(u32 reg)
 {
@@ -417,13 +456,19 @@ static void wcnss_vregs_off(struct vregs_info regulators[], uint size,
 		if (regulators[i].state == VREG_NULL_CONFIG)
 			continue;
 
+		if (cfg->wcn_external_gpio_support) {
+			if (!memcmp(regulators[i].name, VDD_PA,
+				    sizeof(VDD_PA)))
+				continue;
+		}
+
 		/* Remove PWM mode */
 		if (regulators[i].state & VREG_OPTIMUM_MODE_MASK) {
-			rc = regulator_set_optimum_mode(
-					regulators[i].regulator, 0);
-			if (rc < 0)
-				pr_err("regulator_set_optimum_mode(%s) failed (%d)\n",
-						regulators[i].name, rc);
+			rc = regulator_set_load(regulators[i].regulator, 0);
+			if (rc < 0) {
+				pr_err("regulator set load(%s) failed (%d)\n",
+				       regulators[i].name, rc);
+			}
 		}
 
 		/* Set voltage to lowest level */
@@ -478,7 +523,13 @@ static int wcnss_vregs_on(struct device *dev,
 	}
 
 	for (i = 0; i < size; i++) {
-			/* Get regulator source */
+		if (cfg->wcn_external_gpio_support) {
+			if (!memcmp(regulators[i].name, VDD_PA,
+				    sizeof(VDD_PA)))
+				continue;
+		}
+
+		/* Get regulator source */
 		regulators[i].regulator =
 			regulator_get(dev, regulators[i].name);
 		if (IS_ERR(regulators[i].regulator)) {
@@ -518,11 +569,11 @@ static int wcnss_vregs_on(struct device *dev,
 
 		/* Vote for PWM/PFM mode if needed */
 		if (voltage_level[i].uA_load && (reg_cnt > 0)) {
-			rc = regulator_set_optimum_mode(regulators[i].regulator,
-					voltage_level[i].uA_load);
+			rc = regulator_set_load(regulators[i].regulator,
+						voltage_level[i].uA_load);
 			if (rc < 0) {
-				pr_err("regulator_set_optimum_mode(%s) failed (%d)\n",
-						regulators[i].name, rc);
+				pr_err("regulator set load(%s) failed (%d)\n",
+				       regulators[i].name, rc);
 				goto fail;
 			}
 			regulators[i].state |= VREG_OPTIMUM_MODE_MASK;
@@ -622,6 +673,12 @@ int wcnss_wlan_power(struct device *dev,
 
 	down(&wcnss_power_on_lock);
 	if (on) {
+		if (cfg->wcn_external_gpio_support) {
+			rc = wcnss_external_gpio_set_state(true);
+			if (rc)
+				return rc;
+		}
+
 		/* RIVA regulator settings */
 		rc = wcnss_core_vregs_on(dev, hw_type,
 			cfg);
@@ -644,6 +701,8 @@ int wcnss_wlan_power(struct device *dev,
 
 	}  else if (is_power_on) {
 		is_power_on = false;
+		if (cfg->wcn_external_gpio_support)
+			wcnss_external_gpio_set_state(false);
 		configure_iris_xo(dev, cfg,
 				WCNSS_WLAN_SWITCH_OFF, NULL);
 		wcnss_iris_vregs_off(hw_type, cfg);
@@ -660,6 +719,8 @@ fail_iris_on:
 	wcnss_core_vregs_off(hw_type, cfg);
 
 fail_wcnss_on:
+	if (cfg->wcn_external_gpio_support)
+		wcnss_external_gpio_set_state(false);
 	up(&wcnss_power_on_lock);
 	return rc;
 }
