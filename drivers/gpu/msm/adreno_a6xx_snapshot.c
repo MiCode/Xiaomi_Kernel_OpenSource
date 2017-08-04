@@ -1577,6 +1577,12 @@ void a6xx_snapshot(struct adreno_device *adreno_dev,
 	bool sptprac_on;
 	unsigned int i;
 
+	/* Make sure the fence is in ALLOW mode so registers can be read */
+	kgsl_regwrite(device, A6XX_GMU_AO_AHB_FENCE_CTRL, 0);
+
+	/* GMU TCM data dumped through AHB */
+	a6xx_snapshot_gmu(adreno_dev, snapshot);
+
 	sptprac_on = gpudev->sptprac_is_on(adreno_dev);
 
 	/* Return if the GX is off */

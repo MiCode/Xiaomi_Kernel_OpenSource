@@ -1290,21 +1290,12 @@ static bool a6xx_gx_is_on(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	unsigned int val;
-	bool state;
 
 	if (!kgsl_gmu_isenabled(device))
 		return true;
 
 	kgsl_gmu_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &val);
-	state = !(val & (GX_GDSC_POWER_OFF | GX_CLK_OFF));
-
-	/* If GMU is holding on to the fence then we cannot dump any GX stuff */
-	kgsl_gmu_regread(device, A6XX_GMU_AO_AHB_FENCE_CTRL, &val);
-	if (val)
-		return false;
-
-	return state;
-
+	return !(val & (GX_GDSC_POWER_OFF | GX_CLK_OFF));
 }
 
 /*
@@ -1380,7 +1371,7 @@ static int a6xx_notify_slumber(struct kgsl_device *device)
 
 	if (!ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG)) {
 		ret = hfi_notify_slumber(gmu, perf_idx, bus_level);
-		return ret;
+		goto out;
 	}
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_BOOT_SLUMBER_OPTION,
@@ -1406,6 +1397,9 @@ static int a6xx_notify_slumber(struct kgsl_device *device)
 		}
 	}
 
+out:
+	/* Make sure the fence is in ALLOW mode */
+	kgsl_gmu_regwrite(device, A6XX_GMU_AO_AHB_FENCE_CTRL, 0);
 	return ret;
 }
 
@@ -2948,6 +2942,8 @@ static unsigned int a6xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A6XX_GMU_ALWAYS_ON_COUNTER_L),
 	ADRENO_REG_DEFINE(ADRENO_REG_RBBM_ALWAYSON_COUNTER_HI,
 				A6XX_GMU_ALWAYS_ON_COUNTER_H),
+	ADRENO_REG_DEFINE(ADRENO_REG_GMU_AO_AHB_FENCE_CTRL,
+				A6XX_GMU_AO_AHB_FENCE_CTRL),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_AO_INTERRUPT_EN,
 				A6XX_GMU_AO_INTERRUPT_EN),
 	ADRENO_REG_DEFINE(ADRENO_REG_GMU_AO_HOST_INTERRUPT_CLR,
