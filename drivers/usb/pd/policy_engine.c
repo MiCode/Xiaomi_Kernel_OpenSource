@@ -2085,6 +2085,15 @@ static void usbpd_sm(struct work_struct *w)
 			vconn_swap(pd);
 		} else if (IS_DATA(rx_msg, MSG_VDM)) {
 			handle_vdm_rx(pd, rx_msg);
+		} else if (rx_msg && pd->spec_rev == USBPD_REV_30) {
+			/* unhandled messages */
+			ret = pd_send_msg(pd, MSG_NOT_SUPPORTED, NULL, 0,
+					SOP_MSG);
+			if (ret) {
+				usbpd_err(&pd->dev, "Error sending Not supported\n");
+				usbpd_set_state(pd, PE_SRC_SEND_SOFT_RESET);
+			}
+			break;
 		} else if (pd->send_pr_swap) {
 			pd->send_pr_swap = false;
 			ret = pd_send_msg(pd, MSG_PR_SWAP, NULL, 0, SOP_MSG);
@@ -2322,7 +2331,8 @@ static void usbpd_sm(struct work_struct *w)
 				usbpd_err(&pd->dev, "Error sending Sink Caps\n");
 				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
 			}
-		} else if (IS_CTRL(rx_msg, MSG_GET_SOURCE_CAP)) {
+		} else if (IS_CTRL(rx_msg, MSG_GET_SOURCE_CAP) &&
+				pd->spec_rev == USBPD_REV_20) {
 			ret = pd_send_msg(pd, MSG_SOURCE_CAPABILITIES,
 					default_src_caps,
 					ARRAY_SIZE(default_src_caps), SOP_MSG);
@@ -2345,7 +2355,8 @@ static void usbpd_sm(struct work_struct *w)
 			}
 
 			dr_swap(pd);
-		} else if (IS_CTRL(rx_msg, MSG_PR_SWAP)) {
+		} else if (IS_CTRL(rx_msg, MSG_PR_SWAP) &&
+				pd->spec_rev == USBPD_REV_20) {
 			/* lock in current mode */
 			set_power_role(pd, pd->current_pr);
 
@@ -2363,7 +2374,8 @@ static void usbpd_sm(struct work_struct *w)
 					POWER_SUPPLY_PROP_PR_SWAP, &val);
 			usbpd_set_state(pd, PE_PRS_SNK_SRC_TRANSITION_TO_OFF);
 			break;
-		} else if (IS_CTRL(rx_msg, MSG_VCONN_SWAP)) {
+		} else if (IS_CTRL(rx_msg, MSG_VCONN_SWAP) &&
+				pd->spec_rev == USBPD_REV_20) {
 			/*
 			 * if VCONN is connected to VBUS, make sure we are
 			 * not in high voltage contract, otherwise reject.
@@ -2391,6 +2403,15 @@ static void usbpd_sm(struct work_struct *w)
 			vconn_swap(pd);
 		} else if (IS_DATA(rx_msg, MSG_VDM)) {
 			handle_vdm_rx(pd, rx_msg);
+		} else if (rx_msg && pd->spec_rev == USBPD_REV_30) {
+			/* unhandled messages */
+			ret = pd_send_msg(pd, MSG_NOT_SUPPORTED, NULL, 0,
+					SOP_MSG);
+			if (ret) {
+				usbpd_err(&pd->dev, "Error sending Not supported\n");
+				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+			}
+			break;
 		} else if (pd->send_request) {
 			pd->send_request = false;
 			usbpd_set_state(pd, PE_SNK_SELECT_CAPABILITY);
