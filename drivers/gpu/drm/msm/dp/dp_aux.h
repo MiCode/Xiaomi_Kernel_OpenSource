@@ -34,9 +34,11 @@ struct dp_aux {
 	void (*isr)(struct dp_aux *aux);
 	void (*init)(struct dp_aux *aux, struct dp_aux_cfg *aux_cfg);
 	void (*deinit)(struct dp_aux *aux);
+	void (*reconfig)(struct dp_aux *aux);
 };
 
-struct dp_aux *dp_aux_get(struct device *dev, struct dp_catalog_aux *catalog);
+struct dp_aux *dp_aux_get(struct device *dev, struct dp_catalog_aux *catalog,
+		struct dp_aux_cfg *aux_cfg);
 void dp_aux_put(struct dp_aux *aux);
 
 #endif /*__DP_AUX_H_*/

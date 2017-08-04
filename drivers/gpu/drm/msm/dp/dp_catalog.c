@@ -364,6 +364,30 @@ static void dp_catalog_aux_enable(struct dp_catalog_aux *aux, bool enable)
 	dp_write(base + DP_AUX_CTRL, aux_ctrl);
 }
 
+static void dp_catalog_aux_update_cfg(struct dp_catalog_aux *aux,
+		struct dp_aux_cfg *cfg, enum dp_phy_aux_config_type type)
+{
+	struct dp_catalog_private *catalog;
+	u32 new_index = 0, current_index = 0;
+
+	if (!aux || !cfg || (type >= PHY_AUX_CFG_MAX)) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp_catalog_get_priv(aux);
+
+	current_index = cfg[type].current_index;
+	new_index = (current_index + 1) % cfg[type].cfg_cnt;
+	pr_debug("Updating %s from 0x%08x to 0x%08x\n",
+		dp_phy_aux_config_type_to_string(type),
+	cfg[type].lut[current_index], cfg[type].lut[new_index]);
+
+	dp_write(catalog->io->phy_io.base + cfg[type].offset,
+			cfg[type].lut[new_index]);
+	cfg[type].current_index = new_index;
+}
+
 static void dp_catalog_aux_setup(struct dp_catalog_aux *aux,
 		struct dp_aux_cfg *cfg)
 {
@@ -895,6 +919,7 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
 		.write_data    = dp_catalog_aux_write_data,
 		.write_trans   = dp_catalog_aux_write_trans,
 		.reset         = dp_catalog_aux_reset,
+		.update_aux_cfg = dp_catalog_aux_update_cfg,
 		.enable        = dp_catalog_aux_enable,
 		.setup         = dp_catalog_aux_setup,
 		.get_irq       = dp_catalog_aux_get_irq,

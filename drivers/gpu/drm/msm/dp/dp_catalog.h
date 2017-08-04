@@ -43,6 +43,8 @@ struct dp_catalog_aux {
 	int (*write_trans)(struct dp_catalog_aux *aux);
 	void (*reset)(struct dp_catalog_aux *aux);
 	void (*enable)(struct dp_catalog_aux *aux, bool enable);
+	void (*update_aux_cfg)(struct dp_catalog_aux *aux,
+		struct dp_aux_cfg *cfg, enum dp_phy_aux_config_type type);
 	void (*setup)(struct dp_catalog_aux *aux,
 			struct dp_aux_cfg *aux_cfg);
 	void (*get_irq)(struct dp_catalog_aux *aux, bool cmd_busy);

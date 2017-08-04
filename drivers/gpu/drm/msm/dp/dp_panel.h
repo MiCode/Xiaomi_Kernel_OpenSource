@@ -43,6 +43,7 @@ struct dp_panel {
 	struct drm_dp_link link_info;
 
 	struct sde_edid_ctrl *edid_ctrl;
+	struct drm_connector *connector;
 	struct dp_panel_info pinfo;
 
 	u32 vic;
@@ -52,7 +53,8 @@ struct dp_panel {
 	void (*sde_edid_deregister)(struct dp_panel *dp_panel);
 	int (*init_info)(struct dp_panel *dp_panel);
 	int (*timing_cfg)(struct dp_panel *dp_panel);
-	int (*read_dpcd)(struct dp_panel *dp_panel);
+	int (*read_sink_caps)(struct dp_panel *dp_panel,
+		struct drm_connector *connector);
 	u32 (*get_min_req_link_rate)(struct dp_panel *dp_panel);
 	u32 (*get_max_pclk)(struct dp_panel *dp_panel);
 };
