@@ -47,6 +47,10 @@ struct f_gps {
 	struct list_head		cpkt_resp_q;
 	atomic_t			notify_count;
 	unsigned long			cpkts_len;
+
+	/* remote wakeup info */
+	bool				is_suspended;
+	bool				is_rw_allowed;
 };
 
 static struct gps_ports {
@@ -266,8 +270,99 @@ static void gps_purge_responses(struct f_gps *dev)
 static void gps_suspend(struct usb_function *f)
 {
 	struct f_gps *dev = func_to_gps(f);
-	gps_purge_responses(dev);
 
+	pr_debug("%s: suspending gps function\n", __func__);
+	if (f->config->cdev->gadget->speed == USB_SPEED_SUPER)
+		dev->is_rw_allowed = f->func_wakeup_allowed;
+	else
+		dev->is_rw_allowed = f->config->cdev->gadget->remote_wakeup;
+
+	gps_purge_responses(dev);
+	dev->is_suspended = true;
+}
+
+static void gps_resume(struct usb_function *f)
+{
+	struct f_gps *dev = func_to_gps(f);
+
+	pr_debug("%s: resume gps function, func_is_supended:%d\n",
+			__func__, f->func_is_suspended);
+
+	/* In SS mode, bus resume doesn't implies function
+	 * resume. If the host has selectively suspended this
+	 * function, handle resume only when host selectively
+	 * resumes this function */
+	if (f->config->cdev->gadget->speed == USB_SPEED_SUPER &&
+			f->func_is_suspended)
+		return;
+
+	dev->is_suspended = false;
+	gps_ctrl_response_available(dev);
+}
+
+static int gps_get_status(struct usb_function *f)
+{
+	unsigned remote_wakeup_en_status = f->func_wakeup_allowed ? 1 : 0;
+
+	return (remote_wakeup_en_status << FUNC_WAKEUP_ENABLE_SHIFT) |
+		(1 << FUNC_WAKEUP_CAPABLE_SHIFT);
+}
+
+static int gps_func_suspend(struct usb_function *f, u8 options)
+{
+	bool func_wakeup_allowed;
+
+	func_wakeup_allowed =
+		((options & FUNC_SUSPEND_OPT_RW_EN_MASK) != 0);
+
+	pr_debug("%s: func_wakeup_allowed:%d func_suspended:%d\n",
+			__func__, func_wakeup_allowed, f->func_is_suspended);
+	if (options & FUNC_SUSPEND_OPT_SUSP_MASK) {
+		pr_debug("%s: calling function suspend\n", __func__);
+		f->func_wakeup_allowed = func_wakeup_allowed;
+		if (!f->func_is_suspended) {
+			f->func_is_suspended = true;
+			gps_suspend(f);
+		}
+	} else {
+		pr_debug("%s: calling function resume\n", __func__);
+		if (f->func_is_suspended) {
+			f->func_is_suspended = false;
+			gps_resume(f);
+		}
+		f->func_wakeup_allowed = func_wakeup_allowed;
+	}
+
+	return 0;
+}
+
+static int gps_wakeup_host(struct f_gps *dev)
+{
+	int ret;
+	struct usb_gadget *gadget;
+	struct usb_function *f;
+
+	f = &dev->port.func;
+	gadget = f->config->cdev->gadget;
+
+	if (!gadget) {
+		pr_err("%s: failed gadget=NULL", __func__);
+		return -ENODEV;
+	}
+
+	pr_debug("%s: func_is_suspended: %d\n", __func__,
+			f->func_is_suspended);
+	if ((gadget->speed == USB_SPEED_SUPER) && f->func_is_suspended)
+		ret = usb_func_wakeup(f);
+	else
+		ret = usb_gadget_wakeup(gadget);
+
+	if ((ret == -EBUSY) || (ret == -EAGAIN))
+		pr_err("%s: remote wakeup delayed due to LPM exit", __func__);
+	else if (ret)
+		pr_err("%s:wakeup failed, ret=%d", __func__, ret);
+
+	return ret;
 }
 
 static void gps_disable(struct usb_function *f)
@@ -445,8 +540,15 @@ gps_send_cpkt_response(void *gr, void *buf, size_t len)
 	list_add_tail(&cpkt->list, &dev->cpkt_resp_q);
 	spin_unlock_irqrestore(&dev->lock, flags);
 
+	if (dev->is_suspended && dev->is_rw_allowed) {
+		pr_debug("%s: calling gps_wakeup_host\n", __func__);
+		gps_wakeup_host(dev);
+		goto end;
+	}
+
 	gps_ctrl_response_available(dev);
 
+end:
 	return 0;
 }
 
@@ -731,6 +833,9 @@ static int gps_bind_config(struct usb_configuration *c)
 	f->set_alt = gps_set_alt;
 	f->setup = gps_setup;
 	f->suspend = gps_suspend;
+	f->func_suspend = gps_func_suspend;
+	f->get_status = gps_get_status;
+	f->resume = gps_resume;
 	dev->port.send_cpkt_response = gps_send_cpkt_response;
 	dev->port.disconnect = gps_disconnect;
 	dev->port.connect = gps_connect;
