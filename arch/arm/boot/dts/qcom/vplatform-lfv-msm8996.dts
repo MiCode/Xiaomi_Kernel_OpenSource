@@ -992,3 +992,4 @@
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
 	};
 };
+#include "vplatform-lfv-agave.dtsi"
