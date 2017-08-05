@@ -31,6 +31,7 @@
 #include "dp_link.h"
 #include "dp_panel.h"
 #include "dp_ctrl.h"
+#include "dp_audio.h"
 #include "dp_display.h"
 #include "sde_hdcp.h"
 
@@ -59,6 +60,7 @@ struct dp_display_private {
 	bool core_initialized;
 	bool power_on;
 	bool hpd_irq_on;
+	bool audio_supported;
 
 	struct platform_device *pdev;
 	struct dentry *root;
@@ -72,6 +74,8 @@ struct dp_display_private {
 	struct dp_link    *link;
 	struct dp_panel   *panel;
 	struct dp_ctrl    *ctrl;
+	struct dp_audio   *audio;
+
 	struct dp_hdcp hdcp;
 
 	struct dp_usbpd_cb usbpd_cb;
@@ -501,10 +505,15 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 {
 	int rc = 0;
 	u32 max_pclk_from_edid = 0;
+	struct edid *edid;
 
 	rc = dp->panel->read_sink_caps(dp->panel, dp->dp_display.connector);
 	if (rc)
 		return rc;
+
+	edid = dp->panel->edid_ctrl->edid;
+
+	dp->audio_supported = drm_detect_monitor_audio(edid);
 
 	max_pclk_from_edid = dp->panel->get_max_pclk(dp->panel);
 
@@ -565,6 +574,9 @@ static void dp_display_process_hpd_low(struct dp_display_private *dp)
 		dp->hdcp.ops->off(dp->hdcp.data);
 	}
 
+	if (dp->audio_supported)
+		dp->audio->off(dp->audio);
+
 	dp->dp_display.is_connected = false;
 	drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
 
@@ -619,6 +631,9 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 
 	/* cancel any pending request */
 	dp->ctrl->abort(dp->ctrl);
+
+	if (dp->audio_supported)
+		dp->audio->off(dp->audio);
 
 	dp->dp_display.is_connected = false;
 	drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
@@ -760,6 +775,13 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 		pr_err("failed to initialize ctrl, rc = %d\n", rc);
 		goto err;
 	}
+
+	dp->audio = dp_audio_get(dp->pdev, dp->panel, &dp->catalog->audio);
+	if (IS_ERR(dp->audio)) {
+		rc = PTR_ERR(dp->audio);
+		pr_err("failed to initialize audio, rc = %d\n", rc);
+		goto err;
+	}
 err:
 	return rc;
 }
@@ -820,6 +842,12 @@ static int dp_display_post_enable(struct dp_display *dp_display)
 	}
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
+
+	if (dp->audio_supported) {
+		dp->audio->bw_code = dp->link->bw_code;
+		dp->audio->lane_count = dp->link->lane_count;
+		dp->audio->on(dp->audio);
+	}
 
 	complete_all(&dp->notification_comp);
 
@@ -1010,6 +1038,7 @@ int dp_display_get_num_of_displays(void)
 
 static void dp_display_deinit_sub_modules(struct dp_display_private *dp)
 {
+	dp_audio_put(dp->audio);
 	dp_ctrl_put(dp->ctrl);
 	dp_link_put(dp->link);
 	dp_panel_put(dp->panel);
