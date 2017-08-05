@@ -690,16 +690,18 @@ static int mhi_dev_process_stop_cmd(struct mhi_dev_ring *ring, uint32_t ch_id,
 	if (ring->rd_offset != ring->wr_offset &&
 		mhi->ch_ctx_cache[ch_id].ch_type ==
 				MHI_DEV_CH_TYPE_OUTBOUND_CHANNEL) {
-		mhi_log(MHI_MSG_INFO, "Pending transaction to be processed\n");
+		mhi_log(MHI_MSG_INFO, "Pending outbound transaction\n");
 		return 0;
 	} else if (mhi->ch_ctx_cache[ch_id].ch_type ==
 			MHI_DEV_CH_TYPE_INBOUND_CHANNEL &&
 			mhi->ch[ch_id].wr_request_active) {
+		mhi_log(MHI_MSG_INFO, "Pending inbound transaction\n");
 		return 0;
 	}
 
 	/* set the channel to stop */
 	mhi->ch_ctx_cache[ch_id].ch_state = MHI_DEV_CH_STATE_STOP;
+	mhi->ch[ch_id].state = MHI_DEV_CH_STOPPED;
 
 	if (mhi->use_ipa) {
 		data_transfer.host_pa = mhi->ch_ctx_shadow.host_pa +
@@ -731,6 +733,8 @@ static void mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 	uint32_t ch_id = 0;
 	union mhi_dev_ring_element_type event;
 	struct mhi_addr host_addr;
+	struct mhi_dev_channel *ch;
+	struct mhi_dev_ring *ring;
 
 	ch_id = el->generic.chid;
 	mhi_log(MHI_MSG_VERBOSE, "for channel:%d and cmd:%d\n",
@@ -831,14 +835,24 @@ send_start_completion_event:
 			 * channel command to check if one can suspend the
 			 * command.
 			 */
+			ring = &mhi->ring[ch_id + mhi->ch_ring_start];
+			if (ring->state == RING_STATE_UINT) {
+				pr_err("Channel not opened for %d\n", ch_id);
+				return;
+			}
+
+			ch = &mhi->ch[ch_id];
+
+			mutex_lock(&ch->ch_lock);
+
 			mhi->ch[ch_id].state = MHI_DEV_CH_PENDING_STOP;
 			rc = mhi_dev_process_stop_cmd(
 				&mhi->ring[mhi->ch_ring_start + ch_id],
 				ch_id, mhi);
-			if (rc) {
+			if (rc)
 				pr_err("stop event send failed\n");
-				return;
-			}
+
+			mutex_unlock(&ch->ch_lock);
 		}
 		break;
 	case MHI_DEV_RING_EL_RESET:
@@ -876,9 +890,20 @@ send_start_completion_event:
 					"received reset cmd for channel %d\n",
 					ch_id);
 
+			ring = &mhi->ring[ch_id + mhi->ch_ring_start];
+			if (ring->state == RING_STATE_UINT) {
+				pr_err("Channel not opened for %d\n", ch_id);
+				return;
+			}
+
+			ch = &mhi->ch[ch_id];
+
+			mutex_lock(&ch->ch_lock);
+
 			/* hard stop and set the channel to stop */
 			mhi->ch_ctx_cache[ch_id].ch_state =
-						MHI_DEV_CH_STATE_STOP;
+						MHI_DEV_CH_STATE_DISABLED;
+			mhi->ch[ch_id].state = MHI_DEV_CH_STOPPED;
 			if (mhi->use_ipa)
 				host_addr.host_pa =
 					mhi->ch_ctx_shadow.host_pa +
@@ -899,6 +924,7 @@ send_start_completion_event:
 			rc = mhi_dev_send_cmd_comp_event(mhi);
 			if (rc)
 				pr_err("Error sending command completion event\n");
+			mutex_unlock(&ch->ch_lock);
 		}
 		break;
 	default:
@@ -1810,6 +1836,7 @@ int mhi_dev_write_channel(struct mhi_dev_client *handle_client,
 		}
 	}
 exit:
+	ch->wr_request_active = false;
 	mutex_unlock(&ch->ch_lock);
 	atomic_dec(&mhi_ctx->write_active);
 	mutex_unlock(&mhi_ctx->mhi_write_test);
