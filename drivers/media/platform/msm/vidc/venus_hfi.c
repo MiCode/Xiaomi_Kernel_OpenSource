@@ -102,6 +102,7 @@ static int __enable_subcaches(struct venus_hfi_device *device);
 static int __set_subcaches(struct venus_hfi_device *device);
 static int __release_subcaches(struct venus_hfi_device *device);
 static int __disable_subcaches(struct venus_hfi_device *device);
+static int venus_hfi_noc_error_info(void *dev);
 
 /**
  * Utility function to enforce some of our assumptions.  Spam calls to this
@@ -4271,6 +4272,64 @@ static int venus_hfi_get_core_capabilities(void *dev)
 	return rc;
 }
 
+static int venus_hfi_noc_error_info(void *dev)
+{
+	struct venus_hfi_device *device;
+	u32 val = 0;
+
+	if (!dev) {
+		dprintk(VIDC_ERR, "%s: null device\n", __func__);
+		return -EINVAL;
+	}
+	device = dev;
+
+	mutex_lock(&device->lock);
+	dprintk(VIDC_ERR, "%s: non error information\n", __func__);
+
+	val = __read_register(device, 0x0C500);
+	dprintk(VIDC_ERR, "NOC_ERR_SWID_LOW(0x00AA0C500):     %#x\n", val);
+
+	val = __read_register(device, 0x0C504);
+	dprintk(VIDC_ERR, "NOC_ERR_SWID_HIGH(0x00AA0C504):    %#x\n", val);
+
+	val = __read_register(device, 0x0C508);
+	dprintk(VIDC_ERR, "NOC_ERR_MAINCTL_LOW(0x00AA0C508):  %#x\n", val);
+
+	val = __read_register(device, 0x0C510);
+	dprintk(VIDC_ERR, "NOC_ERR_ERRVLD_LOW(0x00AA0C510):   %#x\n", val);
+
+	val = __read_register(device, 0x0C518);
+	dprintk(VIDC_ERR, "NOC_ERR_ERRCLR_LOW(0x00AA0C518):   %#x\n", val);
+
+	val = __read_register(device, 0x0C520);
+	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG0_LOW(0x00AA0C520):  %#x\n", val);
+
+	val = __read_register(device, 0x0C524);
+	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG0_HIGH(0x00AA0C524): %#x\n", val);
+
+	val = __read_register(device, 0x0C528);
+	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG1_LOW(0x00AA0C528):  %#x\n", val);
+
+	val = __read_register(device, 0x0C52C);
+	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG1_HIGH(0x00AA0C52C): %#x\n", val);
+
+	val = __read_register(device, 0x0C530);
+	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG2_LOW(0x00AA0C530):  %#x\n", val);
+
+	val = __read_register(device, 0x0C534);
+	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG2_HIGH(0x00AA0C534): %#x\n", val);
+
+	val = __read_register(device, 0x0C538);
+	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG3_LOW(0x00AA0C538):  %#x\n", val);
+
+	val = __read_register(device, 0x0C53C);
+	dprintk(VIDC_ERR, "NOC_ERR_ERRLOG3_HIGH(0x00AA0C53C): %#x\n", val);
+
+	mutex_unlock(&device->lock);
+
+	return 0;
+}
+
 static int __initialize_packetization(struct venus_hfi_device *device)
 {
 	int rc = 0;
@@ -4442,6 +4501,7 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->get_core_capabilities = venus_hfi_get_core_capabilities;
 	hdev->suspend = venus_hfi_suspend;
 	hdev->flush_debug_queue = venus_hfi_flush_debug_queue;
+	hdev->noc_error_info = venus_hfi_noc_error_info;
 	hdev->get_default_properties = venus_hfi_get_default_properties;
 }
 
