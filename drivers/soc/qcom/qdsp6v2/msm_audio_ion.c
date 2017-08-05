@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,7 @@
 #include <linux/export.h>
 #include <linux/qcom_iommu.h>
 #include <asm/dma-iommu.h>
+#include <soc/qcom/secure_buffer.h>
 
 #define MSM_AUDIO_ION_PROBED (1 << 0)
 
@@ -177,6 +178,87 @@ err:
 	return rc;
 }
 EXPORT_SYMBOL(msm_audio_ion_alloc);
+
+static int msm_audio_hyp_assign(ion_phys_addr_t *paddr, size_t *pa_len,
+				u8 assign_type)
+{
+	int srcVM[1] = {VMID_HLOS};
+	int destVM[1] = {VMID_CP_ADSP_SHARED};
+	int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
+	int ret = 0;
+
+	switch (assign_type) {
+	case HLOS_TO_ADSP:
+		srcVM[0] = VMID_HLOS;
+		destVM[0] = VMID_CP_ADSP_SHARED;
+		break;
+	case ADSP_TO_HLOS:
+		srcVM[0] = VMID_CP_ADSP_SHARED;
+		destVM[0] = VMID_HLOS;
+		break;
+	default:
+		pr_err("%s: Invalid assign type = %d\n", __func__, assign_type);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = hyp_assign_phys(*paddr, *pa_len, srcVM, 1, destVM, destVMperm, 1);
+	if (ret)
+		pr_err("%s: hyp_assign_phys failed for type %d, rc = %d\n",
+			 __func__, assign_type, ret);
+done:
+	return ret;
+}
+
+int msm_audio_ion_phys_assign(const char *name, int fd, ion_phys_addr_t *paddr,
+			      size_t *pa_len, u8 assign_type)
+{
+	struct ion_client *client;
+	struct ion_handle *handle;
+	int ret;
+
+	if (!(msm_audio_ion_data.device_status & MSM_AUDIO_ION_PROBED)) {
+		pr_debug("%s:probe is not done, deferred\n", __func__);
+		return -EPROBE_DEFER;
+	}
+
+	if (!name || !paddr || !pa_len) {
+		pr_err("%s: Invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	client = msm_audio_ion_client_create(name);
+	if (IS_ERR_OR_NULL((void *)(client))) {
+		pr_err("%s: ION create client failed\n", __func__);
+		return -EINVAL;
+	}
+
+	handle = ion_import_dma_buf(client, fd);
+	if (IS_ERR_OR_NULL((void *) (handle))) {
+		pr_err("%s: ion import dma buffer failed\n",
+			__func__);
+		ret = -EINVAL;
+		goto err_destroy_client;
+	}
+
+	ret = ion_phys(client, handle, paddr, pa_len);
+	if (ret) {
+		pr_err("%s: could not get physical address for handle, ret = %d\n",
+			__func__, ret);
+		goto err_ion_handle;
+	}
+	pr_debug("%s: ION Physical address is %x\n", __func__, (u32)*paddr);
+
+	ret = msm_audio_hyp_assign(paddr, pa_len, assign_type);
+
+err_ion_handle:
+	ion_free(client, handle);
+
+err_destroy_client:
+	ion_client_destroy(client);
+
+	return ret;
+}
 
 int msm_audio_ion_import(const char *name, struct ion_client **client,
 			struct ion_handle **handle, int fd,
