@@ -75,6 +75,8 @@
 #define ESR_TIMER_CHG_MAX_OFFSET	0
 #define ESR_TIMER_CHG_INIT_WORD		18
 #define ESR_TIMER_CHG_INIT_OFFSET	2
+#define ESR_EXTRACTION_ENABLE_WORD	19
+#define ESR_EXTRACTION_ENABLE_OFFSET	0
 #define PROFILE_LOAD_WORD		24
 #define PROFILE_LOAD_OFFSET		0
 #define ESR_RSLOW_DISCHG_WORD		34
@@ -3033,6 +3035,89 @@ static int fg_esr_validate(struct fg_chip *chip)
 	return 0;
 }
 
+static int fg_force_esr_meas(struct fg_chip *chip)
+{
+	int rc;
+	int esr_uohms;
+
+	/* force esr extraction enable */
+	rc = fg_sram_masked_write(chip, ESR_EXTRACTION_ENABLE_WORD,
+			ESR_EXTRACTION_ENABLE_OFFSET, BIT(0), BIT(0),
+			FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("failed to enable esr extn rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = fg_masked_write(chip, BATT_INFO_QNOVO_CFG(chip),
+			LD_REG_CTRL_BIT, 0);
+	if (rc < 0) {
+		pr_err("Error in configuring qnovo_cfg rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = fg_masked_write(chip, BATT_INFO_TM_MISC1(chip),
+			ESR_REQ_CTL_BIT | ESR_REQ_CTL_EN_BIT,
+			ESR_REQ_CTL_BIT | ESR_REQ_CTL_EN_BIT);
+	if (rc < 0) {
+		pr_err("Error in configuring force ESR rc=%d\n", rc);
+		return rc;
+	}
+
+	/* wait 1.5 seconds for hw to measure ESR */
+	msleep(1500);
+	rc = fg_masked_write(chip, BATT_INFO_TM_MISC1(chip),
+			ESR_REQ_CTL_BIT | ESR_REQ_CTL_EN_BIT,
+			0);
+	if (rc < 0) {
+		pr_err("Error in restoring force ESR rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = fg_masked_write(chip, BATT_INFO_QNOVO_CFG(chip),
+			LD_REG_CTRL_BIT, LD_REG_CTRL_BIT);
+	if (rc < 0) {
+		pr_err("Error in restoring qnovo_cfg rc=%d\n", rc);
+		return rc;
+	}
+
+	/* force esr extraction disable */
+	rc = fg_sram_masked_write(chip, ESR_EXTRACTION_ENABLE_WORD,
+			ESR_EXTRACTION_ENABLE_OFFSET, BIT(0), 0,
+			FG_IMA_DEFAULT);
+	if (rc < 0) {
+		pr_err("failed to disable esr extn rc=%d\n", rc);
+		return rc;
+	}
+
+	fg_get_battery_resistance(chip, &esr_uohms);
+	fg_dbg(chip, FG_STATUS, "ESR uohms = %d\n", esr_uohms);
+
+	return rc;
+}
+
+static int fg_prepare_for_qnovo(struct fg_chip *chip, int qnovo_enable)
+{
+	int rc;
+
+	/* force esr extraction disable when qnovo enables */
+	rc = fg_sram_masked_write(chip, ESR_EXTRACTION_ENABLE_WORD,
+			ESR_EXTRACTION_ENABLE_OFFSET,
+			BIT(0), qnovo_enable ? 0 : BIT(0),
+			FG_IMA_DEFAULT);
+	if (rc < 0)
+		pr_err("Error in configuring esr extraction rc=%d\n", rc);
+
+	rc = fg_masked_write(chip, BATT_INFO_QNOVO_CFG(chip),
+			LD_REG_CTRL_BIT,
+			qnovo_enable ? LD_REG_CTRL_BIT : 0);
+	if (rc < 0) {
+		pr_err("Error in configuring qnovo_cfg rc=%d\n", rc);
+		return rc;
+	}
+	fg_dbg(chip, FG_STATUS, "Prepared for Qnovo\n");
+	return 0;
+}
 /* PSY CALLBACKS STAY HERE */
 
 static int fg_psy_get_property(struct power_supply *psy,
@@ -3109,6 +3194,19 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
 		rc = fg_get_sram_prop(chip, FG_SRAM_VBATT_FULL, &pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_CC_STEP:
+		if ((chip->cc_step.sel >= 0) &&
+					(chip->cc_step.sel < MAX_CC_STEPS)) {
+			pval->intval = chip->cc_step.arr[chip->cc_step.sel];
+		} else {
+			pr_err("cc_step_sel is out of bounds [0, %d]\n",
+				chip->cc_step.sel);
+			return -EINVAL;
+		}
+		break;
+	case POWER_SUPPLY_PROP_CC_STEP_SEL:
+		pval->intval = chip->cc_step.sel;
+		break;
 	default:
 		pr_err("unsupported property %d\n", psp);
 		rc = -EINVAL;
@@ -3141,6 +3239,31 @@ static int fg_psy_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
 		rc = fg_set_constant_chg_voltage(chip, pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_RESISTANCE:
+		rc = fg_force_esr_meas(chip);
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_QNOVO_ENABLE:
+		rc = fg_prepare_for_qnovo(chip, pval->intval);
+		break;
+	case POWER_SUPPLY_PROP_CC_STEP:
+		if ((chip->cc_step.sel >= 0) &&
+					(chip->cc_step.sel < MAX_CC_STEPS)) {
+			chip->cc_step.arr[chip->cc_step.sel] = pval->intval;
+		} else {
+			pr_err("cc_step_sel is out of bounds [0, %d]\n",
+				chip->cc_step.sel);
+			return -EINVAL;
+		}
+		break;
+	case POWER_SUPPLY_PROP_CC_STEP_SEL:
+		if ((pval->intval >= 0) && (pval->intval < MAX_CC_STEPS)) {
+			chip->cc_step.sel = pval->intval;
+		} else {
+			pr_err("cc_step_sel is out of bounds [0, %d]\n",
+				pval->intval);
+			return -EINVAL;
+		}
+		break;
 	default:
 		break;
 	}
@@ -3154,6 +3277,8 @@ static int fg_property_is_writeable(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CYCLE_COUNT_ID:
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
+	case POWER_SUPPLY_PROP_CC_STEP:
+	case POWER_SUPPLY_PROP_CC_STEP_SEL:
 		return 1;
 	default:
 		break;
@@ -3214,6 +3339,8 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_SOC_REPORTING_READY,
 	POWER_SUPPLY_PROP_DEBUG_BATTERY,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
+	POWER_SUPPLY_PROP_CC_STEP,
+	POWER_SUPPLY_PROP_CC_STEP_SEL,
 };
 
 static const struct power_supply_desc fg_psy_desc = {

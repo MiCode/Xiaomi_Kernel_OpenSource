@@ -1693,7 +1693,33 @@ static int __perf_remove_from_context(void *info)
 	return 0;
 }
 
-/*
+
+#ifdef CONFIG_SMP
+static void perf_retry_remove(struct perf_event *event,
+			      struct remove_event *rep)
+{
+	int up_ret;
+	/*
+	 * CPU was offline. Bring it online so we can
+	 * gracefully exit a perf context.
+	 */
+	up_ret = cpu_up(event->cpu);
+	if (!up_ret)
+		/* Try the remove call once again. */
+		cpu_function_call(event->cpu, __perf_remove_from_context,
+				  rep);
+	else
+		pr_err("Failed to bring up CPU: %d, ret: %d\n",
+		       event->cpu, up_ret);
+}
+#else
+static void perf_retry_remove(struct perf_event *event,
+			      struct remove_event *rep)
+{
+}
+#endif
+
+ /*
  * Remove the event from a task's (or a CPU's) list of events.
  *
  * CPU events are removed with a smp call. For task events we only
@@ -1728,6 +1754,9 @@ static void __ref perf_remove_from_context(struct perf_event *event,
 		 */
 		ret = cpu_function_call(event->cpu, __perf_remove_from_context,
 					&re);
+		if (ret == -ENXIO)
+			perf_retry_remove(event, &re);
+
 		return;
 	}
 
@@ -3408,22 +3437,27 @@ u64 perf_event_read_local(struct perf_event *event)
 
 static int perf_event_read(struct perf_event *event, bool group)
 {
-	int ret = 0;
+	int event_cpu, ret = 0;
 
 	/*
 	 * If event is enabled and currently active on a CPU, update the
 	 * value in the event structure:
 	 */
+	event_cpu = READ_ONCE(event->oncpu);
+
 	if (event->state == PERF_EVENT_STATE_ACTIVE &&
-						!cpu_isolated(event->oncpu)) {
+						!cpu_isolated(event_cpu)) {
 		struct perf_read_data data = {
 			.event = event,
 			.group = group,
 			.ret = 0,
 		};
+
+		if ((unsigned int)event_cpu >= nr_cpu_ids)
+			return 0;
 		if (!event->attr.exclude_idle ||
-					!per_cpu(is_idle, event->oncpu)) {
-			smp_call_function_single(event->oncpu,
+					!per_cpu(is_idle, event_cpu)) {
+			smp_call_function_single(event_cpu,
 				__perf_event_read, &data, 1);
 			ret = data.ret;
 		}
@@ -7109,6 +7143,8 @@ static struct pmu perf_swevent = {
 	.start		= perf_swevent_start,
 	.stop		= perf_swevent_stop,
 	.read		= perf_swevent_read,
+
+	.events_across_hotplug = 1,
 };
 
 #ifdef CONFIG_EVENT_TRACING
@@ -7230,6 +7266,8 @@ static struct pmu perf_tracepoint = {
 	.start		= perf_swevent_start,
 	.stop		= perf_swevent_stop,
 	.read		= perf_swevent_read,
+
+	.events_across_hotplug = 1,
 };
 
 static inline void perf_tp_register(void)
@@ -7517,6 +7555,8 @@ static struct pmu perf_cpu_clock = {
 	.start		= cpu_clock_event_start,
 	.stop		= cpu_clock_event_stop,
 	.read		= cpu_clock_event_read,
+
+	.events_across_hotplug = 1,
 };
 
 /*
@@ -7598,6 +7638,8 @@ static struct pmu perf_task_clock = {
 	.start		= task_clock_event_start,
 	.stop		= task_clock_event_stop,
 	.read		= task_clock_event_read,
+
+	.events_across_hotplug = 1,
 };
 
 static void perf_pmu_nop_void(struct pmu *pmu)
