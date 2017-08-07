@@ -720,10 +720,25 @@
 
 /* VBIF registers */
 #define A6XX_VBIF_VERSION                       0x3000
+#define A6XX_VBIF_CLKON                         0x3001
+#define A6XX_VBIF_CLKON_FORCE_ON_TESTBUS_MASK   0x1
+#define A6XX_VBIF_CLKON_FORCE_ON_TESTBUS_SHIFT  0x1
 #define A6XX_VBIF_GATE_OFF_WRREQ_EN             0x302A
 #define A6XX_VBIF_XIN_HALT_CTRL0                0x3080
 #define A6XX_VBIF_XIN_HALT_CTRL0_MASK           0xF
 #define A6XX_VBIF_XIN_HALT_CTRL1                0x3081
+#define A6XX_VBIF_TEST_BUS_OUT_CTRL             0x3084
+#define A6XX_VBIF_TEST_BUS_OUT_CTRL_EN_MASK     0x1
+#define A6XX_VBIF_TEST_BUS_OUT_CTRL_EN_SHIFT    0x0
+#define A6XX_VBIF_TEST_BUS1_CTRL0               0x3085
+#define A6XX_VBIF_TEST_BUS1_CTRL1               0x3086
+#define A6XX_VBIF_TEST_BUS1_CTRL1_DATA_SEL_MASK 0xF
+#define A6XX_VBIF_TEST_BUS1_CTRL1_DATA_SEL_SHIFT 0x0
+#define A6XX_VBIF_TEST_BUS2_CTRL0               0x3087
+#define A6XX_VBIF_TEST_BUS2_CTRL1               0x3088
+#define A6XX_VBIF_TEST_BUS2_CTRL1_DATA_SEL_MASK 0x1FF
+#define A6XX_VBIF_TEST_BUS2_CTRL1_DATA_SEL_SHIFT 0x0
+#define A6XX_VBIF_TEST_BUS_OUT                  0x308C
 #define A6XX_VBIF_PERF_CNT_SEL0                 0x30d0
 #define A6XX_VBIF_PERF_CNT_SEL1                 0x30d1
 #define A6XX_VBIF_PERF_CNT_SEL2                 0x30d2
