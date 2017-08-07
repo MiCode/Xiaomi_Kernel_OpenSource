@@ -347,7 +347,8 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.minor = 0,
 		.patchid = ANY_ID,
 		.features = ADRENO_64BIT | ADRENO_RPMH | ADRENO_IFPC |
-			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION | ADRENO_LM,
+			ADRENO_GPMU | ADRENO_CONTENT_PROTECTION | ADRENO_LM |
+			ADRENO_IOCOHERENT,
 		.sqefw_name = "a630_sqe.fw",
 		.zap_name = "a630_zap",
 		.gpudev = &adreno_a6xx_gpudev,
