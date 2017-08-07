@@ -304,3 +304,11 @@ config QCOM_COMMAND_DB
 	help
 	  Command DB queries shared memory by key string for shared system
 	  resources
+
+config QTI_RPMH_API
+	bool "QTI RPMH (h/w accelerators) Communication API"
+	select MAILBOX
+	select QTI_RPMH_MBOX
+	help
+	  This option enables RPMH hardware communication for making shared
+	  resource requests on Qualcomm Technologies Inc SoCs.
