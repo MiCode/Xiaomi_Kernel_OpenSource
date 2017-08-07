@@ -3296,7 +3296,8 @@ EXPORT_SYMBOL_GPL(snd_soc_lookup_component);
  */
 void snd_soc_card_change_online_state(struct snd_soc_card *soc_card, int online)
 {
-	snd_card_change_online_state(soc_card->snd_card, online);
+	if (soc_card && soc_card->snd_card)
+		snd_card_change_online_state(soc_card->snd_card, online);
 }
 EXPORT_SYMBOL(snd_soc_card_change_online_state);
 
