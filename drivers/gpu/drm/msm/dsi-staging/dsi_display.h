@@ -477,6 +477,22 @@ int dsi_display_set_backlight(void *display, u32 bl_lvl);
  */
 int dsi_display_soft_reset(void *display);
 
+/**
+ * dsi_display_set_power - update power/dpms setting
+ * @connector: Pointer to drm connector structure
+ * @power_mode: One of the following,
+ *              SDE_MODE_DPMS_ON
+ *              SDE_MODE_DPMS_LP1
+ *              SDE_MODE_DPMS_LP2
+ *              SDE_MODE_DPMS_STANDBY
+ *              SDE_MODE_DPMS_SUSPEND
+ *              SDE_MODE_DPMS_OFF
+ * @display: Pointer to private display structure
+ * Returns: Zero on success
+ */
+int dsi_display_set_power(struct drm_connector *connector,
+		int power_mode, void *display);
+
 /*
  * dsi_display_pre_kickoff - program kickoff-time features
  * @display: Pointer to private display structure

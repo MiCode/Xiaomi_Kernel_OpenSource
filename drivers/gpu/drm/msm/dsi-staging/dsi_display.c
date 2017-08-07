@@ -141,6 +141,31 @@ static void _dsi_display_setup_misr(struct dsi_display *display)
 	}
 }
 
+int dsi_display_set_power(struct drm_connector *connector,
+		int power_mode, void *disp)
+{
+	struct dsi_display *display = disp;
+	int rc = 0;
+
+	if (!display || !display->panel) {
+		pr_err("invalid display/panel\n");
+		return -EINVAL;
+	}
+
+	switch (power_mode) {
+	case SDE_MODE_DPMS_LP1:
+		rc = dsi_panel_set_lp1(display->panel);
+		break;
+	case SDE_MODE_DPMS_LP2:
+		rc = dsi_panel_set_lp2(display->panel);
+		break;
+	default:
+		rc = dsi_panel_set_nolp(display->panel);
+		break;
+	}
+	return rc;
+}
+
 static ssize_t debugfs_dump_info_read(struct file *file,
 				      char __user *user_buf,
 				      size_t user_len,
