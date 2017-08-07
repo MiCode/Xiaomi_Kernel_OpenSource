@@ -79,7 +79,6 @@ static void msm_comm_generate_session_error(struct msm_vidc_inst *inst);
 static void msm_comm_generate_sys_error(struct msm_vidc_inst *inst);
 static void handle_session_error(enum hal_command_response cmd, void *data);
 static void msm_vidc_print_running_insts(struct msm_vidc_core *core);
-static void msm_comm_print_debug_info(struct msm_vidc_inst *inst);
 
 bool msm_comm_turbo_session(struct msm_vidc_inst *inst)
 {
@@ -2708,8 +2707,6 @@ void msm_comm_handle_thermal_event(void)
 int msm_comm_check_core_init(struct msm_vidc_core *core)
 {
 	int rc = 0;
-	struct hfi_device *hdev;
-	struct msm_vidc_inst *inst = NULL;
 
 	mutex_lock(&core->lock);
 	if (core->state >= VIDC_CORE_INIT_DONE) {
@@ -2718,29 +2715,12 @@ int msm_comm_check_core_init(struct msm_vidc_core *core)
 		goto exit;
 	}
 	dprintk(VIDC_DBG, "Waiting for SYS_INIT_DONE\n");
-	hdev = (struct hfi_device *)core->device;
 	rc = wait_for_completion_timeout(
 		&core->completions[SYS_MSG_INDEX(HAL_SYS_INIT_DONE)],
 		msecs_to_jiffies(core->resources.msm_vidc_hw_rsp_timeout));
 	if (!rc) {
 		dprintk(VIDC_ERR, "%s: Wait interrupted or timed out: %d\n",
 				__func__, SYS_MSG_INDEX(HAL_SYS_INIT_DONE));
-		call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
-		dprintk(VIDC_ERR,
-			"SYS_INIT timeout can potentially crash the system\n");
-		/*
-		 * For SYS_INIT, there will not be any inst pointer.
-		 * Just grab one of the inst from instances list and
-		 * use it.
-		 */
-		inst = list_first_entry(&core->instances,
-			struct msm_vidc_inst, list);
-
-		mutex_unlock(&core->lock);
-		msm_comm_print_debug_info(inst);
-		mutex_lock(&core->lock);
-
-		msm_vidc_handle_hw_error(core);
 		rc = -EIO;
 		goto exit;
 	} else {
@@ -5690,32 +5670,6 @@ void msm_comm_print_inst_info(struct msm_vidc_inst *inst)
 				buf->buffer_type, buf->smem.device_addr,
 				buf->smem.size);
 	mutex_unlock(&inst->outputbufs.lock);
-}
-
-static void msm_comm_print_debug_info(struct msm_vidc_inst *inst)
-{
-	struct msm_vidc_core *core = NULL;
-	struct msm_vidc_inst *temp = NULL;
-
-	if (!inst || !inst->core) {
-		dprintk(VIDC_ERR, "%s - invalid param %pK %pK\n",
-				__func__, inst, core);
-		return;
-	}
-	core = inst->core;
-
-	dprintk(VIDC_ERR, "Venus core frequency = %lu", core->curr_freq);
-	mutex_lock(&core->lock);
-	dprintk(VIDC_ERR, "Printing instance info that caused Error\n");
-	msm_comm_print_inst_info(inst);
-	dprintk(VIDC_ERR, "Printing remaining instances info\n");
-	list_for_each_entry(temp, &core->instances, list) {
-		/* inst already printed above. Hence don't repeat.*/
-		if (temp == inst)
-			continue;
-		msm_comm_print_inst_info(temp);
-	}
-	mutex_unlock(&core->lock);
 }
 
 int msm_comm_session_continue(void *instance)
