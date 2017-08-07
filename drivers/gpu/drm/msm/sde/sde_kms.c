@@ -641,6 +641,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.soft_reset   = dsi_display_soft_reset,
 		.pre_kickoff  = dsi_conn_pre_kickoff,
 		.clk_ctrl = dsi_display_clk_ctrl,
+		.set_power = dsi_display_set_power,
 		.get_topology = dsi_conn_get_topology,
 		.get_dst_format = dsi_display_get_dst_format
 	};
