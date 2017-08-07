@@ -1560,6 +1560,11 @@ void ipahal_get_aggr_force_close_valmask(int ep_idx,
 		IPA_AGGR_FORCE_CLOSE_AGGR_FORCE_CLOSE_PIPE_BITMAP_BMSK_V3_5;
 	}
 
+	if (ep_idx > (sizeof(valmask->val) * 8 - 1)) {
+		IPAHAL_ERR("too big ep_idx %d\n", ep_idx);
+		ipa_assert();
+		return;
+	}
 	IPA_SETFIELD_IN_REG(valmask->val, 1 << ep_idx, shft, bmsk);
 	valmask->mask = bmsk << shft;
 }
