@@ -137,8 +137,8 @@
 		qcom,sde-has-dest-scaler;
 		qcom,sde-max-dest-scaler-input-linewidth = <2048>;
 		qcom,sde-max-dest-scaler-output-linewidth = <2560>;
-		qcom,sde-max-bw-low-kbps = <9600000>;
-		qcom,sde-max-bw-high-kbps = <9600000>;
+		qcom,sde-max-bw-low-kbps = <6800000>;
+		qcom,sde-max-bw-high-kbps = <6800000>;
 		qcom,sde-min-core-ib-kbps = <2400000>;
 		qcom,sde-min-llcc-ib-kbps = <800000>;
 		qcom,sde-min-dram-ib-kbps = <800000>;
