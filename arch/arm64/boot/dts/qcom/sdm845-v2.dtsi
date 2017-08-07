@@ -558,6 +558,14 @@
 	compatible = "qcom,dispcc-sdm845-v2";
 };
 
+&clock_gpucc {
+	compatible = "qcom,gpucc-sdm845-v2";
+};
+
+&clock_gfx {
+	compatible = "qcom,gfxcc-sdm845-v2";
+};
+
 &clock_videocc {
 	compatible = "qcom,video_cc-sdm845-v2";
 };
