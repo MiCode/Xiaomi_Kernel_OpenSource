@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -215,6 +215,10 @@ static ssize_t ipa_ut_dbgfs_meta_test_write(struct file *file,
 	IPA_UT_DBG("Entry\n");
 
 	mutex_lock(&ipa_ut_ctx->lock);
+	if (file == NULL) {
+		rc = -EFAULT;
+		goto unlock_mutex;
+	}
 	suite = file->f_inode->i_private;
 	ipa_assert_on(!suite);
 	meta_type = (long)(file->private_data);
@@ -470,6 +474,10 @@ static ssize_t ipa_ut_dbgfs_test_write(struct file *file,
 	IPA_UT_DBG("Entry\n");
 
 	mutex_lock(&ipa_ut_ctx->lock);
+	if (file == NULL) {
+		rc = -EFAULT;
+		goto unlock_mutex;
+	}
 	test = file->f_inode->i_private;
 	ipa_assert_on(!test);
 
