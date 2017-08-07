@@ -118,7 +118,6 @@ enum icnss_driver_event_type {
 struct icnss_event_pd_service_down_data {
 	bool crashed;
 	bool fw_rejuvenate;
-	bool wdog_bite;
 };
 
 struct icnss_driver_event {
@@ -143,7 +142,6 @@ enum icnss_driver_state {
 	ICNSS_PD_RESTART,
 	ICNSS_MSA0_ASSIGNED,
 	ICNSS_WLFW_EXISTS,
-	ICNSS_WDOG_BITE,
 	ICNSS_SHUTDOWN_DONE,
 	ICNSS_HOST_TRIGGERED_PDR,
 };

@@ -767,10 +767,7 @@ static int icnss_pd_restart_complete(struct icnss_priv *priv)
 
 	icnss_pm_relax(priv);
 
-	if (test_bit(ICNSS_WDOG_BITE, &priv->state)) {
-		icnss_call_driver_shutdown(priv);
-		clear_bit(ICNSS_WDOG_BITE, &priv->state);
-	}
+	icnss_call_driver_shutdown(priv);
 
 	clear_bit(ICNSS_PD_RESTART, &priv->state);
 
@@ -920,8 +917,7 @@ static int icnss_call_driver_remove(struct icnss_priv *priv)
 static int icnss_fw_crashed(struct icnss_priv *priv,
 			    struct icnss_event_pd_service_down_data *event_data)
 {
-	icnss_pr_dbg("FW crashed, state: 0x%lx, wdog_bite: %d\n",
-		priv->state, event_data->wdog_bite);
+	icnss_pr_dbg("FW crashed, state: 0x%lx\n", priv->state);
 
 	set_bit(ICNSS_PD_RESTART, &priv->state);
 	clear_bit(ICNSS_FW_READY, &priv->state);
@@ -931,17 +927,9 @@ static int icnss_fw_crashed(struct icnss_priv *priv,
 	if (test_bit(ICNSS_DRIVER_PROBED, &priv->state))
 		icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_CRASHED, NULL);
 
-	if (event_data->wdog_bite) {
-		set_bit(ICNSS_WDOG_BITE, &priv->state);
-		goto out;
-	}
-
-	icnss_call_driver_shutdown(priv);
-
 	if (event_data->fw_rejuvenate)
 		wlfw_rejuvenate_ack_send_sync_msg(priv);
 
-out:
 	return 0;
 }
 
@@ -1106,9 +1094,6 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 
 	event_data->crashed = notif->crashed;
 
-	if (notif->crashed == CRASH_STATUS_WDOG_BITE)
-		event_data->wdog_bite = true;
-
 	fw_down_data.crashed = !!notif->crashed;
 	icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_DOWN, &fw_down_data);
 
@@ -1198,7 +1183,6 @@ static int icnss_service_notifier_notify(struct notifier_block *nb,
 
 	switch (*state) {
 	case ROOT_PD_WDOG_BITE:
-		event_data->wdog_bite = true;
 		priv->stats.recovery.root_pd_crash++;
 		break;
 	case ROOT_PD_SHUTDOWN:
@@ -2351,9 +2335,6 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 			continue;
 		case ICNSS_WLFW_EXISTS:
 			seq_puts(s, "WLAN FW EXISTS");
-			continue;
-		case ICNSS_WDOG_BITE:
-			seq_puts(s, "MODEM WDOG BITE");
 			continue;
 		case ICNSS_SHUTDOWN_DONE:
 			seq_puts(s, "SHUTDOWN DONE");
