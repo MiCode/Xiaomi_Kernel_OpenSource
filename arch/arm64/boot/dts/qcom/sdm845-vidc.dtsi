@@ -79,7 +79,7 @@
 			label = "venus-llcc";
 			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_LLCC>;
-			qcom,bus-governor = "performance";
+			qcom,bus-governor = "msm-vidc-llcc";
 			qcom,bus-range-kbps = <17000 125700>;
 		};
 

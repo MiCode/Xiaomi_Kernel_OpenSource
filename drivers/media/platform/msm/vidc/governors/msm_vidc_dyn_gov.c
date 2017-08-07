@@ -330,7 +330,9 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 	 */
 	/* Decoder parameters */
 	int width, height, lcu_size, dpb_bpp, opb_bpp, fps, opb_factor;
-	bool unified_dpb_opb, dpb_compression_enabled, opb_compression_enabled;
+	bool unified_dpb_opb, dpb_compression_enabled, opb_compression_enabled,
+		llc_ref_read_l2_cache_enabled = false,
+		llc_vpss_ds_line_buf_enabled = false;
 	fp_t dpb_opb_scaling_ratio, dpb_read_compression_factor,
 		dpb_write_compression_factor, opb_compression_factor,
 		qsmmu_bw_overhead_factor, height_ratio;
@@ -342,7 +344,8 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 	fp_t bins_to_bit_factor, dpb_write_factor, ten_bpc_packing_factor,
 		ten_bpc_bpp_factor, vsp_read_factor, vsp_write_factor,
 		bw_for_1x_8bpc, dpb_bw_for_1x,
-		motion_vector_complexity = 0, row_cache_penalty = 0, opb_bw = 0;
+		motion_vector_complexity = 0, row_cache_penalty = 0, opb_bw = 0,
+		dpb_total = 0;
 
 	/* Output parameters */
 	struct {
@@ -351,6 +354,10 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 			recon_write, opb_read, opb_write, dpb_read, dpb_write,
 			total;
 	} ddr = {0};
+
+	struct {
+		fp_t dpb_read, opb_read, total;
+	} llc = {0};
 
 	unsigned long ret = 0;
 	unsigned int integer_part, frac_part;
@@ -407,6 +414,11 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 	opb_compression_factor = !opb_compression_enabled ? FP_ONE :
 		__compression_ratio(__lut(width, height, fps), opb_bpp);
 
+	llc_ref_read_l2_cache_enabled = llc_vpss_ds_line_buf_enabled = false;
+	if (d->use_sys_cache) {
+		llc_ref_read_l2_cache_enabled = true;
+		llc_vpss_ds_line_buf_enabled = true;
+	}
 
 	/* Derived parameters setup */
 	lcu_per_frame = DIV_ROUND_UP(width, lcu_size) *
@@ -462,6 +474,12 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 
 	ddr.dpb_write = fp_div(fp_mult(dpb_bw_for_1x, dpb_write_factor),
 		dpb_write_compression_factor);
+	dpb_total = ddr.dpb_read + ddr.dpb_write;
+	if (llc_ref_read_l2_cache_enabled) {
+		row_cache_penalty = FP(1, 30, 100);
+		ddr.dpb_read = fp_div(ddr.dpb_read, row_cache_penalty);
+		llc.dpb_read = dpb_total - ddr.dpb_read;
+	}
 
 	opb_factor = dpb_bpp == 8 ? 8 : 4;
 
@@ -473,6 +491,11 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 		FP(1, 50, 100)), dpb_opb_scaling_ratio),
 			opb_compression_factor);
 
+	if (llc_vpss_ds_line_buf_enabled) {
+		llc.opb_read = ddr.opb_read;
+		ddr.opb_write -= ddr.opb_read;
+		ddr.opb_read = 0;
+	}
 	ddr.total = ddr.vsp_read + ddr.vsp_write +
 		ddr.collocated_read + ddr.collocated_write +
 		ddr.opb_read + ddr.opb_write +
@@ -481,6 +504,7 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 	qsmmu_bw_overhead_factor = FP(1, 3, 100);
 
 	ddr.total = fp_mult(ddr.total, qsmmu_bw_overhead_factor);
+	llc.total = llc.dpb_read + llc.opb_read;
 
 	/* Dump all the variables for easier debugging */
 	if (debug) {
@@ -521,6 +545,8 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 		{"DERIVED PARAMETERS (2)", "", DUMP_HEADER_MAGIC},
 		{"MV complexity", DUMP_FP_FMT, motion_vector_complexity},
 		{"row cache penalty", DUMP_FP_FMT, row_cache_penalty},
+		{"qsmmu_bw_overhead_factor", DUMP_FP_FMT,
+			qsmmu_bw_overhead_factor},
 		{"OPB B/W (single instance)", DUMP_FP_FMT, opb_bw},
 
 		{"INTERMEDIATE DDR B/W", "", DUMP_HEADER_MAGIC},
@@ -536,6 +562,8 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 		{"OPB write", DUMP_FP_FMT, ddr.opb_write},
 		{"DPB read", DUMP_FP_FMT, ddr.dpb_read},
 		{"DPB write", DUMP_FP_FMT, ddr.dpb_write},
+		{"LLC DPB read", DUMP_FP_FMT, llc.dpb_read},
+		{"LLC OPB read", DUMP_FP_FMT, llc.opb_read},
 
 		};
 		__dump(dump, ARRAY_SIZE(dump));
@@ -546,7 +574,7 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 		ret = kbps(fp_round(ddr.total));
 		break;
 	case GOVERNOR_LLCC:
-		dprintk(VIDC_PROF, "LLCC Voting not supported yet\n");
+		ret = kbps(fp_round(llc.total));
 		break;
 	default:
 		dprintk(VIDC_ERR, "%s - Unknown governor\n", __func__);
@@ -571,13 +599,17 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	enum hal_uncompressed_format dpb_color_format, original_color_format;
 	bool dpb_compression_enabled, original_compression_enabled,
 		work_mode_1, low_power, rotation, cropping_or_scaling,
-		b_frames_enabled = false;
+		b_frames_enabled = false,
+		llc_dual_core_ref_read_buf_enabled = false,
+		llc_top_line_buf_enabled = false,
+		llc_ref_chroma_cache_enabled = false;
 	fp_t dpb_compression_factor, original_compression_factor,
 		input_compression_factor, qsmmu_bw_overhead_factor,
 		ref_y_bw_factor, ref_cb_cr_bw_factor, ten_bpc_bpp_factor,
 		bw_for_1x_8bpc, dpb_bw_for_1x, ref_cb_cr_read,
 		bins_to_bit_factor, ref_y_read,	ten_bpc_packing_factor,
-		dpb_write_factor, ref_overlap_bw;
+		dpb_write_factor, ref_overlap_bw, llc_ref_y_read,
+		llc_ref_cb_cr_read;
 	fp_t integer_part, frac_part;
 	unsigned long ret = 0;
 
@@ -588,6 +620,9 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 			original_write, dpb_read, dpb_write, total;
 	} ddr = {0};
 
+	struct {
+		fp_t dpb_read, line_buffer, total;
+	} llc = {0};
 
 	/* Encoder Parameters setup */
 	ten_bpc_packing_factor = FP(1, 67, 1000);
@@ -623,6 +658,11 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	low_power = d->power_mode == VIDC_POWER_LOW;
 	bins_to_bit_factor = work_mode_1 ?
 		FP_INT(0) : FP_INT(4);
+
+	if (d->use_sys_cache) {
+		llc_dual_core_ref_read_buf_enabled = true;
+		llc_ref_chroma_cache_enabled = true;
+	}
 
 	/*
 	 * Convert Q16 number into Integer and Fractional part upto 2 places.
@@ -666,6 +706,12 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 
 	ddr.line_buffer_write = ddr.line_buffer_read;
 
+	llc.line_buffer = ddr.line_buffer_read + ddr.line_buffer_write;
+	if (llc_top_line_buf_enabled)
+		ddr.line_buffer_read = ddr.line_buffer_write = FP_INT(0);
+
+	llc.line_buffer -= (ddr.line_buffer_read + ddr.line_buffer_write);
+
 	bw_for_1x_8bpc = fp_div(FP_INT(width * height), FP_INT(32 * 8));
 
 	bw_for_1x_8bpc = fp_mult(bw_for_1x_8bpc,
@@ -690,6 +736,12 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	ref_y_read =
 		b_frames_enabled ? fp_mult(ref_y_read, FP_INT(2)) : ref_y_read;
 
+	llc_ref_y_read = ref_y_read;
+	if (llc_dual_core_ref_read_buf_enabled)
+		ref_y_read = fp_div(ref_y_read, FP_INT(2));
+
+	llc_ref_y_read -= ref_y_read;
+
 	ref_cb_cr_read = fp_mult(ref_cb_cr_bw_factor, dpb_bw_for_1x);
 
 	ref_cb_cr_read = fp_div(ref_cb_cr_read, dpb_compression_factor);
@@ -698,7 +750,15 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 		b_frames_enabled ? fp_mult(ref_cb_cr_read, FP_INT(2)) :
 					ref_cb_cr_read;
 
-	ref_cb_cr_read = fp_div(ref_cb_cr_read, FP_INT(2));
+	llc_ref_cb_cr_read = ref_cb_cr_read;
+
+	if (llc_ref_chroma_cache_enabled)
+		ref_cb_cr_read = fp_div(ref_cb_cr_read, ref_cb_cr_bw_factor);
+
+	if (llc_dual_core_ref_read_buf_enabled)
+		ref_cb_cr_read = fp_div(ref_cb_cr_read, FP_INT(2));
+
+	llc_ref_cb_cr_read -= ref_cb_cr_read;
 
 	ddr.dpb_write = fp_mult(dpb_write_factor, dpb_bw_for_1x);
 
@@ -718,11 +778,15 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 
 	ddr.dpb_read = ref_y_read + ref_cb_cr_read + ref_overlap_bw;
 
+	llc.dpb_read = llc_ref_y_read + llc_ref_cb_cr_read;
+
 	ddr.total = ddr.vsp_read + ddr.vsp_write +
 		ddr.collocated_read + ddr.collocated_write +
 		ddr.line_buffer_read + ddr.line_buffer_write +
 		ddr.original_read + ddr.original_write +
 		ddr.dpb_read + ddr.dpb_write;
+
+	llc.total = llc.dpb_read + llc.line_buffer;
 
 	qsmmu_bw_overhead_factor = FP(1, 3, 100);
 	ddr.total = fp_mult(ddr.total, qsmmu_bw_overhead_factor);
@@ -751,6 +815,8 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 		{"LCU size", "%d", lcu_size},
 		{"bitrate (Mbit/sec)", "%lu", bitrate},
 		{"bins to bit factor", DUMP_FP_FMT, bins_to_bit_factor},
+		{"qsmmu_bw_overhead_factor",
+			 DUMP_FP_FMT, qsmmu_bw_overhead_factor},
 
 		{"INTERMEDIATE B/W DDR", "", DUMP_HEADER_MAGIC},
 		{"ref_y_read", DUMP_FP_FMT, ref_y_read},
@@ -766,6 +832,8 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 		{"original write", DUMP_FP_FMT, ddr.original_write},
 		{"DPB read", DUMP_FP_FMT, ddr.dpb_read},
 		{"DPB write", DUMP_FP_FMT, ddr.dpb_write},
+		{"LLC DPB read", DUMP_FP_FMT, llc.dpb_read},
+		{"LLC Line buffer", DUMP_FP_FMT, llc.line_buffer},
 		};
 		__dump(dump, ARRAY_SIZE(dump));
 	}
@@ -775,7 +843,7 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 		ret = kbps(fp_round(ddr.total));
 		break;
 	case GOVERNOR_LLCC:
-		dprintk(VIDC_PROF, "LLCC Voting not supported yet\n");
+		ret = kbps(fp_round(llc.total));
 		break;
 	default:
 		dprintk(VIDC_ERR, "%s - Unknown governor\n", __func__);

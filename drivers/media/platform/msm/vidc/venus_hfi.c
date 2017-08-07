@@ -3406,6 +3406,15 @@ static int __init_bus(struct venus_hfi_device *device)
 			.exit = NULL,
 		};
 
+		if (!strcmp(bus->governor, "msm-vidc-llcc")) {
+			if (msm_vidc_syscache_disable) {
+				dprintk(VIDC_DBG,
+					 "Skipping LLC bus init %s: %s\n",
+				bus->name, bus->governor);
+				continue;
+			}
+		}
+
 		/*
 		 * This is stupid, but there's no other easy way to ahold
 		 * of struct bus_info in venus_hfi_devfreq_*()
