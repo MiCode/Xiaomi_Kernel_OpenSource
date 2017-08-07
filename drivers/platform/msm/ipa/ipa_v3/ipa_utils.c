@@ -21,6 +21,7 @@
 #include "ipa_i.h"
 #include "ipahal/ipahal.h"
 #include "ipahal/ipahal_fltrt.h"
+#include "ipahal/ipahal_hw_stats.h"
 #include "../ipa_rm_i.h"
 
 #define IPA_V3_0_CLK_RATE_SVS (75 * 1000 * 1000UL)
@@ -1141,7 +1142,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 	[IPA_4_0][IPA_CLIENT_ODU_PROD]            = {
 			true, IPA_v4_0_GROUP_UL_DL,
 			true,
-			IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY,
+			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP,
 			QMB_MASTER_SELECT_DDR,
 			{ 1, 0, 8, 16, IPA_EE_AP } },
 	[IPA_4_0][IPA_CLIENT_ETHERNET_PROD]	  = {

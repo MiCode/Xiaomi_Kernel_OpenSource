@@ -2169,6 +2169,8 @@ void ipa3_debugfs_init(void)
 		goto fail;
 	}
 
+	ipa_debugfs_init_stats(dent);
+
 	return;
 
 fail:

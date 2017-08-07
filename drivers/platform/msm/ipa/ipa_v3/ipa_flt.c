@@ -806,7 +806,7 @@ static int __ipa_create_flt_entry(struct ipa3_flt_entry **entry,
 	if (rule->rule_id) {
 		id = rule->rule_id;
 	} else {
-		id = ipa3_alloc_rule_id(&tbl->rule_ids);
+		id = ipa3_alloc_rule_id(tbl->rule_ids);
 		if (id < 0) {
 			IPAERR("failed to allocate rule id\n");
 			WARN_ON(1);
@@ -880,7 +880,7 @@ ipa_insert_failed:
 	list_del(&entry->link);
 	/* if rule id was allocated from idr, remove it */
 	if (!(entry->rule_id & ipahal_get_rule_id_hi_bit()))
-		idr_remove(&entry->tbl->rule_ids, entry->rule_id);
+		idr_remove(entry->tbl->rule_ids, entry->rule_id);
 	kmem_cache_free(ipa3_ctx->flt_rule_cache, entry);
 
 error:
@@ -927,7 +927,7 @@ ipa_insert_failed:
 	list_del(&entry->link);
 	/* if rule id was allocated from idr, remove it */
 	if (!(entry->rule_id & ipahal_get_rule_id_hi_bit()))
-		idr_remove(&entry->tbl->rule_ids, entry->rule_id);
+		idr_remove(entry->tbl->rule_ids, entry->rule_id);
 	kmem_cache_free(ipa3_ctx->flt_rule_cache, entry);
 
 error:
@@ -961,7 +961,7 @@ static int __ipa_del_flt_rule(u32 rule_hdl)
 	entry->cookie = 0;
 	/* if rule id was allocated from idr, remove it */
 	if (!(entry->rule_id & ipahal_get_rule_id_hi_bit()))
-		idr_remove(&entry->tbl->rule_ids, entry->rule_id);
+		idr_remove(entry->tbl->rule_ids, entry->rule_id);
 
 	kmem_cache_free(ipa3_ctx->flt_rule_cache, entry);
 
@@ -1374,7 +1374,7 @@ int ipa3_reset_flt(enum ipa_ip_type ip)
 				entry->rt_tbl->ref_cnt--;
 			/* if rule id was allocated from idr, remove it */
 			if (!(entry->rule_id & ipahal_get_rule_id_hi_bit()))
-				idr_remove(&entry->tbl->rule_ids,
+				idr_remove(entry->tbl->rule_ids,
 					entry->rule_id);
 			entry->cookie = 0;
 			id = entry->id;
