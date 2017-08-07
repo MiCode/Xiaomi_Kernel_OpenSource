@@ -1140,6 +1140,12 @@ static void hfi_process_sess_get_prop_buf_req(
 			buffreq->buffer[10].buffer_type =
 				HAL_BUFFER_INTERNAL_PERSIST_1;
 			break;
+		case HFI_BUFFER_COMMON_INTERNAL_RECON:
+			memcpy(&buffreq->buffer[11], hfi_buf_req,
+			sizeof(struct hfi_buffer_requirements));
+			buffreq->buffer[11].buffer_type =
+				HAL_BUFFER_INTERNAL_RECON;
+			break;
 		default:
 			dprintk(VIDC_ERR,
 			"hal_process_sess_get_prop_buf_req: bad_buffer_type: %d\n",

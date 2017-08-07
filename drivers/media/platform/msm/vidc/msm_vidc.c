@@ -442,6 +442,7 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 	struct msm_vidc_inst *inst = instance;
 	int rc = 0, i = 0;
 	struct buf_queue *q = NULL;
+	u32 cr = 0;
 
 	if (!inst || !inst->core || !b || !valid_v4l2_buffer(b, inst)) {
 		dprintk(VIDC_ERR, "%s: invalid params, inst %pK\n",
@@ -453,7 +454,15 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 		b->m.planes[i].m.fd = b->m.planes[i].reserved[0];
 		b->m.planes[i].data_offset = b->m.planes[i].reserved[1];
 	}
+
 	msm_comm_qbuf_cache_operations(inst, b);
+
+	/* Compression ratio is valid only for Encoder YUV buffers. */
+	if (inst->session_type == MSM_VIDC_ENCODER &&
+			b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		cr = b->m.planes[0].reserved[2];
+		msm_comm_update_input_cr(inst, b->index, cr);
+	}
 
 	q = msm_comm_get_vb2q(inst, b->type);
 	if (!q) {
@@ -712,7 +721,6 @@ static int msm_vidc_queue_setup(struct vb2_queue *q,
 		rc = set_buffer_count(inst, bufreq->buffer_count_min_host,
 			bufreq->buffer_count_actual, HAL_BUFFER_INPUT);
 		}
-
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE: {
 		buffer_type = msm_comm_get_hal_output_buffer(inst);
@@ -1494,6 +1502,7 @@ void *msm_vidc_open(int core_id, int session_type)
 
 	INIT_MSM_VIDC_LIST(&inst->scratchbufs);
 	INIT_MSM_VIDC_LIST(&inst->freqs);
+	INIT_MSM_VIDC_LIST(&inst->input_crs);
 	INIT_MSM_VIDC_LIST(&inst->persistbufs);
 	INIT_MSM_VIDC_LIST(&inst->pending_getpropq);
 	INIT_MSM_VIDC_LIST(&inst->outputbufs);
@@ -1605,6 +1614,8 @@ fail_mem_client:
 	DEINIT_MSM_VIDC_LIST(&inst->outputbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->registeredbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->eosbufs);
+	DEINIT_MSM_VIDC_LIST(&inst->freqs);
+	DEINIT_MSM_VIDC_LIST(&inst->input_crs);
 
 	kfree(inst);
 	inst = NULL;
@@ -1633,6 +1644,8 @@ static void msm_vidc_cleanup_instance(struct msm_vidc_inst *inst)
 	mutex_unlock(&inst->registeredbufs.lock);
 
 	msm_comm_free_freq_table(inst);
+
+	msm_comm_free_input_cr_table(inst);
 
 	if (msm_comm_release_scratch_buffers(inst, false))
 		dprintk(VIDC_ERR,
@@ -1699,6 +1712,8 @@ int msm_vidc_destroy(struct msm_vidc_inst *inst)
 	DEINIT_MSM_VIDC_LIST(&inst->outputbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->registeredbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->eosbufs);
+	DEINIT_MSM_VIDC_LIST(&inst->freqs);
+	DEINIT_MSM_VIDC_LIST(&inst->input_crs);
 
 	mutex_destroy(&inst->sync_lock);
 	mutex_destroy(&inst->bufq[CAPTURE_PORT].lock);

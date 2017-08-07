@@ -4749,8 +4749,7 @@ int msm_comm_set_recon_buffers(struct msm_vidc_inst *inst)
 		return 0;
 	}
 
-	if (!list_empty(&inst->reconbufs.list))
-		msm_comm_release_recon_buffers(inst);
+	msm_comm_release_recon_buffers(inst);
 
 	for (i = 0; i < internal_buf->buffer_count_actual; i++) {
 		binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);

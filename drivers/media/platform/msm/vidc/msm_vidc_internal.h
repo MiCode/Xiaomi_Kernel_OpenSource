@@ -144,6 +144,12 @@ struct vidc_freq_data {
 	unsigned long freq;
 };
 
+struct vidc_input_cr_data {
+	struct list_head list;
+	u32 index;
+	u32 input_cr;
+};
+
 struct recon_buf {
 	struct list_head list;
 	u32 buffer_index;
@@ -327,6 +333,7 @@ struct msm_vidc_inst {
 	struct msm_vidc_format fmts[MAX_PORT_NUM];
 	struct buf_queue bufq[MAX_PORT_NUM];
 	struct msm_vidc_list freqs;
+	struct msm_vidc_list input_crs;
 	struct msm_vidc_list scratchbufs;
 	struct msm_vidc_list persistbufs;
 	struct msm_vidc_list pending_getpropq;

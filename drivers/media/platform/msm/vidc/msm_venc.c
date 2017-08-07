@@ -2362,6 +2362,7 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			rc = -EINVAL;
 			goto exit;
 		}
+		inst->clk_data.opb_fourcc = f->fmt.pix_mp.pixelformat;
 		memcpy(&inst->fmts[fmt->type], fmt,
 				sizeof(struct msm_vidc_format));
 
