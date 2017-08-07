@@ -30,7 +30,7 @@
 		clock-names = "gcc_iface", "gcc_bus", "iface_clk",
 				"bus_clk", "core_clk", "vsync_clk";
 		clock-rate = <0 0 0 0 300000000 19200000 0>;
-		clock-max-rate = <0 0 0 0 430000000 19200000 0>;
+		clock-max-rate = <0 0 0 0 412500000 19200000 0>;
 
 		sde-vdd-supply = <&mdss_core_gdsc>;
 
