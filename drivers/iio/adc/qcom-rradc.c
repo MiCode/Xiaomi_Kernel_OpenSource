@@ -22,6 +22,7 @@
 #include <linux/regmap.h>
 #include <linux/delay.h>
 #include <linux/qpnp/qpnp-revid.h>
+#include <linux/spmi.h>
 
 #define FG_ADC_RR_EN_CTL			0x46
 #define FG_ADC_RR_SKIN_TEMP_LSB			0x50
@@ -223,6 +224,9 @@ struct rradc_chip {
 	struct mutex			lock;
 	struct regmap			*regmap;
 	u16				base;
+	struct spmi_device		*spmi;
+	u8				slave;
+	u16			offset;
 	struct iio_chan_spec		*iio_chans;
 	unsigned int			nchannels;
 	struct rradc_chan_prop		*chan_props;
@@ -248,19 +252,34 @@ struct rradc_chan_prop {
 					u16 adc_code, int *result);
 };
 
-static int rradc_masked_write(struct rradc_chip *rr_adc, u16 offset, u8 mask,
-						u8 val)
+static int rradc_spmi_read(struct rradc_chip *rr_adc, unsigned int reg,
+						u8 *data, int len)
 {
 	int rc;
 
-	rc = regmap_update_bits(rr_adc->regmap, rr_adc->base + offset,
-								mask, val);
-	if (rc) {
-		pr_err("spmi write failed: addr=%03X, rc=%d\n", offset, rc);
+	rc = spmi_ext_register_readl(rr_adc->spmi->ctrl, rr_adc->slave,
+		reg, data, len);
+	if (rc < 0) {
+		pr_err("rradc spmi read reg %x failed with %d\n", reg, rc);
 		return rc;
 	}
 
-	return rc;
+	return 0;
+}
+
+static int rradc_spmi_write(struct rradc_chip *rr_adc, u16 reg,
+						u8 *buf, int len)
+{
+	int rc;
+
+	rc = spmi_ext_register_writel(rr_adc->spmi->ctrl, rr_adc->slave,
+		reg, buf, len);
+	if (rc < 0) {
+		pr_err("rradc spmi write reg %d failed with %d\n", reg, rc);
+		return rc;
+	}
+
+	return 0;
 }
 
 static int rradc_read(struct rradc_chip *rr_adc, u16 offset, u8 *data, int len)
@@ -275,14 +294,14 @@ static int rradc_read(struct rradc_chip *rr_adc, u16 offset, u8 *data, int len)
 	}
 
 	while (retry_cnt < FG_RR_ADC_COHERENT_CHECK_RETRY) {
-		rc = regmap_bulk_read(rr_adc->regmap, rr_adc->base + offset,
+		rc = rradc_spmi_read(rr_adc, rr_adc->base + offset,
 							data, len);
 		if (rc < 0) {
 			pr_err("rr_adc reg 0x%x failed :%d\n", offset, rc);
 			return rc;
 		}
 
-		rc = regmap_bulk_read(rr_adc->regmap, rr_adc->base + offset,
+		rc = rradc_spmi_read(rr_adc, rr_adc->base + offset,
 							data_check, len);
 		if (rc < 0) {
 			pr_err("rr_adc reg 0x%x failed :%d\n", offset, rc);
@@ -635,27 +654,35 @@ static const struct rradc_channels rradc_chans[] = {
 static int rradc_enable_continuous_mode(struct rradc_chip *chip)
 {
 	int rc = 0;
+	u8 result, value;
 
 	/* Clear channel log */
-	rc = rradc_masked_write(chip, FG_ADC_RR_ADC_LOG,
-			FG_ADC_RR_ADC_LOG_CLR_CTRL,
-			FG_ADC_RR_ADC_LOG_CLR_CTRL);
+	rc = rradc_spmi_read(chip, chip->base + FG_ADC_RR_ADC_LOG,
+			&result, 1);
+	value = (result) | FG_ADC_RR_ADC_LOG_CLR_CTRL;
+	rc = rradc_spmi_write(chip, chip->base + FG_ADC_RR_ADC_LOG,
+			&value, 1);
 	if (rc < 0) {
 		pr_err("log ctrl update to clear failed:%d\n", rc);
 		return rc;
 	}
 
-	rc = rradc_masked_write(chip, FG_ADC_RR_ADC_LOG,
-		FG_ADC_RR_ADC_LOG_CLR_CTRL, 0);
+	rc = rradc_spmi_read(chip, chip->base + FG_ADC_RR_ADC_LOG,
+			&result, 1);
+	value = (result) & ~(FG_ADC_RR_ADC_LOG_CLR_CTRL);
+	rc = rradc_spmi_write(chip, chip->base + FG_ADC_RR_ADC_LOG,
+			&value, 1);
 	if (rc < 0) {
 		pr_err("log ctrl update to not clear failed:%d\n", rc);
 		return rc;
 	}
 
 	/* Switch to continuous mode */
-	rc = rradc_masked_write(chip, FG_ADC_RR_RR_ADC_CTL,
-		FG_ADC_RR_ADC_CTL_CONTINUOUS_SEL_MASK,
-		FG_ADC_RR_ADC_CTL_CONTINUOUS_SEL);
+	rc = rradc_spmi_read(chip, chip->base + FG_ADC_RR_RR_ADC_CTL,
+			&result, 1);
+	value = (result) | FG_ADC_RR_ADC_CTL_CONTINUOUS_SEL;
+	rc = rradc_spmi_write(chip, chip->base + FG_ADC_RR_RR_ADC_CTL,
+			&value, 1);
 	if (rc < 0) {
 		pr_err("Update to continuous mode failed:%d\n", rc);
 		return rc;
@@ -667,10 +694,14 @@ static int rradc_enable_continuous_mode(struct rradc_chip *chip)
 static int rradc_disable_continuous_mode(struct rradc_chip *chip)
 {
 	int rc = 0;
+	u8 result, value;
 
 	/* Switch to non continuous mode */
-	rc = rradc_masked_write(chip, FG_ADC_RR_RR_ADC_CTL,
-			FG_ADC_RR_ADC_CTL_CONTINUOUS_SEL_MASK, 0);
+	rc = rradc_spmi_read(chip, chip->base + FG_ADC_RR_RR_ADC_CTL,
+			&result, 1);
+	value = (result) & ~(FG_ADC_RR_ADC_CTL_CONTINUOUS_SEL);
+	rc = rradc_spmi_write(chip, chip->base + FG_ADC_RR_RR_ADC_CTL,
+			&value, 1);
 	if (rc < 0) {
 		pr_err("Update to non-continuous mode failed:%d\n", rc);
 		return rc;
@@ -752,18 +783,24 @@ static int rradc_read_channel_with_continuous_mode(struct rradc_chip *chip,
 static int rradc_enable_batt_id_channel(struct rradc_chip *chip, bool enable)
 {
 	int rc = 0;
+	u8 result, value;
 
 	if (enable) {
-		rc = rradc_masked_write(chip, FG_ADC_RR_BATT_ID_CTRL,
-				FG_ADC_RR_BATT_ID_CTRL_CHANNEL_CONV,
-				FG_ADC_RR_BATT_ID_CTRL_CHANNEL_CONV);
+		rc = rradc_spmi_read(chip, chip->base + FG_ADC_RR_BATT_ID_CTRL,
+				&result, 1);
+		value = (result) | FG_ADC_RR_BATT_ID_CTRL_CHANNEL_CONV;
+		rc = rradc_spmi_write(chip, chip->base + FG_ADC_RR_BATT_ID_CTRL,
+				&value, 1);
 		if (rc < 0) {
 			pr_err("Enabling BATT ID channel failed:%d\n", rc);
 			return rc;
 		}
 	} else {
-		rc = rradc_masked_write(chip, FG_ADC_RR_BATT_ID_CTRL,
-				FG_ADC_RR_BATT_ID_CTRL_CHANNEL_CONV, 0);
+		rc = rradc_spmi_read(chip, chip->base + FG_ADC_RR_BATT_ID_CTRL,
+				&result, 1);
+		value = (result) & ~(FG_ADC_RR_BATT_ID_CTRL_CHANNEL_CONV);
+		rc = rradc_spmi_write(chip, chip->base + FG_ADC_RR_BATT_ID_CTRL,
+				&value, 1);
 		if (rc < 0) {
 			pr_err("Disabling BATT ID channel failed:%d\n", rc);
 			return rc;
@@ -777,6 +814,7 @@ static int rradc_do_batt_id_conversion(struct rradc_chip *chip,
 		struct rradc_chan_prop *prop, u16 *data, u8 *buf)
 {
 	int rc = 0, ret = 0;
+	u8 result, value;
 
 	rc = rradc_enable_batt_id_channel(chip, true);
 	if (rc < 0) {
@@ -784,9 +822,11 @@ static int rradc_do_batt_id_conversion(struct rradc_chip *chip,
 		return rc;
 	}
 
-	rc = rradc_masked_write(chip, FG_ADC_RR_BATT_ID_TRIGGER,
-				FG_ADC_RR_BATT_ID_TRIGGER_CTL,
-				FG_ADC_RR_BATT_ID_TRIGGER_CTL);
+	rc = rradc_spmi_read(chip, chip->base + FG_ADC_RR_BATT_ID_TRIGGER,
+			&result, 1);
+	value = (result) | FG_ADC_RR_BATT_ID_TRIGGER_CTL;
+	rc = rradc_spmi_write(chip, chip->base + FG_ADC_RR_BATT_ID_TRIGGER,
+			&value, 1);
 	if (rc < 0) {
 		pr_err("BATT_ID trigger set failed:%d\n", rc);
 		ret = rc;
@@ -802,8 +842,11 @@ static int rradc_do_batt_id_conversion(struct rradc_chip *chip,
 		ret = rc;
 	}
 
-	rc = rradc_masked_write(chip, FG_ADC_RR_BATT_ID_TRIGGER,
-			FG_ADC_RR_BATT_ID_TRIGGER_CTL, 0);
+	rc = rradc_spmi_read(chip, chip->base + FG_ADC_RR_BATT_ID_TRIGGER,
+			&result, 1);
+	value = (result) & ~(FG_ADC_RR_BATT_ID_TRIGGER_CTL);
+	rc = rradc_spmi_write(chip, chip->base + FG_ADC_RR_BATT_ID_TRIGGER,
+			&value, 1);
 	if (rc < 0) {
 		pr_err("BATT_ID trigger re-set failed:%d\n", rc);
 		ret = rc;
@@ -825,6 +868,7 @@ static int rradc_do_conversion(struct rradc_chip *chip,
 	u8 buf[6];
 	u16 offset = 0, batt_id_5 = 0, batt_id_15 = 0, batt_id_150 = 0;
 	u16 status = 0;
+	u8 result, value;
 
 	mutex_lock(&chip->lock);
 
@@ -838,9 +882,13 @@ static int rradc_do_conversion(struct rradc_chip *chip,
 		break;
 	case RR_ADC_USBIN_V:
 		/* Force conversion every cycle */
-		rc = rradc_masked_write(chip, FG_ADC_RR_USB_IN_V_TRIGGER,
-				FG_ADC_RR_USB_IN_V_EVERY_CYCLE_MASK,
-				FG_ADC_RR_USB_IN_V_EVERY_CYCLE);
+		rc = rradc_spmi_read(chip,
+				chip->base + FG_ADC_RR_USB_IN_V_TRIGGER,
+				&result, 1);
+		value = (result) | FG_ADC_RR_USB_IN_V_EVERY_CYCLE;
+		rc = rradc_spmi_write(chip,
+				chip->base + FG_ADC_RR_USB_IN_V_TRIGGER,
+				&value, 1);
 		if (rc < 0) {
 			pr_err("Force every cycle update failed:%d\n", rc);
 			goto fail;
@@ -853,8 +901,13 @@ static int rradc_do_conversion(struct rradc_chip *chip,
 		}
 
 		/* Restore usb_in trigger */
-		rc = rradc_masked_write(chip, FG_ADC_RR_USB_IN_V_TRIGGER,
-				FG_ADC_RR_USB_IN_V_EVERY_CYCLE_MASK, 0);
+		rc = rradc_spmi_read(chip,
+				chip->base + FG_ADC_RR_USB_IN_V_TRIGGER,
+				&result, 1);
+		value = (result) & ~(FG_ADC_RR_USB_IN_V_EVERY_CYCLE);
+		rc = rradc_spmi_write(chip,
+				chip->base + FG_ADC_RR_USB_IN_V_TRIGGER,
+				&value, 1);
 		if (rc < 0) {
 			pr_err("Restore every cycle update failed:%d\n", rc);
 			goto fail;
@@ -1053,10 +1106,11 @@ static int rradc_get_dt_data(struct rradc_chip *chip, struct device_node *node)
 	return 0;
 }
 
-static int rradc_probe(struct platform_device *pdev)
+static int rradc_probe(struct spmi_device *spmi)
 {
-	struct device_node *node = pdev->dev.of_node;
-	struct device *dev = &pdev->dev;
+	struct device_node *node = spmi->dev.of_node;
+	struct device *dev = &(spmi->dev);
+	struct resource *res;
 	struct iio_dev *indio_dev;
 	struct rradc_chip *chip;
 	int rc = 0;
@@ -1066,11 +1120,20 @@ static int rradc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	chip = iio_priv(indio_dev);
-	chip->regmap = dev_get_regmap(pdev->dev.parent, NULL);
+	chip->regmap = dev_get_regmap(&(spmi->dev), NULL);
 	if (!chip->regmap) {
-		dev_err(&pdev->dev, "Couldn't get parent's regmap\n");
+		pr_debug("Couldn't get parent's regmap\n");
+	}
+
+	chip->spmi = spmi;
+	res = spmi_get_resource(spmi, NULL, IORESOURCE_MEM, 0);
+	if (!res) {
+		pr_err("RRADC No base address definition\n");
 		return -EINVAL;
 	}
+
+	chip->slave = spmi->sid;
+	chip->offset = res->start;
 
 	chip->dev = dev;
 	mutex_init(&chip->lock);
@@ -1081,7 +1144,7 @@ static int rradc_probe(struct platform_device *pdev)
 
 	indio_dev->dev.parent = dev;
 	indio_dev->dev.of_node = node;
-	indio_dev->name = pdev->name;
+	indio_dev->name = spmi->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &rradc_info;
 	indio_dev->channels = chip->iio_chans;
@@ -1094,16 +1157,26 @@ static const struct of_device_id rradc_match_table[] = {
 	{ .compatible = "qcom,rradc" },
 	{ }
 };
-MODULE_DEVICE_TABLE(of, rradc_match_table);
 
-static struct platform_driver rradc_driver = {
+static struct spmi_driver qpnp_rradc_driver = {
 	.driver		= {
 		.name		= "qcom-rradc",
 		.of_match_table	= rradc_match_table,
 	},
 	.probe = rradc_probe,
 };
-module_platform_driver(rradc_driver);
+
+static int __init qpnp_rradc_init(void)
+{
+	return spmi_driver_register(&qpnp_rradc_driver);
+}
+module_init(qpnp_rradc_init);
+
+static void __exit qpnp_rradc_exit(void)
+{
+	spmi_driver_unregister(&qpnp_rradc_driver);
+}
+module_exit(qpnp_rradc_exit);
 
 MODULE_DESCRIPTION("QPNP PMIC RR ADC driver");
 MODULE_LICENSE("GPL v2");

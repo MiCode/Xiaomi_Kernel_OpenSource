@@ -564,6 +564,12 @@ static void rndis_qc_command_complete(struct usb_ep *ep,
 	rndis_init_msg_type		*buf;
 	u32		ul_max_xfer_size, dl_max_xfer_size;
 
+	if (req->status != 0) {
+		pr_err("%s: RNDIS command completion error %d\n",
+				__func__, req->status);
+		return;
+	}
+
 	spin_lock(&rndis_lock);
 	rndis = _rndis_qc;
 	if (!rndis || !rndis->notify || !rndis->notify->driver_data) {

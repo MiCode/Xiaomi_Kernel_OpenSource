@@ -2731,6 +2731,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	split_display = readl_relaxed(mdata->mdp_base +
 		MDSS_MDP_REG_SPLIT_DISPLAY_EN);
 	mdata->splash_intf_sel = intf_sel;
+	mdata->splash_split_disp = split_display;
 
 	if (intf_sel != 0) {
 		for (i = 0; i < 4; i++)

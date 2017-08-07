@@ -15,6 +15,7 @@
 #include <linux/debugfs.h>
 #include "main.h"
 #include "debug.h"
+#include "pci.h"
 
 #define CNSS_IPC_LOG_PAGES		32
 
@@ -121,12 +122,89 @@ static int cnss_stats_open(struct inode *inode, struct file *file)
 }
 
 static const struct file_operations cnss_stats_fops = {
-	.read           = seq_read,
-	.release        = single_release,
-	.open           = cnss_stats_open,
-	.owner          = THIS_MODULE,
-	.llseek         = seq_lseek,
+	.read		= seq_read,
+	.release	= single_release,
+	.open		= cnss_stats_open,
+	.owner		= THIS_MODULE,
+	.llseek		= seq_lseek,
 };
+
+static ssize_t cnss_dev_boot_debug_write(struct file *fp,
+					 const char __user *user_buf,
+					 size_t count, loff_t *off)
+{
+	struct cnss_plat_data *plat_priv =
+		((struct seq_file *)fp->private_data)->private;
+	char buf[64];
+	char *cmd;
+	unsigned int len = 0;
+	int ret = 0;
+
+	len = min(count, sizeof(buf) - 1);
+	if (copy_from_user(buf, user_buf, len))
+		return -EFAULT;
+
+	buf[len] = '\0';
+	cmd = buf;
+
+	if (sysfs_streq(cmd, "on")) {
+		ret = cnss_power_on_device(plat_priv);
+	} else if (sysfs_streq(cmd, "enumerate")) {
+		ret = cnss_pci_init(plat_priv);
+	} else if (sysfs_streq(cmd, "download")) {
+		ret = cnss_pci_start_mhi(plat_priv->bus_priv);
+	} else {
+		cnss_pr_err("Device boot debugfs command is invalid\n");
+		ret = -EINVAL;
+	}
+
+	if (ret)
+		return ret;
+
+	return count;
+}
+
+static int cnss_dev_boot_debug_show(struct seq_file *s, void *data)
+{
+	seq_puts(s, "\nUsage: echo <action> > <debugfs_path>/cnss/dev_boot\n");
+	seq_puts(s, "<action> can be one of below:\n");
+	seq_puts(s, "on: turn on device power, assert WLAN_EN\n");
+	seq_puts(s, "enumerate: de-assert PERST, enumerate PCIe\n");
+	seq_puts(s, "download: download FW and do QMI handshake with FW\n");
+
+	return 0;
+}
+
+static int cnss_dev_boot_debug_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, cnss_dev_boot_debug_show, inode->i_private);
+}
+
+static const struct file_operations cnss_dev_boot_debug_fops = {
+	.read		= seq_read,
+	.write		= cnss_dev_boot_debug_write,
+	.release	= single_release,
+	.open		= cnss_dev_boot_debug_open,
+	.owner		= THIS_MODULE,
+	.llseek		= seq_lseek,
+};
+
+#ifdef CONFIG_CNSS2_DEBUG
+static int cnss_create_debug_only_node(struct cnss_plat_data *plat_priv)
+{
+	struct dentry *root_dentry = plat_priv->root_dentry;
+
+	debugfs_create_file("dev_boot", 0600, root_dentry, plat_priv,
+			    &cnss_dev_boot_debug_fops);
+
+	return 0;
+}
+#else
+static int cnss_create_debug_only_node(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+#endif
 
 int cnss_debugfs_create(struct cnss_plat_data *plat_priv)
 {
@@ -139,11 +217,16 @@ int cnss_debugfs_create(struct cnss_plat_data *plat_priv)
 		cnss_pr_err("Unable to create debugfs %d\n", ret);
 		goto out;
 	}
+
 	plat_priv->root_dentry = root_dentry;
+
 	debugfs_create_file("pin_connect_result", 0644, root_dentry, plat_priv,
 			    &cnss_pin_connect_fops);
 	debugfs_create_file("stats", 0644, root_dentry, plat_priv,
 			    &cnss_stats_fops);
+
+	cnss_create_debug_only_node(plat_priv);
+
 out:
 	return ret;
 }

@@ -1021,6 +1021,9 @@ static void msm_ispif_config_stereo(struct ispif_device *ispif,
 	enum msm_ispif_vfe_intf vfe_intf;
 	uint32_t stereo_3d_threshold = STEREO_DEFAULT_3D_THRESHOLD;
 
+	if (params->num > MAX_PARAM_ENTRIES)
+		return;
+
 	for (i = 0; i < params->num; i++) {
 		vfe_intf = params->entries[i].vfe_intf;
 		if (!msm_ispif_is_intf_valid(ispif->csid_version, vfe_intf)) {

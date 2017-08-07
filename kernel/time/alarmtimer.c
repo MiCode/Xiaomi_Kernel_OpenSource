@@ -60,38 +60,6 @@ static struct rtc_timer		rtctimer;
 static struct rtc_device	*rtcdev;
 static DEFINE_SPINLOCK(rtcdev_lock);
 static struct mutex power_on_alarm_lock;
-static struct alarm init_alarm;
-
-/**
- * power_on_alarm_init - Init power on alarm value
- *
- * Read rtc alarm value after device booting up and add this alarm
- * into alarm queue.
- */
-void power_on_alarm_init(void)
-{
-	struct rtc_wkalrm rtc_alarm;
-	struct rtc_time rt;
-	unsigned long alarm_time;
-	struct rtc_device *rtc;
-	ktime_t alarm_ktime;
-
-	rtc = alarmtimer_get_rtcdev();
-
-	if (!rtc)
-		return;
-
-	rtc_read_alarm(rtc, &rtc_alarm);
-	rt = rtc_alarm.time;
-
-	rtc_tm_to_time(&rt, &alarm_time);
-
-	if (alarm_time) {
-		alarm_ktime = ktime_set(alarm_time, 0);
-		alarm_init(&init_alarm, ALARM_POWEROFF_REALTIME, NULL);
-		alarm_start(&init_alarm, alarm_ktime);
-	}
-}
 
 /**
  * set_power_on_alarm - set power on alarm value into rtc register
@@ -120,6 +88,10 @@ void set_power_on_alarm(void)
 	next = timerqueue_getnext(&base->timerqueue);
 	spin_unlock_irqrestore(&base->lock, flags);
 
+	rtc = alarmtimer_get_rtcdev();
+	if (!rtc)
+		goto exit;
+
 	if (next) {
 		alarm_ts = ktime_to_timespec(next->expires);
 		alarm_secs = alarm_ts.tv_sec;
@@ -138,10 +110,6 @@ void set_power_on_alarm(void)
 	if (alarm_secs <= wall_time.tv_sec + 1)
 		goto disable_alarm;
 
-	rtc = alarmtimer_get_rtcdev();
-	if (!rtc)
-		goto exit;
-
 	rtc_read_time(rtc, &rtc_time);
 	rtc_tm_to_time(&rtc_time, &rtc_secs);
 	alarm_delta = wall_time.tv_sec - rtc_secs;
@@ -149,7 +117,7 @@ void set_power_on_alarm(void)
 
 	rtc_time_to_tm(alarm_time, &alarm.time);
 	alarm.enabled = 1;
-	rc = rtc_set_alarm(rtcdev, &alarm);
+	rc = rtc_set_alarm(rtc, &alarm);
 	if (rc)
 		goto disable_alarm;
 
@@ -157,7 +125,7 @@ void set_power_on_alarm(void)
 	return;
 
 disable_alarm:
-	rtc_alarm_irq_enable(rtcdev, 0);
+	rtc_timer_cancel(rtc, &rtc->aie_timer);
 exit:
 	mutex_unlock(&power_on_alarm_lock);
 }
@@ -496,7 +464,6 @@ static int alarmtimer_resume(struct device *dev)
 		return 0;
 	rtc_timer_cancel(rtc, &rtctimer);
 
-	queue_delayed_work(power_off_alarm_workqueue, &work, 0);
 	return 0;
 }
 

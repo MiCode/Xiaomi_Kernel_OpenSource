@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -315,7 +315,13 @@ static int kgsl_cmdbatch_add_sync_fence(struct kgsl_device *device,
 {
 	struct kgsl_cmd_syncpoint_fence *sync = priv;
 	struct kgsl_cmdbatch_sync_event *event;
+	struct sync_fence *fence = NULL;
 	unsigned int id;
+	int ret = 0;
+
+	fence = sync_fence_fdget(sync->fd);
+	if (fence == NULL)
+		return -EINVAL;
 
 	kref_get(&cmdbatch->refcount);
 
@@ -331,11 +337,13 @@ static int kgsl_cmdbatch_add_sync_fence(struct kgsl_device *device,
 
 	set_bit(event->id, &cmdbatch->pending);
 
+	trace_syncpoint_fence(cmdbatch, fence->name);
+
 	event->handle = kgsl_sync_fence_async_wait(sync->fd,
 		kgsl_cmdbatch_sync_fence_func, event);
 
 	if (IS_ERR_OR_NULL(event->handle)) {
-		int ret = PTR_ERR(event->handle);
+		ret = PTR_ERR(event->handle);
 
 		clear_bit(event->id, &cmdbatch->pending);
 		event->handle = NULL;
@@ -343,18 +351,16 @@ static int kgsl_cmdbatch_add_sync_fence(struct kgsl_device *device,
 		kgsl_cmdbatch_put(cmdbatch);
 
 		/*
-		 * If ret == 0 the fence was already signaled - print a trace
-		 * message so we can track that
-		 */
-		if (ret == 0)
-			trace_syncpoint_fence_expire(cmdbatch, "signaled");
-
-		return ret;
+		* Print a syncpoint_fence_expire trace if
+		* fence is already signaled or there is
+		* a failure in registering the fence waiter.
+		*/
+		trace_syncpoint_fence_expire(cmdbatch, (ret < 0) ?
+				"error" : fence->name);
 	}
 
-	trace_syncpoint_fence(cmdbatch, event->handle->name);
-
-	return 0;
+	sync_fence_put(fence);
+	return ret;
 }
 
 /* kgsl_cmdbatch_add_sync_timestamp() - Add a new sync point for a cmdbatch

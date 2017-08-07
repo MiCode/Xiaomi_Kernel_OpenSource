@@ -543,6 +543,12 @@ static void rndis_command_complete(struct usb_ep *ep, struct usb_request *req)
 	int				status;
 	rndis_init_msg_type		*buf;
 
+	if (req->status != 0) {
+		pr_err("%s: RNDIS command completion error:%d\n",
+				__func__, req->status);
+		return;
+	}
+
 	spin_lock(&_rndis_lock);
 	rndis = __rndis;
 	if (!rndis || !rndis->notify || !rndis->notify->driver_data) {

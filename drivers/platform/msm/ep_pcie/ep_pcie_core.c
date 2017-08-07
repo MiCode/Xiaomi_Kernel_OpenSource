@@ -38,9 +38,12 @@
 /* debug mask sys interface */
 static int ep_pcie_debug_mask;
 static int ep_pcie_debug_keep_resource;
+static u32 ep_pcie_bar0_address;
 module_param_named(debug_mask, ep_pcie_debug_mask,
 			int, S_IRUGO | S_IWUSR | S_IWGRP);
 module_param_named(debug_keep_resource, ep_pcie_debug_keep_resource,
+			int, S_IRUGO | S_IWUSR | S_IWGRP);
+module_param_named(bar0_address, ep_pcie_bar0_address,
 			int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 struct ep_pcie_dev_t ep_pcie_dev = {0};
@@ -695,7 +698,7 @@ static void ep_pcie_config_outbound_iatu_entry(struct ep_pcie_dev_t *dev,
 static void ep_pcie_notify_event(struct ep_pcie_dev_t *dev,
 					enum ep_pcie_event event)
 {
-	if (dev && dev->event_reg && dev->event_reg->callback &&
+	if (dev->event_reg && dev->event_reg->callback &&
 		(dev->event_reg->events & event)) {
 			struct ep_pcie_notify *notify =
 				&dev->event_reg->notify;
@@ -1275,6 +1278,9 @@ checkbme:
 			dev->rev, retries,
 			BME_TIMEOUT_US_MIN * retries / 1000);
 		ep_pcie_enumeration_complete(dev);
+		/* expose BAR to user space to identify modem */
+		ep_pcie_bar0_address =
+			readl_relaxed(dev->dm_core + PCIE20_BAR0);
 	} else {
 		if (!(opt & EP_PCIE_OPT_ENUM_ASYNC))
 			EP_PCIE_ERR(dev,

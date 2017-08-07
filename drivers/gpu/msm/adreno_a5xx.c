@@ -665,6 +665,10 @@ static int _load_gpmu_firmware(struct adreno_device *adreno_dev)
 	if (ret)
 		goto err;
 
+	/* Integer overflow check for cmd_size */
+	if (data[2] > (data[0] - 2))
+		goto err;
+
 	cmds = data + data[2] + 3;
 	cmd_size = data[0] - data[2] - 2;
 
