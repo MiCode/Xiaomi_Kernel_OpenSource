@@ -3063,7 +3063,8 @@ static int snd_soc_codec_set_bias_level(struct snd_soc_dapm_context *dapm,
  */
 void snd_soc_card_change_online_state(struct snd_soc_card *soc_card, int online)
 {
-	snd_card_change_online_state(soc_card->snd_card, online);
+	if (soc_card && soc_card->snd_card)
+		snd_card_change_online_state(soc_card->snd_card, online);
 }
 EXPORT_SYMBOL(snd_soc_card_change_online_state);
 
