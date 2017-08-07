@@ -462,5 +462,12 @@ int btfm_slim_register_codec(struct device *dev)
 	return ret;
 }
 
+void btfm_slim_unregister_codec(struct device *dev)
+{
+	BTFMSLIM_DBG("");
+	/* Unregister Codec driver */
+	snd_soc_unregister_codec(dev);
+}
+
 MODULE_DESCRIPTION("BTFM Slimbus Codec driver");
 MODULE_LICENSE("GPL v2");
