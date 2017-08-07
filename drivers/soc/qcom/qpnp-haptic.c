@@ -2233,13 +2233,23 @@ static void qpnp_hap_td_enable(struct timed_output_dev *dev, int time_ms)
 					 timed_dev);
 	int rc;
 
-	if (time_ms <= 0)
+	if (time_ms < 0)
 		return;
+
+	mutex_lock(&hap->lock);
+
+	if (time_ms == 0) {
+		/* disable haptics */
+		hrtimer_cancel(&hap->hap_timer);
+		hap->state = 0;
+		schedule_work(&hap->work);
+		mutex_unlock(&hap->lock);
+		return;
+	}
 
 	if (time_ms < 10)
 		time_ms = 10;
 
-	mutex_lock(&hap->lock);
 	if (is_sw_lra_auto_resonance_control(hap))
 		hrtimer_cancel(&hap->auto_res_err_poll_timer);
 
