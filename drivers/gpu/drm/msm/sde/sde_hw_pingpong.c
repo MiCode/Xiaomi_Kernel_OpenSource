@@ -165,10 +165,15 @@ static void sde_hw_pp_dsc_enable(struct sde_hw_pingpong *pp)
 static void sde_hw_pp_dsc_disable(struct sde_hw_pingpong *pp)
 {
 	struct sde_hw_blk_reg_map *c;
+	u32 data;
 
 	if (!pp)
 		return;
 	c = &pp->hw;
+
+	data = SDE_REG_READ(c, PP_DCE_DATA_OUT_SWAP);
+	data &= ~BIT(18); /* disable endian flip */
+	SDE_REG_WRITE(c, PP_DCE_DATA_OUT_SWAP, data);
 
 	SDE_REG_WRITE(c, PP_DSC_MODE, 0);
 }

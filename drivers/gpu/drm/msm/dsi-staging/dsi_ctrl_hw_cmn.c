@@ -354,8 +354,6 @@ void dsi_ctrl_hw_cmn_setup_cmd_stream(struct dsi_ctrl_hw *ctrl,
 		reg_ctrl |= (reg << offset);
 		reg_ctrl2 &= ~(0xFFFF << offset);
 		reg_ctrl2 |= (dsc.bytes_in_slice << offset);
-		DSI_W32(ctrl, DSI_COMMAND_COMPRESSION_MODE_CTRL, reg_ctrl);
-		DSI_W32(ctrl, DSI_COMMAND_COMPRESSION_MODE_CTRL2, reg_ctrl2);
 
 		pr_debug("ctrl %d reg_ctrl 0x%x reg_ctrl2 0x%x\n", ctrl->index,
 				reg_ctrl, reg_ctrl2);
@@ -372,6 +370,9 @@ void dsi_ctrl_hw_cmn_setup_cmd_stream(struct dsi_ctrl_hw *ctrl,
 	stream_ctrl = (stride_final + 1) << 16;
 	stream_ctrl |= (vc_id & 0x3) << 8;
 	stream_ctrl |= 0x39; /* packet data type */
+
+	DSI_W32(ctrl, DSI_COMMAND_COMPRESSION_MODE_CTRL, reg_ctrl);
+	DSI_W32(ctrl, DSI_COMMAND_COMPRESSION_MODE_CTRL2, reg_ctrl2);
 
 	DSI_W32(ctrl, DSI_COMMAND_MODE_MDP_STREAM0_CTRL, stream_ctrl);
 	DSI_W32(ctrl, DSI_COMMAND_MODE_MDP_STREAM1_CTRL, stream_ctrl);

@@ -1224,6 +1224,102 @@ static void _sde_encoder_update_vsync_source(struct sde_encoder_virt *sde_enc,
 	}
 }
 
+static int _sde_encoder_dsc_disable(struct sde_encoder_virt *sde_enc)
+{
+	enum sde_rm_topology_name topology;
+	struct drm_connector *drm_conn;
+	int i, ret = 0;
+	struct sde_hw_pingpong *hw_pp[MAX_CHANNELS_PER_ENC];
+	struct sde_hw_dsc *hw_dsc[MAX_CHANNELS_PER_ENC] = {NULL};
+	int pp_count = 0;
+	int dsc_count = 0;
+
+	if (!sde_enc || !sde_enc->phys_encs[0] ||
+			!sde_enc->phys_encs[0]->connector) {
+		SDE_ERROR("invalid params %d %d\n",
+			!sde_enc, sde_enc ? !sde_enc->phys_encs[0] : -1);
+		return -EINVAL;
+	}
+
+	drm_conn = sde_enc->phys_encs[0]->connector;
+
+	topology = sde_connector_get_topology_name(drm_conn);
+	if (topology == SDE_RM_TOPOLOGY_NONE) {
+		SDE_ERROR_ENC(sde_enc, "topology not set yet\n");
+		return -EINVAL;
+	}
+
+	switch (topology) {
+	case SDE_RM_TOPOLOGY_SINGLEPIPE:
+	case SDE_RM_TOPOLOGY_SINGLEPIPE_DSC:
+		/* single PP */
+		hw_pp[0] = sde_enc->hw_pp[0];
+		hw_dsc[0] = sde_enc->hw_dsc[0];
+		pp_count = 1;
+		dsc_count = 1;
+		break;
+	case SDE_RM_TOPOLOGY_DUALPIPE_DSC:
+	case SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE_DSC:
+	case SDE_RM_TOPOLOGY_DUALPIPE_DSCMERGE:
+		/* dual dsc */
+		for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
+			hw_dsc[i] = sde_enc->hw_dsc[i];
+			if (hw_dsc[i])
+				dsc_count++;
+		}
+		/* fall through */
+	case SDE_RM_TOPOLOGY_DUALPIPE:
+	case SDE_RM_TOPOLOGY_DUALPIPE_3DMERGE:
+		/* dual pp */
+		for (i = 0; i < MAX_CHANNELS_PER_ENC; i++) {
+			hw_pp[i] = sde_enc->hw_pp[i];
+			if (hw_pp[i])
+				pp_count++;
+		}
+		break;
+	default:
+		SDE_ERROR_ENC(sde_enc, "Unexpected topology:%d\n", topology);
+		return -EINVAL;
+	};
+
+	SDE_EVT32(DRMID(&sde_enc->base), topology, pp_count, dsc_count);
+
+	if (pp_count > MAX_CHANNELS_PER_ENC ||
+		dsc_count > MAX_CHANNELS_PER_ENC) {
+		SDE_ERROR_ENC(sde_enc, "Wrong count pp:%d dsc:%d top:%d\n",
+				pp_count, dsc_count, topology);
+		return -EINVAL;
+	}
+
+	/* Disable DSC for all the pp's present in this topology */
+	for (i = 0; i < pp_count; i++) {
+
+		if (!hw_pp[i]) {
+			SDE_ERROR_ENC(sde_enc, "null pp:%d top:%d cnt:%d\n",
+					i, topology, pp_count);
+			return -EINVAL;
+		}
+
+		if (hw_pp[i]->ops.disable_dsc)
+			hw_pp[i]->ops.disable_dsc(hw_pp[i]);
+	}
+
+	/* Disable DSC HW */
+	for (i = 0; i < dsc_count; i++) {
+
+		if (!hw_dsc[i]) {
+			SDE_ERROR_ENC(sde_enc, "null dsc:%d top:%d cnt:%d\n",
+					i, topology, dsc_count);
+			return -EINVAL;
+		}
+
+		if (hw_dsc[i]->ops.dsc_disable)
+			hw_dsc[i]->ops.dsc_disable(hw_dsc[i]);
+	}
+
+	return ret;
+}
+
 static int _sde_encoder_update_rsc_client(
 		struct drm_encoder *drm_enc,
 		struct sde_encoder_rsc_config *config, bool enable)
@@ -1852,6 +1948,12 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 					ret);
 			return;
 		}
+
+		/*
+		 * Disable dsc before switch the mode and after pre_modeset,
+		 * to guarantee that previous kickoff finished.
+		 */
+		_sde_encoder_dsc_disable(sde_enc);
 	}
 
 	/* Reserve dynamic resources now. Indicating non-AtomicTest phase */
@@ -2082,6 +2184,13 @@ static void sde_encoder_virt_disable(struct drm_encoder *drm_enc)
 		if (phys && phys->ops.disable)
 			phys->ops.disable(phys);
 	}
+
+	/*
+	 * disable dsc after the transfer is complete (for command mode)
+	 * and after physical encoder is disabled, to make sure timing
+	 * engine is already disabled (for video mode).
+	 */
+	_sde_encoder_dsc_disable(sde_enc);
 
 	/* after phys waits for frame-done, should be no more frames pending */
 	if (atomic_xchg(&sde_enc->frame_done_timeout, 0)) {
