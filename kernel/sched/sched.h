@@ -2483,6 +2483,11 @@ static inline bool is_max_capacity_cpu(int cpu)
 	return cpu_max_possible_capacity(cpu) == max_possible_capacity;
 }
 
+static inline bool is_min_capacity_cpu(int cpu)
+{
+	return cpu_max_possible_capacity(cpu) == min_max_possible_capacity;
+}
+
 /*
  * 'load' is in reference to "best cpu" at its best frequency.
  * Scale that in reference to a given cpu, accounting for how bad it is
@@ -2682,7 +2687,9 @@ static inline int sched_boost(void)
 	return 0;
 }
 
+static inline bool hmp_capable(void) { return false; }
 static inline bool is_max_capacity_cpu(int cpu) { return true; }
+static inline bool is_min_capacity_cpu(int cpu) { return true; }
 
 static inline int
 preferred_cluster(struct sched_cluster *cluster, struct task_struct *p)
