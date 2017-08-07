@@ -145,13 +145,13 @@ static int32_t cam_cci_write_i2c_queue(struct cci_device *cci_dev,
 	void __iomem *base = soc_info->reg_map[0].mem_base;
 
 	if (!cci_dev) {
-		CAM_ERR(CAM_CCI, "%s: failed %d");
+		CAM_ERR(CAM_CCI, "Failed");
 		return -EINVAL;
 	}
 
 	rc = cam_cci_validate_queue(cci_dev, 1, master, queue);
 	if (rc < 0) {
-		CAM_ERR(CAM_CCI, "Failed %d");
+		CAM_ERR(CAM_CCI, "Failed %d", rc);
 		return rc;
 	}
 	CAM_DBG(CAM_CCI, "CCI_I2C_M0_Q0_LOAD_DATA_ADDR:val 0x%x:0x%x",
@@ -184,42 +184,43 @@ static void cam_cci_dump_registers(struct cci_device *cci_dev,
 	uint32_t reg_offset = 0;
 
 	/* CCI Top Registers */
-	CCI_DBG(" **** %s : %d CCI TOP Registers ****");
+	CAM_DBG(CAM_CCI, "****CCI TOP Registers ****");
 	for (i = 0; i < DEBUG_TOP_REG_COUNT; i++) {
 		reg_offset = DEBUG_TOP_REG_START + i * 4;
 		read_val = cam_io_r_mb(cci_dev->base + reg_offset);
-		CCI_DBG("offset = 0x%X value = 0x%X",
+		CAM_DBG(CAM_CCI, "offset = 0x%X value = 0x%X",
 			reg_offset, read_val);
 	}
 
 	/* CCI Master registers */
-	CCI_DBG(" ****CCI MASTER %d Registers ****",
+	CAM_DBG(CAM_CCI, "****CCI MASTER %d Registers ****",
 		master);
 	for (i = 0; i < DEBUG_MASTER_REG_COUNT; i++) {
 		if (i == 6)
 			continue;
 		reg_offset = DEBUG_MASTER_REG_START + master*0x100 + i * 4;
 		read_val = cam_io_r_mb(cci_dev->base + reg_offset);
-		CCI_DBG("offset = 0x%X value = 0x%X", reg_offset, read_val);
+		CAM_DBG(CAM_CCI, "offset = 0x%X value = 0x%X",
+			reg_offset, read_val);
 	}
 
 	/* CCI Master Queue registers */
-	CCI_DBG(" **** CCI MASTER%d QUEUE%d Registers ****",
+	CAM_DBG(CAM_CCI, " **** CCI MASTER%d QUEUE%d Registers ****",
 		master, queue);
 	for (i = 0; i < DEBUG_MASTER_QUEUE_REG_COUNT; i++) {
 		reg_offset = DEBUG_MASTER_QUEUE_REG_START +  master*0x200 +
 			queue*0x100 + i * 4;
 		read_val = cam_io_r_mb(cci_dev->base + reg_offset);
-		CCI_DBG("offset = 0x%X value = 0x%X",
+		CAM_DBG(CAM_CCI, "offset = 0x%X value = 0x%X",
 			reg_offset, read_val);
 	}
 
 	/* CCI Interrupt registers */
-	CCI_DBG(" ****CCI Interrupt Registers ****");
+	CAM_DBG(CAM_CCI, " ****CCI Interrupt Registers ****");
 	for (i = 0; i < DEBUG_INTR_REG_COUNT; i++) {
 		reg_offset = DEBUG_INTR_REG_START + i * 4;
 		read_val = cam_io_r_mb(cci_dev->base + reg_offset);
-		CCI_DBG("offset = 0x%X value = 0x%X",
+		CAM_DBG(CAM_CCI, "offset = 0x%X value = 0x%X",
 			reg_offset, read_val);
 	}
 }
@@ -449,8 +450,7 @@ static int32_t cam_cci_calc_cmd_len(struct cci_device *cci_dev,
 	}
 
 	if (len > cci_dev->payload_size) {
-		CAM_ERR(CAM_CCI, "%s: %d Len error: %d",
-			len);
+		CAM_ERR(CAM_CCI, "Len error: %d", len);
 		return -EINVAL;
 	}
 
@@ -660,7 +660,7 @@ static int32_t cam_cci_data_queue(struct cci_device *cci_dev,
 
 	rc = cam_cci_lock_queue(cci_dev, master, queue, 1);
 	if (rc < 0) {
-		CAM_ERR(CAM_CCI, "%s failed line %d");
+		CAM_ERR(CAM_CCI, "failed line %d", rc);
 		return rc;
 	}
 
@@ -670,7 +670,7 @@ static int32_t cam_cci_data_queue(struct cci_device *cci_dev,
 		len = cam_cci_calc_cmd_len(cci_dev, c_ctrl, cmd_size,
 			i2c_cmd, &pack);
 		if (len <= 0) {
-			CAM_ERR(CAM_CCI, "%s failed line %d");
+			CAM_ERR(CAM_CCI, "failed");
 			return -EINVAL;
 		}
 
@@ -918,7 +918,7 @@ static int32_t cam_cci_read(struct v4l2_subdev *sd,
 
 	val = cam_io_r_mb(base + CCI_I2C_M0_Q0_CUR_WORD_CNT_ADDR
 			+ master * 0x200 + queue * 0x100);
-	CAM_DBG(CAM_CCI, "%s cur word cnt 0x%x", val);
+	CAM_DBG(CAM_CCI, "cur word cnt 0x%x", val);
 	cam_io_w_mb(val, base + CCI_I2C_M0_Q0_EXEC_WORD_CNT_ADDR
 			+ master * 0x200 + queue * 0x100);
 
@@ -989,7 +989,7 @@ static int32_t cam_cci_i2c_write(struct v4l2_subdev *sd,
 	cci_dev = v4l2_get_subdevdata(sd);
 
 	if (cci_dev->cci_state != CCI_STATE_ENABLED) {
-		CAM_ERR(CAM_CCI, "%s invalid cci state %d",
+		CAM_ERR(CAM_CCI, "invalid cci state %d",
 			cci_dev->cci_state);
 		return -EINVAL;
 	}
@@ -1013,8 +1013,8 @@ static int32_t cam_cci_i2c_write(struct v4l2_subdev *sd,
 		cci_dev->cci_i2c_queue_info[master][queue].max_queue_size-1,
 		master, queue);
 	if (rc < 0) {
-		CAM_ERR(CAM_CCI, "%s:%d Initial validataion failed rc %d",
-		rc);
+		CAM_ERR(CAM_CCI, "Initial validataion failed rc %d",
+			rc);
 		return rc;
 	}
 	if (c_ctrl->cci_info->retries > CCI_I2C_READ_MAX_RETRIES) {

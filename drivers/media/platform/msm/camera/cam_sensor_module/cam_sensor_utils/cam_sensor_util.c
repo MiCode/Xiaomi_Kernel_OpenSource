@@ -903,7 +903,7 @@ int cam_sensor_util_init_gpio_pin_tbl(
 				gconf->cam_gpio_common_tbl[val].gpio;
 		gpio_num_info->valid[SENSOR_VANA] = 1;
 
-		CAM_DBG(CAM_SENSOR, "%s:%d gpio-vana %d",
+		CAM_DBG(CAM_SENSOR, "gpio-vana %d",
 			gpio_num_info->gpio_num[SENSOR_VANA]);
 	}
 

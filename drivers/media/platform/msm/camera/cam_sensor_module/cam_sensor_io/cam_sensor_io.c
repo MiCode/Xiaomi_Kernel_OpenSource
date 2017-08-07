@@ -10,13 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "CAM-SENSOR_IO %s:%d " fmt, __func__, __LINE__
-
 #include "cam_sensor_io.h"
 #include "cam_sensor_i2c.h"
-
-#undef CDBG
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
 int32_t camera_io_dev_poll(struct camera_io_master *io_master_info,
 	uint32_t addr, uint16_t data, uint32_t data_mask,

@@ -40,7 +40,7 @@ static int32_t cam_qup_i2c_rxdata(
 	};
 	rc = i2c_transfer(dev_client->adapter, msgs, 2);
 	if (rc < 0)
-		CAM_ERR(CAM_SENSOR, "%s:failed 0x%x", saddr);
+		CAM_ERR(CAM_SENSOR, "failed 0x%x", saddr);
 	return rc;
 }
 
