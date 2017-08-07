@@ -1374,7 +1374,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
 		property_id = HAL_PARAM_PROFILE_LEVEL_CURRENT;
-		profile_level.profile = HAL_VPX_PROFILE_MAIN;
+		profile_level.profile = HAL_VP8_PROFILE_MAIN;
 		profile_level.level = msm_comm_v4l2_to_hal(
 				V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL,
 				ctrl->val);

@@ -152,16 +152,14 @@ int msm_comm_hal_to_v4l2(int id, int value)
 			V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE;
 		case HAL_H264_PROFILE_MAIN:
 			return V4L2_MPEG_VIDEO_H264_PROFILE_MAIN;
-		case HAL_H264_PROFILE_EXTENDED:
-			return V4L2_MPEG_VIDEO_H264_PROFILE_EXTENDED;
 		case HAL_H264_PROFILE_HIGH:
 			return V4L2_MPEG_VIDEO_H264_PROFILE_HIGH;
-		case HAL_H264_PROFILE_HIGH10:
-			return V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_10;
-		case HAL_H264_PROFILE_HIGH422:
-			return V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_422;
-		case HAL_H264_PROFILE_HIGH444:
-			return V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_444_PREDICTIVE;
+		case HAL_H264_PROFILE_STEREO_HIGH:
+			return V4L2_MPEG_VIDEO_H264_PROFILE_STEREO_HIGH;
+		case HAL_H264_PROFILE_MULTIVIEW_HIGH:
+			return V4L2_MPEG_VIDEO_H264_PROFILE_MULTIVIEW_HIGH;
+		case HAL_H264_PROFILE_CONSTRAINED_HIGH:
+			return V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH;
 		default:
 			goto unknown_value;
 		}
@@ -286,29 +284,40 @@ int msm_comm_hal_to_v4l2(int id, int value)
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
 		switch (value) {
-		case HAL_VPX_LEVEL_VERSION_0:
+		case HAL_VP8_LEVEL_VERSION_0:
 			return V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0;
-		case HAL_VPX_LEVEL_VERSION_1:
+		case HAL_VP8_LEVEL_VERSION_1:
 			return V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_1;
-		case HAL_VPX_LEVEL_VERSION_2:
+		case HAL_VP8_LEVEL_VERSION_2:
 			return V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_2;
-		case HAL_VPX_LEVEL_VERSION_3:
+		case HAL_VP8_LEVEL_VERSION_3:
 			return V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3;
-		case HAL_VPX_LEVEL_UNUSED:
+		case HAL_VP8_LEVEL_UNUSED:
 			return V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED;
 		default:
 			goto unknown_value;
 		}
 	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE:
+		switch (value) {
+		case HAL_MPEG2_PROFILE_SIMPLE:
+			return V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_SIMPLE;
+		case HAL_MPEG2_PROFILE_MAIN:
+			return V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_MAIN;
+		default:
+			goto unknown_value;
+		}
 	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL:
-		/*
-		 * Extremely dirty hack: we haven't implemented g_ctrl of
-		 * any of these controls and have no intention of doing
-		 * so in the near future.  So just return 0 so that we
-		 * don't see the annoying "Unknown control" errors at the
-		 * bottom of this function.
-		 */
-		return 0;
+		/* This mapping is not defined properly in V4L2 */
+		switch (value) {
+		case HAL_MPEG2_LEVEL_LL:
+			return V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_0;
+		case HAL_MPEG2_LEVEL_ML:
+			return V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_1;
+		case HAL_MPEG2_LEVEL_HL:
+			return V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_2;
+		default:
+			goto unknown_value;
+		}
 	}
 
 unknown_value:
@@ -328,16 +337,12 @@ int msm_comm_v4l2_to_hal(int id, int value)
 			return HAL_H264_PROFILE_CONSTRAINED_BASE;
 		case V4L2_MPEG_VIDEO_H264_PROFILE_MAIN:
 			return HAL_H264_PROFILE_MAIN;
-		case V4L2_MPEG_VIDEO_H264_PROFILE_EXTENDED:
-			return HAL_H264_PROFILE_EXTENDED;
 		case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH:
 			return HAL_H264_PROFILE_HIGH;
-		case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_10:
-			return HAL_H264_PROFILE_HIGH10;
-		case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_422:
-			return HAL_H264_PROFILE_HIGH422;
-		case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_444_PREDICTIVE:
-			return HAL_H264_PROFILE_HIGH444;
+		case V4L2_MPEG_VIDEO_H264_PROFILE_STEREO_HIGH:
+			return HAL_H264_PROFILE_STEREO_HIGH;
+		case V4L2_MPEG_VIDEO_H264_PROFILE_MULTIVIEW_HIGH:
+			return HAL_H264_PROFILE_MULTIVIEW_HIGH;
 		case V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_HIGH:
 			return HAL_H264_PROFILE_CONSTRAINED_HIGH;
 		default:
@@ -407,15 +412,15 @@ int msm_comm_v4l2_to_hal(int id, int value)
 	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
 		switch (value) {
 		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_0:
-			return HAL_VPX_LEVEL_VERSION_0;
+			return HAL_VP8_LEVEL_VERSION_0;
 		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_1:
-			return HAL_VPX_LEVEL_VERSION_1;
+			return HAL_VP8_LEVEL_VERSION_1;
 		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_2:
-			return HAL_VPX_LEVEL_VERSION_2;
+			return HAL_VP8_LEVEL_VERSION_2;
 		case V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_3:
-			return HAL_VPX_LEVEL_VERSION_3;
+			return HAL_VP8_LEVEL_VERSION_3;
 		case V4L2_MPEG_VIDC_VIDEO_VP8_UNUSED:
-			return HAL_VPX_LEVEL_UNUSED;
+			return HAL_VP8_LEVEL_UNUSED;
 		default:
 			goto unknown_value;
 		}
