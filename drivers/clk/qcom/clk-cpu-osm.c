@@ -122,6 +122,7 @@
 #define MIN_VCO_VAL			0x2b
 
 #define MAX_VC				63
+#define MEM_ACC_LEVELS_LUT		2
 #define MAX_MEM_ACC_LEVELS		3
 #define MAX_MEM_ACC_VAL_PER_LEVEL	3
 #define MAX_MEM_ACC_VALUES		(MAX_MEM_ACC_LEVELS * \
@@ -266,6 +267,7 @@ struct clk_osm {
 	u32 speedbin;
 	u32 mem_acc_crossover_vc_addr;
 	u32 mem_acc_addr[MEM_ACC_ADDRS];
+	u32 mem_acc_level_vc[MEM_ACC_LEVELS_LUT];
 	u32 ramp_ctl_addr;
 	u32 apm_mode_ctl;
 	u32 apm_status_ctl;
@@ -1045,21 +1047,6 @@ static inline int clk_osm_count_ns(struct clk_osm *c, u64 nsec)
 
 static void clk_osm_program_mem_acc_regs(struct clk_osm *c)
 {
-	int curr_level, i, j = 0;
-	int mem_acc_level_map[MAX_MEM_ACC_LEVELS] = {MAX_VC, MAX_VC, MAX_VC};
-
-	curr_level = c->osm_table[0].mem_acc_level;
-	for (i = 0; i < c->num_entries; i++) {
-		if (curr_level == MAX_MEM_ACC_LEVELS)
-			break;
-
-		if (c->osm_table[i].mem_acc_level != curr_level) {
-			mem_acc_level_map[j++] =
-				c->osm_table[i].virtual_corner;
-			curr_level = c->osm_table[i].mem_acc_level;
-		}
-	}
-
 	if (c->secure_init) {
 		clk_osm_write_seq_reg(c,
 				c->pbases[OSM_BASE] + MEMACC_CROSSOVER_VC,
@@ -1069,13 +1056,8 @@ static void clk_osm_program_mem_acc_regs(struct clk_osm *c)
 		clk_osm_write_seq_reg(c, c->mem_acc_addr[2], DATA_MEM(50));
 		clk_osm_write_seq_reg(c, c->mem_acc_crossover_vc,
 							DATA_MEM(78));
-		clk_osm_write_seq_reg(c, mem_acc_level_map[0], DATA_MEM(79));
-		if (c == &perfcl_clk)
-			clk_osm_write_seq_reg(c, c->mem_acc_threshold_vc,
-								DATA_MEM(80));
-		else
-			clk_osm_write_seq_reg(c, mem_acc_level_map[1],
-								DATA_MEM(80));
+		clk_osm_write_seq_reg(c, c->mem_acc_level_vc[0], DATA_MEM(79));
+		clk_osm_write_seq_reg(c, c->mem_acc_level_vc[1], DATA_MEM(80));
 		/*
 		 * Note that DATA_MEM[81] -> DATA_MEM[89] values will be
 		 * confirmed post-si. Use a value of 1 for DATA_MEM[89] and
@@ -1086,13 +1068,9 @@ static void clk_osm_program_mem_acc_regs(struct clk_osm *c)
 		scm_io_write(c->pbases[SEQ_BASE] + DATA_MEM(78),
 						c->mem_acc_crossover_vc);
 		scm_io_write(c->pbases[SEQ_BASE] + DATA_MEM(79),
-						mem_acc_level_map[0]);
-		if (c == &perfcl_clk)
-			scm_io_write(c->pbases[SEQ_BASE] + DATA_MEM(80),
-						c->mem_acc_threshold_vc);
-		else
-			scm_io_write(c->pbases[SEQ_BASE] + DATA_MEM(80),
-						mem_acc_level_map[1]);
+						c->mem_acc_level_vc[0]);
+		scm_io_write(c->pbases[SEQ_BASE] + DATA_MEM(80),
+						c->mem_acc_level_vc[1]);
 	}
 }
 
@@ -1669,7 +1647,8 @@ static void clk_osm_misc_programming(struct clk_osm *c)
 
 	/* Program LVAL corresponding to first turbo VC */
 	for (i = 0; i < c->num_entries; i++) {
-		if (c->osm_table[i].mem_acc_level == MAX_MEM_ACC_LEVELS) {
+		if (c->osm_table[i].virtual_corner ==
+					c->mem_acc_level_vc[1]) {
 			lval = c->osm_table[i].freq_data & GENMASK(7, 0);
 			break;
 		}
@@ -2288,6 +2267,7 @@ static int clk_osm_parse_dt_configs(struct platform_device *pdev)
 {
 	struct device_node *of = pdev->dev.of_node;
 	u32 *array;
+	char memacc_str[40];
 	int rc = 0;
 	struct resource *res;
 
@@ -2505,6 +2485,36 @@ static int clk_osm_parse_dt_configs(struct platform_device *pdev)
 	if (!perfcl_clk.vbases[SEQ_BASE]) {
 		dev_err(&pdev->dev, "Unable to map perfcl_sequencer base\n");
 		return -ENOMEM;
+	}
+
+	snprintf(memacc_str, ARRAY_SIZE(memacc_str),
+			"qcom,l3-memacc-level-vc-bin%d", l3_clk.speedbin);
+	rc = of_property_read_u32_array(of, memacc_str, l3_clk.mem_acc_level_vc,
+			MEM_ACC_LEVELS_LUT);
+	if (rc) {
+		dev_err(&pdev->dev, "unable to find %s property, rc=%d\n",
+						memacc_str, rc);
+		return rc;
+	}
+
+	snprintf(memacc_str, ARRAY_SIZE(memacc_str),
+			"qcom,pwrcl-memacc-level-vc-bin%d", pwrcl_clk.speedbin);
+	rc = of_property_read_u32_array(of, memacc_str,
+			pwrcl_clk.mem_acc_level_vc, MEM_ACC_LEVELS_LUT);
+	if (rc) {
+		dev_err(&pdev->dev, "unable to find %s property, rc=%d\n",
+			memacc_str, rc);
+		return rc;
+	}
+
+	snprintf(memacc_str, ARRAY_SIZE(memacc_str),
+		"qcom,perfcl-memacc-level-vc-bin%d", pwrcl_clk.speedbin);
+	rc = of_property_read_u32_array(of, memacc_str,
+			perfcl_clk.mem_acc_level_vc, MEM_ACC_LEVELS_LUT);
+	if (rc) {
+		dev_err(&pdev->dev, "unable to find %s property, rc=%d\n",
+			memacc_str, rc);
+		return rc;
 	}
 
 	l3_clk.secure_init = perfcl_clk.secure_init = pwrcl_clk.secure_init =
