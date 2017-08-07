@@ -265,7 +265,7 @@ static void qcrypto_free_req_control(struct crypto_engine *pce,
 	preq->arsp = NULL;
 	/* free req */
 	if (xchg(&preq->in_use, false) == false)
-		pr_warn("request info %p free already\n", preq);
+		pr_warn("request info %pK free already\n", preq);
 	else
 		atomic_dec(&pce->req_count);
 }
@@ -1759,7 +1759,7 @@ static void _qce_ahash_complete(void *cookie, unsigned char *digest,
 	}
 
 #ifdef QCRYPTO_DEBUG
-	dev_info(&pengine->pdev->dev, "_qce_ahash_complete: %p ret %d\n",
+	dev_info(&pengine->pdev->dev, "_qce_ahash_complete: %pK ret %d\n",
 				areq, ret);
 #endif
 	if (digest) {
@@ -1818,7 +1818,7 @@ static void _qce_ablk_cipher_complete(void *cookie, unsigned char *icb,
 	}
 
 #ifdef QCRYPTO_DEBUG
-	dev_info(&pengine->pdev->dev, "_qce_ablk_cipher_complete: %p ret %d\n",
+	dev_info(&pengine->pdev->dev, "_qce_ablk_cipher_complete: %pK ret %d\n",
 				areq, ret);
 #endif
 	if (iv)
@@ -2520,7 +2520,7 @@ static int _qcrypto_enc_aes_ecb(struct ablkcipher_request *req)
 	WARN_ON(crypto_tfm_alg_type(req->base.tfm) !=
 					CRYPTO_ALG_TYPE_ABLKCIPHER);
 #ifdef QCRYPTO_DEBUG
-	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_enc_aes_ecb: %p\n", req);
+	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_enc_aes_ecb: %pK\n", req);
 #endif
 
 	if ((ctx->enc_key_len == AES_KEYSIZE_192) &&
@@ -2550,7 +2550,7 @@ static int _qcrypto_enc_aes_cbc(struct ablkcipher_request *req)
 	WARN_ON(crypto_tfm_alg_type(req->base.tfm) !=
 					CRYPTO_ALG_TYPE_ABLKCIPHER);
 #ifdef QCRYPTO_DEBUG
-	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_enc_aes_cbc: %p\n", req);
+	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_enc_aes_cbc: %pK\n", req);
 #endif
 
 	if ((ctx->enc_key_len == AES_KEYSIZE_192) &&
@@ -2580,7 +2580,7 @@ static int _qcrypto_enc_aes_ctr(struct ablkcipher_request *req)
 	WARN_ON(crypto_tfm_alg_type(req->base.tfm) !=
 				CRYPTO_ALG_TYPE_ABLKCIPHER);
 #ifdef QCRYPTO_DEBUG
-	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_enc_aes_ctr: %p\n", req);
+	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_enc_aes_ctr: %pK\n", req);
 #endif
 
 	if ((ctx->enc_key_len == AES_KEYSIZE_192) &&
@@ -2768,7 +2768,7 @@ static int _qcrypto_dec_aes_ecb(struct ablkcipher_request *req)
 	WARN_ON(crypto_tfm_alg_type(req->base.tfm) !=
 				CRYPTO_ALG_TYPE_ABLKCIPHER);
 #ifdef QCRYPTO_DEBUG
-	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_dec_aes_ecb: %p\n", req);
+	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_dec_aes_ecb: %pK\n", req);
 #endif
 
 	if ((ctx->enc_key_len == AES_KEYSIZE_192) &&
@@ -2798,7 +2798,7 @@ static int _qcrypto_dec_aes_cbc(struct ablkcipher_request *req)
 	WARN_ON(crypto_tfm_alg_type(req->base.tfm) !=
 				CRYPTO_ALG_TYPE_ABLKCIPHER);
 #ifdef QCRYPTO_DEBUG
-	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_dec_aes_cbc: %p\n", req);
+	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_dec_aes_cbc: %pK\n", req);
 #endif
 
 	if ((ctx->enc_key_len == AES_KEYSIZE_192) &&
@@ -2828,7 +2828,7 @@ static int _qcrypto_dec_aes_ctr(struct ablkcipher_request *req)
 	WARN_ON(crypto_tfm_alg_type(req->base.tfm) !=
 					CRYPTO_ALG_TYPE_ABLKCIPHER);
 #ifdef QCRYPTO_DEBUG
-	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_dec_aes_ctr: %p\n", req);
+	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_dec_aes_ctr: %pK\n", req);
 #endif
 
 	if ((ctx->enc_key_len == AES_KEYSIZE_192) &&
@@ -3394,7 +3394,7 @@ static int _qcrypto_aead_encrypt_aes_cbc(struct aead_request *req)
 
 #ifdef QCRYPTO_DEBUG
 	dev_info(&ctx->pengine->pdev->dev,
-			 "_qcrypto_aead_encrypt_aes_cbc: %p\n", req);
+			 "_qcrypto_aead_encrypt_aes_cbc: %pK\n", req);
 #endif
 
 	rctx = aead_request_ctx(req);
@@ -3425,7 +3425,7 @@ static int _qcrypto_aead_decrypt_aes_cbc(struct aead_request *req)
 
 #ifdef QCRYPTO_DEBUG
 	dev_info(&ctx->pengine->pdev->dev,
-			 "_qcrypto_aead_decrypt_aes_cbc: %p\n", req);
+			 "_qcrypto_aead_decrypt_aes_cbc: %pK\n", req);
 #endif
 	rctx = aead_request_ctx(req);
 	rctx->aead = 1;
