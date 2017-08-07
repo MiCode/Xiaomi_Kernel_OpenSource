@@ -1283,6 +1283,8 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 #endif
 #endif
 
+	trace_sched_migrate_task(p, new_cpu, task_util(p));
+
 	if (task_cpu(p) != new_cpu) {
 		if (p->sched_class->migrate_task_rq)
 			p->sched_class->migrate_task_rq(p);
