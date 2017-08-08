@@ -230,7 +230,7 @@ config SND_SOC_MSM8998
 
 config SND_SOC_660
 	tristate "SoC Machine driver for SDM660/670 boards"
-	depends on ARCH_SDM660 || ARCH_SDM670
+	depends on ARCH_QCOM
 	select SND_SOC_INT_CODEC
 	select SND_SOC_EXT_CODEC
 	help
