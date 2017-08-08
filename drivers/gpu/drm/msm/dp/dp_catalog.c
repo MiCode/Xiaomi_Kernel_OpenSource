@@ -15,6 +15,7 @@
 #define pr_fmt(fmt)	"[drm-dp] %s: " fmt, __func__
 
 #include <linux/delay.h>
+#include <drm/drm_dp_helper.h>
 
 #include "dp_catalog.h"
 #include "dp_reg.h"
@@ -747,6 +748,82 @@ static void dp_catalog_ctrl_update_vx_px(struct dp_catalog_ctrl *ctrl,
 	}
 }
 
+static void dp_catalog_ctrl_send_phy_pattern(struct dp_catalog_ctrl *ctrl,
+			u32 pattern)
+{
+	struct dp_catalog_private *catalog;
+	u32 value = 0x0;
+	void __iomem *base = NULL;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	dp_catalog_get_priv(ctrl);
+
+	base = catalog->io->ctrl_io.base;
+
+	dp_write(base + DP_STATE_CTRL, 0x0);
+
+	switch (pattern) {
+	case DP_TEST_PHY_PATTERN_D10_2_NO_SCRAMBLING:
+		dp_write(base + DP_STATE_CTRL, 0x1);
+		break;
+	case DP_TEST_PHY_PATTERN_SYMBOL_ERR_MEASUREMENT_CNT:
+		value &= ~(1 << 16);
+		dp_write(base + DP_HBR2_COMPLIANCE_SCRAMBLER_RESET, value);
+		value |= 0xFC;
+		dp_write(base + DP_HBR2_COMPLIANCE_SCRAMBLER_RESET, value);
+		dp_write(base + DP_MAINLINK_LEVELS, 0x2);
+		dp_write(base + DP_STATE_CTRL, 0x10);
+		break;
+	case DP_TEST_PHY_PATTERN_PRBS7:
+		dp_write(base + DP_STATE_CTRL, 0x20);
+		break;
+	case DP_TEST_PHY_PATTERN_80_BIT_CUSTOM_PATTERN:
+		dp_write(base + DP_STATE_CTRL, 0x40);
+		/* 00111110000011111000001111100000 */
+		dp_write(base + DP_TEST_80BIT_CUSTOM_PATTERN_REG0, 0x3E0F83E0);
+		/* 00001111100000111110000011111000 */
+		dp_write(base + DP_TEST_80BIT_CUSTOM_PATTERN_REG1, 0x0F83E0F8);
+		/* 1111100000111110 */
+		dp_write(base + DP_TEST_80BIT_CUSTOM_PATTERN_REG2, 0x0000F83E);
+		break;
+	case DP_TEST_PHY_PATTERN_HBR2_CTS_EYE_PATTERN:
+		value = BIT(16);
+		dp_write(base + DP_HBR2_COMPLIANCE_SCRAMBLER_RESET, value);
+		value |= 0xFC;
+		dp_write(base + DP_HBR2_COMPLIANCE_SCRAMBLER_RESET, value);
+		dp_write(base + DP_MAINLINK_LEVELS, 0x2);
+		dp_write(base + DP_STATE_CTRL, 0x10);
+		break;
+	default:
+		pr_debug("No valid test pattern requested: 0x%x\n", pattern);
+		return;
+	}
+
+	/* Make sure the test pattern is programmed in the hardware */
+	wmb();
+}
+
+static u32 dp_catalog_ctrl_read_phy_pattern(struct dp_catalog_ctrl *ctrl)
+{
+	struct dp_catalog_private *catalog;
+	void __iomem *base = NULL;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return 0;
+	}
+
+	dp_catalog_get_priv(ctrl);
+
+	base = catalog->io->ctrl_io.base;
+
+	return dp_read(base + DP_MAINLINK_READY);
+}
+
 /* panel related catalog functions */
 static int dp_catalog_panel_timing_cfg(struct dp_catalog_panel *panel)
 {
@@ -988,6 +1065,8 @@ struct dp_catalog *dp_catalog_get(struct device *dev, struct dp_io *io)
 		.get_interrupt  = dp_catalog_ctrl_get_interrupt,
 		.update_transfer_unit = dp_catalog_ctrl_update_transfer_unit,
 		.read_hdcp_status     = dp_catalog_ctrl_read_hdcp_status,
+		.send_phy_pattern    = dp_catalog_ctrl_send_phy_pattern,
+		.read_phy_pattern = dp_catalog_ctrl_read_phy_pattern,
 	};
 	struct dp_catalog_audio audio = {
 		.init       = dp_catalog_audio_init,

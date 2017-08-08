@@ -28,12 +28,11 @@ struct dp_ctrl {
 	void (*deinit)(struct dp_ctrl *dp_ctrl);
 	int (*on)(struct dp_ctrl *dp_ctrl);
 	void (*off)(struct dp_ctrl *dp_ctrl);
-	int (*handle_sink_request)(struct dp_ctrl *dp_ctrl,
-		u32 sink_request);
 	void (*reset)(struct dp_ctrl *dp_ctrl);
 	void (*push_idle)(struct dp_ctrl *dp_ctrl);
 	void (*abort)(struct dp_ctrl *dp_ctrl);
 	void (*isr)(struct dp_ctrl *dp_ctrl);
+	void (*handle_sink_request)(struct dp_ctrl *dp_ctrl);
 };
 
 struct dp_ctrl_in {
