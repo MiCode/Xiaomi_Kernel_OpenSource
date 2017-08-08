@@ -33,6 +33,7 @@ Optional properties:
 			   selection pin is not brought out so it has to be
 			   forced. If this option is omitted then RGMII mode
 			   will be used. Use 0 to disable and 1 to enable.
+  - qcom,ntn-phy-addr: Neutrino PHY address.
 
 Example:
 	qcom,ntn_avb {
@@ -46,6 +47,7 @@ Example:
 		qcom,ntn-rst-delay-msec = <100>;
 		qcom,ntn-rc-num = <1>;
 		qcom,ntn-bus-num = <1>;
+		qcom,ntn-phy-addr = <7>;
 	};
 
 	ethernet {
