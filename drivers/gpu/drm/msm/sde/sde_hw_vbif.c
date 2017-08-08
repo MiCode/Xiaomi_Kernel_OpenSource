@@ -33,10 +33,33 @@
 #define VBIF_OUT_WR_LIM_CONF0		0x00D4
 #define VBIF_OUT_AXI_AMEMTYPE_CONF0	0x0160
 #define VBIF_OUT_AXI_AMEMTYPE_CONF1	0x0164
+#define VBIF_XIN_PND_ERR		0x0190
+#define VBIF_XIN_SRC_ERR		0x0194
+#define VBIF_XIN_CLR_ERR		0x019C
 #define VBIF_XIN_HALT_CTRL0		0x0200
 #define VBIF_XIN_HALT_CTRL1		0x0204
 #define VBIF_XINL_QOS_RP_REMAP_000	0x0550
 #define VBIF_XINL_QOS_LVL_REMAP_000	0x0590
+
+static void sde_hw_clear_errors(struct sde_hw_vbif *vbif,
+		u32 *pnd_errors, u32 *src_errors)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 pnd, src;
+
+	if (!vbif)
+		return;
+	c = &vbif->hw;
+	pnd = SDE_REG_READ(c, VBIF_XIN_PND_ERR);
+	src = SDE_REG_READ(c, VBIF_XIN_SRC_ERR);
+
+	if (pnd_errors)
+		*pnd_errors = pnd;
+	if (src_errors)
+		*src_errors = src;
+
+	SDE_REG_WRITE(c, VBIF_XIN_CLR_ERR, pnd | src);
+}
 
 static void sde_hw_set_mem_type(struct sde_hw_vbif *vbif,
 		u32 xin_id, u32 value)
@@ -192,6 +215,7 @@ static void _setup_vbif_ops(struct sde_hw_vbif_ops *ops,
 	if (test_bit(SDE_VBIF_QOS_REMAP, &cap))
 		ops->set_qos_remap = sde_hw_set_qos_remap;
 	ops->set_mem_type = sde_hw_set_mem_type;
+	ops->clear_errors = sde_hw_clear_errors;
 	ops->set_write_gather_en = sde_hw_set_write_gather_en;
 }
 

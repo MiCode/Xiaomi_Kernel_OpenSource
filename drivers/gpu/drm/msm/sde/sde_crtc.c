@@ -34,6 +34,7 @@
 #include "sde_color_processing.h"
 #include "sde_encoder.h"
 #include "sde_connector.h"
+#include "sde_vbif.h"
 #include "sde_power_handle.h"
 #include "sde_core_perf.h"
 #include "sde_trace.h"
@@ -2194,6 +2195,8 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	if (cstate->sbuf_cfg.rot_op_mode != SDE_CTL_ROT_OP_MODE_OFFLINE)
 		drm_atomic_crtc_for_each_plane(plane, crtc)
 			sde_plane_kickoff(plane);
+
+	sde_vbif_clear_errors(sde_kms);
 
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list, head) {
 		if (encoder->crtc != crtc)
