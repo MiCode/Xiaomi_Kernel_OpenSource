@@ -131,6 +131,7 @@
 struct qnovo_dt_props {
 	bool			external_rsense;
 	struct device_node	*revid_dev_node;
+	bool			enable_for_dc;
 };
 
 struct qnovo {
@@ -443,6 +444,8 @@ static int qnovo_parse_dt(struct qnovo *chip)
 		pr_err("Missing qcom,pmic-revid property - driver failed\n");
 		return -EINVAL;
 	}
+	chip->dt.enable_for_dc = of_property_read_bool(node,
+					"qcom,enable-for-dc");
 
 	return 0;
 }
@@ -1309,6 +1312,10 @@ static void status_change_work(struct work_struct *work)
 	}
 
 	if (usb_present)
+		dc_present = 0;
+
+	/* disable qnovo for dc path by forcing dc_present = 0 always */
+	if (!chip->dt.enable_for_dc)
 		dc_present = 0;
 
 	if (chip->dc_present && !dc_present) {
