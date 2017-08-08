@@ -220,7 +220,7 @@ static int32_t cam_spi_tx_read(struct camera_io_master *client,
 		msleep(client->spi_client->retry_delay);
 	}
 	if (rc < 0) {
-		pr_err("%s: failed %d\n", __func__, rc);
+		CAM_ERR(CAM_SENSOR, "failed %d", rc);
 		goto out;
 	}
 	if (data && num_byte && !rx)
@@ -248,7 +248,7 @@ int cam_spi_read(struct camera_io_master *client,
 		&client->spi_client->cmd_tbl.read, addr, &temp[0],
 		data_type, NULL, NULL);
 	if (rc < 0) {
-		pr_err("%s: failed %d\n", __func__, rc);
+		CAM_ERR(CAM_SENSOR, "failed %d", rc);
 		return rc;
 	}
 
@@ -257,7 +257,7 @@ int cam_spi_read(struct camera_io_master *client,
 	else
 		*data = (temp[0] << BITS_PER_BYTE) | temp[1];
 
-	CAM_DBG(CAM_SENSOR, "addr 0x%x, data %u\n", addr, *data);
+	CAM_DBG(CAM_SENSOR, "addr 0x%x, data %u", addr, *data);
 	return rc;
 }
 
@@ -276,8 +276,8 @@ static int32_t cam_spi_read_status_reg(
 		&client->spi_client->cmd_tbl.read_status;
 
 	if (rs->addr_len != 0) {
-		pr_err("%s: not implemented yet\n", __func__);
-		return -EINVAL;
+		CAM_ERR(CAM_SENSOR, "not implemented yet");
+		return -ENXIO;
 	}
 	return cam_spi_tx_helper(client, rs, 0, status, 1, NULL, NULL);
 }
@@ -290,7 +290,7 @@ static int32_t cam_spi_device_busy(struct camera_io_master *client,
 
 	rc = cam_spi_read_status_reg(client,  &st);
 	if (rc < 0) {
-		pr_err("%s: failed to read status reg\n", __func__);
+		CAM_ERR(CAM_SENSOR, "failed to read status reg");
 		return rc;
 	}
 	*busy = st & client->spi_client->busy_mask;
@@ -314,7 +314,7 @@ static int32_t cam_spi_wait(struct camera_io_master *client,
 		CAM_DBG(CAM_SENSOR, "op 0x%x wait", inst->opcode);
 	}
 	if (i > inst->delay_count) {
-		pr_err("%s: op %x timed out\n", __func__, inst->opcode);
+		CAM_ERR(CAM_SENSOR, "op %x timed out", inst->opcode);
 		return -ETIMEDOUT;
 	}
 	CAM_DBG(CAM_SENSOR, "op %x finished", inst->opcode);
@@ -331,12 +331,12 @@ static int32_t cam_spi_write_enable(
 	if (we->opcode == 0)
 		return 0;
 	if (we->addr_len != 0) {
-		pr_err("%s: not implemented yet\n", __func__);
+		CAM_ERR(CAM_SENSOR, "not implemented yet");
 		return -EINVAL;
 	}
 	rc = cam_spi_tx_helper(client, we, 0, NULL, 0, NULL, NULL);
 	if (rc < 0)
-		pr_err("%s: write enable failed\n", __func__);
+		CAM_ERR(CAM_SENSOR, "write enable failed");
 	return rc;
 }
 
@@ -372,7 +372,7 @@ static int32_t cam_spi_page_program(struct camera_io_master *client,
 	tx[0] = pg->opcode;
 	cam_set_addr(addr, pg->addr_len, addr_type, tx + 1);
 	memcpy(tx + header_len, data, len);
-	CAM_DBG(CAM_SENSOR, "tx(%u): %02x %02x %02x %02x\n",
+	CAM_DBG(CAM_SENSOR, "tx(%u): %02x %02x %02x %02x",
 		len, tx[0], tx[1], tx[2], tx[3]);
 	while ((rc = spi_write(spi, tx, len + header_len)) && retries) {
 		rc = cam_spi_wait(client, pg);
@@ -380,7 +380,7 @@ static int32_t cam_spi_page_program(struct camera_io_master *client,
 		retries--;
 	}
 	if (rc < 0) {
-		pr_err("%s: failed %d\n", __func__, rc);
+		CAM_ERR(CAM_SENSOR, "failed %d", rc);
 		return rc;
 	}
 	rc = cam_spi_wait(client, pg);
@@ -422,10 +422,10 @@ int cam_spi_write(struct camera_io_master *client,
 		goto ERROR;
 	goto OUT;
 NOMEM:
-	pr_err("%s: memory allocation failed\n", __func__);
+	CAM_ERR(CAM_SENSOR, "memory allocation failed");
 	return -ENOMEM;
 ERROR:
-	pr_err("%s: error write\n", __func__);
+	CAM_ERR(CAM_SENSOR, "error write");
 OUT:
 	kfree(tx);
 	return rc;
