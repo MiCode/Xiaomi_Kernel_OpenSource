@@ -535,6 +535,11 @@
 		clock-names = "iface_clk";
 	};
 
+	qcom_tzlog: tz-log@08600720 {
+		compatible = "qcom,tz-log";
+		reg = <0x08600720 0x2000>;
+	};
+
 	qcom,qcedev@720000 {
 		compatible = "qcom,qcedev";
 		reg = <0x720000 0x20000>,
