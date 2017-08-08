@@ -695,6 +695,11 @@ static int ipa3_wwan_add_ul_flt_rule_to_ipa(void)
 	/* send ipa_fltr_installed_notif_req_msg_v01 to Q6*/
 	req->source_pipe_index =
 		ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_PROD);
+	if (req->source_pipe_index == IPA_EP_NOT_ALLOCATED) {
+		IPAWANERR("ep mapping failed\n");
+		retval = -EFAULT;
+	}
+
 	req->install_status = QMI_RESULT_SUCCESS_V01;
 	req->rule_id_valid = 1;
 	req->rule_id_len = rmnet_ipa3_ctx->num_q6_rules;
