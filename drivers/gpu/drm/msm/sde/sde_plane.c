@@ -2256,6 +2256,11 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 		if (ret)
 			return ret;
 
+		if (rstate->nplane != old_rstate->nplane ||
+				rstate->out_xpos != old_rstate->out_xpos)
+			pstate->dirty |= SDE_PLANE_DIRTY_FORMAT |
+				SDE_PLANE_DIRTY_RECTS;
+
 		/* check if stream buffer is already attached to rotator */
 		_sde_plane_rot_get_fb(plane, cstate, rstate);
 
