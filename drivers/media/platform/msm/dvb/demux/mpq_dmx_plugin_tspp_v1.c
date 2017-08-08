@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/kthread.h>
 #include <linux/vmalloc.h>
+#include <linux/dma-buf.h>
 #include <linux/qcom_tspp.h>
 #include "mpq_dvb_debug.h"
 #include "mpq_dmx_plugin_common.h"
@@ -189,6 +190,10 @@ static struct
 
 		/* Mutex protecting the data-structure */
 		struct mutex mutex;
+
+		/* ion dma buffer mapping structure */
+		struct tspp_ion_dma_buf_info ch_ion_dma_buf;
+
 	} tsif[TSIF_COUNT];
 
 	/* ION client used for TSPP data buffer allocation */
@@ -196,7 +201,8 @@ static struct
 } mpq_dmx_tspp_info;
 
 static void *tspp_mem_allocator(int channel_id, u32 size,
-				phys_addr_t *phys_base, void *user)
+				phys_addr_t *phys_base, dma_addr_t *dma_base,
+				void *user)
 {
 	void *virt_addr = NULL;
 	int i = TSPP_GET_TSIF_NUM(channel_id);
@@ -211,6 +217,10 @@ static void *tspp_mem_allocator(int channel_id, u32 size,
 
 	*phys_base =
 		(mpq_dmx_tspp_info.tsif[i].ch_mem_heap_phys_base +
+		(mpq_dmx_tspp_info.tsif[i].buff_index * size));
+
+	*dma_base =
+		(mpq_dmx_tspp_info.tsif[i].ch_ion_dma_buf.dma_map_base +
 		(mpq_dmx_tspp_info.tsif[i].buff_index * size));
 
 	mpq_dmx_tspp_info.tsif[i].buff_index++;
@@ -539,6 +549,9 @@ static void mpq_dmx_channel_mem_free(int tsif)
 
 	mpq_dmx_tspp_info.tsif[tsif].ch_mem_heap_virt_base = NULL;
 	mpq_dmx_tspp_info.tsif[tsif].ch_mem_heap_handle = NULL;
+
+	tspp_detach_ion_dma_buff(0,
+		&mpq_dmx_tspp_info.tsif[tsif].ch_ion_dma_buf);
 }
 
 /**
@@ -587,6 +600,24 @@ static int mpq_dmx_channel_mem_alloc(int tsif)
 		MPQ_DVB_ERR_PRINT("%s: ion_phys() failed\n", __func__);
 		mpq_dmx_channel_mem_free(tsif);
 		return -ENOMEM;
+	}
+
+	mpq_dmx_tspp_info.tsif[tsif].ch_ion_dma_buf.dbuf = ion_share_dma_buf(
+			mpq_dmx_tspp_info.ion_client,
+			mpq_dmx_tspp_info.tsif[tsif].ch_mem_heap_handle);
+	if (IS_ERR_OR_NULL(mpq_dmx_tspp_info.tsif[tsif].ch_ion_dma_buf.dbuf)) {
+		MPQ_DVB_ERR_PRINT("%s: ion_share_dma_buf failed\n", __func__);
+		mpq_dmx_channel_mem_free(tsif);
+		return -ENOMEM;
+	}
+
+	result = tspp_attach_ion_dma_buff(0,
+				&mpq_dmx_tspp_info.tsif[tsif].ch_ion_dma_buf);
+	if (result) {
+		MPQ_DVB_ERR_PRINT("%s: tspp_attach_ion_dma_buff failed\n",
+					 __func__);
+		mpq_dmx_channel_mem_free(tsif);
+		return result;
 	}
 
 	return 0;
