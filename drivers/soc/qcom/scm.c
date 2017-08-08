@@ -397,18 +397,22 @@ static int __scm_call_armv8_64(u64 x0, u64 x1, u64 x2, u64 x3, u64 x4, u64 x5,
 			__asmeq("%1", R1_STR)
 			__asmeq("%2", R2_STR)
 			__asmeq("%3", R3_STR)
-			__asmeq("%4", R0_STR)
-			__asmeq("%5", R1_STR)
-			__asmeq("%6", R2_STR)
-			__asmeq("%7", R3_STR)
-			__asmeq("%8", R4_STR)
-			__asmeq("%9", R5_STR)
-			__asmeq("%10", R6_STR)
+			__asmeq("%4", R4_STR)
+			__asmeq("%5", R5_STR)
+			__asmeq("%6", R6_STR)
+			__asmeq("%7", R0_STR)
+			__asmeq("%8", R1_STR)
+			__asmeq("%9", R2_STR)
+			__asmeq("%10", R3_STR)
+			__asmeq("%11", R4_STR)
+			__asmeq("%12", R5_STR)
+			__asmeq("%13", R6_STR)
 #ifdef REQUIRES_SEC
 			".arch_extension sec\n"
 #endif
 			"smc	#0\n"
-			: "=r" (r0), "=r" (r1), "=r" (r2), "=r" (r3)
+			: "=r" (r0), "=r" (r1), "=r" (r2), "=r" (r3),
+			  "=r" (r4), "=r" (r5), "=r" (r6)
 			: "r" (r0), "r" (r1), "r" (r2), "r" (r3), "r" (r4),
 			  "r" (r5), "r" (r6)
 			: "x7", "x8", "x9", "x10", "x11", "x12", "x13",
@@ -442,18 +446,22 @@ static int __scm_call_armv8_32(u32 w0, u32 w1, u32 w2, u32 w3, u32 w4, u32 w5,
 			__asmeq("%1", R1_STR)
 			__asmeq("%2", R2_STR)
 			__asmeq("%3", R3_STR)
-			__asmeq("%4", R0_STR)
-			__asmeq("%5", R1_STR)
-			__asmeq("%6", R2_STR)
-			__asmeq("%7", R3_STR)
-			__asmeq("%8", R4_STR)
-			__asmeq("%9", R5_STR)
-			__asmeq("%10", R6_STR)
+			__asmeq("%4", R4_STR)
+			__asmeq("%5", R5_STR)
+			__asmeq("%6", R6_STR)
+			__asmeq("%7", R0_STR)
+			__asmeq("%8", R1_STR)
+			__asmeq("%9", R2_STR)
+			__asmeq("%10", R3_STR)
+			__asmeq("%11", R4_STR)
+			__asmeq("%12", R5_STR)
+			__asmeq("%13", R6_STR)
 #ifdef REQUIRES_SEC
 			".arch_extension sec\n"
 #endif
 			"smc	#0\n"
-			: "=r" (r0), "=r" (r1), "=r" (r2), "=r" (r3)
+			: "=r" (r0), "=r" (r1), "=r" (r2), "=r" (r3),
+			  "=r" (r4), "=r" (r5), "=r" (r6)
 			: "r" (r0), "r" (r1), "r" (r2), "r" (r3), "r" (r4),
 			  "r" (r5), "r" (r6)
 			: "x7", "x8", "x9", "x10", "x11", "x12", "x13",
@@ -490,18 +498,22 @@ static int __scm_call_armv8_32(u32 w0, u32 w1, u32 w2, u32 w3, u32 w4, u32 w5,
 			__asmeq("%1", R1_STR)
 			__asmeq("%2", R2_STR)
 			__asmeq("%3", R3_STR)
-			__asmeq("%4", R0_STR)
-			__asmeq("%5", R1_STR)
-			__asmeq("%6", R2_STR)
-			__asmeq("%7", R3_STR)
-			__asmeq("%8", R4_STR)
-			__asmeq("%9", R5_STR)
-			__asmeq("%10", R6_STR)
+			__asmeq("%4", R4_STR)
+			__asmeq("%5", R5_STR)
+			__asmeq("%6", R6_STR)
+			__asmeq("%7", R0_STR)
+			__asmeq("%8", R1_STR)
+			__asmeq("%9", R2_STR)
+			__asmeq("%10", R3_STR)
+			__asmeq("%11", R4_STR)
+			__asmeq("%12", R5_STR)
+			__asmeq("%13", R6_STR)
 #ifdef REQUIRES_SEC
 			".arch_extension sec\n"
 #endif
 			"smc	#0\n"
-			: "=r" (r0), "=r" (r1), "=r" (r2), "=r" (r3)
+			: "=r" (r0), "=r" (r1), "=r" (r2), "=r" (r3),
+			  "=r" (r4), "=r" (r5), "=r" (r6)
 			: "r" (r0), "r" (r1), "r" (r2), "r" (r3), "r" (r4),
 			 "r" (r5), "r" (r6));
 
