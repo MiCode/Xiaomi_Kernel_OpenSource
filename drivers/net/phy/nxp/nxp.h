@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 NXP
+ * Copyright 2017 NXP
  *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
@@ -156,7 +156,7 @@
 #define EXTSTAT_OPEN_DETECT       BIT(7)
 #define EXTSTAT_SHORT_DETECT      BIT(8)
 
-/**
+/*
  * Indicator for BRR support in ESTATUS register
  * and in phydev->supported member.
  * Not yet present in include/uapi/linux/mii.h and
@@ -235,22 +235,15 @@ struct nxp_specific_data {
 	int poll_setup;
 };
 
-/* Variable can be modified via parameter passed at load time
- * A nonzero value indicates that we should operate in managed mode
- */
-static int managed_mode;
-/* Permission: do not show up in sysfs */
-module_param(managed_mode, int, 0000);
-MODULE_PARM_DESC(managed_mode, "Use PHY in managed or autonomous mode");
-
 /* Helper Function prototypes */
-int set_master_cfg(struct phy_device *phydev, int setMaster);
-int get_master_cfg(struct phy_device *phydev);
+static int set_master_cfg(struct phy_device *phydev, int setMaster);
+static int get_master_cfg(struct phy_device *phydev);
 static struct phy_device *search_phy_by_id(int phy_id);
 static struct phy_device *search_phy_by_addr(int phy_id);
 static int wait_on_condition(struct phy_device *phydev, int reg_addr,
 			     int reg_mask, int cond, int timeout);
-void set_link_control(struct phy_device *phydev, int enable_link_control);
+static void set_link_control(struct phy_device *phydev,
+			     int enable_link_control);
 static inline int phy_configure_bit(struct phy_device *phydev,
 				    int reg_name, int bit_mask,
 				    int bit_value);
