@@ -1463,6 +1463,11 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 			cnss_pci_disable_msi(pci_priv);
 			goto disable_bus;
 		}
+		ret = cnss_suspend_pci_link(pci_priv);
+		if (ret)
+			cnss_pr_err("Failed to suspend PCI link, err = %d\n",
+				    ret);
+		cnss_power_off_device(plat_priv);
 		break;
 	default:
 		cnss_pr_err("Unknown PCI device found: 0x%x\n",
