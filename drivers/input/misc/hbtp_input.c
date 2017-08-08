@@ -205,10 +205,6 @@ static int hbtp_input_release(struct inode *inode, struct file *file)
 		return -ENOTTY;
 	}
 	hbtp->count--;
-	if (!completion_done(&hbtp->power_suspend_sig))
-		complete(&hbtp->power_suspend_sig);
-	if (!completion_done(&hbtp->power_resume_sig))
-		complete(&hbtp->power_resume_sig);
 	if (hbtp->power_sig_enabled)
 		hbtp->power_sig_enabled = false;
 	mutex_unlock(&hbtp->mutex);
