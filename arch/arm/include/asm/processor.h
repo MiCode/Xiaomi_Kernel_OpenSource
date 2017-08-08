@@ -30,6 +30,8 @@
 #define STACK_TOP_MAX	TASK_SIZE
 #endif
 
+extern unsigned int boot_reason;
+
 struct debug_info {
 #ifdef CONFIG_HAVE_HW_BREAKPOINT
 	struct perf_event	*hbp[ARM_MAX_HBP_SLOTS];
