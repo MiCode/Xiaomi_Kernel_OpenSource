@@ -47,10 +47,10 @@ enum status_update {
 };
 
 enum test_bit_depth {
-	DP_TEST_BIT_DEPTH_6 = 0x00,
-	DP_TEST_BIT_DEPTH_8 = 0x01,
-	DP_TEST_BIT_DEPTH_10 = 0x02,
-	DP_TEST_BIT_DEPTH_UNKNOWN = 0xFFFFFFFF,
+	DP_TBD_6 = 0x00,
+	DP_TBD_8 = 0x01,
+	DP_TBD_10 = 0x02,
+	DP_TBD_UNKNOWN = 0xFFFFFFFF,
 };
 
 struct dp_link {

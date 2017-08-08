@@ -149,8 +149,8 @@ static void dp_ctrl_config_ctrl(struct dp_ctrl_private *ctrl)
 	tbd = ctrl->link->get_test_bits_depth(ctrl->link,
 			ctrl->panel->pinfo.bpp);
 
-	if (tbd == DP_TEST_BIT_DEPTH_UNKNOWN)
-		tbd = DP_TEST_BIT_DEPTH_8;
+	if (tbd == DP_TBD_UNKNOWN)
+		tbd = DP_TBD_8;
 
 	config |= tbd << 8;
 

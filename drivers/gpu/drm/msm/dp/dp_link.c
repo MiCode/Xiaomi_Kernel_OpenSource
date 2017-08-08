@@ -136,16 +136,16 @@ static inline u32 dp_link_bit_depth_to_bpp(enum test_bit_depth tbd)
 	 *    3. Assume 3 color components
 	 */
 	switch (tbd) {
-	case DP_TEST_BIT_DEPTH_6:
+	case DP_TBD_6:
 		bpp = 18;
 		break;
-	case DP_TEST_BIT_DEPTH_8:
+	case DP_TBD_8:
 		bpp = 24;
 		break;
-	case DP_TEST_BIT_DEPTH_10:
+	case DP_TBD_10:
 		bpp = 30;
 		break;
-	case DP_TEST_BIT_DEPTH_UNKNOWN:
+	case DP_TBD_UNKNOWN:
 	default:
 		bpp = 0;
 	}
@@ -501,9 +501,9 @@ static bool dp_link_is_bit_depth_valid(u32 tbd)
 {
 	/* DP_TEST_VIDEO_PATTERN_NONE is treated as invalid */
 	switch (tbd) {
-	case DP_TEST_BIT_DEPTH_6:
-	case DP_TEST_BIT_DEPTH_8:
-	case DP_TEST_BIT_DEPTH_10:
+	case DP_TBD_6:
+	case DP_TBD_8:
+	case DP_TBD_10:
 		return true;
 	default:
 		return false;
@@ -513,13 +513,13 @@ static bool dp_link_is_bit_depth_valid(u32 tbd)
 static char *dp_link_bit_depth_to_string(u32 tbd)
 {
 	switch (tbd) {
-	case DP_TEST_BIT_DEPTH_6:
-		return DP_LINK_ENUM_STR(DP_TEST_BIT_DEPTH_6);
-	case DP_TEST_BIT_DEPTH_8:
-		return DP_LINK_ENUM_STR(DP_TEST_BIT_DEPTH_8);
-	case DP_TEST_BIT_DEPTH_10:
-		return DP_LINK_ENUM_STR(DP_TEST_BIT_DEPTH_10);
-	case DP_TEST_BIT_DEPTH_UNKNOWN:
+	case DP_TBD_6:
+		return DP_LINK_ENUM_STR(DP_TBD_6);
+	case DP_TBD_8:
+		return DP_LINK_ENUM_STR(DP_TBD_8);
+	case DP_TBD_10:
+		return DP_LINK_ENUM_STR(DP_TBD_10);
+	case DP_TBD_UNKNOWN:
 	default:
 		return "unknown";
 	}
@@ -1348,7 +1348,7 @@ static int dp_link_process_audio_pattern_request(struct dp_link_private *link)
 static void dp_link_reset_data(struct dp_link_private *link)
 {
 	link->request = (const struct dp_link_request){ 0 };
-	link->request.test_bit_depth = DP_TEST_BIT_DEPTH_UNKNOWN;
+	link->request.test_bit_depth = DP_TBD_UNKNOWN;
 
 	link->dp_link.test_requested = 0;
 }
@@ -1541,16 +1541,16 @@ static u32 dp_link_get_test_bits_depth(struct dp_link *dp_link, u32 bpp)
 	 */
 	switch (bpp) {
 	case 18:
-		tbd = DP_TEST_BIT_DEPTH_6;
+		tbd = DP_TBD_6;
 		break;
 	case 24:
-		tbd = DP_TEST_BIT_DEPTH_8;
+		tbd = DP_TBD_8;
 		break;
 	case 30:
-		tbd = DP_TEST_BIT_DEPTH_10;
+		tbd = DP_TBD_10;
 		break;
 	default:
-		tbd = DP_TEST_BIT_DEPTH_UNKNOWN;
+		tbd = DP_TBD_UNKNOWN;
 		break;
 	}
 
