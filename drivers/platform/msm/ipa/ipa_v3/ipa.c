@@ -4298,12 +4298,12 @@ static void ipa3_post_init_wq(struct work_struct *work)
 	ipa3_post_init(&ipa3_res, ipa3_ctx->dev);
 }
 
-static int ipa3_trigger_fw_loading_mdms(void)
+static int ipa3_manual_load_ipa_fws(void)
 {
 	int result;
 	const struct firmware *fw;
 
-	IPADBG("FW loading process initiated\n");
+	IPADBG("Manual FW loading process initiated\n");
 
 	result = request_firmware(&fw, IPA_FWS_PATH, ipa3_ctx->dev);
 	if (result < 0) {
@@ -4319,7 +4319,7 @@ static int ipa3_trigger_fw_loading_mdms(void)
 
 	result = ipa3_load_fws(fw, ipa3_res.transport_mem_base);
 	if (result) {
-		IPAERR("IPA FWs loading has failed\n");
+		IPAERR("Manual IPA FWs loading has failed\n");
 		release_firmware(fw);
 		return result;
 	}
@@ -4335,15 +4335,15 @@ static int ipa3_trigger_fw_loading_mdms(void)
 
 	release_firmware(fw);
 
-	IPADBG("FW loading process is complete\n");
+	IPADBG("Manual FW loading process is complete\n");
 	return 0;
 }
 
-static int ipa3_trigger_fw_loading_msms(void)
+static int ipa3_pil_load_ipa_fws(void)
 {
 	void *subsystem_get_retval = NULL;
 
-	IPADBG("FW loading process initiated\n");
+	IPADBG("PIL FW loading process initiated\n");
 
 	subsystem_get_retval = subsystem_get(IPA_SUBSYSTEM_NAME);
 	if (IS_ERR_OR_NULL(subsystem_get_retval)) {
@@ -4351,7 +4351,7 @@ static int ipa3_trigger_fw_loading_msms(void)
 		return -EINVAL;
 	}
 
-	IPADBG("FW loading process is complete\n");
+	IPADBG("PIL FW loading process is complete\n");
 	return 0;
 }
 
@@ -4377,11 +4377,8 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 	if (ipa3_is_ready())
 		return count;
 
-	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
-
-	if (ipa3_is_msm_device()) {
-		result = ipa3_trigger_fw_loading_msms();
-	} else {
+	/* Check MHI configuration on MDM devices */
+	if (!ipa3_is_msm_device()) {
 		if (!strcasecmp(dbg_buff, "MHI")) {
 			ipa3_ctx->ipa_config_is_mhi = true;
 			pr_info(
@@ -4390,19 +4387,26 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 			pr_info(
 			"IPA is loading with non MHI configuration\n");
 		}
-		result = ipa3_trigger_fw_loading_mdms();
 	}
-	/* No IPAv3.x chipsets that don't support FW loading */
+
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
+	if (ipa3_is_msm_device() || (ipa3_ctx->ipa_hw_type >= IPA_HW_v3_5))
+		result = ipa3_pil_load_ipa_fws();
+	else
+		result = ipa3_manual_load_ipa_fws();
 
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
 
 	if (result) {
-		IPAERR("FW loading process has failed\n");
-			return result;
-	} else {
-			queue_work(ipa3_ctx->transport_power_mgmt_wq,
-				&ipa3_post_init_work);
+		IPAERR("IPA FW loading process has failed\n");
+		return result;
 	}
+
+	queue_work(ipa3_ctx->transport_power_mgmt_wq,
+		&ipa3_post_init_work);
+	pr_info("IPA FW loaded successfully\n");
+
 	return count;
 }
 
