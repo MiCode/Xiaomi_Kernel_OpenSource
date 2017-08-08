@@ -1315,10 +1315,19 @@ static bool is_temp_valid_cap_learning(struct fg_chip *chip)
 	return true;
 }
 
+#define QNOVO_CL_SKEW_DECIPCT	-30
 static void fg_cap_learning_post_process(struct fg_chip *chip)
 {
 	int64_t max_inc_val, min_dec_val, old_cap;
 	int rc;
+
+	if (is_qnovo_en(chip)) {
+		fg_dbg(chip, FG_CAP_LEARN, "applying skew %d on current learnt capacity %lld\n",
+			QNOVO_CL_SKEW_DECIPCT, chip->cl.final_cc_uah);
+		chip->cl.final_cc_uah = chip->cl.final_cc_uah *
+						(1000 + QNOVO_CL_SKEW_DECIPCT);
+		do_div(chip->cl.final_cc_uah, 1000);
+	}
 
 	max_inc_val = chip->cl.learned_cc_uah
 			* (1000 + chip->dt.cl_max_cap_inc);
