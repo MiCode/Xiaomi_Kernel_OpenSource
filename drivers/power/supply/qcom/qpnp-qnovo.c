@@ -1455,6 +1455,9 @@ static int qnovo_hw_init(struct qnovo *chip)
 	u8 vadc_offset, vadc_gain;
 	u8 val;
 
+	vote(chip->chg_ready_votable, USB_READY_VOTER, false, 0);
+	vote(chip->chg_ready_votable, DC_READY_VOTER, false, 0);
+
 	vote(chip->disable_votable, USER_VOTER, true, 0);
 	vote(chip->disable_votable, FG_AVAILABLE_VOTER, true, 0);
 
