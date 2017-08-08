@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -180,7 +180,7 @@ int kgsl_add_fence_event(struct kgsl_device *device,
 		goto out;
 	}
 	snprintf(fence_name, sizeof(fence_name),
-		"%s-pid-%d-ctx-%d-ts-%d",
+		"%s-pid-%d-ctx-%d-ts-%u",
 		device->name, current->group_leader->pid,
 		context_id, timestamp);
 
