@@ -1333,6 +1333,26 @@ static void ptrain_restart_work(struct work_struct *work)
 				struct qnovo, ptrain_restart_work.work);
 	u8 pt_t1, pt_t2;
 	int rc;
+	u8 pt_en;
+
+	rc = qnovo_read(chip, QNOVO_PTRAIN_EN, &pt_en, 1);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read QNOVO_PTRAIN_EN rc = %d\n",
+				rc);
+		goto clean_up;
+	}
+
+	if (!pt_en) {
+		rc = qnovo_masked_write(chip, QNOVO_PTRAIN_EN,
+				QNOVO_PTRAIN_EN_BIT, QNOVO_PTRAIN_EN_BIT);
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't enable pulse train rc=%d\n",
+					rc);
+			goto clean_up;
+		}
+		/* sleep 20ms for the pulse trains to restart and settle */
+		msleep(20);
+	}
 
 	rc = qnovo_read(chip, QNOVO_PTTIME_STS, &pt_t1, 1);
 	if (rc < 0) {
