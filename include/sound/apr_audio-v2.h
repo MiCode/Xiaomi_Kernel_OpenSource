@@ -8537,6 +8537,8 @@ struct asm_eq_params {
 #define VSS_ICOMMON_CMD_GET_PARAM_V2	0x0001133E
 #define VSS_ICOMMON_RSP_GET_PARAM	0x00011008
 
+#define VSS_MAX_AVCS_NUM_SERVICES	25
+
 /* ID of the Bass Boost module.
  * This module supports the following parameter IDs:
  *  - #AUDPROC_PARAM_ID_BASS_BOOST_ENABLE
@@ -9195,6 +9197,74 @@ struct asm_aptx_dec_fmt_blk_v2 {
 /* Number of samples per second.
  * Supported values: 44100 and 48000 Hz
  */
+} __packed;
+
+/* Q6Core Specific */
+#define AVCS_CMD_GET_FWK_VERSION (0x0001292C)
+#define AVCS_CMDRSP_GET_FWK_VERSION (0x0001292D)
+
+#define AVCS_SERVICE_ID_ALL (0xFFFFFFFF)
+#define APRV2_IDS_SERVICE_ID_ADSP_CVP_V	(0xB)
+
+struct avcs_get_fwk_version {
+	/*
+	 * Indicates the major version of the AVS build.
+	 * This value is incremented on chipset family boundaries.
+	 */
+	uint32_t build_major_version;
+
+	/*
+	 * Minor version of the AVS build.
+	 * This value represents the mainline to which the AVS build belongs.
+	 */
+	uint32_t build_minor_version;
+
+	/* Indicates the AVS branch version to which the image belongs. */
+	uint32_t build_branch_version;
+
+	/* Indicates the AVS sub-branch or customer product line information. */
+	uint32_t build_subbranch_version;
+
+	/* Number of supported AVS services in the current build. */
+	uint32_t num_services;
+};
+
+struct avs_svc_api_info {
+	/*
+	 * APRV2 service IDs for the individual static services.
+	 *
+	 *	 @values
+	 *	 - APRV2_IDS_SERVICE_ID_ADSP_CORE_V
+	 *	 - APRV2_IDS_SERVICE_ID_ADSP_AFE_V
+	 *	 - APRV2_IDS_SERVICE_ID_ADSP_ASM_V
+	 *	 - APRV2_IDS_SERVICE_ID_ADSP_ADM_V
+	 *	 - APRV2_IDS_SERVICE_ID_ADSP_MVM_V
+	 *	 - APRV2_IDS_SERVICE_ID_ADSP_CVS_V
+	 *	 - APRV2_IDS_SERVICE_ID_ADSP_CVP_V
+	 *	 - APRV2_IDS_SERVICE_ID_ADSP_LSM_V
+	 */
+	uint32_t service_id;
+
+	/*
+	 * Indicates the API version of the service.
+	 *
+	 * Each new API update that warrants a change on the HLOS side triggers
+	 * an increment in the version.
+	 */
+	uint32_t api_version;
+
+	/*
+	 * Indicates the API increments on a sub-branch (not on the mainline).
+	 *
+	 * API branch version numbers can increment independently on different
+	 * sub-branches.
+	 */
+	uint32_t api_branch_version;
+};
+
+struct avcs_fwk_ver_info {
+	struct avcs_get_fwk_version avcs_fwk_version;
+	struct avs_svc_api_info *services;
 } __packed;
 
 /* LSM Specific */
