@@ -787,36 +787,6 @@ int cnss_pci_get_bar_info(struct cnss_pci_data *pci_priv, void __iomem **va,
 	return 0;
 }
 
-#ifdef CONFIG_CNSS_QCA6290
-#define PCI_MAX_BAR_SIZE		0xD00000
-
-static void __iomem *cnss_pci_iomap(struct pci_dev *dev, int bar,
-				    unsigned long maxlen)
-{
-	resource_size_t start = pci_resource_start(dev, bar);
-	resource_size_t len = PCI_MAX_BAR_SIZE;
-	unsigned long flags = pci_resource_flags(dev, bar);
-
-	if (!len || !start)
-		return NULL;
-
-	if ((flags & IORESOURCE_IO) || (flags & IORESOURCE_MEM)) {
-		if (flags & IORESOURCE_CACHEABLE && !(flags & IORESOURCE_IO))
-			return ioremap(start, len);
-		else
-			return ioremap_nocache(start, len);
-	}
-
-	return NULL;
-}
-#else
-static void __iomem *cnss_pci_iomap(struct pci_dev *dev, int bar,
-				    unsigned long maxlen)
-{
-	return pci_iomap(dev, bar, maxlen);
-}
-#endif
-
 static struct cnss_msi_config msi_config = {
 	.total_vectors = 32,
 	.total_users = 4,
@@ -1003,7 +973,7 @@ static int cnss_pci_enable_bus(struct cnss_pci_data *pci_priv)
 
 	pci_set_master(pci_dev);
 
-	pci_priv->bar = cnss_pci_iomap(pci_dev, PCI_BAR_NUM, 0);
+	pci_priv->bar = pci_iomap(pci_dev, PCI_BAR_NUM, 0);
 	if (!pci_priv->bar) {
 		cnss_pr_err("Failed to do PCI IO map!\n");
 		ret = -EIO;
