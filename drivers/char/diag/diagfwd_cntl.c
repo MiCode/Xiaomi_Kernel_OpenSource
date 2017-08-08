@@ -70,6 +70,7 @@ void diag_cntl_channel_close(struct diagfwd_info *p_info)
 	driver->feature[peripheral].rcvd_feature_mask = 0;
 	reg_dirty |= PERIPHERAL_MASK(peripheral);
 	diag_cmd_remove_reg_by_proc(peripheral);
+	driver->diag_id_sent[peripheral] = 0;
 	driver->feature[peripheral].stm_support = DISABLE_STM;
 	driver->feature[peripheral].log_on_demand = 0;
 	driver->stm_state[peripheral] = DISABLE_STM;
@@ -195,6 +196,20 @@ static void process_hdlc_encoding_feature(uint8_t peripheral)
 	} else {
 		driver->feature[peripheral].encode_hdlc =
 					DISABLE_APPS_HDLC_ENCODING;
+	}
+}
+
+static void process_upd_header_untagging_feature(uint8_t peripheral)
+{
+	if (peripheral >= NUM_PERIPHERALS)
+		return;
+
+	if (driver->supports_apps_header_untagging) {
+		driver->feature[peripheral].untag_header =
+					ENABLE_PKT_HEADER_UNTAGGING;
+	} else {
+		driver->feature[peripheral].untag_header =
+					DISABLE_PKT_HEADER_UNTAGGING;
 	}
 }
 
@@ -374,6 +389,8 @@ static void process_incoming_feature_mask(uint8_t *buf, uint32_t len,
 			driver->feature[peripheral].separate_cmd_rsp = 1;
 		if (FEATURE_SUPPORTED(F_DIAG_APPS_HDLC_ENCODE))
 			process_hdlc_encoding_feature(peripheral);
+		if (FEATURE_SUPPORTED(F_DIAG_PKT_HEADER_UNTAG))
+			process_upd_header_untagging_feature(peripheral);
 		if (FEATURE_SUPPORTED(F_DIAG_STM))
 			enable_stm_feature(peripheral);
 		if (FEATURE_SUPPORTED(F_DIAG_MASK_CENTRALIZATION))
@@ -382,6 +399,8 @@ static void process_incoming_feature_mask(uint8_t *buf, uint32_t len,
 			driver->feature[peripheral].peripheral_buffering = 1;
 		if (FEATURE_SUPPORTED(F_DIAG_SOCKETS_ENABLED))
 			enable_socket_feature(peripheral);
+		if (FEATURE_SUPPORTED(F_DIAG_DIAGID_SUPPORT))
+			driver->feature[peripheral].diag_id_support = 1;
 	}
 
 	process_socket_feature(peripheral);
@@ -706,12 +725,24 @@ static void process_diagid(uint8_t *buf, uint32_t len,
 {
 	struct diag_ctrl_diagid *header = NULL;
 	struct diag_ctrl_diagid ctrl_pkt;
+	struct diagfwd_info *fwd_info_data = NULL;
+	struct diagfwd_info *fwd_info_cmd = NULL;
 	char *process_name = NULL;
 	int err = 0;
 	uint8_t local_diag_id = 0;
+	uint8_t new_request = 0;
 
 	if (!buf || len == 0 || peripheral >= NUM_PERIPHERALS)
 		return;
+
+	fwd_info_data = &peripheral_info[TYPE_DATA][peripheral];
+	if (!fwd_info_data)
+		return;
+
+	fwd_info_cmd = &peripheral_info[TYPE_CMD][peripheral];
+	if (!fwd_info_cmd)
+		return;
+
 	header = (struct diag_ctrl_diagid *)buf;
 	process_name = (char *)&header->process_name;
 	if (diag_query_diag_id(process_name, &local_diag_id))
@@ -720,7 +751,27 @@ static void process_diagid(uint8_t *buf, uint32_t len,
 		diag_id++;
 		diag_add_diag_id_to_list(diag_id, process_name);
 		ctrl_pkt.diag_id = diag_id;
+		new_request = 1;
 	}
+
+	if (new_request) {
+		fwd_info_data->num_pd++;
+		fwd_info_cmd->num_pd++;
+	}
+
+	if (strnstr(process_name, DIAG_ID_ROOT_STRING, strlen(process_name))) {
+		fwd_info_cmd->diagid_root = diag_id;
+		fwd_info_data->diagid_root = diag_id;
+		driver->diag_id_sent[peripheral] = 0;
+	} else {
+		fwd_info_cmd->diagid_user[fwd_info_cmd->num_pd - 2] = diag_id;
+		fwd_info_data->diagid_user[fwd_info_data->num_pd - 2] = diag_id;
+	}
+
+	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		"diag: peripheral = %d: diag_id string = %s,diag_id = %d\n",
+		peripheral, process_name, ctrl_pkt.diag_id);
+
 	ctrl_pkt.pkt_id = DIAG_CTRL_MSG_DIAGID;
 	ctrl_pkt.version = 1;
 	strlcpy((char *)&ctrl_pkt.process_name, process_name,
@@ -730,8 +781,21 @@ static void process_diagid(uint8_t *buf, uint32_t len,
 	err = diagfwd_write(peripheral, TYPE_CNTL, &ctrl_pkt, ctrl_pkt.len +
 				sizeof(ctrl_pkt.pkt_id) + sizeof(ctrl_pkt.len));
 	if (err && err != -ENODEV) {
-		pr_err("diag: Unable to send diag id  ctrl packet to peripheral %d, err: %d\n",
+		pr_err("diag: Unable to send diag id ctrl packet to peripheral %d, err: %d\n",
 		       peripheral, err);
+	} else {
+	/*
+	 * Masks (F3, logs and events) will be sent to
+	 * peripheral immediately following feature mask update only
+	 * if diag_id support is not present or
+	 * diag_id support is present and diag_id has been sent to
+	 * peripheral.
+	 * With diag_id being sent now, mask will be updated
+	 * to peripherals.
+	 */
+		driver->diag_id_sent[peripheral] = 1;
+		diag_send_updates_peripheral(peripheral);
+		diagfwd_buffers_init(fwd_info_data);
 	}
 }
 

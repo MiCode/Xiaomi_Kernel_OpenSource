@@ -69,6 +69,7 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		"Uses Device Tree: %d\n"
 		"Apps Supports Separate CMDRSP: %d\n"
 		"Apps Supports HDLC Encoding: %d\n"
+		"Apps Supports Header Untagging: %d\n"
 		"Apps Supports Sockets: %d\n"
 		"Logging Mode: %d\n"
 		"RSP Buffer is Busy: %d\n"
@@ -83,6 +84,7 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		driver->use_device_tree,
 		driver->supports_separate_cmdrsp,
 		driver->supports_apps_hdlc_encoding,
+		driver->supports_apps_header_untagging,
 		driver->supports_sockets,
 		driver->logging_mode,
 		driver->rsp_buf_busy,
@@ -94,7 +96,7 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 
 	for (i = 0; i < NUM_PERIPHERALS; i++) {
 		ret += scnprintf(buf+ret, buf_size-ret,
-			"p: %s Feature: %02x %02x |%c%c%c%c%c%c%c%c|\n",
+			"p: %s Feature: %02x %02x |%c%c%c%c%c%c%c%c%c|\n",
 			PERIPHERAL_STRING(i),
 			driver->feature[i].feature_mask[0],
 			driver->feature[i].feature_mask[1],
@@ -105,7 +107,8 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 			driver->feature[i].mask_centralization ? 'M':'m',
 			driver->feature[i].stm_support ? 'Q':'q',
 			driver->feature[i].sockets_enabled ? 'S':'s',
-			driver->feature[i].sent_feature_mask ? 'T':'t');
+			driver->feature[i].sent_feature_mask ? 'T':'t',
+			driver->feature[i].untag_header ? 'U':'u');
 	}
 
 #ifdef CONFIG_DIAG_OVER_USB

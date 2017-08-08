@@ -28,7 +28,8 @@
 #define DIAG_SET_FEATURE_MASK(x) (feature_bytes[(x)/8] |= (1 << (x & 0x7)))
 
 #define diag_check_update(x)	\
-	(!info || (info && (info->peripheral_mask & MD_PERIPHERAL_MASK(x)))) \
+	(!info || (info && (info->peripheral_mask & MD_PERIPHERAL_MASK(x))) \
+	|| (info && (info->peripheral_mask & MD_PERIPHERAL_PD_MASK(x)))) \
 
 struct diag_mask_info msg_mask;
 struct diag_mask_info msg_bt_mask;
@@ -90,8 +91,8 @@ static void diag_send_log_mask_update(uint8_t peripheral, int equip_id)
 	int err = 0;
 	int send_once = 0;
 	int header_len = sizeof(struct diag_ctrl_log_mask);
-	uint8_t *buf = NULL;
-	uint8_t *temp = NULL;
+	uint8_t *buf = NULL, *temp = NULL;
+	uint8_t upd = 0;
 	uint32_t mask_size = 0;
 	struct diag_ctrl_log_mask ctrl_pkt;
 	struct diag_mask_info *mask_info = NULL;
@@ -107,11 +108,25 @@ static void diag_send_log_mask_update(uint8_t peripheral, int equip_id)
 		return;
 	}
 
-	if (driver->md_session_mask != 0 &&
-	    driver->md_session_mask & MD_PERIPHERAL_MASK(peripheral))
-		mask_info = driver->md_session_map[peripheral]->log_mask;
-	else
+	if (driver->md_session_mask != 0) {
+		if (driver->md_session_mask & MD_PERIPHERAL_MASK(peripheral)) {
+			if (driver->md_session_map[peripheral])
+				mask_info =
+				driver->md_session_map[peripheral]->log_mask;
+		} else if (driver->md_session_mask &
+				MD_PERIPHERAL_PD_MASK(peripheral)) {
+			upd = diag_mask_to_pd_value(driver->md_session_mask);
+			if (upd && driver->md_session_map[upd])
+				mask_info =
+				driver->md_session_map[upd]->log_mask;
+		} else {
+			DIAG_LOG(DIAG_DEBUG_MASKS,
+			"asking for mask update with unknown session mask\n");
+			return;
+		}
+	} else {
 		mask_info = &log_mask;
+	}
 
 	if (!mask_info || !mask_info->ptr || !mask_info->update_buf)
 		return;
@@ -196,8 +211,8 @@ static void diag_send_log_mask_update(uint8_t peripheral, int equip_id)
 
 static void diag_send_event_mask_update(uint8_t peripheral)
 {
-	uint8_t *buf = NULL;
-	uint8_t *temp = NULL;
+	uint8_t *buf = NULL, *temp = NULL;
+	uint8_t upd = 0;
 	struct diag_ctrl_event_mask header;
 	struct diag_mask_info *mask_info = NULL;
 	int num_bytes = EVENT_COUNT_TO_BYTES(driver->last_event_id);
@@ -221,11 +236,25 @@ static void diag_send_event_mask_update(uint8_t peripheral)
 		return;
 	}
 
-	if (driver->md_session_mask != 0 &&
-	    (driver->md_session_mask & MD_PERIPHERAL_MASK(peripheral)))
-		mask_info = driver->md_session_map[peripheral]->event_mask;
-	else
+	if (driver->md_session_mask != 0) {
+		if (driver->md_session_mask & MD_PERIPHERAL_MASK(peripheral)) {
+			if (driver->md_session_map[peripheral])
+				mask_info =
+				driver->md_session_map[peripheral]->event_mask;
+		} else if (driver->md_session_mask &
+				MD_PERIPHERAL_PD_MASK(peripheral)) {
+			upd = diag_mask_to_pd_value(driver->md_session_mask);
+			if (upd && driver->md_session_map[upd])
+				mask_info =
+				driver->md_session_map[upd]->event_mask;
+		} else {
+			DIAG_LOG(DIAG_DEBUG_MASKS,
+			"asking for mask update with unknown session mask\n");
+			return;
+		}
+	} else {
 		mask_info = &event_mask;
+	}
 
 	if (!mask_info || !mask_info->ptr || !mask_info->update_buf)
 		return;
@@ -285,8 +314,8 @@ static void diag_send_msg_mask_update(uint8_t peripheral, int first, int last)
 	int err = 0;
 	int header_len = sizeof(struct diag_ctrl_msg_mask);
 	int temp_len = 0;
-	uint8_t *buf = NULL;
-	uint8_t *temp = NULL;
+	uint8_t *buf = NULL, *temp = NULL;
+	uint8_t upd = 0;
 	uint32_t mask_size = 0;
 	struct diag_mask_info *mask_info = NULL;
 	struct diag_msg_mask_t *mask = NULL;
@@ -303,11 +332,25 @@ static void diag_send_msg_mask_update(uint8_t peripheral, int first, int last)
 		return;
 	}
 
-	if (driver->md_session_mask != 0 &&
-	    (driver->md_session_mask & MD_PERIPHERAL_MASK(peripheral)))
-		mask_info = driver->md_session_map[peripheral]->msg_mask;
-	else
+	if (driver->md_session_mask != 0) {
+		if (driver->md_session_mask & MD_PERIPHERAL_MASK(peripheral)) {
+			if (driver->md_session_map[peripheral])
+				mask_info =
+				driver->md_session_map[peripheral]->msg_mask;
+		} else if (driver->md_session_mask &
+				MD_PERIPHERAL_PD_MASK(peripheral)) {
+			upd = diag_mask_to_pd_value(driver->md_session_mask);
+			if (upd && driver->md_session_map[upd])
+				mask_info =
+				driver->md_session_map[upd]->msg_mask;
+		} else {
+			DIAG_LOG(DIAG_DEBUG_MASKS,
+			"asking for mask update with unknown session mask\n");
+			return;
+		}
+	} else {
 		mask_info = &msg_mask;
+	}
 
 	if (!mask_info || !mask_info->ptr || !mask_info->update_buf)
 		return;
@@ -466,6 +509,13 @@ static void diag_send_feature_mask_update(uint8_t peripheral)
 		DIAG_SET_FEATURE_MASK(F_DIAG_REQ_RSP_SUPPORT);
 	if (driver->supports_apps_hdlc_encoding)
 		DIAG_SET_FEATURE_MASK(F_DIAG_APPS_HDLC_ENCODE);
+	if (driver->supports_apps_header_untagging) {
+		if (peripheral == PERIPHERAL_MODEM) {
+			DIAG_SET_FEATURE_MASK(F_DIAG_PKT_HEADER_UNTAG);
+			driver->peripheral_untag[peripheral] =
+				ENABLE_PKT_HEADER_UNTAGGING;
+		}
+	}
 	DIAG_SET_FEATURE_MASK(F_DIAG_MASK_CENTRALIZATION);
 	if (driver->supports_sockets)
 		DIAG_SET_FEATURE_MASK(F_DIAG_SOCKETS_ENABLED);
@@ -1933,17 +1983,27 @@ int diag_copy_to_user_log_mask(char __user *buf, size_t count,
 void diag_send_updates_peripheral(uint8_t peripheral)
 {
 	diag_send_feature_mask_update(peripheral);
-	if (driver->time_sync_enabled)
-		diag_send_time_sync_update(peripheral);
-	mutex_lock(&driver->md_session_lock);
-	diag_send_msg_mask_update(peripheral, ALL_SSID, ALL_SSID);
-	diag_send_log_mask_update(peripheral, ALL_EQUIP_ID);
-	diag_send_event_mask_update(peripheral);
-	mutex_unlock(&driver->md_session_lock);
-	diag_send_real_time_update(peripheral,
+	/*
+	 * Masks (F3, logs and events) will be sent to
+	 * peripheral immediately following feature mask update only
+	 * if diag_id support is not present or
+	 * diag_id support is present and diag_id has been sent to
+	 * peripheral.
+	 */
+	if (!driver->feature[peripheral].diag_id_support ||
+		driver->diag_id_sent[peripheral]) {
+		if (driver->time_sync_enabled)
+			diag_send_time_sync_update(peripheral);
+		mutex_lock(&driver->md_session_lock);
+		diag_send_msg_mask_update(peripheral, ALL_SSID, ALL_SSID);
+		diag_send_log_mask_update(peripheral, ALL_EQUIP_ID);
+		diag_send_event_mask_update(peripheral);
+		mutex_unlock(&driver->md_session_lock);
+		diag_send_real_time_update(peripheral,
 				driver->real_time_mode[DIAG_LOCAL_PROC]);
-	diag_send_peripheral_buffering_mode(
-				&driver->buffering_mode[peripheral]);
+		diag_send_peripheral_buffering_mode(
+					&driver->buffering_mode[peripheral]);
+	}
 }
 
 int diag_process_apps_masks(unsigned char *buf, int len,
