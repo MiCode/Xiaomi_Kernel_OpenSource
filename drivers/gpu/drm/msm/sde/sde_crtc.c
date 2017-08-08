@@ -65,7 +65,7 @@ static struct sde_crtc_custom_events custom_events[] = {
 };
 
 /* default input fence timeout, in ms */
-#define SDE_CRTC_INPUT_FENCE_TIMEOUT    2000
+#define SDE_CRTC_INPUT_FENCE_TIMEOUT    10000
 
 /*
  * The default input fence timeout is 2 seconds while max allowed
@@ -2196,9 +2196,8 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 		sde_encoder_kickoff(encoder);
 	}
 
-	reinit_completion(&sde_crtc->frame_done_comp);
-
 end:
+	reinit_completion(&sde_crtc->frame_done_comp);
 	SDE_ATRACE_END("crtc_commit");
 	return;
 }
