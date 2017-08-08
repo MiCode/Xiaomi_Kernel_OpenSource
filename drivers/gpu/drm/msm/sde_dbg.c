@@ -2302,10 +2302,14 @@ static void _sde_dbg_dump_sde_dbg_bus(struct sde_dbg_sde_debug_bus *bus)
 				mem_base + head->wr_addr);
 		wmb(); /* make sure test bits were written */
 
-		if (bus->cmn.flags & DBGBUS_FLAGS_DSPP)
+		if (bus->cmn.flags & DBGBUS_FLAGS_DSPP) {
 			offset = DBGBUS_DSPP_STATUS;
-		else
+			/* keep DSPP test point enabled */
+			if (head->wr_addr != DBGBUS_DSPP)
+				writel_relaxed(0xF, mem_base + DBGBUS_DSPP);
+		} else {
 			offset = head->wr_addr + 0x4;
+		}
 
 		status = readl_relaxed(mem_base + offset);
 
@@ -2327,7 +2331,9 @@ static void _sde_dbg_dump_sde_dbg_bus(struct sde_dbg_sde_debug_bus *bus)
 
 		/* Disable debug bus once we are done */
 		writel_relaxed(0, mem_base + head->wr_addr);
-
+		if (bus->cmn.flags & DBGBUS_FLAGS_DSPP &&
+						head->wr_addr != DBGBUS_DSPP)
+			writel_relaxed(0x0, mem_base + DBGBUS_DSPP);
 	}
 	_sde_dbg_enable_power(false);
 
