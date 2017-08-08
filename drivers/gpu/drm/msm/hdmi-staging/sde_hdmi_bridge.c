@@ -351,6 +351,7 @@ static int _sde_hdmi_bridge_setup_scrambler(struct hdmi *hdmi,
 		scrambler_on = true;
 		tmds_clock_ratio = 1;
 	} else {
+		tmds_clock_ratio = 0;
 		scrambler_on = connector->supports_scramble;
 	}
 
@@ -396,6 +397,14 @@ static int _sde_hdmi_bridge_setup_scrambler(struct hdmi *hdmi,
 		rc = _sde_hdmi_bridge_setup_ddc_timers(hdmi,
 			HDMI_TX_DDC_TIMER_SCRAMBLER_STATUS, timeout_hsync);
 	} else {
+		/* reset tmds clock ratio */
+		rc = sde_hdmi_scdc_write(hdmi,
+				HDMI_TX_SCDC_TMDS_BIT_CLOCK_RATIO_UPDATE,
+				tmds_clock_ratio);
+		/* scdc write can fail if sink doesn't support SCDC */
+		if (rc && connector->scdc_present)
+			SDE_ERROR("SCDC present, TMDS clk ratio err\n");
+
 		sde_hdmi_scdc_write(hdmi, HDMI_TX_SCDC_SCRAMBLING_ENABLE, 0x0);
 		reg_val = hdmi_read(hdmi, REG_HDMI_CTRL);
 		reg_val &= ~BIT(28); /* Unset SCRAMBLER_EN bit */
