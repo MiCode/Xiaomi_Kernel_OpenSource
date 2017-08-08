@@ -193,6 +193,10 @@ struct sde_kms {
 
 	struct sde_core_perf perf;
 
+	/* saved atomic state during system suspend */
+	struct drm_atomic_state *suspend_state;
+	bool suspend_block;
+
 	struct sde_rm rm;
 	bool rm_init;
 
@@ -221,6 +225,33 @@ struct vsync_info {
  * Return: Whether or not the 'sdeclient' module parameter was set on boot up
  */
 bool sde_is_custom_client(void);
+
+/**
+ * sde_kms_is_suspend_state - whether or not the system is pm suspended
+ * @dev: Pointer to drm device
+ * Return: Suspend status
+ */
+static inline bool sde_kms_is_suspend_state(struct drm_device *dev)
+{
+	if (!ddev_to_msm_kms(dev))
+		return false;
+
+	return to_sde_kms(ddev_to_msm_kms(dev))->suspend_state != NULL;
+}
+
+/**
+ * sde_kms_is_suspend_blocked - whether or not commits are blocked due to pm
+ *				suspend status
+ * @dev: Pointer to drm device
+ * Return: True if commits should be rejected due to pm suspend
+ */
+static inline bool sde_kms_is_suspend_blocked(struct drm_device *dev)
+{
+	if (!sde_kms_is_suspend_state(dev))
+		return false;
+
+	return to_sde_kms(ddev_to_msm_kms(dev))->suspend_block;
+}
 
 /**
  * Debugfs functions - extra helper functions for debugfs support

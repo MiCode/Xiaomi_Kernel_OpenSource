@@ -93,6 +93,9 @@ struct msm_kms_funcs {
 	void (*lastclose)(struct msm_kms *kms);
 	int (*register_events)(struct msm_kms *kms,
 			struct drm_mode_object *obj, u32 event, bool en);
+	/* pm suspend/resume hooks */
+	int (*pm_suspend)(struct device *dev);
+	int (*pm_resume)(struct device *dev);
 	/* cleanup: */
 	void (*destroy)(struct msm_kms *kms);
 	/* get address space */

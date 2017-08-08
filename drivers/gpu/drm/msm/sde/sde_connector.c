@@ -972,6 +972,39 @@ int sde_connector_get_dpms(struct drm_connector *connector)
 	return rc;
 }
 
+int sde_connector_set_property_for_commit(struct drm_connector *connector,
+		struct drm_atomic_state *atomic_state,
+		uint32_t property_idx, uint64_t value)
+{
+	struct drm_connector_state *state;
+	struct drm_property *property;
+	struct sde_connector *c_conn;
+
+	if (!connector || !atomic_state) {
+		SDE_ERROR("invalid argument(s), conn %d, state %d\n",
+				connector != NULL, atomic_state != NULL);
+		return -EINVAL;
+	}
+
+	c_conn = to_sde_connector(connector);
+	property = msm_property_index_to_drm_property(
+			&c_conn->property_info, property_idx);
+	if (!property) {
+		SDE_ERROR("invalid property index %d\n", property_idx);
+		return -EINVAL;
+	}
+
+	state = drm_atomic_get_connector_state(atomic_state, connector);
+	if (IS_ERR_OR_NULL(state)) {
+		SDE_ERROR("failed to get conn %d state\n",
+				connector->base.id);
+		return -EINVAL;
+	}
+
+	return drm_atomic_connector_set_property(
+			connector, state, property, value);
+}
+
 #ifdef CONFIG_DEBUG_FS
 /**
  * sde_connector_init_debugfs - initialize connector debugfs
