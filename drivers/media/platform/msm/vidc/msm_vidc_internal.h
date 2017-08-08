@@ -399,12 +399,17 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst);
 int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst);
 void msm_vidc_queue_v4l2_event(struct msm_vidc_inst *inst, int event_type);
 
+enum msm_vidc_flags {
+	MSM_VIDC_FLAG_DEFERRED            = BIT(0),
+	MSM_VIDC_FLAG_RBR_PENDING         = BIT(1),
+};
+
 struct msm_vidc_buffer {
 	struct list_head list;
 	struct kref kref;
 	struct msm_smem smem[VIDEO_MAX_PLANES];
 	struct vb2_v4l2_buffer vvb;
-	bool deferred;
+	enum msm_vidc_flags flags;
 };
 
 void msm_comm_handle_thermal_event(void);

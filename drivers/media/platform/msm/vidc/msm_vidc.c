@@ -426,6 +426,12 @@ int msm_vidc_release_buffer(void *instance, int type, unsigned int index)
 		if (vb2->type != type || vb2->index != index)
 			continue;
 
+		if (mbuf->flags & MSM_VIDC_FLAG_RBR_PENDING) {
+			print_vidc_buffer(VIDC_DBG,
+				"skip rel buf (rbr pending)", inst, mbuf);
+			continue;
+		}
+
 		print_vidc_buffer(VIDC_DBG, "release buf", inst, mbuf);
 		msm_comm_unmap_vidc_buffer(inst, mbuf);
 		list_del(&mbuf->list);
