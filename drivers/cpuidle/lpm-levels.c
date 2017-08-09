@@ -55,7 +55,7 @@
 #define SCLK_HZ (32768)
 #define PSCI_POWER_STATE(reset) (reset << 30)
 #define PSCI_AFFINITY_LEVEL(lvl) ((lvl & 0x3) << 24)
-#define BIAS_HYST (5 * NSEC_PER_MSEC)
+#define BIAS_HYST (bias_hyst * NSEC_PER_MSEC)
 
 enum {
 	MSM_LPM_LVL_DBG_SUSPEND_LIMITS = BIT(0),
@@ -93,6 +93,9 @@ module_param_named(ref_stddev, ref_stddev, uint, 0664);
 
 static uint32_t tmr_add = 100;
 module_param_named(tmr_add, tmr_add, uint, 0664);
+
+static uint32_t bias_hyst;
+module_param_named(bias_hyst, bias_hyst, uint, 0664);
 
 struct lpm_history {
 	uint32_t resi[MAXSAMPLES];
