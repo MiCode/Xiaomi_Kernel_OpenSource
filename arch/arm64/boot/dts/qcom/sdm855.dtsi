@@ -622,6 +622,11 @@
 		hwlocks = <&tcsr_mutex 3>;
 	};
 
+	apcs: syscon@17c0000c {
+		compatible = "syscon";
+		reg = <0x17c0000c 0x4>;
+	};
+
 	ufsphy_mem: ufsphy_mem@1d87000 {
 		reg = <0x1d87000 0xda8>; /* PHY regs */
 		reg-names = "phy_mem";
@@ -906,3 +911,4 @@
 #include "sdm855-pinctrl.dtsi"
 #include "sdm855-regulator.dtsi"
 #include "sdm855-ion.dtsi"
+#include "sdm855-smp2p.dtsi"
