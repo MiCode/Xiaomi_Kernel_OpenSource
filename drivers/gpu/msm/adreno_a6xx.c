@@ -500,6 +500,7 @@ static uint32_t lm_limit(struct adreno_device *adreno_dev)
 static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 {
 	uint32_t i;
+	struct cpu_gpu_lock *lock;
 
 	/* Set up the register values */
 	for (i = 0; i < ARRAY_SIZE(a6xx_pwrup_reglist); i++) {
@@ -508,9 +509,29 @@ static void a6xx_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 		kgsl_regread(KGSL_DEVICE(adreno_dev), r->offset, &r->val);
 	}
 
-	/* Copy Preemption register/data pairs */
-	memcpy(adreno_dev->pwrup_reglist.hostptr, &a6xx_pwrup_reglist,
-		sizeof(a6xx_pwrup_reglist));
+	lock = (struct cpu_gpu_lock *) adreno_dev->pwrup_reglist.hostptr;
+	lock->flag_ucode = 0;
+	lock->flag_kmd = 0;
+	lock->turn = 0;
+
+	/*
+	 * The overall register list is composed of
+	 * 1. Static IFPC-only registers
+	 * 2. Static IFPC + preemption registers
+	 * 2. Dynamic IFPC + preemption registers (ex: perfcounter selects)
+	 *
+	 * The CP views the second and third entries as one dynamic list
+	 * starting from list_offset. Thus, list_length should be the sum
+	 * of all three lists above (of which the third list will start off
+	 * empty). And list_offset should be specified as the size in dwords
+	 * of the static IFPC-only register list.
+	 */
+	lock->list_length = sizeof(a6xx_pwrup_reglist) >> 2;
+	lock->list_offset = 0;
+
+	memcpy(adreno_dev->pwrup_reglist.hostptr +
+		sizeof(*lock),
+		a6xx_pwrup_reglist, sizeof(a6xx_pwrup_reglist));
 }
 
 /*
@@ -717,13 +738,16 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 /* Register initialization list */
 #define CP_INIT_REGISTER_INIT_LIST BIT(7)
 
+/* Register initialization list with spinlock */
+#define CP_INIT_REGISTER_INIT_LIST_WITH_SPINLOCK BIT(8)
+
 #define CP_INIT_MASK (CP_INIT_MAX_CONTEXT | \
 		CP_INIT_ERROR_DETECTION_CONTROL | \
 		CP_INIT_HEADER_DUMP | \
 		CP_INIT_DEFAULT_RESET_STATE | \
 		CP_INIT_UCODE_WORKAROUND_MASK | \
 		CP_INIT_OPERATION_MODE_MASK | \
-		CP_INIT_REGISTER_INIT_LIST)
+		CP_INIT_REGISTER_INIT_LIST_WITH_SPINLOCK)
 
 static void _set_ordinals(struct adreno_device *adreno_dev,
 		unsigned int *cmds, unsigned int count)
@@ -759,7 +783,14 @@ static void _set_ordinals(struct adreno_device *adreno_dev,
 	if (CP_INIT_MASK & CP_INIT_OPERATION_MODE_MASK)
 		*cmds++ = 0x00000002;
 
-	if (CP_INIT_MASK & CP_INIT_REGISTER_INIT_LIST) {
+	if (CP_INIT_MASK & CP_INIT_REGISTER_INIT_LIST_WITH_SPINLOCK) {
+		uint64_t gpuaddr = adreno_dev->pwrup_reglist.gpuaddr;
+
+		*cmds++ = lower_32_bits(gpuaddr);
+		*cmds++ = upper_32_bits(gpuaddr);
+		*cmds++ =  0;
+
+	} else if (CP_INIT_MASK & CP_INIT_REGISTER_INIT_LIST) {
 		uint64_t gpuaddr = adreno_dev->pwrup_reglist.gpuaddr;
 
 		*cmds++ = lower_32_bits(gpuaddr);
