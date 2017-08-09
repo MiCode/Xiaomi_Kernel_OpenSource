@@ -1828,7 +1828,9 @@ void q6_deinitialize_rm(void)
 	if (ret < 0)
 		IPAWANERR("Error deleting resource %d, ret=%d\n",
 			IPA_RM_RESOURCE_Q6_PROD, ret);
-	destroy_workqueue(ipa_rm_q6_workqueue);
+
+	if (ipa_rm_q6_workqueue)
+		destroy_workqueue(ipa_rm_q6_workqueue);
 }
 
 static void wake_tx_queue(struct work_struct *work)
@@ -2108,7 +2110,10 @@ timer_init_err:
 		IPAWANERR("Error deleting resource %d, ret=%d\n",
 		IPA_RM_RESOURCE_WWAN_0_PROD, ret);
 create_rsrc_err:
-	q6_deinitialize_rm();
+
+	if (!atomic_read(&is_ssr))
+		q6_deinitialize_rm();
+
 q6_init_err:
 	free_netdev(ipa_netdevs[0]);
 	ipa_netdevs[0] = NULL;
