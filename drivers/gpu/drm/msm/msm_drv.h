@@ -387,10 +387,22 @@ struct msm_display_topology {
 
 /**
  * struct msm_mode_info - defines all msm custom mode info
- * @topology - supported topology for the mode
+ * @frame_rate:      frame_rate of the mode
+ * @vtotal:          vtotal calculated for the mode
+ * @prefill_lines:   prefill lines based on porches.
+ * @jitter_numer:	display panel jitter numerator configuration
+ * @jitter_denom:	display panel jitter denominator configuration
+ * @topology:        supported topology for the mode
+ * @comp_info:       compression info supported
  */
 struct msm_mode_info {
+	uint32_t frame_rate;
+	uint32_t vtotal;
+	uint32_t prefill_lines;
+	uint32_t jitter_numer;
+	uint32_t jitter_denom;
 	struct msm_display_topology topology;
+	struct msm_compression_info comp_info;
 };
 
 /**
@@ -410,12 +422,6 @@ struct msm_mode_info {
  * @is_primary:         Set to true if display is primary display
  * @is_te_using_watchdog_timer:  Boolean to indicate watchdog TE is
  *				 used instead of panel TE in cmd mode panels
- * @frame_rate:		Display frame rate
- * @prefill_lines:	prefill lines based on porches.
- * @vtotal:		display vertical total
- * @jitter_numer:	display panel jitter numerator configuration
- * @jitter_denom:	display panel jitter denominator configuration
- * @comp_info:          Compression supported by the display
  * @roi_caps:           Region of interest capability info
  */
 struct msm_display_info {
@@ -435,13 +441,6 @@ struct msm_display_info {
 
 	bool is_primary;
 	bool is_te_using_watchdog_timer;
-	uint32_t frame_rate;
-	uint32_t prefill_lines;
-	uint32_t vtotal;
-	uint32_t jitter_numer;
-	uint32_t jitter_denom;
-
-	struct msm_compression_info comp_info;
 	struct msm_roi_caps roi_caps;
 };
 

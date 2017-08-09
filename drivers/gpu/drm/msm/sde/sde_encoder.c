@@ -160,6 +160,7 @@ enum sde_enc_rc_states {
  * @rsc_client:			rsc client pointer
  * @rsc_state_init:		boolean to indicate rsc config init
  * @disp_info:			local copy of msm_display_info struct
+ * @mode_info:			local copy of msm_mode_info struct
  * @misr_enable:		misr enable/disable status
  * @idle_pc_supported:		indicate if idle power collaps is supported
  * @rc_lock:			resource control mutex lock to protect
@@ -203,6 +204,7 @@ struct sde_encoder_virt {
 	struct sde_rsc_client *rsc_client;
 	bool rsc_state_init;
 	struct msm_display_info disp_info;
+	struct msm_mode_info mode_info;
 	bool misr_enable;
 
 	bool idle_pc_supported;
@@ -229,7 +231,7 @@ bool sde_encoder_is_dsc_enabled(struct drm_encoder *drm_enc)
 		return false;
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
-	comp_info = &sde_enc->disp_info.comp_info;
+	comp_info = &sde_enc->mode_info.comp_info;
 
 	return (comp_info->comp_type == MSM_DISPLAY_COMPRESSION_DSC);
 }
@@ -512,7 +514,7 @@ void sde_encoder_get_hw_resources(struct drm_encoder *drm_enc,
 			phys->ops.get_hw_resources(phys, hw_res, conn_state);
 	}
 
-	hw_res->topology = sde_enc->topology;
+	hw_res->topology = sde_enc->mode_info.topology;
 }
 
 void sde_encoder_destroy(struct drm_encoder *drm_enc)
@@ -874,7 +876,7 @@ static int _sde_encoder_dsc_n_lm_1_enc_1_intf(struct sde_encoder_virt *sde_enc)
 	struct sde_encoder_phys *enc_master = sde_enc->cur_master;
 	const struct sde_rect *roi = &sde_enc->cur_conn_roi;
 	struct msm_display_dsc_info *dsc =
-		&sde_enc->disp_info.comp_info.dsc_info;
+		&sde_enc->mode_info.comp_info.dsc_info;
 
 	if (dsc == NULL || hw_dsc == NULL || hw_pp == NULL || !enc_master) {
 		SDE_ERROR_ENC(sde_enc, "invalid params for DSC\n");
@@ -939,8 +941,8 @@ static int _sde_encoder_dsc_2_lm_2_enc_2_intf(struct sde_encoder_virt *sde_enc,
 	if (enc_master->intf_mode == INTF_MODE_VIDEO)
 		dsc_common_mode |= DSC_MODE_VIDEO;
 
-	memcpy(&dsc[0], &sde_enc->disp_info.comp_info.dsc_info, sizeof(dsc[0]));
-	memcpy(&dsc[1], &sde_enc->disp_info.comp_info.dsc_info, sizeof(dsc[1]));
+	memcpy(&dsc[0], &sde_enc->mode_info.comp_info.dsc_info, sizeof(dsc[0]));
+	memcpy(&dsc[1], &sde_enc->mode_info.comp_info.dsc_info, sizeof(dsc[1]));
 
 	/*
 	 * Since both DSC use same pic dimension, set same pic dimension
@@ -1004,7 +1006,7 @@ static int _sde_encoder_dsc_2_lm_2_enc_1_intf(struct sde_encoder_virt *sde_enc,
 	struct sde_hw_dsc *hw_dsc[MAX_CHANNELS_PER_ENC];
 	struct sde_hw_pingpong *hw_pp[MAX_CHANNELS_PER_ENC];
 	struct msm_display_dsc_info *dsc =
-		&sde_enc->disp_info.comp_info.dsc_info;
+		&sde_enc->mode_info.comp_info.dsc_info;
 	bool half_panel_partial_update;
 	int i;
 
@@ -1140,6 +1142,7 @@ static void _sde_encoder_update_vsync_source(struct sde_encoder_virt *sde_enc,
 	struct sde_kms *sde_kms;
 	struct sde_hw_mdp *hw_mdptop;
 	struct drm_encoder *drm_enc;
+	struct msm_mode_info *mode_info;
 	int i;
 
 	if (!sde_enc || !disp_info) {
@@ -1169,13 +1172,19 @@ static void _sde_encoder_update_vsync_source(struct sde_encoder_virt *sde_enc,
 		return;
 	}
 
+	mode_info = &sde_enc->mode_info;
+	if (!mode_info) {
+		SDE_ERROR("invalid mode info\n");
+		return;
+	}
+
 	if (hw_mdptop->ops.setup_vsync_source &&
 			disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE) {
 		for (i = 0; i < sde_enc->num_phys_encs; i++)
 			vsync_cfg.ppnumber[i] = sde_enc->hw_pp[i]->idx;
 
 		vsync_cfg.pp_count = sde_enc->num_phys_encs;
-		vsync_cfg.frame_rate = sde_enc->disp_info.frame_rate;
+		vsync_cfg.frame_rate = mode_info->frame_rate;
 		if (is_dummy)
 			vsync_cfg.vsync_source = SDE_VSYNC_SOURCE_WD_TIMER_1;
 		else if (disp_info->is_te_using_watchdog_timer)
@@ -1197,6 +1206,7 @@ static int sde_encoder_update_rsc_client(
 	struct sde_rsc_cmd_config rsc_config;
 	int ret;
 	struct msm_display_info *disp_info;
+	struct msm_mode_info *mode_info;
 
 	if (!drm_enc) {
 		SDE_ERROR("invalid encoder\n");
@@ -1205,6 +1215,7 @@ static int sde_encoder_update_rsc_client(
 
 	sde_enc = to_sde_encoder_virt(drm_enc);
 	disp_info = &sde_enc->disp_info;
+	mode_info = &sde_enc->mode_info;
 
 	if (!sde_enc->rsc_client) {
 		SDE_DEBUG("rsc client not created\n");
@@ -1227,11 +1238,11 @@ static int sde_encoder_update_rsc_client(
 
 	if (rsc_state != SDE_RSC_IDLE_STATE && !sde_enc->rsc_state_init
 					&& disp_info->is_primary) {
-		rsc_config.fps = disp_info->frame_rate;
-		rsc_config.vtotal = disp_info->vtotal;
-		rsc_config.prefill_lines = disp_info->prefill_lines;
-		rsc_config.jitter_numer = disp_info->jitter_numer;
-		rsc_config.jitter_denom = disp_info->jitter_denom;
+		rsc_config.fps = mode_info->frame_rate;
+		rsc_config.vtotal = mode_info->vtotal;
+		rsc_config.prefill_lines = mode_info->prefill_lines;
+		rsc_config.jitter_numer = mode_info->jitter_numer;
+		rsc_config.jitter_denom = mode_info->jitter_denom;
 		rsc_config.prefill_lines += config ?
 				config->inline_rotate_prefill : 0;
 		/* update it only once */
@@ -1647,7 +1658,7 @@ static void sde_encoder_virt_mode_set(struct drm_encoder *drm_enc,
 
 	sde_conn = to_sde_connector(conn);
 	if (sde_conn) {
-		ret = sde_conn->ops.get_topology(adj_mode, &sde_enc->topology,
+		ret = sde_conn->ops.get_mode_info(adj_mode, &sde_enc->mode_info,
 				sde_kms->catalog->max_mixer_width);
 		if (ret) {
 			SDE_ERROR_ENC(sde_enc,
@@ -1764,12 +1775,14 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc = NULL;
 	int i, ret = 0;
+	struct msm_compression_info *comp_info = NULL;
 
 	if (!drm_enc) {
 		SDE_ERROR("invalid encoder\n");
 		return;
 	}
 	sde_enc = to_sde_encoder_virt(drm_enc);
+	comp_info = &sde_enc->mode_info.comp_info;
 
 	SDE_DEBUG_ENC(sde_enc, "\n");
 	SDE_EVT32(DRMID(drm_enc));
@@ -1800,8 +1813,11 @@ static void sde_encoder_virt_enable(struct drm_encoder *drm_enc)
 	for (i = 0; i < sde_enc->num_phys_encs; i++) {
 		struct sde_encoder_phys *phys = sde_enc->phys_encs[i];
 
-		if (phys && (phys != sde_enc->cur_master) && phys->ops.enable)
-			phys->ops.enable(phys);
+		if (phys) {
+			phys->comp_type = comp_info->comp_type;
+			if ((phys != sde_enc->cur_master) && phys->ops.enable)
+				phys->ops.enable(phys);
+		}
 	}
 
 	if (sde_enc->cur_master->ops.enable)
@@ -2999,8 +3015,6 @@ static int sde_encoder_setup_display(struct sde_encoder_virt *sde_enc,
 	sde_enc->display_num_of_h_tiles = disp_info->num_of_h_tiles;
 
 	SDE_DEBUG("dsi_info->num_of_h_tiles %d\n", disp_info->num_of_h_tiles);
-
-	phys_params.comp_type = disp_info->comp_info.comp_type;
 
 	if (disp_info->capabilities & MSM_DISPLAY_CAP_CMD_MODE)
 		sde_enc->idle_pc_supported = sde_kms->catalog->has_idle_pc;

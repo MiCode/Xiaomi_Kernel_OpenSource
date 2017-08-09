@@ -427,6 +427,9 @@ static void sde_connector_destroy(struct drm_connector *connector)
 
 	c_conn = to_sde_connector(connector);
 
+	if (c_conn->ops.put_modes)
+		c_conn->ops.put_modes(connector, c_conn->display);
+
 	if (c_conn->blob_caps)
 		drm_property_unreference_blob(c_conn->blob_caps);
 	if (c_conn->blob_hdr)

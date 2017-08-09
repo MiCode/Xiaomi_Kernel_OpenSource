@@ -15,6 +15,7 @@
 #define _DSI_DEFS_H_
 
 #include <linux/types.h>
+#include <drm/drm_mipi_dsi.h>
 #include "msm_drv.h"
 
 #define DSI_H_TOTAL(t) (((t)->h_active) + ((t)->h_back_porch) + \
@@ -214,6 +215,68 @@ enum dsi_dfps_type {
 };
 
 /**
+ * enum dsi_cmd_set_type  - DSI command set type
+ * @DSI_CMD_SET_PRE_ON:	                   Panel pre on
+ * @DSI_CMD_SET_ON:                        Panel on
+ * @DSI_CMD_SET_POST_ON:                   Panel post on
+ * @DSI_CMD_SET_PRE_OFF:                   Panel pre off
+ * @DSI_CMD_SET_OFF:                       Panel off
+ * @DSI_CMD_SET_POST_OFF:                  Panel post off
+ * @DSI_CMD_SET_PRE_RES_SWITCH:            Pre resolution switch
+ * @DSI_CMD_SET_RES_SWITCH:                Resolution switch
+ * @DSI_CMD_SET_POST_RES_SWITCH:           Post resolution switch
+ * @DSI_CMD_SET_CMD_TO_VID_SWITCH:         Cmd to video mode switch
+ * @DSI_CMD_SET_POST_CMD_TO_VID_SWITCH:    Post cmd to vid switch
+ * @DSI_CMD_SET_VID_TO_CMD_SWITCH:         Video to cmd mode switch
+ * @DSI_CMD_SET_POST_VID_TO_CMD_SWITCH:    Post vid to cmd switch
+ * @DSI_CMD_SET_PANEL_STATUS:              Panel status
+ * @DSI_CMD_SET_LP1:                       Low power mode 1
+ * @DSI_CMD_SET_LP2:                       Low power mode 2
+ * @DSI_CMD_SET_NOLP:                      Low power mode disable
+ * @DSI_CMD_SET_PPS:                       DSC PPS command
+ * @DSI_CMD_SET_ROI:			   Panel ROI update
+ * @DSI_CMD_SET_TIMING_SWITCH:             Timing switch
+ * @DSI_CMD_SET_POST_TIMING_SWITCH:        Post timing switch
+ * @DSI_CMD_SET_MAX
+ */
+enum dsi_cmd_set_type {
+	DSI_CMD_SET_PRE_ON = 0,
+	DSI_CMD_SET_ON,
+	DSI_CMD_SET_POST_ON,
+	DSI_CMD_SET_PRE_OFF,
+	DSI_CMD_SET_OFF,
+	DSI_CMD_SET_POST_OFF,
+	DSI_CMD_SET_PRE_RES_SWITCH,
+	DSI_CMD_SET_RES_SWITCH,
+	DSI_CMD_SET_POST_RES_SWITCH,
+	DSI_CMD_SET_CMD_TO_VID_SWITCH,
+	DSI_CMD_SET_POST_CMD_TO_VID_SWITCH,
+	DSI_CMD_SET_VID_TO_CMD_SWITCH,
+	DSI_CMD_SET_POST_VID_TO_CMD_SWITCH,
+	DSI_CMD_SET_PANEL_STATUS,
+	DSI_CMD_SET_LP1,
+	DSI_CMD_SET_LP2,
+	DSI_CMD_SET_NOLP,
+	DSI_CMD_SET_PPS,
+	DSI_CMD_SET_ROI,
+	DSI_CMD_SET_TIMING_SWITCH,
+	DSI_CMD_SET_POST_TIMING_SWITCH,
+	DSI_CMD_SET_MAX
+};
+
+/**
+ * enum dsi_cmd_set_state - command set state
+ * @DSI_CMD_SET_STATE_LP:   dsi low power mode
+ * @DSI_CMD_SET_STATE_HS:   dsi high speed mode
+ * @DSI_CMD_SET_STATE_MAX
+ */
+enum dsi_cmd_set_state {
+	DSI_CMD_SET_STATE_LP = 0,
+	DSI_CMD_SET_STATE_HS,
+	DSI_CMD_SET_STATE_MAX
+};
+
+/**
  * enum dsi_phy_type - DSI phy types
  * @DSI_PHY_TYPE_DPHY:
  * @DSI_PHY_TYPE_CPHY:
@@ -243,6 +306,34 @@ enum dsi_video_traffic_mode {
 	DSI_VIDEO_TRAFFIC_SYNC_PULSES = 0,
 	DSI_VIDEO_TRAFFIC_SYNC_START_EVENTS,
 	DSI_VIDEO_TRAFFIC_BURST_MODE,
+};
+
+/**
+ * struct dsi_cmd_desc - description of a dsi command
+ * @msg:		dsi mipi msg packet
+ * @last_command:   indicates whether the cmd is the last one to send
+ * @post_wait_ms:   post wait duration
+ */
+struct dsi_cmd_desc {
+	struct mipi_dsi_msg msg;
+	bool last_command;
+	u32  post_wait_ms;
+};
+
+/**
+ * struct dsi_panel_cmd_set - command set of the panel
+ * @type:      type of the command
+ * @state:     state of the command
+ * @count:     number of cmds
+ * @ctrl_idx:  index of the dsi control
+ * @cmds:      arry of cmds
+ */
+struct dsi_panel_cmd_set {
+	enum dsi_cmd_set_type type;
+	enum dsi_cmd_set_state state;
+	u32 count;
+	u32 ctrl_idx;
+	struct dsi_cmd_desc *cmds;
 };
 
 /**
@@ -397,18 +488,44 @@ struct dsi_host_config {
 };
 
 /**
+ * struct dsi_display_mode_priv_info - private mode info that will be attached
+ *                             with each drm mode
+ * @cmd_sets:		  Command sets of the mode
+ * @phy_timing_val:       Phy timing values
+ * @phy_timing_len:       Phy timing array length
+ * @panel_jitter:         Panel jitter for RSC backoff
+ * @panel_prefill_lines:  Panel prefill lines for RSC
+ * @topology:             Topology selected for the panel
+ * @dsc:                  DSC compression info
+ * @dsc_enabled:          DSC compression enabled
+ */
+struct dsi_display_mode_priv_info {
+	struct dsi_panel_cmd_set cmd_sets[DSI_CMD_SET_MAX];
+
+	u32 *phy_timing_val;
+	u32 phy_timing_len;
+
+	u32 panel_jitter_numer;
+	u32 panel_jitter_denom;
+	u32 panel_prefill_lines;
+
+	struct msm_display_topology topology;
+	struct msm_display_dsc_info dsc;
+	bool dsc_enabled;
+};
+
+/**
  * struct dsi_display_mode - specifies mode for dsi display
  * @timing:         Timing parameters for the panel.
  * @pixel_clk_khz:  Pixel clock in Khz.
- * @panel_mode:     Panel operation mode.
  * @dsi_mode_flags: Flags to signal other drm components via private flags
+ * @priv_info:      Mode private info
  */
 struct dsi_display_mode {
 	struct dsi_mode_info timing;
 	u32 pixel_clk_khz;
-	enum dsi_op_mode panel_mode;
 	u32 dsi_mode_flags;
-	struct msm_mode_info *mode_info;
+	struct dsi_display_mode_priv_info *priv_info;
 };
 
 /**

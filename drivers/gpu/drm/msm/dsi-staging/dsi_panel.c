@@ -471,10 +471,20 @@ static int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
 {
 	int rc = 0, i = 0;
 	ssize_t len;
-	struct dsi_cmd_desc *cmds = panel->cmd_sets[type].cmds;
-	u32 count = panel->cmd_sets[type].count;
-	enum dsi_cmd_set_state state = panel->cmd_sets[type].state;
+	struct dsi_cmd_desc *cmds;
+	u32 count;
+	enum dsi_cmd_set_state state;
+	struct dsi_display_mode *mode;
 	const struct mipi_dsi_host_ops *ops = panel->host->ops;
+
+	if (!panel || !panel->cur_mode)
+		return -EINVAL;
+
+	mode = panel->cur_mode;
+
+	cmds = mode->priv_info->cmd_sets[type].cmds;
+	count = mode->priv_info->cmd_sets[type].count;
+	state = mode->priv_info->cmd_sets[type].state;
 
 	if (count == 0) {
 		pr_debug("[%s] No commands to be sent for state(%d)\n",
@@ -971,7 +981,7 @@ static int dsi_panel_parse_host_config(struct dsi_panel *panel,
 					  panel->name);
 	if (rc) {
 		pr_err("[%s] failed to get pixel format, rc=%d\n",
-		       panel->name, rc);
+		panel->name, rc);
 		goto error;
 	}
 
@@ -1266,7 +1276,7 @@ static int dsi_panel_parse_panel_mode(struct dsi_panel *panel,
 		}
 	}
 
-	panel->mode.panel_mode = panel_mode;
+	panel->panel_mode = panel_mode;
 error:
 	return rc;
 }
@@ -1338,6 +1348,8 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-nolp-command",
 	"PPS not parsed from DTSI, generated dynamically",
 	"ROI not parsed from DTSI, generated dynamically",
+	"qcom,mdss-dsi-timing-switch-command",
+	"qcom,mdss-dsi-post-mode-switch-on-command",
 };
 
 const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
@@ -1360,6 +1372,8 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-nolp-command-state",
 	"PPS not parsed from DTSI, generated dynamically",
 	"ROI not parsed from DTSI, generated dynamically",
+	"qcom,mdss-dsi-timing-switch-command-state",
+	"qcom,mdss-dsi-post-mode-switch-on-command-state",
 };
 
 static int dsi_panel_get_cmd_pkt_count(const char *data, u32 length, u32 *cnt)
@@ -1516,29 +1530,34 @@ error:
 
 }
 
-static int dsi_panel_parse_cmd_sets(struct dsi_panel *panel,
-				    struct device_node *of_node)
+static int dsi_panel_parse_cmd_sets(
+		struct dsi_display_mode_priv_info *priv_info,
+		struct device_node *of_node)
 {
 	int rc = 0;
 	struct dsi_panel_cmd_set *set;
 	u32 i;
 
+	if (!priv_info) {
+		pr_err("invalid mode priv info\n");
+		return -EINVAL;
+	}
+
 	for (i = DSI_CMD_SET_PRE_ON; i < DSI_CMD_SET_MAX; i++) {
-		set = &panel->cmd_sets[i];
+		set = &priv_info->cmd_sets[i];
 		set->type = i;
 		set->count = 0;
 
 		if (i == DSI_CMD_SET_PPS) {
 			rc = dsi_panel_alloc_cmd_packets(set, 1);
 			if (rc)
-				pr_err("[%s] failed to allocate cmd set %d, rc = %d\n",
-					panel->name, i, rc);
+				pr_err("failed to allocate cmd set %d, rc = %d\n",
+					i, rc);
 			set->state = DSI_CMD_SET_STATE_LP;
 		} else {
 			rc = dsi_panel_parse_cmd_sets_sub(set, i, of_node);
 			if (rc)
-				pr_debug("[%s] failed to parse set %d\n",
-					panel->name, i);
+				pr_debug("failed to parse set %d\n", i);
 		}
 	}
 
@@ -1627,12 +1646,16 @@ static int dsi_panel_parse_misc_features(struct dsi_panel *panel,
 	return 0;
 }
 
-static int dsi_panel_parse_jitter_config(struct dsi_panel *panel,
-				     struct device_node *of_node)
+static int dsi_panel_parse_jitter_config(
+				struct dsi_display_mode *mode,
+				struct device_node *of_node)
 {
 	int rc;
+	struct dsi_display_mode_priv_info *priv_info;
 	u32 jitter[DEFAULT_PANEL_JITTER_ARRAY_SIZE] = {0, 0};
 	u64 jitter_val = 0;
+
+	priv_info = mode->priv_info;
 
 	rc = of_property_read_u32_array(of_node, "qcom,mdss-dsi-panel-jitter",
 				jitter, DEFAULT_PANEL_JITTER_ARRAY_SIZE);
@@ -1644,23 +1667,25 @@ static int dsi_panel_parse_jitter_config(struct dsi_panel *panel,
 	}
 
 	if (rc || !jitter_val || (jitter_val > MAX_PANEL_JITTER)) {
-		panel->panel_jitter_numer = DEFAULT_PANEL_JITTER_NUMERATOR;
-		panel->panel_jitter_denom = DEFAULT_PANEL_JITTER_DENOMINATOR;
+		priv_info->panel_jitter_numer = DEFAULT_PANEL_JITTER_NUMERATOR;
+		priv_info->panel_jitter_denom =
+					DEFAULT_PANEL_JITTER_DENOMINATOR;
 	} else {
-		panel->panel_jitter_numer = jitter[0];
-		panel->panel_jitter_denom = jitter[1];
+		priv_info->panel_jitter_numer = jitter[0];
+		priv_info->panel_jitter_denom = jitter[1];
 	}
 
 	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-panel-prefill-lines",
-				  &panel->panel_prefill_lines);
+				  &priv_info->panel_prefill_lines);
 	if (rc) {
 		pr_debug("panel prefill lines are not defined rc=%d\n", rc);
-		panel->panel_prefill_lines = DEFAULT_PANEL_PREFILL_LINES;
-	} else if (panel->panel_prefill_lines >=
-					DSI_V_TOTAL(&panel->mode.timing))  {
+		priv_info->panel_prefill_lines = DEFAULT_PANEL_PREFILL_LINES;
+	} else if (priv_info->panel_prefill_lines >=
+					DSI_V_TOTAL(&mode->timing)) {
 		pr_debug("invalid prefill lines config=%d setting to:%d\n",
-		      panel->panel_prefill_lines, DEFAULT_PANEL_PREFILL_LINES);
-		panel->panel_prefill_lines = DEFAULT_PANEL_PREFILL_LINES;
+		priv_info->panel_prefill_lines, DEFAULT_PANEL_PREFILL_LINES);
+
+		priv_info->panel_prefill_lines = DEFAULT_PANEL_PREFILL_LINES;
 	}
 
 	return 0;
@@ -2047,38 +2072,85 @@ int dsi_dsc_populate_static_param(struct msm_display_dsc_info *dsc)
 	return 0;
 }
 
-int dsi_panel_parse_dsc_params(struct dsi_panel *panel,
+
+static int dsi_panel_parse_phy_timing(struct dsi_display_mode *mode,
+				struct device_node *of_node)
+{
+	const char *data;
+	u32 len, i;
+	int rc = 0;
+	struct dsi_display_mode_priv_info *priv_info;
+
+	priv_info = mode->priv_info;
+
+	data = of_get_property(of_node,
+			"qcom,mdss-dsi-panel-phy-timings", &len);
+	if (!data) {
+		pr_debug("Unable to read Phy timing settings");
+	} else {
+		priv_info->phy_timing_val =
+			kzalloc((sizeof(u32) * len), GFP_KERNEL);
+		if (!priv_info->phy_timing_val)
+			return -EINVAL;
+
+		for (i = 0; i < len; i++)
+			priv_info->phy_timing_val[i] = data[i];
+
+		priv_info->phy_timing_len = len;
+	};
+
+	mode->pixel_clk_khz = (DSI_H_TOTAL(&mode->timing) *
+			DSI_V_TOTAL(&mode->timing) *
+			mode->timing.refresh_rate) / 1000;
+	return rc;
+}
+
+static int dsi_panel_parse_dsc_params(struct dsi_display_mode *mode,
 				struct device_node *of_node)
 {
 	u32 data;
 	int rc = -EINVAL;
 	int intf_width;
+	const char *compression;
+	struct dsi_display_mode_priv_info *priv_info;
 
-	if (!panel->dsc_enabled)
+	if (!mode || !mode->priv_info)
+		return -EINVAL;
+
+	priv_info = mode->priv_info;
+
+	priv_info->dsc_enabled = false;
+	compression = of_get_property(of_node, "qcom,compression-mode", NULL);
+	if (compression && !strcmp(compression, "dsc"))
+		priv_info->dsc_enabled = true;
+
+	if (!priv_info->dsc_enabled) {
+		pr_debug("dsc compression is not enabled for the mode");
 		return 0;
+	}
 
 	rc = of_property_read_u32(of_node, "qcom,mdss-dsc-slice-height", &data);
 	if (rc) {
 		pr_err("failed to parse qcom,mdss-dsc-slice-height\n");
 		goto error;
 	}
-	panel->dsc.slice_height = data;
+	priv_info->dsc.slice_height = data;
 
 	rc = of_property_read_u32(of_node, "qcom,mdss-dsc-slice-width", &data);
 	if (rc) {
 		pr_err("failed to parse qcom,mdss-dsc-slice-width\n");
 		goto error;
 	}
-	panel->dsc.slice_width = data;
+	priv_info->dsc.slice_width = data;
 
-	intf_width = panel->mode.timing.h_active;
-	if (intf_width % panel->dsc.slice_width) {
+	intf_width = mode->timing.h_active;
+	if (intf_width % priv_info->dsc.slice_width) {
 		pr_err("invalid slice width for the panel\n");
 		goto error;
 	}
 
-	panel->dsc.pic_width = panel->mode.timing.h_active;
-	panel->dsc.pic_height = panel->mode.timing.v_active;
+	priv_info->dsc.pic_width = mode->timing.h_active;
+	priv_info->dsc.pic_height = mode->timing.v_active;
 
 	rc = of_property_read_u32(of_node, "qcom,mdss-dsc-slice-per-pkt",
 			&data);
@@ -2086,7 +2158,7 @@ int dsi_panel_parse_dsc_params(struct dsi_panel *panel,
 		pr_err("failed to parse qcom,mdss-dsc-slice-per-pkt\n");
 		goto error;
 	}
-	panel->dsc.slice_per_pkt = data;
+	priv_info->dsc.slice_per_pkt = data;
 
 	rc = of_property_read_u32(of_node, "qcom,mdss-dsc-bit-per-component",
 		&data);
@@ -2094,7 +2166,7 @@ int dsi_panel_parse_dsc_params(struct dsi_panel *panel,
 		pr_err("failed to parse qcom,mdss-dsc-bit-per-component\n");
 		goto error;
 	}
-	panel->dsc.bpc = data;
+	priv_info->dsc.bpc = data;
 
 	rc = of_property_read_u32(of_node, "qcom,mdss-dsc-bit-per-pixel",
 			&data);
@@ -2102,16 +2174,16 @@ int dsi_panel_parse_dsc_params(struct dsi_panel *panel,
 		pr_err("failed to parse qcom,mdss-dsc-bit-per-pixel\n");
 		goto error;
 	}
-	panel->dsc.bpp = data;
+	priv_info->dsc.bpp = data;
 
-	panel->dsc.block_pred_enable = of_property_read_bool(of_node,
+	priv_info->dsc.block_pred_enable = of_property_read_bool(of_node,
 		"qcom,mdss-dsc-block-prediction-enable");
 
-	panel->dsc.full_frame_slices = DIV_ROUND_UP(intf_width,
-		panel->dsc.slice_width);
+	priv_info->dsc.full_frame_slices = DIV_ROUND_UP(intf_width,
+		priv_info->dsc.slice_width);
 
-	dsi_dsc_populate_static_param(&panel->dsc);
-	dsi_dsc_pclk_param_calc(&panel->dsc, intf_width);
+	dsi_dsc_populate_static_param(&priv_info->dsc);
+	dsi_dsc_pclk_param_calc(&priv_info->dsc, intf_width);
 
 error:
 	return rc;
@@ -2163,9 +2235,9 @@ static int dsi_panel_parse_hdr_config(struct dsi_panel *panel,
 	return 0;
 }
 
-static int dsi_panel_parse_topology(struct dsi_panel *panel,
-				struct device_node *of_node,
-				int topology_override)
+static int dsi_panel_parse_topology(
+		struct dsi_display_mode_priv_info *priv_info,
+		struct device_node *of_node, int topology_override)
 {
 	struct msm_display_topology *topology;
 	u32 top_count, top_sel, *array = NULL;
@@ -2236,9 +2308,7 @@ static int dsi_panel_parse_topology(struct dsi_panel *panel,
 		topology[top_sel].num_intf);
 
 parse_done:
-	panel->mode.mode_info = kzalloc(sizeof(struct msm_mode_info),
-			GFP_KERNEL);
-	memcpy(&panel->mode.mode_info->topology, &topology[top_sel],
+	memcpy(&priv_info->topology, &topology[top_sel],
 		sizeof(struct msm_display_topology));
 parse_fail:
 	kfree(topology);
@@ -2334,9 +2404,6 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 				int topology_override)
 {
 	struct dsi_panel *panel;
-	const char *data;
-	const char *compression;
-	u32 len = 0;
 	int rc = 0;
 
 	panel = kzalloc(sizeof(*panel), GFP_KERNEL);
@@ -2347,52 +2414,6 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 				      NULL);
 	if (!panel->name)
 		panel->name = DSI_PANEL_DEFAULT_LABEL;
-
-	panel->dsc_enabled = false;
-	compression = of_get_property(of_node, "qcom,compression-mode", NULL);
-	if (compression && !strcmp(compression, "dsc"))
-		panel->dsc_enabled = true;
-
-	rc = dsi_panel_parse_timing(&panel->mode.timing, of_node);
-	if (rc) {
-		pr_err("failed to parse panel timing, rc=%d\n", rc);
-		goto error;
-	}
-
-	rc = dsi_panel_parse_dsc_params(panel, of_node);
-	if (rc) {
-		pr_err("failed to parse dsc params, rc=%d\n", rc);
-		goto error;
-	}
-
-	data = of_get_property(of_node,
-		"qcom,mdss-dsi-panel-phy-timings", &len);
-	if (!data) {
-		pr_debug("%s:%d, Unable to read Phy timing settings",
-		       __func__, __LINE__);
-	} else {
-		int i = 0;
-
-		panel->phy_timing_val = kzalloc((sizeof(u32) * len),
-			GFP_KERNEL);
-		if (!panel->phy_timing_val) {
-			kfree(panel);
-			return ERR_PTR(-ENOMEM);
-		}
-		for (i = 0; i < len; i++)
-			panel->phy_timing_val[i] = data[i];
-	}
-	panel->phy_timing_len = len;
-
-	panel->mode.pixel_clk_khz = (DSI_H_TOTAL(&panel->mode.timing) *
-				    DSI_V_TOTAL(&panel->mode.timing) *
-				    panel->mode.timing.refresh_rate) / 1000;
-
-	rc = dsi_panel_parse_topology(panel, of_node, topology_override);
-	if (rc) {
-		pr_err("failed to parse panel topology, rc=%d\n", rc);
-		goto error;
-	}
 
 	rc = dsi_panel_parse_host_config(panel, of_node);
 	if (rc) {
@@ -2416,12 +2437,6 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 		goto error;
 	}
 
-	rc = dsi_panel_parse_cmd_sets(panel, of_node);
-	if (rc) {
-		pr_err("failed to parse command sets, rc=%d\n", rc);
-		goto error;
-	}
-
 	rc = dsi_panel_parse_power_cfg(parent, panel, of_node);
 	if (rc)
 		pr_err("failed to parse power config, rc=%d\n", rc);
@@ -2434,13 +2449,10 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	if (rc)
 		pr_err("failed to parse backlight config, rc=%d\n", rc);
 
-	rc = dsi_panel_parse_jitter_config(panel, of_node);
-	if (rc)
-		pr_err("failed to parse panel jitter config, rc=%d\n", rc);
 
 	rc = dsi_panel_parse_misc_features(panel, of_node);
 	if (rc)
-		pr_err("failed to parse panel features, rc=%d\n", rc);
+		pr_err("failed to parse misc features, rc=%d\n", rc);
 
 	rc = dsi_panel_parse_hdr_config(panel, of_node);
 	if (rc)
@@ -2449,6 +2461,12 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	rc = dsi_panel_parse_partial_update_caps(panel, of_node);
 	if (rc)
 		pr_debug("failed to partial update caps, rc=%d\n", rc);
+
+	rc = dsi_panel_get_mode_count(panel, of_node);
+	if (rc) {
+		pr_err("failed to get mode count, rc=%d\n", rc);
+		goto error;
+	}
 
 	panel->panel_of_node = of_node;
 	drm_panel_init(&panel->drm_panel);
@@ -2462,14 +2480,6 @@ error:
 
 void dsi_panel_put(struct dsi_panel *panel)
 {
-	u32 i;
-
-	for (i = 0; i < DSI_CMD_SET_MAX; i++)
-		dsi_panel_destroy_cmd_packets(&panel->cmd_sets[i]);
-
-	kfree(panel->mode.mode_info);
-
-	/* TODO:  more free */
 	kfree(panel);
 }
 
@@ -2582,20 +2592,36 @@ int dsi_panel_validate_mode(struct dsi_panel *panel,
 	return 0;
 }
 
-int dsi_panel_get_mode_count(struct dsi_panel *panel, u32 *count)
+int dsi_panel_get_mode_count(struct dsi_panel *panel,
+	struct device_node *of_node)
 {
-	int rc = 0;
+	struct device_node *timings_np;
+	int count, rc = 0;
 
-	if (!panel || !count) {
+	if (!of_node || !panel) {
 		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
-	mutex_lock(&panel->panel_lock);
-	/* TODO:  DT format has not been decided for multiple modes. */
-	*count = 1;
+	panel->num_timing_nodes = 0;
 
-	mutex_unlock(&panel->panel_lock);
+	timings_np = of_get_child_by_name(of_node,
+			"qcom,mdss-dsi-display-timings");
+	if (!timings_np) {
+		pr_err("no display timing nodes defined\n");
+		rc = -EINVAL;
+		goto error;
+	}
+
+	count = of_get_child_count(timings_np);
+	if (!count || count > DSI_MODE_MAX) {
+		pr_err("invalid count of timing nodes: %d\n", count);
+		rc = -EINVAL;
+		goto error;
+	}
+	panel->num_timing_nodes = count;
+
+error:
 	return rc;
 }
 
@@ -2635,11 +2661,27 @@ int dsi_panel_get_dfps_caps(struct dsi_panel *panel,
 	return rc;
 }
 
-int dsi_panel_get_mode(struct dsi_panel *panel,
-			u32 index,
-			struct dsi_display_mode *mode)
+void dsi_panel_put_mode(struct dsi_display_mode *mode)
 {
-	int rc = 0;
+	int i;
+
+	if (!mode->priv_info)
+		return;
+
+	for (i = 0; i < DSI_CMD_SET_MAX; i++)
+		dsi_panel_destroy_cmd_packets(&mode->priv_info->cmd_sets[i]);
+
+	kfree(mode->priv_info);
+}
+
+int dsi_panel_get_mode(struct dsi_panel *panel,
+			u32 index, struct dsi_display_mode *mode,
+			int topology_override)
+{
+	struct device_node *timings_np, *child_np;
+	struct dsi_display_mode_priv_info *prv_info;
+	u32 child_idx = 0;
+	int rc = 0, num_timings;
 
 	if (!panel || !mode) {
 		pr_err("invalid params\n");
@@ -2647,11 +2689,77 @@ int dsi_panel_get_mode(struct dsi_panel *panel,
 	}
 
 	mutex_lock(&panel->panel_lock);
-	if (index != 0)
-		rc = -ENOTSUPP; /* TODO: Support more than one mode */
-	else
-		memcpy(mode, &panel->mode, sizeof(*mode));
 
+	mode->priv_info = kzalloc(sizeof(*mode->priv_info), GFP_KERNEL);
+	if (!mode->priv_info) {
+		rc = -ENOMEM;
+		goto done;
+	}
+
+	prv_info = mode->priv_info;
+
+	timings_np = of_get_child_by_name(panel->panel_of_node,
+		"qcom,mdss-dsi-display-timings");
+	if (!timings_np) {
+		pr_err("no display timing nodes defined\n");
+		rc = -EINVAL;
+		goto parse_fail;
+	}
+
+	num_timings = of_get_child_count(timings_np);
+	if (!num_timings || num_timings > DSI_MODE_MAX) {
+		pr_err("invalid count of timing nodes: %d\n", num_timings);
+		rc = -EINVAL;
+		goto parse_fail;
+	}
+
+	for_each_child_of_node(timings_np, child_np) {
+		if (index != child_idx++)
+			continue;
+
+		rc = dsi_panel_parse_timing(&mode->timing, child_np);
+		if (rc) {
+			pr_err("failed to parse panel timing, rc=%d\n", rc);
+			goto parse_fail;
+		}
+
+		rc = dsi_panel_parse_dsc_params(mode, child_np);
+		if (rc) {
+			pr_err("failed to parse dsc params, rc=%d\n", rc);
+			goto parse_fail;
+		}
+
+		rc = dsi_panel_parse_topology(prv_info, child_np,
+				topology_override);
+		if (rc) {
+			pr_err("failed to parse panel topology, rc=%d\n", rc);
+			goto parse_fail;
+		}
+
+		rc = dsi_panel_parse_cmd_sets(prv_info, child_np);
+		if (rc) {
+			pr_err("failed to parse command sets, rc=%d\n", rc);
+			goto parse_fail;
+		}
+
+		rc = dsi_panel_parse_jitter_config(mode, child_np);
+		if (rc)
+			pr_err(
+			"failed to parse panel jitter config, rc=%d\n", rc);
+
+		rc = dsi_panel_parse_phy_timing(mode, child_np);
+		if (rc) {
+			pr_err(
+			"failed to parse panel phy timings, rc=%d\n", rc);
+			goto parse_fail;
+		}
+	}
+	goto done;
+
+parse_fail:
+	kfree(mode->priv_info);
+	mode->priv_info = NULL;
+done:
 	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
@@ -2669,11 +2777,11 @@ int dsi_panel_get_host_cfg_for_mode(struct dsi_panel *panel,
 
 	mutex_lock(&panel->panel_lock);
 
-	config->panel_mode = panel->mode.panel_mode;
+	config->panel_mode = panel->panel_mode;
 	memcpy(&config->common_config, &panel->host_config,
 	       sizeof(config->common_config));
 
-	if (mode->panel_mode == DSI_OP_VIDEO_MODE) {
+	if (panel->panel_mode == DSI_OP_VIDEO_MODE) {
 		memcpy(&config->u.video_engine, &panel->video_config,
 		       sizeof(config->u.video_engine));
 	} else {
@@ -2683,8 +2791,8 @@ int dsi_panel_get_host_cfg_for_mode(struct dsi_panel *panel,
 
 	memcpy(&config->video_timing, &mode->timing,
 	       sizeof(config->video_timing));
-	config->video_timing.dsc_enabled = panel->dsc_enabled;
-	config->video_timing.dsc = &panel->dsc;
+	config->video_timing.dsc_enabled = mode->priv_info->dsc_enabled;
+	config->video_timing.dsc = &mode->priv_info->dsc;
 
 	config->esc_clk_rate_hz = 19200000;
 	mutex_unlock(&panel->panel_lock);
@@ -2721,17 +2829,20 @@ int dsi_panel_update_pps(struct dsi_panel *panel)
 {
 	int rc = 0;
 	struct dsi_panel_cmd_set *set = NULL;
+	struct dsi_display_mode_priv_info *priv_info = NULL;
 
-	if (!panel) {
+	if (!panel || !panel->cur_mode) {
 		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
 	mutex_lock(&panel->panel_lock);
 
-	set = &panel->cmd_sets[DSI_CMD_SET_PPS];
+	priv_info = panel->cur_mode->priv_info;
 
-	dsi_dsc_create_pps_buf_cmd(&panel->dsc, panel->dsc_pps_cmd, 0);
+	set = &priv_info->cmd_sets[DSI_CMD_SET_PPS];
+
+	dsi_dsc_create_pps_buf_cmd(&priv_info->dsc, panel->dsc_pps_cmd, 0);
 	rc = dsi_panel_create_cmd_packets(panel->dsc_pps_cmd,
 					  DSI_CMD_PPS_SIZE, 1, set->cmds);
 	if (rc) {
@@ -2837,11 +2948,11 @@ error:
 	return rc;
 }
 
-static int dsi_panel_roi_prepare_dcs_cmds(struct dsi_panel *panel,
+static int dsi_panel_roi_prepare_dcs_cmds(struct dsi_panel_cmd_set *set,
 		struct dsi_rect *roi, int ctrl_idx, int unicast)
 {
 	static const int ROI_CMD_LEN = 5;
-	struct dsi_panel_cmd_set *set = &panel->cmd_sets[DSI_CMD_SET_ROI];
+
 	int rc = 0;
 
 	/* DTYPE_DCS_LWRITE */
@@ -2916,13 +3027,18 @@ int dsi_panel_send_roi_dcs(struct dsi_panel *panel, int ctrl_idx,
 		struct dsi_rect *roi)
 {
 	int rc = 0;
+	struct dsi_panel_cmd_set *set;
+	struct dsi_display_mode_priv_info *priv_info;
 
-	if (!panel) {
+	if (!panel || !panel->cur_mode) {
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
 
-	rc = dsi_panel_roi_prepare_dcs_cmds(panel, roi, ctrl_idx, true);
+	priv_info = panel->cur_mode->priv_info;
+	set = &priv_info->cmd_sets[DSI_CMD_SET_ROI];
+
+	rc = dsi_panel_roi_prepare_dcs_cmds(set, roi, ctrl_idx, true);
 	if (rc) {
 		pr_err("[%s] failed to prepare DSI_CMD_SET_ROI cmds, rc=%d\n",
 				panel->name, rc);
@@ -2940,7 +3056,7 @@ int dsi_panel_send_roi_dcs(struct dsi_panel *panel, int ctrl_idx,
 
 	mutex_unlock(&panel->panel_lock);
 
-	dsi_panel_destroy_cmd_packets(&panel->cmd_sets[DSI_CMD_SET_ROI]);
+	dsi_panel_destroy_cmd_packets(set);
 
 	return rc;
 }
