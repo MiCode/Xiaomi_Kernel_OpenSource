@@ -1724,11 +1724,6 @@ static int find_lowest_rq(struct task_struct *task)
 	unsigned long cpu_capacity;
 	unsigned long best_capacity;
 	unsigned long util, best_cpu_util = ULONG_MAX;
-	int best_cpu_idle_idx = INT_MAX;
-	int cpu_idle_idx = -1;
-	long new_util_cum;
-	int max_spare_cap_cpu = -1;
-	long max_spare_cap = -LONG_MAX;
 	bool placement_boost;
 
 	/* Make sure the mask is initialized first */
@@ -1798,48 +1793,17 @@ retry:
 				if (sched_cpu_high_irqload(cpu))
 					continue;
 
-				new_util_cum = cpu_util_cum(cpu, 0);
-
-				if (!task_in_cum_window_demand(cpu_rq(cpu),
-							       task))
-					new_util_cum += task_util(task);
-
-				trace_sched_cpu_util(task, cpu, task_util(task),
-						     0, new_util_cum, 0);
-
-				if (sysctl_sched_cstate_aware)
-					cpu_idle_idx =
-					     idle_get_state_idx(cpu_rq(cpu));
-
-				if (add_capacity_margin(new_util_cum, cpu) <
-				    capacity_curr_of(cpu)) {
-					if (cpu_idle_idx < best_cpu_idle_idx ||
-					    (best_cpu != task_cpu(task) &&
-					     (best_cpu_idle_idx ==
-					      cpu_idle_idx &&
-					      best_cpu_util > util))) {
-						best_cpu_util = util;
-						best_cpu = cpu;
-						best_cpu_idle_idx =
-						    cpu_idle_idx;
-					}
-				} else {
-					long spare_cap = capacity_of(cpu) -
-							 util;
-
-					if (spare_cap > 0 &&
-					    max_spare_cap < spare_cap) {
-						max_spare_cap_cpu = cpu;
-						max_spare_cap = spare_cap;
-					}
+				if (best_cpu_util > util ||
+				    (best_cpu_util == util &&
+				     cpu == task_cpu(task))) {
+					best_cpu_util = util;
+					best_cpu = cpu;
 				}
 			}
 		}
 
 		if (best_cpu != -1) {
 			return best_cpu;
-		} else if (max_spare_cap_cpu != -1) {
-			return max_spare_cap_cpu;
 		} else if (!cpumask_empty(&backup_search_cpu)) {
 			cpumask_copy(&search_cpu, &backup_search_cpu);
 			cpumask_clear(&backup_search_cpu);
