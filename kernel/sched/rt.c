@@ -1724,6 +1724,7 @@ static int find_lowest_rq(struct task_struct *task)
 	unsigned long cpu_capacity;
 	unsigned long best_capacity;
 	unsigned long util, best_cpu_util = ULONG_MAX;
+	unsigned long tutil = task_util(task);
 	bool placement_boost;
 
 	/* Make sure the mask is initialized first */
@@ -1786,7 +1787,7 @@ retry:
 			 * double count rt task load.
 			 */
 			util = cpu_util(cpu);
-			if (!cpu_overutilized(cpu)) {
+			if (!__cpu_overutilized(cpu, util + tutil)) {
 				if (cpu_isolated(cpu))
 					continue;
 
