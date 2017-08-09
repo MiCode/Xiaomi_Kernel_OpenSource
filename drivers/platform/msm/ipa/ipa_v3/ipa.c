@@ -4583,6 +4583,7 @@ int ipa3_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs)
 	int i, size, ret, resp;
 	struct tz_smmu_ipa_protect_region_iovec_s *ipa_tz_unlock_vec;
 	struct tz_smmu_ipa_protect_region_s cmd_buf;
+	struct scm_desc desc = {0};
 
 	if (reg_info ==  NULL || num_regs == 0) {
 		IPAERR("Bad parameters\n");
@@ -4610,9 +4611,17 @@ int ipa3_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs)
 	/* flush cache to DDR */
 	__cpuc_flush_dcache_area((void *)ipa_tz_unlock_vec, size);
 	outer_flush_range(cmd_buf.iovec_buf, cmd_buf.iovec_buf + size);
+	if (!is_scm_armv8())
+		ret = scm_call(SCM_SVC_MP, TZ_MEM_PROTECT_REGION_ID,
+			&cmd_buf, sizeof(cmd_buf), &resp, sizeof(resp));
+	else {
+		desc.args[0] = virt_to_phys((void *)ipa_tz_unlock_vec);
+		desc.args[1] = size;
+		desc.arginfo = SCM_ARGS(2, SCM_RO, SCM_VAL);
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
+			TZ_MEM_PROTECT_REGION_ID), &desc);
+	}
 
-	ret = scm_call(SCM_SVC_MP, TZ_MEM_PROTECT_REGION_ID, &cmd_buf,
-		       sizeof(cmd_buf), &resp, sizeof(resp));
 	if (ret) {
 		IPAERR("scm call SCM_SVC_MP failed: %d\n", ret);
 		kfree(ipa_tz_unlock_vec);
