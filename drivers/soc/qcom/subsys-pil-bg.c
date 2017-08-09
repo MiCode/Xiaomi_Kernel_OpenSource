@@ -190,6 +190,8 @@ static long bgpil_tzapp_comm(struct pil_bg_data *pbd,
 		rc, bg_tz_rsp->status);
 	if (rc || bg_tz_rsp->status)
 		pbd->cmd_status = bg_tz_rsp->status;
+	else
+		pbd->cmd_status = 0;
 end:
 	return rc;
 }
@@ -305,10 +307,21 @@ static int bg_auth_metadata(struct pil_desc *pil,
 {
 	struct pil_bg_data *bg_data = desc_to_data(pil);
 	struct tzapp_bg_req bg_tz_req;
+	void *mdata_buf;
+	dma_addr_t mdata_phys;
 	int ret;
 
+	mdata_buf = dma_alloc_coherent(pil->dev, size,
+			&mdata_phys, GFP_KERNEL);
+	if (!mdata_buf) {
+		pr_err("BG_PIL: Allocation for metadata failed.\n");
+		return -ENOMEM;
+	}
+
+	memcpy(mdata_buf, metadata, size);
+
 	bg_tz_req.tzapp_bg_cmd = BGPIL_AUTH_MDT;
-	bg_tz_req.address_fw = (phys_addr_t)metadata;
+	bg_tz_req.address_fw = (phys_addr_t)mdata_phys;
 	bg_tz_req.size_fw = size;
 
 	ret = bgpil_tzapp_comm(bg_data, &bg_tz_req);
@@ -318,6 +331,7 @@ static int bg_auth_metadata(struct pil_desc *pil,
 				__func__);
 		return bg_data->cmd_status;
 	}
+	dma_free_coherent(pil->dev, size, mdata_buf, mdata_phys);
 	pr_debug("BG MDT Authenticated\n");
 	return 0;
 }
