@@ -623,17 +623,12 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 	request.proc = d->pas_id;
 	request.image_addr = mdata_phys;
 
-	if (!is_scm_armv8()) {
-		ret = scm_call(SCM_SVC_PIL, PAS_INIT_IMAGE_CMD, &request,
-				sizeof(request), &scm_ret, sizeof(scm_ret));
-	} else {
-		desc.args[0] = d->pas_id;
-		desc.args[1] = mdata_phys;
-		desc.arginfo = SCM_ARGS(2, SCM_VAL, SCM_RW);
-		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_INIT_IMAGE_CMD),
-				&desc);
-		scm_ret = desc.ret[0];
-	}
+	desc.args[0] = d->pas_id;
+	desc.args[1] = mdata_phys;
+	desc.arginfo = SCM_ARGS(2, SCM_VAL, SCM_RW);
+	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_INIT_IMAGE_CMD),
+			&desc);
+	scm_ret = desc.ret[0];
 
 	dma_free_attrs(&dev, size, mdata_buf, mdata_phys, attrs);
 	scm_pas_disable_bw();
@@ -662,18 +657,14 @@ static int pil_mem_setup_trusted(struct pil_desc *pil, phys_addr_t addr,
 	request.start_addr = addr;
 	request.len = size;
 
-	if (!is_scm_armv8()) {
-		ret = scm_call(SCM_SVC_PIL, PAS_MEM_SETUP_CMD, &request,
-				sizeof(request), &scm_ret, sizeof(scm_ret));
-	} else {
-		desc.args[0] = d->pas_id;
-		desc.args[1] = addr;
-		desc.args[2] = size;
-		desc.arginfo = SCM_ARGS(3);
-		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_MEM_SETUP_CMD),
-				&desc);
-		scm_ret = desc.ret[0];
-	}
+	desc.args[0] = d->pas_id;
+	desc.args[1] = addr;
+	desc.args[2] = size;
+	desc.arginfo = SCM_ARGS(3);
+	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_MEM_SETUP_CMD),
+			&desc);
+	scm_ret = desc.ret[0];
+
 	if (ret)
 		return ret;
 	return scm_ret;
@@ -704,14 +695,10 @@ static int pil_auth_and_reset(struct pil_desc *pil)
 	if (rc)
 		goto err_clks;
 
-	if (!is_scm_armv8()) {
-		rc = scm_call(SCM_SVC_PIL, PAS_AUTH_AND_RESET_CMD, &proc,
-				sizeof(proc), &scm_ret, sizeof(scm_ret));
-	} else {
-		rc = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL,
-			       PAS_AUTH_AND_RESET_CMD), &desc);
-		scm_ret = desc.ret[0];
-	}
+	rc = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL,
+		       PAS_AUTH_AND_RESET_CMD), &desc);
+	scm_ret = desc.ret[0];
+
 	scm_pas_disable_bw();
 	if (rc)
 		goto err_reset;
@@ -759,14 +746,9 @@ static int pil_shutdown_trusted(struct pil_desc *pil)
 	if (rc)
 		goto err_clks;
 
-	if (!is_scm_armv8()) {
-		rc = scm_call(SCM_SVC_PIL, PAS_SHUTDOWN_CMD, &proc,
-			      sizeof(proc), &scm_ret, sizeof(scm_ret));
-	} else {
-		rc = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_SHUTDOWN_CMD),
-			       &desc);
-		scm_ret = desc.ret[0];
-	}
+	rc = scm_call2(SCM_SIP_FNID(SCM_SVC_PIL, PAS_SHUTDOWN_CMD),
+		       &desc);
+	scm_ret = desc.ret[0];
 
 	disable_unprepare_clocks(d->proxy_clks, d->proxy_clk_count);
 	disable_regulators(d, d->proxy_regs, d->proxy_reg_count, false);
