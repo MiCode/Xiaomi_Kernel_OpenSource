@@ -98,8 +98,10 @@ static int cnss_stats_show_state(struct seq_file *s,
 			continue;
 		case CNSS_DEV_ERR_NOTIFY:
 			seq_puts(s, "DEV_ERR");
+			continue;
 		case CNSS_DRIVER_DEBUG:
 			seq_puts(s, "DRIVER_DEBUG");
+			continue;
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);
@@ -190,6 +192,8 @@ static int cnss_dev_boot_debug_show(struct seq_file *s, void *data)
 	seq_puts(s, "off: de-assert WLAN_EN, turn off device power\n");
 	seq_puts(s, "enumerate: de-assert PERST, enumerate PCIe\n");
 	seq_puts(s, "download: download FW and do QMI handshake with FW\n");
+	seq_puts(s, "linkup: bring up PCIe link\n");
+	seq_puts(s, "linkdown: bring down PCIe link\n");
 	seq_puts(s, "powerup: full power on sequence to boot device, download FW and do QMI handshake with FW\n");
 	seq_puts(s, "shutdown: full power off sequence to shutdown device\n");
 
