@@ -1842,6 +1842,18 @@
 	status = "ok";
 };
 
+&hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc {
+	status = "ok";
+};
+
+&hlos1_vote_mmnoc_mmu_tbu_sf_gdsc {
+	status = "ok";
+};
+
 &bps_gdsc {
 	status = "ok";
 };
@@ -1878,6 +1890,7 @@
 	clock-names = "core_root_clk";
 	clocks = <&clock_gfx GPU_CC_GX_GFX3D_CLK_SRC>;
 	qcom,force-enable-root-clk;
+	parent-supply = <&pm660l_s2_level>;
 	status = "ok";
 };
 
