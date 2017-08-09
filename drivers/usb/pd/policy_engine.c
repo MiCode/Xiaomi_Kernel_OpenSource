@@ -228,6 +228,9 @@ static void *usbpd_ipc_log;
 
 #define PD_MAX_DATA_OBJ		7
 
+#define PD_SRC_CAP_EXT_DB_LEN	24
+
+
 #define PD_MAX_EXT_MSG_LEN		260
 #define PD_MAX_EXT_MSG_LEGACY_LEN	26
 
@@ -430,6 +433,12 @@ struct usbpd {
 	struct list_head	instance;
 
 	u16			ss_lane_svid;
+
+	/* ext msg support */
+	bool			send_get_src_cap_ext;
+	u8			src_cap_ext_db[PD_SRC_CAP_EXT_DB_LEN];
+	bool			send_get_pps_status;
+	u32			pps_status_db;
 };
 
 static LIST_HEAD(_usbpd);	/* useful for debugging */
@@ -2403,6 +2412,46 @@ static void usbpd_sm(struct work_struct *w)
 			vconn_swap(pd);
 		} else if (IS_DATA(rx_msg, MSG_VDM)) {
 			handle_vdm_rx(pd, rx_msg);
+		} else if (pd->send_get_src_cap_ext && is_sink_tx_ok(pd)) {
+			pd->send_get_src_cap_ext = false;
+			ret = pd_send_msg(pd, MSG_GET_SOURCE_CAP_EXTENDED, NULL,
+				0, SOP_MSG);
+			if (ret) {
+				dev_err(&pd->dev,
+					"Error sending get_src_cap_ext\n");
+				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+				break;
+			}
+			kick_sm(pd, SENDER_RESPONSE_TIME);
+		} else if (rx_msg &&
+			IS_EXT(rx_msg, MSG_SOURCE_CAPABILITIES_EXTENDED)) {
+			if (rx_msg->data_len != PD_SRC_CAP_EXT_DB_LEN) {
+				usbpd_err(&pd->dev, "Invalid src cap ext db\n");
+				break;
+			}
+			memcpy(&pd->src_cap_ext_db, rx_msg->payload,
+				sizeof(pd->src_cap_ext_db));
+			complete(&pd->is_ready);
+		} else if (pd->send_get_pps_status && is_sink_tx_ok(pd)) {
+			pd->send_get_pps_status = false;
+			ret = pd_send_msg(pd, MSG_GET_PPS_STATUS, NULL,
+				0, SOP_MSG);
+			if (ret) {
+				dev_err(&pd->dev,
+					"Error sending get_pps_status\n");
+				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+				break;
+			}
+			kick_sm(pd, SENDER_RESPONSE_TIME);
+		} else if (rx_msg &&
+			IS_EXT(rx_msg, MSG_PPS_STATUS)) {
+			if (rx_msg->data_len != sizeof(pd->pps_status_db)) {
+				usbpd_err(&pd->dev, "Invalid pps status db\n");
+				break;
+			}
+			memcpy(&pd->pps_status_db, rx_msg->payload,
+				sizeof(pd->pps_status_db));
+			complete(&pd->is_ready);
 		} else if (rx_msg && pd->spec_rev == USBPD_REV_30) {
 			/* unhandled messages */
 			ret = pd_send_msg(pd, MSG_NOT_SUPPORTED, NULL, 0,
@@ -3395,6 +3444,71 @@ static ssize_t hard_reset_store(struct device *dev,
 }
 static DEVICE_ATTR_WO(hard_reset);
 
+static int trigger_tx_msg(struct usbpd *pd, bool *msg_tx_flag)
+{
+	int ret = 0;
+
+	/* Only allowed if we are already in explicit sink contract */
+	if (pd->current_state != PE_SNK_READY || !is_sink_tx_ok(pd)) {
+		usbpd_err(&pd->dev, "%s: Cannot send msg\n", __func__);
+		ret = -EBUSY;
+		goto out;
+	}
+
+	reinit_completion(&pd->is_ready);
+	*msg_tx_flag = true;
+	kick_sm(pd, 0);
+
+	/* wait for operation to complete */
+	if (!wait_for_completion_timeout(&pd->is_ready,
+			msecs_to_jiffies(1000))) {
+		usbpd_err(&pd->dev, "%s: request timed out\n", __func__);
+		ret = -ETIMEDOUT;
+	}
+
+out:
+	*msg_tx_flag = false;
+	return ret;
+
+}
+
+static ssize_t get_src_cap_ext_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int i, ret, len = 0;
+	struct usbpd *pd = dev_get_drvdata(dev);
+
+	if (pd->spec_rev == USBPD_REV_20)
+		return -EINVAL;
+
+	ret = trigger_tx_msg(pd, &pd->send_get_src_cap_ext);
+	if (ret)
+		return ret;
+
+	for (i = 0; i < PD_SRC_CAP_EXT_DB_LEN; i++)
+		len += snprintf(buf + len, PAGE_SIZE - len, "%d\n",
+			pd->src_cap_ext_db[i]);
+	return len;
+}
+static DEVICE_ATTR_RO(get_src_cap_ext);
+
+static ssize_t get_pps_status_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int ret;
+	struct usbpd *pd = dev_get_drvdata(dev);
+
+	if (pd->spec_rev == USBPD_REV_20)
+		return -EINVAL;
+
+	ret = trigger_tx_msg(pd, &pd->send_get_pps_status);
+	if (ret)
+		return ret;
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", pd->pps_status_db);
+}
+static DEVICE_ATTR_RO(get_pps_status);
+
 static struct attribute *usbpd_attrs[] = {
 	&dev_attr_contract.attr,
 	&dev_attr_initial_pr.attr,
@@ -3414,6 +3528,8 @@ static struct attribute *usbpd_attrs[] = {
 	&dev_attr_rdo.attr,
 	&dev_attr_rdo_h.attr,
 	&dev_attr_hard_reset.attr,
+	&dev_attr_get_src_cap_ext.attr,
+	&dev_attr_get_pps_status.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(usbpd);
