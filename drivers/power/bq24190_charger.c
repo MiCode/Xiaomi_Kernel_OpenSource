@@ -1400,7 +1400,7 @@ static int bq24190_probe(struct i2c_client *client,
 
 	ret = devm_request_threaded_irq(dev, bdi->irq, NULL,
 			bq24190_irq_handler_thread,
-			IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+			IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
 			"bq24190-charger", bdi);
 	if (ret < 0) {
 		dev_err(dev, "Can't set up irq handler\n");
@@ -1496,6 +1496,7 @@ static int bq24190_pm_resume(struct device *dev)
 
 	pm_runtime_get_sync(bdi->dev);
 	bq24190_register_reset(bdi);
+	bq24190_set_mode_host(bdi);
 	pm_runtime_put_sync(bdi->dev);
 
 	/* Things may have changed while suspended so alert upper layer */

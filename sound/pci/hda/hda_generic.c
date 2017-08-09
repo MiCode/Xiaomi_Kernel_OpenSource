@@ -3079,6 +3079,7 @@ static int check_dyn_adc_switch(struct hda_codec *codec)
 						spec->input_paths[i][nums]);
 					spec->input_paths[i][nums] =
 						spec->input_paths[i][n];
+					spec->input_paths[i][n] = 0;
 				}
 			}
 			nums++;

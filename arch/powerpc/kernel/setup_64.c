@@ -211,6 +211,15 @@ static void cpu_ready_for_interrupts(void)
 		unsigned long lpcr = mfspr(SPRN_LPCR);
 		mtspr(SPRN_LPCR, lpcr | LPCR_AIL_3);
 	}
+
+	/*
+	 * Fixup HFSCR:TM based on CPU features. The bit is set by our
+	 * early asm init because at that point we haven't updated our
+	 * CPU features from firmware and device-tree. Here we have,
+	 * so let's do it.
+	 */
+	if (cpu_has_feature(CPU_FTR_HVMODE) && !cpu_has_feature(CPU_FTR_TM_COMP))
+		mtspr(SPRN_HFSCR, mfspr(SPRN_HFSCR) & ~HFSCR_TM);
 }
 
 /*
@@ -745,7 +754,7 @@ void ppc64_boot_msg(unsigned int src, const char *msg)
 
 static void * __init pcpu_fc_alloc(unsigned int cpu, size_t size, size_t align)
 {
-	return __alloc_bootmem_node(NODE_DATA(cpu_to_node(cpu)), size, align,
+	return __alloc_bootmem_node(NODE_DATA(early_cpu_to_node(cpu)), size, align,
 				    __pa(MAX_DMA_ADDRESS));
 }
 
@@ -756,7 +765,7 @@ static void __init pcpu_fc_free(void *ptr, size_t size)
 
 static int pcpu_cpu_distance(unsigned int from, unsigned int to)
 {
-	if (cpu_to_node(from) == cpu_to_node(to))
+	if (early_cpu_to_node(from) == early_cpu_to_node(to))
 		return LOCAL_DISTANCE;
 	else
 		return REMOTE_DISTANCE;

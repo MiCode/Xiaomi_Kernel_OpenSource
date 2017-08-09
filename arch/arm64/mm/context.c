@@ -120,7 +120,7 @@ static u64 new_context(struct mm_struct *mm, unsigned int cpu)
 
 	/* We're out of ASIDs, so increment the global generation count */
 	generation = atomic64_add_return_relaxed(ASID_FIRST_VERSION,
-					&asid_generation);
+						 &asid_generation);
 	flush_context(cpu);
 
 	/* We have at least 1 ASID per CPU, so this will always succeed */

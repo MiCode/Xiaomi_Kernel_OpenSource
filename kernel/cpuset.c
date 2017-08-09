@@ -2011,6 +2011,7 @@ static int cpuset_css_online(struct cgroup_subsys_state *css)
 	cpumask_copy(cs->cpus_allowed, parent->cpus_allowed);
 	cpumask_copy(cs->cpus_requested, parent->cpus_requested);
 	cpumask_copy(cs->effective_cpus, parent->cpus_allowed);
+	cpumask_copy(cs->cpus_requested, parent->cpus_requested);
 	mutex_unlock(&callback_mutex);
 out_unlock:
 	mutex_unlock(&cpuset_mutex);

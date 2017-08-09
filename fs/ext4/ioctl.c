@@ -644,7 +644,17 @@ resizefs_out:
 			goto encryption_policy_out;
 		}
 
+		err = mnt_want_write_file(filp);
+		if (err)
+			goto encryption_policy_out;
+
+		mutex_lock(&inode->i_mutex);
+
 		err = ext4_process_policy(&policy, inode);
+
+		mutex_unlock(&inode->i_mutex);
+
+		mnt_drop_write_file(filp);
 encryption_policy_out:
 		return err;
 #else

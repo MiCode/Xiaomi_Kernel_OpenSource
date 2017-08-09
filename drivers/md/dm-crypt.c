@@ -1249,11 +1249,6 @@ static void kcryptd_crypt_write_io_submit(struct dm_crypt_io *io, int async)
 
 	clone->bi_iter.bi_sector = cc->start + io->sector;
 
-	if (likely(!async) && test_bit(DM_CRYPT_NO_OFFLOAD, &cc->flags)) {
-		generic_make_request(clone);
-		return;
-	}
-
 	spin_lock_irqsave(&cc->write_thread_wait.lock, flags);
 	rbp = &cc->write_tree.rb_node;
 	parent = NULL;
@@ -1853,11 +1848,10 @@ static int crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 		goto bad;
 	}
 
-	if (test_bit(DM_CRYPT_SAME_CPU, &cc->flags))
-		cc->crypt_queue = alloc_workqueue("kcryptd", WQ_HIGHPRI | WQ_MEM_RECLAIM, 1);
-	else
-		cc->crypt_queue = alloc_workqueue("kcryptd", WQ_HIGHPRI | WQ_MEM_RECLAIM | WQ_UNBOUND,
-						  num_online_cpus());
+	cc->crypt_queue = alloc_workqueue("kcryptd",
+					  WQ_HIGHPRI |
+					  WQ_MEM_RECLAIM |
+					  WQ_UNBOUND, num_online_cpus());
 	if (!cc->crypt_queue) {
 		ti->error = "Couldn't create kcryptd queue";
 		goto bad;

@@ -302,9 +302,9 @@ static void addrconf_mod_rs_timer(struct inet6_dev *idev,
 static void addrconf_mod_dad_work(struct inet6_ifaddr *ifp,
 				   unsigned long delay)
 {
-	if (!delayed_work_pending(&ifp->dad_work))
-		in6_ifa_hold(ifp);
-	mod_delayed_work(addrconf_wq, &ifp->dad_work, delay);
+	in6_ifa_hold(ifp);
+	if (mod_delayed_work(addrconf_wq, &ifp->dad_work, delay))
+		in6_ifa_put(ifp);
 }
 
 static int snmp6_alloc_dev(struct inet6_dev *idev)
@@ -1711,17 +1711,7 @@ struct inet6_ifaddr *ipv6_get_ifaddr(struct net *net, const struct in6_addr *add
 
 static void addrconf_dad_stop(struct inet6_ifaddr *ifp, int dad_failed)
 {
-	if (ifp->flags&IFA_F_PERMANENT) {
-		spin_lock_bh(&ifp->lock);
-		addrconf_del_dad_work(ifp);
-		ifp->flags |= IFA_F_TENTATIVE;
-		if (dad_failed)
-			ifp->flags |= IFA_F_DADFAILED;
-		spin_unlock_bh(&ifp->lock);
-		if (dad_failed)
-			ipv6_ifa_notify(0, ifp);
-		in6_ifa_put(ifp);
-	} else if (ifp->flags&IFA_F_TEMPORARY) {
+	if (ifp->flags&IFA_F_TEMPORARY) {
 		struct inet6_ifaddr *ifpub;
 		spin_lock_bh(&ifp->lock);
 		ifpub = ifp->ifpub;
@@ -1734,6 +1724,16 @@ static void addrconf_dad_stop(struct inet6_ifaddr *ifp, int dad_failed)
 			spin_unlock_bh(&ifp->lock);
 		}
 		ipv6_del_addr(ifp);
+	} else if (ifp->flags&IFA_F_PERMANENT || !dad_failed) {
+		spin_lock_bh(&ifp->lock);
+		addrconf_del_dad_work(ifp);
+		ifp->flags |= IFA_F_TENTATIVE;
+		if (dad_failed)
+			ifp->flags |= IFA_F_DADFAILED;
+		spin_unlock_bh(&ifp->lock);
+		if (dad_failed)
+			ipv6_ifa_notify(0, ifp);
+		in6_ifa_put(ifp);
 	} else {
 		ipv6_del_addr(ifp);
 	}
@@ -2832,7 +2832,7 @@ static void init_loopback(struct net_device *dev)
 				 * lo device down, release this obsolete dst and
 				 * reallocate a new router for ifa.
 				 */
-				if (sp_ifa->rt->dst.obsolete > 0) {
+				if (!atomic_read(&sp_ifa->rt->rt6i_ref)) {
 					ip6_rt_put(sp_ifa->rt);
 					sp_ifa->rt = NULL;
 				} else {
@@ -2968,6 +2968,7 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
 {
 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
 	struct inet6_dev *idev = __in6_dev_get(dev);
+	struct net *net = dev_net(dev);
 	int run_pending = 0;
 	int err;
 
@@ -3064,7 +3065,7 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
 			 * IPV6_MIN_MTU stop IPv6 on this interface.
 			 */
 			if (dev->mtu < IPV6_MIN_MTU)
-				addrconf_ifdown(dev, 1);
+				addrconf_ifdown(dev, dev != net->loopback_dev);
 		}
 		break;
 
@@ -3123,6 +3124,7 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
  */
 static struct notifier_block ipv6_dev_notf = {
 	.notifier_call = addrconf_notify,
+	.priority = ADDRCONF_NOTIFY_PRIORITY,
 };
 
 static void addrconf_type_change(struct net_device *dev, unsigned long event)
@@ -5651,6 +5653,8 @@ int __init addrconf_init(void)
 		err = PTR_ERR(idev);
 		goto errlo;
 	}
+
+	ip6_route_init_special_entries();
 
 	for (i = 0; i < IN6_ADDR_HSIZE; i++)
 		INIT_HLIST_HEAD(&inet6_addr_lst[i]);

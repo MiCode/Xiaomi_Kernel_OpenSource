@@ -122,18 +122,13 @@
 #endif
 
 #ifdef CONFIG_MTD_MAP_BANK_WIDTH_32
-# ifdef map_bankwidth
-#  undef map_bankwidth
-#  define map_bankwidth(map) ((map)->bankwidth)
-#  undef map_bankwidth_is_large
-#  define map_bankwidth_is_large(map) (map_bankwidth(map) > BITS_PER_LONG/8)
-#  undef map_words
-#  define map_words(map) map_calc_words(map)
-# else
-#  define map_bankwidth(map) 32
-#  define map_bankwidth_is_large(map) (1)
-#  define map_words(map) map_calc_words(map)
-# endif
+/* always use indirect access for 256-bit to preserve kernel stack */
+# undef map_bankwidth
+# define map_bankwidth(map) ((map)->bankwidth)
+# undef map_bankwidth_is_large
+# define map_bankwidth_is_large(map) (map_bankwidth(map) > BITS_PER_LONG/8)
+# undef map_words
+# define map_words(map) map_calc_words(map)
 #define map_bankwidth_is_32(map) (map_bankwidth(map) == 32)
 #undef MAX_MAP_BANKWIDTH
 #define MAX_MAP_BANKWIDTH 32
@@ -314,7 +309,17 @@ static inline map_word map_word_or(struct map_info *map, map_word val1, map_word
 	return r;
 }
 
-#define map_word_andequal(m, a, b, z) map_word_equal(m, z, map_word_and(m, a, b))
+static inline int map_word_andequal(struct map_info *map, map_word val1, map_word val2, map_word val3)
+{
+	int i;
+
+	for (i = 0; i < map_words(map); i++) {
+		if ((val1.x[i] & val2.x[i]) != val3.x[i])
+			return 0;
+	}
+
+	return 1;
+}
 
 static inline int map_word_bitsset(struct map_info *map, map_word val1, map_word val2)
 {
