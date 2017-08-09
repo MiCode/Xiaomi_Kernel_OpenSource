@@ -359,6 +359,22 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 	kgsl_regwrite(device, A6XX_RBBM_CLOCK_CNTL, on ? 0x8AA8AA02 : 0);
 }
 
+#define LM_DEFAULT_LIMIT	6000
+
+static uint32_t lm_limit(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	if (adreno_dev->lm_limit)
+		return adreno_dev->lm_limit;
+
+	if (of_property_read_u32(device->pdev->dev.of_node, "qcom,lm-limit",
+		&adreno_dev->lm_limit))
+		adreno_dev->lm_limit = LM_DEFAULT_LIMIT;
+
+	return adreno_dev->lm_limit;
+}
+
 /*
  * a6xx_start() - Device start
  * @adreno_dev: Pointer to adreno device
@@ -377,6 +393,9 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		ADRENO_GPU_DEVICE(adreno_dev)->hw_isidle = NULL;
 	/* enable hardware clockgating */
 	a6xx_hwcg_set(adreno_dev, true);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+		adreno_dev->lm_threshold_count = A6XX_GMU_GENERAL_1;
 
 	adreno_vbif_start(adreno_dev, a6xx_vbif_platforms,
 			ARRAY_SIZE(a6xx_vbif_platforms));
@@ -937,7 +956,8 @@ static void a6xx_gmu_power_config(struct kgsl_device *device)
 	}
 
 	/* ACD feature enablement */
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
+		test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
 		kgsl_gmu_regrmw(device, A6XX_GMU_BOOT_KMD_LM_HANDSHAKE, 0,
 				BIT(10));
 
@@ -945,9 +965,6 @@ static void a6xx_gmu_power_config(struct kgsl_device *device)
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_RPMH))
 		kgsl_gmu_regrmw(device, A6XX_GMU_RPMH_CTRL, 0,
 				RPMH_ENABLE_MASK);
-
-	/* Disable reference bandgap voltage */
-	kgsl_gmu_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 1);
 }
 
 /*
@@ -1422,6 +1439,7 @@ error_rsc:
 static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = &device->gmu;
+	const struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int val, ret = 0;
 
 	/* Turn off the SPTP and HM head switches */
@@ -1448,13 +1466,87 @@ static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 			&val);
 	kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 0);
 
-	kgsl_gmu_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 0);
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
+		test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
+		kgsl_gmu_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 0);
 
 	/* FIXME: v2 has different procedure to trigger sequence */
 
 	return ret;
 }
 
+#define KMASK(start, n) (GENMASK((start + n), (start)))
+
+static void isense_cold_trimm(struct kgsl_device *device)
+{
+	unsigned int reg;
+	struct gmu_device *gmu = &device->gmu;
+
+	kgsl_gmu_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 1);
+	kgsl_gmu_regwrite(device, A6XX_GPU_CS_AMP_CALIBRATION_DONE, 0);
+
+	kgsl_gmu_regwrite(device, A6XX_GPU_GMU_CX_GMU_ISENSE_CTRL, 0x1);
+	kgsl_gmu_regwrite(device, A6XX_GPU_CS_AMP_CALIBRATION_CONTROL3,
+		0x00000F8F);
+	kgsl_gmu_regwrite(device, A6XX_GPU_CS_AMP_CALIBRATION_CONTROL2,
+		0x00705161);
+	udelay(10);
+	kgsl_gmu_regwrite(device, A6XX_GPU_CS_ENABLE_REG, 0x3);
+	kgsl_gmu_regwrite(device, A6XX_GPU_CS_A_SENSOR_CTRL_0, 0x10040a);
+	kgsl_gmu_regwrite(device, A6XX_GPU_CS_A_SENSOR_CTRL_2, 0x10040a);
+
+	kgsl_gmu_regread(device, A6XX_GPU_CS_SENSOR_GENERAL_STATUS, &reg);
+	if ((reg & BIT(CS_PWR_ON_STATUS)) != (1 << CS_PWR_ON_STATUS)) {
+		dev_err(&gmu->pdev->dev, "ERROR - ISENSE power-up\n");
+		return;
+	}
+
+	kgsl_gmu_regrmw(device, A6XX_GPU_CS_AMP_CALIBRATION_CONTROL1,
+		KMASK(AMP_TRIM_TIMER, 15), 70 << AMP_TRIM_TIMER);
+	kgsl_gmu_regrmw(device, A6XX_GPU_CS_AMP_CALIBRATION_CONTROL1,
+		KMASK(AMP_SW_TRIM_START, 1), 0 << AMP_SW_TRIM_START);
+	kgsl_gmu_regrmw(device, A6XX_GPU_CS_AMP_CALIBRATION_CONTROL1,
+		KMASK(AMP_SW_TRIM_START, 1), 1 << AMP_SW_TRIM_START);
+
+	if (timed_poll_check(device, A6XX_GPU_CS_SENSOR_GENERAL_STATUS,
+		BIT(SS_AMPTRIM_DONE), GMU_START_TIMEOUT,
+		BIT(SS_AMPTRIM_DONE))) {
+		dev_err(&gmu->pdev->dev, "ISENSE SS_AMPTRIM failure\n");
+		return;
+	}
+
+	kgsl_gmu_regread(device, A6XX_GPU_CS_AMP_CALIBRATION_STATUS1_0, &reg);
+	if (reg & AMP_ERR) {
+		kgsl_gmu_regread(device, A6XX_GPU_CS_AMP_CALIBRATION_STATUS1_0,
+			&reg);
+		dev_err(&gmu->pdev->dev,
+			"ISENSE ERROR:trimming GX 0x%08x\n", reg);
+		return;
+	}
+
+	kgsl_gmu_regread(device, A6XX_GPU_CS_AMP_CALIBRATION_STATUS1_2, &reg);
+	if (reg & AMP_ERR) {
+		kgsl_gmu_regread(device, A6XX_GPU_CS_AMP_CALIBRATION_STATUS1_2,
+			&reg);
+		dev_err(&gmu->pdev->dev,
+			"ISENSE ERROR:trimming SPTPRAC 0x%08x\n", reg);
+		return;
+	}
+
+	kgsl_gmu_regwrite(device, A6XX_GPU_CS_AMP_CALIBRATION_DONE, 1);
+	kgsl_gmu_regrmw(device, A6XX_GPU_CS_AMP_PERIOD_CTRL,
+		KMASK(TRIM_CNT_VALUE, 13), 20 << TRIM_CNT_VALUE);
+	kgsl_gmu_regrmw(device, A6XX_GPU_CS_AMP_PERIOD_CTRL,
+		KMASK(RUNTIME_CNT_VALUE, 9), 50 << RUNTIME_CNT_VALUE);
+
+	kgsl_gmu_regrmw(device, A6XX_GPU_CS_AMP_PERIOD_CTRL,
+		KMASK(TRIM_ENABLE, 1), 1 << TRIM_ENABLE);
+	udelay(4);
+	kgsl_gmu_regrmw(device, A6XX_GPU_CS_AMP_PERIOD_CTRL,
+		KMASK(TRIM_ENABLE, 1), 0 << TRIM_ENABLE);
+	kgsl_gmu_regwrite(device, A6XX_GPU_CS_AMP_CALIBRATION_DONE, 1);
+
+}
 /*
  * a6xx_gmu_fw_start() - set up GMU and start FW
  * @device: Pointer to KGSL device
@@ -1531,6 +1623,13 @@ static int a6xx_gmu_fw_start(struct kgsl_device *device,
 
 	kgsl_gmu_regwrite(device, A6XX_GMU_AHB_FENCE_RANGE_0,
 			FENCE_RANGE_MASK);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
+		test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag)) {
+		kgsl_gmu_regwrite(device, A6XX_GPU_GMU_CX_GMU_PWR_THRESHOLD,
+			lm_limit(adreno_dev));
+		isense_cold_trimm(device);
+	}
 
 	/* Configure power control and bring the GMU out of reset */
 	a6xx_gmu_power_config(device);
@@ -1761,7 +1860,8 @@ static void a6xx_isense_disable(struct kgsl_device *device)
 	unsigned int val;
 	const struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
+		!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
 		return;
 
 	kgsl_gmu_regread(device, A6XX_GPU_CS_ENABLE_REG, &val);
@@ -1777,7 +1877,8 @@ static int a6xx_llm_glm_handshake(struct kgsl_device *device)
 	const struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = &device->gmu;
 
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
+		!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
 		return 0;
 
 	kgsl_gmu_regread(device, A6XX_GMU_LLM_GLM_SLEEP_CTRL, &val);
@@ -1794,6 +1895,19 @@ static int a6xx_llm_glm_handshake(struct kgsl_device *device)
 	}
 
 	return 0;
+}
+
+
+static void a6xx_count_throttles(struct adreno_device *adreno_dev,
+	uint64_t adj)
+{
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM) ||
+		!test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
+		return;
+
+	kgsl_gmu_regread(KGSL_DEVICE(adreno_dev),
+		adreno_dev->lm_threshold_count,
+		&adreno_dev->lm_threshold_cross);
 }
 
 static int a6xx_complete_rpmh_votes(struct kgsl_device *device)
@@ -2817,6 +2931,7 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.regulator_disable = a6xx_sptprac_disable,
 	.perfcounters = &a6xx_perfcounters,
 	.enable_pwr_counters = a6xx_enable_pwr_counters,
+	.count_throttles = a6xx_count_throttles,
 	.microcode_read = a6xx_microcode_read,
 	.enable_64bit = a6xx_enable_64bit,
 	.llc_configure_gpu_scid = a6xx_llc_configure_gpu_scid,
