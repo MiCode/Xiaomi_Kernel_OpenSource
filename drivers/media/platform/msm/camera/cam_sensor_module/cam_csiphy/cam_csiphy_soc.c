@@ -14,6 +14,29 @@
 #include "cam_csiphy_core.h"
 #include "include/cam_csiphy_1_0_hwreg.h"
 
+#ifdef CAM_CSIPHY_MEM_DMP
+int32_t cam_csiphy_mem_dmp(struct cam_hw_soc_info *soc_info)
+{
+	int32_t rc = 0;
+	resource_size_t size = 0;
+	void __iomem *addr = NULL;
+
+	if (!soc_info) {
+		rc = -EINVAL;
+		CAM_ERR(CAM_CSIPHY, "invalid input %d", rc);
+		return rc;
+	}
+	addr = soc_info->reg_map[0].mem_base;
+	size = resource_size(soc_info->mem_block[0]);
+	rc = cam_io_dump(addr, 0, (size >> 2));
+	if (rc < 0) {
+		CAM_ERR(CAM_CSIPHY, "generating dump failed %d", rc);
+		return rc;
+	}
+	return rc;
+}
+#endif
+
 int32_t cam_csiphy_enable_hw(struct csiphy_device *csiphy_dev)
 {
 	int32_t rc = 0;

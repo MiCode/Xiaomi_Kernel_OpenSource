@@ -20,6 +20,7 @@
 #include "cam_io_util.h"
 #include "cam_cpas_soc.h"
 #include "cpastop100.h"
+#include "cpastop_v170_110.h"
 
 struct cam_camnoc_info *camnoc_info;
 
@@ -420,6 +421,10 @@ static int cam_cpastop_init_hw_version(struct cam_hw_info *cpas_hw,
 			(hw_caps->cpas_version.minor == 0) &&
 			(hw_caps->cpas_version.incr == 0)) {
 			camnoc_info = &cam170_cpas100_camnoc_info;
+		} else if ((hw_caps->cpas_version.major == 1) &&
+			(hw_caps->cpas_version.minor == 1) &&
+			(hw_caps->cpas_version.incr == 0)) {
+			camnoc_info = &cam170_cpas110_camnoc_info;
 		} else {
 			CAM_ERR(CAM_CPAS, "CPAS Version not supported %d.%d.%d",
 				hw_caps->cpas_version.major,
