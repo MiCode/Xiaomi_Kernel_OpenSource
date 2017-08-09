@@ -76,6 +76,8 @@ struct pil_bg_data {
 	struct completion err_ready;
 };
 
+static irqreturn_t bg_status_change(int irq, void *dev_id);
+
 /**
  * bg_app_shutdown_notify() - Toggle AP2BG err fatal gpio when
  * called by SSR framework.
@@ -240,6 +242,18 @@ static int bg_powerup(const struct subsys_desc *subsys)
 	pr_debug("bgapp loaded\n");
 	bg_data->desc.fw_name = subsys->fw_name;
 
+	ret = devm_request_irq(bg_data->desc.dev, bg_data->status_irq,
+		bg_status_change,
+		IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+		"bg2ap_status", bg_data);
+	if (ret < 0) {
+		dev_err(bg_data->desc.dev,
+			"%s: BG2AP_STATUS IRQ#%d re registration failed, err=%d",
+			__func__, bg_data->status_irq, ret);
+			return ret;
+	}
+	disable_irq(bg_data->status_irq);
+
 	/* Enable status and err fatal irqs */
 	ret = pil_boot(&bg_data->desc);
 	if (ret) {
@@ -248,7 +262,6 @@ static int bg_powerup(const struct subsys_desc *subsys)
 		return ret;
 	}
 	enable_irq(bg_data->status_irq);
-	enable_irq(bg_data->errfatal_irq);
 	ret = wait_for_err_ready(bg_data);
 	if (ret) {
 		dev_err(bg_data->desc.dev,
@@ -269,11 +282,12 @@ static int bg_powerup(const struct subsys_desc *subsys)
  */
 static int bg_shutdown(const struct subsys_desc *subsys, bool force_stop)
 {
-	/*
-	 * Just return success for time being as this function
-	 * has nothing to do for now. this will act as as placeholder
-	 * for any cleanup work that is required later
-	 */
+	struct pil_bg_data *bg_data = subsys_to_data(subsys);
+
+	disable_irq(bg_data->status_irq);
+	devm_free_irq(bg_data->desc.dev, bg_data->status_irq, bg_data);
+	disable_irq(bg_data->errfatal_irq);
+	bg_data->is_ready = false;
 	return 0;
 }
 
@@ -443,8 +457,9 @@ static irqreturn_t bg_errfatal(int irq, void *dev_id)
 		return IRQ_HANDLED;
 
 	dev_dbg(drvdata->desc.dev, "BG s/w err fatal\n");
+
 	queue_work(drvdata->bg_queue, &drvdata->restart_work);
-	drvdata->is_ready = false;
+
 	return IRQ_HANDLED;
 }
 
@@ -465,8 +480,13 @@ static irqreturn_t bg_status_change(int irq, void *dev_id)
 	} else if (value == false && drvdata->is_ready) {
 		dev_err(drvdata->desc.dev,
 			"BG got unexpected reset: irq state changed 1->0\n");
+			drvdata->is_ready = false;
 		queue_work(drvdata->bg_queue, &drvdata->restart_work);
+	} else {
+		dev_err(drvdata->desc.dev,
+			"BG status irq: unknown status\n");
 	}
+
 	return IRQ_HANDLED;
 }
 
@@ -505,15 +525,7 @@ static int setup_bg_gpio_irq(struct platform_device *pdev,
 			__func__, irq);
 		goto err;
 	}
-	ret = request_irq(irq, bg_status_change,
-		IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
-		"bg2ap_status", drvdata);
-	if (ret < 0) {
-		dev_err(&pdev->dev,
-			"%s: BG2AP_STATUS IRQ#%d request failed, err=%d",
-				__func__, irq, ret);
-		goto err;
-	}
+
 	drvdata->status_irq = irq;
 	/* BG2AP ERR_FATAL irq. */
 	irq = gpio_to_irq(drvdata->gpios[1]);
@@ -530,6 +542,7 @@ static int setup_bg_gpio_irq(struct platform_device *pdev,
 		goto err;
 	}
 	drvdata->errfatal_irq = irq;
+	enable_irq(drvdata->errfatal_irq);
 	/* Configure outgoing GPIO's */
 	if (gpio_request(drvdata->gpios[2], "AP2BG_ERRFATAL")) {
 		dev_err(&pdev->dev,
