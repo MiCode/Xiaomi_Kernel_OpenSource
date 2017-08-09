@@ -17,3 +17,28 @@
 &qupv3_se10_i2c {
 	/delete-node/ qcom,smb1355@8;
 };
+
+&soc {
+	/delete-node/ ssusb@a800000;
+	/delete-node/ qusb@88e3000;
+	/delete-node/ ssphy@88eb000;
+};
+
+&usb0 {
+	extcon = <&pm660_pdphy>, <&pm660_pdphy>, <0> /* <&eud> */;
+};
+
+&qusb_phy0 {
+	vdd-supply = <&pm660l_l1>;
+	vdda18-supply = <&pm660_l10>;
+	vdda33-supply = <&pm660l_l7>;
+};
+
+&usb_qmp_dp_phy {
+	vdd-supply = <&pm660l_l1>; /* 0.88v */
+	core-supply = <&pm660_l1>; /* 1.2v */
+};
+
+&pcie0 {
+	status = "disabled";
+};
