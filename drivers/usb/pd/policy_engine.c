@@ -225,7 +225,7 @@ static void *usbpd_ipc_log;
 #define PD_MAX_DATA_OBJ		7
 
 #define PD_SRC_CAP_EXT_DB_LEN	24
-
+#define PD_STATUS_DB_LEN	5
 
 #define PD_MAX_EXT_MSG_LEN		260
 #define PD_MAX_EXT_MSG_LEGACY_LEN	26
@@ -368,6 +368,7 @@ struct usbpd {
 	struct rx_msg		*rx_ext_msg;
 
 	u32			received_pdos[PD_MAX_DATA_OBJ];
+	u32			received_ado;
 	u16			src_cap_id;
 	u8			selected_pdo;
 	u8			requested_pdo;
@@ -433,6 +434,7 @@ struct usbpd {
 	u8			src_cap_ext_db[PD_SRC_CAP_EXT_DB_LEN];
 	bool			send_get_pps_status;
 	u32			pps_status_db;
+	u8			status_db[PD_STATUS_DB_LEN];
 };
 
 static LIST_HEAD(_usbpd);	/* useful for debugging */
@@ -2395,6 +2397,31 @@ static void usbpd_sm(struct work_struct *w)
 			memcpy(&pd->pps_status_db, rx_msg->payload,
 				sizeof(pd->pps_status_db));
 			complete(&pd->is_ready);
+		} else if (IS_DATA(rx_msg, MSG_ALERT)) {
+			if (rx_msg->data_len != sizeof(pd->received_ado)) {
+				usbpd_err(&pd->dev, "Invalid ado\n");
+				break;
+			}
+			memcpy(&pd->received_ado, rx_msg->payload,
+				sizeof(pd->received_ado));
+			ret = pd_send_msg(pd, MSG_GET_STATUS, NULL,
+				0, SOP_MSG);
+			if (ret) {
+				dev_err(&pd->dev,
+					"Error sending get_status\n");
+				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+				break;
+			}
+			kick_sm(pd, SENDER_RESPONSE_TIME);
+		} else if (rx_msg &&
+			IS_EXT(rx_msg, MSG_STATUS)) {
+			if (rx_msg->data_len != PD_STATUS_DB_LEN) {
+				usbpd_err(&pd->dev, "Invalid status db\n");
+				break;
+			}
+			memcpy(&pd->status_db, rx_msg->payload,
+				sizeof(pd->status_db));
+			kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
 		} else if (rx_msg && pd->spec_rev == USBPD_REV_30) {
 			/* unhandled messages */
 			ret = pd_send_msg(pd, MSG_NOT_SUPPORTED, NULL, 0,
@@ -3052,6 +3079,10 @@ static int usbpd_uevent(struct device *dev, struct kobj_uevent_env *env)
 				"explicit" : "implicit");
 	add_uevent_var(env, "ALT_MODE=%d", pd->vdm_state == MODE_ENTERED);
 
+	add_uevent_var(env, "ADO=%08x", pd->received_ado);
+	for (i = 0; i < PD_STATUS_DB_LEN; i++)
+		add_uevent_var(env, "SDB%d=%08x", i, pd->status_db[i]);
+
 	return 0;
 }
 
@@ -3464,6 +3495,16 @@ static ssize_t get_pps_status_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(get_pps_status);
 
+static ssize_t rx_ado_show(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	struct usbpd *pd = dev_get_drvdata(dev);
+
+	/* dump the ADO as a hex string */
+	return snprintf(buf, PAGE_SIZE, "%08x\n", pd->received_ado);
+}
+static DEVICE_ATTR_RO(rx_ado);
+
 static struct attribute *usbpd_attrs[] = {
 	&dev_attr_contract.attr,
 	&dev_attr_initial_pr.attr,
@@ -3485,6 +3526,7 @@ static struct attribute *usbpd_attrs[] = {
 	&dev_attr_hard_reset.attr,
 	&dev_attr_get_src_cap_ext.attr,
 	&dev_attr_get_pps_status.attr,
+	&dev_attr_rx_ado.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(usbpd);
