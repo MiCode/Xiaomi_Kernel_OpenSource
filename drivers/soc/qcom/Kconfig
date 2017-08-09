@@ -298,3 +298,9 @@ config  QCOM_BUS_CONFIG_RPMH
 	  accelerators. It enables the translation of bandwidth requests
 	  from logical nodes to hardware nodes controlled by the BCM (Bus
 	  Clock Manager)
+
+config QCOM_COMMAND_DB
+	bool "Command DB"
+	help
+	  Command DB queries shared memory by key string for shared system
+	  resources
