@@ -287,6 +287,7 @@ struct fg_dt_props {
 	int	esr_pulse_thresh_ma;
 	int	esr_meas_curr_ma;
 	int	bmd_en_delay_ms;
+	int	ki_coeff_full_soc_dischg;
 	int	jeita_thresholds[NUM_JEITA_LEVELS];
 	int	ki_coeff_soc[KI_COEFF_SOC_LEVELS];
 	int	ki_coeff_med_dischg[KI_COEFF_SOC_LEVELS];
@@ -424,7 +425,6 @@ struct fg_chip {
 	int			batt_id_ohms;
 	int			ki_coeff_full_soc;
 	int			charge_status;
-	int			prev_charge_status;
 	int			charge_done;
 	int			charge_type;
 	int			online_status;
