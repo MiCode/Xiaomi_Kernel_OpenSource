@@ -35,7 +35,7 @@
 #define SECURE_APP	"bgapp"
 #define desc_to_data(d)	container_of(d, struct pil_bg_data, desc)
 #define subsys_to_data(d) container_of(d, struct pil_bg_data, subsys_desc)
-
+#define BG_RAMDUMP_SZ	0x00102000
 /**
  * struct pil_bg_data
  * @qseecom_handle: handle of TZ app
@@ -411,7 +411,7 @@ static int bg_ramdump(int enable, const struct subsys_desc *subsys)
 	dma_set_attr(DMA_ATTR_SKIP_ZEROING, &desc.attrs);
 	dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, &desc.attrs);
 
-	region = dma_alloc_attrs(desc.dev, SZ_1M,
+	region = dma_alloc_attrs(desc.dev, BG_RAMDUMP_SZ,
 				&start_addr, GFP_KERNEL, &desc.attrs);
 
 	if (region == NULL) {
@@ -421,9 +421,13 @@ static int bg_ramdump(int enable, const struct subsys_desc *subsys)
 		return -ENOMEM;
 	}
 
+	ramdump_segments = kcalloc(1, sizeof(*ramdump_segments), GFP_KERNEL);
+	if (!ramdump_segments)
+		return -ENOMEM;
+
 	bg_tz_req.tzapp_bg_cmd = BGPIL_RAMDUMP;
 	bg_tz_req.address_fw = start_addr;
-	bg_tz_req.size_fw = SZ_1M;
+	bg_tz_req.size_fw = BG_RAMDUMP_SZ;
 
 	ret = bgpil_tzapp_comm(bg_data, &bg_tz_req);
 	if (ret || bg_data->cmd_status) {
@@ -433,9 +437,9 @@ static int bg_ramdump(int enable, const struct subsys_desc *subsys)
 	}
 
 	ramdump_segments->address = start_addr;
-	ramdump_segments->size = SZ_1M;
+	ramdump_segments->size = BG_RAMDUMP_SZ;
 
-	ret = do_elf_ramdump(bg_data->ramdump_dev, ramdump_segments, 1);
+	do_ramdump(bg_data->ramdump_dev, ramdump_segments, 1);
 	kfree(ramdump_segments);
 	return 0;
 }
