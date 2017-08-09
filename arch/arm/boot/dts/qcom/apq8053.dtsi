@@ -52,10 +52,3 @@
 &secure_mem {
 	status = "disabled";
 };
-
-&clock_gcc {
-	compatible = "qcom,gcc-8953";
-	reg = <0x1800000 0x80000>,
-	    <0x00a4124  0x08>;
-	reg-names = "cc_base", "efuse";
-};

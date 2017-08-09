@@ -90,6 +90,41 @@ enum mmc_load {
 	MMC_LOAD_LOW,
 };
 
+/* RED error flags to detect type of RED error */
+#define CQ_CMD_RED_ERR	(R1_BLOCK_LEN_ERROR | R1_ERASE_SEQ_ERROR | \
+		R1_ERASE_PARAM | R1_LOCK_UNLOCK_FAILED | R1_ILLEGAL_COMMAND | \
+		R1_CID_CSD_OVERWRITE | R1_SWITCH_ERROR)
+
+#define CQ_WP_RED	(R1_WP_VIOLATION | R1_WP_ERASE_SKIP)
+
+#define CQ_RED_RETRY	(R1_COM_CRC_ERROR | R1_CARD_ECC_FAILED | R1_CC_ERROR |\
+		R1_ERROR | R1_ERASE_RESET | R1_EXCEPTION_EVENT)
+
+#define CQ_ADDR_ERR	(R1_OUT_OF_RANGE | R1_ADDRESS_ERROR)
+
+#define CQ_RED	(CQ_WP_RED | CQ_CMD_RED_ERR | CQ_RED_RETRY | CQ_ADDR_ERR)
+
+struct mmc_cmdq_err_info {
+	bool remove_task;
+	bool fail_comp_task;
+	bool fail_dev_pend;
+	bool timedout;
+	unsigned long comp_status;
+	u32 cq_terri;
+	unsigned long dev_pend;
+	bool resp_err;
+	int tag;
+	int data_cmd;
+	int data_tag;
+	bool data_valid;
+	int cmd;
+	int cmd_tag;
+	bool cmd_valid;
+
+	int max_slot;
+	int dcmd_slot;
+};
+
 struct mmc_cmdq_host_ops {
 	int (*init)(struct mmc_host *host);
 	int (*enable)(struct mmc_host *host);
@@ -99,6 +134,10 @@ struct mmc_cmdq_host_ops {
 	int (*halt)(struct mmc_host *host, bool halt);
 	void (*reset)(struct mmc_host *host, bool soft);
 	void (*dumpstate)(struct mmc_host *host);
+	void (*err_info)(struct mmc_host *host,
+			struct mmc_cmdq_err_info *err_data,
+			struct mmc_request *mrq);
+	struct mmc_request *(*get_mrq_by_tag)(struct mmc_host *mmc, int tag);
 };
 
 struct mmc_host_ops {
@@ -201,10 +240,12 @@ struct mmc_cmdq_req {
 
 	unsigned int		resp_idx;
 	unsigned int		resp_arg;
-	unsigned int		dev_pend_tasks;
+	unsigned int		dev_pend;
 	bool			resp_err;
 	int			tag; /* used for command queuing */
 	u8			ctx_id;
+	u32			err_info;
+	unsigned long		cqtcn;
 };
 
 struct mmc_async_req {

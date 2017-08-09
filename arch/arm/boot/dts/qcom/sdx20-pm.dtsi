@@ -38,9 +38,10 @@
 		};
 		qcom,mode2 {
 			qcom,label = "qcom,saw2-spm-cmd-pc";
-			qcom,sequence = [34 04 44 14 24 5a 07
+			qcom,sequence = [34 04 44 14 24 5a 03
 				5a 44 14 04 24 3e 0f];
 			qcom,spm_en;
+			qcom,slp_cmd_mode;
 		};
 	};
 

@@ -31,6 +31,7 @@
 #define QMI_WLFW_M3_INFO_RESP_V01 0x003C
 #define QMI_WLFW_CAL_UPDATE_RESP_V01 0x0029
 #define QMI_WLFW_CAL_DOWNLOAD_RESP_V01 0x0027
+#define QMI_WLFW_XO_CAL_IND_V01 0x003D
 #define QMI_WLFW_INI_RESP_V01 0x002F
 #define QMI_WLFW_CAL_REPORT_RESP_V01 0x0026
 #define QMI_WLFW_MAC_ADDR_RESP_V01 0x0033
@@ -339,9 +340,11 @@ extern struct elem_info wlfw_bdf_download_resp_msg_v01_ei[];
 struct wlfw_cal_report_req_msg_v01 {
 	u32 meta_data_len;
 	enum wlfw_cal_temp_id_enum_v01 meta_data[QMI_WLFW_MAX_NUM_CAL_V01];
+	u8 xo_cal_data_valid;
+	u8 xo_cal_data;
 };
 
-#define WLFW_CAL_REPORT_REQ_MSG_V01_MAX_MSG_LEN 24
+#define WLFW_CAL_REPORT_REQ_MSG_V01_MAX_MSG_LEN 28
 extern struct elem_info wlfw_cal_report_req_msg_v01_ei[];
 
 struct wlfw_cal_report_resp_msg_v01 {
@@ -532,9 +535,11 @@ extern struct elem_info wlfw_mac_addr_resp_msg_v01_ei[];
 struct wlfw_host_cap_req_msg_v01 {
 	u8 daemon_support_valid;
 	u8 daemon_support;
+	u8 wake_msi_valid;
+	u32 wake_msi;
 };
 
-#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 4
+#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 11
 extern struct elem_info wlfw_host_cap_req_msg_v01_ei[];
 
 struct wlfw_host_cap_resp_msg_v01 {
@@ -641,5 +646,12 @@ struct wlfw_m3_info_resp_msg_v01 {
 
 #define WLFW_M3_INFO_RESP_MSG_V01_MAX_MSG_LEN 7
 extern struct elem_info wlfw_m3_info_resp_msg_v01_ei[];
+
+struct wlfw_xo_cal_ind_msg_v01 {
+	u8 xo_cal_data;
+};
+
+#define WLFW_XO_CAL_IND_MSG_V01_MAX_MSG_LEN 4
+extern struct elem_info wlfw_xo_cal_ind_msg_v01_ei[];
 
 #endif

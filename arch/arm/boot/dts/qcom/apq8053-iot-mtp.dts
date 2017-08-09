@@ -79,6 +79,7 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&ssusb_mode_sel>;
 		qcom,notify-host-mode;
+		qcom,disable-device-mode;
 		qcom,gpio-mode-sel = <&tlmm 12 0>;
 	};
 

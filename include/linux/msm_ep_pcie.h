@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015,2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,6 +60,7 @@ enum ep_pcie_options {
 	EP_PCIE_OPT_AST_WAKE = 0x1,
 	EP_PCIE_OPT_POWER_ON = 0x2,
 	EP_PCIE_OPT_ENUM = 0x4,
+	EP_PCIE_OPT_ENUM_ASYNC = 0x8,
 	EP_PCIE_OPT_ALL = 0xFFFFFFFF,
 };
 

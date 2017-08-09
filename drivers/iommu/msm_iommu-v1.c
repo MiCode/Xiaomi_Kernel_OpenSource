@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1187,7 +1187,7 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 
 	iommu_drvdata = dev_get_drvdata(dev->parent);
 	ctx_drvdata = dev_get_drvdata(dev);
-	if (!iommu_drvdata || !ctx_drvdata || !ctx_drvdata->attached_domain)
+	if (!iommu_drvdata || !ctx_drvdata)
 		goto unlock;
 
 	if (is_domain_dynamic(priv)) {
@@ -1196,6 +1196,8 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 		mutex_unlock(&msm_iommu_lock);
 		return;
 	}
+	if (!ctx_drvdata->attached_domain)
+		goto unlock;
 
 	--ctx_drvdata->attach_count;
 	BUG_ON(ctx_drvdata->attach_count < 0);

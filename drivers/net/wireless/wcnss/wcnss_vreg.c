@@ -419,6 +419,11 @@ static void wcnss_vregs_off(struct vregs_info regulators[], uint size,
 		if (regulators[i].state == VREG_NULL_CONFIG)
 			continue;
 
+		if (cfg->wcn_external_gpio_support) {
+			if (!memcmp(regulators[i].name, VDD_PA, sizeof(VDD_PA)))
+				continue;
+		}
+
 		/* Remove PWM mode */
 		if (regulators[i].state & VREG_OPTIMUM_MODE_MASK) {
 			rc = regulator_set_optimum_mode(
@@ -480,7 +485,12 @@ static int wcnss_vregs_on(struct device *dev,
 	}
 
 	for (i = 0; i < size; i++) {
-			/* Get regulator source */
+		if (cfg->wcn_external_gpio_support) {
+			if (!memcmp(regulators[i].name, VDD_PA, sizeof(VDD_PA)))
+				continue;
+		}
+
+		/* Get regulator source */
 		regulators[i].regulator =
 			regulator_get(dev, regulators[i].name);
 		if (IS_ERR(regulators[i].regulator)) {

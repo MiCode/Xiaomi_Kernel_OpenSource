@@ -293,8 +293,8 @@ struct pedometer_data_t {
 };
 
 #ifdef CONFIG_ENABLE_ACC_GYRO_BUFFERING
-#define BMI_ACC_MAXSAMPLE        2000
-#define BMI_GYRO_MAXSAMPLE       2000
+#define BMI_ACC_MAXSAMPLE        4000
+#define BMI_GYRO_MAXSAMPLE       4000
 #define G_MAX                    23920640
 struct bmi_acc_sample {
 	int xyz[3];

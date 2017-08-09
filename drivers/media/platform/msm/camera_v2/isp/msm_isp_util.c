@@ -1861,6 +1861,8 @@ void msm_isp_process_overflow_irq(
 	uint32_t force_overflow)
 {
 	uint32_t overflow_mask;
+	unsigned long flags;
+	struct msm_isp_event_data error_event;
 
 	/* if there are no active streams - do not start recovery */
 	if (!vfe_dev->axi_data.num_active_stream)
@@ -1884,77 +1886,86 @@ void msm_isp_process_overflow_irq(
 	if (!force_overflow)
 		overflow_mask &= *irq_status1;
 
-	if (overflow_mask) {
-		struct msm_isp_event_data error_event;
+	if (!overflow_mask)
+		return;
 
-		if (vfe_dev->reset_pending == 1) {
-			pr_err("%s:%d failed: overflow %x during reset\n",
-				__func__, __LINE__, overflow_mask);
-			/* Clear overflow bits since reset is pending */
-			*irq_status1 &= ~overflow_mask;
-			return;
+	spin_lock_irqsave(&vfe_dev->common_data->common_dev_data_lock,
+		flags);
+	if (atomic_cmpxchg(&vfe_dev->error_info.overflow_state,
+		NO_OVERFLOW, OVERFLOW_DETECTED)) {
+		spin_unlock_irqrestore(
+			&vfe_dev->common_data->common_dev_data_lock,
+			flags);
+		return;
+	}
+	if (vfe_dev->reset_pending == 1) {
+		pr_err("%s:%d failed: overflow %x during reset\n",
+			__func__, __LINE__, overflow_mask);
+		/* Clear overflow bits since reset is pending */
+		*irq_status1 &= ~overflow_mask;
+		spin_unlock_irqrestore(&vfe_dev->common_data->
+			common_dev_data_lock, flags);
+		return;
+	}
+	ISP_DBG("%s: VFE%d Bus overflow detected: start recovery!\n",
+		__func__, vfe_dev->pdev->id);
+
+	trace_msm_cam_isp_overflow(vfe_dev, *irq_status0, *irq_status1);
+
+	/* maks off irq for current vfe */
+	vfe_dev->recovery_irq0_mask = vfe_dev->irq0_mask;
+	vfe_dev->recovery_irq1_mask = vfe_dev->irq1_mask;
+
+	vfe_dev->hw_info->vfe_ops.core_ops.
+		set_halt_restart_mask(vfe_dev);
+	vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev, 0);
+	/* mask off other vfe if dual vfe is used */
+	if (vfe_dev->is_split) {
+		uint32_t other_vfe_id;
+		struct vfe_device *other_vfe_dev;
+
+		other_vfe_id = (vfe_dev->pdev->id == ISP_VFE0) ?
+			ISP_VFE1 : ISP_VFE0;
+		other_vfe_dev = vfe_dev->common_data->
+			dual_vfe_res->vfe_dev[other_vfe_id];
+		if (other_vfe_dev) {
+			other_vfe_dev->recovery_irq0_mask =
+				other_vfe_dev->irq0_mask;
+			other_vfe_dev->recovery_irq1_mask =
+				other_vfe_dev->irq1_mask;
 		}
 
-		ISP_DBG("%s: VFE%d Bus overflow detected: start recovery!\n",
-			__func__, vfe_dev->pdev->id);
-
-		trace_msm_cam_isp_overflow(vfe_dev, *irq_status0, *irq_status1);
-
-		/* maks off irq for current vfe */
-		atomic_cmpxchg(&vfe_dev->error_info.overflow_state,
+		atomic_cmpxchg(&(vfe_dev->common_data->dual_vfe_res->
+			vfe_dev[other_vfe_id]->
+			error_info.overflow_state),
 			NO_OVERFLOW, OVERFLOW_DETECTED);
-		vfe_dev->recovery_irq0_mask = vfe_dev->irq0_mask;
-		vfe_dev->recovery_irq1_mask = vfe_dev->irq1_mask;
 
 		vfe_dev->hw_info->vfe_ops.core_ops.
-			set_halt_restart_mask(vfe_dev);
-		vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev, 0);
-		/* mask off other vfe if dual vfe is used */
-		if (vfe_dev->is_split) {
-			uint32_t other_vfe_id;
-			struct vfe_device *other_vfe_dev;
-
-			other_vfe_id = (vfe_dev->pdev->id == ISP_VFE0) ?
-				ISP_VFE1 : ISP_VFE0;
-			other_vfe_dev = vfe_dev->common_data->
-				dual_vfe_res->vfe_dev[other_vfe_id];
-			if (other_vfe_dev) {
-				other_vfe_dev->recovery_irq0_mask =
-					other_vfe_dev->irq0_mask;
-				other_vfe_dev->recovery_irq1_mask =
-					other_vfe_dev->irq1_mask;
-			}
-
-			atomic_cmpxchg(&(vfe_dev->common_data->dual_vfe_res->
-				vfe_dev[other_vfe_id]->
-				error_info.overflow_state),
-				NO_OVERFLOW, OVERFLOW_DETECTED);
-
-			vfe_dev->hw_info->vfe_ops.core_ops.
-				set_halt_restart_mask(vfe_dev->common_data->
-				dual_vfe_res->vfe_dev[other_vfe_id]);
-			if (other_vfe_dev) {
-				other_vfe_dev->hw_info->vfe_ops.axi_ops.
-					halt(other_vfe_dev, 0);
-			}
-		}
-
-		/* reset irq status so skip further process */
-		*irq_status0 = 0;
-		*irq_status1 = 0;
-
-		/* send overflow event as needed */
-		if (atomic_read(&vfe_dev->error_info.overflow_state)
-			!= HALT_ENFORCED) {
-			memset(&error_event, 0, sizeof(error_event));
-			error_event.frame_id =
-				vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
-			error_event.u.error_info.err_type =
-				ISP_ERROR_BUS_OVERFLOW;
-			msm_isp_send_event(vfe_dev,
-				ISP_EVENT_ERROR, &error_event);
+			set_halt_restart_mask(vfe_dev->common_data->
+			dual_vfe_res->vfe_dev[other_vfe_id]);
+		if (other_vfe_dev) {
+			other_vfe_dev->hw_info->vfe_ops.axi_ops.
+				halt(other_vfe_dev, 0);
 		}
 	}
+
+	/* reset irq status so skip further process */
+	*irq_status0 = 0;
+	*irq_status1 = 0;
+
+	/* send overflow event as needed */
+	if (atomic_read(&vfe_dev->error_info.overflow_state)
+		!= HALT_ENFORCED) {
+		memset(&error_event, 0, sizeof(error_event));
+		error_event.frame_id =
+			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
+		error_event.u.error_info.err_type =
+			ISP_ERROR_BUS_OVERFLOW;
+		msm_isp_send_event(vfe_dev,
+			ISP_EVENT_ERROR, &error_event);
+	}
+	spin_unlock_irqrestore(&vfe_dev->common_data->
+		common_dev_data_lock, flags);
 }
 
 void msm_isp_reset_burst_count_and_frame_drop(

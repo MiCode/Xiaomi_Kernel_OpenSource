@@ -3396,13 +3396,19 @@ int rmnet_ipa3_query_per_client_stats(
 				&& i < IPA_MAX_NUM_HW_PATH_CLIENTS; i++) {
 			/* Subtract the header bytes from the DL bytes. */
 			data->client_info[i].ipv4_rx_bytes =
-			resp->per_client_stats_list[i].num_dl_ipv4_bytes;
+			(resp->per_client_stats_list[i].num_dl_ipv4_bytes) -
+			(rmnet_ipa3_ctx->
+			tether_device[data->device_type].hdr_len *
+			resp->per_client_stats_list[i].num_dl_ipv4_pkts);
 			/* UL header bytes are subtracted by Q6. */
 			data->client_info[i].ipv4_tx_bytes =
 			resp->per_client_stats_list[i].num_ul_ipv4_bytes;
 			/* Subtract the header bytes from the DL bytes. */
 			data->client_info[i].ipv6_rx_bytes =
-			resp->per_client_stats_list[i].num_dl_ipv6_bytes;
+			(resp->per_client_stats_list[i].num_dl_ipv6_bytes) -
+			(rmnet_ipa3_ctx->
+			tether_device[data->device_type].hdr_len *
+			resp->per_client_stats_list[i].num_dl_ipv6_pkts);
 			/* UL header bytes are subtracted by Q6. */
 			data->client_info[i].ipv6_tx_bytes =
 			resp->per_client_stats_list[i].num_ul_ipv6_bytes;

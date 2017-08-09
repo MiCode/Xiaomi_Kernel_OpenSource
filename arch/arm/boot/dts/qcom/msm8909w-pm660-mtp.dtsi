@@ -28,14 +28,18 @@
 	};
 
 	qcom,wcnss-wlan@a000000 {
-		/delete-property/ qcom,pronto-vddmx-supply;
-		/delete-property/ qcom,pronto-vddcx-supply;
-		/delete-property/ qcom,pronto-vddpx-supply;
-		/delete-property/ qcom,iris-vddxo-supply;
-		/delete-property/ qcom,iris-vddrfa-supply;
+		/delete-property/ qcom,iris-vddpa-voltage-level;
 		/delete-property/ qcom,iris-vddpa-supply;
-		/delete-property/ qcom,iris-vdddig-supply;
 		/delete-property/ qcom,wcnss-adc_tm;
+		/delete-property/ qcom,is-dual-band-disabled;
+		/delete-property/ qcom,iris-vddpa-current;
+		qcom,pronto-vddmx-supply = <&pm660_s2_corner_ao>;
+		qcom,pronto-vddcx-supply = <&pm660_s3_corner>;
+		qcom,pronto-vddpx-supply = <&pm660_l13>;
+		qcom,iris-vddxo-supply   = <&pm660_l12>;
+		qcom,iris-vddrfa-supply  = <&pm660_l6>;
+		qcom,iris-vdddig-supply  = <&pm660_l13>;
+		qcom,wcn-external-gpio-support;
 	};
 
 	qcom,pronto@a21b000 {
@@ -56,19 +60,6 @@
 	qpdi@1941000 {
 		/delete-property/ vdd-supply;
 		/delete-property/ vdd-io-supply;
-	};
-
-	qcom,mdss_dsi@0 {
-		/delete-property/ vdda-supply;
-		/delete-property/ vddio-supply;
-		qcom,mdss_dsi_ctrl0@1ac8000 {
-			/delete-property/ vdd-supply;
-			/delete-property/ vddio-supply;
-		};
-	};
-
-	qcom,mdss_dsi_pll@1ac8300 {
-		/delete-property/ vddio-supply;
 	};
 
 	qcom,msm-thermal {
@@ -161,6 +152,7 @@
 #include "msm-pm660.dtsi"
 #include "msm-pm660-rpm-regulator.dtsi"
 #include "msm8909w-pm660-regulator.dtsi"
+#include "msm8909-pm660-pm.dtsi"
 
 &soc {
 	qcom,gcc@1800000 {
@@ -190,4 +182,39 @@
 
 &pm660_haptics {
 	qcom,actuator-type = "erm";
+};
+
+&dsi_auo_390p_cmd {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,panel-supply-entries = <&dsi_pm660_panel_pwr_supply>;
+};
+
+&mdss_dsi{
+	vdda-supply = <&pm660_l5>; /*1.2V*/
+	vddio-supply = <&pm660_l12>; /*1.8V*/
+	qcom,mdss_dsi_ctrl0@1ac8000 {
+		bklt-supply = <&bob_vreg>;
+		vdd-supply = <&pm660_l18>; /*1.8*/
+		vddio-supply = <&pm660_l11>;
+	};
+};
+
+&mdss_dsi0{
+	qcom,dsi-pref-prim-pan = <&dsi_auo_390p_cmd>;
+	qcom,platform-bklight-en-gpio = <&msm_gpio 52 0>;
+};
+
+&mdss_dsi0_pll {
+	vddio-supply = <&pm660_l12>; /*1.8V*/
+};
+
+&pm660_gpios {
+	gpio@cb00 {
+		status = "ok";
+		qcom,mode = <1>;
+		qcom,vin-sel = <0>;
+		qcom,src-sel = <0>;
+		qcom,master-en = <1>;
+		qcom,out-strength = <2>;
+	};
 };

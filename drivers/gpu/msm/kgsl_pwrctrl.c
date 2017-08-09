@@ -2035,7 +2035,9 @@ static void _gpu_clk_prepare_enable(struct kgsl_device *device,
 {
 	int ret;
 
-	if (device->state == KGSL_STATE_NAP) {
+	if (device->state == KGSL_STATE_NAP ||
+		device->state == KGSL_STATE_DEEP_NAP) {
+
 		ret = clk_enable(clk);
 		if (ret)
 			goto err;

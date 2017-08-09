@@ -38,6 +38,7 @@ struct vregs_level {
 };
 
 struct wcnss_wlan_config {
+	bool	wcn_external_gpio_support;
 	int	use_48mhz_xo;
 	int	is_pronto_vadc;
 	int	is_pronto_v3;

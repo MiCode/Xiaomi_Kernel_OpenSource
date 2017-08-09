@@ -455,13 +455,17 @@
 			<0x0200c000 0x4>,
 			<0x0200c008 0x20>,
 			<0x08b05014 0x4>,
-			<0x0408200c 0x4>;
+			<0x0408200c 0x4>,
+			<0X0086cfb0 0x4>,
+			<0X00801fb0 0x4>;
 		reg-names = "qdss-wrapper",
 			    "usb30",
 			    "spmi-test",
 			    "spmi-events",
 			    "usb30-bam",
-			    "mss";
+			    "mss",
+			    "qdss-wrapper-expd-lockaccess",
+			    "qdss-apb-csr-lockaccess";
 
 		coresight-id = <28>;
 		coresight-name = "coresight-hwevent";

@@ -47,6 +47,7 @@ struct mdp3_session_data {
 	struct timer_list vsync_timer;
 	int vsync_period;
 	struct kernfs_node *vsync_event_sd;
+	struct kernfs_node *bl_event_sd;
 	struct mdp_overlay overlay;
 	struct mdp_overlay req_overlay;
 	struct mdp3_buffer_queue bufq_in;
@@ -71,6 +72,7 @@ struct mdp3_session_data {
 	bool in_splash_screen;
 	bool esd_recovery;
 	int dyn_pu_state; /* dynamic partial update status */
+	u32 bl_events;
 
 	bool dma_active;
 	struct completion dma_completion;

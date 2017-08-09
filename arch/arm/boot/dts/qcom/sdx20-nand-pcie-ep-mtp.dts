@@ -1,0 +1,59 @@
+/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "sdx20-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDX20 PCIE EP MTP (NAND)";
+	compatible = "qcom,sdx20-mtp", "qcom,sdx20",
+		     "qcom,mtp";
+	qcom,board-id = <8 4>, <8 0x104>;
+};
+
+&sdhc_1 {
+	vdd-supply = <&sdc_vreg>;
+
+	vdd-io-supply = <&pmd9650_l7>;
+	qcom,vdd-io-voltage-level = <1800000 2848000>;
+	qcom,vdd-io-current-level = <200 10000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off>;
+
+	qcom,bus-width = <4>;
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
+			  200000000>;
+	qcom,devfreq,freq-table = <50000000 200000000>;
+
+	/* TODO: Add card detect GPIO */
+
+	status = "ok";
+};
+
+&pcie_ep {
+	status = "ok";
+};
+
+&pcie0 {
+	status = "disabled";
+};
+
+&cnss_pcie {
+	status = "disabled";
+};
+
+&mhi_device {
+	status = "ok";
+};

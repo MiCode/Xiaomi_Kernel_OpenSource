@@ -264,7 +264,7 @@ static int bmi160_acc_gyro_early_buff_init(void)
 	client_data->acc_bufsample_cnt = 0;
 	client_data->gyro_bufsample_cnt = 0;
 	client_data->report_evt_cnt = 5;
-	client_data->max_buffer_time = 20;
+	client_data->max_buffer_time = 40;
 
 	client_data->bmi_acc_cachepool = kmem_cache_create("acc_sensor_sample",
 			sizeof(struct bmi_acc_sample),
@@ -360,7 +360,9 @@ static int bmi160_acc_gyro_early_buff_init(void)
 	bmi160_set_command_register(ACCEL_MODE_NORMAL);
 	bmi160_set_command_register(GYRO_MODE_NORMAL);
 	bmi160_set_accel_output_data_rate(BMI160_ACCEL_OUTPUT_DATA_RATE_100HZ);
+	bmi160_set_accel_range(BMI160_ACCEL_RANGE_2G);
 	bmi160_set_gyro_output_data_rate(BMI160_GYRO_OUTPUT_DATA_RATE_100HZ);
+	bmi160_set_gyro_range(BMI160_GYRO_RANGE_125_DEG_SEC);
 	bmi160_set_intr_enable_1(BMI160_DATA_RDY_ENABLE, BMI160_ENABLE);
 	return 1;
 clean_exit4:
@@ -2251,6 +2253,13 @@ static ssize_t bmi160_acc_range_store(struct device *dev,
 {
 	int err;
 	unsigned long range;
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct bmi_client_data *client_data = iio_priv(indio_dev);
+
+	err = bmi160_check_acc_early_buff_enable_flag(client_data);
+	if (err)
+		return count;
+
 	err = kstrtoul(buf, 10, &range);
 	if (err)
 		return err;
@@ -2289,7 +2298,7 @@ static ssize_t bmi160_acc_odr_store(struct device *dev,
 
 	err = bmi160_check_acc_early_buff_enable_flag(client_data);
 	if (err)
-		return 0;
+		return count;
 
 	err = kstrtoul(buf, 10, &acc_odr);
 	if (err)
@@ -2341,7 +2350,7 @@ static ssize_t bmi160_acc_op_mode_store(struct device *dev,
 
 	err = bmi160_check_acc_early_buff_enable_flag(client_data);
 	if (err)
-		return 0;
+		return count;
 
 	err = kstrtoul(buf, 10, &op_mode);
 	if (err)
@@ -2942,13 +2951,13 @@ static ssize_t bmi160_gyro_op_mode_store(struct device *dev,
 	unsigned long op_mode;
 	int err;
 
+	err = bmi160_check_gyro_early_buff_enable_flag(client_data);
+	if (err)
+		return count;
+
 	err = kstrtoul(buf, 10, &op_mode);
 	if (err)
 		return err;
-
-	err = bmi160_check_gyro_early_buff_enable_flag(client_data);
-	if (err)
-		return 0;
 
 	mutex_lock(&client_data->mutex_op_mode);
 
@@ -3022,6 +3031,13 @@ static ssize_t bmi160_gyro_range_store(struct device *dev,
 {
 	int err;
 	unsigned long range;
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct bmi_client_data *client_data = iio_priv(indio_dev);
+
+	err = bmi160_check_gyro_early_buff_enable_flag(client_data);
+	if (err)
+		return count;
+
 	err = kstrtoul(buf, 10, &range);
 	if (err)
 		return err;
@@ -3060,7 +3076,7 @@ static ssize_t bmi160_gyro_odr_store(struct device *dev,
 
 	err = bmi160_check_gyro_early_buff_enable_flag(client_data);
 	if (err)
-		return 0;
+		return count;
 
 	err = kstrtoul(buf, 10, &gyro_odr);
 	if (err)
@@ -3538,7 +3554,7 @@ static ssize_t bmi_enable_int_store(struct device *dev,
 	int interrupt_type, value;
 
 	if (bmi160_check_acc_gyro_early_buff_enable_flag())
-		return 0;
+		return count;
 
 	sscanf(buf, "%3d %3d", &interrupt_type, &value);
 
