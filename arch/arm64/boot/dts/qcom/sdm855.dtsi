@@ -1273,6 +1273,12 @@
 			interrupts = <GIC_SPI 574 IRQ_TYPE_EDGE_RISING>;
 		};
 	};
+
+	system_pm {
+		compatible = "qcom,system-pm";
+		mboxes = <&apps_rsc 0>;
+		status = "disabled";
+	};
 };
 
 &emac_gdsc {
