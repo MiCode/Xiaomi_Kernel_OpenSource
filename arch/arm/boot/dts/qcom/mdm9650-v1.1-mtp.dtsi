@@ -22,6 +22,7 @@
 		qcom,ntn-fw-load-delay-msec = <200>;
 		qcom,ntn-pcierst-resx;
 		qcom,ntn-timestamp-valid-window = <4>; /* 4 is approx 67 ms */
+		qcom,ntn-phy-addr = <7>;
 	};
 };
 
