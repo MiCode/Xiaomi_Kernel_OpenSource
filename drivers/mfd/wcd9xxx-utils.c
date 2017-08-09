@@ -342,6 +342,19 @@ struct wcd9xxx_pdata *wcd9xxx_populate_dt_data(struct device *dev)
 		goto err_parse_dt_prop;
 	}
 
+	pdata->has_buck_vsel_gpio = of_property_read_bool(dev->of_node,
+						"qcom,has-buck-vsel-gpio");
+	if (pdata->has_buck_vsel_gpio) {
+		pdata->buck_vsel_ctl_np = of_parse_phandle(dev->of_node,
+				"qcom,buck-vsel-gpio-node", 0);
+		if (!pdata->buck_vsel_ctl_np) {
+			dev_err(dev, "%s No entry for %s property in node %s\n",
+				__func__, "qcom,buck-vsel-gpio-node",
+				dev->of_node->full_name);
+			goto err_parse_dt_prop;
+		}
+	}
+
 	if (!(wcd9xxx_read_of_property_u32(dev, "qcom,cdc-mclk-clk-rate",
 					   &prop_val)))
 		pdata->mclk_rate = prop_val;
