@@ -331,6 +331,26 @@ ufs_get_pm_lvl_to_link_pwr_state(enum ufs_pm_level lvl)
 	return ufs_pm_lvl_states[lvl].link_state;
 }
 
+static inline void ufshcd_set_card_online(struct ufs_hba *hba)
+{
+	atomic_set(&hba->card_state, UFS_CARD_STATE_ONLINE);
+}
+
+static inline void ufshcd_set_card_offline(struct ufs_hba *hba)
+{
+	atomic_set(&hba->card_state, UFS_CARD_STATE_OFFLINE);
+}
+
+static inline bool ufshcd_is_card_online(struct ufs_hba *hba)
+{
+	return (atomic_read(&hba->card_state) == UFS_CARD_STATE_ONLINE);
+}
+
+static inline bool ufshcd_is_card_offline(struct ufs_hba *hba)
+{
+	return (atomic_read(&hba->card_state) == UFS_CARD_STATE_OFFLINE);
+}
+
 static inline enum ufs_pm_level
 ufs_get_desired_pm_lvl_for_dev_link_state(enum ufs_dev_pwr_mode dev_state,
 					enum uic_link_state link_state)
@@ -384,6 +404,7 @@ static int ufshcd_devfreq_target(struct device *dev,
 				unsigned long *freq, u32 flags);
 static int ufshcd_devfreq_get_dev_status(struct device *dev,
 		struct devfreq_dev_status *stat);
+static void __ufshcd_shutdown_clkscaling(struct ufs_hba *hba);
 
 #if IS_ENABLED(CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND)
 static struct devfreq_simple_ondemand_data ufshcd_ondemand_data = {
@@ -2983,11 +3004,23 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 		has_read_lock = true;
 	}
 
+	/*
+	 * err might be non-zero here but logic later in this function
+	 * assumes that err is set to 0.
+	 */
+	err = 0;
+
 	spin_lock_irqsave(hba->host->host_lock, flags);
 
 	/* if error handling is in progress, return host busy */
 	if (ufshcd_eh_in_progress(hba)) {
 		err = SCSI_MLQUEUE_HOST_BUSY;
+		goto out_unlock;
+	}
+
+	if (hba->extcon && ufshcd_is_card_offline(hba)) {
+		set_host_byte(cmd, DID_BAD_TARGET);
+		cmd->scsi_done(cmd);
 		goto out_unlock;
 	}
 
@@ -5152,6 +5185,14 @@ link_startup:
 out:
 	if (ret)
 		dev_err(hba->dev, "link startup failed %d\n", ret);
+	/*
+	 * For some external cards, link startup succeeds only after few link
+	 * startup attempts and err_state may get set in this case.
+	 * But as the link startup has finally succeded, we are clearing the
+	 * error state.
+	 */
+	else if (hba->extcon)
+		ufsdbg_clr_err_state(hba);
 
 	return ret;
 }
@@ -5596,8 +5637,15 @@ static irqreturn_t ufshcd_uic_cmd_compl(struct ufs_hba *hba, u32 intr_status)
 				__func__, (intr_status & UIC_HIBERNATE_ENTER) ?
 				"Enter" : "Exit",
 				intr_status, ufshcd_get_upmcrs(hba));
-			__ufshcd_print_host_regs(hba, true);
-			ufshcd_print_host_state(hba);
+			/*
+			 * It is possible to see auto-h8 errors during card
+			 * removal, so set this flag and let the error handler
+			 * decide if this error is seen while card was present
+			 * or due to card removal.
+			 * If error is seen during card removal, we don't want
+			 * to printout the debug messages.
+			 */
+			hba->auto_h8_err = true;
 			schedule_work(&hba->eh_work);
 			retval = IRQ_HANDLED;
 		}
@@ -6197,6 +6245,32 @@ static void ufshcd_err_handler(struct work_struct *work)
 	hba = container_of(work, struct ufs_hba, eh_work);
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
+	if (hba->extcon) {
+		if (ufshcd_is_card_online(hba)) {
+			spin_unlock_irqrestore(hba->host->host_lock, flags);
+			/*
+			 * TODO: need better way to ensure that this delay is
+			 * more than extcon's debounce-ms
+			 */
+			msleep(300);
+			spin_lock_irqsave(hba->host->host_lock, flags);
+		}
+
+		/*
+		 * ignore error if card was online and offline/removed now or
+		 * card was already offline.
+		 */
+		if (ufshcd_is_card_offline(hba)) {
+			hba->saved_err = 0;
+			hba->saved_uic_err = 0;
+			hba->saved_ce_err = 0;
+			hba->auto_h8_err = false;
+			hba->force_host_reset = false;
+			hba->ufshcd_state = UFSHCD_STATE_OPERATIONAL;
+			goto out;
+		}
+	}
+
 	ufsdbg_set_err_state(hba);
 
 	if (hba->ufshcd_state == UFSHCD_STATE_RESET)
@@ -6241,7 +6315,8 @@ static void ufshcd_err_handler(struct work_struct *work)
 	 * Dump controller state before resetting. Transfer requests state
 	 * will be dump as part of the request completion.
 	 */
-	if (hba->saved_err & (INT_FATAL_ERRORS | UIC_ERROR)) {
+	if ((hba->saved_err & (INT_FATAL_ERRORS | UIC_ERROR)) ||
+	    hba->auto_h8_err) {
 		dev_err(hba->dev, "%s: saved_err 0x%x saved_uic_err 0x%x",
 			__func__, hba->saved_err, hba->saved_uic_err);
 		if (!hba->silence_err_logs) {
@@ -6254,6 +6329,7 @@ static void ufshcd_err_handler(struct work_struct *work)
 			ufshcd_print_cmd_log(hba);
 			spin_lock_irqsave(hba->host->host_lock, flags);
 		}
+		hba->auto_h8_err = false;
 	}
 
 	if ((hba->saved_err & INT_FATAL_ERRORS)
@@ -6492,7 +6568,10 @@ static irqreturn_t ufshcd_check_errors(struct ufs_hba *hba)
 			queue_eh_work = true;
 	}
 
-	if (queue_eh_work) {
+	if (hba->extcon && ufshcd_is_card_offline(hba)) {
+		/* ignore UIC errors if card is offline */
+		retval |= IRQ_HANDLED;
+	} else if (queue_eh_work) {
 		/*
 		 * update the transfer error masks to sticky bits, let's do this
 		 * irrespective of current ufshcd_state.
@@ -7838,6 +7917,13 @@ out:
 	if (ret) {
 		ufshcd_set_ufs_dev_poweroff(hba);
 		ufshcd_set_link_off(hba);
+		if (hba->extcon) {
+			if (!ufshcd_is_card_online(hba))
+				ufsdbg_clr_err_state(hba);
+			ufshcd_set_card_offline(hba);
+		}
+	} else if (hba->extcon) {
+		ufshcd_set_card_online(hba);
 	}
 
 	/*
@@ -7853,22 +7939,60 @@ out:
 	return ret;
 }
 
+static void ufshcd_remove_device(struct ufs_hba *hba)
+{
+	struct scsi_device *sdev;
+	struct scsi_device *sdev_cache[UFS_MAX_LUS];
+	int sdev_count = 0, i;
+	unsigned long flags;
+
+	ufshcd_hold_all(hba);
+	/* Reset the host controller */
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	hba->silence_err_logs = true;
+	ufshcd_hba_stop(hba, false);
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+	ufshcd_set_ufs_dev_poweroff(hba);
+	ufshcd_set_link_off(hba);
+	__ufshcd_shutdown_clkscaling(hba);
+
+	/* Complete requests that have door-bell cleared by h/w */
+	ufshcd_complete_requests(hba);
+
+	/* remove all scsi devices */
+	list_for_each_entry(sdev, &hba->host->__devices, siblings) {
+		if (sdev_count < UFS_MAX_LUS) {
+			sdev_cache[sdev_count] = sdev;
+			sdev_count++;
+		}
+	}
+
+	for (i = 0; i < sdev_count; i++)
+		scsi_remove_device(sdev_cache[i]);
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	hba->silence_err_logs = false;
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+	ufshcd_release_all(hba);
+}
+
 static void ufshcd_card_detect_handler(struct work_struct *work)
 {
 	struct ufs_hba *hba;
 
 	hba = container_of(work, struct ufs_hba, card_detect_work);
-	if (hba->card_detect_event &&
-	    (hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL)) {
-		dev_dbg(hba->dev, "%s: card detect notification received\n",
-			 __func__);
+
+	if (ufshcd_is_card_online(hba) && !hba->sdev_ufs_device) {
 		pm_runtime_get_sync(hba->dev);
 		ufshcd_detect_device(hba);
 		/* ufshcd_probe_hba() calls pm_runtime_put_sync() on exit */
-	} else {
-		dev_dbg(hba->dev, "%s: card removed notification received\n",
-			 __func__);
-		/* TODO: remove the scsi device instances */
+	} else if (ufshcd_is_card_offline(hba) && hba->sdev_ufs_device) {
+		pm_runtime_get_sync(hba->dev);
+		ufshcd_remove_device(hba);
+		pm_runtime_put_sync(hba->dev);
+		ufsdbg_clr_err_state(hba);
 	}
 }
 
@@ -7877,9 +8001,23 @@ static int ufshcd_card_detect_notifier(struct notifier_block *nb,
 {
 	struct ufs_hba *hba = container_of(nb, struct ufs_hba, card_detect_nb);
 
-	hba->card_detect_event = event;
-	schedule_work(&hba->card_detect_work);
+	if (event)
+		ufshcd_set_card_online(hba);
+	else
+		ufshcd_set_card_offline(hba);
 
+	if (ufshcd_is_card_offline(hba) && !hba->sdev_ufs_device)
+		goto out;
+
+	/*
+	 * card insertion/removal are very infrequent events and having this
+	 * message helps if there is some issue with card detection/removal.
+	 */
+	dev_info(hba->dev, "%s: card %s notification rcvd\n",
+		__func__, ufshcd_is_card_online(hba) ? "inserted" : "removed");
+
+	schedule_work(&hba->card_detect_work);
+out:
 	return NOTIFY_DONE;
 }
 
@@ -9158,7 +9296,9 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	if (ret)
 		goto disable_vreg;
 
-	if (ufshcd_is_link_off(hba))
+	if (hba->extcon &&
+	    (ufshcd_is_card_offline(hba) ||
+	     (ufshcd_is_card_online(hba) && !hba->sdev_ufs_device)))
 		goto skip_dev_ops;
 
 	if (ufshcd_is_link_hibern8(hba)) {
@@ -9517,7 +9657,7 @@ static inline void ufshcd_add_sysfs_nodes(struct ufs_hba *hba)
 	ufshcd_add_spm_lvl_sysfs_nodes(hba);
 }
 
-static void ufshcd_shutdown_clkscaling(struct ufs_hba *hba)
+static void __ufshcd_shutdown_clkscaling(struct ufs_hba *hba)
 {
 	bool suspend = false;
 	unsigned long flags;
@@ -9534,7 +9674,6 @@ static void ufshcd_shutdown_clkscaling(struct ufs_hba *hba)
 	 * doesn't race with shutdown
 	 */
 	if (ufshcd_is_clkscaling_supported(hba)) {
-		device_remove_file(hba->dev, &hba->clk_scaling.enable_attr);
 		cancel_work_sync(&hba->clk_scaling.suspend_work);
 		cancel_work_sync(&hba->clk_scaling.resume_work);
 		if (suspend)
@@ -9542,8 +9681,16 @@ static void ufshcd_shutdown_clkscaling(struct ufs_hba *hba)
 	}
 
 	/* Unregister so that devfreq_monitor can't race with shutdown */
-	if (hba->devfreq)
+	if (hba->devfreq) {
 		devfreq_remove_device(hba->devfreq);
+		hba->devfreq = NULL;
+	}
+}
+
+static void ufshcd_shutdown_clkscaling(struct ufs_hba *hba)
+{
+	__ufshcd_shutdown_clkscaling(hba);
+	device_remove_file(hba->dev, &hba->clk_scaling.enable_attr);
 }
 
 /**
@@ -9877,6 +10024,9 @@ static void ufshcd_clock_scaling_unprepare(struct ufs_hba *hba)
 static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 {
 	int ret = 0;
+
+	if (hba->extcon && ufshcd_is_card_offline(hba))
+		return 0;
 
 	/* let's not get into low power until clock scaling is completed */
 	hba->ufs_stats.clk_hold.ctx = CLK_SCALE_WORK;
