@@ -78,6 +78,7 @@ struct swr_mstr_ctrl {
 	struct device *dev;
 	struct resource *supplies;
 	struct clk *mclk;
+	int clk_ref_count;
 	struct completion reset;
 	struct completion broadcast;
 	struct mutex mlock;
