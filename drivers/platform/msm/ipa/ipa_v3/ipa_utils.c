@@ -24,14 +24,17 @@
 #include "ipahal/ipahal_hw_stats.h"
 #include "../ipa_rm_i.h"
 
+#define IPA_V3_0_CLK_RATE_SVS2 (37.5 * 1000 * 1000UL)
 #define IPA_V3_0_CLK_RATE_SVS (75 * 1000 * 1000UL)
 #define IPA_V3_0_CLK_RATE_NOMINAL (150 * 1000 * 1000UL)
 #define IPA_V3_0_CLK_RATE_TURBO (200 * 1000 * 1000UL)
 
+#define IPA_V3_5_CLK_RATE_SVS2 (100 * 1000 * 1000UL)
 #define IPA_V3_5_CLK_RATE_SVS (200 * 1000 * 1000UL)
 #define IPA_V3_5_CLK_RATE_NOMINAL (400 * 1000 * 1000UL)
 #define IPA_V3_5_CLK_RATE_TURBO (42640 * 10 * 1000UL)
 
+#define IPA_V4_0_CLK_RATE_SVS2 (60 * 1000 * 1000UL)
 #define IPA_V4_0_CLK_RATE_SVS (125 * 1000 * 1000UL)
 #define IPA_V4_0_CLK_RATE_NOMINAL (220 * 1000 * 1000UL)
 #define IPA_V4_0_CLK_RATE_TURBO (250 * 1000 * 1000UL)
@@ -40,6 +43,7 @@
 
 #define IPA_V3_0_BW_THRESHOLD_TURBO_MBPS (1000)
 #define IPA_V3_0_BW_THRESHOLD_NOMINAL_MBPS (600)
+#define IPA_V3_0_BW_THRESHOLD_SVS_MBPS (310)
 
 #define IPA_ENDP_INIT_HDR_METADATA_n_MUX_ID_BMASK 0xFF0000
 #define IPA_ENDP_INIT_HDR_METADATA_n_MUX_ID_SHFT 0x10
@@ -3733,14 +3737,17 @@ int ipa3_controller_static_bind(struct ipa3_controller *ctrl,
 		ctrl->ipa_clk_rate_turbo = IPA_V4_0_CLK_RATE_TURBO;
 		ctrl->ipa_clk_rate_nominal = IPA_V4_0_CLK_RATE_NOMINAL;
 		ctrl->ipa_clk_rate_svs = IPA_V4_0_CLK_RATE_SVS;
+		ctrl->ipa_clk_rate_svs2 = IPA_V4_0_CLK_RATE_SVS2;
 	} else if (hw_type >= IPA_HW_v3_5) {
 		ctrl->ipa_clk_rate_turbo = IPA_V3_5_CLK_RATE_TURBO;
 		ctrl->ipa_clk_rate_nominal = IPA_V3_5_CLK_RATE_NOMINAL;
 		ctrl->ipa_clk_rate_svs = IPA_V3_5_CLK_RATE_SVS;
+		ctrl->ipa_clk_rate_svs2 = IPA_V3_5_CLK_RATE_SVS2;
 	} else {
 		ctrl->ipa_clk_rate_turbo = IPA_V3_0_CLK_RATE_TURBO;
 		ctrl->ipa_clk_rate_nominal = IPA_V3_0_CLK_RATE_NOMINAL;
 		ctrl->ipa_clk_rate_svs = IPA_V3_0_CLK_RATE_SVS;
+		ctrl->ipa_clk_rate_svs2 = IPA_V3_0_CLK_RATE_SVS2;
 	}
 
 	ctrl->ipa_init_rt4 = _ipa_init_rt4_v3;
@@ -3754,6 +3761,8 @@ int ipa3_controller_static_bind(struct ipa3_controller *ctrl,
 	ctrl->ipa3_enable_clks = _ipa_enable_clks_v3_0;
 	ctrl->ipa3_disable_clks = _ipa_disable_clks_v3_0;
 	ctrl->msm_bus_data_ptr = &ipa_bus_client_pdata_v3_0;
+	ctrl->clock_scaling_bw_threshold_svs =
+		IPA_V3_0_BW_THRESHOLD_SVS_MBPS;
 	ctrl->clock_scaling_bw_threshold_nominal =
 		IPA_V3_0_BW_THRESHOLD_NOMINAL_MBPS;
 	ctrl->clock_scaling_bw_threshold_turbo =

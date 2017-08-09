@@ -716,7 +716,7 @@ static int ipa3_usb_create_rm_resources(enum ipa3_usb_transport_type ttype)
 		rm_ctx->prod_params.name = IPA3_USB_IS_TTYPE_DPL(ttype) ?
 			IPA_RM_RESOURCE_USB_DPL_DUMMY_PROD :
 			IPA_RM_RESOURCE_USB_PROD;
-		rm_ctx->prod_params.floor_voltage = IPA_VOLTAGE_SVS;
+		rm_ctx->prod_params.floor_voltage = IPA_VOLTAGE_SVS2;
 		rm_ctx->prod_params.reg_params.user_data = NULL;
 		rm_ctx->prod_params.reg_params.notify_cb =
 			IPA3_USB_IS_TTYPE_DPL(ttype) ?
@@ -741,7 +741,7 @@ static int ipa3_usb_create_rm_resources(enum ipa3_usb_transport_type ttype)
 		rm_ctx->cons_params.name = IPA3_USB_IS_TTYPE_DPL(ttype) ?
 			IPA_RM_RESOURCE_USB_DPL_CONS :
 			IPA_RM_RESOURCE_USB_CONS;
-		rm_ctx->cons_params.floor_voltage = IPA_VOLTAGE_SVS;
+		rm_ctx->cons_params.floor_voltage = IPA_VOLTAGE_SVS2;
 		rm_ctx->cons_params.reg_params.user_data = NULL;
 		rm_ctx->cons_params.reg_params.notify_cb = NULL;
 		rm_ctx->cons_params.request_resource =
