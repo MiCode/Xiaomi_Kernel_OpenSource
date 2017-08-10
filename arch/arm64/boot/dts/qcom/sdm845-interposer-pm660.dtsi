@@ -31,25 +31,38 @@
 };
 
 &dsi_dual_nt35597_truly_video_display {
-	/delete-property/ vddio-supply;
+	vddio-supply = <&pm660_l11>;
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
 };
 
 &dsi_dual_nt35597_truly_cmd_display {
-	/delete-property/ vddio-supply;
+	vddio-supply = <&pm660_l11>;
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
 };
 
 &dsi_nt35597_truly_dsc_cmd_display {
-	/delete-property/ vddio-supply;
+	vddio-supply = <&pm660_l11>;
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
 };
 
 &dsi_nt35597_truly_dsc_video_display {
-	/delete-property/ vddio-supply;
+	vddio-supply = <&pm660_l11>;
+	lab-supply = <&lcdb_ldo_vreg>;
+	ibb-supply = <&lcdb_ncp_vreg>;
 };
 
 &sde_dp {
+	status = "disabled";
 	/delete-property/ vdda-1p2-supply;
 	/delete-property/ vdda-0p9-supply;
 	/delete-property/ qcom,dp-usbpd-detection;
+};
+
+&mdss_dp_pll {
+	status = "disabled";
 };
 
 &bluetooth {
@@ -245,19 +258,19 @@
 	};
 
 	qcom,mdss_dsi_ctrl0@ae94000 {
-		/delete-property/ vdda-1p2-supply;
+		vdda-1p2-supply = <&pm660_l1>;
 	};
 
 	qcom,mdss_dsi_ctrl1@ae96000 {
-		/delete-property/ vdda-1p2-supply;
+		vdda-1p2-supply = <&pm660_l1>;
 	};
 
 	qcom,mdss_dsi_phy0@ae94400 {
-		/delete-property/ vdda-0p9-supply;
+		vdda-0p9-supply = <&pm660l_l1>;
 	};
 
 	qcom,mdss_dsi_phy0@ae96400 {
-		/delete-property/ vdda-0p9-supply;
+		vdda-0p9-supply = <&pm660l_l1>;
 	};
 
 	gpio-regulator@1 {
@@ -373,4 +386,8 @@
 
 &soc {
 	/delete-node/ thermal-zones;
+};
+
+&pm660l_wled {
+	qcom,led-strings-list = [01 02];
 };
