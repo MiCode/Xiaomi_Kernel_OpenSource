@@ -2237,6 +2237,23 @@ static int mdss_dsi_check_params(struct mdss_dsi_ctrl_pdata *ctrl, void *arg)
 	return rc;
 }
 
+#ifdef TARGET_HW_MDSS_HDMI
+static void mdss_dsi_update_params(struct mdss_dsi_ctrl_pdata *ctrl, void *arg)
+{
+	struct mdss_panel_info *pinfo;
+
+	if (!ctrl || !arg)
+		return;
+
+	pinfo = &ctrl->panel_data.panel_info;
+	mdss_dba_update_lane_cfg(pinfo);
+}
+#else
+static void mdss_dsi_update_params(struct mdss_dsi_ctrl_pdata *ctrl, void *arg)
+{
+}
+#endif
+
 static int mdss_dsi_dfps_config(struct mdss_panel_data *pdata, int new_fps)
 {
 	int rc = 0;
@@ -2589,6 +2606,11 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 	MDSS_XLOG(event, arg, ctrl_pdata->ndx, 0x3333);
 
 	switch (event) {
+	case MDSS_EVENT_UPDATE_PARAMS:
+		pr_debug("%s:Entered Case MDSS_EVENT_UPDATE_PARAMS\n",
+				__func__);
+		mdss_dsi_update_params(ctrl_pdata, arg);
+		break;
 	case MDSS_EVENT_CHECK_PARAMS:
 		pr_debug("%s:Entered Case MDSS_EVENT_CHECK_PARAMS\n", __func__);
 		if (mdss_dsi_check_params(ctrl_pdata, arg)) {
