@@ -536,6 +536,51 @@ unknown_value:
 	return -EINVAL;
 }
 
+int msm_comm_get_v4l2_profile(int fourcc, int profile)
+{
+	switch (fourcc) {
+	case V4L2_PIX_FMT_H264:
+		return msm_comm_hal_to_v4l2(
+			V4L2_CID_MPEG_VIDEO_H264_PROFILE,
+			profile);
+	case V4L2_PIX_FMT_HEVC:
+		return msm_comm_hal_to_v4l2(
+			V4L2_CID_MPEG_VIDC_VIDEO_HEVC_PROFILE,
+			profile);
+	case V4L2_PIX_FMT_VP8:
+	case V4L2_PIX_FMT_VP9:
+	case V4L2_PIX_FMT_MPEG2:
+		return 0;
+	default:
+		dprintk(VIDC_WARN, "Unknown codec id %x\n", fourcc);
+		return 0;
+	}
+}
+
+int msm_comm_get_v4l2_level(int fourcc, int level)
+{
+	switch (fourcc) {
+	case V4L2_PIX_FMT_H264:
+		return msm_comm_hal_to_v4l2(
+			V4L2_CID_MPEG_VIDEO_H264_LEVEL,
+			level);
+	case V4L2_PIX_FMT_HEVC:
+		return msm_comm_hal_to_v4l2(
+			V4L2_CID_MPEG_VIDC_VIDEO_HEVC_TIER_LEVEL,
+			level);
+	case V4L2_PIX_FMT_VP8:
+		return msm_comm_hal_to_v4l2(
+			V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL,
+			level);
+	case V4L2_PIX_FMT_VP9:
+	case V4L2_PIX_FMT_MPEG2:
+		return 0;
+	default:
+		dprintk(VIDC_WARN, "Unknown codec id %x\n", fourcc);
+		return 0;
+	}
+}
+
 int msm_comm_ctrl_init(struct msm_vidc_inst *inst,
 		struct msm_vidc_ctrl *drv_ctrls, u32 num_ctrls,
 		const struct v4l2_ctrl_ops *ctrl_ops)
@@ -1528,6 +1573,12 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	* ptr[2] = bit depth
 	* ptr[3] = pic struct (progressive or interlaced)
 	* ptr[4] = colour space
+	* ptr[5] = crop_data(top)
+	* ptr[6] = crop_data(left)
+	* ptr[7] = crop_data(height)
+	* ptr[8] = crop_data(width)
+	* ptr[9] = profile
+	* ptr[10] = level
 	*/
 
 	inst->entropy_mode = event_notify->entropy_mode;
@@ -1552,10 +1603,17 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	ptr[6] = event_notify->crop_data.left;
 	ptr[7] = event_notify->crop_data.height;
 	ptr[8] = event_notify->crop_data.width;
+	ptr[9] = msm_comm_get_v4l2_profile(
+		inst->fmts[OUTPUT_PORT].fourcc,
+		event_notify->profile);
+	ptr[10] = msm_comm_get_v4l2_level(
+		inst->fmts[OUTPUT_PORT].fourcc,
+		event_notify->level);
 
 	dprintk(VIDC_DBG,
-		"Event payload: height = %d width = %d\n",
-		event_notify->height, event_notify->width);
+		"Event payload: height = %d width = %d profile = %d level = %d\n",
+			event_notify->height, event_notify->width,
+			ptr[9], ptr[10]);
 
 	dprintk(VIDC_DBG,
 		"Event payload: bit_depth = %d pic_struct = %d colour_space = %d\n",
