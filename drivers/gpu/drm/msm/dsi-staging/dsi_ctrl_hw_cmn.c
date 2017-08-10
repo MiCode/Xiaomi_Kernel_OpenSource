@@ -79,7 +79,7 @@ void dsi_ctrl_hw_cmn_host_setup(struct dsi_ctrl_hw *ctrl,
 	DSI_W32(ctrl, DSI_CLK_CTRL, 0x23F);
 
 	/* Setup DSI control register */
-	reg_value = 0;
+	reg_value = DSI_R32(ctrl, DSI_CTRL);
 	reg_value |= (cfg->en_crc_check ? BIT(24) : 0);
 	reg_value |= (cfg->en_ecc_check ? BIT(20) : 0);
 	reg_value |= BIT(8); /* Clock lane */

@@ -59,6 +59,8 @@ static void convert_to_dsi_mode(const struct drm_display_mode *drm_mode,
 		dsi_mode->dsi_mode_flags |= DSI_MODE_FLAG_DFPS;
 	if (msm_needs_vblank_pre_modeset(drm_mode))
 		dsi_mode->dsi_mode_flags |= DSI_MODE_FLAG_VBLANK_PRE_MODESET;
+	if (msm_is_mode_seamless_dms(drm_mode))
+		dsi_mode->dsi_mode_flags |= DSI_MODE_FLAG_DMS;
 }
 
 static void convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
@@ -92,6 +94,8 @@ static void convert_to_drm_mode(const struct dsi_display_mode *dsi_mode,
 		drm_mode->private_flags |= MSM_MODE_FLAG_SEAMLESS_DYNAMIC_FPS;
 	if (dsi_mode->dsi_mode_flags & DSI_MODE_FLAG_VBLANK_PRE_MODESET)
 		drm_mode->private_flags |= MSM_MODE_FLAG_VBLANK_PRE_MODESET;
+	if (dsi_mode->dsi_mode_flags & DSI_MODE_FLAG_DMS)
+		drm_mode->private_flags |= MSM_MODE_FLAG_SEAMLESS_DMS;
 
 	drm_mode_set_name(drm_mode);
 }
@@ -244,9 +248,9 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 				  struct drm_display_mode *adjusted_mode)
 {
 	int rc = 0;
-	bool ret = true;
 	struct dsi_bridge *c_bridge = to_dsi_bridge(bridge);
 	struct dsi_display_mode dsi_mode;
+	struct drm_display_mode cur_mode;
 
 	if (!bridge || !mode || !adjusted_mode) {
 		pr_err("Invalid params\n");
@@ -259,12 +263,19 @@ static bool dsi_bridge_mode_fixup(struct drm_bridge *bridge,
 			DSI_VALIDATE_FLAG_ALLOW_ADJUST);
 	if (rc) {
 		pr_err("[%d] mode is not valid, rc=%d\n", c_bridge->id, rc);
-		ret = false;
-	} else {
-		convert_to_drm_mode(&dsi_mode, adjusted_mode);
+		return false;
 	}
 
-	return ret;
+	if (bridge->encoder && bridge->encoder->crtc) {
+		cur_mode = bridge->encoder->crtc->mode;
+
+		if (!drm_mode_equal(&cur_mode, adjusted_mode))
+			dsi_mode.dsi_mode_flags |= DSI_MODE_FLAG_DMS;
+	}
+
+	convert_to_drm_mode(&dsi_mode, adjusted_mode);
+
+	return true;
 }
 
 int dsi_conn_get_mode_info(const struct drm_display_mode *drm_mode,

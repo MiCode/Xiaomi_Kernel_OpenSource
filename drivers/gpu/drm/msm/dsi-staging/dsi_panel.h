@@ -57,6 +57,11 @@ enum {
 	MODE_GPIO_LOW,
 };
 
+enum dsi_dms_mode {
+	DSI_DMS_MODE_DISABLED = 0,
+	DSI_DMS_MODE_RES_SWITCH_IMMEDIATE,
+};
+
 struct dsi_dfps_capabilities {
 	bool dfps_support;
 	enum dsi_dfps_type type;
@@ -147,6 +152,7 @@ struct dsi_panel {
 	bool te_using_watchdog_timer;
 
 	char dsc_pps_cmd[DSI_CMD_PPS_SIZE];
+	enum dsi_dms_mode dms_mode;
 };
 
 static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)
@@ -219,6 +225,10 @@ int dsi_panel_update_pps(struct dsi_panel *panel);
 
 int dsi_panel_send_roi_dcs(struct dsi_panel *panel, int ctrl_idx,
 		struct dsi_rect *roi);
+
+int dsi_panel_switch(struct dsi_panel *panel);
+
+int dsi_panel_post_switch(struct dsi_panel *panel);
 
 void dsi_dsc_pclk_param_calc(struct msm_display_dsc_info *dsc, int intf_width);
 

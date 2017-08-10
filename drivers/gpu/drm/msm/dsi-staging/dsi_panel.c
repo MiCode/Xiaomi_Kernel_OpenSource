@@ -2399,6 +2399,35 @@ static int dsi_panel_parse_partial_update_caps(struct dsi_panel *panel,
 	return rc;
 }
 
+static int dsi_panel_parse_dms_info(struct dsi_panel *panel,
+	struct device_node *of_node)
+{
+	int dms_enabled;
+	const char *data;
+
+	if (!of_node || !panel) {
+		pr_err("invalid params\n");
+		return -EINVAL;
+	}
+
+	panel->dms_mode = DSI_DMS_MODE_DISABLED;
+	dms_enabled = of_property_read_bool(of_node,
+		"qcom,dynamic-mode-switch-enabled");
+	if (!dms_enabled)
+		return 0;
+
+	data = of_get_property(of_node, "qcom,dynamic-mode-switch-type", NULL);
+	if (data && !strcmp(data, "dynamic-resolution-switch-immediate")) {
+		panel->dms_mode = DSI_DMS_MODE_RES_SWITCH_IMMEDIATE;
+	} else {
+		pr_err("[%s] unsupported dynamic switch mode: %s\n",
+							panel->name, data);
+		return -EINVAL;
+	}
+
+	return 0;
+};
+
 struct dsi_panel *dsi_panel_get(struct device *parent,
 				struct device_node *of_node,
 				int topology_override)
@@ -2467,6 +2496,10 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 		pr_err("failed to get mode count, rc=%d\n", rc);
 		goto error;
 	}
+
+	rc = dsi_panel_parse_dms_info(panel, of_node);
+	if (rc)
+		pr_debug("failed to get dms info, rc=%d\n", rc);
 
 	panel->panel_of_node = of_node;
 	drm_panel_init(&panel->drm_panel);
@@ -2595,6 +2628,7 @@ int dsi_panel_validate_mode(struct dsi_panel *panel,
 int dsi_panel_get_mode_count(struct dsi_panel *panel,
 	struct device_node *of_node)
 {
+	const u32 SINGLE_MODE_SUPPORT = 1;
 	struct device_node *timings_np;
 	int count, rc = 0;
 
@@ -2619,6 +2653,11 @@ int dsi_panel_get_mode_count(struct dsi_panel *panel,
 		rc = -EINVAL;
 		goto error;
 	}
+
+	/* No multiresolution support is available for video mode panels */
+	if (panel->panel_mode != DSI_OP_CMD_MODE)
+		count = SINGLE_MODE_SUPPORT;
+
 	panel->num_timing_nodes = count;
 
 error:
@@ -3058,6 +3097,46 @@ int dsi_panel_send_roi_dcs(struct dsi_panel *panel, int ctrl_idx,
 
 	dsi_panel_destroy_cmd_packets(set);
 
+	return rc;
+}
+
+int dsi_panel_switch(struct dsi_panel *panel)
+{
+	int rc = 0;
+
+	if (!panel) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&panel->panel_lock);
+
+	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_TIMING_SWITCH);
+	if (rc)
+		pr_err("[%s] failed to send DSI_CMD_SET_TIMING_SWITCH cmds, rc=%d\n",
+		       panel->name, rc);
+
+	mutex_unlock(&panel->panel_lock);
+	return rc;
+}
+
+int dsi_panel_post_switch(struct dsi_panel *panel)
+{
+	int rc = 0;
+
+	if (!panel) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&panel->panel_lock);
+
+	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_POST_TIMING_SWITCH);
+	if (rc)
+		pr_err("[%s] failed to send DSI_CMD_SET_POST_TIMING_SWITCH cmds, rc=%d\n",
+		       panel->name, rc);
+
+	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
 
