@@ -288,6 +288,18 @@
 				qcom,vadc-thermal-node;
 			};
 
+			chan@4f {
+				label = "pa_therm0";
+				reg = <0x4f>;
+				qcom,decimation = <2>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <2>;
+				qcom,hw-settle-time = <2>;
+				qcom,fast-avg-setup = <0>;
+				qcom,vadc-thermal-node;
+			};
+
 			chan@1d {
 				label = "drax_temp";
 				reg = <0x1d>;
