@@ -375,10 +375,13 @@ static void dp_catalog_ctrl_config_misc(struct dp_catalog_ctrl *ctrl,
 }
 
 static void dp_catalog_ctrl_config_msa(struct dp_catalog_ctrl *ctrl,
-					u32 rate)
+					u32 rate, u32 stream_rate_khz,
+					bool fixed_nvid)
 {
 	u32 pixel_m, pixel_n;
 	u32 mvid, nvid;
+	u64 mvid_calc;
+	u32 const nvid_fixed = 0x8000;
 	u32 const link_rate = 540000;
 	struct dp_catalog_private *catalog;
 	void __iomem *base_cc, *base_ctrl;
@@ -389,21 +392,42 @@ static void dp_catalog_ctrl_config_msa(struct dp_catalog_ctrl *ctrl,
 	}
 
 	dp_catalog_get_priv(ctrl);
-	base_cc = catalog->io->dp_cc_io.base;
+	if (fixed_nvid) {
+		pr_debug("use fixed NVID=0x%x\n", nvid_fixed);
+		nvid = nvid_fixed;
+
+		pr_debug("link rate=%dkbps, stream_rate_khz=%uKhz",
+			rate, stream_rate_khz);
+
+		/*
+		 * For intermediate results, use 64 bit arithmetic to avoid
+		 * loss of precision.
+		 */
+		mvid_calc = (u64) stream_rate_khz * nvid;
+		mvid_calc = div_u64(mvid_calc, rate);
+
+		/*
+		 * truncate back to 32 bits as this final divided value will
+		 * always be within the range of a 32 bit unsigned int.
+		 */
+		mvid = (u32) mvid_calc;
+	} else {
+		base_cc = catalog->io->dp_cc_io.base;
+
+		pixel_m = dp_read(base_cc + MMSS_DP_PIXEL_M);
+		pixel_n = dp_read(base_cc + MMSS_DP_PIXEL_N);
+		pr_debug("pixel_m=0x%x, pixel_n=0x%x\n", pixel_m, pixel_n);
+
+		mvid = (pixel_m & 0xFFFF) * 5;
+		nvid = (0xFFFF & (~pixel_n)) + (pixel_m & 0xFFFF);
+
+		pr_debug("rate = %d\n", rate);
+
+		if (link_rate == rate)
+			nvid *= 2;
+	}
+
 	base_ctrl = catalog->io->ctrl_io.base;
-
-	pixel_m = dp_read(base_cc + MMSS_DP_PIXEL_M);
-	pixel_n = dp_read(base_cc + MMSS_DP_PIXEL_N);
-	pr_debug("pixel_m=0x%x, pixel_n=0x%x\n", pixel_m, pixel_n);
-
-	mvid = (pixel_m & 0xFFFF) * 5;
-	nvid = (0xFFFF & (~pixel_n)) + (pixel_m & 0xFFFF);
-
-	pr_debug("rate = %d\n", rate);
-
-	if (link_rate == rate)
-		nvid *= 2;
-
 	pr_debug("mvid=0x%x, nvid=0x%x\n", mvid, nvid);
 	dp_write(base_ctrl + DP_SOFTWARE_MVID, mvid);
 	dp_write(base_ctrl + DP_SOFTWARE_NVID, nvid);
