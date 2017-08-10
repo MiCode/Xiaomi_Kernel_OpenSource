@@ -226,6 +226,7 @@ static void *usbpd_ipc_log;
 
 #define PD_SRC_CAP_EXT_DB_LEN	24
 #define PD_STATUS_DB_LEN	5
+#define PD_BATTERY_CAP_DB_LEN	9
 
 #define PD_MAX_EXT_MSG_LEN		260
 #define PD_MAX_EXT_MSG_LEGACY_LEN	26
@@ -435,6 +436,12 @@ struct usbpd {
 	bool			send_get_pps_status;
 	u32			pps_status_db;
 	u8			status_db[PD_STATUS_DB_LEN];
+	bool			send_get_battery_cap;
+	u8			get_battery_cap_db;
+	u8			battery_cap_db[PD_BATTERY_CAP_DB_LEN];
+	u8			get_battery_status_db;
+	bool			send_get_battery_status;
+	u32			battery_sts_dobj;
 };
 
 static LIST_HEAD(_usbpd);	/* useful for debugging */
@@ -553,6 +560,57 @@ static int pd_send_msg(struct usbpd *pd, u8 msg_type, const u32 *data,
 		return ret;
 
 	pd->tx_msgid = (pd->tx_msgid + 1) & PD_MAX_MSG_ID;
+	return 0;
+}
+
+static int pd_send_ext_msg(struct usbpd *pd, u8 msg_type,
+		const u8 *data, size_t data_len, enum pd_sop_type sop)
+{
+	int ret;
+	size_t len_remain, chunk_len;
+	u8 chunked_payload[PD_MAX_DATA_OBJ * sizeof(u32)] = {0};
+	u16 hdr;
+	u16 ext_hdr;
+	u8 num_objs;
+
+	if (data_len > PD_MAX_EXT_MSG_LEN) {
+		usbpd_warn(&pd->dev, "Extended message length exceeds max, truncating...\n");
+		data_len = PD_MAX_EXT_MSG_LEN;
+	}
+
+	pd->next_tx_chunk = 0;
+	len_remain = data_len;
+	do {
+		ext_hdr = PD_MSG_EXT_HDR(1, pd->next_tx_chunk++, 0, data_len);
+		memcpy(chunked_payload, &ext_hdr, sizeof(ext_hdr));
+
+		chunk_len = min_t(size_t, len_remain,
+				PD_MAX_EXT_MSG_LEGACY_LEN);
+		memcpy(chunked_payload + sizeof(ext_hdr), data, chunk_len);
+
+		num_objs = DIV_ROUND_UP(chunk_len + sizeof(u16), sizeof(u32));
+		len_remain -= chunk_len;
+
+		reinit_completion(&pd->tx_chunk_request);
+		hdr = PD_MSG_HDR(msg_type, pd->current_dr, pd->current_pr,
+				pd->tx_msgid, num_objs, pd->spec_rev) |
+			PD_MSG_HDR_EXTENDED;
+		ret = pd_phy_write(hdr, chunked_payload,
+				num_objs * sizeof(u32), sop);
+		if (ret)
+			return ret;
+
+		pd->tx_msgid = (pd->tx_msgid + 1) & PD_MAX_MSG_ID;
+
+		/* Wait for request chunk */
+		if (len_remain &&
+			!wait_for_completion_timeout(&pd->tx_chunk_request,
+				msecs_to_jiffies(SENDER_RESPONSE_TIME))) {
+			usbpd_err(&pd->dev, "Timed out waiting for chunk request\n");
+			return -EPROTO;
+		}
+	} while (len_remain);
+
 	return 0;
 }
 
@@ -2422,6 +2480,46 @@ static void usbpd_sm(struct work_struct *w)
 			memcpy(&pd->status_db, rx_msg->payload,
 				sizeof(pd->status_db));
 			kobject_uevent(&pd->dev.kobj, KOBJ_CHANGE);
+		} else if (pd->send_get_battery_cap && is_sink_tx_ok(pd)) {
+			pd->send_get_battery_cap = false;
+			ret = pd_send_ext_msg(pd, MSG_GET_BATTERY_CAP,
+				&pd->get_battery_cap_db, 1, SOP_MSG);
+			if (ret) {
+				dev_err(&pd->dev,
+					"Error sending get_battery_cap\n");
+				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+				break;
+			}
+			kick_sm(pd, SENDER_RESPONSE_TIME);
+		} else if (rx_msg &&
+			IS_EXT(rx_msg, MSG_BATTERY_CAPABILITIES)) {
+			if (rx_msg->data_len != PD_BATTERY_CAP_DB_LEN) {
+				usbpd_err(&pd->dev, "Invalid battery cap db\n");
+				break;
+			}
+			memcpy(&pd->battery_cap_db, rx_msg->payload,
+				sizeof(pd->battery_cap_db));
+			complete(&pd->is_ready);
+		} else if (pd->send_get_battery_status && is_sink_tx_ok(pd)) {
+			pd->send_get_battery_status = false;
+			ret = pd_send_ext_msg(pd, MSG_GET_BATTERY_STATUS,
+				&pd->get_battery_status_db, 1, SOP_MSG);
+			if (ret) {
+				dev_err(&pd->dev,
+					"Error sending get_battery_status\n");
+				usbpd_set_state(pd, PE_SNK_SEND_SOFT_RESET);
+				break;
+			}
+			kick_sm(pd, SENDER_RESPONSE_TIME);
+		} else if (rx_msg &&
+			IS_EXT(rx_msg, MSG_BATTERY_STATUS)) {
+			if (rx_msg->data_len != sizeof(pd->battery_sts_dobj)) {
+				usbpd_err(&pd->dev, "Invalid bat sts dobj\n");
+				break;
+			}
+			memcpy(&pd->battery_sts_dobj, rx_msg->payload,
+				sizeof(pd->battery_sts_dobj));
+			complete(&pd->is_ready);
 		} else if (rx_msg && pd->spec_rev == USBPD_REV_30) {
 			/* unhandled messages */
 			ret = pd_send_msg(pd, MSG_NOT_SUPPORTED, NULL, 0,
@@ -3505,6 +3603,70 @@ static ssize_t rx_ado_show(struct device *dev, struct device_attribute *attr,
 }
 static DEVICE_ATTR_RO(rx_ado);
 
+static ssize_t get_battery_cap_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct usbpd *pd = dev_get_drvdata(dev);
+	int val, ret;
+
+	if (pd->spec_rev == USBPD_REV_20 || sscanf(buf, "%d\n", &val) != 1) {
+		pd->get_battery_cap_db = -EINVAL;
+		return -EINVAL;
+	}
+
+	pd->get_battery_cap_db = val;
+
+	ret = trigger_tx_msg(pd, &pd->send_get_battery_cap);
+
+	return ret ? ret : size;
+}
+
+static ssize_t get_battery_cap_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int i, len = 0;
+	struct usbpd *pd = dev_get_drvdata(dev);
+
+	if (pd->get_battery_cap_db == -EINVAL)
+		return -EINVAL;
+
+	for (i = 0; i < PD_BATTERY_CAP_DB_LEN; i++)
+		len += snprintf(buf + len, PAGE_SIZE - len, "%d\n",
+			pd->battery_cap_db[i]);
+	return len;
+}
+static DEVICE_ATTR_RW(get_battery_cap);
+
+static ssize_t get_battery_status_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct usbpd *pd = dev_get_drvdata(dev);
+	int val, ret;
+
+	if (pd->spec_rev == USBPD_REV_20 || sscanf(buf, "%d\n", &val) != 1) {
+		pd->get_battery_status_db = -EINVAL;
+		return -EINVAL;
+	}
+
+	pd->get_battery_status_db = val;
+
+	ret = trigger_tx_msg(pd, &pd->send_get_battery_status);
+
+	return ret ? ret : size;
+}
+
+static ssize_t get_battery_status_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct usbpd *pd = dev_get_drvdata(dev);
+
+	if (pd->get_battery_status_db == -EINVAL)
+		return -EINVAL;
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", pd->battery_sts_dobj);
+}
+static DEVICE_ATTR_RW(get_battery_status);
+
 static struct attribute *usbpd_attrs[] = {
 	&dev_attr_contract.attr,
 	&dev_attr_initial_pr.attr,
@@ -3527,6 +3689,8 @@ static struct attribute *usbpd_attrs[] = {
 	&dev_attr_get_src_cap_ext.attr,
 	&dev_attr_get_pps_status.attr,
 	&dev_attr_rx_ado.attr,
+	&dev_attr_get_battery_cap.attr,
+	&dev_attr_get_battery_status.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(usbpd);
