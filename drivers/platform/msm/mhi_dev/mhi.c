@@ -1871,15 +1871,14 @@ static void mhi_dev_enable(struct work_struct *work)
 	if (bhi_intvec != 0xffffffff) {
 		/* Indicate the host that the device is ready */
 		rc = ep_pcie_get_msi_config(mhi->phandle, &msi_cfg);
-		if (rc) {
+		if (!rc) {
+			rc = ep_pcie_trigger_msi(mhi_ctx->phandle, bhi_intvec);
+			if (rc) {
+				pr_err("%s: error sending msi\n", __func__);
+				return;
+			}
+		} else {
 			pr_err("MHI: error geting msi configs\n");
-			return;
-		}
-
-		rc = ep_pcie_trigger_msi(mhi_ctx->phandle, bhi_intvec);
-		if (rc) {
-			pr_err("%s: error sending msi\n", __func__);
-			return;
 		}
 	}
 
