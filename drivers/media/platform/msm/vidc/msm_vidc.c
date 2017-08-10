@@ -140,7 +140,8 @@ static void msm_vidc_ctrl_get_range(struct v4l2_queryctrl *ctrl,
 int msm_vidc_query_ctrl(void *instance, struct v4l2_queryctrl *ctrl)
 {
 	struct msm_vidc_inst *inst = instance;
-	int rc = 0;
+	struct hal_profile_level_supported *prof_level_supported;
+	int rc = 0, i = 0, profile_mask = 0, v4l2_prof_value = 0, max_level = 0;
 
 	if (!inst || !ctrl)
 		return -EINVAL;
@@ -178,6 +179,43 @@ int msm_vidc_query_ctrl(void *instance, struct v4l2_queryctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES:
 		msm_vidc_ctrl_get_range(ctrl, &inst->capability.slice_bytes);
 		break;
+	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
+	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_PROFILE:
+	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE:
+	{
+		prof_level_supported = &inst->capability.profile_level;
+		for (i = 0; i < prof_level_supported->profile_count; i++) {
+			v4l2_prof_value = msm_comm_hal_to_v4l2(ctrl->id,
+				prof_level_supported->profile_level[i].profile);
+			if (v4l2_prof_value == -EINVAL) {
+				dprintk(VIDC_WARN, "Invalid profile");
+				rc = -EINVAL;
+			}
+			profile_mask |= (1 << v4l2_prof_value);
+		}
+		ctrl->flags = profile_mask;
+		break;
+	}
+	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_TIER_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL:
+	{
+		prof_level_supported = &inst->capability.profile_level;
+		for (i = 0; i < prof_level_supported->profile_count; i++) {
+			if (max_level < prof_level_supported->
+				profile_level[i].level) {
+				max_level = prof_level_supported->
+					profile_level[i].level;
+			}
+		}
+		ctrl->maximum = msm_comm_hal_to_v4l2(ctrl->id, max_level);
+		if (ctrl->maximum == -EINVAL) {
+			dprintk(VIDC_WARN, "Invalid max level");
+			rc = -EINVAL;
+		}
+		break;
+	}
 	default:
 		rc = -EINVAL;
 	}

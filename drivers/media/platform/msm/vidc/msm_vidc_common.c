@@ -1426,6 +1426,15 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 	print_cap("max_work_modes", &inst->capability.max_work_modes);
 	print_cap("ubwc_cr_stats", &inst->capability.ubwc_cr_stats);
 
+	dprintk(VIDC_DBG, "profile count : %u",
+		inst->capability.profile_level.profile_count);
+	for (i = 0; i < inst->capability.profile_level.profile_count; i++) {
+		dprintk(VIDC_DBG, "profile : %u ", inst->capability.
+			profile_level.profile_level[i].profile);
+		dprintk(VIDC_DBG, "level   : %u ", inst->capability.
+			profile_level.profile_level[i].level);
+	}
+
 	signal_session_msg_receipt(cmd, inst);
 
 	/*
