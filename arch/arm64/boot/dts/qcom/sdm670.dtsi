@@ -21,6 +21,7 @@
 #include <dt-bindings/clock/qcom,rpmh.h>
 #include <dt-bindings/soc/qcom,tcs-mbox.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
+#include <dt-bindings/clock/qcom,aop-qmp.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. SDM670";
@@ -885,6 +886,13 @@
 		clock-output-names = "cpucc_clocks";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	clock_aop: qcom,aopclk {
+		compatible = "qcom,aop-qmp-clk-v2";
+		#clock-cells = <1>;
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "qdss_clk";
 	};
 
 	slim_aud: slim@62dc0000 {
