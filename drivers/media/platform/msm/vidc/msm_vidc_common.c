@@ -5158,6 +5158,8 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct msm_vidc_core *core;
+	u32 output_height, output_width;
+	u32 rotation;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_WARN, "%s: Invalid parameter\n", __func__);
@@ -5179,34 +5181,47 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 		return -ENOTSUPP;
 	}
 
+	rotation =  msm_comm_g_ctrl_for_id(inst,
+					V4L2_CID_MPEG_VIDC_VIDEO_ROTATION);
+
+	output_height = inst->prop.height[CAPTURE_PORT];
+	output_width = inst->prop.width[CAPTURE_PORT];
+
+	if ((output_width != output_height) &&
+		(rotation == V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_90 ||
+		rotation == V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_270)) {
+
+		output_width = inst->prop.height[CAPTURE_PORT];
+		output_height = inst->prop.width[CAPTURE_PORT];
+		dprintk(VIDC_DBG,
+			"Rotation=%u Swapped Output W=%u H=%u to check capability",
+			rotation, output_width, output_height);
+	}
+
 	if (!rc) {
-		if (inst->prop.width[CAPTURE_PORT] < capability->width.min ||
-			inst->prop.height[CAPTURE_PORT] <
-			capability->height.min) {
+		if (output_width < capability->width.min ||
+			output_height < capability->height.min) {
 			dprintk(VIDC_ERR,
 				"Unsupported WxH = (%u)x(%u), min supported is - (%u)x(%u)\n",
-				inst->prop.width[CAPTURE_PORT],
-				inst->prop.height[CAPTURE_PORT],
+				output_width,
+				output_height,
 				capability->width.min,
 				capability->height.min);
 			rc = -ENOTSUPP;
 		}
-		if (!rc && inst->prop.width[CAPTURE_PORT] >
-			capability->width.max) {
+		if (!rc && output_width > capability->width.max) {
 			dprintk(VIDC_ERR,
 				"Unsupported width = %u supported max width = %u\n",
-				inst->prop.width[CAPTURE_PORT],
+				output_width,
 				capability->width.max);
 				rc = -ENOTSUPP;
 		}
 
-		if (!rc && inst->prop.height[CAPTURE_PORT]
-			* inst->prop.width[CAPTURE_PORT] >
+		if (!rc && output_height * output_width >
 			capability->width.max * capability->height.max) {
 			dprintk(VIDC_ERR,
 			"Unsupported WxH = (%u)x(%u), max supported is - (%u)x(%u)\n",
-			inst->prop.width[CAPTURE_PORT],
-			inst->prop.height[CAPTURE_PORT],
+			output_width, output_height,
 			capability->width.max, capability->height.max);
 			rc = -ENOTSUPP;
 		}
