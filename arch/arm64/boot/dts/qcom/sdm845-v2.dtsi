@@ -542,19 +542,19 @@
 };
 
 &clock_gcc {
-	compatible = "qcom,gcc-sdm845-v2";
+	compatible = "qcom,gcc-sdm845-v2", "syscon";
 };
 
 &clock_camcc {
-	compatible = "qcom,cam_cc-sdm845-v2";
+	compatible = "qcom,cam_cc-sdm845-v2", "syscon";
 };
 
 &clock_dispcc {
-	compatible = "qcom,dispcc-sdm845-v2";
+	compatible = "qcom,dispcc-sdm845-v2", "syscon";
 };
 
 &clock_gpucc {
-	compatible = "qcom,gpucc-sdm845-v2";
+	compatible = "qcom,gpucc-sdm845-v2", "syscon";
 };
 
 &clock_gfx {
@@ -562,7 +562,7 @@
 };
 
 &clock_videocc {
-	compatible = "qcom,video_cc-sdm845-v2";
+	compatible = "qcom,video_cc-sdm845-v2", "syscon";
 };
 
 &clock_aop {
