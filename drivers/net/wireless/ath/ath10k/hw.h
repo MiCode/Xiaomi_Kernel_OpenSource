@@ -984,6 +984,16 @@ struct ath10k_shadow_reg_address {
 extern struct ath10k_shadow_reg_value wcn3990_shadow_reg_value;
 extern struct ath10k_shadow_reg_address wcn3990_shadow_reg_address;
 
+#define ATH10K_PKTLOG_HDR_SIZE_16      0x8000
+
+enum {
+	ATH10k_PKTLOG_FLG_FRM_TYPE_LOCAL_S = 0,
+	ATH10K_PKTLOG_FLG_FRM_TYPE_REMOTE_S,
+	ATH10K_PKTLOG_FLG_FRM_TYPE_CLONE_S,
+	ATH10K_PKTLOG_FLG_FRM_TYPE_CBF_S,
+	ATH10K_PKTLOG_FLG_FRM_TYPE_UNKNOWN_S
+};
+
 enum ath10k_pktlog_type {
 	ATH10K_PKTLOG_TYPE_TX_CTRL = 1,
 	ATH10K_PKTLOG_TYPE_TX_STAT,
