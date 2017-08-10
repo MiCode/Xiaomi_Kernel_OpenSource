@@ -5,6 +5,7 @@
 #define BGCOM_AHB_WRITE 2
 #define BGCOM_SET_SPI_FREE  3
 #define BGCOM_SET_SPI_BUSY  4
+#define BGCOM_REG_WRITE  5
 #define EXCHANGE_CODE  'V'
 
 struct bg_ui_data {
@@ -36,5 +37,8 @@ enum bg_event_type {
 	struct bg_ui_data)
 #define SET_SPI_BUSY \
 	_IOR(EXCHANGE_CODE, BGCOM_SET_SPI_BUSY, \
+	struct bg_ui_data)
+#define REG_WRITE \
+	_IOWR(EXCHANGE_CODE, BGCOM_REG_WRITE, \
 	struct bg_ui_data)
 #endif
