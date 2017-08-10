@@ -2416,7 +2416,8 @@ static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
  */
 static int ufs_qcom_update_sec_cfg(struct ufs_hba *hba, bool restore_sec_cfg)
 {
-	int ret = 0, scm_ret = 0;
+	int ret = 0;
+	u64 scm_ret = 0;
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	/* scm command buffer structrue */
@@ -2457,7 +2458,7 @@ static int ufs_qcom_update_sec_cfg(struct ufs_hba *hba, bool restore_sec_cfg)
 	cbuf.device_id = UFS_TZ_DEV_ID;
 	ret = scm_restore_sec_cfg(cbuf.device_id, cbuf.spare, &scm_ret);
 	if (ret || scm_ret) {
-		dev_dbg(hba->dev, "%s: failed, ret %d scm_ret %d\n",
+		dev_dbg(hba->dev, "%s: failed, ret %d scm_ret %llu\n",
 			__func__, ret, scm_ret);
 		if (!ret)
 			ret = scm_ret;
@@ -2466,7 +2467,7 @@ static int ufs_qcom_update_sec_cfg(struct ufs_hba *hba, bool restore_sec_cfg)
 	}
 
 out:
-	dev_dbg(hba->dev, "%s: ip: restore_sec_cfg %d, op: restore_sec_cfg %d, ret %d scm_ret %d\n",
+	dev_dbg(hba->dev, "%s: ip: restore_sec_cfg %d, op: restore_sec_cfg %d, ret %d scm_ret %llu\n",
 		__func__, restore_sec_cfg, host->sec_cfg_updated, ret, scm_ret);
 	return ret;
 }

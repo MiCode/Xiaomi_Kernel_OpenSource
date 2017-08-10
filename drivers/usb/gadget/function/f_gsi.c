@@ -1579,6 +1579,12 @@ static void gsi_rndis_command_complete(struct usb_ep *ep,
 	struct f_gsi *rndis = req->context;
 	int status;
 
+	if (req->status != 0) {
+		log_event_err("RNDIS command completion error %d\n",
+				req->status);
+		return;
+	}
+
 	status = rndis_msg_parser(rndis->params, (u8 *) req->buf);
 	if (status < 0)
 		log_event_err("RNDIS command error %d, %d/%d",

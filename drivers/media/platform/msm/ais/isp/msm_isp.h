@@ -355,6 +355,7 @@ struct msm_vfe_hardware_info {
 	uint32_t dmi_reg_offset;
 	uint32_t min_ab;
 	uint32_t min_ib;
+	uint32_t regulator_num;
 	const char *regulator_names[];
 };
 

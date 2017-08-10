@@ -1117,54 +1117,55 @@ int scm_is_call_available(u32 svc_id, u32 cmd_id)
 
 		ret = scm_call(SCM_SVC_INFO, IS_CALL_AVAIL_CMD, &svc_cmd,
 			sizeof(svc_cmd), &ret_val, sizeof(ret_val));
-		if (ret)
-			return ret;
+		if (!ret && ret_val)
+			return 1;
+		else
+			return 0;
 
-		return ret_val;
 	}
 	desc.arginfo = SCM_ARGS(1);
 	desc.args[0] = SCM_SIP_FNID(svc_id, cmd_id);
+	desc.ret[0] = 0;
 	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_INFO, IS_CALL_AVAIL_CMD), &desc);
-	if (ret)
-		return ret;
+	if (!ret && desc.ret[0])
+		return 1;
+	else
+		return 0;
 
-	return desc.ret[0];
 }
 EXPORT_SYMBOL(scm_is_call_available);
 
 #define GET_FEAT_VERSION_CMD	3
-int scm_get_feat_version(u32 feat)
+int scm_get_feat_version(u32 feat, u64 *scm_ret)
 {
 	struct scm_desc desc = {0};
 	int ret;
 
 	if (!is_scm_armv8()) {
 		if (scm_is_call_available(SCM_SVC_INFO, GET_FEAT_VERSION_CMD)) {
-			u32 version;
-			if (!scm_call(SCM_SVC_INFO, GET_FEAT_VERSION_CMD, &feat,
-				      sizeof(feat), &version, sizeof(version)))
-				return version;
+			ret = scm_call(SCM_SVC_INFO, GET_FEAT_VERSION_CMD,
+				&feat, sizeof(feat), scm_ret, sizeof(*scm_ret));
+			return ret;
 		}
-		return 0;
 	}
 
 	ret = scm_is_call_available(SCM_SVC_INFO, GET_FEAT_VERSION_CMD);
 	if (ret <= 0)
-		return 0;
+		return -EAGAIN;
 
 	desc.args[0] = feat;
 	desc.arginfo = SCM_ARGS(1);
 	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_INFO, GET_FEAT_VERSION_CMD),
 			&desc);
-	if (!ret)
-		return desc.ret[0];
 
-	return 0;
+	*scm_ret = desc.ret[0];
+
+	return ret;
 }
 EXPORT_SYMBOL(scm_get_feat_version);
 
 #define RESTORE_SEC_CFG    2
-int scm_restore_sec_cfg(u32 device_id, u32 spare, int *scm_ret)
+int scm_restore_sec_cfg(u32 device_id, u32 spare, u64 *scm_ret)
 {
 	struct scm_desc desc = {0};
 	int ret;

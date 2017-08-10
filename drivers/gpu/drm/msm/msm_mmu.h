@@ -46,6 +46,8 @@ struct msm_mmu_funcs {
 	void (*destroy)(struct msm_mmu *mmu);
 	void (*enable)(struct msm_mmu *mmu);
 	void (*disable)(struct msm_mmu *mmu);
+	int (*set_property)(struct msm_mmu *mmu,
+				enum iommu_attr attr, void *data);
 };
 
 struct msm_mmu {

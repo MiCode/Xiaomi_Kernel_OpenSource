@@ -1823,6 +1823,7 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 	 * the best one based on our affinity and topology.
 	 */
 
+retry:
 	for_each_sched_cluster(cluster) {
 		if (boost_on_big && cluster->capacity != max_possible_capacity)
 			continue;
@@ -1830,6 +1831,15 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 		cpumask_and(&candidate_mask, &cluster->cpus, lowest_mask);
 		cpumask_andnot(&candidate_mask, &candidate_mask,
 			       cpu_isolated_mask);
+		/*
+		 * When placement boost is active, if there is no eligible CPU
+		 * in the highest capacity cluster, we fallback to the other
+		 * clusters. So clear the CPUs of the traversed cluster from
+		 * the lowest_mask.
+		 */
+		if (unlikely(boost_on_big))
+			cpumask_andnot(lowest_mask, lowest_mask,
+				       &cluster->cpus);
 
 		if (cpumask_empty(&candidate_mask))
 			continue;
@@ -1867,6 +1877,11 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 
 		if (restrict_cluster && best_cpu != -1)
 			break;
+	}
+
+	if (unlikely(boost_on_big && best_cpu == -1)) {
+		boost_on_big = 0;
+		goto retry;
 	}
 
 	return best_cpu;

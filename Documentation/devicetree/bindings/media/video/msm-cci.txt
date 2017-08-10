@@ -123,6 +123,9 @@ Optional properties:
 - qcom,gpio-vdig : should contain index to gpio used by sensors digital vreg enable
 - qcom,gpio-vaf : should contain index to gpio used by sensors af vreg enable
 - qcom,gpio-af-pwdm : should contain index to gpio used by sensors af pwdm_n
+- qcom,gpio-custom1 : should contain index to gpio used by sensors specific to usecase
+- qcom,gpio-custom2 : should contain index to gpio used by sensors specific to usecase
+- qcom,gpio-custom3 : should contain index to gpio used by sensors specific to usecase
 - qcom,gpio-req-tbl-num : should contain index to gpios specific to this sensor
 - qcom,gpio-req-tbl-flags : should contain direction of gpios present in
     qcom,gpio-req-tbl-num property (in the same order)

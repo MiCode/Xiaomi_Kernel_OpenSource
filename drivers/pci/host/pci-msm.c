@@ -278,6 +278,7 @@
 
 #define PERST_PROPAGATION_DELAY_US_MIN	  1000
 #define PERST_PROPAGATION_DELAY_US_MAX	  1005
+#define SWITCH_DELAY_MAX	  20
 #define REFCLK_STABILIZATION_DELAY_US_MIN     1000
 #define REFCLK_STABILIZATION_DELAY_US_MAX     1005
 #define LINK_UP_TIMEOUT_US_MIN		    5000
@@ -626,6 +627,7 @@ struct msm_pcie_dev_t {
 	bool				 ext_ref_clk;
 	bool				common_phy;
 	uint32_t			   ep_latency;
+	uint32_t			switch_latency;
 	uint32_t			wr_halt_size;
 	uint32_t			cpl_timeout;
 	uint32_t			current_bdf;
@@ -1735,7 +1737,8 @@ static bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev)
 
 static int msm_pcie_restore_sec_config(struct msm_pcie_dev_t *dev)
 {
-	int ret, scm_ret;
+	int ret;
+	u64 scm_ret;
 
 	if (!dev) {
 		pr_err("PCIe: the input pcie dev is NULL.\n");
@@ -1745,7 +1748,7 @@ static int msm_pcie_restore_sec_config(struct msm_pcie_dev_t *dev)
 	ret = scm_restore_sec_cfg(dev->scm_dev_id, 0, &scm_ret);
 	if (ret || scm_ret) {
 		PCIE_ERR(dev,
-			"PCIe: RC%d failed(%d) to restore sec config, scm_ret=%d\n",
+			"PCIe: RC%d failed(%d) to restore sec config, scm_ret=%llu\n",
 			dev->rc_idx, ret, scm_ret);
 		return ret ? ret : -EINVAL;
 	}
@@ -1984,6 +1987,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->common_phy);
 	PCIE_DBG_FS(dev, "ep_latency: %dms\n",
 		dev->ep_latency);
+	PCIE_DBG_FS(dev, "switch_latency: %dms\n",
+		dev->switch_latency);
 	PCIE_DBG_FS(dev, "wr_halt_size: 0x%x\n",
 		dev->wr_halt_size);
 	PCIE_DBG_FS(dev, "cpl_timeout: 0x%x\n",
@@ -4675,7 +4680,15 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 		goto link_fail;
 	}
 
-	msleep(500);
+	if (dev->switch_latency) {
+		PCIE_DBG(dev, "switch_latency: %dms\n",
+			dev->switch_latency);
+		if (dev->switch_latency <= SWITCH_DELAY_MAX)
+			usleep_range(dev->switch_latency * 1000,
+				dev->switch_latency * 1000);
+		else
+			msleep(dev->switch_latency);
+	}
 
 	msm_pcie_config_controller(dev);
 
@@ -6278,6 +6291,20 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	else
 		PCIE_DBG(&msm_pcie_dev[rc_idx], "RC%d: ep-latency: 0x%x.\n",
 			rc_idx, msm_pcie_dev[rc_idx].ep_latency);
+
+	msm_pcie_dev[rc_idx].switch_latency = 0;
+	ret = of_property_read_u32((&pdev->dev)->of_node,
+					"qcom,switch-latency",
+					&msm_pcie_dev[rc_idx].switch_latency);
+
+	if (ret)
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+				"RC%d: switch-latency does not exist.\n",
+				rc_idx);
+	else
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+				"RC%d: switch-latency: 0x%x.\n",
+				rc_idx, msm_pcie_dev[rc_idx].switch_latency);
 
 	msm_pcie_dev[rc_idx].wr_halt_size = 0;
 	ret = of_property_read_u32(pdev->dev.of_node,

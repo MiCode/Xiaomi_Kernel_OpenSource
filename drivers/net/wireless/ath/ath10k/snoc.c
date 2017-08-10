@@ -107,8 +107,8 @@ static struct ce_attr host_ce_config_wlan[] = {
 	{
 		.flags = CE_ATTR_FLAGS,
 		.src_nentries = 0,
-		.src_sz_max = 512,
-		.dest_nentries = 512,
+		.src_sz_max = 0,
+		.dest_nentries = 0,
 		.recv_cb = ath10k_snoc_htt_rx_cb,
 	},
 

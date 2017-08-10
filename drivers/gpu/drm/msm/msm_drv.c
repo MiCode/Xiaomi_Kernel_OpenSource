@@ -1923,8 +1923,75 @@ static struct drm_driver msm_driver = {
 #ifdef CONFIG_PM_SLEEP
 static int msm_pm_suspend(struct device *dev)
 {
-	struct drm_device *ddev = dev_get_drvdata(dev);
+	struct drm_device *ddev;
+	struct drm_modeset_acquire_ctx *ctx;
+	struct drm_connector *conn;
+	struct drm_atomic_state *state;
+	struct drm_crtc_state *crtc_state;
+	struct msm_drm_private *priv;
+	int ret = 0;
 
+	if (!dev)
+		return -EINVAL;
+
+	ddev = dev_get_drvdata(dev);
+	if (!ddev || !ddev->dev_private)
+		return -EINVAL;
+
+	priv = ddev->dev_private;
+	SDE_EVT32(0);
+
+	/* acquire modeset lock(s) */
+	drm_modeset_lock_all(ddev);
+	ctx = ddev->mode_config.acquire_ctx;
+
+	/* save current state for resume */
+	if (priv->suspend_state)
+		drm_atomic_state_free(priv->suspend_state);
+	priv->suspend_state = drm_atomic_helper_duplicate_state(ddev, ctx);
+	if (IS_ERR_OR_NULL(priv->suspend_state)) {
+		DRM_ERROR("failed to back up suspend state\n");
+		priv->suspend_state = NULL;
+		goto unlock;
+	}
+
+	/* create atomic state to disable all CRTCs */
+	state = drm_atomic_state_alloc(ddev);
+	if (IS_ERR_OR_NULL(state)) {
+		DRM_ERROR("failed to allocate crtc disable state\n");
+		goto unlock;
+	}
+
+	state->acquire_ctx = ctx;
+	drm_for_each_connector(conn, ddev) {
+
+		if (!conn->state || !conn->state->crtc ||
+				conn->dpms != DRM_MODE_DPMS_ON)
+			continue;
+
+		/* force CRTC to be inactive */
+		crtc_state = drm_atomic_get_crtc_state(state,
+				conn->state->crtc);
+		if (IS_ERR_OR_NULL(crtc_state)) {
+			DRM_ERROR("failed to get crtc %d state\n",
+					conn->state->crtc->base.id);
+			drm_atomic_state_free(state);
+			goto unlock;
+		}
+		crtc_state->active = false;
+	}
+
+	/* commit the "disable all" state */
+	ret = drm_atomic_commit(state);
+	if (ret < 0) {
+		DRM_ERROR("failed to disable crtcs, %d\n", ret);
+		drm_atomic_state_free(state);
+	}
+
+unlock:
+	drm_modeset_unlock_all(ddev);
+
+	/* disable hot-plug polling */
 	drm_kms_helper_poll_disable(ddev);
 
 	return 0;
@@ -1932,8 +1999,38 @@ static int msm_pm_suspend(struct device *dev)
 
 static int msm_pm_resume(struct device *dev)
 {
-	struct drm_device *ddev = dev_get_drvdata(dev);
+	struct drm_device *ddev;
+	struct msm_drm_private *priv;
+	int ret;
 
+	if (!dev)
+		return -EINVAL;
+
+	ddev = dev_get_drvdata(dev);
+	if (!ddev || !ddev->dev_private)
+		return -EINVAL;
+
+	priv = ddev->dev_private;
+
+	SDE_EVT32(priv->suspend_state != NULL);
+
+	drm_mode_config_reset(ddev);
+
+	drm_modeset_lock_all(ddev);
+
+	if (priv->suspend_state) {
+		priv->suspend_state->acquire_ctx =
+			ddev->mode_config.acquire_ctx;
+		ret = drm_atomic_commit(priv->suspend_state);
+		if (ret < 0) {
+			DRM_ERROR("failed to restore state, %d\n", ret);
+			drm_atomic_state_free(priv->suspend_state);
+		}
+		priv->suspend_state = NULL;
+	}
+	drm_modeset_unlock_all(ddev);
+
+	/* enable hot-plug polling */
 	drm_kms_helper_poll_enable(ddev);
 
 	return 0;

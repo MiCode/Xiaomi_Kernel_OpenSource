@@ -357,6 +357,13 @@ int sde_hdmi_set_property(struct drm_connector *connector,
 			int property_index,
 			uint64_t value,
 			void *display);
+/**
+ * sde_hdmi_bridge_power_on -- A wrapper of _sde_hdmi_bridge_power_on.
+ * @bridge:          Handle to the drm bridge.
+ *
+ * Return: void.
+ */
+void sde_hdmi_bridge_power_on(struct drm_bridge *bridge);
 
 /**
  * sde_hdmi_get_property() - get the connector properties
