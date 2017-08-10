@@ -2522,9 +2522,16 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 		kref_init(&me->channel[cid].kref);
 		pr_info("'opened /dev/%s c %d %d'\n", gcinfo[cid].name,
 						MAJOR(me->dev_no), cid);
-		err = glink_queue_rx_intent(me->channel[cid].chan, NULL, 64);
-		if (err)
-			pr_info("adsprpc: initial intent failed for %d\n", cid);
+
+		if (me->glink) {
+			err = glink_queue_rx_intent(me->channel[cid].chan,
+							NULL, 16);
+			err |= glink_queue_rx_intent(me->channel[cid].chan,
+							 NULL, 64);
+			if (err)
+				pr_warn("adsprpc: intent fail for %d err %d\n",
+						cid, err);
+		}
 		if (cid == 0 && me->channel[cid].ssrcount !=
 				 me->channel[cid].prevssrcount) {
 			if (fastrpc_mmap_remove_ssr(fl))
