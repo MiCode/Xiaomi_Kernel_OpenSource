@@ -334,6 +334,9 @@ static int submit_reloc(struct msm_gem_submit *submit, struct msm_gem_object *ob
 		return -EINVAL;
 	}
 
+	if (nr_relocs == 0)
+		return 0;
+
 	/* For now, just map the entire thing.  Eventually we probably
 	 * to do it page-by-page, w/ kmap() if not vmap()d..
 	 */
