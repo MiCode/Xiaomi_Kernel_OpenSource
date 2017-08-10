@@ -124,7 +124,7 @@ struct media_format_info {
 };
 
 enum {
-	VOC_NO_SET_PARAM_TOKEN = 0,
+	VOC_GENERIC_SET_PARAM_TOKEN = 0,
 	VOC_RTAC_SET_PARAM_TOKEN,
 	VOC_SET_MEDIA_FORMAT_PARAM_TOKEN,
 	VOC_SET_PARAM_TOKEN_MAX
@@ -239,6 +239,19 @@ struct vss_param_endpoint_media_format_info_t {
 	uint8_t channel_mapping[VSS_NUM_CHANNELS_MAX];
 } __packed;
 
+struct vss_param_vocproc_dev_channel_info_t {
+	uint32_t num_channels;
+	uint32_t bits_per_sample;
+	uint8_t channel_mapping[VSS_NUM_CHANNELS_MAX];
+} __packed;
+
+struct vss_param_mfc_config_info_t {
+	uint32_t sample_rate;
+	uint16_t bits_per_sample;
+	uint16_t num_channels;
+	uint16_t channel_type[VSS_NUM_CHANNELS_MAX];
+} __packed;
+
 struct vss_icommon_param_data_t {
 	/* Valid ID of the module. */
 	uint32_t module_id;
@@ -258,6 +271,88 @@ struct vss_icommon_param_data_t {
 	union {
 		struct vss_param_endpoint_media_format_info_t media_format_info;
 	};
+} __packed;
+
+struct vss_icommon_param_data_channel_info_v2_t {
+	/* Valid ID of the module. */
+	uint32_t module_id;
+	/* Valid ID of the parameter. */
+	uint32_t param_id;
+	/*
+	 * Data size of the structure relating to the param_id/module_id
+	 * combination in uint8_t bytes.
+	 */
+	uint16_t param_size;
+	/* This field must be set to zero. */
+	uint16_t reserved;
+	struct vss_param_vocproc_dev_channel_info_t channel_info;
+} __packed;
+
+struct vss_icommon_cmd_set_param_channel_info_v2_t {
+	/*
+	 * Pointer to the unique identifier for an address (physical/virtual).
+	 *
+	 * If the parameter data payload is within the message payload
+	 * (in-band), set this field to 0. The parameter data begins at the
+	 * specified data payload address.
+	 *
+	 * If the parameter data is out-of-band, this field is the handle to
+	 * the physical address in the shared memory that holds the parameter
+	 * data.
+	 */
+	uint32_t mem_handle;
+	/*
+	 * Location of the parameter data payload.
+	 *
+	 * The payload is an array of vss_icommon_param_data_t. If the
+	 * mem_handle is 0, this field is ignored.
+	 */
+	uint64_t mem_address;
+	/* Size of the parameter data payload in bytes. */
+	uint32_t mem_size;
+	struct vss_icommon_param_data_channel_info_v2_t param_data;
+} __packed;
+
+struct vss_icommon_param_data_mfc_config_v2_t {
+	/* Valid ID of the module. */
+	uint32_t module_id;
+	/* Valid ID of the parameter. */
+	uint32_t param_id;
+	/*
+	 * Data size of the structure relating to the param_id/module_id
+	 * combination in uint8_t bytes.
+	 */
+	uint16_t param_size;
+	/* This field must be set to zero. */
+	uint16_t reserved;
+	struct vss_param_mfc_config_info_t mfc_config_info;
+} __packed;
+
+struct vss_icommon_cmd_set_param_mfc_config_v2_t {
+	/*
+	 * Pointer to the unique identifier for an address (physical/virtual).
+	 *
+	 * If the parameter data payload is within the message payload
+	 * (in-band), set this field to 0. The parameter data begins at the
+	 * specified data payload address.
+	 *
+	 * If the parameter data is out-of-band, this field is the handle to
+	 * the physical address in the shared memory that holds the parameter
+	 * data.
+	 */
+
+	uint32_t mem_handle;
+	/*
+	 * Location of the parameter data payload.
+	 *
+	 * The payload is an array of vss_icommon_param_data_t. If the
+	 * mem_handle is 0, this field is ignored.
+	 */
+	uint64_t mem_address;
+	/* Size of the parameter data payload in bytes. */
+	uint32_t mem_size;
+
+	struct vss_icommon_param_data_mfc_config_v2_t param_data;
 } __packed;
 
 /* Payload structure for the VSS_ICOMMON_CMD_SET_PARAM_V2 command. */
@@ -673,6 +768,12 @@ struct vss_imemory_cmd_unmap_t {
 
 #define VSS_IRECORD_MODE_TX_RX_MIXING			0x00010F7B
 /* Select mixed Tx and Rx paths. */
+
+#define VSS_PARAM_VOCPROC_TX_CHANNEL_INFO              0x0001328E
+
+#define VSS_PARAM_VOCPROC_RX_CHANNEL_INFO              0x0001328F
+
+#define VSS_PARAM_VOCPROC_EC_REF_CHANNEL_INFO          0x00013290
 
 #define VSS_PARAM_TX_PORT_ENDPOINT_MEDIA_INFO		0x00013253
 
@@ -1485,7 +1586,18 @@ struct cvp_set_dev_channels_cmd {
 
 struct cvp_set_media_format_cmd {
 	struct apr_hdr hdr;
-	struct vss_icommon_cmd_set_param_v2_t cvp_set_param_v2;
+	struct vss_icommon_cmd_set_param_v2_t cvp_set_media_param_v2;
+} __packed;
+
+struct cvp_set_channel_info_cmd_v2 {
+	struct apr_hdr hdr;
+	struct vss_icommon_cmd_set_param_channel_info_v2_t
+					cvp_set_ch_info_param_v2;
+} __packed;
+
+struct cvp_set_mfc_config_cmd_v2 {
+	struct apr_hdr hdr;
+	struct vss_icommon_cmd_set_param_mfc_config_v2_t cvp_set_mfc_param_v2;
 } __packed;
 
 struct cvp_set_vp3_data_cmd {
@@ -1756,6 +1868,8 @@ struct common_data {
 	bool srvcc_rec_flag;
 	bool is_destroy_cvd;
 	char cvd_version[CVD_VERSION_STRING_MAX_SIZE];
+	int cvp_version;
+	bool is_avcs_version_queried;
 	bool is_per_vocoder_cal_enabled;
 	bool is_sound_focus_resp_success;
 	bool is_source_tracking_resp_success;
