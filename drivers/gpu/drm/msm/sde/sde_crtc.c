@@ -2041,7 +2041,7 @@ static void sde_crtc_frame_event_work(struct kthread_work *work)
 
 	if (fevent->event & SDE_ENCODER_FRAME_EVENT_SIGNAL_RELEASE_FENCE) {
 		SDE_ATRACE_BEGIN("signal_release_fence");
-		sde_fence_signal(&sde_crtc->output_fence, fevent->ts, 0);
+		sde_fence_signal(&sde_crtc->output_fence, fevent->ts, false);
 		SDE_ATRACE_END("signal_release_fence");
 	}
 
@@ -2992,7 +2992,7 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	struct sde_crtc_irq_info *node = NULL;
 	struct drm_event event;
 	u32 power_on;
-	int ret;
+	int ret, i;
 
 	if (!crtc || !crtc->dev || !crtc->dev->dev_private || !crtc->state) {
 		SDE_ERROR("invalid crtc\n");
@@ -3066,6 +3066,15 @@ static void sde_crtc_disable(struct drm_crtc *crtc)
 	if (sde_crtc->power_event)
 		sde_power_handle_unregister_event(&priv->phandle,
 				sde_crtc->power_event);
+
+	/**
+	 * All callbacks are unregistered and frame done waits are complete
+	 * at this point. No buffers are accessed by hardware.
+	 * reset the fence timeline if there is any issue.
+	 */
+	sde_fence_signal(&sde_crtc->output_fence, ktime_get(), true);
+	for (i = 0; i < cstate->num_connectors; ++i)
+		sde_connector_commit_reset(cstate->connectors[i], ktime_get());
 
 	memset(sde_crtc->mixers, 0, sizeof(sde_crtc->mixers));
 	sde_crtc->num_mixers = 0;

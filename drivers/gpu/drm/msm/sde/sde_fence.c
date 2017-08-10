@@ -338,7 +338,8 @@ int sde_fence_create(struct sde_fence_context *ctx, uint64_t *val,
 	return rc;
 }
 
-void sde_fence_signal(struct sde_fence_context *ctx, ktime_t ts, bool is_error)
+void sde_fence_signal(struct sde_fence_context *ctx, ktime_t ts,
+							bool reset_timeline)
 {
 	unsigned long flags;
 	struct sde_fence *fc, *next;
@@ -348,14 +349,25 @@ void sde_fence_signal(struct sde_fence_context *ctx, ktime_t ts, bool is_error)
 	if (!ctx) {
 		SDE_ERROR("invalid ctx, %pK\n", ctx);
 		return;
-	} else if (is_error) {
-		return;
 	}
 
 	INIT_LIST_HEAD(&local_list_head);
 
 	spin_lock_irqsave(&ctx->lock, flags);
-	if ((int)(ctx->done_count - ctx->commit_count) < 0) {
+	if (reset_timeline) {
+		if ((int)(ctx->done_count - ctx->commit_count) < 0) {
+			SDE_ERROR(
+				"timeline reset attempt! done count:%d commit:%d\n",
+				ctx->done_count, ctx->commit_count);
+			ctx->done_count = ctx->commit_count;
+			SDE_EVT32(ctx->drm_id, ctx->done_count,
+				ctx->commit_count, ktime_to_us(ts),
+				reset_timeline, SDE_EVTLOG_FATAL);
+		} else {
+			spin_unlock_irqrestore(&ctx->lock, flags);
+			return;
+		}
+	} else if ((int)(ctx->done_count - ctx->commit_count) < 0) {
 		++ctx->done_count;
 		SDE_DEBUG("fence_signal:done count:%d commit count:%d\n",
 					ctx->done_count, ctx->commit_count);
@@ -363,7 +375,7 @@ void sde_fence_signal(struct sde_fence_context *ctx, ktime_t ts, bool is_error)
 		SDE_ERROR("extra signal attempt! done count:%d commit:%d\n",
 					ctx->done_count, ctx->commit_count);
 		SDE_EVT32(ctx->drm_id, ctx->done_count, ctx->commit_count,
-			ktime_to_us(ts), SDE_EVTLOG_FATAL);
+			ktime_to_us(ts), reset_timeline, SDE_EVTLOG_FATAL);
 		spin_unlock_irqrestore(&ctx->lock, flags);
 		return;
 	}
