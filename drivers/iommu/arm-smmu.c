@@ -1293,7 +1293,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	phys_addr_t phys_soft;
 	u32 frsynra;
 	bool non_fatal_fault = !!(smmu_domain->attributes &
-					DOMAIN_ATTR_NON_FATAL_FAULTS);
+					(1 << DOMAIN_ATTR_NON_FATAL_FAULTS));
 
 	static DEFINE_RATELIMIT_STATE(_rs,
 				      DEFAULT_RATELIMIT_INTERVAL,
