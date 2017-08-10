@@ -1435,35 +1435,49 @@ error_rsc:
 static int a6xx_rpmh_power_off_gpu(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = &device->gmu;
-	const struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	int val;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	int ret;
 
-	/* RSC sleep sequence */
-	kgsl_gmu_regwrite(device, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0, 1);
+	/* RSC sleep sequence is different on v1 */
+	if (adreno_is_a630v1(adreno_dev))
+		kgsl_gmu_regwrite(device, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0, 1);
+
 	kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 1);
 	wmb();
 
-	if (timed_poll_check(device,
-			A6XX_RSCC_TIMESTAMP_UNIT1_OUTPUT_DRV0,
-			BIT(0),
-			GPU_START_TIMEOUT,
-			BIT(0))) {
+	if (adreno_is_a630v1(adreno_dev))
+		ret = timed_poll_check(device,
+				A6XX_RSCC_TIMESTAMP_UNIT1_OUTPUT_DRV0,
+				BIT(0),
+				GPU_START_TIMEOUT,
+				BIT(0));
+	else
+		ret = timed_poll_check(device,
+				A6XX_GPU_RSCC_RSC_STATUS0_DRV0,
+				BIT(16),
+				GPU_START_TIMEOUT,
+				BIT(16));
+
+	if (ret) {
 		dev_err(&gmu->pdev->dev, "GPU RSC power off fail\n");
-		return -EINVAL;
+		return -ETIMEDOUT;
 	}
 
-	/* Read to clear the timestamp */
-	kgsl_gmu_regread(device, A6XX_RSCC_TIMESTAMP_UNIT0_TIMESTAMP_L_DRV0,
-			&val);
-	kgsl_gmu_regread(device, A6XX_RSCC_TIMESTAMP_UNIT0_TIMESTAMP_H_DRV0,
-			&val);
+	/* Read to clear the timestamp valid signal. Don't care what we read. */
+	if (adreno_is_a630v1(adreno_dev)) {
+		kgsl_gmu_regread(device,
+				A6XX_RSCC_TIMESTAMP_UNIT0_TIMESTAMP_L_DRV0,
+				&ret);
+		kgsl_gmu_regread(device,
+				A6XX_RSCC_TIMESTAMP_UNIT0_TIMESTAMP_H_DRV0,
+				&ret);
+	}
+
 	kgsl_gmu_regwrite(device, A6XX_GMU_RSCC_CONTROL_REQ, 0);
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM) &&
-		test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
+			test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag))
 		kgsl_gmu_regwrite(device, A6XX_GMU_AO_SPARE_CNTL, 0);
-
-	/* FIXME: v2 has different procedure to trigger sequence */
 
 	return 0;
 }
