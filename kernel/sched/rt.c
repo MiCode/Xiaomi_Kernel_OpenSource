@@ -1724,6 +1724,8 @@ static int find_lowest_rq(struct task_struct *task)
 	unsigned long cpu_capacity;
 	unsigned long best_capacity;
 	unsigned long util, best_cpu_util = ULONG_MAX;
+	unsigned long best_cpu_util_cum = ULONG_MAX;
+	unsigned long util_cum;
 	unsigned long tutil = task_util(task);
 	int best_cpu_idle_idx = INT_MAX;
 	int cpu_idle_idx = -1;
@@ -1813,17 +1815,25 @@ retry:
 			/*
 			 * If candidate CPU is the previous CPU, select it.
 			 * Otherwise, if its load is same with best_cpu and in
-			 * a shallower C-state, select it.
+			 * a shallower C-state, select it.  If all above
+			 * conditions are same, select the least cumulative
+			 * window demand CPU.
 			 */
-			cpu_idle_idx = idle_get_state_idx(cpu_rq(cpu));
-			if (cpu != task_cpu(task) &&
-			    sysctl_sched_cstate_aware) {
-				if (best_cpu_util == util &&
-				    best_cpu_idle_idx < cpu_idle_idx)
+			if (sysctl_sched_cstate_aware)
+				cpu_idle_idx = idle_get_state_idx(cpu_rq(cpu));
+
+			util_cum = cpu_util_cum(cpu, 0);
+			if (cpu != task_cpu(task) && best_cpu_util == util) {
+				if (best_cpu_idle_idx < cpu_idle_idx)
+					continue;
+
+				if (best_cpu_idle_idx == cpu_idle_idx &&
+				    best_cpu_util_cum < util_cum)
 					continue;
 			}
 
 			best_cpu_idle_idx = cpu_idle_idx;
+			best_cpu_util_cum = util_cum;
 			best_cpu_util = util;
 			best_cpu = cpu;
 		}
