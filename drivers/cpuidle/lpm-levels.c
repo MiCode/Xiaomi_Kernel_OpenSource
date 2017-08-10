@@ -1387,6 +1387,30 @@ exit:
 	return idx;
 }
 
+static void lpm_cpuidle_s2idle(struct cpuidle_device *dev,
+		struct cpuidle_driver *drv, int idx)
+{
+	struct lpm_cpu *cpu = per_cpu(cpu_lpm, dev->cpu);
+	const struct cpumask *cpumask = get_cpu_mask(dev->cpu);
+
+	for (; idx >= 0; idx--) {
+		if (lpm_cpu_mode_allow(dev->cpu, idx, false))
+			break;
+	}
+	if (idx < 0) {
+		pr_err("Failed suspend\n");
+		return;
+	}
+
+	cpu_prepare(cpu, idx, true);
+	cluster_prepare(cpu->parent, cpumask, idx, false, 0);
+
+	psci_enter_sleep(cpu, idx, false);
+
+	cluster_unprepare(cpu->parent, cpumask, idx, false, 0);
+	cpu_unprepare(cpu, idx, true);
+}
+
 #ifdef CONFIG_CPU_IDLE_MULTIPLE_DRIVERS
 static int cpuidle_register_cpu(struct cpuidle_driver *drv,
 		struct cpumask *mask)
@@ -1473,6 +1497,8 @@ static int cluster_cpuidle_register(struct lpm_cluster *cl)
 			st->power_usage = cpu_level->pwr.ss_power;
 			st->target_residency = 0;
 			st->enter = lpm_cpuidle_enter;
+			if (i == lpm_cpu->nlevels - 1)
+				st->enter_s2idle = lpm_cpuidle_s2idle;
 		}
 
 		lpm_cpu->drv->state_count = lpm_cpu->nlevels;
@@ -1628,6 +1654,11 @@ static const struct platform_suspend_ops lpm_suspend_ops = {
 	.wake = lpm_suspend_wake,
 };
 
+static const struct platform_s2idle_ops lpm_s2idle_ops = {
+	.prepare = lpm_suspend_prepare,
+	.restore = lpm_suspend_wake,
+};
+
 static int lpm_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -1656,6 +1687,7 @@ static int lpm_probe(struct platform_device *pdev)
 	 * how late lpm_levels gets initialized.
 	 */
 	suspend_set_ops(&lpm_suspend_ops);
+	s2idle_set_ops(&lpm_s2idle_ops);
 	hrtimer_init(&lpm_hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	for_each_possible_cpu(cpu) {
 		cpu_histtimer = &per_cpu(histtimer, cpu);
