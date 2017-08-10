@@ -68,13 +68,14 @@ struct kgsl_sync_fence {
  * fence_cb: Fence callback struct
  * fence: Pointer to the fence for which the callback is done
  * priv: Private data for the callback
- * func: Pointer to the kgsl function to call
+ * func: Pointer to the kgsl function to call. This function should return
+ * false if the sync callback is marked for cancellation in a separate thread.
  */
 struct kgsl_sync_fence_cb {
 	struct fence_cb fence_cb;
 	struct fence *fence;
 	void *priv;
-	void (*func)(void *priv);
+	bool (*func)(void *priv);
 };
 
 struct kgsl_syncsource;
@@ -91,10 +92,10 @@ void kgsl_sync_timeline_destroy(struct kgsl_context *context);
 void kgsl_sync_timeline_put(struct kgsl_sync_timeline *ktimeline);
 
 struct kgsl_sync_fence_cb *kgsl_sync_fence_async_wait(int fd,
-					void (*func)(void *priv), void *priv,
+					bool (*func)(void *priv), void *priv,
 					char *fence_name, int name_len);
 
-int kgsl_sync_fence_async_cancel(struct kgsl_sync_fence_cb *kcb);
+void kgsl_sync_fence_async_cancel(struct kgsl_sync_fence_cb *kcb);
 
 long kgsl_ioctl_syncsource_create(struct kgsl_device_private *dev_priv,
 					unsigned int cmd, void *data);
@@ -143,10 +144,9 @@ struct kgsl_sync_fence_cb *kgsl_sync_fence_async_wait(int fd,
 	return NULL;
 }
 
-static inline int
+static inline void
 kgsl_sync_fence_async_cancel(struct kgsl_sync_fence_cb *kcb)
 {
-	return 1;
 }
 
 static inline long
