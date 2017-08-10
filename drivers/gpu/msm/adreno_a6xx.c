@@ -888,7 +888,11 @@ static void _regwrite(void __iomem *regbase,
  */
 static void _load_gmu_rpmh_ucode(struct kgsl_device *device)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gmu_device *gmu = &device->gmu;
+
+	/* Disable SDE clock gating */
+	kgsl_gmu_regwrite(device, A6XX_GPU_RSCC_RSC_STATUS0_DRV0, BIT(24));
 
 	/* Setup RSC PDC handshake for sleep and wakeup */
 	kgsl_gmu_regwrite(device, A6XX_RSCC_PDC_SLAVE_ID_DRV0, 1);
@@ -909,8 +913,9 @@ static void _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	kgsl_gmu_regwrite(device, A6XX_RSCC_PDC_MATCH_VALUE_LO, 0x4510);
 	kgsl_gmu_regwrite(device, A6XX_RSCC_PDC_MATCH_VALUE_HI, 0x4514);
 
-	/* Enable timestamp event */
-	kgsl_gmu_regwrite(device, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0, 1);
+	/* Enable timestamp event for v1 only */
+	if (adreno_is_a630v1(adreno_dev))
+		kgsl_gmu_regwrite(device, A6XX_RSCC_TIMESTAMP_UNIT1_EN_DRV0, 1);
 
 	/* Load RSC sequencer uCode for sleep and wakeup */
 	kgsl_gmu_regwrite(device, A6XX_RSCC_SEQ_MEM_0_DRV0, 0xA7A506A0);
@@ -920,11 +925,11 @@ static void _load_gmu_rpmh_ucode(struct kgsl_device *device)
 	kgsl_gmu_regwrite(device, A6XX_RSCC_SEQ_MEM_0_DRV0 + 4, 0x0020E8A8);
 
 	/* Load PDC sequencer uCode for power up and power down sequence */
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0, 0xFFBFA1E1);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 1, 0xE0A4A3A2);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 2, 0xE2848382);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 3, 0xFDBDE4E3);
-	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 4, 0x00002081);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0, 0xFEBEA1E1);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 1, 0xA5A4A3A2);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 2, 0x8382A6E0);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 3, 0xBCE3E284);
+	_regwrite(gmu->pdc_reg_virt, PDC_GPU_SEQ_MEM_0 + 4, 0x002081FC);
 
 	/* Set TCS commands used by PDC sequence for low power modes */
 	_regwrite(gmu->pdc_reg_virt, PDC_GPU_TCS0_CMD_ENABLE_BANK, 7);
