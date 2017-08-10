@@ -3175,6 +3175,11 @@ static phys_addr_t qsmmuv2_iova_to_phys_hard(struct iommu_domain *domain,
 	u32 sctlr, sctlr_orig, fsr;
 	void __iomem *cb_base;
 
+	if (smmu->model == QCOM_SMMUV2) {
+		dev_err(smmu->dev, "ATOS support is disabled\n");
+		return 0;
+	}
+
 	ret = arm_smmu_power_on(smmu_domain->smmu->pwr);
 	if (ret)
 		return ret;
