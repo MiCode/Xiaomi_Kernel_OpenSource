@@ -38,6 +38,7 @@
 #include "diag_masks.h"
 #include "diag_usb.h"
 #include "diag_mux.h"
+#include "diag_ipc_logging.h"
 
 #define STM_CMD_VERSION_OFFSET	4
 #define STM_CMD_MASK_OFFSET	5
@@ -1663,6 +1664,9 @@ int diagfwd_init(void)
 		driver->real_time_mode[i] = 1;
 	driver->supports_separate_cmdrsp = 1;
 	driver->supports_apps_hdlc_encoding = 1;
+	driver->supports_apps_header_untagging = 1;
+	for (i = 0; i < NUM_PERIPHERALS; i++)
+		driver->peripheral_untag[i] = 0;
 	mutex_init(&driver->diag_hdlc_mutex);
 	mutex_init(&driver->diag_cntl_mutex);
 	mutex_init(&driver->mode_lock);
@@ -1692,9 +1696,12 @@ int diagfwd_init(void)
 		driver->feature[i].rcvd_feature_mask = 0;
 		driver->feature[i].peripheral_buffering = 0;
 		driver->feature[i].encode_hdlc = 0;
+		driver->feature[i].untag_header =
+			DISABLE_PKT_HEADER_UNTAGGING;
 		driver->feature[i].mask_centralization = 0;
 		driver->feature[i].log_on_demand = 0;
 		driver->feature[i].sent_feature_mask = 0;
+		driver->feature[i].diag_id_support = 0;
 		driver->buffering_mode[i].peripheral = i;
 		driver->buffering_mode[i].mode = DIAG_BUFFERING_MODE_STREAMING;
 		driver->buffering_mode[i].high_wm_val = DEFAULT_HIGH_WM_VAL;

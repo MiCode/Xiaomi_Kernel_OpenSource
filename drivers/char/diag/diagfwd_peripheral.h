@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,6 +68,12 @@ struct diagfwd_info {
 	uint8_t transport;
 	uint8_t inited;
 	uint8_t ch_open;
+	uint8_t num_pd;
+	uint8_t diagid_root;
+	uint8_t diagid_user[MAX_PERIPHERAL_UPD];
+	int cpd_len_1;
+	int cpd_len_2;
+	int upd_len[MAX_PERIPHERAL_UPD][2];
 	atomic_t opened;
 	unsigned long read_bytes;
 	unsigned long write_bytes;
@@ -77,6 +83,7 @@ struct diagfwd_info {
 	void *ctxt;
 	struct diagfwd_buf_t *buf_1;
 	struct diagfwd_buf_t *buf_2;
+	struct diagfwd_buf_t *buf_upd[MAX_PERIPHERAL_UPD][2];
 	struct diagfwd_buf_t *buf_ptr[NUM_WRITE_BUFFERS];
 	struct diag_peripheral_ops *p_ops;
 	struct diag_channel_ops *c_ops;
@@ -94,6 +101,9 @@ void diagfwd_early_open(uint8_t peripheral);
 
 void diagfwd_late_open(struct diagfwd_info *fwd_info);
 void diagfwd_close(uint8_t peripheral, uint8_t type);
+
+int diag_md_get_peripheral(int ctxt);
+
 int diagfwd_register(uint8_t transport, uint8_t peripheral, uint8_t type,
 		     void *ctxt, struct diag_peripheral_ops *ops,
 		     struct diagfwd_info **fwd_ctxt);
