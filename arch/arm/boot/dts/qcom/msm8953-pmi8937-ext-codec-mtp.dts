@@ -100,4 +100,6 @@
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,chg-led-sw-controls;
 	qcom,chg-led-support;
+	qcom,external-typec;
+	qcom,typec-psy-name = "typec";
 };
