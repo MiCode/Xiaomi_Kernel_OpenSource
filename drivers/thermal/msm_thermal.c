@@ -200,6 +200,7 @@ static bool cluster_info_probed;
 static bool cluster_info_nodes_called;
 static bool in_suspend, retry_in_progress;
 static bool lmh_dcvs_available;
+static bool lmh_dcvs_is_supported;
 static int *tsens_id_map;
 static int *zone_id_tsens_map;
 static DEFINE_MUTEX(vdd_rstr_mutex);
@@ -995,7 +996,7 @@ static int  msm_thermal_cpufreq_callback(struct notifier_block *nfb,
 
 	switch (event) {
 	case CPUFREQ_ADJUST:
-		max_freq_req = (lmh_dcvs_available) ? UINT_MAX :
+		max_freq_req = (lmh_dcvs_is_supported) ? UINT_MAX :
 			cpus[policy->cpu].parent_ptr->limited_max_freq;
 		min_freq_req = cpus[policy->cpu].parent_ptr->limited_min_freq;
 		pr_debug("mitigating CPU%d to freq max: %u min: %u\n",
@@ -5379,7 +5380,7 @@ int msm_thermal_init(struct msm_thermal_data *pdata)
 	if (ret)
 		pr_err("cannot register cpufreq notifier. err:%d\n", ret);
 
-	if (!lmh_dcvs_available) {
+	if (!lmh_dcvs_is_supported) {
 		register_reboot_notifier(&msm_thermal_reboot_notifier);
 		pm_notifier(msm_thermal_suspend_callback, 0);
 	}
@@ -7414,6 +7415,7 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	if (ret)
 		goto probe_exit;
 
+	lmh_dcvs_is_supported = of_property_read_bool(node, "clock-names");
 	probe_cc(node, &data, pdev);
 	probe_freq_mitigation(node, &data, pdev);
 	probe_cx_phase_ctrl(node, &data, pdev);
