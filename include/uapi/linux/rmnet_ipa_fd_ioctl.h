@@ -38,6 +38,7 @@
 #define WAN_IOCTL_SET_LAN_CLIENT_INFO        13
 #define WAN_IOCTL_CLEAR_LAN_CLIENT_INFO      14
 #define WAN_IOCTL_SEND_LAN_CLIENT_MSG        15
+#define WAN_IOCTL_QUERY_TETHER_STATS_ALL  16
 
 /* User space may not have this defined. */
 #ifndef IFNAMSIZ
@@ -86,6 +87,16 @@ struct wan_ioctl_set_tether_client_pipe {
 	uint32_t ul_src_pipe_list[QMI_IPA_MAX_PIPES_V01];
 	uint32_t dl_dst_pipe_len;
 	uint32_t dl_dst_pipe_list[QMI_IPA_MAX_PIPES_V01];
+};
+
+struct wan_ioctl_query_tether_stats_all {
+	/* Name of the upstream interface */
+	char upstreamIface[IFNAMSIZ];
+	/* enum of tether interface */
+	enum ipacm_client_enum ipa_client;
+	uint8_t reset_stats;
+	uint64_t tx_bytes;
+	uint64_t rx_bytes;
 };
 
 struct wan_ioctl_query_tether_stats {
@@ -235,4 +246,8 @@ struct wan_ioctl_query_per_client_stats {
 #define WAN_IOC_CLEAR_LAN_CLIENT_INFO _IOWR(WAN_IOC_MAGIC, \
 			WAN_IOCTL_CLEAR_LAN_CLIENT_INFO, \
 			struct wan_ioctl_lan_client_info *)
+
+#define WAN_IOC_QUERY_TETHER_STATS_ALL _IOWR(WAN_IOC_MAGIC, \
+		WAN_IOCTL_QUERY_TETHER_STATS_ALL, \
+		struct wan_ioctl_query_tether_stats_all *)
 #endif /* _RMNET_IPA_FD_IOCTL_H */
