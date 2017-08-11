@@ -85,7 +85,7 @@
 		compatible = "qcom,msm-pcm-loopback";
 	};
 
-	qcom,msm-dai-mi2s {
+	msm_dai_mi2s: qcom,msm-dai-mi2s {
 		compatible = "qcom,msm-dai-mi2s";
 		dai_mi2s0: qcom,msm-dai-q6-mi2s-prim {
 			compatible = "qcom,msm-dai-q6-mi2s";
