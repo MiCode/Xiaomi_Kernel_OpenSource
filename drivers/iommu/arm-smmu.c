@@ -351,9 +351,17 @@ struct arm_smmu_impl_def_reg {
 #define ACPI_IORT_SMMU_CAVIUM_THUNDERX	0x5
 #endif
 
+/*
+ * attach_count
+ *	The SMR and S2CR registers are only programmed when the number of
+ *	devices attached to the iommu using these registers is > 0. This
+ *	is required for the "SID switch" use case for secure display.
+ *	Protected by stream_map_mutex.
+ */
 struct arm_smmu_s2cr {
 	struct iommu_group		*group;
 	int				count;
+	int				attach_count;
 	enum arm_smmu_s2cr_type		type;
 	enum arm_smmu_s2cr_privcfg	privcfg;
 	u8				cbndx;
@@ -2123,11 +2131,9 @@ static int arm_smmu_master_alloc_smes(struct device *dev)
 	}
 	iommu_group_put(group);
 
-	/* It worked! Now, poke the actual hardware */
-	for_each_cfg_sme(fwspec, i, idx) {
-		arm_smmu_write_sme(smmu, idx);
+	/* It worked! Don't poke the actual hardware until we've attached */
+	for_each_cfg_sme(fwspec, i, idx)
 		smmu->s2crs[idx].group = group;
-	}
 
 	mutex_unlock(&smmu->stream_map_mutex);
 	return 0;
@@ -2156,6 +2162,33 @@ static void arm_smmu_master_free_smes(struct iommu_fwspec *fwspec)
 	mutex_unlock(&smmu->stream_map_mutex);
 }
 
+static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
+					  struct iommu_fwspec *fwspec)
+{
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	struct arm_smmu_s2cr *s2cr = smmu->s2crs;
+	int i, idx;
+	const struct iommu_gather_ops *tlb;
+
+	tlb = smmu_domain->pgtbl_cfg.tlb;
+
+	mutex_lock(&smmu->stream_map_mutex);
+	for_each_cfg_sme(fwspec, i, idx) {
+		WARN_ON(s2cr[idx].attach_count == 0);
+		s2cr[idx].attach_count -= 1;
+
+		if (s2cr[idx].attach_count > 0)
+			continue;
+
+		writel_relaxed(0, ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_SMR(idx));
+		writel_relaxed(0, ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_S2CR(idx));
+	}
+	mutex_unlock(&smmu->stream_map_mutex);
+
+	/* Ensure there are no stale mappings for this context bank */
+	tlb->tlb_flush_all(smmu_domain);
+}
+
 static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
 				      struct iommu_fwspec *fwspec)
 {
@@ -2170,15 +2203,17 @@ static int arm_smmu_domain_add_master(struct arm_smmu_domain *smmu_domain,
 	else
 		type = S2CR_TYPE_TRANS;
 
+	mutex_lock(&smmu->stream_map_mutex);
 	for_each_cfg_sme(fwspec, i, idx) {
-		if (type == s2cr[idx].type && cbndx == s2cr[idx].cbndx)
+		if (s2cr[idx].attach_count++ > 0)
 			continue;
 
 		s2cr[idx].type = type;
 		s2cr[idx].privcfg = S2CR_PRIVCFG_DEFAULT;
 		s2cr[idx].cbndx = cbndx;
-		arm_smmu_write_s2cr(smmu, idx);
+		arm_smmu_write_sme(smmu, idx);
 	}
+	mutex_unlock(&smmu->stream_map_mutex);
 
 	return 0;
 }
@@ -2188,6 +2223,7 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain,
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	struct iommu_fwspec *fwspec = dev->iommu_fwspec;
 	int dynamic = smmu_domain->attributes & (1 << DOMAIN_ATTR_DYNAMIC);
 	int atomic_domain = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
 
@@ -2198,6 +2234,8 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain,
 		dev_err(dev, "Domain not attached; cannot detach!\n");
 		return;
 	}
+
+	arm_smmu_domain_remove_master(smmu_domain, fwspec);
 
 	/* Remove additional vote for atomic power */
 	if (atomic_domain) {
@@ -3600,6 +3638,7 @@ static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 
 		raw_s2cr = readl_relaxed(ARM_SMMU_GR0(smmu) +
 					ARM_SMMU_GR0_S2CR(i));
+		memset(&s2cr, 0, sizeof(s2cr));
 		s2cr.group = NULL;
 		s2cr.count = 1;
 		s2cr.type = (raw_s2cr >> S2CR_TYPE_SHIFT) & S2CR_TYPE_MASK;
