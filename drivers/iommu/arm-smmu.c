@@ -820,6 +820,28 @@ static void arm_smmu_unrequest_bus(struct arm_smmu_power_resources *pwr)
 	WARN_ON(msm_bus_scale_client_update_request(pwr->bus_client, 0));
 }
 
+static int arm_smmu_enable_regulators(struct arm_smmu_power_resources *pwr)
+{
+	struct regulator_bulk_data *consumers;
+	int num_consumers, ret;
+	int i;
+
+	num_consumers = pwr->num_gdscs;
+	consumers = pwr->gdscs;
+	for (i = 0; i < num_consumers; i++) {
+		ret = regulator_enable(consumers[i].consumer);
+		if (ret)
+			goto out;
+	}
+	return 0;
+
+out:
+	i -= 1;
+	for (; i >= 0; i--)
+		regulator_disable(consumers[i].consumer);
+	return ret;
+}
+
 static int arm_smmu_disable_regulators(struct arm_smmu_power_resources *pwr)
 {
 	struct regulator_bulk_data *consumers;
@@ -908,7 +930,7 @@ static int arm_smmu_power_on_slow(struct arm_smmu_power_resources *pwr)
 	if (ret)
 		goto out_unlock;
 
-	ret = regulator_bulk_enable(pwr->num_gdscs, pwr->gdscs);
+	ret = arm_smmu_enable_regulators(pwr);
 	if (ret)
 		goto out_disable_bus;
 
