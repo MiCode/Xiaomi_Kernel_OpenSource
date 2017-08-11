@@ -45,7 +45,7 @@
 #include "adsprpc_compat.h"
 #include "adsprpc_shared.h"
 #include <linux/debugfs.h>
-
+#include <linux/pm_qos.h>
 #define TZ_PIL_PROTECT_MEM_SUBSYS_ID 0x0C
 #define TZ_PIL_CLEAR_PROTECT_MEM_SUBSYS_ID 0x0D
 #define TZ_PIL_AUTH_QDSP6_PROC 1
@@ -73,6 +73,7 @@
 #define PERF_KEYS "count:flush:map:copy:glink:getargs:putargs:invalidate:invoke"
 #define FASTRPC_STATIC_HANDLE_LISTENER (3)
 #define FASTRPC_STATIC_HANDLE_MAX (20)
+#define FASTRPC_LATENCY_CTRL_ENB  (1)
 
 #define PERF_END (void)0
 
@@ -235,6 +236,7 @@ struct fastrpc_apps {
 	spinlock_t hlock;
 	struct ion_client *client;
 	struct device *dev;
+	unsigned int latency;
 };
 
 struct fastrpc_mmap {
@@ -288,6 +290,8 @@ struct fastrpc_file {
 	struct fastrpc_apps *apps;
 	struct fastrpc_perf perf;
 	struct dentry *debugfs_file;
+	struct pm_qos_request pm_qos_req;
+	int qos_request;
 };
 
 static struct fastrpc_apps gfa;
@@ -1923,6 +1927,8 @@ static int fastrpc_device_release(struct inode *inode, struct file *file)
 	struct fastrpc_file *fl = (struct fastrpc_file *)file->private_data;
 
 	if (fl) {
+		if (fl->qos_request && pm_qos_request_active(&fl->pm_qos_req))
+			pm_qos_remove_request(&fl->pm_qos_req);
 		if (fl->debugfs_file != NULL)
 			debugfs_remove(fl->debugfs_file);
 		fastrpc_file_free(fl);
@@ -2225,6 +2231,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	if (debugfs_file != NULL)
 		fl->debugfs_file = debugfs_file;
 	memset(&fl->perf, 0, sizeof(fl->perf));
+	fl->qos_request = 0;
 	filp->private_data = fl;
 	spin_lock(&me->hlock);
 	hlist_add_head(&fl->hn, &me->drivers);
@@ -2260,6 +2267,41 @@ bail:
 	return err;
 }
 
+static int fastrpc_internal_control(struct fastrpc_file *fl,
+					struct fastrpc_ioctl_control *cp)
+{
+	int err = 0;
+	int latency;
+
+	VERIFY(err, !IS_ERR_OR_NULL(fl) && !IS_ERR_OR_NULL(fl->apps));
+	if (err)
+		goto bail;
+	VERIFY(err, !IS_ERR_OR_NULL(cp));
+	if (err)
+		goto bail;
+
+	switch (cp->req) {
+	case FASTRPC_CONTROL_LATENCY:
+		latency = cp->lp.enable == FASTRPC_LATENCY_CTRL_ENB ?
+			fl->apps->latency : PM_QOS_DEFAULT_VALUE;
+		VERIFY(err, latency != 0);
+		if (err)
+			goto bail;
+		if (!fl->qos_request) {
+			pm_qos_add_request(&fl->pm_qos_req,
+				PM_QOS_CPU_DMA_LATENCY, latency);
+			fl->qos_request = 1;
+		} else
+			pm_qos_update_request(&fl->pm_qos_req, latency);
+		break;
+	default:
+		err = -ENOTTY;
+		break;
+	}
+bail:
+	return err;
+}
+
 static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 				 unsigned long ioctl_param)
 {
@@ -2269,6 +2311,7 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 		struct fastrpc_ioctl_munmap munmap;
 		struct fastrpc_ioctl_init_attrs init;
 		struct fastrpc_ioctl_perf perf;
+		struct fastrpc_ioctl_control cp;
 	} p;
 	void *param = (char *)ioctl_param;
 	struct fastrpc_file *fl = (struct fastrpc_file *)file->private_data;
@@ -2365,6 +2408,15 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 						 &fl->perf, sizeof(fl->perf)));
 		}
 		VERIFY(err, 0 == copy_to_user(param, &p.perf, sizeof(p.perf)));
+		if (err)
+			goto bail;
+		break;
+	case FASTRPC_IOCTL_CONTROL:
+		VERIFY(err, 0 == copy_from_user(&p.cp, (void __user *)param,
+				sizeof(p.cp)));
+		if (err)
+			goto bail;
+		VERIFY(err, 0 == (err = fastrpc_internal_control(fl, &p.cp)));
 		if (err)
 			goto bail;
 		break;
@@ -2563,6 +2615,10 @@ static int fastrpc_probe(struct platform_device *pdev)
 		return 0;
 	}
 
+	err = of_property_read_u32(dev->of_node, "qcom,rpc-latency-us",
+		&me->latency);
+	if (err)
+		me->latency = 0;
 	VERIFY(err, !of_platform_populate(pdev->dev.of_node,
 					  fastrpc_match_table,
 					  NULL, &pdev->dev));

@@ -28,6 +28,7 @@
 #define FASTRPC_IOCTL_GETPERF	_IOWR('R', 9, struct fastrpc_ioctl_perf)
 #define FASTRPC_IOCTL_INIT_ATTRS _IOWR('R', 10, struct fastrpc_ioctl_init_attrs)
 #define FASTRPC_IOCTL_INVOKE_CRC _IOWR('R', 11, struct fastrpc_ioctl_invoke_crc)
+#define FASTRPC_IOCTL_CONTROL   _IOWR('R', 12, struct fastrpc_ioctl_control)
 
 #define FASTRPC_GLINK_GUID "fastrpcglink-apps-dsp"
 #define FASTRPC_SMD_GUID "fastrpcsmd-apps-dsp"
@@ -203,6 +204,19 @@ struct fastrpc_ioctl_perf {			/* kernel performance data */
 	uintptr_t __user data;
 	uint32_t numkeys;
 	uintptr_t __user keys;
+};
+
+#define FASTRPC_CONTROL_LATENCY   (1)
+struct fastrpc_ctrl_latency {
+	uint32_t enable;	//!latency control enable
+	uint32_t level;		//!level of control
+};
+
+struct fastrpc_ioctl_control {
+	uint32_t req;
+	union {
+		struct fastrpc_ctrl_latency lp;
+	};
 };
 
 struct smq_null_invoke {
