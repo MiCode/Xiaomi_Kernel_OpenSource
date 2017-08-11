@@ -119,6 +119,18 @@ static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
 			q6core_lcl.bus_bw_resp_received = 1;
 			wake_up(&q6core_lcl.bus_bw_req_wait);
 			break;
+		case AVCS_CMD_ADD_POOL_PAGES:
+			pr_debug("%s: Cmd = AVCS_CMD_ADD_POOL_PAGES status[0x%x]\n",
+				__func__, payload1[1]);
+			q6core_lcl.bus_bw_resp_received = 1;
+			wake_up(&q6core_lcl.bus_bw_req_wait);
+			break;
+		case AVCS_CMD_REMOVE_POOL_PAGES:
+			pr_debug("%s: Cmd = AVCS_CMD_REMOVE_POOL_PAGES status[0x%x]\n",
+				__func__, payload1[1]);
+			q6core_lcl.bus_bw_resp_received = 1;
+			wake_up(&q6core_lcl.bus_bw_req_wait);
+			break;
 		default:
 			pr_err("%s: Invalid cmd rsp[0x%x][0x%x] opcode %d\n",
 					__func__,
@@ -538,6 +550,56 @@ static int q6core_memory_unmap_regions(uint32_t mem_map_handle)
 		ret = -ETIME;
 		goto done;
 	}
+done:
+	return ret;
+}
+
+int q6core_add_remove_pool_pages(ion_phys_addr_t buf_add, uint32_t bufsz,
+			uint32_t mempool_id, bool add_pages)
+{
+	struct avs_mem_assign_region mem_pool;
+	int ret = 0, sz;
+
+	if (add_pages)
+		mem_pool.hdr.opcode = AVCS_CMD_ADD_POOL_PAGES;
+	else
+		mem_pool.hdr.opcode = AVCS_CMD_REMOVE_POOL_PAGES;
+
+	/* get payload length */
+	sz = sizeof(struct avs_mem_assign_region);
+	mem_pool.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+					APR_HDR_LEN(sizeof(struct apr_hdr)),
+					APR_PKT_VER);
+	mem_pool.hdr.src_port = 0;
+	mem_pool.hdr.dest_port = 0;
+	mem_pool.hdr.token = 0;
+	mem_pool.hdr.pkt_size = sz;
+	mem_pool.pool_id = mempool_id;
+	mem_pool.size = bufsz;
+	mem_pool.addr_lsw = lower_32_bits(buf_add);
+	mem_pool.addr_msw = msm_audio_populate_upper_32_bits(buf_add);
+	pr_debug("%s: sending memory map, size %d\n",
+		  __func__, bufsz);
+
+	q6core_lcl.bus_bw_resp_received = 0;
+	ret = apr_send_pkt(q6core_lcl.core_handle_q, (uint32_t *)&mem_pool);
+	if (ret < 0) {
+		pr_err("%s: library map region failed %d\n",
+			__func__, ret);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = wait_event_timeout(q6core_lcl.bus_bw_req_wait,
+				(q6core_lcl.bus_bw_resp_received == 1),
+				msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: timeout. waited for library memory map\n",
+			__func__);
+		ret = -ETIME;
+		goto done;
+	}
+	ret = 0;
 done:
 	return ret;
 }
