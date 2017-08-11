@@ -19,12 +19,34 @@
 #include <linux/platform_device.h>
 #include <linux/dma-buf.h>
 
-struct cam_jpeg_enc_device_hw_info {
+struct cam_jpeg_enc_reg_offsets {
 	uint32_t hw_version;
 	uint32_t int_status;
 	uint32_t int_clr;
 	uint32_t int_mask;
+	uint32_t hw_cmd;
 	uint32_t reset_cmd;
+	uint32_t encode_size;
+};
+
+struct cam_jpeg_enc_regval {
+	uint32_t int_clr_clearall;
+	uint32_t int_mask_disable_all;
+	uint32_t int_mask_enable_all;
+	uint32_t hw_cmd_start;
+	uint32_t reset_cmd;
+};
+
+struct cam_jpeg_enc_int_status {
+	uint32_t framedone;
+	uint32_t resetdone;
+	uint32_t iserror;
+};
+
+struct cam_jpeg_enc_device_hw_info {
+	struct cam_jpeg_enc_reg_offsets reg_offset;
+	struct cam_jpeg_enc_regval reg_val;
+	struct cam_jpeg_enc_int_status int_status;
 };
 
 struct cam_jpeg_enc_set_irq_cb {

@@ -25,15 +25,7 @@
 #include "cam_jpeg_hw_mgr_intf.h"
 #include "cam_cpas_api.h"
 #include "cam_debug_util.h"
-
-static struct cam_jpeg_enc_device_hw_info cam_jpeg_enc_hw_info = {
-	.int_clr = 0x1c,
-	.int_status = 0x20,
-	.int_mask = 0x18,
-	.reset_cmd = 0x8,
-	.hw_version = 0x0,
-};
-EXPORT_SYMBOL(cam_jpeg_enc_hw_info);
+#include "cam_jpeg_enc_hw_info_ver_4_2_0.h"
 
 static int cam_jpeg_enc_register_cpas(struct cam_hw_soc_info *soc_info,
 	struct cam_jpeg_enc_device_core_info *core_info,
