@@ -4816,10 +4816,16 @@ static void msm_comm_flush_in_invalid_state(struct msm_vidc_inst *inst)
 				&inst->bufq[port].vb2_bufq.queued_list) {
 			struct vb2_buffer *vb = container_of(ptr,
 					struct vb2_buffer, queued_entry);
-			vb->planes[0].bytesused = 0;
-			print_vb2_buffer(VIDC_ERR, "flush in invalid",
-				inst, vb);
-			vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
+			if (vb->state == VB2_BUF_STATE_ACTIVE) {
+				vb->planes[0].bytesused = 0;
+				print_vb2_buffer(VIDC_ERR, "flush in invalid",
+					inst, vb);
+				vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
+			} else {
+				dprintk(VIDC_WARN,
+					"%s VB is in state %d not in ACTIVE state\n"
+					, __func__, vb->state);
+			}
 		}
 		mutex_unlock(&inst->bufq[port].lock);
 	}
