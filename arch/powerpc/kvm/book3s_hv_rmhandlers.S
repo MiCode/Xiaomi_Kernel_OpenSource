@@ -36,6 +36,12 @@
 #define NAPPING_CEDE	1
 #define NAPPING_NOVCPU	2
 
+/* Stack frame offsets for kvmppc_hv_entry */
+#define SFS			112
+#define STACK_SLOT_CIABR	(SFS-16)
+#define STACK_SLOT_DAWR		(SFS-24)
+#define STACK_SLOT_DAWRX	(SFS-32)
+
 /*
  * Call kvmppc_hv_entry in real mode.
  * Must be called with interrupts hard-disabled.
@@ -360,7 +366,7 @@ kvmppc_hv_entry:
 	 */
 	mflr	r0
 	std	r0, PPC_LR_STKOFF(r1)
-	stdu	r1, -112(r1)
+	stdu	r1, -SFS(r1)
 
 	/* Save R1 in the PACA */
 	std	r1, HSTATE_HOST_R1(r13)
@@ -617,6 +623,16 @@ BEGIN_FTR_SECTION
 	mtspr	SPRN_PURR,r7
 	mtspr	SPRN_SPURR,r8
 END_FTR_SECTION_IFSET(CPU_FTR_ARCH_206)
+
+	/* Save host values of some registers */
+BEGIN_FTR_SECTION
+	mfspr	r5, SPRN_CIABR
+	mfspr	r6, SPRN_DAWR
+	mfspr	r7, SPRN_DAWRX
+	std	r5, STACK_SLOT_CIABR(r1)
+	std	r6, STACK_SLOT_DAWR(r1)
+	std	r7, STACK_SLOT_DAWRX(r1)
+END_FTR_SECTION_IFSET(CPU_FTR_ARCH_207S)
 
 BEGIN_FTR_SECTION
 	/* Set partition DABR */
@@ -1180,8 +1196,7 @@ END_FTR_SECTION_IFCLR(CPU_FTR_ARCH_207S)
 	 */
 	li	r0, 0
 	mtspr	SPRN_IAMR, r0
-	mtspr	SPRN_CIABR, r0
-	mtspr	SPRN_DAWRX, r0
+	mtspr	SPRN_PSPB, r0
 	mtspr	SPRN_TCSCR, r0
 	mtspr	SPRN_WORT, r0
 	/* Set MMCRS to 1<<31 to freeze and disable the SPMC counters */
@@ -1198,6 +1213,7 @@ BEGIN_FTR_SECTION
 	std	r6,VCPU_UAMOR(r9)
 	li	r6,0
 	mtspr	SPRN_AMR,r6
+	mtspr	SPRN_UAMOR, r6
 END_FTR_SECTION_IFSET(CPU_FTR_ARCH_206)
 
 	/* Switch DSCR back to host value */
@@ -1356,6 +1372,17 @@ hdec_soon:			/* r12 = trap, r13 = paca */
 BEGIN_FTR_SECTION
 	b	32f
 END_FTR_SECTION_IFSET(CPU_FTR_ARCH_201)
+
+	/* Restore host values of some registers */
+BEGIN_FTR_SECTION
+	ld	r5, STACK_SLOT_CIABR(r1)
+	ld	r6, STACK_SLOT_DAWR(r1)
+	ld	r7, STACK_SLOT_DAWRX(r1)
+	mtspr	SPRN_CIABR, r5
+	mtspr	SPRN_DAWR, r6
+	mtspr	SPRN_DAWRX, r7
+END_FTR_SECTION_IFSET(CPU_FTR_ARCH_207S)
+
 	/*
 	 * POWER7 guest -> host partition switch code.
 	 * We don't have to lock against tlbies but we do
@@ -1582,8 +1609,8 @@ END_FTR_SECTION_IFSET(CPU_FTR_ARCH_207S)
 	li	r0, KVM_GUEST_MODE_NONE
 	stb	r0, HSTATE_IN_GUEST(r13)
 
-	ld	r0, 112+PPC_LR_STKOFF(r1)
-	addi	r1, r1, 112
+	ld	r0, SFS+PPC_LR_STKOFF(r1)
+	addi	r1, r1, SFS
 	mtlr	r0
 	blr
 
