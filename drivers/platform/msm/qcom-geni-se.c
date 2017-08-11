@@ -691,7 +691,7 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 			     struct se_geni_rsc *rsc)
 {
 	unsigned long flags;
-	struct se_geni_rsc *tmp;
+	struct se_geni_rsc *tmp = NULL;
 	struct list_head *ins_list_head;
 	bool bus_bw_update = false;
 	int ret = 0;
@@ -709,7 +709,7 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 	list_add(&rsc->ib_list, ins_list_head);
 	/* Currently inserted node has greater average BW value */
 	if (ins_list_head == &geni_se_dev->ib_list_head)
-		geni_se_dev->cur_ib = tmp->ib;
+		geni_se_dev->cur_ib = rsc->ib;
 
 	bus_bw_update = geni_se_check_bus_bw(geni_se_dev);
 	spin_unlock_irqrestore(&geni_se_dev->ab_ib_lock, flags);
