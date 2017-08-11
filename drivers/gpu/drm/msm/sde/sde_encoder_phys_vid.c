@@ -593,22 +593,33 @@ static void sde_encoder_phys_vid_get_hw_resources(
 		struct drm_connector_state *conn_state)
 {
 	struct sde_encoder_phys_vid *vid_enc;
+	struct sde_mdss_cfg *vid_catalog;
 
 	if (!phys_enc || !hw_res) {
 		SDE_ERROR("invalid arg(s), enc %d hw_res %d conn_state %d\n",
-				phys_enc != 0, hw_res != 0, conn_state != 0);
+			phys_enc != NULL, hw_res != NULL, conn_state != NULL);
 		return;
 	}
 
+	vid_catalog = phys_enc->sde_kms->catalog;
 	vid_enc = to_sde_encoder_phys_vid(phys_enc);
-	if (!vid_enc->hw_intf) {
-		SDE_ERROR("invalid arg(s), hw_intf\n");
+	if (!vid_enc->hw_intf || !vid_catalog) {
+		SDE_ERROR("invalid arg(s), hw_intf %d vid_catalog %d\n",
+			  vid_enc->hw_intf != NULL, vid_catalog != NULL);
 		return;
 	}
 
 	SDE_DEBUG_VIDENC(vid_enc, "\n");
+	if (vid_enc->hw_intf->idx > INTF_MAX) {
+		SDE_ERROR("invalid arg(s), idx %d\n",
+			  vid_enc->hw_intf->idx);
+		return;
+	}
 	hw_res->intfs[vid_enc->hw_intf->idx - INTF_0] = INTF_MODE_VIDEO;
-	hw_res->needs_cdm = true;
+
+	if (vid_catalog->intf[vid_enc->hw_intf->idx - INTF_0].type
+			== INTF_HDMI)
+		hw_res->needs_cdm = true;
 	SDE_DEBUG_DRIVER("[vid] needs_cdm=%d\n", hw_res->needs_cdm);
 }
 
