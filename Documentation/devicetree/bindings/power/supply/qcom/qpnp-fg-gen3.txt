@@ -385,6 +385,11 @@ First Level Node - FG Gen3 device
 		    property "qcom,slope-limit-temp-threshold" to make dynamic
 		    slope limit adjustment functional.
 
+- qcom,fg-bmd-en-delay-ms
+	Usage:      optional
+	Value type: <u32>
+	Definition: The delay in ms for FG to enable BMD after reading RID.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen3 driver
 ==========================================================

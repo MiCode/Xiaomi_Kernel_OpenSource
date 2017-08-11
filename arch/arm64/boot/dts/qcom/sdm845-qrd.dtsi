@@ -84,6 +84,7 @@
 
 &pmi8998_fg {
 	qcom,battery-data = <&qrd_batterydata>;
+	qcom,fg-bmd-en-delay-ms = <300>;
 };
 
 &smb1355_charger {

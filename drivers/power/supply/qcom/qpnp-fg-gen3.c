@@ -892,8 +892,8 @@ static int fg_get_batt_id(struct fg_chip *chip)
 		goto out;
 	}
 
-	/* Wait for 200ms before enabling BMD again */
-	msleep(200);
+	/* Wait for BATT_ID to settle down before enabling BMD again */
+	msleep(chip->dt.bmd_en_delay_ms);
 
 	fg_dbg(chip, FG_STATUS, "batt_id: %d\n", batt_id);
 	chip->batt_id_ohms = batt_id;
@@ -4036,6 +4036,7 @@ static int fg_parse_ki_coefficients(struct fg_chip *chip)
 #define DEFAULT_ESR_CLAMP_MOHMS		20
 #define DEFAULT_ESR_PULSE_THRESH_MA	110
 #define DEFAULT_ESR_MEAS_CURR_MA	120
+#define DEFAULT_BMD_EN_DELAY_MS	200
 static int fg_parse_dt(struct fg_chip *chip)
 {
 	struct device_node *child, *revid_node, *node = chip->dev->of_node;
@@ -4380,6 +4381,13 @@ static int fg_parse_dt(struct fg_chip *chip)
 		/* ESR measurement current range is 60-240 mA */
 		if (temp >= 60 || temp <= 240)
 			chip->dt.esr_meas_curr_ma = temp;
+	}
+
+	chip->dt.bmd_en_delay_ms = DEFAULT_BMD_EN_DELAY_MS;
+	rc = of_property_read_u32(node, "qcom,fg-bmd-en-delay-ms", &temp);
+	if (!rc) {
+		if (temp > DEFAULT_BMD_EN_DELAY_MS)
+			chip->dt.bmd_en_delay_ms = temp;
 	}
 
 	return 0;
