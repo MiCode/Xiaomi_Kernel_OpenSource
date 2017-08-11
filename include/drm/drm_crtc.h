@@ -652,12 +652,15 @@ struct drm_encoder {
  * @pt_scan_info: PT scan info obtained from the VCDB of EDID
  * @it_scan_info: IT scan info obtained from the VCDB of EDID
  * @ce_scan_info: CE scan info obtained from the VCDB of EDID
+ * @color_enc_fmt: Colorimetry encoding formats of sink
  * @hdr_eotf: Electro optical transfer function obtained from HDR block
  * @hdr_metadata_type_one: Metadata type one obtained from HDR block
  * @hdr_max_luminance: desired max luminance obtained from HDR block
  * @hdr_avg_luminance: desired avg luminance obtained from HDR block
  * @hdr_min_luminance: desired min luminance obtained from HDR block
  * @hdr_supported: does the sink support HDR content
+ * @rgb_qs: does the sink declare RGB selectable quantization range
+ * @yuv_qs: does the sink declare YCC selectable quantization range
  * @edid_corrupt: indicates whether the last read EDID was corrupt
  * @debugfs_entry: debugfs directory for this connector
  * @state: current atomic state for this connector
@@ -740,12 +743,15 @@ struct drm_connector {
 	u8 pt_scan_info;
 	u8 it_scan_info;
 	u8 ce_scan_info;
+	u8 color_enc_fmt;
 	u32 hdr_eotf;
 	bool hdr_metadata_type_one;
 	u32 hdr_max_luminance;
 	u32 hdr_avg_luminance;
 	u32 hdr_min_luminance;
 	bool hdr_supported;
+	bool rgb_qs;
+	bool yuv_qs;
 	/* Flag for raw EDID header corruption - used in Displayport
 	 * compliance testing - * Displayport Link CTS Core 1.2 rev1.1 4.2.2.6
 	 */

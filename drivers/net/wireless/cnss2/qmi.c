@@ -39,7 +39,7 @@ static bool daemon_support;
 module_param(daemon_support, bool, 0600);
 MODULE_PARM_DESC(daemon_support, "User space has cnss-daemon support or not");
 
-static bool bdf_bypass = true;
+static bool bdf_bypass;
 #ifdef CONFIG_CNSS2_DEBUG
 module_param(bdf_bypass, bool, 0600);
 MODULE_PARM_DESC(bdf_bypass, "If BDF is not found, send dummy BDF to FW");

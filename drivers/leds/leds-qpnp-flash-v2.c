@@ -158,6 +158,11 @@
 #define	FLASH_LED_DISABLE			0x00
 #define	FLASH_LED_SAFETY_TMR_DISABLED		0x13
 #define	FLASH_LED_MAX_TOTAL_CURRENT_MA		3750
+#define	FLASH_LED_IRES5P0_MAX_CURR_MA		640
+#define	FLASH_LED_IRES7P5_MAX_CURR_MA		960
+#define	FLASH_LED_IRES10P0_MAX_CURR_MA		1280
+#define	FLASH_LED_IRES12P5_MAX_CURR_MA		1600
+#define	MAX_IRES_LEVELS				4
 
 /* notifier call chain for flash-led irqs */
 static ATOMIC_NOTIFIER_HEAD(irq_notifier_list);
@@ -196,13 +201,15 @@ struct flash_node_data {
 	struct pinctrl_state		*hw_strobe_state_suspend;
 	int				hw_strobe_gpio;
 	int				ires_ua;
+	int				default_ires_ua;
 	int				max_current;
 	int				current_ma;
 	int				prev_current_ma;
 	u8				duration;
 	u8				id;
 	u8				type;
-	u8				ires;
+	u8				ires_idx;
+	u8				default_ires_idx;
 	u8				hdrm_val;
 	u8				current_reg_val;
 	u8				strobe_ctrl;
@@ -303,6 +310,11 @@ static int otst2_threshold_table[] = {
 
 static int otst3_threshold_table[] = {
 	125, 119, 113, 107, 149, 143, 137, 131,
+};
+
+static int max_ires_curr_ma_table[MAX_IRES_LEVELS] = {
+	FLASH_LED_IRES12P5_MAX_CURR_MA, FLASH_LED_IRES10P0_MAX_CURR_MA,
+	FLASH_LED_IRES7P5_MAX_CURR_MA, FLASH_LED_IRES5P0_MAX_CURR_MA
 };
 
 static int qpnp_flash_led_read(struct qpnp_flash_led *led, u16 addr, u8 *data)
@@ -935,6 +947,7 @@ static void qpnp_flash_led_aggregate_max_current(struct flash_node_data *fnode)
 
 static void qpnp_flash_led_node_set(struct flash_node_data *fnode, int value)
 {
+	int i = 0;
 	int prgm_current_ma = value;
 	int min_ma = fnode->ires_ua / 1000;
 	struct qpnp_flash_led *led = dev_get_drvdata(&fnode->pdev->dev);
@@ -944,7 +957,22 @@ static void qpnp_flash_led_node_set(struct flash_node_data *fnode, int value)
 	else if (value < min_ma)
 		prgm_current_ma = min_ma;
 
+	fnode->ires_idx = fnode->default_ires_idx;
+	fnode->ires_ua = fnode->default_ires_ua;
+
 	prgm_current_ma = min(prgm_current_ma, fnode->max_current);
+	if (prgm_current_ma > max_ires_curr_ma_table[fnode->ires_idx]) {
+		/* find the matching ires */
+		for (i = MAX_IRES_LEVELS - 1; i >= 0; i--) {
+			if (prgm_current_ma <= max_ires_curr_ma_table[i]) {
+				fnode->ires_idx = i;
+				fnode->ires_ua = FLASH_LED_IRES_MIN_UA +
+				      (FLASH_LED_IRES_BASE - fnode->ires_idx) *
+				      FLASH_LED_IRES_DIVISOR;
+				break;
+			}
+		}
+	}
 	fnode->current_ma = prgm_current_ma;
 	fnode->cdev.brightness = prgm_current_ma;
 	fnode->current_reg_val = CURRENT_MA_TO_REG_VAL(prgm_current_ma,
@@ -1062,7 +1090,7 @@ static int qpnp_flash_led_switch_set(struct flash_switch_data *snode, bool on)
 	val = 0;
 	for (i = 0; i < led->num_fnodes; i++)
 		if (snode->led_mask & BIT(led->fnode[i].id))
-			val |= led->fnode[i].ires << (led->fnode[i].id * 2);
+			val |= led->fnode[i].ires_idx << (led->fnode[i].id * 2);
 
 	rc = qpnp_flash_led_masked_write(led, FLASH_LED_REG_IRES(led->base),
 						FLASH_LED_CURRENT_MASK, val);
@@ -1434,13 +1462,14 @@ static int qpnp_flash_led_parse_each_led_dt(struct qpnp_flash_led *led,
 		return rc;
 	}
 
-	fnode->ires_ua = FLASH_LED_IRES_DEFAULT_UA;
-	fnode->ires = FLASH_LED_IRES_DEFAULT_VAL;
+	fnode->default_ires_ua = fnode->ires_ua = FLASH_LED_IRES_DEFAULT_UA;
+	fnode->default_ires_idx = fnode->ires_idx = FLASH_LED_IRES_DEFAULT_VAL;
 	rc = of_property_read_u32(node, "qcom,ires-ua", &val);
 	if (!rc) {
-		fnode->ires_ua = val;
-		fnode->ires = FLASH_LED_IRES_BASE -
-			(val - FLASH_LED_IRES_MIN_UA) / FLASH_LED_IRES_DIVISOR;
+		fnode->default_ires_ua = fnode->ires_ua = val;
+		fnode->default_ires_idx = fnode->ires_idx =
+			FLASH_LED_IRES_BASE - (val - FLASH_LED_IRES_MIN_UA) /
+			FLASH_LED_IRES_DIVISOR;
 	} else if (rc != -EINVAL) {
 		pr_err("Unable to read current resolution rc=%d\n", rc);
 		return rc;

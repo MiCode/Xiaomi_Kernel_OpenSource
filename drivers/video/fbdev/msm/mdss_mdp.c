@@ -2780,6 +2780,8 @@ ssize_t mdss_mdp_show_capabilities(struct device *dev,
 		SPRINT(" avr");
 	if (mdss_has_quirk(mdata, MDSS_QUIRK_HDR_SUPPORT_ENABLED))
 		SPRINT(" hdr");
+	if (mdata->nvig_pipes && mdata->mdp_rev >= MDSS_MDP_HW_REV_300)
+		SPRINT(" vig_csc_db"); /* double buffered VIG CSC block */
 	SPRINT("\n");
 #undef SPRINT
 

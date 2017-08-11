@@ -975,26 +975,31 @@ static int __validate_layer_reconfig(struct mdp_input_layer *layer,
 	struct mdss_mdp_pipe *pipe)
 {
 	int status = 0;
-	struct mdss_mdp_format_params *src_fmt;
+	struct mdss_mdp_format_params *layer_src_fmt;
+	struct mdss_data_type *mdata = mfd_to_mdata(pipe->mfd);
+	bool is_csc_db = (mdata->mdp_rev < MDSS_MDP_HW_REV_300) ? false : true;
+
+	layer_src_fmt = mdss_mdp_get_format_params(layer->buffer.format);
+	if (!layer_src_fmt) {
+		pr_err("Invalid layer format %d\n", layer->buffer.format);
+		status = -EINVAL;
+		goto err_exit;
+	}
 
 	/*
-	 * csc registers are not double buffered. It is not permitted
-	 * to change them on staged pipe with YUV layer.
+	 * HW earlier to sdm 3.x.x does not support double buffer CSC.
+	 * Invalidate any reconfig of CSC block on staged pipe.
 	 */
-	if (pipe->csc_coeff_set != layer->color_space) {
-		src_fmt = mdss_mdp_get_format_params(layer->buffer.format);
-		if (!src_fmt) {
-			pr_err("Invalid layer format %d\n",
-						layer->buffer.format);
-			status = -EINVAL;
-		} else {
-			if (pipe->src_fmt->is_yuv && src_fmt &&
-							src_fmt->is_yuv) {
-				status = -EPERM;
-				pr_err("csc change is not permitted on used pipe\n");
-			}
-		}
+	if (!is_csc_db &&
+		((!!pipe->src_fmt->is_yuv != !!layer_src_fmt->is_yuv) ||
+		(pipe->src_fmt->is_yuv && layer_src_fmt->is_yuv &&
+		pipe->csc_coeff_set != layer->color_space))) {
+		pr_err("CSC reconfig not allowed on staged pipe\n");
+		status = -EINVAL;
+		goto err_exit;
 	}
+
+err_exit:
 	return status;
 }
 

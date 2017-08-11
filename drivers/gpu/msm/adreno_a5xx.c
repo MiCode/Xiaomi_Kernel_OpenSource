@@ -715,6 +715,10 @@ static int _load_gpmu_firmware(struct adreno_device *adreno_dev)
 	if (ret)
 		goto err;
 
+	/* Integer overflow check for cmd_size */
+	if (data[2] > (data[0] - 2))
+		goto err;
+
 	cmds = data + data[2] + 3;
 	cmd_size = data[0] - data[2] - 2;
 
@@ -2068,6 +2072,9 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 		}
 
 	}
+
+	/* Disable All flat shading optimization */
+	kgsl_regrmw(device, A5XX_VPC_DBG_ECO_CNTL, 0, 0x1 << 10);
 
 	/*
 	 * VPC corner case with local memory load kill leads to corrupt
