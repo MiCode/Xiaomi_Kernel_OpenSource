@@ -58,6 +58,7 @@
 #define FASTRPC_ENOSUCH 39
 #define VMID_SSC_Q6     5
 #define VMID_ADSP_Q6    6
+#define AC_VM_ADSP_HEAP_SHARED 33
 #define DEBUGFS_SIZE 1024
 
 #define RPC_TIMEOUT	(5 * HZ)
@@ -222,6 +223,7 @@ struct fastrpc_channel_ctx {
 	int prevssrcount;
 	int issubsystemup;
 	int vmid;
+	int heap_vmid;
 	int ramdumpenabled;
 	void *remoteheap_ramdump_dev;
 	struct fastrpc_glink_info link;
@@ -1594,7 +1596,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 	struct fastrpc_mmap *file = 0, *mem = 0;
 	char *proc_name = NULL;
 	int srcVM[1] = {VMID_HLOS};
-	int destVM[1] = {VMID_ADSP_Q6};
+	int destVM[1] = {gcinfo[0].heap_vmid};
 	int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 	int hlosVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
@@ -1853,7 +1855,7 @@ static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 	} else if (flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
 
 		int srcVM[1] = {VMID_HLOS};
-		int destVM[1] = {VMID_ADSP_Q6};
+		int destVM[1] = {gcinfo[0].heap_vmid};
 		int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
 		VERIFY(err, !hyp_assign_phys(map->phys, (uint64_t)map->size,
@@ -1869,7 +1871,7 @@ static int fastrpc_munmap_on_dsp_rh(struct fastrpc_file *fl,
 				 struct fastrpc_mmap *map)
 {
 	int err = 0;
-	int srcVM[1] = {VMID_ADSP_Q6};
+	int srcVM[1] = {gcinfo[0].heap_vmid};
 	int destVM[1] = {VMID_HLOS};
 	int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
@@ -2843,6 +2845,7 @@ static int fastrpc_cb_probe(struct device *dev)
 	chan->sesscount++;
 	debugfs_global_file = debugfs_create_file("global", 0644, debugfs_root,
 							NULL, &debugfs_fops);
+
 bail:
 	return err;
 }
@@ -2956,6 +2959,12 @@ static int fastrpc_probe(struct platform_device *pdev)
 		}
 		return 0;
 	}
+	if (of_property_read_bool(dev->of_node,
+					"qcom,fastrpc-vmid-heap-shared"))
+		gcinfo[0].heap_vmid = AC_VM_ADSP_HEAP_SHARED;
+	else
+		gcinfo[0].heap_vmid = VMID_ADSP_Q6;
+	pr_info("ADSPRPC: gcinfo[0].heap_vmid %d\n", gcinfo[0].heap_vmid);
 	me->glink = of_property_read_bool(dev->of_node, "qcom,fastrpc-glink");
 	VERIFY(err, !of_platform_populate(pdev->dev.of_node,
 					  fastrpc_match_table,
