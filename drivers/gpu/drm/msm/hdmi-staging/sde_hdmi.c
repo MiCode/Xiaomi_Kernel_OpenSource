@@ -2364,6 +2364,36 @@ int sde_hdmi_pre_kickoff(struct drm_connector *connector,
 	return 0;
 }
 
+bool sde_hdmi_mode_needs_full_range(void *display)
+{
+	struct sde_hdmi *hdmi_display = (struct sde_hdmi *)display;
+	struct drm_display_mode *mode;
+	u32 mode_fmt_flags = 0;
+	u32 cea_mode;
+
+	if (!hdmi_display) {
+		SDE_ERROR("invalid input\n");
+		return false;
+	}
+
+	mode = &hdmi_display->mode;
+	/* Cache the format flags before clearing */
+	mode_fmt_flags = mode->flags;
+	/**
+	 * Clear the RGB/YUV format flags before calling upstream API
+	 * as the API also compares the flags and then returns a mode
+	 */
+	mode->flags &= ~SDE_DRM_MODE_FLAG_FMT_MASK;
+	cea_mode = drm_match_cea_mode(mode);
+	/* Restore the format flags */
+	mode->flags = mode_fmt_flags;
+
+	if (cea_mode > SDE_HDMI_VIC_640x480)
+		return false;
+
+	return true;
+}
+
 int sde_hdmi_connector_get_modes(struct drm_connector *connector, void *display)
 {
 	struct sde_hdmi *hdmi_display = (struct sde_hdmi *)display;

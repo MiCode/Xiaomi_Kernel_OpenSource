@@ -1417,6 +1417,7 @@ void sde_encoder_phys_setup_cdm(struct sde_encoder_phys *phys_enc,
 	struct sde_encoder_virt *sde_enc = NULL;
 	struct sde_hw_cdm *hw_cdm = phys_enc->hw_cdm;
 	struct sde_hw_cdm_cfg *cdm_cfg = &phys_enc->cdm_cfg;
+	struct drm_connector *connector = phys_enc->connector;
 	int ret;
 	u32 csc_type = 0;
 
@@ -1476,10 +1477,26 @@ void sde_encoder_phys_setup_cdm(struct sde_encoder_phys *phys_enc,
 			cdm_cfg->h_cdwn_type,
 			cdm_cfg->v_cdwn_type);
 
-	if (output_type == CDM_CDWN_OUTPUT_HDMI)
-		csc_type = SDE_CSC_RGB2YUV_601FR;
-	else if (output_type == CDM_CDWN_OUTPUT_WB)
+	/**
+	 * Choose CSC matrix based on following rules:
+	 * 1. If connector supports quantization select,
+	 *	  pick Full-Range for better quality.
+	 * 2. If non-CEA mode, then pick Full-Range as per CEA spec
+	 * 3. Otherwise, pick Limited-Range as all other CEA modes
+	 *    need a limited range
+	 */
+
+	if (output_type == CDM_CDWN_OUTPUT_HDMI) {
+		if (connector && connector->yuv_qs)
+			csc_type = SDE_CSC_RGB2YUV_601FR;
+		else if (connector &&
+			sde_connector_mode_needs_full_range(connector))
+			csc_type = SDE_CSC_RGB2YUV_601FR;
+		else
+			csc_type = SDE_CSC_RGB2YUV_601L;
+	} else if (output_type == CDM_CDWN_OUTPUT_WB) {
 		csc_type = SDE_CSC_RGB2YUV_601L;
+	}
 
 	if (hw_cdm && hw_cdm->ops.setup_csc_data) {
 		ret = hw_cdm->ops.setup_csc_data(hw_cdm,
