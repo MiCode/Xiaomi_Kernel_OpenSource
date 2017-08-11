@@ -1785,8 +1785,6 @@ static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 
-	if (kgsl_gmu_isenabled(device))
-		return;
 	if (test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->ctrl_flags))
 		return;
 
@@ -2470,8 +2468,13 @@ static int kgsl_pwrctrl_enable(struct kgsl_device *device)
 
 	kgsl_pwrctrl_pwrlevel_change(device, level);
 
-	if (kgsl_gmu_isenabled(device))
-		return gmu_start(device);
+	if (kgsl_gmu_isenabled(device)) {
+		int ret = gmu_start(device);
+
+		if (!ret)
+			kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_ON);
+		return ret;
+	}
 
 	/* Order pwrrail/clk sequence based upon platform */
 	status = kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_ON);
@@ -2484,8 +2487,10 @@ static int kgsl_pwrctrl_enable(struct kgsl_device *device)
 
 static void kgsl_pwrctrl_disable(struct kgsl_device *device)
 {
-	if (kgsl_gmu_isenabled(device))
+	if (kgsl_gmu_isenabled(device)) {
+		kgsl_pwrctrl_axi(device, KGSL_PWRFLAGS_OFF);
 		return gmu_stop(device);
+	}
 
 	/* Order pwrrail/clk sequence based upon platform */
 	device->ftbl->regulator_disable(device);
