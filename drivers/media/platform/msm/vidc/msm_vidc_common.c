@@ -2788,6 +2788,8 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 	}
 	core->state = VIDC_CORE_INIT;
 	core->smmu_fault_handled = false;
+	core->trigger_ssr = false;
+
 core_already_inited:
 	change_inst_state(inst, MSM_VIDC_CORE_INIT);
 	mutex_unlock(&core->lock);
@@ -5024,11 +5026,14 @@ int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 		 * to know if fatal error is due to SSR or not. Handle
 		 * user SSR as non-fatal.
 		 */
-		mutex_lock(&core->lock);
-		core->resources.debug_timeout = false;
-		mutex_unlock(&core->lock);
+		core->trigger_ssr = true;
 		rc = call_hfi_op(hdev, core_trigger_ssr,
 				hdev->hfi_device_data, type);
+		if (rc) {
+			dprintk(VIDC_ERR, "%s: trigger_ssr failed\n",
+				__func__);
+			core->trigger_ssr = false;
+		}
 	}
 
 	return rc;

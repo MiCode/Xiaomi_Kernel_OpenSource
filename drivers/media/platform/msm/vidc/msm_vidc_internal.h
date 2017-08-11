@@ -317,6 +317,7 @@ struct msm_vidc_core {
 	struct msm_vidc_capability *capabilities;
 	struct delayed_work fw_unload_work;
 	bool smmu_fault_handled;
+	bool trigger_ssr;
 	unsigned long min_freq;
 	unsigned long curr_freq;
 	struct vidc_bus_vote_data *vote_data;
