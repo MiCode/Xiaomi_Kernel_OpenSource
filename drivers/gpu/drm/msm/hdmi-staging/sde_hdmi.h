@@ -490,6 +490,15 @@ int sde_hdmi_pre_kickoff(struct drm_connector *connector,
  */
 bool sde_hdmi_mode_needs_full_range(void *display);
 
+/*
+ * sde_hdmi_get_csc_type - returns the CSC type to be
+ * used based on state of HDR playback
+ * @conn: Pointer to DRM connector
+ * @display: Pointer to private display structure
+ * Returns: true or false based on mode
+ */
+enum sde_csc_type sde_hdmi_get_csc_type(struct drm_connector *conn,
+	void *display);
 #else /*#ifdef CONFIG_DRM_SDE_HDMI*/
 
 static inline u32 sde_hdmi_get_num_of_displays(void)
@@ -607,6 +616,12 @@ static inline int sde_hdmi_set_property(struct drm_connector *connector,
 static inline bool sde_hdmi_mode_needs_full_range(void *display)
 {
 	return false;
+}
+
+enum sde_csc_type sde_hdmi_get_csc_type(struct drm_connector *conn,
+	void *display)
+{
+	return 0;
 }
 
 #endif /*#else of CONFIG_DRM_SDE_HDMI*/

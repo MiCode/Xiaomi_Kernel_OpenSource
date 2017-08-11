@@ -143,6 +143,16 @@ struct sde_connector_ops {
 	 * Returns: true or false based on whether full range is needed
 	 */
 	bool (*mode_needs_full_range)(void *display);
+
+	/**
+	 * get_csc_type - returns the CSC type to be used
+	 * by the CDM block based on HDR state
+	 * @connector: Pointer to drm connector structure
+	 * @display: Pointer to private display structure
+	 * Returns: type of CSC matrix to be used
+	 */
+	enum sde_csc_type (*get_csc_type)(struct drm_connector *connector,
+		void *display);
 };
 
 /**
@@ -342,5 +352,14 @@ int sde_connector_pre_kickoff(struct drm_connector *connector);
  * Returns: true OR false based on connector mode
  */
 bool sde_connector_mode_needs_full_range(struct drm_connector *connector);
+
+/**
+ * sde_connector_get_csc_type - query csc type
+ * to be used for the connector
+ * @connector: Pointer to drm connector object
+ * Returns: csc type based on connector HDR state
+ */
+enum sde_csc_type sde_connector_get_csc_type(struct drm_connector *conn);
+
 #endif /* _SDE_CONNECTOR_H_ */
 
