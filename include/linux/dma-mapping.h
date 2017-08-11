@@ -61,6 +61,43 @@
  * allocation failure reports (similarly to __GFP_NOWARN).
  */
 #define DMA_ATTR_NO_WARN	(1UL << 8)
+/*
+ * DMA_ATTR_STRONGLY_ORDERED: Specifies that accesses to the mapping must
+ * not be buffered, reordered, merged with other accesses, or unaligned.
+ * No speculative access may occur in this mapping.
+ */
+#define DMA_ATTR_STRONGLY_ORDERED	(1UL << 9)
+/*
+ * DMA_ATTR_SKIP_ZEROING: Do not zero mapping.
+ */
+#define DMA_ATTR_SKIP_ZEROING		(1UL << 10)
+/*
+ * DMA_ATTR_NO_DELAYED_UNMAP: Used by msm specific lazy mapping to indicate
+ * that the mapping can be freed on unmap, rather than when the ion_buffer
+ * is freed.
+ */
+#define DMA_ATTR_NO_DELAYED_UNMAP	(1UL << 11)
+/*
+ * DMA_ATTR_EXEC_MAPPING: The mapping has executable permissions.
+ */
+#define DMA_ATTR_EXEC_MAPPING		(1UL << 12)
+/*
+ * DMA_ATTR_IOMMU_USE_UPSTREAM_HINT: Normally an smmu will override any bus
+ * attributes (i.e cacheablilty) provided by the client device. Some hardware
+ * may be designed to use the original attributes instead.
+ */
+#define DMA_ATTR_IOMMU_USE_UPSTREAM_HINT	(1UL << 13)
+/*
+ * When passed to a DMA map call the DMA_ATTR_FORCE_COHERENT DMA
+ * attribute can be used to force a buffer to be mapped as IO coherent.
+ */
+#define DMA_ATTR_FORCE_COHERENT			(1UL << 14)
+/*
+ * When passed to a DMA map call the DMA_ATTR_FORCE_NON_COHERENT DMA
+ * attribute can be used to force a buffer to not be mapped as IO
+ * coherent.
+ */
+#define DMA_ATTR_FORCE_NON_COHERENT		(1UL << 15)
 
 /*
  * DMA_ATTR_PRIVILEGED: used to indicate that the buffer is fully
@@ -73,6 +110,8 @@
  * DMA_ATTR_SKIP_ZEROING: Do not zero mapping.
  */
 #define DMA_ATTR_SKIP_ZEROING		(1UL << 10)
+
+#define DMA_ERROR_CODE       (~(dma_addr_t)0)
 
 /*
  * A dma_addr_t can hold any valid DMA or bus address for the platform.
@@ -132,6 +171,7 @@ struct dma_map_ops {
 				   enum dma_data_direction dir);
 	int (*mapping_error)(struct device *dev, dma_addr_t dma_addr);
 	int (*dma_supported)(struct device *dev, u64 mask);
+	int (*set_dma_mask)(struct device *dev, u64 mask);
 	void *(*remap)(struct device *dev, void *cpu_addr, dma_addr_t handle,
 			size_t size, unsigned long attrs);
 	void (*unremap)(struct device *dev, void *remapped_address,
@@ -596,6 +636,11 @@ static inline int dma_supported(struct device *dev, u64 mask)
 #ifndef HAVE_ARCH_DMA_SET_MASK
 static inline int dma_set_mask(struct device *dev, u64 mask)
 {
+	const struct dma_map_ops *ops = get_dma_ops(dev);
+
+	if (ops->set_dma_mask)
+		return ops->set_dma_mask(dev, mask);
+
 	if (!dev->dma_mask || !dma_supported(dev, mask))
 		return -EIO;
 	*dev->dma_mask = mask;
@@ -871,7 +916,9 @@ static inline int dma_mmap_nonconsistent(struct device *dev,
 		struct vm_area_struct *vma, void *cpu_addr,
 		dma_addr_t dma_addr, size_t size)
 {
-	return -ENODEV;
+	unsigned long attrs = DMA_ATTR_NON_CONSISTENT;
+
+	return dma_mmap_attrs(dev, vma, cpu_addr, dma_addr, size, attrs);
 }
 
 #if defined(CONFIG_NEED_DMA_MAP_STATE) || defined(CONFIG_DMA_API_DEBUG)

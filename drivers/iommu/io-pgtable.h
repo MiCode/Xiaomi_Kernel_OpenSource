@@ -2,6 +2,8 @@
 #define __IO_PGTABLE_H
 #include <linux/bitops.h>
 
+#include <linux/scatterlist.h>
+
 /*
  * Public API for use by IOMMU drivers
  */
@@ -11,6 +13,7 @@ enum io_pgtable_fmt {
 	ARM_64_LPAE_S1,
 	ARM_64_LPAE_S2,
 	ARM_V7S,
+	ARM_V8L_FAST,
 	IO_PGTABLE_NUM_FMTS,
 };
 
@@ -22,6 +25,10 @@ enum io_pgtable_fmt {
  * @tlb_sync:      Ensure any queued TLB invalidation has taken effect, and
  *                 any corresponding page table updates are visible to the
  *                 IOMMU.
+ * @alloc_pages_exact: Allocate page table memory (optional, defaults to
+ *                     alloc_pages_exact)
+ * @free_pages_exact:  Free page table memory (optional, defaults to
+ *                     free_pages_exact)
  *
  * Note that these can all be called in atomic context and must therefore
  * not block.
@@ -31,6 +38,8 @@ struct iommu_gather_ops {
 	void (*tlb_add_flush)(unsigned long iova, size_t size, size_t granule,
 			      bool leaf, void *cookie);
 	void (*tlb_sync)(void *cookie);
+	void *(*alloc_pages_exact)(void *cookie, size_t size, gfp_t gfp_mask);
+	void (*free_pages_exact)(void *cookie, void *virt, size_t size);
 };
 
 /**
@@ -66,16 +75,23 @@ struct io_pgtable_cfg {
 	 *	when the SoC is in "4GB mode" and they can only access the high
 	 *	remap of DRAM (0x1_00000000 to 0x1_ffffffff).
 	 *
+
 	 * IO_PGTABLE_QUIRK_NO_DMA: Guarantees that the tables will only ever
 	 *	be accessed by a fully cache-coherent IOMMU or CPU (e.g. for a
 	 *	software-emulated IOMMU), such that pagetable updates need not
 	 *	be treated as explicit DMA data.
+
+	 * IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT: Override the attributes
+	 *	set in TCR for the page table walker. Use attributes specified
+	 *	by the upstream hw instead.
+	 *
 	 */
 	#define IO_PGTABLE_QUIRK_ARM_NS		BIT(0)
 	#define IO_PGTABLE_QUIRK_NO_PERMS	BIT(1)
 	#define IO_PGTABLE_QUIRK_TLBI_ON_MAP	BIT(2)
 	#define IO_PGTABLE_QUIRK_ARM_MTK_4GB	BIT(3)
 	#define IO_PGTABLE_QUIRK_NO_DMA		BIT(4)
+	#define IO_PGTABLE_QUIRK_QCOM_USE_UPSTREAM_HINT	BIT(6)
 	unsigned long			quirks;
 	unsigned long			pgsize_bitmap;
 	unsigned int			ias;
@@ -102,15 +118,28 @@ struct io_pgtable_cfg {
 			u32	nmrr;
 			u32	prrr;
 		} arm_v7s_cfg;
+
+		struct {
+			u64	ttbr[2];
+			u64	tcr;
+			u64	mair[2];
+			void	*pmds;
+		} av8l_fast_cfg;
 	};
 };
 
 /**
  * struct io_pgtable_ops - Page table manipulation API for IOMMU drivers.
  *
- * @map:          Map a physically contiguous memory region.
- * @unmap:        Unmap a physically contiguous memory region.
- * @iova_to_phys: Translate iova to physical address.
+ * @map:		Map a physically contiguous memory region.
+ * @map_sg:		Map a scatterlist.  Returns the number of bytes mapped,
+ *			or 0 on failure.  The size parameter contains the size
+ *			of the partial mapping in case of failure.
+ * @unmap:		Unmap a physically contiguous memory region.
+ * @iova_to_phys:	Translate iova to physical address.
+ * @is_iova_coherent:	Checks coherency of given IOVA. Returns True if coherent
+ *			and False if non-coherent.
+ * @iova_to_pte:	Translate iova to Page Table Entry (PTE).
  *
  * These functions map directly onto the iommu_ops member functions with
  * the same names.
@@ -118,10 +147,18 @@ struct io_pgtable_cfg {
 struct io_pgtable_ops {
 	int (*map)(struct io_pgtable_ops *ops, unsigned long iova,
 		   phys_addr_t paddr, size_t size, int prot);
-	int (*unmap)(struct io_pgtable_ops *ops, unsigned long iova,
+	int (*map_sg)(struct io_pgtable_ops *ops, unsigned long iova,
+		      struct scatterlist *sg, unsigned int nents,
+		      int prot, size_t *size);
+	size_t (*unmap)(struct io_pgtable_ops *ops, unsigned long iova,
 		     size_t size);
 	phys_addr_t (*iova_to_phys)(struct io_pgtable_ops *ops,
 				    unsigned long iova);
+	bool (*is_iova_coherent)(struct io_pgtable_ops *ops,
+				unsigned long iova);
+	uint64_t (*iova_to_pte)(struct io_pgtable_ops *ops,
+		    unsigned long iova);
+
 };
 
 /**
@@ -203,5 +240,30 @@ extern struct io_pgtable_init_fns io_pgtable_arm_32_lpae_s2_init_fns;
 extern struct io_pgtable_init_fns io_pgtable_arm_64_lpae_s1_init_fns;
 extern struct io_pgtable_init_fns io_pgtable_arm_64_lpae_s2_init_fns;
 extern struct io_pgtable_init_fns io_pgtable_arm_v7s_init_fns;
+extern struct io_pgtable_init_fns io_pgtable_av8l_fast_init_fns;
+
+/**
+ * io_pgtable_alloc_pages_exact:
+ *	allocate an exact number of physically-contiguous pages.
+ * @size: the number of bytes to allocate
+ * @gfp_mask: GFP flags for the allocation
+ *
+ * Like alloc_pages_exact(), but with some additional accounting for debug
+ * purposes.
+ */
+void *io_pgtable_alloc_pages_exact(struct io_pgtable_cfg *cfg, void *cookie,
+				   size_t size, gfp_t gfp_mask);
+
+/**
+ * io_pgtable_free_pages_exact:
+ *	release memory allocated via io_pgtable_alloc_pages_exact()
+ * @virt: the value returned by alloc_pages_exact.
+ * @size: size of allocation, same value as passed to alloc_pages_exact().
+ *
+ * Like free_pages_exact(), but with some additional accounting for debug
+ * purposes.
+ */
+void io_pgtable_free_pages_exact(struct io_pgtable_cfg *cfg, void *cookie,
+				 void *virt, size_t size);
 
 #endif /* __IO_PGTABLE_H */

@@ -44,7 +44,7 @@ allowed_warnings = set([
     "kdev_t.h:64",
     "core.c:144",
     "fdt_strerror.c:94",
-    "mmu.c:628",
+    "mmu.c:666",
     "page_alloc.c:4462",
     "sys.c:2436",
     "swap.c:594",
