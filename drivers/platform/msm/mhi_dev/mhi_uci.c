@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015,2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -337,18 +337,20 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 		struct file *file_handle)
 {
 	struct uci_client *uci_handle = file_handle->private_data;
-	struct mhi_uci_ctxt_t *uci_ctxt = uci_handle->uci_ctxt;
+	struct mhi_uci_ctxt_t *uci_ctxt;
 	u32 nr_in_bufs = 0;
 	int rc = 0;
 	int in_chan = 0;
 	u32 buf_size = 0;
 
+	if (!uci_handle)
+		return -EINVAL;
+
+	uci_ctxt = uci_handle->uci_ctxt;
 	in_chan = iminor(mhi_inode) + 1;
 	nr_in_bufs = uci_ctxt->chan_attrib[in_chan].nr_trbs;
 	buf_size = uci_ctxt->chan_attrib[in_chan].max_packet_size;
 
-	if (!uci_handle)
-		return -EINVAL;
 	if (atomic_sub_return(1, &uci_handle->ref_count) == 0) {
 		uci_log(UCI_DBG_DBG,
 				"Last client left, closing channel 0x%x\n",
