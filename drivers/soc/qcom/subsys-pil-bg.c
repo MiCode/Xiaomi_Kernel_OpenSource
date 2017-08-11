@@ -35,7 +35,7 @@
 #define SECURE_APP	"bgapp"
 #define desc_to_data(d)	container_of(d, struct pil_bg_data, desc)
 #define subsys_to_data(d) container_of(d, struct pil_bg_data, subsys_desc)
-
+#define BG_RAMDUMP_SZ	0x00102000
 /**
  * struct pil_bg_data
  * @qseecom_handle: handle of TZ app
@@ -75,6 +75,8 @@ struct pil_bg_data {
 	bool is_ready;
 	struct completion err_ready;
 };
+
+static irqreturn_t bg_status_change(int irq, void *dev_id);
 
 /**
  * bg_app_shutdown_notify() - Toggle AP2BG err fatal gpio when
@@ -188,6 +190,8 @@ static long bgpil_tzapp_comm(struct pil_bg_data *pbd,
 		rc, bg_tz_rsp->status);
 	if (rc || bg_tz_rsp->status)
 		pbd->cmd_status = bg_tz_rsp->status;
+	else
+		pbd->cmd_status = 0;
 end:
 	return rc;
 }
@@ -240,6 +244,18 @@ static int bg_powerup(const struct subsys_desc *subsys)
 	pr_debug("bgapp loaded\n");
 	bg_data->desc.fw_name = subsys->fw_name;
 
+	ret = devm_request_irq(bg_data->desc.dev, bg_data->status_irq,
+		bg_status_change,
+		IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+		"bg2ap_status", bg_data);
+	if (ret < 0) {
+		dev_err(bg_data->desc.dev,
+			"%s: BG2AP_STATUS IRQ#%d re registration failed, err=%d",
+			__func__, bg_data->status_irq, ret);
+			return ret;
+	}
+	disable_irq(bg_data->status_irq);
+
 	/* Enable status and err fatal irqs */
 	ret = pil_boot(&bg_data->desc);
 	if (ret) {
@@ -248,7 +264,6 @@ static int bg_powerup(const struct subsys_desc *subsys)
 		return ret;
 	}
 	enable_irq(bg_data->status_irq);
-	enable_irq(bg_data->errfatal_irq);
 	ret = wait_for_err_ready(bg_data);
 	if (ret) {
 		dev_err(bg_data->desc.dev,
@@ -269,11 +284,12 @@ static int bg_powerup(const struct subsys_desc *subsys)
  */
 static int bg_shutdown(const struct subsys_desc *subsys, bool force_stop)
 {
-	/*
-	 * Just return success for time being as this function
-	 * has nothing to do for now. this will act as as placeholder
-	 * for any cleanup work that is required later
-	 */
+	struct pil_bg_data *bg_data = subsys_to_data(subsys);
+
+	disable_irq(bg_data->status_irq);
+	devm_free_irq(bg_data->desc.dev, bg_data->status_irq, bg_data);
+	disable_irq(bg_data->errfatal_irq);
+	bg_data->is_ready = false;
 	return 0;
 }
 
@@ -291,10 +307,21 @@ static int bg_auth_metadata(struct pil_desc *pil,
 {
 	struct pil_bg_data *bg_data = desc_to_data(pil);
 	struct tzapp_bg_req bg_tz_req;
+	void *mdata_buf;
+	dma_addr_t mdata_phys;
 	int ret;
 
+	mdata_buf = dma_alloc_coherent(pil->dev, size,
+			&mdata_phys, GFP_KERNEL);
+	if (!mdata_buf) {
+		pr_err("BG_PIL: Allocation for metadata failed.\n");
+		return -ENOMEM;
+	}
+
+	memcpy(mdata_buf, metadata, size);
+
 	bg_tz_req.tzapp_bg_cmd = BGPIL_AUTH_MDT;
-	bg_tz_req.address_fw = (phys_addr_t)metadata;
+	bg_tz_req.address_fw = (phys_addr_t)mdata_phys;
 	bg_tz_req.size_fw = size;
 
 	ret = bgpil_tzapp_comm(bg_data, &bg_tz_req);
@@ -304,6 +331,7 @@ static int bg_auth_metadata(struct pil_desc *pil,
 				__func__);
 		return bg_data->cmd_status;
 	}
+	dma_free_coherent(pil->dev, size, mdata_buf, mdata_phys);
 	pr_debug("BG MDT Authenticated\n");
 	return 0;
 }
@@ -383,7 +411,7 @@ static int bg_ramdump(int enable, const struct subsys_desc *subsys)
 	dma_set_attr(DMA_ATTR_SKIP_ZEROING, &desc.attrs);
 	dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, &desc.attrs);
 
-	region = dma_alloc_attrs(desc.dev, SZ_1M,
+	region = dma_alloc_attrs(desc.dev, BG_RAMDUMP_SZ,
 				&start_addr, GFP_KERNEL, &desc.attrs);
 
 	if (region == NULL) {
@@ -393,9 +421,13 @@ static int bg_ramdump(int enable, const struct subsys_desc *subsys)
 		return -ENOMEM;
 	}
 
+	ramdump_segments = kcalloc(1, sizeof(*ramdump_segments), GFP_KERNEL);
+	if (!ramdump_segments)
+		return -ENOMEM;
+
 	bg_tz_req.tzapp_bg_cmd = BGPIL_RAMDUMP;
 	bg_tz_req.address_fw = start_addr;
-	bg_tz_req.size_fw = SZ_1M;
+	bg_tz_req.size_fw = BG_RAMDUMP_SZ;
 
 	ret = bgpil_tzapp_comm(bg_data, &bg_tz_req);
 	if (ret || bg_data->cmd_status) {
@@ -405,9 +437,9 @@ static int bg_ramdump(int enable, const struct subsys_desc *subsys)
 	}
 
 	ramdump_segments->address = start_addr;
-	ramdump_segments->size = SZ_1M;
+	ramdump_segments->size = BG_RAMDUMP_SZ;
 
-	ret = do_elf_ramdump(bg_data->ramdump_dev, ramdump_segments, 1);
+	do_ramdump(bg_data->ramdump_dev, ramdump_segments, 1);
 	kfree(ramdump_segments);
 	return 0;
 }
@@ -443,8 +475,9 @@ static irqreturn_t bg_errfatal(int irq, void *dev_id)
 		return IRQ_HANDLED;
 
 	dev_dbg(drvdata->desc.dev, "BG s/w err fatal\n");
+
 	queue_work(drvdata->bg_queue, &drvdata->restart_work);
-	drvdata->is_ready = false;
+
 	return IRQ_HANDLED;
 }
 
@@ -465,8 +498,13 @@ static irqreturn_t bg_status_change(int irq, void *dev_id)
 	} else if (value == false && drvdata->is_ready) {
 		dev_err(drvdata->desc.dev,
 			"BG got unexpected reset: irq state changed 1->0\n");
+			drvdata->is_ready = false;
 		queue_work(drvdata->bg_queue, &drvdata->restart_work);
+	} else {
+		dev_err(drvdata->desc.dev,
+			"BG status irq: unknown status\n");
 	}
+
 	return IRQ_HANDLED;
 }
 
@@ -505,15 +543,7 @@ static int setup_bg_gpio_irq(struct platform_device *pdev,
 			__func__, irq);
 		goto err;
 	}
-	ret = request_irq(irq, bg_status_change,
-		IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
-		"bg2ap_status", drvdata);
-	if (ret < 0) {
-		dev_err(&pdev->dev,
-			"%s: BG2AP_STATUS IRQ#%d request failed, err=%d",
-				__func__, irq, ret);
-		goto err;
-	}
+
 	drvdata->status_irq = irq;
 	/* BG2AP ERR_FATAL irq. */
 	irq = gpio_to_irq(drvdata->gpios[1]);
@@ -530,6 +560,7 @@ static int setup_bg_gpio_irq(struct platform_device *pdev,
 		goto err;
 	}
 	drvdata->errfatal_irq = irq;
+	enable_irq(drvdata->errfatal_irq);
 	/* Configure outgoing GPIO's */
 	if (gpio_request(drvdata->gpios[2], "AP2BG_ERRFATAL")) {
 		dev_err(&pdev->dev,
