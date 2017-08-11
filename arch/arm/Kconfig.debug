@@ -63,6 +63,10 @@ config DEBUG_USER
 	      8 - SIGSEGV faults
 	     16 - SIGBUS faults
 
+config ARCH_SUPPORTS_DEBUG_PAGEALLOC
+	def_bool y
+	depends on FORCE_PAGES
+
 config FORCE_PAGES
 	bool "Force lowmem to be mapped with 4K pages"
         help
