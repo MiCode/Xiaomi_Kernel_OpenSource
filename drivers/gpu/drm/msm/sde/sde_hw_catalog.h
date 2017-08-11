@@ -999,6 +999,7 @@ struct sde_perf_cfg {
  * @cursor_formats     Supported formats for cursor pipe
  * @vig_formats        Supported formats for vig pipe
  * @wb_formats         Supported formats for wb
+ * @virt_vig_formats   Supported formats for virtual vig pipe
  * @vbif_qos_nlvl      number of vbif QoS priority level
  * @ts_prefill_rev     prefill traffic shaper feature revision
  * @macrotile_mode     UBWC parameter for macro tile channel distribution
@@ -1087,6 +1088,7 @@ struct sde_mdss_cfg {
 	struct sde_format_extended *cursor_formats;
 	struct sde_format_extended *vig_formats;
 	struct sde_format_extended *wb_formats;
+	struct sde_format_extended *virt_vig_formats;
 };
 
 struct sde_mdss_hw_cfg_handler {
