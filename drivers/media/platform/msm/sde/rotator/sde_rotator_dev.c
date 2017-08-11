@@ -1685,9 +1685,9 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 			goto error_handle_request;
 		}
 
-		sde_rotator_req_reset_start(req);
+		sde_rotator_req_reset_start(rot_dev->mgr, req);
 
-		sde_rotator_commit_request(rot_dev->mgr, ctx->private, req);
+		sde_rotator_queue_request(rot_dev->mgr, ctx->private, req);
 
 		request->committed = true;
 
@@ -1702,7 +1702,7 @@ int sde_rotator_inline_commit(void *handle, struct sde_rotator_inline_cmd *cmd,
 		}
 
 		request = cmd->priv_handle;
-		sde_rotator_req_set_start(request->req);
+		sde_rotator_req_set_start(rot_dev->mgr, request->req);
 	} else if (cmd_type == SDE_ROTATOR_INLINE_CMD_CLEANUP) {
 		if (!cmd->priv_handle) {
 			ret = -EINVAL;

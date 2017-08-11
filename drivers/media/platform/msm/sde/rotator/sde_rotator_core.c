@@ -914,6 +914,44 @@ static int sde_rotator_is_hw_available(struct sde_rot_mgr *mgr,
 }
 
 /*
+ * sde_rotator_req_wait_for_idle - wait for hw for a request to be idle
+ * @mgr: Pointer to rotator manager
+ * @req: Pointer to rotation request
+ */
+static void sde_rotator_req_wait_for_idle(struct sde_rot_mgr *mgr,
+		struct sde_rot_entry_container *req)
+{
+	struct sde_rot_queue *queue;
+	struct sde_rot_hw_resource *hw;
+	int i, ret;
+
+	if (!mgr || !req) {
+		SDEROT_ERR("invalid params\n");
+		return;
+	}
+
+	for (i = 0; i < req->count; i++) {
+		queue = req->entries[i].commitq;
+		if (!queue || !queue->hw)
+			continue;
+		hw = queue->hw;
+		while (atomic_read(&hw->num_active) > 1) {
+			sde_rot_mgr_unlock(mgr);
+			ret = wait_event_timeout(hw->wait_queue,
+				atomic_read(&hw->num_active) <= 1,
+				msecs_to_jiffies(mgr->hwacquire_timeout));
+			sde_rot_mgr_lock(mgr);
+			if (!ret) {
+				SDEROT_ERR(
+					"timeout waiting for hw idle, a:%d\n",
+					atomic_read(&hw->num_active));
+				return;
+			}
+		}
+	}
+}
+
+/*
  * sde_rotator_get_hw_resource - block waiting for hw availability or timeout
  * @queue: Pointer to rotator queue
  * @entry: Pointer to rotation entry
@@ -1216,6 +1254,11 @@ void sde_rotator_queue_request(struct sde_rot_mgr *mgr,
 
 	if (!mgr || !private || !req) {
 		SDEROT_ERR("null parameters\n");
+		return;
+	}
+
+	if (!req->entries) {
+		SDEROT_DBG("no entries in request\n");
 		return;
 	}
 
@@ -1541,10 +1584,23 @@ static void sde_rotator_commit_handler(struct kthread_work *work)
 		goto error;
 	}
 
+	if (entry->item.ts)
+		entry->item.ts[SDE_ROTATOR_TS_START] = ktime_get();
+
+	ret = sde_rotator_req_wait_start(mgr, request);
+	if (ret) {
+		SDEROT_WARN("timeout waiting for inline start\n");
+		SDEROT_EVTLOG(entry->item.session_id, entry->item.sequence_id,
+				SDE_ROT_EVTLOG_ERROR);
+		goto kickoff_error;
+	}
+
 	ret = mgr->ops_kickoff_entry(hw, entry);
 	if (ret) {
 		SDEROT_ERR("fail to do kickoff %d\n", ret);
-		goto error;
+		SDEROT_EVTLOG(entry->item.session_id, entry->item.sequence_id,
+				SDE_ROT_EVTLOG_ERROR);
+		goto kickoff_error;
 	}
 
 	if (entry->item.ts)
@@ -1555,6 +1611,13 @@ static void sde_rotator_commit_handler(struct kthread_work *work)
 	kthread_queue_work(&entry->doneq->rot_kw, &entry->done_work);
 	sde_rot_mgr_unlock(mgr);
 	return;
+kickoff_error:
+	/*
+	 * Wait for any pending operations to complete before cancelling this
+	 * one so that the system is left in a consistent state.
+	 */
+	sde_rotator_req_wait_for_idle(mgr, request);
+	mgr->ops_cancel_hw(hw, entry);
 error:
 	sde_smmu_ctrl(0);
 smmu_error:
@@ -1607,18 +1670,6 @@ static void sde_rotator_done_handler(struct kthread_work *work)
 		entry->item.dst_rect.w, entry->item.dst_rect.h,
 		entry->item.flags,
 		entry->dnsc_factor_w, entry->dnsc_factor_h);
-
-	ret = wait_for_completion_timeout(
-			&entry->item.inline_start,
-			msecs_to_jiffies(ROT_INLINE_START_TIMEOUT_IN_MS));
-	if (!ret) {
-		SDEROT_WARN("timeout waiting for inline start\n");
-		SDEROT_EVTLOG(entry->item.session_id, entry->item.sequence_id,
-				SDE_ROT_EVTLOG_ERROR);
-	}
-
-	if (entry->item.ts)
-		entry->item.ts[SDE_ROTATOR_TS_START] = ktime_get();
 
 	SDEROT_EVTLOG(entry->item.session_id, 0);
 	ret = mgr->ops_wait_for_entry(hw, entry);
@@ -2155,34 +2206,6 @@ int sde_rotator_validate_request(struct sde_rot_mgr *mgr,
 	return ret;
 }
 
-/*
- * sde_rotator_commit_request - commit the request to hardware
- * @mgr: pointer to rotator manager
- * @private: pointer to per file context
- * @req: pointer to rotation request
- *
- * This differs from sde_rotator_queue_request in that this
- * function will wait until request is committed to hardware.
- */
-void sde_rotator_commit_request(struct sde_rot_mgr *mgr,
-	struct sde_rot_file_private *ctx,
-	struct sde_rot_entry_container *req)
-{
-	int i;
-
-	if (!mgr || !ctx || !req || !req->entries) {
-		SDEROT_ERR("null parameters\n");
-		return;
-	}
-
-	sde_rotator_queue_request(mgr, ctx, req);
-
-	sde_rot_mgr_unlock(mgr);
-	for (i = 0; i < req->count; i++)
-		kthread_flush_work(&req->entries[i].commit_work);
-	sde_rot_mgr_lock(mgr);
-}
-
 static int sde_rotator_open_session(struct sde_rot_mgr *mgr,
 	struct sde_rot_file_private *private, u32 session_id)
 {
@@ -2399,26 +2422,67 @@ struct sde_rot_entry_container *sde_rotator_req_init(
 	return req;
 }
 
-void sde_rotator_req_reset_start(struct sde_rot_entry_container *req)
+void sde_rotator_req_reset_start(struct sde_rot_mgr *mgr,
+		struct sde_rot_entry_container *req)
 {
 	int i;
 
-	if (!req)
+	if (!mgr || !req)
 		return;
 
 	for (i = 0; i < req->count; i++)
 		reinit_completion(&req->entries[i].item.inline_start);
 }
 
-void sde_rotator_req_set_start(struct sde_rot_entry_container *req)
+void sde_rotator_req_set_start(struct sde_rot_mgr *mgr,
+		struct sde_rot_entry_container *req)
 {
+	struct kthread_work *commit_work;
 	int i;
 
-	if (!req)
+	if (!mgr || !req || !req->entries)
 		return;
 
+	/* signal ready to start */
 	for (i = 0; i < req->count; i++)
 		complete_all(&req->entries[i].item.inline_start);
+
+	for (i = 0; i < req->count; i++) {
+		commit_work = &req->entries[i].commit_work;
+
+		SDEROT_EVTLOG(i, req->count);
+
+		sde_rot_mgr_unlock(mgr);
+		kthread_flush_work(commit_work);
+		sde_rot_mgr_lock(mgr);
+	}
+}
+
+int sde_rotator_req_wait_start(struct sde_rot_mgr *mgr,
+		struct sde_rot_entry_container *req)
+{
+	struct completion *inline_start;
+	int i, ret;
+
+	if (!mgr || !req || !req->entries)
+		return -EINVAL;
+
+	/* only wait for sbuf mode */
+	if (!mgr->sbuf_ctx || !req->count ||
+			mgr->sbuf_ctx != req->entries[0].private)
+		return 0;
+
+	for (i = 0; i < req->count; i++) {
+		inline_start = &req->entries[i].item.inline_start;
+
+		sde_rot_mgr_unlock(mgr);
+		ret = wait_for_completion_timeout(inline_start,
+			msecs_to_jiffies(ROT_INLINE_START_TIMEOUT_IN_MS));
+		sde_rot_mgr_lock(mgr);
+	}
+
+	/* wait call returns zero on timeout */
+	return ret ? 0 : -EBUSY;
 }
 
 void sde_rotator_req_finish(struct sde_rot_mgr *mgr,
