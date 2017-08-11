@@ -1840,8 +1840,8 @@ static int sde_plane_rot_submit_command(struct drm_plane *plane,
 	rot_cmd->src_rect_y = rstate->in_rot_rect.y1 >> 16;
 	rot_cmd->src_rect_w = drm_rect_width(&rstate->in_rot_rect) >> 16;
 	rot_cmd->src_rect_h = drm_rect_height(&rstate->in_rot_rect) >> 16;
-	rot_cmd->dst_rect_x = rstate->out_rot_rect.x1 >> 16;
-	rot_cmd->dst_rect_y = rstate->out_rot_rect.y1 >> 16;
+	rot_cmd->dst_rect_x = 0;
+	rot_cmd->dst_rect_y = 0;
 	rot_cmd->dst_rect_w = drm_rect_width(&rstate->out_rot_rect) >> 16;
 	rot_cmd->dst_rect_h = drm_rect_height(&rstate->out_rot_rect) >> 16;
 
