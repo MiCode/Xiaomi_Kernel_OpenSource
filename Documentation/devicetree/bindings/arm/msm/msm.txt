@@ -169,6 +169,9 @@ Generic board variants:
 - RUMI device:
   compatible = "qcom,rumi"
 
+- SVR device:
+  compatible = "qcom,svr"
+
 
 
 Boards (SoC type + board variant):
@@ -202,6 +205,7 @@ compatible = "qcom,apqtitanium-mtp"
 compatible = "qcom,apq8098-cdp"
 compatible = "qcom,apq8098-mtp"
 compatible = "qcom,apq8098-qrd"
+compatible = "qcom,apq8098-svr"
 compatible = "qcom,mdm9630-cdp"
 compatible = "qcom,mdm9630-mtp"
 compatible = "qcom,mdm9630-sim"

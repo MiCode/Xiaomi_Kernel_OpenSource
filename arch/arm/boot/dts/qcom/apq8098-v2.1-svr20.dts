@@ -1,0 +1,22 @@
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "apq8098-v2.1.dtsi"
+#include "msm8998-svr20.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. APQ 8098 V2.1 SVR V2.0 Board";
+	compatible = "qcom,apq8098-svr", "qcom,apq8098", "qcom,svr";
+	qcom,board-id = <0x03020008 3>;
+};
