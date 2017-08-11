@@ -4528,6 +4528,15 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 	mdss_mdp_parse_dt_fudge_factors(pdev, "qcom,mdss-clk-factor",
 		&mdata->clk_factor);
 
+	/*
+	 * Bus throughput factor will be used during high downscale cases.
+	 * The recommended default factor is 1.1.
+	 */
+	mdata->bus_throughput_factor.numer = 11;
+	mdata->bus_throughput_factor.denom = 10;
+	mdss_mdp_parse_dt_fudge_factors(pdev, "qcom,mdss-bus-througput-factor",
+		&mdata->bus_throughput_factor);
+
 	rc = of_property_read_u32(pdev->dev.of_node,
 			"qcom,max-bandwidth-low-kbps", &mdata->max_bw_low);
 	if (rc)

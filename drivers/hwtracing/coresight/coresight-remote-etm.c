@@ -186,12 +186,9 @@ static void remote_etm_rcv_msg(struct work_struct *work)
 	struct remote_etm_drvdata *drvdata = container_of(work,
 						struct remote_etm_drvdata,
 						work_rcv_msg);
-	mutex_lock(&drvdata->mutex);
 	if (qmi_recv_msg(drvdata->handle) < 0)
 		dev_err(drvdata->dev, "%s: Error receiving QMI message\n",
 			__func__);
-
-	mutex_unlock(&drvdata->mutex);
 }
 
 static void remote_etm_notify(struct qmi_handle *handle,
