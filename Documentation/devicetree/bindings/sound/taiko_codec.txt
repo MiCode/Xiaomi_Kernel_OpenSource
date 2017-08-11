@@ -140,6 +140,10 @@ Optional properties:
 			 and micbias4 is directly controlled with a register
 			 write.
 
+ - qcom,cdc-mic-unmute-delay: based on dmic characteristics the initial pop
+			      time that is observed in TX path is varying.
+			      Configure PGA unmute delay based on DT value.
+
  - clock-names : clock name defined for external clock.
  - clocks : external clock defined for codec clock.
 
