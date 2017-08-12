@@ -105,7 +105,7 @@ enum sram_access_flags {
 };
 
 /* JEITA */
-enum {
+enum jeita_levels {
 	JEITA_COLD = 0,
 	JEITA_COOL,
 	JEITA_WARM,
