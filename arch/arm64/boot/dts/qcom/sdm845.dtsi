@@ -1337,8 +1337,6 @@
 			<1000 1000 1000>;
 		qcom,down-timer =
 			<100000 100000 100000>;
-		qcom,pc-override-index =
-			<0 0 0>;
 		qcom,set-ret-inactive;
 		qcom,enable-llm-freq-vote;
 		qcom,llm-freq-up-timer =
