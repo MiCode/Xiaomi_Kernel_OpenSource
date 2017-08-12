@@ -775,9 +775,6 @@ static int ath10k_snoc_hif_map_service_to_pipe(struct ath10k *ar,
 		}
 	}
 
-	if (WARN_ON(!ul_set || !dl_set))
-		return -ENOENT;
-
 	return 0;
 }
 
