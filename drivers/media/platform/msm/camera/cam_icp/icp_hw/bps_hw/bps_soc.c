@@ -132,3 +132,13 @@ rgltr_set_mode_failed:
 
 	return rc;
 }
+
+int cam_bps_update_clk_rate(struct cam_hw_soc_info *soc_info,
+	uint32_t clk_rate)
+{
+	if (!soc_info)
+		return -EINVAL;
+
+	return cam_soc_util_set_clk_rate(soc_info->clk[soc_info->src_clk_idx],
+		soc_info->clk_name[soc_info->src_clk_idx], clk_rate);
+}

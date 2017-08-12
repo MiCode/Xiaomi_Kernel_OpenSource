@@ -73,8 +73,8 @@ int cam_ipe_init_hw(void *device_priv,
 
 	cpas_vote.ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	cpas_vote.ahb_vote.vote.level = CAM_SVS_VOTE;
-	cpas_vote.axi_vote.compressed_bw = ICP_TURBO_VOTE;
-	cpas_vote.axi_vote.uncompressed_bw = ICP_TURBO_VOTE;
+	cpas_vote.axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+	cpas_vote.axi_vote.uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
 
 	rc = cam_cpas_start(core_info->cpas_handle,
 		&cpas_vote.ahb_vote, &cpas_vote.axi_vote);
@@ -262,6 +262,13 @@ int cam_ipe_process_cmd(void *device_priv, uint32_t cmd_type,
 		break;
 	case CAM_ICP_IPE_CMD_POWER_RESUME:
 		rc = cam_ipe_handle_resume(ipe_dev);
+		break;
+	case CAM_ICP_IPE_CMD_UPDATE_CLK: {
+		uint32_t clk_rate = *(uint32_t *)cmd_args;
+
+		CAM_DBG(CAM_ICP, "ipe_src_clk rate = %d", (int)clk_rate);
+		rc = cam_ipe_update_clk_rate(soc_info, clk_rate);
+		}
 		break;
 	default:
 		break;
