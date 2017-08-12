@@ -130,6 +130,7 @@
 #define LPASS_BE_QUAT_TDM_TX_6 "QUAT_TDM_TX_6"
 #define LPASS_BE_QUAT_TDM_RX_7 "QUAT_TDM_RX_7"
 #define LPASS_BE_QUAT_TDM_TX_7 "QUAT_TDM_TX_7"
+#define LPASS_BE_AFE_LOOPBACK_TX "AFE_LOOPBACK_TX"
 
 /* For multimedia front-ends, asm session is allocated dynamically.
  * Hence, asm session/multimedia front-end mapping has to be maintained.
@@ -303,6 +304,7 @@ enum {
 	MSM_BACKEND_DAI_QUAT_TDM_TX_7,
 	MSM_BACKEND_DAI_INT_BT_A2DP_RX,
 	MSM_BACKEND_DAI_SLIMBUS_2_TX,
+	MSM_BACKEND_DAI_AFE_LOOPBACK_TX,
 	MSM_BACKEND_DAI_MAX,
 };
 
