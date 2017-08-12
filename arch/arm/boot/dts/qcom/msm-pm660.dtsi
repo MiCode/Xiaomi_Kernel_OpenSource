@@ -573,6 +573,18 @@
 			reg = <0x7300 0x100>;
 			status = "disabled";
 		};
+
+		bcl@4200 {
+			compatible = "qcom,msm-bcl-lmh";
+			reg = <0x4200 0xff>;
+			reg-names = "fg_user_adc";
+			interrupts = <0x0 0x42 0x0>,
+					<0x0 0x42 0x2>;
+			interrupt-names = "bcl-high-ibat-int",
+					"bcl-low-vbat-int";
+			qcom,vbat-polling-delay-ms = <100>;
+			qcom,ibat-polling-delay-ms = <100>;
+		};
 	};
 
 	qcom,pm660@1 {
