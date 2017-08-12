@@ -411,7 +411,17 @@
 
 		qcom,dp-usbpd-detection = <&pmi8998_pdphy>;
 
-		qcom,aux-cfg-settings = [00 13 04 00 0a 26 0a 03 bb 03];
+		qcom,aux-cfg0-settings = [20 00];
+		qcom,aux-cfg1-settings = [24 13 23 1d];
+		qcom,aux-cfg2-settings = [28 24];
+		qcom,aux-cfg3-settings = [2c 00];
+		qcom,aux-cfg4-settings = [30 0a];
+		qcom,aux-cfg5-settings = [34 26];
+		qcom,aux-cfg6-settings = [38 0a];
+		qcom,aux-cfg7-settings = [3c 03];
+		qcom,aux-cfg8-settings = [40 bb];
+		qcom,aux-cfg9-settings = [44 03];
+
 		qcom,max-pclk-frequency-khz = <576000>;
 
 		qcom,core-supply-entries {

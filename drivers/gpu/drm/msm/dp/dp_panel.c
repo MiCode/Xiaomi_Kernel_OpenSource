@@ -28,6 +28,7 @@ struct dp_panel_private {
 	struct dp_aux *aux;
 	struct dp_catalog_panel *catalog;
 	bool lane_switch_supported;
+	bool aux_cfg_update_done;
 };
 
 static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
@@ -78,6 +79,71 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 
 end:
 	return rc;
+}
+
+
+static int dp_panel_read_edid(struct dp_panel *dp_panel,
+	struct drm_connector *connector)
+{
+	int retry_cnt = 0;
+	const int max_retry = 10;
+	struct dp_panel_private *panel;
+
+	if (!dp_panel) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+
+	do {
+		sde_get_edid(connector, &panel->aux->drm_aux->ddc,
+			(void **)&dp_panel->edid_ctrl);
+		if (!dp_panel->edid_ctrl->edid) {
+			pr_err("EDID read failed\n");
+			retry_cnt++;
+			panel->aux->reconfig(panel->aux);
+			panel->aux_cfg_update_done = true;
+		} else {
+			return 0;
+		}
+	} while (retry_cnt < max_retry);
+
+	return -EINVAL;
+}
+
+static int dp_panel_read_sink_caps(struct dp_panel *dp_panel,
+	struct drm_connector *connector)
+{
+	int rc = 0;
+	struct dp_panel_private *panel;
+
+	if (!dp_panel || !connector) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	panel = container_of(dp_panel, struct dp_panel_private, dp_panel);
+
+	rc = dp_panel_read_dpcd(dp_panel);
+	if (rc) {
+		pr_err("panel dpcd read failed\n");
+		return rc;
+	}
+
+	rc = dp_panel_read_edid(dp_panel, connector);
+	if (rc) {
+		pr_err("panel edid read failed\n");
+		return rc;
+	}
+
+	if (panel->aux_cfg_update_done) {
+		pr_debug("read DPCD with updated AUX config\n");
+		dp_panel_read_dpcd(dp_panel);
+		panel->aux_cfg_update_done = false;
+	}
+
+	return 0;
 }
 
 static u32 dp_panel_get_max_pclk(struct dp_panel *dp_panel)
@@ -290,12 +356,13 @@ struct dp_panel *dp_panel_get(struct device *dev, struct dp_aux *aux,
 	panel->catalog = catalog;
 
 	dp_panel = &panel->dp_panel;
+	panel->aux_cfg_update_done = false;
 
 	dp_panel->sde_edid_register = dp_panel_edid_register;
 	dp_panel->sde_edid_deregister = dp_panel_edid_deregister;
 	dp_panel->init_info = dp_panel_init_panel_info;
 	dp_panel->timing_cfg = dp_panel_timing_cfg;
-	dp_panel->read_dpcd = dp_panel_read_dpcd;
+	dp_panel->read_sink_caps = dp_panel_read_sink_caps;
 	dp_panel->get_min_req_link_rate = dp_panel_get_min_req_link_rate;
 	dp_panel->get_max_pclk = dp_panel_get_max_pclk;
 

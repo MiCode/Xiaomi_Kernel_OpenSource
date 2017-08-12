@@ -502,12 +502,9 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 	int rc = 0;
 	u32 max_pclk_from_edid = 0;
 
-	rc = dp->panel->read_dpcd(dp->panel);
+	rc = dp->panel->read_sink_caps(dp->panel, dp->dp_display.connector);
 	if (rc)
 		return rc;
-
-	sde_get_edid(dp->dp_display.connector, &dp->aux->drm_aux->ddc,
-		(void **)&dp->panel->edid_ctrl);
 
 	max_pclk_from_edid = dp->panel->get_max_pclk(dp->panel);
 
@@ -729,7 +726,7 @@ static int dp_init_sub_modules(struct dp_display_private *dp)
 		goto err;
 	}
 
-	dp->aux = dp_aux_get(dev, &dp->catalog->aux);
+	dp->aux = dp_aux_get(dev, &dp->catalog->aux, dp->parser->aux_cfg);
 	if (IS_ERR(dp->aux)) {
 		rc = PTR_ERR(dp->aux);
 		pr_err("failed to initialize aux, rc = %d\n", rc);
