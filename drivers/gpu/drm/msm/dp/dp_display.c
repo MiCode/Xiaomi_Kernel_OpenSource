@@ -602,6 +602,20 @@ end:
 	return rc;
 }
 
+static void dp_display_clean(struct dp_display_private *dp)
+{
+	if (dp_display_is_hdcp_enabled(dp)) {
+		dp->hdcp_status = HDCP_STATE_INACTIVE;
+
+		cancel_delayed_work_sync(&dp->hdcp_cb_work);
+		if (dp->hdcp.ops->off)
+			dp->hdcp.ops->off(dp->hdcp.data);
+	}
+
+	dp->ctrl->push_idle(dp->ctrl);
+	dp->ctrl->off(dp->ctrl, false);
+}
+
 static int dp_display_usbpd_disconnect_cb(struct device *dev)
 {
 	int rc = 0;
@@ -627,20 +641,14 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 	drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
 
 	reinit_completion(&dp->notification_comp);
-	if (!wait_for_completion_timeout(&dp->notification_comp, HZ * 2))
+	if (!wait_for_completion_timeout(&dp->notification_comp, HZ * 2)) {
 		pr_warn("timeout\n");
 
-	/*
-	 * If a cable/dongle is connected to the TX device but
-	 * no sink device is connected, we call host
-	 * initialization where orientation settings are
-	 * configured. When the cable/dongle is disconnect,
-	 * call host de-initialization to make sure
-	 * we re-configure the orientation settings during
-	 * the next connect event.
-	 */
-	if (!dp->power_on && dp->core_initialized)
-		dp_display_host_deinit(dp);
+		if (dp->power_on)
+			dp_display_clean(dp);
+	}
+
+	dp_display_host_deinit(dp);
 end:
 	return rc;
 }
@@ -680,10 +688,8 @@ static int dp_display_usbpd_attention_cb(struct device *dev)
 		goto end;
 	}
 
-	if (dp->usbpd->alt_mode_cfg_done) {
-		dp_display_host_init(dp);
+	if (dp->usbpd->alt_mode_cfg_done)
 		dp_display_process_hpd_high(dp);
-	}
 end:
 	return rc;
 }
@@ -878,8 +884,10 @@ static int dp_display_disable(struct dp_display *dp_display)
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
+	if (!dp->power_on || !dp->core_initialized)
+		goto error;
+
 	dp->ctrl->off(dp->ctrl, dp->hpd_irq_on);
-	dp_display_host_deinit(dp);
 
 	dp->power_on = false;
 
