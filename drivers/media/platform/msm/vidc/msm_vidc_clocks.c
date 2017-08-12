@@ -190,7 +190,7 @@ int msm_comm_vote_bus(struct msm_vidc_core *core)
 				&inst->registeredbufs.list, list) {
 			if (temp->vvb.vb2_buf.type ==
 				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
-					temp->deferred) {
+					temp->flags & MSM_VIDC_FLAG_DEFERRED) {
 				filled_len = max(filled_len,
 					temp->vvb.vb2_buf.planes[0].bytesused);
 				device_addr = temp->smem[0].device_addr;
@@ -676,7 +676,7 @@ int msm_comm_scale_clocks(struct msm_vidc_inst *inst)
 	list_for_each_entry_safe(temp, next, &inst->registeredbufs.list, list) {
 		if (temp->vvb.vb2_buf.type ==
 				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
-					temp->deferred) {
+					temp->flags & MSM_VIDC_FLAG_DEFERRED) {
 			filled_len = max(filled_len,
 				temp->vvb.vb2_buf.planes[0].bytesused);
 			device_addr = temp->smem[0].device_addr;
