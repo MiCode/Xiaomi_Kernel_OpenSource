@@ -37,6 +37,7 @@
 #define SDE_PIX_FMT_RGBA_1010102_TILE	v4l2_fourcc('Q', 'T', '1', '0')
 #define SDE_PIX_FMT_RGBX_1010102_TILE	v4l2_fourcc('Q', 'T', '1', '1')
 #define SDE_PIX_FMT_Y_CBCR_H2V2_P010_TILE	v4l2_fourcc('Q', 'T', '1', '2')
+#define SDE_PIX_FMT_RGB_565_TILE	v4l2_fourcc('Q', 'T', '1', '3')
 
 #define SDE_ROT_MAX_PLANES		4
 

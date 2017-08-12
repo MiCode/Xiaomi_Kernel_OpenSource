@@ -850,6 +850,11 @@ int sde_rot_get_base_tilea5x_pixfmt(u32 src_pixfmt, u32 *dst_pixfmt)
 	case SDE_PIX_FMT_Y_CRCB_H2V2_TILE:
 		*dst_pixfmt = SDE_PIX_FMT_Y_CRCB_H2V2_TILE;
 		break;
+	case V4L2_PIX_FMT_RGB565:
+	case SDE_PIX_FMT_RGB_565_UBWC:
+	case SDE_PIX_FMT_RGB_565_TILE:
+		*dst_pixfmt = SDE_PIX_FMT_RGB_565_TILE;
+		break;
 	case SDE_PIX_FMT_RGBA_8888:
 	case SDE_PIX_FMT_RGBA_8888_UBWC:
 	case SDE_PIX_FMT_RGBA_8888_TILE:

@@ -501,9 +501,10 @@ static ssize_t sde_rotator_hw_show_state(struct sde_rot_mgr *mgr,
  * @mgr: Pointer to rotator manager
  * @index: index of pixel format
  * @input: true for input port; false for output port
+ * @mode: operating mode
  */
 static u32 sde_hw_rotator_get_pixfmt(struct sde_rot_mgr *mgr,
-		int index, bool input)
+		int index, bool input, u32 mode)
 {
 	if (input) {
 		if (index < ARRAY_SIZE(sde_hw_rotator_input_pixfmts))
@@ -523,9 +524,10 @@ static u32 sde_hw_rotator_get_pixfmt(struct sde_rot_mgr *mgr,
  * @mgr: Pointer to rotator manager
  * @pixfmt: pixel format to be verified
  * @input: true for input port; false for output port
+ * @mode: operating mode
  */
 static int sde_hw_rotator_is_valid_pixfmt(struct sde_rot_mgr *mgr, u32 pixfmt,
-		bool input)
+		bool input, u32 mode)
 {
 	int i;
 
