@@ -64,6 +64,12 @@ Required properties:
 - qcom,mdss-dsi-post-panel-on-command:	same as "qcom,mdss-dsi-on-command" except commands are
 					sent after displaying an image.
 
+- qcom,mdss-dsi-idle-on-command:	same as "qcom,mdss-dsi-on-command". Set of DCS command
+					used for idle mode entry.
+
+- qcom,mdss-dsi-idle-off-command:	same as "qcom,mdss-dsi-on-command". Set of DCS command
+					used for idle mode exit.
+
 Note, if a short DCS packet(i.e packet with Byte 0:dcs data type as 05) mentioned in
 qcom,mdss-dsi-on-command/qcom,mdss-dsi-off-command stream fails to transmit,
 then 3 options can be tried.
