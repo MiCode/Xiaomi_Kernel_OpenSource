@@ -41,6 +41,8 @@
 #include "msm-qti-pp-config.h"
 
 #define LOOPBACK_SESSION_MAX_NUM_STREAMS 2
+/* Max volume corresponding to 24dB */
+#define TRANSCODE_LR_VOL_MAX_STEPS 0xFFFF
 
 #define APP_TYPE_CONFIG_IDX_APP_TYPE 0
 #define APP_TYPE_CONFIG_IDX_ACDB_ID 1
@@ -52,6 +54,7 @@ static DEFINE_MUTEX(transcode_loopback_session_lock);
 struct trans_loopback_pdata {
 	struct snd_compr_stream *cstream[MSM_FRONTEND_DAI_MAX];
 	int32_t ion_fd[MSM_FRONTEND_DAI_MAX];
+	uint32_t master_gain;
 };
 
 struct loopback_stream {
@@ -813,6 +816,80 @@ done:
 	return ret;
 }
 
+static int msm_transcode_set_volume(struct snd_compr_stream *cstream,
+				uint32_t master_gain)
+{
+	int rc = 0;
+	struct msm_transcode_loopback *prtd;
+	struct snd_soc_pcm_runtime *rtd;
+
+	pr_debug("%s: master_gain %d\n", __func__, master_gain);
+	if (!cstream || !cstream->runtime) {
+		pr_err("%s: session not active\n", __func__);
+		return -EPERM;
+	}
+	rtd = cstream->private_data;
+	prtd = cstream->runtime->private_data;
+
+	if (!rtd || !rtd->platform || !prtd || !prtd->audio_client) {
+		pr_err("%s: invalid rtd, prtd or audio client", __func__);
+		return -EINVAL;
+	}
+
+	rc = q6asm_set_volume(prtd->audio_client, master_gain);
+	if (rc < 0)
+		pr_err("%s: Send vol gain command failed rc=%d\n",
+		       __func__, rc);
+
+	return rc;
+}
+
+static int msm_transcode_volume_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	unsigned long fe_id = kcontrol->private_value;
+	struct trans_loopback_pdata *pdata = (struct trans_loopback_pdata *)
+			snd_soc_component_get_drvdata(comp);
+	struct snd_compr_stream *cstream = NULL;
+	uint32_t ret = 0;
+
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s Received out of bounds fe_id %lu\n",
+			__func__, fe_id);
+		return -EINVAL;
+	}
+
+	cstream = pdata->cstream[fe_id];
+	pdata->master_gain = ucontrol->value.integer.value[0];
+
+	pr_debug("%s: fe_id %lu master_gain %d\n",
+		 __func__, fe_id, pdata->master_gain);
+	if (cstream)
+		ret = msm_transcode_set_volume(cstream, pdata->master_gain);
+	return ret;
+}
+
+static int msm_transcode_volume_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *comp = snd_kcontrol_chip(kcontrol);
+	unsigned long fe_id = kcontrol->private_value;
+
+	struct trans_loopback_pdata *pdata = (struct trans_loopback_pdata *)
+			snd_soc_component_get_drvdata(comp);
+
+	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
+		pr_err("%s Received out of bound fe_id %lu\n", __func__, fe_id);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: fe_id %lu\n", __func__, fe_id);
+	ucontrol->value.integer.value[0] = pdata->master_gain;
+
+	return 0;
+}
+
 static int msm_transcode_stream_cmd_control(
 			struct snd_soc_pcm_runtime *rtd)
 {
@@ -1089,6 +1166,7 @@ static int msm_transcode_add_app_type_cfg_control(
 
 	if (!rtd) {
 		pr_err("%s NULL rtd\n", __func__);
+
 		return -EINVAL;
 	}
 
@@ -1113,6 +1191,44 @@ static int msm_transcode_add_app_type_cfg_control(
 	}
 
 	return rc;
+}
+static int msm_transcode_volume_info(struct snd_kcontrol *kcontrol,
+				 struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
+	uinfo->count = 1;
+	uinfo->value.integer.min = 0;
+	uinfo->value.integer.max = TRANSCODE_LR_VOL_MAX_STEPS;
+	return 0;
+}
+
+static int msm_transcode_add_volume_control(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_kcontrol_new fe_volume_control[1] = {
+		{
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name = "Transcode Loopback Rx Volume",
+		.access = SNDRV_CTL_ELEM_ACCESS_TLV_READ |
+			  SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.info = msm_transcode_volume_info,
+		.get = msm_transcode_volume_get,
+		.put = msm_transcode_volume_put,
+		.private_value = 0,
+		}
+	};
+
+	if (!rtd) {
+		pr_err("%s NULL rtd\n", __func__);
+		return -EINVAL;
+	}
+	if (rtd->compr->direction == SND_COMPRESS_PLAYBACK) {
+		fe_volume_control[0].private_value = rtd->dai_link->be_id;
+		pr_debug("Registering new mixer ctl %s",
+			     fe_volume_control[0].name);
+		snd_soc_add_platform_controls(rtd->platform, fe_volume_control,
+						ARRAY_SIZE(fe_volume_control));
+	}
+	return 0;
 }
 
 static int msm_transcode_loopback_new(struct snd_soc_pcm_runtime *rtd)
@@ -1146,6 +1262,11 @@ static int msm_transcode_loopback_new(struct snd_soc_pcm_runtime *rtd)
 	rc = msm_transcode_add_app_type_cfg_control(rtd);
 	if (rc)
 		pr_err("%s: Could not add Compr App Type Cfg Control\n",
+			__func__);
+
+	rc = msm_transcode_add_volume_control(rtd);
+	if (rc)
+		pr_err("%s: Could not add transcode volume Control\n",
 			__func__);
 
 	return 0;
