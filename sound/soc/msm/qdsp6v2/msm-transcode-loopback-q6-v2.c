@@ -28,6 +28,7 @@
 #include <sound/control.h>
 #include <sound/q6asm-v2.h>
 #include <sound/q6core.h>
+#include <sound/q6audio-v2.h>
 #include <sound/pcm_params.h>
 #include <sound/timer.h>
 #include <sound/tlv.h>
@@ -55,6 +56,7 @@ struct trans_loopback_pdata {
 	struct snd_compr_stream *cstream[MSM_FRONTEND_DAI_MAX];
 	int32_t ion_fd[MSM_FRONTEND_DAI_MAX];
 	uint32_t master_gain;
+	int perf_mode;
 };
 
 struct loopback_stream {
@@ -406,6 +408,8 @@ static int msm_transcode_loopback_set_params(struct snd_compr_stream *cstream,
 	struct msm_transcode_loopback *trans = runtime->private_data;
 	struct snd_soc_pcm_runtime *soc_pcm_rx;
 	struct snd_soc_pcm_runtime *soc_pcm_tx;
+	struct snd_soc_pcm_runtime *rtd;
+	struct trans_loopback_pdata *pdata;
 	uint32_t bit_width = 16;
 	int ret = 0;
 
@@ -415,6 +419,9 @@ static int msm_transcode_loopback_set_params(struct snd_compr_stream *cstream,
 	}
 
 	mutex_lock(&trans->lock);
+
+	rtd = snd_pcm_substream_chip(cstream);
+	pdata = snd_soc_platform_get_drvdata(rtd->platform);
 
 	if (cstream->direction == SND_COMPRESS_PLAYBACK) {
 		if (codec_param->codec.id == SND_AUDIOCODEC_PCM) {
@@ -497,7 +504,7 @@ static int msm_transcode_loopback_set_params(struct snd_compr_stream *cstream,
 		pr_debug("%s: ASM client allocated, callback %pK\n", __func__,
 						loopback_event_handler);
 		trans->session_id = trans->audio_client->session;
-		trans->audio_client->perf_mode = false;
+		trans->audio_client->perf_mode = pdata->perf_mode;
 		ret = q6asm_open_transcode_loopback(trans->audio_client,
 					bit_width,
 					trans->source.codec_format,
@@ -516,7 +523,7 @@ static int msm_transcode_loopback_set_params(struct snd_compr_stream *cstream,
 		if (trans->source.codec_format != FORMAT_LINEAR_PCM)
 			msm_pcm_routing_reg_phy_compr_stream(
 					soc_pcm_tx->dai_link->be_id,
-					trans->audio_client->perf_mode,
+					false,
 					trans->session_id,
 					SNDRV_PCM_STREAM_CAPTURE,
 					COMPRESSED_PASSTHROUGH_GEN);
@@ -529,7 +536,7 @@ static int msm_transcode_loopback_set_params(struct snd_compr_stream *cstream,
 		/* Opening Rx ADM in LOW_LATENCY mode by default */
 		msm_pcm_routing_reg_phy_stream(
 					soc_pcm_rx->dai_link->be_id,
-					true,
+					trans->audio_client->perf_mode,
 					trans->session_id,
 					SNDRV_PCM_STREAM_PLAYBACK);
 		pr_debug("%s: Successfully opened ADM sessions\n", __func__);
@@ -559,6 +566,46 @@ static int msm_transcode_loopback_get_caps(struct snd_compr_stream *cstream,
 	else
 		memcpy(arg, &trans->sink_compr_cap,
 		       sizeof(struct snd_compr_caps));
+	return 0;
+}
+
+static int msm_transcode_loopback_set_metadata(struct snd_compr_stream *cstream,
+				struct snd_compr_metadata *metadata)
+{
+	struct snd_soc_pcm_runtime *rtd;
+	struct trans_loopback_pdata *pdata;
+
+	if (!metadata || !cstream) {
+		pr_err("%s: Invalid arguments\n", __func__);
+		return -EINVAL;
+	}
+
+	rtd = snd_pcm_substream_chip(cstream);
+	pdata = snd_soc_platform_get_drvdata(rtd->platform);
+
+	switch (metadata->key) {
+	case SNDRV_COMPRESS_LATENCY_MODE:
+	{
+		switch (metadata->value[0]) {
+		case SNDRV_COMPRESS_LEGACY_LATENCY_MODE:
+			pdata->perf_mode = LEGACY_PCM_MODE;
+			break;
+		case SNDRV_COMPRESS_LOW_LATENCY_MODE:
+			pdata->perf_mode = LOW_LATENCY_PCM_MODE;
+			break;
+		default:
+			pr_debug("%s: Unsupported latency mode %d, default to Legacy\n",
+					__func__, metadata->value[0]);
+			pdata->perf_mode = LEGACY_PCM_MODE;
+			break;
+		}
+	}
+		break;
+	default:
+		pr_debug("%s: Unsupported metadata %d\n",
+				__func__, metadata->key);
+		break;
+	}
 	return 0;
 }
 
@@ -1278,6 +1325,7 @@ static struct snd_compr_ops msm_transcode_loopback_ops = {
 	.trigger		= msm_transcode_loopback_trigger,
 	.set_params		= msm_transcode_loopback_set_params,
 	.get_caps		= msm_transcode_loopback_get_caps,
+	.set_metadata		= msm_transcode_loopback_set_metadata,
 };
 
 
@@ -1292,6 +1340,7 @@ static int msm_transcode_loopback_probe(struct snd_soc_platform *platform)
 	if (!pdata)
 		return -ENOMEM;
 
+	pdata->perf_mode = LOW_LATENCY_PCM_MODE;
 	snd_soc_platform_set_drvdata(platform, pdata);
 	return 0;
 }
