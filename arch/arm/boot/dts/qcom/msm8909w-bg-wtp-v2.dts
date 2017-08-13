@@ -139,6 +139,16 @@
 			qcom,irq-gpio = <&msm_gpio 110 1>;
 		};
 	};
+
+	qcom,msm-thermal {
+		vdd-dig-supply = <&pm660_s2_floor_corner>;
+
+		msm_thermal_freq: qcom,vdd-apps-rstr {
+			qcom,vdd-rstr-reg = "vdd-apps";
+			qcom,levels = <1094400>;
+			qcom,freq-req;
+		};
+	};
 };
 
 &i2c_1 {
