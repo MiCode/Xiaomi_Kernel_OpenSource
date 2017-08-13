@@ -941,6 +941,7 @@
 
 /* GPUCC registers */
 #define A6XX_GPU_CC_GX_GDSCR                   0x24403
+#define A6XX_GPU_CC_GX_DOMAIN_MISC		0x24542
 
 /* GPU RSC sequencer registers */
 #define	A6XX_RSCC_PDC_SEQ_START_ADDR			0x23408

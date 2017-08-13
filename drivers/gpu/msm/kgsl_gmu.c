@@ -1344,6 +1344,36 @@ static int gmu_suspend(struct kgsl_device *device)
 	return 0;
 }
 
+static void gmu_snapshot(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct gmu_device *gmu = &device->gmu;
+
+	if (!test_and_set_bit(GMU_FAULT, &gmu->flags)) {
+		/* Mask so there's no interrupt caused by NMI */
+		adreno_write_gmureg(adreno_dev,
+				ADRENO_REG_GMU_GMU2HOST_INTR_MASK, 0xFFFFFFFF);
+
+		/* Make sure the interrupt is masked before causing it */
+		wmb();
+		adreno_write_gmureg(adreno_dev,
+			ADRENO_REG_GMU_NMI_CONTROL_STATUS, 0);
+		adreno_write_gmureg(adreno_dev,
+			ADRENO_REG_GMU_CM3_CFG, (1 << 9));
+
+		/* Wait for the NMI to be handled */
+		wmb();
+		udelay(100);
+		kgsl_device_snapshot(device, NULL);
+
+		adreno_write_gmureg(adreno_dev,
+				ADRENO_REG_GMU_GMU2HOST_INTR_CLR, 0xFFFFFFFF);
+		adreno_write_gmureg(adreno_dev,
+				ADRENO_REG_GMU_GMU2HOST_INTR_MASK,
+				(unsigned int) ~HFI_IRQ_MASK);
+	}
+}
+
 /* To be called to power on both GPU and GMU */
 int gmu_start(struct kgsl_device *device)
 {
@@ -1449,11 +1479,6 @@ int gmu_start(struct kgsl_device *device)
 		break;
 	}
 
-	/*
-	 * OOB to enable power management of GMU.
-	 * In v2, this function call shall move ahead
-	 * of hfi_start() to save power.
-	 */
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
 		gpudev->oob_clear(adreno_dev,
 				OOB_BOOT_SLUMBER_CLEAR_MASK);
@@ -1461,15 +1486,17 @@ int gmu_start(struct kgsl_device *device)
 	return ret;
 
 error_gpu:
+	gmu_snapshot(device);
 	hfi_stop(gmu);
 	gmu_irq_disable(device);
-		if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
-			gpudev->oob_clear(adreno_dev,
-					OOB_BOOT_SLUMBER_CLEAR_MASK);
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_HFI_USE_REG))
+		gpudev->oob_clear(adreno_dev,
+				OOB_BOOT_SLUMBER_CLEAR_MASK);
 	gpudev->rpmh_gpu_pwrctrl(adreno_dev, GMU_FW_STOP, 0, 0);
 error_bus:
-		msm_bus_scale_client_update_request(gmu->pcl, 0);
+	msm_bus_scale_client_update_request(gmu->pcl, 0);
 error_clks:
+	gmu_snapshot(device);
 	gmu_disable_clks(gmu);
 	gmu_disable_gdsc(gmu);
 	return ret;
