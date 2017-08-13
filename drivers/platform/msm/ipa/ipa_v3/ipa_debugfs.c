@@ -505,6 +505,12 @@ static int ipa3_attrib_dump(struct ipa_rule_attrib *attrib,
 	if (attrib->attrib_mask & IPA_FLT_MAC_ETHER_TYPE)
 		pr_err("ether_type:%x ", attrib->ether_type);
 
+	if (attrib->attrib_mask & IPA_FLT_TCP_SYN)
+		pr_err("tcp syn ");
+
+	if (attrib->attrib_mask & IPA_FLT_TCP_SYN_L2TP)
+		pr_err("tcp syn l2tp ");
+
 	pr_err("\n");
 	return 0;
 }

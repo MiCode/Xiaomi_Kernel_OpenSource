@@ -98,6 +98,7 @@
 #define QSEECOM_STATE_NOT_READY         0
 #define QSEECOM_STATE_SUSPEND           1
 #define QSEECOM_STATE_READY             2
+#define QSEECOM_ICE_FDE_KEY_SIZE_MASK   2
 
 /*
  * default ce info unit to 0 for
@@ -111,6 +112,12 @@
 enum qseecom_clk_definitions {
 	CLK_DFAB = 0,
 	CLK_SFPB,
+};
+
+enum qseecom_ice_key_size_type {
+	QSEECOM_ICE_FDE_KEY_SIZE_16_BYTE = (0 << QSEECOM_ICE_FDE_KEY_SIZE_MASK),
+	QSEECOM_ICE_FDE_KEY_SIZE_32_BYTE = (1 << QSEECOM_ICE_FDE_KEY_SIZE_MASK),
+	QSEECOM_ICE_FDE_KEY_SIZE_UNDEF = (0xF << QSEECOM_ICE_FDE_KEY_SIZE_MASK),
 };
 
 enum qseecom_client_handle_type {
@@ -255,6 +262,7 @@ struct qseecom_control {
 	bool support_bus_scaling;
 	bool support_fde;
 	bool support_pfe;
+	bool fde_key_size;
 	uint32_t  cumulative_mode;
 	enum qseecom_bandwidth_request_mode  current_mode;
 	struct timer_list bw_scale_down_timer;
@@ -5766,6 +5774,11 @@ static int qseecom_create_key(struct qseecom_dev_handle *data,
 		goto free_buf;
 	}
 
+	if (qseecom.fde_key_size)
+		flags |= QSEECOM_ICE_FDE_KEY_SIZE_32_BYTE;
+	else
+		flags |= QSEECOM_ICE_FDE_KEY_SIZE_16_BYTE;
+
 	generate_key_ireq.flags = flags;
 	generate_key_ireq.qsee_command_id = QSEOS_GENERATE_KEY;
 	memset((void *)generate_key_ireq.key_id,
@@ -5984,6 +5997,12 @@ static int qseecom_update_key_user_info(struct qseecom_dev_handle *data,
 	}
 
 	ireq.qsee_command_id = QSEOS_UPDATE_KEY_USERINFO;
+
+	if (qseecom.fde_key_size)
+		flags |= QSEECOM_ICE_FDE_KEY_SIZE_32_BYTE;
+	else
+		flags |= QSEECOM_ICE_FDE_KEY_SIZE_16_BYTE;
+
 	ireq.flags = flags;
 	memset(ireq.key_id, 0, QSEECOM_KEY_ID_SIZE);
 	memset((void *)ireq.current_hash32, 0, QSEECOM_HASH_SIZE);
@@ -8425,6 +8444,9 @@ static int qseecom_probe(struct platform_device *pdev)
 						"qcom,commonlib64-loaded-by-uefi");
 		pr_debug("qseecom.commonlib64-loaded-by-uefi = 0x%x",
 				qseecom.commonlib64_loaded);
+		qseecom.fde_key_size = of_property_read_bool(
+					(&pdev->dev)->of_node,
+					"qcom,fde-key-size");
 		qseecom.no_clock_support =
 				of_property_read_bool((&pdev->dev)->of_node,
 						"qcom,no-clock-support");

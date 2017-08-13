@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -189,6 +189,7 @@ struct wcd9xxx_pdata {
 	u32 mad_dmic_sample_rate;
 	u32 ecpp_dmic_sample_rate;
 	u32 dmic_clk_drv;
+	u32 mic_unmute_delay;
 	enum codec_variant cdc_variant;
 	u16 use_pinctrl;
 };

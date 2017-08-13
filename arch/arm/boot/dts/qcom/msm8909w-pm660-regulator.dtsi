@@ -419,5 +419,6 @@
 		enable-active-high;
 		gpio = <&pm660_gpios 12 0>;
 		status = "okay";
+		regulator-boot-on;
 	};
 };

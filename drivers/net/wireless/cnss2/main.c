@@ -1060,11 +1060,15 @@ static int cnss_qca6174_shutdown(struct cnss_plat_data *plat_priv)
 	if (!pci_priv)
 		return -ENODEV;
 
+	if (test_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state))
+		goto skip_driver_remove;
+
 	if (!plat_priv->driver_ops)
 		return -EINVAL;
 
 	cnss_driver_call_remove(plat_priv);
 
+skip_driver_remove:
 	cnss_request_bus_bandwidth(CNSS_BUS_WIDTH_NONE);
 	cnss_pci_set_monitor_wake_intr(pci_priv, false);
 	cnss_pci_set_auto_suspended(pci_priv, 0);
@@ -1162,7 +1166,8 @@ static int cnss_qca6290_shutdown(struct cnss_plat_data *plat_priv)
 		return -ENODEV;
 
 	if (test_bit(CNSS_COLD_BOOT_CAL, &plat_priv->driver_state) ||
-	    test_bit(CNSS_FW_BOOT_RECOVERY, &plat_priv->driver_state))
+	    test_bit(CNSS_FW_BOOT_RECOVERY, &plat_priv->driver_state) ||
+	    test_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state))
 		goto skip_driver_remove;
 
 	if (!plat_priv->driver_ops)
