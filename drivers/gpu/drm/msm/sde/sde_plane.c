@@ -1575,14 +1575,13 @@ bool sde_plane_is_sbuf_mode(struct drm_plane *plane, u32 *prefill)
  *	enumerating over all planes attached to the same rotator
  * @plane: Pointer to drm plane
  * @state: Pointer to drm state to be updated
- * return: none
+ * return: 0 if success; error code otherwise
  */
-static void sde_plane_rot_calc_cfg(struct drm_plane *plane,
+static int sde_plane_rot_calc_cfg(struct drm_plane *plane,
 		struct drm_plane_state *state)
 {
 	struct sde_plane_state *pstate;
 	struct sde_plane_rot_state *rstate;
-	struct sde_hw_blk *hw_blk;
 	struct drm_crtc_state *cstate;
 	struct drm_rect *in_rot, *out_rot;
 	struct drm_plane *attached_plane;
@@ -1593,23 +1592,18 @@ static void sde_plane_rot_calc_cfg(struct drm_plane *plane,
 
 	if (!plane || !state || !state->state) {
 		SDE_ERROR("invalid parameters\n");
-		return;
+		return -EINVAL;
 	}
 
 	cstate = _sde_plane_get_crtc_state(state);
 	if (IS_ERR_OR_NULL(cstate)) {
 		ret = PTR_ERR(cstate);
 		SDE_ERROR("invalid crtc state %d\n", ret);
-		return;
+		return ret;
 	}
 
 	pstate = to_sde_plane_state(state);
 	rstate = &pstate->rot;
-
-	if (!rstate->rot_hw) {
-		SDE_ERROR("invalid rotator hw\n");
-		return;
-	}
 
 	in_rot = &rstate->in_rot_rect;
 	in_rot->x1 = state->src_x;
@@ -1635,8 +1629,6 @@ static void sde_plane_rot_calc_cfg(struct drm_plane *plane,
 	}
 
 	rstate->out_src_rect = rstate->out_rot_rect;
-
-	hw_blk = &rstate->rot_hw->base;
 
 	/* enumerating over all planes attached to the same rotator */
 	drm_atomic_crtc_state_for_each_plane(attached_plane, cstate) {
@@ -1710,6 +1702,71 @@ static void sde_plane_rot_calc_cfg(struct drm_plane *plane,
 			attached_out_rect.y2 = dst_y + dst_h;
 		}
 
+		/* check source split left/right mismatch */
+		if (attached_out_rect.y1 != rstate->out_src_rect.y1 ||
+			attached_out_rect.y2 != rstate->out_src_rect.y2) {
+			SDE_ERROR(
+				"plane%d.%u src:%dx%d+%d+%d rot:0x%llx fb:%d plane%d.%u src:%dx%d+%d+%d rot:0x%llx fb:%d mismatch\n",
+					plane->base.id,
+					rstate->sequence_id,
+					state->src_w >> 16,
+					state->src_h >> 16,
+					state->src_x >> 16,
+					state->src_y >> 16,
+					sde_plane_get_property(pstate,
+							PLANE_PROP_ROTATION),
+					state->fb ?
+						state->fb->base.id :
+						-1,
+					attached_plane->base.id,
+					attached_rstate->sequence_id,
+					attached_state->src_w >> 16,
+					attached_state->src_h >> 16,
+					attached_state->src_x >> 16,
+					attached_state->src_y >> 16,
+					sde_plane_get_property(attached_pstate,
+							PLANE_PROP_ROTATION),
+					attached_state->fb ?
+						attached_state->fb->base.id :
+						-1);
+			SDE_ERROR(
+				"plane%d.%u sspp:%dx%d+%d+%d plane%d.%u sspp:%dx%d+%d+%d\n",
+					plane->base.id,
+					rstate->sequence_id,
+					(rstate->out_src_rect.x2 -
+						rstate->out_src_rect.x1) >> 16,
+					(rstate->out_src_rect.y2 -
+						rstate->out_src_rect.y1) >> 16,
+					rstate->out_src_rect.x1 >> 16,
+					rstate->out_src_rect.y1 >> 16,
+					attached_plane->base.id,
+					attached_rstate->sequence_id,
+					(attached_out_rect.x2 -
+						attached_out_rect.x1) >> 16,
+					(attached_out_rect.y2 -
+						attached_out_rect.y1) >> 16,
+					attached_out_rect.x1 >> 16,
+					attached_out_rect.y1 >> 16);
+			SDE_EVT32(DRMID(plane),
+					rstate->sequence_id,
+					rstate->out_src_rect.x1 >> 16,
+					rstate->out_src_rect.y1 >> 16,
+					(rstate->out_src_rect.x2 -
+						rstate->out_src_rect.x1) >> 16,
+					(rstate->out_src_rect.y2 -
+						rstate->out_src_rect.y1) >> 16,
+					attached_plane->base.id,
+					attached_rstate->sequence_id,
+					attached_out_rect.x1 >> 16,
+					attached_out_rect.y1 >> 16,
+					(attached_out_rect.x2 -
+						attached_out_rect.x1) >> 16,
+					(attached_out_rect.y2 -
+						attached_out_rect.y1) >> 16,
+					SDE_EVTLOG_ERROR);
+			return -EINVAL;
+		}
+
 		/* find relative sspp position */
 		if (attached_out_rect.x1 < rstate->out_src_rect.x1)
 			xpos++;
@@ -1762,6 +1819,8 @@ static void sde_plane_rot_calc_cfg(struct drm_plane *plane,
 			rstate->out_rot_rect.y1 >> 16,
 			drm_rect_width(&rstate->out_rot_rect) >> 16,
 			drm_rect_height(&rstate->out_rot_rect) >> 16);
+
+	return 0;
 }
 
 /**
@@ -1886,10 +1945,8 @@ static int sde_plane_rot_submit_command(struct drm_plane *plane,
 	}
 
 	ret = rstate->rot_hw->ops.commit(rstate->rot_hw, rot_cmd, hw_cmd);
-	if (ret) {
-		SDE_ERROR("failed to commit rotator %d\n", ret);
+	if (ret)
 		return ret;
-	}
 
 	rstate->out_rotation = rstate->in_rotation;
 	rstate->out_fb_flags = rot_cmd->dst_modifier ?
@@ -2017,7 +2074,9 @@ static int sde_plane_rot_prepare_fb(struct drm_plane *plane,
 	}
 
 	/* need to re-calc based on all newly validated plane states */
-	sde_plane_rot_calc_cfg(plane, new_state);
+	ret = sde_plane_rot_calc_cfg(plane, new_state);
+	if (ret)
+		return ret;
 
 	/* check if stream buffer is already attached to rotator */
 	if (sde_plane_enabled(new_state) && !new_rstate->out_fb)
@@ -2249,7 +2308,9 @@ static int sde_plane_rot_atomic_check(struct drm_plane *plane,
 		SDE_DEBUG("plane%d.%d use rotator, fb %d\n",
 				plane->base.id, rstate->sequence_id, fb_id);
 
-		sde_plane_rot_calc_cfg(plane, state);
+		ret = sde_plane_rot_calc_cfg(plane, state);
+		if (ret)
+			return ret;
 
 		ret = sde_plane_rot_submit_command(plane, state,
 				SDE_HW_ROT_CMD_VALIDATE);
