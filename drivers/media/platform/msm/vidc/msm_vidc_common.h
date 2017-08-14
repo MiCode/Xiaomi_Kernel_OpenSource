@@ -85,6 +85,8 @@ enum hal_domain get_hal_domain(int session_type);
 int msm_comm_check_core_init(struct msm_vidc_core *core);
 int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
 			enum load_calc_quirks quirks);
+int msm_comm_get_inst_load_per_core(struct msm_vidc_inst *inst,
+			enum load_calc_quirks quirks);
 int msm_comm_get_load(struct msm_vidc_core *core,
 			enum session_type type, enum load_calc_quirks quirks);
 int msm_comm_set_color_format(struct msm_vidc_inst *inst,
