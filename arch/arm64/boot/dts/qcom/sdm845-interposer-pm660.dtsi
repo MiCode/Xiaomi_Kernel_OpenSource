@@ -388,6 +388,11 @@
 	/delete-node/ thermal-zones;
 };
 
+&lmh_dcvs1 {
+	/delete-property/ isens_vref-supply;
+	/delete-property/ isens-vref-settings;
+};
+
 &pm660l_wled {
 	qcom,led-strings-list = [01 02];
 };
