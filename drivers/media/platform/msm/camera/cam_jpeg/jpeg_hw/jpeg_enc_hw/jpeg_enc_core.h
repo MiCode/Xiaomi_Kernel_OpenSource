@@ -19,6 +19,8 @@
 #include <linux/platform_device.h>
 #include <linux/dma-buf.h>
 
+#include "cam_jpeg_hw_intf.h"
+
 struct cam_jpeg_enc_reg_offsets {
 	uint32_t hw_version;
 	uint32_t int_status;
@@ -49,12 +51,6 @@ struct cam_jpeg_enc_device_hw_info {
 	struct cam_jpeg_enc_int_status int_status;
 };
 
-struct cam_jpeg_enc_set_irq_cb {
-	int32_t (*jpeg_hw_mgr_cb)(uint32_t irq_status,
-		int32_t result_size, void *data);
-	void *data;
-};
-
 enum cam_jpeg_enc_core_state {
 	CAM_JPEG_ENC_CORE_NOT_READY,
 	CAM_JPEG_ENC_CORE_READY,
@@ -66,7 +62,7 @@ struct cam_jpeg_enc_device_core_info {
 	enum cam_jpeg_enc_core_state core_state;
 	struct cam_jpeg_enc_device_hw_info *jpeg_enc_hw_info;
 	uint32_t cpas_handle;
-	struct cam_jpeg_enc_set_irq_cb irq_cb;
+	struct cam_jpeg_set_irq_cb irq_cb;
 	int32_t ref_count;
 	struct mutex core_mutex;
 };

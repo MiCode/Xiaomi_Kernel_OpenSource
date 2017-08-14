@@ -26,7 +26,6 @@
 #include "jpeg_enc_soc.h"
 #include "cam_soc_util.h"
 #include "cam_io_util.h"
-#include "cam_enc_hw_intf.h"
 #include "cam_jpeg_hw_intf.h"
 #include "cam_jpeg_hw_mgr_intf.h"
 #include "cam_cpas_api.h"
@@ -47,7 +46,8 @@ int cam_jpeg_enc_init_hw(void *device_priv,
 	struct cam_hw_info *jpeg_enc_dev = device_priv;
 	struct cam_hw_soc_info *soc_info = NULL;
 	struct cam_jpeg_enc_device_core_info *core_info = NULL;
-	struct cam_jpeg_cpas_vote cpas_vote;
+	struct cam_ahb_vote ahb_vote;
+	struct cam_axi_vote axi_vote;
 	int rc;
 
 	if (!device_priv) {
@@ -66,20 +66,19 @@ int cam_jpeg_enc_init_hw(void *device_priv,
 		return -EINVAL;
 	}
 
-
 	mutex_lock(&core_info->core_mutex);
 	if (++core_info->ref_count > 1) {
 		mutex_unlock(&core_info->core_mutex);
 		return 0;
 	}
 
-	cpas_vote.ahb_vote.type = CAM_VOTE_ABSOLUTE;
-	cpas_vote.ahb_vote.vote.level = CAM_SVS_VOTE;
-	cpas_vote.axi_vote.compressed_bw = JPEG_TURBO_VOTE;
-	cpas_vote.axi_vote.uncompressed_bw = JPEG_TURBO_VOTE;
+	ahb_vote.type = CAM_VOTE_ABSOLUTE;
+	ahb_vote.vote.level = CAM_SVS_VOTE;
+	axi_vote.compressed_bw = JPEG_VOTE;
+	axi_vote.uncompressed_bw = JPEG_VOTE;
 
 	rc = cam_cpas_start(core_info->cpas_handle,
-		&cpas_vote.ahb_vote, &cpas_vote.axi_vote);
+		&ahb_vote, &axi_vote);
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "cpass start failed: %d", rc);
 		goto cpas_failed;
@@ -100,6 +99,7 @@ soc_failed:
 cpas_failed:
 	--core_info->ref_count;
 	mutex_unlock(&core_info->core_mutex);
+
 	return rc;
 }
 
@@ -140,7 +140,7 @@ int cam_jpeg_enc_deinit_hw(void *device_priv,
 
 	rc = cam_jpeg_enc_disable_soc_resources(soc_info);
 	if (rc)
-		CAM_ERR(CAM_JPEG, "soc enable failed %d", rc);
+		CAM_ERR(CAM_JPEG, "soc disable failed %d", rc);
 
 	rc = cam_cpas_stop(core_info->cpas_handle);
 	if (rc)
@@ -315,7 +315,7 @@ int cam_jpeg_enc_process_cmd(void *device_priv, uint32_t cmd_type,
 		return -EINVAL;
 	}
 
-	if (cmd_type >= CAM_JPEG_ENC_CMD_MAX) {
+	if (cmd_type >= CAM_JPEG_CMD_MAX) {
 		CAM_ERR(CAM_JPEG, "Invalid command : %x", cmd_type);
 		return -EINVAL;
 	}
@@ -325,7 +325,7 @@ int cam_jpeg_enc_process_cmd(void *device_priv, uint32_t cmd_type,
 		core_info;
 
 	switch (cmd_type) {
-	case CAM_JPEG_ENC_CMD_SET_IRQ_CB:
+	case CAM_JPEG_CMD_SET_IRQ_CB:
 	{
 		struct cam_jpeg_set_irq_cb *irq_cb = cmd_args;
 

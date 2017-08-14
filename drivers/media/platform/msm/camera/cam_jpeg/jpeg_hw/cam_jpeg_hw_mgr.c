@@ -28,8 +28,6 @@
 #include "cam_hw_mgr_intf.h"
 #include "cam_jpeg_hw_mgr_intf.h"
 #include "cam_jpeg_hw_mgr.h"
-#include "cam_enc_hw_intf.h"
-#include "cam_dma_hw_intf.h"
 #include "cam_smmu_api.h"
 #include "cam_mem_mgr.h"
 #include "cam_req_mgr_workq.h"
@@ -88,11 +86,18 @@ static int cam_jpeg_mgr_process_irq(void *priv, void *data)
 	}
 	rc = hw_mgr->devices[dev_type][0]->hw_ops.process_cmd(
 		hw_mgr->devices[dev_type][0]->hw_priv,
-		CAM_JPEG_ENC_CMD_SET_IRQ_CB,
+		CAM_JPEG_CMD_SET_IRQ_CB,
 		&irq_cb, sizeof(irq_cb));
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "CMD_SET_IRQ_CB failed %d", rc);
 		return rc;
+	}
+
+	if (hw_mgr->devices[dev_type][0]->hw_ops.deinit) {
+		rc = hw_mgr->devices[dev_type][0]->hw_ops.deinit(
+			hw_mgr->devices[dev_type][0]->hw_priv, NULL, 0);
+		if (rc)
+			CAM_ERR(CAM_JPEG, "Failed to Deinit %d HW", dev_type);
 	}
 
 	mutex_lock(&g_jpeg_hw_mgr.hw_mgr_mutex);
@@ -313,6 +318,20 @@ static int cam_jpeg_mgr_process_cmd(void *priv, void *data)
 	if (dev_type != p_cfg_req->dev_type)
 		CAM_WARN(CAM_JPEG, "dev types not same something wrong");
 
+	if (!hw_mgr->devices[dev_type][0]->hw_ops.init) {
+		CAM_ERR(CAM_JPEG, "hw op init null ");
+		rc = -EFAULT;
+		goto end;
+	}
+	rc = hw_mgr->devices[dev_type][0]->hw_ops.init(
+		hw_mgr->devices[dev_type][0]->hw_priv,
+		ctx_data,
+		sizeof(ctx_data));
+	if (rc) {
+		CAM_ERR(CAM_JPEG, "Failed to Init %d HW", dev_type);
+		goto end;
+	}
+
 	irq_cb.jpeg_hw_mgr_cb = cam_jpeg_hw_mgr_cb;
 	irq_cb.data = (void *)ctx_data;
 	irq_cb.b_set_cb = true;
@@ -322,7 +341,7 @@ static int cam_jpeg_mgr_process_cmd(void *priv, void *data)
 	}
 	rc = hw_mgr->devices[dev_type][0]->hw_ops.process_cmd(
 		hw_mgr->devices[dev_type][0]->hw_priv,
-		CAM_JPEG_ENC_CMD_SET_IRQ_CB,
+		CAM_JPEG_CMD_SET_IRQ_CB,
 		&irq_cb, sizeof(irq_cb));
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "SET_IRQ_CB failed %d", rc);
@@ -564,7 +583,7 @@ static int cam_jpeg_mgr_prepare_hw_update(void *hw_mgr_priv,
 			packet->header.op_code & 0xff);
 		return -EINVAL;
 	}
-	if ((packet->num_cmd_buf > 2) || !packet->num_patches ||
+	if ((packet->num_cmd_buf > 5) || !packet->num_patches ||
 		!packet->num_io_configs) {
 		CAM_ERR(CAM_JPEG, "wrong number of cmd/patch info: %u %u",
 			packet->num_cmd_buf,
@@ -668,12 +687,6 @@ static int cam_jpeg_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 		cam_cdm_release(hw_mgr->cdm_info[dev_type][0].cdm_handle);
 	}
 
-	if (g_jpeg_hw_mgr.devices[dev_type][0]->hw_ops.deinit) {
-		rc = g_jpeg_hw_mgr.devices[dev_type][0]->hw_ops.deinit(
-			g_jpeg_hw_mgr.devices[dev_type][0]->hw_priv, NULL, 0);
-		if (rc)
-			CAM_ERR(CAM_JPEG, "Failed to Init %d HW", dev_type);
-	}
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
 	rc = cam_jpeg_mgr_release_ctx(hw_mgr, ctx_data);
@@ -792,20 +805,6 @@ static int cam_jpeg_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 		goto start_cdm_hdl_failed;
 	}
 
-	if (!g_jpeg_hw_mgr.devices[dev_type][0]->hw_ops.init) {
-		CAM_ERR(CAM_JPEG, "hw op init null ");
-		rc = -EINVAL;
-		goto init_failed;
-	}
-	rc = g_jpeg_hw_mgr.devices[dev_type][0]->hw_ops.init(
-		g_jpeg_hw_mgr.devices[dev_type][0]->hw_priv,
-		ctx_data,
-		sizeof(ctx_data));
-	if (rc) {
-		CAM_ERR(CAM_JPEG, "Failed to Init %d HW", dev_type);
-		goto init_failed;
-	}
-
 	if (hw_mgr->cdm_info[dev_type][0].ref_cnt == 1)
 		if (cam_cdm_stream_on(
 			hw_mgr->cdm_info[dev_type][0].cdm_handle)) {
@@ -841,10 +840,6 @@ copy_to_user_failed:
 	if (hw_mgr->cdm_info[dev_type][0].ref_cnt == 1)
 		cam_cdm_stream_off(hw_mgr->cdm_info[dev_type][0].cdm_handle);
 start_cdm_hdl_failed:
-	if (g_jpeg_hw_mgr.devices[dev_type][0]->hw_ops.deinit)
-		g_jpeg_hw_mgr.devices[dev_type][0]->hw_ops.deinit(
-			g_jpeg_hw_mgr.devices[dev_type][0]->hw_priv, NULL, 0);
-init_failed:
 	if (hw_mgr->cdm_info[dev_type][0].ref_cnt == 1)
 		cam_cdm_release(hw_mgr->cdm_info[dev_type][0].cdm_handle);
 	hw_mgr->cdm_info[dev_type][0].ref_cnt--;
