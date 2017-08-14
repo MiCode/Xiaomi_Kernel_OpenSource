@@ -2582,6 +2582,21 @@ int ipa_stop_gsi_channel(u32 clnt_hdl)
 EXPORT_SYMBOL(ipa_stop_gsi_channel);
 
 /**
+ * ipa_start_gsi_channel()- Startsa GSI channel in IPA
+ *
+ * Return value: 0 on success, negative otherwise
+ */
+int ipa_start_gsi_channel(u32 clnt_hdl)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_start_gsi_channel, clnt_hdl);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_start_gsi_channel);
+
+/**
  * ipa_get_version_string() - Get string representation of IPA version
  * @ver: IPA version
  *
@@ -2970,6 +2985,25 @@ struct device *ipa_get_pdev(void)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_get_pdev);
+
+int ipa_ntn_uc_reg_rdyCB(void (*ipauc_ready_cb)(void *user_data),
+			      void *user_data)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_ntn_uc_reg_rdyCB,
+				ipauc_ready_cb, user_data);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_ntn_uc_reg_rdyCB);
+
+void ipa_ntn_uc_dereg_rdyCB(void)
+{
+	IPA_API_DISPATCH(ipa_ntn_uc_dereg_rdyCB);
+}
+EXPORT_SYMBOL(ipa_ntn_uc_dereg_rdyCB);
+
 
 static const struct dev_pm_ops ipa_pm_ops = {
 	.suspend_noirq = ipa_ap_suspend,

@@ -16,6 +16,7 @@
 
 #include <cam_sync_api.h>
 #include "cam_sync_private.h"
+#include "cam_debug_util.h"
 
 extern struct sync_device *sync_dev;
 

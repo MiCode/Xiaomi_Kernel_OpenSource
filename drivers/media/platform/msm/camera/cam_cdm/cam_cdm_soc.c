@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "CAM-CDM-SOC %s:%d " fmt, __func__, __LINE__
-
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/of.h>
@@ -40,27 +38,29 @@ bool cam_cdm_read_hw_reg(struct cam_hw_info *cdm_hw,
 	resource_size_t mem_len =
 		cdm_hw->soc_info.reg_map[CAM_HW_CDM_BASE_INDEX].size;
 
-	CDM_CDBG("E: b=%pK blen=%d reg=%x off=%x\n", (void *)base,
+	CAM_DBG(CAM_CDM, "E: b=%pK blen=%d reg=%x off=%x", (void __iomem *)base,
 		(int)mem_len, reg, (CAM_CDM_OFFSET_FROM_REG(cdm->offset_tbl,
 		reg)));
-	CDM_CDBG("E: b=%pK reg=%x off=%x\n", (void *)base,
+	CAM_DBG(CAM_CDM, "E: b=%pK reg=%x off=%x", (void __iomem *)base,
 		reg, (CAM_CDM_OFFSET_FROM_REG(cdm->offset_tbl, reg)));
 
 	if ((reg > cdm->offset_tbl->offset_max_size) ||
 		(reg > cdm->offset_tbl->last_offset)) {
-		pr_err_ratelimited("Invalid reg=%d\n", reg);
+		CAM_ERR_RATE_LIMIT(CAM_CDM, "Invalid reg=%d\n", reg);
 		goto permission_error;
 	} else {
 		reg_addr = (base + (CAM_CDM_OFFSET_FROM_REG(
 				cdm->offset_tbl, reg)));
 		if (reg_addr > (base + mem_len)) {
-			pr_err_ratelimited("Invalid mapped region %d\n", reg);
+			CAM_ERR_RATE_LIMIT(CAM_CDM,
+				"Invalid mapped region %d", reg);
 			goto permission_error;
 		}
 		*value = cam_io_r_mb(reg_addr);
-		CDM_CDBG("X b=%pK reg=%x off=%x val=%x\n",
-			(void *)base, reg, (CAM_CDM_OFFSET_FROM_REG(
-				cdm->offset_tbl, reg)),	*value);
+		CAM_DBG(CAM_CDM, "X b=%pK reg=%x off=%x val=%x",
+			(void __iomem *)base, reg,
+			(CAM_CDM_OFFSET_FROM_REG(cdm->offset_tbl, reg)),
+			*value);
 		return false;
 	}
 permission_error:
@@ -79,18 +79,20 @@ bool cam_cdm_write_hw_reg(struct cam_hw_info *cdm_hw,
 	resource_size_t mem_len =
 		cdm_hw->soc_info.reg_map[CAM_HW_CDM_BASE_INDEX].size;
 
-	CDM_CDBG("E: b=%pK reg=%x off=%x val=%x\n", (void *)base,
+	CAM_DBG(CAM_CDM, "E: b=%pK reg=%x off=%x val=%x", (void __iomem *)base,
 		reg, (CAM_CDM_OFFSET_FROM_REG(cdm->offset_tbl, reg)), value);
 
 	if ((reg > cdm->offset_tbl->offset_max_size) ||
 		(reg > cdm->offset_tbl->last_offset)) {
-		pr_err_ratelimited("CDM accessing invalid reg=%d\n", reg);
+		CAM_ERR_RATE_LIMIT(CAM_CDM, "CDM accessing invalid reg=%d\n",
+			reg);
 		goto permission_error;
 	} else {
 		reg_addr = (base + CAM_CDM_OFFSET_FROM_REG(
 				cdm->offset_tbl, reg));
 		if (reg_addr > (base + mem_len)) {
-			pr_err_ratelimited("Accessing invalid region %d:%d\n",
+			CAM_ERR_RATE_LIMIT(CAM_CDM,
+				"Accessing invalid region %d:%d\n",
 				reg, (CAM_CDM_OFFSET_FROM_REG(
 				cdm->offset_tbl, reg)));
 			goto permission_error;
@@ -111,17 +113,17 @@ int cam_cdm_soc_load_dt_private(struct platform_device *pdev,
 	ptr->dt_num_supported_clients = of_property_count_strings(
 						pdev->dev.of_node,
 						"cdm-client-names");
-	CDM_CDBG("Num supported cdm_client = %d\n",
+	CAM_DBG(CAM_CDM, "Num supported cdm_client = %d",
 		ptr->dt_num_supported_clients);
 	if (ptr->dt_num_supported_clients >
 		CAM_PER_CDM_MAX_REGISTERED_CLIENTS) {
-		pr_err("Invalid count of client names count=%d\n",
+		CAM_ERR(CAM_CDM, "Invalid count of client names count=%d",
 			ptr->dt_num_supported_clients);
 		rc = -EINVAL;
 		return rc;
 	}
 	if (ptr->dt_num_supported_clients < 0) {
-		CDM_CDBG("No cdm client names found\n");
+		CAM_DBG(CAM_CDM, "No cdm client names found");
 		ptr->dt_num_supported_clients = 0;
 		ptr->dt_cdm_shared = false;
 	} else {
@@ -130,10 +132,10 @@ int cam_cdm_soc_load_dt_private(struct platform_device *pdev,
 	for (i = 0; i < ptr->dt_num_supported_clients; i++) {
 		rc = of_property_read_string_index(pdev->dev.of_node,
 			"cdm-client-names", i, &(ptr->dt_cdm_client_name[i]));
-		CDM_CDBG("cdm-client-names[%d] = %s\n",	i,
+		CAM_DBG(CAM_CDM, "cdm-client-names[%d] = %s",	i,
 			ptr->dt_cdm_client_name[i]);
 		if (rc < 0) {
-			pr_err("Reading cdm-client-names failed\n");
+			CAM_ERR(CAM_CDM, "Reading cdm-client-names failed");
 			break;
 		}
 	}
@@ -156,7 +158,7 @@ int cam_hw_cdm_soc_get_dt_properties(struct cam_hw_info *cdm_hw,
 
 	rc = cam_soc_util_get_dt_properties(soc_ptr);
 	if (rc != 0) {
-		pr_err("Failed to retrieve the CDM dt properties\n");
+		CAM_ERR(CAM_CDM, "Failed to retrieve the CDM dt properties");
 	} else {
 		soc_ptr->soc_private = kzalloc(
 				sizeof(struct cam_cdm_private_dt_data),
@@ -167,15 +169,15 @@ int cam_hw_cdm_soc_get_dt_properties(struct cam_hw_info *cdm_hw,
 		rc = cam_cdm_soc_load_dt_private(soc_ptr->pdev,
 			soc_ptr->soc_private);
 		if (rc != 0) {
-			pr_err("Failed to load CDM dt private data\n");
+			CAM_ERR(CAM_CDM, "Failed to load CDM dt private data");
 			goto error;
 		}
 		id = of_match_node(table, soc_ptr->pdev->dev.of_node);
 		if ((!id) || !(id->data)) {
-			pr_err("Failed to retrieve the CDM id table\n");
+			CAM_ERR(CAM_CDM, "Failed to retrieve the CDM id table");
 			goto error;
 		}
-		CDM_CDBG("CDM Hw Id compatible =%s\n", id->compatible);
+		CAM_DBG(CAM_CDM, "CDM Hw Id compatible =%s", id->compatible);
 		((struct cam_cdm *)cdm_hw->core_info)->offset_tbl =
 			(struct cam_cdm_reg_offset_table *)id->data;
 		strlcpy(((struct cam_cdm *)cdm_hw->core_info)->name,
@@ -199,7 +201,8 @@ int cam_cdm_intf_mgr_soc_get_dt_properties(
 
 	rc = of_property_read_u32(pdev->dev.of_node,
 		"num-hw-cdm", &mgr->dt_supported_hw_cdm);
-	CDM_CDBG("Number of HW cdm supported =%d\n", mgr->dt_supported_hw_cdm);
+	CAM_DBG(CAM_CDM, "Number of HW cdm supported =%d",
+		mgr->dt_supported_hw_cdm);
 
 	return rc;
 }

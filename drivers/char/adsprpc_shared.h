@@ -100,7 +100,7 @@
 #define VERIFY(err, val) \
 do {\
 	VERIFY_IPRINTF(__FILE_LINE__"info: calling: " #val "\n");\
-	if (0 == (val)) {\
+	if ((val) == 0) {\
 		(err) = (err) == 0 ? -1 : (err);\
 		VERIFY_EPRINTF(__FILE_LINE__"error: %d: " #val "\n", (err));\
 	} else {\

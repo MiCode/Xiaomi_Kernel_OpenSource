@@ -4,7 +4,9 @@ Qualcomm Technologies, Inc. Graphics Clock & Reset Controller Binding
 Required properties :
 - compatible : shall contain only one of the following:
 		"qcom,gpucc-sdm845",
-		"qcom,gfxcc-sdm845"
+		"qcom,gpucc-sdm845-v2",
+		"qcom,gfxcc-sdm845",
+		"qcom,gfxcc-sdm845-v2"
 
 - reg : shall contain base register offset and size.
 - #clock-cells : shall contain 1.

@@ -122,9 +122,7 @@ static void disable_digital_callback(void *flag)
 static int msm_dig_cdc_put_dec_enum(struct snd_kcontrol *kcontrol,
 				    struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-			dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *w = wlist->widgets[0];
+	struct snd_soc_dapm_widget *w = snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(w->dapm);
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	unsigned int dec_mux, decimator;

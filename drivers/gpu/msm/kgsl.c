@@ -989,7 +989,6 @@ static void kgsl_process_private_close(struct kgsl_device_private *dev_priv,
 	 */
 
 	kgsl_process_uninit_sysfs(private);
-	debugfs_remove_recursive(private->debug_root);
 
 	process_release_sync_sources(private);
 
@@ -1001,12 +1000,14 @@ static void kgsl_process_private_close(struct kgsl_device_private *dev_priv,
 	list_del(&private->list);
 
 	/*
-	 * Unlock the mutex before releasing the memory - this prevents a
-	 * deadlock with the IOMMU mutex if a page fault occurs
+	 * Unlock the mutex before releasing the memory and the debugfs
+	 * nodes - this prevents deadlocks with the IOMMU and debugfs
+	 * locks.
 	 */
 	mutex_unlock(&kgsl_driver.process_mutex);
 
 	process_release_memory(private);
+	debugfs_remove_recursive(private->debug_root);
 
 	kgsl_process_private_put(private);
 }
@@ -1925,12 +1926,13 @@ static long gpuobj_free_on_timestamp(struct kgsl_device_private *dev_priv,
 	return ret;
 }
 
-static void gpuobj_free_fence_func(void *priv)
+static bool gpuobj_free_fence_func(void *priv)
 {
 	struct kgsl_mem_entry *entry = priv;
 
 	INIT_WORK(&entry->work, _deferred_put);
 	queue_work(kgsl_driver.mem_workqueue, &entry->work);
+	return true;
 }
 
 static long gpuobj_free_on_fence(struct kgsl_device_private *dev_priv,
@@ -4645,6 +4647,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 		device->id, device->reg_phys, device->reg_len);
 
 	rwlock_init(&device->context_lock);
+	spin_lock_init(&device->submit_lock);
 
 	setup_timer(&device->idle_timer, kgsl_timer, (unsigned long) device);
 
@@ -4788,6 +4791,8 @@ static void kgsl_core_exit(void)
 static int __init kgsl_core_init(void)
 {
 	int result = 0;
+	struct sched_param param = { .sched_priority = 2 };
+
 	/* alloc major and minor device numbers */
 	result = alloc_chrdev_region(&kgsl_driver.major, 0, KGSL_DEVICE_MAX,
 		"kgsl");
@@ -4853,6 +4858,18 @@ static int __init kgsl_core_init(void)
 
 	kgsl_driver.mem_workqueue = alloc_workqueue("kgsl-mementry",
 		WQ_UNBOUND | WQ_MEM_RECLAIM, 0);
+
+	kthread_init_worker(&kgsl_driver.worker);
+
+	kgsl_driver.worker_thread = kthread_run(kthread_worker_fn,
+		&kgsl_driver.worker, "kgsl_worker_thread");
+
+	if (IS_ERR(kgsl_driver.worker_thread)) {
+		pr_err("unable to start kgsl thread\n");
+		goto err;
+	}
+
+	sched_setscheduler(kgsl_driver.worker_thread, SCHED_FIFO, &param);
 
 	kgsl_events_init();
 

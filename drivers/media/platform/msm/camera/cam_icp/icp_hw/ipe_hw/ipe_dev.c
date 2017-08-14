@@ -23,9 +23,7 @@
 #include "cam_icp_hw_intf.h"
 #include "cam_icp_hw_mgr_intf.h"
 #include "cam_cpas_api.h"
-
-#undef CDBG
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#include "cam_debug_util.h"
 
 struct cam_ipe_device_hw_info cam_ipe_hw_info = {
 	.reserved = 0,
@@ -47,7 +45,7 @@ int cam_ipe_register_cpas(struct cam_hw_soc_info *soc_info,
 
 	rc = cam_cpas_register_client(&cpas_register_params);
 	if (rc < 0) {
-		pr_err("cam_cpas_register_client is failed: %d\n", rc);
+		CAM_ERR(CAM_ICP, "failed: %d", rc);
 		return rc;
 	}
 	core_info->cpas_handle = cpas_register_params.client_handle;
@@ -83,7 +81,7 @@ int cam_ipe_probe(struct platform_device *pdev)
 	ipe_dev_intf->hw_ops.process_cmd = cam_ipe_process_cmd;
 	ipe_dev_intf->hw_type = CAM_ICP_DEV_IPE;
 
-	pr_debug("%s: type %d index %d\n", __func__,
+	CAM_DBG(CAM_ICP, "type %d index %d",
 		ipe_dev_intf->hw_type,
 		ipe_dev_intf->hw_idx);
 
@@ -101,7 +99,7 @@ int cam_ipe_probe(struct platform_device *pdev)
 	match_dev = of_match_device(pdev->dev.driver->of_match_table,
 		&pdev->dev);
 	if (!match_dev) {
-		pr_debug("%s: No ipe hardware info\n", __func__);
+		CAM_DBG(CAM_ICP, "No ipe hardware info");
 		kfree(ipe_dev->core_info);
 		kfree(ipe_dev);
 		kfree(ipe_dev_intf);
@@ -114,14 +112,14 @@ int cam_ipe_probe(struct platform_device *pdev)
 	rc = cam_ipe_init_soc_resources(&ipe_dev->soc_info, cam_ipe_irq,
 		ipe_dev);
 	if (rc < 0) {
-		pr_err("%s: failed to init_soc\n", __func__);
+		CAM_ERR(CAM_ICP, "failed to init_soc");
 		kfree(ipe_dev->core_info);
 		kfree(ipe_dev);
 		kfree(ipe_dev_intf);
 		return rc;
 	}
 
-	pr_debug("cam_ipe_init_soc_resources : %pK\n",
+	CAM_DBG(CAM_ICP, "cam_ipe_init_soc_resources : %pK",
 		(void *)&ipe_dev->soc_info);
 	rc = cam_ipe_register_cpas(&ipe_dev->soc_info,
 		core_info, ipe_dev_intf->hw_idx);
@@ -136,7 +134,7 @@ int cam_ipe_probe(struct platform_device *pdev)
 	spin_lock_init(&ipe_dev->hw_lock);
 	init_completion(&ipe_dev->hw_complete);
 
-	pr_debug("%s: IPE%d probe successful\n", __func__,
+	CAM_DBG(CAM_ICP, "IPE%d probe successful",
 		ipe_dev_intf->hw_idx);
 
 	return rc;

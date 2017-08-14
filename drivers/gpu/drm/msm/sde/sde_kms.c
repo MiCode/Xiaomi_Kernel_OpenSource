@@ -404,7 +404,7 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 
 	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
 
-	SDE_EVT32(SDE_EVTLOG_FUNC_EXIT);
+	SDE_EVT32_VERBOSE(SDE_EVTLOG_FUNC_EXIT);
 }
 
 static void sde_kms_wait_for_tx_complete(struct msm_kms *kms,
@@ -635,14 +635,16 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.post_init =  dsi_conn_post_init,
 		.detect =     dsi_conn_detect,
 		.get_modes =  dsi_connector_get_modes,
+		.put_modes =  dsi_connector_put_modes,
 		.mode_valid = dsi_conn_mode_valid,
 		.get_info =   dsi_display_get_info,
 		.set_backlight = dsi_display_set_backlight,
 		.soft_reset   = dsi_display_soft_reset,
 		.pre_kickoff  = dsi_conn_pre_kickoff,
 		.clk_ctrl = dsi_display_clk_ctrl,
-		.get_topology = dsi_conn_get_topology,
-		.get_dst_format = dsi_display_get_dst_format
+		.set_power = dsi_display_set_power,
+		.get_mode_info = dsi_conn_get_mode_info,
+		.get_dst_format = dsi_display_get_dst_format,
 	};
 	static const struct sde_connector_ops wb_ops = {
 		.post_init =    sde_wb_connector_post_init,
@@ -651,7 +653,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.set_property = sde_wb_connector_set_property,
 		.get_info =     sde_wb_get_info,
 		.soft_reset =   NULL,
-		.get_topology = sde_wb_get_topology,
+		.get_mode_info = sde_wb_get_mode_info,
 		.get_dst_format = NULL
 	};
 	static const struct sde_connector_ops dp_ops = {
@@ -660,7 +662,7 @@ static int _sde_kms_setup_displays(struct drm_device *dev,
 		.get_modes  = dp_connector_get_modes,
 		.mode_valid = dp_connector_mode_valid,
 		.get_info   = dp_connector_get_info,
-		.get_topology   = dp_connector_get_topology,
+		.get_mode_info  = dp_connector_get_mode_info,
 	};
 	struct msm_display_info info;
 	struct drm_encoder *encoder;
@@ -1135,7 +1137,7 @@ struct sde_kms_fbo *sde_kms_fbo_alloc(struct drm_device *dev, u32 width,
 	}
 
 	ret = sde_format_get_plane_sizes(fbo->fmt, fbo->width, fbo->height,
-			&fbo->layout);
+			&fbo->layout, fbo->layout.plane_pitch);
 	if (ret) {
 		SDE_ERROR("failed to get plane sizes\n");
 		goto done;
@@ -1341,6 +1343,70 @@ static void _sde_kms_hw_destroy(struct sde_kms *sde_kms,
 	sde_reg_dma_deinit();
 }
 
+int sde_kms_mmu_detach(struct sde_kms *sde_kms, bool secure_only)
+{
+	int i;
+
+	if (!sde_kms)
+		return -EINVAL;
+
+	for (i = 0; i < MSM_SMMU_DOMAIN_MAX; i++) {
+		struct msm_mmu *mmu;
+		struct msm_gem_address_space *aspace = sde_kms->aspace[i];
+
+		if (!aspace)
+			continue;
+
+		mmu = sde_kms->aspace[i]->mmu;
+
+		if (secure_only &&
+			!aspace->mmu->funcs->is_domain_secure(mmu))
+			continue;
+
+		/* cleanup aspace before detaching */
+		msm_gem_aspace_domain_attach_detach_update(aspace, true);
+
+		SDE_DEBUG("Detaching domain:%d\n", i);
+		aspace->mmu->funcs->detach(mmu, (const char **)iommu_ports,
+			ARRAY_SIZE(iommu_ports));
+
+		aspace->domain_attached = false;
+	}
+
+	return 0;
+}
+
+int sde_kms_mmu_attach(struct sde_kms *sde_kms, bool secure_only)
+{
+	int i;
+
+	if (!sde_kms)
+		return -EINVAL;
+
+	for (i = 0; i < MSM_SMMU_DOMAIN_MAX; i++) {
+		struct msm_mmu *mmu;
+		struct msm_gem_address_space *aspace = sde_kms->aspace[i];
+
+		if (!aspace)
+			continue;
+
+		mmu = sde_kms->aspace[i]->mmu;
+
+		if (secure_only &&
+			!aspace->mmu->funcs->is_domain_secure(mmu))
+			continue;
+
+		SDE_DEBUG("Attaching domain:%d\n", i);
+		aspace->mmu->funcs->attach(mmu, (const char **)iommu_ports,
+			ARRAY_SIZE(iommu_ports));
+
+		msm_gem_aspace_domain_attach_detach_update(aspace, false);
+		aspace->domain_attached = true;
+	}
+
+	return 0;
+}
+
 static void sde_kms_destroy(struct msm_kms *kms)
 {
 	struct sde_kms *sde_kms;
@@ -1373,6 +1439,103 @@ static void sde_kms_preclose(struct msm_kms *kms, struct drm_file *file)
 		sde_crtc_cancel_pending_flip(priv->crtcs[i], file);
 }
 
+static int sde_kms_check_secure_transition(struct msm_kms *kms,
+		struct drm_atomic_state *state)
+{
+	struct sde_kms *sde_kms;
+	struct drm_device *dev;
+	struct drm_crtc *crtc;
+	struct drm_crtc *sec_crtc = NULL, *temp_crtc = NULL;
+	struct drm_crtc_state *crtc_state;
+	int secure_crtc_cnt = 0, active_crtc_cnt = 0;
+	int secure_global_crtc_cnt = 0, active_mode_crtc_cnt = 0;
+	int i;
+
+	if (!kms || !state) {
+		return -EINVAL;
+		SDE_ERROR("invalid arguments\n");
+	}
+
+	/* iterate state object for active and secure crtc */
+	for_each_crtc_in_state(state, crtc, crtc_state, i) {
+		if (!crtc_state->active)
+			continue;
+		active_crtc_cnt++;
+		if (sde_crtc_get_secure_level(crtc, crtc_state) ==
+				SDE_DRM_SEC_ONLY) {
+			sec_crtc = crtc;
+			secure_crtc_cnt++;
+		}
+	}
+
+	/* bail out from further validation if no secure ctrc */
+	if (!secure_crtc_cnt)
+		return 0;
+
+	if ((secure_crtc_cnt > MAX_ALLOWED_SECURE_CLIENT_CNT) ||
+		(secure_crtc_cnt &&
+		 (active_crtc_cnt > MAX_ALLOWED_CRTC_CNT_DURING_SECURE))) {
+		SDE_ERROR("Secure check failed active:%d, secure:%d\n",
+				active_crtc_cnt, secure_crtc_cnt);
+		return -EPERM;
+	}
+
+	sde_kms = to_sde_kms(kms);
+	dev = sde_kms->dev;
+	/* iterate global list for active and secure crtc */
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+
+		if (!crtc->state->active)
+			continue;
+
+		active_mode_crtc_cnt++;
+
+		if (sde_crtc_get_secure_level(crtc, crtc->state) ==
+				SDE_DRM_SEC_ONLY) {
+			secure_global_crtc_cnt++;
+			temp_crtc = crtc;
+		}
+	}
+
+	/**
+	 * if more than one crtc is active fail
+	 * check if the previous and current commit secure
+	 * are same
+	 */
+	if (secure_crtc_cnt && ((active_mode_crtc_cnt > 1) ||
+			(secure_global_crtc_cnt && (temp_crtc != sec_crtc))))
+		SDE_ERROR("Secure check failed active:%d crtc_id:%d\n",
+				active_mode_crtc_cnt, temp_crtc->base.id);
+
+	return 0;
+}
+
+static int sde_kms_atomic_check(struct msm_kms *kms,
+		struct drm_atomic_state *state)
+{
+	struct sde_kms *sde_kms;
+	struct drm_device *dev;
+	int ret;
+
+	if (!kms || !state)
+		return -EINVAL;
+
+	sde_kms = to_sde_kms(kms);
+	dev = sde_kms->dev;
+
+	ret = drm_atomic_helper_check(dev, state);
+	if (ret)
+		return ret;
+	/*
+	 * Check if any secure transition(moving CRTC between secure and
+	 * non-secure state and vice-versa) is allowed or not. when moving
+	 * to secure state, planes with fb_mode set to dir_translated only can
+	 * be staged on the CRTC, and only one CRTC can be active during
+	 * Secure state
+	 */
+	return sde_kms_check_secure_transition(kms, state);
+}
+
 static struct msm_gem_address_space*
 _sde_kms_get_address_space(struct msm_kms *kms,
 		unsigned int domain)
@@ -1393,7 +1556,9 @@ _sde_kms_get_address_space(struct msm_kms *kms,
 	if (domain >= MSM_SMMU_DOMAIN_MAX)
 		return NULL;
 
-	return sde_kms->aspace[domain];
+	return (sde_kms->aspace[domain] &&
+			sde_kms->aspace[domain]->domain_attached) ?
+		sde_kms->aspace[domain] : NULL;
 }
 
 static const struct msm_kms_funcs kms_funcs = {
@@ -1413,6 +1578,7 @@ static const struct msm_kms_funcs kms_funcs = {
 	.enable_vblank   = sde_kms_enable_vblank,
 	.disable_vblank  = sde_kms_disable_vblank,
 	.check_modified_format = sde_format_check_modified_format,
+	.atomic_check = sde_kms_atomic_check,
 	.get_format      = sde_get_msm_format,
 	.round_pixclk    = sde_kms_round_pixclk,
 	.destroy         = sde_kms_destroy,
@@ -1463,7 +1629,7 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 			continue;
 		}
 
-		aspace = msm_gem_smmu_address_space_create(sde_kms->dev->dev,
+		aspace = msm_gem_smmu_address_space_create(sde_kms->dev,
 			mmu, "sde");
 		if (IS_ERR(aspace)) {
 			ret = PTR_ERR(aspace);
@@ -1480,7 +1646,7 @@ static int _sde_kms_mmu_init(struct sde_kms *sde_kms)
 			msm_gem_address_space_destroy(aspace);
 			goto fail;
 		}
-
+		aspace->domain_attached = true;
 	}
 
 	return 0;

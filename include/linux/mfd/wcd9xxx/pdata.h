@@ -179,6 +179,8 @@ struct wcd9xxx_pdata {
 	int irq_base;
 	int num_irqs;
 	int reset_gpio;
+	bool has_buck_vsel_gpio;
+	struct device_node *buck_vsel_ctl_np;
 	struct device_node *wcd_rst_np;
 	struct wcd9xxx_amic amic_settings;
 	struct slim_device slimbus_slave_device;

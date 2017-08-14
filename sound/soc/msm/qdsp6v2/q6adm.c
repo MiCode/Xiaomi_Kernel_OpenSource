@@ -2388,7 +2388,8 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 	struct adm_cmd_device_open_v5	open;
 	struct adm_cmd_device_open_v6	open_v6;
 	int ret = 0;
-	int port_idx, copp_idx, flags;
+	int port_idx, flags;
+	int copp_idx = -1;
 	int tmp_port = q6audio_get_port_id(port_id);
 
 	pr_debug("%s:port %#x path:%d rate:%d mode:%d perf_mode:%d,topo_id %d\n",
@@ -2442,8 +2443,17 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 	    (topology == VPM_TX_DM_RFECNS_COPP_TOPOLOGY))
 		rate = 16000;
 
-	copp_idx = adm_get_idx_if_copp_exists(port_idx, topology, perf_mode,
-						rate, bit_width, app_type);
+	/*
+	 * Routing driver reuses the same adm for streams with the same
+	 * app_type, sample_rate etc.
+	 * This isn't allowed for ULL streams as per the DSP interface
+	 */
+	if (perf_mode != ULTRA_LOW_LATENCY_PCM_MODE)
+		copp_idx = adm_get_idx_if_copp_exists(port_idx, topology,
+						      perf_mode,
+						      rate, bit_width,
+						      app_type);
+
 	if (copp_idx < 0) {
 		copp_idx = adm_get_next_available_copp(port_idx);
 		if (copp_idx >= MAX_COPPS_PER_PORT) {

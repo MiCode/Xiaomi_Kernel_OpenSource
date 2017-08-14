@@ -164,39 +164,23 @@ struct el2_report_header_t {
 	__u64 report_version;     /* Version of the EL2 report */
 	__u64 mp_catalog_version;
 		/* Version of MP catalogue used for kernel protection */
+	__u64 num_incidents;      /* Number of Incidents Observed by EL2 */
 	__u8 protection_enabled;  /* Kernel Assets protected by EL2 */
 	__u8 pad1;
 	__u8 pad2;
 	__u8 pad3;
 	__u32 pad4;
-	__u64 num_incidents;      /* Number of Incidents Observed by EL2 */
-};
-
-/* individual report contents */
-union el2_report {
-	struct {
-		__u8 asset_id[0x20]; /* Asset Identifier */
-		__u64 actor;
-			/* Actor that caused the Incident.  */
-		__u8 asset_category; /* Asset Category */
-		__u8 response;       /* Response From EL2 */
-		__u16 pad1;
-		__u32 pad2;
-	} incident;
-	struct {
-		__u64 reserved;      /* TBD */
-	} info;
 };
 
 /* individual report */
 struct el2_report_data_t {
+	__u64 sequence_number; /* Sequence number of the report */
+	__u64 actor; /* Actor that caused the Incident.  */
 	__u8 report_valid;
 		/* Flag to indicate whether report instance is valid */
 	__u8 report_type;        /* Report Type */
-	__u8 pad1;
-	__u8 pad2;
-	__u64 sequence_number;   /* Sequence number of the report */
-	union el2_report report;       /* Report Contents */
+	__u8 asset_category; /* Asset Category */
+	__u8 response;       /* Response From EL2 */
 };
 
 #endif

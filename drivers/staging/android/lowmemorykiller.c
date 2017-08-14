@@ -51,6 +51,7 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/almk.h>
+#include <linux/show_mem_notifier.h>
 
 #ifdef CONFIG_HIGHMEM
 #define _ZONE ZONE_HIGHMEM
@@ -525,7 +526,7 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 			task_set_lmk_waiting(selected);
 		task_unlock(selected);
 		trace_lowmemory_kill(selected, cache_size, cache_limit, free);
-		lowmem_print(1, "Killing '%s' (%d), adj %hd,\n"
+		lowmem_print(1, "Killing '%s' (%d) (tgid %d), adj %hd,\n"
 			"to free %ldkB on behalf of '%s' (%d) because\n"
 			"cache %ldkB is below limit %ldkB for oom score %hd\n"
 			"Free memory is %ldkB above reserved.\n"
@@ -534,7 +535,7 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 			"Total free pages is %ldkB\n"
 			"Total file cache is %ldkB\n"
 			"GFP mask is 0x%x\n",
-			selected->comm, selected->pid,
+			selected->comm, selected->pid, selected->tgid,
 			selected_oom_score_adj,
 			selected_tasksize * (long)(PAGE_SIZE / 1024),
 			current->comm, current->pid,
@@ -552,6 +553,7 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 
 		if (lowmem_debug_level >= 2 && selected_oom_score_adj == 0) {
 			show_mem(SHOW_MEM_FILTER_NODES);
+			show_mem_call_notifiers();
 			dump_tasks(NULL, NULL);
 		}
 

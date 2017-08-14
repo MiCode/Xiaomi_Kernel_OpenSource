@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,7 +27,8 @@
 #include "diag_mux.h"
 #include "diag_usb.h"
 #include "diag_memorydevice.h"
-
+#include "diagfwd_peripheral.h"
+#include "diag_ipc_logging.h"
 
 struct diag_mux_state_t *diag_mux;
 static struct diag_logger_t usb_logger;
@@ -141,9 +142,13 @@ int diag_mux_write(int proc, unsigned char *buf, int len, int ctx)
 	if (!diag_mux)
 		return -EIO;
 
-	peripheral = GET_BUF_PERIPHERAL(ctx);
-	if (peripheral > NUM_PERIPHERALS)
+	peripheral = diag_md_get_peripheral(ctx);
+	if (peripheral < 0) {
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			"diag:%s:%d invalid peripheral = %d\n",
+			__func__, __LINE__, peripheral);
 		return -EINVAL;
+	}
 
 	if (MD_PERIPHERAL_MASK(peripheral) & diag_mux->mux_mask)
 		logger = diag_mux->md_ptr;
@@ -162,8 +167,13 @@ int diag_mux_close_peripheral(int proc, uint8_t peripheral)
 	if (proc < 0 || proc >= NUM_MUX_PROC)
 		return -EINVAL;
 	/* Peripheral should account for Apps data as well */
-	if (peripheral > NUM_PERIPHERALS)
-		return -EINVAL;
+	if (peripheral > NUM_PERIPHERALS) {
+		if (!driver->num_pd_session)
+			return -EINVAL;
+		if (peripheral > NUM_MD_SESSIONS)
+			return -EINVAL;
+	}
+
 	if (!diag_mux)
 		return -EIO;
 
@@ -184,7 +194,8 @@ int diag_mux_switch_logging(int *req_mode, int *peripheral_mask)
 	if (!req_mode)
 		return -EINVAL;
 
-	if (*peripheral_mask <= 0 || *peripheral_mask > DIAG_CON_ALL) {
+	if (*peripheral_mask <= 0 ||
+		(*peripheral_mask > (DIAG_CON_ALL | DIAG_CON_UPD_ALL))) {
 		pr_err("diag: mask %d in %s\n", *peripheral_mask, __func__);
 		return -EINVAL;
 	}

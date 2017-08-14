@@ -743,4 +743,19 @@ config QCOM_FORCE_WDOG_BITE_ON_PANIC
 	  kernel panic. On certain MSM SoCs, this provides us
 	  additional debugging information.
 
+config QMP_DEBUGFS_CLIENT
+	bool "Debugfs Client to communicate with AOP using QMP protocol"
+	depends on DEBUG_FS
+	default n
+	help
+	  This options enables a driver which allows clients to send messages
+	  to Alway On processor using QMP transport.
+
 source "drivers/soc/qcom/memshare/Kconfig"
+
+config QSEE_IPC_IRQ_BRIDGE
+	tristate "QSEE IPC Interrupt Bridge"
+	help
+	  This module enables bridging an Inter-Processor Communication(IPC)
+	  interrupt from a remote subsystem directed towards Qualcomm
+	  Technologies, Inc. Secure Execution Environment(QSEE).

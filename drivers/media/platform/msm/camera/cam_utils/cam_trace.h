@@ -23,6 +23,8 @@
 
 #include <linux/tracepoint.h>
 #include <media/cam_req_mgr.h>
+#include "cam_req_mgr_core.h"
+#include "cam_req_mgr_interface.h"
 #include "cam_context.h"
 
 TRACE_EVENT(cam_context_state,
@@ -107,19 +109,112 @@ TRACE_EVENT(cam_apply_req,
 );
 
 TRACE_EVENT(cam_flush_req,
-	TP_PROTO(struct cam_req_mgr_flush_info *info),
-	TP_ARGS(info),
+	TP_PROTO(struct cam_req_mgr_core_link *link,
+		struct cam_req_mgr_flush_info *info),
+	TP_ARGS(link, info),
 	TP_STRUCT__entry(
 		__field(uint32_t, type)
 		__field(int64_t, req_id)
+		__field(void*, link)
+		__field(void*, session)
 	),
 	TP_fast_assign(
-		__entry->type   = info->flush_type;
-		__entry->req_id = info->req_id;
+		__entry->type    = info->flush_type;
+		__entry->req_id  = info->req_id;
+		__entry->link    = link;
+		__entry->session = link->parent;
 	),
 	TP_printk(
-		"FlushRequest type=%u request=%llu",
-			__entry->type, __entry->req_id
+		"FlushRequest type=%u request=%llu link=%pK session=%pK",
+			__entry->type, __entry->req_id, __entry->link,
+			__entry->session
+	)
+);
+
+TRACE_EVENT(cam_req_mgr_connect_device,
+	TP_PROTO(struct cam_req_mgr_core_link *link,
+		struct cam_req_mgr_device_info *info),
+	TP_ARGS(link, info),
+	TP_STRUCT__entry(
+		__string(name, info->name)
+		__field(uint32_t, id)
+		__field(uint32_t, delay)
+		__field(void*, link)
+		__field(void*, session)
+	),
+	TP_fast_assign(
+		__assign_str(name, info->name);
+		__entry->id      = info->dev_id;
+		__entry->delay   = info->p_delay;
+		__entry->link    = link;
+		__entry->session = link->parent;
+	),
+	TP_printk(
+		"ReqMgr Connect name=%s id=%u pd=%d link=%pK session=%pK",
+			__get_str(name), __entry->id, __entry->delay,
+			__entry->link, __entry->session
+	)
+);
+
+TRACE_EVENT(cam_req_mgr_apply_request,
+	TP_PROTO(struct cam_req_mgr_core_link *link,
+		struct cam_req_mgr_apply_request *req,
+		struct cam_req_mgr_connected_device *dev),
+	TP_ARGS(link, req, dev),
+	TP_STRUCT__entry(
+		__string(name, dev->dev_info.name)
+		__field(uint32_t, dev_id)
+		__field(uint64_t, req_id)
+		__field(void*, link)
+		__field(void*, session)
+	),
+	TP_fast_assign(
+		__assign_str(name, dev->dev_info.name);
+		__entry->dev_id  = dev->dev_info.dev_id;
+		__entry->req_id  = req->request_id;
+		__entry->link    = link;
+		__entry->session = link->parent;
+	),
+	TP_printk(
+		"ReqMgr ApplyRequest devname=%s devid=%u request=%lld link=%pK session=%pK",
+			__get_str(name), __entry->dev_id, __entry->req_id,
+			__entry->link, __entry->session
+	)
+);
+
+TRACE_EVENT(cam_req_mgr_add_req,
+	TP_PROTO(struct cam_req_mgr_core_link *link,
+		int idx, struct cam_req_mgr_add_request *add_req,
+		struct cam_req_mgr_req_tbl *tbl,
+		struct cam_req_mgr_connected_device *dev),
+	TP_ARGS(link, idx, add_req, tbl, dev),
+	TP_STRUCT__entry(
+		__string(name, dev->dev_info.name)
+		__field(uint32_t, dev_id)
+		__field(uint64_t, req_id)
+		__field(uint32_t, slot_id)
+		__field(uint32_t, delay)
+		__field(uint32_t, readymap)
+		__field(uint32_t, devicemap)
+		__field(void*, link)
+		__field(void*, session)
+	),
+	TP_fast_assign(
+		__assign_str(name, dev->dev_info.name);
+		__entry->dev_id    = dev->dev_info.dev_id;
+		__entry->req_id    = add_req->req_id;
+		__entry->slot_id   = idx;
+		__entry->delay     = tbl->pd;
+		__entry->readymap  = tbl->slot[idx].req_ready_map;
+		__entry->devicemap = tbl->dev_mask;
+		__entry->link      = link;
+		__entry->session   = link->parent;
+	),
+	TP_printk(
+		"ReqMgr AddRequest devname=%s devid=%d request=%lld slot=%d pd=%d readymap=%x devicemap=%d link=%pk session=%pK",
+			__get_str(name), __entry->dev_id, __entry->req_id,
+			__entry->slot_id, __entry->delay, __entry->readymap,
+			__entry->devicemap, __entry->link, __entry->session
 	)
 );
 #endif /* _CAM_TRACE_H */

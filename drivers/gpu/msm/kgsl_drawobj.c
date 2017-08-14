@@ -158,10 +158,13 @@ static void syncobj_timer(unsigned long data)
 }
 
 /*
- * a generic function to retire a pending sync event and (possibly)
- * kick the dispatcher
+ * a generic function to retire a pending sync event and (possibly) kick the
+ * dispatcher.
+ * Returns false if the event was already marked for cancellation in another
+ * thread. This function should return true if this thread is responsible for
+ * freeing up the memory, and the event will not be cancelled.
  */
-static void drawobj_sync_expire(struct kgsl_device *device,
+static bool drawobj_sync_expire(struct kgsl_device *device,
 	struct kgsl_drawobj_sync_event *event)
 {
 	struct kgsl_drawobj_sync *syncobj = event->syncobj;
@@ -170,7 +173,7 @@ static void drawobj_sync_expire(struct kgsl_device *device,
 	 * leave without doing anything useful
 	 */
 	if (!test_and_clear_bit(event->id, &syncobj->pending))
-		return;
+		return false;
 
 	/*
 	 * If no more pending events, delete the timer and schedule the command
@@ -183,6 +186,7 @@ static void drawobj_sync_expire(struct kgsl_device *device,
 			device->ftbl->drawctxt_sched(device,
 				event->syncobj->base.context);
 	}
+	return true;
 }
 
 /*
@@ -228,18 +232,23 @@ static void drawobj_destroy_sparse(struct kgsl_drawobj *drawobj)
 static void drawobj_destroy_sync(struct kgsl_drawobj *drawobj)
 {
 	struct kgsl_drawobj_sync *syncobj = SYNCOBJ(drawobj);
-	unsigned long pending;
+	unsigned long pending = 0;
 	unsigned int i;
 
 	/* Zap the canary timer */
 	del_timer_sync(&syncobj->timer);
 
 	/*
-	 * Copy off the pending list and clear all pending events - this will
-	 * render any subsequent asynchronous callback harmless
+	 * Copy off the pending list and clear each pending event atomically -
+	 * this will render any subsequent asynchronous callback harmless.
+	 * This marks each event for deletion. If any pending fence callbacks
+	 * run between now and the actual cancel, the associated structures
+	 * are kfreed only in the cancel call.
 	 */
-	bitmap_copy(&pending, &syncobj->pending, KGSL_MAX_SYNCPOINTS);
-	bitmap_zero(&syncobj->pending, KGSL_MAX_SYNCPOINTS);
+	for_each_set_bit(i, &syncobj->pending, KGSL_MAX_SYNCPOINTS) {
+		if (test_and_clear_bit(i, &syncobj->pending))
+			__set_bit(i, &pending);
+	}
 
 	/*
 	 * Clear all pending events - this will render any subsequent async
@@ -259,8 +268,8 @@ static void drawobj_destroy_sync(struct kgsl_drawobj *drawobj)
 				drawobj_sync_func, event);
 			break;
 		case KGSL_CMD_SYNCPOINT_TYPE_FENCE:
-			if (kgsl_sync_fence_async_cancel(event->handle))
-				kgsl_drawobj_put(drawobj);
+			kgsl_sync_fence_async_cancel(event->handle);
+			kgsl_drawobj_put(drawobj);
 			break;
 		}
 	}
@@ -320,15 +329,21 @@ void kgsl_drawobj_destroy(struct kgsl_drawobj *drawobj)
 }
 EXPORT_SYMBOL(kgsl_drawobj_destroy);
 
-static void drawobj_sync_fence_func(void *priv)
+static bool drawobj_sync_fence_func(void *priv)
 {
 	struct kgsl_drawobj_sync_event *event = priv;
 
 	trace_syncpoint_fence_expire(event->syncobj, event->fence_name);
 
-	drawobj_sync_expire(event->device, event);
-
-	kgsl_drawobj_put(&event->syncobj->base);
+	/*
+	 * Only call kgsl_drawobj_put() if it's not marked for cancellation
+	 * in another thread.
+	 */
+	if (drawobj_sync_expire(event->device, event)) {
+		kgsl_drawobj_put(&event->syncobj->base);
+		return true;
+	}
+	return false;
 }
 
 /* drawobj_add_sync_fence() - Add a new sync fence syncpoint

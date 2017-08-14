@@ -56,6 +56,7 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst,
 					bool check_for_reuse);
 int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst);
 int msm_comm_release_recon_buffers(struct msm_vidc_inst *inst);
+void msm_comm_release_eos_buffers(struct msm_vidc_inst *inst);
 int msm_comm_release_output_buffers(struct msm_vidc_inst *inst,
 	bool force_release);
 void msm_comm_validate_output_buffers(struct msm_vidc_inst *inst);

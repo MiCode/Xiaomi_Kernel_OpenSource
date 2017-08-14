@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "CAM-ICP-CTXT %s:%d " fmt, __func__, __LINE__
-
 #include <linux/debugfs.h>
 #include <linux/videodev2.h>
 #include <linux/slab.h>
@@ -26,6 +24,7 @@
 #include "cam_req_mgr_util.h"
 #include "cam_mem_mgr.h"
 #include "cam_trace.h"
+#include "cam_debug_util.h"
 
 static int __cam_icp_acquire_dev_in_available(struct cam_context *ctx,
 	struct cam_acquire_dev_cmd *cmd)
@@ -48,7 +47,7 @@ static int __cam_icp_release_dev_in_acquired(struct cam_context *ctx,
 
 	rc = cam_context_release_dev_to_hw(ctx, cmd);
 	if (rc)
-		pr_err("Unable to release device\n");
+		CAM_ERR(CAM_ICP, "Unable to release device");
 
 	ctx->state = CAM_CTX_AVAILABLE;
 	trace_cam_context_state("ICP", ctx);
@@ -76,7 +75,7 @@ static int __cam_icp_config_dev_in_ready(struct cam_context *ctx,
 
 	rc = cam_context_prepare_dev_to_hw(ctx, cmd);
 	if (rc)
-		pr_err("Unable to prepare device\n");
+		CAM_ERR(CAM_ICP, "Failed to prepare device");
 
 	return rc;
 }
@@ -88,7 +87,7 @@ static int __cam_icp_stop_dev_in_ready(struct cam_context *ctx,
 
 	rc = cam_context_stop_dev_to_hw(ctx);
 	if (rc)
-		pr_err("Unable to stop device\n");
+		CAM_ERR(CAM_ICP, "Failed to stop device");
 
 	ctx->state = CAM_CTX_ACQUIRED;
 	trace_cam_context_state("ICP", ctx);
@@ -102,11 +101,11 @@ static int __cam_icp_release_dev_in_ready(struct cam_context *ctx,
 
 	rc = __cam_icp_stop_dev_in_ready(ctx, NULL);
 	if (rc)
-		pr_err("Unable to stop device\n");
+		CAM_ERR(CAM_ICP, "Failed to stop device");
 
 	rc = __cam_icp_release_dev_in_acquired(ctx, cmd);
 	if (rc)
-		pr_err("Unable to stop device\n");
+		CAM_ERR(CAM_ICP, "Failed to release device");
 
 	return rc;
 }
@@ -167,7 +166,7 @@ int cam_icp_context_init(struct cam_icp_context *ctx,
 	int rc;
 
 	if ((!ctx) || (!ctx->base) || (!hw_intf)) {
-		pr_err("Invalid params: %pK %pK\n", ctx, hw_intf);
+		CAM_ERR(CAM_ICP, "Invalid params: %pK %pK", ctx, hw_intf);
 		rc = -EINVAL;
 		goto err;
 	}
@@ -175,7 +174,7 @@ int cam_icp_context_init(struct cam_icp_context *ctx,
 	rc = cam_context_init(ctx->base, NULL, hw_intf, ctx->req_base,
 		CAM_CTX_REQ_MAX);
 	if (rc) {
-		pr_err("Camera Context Base init failed!\n");
+		CAM_ERR(CAM_ICP, "Camera Context Base init failed");
 		goto err;
 	}
 
@@ -190,7 +189,7 @@ err:
 int cam_icp_context_deinit(struct cam_icp_context *ctx)
 {
 	if ((!ctx) || (!ctx->base)) {
-		pr_err("Invalid params: %pK\n", ctx);
+		CAM_ERR(CAM_ICP, "Invalid params: %pK", ctx);
 		return -EINVAL;
 	}
 

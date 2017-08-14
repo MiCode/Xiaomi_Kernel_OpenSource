@@ -10,17 +10,13 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "%s:%d " fmt, __func__, __LINE__
-
 #include <linux/slab.h>
 #include "cam_io_util.h"
 #include "cam_cdm_util.h"
 #include "cam_vfe_hw_intf.h"
 #include "cam_vfe_top.h"
 #include "cam_vfe_top_ver2.h"
-
-#undef CDBG
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#include "cam_debug_util.h"
 
 struct cam_vfe_top_ver2_common_data {
 	struct cam_hw_soc_info                     *soc_info;
@@ -43,13 +39,13 @@ static int cam_vfe_top_mux_get_base(struct cam_vfe_top_ver2_priv *top_priv,
 	struct cam_cdm_utils_ops         *cdm_util_ops = NULL;
 
 	if (arg_size != sizeof(struct cam_isp_hw_get_cdm_args)) {
-		pr_err("Error! Invalid cmd size\n");
+		CAM_ERR(CAM_ISP, "Error! Invalid cmd size");
 		return -EINVAL;
 	}
 
 	if (!cdm_args || !cdm_args->res || !top_priv ||
 		!top_priv->common_data.soc_info) {
-		pr_err("Error! Invalid args\n");
+		CAM_ERR(CAM_ISP, "Error! Invalid args");
 		return -EINVAL;
 	}
 
@@ -57,22 +53,22 @@ static int cam_vfe_top_mux_get_base(struct cam_vfe_top_ver2_priv *top_priv,
 		(struct cam_cdm_utils_ops *)cdm_args->res->cdm_ops;
 
 	if (!cdm_util_ops) {
-		pr_err("Invalid CDM ops\n");
+		CAM_ERR(CAM_ISP, "Invalid CDM ops");
 		return -EINVAL;
 	}
 
 	size = cdm_util_ops->cdm_required_size_changebase();
 	/* since cdm returns dwords, we need to convert it into bytes */
 	if ((size * 4) > cdm_args->size) {
-		pr_err("buf size:%d is not sufficient, expected: %d\n",
+		CAM_ERR(CAM_ISP, "buf size:%d is not sufficient, expected: %d",
 			cdm_args->size, size);
 		return -EINVAL;
 	}
 
 	mem_base = CAM_SOC_GET_REG_MAP_CAM_BASE(
 		top_priv->common_data.soc_info, VFE_CORE_BASE_IDX);
-	CDBG("core %d mem_base 0x%x\n", top_priv->common_data.soc_info->index,
-		mem_base);
+	CAM_DBG(CAM_ISP, "core %d mem_base 0x%x",
+		top_priv->common_data.soc_info->index, mem_base);
 
 	cdm_util_ops->cdm_write_changebase(cdm_args->cmd_buf_addr, mem_base);
 	cdm_args->used_bytes = (size * 4);
@@ -90,26 +86,26 @@ static int cam_vfe_top_mux_get_reg_update(
 	struct cam_cdm_utils_ops         *cdm_util_ops = NULL;
 
 	if (arg_size != sizeof(struct cam_isp_hw_get_cdm_args)) {
-		pr_err("Error! Invalid cmd size\n");
+		CAM_ERR(CAM_ISP, "Error! Invalid cmd size");
 		return -EINVAL;
 	}
 
 	if (!cdm_args || !cdm_args->res) {
-		pr_err("Error! Invalid args\n");
+		CAM_ERR(CAM_ISP, "Error! Invalid args");
 		return -EINVAL;
 	}
 
 	cdm_util_ops = (struct cam_cdm_utils_ops *)cdm_args->res->cdm_ops;
 
 	if (!cdm_util_ops) {
-		pr_err("Error! Invalid CDM ops\n");
+		CAM_ERR(CAM_ISP, "Error! Invalid CDM ops");
 		return -EINVAL;
 	}
 
 	size = cdm_util_ops->cdm_required_size_reg_random(1);
 	/* since cdm returns dwords, we need to convert it into bytes */
 	if ((size * 4) > cdm_args->size) {
-		pr_err("Error! buf size:%d is not sufficient, expected: %d\n",
+		CAM_ERR(CAM_ISP, "buf size:%d is not sufficient, expected: %d",
 			cdm_args->size, size);
 		return -EINVAL;
 	}
@@ -153,7 +149,7 @@ int cam_vfe_top_reset(void *device_priv,
 	struct cam_vfe_top_ver2_reg_offset_common *reg_common = NULL;
 
 	if (!top_priv) {
-		pr_err("Invalid arguments\n");
+		CAM_ERR(CAM_ISP, "Invalid arguments");
 		return -EINVAL;
 	}
 
@@ -169,7 +165,7 @@ int cam_vfe_top_reset(void *device_priv,
 		CAM_SOC_GET_REG_MAP_START(soc_info, VFE_CORE_BASE_IDX) +
 		reg_common->global_reset_cmd);
 
-	CDBG("Reset HW exit\n");
+	CAM_DBG(CAM_ISP, "Reset HW exit");
 	return 0;
 }
 
@@ -183,7 +179,7 @@ int cam_vfe_top_reserve(void *device_priv,
 	int rc = -EINVAL;
 
 	if (!device_priv || !reserve_args) {
-		pr_err("Error! Invalid input arguments\n");
+		CAM_ERR(CAM_ISP, "Error! Invalid input arguments");
 		return -EINVAL;
 	}
 
@@ -228,16 +224,16 @@ int cam_vfe_top_release(void *device_priv,
 	struct cam_isp_resource_node            *mux_res;
 
 	if (!device_priv || !release_args) {
-		pr_err("Error! Invalid input arguments\n");
+		CAM_ERR(CAM_ISP, "Error! Invalid input arguments");
 		return -EINVAL;
 	}
 
 	top_priv = (struct cam_vfe_top_ver2_priv   *)device_priv;
 	mux_res = (struct cam_isp_resource_node *)release_args;
 
-	CDBG("%s: Resource in state %d\n", __func__, mux_res->res_state);
+	CAM_DBG(CAM_ISP, "Resource in state %d", mux_res->res_state);
 	if (mux_res->res_state < CAM_ISP_RESOURCE_STATE_RESERVED) {
-		pr_err("Error! Resource in Invalid res_state :%d\n",
+		CAM_ERR(CAM_ISP, "Error! Resource in Invalid res_state :%d",
 			mux_res->res_state);
 		return -EINVAL;
 	}
@@ -254,7 +250,7 @@ int cam_vfe_top_start(void *device_priv,
 	int rc = 0;
 
 	if (!device_priv || !start_args) {
-		pr_err("Error! Invalid input arguments\n");
+		CAM_ERR(CAM_ISP, "Error! Invalid input arguments");
 		return -EINVAL;
 	}
 
@@ -268,7 +264,7 @@ int cam_vfe_top_start(void *device_priv,
 		mux_res->res_state = CAM_ISP_RESOURCE_STATE_STREAMING;
 		rc = 0;
 	} else {
-		pr_err("Invalid res id:%d\n", mux_res->res_id);
+		CAM_ERR(CAM_ISP, "Invalid res id:%d", mux_res->res_id);
 		rc = -EINVAL;
 	}
 
@@ -283,7 +279,7 @@ int cam_vfe_top_stop(void *device_priv,
 	int rc = 0;
 
 	if (!device_priv || !stop_args) {
-		pr_err("Error! Invalid input arguments\n");
+		CAM_ERR(CAM_ISP, "Error! Invalid input arguments");
 		return -EINVAL;
 	}
 
@@ -295,7 +291,7 @@ int cam_vfe_top_stop(void *device_priv,
 		mux_res->res_id <= CAM_ISP_HW_VFE_IN_RDI3)) {
 		rc = mux_res->stop(mux_res);
 	} else {
-		pr_err("Invalid res id:%d\n", mux_res->res_id);
+		CAM_ERR(CAM_ISP, "Invalid res id:%d", mux_res->res_id);
 		rc = -EINVAL;
 	}
 
@@ -322,7 +318,7 @@ int cam_vfe_top_process_cmd(void *device_priv, uint32_t cmd_type,
 	struct cam_vfe_top_ver2_priv            *top_priv;
 
 	if (!device_priv || !cmd_args) {
-		pr_err("Error! Invalid arguments\n");
+		CAM_ERR(CAM_ISP, "Error! Invalid arguments");
 		return -EINVAL;
 	}
 	top_priv = (struct cam_vfe_top_ver2_priv *)device_priv;
@@ -337,7 +333,7 @@ int cam_vfe_top_process_cmd(void *device_priv, uint32_t cmd_type,
 		break;
 	default:
 		rc = -EINVAL;
-		pr_err("Error! Invalid cmd:%d\n", cmd_type);
+		CAM_ERR(CAM_ISP, "Error! Invalid cmd:%d", cmd_type);
 		break;
 	}
 
@@ -357,7 +353,7 @@ int cam_vfe_top_ver2_init(
 
 	vfe_top = kzalloc(sizeof(struct cam_vfe_top), GFP_KERNEL);
 	if (!vfe_top) {
-		CDBG("Error! Failed to alloc for vfe_top\n");
+		CAM_DBG(CAM_ISP, "Error! Failed to alloc for vfe_top");
 		rc = -ENOMEM;
 		goto end;
 	}
@@ -365,7 +361,7 @@ int cam_vfe_top_ver2_init(
 	top_priv = kzalloc(sizeof(struct cam_vfe_top_ver2_priv),
 		GFP_KERNEL);
 	if (!top_priv) {
-		CDBG("Error! Failed to alloc for vfe_top_priv\n");
+		CAM_DBG(CAM_ISP, "Error! Failed to alloc for vfe_top_priv");
 		rc = -ENOMEM;
 		goto free_vfe_top;
 	}
@@ -391,7 +387,8 @@ int cam_vfe_top_ver2_init(
 				CAM_ISP_HW_VFE_IN_RDI0 + j++;
 
 			rc = cam_vfe_rdi_ver2_init(hw_intf, soc_info,
-				NULL, &top_priv->mux_rsrc[i]);
+				&ver2_hw_info->rdi_hw_info,
+				&top_priv->mux_rsrc[i]);
 			if (rc)
 				goto deinit_resources;
 		}
@@ -419,10 +416,10 @@ deinit_resources:
 	for (--i; i >= 0; i--) {
 		if (ver2_hw_info->mux_type[i] == CAM_VFE_CAMIF_VER_2_0) {
 			if (cam_vfe_camif_ver2_deinit(&top_priv->mux_rsrc[i]))
-				pr_err("Camif Deinit failed\n");
+				CAM_ERR(CAM_ISP, "Camif Deinit failed");
 		} else {
 			if (cam_vfe_rdi_ver2_deinit(&top_priv->mux_rsrc[i]))
-				pr_err("RDI Deinit failed\n");
+				CAM_ERR(CAM_ISP, "RDI Deinit failed");
 		}
 		top_priv->mux_rsrc[i].res_state =
 			CAM_ISP_RESOURCE_STATE_UNAVAILABLE;
@@ -442,19 +439,19 @@ int cam_vfe_top_ver2_deinit(struct cam_vfe_top  **vfe_top_ptr)
 	struct cam_vfe_top                     *vfe_top;
 
 	if (!vfe_top_ptr) {
-		pr_err("Error! Invalid input\n");
+		CAM_ERR(CAM_ISP, "Error! Invalid input");
 		return -EINVAL;
 	}
 
 	vfe_top = *vfe_top_ptr;
 	if (!vfe_top) {
-		pr_err("Error! vfe_top NULL\n");
+		CAM_ERR(CAM_ISP, "Error! vfe_top NULL");
 		return -ENODEV;
 	}
 
 	top_priv = vfe_top->top_priv;
 	if (!top_priv) {
-		pr_err("Error! vfe_top_priv NULL\n");
+		CAM_ERR(CAM_ISP, "Error! vfe_top_priv NULL");
 		rc = -ENODEV;
 		goto free_vfe_top;
 	}
@@ -466,12 +463,12 @@ int cam_vfe_top_ver2_deinit(struct cam_vfe_top  **vfe_top_ptr)
 			CAM_ISP_HW_VFE_IN_CAMIF) {
 			rc = cam_vfe_camif_ver2_deinit(&top_priv->mux_rsrc[i]);
 			if (rc)
-				pr_err("Error! Camif deinit failed rc=%d\n",
+				CAM_ERR(CAM_ISP, "Camif deinit failed rc=%d",
 					rc);
 		} else {
 			rc = cam_vfe_rdi_ver2_deinit(&top_priv->mux_rsrc[i]);
 			if (rc)
-				pr_err("Error! RDI deinit failed rc=%d\n", rc);
+				CAM_ERR(CAM_ISP, "RDI deinit failed rc=%d", rc);
 		}
 	}
 

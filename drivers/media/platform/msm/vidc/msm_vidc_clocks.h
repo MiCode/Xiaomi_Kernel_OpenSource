@@ -33,6 +33,9 @@ int msm_vidc_decide_work_mode(struct msm_vidc_inst *inst);
 int msm_vidc_decide_core_and_power_mode(struct msm_vidc_inst *inst);
 void msm_vidc_clear_freq_entry(struct msm_vidc_inst *inst,
 	u32 device_addr);
+void msm_comm_free_input_cr_table(struct msm_vidc_inst *inst);
+void msm_comm_update_input_cr(struct msm_vidc_inst *inst, u32 index,
+	u32 cr);
 void update_recon_stats(struct msm_vidc_inst *inst,
 	struct recon_stats_type *recon_stats);
 #endif

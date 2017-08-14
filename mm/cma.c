@@ -36,6 +36,7 @@
 #include <linux/highmem.h>
 #include <linux/io.h>
 #include <linux/delay.h>
+#include <linux/show_mem_notifier.h>
 #include <trace/events/cma.h>
 
 #include "cma.h"
@@ -94,6 +95,29 @@ static void cma_clear_bitmap(struct cma *cma, unsigned long pfn,
 	bitmap_clear(cma->bitmap, bitmap_no, bitmap_count);
 	mutex_unlock(&cma->lock);
 }
+
+static int cma_showmem_notifier(struct notifier_block *nb,
+				   unsigned long action, void *data)
+{
+	int i;
+	unsigned long used;
+	struct cma *cma;
+
+	for (i = 0; i < cma_area_count; i++) {
+		cma = &cma_areas[i];
+		used = bitmap_weight(cma->bitmap,
+				     (int)cma_bitmap_maxno(cma));
+		used <<= cma->order_per_bit;
+		pr_info("cma-%d pages: => %lu used of %lu total pages\n",
+			i, used, cma->count);
+	}
+
+	return 0;
+}
+
+static struct notifier_block cma_nb = {
+	.notifier_call = cma_showmem_notifier,
+};
 
 static int __init cma_activate_area(struct cma *cma)
 {
@@ -157,6 +181,8 @@ static int __init cma_init_reserved_areas(void)
 		if (ret)
 			return ret;
 	}
+
+	show_mem_notifier_register(&cma_nb);
 
 	return 0;
 }
@@ -358,6 +384,32 @@ err:
 	return ret;
 }
 
+#ifdef CONFIG_CMA_DEBUG
+static void cma_debug_show_areas(struct cma *cma)
+{
+	unsigned long next_zero_bit, next_set_bit;
+	unsigned long start = 0;
+	unsigned int nr_zero, nr_total = 0;
+
+	mutex_lock(&cma->lock);
+	pr_info("number of available pages: ");
+	for (;;) {
+		next_zero_bit = find_next_zero_bit(cma->bitmap, cma->count, start);
+		if (next_zero_bit >= cma->count)
+			break;
+		next_set_bit = find_next_bit(cma->bitmap, cma->count, next_zero_bit);
+		nr_zero = next_set_bit - next_zero_bit;
+		pr_cont("%s%u@%lu", nr_total ? "+" : "", nr_zero, next_zero_bit);
+		nr_total += nr_zero;
+		start = next_zero_bit + nr_zero;
+	}
+	pr_cont("=> %u free of %lu total pages\n", nr_total, cma->count);
+	mutex_unlock(&cma->lock);
+}
+#else
+static inline void cma_debug_show_areas(struct cma *cma) { }
+#endif
+
 /**
  * cma_alloc() - allocate pages from contiguous area
  * @cma:   Contiguous memory region for which the allocation is performed.
@@ -374,8 +426,8 @@ struct page *cma_alloc(struct cma *cma, size_t count, unsigned int align)
 	unsigned long start = 0;
 	unsigned long bitmap_maxno, bitmap_no, bitmap_count;
 	struct page *page = NULL;
-	int ret;
 	int retry_after_sleep = 0;
+	int ret = -ENOMEM;
 
 	if (!cma || !cma->count)
 		return NULL;
@@ -451,6 +503,12 @@ struct page *cma_alloc(struct cma *cma, size_t count, unsigned int align)
 	}
 
 	trace_cma_alloc(pfn, page, count, align);
+
+	if (ret) {
+		pr_info("%s: alloc failed, req-size: %zu pages, ret: %d\n",
+			__func__, count, ret);
+		cma_debug_show_areas(cma);
+	}
 
 	pr_debug("%s(): returned %p\n", __func__, page);
 	return page;

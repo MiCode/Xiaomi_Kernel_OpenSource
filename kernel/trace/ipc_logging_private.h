@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -119,6 +119,8 @@ struct ipc_log_context {
 	struct list_head dfunc_info_list;
 	spinlock_t context_lock_lhb1;
 	struct completion read_avail;
+	struct kref refcount;
+	bool destroyed;
 };
 
 struct dfunc_info {
@@ -146,6 +148,13 @@ enum {
 #define IS_MSG_TYPE(x) (((x) > TSV_TYPE_MSG_START) && \
 			((x) < TSV_TYPE_MSG_END))
 #define MAX_MSG_DECODED_SIZE (MAX_MSG_SIZE*4)
+
+void ipc_log_context_free(struct kref *kref);
+
+static inline void ipc_log_context_put(struct ipc_log_context *ilctxt)
+{
+	kref_put(&ilctxt->refcount, ipc_log_context_free);
+}
 
 #if (defined(CONFIG_DEBUG_FS))
 void check_and_create_debugfs(void);

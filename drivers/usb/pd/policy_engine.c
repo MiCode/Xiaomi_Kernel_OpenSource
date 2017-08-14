@@ -926,6 +926,7 @@ static void usbpd_set_state(struct usbpd *pd, enum usbpd_state next_state)
 
 			if (pd->psy_type == POWER_SUPPLY_TYPE_USB ||
 				pd->psy_type == POWER_SUPPLY_TYPE_USB_CDP ||
+				pd->psy_type == POWER_SUPPLY_TYPE_USB_FLOAT ||
 				usb_compliance_mode)
 				start_usb_peripheral(pd);
 		}
@@ -1432,6 +1433,7 @@ static void reset_vdm_state(struct usbpd *pd)
 static void dr_swap(struct usbpd *pd)
 {
 	reset_vdm_state(pd);
+	usbpd_dbg(&pd->dev, "dr_swap: current_dr(%d)\n", pd->current_dr);
 
 	if (pd->current_dr == DR_DFP) {
 		stop_usb_host(pd);
@@ -1439,9 +1441,9 @@ static void dr_swap(struct usbpd *pd)
 		pd->current_dr = DR_UFP;
 	} else if (pd->current_dr == DR_UFP) {
 		stop_usb_peripheral(pd);
+		start_usb_host(pd, true);
 		pd->current_dr = DR_DFP;
 
-		/* don't start USB host until after SVDM discovery */
 		usbpd_send_svdm(pd, USBPD_SID, USBPD_SVDM_DISCOVER_IDENTITY,
 				SVDM_CMD_TYPE_INITIATOR, 0, NULL, 0);
 	}
@@ -1614,7 +1616,6 @@ static void usbpd_sm(struct work_struct *w)
 		else if (pd->current_dr == DR_DFP)
 			stop_usb_host(pd);
 
-		pd->current_pr = PR_NONE;
 		pd->current_dr = DR_NONE;
 
 		if (pd->current_state == PE_ERROR_RECOVERY)
@@ -2467,6 +2468,16 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 
 		if (pd->current_pr == PR_SINK)
 			return 0;
+
+		/*
+		 * Unexpected if not in PR swap; need to force disconnect from
+		 * source so we can turn off VBUS, Vconn, PD PHY etc.
+		 */
+		if (pd->current_pr == PR_SRC) {
+			usbpd_info(&pd->dev, "Forcing disconnect from source mode\n");
+			pd->current_pr = PR_NONE;
+			break;
+		}
 
 		pd->current_pr = PR_SINK;
 		break;

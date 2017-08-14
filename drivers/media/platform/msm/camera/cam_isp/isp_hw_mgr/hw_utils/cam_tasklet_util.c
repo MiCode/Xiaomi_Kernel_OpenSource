@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "%s:%d " fmt, __func__, __LINE__
-
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
@@ -19,9 +17,7 @@
 #include <linux/ratelimit.h>
 #include "cam_tasklet_util.h"
 #include "cam_irq_controller.h"
-
-#undef  CDBG
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#include "cam_debug_util.h"
 
 #define CAM_TASKLETQ_SIZE              256
 
@@ -95,14 +91,14 @@ static int cam_tasklet_get_cmd(
 	*tasklet_cmd = NULL;
 
 	if (!atomic_read(&tasklet->tasklet_active)) {
-		pr_err_ratelimited("Tasklet is not active!\n");
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "Tasklet is not active!\n");
 		rc = -EPIPE;
 		return rc;
 	}
 
 	spin_lock_irqsave(&tasklet->tasklet_lock, flags);
 	if (list_empty(&tasklet->free_cmd_list)) {
-		pr_err_ratelimited("No more free tasklet cmd!\n");
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "No more free tasklet cmd!\n");
 		rc = -ENODEV;
 		goto spin_unlock;
 	} else {
@@ -162,22 +158,22 @@ static int cam_tasklet_dequeue_cmd(
 	*tasklet_cmd = NULL;
 
 	if (!atomic_read(&tasklet->tasklet_active)) {
-		pr_err("Tasklet is not active!\n");
+		CAM_ERR(CAM_ISP, "Tasklet is not active!");
 		rc = -EPIPE;
 		return rc;
 	}
 
-	CDBG("Dequeue before lock.\n");
+	CAM_DBG(CAM_ISP, "Dequeue before lock.");
 	spin_lock_irqsave(&tasklet->tasklet_lock, flags);
 	if (list_empty(&tasklet->used_cmd_list)) {
-		CDBG("End of list reached. Exit\n");
+		CAM_DBG(CAM_ISP, "End of list reached. Exit");
 		rc = -ENODEV;
 		goto spin_unlock;
 	} else {
 		*tasklet_cmd = list_first_entry(&tasklet->used_cmd_list,
 			struct cam_tasklet_queue_cmd, list);
 		list_del_init(&(*tasklet_cmd)->list);
-		CDBG("Dequeue Successful\n");
+		CAM_DBG(CAM_ISP, "Dequeue Successful");
 	}
 
 spin_unlock:
@@ -197,14 +193,14 @@ int cam_tasklet_enqueue_cmd(
 	int                            rc;
 
 	if (!bottom_half) {
-		pr_err("NULL bottom half\n");
+		CAM_ERR(CAM_ISP, "NULL bottom half");
 		return -EINVAL;
 	}
 
 	rc = cam_tasklet_get_cmd(tasklet, &tasklet_cmd);
 
 	if (tasklet_cmd) {
-		CDBG("%s: Enqueue tasklet cmd\n", __func__);
+		CAM_DBG(CAM_ISP, "Enqueue tasklet cmd");
 		tasklet_cmd->bottom_half_handler = bottom_half_handler;
 		tasklet_cmd->payload = evt_payload_priv;
 		spin_lock_irqsave(&tasklet->tasklet_lock, flags);
@@ -213,7 +209,7 @@ int cam_tasklet_enqueue_cmd(
 		spin_unlock_irqrestore(&tasklet->tasklet_lock, flags);
 		tasklet_schedule(&tasklet->tasklet);
 	} else {
-		pr_err("%s: tasklet cmd is NULL!\n", __func__);
+		CAM_ERR(CAM_ISP, "tasklet cmd is NULL!");
 	}
 
 	return rc;
@@ -229,7 +225,8 @@ int cam_tasklet_init(
 
 	tasklet = kzalloc(sizeof(struct cam_tasklet_info), GFP_KERNEL);
 	if (!tasklet) {
-		CDBG("Error! Unable to allocate memory for tasklet");
+		CAM_DBG(CAM_ISP,
+			"Error! Unable to allocate memory for tasklet");
 		*tasklet_info = NULL;
 		return -ENOMEM;
 	}
@@ -271,7 +268,8 @@ int cam_tasklet_start(void  *tasklet_info)
 	struct cam_tasklet_queue_cmd  *tasklet_cmd_temp;
 
 	if (atomic_read(&tasklet->tasklet_active)) {
-		pr_err("Tasklet already active. idx = %d\n", tasklet->index);
+		CAM_ERR(CAM_ISP, "Tasklet already active. idx = %d",
+			tasklet->index);
 		return -EBUSY;
 	}
 	atomic_set(&tasklet->tasklet_active, 1);

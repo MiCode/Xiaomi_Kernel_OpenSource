@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "A5-CORE %s:%d " fmt, __func__, __LINE__
-
 #include <linux/slab.h>
 #include <linux/of.h>
 #include <linux/debugfs.h>
@@ -35,6 +33,7 @@
 #include "hfi_sys_defs.h"
 #include "cam_icp_hw_mgr_intf.h"
 #include "cam_cpas_api.h"
+#include "cam_debug_util.h"
 
 static int cam_a5_cpas_vote(struct cam_a5_device_core_info *core_info,
 	struct cam_icp_cpas_vote *cpas_vote)
@@ -50,7 +49,7 @@ static int cam_a5_cpas_vote(struct cam_a5_device_core_info *core_info,
 			&cpas_vote->axi_vote);
 
 	if (rc)
-		pr_err("cpas vote is failed: %d\n", rc);
+		CAM_ERR(CAM_ICP, "cpas vote is failed: %d", rc);
 
 	return rc;
 }
@@ -60,26 +59,26 @@ static int32_t cam_icp_validate_fw(const uint8_t *elf)
 	struct elf32_hdr *elf_hdr;
 
 	if (!elf) {
-		pr_err("Invalid params\n");
+		CAM_ERR(CAM_ICP, "Invalid params");
 		return -EINVAL;
 	}
 
 	elf_hdr = (struct elf32_hdr *)elf;
 
 	if (memcmp(elf_hdr->e_ident, ELFMAG, SELFMAG)) {
-		pr_err("ICP elf identifier is failed\n");
+		CAM_ERR(CAM_ICP, "ICP elf identifier is failed");
 		return -EINVAL;
 	}
 
 	/* check architecture */
 	if (elf_hdr->e_machine != EM_ARM) {
-		pr_err("unsupported arch\n");
+		CAM_ERR(CAM_ICP, "unsupported arch");
 		return -EINVAL;
 	}
 
 	/* check elf bit format */
 	if (elf_hdr->e_ident[EI_CLASS] != ELFCLASS32) {
-		pr_err("elf doesn't support 32 bit format\n");
+		CAM_ERR(CAM_ICP, "elf doesn't support 32 bit format");
 		return -EINVAL;
 	}
 
@@ -97,7 +96,7 @@ static int32_t cam_icp_get_fw_size(const uint8_t *elf, uint32_t *fw_size)
 	struct elf32_phdr *prg_hdr;
 
 	if (!elf || !fw_size) {
-		pr_err("invalid args\n");
+		CAM_ERR(CAM_ICP, "invalid args");
 		return -EINVAL;
 	}
 
@@ -109,11 +108,11 @@ static int32_t cam_icp_get_fw_size(const uint8_t *elf, uint32_t *fw_size)
 	prg_hdr = (struct elf32_phdr *)&icp_prg_hdr_tbl[0];
 
 	if (!prg_hdr) {
-		pr_err("failed to get elf program header attr\n");
+		CAM_ERR(CAM_ICP, "failed to get elf program header attr");
 		return -EINVAL;
 	}
 
-	pr_debug("num_prg_hdrs = %d\n", num_prg_hdrs);
+	CAM_DBG(CAM_ICP, "num_prg_hdrs = %d", num_prg_hdrs);
 	for (i = 0; i < num_prg_hdrs; i++, prg_hdr++) {
 		if (prg_hdr->p_flags == 0)
 			continue;
@@ -121,7 +120,7 @@ static int32_t cam_icp_get_fw_size(const uint8_t *elf, uint32_t *fw_size)
 		seg_mem_size = (prg_hdr->p_memsz + prg_hdr->p_align - 1) &
 					~(prg_hdr->p_align - 1);
 		seg_mem_size += prg_hdr->p_vaddr;
-		pr_debug("p_memsz = %x p_align = %x p_vaddr = %x seg_mem_size = %x\n",
+		CAM_DBG(CAM_ICP, "memsz:%x align:%x addr:%x seg_mem_size:%x",
 			(int)prg_hdr->p_memsz, (int)prg_hdr->p_align,
 			(int)prg_hdr->p_vaddr, (int)seg_mem_size);
 		if (*fw_size < seg_mem_size)
@@ -130,7 +129,7 @@ static int32_t cam_icp_get_fw_size(const uint8_t *elf, uint32_t *fw_size)
 	}
 
 	if (*fw_size == 0) {
-		pr_err("invalid elf fw file\n");
+		CAM_ERR(CAM_ICP, "invalid elf fw file");
 		return -EINVAL;
 	}
 
@@ -155,7 +154,7 @@ static int32_t cam_icp_program_fw(const uint8_t *elf,
 	prg_hdr = (struct elf32_phdr *)&icp_prg_hdr_tbl[0];
 
 	if (!prg_hdr) {
-		pr_err("failed to get elf program header attr\n");
+		CAM_ERR(CAM_ICP, "failed to get elf program header attr");
 		return -EINVAL;
 	}
 
@@ -163,15 +162,14 @@ static int32_t cam_icp_program_fw(const uint8_t *elf,
 		if (prg_hdr->p_flags == 0)
 			continue;
 
-		pr_debug("Loading FW header size: %u\n", prg_hdr->p_filesz);
+		CAM_DBG(CAM_ICP, "Loading FW header size: %u",
+			prg_hdr->p_filesz);
 		if (prg_hdr->p_filesz != 0) {
 			src = (u8 *)((u8 *)elf + prg_hdr->p_offset);
 			dest = (u8 *)(((u8 *)core_info->fw_kva_addr) +
 						prg_hdr->p_vaddr);
 
 			memcpy_toio(dest, src, prg_hdr->p_filesz);
-			pr_debug("fw kva: %pK, p_vaddr: 0x%x\n",
-					dest, prg_hdr->p_vaddr);
 		}
 	}
 
@@ -191,7 +189,7 @@ static int32_t cam_a5_download_fw(void *device_priv)
 	struct a5_soc_info *cam_a5_soc_info = NULL;
 
 	if (!device_priv) {
-		pr_err("Invalid cam_dev_info\n");
+		CAM_ERR(CAM_ICP, "Invalid cam_dev_info");
 		return -EINVAL;
 	}
 
@@ -202,44 +200,38 @@ static int32_t cam_a5_download_fw(void *device_priv)
 	cam_a5_soc_info = soc_info->soc_private;
 
 	rc = request_firmware(&core_info->fw_elf, "CAMERA_ICP.elf", &pdev->dev);
-	pr_debug("request_firmware: %d\n", rc);
-	if (rc < 0) {
-		pr_err("Failed to locate fw\n");
+	if (rc) {
+		CAM_ERR(CAM_ICP, "Failed to locate fw: %d", rc);
 		return rc;
 	}
 
 	if (!core_info->fw_elf) {
-		pr_err("request_firmware is failed\n");
+		CAM_ERR(CAM_ICP, "Invalid elf size");
 		return -EINVAL;
 	}
 
 	fw_start = core_info->fw_elf->data;
 	rc = cam_icp_validate_fw(fw_start);
-	if (rc < 0) {
-		pr_err("fw elf validation failed\n");
+	if (rc) {
+		CAM_ERR(CAM_ICP, "fw elf validation failed");
 		return -EINVAL;
 	}
 
 	rc = cam_icp_get_fw_size(fw_start, &fw_size);
-	if (rc < 0) {
-		pr_err("unable to get fw file size\n");
+	if (rc) {
+		CAM_ERR(CAM_ICP, "unable to get fw size");
 		return rc;
 	}
-	pr_debug("cam_icp_get_fw_size: %u\n", fw_size);
-
-	/* Check FW firmware memory allocation is OK or not */
-	pr_debug("cam_icp_get_fw_size: %u %llu\n",
-		fw_size, core_info->fw_buf_len);
 
 	if (core_info->fw_buf_len < fw_size) {
-		pr_err("fw allocation failed\n");
+		CAM_ERR(CAM_ICP, "mismatch in fw size: %u %llu",
+			fw_size, core_info->fw_buf_len);
 		goto fw_alloc_failed;
 	}
 
-	/* download fw */
 	rc = cam_icp_program_fw(fw_start, core_info);
-	if (rc < 0) {
-		pr_err("fw program is failed\n");
+	if (rc) {
+		CAM_ERR(CAM_ICP, "fw program is failed");
 		goto fw_program_failed;
 	}
 
@@ -259,7 +251,7 @@ int cam_a5_init_hw(void *device_priv,
 	int rc = 0;
 
 	if (!device_priv) {
-		pr_err("Invalid cam_dev_info\n");
+		CAM_ERR(CAM_ICP, "Invalid cam_dev_info");
 		return -EINVAL;
 	}
 
@@ -267,7 +259,8 @@ int cam_a5_init_hw(void *device_priv,
 	core_info = (struct cam_a5_device_core_info *)a5_dev->core_info;
 
 	if ((!soc_info) || (!core_info)) {
-		pr_err("soc_info = %pK core_info = %pK\n", soc_info, core_info);
+		CAM_ERR(CAM_ICP, "soc_info: %pK core_info: %pK",
+			soc_info, core_info);
 		return -EINVAL;
 	}
 
@@ -279,16 +272,16 @@ int cam_a5_init_hw(void *device_priv,
 	rc = cam_cpas_start(core_info->cpas_handle,
 		&cpas_vote.ahb_vote, &cpas_vote.axi_vote);
 	if (rc) {
-		pr_err("cpass start failed: %d\n", rc);
+		CAM_ERR(CAM_ICP, "cpass start failed: %d", rc);
 		return rc;
 	}
 	core_info->cpas_start = true;
 
 	rc = cam_a5_enable_soc_resources(soc_info);
 	if (rc) {
-		pr_err("soc enable is failed: %d\n", rc);
+		CAM_ERR(CAM_ICP, "soc enable is failed: %d", rc);
 		if (cam_cpas_stop(core_info->cpas_handle))
-			pr_err("cpas stop is failed\n");
+			CAM_ERR(CAM_ICP, "cpas stop is failed");
 		else
 			core_info->cpas_start = false;
 	}
@@ -305,24 +298,25 @@ int cam_a5_deinit_hw(void *device_priv,
 	int rc = 0;
 
 	if (!device_priv) {
-		pr_err("Invalid cam_dev_info\n");
+		CAM_ERR(CAM_ICP, "Invalid cam_dev_info");
 		return -EINVAL;
 	}
 
 	soc_info = &a5_dev->soc_info;
 	core_info = (struct cam_a5_device_core_info *)a5_dev->core_info;
 	if ((!soc_info) || (!core_info)) {
-		pr_err("soc_info = %pK core_info = %pK\n", soc_info, core_info);
+		CAM_ERR(CAM_ICP, "soc_info = %pK core_info = %pK",
+			soc_info, core_info);
 		return -EINVAL;
 	}
 
 	rc = cam_a5_disable_soc_resources(soc_info);
 	if (rc)
-		pr_err("soc disable is failed: %d\n", rc);
+		CAM_ERR(CAM_ICP, "soc disable is failed: %d", rc);
 
 	if (core_info->cpas_start) {
 		if (cam_cpas_stop(core_info->cpas_handle))
-			pr_err("cpas stop is failed\n");
+			CAM_ERR(CAM_ICP, "cpas stop is failed");
 		else
 			core_info->cpas_start = false;
 	}
@@ -339,7 +333,7 @@ irqreturn_t cam_a5_irq(int irq_num, void *data)
 	uint32_t irq_status = 0;
 
 	if (!data) {
-		pr_err("Invalid cam_dev_info or query_cap args\n");
+		CAM_ERR(CAM_ICP, "Invalid cam_dev_info or query_cap args");
 		return IRQ_HANDLED;
 	}
 
@@ -354,18 +348,15 @@ irqreturn_t cam_a5_irq(int irq_num, void *data)
 			soc_info->reg_map[A5_SIERRA_BASE].mem_base +
 			core_info->a5_hw_info->a5_host_int_clr);
 
-	pr_debug("irq_status = %x\n", irq_status);
-	if (irq_status & A5_HOST_INT)
-		pr_debug("A5 to Host interrupt, read msg Q\n");
-
 	if ((irq_status & A5_WDT_0) ||
 		(irq_status & A5_WDT_1)) {
-		pr_err_ratelimited("watch dog interrupt from A5\n");
+		CAM_ERR_RATE_LIMIT(CAM_ICP, "watch dog interrupt from A5");
 	}
 
 	if (core_info->irq_cb.icp_hw_mgr_cb)
 		core_info->irq_cb.icp_hw_mgr_cb(irq_status,
 					core_info->irq_cb.data);
+
 	return IRQ_HANDLED;
 }
 
@@ -379,12 +370,12 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 	int rc = 0;
 
 	if (!device_priv) {
-		pr_err("Invalid arguments\n");
+		CAM_ERR(CAM_ICP, "Invalid arguments");
 		return -EINVAL;
 	}
 
 	if (cmd_type >= CAM_ICP_A5_CMD_MAX) {
-		pr_err("Invalid command : %x\n", cmd_type);
+		CAM_ERR(CAM_ICP, "Invalid command : %x", cmd_type);
 		return -EINVAL;
 	}
 
@@ -401,7 +392,7 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 		struct cam_icp_a5_set_fw_buf_info *fw_buf_info = cmd_args;
 
 		if (!cmd_args) {
-			pr_err("cmd args NULL\n");
+			CAM_ERR(CAM_ICP, "cmd args NULL");
 			return -EINVAL;
 		}
 
@@ -409,15 +400,16 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 		core_info->fw_kva_addr = fw_buf_info->kva;
 		core_info->fw_buf_len = fw_buf_info->len;
 
-		pr_debug("fw buf info = %x %llx %lld\n", core_info->fw_buf,
-			core_info->fw_kva_addr, core_info->fw_buf_len);
+		CAM_DBG(CAM_ICP, "fw buf info = %x %llx %lld",
+			core_info->fw_buf, core_info->fw_kva_addr,
+			core_info->fw_buf_len);
 		break;
 	}
 	case CAM_ICP_A5_SET_IRQ_CB: {
 		struct cam_icp_a5_set_irq_cb *irq_cb = cmd_args;
 
 		if (!cmd_args) {
-			pr_err("cmd args NULL\n");
+			CAM_ERR(CAM_ICP, "cmd args NULL");
 			return -EINVAL;
 		}
 
@@ -433,7 +425,7 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 		struct cam_icp_cpas_vote *cpas_vote = cmd_args;
 
 		if (!cmd_args) {
-			pr_err("cmd args NULL\n");
+			CAM_ERR(CAM_ICP, "cmd args NULL");
 			return -EINVAL;
 		}
 
@@ -445,7 +437,7 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 		struct cam_icp_cpas_vote *cpas_vote = cmd_args;
 
 		if (!cmd_args) {
-			pr_err("cmd args NULL\n");
+			CAM_ERR(CAM_ICP, "cmd args NULL");
 			return -EINVAL;
 		}
 

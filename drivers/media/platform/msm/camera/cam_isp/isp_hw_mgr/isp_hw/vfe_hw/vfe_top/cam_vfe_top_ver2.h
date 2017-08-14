@@ -52,6 +52,7 @@ struct cam_vfe_top_ver2_reg_offset_common {
 struct cam_vfe_top_ver2_hw_info {
 	struct cam_vfe_top_ver2_reg_offset_common  *common_reg;
 	struct cam_vfe_camif_ver2_hw_info  camif_hw_info;
+	struct cam_vfe_rdi_ver2_hw_info    rdi_hw_info;
 	uint32_t mux_type[CAM_VFE_TOP_VER2_MUX_MAX];
 };
 

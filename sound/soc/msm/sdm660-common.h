@@ -122,4 +122,5 @@ void msm_aux_pcm_snd_shutdown(struct snd_pcm_substream *substream);
 int msm_mi2s_snd_startup(struct snd_pcm_substream *substream);
 void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream);
 int msm_common_snd_controls_size(void);
+void msm_set_codec_reg_done(bool done);
 #endif

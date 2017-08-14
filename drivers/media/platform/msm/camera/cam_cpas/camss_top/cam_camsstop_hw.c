@@ -29,13 +29,13 @@ int cam_camsstop_get_hw_info(struct cam_hw_info *cpas_hw,
 
 	reg_value = cam_io_r_mb(soc_info->reg_map[reg_indx].mem_base + 0x0);
 	hw_caps->camera_version.major =
-		BITS_MASK_SHIFT(reg_value, 0xf0000000, 0x1c);
+		CAM_BITS_MASK_SHIFT(reg_value, 0xf0000000, 0x1c);
 	hw_caps->camera_version.minor =
-		BITS_MASK_SHIFT(reg_value, 0xfff0000, 0x10);
+		CAM_BITS_MASK_SHIFT(reg_value, 0xfff0000, 0x10);
 	hw_caps->camera_version.incr =
-		BITS_MASK_SHIFT(reg_value, 0xffff, 0x0);
+		CAM_BITS_MASK_SHIFT(reg_value, 0xffff, 0x0);
 
-	CPAS_CDBG("Family %d, version %d.%d.%d\n",
+	CAM_DBG(CAM_FD, "Family %d, version %d.%d.%d",
 		hw_caps->camera_family, hw_caps->camera_version.major,
 		hw_caps->camera_version.minor, hw_caps->camera_version.incr);
 
@@ -49,21 +49,22 @@ int cam_camsstop_setup_regbase_indices(struct cam_hw_soc_info *soc_info,
 	int rc;
 
 	if (num_reg_map > CAM_CPAS_REG_MAX) {
-		pr_err("invalid num_reg_map=%d\n", num_reg_map);
+		CAM_ERR(CAM_CPAS, "invalid num_reg_map=%d", num_reg_map);
 		return -EINVAL;
 	}
 
 	if (soc_info->num_mem_block > CAM_SOC_MAX_BLOCK) {
-		pr_err("invalid num_mem_block=%d\n", soc_info->num_mem_block);
+		CAM_ERR(CAM_CPAS, "invalid num_mem_block=%d",
+			soc_info->num_mem_block);
 		return -EINVAL;
 	}
 
-	rc = cam_cpas_util_get_string_index(soc_info->mem_block_name,
+	rc = cam_common_util_get_string_index(soc_info->mem_block_name,
 		soc_info->num_mem_block, "cam_camss", &index);
 	if ((rc == 0) && (index < num_reg_map)) {
 		regbase_index[CAM_CPAS_REG_CAMSS] = index;
 	} else {
-		pr_err("regbase not found for CAM_CPAS_REG_CAMSS\n");
+		CAM_ERR(CAM_CPAS, "regbase not found for CAM_CPAS_REG_CAMSS");
 		return -EINVAL;
 	}
 
@@ -73,7 +74,7 @@ int cam_camsstop_setup_regbase_indices(struct cam_hw_soc_info *soc_info,
 int cam_camsstop_get_internal_ops(struct cam_cpas_internal_ops *internal_ops)
 {
 	if (!internal_ops) {
-		pr_err("invalid NULL param\n");
+		CAM_ERR(CAM_CPAS, "invalid NULL param");
 		return -EINVAL;
 	}
 

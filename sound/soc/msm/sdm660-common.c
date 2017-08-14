@@ -44,6 +44,8 @@ enum {
 	EXT_DISP_RX_IDX_MAX,
 };
 
+bool codec_reg_done;
+
 /* TDM default config */
 static struct dev_config tdm_rx_cfg[TDM_INTERFACE_MAX][TDM_PORT_MAX] = {
 	{ /* PRI TDM */
@@ -2016,6 +2018,12 @@ int msm_common_snd_controls_size(void)
 }
 EXPORT_SYMBOL(msm_common_snd_controls_size);
 
+void msm_set_codec_reg_done(bool done)
+{
+	codec_reg_done = done;
+}
+EXPORT_SYMBOL(msm_set_codec_reg_done);
+
 static inline int param_is_mask(int p)
 {
 	return (p >= SNDRV_PCM_HW_PARAM_FIRST_MASK) &&
@@ -3027,6 +3035,12 @@ static const struct of_device_id sdm660_asoc_machine_of_match[]  = {
 	  .data = "tasha_codec"},
 	{ .compatible = "qcom,sdm660-asoc-snd-tavil",
 	  .data = "tavil_codec"},
+	{ .compatible = "qcom,sdm670-asoc-snd",
+	  .data = "internal_codec"},
+	{ .compatible = "qcom,sdm670-asoc-snd-tasha",
+	  .data = "tasha_codec"},
+	{ .compatible = "qcom,sdm670-asoc-snd-tavil",
+	  .data = "tavil_codec"},
 	{},
 };
 
@@ -3044,6 +3058,7 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	if (!pdata)
 		return -ENOMEM;
 
+	msm_set_codec_reg_done(false);
 	match = of_match_node(sdm660_asoc_machine_of_match,
 			      pdev->dev.of_node);
 	if (!match)

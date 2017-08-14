@@ -283,27 +283,30 @@ int sde_wb_get_info(struct msm_display_info *info, void *display)
 			wb_dev->wb_cfg->sblk->maxlinewidth :
 			SDE_WB_MODE_MAX_WIDTH;
 	info->max_height = SDE_WB_MODE_MAX_HEIGHT;
-	info->comp_info.comp_type = MSM_DISPLAY_COMPRESSION_NONE;
 	return 0;
 }
 
-int sde_wb_get_topology(const struct drm_display_mode *drm_mode,
-	struct msm_display_topology *topology, u32 max_mixer_width)
+int sde_wb_get_mode_info(const struct drm_display_mode *drm_mode,
+	struct msm_mode_info *mode_info, u32 max_mixer_width)
 {
 	const u32 dual_lm = 2;
 	const u32 single_lm = 1;
 	const u32 single_intf = 1;
 	const u32 no_enc = 0;
+	struct msm_display_topology *topology;
 
-	if (!drm_mode || !topology || !max_mixer_width) {
+	if (!drm_mode || !mode_info || !max_mixer_width) {
 		pr_err("invalid params\n");
 		return -EINVAL;
 	}
 
+	topology = &mode_info->topology;
 	topology->num_lm = (max_mixer_width <= drm_mode->hdisplay) ?
 							dual_lm : single_lm;
 	topology->num_enc = no_enc;
 	topology->num_intf = single_intf;
+
+	mode_info->comp_info.comp_type = MSM_DISPLAY_COMPRESSION_NONE;
 
 	return 0;
 }

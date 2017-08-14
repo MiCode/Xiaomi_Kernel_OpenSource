@@ -67,4 +67,12 @@ int cam_csiphy_enable_hw(struct csiphy_device *csiphy_dev);
  */
 int cam_csiphy_disable_hw(struct csiphy_device *csiphy_dev);
 
+/**
+ * @soc_info: Soc info of cam hw driver module
+ *
+ * This API dumps memory for the entire mapped region
+ * (needs to be macro enabled before use)
+ */
+int cam_csiphy_mem_dmp(struct cam_hw_soc_info *soc_info);
+
 #endif /* _CAM_CSIPHY_SOC_H_ */

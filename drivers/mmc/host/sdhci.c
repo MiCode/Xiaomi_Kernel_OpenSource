@@ -245,6 +245,8 @@ retry_reset:
 		if (timeout == 0) {
 			pr_err("%s: Reset 0x%x never completed.\n",
 				mmc_hostname(host->mmc), (int)mask);
+			MMC_TRACE(host->mmc, "%s: Reset 0x%x never completed\n",
+					__func__, (int)mask);
 			if ((host->quirks2 & SDHCI_QUIRK2_USE_RESET_WORKAROUND)
 				&& host->ops->reset_workaround) {
 				if (!host->reset_wa_applied) {
@@ -305,6 +307,8 @@ static void sdhci_do_reset(struct sdhci_host *host, u8 mask)
 		/* Resetting the controller clears many */
 		host->preset_enabled = false;
 	}
+	if (host->is_crypto_en)
+		host->crypto_reset_reqd = true;
 }
 
 static void sdhci_init(struct sdhci_host *host, int soft)
@@ -1242,6 +1246,9 @@ void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 		if (timeout == 0) {
 			pr_err("%s: Controller never released inhibit bit(s).\n",
 			       mmc_hostname(host->mmc));
+			MMC_TRACE(host->mmc,
+			"%s :Controller never released inhibit bit(s)\n",
+			__func__);
 			sdhci_dumpregs(host);
 			cmd->error = -EIO;
 			sdhci_finish_mrq(host, cmd->mrq);
@@ -1300,12 +1307,12 @@ void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 	if (cmd->data)
 		host->data_start_time = ktime_get();
 	trace_mmc_cmd_rw_start(cmd->opcode, cmd->arg, cmd->flags);
+	sdhci_writew(host, SDHCI_MAKE_CMD(cmd->opcode, flags), SDHCI_COMMAND);
 	MMC_TRACE(host->mmc,
 		"%s: updated 0x8=0x%08x 0xC=0x%08x 0xE=0x%08x\n", __func__,
 		sdhci_readl(host, SDHCI_ARGUMENT),
 		sdhci_readw(host, SDHCI_TRANSFER_MODE),
 		sdhci_readw(host, SDHCI_COMMAND));
-	sdhci_writew(host, SDHCI_MAKE_CMD(cmd->opcode, flags), SDHCI_COMMAND);
 }
 EXPORT_SYMBOL_GPL(sdhci_send_command);
 
@@ -1531,6 +1538,8 @@ void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 		if (timeout == 0) {
 			pr_err("%s: Internal clock never stabilised.\n",
 			       mmc_hostname(host->mmc));
+			MMC_TRACE(host->mmc,
+			"%s: Internal clock never stabilised.\n", __func__);
 			sdhci_dumpregs(host);
 			return;
 		}
@@ -1749,6 +1758,33 @@ static int sdhci_get_tuning_cmd(struct sdhci_host *host)
 		return MMC_SEND_TUNING_BLOCK;
 }
 
+static int sdhci_crypto_cfg(struct sdhci_host *host, struct mmc_request *mrq,
+		u32 slot)
+{
+	int err = 0;
+
+	if (host->crypto_reset_reqd && host->ops->crypto_engine_reset) {
+		err = host->ops->crypto_engine_reset(host);
+		if (err) {
+			pr_err("%s: crypto reset failed\n",
+					mmc_hostname(host->mmc));
+			goto out;
+		}
+		host->crypto_reset_reqd = false;
+	}
+
+	if (host->ops->crypto_engine_cfg) {
+		err = host->ops->crypto_engine_cfg(host, mrq, slot);
+		if (err) {
+			pr_err("%s: failed to configure crypto\n",
+					mmc_hostname(host->mmc));
+			goto out;
+		}
+	}
+out:
+	return err;
+}
+
 static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	struct sdhci_host *host;
@@ -1815,6 +1851,13 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 					sdhci_get_tuning_cmd(host));
 		}
 
+		if (host->is_crypto_en) {
+			spin_unlock_irqrestore(&host->lock, flags);
+			if (sdhci_crypto_cfg(host, mrq, 0))
+				goto end_req;
+			spin_lock_irqsave(&host->lock, flags);
+		}
+
 		if (mrq->sbc && !(host->flags & SDHCI_AUTO_CMD23))
 			sdhci_send_command(host, mrq->sbc);
 		else
@@ -1823,6 +1866,12 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	mmiowb();
 	spin_unlock_irqrestore(&host->lock, flags);
+	return;
+end_req:
+	mrq->cmd->error = -EIO;
+	if (mrq->data)
+		mrq->data->error = -EIO;
+	mmc_request_done(host->mmc, mrq);
 }
 
 void sdhci_set_bus_width(struct sdhci_host *host, int width)
@@ -2875,6 +2924,7 @@ static void sdhci_timeout_data_timer(unsigned long data)
 	    (host->cmd && sdhci_data_line_cmd(host->cmd))) {
 		pr_err("%s: Timeout waiting for hardware interrupt.\n",
 		       mmc_hostname(host->mmc));
+		MMC_TRACE(host->mmc, "Timeout waiting for h/w interrupt\n");
 		sdhci_dumpregs(host);
 
 		if (host->data) {
@@ -2917,6 +2967,9 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 			return;
 		pr_err("%s: Got command interrupt 0x%08x even though no command operation was in progress.\n",
 		       mmc_hostname(host->mmc), (unsigned)intmask);
+		MMC_TRACE(host->mmc,
+		"Got command interrupt 0x%08x even though no command operation was in progress.\n",
+		(unsigned int)intmask);
 		sdhci_dumpregs(host);
 		return;
 	}
@@ -3069,6 +3122,9 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 
 		pr_err("%s: Got data interrupt 0x%08x even though no data operation was in progress.\n",
 		       mmc_hostname(host->mmc), (unsigned)intmask);
+		MMC_TRACE(host->mmc,
+		"Got data interrupt 0x%08x even though no data operation was in progress.\n",
+		(unsigned int)intmask);
 		sdhci_dumpregs(host);
 
 		return;
@@ -3104,6 +3160,11 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 			       mmc_hostname(host->mmc), intmask,
 			       host->data->error, ktime_to_ms(ktime_sub(
 			       ktime_get(), host->data_start_time)));
+			MMC_TRACE(host->mmc,
+				"data txfr (0x%08x) error: %d after %lld ms\n",
+				intmask, host->data->error,
+				ktime_to_ms(ktime_sub(ktime_get(),
+				host->data_start_time)));
 
 			if (!host->mmc->sdr104_wa ||
 			    (host->mmc->ios.timing != MMC_TIMING_UHS_SDR104))
@@ -3357,6 +3418,8 @@ out:
 	if (unexpected) {
 		pr_err("%s: Unexpected interrupt 0x%08x.\n",
 			   mmc_hostname(host->mmc), unexpected);
+		MMC_TRACE(host->mmc, "Unexpected interrupt 0x%08x.\n",
+				unexpected);
 		sdhci_dumpregs(host);
 	}
 
@@ -3704,6 +3767,27 @@ static void sdhci_cmdq_post_cqe_halt(struct mmc_host *mmc)
 			SDHCI_INT_RESPONSE, SDHCI_INT_ENABLE);
 	sdhci_writel(host, SDHCI_INT_RESPONSE, SDHCI_INT_STATUS);
 }
+static int sdhci_cmdq_crypto_cfg(struct mmc_host *mmc,
+		struct mmc_request *mrq, u32 slot)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	if (!host->is_crypto_en)
+		return 0;
+
+	return sdhci_crypto_cfg(host, mrq, slot);
+}
+
+static void sdhci_cmdq_crypto_cfg_reset(struct mmc_host *mmc, unsigned int slot)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	if (!host->is_crypto_en)
+		return;
+
+	if (host->ops->crypto_cfg_reset)
+		host->ops->crypto_cfg_reset(host, slot);
+}
 #else
 static void sdhci_cmdq_set_transfer_params(struct mmc_host *mmc)
 {
@@ -3747,6 +3831,18 @@ static void sdhci_cmdq_clear_set_dumpregs(struct mmc_host *mmc, bool set)
 
 static void sdhci_cmdq_post_cqe_halt(struct mmc_host *mmc)
 {
+
+}
+
+static int sdhci_cmdq_crypto_cfg(struct mmc_host *mmc,
+		struct mmc_request *mrq, u32 slot)
+{
+	return 0;
+}
+
+static void sdhci_cmdq_crypto_cfg_reset(struct mmc_host *mmc, unsigned int slot)
+{
+
 }
 #endif
 
@@ -3759,6 +3855,8 @@ static const struct cmdq_host_ops sdhci_cmdq_ops = {
 	.enhanced_strobe_mask = sdhci_enhanced_strobe_mask,
 	.post_cqe_halt = sdhci_cmdq_post_cqe_halt,
 	.set_transfer_params = sdhci_cmdq_set_transfer_params,
+	.crypto_cfg	= sdhci_cmdq_crypto_cfg,
+	.crypto_cfg_reset	= sdhci_cmdq_crypto_cfg_reset,
 };
 
 #ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT

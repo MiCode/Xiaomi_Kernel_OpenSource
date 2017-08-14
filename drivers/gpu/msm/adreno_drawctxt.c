@@ -548,6 +548,8 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 
 	mutex_unlock(&device->mutex);
 
+	debugfs_remove_recursive(drawctxt->debug_root);
+
 	/* wake threads waiting to submit commands from this context */
 	wake_up_all(&drawctxt->waiting);
 	wake_up_all(&drawctxt->wq);
@@ -569,7 +571,6 @@ void adreno_drawctxt_destroy(struct kgsl_context *context)
 		gpudev->preemption_context_destroy(context);
 
 	drawctxt = ADRENO_CONTEXT(context);
-	debugfs_remove_recursive(drawctxt->debug_root);
 	kfree(drawctxt);
 }
 

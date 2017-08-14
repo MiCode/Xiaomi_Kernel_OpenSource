@@ -1110,9 +1110,8 @@ static int tavil_put_clkmode(struct snd_kcontrol *kcontrol,
 static int tavil_vi_feed_mixer_get(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct tavil_priv *tavil_p = snd_soc_codec_get_drvdata(codec);
 
@@ -1124,9 +1123,8 @@ static int tavil_vi_feed_mixer_get(struct snd_kcontrol *kcontrol,
 static int tavil_vi_feed_mixer_put(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct tavil_priv *tavil_p = snd_soc_codec_get_drvdata(codec);
 	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
@@ -1176,9 +1174,8 @@ static int tavil_vi_feed_mixer_put(struct snd_kcontrol *kcontrol,
 static int slim_tx_mixer_get(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct tavil_priv *tavil_p = snd_soc_codec_get_drvdata(codec);
 
@@ -1189,9 +1186,8 @@ static int slim_tx_mixer_get(struct snd_kcontrol *kcontrol,
 static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct tavil_priv *tavil_p = snd_soc_codec_get_drvdata(codec);
 	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
@@ -1271,9 +1267,8 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 static int slim_rx_mux_get(struct snd_kcontrol *kcontrol,
 			   struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct tavil_priv *tavil_p = snd_soc_codec_get_drvdata(codec);
 
@@ -1285,9 +1280,8 @@ static int slim_rx_mux_get(struct snd_kcontrol *kcontrol,
 static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 			   struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct tavil_priv *tavil_p = snd_soc_codec_get_drvdata(codec);
 	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
@@ -5929,9 +5923,8 @@ static const struct snd_kcontrol_new tavil_snd_controls[] = {
 static int tavil_dec_enum_put(struct snd_kcontrol *kcontrol,
 			      struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	unsigned int val;
@@ -5989,9 +5982,8 @@ static int tavil_dec_enum_put(struct snd_kcontrol *kcontrol,
 static int tavil_int_dem_inp_mux_put(struct snd_kcontrol *kcontrol,
 				     struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	unsigned int val;

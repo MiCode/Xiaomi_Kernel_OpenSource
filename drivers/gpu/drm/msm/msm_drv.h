@@ -387,10 +387,22 @@ struct msm_display_topology {
 
 /**
  * struct msm_mode_info - defines all msm custom mode info
- * @topology - supported topology for the mode
+ * @frame_rate:      frame_rate of the mode
+ * @vtotal:          vtotal calculated for the mode
+ * @prefill_lines:   prefill lines based on porches.
+ * @jitter_numer:	display panel jitter numerator configuration
+ * @jitter_denom:	display panel jitter denominator configuration
+ * @topology:        supported topology for the mode
+ * @comp_info:       compression info supported
  */
 struct msm_mode_info {
+	uint32_t frame_rate;
+	uint32_t vtotal;
+	uint32_t prefill_lines;
+	uint32_t jitter_numer;
+	uint32_t jitter_denom;
 	struct msm_display_topology topology;
+	struct msm_compression_info comp_info;
 };
 
 /**
@@ -410,12 +422,6 @@ struct msm_mode_info {
  * @is_primary:         Set to true if display is primary display
  * @is_te_using_watchdog_timer:  Boolean to indicate watchdog TE is
  *				 used instead of panel TE in cmd mode panels
- * @frame_rate:		Display frame rate
- * @prefill_lines:	prefill lines based on porches.
- * @vtotal:		display vertical total
- * @jitter_numer:	display panel jitter numerator configuration
- * @jitter_denom:	display panel jitter denominator configuration
- * @comp_info:          Compression supported by the display
  * @roi_caps:           Region of interest capability info
  */
 struct msm_display_info {
@@ -435,13 +441,6 @@ struct msm_display_info {
 
 	bool is_primary;
 	bool is_te_using_watchdog_timer;
-	uint32_t frame_rate;
-	uint32_t prefill_lines;
-	uint32_t vtotal;
-	uint32_t jitter_numer;
-	uint32_t jitter_denom;
-
-	struct msm_compression_info comp_info;
 	struct msm_roi_caps roi_caps;
 };
 
@@ -662,12 +661,56 @@ msm_gem_address_space_create(struct device *dev, struct iommu_domain *domain,
 
 /* For SDE  display */
 struct msm_gem_address_space *
-msm_gem_smmu_address_space_create(struct device *dev, struct msm_mmu *mmu,
+msm_gem_smmu_address_space_create(struct drm_device *dev, struct msm_mmu *mmu,
 		const char *name);
 
+/**
+ * msm_gem_add_obj_to_aspace_active_list: adds obj to active obj list in aspace
+ */
+void msm_gem_add_obj_to_aspace_active_list(
+		struct msm_gem_address_space *aspace,
+		struct drm_gem_object *obj);
+
+/**
+ * msm_gem_remove_obj_from_aspace_active_list: removes obj from  active obj
+ * list in aspace
+ */
+void msm_gem_remove_obj_from_aspace_active_list(
+		struct msm_gem_address_space *aspace,
+		struct drm_gem_object *obj);
+
+/**
+ * msm_gem_smmu_address_space_get: returns the aspace pointer for the requested
+ * domain
+ */
 struct msm_gem_address_space *
 msm_gem_smmu_address_space_get(struct drm_device *dev,
 		unsigned int domain);
+
+/**
+ * msm_gem_aspace_domain_attach_detach: function to inform the attach/detach
+ * of the domain for this aspace
+ */
+void msm_gem_aspace_domain_attach_detach_update(
+		struct msm_gem_address_space *aspace,
+		bool is_detach);
+
+/**
+ * msm_gem_address_space_register_cb: function to register callback for attach
+ * and detach of the domain
+ */
+int msm_gem_address_space_register_cb(
+		struct msm_gem_address_space *aspace,
+		void (*cb)(void *, bool),
+		void *cb_data);
+
+/**
+ * msm_gem_address_space_register_cb: function to unregister callback
+ */
+int msm_gem_address_space_unregister_cb(
+		struct msm_gem_address_space *aspace,
+		void (*cb)(void *, bool),
+		void *cb_data);
 
 int msm_ioctl_gem_submit(struct drm_device *dev, void *data,
 		struct drm_file *file);
@@ -743,16 +786,34 @@ struct drm_fb_helper *msm_fbdev_init(struct drm_device *dev);
 void msm_fbdev_free(struct drm_device *dev);
 
 struct hdmi;
+#ifdef CONFIG_DRM_MSM_HDMI
 int msm_hdmi_modeset_init(struct hdmi *hdmi, struct drm_device *dev,
 		struct drm_encoder *encoder);
 void __init msm_hdmi_register(void);
 void __exit msm_hdmi_unregister(void);
+#else
+static inline void __init msm_hdmi_register(void)
+{
+}
+static inline void __exit msm_hdmi_unregister(void)
+{
+}
+#endif
 
 struct msm_edp;
+#ifdef CONFIG_DRM_MSM_EDP
 void __init msm_edp_register(void);
 void __exit msm_edp_unregister(void);
 int msm_edp_modeset_init(struct msm_edp *edp, struct drm_device *dev,
 		struct drm_encoder *encoder);
+#else
+static inline void __init msm_edp_register(void)
+{
+}
+static inline void __exit msm_edp_unregister(void)
+{
+}
+#endif
 
 struct msm_dsi;
 enum msm_dsi_encoder_id {

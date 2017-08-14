@@ -119,8 +119,8 @@ enum sde_plane_sclcheck_state {
 /**
  * struct sde_plane_state: Define sde extension of drm plane state object
  * @base:	base drm plane state object
+ * @property_state: Local storage for msm_prop properties
  * @property_values:	cached plane property values
- * @property_blobs:	blob properties
  * @aspace:	pointer to address space for input/output buffers
  * @input_fence:	dereferenced input fence pointer
  * @stage:	assigned by crtc blender
@@ -136,8 +136,8 @@ enum sde_plane_sclcheck_state {
  */
 struct sde_plane_state {
 	struct drm_plane_state base;
-	uint64_t property_values[PLANE_PROP_COUNT];
-	struct drm_property_blob *property_blobs[PLANE_PROP_BLOBCOUNT];
+	struct msm_property_state property_state;
+	struct msm_property_value property_values[PLANE_PROP_COUNT];
 	struct msm_gem_address_space *aspace;
 	void *input_fence;
 	enum sde_stage stage;
@@ -178,8 +178,8 @@ struct sde_multirect_plane_states {
  * @X: Property index, from enum msm_mdp_plane_property
  * Returns: Integer value of requested property
  */
-#define sde_plane_get_property(S, X) \
-	((S) && ((X) < PLANE_PROP_COUNT) ? ((S)->property_values[(X)]) : 0)
+#define sde_plane_get_property(S, X) ((S) && ((X) < PLANE_PROP_COUNT) ? \
+	((S)->property_values[(X)].value) : 0)
 
 /**
  * sde_plane_pipe - return sspp identifier for the given plane

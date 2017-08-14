@@ -937,9 +937,8 @@ static int msm_sdw_ear_spkr_pa_gain_put(struct snd_kcontrol *kcontrol,
 static int msm_sdw_vi_feed_mixer_get(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct msm_sdw_priv *msm_sdw_p = snd_soc_codec_get_drvdata(codec);
 
@@ -951,9 +950,8 @@ static int msm_sdw_vi_feed_mixer_get(struct snd_kcontrol *kcontrol,
 static int msm_sdw_vi_feed_mixer_put(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
-	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_widget *widget =
+		snd_soc_dapm_kcontrol_widget(kcontrol);
 	struct snd_soc_codec *codec = snd_soc_dapm_to_codec(widget->dapm);
 	struct msm_sdw_priv *msm_sdw_p = snd_soc_codec_get_drvdata(codec);
 	struct soc_multi_mixer_control *mixer =
@@ -1378,15 +1376,19 @@ int msm_sdw_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
 	struct snd_info_entry *version_entry;
 	struct msm_sdw_priv *msm_sdw;
 	struct snd_soc_card *card;
+	char name[80];
 
 	if (!codec_root || !codec)
 		return -EINVAL;
 
 	msm_sdw = snd_soc_codec_get_drvdata(codec);
 	card = codec->component.card;
+
+	snprintf(name, sizeof(name), "%x.%s", (u32)msm_sdw->sdw_base_addr,
+			"msm-sdw-codec");
 	msm_sdw->entry = snd_info_create_subdir(codec_root->module,
-						  "152c1000.msm-sdw-codec",
-						  codec_root);
+						(const char *)name,
+						codec_root);
 	if (!msm_sdw->entry) {
 		dev_err(codec->dev, "%s: failed to create msm_sdw entry\n",
 			__func__);

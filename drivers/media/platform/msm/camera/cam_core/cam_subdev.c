@@ -12,6 +12,7 @@
 
 #include "cam_subdev.h"
 #include "cam_node.h"
+#include "cam_debug_util.h"
 
 /**
  * cam_subdev_subscribe_event()
@@ -63,7 +64,7 @@ static long cam_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd,
 			(struct cam_control *) arg);
 		break;
 	default:
-		pr_err("Invalid command %d for %s!\n", cmd,
+		CAM_ERR(CAM_CORE, "Invalid command %d for %s", cmd,
 			node->name);
 		rc = -EINVAL;
 	}
@@ -80,7 +81,7 @@ static long cam_subdev_compat_ioctl(struct v4l2_subdev *sd,
 
 	if (copy_from_user(&cmd_data, (void __user *)arg,
 		sizeof(cmd_data))) {
-		pr_err("Failed to copy from user_ptr=%pK size=%zu\n",
+		CAM_ERR(CAM_CORE, "Failed to copy from user_ptr=%pK size=%zu",
 			(void __user *)arg, sizeof(cmd_data));
 		return -EFAULT;
 	}
@@ -88,7 +89,8 @@ static long cam_subdev_compat_ioctl(struct v4l2_subdev *sd,
 	if (!rc) {
 		if (copy_to_user((void __user *)arg, &cmd_data,
 			sizeof(cmd_data))) {
-			pr_err("Failed to copy to user_ptr=%pK size=%zu\n",
+			CAM_ERR(CAM_CORE,
+				"Failed to copy to user_ptr=%pK size=%zu",
 				(void __user *)arg, sizeof(cmd_data));
 			rc = -EFAULT;
 		}
@@ -147,8 +149,8 @@ int cam_subdev_probe(struct cam_subdev *sd, struct platform_device *pdev,
 
 	rc = cam_register_subdev(sd);
 	if (rc) {
-		pr_err("%s: cam_register_subdev() failed for dev: %s!\n",
-			__func__, sd->name);
+		CAM_ERR(CAM_CORE, "cam_register_subdev() failed for dev: %s",
+			sd->name);
 		goto err;
 	}
 	platform_set_drvdata(sd->pdev, sd);

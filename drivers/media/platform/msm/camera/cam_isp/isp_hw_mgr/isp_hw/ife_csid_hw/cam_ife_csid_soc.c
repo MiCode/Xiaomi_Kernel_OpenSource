@@ -9,11 +9,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
+#include <linux/slab.h>
 #include "cam_ife_csid_soc.h"
-
-#undef CDBG
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#include "cam_cpas_api.h"
+#include "cam_debug_util.h"
 
 static int cam_ife_csid_get_dt_properties(struct cam_hw_soc_info *soc_info)
 {
@@ -50,6 +49,14 @@ int cam_ife_csid_init_soc_resources(struct cam_hw_soc_info *soc_info,
 	irq_handler_t csid_irq_handler, void *irq_data)
 {
 	int rc = 0;
+	struct cam_cpas_register_params   cpas_register_param;
+	struct cam_csid_soc_private      *soc_private;
+
+	soc_private = kzalloc(sizeof(struct cam_csid_soc_private), GFP_KERNEL);
+	if (!soc_private)
+		return -ENOMEM;
+
+	soc_info->soc_private = soc_private;
 
 	rc = cam_ife_csid_get_dt_properties(soc_info);
 	if (rc < 0)
@@ -59,11 +66,54 @@ int cam_ife_csid_init_soc_resources(struct cam_hw_soc_info *soc_info,
 
 	rc = cam_ife_csid_request_platform_resource(soc_info, csid_irq_handler,
 		irq_data);
+	if (rc < 0) {
+		CAM_ERR(CAM_ISP,
+			"Error Request platform resources failed rc=%d", rc);
+		goto free_soc_private;
+	}
+
+	memset(&cpas_register_param, 0, sizeof(cpas_register_param));
+	strlcpy(cpas_register_param.identifier, "csid",
+		CAM_HW_IDENTIFIER_LENGTH);
+	cpas_register_param.cell_index = soc_info->index;
+	cpas_register_param.dev = &soc_info->pdev->dev;
+	rc = cam_cpas_register_client(&cpas_register_param);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "CPAS registration failed rc=%d", rc);
+		goto release_soc;
+	} else {
+		soc_private->cpas_handle = cpas_register_param.client_handle;
+	}
+
+	return rc;
+
+release_soc:
+	cam_soc_util_release_platform_resource(soc_info);
+free_soc_private:
+	kfree(soc_private);
+
+	return rc;
+}
+
+int cam_ife_csid_deinit_soc_resources(
+	struct cam_hw_soc_info *soc_info)
+{
+	int rc = 0;
+	struct cam_csid_soc_private       *soc_private;
+
+	soc_private = soc_info->soc_private;
+	if (!soc_private) {
+		CAM_ERR(CAM_ISP, "Error soc_private NULL");
+		return -ENODEV;
+	}
+
+	rc = cam_cpas_unregister_client(soc_private->cpas_handle);
+	if (rc)
+		CAM_ERR(CAM_ISP, "CPAS unregistration failed rc=%d", rc);
+
+	rc = cam_soc_util_release_platform_resource(soc_info);
 	if (rc < 0)
 		return rc;
-
-	CDBG("%s: mem_base is 0x%llx\n", __func__,
-		(uint64_t) soc_info->reg_map[0].mem_base);
 
 	return rc;
 }
@@ -71,24 +121,62 @@ int cam_ife_csid_init_soc_resources(struct cam_hw_soc_info *soc_info,
 int cam_ife_csid_enable_soc_resources(struct cam_hw_soc_info *soc_info)
 {
 	int rc = 0;
+	struct cam_csid_soc_private       *soc_private;
+	struct cam_ahb_vote ahb_vote;
+	struct cam_axi_vote axi_vote;
+
+	soc_private = soc_info->soc_private;
+
+	ahb_vote.type = CAM_VOTE_ABSOLUTE;
+	ahb_vote.vote.level = CAM_SVS_VOTE;
+	axi_vote.compressed_bw = 640000000;
+	axi_vote.uncompressed_bw = 640000000;
+
+	CAM_DBG(CAM_ISP, "csid vote compressed_bw:%lld uncompressed_bw:%lld",
+		axi_vote.compressed_bw, axi_vote.uncompressed_bw);
+
+	rc = cam_cpas_start(soc_private->cpas_handle, &ahb_vote, &axi_vote);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Error CPAS start failed");
+		rc = -EFAULT;
+		goto end;
+	}
 
 	rc = cam_soc_util_enable_platform_resource(soc_info, true,
 		CAM_TURBO_VOTE, true);
 	if (rc) {
-		pr_err("%s: enable platform failed\n", __func__);
-		return rc;
+		CAM_ERR(CAM_ISP, "enable platform failed");
+		goto stop_cpas;
 	}
 
+	return rc;
+
+stop_cpas:
+	cam_cpas_stop(soc_private->cpas_handle);
+end:
 	return rc;
 }
 
 int cam_ife_csid_disable_soc_resources(struct cam_hw_soc_info *soc_info)
 {
 	int rc = 0;
+	struct cam_csid_soc_private       *soc_private;
+
+	if (!soc_info) {
+		CAM_ERR(CAM_ISP, "Error Invalid params");
+		return -EINVAL;
+	}
+	soc_private = soc_info->soc_private;
 
 	rc = cam_soc_util_disable_platform_resource(soc_info, true, true);
 	if (rc)
-		pr_err("%s: Disable platform failed\n", __func__);
+		CAM_ERR(CAM_ISP, "Disable platform failed");
+
+	rc = cam_cpas_stop(soc_private->cpas_handle);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Error CPAS stop failed rc=%d", rc);
+		return rc;
+	}
 
 	return rc;
 }

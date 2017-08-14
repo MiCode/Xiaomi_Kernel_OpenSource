@@ -74,14 +74,14 @@ enum drm_mode_status dp_connector_mode_valid(struct drm_connector *connector,
 		void *display);
 
 /**
- * dp_connector_get_topology - retrieve current topology for the mode selected
+ * dp_connector_get_mode_info - retrieve information of the mode selected
  * @drm_mode: Display mode set for the display
- * @topology: Out parameter. Topology for the mode.
+ * @mode_info: Out parameter. Information of the mode
  * @max_mixer_width: max width supported by HW layer mixer
  * Returns: zero on success
  */
-int dp_connector_get_topology(const struct drm_display_mode *drm_mode,
-		struct msm_display_topology *topology,
+int dp_connector_get_mode_info(const struct drm_display_mode *drm_mode,
+		struct msm_mode_info *mode_info,
 		u32 max_mixer_width);
 
 int dp_connector_get_info(struct msm_display_info *info, void *display);

@@ -25,6 +25,7 @@
 #include "cam_hw_mgr_intf.h"
 #include "cam_isp_hw_mgr_intf.h"
 #include "cam_node.h"
+#include "cam_debug_util.h"
 
 static struct cam_isp_dev g_isp_dev;
 
@@ -44,13 +45,13 @@ static int cam_isp_dev_remove(struct platform_device *pdev)
 	for (i = 0; i < CAM_CTX_MAX; i++) {
 		rc = cam_isp_context_deinit(&g_isp_dev.ctx_isp[i]);
 		if (rc)
-			pr_err("%s: ISP context %d deinit failed\n",
-				__func__, i);
+			CAM_ERR(CAM_ISP, "ISP context %d deinit failed",
+				 i);
 	}
 
 	rc = cam_subdev_remove(&g_isp_dev.sd);
 	if (rc)
-		pr_err("%s: Unregister failed\n", __func__);
+		CAM_ERR(CAM_ISP, "Unregister failed");
 
 	memset(&g_isp_dev, 0, sizeof(g_isp_dev));
 	return 0;
@@ -67,7 +68,7 @@ static int cam_isp_dev_probe(struct platform_device *pdev)
 	rc = cam_subdev_probe(&g_isp_dev.sd, pdev, CAM_ISP_DEV_NAME,
 		CAM_IFE_DEVICE_TYPE);
 	if (rc) {
-		pr_err("%s: ISP cam_subdev_probe failed!\n", __func__);
+		CAM_ERR(CAM_ISP, "ISP cam_subdev_probe failed!");
 		goto err;
 	}
 	node = (struct cam_node *) g_isp_dev.sd.token;
@@ -75,7 +76,7 @@ static int cam_isp_dev_probe(struct platform_device *pdev)
 	memset(&hw_mgr_intf, 0, sizeof(hw_mgr_intf));
 	rc = cam_isp_hw_mgr_init(pdev->dev.of_node, &hw_mgr_intf);
 	if (rc != 0) {
-		pr_err("%s: Can not initialized ISP HW manager!\n", __func__);
+		CAM_ERR(CAM_ISP, "Can not initialized ISP HW manager!");
 		goto unregister;
 	}
 
@@ -85,7 +86,7 @@ static int cam_isp_dev_probe(struct platform_device *pdev)
 			&node->crm_node_intf,
 			&node->hw_mgr_intf);
 		if (rc) {
-			pr_err("%s: ISP context init failed!\n", __func__);
+			CAM_ERR(CAM_ISP, "ISP context init failed!");
 			goto unregister;
 		}
 	}
@@ -93,11 +94,11 @@ static int cam_isp_dev_probe(struct platform_device *pdev)
 	rc = cam_node_init(node, &hw_mgr_intf, g_isp_dev.ctx, CAM_CTX_MAX,
 		CAM_ISP_DEV_NAME);
 	if (rc) {
-		pr_err("%s: ISP node init failed!\n", __func__);
+		CAM_ERR(CAM_ISP, "ISP node init failed!");
 		goto unregister;
 	}
 
-	pr_info("%s: Camera ISP probe complete\n", __func__);
+	CAM_INFO(CAM_ISP, "Camera ISP probe complete");
 
 	return 0;
 unregister:

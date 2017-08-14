@@ -1472,7 +1472,7 @@ static void _sde_crtc_complete_flip(struct drm_crtc *crtc,
 			sde_crtc->event = NULL;
 			DRM_DEBUG_VBL("%s: send event: %pK\n",
 						sde_crtc->name, event);
-			SDE_EVT32(DRMID(crtc));
+			SDE_EVT32_VERBOSE(DRMID(crtc));
 			drm_crtc_send_vblank_event(crtc, event);
 		}
 	}
@@ -1899,7 +1899,7 @@ static void _sde_crtc_setup_lm_bounds(struct drm_crtc *crtc,
 		cstate->lm_bounds[i].h = adj_mode->vdisplay;
 		memcpy(&cstate->lm_roi[i], &cstate->lm_bounds[i],
 				sizeof(cstate->lm_roi[i]));
-		SDE_EVT32(DRMID(crtc), i,
+		SDE_EVT32_VERBOSE(DRMID(crtc), i,
 				cstate->lm_bounds[i].x, cstate->lm_bounds[i].y,
 				cstate->lm_bounds[i].w, cstate->lm_bounds[i].h);
 		SDE_DEBUG("%s: lm%d bnd&roi (%d,%d,%d,%d)\n", sde_crtc->name, i,
@@ -2084,7 +2084,7 @@ static void sde_crtc_destroy_state(struct drm_crtc *crtc,
 
 	/* destroy value helper */
 	msm_property_destroy_state(&sde_crtc->property_info, cstate,
-			cstate->property_values, cstate->property_blobs);
+			&cstate->property_state);
 }
 
 static int _sde_crtc_wait_for_frame_done(struct drm_crtc *crtc)
@@ -2103,7 +2103,7 @@ static int _sde_crtc_wait_for_frame_done(struct drm_crtc *crtc)
 		return 0;
 	}
 
-	SDE_EVT32(DRMID(crtc), SDE_EVTLOG_FUNC_ENTRY);
+	SDE_EVT32_VERBOSE(DRMID(crtc), SDE_EVTLOG_FUNC_ENTRY);
 	ret = wait_for_completion_timeout(&sde_crtc->frame_done_comp,
 			msecs_to_jiffies(SDE_FRAME_DONE_TIMEOUT));
 	if (!ret) {
@@ -2112,7 +2112,7 @@ static int _sde_crtc_wait_for_frame_done(struct drm_crtc *crtc)
 		SDE_EVT32(DRMID(crtc), SDE_EVTLOG_FATAL);
 		rc = -ETIMEDOUT;
 	}
-	SDE_EVT32(DRMID(crtc), SDE_EVTLOG_FUNC_EXIT);
+	SDE_EVT32_VERBOSE(DRMID(crtc), SDE_EVTLOG_FUNC_EXIT);
 
 	return rc;
 }
@@ -2344,7 +2344,7 @@ static struct drm_crtc_state *sde_crtc_duplicate_state(struct drm_crtc *crtc)
 	/* duplicate value helper */
 	msm_property_duplicate_state(&sde_crtc->property_info,
 			old_cstate, cstate,
-			cstate->property_values, cstate->property_blobs);
+			&cstate->property_state, cstate->property_values);
 
 	/* duplicate base helper */
 	__drm_atomic_helper_crtc_duplicate_state(crtc, &cstate->base);
@@ -2389,7 +2389,8 @@ static void sde_crtc_reset(struct drm_crtc *crtc)
 
 	/* reset value helper */
 	msm_property_reset_state(&sde_crtc->property_info, cstate,
-			cstate->property_values, cstate->property_blobs);
+			&cstate->property_state,
+			cstate->property_values);
 
 	_sde_crtc_set_input_fence_timeout(cstate);
 
@@ -2442,6 +2443,7 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 
 			sde_encoder_virt_restore(encoder);
 		}
+		sde_cp_crtc_post_ipc(crtc);
 
 		event.type = DRM_EVENT_SDE_POWER;
 		event.length = sizeof(power_on);
@@ -2465,6 +2467,8 @@ static void sde_crtc_handle_power_event(u32 event_type, void *arg)
 		power_on = 0;
 		msm_mode_object_event_notify(&crtc->base, crtc->dev, &event,
 				(u8 *)&power_on);
+	} else if (event_type == SDE_POWER_EVENT_PRE_DISABLE) {
+		sde_cp_crtc_pre_ipc(crtc);
 	}
 
 	mutex_unlock(&sde_crtc->crtc_lock);
@@ -2601,7 +2605,8 @@ static void sde_crtc_enable(struct drm_crtc *crtc)
 
 	sde_crtc->power_event = sde_power_handle_register_event(
 		&priv->phandle,
-		SDE_POWER_EVENT_POST_ENABLE | SDE_POWER_EVENT_POST_DISABLE,
+		SDE_POWER_EVENT_POST_ENABLE | SDE_POWER_EVENT_POST_DISABLE |
+		SDE_POWER_EVENT_PRE_DISABLE,
 		sde_crtc_handle_power_event, crtc, sde_crtc->name);
 }
 
@@ -2706,6 +2711,130 @@ end:
 	return rc;
 }
 
+static int _sde_crtc_find_plane_fb_modes(struct drm_crtc_state *state,
+		uint32_t *fb_ns,
+		uint32_t *fb_sec,
+		uint32_t *fb_ns_dir,
+		uint32_t *fb_sec_dir)
+{
+	struct drm_plane *plane;
+	const struct drm_plane_state *pstate;
+	struct sde_plane_state *sde_pstate;
+	uint32_t mode = 0;
+	int rc;
+
+	if (!state) {
+		SDE_ERROR("invalid state\n");
+		return -EINVAL;
+	}
+
+	*fb_ns = 0;
+	*fb_sec = 0;
+	*fb_ns_dir = 0;
+	*fb_sec_dir = 0;
+	drm_atomic_crtc_state_for_each_plane_state(plane, pstate, state) {
+		if (IS_ERR_OR_NULL(pstate)) {
+			rc = PTR_ERR(pstate);
+			SDE_ERROR("crtc%d failed to get plane%d state%d\n",
+					state->crtc->base.id,
+					plane->base.id, rc);
+			return rc;
+		}
+		sde_pstate = to_sde_plane_state(pstate);
+		mode = sde_plane_get_property(sde_pstate,
+				PLANE_PROP_FB_TRANSLATION_MODE);
+		switch (mode) {
+		case SDE_DRM_FB_NON_SEC:
+			(*fb_ns)++;
+			break;
+		case SDE_DRM_FB_SEC:
+			(*fb_sec)++;
+			break;
+		case SDE_DRM_FB_NON_SEC_DIR_TRANS:
+			(*fb_ns_dir)++;
+			break;
+		case SDE_DRM_FB_SEC_DIR_TRANS:
+			(*fb_sec_dir)++;
+			break;
+		default:
+			SDE_ERROR("Error: Plane[%d], fb_trans_mode:%d",
+					plane->base.id,
+					mode);
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
+static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
+		struct drm_crtc_state *state)
+{
+	struct drm_encoder *encoder;
+	struct sde_crtc_state *cstate;
+	uint32_t secure;
+	uint32_t fb_ns = 0, fb_sec = 0, fb_ns_dir = 0, fb_sec_dir = 0;
+	int encoder_cnt = 0;
+	int rc;
+
+	if (!crtc || !state) {
+		SDE_ERROR("invalid arguments\n");
+		return -EINVAL;
+	}
+
+	cstate = to_sde_crtc_state(state);
+
+	secure = sde_crtc_get_property(cstate,
+			CRTC_PROP_SECURITY_LEVEL);
+
+	rc = _sde_crtc_find_plane_fb_modes(state,
+			&fb_ns,
+			&fb_sec,
+			&fb_ns_dir,
+			&fb_sec_dir);
+	if (rc)
+		return rc;
+
+	/**
+	 * validate planes
+	 * fb_ns_dir is for  secure display use case,
+	 * fb_sec_dir is for secure camera preview use case,
+	 * fb_sec is for secure video playback,
+	 * fb_ns is for normal non secure use cases.
+	 */
+	if (((secure == SDE_DRM_SEC_ONLY) &&
+				(fb_ns || fb_sec || fb_sec_dir)) ||
+			(fb_sec || fb_sec_dir)) {
+		SDE_ERROR(
+			"crtc%d: invalid planes fb_modes Sec:%d, NS:%d, Sec_Dir:%d, NS_Dir%d\n",
+				crtc->base.id,
+				fb_sec, fb_ns, fb_sec_dir,
+				fb_ns_dir);
+		return -EINVAL;
+	}
+
+	/**
+	 * secure_crtc is not allowed in a shared toppolgy
+	 * across different encoders.
+	 */
+	if (fb_ns_dir || fb_sec_dir) {
+		drm_for_each_encoder(encoder, crtc->dev)
+			if (encoder->crtc ==  crtc)
+				encoder_cnt++;
+
+		if (encoder_cnt >
+			MAX_ALLOWED_ENCODER_CNT_PER_SECURE_CRTC) {
+			SDE_ERROR(
+				"crtc%d, invalid virtual encoder crtc%d\n",
+				crtc->base.id,
+				encoder_cnt);
+			return -EINVAL;
+
+		}
+	}
+	SDE_DEBUG("crtc:%d Secure validation successful\n", crtc->base.id);
+	return 0;
+}
+
 static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 		struct drm_crtc_state *state)
 {
@@ -2751,6 +2880,10 @@ static int sde_crtc_atomic_check(struct drm_crtc *crtc,
 
 	_sde_crtc_setup_is_ppsplit(state);
 	_sde_crtc_setup_lm_bounds(crtc, state);
+
+	rc = _sde_crtc_check_secure_state(crtc, state);
+	if (rc)
+		return rc;
 
 	 /* get plane state for all drm planes associated with crtc state */
 	drm_atomic_crtc_state_for_each_plane_state(plane, pstate, state) {
@@ -3192,8 +3325,7 @@ static int sde_crtc_atomic_set_property(struct drm_crtc *crtc,
 		sde_crtc = to_sde_crtc(crtc);
 		cstate = to_sde_crtc_state(state);
 		ret = msm_property_atomic_set(&sde_crtc->property_info,
-				cstate->property_values, cstate->property_blobs,
-				property, val);
+				&cstate->property_state, property, val);
 		if (!ret) {
 			idx = msm_property_index(&sde_crtc->property_info,
 					property);
@@ -3313,8 +3445,8 @@ static int sde_crtc_atomic_get_property(struct drm_crtc *crtc,
 				SDE_ERROR("fence create failed\n");
 		} else {
 			ret = msm_property_atomic_get(&sde_crtc->property_info,
-					cstate->property_values,
-					cstate->property_blobs, property, val);
+					&cstate->property_state,
+					property, val);
 			if (ret)
 				ret = sde_cp_crtc_get_property(crtc,
 					property, val);

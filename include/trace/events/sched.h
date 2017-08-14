@@ -71,10 +71,8 @@ TRACE_EVENT(sched_enq_deq_task,
 		__field(unsigned long,	cpu_load		)
 		__field(unsigned int,	rt_nr_running		)
 		__field(unsigned int,	cpus_allowed		)
-#ifdef CONFIG_SCHED_WALT
 		__field(unsigned int,	demand			)
 		__field(unsigned int,	pred_demand		)
-#endif
 	),
 
 	TP_fast_assign(
@@ -87,24 +85,17 @@ TRACE_EVENT(sched_enq_deq_task,
 		__entry->cpu_load	= task_rq(p)->cpu_load[0];
 		__entry->rt_nr_running	= task_rq(p)->rt.rt_nr_running;
 		__entry->cpus_allowed	= cpus_allowed;
-#ifdef CONFIG_SCHED_WALT
-		__entry->demand		= p->ravg.demand;
-		__entry->pred_demand	= p->ravg.pred_demand;
-#endif
+		__entry->demand		= task_load(p);
+		__entry->pred_demand	= task_pl(p);
 	),
 
-	TP_printk("cpu=%d %s comm=%s pid=%d prio=%d nr_running=%u cpu_load=%lu rt_nr_running=%u affine=%x"
-#ifdef CONFIG_SCHED_WALT
-			" demand=%u pred_demand=%u"
-#endif
-			, __entry->cpu,
+	TP_printk("cpu=%d %s comm=%s pid=%d prio=%d nr_running=%u cpu_load=%lu rt_nr_running=%u affine=%x demand=%u pred_demand=%u",
+			__entry->cpu,
 			__entry->enqueue ? "enqueue" : "dequeue",
 			__entry->comm, __entry->pid,
 			__entry->prio, __entry->nr_running,
 			__entry->cpu_load, __entry->rt_nr_running, __entry->cpus_allowed
-#ifdef CONFIG_SCHED_WALT
 			, __entry->demand, __entry->pred_demand
-#endif
 			)
 );
 
@@ -254,7 +245,7 @@ TRACE_EVENT(sched_update_history,
 		__entry->pred_demand     = p->ravg.pred_demand;
 		memcpy(__entry->hist, p->ravg.sum_history,
 					RAVG_HIST_SIZE_MAX * sizeof(u32));
-		__entry->nr_big_tasks   = rq->hmp_stats.nr_big_tasks;
+		__entry->nr_big_tasks   = rq->walt_stats.nr_big_tasks;
 		__entry->cpu            = rq->cpu;
 	),
 
@@ -572,10 +563,10 @@ DECLARE_EVENT_CLASS(sched_cpu_load,
 		__entry->cpu			= rq->cpu;
 		__entry->idle			= idle;
 		__entry->nr_running		= rq->nr_running;
-		__entry->nr_big_tasks		= rq->hmp_stats.nr_big_tasks;
+		__entry->nr_big_tasks		= rq->walt_stats.nr_big_tasks;
 		__entry->load_scale_factor	= cpu_load_scale_factor(rq->cpu);
 		__entry->capacity		= cpu_capacity(rq->cpu);
-		__entry->cumulative_runnable_avg = rq->hmp_stats.cumulative_runnable_avg;
+		__entry->cumulative_runnable_avg = rq->walt_stats.cumulative_runnable_avg;
 		__entry->irqload		= irqload;
 		__entry->max_freq		= cpu_max_freq(rq->cpu);
 		__entry->power_cost		= power_cost;
@@ -594,6 +585,48 @@ DECLARE_EVENT_CLASS(sched_cpu_load,
 DEFINE_EVENT(sched_cpu_load, sched_cpu_load_lb,
 	TP_PROTO(struct rq *rq, int idle, u64 irqload, unsigned int power_cost),
 	TP_ARGS(rq, idle, irqload, power_cost)
+);
+
+TRACE_EVENT(sched_load_to_gov,
+
+	TP_PROTO(struct rq *rq, u64 aggr_grp_load, u32 tt_load, u64 freq_aggr_thresh, u64 load, int policy),
+	TP_ARGS(rq, aggr_grp_load, tt_load, freq_aggr_thresh, load, policy),
+
+	TP_STRUCT__entry(
+		__field(	int,	cpu			)
+		__field(	int,    policy			)
+		__field(	int,	ed_task_pid		)
+		__field(	u64,    aggr_grp_load		)
+		__field(	u64,    freq_aggr_thresh	)
+		__field(	u64,    tt_load			)
+		__field(	u64,	rq_ps			)
+		__field(	u64,	grp_rq_ps		)
+		__field(	u64,	nt_ps			)
+		__field(	u64,	grp_nt_ps		)
+		__field(	u64,	pl			)
+		__field(	u64,    load			)
+	),
+
+	TP_fast_assign(
+		__entry->cpu		= cpu_of(rq);
+		__entry->policy		= policy;
+		__entry->ed_task_pid	= rq->ed_task ? rq->ed_task->pid : -1;
+		__entry->aggr_grp_load	= aggr_grp_load;
+		__entry->freq_aggr_thresh = freq_aggr_thresh;
+		__entry->tt_load	= tt_load;
+		__entry->rq_ps		= rq->prev_runnable_sum;
+		__entry->grp_rq_ps	= rq->grp_time.prev_runnable_sum;
+		__entry->nt_ps		= rq->nt_prev_runnable_sum;
+		__entry->grp_nt_ps	= rq->grp_time.nt_prev_runnable_sum;
+		__entry->pl		= rq->walt_stats.pred_demands_sum;
+		__entry->load		= load;
+	),
+
+	TP_printk("cpu=%d policy=%d ed_task_pid=%d aggr_grp_load=%llu freq_aggr_thresh=%llu tt_load=%llu rq_ps=%llu grp_rq_ps=%llu nt_ps=%llu grp_nt_ps=%llu pl=%llu load=%llu",
+		__entry->cpu, __entry->policy, __entry->ed_task_pid,
+		__entry->aggr_grp_load, __entry->freq_aggr_thresh,
+		__entry->tt_load, __entry->rq_ps, __entry->grp_rq_ps,
+		__entry->nt_ps, __entry->grp_nt_ps, __entry->pl, __entry->load)
 );
 #endif
 

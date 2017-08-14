@@ -1238,10 +1238,8 @@ int create_pkt_cmd_session_set_property(
 			pkt->rg_property_data[1] = HFI_RATE_CONTROL_CBR_VFR;
 			break;
 		case HAL_RATE_CONTROL_VBR_CFR:
-			pkt->rg_property_data[1] = HFI_RATE_CONTROL_VBR_CFR;
-			break;
 		case HAL_RATE_CONTROL_VBR_VFR:
-			pkt->rg_property_data[1] = HFI_RATE_CONTROL_VBR_VFR;
+			pkt->rg_property_data[1] = HFI_RATE_CONTROL_VBR_CFR;
 			break;
 		case HAL_RATE_CONTROL_MBR_CFR:
 			pkt->rg_property_data[1] = HFI_RATE_CONTROL_MBR_CFR;

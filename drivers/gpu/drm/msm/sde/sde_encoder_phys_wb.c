@@ -918,10 +918,12 @@ static void sde_encoder_phys_wb_handle_post_kickoff(
  * @pixel_format:	DRM pixel format
  * @width:		Desired fb width
  * @height:		Desired fb height
+ * @pitch:		Desired fb pitch
  */
 static int _sde_encoder_phys_wb_init_internal_fb(
 		struct sde_encoder_phys_wb *wb_enc,
-		uint32_t pixel_format, uint32_t width, uint32_t height)
+		uint32_t pixel_format, uint32_t width,
+		uint32_t height, uint32_t pitch)
 {
 	struct drm_device *dev;
 	struct drm_framebuffer *fb;
@@ -951,9 +953,11 @@ static int _sde_encoder_phys_wb_init_internal_fb(
 	mode_cmd.pixel_format = pixel_format;
 	mode_cmd.width = width;
 	mode_cmd.height = height;
+	mode_cmd.pitches[0] = pitch;
 
 	size = sde_format_get_framebuffer_size(pixel_format,
-			mode_cmd.width, mode_cmd.height, 0, 0);
+			mode_cmd.width, mode_cmd.height,
+			mode_cmd.pitches, NULL, 0);
 	if (!size) {
 		SDE_DEBUG("not creating zero size buffer\n");
 		return -EINVAL;
@@ -1314,7 +1318,7 @@ struct sde_encoder_phys *sde_encoder_phys_wb_init(
 
 	/* create internal buffer for disable logic */
 	if (_sde_encoder_phys_wb_init_internal_fb(wb_enc,
-				DRM_FORMAT_RGB888, 2, 1)) {
+				DRM_FORMAT_RGB888, 2, 1, 6)) {
 		SDE_ERROR("failed to init internal fb\n");
 		goto fail_wb_init;
 	}

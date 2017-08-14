@@ -33,19 +33,13 @@
 #include <cam_subdev.h>
 #include "cam_sensor_util.h"
 #include "cam_soc_util.h"
+#include "cam_debug_util.h"
 
 #define NUM_MASTERS 2
 #define NUM_QUEUES 2
 
 #define TRUE  1
 #define FALSE 0
-
-#undef CDBG
-#ifdef CAM_SENSOR_DEBUG
-#define CDBG(fmt, args...) pr_err(fmt, ##args)
-#else
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
-#endif
 
 #define ACTUATOR_DRIVER_I2C "i2c_actuator"
 #define CAMX_ACTUATOR_DEV_NAME "cam-actuator-driver"

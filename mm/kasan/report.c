@@ -366,6 +366,7 @@ void kasan_report(unsigned long addr, size_t size,
 	info.access_size = size;
 	info.is_write = is_write;
 	info.ip = ip;
+	info.first_bad_addr = NULL;
 
 	kasan_report_error(&info);
 }

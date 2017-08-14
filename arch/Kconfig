@@ -218,6 +218,12 @@ config GENERIC_SMP_IDLE_THREAD
 config GENERIC_IDLE_POLL_SETUP
        bool
 
+config ARCH_HAS_FORTIFY_SOURCE
+	bool
+	help
+	  An architecture should select this when it can successfully
+	  build and run with CONFIG_FORTIFY_SOURCE.
+
 # Select if arch init_task initializer is different to init/init_task.c
 config ARCH_INIT_TASK
        bool

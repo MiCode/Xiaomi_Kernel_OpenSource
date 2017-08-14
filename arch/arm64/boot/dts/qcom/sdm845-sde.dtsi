@@ -30,7 +30,7 @@
 		clock-names = "gcc_iface", "gcc_bus", "iface_clk",
 				"bus_clk", "core_clk", "vsync_clk";
 		clock-rate = <0 0 0 0 300000000 19200000 0>;
-		clock-max-rate = <0 0 0 0 430000000 19200000 0>;
+		clock-max-rate = <0 0 0 0 412500000 19200000 0>;
 
 		sde-vdd-supply = <&mdss_core_gdsc>;
 
@@ -65,9 +65,10 @@
 
 		qcom,sde-wb-off = <0x66000>;
 		qcom,sde-wb-size = <0x2c8>;
-
 		qcom,sde-wb-xin-id = <6>;
 		qcom,sde-wb-id = <2>;
+		qcom,sde-wb-clk-ctrl = <0x3b8 24>;
+
 		qcom,sde-intf-off = <0x6b000 0x6b800
 					0x6c000 0x6c800>;
 		qcom,sde-intf-size = <0x280>;
@@ -354,6 +355,7 @@
 
 		/* Offline rotator QoS setting */
 		qcom,mdss-rot-vbif-qos-setting = <3 3 3 3 3 3 3 3>;
+		qcom,mdss-rot-vbif-memtype = <3 3>;
 		qcom,mdss-rot-cdp-setting = <1 1>;
 		qcom,mdss-rot-qos-lut = <0x0 0x0 0x0 0x0>;
 		qcom,mdss-rot-danger-lut = <0x0 0x0>;

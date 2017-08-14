@@ -50,7 +50,8 @@
 #define CLUSTER_ID_MONO		0x0001
 #define CLUSTER_ID_STEREO	0x0002
 
-#define FULL_ADC_PROFILE	0x01
+/* A.2 audio function subclass codes */
+#define FULL_ADC_3_0		0x01
 
 /* BADD Profile IDs */
 #define PROF_GENERIC_IO		0x20

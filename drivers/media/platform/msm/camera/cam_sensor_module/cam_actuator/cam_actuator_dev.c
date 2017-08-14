@@ -28,8 +28,7 @@ static long cam_actuator_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = cam_actuator_driver_cmd(a_ctrl, arg);
 		break;
 	default:
-		pr_err("%s:%d Invalid ioctl cmd\n",
-			__func__, __LINE__);
+		CAM_ERR(CAM_ACTUATOR, "Invalid ioctl cmd");
 		rc = -EINVAL;
 		break;
 	}
@@ -43,14 +42,14 @@ static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
 	struct cam_actuator_ctrl_t *a_ctrl;
 
 	if (client == NULL || id == NULL) {
-		pr_err("%s:%d: :Error: Invalid Args client: %pK id: %pK\n",
-			__func__, __LINE__, client, id);
+		CAM_ERR(CAM_ACTUATOR, "Invalid Args client: %pK id: %pK",
+			client, id);
 		return -EINVAL;
 	}
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
-		pr_err("%s %s :Error: i2c_check_functionality failed\n",
-			__func__, client->name);
+		CAM_ERR(CAM_ACTUATOR, "%s :: i2c_check_functionality failed",
+			 client->name);
 		rc = -EFAULT;
 		return rc;
 	}
@@ -81,7 +80,7 @@ static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
 
 	rc = cam_actuator_parse_dt(a_ctrl, &client->dev);
 	if (rc < 0) {
-		pr_err("failed: cam_sensor_parse_dt rc %d", rc);
+		CAM_ERR(CAM_ACTUATOR, "failed: cam_sensor_parse_dt rc %d", rc);
 		goto free_mem;
 	}
 
@@ -100,7 +99,7 @@ static int32_t cam_actuator_platform_remove(struct platform_device *pdev)
 
 	a_ctrl = platform_get_drvdata(pdev);
 	if (!a_ctrl) {
-		pr_err("%s: Actuator device is NULL\n", __func__);
+		CAM_ERR(CAM_ACTUATOR, "Actuator device is NULL");
 		return 0;
 	}
 
@@ -120,7 +119,7 @@ static int32_t cam_actuator_driver_i2c_remove(struct i2c_client *client)
 
 	/* Handle I2C Devices */
 	if (!a_ctrl) {
-		pr_err("%s: Actuator device is NULL\n", __func__);
+		CAM_ERR(CAM_ACTUATOR, "Actuator device is NULL");
 		return -EINVAL;
 	}
 	/*Free Allocated Mem */
@@ -139,7 +138,8 @@ static long cam_actuator_init_subdev_do_ioctl(struct v4l2_subdev *sd,
 
 	if (copy_from_user(&cmd_data, (void __user *)arg,
 		sizeof(cmd_data))) {
-		pr_err("Failed to copy from user_ptr=%pK size=%zu\n",
+		CAM_ERR(CAM_ACTUATOR,
+			"Failed to copy from user_ptr=%pK size=%zu\n",
 			(void __user *)arg, sizeof(cmd_data));
 		return -EFAULT;
 	}
@@ -149,21 +149,21 @@ static long cam_actuator_init_subdev_do_ioctl(struct v4l2_subdev *sd,
 		cmd = VIDIOC_CAM_CONTROL;
 		rc = cam_actuator_subdev_ioctl(sd, cmd, &cmd_data);
 		if (rc < 0) {
-			pr_err("%s:%d Failed in actuator suddev handling",
-				__func__, __LINE__);
+			CAM_ERR(CAM_ACTUATOR,
+				"Failed in actuator suddev handling");
 			return rc;
 		}
 		break;
 	default:
-		pr_err("%s:%d Invalid compat ioctl: %d\n",
-			__func__, __LINE__, cmd);
+		CAM_ERR(CAM_ACTUATOR, "Invalid compat ioctl: %d", cmd);
 		rc = -EINVAL;
 	}
 
 	if (!rc) {
 		if (copy_to_user((void __user *)arg, &cmd_data,
 			sizeof(cmd_data))) {
-			pr_err("Failed to copy to user_ptr=%pK size=%zu\n",
+			CAM_ERR(CAM_ACTUATOR,
+				"Failed to copy to user_ptr=%pK size=%zu\n",
 				(void __user *)arg, sizeof(cmd_data));
 			rc = -EFAULT;
 		}
@@ -228,8 +228,7 @@ static int32_t cam_actuator_driver_platform_probe(
 
 	rc = cam_actuator_parse_dt(a_ctrl, &(pdev->dev));
 	if (rc < 0) {
-		pr_err("%s:%d :Error: Paring actuator dt failed rc %d",
-			__func__, __LINE__, rc);
+		CAM_ERR(CAM_ACTUATOR, "Paring actuator dt failed rc %d", rc);
 		goto free_ctrl;
 	}
 
@@ -252,16 +251,15 @@ static int32_t cam_actuator_driver_platform_probe(
 
 	rc = cam_register_subdev(&(a_ctrl->v4l2_dev_str));
 	if (rc < 0) {
-		pr_err("%s:%d :ERROR: Fail with cam_register_subdev\n",
-			__func__, __LINE__);
+		CAM_ERR(CAM_ACTUATOR, "Fail with cam_register_subdev");
 		goto free_mem;
 	}
 
 	rc = cam_soc_util_request_platform_resource(&a_ctrl->soc_info,
 			NULL, NULL);
 	if (rc < 0) {
-		pr_err("%s:%d :Error: Requesting Platform Resources failed rc %d",
-			__func__, __LINE__, rc);
+		CAM_ERR(CAM_ACTUATOR,
+			"Requesting Platform Resources failed rc %d", rc);
 		goto free_ctrl;
 	}
 
@@ -316,14 +314,13 @@ static int __init cam_actuator_driver_init(void)
 
 	rc = platform_driver_register(&cam_actuator_platform_driver);
 	if (rc < 0) {
-		pr_err("%s platform_driver_register failed rc = %d",
-			__func__, rc);
+		CAM_ERR(CAM_ACTUATOR,
+			"platform_driver_register failed rc = %d", rc);
 		return rc;
 	}
 	rc = i2c_add_driver(&cam_actuator_driver_i2c);
 	if (rc)
-		pr_err("%s:%d :Error: i2c_add_driver failed rc = %d",
-			__func__, __LINE__, rc);
+		CAM_ERR(CAM_ACTUATOR, "i2c_add_driver failed rc = %d", rc);
 
 	return rc;
 }

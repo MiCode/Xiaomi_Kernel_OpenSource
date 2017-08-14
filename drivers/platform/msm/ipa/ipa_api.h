@@ -324,6 +324,8 @@ struct ipa_api_controller {
 
 	int (*ipa_stop_gsi_channel)(u32 clnt_hdl);
 
+	int (*ipa_start_gsi_channel)(u32 clnt_hdl);
+
 	struct iommu_domain *(*ipa_get_smmu_domain)(void);
 
 	int (*ipa_disable_apps_wan_cons_deaggr)(uint32_t agg_size,
@@ -378,6 +380,11 @@ struct ipa_api_controller {
 		int ipa_ep_idx_dl);
 
 	struct device *(*ipa_get_pdev)(void);
+
+	int (*ipa_ntn_uc_reg_rdyCB)(void (*ipauc_ready_cb)(void *user_data),
+		void *user_data);
+
+	void (*ipa_ntn_uc_dereg_rdyCB)(void);
 };
 
 #ifdef CONFIG_IPA

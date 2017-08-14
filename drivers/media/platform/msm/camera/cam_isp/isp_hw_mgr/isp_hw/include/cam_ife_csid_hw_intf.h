@@ -69,6 +69,7 @@ struct cam_ife_csid_hw_caps {
  *              if type is path then res id need to be filled
  * @res_id  :  res id to be reserved
  * @in_port : input port resource info
+ * @out_port: output port resource info, used for RDI path only
  * @sync_mode : Sync mode
  *              Sync mode could be master, slave or none
  * @master_idx: master device index to be configured in the slave path
@@ -83,6 +84,7 @@ struct cam_csid_hw_reserve_resource_args {
 	enum cam_isp_resource_type                res_type;
 	uint32_t                                  res_id;
 	struct cam_isp_in_port_info              *in_port;
+	struct cam_isp_out_port_info             *out_port;
 	enum cam_isp_hw_sync_mode                 sync_mode;
 	uint32_t                                  master_idx;
 	uint32_t                                  cid;

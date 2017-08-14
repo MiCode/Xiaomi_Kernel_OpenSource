@@ -1553,23 +1553,25 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			break;
 		}
 
-		buff_req_buffer = get_buff_req_buffer(inst,
-			HAL_BUFFER_EXTRADATA_INPUT);
-
 		extra_idx = EXTRADATA_IDX(inst->bufq[OUTPUT_PORT].num_planes);
+		if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
+			buff_req_buffer = get_buff_req_buffer(inst,
+						HAL_BUFFER_EXTRADATA_INPUT);
 
-		inst->bufq[OUTPUT_PORT].plane_sizes[extra_idx] =
-			buff_req_buffer ?
-			buff_req_buffer->buffer_size : 0;
-
-		buff_req_buffer = get_buff_req_buffer(inst,
-			HAL_BUFFER_EXTRADATA_OUTPUT);
+			inst->bufq[OUTPUT_PORT].plane_sizes[extra_idx] =
+					buff_req_buffer ?
+					buff_req_buffer->buffer_size : 0;
+		}
 
 		extra_idx = EXTRADATA_IDX(inst->bufq[CAPTURE_PORT].num_planes);
-		inst->bufq[CAPTURE_PORT].plane_sizes[extra_idx] =
-			buff_req_buffer ?
-			buff_req_buffer->buffer_size : 0;
+		if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
+			buff_req_buffer = get_buff_req_buffer(inst,
+						HAL_BUFFER_EXTRADATA_OUTPUT);
 
+			inst->bufq[CAPTURE_PORT].plane_sizes[extra_idx] =
+				buff_req_buffer ?
+				buff_req_buffer->buffer_size : 0;
+		}
 		property_id = 0;
 		}
 		break;
@@ -1597,7 +1599,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_USELTRFRAME:
 		property_id = HAL_CONFIG_VENC_USELTRFRAME;
-		use_ltr.ref_ltr = ctrl->val;
+		use_ltr.ref_ltr = 0x1 << ctrl->val;
 		use_ltr.use_constraint = false;
 		use_ltr.frames = 0;
 		pdata = &use_ltr;
@@ -2360,6 +2362,7 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			rc = -EINVAL;
 			goto exit;
 		}
+		inst->clk_data.opb_fourcc = f->fmt.pix_mp.pixelformat;
 		memcpy(&inst->fmts[fmt->type], fmt,
 				sizeof(struct msm_vidc_format));
 

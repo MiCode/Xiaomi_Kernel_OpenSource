@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,7 @@
 #include "diagmem.h"
 #include "diagfwd.h"
 #include "diagfwd_peripheral.h"
+#include "diag_ipc_logging.h"
 
 struct diag_md_info diag_md[NUM_DIAG_MD_DEV] = {
 	{
@@ -132,7 +133,7 @@ int diag_md_write(int id, unsigned char *buf, int len, int ctx)
 	uint8_t found = 0;
 	unsigned long flags;
 	struct diag_md_info *ch = NULL;
-	uint8_t peripheral;
+	int peripheral;
 	struct diag_md_session_t *session_info = NULL;
 
 	if (id < 0 || id >= NUM_DIAG_MD_DEV || id >= DIAG_NUM_PROC)
@@ -141,11 +142,12 @@ int diag_md_write(int id, unsigned char *buf, int len, int ctx)
 	if (!buf || len < 0)
 		return -EINVAL;
 
-	peripheral = GET_BUF_PERIPHERAL(ctx);
-	if (peripheral > NUM_PERIPHERALS)
+	peripheral = diag_md_get_peripheral(ctx);
+	if (peripheral < 0)
 		return -EINVAL;
 
-	session_info = diag_md_session_get_peripheral(peripheral);
+	session_info =
+		diag_md_session_get_peripheral(peripheral);
 	if (!session_info)
 		return -EIO;
 
@@ -214,7 +216,7 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 	struct diag_md_info *ch = NULL;
 	struct diag_buf_tbl_t *entry = NULL;
 	uint8_t drain_again = 0;
-	uint8_t peripheral = 0;
+	int peripheral = 0;
 	struct diag_md_session_t *session_info = NULL;
 
 	for (i = 0; i < NUM_DIAG_MD_DEV && !err; i++) {
@@ -223,12 +225,15 @@ int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size,
 			entry = &ch->tbl[j];
 			if (entry->len <= 0)
 				continue;
-			peripheral = GET_BUF_PERIPHERAL(entry->ctx);
-			/* Account for Apps data as well */
-			if (peripheral > NUM_PERIPHERALS)
+
+			peripheral = diag_md_get_peripheral(entry->ctx);
+			if (peripheral < 0)
 				goto drop_data;
 			session_info =
 			diag_md_session_get_peripheral(peripheral);
+			if (!session_info)
+				goto drop_data;
+
 			if (session_info && info &&
 				(session_info->pid != info->pid))
 				continue;
@@ -320,8 +325,15 @@ int diag_md_close_peripheral(int id, uint8_t peripheral)
 	spin_lock_irqsave(&ch->lock, flags);
 	for (i = 0; i < ch->num_tbl_entries && !found; i++) {
 		entry = &ch->tbl[i];
-		if (GET_BUF_PERIPHERAL(entry->ctx) != peripheral)
-			continue;
+
+		if (peripheral > NUM_PERIPHERALS) {
+			if (GET_PD_CTXT(entry->ctx) != peripheral)
+				continue;
+		} else {
+			if (GET_BUF_PERIPHERAL(entry->ctx) !=
+					peripheral)
+				continue;
+		}
 		found = 1;
 		if (ch->ops && ch->ops->write_done) {
 			ch->ops->write_done(entry->buf, entry->len,

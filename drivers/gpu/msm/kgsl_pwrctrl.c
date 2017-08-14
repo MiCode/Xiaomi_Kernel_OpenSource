@@ -224,7 +224,7 @@ static int kgsl_bus_scale_request(struct kgsl_device *device,
 {
 	struct gmu_device *gmu = &device->gmu;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	int ret;
+	int ret = 0;
 
 	/* GMU scales BW */
 	if (kgsl_gmu_isenabled(device)) {
@@ -232,7 +232,7 @@ static int kgsl_bus_scale_request(struct kgsl_device *device,
 			return 0;
 
 		ret = gmu_dcvs_set(gmu, INVALID_DCVS_IDX, buslevel);
-	} else {
+	} else if (pwr->pcl) {
 		/* Linux bus driver scales BW */
 		ret = msm_bus_scale_client_update_request(pwr->pcl, buslevel);
 	}
@@ -298,7 +298,8 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 	unsigned long ab;
 
 	/* the bus should be ON to update the active frequency */
-	if (on && !(test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->power_flags)))
+	if (!(kgsl_gmu_isenabled(device)) && on &&
+		!(test_bit(KGSL_PWRFLAGS_AXI_ON, &pwr->power_flags)))
 		return;
 	/*
 	 * If the bus should remain on calculate our request and submit it,
@@ -328,9 +329,7 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 		msm_bus_scale_client_update_request(pwr->ocmem_pcl,
 			on ? pwr->active_pwrlevel : pwr->num_pwrlevels - 1);
 
-	/* vote for bus if gpubw-dev support is not enabled */
-	if (pwr->pcl)
-		kgsl_bus_scale_request(device, buslevel);
+	kgsl_bus_scale_request(device, buslevel);
 
 	kgsl_pwrctrl_vbif_update(ab);
 }
@@ -1056,6 +1055,8 @@ static void __force_on(struct kgsl_device *device, int flag, int on)
 	if (on) {
 		switch (flag) {
 		case KGSL_PWRFLAGS_CLK_ON:
+			/* make sure pwrrail is ON before enabling clocks */
+			kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_ON);
 			kgsl_pwrctrl_clk(device, KGSL_PWRFLAGS_ON,
 				KGSL_STATE_ACTIVE);
 			break;
@@ -1861,7 +1862,12 @@ static int kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state)
 
 	if (kgsl_gmu_isenabled(device))
 		return 0;
-	if (test_bit(KGSL_PWRFLAGS_POWER_ON, &pwr->ctrl_flags))
+	/*
+	 * Disabling the regulator means also disabling dependent clocks.
+	 * Hence don't disable it if force clock ON is set.
+	 */
+	if (test_bit(KGSL_PWRFLAGS_POWER_ON, &pwr->ctrl_flags) ||
+		test_bit(KGSL_PWRFLAGS_CLK_ON, &pwr->ctrl_flags))
 		return 0;
 
 	if (state == KGSL_PWRFLAGS_OFF) {
@@ -2369,9 +2375,24 @@ void kgsl_idle_check(struct work_struct *work)
 		   || device->state ==  KGSL_STATE_NAP) {
 
 		if (!atomic_read(&device->active_cnt)) {
+			spin_lock(&device->submit_lock);
+			if (device->submit_now) {
+				spin_unlock(&device->submit_lock);
+				goto done;
+			}
+			/* Don't allow GPU inline submission in SLUMBER */
+			if (requested_state == KGSL_STATE_SLUMBER)
+				device->slumber = true;
+			spin_unlock(&device->submit_lock);
+
 			ret = kgsl_pwrctrl_change_state(device,
 					device->requested_state);
 			if (ret == -EBUSY) {
+				if (requested_state == KGSL_STATE_SLUMBER) {
+					spin_lock(&device->submit_lock);
+					device->slumber = false;
+					spin_unlock(&device->submit_lock);
+				}
 				/*
 				 * If the GPU is currently busy, restore
 				 * the requested state and reschedule
@@ -2382,7 +2403,7 @@ void kgsl_idle_check(struct work_struct *work)
 				kgsl_schedule_work(&device->idle_check_ws);
 			}
 		}
-
+done:
 		if (!ret)
 			kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 
@@ -2842,6 +2863,13 @@ static void kgsl_pwrctrl_set_state(struct kgsl_device *device,
 	trace_kgsl_pwr_set_state(device, state);
 	device->state = state;
 	device->requested_state = KGSL_STATE_NONE;
+
+	spin_lock(&device->submit_lock);
+	if (state == KGSL_STATE_SLUMBER || state == KGSL_STATE_SUSPEND)
+		device->slumber = true;
+	else
+		device->slumber = false;
+	spin_unlock(&device->submit_lock);
 }
 
 static void kgsl_pwrctrl_request_state(struct kgsl_device *device,

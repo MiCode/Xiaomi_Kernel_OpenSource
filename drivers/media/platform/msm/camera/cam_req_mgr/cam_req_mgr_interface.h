@@ -196,9 +196,9 @@ struct cam_req_mgr_sof_notify {
  * @error    : what error device hit while processing this req
  */
 struct cam_req_mgr_error_notify {
-	int32_t link_hdl;
-	int32_t dev_hdl;
-	int64_t req_id;
+	int32_t  link_hdl;
+	int32_t  dev_hdl;
+	uint64_t req_id;
 	enum cam_req_mgr_device_error error;
 };
 
@@ -210,9 +210,9 @@ struct cam_req_mgr_error_notify {
  *
  */
 struct cam_req_mgr_add_request {
-	int32_t link_hdl;
-	int32_t dev_hdl;
-	int64_t req_id;
+	int32_t  link_hdl;
+	int32_t  dev_hdl;
+	uint64_t req_id;
 };
 
 
@@ -260,7 +260,7 @@ struct cam_req_mgr_core_dev_link_setup {
 struct cam_req_mgr_apply_request {
 	int32_t    link_hdl;
 	int32_t    dev_hdl;
-	int64_t    request_id;
+	uint64_t   request_id;
 	int32_t    report_if_bubble;
 };
 
@@ -276,7 +276,7 @@ struct cam_req_mgr_flush_request {
 	int32_t     link_hdl;
 	int32_t     dev_hdl;
 	uint32_t    type;
-	int64_t     req_id;
+	uint64_t    req_id;
 };
 
 /**
@@ -286,9 +286,9 @@ struct cam_req_mgr_flush_request {
  *
  */
 struct cam_req_mgr_link_evt_data {
-	int32_t link_hdl;
-	int32_t dev_hdl;
-	int64_t req_id;
+	int32_t  link_hdl;
+	int32_t  dev_hdl;
+	uint64_t req_id;
 
 	enum cam_req_mgr_link_evt_type evt_type;
 	union {

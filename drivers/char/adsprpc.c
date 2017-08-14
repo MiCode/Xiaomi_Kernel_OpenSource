@@ -211,6 +211,7 @@ struct fastrpc_channel_ctx {
 	struct device *dev;
 	struct fastrpc_session_ctx session[NUM_SESSIONS];
 	struct completion work;
+	struct completion workport;
 	struct notifier_block nb;
 	struct kref kref;
 	int sesscount;
@@ -283,6 +284,7 @@ struct fastrpc_file {
 	int cid;
 	int ssrcount;
 	int pd;
+	int file_close;
 	struct fastrpc_apps *apps;
 	struct fastrpc_perf perf;
 	struct dentry *debugfs_file;
@@ -479,7 +481,7 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map)
 
 	if (!IS_ERR_OR_NULL(map->handle))
 		ion_free(fl->apps->client, map->handle);
-	if (sess->smmu.enabled) {
+	if (sess && sess->smmu.enabled) {
 		if (map->size || map->phys)
 			msm_dma_unmap_sg(sess->dev,
 				map->table->sgl,
@@ -557,7 +559,9 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 		sess = fl->secsctx;
 	else
 		sess = fl->sctx;
-
+	VERIFY(err, !IS_ERR_OR_NULL(sess));
+	if (err)
+		goto bail;
 	VERIFY(err, !IS_ERR_OR_NULL(map->buf = dma_buf_get(fd)));
 	if (err)
 		goto bail;
@@ -1378,6 +1382,7 @@ static void fastrpc_init(struct fastrpc_apps *me)
 	me->channel = &gcinfo[0];
 	for (i = 0; i < NUM_CHANNELS; i++) {
 		init_completion(&me->channel[i].work);
+		init_completion(&me->channel[i].workport);
 		me->channel[i].sesscount = 0;
 	}
 }
@@ -1397,6 +1402,14 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 
 	if (fl->profile)
 		getnstimeofday(&invoket);
+
+	VERIFY(err, fl->sctx != NULL);
+	if (err)
+		goto bail;
+	VERIFY(err, fl->cid >= 0 && fl->cid < NUM_CHANNELS);
+	if (err)
+		goto bail;
+
 	if (!kernel) {
 		VERIFY(err, 0 == context_restore_interrupted(fl, inv,
 								&ctx));
@@ -1828,7 +1841,7 @@ void fastrpc_glink_notify_state(void *handle, const void *priv,
 	switch (event) {
 	case GLINK_CONNECTED:
 		link->port_state = FASTRPC_LINK_CONNECTED;
-		complete(&me->channel[cid].work);
+		complete(&me->channel[cid].workport);
 		break;
 	case GLINK_LOCAL_DISCONNECTED:
 		link->port_state = FASTRPC_LINK_DISCONNECTED;
@@ -1886,6 +1899,9 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 		return 0;
 	}
 	(void)fastrpc_release_current_dsp_process(fl);
+	spin_lock(&fl->hlock);
+	fl->file_close = 1;
+	spin_unlock(&fl->hlock);
 	fastrpc_context_list_dtor(fl);
 	fastrpc_buf_list_free(fl);
 	hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
@@ -1978,8 +1994,7 @@ static void fastrpc_glink_close(void *chan, int cid)
 		return;
 	link = &gfa.channel[cid].link;
 
-	if (link->port_state == FASTRPC_LINK_CONNECTED ||
-		link->port_state == FASTRPC_LINK_CONNECTING) {
+	if (link->port_state == FASTRPC_LINK_CONNECTED) {
 		link->port_state = FASTRPC_LINK_DISCONNECTING;
 		glink_close(chan);
 	}
@@ -2161,7 +2176,8 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 		if (err)
 			goto bail;
 
-		VERIFY(err, wait_for_completion_timeout(&me->channel[cid].work,
+		VERIFY(err,
+			 wait_for_completion_timeout(&me->channel[cid].workport,
 						RPC_TIMEOUT));
 		if (err) {
 			me->channel[cid].chan = 0;
@@ -2170,6 +2186,11 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 		kref_init(&me->channel[cid].kref);
 		pr_info("'opened /dev/%s c %d %d'\n", gcinfo[cid].name,
 						MAJOR(me->dev_no), cid);
+		err = glink_queue_rx_intent(me->channel[cid].chan, NULL, 16);
+		err |= glink_queue_rx_intent(me->channel[cid].chan, NULL, 64);
+		if (err)
+			pr_warn("adsprpc: initial intent fail for %d err %d\n",
+					 cid, err);
 		if (me->channel[cid].ssrcount !=
 				 me->channel[cid].prevssrcount) {
 			me->channel[cid].prevssrcount =
@@ -2233,6 +2254,9 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 		if (err)
 			goto bail;
 	}
+	VERIFY(err, fl->sctx != NULL);
+	if (err)
+		goto bail;
 	*info = (fl->sctx->smmu.enabled ? 1 : 0);
 bail:
 	return err;
@@ -2256,6 +2280,14 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 	p.inv.fds = 0;
 	p.inv.attrs = 0;
 	p.inv.crc = NULL;
+	spin_lock(&fl->hlock);
+	if (fl->file_close == 1) {
+		err = EBADF;
+		pr_warn("ADSPRPC: fastrpc_device_release is happening, So not sending any new requests to DSP");
+		spin_unlock(&fl->hlock);
+		goto bail;
+	}
+	spin_unlock(&fl->hlock);
 
 	switch (ioctl_num) {
 	case FASTRPC_IOCTL_INVOKE:
@@ -2457,7 +2489,7 @@ static int fastrpc_cb_probe(struct device *dev)
 		start = 0x60000000;
 	VERIFY(err, !IS_ERR_OR_NULL(sess->smmu.mapping =
 				arm_iommu_create_mapping(&platform_bus_type,
-						start, 0x7fffffff)));
+						start, 0x78000000)));
 	if (err)
 		goto bail;
 

@@ -16,13 +16,6 @@
 #include "cam_csiphy_core.h"
 #include <media/cam_sensor.h>
 
-#undef CDBG
-#ifdef CAM_CSIPHY_DEV_DEBUG
-#define CDBG(fmt, args...) pr_err(fmt, ##args)
-#else
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
-#endif
-
 static long cam_csiphy_subdev_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
 {
@@ -33,13 +26,12 @@ static long cam_csiphy_subdev_ioctl(struct v4l2_subdev *sd,
 	case VIDIOC_CAM_CONTROL:
 		rc = cam_csiphy_core_cfg(csiphy_dev, arg);
 		if (rc != 0) {
-			pr_err("%s: %d :ERROR: in configuring the device\n",
-				__func__, __LINE__);
+			CAM_ERR(CAM_CSIPHY, "in configuring the device");
 			return rc;
 		}
 		break;
 	default:
-		pr_err("%s:%d :ERROR: Wrong ioctl\n", __func__, __LINE__);
+		CAM_ERR(CAM_CSIPHY, "Wrong ioctl : %d", cmd);
 		break;
 	}
 
@@ -55,7 +47,7 @@ static long cam_csiphy_subdev_compat_ioctl(struct v4l2_subdev *sd,
 
 	if (copy_from_user(&cmd_data, (void __user *)arg,
 		sizeof(cmd_data))) {
-		pr_err("Failed to copy from user_ptr=%pK size=%zu\n",
+		CAM_ERR(CAM_CSIPHY, "Failed to copy from user_ptr=%pK size=%zu",
 			(void __user *)arg, sizeof(cmd_data));
 		return -EFAULT;
 	}
@@ -68,15 +60,15 @@ static long cam_csiphy_subdev_compat_ioctl(struct v4l2_subdev *sd,
 		rc = cam_csiphy_subdev_ioctl(sd, cmd, &cmd_data);
 		break;
 	default:
-		pr_err("%s:%d Invalid compat ioctl cmd: %d\n",
-			__func__, __LINE__, cmd);
+		CAM_ERR(CAM_CSIPHY, "Invalid compat ioctl cmd: %d", cmd);
 		rc = -EINVAL;
 	}
 
 	if (!rc) {
 		if (copy_to_user((void __user *)arg, &cmd_data,
 			sizeof(cmd_data))) {
-			pr_err("Failed to copy to user_ptr=%pK size=%zu\n",
+			CAM_ERR(CAM_CSIPHY,
+				"Failed to copy to user_ptr=%pK size=%zu",
 				(void __user *)arg, sizeof(cmd_data));
 			rc = -EFAULT;
 		}
@@ -126,8 +118,7 @@ static int32_t cam_csiphy_platform_probe(struct platform_device *pdev)
 
 	rc = cam_csiphy_parse_dt_info(pdev, new_csiphy_dev);
 	if (rc < 0) {
-		pr_err("%s:%d :ERROR: dt parsing failed: %d\n",
-			__func__, __LINE__, rc);
+		CAM_ERR(CAM_CSIPHY, "DT parsing failed: %d", rc);
 		goto csiphy_no_resource;
 	}
 
@@ -148,8 +139,7 @@ static int32_t cam_csiphy_platform_probe(struct platform_device *pdev)
 
 	rc = cam_register_subdev(&(new_csiphy_dev->v4l2_dev_str));
 	if (rc < 0) {
-		pr_err("%s:%d :ERROR: In cam_register_subdev\n",
-			__func__, __LINE__);
+		CAM_ERR(CAM_CSIPHY, "cam_register_subdev Failed rc: %d", rc);
 		goto csiphy_no_resource;
 	}
 
@@ -176,11 +166,10 @@ static int32_t cam_csiphy_platform_probe(struct platform_device *pdev)
 	strlcpy(cpas_parms.identifier, "csiphy", CAM_HW_IDENTIFIER_LENGTH);
 	rc = cam_cpas_register_client(&cpas_parms);
 	if (rc) {
-		pr_err("%s:%d CPAS registration failed\n",
-			__func__, __LINE__);
+		CAM_ERR(CAM_CSIPHY, "CPAS registration failed rc: %d", rc);
 		goto csiphy_no_resource;
 	}
-	CDBG("CPAS registration successful handle=%d\n",
+	CAM_DBG(CAM_CSIPHY, "CPAS registration successful handle=%d",
 		cpas_parms.client_handle);
 	new_csiphy_dev->cpas_handle = cpas_parms.client_handle;
 

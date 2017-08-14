@@ -231,29 +231,6 @@ static int sde_hw_pp_enable_te(struct sde_hw_pingpong *pp, bool enable)
 	return 0;
 }
 
-static int sde_hw_pp_connect_external_te(struct sde_hw_pingpong *pp,
-		bool enable_external_te)
-{
-	struct sde_hw_blk_reg_map *c = &pp->hw;
-	u32 cfg;
-	int orig;
-
-	if (!pp)
-		return -EINVAL;
-
-	c = &pp->hw;
-	cfg = SDE_REG_READ(c, PP_SYNC_CONFIG_VSYNC);
-	orig = (bool)(cfg & BIT(20));
-	if (enable_external_te)
-		cfg |= BIT(20);
-	else
-		cfg &= ~BIT(20);
-	SDE_REG_WRITE(c, PP_SYNC_CONFIG_VSYNC, cfg);
-	SDE_EVT32(pp->idx - PINGPONG_0, cfg);
-
-	return orig;
-}
-
 static int sde_hw_pp_get_vsync_info(struct sde_hw_pingpong *pp,
 		struct sde_hw_pp_vsync_info *info)
 {
@@ -280,7 +257,6 @@ static void _setup_pingpong_ops(struct sde_hw_pingpong_ops *ops,
 
 	ops->setup_tearcheck = sde_hw_pp_setup_te_config;
 	ops->enable_tearcheck = sde_hw_pp_enable_te;
-	ops->connect_external_te = sde_hw_pp_connect_external_te;
 	ops->get_vsync_info = sde_hw_pp_get_vsync_info;
 	ops->setup_autorefresh = sde_hw_pp_setup_autorefresh_config;
 	ops->setup_dsc = sde_hw_pp_setup_dsc;

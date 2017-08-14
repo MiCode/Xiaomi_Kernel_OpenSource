@@ -225,6 +225,9 @@ struct sde_rot_data_type {
 	u32 *vbif_nrt_qos;
 	u32 npriority_lvl;
 
+	u32 vbif_memtype_count;
+	u32 *vbif_memtype;
+
 	int iommu_attached;
 	int iommu_ref_cnt;
 
@@ -270,6 +273,8 @@ u32 sde_apply_comp_ratio_factor(u32 quota,
 u32 sde_mdp_get_ot_limit(u32 width, u32 height, u32 pixfmt, u32 fps, u32 is_rd);
 
 void sde_mdp_set_ot_limit(struct sde_mdp_set_ot_params *params);
+
+int sde_mdp_init_vbif(void);
 
 #define SDE_VBIF_WRITE(mdata, offset, value) \
 		(sde_reg_w(&mdata->vbif_nrt_io, offset, value, 0))

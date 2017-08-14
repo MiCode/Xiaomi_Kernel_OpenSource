@@ -341,6 +341,8 @@ static int sde_rotator_footswitch_ctrl(struct sde_rot_mgr *mgr, bool on)
 	if (!on) {
 		mgr->minimum_bw_vote = 0;
 		sde_rotator_update_perf(mgr);
+	} else {
+		sde_mdp_init_vbif();
 	}
 
 	mgr->regulator_enable = on;

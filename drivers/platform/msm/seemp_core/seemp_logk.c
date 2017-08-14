@@ -30,6 +30,7 @@
 #define YEAR_BASE 1900
 
 #define EL2_SCM_ID 0x02001902
+#define KP_EL2_REPORT_REVISION 0x01000101
 
 static struct seemp_logk_dev *slogk_dev;
 
@@ -610,6 +611,9 @@ static int seemp_logk_rtic_thread(void *data)
 		/ sizeof(struct el2_report_data_t);
 	header = (struct el2_report_header_t *) el2_shared_mem;
 
+	if (header->report_version < KP_EL2_REPORT_REVISION)
+		return -EINVAL;
+
 	while (!kthread_should_stop()) {
 		for (i = 1; i < num_entries + 1; i++) {
 			struct el2_report_data_t *report;
@@ -624,16 +628,18 @@ static int seemp_logk_rtic_thread(void *data)
 
 			/* determine legitimacy of report */
 			if (report->report_valid &&
-				report->sequence_number <=
-					header->num_incidents &&
 				(last_sequence_number == 0
 					|| report->sequence_number >
 						last_sequence_number)) {
 				seemp_logk_rtic(report->report_type,
-					report->report.incident.actor,
-					report->report.incident.asset_id,
-					report->report.incident.asset_category,
-					report->report.incident.response);
+					((struct task_struct *) report->actor)
+						->pid,
+					/* leave this empty until
+					 * asset id is provided
+					 */
+					"",
+					report->asset_category,
+					report->response);
 				last_sequence_number = report->sequence_number;
 			} else {
 				last_pos = cur_pos - 1;

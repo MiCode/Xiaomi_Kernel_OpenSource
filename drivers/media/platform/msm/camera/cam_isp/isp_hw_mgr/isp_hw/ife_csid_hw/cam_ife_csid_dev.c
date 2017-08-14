@@ -16,9 +16,7 @@
 #include "cam_ife_csid_core.h"
 #include "cam_ife_csid_dev.h"
 #include "cam_ife_csid_hw_intf.h"
-
-#undef CDBG
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#include "cam_debug_util.h"
 
 static struct cam_hw_intf *cam_ife_csid_hw_list[CAM_IFE_CSID_HW_RES_MAX] = {
 	0, 0, 0, 0};
@@ -34,7 +32,7 @@ int cam_ife_csid_probe(struct platform_device *pdev)
 	uint32_t                        csid_dev_idx;
 	int                             rc = 0;
 
-	CDBG("%s:%d probe called\n", __func__, __LINE__);
+	CAM_DBG(CAM_ISP, "probe called");
 
 	csid_hw_intf = kzalloc(sizeof(*csid_hw_intf), GFP_KERNEL);
 	if (!csid_hw_intf) {
@@ -60,8 +58,7 @@ int cam_ife_csid_probe(struct platform_device *pdev)
 	match_dev = of_match_device(pdev->dev.driver->of_match_table,
 		&pdev->dev);
 	if (!match_dev) {
-		pr_err("%s:%d No matching table for the IFE CSID HW!\n",
-			__func__, __LINE__);
+		CAM_ERR(CAM_ISP, "No matching table for the IFE CSID HW!");
 		rc = -EINVAL;
 		goto free_dev;
 	}
@@ -72,6 +69,7 @@ int cam_ife_csid_probe(struct platform_device *pdev)
 
 	csid_hw_info->core_info = csid_dev;
 	csid_hw_info->soc_info.pdev = pdev;
+	csid_hw_info->soc_info.index = csid_dev_idx;
 
 	csid_hw_data = (struct cam_ife_csid_hw_info  *)match_dev->data;
 	/* need to setup the pdev before call the ife hw probe init */
@@ -82,7 +80,7 @@ int cam_ife_csid_probe(struct platform_device *pdev)
 		goto free_dev;
 
 	platform_set_drvdata(pdev, csid_dev);
-	CDBG("%s:%d CSID:%d probe successful\n", __func__, __LINE__,
+	CAM_DBG(CAM_ISP, "CSID:%d probe successful",
 		csid_hw_intf->hw_idx);
 
 
@@ -113,7 +111,7 @@ int cam_ife_csid_remove(struct platform_device *pdev)
 	csid_hw_intf = csid_dev->hw_intf;
 	csid_hw_info = csid_dev->hw_info;
 
-	CDBG("%s:%d CSID:%d remove\n", __func__, __LINE__,
+	CAM_DBG(CAM_ISP, "CSID:%d remove",
 		csid_dev->hw_intf->hw_idx);
 
 	cam_ife_csid_hw_deinit(csid_dev);

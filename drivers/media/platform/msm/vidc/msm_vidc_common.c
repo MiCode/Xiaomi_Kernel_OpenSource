@@ -35,8 +35,6 @@
 		V4L2_EVENT_MSM_VIDC_RELEASE_BUFFER_REFERENCE
 #define L_MODE V4L2_MPEG_VIDEO_H264_LOOP_FILTER_MODE_DISABLED_AT_SLICE_BOUNDARY
 
-#define MAX_SUPPORTED_INSTANCES 16
-
 const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata none",
 	"Extradata MB Quantization",
@@ -81,7 +79,6 @@ static void msm_comm_generate_session_error(struct msm_vidc_inst *inst);
 static void msm_comm_generate_sys_error(struct msm_vidc_inst *inst);
 static void handle_session_error(enum hal_command_response cmd, void *data);
 static void msm_vidc_print_running_insts(struct msm_vidc_core *core);
-static void msm_comm_print_debug_info(struct msm_vidc_inst *inst);
 
 bool msm_comm_turbo_session(struct msm_vidc_inst *inst)
 {
@@ -957,8 +954,8 @@ static void handle_sys_init_done(enum hal_command_response cmd, void *data)
 	/* This should come from sys_init_done */
 	core->resources.max_inst_count =
 		sys_init_msg->max_sessions_supported ?
-		sys_init_msg->max_sessions_supported :
-		MAX_SUPPORTED_INSTANCES;
+		min_t(u32, sys_init_msg->max_sessions_supported,
+		MAX_SUPPORTED_INSTANCES) : MAX_SUPPORTED_INSTANCES;
 
 	core->resources.max_secure_inst_count =
 		core->resources.max_secure_inst_count ?
@@ -978,11 +975,6 @@ static void handle_sys_init_done(enum hal_command_response cmd, void *data)
 		"%s: supported_codecs[%d]: enc = %#x, dec = %#x\n",
 		__func__, core->codec_count, core->enc_codec_supported,
 		core->dec_codec_supported);
-
-	core->vote_data = kcalloc(MAX_SUPPORTED_INSTANCES,
-		sizeof(core->vote_data), GFP_KERNEL);
-	if (!core->vote_data)
-		dprintk(VIDC_ERR, "%s: failed to allocate memory\n", __func__);
 
 	complete(&(core->completions[index]));
 }
@@ -1433,6 +1425,15 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 	print_cap("max_video_cores", &inst->capability.max_video_cores);
 	print_cap("max_work_modes", &inst->capability.max_work_modes);
 	print_cap("ubwc_cr_stats", &inst->capability.ubwc_cr_stats);
+
+	dprintk(VIDC_DBG, "profile count : %u",
+		inst->capability.profile_level.profile_count);
+	for (i = 0; i < inst->capability.profile_level.profile_count; i++) {
+		dprintk(VIDC_DBG, "profile : %u ", inst->capability.
+			profile_level.profile_level[i].profile);
+		dprintk(VIDC_DBG, "level   : %u ", inst->capability.
+			profile_level.profile_level[i].level);
+	}
 
 	signal_session_msg_receipt(cmd, inst);
 
@@ -2180,11 +2181,31 @@ int msm_comm_vb2_buffer_done(struct msm_vidc_inst *inst,
 	return 0;
 }
 
+static bool is_eos_buffer(struct msm_vidc_inst *inst, u32 device_addr)
+{
+	struct eos_buf *temp, *next;
+	bool found = false;
+
+	mutex_lock(&inst->eosbufs.lock);
+	list_for_each_entry_safe(temp, next, &inst->eosbufs.list, list) {
+		if (temp->smem.device_addr == device_addr) {
+			found = true;
+			list_del(&temp->list);
+			msm_comm_smem_free(inst, &temp->smem);
+			kfree(temp);
+			break;
+		}
+	}
+	mutex_unlock(&inst->eosbufs.lock);
+
+	return found;
+}
+
 static void handle_ebd(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_data_done *response = data;
 	struct msm_vidc_buffer *mbuf;
-	struct vb2_buffer *vb;
+	struct vb2_buffer *vb, *vb2;
 	struct msm_vidc_inst *inst;
 	struct vidc_hal_ebd *empty_buf_done;
 	struct vb2_v4l2_buffer *vbuf;
@@ -2204,6 +2225,13 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 	}
 
 	empty_buf_done = (struct vidc_hal_ebd *)&response->input_done;
+	/* If this is internal EOS buffer, handle it in driver */
+	if (is_eos_buffer(inst, empty_buf_done->packet_buffer)) {
+		dprintk(VIDC_DBG, "Received EOS buffer %pK\n",
+			(void *)(u64)empty_buf_done->packet_buffer);
+		goto exit;
+	}
+
 	planes[0] = empty_buf_done->packet_buffer;
 	planes[1] = empty_buf_done->extra_data_buffer;
 
@@ -2214,11 +2242,24 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 			__func__, planes[0], planes[1]);
 		goto exit;
 	}
+	vb2 = msm_comm_get_vb_using_vidc_buffer(inst, mbuf);
+
+	/*
+	 * take registeredbufs.lock to update mbuf & vb2 variables together
+	 * so that both are in sync else if mbuf and vb2 variables are not
+	 * in sync msm_comm_compare_vb2_planes() returns false for the
+	 * right buffer due to data_offset field mismatch.
+	 */
+	mutex_lock(&inst->registeredbufs.lock);
 	vb = &mbuf->vvb.vb2_buf;
 
 	vb->planes[0].bytesused = response->input_done.filled_len;
 	if (vb->planes[0].bytesused > vb->planes[0].length)
 		dprintk(VIDC_INFO, "bytesused overflow length\n");
+
+	vb->planes[0].data_offset = response->input_done.offset;
+	if (vb->planes[0].data_offset > vb->planes[0].length)
+		dprintk(VIDC_INFO, "data_offset overflow length\n");
 
 	if (empty_buf_done->status == VIDC_ERR_NOT_SUPPORTED) {
 		dprintk(VIDC_INFO, "Failed : Unsupported input stream\n");
@@ -2236,24 +2277,27 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 	if (extra_idx && extra_idx < VIDEO_MAX_PLANES)
 		vb->planes[extra_idx].bytesused = vb->planes[extra_idx].length;
 
+	if (vb2) {
+		vbuf = to_vb2_v4l2_buffer(vb2);
+		vbuf->flags |= mbuf->vvb.flags;
+		for (i = 0; i < mbuf->vvb.vb2_buf.num_planes; i++) {
+			vb2->planes[i].bytesused =
+				mbuf->vvb.vb2_buf.planes[i].bytesused;
+			vb2->planes[i].data_offset =
+				mbuf->vvb.vb2_buf.planes[i].data_offset;
+		}
+	}
+	mutex_unlock(&inst->registeredbufs.lock);
+
 	update_recon_stats(inst, &empty_buf_done->recon_stats);
 	msm_vidc_clear_freq_entry(inst, mbuf->smem[0].device_addr);
-
-	vb = msm_comm_get_vb_using_vidc_buffer(inst, mbuf);
-	if (vb) {
-		vbuf = to_vb2_v4l2_buffer(vb);
-		vbuf->flags |= mbuf->vvb.flags;
-		for (i = 0; i < mbuf->vvb.vb2_buf.num_planes; i++)
-			vb->planes[i].bytesused =
-				mbuf->vvb.vb2_buf.planes[i].bytesused;
-	}
 	/*
 	 * put_buffer should be done before vb2_buffer_done else
 	 * client might queue the same buffer before it is unmapped
 	 * in put_buffer.
 	 */
 	msm_comm_put_vidc_buffer(inst, mbuf);
-	msm_comm_vb2_buffer_done(inst, vb);
+	msm_comm_vb2_buffer_done(inst, vb2);
 	kref_put_mbuf(mbuf);
 exit:
 	put_inst(inst);
@@ -2306,7 +2350,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 	struct msm_vidc_cb_data_done *response = data;
 	struct msm_vidc_buffer *mbuf;
 	struct msm_vidc_inst *inst;
-	struct vb2_buffer *vb = NULL;
+	struct vb2_buffer *vb, *vb2;
 	struct vidc_hal_fbd *fill_buf_done;
 	struct vb2_v4l2_buffer *vbuf;
 	enum hal_buffer buffer_type;
@@ -2339,6 +2383,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 				__func__, planes[0], planes[1]);
 			goto exit;
 		}
+		vb2 = msm_comm_get_vb_using_vidc_buffer(inst, mbuf);
 	} else {
 		if (handle_multi_stream_buffers(inst,
 				fill_buf_done->packet_buffer1))
@@ -2347,6 +2392,14 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 				&fill_buf_done->packet_buffer1);
 		goto exit;
 	}
+
+	/*
+	 * take registeredbufs.lock to update mbuf & vb2 variables together
+	 * so that both are in sync else if mbuf and vb2 variables are not
+	 * in sync msm_comm_compare_vb2_planes() returns false for the
+	 * right buffer due to data_offset field mismatch.
+	 */
+	mutex_lock(&inst->registeredbufs.lock);
 	vb = &mbuf->vvb.vb2_buf;
 
 	if (fill_buf_done->flags1 & HAL_BUFFERFLAG_DROP_FRAME ||
@@ -2358,10 +2411,12 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 			"fbd:Overflow bytesused = %d; length = %d\n",
 			vb->planes[0].bytesused,
 			vb->planes[0].length);
-	if (vb->planes[0].data_offset != fill_buf_done->offset1)
-		dprintk(VIDC_ERR, "%s: data_offset %d vs %d\n",
-			__func__, vb->planes[0].data_offset,
-			fill_buf_done->offset1);
+	vb->planes[0].data_offset = fill_buf_done->offset1;
+	if (vb->planes[0].data_offset > vb->planes[0].length)
+		dprintk(VIDC_INFO,
+			"fbd:Overflow data_offset = %d; length = %d\n",
+			vb->planes[0].data_offset,
+			vb->planes[0].length);
 	if (!(fill_buf_done->flags1 & HAL_BUFFERFLAG_TIMESTAMPINVALID)) {
 		time_usec = fill_buf_done->timestamp_hi;
 		time_usec = (time_usec << 32) | fill_buf_done->timestamp_lo;
@@ -2419,23 +2474,26 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 		break;
 	}
 
-	vb = msm_comm_get_vb_using_vidc_buffer(inst, mbuf);
-	if (vb) {
-		vbuf = to_vb2_v4l2_buffer(vb);
+	if (vb2) {
+		vbuf = to_vb2_v4l2_buffer(vb2);
 		vbuf->flags = mbuf->vvb.flags;
-		vb->timestamp = mbuf->vvb.vb2_buf.timestamp;
-		for (i = 0; i < mbuf->vvb.vb2_buf.num_planes; i++)
-			vb->planes[i].bytesused =
+		vb2->timestamp = mbuf->vvb.vb2_buf.timestamp;
+		for (i = 0; i < mbuf->vvb.vb2_buf.num_planes; i++) {
+			vb2->planes[i].bytesused =
 				mbuf->vvb.vb2_buf.planes[i].bytesused;
+			vb2->planes[i].data_offset =
+				mbuf->vvb.vb2_buf.planes[i].data_offset;
+		}
 	}
+	mutex_unlock(&inst->registeredbufs.lock);
+
 	/*
 	 * put_buffer should be done before vb2_buffer_done else
 	 * client might queue the same buffer before it is unmapped
-	 * in put_buffer. also don't use mbuf after put_buffer
-	 * as it may be freed in put_buffer.
+	 * in put_buffer.
 	 */
 	msm_comm_put_vidc_buffer(inst, mbuf);
-	msm_comm_vb2_buffer_done(inst, vb);
+	msm_comm_vb2_buffer_done(inst, vb2);
 	kref_put_mbuf(mbuf);
 
 exit:
@@ -2658,8 +2716,6 @@ void msm_comm_handle_thermal_event(void)
 int msm_comm_check_core_init(struct msm_vidc_core *core)
 {
 	int rc = 0;
-	struct hfi_device *hdev;
-	struct msm_vidc_inst *inst = NULL;
 
 	mutex_lock(&core->lock);
 	if (core->state >= VIDC_CORE_INIT_DONE) {
@@ -2668,29 +2724,12 @@ int msm_comm_check_core_init(struct msm_vidc_core *core)
 		goto exit;
 	}
 	dprintk(VIDC_DBG, "Waiting for SYS_INIT_DONE\n");
-	hdev = (struct hfi_device *)core->device;
 	rc = wait_for_completion_timeout(
 		&core->completions[SYS_MSG_INDEX(HAL_SYS_INIT_DONE)],
 		msecs_to_jiffies(core->resources.msm_vidc_hw_rsp_timeout));
 	if (!rc) {
 		dprintk(VIDC_ERR, "%s: Wait interrupted or timed out: %d\n",
 				__func__, SYS_MSG_INDEX(HAL_SYS_INIT_DONE));
-		call_hfi_op(hdev, flush_debug_queue, hdev->hfi_device_data);
-		dprintk(VIDC_ERR,
-			"SYS_INIT timeout can potentially crash the system\n");
-		/*
-		 * For SYS_INIT, there will not be any inst pointer.
-		 * Just grab one of the inst from instances list and
-		 * use it.
-		 */
-		inst = list_first_entry(&core->instances,
-			struct msm_vidc_inst, list);
-
-		mutex_unlock(&core->lock);
-		msm_comm_print_debug_info(inst);
-		mutex_lock(&core->lock);
-
-		msm_vidc_handle_hw_error(core);
 		rc = -EIO;
 		goto exit;
 	} else {
@@ -3656,6 +3695,64 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 		rc = msm_comm_session_continue(inst);
 		break;
 	}
+	case V4L2_DEC_CMD_STOP:
+	{
+		struct vidc_frame_data data = {0};
+		struct hfi_device *hdev;
+		struct eos_buf *binfo;
+		u32 smem_flags = 0;
+
+		get_inst(inst->core, inst);
+		if (inst->session_type != MSM_VIDC_DECODER) {
+			dprintk(VIDC_DBG,
+				"Non-Decoder session. DEC_STOP is not valid\n");
+			rc = -EINVAL;
+			goto exit;
+		}
+
+		binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
+		if (!binfo) {
+			dprintk(VIDC_ERR, "%s: Out of memory\n", __func__);
+			rc = -ENOMEM;
+			goto exit;
+		}
+
+		if (inst->flags & VIDC_SECURE)
+			smem_flags |= SMEM_SECURE;
+
+		rc = msm_comm_smem_alloc(inst,
+				SZ_4K, 1, smem_flags,
+				HAL_BUFFER_INPUT, 0, &binfo->smem);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed to allocate output memory\n");
+			goto exit;
+		}
+
+		mutex_lock(&inst->eosbufs.lock);
+		list_add_tail(&binfo->list, &inst->eosbufs.list);
+		mutex_unlock(&inst->eosbufs.lock);
+
+		data.alloc_len = binfo->smem.size;
+		data.device_addr = binfo->smem.device_addr;
+		data.clnt_data = data.device_addr;
+		data.buffer_type = HAL_BUFFER_INPUT;
+		data.filled_len = 0;
+		data.offset = 0;
+		data.flags = HAL_BUFFERFLAG_EOS;
+		data.timestamp = LLONG_MAX;
+		data.extradata_addr = data.device_addr;
+		data.extradata_size = 0;
+		dprintk(VIDC_DBG, "Queueing EOS buffer %pK\n",
+			(void *)(u64)data.device_addr);
+		hdev = inst->core->device;
+
+		rc = call_hfi_op(hdev, session_etb, inst->session,
+				&data);
+exit:
+		put_inst(inst);
+		break;
+	}
 	default:
 		dprintk(VIDC_ERR, "Unknown Command %d\n", which_cmd);
 		rc = -ENOTSUPP;
@@ -3742,7 +3839,7 @@ static unsigned int count_single_batch(struct msm_vidc_inst *inst,
 			continue;
 
 		/* count only deferred buffers */
-		if (!mbuf->deferred)
+		if (!(mbuf->flags & MSM_VIDC_FLAG_DEFERRED))
 			continue;
 
 		++count;
@@ -3770,7 +3867,7 @@ static unsigned int count_buffers(struct msm_vidc_inst *inst,
 			continue;
 
 		/* count only deferred buffers */
-		if (!mbuf->deferred)
+		if (!(mbuf->flags & MSM_VIDC_FLAG_DEFERRED))
 			continue;
 
 		++count;
@@ -3818,6 +3915,41 @@ enum hal_buffer get_hal_buffer_type(unsigned int type,
 	}
 }
 
+static int msm_comm_qbuf_rbr(struct msm_vidc_inst *inst,
+		struct msm_vidc_buffer *mbuf)
+{
+	int rc = 0;
+	struct hfi_device *hdev;
+	struct vidc_frame_data frame_data = {0};
+
+	if (!inst || !inst->core || !inst->core->device || !mbuf) {
+		dprintk(VIDC_ERR, "%s: Invalid arguments\n", __func__);
+		return -EINVAL;
+	}
+
+	hdev = inst->core->device;
+
+	if (inst->state == MSM_VIDC_CORE_INVALID) {
+		dprintk(VIDC_ERR, "%s: inst is in bad state\n", __func__);
+		return -EINVAL;
+	}
+
+	rc = msm_comm_scale_clocks_and_bus(inst);
+	populate_frame_data(&frame_data, mbuf, inst);
+
+	rc = call_hfi_op(hdev, session_ftb, inst->session, &frame_data);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to issue ftb: %d\n", rc);
+		goto err_bad_input;
+	}
+
+	log_frame(inst, &frame_data, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
+
+err_bad_input:
+	return rc;
+}
+
+
 /*
  * Attempts to queue `vb` to hardware.  If, for various reasons, the buffer
  * cannot be queued to hardware, the buffer will be staged for commit in the
@@ -3849,10 +3981,6 @@ int msm_comm_qbuf(struct msm_vidc_inst *inst, struct msm_vidc_buffer *mbuf)
 		return -EINVAL;
 	}
 
-	/* initially assume every buffer is going to be deferred */
-	if (mbuf)
-		mbuf->deferred = true;
-
 	batch_mode = msm_comm_g_ctrl_for_id(inst, V4L2_CID_VIDC_QBUF_MODE)
 		== V4L2_VIDC_QBUF_BATCHED;
 	capture_count = (batch_mode ? &count_single_batch : &count_buffers)
@@ -3880,7 +4008,7 @@ int msm_comm_qbuf(struct msm_vidc_inst *inst, struct msm_vidc_buffer *mbuf)
 
 	if (defer) {
 		if (mbuf) {
-			mbuf->deferred = true;
+			mbuf->flags |= MSM_VIDC_FLAG_DEFERRED;
 			print_vidc_buffer(VIDC_DBG, "deferred qbuf",
 				inst, mbuf);
 		}
@@ -3921,7 +4049,7 @@ int msm_comm_qbuf(struct msm_vidc_inst *inst, struct msm_vidc_buffer *mbuf)
 	list_for_each_entry_safe(temp, next, &inst->registeredbufs.list, list) {
 		struct vidc_frame_data *frame_data = NULL;
 
-		if (!temp->deferred)
+		if (!(temp->flags & MSM_VIDC_FLAG_DEFERRED))
 			continue;
 
 		switch (temp->vvb.vb2_buf.type) {
@@ -3943,7 +4071,7 @@ int msm_comm_qbuf(struct msm_vidc_inst *inst, struct msm_vidc_buffer *mbuf)
 		populate_frame_data(frame_data, temp, inst);
 
 		/* this buffer going to be queued (not deferred) */
-		temp->deferred = false;
+		temp->flags &= ~MSM_VIDC_FLAG_DEFERRED;
 
 		print_vidc_buffer(VIDC_DBG, "qbuf", inst, temp);
 	}
@@ -4037,9 +4165,14 @@ int msm_vidc_update_host_buff_counts(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 	extra_buffers = msm_vidc_get_extra_buff_count(inst, HAL_BUFFER_INPUT);
-
 	bufreq->buffer_count_min_host = bufreq->buffer_count_min +
 		extra_buffers;
+	bufreq = get_buff_req_buffer(inst, HAL_BUFFER_EXTRADATA_INPUT);
+	if (bufreq) {
+		if (bufreq->buffer_count_min)
+			bufreq->buffer_count_min_host =
+				bufreq->buffer_count_min + extra_buffers;
+	}
 
 	if (msm_comm_get_stream_output_mode(inst) ==
 			HAL_VIDEO_DECODER_SECONDARY) {
@@ -4437,6 +4570,26 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst,
 	return rc;
 }
 
+void msm_comm_release_eos_buffers(struct msm_vidc_inst *inst)
+{
+	struct eos_buf *buf, *next;
+
+	if (!inst) {
+		dprintk(VIDC_ERR,
+			"Invalid instance pointer = %pK\n", inst);
+		return;
+	}
+
+	mutex_lock(&inst->eosbufs.lock);
+	list_for_each_entry_safe(buf, next, &inst->eosbufs.list, list) {
+		list_del(&buf->list);
+		kfree(buf);
+	}
+	INIT_LIST_HEAD(&inst->eosbufs.list);
+	mutex_unlock(&inst->eosbufs.lock);
+}
+
+
 int msm_comm_release_recon_buffers(struct msm_vidc_inst *inst)
 {
 	struct recon_buf *buf, *next;
@@ -4636,8 +4789,7 @@ int msm_comm_set_recon_buffers(struct msm_vidc_inst *inst)
 		return 0;
 	}
 
-	if (!list_empty(&inst->reconbufs.list))
-		msm_comm_release_recon_buffers(inst);
+	msm_comm_release_recon_buffers(inst);
 
 	for (i = 0; i < internal_buf->buffer_count_actual; i++) {
 		binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
@@ -4695,10 +4847,16 @@ static void msm_comm_flush_in_invalid_state(struct msm_vidc_inst *inst)
 				&inst->bufq[port].vb2_bufq.queued_list) {
 			struct vb2_buffer *vb = container_of(ptr,
 					struct vb2_buffer, queued_entry);
-			vb->planes[0].bytesused = 0;
-			print_vb2_buffer(VIDC_ERR, "flush in invalid",
-				inst, vb);
-			vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
+			if (vb->state == VB2_BUF_STATE_ACTIVE) {
+				vb->planes[0].bytesused = 0;
+				print_vb2_buffer(VIDC_ERR, "flush in invalid",
+					inst, vb);
+				vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
+			} else {
+				dprintk(VIDC_WARN,
+					"%s VB is in state %d not in ACTIVE state\n"
+					, __func__, vb->state);
+			}
 		}
 		mutex_unlock(&inst->bufq[port].lock);
 	}
@@ -4708,7 +4866,7 @@ static void msm_comm_flush_in_invalid_state(struct msm_vidc_inst *inst)
 
 int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 {
-	int rc =  0;
+	int i, rc =  0;
 	bool ip_flush = false;
 	bool op_flush = false;
 	struct msm_vidc_buffer *mbuf, *next;
@@ -4733,8 +4891,6 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 		return 0;
 	}
 
-	/* Finish FLUSH As Soon As Possible. */
-
 	msm_clock_data_reset(inst);
 
 	if (inst->state == MSM_VIDC_CORE_INVALID) {
@@ -4747,22 +4903,41 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 
 	mutex_lock(&inst->registeredbufs.lock);
 	list_for_each_entry_safe(mbuf, next, &inst->registeredbufs.list, list) {
-		/* flush only deferred buffers (which are not queued yet) */
-		if (!mbuf->deferred)
-			continue;
-
-		/* don't flush input buffers if flush not requested on it */
+		/* don't flush input buffers if input flush is not requested */
 		if (!ip_flush && mbuf->vvb.vb2_buf.type ==
 				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 			continue;
 
+		/* flush only deferred or rbr pending buffers */
+		if (!(mbuf->flags & MSM_VIDC_FLAG_DEFERRED ||
+			mbuf->flags & MSM_VIDC_FLAG_RBR_PENDING))
+			continue;
+
+		/*
+		 * flush buffers which are queued by client already,
+		 * the refcount will be two or more for those buffers.
+		 */
+		if (!(mbuf->smem[0].refcount >= 2))
+			continue;
+
 		print_vidc_buffer(VIDC_DBG, "flush buf", inst, mbuf);
 		msm_comm_flush_vidc_buffer(inst, mbuf);
-		msm_comm_unmap_vidc_buffer(inst, mbuf);
 
-		/* remove from list */
-		list_del(&mbuf->list);
-		kref_put_mbuf(mbuf);
+		for (i = 0; i < mbuf->vvb.vb2_buf.num_planes; i++) {
+			if (msm_smem_unmap_dma_buf(inst, &mbuf->smem[i]))
+				print_vidc_buffer(VIDC_ERR,
+					"dqbuf: unmap failed.", inst, mbuf);
+			if (msm_smem_unmap_dma_buf(inst, &mbuf->smem[i]))
+				print_vidc_buffer(VIDC_ERR,
+					"dqbuf: unmap failed..", inst, mbuf);
+		}
+		if (!mbuf->smem[0].refcount) {
+			list_del(&mbuf->list);
+			kref_put_mbuf(mbuf);
+		} else {
+			/* buffer is no more a deferred buffer */
+			mbuf->flags &= ~MSM_VIDC_FLAG_DEFERRED;
+		}
 	}
 	mutex_unlock(&inst->registeredbufs.lock);
 
@@ -5323,8 +5498,8 @@ int msm_comm_dqbuf_cache_operations(struct msm_vidc_inst *inst,
 			}
 		} else if (inst->session_type == MSM_VIDC_ENCODER) {
 			if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-				if (!i) /* yuv */
-					skip = true;
+				/* yuv and extradata */
+				skip = true;
 			} else if (b->type ==
 					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 				if (!i) /* bitstream */
@@ -5559,32 +5734,6 @@ void msm_comm_print_inst_info(struct msm_vidc_inst *inst)
 	mutex_unlock(&inst->outputbufs.lock);
 }
 
-static void msm_comm_print_debug_info(struct msm_vidc_inst *inst)
-{
-	struct msm_vidc_core *core = NULL;
-	struct msm_vidc_inst *temp = NULL;
-
-	if (!inst || !inst->core) {
-		dprintk(VIDC_ERR, "%s - invalid param %pK %pK\n",
-				__func__, inst, core);
-		return;
-	}
-	core = inst->core;
-
-	dprintk(VIDC_ERR, "Venus core frequency = %lu", core->curr_freq);
-	mutex_lock(&core->lock);
-	dprintk(VIDC_ERR, "Printing instance info that caused Error\n");
-	msm_comm_print_inst_info(inst);
-	dprintk(VIDC_ERR, "Printing remaining instances info\n");
-	list_for_each_entry(temp, &core->instances, list) {
-		/* inst already printed above. Hence don't repeat.*/
-		if (temp == inst)
-			continue;
-		msm_comm_print_inst_info(temp);
-	}
-	mutex_unlock(&core->lock);
-}
-
 int msm_comm_session_continue(void *instance)
 {
 	struct msm_vidc_inst *inst = instance;
@@ -5664,27 +5813,27 @@ void print_vidc_buffer(u32 tag, const char *str, struct msm_vidc_inst *inst,
 
 	if (vb2->num_planes == 1)
 		dprintk(tag,
-			"%s: %s: %x : idx %2d fd %d off %d daddr %x size %d filled %d flags 0x%x ts %lld refcnt %d\n",
+			"%s: %s: %x : idx %2d fd %d off %d daddr %x size %d filled %d flags 0x%x ts %lld refcnt %d mflags 0x%x\n",
 			str, vb2->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE ?
 			"OUTPUT" : "CAPTURE", hash32_ptr(inst->session),
 			vb2->index, vb2->planes[0].m.fd,
 			vb2->planes[0].data_offset, mbuf->smem[0].device_addr,
 			vb2->planes[0].length, vb2->planes[0].bytesused,
 			mbuf->vvb.flags, mbuf->vvb.vb2_buf.timestamp,
-			mbuf->smem[0].refcount);
+			mbuf->smem[0].refcount, mbuf->flags);
 	else
 		dprintk(tag,
-			"%s: %s: %x : idx %2d fd %d off %d daddr %x size %d filled %d flags 0x%x ts %lld refcnt %d, extradata: fd %d off %d daddr %x size %d filled %d refcnt %d\n",
+			"%s: %s: %x : idx %2d fd %d off %d daddr %x size %d filled %d flags 0x%x ts %lld refcnt %d mflags 0x%x, extradata: fd %d off %d daddr %x size %d filled %d refcnt %d\n",
 			str, vb2->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE ?
 			"OUTPUT" : "CAPTURE", hash32_ptr(inst->session),
 			vb2->index, vb2->planes[0].m.fd,
 			vb2->planes[0].data_offset, mbuf->smem[0].device_addr,
 			vb2->planes[0].length, vb2->planes[0].bytesused,
 			mbuf->vvb.flags, mbuf->vvb.vb2_buf.timestamp,
-			mbuf->smem[0].refcount, vb2->planes[1].m.fd,
-			vb2->planes[1].data_offset, mbuf->smem[1].device_addr,
-			vb2->planes[1].length, vb2->planes[1].bytesused,
-			mbuf->smem[1].refcount);
+			mbuf->smem[0].refcount, mbuf->flags,
+			vb2->planes[1].m.fd, vb2->planes[1].data_offset,
+			mbuf->smem[1].device_addr, vb2->planes[1].length,
+			vb2->planes[1].bytesused, mbuf->smem[1].refcount);
 }
 
 void print_vb2_buffer(u32 tag, const char *str, struct msm_vidc_inst *inst,
@@ -5703,13 +5852,14 @@ void print_vb2_buffer(u32 tag, const char *str, struct msm_vidc_inst *inst,
 			vb2->planes[0].bytesused);
 	else
 		dprintk(tag,
-			"%s: %s: %x : idx %2d fd %d off %d size %d filled %d, extradata: fd %d off %d size %d\n",
+			"%s: %s: %x : idx %2d fd %d off %d size %d filled %d, extradata: fd %d off %d size %d filled %d\n",
 			str, vb2->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE ?
 			"OUTPUT" : "CAPTURE", hash32_ptr(inst->session),
 			vb2->index, vb2->planes[0].m.fd,
 			vb2->planes[0].data_offset, vb2->planes[0].length,
 			vb2->planes[0].bytesused, vb2->planes[1].m.fd,
-			vb2->planes[1].data_offset, vb2->planes[1].length);
+			vb2->planes[1].data_offset, vb2->planes[1].length,
+			vb2->planes[1].bytesused);
 }
 
 void print_v4l2_buffer(u32 tag, const char *str, struct msm_vidc_inst *inst,
@@ -5729,7 +5879,7 @@ void print_v4l2_buffer(u32 tag, const char *str, struct msm_vidc_inst *inst,
 			v4l2->m.planes[0].bytesused);
 	else
 		dprintk(tag,
-			"%s: %s: %x : idx %2d fd %d off %d size %d filled %d, extradata: fd %d off %d size %d\n",
+			"%s: %s: %x : idx %2d fd %d off %d size %d filled %d, extradata: fd %d off %d size %d filled %d\n",
 			str, v4l2->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE ?
 			"OUTPUT" : "CAPTURE", hash32_ptr(inst->session),
 			v4l2->index, v4l2->m.planes[0].m.fd,
@@ -5738,7 +5888,8 @@ void print_v4l2_buffer(u32 tag, const char *str, struct msm_vidc_inst *inst,
 			v4l2->m.planes[0].bytesused,
 			v4l2->m.planes[1].m.fd,
 			v4l2->m.planes[1].data_offset,
-			v4l2->m.planes[1].length);
+			v4l2->m.planes[1].length,
+			v4l2->m.planes[1].bytesused);
 }
 
 bool msm_comm_compare_vb2_plane(struct msm_vidc_inst *inst,
@@ -5929,8 +6080,11 @@ struct msm_vidc_buffer *msm_comm_get_vidc_buffer(struct msm_vidc_inst *inst,
 		 * always compare dma_buf addresses which is guaranteed
 		 * to be same across the processes (duplicate fds).
 		 */
-		dma_planes[i] = (unsigned long)dma_buf_get(vb2->planes[i].m.fd);
-		dma_buf_put((struct dma_buf *)dma_planes[i]);
+		dma_planes[i] = (unsigned long)msm_smem_get_dma_buf(
+				vb2->planes[i].m.fd);
+		if (!dma_planes[i])
+			return NULL;
+		msm_smem_put_dma_buf((struct dma_buf *)dma_planes[i]);
 	}
 
 	mutex_lock(&inst->registeredbufs.lock);
@@ -5952,6 +6106,9 @@ struct msm_vidc_buffer *msm_comm_get_vidc_buffer(struct msm_vidc_inst *inst,
 		}
 		kref_init(&mbuf->kref);
 	}
+
+	/* Initially assume all the buffer are going to be deferred */
+	mbuf->flags |= MSM_VIDC_FLAG_DEFERRED;
 
 	vbuf = to_vb2_v4l2_buffer(vb2);
 	memcpy(&mbuf->vvb, vbuf, sizeof(struct vb2_v4l2_buffer));
@@ -5998,6 +6155,16 @@ struct msm_vidc_buffer *msm_comm_get_vidc_buffer(struct msm_vidc_inst *inst,
 			}
 			if (found_plane0)
 				rc = -EEXIST;
+		}
+		/*
+		 * If RBR pending on this buffer then enable RBR_PENDING flag
+		 * and clear the DEFERRED flag to avoid this buffer getting
+		 * queued to video hardware in msm_comm_qbuf() which tries to
+		 * queue all the DEFERRED buffers.
+		 */
+		if (rc == -EEXIST) {
+			mbuf->flags |= MSM_VIDC_FLAG_RBR_PENDING;
+			mbuf->flags &= ~MSM_VIDC_FLAG_DEFERRED;
 		}
 	}
 
@@ -6095,9 +6262,13 @@ void handle_release_buffer_reference(struct msm_vidc_inst *inst,
 		}
 	}
 	if (found) {
+		/* send RBR event to client */
 		msm_vidc_queue_rbr_event(inst,
 			mbuf->vvb.vb2_buf.planes[0].m.fd,
 			mbuf->vvb.vb2_buf.planes[0].data_offset);
+
+		/* clear RBR_PENDING flag */
+		mbuf->flags &= ~MSM_VIDC_FLAG_RBR_PENDING;
 
 		for (i = 0; i < mbuf->vvb.vb2_buf.num_planes; i++) {
 			if (msm_smem_unmap_dma_buf(inst, &mbuf->smem[i]))
@@ -6134,7 +6305,7 @@ void handle_release_buffer_reference(struct msm_vidc_inst *inst,
 	if (!found)
 		goto unlock;
 
-	/* found means client queued the buffer already */
+	/* buffer found means client queued the buffer already */
 	if (inst->in_reconfig || inst->in_flush) {
 		print_vidc_buffer(VIDC_DBG, "rbr flush buf", inst, mbuf);
 		msm_comm_flush_vidc_buffer(inst, mbuf);
@@ -6146,12 +6317,16 @@ void handle_release_buffer_reference(struct msm_vidc_inst *inst,
 		/* don't queue the buffer */
 		found = false;
 	}
+	/* clear DEFERRED flag, if any, as the buffer is going to be queued */
+	if (found)
+		mbuf->flags &= ~MSM_VIDC_FLAG_DEFERRED;
+
 unlock:
 	mutex_unlock(&inst->registeredbufs.lock);
 
 	if (found) {
 		print_vidc_buffer(VIDC_DBG, "rbr qbuf", inst, mbuf);
-		rc = msm_comm_qbuf(inst, mbuf);
+		rc = msm_comm_qbuf_rbr(inst, mbuf);
 		if (rc)
 			print_vidc_buffer(VIDC_ERR,
 				"rbr qbuf failed", inst, mbuf);

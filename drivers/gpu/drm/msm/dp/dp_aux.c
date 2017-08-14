@@ -28,11 +28,13 @@ struct dp_aux_private {
 	struct device *dev;
 	struct dp_aux dp_aux;
 	struct dp_catalog_aux *catalog;
+	struct dp_aux_cfg *cfg;
 
 	struct mutex mutex;
 	struct completion comp;
 
 	u32 aux_error_num;
+	u32 retry_cnt;
 	bool cmd_busy;
 	bool native;
 	bool read;
@@ -127,7 +129,7 @@ static int dp_aux_cmd_fifo_tx(struct dp_aux_private *aux,
 
 	timeout = wait_for_completion_timeout(&aux->comp, aux_timeout_ms);
 	if (!timeout) {
-		pr_err("aux write timeout\n");
+		pr_err("aux %s timeout\n", (aux->read ? "read" : "write"));
 		return -ETIMEDOUT;
 	}
 
@@ -232,6 +234,22 @@ static void dp_aux_isr(struct dp_aux *dp_aux)
 		dp_aux_i2c_handler(aux);
 }
 
+static void dp_aux_reconfig(struct dp_aux *dp_aux)
+{
+	struct dp_aux_private *aux;
+
+	if (!dp_aux) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	aux = container_of(dp_aux, struct dp_aux_private, dp_aux);
+
+	aux->catalog->update_aux_cfg(aux->catalog,
+			aux->cfg, PHY_AUX_CFG1);
+	aux->catalog->reset(aux->catalog);
+}
+
 /*
  * This function does the real job to process an AUX transaction.
  * It will call aux_reset() function to reset the AUX channel,
@@ -243,6 +261,7 @@ static ssize_t dp_aux_transfer(struct drm_dp_aux *drm_aux,
 	ssize_t ret;
 	int const aux_cmd_native_max = 16;
 	int const aux_cmd_i2c_max = 128;
+	int const retry_count = 5;
 	struct dp_aux_private *aux = container_of(drm_aux,
 		struct dp_aux_private, drm_aux);
 
@@ -270,8 +289,14 @@ static ssize_t dp_aux_transfer(struct drm_dp_aux *drm_aux,
 	}
 
 	ret = dp_aux_cmd_fifo_tx(aux, msg);
-	if (ret < 0) {
-		aux->catalog->reset(aux->catalog); /* reset aux */
+	if ((ret < 0) && aux->native) {
+		aux->retry_cnt++;
+		if (!(aux->retry_cnt % retry_count))
+			aux->catalog->update_aux_cfg(aux->catalog,
+				aux->cfg, PHY_AUX_CFG1);
+		aux->catalog->reset(aux->catalog);
+		goto unlock_exit;
+	} else if (ret < 0) {
 		goto unlock_exit;
 	}
 
@@ -289,6 +314,7 @@ static ssize_t dp_aux_transfer(struct drm_dp_aux *drm_aux,
 
 	/* Return requested size for success or retry */
 	ret = msg->size;
+	aux->retry_cnt = 0;
 
 unlock_exit:
 	aux->cmd_busy = false;
@@ -296,11 +322,19 @@ unlock_exit:
 	return ret;
 }
 
-static void dp_aux_init(struct dp_aux *dp_aux, u32 *aux_cfg)
+static void dp_aux_reset_phy_config_indices(struct dp_aux_cfg *aux_cfg)
+{
+	int i = 0;
+
+	for (i = 0; i < PHY_AUX_CFG_MAX; i++)
+		aux_cfg[i].current_index = 0;
+}
+
+static void dp_aux_init(struct dp_aux *dp_aux, struct dp_aux_cfg *aux_cfg)
 {
 	struct dp_aux_private *aux;
 
-	if (!dp_aux) {
+	if (!dp_aux || !aux_cfg) {
 		pr_err("invalid input\n");
 		return;
 	}
@@ -309,6 +343,8 @@ static void dp_aux_init(struct dp_aux *dp_aux, u32 *aux_cfg)
 
 	aux->catalog->reset(aux->catalog);
 	aux->catalog->enable(aux->catalog, true);
+	aux->retry_cnt = 0;
+	dp_aux_reset_phy_config_indices(aux_cfg);
 	aux->catalog->setup(aux->catalog, aux_cfg);
 }
 
@@ -365,13 +401,14 @@ static void dp_aux_deregister(struct dp_aux *dp_aux)
 	drm_dp_aux_unregister(&aux->drm_aux);
 }
 
-struct dp_aux *dp_aux_get(struct device *dev, struct dp_catalog_aux *catalog)
+struct dp_aux *dp_aux_get(struct device *dev, struct dp_catalog_aux *catalog,
+		struct dp_aux_cfg *aux_cfg)
 {
 	int rc = 0;
 	struct dp_aux_private *aux;
 	struct dp_aux *dp_aux;
 
-	if (!catalog) {
+	if (!catalog || !aux_cfg) {
 		pr_err("invalid input\n");
 		rc = -ENODEV;
 		goto error;
@@ -389,13 +426,16 @@ struct dp_aux *dp_aux_get(struct device *dev, struct dp_catalog_aux *catalog)
 
 	aux->dev = dev;
 	aux->catalog = catalog;
+	aux->cfg = aux_cfg;
 	dp_aux = &aux->dp_aux;
+	aux->retry_cnt = 0;
 
 	dp_aux->isr     = dp_aux_isr;
 	dp_aux->init    = dp_aux_init;
 	dp_aux->deinit  = dp_aux_deinit;
 	dp_aux->drm_aux_register = dp_aux_register;
 	dp_aux->drm_aux_deregister = dp_aux_deregister;
+	dp_aux->reconfig = dp_aux_reconfig;
 
 	return dp_aux;
 error:

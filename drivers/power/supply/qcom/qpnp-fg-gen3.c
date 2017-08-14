@@ -533,7 +533,7 @@ static int fg_get_sram_prop(struct fg_chip *chip, enum fg_sram_param_id id,
 	rc = fg_sram_read(chip, chip->sp[id].addr_word, chip->sp[id].addr_byte,
 		buf, chip->sp[id].len, FG_IMA_DEFAULT);
 	if (rc < 0) {
-		pr_err("Error reading address 0x%04x[%d] rc=%d\n",
+		pr_err("Error reading address %d[%d] rc=%d\n",
 			chip->sp[id].addr_word, chip->sp[id].addr_byte, rc);
 		return rc;
 	}
@@ -892,8 +892,8 @@ static int fg_get_batt_id(struct fg_chip *chip)
 		goto out;
 	}
 
-	/* Wait for 200ms before enabling BMD again */
-	msleep(200);
+	/* Wait for BATT_ID to settle down before enabling BMD again */
+	msleep(chip->dt.bmd_en_delay_ms);
 
 	fg_dbg(chip, FG_STATUS, "batt_id: %d\n", batt_id);
 	chip->batt_id_ohms = batt_id;
@@ -1611,7 +1611,7 @@ static int fg_set_recharge_voltage(struct fg_chip *chip, int voltage_mv)
 static int fg_charge_full_update(struct fg_chip *chip)
 {
 	union power_supply_propval prop = {0, };
-	int rc, msoc, bsoc, recharge_soc;
+	int rc, msoc, bsoc, recharge_soc, msoc_raw;
 	u8 full_soc[2] = {0xFF, 0xFF};
 
 	if (!chip->dt.hold_soc_while_full)
@@ -1647,6 +1647,7 @@ static int fg_charge_full_update(struct fg_chip *chip)
 		pr_err("Error in getting msoc, rc=%d\n", rc);
 		goto out;
 	}
+	msoc_raw = DIV_ROUND_CLOSEST(msoc * FULL_SOC_RAW, FULL_CAPACITY);
 
 	fg_dbg(chip, FG_STATUS, "msoc: %d bsoc: %x health: %d status: %d full: %d\n",
 		msoc, bsoc, chip->health, chip->charge_status,
@@ -1670,7 +1671,7 @@ static int fg_charge_full_update(struct fg_chip *chip)
 			fg_dbg(chip, FG_STATUS, "Terminated charging @ SOC%d\n",
 				msoc);
 		}
-	} else if ((bsoc >> 8) <= recharge_soc && chip->charge_full) {
+	} else if (msoc_raw < recharge_soc && chip->charge_full) {
 		chip->delta_soc = FULL_CAPACITY - msoc;
 
 		/*
@@ -1700,8 +1701,8 @@ static int fg_charge_full_update(struct fg_chip *chip)
 				rc);
 			goto out;
 		}
-		fg_dbg(chip, FG_STATUS, "bsoc: %d recharge_soc: %d delta_soc: %d\n",
-			bsoc >> 8, recharge_soc, chip->delta_soc);
+		fg_dbg(chip, FG_STATUS, "msoc_raw = %d bsoc: %d recharge_soc: %d delta_soc: %d\n",
+			msoc_raw, bsoc >> 8, recharge_soc, chip->delta_soc);
 	} else {
 		goto out;
 	}
@@ -3503,6 +3504,9 @@ static int fg_hw_init(struct fg_chip *chip)
 
 static int fg_memif_init(struct fg_chip *chip)
 {
+	if (chip->use_dma)
+		return fg_dma_init(chip);
+
 	return fg_ima_init(chip);
 }
 
@@ -3541,6 +3545,26 @@ static int fg_adjust_timebase(struct fg_chip *chip)
 }
 
 /* INTERRUPT HANDLERS STAY HERE */
+
+static irqreturn_t fg_dma_grant_irq_handler(int irq, void *data)
+{
+	struct fg_chip *chip = data;
+	u8 status;
+	int rc;
+
+	rc = fg_read(chip, MEM_IF_INT_RT_STS(chip), &status, 1);
+	if (rc < 0) {
+		pr_err("failed to read addr=0x%04x, rc=%d\n",
+			MEM_IF_INT_RT_STS(chip), rc);
+		return IRQ_HANDLED;
+	}
+
+	fg_dbg(chip, FG_IRQ, "irq %d triggered, status:%d\n", irq, status);
+	if (status & MEM_GNT_BIT)
+		complete_all(&chip->mem_grant);
+
+	return IRQ_HANDLED;
+}
 
 static irqreturn_t fg_mem_xcp_irq_handler(int irq, void *data)
 {
@@ -3822,7 +3846,8 @@ static struct fg_irq_info fg_irqs[FG_IRQ_MAX] = {
 	/* MEM_IF irqs */
 	[DMA_GRANT_IRQ] = {
 		.name		= "dma-grant",
-		.handler	= fg_dummy_irq_handler,
+		.handler	= fg_dma_grant_irq_handler,
+		.wakeable	= true,
 	},
 	[MEM_XCP_IRQ] = {
 		.name		= "mem-xcp",
@@ -4011,6 +4036,7 @@ static int fg_parse_ki_coefficients(struct fg_chip *chip)
 #define DEFAULT_ESR_CLAMP_MOHMS		20
 #define DEFAULT_ESR_PULSE_THRESH_MA	110
 #define DEFAULT_ESR_MEAS_CURR_MA	120
+#define DEFAULT_BMD_EN_DELAY_MS	200
 static int fg_parse_dt(struct fg_chip *chip)
 {
 	struct device_node *child, *revid_node, *node = chip->dev->of_node;
@@ -4046,6 +4072,7 @@ static int fg_parse_dt(struct fg_chip *chip)
 
 	switch (chip->pmic_rev_id->pmic_subtype) {
 	case PMI8998_SUBTYPE:
+		chip->use_dma = true;
 		if (chip->pmic_rev_id->rev4 < PMI8998_V2P0_REV4) {
 			chip->sp = pmi8998_v1_sram_params;
 			chip->alg_flags = pmi8998_v1_alg_flags;
@@ -4356,6 +4383,13 @@ static int fg_parse_dt(struct fg_chip *chip)
 			chip->dt.esr_meas_curr_ma = temp;
 	}
 
+	chip->dt.bmd_en_delay_ms = DEFAULT_BMD_EN_DELAY_MS;
+	rc = of_property_read_u32(node, "qcom,fg-bmd-en-delay-ms", &temp);
+	if (!rc) {
+		if (temp > DEFAULT_BMD_EN_DELAY_MS)
+			chip->dt.bmd_en_delay_ms = temp;
+	}
+
 	return 0;
 }
 
@@ -4466,6 +4500,7 @@ static int fg_gen3_probe(struct platform_device *pdev)
 	mutex_init(&chip->charge_full_lock);
 	init_completion(&chip->soc_update);
 	init_completion(&chip->soc_ready);
+	init_completion(&chip->mem_grant);
 	INIT_DELAYED_WORK(&chip->profile_load_work, profile_load_work);
 	INIT_WORK(&chip->status_change_work, status_change_work);
 	INIT_WORK(&chip->cycle_count_work, cycle_count_work);
@@ -4479,14 +4514,31 @@ static int fg_gen3_probe(struct platform_device *pdev)
 		goto exit;
 	}
 
+	platform_set_drvdata(pdev, chip);
+
+	rc = fg_register_interrupts(chip);
+	if (rc < 0) {
+		dev_err(chip->dev, "Error in registering interrupts, rc:%d\n",
+			rc);
+		goto exit;
+	}
+
+	/* Keep SOC_UPDATE irq disabled until we require it */
+	if (fg_irqs[SOC_UPDATE_IRQ].irq)
+		disable_irq_nosync(fg_irqs[SOC_UPDATE_IRQ].irq);
+
+	/* Keep BSOC_DELTA_IRQ disabled until we require it */
+	vote(chip->delta_bsoc_irq_en_votable, DELTA_BSOC_IRQ_VOTER, false, 0);
+
+	/* Keep BATT_MISSING_IRQ disabled until we require it */
+	vote(chip->batt_miss_irq_en_votable, BATT_MISS_IRQ_VOTER, false, 0);
+
 	rc = fg_hw_init(chip);
 	if (rc < 0) {
 		dev_err(chip->dev, "Error in initializing FG hardware, rc:%d\n",
 			rc);
 		goto exit;
 	}
-
-	platform_set_drvdata(pdev, chip);
 
 	/* Register the power supply */
 	fg_psy_cfg.drv_data = chip;
@@ -4507,23 +4559,6 @@ static int fg_gen3_probe(struct platform_device *pdev)
 		pr_err("Couldn't register psy notifier rc = %d\n", rc);
 		goto exit;
 	}
-
-	rc = fg_register_interrupts(chip);
-	if (rc < 0) {
-		dev_err(chip->dev, "Error in registering interrupts, rc:%d\n",
-			rc);
-		goto exit;
-	}
-
-	/* Keep SOC_UPDATE_IRQ disabled until we require it */
-	if (fg_irqs[SOC_UPDATE_IRQ].irq)
-		disable_irq_nosync(fg_irqs[SOC_UPDATE_IRQ].irq);
-
-	/* Keep BSOC_DELTA_IRQ disabled until we require it */
-	vote(chip->delta_bsoc_irq_en_votable, DELTA_BSOC_IRQ_VOTER, false, 0);
-
-	/* Keep BATT_MISSING_IRQ disabled until we require it */
-	vote(chip->batt_miss_irq_en_votable, BATT_MISS_IRQ_VOTER, false, 0);
 
 	rc = fg_debugfs_create(chip);
 	if (rc < 0) {

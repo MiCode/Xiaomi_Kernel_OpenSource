@@ -182,6 +182,22 @@ static const char * const gcc_parent_names_9[] = {
 	"core_bi_pll_test_se",
 };
 
+static const struct parent_map gcc_parent_map_10[] = {
+	{ P_BI_TCXO, 0 },
+	{ P_GPLL0_OUT_MAIN, 1 },
+	{ P_GPLL4_OUT_MAIN, 5 },
+	{ P_GPLL0_OUT_EVEN, 6 },
+	{ P_CORE_BI_PLL_TEST_SE, 7 },
+};
+
+static const char * const gcc_parent_names_10[] = {
+	"bi_tcxo",
+	"gpll0",
+	"gpll4",
+	"gpll0_out_even",
+	"core_bi_pll_test_se",
+};
+
 static struct clk_dummy measure_only_snoc_clk = {
 	.rrate = 1000,
 	.hw.init = &(struct clk_init_data){
@@ -229,6 +245,28 @@ static struct clk_alpha_pll gpll0 = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gpll0",
+			.parent_names = (const char *[]){ "bi_tcxo" },
+			.num_parents = 1,
+			.ops = &clk_fabia_fixed_pll_ops,
+			VDD_CX_FMAX_MAP4(
+				MIN, 615000000,
+				LOW, 1066000000,
+				LOW_L1, 1600000000,
+				NOMINAL, 2000000000),
+		},
+	},
+};
+
+static struct clk_alpha_pll gpll4 = {
+	.offset = 0x76000,
+	.vco_table = fabia_vco,
+	.num_vco = ARRAY_SIZE(fabia_vco),
+	.type = FABIA_PLL,
+	.clkr = {
+		.enable_reg = 0x52000,
+		.enable_mask = BIT(4),
+		.hw.init = &(struct clk_init_data){
+			.name = "gpll4",
 			.parent_names = (const char *[]){ "bi_tcxo" },
 			.num_parents = 1,
 			.ops = &clk_fabia_fixed_pll_ops,
@@ -476,6 +514,7 @@ static const struct freq_tbl ftbl_gcc_qupv3_wrap0_s0_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(29491200, P_GPLL0_OUT_EVEN, 1, 1536, 15625),
 	F(32000000, P_GPLL0_OUT_EVEN, 1, 8, 75),
+	F(38400000, P_GPLL0_OUT_EVEN, 1, 16, 125),
 	F(48000000, P_GPLL0_OUT_EVEN, 1, 4, 25),
 	F(64000000, P_GPLL0_OUT_EVEN, 1, 16, 75),
 	F(80000000, P_GPLL0_OUT_EVEN, 1, 4, 15),
@@ -830,7 +869,7 @@ static const struct freq_tbl ftbl_gcc_sdcc2_apps_clk_src[] = {
 	F(25000000, P_GPLL0_OUT_EVEN, 12, 0, 0),
 	F(50000000, P_GPLL0_OUT_EVEN, 6, 0, 0),
 	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
-	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
+	F(201500000, P_GPLL4_OUT_MAIN, 4, 0, 0),
 	{ }
 };
 
@@ -838,12 +877,12 @@ static struct clk_rcg2 gcc_sdcc2_apps_clk_src = {
 	.cmd_rcgr = 0x1400c,
 	.mnd_width = 8,
 	.hid_width = 5,
-	.parent_map = gcc_parent_map_5,
+	.parent_map = gcc_parent_map_10,
 	.freq_tbl = ftbl_gcc_sdcc2_apps_clk_src,
 	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_sdcc2_apps_clk_src",
-		.parent_names = gcc_parent_names_5,
+		.parent_names = gcc_parent_names_10,
 		.num_parents = 5,
 		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
@@ -851,7 +890,7 @@ static struct clk_rcg2 gcc_sdcc2_apps_clk_src = {
 			MIN, 9600000,
 			LOWER, 19200000,
 			LOW, 100000000,
-			LOW_L1, 200000000),
+			LOW_L1, 201500000),
 	},
 };
 
@@ -1449,6 +1488,7 @@ static struct clk_branch gcc_camera_ahb_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_camera_ahb_clk",
+			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -1475,6 +1515,7 @@ static struct clk_branch gcc_camera_xo_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_camera_xo_clk",
+			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -1569,7 +1610,7 @@ static struct clk_branch gcc_cpuss_ahb_clk = {
 				"gcc_cpuss_ahb_clk_src",
 			},
 			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
+			.flags = CLK_SET_RATE_PARENT | CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -1583,6 +1624,7 @@ static struct clk_branch gcc_cpuss_dvm_bus_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_cpuss_dvm_bus_clk",
+			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -1598,6 +1640,7 @@ static struct clk_branch gcc_cpuss_gnoc_clk = {
 		.enable_mask = BIT(22),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_cpuss_gnoc_clk",
+			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -1644,6 +1687,7 @@ static struct clk_branch gcc_disp_ahb_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_disp_ahb_clk",
+			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -1704,6 +1748,7 @@ static struct clk_branch gcc_disp_xo_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_disp_xo_clk",
+			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -1773,6 +1818,7 @@ static struct clk_branch gcc_gpu_cfg_ahb_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_gpu_cfg_ahb_clk",
+			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -2728,7 +2774,7 @@ static struct clk_branch gcc_sys_noc_cpuss_ahb_clk = {
 				"gcc_cpuss_ahb_clk_src",
 			},
 			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
+			.flags = CLK_SET_RATE_PARENT | CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -3501,6 +3547,7 @@ static struct clk_branch gcc_video_ahb_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_video_ahb_clk",
+			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -3527,6 +3574,7 @@ static struct clk_branch gcc_video_xo_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_video_xo_clk",
+			.flags = CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -3775,6 +3823,7 @@ static struct clk_regmap *gcc_sdm845_clocks[] = {
 	[GCC_VSENSOR_CLK_SRC] = &gcc_vsensor_clk_src.clkr,
 	[GPLL0] = &gpll0.clkr,
 	[GPLL0_OUT_EVEN] = &gpll0_out_even.clkr,
+	[GPLL4] = &gpll4.clkr,
 };
 
 static const struct qcom_reset_map gcc_sdm845_resets[] = {
@@ -4030,22 +4079,9 @@ static int gcc_sdm845_probe(struct platform_device *pdev)
 	regmap_update_bits(regmap, GCC_MMSS_MISC, 0x3, 0x3);
 	regmap_update_bits(regmap, GCC_GPU_MISC, 0x3, 0x3);
 
-	/* Keep these CPUSS clocks enabled always */
-	clk_prepare_enable(gcc_cpuss_ahb_clk.clkr.hw.clk);
-	clk_prepare_enable(gcc_sys_noc_cpuss_ahb_clk.clkr.hw.clk);
-	clk_prepare_enable(gcc_cpuss_dvm_bus_clk.clkr.hw.clk);
-	clk_prepare_enable(gcc_cpuss_gnoc_clk.clkr.hw.clk);
-
-	/* Keep the core XO clock enabled always */
-	clk_prepare_enable(gcc_camera_xo_clk.clkr.hw.clk);
-	clk_prepare_enable(gcc_disp_xo_clk.clkr.hw.clk);
-	clk_prepare_enable(gcc_video_xo_clk.clkr.hw.clk);
-
-	/* Enable for core register access */
-	clk_prepare_enable(gcc_gpu_cfg_ahb_clk.clkr.hw.clk);
-	clk_prepare_enable(gcc_disp_ahb_clk.clkr.hw.clk);
-	clk_prepare_enable(gcc_camera_ahb_clk.clkr.hw.clk);
-	clk_prepare_enable(gcc_video_ahb_clk.clkr.hw.clk);
+	/* Keep this clock on all the time on SDM845 v1 */
+	if (of_device_is_compatible(pdev->dev.of_node, "qcom,gcc-sdm845"))
+		clk_prepare_enable(gcc_aggre_noc_pcie_tbu_clk.clkr.hw.clk);
 
 	/* DFS clock registration */
 	ret = qcom_cc_register_rcg_dfs(pdev, &gcc_sdm845_dfs_desc);

@@ -430,7 +430,8 @@ void msm_vidc_debugfs_update(struct msm_vidc_inst *inst,
 	case MSM_VIDC_DEBUGFS_EVENT_FBD:
 		inst->count.fbd++;
 		inst->debug.samples++;
-		if (inst->count.ebd && inst->count.fbd == inst->count.ftb) {
+		if (inst->count.fbd &&
+			inst->count.fbd == inst->count.ftb) {
 			toc(inst, FRAME_PROCESSING);
 			dprintk(VIDC_PROF, "FBD: FW needs output buffers\n");
 		}

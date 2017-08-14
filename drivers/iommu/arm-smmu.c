@@ -250,6 +250,7 @@ enum arm_smmu_s2cr_privcfg {
 
 #define SCTLR_S1_ASIDPNE		(1 << 12)
 #define SCTLR_CFCFG			(1 << 7)
+#define SCTLR_HUPCF			(1 << 8)
 #define SCTLR_CFIE			(1 << 6)
 #define SCTLR_CFRE			(1 << 5)
 #define SCTLR_E				(1 << 4)
@@ -388,6 +389,7 @@ struct arm_smmu_power_resources {
 	/* Protects clock_refs_count */
 	spinlock_t			clock_refs_lock;
 	int				clock_refs_count;
+	int				regulator_defer;
 };
 
 struct arm_smmu_device {
@@ -788,6 +790,35 @@ static void arm_smmu_unrequest_bus(struct arm_smmu_power_resources *pwr)
 	WARN_ON(msm_bus_scale_client_update_request(pwr->bus_client, 0));
 }
 
+static int arm_smmu_disable_regulators(struct arm_smmu_power_resources *pwr)
+{
+	struct regulator_bulk_data *consumers;
+	int i;
+	int num_consumers, ret, r;
+
+	num_consumers = pwr->num_gdscs;
+	consumers = pwr->gdscs;
+	for (i = num_consumers - 1; i >= 0; --i) {
+		ret = regulator_disable_deferred(consumers[i].consumer,
+						 pwr->regulator_defer);
+		if (ret != 0)
+			goto err;
+	}
+
+	return 0;
+
+err:
+	pr_err("Failed to disable %s: %d\n", consumers[i].supply, ret);
+	for (++i; i < num_consumers; ++i) {
+		r = regulator_enable(consumers[i].consumer);
+		if (r != 0)
+			pr_err("Failed to reename %s: %d\n",
+			       consumers[i].supply, r);
+	}
+
+	return ret;
+}
+
 /* Clocks must be prepared before this (arm_smmu_prepare_clocks) */
 static int arm_smmu_power_on_atomic(struct arm_smmu_power_resources *pwr)
 {
@@ -883,7 +914,7 @@ static void arm_smmu_power_off_slow(struct arm_smmu_power_resources *pwr)
 	}
 
 	arm_smmu_unprepare_clocks(pwr);
-	regulator_bulk_disable(pwr->num_gdscs, pwr->gdscs);
+	arm_smmu_disable_regulators(pwr);
 	arm_smmu_unrequest_bus(pwr);
 	pwr->power_count = 0;
 	mutex_unlock(&pwr->power_lock);
@@ -1452,6 +1483,11 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 
 	/* SCTLR */
 	reg = SCTLR_CFCFG | SCTLR_CFIE | SCTLR_CFRE | SCTLR_AFE | SCTLR_TRE;
+
+	if (smmu_domain->attributes & (1 << DOMAIN_ATTR_CB_STALL_DISABLE)) {
+		reg &= ~SCTLR_CFCFG;
+		reg |= SCTLR_HUPCF;
+	}
 
 	if ((!(smmu_domain->attributes & (1 << DOMAIN_ATTR_S1_BYPASS)) &&
 	     !(smmu_domain->attributes & (1 << DOMAIN_ATTR_EARLY_MAP))) ||
@@ -2580,19 +2616,23 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	int ret = 0;
 
+	mutex_lock(&smmu_domain->init_mutex);
 	switch (attr) {
 	case DOMAIN_ATTR_NESTING:
 		*(int *)data = (smmu_domain->stage == ARM_SMMU_DOMAIN_NESTED);
-		return 0;
+		ret = 0;
+		break;
 	case DOMAIN_ATTR_PT_BASE_ADDR:
 		*((phys_addr_t *)data) =
 			smmu_domain->pgtbl_cfg.arm_lpae_s1_cfg.ttbr[0];
-		return 0;
+		ret = 0;
+		break;
 	case DOMAIN_ATTR_CONTEXT_BANK:
 		/* context bank index isn't valid until we are attached */
-		if (smmu_domain->smmu == NULL)
-			return -ENODEV;
-
+		if (smmu_domain->smmu == NULL) {
+			ret = -ENODEV;
+			break;
+		}
 		*((unsigned int *) data) = smmu_domain->cfg.cbndx;
 		ret = 0;
 		break;
@@ -2600,9 +2640,10 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		u64 val;
 		struct arm_smmu_device *smmu = smmu_domain->smmu;
 		/* not valid until we are attached */
-		if (smmu == NULL)
-			return -ENODEV;
-
+		if (smmu == NULL) {
+			ret = -ENODEV;
+			break;
+		}
 		val = smmu_domain->pgtbl_cfg.arm_lpae_s1_cfg.ttbr[0];
 		if (smmu_domain->cfg.cbar != CBAR_TYPE_S2_TRANS)
 			val |= (u64)ARM_SMMU_CB_ASID(smmu, &smmu_domain->cfg)
@@ -2613,8 +2654,10 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 	}
 	case DOMAIN_ATTR_CONTEXTIDR:
 		/* not valid until attached */
-		if (smmu_domain->smmu == NULL)
-			return -ENODEV;
+		if (smmu_domain->smmu == NULL) {
+			ret = -ENODEV;
+			break;
+		}
 		*((u32 *)data) = smmu_domain->cfg.procid;
 		ret = 0;
 		break;
@@ -2668,8 +2711,10 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		ret = 0;
 		break;
 	case DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT:
-		if (!smmu_domain->smmu)
-			return -ENODEV;
+		if (!smmu_domain->smmu) {
+			ret = -ENODEV;
+			break;
+		}
 		*((int *)data) = is_iommu_pt_coherent(smmu_domain);
 		ret = 0;
 		break;
@@ -2678,9 +2723,16 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 			& (1 << DOMAIN_ATTR_PAGE_TABLE_FORCE_COHERENT));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_CB_STALL_DISABLE:
+		*((int *)data) = !!(smmu_domain->attributes
+			& (1 << DOMAIN_ATTR_CB_STALL_DISABLE));
+		ret = 0;
+		break;
 	default:
-		return -ENODEV;
+		ret = -ENODEV;
+		break;
 	}
+	mutex_unlock(&smmu_domain->init_mutex);
 	return ret;
 }
 
@@ -2855,6 +2907,12 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		break;
 	}
 
+	case DOMAIN_ATTR_CB_STALL_DISABLE:
+		if (*((int *)data))
+			smmu_domain->attributes |=
+				1 << DOMAIN_ATTR_CB_STALL_DISABLE;
+		ret = 0;
+		break;
 	default:
 		ret = -ENODEV;
 	}
@@ -3146,6 +3204,11 @@ static phys_addr_t qsmmuv2_iova_to_phys_hard(struct iommu_domain *domain,
 	unsigned long flags;
 	u32 sctlr, sctlr_orig, fsr;
 	void __iomem *cb_base;
+
+	if (smmu->model == QCOM_SMMUV2) {
+		dev_err(smmu->dev, "ATOS support is disabled\n");
+		return 0;
+	}
 
 	ret = arm_smmu_power_on(smmu_domain->smmu->pwr);
 	if (ret)
@@ -3505,6 +3568,12 @@ static int arm_smmu_init_regulators(struct arm_smmu_power_resources *pwr)
 
 	if (!pwr->gdscs)
 		return -ENOMEM;
+
+	if (!of_property_read_u32(dev->of_node,
+				  "qcom,deferred-regulator-disable-delay",
+				  &(pwr->regulator_defer)))
+		dev_info(dev, "regulator defer delay %d\n",
+			pwr->regulator_defer);
 
 	i = 0;
 	of_property_for_each_string(dev->of_node, "qcom,regulator-names",

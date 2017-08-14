@@ -15,6 +15,7 @@
 
 #include "cam_cpas_api.h"
 #include "cam_cpas_hw_intf.h"
+#include "cam_common_util.h"
 
 #define CPAS_MAX_CLIENTS 20
 #define CAM_CPAS_INFLIGHT_WORKS 5
@@ -192,7 +193,5 @@ int cam_cpastop_get_internal_ops(struct cam_cpas_internal_ops *internal_ops);
 
 int cam_cpas_util_reg_update(struct cam_hw_info *cpas_hw,
 	enum cam_cpas_reg_base reg_base, struct cam_cpas_reg *reg_info);
-int cam_cpas_util_get_string_index(const char **strings,
-	uint32_t num_strings, char *matching_string, uint32_t *index);
 
 #endif /* _CAM_CPAS_HW_H_ */

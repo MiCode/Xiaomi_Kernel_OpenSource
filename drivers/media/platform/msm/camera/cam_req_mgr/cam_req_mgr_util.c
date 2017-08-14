@@ -20,12 +20,7 @@
 #include <linux/random.h>
 #include <media/cam_req_mgr.h>
 #include "cam_req_mgr_util.h"
-
-#ifdef CONFIG_CAM_REQ_MGR_UTIL_DEBUG
-#define CDBG(fmt, args...) pr_err(fmt, ##args)
-#else
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
-#endif
+#include "cam_debug_util.h"
 
 static struct cam_req_mgr_util_hdl_tbl *hdl_tbl;
 static DEFINE_SPINLOCK(hdl_tbl_lock);
@@ -38,7 +33,7 @@ int cam_req_mgr_util_init(void)
 
 	if (hdl_tbl) {
 		rc = -EINVAL;
-		pr_err("Hdl_tbl is already present\n");
+		CAM_ERR(CAM_CRM, "Hdl_tbl is already present");
 		goto hdl_tbl_check_failed;
 	}
 
@@ -79,7 +74,7 @@ int cam_req_mgr_util_deinit(void)
 {
 	spin_lock_bh(&hdl_tbl_lock);
 	if (!hdl_tbl) {
-		pr_err("Hdl tbl is NULL\n");
+		CAM_ERR(CAM_CRM, "Hdl tbl is NULL");
 		spin_unlock_bh(&hdl_tbl_lock);
 		return -EINVAL;
 	}
@@ -99,14 +94,14 @@ int cam_req_mgr_util_free_hdls(void)
 
 	spin_lock_bh(&hdl_tbl_lock);
 	if (!hdl_tbl) {
-		pr_err("Hdl tbl is NULL\n");
+		CAM_ERR(CAM_CRM, "Hdl tbl is NULL");
 		spin_unlock_bh(&hdl_tbl_lock);
 		return -EINVAL;
 	}
 
 	for (i = 0; i < CAM_REQ_MGR_MAX_HANDLES; i++) {
 		if (hdl_tbl->hdl[i].state == HDL_ACTIVE) {
-			pr_err("Dev handle = %x session_handle = %x\n",
+			CAM_ERR(CAM_CRM, "Dev handle = %x session_handle = %x",
 				hdl_tbl->hdl[i].hdl_value,
 				hdl_tbl->hdl[i].session_hdl);
 			hdl_tbl->hdl[i].state = HDL_FREE;
@@ -141,14 +136,14 @@ int32_t cam_create_session_hdl(void *priv)
 
 	spin_lock_bh(&hdl_tbl_lock);
 	if (!hdl_tbl) {
-		pr_err("Hdl tbl is NULL\n");
+		CAM_ERR(CAM_CRM, "Hdl tbl is NULL");
 		spin_unlock_bh(&hdl_tbl_lock);
 		return -EINVAL;
 	}
 
 	idx = cam_get_free_handle_index();
 	if (idx < 0) {
-		pr_err("Unable to create session handle\n");
+		CAM_ERR(CAM_CRM, "Unable to create session handle");
 		spin_unlock_bh(&hdl_tbl_lock);
 		return idx;
 	}
@@ -174,14 +169,14 @@ int32_t cam_create_device_hdl(struct cam_create_dev_hdl *hdl_data)
 
 	spin_lock_bh(&hdl_tbl_lock);
 	if (!hdl_tbl) {
-		pr_err("Hdl tbl is NULL\n");
+		CAM_ERR(CAM_CRM, "Hdl tbl is NULL");
 		spin_unlock_bh(&hdl_tbl_lock);
 		return -EINVAL;
 	}
 
 	idx = cam_get_free_handle_index();
 	if (idx < 0) {
-		pr_err("Unable to create device handle\n");
+		CAM_ERR(CAM_CRM, "Unable to create device handle");
 		spin_unlock_bh(&hdl_tbl_lock);
 		return idx;
 	}
@@ -196,7 +191,7 @@ int32_t cam_create_device_hdl(struct cam_create_dev_hdl *hdl_data)
 	hdl_tbl->hdl[idx].ops = hdl_data->ops;
 	spin_unlock_bh(&hdl_tbl_lock);
 
-	pr_debug("%s: handle = %x\n", __func__, handle);
+	pr_debug("%s: handle = %x", __func__, handle);
 	return handle;
 }
 
@@ -208,29 +203,29 @@ void *cam_get_device_priv(int32_t dev_hdl)
 
 	spin_lock_bh(&hdl_tbl_lock);
 	if (!hdl_tbl) {
-		pr_err("Hdl tbl is NULL\n");
+		CAM_ERR(CAM_CRM, "Hdl tbl is NULL");
 		goto device_priv_fail;
 	}
 
 	idx = CAM_REQ_MGR_GET_HDL_IDX(dev_hdl);
 	if (idx >= CAM_REQ_MGR_MAX_HANDLES) {
-		pr_err("Invalid idx\n");
+		CAM_ERR(CAM_CRM, "Invalid idx");
 		goto device_priv_fail;
 	}
 
 	if (hdl_tbl->hdl[idx].state != HDL_ACTIVE) {
-		pr_err("Invalid state\n");
+		CAM_ERR(CAM_CRM, "Invalid state");
 		goto device_priv_fail;
 	}
 
 	type = CAM_REQ_MGR_GET_HDL_TYPE(dev_hdl);
 	if (HDL_TYPE_DEV != type && HDL_TYPE_SESSION != type) {
-		pr_err("Invalid type\n");
+		CAM_ERR(CAM_CRM, "Invalid type");
 		goto device_priv_fail;
 	}
 
 	if (hdl_tbl->hdl[idx].hdl_value != dev_hdl) {
-		pr_err("Invalid hdl\n");
+		CAM_ERR(CAM_CRM, "Invalid hdl");
 		goto device_priv_fail;
 	}
 
@@ -252,29 +247,29 @@ void *cam_get_device_ops(int32_t dev_hdl)
 
 	spin_lock_bh(&hdl_tbl_lock);
 	if (!hdl_tbl) {
-		pr_err("Hdl tbl is NULL\n");
+		CAM_ERR(CAM_CRM, "Hdl tbl is NULL");
 		goto device_ops_fail;
 	}
 
 	idx = CAM_REQ_MGR_GET_HDL_IDX(dev_hdl);
 	if (idx >= CAM_REQ_MGR_MAX_HANDLES) {
-		pr_err("Invalid idx\n");
+		CAM_ERR(CAM_CRM, "Invalid idx");
 		goto device_ops_fail;
 	}
 
 	if (hdl_tbl->hdl[idx].state != HDL_ACTIVE) {
-		pr_err("Invalid state\n");
+		CAM_ERR(CAM_CRM, "Invalid state");
 		goto device_ops_fail;
 	}
 
 	type = CAM_REQ_MGR_GET_HDL_TYPE(dev_hdl);
 	if (HDL_TYPE_DEV != type && HDL_TYPE_SESSION != type) {
-		pr_err("Invalid type\n");
+		CAM_ERR(CAM_CRM, "Invalid type");
 		goto device_ops_fail;
 	}
 
 	if (hdl_tbl->hdl[idx].hdl_value != dev_hdl) {
-		pr_err("Invalid hdl\n");
+		CAM_ERR(CAM_CRM, "Invalid hdl");
 		goto device_ops_fail;
 	}
 
@@ -295,29 +290,29 @@ static int cam_destroy_hdl(int32_t dev_hdl, int dev_hdl_type)
 
 	spin_lock_bh(&hdl_tbl_lock);
 	if (!hdl_tbl) {
-		pr_err("Hdl tbl is NULL\n");
+		CAM_ERR(CAM_CRM, "Hdl tbl is NULL");
 		goto destroy_hdl_fail;
 	}
 
 	idx = CAM_REQ_MGR_GET_HDL_IDX(dev_hdl);
 	if (idx >= CAM_REQ_MGR_MAX_HANDLES) {
-		pr_err("Invalid idx\n");
+		CAM_ERR(CAM_CRM, "Invalid idx");
 		goto destroy_hdl_fail;
 	}
 
 	if (hdl_tbl->hdl[idx].state != HDL_ACTIVE) {
-		pr_err("Invalid state\n");
+		CAM_ERR(CAM_CRM, "Invalid state");
 		goto destroy_hdl_fail;
 	}
 
 	type = CAM_REQ_MGR_GET_HDL_TYPE(dev_hdl);
 	if (type != dev_hdl_type) {
-		pr_err("Invalid type %d, %d\n", type, dev_hdl_type);
+		CAM_ERR(CAM_CRM, "Invalid type %d, %d", type, dev_hdl_type);
 		goto destroy_hdl_fail;
 	}
 
 	if (hdl_tbl->hdl[idx].hdl_value != dev_hdl) {
-		pr_err("Invalid hdl\n");
+		CAM_ERR(CAM_CRM, "Invalid hdl");
 		goto destroy_hdl_fail;
 	}
 

@@ -23,6 +23,8 @@ Required properties:
 - qcom, msm_bus,num_paths: The paths for source and destination ports
 - qcom, msm_bus,vectors: Vectors for bus topology.
 - pinctrl-names: Names for the TSIF mode configuration to specify which TSIF interface is active.
+- qcom,smmu-s1-bypass : Boolean flag to bypass SMMU stage 1 translation.
+- iommus : A list of phandle and IOMMU specifier pairs that describe the IOMMU master interfaces of the device.
 
 Example:
 
@@ -75,4 +77,7 @@ Example:
                         &tsif0_sync_active
                         &tsif1_signals_active
                         &tsif1_sync_active>;            /* dual-tsif-mode2 */
+
+		qcom,smmu-s1-bypass;
+		iommus = <&apps_smmu 0x20 0x0f>;
         };

@@ -13,6 +13,7 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include "cam_context.h"
+#include "cam_debug_util.h"
 
 static int cam_context_handle_hw_event(void *context, uint32_t evt_id,
 	void *evt_data)
@@ -21,7 +22,7 @@ static int cam_context_handle_hw_event(void *context, uint32_t evt_id,
 	struct cam_context *ctx = (struct cam_context *)context;
 
 	if (!ctx || !ctx->state_machine) {
-		pr_err("%s: Context is not ready.\n", __func__);
+		CAM_ERR(CAM_CORE, "Context is not ready");
 		return -EINVAL;
 	}
 
@@ -29,8 +30,9 @@ static int cam_context_handle_hw_event(void *context, uint32_t evt_id,
 		rc = ctx->state_machine[ctx->state].irq_ops(ctx, evt_id,
 			evt_data);
 	else
-		pr_debug("%s: No function to handle event %d in dev %d, state %d\n",
-				__func__, evt_id, ctx->dev_hdl, ctx->state);
+		CAM_DBG(CAM_CORE,
+			"No function to handle event %d in dev %d, state %d",
+			evt_id, ctx->dev_hdl, ctx->state);
 	return rc;
 }
 
@@ -40,12 +42,12 @@ int cam_context_handle_crm_get_dev_info(struct cam_context *ctx,
 	int rc;
 
 	if (!ctx->state_machine) {
-		pr_err("%s: Context is not ready.\n'", __func__);
+		CAM_ERR(CAM_CORE, "Context is not ready");
 		return -EINVAL;
 	}
 
 	if (!info) {
-		pr_err("%s: Invalid get device info payload.\n", __func__);
+		CAM_ERR(CAM_CORE, "Invalid get device info payload");
 		return -EINVAL;
 	}
 
@@ -54,8 +56,8 @@ int cam_context_handle_crm_get_dev_info(struct cam_context *ctx,
 		rc = ctx->state_machine[ctx->state].crm_ops.get_dev_info(
 			ctx, info);
 	} else {
-		pr_err("%s: No get device info in dev %d, state %d\n",
-			__func__, ctx->dev_hdl, ctx->state);
+		CAM_ERR(CAM_CORE, "No get device info in dev %d, state %d",
+			ctx->dev_hdl, ctx->state);
 		rc = -EPROTO;
 	}
 	mutex_unlock(&ctx->ctx_mutex);
@@ -69,12 +71,12 @@ int cam_context_handle_crm_link(struct cam_context *ctx,
 	int rc;
 
 	if (!ctx->state_machine) {
-		pr_err("%s: Context is not ready.\n", __func__);
+		CAM_ERR(CAM_CORE, "Context is not ready");
 		return -EINVAL;
 	}
 
 	if (!link) {
-		pr_err("%s: Invalid link payload.\n", __func__);
+		CAM_ERR(CAM_CORE, "Invalid link payload");
 		return -EINVAL;
 	}
 
@@ -82,7 +84,7 @@ int cam_context_handle_crm_link(struct cam_context *ctx,
 	if (ctx->state_machine[ctx->state].crm_ops.link) {
 		rc = ctx->state_machine[ctx->state].crm_ops.link(ctx, link);
 	} else {
-		pr_err("%s: No crm link in dev %d, state %d\n", __func__,
+		CAM_ERR(CAM_CORE, "No crm link in dev %d, state %d",
 			ctx->dev_hdl, ctx->state);
 		rc = -EPROTO;
 	}
@@ -97,12 +99,12 @@ int cam_context_handle_crm_unlink(struct cam_context *ctx,
 	int rc;
 
 	if (!ctx->state_machine) {
-		pr_err("%s: Context is not ready!\n", __func__);
+		CAM_ERR(CAM_CORE, "Context is not ready");
 		return -EINVAL;
 	}
 
 	if (!unlink) {
-		pr_err("%s: Invalid unlink payload.\n", __func__);
+		CAM_ERR(CAM_CORE, "Invalid unlink payload");
 		return -EINVAL;
 	}
 
@@ -111,8 +113,8 @@ int cam_context_handle_crm_unlink(struct cam_context *ctx,
 		rc = ctx->state_machine[ctx->state].crm_ops.unlink(
 			ctx, unlink);
 	} else {
-		pr_err("%s: No crm unlink in dev %d, state %d\n",
-			__func__, ctx->dev_hdl, ctx->state);
+		CAM_ERR(CAM_CORE, "No crm unlink in dev %d, state %d",
+			ctx->dev_hdl, ctx->state);
 		rc = -EPROTO;
 	}
 	mutex_unlock(&ctx->ctx_mutex);
@@ -126,12 +128,12 @@ int cam_context_handle_crm_apply_req(struct cam_context *ctx,
 	int rc;
 
 	if (!ctx->state_machine) {
-		pr_err("%s: Context is not ready.\n'", __func__);
+		CAM_ERR(CAM_CORE, "Context is not ready");
 		return -EINVAL;
 	}
 
 	if (!apply) {
-		pr_err("%s: Invalid apply request payload.\n'", __func__);
+		CAM_ERR(CAM_CORE, "Invalid apply request payload");
 		return -EINVAL;
 	}
 
@@ -140,8 +142,8 @@ int cam_context_handle_crm_apply_req(struct cam_context *ctx,
 		rc = ctx->state_machine[ctx->state].crm_ops.apply_req(ctx,
 			apply);
 	} else {
-		pr_err("%s: No crm apply req in dev %d, state %d\n",
-			__func__, ctx->dev_hdl, ctx->state);
+		CAM_ERR(CAM_CORE, "No crm apply req in dev %d, state %d",
+			ctx->dev_hdl, ctx->state);
 		rc = -EPROTO;
 	}
 	mutex_unlock(&ctx->ctx_mutex);
@@ -155,7 +157,7 @@ int cam_context_handle_crm_flush_req(struct cam_context *ctx,
 	int rc;
 
 	if (!ctx->state_machine) {
-		pr_err("%s: Context is not ready\n", __func__);
+		CAM_ERR(CAM_CORE, "Context is not ready");
 		return -EINVAL;
 	}
 
@@ -164,8 +166,8 @@ int cam_context_handle_crm_flush_req(struct cam_context *ctx,
 		rc = ctx->state_machine[ctx->state].crm_ops.flush_req(ctx,
 			flush);
 	} else {
-		pr_err("%s: No crm flush req in dev %d, state %d\n",
-			__func__, ctx->dev_hdl, ctx->state);
+		CAM_ERR(CAM_CORE, "No crm flush req in dev %d, state %d",
+			ctx->dev_hdl, ctx->state);
 		rc = -EPROTO;
 	}
 	mutex_unlock(&ctx->ctx_mutex);
@@ -179,13 +181,12 @@ int cam_context_handle_acquire_dev(struct cam_context *ctx,
 	int rc;
 
 	if (!ctx->state_machine) {
-		pr_err("%s: Context is not ready.\n", __func__);
+		CAM_ERR(CAM_CORE, "Context is not ready");
 		return -EINVAL;
 	}
 
 	if (!cmd) {
-		pr_err("%s: Invalid acquire device command payload.\n",
-			__func__);
+		CAM_ERR(CAM_CORE, "Invalid acquire device command payload");
 		return -EINVAL;
 	}
 
@@ -194,8 +195,8 @@ int cam_context_handle_acquire_dev(struct cam_context *ctx,
 		rc = ctx->state_machine[ctx->state].ioctl_ops.acquire_dev(
 			ctx, cmd);
 	} else {
-		pr_err("%s: No acquire device in dev %d, state %d\n",
-			__func__, cmd->dev_handle, ctx->state);
+		CAM_ERR(CAM_CORE, "No acquire device in dev %d, state %d",
+			cmd->dev_handle, ctx->state);
 		rc = -EPROTO;
 	}
 	mutex_unlock(&ctx->ctx_mutex);
@@ -209,13 +210,12 @@ int cam_context_handle_release_dev(struct cam_context *ctx,
 	int rc;
 
 	if (!ctx->state_machine) {
-		pr_err("%s: Context is not ready.\n", __func__);
+		CAM_ERR(CAM_CORE, "Context is not ready");
 		return -EINVAL;
 	}
 
 	if (!cmd) {
-		pr_err("%s: Invalid release device command payload.\n",
-			__func__);
+		CAM_ERR(CAM_CORE, "Invalid release device command payload");
 		return -EINVAL;
 	}
 
@@ -224,8 +224,8 @@ int cam_context_handle_release_dev(struct cam_context *ctx,
 		rc = ctx->state_machine[ctx->state].ioctl_ops.release_dev(
 			ctx, cmd);
 	} else {
-		pr_err("%s: No release device in dev %d, state %d\n",
-			__func__, ctx->dev_hdl, ctx->state);
+		CAM_ERR(CAM_CORE, "No release device in dev %d, state %d",
+			ctx->dev_hdl, ctx->state);
 		rc = -EPROTO;
 	}
 	mutex_unlock(&ctx->ctx_mutex);
@@ -239,13 +239,12 @@ int cam_context_handle_config_dev(struct cam_context *ctx,
 	int rc;
 
 	if (!ctx->state_machine) {
-		pr_err("%s: context is not ready\n'", __func__);
+		CAM_ERR(CAM_CORE, "context is not ready");
 		return -EINVAL;
 	}
 
 	if (!cmd) {
-		pr_err("%s: Invalid config device command payload.\n",
-			__func__);
+		CAM_ERR(CAM_CORE, "Invalid config device command payload");
 		return -EINVAL;
 	}
 
@@ -254,8 +253,8 @@ int cam_context_handle_config_dev(struct cam_context *ctx,
 		rc = ctx->state_machine[ctx->state].ioctl_ops.config_dev(
 			ctx, cmd);
 	} else {
-		pr_err("%s: No config device in dev %d, state %d\n",
-			__func__, ctx->dev_hdl, ctx->state);
+		CAM_ERR(CAM_CORE, "No config device in dev %d, state %d",
+			ctx->dev_hdl, ctx->state);
 		rc = -EPROTO;
 	}
 	mutex_unlock(&ctx->ctx_mutex);
@@ -269,13 +268,12 @@ int cam_context_handle_start_dev(struct cam_context *ctx,
 	int rc = 0;
 
 	if (!ctx->state_machine) {
-		pr_err("%s: Context is not ready.\n", __func__);
+		CAM_ERR(CAM_CORE, "Context is not ready");
 		return -EINVAL;
 	}
 
 	if (!cmd) {
-		pr_err("%s: Invalid start device command payload.\n",
-			__func__);
+		CAM_ERR(CAM_CORE, "Invalid start device command payload");
 		return -EINVAL;
 	}
 
@@ -285,8 +283,8 @@ int cam_context_handle_start_dev(struct cam_context *ctx,
 			ctx, cmd);
 	else
 		/* start device can be optional for some driver */
-		pr_debug("%s: No start device in dev %d, state %d\n",
-			__func__, ctx->dev_hdl, ctx->state);
+		CAM_DBG(CAM_CORE, "No start device in dev %d, state %d",
+			ctx->dev_hdl, ctx->state);
 
 	mutex_unlock(&ctx->ctx_mutex);
 
@@ -299,13 +297,12 @@ int cam_context_handle_stop_dev(struct cam_context *ctx,
 	int rc = 0;
 
 	if (!ctx->state_machine) {
-		pr_err("%s: Context is not ready.\n'", __func__);
+		CAM_ERR(CAM_CORE, "Context is not ready");
 		return -EINVAL;
 	}
 
 	if (!cmd) {
-		pr_err("%s: Invalid stop device command payload.\n",
-			__func__);
+		CAM_ERR(CAM_CORE, "Invalid stop device command payload");
 		return -EINVAL;
 	}
 
@@ -315,8 +312,8 @@ int cam_context_handle_stop_dev(struct cam_context *ctx,
 			ctx, cmd);
 	else
 		/* stop device can be optional for some driver */
-		pr_warn("%s: No stop device in dev %d, state %d\n",
-			__func__, ctx->dev_hdl, ctx->state);
+		CAM_WARN(CAM_CORE, "No stop device in dev %d, state %d",
+			ctx->dev_hdl, ctx->state);
 	mutex_unlock(&ctx->ctx_mutex);
 
 	return rc;
@@ -332,7 +329,7 @@ int cam_context_init(struct cam_context *ctx,
 
 	/* crm_node_intf is optinal */
 	if (!ctx || !hw_mgr_intf || !req_list) {
-		pr_err("%s: Invalid input parameters\n", __func__);
+		CAM_ERR(CAM_CORE, "Invalid input parameters");
 		return -EINVAL;
 	}
 
@@ -375,7 +372,7 @@ int cam_context_deinit(struct cam_context *ctx)
 	 * so we just free the memory for the context
 	 */
 	if (ctx->state != CAM_CTX_AVAILABLE)
-		pr_err("%s: Device did not shutdown cleanly.\n", __func__);
+		CAM_ERR(CAM_CORE, "Device did not shutdown cleanly");
 
 	memset(ctx, 0, sizeof(*ctx));
 

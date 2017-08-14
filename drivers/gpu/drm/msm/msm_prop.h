@@ -22,14 +22,25 @@
  * struct msm_property_data - opaque structure for tracking per
  *                            drm-object per property stuff
  * @default_value: Default property value for this drm object
- * @dirty_node: Linked list node to track if property is dirty or not
  * @force_dirty: Always dirty property on incoming sets, rather than checking
  *               for modified values
  */
 struct msm_property_data {
 	uint64_t default_value;
-	struct list_head dirty_node;
 	bool force_dirty;
+};
+
+/**
+ * struct msm_property_value - opaque structure for tracking per
+ *                             drm-object per property stuff
+ * @value: Current property value for this drm object
+ * @blob: Pointer to associated blob data, if available
+ * @dirty_node: Linked list node to track if property is dirty or not
+ */
+struct msm_property_value {
+	uint64_t value;
+	struct drm_property_blob *blob;
+	struct list_head dirty_node;
 };
 
 /**
@@ -43,8 +54,6 @@ struct msm_property_data {
  * @install_request: Total number of property 'install' requests
  * @install_count: Total number of successful 'install' requests
  * @recent_idx: Index of property most recently accessed by set/get
- * @dirty_list: List of all properties that have been 'atomic_set' but not
- *              yet cleared with 'msm_property_pop_dirty'
  * @is_active: Whether or not drm component properties are 'active'
  * @state_cache: Cache of local states, to prevent alloc/free thrashing
  * @state_size: Size of local state structures
@@ -64,13 +73,25 @@ struct msm_property_info {
 
 	int32_t recent_idx;
 
-	struct list_head dirty_list;
 	bool is_active;
 
 	void *state_cache[MSM_PROP_STATE_CACHE_SIZE];
 	uint32_t state_size;
 	int32_t state_cache_size;
 	struct mutex property_lock;
+};
+
+/**
+ * struct msm_property_state - Structure for local property state information
+ * @property_count: Total number of properties
+ * @values: Pointer to array of msm_property_value objects
+ * @dirty_list: List of all properties that have been 'atomic_set' but not
+ *              yet cleared with 'msm_property_pop_dirty'
+ */
+struct msm_property_state {
+	uint32_t property_count;
+	struct msm_property_value *values;
+	struct list_head dirty_list;
 };
 
 /**
@@ -134,12 +155,14 @@ bool msm_property_get_is_active(struct msm_property_info *info)
  * msm_property_pop_dirty - determine next dirty property and clear
  *                          its dirty flag
  * @info: Pointer to property info container struct
+ * @property_state: Pointer to property state container struct
  * Returns: Valid msm property index on success,
  *          -EAGAIN if no dirty properties are available
  *          Property indicies returned from this function are similar
  *          to those returned by the msm_property_index function.
  */
-int msm_property_pop_dirty(struct msm_property_info *info);
+int msm_property_pop_dirty(struct msm_property_info *info,
+		struct msm_property_state *property_state);
 
 /**
  * msm_property_init - initialize property info structure
@@ -268,38 +291,37 @@ int msm_property_index(struct msm_property_info *info,
 /**
  * msm_property_set_dirty - forcibly flag a property as dirty
  * @info: Pointer to property info container struct
+ * @property_state: Pointer to property state container struct
  * @property_idx: Property index
  * Returns: Zero on success
  */
-int msm_property_set_dirty(struct msm_property_info *info, int property_idx);
+int msm_property_set_dirty(struct msm_property_info *info,
+		struct msm_property_state *property_state,
+		int property_idx);
 
 /**
  * msm_property_atomic_set - helper function for atomic property set callback
  * @info: Pointer to property info container struct
- * @property_values: Pointer to property values cache array
- * @property_blobs: Pointer to property blobs cache array
+ * @property_state: Pointer to local state structure
  * @property: Incoming property pointer
  * @val: Incoming property value
  * Returns: Zero on success
  */
 int msm_property_atomic_set(struct msm_property_info *info,
-		uint64_t *property_values,
-		struct drm_property_blob **property_blobs,
+		struct msm_property_state *property_state,
 		struct drm_property *property,
 		uint64_t val);
 
 /**
  * msm_property_atomic_get - helper function for atomic property get callback
  * @info: Pointer to property info container struct
- * @property_values: Pointer to property values cache array
- * @property_blobs: Pointer to property blobs cache array
+ * @property_state: Pointer to local state structure
  * @property: Incoming property pointer
  * @val: Pointer to variable for receiving property value
  * Returns: Zero on success
  */
 int msm_property_atomic_get(struct msm_property_info *info,
-		uint64_t *property_values,
-		struct drm_property_blob **property_blobs,
+		struct msm_property_state *property_state,
 		struct drm_property *property,
 		uint64_t *val);
 
@@ -313,50 +335,47 @@ void *msm_property_alloc_state(struct msm_property_info *info);
  * msm_property_reset_state - helper function for state reset callback
  * @info: Pointer to property info container struct
  * @state: Pointer to local state structure
+ * @property_state: Pointer to property state container struct
  * @property_values: Pointer to property values cache array
- * @property_blobs: Pointer to property blobs cache array
  */
-void msm_property_reset_state(struct msm_property_info *info,
-		void *state,
-		uint64_t *property_values,
-		struct drm_property_blob **property_blobs);
+void msm_property_reset_state(struct msm_property_info *info, void *state,
+		struct msm_property_state *property_state,
+		struct msm_property_value *property_values);
 
 /**
  * msm_property_duplicate_state - helper function for duplicate state cb
  * @info: Pointer to property info container struct
  * @old_state: Pointer to original state structure
  * @state: Pointer to newly created state structure
+ * @property_state: Pointer to destination property state container struct
  * @property_values: Pointer to property values cache array
- * @property_blobs: Pointer to property blobs cache array
  */
 void msm_property_duplicate_state(struct msm_property_info *info,
 		void *old_state,
 		void *state,
-		uint64_t *property_values,
-		struct drm_property_blob **property_blobs);
+		struct msm_property_state *property_state,
+		struct msm_property_value *property_values);
 
 /**
  * msm_property_destroy_state - helper function for destroy state cb
  * @info: Pointer to property info container struct
  * @state: Pointer to local state structure
- * @property_values: Pointer to property values cache array
- * @property_blobs: Pointer to property blobs cache array
+ * @property_state: Pointer to property state container struct
  */
 void msm_property_destroy_state(struct msm_property_info *info,
 		void *state,
-		uint64_t *property_values,
-		struct drm_property_blob **property_blobs);
+		struct msm_property_state *property_state);
 
 /**
  * msm_property_get_blob - obtain cached data pointer for drm blob property
  * @info: Pointer to property info container struct
- * @property_blobs: Pointer to property blobs cache array
+ * @property_state: Pointer to property state container struct
  * @byte_len: Optional pointer to variable for accepting blob size
  * @property_idx: Property index
  * Returns: Pointer to blob data
  */
 void *msm_property_get_blob(struct msm_property_info *info,
-		struct drm_property_blob **property_blobs,
+		struct msm_property_state *property_state,
 		size_t *byte_len,
 		uint32_t property_idx);
 
@@ -385,13 +404,13 @@ int msm_property_set_blob(struct msm_property_info *info,
  * DRM_MODE_PROP_IMMUTABLE flag set.
  * Note: This function cannot be called on a blob.
  * @info: Pointer to property info container struct
- * @property_values: Pointer to property values cache array
+ * @property_state: Pointer to property state container struct
  * @property_idx: Property index
  * @val: value of the property to set
  * Returns: Zero on success
  */
 int msm_property_set_property(struct msm_property_info *info,
-		uint64_t *property_values,
+		struct msm_property_state *property_state,
 		uint32_t property_idx,
 		uint64_t val);
 

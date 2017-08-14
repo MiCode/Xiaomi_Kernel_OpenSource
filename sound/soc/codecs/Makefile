@@ -162,14 +162,7 @@ snd-soc-wcd9335-objs := wcd9335.o
 snd-soc-wcd934x-objs := wcd934x.o
 snd-soc-wcd9xxx-objs := wcd9xxx-common-v2.o wcd9xxx-resmgr-v2.o \
 			wcdcal-hwdep.o wcd-dsp-mgr.o wcd-dsp-utils.o \
-			wcd9xxx-soc-init.o
-ifeq ($(CONFIG_COMMON_CLK_MSM), y)
-	snd-soc-wcd9xxx-objs += audio-ext-clk.o
-endif
-
-ifeq ($(CONFIG_COMMON_CLK_QCOM), y)
-	snd-soc-wcd9xxx-objs += audio-ext-clk-up.o
-endif
+			wcd9xxx-soc-init.o audio-ext-clk-up.o
 snd-soc-wcd-cpe-objs := wcd_cpe_services.o wcd_cpe_core.o
 snd-soc-wsa881x-objs := wsa881x.o wsa881x-tables.o wsa881x-regmap.o wsa881x-temp-sensor.o
 snd-soc-wcd-mbhc-objs := wcd-mbhc-v2.o
@@ -179,8 +172,6 @@ endif
 ifneq (,$(filter $(CONFIG_SND_SOC_WCD_MBHC_ADC),y m))
 	snd-soc-wcd-mbhc-objs += wcd-mbhc-adc.o
 endif
-snd-soc-wsa881x-analog-objs := wsa881x-analog.o wsa881x-tables-analog.o
-snd-soc-wsa881x-analog-objs += wsa881x-regmap-analog.o wsa881x-irq.o
 snd-soc-wcd-spi-objs := wcd-spi.o
 snd-soc-wl1273-objs := wl1273.o
 snd-soc-wm-adsp-objs := wm_adsp.o
@@ -412,7 +403,6 @@ obj-$(CONFIG_SND_SOC_WCD9XXX) += snd-soc-wcd9xxx.o
 obj-$(CONFIG_SND_SOC_WCD_CPE)   += snd-soc-wcd-cpe.o
 obj-$(CONFIG_SND_SOC_WCD_MBHC)  += snd-soc-wcd-mbhc.o
 obj-$(CONFIG_SND_SOC_WSA881X)	+= snd-soc-wsa881x.o
-obj-$(CONFIG_SND_SOC_WSA881X_ANALOG)	+= snd-soc-wsa881x-analog.o
 obj-$(CONFIG_SND_SOC_WL1273)	+= snd-soc-wl1273.o
 obj-$(CONFIG_SND_SOC_WCD_SPI)  += snd-soc-wcd-spi.o
 obj-$(CONFIG_SND_SOC_WM0010)	+= snd-soc-wm0010.o

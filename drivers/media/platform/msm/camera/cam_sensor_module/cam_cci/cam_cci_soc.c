@@ -27,8 +27,8 @@ int cam_cci_init(struct v4l2_subdev *sd,
 
 	cci_dev = v4l2_get_subdevdata(sd);
 	if (!cci_dev || !c_ctrl) {
-		pr_err("%s:%d failed: invalid params %pK %pK\n", __func__,
-			__LINE__, cci_dev, c_ctrl);
+		CAM_ERR(CAM_CCI, "failed: invalid params %pK %pK",
+			cci_dev, c_ctrl);
 		rc = -EINVAL;
 		return rc;
 	}
@@ -37,19 +37,18 @@ int cam_cci_init(struct v4l2_subdev *sd,
 	base = soc_info->reg_map[0].mem_base;
 
 	if (!soc_info || !base) {
-		pr_err("%s:%d failed: invalid params %pK %pK\n", __func__,
-			__LINE__, soc_info, base);
+		CAM_ERR(CAM_CCI, "failed: invalid params %pK %pK",
+			soc_info, base);
 		rc = -EINVAL;
 		return rc;
 	}
 
-	CDBG("%s:%d Base address %pK\n", __func__, __LINE__, base);
+	CAM_DBG(CAM_CCI, "Base address %pK", base);
 
 	if (cci_dev->ref_count++) {
-		CDBG("%s:%d ref_count %d\n", __func__, __LINE__,
-			cci_dev->ref_count);
+		CAM_DBG(CAM_CCI, "ref_count %d", cci_dev->ref_count);
 		master = c_ctrl->cci_info->cci_i2c_master;
-		CDBG("%s:%d master %d\n", __func__, __LINE__, master);
+		CAM_DBG(CAM_CCI, "master %d", master);
 		if (master < MASTER_MAX && master >= 0) {
 			mutex_lock(&cci_dev->cci_master_info[master].mutex);
 			flush_workqueue(cci_dev->write_wq[master]);
@@ -74,8 +73,7 @@ int cam_cci_init(struct v4l2_subdev *sd,
 				reset_complete,
 				CCI_TIMEOUT);
 			if (rc <= 0)
-				pr_err("%s:%d wait failed %d\n", __func__,
-					__LINE__, rc);
+				CAM_ERR(CAM_CCI, "wait failed %d", rc);
 			mutex_unlock(&cci_dev->cci_master_info[master].mutex);
 		}
 		return 0;
@@ -89,8 +87,7 @@ int cam_cci_init(struct v4l2_subdev *sd,
 	rc = cam_cpas_start(cci_dev->cpas_handle,
 		&ahb_vote, &axi_vote);
 	if (rc != 0) {
-		pr_err("%s:%d CPAS start failed\n",
-			__func__, __LINE__);
+		CAM_ERR(CAM_CCI, "CPAS start failed");
 	}
 	cam_cci_get_clk_rates(cci_dev, c_ctrl);
 
@@ -104,15 +101,13 @@ int cam_cci_init(struct v4l2_subdev *sd,
 	rc = cam_soc_util_enable_platform_resource(soc_info, true,
 		CAM_TURBO_VOTE, true);
 	if (rc < 0) {
-		CDBG("%s:%d request platform resources failed\n", __func__,
-			__LINE__);
+		CAM_DBG(CAM_CCI, "request platform resources failed");
 		goto platform_enable_failed;
 	}
 
 	cci_dev->hw_version = cam_io_r_mb(base +
 		CCI_HW_VERSION_ADDR);
-	CDBG("%s:%d: hw_version = 0x%x\n", __func__, __LINE__,
-		cci_dev->hw_version);
+	CAM_DBG(CAM_CCI, "hw_version = 0x%x", cci_dev->hw_version);
 
 	cci_dev->payload_size =
 		MSM_CCI_WRITE_DATA_PAYLOAD_SIZE_11;
@@ -129,12 +124,11 @@ int cam_cci_init(struct v4l2_subdev *sd,
 					max_queue_size =
 						CCI_I2C_QUEUE_1_SIZE;
 
-			CDBG("%s:%d : CCI Master[%d] :: Q0 : %d Q1 : %d\n",
-				__func__, __LINE__, i,
+			CAM_DBG(CAM_CCI, "CCI Master[%d] :: Q0 : %d Q1 : %d", i
+				, cci_dev->cci_i2c_queue_info[i][j].
+					max_queue_size,
 				cci_dev->cci_i2c_queue_info[i][j].
-				max_queue_size,
-				cci_dev->cci_i2c_queue_info[i][j].
-				max_queue_size);
+					max_queue_size);
 		}
 	}
 
@@ -146,8 +140,7 @@ int cam_cci_init(struct v4l2_subdev *sd,
 		&cci_dev->cci_master_info[MASTER_0].reset_complete,
 		CCI_TIMEOUT);
 	if (rc <= 0) {
-		pr_err("%s:%d wait_for_completion_timeout\n",
-			 __func__, __LINE__);
+		CAM_ERR(CAM_CCI, "wait_for_completion_timeout");
 		if (rc == 0)
 			rc = -ETIMEDOUT;
 		goto reset_complete_failed;
@@ -162,8 +155,7 @@ int cam_cci_init(struct v4l2_subdev *sd,
 
 	for (i = 0; i < MASTER_MAX; i++) {
 		if (!cci_dev->write_wq[i]) {
-			pr_err("%s:%d Failed to flush write wq\n",
-				__func__, __LINE__);
+			CAM_ERR(CAM_CCI, "Failed to flush write wq");
 			rc = -ENOMEM;
 			goto reset_complete_failed;
 		} else {
@@ -251,77 +243,75 @@ static void cam_cci_init_clk_params(struct cci_device *cci_dev)
 				"qcom,i2c_custom_mode");
 
 		rc = of_property_read_u32(src_node, "hw-thigh", &val);
-		CDBG("%s:%d hw-thigh %d, rc %d\n", __func__, __LINE__, val, rc);
+		CAM_DBG(CAM_CCI, "hw-thigh %d, rc %d", val, rc);
 		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_thigh = val;
 			rc = of_property_read_u32(src_node, "hw-tlow",
 				&val);
-			CDBG("%s:%d hw-tlow %d, rc %d\n", __func__, __LINE__,
+			CAM_DBG(CAM_CCI, "hw-tlow %d, rc %d",
 				val, rc);
 		}
 		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_tlow = val;
 			rc = of_property_read_u32(src_node, "hw-tsu-sto",
 				&val);
-			CDBG("%s:%d hw-tsu-sto %d, rc %d\n",
-				__func__, __LINE__, val, rc);
+			CAM_DBG(CAM_CCI, "hw-tsu-sto %d, rc %d",
+				val, rc);
 		}
 		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_tsu_sto = val;
 			rc = of_property_read_u32(src_node, "hw-tsu-sta",
 				&val);
-			CDBG("%s:%d hw-tsu-sta %d, rc %d\n",
-				__func__, __LINE__, val, rc);
+			CAM_DBG(CAM_CCI, "hw-tsu-sta %d, rc %d",
+				val, rc);
 		}
 		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_tsu_sta = val;
 			rc = of_property_read_u32(src_node, "hw-thd-dat",
 				&val);
-			CDBG("%s:%d hw-thd-dat %d, rc %d\n",
-				__func__, __LINE__, val, rc);
+			CAM_DBG(CAM_CCI, "hw-thd-dat %d, rc %d",
+				val, rc);
 		}
 		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_thd_dat = val;
 			rc = of_property_read_u32(src_node, "hw-thd-sta",
 				&val);
-			CDBG("%s:%d hw-thd-sta %d, rc %d\n", __func__, __LINE__,
+			CAM_DBG(CAM_CCI, "hw-thd-sta %d, rc %d",
 				val, rc);
 		}
 		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_thd_sta = val;
 			rc = of_property_read_u32(src_node, "hw-tbuf",
 				&val);
-			CDBG("%s:%d hw-tbuf %d, rc %d\n", __func__, __LINE__,
+			CAM_DBG(CAM_CCI, "hw-tbuf %d, rc %d",
 				val, rc);
 		}
 		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_tbuf = val;
 			rc = of_property_read_u32(src_node,
 				"hw-scl-stretch-en", &val);
-			CDBG("%s:%d hw-scl-stretch-en %d, rc %d\n",
-				__func__, __LINE__, val, rc);
+			CAM_DBG(CAM_CCI, "hw-scl-stretch-en %d, rc %d",
+				val, rc);
 		}
 		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_scl_stretch_en = val;
 			rc = of_property_read_u32(src_node, "hw-trdhld",
 				&val);
-			CDBG("%s:%d hw-trdhld %d, rc %d\n",
-				__func__, __LINE__, val, rc);
+			CAM_DBG(CAM_CCI, "hw-trdhld %d, rc %d",
+				val, rc);
 		}
 		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_trdhld = val;
 			rc = of_property_read_u32(src_node, "hw-tsp",
 				&val);
-			CDBG("%s:%d hw-tsp %d, rc %d\n", __func__, __LINE__,
-				val, rc);
+			CAM_DBG(CAM_CCI, "hw-tsp %d, rc %d", val, rc);
 		}
 		if (!rc) {
 			cci_dev->cci_clk_params[count].hw_tsp = val;
 			val = 0;
 			rc = of_property_read_u32(src_node, "cci-clk-src",
 				&val);
-			CDBG("%s:%d cci-clk-src %d, rc %d\n",
-				__func__, __LINE__, val, rc);
+			CAM_DBG(CAM_CCI, "cci-clk-src %d, rc %d", val, rc);
 			cci_dev->cci_clk_params[count].cci_clk_src = val;
 		} else
 			cam_cci_init_default_clk_params(cci_dev, count);
@@ -339,8 +329,7 @@ int cam_cci_parse_dt_info(struct platform_device *pdev,
 
 	rc = cam_soc_util_get_dt_properties(soc_info);
 	if (rc < 0) {
-		pr_err("%s:%d :Error: Parsing DT data failed:%d\n",
-			__func__, __LINE__, rc);
+		CAM_ERR(CAM_CCI, "Parsing DT data failed:%d", rc);
 		return -EINVAL;
 	}
 
@@ -349,8 +338,7 @@ int cam_cci_parse_dt_info(struct platform_device *pdev,
 	rc = cam_soc_util_request_platform_resource(soc_info,
 		cam_cci_irq, new_cci_dev);
 	if (rc < 0) {
-		pr_err("%s:%d :Error: requesting platform resources failed:%d\n",
-			__func__, __LINE__, rc);
+		CAM_ERR(CAM_CCI, "requesting platform resources failed:%d", rc);
 		return -EINVAL;
 	}
 	new_cci_dev->v4l2_dev_str.pdev = pdev;
@@ -359,17 +347,15 @@ int cam_cci_parse_dt_info(struct platform_device *pdev,
 
 	rc = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
 	if (rc)
-		pr_err("%s:%d failed to add child nodes, rc=%d\n",
-			__func__, __LINE__, rc);
+		CAM_ERR(CAM_CCI, "failed to add child nodes, rc=%d", rc);
 
 	for (i = 0; i < MASTER_MAX; i++) {
 		new_cci_dev->write_wq[i] = create_singlethread_workqueue(
 			"cam_cci_wq");
 		if (!new_cci_dev->write_wq[i])
-			pr_err("%s:%d Failed to create write wq\n",
-				__func__, __LINE__);
+			CAM_ERR(CAM_CCI, "Failed to create write wq");
 	}
-	CDBG("%s line %d\n", __func__, __LINE__);
+	CAM_DBG(CAM_CCI, "Exit");
 	return 0;
 }
 
@@ -380,13 +366,12 @@ int cam_cci_soc_release(struct cci_device *cci_dev)
 		&cci_dev->soc_info;
 
 	if (!cci_dev->ref_count || cci_dev->cci_state != CCI_STATE_ENABLED) {
-		pr_err("%s:%d invalid ref count %d / cci state %d\n", __func__,
-			__LINE__, cci_dev->ref_count, cci_dev->cci_state);
+		CAM_ERR(CAM_CCI, "invalid ref count %d / cci state %d",
+			cci_dev->ref_count, cci_dev->cci_state);
 		return -EINVAL;
 	}
 	if (--cci_dev->ref_count) {
-		CDBG("%s:%d ref_count Exit %d\n", __func__, __LINE__,
-			cci_dev->ref_count);
+		CAM_DBG(CAM_CCI, "ref_count Exit %d", cci_dev->ref_count);
 		return 0;
 	}
 	for (i = 0; i < MASTER_MAX; i++)
@@ -398,8 +383,8 @@ int cam_cci_soc_release(struct cci_device *cci_dev)
 
 	rc = cam_soc_util_disable_platform_resource(soc_info, true, true);
 	if (rc) {
-		pr_err("%s:%d: platform resources disable failed, rc=%d\n",
-			__func__, __LINE__, rc);
+		CAM_ERR(CAM_CCI, "platform resources disable failed, rc=%d",
+			rc);
 		return rc;
 	}
 

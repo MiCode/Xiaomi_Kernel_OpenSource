@@ -14,6 +14,29 @@
 #include "cam_csiphy_core.h"
 #include "include/cam_csiphy_1_0_hwreg.h"
 
+#ifdef CAM_CSIPHY_MEM_DMP
+int32_t cam_csiphy_mem_dmp(struct cam_hw_soc_info *soc_info)
+{
+	int32_t rc = 0;
+	resource_size_t size = 0;
+	void __iomem *addr = NULL;
+
+	if (!soc_info) {
+		rc = -EINVAL;
+		CAM_ERR(CAM_CSIPHY, "invalid input %d", rc);
+		return rc;
+	}
+	addr = soc_info->reg_map[0].mem_base;
+	size = resource_size(soc_info->mem_block[0]);
+	rc = cam_io_dump(addr, 0, (size >> 2));
+	if (rc < 0) {
+		CAM_ERR(CAM_CSIPHY, "generating dump failed %d", rc);
+		return rc;
+	}
+	return rc;
+}
+#endif
+
 int32_t cam_csiphy_enable_hw(struct csiphy_device *csiphy_dev)
 {
 	int32_t rc = 0;
@@ -22,16 +45,16 @@ int32_t cam_csiphy_enable_hw(struct csiphy_device *csiphy_dev)
 	soc_info = &csiphy_dev->soc_info;
 
 	if (csiphy_dev->ref_count++) {
-		pr_err("%s:%d csiphy refcount = %d\n", __func__,
-			__LINE__, csiphy_dev->ref_count);
+		CAM_ERR(CAM_CSIPHY, "csiphy refcount = %d",
+			csiphy_dev->ref_count);
 		return rc;
 	}
 
 	rc = cam_soc_util_enable_platform_resource(soc_info, true,
 		CAM_TURBO_VOTE, ENABLE_IRQ);
 	if (rc < 0) {
-		pr_err("%s:%d failed to enable platform resources %d\n",
-			__func__, __LINE__, rc);
+		CAM_ERR(CAM_CSIPHY, "failed to enable platform resources %d",
+			rc);
 		return rc;
 	}
 
@@ -41,8 +64,7 @@ int32_t cam_csiphy_enable_hw(struct csiphy_device *csiphy_dev)
 		soc_info->clk_rate[0][csiphy_dev->csiphy_clk_index]);
 
 	if (rc < 0) {
-		pr_err("%s:%d csiphy_clk_set_rate failed\n",
-			__func__, __LINE__);
+		CAM_ERR(CAM_CSIPHY, "csiphy_clk_set_rate failed rc: %d", rc);
 		goto csiphy_disable_platform_resource;
 	}
 
@@ -62,15 +84,14 @@ int32_t cam_csiphy_disable_hw(struct csiphy_device *csiphy_dev)
 	struct cam_hw_soc_info   *soc_info;
 
 	if (!csiphy_dev || !csiphy_dev->ref_count) {
-		pr_err("%s:%d csiphy dev NULL / ref_count ZERO\n", __func__,
-			__LINE__);
+		CAM_ERR(CAM_CSIPHY, "csiphy dev NULL / ref_count ZERO");
 		return 0;
 	}
 	soc_info = &csiphy_dev->soc_info;
 
 	if (--csiphy_dev->ref_count) {
-		pr_err("%s:%d csiphy refcount = %d\n", __func__,
-			__LINE__, csiphy_dev->ref_count);
+		CAM_ERR(CAM_CSIPHY, "csiphy refcount = %d",
+			csiphy_dev->ref_count);
 		return 0;
 	}
 
@@ -95,8 +116,7 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 
 	rc = cam_soc_util_get_dt_properties(soc_info);
 	if (rc < 0) {
-		pr_err("%s:%d :Error: parsing common soc dt(rc %d)\n",
-			 __func__, __LINE__, rc);
+		CAM_ERR(CAM_CSIPHY, "parsing common soc dt(rc %d)", rc);
 		return  rc;
 	}
 
@@ -117,15 +137,15 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 		csiphy_dev->is_csiphy_3phase_hw = CSI_3PHASE_HW;
 		csiphy_dev->clk_lane = 0;
 	} else {
-		pr_err("%s:%d, invalid hw version : 0x%x\n", __func__, __LINE__,
-		csiphy_dev->hw_version);
+		CAM_ERR(CAM_CSIPHY, "invalid hw version : 0x%x",
+			csiphy_dev->hw_version);
 		rc =  -EINVAL;
 		return rc;
 	}
 
 	if (soc_info->num_clk > CSIPHY_NUM_CLK_MAX) {
-		pr_err("%s:%d invalid clk count=%d, max is %d\n", __func__,
-			__LINE__, soc_info->num_clk, CSIPHY_NUM_CLK_MAX);
+		CAM_ERR(CAM_CSIPHY, "invalid clk count=%d, max is %d",
+			soc_info->num_clk, CSIPHY_NUM_CLK_MAX);
 		return -EINVAL;
 	}
 	for (i = 0; i < soc_info->num_clk; i++) {
@@ -155,7 +175,7 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 			soc_info->clk_rate[0][clk_cnt];
 			csiphy_dev->csiphy_clk_index = clk_cnt;
 		}
-		CDBG("%s:%d clk_rate[%d] = %d\n", __func__, __LINE__, clk_cnt,
+		CAM_DBG(CAM_CSIPHY, "clk_rate[%d] = %d", clk_cnt,
 			soc_info->clk_rate[0][clk_cnt]);
 		clk_cnt++;
 	}
@@ -168,7 +188,7 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 int32_t cam_csiphy_soc_release(struct csiphy_device *csiphy_dev)
 {
 	if (!csiphy_dev) {
-		pr_err("%s:%d csiphy dev NULL\n", __func__, __LINE__);
+		CAM_ERR(CAM_CSIPHY, "csiphy dev NULL");
 		return 0;
 	}
 

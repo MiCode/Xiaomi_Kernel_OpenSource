@@ -2,7 +2,7 @@ Qualcomm Technologies, Inc. Always On Processor Clock controller Binding
 ------------------------------------------------------------------------
 
 Required properties :
-- compatible : must be "qcom,aop-qmp-clk"
+- compatible : must be "qcom,aop-qmp-clk-v1" or "qcom,aop-qmp-clk-v2".
 - #clock-cells : must contain 1
 - mboxes : list of QMP mailbox phandle and channel identifier tuples.
 - mbox-names: List of identifier strings for each mailbox channel.
@@ -10,7 +10,7 @@ Required properties :
 
 Example :
 	clock_qdss: qcom,aopclk {
-		compatible = "qcom,aop-qmp-clk";
+		compatible = "qcom,aop-qmp-clk-v1";
 		#clock-cells = <1>;
 		mboxes = <&qmp_aop 0>;
 		mbox-names = "qdss_clk";

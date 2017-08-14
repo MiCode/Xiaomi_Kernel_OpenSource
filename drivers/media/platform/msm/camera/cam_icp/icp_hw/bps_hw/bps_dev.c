@@ -23,9 +23,7 @@
 #include "cam_icp_hw_intf.h"
 #include "cam_icp_hw_mgr_intf.h"
 #include "cam_cpas_api.h"
-
-#undef CDBG
-#define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#include "cam_debug_util.h"
 
 struct cam_bps_device_hw_info cam_bps_hw_info = {
 	.reserved = 0,
@@ -47,7 +45,7 @@ int cam_bps_register_cpas(struct cam_hw_soc_info *soc_info,
 
 	rc = cam_cpas_register_client(&cpas_register_params);
 	if (rc < 0) {
-		pr_err("cam_cpas_register_client is failed: %d\n", rc);
+		CAM_ERR(CAM_ICP, "failed: %d", rc);
 		return rc;
 	}
 	core_info->cpas_handle = cpas_register_params.client_handle;
@@ -95,7 +93,7 @@ int cam_bps_probe(struct platform_device *pdev)
 	match_dev = of_match_device(pdev->dev.driver->of_match_table,
 		&pdev->dev);
 	if (!match_dev) {
-		pr_err("%s: No bps hardware info\n", __func__);
+		CAM_ERR(CAM_ICP, "No bps hardware info");
 		kfree(bps_dev->core_info);
 		kfree(bps_dev);
 		kfree(bps_dev_intf);
@@ -108,13 +106,13 @@ int cam_bps_probe(struct platform_device *pdev)
 	rc = cam_bps_init_soc_resources(&bps_dev->soc_info, cam_bps_irq,
 		bps_dev);
 	if (rc < 0) {
-		pr_err("%s: failed to init_soc\n", __func__);
+		CAM_ERR(CAM_ICP, "failed to init_soc");
 		kfree(bps_dev->core_info);
 		kfree(bps_dev);
 		kfree(bps_dev_intf);
 		return rc;
 	}
-	pr_debug("cam_bps_init_soc_resources : %pK\n",
+	CAM_DBG(CAM_ICP, "soc info : %pK",
 		(void *)&bps_dev->soc_info);
 
 	rc = cam_bps_register_cpas(&bps_dev->soc_info,
@@ -129,7 +127,7 @@ int cam_bps_probe(struct platform_device *pdev)
 	mutex_init(&bps_dev->hw_mutex);
 	spin_lock_init(&bps_dev->hw_lock);
 	init_completion(&bps_dev->hw_complete);
-	pr_debug("%s: BPS%d probe successful\n", __func__,
+	CAM_DBG(CAM_ICP, "BPS%d probe successful",
 		bps_dev_intf->hw_idx);
 
 	return rc;

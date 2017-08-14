@@ -68,6 +68,18 @@
 #define IPAERR(fmt, args...) \
 	pr_err(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 
+#define IPAERR_RL(fmt, args...) \
+	do { \
+		pr_err_ratelimited(DRV_NAME " %s:%d " fmt, __func__, \
+		__LINE__, ## args);\
+		if (ipa_ctx) { \
+			IPA_IPC_LOGGING(ipa_ctx->logbuf, \
+				DRV_NAME " %s:%d " fmt, ## args); \
+			IPA_IPC_LOGGING(ipa_ctx->logbuf_low, \
+				DRV_NAME " %s:%d " fmt, ## args); \
+		} \
+	} while (0)
+
 #define WLAN_AMPDU_TX_EP 15
 #define WLAN_PROD_TX_EP  19
 #define WLAN1_CONS_RX_EP  14
@@ -1520,6 +1532,8 @@ int ipa2_setup_uc_ntn_pipes(struct ipa_ntn_conn_in_params *inp,
 		ipa_notify_cb notify, void *priv, u8 hdr_len,
 		struct ipa_ntn_conn_out_params *outp);
 int ipa2_tear_down_uc_offload_pipes(int ipa_ep_idx_ul, int ipa_ep_idx_dl);
+int ipa2_ntn_uc_reg_rdyCB(void (*ipauc_ready_cb)(void *), void *priv);
+void ipa2_ntn_uc_dereg_rdyCB(void);
 
 /*
  * To retrieve doorbell physical address of
@@ -1727,9 +1741,6 @@ static inline void ipa_write_reg(void *base, u32 offset, u32 val)
 {
 	iowrite32(val, base + offset);
 }
-
-int ipa_bridge_init(void);
-void ipa_bridge_cleanup(void);
 
 ssize_t ipa_read(struct file *filp, char __user *buf, size_t count,
 		 loff_t *f_pos);

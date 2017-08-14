@@ -347,6 +347,14 @@ static int msm_vidc_initialize_core(struct platform_device *pdev,
 	}
 
 	INIT_DELAYED_WORK(&core->fw_unload_work, msm_vidc_fw_unload_handler);
+
+	mutex_lock(&core->lock);
+	core->vote_data = kcalloc(MAX_SUPPORTED_INSTANCES,
+		sizeof(*core->vote_data), GFP_KERNEL);
+	if (!core->vote_data)
+		dprintk(VIDC_ERR, "%s: failed to allocate memory\n", __func__);
+	mutex_unlock(&core->lock);
+
 	return rc;
 }
 

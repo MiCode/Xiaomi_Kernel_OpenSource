@@ -121,13 +121,37 @@ static void msm_fb_output_poll_changed(struct drm_device *dev)
 		msm_drm_helper_hotplug_event(dev);
 }
 
+/**
+ * msm_atomic_helper_check - validate state object
+ * @dev: DRM device
+ * @state: the driver state object
+ *
+ * This is a wrapper for the drm_atomic_helper_check to check the modeset
+ * and state checking for planes. Additionally it checks if any secure
+ * transition(moving CRTC and planes between secure and non-secure states and
+ * vice versa) is allowed or not. When going to secure state, planes
+ * with fb_mode as dir translated only can be staged on the CRTC, and only one
+ * CRTC should be active.
+ * Also mixing of secure and non-secure is not allowed.
+ *
+ * RETURNS
+ * Zero for success or -errorno.
+ */
 int msm_atomic_check(struct drm_device *dev,
 			    struct drm_atomic_state *state)
 {
+	struct msm_drm_private *priv;
+
 	if (msm_is_suspend_blocked(dev)) {
 		DRM_DEBUG("rejecting commit during suspend\n");
 		return -EBUSY;
 	}
+
+	priv = dev->dev_private;
+	if (priv && priv->kms && priv->kms->funcs &&
+			priv->kms->funcs->atomic_check)
+		return priv->kms->funcs->atomic_check(priv->kms, state);
+
 	return drm_atomic_helper_check(dev, state);
 }
 
