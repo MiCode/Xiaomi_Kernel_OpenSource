@@ -1,0 +1,13 @@
+Qualcomm Technologies, Inc. SDE KMS HYP
+
+Snapdragon Display Engine registers with the Linux DRM/KMS framework to
+facilitate DRM driver creation, publishing /dev/dri/card0, and sending
+VBlank and Page Flip events to User Space listeners.
+
+Required properties
+- compatible: Must be "qcom,sde-kms-hyp"
+
+Example:
+	sde_kms_hyp: qcom,sde_kms_hyp@900000 {
+		compatible = "qcom,sde-kms-hyp";
+	};
