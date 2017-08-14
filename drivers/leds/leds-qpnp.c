@@ -875,6 +875,14 @@ static int qpnp_mpp_set(struct qpnp_led_data *led)
 		}
 		if (led->mpp_cfg->pwm_mode == PWM_MODE) {
 			/*config pwm for brightness scaling*/
+			rc = pwm_change_mode(led->mpp_cfg->pwm_cfg->pwm_dev,
+					PM_PWM_MODE_PWM);
+			if (rc < 0) {
+				dev_err(&led->pdev->dev,
+					"Failed to set PWM mode, rc = %d\n",
+					rc);
+				return rc;
+			}
 			period_us = led->mpp_cfg->pwm_cfg->pwm_period_us;
 			if (period_us > INT_MAX / NSEC_PER_USEC) {
 				duty_us = (period_us * led->cdev.brightness) /
@@ -1581,6 +1589,14 @@ static int qpnp_kpdbl_set(struct qpnp_led_data *led)
 		}
 
 		if (led->kpdbl_cfg->pwm_cfg->mode == PWM_MODE) {
+			rc = pwm_change_mode(led->kpdbl_cfg->pwm_cfg->pwm_dev,
+					PM_PWM_MODE_PWM);
+			if (rc < 0) {
+				dev_err(&led->pdev->dev,
+					"Failed to set PWM mode, rc = %d\n",
+					rc);
+				return rc;
+			}
 			period_us = led->kpdbl_cfg->pwm_cfg->pwm_period_us;
 			if (period_us > INT_MAX / NSEC_PER_USEC) {
 				duty_us = (period_us * led->cdev.brightness) /
@@ -1702,6 +1718,14 @@ static int qpnp_rgb_set(struct qpnp_led_data *led)
 			led->rgb_cfg->pwm_cfg->mode =
 				led->rgb_cfg->pwm_cfg->default_mode;
 		if (led->rgb_cfg->pwm_cfg->mode == PWM_MODE) {
+			rc = pwm_change_mode(led->rgb_cfg->pwm_cfg->pwm_dev,
+					PM_PWM_MODE_PWM);
+			if (rc < 0) {
+				dev_err(&led->pdev->dev,
+					"Failed to set PWM mode, rc = %d\n",
+					rc);
+				return rc;
+			}
 			period_us = led->rgb_cfg->pwm_cfg->pwm_period_us;
 			if (period_us > INT_MAX / NSEC_PER_USEC) {
 				duty_us = (period_us * led->cdev.brightness) /
@@ -2134,6 +2158,11 @@ static int qpnp_pwm_init(struct pwm_config_data *pwm_cfg,
 				pwm_cfg->lut_params);
 			if (rc < 0) {
 				dev_err(&pdev->dev, "Failed to configure pwm LUT\n");
+				return rc;
+			}
+			rc = pwm_change_mode(pwm_cfg->pwm_dev, PM_PWM_MODE_LPG);
+			if (rc < 0) {
+				dev_err(&pdev->dev, "Failed to set LPG mode\n");
 				return rc;
 			}
 		}
