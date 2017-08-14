@@ -457,4 +457,41 @@
 			    <86 512 500 800>;
 		status = "disabled";
 	};
+
+	blsp1_uart4b_hs: uart@78B2000 { /* BLSP1 UART4b */
+		compatible = "qcom,msm-hsuart-v14";
+		reg = <0x78B2000 0x200>,
+		    <0x7884000 0x23000>;
+		reg-names = "core_mem", "bam_mem";
+		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&blsp1_uart4_hs>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 110 0
+			    1 &intc 0 238 0
+			    2 &tlmm_pinmux 17 0>;
+
+		qcom,inject-rx-on-wakeup;
+		qcom,rx-char-to-inject = <0xFD>;
+
+		qcom,bam-tx-ep-pipe-index = <6>;
+		qcom,bam-rx-ep-pipe-index = <7>;
+		qcom,master-id = <86>;
+		clock-names = "core_clk", "iface_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_uart4_apps_clk>,
+		    <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		pinctrl-names = "sleep", "default";
+		pinctrl-0 = <&blsp1_uart4b_sleep>;
+		pinctrl-1 = <&blsp1_uart4b_active>;
+
+		qcom,msm-bus,name = "buart4b";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			    <86 512 0 0>,
+			    <86 512 500 800>;
+		status = "disabled";
+	};
 };
