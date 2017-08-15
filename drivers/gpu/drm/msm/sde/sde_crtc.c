@@ -2803,7 +2803,7 @@ static int _sde_crtc_check_secure_state(struct drm_crtc *crtc,
 	 */
 	if (((secure == SDE_DRM_SEC_ONLY) &&
 				(fb_ns || fb_sec || fb_sec_dir)) ||
-			(fb_sec || fb_sec_dir)) {
+			(fb_sec && fb_sec_dir)) {
 		SDE_ERROR(
 			"crtc%d: invalid planes fb_modes Sec:%d, NS:%d, Sec_Dir:%d, NS_Dir%d\n",
 				crtc->base.id,
