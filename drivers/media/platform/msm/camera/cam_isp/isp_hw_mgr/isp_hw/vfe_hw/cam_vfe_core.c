@@ -556,6 +556,7 @@ int cam_vfe_process_cmd(void *hw_priv, uint32_t cmd_type,
 
 		break;
 	case CAM_VFE_HW_CMD_GET_BUF_UPDATE:
+	case CAM_VFE_HW_CMD_GET_HFR_UPDATE:
 		rc = core_info->vfe_bus->hw_ops.process_cmd(
 			core_info->vfe_bus->bus_priv, cmd_type, cmd_args,
 			arg_size);
