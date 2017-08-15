@@ -900,6 +900,24 @@ static void sde_encoder_phys_cmd_prepare_idle_pc(
 	_sde_encoder_phys_cmd_connect_te(phys_enc, false);
 }
 
+static int sde_encoder_phys_cmd_get_line_count(
+		struct sde_encoder_phys *phys_enc)
+{
+	struct sde_hw_pingpong *hw_pp;
+
+	if (!phys_enc || !phys_enc->hw_pp)
+		return -EINVAL;
+
+	if (!sde_encoder_phys_cmd_is_master(phys_enc))
+		return -EINVAL;
+
+	hw_pp = phys_enc->hw_pp;
+	if (!hw_pp->ops.get_line_count)
+		return -EINVAL;
+
+	return hw_pp->ops.get_line_count(hw_pp);
+}
+
 static void sde_encoder_phys_cmd_disable(struct sde_encoder_phys *phys_enc)
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
@@ -1246,6 +1264,7 @@ static void sde_encoder_phys_cmd_init_ops(
 	ops->is_autorefresh_enabled =
 			sde_encoder_phys_cmd_is_autorefresh_enabled;
 	ops->handle_post_kickoff = sde_encoder_phys_cmd_handle_post_kickoff;
+	ops->get_line_count = sde_encoder_phys_cmd_get_line_count;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_cmd_init(

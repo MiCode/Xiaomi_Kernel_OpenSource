@@ -64,6 +64,7 @@ struct sde_hw_dsc_cfg {
  *  @enable_dsc : enables DSC encoder
  *  @disable_dsc : disables DSC encoder
  *  @setup_dither : function to program the dither hw block
+ *  @get_line_count: obtain current vertical line counter
  */
 struct sde_hw_pingpong_ops {
 	/**
@@ -130,6 +131,11 @@ struct sde_hw_pingpong_ops {
 	 * Program the dither hw block
 	 */
 	int (*setup_dither)(struct sde_hw_pingpong *pp, void *cfg, size_t len);
+
+	/**
+	 * Obtain current vertical line counter
+	 */
+	u32 (*get_line_count)(struct sde_hw_pingpong *pp);
 };
 
 struct sde_hw_pingpong {

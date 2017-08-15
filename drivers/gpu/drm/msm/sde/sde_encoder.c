@@ -179,6 +179,7 @@ enum sde_enc_rc_states {
  * @crtc_frame_event_cb_data:	callback handler private data
  * @frame_done_timeout:		frame done timeout in Hz
  * @frame_done_timer:		watchdog timer for frame done event
+ * @vsync_event_timer:		vsync timer
  * @rsc_client:			rsc client pointer
  * @rsc_state_init:		boolean to indicate rsc config init
  * @disp_info:			local copy of msm_display_info struct
@@ -191,6 +192,7 @@ enum sde_enc_rc_states {
  * @rc_state:			resource controller state
  * @delayed_off_work:		delayed worker to schedule disabling of
  *				clks and resources after IDLE_TIMEOUT time.
+ * @vsync_event_work:		worker to handle vsync event for autorefresh
  * @topology:                   topology of the display
  * @mode_set_complete:          flag to indicate modeset completion
  * @rsc_config:			rsc configuration for display vtotal, fps, etc.
@@ -224,6 +226,7 @@ struct sde_encoder_virt {
 
 	atomic_t frame_done_timeout;
 	struct timer_list frame_done_timer;
+	struct timer_list vsync_event_timer;
 
 	struct sde_rsc_client *rsc_client;
 	bool rsc_state_init;
@@ -236,6 +239,7 @@ struct sde_encoder_virt {
 	struct mutex rc_lock;
 	enum sde_enc_rc_states rc_state;
 	struct kthread_delayed_work delayed_off_work;
+	struct kthread_work vsync_event_work;
 	struct msm_display_topology topology;
 	bool mode_set_complete;
 
@@ -2844,6 +2848,165 @@ static void _sde_encoder_setup_dither(struct sde_encoder_phys *phys)
 		phys->hw_pp->ops.setup_dither(phys->hw_pp, dither_cfg, len);
 }
 
+static u32 _sde_encoder_calculate_linetime(struct sde_encoder_virt *sde_enc,
+		struct drm_display_mode *mode)
+{
+	u64 pclk_rate;
+	u32 pclk_period;
+	u32 line_time;
+
+	/*
+	 * For linetime calculation, only operate on master encoder.
+	 */
+	if (!sde_enc->cur_master)
+		return 0;
+
+	if (!sde_enc->cur_master->ops.get_line_count) {
+		SDE_ERROR("get_line_count function not defined\n");
+		return 0;
+	}
+
+	pclk_rate = mode->clock; /* pixel clock in kHz */
+	if (pclk_rate == 0) {
+		SDE_ERROR("pclk is 0, cannot calculate line time\n");
+		return 0;
+	}
+
+	pclk_period = DIV_ROUND_UP_ULL(1000000000ull, pclk_rate);
+	if (pclk_period == 0) {
+		SDE_ERROR("pclk period is 0\n");
+		return 0;
+	}
+
+	/*
+	 * Line time calculation based on Pixel clock and HTOTAL.
+	 * Final unit is in ns.
+	 */
+	line_time = (pclk_period * mode->htotal) / 1000;
+	if (line_time == 0) {
+		SDE_ERROR("line time calculation is 0\n");
+		return 0;
+	}
+
+	SDE_DEBUG_ENC(sde_enc,
+			"clk_rate=%lldkHz, clk_period=%d, linetime=%dns\n",
+			pclk_rate, pclk_period, line_time);
+
+	return line_time;
+}
+
+static int _sde_encoder_wakeup_time(struct drm_encoder *drm_enc,
+		ktime_t *wakeup_time)
+{
+	struct drm_display_mode *mode;
+	struct sde_encoder_virt *sde_enc;
+	u32 cur_line;
+	u32 line_time;
+	u32 vtotal, time_to_vsync;
+	ktime_t cur_time;
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+
+	if (!drm_enc->crtc || !drm_enc->crtc->state) {
+		SDE_ERROR("crtc/crtc state object is NULL\n");
+		return -EINVAL;
+	}
+	mode = &drm_enc->crtc->state->adjusted_mode;
+
+	line_time = _sde_encoder_calculate_linetime(sde_enc, mode);
+	if (!line_time)
+		return -EINVAL;
+
+	cur_line = sde_enc->cur_master->ops.get_line_count(sde_enc->cur_master);
+
+	vtotal = mode->vtotal;
+	if (cur_line >= vtotal)
+		time_to_vsync = line_time * vtotal;
+	else
+		time_to_vsync = line_time * (vtotal - cur_line);
+
+	if (time_to_vsync == 0) {
+		SDE_ERROR("time to vsync should not be zero, vtotal=%d\n",
+				vtotal);
+		return -EINVAL;
+	}
+
+	cur_time = ktime_get();
+	*wakeup_time = ktime_add_ns(cur_time, time_to_vsync);
+
+	SDE_DEBUG_ENC(sde_enc,
+			"cur_line=%u vtotal=%u time_to_vsync=%u, cur_time=%lld, wakeup_time=%lld\n",
+			cur_line, vtotal, time_to_vsync,
+			ktime_to_ms(cur_time),
+			ktime_to_ms(*wakeup_time));
+	return 0;
+}
+
+static void sde_encoder_vsync_event_handler(unsigned long data)
+{
+	struct drm_encoder *drm_enc = (struct drm_encoder *) data;
+	struct sde_encoder_virt *sde_enc;
+	struct msm_drm_private *priv;
+	struct msm_drm_thread *event_thread;
+	bool autorefresh_enabled = false;
+
+	if (!drm_enc || !drm_enc->dev || !drm_enc->dev->dev_private ||
+			!drm_enc->crtc) {
+		SDE_ERROR("invalid parameters\n");
+		return;
+	}
+
+	sde_enc = to_sde_encoder_virt(drm_enc);
+	priv = drm_enc->dev->dev_private;
+
+	if (drm_enc->crtc->index >= ARRAY_SIZE(priv->event_thread)) {
+		SDE_ERROR("invalid crtc index\n");
+		return;
+	}
+	event_thread = &priv->event_thread[drm_enc->crtc->index];
+	if (!event_thread) {
+		SDE_ERROR("event_thread not found for crtc:%d\n",
+				drm_enc->crtc->index);
+		return;
+	}
+
+	if (sde_enc->cur_master &&
+		sde_enc->cur_master->ops.is_autorefresh_enabled)
+		autorefresh_enabled =
+			sde_enc->cur_master->ops.is_autorefresh_enabled(
+						sde_enc->cur_master);
+
+	/*
+	 * Queue work to update the vsync event timer
+	 * if autorefresh is enabled.
+	 */
+	SDE_EVT32_VERBOSE(autorefresh_enabled);
+	if (autorefresh_enabled)
+		kthread_queue_work(&event_thread->worker,
+				&sde_enc->vsync_event_work);
+	else
+		del_timer(&sde_enc->vsync_event_timer);
+}
+
+static void sde_encoder_vsync_event_work_handler(struct kthread_work *work)
+{
+	struct sde_encoder_virt *sde_enc = container_of(work,
+			struct sde_encoder_virt, vsync_event_work);
+	ktime_t wakeup_time;
+
+	if (!sde_enc) {
+		SDE_ERROR("invalid sde encoder\n");
+		return;
+	}
+
+	if (_sde_encoder_wakeup_time(&sde_enc->base, &wakeup_time))
+		return;
+
+	SDE_EVT32_VERBOSE(ktime_to_ms(wakeup_time));
+	mod_timer(&sde_enc->vsync_event_timer,
+			nsecs_to_jiffies(ktime_to_ns(wakeup_time)));
+}
+
 void sde_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc,
 		struct sde_encoder_kickoff_params *params)
 {
@@ -2911,6 +3074,7 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc)
 {
 	struct sde_encoder_virt *sde_enc;
 	struct sde_encoder_phys *phys;
+	ktime_t wakeup_time;
 	unsigned int i;
 
 	if (!drm_enc) {
@@ -2937,6 +3101,14 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc)
 		if (phys && phys->ops.handle_post_kickoff)
 			phys->ops.handle_post_kickoff(phys);
 	}
+
+	if (sde_enc->disp_info.intf_type == DRM_MODE_CONNECTOR_DSI &&
+			!_sde_encoder_wakeup_time(drm_enc, &wakeup_time)) {
+		SDE_EVT32_VERBOSE(ktime_to_ms(wakeup_time));
+		mod_timer(&sde_enc->vsync_event_timer,
+				nsecs_to_jiffies(ktime_to_ns(wakeup_time)));
+	}
+
 	SDE_ATRACE_END("encoder_kickoff");
 }
 
@@ -3555,6 +3727,12 @@ struct drm_encoder *sde_encoder_init(
 	setup_timer(&sde_enc->frame_done_timer, sde_encoder_frame_done_timeout,
 			(unsigned long) sde_enc);
 
+	if ((disp_info->intf_type == DRM_MODE_CONNECTOR_DSI) &&
+			disp_info->is_primary)
+		setup_timer(&sde_enc->vsync_event_timer,
+				sde_encoder_vsync_event_handler,
+				(unsigned long)sde_enc);
+
 	snprintf(name, SDE_NAME_SIZE, "rsc_enc%u", drm_enc->base.id);
 	sde_enc->rsc_client = sde_rsc_client_create(SDE_RSC_INDEX, name,
 					disp_info->is_primary);
@@ -3568,6 +3746,10 @@ struct drm_encoder *sde_encoder_init(
 	kthread_init_delayed_work(&sde_enc->delayed_off_work,
 			sde_encoder_off_work);
 	sde_enc->idle_timeout = IDLE_TIMEOUT;
+
+	kthread_init_work(&sde_enc->vsync_event_work,
+			sde_encoder_vsync_event_work_handler);
+
 	memcpy(&sde_enc->disp_info, disp_info, sizeof(*disp_info));
 
 	SDE_DEBUG_ENC(sde_enc, "created\n");

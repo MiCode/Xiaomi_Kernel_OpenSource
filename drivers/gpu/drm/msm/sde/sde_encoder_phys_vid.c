@@ -905,6 +905,24 @@ static u32 sde_encoder_phys_vid_collect_misr(struct sde_encoder_phys *phys_enc)
 		vid_enc->hw_intf->ops.collect_misr(vid_enc->hw_intf) : 0;
 }
 
+static int sde_encoder_phys_vid_get_line_count(
+		struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_phys_vid *vid_enc;
+
+	if (!phys_enc)
+		return -EINVAL;
+
+	if (!sde_encoder_phys_vid_is_master(phys_enc))
+		return -EINVAL;
+
+	vid_enc = to_sde_encoder_phys_vid(phys_enc);
+	if (!vid_enc->hw_intf || !vid_enc->hw_intf->ops.get_line_count)
+		return -EINVAL;
+
+	return vid_enc->hw_intf->ops.get_line_count(vid_enc->hw_intf);
+}
+
 static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 {
 	ops->is_master = sde_encoder_phys_vid_is_master;
@@ -925,6 +943,7 @@ static void sde_encoder_phys_vid_init_ops(struct sde_encoder_phys_ops *ops)
 	ops->setup_misr = sde_encoder_phys_vid_setup_misr;
 	ops->collect_misr = sde_encoder_phys_vid_collect_misr;
 	ops->hw_reset = sde_encoder_helper_hw_reset;
+	ops->get_line_count = sde_encoder_phys_vid_get_line_count;
 }
 
 struct sde_encoder_phys *sde_encoder_phys_vid_init(
