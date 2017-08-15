@@ -97,16 +97,6 @@ struct cnss_bus_bw_info {
 	int current_bw_vote;
 };
 
-struct cnss_wlan_mac_addr {
-	u8 mac_addr[MAX_NO_OF_MAC_ADDR][ETH_ALEN];
-	u32 no_of_mac_addr_set;
-};
-
-struct cnss_wlan_mac_info {
-	struct cnss_wlan_mac_addr wlan_mac_addr;
-	bool is_wlan_mac_set;
-};
-
 struct cnss_fw_mem {
 	size_t size;
 	void *va;
@@ -185,7 +175,6 @@ struct cnss_plat_data {
 	struct cnss_wlan_driver *driver_ops;
 	enum cnss_driver_status driver_status;
 	u32 recovery_count;
-	struct cnss_wlan_mac_info wlan_mac_info;
 	unsigned long driver_state;
 	struct list_head event_list;
 	spinlock_t event_lock; /* spinlock for driver work event handling */
