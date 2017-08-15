@@ -182,3 +182,78 @@ int cam_packet_util_process_patches(struct cam_packet *packet,
 	return rc;
 }
 
+int cam_packet_util_process_generic_cmd_buffer(
+	struct cam_cmd_buf_desc *cmd_buf,
+	cam_packet_generic_blob_handler blob_handler_cb, void *user_data)
+{
+	int       rc;
+	uint64_t  cpu_addr;
+	size_t    buf_size;
+	uint32_t *blob_ptr;
+	uint32_t  blob_type, blob_size, blob_block_size, len_read;
+
+	if (!cmd_buf || !blob_handler_cb) {
+		CAM_ERR(CAM_UTIL, "Invalid args %pK %pK",
+			cmd_buf, blob_handler_cb);
+		return -EINVAL;
+	}
+
+	if (!cmd_buf->length || !cmd_buf->size) {
+		CAM_ERR(CAM_UTIL, "Invalid cmd buf size %d %d",
+			cmd_buf->length, cmd_buf->size);
+		return -EINVAL;
+	}
+
+	rc = cam_mem_get_cpu_buf(cmd_buf->mem_handle, &cpu_addr, &buf_size);
+	if (rc || !cpu_addr || (buf_size == 0)) {
+		CAM_ERR(CAM_UTIL, "Failed in Get cpu addr, rc=%d, cpu_addr=%pK",
+			rc, cpu_addr);
+		return rc;
+	}
+
+	blob_ptr = (uint32_t *)((uint8_t *)cpu_addr + cmd_buf->offset);
+
+	CAM_DBG(CAM_UTIL,
+		"GenericCmdBuffer cpuaddr=%pK, blobptr=%pK, len=%d",
+		cpu_addr, blob_ptr, cmd_buf->length);
+
+	len_read = 0;
+	while (len_read < cmd_buf->length) {
+		blob_type =
+			((*blob_ptr) & CAM_GENERIC_BLOB_CMDBUFFER_TYPE_MASK) >>
+			CAM_GENERIC_BLOB_CMDBUFFER_TYPE_SHIFT;
+		blob_size =
+			((*blob_ptr) & CAM_GENERIC_BLOB_CMDBUFFER_SIZE_MASK) >>
+			CAM_GENERIC_BLOB_CMDBUFFER_SIZE_SHIFT;
+
+		blob_block_size = sizeof(uint32_t) +
+			(((blob_size + sizeof(uint32_t) - 1) /
+			sizeof(uint32_t)) * sizeof(uint32_t));
+
+		CAM_DBG(CAM_UTIL,
+			"Blob type=%d size=%d block_size=%d len_read=%d total=%d",
+			blob_type, blob_size, blob_block_size, len_read,
+			cmd_buf->length);
+
+		if (len_read + blob_block_size > cmd_buf->length) {
+			CAM_ERR(CAM_UTIL, "Invalid Blob %d %d %d %d",
+				blob_type, blob_size, len_read,
+				cmd_buf->length);
+			return -EINVAL;
+		}
+
+		len_read += blob_block_size;
+
+		rc = blob_handler_cb(user_data, blob_type, blob_size,
+			(uint8_t *)(blob_ptr + 1));
+		if (rc) {
+			CAM_ERR(CAM_UTIL, "Error in handling blob type %d %d",
+				blob_type, blob_size);
+			return rc;
+		}
+
+		blob_ptr += (blob_block_size / sizeof(uint32_t));
+	}
+
+	return 0;
+}
