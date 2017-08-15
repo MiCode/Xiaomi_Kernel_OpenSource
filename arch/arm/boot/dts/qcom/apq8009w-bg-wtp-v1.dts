@@ -148,6 +148,7 @@
 {
 	spi@78b6000 { /* BLSP1 QUP2 */
 		status = "ok";
+		qcom,shared;
 		qcom,bg-spi {
 			compatible = "qcom,bg-spi";
 			reg = <0>;
