@@ -75,6 +75,10 @@
 	};
 };
 
+&blsp1_uart4b_hs {
+	status = "ok";
+};
+
 &blsp1_uart2_hs {
 	status = "disabled";
 };
