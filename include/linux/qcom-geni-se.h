@@ -82,7 +82,7 @@ struct se_geni_rsc {
 #define GENI_SER_M_CLK_CFG		(0x48)
 #define GENI_SER_S_CLK_CFG		(0x4C)
 #define GENI_CLK_CTRL_RO		(0x60)
-#define GENI_IF_DISABLE_RO		(0x64)
+#define GENI_IF_FIFO_DISABLE_RO		(0x64)
 #define GENI_FW_REVISION_RO		(0x68)
 #define GENI_FW_S_REVISION_RO		(0x6C)
 #define SE_GENI_CLK_SEL			(0x7C)
@@ -147,7 +147,8 @@ struct se_geni_rsc {
 
 /* CLK_CTRL_RO fields */
 
-/* IF_DISABLE_RO fields */
+/* FIFO_IF_DISABLE_RO fields */
+#define FIFO_IF_DISABLE			(BIT(0))
 
 /* FW_REVISION_RO fields */
 #define FW_REV_PROTOCOL_MSK	(GENMASK(15, 8))
@@ -329,6 +330,12 @@ struct se_geni_rsc {
 
 #define DEFAULT_BUS_WIDTH	(4)
 #define DEFAULT_SE_CLK		(19200000)
+
+/* GSI TRE fields */
+/* Packing fields */
+#define GSI_TX_PACK_EN          (BIT(0))
+#define GSI_RX_PACK_EN          (BIT(1))
+#define GSI_PRESERVE_PACK       (BIT(2))
 
 #define GENI_SE_ERR(log_ctx, print, dev, x...) do { \
 if (log_ctx) \

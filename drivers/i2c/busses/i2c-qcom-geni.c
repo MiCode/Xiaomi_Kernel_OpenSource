@@ -904,7 +904,8 @@ static int geni_i2c_runtime_resume(struct device *dev)
 		return ret;
 
 	if (gi2c->se_mode == UNINITIALIZED) {
-		u32 se_mode = readl_relaxed(gi2c->base + GENI_IF_DISABLE_RO);
+		u32 se_mode = readl_relaxed(gi2c->base +
+					GENI_IF_FIFO_DISABLE_RO);
 
 		if (se_mode) {
 			gi2c->se_mode = GSI_ONLY;

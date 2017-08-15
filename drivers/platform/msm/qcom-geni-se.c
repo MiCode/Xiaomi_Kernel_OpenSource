@@ -293,20 +293,31 @@ static int geni_se_select_dma_mode(void __iomem *base)
 
 static int geni_se_select_gsi_mode(void __iomem *base)
 {
-	unsigned int io_mode = 0;
 	unsigned int geni_dma_mode = 0;
 	unsigned int gsi_event_en = 0;
+	unsigned int common_geni_m_irq_en = 0;
+	unsigned int common_geni_s_irq_en = 0;
 
+	common_geni_m_irq_en = geni_read_reg(base, SE_GENI_M_IRQ_EN);
+	common_geni_s_irq_en = geni_read_reg(base, SE_GENI_S_IRQ_EN);
+	common_geni_m_irq_en &=
+			~(M_CMD_DONE_EN | M_TX_FIFO_WATERMARK_EN |
+			M_RX_FIFO_WATERMARK_EN | M_RX_FIFO_LAST_EN);
+	common_geni_s_irq_en &= ~S_CMD_DONE_EN;
 	geni_dma_mode = geni_read_reg(base, SE_GENI_DMA_MODE_EN);
 	gsi_event_en = geni_read_reg(base, SE_GSI_EVENT_EN);
-	io_mode = geni_read_reg(base, SE_IRQ_EN);
 
 	geni_dma_mode |= GENI_DMA_MODE_EN;
-	io_mode &= ~(DMA_TX_IRQ_EN | DMA_RX_IRQ_EN);
 	gsi_event_en |= (DMA_RX_EVENT_EN | DMA_TX_EVENT_EN |
 				GENI_M_EVENT_EN | GENI_S_EVENT_EN);
 
-	geni_write_reg(io_mode, base, SE_IRQ_EN);
+	geni_write_reg(0, base, SE_IRQ_EN);
+	geni_write_reg(common_geni_s_irq_en, base, SE_GENI_S_IRQ_EN);
+	geni_write_reg(common_geni_m_irq_en, base, SE_GENI_M_IRQ_EN);
+	geni_write_reg(0xFFFFFFFF, base, SE_GENI_M_IRQ_CLEAR);
+	geni_write_reg(0xFFFFFFFF, base, SE_GENI_S_IRQ_CLEAR);
+	geni_write_reg(0xFFFFFFFF, base, SE_DMA_TX_IRQ_CLR);
+	geni_write_reg(0xFFFFFFFF, base, SE_DMA_RX_IRQ_CLR);
 	geni_write_reg(geni_dma_mode, base, SE_GENI_DMA_MODE_EN);
 	geni_write_reg(gsi_event_en, base, SE_GSI_EVENT_EN);
 	return 0;
