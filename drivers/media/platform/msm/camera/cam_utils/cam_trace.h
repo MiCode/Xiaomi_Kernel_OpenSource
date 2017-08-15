@@ -92,15 +92,15 @@ TRACE_EVENT(cam_buf_done,
 );
 
 TRACE_EVENT(cam_apply_req,
-	TP_PROTO(const char *entity, struct cam_req_mgr_apply_request *req),
-	TP_ARGS(entity, req),
+	TP_PROTO(const char *entity, uint64_t req_id),
+	TP_ARGS(entity, req_id),
 	TP_STRUCT__entry(
 		__string(entity, entity)
 		__field(uint64_t, req_id)
 	),
 	TP_fast_assign(
 		__assign_str(entity, entity);
-		__entry->req_id = req->request_id;
+		__entry->req_id = req_id;
 	),
 	TP_printk(
 		"%8s: ApplyRequest request=%llu",
@@ -217,6 +217,75 @@ TRACE_EVENT(cam_req_mgr_add_req,
 			__entry->devicemap, __entry->link, __entry->session
 	)
 );
+
+TRACE_EVENT(cam_submit_to_hw,
+	TP_PROTO(const char *entity, uint64_t req_id),
+	TP_ARGS(entity, req_id),
+	TP_STRUCT__entry(
+		__string(entity, entity)
+		__field(uint64_t, req_id)
+	),
+	TP_fast_assign(
+		__assign_str(entity, entity);
+		__entry->req_id = req_id;
+	),
+	TP_printk(
+		"%8s: submit request=%llu",
+			__get_str(entity), __entry->req_id
+	)
+);
+
+TRACE_EVENT(cam_irq_activated,
+	TP_PROTO(const char *entity, uint32_t irq_type),
+	TP_ARGS(entity, irq_type),
+	TP_STRUCT__entry(
+		__string(entity, entity)
+		__field(uint32_t, irq_type)
+	),
+	TP_fast_assign(
+		__assign_str(entity, entity);
+		__entry->irq_type = irq_type;
+	),
+	TP_printk(
+		"%8s: got irq type=%d",
+			__get_str(entity), __entry->irq_type
+	)
+);
+
+TRACE_EVENT(cam_irq_handled,
+	TP_PROTO(const char *entity, uint32_t irq_type),
+	TP_ARGS(entity, irq_type),
+	TP_STRUCT__entry(
+		__string(entity, entity)
+		__field(uint32_t, irq_type)
+	),
+	TP_fast_assign(
+		__assign_str(entity, entity);
+		__entry->irq_type = irq_type;
+	),
+	TP_printk(
+		"%8s: handled irq type=%d",
+			__get_str(entity), __entry->irq_type
+	)
+);
+
+TRACE_EVENT(cam_cdm_cb,
+	TP_PROTO(const char *entity, uint32_t status),
+	TP_ARGS(entity, status),
+	TP_STRUCT__entry(
+		__string(entity, entity)
+		__field(uint32_t, status)
+	),
+	TP_fast_assign(
+		__assign_str(entity, entity);
+		__entry->status = status;
+	),
+	TP_printk(
+		"%8s: cdm cb status=%d",
+			__get_str(entity), __entry->status
+	)
+);
+
 #endif /* _CAM_TRACE_H */
 
 /* This part must be outside protection */

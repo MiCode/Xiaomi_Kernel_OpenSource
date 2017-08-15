@@ -256,7 +256,7 @@ static int __cam_node_crm_apply_req(struct cam_req_mgr_apply_request *apply)
 		return -EINVAL;
 	}
 
-	trace_cam_apply_req("Node", apply);
+	trace_cam_apply_req("Node", apply->request_id);
 
 	return cam_context_handle_crm_apply_req(ctx, apply);
 }
