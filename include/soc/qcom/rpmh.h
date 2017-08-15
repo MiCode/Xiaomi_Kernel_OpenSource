@@ -40,6 +40,8 @@ int rpmh_write_control(struct rpmh_client *rc, struct tcs_cmd *cmd, int n);
 
 int rpmh_invalidate(struct rpmh_client *rc);
 
+int rpmh_ctrlr_idle(struct rpmh_client *rc);
+
 int rpmh_flush(struct rpmh_client *rc);
 
 int rpmh_read(struct rpmh_client *rc, u32 addr, u32 *resp);
@@ -80,6 +82,9 @@ static inline int rpmh_write_control(struct rpmh_client *rc,
 { return -ENODEV; }
 
 static inline int rpmh_invalidate(struct rpmh_client *rc)
+{ return -ENODEV; }
+
+static inline int rpmh_ctrlr_idle(struct rpmh_client *rc)
 { return -ENODEV; }
 
 static inline int rpmh_flush(struct rpmh_client *rc)
