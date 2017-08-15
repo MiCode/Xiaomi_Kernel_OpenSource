@@ -374,6 +374,18 @@ static void dp_usbpd_response_cb(struct usbpd_svid_handler *hdlr, u8 cmd,
 
 		pd->dp_usbpd.orientation = usbpd_get_plug_orientation(pd->pd);
 
+		/*
+		 * By default, USB reserves two lanes for Super Speed.
+		 * Which means DP has remaining two lanes to operate on.
+		 * If multi-function is not supported, request USB to
+		 * release the Super Speed lanes so that DP can use
+		 * all four lanes in case DPCD indicates support for
+		 * four lanes.
+		 */
+		if (!pd->dp_usbpd.multi_func)
+			pd->svid_handler.request_usb_ss_lane(pd->pd,
+				&pd->svid_handler);
+
 		if (pd->dp_cb && pd->dp_cb->configure)
 			pd->dp_cb->configure(pd->dev);
 		break;

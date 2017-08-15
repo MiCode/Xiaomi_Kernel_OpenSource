@@ -27,7 +27,6 @@ struct dp_panel_private {
 	struct dp_panel dp_panel;
 	struct dp_aux *aux;
 	struct dp_catalog_panel *catalog;
-	bool lane_switch_supported;
 	bool aux_cfg_update_done;
 };
 
@@ -66,11 +65,8 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel)
 		drm_dp_bw_code_to_link_rate(dp_panel->dpcd[DP_MAX_LINK_RATE]);
 	pr_debug("link_rate=%d\n", link_info->rate);
 
-	if (panel->lane_switch_supported)
-		link_info->num_lanes = dp_panel->dpcd[DP_MAX_LANE_COUNT] &
-			DP_MAX_LANE_COUNT_MASK;
-	else
-		link_info->num_lanes = 2;
+	link_info->num_lanes = dp_panel->dpcd[DP_MAX_LANE_COUNT] &
+				DP_MAX_LANE_COUNT_MASK;
 
 	pr_debug("lane_count=%d\n", link_info->num_lanes);
 
