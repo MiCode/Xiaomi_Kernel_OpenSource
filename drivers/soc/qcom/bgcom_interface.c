@@ -134,7 +134,7 @@ static int bgchar_read_cmd(struct bg_ui_data *fui_obj_msg,
 	return ret;
 }
 
-static int bgchar_write_cmd(struct bg_ui_data *fui_obj_msg)
+static int bgchar_write_cmd(struct bg_ui_data *fui_obj_msg, int type)
 {
 	void              *write_buf;
 	int               ret;
@@ -152,10 +152,19 @@ static int bgchar_write_cmd(struct bg_ui_data *fui_obj_msg)
 		kfree(write_buf);
 		return ret;
 	}
-	ret = bgcom_ahb_write(handle,
-			fui_obj_msg->bg_address,
-			fui_obj_msg->num_of_words,
-			write_buf);
+	switch (type) {
+	case REG_WRITE:
+		ret = bgcom_reg_write(handle, fui_obj_msg->cmd,
+				fui_obj_msg->num_of_words,
+				write_buf);
+		break;
+	case AHB_WRITE:
+		ret = bgcom_ahb_write(handle,
+				fui_obj_msg->bg_address,
+				fui_obj_msg->num_of_words,
+				write_buf);
+		break;
+	}
 	kfree(write_buf);
 	return ret;
 }
@@ -180,12 +189,13 @@ static long bg_com_ioctl(struct file *filp,
 			pr_err("bgchar_read_cmd failed\n");
 		break;
 	case AHB_WRITE:
+	case REG_WRITE:
 		if (copy_from_user(&ui_obj_msg, (void __user *) arg,
 				sizeof(ui_obj_msg))) {
 			pr_err("The copy from user failed\n");
 			ret = -EFAULT;
 		}
-		ret = bgchar_write_cmd(&ui_obj_msg);
+		ret = bgchar_write_cmd(&ui_obj_msg, ui_bgcom_cmd);
 		if (ret < 0)
 			pr_err("bgchar_write_cmd failed\n");
 		break;
