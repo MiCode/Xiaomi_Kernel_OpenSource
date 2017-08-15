@@ -34,6 +34,15 @@ static int setup_wakeup(uint64_t sleep_val)
 }
 
 /**
+ * system_sleep_allowed() - Returns if its okay to enter system low power modes
+ */
+bool system_sleep_allowed(void)
+{
+	return (rpmh_ctrlr_idle(rpmh_client) == 0);
+}
+EXPORT_SYMBOL(system_sleep_allowed);
+
+/**
  * system_sleep_enter() - Activties done when entering system low power modes
  *
  * @sleep_val: The sleep duration in us.
