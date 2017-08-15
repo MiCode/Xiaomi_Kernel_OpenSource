@@ -844,6 +844,28 @@ int rpmh_read(struct rpmh_client *rc, u32 addr, u32 *resp)
 }
 EXPORT_SYMBOL(rpmh_read);
 
+/**
+ * rpmh_ctrlr_idle: Check if the controller is idle
+ *
+ * @rc: The RPMH handle got from rpmh_get_dev_channel
+ *
+ * Returns if the controller is idle or not.
+ */
+int rpmh_ctrlr_idle(struct rpmh_client *rc)
+{
+	if (IS_ERR_OR_NULL(rc))
+		return -EINVAL;
+
+	if (rpmh_standalone)
+		return 0;
+
+	if (!mbox_controller_is_idle(rc->chan))
+		return -EBUSY;
+
+	return 0;
+}
+EXPORT_SYMBOL(rpmh_ctrlr_idle);
+
 static inline int is_req_valid(struct rpmh_req *req)
 {
 	return (req->sleep_val != UINT_MAX && req->wake_val != UINT_MAX
