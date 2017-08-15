@@ -467,6 +467,7 @@ struct ath10k_debug {
 	u64 fw_dbglog_mask;
 	u32 fw_dbglog_level;
 	u32 pktlog_filter;
+	enum ath10k_htc_ep_id eid;
 	u32 reg_addr;
 	u32 nf_cal_period;
 	void *cal_data;

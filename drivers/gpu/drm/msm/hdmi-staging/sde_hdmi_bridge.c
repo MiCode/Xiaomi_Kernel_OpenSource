@@ -99,17 +99,10 @@ struct sde_hdmi_bridge {
 #define HDMI_TX_SCRAMBLER_TIMEOUT_MSEC 200
 
 
-/* for AVI program */
-#define HDMI_AVI_INFOFRAME_BUFFER_SIZE \
-	(HDMI_INFOFRAME_HEADER_SIZE + HDMI_AVI_INFOFRAME_SIZE)
-#define HDMI_VS_INFOFRAME_BUFFER_SIZE (HDMI_INFOFRAME_HEADER_SIZE + 6)
 #define HDMI_SPD_INFOFRAME_BUFFER_SIZE \
 	(HDMI_INFOFRAME_HEADER_SIZE + HDMI_SPD_INFOFRAME_SIZE)
 #define HDMI_DEFAULT_VENDOR_NAME "unknown"
 #define HDMI_DEFAULT_PRODUCT_NAME "msm"
-#define LEFT_SHIFT_BYTE(x) ((x) << 8)
-#define LEFT_SHIFT_WORD(x) ((x) << 16)
-#define LEFT_SHIFT_24BITS(x) ((x) << 24)
 #define HDMI_AVI_IFRAME_LINE_NUMBER 1
 #define HDMI_VENDOR_IFRAME_LINE_NUMBER 3
 
@@ -582,18 +575,49 @@ static void _sde_hdmi_bridge_post_disable(struct drm_bridge *bridge)
 }
 
 static void _sde_hdmi_bridge_set_avi_infoframe(struct hdmi *hdmi,
-	const struct drm_display_mode *mode)
+	struct drm_display_mode *mode)
 {
 	u8 avi_iframe[HDMI_AVI_INFOFRAME_BUFFER_SIZE] = {0};
 	u8 *avi_frame = &avi_iframe[HDMI_INFOFRAME_HEADER_SIZE];
 	u8 checksum;
 	u32 reg_val;
+	u32 mode_fmt_flags = 0;
 	struct hdmi_avi_infoframe info;
+	struct drm_connector *connector;
 
+	if (!hdmi || !mode) {
+		SDE_ERROR("invalid input\n");
+		return;
+	}
+
+	connector = hdmi->connector;
+
+	if (!connector) {
+		SDE_ERROR("invalid input\n");
+		return;
+	}
+
+	/* Cache the format flags before clearing */
+	mode_fmt_flags = mode->flags;
+	/**
+	 * Clear the RGB/YUV format flags before calling upstream API
+	 * as the API also compares the flags and then returns a mode
+	 */
+	mode->flags &= ~SDE_DRM_MODE_FLAG_FMT_MASK;
 	drm_hdmi_avi_infoframe_from_display_mode(&info, mode);
+	/* Restore the format flags */
+	mode->flags = mode_fmt_flags;
 
-	if (mode->private_flags & MSM_MODE_FLAG_COLOR_FORMAT_YCBCR420)
+	if (mode->private_flags & MSM_MODE_FLAG_COLOR_FORMAT_YCBCR420) {
 		info.colorspace = HDMI_COLORSPACE_YUV420;
+		/**
+		 * If sink supports quantization select,
+		 * override to full range
+		 */
+		if (connector->yuv_qs)
+			info.ycc_quantization_range =
+				HDMI_YCC_QUANTIZATION_RANGE_FULL;
+	}
 
 	hdmi_avi_infoframe_pack(&info, avi_iframe, sizeof(avi_iframe));
 	checksum = avi_iframe[HDMI_INFOFRAME_HEADER_SIZE - 1];

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, 2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,12 @@
 #include <sound/pcm.h>
 #include <linux/msm_ion.h>
 
+enum {
+	HLOS_TO_ADSP = 1,
+	ADSP_TO_HLOS,
+};
+
+#define VMID_CP_ADSP_SHARED 33
 
 int msm_audio_ion_alloc(const char *name, struct ion_client **client,
 			struct ion_handle **handle, size_t bufsz,
@@ -26,6 +32,7 @@ int msm_audio_ion_import(const char *name, struct ion_client **client,
 			struct ion_handle **handle, int fd,
 			unsigned long *ionflag, size_t bufsz,
 			ion_phys_addr_t *paddr, size_t *pa_len, void **vaddr);
+
 int msm_audio_ion_free(struct ion_client *client, struct ion_handle *handle);
 int msm_audio_ion_mmap(struct audio_buffer *substream,
 		       struct vm_area_struct *vma);
@@ -42,4 +49,7 @@ int msm_audio_ion_import_legacy(const char *name, struct ion_client *client,
 int msm_audio_ion_free_legacy(struct ion_client *client,
 			struct ion_handle *handle);
 u32 msm_audio_populate_upper_32_bits(ion_phys_addr_t pa);
+
+int msm_audio_ion_phys_assign(const char *name, int fd, ion_phys_addr_t *paddr,
+				size_t *pa_len, u8 assign_type);
 #endif /* _LINUX_MSM_AUDIO_ION_H */

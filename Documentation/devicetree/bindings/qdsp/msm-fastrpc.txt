@@ -11,6 +11,8 @@ Required properties:
 
 Optional properties:
 - qcom,fastrpc-glink:	Flag to use glink instead of smd for IPC
+- qcom,fastrpc-vmid-heap-shared:  Flag for Dynamic heap feature, to
+                                  share HLOS memory buffer to ADSP
 
 Optional subnodes:
 - qcom,msm_fastrpc_compute_cb :	Child nodes representing the compute context
@@ -25,6 +27,7 @@ Example:
 	qcom,msm_fastrpc {
 		compatible = "qcom,msm-fastrpc-adsp";
 		qcom,fastrpc-glink;
+		qcom,fastrpc-vmid-heap-shared;
 
 		qcom,msm_fastrpc_compute_cb_1 {
 			compatible = "qcom,msm-fastrpc-compute-cb";

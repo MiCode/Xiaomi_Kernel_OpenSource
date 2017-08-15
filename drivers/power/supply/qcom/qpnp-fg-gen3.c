@@ -1637,6 +1637,9 @@ static int fg_set_recharge_voltage(struct fg_chip *chip, int voltage_mv)
 	if (chip->wa_flags & PMI8998_V1_REV_WA)
 		return 0;
 
+	if (voltage_mv == chip->last_recharge_volt_mv)
+		return 0;
+
 	fg_dbg(chip, FG_STATUS, "Setting recharge voltage to %dmV\n",
 		voltage_mv);
 	fg_encode(chip->sp, FG_SRAM_RECHARGE_VBATT_THR, voltage_mv, &buf);
@@ -1651,6 +1654,7 @@ static int fg_set_recharge_voltage(struct fg_chip *chip, int voltage_mv)
 		return rc;
 	}
 
+	chip->last_recharge_volt_mv = voltage_mv;
 	return 0;
 }
 
@@ -1958,6 +1962,33 @@ static int fg_adjust_recharge_soc(struct fg_chip *chip)
 	}
 
 	fg_dbg(chip, FG_STATUS, "resume soc set to %d\n", new_recharge_soc);
+	return 0;
+}
+
+static int fg_adjust_recharge_voltage(struct fg_chip *chip)
+{
+	int rc, recharge_volt_mv;
+
+	if (chip->dt.auto_recharge_soc)
+		return 0;
+
+	fg_dbg(chip, FG_STATUS, "health: %d chg_status: %d chg_done: %d\n",
+		chip->health, chip->charge_status, chip->charge_done);
+
+	recharge_volt_mv = chip->dt.recharge_volt_thr_mv;
+
+	/* Lower the recharge voltage in soft JEITA */
+	if (chip->health == POWER_SUPPLY_HEALTH_WARM ||
+			chip->health == POWER_SUPPLY_HEALTH_COOL)
+		recharge_volt_mv -= 200;
+
+	rc = fg_set_recharge_voltage(chip, recharge_volt_mv);
+	if (rc < 0) {
+		pr_err("Error in setting recharge_voltage, rc=%d\n",
+			rc);
+		return rc;
+	}
+
 	return 0;
 }
 
@@ -2423,6 +2454,10 @@ static void status_change_work(struct work_struct *work)
 	rc = fg_adjust_recharge_soc(chip);
 	if (rc < 0)
 		pr_err("Error in adjusting recharge_soc, rc=%d\n", rc);
+
+	rc = fg_adjust_recharge_voltage(chip);
+	if (rc < 0)
+		pr_err("Error in adjusting recharge_voltage, rc=%d\n", rc);
 
 	rc = fg_adjust_ki_coeff_dischg(chip);
 	if (rc < 0)
@@ -3978,6 +4013,11 @@ static irqreturn_t fg_delta_batt_temp_irq_handler(int irq, void *data)
 		rc = fg_adjust_timebase(chip);
 		if (rc < 0)
 			pr_err("Error in adjusting timebase, rc=%d\n", rc);
+
+		rc = fg_adjust_recharge_voltage(chip);
+		if (rc < 0)
+			pr_err("Error in adjusting recharge_voltage, rc=%d\n",
+				rc);
 
 		chip->last_batt_temp = batt_temp;
 		power_supply_changed(chip->batt_psy);

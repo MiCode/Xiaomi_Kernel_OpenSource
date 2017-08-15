@@ -1396,6 +1396,17 @@ static irqreturn_t handle_ptrain_done(int irq, void *data)
 	union power_supply_propval pval = {0};
 
 	/*
+	 * In some cases (esp shutting down) the userspace would  disable by
+	 * setting qnovo_enable=0. Also charger could be removed or there is
+	 * an error (i.e. its not okay to run qnovo)-
+	 * skip taking ESR measurement in such situations
+	 */
+
+	if (get_client_vote(chip->disable_votable, USER_VOTER)
+		|| get_effective_result(chip->not_ok_to_qnovo_votable) > 0)
+		return IRQ_HANDLED;
+
+	/*
 	 * hw resets pt_en bit once ptrain_done triggers.
 	 * vote on behalf of QNI to disable it such that
 	 * once QNI enables it, the votable state changes

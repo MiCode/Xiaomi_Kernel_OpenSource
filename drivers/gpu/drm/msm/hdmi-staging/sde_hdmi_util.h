@@ -97,6 +97,14 @@
 #define HDMI_GET_MSB(x)(x >> 8)
 #define HDMI_GET_LSB(x)(x & 0xff)
 
+#define SDE_HDMI_VIC_640x480 0x1
+#define SDE_HDMI_YCC_QUANT_MASK (0x3 << 14)
+#define SDE_HDMI_COLORIMETRY_MASK (0x3 << 22)
+
+#define SDE_HDMI_DEFAULT_COLORIMETRY 0x0
+#define SDE_HDMI_USE_EXTENDED_COLORIMETRY 0x3
+#define SDE_HDMI_BT2020_COLORIMETRY 0x6
+
 /*
  * Bits 1:0 in HDMI_HW_DDC_CTRL that dictate how the HDCP 2.2 RxStatus will be
  * read by the hardware

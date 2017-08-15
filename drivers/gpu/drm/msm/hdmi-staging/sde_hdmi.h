@@ -169,6 +169,7 @@ struct sde_hdmi {
 	bool pll_update_enable;
 	bool dc_enable;
 	bool dc_feature_supported;
+	bool bt2020_colorimetry;
 
 	struct delayed_work hdcp_cb_work;
 	struct dss_io_data io[HDMI_TX_MAX_IO];
@@ -200,6 +201,15 @@ enum hdmi_tx_scdc_access_type {
 #define HDMI_RGB_24BPP_PCLK_TMDS_CH_RATE_RATIO 1
 
 #define HDMI_GEN_PKT_CTRL_CLR_MASK 0x7
+
+/* for AVI program */
+#define HDMI_AVI_INFOFRAME_BUFFER_SIZE \
+	(HDMI_INFOFRAME_HEADER_SIZE + HDMI_AVI_INFOFRAME_SIZE)
+#define HDMI_VS_INFOFRAME_BUFFER_SIZE (HDMI_INFOFRAME_HEADER_SIZE + 6)
+
+#define LEFT_SHIFT_BYTE(x) ((x) << 8)
+#define LEFT_SHIFT_WORD(x) ((x) << 16)
+#define LEFT_SHIFT_24BITS(x) ((x) << 24)
 
 /* Maximum pixel clock rates for hdmi tx */
 #define HDMI_DEFAULT_MAX_PCLK_RATE	148500
@@ -482,6 +492,23 @@ int sde_hdmi_pre_kickoff(struct drm_connector *connector,
 		void *display,
 		struct msm_display_kickoff_params *params);
 
+/*
+ * sde_hdmi_mode_needs_full_range - does mode need full range
+ * quantization
+ * @display: Pointer to private display structure
+ * Returns: true or false based on mode
+ */
+bool sde_hdmi_mode_needs_full_range(void *display);
+
+/*
+ * sde_hdmi_get_csc_type - returns the CSC type to be
+ * used based on state of HDR playback
+ * @conn: Pointer to DRM connector
+ * @display: Pointer to private display structure
+ * Returns: true or false based on mode
+ */
+enum sde_csc_type sde_hdmi_get_csc_type(struct drm_connector *conn,
+	void *display);
 #else /*#ifdef CONFIG_DRM_SDE_HDMI*/
 
 static inline u32 sde_hdmi_get_num_of_displays(void)
@@ -592,6 +619,17 @@ static inline int sde_hdmi_set_property(struct drm_connector *connector,
 			int property_index,
 			uint64_t value,
 			void *display)
+{
+	return 0;
+}
+
+static inline bool sde_hdmi_mode_needs_full_range(void *display)
+{
+	return false;
+}
+
+enum sde_csc_type sde_hdmi_get_csc_type(struct drm_connector *conn,
+	void *display)
 {
 	return 0;
 }

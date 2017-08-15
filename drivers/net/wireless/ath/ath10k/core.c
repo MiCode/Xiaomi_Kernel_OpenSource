@@ -1924,6 +1924,12 @@ int ath10k_core_start(struct ath10k *ar, enum ath10k_firmware_mode mode,
 		goto err_hif_stop;
 	}
 
+	status = ath10k_pktlog_connect(ar);
+	if (status) {
+		ath10k_err(ar, "could not connect pktlog: %d\n", status);
+		goto err_hif_stop;
+	}
+
 	status = ath10k_htc_start(&ar->htc);
 	if (status) {
 		ath10k_err(ar, "failed to start htc: %d\n", status);
