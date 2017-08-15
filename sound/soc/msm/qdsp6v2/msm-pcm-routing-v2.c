@@ -16201,6 +16201,8 @@ int msm_routing_set_downmix_control_data(int be_id, int session_id,
 	char *adm_params = NULL;
 	int port_id, copp_idx = 0;
 	uint32_t params_length = 0;
+	uint16_t ii;
+	uint16_t *dst_gain_ptr = NULL;
 
 	if (be_id >= MSM_BACKEND_DAI_MAX) {
 		rc = -EINVAL;
@@ -16213,7 +16215,7 @@ int msm_routing_set_downmix_control_data(int be_id, int session_id,
 
 	variable_payload = dnmix_param->num_output_channels * sizeof(uint16_t)+
 			   dnmix_param->num_input_channels * sizeof(uint16_t) +
-			   dnmix_param->num_output_channels * sizeof(uint16_t) *
+			   dnmix_param->num_output_channels *
 			   dnmix_param->num_input_channels * sizeof(uint16_t);
 	i = (variable_payload % sizeof(uint32_t));
 	variable_payload += (i == 0) ? 0 : sizeof(uint32_t) - i;
@@ -16252,14 +16254,15 @@ int msm_routing_set_downmix_control_data(int be_id, int session_id,
 		dnmix_param->num_output_channels * sizeof(uint16_t)),
 		dnmix_param->input_channel_map,
 		dnmix_param->num_input_channels * sizeof(uint16_t));
-	memcpy(((u8 *)adm_params +
+
+	dst_gain_ptr = (uint16_t *) ((u8 *)adm_params +
 		sizeof(struct adm_pspd_param_data_t) +
 		sizeof(struct audproc_chmixer_param_coeff) +
 		(dnmix_param->num_output_channels * sizeof(uint16_t)) +
-		(dnmix_param->num_input_channels * sizeof(uint16_t))),
-		dnmix_param->gain,
-		(dnmix_param->num_output_channels * sizeof(uint16_t)) *
 		(dnmix_param->num_input_channels * sizeof(uint16_t)));
+	for (ii = 0; ii < dnmix_param->num_output_channels *
+			dnmix_param->num_input_channels; ii++)
+		dst_gain_ptr[ii] = (uint16_t) dnmix_param->gain[ii];
 
 	if (params_length) {
 		rc = adm_set_pspd_matrix_params(port_id,
