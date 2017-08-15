@@ -322,31 +322,6 @@ void cnss_remove_pm_qos(void)
 }
 EXPORT_SYMBOL(cnss_remove_pm_qos);
 
-u8 *cnss_common_get_wlan_mac_address(struct device *dev, u32 *num)
-{
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
-	struct cnss_wlan_mac_info *wlan_mac_info;
-	struct cnss_wlan_mac_addr *addr;
-
-	if (!plat_priv)
-		goto out;
-
-	wlan_mac_info = &plat_priv->wlan_mac_info;
-	if (!wlan_mac_info->is_wlan_mac_set) {
-		cnss_pr_info("Platform driver doesn't have any MAC address!\n");
-		goto out;
-	}
-
-	addr = &wlan_mac_info->wlan_mac_addr;
-	*num = addr->no_of_mac_addr_set;
-
-	return &addr->mac_addr[0][0];
-out:
-	*num = 0;
-	return NULL;
-}
-EXPORT_SYMBOL(cnss_common_get_wlan_mac_address);
-
 int cnss_wlan_enable(struct device *dev,
 		     struct cnss_wlan_enable_cfg *config,
 		     enum cnss_driver_mode mode,
