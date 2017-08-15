@@ -863,6 +863,8 @@ struct hal_video_work_mode {
 };
 
 struct hal_vpe_color_space_conversion {
+	u32 input_color_primaries;
+	u32 custom_matrix_enabled;
 	u32 csc_matrix[HAL_MAX_MATRIX_COEFFS];
 	u32 csc_bias[HAL_MAX_BIAS_COEFFS];
 	u32 csc_limit[HAL_MAX_LIMIT_COEFFS];
