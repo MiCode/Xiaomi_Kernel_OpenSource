@@ -434,6 +434,38 @@ static bool dp_display_is_sink_count_zero(struct dp_display_private *dp)
 		(dp->link->sink_count.count == 0);
 }
 
+static int dp_display_send_hpd_notification(struct dp_display_private *dp,
+		bool hpd)
+{
+
+	if ((hpd && dp->dp_display.is_connected) ||
+			(!hpd && !dp->dp_display.is_connected)) {
+		pr_info("HPD already %s\n", (hpd ? "on" : "off"));
+		return 0;
+	}
+
+	dp->dp_display.is_connected = hpd;
+	reinit_completion(&dp->notification_comp);
+	drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
+
+	if (!wait_for_completion_timeout(&dp->notification_comp, HZ * 2)) {
+		pr_warn("timeout\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static void dp_display_handle_test_edid(struct dp_display_private *dp)
+{
+	if (dp->link->sink_request & DP_TEST_LINK_EDID_READ) {
+		drm_dp_dpcd_write(dp->aux->drm_aux, DP_TEST_EDID_CHECKSUM,
+			&dp->panel->edid_ctrl->edid->checksum, 1);
+		drm_dp_dpcd_write(dp->aux->drm_aux, DP_TEST_RESPONSE,
+			&dp->link->test_response, 1);
+	}
+}
+
 static int dp_display_process_hpd_high(struct dp_display_private *dp)
 {
 	int rc = 0;
@@ -456,18 +488,14 @@ static int dp_display_process_hpd_high(struct dp_display_private *dp)
 
 	dp->audio_supported = drm_detect_monitor_audio(edid);
 
+	dp_display_handle_test_edid(dp);
+
 	max_pclk_from_edid = dp->panel->get_max_pclk(dp->panel);
 
 	dp->dp_display.max_pclk_khz = min(max_pclk_from_edid,
 		dp->parser->max_pclk_khz);
 
-	dp->dp_display.is_connected = true;
-
-	drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
-
-	reinit_completion(&dp->notification_comp);
-	if (!wait_for_completion_timeout(&dp->notification_comp, HZ * 2))
-		pr_warn("timeout\n");
+	dp_display_send_hpd_notification(dp, true);
 
 end:
 	return rc;
@@ -519,12 +547,7 @@ static void dp_display_process_hpd_low(struct dp_display_private *dp)
 	if (dp->audio_supported)
 		dp->audio->off(dp->audio);
 
-	dp->dp_display.is_connected = false;
-	drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
-
-	reinit_completion(&dp->notification_comp);
-	if (!wait_for_completion_timeout(&dp->notification_comp, HZ * 2))
-		pr_warn("timeout\n");
+	dp_display_send_hpd_notification(dp, false);
 }
 
 static int dp_display_usbpd_configure_cb(struct device *dev)
@@ -564,7 +587,7 @@ static void dp_display_clean(struct dp_display_private *dp)
 	}
 
 	dp->ctrl->push_idle(dp->ctrl);
-	dp->ctrl->off(dp->ctrl, false);
+	dp->ctrl->off(dp->ctrl);
 }
 
 static int dp_display_usbpd_disconnect_cb(struct device *dev)
@@ -591,32 +614,34 @@ static int dp_display_usbpd_disconnect_cb(struct device *dev)
 	if (dp->audio_supported)
 		dp->audio->off(dp->audio);
 
-	dp->dp_display.is_connected = false;
-	drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
+	rc = dp_display_send_hpd_notification(dp, false);
 
-	reinit_completion(&dp->notification_comp);
-	if (!wait_for_completion_timeout(&dp->notification_comp, HZ * 2)) {
-		pr_warn("timeout\n");
-
-		if (dp->power_on)
-			dp_display_clean(dp);
-	}
+	if ((rc < 0) && dp->power_on)
+		dp_display_clean(dp);
 
 	dp_display_host_deinit(dp);
 end:
 	return rc;
 }
 
+static void dp_display_link_maintenance(struct dp_display_private *dp)
+{
+	if (dp->power_on) {
+		pr_debug("Set DP ctrl to push idle for link maintenance\n");
+		dp->ctrl->push_idle(dp->ctrl);
+		dp->ctrl->reset(dp->ctrl);
+	} else {
+		pr_err("DP not powered on, skip link maintenance\n");
+		return;
+	}
+
+	dp->ctrl->handle_sink_request(dp->ctrl, dp->link->sink_request);
+}
+
 static int dp_display_handle_hpd_irq(struct dp_display_private *dp)
 {
 	if (dp->link->sink_request & DS_PORT_STATUS_CHANGED) {
-		dp->dp_display.is_connected = false;
-		drm_helper_hpd_irq_event(dp->dp_display.connector->dev);
-
-		reinit_completion(&dp->notification_comp);
-		if (!wait_for_completion_timeout(
-			&dp->notification_comp, HZ * 2))
-			pr_warn("timeout\n");
+		dp_display_send_hpd_notification(dp, false);
 
 		if (dp_display_is_sink_count_zero(dp)) {
 			pr_debug("sink count is zero, nothing to do\n");
@@ -624,6 +649,15 @@ static int dp_display_handle_hpd_irq(struct dp_display_private *dp)
 		}
 
 		return dp_display_process_hpd_high(dp);
+	}
+
+	if (dp->link->sink_request & DP_LINK_STATUS_UPDATED)
+		dp_display_link_maintenance(dp);
+
+	if (dp->link->sink_request & DP_TEST_LINK_TRAINING) {
+		drm_dp_dpcd_write(dp->aux->drm_aux, DP_TEST_RESPONSE,
+			&dp->link->test_response, 1);
+		dp_display_link_maintenance(dp);
 	}
 
 	return 0;
@@ -804,7 +838,12 @@ static int dp_display_enable(struct dp_display *dp_display)
 
 	dp = container_of(dp_display, struct dp_display_private, dp_display);
 
-	rc = dp->ctrl->on(dp->ctrl, dp->hpd_irq_on);
+	if (dp->power_on) {
+		pr_debug("Link already setup, return\n");
+		return 0;
+	}
+
+	rc = dp->ctrl->on(dp->ctrl);
 	if (!rc)
 		dp->power_on = true;
 error:
@@ -887,7 +926,7 @@ static int dp_display_disable(struct dp_display *dp_display)
 	if (!dp->power_on || !dp->core_initialized)
 		goto error;
 
-	dp->ctrl->off(dp->ctrl, dp->hpd_irq_on);
+	dp->ctrl->off(dp->ctrl);
 
 	dp->power_on = false;
 

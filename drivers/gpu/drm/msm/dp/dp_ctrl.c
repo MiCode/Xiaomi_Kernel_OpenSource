@@ -63,7 +63,6 @@ struct dp_ctrl_private {
 
 	struct completion idle_comp;
 	struct completion video_comp;
-	struct completion irq_comp;
 
 	bool psm_enabled;
 	bool orientation;
@@ -1152,9 +1151,18 @@ static bool dp_ctrl_use_fixed_nvid(struct dp_ctrl_private *ctrl)
 	return false;
 }
 
-static int dp_ctrl_on_irq(struct dp_ctrl_private *ctrl, bool lt_needed)
+static int dp_ctrl_handle_sink_request(struct dp_ctrl *dp_ctrl,
+	u32 sink_request)
 {
 	int ret = 0;
+	struct dp_ctrl_private *ctrl;
+
+	if (!dp_ctrl) {
+		ret = -EINVAL;
+		goto end;
+	}
+
+	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
 	do {
 		if (ret == -EAGAIN)
@@ -1163,15 +1171,14 @@ static int dp_ctrl_on_irq(struct dp_ctrl_private *ctrl, bool lt_needed)
 		ctrl->catalog->phy_lane_cfg(ctrl->catalog,
 			ctrl->orientation, ctrl->link->link_params.lane_count);
 
-		if (lt_needed) {
+		if (sink_request &
+			(DP_LINK_STATUS_UPDATED | DP_TEST_LINK_TRAINING)) {
 			/*
-			 * Diasable and re-enable the mainlink clock since the
+			 * Disable and re-enable the mainlink clock since the
 			 * link clock might have been adjusted as part of the
 			 * link maintenance.
 			 */
-			if (!ctrl->link->phy_pattern_requested(
-					ctrl->link))
-				dp_ctrl_disable_mainlink_clocks(ctrl);
+			dp_ctrl_disable_mainlink_clocks(ctrl);
 
 			ret = dp_ctrl_enable_mainlink_clocks(ctrl);
 			if (ret)
@@ -1187,28 +1194,42 @@ static int dp_ctrl_on_irq(struct dp_ctrl_private *ctrl, bool lt_needed)
 
 		reinit_completion(&ctrl->idle_comp);
 
-		if (ctrl->psm_enabled) {
-			ret = ctrl->link->send_psm_request(ctrl->link, false);
-			if (ret) {
-				pr_err("failed to exit low power mode, rc=%d\n",
-					ret);
-				continue;
-			}
-		}
-
-		ret = dp_ctrl_setup_main_link(ctrl, lt_needed);
+		ret = dp_ctrl_setup_main_link(ctrl, true);
 	} while (ret == -EAGAIN);
 
+end:
 	return ret;
 }
 
-static int dp_ctrl_on_hpd(struct dp_ctrl_private *ctrl)
+static void dp_ctrl_reset(struct dp_ctrl *dp_ctrl)
 {
-	int ret = 0;
-	u32 rate = ctrl->panel->link_info.rate;
+	struct dp_ctrl_private *ctrl;
+
+	if (!dp_ctrl) {
+		pr_err("invalid params\n");
+		return;
+	}
+
+	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
+	ctrl->catalog->reset(ctrl->catalog);
+}
+
+static int dp_ctrl_on(struct dp_ctrl *dp_ctrl)
+{
+	int rc = 0;
+	struct dp_ctrl_private *ctrl;
+	u32 rate = 0;
 	u32 link_train_max_retries = 100;
 
+	if (!dp_ctrl) {
+		rc = -EINVAL;
+		goto end;
+	}
+
+	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
+
 	atomic_set(&ctrl->aborted, 0);
+	rate = ctrl->panel->link_info.rate;
 
 	ctrl->power->clk_enable(ctrl->power, DP_CORE_PM, true);
 	ctrl->catalog->hpd_config(ctrl->catalog, true);
@@ -1224,16 +1245,13 @@ static int dp_ctrl_on_hpd(struct dp_ctrl_private *ctrl)
 	ctrl->catalog->phy_lane_cfg(ctrl->catalog,
 			ctrl->orientation, ctrl->link->link_params.lane_count);
 
-	ret = dp_ctrl_enable_mainlink_clocks(ctrl);
-	if (ret)
-		goto exit;
+	rc = dp_ctrl_enable_mainlink_clocks(ctrl);
+	if (rc)
+		goto end;
 
 	reinit_completion(&ctrl->idle_comp);
 
 	dp_ctrl_configure_source_params(ctrl);
-
-	if (ctrl->psm_enabled)
-		ret = ctrl->link->send_psm_request(ctrl->link, false);
 
 	while (--link_train_max_retries && !atomic_read(&ctrl->aborted)) {
 		ctrl->catalog->config_msa(ctrl->catalog,
@@ -1241,8 +1259,8 @@ static int dp_ctrl_on_hpd(struct dp_ctrl_private *ctrl)
 			ctrl->link->link_params.bw_code),
 			ctrl->pixel_rate, dp_ctrl_use_fixed_nvid(ctrl));
 
-		ret = dp_ctrl_setup_main_link(ctrl, true);
-		if (!ret)
+		rc = dp_ctrl_setup_main_link(ctrl, true);
+		if (!rc)
 			break;
 
 		/* try with lower link rate */
@@ -1259,48 +1277,11 @@ static int dp_ctrl_on_hpd(struct dp_ctrl_private *ctrl)
 
 	pr_debug("End-\n");
 
-exit:
-	return ret;
-}
-
-static void dp_ctrl_off_irq(struct dp_ctrl_private *ctrl)
-{
-	ctrl->catalog->mainlink_ctrl(ctrl->catalog, false);
-
-	/* Make sure DP mainlink and audio engines are disabled */
-	wmb();
-
-	complete_all(&ctrl->irq_comp);
-	pr_debug("end\n");
-}
-
-static void dp_ctrl_off_hpd(struct dp_ctrl_private *ctrl)
-{
-	ctrl->catalog->mainlink_ctrl(ctrl->catalog, false);
-	pr_debug("DP off done\n");
-}
-
-static int dp_ctrl_on(struct dp_ctrl *dp_ctrl, bool hpd_irq)
-{
-	int rc = 0;
-	struct dp_ctrl_private *ctrl;
-
-	if (!dp_ctrl) {
-		rc = -EINVAL;
-		goto end;
-	}
-
-	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
-
-	if (hpd_irq)
-		rc = dp_ctrl_on_irq(ctrl, false);
-	else
-		rc = dp_ctrl_on_hpd(ctrl);
 end:
 	return rc;
 }
 
-static void dp_ctrl_off(struct dp_ctrl *dp_ctrl, bool hpd_irq)
+static void dp_ctrl_off(struct dp_ctrl *dp_ctrl)
 {
 	struct dp_ctrl_private *ctrl;
 
@@ -1309,10 +1290,9 @@ static void dp_ctrl_off(struct dp_ctrl *dp_ctrl, bool hpd_irq)
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
-	if (hpd_irq)
-		dp_ctrl_off_irq(ctrl);
-	else
-		dp_ctrl_off_hpd(ctrl);
+	ctrl->catalog->mainlink_ctrl(ctrl->catalog, false);
+	pr_debug("DP off done\n");
+
 }
 
 static void dp_ctrl_isr(struct dp_ctrl *dp_ctrl)
@@ -1354,7 +1334,6 @@ struct dp_ctrl *dp_ctrl_get(struct dp_ctrl_in *in)
 
 	init_completion(&ctrl->idle_comp);
 	init_completion(&ctrl->video_comp);
-	init_completion(&ctrl->irq_comp);
 
 	/* in parameters */
 	ctrl->parser   = in->parser;
@@ -1370,10 +1349,12 @@ struct dp_ctrl *dp_ctrl_get(struct dp_ctrl_in *in)
 	dp_ctrl->init      = dp_ctrl_host_init;
 	dp_ctrl->deinit    = dp_ctrl_host_deinit;
 	dp_ctrl->on        = dp_ctrl_on;
+	dp_ctrl->handle_sink_request = dp_ctrl_handle_sink_request;
 	dp_ctrl->off       = dp_ctrl_off;
 	dp_ctrl->push_idle = dp_ctrl_push_idle;
 	dp_ctrl->abort     = dp_ctrl_abort;
 	dp_ctrl->isr       = dp_ctrl_isr;
+	dp_ctrl->reset	   = dp_ctrl_reset;
 
 	return dp_ctrl;
 error:
