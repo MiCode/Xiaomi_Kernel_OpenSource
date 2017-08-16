@@ -135,7 +135,7 @@ int cam_bps_probe(struct platform_device *pdev)
 
 static const struct of_device_id cam_bps_dt_match[] = {
 	{
-		.compatible = "qcom,cam_bps",
+		.compatible = "qcom,cam-bps",
 		.data = &cam_bps_hw_info,
 	},
 	{}
@@ -145,7 +145,7 @@ MODULE_DEVICE_TABLE(of, cam_bps_dt_match);
 static struct platform_driver cam_bps_driver = {
 	.probe = cam_bps_probe,
 	.driver = {
-		.name = "cam_bps",
+		.name = "cam-bps",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_bps_dt_match,
 	},

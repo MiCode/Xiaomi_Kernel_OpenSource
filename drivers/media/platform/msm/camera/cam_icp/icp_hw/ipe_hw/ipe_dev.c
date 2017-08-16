@@ -142,7 +142,7 @@ int cam_ipe_probe(struct platform_device *pdev)
 
 static const struct of_device_id cam_ipe_dt_match[] = {
 	{
-		.compatible = "qcom,cam_ipe",
+		.compatible = "qcom,cam-ipe",
 		.data = &cam_ipe_hw_info,
 	},
 	{}
@@ -152,7 +152,7 @@ MODULE_DEVICE_TABLE(of, cam_ipe_dt_match);
 static struct platform_driver cam_ipe_driver = {
 	.probe = cam_ipe_probe,
 	.driver = {
-		.name = "cam_ipe",
+		.name = "cam-ipe",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_ipe_dt_match,
 	},

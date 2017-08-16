@@ -166,7 +166,7 @@ a5_dev_alloc_failure:
 
 static const struct of_device_id cam_a5_dt_match[] = {
 	{
-		.compatible = "qcom,cam_a5",
+		.compatible = "qcom,cam-a5",
 		.data = &cam_a5_hw_info,
 	},
 	{}
@@ -176,7 +176,7 @@ MODULE_DEVICE_TABLE(of, cam_a5_dt_match);
 static struct platform_driver cam_a5_driver = {
 	.probe = cam_a5_probe,
 	.driver = {
-		.name = "cam_a5",
+		.name = "cam-a5",
 		.owner = THIS_MODULE,
 		.of_match_table = cam_a5_dt_match,
 	},
