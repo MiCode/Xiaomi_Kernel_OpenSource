@@ -1429,6 +1429,26 @@ static struct platform_driver dsi_ctrl_driver = {
 	},
 };
 
+#if defined(CONFIG_DEBUG_FS)
+
+void dsi_ctrl_debug_dump(void)
+{
+	struct list_head *pos, *tmp;
+	struct dsi_ctrl *ctrl = NULL;
+
+	mutex_lock(&dsi_ctrl_list_lock);
+	list_for_each_safe(pos, tmp, &dsi_ctrl_list) {
+		struct dsi_ctrl_list_item *n;
+
+		n = list_entry(pos, struct dsi_ctrl_list_item, list);
+		ctrl = n->ctrl;
+		pr_err("dsi ctrl:%d\n", ctrl->cell_index);
+		ctrl->hw.ops.debug_bus(&ctrl->hw);
+	}
+	mutex_unlock(&dsi_ctrl_list_lock);
+}
+
+#endif
 /**
  * dsi_ctrl_get() - get a dsi_ctrl handle from an of_node
  * @of_node:    of_node of the DSI controller.

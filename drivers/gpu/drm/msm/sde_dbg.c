@@ -177,6 +177,7 @@ struct sde_dbg_vbif_debug_bus {
  * @dbgbus_sde: debug bus structure for the sde
  * @dbgbus_vbif_rt: debug bus structure for the realtime vbif
  * @dump_all: dump all entries in register dump
+ * @dsi_dbg_bus: dump dsi debug bus register
  */
 static struct sde_dbg_base {
 	struct sde_dbg_evtlog *evtlog;
@@ -194,6 +195,7 @@ static struct sde_dbg_base {
 	struct sde_dbg_sde_debug_bus dbgbus_sde;
 	struct sde_dbg_vbif_debug_bus dbgbus_vbif_rt;
 	bool dump_all;
+	bool dsi_dbg_bus;
 } sde_dbg_base;
 
 /* sde_dbg_base_evtlog - global pointer to main sde event log for macro use */
@@ -2570,6 +2572,9 @@ static void _sde_dump_array(struct sde_dbg_reg_base *blk_arr[],
 	if (dump_dbgbus_vbif_rt)
 		_sde_dbg_dump_vbif_dbg_bus(&sde_dbg_base.dbgbus_vbif_rt);
 
+	if (sde_dbg_base.dsi_dbg_bus || dump_all)
+		dsi_ctrl_debug_dump();
+
 	if (do_panic && sde_dbg_base.panic_on_err)
 		panic(name);
 }
@@ -2643,6 +2648,9 @@ void sde_dbg_dump(bool queue_work, const char *name, ...)
 
 		if (!strcmp(blk_name, "vbif_dbg_bus"))
 			dump_dbgbus_vbif_rt = true;
+
+		if (!strcmp(blk_name, "dsi_dbg_bus"))
+			sde_dbg_base.dsi_dbg_bus = true;
 
 		if (!strcmp(blk_name, "panic"))
 			do_panic = true;
