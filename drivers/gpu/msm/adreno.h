@@ -887,6 +887,7 @@ struct adreno_gpudev {
 	int (*rpmh_gpu_pwrctrl)(struct adreno_device *, unsigned int ops,
 				unsigned int arg1, unsigned int arg2);
 	bool (*hw_isidle)(struct adreno_device *);
+	int (*wait_for_lowest_idle)(struct adreno_device *);
 	int (*wait_for_gmu_idle)(struct adreno_device *);
 	const char *(*iommu_fault_block)(struct adreno_device *adreno_dev,
 				unsigned int fsynr1);

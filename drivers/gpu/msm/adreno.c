@@ -1678,6 +1678,7 @@ static void adreno_set_active_ctxs_null(struct adreno_device *adreno_dev)
 static int adreno_stop(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (!test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv))
 		return 0;
@@ -1704,6 +1705,16 @@ static int adreno_stop(struct kgsl_device *device)
 
 	/* Save physical performance counter values before GPU power down*/
 	adreno_perfcounter_save(adreno_dev);
+
+	/*
+	 * Saving perfcounters will use an OOB to put the GMU into
+	 * active state. Before continuing, we should wait for the
+	 * GMU to return to the lowest idle level. This is
+	 * because some idle level transitions require VBIF and MMU.
+	 */
+	if (gpudev->wait_for_lowest_idle &&
+			gpudev->wait_for_lowest_idle(adreno_dev))
+		return -EINVAL;
 
 	adreno_vbif_clear_pending_transactions(device);
 

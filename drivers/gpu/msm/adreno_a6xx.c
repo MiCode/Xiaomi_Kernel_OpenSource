@@ -1747,6 +1747,53 @@ static bool a6xx_hw_isidle(struct adreno_device *adreno_dev)
 	return true;
 }
 
+static int a6xx_wait_for_lowest_idle(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct gmu_device *gmu = &device->gmu;
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	unsigned int reg;
+	unsigned long t;
+
+	if (!kgsl_gmu_isenabled(device))
+		return 0;
+
+	t = jiffies + msecs_to_jiffies(GMU_IDLE_TIMEOUT);
+	while (!time_after(jiffies, t)) {
+		adreno_read_gmureg(ADRENO_DEVICE(device),
+				ADRENO_REG_GMU_RPMH_POWER_STATE, &reg);
+
+		/* SPTPRAC PC has the same idle level as IFPC */
+		if ((reg == gmu->idle_level) ||
+				(gmu->idle_level == GPU_HW_SPTP_PC &&
+				reg == GPU_HW_IFPC)) {
+			/* IFPC is not complete until GX is off */
+			if (gmu->idle_level != GPU_HW_IFPC ||
+					!gpudev->gx_is_on(adreno_dev))
+				return 0;
+		}
+
+		/* Wait 100us to reduce unnecessary AHB bus traffic */
+		udelay(100);
+		cond_resched();
+	}
+
+	/* Check one last time */
+	adreno_read_gmureg(ADRENO_DEVICE(device),
+			ADRENO_REG_GMU_RPMH_POWER_STATE, &reg);
+	if ((reg == gmu->idle_level) ||
+			(gmu->idle_level == GPU_HW_SPTP_PC &&
+			reg == GPU_HW_IFPC)) {
+		if (gmu->idle_level != GPU_HW_IFPC ||
+				!gpudev->gx_is_on(adreno_dev))
+			return 0;
+	}
+
+	dev_err(&gmu->pdev->dev,
+			"Timeout waiting for lowest idle level: %d\n", reg);
+	return -ETIMEDOUT;
+}
+
 static int a6xx_wait_for_gmu_idle(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -3024,6 +3071,7 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.gpu_keepalive = a6xx_gpu_keepalive,
 	.rpmh_gpu_pwrctrl = a6xx_rpmh_gpu_pwrctrl,
 	.hw_isidle = a6xx_hw_isidle, /* Replaced by NULL if GMU is disabled */
+	.wait_for_lowest_idle = a6xx_wait_for_lowest_idle,
 	.wait_for_gmu_idle = a6xx_wait_for_gmu_idle,
 	.iommu_fault_block = a6xx_iommu_fault_block,
 	.reset = a6xx_reset,

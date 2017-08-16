@@ -56,6 +56,9 @@
 #define GPUBUSYIGNAHB		BIT(23)
 #define CXGXCPUBUSYIGNAHB	BIT(30)
 
+/* GMU timeouts */
+#define GMU_IDLE_TIMEOUT        10 /* ms */
+
 /* Constants for GMU OOBs */
 #define OOB_BOOT_OPTION         0
 #define OOB_SLUMBER_OPTION      1
