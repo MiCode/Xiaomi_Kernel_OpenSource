@@ -1165,28 +1165,27 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		break;
 
 	case SNDRV_LSM_SET_FWK_MODE_CONFIG: {
-		u32 *mode = NULL;
+		u32 mode;
 
-		if (!arg) {
-			dev_err(rtd->dev,
-				"%s: Invalid param arg for ioctl %s session %d\n",
-				__func__, "SNDRV_LSM_SET_FWK_MODE_CONFIG",
-				prtd->lsm_client->session);
-			rc = -EINVAL;
-			break;
+		if (copy_from_user(&mode, (void __user *) arg, sizeof(mode))) {
+			dev_err(rtd->dev, "%s: %s: copy_frm_user failed\n",
+				__func__, "LSM_SET_FWK_MODE_CONFIG");
+			return -EFAULT;
 		}
-		mode = (u32 *)arg;
-		if (prtd->lsm_client->event_mode == *mode) {
+
+		dev_dbg(rtd->dev, "%s: ioctl %s, enable = %d\n",
+			__func__, "SNDRV_LSM_SET_FWK_MODE_CONFIG", mode);
+		if (prtd->lsm_client->event_mode == mode) {
 			dev_dbg(rtd->dev,
 				"%s: mode for %d already set to %d\n",
-				__func__, prtd->lsm_client->session, *mode);
+				__func__, prtd->lsm_client->session, mode);
 			rc = 0;
 		} else {
 			dev_dbg(rtd->dev, "%s: Event mode = %d\n",
-				 __func__, *mode);
-			rc = q6lsm_set_fwk_mode_cfg(prtd->lsm_client, *mode);
+				 __func__, mode);
+			rc = q6lsm_set_fwk_mode_cfg(prtd->lsm_client, mode);
 			if (!rc)
-				prtd->lsm_client->event_mode = *mode;
+				prtd->lsm_client->event_mode = mode;
 			else
 				dev_err(rtd->dev,
 					"%s: set event mode failed %d\n",

@@ -1291,6 +1291,9 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC1");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC2");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC3");
+	snd_soc_dapm_sync(dapm);
+
+	dapm = snd_soc_codec_get_dapm(dig_cdc);
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC1");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC2");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC3");
