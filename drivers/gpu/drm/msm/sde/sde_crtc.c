@@ -3853,6 +3853,15 @@ static void sde_crtc_install_properties(struct drm_crtc *crtc,
 	if (catalog->perf.max_bw_high)
 		sde_kms_info_add_keyint(info, "max_bandwidth_high",
 				catalog->perf.max_bw_high * 1000LL);
+	if (catalog->perf.min_core_ib)
+		sde_kms_info_add_keyint(info, "min_core_ib",
+				catalog->perf.min_core_ib * 1000LL);
+	if (catalog->perf.min_llcc_ib)
+		sde_kms_info_add_keyint(info, "min_llcc_ib",
+				catalog->perf.min_llcc_ib * 1000LL);
+	if (catalog->perf.min_dram_ib)
+		sde_kms_info_add_keyint(info, "min_dram_ib",
+				catalog->perf.min_dram_ib * 1000LL);
 	if (sde_kms->perf.max_core_clk_rate)
 		sde_kms_info_add_keyint(info, "max_mdp_clk",
 				sde_kms->perf.max_core_clk_rate);

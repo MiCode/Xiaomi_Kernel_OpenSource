@@ -800,6 +800,10 @@ struct sde_perf_cdp_cfg {
  * struct sde_perf_cfg - performance control settings
  * @max_bw_low         low threshold of maximum bandwidth (kbps)
  * @max_bw_high        high threshold of maximum bandwidth (kbps)
+ * @min_core_ib        minimum bandwidth for core (kbps)
+ * @min_core_ib        minimum mnoc ib vote in kbps
+ * @min_llcc_ib        minimum llcc ib vote in kbps
+ * @min_dram_ib        minimum dram ib vote in kbps
  * @core_ib_ff         core instantaneous bandwidth fudge factor
  * @core_clk_ff        core clock fudge factor
  * @comp_ratio_rt      string of 0 or more of <fourcc>/<ven>/<mod>/<comp ratio>
@@ -821,6 +825,9 @@ struct sde_perf_cdp_cfg {
 struct sde_perf_cfg {
 	u32 max_bw_low;
 	u32 max_bw_high;
+	u32 min_core_ib;
+	u32 min_llcc_ib;
+	u32 min_dram_ib;
 	const char *core_ib_ff;
 	const char *core_clk_ff;
 	const char *comp_ratio_rt;
