@@ -362,13 +362,13 @@ static int _sde_power_data_bus_set_quota(
 		ib_quota_nrt = max_t(u64, ib_quota_nrt,
 				SDE_POWER_HANDLE_ENABLE_BUS_IB_QUOTA);
 	} else {
-		ab_quota_rt = max_t(u64, ab_quota_rt,
+		ab_quota_rt = min_t(u64, ab_quota_rt,
 				SDE_POWER_HANDLE_DISABLE_BUS_AB_QUOTA);
-		ib_quota_rt = max_t(u64, ib_quota_rt,
+		ib_quota_rt = min_t(u64, ib_quota_rt,
 				SDE_POWER_HANDLE_DISABLE_BUS_IB_QUOTA);
-		ab_quota_nrt = max_t(u64, ab_quota_nrt,
+		ab_quota_nrt = min_t(u64, ab_quota_nrt,
 				SDE_POWER_HANDLE_DISABLE_BUS_AB_QUOTA);
-		ib_quota_nrt = max_t(u64, ib_quota_nrt,
+		ib_quota_nrt = min_t(u64, ib_quota_nrt,
 				SDE_POWER_HANDLE_DISABLE_BUS_IB_QUOTA);
 	}
 
