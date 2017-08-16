@@ -1119,10 +1119,21 @@ static int msm_geni_serial_handle_dma_rx(struct uart_port *uport)
 	unsigned int rx_bytes = 0;
 	struct tty_port *tport;
 	int ret;
+	unsigned int geni_status;
+
+	geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
+	/* Possible stop rx is called */
+	if (!(geni_status & S_GENI_CMD_ACTIVE))
+		return 0;
 
 	geni_se_rx_dma_unprep(msm_port->wrapper_dev, msm_port->rx_dma,
 			      DMA_RX_BUF_SIZE);
 	rx_bytes = geni_read_reg_nolog(uport->membase, SE_DMA_RX_LEN_IN);
+	if (unlikely(!msm_port->rx_buf || !rx_bytes)) {
+		IPC_LOG_MSG(msm_port->ipc_log_rx, "%s: Rx_buf %pK Size %d\n",
+					__func__, msm_port->rx_buf, rx_bytes);
+		return 0;
+	}
 
 	tport = &uport->state->port;
 	ret = tty_insert_flip_string(tport, (unsigned char *)(msm_port->rx_buf),
@@ -1313,13 +1324,13 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 		wait_for_transfers_inflight(uport);
 	}
 
+	disable_irq(uport->irq);
+	free_irq(uport->irq, msm_port);
 	spin_lock_irqsave(&uport->lock, flags);
 	msm_geni_serial_stop_tx(uport);
 	msm_geni_serial_stop_rx(uport);
 	spin_unlock_irqrestore(&uport->lock, flags);
 
-	disable_irq(uport->irq);
-	free_irq(uport->irq, msm_port);
 	if (uart_console(uport)) {
 		se_geni_resources_off(&msm_port->serial_rsc);
 	} else {
