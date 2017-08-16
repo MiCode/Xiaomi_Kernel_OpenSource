@@ -9,6 +9,8 @@ config QCOM_GSBI
           functions for connecting the underlying serial UART, SPI, and I2C
           devices to the output pins.
 
+source "drivers/soc/qcom/hab/Kconfig"
+
 if ARCH_MSM
 
 config CP_ACCESS64
