@@ -1986,5 +1986,6 @@
 		maxim,vrange-sel = <0>;
 		maxim,soft-start-slew-rate = <5500>;
 		maxim,dvs-slew-rate = <5500>;
+		status = "disabled";
 	};
 };
