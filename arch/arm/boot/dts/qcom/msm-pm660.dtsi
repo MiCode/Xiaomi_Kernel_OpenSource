@@ -24,6 +24,7 @@
 			compatible = "qcom,qpnp-revid";
 			reg = <0x100 0x100>;
 			qcom,fab-id-valid;
+			qcom,tp-rev-valid;
 		};
 
 		pm660_misc: qcom,misc@900 {
