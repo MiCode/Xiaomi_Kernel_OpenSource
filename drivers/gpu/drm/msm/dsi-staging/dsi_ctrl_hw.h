@@ -445,6 +445,12 @@ struct dsi_ctrl_hw_ops {
 	void (*phy_sw_reset)(struct dsi_ctrl_hw *ctrl);
 
 	/**
+	 * debug_bus() - get dsi debug bus status.
+	 * @ctrl:        Pointer to the controller host hardware.
+	 */
+	void (*debug_bus)(struct dsi_ctrl_hw *ctrl);
+
+	/**
 	 * soft_reset() - perform a soft reset on DSI controller
 	 * @ctrl:          Pointer to the controller host hardware.
 	 *

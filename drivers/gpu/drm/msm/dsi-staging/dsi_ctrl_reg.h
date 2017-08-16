@@ -82,6 +82,8 @@
 #define DSI_SOFT_RESET                             (0x0118)
 #define DSI_CLK_CTRL                               (0x011C)
 #define DSI_CLK_STATUS                             (0x0120)
+#define DSI_DEBUG_BUS_CTL                          (0x0124)
+#define DSI_DEBUG_BUS_STATUS                       (0x0128)
 #define DSI_PHY_SW_RESET                           (0x012C)
 #define DSI_AXI2AHB_CTRL                           (0x0130)
 #define DSI_MISR_CMD_MDP0_32BIT                    (0x0134)

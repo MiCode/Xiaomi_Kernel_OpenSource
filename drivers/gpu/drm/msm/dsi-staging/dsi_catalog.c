@@ -58,6 +58,7 @@ static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
 	ctrl->ops.phy_reset_config = dsi_ctrl_hw_cmn_phy_reset_config;
 	ctrl->ops.setup_misr = dsi_ctrl_hw_cmn_setup_misr;
 	ctrl->ops.collect_misr = dsi_ctrl_hw_cmn_collect_misr;
+	ctrl->ops.debug_bus = dsi_ctrl_hw_cmn_debug_bus;
 
 	switch (version) {
 	case DSI_CTRL_VERSION_1_4:
