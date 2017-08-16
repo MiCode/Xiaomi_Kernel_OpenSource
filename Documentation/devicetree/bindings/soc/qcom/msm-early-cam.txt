@@ -1,0 +1,110 @@
+* Qualcomm Technologies Inc MSM BA
+
+[Root level node]
+==================
+Required properties:
+- compatible: Must be "qcom,early-cam".
+
+[Subnode]
+==========
+- qcom,early-cam-input-profile-#: Defines child nodes for the profiles supported
+		by early camera driver. Each profile should have properties
+		"mmagic-supply", "gdscr-supply", "vfe0-vdd-supply",
+		"qcom,cam-vreg-name", "clocks", "clock-names",
+		"qcom,clock-rates".
+Required properties:
+- mmagic-supply : should contain mmagic regulator used for mmagic clocks.
+- gdscr-supply : should contain gdsr regulator used for cci clocks.
+- vfe0-vdd-supply: phandle to vfe0 regulator.
+- qcom,cam-vreg-name : name of the voltage regulators required for the device.
+- clocks: List of clock handles. The parent clocks of the input clocks to the
+	devices in this power domain are set to oscclk before power gating
+	and restored back after powering on a domain. This is required for
+	all domains which are powered on and off and not required for unused
+	domains.
+- clock-names: name of the clock used by the driver.
+- qcom,clock-rates: clock rate in Hz.
+Example:
+
+    qcom,early-cam {
+		cell-index = <0>;
+		compatible = "qcom,early-cam";
+		status = "ok";
+		mmagic-supply = <&gdsc_mmagic_camss>;
+		gdscr-supply = <&gdsc_camss_top>;
+		vfe0-vdd-supply = <&gdsc_vfe0>;
+		qcom,cam-vreg-name = "mmagic", "gdscr", "vfe0-vdd";
+		clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
+			<&clock_mmss clk_camss_top_ahb_clk>,
+			<&clock_mmss clk_cci_clk_src>,
+			<&clock_mmss clk_camss_cci_ahb_clk>,
+			<&clock_mmss clk_camss_cci_clk>,
+			<&clock_mmss clk_camss_ahb_clk>,
+			<&clock_mmss clk_mmagic_camss_axi_clk>,
+			<&clock_mmss clk_camss_vfe_ahb_clk>,
+			<&clock_mmss clk_camss_vfe0_ahb_clk>,
+			<&clock_mmss clk_camss_vfe_axi_clk>,
+			<&clock_mmss clk_camss_vfe0_stream_clk>,
+			<&clock_mmss clk_smmu_vfe_axi_clk>,
+			<&clock_mmss clk_smmu_vfe_ahb_clk>,
+			<&clock_mmss clk_camss_csi_vfe0_clk>,
+			<&clock_mmss clk_vfe0_clk_src>,
+			<&clock_mmss clk_camss_csi_vfe0_clk>,
+			<&clock_mmss clk_camss_csi2_ahb_clk>,
+			<&clock_mmss clk_camss_csi2_clk>,
+			<&clock_mmss clk_camss_csi2phy_clk>,
+			<&clock_mmss clk_csi2phytimer_clk_src>,
+			<&clock_mmss clk_camss_csi2phytimer_clk>,
+			<&clock_mmss clk_camss_csi2rdi_clk>,
+			<&clock_mmss clk_camss_ispif_ahb_clk>,
+			<&clock_mmss clk_camss_vfe0_clk>;
+		clock-names =
+			"mmss_mmagic_ahb_clk",
+			"camss_top_ahb_clk",
+			"cci_clk_src",
+			"camss_cci_ahb_clk",
+			"camss_cci_clk",
+			"camss_ahb_clk",
+			"mmagic_camss_axi_clk",
+			"camss_vfe_ahb_clk",
+			"camss_vfe0_ahb_clk",
+			"camss_vfe_axi_clk",
+			"camss_vfe0_stream_clk",
+			"smmu_vfe_axi_clk",
+			"smmu_vfe_ahb_clk",
+			"camss_csi_vfe0_clk",
+			"vfe0_clk_src",
+			"camss_csi_vfe0_clk",
+			"camss_csi2_ahb_clk",
+			"camss_csi2_clk",
+			"camss_csi2phy_clk",
+			"csi2phytimer_clk_src",
+			"camss_csi2phytimer_clk",
+			"camss_csi2rdi_clk",
+			"camss_ispif_ahb_clk",
+			"clk_camss_vfe0_clk";
+
+		qcom,clock-rates = <19200000
+						19200000
+						19200000
+						19200000
+						19200000
+						19200000
+						0
+						0
+						0
+						320000000
+						0
+						0
+						0
+						0
+						19200000
+						0
+						0
+						200000000
+						200000000
+						200000000
+						200000000
+						200000000
+						0
+	};
