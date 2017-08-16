@@ -840,7 +840,7 @@ static void sde_encoder_phys_cmd_enable(struct sde_encoder_phys *phys_enc)
 	phys_enc->enable_state = SDE_ENC_ENABLED;
 }
 
-static bool sde_encoder_phys_cmd_is_autorefresh_enabled(
+static bool _sde_encoder_phys_cmd_is_autorefresh_enabled(
 		struct sde_encoder_phys *phys_enc)
 {
 	struct sde_hw_pingpong *hw_pp;
@@ -1098,51 +1098,73 @@ static void sde_encoder_phys_cmd_prepare_commit(
 {
 	struct sde_encoder_phys_cmd *cmd_enc =
 		to_sde_encoder_phys_cmd(phys_enc);
-	unsigned long lock_flags;
 
 	if (!phys_enc)
 		return;
 
-	if (!sde_encoder_phys_cmd_is_master(phys_enc))
-		return;
+	if (sde_encoder_phys_cmd_is_master(phys_enc)) {
+		unsigned long lock_flags;
 
-	SDE_EVT32(DRMID(phys_enc->parent), phys_enc->intf_idx - INTF_0,
-			cmd_enc->autorefresh.cfg.enable);
 
-	if (!sde_encoder_phys_cmd_is_autorefresh_enabled(phys_enc))
-		return;
+		SDE_EVT32(DRMID(phys_enc->parent), phys_enc->intf_idx - INTF_0,
+				cmd_enc->autorefresh.cfg.enable);
 
-	/**
-	 * Autorefresh must be disabled carefully:
-	 *  - Autorefresh must be disabled between pp_done and te
-	 *    signal prior to sdm845 targets. All targets after sdm845
-	 *    supports autorefresh disable without turning off the
-	 *    hardware TE and pp_done wait.
-	 *
-	 *  - Wait for TX to Complete
-	 *    Wait for PPDone confirms the last frame transfer is complete.
-	 *
-	 *  - Leave Autorefresh Disabled
-	 *    - Assume disable of Autorefresh since it is now safe
-	 *    - Can now safely Disable Encoder, do debug printing, etc.
-	 *     without worrying that Autorefresh will kickoff
-	 */
+		if (!_sde_encoder_phys_cmd_is_autorefresh_enabled(phys_enc))
+			return;
 
-	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
+		/**
+		 * Autorefresh must be disabled carefully:
+		 *  - Must disable while there is no ongoing transmission
+		 *  - Receiving a TE will trigger the next Autorefresh TX
+		 *  - Only safe to disable Autorefresh between PPDone and TE
+		 *  - However, that is a small time window
+		 *  - Disabling External TE gives large safe window, assuming
+		 *    internally generated TE is set to a large counter value
+		 *
+		 * If Autorefresh is active:
+		 * 1. Disable external TE
+		 *   - TE will run on an SDE counter set to large value (~200ms)
+		 *
+		 * 2. Check for ongoing TX
+		 *   - If ongoing TX, set pending_kickoff_cnt if not set already
+		 *   - We don't want to wait for a ppdone that will never
+		 *     arrive, so verify ongoing TX
+		 *
+		 * 3. Wait for TX to Complete
+		 *  - Wait for PPDone pending count to reach 0
+		 *
+		 * 4. Leave Autorefresh Disabled
+		 *   - Assume disable of Autorefresh since it is now safe
+		 *   - Can now safely Disable Encoder, do debug printing, etc.
+		 *     without worrying that Autorefresh will kickoff
+		 */
 
-	_sde_encoder_phys_cmd_config_autorefresh(phys_enc, 0);
+		spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
 
-	/* check for outstanding TX */
-	if (_sde_encoder_phys_cmd_is_ongoing_pptx(phys_enc))
-		atomic_add_unless(&phys_enc->pending_kickoff_cnt, 1, 1);
-	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
+		/* disable external TE to prevent next autorefresh */
+		_sde_encoder_phys_cmd_connect_te(phys_enc, false);
 
-	/* wait for ppdone if necessary due to catching ongoing TX */
-	if (_sde_encoder_phys_cmd_wait_for_idle(phys_enc))
-		SDE_ERROR_CMDENC(cmd_enc, "pp:%d kickoff timed out\n",
-				phys_enc->hw_pp->idx - PINGPONG_0);
+		/* verify that we disabled TE during outstanding TX */
+		if (_sde_encoder_phys_cmd_is_ongoing_pptx(phys_enc))
+			atomic_add_unless(&phys_enc->pending_kickoff_cnt, 1, 1);
 
-	SDE_DEBUG_CMDENC(cmd_enc, "disabled autorefresh\n");
+		spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
+
+		/* wait for ppdone if necessary due to catching ongoing TX */
+		if (_sde_encoder_phys_cmd_wait_for_idle(phys_enc))
+			SDE_ERROR_CMDENC(cmd_enc,
+					"pp:%d kickoff timed out\n",
+					phys_enc->hw_pp->idx - PINGPONG_0);
+
+		/*
+		 * not strictly necessary for kickoff, but simplifies disable
+		 * callflow since our disable is split across multiple phys_encs
+		 */
+		_sde_encoder_phys_cmd_config_autorefresh(phys_enc, 0);
+
+		SDE_DEBUG_CMDENC(cmd_enc, "disabled autorefresh & ext TE\n");
+
+	}
 }
 
 static void sde_encoder_phys_cmd_handle_post_kickoff(
@@ -1199,8 +1221,6 @@ static void sde_encoder_phys_cmd_init_ops(
 	ops->irq_control = sde_encoder_phys_cmd_irq_control;
 	ops->update_split_role = sde_encoder_phys_cmd_update_split_role;
 	ops->restore = sde_encoder_phys_cmd_enable_helper;
-	ops->is_autorefresh_enabled =
-			sde_encoder_phys_cmd_is_autorefresh_enabled;
 	ops->handle_post_kickoff = sde_encoder_phys_cmd_handle_post_kickoff;
 }
 
