@@ -834,6 +834,9 @@ enum hal_uncompressed_format msm_comm_get_hal_uncompressed(int fourcc)
 	case V4L2_PIX_FMT_NV12_TP10_UBWC:
 		format = HAL_COLOR_FORMAT_NV12_TP10_UBWC;
 		break;
+	case V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010:
+		format = HAL_COLOR_FORMAT_P010;
+		break;
 	default:
 		format = HAL_UNUSED_COLOR;
 		break;
@@ -5735,6 +5738,11 @@ u32 get_frame_size_nv21(int plane, u32 height, u32 width)
 u32 get_frame_size_tp10_ubwc(int plane, u32 height, u32 width)
 {
 	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12_BPP10_UBWC, width, height);
+}
+
+u32 get_frame_size_p010(int plane, u32 height, u32 width)
+{
+	return VENUS_BUFFER_SIZE(COLOR_FMT_P010, width, height);
 }
 
 

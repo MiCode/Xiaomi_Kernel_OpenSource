@@ -429,6 +429,13 @@ struct msm_vidc_format vdec_formats[] = {
 		.type = CAPTURE_PORT,
 	},
 	{
+		.name = "YCbCr Semiplanar 4:2:0 10bit",
+		.description = "Y/CbCr 4:2:0 10bit",
+		.fourcc = V4L2_PIX_FMT_SDE_Y_CBCR_H2V2_P010,
+		.get_frame_size = get_frame_size_p010,
+		.type = CAPTURE_PORT,
+	},
+	{
 		.name = "UBWC YCbCr Semiplanar 4:2:0",
 		.description = "UBWC Y/CbCr 4:2:0",
 		.fourcc = V4L2_PIX_FMT_NV12_UBWC,

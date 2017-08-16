@@ -109,6 +109,7 @@ u32 get_frame_size_nv12_ubwc(int plane, u32 height, u32 width);
 u32 get_frame_size_rgba(int plane, u32 height, u32 width);
 u32 get_frame_size_nv21(int plane, u32 height, u32 width);
 u32 get_frame_size_tp10_ubwc(int plane, u32 height, u32 width);
+u32 get_frame_size_p010(int plane, u32 height, u32 width);
 struct vb2_buffer *msm_comm_get_vb_using_vidc_buffer(
 		struct msm_vidc_inst *inst, struct msm_vidc_buffer *mbuf);
 struct msm_vidc_buffer *msm_comm_get_buffer_using_device_planes(
