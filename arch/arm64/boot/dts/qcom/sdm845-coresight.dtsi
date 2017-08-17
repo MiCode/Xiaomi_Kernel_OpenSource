@@ -1935,6 +1935,22 @@
 		clock-names = "apb_pclk";
 	};
 
+	 ipcb_tgu: tgu@6b0c000 {
+		compatible = "arm,primecell";
+		arm,primecell-periphid = <0x0003b999>;
+		reg = <0x06B0C000 0x1000>;
+		reg-names = "tgu-base";
+		tgu-steps = <3>;
+		tgu-conditions = <4>;
+		tgu-regs = <4>;
+		tgu-timer-counters = <8>;
+
+		coresight-name = "coresight-tgu-ipcb";
+
+		clocks = <&clock_aop QDSS_CLK>;
+		clock-names = "apb_pclk";
+	};
+
 	turing_etm0 {
 		compatible = "qcom,coresight-remote-etm";
 
