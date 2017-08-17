@@ -62,73 +62,82 @@
 		status = "disabled";
 	};
 
-	hlos1_vote_aggre_noc_mmu_audio_tbu_gdsc: qcom,gdsc@0x17d030 {
+	hlos1_vote_aggre_noc_mmu_audio_tbu_gdsc: qcom,gdsc@0x17d040 {
 		compatible = "regulator-fixed";
 		regulator-name = "hlos1_vote_aggre_noc_mmu_audio_tbu_gdsc";
-		reg = <0x17d030 0x4>;
-		qcom,no-status-check-on-disable;
-		qcom,gds-timeout = <500>;
-		status = "disabled";
-	};
-
-	hlos1_vote_aggre_noc_mmu_tbu1_gdsc: qcom,gdsc@0x17d034 {
-		compatible = "regulator-fixed";
-		regulator-name = "hlos1_vote_aggre_noc_mmu_tbu1_gdsc";
-		reg = <0x17d034 0x4>;
-		qcom,no-status-check-on-disable;
-		qcom,gds-timeout = <500>;
-		status = "disabled";
-	};
-
-	hlos1_vote_aggre_noc_mmu_tbu2_gdsc: qcom,gdsc@0x17d038 {
-		compatible = "regulator-fixed";
-		regulator-name = "hlos1_vote_aggre_noc_mmu_tbu2_gdsc";
-		reg = <0x17d038 0x4>;
-		qcom,no-status-check-on-disable;
-		qcom,gds-timeout = <500>;
-		status = "disabled";
-	};
-
-	hlos1_vote_aggre_noc_mmu_pcie_tbu_gdsc: qcom,gdsc@0x17d03c {
-		compatible = "regulator-fixed";
-		regulator-name = "hlos1_vote_aggre_noc_mmu_pcie_tbu_gdsc";
-		reg = <0x17d03c 0x4>;
-		qcom,no-status-check-on-disable;
-		qcom,gds-timeout = <500>;
-		status = "disabled";
-	};
-
-	hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc: qcom,gdsc@0x17d040 {
-		compatible = "regulator-fixed";
-		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc";
 		reg = <0x17d040 0x4>;
 		qcom,no-status-check-on-disable;
 		qcom,gds-timeout = <500>;
 		status = "disabled";
 	};
 
-	hlos1_vote_mmnoc_mmu_tbu_sf_gdsc: qcom,gdsc@0x17d044 {
+	hlos1_vote_aggre_noc_mmu_tbu1_gdsc: qcom,gdsc@0x17d044 {
 		compatible = "regulator-fixed";
-		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_sf_gdsc";
+		regulator-name = "hlos1_vote_aggre_noc_mmu_tbu1_gdsc";
 		reg = <0x17d044 0x4>;
 		qcom,no-status-check-on-disable;
 		qcom,gds-timeout = <500>;
 		status = "disabled";
 	};
 
-	hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc: qcom,gdsc@0x17d048 {
+	hlos1_vote_aggre_noc_mmu_tbu2_gdsc: qcom,gdsc@0x17d048 {
 		compatible = "regulator-fixed";
-		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc";
+		regulator-name = "hlos1_vote_aggre_noc_mmu_tbu2_gdsc";
 		reg = <0x17d048 0x4>;
 		qcom,no-status-check-on-disable;
 		qcom,gds-timeout = <500>;
 		status = "disabled";
 	};
 
-	hlos1_vote_turing_mmu_tbu_gdsc: qcom,gdsc@0x17d04c {
+	hlos1_vote_aggre_noc_mmu_pcie_tbu_gdsc: qcom,gdsc@0x17d04c {
 		compatible = "regulator-fixed";
-		regulator-name = "hlos1_vote_turing_mmu_tbu_gdsc";
+		regulator-name = "hlos1_vote_aggre_noc_mmu_pcie_tbu_gdsc";
 		reg = <0x17d04c 0x4>;
+		qcom,no-status-check-on-disable;
+		qcom,gds-timeout = <500>;
+		status = "disabled";
+	};
+
+	hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc: qcom,gdsc@0x17d050 {
+		compatible = "regulator-fixed";
+		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc";
+		reg = <0x17d050 0x4>;
+		qcom,no-status-check-on-disable;
+		qcom,gds-timeout = <500>;
+		status = "disabled";
+	};
+
+	hlos1_vote_mmnoc_mmu_tbu_sf_gdsc: qcom,gdsc@0x17d054 {
+		compatible = "regulator-fixed";
+		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_sf_gdsc";
+		reg = <0x17d054 0x4>;
+		qcom,no-status-check-on-disable;
+		qcom,gds-timeout = <500>;
+		status = "disabled";
+	};
+
+	hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc: qcom,gdsc@0x17d058 {
+		compatible = "regulator-fixed";
+		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc";
+		reg = <0x17d058 0x4>;
+		qcom,no-status-check-on-disable;
+		qcom,gds-timeout = <500>;
+		status = "disabled";
+	};
+
+	hlos1_vote_turing_mmu_tbu0_gdsc: qcom,gdsc@0x17d05c {
+		compatible = "regulator-fixed";
+		regulator-name = "hlos1_vote_turing_mmu_tbu0_gdsc";
+		reg = <0x17d05c 0x4>;
+		qcom,no-status-check-on-disable;
+		qcom,gds-timeout = <500>;
+		status = "disabled";
+	};
+
+	hlos1_vote_turing_mmu_tbu1_gdsc: qcom,gdsc@0x17d060 {
+		compatible = "regulator-fixed";
+		regulator-name = "hlos1_vote_turing_mmu_tbu1_gdsc";
+		reg = <0x17d060 0x4>;
 		qcom,no-status-check-on-disable;
 		qcom,gds-timeout = <500>;
 		status = "disabled";
