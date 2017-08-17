@@ -322,7 +322,6 @@ struct sde_connector {
  * struct sde_connector_state - private connector status structure
  * @base: Base drm connector structure
  * @out_fb: Pointer to output frame buffer, if applicable
- * @aspace: Address space for accessing frame buffer objects, if applicable
  * @property_state: Local storage for msm_prop properties
  * @property_values: Local cache of current connector property values
  * @rois: Regions of interest structure for mapping CRTC to Connector output
@@ -331,7 +330,6 @@ struct sde_connector {
 struct sde_connector_state {
 	struct drm_connector_state base;
 	struct drm_framebuffer *out_fb;
-	struct msm_gem_address_space *aspace;
 	struct msm_property_state property_state;
 	struct msm_property_value property_values[CONNECTOR_PROP_COUNT];
 

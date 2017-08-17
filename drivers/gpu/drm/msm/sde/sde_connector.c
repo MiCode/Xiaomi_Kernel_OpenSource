@@ -522,7 +522,6 @@ static void _sde_connector_destroy_fb(struct sde_connector *c_conn,
 		return;
 	}
 
-	msm_framebuffer_cleanup(c_state->out_fb, c_state->aspace);
 	drm_framebuffer_unreference(c_state->out_fb);
 	c_state->out_fb = NULL;
 
@@ -603,7 +602,6 @@ sde_connector_atomic_duplicate_state(struct drm_connector *connector)
 {
 	struct sde_connector *c_conn;
 	struct sde_connector_state *c_state, *c_oldstate;
-	int rc;
 
 	if (!connector || !connector->state) {
 		SDE_ERROR("invalid connector %pK\n", connector);
@@ -624,13 +622,8 @@ sde_connector_atomic_duplicate_state(struct drm_connector *connector)
 			&c_state->property_state, c_state->property_values);
 
 	/* additional handling for drm framebuffer objects */
-	if (c_state->out_fb) {
+	if (c_state->out_fb)
 		drm_framebuffer_reference(c_state->out_fb);
-		rc = msm_framebuffer_prepare(c_state->out_fb,
-				c_state->aspace);
-		if (rc)
-			SDE_ERROR("failed to prepare fb, %d\n", rc);
-	}
 
 	return &c_state->base;
 }
@@ -795,18 +788,6 @@ static int sde_connector_atomic_set_property(struct drm_connector *connector,
 		} else {
 			msm_framebuffer_set_kmap(c_state->out_fb,
 					c_conn->fb_kmap);
-
-			if (c_state->out_fb->flags & DRM_MODE_FB_SECURE)
-				c_state->aspace =
-				c_conn->aspace[SDE_IOMMU_DOMAIN_SECURE];
-			else
-				c_state->aspace =
-				c_conn->aspace[SDE_IOMMU_DOMAIN_UNSECURE];
-
-			rc = msm_framebuffer_prepare(c_state->out_fb,
-					c_state->aspace);
-			if (rc)
-				SDE_ERROR("prep fb failed, %d\n", rc);
 		}
 		break;
 	default:
