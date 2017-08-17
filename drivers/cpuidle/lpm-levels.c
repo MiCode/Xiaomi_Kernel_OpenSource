@@ -49,6 +49,7 @@
 #include <asm/cpuidle.h>
 #include "lpm-levels.h"
 #include <trace/events/power.h>
+#include "../clk/clk.h"
 #define CREATE_TRACE_POINTS
 #include <trace/events/trace_msm_low_power.h>
 
@@ -1631,6 +1632,7 @@ static int lpm_suspend_enter(suspend_state_t state)
 	 * clocks that are enabled and preventing the system level
 	 * LPMs(XO and Vmin).
 	 */
+	clock_debug_print_enabled();
 
 	psci_enter_sleep(lpm_cpu, idx, true);
 
