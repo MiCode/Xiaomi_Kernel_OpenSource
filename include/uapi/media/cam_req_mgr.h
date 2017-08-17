@@ -23,6 +23,7 @@
 #define CAM_CCI_DEVICE_TYPE       (CAM_DEVICE_TYPE_BASE + 10)
 #define CAM_FLASH_DEVICE_TYPE     (CAM_DEVICE_TYPE_BASE + 11)
 #define CAM_EEPROM_DEVICE_TYPE    (CAM_DEVICE_TYPE_BASE + 12)
+#define CAM_OIS_DEVICE_TYPE       (CAM_DEVICE_TYPE_BASE + 13)
 
 /* cam_req_mgr hdl info */
 #define CAM_REQ_MGR_HDL_IDX_POS           8
