@@ -2545,6 +2545,7 @@ static void msm_chg_detect_work(struct work_struct *w)
 
 			motg->chg_state = USB_CHG_STATE_DETECTED;
 			delay = 0;
+			goto state_detected;
 		}
 		break;
 	case USB_CHG_STATE_PRIMARY_DONE:
@@ -2558,6 +2559,7 @@ static void msm_chg_detect_work(struct work_struct *w)
 	case USB_CHG_STATE_SECONDARY_DONE:
 		motg->chg_state = USB_CHG_STATE_DETECTED;
 	case USB_CHG_STATE_DETECTED:
+state_detected:
 		/*
 		 * Notify the charger type to power supply
 		 * owner as soon as we determine the charger.
