@@ -66,6 +66,7 @@
 #define PERFCL_EFUSE_MASK		0x7
 
 #define ENABLE_REG			0x0
+#define ENABLE_OSM			BIT(0)
 #define FREQ_REG			0x110
 #define VOLT_REG			0x114
 #define OVERRIDE_REG			0x118
@@ -2629,7 +2630,7 @@ static int clk_osm_resources_init(struct platform_device *pdev)
 	}
 
 	/* Check if OSM has been enabled already by trustzone.  */
-	if (readl_relaxed(l3_clk.vbases[OSM_BASE] + ENABLE_REG)) {
+	if (readl_relaxed(l3_clk.vbases[OSM_BASE] + ENABLE_REG) & ENABLE_OSM) {
 		dev_info(&pdev->dev, "OSM has been initialized and enabled by TZ software\n");
 		osm_tz_enabled = true;
 	}
