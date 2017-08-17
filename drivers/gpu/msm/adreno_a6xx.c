@@ -2179,7 +2179,9 @@ static void a6xx_cp_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	a6xx_preemption_trigger(adreno_dev);
+	if (adreno_is_preemption_enabled(adreno_dev))
+		a6xx_preemption_trigger(adreno_dev);
+
 	adreno_dispatcher_schedule(device);
 }
 
