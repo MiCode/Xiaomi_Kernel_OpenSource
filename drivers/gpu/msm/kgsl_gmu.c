@@ -505,9 +505,10 @@ static int rpmh_arc_cmds(struct gmu_device *gmu,
 	unsigned int len;
 
 	len = cmd_db_get_aux_data_len(res_id);
+	if (len == 0)
+		return -EINVAL;
 
 	if (len > (MAX_GX_LEVELS << 1)) {
-		/* CmdDB VLVL table size in bytes is too large */
 		dev_err(&gmu->pdev->dev,
 			"gfx cmddb size %d larger than alloc buf %d of %s\n",
 			len, (MAX_GX_LEVELS << 1), res_id);
@@ -515,8 +516,16 @@ static int rpmh_arc_cmds(struct gmu_device *gmu,
 	}
 
 	cmd_db_get_aux_data(res_id, (uint8_t *)arc->val, len);
-	for (arc->num = 1; arc->num <= MAX_GX_LEVELS; arc->num++) {
-		if (arc->num == MAX_GX_LEVELS ||
+
+	/*
+	 * cmd_db_get_aux_data() gives us a zero-padded table of
+	 * size len that contains the arc values. To determine the
+	 * number of arc values, we loop through the table and count
+	 * them until we get to the end of the buffer or hit the
+	 * zero padding.
+	 */
+	for (arc->num = 1; arc->num <= len; arc->num++) {
+		if (arc->num == len ||
 				arc->val[arc->num - 1] >= arc->val[arc->num])
 			break;
 	}
