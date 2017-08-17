@@ -27,7 +27,7 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/scm.h>
 
-#include <uapi/linux/habmm.h>
+#include <linux/habmm.h>
 
 #define SCM_ENOMEM			(-5)
 #define SCM_EOPNOTSUPP		(-4)
@@ -218,7 +218,7 @@ static int scm_call_qcpe(u32 fn_id, struct scm_desc *desc)
 
 	if (!opened) {
 		ret = habmm_socket_open(&handle, MM_QCPE_VM1, 0, 0);
-		if (ret != HAB_OK) {
+		if (ret) {
 			pr_err("scm_call_qcpe: habmm_socket_open failed with ret = %d",
 				ret);
 			return ret;
@@ -235,14 +235,14 @@ static int scm_call_qcpe(u32 fn_id, struct scm_desc *desc)
 	smc_params.sid = 0;
 
 	ret = habmm_socket_send(handle, &smc_params, sizeof(smc_params), 0);
-	if (ret != HAB_OK)
+	if (ret)
 		return ret;
 
 	size_bytes = sizeof(smc_params);
 	memset(&smc_params, 0x0, sizeof(smc_params));
 
 	ret = habmm_socket_recv(handle, &smc_params, &size_bytes, 0, 0);
-	if (ret != HAB_OK)
+	if (ret)
 		return ret;
 
 	if (size_bytes != sizeof(smc_params)) {
