@@ -82,7 +82,7 @@ int btfm_slim_chrk_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 	uint8_t rxport, uint8_t enable)
 {
 	int ret = 0;
-	uint8_t reg_val = 0;
+	uint8_t reg_val = 0, en;
 	uint8_t port_bit = 0;
 	uint16_t reg;
 
@@ -137,15 +137,15 @@ enable_disable_txport:
 	reg = CHRK_SB_PGD_PORT_TX_CFGN(port_num);
 
 enable_disable_rxport:
-	if (enable) {
-		if (is_fm_port(port_num))
-			reg_val = CHRK_SB_PGD_PORT_ENABLE |
-					CHRK_SB_PGD_PORT_WM_L3;
-		else
-			reg_val = CHRK_SB_PGD_PORT_ENABLE |
-					CHRK_SB_PGD_PORT_WM_LB;
-	} else
-		reg_val = CHRK_SB_PGD_PORT_DISABLE;
+	if (enable)
+		en = CHRK_SB_PGD_PORT_ENABLE;
+	else
+		en = CHRK_SB_PGD_PORT_DISABLE;
+
+	if (is_fm_port(port_num))
+		reg_val = en | CHRK_SB_PGD_PORT_WM_L8;
+	else
+		reg_val = enable ? en | CHRK_SB_PGD_PORT_WM_LB : en;
 
 	ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
 	if (ret)
