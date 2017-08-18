@@ -282,6 +282,11 @@ static void programmable_rot_fetch_config(struct sde_encoder_phys *phys_enc,
 		}
 	}
 
+	/* return if rot_fetch does not change since last update */
+	if (vid_enc->rot_fetch_valid &&
+			!memcmp(&vid_enc->rot_fetch, &f, sizeof(f)))
+		return;
+
 	SDE_DEBUG_VIDENC(vid_enc,
 		"rot_fetch_lines %u rot_fetch_start_vsync_counter %u\n",
 		rot_fetch_lines, rot_fetch_start_vsync_counter);
@@ -294,6 +299,9 @@ static void programmable_rot_fetch_config(struct sde_encoder_phys *phys_enc,
 	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
 	vid_enc->hw_intf->ops.setup_rot_start(vid_enc->hw_intf, &f);
 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
+
+	vid_enc->rot_fetch = f;
+	vid_enc->rot_fetch_valid = true;
 }
 
 static bool sde_encoder_phys_vid_mode_fixup(
@@ -583,6 +591,9 @@ static void sde_encoder_phys_vid_enable(struct sde_encoder_phys *phys_enc)
 
 	if (WARN_ON(!vid_enc->hw_intf->ops.enable_timing))
 		return;
+
+	/* reset state variables until after first update */
+	vid_enc->rot_fetch_valid = false;
 
 	sde_encoder_helper_split_config(phys_enc, vid_enc->hw_intf->idx);
 
