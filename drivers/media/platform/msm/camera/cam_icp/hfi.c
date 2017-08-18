@@ -193,6 +193,32 @@ err:
 	return rc;
 }
 
+int hfi_enable_ipe_bps_pc(bool enable)
+{
+	uint8_t *prop;
+	struct hfi_cmd_prop *dbg_prop;
+	uint32_t size = 0;
+
+	size = sizeof(struct hfi_cmd_prop) +
+		sizeof(struct hfi_ipe_bps_pc);
+
+	prop = kzalloc(size, GFP_KERNEL);
+	if (!prop)
+		return -ENOMEM;
+
+	dbg_prop = (struct hfi_cmd_prop *)prop;
+	dbg_prop->size = size;
+	dbg_prop->pkt_type = HFI_CMD_SYS_SET_PROPERTY;
+	dbg_prop->num_prop = 1;
+	dbg_prop->prop_data[0] = HFI_PROP_SYS_IPEBPS_PC;
+	dbg_prop->prop_data[1] = enable;
+
+	hfi_write_cmd(prop);
+	kfree(prop);
+
+	return 0;
+}
+
 void hfi_send_system_cmd(uint32_t type, uint64_t data, uint32_t size)
 {
 	switch (type) {

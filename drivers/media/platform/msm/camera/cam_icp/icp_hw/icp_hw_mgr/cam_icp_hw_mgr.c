@@ -52,6 +52,82 @@
 
 static struct cam_icp_hw_mgr icp_hw_mgr;
 
+static int cam_icp_mgr_ipe_bps_resume(struct cam_icp_hw_mgr *hw_mgr,
+	struct cam_icp_hw_ctx_data *ctx_data)
+{
+	struct cam_hw_intf *ipe0_dev_intf = NULL;
+	struct cam_hw_intf *ipe1_dev_intf = NULL;
+	struct cam_hw_intf *bps_dev_intf = NULL;
+	int rc = 0;
+
+	if (!icp_hw_mgr.icp_pc_flag)
+		return rc;
+
+	ipe0_dev_intf = hw_mgr->devices[CAM_ICP_DEV_IPE][0];
+	ipe1_dev_intf = hw_mgr->devices[CAM_ICP_DEV_IPE][1];
+	bps_dev_intf = hw_mgr->devices[CAM_ICP_DEV_BPS][0];
+
+	if ((!ipe0_dev_intf) || (!bps_dev_intf)) {
+		CAM_ERR(CAM_ICP, "dev intfs are wrong, failed to close");
+		return -EINVAL;
+	}
+
+	bps_dev_intf->hw_ops.process_cmd(
+		bps_dev_intf->hw_priv,
+		CAM_ICP_BPS_CMD_POWER_RESUME, NULL, 0);
+
+	ipe0_dev_intf->hw_ops.process_cmd(
+		ipe0_dev_intf->hw_priv,
+		CAM_ICP_IPE_CMD_POWER_RESUME, NULL, 0);
+
+	if (ipe1_dev_intf) {
+		ipe1_dev_intf->hw_ops.process_cmd(
+			ipe1_dev_intf->hw_priv,
+			CAM_ICP_IPE_CMD_POWER_RESUME, NULL, 0);
+	}
+
+	rc = hfi_enable_ipe_bps_pc(true);
+
+	return rc;
+}
+
+static int cam_icp_mgr_ipe_bps_power_collapse(struct cam_icp_hw_mgr *hw_mgr,
+	struct cam_icp_hw_ctx_data *ctx_data, int dev_type)
+{
+	int rc = 0;
+	struct cam_hw_intf *ipe0_dev_intf = NULL;
+	struct cam_hw_intf *ipe1_dev_intf = NULL;
+	struct cam_hw_intf *bps_dev_intf = NULL;
+
+	if (!icp_hw_mgr.icp_pc_flag)
+		return rc;
+
+	ipe0_dev_intf = hw_mgr->devices[CAM_ICP_DEV_IPE][0];
+	ipe1_dev_intf = hw_mgr->devices[CAM_ICP_DEV_IPE][1];
+	bps_dev_intf = hw_mgr->devices[CAM_ICP_DEV_BPS][0];
+
+	if ((!ipe0_dev_intf) || (!bps_dev_intf)) {
+		CAM_ERR(CAM_ICP, "dev intfs are wrong, failed to close");
+		return -EINVAL;
+	}
+
+	rc = bps_dev_intf->hw_ops.process_cmd(
+		bps_dev_intf->hw_priv,
+		CAM_ICP_BPS_CMD_POWER_COLLAPSE, NULL, 0);
+
+	rc = ipe0_dev_intf->hw_ops.process_cmd(
+		ipe0_dev_intf->hw_priv,
+		CAM_ICP_IPE_CMD_POWER_COLLAPSE, NULL, 0);
+
+	if (ipe1_dev_intf) {
+		rc = ipe1_dev_intf->hw_ops.process_cmd(
+			ipe1_dev_intf->hw_priv,
+			CAM_ICP_IPE_CMD_POWER_COLLAPSE, NULL, 0);
+	}
+
+	return rc;
+}
+
 static int cam_icp_hw_mgr_create_debugfs_entry(void)
 {
 	icp_hw_mgr.dentry = debugfs_create_dir("camera_icp", NULL);
@@ -63,6 +139,14 @@ static int cam_icp_hw_mgr_create_debugfs_entry(void)
 		icp_hw_mgr.dentry,
 		&icp_hw_mgr.a5_debug)) {
 		debugfs_remove_recursive(icp_hw_mgr.dentry);
+		return -ENOMEM;
+	}
+
+	if (!debugfs_create_bool("icp_pc",
+		0644,
+		icp_hw_mgr.dentry,
+		&icp_hw_mgr.icp_pc_flag)) {
+		CAM_ERR(CAM_ICP, "failed to create icp_pc entry");
 		return -ENOMEM;
 	}
 
@@ -1365,8 +1449,11 @@ static int cam_icp_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 	}
 
 	rc = cam_icp_mgr_release_ctx(hw_mgr, ctx_id);
-	if (!hw_mgr->ctxt_cnt)
+	if (!hw_mgr->ctxt_cnt) {
+		cam_icp_mgr_ipe_bps_power_collapse(hw_mgr,
+			NULL, 0);
 		cam_icp_mgr_hw_close(hw_mgr, NULL);
+	}
 
 	return rc;
 }
@@ -1624,6 +1711,9 @@ static int cam_icp_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 		rc = cam_icp_mgr_download_fw(hw_mgr, ctx_data);
 		if (rc)
 			goto get_io_buf_failed;
+		rc = cam_icp_mgr_ipe_bps_resume(hw_mgr, ctx_data);
+		if (rc)
+			goto ipe_bps_resume_failed;
 		mutex_lock(&hw_mgr->hw_mgr_mutex);
 	}
 	mutex_unlock(&hw_mgr->hw_mgr_mutex);
@@ -1678,8 +1768,10 @@ copy_to_user_failed:
 	ctx_data->hfi_frame_process.bitmap = NULL;
 ioconfig_failed:
 	cam_icp_mgr_destroy_handle(ctx_data);
-send_ping_failed:
 create_handle_failed:
+send_ping_failed:
+	cam_icp_mgr_ipe_bps_power_collapse(hw_mgr, ctx_data, 0);
+ipe_bps_resume_failed:
 	if (!hw_mgr->ctxt_cnt)
 		cam_icp_mgr_hw_close(hw_mgr, NULL);
 get_io_buf_failed:
@@ -1836,6 +1928,9 @@ static int cam_icp_mgr_init_devs(struct device_node *of_node)
 
 		icp_hw_mgr.devices[child_dev_intf->hw_type]
 			[child_dev_intf->hw_idx] = child_dev_intf;
+
+		if (!child_dev_intf->hw_ops.process_cmd)
+			goto compat_hw_name_failed;
 
 		of_node_put(child_node);
 	}

@@ -133,6 +133,77 @@ int cam_bps_deinit_hw(void *device_priv,
 	return rc;
 }
 
+static int cam_bps_handle_pc(struct cam_hw_info *bps_dev)
+{
+	struct cam_hw_soc_info *soc_info = NULL;
+	struct cam_bps_device_core_info *core_info = NULL;
+	struct cam_bps_device_hw_info *hw_info = NULL;
+	int pwr_ctrl;
+	int pwr_status;
+
+	soc_info = &bps_dev->soc_info;
+	core_info = (struct cam_bps_device_core_info *)bps_dev->core_info;
+	hw_info = core_info->bps_hw_info;
+
+	cam_cpas_reg_read(core_info->cpas_handle,
+		CAM_CPAS_REG_CPASTOP, hw_info->pwr_ctrl,
+		true, &pwr_ctrl);
+	if (!(pwr_ctrl & BPS_COLLAPSE_MASK)) {
+		cam_cpas_reg_read(core_info->cpas_handle,
+			CAM_CPAS_REG_CPASTOP, hw_info->pwr_status,
+			true, &pwr_status);
+
+		cam_cpas_reg_write(core_info->cpas_handle,
+			CAM_CPAS_REG_CPASTOP,
+			hw_info->pwr_ctrl, true, 0x1);
+
+		if ((pwr_status >> BPS_PWR_ON_MASK))
+			return -EINVAL;
+	}
+	cam_bps_get_gdsc_control(soc_info);
+	cam_cpas_reg_read(core_info->cpas_handle,
+		CAM_CPAS_REG_CPASTOP, hw_info->pwr_ctrl, true,
+		&pwr_ctrl);
+	cam_cpas_reg_read(core_info->cpas_handle,
+		CAM_CPAS_REG_CPASTOP, hw_info->pwr_status,
+		true, &pwr_status);
+	CAM_DBG(CAM_ICP, "pwr_ctrl = %x pwr_status = %x",
+		pwr_ctrl, pwr_status);
+
+	return 0;
+}
+
+static int cam_bps_handle_resume(struct cam_hw_info *bps_dev)
+{
+	struct cam_hw_soc_info *soc_info = NULL;
+	struct cam_bps_device_core_info *core_info = NULL;
+	struct cam_bps_device_hw_info *hw_info = NULL;
+	int pwr_ctrl;
+	int pwr_status;
+	int rc = 0;
+
+	soc_info = &bps_dev->soc_info;
+	core_info = (struct cam_bps_device_core_info *)bps_dev->core_info;
+	hw_info = core_info->bps_hw_info;
+
+	cam_cpas_reg_read(core_info->cpas_handle,
+		CAM_CPAS_REG_CPASTOP, hw_info->pwr_ctrl, true, &pwr_ctrl);
+	if (pwr_ctrl & BPS_COLLAPSE_MASK) {
+		CAM_ERR(CAM_ICP, "BPS: resume failed : %d", pwr_ctrl);
+		return -EINVAL;
+	}
+
+	rc = cam_bps_transfer_gdsc_control(soc_info);
+	cam_cpas_reg_read(core_info->cpas_handle,
+		CAM_CPAS_REG_CPASTOP, hw_info->pwr_ctrl, true, &pwr_ctrl);
+	cam_cpas_reg_read(core_info->cpas_handle,
+		CAM_CPAS_REG_CPASTOP, hw_info->pwr_status, true, &pwr_status);
+	CAM_DBG(CAM_ICP, "pwr_ctrl = %x pwr_status = %x",
+		pwr_ctrl, pwr_status);
+
+	return rc;
+}
+
 int cam_bps_process_cmd(void *device_priv, uint32_t cmd_type,
 	void *cmd_args, uint32_t arg_size)
 {
@@ -191,6 +262,12 @@ int cam_bps_process_cmd(void *device_priv, uint32_t cmd_type,
 			cam_cpas_stop(core_info->cpas_handle);
 			core_info->cpas_start = false;
 		}
+		break;
+	case CAM_ICP_BPS_CMD_POWER_COLLAPSE:
+		rc = cam_bps_handle_pc(bps_dev);
+		break;
+	case CAM_ICP_BPS_CMD_POWER_RESUME:
+		rc = cam_bps_handle_resume(bps_dev);
 		break;
 	default:
 		break;

@@ -161,6 +161,11 @@ struct cam_icp_hw_ctx_data {
  * @cmd_work_data: Pointer to command work queue task
  * @msg_work_data: Pointer to message work queue task
  * @ctxt_cnt: Active context count
+ * @ipe_ctxt_cnt: IPE Active context count
+ * @bps_ctxt_cnt: BPS Active context count
+ * @dentry: Debugfs entry
+ * @a5_debug: A5 debug flag
+ * @icp_pc_flag: Flag to enable/disable power collapse
  */
 struct cam_icp_hw_mgr {
 	struct mutex hw_mgr_mutex;
@@ -182,8 +187,11 @@ struct cam_icp_hw_mgr {
 	struct hfi_cmd_work_data *cmd_work_data;
 	struct hfi_msg_work_data *msg_work_data;
 	uint32_t ctxt_cnt;
+	uint32_t ipe_ctxt_cnt;
+	uint32_t bps_ctxt_cnt;
 	struct dentry *dentry;
 	bool a5_debug;
+	bool icp_pc_flag;
 };
 
 static int cam_icp_mgr_hw_close(void *hw_priv, void *hw_close_args);

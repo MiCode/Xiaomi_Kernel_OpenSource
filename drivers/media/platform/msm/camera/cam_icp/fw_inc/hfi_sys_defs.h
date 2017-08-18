@@ -158,6 +158,7 @@
 #define HFI_PROP_SYS_DEBUG_CFG         (HFI_PROPERTY_ICP_COMMON_START + 0x1)
 #define HFI_PROP_SYS_IMAGE_VER         (HFI_PROPERTY_ICP_COMMON_START + 0x3)
 #define HFI_PROP_SYS_SUPPORTED         (HFI_PROPERTY_ICP_COMMON_START + 0x4)
+#define HFI_PROP_SYS_IPEBPS_PC         (HFI_PROPERTY_ICP_COMMON_START + 0x5)
 
 /* Capabilities reported at sys init */
 #define HFI_CAPS_PLACEHOLDER_1         (HFI_COMMON_BASE + 0x1)
@@ -246,6 +247,14 @@ struct hfi_debug {
 	uint32_t debug_mode;
 } __packed;
 
+/**
+ * struct hfi_ipe_bps_pc
+ * payload structure to configure HFI_PROPERTY_SYS_IPEBPS_PC
+ * @enable: Flag to enable IPE, BPS interfrane power collapse
+ */
+struct hfi_ipe_bps_pc {
+	uint32_t enable;
+} __packed;
 
 /**
  * struct hfi_cmd_sys_init
