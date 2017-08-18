@@ -5164,6 +5164,13 @@ dma_addr_t xhci_get_xfer_ring_dma_addr(struct usb_hcd *hcd,
 	return 0;
 }
 
+int xhci_get_core_id(struct usb_hcd *hcd)
+{
+	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
+
+	return xhci->core_id;
+}
+
 static const struct hc_driver xhci_hc_driver = {
 	.description =		"xhci-hcd",
 	.product_desc =		"xHCI Host Controller",
@@ -5229,6 +5236,7 @@ static const struct hc_driver xhci_hc_driver = {
 	.get_sec_event_ring_dma_addr =	xhci_get_sec_event_ring_dma_addr,
 	.get_xfer_ring_dma_addr =	xhci_get_xfer_ring_dma_addr,
 	.get_dcba_dma_addr =		xhci_get_dcba_dma_addr,
+	.get_core_id =			xhci_get_core_id,
 };
 
 void xhci_init_driver(struct hc_driver *drv,
