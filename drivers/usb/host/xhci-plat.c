@@ -327,6 +327,9 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (device_property_read_u32(&pdev->dev, "xhci-imod-value", &imod))
 		imod = 0;
 
+	if (device_property_read_u32(&pdev->dev, "usb-core-id", &xhci->core_id))
+		xhci->core_id = -EINVAL;
+
 	hcd->usb_phy = devm_usb_get_phy_by_phandle(sysdev, "usb-phy", 0);
 	if (IS_ERR(hcd->usb_phy)) {
 		ret = PTR_ERR(hcd->usb_phy);

@@ -906,6 +906,7 @@ struct dwc3_scratchpad_array {
  * @index: dwc3's instance number
  * @dwc_ipc_log_ctxt: dwc3 ipc log context
  * @xhci_imod_value: imod value to use with xhci
+ * @core_id: usb core id to differentiate different controller
  */
 struct dwc3 {
 	struct work_struct	drd_work;
@@ -1063,6 +1064,7 @@ struct dwc3 {
 	void			*dwc_ipc_log_ctxt;
 	struct dwc3_gadget_events	dbg_gadget_events;
 	u32			xhci_imod_value;
+	int			core_id;
 };
 
 #define work_to_dwc(w)		(container_of((w), struct dwc3, drd_work))

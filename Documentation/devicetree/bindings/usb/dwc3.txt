@@ -57,6 +57,7 @@ Optional properties:
 	fladj_30mhz_sdbnd signal is invalid or incorrect.
  - snps,xhci-imod-value: Interrupt moderation interval for host mode
 	(in increments of 250nsec).
+ - usb-core-id: Differentiates between different controllers present on a device.
 
  - <DEPRECATED> tx-fifo-resize: determines if the FIFO *has* to be reallocated.
 
