@@ -74,10 +74,6 @@
 #define QUSB2PHY_PORT_TUNE4             0x8C
 #define QUSB2PHY_PORT_TUNE5             0x90
 
-/* In case Efuse register shows zero, use this value */
-#define TUNE2_DEFAULT_HIGH_NIBBLE	0xB
-#define TUNE2_DEFAULT_LOW_NIBBLE	0x3
-
 /* Get TUNE2's high nibble value read from efuse */
 #define TUNE2_HIGH_NIBBLE_VAL(val, pos, mask)	((val >> pos) & mask)
 
@@ -147,6 +143,7 @@ struct qusb_phy {
 	u32			tune2_val;
 	int			tune2_efuse_bit_pos;
 	int			tune2_efuse_num_of_bits;
+	int			tune2_efuse_correction;
 
 	bool			power_enabled;
 	bool			clocks_enabled;
@@ -433,6 +430,7 @@ static void qusb_phy_get_tune2_param(struct qusb_phy *qphy)
 {
 	u8 num_of_bits;
 	u32 bit_mask = 1;
+	u8 reg_val;
 
 	pr_debug("%s(): num_of_bits:%d bit_pos:%d\n", __func__,
 				qphy->tune2_efuse_num_of_bits,
@@ -446,9 +444,8 @@ static void qusb_phy_get_tune2_param(struct qusb_phy *qphy)
 
 	/*
 	 * Read EFUSE register having TUNE2 parameter's high nibble.
-	 * If efuse register shows value as 0x0, then use default value
-	 * as 0xB as high nibble. Otherwise use efuse register based
-	 * value for this purpose.
+	 * If efuse register shows value as 0x0, then use previous value
+	 * as it is. Otherwise use efuse register based value for this purpose.
 	 */
 	qphy->tune2_val = readl_relaxed(qphy->tune2_efuse_reg);
 	pr_debug("%s(): bit_mask:%d efuse based tune2 value:%d\n",
@@ -457,12 +454,24 @@ static void qusb_phy_get_tune2_param(struct qusb_phy *qphy)
 	qphy->tune2_val = TUNE2_HIGH_NIBBLE_VAL(qphy->tune2_val,
 				qphy->tune2_efuse_bit_pos, bit_mask);
 
-	if (!qphy->tune2_val)
-		qphy->tune2_val = TUNE2_DEFAULT_HIGH_NIBBLE;
+	/* Update higher nibble of TUNE2 value for better rise/fall times */
+	if (qphy->tune2_efuse_correction && qphy->tune2_val) {
+		if (qphy->tune2_efuse_correction > 5 ||
+				qphy->tune2_efuse_correction < -10)
+			pr_warn("Correction value is out of range : %d\n",
+					qphy->tune2_efuse_correction);
+		else
+			qphy->tune2_val = qphy->tune2_val +
+						qphy->tune2_efuse_correction;
+	}
 
-	/* Get TUNE2 byte value using high and low nibble value */
-	qphy->tune2_val = ((qphy->tune2_val << 0x4) |
-					TUNE2_DEFAULT_LOW_NIBBLE);
+	reg_val = readb_relaxed(qphy->base + QUSB2PHY_PORT_TUNE2);
+	if (qphy->tune2_val) {
+		reg_val  &= 0x0f;
+		reg_val |= (qphy->tune2_val << 4);
+	}
+
+	qphy->tune2_val = reg_val;
 }
 
 static void qusb_phy_write_seq(void __iomem *base, u32 *seq, int cnt,
@@ -570,7 +579,7 @@ static int qusb_phy_init(struct usb_phy *phy)
 	 * and try to read EFUSE value only once i.e. not every USB
 	 * cable connect case.
 	 */
-	if (qphy->tune2_efuse_reg) {
+	if (qphy->tune2_efuse_reg && !tune2) {
 		if (!qphy->tune2_val)
 			qusb_phy_get_tune2_param(qphy);
 
@@ -929,6 +938,9 @@ static int qusb_phy_probe(struct platform_device *pdev)
 						"qcom,tune2-efuse-num-bits",
 						&qphy->tune2_efuse_num_of_bits);
 			}
+			of_property_read_u32(dev->of_node,
+						"qcom,tune2-efuse-correction",
+						&qphy->tune2_efuse_correction);
 
 			if (ret) {
 				dev_err(dev, "DT Value for tune2 efuse is invalid.\n");
