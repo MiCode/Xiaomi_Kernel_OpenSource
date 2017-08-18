@@ -3625,6 +3625,42 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 	return rc;
 }
 
+int msm_vidc_send_pending_eos_buffers(struct msm_vidc_inst *inst)
+{
+	struct vidc_frame_data data = {0};
+	struct hfi_device *hdev;
+	struct eos_buf *binfo = NULL, *temp = NULL;
+	int rc = 0;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s: Invalid arguments\n", __func__);
+		return -EINVAL;
+	}
+
+	mutex_lock(&inst->eosbufs.lock);
+	list_for_each_entry_safe(binfo, temp, &inst->eosbufs.list, list) {
+		data.alloc_len = binfo->smem.size;
+		data.device_addr = binfo->smem.device_addr;
+		data.clnt_data = data.device_addr;
+		data.buffer_type = HAL_BUFFER_INPUT;
+		data.filled_len = 0;
+		data.offset = 0;
+		data.flags = HAL_BUFFERFLAG_EOS;
+		data.timestamp = LLONG_MAX;
+		data.extradata_addr = data.device_addr;
+		data.extradata_size = 0;
+		dprintk(VIDC_DBG, "Queueing EOS buffer %pK\n",
+				(void *)(u64)data.device_addr);
+		hdev = inst->core->device;
+
+		rc = call_hfi_op(hdev, session_etb, inst->session,
+				&data);
+	}
+	mutex_unlock(&inst->eosbufs.lock);
+
+	return rc;
+}
+
 int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 {
 	struct msm_vidc_inst *inst = instance;
@@ -3697,9 +3733,7 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 	}
 	case V4L2_DEC_CMD_STOP:
 	{
-		struct vidc_frame_data data = {0};
-		struct hfi_device *hdev;
-		struct eos_buf *binfo;
+		struct eos_buf *binfo = NULL;
 		u32 smem_flags = 0;
 
 		get_inst(inst->core, inst);
@@ -3726,6 +3760,7 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"Failed to allocate output memory\n");
+			rc = -ENOMEM;
 			goto exit;
 		}
 
@@ -3733,22 +3768,14 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 		list_add_tail(&binfo->list, &inst->eosbufs.list);
 		mutex_unlock(&inst->eosbufs.lock);
 
-		data.alloc_len = binfo->smem.size;
-		data.device_addr = binfo->smem.device_addr;
-		data.clnt_data = data.device_addr;
-		data.buffer_type = HAL_BUFFER_INPUT;
-		data.filled_len = 0;
-		data.offset = 0;
-		data.flags = HAL_BUFFERFLAG_EOS;
-		data.timestamp = LLONG_MAX;
-		data.extradata_addr = data.device_addr;
-		data.extradata_size = 0;
-		dprintk(VIDC_DBG, "Queueing EOS buffer %pK\n",
-			(void *)(u64)data.device_addr);
-		hdev = inst->core->device;
+		if (inst->state != MSM_VIDC_START_DONE) {
+			dprintk(VIDC_DBG,
+				"Inst = %pK is not ready for EOS\n", inst);
+			goto exit;
+		}
 
-		rc = call_hfi_op(hdev, session_etb, inst->session,
-				&data);
+		rc = msm_vidc_send_pending_eos_buffers(inst);
+
 exit:
 		put_inst(inst);
 		break;

@@ -1024,6 +1024,14 @@ static int msm_vidc_start_streaming(struct vb2_queue *q, unsigned int count)
 		goto stream_start_failed;
 	}
 
+	rc = msm_vidc_send_pending_eos_buffers(inst);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Failed : Send pending EOS buffs for Inst = %pK, %d\n",
+				inst, rc);
+		goto stream_start_failed;
+	}
+
 stream_start_failed:
 	if (rc) {
 		struct msm_vidc_buffer *temp, *next;
