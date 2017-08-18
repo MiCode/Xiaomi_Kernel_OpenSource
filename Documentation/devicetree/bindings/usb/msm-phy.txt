@@ -179,6 +179,8 @@ Optional properties:
  - qcom,major-rev: provide major revision number to differentiate power up sequence. default is 2.0
  - pinctrl-names/pinctrl-0/1: The GPIOs configured as output function. Names represents "active"
    state when attached in host mode and "suspend" state when detached.
+ - qcom,tune2-efuse-correction: The value to be adjusted from fused value for
+   improved rise/fall times.
 
 Example:
 	qusb_phy: qusb@f9b39000 {
