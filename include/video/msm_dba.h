@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -369,6 +369,14 @@ struct msm_dba_video_cfg {
 	u8 scaninfo;
 };
 
+struct mdss_dba_timing_info {
+	u16 xres;
+	u16 yres;
+	u8 bpp;
+	u8 fps;
+	u8 lanes;
+};
+
 /**
  * struct msm_dba_ops- operation supported by bridge chip
  * @get_caps: returns the bridge chip capabilities
@@ -570,6 +578,7 @@ struct msm_dba_ops {
 	int (*check_hpd)(void *client, u32 flags);
 	void (*set_audio_block)(void *client, u32 size, void *buf);
 	void (*get_audio_block)(void *client, u32 size, void *buf);
+	void* (*get_supp_timing_info)(void);
 };
 
 /**
