@@ -81,6 +81,7 @@
 	qcom,msm-mbhc-hphl-swh = <1>;
 	qcom,msm-mbhc-gnd-swh = <1>;
 	qcom,tdm-audio-intf;
+	qcom,afe-rxtx-lb;
 	reg = <0xc051000 0x4>,
 		<0xc051004 0x4>,
 		<0xc055000 0x4>,
@@ -143,7 +144,7 @@
 		<&sb_5_rx>,  <&bt_sco_rx>,
 		<&bt_sco_tx>, <&int_fm_rx>, <&int_fm_tx>,
 		<&sb_6_rx>, <&dai_pri_tdm_rx_0>, <&dai_pri_tdm_tx_0>,
-		<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>;
+		<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>, <&afe_loopback_tx>;
 	asoc-cpu-names = "msm-dai-q6-auxpcm.1",
 			"msm-dai-q6-mi2s.2",
 			"msm-dai-q6-mi2s.3", "msm-dai-q6-mi2s.5",
@@ -161,7 +162,7 @@
 			"msm-dai-q6-dev.12292", "msm-dai-q6-dev.12293",
 			"msm-dai-q6-dev.16396", "msm-dai-q6-tdm.36864",
 			"msm-dai-q6-tdm.36865", "msm-dai-q6-tdm.36880",
-			"msm-dai-q6-tdm.36881";
+			"msm-dai-q6-tdm.36881", "msm-dai-q6-dev.24577";
 	qcom,msm-gpios =
 		"quin_i2s",
 		"us_eu_gpio",

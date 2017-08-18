@@ -1523,6 +1523,22 @@ static struct snd_soc_dai_link msm8952_tdm_be_dai_link[] = {
 	},
 };
 
+static struct snd_soc_dai_link msm8952_afe_rxtx_lb_be_dai_link[] = {
+	{
+		.name = LPASS_BE_AFE_LOOPBACK_TX,
+		.stream_name = "AFE Loopback Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.24577",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.be_id = MSM_BACKEND_DAI_AFE_LOOPBACK_TX,
+		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+};
+
 struct msm895x_wsa881x_dev_info {
 	struct device_node *of_node;
 	u32 index;
@@ -1538,7 +1554,8 @@ ARRAY_SIZE(msm8952_tdm_fe_dai) +
 ARRAY_SIZE(msm8952_common_be_dai) +
 ARRAY_SIZE(msm8952_tomtom_be_dai) +
 ARRAY_SIZE(msm8952_quin_dai_link) +
-ARRAY_SIZE(msm8952_tdm_be_dai_link)];
+ARRAY_SIZE(msm8952_tdm_be_dai_link) +
+ARRAY_SIZE(msm8952_afe_rxtx_lb_be_dai_link)];
 
 static struct snd_soc_dai_link msm8952_tasha_dai_links[
 ARRAY_SIZE(msm8952_common_fe_dai) +
@@ -1547,7 +1564,8 @@ ARRAY_SIZE(msm8952_tdm_fe_dai) +
 ARRAY_SIZE(msm8952_common_be_dai) +
 ARRAY_SIZE(msm8952_tasha_be_dai) +
 ARRAY_SIZE(msm8952_hdmi_dba_dai_link) +
-ARRAY_SIZE(msm8952_tdm_be_dai_link)];
+ARRAY_SIZE(msm8952_tdm_be_dai_link) +
+ARRAY_SIZE(msm8952_afe_rxtx_lb_be_dai_link)];
 
 int msm8952_init_wsa_dev(struct platform_device *pdev,
 			struct snd_soc_card *card)
@@ -1802,6 +1820,14 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		memcpy(msm8952_dai_links + len5, msm8952_tdm_be_dai_link,
 			sizeof(msm8952_tdm_be_dai_link));
 		len5 += ARRAY_SIZE(msm8952_tdm_be_dai_link);
+	}
+	if (of_property_read_bool(dev->of_node, "qcom,afe-rxtx-lb")) {
+		dev_dbg(dev, "%s(): AFE RX to TX loopback supported\n",
+				__func__);
+		memcpy(msm8952_dai_links + len5,
+		       msm8952_afe_rxtx_lb_be_dai_link,
+		       sizeof(msm8952_afe_rxtx_lb_be_dai_link));
+		len5 += ARRAY_SIZE(msm8952_afe_rxtx_lb_be_dai_link);
 	}
 	card->dai_link = msm8952_dai_links;
 	card->num_links = len5;
