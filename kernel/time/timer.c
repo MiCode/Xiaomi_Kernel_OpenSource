@@ -492,7 +492,11 @@ static inline void timer_set_idx(struct timer_list *timer, unsigned int idx)
  */
 static inline unsigned calc_index(unsigned expires, unsigned lvl)
 {
-	expires = (expires + LVL_GRAN(lvl)) >> LVL_SHIFT(lvl);
+	if (lvl != 0 && (expires & ~(UINT_MAX << LVL_SHIFT(lvl))))
+		expires = (expires + LVL_GRAN(lvl)) >> LVL_SHIFT(lvl);
+	else
+		expires = expires >> LVL_SHIFT(lvl);
+
 	return LVL_OFFS(lvl) + (expires & LVL_MASK);
 }
 
