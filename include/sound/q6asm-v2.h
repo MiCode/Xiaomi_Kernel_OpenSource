@@ -99,7 +99,7 @@
 #define SOFT_PAUSE_ENABLE	1
 #define SOFT_PAUSE_DISABLE	0
 
-#define ASM_ACTIVE_STREAMS_ALLOWED	0x8
+#define ASM_ACTIVE_STREAMS_ALLOWED	0x9
 /* Control session is used for mapping calibration memory */
 #define ASM_CONTROL_SESSION	(ASM_ACTIVE_STREAMS_ALLOWED + 1)
 
