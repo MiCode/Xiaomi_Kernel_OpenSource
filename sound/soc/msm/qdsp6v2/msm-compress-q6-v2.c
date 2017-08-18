@@ -159,6 +159,10 @@ struct msm_compr_audio {
 	uint32_t start_delay_msw;
 
 	int32_t shm_ion_fd;
+	struct ion_client *lib_ion_client;
+	struct ion_client *shm_ion_client;
+	struct ion_handle *lib_ion_handle;
+	struct ion_handle *shm_ion_handle;
 
 	uint64_t marker_timestamp;
 
@@ -1510,20 +1514,16 @@ static int msm_compr_configure_dsp_for_capture(struct snd_compr_stream *cstream)
 	return ret;
 }
 
-static int msm_compr_map_unmap_fd(int fd, bool add_pages)
+static int msm_compr_map_ion_fd(struct msm_compr_audio *prtd, int fd)
 {
 	ion_phys_addr_t paddr;
 	size_t pa_len = 0;
 	int ret = 0;
-	u8 assign_type;
 
-	if (add_pages)
-		assign_type = HLOS_TO_ADSP;
-	else
-		assign_type = ADSP_TO_HLOS;
-
-	ret = msm_audio_ion_phys_assign("audio_lib_mem_client", fd,
-					&paddr, &pa_len, assign_type);
+	ret = msm_audio_ion_phys_assign("audio_lib_mem_client",
+					&prtd->lib_ion_client,
+					&prtd->lib_ion_handle,
+					fd, &paddr, &pa_len, HLOS_TO_ADSP);
 	if (ret) {
 		pr_err("%s: audio lib ION phys failed, rc = %d\n",
 			__func__, ret);
@@ -1531,14 +1531,43 @@ static int msm_compr_map_unmap_fd(int fd, bool add_pages)
 	}
 
 	ret = q6core_add_remove_pool_pages(paddr, pa_len,
-				 ADSP_MEMORY_MAP_HLOS_PHYSPOOL, add_pages);
+				 ADSP_MEMORY_MAP_HLOS_PHYSPOOL, true);
 	if (ret) {
 		pr_err("%s: add remove pages failed, rc = %d\n", __func__, ret);
 		/* Assign back to HLOS if add pages cmd failed */
-		if (add_pages)
-			msm_audio_ion_phys_assign("audio_lib_mem_client", fd,
-						&paddr, &pa_len, ADSP_TO_HLOS);
+		msm_audio_ion_phys_free(prtd->lib_ion_client,
+					prtd->lib_ion_handle,
+					&paddr, &pa_len, ADSP_TO_HLOS);
 	}
+
+done:
+	return ret;
+}
+
+static int msm_compr_unmap_ion_fd(struct msm_compr_audio *prtd)
+{
+	ion_phys_addr_t paddr;
+	size_t pa_len = 0;
+	int ret = 0;
+
+	if (!prtd->lib_ion_client || !prtd->lib_ion_handle) {
+		pr_err("%s: ion_client or ion_handle is NULL", __func__);
+		return -EINVAL;
+	}
+
+	ret = msm_audio_ion_phys_free(prtd->lib_ion_client,
+				      prtd->lib_ion_handle,
+				      &paddr, &pa_len, ADSP_TO_HLOS);
+	if (ret) {
+		pr_err("%s: audio lib ION phys failed, rc = %d\n",
+			__func__, ret);
+		goto done;
+	}
+
+	ret = q6core_add_remove_pool_pages(paddr, pa_len,
+				 ADSP_MEMORY_MAP_HLOS_PHYSPOOL, false);
+	if (ret)
+		pr_err("%s: add remove pages failed, rc = %d\n", __func__, ret);
 
 done:
 	return ret;
@@ -1628,8 +1657,8 @@ static int msm_compr_playback_open(struct snd_compr_stream *cstream)
 	prtd->session_id = prtd->audio_client->session;
 	msm_adsp_init_mixer_ctl_pp_event_queue(rtd);
 	if (pdata->ion_fd[rtd->dai_link->be_id] > 0) {
-		ret = msm_compr_map_unmap_fd(
-				pdata->ion_fd[rtd->dai_link->be_id], true);
+		ret = msm_compr_map_ion_fd(prtd,
+					pdata->ion_fd[rtd->dai_link->be_id]);
 		if (ret < 0)
 			goto map_err;
 	}
@@ -1800,12 +1829,11 @@ static int msm_compr_playback_free(struct snd_compr_stream *cstream)
 
 	q6asm_audio_client_buf_free_contiguous(dir, ac);
 	if (prtd->shm_ion_fd > 0)
-		msm_audio_ion_phys_assign("audio_shm_mem_client",
-					  prtd->shm_ion_fd,
-					  &paddr, &pa_len, ADSP_TO_HLOS);
+		msm_audio_ion_phys_free(prtd->shm_ion_client,
+					prtd->shm_ion_handle,
+					&paddr, &pa_len, ADSP_TO_HLOS);
 	if (pdata->ion_fd[soc_prtd->dai_link->be_id] > 0) {
-		msm_compr_map_unmap_fd(pdata->ion_fd[soc_prtd->dai_link->be_id],
-					false);
+		msm_compr_unmap_ion_fd(prtd);
 		pdata->ion_fd[soc_prtd->dai_link->be_id] = 0;
 	}
 
@@ -3755,7 +3783,9 @@ static int msm_compr_shm_ion_fd_map_put(struct snd_kcontrol *kcontrol,
 
 	memcpy(&prtd->shm_ion_fd, ucontrol->value.bytes.data,
 		sizeof(prtd->shm_ion_fd));
-	ret = q6asm_audio_map_shm_fd(prtd->audio_client, prtd->shm_ion_fd);
+	ret = q6asm_audio_map_shm_fd(prtd->audio_client,
+				&prtd->shm_ion_client,
+				&prtd->shm_ion_handle, prtd->shm_ion_fd);
 	if (ret < 0)
 		pr_err("%s: failed to map shm mem\n", __func__);
 done:
