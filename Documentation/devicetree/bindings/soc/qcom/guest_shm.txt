@@ -1,0 +1,19 @@
+QVM Guest Shared Memory
+
+guest_shm is a device that enables linux as a guest operating system
+to allocate shared memory between virtual machines and send notifications
+of updates to other virtual machines.
+
+Required properties:
+- compatible:		Must be "qvm,guest_shm".
+- interrupt-parent:	Parent interrupt controller.
+- interrupts:		Should contain QVM interrupt.
+- reg:			Physical address of the guest factory and length.
+
+Example:
+	qvm,guest_shm {
+		compatible = "qvm,guest_shm";
+		interrupt-parent = <&gic>;
+		interrupts = <6 4>;
+		reg = <0x1c050000 0x1000>;
+	};
