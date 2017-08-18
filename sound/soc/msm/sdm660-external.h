@@ -36,7 +36,6 @@ int msm_snd_card_tasha_late_probe(struct snd_soc_card *card);
 int msm_ext_cdc_init(struct platform_device *, struct msm_asoc_mach_data *,
 		     struct snd_soc_card **, struct wcd_mbhc_config *);
 void msm_ext_register_audio_notifier(struct platform_device *pdev);
-void msm_ext_cdc_deinit(struct msm_asoc_mach_data *pdata);
 #else
 inline int msm_ext_cdc_init(struct platform_device *pdev,
 			    struct msm_asoc_mach_data *pdata,
@@ -47,9 +46,6 @@ inline int msm_ext_cdc_init(struct platform_device *pdev,
 }
 
 inline void msm_ext_register_audio_notifier(struct platform_device *pdev)
-{
-}
-inline void msm_ext_cdc_deinit(void)
 {
 }
 #endif
