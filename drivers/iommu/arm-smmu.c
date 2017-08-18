@@ -4485,36 +4485,6 @@ struct qsmmuv500_tbu_device {
 	u32				halt_count;
 };
 
-static int qsmmuv500_tbu_power_on_all(struct arm_smmu_device *smmu)
-{
-	struct qsmmuv500_tbu_device *tbu;
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
-	int ret = 0;
-
-	list_for_each_entry(tbu, &data->tbus, list) {
-		ret = arm_smmu_power_on(tbu->pwr);
-		if (ret)
-			break;
-	}
-	if (!ret)
-		return 0;
-
-	list_for_each_entry_continue_reverse(tbu, &data->tbus, list) {
-		arm_smmu_power_off(tbu->pwr);
-	}
-	return ret;
-}
-
-static void qsmmuv500_tbu_power_off_all(struct arm_smmu_device *smmu)
-{
-	struct qsmmuv500_tbu_device *tbu;
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
-
-	list_for_each_entry_reverse(tbu, &data->tbus, list) {
-		arm_smmu_power_off(tbu->pwr);
-	}
-}
-
 static int qsmmuv500_tbu_halt(struct qsmmuv500_tbu_device *tbu)
 {
 	unsigned long flags;
@@ -4573,37 +4543,6 @@ static void qsmmuv500_tbu_resume(struct qsmmuv500_tbu_device *tbu)
 	spin_unlock_irqrestore(&tbu->halt_lock, flags);
 }
 
-static int qsmmuv500_halt_all(struct arm_smmu_device *smmu)
-{
-	struct qsmmuv500_tbu_device *tbu;
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
-	int ret = 0;
-
-	list_for_each_entry(tbu, &data->tbus, list) {
-		ret = qsmmuv500_tbu_halt(tbu);
-		if (ret)
-			break;
-	}
-
-	if (!ret)
-		return 0;
-
-	list_for_each_entry_continue_reverse(tbu, &data->tbus, list) {
-		qsmmuv500_tbu_resume(tbu);
-	}
-	return ret;
-}
-
-static void qsmmuv500_resume_all(struct arm_smmu_device *smmu)
-{
-	struct qsmmuv500_tbu_device *tbu;
-	struct qsmmuv500_archdata *data = get_qsmmuv500_archdata(smmu);
-
-	list_for_each_entry(tbu, &data->tbus, list) {
-		qsmmuv500_tbu_resume(tbu);
-	}
-}
-
 static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(
 	struct arm_smmu_device *smmu, u32 sid)
 {
@@ -4616,24 +4555,6 @@ static struct qsmmuv500_tbu_device *qsmmuv500_find_tbu(
 			return tbu;
 	}
 	return NULL;
-}
-
-static void qsmmuv500_device_reset(struct arm_smmu_device *smmu)
-{
-	int i, ret;
-	struct arm_smmu_impl_def_reg *regs = smmu->impl_def_attach_registers;
-
-	ret = qsmmuv500_tbu_power_on_all(smmu);
-	if (ret)
-		return;
-
-	/* Program implementation defined registers */
-	qsmmuv500_halt_all(smmu);
-	for (i = 0; i < smmu->num_impl_def_attach_registers; ++i)
-		writel_relaxed(regs[i].value,
-			ARM_SMMU_GR0(smmu) + regs[i].offset);
-	qsmmuv500_resume_all(smmu);
-	qsmmuv500_tbu_power_off_all(smmu);
 }
 
 static int qsmmuv500_ecats_lock(struct arm_smmu_domain *smmu_domain,
@@ -4873,7 +4794,6 @@ static int qsmmuv500_arch_init(struct arm_smmu_device *smmu)
 
 struct arm_smmu_arch_ops qsmmuv500_arch_ops = {
 	.init = qsmmuv500_arch_init,
-	.device_reset = qsmmuv500_device_reset,
 	.iova_to_phys_hard = qsmmuv500_iova_to_phys_hard,
 };
 
