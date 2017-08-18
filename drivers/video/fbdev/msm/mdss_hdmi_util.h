@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -425,6 +425,12 @@ enum hdmi_tx_hdcp2p2_rxstatus_intr_mask {
 	RXSTATUS_REAUTH_REQ = BIT(14),
 };
 
+enum hdmi_hdr_op {
+	HDR_UNSUPPORTED_OP,
+	HDR_SEND_INFO,
+	HDR_CLEAR_INFO
+};
+
 struct hdmi_tx_hdcp2p2_ddc_data {
 	enum hdmi_tx_hdcp2p2_rxstatus_intr_mask intr_mask;
 	u32 timeout_ms;
@@ -518,5 +524,5 @@ void hdmi_hdcp2p2_ddc_disable(struct hdmi_tx_ddc_ctrl *ctrl);
 int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl);
 int hdmi_utils_get_timeout_in_hysnc(struct msm_hdmi_mode_timing_info *timing,
 	u32 timeout_ms);
-
+u8 hdmi_hdr_get_ops(u8 curr_state, u8 new_state);
 #endif /* __HDMI_UTIL_H__ */
