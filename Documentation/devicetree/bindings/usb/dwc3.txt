@@ -58,6 +58,7 @@ Optional properties:
 	gating. Default it is enabled.
  - snps,xhci-imod-value: Interrupt moderation interval for host mode
 	(in increments of 250nsec).
+ - usb-core-id: Differentiates between different controllers present on a device.
 
 This is usually a subnode to DWC3 glue to which it is connected.
 
