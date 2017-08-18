@@ -113,8 +113,8 @@
 
 #define PLL_MIN_LVAL			0x21
 #define PLL_MIN_FREQ_REG		0x94
-#define PLL_POST_DIV1			0x1F
-#define PLL_POST_DIV2			0x11F
+#define PLL_POST_DIV1			0x09
+#define PLL_POST_DIV2			0x109
 #define PLL_MODE			0x0
 #define PLL_L_VAL			0x4
 #define PLL_USER_CTRL			0xc
@@ -134,8 +134,8 @@
 #define ISENSE_OFF_DATA			0x0
 #define CONSTANT_32			0x20
 
-#define APM_MX_MODE			0x0
-#define APM_APC_MODE			0x2
+#define APM_MX_MODE			0x4100000
+#define APM_APC_MODE			0x4100002
 #define APM_READ_DATA_MASK		0xc
 #define APM_MX_MODE_VAL			0x4
 #define APM_APC_READ_VAL		0x8
