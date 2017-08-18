@@ -24,11 +24,16 @@
 #include <linux/power_supply.h>
 #include <linux/regulator/consumer.h>
 
+#define VBUS_ON_DEBOUNCE_MS		400
+#define WAKEUP_SRC_TIMEOUT_MS		1000
+
 struct gpio_usbdetect {
 	struct platform_device	*pdev;
 	struct regulator	*vin;
 	struct power_supply	*usb_psy;
 	int			vbus_det_irq;
+	struct delayed_work     chg_work;
+	int                     vbus;
 	struct regulator	*vdd33;
 	struct regulator	*vdd12;
 	int			gpio_usbdetect;
@@ -152,33 +157,46 @@ disable_vin:
 static irqreturn_t gpio_usbdetect_vbus_irq(int irq, void *data)
 {
 	struct gpio_usbdetect *usb = data;
-	int vbus;
 
 	if (gpio_is_valid(usb->gpio_usbdetect))
-		vbus = gpio_get_value(usb->gpio_usbdetect);
+		usb->vbus = gpio_get_value(usb->gpio_usbdetect);
 	else
-		vbus = !!irq_read_line(irq);
+		usb->vbus = !!irq_read_line(irq);
 
-	if (vbus) {
+	pm_wakeup_event(&usb->pdev->dev, WAKEUP_SRC_TIMEOUT_MS);
+	if (!usb->vbus)
+		schedule_delayed_work(&usb->chg_work, 0);
+	else
+		schedule_delayed_work(&usb->chg_work,
+					msecs_to_jiffies(VBUS_ON_DEBOUNCE_MS));
+
+	return IRQ_HANDLED;
+}
+
+static void gpio_usbdetect_chg_work(struct work_struct *w)
+{
+	struct gpio_usbdetect *usb = container_of(w, struct gpio_usbdetect,
+							chg_work.work);
+
+	if (usb->vbus) {
 		if (usb->notify_host_mode)
 			power_supply_set_usb_otg(usb->usb_psy, 0);
 
 		if (!usb->disable_device_mode) {
 			power_supply_set_supply_type(usb->usb_psy,
 						POWER_SUPPLY_TYPE_USB);
-			power_supply_set_present(usb->usb_psy, vbus);
+			power_supply_set_present(usb->usb_psy, usb->vbus);
 		}
 	} else {
 		/* notify gpio_state = LOW as disconnect */
 		power_supply_set_supply_type(usb->usb_psy,
 				POWER_SUPPLY_TYPE_UNKNOWN);
-		power_supply_set_present(usb->usb_psy, vbus);
+		power_supply_set_present(usb->usb_psy, usb->vbus);
 
 		/* Cheeck if low gpio_state be treated as HOST mode */
 		if (usb->notify_host_mode)
 			power_supply_set_usb_otg(usb->usb_psy, 1);
 	}
-	return IRQ_HANDLED;
 }
 
 static int gpio_usbdetect_probe(struct platform_device *pdev)
@@ -200,6 +218,7 @@ static int gpio_usbdetect_probe(struct platform_device *pdev)
 
 	usb->pdev = pdev;
 	usb->usb_psy = usb_psy;
+	INIT_DELAYED_WORK(&usb->chg_work, gpio_usbdetect_chg_work);
 	usb->notify_host_mode = of_property_read_bool(pdev->dev.of_node,
 					"qcom,notify-host-mode");
 	usb->disable_device_mode = of_property_read_bool(pdev->dev.of_node,
@@ -244,6 +263,8 @@ static int gpio_usbdetect_probe(struct platform_device *pdev)
 		}
 	}
 
+	device_init_wakeup(&pdev->dev, 1);
+
 	enable_irq_wake(usb->vbus_det_irq);
 	dev_set_drvdata(&pdev->dev, usb);
 
@@ -264,10 +285,12 @@ static int gpio_usbdetect_remove(struct platform_device *pdev)
 {
 	struct gpio_usbdetect *usb = dev_get_drvdata(&pdev->dev);
 
+	device_wakeup_disable(&usb->pdev->dev);
 	disable_irq_wake(usb->vbus_det_irq);
 	disable_irq(usb->vbus_det_irq);
 
 	gpio_enable_ldos(usb, 0);
+	cancel_delayed_work_sync(&usb->chg_work);
 
 	return 0;
 }
