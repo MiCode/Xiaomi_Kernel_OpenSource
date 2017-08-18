@@ -122,6 +122,18 @@ int btfm_slim_chrk_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 					ret, reg);
 			goto error;
 		}
+	} else if (port_num == CHRK_SB_PGD_PORT_TX_SCO) {
+		/* SCO Tx */
+		reg_val = 0x1 << CHRK_SB_PGD_PORT_TX_SCO;
+		reg = CHRK_SB_PGD_TX_PORTn_MULTI_CHNL_0(port_num);
+		BTFMSLIM_DBG("writing reg_val (%d) to reg(%x)",
+				reg_val, reg);
+		ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
+		if (ret) {
+			BTFMSLIM_ERR("failed to write (%d) reg 0x%x",
+					ret, reg);
+			goto error;
+		}
 	}
 
 	/* Enable Tx port hw auto recovery for underrun or overrun error */
@@ -146,8 +158,14 @@ enable_disable_rxport:
 
 	if (is_fm_port(port_num))
 		reg_val = en | CHRK_SB_PGD_PORT_WM_L8;
+	else if (port_num == CHRK_SB_PGD_PORT_TX_SCO)
+		reg_val = enable ? en | CHRK_SB_PGD_PORT_WM_L1 : en;
 	else
 		reg_val = enable ? en | CHRK_SB_PGD_PORT_WM_LB : en;
+
+	if (enable && port_num == CHRK_SB_PGD_PORT_TX_SCO)
+		BTFMSLIM_INFO("programming SCO Tx with reg_val %d to reg 0x%x",
+				reg_val, reg);
 
 	ret = btfm_slim_write(btfmslim, reg, 1, &reg_val, IFD);
 	if (ret)
