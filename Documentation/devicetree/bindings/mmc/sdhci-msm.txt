@@ -80,6 +80,7 @@ Optional Properties:
 			  register dumps on CRC errors and also downgrade bus speed mode to
 			  SDR50/DDR50 in case of continuous CRC errors. Set this flag to enable
 			  this workaround.
+	- qcom,force-sdhc1-probe: Force probing sdhc1 even if it is not the boot device.
 
 In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltage).
 	- qcom,<supply>-always-on - specifies whether supply should be kept "on" always.
