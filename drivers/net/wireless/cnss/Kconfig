@@ -46,7 +46,6 @@ config CLD_HL_SDIO_CORE
 	select WEXT_CORE
 	select WEXT_SPY
 	select NL80211_TESTMODE
-	depends on ARCH_MSM
 	depends on MMC
 
 config CLD_LL_CORE
