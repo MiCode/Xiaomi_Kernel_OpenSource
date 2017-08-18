@@ -85,6 +85,7 @@ Optional Properties:
 	  On certain chipsets, coming out of the CX Power Collapse event, the SDCC registers
 	  contents will not be retained. It is software responsibility to restore the
 	  SDCC registers before resuming to normal operation.
+	- qcom,force-sdhc1-probe: Force probing sdhc1 even if it is not the boot device.
 
 In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltage).
 	- qcom,<supply>-always-on - specifies whether supply should be kept "on" always.
