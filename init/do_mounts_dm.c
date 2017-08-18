@@ -13,6 +13,7 @@
 #include <linux/delay.h>
 
 #include "do_mounts.h"
+#include "../drivers/md/dm.h"
 
 #define DM_MAX_DEVICES 256
 #define DM_MAX_TARGETS 256
