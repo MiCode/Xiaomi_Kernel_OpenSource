@@ -7118,7 +7118,8 @@ fail_cmd:
 	return rc;
 }
 
-int q6asm_audio_map_shm_fd(struct audio_client *ac, int fd)
+int q6asm_audio_map_shm_fd(struct audio_client *ac, struct ion_client **client,
+			struct ion_handle **handle, int fd)
 {
 	ion_phys_addr_t paddr;
 	size_t pa_len = 0;
@@ -7137,7 +7138,8 @@ int q6asm_audio_map_shm_fd(struct audio_client *ac, int fd)
 		goto fail_cmd;
 	}
 
-	ret = msm_audio_ion_phys_assign("audio_shm_mem_client", fd,
+	ret = msm_audio_ion_phys_assign("audio_shm_mem_client", client,
+					handle, fd,
 					&paddr, &pa_len, HLOS_TO_ADSP);
 	if (ret) {
 		pr_err("%s: shm ION phys failed, rc = %d\n", __func__, ret);
