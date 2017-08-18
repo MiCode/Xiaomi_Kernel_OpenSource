@@ -933,6 +933,13 @@ static int dsi_panel_parse_triggers(struct dsi_host_common_cfg *host,
 		host->dma_cmd_trigger = DSI_TRIGGER_SW;
 	}
 
+	rc = of_property_read_u32(of_node, "qcom,mdss-dsi-te-pin-select",
+			&host->te_mode);
+	if (rc) {
+		pr_warn("[%s] fallback to default te-pin-select\n", name);
+		host->te_mode = 1;
+		rc = 0;
+	}
 
 	return rc;
 }
