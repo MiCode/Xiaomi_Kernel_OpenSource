@@ -836,6 +836,7 @@ extern dma_addr_t usb_get_sec_event_ring_dma_addr(struct usb_device *dev,
 extern dma_addr_t usb_get_dcba_dma_addr(struct usb_device *dev);
 extern dma_addr_t usb_get_xfer_ring_dma_addr(struct usb_device *dev,
 	struct usb_host_endpoint *ep);
+extern int usb_get_controller_id(struct usb_device *dev);
 
 /* Sets up a group of bulk endpoints to support multiple stream IDs. */
 extern int usb_alloc_streams(struct usb_interface *interface,

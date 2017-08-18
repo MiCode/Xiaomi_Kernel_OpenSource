@@ -876,6 +876,15 @@ dma_addr_t usb_get_xfer_ring_dma_addr(struct usb_device *dev,
 }
 EXPORT_SYMBOL(usb_get_xfer_ring_dma_addr);
 
+int usb_get_controller_id(struct usb_device *dev)
+{
+	if (dev->state == USB_STATE_NOTATTACHED)
+		return -EINVAL;
+
+	return usb_hcd_get_controller_id(dev);
+}
+EXPORT_SYMBOL(usb_get_controller_id);
+
 /*-------------------------------------------------------------------*/
 /*
  * __usb_get_extra_descriptor() finds a descriptor of specific type in the
