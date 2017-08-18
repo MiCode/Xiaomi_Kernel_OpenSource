@@ -1,4 +1,4 @@
-/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
  *
  * This program is Mree software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -147,7 +147,7 @@
 		};
 
 		mas_crypto: mas-crypto {
-			cell-id = <MSM_BUS_MASTER_CRYPTO_CORE_0>;
+			cell-id = <MSM_BUS_MASTER_CRYPTO_CORE0>;
 			label = "mas-crypto";
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
