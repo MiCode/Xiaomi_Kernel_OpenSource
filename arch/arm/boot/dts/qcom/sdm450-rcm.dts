@@ -14,10 +14,18 @@
 /dts-v1/;
 
 #include "sdm450.dtsi"
+#include "msm-pmi8950.dtsi"
 #include "msm8953-cdp.dtsi"
+#include "msm8953-pmi8950.dtsi"
+#include "msm8953-camera-sensor-cdp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. SDM450 RCM";
+	model = "Qualcomm Technologies, Inc. SDM450 + PMI8950 RCM";
 	compatible = "qcom,sdm450-cdp", "qcom,sdm450", "qcom,cdp";
 	qcom,board-id= <21 0>;
+};
+
+&pmi8950_charger {
+	qcom,external-typec;
+	qcom,typec-psy-name = "typec";
 };

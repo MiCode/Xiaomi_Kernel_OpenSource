@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,18 +10,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
-/dts-v1/;
-
-#include "msm8953.dtsi"
-#include "msm-pmi8950.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. MSM8953 + PMI8950 QRD SKU3";
-	compatible = "qcom,msm8953-qrd-sku3",
-		   "qcom,msm8953-qrd", "qcom,msm8953", "qcom,qrd";
-	qcom,board-id= <0x2000b 0>;
-};
 
 &soc {
 	led_flash0: qcom,camera-flash {
@@ -34,15 +22,23 @@
 	};
 };
 
-#include "msm8953-qrd-sku3.dtsi"
-
 &usb3 {
 	vbus_dwc3-supply = <&smbcharger_charger_otg>;
+};
+
+&mdss_dsi0 {
+	lab-supply = <&lab_regulator>;
+	ibb-supply = <&ibb_regulator>;
 };
 
 &mdss_dsi1 {
 	lab-supply = <&lab_regulator>;
 	ibb-supply = <&ibb_regulator>;
+};
+
+&labibb {
+	status = "ok";
+	qpnp,qpnp-labibb-mode = "lcd";
 };
 
 &dsi_panel_pwr_supply {
