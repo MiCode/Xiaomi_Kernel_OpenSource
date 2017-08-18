@@ -19,6 +19,12 @@
 		};
 	};
 
+	i2c@78b6000 {
+		nq@28 {
+			qcom,nq-clkreq = <&pm8916_gpios 2 0>;
+		};
+	};
+
 };
 
 &audio_codec_mtp {
