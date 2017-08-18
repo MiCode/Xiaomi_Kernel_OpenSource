@@ -3926,7 +3926,8 @@ static void smblib_handle_typec_cc_state_change(struct smb_charger *chg)
 	}
 
 	/* suspend usb if sink */
-	if (chg->typec_status[3] & UFP_DFP_MODE_STATUS_BIT)
+	if ((chg->typec_status[3] & UFP_DFP_MODE_STATUS_BIT)
+			&& chg->typec_present)
 		vote(chg->usb_icl_votable, OTG_VOTER, true, 0);
 	else
 		vote(chg->usb_icl_votable, OTG_VOTER, false, 0);
