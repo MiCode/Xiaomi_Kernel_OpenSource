@@ -959,4 +959,12 @@ config MSM_CACHE_M4M_ERP64_PANIC_ON_UE
          Say 'Y' here to cause kernel panic when uncorrectable cache/M4M errors
          are detected.
 
+config QCOM_QDSS_BRIDGE
+	bool "Configure bridge driver for QTI/Qualcomm Technologies, Inc. MDM"
+	depends on MSM_MHI
+	help
+	  The driver will help route diag traffic from modem side over the QDSS
+	  sub-system to USB on APSS side. The driver acts as a bridge between the
+	  MHI and USB interface. If unsure, say N.
+
 source "drivers/soc/qcom/memshare/Kconfig"
