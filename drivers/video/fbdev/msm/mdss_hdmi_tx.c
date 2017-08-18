@@ -113,6 +113,7 @@ static void hdmi_tx_fps_work(struct work_struct *work);
 static int hdmi_tx_pinctrl_set_state(struct hdmi_tx_ctrl *hdmi_ctrl,
 			enum hdmi_tx_power_module_type module, bool active);
 static void hdmi_panel_set_hdr_infoframe(struct hdmi_tx_ctrl *hdmi_ctrl);
+static void hdmi_panel_clear_hdr_infoframe(struct hdmi_tx_ctrl *hdmi_ctrl);
 static int hdmi_tx_audio_info_setup(struct platform_device *pdev,
 	struct msm_ext_disp_audio_setup_params *params);
 static int hdmi_tx_get_audio_edid_blk(struct platform_device *pdev,
@@ -1276,6 +1277,7 @@ static ssize_t hdmi_tx_sysfs_wta_hdr_stream(struct device *dev,
 {
 	int ret = 0;
 	struct hdmi_tx_ctrl *ctrl = NULL;
+	u8 hdr_op;
 
 	ctrl = hdmi_tx_get_drvdata_from_sysfs_dev(dev);
 	if (!ctrl) {
@@ -1296,36 +1298,43 @@ static ssize_t hdmi_tx_sysfs_wta_hdr_stream(struct device *dev,
 		goto end;
 	}
 
-	memcpy(&ctrl->hdr_data, buf, sizeof(struct mdp_hdr_stream));
+	memcpy(&ctrl->hdr_ctrl, buf, sizeof(struct mdp_hdr_stream_ctrl));
 
 	pr_debug("%s: 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x\n",
 			__func__,
-			ctrl->hdr_data.eotf,
-			ctrl->hdr_data.display_primaries_x[0],
-			ctrl->hdr_data.display_primaries_y[0],
-			ctrl->hdr_data.display_primaries_x[1],
-			ctrl->hdr_data.display_primaries_y[1],
-			ctrl->hdr_data.display_primaries_x[2],
-			ctrl->hdr_data.display_primaries_y[2]);
+			ctrl->hdr_ctrl.hdr_stream.eotf,
+			ctrl->hdr_ctrl.hdr_stream.display_primaries_x[0],
+			ctrl->hdr_ctrl.hdr_stream.display_primaries_y[0],
+			ctrl->hdr_ctrl.hdr_stream.display_primaries_x[1],
+			ctrl->hdr_ctrl.hdr_stream.display_primaries_y[1],
+			ctrl->hdr_ctrl.hdr_stream.display_primaries_x[2],
+			ctrl->hdr_ctrl.hdr_stream.display_primaries_y[2]);
 
 	pr_debug("%s: 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x\n",
 			__func__,
-			ctrl->hdr_data.white_point_x,
-			ctrl->hdr_data.white_point_y,
-			ctrl->hdr_data.max_luminance,
-			ctrl->hdr_data.min_luminance,
-			ctrl->hdr_data.max_content_light_level,
-			ctrl->hdr_data.max_average_light_level);
+			ctrl->hdr_ctrl.hdr_stream.white_point_x,
+			ctrl->hdr_ctrl.hdr_stream.white_point_y,
+			ctrl->hdr_ctrl.hdr_stream.max_luminance,
+			ctrl->hdr_ctrl.hdr_stream.min_luminance,
+			ctrl->hdr_ctrl.hdr_stream.max_content_light_level,
+			ctrl->hdr_ctrl.hdr_stream.max_average_light_level);
 
 	pr_debug("%s: 0x%04x 0x%04x 0x%04x 0x%04x 0x%04x\n",
 			__func__,
-			ctrl->hdr_data.pixel_encoding,
-			ctrl->hdr_data.colorimetry,
-			ctrl->hdr_data.range,
-			ctrl->hdr_data.bits_per_component,
-			ctrl->hdr_data.content_type);
+			ctrl->hdr_ctrl.hdr_stream.pixel_encoding,
+			ctrl->hdr_ctrl.hdr_stream.colorimetry,
+			ctrl->hdr_ctrl.hdr_stream.range,
+			ctrl->hdr_ctrl.hdr_stream.bits_per_component,
+			ctrl->hdr_ctrl.hdr_stream.content_type);
+	hdr_op = hdmi_hdr_get_ops(ctrl->curr_hdr_state,
+					ctrl->hdr_ctrl.hdr_state);
 
-	hdmi_panel_set_hdr_infoframe(ctrl);
+	if (hdr_op == HDR_SEND_INFO)
+		hdmi_panel_set_hdr_infoframe(ctrl);
+	else if (hdr_op == HDR_CLEAR_INFO)
+		hdmi_panel_clear_hdr_infoframe(ctrl);
+
+	ctrl->curr_hdr_state = ctrl->hdr_ctrl.hdr_state;
 
 	ret = strnlen(buf, PAGE_SIZE);
 end:
@@ -2113,6 +2122,8 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl,
 		goto err;
 	}
 
+	/* reset HDR state */
+	hdmi_ctrl->curr_hdr_state = HDR_DISABLE;
 	return 0;
 err:
 	hdmi_tx_deinit_features(hdmi_ctrl, deinit_features);
@@ -2878,11 +2889,12 @@ static void hdmi_panel_set_hdr_infoframe(struct hdmi_tx_ctrl *ctrl)
 	packet_header = type_code | (version << 8) | (length << 16);
 	DSS_REG_W(io, HDMI_GENERIC0_HDR, packet_header);
 
-	packet_payload = (ctrl->hdr_data.eotf << 8);
+	packet_payload = (ctrl->hdr_ctrl.hdr_stream.eotf << 8);
 	if (hdmi_tx_metadata_type_one(ctrl)) {
-		packet_payload |= (descriptor_id << 16)
-			| (HDMI_GET_LSB(ctrl->hdr_data.display_primaries_x[0])
-					<< 24);
+		packet_payload |=
+			(descriptor_id << 16)
+			| (HDMI_GET_LSB(ctrl->hdr_ctrl.hdr_stream.
+					display_primaries_x[0]) << 24);
 		DSS_REG_W(io, HDMI_GENERIC0_0, packet_payload);
 	} else {
 		pr_debug("%s: Metadata Type 1 not supported\n", __func__);
@@ -2891,44 +2903,56 @@ static void hdmi_panel_set_hdr_infoframe(struct hdmi_tx_ctrl *ctrl)
 	}
 
 	packet_payload =
-		(HDMI_GET_MSB(ctrl->hdr_data.display_primaries_x[0]))
-		| (HDMI_GET_LSB(ctrl->hdr_data.display_primaries_y[0]) << 8)
-		| (HDMI_GET_MSB(ctrl->hdr_data.display_primaries_y[0]) << 16)
-		| (HDMI_GET_LSB(ctrl->hdr_data.display_primaries_x[1]) << 24);
+		(HDMI_GET_MSB(ctrl->hdr_ctrl.hdr_stream.display_primaries_x[0]))
+		| (HDMI_GET_LSB(ctrl->hdr_ctrl.hdr_stream.
+				display_primaries_y[0]) << 8)
+		| (HDMI_GET_MSB(ctrl->hdr_ctrl.hdr_stream.
+				display_primaries_y[0]) << 16)
+		| (HDMI_GET_LSB(ctrl->hdr_ctrl.hdr_stream.
+				display_primaries_x[1]) << 24);
 	DSS_REG_W(io, HDMI_GENERIC0_1, packet_payload);
 
 	packet_payload =
-		(HDMI_GET_MSB(ctrl->hdr_data.display_primaries_x[1]))
-		| (HDMI_GET_LSB(ctrl->hdr_data.display_primaries_y[1]) << 8)
-		| (HDMI_GET_MSB(ctrl->hdr_data.display_primaries_y[1]) << 16)
-		| (HDMI_GET_LSB(ctrl->hdr_data.display_primaries_x[2]) << 24);
+		(HDMI_GET_MSB(ctrl->hdr_ctrl.hdr_stream.display_primaries_x[1]))
+		| (HDMI_GET_LSB(ctrl->hdr_ctrl.hdr_stream.
+				display_primaries_y[1]) << 8)
+		| (HDMI_GET_MSB(ctrl->hdr_ctrl.hdr_stream.
+				display_primaries_y[1]) << 16)
+		| (HDMI_GET_LSB(ctrl->hdr_ctrl.hdr_stream.
+				display_primaries_x[2]) << 24);
 	DSS_REG_W(io, HDMI_GENERIC0_2, packet_payload);
 
 	packet_payload =
-		(HDMI_GET_MSB(ctrl->hdr_data.display_primaries_x[2]))
-		| (HDMI_GET_LSB(ctrl->hdr_data.display_primaries_y[2]) << 8)
-		| (HDMI_GET_MSB(ctrl->hdr_data.display_primaries_y[2]) << 16)
-		| (HDMI_GET_LSB(ctrl->hdr_data.white_point_x) << 24);
+		(HDMI_GET_MSB(ctrl->hdr_ctrl.hdr_stream.display_primaries_x[2]))
+		| (HDMI_GET_LSB(ctrl->hdr_ctrl.hdr_stream.
+				display_primaries_y[2]) << 8)
+		| (HDMI_GET_MSB(ctrl->hdr_ctrl.hdr_stream.
+				display_primaries_y[2]) << 16)
+		| (HDMI_GET_LSB(ctrl->hdr_ctrl.hdr_stream.white_point_x) << 24);
 	DSS_REG_W(io, HDMI_GENERIC0_3, packet_payload);
 
 	packet_payload =
-		(HDMI_GET_MSB(ctrl->hdr_data.white_point_x))
-		| (HDMI_GET_LSB(ctrl->hdr_data.white_point_y) << 8)
-		| (HDMI_GET_MSB(ctrl->hdr_data.white_point_y) << 16)
-		| (HDMI_GET_LSB(ctrl->hdr_data.max_luminance) << 24);
+		(HDMI_GET_MSB(ctrl->hdr_ctrl.hdr_stream.white_point_x))
+		| (HDMI_GET_LSB(ctrl->hdr_ctrl.hdr_stream.white_point_y) << 8)
+		| (HDMI_GET_MSB(ctrl->hdr_ctrl.hdr_stream.white_point_y) << 16)
+		| (HDMI_GET_LSB(ctrl->hdr_ctrl.hdr_stream.max_luminance) << 24);
 	DSS_REG_W(io, HDMI_GENERIC0_4, packet_payload);
 
 	packet_payload =
-		(HDMI_GET_MSB(ctrl->hdr_data.max_luminance))
-		| (HDMI_GET_LSB(ctrl->hdr_data.min_luminance) << 8)
-		| (HDMI_GET_MSB(ctrl->hdr_data.min_luminance) << 16)
-		| (HDMI_GET_LSB(ctrl->hdr_data.max_content_light_level) << 24);
+		(HDMI_GET_MSB(ctrl->hdr_ctrl.hdr_stream.max_luminance))
+		| (HDMI_GET_LSB(ctrl->hdr_ctrl.hdr_stream.min_luminance) << 8)
+		| (HDMI_GET_MSB(ctrl->hdr_ctrl.hdr_stream.min_luminance) << 16)
+		| (HDMI_GET_LSB(ctrl->hdr_ctrl.hdr_stream.
+					max_content_light_level) << 24);
 	DSS_REG_W(io, HDMI_GENERIC0_5, packet_payload);
 
 	packet_payload =
-		(HDMI_GET_MSB(ctrl->hdr_data.max_content_light_level))
-		| (HDMI_GET_LSB(ctrl->hdr_data.max_average_light_level) << 8)
-		| (HDMI_GET_MSB(ctrl->hdr_data.max_average_light_level) << 16);
+		(HDMI_GET_MSB(ctrl->hdr_ctrl.hdr_stream.
+				max_content_light_level))
+		| (HDMI_GET_LSB(ctrl->hdr_ctrl.hdr_stream.
+				max_average_light_level) << 8)
+		| (HDMI_GET_MSB(ctrl->hdr_ctrl.hdr_stream.
+				max_average_light_level) << 16);
 	DSS_REG_W(io, HDMI_GENERIC0_6, packet_payload);
 
 enable_packet_control:
@@ -2940,6 +2964,32 @@ enable_packet_control:
 	 */
 	packet_control = DSS_REG_R_ND(io, HDMI_GEN_PKT_CTRL);
 	packet_control |= BIT(0) | BIT(1) | BIT(2) | BIT(16);
+	DSS_REG_W(io, HDMI_GEN_PKT_CTRL, packet_control);
+}
+
+static void hdmi_panel_clear_hdr_infoframe(struct hdmi_tx_ctrl *ctrl)
+{
+	u32 packet_control = 0;
+	struct dss_io_data *io = NULL;
+
+	if (!ctrl) {
+		pr_err("%s: invalid input\n", __func__);
+		return;
+	}
+
+	if (!hdmi_tx_is_hdr_supported(ctrl)) {
+		pr_err("%s: Sink does not support HDR\n", __func__);
+		return;
+	}
+
+	io = &ctrl->pdata.io[HDMI_TX_CORE_IO];
+	if (!io->base) {
+		pr_err("%s: core io not inititalized\n", __func__);
+		return;
+	}
+
+	packet_control = DSS_REG_R_ND(io, HDMI_GEN_PKT_CTRL);
+	packet_control &= ~HDMI_GEN_PKT_CTRL_CLR_MASK;
 	DSS_REG_W(io, HDMI_GEN_PKT_CTRL, packet_control);
 }
 

@@ -21,6 +21,7 @@
 #include "mdss_hdmi_audio.h"
 
 #define MAX_SWITCH_NAME_SIZE        5
+#define HDMI_GEN_PKT_CTRL_CLR_MASK  0x7
 
 enum hdmi_tx_io_type {
 	HDMI_TX_CORE_IO,
@@ -90,7 +91,7 @@ struct hdmi_tx_ctrl {
 	struct msm_ext_disp_audio_setup_params audio_params;
 	struct msm_ext_disp_init_data ext_audio_data;
 	struct work_struct fps_work;
-	struct mdp_hdr_stream hdr_data;
+	struct mdp_hdr_stream_ctrl hdr_ctrl;
 
 	spinlock_t hpd_state_lock;
 
@@ -116,6 +117,7 @@ struct hdmi_tx_ctrl {
 	u8 hdcp_status;
 	u8 spd_vendor_name[9];
 	u8 spd_product_description[17];
+	u8 curr_hdr_state;
 
 	bool hdcp_feature_on;
 	bool hpd_disabled;
