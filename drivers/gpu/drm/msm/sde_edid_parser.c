@@ -549,6 +549,12 @@ int _sde_edid_update_modes(struct drm_connector *connector,
 {
 	int rc = 0;
 	struct sde_edid_ctrl *edid_ctrl = (struct sde_edid_ctrl *)(input);
+	struct drm_display_info *disp_info;
+
+	disp_info = &connector->display_info;
+
+	if (disp_info)
+		disp_info->edid_hdmi_dc_modes = 0;
 
 	SDE_EDID_DEBUG("%s +", __func__);
 	if (edid_ctrl->edid) {
