@@ -84,7 +84,7 @@ struct ath_pktlog_hdr {
 	__le16 flags;
 	__le16 missed_cnt;
 	u8 log_type;
-	u8 macId;
+	u8 mac_id;
 	__le16 size;
 	__le32 timestamp;
 	__le32 type_specific_data;
@@ -164,6 +164,7 @@ struct ath10k_fw_crash_data *
 ath10k_debug_get_new_fw_crash_data(struct ath10k *ar);
 
 void ath10k_debug_dbglog_add(struct ath10k *ar, u8 *buffer, int len);
+int ath10k_rx_record_pktlog(struct ath10k *ar, struct sk_buff *skb);
 #define ATH10K_DFS_STAT_INC(ar, c) (ar->debug.dfs_stats.c++)
 
 void ath10k_debug_get_et_strings(struct ieee80211_hw *hw,
@@ -219,6 +220,12 @@ static inline void ath10k_debug_tpc_stats_process(struct ath10k *ar,
 static inline void ath10k_debug_dbglog_add(struct ath10k *ar, u8 *buffer,
 					   int len)
 {
+}
+
+static inline int ath10k_rx_record_pktlog(struct ath10k *ar,
+					  struct sk_buff *skb)
+{
+	return 0;
 }
 
 static inline struct ath10k_fw_crash_data *
