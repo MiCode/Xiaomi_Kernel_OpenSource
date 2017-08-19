@@ -720,7 +720,7 @@ static bool dp_link_is_link_rate_valid(u32 bw_code)
 	return ((bw_code == DP_LINK_BW_1_62) ||
 		(bw_code == DP_LINK_BW_2_7) ||
 		(bw_code == DP_LINK_BW_5_4) ||
-		(bw_code == DP_LINK_RATE_810));
+		(bw_code == DP_LINK_BW_8_1));
 }
 
 /**

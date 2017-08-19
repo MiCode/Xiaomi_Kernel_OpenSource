@@ -408,7 +408,8 @@ static void dp_catalog_ctrl_config_msa(struct dp_catalog_ctrl *ctrl,
 	u32 mvid, nvid;
 	u64 mvid_calc;
 	u32 const nvid_fixed = 0x8000;
-	u32 const link_rate = 540000;
+	u32 const link_rate_hbr2 = 540000;
+	u32 const link_rate_hbr3 = 810000;
 	struct dp_catalog_private *catalog;
 	void __iomem *base_cc, *base_ctrl;
 
@@ -449,8 +450,11 @@ static void dp_catalog_ctrl_config_msa(struct dp_catalog_ctrl *ctrl,
 
 		pr_debug("rate = %d\n", rate);
 
-		if (link_rate == rate)
+		if (link_rate_hbr2 == rate)
 			nvid *= 2;
+
+		if (link_rate_hbr3 == rate)
+			nvid *= 3;
 	}
 
 	base_ctrl = catalog->io->ctrl_io.base;

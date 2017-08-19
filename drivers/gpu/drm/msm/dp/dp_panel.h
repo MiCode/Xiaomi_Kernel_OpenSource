@@ -18,8 +18,6 @@
 #include "dp_aux.h"
 #include "sde_edid_parser.h"
 
-#define DP_LINK_RATE_810	30	/* 8.10G = 270M * 30 */
-
 struct dp_panel_info {
 	u32 h_active;
 	u32 v_active;

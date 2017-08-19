@@ -869,7 +869,7 @@ static int dp_ctrl_link_rate_down_shift(struct dp_ctrl_private *ctrl)
 	min_req_link_rate_khz = ctrl->panel->get_min_req_link_rate(ctrl->panel);
 
 	switch (ctrl->link->bw_code) {
-	case DP_LINK_RATE_810:
+	case DP_LINK_BW_8_1:
 		new_proposed_link_bw_code = DP_LINK_BW_5_4;
 		break;
 	case DP_LINK_BW_5_4:
