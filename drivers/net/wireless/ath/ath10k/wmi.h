@@ -2960,6 +2960,8 @@ struct wmi_start_scan_arg {
 /* Different FW scan engine may choose to bail out on errors.
  * Allow the driver to have influence over that. */
 #define WMI_SCAN_CONTINUE_ON_ERROR 0x80
+/** add DS content in probe req frame */
+#define WMI_SCAN_ADD_DS_IE_IN_PROBE_REQ   0x800
 
 /* WMI_SCAN_CLASS_MASK must be the same value as IEEE80211_SCAN_CLASS_MASK */
 #define WMI_SCAN_CLASS_MASK 0xFF000000
