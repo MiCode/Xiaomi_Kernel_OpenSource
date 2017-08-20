@@ -7543,7 +7543,9 @@ int q6asm_set_mfc_panning_params(struct audio_client *ac,
 	struct asm_stream_param_data_v2 data;
 	struct audproc_chmixer_param_coeff pan_cfg;
 	uint16_t variable_payload = 0;
-	uint16_t *asm_params = NULL;
+	char *asm_params = NULL;
+	uint16_t ii;
+	uint16_t *dst_gain_ptr = NULL;
 
 	sz = rc = i = 0;
 	if (ac == NULL) {
@@ -7604,7 +7606,7 @@ int q6asm_set_mfc_panning_params(struct audio_client *ac,
 
 	variable_payload = pan_param->num_output_channels * sizeof(uint16_t)+
 			pan_param->num_input_channels * sizeof(uint16_t) +
-			pan_param->num_output_channels * sizeof(uint16_t) *
+			pan_param->num_output_channels *
 			pan_param->num_input_channels * sizeof(uint16_t);
 	i = (variable_payload % sizeof(uint32_t));
 	variable_payload += (i == 0) ? 0 : sizeof(uint32_t) - i;
@@ -7664,15 +7666,16 @@ int q6asm_set_mfc_panning_params(struct audio_client *ac,
 		pan_param->num_output_channels * sizeof(uint16_t)),
 		pan_param->input_channel_map,
 		pan_param->num_input_channels * sizeof(uint16_t));
-	memcpy(((u8 *)asm_params + sizeof(struct apr_hdr) +
+
+	dst_gain_ptr = (uint16_t *) ((u8 *)asm_params + sizeof(struct apr_hdr) +
 		sizeof(struct asm_stream_cmd_set_pp_params_v2) +
 		sizeof(struct asm_stream_param_data_v2) +
 		sizeof(struct audproc_chmixer_param_coeff) +
 		(pan_param->num_output_channels * sizeof(uint16_t)) +
-		(pan_param->num_input_channels * sizeof(uint16_t))),
-		pan_param->gain,
-		(pan_param->num_output_channels * sizeof(uint16_t)) *
 		(pan_param->num_input_channels * sizeof(uint16_t)));
+	for (ii = 0; ii < pan_param->num_output_channels *
+			pan_param->num_input_channels; ii++)
+		dst_gain_ptr[ii] = (uint16_t) pan_param->gain[ii];
 
 	rc = apr_send_pkt(ac->apr, (uint32_t *) asm_params);
 	if (rc < 0) {
