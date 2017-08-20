@@ -1028,4 +1028,22 @@ void msm_gpu_cleanup(struct msm_gpu *gpu)
 
 	msm_gpu_destroy_address_space(gpu->aspace);
 	msm_gpu_destroy_address_space(gpu->secure_aspace);
+
+	if (gpu->gpu_reg)
+		devm_regulator_put(gpu->gpu_reg);
+
+	if (gpu->gpu_cx)
+		devm_regulator_put(gpu->gpu_cx);
+
+	if (gpu->ebi1_clk)
+		devm_clk_put(&pdev->dev, gpu->ebi1_clk);
+
+	for (i = gpu->nr_clocks - 1; i >= 0; i--)
+		if (gpu->grp_clks[i])
+			devm_clk_put(&pdev->dev, gpu->grp_clks[i]);
+
+	devm_kfree(&pdev->dev, gpu->grp_clks);
+
+	if (gpu->mmio)
+		devm_iounmap(&pdev->dev, gpu->mmio);
 }
