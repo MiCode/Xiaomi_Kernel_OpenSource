@@ -98,6 +98,10 @@ static int cnss_stats_show_state(struct seq_file *s,
 			continue;
 		case CNSS_DEV_ERR_NOTIFY:
 			seq_puts(s, "DEV_ERR");
+			continue;
+		case CNSS_DRIVER_DEBUG:
+			seq_puts(s, "DRIVER_DEBUG");
+			continue;
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);
@@ -149,10 +153,26 @@ static ssize_t cnss_dev_boot_debug_write(struct file *fp,
 
 	if (sysfs_streq(cmd, "on")) {
 		ret = cnss_power_on_device(plat_priv);
+	} else if (sysfs_streq(cmd, "off")) {
+		cnss_power_off_device(plat_priv);
 	} else if (sysfs_streq(cmd, "enumerate")) {
 		ret = cnss_pci_init(plat_priv);
 	} else if (sysfs_streq(cmd, "download")) {
 		ret = cnss_pci_start_mhi(plat_priv->bus_priv);
+	} else if (sysfs_streq(cmd, "linkup")) {
+		ret = cnss_resume_pci_link(plat_priv->bus_priv);
+	} else if (sysfs_streq(cmd, "linkdown")) {
+		ret = cnss_suspend_pci_link(plat_priv->bus_priv);
+	} else if (sysfs_streq(cmd, "powerup")) {
+		set_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state);
+		ret = cnss_driver_event_post(plat_priv,
+					     CNSS_DRIVER_EVENT_POWER_UP,
+					     true, NULL);
+	} else if (sysfs_streq(cmd, "shutdown")) {
+		ret = cnss_driver_event_post(plat_priv,
+					     CNSS_DRIVER_EVENT_POWER_DOWN,
+					     true, NULL);
+		clear_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state);
 	} else {
 		cnss_pr_err("Device boot debugfs command is invalid\n");
 		ret = -EINVAL;
@@ -169,8 +189,13 @@ static int cnss_dev_boot_debug_show(struct seq_file *s, void *data)
 	seq_puts(s, "\nUsage: echo <action> > <debugfs_path>/cnss/dev_boot\n");
 	seq_puts(s, "<action> can be one of below:\n");
 	seq_puts(s, "on: turn on device power, assert WLAN_EN\n");
+	seq_puts(s, "off: de-assert WLAN_EN, turn off device power\n");
 	seq_puts(s, "enumerate: de-assert PERST, enumerate PCIe\n");
 	seq_puts(s, "download: download FW and do QMI handshake with FW\n");
+	seq_puts(s, "linkup: bring up PCIe link\n");
+	seq_puts(s, "linkdown: bring down PCIe link\n");
+	seq_puts(s, "powerup: full power on sequence to boot device, download FW and do QMI handshake with FW\n");
+	seq_puts(s, "shutdown: full power off sequence to shutdown device\n");
 
 	return 0;
 }
