@@ -29,6 +29,16 @@
 		qcom,switch-source = <&pm660l_switch1>;
 		status = "ok";
 	};
+
+	cam_actuator_regulator: cam_actuator_fixed_regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "cam_actuator_regulator";
+		regulator-min-microvolt = <3600000>;
+		regulator-max-microvolt = <3600000>;
+		enable-active-high;
+		gpio = <&tlmm 50 0>;
+		vin-supply = <&pm660l_bob>;
+	};
 };
 
 &cci {
@@ -37,14 +47,11 @@
 		reg = <0x0>;
 		compatible = "qcom,actuator";
 		qcom,cci-master = <0>;
-		gpios = <&tlmm 50 0>;
-		qcom,gpio-vaf = <0>;
-		qcom,gpio-req-tbl-num = <0>;
-		qcom,gpio-req-tbl-flags = <0>;
-		qcom,gpio-req-tbl-label = "CAM_VAF";
-		pinctrl-names = "cam_default", "cam_suspend";
-		pinctrl-0 = <&cam_actuator_vaf_active>;
-		pinctrl-1 = <&cam_actuator_vaf_suspend>;
+		cam_vaf-supply = <&cam_actuator_regulator>;
+		qcom,cam-vreg-name = "cam_vaf";
+		qcom,cam-vreg-min-voltage = <3600000>;
+		qcom,cam-vreg-max-voltage = <3600000>;
+		qcom,cam-vreg-op-mode = <0>;
 	};
 
 	actuator1: qcom,actuator@1 {
@@ -52,14 +59,11 @@
 		reg = <0x1>;
 		compatible = "qcom,actuator";
 		qcom,cci-master = <1>;
-		gpios = <&tlmm 50 0>;
-		qcom,gpio-vaf = <0>;
-		qcom,gpio-req-tbl-num = <0>;
-		qcom,gpio-req-tbl-flags = <0>;
-		qcom,gpio-req-tbl-label = "CAM_VAF";
-		pinctrl-names = "cam_default", "cam_suspend";
-		pinctrl-0 = <&cam_actuator_vaf_active>;
-		pinctrl-1 = <&cam_actuator_vaf_suspend>;
+		cam_vaf-supply = <&cam_actuator_regulator>;
+		qcom,cam-vreg-name = "cam_vaf";
+		qcom,cam-vreg-min-voltage = <3600000>;
+		qcom,cam-vreg-max-voltage = <3600000>;
+		qcom,cam-vreg-op-mode = <0>;
 	};
 
 	actuator2: qcom,actuator@2 {
@@ -67,14 +71,11 @@
 		reg = <0x2>;
 		compatible = "qcom,actuator";
 		qcom,cci-master = <1>;
-		gpios = <&tlmm 50 0>;
-		qcom,gpio-vaf = <0>;
-		qcom,gpio-req-tbl-num = <0>;
-		qcom,gpio-req-tbl-flags = <0>;
-		qcom,gpio-req-tbl-label = "CAM_VAF";
-		pinctrl-names = "cam_default", "cam_suspend";
-		pinctrl-0 = <&cam_actuator_vaf_active>;
-		pinctrl-1 = <&cam_actuator_vaf_suspend>;
+		cam_vaf-supply = <&cam_actuator_regulator>;
+		qcom,cam-vreg-name = "cam_vaf";
+		qcom,cam-vreg-min-voltage = <3600000>;
+		qcom,cam-vreg-max-voltage = <3600000>;
+		qcom,cam-vreg-op-mode = <0>;
 	};
 
 	ois0: qcom,ois@0 {
@@ -82,15 +83,31 @@
 		reg = <0x0>;
 		compatible = "qcom,ois";
 		qcom,cci-master = <0>;
-		gpios = <&tlmm 50 0>;
-		qcom,gpio-vaf = <0>;
+		cam_vaf-supply = <&cam_actuator_regulator>;
+		qcom,cam-vreg-name = "cam_vaf";
+		qcom,cam-vreg-min-voltage = <3600000>;
+		qcom,cam-vreg-max-voltage = <3600000>;
+		qcom,cam-vreg-op-mode = <0>;
+		status = "disabled";
+	};
+
+	tof0: qcom,tof@29{
+		cell-index = <0>;
+		reg = <0x29>;
+		compatible = "st,stmvl53l0";
+		qcom,cci-master = <0>;
+		cam_laser-supply = <&cam_actuator_regulator>;
+		qcom,cam-vreg-name =  "cam_laser";
+		qcom,cam-vreg-min-voltage = <3600000>;
+		qcom,cam-vreg-max-voltage = <3600000>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_tof_active>;
+		pinctrl-1 = <&cam_tof_suspend>;
+		stm,irq-gpio = <&tlmm 45  0x2008>;
+		gpios = <&tlmm 42 0>;
 		qcom,gpio-req-tbl-num = <0>;
 		qcom,gpio-req-tbl-flags = <0>;
-		qcom,gpio-req-tbl-label = "CAM_VAF";
-		pinctrl-names = "cam_default", "cam_suspend";
-		pinctrl-0 = <&cam_actuator_vaf_active>;
-		pinctrl-1 = <&cam_actuator_vaf_suspend>;
-		status = "disabled";
+		qcom,gpio-req-tbl-label = "RNG_EN";
 	};
 
 	eeprom0: qcom,eeprom@0 {

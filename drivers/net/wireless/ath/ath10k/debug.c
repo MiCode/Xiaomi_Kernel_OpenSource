@@ -2644,14 +2644,14 @@ static void ath10k_process_ieee_hdr(void *data)
 	dir = (wh->i_fc[1] & IEEE80211_FC1_DIR_MASK);
 
 	if (dir == IEEE80211_FC1_DIR_TODS)
-		ath10k_extract_frame_header(&wh->i_addr1, &wh->i_addr2,
-					    &wh->i_addr3);
+		ath10k_extract_frame_header(wh->i_addr1, wh->i_addr2,
+					    wh->i_addr3);
 	else if (dir == IEEE80211_FC1_DIR_FROMDS)
-		ath10k_extract_frame_header(&wh->i_addr2, &wh->i_addr3,
-					    &wh->i_addr1);
+		ath10k_extract_frame_header(wh->i_addr2, wh->i_addr3,
+					    wh->i_addr1);
 	else
-		ath10k_extract_frame_header(&wh->i_addr3, &wh->i_addr2,
-					    &wh->i_addr1);
+		ath10k_extract_frame_header(wh->i_addr3, wh->i_addr2,
+					    wh->i_addr1);
 }
 
 static void ath10k_pktlog_process_rx(struct ath10k *ar, struct sk_buff *skb)
@@ -2715,6 +2715,46 @@ static void ath10k_pktlog_process_rx(struct ath10k *ar, struct sk_buff *skb)
 		break;
 		}
 	}
+}
+
+int ath10k_rx_record_pktlog(struct ath10k *ar, struct sk_buff *skb)
+{
+	struct sk_buff *pktlog_skb;
+	struct ath_pktlog_hdr *pl_hdr;
+	struct ath_pktlog_rx_info *pktlog_rx_info;
+	struct htt_rx_desc *rx_desc = (void *)skb->data - sizeof(*rx_desc);
+
+	if (!ar->debug.pktlog_filter)
+		return 0;
+
+	pktlog_skb = dev_alloc_skb(sizeof(struct ath_pktlog_hdr) +
+				   sizeof(struct htt_rx_desc) -
+				   sizeof(struct htt_host_fw_desc_base));
+	if (!pktlog_skb)
+		return -ENOMEM;
+
+	pktlog_rx_info = (struct ath_pktlog_rx_info *)pktlog_skb->data;
+	pl_hdr = &pktlog_rx_info->pl_hdr;
+
+	pl_hdr->flags = (1 << ATH10K_PKTLOG_FLG_FRM_TYPE_REMOTE_S);
+	pl_hdr->missed_cnt = 0;
+	pl_hdr->mac_id = 0;
+	pl_hdr->log_type = ATH10K_PKTLOG_TYPE_RX_STAT;
+	pl_hdr->flags |= ATH10K_PKTLOG_HDR_SIZE_16;
+	pl_hdr->size = sizeof(*rx_desc) -
+		       sizeof(struct htt_host_fw_desc_base);
+
+	pl_hdr->timestamp =
+	cpu_to_le32(rx_desc->ppdu_end.wcn3990.rx_pkt_end.phy_timestamp_1);
+
+	pl_hdr->type_specific_data = 0xDEADAA;
+	memcpy((void *)pktlog_rx_info + sizeof(struct ath_pktlog_hdr),
+	       (void *)rx_desc + sizeof(struct htt_host_fw_desc_base),
+	       pl_hdr->size);
+
+	ath10k_pktlog_process_rx(ar, pktlog_skb);
+	dev_kfree_skb_any(pktlog_skb);
+	return 0;
 }
 
 static void ath10k_pktlog_htc_tx_complete(struct ath10k *ar,

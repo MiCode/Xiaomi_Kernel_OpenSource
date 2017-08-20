@@ -4012,7 +4012,7 @@ struct asm_stream_pan_ctrl_params {
 	uint16_t num_input_channels;
 	uint16_t output_channel_map[8];
 	uint16_t input_channel_map[8];
-	uint16_t gain[64];
+	uint32_t gain[64];
 } __packed;
 
 #define ASM_END_POINT_DEVICE_MATRIX     0
