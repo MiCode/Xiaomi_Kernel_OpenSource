@@ -1,6 +1,6 @@
 /* drivers/soc/qcom/smp2p_spinlock_test.c
  *
- * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -522,7 +522,7 @@ static void smp2p_ut_remote_spinlock_ssr(struct seq_file *s)
 	int spinlock_owner = 0;
 
 	struct workqueue_struct *ws = NULL;
-	struct rmt_spinlock_work_item work_item;
+	struct rmt_spinlock_work_item work_item = { .has_locked = false };
 
 	seq_printf(s, " Running %s Test\n",
 		   __func__);
