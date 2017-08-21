@@ -1360,9 +1360,6 @@ static void _sde_crtc_blend_setup_mixer(struct drm_crtc *crtc,
 					mixer, &cstate->dim_layer[i]);
 	}
 
-	if (ctl->ops.setup_sbuf_cfg)
-		ctl->ops.setup_sbuf_cfg(ctl, &cstate->sbuf_cfg);
-
 	_sde_crtc_program_lm_output_roi(crtc);
 }
 
@@ -2230,7 +2227,8 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	struct msm_drm_private *priv;
 	struct sde_kms *sde_kms;
 	struct sde_crtc_state *cstate;
-	int ret;
+	struct sde_hw_ctl *ctl;
+	int ret, i;
 
 	if (!crtc) {
 		SDE_ERROR("invalid argument\n");
@@ -2297,6 +2295,12 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc)
 	if (cstate->sbuf_cfg.rot_op_mode != SDE_CTL_ROT_OP_MODE_OFFLINE)
 		drm_atomic_crtc_for_each_plane(plane, crtc)
 			sde_plane_kickoff(plane);
+
+	for (i = 0; i < sde_crtc->num_mixers; i++) {
+		ctl = sde_crtc->mixers[i].hw_ctl;
+		if (ctl && ctl->ops.setup_sbuf_cfg)
+			ctl->ops.setup_sbuf_cfg(ctl, &cstate->sbuf_cfg);
+	}
 
 	sde_vbif_clear_errors(sde_kms);
 
