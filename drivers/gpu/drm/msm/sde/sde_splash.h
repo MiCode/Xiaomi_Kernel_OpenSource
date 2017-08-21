@@ -95,7 +95,8 @@ int sde_splash_clean_up_exit_lk(struct msm_kms *kms);
  * HDMI's and DSI's resource respectively.
  */
 int sde_splash_clean_up_free_resource(struct msm_kms *kms,
-			struct sde_power_handle *phandle, int connector_type);
+				struct sde_power_handle *phandle,
+				int connector_type, void *display);
 
 /**
  * sde_splash_parse_dt.
@@ -120,5 +121,12 @@ int sde_splash_smmu_map(struct drm_device *dev, struct msm_mmu *mmu,
 void sde_splash_destroy(struct sde_splash_info *sinfo,
 			struct sde_power_handle *phandle,
 			struct sde_power_client *pclient);
+
+/**
+ * sde_splash_get_lk_complete_status
+ *
+ * Get LK's status to check if it has been stopped.
+ */
+bool sde_splash_get_lk_complete_status(struct sde_splash_info *sinfo);
 
 #endif
