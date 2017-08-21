@@ -3669,6 +3669,8 @@
 		interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,affinity = <1>;
 		#thermal-sensor-cells = <0>;
+		isens_vref-supply = <&pm8998_l1_ao>;
+		isens-vref-settings = <880000 880000 20000>;
 	};
 
 	wil6210: qcom,wil6210 {
